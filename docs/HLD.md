@@ -1,601 +1,787 @@
-# Cometline — High-Level Design Document
+# Cometline Desktop — High-Level Design Document
 
-> **CometCode** (Go runtime & CLI) + **Lunar** (Svelte/TypeScript GUI)
+> SvelteKit desktop application for the Cometline local agent runtime, packaged with Electron.
+> Ships as a native `.dmg` / `.AppImage` / `.exe` — no terminal, no manual server management.
+>
+> Part of the [Cometline](../../../HLD.md) project.
 
-| Field       | Value                        |
-|-------------|------------------------------|
-| Version     | 0.1.0 (Draft)                |
-| Authors     | Cometline Team               |
-| Status      | Proposed                     |
-| Last Updated| 2026-02-17                   |
+| Field        | Value                                    |
+|--------------|------------------------------------------|
+| Version      | 0.1.0 (Draft)                            |
+| Repo         | `github.com/cometline/cometline`         |
+| Authors      | Cometline Team                           |
+| Status       | Proposed                                 |
+| Last Updated | 2026-02-23                               |
 
 ---
 
 ## Table of Contents
 
-1. [Background](#1-background)
-2. [Functional Requirements](#2-functional-requirements)
-3. [Non-Functional Requirements](#3-non-functional-requirements)
-4. [Tech Stack](#4-tech-stack)
+1. [Responsibility](#1-responsibility)
+2. [Why Electron](#2-why-electron)
+3. [Architecture](#3-architecture)
+4. [Routes & Views](#4-routes--views)
+5. [State Management](#5-state-management)
+6. [IPC & API Layer](#6-ipc--api-layer)
+7. [Component Design](#7-component-design)
+8. [Non-Functional Requirements](#8-non-functional-requirements)
+9. [Tech Stack](#9-tech-stack)
+10. [Package Layout](#10-package-layout)
+11. [Phase 2: Cloud / Hosted Version](#11-phase-2-cloud--hosted-version)
 
 ---
 
-## 1. Background
+## 1. Responsibility
 
-### 1.1 Problem Statement
+Cometline desktop is the **desktop application** for Cometline. It is an Electron app that:
 
-Existing AI coding assistants are predominantly cloud-hosted SaaS products or tightly coupled IDE extensions. Developers who value privacy, offline capability, and full control over their workflow lack a credible local-first alternative that:
+- Automatically starts and manages the CometMind binary when the app opens
+- Provides a SvelteKit session list, chat interface, and settings surface
+- Renders the SvelteKit frontend against the local CometMind API and displays real-time streaming output from the agent loop
+- Gives the user a self-contained, installable native app — no terminal, no manual server management, no `brew install` prerequisites
 
-- Runs entirely on the developer's machine with no mandatory cloud dependency.
-- Separates the **AI runtime** from the **user interface**, allowing terminal-native and GUI workflows to coexist.
-- Treats sessions, context, and tool execution as first-class primitives rather than afterthoughts.
-- Supports multiple LLM providers (OpenAI, Anthropic, local models) without vendor lock-in.
+Cometline desktop does **not** implement any agent logic, tool execution, LLM calls, or data persistence. All of that lives in CometMind. Cometline desktop is an Electron shell around a SvelteKit frontend: it starts CometMind, opens the local app against `http://127.0.0.1:7700`, and leaves application state and APIs to the locally running CometMind server.
 
-### 1.2 Project Vision
-
-**Cometline** is a local-first AI coding agent platform. It is composed of two independently deployable projects:
-
-| Project       | Role                                                                 |
-|---------------|----------------------------------------------------------------------|
-| **CometCode** | Go-based daemon + CLI + TUI — the runtime that manages sessions, executes tools, and communicates with LLMs. |
-| **Lunar**     | Svelte 5 / TypeScript frontend — a rich GUI served as a web app (SvelteKit) or desktop app (Electron). |
-
-The daemon runs in the background, exposes a REST + WebSocket API, and any number of clients (CLI, TUI, Lunar, third-party) can connect to it.
-
-### 1.3 Target Users
-
-- **Professional developers** who want an AI pair-programmer that respects their local environment.
-- **Privacy-conscious teams** who cannot send code to third-party cloud services.
-- **Power users** who prefer terminal workflows but want the option of a GUI when useful.
-- **Open-source contributors** who want to extend or self-host the agent.
-
-### 1.4 Design Principles
-
-| Principle               | Description                                                                                  |
-|--------------------------|----------------------------------------------------------------------------------------------|
-| **Local-first**          | All data (sessions, config, embeddings) lives on disk. Cloud is opt-in, never required.     |
-| **Daemon-based**         | A long-running process holds state, manages connections, and survives client disconnects.    |
-| **Separation of concerns** | Runtime logic (CometCode) is fully decoupled from presentation (Lunar, CLI, TUI).         |
-| **Extensibility**        | Custom tools, new LLM providers, and plugins can be added without forking core code.        |
-| **Convention over configuration** | Sensible defaults; zero config to get started, deep config when needed.              |
-
-### 1.5 Architecture Overview
-
-```
-┌────────────────────────────────────────────────────────────┐
-│                        Developer                           │
-│                                                            │
-│   ┌──────────┐   ┌──────────┐   ┌────────────────────┐    │
-│   │  CLI     │   │  TUI     │   │  Lunar (GUI)       │    │
-│   │ (Cobra)  │   │(BubbleTea│   │  Web / Electron    │    │
-│   └────┬─────┘   └────┬─────┘   └────────┬───────────┘    │
-│        │              │                   │                │
-│        └──────────────┼───────────────────┘                │
-│                       │                                    │
-│              REST + WebSocket API                          │
-│                       │                                    │
-│        ┌──────────────┴──────────────────┐                 │
-│        │       CometCode Daemon          │                 │
-│        │                                 │                 │
-│        │  ┌───────────┐  ┌────────────┐  │                 │
-│        │  │  Session   │  │   Tool     │  │                 │
-│        │  │  Manager   │  │  Executor  │  │                 │
-│        │  └───────────┘  └────────────┘  │                 │
-│        │  ┌───────────┐  ┌────────────┐  │                 │
-│        │  │ LLM Router│  │ Workspace  │  │                 │
-│        │  │ (Provider) │  │  Manager   │  │                 │
-│        │  └─────┬─────┘  └────────────┘  │                 │
-│        │        │                        │                 │
-│        │  ┌─────┴─────────────────────┐  │                 │
-│        │  │     SQLite (sqlc)         │  │                 │
-│        │  └───────────────────────────┘  │                 │
-│        └─────────────────────────────────┘                 │
-│                       │                                    │
-│            ┌──────────┴──────────┐                         │
-│            │   LLM Providers     │                         │
-│            │ OpenAI · Anthropic  │                         │
-│            │ Ollama · Custom     │                         │
-│            └─────────────────────┘                         │
-└────────────────────────────────────────────────────────────┘
-```
-
-### 1.6 Scope
-
-#### In-Scope (Phase 1)
-
-- CometCode daemon with REST + WebSocket API.
-- CLI commands for workspace, session, and daemon management.
-- TUI chat interface (Bubble Tea).
-- Lunar web GUI with session, chat, code, and settings views.
-- Lunar Electron wrapper for desktop distribution.
-- SQLite persistence for sessions, messages, and config.
-- Built-in tools: file read/write, shell exec, search, diff.
-- Multi-provider LLM support (OpenAI, Anthropic).
-
-#### Out-of-Scope (Phase 1)
-
-- Collaborative / multi-user sessions.
-- Cloud sync or remote daemon hosting.
-- Fine-tuning or training pipelines.
-- Marketplace or registry for community tools.
-- Mobile clients.
+> **Note on CometMind's scope.** CometMind (formerly *CometCode*) is now a **general AI agent runtime**, not a coding-only tool. Its agent loop, tool registry, persistence, and HTTP+SSE server are domain-agnostic. When a task is coding work, CometMind **delegates it to a dedicated coding agent (e.g. OpenCode) over ACP (Agent Communication Protocol)** and folds the result back into the session. From Cometline desktop's perspective nothing changes — it still talks to the same local server and renders the same streaming session output — but the agent behind it is general-purpose, with coding handled by a specialized executor.
 
 ---
 
-## 2. Functional Requirements
+## 2. Why Electron
 
-### 2.1 CometCode (Go Runtime)
+### 2.1 The Core Reason: Native Desktop Capabilities
 
-#### 2.1.1 Daemon Lifecycle
+Cometline desktop is an Electron app, not a browser tab. This is a deliberate architecture decision, not a workaround. The capabilities that matter:
 
-| ID   | Requirement                                                              |
-|------|--------------------------------------------------------------------------|
-| D-01 | The daemon starts as a background process, binding to a configurable host and port (default `127.0.0.1:7700`). |
-| D-02 | `cometcode daemon start` launches the daemon; `cometcode daemon stop` sends a graceful shutdown signal. |
-| D-03 | `cometcode daemon status` reports PID, uptime, connected clients, and active sessions. |
-| D-04 | On startup the daemon writes a PID file to `~/.cometcode/daemon.pid` and removes it on shutdown. |
-| D-05 | If the port is already in use, the daemon exits with a clear error and suggests `--port`. |
+| Capability | Browser (SvelteKit) | Electron (desktop) |
+|-----------|--------------------|--------------------|
+| Spawn CometMind binary automatically | No | Yes — `child_process.spawn` |
+| Auto-start / auto-stop server | No — user must run manually | Yes — app lifecycle manages it |
+| Direct SQLite read (future) | No — browser sandbox | Yes — Node.js main process |
+| Offline / no server in PATH | No | Yes — self-contained |
+| System tray, global hotkeys | No | Yes |
+| Single-file distribution | No — separate install steps | Yes — `.dmg` / `.exe` / `.AppImage` |
 
-#### 2.1.2 Session Management
+### 2.2 The User Experience Difference
 
-| ID   | Requirement                                                              |
-|------|--------------------------------------------------------------------------|
-| S-01 | A **session** encapsulates a conversation between the user and the agent, scoped to a workspace. |
-| S-02 | Sessions can be **created**, **loaded**, **resumed**, **archived**, and **exported** (JSON/Markdown). |
-| S-03 | Each session has a unique ID (ULID), a human-readable title, and a creation timestamp. |
-| S-04 | Session state includes: messages, tool call history, token usage, model config, and workspace reference. |
-| S-05 | Archived sessions are read-only and can be searched by title, date range, or full-text content. |
-| S-06 | `cometcode session list` shows active and recent sessions; `cometcode session resume <id>` reconnects. |
+**With Electron:**
+1. User installs Cometline.app
+2. Opens it — CometMind starts automatically in the background
+3. Closes it — CometMind stops
 
-#### 2.1.3 Workspace Management
+**Without Electron (browser-based):**
+1. User installs CometMind separately
+2. Remembers to run `cometmind serve`
+3. Opens browser, navigates to `localhost:7700`
+4. Keeps the terminal open
 
-| ID   | Requirement                                                              |
-|------|--------------------------------------------------------------------------|
-| W-01 | A **workspace** maps to a directory on the filesystem. It is the scope for file operations and tool execution. |
-| W-02 | `cometcode init` initializes a workspace in the current directory, creating `.cometcode/` with config and DB. |
-| W-03 | File operations (read, write, list, search) are sandboxed to the workspace root unless explicitly overridden. |
-| W-04 | Git integration: the daemon detects `.git` and exposes status, diff, log, and commit through tools. |
-| W-05 | Workspace config (`.cometcode/config.toml`) stores per-project model preferences, tool allow-lists, and ignore patterns. |
+Eliminating steps 2–4 is the entire point of Cometline desktop.
 
-#### 2.1.4 LLM Integration
+### 2.3 Why a Static Go Binary Makes This Work
 
-| ID   | Requirement                                                              |
-|------|--------------------------------------------------------------------------|
-| L-01 | The LLM router accepts a provider name + model ID and dispatches requests to the correct backend. |
-| L-02 | Supported providers at launch: **OpenAI** (GPT-4o, o3), **Anthropic** (Claude Sonnet 4, Opus 4.5). |
-| L-03 | Providers are configured via `~/.cometcode/providers.toml` with API keys, base URLs, and default models. |
-| L-04 | All LLM responses are **streamed** token-by-token over WebSocket to connected clients. |
-| L-05 | Token usage (prompt + completion) is tracked per message and aggregated per session. |
-| L-06 | A **system prompt** template is configurable per workspace and per session, with variable interpolation (`{{workspace}}`, `{{os}}`, `{{datetime}}`). |
-| L-07 | Support for local models via **Ollama**-compatible API as an additional provider. |
+Go compiles to a **self-contained static binary** — no Go runtime to install, no shared libraries, no `PATH` setup. The `cometmind` executable is identical in nature to tools like `ripgrep` or `ffmpeg`. This makes embedding it inside an Electron app straightforward:
 
-#### 2.1.5 Tool Execution
+```
+Node.js runtime    → already inside Electron
+Go runtime         → compiled into the cometmind binary
+                     user never needs to install Go
+```
 
-| ID   | Requirement                                                              |
-|------|--------------------------------------------------------------------------|
-| T-01 | Tools are functions the agent can invoke. Each tool has a name, description, JSON Schema for parameters, and an executor function. |
-| T-02 | **Built-in tools:** `read_file`, `write_file`, `list_directory`, `search_files`, `run_command`, `git_diff`, `git_status`, `git_commit`. |
-| T-03 | Tool calls are logged with input, output, duration, and exit code (for shell commands). |
-| T-04 | Shell commands (`run_command`) execute in the workspace directory with a configurable timeout (default 120s). |
-| T-05 | Tools can be restricted per workspace via an allow-list in `.cometcode/config.toml`. |
-| T-06 | **Custom tools** can be registered as external executables or scripts; the daemon discovers them from `~/.cometcode/tools/`. |
-| T-07 | Tool execution is **sandboxed** — file writes outside the workspace require explicit user confirmation via the client. |
+Contrast with a Python or Ruby backend, where you would need to bundle the entire interpreter. Go's static compilation is what makes the Electron approach clean.
 
-#### 2.1.6 Code Analysis
+### 2.4 Keeping the Door Open for a Future Cloud Version
 
-| ID   | Requirement                                                              |
-|------|--------------------------------------------------------------------------|
-| C-01 | File reading returns content with line numbers and supports offset + limit for large files. |
-| C-02 | Diff generation produces unified diffs for proposed edits, shown to the user before application. |
-| C-03 | Regex and literal search across workspace files, respecting `.gitignore` and `.cometcode/ignore`. |
-| C-04 | Glob-based file discovery for pattern matching (e.g., `**/*.go`). |
+The renderer is a SvelteKit application with no hard dependency on Electron APIs. Electron-specific code is confined to the **main process** and a thin **preload bridge**. This means the same route tree, components, stores, and API client can be reused in a hosted/cloud deployment if one is ever built. See [Section 11](#11-phase-2-cloud--hosted-version).
 
-#### 2.1.7 API Layer
+---
 
-##### REST Endpoints
+## 3. Architecture
 
-| Method | Path                              | Description                          |
-|--------|-----------------------------------|--------------------------------------|
-| GET    | `/api/v1/health`                  | Daemon health check                  |
-| GET    | `/api/v1/daemon/status`           | Daemon status (uptime, clients, etc.)|
-| POST   | `/api/v1/sessions`                | Create a new session                 |
-| GET    | `/api/v1/sessions`                | List sessions (with filters)         |
-| GET    | `/api/v1/sessions/:id`            | Get session detail                   |
-| DELETE | `/api/v1/sessions/:id`            | Archive a session                    |
-| POST   | `/api/v1/sessions/:id/export`     | Export session (JSON/Markdown)       |
-| GET    | `/api/v1/workspaces`              | List known workspaces                |
-| GET    | `/api/v1/workspaces/:id`          | Get workspace detail                 |
-| GET    | `/api/v1/providers`               | List configured LLM providers        |
-| GET    | `/api/v1/tools`                   | List available tools                 |
-| GET    | `/api/v1/config`                  | Get daemon config                    |
-| PUT    | `/api/v1/config`                  | Update daemon config                 |
+### 3.1 Electron Process Model
 
-##### WebSocket
+Electron has two types of processes:
 
-| Path                              | Description                          |
-|-----------------------------------|--------------------------------------|
-| `/ws/v1/sessions/:id`             | Bi-directional session channel       |
+```
+┌─────────────────────────────────────────────────────────────┐
+│              Cometline desktop (Electron)                   │
+│                                                             │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │  Main Process (Node.js)                              │   │
+│  │                                                      │   │
+│  │  ┌───────────────┐   ┌──────────────────────────┐   │   │
+│  │  │ app lifecycle │   │ CometMind process manager│   │   │
+│  │  │ window create │   │ (child_process.spawn)    │   │   │
+│  │  └───────────────┘   └──────────────────────────┘   │   │
+│  │                                                      │   │
+│  │  ┌──────────────────────────────────────────────┐   │   │
+│  │  │  ipcMain handlers                            │   │   │
+│  │  │  (bridge between renderer and Node.js)       │   │   │
+│  │  └──────────────────────────────────────────────┘   │   │
+│  └──────────────────────────────────────────────────────┘   │
+│                           │ IPC                             │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │  Renderer Process (Chromium + Svelte)                │   │
+│  │                                                      │   │
+│  │  ┌─────────────────────────────────────────────┐    │   │
+│  │  │  SvelteKit route + component tree           │    │   │
+│  │  │  (same app shell as future cloud version)   │    │   │
+│  │  └────────────────────┬────────────────────────┘    │   │
+│  │                       │                              │   │
+│  │          ┌────────────┴────────────┐                 │   │
+│  │          │  REST + SSE (localhost) │                 │   │
+│  │          └────────────┬────────────┘                 │   │
+│  └───────────────────────────────────────────────────── ┘   │
+└──────────────────────────────────────────────────────────────┘
+                            │
+                   ┌────────▼────────┐
+                   │ CometMind server│
+                   │ 127.0.0.1:7700  │
+                   │ (child process) │
+                   └─────────────────┘
+```
 
-**WebSocket Message Format:**
+**Main process** responsibilities:
+- Create and manage the `BrowserWindow`
+- Spawn and monitor the CometMind binary as a child process
+- Expose `ipcMain` handlers for operations the renderer cannot do directly (e.g. open file dialog, check if CometMind is alive)
+- Handle app lifecycle: `app.on('ready')`, `app.on('window-all-closed')`, etc.
 
-```json
-{
-  "type": "user_message | assistant_chunk | assistant_done | tool_call | tool_result | error | status",
-  "session_id": "01HX...",
-  "payload": { ... },
-  "timestamp": "2026-02-17T12:00:00Z"
+**Renderer process** responsibilities:
+- Run the Svelte 5 UI
+- Communicate with CometMind via REST + SSE over `localhost`
+- Use `ipcRenderer` (via preload) only for native OS features
+
+### 3.2 Why the Go Binary Needs No Runtime
+
+Go compiles to a **self-contained static binary**. There is no Go runtime to install, no shared libraries to link, no `PATH` setup needed. The `cometmind` executable is identical in nature to tools like `ripgrep` or `ffmpeg` — you copy the file, you run it.
+
+This is what makes the Electron approach work cleanly:
+
+```
+Node.js runtime    → already inside Electron
+Go runtime         → compiled into the cometmind binary itself
+                     user never needs to install Go
+```
+
+Contrast with a Python or Ruby backend, where you would need to bundle the entire interpreter. Go's static compilation makes it an ideal language for a binary that gets embedded inside another application.
+
+### 3.3 CometMind Process Lifecycle
+
+The user never sees a terminal, never types a command, never knows a Go server is running.
+
+#### Startup
+
+```
+User double-clicks Cometline.app
+          │
+          ▼
+Electron main process starts (Node.js)
+          │
+          ▼
+Resolve binary path:
+  dev:   ../../cometmind/dist/cometmind
+  prod:  path.join(process.resourcesPath, 'cometmind')
+          │
+          ▼
+child_process.spawn(binaryPath, ['serve', '--port', '7700'], {
+    stdio: ['ignore', 'pipe', 'pipe']  // capture logs
+})
+          │
+          ├── pipe stdout/stderr → app log file (~/.cometmind/cometline.log)
+          │
+          ▼
+Poll GET http://127.0.0.1:7700/api/v1/health
+  every 100ms, timeout 5s
+          │
+          ├── not ready yet → keep polling
+          ├── timeout       → show error dialog, offer retry
+          │
+          ▼  200 OK
+BrowserWindow.loadURL('http://127.0.0.1:7700')
+          │
+          ▼
+User sees UI — CometMind is invisible
+```
+
+#### Shutdown
+
+```
+User closes window or presses Cmd+Q
+          │
+          ▼
+app.on('before-quit')
+          │
+          ▼
+cometmindProcess.kill('SIGTERM')
+  → CometMind flushes pending DB writes, closes SQLite, exits
+          │
+          ├── exited within 3s → proceed
+          ├── still running    → cometmindProcess.kill('SIGKILL')
+          │
+          ▼
+app.quit()
+```
+
+#### Crash Recovery
+
+```
+cometmindProcess.on('exit', (code) => {
+    if (userIsStillUsingApp) {
+        // notify renderer via IPC
+        mainWindow.webContents.send('cometmind:crashed', code)
+        // renderer shows "CometMind stopped — Restart?" dialog
+        // on confirm: re-run the startup sequence above
+    }
+})
+```
+
+### 3.4 Binary Bundling
+
+`electron-builder` copies the CometMind binary into the packaged app's `resources/` directory at build time.
+
+**`electron-builder.yml`:**
+```yaml
+extraResources:
+  - from: "../cometmind/dist/cometmind-${os}-${arch}"
+    to: "cometmind"
+
+afterPack: "./scripts/chmod-binary.js"   # chmod +x resources/cometmind on mac/linux
+```
+
+**Packaged app structure (macOS example):**
+```
+Cometline.app/
+└── Contents/
+    ├── MacOS/
+    │   └── Cometline             ← Electron shell binary
+    └── Resources/
+        ├── app.asar              ← Svelte UI + all JS (renderer)
+        └── cometmind             ← Go binary, statically compiled, no deps
+```
+
+**Platform matrix:**
+
+| Platform | CometMind binary | Cometline desktop output |
+|----------|-----------------|--------------|
+| macOS (arm64) | `cometmind-darwin-arm64` | `.dmg` (universal) |
+| macOS (amd64) | `cometmind-darwin-amd64` | `.dmg` (universal) |
+| Linux (amd64) | `cometmind-linux-amd64` | `.AppImage` |
+| Windows (amd64) | `cometmind-windows-amd64.exe` | NSIS `.exe` |
+
+GoReleaser (in the cometmind repo) produces all four binaries. The Cometline desktop CI pipeline downloads the appropriate binary before running `electron-builder`.
+
+### 3.5 Communication Channels
+
+| Channel | Used for |
+|---------|----------|
+| REST (HTTP, localhost) | CRUD: create session, list sessions, get messages, config |
+| SSE (HTTP streaming, localhost) | Agent loop output: text tokens, tool calls, step finish |
+| IPC (Electron contextBridge) | OS-native only: open folder dialog, get app version, receive crash notifications |
+
+The renderer process talks to CometMind **directly over localhost HTTP**, not through IPC. IPC is reserved strictly for things that require Node.js or OS access — it is not a proxy for CometMind API calls.
+
+---
+
+## 4. Routes & Views
+
+### 4.1 Route Map
+
+```
+/                        → Session List
+/sessions/[id]           → Chat View
+/settings                → Settings
+```
+
+Electron packages the SvelteKit renderer. Desktop mode should use SvelteKit routing with a static/SPA adapter strategy, while keeping the same route tree compatible with a future hosted deployment.
+
+### 4.2 Session List (`/`)
+
+**Layout:**
+```
+┌─────────────────────────────────────────────────────┐
+│  Cometline            [+ New Session]  [⚙ Settings] │
+├─────────────────────────────────────────────────────┤
+│  🔍 Search sessions...                              │
+├─────────────────────────────────────────────────────┤
+│  fix auth bug                                       │
+│  claude-sonnet-4  ·  2 hours ago  ·  42 messages    │
+├─────────────────────────────────────────────────────┤
+│  refactor payment service                           │
+│  gpt-4o  ·  yesterday  ·  18 messages               │
+├─────────────────────────────────────────────────────┤
+│  ...                                                │
+└─────────────────────────────────────────────────────┘
+```
+
+**Behaviour:**
+- On load, fetches `GET /api/v1/sessions`
+- Search filters the list client-side by session title
+- Click a session → navigate to `/sessions/[id]`
+- "New Session" → `POST /api/v1/sessions` → navigate to new session
+- Right-click or hover → delete button → `DELETE /api/v1/sessions/:id`
+
+### 4.3 Chat View (`/sessions/[id]`)
+
+**Layout:**
+```
+┌─────────────────────────────────────────────────────┐
+│ ← Sessions  │  fix auth bug  │  claude-sonnet-4     │
+├─────────────────────────────────────────────────────┤
+│                                                     │
+│  You                                     14:32      │
+│  fix the JWT validation in middleware.go            │
+│                                                     │
+│  Assistant                               14:32      │
+│  I'll read the file first.                          │
+│  ▶ read_file  middleware.go     ✓  8ms  [expand]    │
+│                                                     │
+│  The issue is on line 47. Here's the fix:           │
+│                                                     │
+│  ```go                                              │
+│  if time.Now().Unix() >= claims.ExpiresAt {         │
+│  ```                                                │
+│                                                     │
+│  ▶ write_file  middleware.go    ✓  3ms  [expand]    │
+│  ▶ run_command go test ./...    ✓  1.4s [expand]    │
+│                                                     │
+│  All tests pass. The fix is applied.                │
+│                                                     │
+├─────────────────────────────────────────────────────┤
+│  ┌───────────────────────────────────────────────┐  │
+│  │ Message CometMind...                          │  │
+│  └───────────────────────────────────────────────┘  │
+│  [Ctrl+Enter to send]              [■ Stop]  [Send] │
+└─────────────────────────────────────────────────────┘
+```
+
+**Behaviour:**
+- On load: `GET /api/v1/sessions/:id/messages` to populate history
+- Send message: `POST /api/v1/sessions/:id/message` → open SSE stream
+- `text_delta` events: append token to streaming message
+- `tool_call` events: render `ToolCallCard` in pending state
+- `tool_result` events: update card to completed
+- `step_finish` events: update token usage
+- `done` event: mark stream complete
+- Stop button: `POST /api/v1/sessions/:id/abort`
+
+### 4.4 Settings (`/settings`)
+
+**Sections:**
+
+| Section | Contents |
+|---------|----------|
+| **Server** | CometMind port (default 7700); connection status badge |
+| **Providers** | API key fields for Anthropic and OpenAI-compatible backends |
+| **Defaults** | Default model (populated from `GET /api/v1/providers`) |
+| **Appearance** | Theme: light / dark / system |
+| **About** | App version; CometMind binary version |
+
+API keys typed here are sent to CometMind via `POST /api/v1/config` to update `~/.cometmind/config.toml`. They are not stored in the renderer or in Electron's storage.
+
+---
+
+## 5. State Management
+
+Cometline desktop uses **SvelteKit + Svelte 5 runes** throughout. No external state library.
+
+### 5.1 Approach
+
+| State scope | Approach |
+|-------------|----------|
+| Component-local | `$state` / `$derived` inside `.svelte` files |
+| Cross-route shared | `.svelte.ts` modules with exported `$state` |
+| Persisted across restarts | Electron's `electron-store` (JSON file in `userData`) |
+
+### 5.2 Shared State Modules
+
+**`src/lib/stores/connection.svelte.ts`**
+```ts
+export const connection = $state({
+    port: 7700,
+    status: 'connecting' as 'connecting' | 'connected' | 'error',
+    error: null as string | null,
+})
+```
+
+**`src/lib/stores/sessions.svelte.ts`**
+```ts
+export const sessions = $state({
+    list: [] as Session[],
+    activeId: null as string | null,
+    loading: false,
+})
+```
+
+**`src/lib/stores/chat.svelte.ts`**
+```ts
+export const chat = $state({
+    messages: [] as Message[],
+    streaming: false,
+    streamBuffer: '',
+    pendingToolCalls: {} as Record<string, ToolCall>,
+})
+```
+
+**`src/lib/stores/settings.svelte.ts`**
+```ts
+// Persisted via electron-store
+export const settings = $state({
+    theme: 'system' as 'light' | 'dark' | 'system',
+    defaultModel: '',
+    port: 7700,
+})
+```
+
+### 5.3 Data Flow
+
+```
+User clicks Send
+      │
+      ▼
+ChatInput.svelte → api.sendMessage(sessionId, content)
+      │
+      ▼
+src/lib/api/sse.ts
+  fetch POST /api/v1/sessions/:id/message
+  ReadableStream reader loop
+      │
+      ├── text_delta   → chat.streamBuffer += delta
+      │                   (Svelte re-renders on next tick)
+      ├── tool_call    → chat.pendingToolCalls[id] = { status: 'pending', ... }
+      ├── tool_result  → chat.pendingToolCalls[id].status = 'done'
+      ├── step_finish  → update token display
+      └── done         → chat.streaming = false
+                         commit streamBuffer to messages
+```
+
+---
+
+## 6. IPC & API Layer
+
+### 6.1 What Goes Through IPC vs REST
+
+```
+Renderer process
+      │
+      ├── REST + SSE (fetch to localhost:7700)
+      │   └── everything CometMind-related
+      │       sessions, messages, streaming, abort
+      │
+      └── IPC (contextBridge → ipcMain)
+          └── OS / Electron-specific only
+              ├── get app version
+              ├── get CometMind status (is it running?)
+              ├── open folder dialog (for workspace init)
+              └── show native notification
+```
+
+The renderer must never call Node.js APIs directly. All Node.js access goes through the preload script's `contextBridge`.
+
+### 6.2 Preload Script (`electron/preload.ts`)
+
+The preload script is the **only** bridge between renderer and main process. It exposes a minimal, explicit API via `contextBridge` — the renderer cannot call arbitrary Node.js code.
+
+```ts
+// Exposed to renderer as window.electronAPI
+contextBridge.exposeInMainWorld('electronAPI', {
+    // App info
+    getAppVersion: () =>
+        ipcRenderer.invoke('app:version'),
+
+    // CometMind process status
+    getCometMindStatus: () =>
+        ipcRenderer.invoke('cometmind:status'),  // 'starting' | 'ready' | 'crashed'
+
+    // Crash notification — main process pushes this to renderer
+    onCometMindCrashed: (cb: (exitCode: number) => void) =>
+        ipcRenderer.on('cometmind:crashed', (_, code) => cb(code)),
+
+    // Restart CometMind after crash
+    restartCometMind: () =>
+        ipcRenderer.invoke('cometmind:restart'),
+
+    // Native file dialog
+    openFolderDialog: () =>
+        ipcRenderer.invoke('dialog:openFolder'),
+})
+```
+
+The renderer accesses this as `window.electronAPI.getCometMindStatus()` etc. It never calls `ipcRenderer` directly.
+
+### 6.3 REST Client (`src/lib/api/client.ts`)
+
+Typed wrappers for all CometMind REST endpoints:
+
+```ts
+export const api = {
+    sessions: {
+        list():               Promise<Session[]>
+        get(id: string):      Promise<Session>
+        create(opts: NewSessionOpts): Promise<Session>
+        delete(id: string):   Promise<void>
+    },
+    messages: {
+        list(sessionId: string): Promise<Message[]>
+    },
+    providers: {
+        list(): Promise<Provider[]>
+    },
+    config: {
+        get():              Promise<Config>
+        update(p: Partial<Config>): Promise<void>
+    },
+    abort(sessionId: string): Promise<void>
 }
 ```
 
-| Message Type       | Direction      | Payload                                             |
-|--------------------|----------------|------------------------------------------------------|
-| `user_message`     | Client → Server| `{ "content": "...", "attachments": [...] }`        |
-| `assistant_chunk`  | Server → Client| `{ "delta": "...", "token_index": 42 }`             |
-| `assistant_done`   | Server → Client| `{ "message_id": "...", "usage": {...} }`           |
-| `tool_call`        | Server → Client| `{ "tool": "read_file", "args": {...}, "call_id": "..." }` |
-| `tool_result`      | Server → Client| `{ "call_id": "...", "output": "...", "duration_ms": 150 }` |
-| `tool_confirm`     | Server → Client| `{ "call_id": "...", "tool": "write_file", "args": {...} }` |
-| `tool_approve`     | Client → Server| `{ "call_id": "...", "approved": true }`            |
-| `error`            | Server → Client| `{ "code": "PROVIDER_ERROR", "message": "..." }`   |
-| `status`           | Server → Client| `{ "state": "thinking | tool_executing | idle" }`  |
+All functions throw a typed `ApiError` on non-2xx responses.
 
-#### 2.1.8 CLI Commands (Cobra)
+### 6.4 SSE Consumer (`src/lib/api/sse.ts`)
 
-```
-cometcode
-├── init                          # Initialize workspace
-├── daemon
-│   ├── start [--port] [--host]   # Start the daemon
-│   ├── stop                      # Stop the daemon
-│   └── status                    # Show daemon status
-├── session
-│   ├── new [--model] [--title]   # Create session
-│   ├── list [--all]              # List sessions
-│   ├── resume <id>               # Resume session in TUI
-│   ├── archive <id>              # Archive session
-│   └── export <id> [--format]    # Export to JSON/MD
-├── chat <message>                # One-shot message (starts daemon if needed)
-├── config
-│   ├── show                      # Show current config
-│   ├── set <key> <value>         # Set config value
-│   └── provider add <name>       # Add LLM provider
-├── tool
-│   ├── list                      # List available tools
-│   └── run <name> [args]         # Manually run a tool
-└── version                       # Print version info
+Uses `fetch` + `ReadableStream` (not `EventSource`, because `EventSource` only supports GET):
+
+```ts
+export async function streamMessage(
+    sessionId: string,
+    content: string,
+    onEvent: (event: AgentEvent) => void,
+    signal: AbortSignal,
+): Promise<void>
 ```
 
-#### 2.1.9 TUI Interface (Bubble Tea)
+### 6.5 TypeScript Types (`src/lib/api/types.ts`)
 
-| ID   | Requirement                                                              |
-|------|--------------------------------------------------------------------------|
-| U-01 | The TUI presents a full-screen chat interface with input area, message history, and status bar. |
-| U-02 | Streaming tokens render character-by-character in the assistant message bubble. |
-| U-03 | Tool calls display inline with name, arguments (collapsed), and result (expandable). |
-| U-04 | Markdown in assistant messages is rendered with syntax highlighting for code blocks. |
-| U-05 | Keyboard shortcuts: `Ctrl+C` cancel generation, `Ctrl+D` exit, `Ctrl+N` new session, `Ctrl+L` clear screen. |
-| U-06 | A status bar shows: current model, token usage, session ID, and daemon connection state. |
+Hand-written TypeScript matching CometMind's JSON contract exactly:
 
-#### 2.1.10 Data Model
+```ts
+export type Session = {
+    id: string
+    title: string
+    model_id: string
+    provider_id: string
+    status: 'active' | 'archived'
+    token_usage: TokenUsage
+    created_at: number
+    updated_at: number
+}
 
-```
-┌──────────────────┐       ┌──────────────────┐
-│    Workspace     │       │  ModelProvider    │
-│──────────────────│       │──────────────────│
-│ id          TEXT │       │ id          TEXT │
-│ name        TEXT │       │ name        TEXT │
-│ root_path   TEXT │       │ api_key     TEXT │
-│ config      JSON │       │ base_url    TEXT │
-│ created_at  TIME │       │ models      JSON │
-│ updated_at  TIME │       │ is_default  BOOL │
-└────────┬─────────┘       └──────────────────┘
-         │
-         │ 1:N
-         ▼
-┌──────────────────┐
-│     Session      │
-│──────────────────│
-│ id          TEXT │──────────────────────────┐
-│ workspace_id TEXT│                          │
-│ title       TEXT │                          │
-│ model_id    TEXT │       ┌──────────────────┐
-│ system_prompt TEXT│      │    ToolCall      │
-│ status      TEXT │       │──────────────────│
-│ token_usage JSON │       │ id          TEXT │
-│ created_at  TIME │       │ message_id  TEXT │
-│ updated_at  TIME │       │ tool_name   TEXT │
-│ archived_at TIME │       │ arguments   JSON │
-└────────┬─────────┘       │ result      TEXT │
-         │                 │ duration_ms INT  │
-         │ 1:N             │ exit_code   INT  │
-         ▼                 │ created_at  TIME │
-┌──────────────────┐       └──────────────────┘
-│     Message      │              ▲
-│──────────────────│              │ 1:N
-│ id          TEXT │──────────────┘
-│ session_id  TEXT │
-│ role        TEXT │  (user | assistant | system | tool)
-│ content     TEXT │
-│ token_count INT  │
-│ created_at  TIME │
-└──────────────────┘
-```
-
-#### 2.1.11 Database Schema (SQLite via sqlc)
-
-```sql
-CREATE TABLE workspaces (
-    id          TEXT PRIMARY KEY,
-    name        TEXT NOT NULL,
-    root_path   TEXT NOT NULL UNIQUE,
-    config      TEXT NOT NULL DEFAULT '{}',  -- JSON
-    created_at  DATETIME NOT NULL DEFAULT (datetime('now')),
-    updated_at  DATETIME NOT NULL DEFAULT (datetime('now'))
-);
-
-CREATE TABLE sessions (
-    id            TEXT PRIMARY KEY,
-    workspace_id  TEXT NOT NULL REFERENCES workspaces(id),
-    title         TEXT NOT NULL,
-    model_id      TEXT NOT NULL,
-    system_prompt TEXT NOT NULL DEFAULT '',
-    status        TEXT NOT NULL DEFAULT 'active'
-                  CHECK (status IN ('active', 'archived')),
-    token_usage   TEXT NOT NULL DEFAULT '{}',  -- JSON
-    created_at    DATETIME NOT NULL DEFAULT (datetime('now')),
-    updated_at    DATETIME NOT NULL DEFAULT (datetime('now')),
-    archived_at   DATETIME
-);
-
-CREATE TABLE messages (
-    id          TEXT PRIMARY KEY,
-    session_id  TEXT NOT NULL REFERENCES sessions(id),
-    role        TEXT NOT NULL
-                CHECK (role IN ('user', 'assistant', 'system', 'tool')),
-    content     TEXT NOT NULL,
-    token_count INTEGER NOT NULL DEFAULT 0,
-    created_at  DATETIME NOT NULL DEFAULT (datetime('now'))
-);
-
-CREATE TABLE tool_calls (
-    id          TEXT PRIMARY KEY,
-    message_id  TEXT NOT NULL REFERENCES messages(id),
-    tool_name   TEXT NOT NULL,
-    arguments   TEXT NOT NULL DEFAULT '{}',  -- JSON
-    result      TEXT NOT NULL DEFAULT '',
-    duration_ms INTEGER NOT NULL DEFAULT 0,
-    exit_code   INTEGER,
-    created_at  DATETIME NOT NULL DEFAULT (datetime('now'))
-);
-
-CREATE TABLE model_providers (
-    id        TEXT PRIMARY KEY,
-    name      TEXT NOT NULL UNIQUE,
-    api_key   TEXT NOT NULL DEFAULT '',
-    base_url  TEXT NOT NULL DEFAULT '',
-    models    TEXT NOT NULL DEFAULT '[]',  -- JSON
-    is_default INTEGER NOT NULL DEFAULT 0
-);
-
--- Indexes
-CREATE INDEX idx_sessions_workspace ON sessions(workspace_id);
-CREATE INDEX idx_sessions_status    ON sessions(status);
-CREATE INDEX idx_messages_session   ON messages(session_id);
-CREATE INDEX idx_messages_role      ON messages(session_id, role);
-CREATE INDEX idx_tool_calls_message ON tool_calls(message_id);
+export type AgentEvent =
+    | { type: 'text_delta';   delta: string }
+    | { type: 'tool_call';    id: string; tool: string; input: unknown }
+    | { type: 'tool_result';  id: string; tool: string; output: string; error?: string }
+    | { type: 'step_finish';  usage: TokenUsage }
+    | { type: 'error';        message: string; code?: string }
+    | { type: 'done' }
 ```
 
 ---
 
-### 2.2 Lunar (Svelte Frontend)
+## 7. Component Design
 
-#### 2.2.1 Web GUI Views
+### 7.1 Component Tree
 
-| View               | Route                  | Description                                                   |
-|--------------------|------------------------|---------------------------------------------------------------|
-| **Dashboard**      | `/`                    | Overview of active sessions, recent activity, daemon status.  |
-| **Session List**   | `/sessions`            | Filterable/searchable list of sessions with status badges.    |
-| **Chat**           | `/sessions/:id`        | Primary interaction view — message thread with streaming.     |
-| **Code View**      | `/sessions/:id/code`   | Side panel or tab showing workspace files with syntax highlighting. |
-| **Tool Logs**      | `/sessions/:id/tools`  | Chronological log of tool calls with expandable I/O detail.   |
-| **Settings**       | `/settings`            | Daemon connection, LLM provider config, appearance, keybindings. |
-| **Workspace Browser** | `/workspaces`       | List of workspaces with quick-launch into a session.          |
+```
+src/
+└── App.svelte                       ← root; router outlet + toast container
+    ├── routes/SessionList.svelte    ← /
+    │   ├── SessionCard.svelte
+    │   └── SearchInput.svelte
+    │
+    ├── routes/ChatView.svelte       ← /sessions/[id]
+    │   ├── MessageList.svelte
+    │   │   ├── ChatMessage.svelte
+    │   │   │   ├── StreamingText.svelte
+    │   │   │   └── ToolCallCard.svelte
+    │   │   └── TypingIndicator.svelte
+    │   ├── ChatInput.svelte
+    │   └── StatusBar.svelte
+    │
+    ├── routes/Settings.svelte       ← /settings
+    │   ├── ServerSection.svelte
+    │   ├── ProvidersSection.svelte
+    │   └── AppearanceSection.svelte
+    │
+    └── Toast.svelte
+```
 
-#### 2.2.2 Desktop Application (Electron)
+### 7.2 Key Components
 
-| ID   | Requirement                                                              |
-|------|--------------------------------------------------------------------------|
-| E-01 | Lunar ships as an Electron app wrapping the SvelteKit static build.      |
-| E-02 | The Electron main process can optionally **auto-start** the CometCode daemon if not already running. |
-| E-03 | A **system tray** icon shows daemon status (connected / disconnected / error) and provides quick actions. |
-| E-04 | Deep links (`cometline://session/<id>`) open the app to a specific session. |
-| E-05 | Native OS notifications for: session events, tool confirmations, errors. |
-| E-06 | IPC bridge between Electron main and Svelte renderer for OS-level APIs (file dialogs, clipboard, notifications). |
+**`ChatMessage.svelte`**
+- `role: user` → plain text bubble
+- `role: assistant` → Markdown rendered with syntax-highlighted code blocks
+- Embeds one `ToolCallCard` per tool call in the message
 
-#### 2.2.3 API Communication
+**`StreamingText.svelte`**
+- Appends tokens one by one without re-rendering the whole message
+- Shows a blinking cursor while `chat.streaming === true`
 
-| ID   | Requirement                                                              |
-|------|--------------------------------------------------------------------------|
-| A-01 | An **HTTP client** module wraps all REST calls with typed request/response interfaces. |
-| A-02 | A **WebSocket client** manages connection lifecycle (connect, reconnect, heartbeat) and dispatches incoming messages to Svelte stores. |
-| A-03 | **Daemon discovery**: on startup, Lunar checks `~/.cometcode/daemon.pid` for host:port, or falls back to `127.0.0.1:7700`. |
-| A-04 | Connection state is reactive and surfaced in the UI (connected / reconnecting / disconnected). |
-| A-05 | All API errors are caught, categorized, and displayed as toast notifications. |
+**`ToolCallCard.svelte`**
+- Default: collapsed — shows tool name, status icon, duration
+- Expanded on click: full input JSON + output text
+- Status transitions: `pending` (spinner) → `running` → `done` ✓ / `error` ✗
 
-#### 2.2.4 UI Components
+**`ChatInput.svelte`**
+- Auto-resizing textarea (max 8 lines)
+- `Enter` → send; `Shift+Enter` → newline
+- Disabled + shows Stop button while `chat.streaming === true`
+- Stop button calls `api.abort(sessionId)`
 
-| Component          | Purpose                                                                  |
-|--------------------|--------------------------------------------------------------------------|
-| `ChatMessage`      | Renders a single message (user or assistant) with Markdown and code blocks. |
-| `ChatInput`        | Multi-line input with send button, attachment support, and keyboard shortcuts. |
-| `CodeBlock`        | Syntax-highlighted code block with copy button and language label.        |
-| `DiffViewer`       | Side-by-side or inline unified diff display for file changes.            |
-| `FileTree`         | Collapsible file/directory tree for workspace browsing.                  |
-| `ToolCallCard`     | Compact card showing tool name, args summary, result preview, duration.  |
-| `SessionCard`      | Session preview card with title, model, message count, last active time. |
-| `StatusBar`        | Persistent bar showing daemon status, model, token usage.                |
-| `Toast`            | Non-blocking notification component for errors, confirmations, info.     |
-| `Modal`            | Generic modal container for settings panels and confirmations.           |
-| `ProviderConfig`   | Form for adding/editing LLM provider credentials and model selection.    |
-| `StreamingText`    | Component that renders tokens as they arrive with a blinking cursor.     |
-
-#### 2.2.5 State Management
-
-Lunar uses **Svelte 5 runes** (`$state`, `$derived`, `$effect`) for component-local state and a set of **shared stores** for cross-component state:
-
-| Store              | Contents                                                                 |
-|--------------------|--------------------------------------------------------------------------|
-| `daemon`           | Connection status, host, port, health check interval.                   |
-| `sessions`         | Session list, active session ID, loading state.                         |
-| `chat`             | Messages for the active session, streaming buffer, scroll position.     |
-| `tools`            | Tool call log for the active session, expanded/collapsed state.         |
-| `workspace`        | Active workspace metadata, file tree cache.                             |
-| `settings`         | User preferences (theme, keybindings, default model).                   |
-| `notifications`    | Toast queue.                                                            |
+**`StatusBar.svelte`**
+- Session title (editable inline)
+- Active provider + model name
+- Cumulative token count for the session
+- CometMind connection indicator (green dot / red dot)
 
 ---
 
-## 3. Non-Functional Requirements
+## 8. Non-Functional Requirements
 
-### 3.1 Performance
+### 8.1 Performance
 
-| ID    | Requirement                                                             |
-|-------|-------------------------------------------------------------------------|
-| P-01  | REST API responses (non-streaming) return within **200ms** at p95.      |
-| P-02  | Time-to-first-token for streaming responses is bounded by the upstream LLM provider; the daemon adds no more than **50ms** of overhead. |
-| P-03  | The daemon idle memory footprint stays below **100 MB**.                |
-| P-04  | The daemon supports at least **10 concurrent WebSocket connections** without degradation. |
-| P-05  | Lunar initial page load (cached) completes in under **1 second**.      |
-| P-06  | SQLite queries for session listing (1000 sessions) complete in under **50ms**. |
-| P-07  | File search across a 10,000-file workspace completes in under **2 seconds**. |
+| ID | Requirement |
+|----|-------------|
+| P-01 | App window visible within 3s of launch on a modern machine (includes CometMind startup). |
+| P-02 | Session list renders up to 500 sessions without jank. |
+| P-03 | Streaming tokens render within one animation frame (≤16ms) of receipt. |
+| P-04 | No layout shift when tool call cards expand or collapse. |
 
-### 3.2 Security
+### 8.2 Reliability
 
-| ID    | Requirement                                                             |
-|-------|-------------------------------------------------------------------------|
-| SE-01 | The daemon binds to `127.0.0.1` by default; binding to `0.0.0.0` requires explicit `--host` flag and prints a warning. |
-| SE-02 | API keys for LLM providers are stored in `~/.cometcode/providers.toml` with file permissions `0600`. |
-| SE-03 | Tool execution is sandboxed to the workspace directory. File writes outside the workspace require explicit client-side approval. |
-| SE-04 | Shell command execution (`run_command` tool) logs the full command and prevents execution of commands matching a configurable deny-list. |
-| SE-05 | WebSocket connections are authenticated via a session token generated on daemon start and stored in the PID file. |
-| SE-06 | Lunar's Electron build enables `contextIsolation` and disables `nodeIntegration` in the renderer process. |
-| SE-07 | User input in tool arguments is sanitized to prevent command injection. |
-| SE-08 | No telemetry or analytics data is collected or transmitted. |
+| ID | Requirement |
+|----|-------------|
+| R-01 | If CometMind crashes, Cometline desktop shows an error state and offers a restart button. |
+| R-02 | If the SSE stream drops mid-session, Cometline desktop shows a reconnect prompt. |
+| R-03 | App close always sends SIGTERM to CometMind and waits for graceful exit (max 3s). |
 
-### 3.3 Reliability & Fault Tolerance
+### 8.3 Distribution
 
-| ID    | Requirement                                                             |
-|-------|-------------------------------------------------------------------------|
-| R-01  | If the LLM provider returns a transient error (429, 500, 503), the daemon retries up to 3 times with exponential backoff. |
-| R-02  | If a WebSocket connection drops, the client automatically reconnects with the full session state preserved server-side. |
-| R-03  | Session state is persisted to SQLite after every message; a daemon crash loses at most the in-flight streaming response. |
-| R-04  | Tool execution timeouts (default 120s) prevent runaway processes from blocking the daemon. |
-| R-05  | The daemon handles `SIGTERM` and `SIGINT` gracefully: flushes pending writes, closes connections, removes PID file. |
-| R-06  | If the SQLite database is corrupted, the daemon logs the error and attempts to recover from the WAL, or creates a new database with a backup of the old file. |
+| ID | Requirement |
+|----|-------------|
+| D-01 | macOS: signed `.dmg` containing a universal binary (amd64 + arm64). |
+| D-02 | Linux: `.AppImage` (amd64). |
+| D-03 | Windows: NSIS installer `.exe` (amd64). |
+| D-04 | The CometMind Go binary is bundled at `resources/cometmind` inside the Electron package. The user never needs to install Go or CometMind separately. |
+| D-05 | The CometMind binary is built by GoReleaser in the cometmind repo CI. Cometline desktop CI downloads the pre-built binary before running `electron-builder`. |
 
-### 3.4 Extensibility
+### 8.4 Security
 
-| ID    | Requirement                                                             |
-|-------|-------------------------------------------------------------------------|
-| X-01  | New LLM providers can be added by implementing a Go interface (`Provider`) with `Chat`, `StreamChat`, and `ListModels` methods. |
-| X-02  | Custom tools are executable files in `~/.cometcode/tools/` that follow a JSON-in/JSON-out protocol via stdin/stdout. |
-| X-03  | The system prompt is a Go template that can be customized per workspace or per session. |
-| X-04  | Lunar's component library is designed for composition — new views can be added by creating a route and composing existing components. |
+| ID | Requirement |
+|----|-------------|
+| SE-01 | `nodeIntegration: false` in all BrowserWindow instances. |
+| SE-02 | `contextIsolation: true` — renderer cannot access Node.js directly. |
+| SE-03 | All Node.js access from renderer goes through the `contextBridge` preload. |
+| SE-04 | CometMind server binds to `127.0.0.1` only; not reachable from the network. |
 
-### 3.5 Offline Capability
+### 8.5 Developer Experience
 
-| ID    | Requirement                                                             |
-|-------|-------------------------------------------------------------------------|
-| O-01  | The daemon, CLI, and TUI are fully functional without internet access when using a local LLM provider (Ollama). |
-| O-02  | Session history, workspace state, and configuration are always available offline. |
-| O-03  | When the configured LLM provider is unreachable, the daemon returns a clear error and the UI shows a "provider unavailable" state rather than hanging. |
-
-### 3.6 Portability
-
-| ID    | Requirement                                                             |
-|-------|-------------------------------------------------------------------------|
-| PT-01 | CometCode compiles to a single static binary for **Linux** (amd64, arm64), **macOS** (amd64, arm64), and **Windows** (amd64). |
-| PT-02 | Lunar's Electron build targets macOS (universal), Windows (x64), and Linux (x64, AppImage + deb). |
-| PT-03 | Lunar's web build is a static SvelteKit site that can be served by any HTTP server or opened as a local file. |
-| PT-04 | All filesystem paths use platform-appropriate separators and respect `XDG_CONFIG_HOME` on Linux, `~/Library/Application Support` on macOS, and `%APPDATA%` on Windows. |
-
-### 3.7 Developer Experience
-
-| ID    | Requirement                                                             |
-|-------|-------------------------------------------------------------------------|
-| DX-01 | The daemon exposes a `/api/v1/health` endpoint returning `200 OK` for liveness probes and integration tests. |
-| DX-02 | Structured JSON logging via `zap` with configurable log levels (`debug`, `info`, `warn`, `error`). |
-| DX-03 | `cometcode daemon start --dev` enables verbose logging and CORS `*` for local Lunar development. |
-| DX-04 | Lunar runs `vite dev` with hot module replacement against a running daemon — no build step during development. |
-| DX-05 | Both projects include CI pipelines (GitHub Actions) for lint, test, and build on every push. |
-| DX-06 | Go tests use `testing` + `testify`; Svelte tests use `vitest` + `@testing-library/svelte`. |
+| ID | Requirement |
+|----|-------------|
+| DX-01 | `pnpm dev` starts Vite + Electron in dev mode with HMR for renderer changes. |
+| DX-02 | `pnpm build` produces packaged apps for macOS, Linux, Windows via `electron-builder`. |
+| DX-03 | `svelte-check` and TypeScript errors fail the build. |
+| DX-04 | `pnpm test` runs Vitest unit tests for stores and API client. |
 
 ---
 
-## 4. Tech Stack
+## 9. Tech Stack
 
-### 4.1 CometCode (Go Runtime)
+| Component | Choice | Rationale |
+|-----------|--------|-----------|
+| Desktop shell | **Electron** | Cross-platform; Node.js main process can spawn CometMind and access local files. |
+| UI framework | **SvelteKit + Svelte 5** | One route/component tree for desktop-first local mode and future hosted mode. |
+| Language | **TypeScript** | Type safety against CometMind's API contract. |
+| Reactivity | **Svelte 5 Runes** | `$state`, `$derived`, `$effect` — no virtual DOM. |
+| Styling | **Tailwind CSS v4** | Utility-first; fast iteration. |
+| Routing | **SvelteKit routing** | File-based routes packaged in Electron for desktop mode. |
+| Markdown | **marked** | Small, fast Markdown parser. |
+| Syntax highlighting | **highlight.js** | Language auto-detection for code blocks. |
+| Persistent settings | **electron-store** | JSON file in `app.getPath('userData')`; survives app restarts. |
+| Build tool | **Vite + electron-vite** | Fast HMR for renderer; handles main + preload + renderer in one config. |
+| Packaging | **electron-builder** | Cross-platform packaging; code signing; auto-update support. |
+| Testing | **Vitest** | Unit tests for stores and API client. |
+| Package manager | **pnpm** | Fast, disk-efficient. |
 
-| Component         | Choice          | Rationale                                                              |
-|-------------------|-----------------|------------------------------------------------------------------------|
-| Language          | **Go 1.23+**    | Fast compilation, single binary output, excellent concurrency, strong standard library. |
-| HTTP Framework    | **Gin**         | High-performance, battle-tested router with middleware ecosystem.      |
-| WebSocket         | **gorilla/websocket** | Mature, well-documented WebSocket implementation for Go.         |
-| CLI Framework     | **Cobra**       | De facto standard for Go CLIs; subcommand structure, flag parsing, shell completions. |
-| TUI Framework     | **Bubble Tea**  | Elm-architecture TUI framework with composable components (Bubbles).  |
-| TUI Styling       | **Lip Gloss**   | Declarative terminal styling companion to Bubble Tea.                 |
-| Database          | **SQLite**      | Zero-config embedded database; single file, ACID-compliant, perfect for local-first. |
-| SQL Codegen       | **sqlc**        | Generates type-safe Go code from SQL queries; no ORM overhead.        |
-| Configuration     | **Viper**       | Reads TOML/YAML/env config with layered precedence.                   |
-| Logging           | **zap**         | High-performance structured logger with zero-allocation fast path.    |
-| ID Generation     | **oklog/ulid**  | Sortable, URL-safe unique IDs; better than UUIDv4 for time-ordered data. |
-| Testing           | **testify**     | Assertions and mocking for Go tests.                                  |
-| Build             | **GoReleaser**  | Cross-compilation, checksums, changelogs, and release automation.     |
+---
 
-### 4.2 Lunar (Svelte Frontend)
+## 10. Package Layout
 
-| Component         | Choice             | Rationale                                                           |
-|-------------------|--------------------|---------------------------------------------------------------------|
-| Framework         | **SvelteKit**      | Full-stack Svelte framework with file-based routing, SSR/SSG, and adapter ecosystem. |
-| Language          | **TypeScript**     | Type safety across the frontend; catches API contract mismatches at compile time. |
-| UI Reactivity     | **Svelte 5 (Runes)** | `$state`, `$derived`, `$effect` — fine-grained reactivity without virtual DOM overhead. |
-| Styling           | **Tailwind CSS v4** | Utility-first CSS with JIT compilation; consistent design system without custom CSS. |
-| Desktop Wrapper   | **Electron**       | Proven cross-platform desktop framework; reuses web codebase.       |
-| Electron Tooling  | **electron-vite**  | Unified Vite config for main, preload, and renderer processes.      |
-| Build Tool        | **Vite**           | Fast HMR, ESM-native bundling, plugin ecosystem.                   |
-| Testing           | **Vitest**         | Vite-native test runner; fast, ESM-first, compatible with Jest API. |
-| Component Testing | **@testing-library/svelte** | DOM-testing utilities for Svelte components.              |
-| Code Quality      | **ESLint + Prettier** | Consistent code style and error prevention.                      |
-| Package Manager   | **pnpm**           | Fast, disk-efficient, strict dependency resolution.                 |
-| Distribution      | **electron-builder** | App packaging, code signing, auto-update, and notarization.      |
+```
+cometline/
+│
+├── package.json
+├── electron-builder.yml            # packaging config (targets, icons, signing)
+├── vite.config.ts                  # electron-vite config
+├── tsconfig.json
+│
+├── electron/                       # Main process (Node.js — never in renderer bundle)
+│   ├── main.ts                     # app lifecycle, BrowserWindow creation
+│   │                               # startup sequence: spawn → health poll → loadURL
+│   ├── preload.ts                  # contextBridge: the only renderer↔main bridge
+│   └── cometmind.ts                # CometMind child process manager:
+│                                   #   spawn(), pollHealth(), kill(), restart()
+│                                   #   emits 'cometmind:crashed' to renderer on exit
+│
+├── src/                            # Renderer process (Svelte, runs in Chromium)
+│   ├── App.svelte                  # Root component + router
+│   ├── app.css                     # Global styles + Tailwind
+│   │
+│   ├── lib/
+│   │   ├── api/
+│   │   │   ├── client.ts           # Typed REST wrappers
+│   │   │   ├── sse.ts              # SSE stream consumer
+│   │   │   └── types.ts            # Session, Message, AgentEvent, etc.
+│   │   │
+│   │   ├── stores/
+│   │   │   ├── connection.svelte.ts
+│   │   │   ├── sessions.svelte.ts
+│   │   │   ├── chat.svelte.ts
+│   │   │   └── settings.svelte.ts
+│   │   │
+│   │   └── components/
+│   │       ├── ChatMessage.svelte
+│   │       ├── ChatInput.svelte
+│   │       ├── MessageList.svelte
+│   │       ├── StreamingText.svelte
+│   │       ├── ToolCallCard.svelte
+│   │       ├── TypingIndicator.svelte
+│   │       ├── SessionCard.svelte
+│   │       ├── SearchInput.svelte
+│   │       ├── StatusBar.svelte
+│   │       └── Toast.svelte
+│   │
+│   └── routes/
+│       ├── SessionList.svelte
+│       ├── ChatView.svelte
+│       └── Settings.svelte
+│
+├── resources/
+│   ├── icon.icns                   # macOS icon
+│   ├── icon.ico                    # Windows icon
+│   └── icon.png                    # Linux icon
+│
+└── docs/
+    └── HLD.md                      # This document
+```
 
-### 4.3 Communication
+---
 
-| Component           | Choice            | Rationale                                                          |
-|---------------------|-------------------|--------------------------------------------------------------------|
-| API Protocol        | **REST (JSON)**   | Simple, debuggable, universally supported for CRUD operations.     |
-| Real-time Protocol  | **WebSocket**     | Bi-directional streaming for chat messages and tool call events.   |
-| Serialization       | **JSON**          | Human-readable, native to both Go and TypeScript, debugger-friendly. |
-| Future Consideration| **gRPC**          | Potential addition for high-throughput internal communication or CLI-to-daemon calls. |
+## 11. Phase 2: Cloud / Hosted Version
 
-### 4.4 Deployment & Distribution
+**Out of scope for Phase 1.** This section documents the upgrade path if a hosted version is ever built.
 
-| Component           | Choice                 | Rationale                                                       |
-|---------------------|------------------------|-----------------------------------------------------------------|
-| CometCode Binary    | **GoReleaser**         | Single static binary per platform; no runtime dependencies.     |
-| Lunar Web           | **SvelteKit static adapter** | Pre-rendered static site; deployable anywhere or bundled with daemon. |
-| Lunar Desktop       | **electron-builder**   | DMG (macOS), NSIS (Windows), AppImage + deb (Linux).           |
-| CI/CD               | **GitHub Actions**     | Lint, test, build, and release pipelines for both projects.     |
-| Container (optional)| **Docker**             | Single container running daemon + static web UI for self-hosting. |
+Because Electron-specific code is strictly isolated to `electron/` and the preload bridge, the Svelte component tree in `src/` can be reused in a SvelteKit deployment with minimal changes.
 
-### 4.5 Development Tools
+| Layer | Phase 1 (Electron) | Phase 2 (Cloud) |
+|-------|--------------------|-----------------|
+| Desktop shell | Electron | Removed |
+| Preload / IPC | `contextBridge` | Removed |
+| Persistent settings | `electron-store` | `localStorage` or server session |
+| API base URL | `http://127.0.0.1:7700` | Configurable via `PUBLIC_COMETMIND_URL` |
+| CometMind server | Local child process | Remote HTTPS |
+| Auth | None (localhost only) | Auth layer required |
+| Svelte components | Unchanged | Unchanged |
+| Stores | Minimal Electron deps | Drop `electron-store` |
 
-| Tool                | Purpose                                                                  |
-|---------------------|--------------------------------------------------------------------------|
-| **Task (taskfile.dev)** | Polyglot task runner for build, test, lint commands across both projects. |
-| **Air**             | Go live-reload during development.                                       |
-| **golangci-lint**   | Comprehensive Go linter aggregator.                                      |
-| **svelte-check**    | Svelte-specific type checking and diagnostics.                           |
+No Svelte component, API type, SSE consumer, or store logic needs to change. The investment in Phase 1 is not thrown away.
 
 ---
 

@@ -1,0 +1,65 @@
+@import 'tailwindcss';
+
+:root {
+	--app-bg: #fbfbfa;
+	--sidebar-bg: rgba(250, 250, 249, 0.92);
+	--panel-bg: #ffffff;
+	--text-main: #1f2933;
+	--text-muted: #667085;
+	--text-soft: #98a2b3;
+	--border-soft: #e5e7eb;
+	--accent: #0066cc;
+	--shadow-card: 0 8px 28px rgba(15, 23, 42, 0.08);
+	--radius-window: 18px;
+	--radius-card: 16px;
+	--sidebar-width: 280px;
+	--composer-width: 760px;
+}
+
+html,
+body {
+	height: 100%;
+	margin: 0;
+	font-family:
+		-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+	background: var(--app-bg);
+	color: var(--text-main);
+	-webkit-font-smoothing: antialiased;
+}
+
+* {
+	box-sizing: border-box;
+}
+
+/* Native-feel rules */
+button,
+a,
+[role='button'] {
+	cursor: default;
+}
+
+input,
+textarea {
+	cursor: text;
+}
+
+::selection {
+	background: rgba(0, 102, 204, 0.2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 1ms !important;
+		animation-iteration-count: 1 !important;
+		scroll-behavior: auto !important;
+		transition-duration: 1ms !important;
+	}
+
+	::view-transition-group(*),
+	::view-transition-old(*),
+	::view-transition-new(*) {
+		animation: none !important;
+	}
+}

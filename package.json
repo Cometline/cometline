@@ -1,0 +1,59 @@
+{
+	"name": "cometline",
+	"private": true,
+	"version": "0.1.0",
+	"type": "module",
+	"main": "electron/main.cjs",
+	"scripts": {
+		"dev": "concurrently \"pnpm run dev:vite\" \"pnpm run dev:electron\"",
+		"dev:vite": "vite dev",
+		"dev:electron": "wait-on http://127.0.0.1:5173 && electron .",
+		"build": "vite build",
+		"build:electron": "pnpm run build && electron-builder",
+		"preview": "vite preview",
+		"prepare": "svelte-kit sync || echo ''",
+		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
+	},
+	"devDependencies": {
+		"@sveltejs/adapter-static": "^3.0.10",
+		"@sveltejs/kit": "^2.65.0",
+		"@sveltejs/vite-plugin-svelte": "^7.1.2",
+		"@tailwindcss/vite": "^4.3.0",
+		"@types/node": "^25.9.3",
+		"autoprefixer": "^10.5.0",
+		"concurrently": "^10.0.3",
+		"electron": "^42.4.0",
+		"electron-builder": "^26.15.3",
+		"postcss": "^8.5.15",
+		"svelte": "^5.56.1",
+		"svelte-check": "^4.6.0",
+		"tailwindcss": "^4.3.0",
+		"typescript": "^6.0.3",
+		"vite": "^8.0.16",
+		"wait-on": "^9.0.10"
+	},
+	"dependencies": {
+		"@lucide/svelte": "^1.18.0"
+	},
+	"build": {
+		"appId": "com.cometline.app",
+		"productName": "Cometline",
+		"directories": {
+			"buildResources": "buildResources"
+		},
+		"mac": {
+			"icon": "buildResources/icon.icns"
+		},
+		"files": [
+			"build/**/*",
+			"electron/**/*",
+			"package.json"
+		],
+		"extraResources": [
+			{
+				"from": "buildResources/icon.png",
+				"to": "icon.png"
+			}
+		]
+	}
+}
