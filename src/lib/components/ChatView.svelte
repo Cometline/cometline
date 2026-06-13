@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { fade } from 'svelte/transition';
 	import EmptyChatState from '$lib/components/EmptyChatState.svelte';
 	import Composer from '$lib/components/Composer.svelte';
 	import ChatThread from '$lib/components/ChatThread.svelte';
@@ -11,6 +12,8 @@
 	import { modelStore } from '$lib/stores/model.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { startChat } from '$lib/actions/start-chat';
+
+	const THREAD_IN = { duration: 180 };
 
 	// This component is keyed on sessionId by the route, so it remounts per
 	// session and sessionId is constant for the instance's lifetime. That lets
@@ -108,7 +111,9 @@
 			{/if}
 		</div>
 	{:else}
-		<ChatThread {awaitingFirstAssistant} {firstTurnFlightDone} />
+		<div class="thread-shell" transition:fade={THREAD_IN}>
+			<ChatThread {awaitingFirstAssistant} {firstTurnFlightDone} />
+		</div>
 	{/if}
 
 	<FirstTurnFlight
@@ -162,6 +167,11 @@
 		justify-content: center;
 		padding: 48px 48px 0;
 		flex-direction: column;
+	}
+
+	.thread-shell {
+		position: absolute;
+		inset: 0;
 	}
 
 	.boot-error {

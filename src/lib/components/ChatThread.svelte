@@ -4,6 +4,11 @@
 	import { Brain, CheckCircle2, ChevronDown, Loader2, Terminal, TriangleAlert } from '@lucide/svelte';
 	import { chatStore, type ChatItem } from '$lib/stores/chat.svelte';
 
+	const USER_ROW_IN = { x: 14, duration: 220 };
+	const ASSISTANT_ROW_IN = { y: 10, duration: 220 };
+	const TOOL_ROW_IN = { y: 8, duration: 200 };
+	const STATUS_ROW_IN = { y: 6, duration: 180 };
+
 	let { awaitingFirstAssistant = false, firstTurnFlightDone = false }: {
 		awaitingFirstAssistant?: boolean;
 		firstTurnFlightDone?: boolean;
@@ -99,6 +104,15 @@
 		);
 	}
 
+	function showAssistantAvatar(index: number) {
+		for (let i = index - 1; i >= 0; i--) {
+			const previous = chatStore.items[i];
+			if (previous.type === 'status' || previous.type === 'error') continue;
+			return previous.type === 'user';
+		}
+		return true;
+	}
+
 	$effect(() => {
 		scrollKey;
 		if (scrollFrame) cancelAnimationFrame(scrollFrame);
@@ -179,11 +193,11 @@
 			</div>
 		{/if}
 
-		{#each chatStore.items as item (item.id)}
+		{#each chatStore.items as item, index (item.id)}
 			{#if item.type === 'user'}
 				<div
 					class="row user-row"
-					transition:fly={item.reveal === false ? undefined : { y: 8, duration: 160 }}
+					transition:fly={item.reveal === false ? undefined : USER_ROW_IN}
 				>
 					<div
 						class="bubble user-bubble"
@@ -216,15 +230,19 @@
 			{:else if item.type === 'assistant' && showAssistantRow(item) && !(awaitingFirstAssistant && item.id === firstAssistantId)}
 				<div
 					class="row assistant-row gap-2.5 md:gap-3 lg:gap-4"
-					transition:fly={item.id === firstAssistantId ? undefined : { y: 8, duration: 180 }}
+					transition:fly={item.id === firstAssistantId ? undefined : ASSISTANT_ROW_IN}
 				>
-					<div class="avatar-mini size-9 shrink-0 md:size-10 lg:size-11 xl:size-12">
-						<img src="/project_icon.png" alt="" />
-					</div>
+					{#if showAssistantAvatar(index)}
+						<div class="avatar-mini size-9 shrink-0 md:size-10 lg:size-11 xl:size-12">
+							<img src="/project_icon.png" alt="" />
+						</div>
+					{:else}
+						<div class="avatar-gutter size-9 shrink-0 md:size-10 lg:size-11 xl:size-12" aria-hidden="true"></div>
+					{/if}
 					{@render assistantStack(item)}
 				</div>
 			{:else if item.type === 'tool'}
-				<div class="row tool-row gap-2.5 md:gap-3 lg:gap-4" transition:fly={{ y: 6, duration: 160 }}>
+				<div class="row tool-row gap-2.5 md:gap-3 lg:gap-4" transition:fly={TOOL_ROW_IN}>
 					<div class="avatar-gutter size-9 shrink-0 md:size-10 lg:size-11 xl:size-12" aria-hidden="true"></div>
 					<div class="tool-stack">
 						<div class="event-card tool-card" class:error={!!item.error}>
@@ -246,7 +264,7 @@
 										type="button"
 										class="fold-toggle"
 										aria-expanded={toolOutputExpanded(item)}
-									onclick={() => toggleToolOutput(item.id)}
+										onclick={() => toggleToolOutput(item.id)}
 									>
 										<span>Output</span>
 										{#if item.pending}
@@ -273,9 +291,9 @@
 					</div>
 				</div>
 			{:else if item.type === 'status'}
-				<div class="status" transition:fade={{ duration: 140 }}>{usageText(item)}</div>
+				<div class="status" transition:fly={STATUS_ROW_IN}>{usageText(item)}</div>
 			{:else if item.type === 'error'}
-				<div class="row event-row" transition:fly={{ y: 6, duration: 160 }}>
+				<div class="row event-row" transition:fly={TOOL_ROW_IN}>
 					<div class="event-card error-card">
 						<div class="event-title"><TriangleAlert size={14} /><span>Error</span></div>
 						<p>{item.text}</p>
