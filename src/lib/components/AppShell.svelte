@@ -4,6 +4,7 @@
 	import RuntimeOverlay from './RuntimeOverlay.svelte';
 	import SettingsModal from './SettingsModal.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
+	import { startNewChat } from '$lib/actions/new-chat';
 
 	let { children, workspacePath = '/' }: { children: import('svelte').Snippet; workspacePath?: string } =
 		$props();
@@ -20,6 +21,10 @@
 			if (key === ',') {
 				event.preventDefault();
 				shellStore.openSettings();
+			}
+			if (key === 't') {
+				event.preventDefault();
+				startNewChat();
 			}
 		}
 

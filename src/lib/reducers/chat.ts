@@ -173,11 +173,23 @@ function applyEvent(
 		return reasoning.current;
 	}
 
+	function publishAssistant(next: AssistantItem) {
+		const index = items.findIndex((item) => item.id === next.id);
+		if (index >= 0) {
+			items[index] = next;
+		}
+		assistant.current = next;
+		return next;
+	}
+
 	function syncReasoningPreview() {
-		if (!reasoning.current) return ensureReasoningHost();
 		const host = ensureReasoningHost();
-		host.reasoning = { text: reasoning.current.text, pending: reasoning.current.pending };
-		return host;
+		if (!reasoning.current) return host;
+		return publishAssistant({
+			...host,
+			pending: true,
+			reasoning: { text: reasoning.current.text, pending: reasoning.current.pending }
+		});
 	}
 
 	if (event.type === 'reasoning_start') {
@@ -186,28 +198,27 @@ function applyEvent(
 		} else {
 			reasoning.current = { text: '', pending: true };
 		}
-		const host = syncReasoningPreview();
-		host.pending = true;
+		syncReasoningPreview();
 		return;
 	}
 
 	if (event.type === 'reasoning_delta') {
 		const turnReasoning = ensureTurnReasoning();
 		turnReasoning.text += event.text;
-		const host = syncReasoningPreview();
-		host.pending = true;
+		syncReasoningPreview();
 		return;
 	}
 
 	if (event.type === 'text_delta') {
-		const nextAssistant = ensureAssistantForText();
-		if (nextAssistant.reasoning) {
-			nextAssistant.reasoning.pending = false;
-		}
+		const host = ensureAssistantForText();
 		if (reasoning.current) reasoning.current.pending = false;
 		reasoning.current = null;
-		nextAssistant.text += event.delta;
-		nextAssistant.pending = false;
+		publishAssistant({
+			...host,
+			text: host.text + event.delta,
+			pending: false,
+			reasoning: host.reasoning ? { ...host.reasoning, pending: false } : undefined
+		});
 		return;
 	}
 
@@ -231,12 +242,14 @@ function applyEvent(
 			| Extract<ChatItem, { type: 'tool' }>
 			| undefined;
 		if (tool) {
-			tool.output = event.output;
-			tool.error = event.error;
-			tool.pending = false;
-			if (tool.startedAt != null) {
-				tool.durationMs = Date.now() - tool.startedAt;
-			}
+			const index = items.indexOf(tool);
+			items[index] = {
+				...tool,
+				output: event.output,
+				error: event.error,
+				pending: false,
+				durationMs: tool.startedAt != null ? Date.now() - tool.startedAt : tool.durationMs
+			};
 		}
 		return;
 	}
@@ -276,6 +289,9 @@ function cloneAssistant(a: AssistantItem | null): AssistantItem | null {
 }
 
 function cloneItem(item: ChatItem): ChatItem {
+	if (item.type === 'user') {
+		return { ...item, reveal: item.reveal ?? true };
+	}
 	if (item.type === 'assistant') {
 		return {
 			...item,

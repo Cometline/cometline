@@ -7,6 +7,7 @@
 	import type { Session } from '$lib/types';
 	import { sessionStore } from '$lib/stores/session.svelte';
 	import { deleteSession } from '$lib/client/cometmind';
+	import { startNewChat } from '$lib/actions/new-chat';
 	import { chatStore } from '$lib/stores/chat.svelte';
 	import { modelStore } from '$lib/stores/model.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
@@ -23,10 +24,7 @@
 	});
 
 	function newChat() {
-		sessionStore.selectSession(null);
-		chatStore.clear();
-		shellStore.centerComposer();
-		void goto('/');
+		startNewChat();
 	}
 
 	function selectSession(session: Session) {

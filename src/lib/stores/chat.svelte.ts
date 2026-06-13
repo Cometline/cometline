@@ -83,7 +83,7 @@ function itemFromTranscript(item: TranscriptItem, index: number): ChatItem {
 
 function createChatStore() {
 	let sessionID = $state<string | null>(null);
-	let items = $state<ChatItem[]>([]);
+	let items = $state.raw<ChatItem[]>([]);
 	let isLoading = $state(false);
 	let isStreaming = $state(false);
 	let error = $state('');
@@ -141,13 +141,21 @@ function createChatStore() {
 	}
 
 	function revealStagedUser() {
-		const staged = [...items].reverse().find((item) => item.type === 'user' && item.reveal === false);
-		if (!staged || staged.type !== 'user') return;
-		staged.reveal = true;
-		notifyItems();
+		let revealIndex = -1;
+		for (let i = items.length - 1; i >= 0; i--) {
+			const item = items[i];
+			if (item.type === 'user' && item.reveal === false) {
+				revealIndex = i;
+				break;
+			}
+		}
+		if (revealIndex < 0) return;
+		items = items.map((item, i) =>
+			i === revealIndex && item.type === 'user' ? { ...item, reveal: true } : item
+		);
 	}
 
-	/** Shallow-copy the items array so Svelte picks up in-place mutations during streaming. */
+	/** Shallow-copy the items array so Svelte picks up streaming updates. */
 	function notifyItems() {
 		items = items.slice();
 	}
@@ -174,6 +182,7 @@ function createChatStore() {
 		ctx.assistant.current = reduced.assistant;
 		ctx.reasoning.current = reduced.reasoning;
 		nextId = reduced.nextId;
+		notifyItems();
 	}
 
 	async function send(nextSessionID: string, text: string, opts?: { skipUser?: boolean }) {
@@ -223,7 +232,6 @@ function createChatStore() {
 				const beforeDone = summarizeChatItems(items);
 				applyEvent({ type: 'done' }, ctx);
 				isStreaming = false;
-				notifyItems();
 				chatDebug('store:send-finish', {
 					sessionID: nextSessionID,
 					run,

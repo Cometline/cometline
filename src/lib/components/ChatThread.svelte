@@ -21,19 +21,20 @@
 	let expandedReasoning = $state(new Set<string>());
 	let expandedToolOutput = $state(new Set<string>());
 	let now = $state(Date.now());
+	let threadItems = $derived(chatStore.items);
 	let firstAssistantId = $derived(
-		chatStore.items.find((item) => item.type === 'assistant')?.id ?? null
+		threadItems.find((item) => item.type === 'assistant')?.id ?? null
 	);
 	let firstUserId = $derived(
-		chatStore.items.find((item) => item.type === 'user')?.id ?? null
+		threadItems.find((item) => item.type === 'user')?.id ?? null
 	);
 	let firstAssistantItem = $derived(
-		chatStore.items.find((item) => item.type === 'assistant') as
+		threadItems.find((item) => item.type === 'assistant') as
 			| Extract<ChatItem, { type: 'assistant' }>
 			| undefined
 	);
 	let scrollKey = $derived(
-		`${chatStore.isStreaming}:${chatStore.items
+		`${chatStore.isStreaming}:${threadItems
 			.map((item) => {
 				if (item.type === 'tool') {
 					return `${item.id}:${item.output?.length ?? 0}:${item.pending ?? false}`;
@@ -56,7 +57,7 @@
 		firstAssistantId,
 		firstAssistantItem: firstAssistantItem ? summarizeChatItem(firstAssistantItem) : null,
 		firstAssistantVisible: firstAssistantItem ? showAssistantRow(firstAssistantItem) : false,
-		items: chatStore.items.map(summarizeRenderItem)
+		items: threadItems.map(summarizeRenderItem)
 	}));
 
 	$effect(() => {
@@ -240,21 +241,25 @@
 				>
 					<img src="/project_icon.png" alt="" />
 				</div>
-				<div class="assistant-stack"></div>
+				{#if firstAssistantItem && showAssistantRow(firstAssistantItem)}
+					{@render assistantStack(firstAssistantItem)}
+				{:else}
+					<div class="assistant-stack"></div>
+				{/if}
 			</div>
 		{/if}
 
-		{#each chatStore.items as item, index (item.id)}
+		{#each threadItems as item, index (item.id)}
 			{#if item.type === 'user'}
 				<div
 					class="row user-row"
 					class:continuation-row={!startsSpeakerRun(index, 'user')}
-					transition:fly={item.reveal === false ? undefined : USER_ROW_IN}
 				>
 					<div
 						class="bubble user-bubble"
 						class:flight-hidden={item.reveal === false}
 						data-flight-target={item.reveal === false ? 'user' : undefined}
+						in:fly={item.reveal === false ? undefined : USER_ROW_IN}
 					>
 						{item.text}
 					</div>
@@ -279,7 +284,7 @@
 						{/if}
 					</div>
 				{/if}
-			{:else if item.type === 'assistant' && showAssistantRow(item) && !(awaitingFirstAssistant && item.id === firstAssistantId)}
+			{:else if item.type === 'assistant' && showAssistantRow(item) && !(awaitingFirstAssistant && item.id === firstAssistantId && firstUserId)}
 				<div
 					class="row assistant-row gap-2.5 md:gap-3 lg:gap-4"
 					class:continuation-row={!startsSpeakerRun(index, 'assistant')}
@@ -446,6 +451,10 @@
 
 	.continuation-row {
 		margin-top: -6px;
+	}
+
+	.tool-row.continuation-row {
+		margin-top: -16px;
 	}
 
 	.user-row {
