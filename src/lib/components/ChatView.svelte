@@ -3,6 +3,7 @@
 	import EmptyChatState from '$lib/components/EmptyChatState.svelte';
 	import Composer from '$lib/components/Composer.svelte';
 	import ChatThread from '$lib/components/ChatThread.svelte';
+	import FirstTurnFlight from '$lib/components/FirstTurnFlight.svelte';
 	import { sessionStore } from '$lib/stores/session.svelte';
 	import { getSession } from '$lib/client/cometmind';
 	import { chatStore } from '$lib/stores/chat.svelte';
@@ -10,14 +11,6 @@
 	import { modelStore } from '$lib/stores/model.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { startChat } from '$lib/actions/start-chat';
-	import {
-		FLIGHT_MS,
-		afterPaint,
-		rectStyle,
-		textareaUserOrigin,
-		wait,
-		waitForSelector
-	} from '$lib/first-turn-flight';
 
 	let {
 		sessionId,
@@ -29,15 +22,11 @@
 		initialMessage?: string | null;
 	} = $props();
 
-	let chatHome: HTMLDivElement;
+	let chatHome = $state<HTMLDivElement | null>(null);
+	let firstTurnFlight: FirstTurnFlight;
 	let awaitingFirstAssistant = $state(false);
 	let firstTurnActive = $state(false);
 	let firstTurnFlightDone = $state(false);
-	let userFlightStyle = $state('');
-	let userFlightText = $state('');
-	let avatarFlightStyle = $state('');
-	let showUserFlight = $state(false);
-	let showAvatarFlight = $state(false);
 	let bootstrapped = $state(false);
 
 	let hasVisibleConversation = $derived(chatStore.items.length > 0 || chatStore.isLoading);
@@ -77,55 +66,6 @@
 		void submit(initialMessage);
 	});
 
-	async function runParallelFirstTurn(text: string): Promise<void> {
-		const emptyAvatar = chatHome?.querySelector('.empty-state .avatar');
-		const textarea = chatHome?.querySelector('.composer textarea');
-		const avatarFrom =
-			emptyAvatar instanceof HTMLElement ? emptyAvatar.getBoundingClientRect() : null;
-		const textareaFrom =
-			textarea instanceof HTMLElement ? textarea.getBoundingClientRect() : null;
-
-		firstTurnActive = true;
-		firstTurnFlightDone = false;
-		awaitingFirstAssistant = true;
-
-		shellStore.dockComposer();
-		chatStore.stageUser(text);
-		await tick();
-
-		const userTarget = await waitForSelector(chatHome, '[data-flight-target="user"]');
-		const avatarTarget = await waitForSelector(chatHome, '[data-flight-target="avatar"]');
-
-		if (
-			userTarget instanceof HTMLElement &&
-			avatarTarget instanceof HTMLElement &&
-			textareaFrom &&
-			avatarFrom
-		) {
-			const userTo = userTarget.getBoundingClientRect();
-			const avatarTo = avatarTarget.getBoundingClientRect();
-			userFlightText = text;
-			userFlightStyle = rectStyle(textareaUserOrigin(textareaFrom, userTo), userTo);
-			avatarFlightStyle = rectStyle(avatarFrom, avatarTo);
-			showUserFlight = true;
-			showAvatarFlight = true;
-			await wait(FLIGHT_MS);
-
-			chatStore.revealStagedUser();
-			firstTurnFlightDone = true;
-			await afterPaint();
-
-			showUserFlight = false;
-			showAvatarFlight = false;
-			userFlightText = '';
-		} else {
-			chatStore.revealStagedUser();
-			firstTurnFlightDone = true;
-		}
-
-		firstTurnActive = false;
-	}
-
 	async function submit(text: string) {
 		await startChat(
 			{
@@ -136,7 +76,11 @@
 					return hasVisibleConversation;
 				},
 				send: (t, opts) => chatStore.send(sessionId, t, opts),
-				onFirstTurnStart: runParallelFirstTurn,
+				onFirstTurnStart: async (text) => {
+					awaitingFirstAssistant = true;
+					shellStore.dockComposer();
+					firstTurnFlight.run(text);
+				},
 				onFirstTurnComplete: () => {
 					awaitingFirstAssistant = false;
 				},
@@ -172,14 +116,14 @@
 		<ChatThread {awaitingFirstAssistant} {firstTurnFlightDone} />
 	{/if}
 
-	{#if showUserFlight}
-		<div class="flight-particle user-flight" style={userFlightStyle}>{userFlightText}</div>
-	{/if}
-	{#if showAvatarFlight}
-		<div class="flight-particle avatar-flight" style={avatarFlightStyle}>
-			<img src="/project_icon.png" alt="" />
-		</div>
-	{/if}
+	<FirstTurnFlight
+		bind:this={firstTurnFlight}
+		root={chatHome}
+		stageUser={(text) => chatStore.stageUser(text)}
+		revealStagedUser={() => chatStore.revealStagedUser()}
+		onActiveChange={(active) => (firstTurnActive = active)}
+		onFlightDoneChange={(done) => (firstTurnFlightDone = done)}
+	/>
 
 	<div class="composer-wrapper" class:centered={shellStore.composerPhase === 'centered'}>
 		<Composer
@@ -251,52 +195,6 @@
 		bottom: 50%;
 		transform: translateX(-50%) translateY(168px);
 		width: min(700px, calc(100% - 64px));
-	}
-
-	.flight-particle {
-		position: fixed;
-		z-index: 40;
-		pointer-events: none;
-		transform-origin: top left;
-		animation: first-turn-flight 560ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
-	}
-
-	.user-flight {
-		padding: 11px 14px;
-		border-radius: 18px 18px 6px 18px;
-		background: #1f2933;
-		color: white;
-		font-size: 14px;
-		line-height: 1.55;
-		white-space: pre-wrap;
-		word-break: break-word;
-		box-shadow: 0 16px 40px rgba(31, 41, 51, 0.18);
-	}
-
-	.avatar-flight {
-		border-radius: 24px;
-		background: linear-gradient(145deg, #ffffff, #eef2f6);
-		border: 1px solid var(--border-soft);
-		box-shadow: 0 8px 28px rgba(15, 23, 42, 0.1);
-		padding: 4px;
-		overflow: hidden;
-	}
-
-	.avatar-flight img {
-		width: 100%;
-		height: 100%;
-		object-fit: cover;
-		border-radius: 20px;
-		display: block;
-	}
-
-	@keyframes first-turn-flight {
-		from {
-			transform: translate3d(0, 0, 0) scale(1, 1);
-		}
-		to {
-			transform: translate3d(var(--flight-x), var(--flight-y), 0) scale(var(--flight-sx), var(--flight-sy));
-		}
 	}
 
 	@media (max-width: 900px) {
