@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { tick } from 'svelte';
 	import { fade, fly, slide } from 'svelte/transition';
-	import { Brain, CheckCircle2, ChevronDown, LoaderCircle, Terminal, TriangleAlert } from '@lucide/svelte';
+	import { Brain, CircleCheck, ChevronDown, LoaderCircle, Terminal, TriangleAlert } from '@lucide/svelte';
 	import { chatStore, type ChatItem } from '$lib/stores/chat.svelte';
 	import { chatDebug, chatDebugEnabled, summarizeChatItem } from '../debug/chat';
 
@@ -331,7 +331,7 @@
 									{#if item.pending}
 										<LoaderCircle size={13} class="spin" />
 									{:else}
-										<CheckCircle2 size={13} />
+										<CircleCheck size={13} />
 									{/if}
 								</div>
 							</div>
