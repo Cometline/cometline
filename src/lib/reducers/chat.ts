@@ -121,6 +121,16 @@ function applyEvent(
 		assistant.current = null;
 	}
 
+	function finishAssistantSegment() {
+		settleTurn({ assistant: assistant.current, reasoning: reasoning.current });
+		if (assistant.current && !assistant.current.text.trim() && !assistant.current.reasoning?.text.trim()) {
+			clearEmptyAssistant();
+		} else {
+			assistant.current = null;
+		}
+		reasoning.current = null;
+	}
+
 	function ensureTurnReasoning() {
 		if (!reasoning.current) reasoning.current = { text: '', pending: true };
 		return reasoning.current;
@@ -165,8 +175,7 @@ function applyEvent(
 	}
 
 	if (event.type === 'tool_call') {
-		settleTurn({ assistant: assistant.current, reasoning: reasoning.current });
-		clearEmptyAssistant();
+		finishAssistantSegment();
 		const id = localID('tool', draft.nextId++).id;
 		items.push({
 			id,
@@ -192,10 +201,7 @@ function applyEvent(
 	}
 
 	if (event.type === 'step_finish') {
-		settleTurn({ assistant: assistant.current, reasoning: reasoning.current });
-		if (assistant.current && !assistant.current.text.trim()) {
-			clearEmptyAssistant();
-		}
+		finishAssistantSegment();
 		return;
 	}
 

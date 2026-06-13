@@ -123,4 +123,33 @@ describe('reduceChatState', () => {
 		if (state.items[2].type !== 'assistant') return;
 		expect(state.items[2].text).toBe('Found it.');
 	});
+
+	it('starts a fresh assistant after a step boundary and tool result', () => {
+		const events: StreamEvent[] = [
+			{ type: 'reasoning_delta', text: 'Need to inspect files.' },
+			{ type: 'step_finish' },
+			{ type: 'tool_call', id: 'tc-1', tool: 'read_file', input: { path: 'main.go' } },
+			{ type: 'tool_result', id: 'tc-1', tool: 'read_file', output: 'package main' },
+			{ type: 'text_delta', delta: 'The file contains Go code.' }
+		];
+		let state = initChatState();
+		for (const event of events) {
+			state = reduceChatState(state, event);
+		}
+
+		expect(state.items).toHaveLength(3);
+		expect(state.items[0].type).toBe('assistant');
+		if (state.items[0].type !== 'assistant') return;
+		expect(state.items[0].reasoning?.text).toBe('Need to inspect files.');
+		expect(state.items[0].reasoning?.pending).toBe(false);
+
+		expect(state.items[1].type).toBe('tool');
+		if (state.items[1].type !== 'tool') return;
+		expect(state.items[1].output).toBe('package main');
+		expect(state.items[1].pending).toBe(false);
+
+		expect(state.items[2].type).toBe('assistant');
+		if (state.items[2].type !== 'assistant') return;
+		expect(state.items[2].text).toBe('The file contains Go code.');
+	});
 });
