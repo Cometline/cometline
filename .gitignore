@@ -1,0 +1,4 @@
+CONTEXT.md
+docs/*
+!docs/PHASES.md
+TODO.md

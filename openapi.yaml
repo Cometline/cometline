@@ -1,0 +1,517 @@
+openapi: 3.1.0
+info:
+  title: CometMind Local Serve API
+  version: 0.1.0
+  description: |
+    Minimal local HTTP + SSE surface for CometMind Phase 8.
+
+    v1 is localhost-only, has no app-layer auth, keeps `/api/v1` path versioning,
+    and exposes only the first serve slice endpoints.
+servers:
+  - url: http://127.0.0.1:7700
+    description: Default local bind address
+tags:
+  - name: Health
+  - name: Sessions
+paths:
+  /api/v1/health:
+    get:
+      tags: [Health]
+      summary: Check server liveness
+      operationId: getHealth
+      responses:
+        '200':
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: ok
+
+  /api/v1/sessions:
+    post:
+      tags: [Sessions]
+      summary: Create a session
+      description: |
+        Creates a new session for an explicit workspace selection.
+
+        Provide either `workspace_id` or `workspace_path`.
+        When `workspace_path` is provided and the workspace is not yet registered,
+        CometMind auto-registers it before creating the session.
+      operationId: createSession
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSessionRequest'
+            examples:
+              byWorkspacePath:
+                summary: Create by workspace path
+                value:
+                  workspace_path: /Users/tomlord/workspace/personal-project/cometline
+              byWorkspaceId:
+                summary: Create by workspace id
+                value:
+                  workspace_id: ws_01JABCDEF
+                  model_id: claude-sonnet-4-5
+                  provider_id: anthropic
+      responses:
+        '201':
+          description: Session created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+              example:
+                id: sess_01JABCDEF
+                workspace_id: ws_01JABCDEF
+                workspace_path: /Users/tomlord/workspace/personal-project/cometline
+                title: ""
+                model_id: claude-sonnet-4-5
+                provider_id: anthropic
+                status: active
+                token_usage:
+                  input_tokens: 0
+                  output_tokens: 0
+                  cache_read: 0
+                  cache_write: 0
+                created_at: 1746880000000
+                updated_at: 1746880000000
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    get:
+      tags: [Sessions]
+      summary: List sessions for one workspace
+      description: |
+        Lists sessions for exactly one workspace scope.
+
+        Supply either `workspace_id` or `workspace_path`.
+        This endpoint is workspace-scoped and requires one of those query parameters.
+        Unlike session creation, `workspace_path` does not auto-register missing workspaces.
+      operationId: listSessions
+      parameters:
+        - name: workspace_id
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Registered workspace identifier.
+        - name: workspace_path
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Absolute workspace path for an already-registered workspace.
+      responses:
+        '200':
+          description: Sessions for the requested workspace
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionListResponse'
+              example:
+                sessions:
+                  - id: sess_01JABCDEF
+                    workspace_id: ws_01JABCDEF
+                    workspace_path: /Users/tomlord/workspace/personal-project/cometline
+                    title: Investigate serve slice
+                    model_id: claude-sonnet-4-5
+                    provider_id: anthropic
+                    status: active
+                    token_usage:
+                      input_tokens: 1200
+                      output_tokens: 340
+                      cache_read: 0
+                      cache_write: 0
+                    created_at: 1746880000000
+                    updated_at: 1746880200000
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/sessions/{id}:
+    get:
+      tags: [Sessions]
+      summary: Get one session
+      operationId: getSession
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200':
+          description: Session resource
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      tags: [Sessions]
+      summary: Delete one session
+      description: Removes the session and cascades its persisted messages and tool-call rows.
+      operationId: deleteSession
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '204':
+          description: Session deleted
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/sessions/{id}/messages:
+    get:
+      tags: [Sessions]
+      summary: Get transcript-style session messages
+      description: |
+        Returns a transcript-style API model rather than raw database rows.
+        Tool rows include both the tool input and the recorded tool output.
+      operationId: getSessionMessages
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200':
+          description: Transcript items for the session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TranscriptResponse'
+              example:
+                session_id: sess_01JABCDEF
+                items:
+                  - type: user
+                    text: Inspect the entrypoint.
+                  - type: reasoning
+                    text: I should inspect the entrypoint before changing the server wiring.
+                  - type: assistant
+                    text: I found the serve command entrypoint.
+                  - type: tool
+                    tool_name: read_file
+                    tool_input:
+                      path: main.go
+                    tool_output: |-
+                      package main
+                    tool_error: false
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/sessions/{id}/message:
+    post:
+      tags: [Sessions]
+      summary: Send one text message and stream events over SSE
+      description: |
+        Accepts text-only input for v1 and responds with `text/event-stream`.
+
+        The SSE payloads reuse CometMind-native event names:
+        `text_delta`, `reasoning_start`, `reasoning_delta`, `tool_call`,
+        `tool_result`, `step_finish`, `error`, and `done`.
+
+        `tool_call.input` is opaque JSON.
+        `tool_result.output` is text.
+      operationId: postSessionMessage
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostMessageRequest'
+            example:
+              text: Inspect the server package and summarize the next change.
+      responses:
+        '200':
+          description: SSE event stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: |
+                  A sequence of SSE `data:` frames. Each frame body is one JSON event object.
+              examples:
+                minimalConversation:
+                  summary: Text, tool, step, and done events
+                  value: |-
+                    data: {"type":"reasoning_start"}
+
+                    data: {"type":"reasoning_delta","text":"I should inspect the session service first."}
+
+                    data: {"type":"tool_call","id":"tc_01","tool":"read_file","input":{"path":"internal/session/service.go"}}
+
+                    data: {"type":"tool_result","id":"tc_01","tool":"read_file","output":"package session\n\nimport (\n\t\"context\"\n..."}
+
+                    data: {"type":"text_delta","delta":"The HTTP layer should resolve workspaces through SessionService."}
+
+                    data: {"type":"step_finish","usage":{"input_tokens":1200,"output_tokens":340,"cache_read":0,"cache_write":0}}
+
+                    data: {"type":"done"}
+                withError:
+                  summary: Stream ending with an error event
+                  value: |-
+                    data: {"type":"text_delta","delta":"Starting request..."}
+
+                    data: {"type":"error","message":"provider returned an error","code":"llm"}
+
+                    data: {"type":"done"}
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Session already has an in-flight run
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: session_running
+                  message: session sess_01JABCDEF already running
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/sessions/{id}/abort:
+    post:
+      tags: [Sessions]
+      summary: Abort an in-flight session run
+      description: Cancels the currently running loop for the specified session.
+      operationId: abortSession
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '202':
+          description: Abort accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusResponse'
+              example:
+                status: aborting
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Session is not currently running
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: session_not_running
+                  message: session is not currently running
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+  parameters:
+    SessionId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Persisted CometMind session identifier.
+
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: bad_request
+              message: invalid request
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: session_not_found
+              message: session was not found
+    InternalError:
+      description: Unexpected server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: internal_error
+              message: unexpected server error
+
+  schemas:
+    HealthResponse:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+          const: ok
+
+    CreateSessionRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        workspace_id:
+          type: string
+          description: Registered workspace identifier.
+        workspace_path:
+          type: string
+          description: Absolute filesystem path for the workspace.
+        model_id:
+          type: string
+          description: Optional model override; defaults to current config.
+        provider_id:
+          type: string
+          description: Optional provider override; defaults to current config.
+      description: Provide either `workspace_id` or `workspace_path`.
+
+    PostMessageRequest:
+      type: object
+      additionalProperties: false
+      required: [text]
+      properties:
+        text:
+          type: string
+          minLength: 1
+          description: Text-only user input for v1.
+
+    Session:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - workspace_id
+        - workspace_path
+        - title
+        - model_id
+        - provider_id
+        - status
+        - token_usage
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+        workspace_id:
+          type: string
+        workspace_path:
+          type: string
+        title:
+          type: string
+        model_id:
+          type: string
+        provider_id:
+          type: string
+        status:
+          type: string
+          enum: [active, archived]
+        token_usage:
+          $ref: '#/components/schemas/TokenUsage'
+        created_at:
+          type: integer
+          format: int64
+          description: Unix epoch milliseconds.
+        updated_at:
+          type: integer
+          format: int64
+          description: Unix epoch milliseconds.
+
+    SessionListResponse:
+      type: object
+      additionalProperties: false
+      required: [sessions]
+      properties:
+        sessions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Session'
+
+    TranscriptResponse:
+      type: object
+      additionalProperties: false
+      required: [session_id, items]
+      properties:
+        session_id:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TranscriptItem'
+
+    TranscriptItem:
+      type: object
+      required: [type]
+      properties:
+        type:
+          type: string
+          enum: [user, reasoning, assistant, tool]
+        text:
+          type: string
+        tool_name:
+          type: string
+        tool_input:
+          description: Opaque JSON tool input.
+        tool_output:
+          type: string
+        tool_error:
+          type: boolean
+
+    TokenUsage:
+      type: object
+      additionalProperties: false
+      required: [input_tokens, output_tokens, cache_read, cache_write]
+      properties:
+        input_tokens:
+          type: integer
+        output_tokens:
+          type: integer
+        cache_read:
+          type: integer
+        cache_write:
+          type: integer
+
+    StatusResponse:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message]
+          properties:
+            code:
+              type: string
+            message:
+              type: string
