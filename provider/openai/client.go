@@ -4,16 +4,13 @@ package openai
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
-	"strconv"
-	"strings"
-	"time"
 
 	cometsdk "github.com/cometline/comet-sdk"
+	"github.com/cometline/comet-sdk/internal/providerbase"
 	"github.com/cometline/comet-sdk/internal/retry"
 )
 
@@ -38,14 +35,10 @@ func NewOpenAIProvider(apiKey string, opts ...cometsdk.Option) cometsdk.Provider
 		o(&cfg)
 	}
 	cfg.BaseURL = cometsdk.NormaliseBaseURL(cfg.BaseURL)
-	log := cfg.Logger
-	if log == nil {
-		log = slog.New(noopHandler{})
-	}
 	return &provider{
 		apiKey: apiKey,
 		cfg:    cfg,
-		log:    log.With("provider", providerID),
+		log:    providerbase.Logger(cfg, providerID),
 	}
 }
 
@@ -72,7 +65,7 @@ func (p *provider) Stream(ctx context.Context, req *cometsdk.Request) (<-chan co
 		}
 		httpResp = r
 		return nil
-	}, isRetryable)
+	}, providerbase.IsRetryable)
 
 	if err != nil {
 		p.log.DebugContext(ctx, "stream.failed", "error", err)
@@ -90,7 +83,7 @@ func (p *provider) doRequest(ctx context.Context, req *cometsdk.Request) (*http.
 	}
 
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		openAIEndpoint(p.cfg.BaseURL), bytes.NewReader(body))
+		providerbase.Endpoint(p.cfg.BaseURL, "/chat/completions"), bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("openai: build request: %w", err)
 	}
@@ -115,68 +108,8 @@ func (p *provider) doRequest(ctx context.Context, req *cometsdk.Request) (*http.
 	if resp.StatusCode != http.StatusOK {
 		defer resp.Body.Close()
 		body, _ := io.ReadAll(resp.Body)
-		return nil, classifyHTTPError(providerID, resp, body)
+		return nil, providerbase.ClassifyHTTPError(providerID, resp, body)
 	}
 
 	return resp, nil
 }
-
-func classifyHTTPError(providerID string, resp *http.Response, body []byte) error {
-	switch resp.StatusCode {
-	case http.StatusUnauthorized, http.StatusForbidden:
-		return &cometsdk.AuthError{ProviderID: providerID, StatusCode: resp.StatusCode}
-
-	case http.StatusTooManyRequests:
-		var d time.Duration
-		if ra := resp.Header.Get("Retry-After"); ra != "" {
-			if secs, err := strconv.Atoi(ra); err == nil {
-				d = time.Duration(secs) * time.Second
-			}
-		}
-		return &cometsdk.RateLimitError{ProviderID: providerID, RetryAfter: d}
-
-	default:
-		msg := string(body)
-		var apiErr struct {
-			Error struct {
-				Message string `json:"message"`
-			} `json:"error"`
-		}
-		if json.Unmarshal(body, &apiErr) == nil && apiErr.Error.Message != "" {
-			msg = apiErr.Error.Message
-		}
-		return &cometsdk.ServerError{
-			ProviderID: providerID,
-			StatusCode: resp.StatusCode,
-			Message:    msg,
-		}
-	}
-}
-
-func isRetryable(err error) bool {
-	switch e := err.(type) {
-	case *cometsdk.RateLimitError:
-		return true
-	case *cometsdk.ServerError:
-		return e.StatusCode == 500 || e.StatusCode == 502 ||
-			e.StatusCode == 503 || e.StatusCode == 529
-	}
-	return false
-}
-
-func openAIEndpoint(baseURL string) string {
-	baseURL = cometsdk.NormaliseBaseURL(baseURL)
-	if strings.HasSuffix(baseURL, "/v1") {
-		return baseURL + "/chat/completions"
-	}
-	return baseURL + "/v1/chat/completions"
-}
-
-// noopHandler is a slog.Handler that discards all log records.
-// Used when the caller passes WithLogger(nil).
-type noopHandler struct{}
-
-func (noopHandler) Enabled(_ context.Context, _ slog.Level) bool  { return false }
-func (noopHandler) Handle(_ context.Context, _ slog.Record) error { return nil }
-func (noopHandler) WithAttrs(_ []slog.Attr) slog.Handler          { return noopHandler{} }
-func (noopHandler) WithGroup(_ string) slog.Handler               { return noopHandler{} }

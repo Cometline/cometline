@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	cometsdk "github.com/cometline/comet-sdk"
+	"github.com/cometline/comet-sdk/internal/providerbase"
 )
 
 // ─── Outgoing: SDK Request → OpenAI JSON ─────────────────────────────────────
@@ -93,35 +94,7 @@ func toOpenAIRequest(req *cometsdk.Request) ([]byte, error) {
 		})
 	}
 
-	return marshalWithOptions(or, req.Options, "openai")
-}
-
-// marshalWithOptions marshals base into JSON, then merges any keys from
-// overrides[providerKey] on top. SDK-managed fields always win.
-func marshalWithOptions(base any, overrides map[string]any, providerKey string) ([]byte, error) {
-	merged := make(map[string]any)
-	if overrides != nil {
-		if providerOpts, ok := overrides[providerKey]; ok {
-			switch v := providerOpts.(type) {
-			case map[string]any:
-				for k, val := range v {
-					merged[k] = val
-				}
-			default:
-				return nil, fmt.Errorf("%s: Options[%q] must be map[string]any, got %T", providerKey, providerKey, providerOpts)
-			}
-		}
-	}
-
-	structBytes, err := json.Marshal(base)
-	if err != nil {
-		return nil, err
-	}
-	if err := json.Unmarshal(structBytes, &merged); err != nil {
-		return nil, err
-	}
-
-	return json.Marshal(merged)
+	return providerbase.MarshalWithOptions(or, req.Options, "openai")
 }
 
 // convertMessages prepends a system message if provided, then converts all messages.
@@ -397,20 +370,22 @@ func toSDKEvents(data string, state *streamState) ([]cometsdk.Event, error) {
 		}
 	}
 
-	switch choice.FinishReason {
-	case "tool_calls":
-		for _, ip := range state.inProgress {
-			events = append(events, cometsdk.ToolCallDoneEvent{
-				ID:    ip.id,
-				Name:  ip.name,
-				Input: json.RawMessage(ip.argBuffer.String()),
-			})
+	if choice.FinishReason != "" {
+		// Flush any in-progress tool calls before recording the finish so the
+		// caller sees complete tool calls ahead of the StepFinishEvent.
+		if choice.FinishReason == "tool_calls" {
+			for _, ip := range state.inProgress {
+				events = append(events, cometsdk.ToolCallDoneEvent{
+					ID:    ip.id,
+					Name:  ip.name,
+					Input: json.RawMessage(ip.argBuffer.String()),
+				})
+			}
+			state.inProgress = make(map[int]*inProgressToolCall)
 		}
-		state.inProgress = make(map[int]*inProgressToolCall)
-		state.pendingFinish = &cometsdk.StepFinishEvent{FinishReason: "tool_use"}
-
-	case "stop":
-		state.pendingFinish = &cometsdk.StepFinishEvent{FinishReason: "stop"}
+		state.pendingFinish = &cometsdk.StepFinishEvent{
+			FinishReason: cometsdk.NormalizeFinishReason(choice.FinishReason),
+		}
 	}
 
 	return events, nil

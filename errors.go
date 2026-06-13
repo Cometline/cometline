@@ -16,18 +16,24 @@ func (e *AuthError) Error() string {
 }
 
 // RateLimitError is returned on HTTP 429.
-// RetryAfter indicates how long to wait before retrying (0 if not provided by the provider).
+// RetryAfterDelay indicates how long to wait before retrying (0 if not provided
+// by the provider). It is exposed to the retry layer via the RetryAfter method.
 type RateLimitError struct {
-	ProviderID string
-	RetryAfter time.Duration
+	ProviderID      string
+	RetryAfterDelay time.Duration
 }
 
 func (e *RateLimitError) Error() string {
-	if e.RetryAfter > 0 {
-		return fmt.Sprintf("cometsdk: %s: rate limited, retry after %s", e.ProviderID, e.RetryAfter)
+	if e.RetryAfterDelay > 0 {
+		return fmt.Sprintf("cometsdk: %s: rate limited, retry after %s", e.ProviderID, e.RetryAfterDelay)
 	}
 	return fmt.Sprintf("cometsdk: %s: rate limited", e.ProviderID)
 }
+
+// RetryAfter reports the server-provided retry delay so the retry layer can
+// honour a 429 Retry-After header instead of falling back to plain exponential
+// backoff. Satisfies the retry.RetryAfterError interface.
+func (e *RateLimitError) RetryAfter() time.Duration { return e.RetryAfterDelay }
 
 // ServerError is returned on HTTP 5xx responses.
 type ServerError struct {
@@ -38,16 +44,6 @@ type ServerError struct {
 
 func (e *ServerError) Error() string {
 	return fmt.Sprintf("cometsdk: %s: server error (HTTP %d): %s", e.ProviderID, e.StatusCode, e.Message)
-}
-
-// ContextLengthError is returned when the input exceeds the model's context window.
-type ContextLengthError struct {
-	ProviderID string
-	ModelID    string
-}
-
-func (e *ContextLengthError) Error() string {
-	return fmt.Sprintf("cometsdk: %s: context length exceeded for model %s", e.ProviderID, e.ModelID)
 }
 
 // StreamError wraps an error that occurred mid-stream (after HTTP 200 was received).

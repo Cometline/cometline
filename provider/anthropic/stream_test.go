@@ -78,7 +78,7 @@ func TestStream_TextOnly(t *testing.T) {
 
 	require.Equal(t, []string{"Hello", ", world!"}, texts)
 	require.NotNil(t, stepFinish)
-	require.Equal(t, "end_turn", stepFinish.FinishReason)
+	require.Equal(t, "stop", stepFinish.FinishReason)
 	require.Equal(t, 10, stepFinish.Usage.InputTokens)
 	require.Equal(t, 5, stepFinish.Usage.OutputTokens)
 	require.True(t, done)

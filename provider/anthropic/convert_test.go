@@ -181,7 +181,7 @@ func TestConvertEvent_StepFinish(t *testing.T) {
 
 	sf, ok := events[0].(cometsdk.StepFinishEvent)
 	require.True(t, ok)
-	require.Equal(t, "end_turn", sf.FinishReason)
+	require.Equal(t, "stop", sf.FinishReason)
 	require.Equal(t, 10, sf.Usage.InputTokens)
 	require.Equal(t, 5, sf.Usage.OutputTokens)
 	require.Equal(t, 2, sf.Usage.CacheRead)

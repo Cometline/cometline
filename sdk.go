@@ -161,9 +161,43 @@ type ToolCallDoneEvent struct {
 
 func (ToolCallDoneEvent) isEvent() {}
 
+// FinishReason is the normalized vocabulary every provider must emit.
+// Providers translate their own stop reasons into one of these values so
+// callers never have to know provider-specific spellings (e.g. Anthropic's
+// "end_turn" or OpenAI's "length").
+const (
+	FinishStop      = "stop"       // model completed its turn normally
+	FinishToolUse   = "tool_use"   // model wants one or more tools invoked
+	FinishMaxTokens = "max_tokens" // output was truncated by a token limit
+	FinishError     = "error"      // the step ended in an error
+)
+
+// NormalizeFinishReason maps a provider-specific stop reason onto the canonical
+// FinishReason vocabulary. Unknown non-empty reasons fall back to FinishStop so
+// the agent loop always terminates on a completed turn; empty stays empty.
+func NormalizeFinishReason(raw string) string {
+	switch raw {
+	case "", FinishStop, FinishToolUse, FinishMaxTokens, FinishError:
+		return raw
+	// Anthropic stop_reason vocabulary.
+	case "end_turn", "stop_sequence":
+		return FinishStop
+	// OpenAI finish_reason vocabulary.
+	case "tool_calls":
+		return FinishToolUse
+	case "length":
+		return FinishMaxTokens
+	case "content_filter":
+		return FinishStop
+	default:
+		return FinishStop
+	}
+}
+
 // StepFinishEvent is emitted at the end of each LLM call (one "step").
 type StepFinishEvent struct {
-	FinishReason string // "stop" | "tool_use" | "max_tokens" | "error"
+	// FinishReason is always one of the canonical Finish* constants.
+	FinishReason string
 	Usage        TokenUsage
 }
 

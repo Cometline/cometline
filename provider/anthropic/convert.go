@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	cometsdk "github.com/cometline/comet-sdk"
+	"github.com/cometline/comet-sdk/internal/providerbase"
 )
 
 // ─── Outgoing: SDK Request → Anthropic JSON ───────────────────────────────────
@@ -85,38 +86,7 @@ func toAnthropicRequest(req *cometsdk.Request) ([]byte, error) {
 		})
 	}
 
-	return marshalWithOptions(ar, req.Options, "anthropic")
-}
-
-// marshalWithOptions marshals base into JSON, then merges any keys from
-// overrides[providerKey] on top. SDK-controlled fields always win.
-func marshalWithOptions(base any, overrides map[string]any, providerKey string) ([]byte, error) {
-	// Start with the caller's provider-specific overrides (if any).
-	merged := make(map[string]any)
-	if overrides != nil {
-		if providerOpts, ok := overrides[providerKey]; ok {
-			switch v := providerOpts.(type) {
-			case map[string]any:
-				for k, val := range v {
-					merged[k] = val
-				}
-			default:
-				return nil, fmt.Errorf("%s: Options[%q] must be map[string]any, got %T", providerKey, providerKey, providerOpts)
-			}
-		}
-	}
-
-	// Marshal the typed struct, then unmarshal back into the map so SDK-managed
-	// fields overwrite any conflicting keys from the caller's overrides.
-	structBytes, err := json.Marshal(base)
-	if err != nil {
-		return nil, err
-	}
-	if err := json.Unmarshal(structBytes, &merged); err != nil {
-		return nil, err
-	}
-
-	return json.Marshal(merged)
+	return providerbase.MarshalWithOptions(ar, req.Options, "anthropic")
 }
 
 // convertMessages converts SDK messages to Anthropic message structs.
@@ -359,7 +329,7 @@ func toSDKEvents(eventType, data string, state *streamState) ([]cometsdk.Event, 
 			reason = ev.Delta.StopReason
 		}
 		return []cometsdk.Event{cometsdk.StepFinishEvent{
-			FinishReason: reason,
+			FinishReason: cometsdk.NormalizeFinishReason(reason),
 			Usage:        usage,
 		}}, nil
 

@@ -76,11 +76,9 @@ func collectFromChannel(ctx context.Context, ch <-chan cometsdk.Event) (*Collect
 	var (
 		textBuf      []byte
 		reasoningBuf []byte
-		blocks       []cometsdk.Block
 		toolCalls    []cometsdk.ToolCallBlock
 		finish       string
 		usage        cometsdk.TokenUsage
-		gotFinish    bool
 		streamErr    error
 	)
 
@@ -97,7 +95,7 @@ func collectFromChannel(ctx context.Context, ch <-chan cometsdk.Event) (*Collect
 		case ev, ok := <-ch:
 			if !ok {
 				// Channel closed without DoneEvent — unusual but handle gracefully.
-				return buildResponse(textBuf, reasoningBuf, blocks, toolCalls, finish, usage), nil
+				return buildResponse(textBuf, reasoningBuf, toolCalls, finish, usage), nil
 			}
 
 			switch e := ev.(type) {
@@ -122,7 +120,6 @@ func collectFromChannel(ctx context.Context, ch <-chan cometsdk.Event) (*Collect
 			case cometsdk.StepFinishEvent:
 				finish = e.FinishReason
 				usage = e.Usage
-				gotFinish = true
 
 			case cometsdk.ReasoningStartEvent:
 				// Reasoning content will arrive via ReasoningContentEvents.
@@ -137,8 +134,7 @@ func collectFromChannel(ctx context.Context, ch <-chan cometsdk.Event) (*Collect
 				if streamErr != nil {
 					return nil, streamErr
 				}
-				_ = gotFinish // suppress unused warning; gotFinish is for future assertions
-				return buildResponse(textBuf, reasoningBuf, blocks, toolCalls, finish, usage), nil
+				return buildResponse(textBuf, reasoningBuf, toolCalls, finish, usage), nil
 			}
 		}
 	}
@@ -148,7 +144,6 @@ func collectFromChannel(ctx context.Context, ch <-chan cometsdk.Event) (*Collect
 func buildResponse(
 	textBuf []byte,
 	reasoningBuf []byte,
-	_ []cometsdk.Block, // reserved for future non-text/non-tool block types
 	toolCalls []cometsdk.ToolCallBlock,
 	finish string,
 	usage cometsdk.TokenUsage,

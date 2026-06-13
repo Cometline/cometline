@@ -2,6 +2,14 @@
 
 Comet SDK is the provider-normalized LLM I/O layer for Cometline. It must stay small, deterministic, and free of agent policy. If a feature needs memory, tools, permissions, sessions, UI, or workflow decisions, it belongs in CometMind or Cometline instead.
 
+> Domain glossary: [CONTEXT.md](../CONTEXT.md). Architecture decisions: [docs/adr/](./adr/).
+
+## Status Snapshot
+
+- **Phase 0 — Contract Freeze**: largely done. `FinishReason` is normalized at the Stream seam (ADR-0002), sealed `Event`/`Block` sum types documented (ADR-0001), golden SSE fixtures exist for both providers. Remaining: explicit stable/experimental annotations on every public type.
+- **Phase 1 — Provider Robustness**: largely done. Cross-provider behavior consolidated in `internal/providerbase` (ADR-0003), `Retry-After` honored (ADR-0004), typed errors for auth/rate-limit/server/stream. Remaining: malformed-SSE fixtures, log redaction rules.
+- **Phase 2+**: not started.
+
 ## North Star
 
 Expose one stable Go interface that lets CometMind stream model output, tool calls, reasoning deltas, usage, and provider errors across Anthropic, OpenAI, and OpenAI-compatible APIs without leaking provider-specific behavior into the runtime.
@@ -21,9 +29,9 @@ Goal: make the current provider contract safe to build the runtime on top of.
 Day-by-day:
 
 1. Document every public type in `sdk.go` as either stable, experimental, or internal-by-convention.
-2. Add golden stream fixtures for Anthropic and OpenAI text, reasoning, single tool, multiple tools, and provider error streams.
-3. Define exact `FinishReason` values accepted by CometMind: `stop`, `tool_use`, `max_tokens`, `error`.
-4. Add tests proving `llm.StreamMessage` never drops tool calls or usage when deltas arrive interleaved with text/reasoning.
+2. [done] Add golden stream fixtures for Anthropic and OpenAI text, reasoning, single tool, multiple tools, and provider error streams.
+3. [done] Define exact `FinishReason` values accepted by CometMind: `stop`, `tool_use`, `max_tokens`, `error`. Normalized at the Stream seam — see ADR-0002.
+4. [done] Add tests proving `llm.StreamMessage` never drops tool calls or usage when deltas arrive interleaved with text/reasoning.
 5. Add a short compatibility note for OpenAI-compatible gateways and `WithBaseURL` behavior.
 
 Exit criteria:
@@ -38,9 +46,9 @@ Goal: make provider calls reliable enough for a desktop app.
 
 Day-by-day:
 
-1. Normalize context cancellation behavior across Anthropic and OpenAI providers.
-2. Confirm retry behavior for 429, 5xx, transient network errors, and `Retry-After`.
-3. Add typed errors for authentication, context length, rate limits, server errors, and malformed provider streams.
+1. [done] Normalize context cancellation behavior across Anthropic and OpenAI providers.
+2. [done] Confirm retry behavior for 429, 5xx, transient network errors, and `Retry-After` — server `Retry-After` is now honored (ADR-0004). Shared retry/classification lives in `internal/providerbase` (ADR-0003).
+3. [done] Add typed errors for authentication, rate limits, server errors, and malformed provider streams. (`ContextLengthError` was removed as a phantom type — never constructed; re-add when a provider actually maps it.)
 4. Add provider test fixtures for partial JSON tool-call arguments and malformed SSE frames.
 5. Add debug logging redaction rules so request logs never expose API keys or sensitive message content by default.
 
