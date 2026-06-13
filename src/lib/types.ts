@@ -86,6 +86,8 @@ export type ChatItem =
 			output?: string;
 			error?: string;
 			pending?: boolean;
+			startedAt?: number;
+			durationMs?: number;
 	  }
 	| { id: string; type: 'status'; text: string; usage?: TokenUsage }
 	| { id: string; type: 'error'; text: string };

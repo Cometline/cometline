@@ -3,6 +3,7 @@
 	import { fade, fly, slide } from 'svelte/transition';
 	import { Brain, CheckCircle2, ChevronDown, Loader2, Terminal, TriangleAlert } from '@lucide/svelte';
 	import { chatStore, type ChatItem } from '$lib/stores/chat.svelte';
+	import { chatDebug, chatDebugEnabled, summarizeChatItem } from '../debug/chat';
 
 	const USER_ROW_IN = { x: 14, duration: 220 };
 	const ASSISTANT_ROW_IN = { y: 10, duration: 220 };
@@ -19,6 +20,7 @@
 	let scrollFrame = 0;
 	let expandedReasoning = $state(new Set<string>());
 	let expandedToolOutput = $state(new Set<string>());
+	let now = $state(Date.now());
 	let firstAssistantId = $derived(
 		chatStore.items.find((item) => item.type === 'assistant')?.id ?? null
 	);
@@ -46,15 +48,35 @@
 			})
 			.join('|')}`
 	);
+	let renderDebugSnapshot = $derived.by(() => ({
+		awaitingFirstAssistant,
+		firstTurnFlightDone,
+		isStreaming: chatStore.isStreaming,
+		firstUserId,
+		firstAssistantId,
+		firstAssistantItem: firstAssistantItem ? summarizeChatItem(firstAssistantItem) : null,
+		firstAssistantVisible: firstAssistantItem ? showAssistantRow(firstAssistantItem) : false,
+		items: chatStore.items.map(summarizeRenderItem)
+	}));
 
-	function pretty(value: unknown) {
-		if (value == null) return '';
-		if (typeof value === 'string') return value;
-		try {
-			return JSON.stringify(value, null, 2);
-		} catch {
-			return String(value);
-		}
+	$effect(() => {
+		if (!chatStore.items.some((item) => item.type === 'tool' && item.pending)) return;
+		const timer = setInterval(() => {
+			now = Date.now();
+		}, 100);
+		return () => clearInterval(timer);
+	});
+
+	function formatToolDuration(ms: number) {
+		if (ms < 1000) return `${Math.max(1, Math.round(ms))}ms`;
+		if (ms < 10000) return `${(ms / 1000).toFixed(1)}s`;
+		return `${Math.round(ms / 1000)}s`;
+	}
+
+	function toolDurationLabel(item: Extract<ChatItem, { type: 'tool' }>) {
+		if (item.durationMs != null) return formatToolDuration(item.durationMs);
+		if (item.pending && item.startedAt != null) return formatToolDuration(now - item.startedAt);
+		return '';
 	}
 
 	function usageText(item: Extract<ChatItem, { type: 'status' }>) {
@@ -86,7 +108,7 @@
 	}
 
 	function toolOutputExpanded(item: Extract<ChatItem, { type: 'tool' }>) {
-		return expandedToolOutput.has(item.id) || Boolean(item.pending && chatStore.isStreaming);
+		return expandedToolOutput.has(item.id);
 	}
 
 	function showToolOutputPanel(item: Extract<ChatItem, { type: 'tool' }>) {
@@ -108,6 +130,20 @@
 		);
 	}
 
+	function summarizeRenderItem(item: ChatItem, index: number) {
+		if (item.type !== 'assistant') return { index, ...summarizeChatItem(item) };
+		return {
+			index,
+			...summarizeChatItem(item),
+			showAssistantRow: showAssistantRow(item),
+			isFirstAssistant: item.id === firstAssistantId,
+			renderedInFirstTurnSlot: awaitingFirstAssistant && item.id === firstAssistantId,
+			excludedFromNormalList: awaitingFirstAssistant && item.id === firstAssistantId,
+			reasoningExpanded: reasoningExpanded(item),
+			showTypingBubble: showTypingBubble(item)
+		};
+	}
+
 	function speakerFor(item: ChatItem): 'user' | 'assistant' | null {
 		if (item.type === 'user') return 'user';
 		if (item.type === 'assistant' || item.type === 'tool') return 'assistant';
@@ -122,6 +158,11 @@
 		}
 		return true;
 	}
+
+	$inspect(renderDebugSnapshot).with((type, snapshot) => {
+		if (!chatDebugEnabled()) return;
+		chatDebug('thread:$inspect', { type, ...snapshot });
+	});
 
 	$effect(() => {
 		scrollKey;
@@ -178,7 +219,7 @@
 	</div>
 {/snippet}
 
-<div class="thread" bind:this={scroller} aria-live="polite">
+<div class="thread scrollbar-gutter-stable" bind:this={scroller} aria-live="polite">
 	<div class="thread-inner">
 		{#if chatStore.isLoading && chatStore.items.length === 0}
 			<div class="loading" transition:fade={{ duration: 140 }}>
@@ -262,44 +303,43 @@
 					<div class="avatar-gutter size-9 shrink-0 md:size-10 lg:size-11 xl:size-12" aria-hidden="true"></div>
 					<div class="tool-stack">
 						<div class="event-card tool-card" class:error={!!item.error}>
-							<div class="event-title">
-								<Terminal size={14} />
-								<span class="tool-name">{item.toolName}</span>
-								{#if item.pending}
-									<Loader2 size={13} class="spin" />
-								{:else}
-									<CheckCircle2 size={13} />
-								{/if}
+							<div class="tool-header">
+								<div class="event-title">
+									<Terminal size={14} />
+									<span class="tool-name">{item.toolName}</span>
+								</div>
+								<div class="tool-meta">
+									{#if showToolOutputPanel(item)}
+										<button
+											type="button"
+											class="fold-toggle tool-output-toggle"
+											aria-expanded={toolOutputExpanded(item)}
+											onclick={() => toggleToolOutput(item.id)}
+										>
+											<span>Output</span>
+											<ChevronDown size={12} class={toolOutputExpanded(item) ? 'expanded' : ''} />
+										</button>
+									{/if}
+									{#if toolDurationLabel(item)}
+										<span class="tool-duration">{toolDurationLabel(item)}</span>
+									{/if}
+									{#if item.pending}
+										<Loader2 size={13} class="spin" />
+									{:else}
+										<CheckCircle2 size={13} />
+									{/if}
+								</div>
 							</div>
-							{#if pretty(item.input)}
-								<pre class="tool-input">{pretty(item.input)}</pre>
-							{/if}
-							{#if showToolOutputPanel(item)}
-								<div class="fold-panel tool-output-panel">
-									<button
-										type="button"
-										class="fold-toggle"
-										aria-expanded={toolOutputExpanded(item)}
-										onclick={() => toggleToolOutput(item.id)}
-									>
-										<span>Output</span>
-										{#if item.pending}
-											<Loader2 size={12} class="spin" />
-										{/if}
-										<ChevronDown size={13} class={toolOutputExpanded(item) ? 'expanded' : ''} />
-									</button>
-									{#if toolOutputExpanded(item)}
-										<div class="fold-body tool-output-body" transition:slide={FOLD_IN}>
-											{#if item.output}
-												<p>{item.output}</p>
-											{/if}
-											{#if item.error}
-												<p class="tool-error-text">{item.error}</p>
-											{/if}
-											{#if item.pending && !item.output && !item.error}
-												<p>Running…</p>
-											{/if}
-										</div>
+							{#if showToolOutputPanel(item) && toolOutputExpanded(item)}
+								<div class="tool-output-body" transition:slide={FOLD_IN}>
+									{#if item.output}
+										<p>{item.output}</p>
+									{/if}
+									{#if item.error}
+										<p class="tool-error-text">{item.error}</p>
+									{/if}
+									{#if item.pending && !item.output && !item.error}
+										<p>Running…</p>
 									{/if}
 								</div>
 							{/if}
@@ -456,7 +496,8 @@
 		gap: 8px;
 		max-width: min(620px, 82%);
 		min-width: 0;
-		flex: 1;
+		flex: 0 1 auto;
+		align-items: flex-start;
 	}
 
 	.fold-panel {
@@ -514,8 +555,65 @@
 		border-top: 1px solid var(--border-soft);
 	}
 
-	.tool-output-panel {
+	.tool-card {
+		padding: 8px 10px;
+	}
+
+	.tool-header {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		min-width: 0;
+	}
+
+	.tool-header .event-title {
+		margin-bottom: 0;
+		flex: 1;
+		min-width: 0;
+	}
+
+	.tool-meta {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		flex-shrink: 0;
+	}
+
+	.tool-output-toggle {
+		padding: 3px 8px;
+		font-size: 11px;
+	}
+
+	.tool-duration {
+		font-size: 11px;
+		font-weight: 500;
+		color: var(--text-soft);
+		font-variant-numeric: tabular-nums;
+	}
+
+	.tool-output-body {
 		margin-top: 8px;
+		border: 1px solid var(--border-soft);
+		background: rgba(15, 23, 42, 0.03);
+		border-radius: 10px;
+		padding: 8px 10px;
+		color: var(--text-muted);
+	}
+
+	.tool-output-body p {
+		margin: 0;
+		font-size: 12px;
+		line-height: 1.5;
+		white-space: pre-wrap;
+		word-break: break-word;
+		max-height: 220px;
+		overflow: auto;
+	}
+
+	.tool-output-body p + p {
+		margin-top: 8px;
+		padding-top: 8px;
+		border-top: 1px solid var(--border-soft);
 	}
 
 	.tool-error-text {
@@ -528,16 +626,12 @@
 		border-radius: 50%;
 		background: linear-gradient(145deg, #ffffff, #eef2f6);
 		border: 1px solid var(--border-soft);
-		display: grid;
-		place-items: center;
 		box-shadow: 0 5px 14px rgba(15, 23, 42, 0.06);
 		overflow: hidden;
-		padding: 3px;
 	}
 
 	@media (min-width: 1024px) {
 		.avatar-mini {
-			padding: 4px;
 			box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
 		}
 	}
@@ -568,6 +662,8 @@
 	}
 
 	.assistant-bubble {
+		width: fit-content;
+		max-width: 100%;
 		background: rgba(255, 255, 255, 0.82);
 		border: 1px solid var(--border-soft);
 		border-bottom-left-radius: 6px;
@@ -613,7 +709,6 @@
 
 	.event-title :global(svg:last-child) {
 		flex-shrink: 0;
-		margin-left: auto;
 	}
 
 	.error-card p {
@@ -621,23 +716,6 @@
 		font-size: 12px;
 		line-height: 1.5;
 		white-space: pre-wrap;
-	}
-
-	.tool-card .tool-input {
-		margin: 0 0 8px;
-		padding: 8px 10px;
-		border-radius: 9px;
-		background: rgba(15, 23, 42, 0.04);
-		font-size: 11px;
-		line-height: 1.45;
-		white-space: pre-wrap;
-		word-break: break-word;
-		overflow-x: auto;
-		color: var(--text-muted);
-	}
-
-	.tool-card .tool-input:last-child {
-		margin-bottom: 0;
 	}
 
 	.error-card {

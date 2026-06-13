@@ -145,8 +145,7 @@
 		border-radius: 50%;
 		background: linear-gradient(145deg, #ffffff, #eef2f6);
 		border: 1px solid var(--border-soft);
-		box-shadow: 0 8px 28px rgba(15, 23, 42, 0.1);
-		padding: 4px;
+		box-shadow: 0 5px 14px rgba(15, 23, 42, 0.06);
 		overflow: hidden;
 	}
 

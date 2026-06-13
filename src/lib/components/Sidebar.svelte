@@ -6,7 +6,7 @@
 	import { Settings, SquarePen, Trash2 } from '@lucide/svelte';
 	import type { Session } from '$lib/types';
 	import { sessionStore } from '$lib/stores/session.svelte';
-	import { createSession, deleteSession } from '$lib/client/cometmind';
+	import { deleteSession } from '$lib/client/cometmind';
 	import { chatStore } from '$lib/stores/chat.svelte';
 	import { modelStore } from '$lib/stores/model.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
@@ -27,17 +27,6 @@
 		chatStore.clear();
 		shellStore.centerComposer();
 		void goto('/');
-	}
-
-	async function createAndSelect() {
-		const session = await createSession({
-			workspace_path: workspacePath,
-			model_id: modelStore.selected.model_id,
-			provider_id: modelStore.selected.provider_id
-		});
-		sessionStore.appendSession(session);
-		chatStore.clear();
-		await goto(`/session/${session.id}`);
 	}
 
 	function selectSession(session: Session) {
@@ -96,7 +85,7 @@
 		</div>
 
 		<div class="session-list">
-		<button class="new-chat-row" onclick={createAndSelect}>New Chat</button>
+		<button class="new-chat-row" onclick={newChat}>New Chat</button>
 		{#each sessionStore.sessions as session (session.id)}
 			<div class="session-row-wrap" class:selected={currentSessionId === session.id}>
 				<button class="session-row" onclick={() => selectSession(session)}>

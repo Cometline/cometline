@@ -1,5 +1,9 @@
 @import 'tailwindcss';
 
+@utility scrollbar-gutter-stable {
+	scrollbar-gutter: stable;
+}
+
 :root {
 	/* Colors */
 	--app-bg: #fbfbfa;

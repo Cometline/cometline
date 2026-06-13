@@ -26,7 +26,6 @@
 		margin-bottom: 24px;
 		box-shadow: var(--shadow-card);
 		overflow: hidden;
-		padding: 4px;
 	}
 
 	.avatar img {
