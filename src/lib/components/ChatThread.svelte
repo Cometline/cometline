@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { tick } from 'svelte';
 	import { fade, fly, slide } from 'svelte/transition';
-	import { Brain, CheckCircle2, ChevronDown, Loader2, Terminal, TriangleAlert } from '@lucide/svelte';
+	import { Brain, CheckCircle2, ChevronDown, LoaderCircle, Terminal, TriangleAlert } from '@lucide/svelte';
 	import { chatStore, type ChatItem } from '$lib/stores/chat.svelte';
 	import { chatDebug, chatDebugEnabled, summarizeChatItem } from '../debug/chat';
 
@@ -206,7 +206,7 @@
 					<Brain size={13} />
 					<span>Reasoning</span>
 					{#if item.reasoning.pending && chatStore.isStreaming}
-						<Loader2 size={12} class="spin" />
+						<LoaderCircle size={12} class="spin" />
 					{/if}
 					<ChevronDown size={13} class={reasoningExpanded(item) ? 'expanded' : ''} />
 				</button>
@@ -224,7 +224,7 @@
 	<div class="thread-inner">
 		{#if chatStore.isLoading && chatStore.items.length === 0}
 			<div class="loading" transition:fade={{ duration: 140 }}>
-				<Loader2 size={15} class="spin" />
+				<LoaderCircle size={15} class="spin" />
 				<span>Loading conversation…</span>
 			</div>
 		{/if}
@@ -329,7 +329,7 @@
 										<span class="tool-duration">{toolDurationLabel(item)}</span>
 									{/if}
 									{#if item.pending}
-										<Loader2 size={13} class="spin" />
+										<LoaderCircle size={13} class="spin" />
 									{:else}
 										<CheckCircle2 size={13} />
 									{/if}

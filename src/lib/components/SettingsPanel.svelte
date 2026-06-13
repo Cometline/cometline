@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { fly, fade, scale } from 'svelte/transition';
-	import { Check, Loader2, Settings, X } from '@lucide/svelte';
+	import { Check, LoaderCircle, Settings, X } from '@lucide/svelte';
 	import type { ProviderSettings } from '$lib/types';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { settingsStore } from '$lib/stores/settings.svelte';
@@ -79,7 +79,7 @@
 					<p>Fetched from <code>/models</code> using the Base URL above.</p>
 				</div>
 				<button class="secondary" onclick={fetchModels} disabled={settingsStore.isFetchingModels || !draft.baseURL.trim() || !draft.apiKey.trim()}>
-					{#if settingsStore.isFetchingModels}<Loader2 size={14} class="spin" />{/if}
+					{#if settingsStore.isFetchingModels}<LoaderCircle size={14} class="spin" />{/if}
 					Fetch models
 				</button>
 			</div>
@@ -105,7 +105,7 @@
 		<footer>
 			<button class="secondary" onclick={shellStore.closeSettings}>Cancel</button>
 			<button class="primary" onclick={save} disabled={settingsStore.isSaving || settingsStore.isFetchingModels || !draft.selectedModel.trim()}>
-				{#if settingsStore.isSaving}<Loader2 size={14} class="spin" />{/if}
+				{#if settingsStore.isSaving}<LoaderCircle size={14} class="spin" />{/if}
 				Save and restart
 			</button>
 		</footer>
