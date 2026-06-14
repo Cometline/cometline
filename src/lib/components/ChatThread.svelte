@@ -241,7 +241,7 @@
 	</div>
 {/snippet}
 
-<div class="thread scrollbar-gutter-stable" bind:this={scroller} aria-live="polite">
+<div class="thread" bind:this={scroller} aria-live="polite">
 	<div class="thread-inner">
 		{#if chatStore.isLoading && chatStore.items.length === 0}
 			<div class="loading" transition:fade={{ duration: 140 }}>
@@ -413,6 +413,7 @@
 		position: absolute;
 		inset: 0;
 		overflow-y: auto;
+		scrollbar-gutter: stable;
 		padding: 32px var(--chat-gutter) var(--thread-padding-bottom);
 		scrollbar-width: thin;
 	}
@@ -591,6 +592,7 @@
 		word-break: break-word;
 		max-height: 220px;
 		overflow: auto;
+		scrollbar-gutter: stable;
 	}
 
 	.tool-card {
@@ -646,6 +648,7 @@
 		word-break: break-word;
 		max-height: 220px;
 		overflow: auto;
+		scrollbar-gutter: stable;
 	}
 
 	.tool-output-body p + p {

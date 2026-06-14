@@ -394,6 +394,7 @@
 		gap: 6px;
 		max-height: 160px;
 		overflow-y: auto;
+		scrollbar-gutter: stable;
 	}
 
 	.queue-preview-item {
@@ -523,6 +524,7 @@
 		width: 330px;
 		max-height: 420px;
 		overflow: auto;
+		scrollbar-gutter: stable;
 		padding: 6px;
 		border: 1px solid var(--border-soft);
 		border-radius: 13px;

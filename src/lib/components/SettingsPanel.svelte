@@ -508,9 +508,11 @@
 
 	.modal {
 		position: relative;
+		display: flex;
+		flex-direction: column;
 		width: min(980px, 100%);
 		max-height: min(760px, 100%);
-		overflow: auto;
+		overflow: hidden;
 		background: rgba(255, 255, 255, 0.96);
 		border: 1px solid rgba(229, 231, 235, 0.95);
 		border-radius: 22px;
@@ -531,9 +533,14 @@
 	}
 
 	header {
+		position: sticky;
+		top: 0;
+		z-index: 2;
+		flex-shrink: 0;
 		gap: 12px;
 		padding-bottom: 16px;
 		border-bottom: 1px solid var(--border-soft);
+		background: rgba(255, 255, 255, 0.96);
 	}
 
 	.title-mark {
@@ -606,6 +613,10 @@
 		display: grid;
 		grid-template-columns: 168px 1fr;
 		gap: 16px;
+		flex: 1;
+		min-height: 0;
+		overflow-y: auto;
+		scrollbar-gutter: stable;
 		padding: 16px 0;
 	}
 
@@ -790,6 +801,7 @@
 		display: grid;
 		max-height: 260px;
 		overflow: auto;
+		scrollbar-gutter: stable;
 		border: 1px solid var(--border-soft);
 		border-radius: 14px;
 		background: rgba(255, 255, 255, 0.55);
@@ -889,6 +901,7 @@
 	}
 
 	.message {
+		flex-shrink: 0;
 		padding: 0 2px 12px;
 		font-size: 12px;
 	}
@@ -907,10 +920,15 @@
 	}
 
 	footer {
+		position: sticky;
+		bottom: 0;
+		z-index: 2;
+		flex-shrink: 0;
 		justify-content: flex-end;
 		gap: 8px;
 		padding-top: 16px;
 		border-top: 1px solid var(--border-soft);
+		background: rgba(255, 255, 255, 0.96);
 	}
 
 	footer p {
