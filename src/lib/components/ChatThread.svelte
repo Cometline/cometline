@@ -33,7 +33,6 @@
 
 	let scroller: HTMLDivElement;
 	let scrollFrame = 0;
-	let expandedReasoning = $state(new Set<string>());
 	let expandedToolOutput = $state(new Set<string>());
 	let expandedThinking = $state(new Set<string>());
 	let now = $state(Date.now());
@@ -59,36 +58,33 @@
 
 	let thinkingForAssistant = $derived.by(() => {
 		const map = new Map<string, ThinkingBlock>();
-		const reasoningOnlyIds = new Set<string>();
 		const toolIdsInBuffer = new Set<string>();
-		let buffer: ThinkingBlock = { tools: [] };
+		let currentAssistantId: string | null = null;
 
 		for (const item of threadItems) {
 			if (item.type === 'user' || item.type === 'status' || item.type === 'error') {
-				buffer = { tools: [] };
+				currentAssistantId = null;
 				continue;
 			}
 			if (item.type === 'assistant') {
-				if (item.text.trim()) {
-					const reasoning = item.reasoning ?? buffer.reasoning;
-					map.set(item.id, { reasoning, tools: buffer.tools });
-					buffer.tools.forEach((tool) => toolIdsInBuffer.add(tool.id));
-					buffer = { tools: [] };
-				} else if (item.reasoning?.text.trim() || item.reasoning?.pending) {
-					buffer.reasoning = item.reasoning;
-					reasoningOnlyIds.add(item.id);
+				currentAssistantId = item.id;
+				const existing = map.get(item.id);
+				if (!existing) {
+					map.set(item.id, { reasoning: item.reasoning, tools: [] });
+				} else if (item.reasoning && !existing.reasoning) {
+					existing.reasoning = item.reasoning;
 				}
-			} else if (item.type === 'tool') {
-				buffer.tools.push(item);
+			} else if (item.type === 'tool' && currentAssistantId) {
+				const block = map.get(currentAssistantId);
+				if (block) {
+					block.tools.push(item);
+					toolIdsInBuffer.add(item.id);
+				}
 			}
 		}
 
-		return { map, reasoningOnlyIds, toolIdsInBuffer };
+		return { map, toolIdsInBuffer };
 	});
-
-	function isReasoningOnlyInBuffer(item: Extract<ChatItem, { type: 'assistant' }>) {
-		return thinkingForAssistant.reasoningOnlyIds.has(item.id);
-	}
 
 	function isToolInBuffer(item: Extract<ChatItem, { type: 'tool' }>) {
 		return thinkingForAssistant.toolIdsInBuffer.has(item.id);
@@ -165,19 +161,8 @@
 		return next;
 	}
 
-	function toggleReasoning(id: string) {
-		expandedReasoning = toggleExpanded(expandedReasoning, id);
-	}
-
 	function toggleToolOutput(id: string) {
 		expandedToolOutput = toggleExpanded(expandedToolOutput, id);
-	}
-
-	function reasoningExpanded(item: Extract<ChatItem, { type: 'assistant' }>) {
-		return Boolean(
-			item.reasoning &&
-			(expandedReasoning.has(item.id) || (item.reasoning.pending && chatStore.isStreaming))
-		);
 	}
 
 	function toolOutputExpanded(item: Extract<ChatItem, { type: 'tool' }>) {
@@ -210,7 +195,6 @@
 			isFirstAssistant: item.id === firstAssistantId,
 			renderedInFirstTurnSlot: awaitingFirstAssistant && item.id === firstAssistantId,
 			excludedFromNormalList: awaitingFirstAssistant && item.id === firstAssistantId,
-			reasoningExpanded: reasoningExpanded(item),
 			showTypingBubble: showTypingBubble(item)
 		};
 	}
@@ -344,7 +328,7 @@
 {/snippet}
 
 {#snippet assistantStack(item: Extract<ChatItem, { type: 'assistant' }>)}
-	{@const block = item.text.trim() ? thinkingForAssistant.map.get(item.id) : undefined}
+	{@const block = thinkingForAssistant.map.get(item.id)}
 	<div class="assistant-stack">
 		{#if block && (block.reasoning || block.tools.length > 0)}
 			{@render thinkingBlock(block, item.id)}
@@ -356,27 +340,6 @@
 		{:else if showTypingBubble(item)}
 			<div class="bubble assistant-bubble pending">
 				<span class="typing"><span></span><span></span><span></span></span>
-			</div>
-		{:else if item.reasoning}
-			<div class="fold-panel">
-				<button
-					type="button"
-					class="fold-toggle"
-					aria-expanded={reasoningExpanded(item)}
-					onclick={() => toggleReasoning(item.id)}
-				>
-					<Brain size={13} />
-					<span>Reasoning</span>
-					{#if item.reasoning.pending && chatStore.isStreaming}
-						<LoaderCircle size={12} class="spin" />
-					{/if}
-					<ChevronDown size={13} class={reasoningExpanded(item) ? 'expanded' : ''} />
-				</button>
-				{#if reasoningExpanded(item)}
-					<div class="fold-body" transition:slide={FOLD_IN}>
-						<p>{item.reasoning.text || 'Thinking…'}</p>
-					</div>
-				{/if}
 			</div>
 		{/if}
 	</div>
@@ -447,7 +410,7 @@
 						{/if}
 					</div>
 				{/if}
-			{:else if item.type === 'assistant' && showAssistantRow(item) && firstAssistantInNormalList(item) && (!isReasoningOnlyInBuffer(item) || (awaitingFirstAssistant && item.id === firstAssistantId))}
+			{:else if item.type === 'assistant' && showAssistantRow(item) && firstAssistantInNormalList(item)}
 				<div
 					class="row assistant-row gap-2.5 md:gap-3 lg:gap-4"
 					class:continuation-row={!startsSpeakerRun(index, 'assistant')}

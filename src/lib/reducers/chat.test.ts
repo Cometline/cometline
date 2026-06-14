@@ -110,7 +110,7 @@ describe('reduceChatState', () => {
 		expect(state.assistant).toBeNull();
 	});
 
-	it('handles a full assistant + tool turn', () => {
+	it('merges text across tool calls into one assistant bubble', () => {
 		const events: StreamEvent[] = [
 			{ type: 'text_delta', delta: 'Let me check.' },
 			{ type: 'tool_call', id: 'tc-1', tool: 'list_dir', input: { path: '.' } },
@@ -122,14 +122,11 @@ describe('reduceChatState', () => {
 		for (const event of events) {
 			state = reduceChatState(state, event);
 		}
-		expect(state.items).toHaveLength(3);
+		expect(state.items).toHaveLength(2);
 		expect(state.items[0].type).toBe('assistant');
 		if (state.items[0].type !== 'assistant') return;
-		expect(state.items[0].text).toBe('Let me check.');
+		expect(state.items[0].text).toBe('Let me check.Found it.');
 		expect(state.items[1].type).toBe('tool');
-		expect(state.items[2].type).toBe('assistant');
-		if (state.items[2].type !== 'assistant') return;
-		expect(state.items[2].text).toBe('Found it.');
 	});
 
 	it('clears pending tools on done', () => {
@@ -148,7 +145,7 @@ describe('reduceChatState', () => {
 		expect(tool.durationMs).toBeTypeOf('number');
 	});
 
-	it('starts a fresh assistant after a step boundary and tool result', () => {
+	it('keeps one assistant across step boundaries and tool results', () => {
 		const events: StreamEvent[] = [
 			{ type: 'reasoning_delta', text: 'Need to inspect files.' },
 			{ type: 'step_finish' },
@@ -161,20 +158,17 @@ describe('reduceChatState', () => {
 			state = reduceChatState(state, event);
 		}
 
-		expect(state.items).toHaveLength(3);
+		expect(state.items).toHaveLength(2);
 		expect(state.items[0].type).toBe('assistant');
 		if (state.items[0].type !== 'assistant') return;
 		expect(state.items[0].reasoning?.text).toBe('Need to inspect files.');
 		expect(state.items[0].reasoning?.pending).toBe(false);
+		expect(state.items[0].text).toBe('The file contains Go code.');
 
 		expect(state.items[1].type).toBe('tool');
 		if (state.items[1].type !== 'tool') return;
 		expect(state.items[1].output).toBe('package main');
 		expect(state.items[1].pending).toBe(false);
-
-		expect(state.items[2].type).toBe('assistant');
-		if (state.items[2].type !== 'assistant') return;
-		expect(state.items[2].text).toBe('The file contains Go code.');
 	});
 
 	it('merges text that arrives after a reasoning step finish into the reasoning assistant', () => {

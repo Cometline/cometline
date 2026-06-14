@@ -169,32 +169,6 @@ function applyEvent(
 		assistant.current = null;
 	}
 
-	function finishAssistantSegment() {
-		chatDebug('reducer:finish-before', {
-			event: summarizeStreamEvent(event),
-			assistant: assistant.current ? summarizeChatItem(assistant.current) : null,
-			reasoning: reasoning.current,
-			items: summarizeChatItems(items)
-		});
-		settleTurn({ assistant: assistant.current, reasoning: reasoning.current });
-		if (
-			assistant.current &&
-			!assistant.current.text.trim() &&
-			!assistant.current.reasoning?.text.trim()
-		) {
-			clearEmptyAssistant();
-		} else {
-			assistant.current = null;
-		}
-		reasoning.current = null;
-		chatDebug('reducer:finish-after', {
-			event: summarizeStreamEvent(event),
-			assistant: assistant.current ? summarizeChatItem(assistant.current) : null,
-			reasoning: reasoning.current,
-			items: summarizeChatItems(draft.items)
-		});
-	}
-
 	function ensureTurnReasoning() {
 		if (!reasoning.current) reasoning.current = { text: '', pending: true };
 		return reasoning.current;
@@ -250,7 +224,11 @@ function applyEvent(
 	}
 
 	if (event.type === 'tool_call') {
-		finishAssistantSegment();
+		// Settle the current assistant so reasoning is no longer pending, but keep
+		// assistant.current alive so the next text_delta appends to the same turn
+		// instead of creating a fresh assistant row (which would lose its avatar).
+		settleTurn({ assistant: assistant.current, reasoning: reasoning.current });
+		reasoning.current = null;
 		const id = localID('tool', draft.nextId++).id;
 		items.push({
 			id,
@@ -282,7 +260,10 @@ function applyEvent(
 	}
 
 	if (event.type === 'step_finish') {
-		finishAssistantSegment();
+		// Settle reasoning/assistant state without clearing assistant.current so a
+		// multi-step turn keeps streaming into one assistant bubble.
+		settleTurn({ assistant: assistant.current, reasoning: reasoning.current });
+		reasoning.current = null;
 		return;
 	}
 
