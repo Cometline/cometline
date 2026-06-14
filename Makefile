@@ -31,7 +31,7 @@ help:
 	@printf "  Example: COMETMIND_API_KEY=sk-... make dev\n"
 
 install:
-	$(PNPM) --dir cometline install
+	cd cometline && $(PNPM) install
 
 check: sdk-test cometmind-test cometline-check
 
@@ -65,13 +65,13 @@ cometmind-test:
 	cd cometmind && $(GO) test ./...
 
 cometline-check:
-	$(PNPM) --dir cometline run check
+	cd cometline && $(PNPM) run check
 
 cometline-build:
-	$(PNPM) --dir cometline run build
+	cd cometline && $(PNPM) run build
 
 cometline-package:
-	$(PNPM) --dir cometline run build:electron
+	cd cometline && $(PNPM) run build:electron
 
 cometline-dev: dev
 
