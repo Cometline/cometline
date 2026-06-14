@@ -770,6 +770,25 @@ async function createWindow() {
 	mainWindow.on('enter-full-screen', sendFullScreenState);
 	mainWindow.on('leave-full-screen', sendFullScreenState);
 
+	// On macOS, Cmd+W (and the red traffic light) should hide the window rather
+	// than destroy it. Recreating the BrowserWindow on every reopen forces a
+	// cold renderer boot — reloading the whole SvelteKit bundle and reconnecting
+	// to CometMind — which feels slow. Hiding keeps the renderer warm so the
+	// next Dock click re-shows instantly. We still allow a real close during
+	// quit (Cmd+Q / before-quit), where stoppingForQuit is set.
+	mainWindow.on('close', (event) => {
+		if (process.platform === 'darwin' && !stoppingForQuit && !stoppedForQuit) {
+			event.preventDefault();
+			if (mainWindow.isFullScreen()) {
+				// Leaving fullscreen first avoids a black Space lingering after hide.
+				mainWindow.once('leave-full-screen', () => mainWindow?.hide());
+				mainWindow.setFullScreen(false);
+			} else {
+				mainWindow.hide();
+			}
+		}
+	});
+
 	mainWindow.on('closed', () => {
 		if (windowButtonAnimationTimer) {
 			clearTimeout(windowButtonAnimationTimer);
@@ -878,7 +897,14 @@ app.whenReady().then(async () => {
 	configureAutoUpdater();
 
 	app.on('activate', () => {
-		if (BrowserWindow.getAllWindows().length === 0) createWindow();
+		// Reopening from the Dock: re-show the warm, hidden window if it still
+		// exists (instant); only build a fresh one if it was actually destroyed.
+		if (mainWindow && !mainWindow.isDestroyed()) {
+			mainWindow.show();
+			mainWindow.focus();
+		} else if (BrowserWindow.getAllWindows().length === 0) {
+			createWindow();
+		}
 	});
 });
 
