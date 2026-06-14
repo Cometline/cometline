@@ -1,83 +1,76 @@
 # Hero composer glow layering and animation
 
 **Date:** 2026-06-14  
-**Components:** `HeroComposerFrame.svelte`, `ChatView.svelte`, `+page.svelte`, `Composer.svelte`, `FirstTurnFlight.svelte`, `app.css`
+**Components:** `HeroComposerFrame.svelte`, `ChatView.svelte`, `+page.svelte`, `Composer.svelte`, `FirstTurnFlight.svelte`, `SettingsAppearancePanel.svelte`, `hero-composer-appearance.ts`, `settings.svelte.ts`, `app.css`
 
 ## Symptom
 
-Several iterations of the hero composer “pink aura” failed to match the design intent:
+Several iterations of the hero composer aura failed to match the design intent:
 
 1. **Glow on the wrong layer** — aura sat on an outer shell or on `Composer.svelte` pseudos, misaligned with the white hero card (wrong radius, too large).
-2. **Wrong sequence** — border ring appeared before or at the same time as the glow; design called for glow to rise first, then the red border after the glow wraps the card.
+2. **Wrong sequence** — border ring appeared before glow, or only after glow fully finished; design calls for glow to rise first, with border + card reaction **when the glow hits**, not after wrap completes.
 3. **Lost “rise from bottom” feel** — after splitting ring and glow, the glow only faded in with `opacity`, with no upward motion.
-4. **First-turn exit out of sync** — on first send, glow ran its own sink animation while `composer-wrapper` moved on a separate 560ms `bottom`/`transform` transition; aura and composer felt like two beats.
-5. **Giant static wash at rest** — glow filled a tall box from viewport bottom to above the composer; at animation end the full box stayed visible, so the hero looked like a large background gradient instead of a tight halo around the card.
+4. **First-turn exit out of sync** — on first send, glow ran its own sink animation while `composer-wrapper` moved on a separate 560ms transition; aura and composer felt like two beats.
+5. **Giant static wash at rest** — glow element was extended to viewport bottom at rest; radial gradients painted a full-screen wash instead of a tight halo.
+6. **Hover mistaken for impact** — `hover:scale(1.01)` was added; intent was an **enter** reaction when glow hits the textarea, not a hover state.
+7. **Hard-coded pink only** — no settings surface; default did not match the Arc-style light blue reference.
 
 ## Root cause
 
 ### 1. Layer ownership
 
-Hero aura is **not** composer chrome (padding, border-radius, shadow). It is a **frame effect** that must:
+Hero aura is **not** composer chrome. It lives in `HeroComposerFrame.svelte` wrapping `<Composer variant="hero" />`, mounted from `+page.svelte` and `ChatView.svelte`. Never put glow pseudos on `Composer.svelte` — dock variant must stay clean.
 
-- sit outside `Composer.svelte` (so dock variant does not carry glow CSS),
-- align to the hero card’s 24px radius and width,
-- mount in both home (`+page.svelte`) and session hero (`ChatView.svelte`).
+### 2. Animation geometry ≠ resting geometry
 
-Putting `::before`/`::after` on `.composer.hero` worked for alignment but mixed flight/dock styling with decorative animation. The durable split is `HeroComposerFrame.svelte` wrapping `<Composer variant="hero" />`.
+A broken fix extended glow `bottom` by `--hero-glow-travel` and kept `scaleY(1)` at rest, turning the halo into a tall background gradient. Correct model: **tight inset box at rest**, `translateY(travel)` only in enter keyframes.
 
-### 2. One element used for both “travel distance” and “rest size”
+### 3. Sequential timing felt like “after the hit”
 
-To make glow “burst from the UI bottom”, an intermediate fix **extended the glow element** downward:
+Ring and scale used `--duration-hero-ring-delay: 0.55s` on a `0.65s` glow — they started near glow **completion**, so border and scale felt late. Design intent: **overlap** — glow still wrapping when border appears and card scales.
 
-```css
-/* broken resting geometry */
-bottom: calc(-1 * var(--hero-glow-travel) - 10px);
-transform: scaleY(1); /* after enter */
-```
+### 4. Competing motion on first turn
 
-`--hero-glow-travel` is the pixel distance from the frame bottom to `.chat-home` bottom (often 200–400px on centered session hero). With `scaleY(1)`, radial gradients painted across that entire height — strong wash above and below the composer, detached from the card edge.
+Instant `{#if active}` removal plus independent glow `translateY` exit fought `.composer-wrapper`’s 560ms dock transition.
 
-**Animation geometry ≠ resting geometry.** Rising from the viewport bottom is an enter path; the hold state must stay tight (`inset: -16px -12px -10px`).
+### 5. Colors only in CSS
 
-### 3. Competing motion on first turn
-
-`HeroComposerFrame` `{#if active}` removed ring/glow instantly when `composerVariant` became `dock`. Later, separate exit keyframes (`translateY` sink, 500ms) ran while `.composer-wrapper` already transitioned over `--duration-flight` (560ms). Two motion systems on different clocks.
-
-### 4. Enter started before layout was measured
-
-Glow animation began with `--hero-glow-travel: 0` before `getBoundingClientRect()`, so the first frame could flash from the wrong origin until `ResizeObserver` updated.
+`app.css` tokens were static; no persistence or presets until `appearance.heroComposer` was added to settings.
 
 ## Fix (applied)
 
 ### Architecture: `HeroComposerFrame.svelte`
 
-Two layers, both outside `Composer.svelte`:
+Three synchronized enter tracks on one frame (glow + ring layers; scale on the frame):
 
-| Layer | Role | Enter timing |
-| ----- | ---- | ------------ |
-| `.hero-composer-glow` | Pink radial blur + outer ring shadow | 0 → 0.65s: `translateY(travel)` + `scaleY` from bottom |
-| `.hero-composer-ring` | 1px red border, `clip-path` rise | 0.55 → 1.0s (delay + 0.45s) |
+| Track | Element | Enter timing |
+| ----- | ------- | ------------ |
+| Glow rise | `.hero-composer-glow` | 0 → 650ms: `translateY(travel)` + `scaleY(0.35→1)` |
+| Border ring | `.hero-composer-ring` | **280ms → 650ms**: `clip-path` rise (overlaps glow wrap) |
+| Impact scale | `.hero-composer-frame` | **280ms → 650ms**: `scale(1→1.01)` when glow “hits” |
 
 Tokens in `app.css`:
 
 ```css
---duration-hero-sequence: 1s;
+--duration-hero-sequence: 0.65s;
 --duration-hero-glow-rise: 0.65s;
---duration-hero-ring-delay: 0.55s;
---duration-hero-ring-rise: 0.45s;
+--duration-hero-hit-delay: 0.28s;
+--duration-hero-ring-rise: 0.37s;
+--duration-hero-impact-rise: 0.37s;
+--hero-composer-impact-scale: 1.01;
 --duration-hero-exit-ring: 0.24s;
 ```
 
-### Enter: tight box, travel via transform
+`--duration-hero-hit-delay` is shared by ring and impact — do **not** bring back a late `--duration-hero-ring-delay` that waits for glow to finish.
 
-- Glow box stays **composer-sized** (`inset: -16px -12px -10px`).
-- Measure `glowTravelPx` = `.chat-home` bottom − frame bottom; set `--hero-glow-travel`.
-- Wait for measure (`glowReady`) before starting animations.
-- Enter: `translateY(var(--hero-glow-travel)) scaleY(0.35)` → `translateY(0) scaleY(1)` with `transform-origin: center bottom`.
+### Enter: measure, then animate
 
-### First-turn exit: move with wrapper, don’t sink independently
+- Glow box: `inset: -16px -12px -10px` (tight halo).
+- `measureGlowTravel()` → `--hero-glow-travel` = `.chat-home` bottom − frame bottom.
+- Gate animations with `glowReady` after measure (`ResizeObserver` on frame + `.chat-home`).
+- `class:impact-ready={glowReady && active && !exiting}` drives frame scale enter.
 
-In `ChatView.svelte`:
+### First-turn exit
 
 ```typescript
 onPrepareFlight={() => {
@@ -86,40 +79,51 @@ onPrepareFlight={() => {
 }}
 ```
 
-`HeroComposerFrame` props:
-
 - `active={composerVariant === 'hero' && !heroFrameExiting}`
-- `exiting={heroFrameExiting}` — keeps layers mounted until outro finishes
-- `onExitComplete` clears `heroFrameExiting`
+- `exiting={heroFrameExiting}` keeps layers mounted until outro ends
+- **Ring:** `clip-path` collapse (240ms)
+- **Frame scale:** `1.01 → 1` (240ms) via `.hero-composer-frame.exit`
+- **Glow:** opacity fade only over `--duration-flight` (560ms) — position from `.composer-wrapper` transition, no independent sink
 
-Exit behavior:
+See also [hero-composer-dock-transition-jank.md](./hero-composer-dock-transition-jank.md) for dock / flight coordination.
 
-- **Ring:** quick `clip-path` collapse (`--duration-hero-exit-ring`, 240ms).
-- **Glow:** **opacity only** over `--duration-flight` (560ms) — no `translateY` exit. Physical motion comes from `.composer-wrapper`’s `bottom`/`transform` transition (`overflow: visible` on wrapper).
+### Configurable colors (Settings → Hero glow)
 
-Do **not** set `--hero-glow-travel: 0` on exit to “collapse” the box; that was tied to the broken extended-height model.
+Persisted in `cometline-settings.json` as `appearance.heroComposer`:
+
+| Preset | Glow | Border | Notes |
+| ------ | ---- | ------ | ----- |
+| **Blue** (default) | `#72c0ff` | `#9ed8ff` | Arc-style light blue |
+| **Rose** | `#f43f5e` | `#fb7185` | Original pink |
+
+- `hero-composer-appearance.ts` — presets, normalize, `heroComposerCssVars()`
+- `+layout.svelte` — applies CSS vars from `settingsStore` on load / save
+- Custom hex still supported; UI shows **Custom** when colors don’t match a preset
 
 ## How to avoid regressions
 
-- **Do not put hero aura back on `Composer.svelte`.** Dock variant must not inherit glow pseudos or animation.
+- **Do not put hero aura on `Composer.svelte`.**
 
-- **Do not extend glow `bottom` by `--hero-glow-travel` for the resting state.** Use `translateY(travel)` only in enter keyframes on a tight inset box.
+- **Do not extend glow `bottom` by `--hero-glow-travel` at rest.** Use `translateY(travel)` in enter keyframes only.
 
-- **Enter order:** glow rise completes wrapping → then ring (`--duration-hero-ring-delay` ≈ glow rise − ring rise overlap).
+- **Hit timing:** ring + `scale(1.01)` start at `--duration-hero-hit-delay`, **during** glow rise — not after `--duration-hero-glow-rise` completes. Tuning “when it hits” = adjust hit delay, not ring delay after glow end.
 
-- **First-turn exit:** one motion source for position — `composer-wrapper` + `--duration-flight`. Glow exits with opacity (and optional ring clip), not a second vertical animation.
+- **Impact is enter animation, not `:hover`.** No `hover:scale` on the frame.
 
-- **Measure before animate:** gate ring/glow with `glowReady` after `measureGlowTravel()`; observe frame + `.chat-home` with `ResizeObserver`.
+- **First-turn exit:** one motion source for position — `composer-wrapper` + `--duration-flight`. Glow fades; frame scale resets; no second vertical glow animation.
 
-- **Related postmortem:** composer dock timing and `onPrepareFlight` are documented in [hero-composer-dock-transition-jank.md](./hero-composer-dock-transition-jank.md). Changing dock hooks or `--duration-flight` affects glow exit sync.
+- **Measure before animate:** `glowReady` required before `.ready` / `.impact-ready` classes.
 
-- **Home vs session:** travel distance differs (grid vs absolute hero). Always measure from DOM; don’t hard-code pixel travel.
+- **Settings defaults:** new installs and “Reset defaults” use **Blue** preset; existing saved pink settings are preserved until user changes them.
+
+- **Home vs session:** travel distance differs (grid vs absolute hero). Always measure from DOM.
 
 ## Verification
 
-1. **Home (`/`)** — refresh: glow rises from bottom, tight halo at rest; ring appears ~0.55s in; total enter ≤ 1s.
-2. **Empty session hero** — same enter; halo hugs card, not a full-width background wash.
-3. **First send** — ring collapses quickly; glow fades while composer docks; no independent “sink” lagging behind the card.
-4. **Docked / existing session** — no glow (`active={false}`); no flash on load.
-5. **Resize** — re-measure; enter not required again until remount.
-6. **`prefers-reduced-motion`** — glow and ring show final state; exit clears without waiting on keyframes.
+1. **Home (`/`)** — refresh: glow rises from UI bottom; at ~280ms border + slight scale start while glow still wrapping; all settle by ~650ms.
+2. **Halo at rest** — tight around card, not a page-wide wash; default blue unless settings say otherwise.
+3. **Settings → Hero glow** — Blue / Rose presets apply; custom hex shows “Custom”; Save updates live glow.
+4. **First send** — scale returns to 1, ring collapses, glow fades while composer docks with flight (~560ms); no lagging sink.
+5. **Docked / existing session** — no glow; no flash on load.
+6. **Resize** — re-measure travel; remount replays enter.
+7. **`prefers-reduced-motion`** — final glow + ring + scale state; exit clears without keyframe wait.

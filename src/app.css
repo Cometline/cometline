@@ -47,17 +47,19 @@
 	--duration-flight: 560ms;
 	--duration-fast: 240ms;
 	--duration-medium: 280ms;
-	--duration-hero-sequence: 1s;
+	--duration-hero-sequence: 0.65s;
 	--duration-hero-glow-rise: 0.65s;
-	--duration-hero-ring-delay: 0.55s;
-	--duration-hero-ring-rise: 0.45s;
+	--duration-hero-hit-delay: 0.28s;
+	--duration-hero-ring-rise: 0.37s;
+	--duration-hero-impact-rise: 0.37s;
+	--hero-composer-impact-scale: 1.01;
 	--duration-hero-exit-ring: 0.24s;
 
-	/* Hero composer aura */
-	--hero-composer-glow-strong: rgba(251, 113, 133, 0.52);
-	--hero-composer-glow-soft: rgba(244, 63, 94, 0.24);
-	--hero-composer-glow-ring: rgba(244, 63, 94, 0.14);
-	--hero-composer-ring: rgba(251, 113, 133, 0.24);
+	/* Hero composer aura (default blue; overridden by settings) */
+	--hero-composer-glow-strong: rgba(114, 192, 255, 0.52);
+	--hero-composer-glow-soft: rgba(114, 192, 255, 0.24);
+	--hero-composer-glow-ring: rgba(114, 192, 255, 0.14);
+	--hero-composer-ring: rgba(158, 216, 255, 0.24);
 }
 
 @theme inline {

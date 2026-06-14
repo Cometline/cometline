@@ -1,8 +1,29 @@
 import type { HeroComposerAppearance } from '$lib/types';
 
-export const DEFAULT_HERO_COMPOSER_APPEARANCE: HeroComposerAppearance = {
+export interface HeroComposerPreset {
+	id: 'blue' | 'rose';
+	label: string;
+	appearance: HeroComposerAppearance;
+}
+
+export const HERO_COMPOSER_PRESET_ROSE: HeroComposerAppearance = {
 	glowColor: '#f43f5e',
 	ringColor: '#fb7185'
+};
+
+/** Soft Arc-style blue — default hero glow. */
+export const HERO_COMPOSER_PRESET_BLUE: HeroComposerAppearance = {
+	glowColor: '#72c0ff',
+	ringColor: '#9ed8ff'
+};
+
+export const HERO_COMPOSER_PRESETS: HeroComposerPreset[] = [
+	{ id: 'blue', label: 'Blue', appearance: HERO_COMPOSER_PRESET_BLUE },
+	{ id: 'rose', label: 'Rose', appearance: HERO_COMPOSER_PRESET_ROSE }
+];
+
+export const DEFAULT_HERO_COMPOSER_APPEARANCE: HeroComposerAppearance = {
+	...HERO_COMPOSER_PRESET_BLUE
 };
 
 const HEX_COLOR = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
@@ -25,6 +46,25 @@ export function normalizeHeroComposerAppearance(
 		glowColor: normalizeHexColor(appearance?.glowColor, DEFAULT_HERO_COMPOSER_APPEARANCE.glowColor),
 		ringColor: normalizeHexColor(appearance?.ringColor, DEFAULT_HERO_COMPOSER_APPEARANCE.ringColor)
 	};
+}
+
+export function heroComposerAppearanceEquals(
+	a: HeroComposerAppearance,
+	b: HeroComposerAppearance
+): boolean {
+	const left = normalizeHeroComposerAppearance(a);
+	const right = normalizeHeroComposerAppearance(b);
+	return left.glowColor === right.glowColor && left.ringColor === right.ringColor;
+}
+
+export function matchHeroComposerPreset(
+	appearance: HeroComposerAppearance
+): HeroComposerPreset['id'] | 'custom' {
+	const normalized = normalizeHeroComposerAppearance(appearance);
+	for (const preset of HERO_COMPOSER_PRESETS) {
+		if (heroComposerAppearanceEquals(normalized, preset.appearance)) return preset.id;
+	}
+	return 'custom';
 }
 
 export function hexToRgba(hex: string, alpha: number): string {

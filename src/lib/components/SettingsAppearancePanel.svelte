@@ -2,7 +2,9 @@
 	import type { HeroComposerAppearance } from '$lib/types';
 	import {
 		DEFAULT_HERO_COMPOSER_APPEARANCE,
-		heroComposerCssVarStyle
+		HERO_COMPOSER_PRESETS,
+		heroComposerCssVarStyle,
+		matchHeroComposerPreset
 	} from '$lib/hero-composer-appearance';
 
 	let {
@@ -10,6 +12,11 @@
 	}: { appearance: HeroComposerAppearance } = $props();
 
 	let previewStyle = $derived(heroComposerCssVarStyle(appearance));
+	let activePreset = $derived(matchHeroComposerPreset(appearance));
+
+	function applyPreset(preset: (typeof HERO_COMPOSER_PRESETS)[number]) {
+		appearance = { ...preset.appearance };
+	}
 
 	function resetDefaults() {
 		appearance = { ...DEFAULT_HERO_COMPOSER_APPEARANCE };
@@ -27,6 +34,32 @@
 
 	<div class="appearance-grid">
 		<div class="appearance-fields">
+			<div class="preset-group">
+				<span class="field-label">Presets</span>
+				<div class="preset-row" role="group" aria-label="Hero glow presets">
+					{#each HERO_COMPOSER_PRESETS as preset (preset.id)}
+						<button
+							type="button"
+							class="preset-chip"
+							class:selected={activePreset === preset.id}
+							aria-pressed={activePreset === preset.id}
+							onclick={() => applyPreset(preset)}
+						>
+							<span
+								class="preset-swatch"
+								style="background: linear-gradient(135deg, {preset.appearance
+									.glowColor} 0%, {preset.appearance.ringColor} 100%)"
+								aria-hidden="true"
+							></span>
+							{preset.label}
+						</button>
+					{/each}
+					{#if activePreset === 'custom'}
+						<span class="preset-custom">Custom</span>
+					{/if}
+				</div>
+			</div>
+
 			<label>
 				<span>Glow color</span>
 				<div class="color-field">
@@ -57,9 +90,6 @@
 		<div class="appearance-preview" style={previewStyle}>
 			<div class="preview-glow" aria-hidden="true"></div>
 			<div class="preview-ring" aria-hidden="true"></div>
-			<div class="preview-card">
-				<span class="preview-placeholder">Ask anything...</span>
-			</div>
 		</div>
 	</div>
 </section>
@@ -73,7 +103,8 @@
 	}
 
 	.appearance-heading,
-	.color-field {
+	.color-field,
+	.preset-row {
 		display: flex;
 		align-items: center;
 	}
@@ -111,6 +142,61 @@
 	.appearance-fields {
 		display: grid;
 		gap: 12px;
+	}
+
+	.preset-group {
+		display: grid;
+		gap: 8px;
+	}
+
+	.field-label {
+		font-size: 12px;
+		font-weight: 600;
+		color: var(--text-muted);
+	}
+
+	.preset-row {
+		flex-wrap: wrap;
+		gap: 8px;
+	}
+
+	.preset-chip {
+		display: inline-flex;
+		align-items: center;
+		gap: 8px;
+		border: 1px solid var(--border-soft);
+		border-radius: 999px;
+		background: rgba(255, 255, 255, 0.76);
+		padding: 6px 12px 6px 6px;
+		font: inherit;
+		font-size: 12px;
+		font-weight: 600;
+		color: var(--text-main);
+	}
+
+	.preset-chip.selected {
+		border-color: rgba(0, 102, 204, 0.4);
+		box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.08);
+	}
+
+	.preset-chip:hover {
+		background: rgba(15, 23, 42, 0.04);
+	}
+
+	.preset-swatch {
+		width: 22px;
+		height: 22px;
+		border-radius: 999px;
+		border: 1px solid rgba(255, 255, 255, 0.8);
+		box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.08);
+		flex-shrink: 0;
+	}
+
+	.preset-custom {
+		font-size: 11px;
+		font-weight: 600;
+		color: var(--text-soft);
+		padding: 0 4px;
 	}
 
 	label {
@@ -193,22 +279,6 @@
 		inset: 44px 22% 36px;
 		border: 1px solid var(--hero-composer-ring);
 		box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.42) inset;
-	}
-
-	.preview-card {
-		position: relative;
-		z-index: 1;
-		width: min(100%, 320px);
-		padding: 18px 18px 14px;
-		border-radius: 24px;
-		background: rgba(255, 255, 255, 0.74);
-		border: 1px solid var(--border-soft);
-		box-shadow: 0 18px 60px rgba(15, 23, 42, 0.12);
-	}
-
-	.preview-placeholder {
-		font-size: 14px;
-		color: var(--text-soft);
 	}
 
 	.secondary {

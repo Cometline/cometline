@@ -78,6 +78,7 @@
 <div
 	class="hero-composer-frame"
 	class:exit={exiting}
+	class:impact-ready={glowReady && active && !exiting}
 	bind:this={frameEl}
 	style:--hero-glow-travel="{glowTravelPx}px"
 >
@@ -101,6 +102,16 @@
 		width: min(var(--chat-composer-width), 100%);
 		max-width: 100%;
 		overflow: visible;
+		transform-origin: center center;
+	}
+
+	.hero-composer-frame.impact-ready {
+		animation: hero-composer-impact var(--duration-hero-impact-rise) var(--ease-smooth)
+			var(--duration-hero-hit-delay) forwards;
+	}
+
+	.hero-composer-frame.exit {
+		animation: hero-composer-impact-exit var(--duration-hero-exit-ring) var(--ease-smooth) forwards;
 	}
 
 	.hero-composer-slot {
@@ -126,7 +137,7 @@
 
 	.hero-composer-ring.ready {
 		animation: hero-composer-ring-rise var(--duration-hero-ring-rise) var(--ease-smooth)
-			var(--duration-hero-ring-delay) forwards;
+			var(--duration-hero-hit-delay) forwards;
 	}
 
 	.hero-composer-glow {
@@ -168,6 +179,24 @@
 		}
 	}
 
+	@keyframes hero-composer-impact {
+		from {
+			transform: scale(1);
+		}
+		to {
+			transform: scale(var(--hero-composer-impact-scale, 1.01));
+		}
+	}
+
+	@keyframes hero-composer-impact-exit {
+		from {
+			transform: scale(var(--hero-composer-impact-scale, 1.01));
+		}
+		to {
+			transform: scale(1);
+		}
+	}
+
 	@keyframes hero-composer-ring-rise {
 		from {
 			opacity: 0;
@@ -199,6 +228,16 @@
 	}
 
 	@media (prefers-reduced-motion: reduce) {
+		.hero-composer-frame.impact-ready {
+			animation: none;
+			transform: scale(var(--hero-composer-impact-scale, 1.01));
+		}
+
+		.hero-composer-frame.exit {
+			animation: none;
+			transform: scale(1);
+		}
+
 		.hero-composer-ring {
 			animation: none;
 			clip-path: inset(0 0 0 0 round 24px);

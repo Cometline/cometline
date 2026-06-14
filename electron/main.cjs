@@ -12,8 +12,8 @@ const POLL_MS = 100;
 function defaultAppearance() {
 	return {
 		heroComposer: {
-			glowColor: '#f43f5e',
-			ringColor: '#fb7185'
+			glowColor: '#72c0ff',
+			ringColor: '#9ed8ff'
 		}
 	};
 }
