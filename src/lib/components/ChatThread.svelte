@@ -5,7 +5,6 @@
 	import { chatStore, type ChatItem } from '$lib/stores/chat.svelte';
 	import { chatDebug, chatDebugEnabled, summarizeChatItem } from '../debug/chat';
 
-	const USER_ROW_IN = { x: 14, duration: 220 };
 	const ASSISTANT_ROW_IN = { y: 10, duration: 220 };
 	const TOOL_ROW_IN = { y: 8, duration: 200 };
 	const STATUS_ROW_IN = { y: 6, duration: 180 };
@@ -280,7 +279,6 @@
 						class="bubble user-bubble"
 						class:flight-hidden={item.reveal === false}
 						data-flight-target={item.reveal === false ? 'user' : undefined}
-						in:fly={item.reveal === false ? undefined : USER_ROW_IN}
 					>
 						{item.text}
 					</div>
@@ -684,6 +682,21 @@
 		border-bottom-right-radius: 6px;
 		box-shadow: 0 8px 20px rgba(31, 41, 51, 0.12);
 		max-width: var(--chat-content-column);
+	}
+
+	/* Mount-only slide-in on the bubble itself (not the full-width row). Staged
+	   first-turn bubbles use .flight-hidden and skip this via :not(). */
+	.user-bubble:not(.flight-hidden) {
+		transition:
+			opacity 400ms var(--ease-smooth),
+			transform 400ms var(--ease-smooth);
+	}
+
+	@starting-style {
+		.user-bubble:not(.flight-hidden) {
+			opacity: 0;
+			transform: translateX(40px);
+		}
 	}
 
 	.assistant-bubble {
