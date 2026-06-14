@@ -29,12 +29,23 @@ export interface PostMessageRequest {
 	text: string;
 }
 
-export interface ProviderSettings {
-	provider: string;
+export type ProviderMethod = 'openai-compatible' | 'openai' | 'anthropic' | 'opencode-go';
+
+export interface ProviderConfig {
+	id: string;
+	name: string;
+	method: ProviderMethod;
+	enabled: boolean;
 	baseURL: string;
 	apiKey: string;
 	selectedModel: string;
 	models: string[];
+	enabledModels: string[];
+}
+
+export interface ProviderSettings {
+	providers: ProviderConfig[];
+	activeProviderId: string;
 }
 
 export interface SessionListResponse {

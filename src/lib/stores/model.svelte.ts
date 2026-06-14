@@ -1,27 +1,24 @@
-import type { Session } from '$lib/types';
+import type { ProviderConfig, ProviderMethod, Session } from '$lib/types';
 
 export interface ModelOption {
 	id: string;
 	label: string;
-	description: string;
-	provider_id: string;
-	model_id: string;
+	providerId: string;
+	providerName: string;
+	providerMethod: ProviderMethod;
+	modelId: string;
 }
+
+const OPENCODE_GO_DEFAULT_MODELS = ['deepseek-v4-flash'];
 
 export const defaultModelOptions: ModelOption[] = [
 	{
-		id: 'openai:deepseek-v4-flash',
+		id: 'opencode-go:deepseek-v4-flash',
 		label: 'DeepSeek V4 Flash',
-		description: 'OpenAI-compatible endpoint',
-		provider_id: 'openai',
-		model_id: 'deepseek-v4-flash'
-	},
-	{
-		id: 'anthropic:claude-sonnet-4-5',
-		label: 'Claude Sonnet 4.5',
-		description: 'Anthropic provider',
-		provider_id: 'anthropic',
-		model_id: 'claude-sonnet-4-5'
+		providerId: 'opencode-go',
+		providerName: 'OpenCode Go',
+		providerMethod: 'opencode-go',
+		modelId: 'deepseek-v4-flash'
 	}
 ];
 
@@ -33,26 +30,50 @@ function labelForModel(modelID: string) {
 		.join(' ');
 }
 
+
+function optionsFromProvider(provider: ProviderConfig): ModelOption[] {
+	if (!provider.enabled) return [];
+	const models =
+		provider.enabledModels.length > 0
+			? provider.enabledModels
+			: provider.method === 'opencode-go'
+				? OPENCODE_GO_DEFAULT_MODELS
+				: [];
+	return models.map((modelId) => ({
+		id: `${provider.id}:${modelId}`,
+		label: labelForModel(modelId),
+		providerId: provider.id,
+		providerName: provider.name || provider.id,
+		providerMethod: provider.method,
+		modelId
+	}));
+}
+
 function createModelStore() {
 	let options = $state<ModelOption[]>(defaultModelOptions);
-	let selected = $state<ModelOption>(defaultModelOptions[0]);
+	let selected = $state<ModelOption | null>(defaultModelOptions[0]);
 
 	function select(option: ModelOption) {
 		selected = option;
 	}
 
-	function selectByProviderModel(providerID: string, modelID: string) {
+	function selectByProviderModel(providerId: string, modelId: string) {
+		if (!modelId) {
+			selected = options[0] ?? null;
+			return;
+		}
 		const match = options.find(
-			(option) => option.provider_id === providerID && option.model_id === modelID
+			(option) => option.providerId === providerId && option.modelId === modelId
 		);
 		selected =
 			match ??
 			{
-				id: `${providerID}:${modelID}`,
-				label: modelID,
-				description: providerID,
-				provider_id: providerID,
-				model_id: modelID
+				id: `${providerId}:${modelId}`,
+				label: labelForModel(modelId),
+				providerId,
+				providerName: providerId,
+				providerMethod: 'openai-compatible',
+				modelId
 			};
 	}
 
@@ -60,16 +81,22 @@ function createModelStore() {
 		selectByProviderModel(session.provider_id, session.model_id);
 	}
 
-	function setProviderModels(providerID: string, models: string[], selectedModelID?: string) {
-		const nextOptions = models.map((modelID) => ({
-			id: `${providerID}:${modelID}`,
-			label: labelForModel(modelID),
-			description: providerID,
-			provider_id: providerID,
-			model_id: modelID
-		}));
-		options = nextOptions.length > 0 ? nextOptions : defaultModelOptions;
-		selectByProviderModel(providerID, selectedModelID || options[0].model_id);
+	function setProviders(providers: ProviderConfig[]) {
+		const nextOptions = providers.flatMap(optionsFromProvider);
+		options = nextOptions;
+
+		if (selected && options.some((option) => option.id === selected?.id)) {
+			return;
+		}
+		selected = options[0] ?? null;
+	}
+
+	function updateProviderModels(provider: ProviderConfig) {
+		const withoutProvider = options.filter((option) => option.providerId !== provider.id);
+		options = [...withoutProvider, ...optionsFromProvider(provider)];
+		if (!selected || !options.some((option) => option.id === selected?.id)) {
+			selected = options[0] ?? null;
+		}
 	}
 
 	return {
@@ -82,7 +109,8 @@ function createModelStore() {
 		select,
 		selectByProviderModel,
 		selectFromSession,
-		setProviderModels
+		setProviders,
+		updateProviderModels
 	};
 }
 

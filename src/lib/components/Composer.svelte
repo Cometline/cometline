@@ -3,7 +3,6 @@
 	import { Check, ChevronDown, Send, Sparkles, Square, X } from '@lucide/svelte';
 	import type { QueuedMessage } from '$lib/actions/chat-turn-queue';
 	import { modelStore, type ModelOption } from '$lib/stores/model.svelte';
-	import { settingsStore } from '$lib/stores/settings.svelte';
 
 	let {
 		onSend,
@@ -29,9 +28,37 @@
 
 	let value = $state('');
 	let modelOpen = $state(false);
+	let modelSearch = $state('');
 	let queuePreviewOpen = $state(false);
 	let queuePicker = $state<HTMLDivElement | null>(null);
 	let rows = $derived(Math.min(8, Math.max(3, value.split('\n').length)));
+	let filteredModelOptions = $derived.by(() => {
+		const query = modelSearch.trim().toLowerCase();
+		if (!query) return modelStore.options;
+		return modelStore.options.filter(
+			(option) =>
+				option.label.toLowerCase().includes(query) ||
+				option.modelId.toLowerCase().includes(query) ||
+				option.providerName.toLowerCase().includes(query)
+		);
+	});
+	let groupedModelOptions = $derived.by(() => {
+		const groups: { providerId: string; providerName: string; providerMethod: string; options: ModelOption[] }[] = [];
+		for (const option of filteredModelOptions) {
+			let group = groups.find((item) => item.providerId === option.providerId);
+			if (!group) {
+				group = {
+					providerId: option.providerId,
+					providerName: option.providerName,
+					providerMethod: option.providerMethod,
+					options: []
+				};
+				groups.push(group);
+			}
+			group.options.push(option);
+		}
+		return groups;
+	});
 
 	$effect(() => {
 		if (queuedCount === 0) queuePreviewOpen = false;
@@ -49,7 +76,7 @@
 
 	function submit() {
 		const text = value.trim();
-		if (!text || disabled) return;
+		if (!text || disabled || !modelStore.selected) return;
 		onSend(text);
 		value = '';
 	}
@@ -71,8 +98,8 @@
 
 	function selectModel(option: ModelOption) {
 		modelStore.select(option);
-		settingsStore.setSelectedModel(option.model_id);
 		modelOpen = false;
+		modelSearch = '';
 	}
 
 	function closeModelMenu(e: FocusEvent) {
@@ -80,6 +107,7 @@
 		const current = e.currentTarget as Node;
 		if (next && current.contains(next)) return;
 		modelOpen = false;
+		modelSearch = '';
 	}
 
 	function toggleQueuePreview() {
@@ -165,11 +193,12 @@
 					class="model-button"
 					aria-label="Select model"
 					aria-expanded={modelOpen}
-					title="Select model for new chats"
+					title={modelStore.options.length > 0 ? 'Select model for new chats' : 'Enable a model in Settings first'}
+					disabled={modelStore.options.length === 0}
 					onclick={() => (modelOpen = !modelOpen)}
 				>
 					<Sparkles size={14} stroke-width={1.8} />
-					<span>{modelStore.selected.label}</span>
+					<span>{modelStore.selected?.label ?? 'No enabled models'}</span>
 					<svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor" aria-hidden="true">
 						<path d="M2 4l3 3 3-3H2z" />
 					</svg>
@@ -177,16 +206,32 @@
 
 				{#if modelOpen}
 					<div class="model-menu" transition:fly={{ y: 6, duration: 120 }}>
-						{#each modelStore.options as option (option.id)}
-							<button class="model-option" onclick={() => selectModel(option)} transition:fade={{ duration: 90 }}>
-								<span class="model-option-copy">
-									<strong>{option.label}</strong>
-									<small>{option.model_id} · {option.description}</small>
-								</span>
-								{#if option.id === modelStore.selected.id}
-									<Check size={14} stroke-width={2} />
-								{/if}
-							</button>
+						<input
+							class="model-search"
+							bind:value={modelSearch}
+							placeholder="Search models..."
+							spellcheck="false"
+						/>
+						{#each groupedModelOptions as group (group.providerId)}
+							<div class="model-group" transition:fade={{ duration: 90 }}>
+								<div class="model-group-heading">
+									<strong>{group.providerName}</strong>
+									<small>{group.providerMethod}</small>
+								</div>
+								{#each group.options as option (option.id)}
+									<button class="model-option" onclick={() => selectModel(option)}>
+										<span class="model-check">
+											{#if option.id === modelStore.selected?.id}<Check size={14} stroke-width={2} />{/if}
+										</span>
+										<span class="model-option-copy">
+											<strong>{option.label}</strong>
+											<small>{option.modelId}</small>
+										</span>
+									</button>
+								{/each}
+							</div>
+						{:else}
+							<p class="model-empty">No enabled models match your search.</p>
 						{/each}
 					</div>
 				{/if}
@@ -199,7 +244,7 @@
 					<Square size={14} fill="currentColor" stroke-width={0} />
 				</button>
 			{:else}
-				<button class="send-button" onclick={submit} disabled={!value.trim() || disabled} aria-label="Send">
+				<button class="send-button" onclick={submit} disabled={!value.trim() || disabled || !modelStore.selected} aria-label="Send">
 					<Send size={16} stroke-width={1.8} />
 				</button>
 			{/if}
@@ -449,29 +494,82 @@
 		position: absolute;
 		left: 0;
 		bottom: calc(100% + 8px);
-		width: 290px;
+		width: 330px;
+		max-height: 420px;
+		overflow: auto;
 		padding: 6px;
 		border: 1px solid var(--border-soft);
 		border-radius: 13px;
-		background: rgba(255, 255, 255, 0.98);
+		background: rgba(246, 249, 252, 0.98);
 		box-shadow: var(--shadow-card);
 		z-index: 30;
+	}
+
+	.model-search {
+		width: 100%;
+		border: none;
+		border-bottom: 1px solid var(--border-soft);
+		background: transparent;
+		padding: 10px 12px 12px;
+		font: inherit;
+		font-size: 13px;
+		color: var(--text-main);
+		outline: none;
+	}
+
+	.model-search::placeholder {
+		color: var(--text-soft);
+	}
+
+	.model-group {
+		padding: 6px 0;
+	}
+
+	.model-group-heading {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		padding: 6px 10px;
+		color: var(--text-muted);
+	}
+
+	.model-group-heading strong {
+		font-size: 12px;
+		font-weight: 700;
+	}
+
+	.model-group-heading small {
+		border-radius: 999px;
+		background: rgba(15, 23, 42, 0.06);
+		padding: 2px 7px;
+		font-size: 10px;
+		font-weight: 700;
+		text-transform: uppercase;
+		letter-spacing: 0.02em;
 	}
 
 	.model-option {
 		display: flex;
 		align-items: center;
-		justify-content: space-between;
-		gap: 12px;
+		gap: 10px;
 		width: 100%;
 		padding: 9px 10px;
 		text-align: left;
 		color: var(--text-main);
 	}
 
+	.model-check {
+		width: 18px;
+		display: grid;
+		place-items: center;
+		color: var(--text-main);
+		flex-shrink: 0;
+	}
+
 	.model-option-copy {
 		display: flex;
 		min-width: 0;
+		width: 100%;
 		flex-direction: column;
 		gap: 2px;
 	}
@@ -492,5 +590,12 @@
 		font-size: 11px;
 		font-weight: 400;
 		color: var(--text-soft);
+	}
+
+	.model-empty {
+		margin: 0;
+		padding: 12px;
+		font-size: 12px;
+		color: var(--text-muted);
 	}
 </style>

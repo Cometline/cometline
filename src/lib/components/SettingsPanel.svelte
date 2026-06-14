@@ -1,40 +1,170 @@
 <script lang="ts">
-	import { fly, fade, scale } from 'svelte/transition';
-	import { Check, LoaderCircle, Settings, X } from '@lucide/svelte';
-	import type { ProviderSettings } from '$lib/types';
+	import { fade, fly, scale } from 'svelte/transition';
+	import { Check, LoaderCircle, Plus, Settings, Trash2, X } from '@lucide/svelte';
+	import type { ProviderConfig, ProviderMethod, ProviderSettings } from '$lib/types';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { settingsStore } from '$lib/stores/settings.svelte';
 
-	// This component is mounted only while the settings modal is open (see
-	// SettingsModal.svelte's {#if} gate). Seeding the draft at script top means
-	// "reset the form" happens as a direct consequence of the open action, so we
-	// need neither an $effect nor an edge-trigger flag.
-	let draft = $state<ProviderSettings>({
-		...settingsStore.settings,
-		models: [...settingsStore.settings.models]
-	});
+	const METHOD_LABELS: Record<ProviderMethod, string> = {
+		'openai-compatible': 'OpenAI-compatible',
+		openai: 'OpenAI',
+		anthropic: 'Anthropic',
+		'opencode-go': 'OpenCode Go'
+	};
+
+	const DEFAULT_PROVIDER_IDS = new Set(['openai-compatible', 'anthropic', 'openai', 'opencode-go']);
+	const OPENCODE_GO_DEFAULT_MODELS = ['deepseek-v4-flash'];
+
+	function cloneProvider(provider: ProviderConfig): ProviderConfig {
+		return {
+			...provider,
+			models: [...provider.models],
+			enabledModels: [...provider.enabledModels]
+		};
+	}
+
+	function cloneSettings(settings: ProviderSettings): ProviderSettings {
+		return {
+			providers: settings.providers.map(cloneProvider),
+			activeProviderId: settings.activeProviderId
+		};
+	}
+
+	let draft = $state<ProviderSettings>(cloneSettings(settingsStore.settings));
+	let selectedProviderId = $state<string>(settingsStore.settings.activeProviderId || draft.providers[0]?.id || '');
 	let status = $state('');
+	let modelSearch = $state('');
+
+	let selectedProvider = $derived(
+		draft.providers.find((p) => p.id === selectedProviderId) ?? draft.providers[0]
+	);
+
+	let filteredModels = $derived.by(() => {
+		if (!selectedProvider) return [];
+		const query = modelSearch.trim().toLowerCase();
+		if (!query) return selectedProvider.models;
+		return selectedProvider.models.filter((model) => model.toLowerCase().includes(query));
+	});
+
+	let enabledProviderCount = $derived(draft.providers.filter((provider) => provider.enabled).length);
+	let enabledModelCount = $derived(
+		draft.providers.reduce((total, provider) => total + (provider.enabled ? provider.enabledModels.length : 0), 0)
+	);
+
+	function updateProvider(providerId: string, patch: Partial<ProviderConfig>) {
+		draft = {
+			...draft,
+			providers: draft.providers.map((provider) => {
+				if (provider.id !== providerId) return provider;
+				const models = patch.models ? [...patch.models] : [...provider.models];
+				const enabledModels = (patch.enabledModels ? [...patch.enabledModels] : [...provider.enabledModels]).filter(
+					(model) => models.includes(model)
+				);
+				return {
+					...provider,
+					...patch,
+					models,
+					enabledModels,
+					selectedModel: enabledModels[0] ?? patch.selectedModel ?? provider.selectedModel
+				};
+			})
+		};
+	}
+
+	function updateSelected(patch: Partial<ProviderConfig>) {
+		if (!selectedProvider) return;
+		updateProvider(selectedProvider.id, patch);
+	}
+
+	function setSelectedMethod(method: ProviderMethod) {
+		if (method === 'opencode-go') {
+			updateSelected({
+				method,
+				baseURL: 'https://opencode.ai/zen/go/v1',
+				models: [...OPENCODE_GO_DEFAULT_MODELS],
+				enabledModels: [...OPENCODE_GO_DEFAULT_MODELS],
+				selectedModel: OPENCODE_GO_DEFAULT_MODELS[0]
+			});
+			return;
+		}
+		updateSelected({ method });
+	}
+
+	function toggleProvider(providerId: string) {
+		const provider = draft.providers.find((p) => p.id === providerId);
+		if (!provider) return;
+		updateProvider(providerId, { enabled: !provider.enabled });
+	}
+
+	function toggleModel(model: string) {
+		if (!selectedProvider) return;
+		const nextEnabledModels = selectedProvider.enabledModels.includes(model)
+			? selectedProvider.enabledModels.filter((enabledModel) => enabledModel !== model)
+			: [...selectedProvider.enabledModels, model];
+		updateSelected({ enabled: nextEnabledModels.length > 0 ? true : selectedProvider.enabled, enabledModels: nextEnabledModels });
+	}
 
 	async function fetchModels() {
+		if (!selectedProvider) return;
 		status = '';
-		const next = await settingsStore.fetchModels(draft);
-		draft = { ...next, models: [...next.models] };
-		status = `Fetched ${next.models.length} model${next.models.length === 1 ? '' : 's'}.`;
+		const updated = await settingsStore.fetchModelsFor(selectedProvider);
+		updateSelected({
+			models: updated.models,
+			enabledModels: updated.enabledModels,
+			selectedModel: updated.selectedModel
+		});
+		status = `Fetched ${updated.models.length} model${updated.models.length === 1 ? '' : 's'} for ${selectedProvider.name}.`;
+	}
+
+	function addProvider() {
+		const id = `provider-${Date.now()}`;
+		draft = {
+			...draft,
+			providers: [
+				...draft.providers,
+				{
+					id,
+					name: 'Custom Provider',
+					method: 'openai-compatible',
+					enabled: false,
+					baseURL: '',
+					apiKey: '',
+					selectedModel: '',
+					models: [],
+					enabledModels: []
+				}
+			]
+		};
+		selectedProviderId = id;
+	}
+
+	function removeProvider(providerId: string) {
+		if (DEFAULT_PROVIDER_IDS.has(providerId)) return;
+		const nextProviders = draft.providers.filter((p) => p.id !== providerId);
+		draft = {
+			providers: nextProviders,
+			activeProviderId: nextProviders.find((provider) => provider.enabled)?.id ?? nextProviders[0]?.id ?? ''
+		};
+		selectedProviderId = nextProviders[0]?.id ?? '';
 	}
 
 	async function save() {
 		status = '';
-		let next = draft;
-		if (draft.baseURL.trim() && draft.apiKey.trim()) {
-			next = await settingsStore.fetchModels(draft);
-		}
-		const saved = await settingsStore.save(next);
-		draft = { ...saved, models: [...saved.models] };
-		status = 'Saved. CometMind is restarting with this provider.';
+		const activeProvider =
+			draft.providers.find((provider) => provider.enabled && provider.enabledModels.length > 0) ??
+			draft.providers.find((provider) => provider.enabled) ??
+			draft.providers[0];
+		const saved = await settingsStore.save({
+			providers: draft.providers.map(cloneProvider),
+			activeProviderId: activeProvider?.id ?? ''
+		});
+		draft = cloneSettings(saved);
+		selectedProviderId = selectedProvider?.id ?? saved.activeProviderId;
+		status = 'Saved. CometMind is restarting with enabled providers.';
 	}
 
-	function selectModel(model: string) {
-		draft = { ...draft, selectedModel: model };
+	function methodNeedsFetch(method: ProviderMethod) {
+		return method !== 'opencode-go';
 	}
 </script>
 
@@ -44,56 +174,172 @@
 		<header>
 			<div class="title-mark"><Settings size={16} /></div>
 			<div>
-				<h2 id="settings-title">Provider Settings</h2>
-				<p>Configure the provider used by new CometMind sessions.</p>
+				<h2 id="settings-title">Providers</h2>
+				<p>Enable providers, fetch models, then choose which models appear in the composer.</p>
 			</div>
 			<button class="icon-button" aria-label="Close settings" onclick={shellStore.closeSettings}>
 				<X size={16} />
 			</button>
 		</header>
 
-		<div class="form-grid">
-			<label>
-				<span>Provider</span>
-				<select bind:value={draft.provider}>
-					<option value="openai">OpenAI-compatible</option>
-					<option value="anthropic">Anthropic</option>
-				</select>
-			</label>
-
-			<label>
-				<span>Base URL</span>
-				<input bind:value={draft.baseURL} placeholder="https://example.com/v1" spellcheck="false" />
-			</label>
-
-			<label>
-				<span>API Key</span>
-				<input bind:value={draft.apiKey} type="password" placeholder="sk-..." spellcheck="false" />
-			</label>
-		</div>
-
-		<div class="model-section">
-			<div class="model-heading">
-				<div>
-					<h3>Available Models</h3>
-					<p>Fetched from <code>/models</code> using the Base URL above.</p>
-				</div>
-				<button class="secondary" onclick={fetchModels} disabled={settingsStore.isFetchingModels || !draft.baseURL.trim() || !draft.apiKey.trim()}>
-					{#if settingsStore.isFetchingModels}<LoaderCircle size={14} class="spin" />{/if}
-					Fetch models
-				</button>
-			</div>
-
-			<div class="models">
-				{#each draft.models as model (model)}
-					<button class="model-row" class:selected={model === draft.selectedModel} onclick={() => selectModel(model)} transition:fly={{ y: 4, duration: 100 }}>
-						<span>{model}</span>
-						{#if model === draft.selectedModel}<Check size={14} />{/if}
+		<div class="provider-shell">
+			<aside class="provider-sidebar">
+				<div class="provider-sidebar-title">
+					<span>{enabledProviderCount} enabled</span>
+					<button class="icon-button inline" aria-label="Add provider" onclick={addProvider}>
+						<Plus size={15} />
 					</button>
-				{:else}
-					<p class="empty-models">No models loaded yet.</p>
-				{/each}
-			</div>
+				</div>
+
+				<div class="provider-list">
+					{#each draft.providers as provider (provider.id)}
+						<button
+							class="provider-card"
+							class:selected={selectedProviderId === provider.id}
+							class:enabled={provider.enabled}
+							onclick={() => {
+								selectedProviderId = provider.id;
+								modelSearch = '';
+							}}
+							transition:fly={{ y: 4, duration: 100 }}
+						>
+							<span>
+								<strong>{provider.name}</strong>
+								<small>{METHOD_LABELS[provider.method]}</small>
+							</span>
+							<span class="provider-dot" aria-hidden="true"></span>
+						</button>
+					{:else}
+						<p class="empty-providers">No providers configured.</p>
+					{/each}
+				</div>
+			</aside>
+
+			{#if selectedProvider}
+				<section class="provider-detail">
+					<div class="detail-heading">
+						<div>
+							<h3>{selectedProvider.name}</h3>
+							<p>{METHOD_LABELS[selectedProvider.method]} · {selectedProvider.enabledModels.length} enabled models</p>
+						</div>
+						<div class="detail-actions">
+							{#if !DEFAULT_PROVIDER_IDS.has(selectedProvider.id)}
+								<button class="secondary danger" aria-label="Delete provider" onclick={() => removeProvider(selectedProvider.id)}>
+									<Trash2 size={14} />
+								</button>
+							{/if}
+							<button
+								class="switch"
+								class:on={selectedProvider.enabled}
+								role="switch"
+								aria-checked={selectedProvider.enabled}
+								onclick={() => toggleProvider(selectedProvider.id)}
+							>
+								<span></span>
+							</button>
+						</div>
+					</div>
+
+					<div class="form-grid">
+						<label>
+							<span>Name</span>
+							<input
+								value={selectedProvider.name}
+								oninput={(e) => updateSelected({ name: e.currentTarget.value })}
+								placeholder="Provider name"
+								spellcheck="false"
+							/>
+						</label>
+
+						<label>
+							<span>Method</span>
+							<select
+								value={selectedProvider.method}
+								onchange={(e) => setSelectedMethod(e.currentTarget.value as ProviderMethod)}
+							>
+								<option value="openai-compatible">OpenAI-compatible</option>
+								<option value="anthropic">Anthropic</option>
+								<option value="openai">OpenAI</option>
+								<option value="opencode-go">OpenCode Go</option>
+							</select>
+						</label>
+
+						<label>
+							<span>Base URL</span>
+							<input
+								value={selectedProvider.baseURL}
+								oninput={(e) => updateSelected({ baseURL: e.currentTarget.value })}
+								placeholder="https://example.com/v1"
+								spellcheck="false"
+							/>
+						</label>
+
+						<label>
+							<span>API Key</span>
+							<input
+								value={selectedProvider.apiKey}
+								oninput={(e) => updateSelected({ apiKey: e.currentTarget.value })}
+								type="password"
+								placeholder="sk-..."
+								spellcheck="false"
+							/>
+						</label>
+					</div>
+
+					<div class="model-section">
+						<div class="model-heading">
+							<div>
+								<h3>Models</h3>
+								{#if methodNeedsFetch(selectedProvider.method)}
+									<p>Use Fetch models to refresh the latest list from <code>/models</code>.</p>
+								{:else}
+									<p>OpenCode Go models are available by default.</p>
+								{/if}
+							</div>
+							{#if methodNeedsFetch(selectedProvider.method)}
+								<button
+									class="secondary"
+									onclick={fetchModels}
+									disabled={settingsStore.isFetchingModels || !selectedProvider.baseURL.trim() || !selectedProvider.apiKey.trim()}
+								>
+									{#if settingsStore.isFetchingModels}<LoaderCircle size={14} class="spin" />{/if}
+									Fetch models
+								</button>
+							{/if}
+						</div>
+
+						<input
+							class="model-search"
+							bind:value={modelSearch}
+							placeholder="Search models..."
+							spellcheck="false"
+						/>
+
+						<div class="models">
+							{#each filteredModels as model (model)}
+								<button
+									class="model-row"
+									class:enabled={selectedProvider.enabledModels.includes(model)}
+									onclick={() => toggleModel(model)}
+									transition:fly={{ y: 4, duration: 100 }}
+								>
+									<span>
+										<strong>{model}</strong>
+										<small>{selectedProvider.id}:{model}</small>
+									</span>
+									<span class="model-toggle" aria-hidden="true">
+										{#if selectedProvider.enabledModels.includes(model)}<Check size={13} />{/if}
+									</span>
+								</button>
+							{:else}
+								<p class="empty-models">
+									{selectedProvider.models.length === 0 ? 'No models loaded yet.' : 'No models match your search.'}
+								</p>
+							{/each}
+						</div>
+					</div>
+				</section>
+			{/if}
 		</div>
 
 		{#if settingsStore.error}
@@ -103,10 +349,11 @@
 		{/if}
 
 		<footer>
+			<p>{enabledModelCount} model{enabledModelCount === 1 ? '' : 's'} enabled</p>
 			<button class="secondary" onclick={shellStore.closeSettings}>Cancel</button>
-			<button class="primary" onclick={save} disabled={settingsStore.isSaving || settingsStore.isFetchingModels || !draft.selectedModel.trim()}>
+			<button class="primary" onclick={save} disabled={settingsStore.isSaving || settingsStore.isFetchingModels || enabledModelCount === 0}>
 				{#if settingsStore.isSaving}<LoaderCircle size={14} class="spin" />{/if}
-				Save and restart
+				Save
 			</button>
 		</footer>
 	</div>
@@ -132,8 +379,8 @@
 
 	.modal {
 		position: relative;
-		width: min(620px, 100%);
-		max-height: min(720px, 100%);
+		width: min(980px, 100%);
+		max-height: min(760px, 100%);
 		overflow: auto;
 		background: rgba(255, 255, 255, 0.96);
 		border: 1px solid rgba(229, 231, 235, 0.95);
@@ -144,7 +391,11 @@
 
 	header,
 	footer,
+	.detail-heading,
+	.detail-actions,
 	.model-heading,
+	.provider-sidebar-title,
+	.provider-card,
 	.model-row {
 		display: flex;
 		align-items: center;
@@ -168,20 +419,26 @@
 
 	header h2,
 	header p,
+	.detail-heading h3,
+	.detail-heading p,
 	.model-heading h3,
 	.model-heading p,
+	footer p,
 	.message {
 		margin: 0;
 	}
 
 	header h2 {
-		font-size: 16px;
-		font-weight: 650;
+		font-size: 17px;
+		font-weight: 700;
 	}
 
 	header p,
+	.detail-heading p,
 	.model-heading p,
-	.empty-models {
+	.empty-models,
+	.empty-providers,
+	footer p {
 		font-size: 12px;
 		line-height: 1.45;
 		color: var(--text-muted);
@@ -199,16 +456,128 @@
 		place-items: center;
 	}
 
+	.icon-button.inline {
+		margin-left: 0;
+	}
+
 	.icon-button:hover,
 	.secondary:hover,
+	.provider-card:hover,
 	.model-row:hover {
 		background: rgba(15, 23, 42, 0.05);
 	}
 
+	.provider-shell {
+		display: grid;
+		grid-template-columns: 270px 1fr;
+		gap: 16px;
+		padding: 16px 0;
+	}
+
+	.provider-sidebar,
+	.provider-detail {
+		border: 1px solid var(--border-soft);
+		border-radius: 18px;
+		background: rgba(251, 251, 250, 0.72);
+	}
+
+	.provider-sidebar {
+		padding: 12px;
+	}
+
+	.provider-sidebar-title {
+		justify-content: space-between;
+		padding: 0 2px 10px;
+		font-size: 12px;
+		font-weight: 650;
+		color: var(--text-muted);
+	}
+
+	.provider-list {
+		display: grid;
+		gap: 8px;
+	}
+
+	.provider-card {
+		justify-content: space-between;
+		gap: 12px;
+		width: 100%;
+		border: 1px solid var(--border-soft);
+		border-radius: 13px;
+		background: rgba(255, 255, 255, 0.72);
+		padding: 10px 12px;
+		color: var(--text-main);
+		text-align: left;
+	}
+
+	.provider-card.selected {
+		border-color: rgba(0, 102, 204, 0.4);
+		box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.08);
+	}
+
+	.provider-card span:first-child,
+	.model-row span:first-child {
+		display: grid;
+		gap: 2px;
+		min-width: 0;
+	}
+
+	.provider-card strong,
+	.model-row strong {
+		overflow: hidden;
+		font-size: 13px;
+		font-weight: 650;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.provider-card small,
+	.model-row small {
+		overflow: hidden;
+		font-size: 11px;
+		color: var(--text-soft);
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.provider-dot {
+		width: 10px;
+		height: 10px;
+		border-radius: 999px;
+		background: #cbd5e1;
+		flex-shrink: 0;
+	}
+
+	.provider-card.enabled .provider-dot {
+		background: #7aa1aa;
+	}
+
+	.provider-detail {
+		padding: 16px;
+	}
+
+	.detail-heading,
+	.model-heading {
+		justify-content: space-between;
+		gap: 12px;
+		margin-bottom: 14px;
+	}
+
+	.detail-heading h3,
+	.model-heading h3 {
+		font-size: 15px;
+		font-weight: 700;
+	}
+
+	.detail-actions {
+		gap: 8px;
+	}
+
 	.form-grid {
 		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
 		gap: 12px;
-		padding: 16px 0;
+		margin-bottom: 16px;
 	}
 
 	label {
@@ -239,28 +608,21 @@
 	}
 
 	.model-section {
-		border: 1px solid var(--border-soft);
-		border-radius: 16px;
-		padding: 12px;
-		background: rgba(251, 251, 250, 0.72);
+		border-top: 1px solid var(--border-soft);
+		padding-top: 14px;
 	}
 
-	.model-heading {
-		justify-content: space-between;
-		gap: 12px;
+	.model-search {
 		margin-bottom: 10px;
-	}
-
-	.model-heading h3 {
-		font-size: 13px;
-		font-weight: 650;
 	}
 
 	.models {
 		display: grid;
-		gap: 4px;
-		max-height: 180px;
+		max-height: 260px;
 		overflow: auto;
+		border: 1px solid var(--border-soft);
+		border-radius: 14px;
+		background: rgba(255, 255, 255, 0.55);
 	}
 
 	.model-row {
@@ -268,17 +630,59 @@
 		gap: 12px;
 		width: 100%;
 		border: none;
-		border-radius: 10px;
+		border-bottom: 1px solid var(--border-soft);
 		background: transparent;
-		padding: 8px 9px;
-		font-size: 12px;
+		padding: 10px 12px;
 		color: var(--text-main);
 		text-align: left;
 	}
 
-	.model-row.selected {
-		background: rgba(0, 102, 204, 0.08);
-		color: var(--accent);
+	.model-row:last-child {
+		border-bottom: none;
+	}
+
+	.model-row.enabled {
+		background: rgba(0, 102, 204, 0.07);
+	}
+
+	.model-toggle {
+		width: 34px;
+		height: 24px;
+		border-radius: 999px;
+		background: rgba(203, 213, 225, 0.65);
+		color: white;
+		display: grid;
+		place-items: center;
+		flex-shrink: 0;
+	}
+
+	.model-row.enabled .model-toggle {
+		background: #7aa1aa;
+	}
+
+	.switch {
+		width: 44px;
+		height: 28px;
+		border: none;
+		border-radius: 999px;
+		background: rgba(203, 213, 225, 0.72);
+		padding: 3px;
+		display: flex;
+		align-items: center;
+		justify-content: flex-start;
+	}
+
+	.switch span {
+		width: 22px;
+		height: 22px;
+		border-radius: 999px;
+		background: white;
+		box-shadow: 0 1px 5px rgba(15, 23, 42, 0.16);
+	}
+
+	.switch.on {
+		justify-content: flex-end;
+		background: #7aa1aa;
 	}
 
 	.secondary,
@@ -299,6 +703,11 @@
 		color: var(--text-main);
 	}
 
+	.secondary.danger:hover {
+		background: rgba(180, 35, 24, 0.08);
+		color: #b42318;
+	}
+
 	.primary {
 		background: var(--text-main);
 		color: white;
@@ -306,10 +715,11 @@
 
 	button:disabled {
 		opacity: 0.45;
+		cursor: not-allowed;
 	}
 
 	.message {
-		padding: 10px 2px 0;
+		padding: 0 2px 12px;
 		font-size: 12px;
 	}
 
@@ -321,9 +731,40 @@
 		color: #027a48;
 	}
 
+	.empty-models,
+	.empty-providers {
+		padding: 12px;
+	}
+
 	footer {
 		justify-content: flex-end;
 		gap: 8px;
 		padding-top: 16px;
+		border-top: 1px solid var(--border-soft);
+	}
+
+	footer p {
+		margin-right: auto;
+	}
+
+	.spin {
+		animation: spin 0.9s linear infinite;
+	}
+
+	@keyframes spin {
+		to {
+			transform: rotate(360deg);
+		}
+	}
+
+	@media (max-width: 780px) {
+		.provider-shell,
+		.form-grid {
+			grid-template-columns: 1fr;
+		}
+
+		.modal {
+			max-height: calc(100vh - 40px);
+		}
 	}
 </style>

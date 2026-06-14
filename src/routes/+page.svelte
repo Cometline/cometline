@@ -21,10 +21,12 @@
 	});
 
 	async function onSend(text: string) {
+		const selectedModel = modelStore.selected;
+		if (!selectedModel) return;
 		const session = await createSession({
 			workspace_path: shellStore.workspacePath,
-			model_id: modelStore.selected.model_id,
-			provider_id: modelStore.selected.provider_id
+			model_id: selectedModel.modelId,
+			provider_id: selectedModel.providerId
 		});
 		sessionStore.appendSession(session);
 		sessionStore.queuePendingMessage(session.id, text);

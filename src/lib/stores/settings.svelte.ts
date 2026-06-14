@@ -1,16 +1,130 @@
-import type { ProviderSettings } from '$lib/types';
+import type { ProviderConfig, ProviderSettings } from '$lib/types';
 import { modelStore } from './model.svelte';
 
-const defaults: ProviderSettings = {
-	provider: 'openai',
-	baseURL: 'https://opencode.ai/zen/go/v1',
-	apiKey: '',
-	selectedModel: 'deepseek-v4-flash',
-	models: ['deepseek-v4-flash']
-};
+const DEFAULT_OPENCODE_GO_MODELS = ['deepseek-v4-flash'];
+
+const DEFAULT_PROVIDERS: ProviderConfig[] = [
+	{
+		id: 'openai-compatible',
+		name: 'OpenAI Compatible',
+		method: 'openai-compatible',
+		enabled: false,
+		baseURL: '',
+		apiKey: '',
+		selectedModel: '',
+		models: [],
+		enabledModels: []
+	},
+	{
+		id: 'anthropic',
+		name: 'Anthropic',
+		method: 'anthropic',
+		enabled: false,
+		baseURL: 'https://api.anthropic.com',
+		apiKey: '',
+		selectedModel: '',
+		models: [],
+		enabledModels: []
+	},
+	{
+		id: 'openai',
+		name: 'OpenAI',
+		method: 'openai',
+		enabled: false,
+		baseURL: 'https://api.openai.com/v1',
+		apiKey: '',
+		selectedModel: '',
+		models: [],
+		enabledModels: []
+	},
+	{
+		id: 'opencode-go',
+		name: 'OpenCode Go',
+		method: 'opencode-go',
+		enabled: true,
+		baseURL: 'https://opencode.ai/zen/go/v1',
+		apiKey: '',
+		selectedModel: DEFAULT_OPENCODE_GO_MODELS[0],
+		models: [...DEFAULT_OPENCODE_GO_MODELS],
+		enabledModels: [...DEFAULT_OPENCODE_GO_MODELS]
+	}
+];
+
+function cloneProvider(provider: ProviderConfig): ProviderConfig {
+	return {
+		...provider,
+		models: [...provider.models],
+		enabledModels: [...provider.enabledModels]
+	};
+}
+
+function normalizeProvider(provider: Partial<ProviderConfig>, fallback?: ProviderConfig): ProviderConfig {
+	const method = provider.method ?? fallback?.method ?? 'openai-compatible';
+	const models = Array.isArray(provider.models) ? provider.models.filter(Boolean) : fallback?.models ?? [];
+	const modelList = method === 'opencode-go' && models.length === 0 ? DEFAULT_OPENCODE_GO_MODELS : models;
+	const legacySelected = provider.selectedModel || fallback?.selectedModel || modelList[0] || '';
+	const enabledModelsSource = Array.isArray(provider.enabledModels)
+		? provider.enabledModels
+		: legacySelected
+			? [legacySelected]
+			: [];
+	const enabledModels = enabledModelsSource.filter((model) => modelList.includes(model));
+	const selectedModel = enabledModels[0] ?? (modelList.includes(legacySelected) ? legacySelected : modelList[0]) ?? '';
+
+	return {
+		id: String(provider.id || fallback?.id || `provider-${Date.now()}`).trim(),
+		name: String(provider.name || fallback?.name || 'Provider').trim(),
+		method,
+		enabled: typeof provider.enabled === 'boolean' ? provider.enabled : (fallback?.enabled ?? false),
+		baseURL: String(provider.baseURL ?? fallback?.baseURL ?? '').trim(),
+		apiKey: String(provider.apiKey ?? fallback?.apiKey ?? '').trim(),
+		selectedModel,
+		models: [...modelList],
+		enabledModels
+	};
+}
+
+function normalizeProviders(providers: Partial<ProviderConfig>[] | undefined): ProviderConfig[] {
+	const saved = Array.isArray(providers) ? providers : [];
+	const normalizedDefaults = DEFAULT_PROVIDERS.map((provider) => {
+		const savedProvider = saved.find((p) => p.id === provider.id);
+		return normalizeProvider(savedProvider ?? provider, provider);
+	});
+	const customProviders = saved
+		.filter((provider) => !DEFAULT_PROVIDERS.some((p) => p.id === provider.id))
+		.map((provider) => normalizeProvider(provider));
+	return [...normalizedDefaults, ...customProviders];
+}
+
+function newProvider(id: string): ProviderConfig {
+	return {
+		id,
+		name: 'New Provider',
+		method: 'openai-compatible',
+		enabled: false,
+		baseURL: '',
+		apiKey: '',
+		selectedModel: '',
+		models: [],
+		enabledModels: []
+	};
+}
+
+function defaultSettings(): ProviderSettings {
+	const providers = DEFAULT_PROVIDERS.map(cloneProvider);
+	const active = providers.find((provider) => provider.enabled && provider.enabledModels.length > 0) ?? providers[0];
+	return {
+		providers,
+		activeProviderId: active.id
+	};
+}
 
 function fallbackSettings() {
-	return { ...defaults, models: [...defaults.models] };
+	const defaults = defaultSettings();
+	return {
+		providers: defaults.providers.map(cloneProvider),
+		activeProviderId: defaults.activeProviderId
+	};
 }
 
 function createSettingsStore() {
@@ -21,12 +135,16 @@ function createSettingsStore() {
 	let error = $state('');
 
 	function apply(next: ProviderSettings) {
+		const providers = normalizeProviders(next.providers);
+		const firstEnabled = providers.find((provider) => provider.enabled && provider.enabledModels.length > 0);
+		const activeProviderId = firstEnabled?.id ?? next.activeProviderId ?? providers[0]?.id ?? '';
 		settings = {
 			...fallbackSettings(),
 			...next,
-			models: Array.isArray(next.models) && next.models.length > 0 ? next.models : [next.selectedModel]
+			providers,
+			activeProviderId
 		};
-		modelStore.setProviderModels(settings.provider, settings.models, settings.selectedModel);
+		modelStore.setProviders(settings.providers);
 	}
 
 	async function load() {
@@ -42,15 +160,16 @@ function createSettingsStore() {
 		}
 	}
 
-	async function fetchModels(draft: ProviderSettings) {
+	async function fetchModelsFor(provider: ProviderConfig) {
 		isFetchingModels = true;
 		error = '';
 		try {
-			const models = (await window.electronAPI?.fetchProviderModels?.(draft)) ?? [];
-			const selectedModel = models.includes(draft.selectedModel) ? draft.selectedModel : (models[0] ?? '');
-			const next = { ...draft, models, selectedModel };
-			apply(next);
-			return next;
+			const models = (await window.electronAPI?.fetchProviderModels?.(provider)) ?? [];
+			const enabledModels = provider.enabledModels.filter((model) => models.includes(model));
+			const selectedModel = enabledModels[0] ?? (models.includes(provider.selectedModel)
+				? provider.selectedModel
+				: (models[0] ?? ''));
+			return { ...provider, models, enabledModels, selectedModel };
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to fetch models';
 			throw err;
@@ -74,9 +193,53 @@ function createSettingsStore() {
 		}
 	}
 
-	function setSelectedModel(modelID: string) {
-		settings = { ...settings, selectedModel: modelID };
-		modelStore.selectByProviderModel(settings.provider, modelID);
+	function setActiveProvider(providerId: string) {
+		settings = { ...settings, activeProviderId: providerId };
+		const provider = settings.providers.find((p) => p.id === providerId);
+		if (provider) {
+			modelStore.selectByProviderModel(provider.id, provider.enabledModels[0] ?? provider.selectedModel);
+		}
+	}
+
+	function updateProvider(providerId: string, patch: Partial<ProviderConfig>) {
+		settings = {
+			...settings,
+			providers: settings.providers.map((p) =>
+				p.id === providerId
+					? normalizeProvider({ ...p, ...patch }, p)
+					: p
+			)
+		};
+		const updated = settings.providers.find((p) => p.id === providerId);
+		if (updated) {
+			modelStore.setProviders(settings.providers);
+		}
+	}
+
+	function addProvider() {
+		const id = `provider-${Date.now()}`;
+		settings = {
+			...settings,
+			providers: [...settings.providers, newProvider(id)]
+		};
+		return id;
+	}
+
+	function removeProvider(providerId: string) {
+		const nextProviders = settings.providers.filter((p) => p.id !== providerId);
+		let nextActive = settings.activeProviderId;
+		if (nextActive === providerId) {
+			nextActive = nextProviders[0]?.id ?? '';
+		}
+		settings = {
+			providers: nextProviders,
+			activeProviderId: nextActive
+		};
+		modelStore.setProviders(settings.providers);
+	}
+
+	function getActiveProvider() {
+		return settings.providers.find((p) => p.id === settings.activeProviderId) ?? settings.providers[0];
 	}
 
 	return {
@@ -97,9 +260,13 @@ function createSettingsStore() {
 		},
 		apply,
 		load,
-		fetchModels,
+		fetchModelsFor,
 		save,
-		setSelectedModel
+		setActiveProvider,
+		updateProvider,
+		addProvider,
+		removeProvider,
+		getActiveProvider
 	};
 }
 
