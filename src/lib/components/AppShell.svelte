@@ -51,7 +51,7 @@
 
 <div class="app-shell" class:sidebar-collapsed={!shellStore.sidebarOpen}>
 	<Sidebar {workspacePath} collapsed={!shellStore.sidebarOpen} />
-	<main class="main">
+	<main class="main shadow max-[900px]:shadow-none">
 		{@render children()}
 		<RuntimeOverlay />
 	</main>
@@ -64,11 +64,14 @@
 		display: flex;
 		width: 100vw;
 		height: 100vh;
-		background: var(--app-bg);
+		background: var(--shell-canvas-bg);
+		padding: var(--content-panel-inset) var(--content-panel-inset) var(--content-panel-inset) 0;
+		box-sizing: border-box;
 	}
 
 	.app-shell.sidebar-collapsed {
 		--active-sidebar-width: 0px;
+		padding-left: var(--content-panel-inset);
 	}
 
 	.main {
@@ -77,13 +80,32 @@
 		display: flex;
 		flex-direction: column;
 		position: relative;
+		z-index: 1;
+		margin-left: calc(-1 * var(--content-panel-overlap));
 		overflow: hidden;
+		background: var(--panel-bg);
+		border: 1px solid var(--border-soft);
+		border-radius: var(--radius-window);
+		transition: margin-left var(--duration-fast) var(--ease-smooth);
+	}
+
+	.app-shell.sidebar-collapsed .main {
+		margin-left: 0;
 	}
 
 	/* Keep chat full-width; open sidebar becomes a full-window overlay. */
 	@media (max-width: 900px) {
 		.app-shell {
 			--active-sidebar-width: 0px;
+			padding: 0;
+			background: var(--app-bg);
+		}
+
+		.main {
+			margin-left: 0;
+			border: none;
+			border-radius: 0;
+			background: transparent;
 		}
 
 		.app-shell:not(.sidebar-collapsed) :global(.sidebar:not(.collapsed)) {

@@ -154,25 +154,24 @@
 <style>
 	.sidebar {
 		position: relative;
+		z-index: 0;
 		width: var(--active-sidebar-width, var(--sidebar-width));
 		flex-shrink: 0;
 		display: flex;
 		flex-direction: column;
-		background: var(--sidebar-bg);
-		border-right: 1px solid var(--border-soft);
+		background: transparent;
+		border-right: none;
 		padding: 12px 10px 10px;
 		overflow: hidden;
 		transition:
 			width var(--duration-fast) var(--ease-smooth),
-			padding var(--duration-fast) var(--ease-smooth),
-			border-color 180ms ease;
+			padding var(--duration-fast) var(--ease-smooth);
 		view-transition-name: sidebar;
 	}
 
 	.sidebar.collapsed {
 		padding-left: 0;
 		padding-right: 0;
-		border-right-color: transparent;
 	}
 
 	.sidebar-content {
@@ -408,6 +407,10 @@
 	}
 
 	@media (max-width: 900px) {
+		.sidebar:not(.collapsed) {
+			background: var(--sidebar-overlay-bg);
+		}
+
 		.sidebar:not(.collapsed) .sidebar-content {
 			width: auto;
 			max-width: none;
