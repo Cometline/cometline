@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: cometmind/go.mod
+          cache-dependency-path: |
+            comet-sdk/go.sum
+            cometmind/go.sum
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          package_json_file: cometline/package.json
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: cometline/pnpm-lock.yaml
+
+      - name: Install frontend dependencies
+        run: pnpm --dir cometline install --frozen-lockfile
+
+      - name: Test SDK
+        run: go test ./...
+        working-directory: comet-sdk
+
+      - name: Test CometMind
+        run: go test ./...
+        working-directory: cometmind
+
+      - name: Check Cometline
+        run: pnpm --dir cometline run check
+
+      - name: Build Cometline renderer
+        run: pnpm --dir cometline run build
+
+      - name: Build CometMind sidecar
+        run: pnpm --dir cometline run build:sidecar

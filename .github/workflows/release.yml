@@ -1,0 +1,81 @@
+name: Release macOS
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release-macos:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: cometmind/go.mod
+          cache-dependency-path: |
+            comet-sdk/go.sum
+            cometmind/go.sum
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          package_json_file: cometline/package.json
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: cometline/pnpm-lock.yaml
+
+      - name: Install frontend dependencies
+        run: pnpm --dir cometline install --frozen-lockfile
+
+      - name: Sync package version from tag
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          pnpm --dir cometline version "$VERSION" --no-git-tag-version
+
+      - name: Configure GitHub release target
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const path = 'cometline/package.json';
+          const pkg = JSON.parse(fs.readFileSync(path, 'utf8'));
+          const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+          pkg.build.publish = [{ provider: 'github', owner, repo }];
+          fs.writeFileSync(path, `${JSON.stringify(pkg, null, '\t')}\n`);
+          NODE
+
+      - name: Build, sign, notarize, and publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: pnpm --dir cometline run release:mac
+
+      - name: Verify updater metadata exists
+        run: test -f cometline/dist/latest-mac.yml
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cometline-macos-${{ github.ref_name }}
+          path: |
+            cometline/dist/*.dmg
+            cometline/dist/*.zip
+            cometline/dist/*.blockmap
+            cometline/dist/latest-mac.yml
+          if-no-files-found: error

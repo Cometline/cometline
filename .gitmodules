@@ -1,0 +1,9 @@
+[submodule "cometline"]
+	path = cometline
+	url = https://github.com/Tomlord1122/cometline.git
+[submodule "comet-sdk"]
+	path = comet-sdk
+	url = https://github.com/Tomlord1122/comet-sdk.git
+[submodule "cometmind"]
+	path = cometmind
+	url = https://github.com/Tomlord1122/cometmind.git
