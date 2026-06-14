@@ -119,4 +119,51 @@ describe('createChatTurnQueue', () => {
 		const queue = createChatTurnQueue(vi.fn().mockResolvedValue(undefined));
 		expect(queue.remove('missing')).toBe(false);
 	});
+
+	it('ignores duplicate submits while the same turn is active', async () => {
+		let releaseFirst: (() => void) | undefined;
+		const firstGate = new Promise<void>((resolve) => {
+			releaseFirst = resolve;
+		});
+		const runTurn = vi.fn().mockImplementation(async (text: string) => {
+			if (text === 'hello') await firstGate;
+		});
+		const queue = createChatTurnQueue(runTurn);
+
+		const first = queue.enqueue('hello');
+		await vi.waitFor(() => expect(queue.processing).toBe(true));
+
+		await expect(queue.enqueue('hello')).resolves.toBe(false);
+		expect(queue.pendingCount).toBe(0);
+
+		releaseFirst!();
+		await first;
+
+		expect(runTurn).toHaveBeenCalledTimes(1);
+		expect(runTurn).toHaveBeenCalledWith('hello');
+	});
+
+	it('ignores duplicate consecutive queued messages', async () => {
+		let releaseFirst: (() => void) | undefined;
+		const firstGate = new Promise<void>((resolve) => {
+			releaseFirst = resolve;
+		});
+		const runTurn = vi.fn().mockImplementation(async (text: string) => {
+			if (text === 'first') await firstGate;
+		});
+		const queue = createChatTurnQueue(runTurn);
+
+		void queue.enqueue('first');
+		await vi.waitFor(() => expect(queue.processing).toBe(true));
+
+		await expect(queue.enqueue('second')).resolves.toBe(true);
+		await expect(queue.enqueue('second')).resolves.toBe(false);
+		expect(queue.pendingCount).toBe(1);
+		expect(queue.pendingMessages.map((item) => item.text)).toEqual(['second']);
+
+		releaseFirst!();
+		await vi.waitFor(() => expect(queue.processing).toBe(false));
+
+		expect(runTurn).toHaveBeenCalledTimes(2);
+	});
 });

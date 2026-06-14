@@ -41,9 +41,12 @@
 				(firstTurnActive && !firstTurnFlightDone))
 	);
 
+	let turnProcessing = $state(false);
+
 	function syncQueueState() {
 		queuedCount = turnQueue?.pendingCount ?? 0;
 		queuedMessages = turnQueue ? [...turnQueue.pendingMessages] : [];
+		turnProcessing = turnQueue?.processing ?? false;
 	}
 
 	const turnQueue = createChatTurnQueue(async (text) => {
@@ -190,6 +193,7 @@
 			{queuedCount}
 			{queuedMessages}
 			waitingForReply={chatStore.isStreaming || firstTurnActive}
+			turnProcessing={turnProcessing}
 			variant={composerVariant}
 		/>
 	</div>

@@ -13,6 +13,7 @@
 		queuedCount = 0,
 		queuedMessages = [],
 		waitingForReply = false,
+		turnProcessing = false,
 		variant = 'dock'
 	}: {
 		onSend: (text: string) => void;
@@ -23,6 +24,7 @@
 		queuedCount?: number;
 		queuedMessages?: QueuedMessage[];
 		waitingForReply?: boolean;
+		turnProcessing?: boolean;
 		variant?: 'hero' | 'dock';
 	} = $props();
 
@@ -31,6 +33,7 @@
 	let modelSearch = $state('');
 	let queuePreviewOpen = $state(false);
 	let queuePicker = $state<HTMLDivElement | null>(null);
+	let sendLocked = $derived(turnProcessing && !streaming);
 	let rows = $derived(Math.min(8, Math.max(3, value.split('\n').length)));
 	let filteredModelOptions = $derived.by(() => {
 		const query = modelSearch.trim().toLowerCase();
@@ -81,7 +84,7 @@
 
 	function submit() {
 		const text = value.trim();
-		if (!text || disabled || !modelStore.selected) return;
+		if (!text || disabled || sendLocked || !modelStore.selected) return;
 		onSend(text);
 		value = '';
 	}
@@ -266,7 +269,7 @@
 				<button
 					class="send-button"
 					onclick={submit}
-					disabled={!value.trim() || disabled || !modelStore.selected}
+					disabled={!value.trim() || disabled || sendLocked || !modelStore.selected}
 					aria-label="Send"
 				>
 					<Send size={16} stroke-width={1.8} />
