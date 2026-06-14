@@ -1,7 +1,7 @@
 packages:
-  - '.'
+    - '.'
 allowBuilds:
-  esbuild: true
+    esbuild: true
 onlyBuiltDependencies:
-  - electron
-  - electron-winstaller
+    - electron
+    - electron-winstaller

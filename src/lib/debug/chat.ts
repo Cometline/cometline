@@ -26,10 +26,18 @@ export function chatDebug(scope: string, payload: unknown) {
 
 export function summarizeStreamEvent(event: StreamEvent) {
 	if (event.type === 'text_delta') {
-		return { type: event.type, deltaLength: event.delta.length, deltaPreview: preview(event.delta) };
+		return {
+			type: event.type,
+			deltaLength: event.delta.length,
+			deltaPreview: preview(event.delta)
+		};
 	}
 	if (event.type === 'reasoning_delta') {
-		return { type: event.type, textLength: event.text.length, textPreview: preview(event.text) };
+		return {
+			type: event.type,
+			textLength: event.text.length,
+			textPreview: preview(event.text)
+		};
 	}
 	if (event.type === 'tool_call') {
 		return { type: event.type, id: event.id, tool: event.tool, input: event.input };

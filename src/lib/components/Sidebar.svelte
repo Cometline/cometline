@@ -12,8 +12,10 @@
 	import { modelStore } from '$lib/stores/model.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
 
-	let { workspacePath = '/', collapsed = false }: { workspacePath?: string; collapsed?: boolean } =
-		$props();
+	let {
+		workspacePath = '/',
+		collapsed = false
+	}: { workspacePath?: string; collapsed?: boolean } = $props();
 	let deletingID = $state<string | null>(null);
 	let pendingDelete = $state<Session | null>(null);
 	let skipDeleteConfirm = $state(false);
@@ -71,42 +73,42 @@
 	let currentSessionId = $derived(page.params.id ?? null);
 </script>
 
-<aside class="sidebar" class:collapsed aria-hidden={collapsed}>
+<aside class="sidebar" class:collapsed aria-hidden={collapsed} data-workspace-path={workspacePath}>
 	<div class="sidebar-content">
 		<div class="sidebar-header">
-		<div class="traffic-spacer" aria-hidden="true"></div>
-		<div class="sidebar-actions">
-			<button onclick={newChat} aria-label="New chat" title="New chat">
-				<SquarePen size={16} stroke-width={1.8} />
-			</button>
-		</div>
+			<div class="traffic-spacer" aria-hidden="true"></div>
+			<div class="sidebar-actions">
+				<button onclick={newChat} aria-label="New chat" title="New chat">
+					<SquarePen size={16} stroke-width={1.8} />
+				</button>
+			</div>
 		</div>
 
 		<div class="session-list">
-		<button class="new-chat-row" onclick={newChat}>New Chat</button>
-		{#each sessionStore.sessions as session (session.id)}
-			<div class="session-row-wrap" class:selected={currentSessionId === session.id}>
-				<button class="session-row" onclick={() => selectSession(session)}>
-					<span class="session-title">{session.title || 'Untitled'}</span>
-					<span class="session-meta">{session.model_id}</span>
-				</button>
-				<button
-					class="delete-session"
-					disabled={deletingID === session.id}
-					onclick={() => removeSession(session)}
-					aria-label={`Delete ${session.title || 'Untitled'}`}
-					title="Delete session"
-				>
-					<Trash2 size={13} stroke-width={1.9} />
-				</button>
-			</div>
-		{/each}
+			<button class="new-chat-row" onclick={newChat}>New Chat</button>
+			{#each sessionStore.sessions as session (session.id)}
+				<div class="session-row-wrap" class:selected={currentSessionId === session.id}>
+					<button class="session-row" onclick={() => selectSession(session)}>
+						<span class="session-title">{session.title || 'Untitled'}</span>
+						<span class="session-meta">{session.model_id}</span>
+					</button>
+					<button
+						class="delete-session"
+						disabled={deletingID === session.id}
+						onclick={() => removeSession(session)}
+						aria-label={`Delete ${session.title || 'Untitled'}`}
+						title="Delete session"
+					>
+						<Trash2 size={13} stroke-width={1.9} />
+					</button>
+				</div>
+			{/each}
 		</div>
 
 		<div class="sidebar-footer">
-		<button aria-label="Settings" title="Settings" onclick={shellStore.openSettings}>
-			<Settings size={16} stroke-width={1.8} />
-		</button>
+			<button aria-label="Settings" title="Settings" onclick={shellStore.openSettings}>
+				<Settings size={16} stroke-width={1.8} />
+			</button>
 		</div>
 	</div>
 
@@ -122,12 +124,21 @@
 			</label>
 			<div class="delete-actions">
 				<button class="cancel-delete" onclick={() => (pendingDelete = null)}>Cancel</button>
-				<button class="confirm-delete" onclick={confirmDelete} disabled={deletingID === pendingDelete.id}>
+				<button
+					class="confirm-delete"
+					onclick={confirmDelete}
+					disabled={deletingID === pendingDelete.id}
+				>
 					Delete
 				</button>
 			</div>
 		</div>
-		<button class="delete-scrim" aria-label="Cancel delete" onclick={() => (pendingDelete = null)} transition:fade={{ duration: 100 }}></button>
+		<button
+			class="delete-scrim"
+			aria-label="Cancel delete"
+			onclick={() => (pendingDelete = null)}
+			transition:fade={{ duration: 100 }}
+		></button>
 	{/if}
 </aside>
 

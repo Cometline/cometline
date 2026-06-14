@@ -1,7 +1,14 @@
 <script lang="ts">
 	import { tick } from 'svelte';
 	import { fade, fly, slide } from 'svelte/transition';
-	import { Brain, CircleCheck, ChevronDown, LoaderCircle, Terminal, TriangleAlert } from '@lucide/svelte';
+	import {
+		Brain,
+		CircleCheck,
+		ChevronDown,
+		LoaderCircle,
+		Terminal,
+		TriangleAlert
+	} from '@lucide/svelte';
 	import { chatStore, type ChatItem } from '$lib/stores/chat.svelte';
 	import { chatDebug, chatDebugEnabled, summarizeChatItem } from '../debug/chat';
 
@@ -10,7 +17,10 @@
 	const STATUS_ROW_IN = { y: 6, duration: 180 };
 	const FOLD_IN = { duration: 180 };
 
-	let { awaitingFirstAssistant = false, firstTurnFlightDone = false }: {
+	let {
+		awaitingFirstAssistant = false,
+		firstTurnFlightDone = false
+	}: {
 		awaitingFirstAssistant?: boolean;
 		firstTurnFlightDone?: boolean;
 	} = $props();
@@ -24,9 +34,7 @@
 	let firstAssistantId = $derived(
 		threadItems.find((item) => item.type === 'assistant')?.id ?? null
 	);
-	let firstUserId = $derived(
-		threadItems.find((item) => item.type === 'user')?.id ?? null
-	);
+	let firstUserId = $derived(threadItems.find((item) => item.type === 'user')?.id ?? null);
 	let firstAssistantItem = $derived(
 		threadItems.find((item) => item.type === 'assistant') as
 			| Extract<ChatItem, { type: 'assistant' }>
@@ -103,7 +111,7 @@
 	function reasoningExpanded(item: Extract<ChatItem, { type: 'assistant' }>) {
 		return Boolean(
 			item.reasoning &&
-				(expandedReasoning.has(item.id) || (item.reasoning.pending && chatStore.isStreaming))
+			(expandedReasoning.has(item.id) || (item.reasoning.pending && chatStore.isStreaming))
 		);
 	}
 
@@ -118,16 +126,14 @@
 	function showAssistantRow(item: Extract<ChatItem, { type: 'assistant' }>) {
 		return Boolean(
 			item.text ||
-				item.reasoning?.text ||
-				item.reasoning?.pending ||
-				(item.pending && chatStore.isStreaming && !item.reasoning)
+			item.reasoning?.text ||
+			item.reasoning?.pending ||
+			(item.pending && chatStore.isStreaming && !item.reasoning)
 		);
 	}
 
 	function showTypingBubble(item: Extract<ChatItem, { type: 'assistant' }>) {
-		return Boolean(
-			chatStore.isStreaming && !item.text && !item.reasoning?.pending
-		);
+		return Boolean(chatStore.isStreaming && !item.text && !item.reasoning?.pending);
 	}
 
 	function summarizeRenderItem(item: ChatItem, index: number) {
@@ -181,7 +187,7 @@
 	});
 
 	$effect(() => {
-		scrollKey;
+		void scrollKey;
 		if (scrollFrame) cancelAnimationFrame(scrollFrame);
 		scrollFrame = requestAnimationFrame(() => {
 			void tick().then(() => {
@@ -271,10 +277,7 @@
 
 		{#each threadItems as item, index (item.id)}
 			{#if item.type === 'user'}
-				<div
-					class="row user-row"
-					class:continuation-row={!startsSpeakerRun(index, 'user')}
-				>
+				<div class="row user-row" class:continuation-row={!startsSpeakerRun(index, 'user')}>
 					<div
 						class="bubble user-bubble"
 						class:flight-hidden={item.reveal === false}
@@ -315,7 +318,9 @@
 					in:fly={ASSISTANT_ROW_IN}
 				>
 					{#if startsSpeakerRun(index, 'assistant')}
-						<div class="avatar-mini size-9 shrink-0 rounded-full border border-gray-400 md:size-10 lg:size-11 xl:size-12">
+						<div
+							class="avatar-mini size-9 shrink-0 rounded-full border border-gray-400 md:size-10 lg:size-11 xl:size-12"
+						>
 							<img
 								src="/project_avatar_96.png"
 								srcset="/project_avatar_96.png 96w, /project_avatar_192.png 192w, /project_avatar_384.png 384w"
@@ -324,7 +329,10 @@
 							/>
 						</div>
 					{:else}
-						<div class="avatar-gutter size-9 shrink-0 md:size-10 lg:size-11 xl:size-12" aria-hidden="true"></div>
+						<div
+							class="avatar-gutter size-9 shrink-0 md:size-10 lg:size-11 xl:size-12"
+							aria-hidden="true"
+						></div>
 					{/if}
 					{@render assistantStack(item)}
 				</div>
@@ -334,7 +342,10 @@
 					class:continuation-row={!startsSpeakerRun(index, 'assistant')}
 					in:fly={TOOL_ROW_IN}
 				>
-					<div class="avatar-gutter size-9 shrink-0 md:size-10 lg:size-11 xl:size-12" aria-hidden="true"></div>
+					<div
+						class="avatar-gutter size-9 shrink-0 md:size-10 lg:size-11 xl:size-12"
+						aria-hidden="true"
+					></div>
 					<div class="tool-stack">
 						<div class="event-card tool-card" class:error={!!item.error}>
 							<div class="tool-header">
@@ -351,7 +362,10 @@
 											onclick={() => toggleToolOutput(item.id)}
 										>
 											<span>Output</span>
-											<ChevronDown size={12} class={toolOutputExpanded(item) ? 'expanded' : ''} />
+											<ChevronDown
+												size={12}
+												class={toolOutputExpanded(item) ? 'expanded' : ''}
+											/>
 										</button>
 									{/if}
 									{#if toolDurationLabel(item)}
@@ -682,21 +696,6 @@
 		border-bottom-right-radius: 6px;
 		box-shadow: 0 8px 20px rgba(31, 41, 51, 0.12);
 		max-width: var(--chat-content-column);
-	}
-
-	/* Mount-only slide-in on the bubble itself (not the full-width row). Staged
-	   first-turn bubbles use .flight-hidden and skip this via :not(). */
-	.user-bubble:not(.flight-hidden) {
-		transition:
-			opacity 400ms var(--ease-smooth),
-			transform 400ms var(--ease-smooth);
-	}
-
-	@starting-style {
-		.user-bubble:not(.flight-hidden) {
-			opacity: 0;
-			transform: translateX(40px);
-		}
 	}
 
 	.assistant-bubble {

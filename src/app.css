@@ -39,9 +39,7 @@
 	--composer-dock-clearance: 11.5rem;
 	--thread-scroll-gap: 1.25rem;
 	/* Clip thread at composer vertical center so scroll area extends further down. */
-	--thread-dock-inset: calc(
-		var(--composer-dock-bottom) + 10rem
-	);
+	--thread-dock-inset: calc(var(--composer-dock-bottom) + 10rem);
 	--thread-padding-bottom: var(--thread-scroll-gap);
 
 	/* Motion */
@@ -82,8 +80,7 @@ html,
 body {
 	height: 100%;
 	margin: 0;
-	font-family:
-		-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
 	background: var(--app-bg);
 	color: var(--text-main);
 	-webkit-font-smoothing: antialiased;

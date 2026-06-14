@@ -81,7 +81,6 @@ const VALID_PROVIDER_METHODS = ['openai-compatible', 'openai', 'anthropic', 'ope
 
 let mainWindow = null;
 let cometMindProcess = null;
-let isQuitting = false;
 
 function resolveCometMindBinary() {
 	if (process.env.COMETMIND_BINARY_PATH) {
@@ -122,8 +121,16 @@ function migrateSingleProvider(saved) {
 			providers: [
 				{
 					id,
-					name: id === 'opencode-go' ? 'OpenCode Go' : id.charAt(0).toUpperCase() + id.slice(1),
-					method: id === 'openai' && saved.baseURL?.includes('opencode.ai') ? 'opencode-go' : id === 'openai' ? 'openai-compatible' : id,
+					name:
+						id === 'opencode-go'
+							? 'OpenCode Go'
+							: id.charAt(0).toUpperCase() + id.slice(1),
+					method:
+						id === 'openai' && saved.baseURL?.includes('opencode.ai')
+							? 'opencode-go'
+							: id === 'openai'
+								? 'openai-compatible'
+								: id,
 					enabled: true,
 					baseURL: String(saved.baseURL || '').trim(),
 					apiKey: String(saved.apiKey || '').trim(),
@@ -139,13 +146,18 @@ function migrateSingleProvider(saved) {
 }
 
 function normalizeProvider(provider, fallback = {}) {
-	const method = VALID_PROVIDER_METHODS.includes(provider?.method) ? provider.method : fallback.method || 'openai-compatible';
+	const method = VALID_PROVIDER_METHODS.includes(provider?.method)
+		? provider.method
+		: fallback.method || 'openai-compatible';
 	const rawModels = Array.isArray(provider?.models) ? provider.models : fallback.models || [];
 	const models = rawModels.map((model) => String(model || '').trim()).filter(Boolean);
-	const modelList = method === 'opencode-go'
-		? Array.from(new Set([...OPENCODE_GO_AVAILABLE_MODELS, ...models]))
-		: models;
-	const legacySelected = String(provider?.selectedModel || fallback.selectedModel || modelList[0] || '').trim();
+	const modelList =
+		method === 'opencode-go'
+			? Array.from(new Set([...OPENCODE_GO_AVAILABLE_MODELS, ...models]))
+			: models;
+	const legacySelected = String(
+		provider?.selectedModel || fallback.selectedModel || modelList[0] || ''
+	).trim();
 	const rawEnabledModels = Array.isArray(provider?.enabledModels)
 		? provider.enabledModels
 		: legacySelected
@@ -155,13 +167,20 @@ function normalizeProvider(provider, fallback = {}) {
 		.map((model) => String(model || '').trim())
 		.filter((model) => model && modelList.includes(model));
 	return {
-		id: String(provider?.id || fallback.id || `provider-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`).trim(),
+		id: String(
+			provider?.id ||
+				fallback.id ||
+				`provider-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+		).trim(),
 		name: String(provider?.name || fallback.name || 'Provider').trim(),
 		method,
-		enabled: typeof provider?.enabled === 'boolean' ? provider.enabled : Boolean(fallback.enabled),
+		enabled:
+			typeof provider?.enabled === 'boolean' ? provider.enabled : Boolean(fallback.enabled),
 		baseURL: String(provider?.baseURL ?? fallback.baseURL ?? '').trim(),
 		apiKey: String(provider?.apiKey ?? fallback.apiKey ?? '').trim(),
-		selectedModel: enabledModels[0] || (modelList.includes(legacySelected) ? legacySelected : modelList[0] || ''),
+		selectedModel:
+			enabledModels[0] ||
+			(modelList.includes(legacySelected) ? legacySelected : modelList[0] || ''),
 		models: modelList,
 		enabledModels
 	};
@@ -185,7 +204,10 @@ function readProviderSettings() {
 	const fromEnv = {
 		activeProviderId: process.env.COMETMIND_PROVIDER,
 		baseURL: process.env.COMETMIND_BASE_URL,
-		apiKey: process.env.COMETMIND_API_KEY || process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY,
+		apiKey:
+			process.env.COMETMIND_API_KEY ||
+			process.env.OPENAI_API_KEY ||
+			process.env.ANTHROPIC_API_KEY,
 		selectedModel: process.env.COMETMIND_MODEL
 	};
 
@@ -204,7 +226,9 @@ function readProviderSettings() {
 
 	base.providers = normalizeProviders(base.providers);
 	if (!base.activeProviderId || !base.providers.find((p) => p.id === base.activeProviderId)) {
-		base.activeProviderId = base.providers.find((p) => p.enabled && p.enabledModels.length > 0)?.id ?? base.providers[0].id;
+		base.activeProviderId =
+			base.providers.find((p) => p.enabled && p.enabledModels.length > 0)?.id ??
+			base.providers[0].id;
 	}
 
 	// Allow env overrides for the active provider only.
@@ -222,7 +246,9 @@ function readProviderSettings() {
 
 function writeProviderSettings(settings) {
 	const current = readProviderSettings();
-	const nextProviders = Array.isArray(settings.providers) ? normalizeProviders(settings.providers) : current.providers;
+	const nextProviders = Array.isArray(settings.providers)
+		? normalizeProviders(settings.providers)
+		: current.providers;
 	const requestedActive = nextProviders.find((p) => p.id === settings.activeProviderId);
 	const nextActive =
 		requestedActive?.id ??
@@ -233,14 +259,21 @@ function writeProviderSettings(settings) {
 	const next = { providers: nextProviders, activeProviderId: nextActive };
 	const settingsPath = getSettingsPath();
 	fs.writeFileSync(settingsPath, JSON.stringify(next, null, 2));
-	try { fs.chmodSync(settingsPath, 0o600); } catch { /* ignore */ }
+	try {
+		fs.chmodSync(settingsPath, 0o600);
+	} catch {
+		/* ignore */
+	}
 	writeCometMindConfig(next);
 	return next;
 }
 
 function writeCometMindConfig(settings) {
-	const runtimeProviders = settings.providers.filter((p) => p.enabled && p.enabledModels.length > 0);
-	const active = runtimeProviders.find((p) => p.id === settings.activeProviderId) ?? runtimeProviders[0];
+	const runtimeProviders = settings.providers.filter(
+		(p) => p.enabled && p.enabledModels.length > 0
+	);
+	const active =
+		runtimeProviders.find((p) => p.id === settings.activeProviderId) ?? runtimeProviders[0];
 	if (!active) return;
 
 	const providerEntries = runtimeProviders
@@ -267,13 +300,22 @@ ${providerEntries}`;
 
 	const configPath = getConfigPath();
 	fs.writeFileSync(configPath, content);
-	try { fs.chmodSync(configPath, 0o600); } catch { /* ignore */ }
+	try {
+		fs.chmodSync(configPath, 0o600);
+	} catch {
+		/* ignore */
+	}
 }
 
 function providerEnv() {
 	const settings = readProviderSettings();
-	const runtimeProviders = settings.providers.filter((p) => p.enabled && p.enabledModels.length > 0);
-	const active = runtimeProviders.find((p) => p.id === settings.activeProviderId) ?? runtimeProviders[0] ?? settings.providers[0];
+	const runtimeProviders = settings.providers.filter(
+		(p) => p.enabled && p.enabledModels.length > 0
+	);
+	const active =
+		runtimeProviders.find((p) => p.id === settings.activeProviderId) ??
+		runtimeProviders[0] ??
+		settings.providers[0];
 	const env = {
 		...process.env,
 		COMETMIND_PROVIDER: active.id,
@@ -447,7 +489,11 @@ async function fetchOpenAIModels(baseURL, apiKey) {
 		throw new Error(`${res.status}: ${body || res.statusText}`);
 	}
 	const payload = await res.json();
-	const rawModels = Array.isArray(payload?.data) ? payload.data : Array.isArray(payload) ? payload : [];
+	const rawModels = Array.isArray(payload?.data)
+		? payload.data
+		: Array.isArray(payload)
+			? payload
+			: [];
 	const models = rawModels
 		.map((item) => (typeof item === 'string' ? item : item?.id))
 		.filter((id) => typeof id === 'string' && id.trim())
@@ -515,14 +561,12 @@ app.whenReady().then(async () => {
 
 app.on('window-all-closed', () => {
 	if (process.platform !== 'darwin') {
-		isQuitting = true;
 		stopCometMind();
 		app.quit();
 	}
 });
 
 app.on('before-quit', () => {
-	isQuitting = true;
 	stopCometMind();
 });
 

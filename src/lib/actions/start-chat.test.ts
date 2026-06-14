@@ -20,7 +20,20 @@ describe('startChat', () => {
 		expect(adapter.refreshSession).toHaveBeenCalled();
 	});
 
-	it('does not skip the user item on subsequent turns', async () => {
+	it('skips the user item on subsequent turns when flight is enabled', async () => {
+		const onUserMessageFlight = vi.fn().mockResolvedValue(undefined);
+		const adapter = createAdapter({
+			hasVisibleConversation: true,
+			onUserMessageFlight
+		});
+		await startChat(adapter, 'hello again');
+
+		expect(onUserMessageFlight).toHaveBeenCalledWith('hello again', { firstTurn: false });
+		expect(adapter.send).toHaveBeenCalledWith('hello again', { skipUser: true });
+		expect(adapter.refreshSession).toHaveBeenCalled();
+	});
+
+	it('does not skip the user item on subsequent turns without flight', async () => {
 		const adapter = createAdapter({ hasVisibleConversation: true });
 		await startChat(adapter, 'hello again');
 
@@ -28,37 +41,37 @@ describe('startChat', () => {
 		expect(adapter.refreshSession).toHaveBeenCalled();
 	});
 
-	it('runs the first-turn flight pre-step only on the first turn', async () => {
-		const onFirstTurnStart = vi.fn().mockResolvedValue(undefined);
+	it('runs the user message flight on every turn when provided', async () => {
+		const onUserMessageFlight = vi.fn().mockResolvedValue(undefined);
 		const onFirstTurnComplete = vi.fn();
-		const adapter = createAdapter({ onFirstTurnStart, onFirstTurnComplete });
+		const adapter = createAdapter({ onUserMessageFlight, onFirstTurnComplete });
 
 		await startChat(adapter, 'first');
 
-		expect(onFirstTurnStart).toHaveBeenCalledWith('first');
+		expect(onUserMessageFlight).toHaveBeenCalledWith('first', { firstTurn: true });
 		expect(onFirstTurnComplete).toHaveBeenCalled();
 	});
 
-	it('skips first-turn hooks on subsequent turns', async () => {
-		const onFirstTurnStart = vi.fn().mockResolvedValue(undefined);
+	it('skips first-turn complete hook on subsequent turns', async () => {
+		const onUserMessageFlight = vi.fn().mockResolvedValue(undefined);
 		const onFirstTurnComplete = vi.fn();
 		const adapter = createAdapter({
 			hasVisibleConversation: true,
-			onFirstTurnStart,
+			onUserMessageFlight,
 			onFirstTurnComplete
 		});
 
 		await startChat(adapter, 'second');
 
-		expect(onFirstTurnStart).not.toHaveBeenCalled();
+		expect(onUserMessageFlight).toHaveBeenCalledWith('second', { firstTurn: false });
 		expect(onFirstTurnComplete).not.toHaveBeenCalled();
 	});
 
 	it('sends before calling onFirstTurnComplete', async () => {
 		const order: string[] = [];
 		const adapter = createAdapter({
-			onFirstTurnStart: vi.fn().mockImplementation(async () => {
-				order.push('start');
+			onUserMessageFlight: vi.fn().mockImplementation(async () => {
+				order.push('flight');
 			}),
 			send: vi.fn().mockImplementation(async () => {
 				order.push('send');
@@ -73,7 +86,7 @@ describe('startChat', () => {
 
 		await startChat(adapter, 'ordered');
 
-		expect(order).toEqual(['start', 'send', 'complete', 'refresh']);
+		expect(order).toEqual(['flight', 'send', 'complete', 'refresh']);
 	});
 
 	it('does not refresh when send throws', async () => {
@@ -87,7 +100,7 @@ describe('startChat', () => {
 
 	it('does not send or refresh when flight pre-step throws', async () => {
 		const adapter = createAdapter({
-			onFirstTurnStart: vi.fn().mockRejectedValue(new Error('flight failed'))
+			onUserMessageFlight: vi.fn().mockRejectedValue(new Error('flight failed'))
 		});
 
 		await expect(startChat(adapter, 'oops')).rejects.toThrow('flight failed');

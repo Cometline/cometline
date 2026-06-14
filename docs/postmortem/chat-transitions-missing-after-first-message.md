@@ -34,8 +34,8 @@ Using `in:fly` limits animation to mount-only, which is what we want for chat ro
 1. **`ChatView.svelte`** — Do **not** clear `awaitingFirstAssistant` when the flight overlay completes. Keep that flag until the first stream finishes (`onFirstTurnComplete`). Flight completion only sets `firstTurnFlightDone`.
 
 2. **`ChatThread.svelte`** — Split first-turn layout into two helpers:
-   - **`showFirstTurnAvatarSlot()`** — Keep the avatar placeholder under the user row until the first assistant row is ready in the normal list (during flight, and after flight until `showAssistantRow` is true).
-   - **`firstAssistantInNormalList()`** — Once `firstTurnFlightDone && showAssistantRow(item)`, render the first assistant in the keyed `{#each}` list so `in:fly` runs.
+    - **`showFirstTurnAvatarSlot()`** — Keep the avatar placeholder under the user row until the first assistant row is ready in the normal list (during flight, and after flight until `showAssistantRow` is true).
+    - **`firstAssistantInNormalList()`** — Once `firstTurnFlightDone && showAssistantRow(item)`, render the first assistant in the keyed `{#each}` list so `in:fly` runs.
 
 3. **`ChatThread.svelte`** — Replace row-level `transition:fly` with `in:fly` for assistant, tool, status, and error rows.
 

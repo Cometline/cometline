@@ -5,6 +5,7 @@
 	import Composer from '$lib/components/Composer.svelte';
 	import ChatThread from '$lib/components/ChatThread.svelte';
 	import FirstTurnFlight from '$lib/components/FirstTurnFlight.svelte';
+	import UserBubbleFlight from '$lib/components/UserBubbleFlight.svelte';
 	import { sessionStore } from '$lib/stores/session.svelte';
 	import { getSession } from '$lib/client/cometmind';
 	import { chatStore } from '$lib/stores/chat.svelte';
@@ -22,7 +23,8 @@
 	let { sessionId, bootMessage = '' }: { sessionId: string; bootMessage?: string } = $props();
 
 	let chatHome = $state<HTMLDivElement | null>(null);
-	let firstTurnFlight: FirstTurnFlight;
+	let userBubbleFlight = $state<UserBubbleFlight>();
+	let firstTurnFlight = $state<FirstTurnFlight>();
 	let awaitingFirstAssistant = $state(false);
 	let firstTurnActive = $state(false);
 	let firstTurnFlightDone = $state(false);
@@ -30,7 +32,9 @@
 	let queuedMessages = $state<QueuedMessage[]>([]);
 
 	let hasVisibleConversation = $derived(chatStore.items.length > 0 || chatStore.isLoading);
-	let composerVariant = $derived<'hero' | 'dock'>(shellStore.composerPhase === 'centered' ? 'hero' : 'dock');
+	let composerVariant = $derived<'hero' | 'dock'>(
+		shellStore.composerPhase === 'centered' ? 'hero' : 'dock'
+	);
 	let heroLayout = $derived(
 		shellStore.composerPhase === 'centered' &&
 			((!hasVisibleConversation && !firstTurnActive) ||
@@ -52,9 +56,13 @@
 					return hasVisibleConversation;
 				},
 				send: (t, opts) => chatStore.send(sessionId, t, opts),
-				onFirstTurnStart: async () => {
-					awaitingFirstAssistant = true;
-					firstTurnFlight.run(text);
+				onUserMessageFlight: (text, { firstTurn }) => {
+					if (firstTurn) {
+						awaitingFirstAssistant = true;
+						firstTurnFlight?.run(text);
+						return;
+					}
+					userBubbleFlight?.run(text);
 				},
 				onFirstTurnComplete: () => {
 					awaitingFirstAssistant = false;
@@ -152,9 +160,17 @@
 		</div>
 	{/if}
 
+	<UserBubbleFlight
+		bind:this={userBubbleFlight}
+		root={chatHome}
+		stageUser={(text) => chatStore.stageUser(text)}
+		revealStagedUser={() => chatStore.revealStagedUser()}
+	/>
+
 	<FirstTurnFlight
 		bind:this={firstTurnFlight}
 		root={chatHome}
+		{userBubbleFlight}
 		stageUser={(text) => chatStore.stageUser(text)}
 		revealStagedUser={() => chatStore.revealStagedUser()}
 		onActiveChange={(active) => (firstTurnActive = active)}

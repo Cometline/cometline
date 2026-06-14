@@ -12,7 +12,12 @@
 		'opencode-go': 'OpenCode Go'
 	};
 
-	const DEFAULT_PROVIDER_IDS = new Set(['openai-compatible', 'anthropic', 'openai', 'opencode-go']);
+	const DEFAULT_PROVIDER_IDS = new Set([
+		'openai-compatible',
+		'anthropic',
+		'openai',
+		'opencode-go'
+	]);
 	const OPENCODE_GO_AVAILABLE_MODELS = [
 		'deepseek-v4-flash',
 		'deepseek-v4-pro',
@@ -63,9 +68,14 @@
 		return selectedProvider.models.filter((model) => model.toLowerCase().includes(query));
 	});
 
-	let enabledProviderCount = $derived(draft.providers.filter((provider) => provider.enabled).length);
+	let enabledProviderCount = $derived(
+		draft.providers.filter((provider) => provider.enabled).length
+	);
 	let enabledModelCount = $derived(
-		draft.providers.reduce((total, provider) => total + (provider.enabled ? provider.enabledModels.length : 0), 0)
+		draft.providers.reduce(
+			(total, provider) => total + (provider.enabled ? provider.enabledModels.length : 0),
+			0
+		)
 	);
 
 	function updateProvider(providerId: string, patch: Partial<ProviderConfig>) {
@@ -74,9 +84,9 @@
 			providers: draft.providers.map((provider) => {
 				if (provider.id !== providerId) return provider;
 				const models = patch.models ? [...patch.models] : [...provider.models];
-				const enabledModels = (patch.enabledModels ? [...patch.enabledModels] : [...provider.enabledModels]).filter(
-					(model) => models.includes(model)
-				);
+				const enabledModels = (
+					patch.enabledModels ? [...patch.enabledModels] : [...provider.enabledModels]
+				).filter((model) => models.includes(model));
 				return {
 					...provider,
 					...patch,
@@ -118,7 +128,10 @@
 		const nextEnabledModels = selectedProvider.enabledModels.includes(model)
 			? selectedProvider.enabledModels.filter((enabledModel) => enabledModel !== model)
 			: [...selectedProvider.enabledModels, model];
-		updateSelected({ enabled: nextEnabledModels.length > 0 ? true : selectedProvider.enabled, enabledModels: nextEnabledModels });
+		updateSelected({
+			enabled: nextEnabledModels.length > 0 ? true : selectedProvider.enabled,
+			enabledModels: nextEnabledModels
+		});
 	}
 
 	async function fetchModels() {
@@ -160,7 +173,8 @@
 		const nextProviders = draft.providers.filter((p) => p.id !== providerId);
 		draft = {
 			providers: nextProviders,
-			activeProviderId: nextProviders.find((provider) => provider.enabled)?.id ?? nextProviders[0]?.id ?? ''
+			activeProviderId:
+				nextProviders.find((provider) => provider.enabled)?.id ?? nextProviders[0]?.id ?? ''
 		};
 		selectedProviderId = nextProviders[0]?.id ?? '';
 	}
@@ -168,7 +182,9 @@
 	async function save() {
 		status = '';
 		const activeProvider =
-			draft.providers.find((provider) => provider.enabled && provider.enabledModels.length > 0) ??
+			draft.providers.find(
+				(provider) => provider.enabled && provider.enabledModels.length > 0
+			) ??
 			draft.providers.find((provider) => provider.enabled) ??
 			draft.providers[0];
 		const saved = await settingsStore.save({
@@ -187,14 +203,26 @@
 
 <div class="settings-layer" transition:fade={{ duration: 120 }}>
 	<button class="scrim" aria-label="Close settings" onclick={shellStore.closeSettings}></button>
-	<div class="modal" role="dialog" aria-modal="true" aria-labelledby="settings-title" transition:scale={{ start: 0.97, duration: 140 }}>
+	<div
+		class="modal"
+		role="dialog"
+		aria-modal="true"
+		aria-labelledby="settings-title"
+		transition:scale={{ start: 0.97, duration: 140 }}
+	>
 		<header>
 			<div class="title-mark"><Settings size={16} /></div>
 			<div>
 				<h2 id="settings-title">Providers</h2>
-				<p>Enable providers, fetch models, then choose which models appear in the composer.</p>
+				<p>
+					Enable providers, fetch models, then choose which models appear in the composer.
+				</p>
 			</div>
-			<button class="icon-button" aria-label="Close settings" onclick={shellStore.closeSettings}>
+			<button
+				class="icon-button"
+				aria-label="Close settings"
+				onclick={shellStore.closeSettings}
+			>
 				<X size={16} />
 			</button>
 		</header>
@@ -203,7 +231,11 @@
 			<aside class="provider-sidebar">
 				<div class="provider-sidebar-title">
 					<span>{enabledProviderCount} enabled</span>
-					<button class="icon-button inline" aria-label="Add provider" onclick={addProvider}>
+					<button
+						class="icon-button inline"
+						aria-label="Add provider"
+						onclick={addProvider}
+					>
 						<Plus size={15} />
 					</button>
 				</div>
@@ -237,11 +269,18 @@
 					<div class="detail-heading">
 						<div>
 							<h3>{selectedProvider.name}</h3>
-							<p>{METHOD_LABELS[selectedProvider.method]} · {selectedProvider.enabledModels.length} enabled models</p>
+							<p>
+								{METHOD_LABELS[selectedProvider.method]} · {selectedProvider
+									.enabledModels.length} enabled models
+							</p>
 						</div>
 						<div class="detail-actions">
 							{#if !DEFAULT_PROVIDER_IDS.has(selectedProvider.id)}
-								<button class="secondary danger" aria-label="Delete provider" onclick={() => removeProvider(selectedProvider.id)}>
+								<button
+									class="secondary danger"
+									aria-label="Delete provider"
+									onclick={() => removeProvider(selectedProvider.id)}
+								>
 									<Trash2 size={14} />
 								</button>
 							{/if}
@@ -274,7 +313,8 @@
 							<span>Method</span>
 							<select
 								value={selectedProvider.method}
-								onchange={(e) => setSelectedMethod(e.currentTarget.value as ProviderMethod)}
+								onchange={(e) =>
+									setSelectedMethod(e.currentTarget.value as ProviderMethod)}
 							>
 								<option value="openai-compatible">OpenAI-compatible</option>
 								<option value="anthropic">Anthropic</option>
@@ -310,7 +350,11 @@
 							<div>
 								<h3>Models</h3>
 								{#if methodNeedsFetch(selectedProvider.method)}
-									<p>Use Fetch models to refresh the latest list from <code>/models</code>.</p>
+									<p>
+										Use Fetch models to refresh the latest list from <code
+											>/models</code
+										>.
+									</p>
 								{:else}
 									<p>OpenCode Go models are available by default.</p>
 								{/if}
@@ -319,9 +363,13 @@
 								<button
 									class="secondary"
 									onclick={fetchModels}
-									disabled={settingsStore.isFetchingModels || !selectedProvider.baseURL.trim() || !selectedProvider.apiKey.trim()}
+									disabled={settingsStore.isFetchingModels ||
+										!selectedProvider.baseURL.trim() ||
+										!selectedProvider.apiKey.trim()}
 								>
-									{#if settingsStore.isFetchingModels}<span class="spin"><LoaderCircle size={14} /></span>{/if}
+									{#if settingsStore.isFetchingModels}<span class="spin"
+											><LoaderCircle size={14} /></span
+										>{/if}
 									Fetch models
 								</button>
 							{/if}
@@ -347,12 +395,16 @@
 										<small>{selectedProvider.id}:{model}</small>
 									</span>
 									<span class="model-toggle" aria-hidden="true">
-										{#if selectedProvider.enabledModels.includes(model)}<Check size={13} />{/if}
+										{#if selectedProvider.enabledModels.includes(model)}<Check
+												size={13}
+											/>{/if}
 									</span>
 								</button>
 							{:else}
 								<p class="empty-models">
-									{selectedProvider.models.length === 0 ? 'No models loaded yet.' : 'No models match your search.'}
+									{selectedProvider.models.length === 0
+										? 'No models loaded yet.'
+										: 'No models match your search.'}
 								</p>
 							{/each}
 						</div>
@@ -370,8 +422,15 @@
 		<footer>
 			<p>{enabledModelCount} model{enabledModelCount === 1 ? '' : 's'} enabled</p>
 			<button class="secondary" onclick={shellStore.closeSettings}>Cancel</button>
-			<button class="primary" onclick={save} disabled={settingsStore.isSaving || settingsStore.isFetchingModels || enabledModelCount === 0}>
-				{#if settingsStore.isSaving}<span class="spin"><LoaderCircle size={14} /></span>{/if}
+			<button
+				class="primary"
+				onclick={save}
+				disabled={settingsStore.isSaving ||
+					settingsStore.isFetchingModels ||
+					enabledModelCount === 0}
+			>
+				{#if settingsStore.isSaving}<span class="spin"><LoaderCircle size={14} /></span
+					>{/if}
 				Save
 			</button>
 		</footer>

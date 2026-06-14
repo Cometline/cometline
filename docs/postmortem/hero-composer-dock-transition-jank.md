@@ -22,7 +22,7 @@ A `$effect` keyed off `hasVisibleConversation`, which includes `chatStore.isLoad
 ```javascript
 // broken pattern
 if (hasVisibleConversation && !firstTurnActive) {
-  shellStore.dockComposer();
+	shellStore.dockComposer();
 }
 ```
 
@@ -34,11 +34,11 @@ On an empty session, `loadTranscript()` sets `isLoading = true` before any messa
 
 ### 3. Hero and dock used different positioning models
 
-| Surface | Composer placement |
-|---------|-------------------|
-| Home (`+page.svelte`) | Grid item, `position: relative` under empty state |
+| Surface                   | Composer placement                                                   |
+| ------------------------- | -------------------------------------------------------------------- |
+| Home (`+page.svelte`)     | Grid item, `position: relative` under empty state                    |
 | Session hero (`ChatView`) | `position: absolute`, `bottom: calc(50% - 11rem)`, `translateY(50%)` |
-| Session dock | `position: absolute`, `bottom: var(--composer-dock-bottom)` |
+| Session dock              | `position: absolute`, `bottom: var(--composer-dock-bottom)`          |
 
 CSS `transition` on `bottom` / `transform` animates between **computed token values**, not the element’s **painted** position. When hero layout (grid vs absolute) or empty-state reflow shifts the box, the browser may snap before interpolating.
 
@@ -51,8 +51,8 @@ When `firstTurnActive` became true, empty state unmounted and thread mounted in 
 ## Fix (applied)
 
 1. **Remove reactive composer dock/center `$effect`.** Dock or center only on explicit events:
-   - After `loadTranscript()` resolves: dock if `items.length > 0`, else `centerComposer()`.
-   - First turn: `onPrepareFlight` in `FirstTurnFlight` (see below).
+    - After `loadTranscript()` resolves: dock if `items.length > 0`, else `centerComposer()`.
+    - First turn: `onPrepareFlight` in `FirstTurnFlight` (see below).
 
 2. **Dock in realtime with flight** — `FirstTurnFlight` calls `onPrepareFlight()` after capturing hero rects, in the same frame as `setActive(true)` and before particle animation. Composer, thread clip, user bubble, and avatar all run over `--duration-flight` (560ms).
 
@@ -101,9 +101,9 @@ Until FLIP or unified placement lands, small viewport / padding changes can rein
 - **One timing token:** flight particles, composer move, thread clip, and composer chrome should all use `--duration-flight`. Keep `FLIGHT_MS` in `first-turn-flight.ts` in sync (currently 560).
 
 - **Separate first-turn flags:**
-  - `firstTurnFlightDone` — flight overlay (~560ms)
-  - `awaitingFirstAssistant` — first stream until `onFirstTurnComplete`
-  - Do not use `composerPhase` alone to infer hero layout during first turn after `onPrepareFlight` docks.
+    - `firstTurnFlightDone` — flight overlay (~560ms)
+    - `awaitingFirstAssistant` — first stream until `onFirstTurnComplete`
+    - Do not use `composerPhase` alone to infer hero layout during first turn after `onPrepareFlight` docks.
 
 - **Before changing hero layout**, check both `+page.svelte` and `ChatView.svelte` — they must agree on composer placement or FLIP is required.
 

@@ -43,7 +43,12 @@
 		);
 	});
 	let groupedModelOptions = $derived.by(() => {
-		const groups: { providerId: string; providerName: string; providerMethod: string; options: ModelOption[] }[] = [];
+		const groups: {
+			providerId: string;
+			providerName: string;
+			providerMethod: string;
+			options: ModelOption[];
+		}[] = [];
 		for (const option of filteredModelOptions) {
 			let group = groups.find((item) => item.providerId === option.providerId);
 			if (!group) {
@@ -193,13 +198,21 @@
 					class="model-button"
 					aria-label="Select model"
 					aria-expanded={modelOpen}
-					title={modelStore.options.length > 0 ? 'Select model for new chats' : 'Enable a model in Settings first'}
+					title={modelStore.options.length > 0
+						? 'Select model for new chats'
+						: 'Enable a model in Settings first'}
 					disabled={modelStore.options.length === 0}
 					onclick={() => (modelOpen = !modelOpen)}
 				>
 					<Sparkles size={14} stroke-width={1.8} />
 					<span>{modelStore.selected?.label ?? 'No enabled models'}</span>
-					<svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor" aria-hidden="true">
+					<svg
+						width="10"
+						height="10"
+						viewBox="0 0 10 10"
+						fill="currentColor"
+						aria-hidden="true"
+					>
 						<path d="M2 4l3 3 3-3H2z" />
 					</svg>
 				</button>
@@ -219,9 +232,15 @@
 									<small>{group.providerMethod}</small>
 								</div>
 								{#each group.options as option (option.id)}
-									<button class="model-option" onclick={() => selectModel(option)}>
+									<button
+										class="model-option"
+										onclick={() => selectModel(option)}
+									>
 										<span class="model-check">
-											{#if option.id === modelStore.selected?.id}<Check size={14} stroke-width={2} />{/if}
+											{#if option.id === modelStore.selected?.id}<Check
+													size={14}
+													stroke-width={2}
+												/>{/if}
 										</span>
 										<span class="model-option-copy">
 											<strong>{option.label}</strong>
@@ -244,7 +263,12 @@
 					<Square size={14} fill="currentColor" stroke-width={0} />
 				</button>
 			{:else}
-				<button class="send-button" onclick={submit} disabled={!value.trim() || disabled || !modelStore.selected} aria-label="Send">
+				<button
+					class="send-button"
+					onclick={submit}
+					disabled={!value.trim() || disabled || !modelStore.selected}
+					aria-label="Send"
+				>
 					<Send size={16} stroke-width={1.8} />
 				</button>
 			{/if}

@@ -73,12 +73,18 @@ function cloneProvider(provider: ProviderConfig): ProviderConfig {
 	};
 }
 
-function normalizeProvider(provider: Partial<ProviderConfig>, fallback?: ProviderConfig): ProviderConfig {
+function normalizeProvider(
+	provider: Partial<ProviderConfig>,
+	fallback?: ProviderConfig
+): ProviderConfig {
 	const method = provider.method ?? fallback?.method ?? 'openai-compatible';
-	const models = Array.isArray(provider.models) ? provider.models.filter(Boolean) : fallback?.models ?? [];
-	const modelList = method === 'opencode-go'
-		? Array.from(new Set([...OPENCODE_GO_AVAILABLE_MODELS, ...models]))
-		: models;
+	const models = Array.isArray(provider.models)
+		? provider.models.filter(Boolean)
+		: (fallback?.models ?? []);
+	const modelList =
+		method === 'opencode-go'
+			? Array.from(new Set([...OPENCODE_GO_AVAILABLE_MODELS, ...models]))
+			: models;
 	const legacySelected = provider.selectedModel || fallback?.selectedModel || modelList[0] || '';
 	const enabledModelsSource = Array.isArray(provider.enabledModels)
 		? provider.enabledModels
@@ -86,13 +92,17 @@ function normalizeProvider(provider: Partial<ProviderConfig>, fallback?: Provide
 			? [legacySelected]
 			: [];
 	const enabledModels = enabledModelsSource.filter((model) => modelList.includes(model));
-	const selectedModel = enabledModels[0] ?? (modelList.includes(legacySelected) ? legacySelected : modelList[0]) ?? '';
+	const selectedModel =
+		enabledModels[0] ??
+		(modelList.includes(legacySelected) ? legacySelected : modelList[0]) ??
+		'';
 
 	return {
 		id: String(provider.id || fallback?.id || `provider-${Date.now()}`).trim(),
 		name: String(provider.name || fallback?.name || 'Provider').trim(),
 		method,
-		enabled: typeof provider.enabled === 'boolean' ? provider.enabled : (fallback?.enabled ?? false),
+		enabled:
+			typeof provider.enabled === 'boolean' ? provider.enabled : (fallback?.enabled ?? false),
 		baseURL: String(provider.baseURL ?? fallback?.baseURL ?? '').trim(),
 		apiKey: String(provider.apiKey ?? fallback?.apiKey ?? '').trim(),
 		selectedModel,
@@ -129,7 +139,9 @@ function newProvider(id: string): ProviderConfig {
 
 function defaultSettings(): ProviderSettings {
 	const providers = DEFAULT_PROVIDERS.map(cloneProvider);
-	const active = providers.find((provider) => provider.enabled && provider.enabledModels.length > 0) ?? providers[0];
+	const active =
+		providers.find((provider) => provider.enabled && provider.enabledModels.length > 0) ??
+		providers[0];
 	return {
 		providers,
 		activeProviderId: active.id
@@ -153,8 +165,11 @@ function createSettingsStore() {
 
 	function apply(next: ProviderSettings) {
 		const providers = normalizeProviders(next.providers);
-		const firstEnabled = providers.find((provider) => provider.enabled && provider.enabledModels.length > 0);
-		const activeProviderId = firstEnabled?.id ?? next.activeProviderId ?? providers[0]?.id ?? '';
+		const firstEnabled = providers.find(
+			(provider) => provider.enabled && provider.enabledModels.length > 0
+		);
+		const activeProviderId =
+			firstEnabled?.id ?? next.activeProviderId ?? providers[0]?.id ?? '';
 		settings = {
 			...fallbackSettings(),
 			...next,
@@ -183,9 +198,11 @@ function createSettingsStore() {
 		try {
 			const models = (await window.electronAPI?.fetchProviderModels?.(provider)) ?? [];
 			const enabledModels = provider.enabledModels.filter((model) => models.includes(model));
-			const selectedModel = enabledModels[0] ?? (models.includes(provider.selectedModel)
-				? provider.selectedModel
-				: (models[0] ?? ''));
+			const selectedModel =
+				enabledModels[0] ??
+				(models.includes(provider.selectedModel)
+					? provider.selectedModel
+					: (models[0] ?? ''));
 			return { ...provider, models, enabledModels, selectedModel };
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to fetch models';
@@ -214,7 +231,10 @@ function createSettingsStore() {
 		settings = { ...settings, activeProviderId: providerId };
 		const provider = settings.providers.find((p) => p.id === providerId);
 		if (provider) {
-			modelStore.selectByProviderModel(provider.id, provider.enabledModels[0] ?? provider.selectedModel);
+			modelStore.selectByProviderModel(
+				provider.id,
+				provider.enabledModels[0] ?? provider.selectedModel
+			);
 		}
 	}
 
@@ -222,9 +242,7 @@ function createSettingsStore() {
 		settings = {
 			...settings,
 			providers: settings.providers.map((p) =>
-				p.id === providerId
-					? normalizeProvider({ ...p, ...patch }, p)
-					: p
+				p.id === providerId ? normalizeProvider({ ...p, ...patch }, p) : p
 			)
 		};
 		const updated = settings.providers.find((p) => p.id === providerId);
@@ -256,7 +274,10 @@ function createSettingsStore() {
 	}
 
 	function getActiveProvider() {
-		return settings.providers.find((p) => p.id === settings.activeProviderId) ?? settings.providers[0];
+		return (
+			settings.providers.find((p) => p.id === settings.activeProviderId) ??
+			settings.providers[0]
+		);
 	}
 
 	return {

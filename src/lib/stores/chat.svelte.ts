@@ -1,5 +1,5 @@
 import { abortSession, getSessionMessages, streamMessage } from '$lib/client/cometmind';
-import type { ChatItem, StreamEvent, TokenUsage, TranscriptItem } from '$lib/types';
+import type { ChatItem, StreamEvent, TranscriptItem } from '$lib/types';
 import { reduceChatState } from '$lib/reducers/chat';
 import { chatDebug, summarizeChatItems, summarizeStreamEvent } from '../debug/chat';
 
@@ -10,23 +10,6 @@ let nextLocalID = 0;
 function localID(prefix: string) {
 	nextLocalID += 1;
 	return `${prefix}-${Date.now()}-${nextLocalID}`;
-}
-
-function cleanErrorMessage(message: string) {
-	let text = message.trim();
-	const jsonStart = text.indexOf('{');
-	if (jsonStart >= 0) {
-		try {
-			const parsed = JSON.parse(text.slice(jsonStart));
-			text = parsed?.error?.message || parsed?.message || text;
-		} catch {
-			// Keep the original message if the server body is not JSON.
-		}
-	}
-	if (text.includes('OPENAI_API_KEY') || text.includes('COMETMIND_API_KEY')) {
-		return 'API key is missing. Open Settings with Command+, and save your provider API key.';
-	}
-	return text.replace(/^\d+:\s*/, '') || 'The request failed.';
 }
 
 function itemsFromTranscript(transcriptItems: TranscriptItem[]): ChatItem[] {
@@ -68,8 +51,15 @@ function itemsFromTranscript(transcriptItems: TranscriptItem[]): ChatItem[] {
 
 function itemFromTranscript(item: TranscriptItem, index: number): ChatItem {
 	if (item.type === 'user') return { id: `history-${index}`, type: 'user', text: item.text };
-	if (item.type === 'assistant') return { id: `history-${index}`, type: 'assistant', text: item.text };
-	if (item.type === 'reasoning') return { id: `history-${index}`, type: 'assistant', text: '', reasoning: { text: item.text, pending: false } };
+	if (item.type === 'assistant')
+		return { id: `history-${index}`, type: 'assistant', text: item.text };
+	if (item.type === 'reasoning')
+		return {
+			id: `history-${index}`,
+			type: 'assistant',
+			text: '',
+			reasoning: { text: item.text, pending: false }
+		};
 	return {
 		id: `history-${index}`,
 		type: 'tool',
@@ -247,7 +237,10 @@ function createChatStore() {
 				return;
 			}
 			applyEvent(
-				{ type: 'error', message: err instanceof Error ? err.message : 'Failed to send message' },
+				{
+					type: 'error',
+					message: err instanceof Error ? err.message : 'Failed to send message'
+				},
 				ctx
 			);
 		} finally {

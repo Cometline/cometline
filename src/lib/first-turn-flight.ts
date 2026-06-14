@@ -1,5 +1,21 @@
+import { tick } from 'svelte';
+
 export const FLIGHT_MS = 560;
 export const FLIGHT_EASE = 'cubic-bezier(0.22, 1, 0.36, 1)';
+
+export function prefersReducedMotion(): boolean {
+	return (
+		typeof window !== 'undefined' &&
+		window.matchMedia('(prefers-reduced-motion: reduce)').matches
+	);
+}
+
+export function scrollThreadToBottom(root: ParentNode): void {
+	const scroller = root.querySelector('.thread');
+	if (scroller instanceof HTMLElement) {
+		scroller.scrollTo({ top: scroller.scrollHeight, behavior: 'auto' });
+	}
+}
 
 export function rectStyle(from: DOMRect, to: DOMRect): string {
 	const dx = to.left - from.left;
@@ -76,4 +92,77 @@ export async function waitForSelector(
 		};
 		requestAnimationFrame(tick);
 	});
+}
+
+export interface FlyUserBubbleParams {
+	root: HTMLElement;
+	text: string;
+	stageUser: (text: string) => void;
+	revealStagedUser: () => void;
+	onPrepare?: () => void;
+	/** When true, `onPrepare` was already invoked by the caller. */
+	skipOnPrepare?: boolean;
+	/** Textarea rect captured before layout changes (first turn). */
+	textareaFrom?: DOMRect | null;
+	/** When true, the caller invokes `revealStagedUser` after coordinated animations. */
+	deferReveal?: boolean;
+	/** When true, the caller already staged the user bubble. */
+	skipStage?: boolean;
+	onShowParticle: (text: string, style: string) => void;
+	onHideParticle: () => void;
+}
+
+/** Composer → thread user-bubble flight used on every send. */
+export async function flyUserBubble(params: FlyUserBubbleParams): Promise<boolean> {
+	const {
+		root,
+		text,
+		stageUser,
+		revealStagedUser,
+		onPrepare,
+		skipOnPrepare,
+		textareaFrom,
+		deferReveal,
+		skipStage,
+		onShowParticle,
+		onHideParticle
+	} = params;
+
+	const reveal = () => {
+		if (!deferReveal) revealStagedUser();
+	};
+
+	if (prefersReducedMotion()) {
+		if (!skipOnPrepare) onPrepare?.();
+		if (!skipStage) stageUser(text);
+		await tick();
+		scrollThreadToBottom(root);
+		reveal();
+		return true;
+	}
+
+	const textarea = root.querySelector('.composer textarea');
+	const capturedFrom =
+		textareaFrom ?? (textarea instanceof HTMLElement ? textarea.getBoundingClientRect() : null);
+
+	if (!skipOnPrepare) onPrepare?.();
+	if (!skipStage) stageUser(text);
+	await tick();
+	scrollThreadToBottom(root);
+	await afterPaint();
+
+	const userTarget = await waitForSelector(root, '[data-flight-target="user"]');
+	if (!(userTarget instanceof HTMLElement) || !capturedFrom) {
+		reveal();
+		return false;
+	}
+
+	const userTo = userTarget.getBoundingClientRect();
+	const style = translateStyle(textareaUserOrigin(capturedFrom, userTo), userTo);
+
+	onShowParticle(text, style);
+	await wait(FLIGHT_MS);
+	onHideParticle();
+	reveal();
+	return true;
 }

@@ -41,17 +41,17 @@ The rule: Cometline is not the brain. CometMind is the brain. Comet SDK is only 
 
 ## Current Implementation Map
 
-| Concept | Owner | Current status |
-| --- | --- | --- |
-| Provider runtime | `comet-sdk` | Implemented for Anthropic and OpenAI-compatible providers, including DeepSeek `reasoning_content` stream compatibility. |
-| Agent runtime | `cometmind/internal/agent` | Implemented multi-step loop with streaming and tool calls. |
-| Persistence | `cometmind/internal/db`, `internal/session` | Implemented SQLite workspaces, sessions, messages, tool calls, and sqlc queries. |
-| Local API | `cometmind/server`, `openapi.yaml` | Implemented health, sessions, transcripts, stream message, abort, and delete. |
-| Desktop runtime | `cometline/electron` | Implemented Electron main/preload, CometMind spawn, health polling, provider settings IPC, and app icons. |
-| Renderer UI | `cometline/src` | Implemented SvelteKit home/session routes, sidebar, chat thread, composer, settings modal, transitions, and delete confirmation. |
-| Secrets | Electron JSON settings | MVP-only. API keys are currently stored in `~/.cometmind/cometline-settings.json`; must move before distribution. |
-| Permissions | Not implemented | Next major safety feature. CometMind executes requested tools directly today. |
-| Memory | Not implemented | Future phase. |
+| Concept          | Owner                                       | Current status                                                                                                                   |
+| ---------------- | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Provider runtime | `comet-sdk`                                 | Implemented for Anthropic and OpenAI-compatible providers, including DeepSeek `reasoning_content` stream compatibility.          |
+| Agent runtime    | `cometmind/internal/agent`                  | Implemented multi-step loop with streaming and tool calls.                                                                       |
+| Persistence      | `cometmind/internal/db`, `internal/session` | Implemented SQLite workspaces, sessions, messages, tool calls, and sqlc queries.                                                 |
+| Local API        | `cometmind/server`, `openapi.yaml`          | Implemented health, sessions, transcripts, stream message, abort, and delete.                                                    |
+| Desktop runtime  | `cometline/electron`                        | Implemented Electron main/preload, CometMind spawn, health polling, provider settings IPC, and app icons.                        |
+| Renderer UI      | `cometline/src`                             | Implemented SvelteKit home/session routes, sidebar, chat thread, composer, settings modal, transitions, and delete confirmation. |
+| Secrets          | Electron JSON settings                      | MVP-only. API keys are currently stored in `~/.cometmind/cometline-settings.json`; must move before distribution.                |
+| Permissions      | Not implemented                             | Next major safety feature. CometMind executes requested tools directly today.                                                    |
+| Memory           | Not implemented                             | Future phase.                                                                                                                    |
 
 ## Runtime Contracts
 

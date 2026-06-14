@@ -63,7 +63,12 @@ describe('reduceChatState', () => {
 		expect(tool.pending).toBe(true);
 		expect(tool.startedAt).toBeTypeOf('number');
 
-		state = reduceChatState(state, { type: 'tool_result', id: 'tc-1', tool: 'read_file', output: 'ok' });
+		state = reduceChatState(state, {
+			type: 'tool_result',
+			id: 'tc-1',
+			tool: 'read_file',
+			output: 'ok'
+		});
 		const updated = state.items[0];
 		expect(updated.type).toBe('tool');
 		if (updated.type !== 'tool') return;

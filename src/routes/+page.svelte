@@ -43,11 +43,7 @@
 	</div>
 
 	<div class="composer-wrapper centered">
-		<Composer
-			onSend={onSend}
-			disabled={connectionState.status !== 'ready'}
-			variant="hero"
-		/>
+		<Composer {onSend} disabled={connectionState.status !== 'ready'} variant="hero" />
 	</div>
 </div>
 

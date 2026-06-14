@@ -1,5 +1,10 @@
 import type { ChatItem, StreamEvent } from '$lib/types';
-import { chatDebug, summarizeChatItem, summarizeChatItems, summarizeStreamEvent } from '../debug/chat';
+import {
+	chatDebug,
+	summarizeChatItem,
+	summarizeChatItems,
+	summarizeStreamEvent
+} from '../debug/chat';
 
 export interface ChatState {
 	items: ChatItem[];
@@ -51,7 +56,10 @@ function attachReasoning(
 	if (assistant.reasoning?.text) {
 		return {
 			...assistant,
-			reasoning: { text: assistant.reasoning.text + '\n\n' + chunk, pending: reasoning.pending }
+			reasoning: {
+				text: assistant.reasoning.text + '\n\n' + chunk,
+				pending: reasoning.pending
+			}
 		};
 	}
 	return { ...assistant, reasoning: { text: chunk, pending: reasoning.pending } };
@@ -64,8 +72,7 @@ function settlePendingTools(items: ChatItem[]) {
 		items[i] = {
 			...item,
 			pending: false,
-			durationMs:
-				item.startedAt != null ? Date.now() - item.startedAt : item.durationMs
+			durationMs: item.startedAt != null ? Date.now() - item.startedAt : item.durationMs
 		};
 	}
 }
@@ -101,7 +108,7 @@ function applyEvent(
 	}
 ) {
 	const { assistant, reasoning } = ctx;
-	const { items, nextId } = draft;
+	const { items } = draft;
 
 	function pushAssistant(next: AssistantItem) {
 		items.push(next);
@@ -167,7 +174,11 @@ function applyEvent(
 			items: summarizeChatItems(items)
 		});
 		settleTurn({ assistant: assistant.current, reasoning: reasoning.current });
-		if (assistant.current && !assistant.current.text.trim() && !assistant.current.reasoning?.text.trim()) {
+		if (
+			assistant.current &&
+			!assistant.current.text.trim() &&
+			!assistant.current.reasoning?.text.trim()
+		) {
 			clearEmptyAssistant();
 		} else {
 			assistant.current = null;
@@ -291,7 +302,9 @@ function applyEvent(
 	}
 }
 
-function cloneReasoning(r: { text: string; pending: boolean } | null): { text: string; pending: boolean } | null {
+function cloneReasoning(
+	r: { text: string; pending: boolean } | null
+): { text: string; pending: boolean } | null {
 	return r ? { text: r.text, pending: r.pending } : null;
 }
 
@@ -299,7 +312,9 @@ function cloneAssistant(a: AssistantItem | null): AssistantItem | null {
 	if (!a) return null;
 	return {
 		...a,
-		reasoning: a.reasoning ? { text: a.reasoning.text, pending: a.reasoning.pending } : undefined
+		reasoning: a.reasoning
+			? { text: a.reasoning.text, pending: a.reasoning.pending }
+			: undefined
 	};
 }
 

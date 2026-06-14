@@ -6,8 +6,10 @@
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { startNewChat } from '$lib/actions/new-chat';
 
-	let { children, workspacePath = '/' }: { children: import('svelte').Snippet; workspacePath?: string } =
-		$props();
+	let {
+		children,
+		workspacePath = '/'
+	}: { children: import('svelte').Snippet; workspacePath?: string } = $props();
 
 	onMount(() => {
 		function onKeydown(event: KeyboardEvent) {

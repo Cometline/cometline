@@ -38,7 +38,10 @@ describe('parseSSELines', () => {
 	it('handles multiple newlines in one chunk', () => {
 		const ev1: StreamEvent = { type: 'text_delta', delta: 'a' };
 		const ev2: StreamEvent = { type: 'done' };
-		const { lines, buffer } = parseSSELines('', `data: ${JSON.stringify(ev1)}\n\ndata: ${JSON.stringify(ev2)}\n`);
+		const { lines, buffer } = parseSSELines(
+			'',
+			`data: ${JSON.stringify(ev1)}\n\ndata: ${JSON.stringify(ev2)}\n`
+		);
 		expect(lines).toEqual([`data: ${JSON.stringify(ev1)}`, '', `data: ${JSON.stringify(ev2)}`]);
 		expect(buffer).toBe('');
 	});

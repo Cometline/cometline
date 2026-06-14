@@ -1,17 +1,17 @@
 <script lang="ts">
 	import { tick } from 'svelte';
+	import UserBubbleFlight from '$lib/components/UserBubbleFlight.svelte';
 	import {
 		FLIGHT_MS,
 		afterPaint,
 		rectStyle,
-		translateStyle,
-		textareaUserOrigin,
 		wait,
 		waitForSelector
 	} from '$lib/first-turn-flight';
 
 	interface Props {
 		root: HTMLElement | null;
+		userBubbleFlight: UserBubbleFlight;
 		stageUser: (text: string) => void;
 		revealStagedUser: () => void;
 		onActiveChange?: (active: boolean) => void;
@@ -22,6 +22,7 @@
 
 	let {
 		root,
+		userBubbleFlight,
 		stageUser,
 		revealStagedUser,
 		onActiveChange,
@@ -31,11 +32,7 @@
 	}: Props = $props();
 
 	let active = $state(false);
-	let flightDone = $state(false);
-	let userFlightStyle = $state('');
-	let userFlightText = $state('');
 	let avatarFlightStyle = $state('');
-	let showUserFlight = $state(false);
 	let showAvatarFlight = $state(false);
 
 	export function run(text: string): void {
@@ -49,12 +46,21 @@
 	}
 
 	function setFlightDone(value: boolean) {
-		flightDone = value;
 		onFlightDoneChange?.(value);
+	}
+
+	async function animateAvatar(avatarFrom: DOMRect, avatarTarget: HTMLElement): Promise<void> {
+		const avatarTo = avatarTarget.getBoundingClientRect();
+		avatarFlightStyle = rectStyle(avatarFrom, avatarTo);
+		showAvatarFlight = true;
+		await wait(FLIGHT_MS);
+		showAvatarFlight = false;
+		avatarFlightStyle = '';
 	}
 
 	async function animate(text: string): Promise<void> {
 		if (!root) {
+			stageUser(text);
 			revealStagedUser();
 			setFlightDone(true);
 			setActive(false);
@@ -75,49 +81,45 @@
 		stageUser(text);
 		await tick();
 
-		const userTarget = await waitForSelector(root, '[data-flight-target="user"]');
 		const avatarTarget = await waitForSelector(root, '[data-flight-target="avatar"]');
 
-		if (
-			userTarget instanceof HTMLElement &&
-			avatarTarget instanceof HTMLElement &&
-			textareaFrom &&
-			avatarFrom
-		) {
-			const userTo = userTarget.getBoundingClientRect();
-			const avatarTo = avatarTarget.getBoundingClientRect();
-			userFlightText = text;
-			userFlightStyle = translateStyle(textareaUserOrigin(textareaFrom, userTo), userTo);
-			avatarFlightStyle = rectStyle(avatarFrom, avatarTo);
-			showUserFlight = true;
-			showAvatarFlight = true;
-			await wait(FLIGHT_MS);
+		const animations: Promise<unknown>[] = [
+			userBubbleFlight.runAsync(text, {
+				skipOnPrepare: true,
+				skipStage: true,
+				textareaFrom,
+				deferReveal: true
+			})
+		];
 
-			revealStagedUser();
-			// Unhide the real thread avatar slot (via onFlightDoneChange) BEFORE
-			// tearing down the flight overlay below, so the avatar never blinks
-			// out between the overlay ending and the thread placeholder showing.
-			setFlightDone(true);
-			await afterPaint();
-
-			showUserFlight = false;
-			showAvatarFlight = false;
-			userFlightText = '';
-		} else {
-			revealStagedUser();
-			setFlightDone(true);
+		if (avatarFrom && avatarTarget instanceof HTMLElement) {
+			animations.push(animateAvatar(avatarFrom, avatarTarget));
 		}
 
+		const results = await Promise.all(animations);
+		const userFlew = results[0] === true;
+
+		if (!userFlew) {
+			revealStagedUser();
+			setFlightDone(true);
+			setActive(false);
+			onComplete?.();
+			return;
+		}
+
+		revealStagedUser();
+		setFlightDone(true);
+		await afterPaint();
 		setActive(false);
 		onComplete?.();
 	}
 </script>
 
-{#if showUserFlight}
-	<div class="flight-particle user-flight" style={userFlightStyle}>{userFlightText}</div>
-{/if}
 {#if showAvatarFlight}
-	<div class="flight-particle avatar-flight rounded-full border border-gray-400 overflow-hidden" style={avatarFlightStyle}>
+	<div
+		class="flight-particle avatar-flight rounded-full border border-gray-400 overflow-hidden"
+		style={avatarFlightStyle}
+	>
 		<img
 			src="/project_avatar_192.png"
 			srcset="/project_avatar_96.png 96w, /project_avatar_192.png 192w, /project_avatar_384.png 384w"
@@ -134,19 +136,6 @@
 		pointer-events: none;
 		transform-origin: top left;
 		animation: first-turn-flight var(--duration-flight) var(--ease-smooth) forwards;
-	}
-
-	.user-flight {
-		padding: 11px 14px;
-		border-radius: 18px 18px 6px 18px;
-		background: #1f2933;
-		color: white;
-		font-size: 14px;
-		line-height: 1.55;
-		white-space: pre-wrap;
-		word-break: break-word;
-		box-shadow: 0 16px 40px rgba(31, 41, 51, 0.18);
-		animation-name: first-turn-user-flight;
 	}
 
 	.avatar-flight {
@@ -167,16 +156,8 @@
 			transform: translate3d(0, 0, 0) scale(1, 1);
 		}
 		to {
-			transform: translate3d(var(--flight-x), var(--flight-y), 0) scale(var(--flight-sx), var(--flight-sy));
-		}
-	}
-
-	@keyframes first-turn-user-flight {
-		from {
-			transform: translate3d(0, 0, 0);
-		}
-		to {
-			transform: translate3d(var(--flight-x), var(--flight-y), 0);
+			transform: translate3d(var(--flight-x), var(--flight-y), 0)
+				scale(var(--flight-sx), var(--flight-sy));
 		}
 	}
 </style>

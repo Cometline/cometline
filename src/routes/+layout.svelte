@@ -25,7 +25,9 @@
 			sessionStore.setSessions(result.sessions);
 			shellStore.setBootMessage('');
 		} catch (err) {
-			shellStore.setBootMessage(err instanceof Error ? err.message : 'Failed to load sessions');
+			shellStore.setBootMessage(
+				err instanceof Error ? err.message : 'Failed to load sessions'
+			);
 		}
 	}
 </script>

@@ -30,7 +30,6 @@ function labelForModel(modelID: string) {
 		.join(' ');
 }
 
-
 function optionsFromProvider(provider: ProviderConfig): ModelOption[] {
 	if (!provider.enabled) return [];
 	const models =
@@ -65,16 +64,14 @@ function createModelStore() {
 		const match = options.find(
 			(option) => option.providerId === providerId && option.modelId === modelId
 		);
-		selected =
-			match ??
-			{
-				id: `${providerId}:${modelId}`,
-				label: labelForModel(modelId),
-				providerId,
-				providerName: providerId,
-				providerMethod: 'openai-compatible',
-				modelId
-			};
+		selected = match ?? {
+			id: `${providerId}:${modelId}`,
+			label: labelForModel(modelId),
+			providerId,
+			providerName: providerId,
+			providerMethod: 'openai-compatible',
+			modelId
+		};
 	}
 
 	function selectFromSession(session: Session) {
