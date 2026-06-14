@@ -719,7 +719,7 @@ function configureAutoUpdater() {
 	// We surface a button in the UI and let the user choose when to restart, so
 	// download automatically but never install behind their back.
 	autoUpdater.autoDownload = true;
-	autoUpdater.autoInstallOnAppQuit = true;
+	autoUpdater.autoInstallOnAppQuit = false;
 	autoUpdater.logger = {
 		info: (message) => console.log(`[auto-updater] ${message}`),
 		warn: (message) => console.warn(`[auto-updater] ${message}`),
@@ -833,7 +833,7 @@ async function createWindow() {
 	if (process.platform === 'darwin' && icon) app.dock?.setIcon(icon);
 
 	if (app.isPackaged) {
-		await mainWindow.loadURL(`${APP_ORIGIN}/index.html`);
+		await mainWindow.loadURL(`${APP_ORIGIN}/`);
 	} else {
 		await mainWindow.loadURL('http://127.0.0.1:5173');
 	}
@@ -1088,6 +1088,7 @@ ipcMain.handle('cometline:check-for-updates', async () => {
 ipcMain.handle('cometline:install-update', async () => {
 	if (updateState.status !== 'ready') return false;
 	relaunchForUpdate = true;
+	stoppingForQuit = true;
 	// Stop the sidecar gracefully before the updater takes over the quit flow.
 	await stopCometMind();
 	// isSilent=true, isForceRunAfter=true so the updater relaunches the app.
