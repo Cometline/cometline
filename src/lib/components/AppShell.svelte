@@ -50,16 +50,25 @@
 		// the gutter that normally keeps the search bar clear of them. Pull the
 		// current state on mount in case the initial push fired before this
 		// listener was registered, then subscribe to future changes.
-		void window.electronAPI?.getFullScreen?.().then((isFullScreen) => {
+		function updateFullScreen(isFullScreen: boolean) {
+			if (import.meta.env.DEV) {
+				console.log('[AppShell] fullscreen state:', isFullScreen);
+			}
 			shellStore.setFullscreen(isFullScreen);
-		});
-		const unsubscribeFullScreen = window.electronAPI?.onFullScreenChange?.((isFullScreen) => {
-			shellStore.setFullscreen(isFullScreen);
-		});
+		}
+		void window.electronAPI?.getFullScreen?.().then(updateFullScreen);
+		const unsubscribeFullScreen = window.electronAPI?.onFullScreenChange?.(updateFullScreen);
+
+		// Fallback in case the main-process push is missed or delayed.
+		function onDomFullScreenChange() {
+			updateFullScreen(Boolean(document.fullscreenElement));
+		}
+		document.addEventListener('fullscreenchange', onDomFullScreenChange);
 
 		return () => {
 			window.removeEventListener('keydown', onKeydown);
 			unsubscribeFullScreen?.();
+			document.removeEventListener('fullscreenchange', onDomFullScreenChange);
 		};
 	});
 
@@ -116,7 +125,7 @@
 	/* In fullscreen the native traffic lights are hidden, so the search bar can
 	   reclaim the gutter that normally keeps it clear of them. */
 	.app-shell.is-fullscreen {
-		--traffic-light-gutter: 8px;
+		--traffic-light-gutter: 0px;
 	}
 
 	.main {

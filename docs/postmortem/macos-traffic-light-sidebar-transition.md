@@ -142,11 +142,11 @@ mainWindow.on('leave-full-screen', sendFullScreenState);
 // also fired once on ready-to-show for the initial state
 ```
 
-`preload.cjs` exposes `onFullScreenChange(callback)` (returns an unsubscribe). `AppShell.svelte` subscribes in `onMount`, stores the flag in `shellStore.fullscreen`, and toggles an `is-fullscreen` class. The class overrides the gutter token, and the titlebar row animates its `padding-left` to follow:
+`preload.cjs` exposes `onFullScreenChange(callback)` (returns an unsubscribe) and `getFullScreen()` for the initial state. `AppShell.svelte` subscribes in `onMount`, stores the flag in `shellStore.fullscreen`, and toggles an `is-fullscreen` class. The class overrides the gutter token, and the search field animates its `margin-left` to follow. A `fullscreenchange` DOM listener is also kept as a fallback.
 
 ```css
 .app-shell.is-fullscreen {
-	--traffic-light-gutter: 8px;
+	--traffic-light-gutter: 0px;
 }
 
 .sidebar-titlebar-row {
