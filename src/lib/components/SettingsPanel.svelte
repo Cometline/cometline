@@ -13,7 +13,22 @@
 	};
 
 	const DEFAULT_PROVIDER_IDS = new Set(['openai-compatible', 'anthropic', 'openai', 'opencode-go']);
-	const OPENCODE_GO_DEFAULT_MODELS = ['deepseek-v4-flash'];
+	const OPENCODE_GO_AVAILABLE_MODELS = [
+		'deepseek-v4-flash',
+		'deepseek-v4-pro',
+		'glm-5',
+		'glm-5.1',
+		'kimi-k2.6',
+		'kimi-k2.7-code',
+		'mimo-v2.5',
+		'mimo-v2.5-pro',
+		'minimax-m2.7',
+		'minimax-m3',
+		'qwen3.6-plus',
+		'qwen3.7-max',
+		'qwen3.7-plus'
+	];
+	const DEFAULT_OPENCODE_GO_ENABLED_MODELS = ['deepseek-v4-flash'];
 
 	function cloneProvider(provider: ProviderConfig): ProviderConfig {
 		return {
@@ -31,7 +46,9 @@
 	}
 
 	let draft = $state<ProviderSettings>(cloneSettings(settingsStore.settings));
-	let selectedProviderId = $state<string>(settingsStore.settings.activeProviderId || draft.providers[0]?.id || '');
+	let selectedProviderId = $state<string>(
+		settingsStore.settings.activeProviderId || settingsStore.settings.providers[0]?.id || ''
+	);
 	let status = $state('');
 	let modelSearch = $state('');
 
@@ -81,9 +98,9 @@
 			updateSelected({
 				method,
 				baseURL: 'https://opencode.ai/zen/go/v1',
-				models: [...OPENCODE_GO_DEFAULT_MODELS],
-				enabledModels: [...OPENCODE_GO_DEFAULT_MODELS],
-				selectedModel: OPENCODE_GO_DEFAULT_MODELS[0]
+				models: [...OPENCODE_GO_AVAILABLE_MODELS],
+				enabledModels: [...DEFAULT_OPENCODE_GO_ENABLED_MODELS],
+				selectedModel: DEFAULT_OPENCODE_GO_ENABLED_MODELS[0]
 			});
 			return;
 		}
@@ -233,6 +250,8 @@
 								class:on={selectedProvider.enabled}
 								role="switch"
 								aria-checked={selectedProvider.enabled}
+								aria-label={`${selectedProvider.enabled ? 'Disable' : 'Enable'} ${selectedProvider.name}`}
+								title={`${selectedProvider.enabled ? 'Disable' : 'Enable'} ${selectedProvider.name}`}
 								onclick={() => toggleProvider(selectedProvider.id)}
 							>
 								<span></span>
@@ -302,7 +321,7 @@
 									onclick={fetchModels}
 									disabled={settingsStore.isFetchingModels || !selectedProvider.baseURL.trim() || !selectedProvider.apiKey.trim()}
 								>
-									{#if settingsStore.isFetchingModels}<LoaderCircle size={14} class="spin" />{/if}
+									{#if settingsStore.isFetchingModels}<span class="spin"><LoaderCircle size={14} /></span>{/if}
 									Fetch models
 								</button>
 							{/if}
@@ -352,7 +371,7 @@
 			<p>{enabledModelCount} model{enabledModelCount === 1 ? '' : 's'} enabled</p>
 			<button class="secondary" onclick={shellStore.closeSettings}>Cancel</button>
 			<button class="primary" onclick={save} disabled={settingsStore.isSaving || settingsStore.isFetchingModels || enabledModelCount === 0}>
-				{#if settingsStore.isSaving}<LoaderCircle size={14} class="spin" />{/if}
+				{#if settingsStore.isSaving}<span class="spin"><LoaderCircle size={14} /></span>{/if}
 				Save
 			</button>
 		</footer>
@@ -748,6 +767,8 @@
 	}
 
 	.spin {
+		display: inline-grid;
+		place-items: center;
 		animation: spin 0.9s linear infinite;
 	}
 

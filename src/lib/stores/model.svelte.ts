@@ -9,7 +9,7 @@ export interface ModelOption {
 	modelId: string;
 }
 
-const OPENCODE_GO_DEFAULT_MODELS = ['deepseek-v4-flash'];
+const DEFAULT_OPENCODE_GO_ENABLED_MODELS = ['deepseek-v4-flash'];
 
 export const defaultModelOptions: ModelOption[] = [
 	{
@@ -37,7 +37,7 @@ function optionsFromProvider(provider: ProviderConfig): ModelOption[] {
 		provider.enabledModels.length > 0
 			? provider.enabledModels
 			: provider.method === 'opencode-go'
-				? OPENCODE_GO_DEFAULT_MODELS
+				? DEFAULT_OPENCODE_GO_ENABLED_MODELS
 				: [];
 	return models.map((modelId) => ({
 		id: `${provider.id}:${modelId}`,

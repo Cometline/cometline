@@ -1,7 +1,22 @@
 import type { ProviderConfig, ProviderSettings } from '$lib/types';
 import { modelStore } from './model.svelte';
 
-const DEFAULT_OPENCODE_GO_MODELS = ['deepseek-v4-flash'];
+const OPENCODE_GO_AVAILABLE_MODELS = [
+	'deepseek-v4-flash',
+	'deepseek-v4-pro',
+	'glm-5',
+	'glm-5.1',
+	'kimi-k2.6',
+	'kimi-k2.7-code',
+	'mimo-v2.5',
+	'mimo-v2.5-pro',
+	'minimax-m2.7',
+	'minimax-m3',
+	'qwen3.6-plus',
+	'qwen3.7-max',
+	'qwen3.7-plus'
+];
+const DEFAULT_OPENCODE_GO_ENABLED_MODELS = ['deepseek-v4-flash'];
 
 const DEFAULT_PROVIDERS: ProviderConfig[] = [
 	{
@@ -44,9 +59,9 @@ const DEFAULT_PROVIDERS: ProviderConfig[] = [
 		enabled: true,
 		baseURL: 'https://opencode.ai/zen/go/v1',
 		apiKey: '',
-		selectedModel: DEFAULT_OPENCODE_GO_MODELS[0],
-		models: [...DEFAULT_OPENCODE_GO_MODELS],
-		enabledModels: [...DEFAULT_OPENCODE_GO_MODELS]
+		selectedModel: DEFAULT_OPENCODE_GO_ENABLED_MODELS[0],
+		models: [...OPENCODE_GO_AVAILABLE_MODELS],
+		enabledModels: [...DEFAULT_OPENCODE_GO_ENABLED_MODELS]
 	}
 ];
 
@@ -61,7 +76,9 @@ function cloneProvider(provider: ProviderConfig): ProviderConfig {
 function normalizeProvider(provider: Partial<ProviderConfig>, fallback?: ProviderConfig): ProviderConfig {
 	const method = provider.method ?? fallback?.method ?? 'openai-compatible';
 	const models = Array.isArray(provider.models) ? provider.models.filter(Boolean) : fallback?.models ?? [];
-	const modelList = method === 'opencode-go' && models.length === 0 ? DEFAULT_OPENCODE_GO_MODELS : models;
+	const modelList = method === 'opencode-go'
+		? Array.from(new Set([...OPENCODE_GO_AVAILABLE_MODELS, ...models]))
+		: models;
 	const legacySelected = provider.selectedModel || fallback?.selectedModel || modelList[0] || '';
 	const enabledModelsSource = Array.isArray(provider.enabledModels)
 		? provider.enabledModels

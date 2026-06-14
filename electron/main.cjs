@@ -52,16 +52,31 @@ function defaultProviderSettings() {
 				enabled: true,
 				baseURL: 'https://opencode.ai/zen/go/v1',
 				apiKey: '',
-				selectedModel: 'deepseek-v4-flash',
-				models: ['deepseek-v4-flash'],
-				enabledModels: ['deepseek-v4-flash']
+				selectedModel: DEFAULT_OPENCODE_GO_ENABLED_MODELS[0],
+				models: [...OPENCODE_GO_AVAILABLE_MODELS],
+				enabledModels: [...DEFAULT_OPENCODE_GO_ENABLED_MODELS]
 			}
 		],
 		activeProviderId: 'opencode-go'
 	};
 }
 
-const OPENCODE_GO_DEFAULT_MODELS = ['deepseek-v4-flash'];
+const OPENCODE_GO_AVAILABLE_MODELS = [
+	'deepseek-v4-flash',
+	'deepseek-v4-pro',
+	'glm-5',
+	'glm-5.1',
+	'kimi-k2.6',
+	'kimi-k2.7-code',
+	'mimo-v2.5',
+	'mimo-v2.5-pro',
+	'minimax-m2.7',
+	'minimax-m3',
+	'qwen3.6-plus',
+	'qwen3.7-max',
+	'qwen3.7-plus'
+];
+const DEFAULT_OPENCODE_GO_ENABLED_MODELS = ['deepseek-v4-flash'];
 const VALID_PROVIDER_METHODS = ['openai-compatible', 'openai', 'anthropic', 'opencode-go'];
 
 let mainWindow = null;
@@ -127,7 +142,9 @@ function normalizeProvider(provider, fallback = {}) {
 	const method = VALID_PROVIDER_METHODS.includes(provider?.method) ? provider.method : fallback.method || 'openai-compatible';
 	const rawModels = Array.isArray(provider?.models) ? provider.models : fallback.models || [];
 	const models = rawModels.map((model) => String(model || '').trim()).filter(Boolean);
-	const modelList = method === 'opencode-go' && models.length === 0 ? [...OPENCODE_GO_DEFAULT_MODELS] : models;
+	const modelList = method === 'opencode-go'
+		? Array.from(new Set([...OPENCODE_GO_AVAILABLE_MODELS, ...models]))
+		: models;
 	const legacySelected = String(provider?.selectedModel || fallback.selectedModel || modelList[0] || '').trim();
 	const rawEnabledModels = Array.isArray(provider?.enabledModels)
 		? provider.enabledModels
@@ -466,7 +483,7 @@ async function fetchAnthropicModels(baseURL, apiKey) {
 async function fetchProviderModels(config) {
 	const method = config.method;
 	if (method === 'opencode-go') {
-		return [...OPENCODE_GO_DEFAULT_MODELS];
+		return [...OPENCODE_GO_AVAILABLE_MODELS];
 	}
 
 	const baseURL = String(config.baseURL || '').trim();
