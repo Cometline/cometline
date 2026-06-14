@@ -11,6 +11,7 @@ permissions:
 jobs:
   release-macos:
     runs-on: macos-latest
+    environment: cometline-release
     steps:
       - name: Checkout
         uses: actions/checkout@v5
