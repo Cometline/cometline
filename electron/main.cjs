@@ -20,6 +20,17 @@ function defaultAppearance() {
 	};
 }
 
+function defaultShortcuts() {
+	return {
+		toggleSidebar: { command: true, key: 'b' },
+		openSettings: { command: true, key: ',' },
+		newChat: { command: true, key: 't' },
+		stopResponse: { command: true, key: 'c' },
+		sendMessage: { key: 'Enter', shift: false },
+		closeSettings: { key: 'Escape' }
+	};
+}
+
 function defaultProviderSettings() {
 	return {
 		providers: [
@@ -69,7 +80,8 @@ function defaultProviderSettings() {
 			}
 		],
 		activeProviderId: 'opencode-go',
-		appearance: defaultAppearance()
+		appearance: defaultAppearance(),
+		shortcuts: defaultShortcuts()
 	};
 }
 
@@ -340,6 +352,26 @@ function normalizeAppearance(appearance) {
 	};
 }
 
+function normalizeShortcuts(shortcuts) {
+	const defaults = defaultShortcuts();
+	if (!shortcuts || typeof shortcuts !== 'object') return defaults;
+	const next = { ...defaults };
+	for (const id of Object.keys(defaults)) {
+		const saved = shortcuts[id];
+		if (saved && typeof saved === 'object' && typeof saved.key === 'string') {
+			next[id] = {
+				key: saved.key,
+				...(typeof saved.command === 'boolean' && { command: saved.command }),
+				...(typeof saved.ctrl === 'boolean' && { ctrl: saved.ctrl }),
+				...(typeof saved.meta === 'boolean' && { meta: saved.meta }),
+				...(typeof saved.alt === 'boolean' && { alt: saved.alt }),
+				...(typeof saved.shift === 'boolean' && { shift: saved.shift })
+			};
+		}
+	}
+	return next;
+}
+
 function normalizeProviders(providers) {
 	const defaults = defaultProviderSettings().providers;
 	const saved = Array.isArray(providers) ? providers : [];
@@ -380,6 +412,7 @@ function readProviderSettings() {
 
 	base.providers = normalizeProviders(base.providers);
 	base.appearance = normalizeAppearance(saved.appearance ?? base.appearance);
+	base.shortcuts = normalizeShortcuts(saved.shortcuts ?? base.shortcuts);
 	if (!base.activeProviderId || !base.providers.find((p) => p.id === base.activeProviderId)) {
 		base.activeProviderId =
 			base.providers.find((p) => p.enabled && p.enabledModels.length > 0)?.id ??
@@ -421,7 +454,8 @@ function writeProviderSettings(settings) {
 	const next = {
 		providers: nextProviders,
 		activeProviderId: nextActive,
-		appearance: normalizeAppearance(settings.appearance ?? current.appearance)
+		appearance: normalizeAppearance(settings.appearance ?? current.appearance),
+		shortcuts: normalizeShortcuts(settings.shortcuts ?? current.shortcuts)
 	};
 	const settingsPath = getSettingsPath();
 	fs.writeFileSync(settingsPath, JSON.stringify(next, null, 2));
@@ -521,10 +555,14 @@ function startCometMind() {
 		return;
 	}
 
-	cometMindProcess = spawn(binary, ['serve', '--port', String(COMETMIND_PORT), '--watch-parent'], {
-		stdio: ['ignore', 'pipe', 'pipe'],
-		env: providerEnv()
-	});
+	cometMindProcess = spawn(
+		binary,
+		['serve', '--port', String(COMETMIND_PORT), '--watch-parent'],
+		{
+			stdio: ['ignore', 'pipe', 'pipe'],
+			env: providerEnv()
+		}
+	);
 
 	cometMindProcess.stdout.on('data', (data) => logStream.write(data));
 	cometMindProcess.stderr.on('data', (data) => logStream.write(data));

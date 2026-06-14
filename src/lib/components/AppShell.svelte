@@ -4,8 +4,10 @@
 	import RuntimeOverlay from './RuntimeOverlay.svelte';
 	import SettingsModal from './SettingsModal.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
+	import { settingsStore } from '$lib/stores/settings.svelte';
 	import { startNewChat } from '$lib/actions/new-chat';
 	import { narrowViewportQuery } from '$lib/layout/narrow-viewport';
+	import { matchesShortcut } from '$lib/keyboard-shortcuts';
 
 	const FALLBACK_SIDEBAR_DURATION = 240;
 
@@ -21,26 +23,27 @@
 		}
 
 		function onKeydown(event: KeyboardEvent) {
-			if (event.key === 'Escape' && shellStore.settingsOpen) {
+			const shortcuts = settingsStore.settings.shortcuts;
+
+			if (matchesShortcut(event, shortcuts.closeSettings) && shellStore.settingsOpen) {
 				event.preventDefault();
 				shellStore.closeSettings();
 				return;
 			}
-
-			const command = event.metaKey || event.ctrlKey;
-			if (!command) return;
-			const key = event.key.toLowerCase();
-			if (key === 'b') {
+			if (matchesShortcut(event, shortcuts.toggleSidebar)) {
 				event.preventDefault();
 				shellStore.toggleSidebar();
+				return;
 			}
-			if (key === ',') {
+			if (matchesShortcut(event, shortcuts.openSettings)) {
 				event.preventDefault();
 				shellStore.openSettings();
+				return;
 			}
-			if (key === 't') {
+			if (matchesShortcut(event, shortcuts.newChat)) {
 				event.preventDefault();
 				startNewChat();
+				return;
 			}
 		}
 
@@ -75,7 +78,8 @@
 	function parseDuration(value: string) {
 		const trimmed = value.trim();
 		if (!trimmed) return FALLBACK_SIDEBAR_DURATION;
-		if (trimmed.endsWith('ms')) return Number(trimmed.slice(0, -2)) || FALLBACK_SIDEBAR_DURATION;
+		if (trimmed.endsWith('ms'))
+			return Number(trimmed.slice(0, -2)) || FALLBACK_SIDEBAR_DURATION;
 		if (trimmed.endsWith('s')) return (Number(trimmed.slice(0, -1)) || 0) * 1000;
 		return Number(trimmed) || FALLBACK_SIDEBAR_DURATION;
 	}

@@ -4,6 +4,8 @@
 	import { Check, ChevronDown, Send, Sparkles, Square, X } from '@lucide/svelte';
 	import type { QueuedMessage } from '$lib/actions/chat-turn-queue';
 	import { modelStore, type ModelOption } from '$lib/stores/model.svelte';
+	import { settingsStore } from '$lib/stores/settings.svelte';
+	import { matchesShortcut } from '$lib/keyboard-shortcuts';
 
 	let {
 		onSend,
@@ -99,7 +101,7 @@
 	}
 
 	function onKeydown(e: KeyboardEvent) {
-		if (e.key === 'c' && (e.ctrlKey || e.metaKey) && streaming) {
+		if (matchesShortcut(e, settingsStore.settings.shortcuts.stopResponse) && streaming) {
 			const textarea = e.currentTarget as HTMLTextAreaElement;
 			if (textarea.selectionStart === textarea.selectionEnd) {
 				e.preventDefault();
@@ -107,7 +109,7 @@
 				return;
 			}
 		}
-		if (e.key === 'Enter' && !e.shiftKey) {
+		if (matchesShortcut(e, settingsStore.settings.shortcuts.sendMessage)) {
 			e.preventDefault();
 			submit();
 		}

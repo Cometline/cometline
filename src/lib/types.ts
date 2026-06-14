@@ -52,10 +52,30 @@ export interface AppearanceSettings {
 	heroComposer: HeroComposerAppearance;
 }
 
+export type ShortcutAction =
+	| 'toggleSidebar'
+	| 'openSettings'
+	| 'newChat'
+	| 'stopResponse'
+	| 'sendMessage'
+	| 'closeSettings';
+
+export interface ShortcutBinding {
+	key: string;
+	command?: boolean;
+	ctrl?: boolean;
+	meta?: boolean;
+	alt?: boolean;
+	shift?: boolean;
+}
+
+export type KeyboardShortcuts = Partial<Record<ShortcutAction, ShortcutBinding>>;
+
 export interface ProviderSettings {
 	providers: ProviderConfig[];
 	activeProviderId: string;
 	appearance: AppearanceSettings;
+	shortcuts: KeyboardShortcuts;
 }
 
 export interface SessionListResponse {

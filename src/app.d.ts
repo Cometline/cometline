@@ -22,10 +22,32 @@ declare global {
 		heroComposer: HeroComposerAppearance;
 	}
 
+	type ShortcutAction =
+		| 'toggleSidebar'
+		| 'openSettings'
+		| 'newChat'
+		| 'stopResponse'
+		| 'sendMessage'
+		| 'closeSettings';
+
+	interface ShortcutBinding {
+		key: string;
+		command?: boolean;
+		ctrl?: boolean;
+		meta?: boolean;
+		alt?: boolean;
+		shift?: boolean;
+	}
+
+	interface KeyboardShortcuts {
+		[action: string]: ShortcutBinding;
+	}
+
 	interface ProviderSettings {
 		providers: ProviderConfig[];
 		activeProviderId: string;
 		appearance: AppearanceSettings;
+		shortcuts: KeyboardShortcuts;
 	}
 
 	interface SidebarChromeState {

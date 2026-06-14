@@ -13,8 +13,10 @@
 	import { connectionState } from '$lib/stores/runtime.svelte';
 	import { modelStore } from '$lib/stores/model.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
+	import { settingsStore } from '$lib/stores/settings.svelte';
 	import { startChat } from '$lib/actions/start-chat';
 	import { createChatTurnQueue, type QueuedMessage } from '$lib/actions/chat-turn-queue';
+	import { matchesShortcut } from '$lib/keyboard-shortcuts';
 
 	const THREAD_IN = { duration: 180 };
 
@@ -139,7 +141,7 @@
 	}
 
 	function onWindowKeydown(e: KeyboardEvent) {
-		if (e.key !== 'c' || !(e.ctrlKey || e.metaKey)) return;
+		if (!matchesShortcut(e, settingsStore.settings.shortcuts.stopResponse)) return;
 		if (!chatStore.isStreaming) return;
 		const target = e.target;
 		if (target instanceof HTMLTextAreaElement || target instanceof HTMLInputElement) {
@@ -223,7 +225,7 @@
 				{queuedCount}
 				{queuedMessages}
 				waitingForReply={chatStore.isStreaming || firstTurnActive}
-				turnProcessing={turnProcessing}
+				{turnProcessing}
 				variant={composerVariant}
 			/>
 		</HeroComposerFrame>
