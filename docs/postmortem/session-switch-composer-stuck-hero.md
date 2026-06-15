@@ -131,7 +131,7 @@ That rule applies to **empty hero surfaces** (home route, empty session before f
 
 - **Keep `+page.svelte` and `ChatView.svelte` hero composer CSS in sync** when changing `.composer-wrapper` placement under `.chat-home.hero-layout`.
 
-- **Session switch checklist:** wrong transcript flash → `bindSession` + `sessionID` match; message pop-in → thread fade; composer bottom-left + hero placeholder → composer phase regression (this doc).
+- **Session switch checklist:** wrong transcript flash → `bindSession` + `sessionID` match; message pop-in → thread fade; composer bottom-left + hero placeholder → composer phase regression (this doc); **blank white thread with docked composer after first send** → [first-turn-transcript-invisible.md](./first-turn-transcript-invisible.md) (`isLoading` stuck / hydrating opacity).
 
 ## Verification
 

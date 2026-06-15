@@ -14,6 +14,7 @@ Short write-ups of non-obvious bugs in the Cometline UI layer: symptoms, root ca
 | 2026-06-14 | Hero → chat composer dock transition jank               | [hero-composer-dock-transition-jank.md](./hero-composer-dock-transition-jank.md)                     |
 | 2026-06-14 | Composer stuck in hero layout after session switch      | [session-switch-composer-stuck-hero.md](./session-switch-composer-stuck-hero.md)                     |
 | 2026-06-14 | Duplicate user message on rapid submit                  | [duplicate-user-message-on-rapid-submit.md](./duplicate-user-message-on-rapid-submit.md)             |
+| 2026-06-15 | First-turn transcript invisible after user bubble flight | [first-turn-transcript-invisible.md](./first-turn-transcript-invisible.md)                           |
 
 ## When to add a postmortem
 
