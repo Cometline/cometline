@@ -95,7 +95,11 @@ export function defaultKeyboardShortcuts(): KeyboardShortcuts {
 const SESSION_NAV_ACTIONS = new Set<ShortcutAction>(['previousSession', 'nextSession']);
 
 function isLegacySessionNavBinding(binding: ShortcutBinding): boolean {
-	if (binding.command) return true;
+	// Migrate mistaken bare ⌘+arrow bindings from an older format.
+	if (binding.command) {
+		return binding.alt !== true && binding.shift !== true && binding.ctrl !== true;
+	}
+	// Migrate ⌃+arrow bindings that omitted ⌘ on Mac.
 	return Boolean(binding.ctrl && binding.meta === false);
 }
 

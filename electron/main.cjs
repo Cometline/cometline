@@ -399,7 +399,9 @@ function normalizeAppearance(appearance) {
 }
 
 function isLegacySessionNavBinding(binding) {
-	if (binding?.command) return true;
+	if (binding?.command) {
+		return binding.alt !== true && binding.shift !== true && binding.ctrl !== true;
+	}
 	return Boolean(binding?.ctrl && binding.meta === false);
 }
 
