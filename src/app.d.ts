@@ -69,6 +69,7 @@ declare global {
 	interface Window {
 		electronAPI?: {
 			restartCometMind?: () => void;
+			openExternal?: (url: string) => Promise<boolean>;
 			getProviderSettings?: () => Promise<ProviderSettings>;
 			fetchProviderModels?: (config: ProviderConfig) => Promise<string[]>;
 			saveProviderSettings?: (settings: ProviderSettings) => Promise<ProviderSettings>;

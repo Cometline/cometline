@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain, protocol, net } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, protocol, net, shell } = require('electron');
 const path = require('path');
 const { pathToFileURL } = require('url');
 const { spawn } = require('child_process');
@@ -844,6 +844,22 @@ async function createWindow() {
 	setWindowButtonPosition(WINDOW_BUTTON_OPEN_POSITION);
 	if (process.platform === 'darwin' && icon) app.dock?.setIcon(icon);
 
+	// Defense in depth: untrusted markdown links must never navigate the app
+	// window or spawn Electron child windows. External links are routed through
+	// the validated cometline:open-external IPC handler instead.
+	mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+		if (isExternallyOpenableUrl(url)) void shell.openExternal(url);
+		return { action: 'deny' };
+	});
+	mainWindow.webContents.on('will-navigate', (event, url) => {
+		// Allow the app's own origin (dev server or app:// bundle); block the rest.
+		const allowed = url.startsWith(`${APP_ORIGIN}/`) || url.startsWith('http://127.0.0.1:5173');
+		if (!allowed) {
+			event.preventDefault();
+			if (isExternallyOpenableUrl(url)) void shell.openExternal(url);
+		}
+	});
+
 	if (app.isPackaged) {
 		await mainWindow.loadURL(`${APP_ORIGIN}/`);
 	} else {
@@ -1080,6 +1096,27 @@ ipcMain.handle('cometline:save-provider-settings', async (_event, settings) => {
 	startCometMind();
 	void waitForHealth();
 	return saved;
+});
+
+// Opens a markdown link in the user's default browser. Only http(s)/mailto are
+// allowed so a malicious link can't launch arbitrary local handlers.
+function isExternallyOpenableUrl(rawUrl) {
+	try {
+		const parsed = new URL(String(rawUrl));
+		return (
+			parsed.protocol === 'http:' ||
+			parsed.protocol === 'https:' ||
+			parsed.protocol === 'mailto:'
+		);
+	} catch {
+		return false;
+	}
+}
+
+ipcMain.handle('cometline:open-external', async (_event, rawUrl) => {
+	if (!isExternallyOpenableUrl(rawUrl)) return false;
+	await shell.openExternal(String(rawUrl));
+	return true;
 });
 
 ipcMain.handle('cometline:get-app-version', () => app.getVersion());

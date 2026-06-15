@@ -2,6 +2,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
 	restartCometMind: () => ipcRenderer.send('cometmind:restart'),
+	openExternal: (url) => ipcRenderer.invoke('cometline:open-external', url),
 	getWorkspacePath: () => ipcRenderer.invoke('cometline:get-workspace-path'),
 	selectWorkspacePath: () => ipcRenderer.invoke('cometline:select-workspace-path'),
 	setWorkspacePath: (workspacePath) => ipcRenderer.invoke('cometline:set-workspace-path', workspacePath),

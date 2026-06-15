@@ -3,14 +3,17 @@
 	import { fade, fly, slide } from 'svelte/transition';
 	import {
 		Brain,
-		CircleCheck,
+		Check,
 		ChevronDown,
+		CircleCheck,
+		Copy,
 		LoaderCircle,
 		Terminal,
 		TriangleAlert
 	} from '@lucide/svelte';
 	import { chatStore, type ChatItem } from '$lib/stores/chat.svelte';
 	import { chatDebug, chatDebugEnabled, summarizeChatItem } from '../debug/chat';
+	import AssistantMarkdown from '$lib/components/AssistantMarkdown.svelte';
 
 	const ASSISTANT_ROW_IN = { y: 10, duration: 220 };
 	const TOOL_ROW_IN = { y: 8, duration: 200 };
@@ -35,6 +38,8 @@
 	let scrollFrame = 0;
 	let expandedToolOutput = $state(new Set<string>());
 	let expandedThinking = $state(new Set<string>());
+	let copiedId = $state<string | null>(null);
+	let copyResetTimer: ReturnType<typeof setTimeout> | null = null;
 	let now = $state(Date.now());
 	let threadItems = $derived(chatStore.items);
 	let firstAssistantItem = $derived(
@@ -44,6 +49,11 @@
 		) as Extract<ChatItem, { type: 'assistant' }> | undefined
 	);
 	let firstAssistantId = $derived(firstAssistantItem?.id ?? null);
+	let streamingAssistantId = $derived(
+		chatStore.isStreaming
+			? (threadItems.findLast((item) => item.type === 'assistant')?.id ?? null)
+			: null
+	);
 	let firstUserId = $derived(threadItems.find((item) => item.type === 'user')?.id ?? null);
 	let showMessages = $derived(
 		isSessionSynced &&
@@ -98,6 +108,20 @@
 		expandedThinking = toggleExpanded(expandedThinking, id);
 	}
 
+	async function copyMessage(id: string, text: string) {
+		try {
+			await navigator.clipboard.writeText(text);
+		} catch {
+			return;
+		}
+		copiedId = id;
+		if (copyResetTimer) clearTimeout(copyResetTimer);
+		copyResetTimer = setTimeout(() => {
+			copiedId = null;
+			copyResetTimer = null;
+		}, 1600);
+	}
+
 	function thinkingPending(block: ThinkingBlock) {
 		return block.reasoning?.pending === true || block.tools.some((tool) => tool.pending);
 	}
@@ -127,6 +151,12 @@
 		firstAssistantVisible: firstAssistantItem ? showAssistantRow(firstAssistantItem) : false,
 		items: threadItems.map(summarizeRenderItem)
 	}));
+
+	$effect(() => {
+		return () => {
+			if (copyResetTimer) clearTimeout(copyResetTimer);
+		};
+	});
 
 	$effect(() => {
 		if (!chatStore.items.some((item) => item.type === 'tool' && item.pending)) return;
@@ -335,8 +365,28 @@
 		{/if}
 		{#if item.text}
 			<div class="bubble assistant-bubble">
-				{item.text}
+				<AssistantMarkdown source={item.text} streaming={item.id === streamingAssistantId} />
 			</div>
+			{#if item.id !== streamingAssistantId}
+				<div class="message-actions">
+					<button
+						type="button"
+						class="message-action"
+						class:copied={copiedId === item.id}
+						title="Copy message"
+						aria-label="Copy message"
+						onclick={() => copyMessage(item.id, item.text)}
+					>
+						{#if copiedId === item.id}
+							<Check size={13} />
+							<span>Copied</span>
+						{:else}
+							<Copy size={13} />
+							<span>Copy</span>
+						{/if}
+					</button>
+				</div>
+			{/if}
 		{:else if showTypingBubble(item)}
 			<div class="bubble assistant-bubble pending">
 				<span class="typing"><span></span><span></span><span></span></span>
@@ -382,7 +432,7 @@
 						class:flight-hidden={item.reveal === false}
 						data-flight-target={item.reveal === false ? 'user' : undefined}
 					>
-						{item.text}
+						<AssistantMarkdown source={item.text} mode="user" />
 					</div>
 				</div>
 				{#if showFirstTurnAvatarSlot() && item.id === firstUserId}
@@ -904,6 +954,60 @@
 
 	.assistant-bubble.pending {
 		padding-block: 13px;
+	}
+
+	.message-actions {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		margin-top: -2px;
+		opacity: 0;
+		transition: opacity var(--duration-fast) var(--ease-smooth);
+	}
+
+	/* Reveal on hover/focus of the surrounding assistant stack. */
+	.assistant-stack:hover .message-actions,
+	.message-actions:focus-within {
+		opacity: 1;
+	}
+
+	.message-action {
+		display: inline-flex;
+		align-items: center;
+		gap: 5px;
+		padding: 4px 8px;
+		border: 1px solid transparent;
+		border-radius: 7px;
+		background: transparent;
+		color: var(--text-soft);
+		font-size: 11px;
+		font-weight: 600;
+		line-height: 1;
+		cursor: pointer;
+		transition:
+			color var(--duration-fast) var(--ease-smooth),
+			background var(--duration-fast) var(--ease-smooth),
+			border-color var(--duration-fast) var(--ease-smooth);
+	}
+
+	.message-action:hover {
+		color: var(--text-main);
+		background: rgba(255, 255, 255, 0.92);
+		border-color: var(--border-soft);
+	}
+
+	.message-action.copied {
+		color: #15803d;
+	}
+
+	.message-action :global(svg) {
+		flex-shrink: 0;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.message-actions {
+			transition: none;
+		}
 	}
 
 	.event-row .event-card {
