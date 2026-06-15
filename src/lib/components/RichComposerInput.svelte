@@ -20,6 +20,8 @@
 	let editor = $state<HTMLDivElement | null>(null);
 	// Guard so our own DOM writes don't recursively re-trigger input handling.
 	let syncing = false;
+	// IME composition guard — Enter during candidate selection must not trigger send.
+	let composing = false;
 
 	/**
 	 * Serializes the contenteditable DOM back to plain text. URL chips serialize
@@ -187,7 +189,19 @@
 		readValue();
 	}
 
+	function onCompositionStart() {
+		composing = true;
+	}
+
+	function onCompositionEnd() {
+		// Defer reset: some browsers fire the confirming keydown after compositionend.
+		setTimeout(() => {
+			composing = false;
+		}, 0);
+	}
+
 	function onKeydownInternal(e: KeyboardEvent) {
+		if (composing || e.isComposing) return;
 		onkeydown?.(e);
 	}
 
@@ -262,6 +276,8 @@
 		oninput={onInput}
 		onpaste={onPaste}
 		onkeydown={onKeydownInternal}
+		oncompositionstart={onCompositionStart}
+		oncompositionend={onCompositionEnd}
 		onclick={onEditorClick}
 	></div>
 </div>

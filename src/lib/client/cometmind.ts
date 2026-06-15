@@ -5,6 +5,7 @@ import type {
 	SessionListResponse,
 	StreamEvent,
 	TranscriptResponse,
+	UpdateSessionRequest,
 	Workspace
 } from '$lib/types';
 import { createSSEParser } from '$lib/sse/parser';
@@ -47,6 +48,13 @@ export function listSessions(workspacePath: string): Promise<SessionListResponse
 
 export function getSession(id: string): Promise<Session> {
 	return api<Session>(`/api/v1/sessions/${id}`);
+}
+
+export function updateSession(id: string, req: UpdateSessionRequest): Promise<Session> {
+	return api<Session>(`/api/v1/sessions/${id}`, {
+		method: 'PATCH',
+		body: JSON.stringify(req)
+	});
 }
 
 export function getSessionMessages(id: string): Promise<TranscriptResponse> {

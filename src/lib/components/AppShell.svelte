@@ -7,6 +7,7 @@
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { settingsStore } from '$lib/stores/settings.svelte';
 	import { startNewChat } from '$lib/actions/new-chat';
+	import { navigateAdjacentSession } from '$lib/actions/navigate-adjacent-session';
 	import { narrowViewportQuery } from '$lib/layout/narrow-viewport';
 	import { matchesShortcut } from '$lib/keyboard-shortcuts';
 
@@ -52,6 +53,17 @@
 				event.preventDefault();
 				shellStore.openSidebar();
 				sidebarRef?.focusSearch();
+				return;
+			}
+			if (shellStore.settingsOpen) return;
+			if (matchesShortcut(event, shortcuts.previousSession)) {
+				event.preventDefault();
+				navigateAdjacentSession('prev');
+				return;
+			}
+			if (matchesShortcut(event, shortcuts.nextSession)) {
+				event.preventDefault();
+				navigateAdjacentSession('next');
 				return;
 			}
 		}

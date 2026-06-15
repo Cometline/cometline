@@ -103,9 +103,12 @@ function normalizeProvider(
 		(modelList.includes(legacySelected) ? legacySelected : modelList[0]) ??
 		'';
 
+	const id = String(provider.id || fallback?.id || `provider-${Date.now()}`).trim();
+	const builtIn = DEFAULT_PROVIDERS.find((item) => item.id === id);
+
 	return {
-		id: String(provider.id || fallback?.id || `provider-${Date.now()}`).trim(),
-		name: String(provider.name || fallback?.name || 'Provider').trim(),
+		id,
+		name: builtIn?.name ?? String(provider.name || fallback?.name || 'Provider').trim(),
 		method,
 		enabled:
 			typeof provider.enabled === 'boolean' ? provider.enabled : (fallback?.enabled ?? false),

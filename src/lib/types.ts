@@ -25,6 +25,11 @@ export interface CreateSessionRequest {
 	provider_id?: string;
 }
 
+export interface UpdateSessionRequest {
+	model_id: string;
+	provider_id: string;
+}
+
 export interface Workspace {
 	id: string;
 	path: string;
@@ -73,7 +78,9 @@ export type ShortcutAction =
 	| 'stopResponse'
 	| 'sendMessage'
 	| 'closeSettings'
-	| 'focusSearch';
+	| 'focusSearch'
+	| 'previousSession'
+	| 'nextSession';
 
 export interface ShortcutBinding {
 	key: string;

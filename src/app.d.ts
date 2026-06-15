@@ -29,7 +29,9 @@ declare global {
 		| 'stopResponse'
 		| 'sendMessage'
 		| 'closeSettings'
-		| 'focusSearch';
+		| 'focusSearch'
+		| 'previousSession'
+		| 'nextSession';
 
 	interface ShortcutBinding {
 		key: string;

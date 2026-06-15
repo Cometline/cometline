@@ -8,7 +8,7 @@
 	import FirstTurnFlight from '$lib/components/FirstTurnFlight.svelte';
 	import UserBubbleFlight from '$lib/components/UserBubbleFlight.svelte';
 	import { sessionStore } from '$lib/stores/session.svelte';
-	import { getSession } from '$lib/client/cometmind';
+	import { getSession, updateSession } from '$lib/client/cometmind';
 	import { chatStore } from '$lib/stores/chat.svelte';
 	import { connectionState } from '$lib/stores/runtime.svelte';
 	import { modelStore } from '$lib/stores/model.svelte';
@@ -18,6 +18,7 @@
 	import { createChatTurnQueue, type QueuedMessage } from '$lib/actions/chat-turn-queue';
 	import { matchesShortcut } from '$lib/keyboard-shortcuts';
 	import type { ImageAttachment } from '$lib/types';
+	import type { ModelOption } from '$lib/stores/model.svelte';
 
 	const THREAD_IN = { duration: 180 };
 
@@ -161,6 +162,19 @@
 			// The transcript is the source of truth; title refresh is best effort.
 		}
 	}
+
+	async function onModelChange(option: ModelOption) {
+		try {
+			const updated = await updateSession(sessionId, {
+				model_id: option.modelId,
+				provider_id: option.providerId
+			});
+			sessionStore.updateSession(updated);
+		} catch {
+			const session = sessionStore.sessions.find((item) => item.id === sessionId);
+			if (session) modelStore.selectFromSession(session);
+		}
+	}
 </script>
 
 <svelte:window onkeydown={onWindowKeydown} />
@@ -223,6 +237,7 @@
 				onSend={submit}
 				onStop={stop}
 				onRemoveQueued={removeQueuedMessage}
+				onModelChange={onModelChange}
 				disabled={connectionState.status !== 'ready'}
 				streaming={chatStore.isStreaming}
 				{queuedCount}

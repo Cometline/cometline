@@ -15,6 +15,7 @@ import type { ImageAttachment } from '$lib/types';
 		onSend,
 		onStop,
 		onRemoveQueued,
+		onModelChange,
 		disabled = false,
 		streaming = false,
 		queuedCount = 0,
@@ -27,6 +28,7 @@ import type { ImageAttachment } from '$lib/types';
 		onSend: (text: string, images?: ImageAttachment[]) => void;
 		onStop?: () => void;
 		onRemoveQueued?: (id: string) => void;
+		onModelChange?: (option: ModelOption) => void | Promise<void>;
 		disabled?: boolean;
 		streaming?: boolean;
 		queuedCount?: number;
@@ -126,7 +128,10 @@ import type { ImageAttachment } from '$lib/types';
 				return;
 			}
 		}
-		if (matchesShortcut(e, settingsStore.settings.shortcuts.sendMessage)) {
+		if (
+			!e.isComposing &&
+			matchesShortcut(e, settingsStore.settings.shortcuts.sendMessage)
+		) {
 			e.preventDefault();
 			submit();
 		}
@@ -134,6 +139,7 @@ import type { ImageAttachment } from '$lib/types';
 
 	function selectModel(option: ModelOption) {
 		modelStore.select(option);
+		void onModelChange?.(option);
 		modelOpen = false;
 		modelSearch = '';
 	}

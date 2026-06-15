@@ -36,7 +36,10 @@ function defaultShortcuts() {
 		newChat: { command: true, key: 't' },
 		stopResponse: { command: true, key: 'c' },
 		sendMessage: { key: 'Enter', shift: false },
-		closeSettings: { key: 'Escape' }
+		closeSettings: { key: 'Escape' },
+		focusSearch: { command: true, key: 'f' },
+		previousSession: { command: true, key: 'ArrowUp' },
+		nextSession: { command: true, key: 'ArrowDown' }
 	};
 }
 
@@ -111,6 +114,12 @@ const OPENCODE_GO_AVAILABLE_MODELS = [
 ];
 const DEFAULT_OPENCODE_GO_ENABLED_MODELS = ['deepseek-v4-flash'];
 const VALID_PROVIDER_METHODS = ['openai-compatible', 'openai', 'anthropic', 'opencode-go'];
+const BUILTIN_PROVIDER_NAMES = {
+	'openai-compatible': 'OpenAI Compatible',
+	anthropic: 'Anthropic',
+	openai: 'OpenAI',
+	'opencode-go': 'OpenCode Go'
+};
 
 // Must run before app `ready`. Marking the scheme standard + secure gives the
 // loaded page a normal web origin (so history API routing, fetch, and module
@@ -342,13 +351,16 @@ function normalizeProvider(provider, fallback = {}) {
 	const enabledModels = rawEnabledModels
 		.map((model) => String(model || '').trim())
 		.filter((model) => model && modelList.includes(model));
+	const id = String(
+		provider?.id ||
+			fallback.id ||
+			`provider-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+	).trim();
+	const builtInName = BUILTIN_PROVIDER_NAMES[id];
+
 	return {
-		id: String(
-			provider?.id ||
-				fallback.id ||
-				`provider-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-		).trim(),
-		name: String(provider?.name || fallback.name || 'Provider').trim(),
+		id,
+		name: builtInName ?? String(provider?.name || fallback.name || 'Provider').trim(),
 		method,
 		enabled:
 			typeof provider?.enabled === 'boolean' ? provider.enabled : Boolean(fallback.enabled),

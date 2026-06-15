@@ -5,7 +5,9 @@ export type ShortcutAction =
 	| 'stopResponse'
 	| 'sendMessage'
 	| 'closeSettings'
-	| 'focusSearch';
+	| 'focusSearch'
+	| 'previousSession'
+	| 'nextSession';
 
 export interface ShortcutBinding {
 	key: string;
@@ -59,6 +61,16 @@ export const SHORTCUT_DEFINITIONS: KeyboardShortcutDefinition[] = [
 		id: 'focusSearch',
 		label: 'Focus search chats',
 		defaultBinding: { command: true, key: 'f' }
+	},
+	{
+		id: 'previousSession',
+		label: 'Previous chat',
+		defaultBinding: { command: true, key: 'ArrowUp' }
+	},
+	{
+		id: 'nextSession',
+		label: 'Next chat',
+		defaultBinding: { command: true, key: 'ArrowDown' }
 	}
 ];
 
