@@ -17,10 +17,10 @@
 	import { startChat } from '$lib/actions/start-chat';
 	import { createChatTurnQueue, type QueuedMessage } from '$lib/actions/chat-turn-queue';
 	import { matchesShortcut } from '$lib/keyboard-shortcuts';
-	import type { ImageAttachment } from '$lib/types';
+	import type { ImageAttachment, ChatItem } from '$lib/types';
 	import type { ModelOption } from '$lib/stores/model.svelte';
 
-	const THREAD_IN = { duration: 180 };
+	const THREAD_IN = { duration: 140 };
 
 	// This component is keyed on sessionId by the route, so it remounts per
 	// session and sessionId is constant for the instance's lifetime. That lets
@@ -29,6 +29,11 @@
 
 	$effect.pre(() => {
 		chatStore.bindSession(sessionId);
+		// Keep composer docked while the next transcript loads so it never flashes
+		// to hero layout during session switches (including crossfade overlap).
+		if (shellStore.composerPhase === 'docked' || chatStore.isLoading) {
+			shellStore.dockComposer();
+		}
 		if (sessionStore.hasPendingMessage(sessionId)) return;
 		if (chatStore.isStreaming && chatStore.sessionID === sessionId) return;
 		void chatStore.loadTranscript(sessionId);
@@ -43,8 +48,25 @@
 	let queuedCount = $state(0);
 	let queuedMessages = $state<QueuedMessage[]>([]);
 
-	let hasVisibleConversation = $derived(
-		chatStore.sessionID === sessionId && (chatStore.items.length > 0 || chatStore.isLoading)
+	// Snapshot the last synced transcript so a fading-out instance does not
+	// collapse to hero layout when bindSession() switches the global store.
+	let snapshotItems = $state.raw<ChatItem[]>([]);
+	let snapshotLoading = $state(false);
+
+	$effect(() => {
+		if (chatStore.sessionID !== sessionId) return;
+		snapshotItems = chatStore.items;
+		snapshotLoading = chatStore.isLoading;
+	});
+
+	let hasVisibleConversation = $derived.by(() => {
+		if (chatStore.sessionID === sessionId) {
+			return chatStore.items.length > 0 || chatStore.isLoading;
+		}
+		return snapshotItems.length > 0 || snapshotLoading;
+	});
+	let composerSnap = $derived(
+		chatStore.sessionID === sessionId && chatStore.isLoading
 	);
 	let composerVariant = $derived<'hero' | 'dock'>(
 		shellStore.composerPhase === 'centered' ? 'hero' : 'dock'
@@ -225,7 +247,11 @@
 		}}
 	/>
 
-	<div class="composer-wrapper" class:centered={shellStore.composerPhase === 'centered'}>
+	<div
+		class="composer-wrapper"
+		class:centered={shellStore.composerPhase === 'centered'}
+		class:snap={composerSnap}
+	>
 		<HeroComposerFrame
 			active={composerVariant === 'hero' && !heroFrameExiting}
 			exiting={heroFrameExiting}
@@ -325,6 +351,10 @@
 		transition:
 			bottom var(--duration-flight) var(--ease-smooth),
 			transform var(--duration-flight) var(--ease-smooth);
+	}
+
+	.composer-wrapper.snap {
+		transition: none;
 	}
 
 	.composer-wrapper.centered {

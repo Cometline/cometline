@@ -246,26 +246,52 @@ function createSettingsStore() {
 		}
 	}
 
-	async function save(draft: ProviderSettings) {
+	async function save(
+		draft: ProviderSettings,
+		options: { restartCometMind?: boolean } = {}
+	) {
 		isSaving = true;
 		error = '';
+		const restartCometMind = options.restartCometMind ?? true;
 		try {
 			const normalized = normalizeSettings(draft);
 			if (window.electronAPI?.saveProviderSettings) {
-				const saved = await window.electronAPI.saveProviderSettings(normalized);
+				const saved = await window.electronAPI.saveProviderSettings(normalized, {
+					restartCometMind
+				});
 				apply(saved);
-				connectionState.reconnect();
+				if (restartCometMind) connectionState.reconnect();
 				return saved;
 			}
 			writeLocalSettings(normalized);
 			apply(normalized);
-			connectionState.reconnect();
+			if (restartCometMind) connectionState.reconnect();
 			return normalized;
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to save settings';
 			throw err;
 		} finally {
 			isSaving = false;
+		}
+	}
+
+	async function saveShortcuts(shortcuts: ProviderSettings['shortcuts']) {
+		error = '';
+		try {
+			const normalized = normalizeSettings({ ...settings, shortcuts });
+			if (window.electronAPI?.saveProviderSettings) {
+				apply(
+					await window.electronAPI.saveProviderSettings(normalized, {
+						restartCometMind: false
+					})
+				);
+				return;
+			}
+			writeLocalSettings(normalized);
+			apply(normalized);
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Failed to save shortcuts';
+			throw err;
 		}
 	}
 
@@ -343,6 +369,7 @@ function createSettingsStore() {
 		load,
 		fetchModelsFor,
 		save,
+		saveShortcuts,
 		setActiveProvider,
 		updateProvider,
 		addProvider,

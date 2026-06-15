@@ -111,7 +111,7 @@ function createChatStore() {
 		loadPromiseSession = null;
 		sessionID = nextSessionID;
 		items = [];
-		isLoading = false;
+		isLoading = true;
 		error = '';
 	}
 

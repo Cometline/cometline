@@ -19,6 +19,10 @@
 	let editingAction = $state<ShortcutAction | null>(null);
 
 	$effect(() => {
+		window.electronAPI?.setShortcutCaptureActive?.(Boolean(editingAction));
+	});
+
+	$effect(() => {
 		if (!editingAction) return;
 		function onKeydown(e: KeyboardEvent) {
 			if (e.key === 'Escape') {
@@ -51,7 +55,7 @@
 		<Keyboard size={16} />
 		<div>
 			<h3>Keyboard shortcuts</h3>
-			<p>Click a shortcut and press the new key combination to customize it.</p>
+			<p>Click a shortcut and press the new key combination. Changes apply immediately.</p>
 		</div>
 	</div>
 

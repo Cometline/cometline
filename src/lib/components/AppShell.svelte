@@ -20,6 +20,10 @@
 
 	let sidebarRef = $state<{ focusSearch: () => void } | null>(null);
 
+	$effect(() => {
+		window.electronAPI?.setSessionNavigationSuspended?.(shellStore.settingsOpen);
+	});
+
 	onMount(() => {
 		// Narrow viewports start with the sidebar closed so chat gets full width.
 		if (narrowViewportQuery().matches) {
@@ -68,7 +72,12 @@
 			}
 		}
 
-		window.addEventListener('keydown', onKeydown);
+		window.addEventListener('keydown', onKeydown, true);
+
+		const unsubscribeNavigate = window.electronAPI?.onNavigateSession?.((direction) => {
+			if (shellStore.settingsOpen) return;
+			navigateAdjacentSession(direction);
+		});
 
 		// macOS hides the traffic lights in fullscreen, so the renderer reclaims
 		// the gutter that normally keeps the search bar clear of them. Pull the
@@ -90,7 +99,8 @@
 		document.addEventListener('fullscreenchange', onDomFullScreenChange);
 
 		return () => {
-			window.removeEventListener('keydown', onKeydown);
+			window.removeEventListener('keydown', onKeydown, true);
+			unsubscribeNavigate?.();
 			unsubscribeFullScreen?.();
 			document.removeEventListener('fullscreenchange', onDomFullScreenChange);
 		};

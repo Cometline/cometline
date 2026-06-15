@@ -223,13 +223,66 @@
 	}
 
 	function updateShortcut(action: ShortcutAction, binding: ShortcutBinding) {
+		const shortcuts = {
+			...draft.shortcuts,
+			[action]: binding
+		};
 		draft = {
 			...draft,
-			shortcuts: {
-				...draft.shortcuts,
-				[action]: binding
-			}
+			shortcuts
 		};
+		void settingsStore.saveShortcuts(shortcuts).then(() => {
+			status = 'Shortcut updated and saved.';
+		});
+	}
+
+	function providersNeedRestart(next: ProviderSettings) {
+		return JSON.stringify(settingsStore.settings.providers) !== JSON.stringify(next.providers);
+	}
+
+	function saveStatusMessage(section: SettingsSection, restartCometMind: boolean) {
+		switch (section) {
+			case 'providers':
+				return restartCometMind
+					? 'Saved. CometMind is restarting with enabled providers.'
+					: 'Saved provider settings.';
+			case 'shortcuts':
+				return 'Shortcuts saved.';
+			case 'appearance':
+				return 'Appearance saved.';
+			default:
+				return 'Saved settings.';
+		}
+	}
+
+	async function save() {
+		status = '';
+		const preservedSection = activeSection;
+		const preservedProviderId = selectedProviderId;
+		const preservedModelSearch = modelSearch;
+		const activeProvider =
+			draft.providers.find(
+				(provider) => provider.enabled && provider.enabledModels.length > 0
+			) ??
+			draft.providers.find((provider) => provider.enabled) ??
+			draft.providers[0];
+		const payload: ProviderSettings = {
+			providers: draft.providers.map(cloneProvider),
+			activeProviderId: activeProvider?.id ?? '',
+			appearance: {
+				heroComposer: { ...draft.appearance.heroComposer }
+			},
+			shortcuts: cloneShortcuts(draft)
+		};
+		const restartCometMind = providersNeedRestart(payload);
+		const saved = await settingsStore.save(payload, { restartCometMind });
+		draft = cloneSettings(saved);
+		activeSection = preservedSection;
+		selectedProviderId = draft.providers.some((provider) => provider.id === preservedProviderId)
+			? preservedProviderId
+			: saved.activeProviderId || draft.providers[0]?.id || '';
+		modelSearch = preservedModelSearch;
+		status = saveStatusMessage(preservedSection, restartCometMind);
 	}
 
 	function setSelectedMethod(method: ProviderMethod) {
@@ -305,30 +358,6 @@
 				nextProviders.find((provider) => provider.enabled)?.id ?? nextProviders[0]?.id ?? ''
 		};
 		selectedProviderId = nextProviders[0]?.id ?? '';
-	}
-
-	async function save() {
-		status = '';
-		const activeProvider =
-			draft.providers.find(
-				(provider) => provider.enabled && provider.enabledModels.length > 0
-			) ??
-			draft.providers.find((provider) => provider.enabled) ??
-			draft.providers[0];
-		const saved = await settingsStore.save({
-			providers: draft.providers.map(cloneProvider),
-			activeProviderId: activeProvider?.id ?? '',
-			appearance: {
-				heroComposer: { ...draft.appearance.heroComposer }
-			},
-			shortcuts: cloneShortcuts(draft)
-		});
-		draft = cloneSettings(saved);
-		selectedProviderId = selectedProvider?.id ?? saved.activeProviderId;
-		status =
-			activeSection === 'providers'
-				? 'Saved. CometMind is restarting with enabled providers.'
-				: 'Saved settings.';
 	}
 
 	function methodNeedsFetch(method: ProviderMethod) {

@@ -38,8 +38,8 @@ function defaultShortcuts() {
 		sendMessage: { key: 'Enter', shift: false },
 		closeSettings: { key: 'Escape' },
 		focusSearch: { command: true, key: 'f' },
-		previousSession: { ctrl: true, meta: false, key: 'ArrowUp' },
-		nextSession: { ctrl: true, meta: false, key: 'ArrowDown' }
+		previousSession: { ctrl: true, meta: true, key: 'ArrowUp' },
+		nextSession: { ctrl: true, meta: true, key: 'ArrowDown' }
 	};
 }
 
@@ -397,24 +397,20 @@ function normalizeAppearance(appearance) {
 	};
 }
 
-function normalizeCtrlOnlyBinding(id, binding, defaultBinding) {
+function isLegacySessionNavBinding(binding) {
+	if (binding?.command) return true;
+	return Boolean(binding?.ctrl && binding.meta === false);
+}
+
+function normalizeSessionNavBinding(id, binding, defaultBinding) {
 	if (id !== 'previousSession' && id !== 'nextSession') {
 		return binding ?? defaultBinding;
 	}
 	if (!binding) return { ...defaultBinding };
-	if (binding.command || (binding.ctrl && binding.meta)) {
+	if (isLegacySessionNavBinding(binding)) {
 		return { ...defaultBinding };
 	}
-	if (binding.ctrl) {
-		return {
-			key: binding.key,
-			ctrl: true,
-			meta: false,
-			...(typeof binding.alt === 'boolean' && { alt: binding.alt }),
-			...(typeof binding.shift === 'boolean' && { shift: binding.shift })
-		};
-	}
-	return { ...defaultBinding };
+	return binding;
 }
 
 function normalizeShortcuts(shortcuts) {
@@ -432,12 +428,54 @@ function normalizeShortcuts(shortcuts) {
 				...(typeof saved.alt === 'boolean' && { alt: saved.alt }),
 				...(typeof saved.shift === 'boolean' && { shift: saved.shift })
 			};
-			next[id] = normalizeCtrlOnlyBinding(id, normalized, defaults[id]);
+			next[id] = normalizeSessionNavBinding(id, normalized, defaults[id]);
 		} else {
-			next[id] = normalizeCtrlOnlyBinding(id, undefined, defaults[id]);
+			next[id] = normalizeSessionNavBinding(id, undefined, defaults[id]);
 		}
 	}
 	return next;
+}
+
+function shortcutKeyMatches(a, b) {
+	return a === b || String(a).toLowerCase() === String(b).toLowerCase();
+}
+
+function matchesInputShortcut(input, binding) {
+	if (input.type !== 'keyDown' || !binding?.key) return false;
+	if (!shortcutKeyMatches(input.key, binding.key)) return false;
+
+	const expectsCommand = binding.command ?? false;
+	if (expectsCommand) {
+		if (!(input.control || input.meta)) return false;
+		if (binding.alt !== undefined ? binding.alt !== input.alt : input.alt) return false;
+		if (binding.shift !== undefined ? binding.shift !== input.shift : input.shift) return false;
+		return true;
+	}
+
+	if (binding.ctrl !== undefined && binding.ctrl !== input.control) return false;
+	if (binding.meta !== undefined && binding.meta !== input.meta) return false;
+	if (binding.alt !== undefined && binding.alt !== input.alt) return false;
+	if (binding.shift !== undefined && binding.shift !== input.shift) return false;
+	return true;
+}
+
+let shortcutCaptureActive = false;
+let sessionNavigationSuspended = false;
+
+function attachSessionNavigationShortcuts(webContents) {
+	webContents.on('before-input-event', (event, input) => {
+		if (shortcutCaptureActive || sessionNavigationSuspended) return;
+		const shortcuts = readProviderSettings().shortcuts ?? defaultShortcuts();
+		if (matchesInputShortcut(input, shortcuts.previousSession)) {
+			event.preventDefault();
+			webContents.send('cometline:navigate-session', 'prev');
+			return;
+		}
+		if (matchesInputShortcut(input, shortcuts.nextSession)) {
+			event.preventDefault();
+			webContents.send('cometline:navigate-session', 'next');
+		}
+	});
 }
 
 function normalizeProviders(providers) {
@@ -891,6 +929,7 @@ async function createWindow() {
 			if (isExternallyOpenableUrl(url)) void shell.openExternal(url);
 		}
 	});
+	attachSessionNavigationShortcuts(mainWindow.webContents);
 
 	if (app.isPackaged) {
 		await mainWindow.loadURL(`${APP_ORIGIN}/`);
@@ -1099,6 +1138,14 @@ ipcMain.on('cometmind:restart', async () => {
 	startCometMind();
 });
 
+ipcMain.on('cometline:shortcut-capture-active', (_event, active) => {
+	shortcutCaptureActive = Boolean(active);
+});
+
+ipcMain.on('cometline:session-navigation-suspended', (_event, suspended) => {
+	sessionNavigationSuspended = Boolean(suspended);
+});
+
 ipcMain.on('cometline:set-sidebar-open', (_event, payload) => {
 	animateWindowButtons(payload);
 });
@@ -1122,11 +1169,13 @@ ipcMain.handle('cometline:fetch-provider-models', async (_event, config) => {
 	return fetchProviderModels(config);
 });
 
-ipcMain.handle('cometline:save-provider-settings', async (_event, settings) => {
+ipcMain.handle('cometline:save-provider-settings', async (_event, settings, options = {}) => {
 	const saved = writeProviderSettings(settings);
-	await stopCometMind();
-	startCometMind();
-	void waitForHealth();
+	if (options.restartCometMind !== false) {
+		await stopCometMind();
+		startCometMind();
+		void waitForHealth();
+	}
 	return saved;
 });
 

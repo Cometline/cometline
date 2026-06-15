@@ -65,12 +65,12 @@ export const SHORTCUT_DEFINITIONS: KeyboardShortcutDefinition[] = [
 	{
 		id: 'previousSession',
 		label: 'Previous chat',
-		defaultBinding: { ctrl: true, meta: false, key: 'ArrowUp' }
+		defaultBinding: { ctrl: true, meta: true, key: 'ArrowUp' }
 	},
 	{
 		id: 'nextSession',
 		label: 'Next chat',
-		defaultBinding: { ctrl: true, meta: false, key: 'ArrowDown' }
+		defaultBinding: { ctrl: true, meta: true, key: 'ArrowDown' }
 	}
 ];
 
@@ -86,31 +86,26 @@ export function defaultKeyboardShortcuts(): KeyboardShortcuts {
 	) as KeyboardShortcuts;
 }
 
-const CTRL_ONLY_ACTIONS = new Set<ShortcutAction>(['previousSession', 'nextSession']);
+const SESSION_NAV_ACTIONS = new Set<ShortcutAction>(['previousSession', 'nextSession']);
 
-function normalizeCtrlOnlyBinding(
+function isLegacySessionNavBinding(binding: ShortcutBinding): boolean {
+	if (binding.command) return true;
+	return Boolean(binding.ctrl && binding.meta === false);
+}
+
+function normalizeSessionNavBinding(
 	action: ShortcutAction,
 	binding: ShortcutBinding | undefined,
 	defaultBinding: ShortcutBinding
 ): ShortcutBinding {
-	if (!CTRL_ONLY_ACTIONS.has(action)) {
+	if (!SESSION_NAV_ACTIONS.has(action)) {
 		return binding ?? defaultBinding;
 	}
 	if (!binding) return { ...defaultBinding };
-	// Legacy command shortcut or accidental Cmd+Ctrl capture → reset to ctrl-only default.
-	if (binding.command || (binding.ctrl && binding.meta)) {
+	if (isLegacySessionNavBinding(binding)) {
 		return { ...defaultBinding };
 	}
-	if (binding.ctrl) {
-		return {
-			key: binding.key,
-			ctrl: true,
-			meta: false,
-			...(typeof binding.alt === 'boolean' && { alt: binding.alt }),
-			...(typeof binding.shift === 'boolean' && { shift: binding.shift })
-		};
-	}
-	return { ...defaultBinding };
+	return binding;
 }
 
 export function normalizeKeyboardShortcuts(
@@ -130,9 +125,9 @@ export function normalizeKeyboardShortcuts(
 				...(typeof binding.alt === 'boolean' && { alt: binding.alt }),
 				...(typeof binding.shift === 'boolean' && { shift: binding.shift })
 			};
-			next[def.id] = normalizeCtrlOnlyBinding(def.id, normalized, def.defaultBinding);
+			next[def.id] = normalizeSessionNavBinding(def.id, normalized, def.defaultBinding);
 		} else {
-			next[def.id] = normalizeCtrlOnlyBinding(def.id, undefined, def.defaultBinding);
+			next[def.id] = normalizeSessionNavBinding(def.id, undefined, def.defaultBinding);
 		}
 	}
 	return next;

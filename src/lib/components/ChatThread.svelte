@@ -20,7 +20,7 @@
 	const TOOL_ROW_IN = { y: 8, duration: 200 };
 	const STATUS_ROW_IN = { y: 6, duration: 180 };
 	const FOLD_IN = { duration: 180 };
-	const TRANSCRIPT_IN = { duration: 220 };
+	const TRANSCRIPT_IN = { duration: 140 };
 
 	let {
 		sessionId,
@@ -35,6 +35,13 @@
 	let isInitialTranscriptPaint = $state(true);
 	let isSessionSynced = $derived(chatStore.sessionID === sessionId);
 
+	let snapshotItems = $state.raw<ChatItem[]>([]);
+
+	$effect(() => {
+		if (chatStore.sessionID !== sessionId) return;
+		snapshotItems = chatStore.items;
+	});
+
 	let scroller: HTMLDivElement;
 	let scrollFrame = 0;
 	let expandedToolOutput = $state(new Set<string>());
@@ -42,7 +49,9 @@
 	let copiedId = $state<string | null>(null);
 	let copyResetTimer: ReturnType<typeof setTimeout> | null = null;
 	let now = $state(Date.now());
-	let threadItems = $derived(chatStore.items);
+	let threadItems = $derived(
+		isSessionSynced ? chatStore.items : snapshotItems
+	);
 	let firstAssistantItem = $derived(
 		threadItems.find((item) =>
 			item.type === 'assistant' &&
@@ -57,10 +66,11 @@
 	);
 	let firstUserId = $derived(threadItems.find((item) => item.type === 'user')?.id ?? null);
 	let showMessages = $derived(
-		isSessionSynced &&
-			(threadItems.length > 0 || (awaitingFirstAssistant && !firstUserId))
+		threadItems.length > 0 || (isSessionSynced && awaitingFirstAssistant && !firstUserId)
 	);
-	let transcriptFadeIn = $derived(awaitingFirstAssistant ? { duration: 0 } : TRANSCRIPT_IN);
+	let transcriptFadeIn = $derived(
+		awaitingFirstAssistant || isInitialTranscriptPaint ? { duration: 0 } : TRANSCRIPT_IN
+	);
 
 	type ThinkingBlock = {
 		reasoning?: { text: string; pending?: boolean };
@@ -271,19 +281,57 @@
 	});
 
 	$effect(() => {
-		if (!isSessionSynced) {
+		if (!isSessionSynced || chatStore.isLoading) {
 			isInitialTranscriptPaint = true;
 			return;
 		}
-		if (chatStore.isLoading) {
+		if (threadItems.length === 0) {
 			isInitialTranscriptPaint = true;
 			return;
 		}
-		if (threadItems.length === 0) return;
-		const frame = requestAnimationFrame(() => {
+
+		let cancelled = false;
+		let settleFrame = 0;
+		let lastHeight = 0;
+		let stableFrames = 0;
+		let frameCount = 0;
+
+		const finishHydration = () => {
+			if (cancelled) return;
+			if (scroller) scroller.scrollTop = scroller.scrollHeight;
 			isInitialTranscriptPaint = false;
+		};
+
+		const settle = () => {
+			if (cancelled) return;
+			if (!scroller) {
+				settleFrame = requestAnimationFrame(settle);
+				return;
+			}
+			scroller.scrollTop = scroller.scrollHeight;
+			const height = scroller.scrollHeight;
+			if (height === lastHeight) stableFrames += 1;
+			else {
+				stableFrames = 0;
+				lastHeight = height;
+			}
+			frameCount += 1;
+			if (stableFrames >= 2 || frameCount >= 12) {
+				finishHydration();
+				return;
+			}
+			settleFrame = requestAnimationFrame(settle);
+		};
+
+		void tick().then(() => {
+			if (cancelled) return;
+			settleFrame = requestAnimationFrame(settle);
 		});
-		return () => cancelAnimationFrame(frame);
+
+		return () => {
+			cancelled = true;
+			if (settleFrame) cancelAnimationFrame(settleFrame);
+		};
 	});
 
 	$effect(() => {
@@ -293,10 +341,17 @@
 			void tick().then(() => {
 				scrollFrame = 0;
 				if (!scroller) return;
+				const instant =
+					chatStore.isLoading ||
+					chatStore.isStreaming ||
+					isInitialTranscriptPaint;
+				if (instant) {
+					scroller.scrollTop = scroller.scrollHeight;
+					return;
+				}
 				scroller.scrollTo({
 					top: scroller.scrollHeight,
-					behavior:
-						chatStore.isStreaming || isInitialTranscriptPaint ? 'auto' : 'smooth'
+					behavior: 'smooth'
 				});
 			});
 		});
@@ -399,7 +454,7 @@
 <div class="thread" bind:this={scroller} aria-live="polite">
 	<div class="thread-inner">
 		{#if showMessages}
-			<div class="thread-messages" in:fade={transcriptFadeIn}>
+			<div class="thread-messages" class:hydrating={isInitialTranscriptPaint} in:fade={transcriptFadeIn}>
 				{#if awaitingFirstAssistant && !firstUserId}
 			<div
 				class="row assistant-row gap-2.5 md:gap-3 lg:gap-4 flight-placeholder"
@@ -596,6 +651,12 @@
 		display: flex;
 		flex-direction: column;
 		gap: 14px;
+		transition: opacity var(--duration-session-switch) var(--ease-smooth);
+	}
+
+	.thread-messages.hydrating {
+		opacity: 0;
+		pointer-events: none;
 	}
 
 	@media (min-width: 768px) {

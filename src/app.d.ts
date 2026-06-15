@@ -74,7 +74,10 @@ declare global {
 			openExternal?: (url: string) => Promise<boolean>;
 			getProviderSettings?: () => Promise<ProviderSettings>;
 			fetchProviderModels?: (config: ProviderConfig) => Promise<string[]>;
-			saveProviderSettings?: (settings: ProviderSettings) => Promise<ProviderSettings>;
+			saveProviderSettings?: (
+				settings: ProviderSettings,
+				options?: { restartCometMind?: boolean }
+			) => Promise<ProviderSettings>;
 			setSidebarOpen?: (state: SidebarChromeState) => void;
 			getFullScreen?: () => Promise<boolean>;
 			onFullScreenChange?: (callback: (isFullScreen: boolean) => void) => () => void;
@@ -86,6 +89,9 @@ declare global {
 			checkForUpdates?: () => Promise<UpdateState>;
 			installUpdate?: () => Promise<boolean>;
 			onUpdateState?: (callback: (state: UpdateState) => void) => () => void;
+			setShortcutCaptureActive?: (active: boolean) => void;
+			setSessionNavigationSuspended?: (suspended: boolean) => void;
+			onNavigateSession?: (callback: (direction: 'prev' | 'next') => void) => () => void;
 		};
 	}
 }

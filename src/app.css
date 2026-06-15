@@ -55,6 +55,7 @@
 	--duration-flight: 560ms;
 	--duration-fast: 240ms;
 	--duration-medium: 280ms;
+	--duration-session-switch: 140ms;
 	--duration-hero-sequence: 0.65s;
 	--duration-hero-glow-rise: 0.65s;
 	--duration-hero-hit-delay: 0.28s;

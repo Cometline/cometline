@@ -8,8 +8,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 	setWorkspacePath: (workspacePath) => ipcRenderer.invoke('cometline:set-workspace-path', workspacePath),
 	getProviderSettings: () => ipcRenderer.invoke('cometline:get-provider-settings'),
 	fetchProviderModels: (config) => ipcRenderer.invoke('cometline:fetch-provider-models', config),
-	saveProviderSettings: (settings) =>
-		ipcRenderer.invoke('cometline:save-provider-settings', settings),
+	saveProviderSettings: (settings, options) =>
+		ipcRenderer.invoke('cometline:save-provider-settings', settings, options),
 	setSidebarOpen: (payload) => ipcRenderer.send('cometline:set-sidebar-open', payload),
 	getFullScreen: () => ipcRenderer.invoke('cometline:get-fullscreen'),
 	onFullScreenChange: (callback) => {
@@ -25,5 +25,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
 		const handler = (_event, state) => callback(state);
 		ipcRenderer.on('cometline:update-state', handler);
 		return () => ipcRenderer.removeListener('cometline:update-state', handler);
+	},
+	setShortcutCaptureActive: (active) =>
+		ipcRenderer.send('cometline:shortcut-capture-active', Boolean(active)),
+	setSessionNavigationSuspended: (suspended) =>
+		ipcRenderer.send('cometline:session-navigation-suspended', Boolean(suspended)),
+	onNavigateSession: (callback) => {
+		const handler = (_event, direction) => {
+			if (direction === 'prev' || direction === 'next') callback(direction);
+		};
+		ipcRenderer.on('cometline:navigate-session', handler);
+		return () => ipcRenderer.removeListener('cometline:navigate-session', handler);
 	}
 });
