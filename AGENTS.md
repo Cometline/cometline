@@ -3,7 +3,7 @@
 ## Repository Shape
 - This repo has separate Go modules, not a root `go.work`; run Go commands from `comet-sdk/` or `cometmind/`, not the repository root.
 - `comet-sdk/` is the provider-agnostic LLM I/O library. Public entrypoints are `sdk.go` plus `llm.GenerateMessage` and `llm.StreamMessage`; providers live under `provider/anthropic` and `provider/openai`.
-- `cometmind/` is the local agent runtime, CLI/TUI, SQLite persistence, and localhost HTTP/SSE API. Its `go.mod` uses `replace github.com/cometline/comet-sdk => ../comet-sdk`, so SDK edits can affect CometMind immediately.
+- `cometmind/` is the local agent runtime, CLI, SQLite persistence, and localhost HTTP/SSE API for Cometline. Its `go.mod` uses `replace github.com/cometline/comet-sdk => ../comet-sdk`, so SDK edits can affect CometMind immediately.
 - `cometline/` contains the SvelteKit + Electron desktop shell and is executable; run it with `make dev` from the repository root.
 
 ## Commands
@@ -26,7 +26,7 @@
 - CometMind config is `~/.cometmind/config.toml`; `go run . init` creates config/database and registers the current workspace.
 - `COMETMIND_*` environment variables override config fields such as `COMETMIND_BASE_URL`; provider API keys are `ANTHROPIC_API_KEY` or `OPENAI_API_KEY`, falling back to `COMETMIND_API_KEY`.
 - `go run . serve --port 7700` binds the local API to `127.0.0.1`; the OpenAPI source of truth is `cometmind/openapi.yaml`.
-- `go run . chat "message"`, `go run . tui`, and `go run . session list` all scope sessions to the current directory unless `--workspace` is supplied.
+- `go run . chat "message"` and `go run . session list` scope sessions to the current directory unless `--workspace` is supplied.
 - Built-in CometMind tools are registered in `internal/tools/registry.go`; file tools are workspace-scoped through `internal/tools/sandbox/pathcheck.go` and should not allow path escape.
 
 ## Tests And Fixtures
