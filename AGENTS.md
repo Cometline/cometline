@@ -28,6 +28,14 @@
 - `go run . serve --port 7700` binds the local API to `127.0.0.1`; the OpenAPI source of truth is `cometmind/openapi.yaml`.
 - `go run . chat "message"` and `go run . session list` scope sessions to the current directory unless `--workspace` is supplied.
 - Built-in CometMind tools are registered in `internal/tools/registry.go`; file tools are workspace-scoped through `internal/tools/sandbox/pathcheck.go` and should not allow path escape.
+- `delegate_coding_task` spawns an external OpenCode agent via ACP (`opencode acp` by default). Configure `[acp]` in `~/.cometmind/config.toml` (`command`, `args`, `timeout`).
+- `cometmind gateway run --platform discord` starts the Discord messaging gateway; configure `[gateway.discord]` in config and set `DISCORD_BOT_TOKEN`.
+
+## Closed-Loop Self-Improvement (Dogfood)
+- Register this repo as the workspace (`go run . init` from `cometline-release` or open it in Cometline).
+- Ask CometMind to improve Cometline; it can call `delegate_coding_task` to hand coding to OpenCode, then review test output in the parent session.
+- Example verify command: `cd cometmind && go test ./...`
+- Discord gateway uses the same runtime: set `gateway.discord.workspace_path` to this repo, allowlist your user ID, enable Message Content Intent in the Discord Developer Portal, then run `cometmind gateway run --platform discord`.
 
 ## Tests And Fixtures
 - SDK live tests are behind the `live` build tag and intentionally skipped by normal `go test ./...`.
