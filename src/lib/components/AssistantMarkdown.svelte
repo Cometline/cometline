@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { renderMarkdown, renderUserText } from '$lib/markdown/render';
+	import { openExternalLink } from '$lib/external-link';
 
 	let {
 		source = '',
@@ -12,6 +13,11 @@
 	// output when the highlighter resolves out of order.
 	const STREAM_THROTTLE_MS = 40;
 
+	// User messages render synchronously (no Shiki/async), so we compute their
+	// HTML eagerly and show the embed chips on the very first paint — no flash of
+	// raw text. Assistant messages use the async markdown pipeline below.
+	let userHtml = $derived(mode === 'user' ? renderUserText(source) : '');
+
 	let html = $state('');
 	let rendered = $state(false);
 	let renderVersion = 0;
@@ -21,7 +27,7 @@
 	async function render(text: string) {
 		const version = ++renderVersion;
 		try {
-			const next = mode === 'user' ? renderUserText(text) : await renderMarkdown(text);
+			const next = await renderMarkdown(text);
 			if (version !== renderVersion) return;
 			html = next;
 			rendered = true;
@@ -57,6 +63,8 @@
 	}
 
 	$effect(() => {
+		// User mode renders synchronously via the derived above; nothing to schedule.
+		if (mode === 'user') return;
 		const text = source;
 		// Re-evaluate when streaming flips so the final non-throttled render lands.
 		void streaming;
@@ -77,14 +85,17 @@
 		const href = anchor.getAttribute('data-external-link');
 		if (!href) return;
 		event.preventDefault();
-		void window.electronAPI?.openExternal?.(href);
+		openExternalLink(href);
 	}
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="markdown" class:user-text={mode === 'user'} onclick={onClick}>
-	{#if rendered}
+	{#if mode === 'user'}
+		<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+		{@html userHtml}
+	{:else if rendered}
 		<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 		{@html html}
 	{:else}
@@ -125,6 +136,7 @@
 		line-height: 1.4;
 		color: var(--text-main);
 		overflow: hidden;
+		cursor: pointer;
 	}
 
 	.markdown :global(.link-embed:hover) {

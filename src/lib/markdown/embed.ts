@@ -66,3 +66,29 @@ export function buildEmbedChip(url: string, label?: string): string {
 		`</a>`
 	);
 }
+
+/** Matches bare http(s) URLs in free text. */
+const BARE_URL_GLOBAL = /https?:\/\/[^\s<]+/g;
+
+/** Trailing punctuation that should not be captured as part of a URL. */
+const URL_TRAILING_PUNCTUATION = /[.,;:!?)\]}'"]+$/;
+
+/**
+ * Extracts unique http(s) URLs from free text, trimming trailing sentence
+ * punctuation. Order is preserved and duplicates are removed. Used by the
+ * composer to show live link-preview chips as the user types.
+ */
+export function extractUrls(text: string): string[] {
+	if (!text) return [];
+	const seen = new Set<string>();
+	const out: string[] = [];
+	for (const match of text.matchAll(BARE_URL_GLOBAL)) {
+		let url = match[0];
+		const trailing = URL_TRAILING_PUNCTUATION.exec(url);
+		if (trailing) url = url.slice(0, url.length - trailing[0].length);
+		if (!url || !isHttpUrl(url) || seen.has(url)) continue;
+		seen.add(url);
+		out.push(url);
+	}
+	return out;
+}

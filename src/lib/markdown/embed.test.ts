@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { domainFromUrl, faviconUrl, isHttpUrl, buildEmbedChip } from './embed';
+import { domainFromUrl, faviconUrl, isHttpUrl, buildEmbedChip, extractUrls } from './embed';
 
 describe('domainFromUrl', () => {
 	it('returns the hostname', () => {
@@ -64,5 +64,34 @@ describe('buildEmbedChip', () => {
 		const html = buildEmbedChip('https://a.com/"><img>');
 		expect(html).not.toContain('"><img>');
 		expect(html).toContain('&quot;&gt;&lt;img&gt;');
+	});
+});
+
+describe('extractUrls', () => {
+	it('returns an empty array for empty input', () => {
+		expect(extractUrls('')).toEqual([]);
+	});
+
+	it('extracts a single URL', () => {
+		expect(extractUrls('check https://grok.com here')).toEqual(['https://grok.com']);
+	});
+
+	it('extracts multiple URLs in order', () => {
+		expect(extractUrls('https://a.com then https://b.com')).toEqual([
+			'https://a.com',
+			'https://b.com'
+		]);
+	});
+
+	it('dedups repeated URLs', () => {
+		expect(extractUrls('https://a.com and again https://a.com')).toEqual(['https://a.com']);
+	});
+
+	it('trims trailing sentence punctuation', () => {
+		expect(extractUrls('see https://grok.com.')).toEqual(['https://grok.com']);
+	});
+
+	it('ignores non-http text', () => {
+		expect(extractUrls('just plain words, no links')).toEqual([]);
 	});
 });

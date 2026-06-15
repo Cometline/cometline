@@ -6,6 +6,7 @@
 	import { modelStore, type ModelOption } from '$lib/stores/model.svelte';
 	import { settingsStore } from '$lib/stores/settings.svelte';
 	import { matchesShortcut } from '$lib/keyboard-shortcuts';
+	import RichComposerInput from '$lib/components/RichComposerInput.svelte';
 
 	let {
 		onSend,
@@ -34,13 +35,12 @@
 	} = $props();
 
 	let value = $state('');
-	let textarea = $state<HTMLTextAreaElement | null>(null);
+	let input = $state<RichComposerInput | null>(null);
 	let modelOpen = $state(false);
 	let modelSearch = $state('');
 	let queuePreviewOpen = $state(false);
 	let queuePicker = $state<HTMLDivElement | null>(null);
 	let sendLocked = $derived(turnProcessing && !streaming);
-	let rows = $derived(Math.min(8, Math.max(3, value.split('\n').length)));
 	let filteredModelOptions = $derived.by(() => {
 		const query = modelSearch.trim().toLowerCase();
 		if (!query) return modelStore.options;
@@ -97,13 +97,15 @@
 		const text = value.trim();
 		if (!text || disabled || sendLocked || !modelStore.selected) return;
 		onSend(text);
+		input?.clear();
 		value = '';
 	}
 
 	function onKeydown(e: KeyboardEvent) {
 		if (matchesShortcut(e, settingsStore.settings.shortcuts.stopResponse) && streaming) {
-			const textarea = e.currentTarget as HTMLTextAreaElement;
-			if (textarea.selectionStart === textarea.selectionEnd) {
+			// Only intercept when there's no text selection in the editor.
+			const sel = window.getSelection();
+			if (!sel || sel.isCollapsed) {
 				e.preventDefault();
 				onStop?.();
 				return;
@@ -139,7 +141,7 @@
 
 	async function focusInput() {
 		await tick();
-		textarea?.focus({ preventScroll: true });
+		input?.focus();
 	}
 </script>
 
@@ -197,18 +199,16 @@
 		</div>
 	{/if}
 
-	<textarea
-		bind:this={textarea}
+	<RichComposerInput
+		bind:this={input}
 		bind:value
-		{rows}
+		onkeydown={onKeydown}
 		placeholder={waitingForReply
 			? 'Waiting for reply…'
 			: variant === 'hero'
 				? 'Type something. Anything.'
 				: 'Type something…'}
-		onkeydown={onKeydown}
-		aria-label="Message input"
-	></textarea>
+	/>
 
 	<div class="composer-footer">
 		<div class="composer-tools">
@@ -320,23 +320,6 @@
 		padding: 24px 24px 16px;
 		border-radius: 24px;
 		box-shadow: 0 18px 60px rgba(15, 23, 42, 0.12);
-	}
-
-	textarea {
-		width: 100%;
-		resize: none;
-		border: none;
-		background: transparent;
-		font-size: 15px;
-		line-height: 1.5;
-		color: var(--text-main);
-		outline: none;
-		padding: 0;
-		font-family: inherit;
-	}
-
-	textarea::placeholder {
-		color: var(--text-soft);
 	}
 
 	.composer-footer {
