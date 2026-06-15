@@ -5,6 +5,9 @@ on:
     branches: [main, master]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -40,3 +43,72 @@ jobs:
 
       - name: Run build
         run: make build
+
+  bump-version-and-tag:
+    name: Bump version and tag release
+    needs: check
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: release-tag-${{ github.repository }}
+      cancel-in-progress: false
+    steps:
+      - name: Checkout repository with submodules
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+          token: ${{ secrets.COMETLINE_SUBMODULE_TOKEN }}
+
+      - name: Skip if commit already tagged
+        id: tagged
+        run: |
+          if git describe --exact-match --tags HEAD 2>/dev/null; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Commit $(git rev-parse --short HEAD) already has tag $(git describe --exact-match --tags HEAD)"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Compute next version
+        if: steps.tagged.outputs.skip != 'true'
+        id: version
+        run: |
+          set -euo pipefail
+          LATEST="$(git tag -l 'v*' --sort=-version:refname | head -1)"
+          if [ -z "$LATEST" ]; then
+            NEXT="v0.0.1"
+          else
+            VERSION="${LATEST#v}"
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+            PATCH=$((PATCH + 1))
+            if [ "$PATCH" -gt 999 ]; then
+              PATCH=0
+              MINOR=$((MINOR + 1))
+            fi
+            if [ "$MINOR" -gt 999 ]; then
+              MINOR=0
+              MAJOR=$((MAJOR + 1))
+            fi
+            NEXT="v${MAJOR}.${MINOR}.${PATCH}"
+          fi
+          if git rev-parse "$NEXT" >/dev/null 2>&1; then
+            echo "Tag $NEXT already exists"
+            exit 1
+          fi
+          echo "latest=${LATEST:-}" >> "$GITHUB_OUTPUT"
+          echo "next=$NEXT" >> "$GITHUB_OUTPUT"
+          echo "Latest tag: ${LATEST:-<none>}"
+          echo "Next tag: $NEXT"
+
+      - name: Create and push release tag
+        if: steps.tagged.outputs.skip != 'true'
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.version.outputs.next }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "$TAG"
