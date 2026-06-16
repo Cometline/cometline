@@ -21,6 +21,7 @@ type Adapter struct {
 	Config    config.DiscordGatewayConfig
 	Session   *discordgo.Session
 	onInbound func(context.Context, gateway.InboundMessage)
+	onThread  func(context.Context, string, string, string) error
 
 	mu sync.Mutex
 }
@@ -74,6 +75,12 @@ func looksLikeDiscordBotToken(value string) bool {
 
 func (a *Adapter) SetInboundHandler(fn func(context.Context, gateway.InboundMessage)) {
 	a.onInbound = fn
+}
+
+// SetThreadCreatedHandler registers a callback invoked when /thread creates a new thread.
+// The callback receives userID, parentChannelID, and threadID.
+func (a *Adapter) SetThreadCreatedHandler(fn func(context.Context, string, string, string) error) {
+	a.onThread = fn
 }
 
 // KeepTyping sends ChannelTyping periodically until stop is called.
@@ -142,12 +149,32 @@ func (a *Adapter) Stop(ctx context.Context) error {
 }
 
 func (a *Adapter) Deliver(ctx context.Context, msg gateway.OutboundMessage) error {
+	dest := deliveryChannelID(msg)
 	for _, chunk := range splitMessage(msg.Text, 1900) {
-		if _, err := a.Session.ChannelMessageSend(msg.ChannelID, chunk); err != nil {
+		if _, err := a.Session.ChannelMessageSend(dest, chunk); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// deliveryChannelID returns the Discord channel to post in. Thread replies must
+// target the thread channel ID, not the parent text channel.
+func deliveryChannelID(msg gateway.OutboundMessage) string {
+	if msg.ThreadID != "" {
+		return msg.ThreadID
+	}
+	return msg.ChannelID
+}
+
+// discordRoutingIDs maps a Discord message channel to gateway routing keys.
+// Thread messages use the parent channel as platform_channel_id and the thread
+// ID as thread_id so each thread gets its own CometMind session.
+func discordRoutingIDs(channelID, parentChannelID string) (routingChannelID, threadID string) {
+	if parentChannelID != "" {
+		return parentChannelID, channelID
+	}
+	return channelID, ""
 }
 
 func (a *Adapter) onInteractionCreate(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -206,6 +233,15 @@ func (a *Adapter) onInteractionCreate(s *discordgo.Session, i *discordgo.Interac
 		log.Printf("discord: thread welcome message failed: %v", err)
 	}
 
+	if a.onThread != nil {
+		userID := interactionUserID(i)
+		if userID != "" {
+			if err := a.onThread(context.Background(), userID, parentChannelID, thread.ID); err != nil {
+				log.Printf("discord: thread session setup failed: %v", err)
+			}
+		}
+	}
+
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
@@ -240,6 +276,7 @@ func (a *Adapter) onMessageCreate(s *discordgo.Session, m *discordgo.MessageCrea
 			parentChannelID = ch.ParentID
 		}
 	}
+	routingChannelID, threadID := discordRoutingIDs(m.ChannelID, parentChannelID)
 
 	text := strings.TrimSpace(stripBotMentions(m.Content, s.State))
 	if text == "" {
@@ -254,9 +291,10 @@ func (a *Adapter) onMessageCreate(s *discordgo.Session, m *discordgo.MessageCrea
 		return
 	}
 	log.Printf(
-		"discord: inbound user=%s channel=%s parent=%s guild=%s text=%q",
+		"discord: inbound user=%s channel=%s thread=%s parent=%s guild=%s text=%q",
 		m.Author.ID,
-		m.ChannelID,
+		routingChannelID,
+		threadID,
 		parentChannelID,
 		m.GuildID,
 		truncateLog(text, 80),
@@ -266,10 +304,21 @@ func (a *Adapter) onMessageCreate(s *discordgo.Session, m *discordgo.MessageCrea
 		GuildID:         m.GuildID,
 		ParentChannelID: parentChannelID,
 		UserID:          m.Author.ID,
-		ChannelID:       m.ChannelID,
+		ChannelID:       routingChannelID,
+		ThreadID:        threadID,
 		Text:            text,
 		Mentioned:       mentioned,
 	})
+}
+
+func interactionUserID(i *discordgo.InteractionCreate) string {
+	if i.Member != nil && i.Member.User != nil {
+		return i.Member.User.ID
+	}
+	if i.User != nil {
+		return i.User.ID
+	}
+	return ""
 }
 
 func stripBotMentions(content string, state *discordgo.State) string {

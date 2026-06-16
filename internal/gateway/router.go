@@ -76,7 +76,7 @@ func (r *Router) HandleInbound(ctx context.Context, msg InboundMessage) error {
 	}
 
 	if r.Typing != nil {
-		stopTyping := r.Typing.KeepTyping(ctx, msg.ChannelID)
+		stopTyping := r.Typing.KeepTyping(ctx, deliveryChannelID(msg))
 		defer stopTyping()
 	}
 
@@ -181,6 +181,49 @@ func (r *Router) resolveSession(ctx context.Context, msg InboundMessage, ws sess
 		return "", err
 	}
 	return sess.ID, nil
+}
+
+// EnsureThreadSession creates a fresh CometMind session for a newly created Discord thread.
+func (r *Router) EnsureThreadSession(ctx context.Context, userID, parentChannelID, threadID string) error {
+	if r == nil || r.Sessions == nil {
+		return fmt.Errorf("gateway router is not configured")
+	}
+	userID = strings.TrimSpace(userID)
+	parentChannelID = strings.TrimSpace(parentChannelID)
+	threadID = strings.TrimSpace(threadID)
+	if userID == "" || parentChannelID == "" || threadID == "" {
+		return fmt.Errorf("user_id, parent_channel_id, and thread_id are required")
+	}
+
+	wsPath := r.Config.Gateway.Discord.WorkspacePath
+	if wsPath == "" {
+		return fmt.Errorf("gateway workspace_path is not configured")
+	}
+	ws, err := r.Sessions.EnsureWorkspace(ctx, wsPath)
+	if err != nil {
+		return err
+	}
+
+	if _, err := r.Sessions.LookupGatewaySession(ctx, "discord", userID, parentChannelID, threadID); err == nil {
+		return nil
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+
+	modelID, providerID := r.discordSessionModel()
+	sess, err := r.Sessions.NewSession(ctx, ws.ID, modelID, providerID)
+	if err != nil {
+		return err
+	}
+	_, err = r.Sessions.UpsertGatewaySession(ctx, "discord", userID, parentChannelID, threadID, sess.ID, ws.ID)
+	return err
+}
+
+func deliveryChannelID(msg InboundMessage) string {
+	if msg.ThreadID != "" {
+		return msg.ThreadID
+	}
+	return msg.ChannelID
 }
 
 func (r *Router) allowed(msg InboundMessage) bool {

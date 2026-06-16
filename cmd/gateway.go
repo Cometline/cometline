@@ -66,6 +66,9 @@ func runGateway(_ *cobra.Command, _ []string) error {
 			return adapter.Deliver(ctx, msg)
 		})
 		router.Typing = adapter
+		adapter.SetThreadCreatedHandler(func(ctx context.Context, userID, parentChannelID, threadID string) error {
+			return router.EnsureThreadSession(ctx, userID, parentChannelID, threadID)
+		})
 		adapter.SetInboundHandler(func(ctx context.Context, msg gateway.InboundMessage) {
 			if err := router.HandleInbound(ctx, msg); err != nil {
 				log.Printf("discord: handle inbound failed: %v", err)
