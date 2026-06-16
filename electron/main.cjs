@@ -666,22 +666,25 @@ function sendToggleWebPanel() {
 	}
 }
 
+// macOS menu bar status items use 22pt; supply @2x (44px) template artwork.
+const MACOS_TRAY_ICON_SIZE = 44;
+
 function resolveTrayIconCandidates() {
+	if (process.platform === 'darwin') {
+		if (app.isPackaged) {
+			return [path.join(process.resourcesPath, 'trayTemplate.png')];
+		}
+		return [path.join(__dirname, '../buildResources/trayTemplate.png')];
+	}
 	if (app.isPackaged) {
 		return [
 			path.join(process.resourcesPath, 'trayIcon.png'),
-			path.join(process.resourcesPath, 'trayTemplate.png'),
 			path.join(process.resourcesPath, 'icon.png')
 		];
 	}
 	return [
 		path.join(__dirname, '../buildResources/trayIcon.png'),
-		path.join(__dirname, '../buildResources/trayTemplate.png'),
-		path.join(__dirname, '../static/project_avatar_96.png'),
-		path.join(__dirname, '../buildResources/icon.png'),
-		path.join(__dirname, '../buildResources/icon.icns'),
-		path.join(__dirname, '../static/project_icon.png'),
-		path.join(__dirname, '../static/app_icon.png')
+		path.join(__dirname, '../buildResources/icon.png')
 	];
 }
 
@@ -692,13 +695,9 @@ function resolveTrayIcon() {
 		let image = nativeImage.createFromPath(candidate);
 		if (image.isEmpty()) continue;
 		if (process.platform === 'darwin') {
-			const isTemplateAsset = candidate.endsWith('trayTemplate.png');
-			// macOS menu bar icons read best at 16pt (32px backing on Retina).
-			image = image.resize({ width: 32, height: 32, quality: 'best' });
+			image = image.resize({ width: MACOS_TRAY_ICON_SIZE, height: MACOS_TRAY_ICON_SIZE, quality: 'best' });
 			if (image.isEmpty()) continue;
-			if (isTemplateAsset) {
-				image.setTemplateImage(true);
-			}
+			image.setTemplateImage(true);
 			return image;
 		}
 		return image.resize({ width: 18, height: 18, quality: 'best' });
