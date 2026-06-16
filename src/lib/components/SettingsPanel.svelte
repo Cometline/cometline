@@ -14,7 +14,8 @@
 		Settings,
 		Trash2,
 		Workflow,
-		X
+		X,
+		Brain
 	} from '@lucide/svelte';
 	import type {
 		ProviderConfig,
@@ -28,11 +29,12 @@
 	import SettingsAppearancePanel from '$lib/components/SettingsAppearancePanel.svelte';
 	import SettingsGeneralPanel from '$lib/components/SettingsGeneralPanel.svelte';
 	import SettingsCometMindPanel from '$lib/components/SettingsCometMindPanel.svelte';
+	import SettingsMemoryPanel from '$lib/components/SettingsMemoryPanel.svelte';
 	import SettingsShortcutsPanel from '$lib/components/SettingsShortcutsPanel.svelte';
 	import { cloneCometMindSettings, normalizeCometMindSettings } from '$lib/cometmind-settings';
 	import { onMount } from 'svelte';
 
-	type SettingsSection = 'providers' | 'cometmind' | 'general' | 'appearance' | 'shortcuts' | 'about';
+	type SettingsSection = 'providers' | 'cometmind' | 'memory' | 'general' | 'appearance' | 'shortcuts' | 'about';
 
 	const METHOD_LABELS: Record<ProviderMethod, string> = {
 		'openai-compatible': 'OpenAI-compatible',
@@ -106,6 +108,8 @@
 	let installingUpdate = $state(false);
 	let cometmindPanelKey = $state(0);
 	let cometmindPanel = $state<SettingsCometMindPanel | undefined>();
+	let memoryPanelKey = $state(0);
+	let memoryPanel = $state<SettingsMemoryPanel | undefined>();
 
 	let selectedProvider = $derived(
 		draft.providers.find((p) => p.id === selectedProviderId) ?? draft.providers[0]
@@ -456,6 +460,8 @@
 						Customize hero composer glow and border colors for new-chat screens.
 					{:else if activeSection === 'cometmind'}
 						Configure OpenCode subagents and the Discord gateway in ~/.cometmind/config.toml.
+					{:else if activeSection === 'memory'}
+						Manage global memories, retrieval thresholds, and compaction.
 					{:else if activeSection === 'general'}
 						Startup and system preferences for the Cometline app.
 					{:else if activeSection === 'shortcuts'}
@@ -497,6 +503,17 @@
 				>
 					<Workflow size={15} />
 					<span>CometMind</span>
+				</button>
+				<button
+					class="settings-nav-item"
+					class:selected={activeSection === 'memory'}
+					onclick={() => {
+						activeSection = 'memory';
+						status = '';
+					}}
+				>
+					<Brain size={15} />
+					<span>Memory</span>
 				</button>
 				<button
 					class="settings-nav-item"
@@ -756,6 +773,10 @@
 							providers={draft.providers}
 							onPickWorkspace={pickGatewayWorkspace}
 						/>
+					{/key}
+				{:else if activeSection === 'memory'}
+					{#key memoryPanelKey}
+						<SettingsMemoryPanel bind:this={memoryPanel} providers={draft.providers} />
 					{/key}
 				{:else if activeSection === 'shortcuts'}
 					<SettingsShortcutsPanel shortcuts={draft.shortcuts} onChange={updateShortcut} />

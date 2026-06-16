@@ -185,8 +185,29 @@ export type StreamEvent =
 			question: string;
 			permission_options?: { id: string; kind: string; name: string }[];
 	  }
+	| {
+			type: 'memory_injected';
+			memories: {
+				id: string;
+				content: string;
+				kind: string;
+				similarity: number;
+				effective_weight: number;
+			}[];
+	  }
+	| {
+			type: 'memory_updated';
+			changes: MemoryUpdate[];
+	  }
 	| { type: 'error'; message: string; code?: string }
 	| { type: 'done' };
+
+export type MemoryUpdate = {
+	action: 'create' | 'update' | 'supersede';
+	kind: string;
+	content: string;
+	id?: string;
+};
 
 export type ChatItem =
 	| { id: string; type: 'user'; text: string; images?: ImageAttachment[]; reveal?: boolean }
@@ -196,6 +217,7 @@ export type ChatItem =
 			text: string;
 			pending?: boolean;
 			reasoning?: { text: string; pending?: boolean };
+			memoryUpdates?: MemoryUpdate[];
 	  }
 	| {
 			id: string;
@@ -210,6 +232,11 @@ export type ChatItem =
 			durationMs?: number;
 	  }
 	| { id: string; type: 'status'; text: string; usage?: TokenUsage }
+	| {
+			id: string;
+			type: 'memory';
+			memories: { id: string; content: string; kind: string; similarity: number; effective_weight: number }[];
+	  }
 	| { id: string; type: 'error'; text: string }
 	| {
 			id: string;

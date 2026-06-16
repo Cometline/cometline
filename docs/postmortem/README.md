@@ -1,6 +1,6 @@
 # Postmortems
 
-Short write-ups of non-obvious bugs in the Cometline UI layer: symptoms, root cause, fix, and how to avoid regressions. Read these before changing `chat.svelte.ts`, `reducers/chat.ts`, `ChatView.svelte`, `ChatThread.svelte`, `chat-turn-queue.ts`, `Composer.svelte`, `HeroComposerFrame.svelte`, `hero-composer-appearance.ts`, `settings.svelte.ts`, or Electron IPC in `preload.cjs` / `main.cjs`.
+Short write-ups of non-obvious bugs in the Cometline UI layer (and cross-cutting CometMind runtime issues that surface in chat): symptoms, root cause, fix, and how to avoid regressions. Read these before changing `chat.svelte.ts`, `reducers/chat.ts`, `ChatView.svelte`, `ChatThread.svelte`, `chat-turn-queue.ts`, `Composer.svelte`, `HeroComposerFrame.svelte`, `hero-composer-appearance.ts`, `settings.svelte.ts`, or Electron IPC in `preload.cjs` / `main.cjs`.
 
 | Date       | Topic                                                   | File                                                                                                 |
 | ---------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
@@ -16,6 +16,7 @@ Short write-ups of non-obvious bugs in the Cometline UI layer: symptoms, root ca
 | 2026-06-14 | Duplicate user message on rapid submit                  | [duplicate-user-message-on-rapid-submit.md](./duplicate-user-message-on-rapid-submit.md)             |
 | 2026-06-15 | First-turn transcript invisible after user bubble flight | [first-turn-transcript-invisible.md](./first-turn-transcript-invisible.md)                           |
 | 2026-06-16 | Fetch models IPC fails with DataCloneError                | [fetch-models-data-clone-error.md](./fetch-models-data-clone-error.md)                               |
+| 2026-06-16 | Memory extract wrong provider after successful reply      | [memory-extract-wrong-provider.md](./memory-extract-wrong-provider.md)                               |
 
 ## When to add a postmortem
 

@@ -11,9 +11,9 @@ export interface ModelOption {
 
 function labelForModel(modelID: string) {
 	return modelID
-		.split(/[-_:/.]+/)
+		.split(/[_/]+/)
 		.filter(Boolean)
-		.map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+		.map((part) => part.charAt(0).toUpperCase() + part.slice(1).toUpperCase())
 		.join(' ');
 }
 

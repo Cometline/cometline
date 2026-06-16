@@ -16,6 +16,7 @@
 	import { chatDebug, chatDebugEnabled, summarizeChatItem } from '../debug/chat';
 	import AssistantMarkdown from '$lib/components/AssistantMarkdown.svelte';
 	import { imageDataURL } from '$lib/files/images';
+	import { memoryUpdateHint, memoryUpdateTooltip } from '$lib/memory-updates';
 
 	const ASSISTANT_ROW_IN = { y: 10, duration: 220 };
 	const TOOL_ROW_IN = { y: 8, duration: 200 };
@@ -51,6 +52,7 @@
 	const SCROLL_PIN_THRESHOLD = 96;
 	let expandedToolOutput = $state(new Set<string>());
 	let expandedThinking = $state(new Set<string>());
+	let expandedMemoryInThinking = $state(new Set<string>());
 	let subagentFold = $state(new Map<string, boolean>());
 	let subagentReply = $state(new Map<string, string>());
 	let copiedId = $state<string | null>(null);
@@ -79,29 +81,50 @@
 		awaitingFirstAssistant || isInitialTranscriptPaint ? { duration: 0 } : TRANSCRIPT_IN
 	);
 
+	type InjectedMemory = Extract<ChatItem, { type: 'memory' }>['memories'][number];
+
 	type ThinkingBlock = {
 		reasoning?: { text: string; pending?: boolean };
 		tools: Extract<ChatItem, { type: 'tool' }>[];
+		memories: InjectedMemory[];
 	};
 
 	let thinkingForAssistant = $derived.by(() => {
 		const map = new Map<string, ThinkingBlock>();
 		const toolIdsInBuffer = new Set<string>();
+		const memoryIdsInBuffer = new Set<string>();
 		let currentAssistantId: string | null = null;
+		let pendingMemories: InjectedMemory[] = [];
 
 		for (const item of threadItems) {
 			if (item.type === 'user' || item.type === 'status' || item.type === 'error') {
 				currentAssistantId = null;
+				pendingMemories = [];
+				continue;
+			}
+			if (item.type === 'memory') {
+				pendingMemories = item.memories;
+				memoryIdsInBuffer.add(item.id);
 				continue;
 			}
 			if (item.type === 'assistant') {
 				currentAssistantId = item.id;
 				const existing = map.get(item.id);
 				if (!existing) {
-					map.set(item.id, { reasoning: item.reasoning, tools: [] });
-				} else if (item.reasoning && !existing.reasoning) {
-					existing.reasoning = item.reasoning;
+					map.set(item.id, {
+						reasoning: item.reasoning,
+						tools: [],
+						memories: pendingMemories
+					});
+				} else {
+					if (item.reasoning && !existing.reasoning) {
+						existing.reasoning = item.reasoning;
+					}
+					if (pendingMemories.length > 0) {
+						existing.memories = pendingMemories;
+					}
 				}
+				pendingMemories = [];
 			} else if (item.type === 'tool' && currentAssistantId) {
 				const block = map.get(currentAssistantId);
 				if (block) {
@@ -111,11 +134,15 @@
 			}
 		}
 
-		return { map, toolIdsInBuffer };
+		return { map, toolIdsInBuffer, memoryIdsInBuffer };
 	});
 
 	function isToolInBuffer(item: Extract<ChatItem, { type: 'tool' }>) {
 		return thinkingForAssistant.toolIdsInBuffer.has(item.id);
+	}
+
+	function isMemoryInBuffer(item: Extract<ChatItem, { type: 'memory' }>) {
+		return thinkingForAssistant.memoryIdsInBuffer.has(item.id);
 	}
 
 	function thinkingExpanded(id: string) {
@@ -124,6 +151,28 @@
 
 	function toggleThinking(id: string) {
 		expandedThinking = toggleExpanded(expandedThinking, id);
+	}
+
+	function memoryInThinkingExpanded(id: string) {
+		return expandedMemoryInThinking.has(id);
+	}
+
+	function toggleMemoryInThinking(id: string) {
+		expandedMemoryInThinking = toggleExpanded(expandedMemoryInThinking, id);
+	}
+
+	function thinkingLabel(block: ThinkingBlock) {
+		const parts: string[] = [];
+		if (block.memories.length > 0) {
+			parts.push(
+				`${block.memories.length} memor${block.memories.length === 1 ? 'y' : 'ies'}`
+			);
+		}
+		if (block.tools.length > 0) {
+			parts.push(`${block.tools.length} tool${block.tools.length === 1 ? '' : 's'}`);
+		}
+		if (parts.length === 0) return 'Thinking';
+		return `Thinking · ${parts.join(' · ')}`;
 	}
 
 	function subagentExpanded(id: string, pending: boolean) {
@@ -511,9 +560,7 @@
 			onclick={() => toggleThinking(hostId)}
 		>
 			<Brain size={13} />
-			<span>
-				{block.tools.length > 0 ? `Thinking · ${block.tools.length} tool${block.tools.length === 1 ? '' : 's'}` : 'Thinking'}
-			</span>
+			<span>{thinkingLabel(block)}</span>
 			{#if thinkingPending(block)}
 				<LoaderCircle size={12} class="spin" />
 			{/if}
@@ -521,6 +568,34 @@
 		</button>
 		{#if thinkingExpanded(hostId)}
 			<div class="fold-body thinking-body" transition:slide={FOLD_IN}>
+				{#if block.memories.length > 0}
+					<div class="thinking-memories">
+						<button
+							type="button"
+							class="fold-toggle memory-toggle"
+							aria-expanded={memoryInThinkingExpanded(hostId)}
+							onclick={() => toggleMemoryInThinking(hostId)}
+						>
+							<Brain size={12} />
+							<span>Memories used · {block.memories.length}</span>
+							<ChevronDown
+								size={12}
+								class={memoryInThinkingExpanded(hostId) ? 'expanded' : ''}
+							/>
+						</button>
+						{#if memoryInThinkingExpanded(hostId)}
+							<div class="thinking-memory-body" transition:slide={FOLD_IN}>
+								<div class="memory-chips">
+									{#each block.memories as mem (mem.id)}
+										<span class="memory-chip" title={mem.content}>
+											{mem.kind}: {mem.content}
+										</span>
+									{/each}
+								</div>
+							</div>
+						{/if}
+					</div>
+				{/if}
 				{#if block.reasoning}
 					<div class="thinking-reasoning">
 						<p>{block.reasoning.text || 'Thinking…'}</p>
@@ -557,7 +632,7 @@
 {#snippet assistantStack(item: Extract<ChatItem, { type: 'assistant' }>)}
 	{@const block = thinkingForAssistant.map.get(item.id)}
 	<div class="assistant-stack">
-		{#if block && (block.reasoning || block.tools.length > 0)}
+		{#if block && (block.reasoning || block.tools.length > 0 || block.memories.length > 0)}
 			{@render thinkingBlock(block, item.id)}
 		{/if}
 		{#if item.text}
@@ -566,6 +641,15 @@
 			</div>
 			{#if item.id !== streamingAssistantId}
 				<div class="message-actions">
+					{#if item.memoryUpdates?.length}
+						<span
+							class="message-action memory-hint"
+							title={memoryUpdateTooltip(item.memoryUpdates)}
+							aria-label={memoryUpdateTooltip(item.memoryUpdates)}
+						>
+							{memoryUpdateHint(item.memoryUpdates)}
+						</span>
+					{/if}
 					<button
 						type="button"
 						class="message-action"
@@ -881,6 +965,17 @@
 					</div>
 					</div>
 				</div>
+			{:else if item.type === 'memory' && !isMemoryInBuffer(item)}
+				<div class="row event-row" in:fly={rowIntro(TOOL_ROW_IN)}>
+					<div class="event-card memory-card">
+						<div class="event-title"><Brain size={14} /><span>Memories used</span></div>
+						<div class="memory-chips">
+							{#each item.memories as mem (mem.id)}
+								<span class="memory-chip" title={mem.content}>{mem.kind}: {mem.content}</span>
+							{/each}
+						</div>
+					</div>
+				</div>
 			{:else if item.type === 'status'}
 				<div class="status" in:fly={rowIntro(STATUS_ROW_IN)}>{usageText(item)}</div>
 			{:else if item.type === 'error'}
@@ -898,6 +993,42 @@
 </div>
 
 <style>
+	.thinking-memories {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+	}
+
+	.memory-toggle {
+		font-size: 11px;
+		padding: 4px 9px;
+	}
+
+	.thinking-memory-body {
+		border: 1px solid var(--border-soft);
+		border-radius: 10px;
+		padding: 8px 10px;
+		background: rgba(0, 102, 204, 0.04);
+	}
+
+	.memory-chips {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px;
+	}
+
+	.memory-chip {
+		max-width: 100%;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		padding: 4px 8px;
+		border-radius: 999px;
+		background: rgba(0, 102, 204, 0.08);
+		color: var(--text-main);
+		font-size: 11px;
+	}
+
 	.thread {
 		position: absolute;
 		inset: 0;
@@ -1369,6 +1500,16 @@
 
 	.message-action.copied {
 		color: #15803d;
+	}
+
+	.memory-hint {
+		cursor: default;
+	}
+
+	.memory-hint:hover {
+		background: transparent;
+		border-color: transparent;
+		color: var(--text-soft);
 	}
 
 	.message-action :global(svg) {

@@ -388,6 +388,30 @@ function applyEvent(
 		return;
 	}
 
+	if (event.type === 'memory_injected') {
+		const id = localID('memory', draft.nextId++).id;
+		items.push({
+			id,
+			type: 'memory',
+			memories: event.memories
+		});
+		return;
+	}
+
+	if (event.type === 'memory_updated') {
+		if (!assistant.current) return;
+		const index = items.findIndex((item) => item.id === assistant.current!.id);
+		if (index < 0) return;
+		const current = items[index] as AssistantItem;
+		const next: AssistantItem = {
+			...current,
+			memoryUpdates: [...(current.memoryUpdates ?? []), ...event.changes]
+		};
+		items[index] = next;
+		assistant.current = next;
+		return;
+	}
+
 	if (event.type === 'error') {
 		settleTurn({ assistant: assistant.current, reasoning: reasoning.current });
 		clearEmptyAssistant();
@@ -432,7 +456,8 @@ function cloneItem(item: ChatItem): ChatItem {
 			...item,
 			reasoning: item.reasoning
 				? { text: item.reasoning.text, pending: item.reasoning.pending }
-				: undefined
+				: undefined,
+			memoryUpdates: item.memoryUpdates?.map((update) => ({ ...update }))
 		};
 	}
 	if (item.type === 'subagent') {
