@@ -30,8 +30,11 @@ func TestRouterAllowed(t *testing.T) {
 	if r.allowed(InboundMessage{Platform: "discord", GuildID: "guild-1", UserID: "user-1", ChannelID: "chan-1", ThreadID: "thread-1", ParentChannelID: "chan-1", Mentioned: true}) != true {
 		t.Fatal("expected thread allowed via parent channel")
 	}
+	if r.allowed(InboundMessage{Platform: "discord", GuildID: "guild-1", UserID: "user-1", ChannelID: "chan-1", ThreadID: "thread-1", ParentChannelID: "chan-1", Mentioned: false}) != true {
+		t.Fatal("expected thread allowed without mention")
+	}
 	if r.allowed(InboundMessage{Platform: "discord", GuildID: "guild-1", UserID: "user-1", ChannelID: "chan-1", Mentioned: false}) != false {
-		t.Fatal("expected blocked without mention")
+		t.Fatal("expected blocked without mention in parent channel")
 	}
 	if r.allowed(InboundMessage{Platform: "discord", GuildID: "", UserID: "user-1", ChannelID: "dm-chan", Mentioned: true}) != true {
 		t.Fatal("expected DM allowed without channel allowlist match")

@@ -177,6 +177,73 @@ func discordRoutingIDs(channelID, parentChannelID string) (routingChannelID, thr
 	return channelID, ""
 }
 
+const threadArchiveMinutes = 60
+
+func isForumLikeChannelType(t discordgo.ChannelType) bool {
+	return t == discordgo.ChannelTypeGuildForum || t == discordgo.ChannelTypeGuildMedia
+}
+
+func supportsPublicThreadCreation(t discordgo.ChannelType) bool {
+	return t == discordgo.ChannelTypeGuildText || t == discordgo.ChannelTypeGuildNews
+}
+
+// threadCreationParent resolves the channel that can host a new thread/post.
+// When invoked inside an existing thread, the parent text/forum channel is returned.
+func threadCreationParent(ch *discordgo.Channel) (parentID string, parentType discordgo.ChannelType, ok bool) {
+	if ch == nil {
+		return "", 0, false
+	}
+	if ch.IsThread() && ch.ParentID != "" {
+		return ch.ParentID, 0, true
+	}
+	return ch.ID, ch.Type, true
+}
+
+func createCometMindThread(
+	s *discordgo.Session,
+	sourceChannelID, threadName, welcome string,
+) (parentChannelID string, thread *discordgo.Channel, parentType discordgo.ChannelType, err error) {
+	ch, err := s.Channel(sourceChannelID)
+	if err != nil {
+		return "", nil, 0, fmt.Errorf("could not resolve channel: %w", err)
+	}
+	parentID, parentType, ok := threadCreationParent(ch)
+	if !ok {
+		return "", nil, 0, fmt.Errorf("could not resolve channel")
+	}
+	if parentType == 0 {
+		parent, err := s.Channel(parentID)
+		if err != nil {
+			return "", nil, 0, fmt.Errorf("could not resolve thread parent: %w", err)
+		}
+		if parent == nil {
+			return "", nil, 0, fmt.Errorf("could not resolve thread parent")
+		}
+		parentType = parent.Type
+	}
+
+	switch {
+	case isForumLikeChannelType(parentType):
+		thread, err = s.ForumThreadStart(parentID, threadName, threadArchiveMinutes, welcome)
+	case supportsPublicThreadCreation(parentType):
+		thread, err = s.ThreadStart(
+			parentID,
+			threadName,
+			discordgo.ChannelTypeGuildPublicThread,
+			threadArchiveMinutes,
+		)
+	default:
+		return "", nil, 0, fmt.Errorf(
+			"channel type %d does not support thread creation; use a text or forum channel",
+			parentType,
+		)
+	}
+	if err != nil {
+		return "", nil, 0, err
+	}
+	return parentID, thread, parentType, nil
+}
+
 func (a *Adapter) onInteractionCreate(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	if i.Type != discordgo.InteractionApplicationCommand {
 		return
@@ -205,17 +272,8 @@ func (a *Adapter) onInteractionCreate(s *discordgo.Session, i *discordgo.Interac
 		}
 	}
 
-	parentChannelID := i.ChannelID
-	if ch, err := s.Channel(i.ChannelID); err == nil && ch != nil && ch.ParentID != "" {
-		parentChannelID = ch.ParentID
-	}
-
-	thread, err := s.ThreadStart(
-		parentChannelID,
-		threadName,
-		discordgo.ChannelTypeGuildPublicThread,
-		60,
-	)
+	welcome := "New CometMind session started in this thread. Send a message here to talk to the agent."
+	parentChannelID, thread, parentType, err := createCometMindThread(s, i.ChannelID, threadName, welcome)
 	if err != nil {
 		log.Printf("discord: thread create failed: %v", err)
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -228,9 +286,10 @@ func (a *Adapter) onInteractionCreate(s *discordgo.Session, i *discordgo.Interac
 		return
 	}
 
-	welcome := "New CometMind session started in this thread. Send a message here to talk to the agent."
-	if _, err := s.ChannelMessageSend(thread.ID, welcome); err != nil {
-		log.Printf("discord: thread welcome message failed: %v", err)
+	if !isForumLikeChannelType(parentType) {
+		if _, err := s.ChannelMessageSend(thread.ID, welcome); err != nil {
+			log.Printf("discord: thread welcome message failed: %v", err)
+		}
 	}
 
 	if a.onThread != nil {

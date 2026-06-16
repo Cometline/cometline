@@ -232,7 +232,7 @@ func (r *Router) allowed(msg InboundMessage) bool {
 
 func (r *Router) blockReason(msg InboundMessage) string {
 	cfg := r.Config.Gateway.Discord
-	if msg.Platform == "discord" && cfg.RequireMention && !msg.Mentioned {
+	if msg.Platform == "discord" && cfg.RequireMention && !msg.Mentioned && msg.ThreadID == "" {
 		return "mention required"
 	}
 	if len(cfg.AllowedUsers) > 0 && !contains(cfg.AllowedUsers, msg.UserID) {
@@ -242,7 +242,8 @@ func (r *Router) blockReason(msg InboundMessage) string {
 	// Thread channels inherit access from their parent channel ID.
 	if len(cfg.AllowedChannels) > 0 && msg.GuildID != "" {
 		if !contains(cfg.AllowedChannels, msg.ChannelID) &&
-			!contains(cfg.AllowedChannels, msg.ParentChannelID) {
+			!contains(cfg.AllowedChannels, msg.ParentChannelID) &&
+			!contains(cfg.AllowedChannels, msg.ThreadID) {
 			return "channel not in allowed_channels"
 		}
 	}
