@@ -3,6 +3,7 @@
 	import { onMount } from 'svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { settingsStore } from '$lib/stores/settings.svelte';
+	import { rectStyle } from '$lib/first-turn-flight';
 
 	// ──────────────────────────────────────────────────────────────────────────
 	// Cometline first-run intro.
@@ -36,6 +37,11 @@
 	let raf = 0;
 	let finished = false;
 
+	// Project icon that appears in the title card and flies to the hero avatar.
+	let projectIconRef = $state<HTMLImageElement | null>(null);
+	let showFlyIcon = $state(false);
+	let flyIconStyle = $state('');
+
 	const GLOW = () => settingsStore.settings.appearance.heroComposer.glowColor || '#72c0ff';
 
 	function readCssVar(name: string, fallback: string): string {
@@ -63,11 +69,23 @@
 	const seg = (now: number, start: number, end: number) =>
 		clamp01((now - start) / (end - start));
 
+	function captureIconFlightOrigin() {
+		if (reducedMotion || !projectIconRef) return;
+		const from = projectIconRef.getBoundingClientRect();
+		const target = document.querySelector('.empty-state .avatar');
+		if (!(target instanceof HTMLElement)) return;
+		flyIconStyle = rectStyle(from, target.getBoundingClientRect());
+	}
+
 	function complete() {
 		if (finished) return;
 		finished = true;
 		cancelAnimationFrame(raf);
+		// Capture the icon origin before exit transitions change layout.
+		captureIconFlightOrigin();
 		phase = 'exit';
+		// Hand the intro icon off to a fixed flying particle.
+		if (flyIconStyle) showFlyIcon = true;
 		// Persist the "seen" flag (no-op if already seen / replay).
 		void settingsStore.markIntroSeen().catch(() => {});
 		// Let the fade-out transition play before unmounting.
@@ -331,6 +349,17 @@
 	let showHint = $derived(elapsed >= T.spaceIn + 200 && phase === 'run');
 </script>
 
+{#if showFlyIcon}
+	<div class="fly-icon" style={flyIconStyle} aria-hidden="true">
+		<img
+			src="/project_avatar_192.png"
+			srcset="/project_avatar_96.png 96w, /project_avatar_192.png 192w, /project_avatar_384.png 384w"
+			sizes="82px"
+			alt=""
+		/>
+	</div>
+{/if}
+
 <div
 	class="intro"
 	class:is-exit={phase === 'exit'}
@@ -339,7 +368,7 @@
 	aria-label="Skip intro"
 	onclick={skip}
 	onkeydown={() => {}}
-	transition:fade={{ duration: phase === 'exit' ? 760 : 200 }}
+	transition:fade={{ duration: phase === 'exit' ? 0 : 200 }}
 >
 	<canvas bind:this={canvas} class="stage" aria-hidden="true"></canvas>
 
@@ -347,6 +376,16 @@
 	<div class="frame" aria-hidden="true"></div>
 
 	<div class="card">
+		<img
+			bind:this={projectIconRef}
+			class="project-icon"
+			class:in={showWordmark}
+			class:is-flying={showFlyIcon}
+			src="/project_avatar_192.png"
+			srcset="/project_avatar_96.png 96w, /project_avatar_192.png 192w, /project_avatar_384.png 384w"
+			sizes="82px"
+			alt=""
+		/>
 		<h1 class="wordmark" class:in={showWordmark}>
 			<span class="lead">Comet</span><span class="trail">line</span>
 		</h1>
@@ -366,6 +405,11 @@
 		cursor: pointer;
 		display: grid;
 		place-items: center;
+		transition: opacity 760ms var(--ease-intro, ease);
+	}
+
+	.intro.is-exit {
+		opacity: 0;
 	}
 
 	.stage {
@@ -411,6 +455,30 @@
 		transform: translateY(58px);
 		pointer-events: none;
 		user-select: none;
+	}
+
+	.project-icon {
+		display: block;
+		width: 82px;
+		height: 82px;
+		margin: 0 auto 22px;
+		border-radius: 50%;
+		box-shadow: var(--shadow-card);
+		opacity: 0;
+		transform: scale(0.92);
+		transition:
+			opacity 0.9s var(--ease-intro, ease),
+			transform 0.9s var(--ease-intro, ease);
+	}
+
+	.project-icon.in {
+		opacity: 1;
+		transform: scale(1);
+	}
+
+	.project-icon.is-flying {
+		opacity: 0;
+		transition: none;
 	}
 
 	.wordmark {
@@ -494,6 +562,36 @@
 			opacity 0.6s var(--ease-intro, ease);
 		transform: translateY(58px) scale(1.04);
 		opacity: 0;
+	}
+
+	.fly-icon {
+		position: fixed;
+		z-index: 100;
+		pointer-events: none;
+		transform-origin: top left;
+		border-radius: 50%;
+		overflow: hidden;
+		background: linear-gradient(145deg, #ffffff, #eef2f6);
+		box-shadow: 0 5px 14px rgba(15, 23, 42, 0.06);
+		animation: intro-icon-flight 560ms var(--ease-smooth) forwards;
+	}
+
+	.fly-icon img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		border-radius: 50%;
+		display: block;
+	}
+
+	@keyframes intro-icon-flight {
+		from {
+			transform: translate3d(0, 0, 0) scale(1, 1);
+		}
+		to {
+			transform: translate3d(var(--flight-x), var(--flight-y), 0)
+				scale(var(--flight-sx), var(--flight-sy));
+		}
 	}
 
 	@media (prefers-reduced-motion: reduce) {
