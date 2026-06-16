@@ -17,6 +17,7 @@ import {
 	listSessions as listSessionsApi,
 	listSkills as listSkillsApi,
 	listWorkspaces as listWorkspacesApi,
+	listWorkspaceFiles as listWorkspaceFilesApi,
 	patchSession as patchSessionApi,
 	putMemorySettings as putMemorySettingsApi,
 	searchMemories as searchMemoriesApi,
@@ -96,6 +97,17 @@ export function ensureWorkspace(workspacePath: string): Promise<Workspace> {
 
 export function listWorkspaces(): Promise<Workspace[]> {
 	return listWorkspacesApi({ throwOnError: true }).then(({ data }) => data.workspaces);
+}
+
+export function listWorkspaceFiles(
+	workspacePath: string,
+	query = '',
+	limit = 50
+): Promise<string[]> {
+	return listWorkspaceFilesApi({
+		query: { workspace_path: workspacePath, q: query, limit },
+		throwOnError: true
+	}).then(({ data }) => data.files);
 }
 
 export function changeSessionWorkspace(sessionId: string, workspacePath: string): Promise<Session> {

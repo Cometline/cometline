@@ -48,7 +48,7 @@ export interface ConversationController {
 		firstTurnActive: boolean;
 		awaitingFirstAssistant: boolean;
 	}): void;
-	enqueue(text: string, images?: ImageAttachment[]): Promise<boolean>;
+	enqueue(text: string, images?: ImageAttachment[], filePaths?: string[]): Promise<boolean>;
 	removeQueued(id: string): boolean;
 	cancel(): void;
 }
@@ -86,16 +86,18 @@ export function createConversationController(
 
 	function ensureQueue(): ChatTurnQueue {
 		if (!turnQueue) {
-			turnQueue = createChatTurnQueue(
-				async (text, images) => {
-					if (images === undefined) {
-						await runTurn(deps, text, deps.getHasVisibleConversation);
-					} else {
-						await runTurn(deps, { text, images }, deps.getHasVisibleConversation);
-					}
-				},
-				deps.onQueueChange
-			);
+		turnQueue = createChatTurnQueue(
+			async (text, images, filePaths) => {
+				if (images === undefined && filePaths === undefined) {
+					await runTurn(deps, text, deps.getHasVisibleConversation);
+				} else if (filePaths === undefined) {
+					await runTurn(deps, { text, images }, deps.getHasVisibleConversation);
+				} else {
+					await runTurn(deps, { text, images, filePaths }, deps.getHasVisibleConversation);
+				}
+			},
+			deps.onQueueChange
+		);
 		}
 		return turnQueue;
 	}
@@ -134,7 +136,7 @@ export function createConversationController(
 			const sessionId = deps.getSessionId();
 			const pending = sessionStore.takePendingMessage(sessionId);
 			if (pending) {
-				void ensureQueue().enqueue(pending.text, pending.images);
+				void ensureQueue().enqueue(pending.text, pending.images, pending.filePaths);
 				return;
 			}
 			void chatStore.loadTranscript(sessionId);
@@ -152,8 +154,8 @@ export function createConversationController(
 			}
 		},
 
-		enqueue(text: string, images?: ImageAttachment[]) {
-			return ensureQueue().enqueue(text, images);
+		enqueue(text: string, images?: ImageAttachment[], filePaths?: string[]) {
+			return ensureQueue().enqueue(text, images, filePaths);
 		},
 
 		removeQueued(id: string) {

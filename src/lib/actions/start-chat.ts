@@ -13,6 +13,7 @@ import type { ImageAttachment } from '$lib/types';
 export interface ChatTurnPayload {
 	text: string;
 	images?: ImageAttachment[];
+	filePaths?: string[];
 }
 
 export interface StartChatAdapter {

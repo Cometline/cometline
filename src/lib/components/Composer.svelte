@@ -9,6 +9,12 @@
 	import { matchesShortcut } from '$lib/keyboard-shortcuts';
 	import RichComposerInput from '$lib/components/RichComposerInput.svelte';
 	import { listSkills, listWorkspaces, changeSessionWorkspace } from '$lib/client/cometmind';
+	import {
+		filterFileIndex,
+		getFileIndex,
+		isFileIndexReady,
+		refreshFileIndex
+	} from '$lib/workspace/file-index';
 	import { sessionStore } from '$lib/stores/session.svelte';
 	import {
 		expandBuiltinSlashCommand,
@@ -38,7 +44,7 @@
 		variant = 'dock',
 		autofocus = true
 	}: {
-		onSend: (text: string, images?: ImageAttachment[]) => void;
+		onSend: (text: string, images?: ImageAttachment[], filePaths?: string[]) => void;
 		onStop?: () => void;
 		onRemoveQueued?: (id: string) => void;
 		onModelChange?: (option: ModelOption) => void | Promise<void>;
@@ -71,6 +77,10 @@
 	let workspacePathsLoading = $state(false);
 	let workspacePathsLoaded = $state(false);
 	let dismissedSkillCommand = $state('');
+	let mentionMenu = $state<HTMLDivElement | null>(null);
+	let mentionQuery = $state('');
+	let mentionMenuOpen = $state(false);
+	let mentionHighlight = $state(0);
 	let dragDepth = $state(0);
 	let dropMessage = $state('');
 	let dropProcessing = $state(false);
@@ -94,6 +104,12 @@
 		return filterWorkspaceOptions(workspaceSearchQuery, workspacePaths);
 	});
 	let skillNames = $derived(skills.map((skill) => skill.name));
+	let fileIndex = $derived(getFileIndex(shellStore.workspacePath));
+	let mentionsEnabled = $derived(isFileIndexReady(shellStore.workspacePath));
+	let filteredMentionFiles = $derived.by(() => {
+		const files = fileIndex?.files ?? [];
+		return filterFileIndex(files, mentionQuery);
+	});
 	let filteredModelOptions = $derived.by(() => {
 		const query = modelSearch.trim().toLowerCase();
 		if (!query) return modelStore.options;
@@ -133,6 +149,13 @@
 	});
 
 	$effect(() => {
+		const workspacePath = shellStore.workspacePath;
+		if (!workspacePath) return;
+		if (isFileIndexReady(workspacePath)) return;
+		void refreshFileIndex(workspacePath);
+	});
+
+	$effect(() => {
 		if (queuedCount === 0) queuePreviewOpen = false;
 	});
 
@@ -160,6 +183,13 @@
 	});
 
 	$effect(() => {
+		if (!mentionMenuOpen) return;
+		if (mentionHighlight >= filteredMentionFiles.length) {
+			mentionHighlight = Math.max(0, filteredMentionFiles.length - 1);
+		}
+	});
+
+	$effect(() => {
 		if (!queuePreviewOpen) return;
 		function onPointerDown(e: PointerEvent) {
 			if (queuePicker?.contains(e.target as Node)) return;
@@ -181,7 +211,8 @@
 		}
 		const expanded = expandBuiltinSlashCommand(trimmed) ?? expandSkillCommand(trimmed);
 		if (!canSubmit || disabled || !modelStore.selected) return;
-		onSend(expanded, images.length > 0 ? images : undefined);
+		const filePaths = input?.getFilePaths() ?? [];
+		onSend(expanded, images.length > 0 ? images : undefined, filePaths.length > 0 ? filePaths : undefined);
 		input?.clear();
 		value = '';
 		images = [];
@@ -190,6 +221,7 @@
 	function onKeydown(e: KeyboardEvent) {
 		if (handleWorkspaceMenuKeydown(e)) return;
 		if (handleSkillMenuKeydown(e)) return;
+		if (handleMentionMenuKeydown(e)) return;
 		if (matchesShortcut(e, settingsStore.settings.shortcuts.stopResponse) && streaming) {
 			// Only intercept when there's no text selection in the editor.
 			const sel = window.getSelection();
@@ -395,6 +427,75 @@
 			return true;
 		}
 		return false;
+	}
+
+	function handleMentionMenuKeydown(e: KeyboardEvent): boolean {
+		if (!mentionMenuOpen) return false;
+		if (e.key === 'Escape') {
+			e.preventDefault();
+			closeMentionMenu();
+			return true;
+		}
+		if (e.key === 'ArrowDown') {
+			e.preventDefault();
+			if (filteredMentionFiles.length > 0) {
+				mentionHighlight = (mentionHighlight + 1) % filteredMentionFiles.length;
+				void scrollHighlightedMentionIntoView();
+			}
+			return true;
+		}
+		if (e.key === 'ArrowUp') {
+			e.preventDefault();
+			if (filteredMentionFiles.length > 0) {
+				mentionHighlight =
+					(mentionHighlight - 1 + filteredMentionFiles.length) % filteredMentionFiles.length;
+				void scrollHighlightedMentionIntoView();
+			}
+			return true;
+		}
+		if (e.key === 'Tab' || e.key === 'Enter') {
+			const path = filteredMentionFiles[mentionHighlight];
+			if (!path) {
+				if (e.key === 'Tab') {
+					e.preventDefault();
+					return true;
+				}
+				return false;
+			}
+			e.preventDefault();
+			selectMentionFile(path);
+			return true;
+		}
+		return false;
+	}
+
+	function closeMentionMenu() {
+		mentionMenuOpen = false;
+		mentionQuery = '';
+	}
+
+	async function scrollHighlightedMentionIntoView() {
+		await tick();
+		const option = mentionMenu?.querySelector(`[data-mention-index="${mentionHighlight}"]`);
+		if (option instanceof HTMLElement) {
+			option.scrollIntoView({ block: 'nearest' });
+		}
+	}
+
+	function selectMentionFile(path: string) {
+		input?.insertFileMention(path);
+		closeMentionMenu();
+	}
+
+	function onMentionQuery(payload: { query: string; active: boolean }) {
+		if (!payload.active) {
+			closeMentionMenu();
+			return;
+		}
+		if (!mentionsEnabled) return;
+		mentionQuery = payload.query;
+		mentionMenuOpen = true;
+		mentionHighlight = 0;
 	}
 
 	async function scrollHighlightedSkillIntoView() {
@@ -665,6 +766,41 @@
 		</div>
 	{/if}
 
+	{#if mentionMenuOpen}
+		<div
+			class="skill-command-menu mention-menu"
+			role="listbox"
+			aria-label="Workspace files"
+			bind:this={mentionMenu}
+			transition:fly={{ y: 6, duration: 120 }}
+		>
+			{#if fileIndex?.loading && filteredMentionFiles.length === 0}
+				<p class="skill-command-empty">Indexing workspace...</p>
+			{:else if filteredMentionFiles.length === 0}
+				<p class="skill-command-empty">No matching files.</p>
+			{:else}
+				{#each filteredMentionFiles as path, index (path)}
+					<button
+						type="button"
+						class="skill-command-option mention-option"
+						class:highlighted={index === mentionHighlight}
+						data-mention-index={index}
+						role="option"
+						aria-selected={index === mentionHighlight}
+						onpointerenter={() => (mentionHighlight = index)}
+						onpointerdown={(e) => {
+							e.preventDefault();
+							selectMentionFile(path);
+						}}
+					>
+						<FileText size={14} stroke-width={1.8} />
+						<span class="mention-path">{path}</span>
+					</button>
+				{/each}
+			{/if}
+		</div>
+	{/if}
+
 	{#if queuedCount > 0}
 		<div
 			class="queue-picker"
@@ -722,6 +858,7 @@
 		bind:this={input}
 		bind:value
 		{skillNames}
+		{mentionsEnabled}
 		caretTrail={settingsStore.settings.appearance.caretTrail}
 		caretColor={settingsStore.settings.appearance.heroComposer.glowColor}
 		onkeydown={onKeydown}
@@ -731,6 +868,7 @@
 				? 'Type something. Anything.'
 				: 'Type something…'}
 		onfiles={(files) => void addImageFiles(files)}
+		onmentionquery={onMentionQuery}
 	/>
 
 	{#if images.length > 0}
@@ -958,6 +1096,27 @@
 		padding: 10px 12px;
 		font-size: 12px;
 		color: var(--text-muted);
+	}
+
+	.mention-option {
+		flex-direction: row;
+		align-items: center;
+		gap: 8px;
+		padding: 7px 10px;
+	}
+
+	.mention-option :global(svg) {
+		flex-shrink: 0;
+		color: var(--text-soft);
+	}
+
+	.mention-path {
+		font-size: 12px;
+		font-weight: 500;
+		color: var(--text-main);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 
 	.image-attachments {

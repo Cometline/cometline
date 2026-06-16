@@ -41,6 +41,18 @@ describe('startChat', () => {
 		expect(adapter.refreshSession).toHaveBeenCalled();
 	});
 
+	it('passes images and file paths to send', async () => {
+		const adapter = createAdapter({ hasVisibleConversation: true });
+		const images = [{ media_type: 'image/png' as const, data: 'abc', id: '1' }];
+
+		await startChat(adapter, { text: 'review', images, filePaths: ['README.md'] });
+
+		expect(adapter.send).toHaveBeenCalledWith(
+			{ text: 'review', images, filePaths: ['README.md'] },
+			{ skipUser: false }
+		);
+	});
+
 	it('runs the user message flight on every turn when provided', async () => {
 		const onUserMessageFlight = vi.fn().mockResolvedValue(undefined);
 		const onFirstTurnComplete = vi.fn();

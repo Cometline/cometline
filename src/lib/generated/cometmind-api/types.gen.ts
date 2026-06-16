@@ -42,6 +42,13 @@ export type WorkspaceListResponse = {
     workspaces: Array<Workspace>;
 };
 
+export type WorkspaceFileList = {
+    /**
+     * Workspace-relative file paths.
+     */
+    files: Array<string>;
+};
+
 export type PostMessageRequest = {
     /**
      * User input text. Required when images is empty.
@@ -51,6 +58,10 @@ export type PostMessageRequest = {
      * Optional base64 image attachments. Supported media types are image/png, image/jpeg, image/gif, and image/webp.
      */
     images?: Array<ImageAttachment>;
+    /**
+     * Workspace-relative file paths to include as context. Each file must be a readable text file at most 256 KB.
+     */
+    file_paths?: Array<string>;
 };
 
 export type ImageAttachment = {
@@ -495,6 +506,56 @@ export type CreateWorkspaceResponses = {
 };
 
 export type CreateWorkspaceResponse = CreateWorkspaceResponses[keyof CreateWorkspaceResponses];
+
+export type ListWorkspaceFilesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Registered workspace identifier.
+         */
+        workspace_id?: string;
+        /**
+         * Absolute workspace path for an already-registered workspace.
+         */
+        workspace_path?: string;
+        /**
+         * Optional substring filter on the relative file path.
+         */
+        q?: string;
+        /**
+         * Maximum number of results to return.
+         */
+        limit?: number;
+    };
+    url: '/api/v1/workspaces/files';
+};
+
+export type ListWorkspaceFilesErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type ListWorkspaceFilesError = ListWorkspaceFilesErrors[keyof ListWorkspaceFilesErrors];
+
+export type ListWorkspaceFilesResponses = {
+    /**
+     * Workspace file list
+     */
+    200: WorkspaceFileList;
+};
+
+export type ListWorkspaceFilesResponse = ListWorkspaceFilesResponses[keyof ListWorkspaceFilesResponses];
 
 export type ListSessionsData = {
     body?: never;

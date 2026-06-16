@@ -11,8 +11,10 @@
 		skillNames = [],
 		caretTrail = { enabled: true, intensity: 0.72, speed: 0.68 },
 		caretColor = '#72c0ff',
+		mentionsEnabled = true,
 		onkeydown,
-		onfiles
+		onfiles,
+		onmentionquery
 	}: {
 		value?: string;
 		placeholder?: string;
@@ -20,8 +22,10 @@
 		skillNames?: string[];
 		caretTrail?: CaretTrailSettings;
 		caretColor?: string;
+		mentionsEnabled?: boolean;
 		onkeydown?: (e: KeyboardEvent) => void;
 		onfiles?: (files: File[]) => void;
+		onmentionquery?: (payload: { query: string; active: boolean }) => void;
 	} = $props();
 
 	let wrap = $state<HTMLDivElement | null>(null);
@@ -38,6 +42,9 @@
 	// re-enter measurement via selectionchange.
 	let measuring = false;
 	let caretReady = $state(false);
+	// Mention state used by the parent composer to show/hide the file picker.
+	let lastMentionActive = $state(false);
+	let lastMentionQuery = $state('');
 	// Caret geometry in wrap-local coordinates.
 	let caretW = 2;
 	let caretH = 22.5;
@@ -96,6 +103,8 @@
 						out += child.dataset.url;
 					} else if (child.dataset.skillCommand) {
 						out += child.dataset.skillCommand;
+					} else if (child.dataset.filePath) {
+						out += '@' + child.dataset.filePath;
 					} else if (child.tagName === 'BR') {
 						out += '\n';
 					} else {
@@ -367,6 +376,86 @@
 		return chip;
 	}
 
+	function makeFileChip(path: string): HTMLElement {
+		const chip = document.createElement('span');
+		chip.className = 'rce-chip rce-file-chip';
+		chip.contentEditable = 'false';
+		chip.dataset.filePath = path;
+		chip.title = path;
+
+		const label = document.createElement('span');
+		label.className = 'rce-chip-label';
+		label.textContent = '@' + path;
+		chip.appendChild(label);
+		return chip;
+	}
+
+	const mentionQueryChars = /^[a-zA-Z0-9_/\.\-]*$/;
+
+	interface ActiveMention {
+		query: string;
+		range: Range;
+	}
+
+	function findActiveMention(): ActiveMention | null {
+		if (!editor || !mentionsEnabled) return null;
+		const sel = window.getSelection();
+		if (!sel || sel.rangeCount === 0) return null;
+		const focusNode = sel.focusNode;
+		if (!focusNode || focusNode.nodeType !== Node.TEXT_NODE) return null;
+		if (!editor.contains(focusNode)) return null;
+
+		const text = focusNode.textContent ?? '';
+		const offset = sel.focusOffset;
+
+		let atIndex = -1;
+		for (let i = offset - 1; i >= 0; i--) {
+			const ch = text[i];
+			if (ch === '@') {
+				atIndex = i;
+				break;
+			}
+			if (/\s/.test(ch)) break;
+		}
+		if (atIndex < 0) return null;
+
+		// Require a word boundary before the '@' so email addresses don't trigger.
+		if (atIndex > 0 && !/\s/.test(text[atIndex - 1])) return null;
+
+		const query = text.slice(atIndex + 1, offset);
+		if (!mentionQueryChars.test(query)) return null;
+
+		const range = document.createRange();
+		range.setStart(focusNode, atIndex);
+		range.setEnd(focusNode, offset);
+		return { query, range };
+	}
+
+	function updateMentionState() {
+		if (!editor) return;
+		const mention = findActiveMention();
+		const active = mention !== null;
+		const query = mention?.query ?? '';
+		if (active !== lastMentionActive || query !== lastMentionQuery) {
+			lastMentionActive = active;
+			lastMentionQuery = query;
+			onmentionquery?.({ query, active });
+		}
+	}
+
+	function replaceRangeWithNodes(range: Range, nodes: Node[]) {
+		range.deleteContents();
+		const frag = document.createDocumentFragment();
+		for (const node of nodes) {
+			frag.appendChild(node);
+		}
+		range.insertNode(frag);
+		range.collapse(false);
+		const sel = window.getSelection();
+		sel?.removeAllRanges();
+		sel?.addRange(range);
+	}
+
 	function escapeRegex(value: string): string {
 		return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 	}
@@ -530,6 +619,7 @@
 		syncing = false;
 		readValue();
 		scheduleCaretMeasure();
+		updateMentionState();
 	}
 
 	function onPaste(e: ClipboardEvent) {
@@ -625,6 +715,48 @@
 		insertPlainText(text);
 	}
 
+	export function insertFileMention(path: string) {
+		if (!editor) return;
+		const mention = findActiveMention();
+		const chip = makeFileChip(path);
+		const space = document.createTextNode('\u00a0');
+		syncing = true;
+		if (mention) {
+			replaceRangeWithNodes(mention.range, [chip, space]);
+		} else {
+			editor.focus({ preventScroll: true });
+			const sel = window.getSelection();
+			const range = sel && sel.rangeCount > 0 ? sel.getRangeAt(0) : null;
+			if (range && editor.contains(range.commonAncestorContainer)) {
+				replaceRangeWithNodes(range, [chip, space]);
+			} else {
+				editor.appendChild(chip);
+				editor.appendChild(space);
+				const endRange = document.createRange();
+				endRange.selectNodeContents(editor);
+				endRange.collapse(false);
+				sel?.removeAllRanges();
+				sel?.addRange(endRange);
+			}
+		}
+		decorateEditor();
+		syncing = false;
+		readValue();
+		scheduleCaretMeasure();
+		updateMentionState();
+	}
+
+	export function getFilePaths(): string[] {
+		if (!editor) return [];
+		const chips = editor.querySelectorAll('.rce-file-chip');
+		const paths: string[] = [];
+		for (const chip of chips) {
+			const path = (chip as HTMLElement).dataset.filePath;
+			if (path) paths.push(path);
+		}
+		return paths;
+	}
+
 	export function setText(text: string) {
 		if (!editor) {
 			value = text;
@@ -670,7 +802,10 @@
 			resetCaretTrail();
 			return;
 		}
-		const onSelectionChange = () => scheduleCaretMeasure();
+		const onSelectionChange = () => {
+			scheduleCaretMeasure();
+			updateMentionState();
+		};
 		const onResize = () => scheduleCaretMeasure();
 		document.addEventListener('selectionchange', onSelectionChange);
 		window.addEventListener('resize', onResize);
@@ -827,6 +962,13 @@
 		border-color: rgba(37, 99, 235, 0.18);
 		background: rgba(37, 99, 235, 0.06);
 		color: #31517a;
+		font-weight: 650;
+	}
+
+	.rce-editor :global(.rce-file-chip) {
+		border-color: rgba(16, 185, 129, 0.22);
+		background: rgba(16, 185, 129, 0.07);
+		color: #1d5c42;
 		font-weight: 650;
 	}
 

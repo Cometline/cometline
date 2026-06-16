@@ -4,6 +4,7 @@ export interface PendingMessage {
 	sessionId: string;
 	text: string;
 	images?: ImageAttachment[];
+	filePaths?: string[];
 }
 
 function createSessionStore() {
@@ -34,8 +35,13 @@ function createSessionStore() {
 		if (current?.id === id) current = null;
 	}
 
-	function queuePendingMessage(sessionId: string, text: string, images?: ImageAttachment[]) {
-		pendingMessage = { sessionId, text, images };
+	function queuePendingMessage(
+		sessionId: string,
+		text: string,
+		images?: ImageAttachment[],
+		filePaths?: string[]
+	) {
+		pendingMessage = { sessionId, text, images, filePaths };
 	}
 
 	function hasPendingMessage(sessionId: string) {
@@ -44,7 +50,11 @@ function createSessionStore() {
 
 	function takePendingMessage(sessionId: string): Omit<PendingMessage, 'sessionId'> | null {
 		if (pendingMessage?.sessionId !== sessionId) return null;
-		const message = { text: pendingMessage.text, images: pendingMessage.images };
+		const message = {
+			text: pendingMessage.text,
+			images: pendingMessage.images,
+			filePaths: pendingMessage.filePaths
+		};
 		pendingMessage = null;
 		return message;
 	}

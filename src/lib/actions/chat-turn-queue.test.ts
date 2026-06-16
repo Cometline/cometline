@@ -14,6 +14,17 @@ describe('createChatTurnQueue', () => {
 		expect(queue.processing).toBe(false);
 	});
 
+	it('passes images and file paths to the turn', async () => {
+		const runTurn = vi.fn().mockResolvedValue(undefined);
+		const queue = createChatTurnQueue(runTurn);
+		const images = [{ media_type: 'image/png' as const, data: 'abc', id: '1' }];
+
+		await queue.enqueue('hello', images, ['README.md']);
+
+		expect(runTurn).toHaveBeenCalledTimes(1);
+		expect(runTurn).toHaveBeenCalledWith('hello', images, ['README.md']);
+	});
+
 	it('does not place the first idle submit in the pending queue', async () => {
 		let releaseFirst: (() => void) | undefined;
 		const firstGate = new Promise<void>((resolve) => {

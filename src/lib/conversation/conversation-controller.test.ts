@@ -84,6 +84,18 @@ describe('createConversationController', () => {
 		expect(send).toHaveBeenCalledWith('hello again', { skipUser: false });
 	});
 
+	it('passes file paths through to send', async () => {
+		const { controller, send } = createDeps({ hasVisibleConversation: true });
+		const images = [{ media_type: 'image/png' as const, data: 'abc', id: '1' }];
+
+		await controller.enqueue('review', images, ['README.md']);
+
+		expect(send).toHaveBeenCalledWith(
+			{ text: 'review', images, filePaths: ['README.md'] },
+			{ skipUser: false }
+		);
+	});
+
 	it('calls onFirstTurnComplete and clears awaiting state after first turn', async () => {
 		const onFirstTurnComplete = vi.fn();
 		const onAwaitingFirstAssistantChange = vi.fn();

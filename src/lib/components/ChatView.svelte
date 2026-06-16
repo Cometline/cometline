@@ -137,9 +137,9 @@
 		}
 	});
 
-	function submit(text: string, images?: ImageAttachment[]) {
+	function submit(text: string, images?: ImageAttachment[], filePaths?: string[]) {
 		if (connectionState.status !== 'ready') return;
-		void conversation.enqueue(text, images);
+		void conversation.enqueue(text, images, filePaths);
 	}
 
 	function stop() {

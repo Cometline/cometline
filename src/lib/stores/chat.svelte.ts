@@ -373,7 +373,8 @@ function createChatStore() {
 				nextSessionID,
 				{
 					text,
-					images: images?.map((image) => ({ media_type: image.media_type, data: image.data }))
+					images: images?.map((image) => ({ media_type: image.media_type, data: image.data })),
+					file_paths: payload.filePaths
 				},
 				signal
 			)) {

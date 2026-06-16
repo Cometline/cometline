@@ -9,10 +9,11 @@ export interface QueuedMessage {
 	id: string;
 	text: string;
 	images?: ImageAttachment[];
+	filePaths?: string[];
 }
 
 export interface ChatTurnQueue {
-	enqueue(text: string, images?: ImageAttachment[]): Promise<boolean>;
+	enqueue(text: string, images?: ImageAttachment[], filePaths?: string[]): Promise<boolean>;
 	remove(id: string): boolean;
 	clear(): void;
 	readonly pendingCount: number;
@@ -21,7 +22,7 @@ export interface ChatTurnQueue {
 }
 
 export function createChatTurnQueue(
-	runTurn: (text: string, images?: ImageAttachment[]) => Promise<void>,
+	runTurn: (text: string, images?: ImageAttachment[], filePaths?: string[]) => Promise<void>,
 	onChange?: () => void
 ): ChatTurnQueue {
 	let queue: QueuedMessage[] = [];
@@ -33,45 +34,59 @@ export function createChatTurnQueue(
 		onChange?.();
 	}
 
-	function createQueuedMessage(text: string, images?: ImageAttachment[]): QueuedMessage {
+	function createQueuedMessage(text: string, images?: ImageAttachment[], filePaths?: string[]): QueuedMessage {
 		nextID += 1;
-		return { id: `queued-${Date.now()}-${nextID}`, text, images };
+		return { id: `queued-${Date.now()}-${nextID}`, text, images, filePaths };
 	}
 
-	function signature(text: string, images?: ImageAttachment[]): string {
-		return JSON.stringify({ text, images: images?.map((image) => image.data) ?? [] });
+	function signature(text: string, images?: ImageAttachment[], filePaths?: string[]): string {
+		return JSON.stringify({
+			text,
+			images: images?.map((image) => image.data) ?? [],
+			filePaths: filePaths ?? []
+		});
 	}
 
-	function isDuplicate(text: string, images?: ImageAttachment[]): boolean {
-		const sig = signature(text, images);
+	function isDuplicate(text: string, images?: ImageAttachment[], filePaths?: string[]): boolean {
+		const sig = signature(text, images, filePaths);
 		if (activeTurnText === sig) return true;
 		const last = queue.at(-1);
-		return last ? signature(last.text, last.images) === sig : false;
+		return last ? signature(last.text, last.images, last.filePaths) === sig : false;
 	}
 
-	function queueTurn(text: string, images?: ImageAttachment[]): boolean {
-		if (isDuplicate(text, images)) return false;
-		queue.push(createQueuedMessage(text, images));
+	function queueTurn(text: string, images?: ImageAttachment[], filePaths?: string[]): boolean {
+		if (isDuplicate(text, images, filePaths)) return false;
+		queue.push(createQueuedMessage(text, images, filePaths));
 		notifyChange();
 		return true;
 	}
 
-	async function runTurnTracked(text: string, images?: ImageAttachment[]): Promise<void> {
-		activeTurnText = signature(text, images);
+	async function runTurnTracked(
+		text: string,
+		images?: ImageAttachment[],
+		filePaths?: string[]
+	): Promise<void> {
+		activeTurnText = signature(text, images, filePaths);
 		try {
-			if (images === undefined) {
+			if (images === undefined && filePaths === undefined) {
 				await runTurn(text);
-			} else {
+			} else if (filePaths === undefined) {
 				await runTurn(text, images);
+			} else {
+				await runTurn(text, images, filePaths);
 			}
 		} finally {
-			if (activeTurnText === signature(text, images)) activeTurnText = null;
+			if (activeTurnText === signature(text, images, filePaths)) activeTurnText = null;
 		}
 	}
 
-	async function runLoop(initialText?: string, initialImages?: ImageAttachment[]): Promise<boolean> {
+	async function runLoop(
+		initialText?: string,
+		initialImages?: ImageAttachment[],
+		initialFilePaths?: string[]
+	): Promise<boolean> {
 		if (processing) {
-			if (initialText !== undefined) return queueTurn(initialText, initialImages);
+			if (initialText !== undefined) return queueTurn(initialText, initialImages, initialFilePaths);
 			return false;
 		}
 
@@ -79,12 +94,12 @@ export function createChatTurnQueue(
 		notifyChange();
 		try {
 			if (initialText !== undefined) {
-				await runTurnTracked(initialText, initialImages);
+				await runTurnTracked(initialText, initialImages, initialFilePaths);
 			}
 			while (queue.length > 0) {
-				const { text, images } = queue.shift()!;
+				const { text, images, filePaths } = queue.shift()!;
 				notifyChange();
-				await runTurnTracked(text, images);
+				await runTurnTracked(text, images, filePaths);
 			}
 		} finally {
 			activeTurnText = null;
@@ -104,9 +119,9 @@ export function createChatTurnQueue(
 		get processing() {
 			return processing;
 		},
-		enqueue(text: string, images?: ImageAttachment[]) {
-			if (processing) return Promise.resolve(queueTurn(text, images));
-			return runLoop(text, images);
+		enqueue(text: string, images?: ImageAttachment[], filePaths?: string[]) {
+			if (processing) return Promise.resolve(queueTurn(text, images, filePaths));
+			return runLoop(text, images, filePaths);
 		},
 		remove(id: string) {
 			const index = queue.findIndex((item) => item.id === id);

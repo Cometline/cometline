@@ -27,7 +27,7 @@ import type { ImageAttachment } from '$lib/types';
 		shellStore.openSettings();
 	}
 
-	async function onSend(text: string, images?: ImageAttachment[]) {
+	async function onSend(text: string, images?: ImageAttachment[], filePaths?: string[]) {
 		const selectedModel = modelStore.selected;
 		if (!selectedModel) return;
 		const session = await createSession({
@@ -36,7 +36,7 @@ import type { ImageAttachment } from '$lib/types';
 			provider_id: selectedModel.providerId
 		});
 		sessionStore.appendSession(session);
-		sessionStore.queuePendingMessage(session.id, text, images);
+		sessionStore.queuePendingMessage(session.id, text, images, filePaths);
 		await goto(`/session/${session.id}`);
 	}
 </script>
