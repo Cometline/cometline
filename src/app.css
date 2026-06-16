@@ -38,7 +38,6 @@
 	--chat-avatar-size: 2.25rem;
 	--chat-row-gap: 0.625rem;
 	--chat-content-max: 34rem;
-	--chat-assistant-fill: 0.8;
 	--chat-thread-width: calc(
 		var(--chat-avatar-size) + var(--chat-row-gap) + var(--chat-content-max)
 	);

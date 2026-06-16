@@ -149,7 +149,6 @@
 <div
 	class="markdown"
 	class:user-text={mode === 'user'}
-	class:streaming-reveal={mode === 'assistant' && streaming && !reducedMotion}
 	onclick={onClick}
 >
 	{#if mode === 'user'}
@@ -170,23 +169,6 @@
 		white-space: normal;
 		word-break: break-word;
 		overflow-wrap: anywhere;
-	}
-
-	.markdown.streaming-reveal {
-		-webkit-mask-image: linear-gradient(
-			to bottom,
-			#000 0,
-			#000 calc(100% - 2.4em),
-			rgba(0, 0, 0, 0.84) calc(100% - 1.1em),
-			rgba(0, 0, 0, 0.32) 100%
-		);
-		mask-image: linear-gradient(
-			to bottom,
-			#000 0,
-			#000 calc(100% - 2.4em),
-			rgba(0, 0, 0, 0.84) calc(100% - 1.1em),
-			rgba(0, 0, 0, 0.32) 100%
-		);
 	}
 
 	.markdown-plain {

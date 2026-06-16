@@ -1043,7 +1043,7 @@
 			var(--chat-content-max),
 			calc(100% - var(--chat-avatar-size) - var(--chat-row-gap))
 		);
-		--chat-assistant-column: calc(var(--chat-content-column) * var(--chat-assistant-fill));
+		--chat-assistant-column: var(--chat-content-column);
 		width: min(var(--chat-thread-width), 100%);
 		margin: 0 auto;
 		display: flex;
