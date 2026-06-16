@@ -180,7 +180,7 @@ func (a *App) handlePutMemorySettings(c *gin.Context) {
 	if a.memory != nil {
 		a.memory.UpdateSettings(a.config.MemorySettings())
 	}
-	c.JSON(http.StatusOK, a.config.Memory)
+	c.JSON(http.StatusOK, a.config.EffectiveMemoryConfig())
 }
 
 func (a *App) handleCompactMemory(c *gin.Context) {

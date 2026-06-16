@@ -12,8 +12,10 @@ servers:
     description: Default local bind address
 tags:
   - name: Health
+  - name: Workspaces
   - name: Sessions
   - name: Skills
+  - name: Memory
 paths:
   /api/v1/health:
     get:
@@ -29,6 +31,32 @@ paths:
                 $ref: '#/components/schemas/HealthResponse'
               example:
                 status: ok
+
+  /api/v1/workspaces:
+    post:
+      tags: [Workspaces]
+      summary: Register or resolve a workspace by path
+      description: |
+        Ensures a workspace exists for the given absolute filesystem path.
+        Returns the registered workspace id and normalized path.
+      operationId: createWorkspace
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWorkspaceRequest'
+      responses:
+        '201':
+          description: Workspace registered or resolved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workspace'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
 
   /api/v1/sessions:
     post:
@@ -265,13 +293,14 @@ paths:
       description: |
         Accepts text and optional base64 image attachments, then responds with `text/event-stream`.
 
-        The SSE payloads reuse CometMind-native event names:
+        The SSE payloads reuse CometMind-native event names discriminated by `type`:
         `text_delta`, `reasoning_start`, `reasoning_delta`, `tool_call`,
         `tool_result`, `step_finish`, `subagent_started`, `subagent_progress`,
-        `subagent_finished`, `error`, and `done`.
+        `subagent_awaiting_input`, `subagent_finished`, `memory_injected`,
+        `memory_updated`, `error`, and `done`.
 
-        `tool_call.input` is opaque JSON.
-        `tool_result.output` is text.
+        Each `data:` frame body matches `#/components/schemas/StreamEvent`.
+        `tool_call.input` is a JSON object. `tool_result.output` is text.
       operationId: postSessionMessage
       parameters:
         - $ref: '#/components/parameters/SessionId'
@@ -292,34 +321,7 @@ paths:
           content:
             text/event-stream:
               schema:
-                type: string
-                description: |
-                  A sequence of SSE `data:` frames. Each frame body is one JSON event object.
-              examples:
-                minimalConversation:
-                  summary: Text, tool, step, and done events
-                  value: |-
-                    data: {"type":"reasoning_start"}
-
-                    data: {"type":"reasoning_delta","text":"I should inspect the session service first."}
-
-                    data: {"type":"tool_call","id":"tc_01","tool":"read_file","input":{"path":"internal/session/service.go"}}
-
-                    data: {"type":"tool_result","id":"tc_01","tool":"read_file","output":"package session\n\nimport (\n\t\"context\"\n..."}
-
-                    data: {"type":"text_delta","delta":"The HTTP layer should resolve workspaces through SessionService."}
-
-                    data: {"type":"step_finish","usage":{"input_tokens":1200,"output_tokens":340,"cache_read":0,"cache_write":0}}
-
-                    data: {"type":"done"}
-                withError:
-                  summary: Stream ending with an error event
-                  value: |-
-                    data: {"type":"text_delta","delta":"Starting request..."}
-
-                    data: {"type":"error","message":"provider returned an error","code":"llm"}
-
-                    data: {"type":"done"}
+                $ref: '#/components/schemas/StreamEvent'
         '400':
           $ref: '#/components/responses/BadRequest'
         '404':
@@ -389,7 +391,7 @@ paths:
           content:
             text/event-stream:
               schema:
-                type: string
+                $ref: '#/components/schemas/StreamEvent'
         '400':
           $ref: '#/components/responses/BadRequest'
         '404':
@@ -541,22 +543,62 @@ paths:
       responses:
         '200':
           description: Memory list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListMemoriesResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
     post:
       tags: [Memory]
       summary: Create a manual memory
       operationId: createMemory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMemoryRequest'
       responses:
         '201':
           description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemoryResource'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '503':
+          description: Memory subsystem disabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimpleErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
 
   /api/v1/memories/search:
     post:
       tags: [Memory]
       summary: Semantic memory search
       operationId: searchMemories
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SearchMemoryRequest'
       responses:
         '200':
           description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListMemoriesResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
 
   /api/v1/memories/{id}:
     patch:
@@ -569,9 +611,29 @@ paths:
           required: true
           schema:
             type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMemoryRequest'
       responses:
         '200':
           description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemoryResource'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '503':
+          description: Memory subsystem disabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimpleErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
     delete:
       tags: [Memory]
       summary: Delete a memory
@@ -585,6 +647,16 @@ paths:
       responses:
         '204':
           description: Deleted
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '503':
+          description: Memory subsystem disabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimpleErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
 
   /api/v1/memory/settings:
     get:
@@ -594,13 +666,33 @@ paths:
       responses:
         '200':
           description: Settings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemorySettings'
+        '500':
+          $ref: '#/components/responses/InternalError'
     put:
       tags: [Memory]
       summary: Update memory settings
       operationId: putMemorySettings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MemorySettings'
       responses:
         '200':
           description: Updated settings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemorySettings'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
 
   /api/v1/memory/compact:
     post:
@@ -610,6 +702,18 @@ paths:
       responses:
         '200':
           description: Compaction started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusResponse'
+        '503':
+          description: Memory subsystem disabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimpleErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
 
   /api/v1/memory/compact/preview:
     get:
@@ -619,6 +723,12 @@ paths:
       responses:
         '200':
           description: Preview
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompactMemoryPreviewResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
 
 components:
   parameters:
@@ -729,6 +839,9 @@ components:
       additionalProperties: false
       required: [media_type, data]
       properties:
+        id:
+          type: string
+          description: Client-only identifier for UI attachment lists; not sent to CometMind.
         media_type:
           type: string
           enum: [image/png, image/jpeg, image/gif, image/webp]
@@ -947,6 +1060,469 @@ components:
         permission_option_id:
           type: string
           description: Selected permission option when the child is awaiting permission.
+
+    CreateWorkspaceRequest:
+      type: object
+      additionalProperties: false
+      required: [workspace_path]
+      properties:
+        workspace_path:
+          type: string
+          description: Absolute filesystem path for the workspace.
+
+    Workspace:
+      type: object
+      additionalProperties: false
+      required: [id, path]
+      properties:
+        id:
+          type: string
+        path:
+          type: string
+
+    PermissionOption:
+      type: object
+      additionalProperties: false
+      required: [id, kind, name]
+      properties:
+        id:
+          type: string
+        kind:
+          type: string
+        name:
+          type: string
+
+    MemoryWire:
+      type: object
+      additionalProperties: false
+      required: [id, content, kind, similarity, effective_weight]
+      properties:
+        id:
+          type: string
+        content:
+          type: string
+        kind:
+          type: string
+        similarity:
+          type: number
+        effective_weight:
+          type: number
+
+    MemoryChangeWire:
+      type: object
+      additionalProperties: false
+      required: [action, kind, content]
+      properties:
+        action:
+          type: string
+          enum: [create, update, supersede]
+        kind:
+          type: string
+        content:
+          type: string
+        id:
+          type: string
+
+    TextDeltaEvent:
+      type: object
+      additionalProperties: false
+      required: [type, delta]
+      properties:
+        type:
+          type: string
+          const: text_delta
+        delta:
+          type: string
+
+    ReasoningStartEvent:
+      type: object
+      additionalProperties: false
+      required: [type]
+      properties:
+        type:
+          type: string
+          const: reasoning_start
+
+    ReasoningDeltaEvent:
+      type: object
+      additionalProperties: false
+      required: [type, text]
+      properties:
+        type:
+          type: string
+          const: reasoning_delta
+        text:
+          type: string
+
+    ToolCallEvent:
+      type: object
+      additionalProperties: false
+      required: [type, id, tool, input]
+      properties:
+        type:
+          type: string
+          const: tool_call
+        id:
+          type: string
+        tool:
+          type: string
+        input:
+          type: object
+          additionalProperties: true
+
+    ToolResultEvent:
+      type: object
+      additionalProperties: false
+      required: [type, id, tool, output]
+      properties:
+        type:
+          type: string
+          const: tool_result
+        id:
+          type: string
+        tool:
+          type: string
+        output:
+          type: string
+        error:
+          type: string
+
+    StepFinishEvent:
+      type: object
+      additionalProperties: false
+      required: [type, usage]
+      properties:
+        type:
+          type: string
+          const: step_finish
+        usage:
+          $ref: '#/components/schemas/TokenUsage'
+
+    SubagentStartedEvent:
+      type: object
+      additionalProperties: false
+      required: [type, child_session_id, purpose, agent_name]
+      properties:
+        type:
+          type: string
+          const: subagent_started
+        child_session_id:
+          type: string
+        purpose:
+          type: string
+        agent_name:
+          type: string
+
+    SubagentProgressEvent:
+      type: object
+      additionalProperties: false
+      required: [type, child_session_id, progress_kind, progress_text]
+      properties:
+        type:
+          type: string
+          const: subagent_progress
+        child_session_id:
+          type: string
+        progress_kind:
+          type: string
+        progress_text:
+          type: string
+
+    SubagentAwaitingInputEvent:
+      type: object
+      additionalProperties: false
+      required: [type, child_session_id, kind, question]
+      properties:
+        type:
+          type: string
+          const: subagent_awaiting_input
+        child_session_id:
+          type: string
+        kind:
+          type: string
+        question:
+          type: string
+        permission_options:
+          type: array
+          items:
+            $ref: '#/components/schemas/PermissionOption'
+
+    SubagentFinishedEvent:
+      type: object
+      additionalProperties: false
+      required: [type, child_session_id, delegation_status, summary]
+      properties:
+        type:
+          type: string
+          const: subagent_finished
+        child_session_id:
+          type: string
+        delegation_status:
+          type: string
+        summary:
+          type: string
+
+    MemoryInjectedEvent:
+      type: object
+      additionalProperties: false
+      required: [type, memories]
+      properties:
+        type:
+          type: string
+          const: memory_injected
+        memories:
+          type: array
+          items:
+            $ref: '#/components/schemas/MemoryWire'
+
+    MemoryUpdatedEvent:
+      type: object
+      additionalProperties: false
+      required: [type, changes]
+      properties:
+        type:
+          type: string
+          const: memory_updated
+        changes:
+          type: array
+          items:
+            $ref: '#/components/schemas/MemoryChangeWire'
+
+    ErrorEvent:
+      type: object
+      additionalProperties: false
+      required: [type, message]
+      properties:
+        type:
+          type: string
+          const: error
+        message:
+          type: string
+        code:
+          type: string
+
+    DoneEvent:
+      type: object
+      additionalProperties: false
+      required: [type]
+      properties:
+        type:
+          type: string
+          const: done
+
+    StreamEvent:
+      oneOf:
+        - $ref: '#/components/schemas/TextDeltaEvent'
+        - $ref: '#/components/schemas/ReasoningStartEvent'
+        - $ref: '#/components/schemas/ReasoningDeltaEvent'
+        - $ref: '#/components/schemas/ToolCallEvent'
+        - $ref: '#/components/schemas/ToolResultEvent'
+        - $ref: '#/components/schemas/StepFinishEvent'
+        - $ref: '#/components/schemas/SubagentStartedEvent'
+        - $ref: '#/components/schemas/SubagentProgressEvent'
+        - $ref: '#/components/schemas/SubagentAwaitingInputEvent'
+        - $ref: '#/components/schemas/SubagentFinishedEvent'
+        - $ref: '#/components/schemas/MemoryInjectedEvent'
+        - $ref: '#/components/schemas/MemoryUpdatedEvent'
+        - $ref: '#/components/schemas/ErrorEvent'
+        - $ref: '#/components/schemas/DoneEvent'
+      discriminator:
+        propertyName: type
+        mapping:
+          text_delta: '#/components/schemas/TextDeltaEvent'
+          reasoning_start: '#/components/schemas/ReasoningStartEvent'
+          reasoning_delta: '#/components/schemas/ReasoningDeltaEvent'
+          tool_call: '#/components/schemas/ToolCallEvent'
+          tool_result: '#/components/schemas/ToolResultEvent'
+          step_finish: '#/components/schemas/StepFinishEvent'
+          subagent_started: '#/components/schemas/SubagentStartedEvent'
+          subagent_progress: '#/components/schemas/SubagentProgressEvent'
+          subagent_awaiting_input: '#/components/schemas/SubagentAwaitingInputEvent'
+          subagent_finished: '#/components/schemas/SubagentFinishedEvent'
+          memory_injected: '#/components/schemas/MemoryInjectedEvent'
+          memory_updated: '#/components/schemas/MemoryUpdatedEvent'
+          error: '#/components/schemas/ErrorEvent'
+          done: '#/components/schemas/DoneEvent'
+
+    MemoryResource:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - scope
+        - kind
+        - content
+        - source
+        - base_weight
+        - effective_weight
+        - access_count
+        - pinned
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+        scope:
+          type: string
+        kind:
+          type: string
+        content:
+          type: string
+        source:
+          type: string
+        base_weight:
+          type: number
+        effective_weight:
+          type: number
+        access_count:
+          type: integer
+          format: int64
+        pinned:
+          type: boolean
+        last_accessed_at:
+          type: integer
+          format: int64
+          description: Unix epoch milliseconds.
+        created_at:
+          type: integer
+          format: int64
+          description: Unix epoch milliseconds.
+        updated_at:
+          type: integer
+          format: int64
+          description: Unix epoch milliseconds.
+        similarity:
+          type: number
+
+    ListMemoriesResponse:
+      type: object
+      additionalProperties: false
+      required: [memories]
+      properties:
+        memories:
+          type: array
+          items:
+            $ref: '#/components/schemas/MemoryResource'
+
+    CreateMemoryRequest:
+      type: object
+      additionalProperties: false
+      required: [content]
+      properties:
+        content:
+          type: string
+        kind:
+          type: string
+        pinned:
+          type: boolean
+        base_weight:
+          type: number
+
+    UpdateMemoryRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        content:
+          type: string
+        kind:
+          type: string
+        pinned:
+          type: boolean
+        base_weight:
+          type: number
+
+    SearchMemoryRequest:
+      type: object
+      additionalProperties: false
+      required: [query]
+      properties:
+        query:
+          type: string
+        limit:
+          type: integer
+
+    MemoryLifecycleSettings:
+      type: object
+      additionalProperties: false
+      properties:
+        decay_half_life_days:
+          type: number
+        forget_threshold:
+          type: number
+        usage_boost_factor:
+          type: number
+        max_usage_boost:
+          type: number
+        max_memories:
+          type: integer
+        compaction_target_ratio:
+          type: number
+        compaction_on_extract:
+          type: boolean
+
+    MemoryEmbeddingSettings:
+      type: object
+      additionalProperties: false
+      properties:
+        provider_id:
+          type: string
+        provider:
+          type: string
+        model:
+          type: string
+        base_url:
+          type: string
+        api_key:
+          type: string
+
+    MemorySettings:
+      type: object
+      additionalProperties: false
+      properties:
+        enabled:
+          type: boolean
+        auto_extract:
+          type: boolean
+        auto_retrieve:
+          type: boolean
+        max_retrieved:
+          type: integer
+        similarity_threshold:
+          type: number
+        extraction_model:
+          type: string
+        lifecycle:
+          $ref: '#/components/schemas/MemoryLifecycleSettings'
+        embedding:
+          $ref: '#/components/schemas/MemoryEmbeddingSettings'
+
+    CompactMemoryPreviewResponse:
+      type: object
+      additionalProperties: false
+      required: [to_forget, to_merge, active, max_memories]
+      properties:
+        to_forget:
+          type: array
+          items:
+            $ref: '#/components/schemas/MemoryResource'
+        to_merge:
+          type: array
+          items:
+            type: array
+            items:
+              $ref: '#/components/schemas/MemoryResource'
+        active:
+          type: integer
+        max_memories:
+          type: integer
+
+    SimpleErrorResponse:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: string
 
     ErrorResponse:
       type: object

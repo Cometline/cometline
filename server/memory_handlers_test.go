@@ -65,7 +65,15 @@ func TestMemorySettingsGetPut(t *testing.T) {
 		t.Fatalf("expected snake_case enabled key, got %v", payload)
 	}
 
-	body, _ := json.Marshal(map[string]any{"enabled": false})
+	body, _ := json.Marshal(map[string]any{
+		"enabled":              false,
+		"auto_extract":         true,
+		"auto_retrieve":        true,
+		"max_retrieved":        cfg.Memory.MaxRetrieved,
+		"similarity_threshold": cfg.Memory.SimilarityThreshold,
+		"lifecycle":            cfg.Memory.Lifecycle,
+		"embedding":            cfg.Memory.Embedding,
+	})
 	rec = httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPut, "/api/v1/memory/settings", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")

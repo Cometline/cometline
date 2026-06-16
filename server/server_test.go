@@ -13,6 +13,7 @@ import (
 
 	cometsdk "github.com/cometline/comet-sdk"
 	"github.com/cometline/cometmind/internal/config"
+	"github.com/cometline/cometmind/internal/contract"
 	"github.com/cometline/cometmind/internal/event"
 	"github.com/cometline/cometmind/internal/session"
 	"github.com/cometline/cometmind/internal/skills"
@@ -372,6 +373,12 @@ func TestPostMessageStreamsSSEAndPersistsUserTurn(t *testing.T) {
 		}
 	}
 
+	for _, frame := range parseSSEDataFrames(body) {
+		if err := contract.ValidateStreamEventJSON(frame); err != nil {
+			t.Fatalf("ValidateStreamEventJSON() error = %v\nframe: %s", err, frame)
+		}
+	}
+
 	msgs, err := svc.BuildSDKMessages(ctx, sess.ID)
 	if err != nil {
 		t.Fatalf("BuildSDKMessages() error = %v", err)
@@ -664,4 +671,20 @@ func decodeJSON(t *testing.T, raw []byte, dst any) {
 func mustJSON(s string) string {
 	raw, _ := json.Marshal(s)
 	return string(raw)
+}
+
+func parseSSEDataFrames(body string) [][]byte {
+	var frames [][]byte
+	for _, line := range strings.Split(body, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if !strings.HasPrefix(trimmed, "data:") {
+			continue
+		}
+		payload := strings.TrimSpace(strings.TrimPrefix(trimmed, "data:"))
+		if payload == "" || payload == "[DONE]" {
+			continue
+		}
+		frames = append(frames, []byte(payload))
+	}
+	return frames
 }
