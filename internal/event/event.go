@@ -21,6 +21,8 @@ const (
 	KindSubagentProgress   Kind = "subagent_progress"
 	KindSubagentAwaitingInput Kind = "subagent_awaiting_input"
 	KindSubagentFinished   Kind = "subagent_finished"
+	KindMemoryInjected     Kind = "memory_injected"
+	KindMemoryUpdated      Kind = "memory_updated"
 	KindError              Kind = "error"
 	KindDone           Kind = "done"
 )
@@ -29,6 +31,23 @@ type PermissionOptionWire struct {
 	ID   string `json:"id"`
 	Kind string `json:"kind"`
 	Name string `json:"name"`
+}
+
+// MemoryWire is the SSE payload for an injected memory.
+type MemoryWire struct {
+	ID              string  `json:"id"`
+	Content         string  `json:"content"`
+	Kind            string  `json:"kind"`
+	Similarity      float64 `json:"similarity"`
+	EffectiveWeight float64 `json:"effective_weight"`
+}
+
+// MemoryChangeWire is the SSE payload for a memory create/update/supersede.
+type MemoryChangeWire struct {
+	Action  string `json:"action"`
+	Kind    string `json:"kind"`
+	Content string `json:"content"`
+	ID      string `json:"id,omitempty"`
 }
 
 // Usage mirrors the SSE token-usage payload (one source of truth for the wire).
@@ -70,6 +89,10 @@ type Event struct {
 	AwaitingKind   string
 	Question       string
 	PermissionOptions []PermissionOptionWire
+	// memory_injected
+	Memories []MemoryWire
+	// memory_updated
+	MemoryChanges []MemoryChangeWire
 	// error
 	Message string
 	Code    string
@@ -145,6 +168,16 @@ func (e Event) MarshalJSON() ([]byte, error) {
 			DelegationStatus string `json:"delegation_status"`
 			Summary          string `json:"summary"`
 		}{t, e.ChildSessionID, e.DelegationStatus, e.Summary})
+	case KindMemoryInjected:
+		return json.Marshal(struct {
+			Type     string       `json:"type"`
+			Memories []MemoryWire `json:"memories"`
+		}{t, e.Memories})
+	case KindMemoryUpdated:
+		return json.Marshal(struct {
+			Type    string             `json:"type"`
+			Changes []MemoryChangeWire `json:"changes"`
+		}{t, e.MemoryChanges})
 	case KindError:
 		return json.Marshal(struct {
 			Type    string `json:"type"`
@@ -224,6 +257,16 @@ func SubagentAwaitingInput(childSessionID, kind, question string, options []Perm
 		Question:          question,
 		PermissionOptions: options,
 	}
+}
+
+// MemoryInjected builds a memory_injected event.
+func MemoryInjected(wire []MemoryWire) Event {
+	return Event{Kind: KindMemoryInjected, Memories: wire}
+}
+
+// MemoryUpdated builds a memory_updated event.
+func MemoryUpdated(changes []MemoryChangeWire) Event {
+	return Event{Kind: KindMemoryUpdated, MemoryChanges: changes}
 }
 
 // SubagentFinished builds a subagent_finished event.

@@ -16,6 +16,7 @@ import (
 	"github.com/cometline/cometmind/internal/acp"
 	"github.com/cometline/cometmind/internal/agent"
 	"github.com/cometline/cometmind/internal/config"
+	"github.com/cometline/cometmind/internal/memory"
 	"github.com/cometline/cometmind/internal/paths"
 	"github.com/cometline/cometmind/internal/provider"
 	"github.com/cometline/cometmind/internal/session"
@@ -29,6 +30,7 @@ type Runtime struct {
 	Config       *config.Config
 	DB           *sql.DB
 	Sessions     *session.Service
+	Memory       *memory.Service
 	SystemPrompt string
 	acpMgr       *acp.SessionManager
 }
@@ -53,11 +55,21 @@ func New(ctx context.Context) (*Runtime, error) {
 		return nil, fmt.Errorf("open sqlite: %w", err)
 	}
 
+	sessions := session.New(sqlDB)
 	r := &Runtime{
 		Config:       cfg,
 		DB:           sqlDB,
-		Sessions:     session.New(sqlDB),
+		Sessions:     sessions,
 		SystemPrompt: systemPrompt,
+	}
+	if cfg.Memory.Enabled || cfg.Memory.AutoExtract || cfg.Memory.AutoRetrieve {
+		p, err := provider.New(cfg)
+		if err == nil {
+			mem, err := memory.NewService(sqlDB, cfg.MemorySettings(), p, sessions)
+			if err == nil {
+				r.Memory = mem
+			}
+		}
 	}
 	return r, nil
 }
@@ -117,6 +129,7 @@ func (r *Runtime) RunnerFor(sess session.Session, workspacePath string) (*agent.
 	return &agent.Runner{
 		Provider:     p,
 		Sessions:     r.Sessions,
+		Memory:       r.Memory,
 		Registry:     tools.NewRegistry(workspacePath, tools.RegistryOptions{Sessions: r.Sessions, ACP: r.Config.ACPSettings(), ACPMgr: r.ACPManager(), Skills: &skillRegistry}),
 		MaxSteps:     r.Config.MaxSteps,
 		MaxTokens:    r.Config.MaxTokens,

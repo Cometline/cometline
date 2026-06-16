@@ -74,6 +74,7 @@ type Config struct {
 	Providers        []ProviderEntry `mapstructure:"providers"`
 	ACP              ACPConfig       `mapstructure:"acp"`
 	Skills           SkillsConfig    `mapstructure:"skills"`
+	Memory           MemoryConfig    `mapstructure:"memory"`
 	Gateway          GatewayConfig   `mapstructure:"gateway"`
 }
 
@@ -86,6 +87,7 @@ func Defaults() *Config {
 		MaxSteps:  50,
 		ACP:       ACPConfig{Interactive: true},
 		Skills:    SkillsConfig{Enabled: true, IncludeOpenCode: true, IncludeClaude: true},
+		Memory:    defaultMemoryConfig(),
 	}
 }
 
@@ -118,6 +120,21 @@ func Load() (*Config, error) {
 	v.SetDefault("skills.include_opencode", def.Skills.IncludeOpenCode)
 	v.SetDefault("skills.include_claude", def.Skills.IncludeClaude)
 	v.SetDefault("skills.mirror_to_cometmind", def.Skills.MirrorToCometMind)
+	memDef := defaultMemoryConfig()
+	v.SetDefault("memory.enabled", memDef.Enabled)
+	v.SetDefault("memory.auto_extract", memDef.AutoExtract)
+	v.SetDefault("memory.auto_retrieve", memDef.AutoRetrieve)
+	v.SetDefault("memory.max_retrieved", memDef.MaxRetrieved)
+	v.SetDefault("memory.similarity_threshold", memDef.SimilarityThreshold)
+	v.SetDefault("memory.lifecycle.decay_half_life_days", memDef.Lifecycle.DecayHalfLifeDays)
+	v.SetDefault("memory.lifecycle.forget_threshold", memDef.Lifecycle.ForgetThreshold)
+	v.SetDefault("memory.lifecycle.usage_boost_factor", memDef.Lifecycle.UsageBoostFactor)
+	v.SetDefault("memory.lifecycle.max_usage_boost", memDef.Lifecycle.MaxUsageBoost)
+	v.SetDefault("memory.lifecycle.max_memories", memDef.Lifecycle.MaxMemories)
+	v.SetDefault("memory.lifecycle.compaction_target_ratio", memDef.Lifecycle.CompactionTargetRatio)
+	v.SetDefault("memory.lifecycle.compaction_on_extract", memDef.Lifecycle.CompactionOnExtract)
+	v.SetDefault("memory.embedding.provider", memDef.Embedding.Provider)
+	v.SetDefault("memory.embedding.model", memDef.Embedding.Model)
 
 	if _, err := os.Stat(cfgPath); errors.Is(err, os.ErrNotExist) {
 		if err := writeDefaultFile(cfgPath, def); err != nil {

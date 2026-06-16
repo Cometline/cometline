@@ -51,6 +51,7 @@ func runServe(_ *cobra.Command, _ []string) error {
 	engine, err := server.New(server.Deps{
 		Config:   rt.Config,
 		Sessions: rt.Sessions,
+		Memory:   rt.Memory,
 		ACPMgr:   rt.ACPManager(),
 		NewRunner: func(sess session.Session, workspacePath string) (server.Runner, error) {
 			return rt.RunnerFor(sess, workspacePath)

@@ -9,6 +9,7 @@ import (
 	cometsdk "github.com/cometline/comet-sdk"
 	"github.com/cometline/comet-sdk/llm"
 	"github.com/cometline/cometmind/internal/event"
+	"github.com/cometline/cometmind/internal/memory"
 	"github.com/cometline/cometmind/internal/session"
 	"github.com/cometline/cometmind/internal/tools"
 )
@@ -29,6 +30,7 @@ type TurnStore interface {
 type Runner struct {
 	Provider cometsdk.Provider
 	Sessions TurnStore
+	Memory   *memory.Service
 	Registry *tools.Registry
 
 	MaxSteps     int
@@ -59,7 +61,29 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 			return err
 		}
 
-		req := BuildRequest(turn.ModelID, r.systemPrompt(), msgs, r.Registry.CometSDK(), r.MaxTokens)
+		system := r.systemPrompt()
+		if r.Memory != nil && r.Memory.Enabled() && steps == 0 {
+			query := lastUserMessageText(msgs)
+			mems, memErr := r.Memory.RetrieveForTurn(ctx, query)
+			if memErr != nil {
+				ch <- event.Errorf(memErr.Error(), "memory")
+			} else if len(mems) > 0 {
+				system += memory.FormatForPrompt(mems)
+				wire := make([]event.MemoryWire, len(mems))
+				for i, m := range mems {
+					wire[i] = event.MemoryWire{
+						ID:              m.ID,
+						Content:         m.Content,
+						Kind:            m.Kind,
+						Similarity:      m.Similarity,
+						EffectiveWeight: m.EffectiveWeight,
+					}
+				}
+				ch <- event.MemoryInjected(wire)
+			}
+		}
+
+		req := BuildRequest(turn.ModelID, system, msgs, r.Registry.CometSDK(), r.MaxTokens)
 		stream := llm.StreamMessage(ctx, r.Provider, req)
 
 		for ev := range stream.Events() {
@@ -98,9 +122,11 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 
 		switch result.FinishReason {
 		case cometsdk.FinishStop, cometsdk.FinishMaxTokens:
+			r.emitMemoryExtract(ctx, turn, ch)
 			return nil
 		}
 		if len(result.ToolCalls) == 0 {
+			r.emitMemoryExtract(ctx, turn, ch)
 			return nil
 		}
 
@@ -147,6 +173,46 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 
 	ch <- event.Errorf("max steps exceeded", "max_steps")
 	return fmt.Errorf("max steps exceeded")
+}
+
+func (r *Runner) emitMemoryExtract(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) {
+	if r.Memory == nil || !r.Memory.Enabled() {
+		return
+	}
+	changes, err := r.Memory.ExtractAfterTurn(ctx, turn.ID, turn.ModelID, r.Provider)
+	if err != nil {
+		// Memory extract is best-effort; the turn already completed successfully.
+		return
+	}
+	if len(changes) == 0 {
+		return
+	}
+	wire := make([]event.MemoryChangeWire, len(changes))
+	for i, change := range changes {
+		wire[i] = event.MemoryChangeWire{
+			Action:  change.Action,
+			Kind:    change.Kind,
+			Content: change.Content,
+			ID:      change.ID,
+		}
+	}
+	ch <- event.MemoryUpdated(wire)
+}
+
+func lastUserMessageText(msgs []cometsdk.Message) string {
+	for i := len(msgs) - 1; i >= 0; i-- {
+		if msgs[i].Role != cometsdk.RoleUser {
+			continue
+		}
+		var b strings.Builder
+		for _, bl := range msgs[i].Content {
+			if tb, ok := bl.(cometsdk.TextBlock); ok {
+				b.WriteString(tb.Text)
+			}
+		}
+		return strings.TrimSpace(b.String())
+	}
+	return ""
 }
 
 func (r *Runner) systemPrompt() string {

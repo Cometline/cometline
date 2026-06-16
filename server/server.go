@@ -14,6 +14,7 @@ import (
 	"github.com/cometline/cometmind/internal/acp"
 	"github.com/cometline/cometmind/internal/config"
 	"github.com/cometline/cometmind/internal/event"
+	"github.com/cometline/cometmind/internal/memory"
 	"github.com/cometline/cometmind/internal/session"
 	skillpkg "github.com/cometline/cometmind/internal/skills"
 	"github.com/gin-gonic/gin"
@@ -40,6 +41,7 @@ type RunnerFactory func(sess session.Session, workspacePath string) (Runner, err
 type Deps struct {
 	Config    *config.Config
 	Sessions  *session.Service
+	Memory    *memory.Service
 	NewRunner RunnerFactory
 	Runs      *RunManager
 	ACPMgr    *acp.SessionManager
@@ -48,6 +50,7 @@ type Deps struct {
 type App struct {
 	config    *config.Config
 	sessions  *session.Service
+	memory    *memory.Service
 	newRunner RunnerFactory
 	runs      *RunManager
 	acpMgr    *acp.SessionManager
@@ -70,6 +73,7 @@ func New(deps Deps) (*gin.Engine, error) {
 	app := &App{
 		config:    deps.Config,
 		sessions:  deps.Sessions,
+		memory:    deps.Memory,
 		newRunner: deps.NewRunner,
 		runs:      deps.Runs,
 		acpMgr:    deps.ACPMgr,
@@ -95,6 +99,15 @@ func New(deps Deps) (*gin.Engine, error) {
 	api.GET("/skills", app.handleListSkills)
 	api.POST("/skills/sync", app.handleSyncSkills)
 	api.GET("/skills/:name", app.handleGetSkill)
+	api.GET("/memories", app.handleListMemories)
+	api.POST("/memories", app.handleCreateMemory)
+	api.PATCH("/memories/:id", app.handlePatchMemory)
+	api.DELETE("/memories/:id", app.handleDeleteMemory)
+	api.POST("/memories/search", app.handleSearchMemories)
+	api.GET("/memory/settings", app.handleGetMemorySettings)
+	api.PUT("/memory/settings", app.handlePutMemorySettings)
+	api.POST("/memory/compact", app.handleCompactMemory)
+	api.GET("/memory/compact/preview", app.handleCompactPreview)
 
 	return r, nil
 }

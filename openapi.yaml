@@ -474,6 +474,93 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/v1/memories:
+    get:
+      tags: [Memory]
+      summary: List active memories
+      operationId: listMemories
+      responses:
+        '200':
+          description: Memory list
+    post:
+      tags: [Memory]
+      summary: Create a manual memory
+      operationId: createMemory
+      responses:
+        '201':
+          description: Created
+
+  /api/v1/memories/search:
+    post:
+      tags: [Memory]
+      summary: Semantic memory search
+      operationId: searchMemories
+      responses:
+        '200':
+          description: Search results
+
+  /api/v1/memories/{id}:
+    patch:
+      tags: [Memory]
+      summary: Update a memory
+      operationId: patchMemory
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Updated
+    delete:
+      tags: [Memory]
+      summary: Delete a memory
+      operationId: deleteMemory
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Deleted
+
+  /api/v1/memory/settings:
+    get:
+      tags: [Memory]
+      summary: Get memory settings
+      operationId: getMemorySettings
+      responses:
+        '200':
+          description: Settings
+    put:
+      tags: [Memory]
+      summary: Update memory settings
+      operationId: putMemorySettings
+      responses:
+        '200':
+          description: Updated settings
+
+  /api/v1/memory/compact:
+    post:
+      tags: [Memory]
+      summary: Run memory compaction
+      operationId: compactMemory
+      responses:
+        '200':
+          description: Compaction started
+
+  /api/v1/memory/compact/preview:
+    get:
+      tags: [Memory]
+      summary: Preview compaction candidates
+      operationId: compactMemoryPreview
+      responses:
+        '200':
+          description: Preview
+
 components:
   parameters:
     SessionId:
