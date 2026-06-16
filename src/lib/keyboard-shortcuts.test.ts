@@ -66,4 +66,35 @@ describe('keyboard-shortcuts', () => {
 			matchesShortcut(keyEvent({ key: 'ArrowUp', metaKey: true, altKey: false }), binding)
 		).toBe(false);
 	});
+
+	it('distinguishes send message from insert newline on Enter', () => {
+		const send = { key: 'Enter', shift: false };
+		const newline = { key: 'Enter', shift: true };
+		expect(matchesShortcut(keyEvent({ key: 'Enter' }), send)).toBe(true);
+		expect(matchesShortcut(keyEvent({ key: 'Enter', shiftKey: true }), send)).toBe(false);
+		expect(matchesShortcut(keyEvent({ key: 'Enter', shiftKey: true }), newline)).toBe(true);
+		expect(matchesShortcut(keyEvent({ key: 'Enter' }), newline)).toBe(false);
+	});
+
+	it('migrates legacy bare Enter send bindings', () => {
+		const normalized = normalizeKeyboardShortcuts({
+			sendMessage: { key: 'Enter' }
+		});
+		expect(normalized.sendMessage).toEqual({ key: 'Enter', shift: false });
+		expect(normalized.insertNewline).toEqual({ key: 'Enter', shift: true });
+		expect(
+			matchesShortcut(keyEvent({ key: 'Enter', shiftKey: true }), normalized.sendMessage)
+		).toBe(false);
+	});
+
+	it('captureShortcut records shift false for plain Enter', () => {
+		expect(captureShortcut(keyEvent({ key: 'Enter' }))).toEqual({
+			key: 'Enter',
+			shift: false
+		});
+		expect(captureShortcut(keyEvent({ key: 'Enter', shiftKey: true }))).toEqual({
+			key: 'Enter',
+			shift: true
+		});
+	});
 });

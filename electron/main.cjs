@@ -49,6 +49,7 @@ function defaultShortcuts() {
 		newChat: { command: true, key: 't' },
 		stopResponse: { command: true, key: 'c' },
 		sendMessage: { key: 'Enter', shift: false },
+		insertNewline: { key: 'Enter', shift: true },
 		closeSettings: { key: 'Escape' },
 		focusSearch: { command: true, key: 'f' },
 		previousSession: { ctrl: true, meta: true, key: 'ArrowUp' },

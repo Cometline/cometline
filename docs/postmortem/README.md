@@ -1,6 +1,6 @@
 # Postmortems
 
-Short write-ups of non-obvious bugs in the Cometline UI layer (and cross-cutting CometMind runtime issues that surface in chat): symptoms, root cause, fix, and how to avoid regressions. Read these before changing `chat.svelte.ts`, `reducers/chat.ts`, `ChatView.svelte`, `ChatThread.svelte`, `chat-turn-queue.ts`, `Composer.svelte`, `HeroComposerFrame.svelte`, `hero-composer-appearance.ts`, `settings.svelte.ts`, or Electron IPC in `preload.cjs` / `main.cjs`.
+Short write-ups of non-obvious bugs in the Cometline UI layer (and cross-cutting CometMind runtime issues that surface in chat): symptoms, root cause, fix, and how to avoid regressions. Read these before changing `chat.svelte.ts`, `reducers/chat.ts`, `ChatView.svelte`, `ChatThread.svelte`, `chat-turn-queue.ts`, `Composer.svelte`, `keyboard-shortcuts.ts`, `HeroComposerFrame.svelte`, `hero-composer-appearance.ts`, `settings.svelte.ts`, or Electron IPC in `preload.cjs` / `main.cjs`.
 
 | Date       | Topic                                                   | File                                                                                                 |
 | ---------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
@@ -18,6 +18,7 @@ Short write-ups of non-obvious bugs in the Cometline UI layer (and cross-cutting
 | 2026-06-16 | Fetch models IPC fails with DataCloneError                | [fetch-models-data-clone-error.md](./fetch-models-data-clone-error.md)                               |
 | 2026-06-16 | Memory extract wrong provider after successful reply      | [memory-extract-wrong-provider.md](./memory-extract-wrong-provider.md)                               |
 | 2026-06-16 | Memory embedding model resets after save (CORS PUT)       | [memory-embedding-settings-not-persisting.md](./memory-embedding-settings-not-persisting.md)         |
+| 2026-06-16 | Shift+Enter in composer sends instead of newline          | [composer-shift-enter-sends-instead-of-newline.md](./composer-shift-enter-sends-instead-of-newline.md) |
 
 ## When to add a postmortem
 

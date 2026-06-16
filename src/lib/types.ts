@@ -108,6 +108,7 @@ export type ShortcutAction =
 	| 'newChat'
 	| 'stopResponse'
 	| 'sendMessage'
+	| 'insertNewline'
 	| 'closeSettings'
 	| 'focusSearch'
 	| 'previousSession'

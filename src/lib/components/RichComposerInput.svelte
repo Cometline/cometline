@@ -66,11 +66,19 @@
 		return 90 + (1 - clampUnit(caretTrail.speed)) * 220;
 	}
 
-	// Distance above which a jump (newline, click far away) is treated as a
-	// teleport: the caret snaps without drawing a comet trail. Mirrors the
-	// shader's THRESHOLD_MAX_DISTANCE gate, scaled to caret height.
-	function maxTrailDistance(): number {
-		return caretH * 2.2;
+	// Vertical jump (in px) above which a move is treated as a teleport: the
+	// caret snaps without a trail. We gate on vertical distance only — a one-line
+	// word-wrap moves the caret a long way horizontally but only ~1 line down,
+	// and should still animate; a click far away or programmatic jump spans
+	// multiple lines and should snap clean.
+	function maxTrailVerticalJump(): number {
+		return caretH * 1.5;
+	}
+
+	// A move whose vertical delta exceeds ~half a line is a line crossing
+	// (newline, word-wrap, selection extending down/up a line).
+	function isLineCrossing(dy: number): boolean {
+		return Math.abs(dy) > caretH * 0.5;
 	}
 
 	/**
@@ -218,9 +226,9 @@
 		const dist = Math.hypot(dx, dy);
 		if (dist < 0.5) return; // no meaningful move
 
-		if (dist > maxTrailDistance()) {
-			// Teleport (newline wrap, click far, programmatic jump): snap without
-			// streaking a long diagonal trail across the editor.
+		if (Math.abs(dy) > maxTrailVerticalJump()) {
+			// Real teleport (click far away, multi-line programmatic jump): snap
+			// without streaking a trail across the editor.
 			targetX = originX = measured.x;
 			targetY = originY = measured.y;
 			setCaretVisual(targetX, targetY);
@@ -228,9 +236,18 @@
 			return;
 		}
 
-		// Begin a smear from the current head toward the new target.
-		originX = targetX;
-		originY = targetY;
+		if (isLineCrossing(dy)) {
+			// Line wrap / newline: the literal old→new path would slash a diagonal
+			// across the editor. Instead, drop the comet in vertically — anchor the
+			// tail directly above the new caret position (same X, one line up) so
+			// the trail reads as a short vertical drop into the new line.
+			originX = measured.x;
+			originY = measured.y - dy;
+		} else {
+			// Same-line move: smear from the current head toward the new target.
+			originX = targetX;
+			originY = targetY;
+		}
 		targetX = measured.x;
 		targetY = measured.y;
 		animStart = performance.now();

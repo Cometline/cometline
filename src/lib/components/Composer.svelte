@@ -170,6 +170,14 @@
 		}
 		if (
 			!e.isComposing &&
+			matchesShortcut(e, settingsStore.settings.shortcuts.insertNewline)
+		) {
+			e.preventDefault();
+			input?.insertText('\n');
+			return;
+		}
+		if (
+			!e.isComposing &&
 			matchesShortcut(e, settingsStore.settings.shortcuts.sendMessage)
 		) {
 			e.preventDefault();

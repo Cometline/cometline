@@ -4,6 +4,7 @@ export type ShortcutAction =
 	| 'newChat'
 	| 'stopResponse'
 	| 'sendMessage'
+	| 'insertNewline'
 	| 'closeSettings'
 	| 'focusSearch'
 	| 'previousSession'
@@ -52,6 +53,11 @@ export const SHORTCUT_DEFINITIONS: KeyboardShortcutDefinition[] = [
 		id: 'sendMessage',
 		label: 'Send message',
 		defaultBinding: { key: 'Enter', shift: false }
+	},
+	{
+		id: 'insertNewline',
+		label: 'Insert newline in composer',
+		defaultBinding: { key: 'Enter', shift: true }
 	},
 	{
 		id: 'closeSettings',
@@ -127,6 +133,35 @@ function normalizeToggleWebPanelBinding(binding: ShortcutBinding | undefined, de
 	return binding;
 }
 
+function isBareEnterBinding(binding: ShortcutBinding): boolean {
+	return (
+		keyMatches(binding.key, 'Enter') &&
+		binding.command !== true &&
+		binding.ctrl !== true &&
+		binding.meta !== true &&
+		binding.alt !== true
+	);
+}
+
+function normalizeComposerEnterBinding(
+	action: ShortcutAction,
+	binding: ShortcutBinding | undefined,
+	defaultBinding: ShortcutBinding
+): ShortcutBinding {
+	if (action !== 'sendMessage' && action !== 'insertNewline') {
+		return binding ?? defaultBinding;
+	}
+	if (!binding) return { ...defaultBinding };
+	// Legacy send used bare Enter and matched Shift+Enter too.
+	if (action === 'sendMessage' && isBareEnterBinding(binding) && binding.shift === undefined) {
+		return { ...defaultBinding };
+	}
+	if (action === 'insertNewline' && binding.shift === undefined && isBareEnterBinding(binding)) {
+		return { ...defaultBinding };
+	}
+	return binding;
+}
+
 export function normalizeKeyboardShortcuts(
 	saved: KeyboardShortcuts | undefined
 ): KeyboardShortcuts {
@@ -148,12 +183,14 @@ export function normalizeKeyboardShortcuts(
 				next[def.id] = normalizeToggleWebPanelBinding(normalized, def.defaultBinding);
 				continue;
 			}
-			next[def.id] = normalizeSessionNavBinding(def.id, normalized, def.defaultBinding);
+			const sessionNav = normalizeSessionNavBinding(def.id, normalized, def.defaultBinding);
+			next[def.id] = normalizeComposerEnterBinding(def.id, sessionNav, def.defaultBinding);
 		} else {
-			next[def.id] =
+			const fallback =
 				def.id === 'toggleWebPanel'
 					? normalizeToggleWebPanelBinding(undefined, def.defaultBinding)
 					: normalizeSessionNavBinding(def.id, undefined, def.defaultBinding);
+			next[def.id] = normalizeComposerEnterBinding(def.id, fallback, def.defaultBinding);
 		}
 	}
 	return next;
@@ -180,6 +217,8 @@ export function matchesShortcut(
 	if (binding.meta !== undefined && binding.meta !== event.metaKey) return false;
 	if (binding.alt !== undefined && binding.alt !== event.altKey) return false;
 	if (binding.shift !== undefined && binding.shift !== event.shiftKey) return false;
+	// Bare Enter bindings (legacy saves) must not swallow Shift+Enter.
+	if (isBareEnterBinding(binding) && binding.shift === undefined && event.shiftKey) return false;
 	return true;
 }
 
@@ -193,7 +232,11 @@ export function captureShortcut(event: KeyboardEvent): ShortcutBinding | null {
 	const hasShift = event.shiftKey;
 
 	if (hasAlt) binding.alt = true;
-	if (hasShift) binding.shift = true;
+	if (hasShift) {
+		binding.shift = true;
+	} else if (!hasCtrl && !hasMeta && !hasAlt && keyMatches(event.key, 'Enter')) {
+		binding.shift = false;
+	}
 
 	// Lone Meta (Cmd on Mac) → cross-platform "command" modifier.
 	if (hasMeta && !hasCtrl) {
