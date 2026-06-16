@@ -116,7 +116,8 @@ function defaultProviderSettings() {
 
 function defaultAppSettings() {
 	return {
-		openAtLogin: false
+		openAtLogin: false,
+		hasSeenIntro: false
 	};
 }
 
@@ -124,7 +125,9 @@ function normalizeAppSettings(app) {
 	const defaults = defaultAppSettings();
 	return {
 		openAtLogin:
-			typeof app?.openAtLogin === 'boolean' ? app.openAtLogin : defaults.openAtLogin
+			typeof app?.openAtLogin === 'boolean' ? app.openAtLogin : defaults.openAtLogin,
+		hasSeenIntro:
+			typeof app?.hasSeenIntro === 'boolean' ? app.hasSeenIntro : defaults.hasSeenIntro
 	};
 }
 
