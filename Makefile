@@ -14,12 +14,13 @@ COMETMIND_API_KEY ?=
 COMETMIND_WORKSPACE_PATH ?= $(CURDIR)
 COMETMIND_BINARY_PATH ?= $(CURDIR)/cometmind/dist/cometmind
 
-.PHONY: help install check test build package dev sdk-build sdk-test cometmind-build cometmind-test cometline-check cometline-build cometline-package cometline-dev port clean-log
+.PHONY: help install generate check-generated check test build package dev sdk-build sdk-test cometmind-build cometmind-test cometline-check cometline-build cometline-package cometline-dev port clean-log
 
 help:
 	@printf "Cometline targets:\n"
 	@printf "  make install          Install Cometline frontend dependencies\n"
-	@printf "  make check            Run SDK tests, CometMind tests, and Svelte checks\n"
+	@printf "  make generate         Regenerate OpenAPI clients (TS + Go types)\n"
+	@printf "  make check            Run codegen freshness, tests, and Svelte checks\n"
 	@printf "  make build            Build SDK, CometMind binary, and Cometline renderer\n"
 	@printf "  make package          Build CometMind and package the Electron app\n"
 	@printf "  make dev              Build CometMind and launch Electron dev app\n"
@@ -33,7 +34,15 @@ help:
 install:
 	cd cometline && $(PNPM) install
 
-check: sdk-test cometmind-test cometline-check
+generate:
+	cd cometline && $(PNPM) run generate:api
+	cd cometmind && $(GO) generate ./internal/apigen
+
+check-generated: generate
+	@git diff --exit-code -- cometline/src/lib/generated/cometmind-api cometmind/internal/apigen/types.gen.go \
+		|| (printf '\nGenerated API artifacts are out of date. Run make generate and commit.\n' && exit 1)
+
+check: check-generated sdk-test cometmind-test cometline-check
 
 test: check
 
