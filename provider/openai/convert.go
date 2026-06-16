@@ -12,12 +12,13 @@ import (
 // ─── Outgoing: SDK Request → OpenAI JSON ─────────────────────────────────────
 
 type openAIRequest struct {
-	Model         string          `json:"model"`
-	Messages      []openAIMessage `json:"messages"`
-	Tools         []openAITool    `json:"tools,omitempty"`
-	MaxTokens     int             `json:"max_tokens,omitempty"`
-	Stream        bool            `json:"stream"`
-	StreamOptions *streamOptions  `json:"stream_options,omitempty"`
+	Model          string          `json:"model"`
+	Messages       []openAIMessage `json:"messages"`
+	Tools          []openAITool    `json:"tools,omitempty"`
+	MaxTokens      int             `json:"max_tokens,omitempty"`
+	Stream         bool            `json:"stream"`
+	StreamOptions  *streamOptions  `json:"stream_options,omitempty"`
+	ReasoningSplit bool            `json:"reasoning_split"`
 }
 
 type streamOptions struct {
@@ -78,10 +79,11 @@ func toOpenAIRequest(req *cometsdk.Request, disableImageContent bool) ([]byte, e
 	}
 
 	or := openAIRequest{
-		Model:         req.Model,
-		Messages:      msgs,
-		Stream:        true,
-		StreamOptions: &streamOptions{IncludeUsage: true},
+		Model:          req.Model,
+		Messages:       msgs,
+		Stream:         true,
+		StreamOptions:  &streamOptions{IncludeUsage: true},
+		ReasoningSplit: true,
 	}
 
 	if req.MaxTokens > 0 {
@@ -248,16 +250,23 @@ func contentParts(blocks []cometsdk.Block, disableImageContent bool) (any, error
 
 // ─── Incoming: OpenAI SSE → SDK Events ───────────────────────────────────────
 
+type openAIReasoningDetail struct {
+	Type  string `json:"type"`
+	Index int    `json:"index"`
+	Text  string `json:"text"`
+}
+
 // openAIDelta is the JSON structure of each OpenAI SSE data line.
 type openAIDelta struct {
 	Choices []struct {
 		Index        int    `json:"index"`
 		FinishReason string `json:"finish_reason"`
 		Delta        struct {
-			Role             string `json:"role"`
-			Content          string `json:"content"`
-			Reasoning        string `json:"reasoning"`
-			ReasoningContent string `json:"reasoning_content"`
+			Role             string                  `json:"role"`
+			Content          string                  `json:"content"`
+			Reasoning        string                  `json:"reasoning"`
+			ReasoningContent string                  `json:"reasoning_content"`
+			ReasoningDetails []openAIReasoningDetail `json:"reasoning_details"`
 			ToolCalls        []struct {
 				Index    int    `json:"index"`
 				ID       string `json:"id"`
@@ -289,15 +298,18 @@ type inProgressToolCall struct {
 
 // streamState maintains per-stream mutable state for the OpenAI parser.
 type streamState struct {
-	inProgress    map[int]*inProgressToolCall
-	reasoning     *inProgressReasoning
-	pendingUsage  cometsdk.TokenUsage
-	pendingFinish *cometsdk.StepFinishEvent
+	inProgress            map[int]*inProgressToolCall
+	reasoning             *inProgressReasoning
+	contentReasoning      contentReasoningSplitter
+	reasoningDetailText   map[int]string
+	pendingUsage          cometsdk.TokenUsage
+	pendingFinish         *cometsdk.StepFinishEvent
 }
 
 func newStreamState() *streamState {
 	return &streamState{
-		inProgress: make(map[int]*inProgressToolCall),
+		inProgress:          make(map[int]*inProgressToolCall),
+		reasoningDetailText: make(map[int]string),
 	}
 }
 
@@ -363,11 +375,29 @@ func toSDKEvents(data string, state *streamState) ([]cometsdk.Event, error) {
 		events = append(events, cometsdk.ReasoningContentEvent{
 			Text: reasoning,
 		})
+	} else {
+		for _, detail := range choice.Delta.ReasoningDetails {
+			if detail.Text == "" {
+				continue
+			}
+			delta := reasoningDetailsDelta(state.reasoningDetailText[detail.Index], detail.Text)
+			state.reasoningDetailText[detail.Index] = detail.Text
+			if delta == "" {
+				continue
+			}
+			if state.reasoning == nil {
+				state.reasoning = &inProgressReasoning{}
+				events = append(events, cometsdk.ReasoningStartEvent{})
+			}
+			state.reasoning.buffer.WriteString(delta)
+			events = append(events, cometsdk.ReasoningContentEvent{Text: delta})
+		}
 	}
 
-	// Text delta.
+	// Text delta. Some providers embed thinking in content tags when
+	// reasoning_split is disabled; split those out before emitting text.
 	if choice.Delta.Content != "" {
-		events = append(events, cometsdk.TextDeltaEvent{Text: choice.Delta.Content})
+		events = append(events, state.contentReasoning.push(choice.Delta.Content)...)
 	}
 
 	// Tool call deltas.

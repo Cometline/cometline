@@ -2,6 +2,7 @@ package openai
 
 import (
 	"encoding/json"
+	"strconv"
 	"testing"
 
 	cometsdk "github.com/cometline/comet-sdk"
@@ -376,4 +377,111 @@ func TestConvertRequest_OptionsWrongType(t *testing.T) {
 	_, err := toOpenAIRequest(req, false)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "map[string]any")
+}
+
+func TestConvertRequest_ReasoningSplitEnabledByDefault(t *testing.T) {
+	req := &cometsdk.Request{
+		Model: "MiniMax-M3",
+		Messages: []cometsdk.Message{
+			{Role: cometsdk.RoleUser, Content: []cometsdk.Block{cometsdk.TextBlock{Text: "Hi"}}},
+		},
+	}
+
+	data, err := toOpenAIRequest(req, false)
+	require.NoError(t, err)
+
+	var out map[string]any
+	require.NoError(t, json.Unmarshal(data, &out))
+	require.Equal(t, true, out["reasoning_split"])
+}
+
+func redactedThinkingContent(inner, after string) string {
+	return "<redacted_" + "thinking>" + inner + "</redacted_" + "thinking>" + after
+}
+
+func TestConvertEvent_RedactedThinkingTags(t *testing.T) {
+	state := newStreamState()
+
+	content := redactedThinkingContent("plan", "Hello")
+	payload := `{"choices":[{"index":0,"delta":{"content":` + strconv.Quote(content) + `},"finish_reason":null}]}`
+	events, err := toSDKEvents(payload, state)
+	require.NoError(t, err)
+
+	var reasoning []string
+	var texts []string
+	for _, e := range events {
+		switch ev := e.(type) {
+		case cometsdk.ReasoningContentEvent:
+			reasoning = append(reasoning, ev.Text)
+		case cometsdk.TextDeltaEvent:
+			texts = append(texts, ev.Text)
+		}
+	}
+
+	require.Equal(t, []string{"plan"}, reasoning)
+	require.Equal(t, []string{"Hello"}, texts)
+}
+
+func TestConvertEvent_RedactedThinkingTagsAcrossChunks(t *testing.T) {
+	state := newStreamState()
+
+	events1, err := toSDKEvents(`{"choices":[{"index":0,"delta":{"content":"<redacted_thi"},"finish_reason":null}]}`, state)
+	require.NoError(t, err)
+	require.Empty(t, events1)
+
+	events2, err := toSDKEvents(`{"choices":[{"index":0,"delta":{"content":"nking>warm</redacted_`+`thinking>Hi"},"finish_reason":null}]}`, state)
+	require.NoError(t, err)
+
+	var reasoning []string
+	var texts []string
+	for _, e := range events2 {
+		switch ev := e.(type) {
+		case cometsdk.ReasoningContentEvent:
+			reasoning = append(reasoning, ev.Text)
+		case cometsdk.TextDeltaEvent:
+			texts = append(texts, ev.Text)
+		}
+	}
+
+	require.Equal(t, []string{"warm"}, reasoning)
+	require.Equal(t, []string{"Hi"}, texts)
+}
+
+func TestConvertEvent_ReasoningDetailsCumulative(t *testing.T) {
+	state := newStreamState()
+
+	events1, err := toSDKEvents(`{"choices":[{"index":0,"delta":{"reasoning_details":[{"index":0,"text":"hel"}]},"finish_reason":null}]}`, state)
+	require.NoError(t, err)
+	require.Len(t, events1, 2)
+
+	events2, err := toSDKEvents(`{"choices":[{"index":0,"delta":{"reasoning_details":[{"index":0,"text":"hello"}]},"finish_reason":null}]}`, state)
+	require.NoError(t, err)
+	require.Len(t, events2, 1)
+
+	reasoning, ok := events2[0].(cometsdk.ReasoningContentEvent)
+	require.True(t, ok)
+	require.Equal(t, "lo", reasoning.Text)
+}
+
+func TestConvertEvent_ThinkTags(t *testing.T) {
+	state := newStreamState()
+
+	content := "<" + "think" + ">plan</" + "think" + ">answer"
+	payload := `{"choices":[{"index":0,"delta":{"content":` + strconv.Quote(content) + `},"finish_reason":null}]}`
+	events, err := toSDKEvents(payload, state)
+	require.NoError(t, err)
+
+	var reasoning []string
+	var texts []string
+	for _, e := range events {
+		switch ev := e.(type) {
+		case cometsdk.ReasoningContentEvent:
+			reasoning = append(reasoning, ev.Text)
+		case cometsdk.TextDeltaEvent:
+			texts = append(texts, ev.Text)
+		}
+	}
+
+	require.Equal(t, []string{"plan"}, reasoning)
+	require.Equal(t, []string{"answer"}, texts)
 }
