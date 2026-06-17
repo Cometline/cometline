@@ -179,6 +179,10 @@ function createChatStore() {
 		return sessionCache.get(targetSessionID)?.length ?? 0;
 	}
 
+	function getCachedItemCount(targetSessionID: string) {
+		return cachedItemCount(targetSessionID);
+	}
+
 	function getCachedItems(targetSessionID: string) {
 		return sessionCache.get(targetSessionID) ?? [];
 	}
@@ -698,6 +702,7 @@ function createChatStore() {
 		isStreamingFor,
 		hasInFlightTurn,
 		isAwaitingFirstAssistant,
+		getCachedItemCount,
 		clear,
 		bindSession,
 		loadTranscript,

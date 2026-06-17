@@ -89,6 +89,14 @@
 		awaitingFirstAssistant || isInitialTranscriptPaint ? { duration: 0 } : TRANSCRIPT_IN
 	);
 
+	function sessionHasCachedTranscript(targetSessionId: string) {
+		if (chatStore.sessionID === targetSessionId && chatStore.items.length > 0) return true;
+		if (chatStore.isStreamingFor(targetSessionId) || chatStore.hasInFlightTurn(targetSessionId)) {
+			return true;
+		}
+		return chatStore.getCachedItemCount(targetSessionId) > 0;
+	}
+
 
 	let thinkingForAssistant = $derived(buildThinkingAttribution(threadItems));
 
@@ -268,7 +276,7 @@
 	$effect(() => {
 		sessionId;
 		followStream = true;
-		if (chatStore.sessionID === sessionId && chatStore.items.length > 0) {
+		if (sessionHasCachedTranscript(sessionId)) {
 			isInitialTranscriptPaint = false;
 			return;
 		}
@@ -444,7 +452,11 @@
 
 	$effect(() => {
 		if (!isSessionSynced) {
-			isInitialTranscriptPaint = true;
+			if (sessionHasCachedTranscript(sessionId)) {
+				isInitialTranscriptPaint = false;
+			} else {
+				isInitialTranscriptPaint = true;
+			}
 			return;
 		}
 		// Only hide the transcript while loading an empty session. If local items

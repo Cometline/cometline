@@ -27,6 +27,7 @@
 	let html = $state('');
 	let rendered = $state(false);
 	let displaySource = $state('');
+	let snappedExistingSource = $state(false);
 	let renderVersion = 0;
 	let throttleTimer: ReturnType<typeof setTimeout> | null = null;
 	let revealFrame = 0;
@@ -98,6 +99,15 @@
 		};
 		revealFrame = requestAnimationFrame(step);
 	}
+
+	// When remounting mid-stream (e.g. switching back to a session), snap to the
+	// accumulated source once so we do not replay the typewriter from empty.
+	$effect.pre(() => {
+		if (mode === 'user') return;
+		if (snappedExistingSource || source.length === 0) return;
+		displaySource = source;
+		snappedExistingSource = true;
+	});
 
 	$effect(() => {
 		// User mode renders synchronously via the derived above; nothing to schedule.
