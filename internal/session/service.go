@@ -616,6 +616,15 @@ func (s *Service) BuildSDKMessages(ctx context.Context, sessionID string) ([]com
 	if err != nil {
 		return nil, err
 	}
+	// One query for all tool calls instead of one per assistant message.
+	allCalls, err := s.q.ListToolCallsBySession(ctx, sessionID)
+	if err != nil {
+		return nil, err
+	}
+	callsByMessage := make(map[string][]db.ToolCall, len(allCalls))
+	for _, tc := range allCalls {
+		callsByMessage[tc.MessageID] = append(callsByMessage[tc.MessageID], tc)
+	}
 	out := make([]cometsdk.Message, 0, len(rows))
 	for _, m := range rows {
 		switch m.Role {
@@ -629,10 +638,7 @@ func (s *Service) BuildSDKMessages(ctx context.Context, sessionID string) ([]com
 				Content: sdkBlocksFromContent(blocks),
 			})
 		case "assistant":
-			blocks, err := s.assistantBlocks(ctx, m)
-			if err != nil {
-				return nil, err
-			}
+			blocks := assistantBlocks(m, callsByMessage[m.ID])
 			reasoningBlocks, err := unmarshalReasoningContent(m.ReasoningContent)
 			if err != nil {
 				return nil, fmt.Errorf("decode reasoning_content %s: %w", m.ID, err)
@@ -667,14 +673,10 @@ func (s *Service) BuildSDKMessages(ctx context.Context, sessionID string) ([]com
 	return out, nil
 }
 
-func (s *Service) assistantBlocks(ctx context.Context, m db.Message) ([]cometsdk.Block, error) {
+func assistantBlocks(m db.Message, tcs []db.ToolCall) []cometsdk.Block {
 	var blocks []cometsdk.Block
 	if strings.TrimSpace(m.Content) != "" {
 		blocks = append(blocks, cometsdk.TextBlock{Text: m.Content})
-	}
-	tcs, err := s.q.ListToolCallsByMessage(ctx, m.ID)
-	if err != nil {
-		return nil, err
 	}
 	for _, tc := range tcs {
 		raw := json.RawMessage(tc.Arguments)
@@ -687,7 +689,7 @@ func (s *Service) assistantBlocks(ctx context.Context, m db.Message) ([]cometsdk
 			Input: raw,
 		})
 	}
-	return blocks, nil
+	return blocks
 }
 
 // NewChildSession creates a delegated child session linked to a parent.

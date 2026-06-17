@@ -186,7 +186,8 @@ type listWorkspacesResponse struct {
 }
 
 type workspaceFileListResponse struct {
-	Files []string `json:"files"`
+	Files     []string `json:"files"`
+	Truncated bool     `json:"truncated"`
 }
 
 type postMessageRequest struct {
@@ -445,7 +446,7 @@ func (a *App) handleListWorkspaceFiles(c *gin.Context) {
 		}
 	}
 
-	files, err := workspacefiles.ListFiles(c.Request.Context(), ws.Path, workspacefiles.ListOptions{
+	result, err := workspacefiles.ListFiles(c.Request.Context(), ws.Path, workspacefiles.ListOptions{
 		Query: strings.TrimSpace(c.Query("q")),
 		Limit: limit,
 	})
@@ -453,7 +454,7 @@ func (a *App) handleListWorkspaceFiles(c *gin.Context) {
 		writeError(c, http.StatusInternalServerError, "internal_error", err.Error())
 		return
 	}
-	c.JSON(http.StatusOK, workspaceFileListResponse{Files: files})
+	c.JSON(http.StatusOK, workspaceFileListResponse{Files: result.Files, Truncated: result.Truncated})
 }
 
 func (a *App) handleCreateSession(c *gin.Context) {

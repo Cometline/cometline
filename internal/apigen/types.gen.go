@@ -565,6 +565,9 @@ type Workspace struct {
 type WorkspaceFileList struct {
 	// Files Workspace-relative file paths.
 	Files []string `json:"files"`
+
+	// Truncated True when more matching files exist than the limit returned. Narrow with the q query parameter to find files not in this page.
+	Truncated *bool `json:"truncated,omitempty"`
 }
 
 // WorkspaceListResponse defines model for WorkspaceListResponse.

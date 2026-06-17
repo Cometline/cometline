@@ -24,3 +24,10 @@ SELECT *
 FROM tool_calls
 WHERE message_id = ?
 ORDER BY created_at ASC;
+
+-- name: ListToolCallsBySession :many
+SELECT tc.*
+FROM tool_calls tc
+JOIN messages m ON m.id = tc.message_id
+WHERE m.session_id = ?
+ORDER BY tc.created_at ASC;

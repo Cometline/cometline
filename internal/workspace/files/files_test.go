@@ -26,7 +26,10 @@ func TestListFiles(t *testing.T) {
 			t.Fatalf("ListFiles error: %v", err)
 		}
 		want := []string{"README.md", "internal/helper.go", "main.go", "src/app.svelte"}
-		assertSlice(t, got, want)
+		assertSlice(t, got.Files, want)
+		if got.Truncated {
+			t.Fatalf("did not expect truncation for %d files", len(want))
+		}
 	})
 
 	t.Run("filters by query", func(t *testing.T) {
@@ -35,16 +38,32 @@ func TestListFiles(t *testing.T) {
 			t.Fatalf("ListFiles error: %v", err)
 		}
 		want := []string{"internal/helper.go", "main.go"}
-		assertSlice(t, got, want)
+		assertSlice(t, got.Files, want)
 	})
 
-	t.Run("respects limit", func(t *testing.T) {
+	t.Run("respects limit and flags truncation", func(t *testing.T) {
 		got, err := ListFiles(ctx, root, ListOptions{Limit: 2})
 		if err != nil {
 			t.Fatalf("ListFiles error: %v", err)
 		}
-		if len(got) != 2 {
-			t.Fatalf("want 2 results, got %d: %v", len(got), got)
+		if len(got.Files) != 2 {
+			t.Fatalf("want 2 results, got %d: %v", len(got.Files), got.Files)
+		}
+		if !got.Truncated {
+			t.Fatalf("expected truncated=true when more files exist than the limit")
+		}
+	})
+
+	t.Run("exact limit is not truncated", func(t *testing.T) {
+		dir := t.TempDir()
+		mustWrite(t, filepath.Join(dir, "a.go"), "x")
+		mustWrite(t, filepath.Join(dir, "b.go"), "x")
+		got, err := ListFiles(ctx, dir, ListOptions{Limit: 2})
+		if err != nil {
+			t.Fatalf("ListFiles error: %v", err)
+		}
+		if len(got.Files) != 2 || got.Truncated {
+			t.Fatalf("exactly-limit should not be truncated, got files=%d truncated=%v", len(got.Files), got.Truncated)
 		}
 	})
 
@@ -58,8 +77,11 @@ func TestListFiles(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ListFiles error: %v", err)
 		}
-		if len(got) != MaxLimit {
-			t.Fatalf("want %d results, got %d", MaxLimit, len(got))
+		if len(got.Files) != MaxLimit {
+			t.Fatalf("want %d results, got %d", MaxLimit, len(got.Files))
+		}
+		if !got.Truncated {
+			t.Fatalf("expected truncated=true when capped at MaxLimit")
 		}
 	})
 }
@@ -77,7 +99,7 @@ func TestListFilesGitignore(t *testing.T) {
 		t.Fatalf("ListFiles error: %v", err)
 	}
 	want := []string{"keep.go"}
-	assertSlice(t, got, want)
+	assertSlice(t, got.Files, want)
 }
 
 func TestListFilesNotFound(t *testing.T) {

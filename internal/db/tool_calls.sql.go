@@ -97,6 +97,46 @@ func (q *Queries) ListToolCallsByMessage(ctx context.Context, messageID string) 
 	return items, nil
 }
 
+const listToolCallsBySession = `-- name: ListToolCallsBySession :many
+SELECT tc.id, tc.message_id, tc.tool_name, tc.arguments, tc.result, tc.duration_ms, tc.exit_code, tc.created_at
+FROM tool_calls tc
+JOIN messages m ON m.id = tc.message_id
+WHERE m.session_id = ?
+ORDER BY tc.created_at ASC
+`
+
+func (q *Queries) ListToolCallsBySession(ctx context.Context, sessionID string) ([]ToolCall, error) {
+	rows, err := q.db.QueryContext(ctx, listToolCallsBySession, sessionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ToolCall{}
+	for rows.Next() {
+		var i ToolCall
+		if err := rows.Scan(
+			&i.ID,
+			&i.MessageID,
+			&i.ToolName,
+			&i.Arguments,
+			&i.Result,
+			&i.DurationMs,
+			&i.ExitCode,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateToolCallResult = `-- name: UpdateToolCallResult :exec
 UPDATE tool_calls
 SET

@@ -989,6 +989,9 @@ components:
           items:
             type: string
           description: Workspace-relative file paths.
+        truncated:
+          type: boolean
+          description: True when more matching files exist than the limit returned. Narrow with the q query parameter to find files not in this page.
 
     PostMessageRequest:
       type: object

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	cometsdk "github.com/cometline/comet-sdk"
+	"github.com/cometline/cometmind/internal/db"
 )
 
 // TranscriptKind classifies one UI row in the transcript pane.
@@ -37,6 +38,17 @@ func (s *Service) LoadTranscript(ctx context.Context, sessionID string) ([]Trans
 	rows, err := s.q.ListMessagesBySession(ctx, sessionID)
 	if err != nil {
 		return nil, err
+	}
+
+	// Fetch every tool call for the session in one query (avoids an N+1 of
+	// ListToolCallsByMessage per assistant message) and group by message id.
+	allCalls, err := s.q.ListToolCallsBySession(ctx, sessionID)
+	if err != nil {
+		return nil, err
+	}
+	callsByMessage := make(map[string][]db.ToolCall, len(allCalls))
+	for _, tc := range allCalls {
+		callsByMessage[tc.MessageID] = append(callsByMessage[tc.MessageID], tc)
 	}
 
 	toolErr := map[string]bool{}
@@ -99,11 +111,7 @@ func (s *Service) LoadTranscript(ctx context.Context, sessionID string) ([]Trans
 					Text: rs,
 				})
 			}
-			tcs, err := s.q.ListToolCallsByMessage(ctx, m.ID)
-			if err != nil {
-				return nil, err
-			}
-			for _, tc := range tcs {
+			for _, tc := range callsByMessage[m.ID] {
 				out = append(out, TranscriptEntry{
 					Kind:        TranscriptKindTool,
 					ToolName:    tc.ToolName,

@@ -37,17 +37,25 @@ type ListOptions struct {
 	Limit int
 }
 
+// Result is the outcome of a workspace file listing.
+type Result struct {
+	Files []string
+	// Truncated is true when more matching files exist than the limit allowed,
+	// so callers know the list is incomplete and should narrow with a query.
+	Truncated bool
+}
+
 // ListFiles returns workspace-relative file paths matching the query, sorted.
 // It skips hidden files and directories, common build/output directories, and
 // entries ignored by .gitignore at the workspace root.
-func ListFiles(ctx context.Context, root string, opts ListOptions) ([]string, error) {
+func ListFiles(ctx context.Context, root string, opts ListOptions) (Result, error) {
 	root = filepath.Clean(root)
 	info, err := os.Stat(root)
 	if err != nil {
-		return nil, fmt.Errorf("stat workspace: %w", err)
+		return Result{}, fmt.Errorf("stat workspace: %w", err)
 	}
 	if !info.IsDir() {
-		return nil, fmt.Errorf("workspace path is not a directory: %s", root)
+		return Result{}, fmt.Errorf("workspace path is not a directory: %s", root)
 	}
 
 	ignorer := loadGitignore(root)
@@ -110,17 +118,22 @@ func ListFiles(ctx context.Context, root string, opts ListOptions) ([]string, er
 		}
 
 		results = append(results, filepath.ToSlash(rel))
-		if len(results) >= limit {
+		// Collect one extra so we can tell "exactly limit" from "more exist".
+		if len(results) > limit {
 			return fs.SkipAll
 		}
 		return nil
 	})
 	if err != nil {
-		return nil, err
+		return Result{}, err
 	}
 
+	truncated := len(results) > limit
+	if truncated {
+		results = results[:limit]
+	}
 	sort.Strings(results)
-	return results, nil
+	return Result{Files: results, Truncated: truncated}, nil
 }
 
 func loadGitignore(root string) *gitignore.GitIgnore {
