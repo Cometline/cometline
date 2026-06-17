@@ -418,9 +418,10 @@
 	}
 
 	.workspace-divider {
-		height: 1px;
+		height: 2px;
 		margin: 8px 6px 6px;
-		background: var(--border-soft);
+		background: rgba(15, 23, 42, 0.16);
+		border-radius: 1px;
 		flex-shrink: 0;
 	}
 
