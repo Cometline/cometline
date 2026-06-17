@@ -24,6 +24,7 @@ Short write-ups of non-obvious bugs in the Cometline UI layer (and cross-cutting
 | 2026-06-16 | OpenAPI contract codegen (ISSUE-5)                        | [openapi-contract-codegen.md](./openapi-contract-codegen.md)                                         |
 | 2026-06-17 | Forked session HTTP 400 from stale tool_call IDs          | [forked-session-tool-call-id-mismatch.md](./forked-session-tool-call-id-mismatch.md)                 |
 | 2026-06-17 | Session switch slow first load and stuck "no messages"    | [session-switch-slow-and-stuck-load.md](./session-switch-slow-and-stuck-load.md)                     |
+| 2026-06-17 | Streaming avatar disappears and spinner jumps between turns | [streaming-avatar-disappears-spinner-jumps.md](./streaming-avatar-disappears-spinner-jumps.md)       |
 
 ## When to add a postmortem
 
