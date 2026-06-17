@@ -1,0 +1,40 @@
+# git-cliff configuration for Cometline release notes
+# https://git-cliff.org/docs/configuration
+
+[changelog]
+header = ""
+footer = ""
+body = """
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group | striptags | trim | upper_first }}
+{% for commit in commits %}
+- {% if commit.scope %}**{{ commit.scope }}**: {% endif %}{% if commit.breaking %}[**breaking**] {% endif %}{{ commit.message | upper_first }}
+{% endfor %}
+{% endfor %}"""
+trim = true
+render_always = false
+
+[git]
+conventional_commits = true
+filter_unconventional = true
+require_conventional = false
+split_commits = false
+protect_breaking_commits = false
+filter_commits = true
+fail_on_unmatched_commit = false
+topo_order_commits = true
+sort_commits = "oldest"
+
+commit_parsers = [
+  { message = "^feat", group = "Features" },
+  { message = "^fix", group = "Bug Fixes" },
+  { message = "^perf", group = "Performance" },
+  { message = "^refactor", group = "Refactoring" },
+  { body = ".*security", group = "Security" },
+  { message = "^revert", group = "Revert" },
+  { message = "^chore", skip = true },
+  { message = "^docs?", skip = true },
+  { message = "^ci", skip = true },
+  { message = "^test", skip = true },
+  { message = "^style", skip = true },
+]

@@ -177,6 +177,19 @@ jobs:
             test -s "$f"
           done
 
+      - name: Install git-cliff
+        if: steps.release_tag.outputs.skip != 'true'
+        uses: orhun/git-cliff-action@v4
+        with:
+          version: v2.10.1
+          install-only: true
+
+      - name: Generate release notes
+        if: steps.release_tag.outputs.skip != 'true'
+        env:
+          TAG: ${{ steps.release_tag.outputs.tag }}
+        run: ./scripts/generate-release-notes.sh "$TAG" > release-notes.md
+
       - name: Publish GitHub Release
         if: steps.release_tag.outputs.skip != 'true'
         env:
@@ -190,8 +203,8 @@ jobs:
           gh release create "$TAG" \
             --repo "${{ github.repository }}" \
             --target "$GITHUB_SHA" \
-            --title "$TAG" \
-            --generate-notes \
+            --title "Cometline $TAG" \
+            --notes-file release-notes.md \
             cometline/dist/*.dmg \
             cometline/dist/*.dmg.blockmap \
             cometline/dist/*.zip \
