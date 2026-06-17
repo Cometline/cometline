@@ -4085,7 +4085,7 @@ var NEVER = INVALID;
 // src/lib/hero-composer-appearance.ts
 var HERO_COMPOSER_PRESET_BLUE = {
   glowColor: "#72c0ff",
-  ringColor: "#9ed8ff"
+  ringColor: "#4a9de8"
 };
 var DEFAULT_HERO_COMPOSER_APPEARANCE = {
   ...HERO_COMPOSER_PRESET_BLUE

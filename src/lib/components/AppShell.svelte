@@ -11,7 +11,7 @@
 	import { settingsStore } from '$lib/stores/settings.svelte';
 	import { startNewChat } from '$lib/actions/new-chat';
 	import { navigateAdjacentSession } from '$lib/actions/navigate-adjacent-session';
-	import { narrowViewportQuery } from '$lib/layout/narrow-viewport';
+	import { narrowViewportQuery, subscribeNarrowViewport } from '$lib/layout/narrow-viewport';
 	import { matchesShortcut } from '$lib/keyboard-shortcuts';
 
 	const FALLBACK_SIDEBAR_DURATION = 240;
@@ -48,6 +48,12 @@
 		if (narrowViewportQuery().matches) {
 			shellStore.closeSidebar();
 		}
+
+		const unsubscribeNarrowViewport = subscribeNarrowViewport((narrow) => {
+			if (narrow) {
+				shellStore.closeSidebar();
+			}
+		});
 
 		function onKeydown(event: KeyboardEvent) {
 			const shortcuts = settingsStore.settings.shortcuts;
@@ -149,6 +155,7 @@
 		document.addEventListener('fullscreenchange', onDomFullScreenChange);
 
 		return () => {
+			unsubscribeNarrowViewport();
 			window.removeEventListener('keydown', onKeydown, true);
 			unsubscribeNavigate?.();
 			unsubscribeCloseWebPanel?.();

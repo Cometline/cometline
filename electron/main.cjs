@@ -31,6 +31,9 @@ const COMETMIND_PORT = 7700;
 const APP_SCHEME = 'app';
 const APP_HOST = 'bundle';
 const APP_ORIGIN = `${APP_SCHEME}://${APP_HOST}`;
+/** Minimum window size — chat-only layout works below the sidebar breakpoint (900px). */
+const MIN_WINDOW_WIDTH = 400;
+const MIN_WINDOW_HEIGHT = 480;
 const HEALTH_URL = `http://127.0.0.1:${COMETMIND_PORT}/api/v1/health`;
 const MAX_RETRIES = 50;
 const POLL_MS = 100;
@@ -1172,8 +1175,8 @@ async function createWindow() {
 	mainWindow = new BrowserWindow({
 		width: 1200,
 		height: 800,
-		minWidth: 880,
-		minHeight: 560,
+		minWidth: MIN_WINDOW_WIDTH,
+		minHeight: MIN_WINDOW_HEIGHT,
 		// 'hidden' (not 'hiddenInset') is required for setWindowButtonPosition to
 		// take effect: Electron only honors custom traffic-light positions on a
 		// frameless window. With 'hiddenInset' the buttons are pinned at a fixed
