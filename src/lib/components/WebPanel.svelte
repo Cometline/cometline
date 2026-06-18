@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ArrowLeft, ArrowRight, RotateCw, X } from '@lucide/svelte';
+	import { ArrowLeft, ArrowRight, RotateCcw, RotateCw, Save, X } from '@lucide/svelte';
 	import FilePreview from '$lib/components/FilePreview.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { getActiveSessionId } from '$lib/active-session';
@@ -18,6 +18,14 @@
 		getTitle(): string;
 	};
 
+	type FileEditorState = {
+		dirty: boolean;
+		saving: boolean;
+		saveError: string | null;
+		save: () => Promise<void>;
+		revert: () => void;
+	};
+
 	let webviewEl = $state<WebviewElement | null>(null);
 	let addressInputEl = $state<HTMLInputElement | null>(null);
 	let canGoBack = $state(false);
@@ -28,6 +36,8 @@
 	let webviewSessionId = $state<string | null>(null);
 	let webviewLoadedUrl = $state<string | null>(null);
 	let addressEditing = $state(false);
+	let editorState = $state<FileEditorState | null>(null);
+	let displayedFilePath = $state<string | null>(null);
 
 	const panelOpen = $derived(shellStore.webPanelOpen);
 	const panelMode = $derived(shellStore.webPanelMode);
@@ -36,8 +46,10 @@
 	const activeSessionId = $derived(getActiveSessionId());
 	const showWebview = $derived(panelMode === 'url' && Boolean(shellStore.hasWebPanelForSession && panelUrl));
 	const showFilePreview = $derived(
-		panelMode === 'file' && Boolean(shellStore.hasWebPanelForSession && panelFilePath)
+		panelMode === 'file' && Boolean(shellStore.hasWebPanelForSession && displayedFilePath)
 	);
+	const dirty = $derived(Boolean(editorState?.dirty));
+	const saving = $derived(Boolean(editorState?.saving));
 
 	function syncAddressFromNavigation() {
 		if (addressEditing) return;
@@ -80,8 +92,30 @@
 		webviewEl?.reload();
 	}
 
+	function confirmDiscardIfDirty(): boolean {
+		if (!dirty) return true;
+		return window.confirm('Discard unsaved changes?');
+	}
+
 	function onClose() {
+		if (!confirmDiscardIfDirty()) return;
 		shellStore.closeWebPanel();
+	}
+
+	function onSaveClick() {
+		void editorState?.save();
+	}
+
+	function onRevertClick() {
+		editorState?.revert();
+	}
+
+	function handlePanelKeydown(event: KeyboardEvent) {
+		if ((event.metaKey || event.ctrlKey) && (event.key === 's' || event.key === 'S')) {
+			if (panelMode !== 'file' || !editorState) return;
+			event.preventDefault();
+			void editorState.save();
+		}
 	}
 
 	function handlePanelMouseDown() {
@@ -199,7 +233,8 @@
 	});
 
 	$effect(() => {
-		panelUrl;
+		// Re-sync the address bar whenever the panel URL changes.
+		void panelUrl;
 		if (!addressEditing) {
 			syncAddressFromNavigation();
 		}
@@ -213,10 +248,26 @@
 			pageTitle = '';
 			webviewLoadedUrl = null;
 			webviewSessionId = null;
+			displayedFilePath = null;
+			editorState = null;
 			if (!addressEditing) {
 				addressInput = '';
 			}
 		}
+	});
+
+	// Guard file switches behind an unsaved-change confirmation. The store path
+	// changes immediately, but FilePreview only reloads the locally-tracked
+	// displayedFilePath, so cancelling keeps the current (dirty) file open.
+	$effect(() => {
+		const nextFilePath = panelMode === 'file' ? panelFilePath : null;
+		if (nextFilePath === displayedFilePath) return;
+		if (displayedFilePath !== null && nextFilePath !== null && dirty) {
+			if (!window.confirm('Discard unsaved changes?')) {
+				return;
+			}
+		}
+		displayedFilePath = nextFilePath;
 	});
 
 	$effect(() => {
@@ -228,6 +279,8 @@
 		});
 	});
 </script>
+
+<svelte:window onkeydown={handlePanelKeydown} />
 
 <div
 	class="web-panel"
@@ -266,9 +319,11 @@
 				</div>
 			{/if}
 			<div class="url-field">
-				{#if panelMode === 'file' && panelFilePath}
-					<span class="page-title">{panelFilePath.split(/[/\\]/).pop()}</span>
-					<span class="file-path-display" title={panelFilePath}>{panelFilePath}</span>
+				{#if panelMode === 'file' && displayedFilePath}
+					<span class="page-title">
+						{displayedFilePath.split(/[/\\]/).pop()}{#if dirty}<span class="dirty-dot" aria-label="Unsaved changes"> •</span>{/if}
+					</span>
+					<span class="file-path-display" title={displayedFilePath}>{displayedFilePath}</span>
 				{:else}
 					{#if pageTitle}
 						<span class="page-title">{pageTitle}</span>
@@ -290,14 +345,42 @@
 					/>
 				{/if}
 			</div>
+			{#if panelMode === 'file' && editorState}
+				<div class="file-actions">
+					<button
+						type="button"
+						class="icon-button"
+						disabled={!dirty || saving}
+						onclick={onRevertClick}
+						aria-label="Revert changes"
+						title="Revert changes"
+					>
+						<RotateCcw size={16} />
+					</button>
+					<button
+						type="button"
+						class="icon-button"
+						disabled={!dirty || saving}
+						onclick={onSaveClick}
+						aria-label="Save file"
+						title="Save (Cmd/Ctrl+S)"
+					>
+						<Save size={16} />
+					</button>
+				</div>
+			{/if}
 			<button type="button" class="icon-button close-button" onclick={onClose} aria-label="Close panel">
 				<X size={16} />
 			</button>
 		</header>
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div class="web-panel-content" onmousedown={handlePanelMouseDown}>
-			{#if showFilePreview && panelFilePath}
-				<FilePreview workspacePath={shellStore.workspacePath} filePath={panelFilePath} />
+			{#if showFilePreview && displayedFilePath}
+				<FilePreview
+					workspacePath={shellStore.workspacePath}
+					filePath={displayedFilePath}
+					onEditorState={(state) => (editorState = state)}
+				/>
 			{:else if showWebview}
 				<!-- Electron webview tag; inert in plain browser dev without Electron. -->
 				<webview bind:this={webviewEl} class="web-panel-view"></webview>
@@ -354,6 +437,13 @@
 		flex-shrink: 0;
 	}
 
+	.file-actions {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		flex-shrink: 0;
+	}
+
 	.icon-button {
 		display: inline-flex;
 		align-items: center;
@@ -393,6 +483,11 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+	}
+
+	.dirty-dot {
+		color: var(--accent, #2563eb);
+		font-weight: 700;
 	}
 
 	.address-input {

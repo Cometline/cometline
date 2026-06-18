@@ -20,6 +20,7 @@ import {
 	listWorkspaces as listWorkspacesApi,
 	listWorkspaceFiles as listWorkspaceFilesApi,
 	readWorkspaceFileContent as readWorkspaceFileContentApi,
+	writeWorkspaceFileContent as writeWorkspaceFileContentApi,
 	patchSession as patchSessionApi,
 	putMemorySettings as putMemorySettingsApi,
 	searchMemories as searchMemoriesApi,
@@ -187,6 +188,17 @@ export function readWorkspaceFileContent(
 		query: { workspace_path: workspacePath, path },
 		throwOnError: true
 	}).then(({ data }) => data);
+}
+
+export async function writeWorkspaceFileContent(
+	workspacePath: string,
+	path: string,
+	content: string
+): Promise<void> {
+	await writeWorkspaceFileContentApi({
+		body: { workspace_path: workspacePath, path, content },
+		throwOnError: true
+	});
 }
 
 export function changeSessionWorkspace(sessionId: string, workspacePath: string): Promise<Session> {

@@ -74,6 +74,28 @@ export type WorkspaceFileImageContent = {
 
 export type WorkspaceFileContent = WorkspaceFileTextContent | WorkspaceFileImageContent;
 
+/**
+ * Provide either `workspace_id` or `workspace_path`.
+ */
+export type WriteWorkspaceFileRequest = {
+    /**
+     * Registered workspace identifier.
+     */
+    workspace_id?: string;
+    /**
+     * Absolute filesystem path for the workspace.
+     */
+    workspace_path?: string;
+    /**
+     * Workspace-relative file path.
+     */
+    path: string;
+    /**
+     * UTF-8 text content to write.
+     */
+    content: string;
+};
+
 export type PostMessageRequest = {
     /**
      * User input text. Required when images is empty.
@@ -627,6 +649,35 @@ export type ReadWorkspaceFileContentResponses = {
 };
 
 export type ReadWorkspaceFileContentResponse = ReadWorkspaceFileContentResponses[keyof ReadWorkspaceFileContentResponses];
+
+export type WriteWorkspaceFileContentData = {
+    body: WriteWorkspaceFileRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/workspaces/files/content';
+};
+
+export type WriteWorkspaceFileContentErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type WriteWorkspaceFileContentError = WriteWorkspaceFileContentErrors[keyof WriteWorkspaceFileContentErrors];
+
+export type WriteWorkspaceFileContentResponses = {
+    /**
+     * File saved
+     */
+    204: void;
+};
+
+export type WriteWorkspaceFileContentResponse = WriteWorkspaceFileContentResponses[keyof WriteWorkspaceFileContentResponses];
 
 export type ListSessionsData = {
     body?: never;

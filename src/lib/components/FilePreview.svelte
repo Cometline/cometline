@@ -1,34 +1,84 @@
 <script lang="ts">
-	import AssistantMarkdown from '$lib/components/AssistantMarkdown.svelte';
 	import { Loader } from '@lucide/svelte';
-	import { readWorkspaceFileContent } from '$lib/client/cometmind';
-	import { getHighlighter, resolveLanguage, CODE_THEME } from '$lib/markdown/highlight';
-	import { isMarkdownPath, languageFromExtension, languageFromPath } from '$lib/workspace/file-preview';
+	import FileEditor from '$lib/components/FileEditor.svelte';
+	import {
+		readWorkspaceFileContent,
+		writeWorkspaceFileContent
+	} from '$lib/client/cometmind';
+	import { languageFromExtension, languageFromPath } from '$lib/workspace/file-preview';
+
+	type EditorState = {
+		dirty: boolean;
+		saving: boolean;
+		saveError: string | null;
+		save: () => Promise<void>;
+		revert: () => void;
+	};
 
 	let {
 		workspacePath,
-		filePath
+		filePath,
+		onEditorState
 	}: {
 		workspacePath: string;
 		filePath: string;
+		onEditorState?: (state: EditorState | null) => void;
 	} = $props();
 
 	let loading = $state(true);
 	let error = $state<string | null>(null);
-	let textContent = $state('');
 	let imageDataUrl = $state('');
-	let codeHtml = $state('');
-	let previewKind = $state<'markdown' | 'code' | 'text' | 'image' | null>(null);
+	let savedContent = $state('');
+	let draftContent = $state('');
+	let language = $state<string | null>(null);
+	let previewKind = $state<'text' | 'image' | null>(null);
+	let saving = $state(false);
+	let saveError = $state<string | null>(null);
 	let loadVersion = 0;
+
+	const dirty = $derived(previewKind === 'text' && draftContent !== savedContent);
+
+	function revert() {
+		if (previewKind !== 'text') return;
+		draftContent = savedContent;
+		saveError = null;
+	}
+
+	async function save() {
+		if (previewKind !== 'text' || saving || !dirty) return;
+
+		const nextContent = draftContent;
+		const currentWorkspacePath = workspacePath;
+		const currentFilePath = filePath;
+
+		saving = true;
+		saveError = null;
+		try {
+			await writeWorkspaceFileContent(currentWorkspacePath, currentFilePath, nextContent);
+			if (workspacePath !== currentWorkspacePath || filePath !== currentFilePath) return;
+			savedContent = nextContent;
+			draftContent = nextContent;
+		} catch (err) {
+			if (workspacePath !== currentWorkspacePath || filePath !== currentFilePath) return;
+			saveError = err instanceof Error ? err.message : 'Failed to save file';
+		} finally {
+			if (workspacePath === currentWorkspacePath && filePath === currentFilePath) {
+				saving = false;
+			}
+		}
+	}
 
 	async function loadPreview() {
 		const version = ++loadVersion;
 		loading = true;
 		error = null;
-		textContent = '';
 		imageDataUrl = '';
-		codeHtml = '';
+		savedContent = '';
+		draftContent = '';
+		language = null;
 		previewKind = null;
+		saving = false;
+		saveError = null;
 
 		try {
 			const result = await readWorkspaceFileContent(workspacePath, filePath);
@@ -40,31 +90,9 @@
 				return;
 			}
 
-			textContent = result.content;
-			if (isMarkdownPath(filePath)) {
-				previewKind = 'markdown';
-				return;
-			}
-
-			const language = languageFromPath(filePath) ?? languageFromExtension(result.extension);
-			if (language) {
-				try {
-					const highlighter = await getHighlighter();
-					if (version !== loadVersion) return;
-					const resolved = resolveLanguage(highlighter, language);
-					if (resolved) {
-						codeHtml = highlighter.codeToHtml(textContent, {
-							lang: resolved,
-							theme: CODE_THEME
-						});
-						previewKind = 'code';
-						return;
-					}
-				} catch {
-					// Fall through to plain text.
-				}
-			}
-
+			savedContent = result.content;
+			draftContent = result.content;
+			language = languageFromPath(filePath) ?? languageFromExtension(result.extension);
 			previewKind = 'text';
 		} catch (err) {
 			if (version !== loadVersion) return;
@@ -75,9 +103,29 @@
 	}
 
 	$effect(() => {
-		workspacePath;
-		filePath;
+		// Track both inputs so the editor reloads when either changes.
+		void [workspacePath, filePath];
 		void loadPreview();
+	});
+
+	$effect(() => {
+		onEditorState?.(
+			previewKind === 'text' && !loading && !error
+				? {
+						dirty,
+						saving,
+						saveError,
+						save,
+						revert
+					}
+				: null
+		);
+	});
+
+	$effect(() => {
+		return () => {
+			onEditorState?.(null);
+		};
 	});
 </script>
 
@@ -93,17 +141,24 @@
 		<div class="file-preview-image-wrap">
 			<img src={imageDataUrl} alt={filePath} class="file-preview-image" />
 		</div>
-	{:else if previewKind === 'markdown'}
-		<div class="file-preview-markdown">
-			<AssistantMarkdown source={textContent} />
-		</div>
-	{:else if previewKind === 'code' && codeHtml}
-		<div class="file-preview-code">
-			<!-- eslint-disable-next-line svelte/no-at-html-tags -->
-			{@html codeHtml}
-		</div>
 	{:else if previewKind === 'text'}
-		<pre class="file-preview-plain">{textContent}</pre>
+		<div class="file-preview-editor-wrap">
+			{#if saveError}
+				<div class="file-preview-save-error">{saveError}</div>
+			{/if}
+			<FileEditor
+				value={draftContent}
+				language={language}
+				readOnly={saving}
+				onChange={(value) => {
+					draftContent = value;
+					if (saveError) saveError = null;
+				}}
+				onSave={() => {
+					void save();
+				}}
+			/>
+		</div>
 	{/if}
 </div>
 
@@ -156,32 +211,19 @@
 		object-fit: contain;
 	}
 
-	.file-preview-markdown {
-		padding: 16px 18px 24px;
+	.file-preview-editor-wrap {
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+		min-height: 0;
 	}
 
-	.file-preview-code {
-		padding: 12px;
-	}
-
-	.file-preview-code :global(pre) {
-		margin: 0;
-		padding: 12px 14px;
-		border-radius: 10px;
-		overflow: auto;
+	.file-preview-save-error {
+		padding: 10px 14px;
+		border-bottom: 1px solid rgba(180, 35, 24, 0.15);
+		background: rgba(180, 35, 24, 0.05);
+		color: #b42318;
 		font-size: 12px;
-		line-height: 1.5;
-	}
-
-	.file-preview-plain {
-		margin: 0;
-		padding: 16px 18px;
-		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-		font-size: 12px;
-		line-height: 1.5;
-		white-space: pre-wrap;
-		word-break: break-word;
-		color: var(--text-main);
 	}
 
 	@media (prefers-reduced-motion: reduce) {
