@@ -92,10 +92,16 @@ func New(deps Deps) (*gin.Engine, error) {
 	r.Use(gin.Recovery())
 
 	api := r.Group("/api/v1")
+
+	// Health
 	api.GET("/health", app.handleHealth)
+
+	// Workspaces
 	api.GET("/workspaces", app.handleListWorkspaces)
 	api.POST("/workspaces", app.handleCreateWorkspace)
 	api.GET("/workspaces/files", app.handleListWorkspaceFiles)
+
+	// Sessions
 	api.POST("/sessions", app.handleCreateSession)
 	api.GET("/sessions", app.handleListSessions)
 	api.GET("/sessions/:id", app.handleGetSession)
@@ -108,16 +114,22 @@ func New(deps Deps) (*gin.Engine, error) {
 	api.POST("/sessions/:id/message", app.handlePostMessage)
 	api.POST("/sessions/:id/respond", app.handleRespondToChildSession)
 	api.POST("/sessions/:id/abort", app.handleAbortSession)
+
+	// Skills
 	api.GET("/skills", app.handleListSkills)
 	api.POST("/skills/sync", app.handleSyncSkills)
 	api.GET("/skills/:name/export", app.handleExportSkill)
 	api.DELETE("/skills/:name", app.handleDeleteSkill)
 	api.GET("/skills/:name", app.handleGetSkill)
+
+	// Memories
 	api.GET("/memories", app.handleListMemories)
 	api.POST("/memories", app.handleCreateMemory)
 	api.PATCH("/memories/:id", app.handlePatchMemory)
 	api.DELETE("/memories/:id", app.handleDeleteMemory)
 	api.POST("/memories/search", app.handleSearchMemories)
+
+	// Memory settings & maintenance
 	api.GET("/memory/settings", app.handleGetMemorySettings)
 	api.PUT("/memory/settings", app.handlePutMemorySettings)
 	api.POST("/memory/purge", app.handlePurgeMemory)
