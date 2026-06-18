@@ -33,6 +33,25 @@ describe('buildThinkingAttribution', () => {
 		]);
 	});
 
+	it('attaches memory injected after the assistant placeholder (live streaming order)', () => {
+		const items: ChatItem[] = [
+			{ id: 'u1', type: 'user', text: 'help me' },
+			{ id: 'a1', type: 'assistant', text: '', pending: true },
+			{
+				id: 'm1',
+				type: 'memory',
+				memories: [{ id: 'mem-1', kind: 'fact', content: 'alpha', similarity: 1, effective_weight: 1 }]
+			}
+		];
+
+		const { map, memoryIdsInBuffer } = buildThinkingAttribution(items);
+
+		expect(memoryIdsInBuffer.has('m1')).toBe(true);
+		expect(map.get('a1')?.memories).toEqual([
+			{ id: 'mem-1', kind: 'fact', content: 'alpha', similarity: 1, effective_weight: 1 }
+		]);
+	});
+
 	it('buffers tools under the assistant in the same turn', () => {
 		const items: ChatItem[] = [
 			{ id: 'u1', type: 'user', text: 'run tool' },

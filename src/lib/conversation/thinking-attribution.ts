@@ -30,8 +30,20 @@ export function buildThinkingAttribution(items: readonly ChatItem[]): ThinkingAt
 			continue;
 		}
 		if (item.type === 'memory') {
-			pendingMemories = item.memories;
 			memoryIdsInBuffer.add(item.id);
+			// During live streaming the assistant placeholder is pushed before the
+			// stream starts, so the order is [user, assistant, memory] — the memory
+			// arrives after its assistant. Attach it to the current turn's assistant
+			// directly. When replaying history the order is [user, memory, assistant],
+			// so fall back to buffering for the next assistant.
+			if (currentAssistantId) {
+				const block = map.get(currentAssistantId);
+				if (block) {
+					block.memories = item.memories;
+					continue;
+				}
+			}
+			pendingMemories = item.memories;
 			continue;
 		}
 		if (item.type === 'assistant') {

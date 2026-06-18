@@ -273,6 +273,44 @@ describe('chatStore session switching', () => {
 		]);
 	});
 
+	it('surfaces an error item when the model fails before any output (e.g. 401)', async () => {
+		vi.mocked(streamMessage).mockImplementation(async function* () {
+			yield { type: 'error', message: 'cometsdk: openai: authentication failed (HTTP 401)' };
+		});
+
+		chatStore.bindSession('sess-a');
+		await chatStore.send('sess-a', 'hi');
+
+		await vi.waitFor(() => expect(chatStore.isStreamingFor('sess-a')).toBe(false));
+
+		const errorItem = chatStore.items.find((item) => item.type === 'error');
+		expect(errorItem).toBeDefined();
+		if (errorItem?.type !== 'error') return;
+		expect(errorItem.text).toContain('API key is invalid or missing');
+		// The empty pending assistant must not linger as a blank row.
+		expect(
+			chatStore.items.some((item) => item.type === 'assistant' && !item.text.trim())
+		).toBe(false);
+	});
+
+	it('surfaces an error item when streamMessage throws before any output', async () => {
+		vi.mocked(streamMessage).mockImplementation(async function* () {
+			throw new Error('cometsdk: openai: authentication failed (HTTP 401)');
+			// eslint-disable-next-line no-unreachable
+			yield { type: 'done' };
+		});
+
+		chatStore.bindSession('sess-a');
+		await chatStore.send('sess-a', 'hi');
+
+		await vi.waitFor(() => expect(chatStore.isStreamingFor('sess-a')).toBe(false));
+
+		const errorItem = chatStore.items.find((item) => item.type === 'error');
+		expect(errorItem).toBeDefined();
+		if (errorItem?.type !== 'error') return;
+		expect(errorItem.text).toContain('API key is invalid or missing');
+	});
+
 	it('blocks duplicate send in the same session', async () => {
 		let releaseA: (() => void) | undefined;
 		const aGate = new Promise<void>((resolve) => {

@@ -107,6 +107,7 @@ export type ChatItem =
 			type: 'assistant';
 			text: string;
 			pending?: boolean;
+			pendingStartedAt?: number;
 			reasoning?: { text: string; pending?: boolean };
 			memoryUpdates?: MemoryUpdate[];
 	  }

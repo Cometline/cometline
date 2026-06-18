@@ -41,6 +41,9 @@ function cleanErrorMessage(message: string) {
 	if (text.includes('authentication failed') || text.includes('HTTP 401')) {
 		return 'API key is invalid or missing. Open Settings (⌘,), enter your provider API key, and click Save.';
 	}
+	if (text.includes('Client.Timeout exceeded while awaiting headers')) {
+		return 'The model provider did not start responding before the request timed out. This is usually a provider queue, gateway, or model availability issue. Try again, or switch provider/model if it keeps happening.';
+	}
 	return text.replace(/^\d+:\s*/, '') || 'The request failed.';
 }
 
@@ -414,11 +417,15 @@ function applyEvent(
 
 	if (event.type === 'error') {
 		settleTurn({ assistant: assistant.current, reasoning: reasoning.current });
+		// clearEmptyAssistant() reassigns draft.items to a new array, so the local
+		// `items` reference captured at the top of applyEvent becomes stale. Push
+		// the error onto the live draft.items array (not the orphaned `items` one),
+		// otherwise the error card silently never renders.
 		clearEmptyAssistant();
-		settlePendingTools(items);
+		settlePendingTools(draft.items);
 		draft.error = cleanErrorMessage(event.message);
 		const id = localID('error', draft.nextId++).id;
-		items.push({ id, type: 'error', text: draft.error });
+		draft.items.push({ id, type: 'error', text: draft.error });
 		return;
 	}
 

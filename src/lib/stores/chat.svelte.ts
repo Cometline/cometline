@@ -569,7 +569,8 @@ function createChatStore() {
 			id: preId,
 			type: 'assistant',
 			text: '',
-			pending: true
+			pending: true,
+			pendingStartedAt: Date.now()
 		};
 		const preItems = getCachedItems(nextSessionID).slice();
 		preItems.push(preAssistant);

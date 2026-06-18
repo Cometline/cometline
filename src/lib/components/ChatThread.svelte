@@ -325,7 +325,12 @@
 	});
 
 	$effect(() => {
-		if (!chatStore.items.some((item) => item.type === 'tool' && item.pending)) return;
+		const hasTimedPending = chatStore.items.some(
+			(item) =>
+				(item.type === 'tool' && item.pending) ||
+				(item.type === 'assistant' && item.pending && item.pendingStartedAt != null)
+		);
+		if (!hasTimedPending) return;
 		const timer = setInterval(() => {
 			now = Date.now();
 		}, 100);
@@ -373,6 +378,25 @@
 
 	function showAssistantActivitySpinner(item: Extract<ChatItem, { type: 'assistant' }>) {
 		return sessionStreaming && item.id === streamingAssistantId;
+	}
+
+	function assistantWaitSeconds(item: Extract<ChatItem, { type: 'assistant' }>) {
+		if (item.pendingStartedAt == null) return 0;
+		return Math.max(0, Math.floor((now - item.pendingStartedAt) / 1000));
+	}
+
+	function assistantActivityMessage(item: Extract<ChatItem, { type: 'assistant' }> | undefined) {
+		const seconds = item ? assistantWaitSeconds(item) : 0;
+		if (seconds >= 90) {
+			return `Still waiting for the provider after ${seconds}s. This request may time out soon.`;
+		}
+		if (seconds >= 30) {
+			return `The model has not started streaming after ${seconds}s. The provider may be queued or slow.`;
+		}
+		if (seconds >= 8) {
+			return `Still waiting for the model (${seconds}s).`;
+		}
+		return 'Contacting model...';
 	}
 
 	function hasVisibleThinkingBlock(itemId: string) {
@@ -538,9 +562,10 @@
 	});
 </script>
 
-{#snippet assistantActivitySpinner()}
+{#snippet assistantActivitySpinner(item?: Extract<ChatItem, { type: 'assistant' }>)}
 	<div class="assistant-activity-spinner">
 		<ThinkingIndicator color={heroGlowColor} size={24} label="Assistant is responding" />
+		<span>{assistantActivityMessage(item)}</span>
 	</div>
 {/snippet}
 
@@ -663,7 +688,7 @@
 			{/if}
 		{/if}
 		{#if showAssistantActivitySpinner(item)}
-			{@render assistantActivitySpinner()}
+			{@render assistantActivitySpinner(item)}
 		{/if}
 	</div>
 {/snippet}
@@ -1454,7 +1479,13 @@
 	.assistant-activity-spinner {
 		display: flex;
 		align-items: center;
+		gap: 8px;
 		padding: 8px 2px 2px;
+	}
+
+	.assistant-activity-spinner span {
+		font-size: 12px;
+		color: var(--text-soft, rgba(0, 0, 0, 0.55));
 	}
 
 	.message-actions {
