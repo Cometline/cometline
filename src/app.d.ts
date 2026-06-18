@@ -127,6 +127,7 @@ declare global {
 
 	interface CometMindSettings {
 		systemPromptPath: string;
+		maxTokens: number;
 		acp: CometMindACPSettings;
 		skills: CometMindSkillsSettings;
 		memory: CometMindMemorySettings;

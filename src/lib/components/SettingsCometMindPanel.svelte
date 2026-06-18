@@ -234,6 +234,27 @@
 <section class="cometmind-panel">
 	<div class="section-block">
 		<div class="section-heading">
+			<h3>Runtime</h3>
+			<p>
+				Controls sent to CometMind for each agent response. Settings are saved to
+				<code>~/.cometmind/cometline-settings.json</code>.
+			</p>
+		</div>
+		<label>
+			<span>Max output tokens</span>
+			<input
+				type="number"
+				bind:value={cometmind.maxTokens}
+				min="1"
+				step="1"
+				placeholder="2048"
+			/>
+			<p class="field-hint">Caps the model's generated response length. Lower values reduce worst-case latency and cost.</p>
+		</label>
+	</div>
+
+	<div class="section-block">
+		<div class="section-heading">
 			<h3>OpenCode subagent (ACP)</h3>
 			<p>
 				Delegate coding tasks to the local OpenCode CLI. Written to <code>[acp]</code> in

@@ -14,6 +14,7 @@ describe('settings schema', () => {
 		expect(settings.providers).toHaveLength(4);
 		expect(settings.app.iconVariant).toBe('default');
 		expect(settings.cometmind.systemPromptPath).toBe('');
+		expect(settings.cometmind.maxTokens).toBe(2048);
 		expect(settings.cometmind.storage.retentionDays).toBe(90);
 		expect(settings.cometmind.storage.maxSessionsPerWorkspace).toBe(0);
 	});
@@ -71,6 +72,7 @@ describe('settings schema', () => {
 		const slice = runtimeSlice(settings);
 		expect(slice?.provider).toBe('openai');
 		expect(slice?.model).toBe('gpt-4o');
+		expect(slice?.maxTokens).toBe(2048);
 		expect(slice?.systemPromptPath).toBe('/tmp/SOUL.md');
 		expect(slice?.providers).toHaveLength(1);
 	});
@@ -79,5 +81,29 @@ describe('settings schema', () => {
 		const settings = defaultSettings();
 		settings.providers = [];
 		expect(() => validateSettings(settings)).toThrow();
+	});
+
+	it('persists custom CometMind max tokens into runtime slice', () => {
+		const settings = normalizeSettings({
+			...defaultSettings(),
+			providers: defaultSettings().providers.map((p) =>
+				p.id === 'openai'
+					? {
+							...p,
+							enabled: true,
+							enabledModels: ['gpt-4o'],
+							models: ['gpt-4o']
+						}
+					: { ...p, enabled: false, enabledModels: [] }
+			),
+			activeProviderId: 'openai',
+			cometmind: {
+				...defaultSettings().cometmind,
+				maxTokens: 3072
+			}
+		});
+
+		expect(settings.cometmind.maxTokens).toBe(3072);
+		expect(runtimeSlice(settings)?.maxTokens).toBe(3072);
 	});
 });

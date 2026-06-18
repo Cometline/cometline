@@ -90,6 +90,7 @@ export interface CometMindStorageSettings {
 
 export interface CometMindSettings {
 	systemPromptPath: string;
+	maxTokens: number;
 	acp: CometMindACPSettings;
 	skills: CometMindSkillsSettings;
 	memory: CometMindMemorySettings;
@@ -197,6 +198,11 @@ function normalizeNonNegativeInt(value: unknown, fallback: number): number {
 	return Math.max(0, Math.floor(value));
 }
 
+function normalizePositiveInt(value: unknown, fallback: number): number {
+	if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
+	return Math.max(1, Math.floor(value));
+}
+
 export function defaultCometMindStorageSettings(): CometMindStorageSettings {
 	return {
 		retentionDays: 90,
@@ -209,6 +215,7 @@ export function defaultCometMindStorageSettings(): CometMindStorageSettings {
 export function defaultCometMindSettings(workspacePath = ''): CometMindSettings {
 	return {
 		systemPromptPath: '',
+		maxTokens: 2048,
 		acp: {
 			command: 'opencode',
 			args: ['acp'],
@@ -266,6 +273,7 @@ export function normalizeCometMindSettings(
 
 	return {
 		systemPromptPath: String(input?.systemPromptPath ?? defaults.systemPromptPath).trim(),
+		maxTokens: normalizePositiveInt(input?.maxTokens, defaults.maxTokens),
 		acp: {
 			command: String(acp.command ?? defaults.acp.command).trim() || defaults.acp.command,
 			args: args.length > 0 ? args : defaults.acp.args,
@@ -338,6 +346,7 @@ export function normalizeCometMindSettings(
 export function cloneCometMindSettings(settings: CometMindSettings): CometMindSettings {
 	return {
 		systemPromptPath: settings.systemPromptPath,
+		maxTokens: settings.maxTokens,
 		acp: {
 			command: settings.acp.command,
 			args: [...settings.acp.args],
@@ -586,7 +595,7 @@ export function runtimeSlice(settings: ProviderSettings): RuntimeSettingsSlice |
 		provider: active.id,
 		model: primaryModel(active),
 		baseURL: active.baseURL,
-		maxTokens: 8192,
+		maxTokens: settings.cometmind.maxTokens,
 		maxSteps: 50,
 		systemPromptPath: settings.cometmind.systemPromptPath,
 		providers: providers.map((p) => ({
@@ -640,6 +649,7 @@ const providerSettingsSchema = z.object({
 	}),
 	cometmind: z.object({
 		systemPromptPath: z.string(),
+		maxTokens: z.number().int().positive(),
 		acp: z.object({
 			command: z.string().min(1),
 			args: z.array(z.string()),

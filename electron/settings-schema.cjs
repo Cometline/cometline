@@ -4357,6 +4357,10 @@ function normalizeNonNegativeInt(value, fallback) {
   if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
   return Math.max(0, Math.floor(value));
 }
+function normalizePositiveInt(value, fallback) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
+  return Math.max(1, Math.floor(value));
+}
 function defaultCometMindStorageSettings() {
   return {
     retentionDays: 90,
@@ -4368,6 +4372,7 @@ function defaultCometMindStorageSettings() {
 function defaultCometMindSettings(workspacePath = "") {
   return {
     systemPromptPath: "",
+    maxTokens: 2048,
     acp: {
       command: "opencode",
       args: ["acp"],
@@ -4418,6 +4423,7 @@ function normalizeCometMindSettings(input, fallbackWorkspacePath = "") {
   const { botToken, botTokenEnv } = migrateDiscordTokenFields(discord);
   return {
     systemPromptPath: String(input?.systemPromptPath ?? defaults.systemPromptPath).trim(),
+    maxTokens: normalizePositiveInt(input?.maxTokens, defaults.maxTokens),
     acp: {
       command: String(acp.command ?? defaults.acp.command).trim() || defaults.acp.command,
       args: args.length > 0 ? args : defaults.acp.args,
@@ -4470,6 +4476,7 @@ function normalizeCometMindSettings(input, fallbackWorkspacePath = "") {
 function cloneCometMindSettings(settings) {
   return {
     systemPromptPath: settings.systemPromptPath,
+    maxTokens: settings.maxTokens,
     acp: {
       command: settings.acp.command,
       args: [...settings.acp.args],
@@ -4652,7 +4659,7 @@ function runtimeSlice(settings) {
     provider: active.id,
     model: primaryModel(active),
     baseURL: active.baseURL,
-    maxTokens: 8192,
+    maxTokens: settings.cometmind.maxTokens,
     maxSteps: 50,
     systemPromptPath: settings.cometmind.systemPromptPath,
     providers: providers.map((p) => ({
@@ -4704,6 +4711,7 @@ var providerSettingsSchema = external_exports.object({
   }),
   cometmind: external_exports.object({
     systemPromptPath: external_exports.string(),
+    maxTokens: external_exports.number().int().positive(),
     acp: external_exports.object({
       command: external_exports.string().min(1),
       args: external_exports.array(external_exports.string()),
