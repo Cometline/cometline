@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { ArrowLeft, ArrowRight, RotateCw, X } from '@lucide/svelte';
+	import FilePreview from '$lib/components/FilePreview.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { getActiveSessionId } from '$lib/active-session';
 	import { isWebPanelUrl, normalizeUserUrl, openLink } from '$lib/open-link';
@@ -29,9 +30,14 @@
 	let addressEditing = $state(false);
 
 	const panelOpen = $derived(shellStore.webPanelOpen);
+	const panelMode = $derived(shellStore.webPanelMode);
 	const panelUrl = $derived(shellStore.webPanelUrl);
+	const panelFilePath = $derived(shellStore.webPanelFilePath);
 	const activeSessionId = $derived(getActiveSessionId());
-	const showWebview = $derived(Boolean(shellStore.hasWebPanelForSession && panelUrl));
+	const showWebview = $derived(panelMode === 'url' && Boolean(shellStore.hasWebPanelForSession && panelUrl));
+	const showFilePreview = $derived(
+		panelMode === 'file' && Boolean(shellStore.hasWebPanelForSession && panelFilePath)
+	);
 
 	function syncAddressFromNavigation() {
 		if (addressEditing) return;
@@ -234,48 +240,55 @@
 	>
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<header class="web-panel-toolbar" onmousedown={handlePanelMouseDown}>
-			<div class="nav-actions">
-				<button type="button" class="icon-button" disabled={!canGoBack} onclick={onBack} aria-label="Back">
-					<ArrowLeft size={16} />
-				</button>
-				<button
-					type="button"
-					class="icon-button"
-					disabled={!canGoForward}
-					onclick={onForward}
-					aria-label="Forward"
-				>
-					<ArrowRight size={16} />
-				</button>
-				<button
-					type="button"
-					class="icon-button"
-					disabled={!showWebview}
-					onclick={onReload}
-					aria-label="Reload"
-				>
-					<RotateCw size={16} class={loading ? 'spin' : ''} />
-				</button>
-			</div>
+			{#if panelMode === 'url'}
+				<div class="nav-actions">
+					<button type="button" class="icon-button" disabled={!canGoBack} onclick={onBack} aria-label="Back">
+						<ArrowLeft size={16} />
+					</button>
+					<button
+						type="button"
+						class="icon-button"
+						disabled={!canGoForward}
+						onclick={onForward}
+						aria-label="Forward"
+					>
+						<ArrowRight size={16} />
+					</button>
+					<button
+						type="button"
+						class="icon-button"
+						disabled={!showWebview}
+						onclick={onReload}
+						aria-label="Reload"
+					>
+						<RotateCw size={16} class={loading ? 'spin' : ''} />
+					</button>
+				</div>
+			{/if}
 			<div class="url-field">
-				{#if pageTitle}
-					<span class="page-title">{pageTitle}</span>
+				{#if panelMode === 'file' && panelFilePath}
+					<span class="page-title">{panelFilePath.split(/[/\\]/).pop()}</span>
+					<span class="file-path-display" title={panelFilePath}>{panelFilePath}</span>
+				{:else}
+					{#if pageTitle}
+						<span class="page-title">{pageTitle}</span>
+					{/if}
+					<input
+						bind:this={addressInputEl}
+						class="address-input"
+						type="text"
+						inputmode="url"
+						spellcheck="false"
+						autocapitalize="off"
+						autocomplete="off"
+						placeholder="Enter a URL"
+						bind:value={addressInput}
+						onfocus={onAddressFocus}
+						onblur={onAddressBlur}
+						onkeydown={onAddressKeydown}
+						aria-label="Web panel address"
+					/>
 				{/if}
-				<input
-					bind:this={addressInputEl}
-					class="address-input"
-					type="text"
-					inputmode="url"
-					spellcheck="false"
-					autocapitalize="off"
-					autocomplete="off"
-					placeholder="Enter a URL"
-					bind:value={addressInput}
-					onfocus={onAddressFocus}
-					onblur={onAddressBlur}
-					onkeydown={onAddressKeydown}
-					aria-label="Web panel address"
-				/>
 			</div>
 			<button type="button" class="icon-button close-button" onclick={onClose} aria-label="Close panel">
 				<X size={16} />
@@ -283,7 +296,9 @@
 		</header>
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div class="web-panel-content" onmousedown={handlePanelMouseDown}>
-			{#if showWebview}
+			{#if showFilePreview && panelFilePath}
+				<FilePreview workspacePath={shellStore.workspacePath} filePath={panelFilePath} />
+			{:else if showWebview}
 				<!-- Electron webview tag; inert in plain browser dev without Electron. -->
 				<webview bind:this={webviewEl} class="web-panel-view"></webview>
 			{/if}
@@ -398,6 +413,16 @@
 	.address-input::placeholder {
 		color: var(--text-muted);
 		opacity: 0.7;
+	}
+
+	.file-path-display {
+		width: 100%;
+		min-width: 0;
+		font-size: 11px;
+		color: var(--text-muted);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 
 	.close-button {

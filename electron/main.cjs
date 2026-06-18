@@ -1501,6 +1501,10 @@ ipcMain.handle('cometline:set-workspace-path', (_event, workspacePath) => {
 
 ipcMain.handle('cometline:list-recent-workspaces', () => listRecentWorkspacePaths());
 
+ipcMain.handle('cometline:read-workspace-file', (_event, workspacePath, relativePath) =>
+	readWorkspaceFileForPreview(workspacePath, relativePath)
+);
+
 ipcMain.handle('cometline:get-provider-settings', () => readProviderSettings());
 
 ipcMain.handle('cometline:fetch-provider-models', async (_event, config) => {
@@ -1590,6 +1594,66 @@ function isExternallyOpenableUrl(rawUrl) {
 	} catch {
 		return false;
 	}
+}
+
+async function readWorkspaceFileForPreview(workspacePath, relativePath) {
+	const WORKSPACE_FILE_MAX_BYTES = 256 * 1024;
+	const IMAGE_MIME_BY_EXT = {
+		'.png': 'image/png',
+		'.jpg': 'image/jpeg',
+		'.jpeg': 'image/jpeg',
+		'.gif': 'image/gif',
+		'.webp': 'image/webp',
+		'.svg': 'image/svg+xml'
+	};
+
+	const root = path.resolve(String(workspacePath || ''));
+	const clean = String(relativePath || '').replace(/^[/\\]+/, '');
+	if (!root || root === path.sep || !clean) {
+		return { ok: false, error: 'Invalid file path' };
+	}
+
+	const abs = path.resolve(root, clean);
+	if (abs !== root && !abs.startsWith(root + path.sep)) {
+		return { ok: false, error: 'Path escapes workspace' };
+	}
+
+	let stat;
+	try {
+		stat = await fs.promises.stat(abs);
+	} catch {
+		return { ok: false, error: 'File not found' };
+	}
+	if (!stat.isFile()) {
+		return { ok: false, error: 'Not a file' };
+	}
+	if (stat.size > WORKSPACE_FILE_MAX_BYTES) {
+		return { ok: false, error: 'File exceeds 256 KB preview limit' };
+	}
+
+	const ext = path.extname(abs).toLowerCase();
+	const mimeType = IMAGE_MIME_BY_EXT[ext];
+	if (mimeType) {
+		const buffer = await fs.promises.readFile(abs);
+		return {
+			ok: true,
+			kind: 'image',
+			mimeType,
+			dataUrl: `data:${mimeType};base64,${buffer.toString('base64')}`
+		};
+	}
+
+	let content;
+	try {
+		content = await fs.promises.readFile(abs, 'utf8');
+	} catch {
+		return { ok: false, error: 'Cannot read file as text' };
+	}
+	if (content.includes('\0')) {
+		return { ok: false, error: 'Binary file cannot be previewed' };
+	}
+
+	return { ok: true, kind: 'text', content, extension: ext };
 }
 
 ipcMain.handle('cometline:open-external', async (_event, rawUrl) => {

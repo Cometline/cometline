@@ -60,6 +60,20 @@ export type WorkspaceFileList = {
     truncated?: boolean;
 };
 
+export type WorkspaceFileTextContent = {
+    kind: 'text';
+    content: string;
+    extension: string;
+};
+
+export type WorkspaceFileImageContent = {
+    kind: 'image';
+    mime_type: string;
+    data_url: string;
+};
+
+export type WorkspaceFileContent = WorkspaceFileTextContent | WorkspaceFileImageContent;
+
 export type PostMessageRequest = {
     /**
      * User input text. Required when images is empty.
@@ -577,6 +591,42 @@ export type ListWorkspaceFilesResponses = {
 };
 
 export type ListWorkspaceFilesResponse = ListWorkspaceFilesResponses[keyof ListWorkspaceFilesResponses];
+
+export type ReadWorkspaceFileContentData = {
+    body?: never;
+    path?: never;
+    query: {
+        workspace_id?: string;
+        workspace_path?: string;
+        /**
+         * Workspace-relative file path.
+         */
+        path: string;
+    };
+    url: '/api/v1/workspaces/files/content';
+};
+
+export type ReadWorkspaceFileContentErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type ReadWorkspaceFileContentError = ReadWorkspaceFileContentErrors[keyof ReadWorkspaceFileContentErrors];
+
+export type ReadWorkspaceFileContentResponses = {
+    /**
+     * File preview content
+     */
+    200: WorkspaceFileContent;
+};
+
+export type ReadWorkspaceFileContentResponse = ReadWorkspaceFileContentResponses[keyof ReadWorkspaceFileContentResponses];
 
 export type ListSessionsData = {
     body?: never;

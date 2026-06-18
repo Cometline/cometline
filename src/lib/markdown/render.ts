@@ -3,7 +3,8 @@ import remend from 'remend';
 import DOMPurify from 'dompurify';
 import katex from 'katex';
 import { getHighlighter, resolveLanguage, CODE_THEME } from './highlight';
-import { buildEmbedChip } from './embed';
+import { buildEmbedChip, buildFileEmbedChip, buildSkillEmbedChip, findNextUserTextToken } from './embed';
+import { stripInlinedFileBlocks } from '$lib/messages/strip-inlined-files';
 
 /** Escapes text for safe inclusion in HTML. */
 function escapeHtml(value: string): string {
@@ -282,6 +283,10 @@ const SANITIZE_CONFIG = {
 		'rel',
 		'data-external-link',
 		'data-embed-url',
+		'data-file-path',
+		'data-skill-name',
+		'role',
+		'tabindex',
 		'width',
 		'height',
 		'loading',
@@ -315,33 +320,39 @@ export async function renderMarkdown(source: string): Promise<string> {
 	}
 }
 
-/** Global URL matcher used to linkify plain user text. */
-const BARE_URL_GLOBAL = /https?:\/\/[^\s<]+/g;
-
 /**
  * Renders a user message as literal text (NOT markdown), turning bare http(s)
- * URLs into embed chips. Everything except URLs is HTML-escaped so the user's
- * text is shown verbatim — no headings, bold, or other markdown formatting is
- * applied. Newlines are preserved by the caller via `white-space: pre-wrap`.
+ * URLs, @file mentions, and /skill commands into embed chips. Everything else
+ * is HTML-escaped so the user's text is shown verbatim.
  */
 export function renderUserText(source: string): string {
 	if (!source) return '';
 	ensureDomPurifyHooks();
 
+	const displayText = stripInlinedFileBlocks(source);
 	let out = '';
-	let lastIndex = 0;
-	for (const match of source.matchAll(BARE_URL_GLOBAL)) {
-		const start = match.index ?? 0;
-		out += escapeHtml(source.slice(lastIndex, start));
-		let url = match[0];
-		const trailing = URL_TRAILING_PUNCTUATION.exec(url);
-		const suffix = trailing ? url.slice(url.length - trailing[0].length) : '';
-		if (suffix) url = url.slice(0, url.length - suffix.length);
-		out += buildEmbedChip(url);
-		if (suffix) out += escapeHtml(suffix);
-		lastIndex = start + match[0].length;
+	let index = 0;
+	while (index < displayText.length) {
+		const token = findNextUserTextToken(displayText, index);
+		if (!token || token.index > index) {
+			const end = token?.index ?? displayText.length;
+			out += escapeHtml(displayText.slice(index, end));
+			index = end;
+			if (!token) break;
+			continue;
+		}
+
+		if (token.type === 'url') {
+			out += buildEmbedChip(token.url);
+			if (token.urlSuffix) out += escapeHtml(token.urlSuffix);
+		} else if (token.type === 'file') {
+			out += buildFileEmbedChip(token.path);
+		} else {
+			if (token.leading) out += escapeHtml(token.leading);
+			out += buildSkillEmbedChip(token.name);
+		}
+		index = token.index + token.length;
 	}
-	out += escapeHtml(source.slice(lastIndex));
 
 	return DOMPurify.sanitize(out, SANITIZE_CONFIG);
 }

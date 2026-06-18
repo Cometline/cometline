@@ -11,6 +11,7 @@ import {
 import type { ChatItem, ImageAttachment, Session, StreamEvent, TranscriptItem } from '$lib/types';
 import type { ChatTurnPayload } from '$lib/actions/start-chat';
 import { reduceChatState } from '$lib/reducers/chat';
+import { stripInlinedFileBlocks } from '$lib/messages/strip-inlined-files';
 import { sessionStore } from '$lib/stores/session.svelte';
 import { chatDebug, summarizeChatItems, summarizeStreamEvent } from '../debug/chat';
 
@@ -125,7 +126,12 @@ function itemsFromTranscript(transcriptItems: TranscriptItem[]): ChatItem[] {
 
 function itemFromTranscript(item: TranscriptItem, index: number): ChatItem {
 	if (item.type === 'user')
-		return { id: `history-${index}`, type: 'user', text: item.text ?? '', images: item.images };
+		return {
+			id: `history-${index}`,
+			type: 'user',
+			text: stripInlinedFileBlocks(item.text ?? ''),
+			images: item.images
+		};
 	if (item.type === 'assistant')
 		return { id: `history-${index}`, type: 'assistant', text: item.text ?? '' };
 	if (item.type === 'system')

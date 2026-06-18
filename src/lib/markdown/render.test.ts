@@ -180,4 +180,40 @@ describe('renderUserText', () => {
 		expect(html).toContain('data-embed-url="https://grok.com"');
 		expect(html).toMatch(/<\/a>\.?/);
 	});
+
+	it('turns @file mentions into embed chips', () => {
+		const html = renderUserText('review @src/lib/foo.ts please');
+		expect(html).toContain('class="file-embed"');
+		expect(html).toContain('data-file-path="src/lib/foo.ts"');
+		expect(html).toContain('review ');
+		expect(html).toContain(' please');
+	});
+
+	it('turns slash skills into embed chips', () => {
+		const html = renderUserText('run /model gpt-4');
+		expect(html).toContain('class="skill-embed"');
+		expect(html).toContain('/model');
+	});
+
+	it('hides persisted CometMind file inlines but keeps @ mentions', () => {
+		const html = renderUserText(
+			[
+				'review @AGENTS.md',
+				'',
+				'[File: AGENTS.md]',
+				'```',
+				'# AGENTS.md',
+				'',
+				'```bash',
+				'make install',
+				'```',
+				'secret',
+				'```'
+			].join('\n')
+		);
+		expect(html).toContain('class="file-embed"');
+		expect(html).toContain('AGENTS.md');
+		expect(html).not.toContain('secret');
+		expect(html).not.toContain('[File:');
+	});
 });

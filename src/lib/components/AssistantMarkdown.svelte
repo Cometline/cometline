@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { renderMarkdown, renderUserText } from '$lib/markdown/render';
 	import { openLink } from '$lib/open-link';
+	import { openWorkspaceFilePreview } from '$lib/workspace/open-file-preview';
 
 	let {
 		source = '',
@@ -145,12 +146,32 @@
 	function onClick(event: MouseEvent) {
 		const target = event.target;
 		if (!(target instanceof Element)) return;
+
+		const fileChip = target.closest('[data-file-path]');
+		if (fileChip instanceof HTMLElement) {
+			event.preventDefault();
+			const path = fileChip.getAttribute('data-file-path');
+			if (path) openWorkspaceFilePreview(path);
+			return;
+		}
+
 		const anchor = target.closest('a[data-external-link]');
 		if (!anchor) return;
 		const href = anchor.getAttribute('data-external-link');
 		if (!href) return;
 		event.preventDefault();
 		openLink(href);
+	}
+
+	function onKeydown(event: KeyboardEvent) {
+		if (event.key !== 'Enter' && event.key !== ' ') return;
+		const target = event.target;
+		if (!(target instanceof Element)) return;
+		const fileChip = target.closest('[data-file-path]');
+		if (!(fileChip instanceof HTMLElement)) return;
+		event.preventDefault();
+		const path = fileChip.getAttribute('data-file-path');
+		if (path) openWorkspaceFilePreview(path);
 	}
 </script>
 
@@ -160,6 +181,7 @@
 	class="markdown"
 	class:user-text={mode === 'user'}
 	onclick={onClick}
+	onkeydown={onKeydown}
 >
 	{#if mode === 'user'}
 		<!-- eslint-disable-next-line svelte/no-at-html-tags -->
@@ -188,6 +210,19 @@
 	/* User messages are literal text (only URLs become chips); keep newlines. */
 	.markdown.user-text {
 		white-space: pre-wrap;
+	}
+
+	/* Opaque chip backgrounds so the blue user bubble does not bleed through. */
+	.markdown.user-text :global(.link-embed),
+	.markdown.user-text :global(.file-embed),
+	.markdown.user-text :global(.skill-embed) {
+		background: #ffffff;
+	}
+
+	.markdown.user-text :global(.link-embed:hover),
+	.markdown.user-text :global(.file-embed:hover) {
+		background: #ffffff;
+		border-color: var(--text-soft);
 	}
 
 	/* Inline URL embed chip: favicon + label, aligned with the text baseline. */
@@ -223,6 +258,57 @@
 	}
 
 	.markdown :global(.link-embed-label) {
+		overflow: hidden;
+		white-space: nowrap;
+		text-overflow: ellipsis;
+		font-size: 0.95em;
+	}
+
+	.markdown :global(.file-embed) {
+		display: inline-flex;
+		align-items: center;
+		max-width: 16rem;
+		vertical-align: middle;
+		padding: 0.05em 0.45em;
+		border: 1px solid rgba(16, 185, 129, 0.22);
+		border-radius: 6px;
+		background: rgba(16, 185, 129, 0.07);
+		text-decoration: none;
+		line-height: 1.4;
+		color: #1d5c42;
+		overflow: hidden;
+		cursor: pointer;
+		font-weight: 650;
+	}
+
+	.markdown :global(.file-embed:hover) {
+		background: rgba(16, 185, 129, 0.12);
+		border-color: rgba(16, 185, 129, 0.34);
+	}
+
+	.markdown :global(.file-embed-label) {
+		overflow: hidden;
+		white-space: nowrap;
+		text-overflow: ellipsis;
+		font-size: 0.95em;
+	}
+
+	.markdown :global(.skill-embed) {
+		display: inline-flex;
+		align-items: center;
+		max-width: 16rem;
+		vertical-align: middle;
+		padding: 0.05em 0.45em;
+		border: 1px solid rgba(37, 99, 235, 0.18);
+		border-radius: 6px;
+		background: rgba(37, 99, 235, 0.06);
+		line-height: 1.4;
+		color: #31517a;
+		overflow: hidden;
+		font-weight: 650;
+	}
+
+	.markdown :global(.skill-embed-label) {
 		overflow: hidden;
 		white-space: nowrap;
 		text-overflow: ellipsis;

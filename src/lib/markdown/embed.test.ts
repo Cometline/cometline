@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { domainFromUrl, faviconUrl, isHttpUrl, buildEmbedChip, extractUrls } from './embed';
+import {
+	domainFromUrl,
+	faviconUrl,
+	isHttpUrl,
+	buildEmbedChip,
+	buildFileEmbedChip,
+	buildSkillEmbedChip,
+	extractUrls,
+	findNextUserTextToken,
+	fileLabelFromPath
+} from './embed';
 
 describe('domainFromUrl', () => {
 	it('returns the hostname', () => {
@@ -93,5 +103,40 @@ describe('extractUrls', () => {
 
 	it('ignores non-http text', () => {
 		expect(extractUrls('just plain words, no links')).toEqual([]);
+	});
+});
+
+describe('fileLabelFromPath', () => {
+	it('returns the basename', () => {
+		expect(fileLabelFromPath('src/lib/foo.ts')).toBe('foo.ts');
+	});
+});
+
+describe('buildFileEmbedChip', () => {
+	it('renders a clickable file chip with data-file-path', () => {
+		const html = buildFileEmbedChip('src/lib/foo.ts');
+		expect(html).toContain('class="file-embed"');
+		expect(html).toContain('data-file-path="src/lib/foo.ts"');
+		expect(html).toContain('@foo.ts');
+	});
+});
+
+describe('buildSkillEmbedChip', () => {
+	it('renders a skill chip label', () => {
+		const html = buildSkillEmbedChip('create-skill');
+		expect(html).toContain('class="skill-embed"');
+		expect(html).toContain('/create-skill');
+	});
+});
+
+describe('findNextUserTextToken', () => {
+	it('prefers the earliest token', () => {
+		const token = findNextUserTextToken('see @src/a.ts and https://a.com', 0);
+		expect(token?.type).toBe('file');
+	});
+
+	it('does not treat email addresses as file mentions', () => {
+		const token = findNextUserTextToken('email user@domain.com', 0);
+		expect(token).toBeNull();
 	});
 });

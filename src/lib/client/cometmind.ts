@@ -19,6 +19,7 @@ import {
 	listSkills as listSkillsApi,
 	listWorkspaces as listWorkspacesApi,
 	listWorkspaceFiles as listWorkspaceFilesApi,
+	readWorkspaceFileContent as readWorkspaceFileContentApi,
 	patchSession as patchSessionApi,
 	putMemorySettings as putMemorySettingsApi,
 	searchMemories as searchMemoriesApi,
@@ -40,7 +41,8 @@ import type {
 	SyncSkillsResponse,
 	TranscriptResponse,
 	UpdateSessionRequest,
-	Workspace
+	Workspace,
+	WorkspaceFileContent
 } from '$lib/generated/cometmind-api';
 import { client } from '$lib/generated/cometmind-api/client.gen';
 import { createSSEParser } from '$lib/sse/parser';
@@ -175,6 +177,16 @@ export function listWorkspaceFiles(
 		query: { workspace_path: workspacePath, q: query, limit },
 		throwOnError: true
 	}).then(({ data }) => ({ files: data.files, truncated: Boolean(data.truncated) }));
+}
+
+export function readWorkspaceFileContent(
+	workspacePath: string,
+	path: string
+): Promise<WorkspaceFileContent> {
+	return readWorkspaceFileContentApi({
+		query: { workspace_path: workspacePath, path },
+		throwOnError: true
+	}).then(({ data }) => data);
 }
 
 export function changeSessionWorkspace(sessionId: string, workspacePath: string): Promise<Session> {

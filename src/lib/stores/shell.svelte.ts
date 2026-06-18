@@ -1,6 +1,11 @@
 import { getActiveSessionId } from '$lib/active-session';
 
-export type SessionWebPanel = { url: string; visible: boolean };
+export type WebPanelMode = 'url' | 'file';
+
+export type SessionWebPanel =
+	| { mode: 'url'; url: string; visible: boolean }
+	| { mode: 'file'; filePath: string; visible: boolean };
+
 export type FocusedPane = 'chat' | 'web';
 
 function createShellStore() {
@@ -63,8 +68,16 @@ function createShellStore() {
 			const panel = panelForActiveSession();
 			return Boolean(panel?.visible);
 		},
+		get webPanelMode(): WebPanelMode | null {
+			return panelForActiveSession()?.mode ?? null;
+		},
 		get webPanelUrl() {
-			return panelForActiveSession()?.url ?? null;
+			const panel = panelForActiveSession();
+			return panel?.mode === 'url' ? panel.url : null;
+		},
+		get webPanelFilePath() {
+			const panel = panelForActiveSession();
+			return panel?.mode === 'file' ? panel.filePath : null;
 		},
 		get hasWebPanelForSession() {
 			return panelForActiveSession() !== null;
@@ -118,7 +131,15 @@ function createShellStore() {
 		openWebPanel(url: string, sessionId: string) {
 			webPanelsBySession = {
 				...webPanelsBySession,
-				[sessionId]: { url, visible: true }
+				[sessionId]: { mode: 'url', url, visible: true }
+			};
+			focusedPane = 'web';
+			syncWebPanelOpen(true);
+		},
+		openFilePreview(filePath: string, sessionId: string) {
+			webPanelsBySession = {
+				...webPanelsBySession,
+				[sessionId]: { mode: 'file', filePath, visible: true }
 			};
 			focusedPane = 'web';
 			syncWebPanelOpen(true);
@@ -128,7 +149,7 @@ function createShellStore() {
 			if (!sessionId) return;
 			webPanelsBySession = {
 				...webPanelsBySession,
-				[sessionId]: { url: '', visible: true }
+				[sessionId]: { mode: 'url', url: '', visible: true }
 			};
 			focusedPane = 'web';
 			syncWebPanelOpen(true);
@@ -139,7 +160,7 @@ function createShellStore() {
 			if (!sessionId) return;
 			webPanelsBySession = {
 				...webPanelsBySession,
-				[sessionId]: { url, visible: true }
+				[sessionId]: { mode: 'url', url, visible: true }
 			};
 			focusedPane = 'web';
 			syncWebPanelOpen(true);

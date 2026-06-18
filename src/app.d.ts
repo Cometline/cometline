@@ -155,6 +155,11 @@ declare global {
 		updatedAt?: number;
 	}
 
+	type ReadWorkspaceFileResult =
+		| { ok: true; kind: 'text'; content: string; extension: string }
+		| { ok: true; kind: 'image'; mimeType: string; dataUrl: string }
+		| { ok: false; error: string };
+
 	interface Window {
 		electronAPI?: {
 			restartCometMind?: () => void;
@@ -178,6 +183,10 @@ declare global {
 			selectWorkspacePath?: () => Promise<string | null>;
 			setWorkspacePath?: (workspacePath: string) => Promise<string>;
 			listRecentWorkspaces?: () => Promise<string[]>;
+			readWorkspaceFile?: (
+				workspacePath: string,
+				relativePath: string
+			) => Promise<ReadWorkspaceFileResult>;
 			getAppVersion?: () => Promise<string>;
 			getUpdateState?: () => Promise<UpdateState>;
 			checkForUpdates?: () => Promise<UpdateState>;

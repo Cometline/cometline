@@ -73,6 +73,101 @@ const BARE_URL_GLOBAL = /https?:\/\/[^\s<]+/g;
 /** Trailing punctuation that should not be captured as part of a URL. */
 const URL_TRAILING_PUNCTUATION = /[.,;:!?)\]}'"]+$/;
 
+/** Workspace-relative file mention in user text (not email addresses). */
+const FILE_MENTION_GLOBAL = /(?<![A-Za-z0-9_])@([A-Za-z0-9_][A-Za-z0-9_./-]*)/g;
+
+/** Slash skill command in user text. */
+const SKILL_MENTION_GLOBAL = /(^|\s)\/([\w-]+)(?=\s|$|[.,;:!?)\]}'"])/g;
+
+/** Returns the final path segment for compact file chip labels. */
+export function fileLabelFromPath(relativePath: string): string {
+	const parts = relativePath.split(/[/\\]/).filter(Boolean);
+	return parts[parts.length - 1] || relativePath;
+}
+
+/**
+ * Builds a clickable file embed chip for user messages. Uses `data-file-path` so
+ * the renderer can open the side-panel preview on click.
+ */
+export function buildFileEmbedChip(relativePath: string): string {
+	const escapedPath = escapeHtml(relativePath);
+	const label = escapeHtml(fileLabelFromPath(relativePath));
+	return (
+		`<span class="file-embed" role="button" tabindex="0" data-file-path="${escapedPath}" title="${escapedPath}">` +
+		`<span class="file-embed-label">@${label}</span>` +
+		`</span>`
+	);
+}
+
+/** Visual-only skill chip for user messages (mirrors composer skill chips). */
+export function buildSkillEmbedChip(skillName: string): string {
+	const escaped = escapeHtml(skillName);
+	return (
+		`<span class="skill-embed" data-skill-name="${escaped}" title="/${escaped} skill">` +
+		`<span class="skill-embed-label">/${escaped}</span>` +
+		`</span>`
+	);
+}
+
+export type UserTextTokenMatch =
+	| { index: number; length: number; type: 'url'; url: string; urlSuffix: string }
+	| { index: number; length: number; type: 'file'; path: string }
+	| { index: number; length: number; type: 'skill'; name: string; leading: string };
+
+/** Finds the next URL, @file, or /skill token at or after `from`. */
+export function findNextUserTextToken(source: string, from: number): UserTextTokenMatch | null {
+	let best: UserTextTokenMatch | null = null;
+
+	const consider = (candidate: UserTextTokenMatch) => {
+		if (candidate.index < from) return;
+		if (!best || candidate.index < best.index) best = candidate;
+	};
+
+	const urlRe = /https?:\/\/[^\s<]+/g;
+	urlRe.lastIndex = from;
+	const urlMatch = urlRe.exec(source);
+	if (urlMatch) {
+		let url = urlMatch[0];
+		const trailing = URL_TRAILING_PUNCTUATION.exec(url);
+		const urlSuffix = trailing ? trailing[0] : '';
+		if (urlSuffix) url = url.slice(0, url.length - urlSuffix.length);
+		if (url && isHttpUrl(url)) {
+			consider({
+				index: urlMatch.index,
+				length: urlMatch[0].length,
+				type: 'url',
+				url,
+				urlSuffix
+			});
+		}
+	}
+
+	FILE_MENTION_GLOBAL.lastIndex = from;
+	const fileMatch = FILE_MENTION_GLOBAL.exec(source);
+	if (fileMatch) {
+		consider({
+			index: fileMatch.index,
+			length: fileMatch[0].length,
+			type: 'file',
+			path: fileMatch[1]
+		});
+	}
+
+	SKILL_MENTION_GLOBAL.lastIndex = from;
+	const skillMatch = SKILL_MENTION_GLOBAL.exec(source);
+	if (skillMatch) {
+		consider({
+			index: skillMatch.index,
+			length: skillMatch[0].length,
+			type: 'skill',
+			name: skillMatch[2],
+			leading: skillMatch[1]
+		});
+	}
+
+	return best;
+}
+
 /**
  * Extracts unique http(s) URLs from free text, trimming trailing sentence
  * punctuation. Order is preserved and duplicates are removed. Used by the
