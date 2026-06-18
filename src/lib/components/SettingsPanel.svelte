@@ -4,7 +4,6 @@
 		Check,
 		Download,
 		FolderOpen,
-		Info,
 		Keyboard,
 		LoaderCircle,
 		Palette,
@@ -30,6 +29,7 @@
 	import SettingsAppearancePanel from '$lib/components/SettingsAppearancePanel.svelte';
 	import SettingsGeneralPanel from '$lib/components/SettingsGeneralPanel.svelte';
 	import SettingsCometMindPanel from '$lib/components/SettingsCometMindPanel.svelte';
+	import SettingsModelRolesPanel from '$lib/components/SettingsModelRolesPanel.svelte';
 	import SettingsMemoryPanel from '$lib/components/SettingsMemoryPanel.svelte';
 	import SettingsShortcutsPanel from '$lib/components/SettingsShortcutsPanel.svelte';
 	import { cloneCometMindSettings, normalizeCometMindSettings } from '$lib/cometmind-settings';
@@ -38,7 +38,7 @@
 	import type { MemorySettings } from '$lib/client/cometmind';
 	import { onMount } from 'svelte';
 
-	type SettingsSection = 'providers' | 'cometmind' | 'memory' | 'general' | 'appearance' | 'shortcuts' | 'about';
+	type SettingsSection = 'models' | 'memory' | 'agent' | 'appearance' | 'shortcuts' | 'app';
 
 	const METHOD_LABELS: Record<ProviderMethod, string> = {
 		'openai-compatible': 'OpenAI-compatible',
@@ -106,7 +106,7 @@
 		};
 	}
 
-	let activeSection = $state<SettingsSection>('providers');
+	let activeSection = $state<SettingsSection>('models');
 	let draft = $state<ProviderSettings>(cloneSettings(settingsStore.settings));
 	let selectedProviderId = $state<string>(
 		settingsStore.settings.activeProviderId || settingsStore.settings.providers[0]?.id || ''
@@ -283,24 +283,20 @@
 		iconVariantChanged = false
 	) {
 		switch (section) {
-			case 'providers':
+			case 'models':
 				return restartCometMind
 					? 'Saved. CometMind is restarting with enabled providers.'
-					: 'Saved provider settings.';
-			case 'shortcuts':
-				return 'Shortcuts saved.';
-			case 'appearance':
-				return 'Appearance saved.';
-			case 'cometmind':
+					: 'Saved model settings.';
+			case 'agent':
 				return restartCometMind
-					? 'CometMind runtime saved. Sidecar is restarting.'
-					: 'CometMind runtime saved.';
-			case 'general':
-				return 'General settings saved.';
-			case 'about':
+					? 'Agent runtime saved. Sidecar is restarting.'
+					: 'Agent runtime saved.';
+			case 'appearance':
 				return iconVariantChanged || restartCometMind
-					? 'Project icon saved. CometMind is restarting with the matching SOUL persona.'
-					: 'Project icon settings saved.';
+					? 'Appearance saved. CometMind is restarting with the matching SOUL persona.'
+					: 'Appearance saved.';
+			case 'app':
+				return 'App settings saved.';
 			case 'memory':
 				return 'Memory settings saved.';
 			default:
@@ -577,21 +573,18 @@
 			<div>
 				<h2 id="settings-title">Settings</h2>
 				<p>
-					{#if activeSection === 'providers'}
-						Enable providers, fetch models, then choose which models appear in the
-						composer.
+					{#if activeSection === 'models'}
+						Enable providers, fetch models, and pick which models power each role.
 					{:else if activeSection === 'appearance'}
-						Customize hero composer glow and border colors for new-chat screens.
-					{:else if activeSection === 'cometmind'}
-						Configure OpenCode subagents and the Discord gateway in ~/.cometmind/cometline-settings.json.
+						Customize hero composer glow, caret trail, and the project icon.
+					{:else if activeSection === 'agent'}
+						Configure the runtime, OpenCode subagents, skills, and the Discord gateway.
 					{:else if activeSection === 'memory'}
 						Manage global memories, retrieval thresholds, and compaction.
-					{:else if activeSection === 'general'}
-						Startup and system preferences for the Cometline app.
 					{:else if activeSection === 'shortcuts'}
-						Customize keyboard shortcuts used across Cometline.
+						Customize keyboard shortcuts. Changes apply immediately.
 					{:else}
-						About Cometline and workspace.
+						Startup, storage, updates, and workspace.
 					{/if}
 				</p>
 			</div>
@@ -608,25 +601,14 @@
 			<nav class="settings-nav" aria-label="Settings sections">
 				<button
 					class="settings-nav-item"
-					class:selected={activeSection === 'providers'}
+					class:selected={activeSection === 'models'}
 					onclick={() => {
-						activeSection = 'providers';
+						activeSection = 'models';
 						status = '';
 					}}
 				>
 					<Settings size={15} />
-					<span>Providers</span>
-				</button>
-				<button
-					class="settings-nav-item"
-					class:selected={activeSection === 'cometmind'}
-					onclick={() => {
-						activeSection = 'cometmind';
-						status = '';
-					}}
-				>
-					<Workflow size={15} />
-					<span>CometMind</span>
+					<span>Models</span>
 				</button>
 				<button
 					class="settings-nav-item"
@@ -641,14 +623,14 @@
 				</button>
 				<button
 					class="settings-nav-item"
-					class:selected={activeSection === 'general'}
+					class:selected={activeSection === 'agent'}
 					onclick={() => {
-						activeSection = 'general';
+						activeSection = 'agent';
 						status = '';
 					}}
 				>
-					<Power size={15} />
-					<span>General</span>
+					<Workflow size={15} />
+					<span>Agent</span>
 				</button>
 				<button
 					class="settings-nav-item"
@@ -659,7 +641,7 @@
 					}}
 				>
 					<Palette size={15} />
-					<span>Hero glow</span>
+					<span>Appearance</span>
 				</button>
 				<button
 					class="settings-nav-item"
@@ -674,19 +656,19 @@
 				</button>
 				<button
 					class="settings-nav-item"
-					class:selected={activeSection === 'about'}
+					class:selected={activeSection === 'app'}
 					onclick={() => {
-						activeSection = 'about';
+						activeSection = 'app';
 						status = '';
 					}}
 				>
-					<Info size={15} />
-					<span>About</span>
+					<Power size={15} />
+					<span>App</span>
 				</button>
 			</nav>
 
 			<div class="settings-pane">
-				{#if activeSection === 'providers'}
+				{#if activeSection === 'models'}
 					<div class="provider-shell">
 						<aside class="provider-sidebar">
 							<div class="provider-sidebar-title">
@@ -882,29 +864,12 @@
 							</section>
 						{/if}
 					</div>
-				{:else if activeSection === 'appearance'}
-					<SettingsAppearancePanel
-						bind:appearance={draft.appearance.heroComposer}
-						bind:caretTrail={draft.appearance.caretTrail}
+					<SettingsModelRolesPanel
+						bind:cometmind={draft.cometmind}
+						bind:defaultModelId={draft.defaultModelId}
+						bind:defaultProviderId={draft.defaultProviderId}
+						providers={draft.providers}
 					/>
-			{:else if activeSection === 'general'}
-				<SettingsGeneralPanel
-					bind:openAtLogin={draft.app.openAtLogin}
-					bind:storage={draft.cometmind.storage}
-					bind:defaultModelId={draft.defaultModelId}
-					bind:defaultProviderId={draft.defaultProviderId}
-					providers={draft.providers}
-					onOpenAtLoginChange={setOpenAtLogin}
-				/>
-				{:else if activeSection === 'cometmind'}
-					{#key cometmindPanelKey}
-						<SettingsCometMindPanel
-							bind:this={cometmindPanel}
-							bind:cometmind={draft.cometmind}
-							providers={draft.providers}
-							onPickWorkspace={pickGatewayWorkspace}
-						/>
-					{/key}
 				{:else if activeSection === 'memory'}
 					{#key memoryPanelKey}
 						<SettingsMemoryPanel
@@ -914,11 +879,21 @@
 							onEmbeddingSaved={persistMemoryEmbedding}
 						/>
 					{/key}
-				{:else if activeSection === 'shortcuts'}
-					<SettingsShortcutsPanel shortcuts={draft.shortcuts} onChange={updateShortcut} />
-				{:else}
-					<div class="about-pane">
-						<h3>About Cometline</h3>
+				{:else if activeSection === 'agent'}
+					{#key cometmindPanelKey}
+						<SettingsCometMindPanel
+							bind:this={cometmindPanel}
+							bind:cometmind={draft.cometmind}
+							providers={draft.providers}
+							onPickWorkspace={pickGatewayWorkspace}
+						/>
+					{/key}
+				{:else if activeSection === 'appearance'}
+					<SettingsAppearancePanel
+						bind:appearance={draft.appearance.heroComposer}
+						bind:caretTrail={draft.appearance.caretTrail}
+					/>
+					<div class="about-pane appearance-icon">
 						<div class="about-row icon-variant-row">
 							<div class="icon-variant-copy">
 								<span class="about-label">Project icon</span>
@@ -947,6 +922,17 @@
 								{/each}
 							</div>
 						</div>
+					</div>
+				{:else if activeSection === 'shortcuts'}
+					<SettingsShortcutsPanel shortcuts={draft.shortcuts} onChange={updateShortcut} />
+				{:else}
+					<div class="app-pane">
+						<SettingsGeneralPanel
+							bind:openAtLogin={draft.app.openAtLogin}
+							bind:storage={draft.cometmind.storage}
+							onOpenAtLoginChange={setOpenAtLogin}
+						/>
+						<div class="about-pane">
 						<div class="about-row">
 							<span class="about-label">Version</span>
 							<span class="about-value">{appVersion || '—'}</span>
@@ -1012,6 +998,7 @@
 								Replay intro
 							</button>
 						</div>
+						</div>
 					</div>
 				{/if}
 			</div>
@@ -1025,14 +1012,14 @@
 
 		<footer>
 			<p>
-				{#if activeSection === 'providers'}
+				{#if activeSection === 'models'}
 					{enabledModelCount} model{enabledModelCount === 1 ? '' : 's'} enabled
-				{:else if activeSection === 'cometmind'}
+				{:else if activeSection === 'agent'}
 					Runs Discord gateway while Cometline is open when enabled
-				{:else if activeSection === 'general'}
-					&nbsp;
 				{:else if activeSection === 'memory'}
 					Embedding and memory behavior save with Save below
+				{:else if activeSection === 'shortcuts'}
+					Shortcut changes apply immediately
 				{:else}
 					&nbsp;
 				{/if}
@@ -1043,7 +1030,7 @@
 				onclick={save}
 				disabled={settingsStore.isSaving ||
 					settingsStore.isFetchingModels ||
-					(activeSection === 'providers' && enabledModelCount === 0) ||
+					(activeSection === 'models' && enabledModelCount === 0) ||
 					(activeSection === 'memory' && memoryPanel?.isBusy?.())}
 			>
 				{#if settingsStore.isSaving}<span class="spin"><LoaderCircle size={14} /></span
@@ -1543,10 +1530,13 @@
 		padding: 4px 2px;
 	}
 
-	.about-pane h3 {
-		font-size: 15px;
-		font-weight: 700;
-		margin: 0;
+	.app-pane {
+		display: grid;
+		gap: 28px;
+	}
+
+	.appearance-icon {
+		margin-top: 8px;
 	}
 
 	.about-row {

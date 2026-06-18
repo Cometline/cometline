@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Keyboard, RotateCcw } from '@lucide/svelte';
+	import { RotateCcw } from '@lucide/svelte';
 	import type { ShortcutAction, ShortcutBinding, KeyboardShortcuts } from '$lib/types';
 	import {
 		SHORTCUT_DEFINITIONS,
@@ -55,7 +55,6 @@
 
 <div class="shortcuts-panel">
 	<div class="shortcuts-header">
-		<Keyboard size={16} />
 		<div>
 			<h3>Keyboard shortcuts</h3>
 			<p>Click a shortcut and press the new key combination. Changes apply immediately.</p>

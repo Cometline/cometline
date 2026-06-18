@@ -39,47 +39,6 @@
 			: (discordProvider?.models ?? [])
 	);
 
-	function modelsForProvider(provider: ProviderConfig | undefined): string[] {
-		if (!provider) return [];
-		return provider.enabledModels.length ? provider.enabledModels : provider.models;
-	}
-
-	const titleProvider = $derived(
-		runtimeProviders.find((provider) => provider.id === cometmind.titleProviderId) ??
-			providers.find((provider) => provider.id === cometmind.titleProviderId)
-	);
-
-	const titleModels = $derived(modelsForProvider(titleProvider));
-
-	function setTitleProvider(providerId: string) {
-		if (!providerId) {
-			cometmind = { ...cometmind, titleProviderId: '', titleModelId: '' };
-			return;
-		}
-		const provider = providers.find((item) => item.id === providerId);
-		const modelId = provider
-			? (provider.enabledModels[0] ?? provider.selectedModel ?? provider.models[0] ?? '')
-			: '';
-		cometmind = { ...cometmind, titleProviderId: providerId, titleModelId: modelId };
-	}
-
-	function setTitleModel(modelId: string) {
-		cometmind = { ...cometmind, titleModelId: modelId };
-	}
-
-	const allModels = $derived(
-		Array.from(
-			new Set(runtimeProviders.flatMap((provider) => modelsForProvider(provider)))
-		)
-	);
-
-	function setExtractionModel(modelId: string) {
-		cometmind = {
-			...cometmind,
-			memory: { ...cometmind.memory, extractionModel: modelId }
-		};
-	}
-
 	function setDiscordProvider(providerId: string) {
 		const provider = providers.find((item) => item.id === providerId);
 		if (!provider) return;
@@ -291,66 +250,6 @@
 				placeholder="2048"
 			/>
 			<p class="field-hint">Caps the model's generated response length. Lower values reduce worst-case latency and cost.</p>
-		</label>
-	</div>
-
-	<div class="section-block">
-		<div class="section-heading">
-			<h3>Session titles</h3>
-			<p>
-				CometMind names each session from your first message using an LLM. Pin a cheaper / faster
-				model here, or leave as default to reuse the session's own model.
-			</p>
-		</div>
-		<label>
-			<span>Title provider</span>
-			<select
-				value={cometmind.titleProviderId}
-				onchange={(e) => setTitleProvider(e.currentTarget.value)}
-			>
-				<option value="">Use session model (default)</option>
-				{#each providers as provider (provider.id)}
-					<option value={provider.id}>{provider.name}</option>
-				{/each}
-			</select>
-		</label>
-		{#if cometmind.titleProviderId}
-			<label>
-				<span>Title model</span>
-				<select
-					value={cometmind.titleModelId || titleModels[0] || ''}
-					onchange={(e) => setTitleModel(e.currentTarget.value)}
-				>
-					{#each titleModels as model (model)}
-						<option value={model}>{model}</option>
-					{/each}
-				</select>
-				<p class="field-hint">A small, fast model is ideal — titles are short and don't need a frontier model.</p>
-			</label>
-		{/if}
-	</div>
-
-	<div class="section-block">
-		<div class="section-heading">
-			<h3>Memory extraction</h3>
-			<p>
-				After each turn, CometMind extracts durable memories in the background. Pin a cheaper model
-				for this step, or leave as default to reuse the session's own model. Runs on the session's
-				provider.
-			</p>
-		</div>
-		<label>
-			<span>Extraction model</span>
-			<select
-				value={cometmind.memory.extractionModel}
-				onchange={(e) => setExtractionModel(e.currentTarget.value)}
-			>
-				<option value="">Use session model (default)</option>
-				{#each allModels as model (model)}
-					<option value={model}>{model}</option>
-				{/each}
-			</select>
-			<p class="field-hint">The selected model id is used on whichever provider the session already uses.</p>
 		</label>
 	</div>
 
