@@ -68,6 +68,63 @@ func TestCreateSessionAutoRegistersWorkspacePath(t *testing.T) {
 	}
 }
 
+func TestMissingSessionEndpointsReturnSessionNotFound(t *testing.T) {
+	t.Parallel()
+
+	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
+			ch <- event.Done()
+			return nil
+		}), nil
+	})
+	defer cleanup()
+
+	tests := []struct {
+		name   string
+		method string
+		path   string
+		body   string
+	}{
+		{
+			name:   "messages",
+			method: http.MethodGet,
+			path:   "/api/v1/sessions/missing/messages",
+		},
+		{
+			name:   "children",
+			method: http.MethodGet,
+			path:   "/api/v1/sessions/missing/children",
+		},
+		{
+			name:   "message",
+			method: http.MethodPost,
+			path:   "/api/v1/sessions/missing/message",
+			body:   `{"text":"hello"}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest(tt.method, tt.path, strings.NewReader(tt.body))
+			if tt.body != "" {
+				req.Header.Set("Content-Type", "application/json")
+			}
+
+			engine.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusNotFound {
+				t.Fatalf("status = %d, want %d body=%s", rec.Code, http.StatusNotFound, rec.Body.String())
+			}
+			var got errorResponse
+			decodeJSON(t, rec.Body.Bytes(), &got)
+			if got.Error.Code != "session_not_found" {
+				t.Fatalf("error code = %q, want session_not_found", got.Error.Code)
+			}
+		})
+	}
+}
+
 func TestCreateWorkspaceRegistersPath(t *testing.T) {
 	t.Parallel()
 
