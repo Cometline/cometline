@@ -99,6 +99,7 @@ func New(deps Deps) (*gin.Engine, error) {
 	// Workspaces
 	api.GET("/workspaces", app.handleListWorkspaces)
 	api.POST("/workspaces", app.handleCreateWorkspace)
+	api.POST("/workspaces/prune", app.handlePruneWorkspaces)
 	api.GET("/workspaces/files", app.handleListWorkspaceFiles)
 	api.GET("/workspaces/files/content", app.handleReadWorkspaceFileContent)
 	api.PUT("/workspaces/files/content", app.handleWriteWorkspaceFileContent)
@@ -208,6 +209,10 @@ type writeWorkspaceFileRequest struct {
 
 type listWorkspacesResponse struct {
 	Workspaces []workspaceResource `json:"workspaces"`
+}
+
+type pruneWorkspacesResponse struct {
+	Pruned int `json:"pruned"`
 }
 
 type workspaceFileListResponse struct {
@@ -455,6 +460,15 @@ func (a *App) handleListWorkspaces(c *gin.Context) {
 		items = append(items, workspaceResource{ID: ws.ID, Path: ws.Path})
 	}
 	c.JSON(http.StatusOK, listWorkspacesResponse{Workspaces: items})
+}
+
+func (a *App) handlePruneWorkspaces(c *gin.Context) {
+	pruned, err := a.sessions.PruneMissingWorkspaces(c.Request.Context())
+	if err != nil {
+		writeError(c, http.StatusInternalServerError, "internal_error", err.Error())
+		return
+	}
+	c.JSON(http.StatusOK, pruneWorkspacesResponse{Pruned: pruned})
 }
 
 func (a *App) handleListWorkspaceFiles(c *gin.Context) {

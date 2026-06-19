@@ -72,6 +72,25 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/v1/workspaces/prune:
+    post:
+      tags: [Workspaces]
+      summary: Prune missing workspace registrations
+      description: |
+        Removes registered workspaces whose directories no longer exist on disk
+        and that have no sessions. Workspaces with sessions are kept for history
+        but are omitted from workspace pickers.
+      operationId: pruneWorkspaces
+      responses:
+        '200':
+          description: Prune completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PruneWorkspacesResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /api/v1/workspaces/files:
     get:
       tags: [Files]
@@ -1065,6 +1084,16 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Workspace'
+
+    PruneWorkspacesResponse:
+      type: object
+      additionalProperties: false
+      required: [pruned]
+      properties:
+        pruned:
+          type: integer
+          minimum: 0
+          description: Number of workspace registrations removed from the database.
 
     WorkspaceFileList:
       type: object

@@ -1088,6 +1088,44 @@ func TestListWorkspacesOmitsMissingPath(t *testing.T) {
 	}
 }
 
+func TestPruneWorkspacesEndpoint(t *testing.T) {
+	t.Parallel()
+
+	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
+			ch <- event.Done()
+			return nil
+		}), nil
+	})
+	defer cleanup()
+
+	ctx := context.Background()
+	root := t.TempDir()
+	gone := filepath.Join(root, "gone")
+	if err := os.MkdirAll(gone, 0o755); err != nil {
+		t.Fatalf("MkdirAll(gone) error = %v", err)
+	}
+	if _, err := svc.EnsureWorkspace(ctx, gone); err != nil {
+		t.Fatalf("EnsureWorkspace(gone) error = %v", err)
+	}
+	if err := os.RemoveAll(gone); err != nil {
+		t.Fatalf("RemoveAll(gone) error = %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/workspaces/prune", nil)
+	engine.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d body=%s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+
+	var got pruneWorkspacesResponse
+	decodeJSON(t, rec.Body.Bytes(), &got)
+	if got.Pruned != 1 {
+		t.Fatalf("pruned = %d, want 1", got.Pruned)
+	}
+}
+
 func TestChangeSessionWorkspace(t *testing.T) {
 	t.Parallel()
 

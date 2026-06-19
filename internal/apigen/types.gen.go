@@ -133,6 +133,36 @@ func (e TranscriptItemType) Valid() bool {
 	}
 }
 
+// Defines values for WorkspaceFileImageContentKind.
+const (
+	Image WorkspaceFileImageContentKind = "image"
+)
+
+// Valid indicates whether the value is a known member of the WorkspaceFileImageContentKind enum.
+func (e WorkspaceFileImageContentKind) Valid() bool {
+	switch e {
+	case Image:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for WorkspaceFileTextContentKind.
+const (
+	Text WorkspaceFileTextContentKind = "text"
+)
+
+// Valid indicates whether the value is a known member of the WorkspaceFileTextContentKind enum.
+func (e WorkspaceFileTextContentKind) Valid() bool {
+	switch e {
+	case Text:
+		return true
+	default:
+		return false
+	}
+}
+
 // ChangeSessionWorkspaceRequest defines model for ChangeSessionWorkspaceRequest.
 type ChangeSessionWorkspaceRequest struct {
 	// WorkspacePath Absolute filesystem path for the new workspace root.
@@ -337,6 +367,12 @@ type PostMessageRequest struct {
 
 	// Text User input text. Required when images is empty.
 	Text *string `json:"text,omitempty"`
+}
+
+// PruneWorkspacesResponse defines model for PruneWorkspacesResponse.
+type PruneWorkspacesResponse struct {
+	// Pruned Number of workspace registrations removed from the database.
+	Pruned int `json:"pruned"`
 }
 
 // PurgeArchivedMemoryRequest defines model for PurgeArchivedMemoryRequest.
@@ -573,6 +609,21 @@ type Workspace struct {
 	Path string `json:"path"`
 }
 
+// WorkspaceFileContent defines model for WorkspaceFileContent.
+type WorkspaceFileContent struct {
+	union json.RawMessage
+}
+
+// WorkspaceFileImageContent defines model for WorkspaceFileImageContent.
+type WorkspaceFileImageContent struct {
+	DataUrl  string                        `json:"data_url"`
+	Kind     WorkspaceFileImageContentKind `json:"kind"`
+	MimeType string                        `json:"mime_type"`
+}
+
+// WorkspaceFileImageContentKind defines model for WorkspaceFileImageContent.Kind.
+type WorkspaceFileImageContentKind string
+
 // WorkspaceFileList defines model for WorkspaceFileList.
 type WorkspaceFileList struct {
 	// Files Workspace-relative file paths.
@@ -582,9 +633,34 @@ type WorkspaceFileList struct {
 	Truncated *bool `json:"truncated,omitempty"`
 }
 
+// WorkspaceFileTextContent defines model for WorkspaceFileTextContent.
+type WorkspaceFileTextContent struct {
+	Content   string                       `json:"content"`
+	Extension string                       `json:"extension"`
+	Kind      WorkspaceFileTextContentKind `json:"kind"`
+}
+
+// WorkspaceFileTextContentKind defines model for WorkspaceFileTextContent.Kind.
+type WorkspaceFileTextContentKind string
+
 // WorkspaceListResponse defines model for WorkspaceListResponse.
 type WorkspaceListResponse struct {
 	Workspaces []Workspace `json:"workspaces"`
+}
+
+// WriteWorkspaceFileRequest Provide either `workspace_id` or `workspace_path`.
+type WriteWorkspaceFileRequest struct {
+	// Content UTF-8 text content to write.
+	Content string `json:"content"`
+
+	// Path Workspace-relative file path.
+	Path string `json:"path"`
+
+	// WorkspaceId Registered workspace identifier.
+	WorkspaceId *string `json:"workspace_id,omitempty"`
+
+	// WorkspacePath Absolute filesystem path for the workspace.
+	WorkspacePath *string `json:"workspace_path,omitempty"`
 }
 
 // SessionId defines model for SessionId.
@@ -655,6 +731,15 @@ type ListWorkspaceFilesParams struct {
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
+// ReadWorkspaceFileContentParams defines parameters for ReadWorkspaceFileContent.
+type ReadWorkspaceFileContentParams struct {
+	WorkspaceId   *string `form:"workspace_id,omitempty" json:"workspace_id,omitempty"`
+	WorkspacePath *string `form:"workspace_path,omitempty" json:"workspace_path,omitempty"`
+
+	// Path Workspace-relative file path.
+	Path string `form:"path" json:"path"`
+}
+
 // CreateMemoryJSONRequestBody defines body for CreateMemory for application/json ContentType.
 type CreateMemoryJSONRequestBody = CreateMemoryRequest
 
@@ -690,6 +775,9 @@ type ChangeSessionWorkspaceJSONRequestBody = ChangeSessionWorkspaceRequest
 
 // CreateWorkspaceJSONRequestBody defines body for CreateWorkspace for application/json ContentType.
 type CreateWorkspaceJSONRequestBody = CreateWorkspaceRequest
+
+// WriteWorkspaceFileContentJSONRequestBody defines body for WriteWorkspaceFileContent for application/json ContentType.
+type WriteWorkspaceFileContentJSONRequestBody = WriteWorkspaceFileRequest
 
 // AsTextDeltaEvent returns the union data inside the StreamEvent as a TextDeltaEvent
 func (t StreamEvent) AsTextDeltaEvent() (TextDeltaEvent, error) {
@@ -1136,6 +1224,68 @@ func (t StreamEvent) MarshalJSON() ([]byte, error) {
 }
 
 func (t *StreamEvent) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsWorkspaceFileTextContent returns the union data inside the WorkspaceFileContent as a WorkspaceFileTextContent
+func (t WorkspaceFileContent) AsWorkspaceFileTextContent() (WorkspaceFileTextContent, error) {
+	var body WorkspaceFileTextContent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromWorkspaceFileTextContent overwrites any union data inside the WorkspaceFileContent as the provided WorkspaceFileTextContent
+func (t *WorkspaceFileContent) FromWorkspaceFileTextContent(v WorkspaceFileTextContent) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeWorkspaceFileTextContent performs a merge with any union data inside the WorkspaceFileContent, using the provided WorkspaceFileTextContent
+func (t *WorkspaceFileContent) MergeWorkspaceFileTextContent(v WorkspaceFileTextContent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsWorkspaceFileImageContent returns the union data inside the WorkspaceFileContent as a WorkspaceFileImageContent
+func (t WorkspaceFileContent) AsWorkspaceFileImageContent() (WorkspaceFileImageContent, error) {
+	var body WorkspaceFileImageContent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromWorkspaceFileImageContent overwrites any union data inside the WorkspaceFileContent as the provided WorkspaceFileImageContent
+func (t *WorkspaceFileContent) FromWorkspaceFileImageContent(v WorkspaceFileImageContent) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeWorkspaceFileImageContent performs a merge with any union data inside the WorkspaceFileContent, using the provided WorkspaceFileImageContent
+func (t *WorkspaceFileContent) MergeWorkspaceFileImageContent(v WorkspaceFileImageContent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t WorkspaceFileContent) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *WorkspaceFileContent) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }
