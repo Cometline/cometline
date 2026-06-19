@@ -36,6 +36,17 @@ type toolResultPayload struct {
 	IsError    bool   `json:"is_error"`
 }
 
+// InjectedMemory is a memory surfaced to the UI for a turn. It is persisted as
+// a JSON array in messages.injected_memories so the memory card survives a
+// session reload (previously these were only emitted live over SSE).
+type InjectedMemory struct {
+	ID              string  `json:"id"`
+	Content         string  `json:"content"`
+	Kind            string  `json:"kind"`
+	Similarity      float64 `json:"similarity"`
+	EffectiveWeight float64 `json:"effective_weight"`
+}
+
 // Service coordinates persistence for workspaces, sessions, messages, and tool calls.
 type Service struct {
 	q *db.Queries
@@ -528,6 +539,33 @@ func marshalReasoningContent(blocks []cometsdk.Block) (string, error) {
 	return string(raw), nil
 }
 
+// marshalInjectedMemories serializes injected memories to a JSON array string,
+// always returning a valid array (never "null") for the NOT NULL column.
+func marshalInjectedMemories(memories []InjectedMemory) (string, error) {
+	if len(memories) == 0 {
+		return "[]", nil
+	}
+	raw, err := json.Marshal(memories)
+	if err != nil {
+		return "", err
+	}
+	return string(raw), nil
+}
+
+// unmarshalInjectedMemories parses the persisted JSON array, tolerating empty
+// or malformed values by returning an empty slice.
+func unmarshalInjectedMemories(raw string) []InjectedMemory {
+	raw = strings.TrimSpace(raw)
+	if raw == "" || raw == "[]" || raw == "null" {
+		return nil
+	}
+	var memories []InjectedMemory
+	if err := json.Unmarshal([]byte(raw), &memories); err != nil {
+		return nil
+	}
+	return memories
+}
+
 func unmarshalReasoningContent(raw string) ([]cometsdk.Block, error) {
 	var payloads []reasoningBlockPayload
 	if err := json.Unmarshal([]byte(raw), &payloads); err != nil {
@@ -547,10 +585,16 @@ func unmarshalReasoningContent(raw string) ([]cometsdk.Block, error) {
 
 // AppendAssistantStep persists assistant text and tool call shells (before execution).
 // It returns a mapping from provider-emitted tool call ids to persisted CometMind ids.
-func (s *Service) AppendAssistantStep(ctx context.Context, sessionID string, text string, reasoningBlocks []cometsdk.Block, toolCalls []cometsdk.ToolCallBlock) (Message, map[string]string, error) {
+// injectedMemories, when non-empty, are persisted alongside the assistant message
+// so the memory card can be rebuilt when the session is reloaded.
+func (s *Service) AppendAssistantStep(ctx context.Context, sessionID string, text string, reasoningBlocks []cometsdk.Block, toolCalls []cometsdk.ToolCallBlock, injectedMemories []InjectedMemory) (Message, map[string]string, error) {
 	reasoningJSON, err := marshalReasoningContent(reasoningBlocks)
 	if err != nil {
 		return Message{}, nil, fmt.Errorf("marshal reasoning: %w", err)
+	}
+	memoriesJSON, err := marshalInjectedMemories(injectedMemories)
+	if err != nil {
+		return Message{}, nil, fmt.Errorf("marshal injected memories: %w", err)
 	}
 	assistant, err := s.q.CreateMessage(ctx, db.CreateMessageParams{
 		ID:               id.New(),
@@ -558,6 +602,7 @@ func (s *Service) AppendAssistantStep(ctx context.Context, sessionID string, tex
 		Role:             "assistant",
 		Content:          text,
 		ReasoningContent: reasoningJSON,
+		InjectedMemories: memoriesJSON,
 		TokenCount:       0,
 	})
 	if err != nil {

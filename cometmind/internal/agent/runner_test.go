@@ -31,7 +31,7 @@ func (f *fakeStore) SaveTokenUsage(ctx context.Context, sessionID string, u come
 	return nil
 }
 
-func (f *fakeStore) AppendAssistantStep(ctx context.Context, sessionID, text string, reasoningBlocks []cometsdk.Block, toolCalls []cometsdk.ToolCallBlock) (session.Message, map[string]string, error) {
+func (f *fakeStore) AppendAssistantStep(ctx context.Context, sessionID, text string, reasoningBlocks []cometsdk.Block, toolCalls []cometsdk.ToolCallBlock, injectedMemories []session.InjectedMemory) (session.Message, map[string]string, error) {
 	f.appendCalls++
 	ids := make(map[string]string, len(toolCalls))
 	for _, tc := range toolCalls {

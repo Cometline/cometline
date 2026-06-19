@@ -110,6 +110,11 @@ var alterStatements = [][]string{
 			updated_at DESC
 		)`,
 	},
+	// v7 -> v8: persist memories injected into a turn so the memory card
+	// survives a session reload (previously only emitted live over SSE).
+	{
+		"ALTER TABLE messages ADD COLUMN injected_memories TEXT NOT NULL DEFAULT '[]'",
+	},
 }
 
 // execAlter runs one incremental DDL statement, tolerating idempotent failures
@@ -148,7 +153,7 @@ func splitStatements(sql string) []string {
 	return out
 }
 
-const schemaVersion = 7
+const schemaVersion = 8
 
 // EnsureSchema runs [Migrate] once per database file using PRAGMA user_version.
 // For existing databases, it applies incremental ALTER statements to upgrade

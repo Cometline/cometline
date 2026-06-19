@@ -10,9 +10,9 @@ import (
 )
 
 const createMessage = `-- name: CreateMessage :one
-INSERT INTO messages (id, session_id, role, content, reasoning_content, token_count)
-VALUES (?, ?, ?, ?, ?, ?)
-RETURNING id, session_id, role, content, reasoning_content, token_count, created_at
+INSERT INTO messages (id, session_id, role, content, reasoning_content, injected_memories, token_count)
+VALUES (?, ?, ?, ?, ?, ?, ?)
+RETURNING id, session_id, role, content, reasoning_content, injected_memories, token_count, created_at
 `
 
 type CreateMessageParams struct {
@@ -21,6 +21,7 @@ type CreateMessageParams struct {
 	Role             string `json:"role"`
 	Content          string `json:"content"`
 	ReasoningContent string `json:"reasoning_content"`
+	InjectedMemories string `json:"injected_memories"`
 	TokenCount       int64  `json:"token_count"`
 }
 
@@ -31,6 +32,7 @@ func (q *Queries) CreateMessage(ctx context.Context, arg CreateMessageParams) (M
 		arg.Role,
 		arg.Content,
 		arg.ReasoningContent,
+		arg.InjectedMemories,
 		arg.TokenCount,
 	)
 	var i Message
@@ -40,6 +42,7 @@ func (q *Queries) CreateMessage(ctx context.Context, arg CreateMessageParams) (M
 		&i.Role,
 		&i.Content,
 		&i.ReasoningContent,
+		&i.InjectedMemories,
 		&i.TokenCount,
 		&i.CreatedAt,
 	)
@@ -47,7 +50,7 @@ func (q *Queries) CreateMessage(ctx context.Context, arg CreateMessageParams) (M
 }
 
 const getMessage = `-- name: GetMessage :one
-SELECT id, session_id, role, content, reasoning_content, token_count, created_at
+SELECT id, session_id, role, content, reasoning_content, injected_memories, token_count, created_at
 FROM messages
 WHERE id = ?
 LIMIT 1
@@ -62,6 +65,7 @@ func (q *Queries) GetMessage(ctx context.Context, id string) (Message, error) {
 		&i.Role,
 		&i.Content,
 		&i.ReasoningContent,
+		&i.InjectedMemories,
 		&i.TokenCount,
 		&i.CreatedAt,
 	)
@@ -69,7 +73,7 @@ func (q *Queries) GetMessage(ctx context.Context, id string) (Message, error) {
 }
 
 const listMessagesBySession = `-- name: ListMessagesBySession :many
-SELECT id, session_id, role, content, reasoning_content, token_count, created_at
+SELECT id, session_id, role, content, reasoning_content, injected_memories, token_count, created_at
 FROM messages
 WHERE session_id = ?
 ORDER BY created_at ASC, id ASC
@@ -90,6 +94,7 @@ func (q *Queries) ListMessagesBySession(ctx context.Context, sessionID string) (
 			&i.Role,
 			&i.Content,
 			&i.ReasoningContent,
+			&i.InjectedMemories,
 			&i.TokenCount,
 			&i.CreatedAt,
 		); err != nil {

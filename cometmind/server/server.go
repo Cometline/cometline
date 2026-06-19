@@ -282,6 +282,15 @@ type transcriptItem struct {
 	ToolInput  any                 `json:"tool_input,omitempty"`
 	ToolOutput string              `json:"tool_output,omitempty"`
 	ToolError  bool                `json:"tool_error,omitempty"`
+	Memories   []transcriptMemory  `json:"memories,omitempty"`
+}
+
+type transcriptMemory struct {
+	ID              string  `json:"id"`
+	Content         string  `json:"content"`
+	Kind            string  `json:"kind"`
+	Similarity      float64 `json:"similarity"`
+	EffectiveWeight float64 `json:"effective_weight"`
 }
 
 type transcriptResponse struct {
@@ -1305,6 +1314,18 @@ func transcriptItemFromModel(item session.TranscriptEntry) transcriptItem {
 		}
 	case session.TranscriptKindSystem:
 		return transcriptItem{Type: "system", Text: item.Text}
+	case session.TranscriptKindMemory:
+		out := transcriptItem{Type: "memory"}
+		for _, mem := range item.Memories {
+			out.Memories = append(out.Memories, transcriptMemory{
+				ID:              mem.ID,
+				Content:         mem.Content,
+				Kind:            mem.Kind,
+				Similarity:      mem.Similarity,
+				EffectiveWeight: mem.EffectiveWeight,
+			})
+		}
+		return out
 	default:
 		return transcriptItem{Type: string(item.Kind), Text: item.Text}
 	}

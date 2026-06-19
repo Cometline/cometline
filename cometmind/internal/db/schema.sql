@@ -45,6 +45,7 @@ CREATE TABLE messages (
                 ),
     content             TEXT NOT NULL DEFAULT '',
     reasoning_content   TEXT NOT NULL DEFAULT '[]',
+    injected_memories   TEXT NOT NULL DEFAULT '[]',
     token_count INTEGER NOT NULL DEFAULT 0,
     created_at  INTEGER NOT NULL DEFAULT (unixepoch ('now', 'subsec') * 1000)
 );

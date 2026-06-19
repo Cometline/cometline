@@ -109,6 +109,7 @@ func (e SessionStatus) Valid() bool {
 // Defines values for TranscriptItemType.
 const (
 	Assistant TranscriptItemType = "assistant"
+	Memory    TranscriptItemType = "memory"
 	Reasoning TranscriptItemType = "reasoning"
 	System    TranscriptItemType = "system"
 	Tool      TranscriptItemType = "tool"
@@ -119,6 +120,8 @@ const (
 func (e TranscriptItemType) Valid() bool {
 	switch e {
 	case Assistant:
+		return true
+	case Memory:
 		return true
 	case Reasoning:
 		return true
@@ -570,9 +573,12 @@ type ToolResultEvent struct {
 
 // TranscriptItem defines model for TranscriptItem.
 type TranscriptItem struct {
-	Images    *[]ImageAttachment `json:"images,omitempty"`
-	Text      *string            `json:"text,omitempty"`
-	ToolError *bool              `json:"tool_error,omitempty"`
+	Images *[]ImageAttachment `json:"images,omitempty"`
+
+	// Memories Injected memories surfaced for a memory transcript item.
+	Memories  *[]MemoryWire `json:"memories,omitempty"`
+	Text      *string       `json:"text,omitempty"`
+	ToolError *bool         `json:"tool_error,omitempty"`
 
 	// ToolInput Opaque JSON tool input.
 	ToolInput  interface{}        `json:"tool_input,omitempty"`

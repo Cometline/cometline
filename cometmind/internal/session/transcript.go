@@ -18,6 +18,7 @@ const (
 	TranscriptKindReasoning TranscriptKind = "reasoning"
 	TranscriptKindTool      TranscriptKind = "tool"
 	TranscriptKindSystem    TranscriptKind = "system"
+	TranscriptKindMemory    TranscriptKind = "memory"
 )
 
 // TranscriptEntry is a persisted message or tool row formatted for chat-style UIs.
@@ -31,6 +32,8 @@ type TranscriptEntry struct {
 	ToolInput   string // JSON arguments
 	ToolOutput  string
 	ToolIsError bool
+
+	Memories []InjectedMemory // memory rows (Kind == TranscriptKindMemory)
 }
 
 // LoadTranscript rebuilds an ordered transcript from SQLite using sqlc list queries.
@@ -109,6 +112,12 @@ func (s *Service) LoadTranscript(ctx context.Context, sessionID string) ([]Trans
 				out = append(out, TranscriptEntry{
 					Kind: TranscriptKindReasoning,
 					Text: rs,
+				})
+			}
+			if mems := unmarshalInjectedMemories(m.InjectedMemories); len(mems) > 0 {
+				out = append(out, TranscriptEntry{
+					Kind:     TranscriptKindMemory,
+					Memories: mems,
 				})
 			}
 			for _, tc := range callsByMessage[m.ID] {

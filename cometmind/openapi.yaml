@@ -1293,7 +1293,7 @@ components:
       properties:
         type:
           type: string
-          enum: [user, reasoning, assistant, tool, system]
+          enum: [user, reasoning, assistant, tool, system, memory]
         text:
           type: string
         images:
@@ -1308,6 +1308,11 @@ components:
           type: string
         tool_error:
           type: boolean
+        memories:
+          description: Injected memories surfaced for a memory transcript item.
+          type: array
+          items:
+            $ref: '#/components/schemas/MemoryWire'
 
     TokenUsage:
       type: object

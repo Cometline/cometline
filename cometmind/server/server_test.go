@@ -587,6 +587,7 @@ func TestGetMessagesReturnsTranscriptItems(t *testing.T) {
 		"Found it.",
 		[]cometsdk.Block{cometsdk.ReasoningBlock{Text: "Need to inspect the entrypoint first."}},
 		[]cometsdk.ToolCallBlock{toolCall},
+		nil,
 	)
 	if err != nil {
 		t.Fatalf("AppendAssistantStep() error = %v", err)

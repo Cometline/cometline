@@ -38,7 +38,7 @@ func TestForkSessionRemapsToolCallIDs(t *testing.T) {
 	}
 	_, toolIDs, err := svc.AppendAssistantStep(ctx, src.ID, "calling tool", nil, []cometsdk.ToolCallBlock{
 		{ID: "provider-1", Name: "run_command", Input: []byte(`{"command":"pwd"}`)},
-	})
+	}, nil)
 	if err != nil {
 		t.Fatalf("AppendAssistantStep() error = %v", err)
 	}

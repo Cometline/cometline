@@ -27,7 +27,7 @@ const memoryRetrievalTimeout = 3 * time.Second
 type TurnStore interface {
 	BuildSDKMessages(ctx context.Context, sessionID string) ([]cometsdk.Message, error)
 	SaveTokenUsage(ctx context.Context, sessionID string, u cometsdk.TokenUsage) error
-	AppendAssistantStep(ctx context.Context, sessionID, text string, reasoningBlocks []cometsdk.Block, toolCalls []cometsdk.ToolCallBlock) (session.Message, map[string]string, error)
+	AppendAssistantStep(ctx context.Context, sessionID, text string, reasoningBlocks []cometsdk.Block, toolCalls []cometsdk.ToolCallBlock, injectedMemories []session.InjectedMemory) (session.Message, map[string]string, error)
 	UpdateToolCallResult(ctx context.Context, toolCallID, result string, durMs int64, exit *int64) error
 	AppendToolResultMessage(ctx context.Context, sessionID, toolCallID, output string, isErr bool) (session.Message, error)
 }
@@ -92,6 +92,10 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 	}
 
 	steps := 0
+	// Injected memories belong to the first assistant message of the turn. They
+	// are captured when retrieved (step 0) and attached to the first
+	// AppendAssistantStep call so they persist and rebuild on reload.
+	var pendingMemories []session.InjectedMemory
 	for steps < r.MaxSteps {
 		msgs, err := r.Sessions.BuildSDKMessages(ctx, turn.ID)
 		if err != nil {
@@ -133,8 +137,16 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 					// so skip the wire event when there is nothing relevant to show.
 					if len(mems) > 0 {
 						wire := make([]event.MemoryWire, len(mems))
+						pendingMemories = make([]session.InjectedMemory, len(mems))
 						for i, m := range mems {
 							wire[i] = event.MemoryWire{
+								ID:              m.ID,
+								Content:         m.Content,
+								Kind:            m.Kind,
+								Similarity:      m.Similarity,
+								EffectiveWeight: m.EffectiveWeight,
+							}
+							pendingMemories[i] = session.InjectedMemory{
 								ID:              m.ID,
 								Content:         m.Content,
 								Kind:            m.Kind,
@@ -205,11 +217,13 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 
 		text := assistantPlainText(result.Message)
 		reasoningBlocks := result.Message.ReasoningContent
-		_, persistedToolIDs, err := r.Sessions.AppendAssistantStep(ctx, turn.ID, text, reasoningBlocks, result.ToolCalls)
+		_, persistedToolIDs, err := r.Sessions.AppendAssistantStep(ctx, turn.ID, text, reasoningBlocks, result.ToolCalls, pendingMemories)
 		if err != nil {
 			ch <- event.Errorf(err.Error(), "db")
 			return err
 		}
+		// Memories are attached to the first persisted assistant message only.
+		pendingMemories = nil
 
 		switch result.FinishReason {
 		case cometsdk.FinishStop, cometsdk.FinishMaxTokens:

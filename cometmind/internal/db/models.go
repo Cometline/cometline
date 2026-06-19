@@ -59,6 +59,7 @@ type Message struct {
 	Role             string `json:"role"`
 	Content          string `json:"content"`
 	ReasoningContent string `json:"reasoning_content"`
+	InjectedMemories string `json:"injected_memories"`
 	TokenCount       int64  `json:"token_count"`
 	CreatedAt        int64  `json:"created_at"`
 }

@@ -1,6 +1,6 @@
 -- name: CreateMessage :one
-INSERT INTO messages (id, session_id, role, content, reasoning_content, token_count)
-VALUES (?, ?, ?, ?, ?, ?)
+INSERT INTO messages (id, session_id, role, content, reasoning_content, injected_memories, token_count)
+VALUES (?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: ListMessagesBySession :many
