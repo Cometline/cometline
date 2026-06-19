@@ -299,8 +299,8 @@ function applyEvent(
 			const index = items.indexOf(tool);
 			items[index] = {
 				...tool,
-				output: event.output,
-				error: event.error,
+				output: event.error ? undefined : event.output,
+				error: event.error || undefined,
 				pending: false,
 				durationMs: tool.startedAt != null ? Date.now() - tool.startedAt : tool.durationMs
 			};

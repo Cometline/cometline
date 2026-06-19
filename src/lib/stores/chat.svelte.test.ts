@@ -429,4 +429,37 @@ describe('chatStore session switching', () => {
 		releaseA!();
 		await vi.waitFor(() => expect(chatStore.isStreamingFor('sess-a')).toBe(false));
 	});
+
+	it('coalesces historical assistant steps across tool rows on transcript reload', async () => {
+		vi.mocked(getSessionMessages).mockResolvedValue({
+			session_id: 'sess-a',
+			items: [
+				{ type: 'user', text: 'inspect main.go' },
+				{ type: 'reasoning', text: 'Need to inspect files.' },
+				{
+					type: 'tool',
+					tool_name: 'read_file',
+					tool_input: { path: 'main.go' },
+					tool_output: 'package main'
+				},
+				{ type: 'assistant', text: 'The file contains Go code.' }
+			]
+		});
+
+		chatStore.bindSession('sess-a');
+		await chatStore.loadTranscript('sess-a');
+
+		expect(chatStore.items).toHaveLength(3);
+		expect(chatStore.items[0]).toMatchObject({ type: 'user', text: 'inspect main.go' });
+		expect(chatStore.items[1]).toMatchObject({
+			type: 'assistant',
+			text: 'The file contains Go code.',
+			reasoning: { text: 'Need to inspect files.', pending: false }
+		});
+		expect(chatStore.items[2]).toMatchObject({
+			type: 'tool',
+			toolName: 'read_file',
+			output: 'package main'
+		});
+	});
 });

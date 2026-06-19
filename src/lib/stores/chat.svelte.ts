@@ -90,35 +90,53 @@ function mergeSubagents(items: ChatItem[], children: Session[]): ChatItem[] {
 
 function itemsFromTranscript(transcriptItems: TranscriptItem[]): ChatItem[] {
 	const out: ChatItem[] = [];
+	let currentAssistant: Extract<ChatItem, { type: 'assistant' }> | null = null;
+
+	function pushAssistant(index: number, text = '') {
+		const assistant: Extract<ChatItem, { type: 'assistant' }> = {
+			id: `history-${index}`,
+			type: 'assistant',
+			text
+		};
+		out.push(assistant);
+		currentAssistant = assistant;
+		return assistant;
+	}
+
+	function ensureAssistant(index: number) {
+		return currentAssistant ?? pushAssistant(index, '');
+	}
+
+	function appendAssistantText(index: number, text: string) {
+		if (!text) return;
+		const assistant = ensureAssistant(index);
+		assistant.text += text;
+	}
+
+	function appendReasoning(index: number, text: string) {
+		if (!text) return;
+		const assistant = ensureAssistant(index);
+		if (assistant.reasoning?.text) {
+			assistant.reasoning.text += `\n\n${text}`;
+			return;
+		}
+		assistant.reasoning = { text, pending: false };
+	}
+
 	for (let i = 0; i < transcriptItems.length; i++) {
 		const item = transcriptItems[i];
-		if (item.type === 'reasoning') {
-			const next = transcriptItems[i + 1];
-			if (next?.type === 'assistant') {
-				out.push({
-					id: `history-${i}`,
-					type: 'assistant',
-					text: next.text ?? '',
-					reasoning: { text: item.text ?? '', pending: false }
-				});
-				i++;
-				continue;
-			}
+		if (item.type === 'user' || item.type === 'system') {
+			currentAssistant = null;
+			out.push(itemFromTranscript(item, i));
+			continue;
 		}
 		if (item.type === 'assistant') {
-			const next = transcriptItems[i + 1];
-			if (next?.type === 'reasoning') {
-				out.push({
-					id: `history-${i}`,
-					type: 'assistant',
-					text: item.text ?? '',
-					reasoning: { text: next.text ?? '', pending: false }
-				});
-				i++;
-				continue;
-			}
-			const prev = transcriptItems[i - 1];
-			if (prev?.type === 'reasoning') continue;
+			appendAssistantText(i, item.text ?? '');
+			continue;
+		}
+		if (item.type === 'reasoning') {
+			appendReasoning(i, item.text ?? '');
+			continue;
 		}
 		out.push(itemFromTranscript(item, i));
 	}
@@ -149,7 +167,7 @@ function itemFromTranscript(item: TranscriptItem, index: number): ChatItem {
 		type: 'tool',
 		toolName: item.tool_name ?? '',
 		input: item.tool_input,
-		output: item.tool_output,
+		output: item.tool_error ? undefined : item.tool_output,
 		error: item.tool_error ? item.tool_output : undefined,
 		pending: false
 	};

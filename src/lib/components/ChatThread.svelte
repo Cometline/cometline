@@ -634,8 +634,11 @@
 								</div>
 								{#if tool.output || tool.error}
 									<div class="thinking-tool-output">
-										{#if tool.output}<p>{tool.output}</p>{/if}
-										{#if tool.error}<p class="tool-error-text">{tool.error}</p>{/if}
+										{#if tool.error}
+											<p class="tool-error-text">{tool.error}</p>
+										{:else if tool.output}
+											<p>{tool.output}</p>
+										{/if}
 									</div>
 								{/if}
 							</div>
@@ -842,11 +845,10 @@
 							</div>
 							{#if showToolOutputPanel(item) && toolOutputExpanded(item)}
 								<div class="tool-output-body" transition:slide={FOLD_IN}>
-									{#if item.output}
-										<pre>{item.output}</pre>
-									{/if}
 									{#if item.error}
 										<pre class="tool-error-text">{item.error}</pre>
+									{:else if item.output}
+										<pre>{item.output}</pre>
 									{/if}
 									{#if item.pending && !item.output && !item.error}
 										<pre>Running…</pre>
@@ -1330,12 +1332,6 @@
 		max-height: 160px;
 		overflow: auto;
 		scrollbar-gutter: stable;
-	}
-
-	.thinking-tool-output p + p {
-		margin-top: 6px;
-		padding-top: 6px;
-		border-top: 1px solid var(--border-soft);
 	}
 
 	.tool-card {
