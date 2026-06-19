@@ -1,5 +1,7 @@
 # git-cliff configuration for Cometline release notes
-# https://git-cliff.org/docs/configuration
+# The release notes script applies monorepo path filters per component via
+# `--include-path`, so this config stays shared across cometline/, cometmind/,
+# and comet-sdk/.
 
 [changelog]
 header = ""
@@ -24,6 +26,7 @@ filter_commits = true
 fail_on_unmatched_commit = false
 topo_order_commits = true
 sort_commits = "oldest"
+recurse_submodules = false
 
 commit_parsers = [
   { message = "^feat", group = "Features" },

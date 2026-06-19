@@ -139,6 +139,10 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for detailed system design.
 ## Development
 
 ```bash
+# Clone the single monorepo
+git clone https://github.com/cometline/cometline-release.git
+cd cometline-release
+
 # Install frontend dependencies
 make install
 
@@ -161,7 +165,17 @@ make build
 make package
 ```
 
+All new development happens in this repository. The historical `comet-sdk`, `cometmind`, and `cometline` repos are archived for reference only.
+
 See [AGENTS.md](./AGENTS.md) for development rules and commands.
+
+## Contributing
+
+- Fork `cometline-release`
+- Clone your fork normally; no submodule bootstrap is required
+- Run `make install` and `make dev` from the repository root
+- Run `make check` before opening a PR
+- Open a single PR here, even for changes that span `cometline/`, `cometmind/`, and `comet-sdk/`
 
 ## Configuration
 
@@ -199,5 +213,5 @@ Apache License 2.0. See [LICENSE](./LICENSE).
 ## Links
 
 - [Documentation](./ARCHITECTURE.md)
-- [Contributing](./AGENTS.md)
+- [Contributing](#contributing)
 - [Issues](https://github.com/cometline/cometline-release/issues)

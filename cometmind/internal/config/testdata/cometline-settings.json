@@ -1,0 +1,88 @@
+{
+  "providers": [
+    {
+      "id": "local-llm",
+      "name": "Local LLM",
+      "method": "openai-compatible",
+      "enabled": true,
+      "baseURL": "http://localhost:11434/v1",
+      "apiKey": "ignored",
+      "selectedModel": "qwen2.5",
+      "models": ["qwen2.5"],
+      "enabledModels": ["qwen2.5"]
+    },
+    {
+      "id": "anthropic",
+      "name": "Anthropic",
+      "method": "anthropic",
+      "enabled": true,
+      "baseURL": "https://api.anthropic.com",
+      "apiKey": "sk-ant-123",
+      "selectedModel": "claude-sonnet-4-5",
+      "models": ["claude-sonnet-4-5"],
+      "enabledModels": ["claude-sonnet-4-5"]
+    }
+  ],
+  "activeProviderId": "local-llm",
+  "appearance": {
+    "heroComposer": {
+      "glowColor": "#72c0ff",
+      "ringColor": "#9ed8ff"
+    },
+    "caretTrail": {
+      "enabled": true,
+      "intensity": 0.72,
+      "speed": 0.68
+    }
+  },
+  "shortcuts": {},
+  "app": {
+    "openAtLogin": false,
+    "hasSeenIntro": false
+  },
+  "cometmind": {
+    "systemPromptPath": "/tmp/SOUL.md",
+    "maxTokens": 2048,
+    "acp": {
+      "command": "opencode",
+      "args": ["acp"],
+      "timeout": "30m",
+      "interactive": true
+    },
+    "skills": {
+      "enabled": true,
+      "roots": [],
+      "includeOpenCode": true,
+      "includeClaude": true,
+      "mirrorToCometMind": false
+    },
+    "memory": {
+      "embedding": {
+        "providerId": "",
+        "provider": "",
+        "model": "",
+        "baseURL": "",
+        "apiKey": ""
+      }
+    },
+    "storage": {
+      "retentionDays": 90,
+      "maxSessionsPerWorkspace": 0,
+      "archivedMemoryPurgeDays": 90,
+      "vacuumAfterPurge": true
+    },
+    "gateway": {
+      "discord": {
+        "enabled": false,
+        "botToken": "",
+        "botTokenEnv": "DISCORD_BOT_TOKEN",
+        "providerId": "",
+        "modelId": "",
+        "allowedUsers": [],
+        "allowedChannels": [],
+        "requireMention": true,
+        "workspacePath": ""
+      }
+    }
+  }
+}

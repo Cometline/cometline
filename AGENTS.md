@@ -4,13 +4,15 @@ This document provides development rules and commands for AI agents and contribu
 
 ## Repository Structure
 
-This is a monorepo with three independent git submodules:
+This is a monorepo with three first-class modules tracked in a single git repository:
 
 - **`comet-sdk/`** — Go library for provider-agnostic LLM I/O (streaming, retries, tool-call assembly, Anthropic/OpenAI/Codex adapters)
 - **`cometmind/`** — Go agent runtime (agent loop, SQLite persistence, HTTP/SSE API, Discord gateway)
 - **`cometline/`** — SvelteKit + Electron desktop shell (chat UI, settings, animations)
 
 **Important:** There is no root `go.work` file. Run Go commands from `comet-sdk/` or `cometmind/`, not the repository root.
+
+The historical standalone repos for these modules are archived. New development, issues, and pull requests all land in this repository.
 
 The dependency direction is strictly one-way: `cometline` → `cometmind` → `comet-sdk`.
 

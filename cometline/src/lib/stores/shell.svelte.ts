@@ -1,0 +1,284 @@
+import { getActiveSessionId } from '$lib/active-session';
+
+export type WebPanelMode = 'url' | 'file';
+
+export type SessionWebPanel =
+	| { mode: 'url'; url: string; visible: boolean }
+	| { mode: 'file'; filePath: string; visible: boolean };
+
+export type FocusedPane = 'chat' | 'web';
+
+/**
+ * Sentinel key for the web panel state of a not-yet-created session (the home
+ * route / new chat). Lets the panel open before a session exists; on first send
+ * the draft panel is migrated onto the real session id via `migrateDraftPanel`.
+ */
+const DRAFT_SESSION_KEY = '__draft__';
+
+function createShellStore() {
+	let sidebarOpen = $state(true);
+	let settingsOpen = $state(false);
+	let introOpen = $state(false);
+	let composerPhase = $state<'centered' | 'docked'>('centered');
+	let workspacePath = $state('/');
+	/** Sidebar group ordering; updated on explicit commit (click, send, workspace picker). */
+	let sidebarOrderWorkspacePath = $state('/');
+	let bootMessage = $state('');
+	let fullscreen = $state(false);
+	let webPanelsBySession = $state<Record<string, SessionWebPanel>>({});
+	let focusedPane = $state<FocusedPane>('chat');
+	let addressBarFocusRequestId = $state(0);
+
+	function activeSessionId(): string | null {
+		return getActiveSessionId();
+	}
+
+	/** Resolves the storage key for the active session, or the draft sentinel. */
+	function panelSessionKey(): string {
+		return activeSessionId() ?? DRAFT_SESSION_KEY;
+	}
+
+	function panelForActiveSession(): SessionWebPanel | null {
+		return webPanelsBySession[panelSessionKey()] ?? null;
+	}
+
+	function syncWebPanelOpen(open: boolean) {
+		window.electronAPI?.setWebPanelOpen?.(open);
+	}
+
+	function syncWebPanelOpenForActiveSession() {
+		const panel = panelForActiveSession();
+		syncWebPanelOpen(Boolean(panel?.visible));
+	}
+
+	return {
+		get sidebarOpen() {
+			return sidebarOpen;
+		},
+		get fullscreen() {
+			return fullscreen;
+		},
+		get settingsOpen() {
+			return settingsOpen;
+		},
+		get introOpen() {
+			return introOpen;
+		},
+		get composerPhase() {
+			return composerPhase;
+		},
+		get workspacePath() {
+			return workspacePath;
+		},
+		get sidebarOrderWorkspacePath() {
+			return sidebarOrderWorkspacePath;
+		},
+		get bootMessage() {
+			return bootMessage;
+		},
+		get focusedPane() {
+			return focusedPane;
+		},
+		get webPanelOpen() {
+			const panel = panelForActiveSession();
+			return Boolean(panel?.visible);
+		},
+		get webPanelMode(): WebPanelMode | null {
+			return panelForActiveSession()?.mode ?? null;
+		},
+		get webPanelUrl() {
+			const panel = panelForActiveSession();
+			return panel?.mode === 'url' ? panel.url : null;
+		},
+		get webPanelFilePath() {
+			const panel = panelForActiveSession();
+			return panel?.mode === 'file' ? panel.filePath : null;
+		},
+		get hasWebPanelForSession() {
+			return panelForActiveSession() !== null;
+		},
+		/**
+		 * Storage key for the active session's panel, or the draft sentinel when
+		 * no session exists yet. Used to scope webview load tracking so the panel
+		 * works on the home route before a session is created.
+		 */
+		get webPanelSessionKey() {
+			return panelSessionKey();
+		},
+		get addressBarFocusRequestId() {
+			return addressBarFocusRequestId;
+		},
+		setWorkspacePath(path: string) {
+			workspacePath = path;
+		},
+		setSidebarOrderWorkspacePath(path: string) {
+			sidebarOrderWorkspacePath = path;
+		},
+		/** Keep composer and sidebar ordering in sync (explicit user commit). */
+		commitWorkspace(path: string) {
+			workspacePath = path;
+			sidebarOrderWorkspacePath = path;
+		},
+		setBootMessage(message: string) {
+			bootMessage = message;
+		},
+		setFullscreen(value: boolean) {
+			fullscreen = value;
+		},
+		toggleSidebar() {
+			sidebarOpen = !sidebarOpen;
+		},
+		openSidebar() {
+			sidebarOpen = true;
+		},
+		closeSidebar() {
+			sidebarOpen = false;
+		},
+		openSettings() {
+			settingsOpen = true;
+		},
+		closeSettings() {
+			settingsOpen = false;
+		},
+		openIntro() {
+			introOpen = true;
+		},
+		closeIntro() {
+			introOpen = false;
+		},
+		dockComposer() {
+			composerPhase = 'docked';
+		},
+		centerComposer() {
+			composerPhase = 'centered';
+		},
+		setFocusedPane(pane: FocusedPane) {
+			focusedPane = pane;
+		},
+		onActiveSessionChange() {
+			focusedPane = 'chat';
+			syncWebPanelOpenForActiveSession();
+		},
+		openWebPanel(url: string, sessionId: string) {
+			webPanelsBySession = {
+				...webPanelsBySession,
+				[sessionId]: { mode: 'url', url, visible: true }
+			};
+			focusedPane = 'web';
+			syncWebPanelOpen(true);
+		},
+		openFilePreview(filePath: string, sessionId: string) {
+			webPanelsBySession = {
+				...webPanelsBySession,
+				[sessionId]: { mode: 'file', filePath, visible: true }
+			};
+			focusedPane = 'web';
+			syncWebPanelOpen(true);
+		},
+		openWebPanelEmpty() {
+			const sessionId = panelSessionKey();
+			webPanelsBySession = {
+				...webPanelsBySession,
+				[sessionId]: { mode: 'url', url: '', visible: true }
+			};
+			focusedPane = 'web';
+			syncWebPanelOpen(true);
+			addressBarFocusRequestId += 1;
+		},
+		navigateWebPanel(url: string) {
+			const sessionId = panelSessionKey();
+			webPanelsBySession = {
+				...webPanelsBySession,
+				[sessionId]: { mode: 'url', url, visible: true }
+			};
+			focusedPane = 'web';
+			syncWebPanelOpen(true);
+		},
+		requestAddressBarFocus() {
+			const sessionId = panelSessionKey();
+			const panel = webPanelsBySession[sessionId];
+			if (!panel) return;
+			if (!panel.visible) {
+				webPanelsBySession = {
+					...webPanelsBySession,
+					[sessionId]: { ...panel, visible: true }
+				};
+				syncWebPanelOpen(true);
+				focusedPane = 'web';
+			}
+			addressBarFocusRequestId += 1;
+		},
+		openWebPanelFromShortcut() {
+			if (panelForActiveSession()) {
+				this.requestAddressBarFocus();
+				return;
+			}
+			this.openWebPanelEmpty();
+		},
+		toggleWebPanel() {
+			const sessionId = panelSessionKey();
+			const panel = webPanelsBySession[sessionId];
+			if (!panel) return;
+			const visible = !panel.visible;
+			webPanelsBySession = {
+				...webPanelsBySession,
+				[sessionId]: { ...panel, visible }
+			};
+			focusedPane = visible ? 'web' : 'chat';
+			syncWebPanelOpen(visible);
+		},
+		closeWebPanel() {
+			const sessionId = panelSessionKey();
+			if (!webPanelsBySession[sessionId]) return;
+			const next = { ...webPanelsBySession };
+			delete next[sessionId];
+			webPanelsBySession = next;
+			focusedPane = 'chat';
+			syncWebPanelOpen(false);
+		},
+		clearWebPanelForSession(sessionId: string) {
+			if (!webPanelsBySession[sessionId]) return;
+			const next = { ...webPanelsBySession };
+			delete next[sessionId];
+			webPanelsBySession = next;
+			if (activeSessionId() === sessionId) {
+				focusedPane = 'chat';
+				syncWebPanelOpen(false);
+			}
+		},
+		/**
+		 * Opens a workspace file in the panel for the active session, falling back
+		 * to the draft sentinel when no session exists yet (home / new chat).
+		 */
+		openFilePreviewForActive(filePath: string) {
+			this.openFilePreview(filePath, panelSessionKey());
+		},
+		/**
+		 * Opens a URL in the panel for the active session, falling back to the
+		 * draft sentinel when no session exists yet (home / new chat).
+		 */
+		openWebPanelForActive(url: string) {
+			this.openWebPanel(url, panelSessionKey());
+		},
+		/**
+		 * Moves any draft panel (opened before a session existed) onto the newly
+		 * created session id. Called on first send from the home route.
+		 */
+		migrateDraftPanel(sessionId: string) {
+			const draft = webPanelsBySession[DRAFT_SESSION_KEY];
+			if (!draft) return;
+			const next = { ...webPanelsBySession, [sessionId]: draft };
+			delete next[DRAFT_SESSION_KEY];
+			webPanelsBySession = next;
+		},
+		/** Discards a draft panel without migrating it. */
+		clearDraftPanel() {
+			if (!webPanelsBySession[DRAFT_SESSION_KEY]) return;
+			const next = { ...webPanelsBySession };
+			delete next[DRAFT_SESSION_KEY];
+			webPanelsBySession = next;
+		}
+	};
+}
+
+export const shellStore = createShellStore();

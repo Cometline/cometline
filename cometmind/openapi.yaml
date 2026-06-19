@@ -1,0 +1,1908 @@
+openapi: 3.1.0
+info:
+  title: CometMind Local Serve API
+  version: 0.1.0
+  description: |
+    Minimal local HTTP + SSE surface for CometMind Phase 0.
+
+    v1 is localhost-only, has no app-layer auth, keeps `/api/v1` path versioning,
+    and exposes only the first serve slice endpoints.
+servers:
+  - url: http://127.0.0.1:7700
+    description: Default local bind address
+tags:
+  - name: Health
+  - name: Workspaces
+  - name: Files
+  - name: Sessions
+  - name: Skills
+  - name: Memory
+paths:
+  /api/v1/health:
+    get:
+      tags: [Health]
+      summary: Check server liveness
+      operationId: getHealth
+      responses:
+        '200':
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: ok
+
+  /api/v1/workspaces:
+    get:
+      tags: [Workspaces]
+      summary: List registered workspaces
+      operationId: listWorkspaces
+      responses:
+        '200':
+          description: Registered workspace roots
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceListResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags: [Workspaces]
+      summary: Register or resolve a workspace by path
+      description: |
+        Ensures a workspace exists for the given absolute filesystem path.
+        Returns the registered workspace id and normalized path.
+      operationId: createWorkspace
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWorkspaceRequest'
+      responses:
+        '201':
+          description: Workspace registered or resolved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workspace'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/workspaces/prune:
+    post:
+      tags: [Workspaces]
+      summary: Prune missing workspace registrations
+      description: |
+        Removes registered workspaces whose directories no longer exist on disk
+        and that have no sessions. Workspaces with sessions are kept for history
+        but are omitted from workspace pickers.
+      operationId: pruneWorkspaces
+      responses:
+        '200':
+          description: Prune completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PruneWorkspacesResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/workspaces/files:
+    get:
+      tags: [Files]
+      summary: List files in a workspace
+      description: |
+        Returns workspace-relative file paths for the requested workspace.
+        Hidden files and directories, common build/output directories, and
+        entries matched by `.gitignore` at the workspace root are skipped.
+      operationId: listWorkspaceFiles
+      parameters:
+        - name: workspace_id
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Registered workspace identifier.
+        - name: workspace_path
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Absolute workspace path for an already-registered workspace.
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Optional substring filter on the relative file path.
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+            maximum: 500
+          description: Maximum number of results to return.
+      responses:
+        '200':
+          description: Workspace file list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceFileList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/workspaces/files/content:
+    get:
+      tags: [Files]
+      summary: Read a workspace file for preview
+      description: |
+        Returns the contents of a workspace-relative file for in-app preview.
+        Text files return UTF-8 content; common image types return a data URL.
+        Files larger than 256 KB cannot be previewed.
+      operationId: readWorkspaceFileContent
+      parameters:
+        - name: workspace_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: workspace_path
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: path
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Workspace-relative file path.
+      responses:
+        '200':
+          description: File preview content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceFileContent'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    put:
+      tags: [Files]
+      summary: Write a workspace file for preview editing
+      description: |
+        Writes UTF-8 text content back to an existing workspace-relative file.
+        Image files, binary content, and files larger than 256 KB are rejected.
+      operationId: writeWorkspaceFileContent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WriteWorkspaceFileRequest'
+      responses:
+        '204':
+          description: File saved
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/sessions:
+    post:
+      tags: [Sessions]
+      summary: Create a session
+      description: |
+        Creates a new session for an explicit workspace selection.
+
+        Provide either `workspace_id` or `workspace_path`.
+        When `workspace_path` is provided and the workspace is not yet registered,
+        CometMind auto-registers it before creating the session.
+      operationId: createSession
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSessionRequest'
+            examples:
+              byWorkspacePath:
+                summary: Create by workspace path
+                value:
+                  workspace_path: /Users/tomlord/workspace/personal-project/cometline
+              byWorkspaceId:
+                summary: Create by workspace id
+                value:
+                  workspace_id: ws_01JABCDEF
+                  model_id: claude-sonnet-4-5
+                  provider_id: anthropic
+      responses:
+        '201':
+          description: Session created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+              example:
+                id: sess_01JABCDEF
+                workspace_id: ws_01JABCDEF
+                workspace_path: /Users/tomlord/workspace/personal-project/cometline
+                title: ""
+                model_id: claude-sonnet-4-5
+                provider_id: anthropic
+                status: active
+                token_usage:
+                  input_tokens: 0
+                  output_tokens: 0
+                  cache_read: 0
+                  cache_write: 0
+                created_at: 1746880000000
+                updated_at: 1746880000000
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    get:
+      tags: [Sessions]
+      summary: List sessions for one workspace
+      description: |
+        Lists sessions for exactly one workspace scope.
+
+        Supply either `workspace_id` or `workspace_path`.
+        This endpoint is workspace-scoped and requires one of those query parameters.
+        Unlike session creation, `workspace_path` does not auto-register missing workspaces.
+      operationId: listSessions
+      parameters:
+        - name: workspace_id
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Registered workspace identifier.
+        - name: workspace_path
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Absolute workspace path for an already-registered workspace.
+        - name: all
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: When true, returns top-level sessions across all workspaces and ignores workspace scope.
+      responses:
+        '200':
+          description: Sessions for the requested workspace
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionListResponse'
+              example:
+                sessions:
+                  - id: sess_01JABCDEF
+                    workspace_id: ws_01JABCDEF
+                    workspace_path: /Users/tomlord/workspace/personal-project/cometline
+                    title: Investigate serve slice
+                    model_id: claude-sonnet-4-5
+                    provider_id: anthropic
+                    status: active
+                    token_usage:
+                      input_tokens: 1200
+                      output_tokens: 340
+                      cache_read: 0
+                      cache_write: 0
+                    created_at: 1746880000000
+                    updated_at: 1746880200000
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/sessions/{id}:
+    get:
+      tags: [Sessions]
+      summary: Get one session
+      operationId: getSession
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200':
+          description: Session resource
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    patch:
+      tags: [Sessions]
+      summary: Update session model
+      description: Persists a new model/provider pair for an existing session. Later message turns use the updated model.
+      operationId: patchSession
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSessionRequest'
+      responses:
+        '200':
+          description: Updated session resource
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      tags: [Sessions]
+      summary: Delete one session
+      description: Removes the session and cascades its persisted messages and tool-call rows.
+      operationId: deleteSession
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '204':
+          description: Session deleted
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/sessions/{id}/workspace:
+    patch:
+      tags: [Sessions]
+      summary: Change session workspace
+      description: |
+        Reassigns an existing session to a different workspace root while preserving
+        transcript history. Writes a system notice into the transcript.
+      operationId: changeSessionWorkspace
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangeSessionWorkspaceRequest'
+      responses:
+        '200':
+          description: Updated session resource
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/sessions/{id}/fork:
+    post:
+      tags: [Sessions]
+      summary: Fork a session into a different workspace
+      description: |
+        Creates a new session in the target workspace, copying the source session's
+        title, model, and full message/tool-call transcript. The original session is
+        left untouched. Returns the newly created session.
+      operationId: forkSession
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ForkSessionRequest'
+      responses:
+        '201':
+          description: Forked session resource
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/sessions/{id}/children:
+    get:
+      tags: [Sessions]
+      summary: List delegated child sessions
+      operationId: listChildSessions
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200':
+          description: Child sessions for a parent session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionListResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/sessions/{id}/messages:
+    get:
+      tags: [Sessions]
+      summary: Get transcript-style session messages
+      description: |
+        Returns a transcript-style API model rather than raw database rows.
+        Tool rows include both the tool input and the recorded tool output.
+      operationId: getSessionMessages
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200':
+          description: Transcript items for the session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TranscriptResponse'
+              example:
+                session_id: sess_01JABCDEF
+                items:
+                  - type: user
+                    text: Inspect the entrypoint.
+                  - type: reasoning
+                    text: I should inspect the entrypoint before changing the server wiring.
+                  - type: assistant
+                    text: I found the serve command entrypoint.
+                  - type: tool
+                    tool_name: read_file
+                    tool_input:
+                      path: main.go
+                    tool_output: |-
+                      package main
+                    tool_error: false
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/sessions/{id}/message:
+    post:
+      tags: [Sessions]
+      summary: Send one message and stream events over SSE
+      description: |
+        Accepts text and optional base64 image attachments, then responds with `text/event-stream`.
+
+        The SSE payloads reuse CometMind-native event names discriminated by `type`:
+        `text_delta`, `reasoning_start`, `reasoning_delta`, `tool_call`,
+        `tool_result`, `step_finish`, `subagent_started`, `subagent_progress`,
+        `subagent_awaiting_input`, `subagent_finished`, `memory_injected`,
+        `memory_updated`, `error`, and `done`.
+
+        Each `data:` frame body matches `#/components/schemas/StreamEvent`.
+        `tool_call.input` is a JSON object. `tool_result.output` is text.
+      operationId: postSessionMessage
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostMessageRequest'
+            example:
+              text: Inspect the server package and summarize the next change.
+              images:
+                - media_type: image/png
+                  data: iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB...
+      responses:
+        '200':
+          description: SSE event stream
+          content:
+            text/event-stream:
+              schema:
+                $ref: '#/components/schemas/StreamEvent'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Session already has an in-flight run
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: session_running
+                  message: session sess_01JABCDEF already running
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/sessions/{id}/abort:
+    post:
+      tags: [Sessions]
+      summary: Abort an in-flight session run
+      description: Cancels the currently running loop for the specified session.
+      operationId: abortSession
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '202':
+          description: Abort accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusResponse'
+              example:
+                status: aborting
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Session is not currently running
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: session_not_running
+                  message: session is not currently running
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/sessions/{id}/respond:
+    post:
+      tags: [Sessions]
+      summary: Reply to an awaiting delegated child session
+      description: Delivers user input to an active ACP child session and streams acknowledgement events.
+      operationId: respondToChildSession
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RespondToChildRequest'
+      responses:
+        '200':
+          description: Reply accepted; SSE stream with subagent events
+          content:
+            text/event-stream:
+              schema:
+                $ref: '#/components/schemas/StreamEvent'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Child session is not awaiting input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/skills:
+    get:
+      tags: [Skills]
+      summary: List discovered Agent Skills
+      operationId: listSkills
+      parameters:
+        - name: workspace_path
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Optional workspace path used to include project-local skill roots.
+      responses:
+        '200':
+          description: Discovered skill index
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListSkillsResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/skills/sync:
+    post:
+      tags: [Skills]
+      summary: Symlink discovered skills into ~/.cometmind/skills
+      operationId: syncSkills
+      parameters:
+        - name: workspace_path
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Sync result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncSkillsResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/skills/{name}:
+    get:
+      tags: [Skills]
+      summary: Read one Agent Skill
+      operationId: getSkill
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: workspace_path
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Skill detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SkillDetailResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      tags: [Skills]
+      summary: Delete a managed Agent Skill from ~/.cometmind/skills
+      operationId: deleteSkill
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: workspace_path
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Skill deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/skills/{name}/export:
+    get:
+      tags: [Skills]
+      summary: Export one Agent Skill as a zip archive
+      operationId: exportSkill
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: workspace_path
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Skill zip archive
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/memories:
+    get:
+      tags: [Memory]
+      summary: List active memories
+      operationId: listMemories
+      responses:
+        '200':
+          description: Memory list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListMemoriesResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags: [Memory]
+      summary: Create a manual memory
+      operationId: createMemory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMemoryRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemoryResource'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '503':
+          description: Memory subsystem disabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimpleErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/memories/search:
+    post:
+      tags: [Memory]
+      summary: Semantic memory search
+      operationId: searchMemories
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SearchMemoryRequest'
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListMemoriesResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/memories/{id}:
+    patch:
+      tags: [Memory]
+      summary: Update a memory
+      operationId: patchMemory
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMemoryRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemoryResource'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '503':
+          description: Memory subsystem disabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimpleErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      tags: [Memory]
+      summary: Delete a memory
+      operationId: deleteMemory
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Deleted
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '503':
+          description: Memory subsystem disabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimpleErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/memory/settings:
+    get:
+      tags: [Memory]
+      summary: Get memory settings
+      operationId: getMemorySettings
+      responses:
+        '200':
+          description: Settings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemorySettings'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    put:
+      tags: [Memory]
+      summary: Update memory settings
+      operationId: putMemorySettings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MemorySettings'
+      responses:
+        '200':
+          description: Updated settings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemorySettings'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/memory/purge:
+    post:
+      tags: [Memory]
+      summary: Purge archived memories
+      operationId: purgeArchivedMemory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PurgeArchivedMemoryRequest'
+      responses:
+        '200':
+          description: Purge result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PurgeArchivedMemoryResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '503':
+          description: Memory subsystem disabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimpleErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/memory/compact:
+    post:
+      tags: [Memory]
+      summary: Run memory compaction
+      operationId: compactMemory
+      responses:
+        '200':
+          description: Compaction started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusResponse'
+        '503':
+          description: Memory subsystem disabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimpleErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/memory/compact/preview:
+    get:
+      tags: [Memory]
+      summary: Preview compaction candidates
+      operationId: compactMemoryPreview
+      responses:
+        '200':
+          description: Preview
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompactMemoryPreviewResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+  parameters:
+    SessionId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Persisted CometMind session identifier.
+
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: bad_request
+              message: invalid request
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: session_not_found
+              message: session was not found
+    Forbidden:
+      description: Operation is not allowed for this resource
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: forbidden
+              message: operation is not allowed
+    InternalError:
+      description: Unexpected server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: internal_error
+              message: unexpected server error
+
+  schemas:
+    HealthResponse:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+          const: ok
+
+    CreateSessionRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        workspace_id:
+          type: string
+          description: Registered workspace identifier.
+        workspace_path:
+          type: string
+          description: Absolute filesystem path for the workspace.
+        model_id:
+          type: string
+          description: Optional model override; defaults to current config.
+        provider_id:
+          type: string
+          description: Optional provider override; defaults to current config.
+      description: Provide either `workspace_id` or `workspace_path`.
+
+    UpdateSessionRequest:
+      type: object
+      additionalProperties: false
+      required: [model_id, provider_id]
+      properties:
+        model_id:
+          type: string
+        provider_id:
+          type: string
+
+    ChangeSessionWorkspaceRequest:
+      type: object
+      additionalProperties: false
+      required: [workspace_path]
+      properties:
+        workspace_path:
+          type: string
+          description: Absolute filesystem path for the new workspace root.
+
+    ForkSessionRequest:
+      type: object
+      additionalProperties: false
+      required: [workspace_path]
+      properties:
+        workspace_path:
+          type: string
+          description: Absolute filesystem path for the forked session's workspace root.
+
+    WorkspaceListResponse:
+      type: object
+      additionalProperties: false
+      required: [workspaces]
+      properties:
+        workspaces:
+          type: array
+          items:
+            $ref: '#/components/schemas/Workspace'
+
+    PruneWorkspacesResponse:
+      type: object
+      additionalProperties: false
+      required: [pruned]
+      properties:
+        pruned:
+          type: integer
+          minimum: 0
+          description: Number of workspace registrations removed from the database.
+
+    WorkspaceFileList:
+      type: object
+      additionalProperties: false
+      required: [files]
+      properties:
+        files:
+          type: array
+          items:
+            type: string
+          description: Workspace-relative file paths.
+        truncated:
+          type: boolean
+          description: True when more matching files exist than the limit returned. Narrow with the q query parameter to find files not in this page.
+
+    WorkspaceFileTextContent:
+      type: object
+      additionalProperties: false
+      required: [kind, content, extension]
+      properties:
+        kind:
+          type: string
+          enum: [text]
+        content:
+          type: string
+        extension:
+          type: string
+
+    WorkspaceFileImageContent:
+      type: object
+      additionalProperties: false
+      required: [kind, mime_type, data_url]
+      properties:
+        kind:
+          type: string
+          enum: [image]
+        mime_type:
+          type: string
+        data_url:
+          type: string
+
+    WorkspaceFileContent:
+      oneOf:
+        - $ref: '#/components/schemas/WorkspaceFileTextContent'
+        - $ref: '#/components/schemas/WorkspaceFileImageContent'
+
+    WriteWorkspaceFileRequest:
+      type: object
+      additionalProperties: false
+      required: [path, content]
+      properties:
+        workspace_id:
+          type: string
+          description: Registered workspace identifier.
+        workspace_path:
+          type: string
+          description: Absolute filesystem path for the workspace.
+        path:
+          type: string
+          description: Workspace-relative file path.
+        content:
+          type: string
+          description: UTF-8 text content to write.
+      description: Provide either `workspace_id` or `workspace_path`.
+
+    PostMessageRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        text:
+          type: string
+          description: User input text. Required when images is empty.
+        images:
+          type: array
+          maxItems: 6
+          description: Optional base64 image attachments. Supported media types are image/png, image/jpeg, image/gif, and image/webp.
+          items:
+            $ref: '#/components/schemas/ImageAttachment'
+        file_paths:
+          type: array
+          maxItems: 8
+          description: Workspace-relative file paths to include as context. Each file must be a readable text file at most 256 KB.
+          items:
+            type: string
+
+    ImageAttachment:
+      type: object
+      additionalProperties: false
+      required: [media_type, data]
+      properties:
+        id:
+          type: string
+          description: Client-only identifier for UI attachment lists; not sent to CometMind.
+        media_type:
+          type: string
+          enum: [image/png, image/jpeg, image/gif, image/webp]
+        data:
+          type: string
+          contentEncoding: base64
+          description: Raw base64 payload without a data URL prefix. Each decoded image must be at most 4 MB.
+        name:
+          type: string
+        size:
+          type: integer
+
+    Session:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - workspace_id
+        - workspace_path
+        - title
+        - model_id
+        - provider_id
+        - status
+        - token_usage
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+        workspace_id:
+          type: string
+        workspace_path:
+          type: string
+        title:
+          type: string
+        model_id:
+          type: string
+        provider_id:
+          type: string
+        status:
+          type: string
+          enum: [active, archived]
+        token_usage:
+          $ref: '#/components/schemas/TokenUsage'
+        created_at:
+          type: integer
+          format: int64
+          description: Unix epoch milliseconds.
+        updated_at:
+          type: integer
+          format: int64
+          description: Unix epoch milliseconds.
+        parent_session_id:
+          type: string
+          description: Parent session ID for delegated child sessions.
+        purpose:
+          type: string
+          description: Delegation task purpose for child sessions.
+        delegation_status:
+          type: string
+          enum:
+            - pending
+            - running
+            - awaiting_user
+            - awaiting_permission
+            - completed
+            - failed
+            - cancelled
+        output_summary:
+          type: string
+          description: Final summary from a delegated child session.
+        acp_session_id:
+          type: string
+          description: External ACP session ID for resuming interactive delegation.
+        pending_question:
+          type: string
+          description: Question or prompt awaiting user input on a child session.
+
+    SessionListResponse:
+      type: object
+      additionalProperties: false
+      required: [sessions]
+      properties:
+        sessions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Session'
+
+    TranscriptResponse:
+      type: object
+      additionalProperties: false
+      required: [session_id, items]
+      properties:
+        session_id:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TranscriptItem'
+
+    TranscriptItem:
+      type: object
+      required: [type]
+      properties:
+        type:
+          type: string
+          enum: [user, reasoning, assistant, tool, system]
+        text:
+          type: string
+        images:
+          type: array
+          items:
+            $ref: '#/components/schemas/ImageAttachment'
+        tool_name:
+          type: string
+        tool_input:
+          description: Opaque JSON tool input.
+        tool_output:
+          type: string
+        tool_error:
+          type: boolean
+
+    TokenUsage:
+      type: object
+      additionalProperties: false
+      required: [input_tokens, output_tokens, cache_read, cache_write]
+      properties:
+        input_tokens:
+          type: integer
+        output_tokens:
+          type: integer
+        cache_read:
+          type: integer
+        cache_write:
+          type: integer
+
+    StatusResponse:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+
+    Skill:
+      type: object
+      additionalProperties: false
+      required: [name, description, path, source, internal, is_symlink, can_delete, can_export]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        path:
+          type: string
+        source:
+          type: string
+        internal:
+          type: boolean
+        is_symlink:
+          type: boolean
+        can_delete:
+          type: boolean
+        can_export:
+          type: boolean
+
+    ListSkillsResponse:
+      type: object
+      additionalProperties: false
+      required: [skills]
+      properties:
+        skills:
+          type: array
+          items:
+            $ref: '#/components/schemas/Skill'
+        errors:
+          type: array
+          items:
+            type: string
+
+    SkillDetailResponse:
+      type: object
+      additionalProperties: false
+      required: [skill, content]
+      properties:
+        skill:
+          $ref: '#/components/schemas/Skill'
+        content:
+          type: string
+
+    SyncSkillsResponse:
+      type: object
+      additionalProperties: false
+      required: [created, skipped]
+      properties:
+        created:
+          type: array
+          items:
+            type: string
+        skipped:
+          type: array
+          items:
+            type: string
+        errors:
+          type: array
+          items:
+            type: string
+
+    RespondToChildRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        text:
+          type: string
+          description: Free-text follow-up for the delegated coder.
+        permission_option_id:
+          type: string
+          description: Selected permission option when the child is awaiting permission.
+
+    CreateWorkspaceRequest:
+      type: object
+      additionalProperties: false
+      required: [workspace_path]
+      properties:
+        workspace_path:
+          type: string
+          description: Absolute filesystem path for the workspace.
+
+    Workspace:
+      type: object
+      additionalProperties: false
+      required: [id, path]
+      properties:
+        id:
+          type: string
+        path:
+          type: string
+
+    PermissionOption:
+      type: object
+      additionalProperties: false
+      required: [id, kind, name]
+      properties:
+        id:
+          type: string
+        kind:
+          type: string
+        name:
+          type: string
+
+    MemoryWire:
+      type: object
+      additionalProperties: false
+      required: [id, content, kind, similarity, effective_weight]
+      properties:
+        id:
+          type: string
+        content:
+          type: string
+        kind:
+          type: string
+        similarity:
+          type: number
+        effective_weight:
+          type: number
+
+    MemoryChangeWire:
+      type: object
+      additionalProperties: false
+      required: [action, kind, content]
+      properties:
+        action:
+          type: string
+          enum: [create, update, supersede]
+        kind:
+          type: string
+        content:
+          type: string
+        id:
+          type: string
+
+    TextDeltaEvent:
+      type: object
+      additionalProperties: false
+      required: [type, delta]
+      properties:
+        type:
+          type: string
+          const: text_delta
+        delta:
+          type: string
+
+    ReasoningStartEvent:
+      type: object
+      additionalProperties: false
+      required: [type]
+      properties:
+        type:
+          type: string
+          const: reasoning_start
+
+    ReasoningDeltaEvent:
+      type: object
+      additionalProperties: false
+      required: [type, text]
+      properties:
+        type:
+          type: string
+          const: reasoning_delta
+        text:
+          type: string
+
+    ToolCallEvent:
+      type: object
+      additionalProperties: false
+      required: [type, id, tool, input]
+      properties:
+        type:
+          type: string
+          const: tool_call
+        id:
+          type: string
+        tool:
+          type: string
+        input:
+          type: object
+          additionalProperties: true
+
+    ToolResultEvent:
+      type: object
+      additionalProperties: false
+      required: [type, id, tool, output]
+      properties:
+        type:
+          type: string
+          const: tool_result
+        id:
+          type: string
+        tool:
+          type: string
+        output:
+          type: string
+        error:
+          type: string
+
+    StepFinishEvent:
+      type: object
+      additionalProperties: false
+      required: [type, usage]
+      properties:
+        type:
+          type: string
+          const: step_finish
+        usage:
+          $ref: '#/components/schemas/TokenUsage'
+
+    SubagentStartedEvent:
+      type: object
+      additionalProperties: false
+      required: [type, child_session_id, purpose, agent_name]
+      properties:
+        type:
+          type: string
+          const: subagent_started
+        child_session_id:
+          type: string
+        purpose:
+          type: string
+        agent_name:
+          type: string
+
+    SubagentProgressEvent:
+      type: object
+      additionalProperties: false
+      required: [type, child_session_id, progress_kind, progress_text]
+      properties:
+        type:
+          type: string
+          const: subagent_progress
+        child_session_id:
+          type: string
+        progress_kind:
+          type: string
+        progress_text:
+          type: string
+
+    SubagentAwaitingInputEvent:
+      type: object
+      additionalProperties: false
+      required: [type, child_session_id, kind, question]
+      properties:
+        type:
+          type: string
+          const: subagent_awaiting_input
+        child_session_id:
+          type: string
+        kind:
+          type: string
+        question:
+          type: string
+        permission_options:
+          type: array
+          items:
+            $ref: '#/components/schemas/PermissionOption'
+
+    SubagentFinishedEvent:
+      type: object
+      additionalProperties: false
+      required: [type, child_session_id, delegation_status, summary]
+      properties:
+        type:
+          type: string
+          const: subagent_finished
+        child_session_id:
+          type: string
+        delegation_status:
+          type: string
+        summary:
+          type: string
+
+    MemoryInjectedEvent:
+      type: object
+      additionalProperties: false
+      required: [type, memories]
+      properties:
+        type:
+          type: string
+          const: memory_injected
+        memories:
+          type: array
+          items:
+            $ref: '#/components/schemas/MemoryWire'
+
+    MemoryUpdatedEvent:
+      type: object
+      additionalProperties: false
+      required: [type, changes]
+      properties:
+        type:
+          type: string
+          const: memory_updated
+        changes:
+          type: array
+          items:
+            $ref: '#/components/schemas/MemoryChangeWire'
+
+    ErrorEvent:
+      type: object
+      additionalProperties: false
+      required: [type, message]
+      properties:
+        type:
+          type: string
+          const: error
+        message:
+          type: string
+        code:
+          type: string
+
+    DoneEvent:
+      type: object
+      additionalProperties: false
+      required: [type]
+      properties:
+        type:
+          type: string
+          const: done
+
+    StreamEvent:
+      oneOf:
+        - $ref: '#/components/schemas/TextDeltaEvent'
+        - $ref: '#/components/schemas/ReasoningStartEvent'
+        - $ref: '#/components/schemas/ReasoningDeltaEvent'
+        - $ref: '#/components/schemas/ToolCallEvent'
+        - $ref: '#/components/schemas/ToolResultEvent'
+        - $ref: '#/components/schemas/StepFinishEvent'
+        - $ref: '#/components/schemas/SubagentStartedEvent'
+        - $ref: '#/components/schemas/SubagentProgressEvent'
+        - $ref: '#/components/schemas/SubagentAwaitingInputEvent'
+        - $ref: '#/components/schemas/SubagentFinishedEvent'
+        - $ref: '#/components/schemas/MemoryInjectedEvent'
+        - $ref: '#/components/schemas/MemoryUpdatedEvent'
+        - $ref: '#/components/schemas/ErrorEvent'
+        - $ref: '#/components/schemas/DoneEvent'
+      discriminator:
+        propertyName: type
+        mapping:
+          text_delta: '#/components/schemas/TextDeltaEvent'
+          reasoning_start: '#/components/schemas/ReasoningStartEvent'
+          reasoning_delta: '#/components/schemas/ReasoningDeltaEvent'
+          tool_call: '#/components/schemas/ToolCallEvent'
+          tool_result: '#/components/schemas/ToolResultEvent'
+          step_finish: '#/components/schemas/StepFinishEvent'
+          subagent_started: '#/components/schemas/SubagentStartedEvent'
+          subagent_progress: '#/components/schemas/SubagentProgressEvent'
+          subagent_awaiting_input: '#/components/schemas/SubagentAwaitingInputEvent'
+          subagent_finished: '#/components/schemas/SubagentFinishedEvent'
+          memory_injected: '#/components/schemas/MemoryInjectedEvent'
+          memory_updated: '#/components/schemas/MemoryUpdatedEvent'
+          error: '#/components/schemas/ErrorEvent'
+          done: '#/components/schemas/DoneEvent'
+
+    MemoryResource:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - scope
+        - kind
+        - content
+        - source
+        - base_weight
+        - effective_weight
+        - access_count
+        - pinned
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+        scope:
+          type: string
+        kind:
+          type: string
+        content:
+          type: string
+        source:
+          type: string
+        base_weight:
+          type: number
+        effective_weight:
+          type: number
+        access_count:
+          type: integer
+          format: int64
+        pinned:
+          type: boolean
+        last_accessed_at:
+          type: integer
+          format: int64
+          description: Unix epoch milliseconds.
+        created_at:
+          type: integer
+          format: int64
+          description: Unix epoch milliseconds.
+        updated_at:
+          type: integer
+          format: int64
+          description: Unix epoch milliseconds.
+        similarity:
+          type: number
+
+    ListMemoriesResponse:
+      type: object
+      additionalProperties: false
+      required: [memories]
+      properties:
+        memories:
+          type: array
+          items:
+            $ref: '#/components/schemas/MemoryResource'
+
+    CreateMemoryRequest:
+      type: object
+      additionalProperties: false
+      required: [content]
+      properties:
+        content:
+          type: string
+        kind:
+          type: string
+        pinned:
+          type: boolean
+        base_weight:
+          type: number
+
+    UpdateMemoryRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        content:
+          type: string
+        kind:
+          type: string
+        pinned:
+          type: boolean
+        base_weight:
+          type: number
+
+    SearchMemoryRequest:
+      type: object
+      additionalProperties: false
+      required: [query]
+      properties:
+        query:
+          type: string
+        limit:
+          type: integer
+
+    MemoryLifecycleSettings:
+      type: object
+      additionalProperties: false
+      properties:
+        decay_half_life_days:
+          type: number
+        forget_threshold:
+          type: number
+        usage_boost_factor:
+          type: number
+        max_usage_boost:
+          type: number
+        max_memories:
+          type: integer
+        compaction_target_ratio:
+          type: number
+        compaction_on_extract:
+          type: boolean
+
+    MemoryEmbeddingSettings:
+      type: object
+      additionalProperties: false
+      properties:
+        provider_id:
+          type: string
+        provider:
+          type: string
+        model:
+          type: string
+        base_url:
+          type: string
+        api_key:
+          type: string
+
+    MemorySettings:
+      type: object
+      additionalProperties: false
+      properties:
+        enabled:
+          type: boolean
+        auto_extract:
+          type: boolean
+        auto_retrieve:
+          type: boolean
+        max_retrieved:
+          type: integer
+        similarity_threshold:
+          type: number
+        extraction_provider:
+          type: string
+        extraction_model:
+          type: string
+        lifecycle:
+          $ref: '#/components/schemas/MemoryLifecycleSettings'
+        embedding:
+          $ref: '#/components/schemas/MemoryEmbeddingSettings'
+
+    PurgeArchivedMemoryRequest:
+      type: object
+      additionalProperties: false
+      required: [older_than_days]
+      properties:
+        older_than_days:
+          type: integer
+          minimum: 0
+
+    PurgeArchivedMemoryResponse:
+      type: object
+      additionalProperties: false
+      required: [status, memories_purged, memory_events_purged]
+      properties:
+        status:
+          type: string
+        memories_purged:
+          type: integer
+        memory_events_purged:
+          type: integer
+
+    CompactMemoryPreviewResponse:
+      type: object
+      additionalProperties: false
+      required: [to_forget, to_merge, active, max_memories]
+      properties:
+        to_forget:
+          type: array
+          items:
+            $ref: '#/components/schemas/MemoryResource'
+        to_merge:
+          type: array
+          items:
+            type: array
+            items:
+              $ref: '#/components/schemas/MemoryResource'
+        active:
+          type: integer
+        max_memories:
+          type: integer
+
+    SimpleErrorResponse:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: string
+
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message]
+          properties:
+            code:
+              type: string
+            message:
+              type: string

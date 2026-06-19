@@ -1,9 +1,0 @@
-[submodule "cometline"]
-	path = cometline
-	url = ../cometline.git
-[submodule "comet-sdk"]
-	path = comet-sdk
-	url = ../comet-sdk.git
-[submodule "cometmind"]
-	path = cometmind
-	url = ../cometmind.git

@@ -1,0 +1,8 @@
+.svelte-kit
+build
+buildResources
+dist
+node_modules
+pnpm-lock.yaml
+static
+coverage

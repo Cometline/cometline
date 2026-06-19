@@ -1,0 +1,163 @@
+{
+	"name": "cometline",
+	"private": true,
+	"version": "0.1.0",
+	"packageManager": "pnpm@11.3.0",
+	"type": "module",
+	"main": "electron/main.cjs",
+	"scripts": {
+		"build:settings-schema": "node scripts/build-settings-schema.mjs",
+		"generate:api": "openapi-ts -i ../cometmind/openapi.yaml -o src/lib/generated/cometmind-api -c @hey-api/client-fetch",
+		"dev": "concurrently \"pnpm run dev:vite\" \"pnpm run dev:electron\"",
+		"dev:vite": "vite dev",
+		"predev:electron": "pnpm run build:settings-schema && pnpm run generate:api",
+		"dev:electron": "wait-on http://127.0.0.1:5173 && electron .",
+		"prebuild:sidecar": "pnpm run build:settings-schema && pnpm run generate:api",
+		"build:sidecar": "mkdir -p ../cometmind/dist && cd ../cometmind && go build -o dist/cometmind .",
+		"generate:icons": "swift scripts/generate-project-icons.swift",
+		"generate:icons:man": "swift scripts/generate-project-icons.swift man",
+		"build": "vite build",
+		"build:electron": "pnpm run build:sidecar && pnpm run build && electron-builder",
+		"build:mac": "pnpm run build:sidecar && pnpm run build && electron-builder --mac --publish never",
+		"release:mac": "pnpm run build:sidecar && pnpm run build && electron-builder --mac --publish always",
+		"preview": "vite preview",
+		"prepare": "svelte-kit sync || echo ''",
+		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"lint": "eslint .",
+		"lint:fix": "eslint . --fix",
+		"format": "prettier --write .",
+		"format:check": "prettier --check ."
+	},
+	"devDependencies": {
+		"@eslint/js": "^9.18.0",
+		"@sveltejs/adapter-static": "^3.0.10",
+		"@sveltejs/kit": "^2.65.0",
+		"@sveltejs/vite-plugin-svelte": "^7.1.2",
+		"@tailwindcss/vite": "^4.3.0",
+		"@types/node": "^25.9.3",
+		"autoprefixer": "^10.5.0",
+		"concurrently": "^10.0.3",
+		"electron": "^42.4.0",
+		"electron-builder": "^26.15.3",
+		"esbuild": "^0.28.0",
+		"eslint": "^9.18.0",
+		"eslint-config-prettier": "^9.1.0",
+		"eslint-plugin-svelte": "^2.46.1",
+		"globals": "^15.14.0",
+		"@hey-api/client-fetch": "^0.10.2",
+		"@hey-api/openapi-ts": "^0.66.3",
+		"jsdom": "^29.1.1",
+		"postcss": "^8.5.15",
+		"prettier": "^3.4.2",
+		"prettier-plugin-svelte": "^3.3.3",
+		"svelte": "^5.56.1",
+		"svelte-check": "^4.6.0",
+		"svelte-eslint-parser": "^0.43.0",
+		"tailwindcss": "^4.3.0",
+		"typescript": "^6.0.3",
+		"typescript-eslint": "^8.20.0",
+		"vite": "^8.0.16",
+		"vitest": "^4.1.9",
+		"wait-on": "^9.0.10"
+	},
+	"dependencies": {
+		"@codemirror/lang-css": "^6.3.1",
+		"@codemirror/lang-go": "^6.0.1",
+		"@codemirror/lang-html": "^6.4.11",
+		"@codemirror/lang-javascript": "^6.2.4",
+		"@codemirror/lang-json": "^6.0.2",
+		"@codemirror/lang-markdown": "^6.3.4",
+		"@codemirror/lang-python": "^6.2.1",
+		"@codemirror/lang-rust": "^6.0.2",
+		"@codemirror/lang-sql": "^6.10.0",
+		"@codemirror/lang-yaml": "^6.1.2",
+		"@codemirror/language": "^6.11.3",
+		"@codemirror/legacy-modes": "^6.5.2",
+		"@codemirror/state": "^6.6.0",
+		"@codemirror/view": "^6.43.1",
+		"@lucide/svelte": "^1.18.0",
+		"@replit/codemirror-lang-svelte": "^6.0.0",
+		"codemirror": "^6.0.2",
+		"dompurify": "^3.4.10",
+		"electron-updater": "^6.8.9",
+		"zod": "^3.24.2",
+		"katex": "^0.17.0",
+		"marked": "^18.0.5",
+		"remend": "^1.3.0",
+		"shiki": "^4.2.0"
+	},
+	"build": {
+		"appId": "com.cometline.app",
+		"productName": "Cometline",
+		"directories": {
+			"buildResources": "buildResources"
+		},
+		"mac": {
+			"icon": "buildResources/icon.icns",
+			"category": "public.app-category.developer-tools",
+			"hardenedRuntime": true,
+			"gatekeeperAssess": false,
+			"entitlements": "buildResources/entitlements.mac.plist",
+			"entitlementsInherit": "buildResources/entitlements.mac.plist",
+			"notarize": true,
+			"target": [
+				"dmg",
+				"zip"
+			]
+		},
+		"publish": [
+			{
+				"provider": "github"
+			}
+		],
+		"files": [
+			"build/**/*",
+			"electron/**/*",
+			"package.json"
+		],
+		"extraResources": [
+			{
+				"from": "../cometmind/dist/cometmind",
+				"to": "cometmind"
+			},
+			{
+				"from": "SOUL.md",
+				"to": "SOUL.md"
+			},
+			{
+				"from": "SOUL_MAN.md",
+				"to": "SOUL_MAN.md"
+			},
+			{
+				"from": "buildResources/icon.png",
+				"to": "icon.png"
+			},
+			{
+				"from": "buildResources/trayIcon.png",
+				"to": "trayIcon.png"
+			},
+			{
+				"from": "buildResources/trayIcon@2x.png",
+				"to": "trayIcon@2x.png"
+			},
+			{
+				"from": "buildResources/trayTemplate.png",
+				"to": "trayTemplate.png"
+			},
+			{
+				"from": "static/app_icon_man.png",
+				"to": "app_icon_man.png"
+			},
+			{
+				"from": "buildResources/trayIcon_man.png",
+				"to": "trayIcon_man.png"
+			},
+			{
+				"from": "buildResources/trayIcon_man@2x.png",
+				"to": "trayIcon_man@2x.png"
+			}
+		]
+	}
+}
