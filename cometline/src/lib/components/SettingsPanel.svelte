@@ -13,6 +13,7 @@
 		RefreshCw,
 		Settings,
 		Trash2,
+		Upload,
 		Workflow,
 		X,
 		Brain,
@@ -117,6 +118,8 @@
 	let updateState = $state<UpdateState>({ status: 'idle' });
 	let checkingUpdates = $state(false);
 	let installingUpdate = $state(false);
+	let exportingSettings = $state(false);
+	let importingSettings = $state(false);
 	let cometmindPanelKey = $state(0);
 	let cometmindPanel = $state<SettingsCometMindPanel | undefined>();
 	let memoryPanelKey = $state(0);
@@ -259,6 +262,53 @@
 				error instanceof Error ? error.message : 'Failed to clean up workspaces.';
 		} finally {
 			workspacePruning = false;
+		}
+	}
+
+	async function exportSettings() {
+		if (exportingSettings) return;
+		const api = window.electronAPI;
+		if (!api?.exportProviderSettings) {
+			status = 'Settings export is only available in the desktop app.';
+			return;
+		}
+		exportingSettings = true;
+		status = '';
+		try {
+			const result = await api.exportProviderSettings();
+			if (!result.canceled) {
+				status = `Settings exported to ${result.path}. Keep this file private because it may include API keys.`;
+			}
+		} catch (error) {
+			status = error instanceof Error ? error.message : 'Failed to export settings.';
+		} finally {
+			exportingSettings = false;
+		}
+	}
+
+	async function importSettings() {
+		if (importingSettings) return;
+		const api = window.electronAPI;
+		if (!api?.importProviderSettings) {
+			status = 'Settings import is only available in the desktop app.';
+			return;
+		}
+		importingSettings = true;
+		status = '';
+		try {
+			const result = await api.importProviderSettings();
+			if (!result.canceled && result.settings) {
+				settingsStore.apply(result.settings);
+				draft = cloneSettings(result.settings);
+				selectedProviderId = result.settings.activeProviderId || result.settings.providers[0]?.id || '';
+				cometmindPanelKey += 1;
+				memoryPanelKey += 1;
+				status = 'Settings imported. CometMind is restarting with the imported configuration.';
+			}
+		} catch (error) {
+			status = error instanceof Error ? error.message : 'Failed to import settings.';
+		} finally {
+			importingSettings = false;
 		}
 	}
 
@@ -1058,6 +1108,32 @@
 							onOpenAtLoginChange={setOpenAtLogin}
 						/>
 						<div class="about-pane">
+						<div class="about-row settings-file-row">
+							<div class="workspace-info">
+								<span class="about-label">Settings backup</span>
+								<span class="about-hint">
+									Export or import all Cometline settings. Exports may include provider API keys.
+								</span>
+							</div>
+							<div class="settings-file-actions">
+								<button class="secondary" onclick={exportSettings} disabled={exportingSettings}>
+									{#if exportingSettings}
+										<span class="spin small"><LoaderCircle size={14} /></span>
+									{:else}
+										<Download size={14} />
+									{/if}
+									Export
+								</button>
+								<button class="secondary" onclick={importSettings} disabled={importingSettings}>
+									{#if importingSettings}
+										<span class="spin small"><LoaderCircle size={14} /></span>
+									{:else}
+										<Upload size={14} />
+									{/if}
+									Import
+								</button>
+							</div>
+						</div>
 						<div class="about-row">
 							<span class="about-label">Version</span>
 							<span class="about-value">{appVersion || '—'}</span>
@@ -1774,6 +1850,17 @@
 		align-items: flex-start;
 	}
 
+	.settings-file-row {
+		align-items: flex-start;
+	}
+
+	.settings-file-actions {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: flex-end;
+		gap: 8px;
+	}
+
 	.workspace-info {
 		display: grid;
 		gap: 6px;
@@ -1854,6 +1941,14 @@
 		.provider-shell,
 		.form-grid {
 			grid-template-columns: 1fr;
+		}
+
+		.settings-file-row {
+			flex-direction: column;
+		}
+
+		.settings-file-actions {
+			justify-content: flex-start;
 		}
 
 		.modal {

@@ -81,6 +81,10 @@ declare global {
 		cometmind: CometMindSettings;
 	}
 
+	type SettingsFileResult =
+		| { canceled: true }
+		| { canceled: false; path: string; settings?: ProviderSettings };
+
 	interface CometMindACPSettings {
 		command: string;
 		args: string[];
@@ -184,6 +188,8 @@ declare global {
 				settings: ProviderSettings,
 				options?: { restartCometMind?: boolean }
 			) => Promise<ProviderSettings>;
+			exportProviderSettings?: () => Promise<SettingsFileResult>;
+			importProviderSettings?: () => Promise<SettingsFileResult>;
 			setSidebarOpen?: (state: SidebarChromeState) => void;
 			getFullScreen?: () => Promise<boolean>;
 			onFullScreenChange?: (callback: (isFullScreen: boolean) => void) => () => void;

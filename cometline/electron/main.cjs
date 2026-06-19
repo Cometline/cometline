@@ -576,18 +576,7 @@ function readProviderSettings() {
 		selectedModel: process.env.COMETMIND_MODEL
 	};
 
-	let saved = {};
-	const settingsPath = getSettingsPath();
-	if (fs.existsSync(settingsPath)) {
-		try {
-			saved = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
-		} catch {
-			saved = {};
-		}
-	}
-
-	const iconVariant = readSavedIconVariant(saved);
-	const base = parseAndNormalizeSettings(saved, settingsNormalizeOptions(iconVariant));
+	const base = readSavedProviderSettings();
 
 	// Allow env overrides for the active provider only. Apply provider first so
 	// key/baseURL/model attach to the provider selected by COMETMIND_PROVIDER.
@@ -609,8 +598,23 @@ function readProviderSettings() {
 	return base;
 }
 
+function readSavedProviderSettings() {
+	let saved = {};
+	const settingsPath = getSettingsPath();
+	if (fs.existsSync(settingsPath)) {
+		try {
+			saved = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+		} catch {
+			saved = {};
+		}
+	}
+
+	const iconVariant = readSavedIconVariant(saved);
+	return parseAndNormalizeSettings(saved, settingsNormalizeOptions(iconVariant));
+}
+
 function writeProviderSettings(settings) {
-	const current = readProviderSettings();
+	const current = readSavedProviderSettings();
 	const nextProviders = Array.isArray(settings.providers)
 		? normalizeProviders(settings.providers)
 		: current.providers;
@@ -649,6 +653,53 @@ function writeProviderSettings(settings) {
 		/* ignore */
 	}
 	return next;
+}
+
+async function exportProviderSettings() {
+	const settings = readSavedProviderSettings();
+	const result = await dialog.showSaveDialog(mainWindow, {
+		title: 'Export Cometline settings',
+		defaultPath: 'cometline-settings.json',
+		filters: [{ name: 'JSON', extensions: ['json'] }]
+	});
+	if (result.canceled || !result.filePath) {
+		return { canceled: true };
+	}
+
+	fs.writeFileSync(result.filePath, JSON.stringify(settings, null, 2));
+	try {
+		fs.chmodSync(result.filePath, 0o600);
+	} catch {
+		/* ignore */
+	}
+	return { canceled: false, path: result.filePath };
+}
+
+async function importProviderSettings() {
+	const result = await dialog.showOpenDialog(mainWindow, {
+		title: 'Import Cometline settings',
+		properties: ['openFile'],
+		filters: [{ name: 'JSON', extensions: ['json'] }]
+	});
+	if (result.canceled || result.filePaths.length === 0) {
+		return { canceled: true };
+	}
+
+	const filePath = result.filePaths[0];
+	const raw = fs.readFileSync(filePath, 'utf8');
+	const parsed = JSON.parse(raw);
+	const iconVariant = readSavedIconVariant(parsed);
+	const imported = validateSettings(
+		parseAndNormalizeSettings(parsed, settingsNormalizeOptions(iconVariant))
+	);
+	const saved = writeProviderSettings(imported);
+	await stopCometMind();
+	startCometMind();
+	void waitForHealth();
+	await syncDiscordGatewayFromSettings(saved);
+	applyOpenAtLoginSetting(saved.app?.openAtLogin);
+	applyIconVariant(saved.app?.iconVariant);
+	return { canceled: false, path: filePath, settings: saved };
 }
 
 function providerEnv() {
@@ -1932,6 +1983,10 @@ ipcMain.handle('cometline:save-provider-settings', async (_event, settings, opti
 	applyIconVariant(saved.app?.iconVariant);
 	return saved;
 });
+
+ipcMain.handle('cometline:export-provider-settings', () => exportProviderSettings());
+
+ipcMain.handle('cometline:import-provider-settings', () => importProviderSettings());
 
 ipcMain.handle('cometline:get-discord-gateway-status', () => {
 	const settings = readProviderSettings();
