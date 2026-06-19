@@ -29,8 +29,10 @@ func ProviderAPIKey(c *Config, entry *ProviderEntry, method string) (string, err
 			return "", fmt.Errorf("OPENAI_API_KEY or COMETMIND_API_KEY is not set")
 		}
 		return k, nil
+	case ProviderCodex:
+		return "", nil
 	default:
-		return "", fmt.Errorf("unknown provider %q (use %q, %q, %q, or %q)", method, ProviderAnthropic, ProviderOpenAI, ProviderOpenAICompat, ProviderOpencodeGo)
+		return "", fmt.Errorf("unknown provider %q (use %q, %q, %q, %q, or %q)", method, ProviderAnthropic, ProviderOpenAI, ProviderOpenAICompat, ProviderOpencodeGo, ProviderCodex)
 	}
 }
 

@@ -61,6 +61,40 @@ func TestNewForUsesMultiProviderEntry(t *testing.T) {
 	}
 }
 
+func TestNewForCodexDoesNotRequireAPIKey(t *testing.T) {
+	cfg := &config.Config{
+		Provider: config.ProviderCodex,
+		Providers: []config.ProviderEntry{{
+			ID:      "codex",
+			Name:    "ChatGPT Codex",
+			Method:  config.ProviderCodex,
+			BaseURL: "https://chatgpt.com/backend-api/codex",
+			Model:   "gpt-5.4",
+		}},
+	}
+
+	p, err := NewFor(cfg, "codex")
+	if err != nil {
+		t.Fatalf("NewFor() error = %v", err)
+	}
+	if p == nil {
+		t.Fatal("NewFor() returned nil")
+	}
+	if p.ID() != config.ProviderCodex {
+		t.Fatalf("provider ID = %q, want %q", p.ID(), config.ProviderCodex)
+	}
+}
+
+func TestNewForFallsBackToLegacyCodexMethod(t *testing.T) {
+	p, err := NewFor(&config.Config{Provider: config.ProviderOpenAI}, config.ProviderCodex)
+	if err != nil {
+		t.Fatalf("NewFor() error = %v", err)
+	}
+	if p == nil {
+		t.Fatal("NewFor() returned nil")
+	}
+}
+
 func TestNewOpenAIProviderUsesConfiguredBaseURL(t *testing.T) {
 	var gotPath string
 	var gotAuth string

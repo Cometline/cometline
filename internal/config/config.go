@@ -16,6 +16,7 @@ const (
 	ProviderOpenAI       = "openai"
 	ProviderOpenAICompat = "openai-compatible"
 	ProviderOpencodeGo   = "opencode-go"
+	ProviderCodex        = "codex"
 )
 
 // ProviderEntry is one configured LLM provider managed by Cometline.

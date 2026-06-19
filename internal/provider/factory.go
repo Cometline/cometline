@@ -5,6 +5,7 @@ import (
 
 	cometsdk "github.com/cometline/comet-sdk"
 	"github.com/cometline/comet-sdk/provider/anthropic"
+	"github.com/cometline/comet-sdk/provider/codex"
 	"github.com/cometline/comet-sdk/provider/openai"
 	"github.com/cometline/cometmind/internal/config"
 )
@@ -26,7 +27,7 @@ func providerConfigFor(cfg *config.Config, id string) (*config.ProviderEntry, st
 
 	// Legacy sessions may store the method name as the provider id.
 	switch id {
-	case config.ProviderAnthropic, config.ProviderOpenAI, config.ProviderOpenAICompat, config.ProviderOpencodeGo:
+	case config.ProviderAnthropic, config.ProviderOpenAI, config.ProviderOpenAICompat, config.ProviderOpencodeGo, config.ProviderCodex:
 		return nil, id, cfg.BaseURL
 	}
 
@@ -41,6 +42,8 @@ func sdkProviderID(method string) string {
 		return config.ProviderAnthropic
 	case config.ProviderOpenAI, config.ProviderOpenAICompat, config.ProviderOpencodeGo:
 		return config.ProviderOpenAI
+	case config.ProviderCodex:
+		return config.ProviderCodex
 	default:
 		return method
 	}
@@ -67,6 +70,8 @@ func NewFor(cfg *config.Config, id string) (cometsdk.Provider, error) {
 		return anthropic.NewAnthropicProvider(key, opts...), nil
 	case config.ProviderOpenAI:
 		return openai.NewOpenAIProvider(key, opts...), nil
+	case config.ProviderCodex:
+		return codex.NewCodexProvider(opts...), nil
 	default:
 		return nil, fmt.Errorf("unknown provider method %q", method)
 	}
