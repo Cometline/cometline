@@ -286,7 +286,10 @@
 	$effect(() => {
 		const streaming = sessionStreaming;
 		if (streaming && !wasStreaming) {
-			followStream = true;
+			followStream =
+				isInitialTranscriptPaint ||
+				chatStore.isLoading ||
+				(scroller ? isNearBottom(scroller) : followStream);
 		}
 		wasStreaming = streaming;
 	});
