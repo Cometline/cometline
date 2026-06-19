@@ -78,7 +78,11 @@
 			<label>
 				<span>Border color</span>
 				<div class="color-field">
-					<input type="color" bind:value={appearance.ringColor} aria-label="Border color" />
+					<input
+						type="color"
+						bind:value={appearance.ringColor}
+						aria-label="Border color"
+					/>
 					<input
 						type="text"
 						bind:value={appearance.ringColor}

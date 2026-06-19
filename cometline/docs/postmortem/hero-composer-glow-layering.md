@@ -43,11 +43,11 @@ Instant `{#if active}` removal plus independent glow `translateY` exit fought `.
 
 Three synchronized enter tracks on one frame (glow + ring layers; scale on the frame):
 
-| Track | Element | Enter timing |
-| ----- | ------- | ------------ |
-| Glow rise | `.hero-composer-glow` | 0 → 650ms: `translateY(travel)` + `scaleY(0.35→1)` |
-| Border ring | `.hero-composer-ring` | **280ms → 650ms**: `clip-path` rise (overlaps glow wrap) |
-| Impact scale | `.hero-composer-frame` | **280ms → 650ms**: `scale(1→1.01)` when glow “hits” |
+| Track        | Element                | Enter timing                                             |
+| ------------ | ---------------------- | -------------------------------------------------------- |
+| Glow rise    | `.hero-composer-glow`  | 0 → 650ms: `translateY(travel)` + `scaleY(0.35→1)`       |
+| Border ring  | `.hero-composer-ring`  | **280ms → 650ms**: `clip-path` rise (overlaps glow wrap) |
+| Impact scale | `.hero-composer-frame` | **280ms → 650ms**: `scale(1→1.01)` when glow “hits”      |
 
 Tokens in `app.css`:
 
@@ -91,10 +91,10 @@ See also [composer-phase-and-positioning.md](./composer-phase-and-positioning.md
 
 Persisted in `cometline-settings.json` as `appearance.heroComposer`:
 
-| Preset | Glow | Border | Notes |
-| ------ | ---- | ------ | ----- |
+| Preset             | Glow      | Border    | Notes                |
+| ------------------ | --------- | --------- | -------------------- |
 | **Blue** (default) | `#72c0ff` | `#9ed8ff` | Arc-style light blue |
-| **Rose** | `#f43f5e` | `#fb7185` | Original pink |
+| **Rose**           | `#f43f5e` | `#fb7185` | Original pink        |
 
 - `hero-composer-appearance.ts` — presets, normalize, `heroComposerCssVars()`
 - `+layout.svelte` — applies CSS vars from `settingsStore` on load / save

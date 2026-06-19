@@ -18,7 +18,9 @@
 
 	function onRetentionDaysInput(event: Event) {
 		const value = Number((event.currentTarget as HTMLInputElement).value);
-		patchStorage({ retentionDays: Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0 });
+		patchStorage({
+			retentionDays: Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0
+		});
 	}
 
 	function onMaxSessionsInput(event: Event) {
@@ -55,7 +57,8 @@
 		<div class="section-heading">
 			<h3>Storage & retention</h3>
 			<p>
-				Automatic cleanup runs when CometMind starts and after settings are saved. Set a field to 0 to disable that rule.
+				Automatic cleanup runs when CometMind starts and after settings are saved. Set a
+				field to 0 to disable that rule.
 			</p>
 		</div>
 
@@ -90,7 +93,8 @@
 				{#if storage.maxSessionsPerWorkspace === 0}
 					Disabled — no limit on session count.
 				{:else}
-					Keep the {storage.maxSessionsPerWorkspace} most recently updated sessions; delete older ones.
+					Keep the {storage.maxSessionsPerWorkspace} most recently updated sessions; delete
+					older ones.
 				{/if}
 			</small>
 		</label>
@@ -121,8 +125,8 @@
 		/>
 
 		<p class="discord-note">
-			Deleting a session also removes its Discord channel mapping. The next message in that channel
-			starts a fresh session without prior Cometline history.
+			Deleting a session also removes its Discord channel mapping. The next message in that
+			channel starts a fresh session without prior Cometline history.
 		</p>
 	</div>
 </section>

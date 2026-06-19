@@ -43,7 +43,9 @@
 	const panelUrl = $derived(shellStore.webPanelUrl);
 	const panelFilePath = $derived(shellStore.webPanelFilePath);
 	const panelSessionKey = $derived(shellStore.webPanelSessionKey);
-	const showWebview = $derived(panelMode === 'url' && Boolean(shellStore.hasWebPanelForSession && panelUrl));
+	const showWebview = $derived(
+		panelMode === 'url' && Boolean(shellStore.hasWebPanelForSession && panelUrl)
+	);
 	const showFilePreview = $derived(
 		panelMode === 'file' && Boolean(shellStore.hasWebPanelForSession && displayedFilePath)
 	);
@@ -164,10 +166,7 @@
 	}
 
 	function attachWebview(el: WebviewElement) {
-		el.setAttribute(
-			'sandbox',
-			'allow-scripts allow-same-origin allow-popups allow-forms'
-		);
+		el.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups allow-forms');
 		const onNavigate = () => {
 			updateNavigationState();
 		};
@@ -281,11 +280,7 @@
 
 <svelte:window onkeydown={handlePanelKeydown} />
 
-<div
-	class="web-panel"
-	class:open={panelOpen}
-	aria-hidden={!panelOpen}
->
+<div class="web-panel" class:open={panelOpen} aria-hidden={!panelOpen}>
 	<div
 		class="web-panel-inner content-panel-surface"
 		class:pane-focus-active={shellStore.focusedPane === 'web' && panelOpen}
@@ -294,7 +289,13 @@
 		<header class="web-panel-toolbar" onmousedown={handlePanelMouseDown}>
 			{#if panelMode === 'url'}
 				<div class="nav-actions">
-					<button type="button" class="icon-button" disabled={!canGoBack} onclick={onBack} aria-label="Back">
+					<button
+						type="button"
+						class="icon-button"
+						disabled={!canGoBack}
+						onclick={onBack}
+						aria-label="Back"
+					>
 						<ArrowLeft size={16} />
 					</button>
 					<button
@@ -320,9 +321,16 @@
 			<div class="url-field">
 				{#if panelMode === 'file' && displayedFilePath}
 					<span class="page-title">
-						{displayedFilePath.split(/[/\\]/).pop()}{#if dirty}<span class="dirty-dot" aria-label="Unsaved changes"> •</span>{/if}
+						{displayedFilePath.split(/[/\\]/).pop()}{#if dirty}<span
+								class="dirty-dot"
+								aria-label="Unsaved changes"
+							>
+								•</span
+							>{/if}
 					</span>
-					<span class="file-path-display" title={displayedFilePath}>{displayedFilePath}</span>
+					<span class="file-path-display" title={displayedFilePath}
+						>{displayedFilePath}</span
+					>
 				{:else}
 					{#if pageTitle}
 						<span class="page-title">{pageTitle}</span>
@@ -368,7 +376,12 @@
 					</button>
 				</div>
 			{/if}
-			<button type="button" class="icon-button close-button" onclick={onClose} aria-label="Close panel">
+			<button
+				type="button"
+				class="icon-button close-button"
+				onclick={onClose}
+				aria-label="Close panel"
+			>
 				<X size={16} />
 			</button>
 		</header>

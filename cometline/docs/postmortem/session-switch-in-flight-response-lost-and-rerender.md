@@ -108,11 +108,11 @@ In `ChatView`, `onWorkspaceChanged` was wired to `chatStore.loadTranscript(sessi
 
 1. `cd cometline && pnpm run test` — includes session-switch, in-flight clobber, turn-session capture, and duplicate-send throw cases.
 2. Manual:
-   - Session A: send a long prompt; wait for reasoning or partial text.
-   - Switch to B; send another question; wait for B to respond.
-   - Switch back to A → A's reasoning/response visible **immediately** at current length, continuing to update if still streaming; **no** user-only stuck state; **no** full typewriter replay from empty.
-   - Rapid `Cmd+T` → send in A → `Cmd+T` → send in B → both sessions should stream or complete independently; returning to A should show A's accumulated response.
-   - `/change /some/other/workspace` from an existing session → forked session opens with the fork note → send a message → assistant should stream or show a real error, not remain on an infinite spinner.
+    - Session A: send a long prompt; wait for reasoning or partial text.
+    - Switch to B; send another question; wait for B to respond.
+    - Switch back to A → A's reasoning/response visible **immediately** at current length, continuing to update if still streaming; **no** user-only stuck state; **no** full typewriter replay from empty.
+    - Rapid `Cmd+T` → send in A → `Cmd+T` → send in B → both sessions should stream or complete independently; returning to A should show A's accumulated response.
+    - `/change /some/other/workspace` from an existing session → forked session opens with the fork note → send a message → assistant should stream or show a real error, not remain on an infinite spinner.
 
 ## Related postmortems
 

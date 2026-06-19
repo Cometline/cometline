@@ -189,7 +189,10 @@ describe('reduceChatState', () => {
 	it('keeps one assistant across step boundaries and tool results', () => {
 		const events: StreamEvent[] = [
 			{ type: 'reasoning_delta', text: 'Need to inspect files.' },
-			{ type: 'step_finish', usage: { input_tokens: 0, output_tokens: 0, cache_read: 0, cache_write: 0 } },
+			{
+				type: 'step_finish',
+				usage: { input_tokens: 0, output_tokens: 0, cache_read: 0, cache_write: 0 }
+			},
 			{ type: 'tool_call', id: 'tc-1', tool: 'read_file', input: { path: 'main.go' } },
 			{ type: 'tool_result', id: 'tc-1', tool: 'read_file', output: 'package main' },
 			{ type: 'text_delta', delta: 'The file contains Go code.' }
@@ -215,7 +218,10 @@ describe('reduceChatState', () => {
 	it('merges text that arrives after a reasoning step finish into the reasoning assistant', () => {
 		const events: StreamEvent[] = [
 			{ type: 'reasoning_delta', text: 'I have enough context.' },
-			{ type: 'step_finish', usage: { input_tokens: 0, output_tokens: 0, cache_read: 0, cache_write: 0 } },
+			{
+				type: 'step_finish',
+				usage: { input_tokens: 0, output_tokens: 0, cache_read: 0, cache_write: 0 }
+			},
 			{ type: 'text_delta', delta: 'Here is the final answer.' },
 			{ type: 'done' }
 		];

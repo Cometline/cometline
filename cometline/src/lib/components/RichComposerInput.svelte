@@ -265,7 +265,13 @@
 		if (!raf) raf = requestAnimationFrame(animateCaret);
 	}
 
-	function setTrailQuad(headX: number, headY: number, tailX: number, tailY: number, alpha: number) {
+	function setTrailQuad(
+		headX: number,
+		headY: number,
+		tailX: number,
+		tailY: number,
+		alpha: number
+	) {
 		if (!trailPoly) return;
 		// Build a quad spanning the bar caret from the tail position to the head
 		// position. The bar is `caretW` wide and `caretH` tall.
@@ -276,8 +282,8 @@
 		const pts = [
 			`${x0.toFixed(1)},${headY.toFixed(1)}`,
 			`${x1.toFixed(1)},${headY.toFixed(1)}`,
-			`${(tx1).toFixed(1)},${(tailY + caretH).toFixed(1)}`,
-			`${(tx0).toFixed(1)},${(tailY + caretH).toFixed(1)}`
+			`${tx1.toFixed(1)},${(tailY + caretH).toFixed(1)}`,
+			`${tx0.toFixed(1)},${(tailY + caretH).toFixed(1)}`
 		];
 		trailPoly.setAttribute('points', pts.join(' '));
 		trailPoly.style.opacity = String(clampUnit(alpha) * baseTrailOpacity);
@@ -464,7 +470,10 @@
 	function skillNameRegex() {
 		const names = skillNames.map((name) => name.trim()).filter(Boolean);
 		if (names.length === 0) return null;
-		const pattern = names.sort((a, b) => b.length - a.length).map(escapeRegex).join('|');
+		const pattern = names
+			.sort((a, b) => b.length - a.length)
+			.map(escapeRegex)
+			.join('|');
 		return new RegExp(`(^|\\s)\\/(${pattern})(?=\\s|$)`, 'g');
 	}
 

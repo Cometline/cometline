@@ -65,13 +65,12 @@
 	let copiedId = $state<string | null>(null);
 	let copyResetTimer: ReturnType<typeof setTimeout> | null = null;
 	let now = $state(Date.now());
-	let threadItems = $derived(
-		isSessionSynced ? chatStore.items : snapshotItems
-	);
+	let threadItems = $derived(isSessionSynced ? chatStore.items : snapshotItems);
 	let firstAssistantItem = $derived(
-		threadItems.find((item) =>
-			item.type === 'assistant' &&
-			(item.text.trim() || item.reasoning?.text.trim() || item.reasoning?.pending)
+		threadItems.find(
+			(item) =>
+				item.type === 'assistant' &&
+				(item.text.trim() || item.reasoning?.text.trim() || item.reasoning?.pending)
 		) as Extract<ChatItem, { type: 'assistant' }> | undefined
 	);
 	let firstAssistantId = $derived(firstAssistantItem?.id ?? null);
@@ -91,12 +90,14 @@
 
 	function sessionHasCachedTranscript(targetSessionId: string) {
 		if (chatStore.sessionID === targetSessionId && chatStore.items.length > 0) return true;
-		if (chatStore.isStreamingFor(targetSessionId) || chatStore.hasInFlightTurn(targetSessionId)) {
+		if (
+			chatStore.isStreamingFor(targetSessionId) ||
+			chatStore.hasInFlightTurn(targetSessionId)
+		) {
 			return true;
 		}
 		return chatStore.getCachedItemCount(targetSessionId) > 0;
 	}
-
 
 	let thinkingForAssistant = $derived(buildThinkingAttribution(threadItems));
 
@@ -172,7 +173,9 @@
 
 	type SubagentChoice = { id: string; label: string; permission: boolean };
 
-	function subagentChoiceOptions(item: Extract<ChatItem, { type: 'subagent' }>): SubagentChoice[] {
+	function subagentChoiceOptions(
+		item: Extract<ChatItem, { type: 'subagent' }>
+	): SubagentChoice[] {
 		if (item.permissionOptions?.length) {
 			return item.permissionOptions.map((option) => ({
 				id: option.id,
@@ -223,7 +226,10 @@
 		await chatStore.replyToSubagent(item.childSessionId, '', optionId);
 	}
 
-	async function submitSubagentChoice(item: Extract<ChatItem, { type: 'subagent' }>, choice: SubagentChoice) {
+	async function submitSubagentChoice(
+		item: Extract<ChatItem, { type: 'subagent' }>,
+		choice: SubagentChoice
+	) {
 		if (choice.permission) {
 			await submitSubagentPermission(item, choice.id);
 			return;
@@ -406,7 +412,7 @@
 		const block = thinkingForAssistant.map.get(itemId);
 		return Boolean(
 			block &&
-				(block.reasoning !== undefined || block.tools.length > 0 || block.memories.length > 0)
+			(block.reasoning !== undefined || block.tools.length > 0 || block.memories.length > 0)
 		);
 	}
 
@@ -419,11 +425,11 @@
 	function showAssistantRow(item: Extract<ChatItem, { type: 'assistant' }>) {
 		return Boolean(
 			item.text ||
-				item.reasoning?.text ||
-				item.reasoning?.pending ||
-				hasVisibleThinkingBlock(item.id) ||
-				showAssistantPending(item) ||
-				showAssistantActivitySpinner(item)
+			item.reasoning?.text ||
+			item.reasoning?.pending ||
+			hasVisibleThinkingBlock(item.id) ||
+			showAssistantPending(item) ||
+			showAssistantActivitySpinner(item)
 		);
 	}
 
@@ -554,8 +560,7 @@
 				if (!scroller) return;
 				if (!followStream && !isInitialTranscriptPaint && !chatStore.isLoading) return;
 
-				const instant =
-					isInitialTranscriptPaint || chatStore.isLoading || sessionStreaming;
+				const instant = isInitialTranscriptPaint || chatStore.isLoading || sessionStreaming;
 				pinScrollTop(instant ? 'auto' : 'smooth');
 			});
 		});
@@ -625,7 +630,11 @@
 				{#if block.tools.length > 0}
 					<div class="thinking-tools">
 						{#each block.tools as tool (tool.id)}
-							<div class="thinking-tool" class:error={!!tool.error} class:pending={tool.pending}>
+							<div
+								class="thinking-tool"
+								class:error={!!tool.error}
+								class:pending={tool.pending}
+							>
 								<div class="thinking-tool-header">
 									<Terminal size={12} />
 									<span class="thinking-tool-name">{tool.toolName}</span>
@@ -661,7 +670,10 @@
 		{/if}
 		{#if item.text}
 			<div class="bubble assistant-bubble">
-				<AssistantMarkdown source={item.text} streaming={item.id === streamingAssistantId} />
+				<AssistantMarkdown
+					source={item.text}
+					streaming={item.id === streamingAssistantId}
+				/>
 			</div>
 			{#if item.id !== streamingAssistantId}
 				<div class="message-actions">
@@ -702,61 +714,15 @@
 <div class="thread" bind:this={scroller} onscroll={onThreadScroll} aria-live="polite">
 	<div class="thread-inner">
 		{#if showMessages}
-			<div class="thread-messages" class:hydrating={isInitialTranscriptPaint} in:fade={transcriptFadeIn}>
-				{#if awaitingFirstAssistant && !firstUserId}
 			<div
-				class="row assistant-row gap-2.5 md:gap-3 lg:gap-4 flight-placeholder"
-				aria-hidden="true"
+				class="thread-messages"
+				class:hydrating={isInitialTranscriptPaint}
+				in:fade={transcriptFadeIn}
 			>
-				<div
-					class="avatar-mini size-9 shrink-0 rounded-full border border-gray-400 md:size-10 lg:size-11 xl:size-12"
-					class:avatar-flight-hidden={!firstTurnFlightDone}
-					data-flight-target="avatar"
-				>
-					<img
-						src={projectAvatarSrc(iconVariant, 96)}
-						srcset={projectAvatarSrcset(iconVariant)}
-						sizes="(min-width: 1280px) 48px, (min-width: 1024px) 44px, (min-width: 768px) 40px, 36px"
-						alt=""
-					/>
-				</div>
-				{#if firstAssistantItem && showAssistantRow(firstAssistantItem)}
-					{@render assistantStack(firstAssistantItem)}
-				{:else if sessionStreaming}
-					<div class="assistant-stack">
-						{@render assistantActivitySpinner()}
-					</div>
-				{:else}
-					<div class="assistant-stack"></div>
-				{/if}
-			</div>
-		{/if}
-
-		{#each threadItems as item, index (item.id)}
-			{#if item.type === 'user'}
-				<div class="row user-row" class:continuation-row={!startsSpeakerRun(index, 'user')}>
+				{#if awaitingFirstAssistant && !firstUserId}
 					<div
-						class="bubble user-bubble"
-						class:flight-hidden={item.reveal === false}
-						data-flight-target={item.reveal === false ? 'user' : undefined}
-					>
-						{#if item.images?.length}
-							<div class="user-images" class:text-following={Boolean(item.text)}>
-								{#each item.images as image, imageIndex (`${item.id}-image-${image.id ?? imageIndex}`)}
-									<img src={imageDataURL(image)} alt={image.name ?? 'Attached image'} />
-								{/each}
-							</div>
-						{/if}
-					{#if item.text?.trim()}
-						<AssistantMarkdown source={item.text.trim()} mode="user" />
-					{/if}
-					</div>
-				</div>
-				{#if showFirstTurnAvatarSlot() && item.id === firstUserId}
-					<div
-						class="row assistant-row gap-2.5 md:gap-3 lg:gap-4"
-						class:flight-placeholder={!firstAssistantId}
-						aria-hidden={!firstAssistantId}
+						class="row assistant-row gap-2.5 md:gap-3 lg:gap-4 flight-placeholder"
+						aria-hidden="true"
 					>
 						<div
 							class="avatar-mini size-9 shrink-0 rounded-full border border-gray-400 md:size-10 lg:size-11 xl:size-12"
@@ -781,239 +747,349 @@
 						{/if}
 					</div>
 				{/if}
-			{:else if item.type === 'assistant' && showAssistantRow(item) && firstAssistantInNormalList(item)}
-				<div
-					class="row assistant-row gap-2.5 md:gap-3 lg:gap-4"
-					class:continuation-row={!startsSpeakerRun(index, 'assistant')}
-				>
-					{#if startsSpeakerRun(index, 'assistant')}
+
+				{#each threadItems as item, index (item.id)}
+					{#if item.type === 'user'}
 						<div
-							class="avatar-mini size-9 shrink-0 rounded-full border border-gray-400 md:size-10 lg:size-11 xl:size-12"
+							class="row user-row"
+							class:continuation-row={!startsSpeakerRun(index, 'user')}
 						>
-							<img
-								src={projectAvatarSrc(iconVariant, 96)}
-								srcset={projectAvatarSrcset(iconVariant)}
-								sizes="(min-width: 1280px) 48px, (min-width: 1024px) 44px, (min-width: 768px) 40px, 36px"
-								alt=""
-							/>
-						</div>
-					{:else}
-						<div
-							class="avatar-gutter size-9 shrink-0 md:size-10 lg:size-11 xl:size-12"
-							aria-hidden="true"
-						></div>
-					{/if}
-					{@render assistantStack(item)}
-				</div>
-			{:else if item.type === 'tool' && !isToolInBuffer(item)}
-				<div
-					class="row tool-row gap-2.5 md:gap-3 lg:gap-4"
-					class:continuation-row={!startsSpeakerRun(index, 'assistant')}
-				>
-					<div
-						class="avatar-gutter size-9 shrink-0 md:size-10 lg:size-11 xl:size-12"
-						aria-hidden="true"
-					></div>
-					<div class="tool-stack">
-						<div class="event-card tool-card" class:error={!!item.error}>
-							<div class="tool-header">
-								<div class="event-title">
-									<Terminal size={14} />
-									<span class="tool-name">{item.toolName}</span>
-								</div>
-								<div class="tool-meta">
-									{#if showToolOutputPanel(item)}
-										<button
-											type="button"
-											class="fold-toggle tool-output-toggle"
-											aria-expanded={toolOutputExpanded(item)}
-											onclick={() => toggleToolOutput(item.id)}
-										>
-											<span>Output</span>
-											<ChevronDown
-												size={12}
-												class={toolOutputExpanded(item) ? 'expanded' : ''}
+							<div
+								class="bubble user-bubble"
+								class:flight-hidden={item.reveal === false}
+								data-flight-target={item.reveal === false ? 'user' : undefined}
+							>
+								{#if item.images?.length}
+									<div
+										class="user-images"
+										class:text-following={Boolean(item.text)}
+									>
+										{#each item.images as image, imageIndex (`${item.id}-image-${image.id ?? imageIndex}`)}
+											<img
+												src={imageDataURL(image)}
+												alt={image.name ?? 'Attached image'}
 											/>
-										</button>
-									{/if}
-									{#if toolDurationLabel(item)}
-										<span class="tool-duration">{toolDurationLabel(item)}</span>
-									{/if}
-									{#if item.pending}
-										<LoaderCircle size={13} class="spin" />
-									{:else}
-										<CircleCheck size={13} />
-									{/if}
-								</div>
-							</div>
-							{#if showToolOutputPanel(item) && toolOutputExpanded(item)}
-								<div class="tool-output-body" transition:slide={FOLD_IN}>
-									{#if item.error}
-										<pre class="tool-error-text">{item.error}</pre>
-									{:else if item.output}
-										<pre>{item.output}</pre>
-									{/if}
-									{#if item.pending && !item.output && !item.error}
-										<pre>Running…</pre>
-									{/if}
-								</div>
-							{/if}
-						</div>
-					</div>
-				</div>
-			{:else if item.type === 'subagent'}
-				<div
-					class="row tool-row subagent-row gap-2.5 md:gap-3 lg:gap-4"
-					class:continuation-row={!startsSpeakerRun(index, 'assistant')}
-				>
-					<div
-						class="avatar-gutter size-9 shrink-0 md:size-10 lg:size-11 xl:size-12"
-						aria-hidden="true"
-					></div>
-					<div class="subagent-stack">
-					<div class="fold-panel subagent-panel" class:pending={item.pending}>
-						<button
-							type="button"
-							class="fold-toggle subagent-toggle"
-							aria-expanded={subagentExpanded(item.id, item.pending === true)}
-							onclick={() => toggleSubagent(item.id, item.pending === true)}
-						>
-							<Terminal size={13} />
-							<span>{subagentProgressLabel(item)}</span>
-							{#if item.pending}
-								<LoaderCircle size={12} class="spin" />
-							{:else if item.status === 'failed'}
-								<TriangleAlert size={12} />
-							{:else if item.status === 'cancelled'}
-								<CircleX size={12} />
-							{:else}
-								<CircleCheck size={12} />
-							{/if}
-							<ChevronDown
-								size={13}
-								class={subagentExpanded(item.id, item.pending === true) ? 'expanded' : ''}
-							/>
-						</button>
-						{#if subagentExpanded(item.id, item.pending === true)}
-							{@const visibleProgress = subagentVisibleProgress(item)}
-							<div class="fold-body subagent-body" transition:slide={FOLD_IN}>
-								<p class="subagent-purpose">{item.purpose}</p>
-								{#if item.pendingQuestion}
-									<p class="subagent-question">{item.pendingQuestion}</p>
-								{/if}
-								{#if visibleProgress.length > 0}
-									<div class="subagent-progress">
-										{#each visibleProgress as entry, entryIndex (`${item.id}-progress-${entry.kind}-${entryIndex}`)}
-											{#if entry.kind === 'tool'}
-												<div class="subagent-tool" class:pending={entry.status === 'pending' || entry.status === 'in_progress'}>
-													<div class="subagent-tool-header">
-														<Terminal size={12} />
-														<span class="subagent-tool-name">{entry.title}</span>
-														{#if entry.status}
-															<span class="subagent-tool-status">{entry.status}</span>
-														{/if}
-													</div>
-												</div>
-											{:else if entry.text.trim()}
-												<p
-													class="subagent-stream"
-													class:subagent-thought={entry.channel === 'thought'}
-													class:subagent-plan={entry.channel === 'plan'}
-												>
-													{entry.text}
-												</p>
-											{/if}
 										{/each}
 									</div>
 								{/if}
-								{#if item.summary}
-									<div class="subagent-summary">
-										<p>{item.summary}</p>
-									</div>
+								{#if item.text?.trim()}
+									<AssistantMarkdown source={item.text.trim()} mode="user" />
 								{/if}
-								{#if subagentCanReply(item)}
-									{@const choices = subagentChoiceOptions(item)}
-									<div class="subagent-reply">
-										{#if choices.length > 0}
-											<div class="subagent-permission-options">
-												{#each choices as choice (choice.id)}
-													<button
-														type="button"
-														class="subagent-permission-btn"
-														onclick={() => submitSubagentChoice(item, choice)}
-													>
-														{choice.label}
-													</button>
-												{/each}
-											</div>
-										{/if}
-										{#if item.status === 'awaiting_user'}
-											<textarea
-												class="subagent-reply-input"
-												rows="2"
-												placeholder={choices.length > 0 ? 'Or type a custom reply…' : 'Reply to OpenCode…'}
-												value={subagentReplyText(item.id)}
-												oninput={(e) =>
-													setSubagentReply(item.id, (e.currentTarget as HTMLTextAreaElement).value)}
-											></textarea>
-											<div class="subagent-reply-actions">
-												<button
-													type="button"
-													class="subagent-reply-send"
-													onclick={() => submitSubagentReply(item)}
-												>
-													Send
-												</button>
-												{#if item.pending}
-													<button
-														type="button"
-														class="subagent-reply-cancel"
-														onclick={() => chatStore.cancelSubagent(item.childSessionId)}
-													>
-														Cancel
-													</button>
-												{/if}
-											</div>
-										{:else if item.pending}
-											<div class="subagent-reply-actions">
-												<button
-													type="button"
-													class="subagent-reply-cancel"
-													onclick={() => chatStore.cancelSubagent(item.childSessionId)}
-												>
-													Cancel
-												</button>
-											</div>
-										{/if}
+							</div>
+						</div>
+						{#if showFirstTurnAvatarSlot() && item.id === firstUserId}
+							<div
+								class="row assistant-row gap-2.5 md:gap-3 lg:gap-4"
+								class:flight-placeholder={!firstAssistantId}
+								aria-hidden={!firstAssistantId}
+							>
+								<div
+									class="avatar-mini size-9 shrink-0 rounded-full border border-gray-400 md:size-10 lg:size-11 xl:size-12"
+									class:avatar-flight-hidden={!firstTurnFlightDone}
+									data-flight-target="avatar"
+								>
+									<img
+										src={projectAvatarSrc(iconVariant, 96)}
+										srcset={projectAvatarSrcset(iconVariant)}
+										sizes="(min-width: 1280px) 48px, (min-width: 1024px) 44px, (min-width: 768px) 40px, 36px"
+										alt=""
+									/>
+								</div>
+								{#if firstAssistantItem && showAssistantRow(firstAssistantItem)}
+									{@render assistantStack(firstAssistantItem)}
+								{:else if sessionStreaming}
+									<div class="assistant-stack">
+										{@render assistantActivitySpinner()}
 									</div>
+								{:else}
+									<div class="assistant-stack"></div>
 								{/if}
 							</div>
 						{/if}
-					</div>
-					</div>
-				</div>
-			{:else if item.type === 'memory' && !isMemoryInBuffer(item)}
-				<div class="row event-row">
-					<div class="event-card memory-card">
-						<div class="event-title"><Brain size={14} /><span>Memories used</span></div>
-						<div class="memory-chips">
-							{#each item.memories as mem (mem.id)}
-								<span class="memory-chip" title={mem.content}>{mem.kind}: {mem.content}</span>
-							{/each}
+					{:else if item.type === 'assistant' && showAssistantRow(item) && firstAssistantInNormalList(item)}
+						<div
+							class="row assistant-row gap-2.5 md:gap-3 lg:gap-4"
+							class:continuation-row={!startsSpeakerRun(index, 'assistant')}
+						>
+							{#if startsSpeakerRun(index, 'assistant')}
+								<div
+									class="avatar-mini size-9 shrink-0 rounded-full border border-gray-400 md:size-10 lg:size-11 xl:size-12"
+								>
+									<img
+										src={projectAvatarSrc(iconVariant, 96)}
+										srcset={projectAvatarSrcset(iconVariant)}
+										sizes="(min-width: 1280px) 48px, (min-width: 1024px) 44px, (min-width: 768px) 40px, 36px"
+										alt=""
+									/>
+								</div>
+							{:else}
+								<div
+									class="avatar-gutter size-9 shrink-0 md:size-10 lg:size-11 xl:size-12"
+									aria-hidden="true"
+								></div>
+							{/if}
+							{@render assistantStack(item)}
 						</div>
-					</div>
-				</div>
-			{:else if item.type === 'status'}
-				<div class="status">{usageText(item)}</div>
-			{:else if item.type === 'error'}
-				<div class="row event-row">
-					<div class="event-card error-card">
-						<div class="event-title"><TriangleAlert size={14} /><span>Error</span></div>
-						<p>{item.text}</p>
-					</div>
-				</div>
-			{/if}
-		{/each}
+					{:else if item.type === 'tool' && !isToolInBuffer(item)}
+						<div
+							class="row tool-row gap-2.5 md:gap-3 lg:gap-4"
+							class:continuation-row={!startsSpeakerRun(index, 'assistant')}
+						>
+							<div
+								class="avatar-gutter size-9 shrink-0 md:size-10 lg:size-11 xl:size-12"
+								aria-hidden="true"
+							></div>
+							<div class="tool-stack">
+								<div class="event-card tool-card" class:error={!!item.error}>
+									<div class="tool-header">
+										<div class="event-title">
+											<Terminal size={14} />
+											<span class="tool-name">{item.toolName}</span>
+										</div>
+										<div class="tool-meta">
+											{#if showToolOutputPanel(item)}
+												<button
+													type="button"
+													class="fold-toggle tool-output-toggle"
+													aria-expanded={toolOutputExpanded(item)}
+													onclick={() => toggleToolOutput(item.id)}
+												>
+													<span>Output</span>
+													<ChevronDown
+														size={12}
+														class={toolOutputExpanded(item)
+															? 'expanded'
+															: ''}
+													/>
+												</button>
+											{/if}
+											{#if toolDurationLabel(item)}
+												<span class="tool-duration"
+													>{toolDurationLabel(item)}</span
+												>
+											{/if}
+											{#if item.pending}
+												<LoaderCircle size={13} class="spin" />
+											{:else}
+												<CircleCheck size={13} />
+											{/if}
+										</div>
+									</div>
+									{#if showToolOutputPanel(item) && toolOutputExpanded(item)}
+										<div class="tool-output-body" transition:slide={FOLD_IN}>
+											{#if item.error}
+												<pre class="tool-error-text">{item.error}</pre>
+											{:else if item.output}
+												<pre>{item.output}</pre>
+											{/if}
+											{#if item.pending && !item.output && !item.error}
+												<pre>Running…</pre>
+											{/if}
+										</div>
+									{/if}
+								</div>
+							</div>
+						</div>
+					{:else if item.type === 'subagent'}
+						<div
+							class="row tool-row subagent-row gap-2.5 md:gap-3 lg:gap-4"
+							class:continuation-row={!startsSpeakerRun(index, 'assistant')}
+						>
+							<div
+								class="avatar-gutter size-9 shrink-0 md:size-10 lg:size-11 xl:size-12"
+								aria-hidden="true"
+							></div>
+							<div class="subagent-stack">
+								<div class="fold-panel subagent-panel" class:pending={item.pending}>
+									<button
+										type="button"
+										class="fold-toggle subagent-toggle"
+										aria-expanded={subagentExpanded(
+											item.id,
+											item.pending === true
+										)}
+										onclick={() =>
+											toggleSubagent(item.id, item.pending === true)}
+									>
+										<Terminal size={13} />
+										<span>{subagentProgressLabel(item)}</span>
+										{#if item.pending}
+											<LoaderCircle size={12} class="spin" />
+										{:else if item.status === 'failed'}
+											<TriangleAlert size={12} />
+										{:else if item.status === 'cancelled'}
+											<CircleX size={12} />
+										{:else}
+											<CircleCheck size={12} />
+										{/if}
+										<ChevronDown
+											size={13}
+											class={subagentExpanded(item.id, item.pending === true)
+												? 'expanded'
+												: ''}
+										/>
+									</button>
+									{#if subagentExpanded(item.id, item.pending === true)}
+										{@const visibleProgress = subagentVisibleProgress(item)}
+										<div
+											class="fold-body subagent-body"
+											transition:slide={FOLD_IN}
+										>
+											<p class="subagent-purpose">{item.purpose}</p>
+											{#if item.pendingQuestion}
+												<p class="subagent-question">
+													{item.pendingQuestion}
+												</p>
+											{/if}
+											{#if visibleProgress.length > 0}
+												<div class="subagent-progress">
+													{#each visibleProgress as entry, entryIndex (`${item.id}-progress-${entry.kind}-${entryIndex}`)}
+														{#if entry.kind === 'tool'}
+															<div
+																class="subagent-tool"
+																class:pending={entry.status ===
+																	'pending' ||
+																	entry.status === 'in_progress'}
+															>
+																<div class="subagent-tool-header">
+																	<Terminal size={12} />
+																	<span class="subagent-tool-name"
+																		>{entry.title}</span
+																	>
+																	{#if entry.status}
+																		<span
+																			class="subagent-tool-status"
+																			>{entry.status}</span
+																		>
+																	{/if}
+																</div>
+															</div>
+														{:else if entry.text.trim()}
+															<p
+																class="subagent-stream"
+																class:subagent-thought={entry.channel ===
+																	'thought'}
+																class:subagent-plan={entry.channel ===
+																	'plan'}
+															>
+																{entry.text}
+															</p>
+														{/if}
+													{/each}
+												</div>
+											{/if}
+											{#if item.summary}
+												<div class="subagent-summary">
+													<p>{item.summary}</p>
+												</div>
+											{/if}
+											{#if subagentCanReply(item)}
+												{@const choices = subagentChoiceOptions(item)}
+												<div class="subagent-reply">
+													{#if choices.length > 0}
+														<div class="subagent-permission-options">
+															{#each choices as choice (choice.id)}
+																<button
+																	type="button"
+																	class="subagent-permission-btn"
+																	onclick={() =>
+																		submitSubagentChoice(
+																			item,
+																			choice
+																		)}
+																>
+																	{choice.label}
+																</button>
+															{/each}
+														</div>
+													{/if}
+													{#if item.status === 'awaiting_user'}
+														<textarea
+															class="subagent-reply-input"
+															rows="2"
+															placeholder={choices.length > 0
+																? 'Or type a custom reply…'
+																: 'Reply to OpenCode…'}
+															value={subagentReplyText(item.id)}
+															oninput={(e) =>
+																setSubagentReply(
+																	item.id,
+																	(
+																		e.currentTarget as HTMLTextAreaElement
+																	).value
+																)}
+														></textarea>
+														<div class="subagent-reply-actions">
+															<button
+																type="button"
+																class="subagent-reply-send"
+																onclick={() =>
+																	submitSubagentReply(item)}
+															>
+																Send
+															</button>
+															{#if item.pending}
+																<button
+																	type="button"
+																	class="subagent-reply-cancel"
+																	onclick={() =>
+																		chatStore.cancelSubagent(
+																			item.childSessionId
+																		)}
+																>
+																	Cancel
+																</button>
+															{/if}
+														</div>
+													{:else if item.pending}
+														<div class="subagent-reply-actions">
+															<button
+																type="button"
+																class="subagent-reply-cancel"
+																onclick={() =>
+																	chatStore.cancelSubagent(
+																		item.childSessionId
+																	)}
+															>
+																Cancel
+															</button>
+														</div>
+													{/if}
+												</div>
+											{/if}
+										</div>
+									{/if}
+								</div>
+							</div>
+						</div>
+					{:else if item.type === 'memory' && !isMemoryInBuffer(item)}
+						<div class="row event-row">
+							<div class="event-card memory-card">
+								<div class="event-title">
+									<Brain size={14} /><span>Memories used</span>
+								</div>
+								<div class="memory-chips">
+									{#each item.memories as mem (mem.id)}
+										<span class="memory-chip" title={mem.content}
+											>{mem.kind}: {mem.content}</span
+										>
+									{/each}
+								</div>
+							</div>
+						</div>
+					{:else if item.type === 'status'}
+						<div class="status">{usageText(item)}</div>
+					{:else if item.type === 'error'}
+						<div class="row event-row">
+							<div class="event-card error-card">
+								<div class="event-title">
+									<TriangleAlert size={14} /><span>Error</span>
+								</div>
+								<p>{item.text}</p>
+							</div>
+						</div>
+					{/if}
+				{/each}
 			</div>
 		{/if}
 	</div>

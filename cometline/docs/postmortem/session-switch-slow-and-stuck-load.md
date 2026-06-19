@@ -23,7 +23,7 @@ into several simultaneous requests competing for the localhost server and the
 single `modernc.org/sqlite` connection:
 
 1. **`+layout.svelte` `loadSessions`** ran `await ensureWorkspace()` **then**
-   `await listAllSessions()` — sequential, and fired on *every* workspace change
+   `await listAllSessions()` — sequential, and fired on _every_ workspace change
    even though the all-sessions list does not depend on the current workspace.
 2. **`Composer.svelte`** immediately fired `GET /api/v1/workspaces/files?limit=500`,
    which does a full `filepath.WalkDir` over the workspace (hundreds of ms on a
@@ -57,9 +57,9 @@ snapshot when the store was still bound to the previous session:
 
 ```ts
 if (chatStore.sessionID === sessionId) {
-    return chatStore.items.length > 0 || chatStore.isLoading;
+	return chatStore.items.length > 0 || chatStore.isLoading;
 }
-return snapshotItems.length > 0 || snapshotLoading;   // freshly mounted → both empty
+return snapshotItems.length > 0 || snapshotLoading; // freshly mounted → both empty
 ```
 
 A freshly mounted `ChatView` for the second session had `snapshotItems = []` and

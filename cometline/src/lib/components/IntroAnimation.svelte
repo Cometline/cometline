@@ -69,8 +69,7 @@
 	const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
 	const clamp01 = (t: number) => Math.max(0, Math.min(1, t));
 	// Normalize an absolute elapsed time into a 0..1 progress across [start,end].
-	const seg = (now: number, start: number, end: number) =>
-		clamp01((now - start) / (end - start));
+	const seg = (now: number, start: number, end: number) => clamp01((now - start) / (end - start));
 
 	function captureIconFlightOrigin() {
 		if (reducedMotion || !projectIconRef) return;
@@ -392,7 +391,9 @@
 		<h1 class="wordmark" class:in={showWordmark}>
 			<span class="lead">Comet</span><span class="trail">line</span>
 		</h1>
-		<p class="tagline" class:in={showTagline}>A thought, a task, a file — Cometline continues.</p>
+		<p class="tagline" class:in={showTagline}>
+			A thought, a task, a file — Cometline continues.
+		</p>
 	</div>
 
 	<button class="skip" class:in={showHint} onclick={skip}>Press Esc to skip</button>
@@ -486,7 +487,8 @@
 
 	.wordmark {
 		margin: 0;
-		font-family: 'Hoefler Text', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+		font-family:
+			'Hoefler Text', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
 		font-weight: 600;
 		letter-spacing: 0.12em;
 		font-size: clamp(38px, 6.4vw, 76px);

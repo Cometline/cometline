@@ -36,8 +36,7 @@ passed the live reactive reference straight into IPC.
 Clone the provider to a plain object before IPC in `fetchModelsFor`:
 
 ```ts
-const models =
-  (await window.electronAPI?.fetchProviderModels?.(cloneProvider(provider))) ?? [];
+const models = (await window.electronAPI?.fetchProviderModels?.(cloneProvider(provider))) ?? [];
 ```
 
 `cloneProvider` already existed in `settings.svelte.ts` for local copies; reuse

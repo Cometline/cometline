@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-	extensionFromPath,
-	isImagePath,
-	isMarkdownPath,
-	languageFromPath
-} from './file-preview';
+import { extensionFromPath, isImagePath, isMarkdownPath, languageFromPath } from './file-preview';
 
 describe('file-preview helpers', () => {
 	it('detects language from extension', () => {

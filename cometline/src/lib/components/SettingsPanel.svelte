@@ -54,8 +54,7 @@
 		anthropic: 'Anthropic',
 		'opencode-go': 'OpenCode Go',
 		codex: 'ChatGPT Codex',
-		'openai-compatible': 'OpenAI-compatible',
-
+		'openai-compatible': 'OpenAI-compatible'
 	};
 
 	const DEFAULT_PROVIDER_IDS = new Set([
@@ -63,8 +62,7 @@
 		'openai',
 		'opencode-go',
 		'codex',
-		'openai-compatible',
-
+		'openai-compatible'
 	]);
 
 	function cloneProvider(provider: ProviderConfig): ProviderConfig {
@@ -240,7 +238,10 @@
 		try {
 			const [{ pruned }, storeResult] = await Promise.all([
 				pruneWorkspaces(),
-				window.electronAPI?.pruneWorkspaceStore?.() ?? { removedRecent: 0, clearedCurrent: false }
+				window.electronAPI?.pruneWorkspaceStore?.() ?? {
+					removedRecent: 0,
+					clearedCurrent: false
+				}
 			]);
 			const parts: string[] = [];
 			if (pruned > 0) {
@@ -256,7 +257,8 @@
 			if (storeResult.clearedCurrent) {
 				parts.push('Cleared invalid current workspace path');
 			}
-			workspacePruneMessage = parts.length > 0 ? parts.join('. ') + '.' : 'Nothing to clean up.';
+			workspacePruneMessage =
+				parts.length > 0 ? parts.join('. ') + '.' : 'Nothing to clean up.';
 		} catch (error) {
 			workspacePruneMessage =
 				error instanceof Error ? error.message : 'Failed to clean up workspaces.';
@@ -300,10 +302,12 @@
 			if (!result.canceled && result.settings) {
 				settingsStore.apply(result.settings);
 				draft = cloneSettings(result.settings);
-				selectedProviderId = result.settings.activeProviderId || result.settings.providers[0]?.id || '';
+				selectedProviderId =
+					result.settings.activeProviderId || result.settings.providers[0]?.id || '';
 				cometmindPanelKey += 1;
 				memoryPanelKey += 1;
-				status = 'Settings imported. CometMind is restarting with the imported configuration.';
+				status =
+					'Settings imported. CometMind is restarting with the imported configuration.';
 			}
 		} catch (error) {
 			status = error instanceof Error ? error.message : 'Failed to import settings.';
@@ -388,9 +392,7 @@
 	}
 
 	function cometmindNeedsRestart(next: ProviderSettings) {
-		return (
-			JSON.stringify(settingsStore.settings.cometmind) !== JSON.stringify(next.cometmind)
-		);
+		return JSON.stringify(settingsStore.settings.cometmind) !== JSON.stringify(next.cometmind);
 	}
 
 	async function setOpenAtLogin(enabled: boolean) {
@@ -439,8 +441,7 @@
 				draft = cloneSettings(saved);
 				status = saveStatusMessage('memory', restartCometMind);
 			} catch (error) {
-				status =
-					error instanceof Error ? error.message : 'Failed to save memory settings';
+				status = error instanceof Error ? error.message : 'Failed to save memory settings';
 			}
 			return;
 		}
@@ -451,19 +452,16 @@
 			) ?? draft.providers[0];
 		const payload: ProviderSettings = providerPayloadFromDraft();
 		payload.activeProviderId = activeProvider?.id ?? '';
-		const iconVariantChanged =
-			settingsStore.settings.app.iconVariant !== draft.app.iconVariant;
+		const iconVariantChanged = settingsStore.settings.app.iconVariant !== draft.app.iconVariant;
 		const restartCometMind =
-			providersNeedRestart(payload) ||
-			cometmindNeedsRestart(payload) ||
-			iconVariantChanged;
+			providersNeedRestart(payload) || cometmindNeedsRestart(payload) || iconVariantChanged;
 		const { settings: saved } = await settingsStore.save(payload, { restartCometMind });
 		draft = cloneSettings(saved);
 		cometmindPanelKey += 1;
 		activeSection = preservedSection;
 		selectedProviderId = draft.providers.some((provider) => provider.id === preservedProviderId)
 			? preservedProviderId
-			: draft.providers[0]?.id ?? '';
+			: (draft.providers[0]?.id ?? '');
 		modelSearch = preservedModelSearch;
 		status = saveStatusMessage(preservedSection, restartCometMind, iconVariantChanged);
 		if (iconVariantChanged) {
@@ -579,7 +577,9 @@
 			activeProviderId:
 				nextProviders.find(
 					(provider) => provider.enabled && provider.enabledModels.length > 0
-				)?.id ?? nextProviders[0]?.id ?? ''
+				)?.id ??
+				nextProviders[0]?.id ??
+				''
 		};
 		selectedProviderId = nextProviders[0]?.id ?? '';
 	}
@@ -915,7 +915,9 @@
 											<input
 												value={selectedProvider.apiKey}
 												oninput={(e) =>
-													updateSelected({ apiKey: e.currentTarget.value })}
+													updateSelected({
+														apiKey: e.currentTarget.value
+													})}
 												type="password"
 												placeholder="sk-..."
 												spellcheck="false"
@@ -925,15 +927,17 @@
 										<div class="field-note">
 											<span>Authentication</span>
 											<p>
-												Uses your ChatGPT Plus/Pro browser sign-in and stores a local
-												Codex-compatible session at <code>~/.codex/auth.json</code>. No API
-												key or Codex CLI install is required.
+												Uses your ChatGPT Plus/Pro browser sign-in and
+												stores a local Codex-compatible session at <code
+													>~/.codex/auth.json</code
+												>. No API key or Codex CLI install is required.
 											</p>
 											{#if codexAuthStatus}
 												<p class:ok={codexAuthStatus.authenticated}>
 													{codexAuthStatus.authenticated
 														? 'Signed in with ChatGPT browser session.'
-														: (codexAuthStatus.error ?? 'Not signed in.')}
+														: (codexAuthStatus.error ??
+															'Not signed in.')}
 												</p>
 											{/if}
 											<div class="inline-actions">
@@ -941,7 +945,8 @@
 													class="secondary"
 													type="button"
 													onclick={startCodexLogin}
-													disabled={startingCodexLogin || !window.electronAPI?.startCodexLogin}
+													disabled={startingCodexLogin ||
+														!window.electronAPI?.startCodexLogin}
 												>
 													{#if startingCodexLogin}<span class="spin"
 															><LoaderCircle size={14} /></span
@@ -952,7 +957,8 @@
 													class="secondary"
 													type="button"
 													onclick={refreshCodexAuthStatus}
-													disabled={checkingCodexAuth || !window.electronAPI?.getCodexAuthStatus}
+													disabled={checkingCodexAuth ||
+														!window.electronAPI?.getCodexAuthStatus}
 												>
 													{#if checkingCodexAuth}<span class="spin"
 															><LoaderCircle size={14} /></span
@@ -970,8 +976,8 @@
 											<h3>Models</h3>
 											{#if selectedProvider.method === 'codex'}
 												<p>
-													Use Fetch models to refresh models from your ChatGPT browser
-													session.
+													Use Fetch models to refresh models from your
+													ChatGPT browser session.
 												</p>
 											{:else if selectedProvider.method === 'opencode-go'}
 												<p>
@@ -992,8 +998,7 @@
 											onclick={fetchModels}
 											disabled={!canFetchModels(selectedProvider)}
 										>
-											{#if settingsStore.isFetchingModels}<span
-													class="spin"
+											{#if settingsStore.isFetchingModels}<span class="spin"
 													><LoaderCircle size={14} /></span
 												>{/if}
 											Fetch models
@@ -1076,7 +1081,11 @@
 									Chat avatar, intro animation, Dock, menu bar, and SOUL persona
 								</span>
 							</div>
-							<div class="icon-variant-options" role="radiogroup" aria-label="Project icon style">
+							<div
+								class="icon-variant-options"
+								role="radiogroup"
+								aria-label="Project icon style"
+							>
 								{#each ICON_VARIANT_OPTIONS as option (option.id)}
 									<button
 										type="button"
@@ -1108,116 +1117,140 @@
 							onOpenAtLoginChange={setOpenAtLogin}
 						/>
 						<div class="about-pane">
-						<div class="about-row settings-file-row">
-							<div class="workspace-info">
-								<span class="about-label">Settings backup</span>
-								<span class="about-hint">
-									Export or import all Cometline settings. Exports may include provider API keys.
-								</span>
+							<div class="about-row settings-file-row">
+								<div class="workspace-info">
+									<span class="about-label">Settings backup</span>
+									<span class="about-hint">
+										Export or import all Cometline settings. Exports may include
+										provider API keys.
+									</span>
+								</div>
+								<div class="settings-file-actions">
+									<button
+										class="secondary"
+										onclick={exportSettings}
+										disabled={exportingSettings}
+									>
+										{#if exportingSettings}
+											<span class="spin small"
+												><LoaderCircle size={14} /></span
+											>
+										{:else}
+											<Download size={14} />
+										{/if}
+										Export
+									</button>
+									<button
+										class="secondary"
+										onclick={importSettings}
+										disabled={importingSettings}
+									>
+										{#if importingSettings}
+											<span class="spin small"
+												><LoaderCircle size={14} /></span
+											>
+										{:else}
+											<Upload size={14} />
+										{/if}
+										Import
+									</button>
+								</div>
 							</div>
-							<div class="settings-file-actions">
-								<button class="secondary" onclick={exportSettings} disabled={exportingSettings}>
-									{#if exportingSettings}
-										<span class="spin small"><LoaderCircle size={14} /></span>
-									{:else}
-										<Download size={14} />
-									{/if}
-									Export
+							<div class="about-row">
+								<span class="about-label">Version</span>
+								<span class="about-value">{appVersion || '—'}</span>
+							</div>
+							<div class="about-row workspace-row">
+								<div class="workspace-info">
+									<span class="about-label">Workspace</span>
+									<span
+										class="about-value workspace-path"
+										title={shellStore.workspacePath}
+									>
+										{shellStore.workspacePath}
+									</span>
+								</div>
+								<button class="secondary" onclick={changeWorkspace}>
+									<FolderOpen size={14} />
+									Change
 								</button>
-								<button class="secondary" onclick={importSettings} disabled={importingSettings}>
-									{#if importingSettings}
-										<span class="spin small"><LoaderCircle size={14} /></span>
-									{:else}
-										<Upload size={14} />
+							</div>
+							<div class="about-row workspace-row">
+								<div class="workspace-info">
+									<span class="about-label">Workspace cleanup</span>
+									<span class="about-hint">
+										Remove deleted workspace folders from /change and CometMind
+										registrations.
+									</span>
+									{#if workspacePruneMessage}
+										<span class="workspace-prune-message"
+											>{workspacePruneMessage}</span
+										>
 									{/if}
-									Import
-								</button>
-							</div>
-						</div>
-						<div class="about-row">
-							<span class="about-label">Version</span>
-							<span class="about-value">{appVersion || '—'}</span>
-						</div>
-						<div class="about-row workspace-row">
-							<div class="workspace-info">
-								<span class="about-label">Workspace</span>
-								<span class="about-value workspace-path" title={shellStore.workspacePath}>
-									{shellStore.workspacePath}
-								</span>
-							</div>
-							<button class="secondary" onclick={changeWorkspace}>
-								<FolderOpen size={14} />
-								Change
-							</button>
-						</div>
-						<div class="about-row workspace-row">
-							<div class="workspace-info">
-								<span class="about-label">Workspace cleanup</span>
-								<span class="about-hint">
-									Remove deleted workspace folders from /change and CometMind registrations.
-								</span>
-								{#if workspacePruneMessage}
-									<span class="workspace-prune-message">{workspacePruneMessage}</span>
-								{/if}
-							</div>
-							<button class="secondary" onclick={cleanupWorkspaces} disabled={workspacePruning}>
-								{#if workspacePruning}
-									<span class="spin small"><LoaderCircle size={14} /></span>
-								{:else}
-									<Trash2 size={14} />
-								{/if}
-								Clean up
-							</button>
-						</div>
-						<div class="about-row update-row">
-							<div class="update-info">
-								<span class="about-label">Updates</span>
-								<span
-									class="update-status"
-									class:update-error={updateState.status === 'error'}
-									class:update-ready={updateState.status === 'ready'}
-								>
-									{#if checkingUpdates || updateState.status === 'checking' || updateState.status === 'downloading'}
-										<span class="spin small"><LoaderCircle size={14} /></span>
-									{/if}
-									{updateStatusText}
-								</span>
-							</div>
-							{#if updateState.status === 'ready'}
-								<button
-									class="primary"
-									onclick={installUpdate}
-									disabled={installingUpdate}
-								>
-									{#if installingUpdate}<span class="spin"
-											><LoaderCircle size={14} /></span
-										>{:else}<Download size={14} />{/if}
-									Install update
-								</button>
-							{:else}
+								</div>
 								<button
 									class="secondary"
-									onclick={checkForUpdates}
-									disabled={!canCheckUpdates}
+									onclick={cleanupWorkspaces}
+									disabled={workspacePruning}
 								>
-									{#if checkingUpdates || updateState.status === 'checking'}<span
-											class="spin"
-											><LoaderCircle size={14} /></span
-										>{:else}<RefreshCw size={14} />{/if}
-									Check for updates
+									{#if workspacePruning}
+										<span class="spin small"><LoaderCircle size={14} /></span>
+									{:else}
+										<Trash2 size={14} />
+									{/if}
+									Clean up
 								</button>
-							{/if}
-						</div>
-						<div class="about-row">
-							<div class="update-info">
-								<span class="about-label">Intro</span>
-								<span class="about-value">Replay the first-run animation</span>
 							</div>
-							<button class="secondary" onclick={replayIntro}>
-								<Sparkles size={14} />
-								Replay intro
-							</button>
-						</div>
+							<div class="about-row update-row">
+								<div class="update-info">
+									<span class="about-label">Updates</span>
+									<span
+										class="update-status"
+										class:update-error={updateState.status === 'error'}
+										class:update-ready={updateState.status === 'ready'}
+									>
+										{#if checkingUpdates || updateState.status === 'checking' || updateState.status === 'downloading'}
+											<span class="spin small"
+												><LoaderCircle size={14} /></span
+											>
+										{/if}
+										{updateStatusText}
+									</span>
+								</div>
+								{#if updateState.status === 'ready'}
+									<button
+										class="primary"
+										onclick={installUpdate}
+										disabled={installingUpdate}
+									>
+										{#if installingUpdate}<span class="spin"
+												><LoaderCircle size={14} /></span
+											>{:else}<Download size={14} />{/if}
+										Install update
+									</button>
+								{:else}
+									<button
+										class="secondary"
+										onclick={checkForUpdates}
+										disabled={!canCheckUpdates}
+									>
+										{#if checkingUpdates || updateState.status === 'checking'}<span
+												class="spin"><LoaderCircle size={14} /></span
+											>{:else}<RefreshCw size={14} />{/if}
+										Check for updates
+									</button>
+								{/if}
+							</div>
+							<div class="about-row">
+								<div class="update-info">
+									<span class="about-label">Intro</span>
+									<span class="about-value">Replay the first-run animation</span>
+								</div>
+								<button class="secondary" onclick={replayIntro}>
+									<Sparkles size={14} />
+									Replay intro
+								</button>
+							</div>
 						</div>
 					</div>
 				{/if}

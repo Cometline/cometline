@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-	captureShortcut,
-	matchesShortcut,
-	normalizeKeyboardShortcuts
-} from './keyboard-shortcuts';
+import { captureShortcut, matchesShortcut, normalizeKeyboardShortcuts } from './keyboard-shortcuts';
 
 function keyEvent(init: {
 	key: string;
@@ -23,9 +19,7 @@ function keyEvent(init: {
 
 describe('keyboard-shortcuts', () => {
 	it('captureShortcut preserves Option with Command on Mac', () => {
-		const binding = captureShortcut(
-			keyEvent({ key: 'ArrowUp', metaKey: true, altKey: true })
-		);
+		const binding = captureShortcut(keyEvent({ key: 'ArrowUp', metaKey: true, altKey: true }));
 		expect(binding).toEqual({ key: 'ArrowUp', alt: true, command: true });
 	});
 

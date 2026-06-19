@@ -142,7 +142,10 @@ export async function readDroppedTextFiles(
 	for (let index = 0; index < files.length; index += 1) {
 		const file = files[index];
 		if (index >= maxFiles) {
-			rejected.push({ name: file.name, reason: `Only ${maxFiles} files can be dropped at once.` });
+			rejected.push({
+				name: file.name,
+				reason: `Only ${maxFiles} files can be dropped at once.`
+			});
 			continue;
 		}
 		if (!isSupportedTextFile(file)) {
@@ -150,7 +153,10 @@ export async function readDroppedTextFiles(
 			continue;
 		}
 		if (file.size > maxBytes) {
-			rejected.push({ name: file.name, reason: `File is larger than ${kilobyteLabel(maxBytes)}.` });
+			rejected.push({
+				name: file.name,
+				reason: `File is larger than ${kilobyteLabel(maxBytes)}.`
+			});
 			continue;
 		}
 

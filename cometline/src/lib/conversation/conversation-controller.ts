@@ -8,7 +8,11 @@
 
 import { getSession } from '$lib/client/cometmind';
 import { commitSidebarWorkspaceForSession } from '$lib/actions/commit-sidebar-workspace';
-import { createChatTurnQueue, type ChatTurnQueue, type QueuedMessage } from '$lib/actions/chat-turn-queue';
+import {
+	createChatTurnQueue,
+	type ChatTurnQueue,
+	type QueuedMessage
+} from '$lib/actions/chat-turn-queue';
 import { chatStore } from '$lib/stores/chat.svelte';
 import { sessionStore } from '$lib/stores/session.svelte';
 import { shellStore } from '$lib/stores/shell.svelte';
@@ -69,14 +73,14 @@ async function runTurn(
 	const usesFlight = Boolean(deps.flight?.onUserMessageFlight);
 
 	commitSidebarWorkspaceForSession(
-		sessionStore.sessions.find((session) => session.id === turnSessionId) ?? sessionStore.current
+		sessionStore.sessions.find((session) => session.id === turnSessionId) ??
+			sessionStore.current
 	);
 
 	if (usesFlight) {
-		await deps.flight!.onUserMessageFlight!(
-			payload.images?.length ? payload : payload.text,
-			{ firstTurn }
-		);
+		await deps.flight!.onUserMessageFlight!(payload.images?.length ? payload : payload.text, {
+			firstTurn
+		});
 	}
 
 	await deps.send(turnSessionId, payloadOrText, { skipUser: usesFlight ? true : firstTurn });
@@ -100,28 +104,25 @@ export function createConversationController(
 		if (!turnQueue || queueSessionId !== sessionId) {
 			const queueForSessionId = sessionId;
 			queueSessionId = sessionId;
-			turnQueue = createChatTurnQueue(
-				async (text, images, filePaths) => {
-					if (images === undefined && filePaths === undefined) {
-						await runTurn(deps, queueForSessionId, text, deps.getHasVisibleConversation);
-					} else if (filePaths === undefined) {
-						await runTurn(
-							deps,
-							queueForSessionId,
-							{ text, images },
-							deps.getHasVisibleConversation
-						);
-					} else {
-						await runTurn(
-							deps,
-							queueForSessionId,
-							{ text, images, filePaths },
-							deps.getHasVisibleConversation
-						);
-					}
-				},
-				deps.onQueueChange
-			);
+			turnQueue = createChatTurnQueue(async (text, images, filePaths) => {
+				if (images === undefined && filePaths === undefined) {
+					await runTurn(deps, queueForSessionId, text, deps.getHasVisibleConversation);
+				} else if (filePaths === undefined) {
+					await runTurn(
+						deps,
+						queueForSessionId,
+						{ text, images },
+						deps.getHasVisibleConversation
+					);
+				} else {
+					await runTurn(
+						deps,
+						queueForSessionId,
+						{ text, images, filePaths },
+						deps.getHasVisibleConversation
+					);
+				}
+			}, deps.onQueueChange);
 		}
 		return turnQueue;
 	}

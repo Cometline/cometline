@@ -320,9 +320,13 @@ export function normalizeCometMindSettings(
 			extractionProviderId: String(
 				memory.extractionProviderId ?? defaults.memory.extractionProviderId
 			).trim(),
-			extractionModel: String(memory.extractionModel ?? defaults.memory.extractionModel).trim(),
+			extractionModel: String(
+				memory.extractionModel ?? defaults.memory.extractionModel
+			).trim(),
 			embedding: {
-				providerId: String(embedding.providerId ?? defaults.memory.embedding.providerId).trim(),
+				providerId: String(
+					embedding.providerId ?? defaults.memory.embedding.providerId
+				).trim(),
 				provider: String(embedding.provider ?? defaults.memory.embedding.provider).trim(),
 				model: String(embedding.model ?? defaults.memory.embedding.model).trim(),
 				baseURL: String(embedding.baseURL ?? defaults.memory.embedding.baseURL).trim(),
@@ -330,7 +334,10 @@ export function normalizeCometMindSettings(
 			}
 		},
 		storage: {
-			retentionDays: normalizeNonNegativeInt(storage.retentionDays, defaults.storage.retentionDays),
+			retentionDays: normalizeNonNegativeInt(
+				storage.retentionDays,
+				defaults.storage.retentionDays
+			),
 			maxSessionsPerWorkspace: normalizeNonNegativeInt(
 				storage.maxSessionsPerWorkspace,
 				defaults.storage.maxSessionsPerWorkspace
@@ -347,10 +354,14 @@ export function normalizeCometMindSettings(
 		gateway: {
 			discord: {
 				enabled:
-					typeof discord.enabled === 'boolean' ? discord.enabled : defaults.gateway.discord.enabled,
+					typeof discord.enabled === 'boolean'
+						? discord.enabled
+						: defaults.gateway.discord.enabled,
 				botToken,
 				botTokenEnv,
-				providerId: String(discord.providerId ?? defaults.gateway.discord.providerId).trim(),
+				providerId: String(
+					discord.providerId ?? defaults.gateway.discord.providerId
+				).trim(),
 				modelId: String(discord.modelId ?? defaults.gateway.discord.modelId).trim(),
 				allowedUsers: cleanStringList(discord.allowedUsers),
 				allowedChannels: cleanStringList(discord.allowedChannels),
@@ -359,8 +370,9 @@ export function normalizeCometMindSettings(
 						? discord.requireMention
 						: defaults.gateway.discord.requireMention,
 				workspacePath:
-					String(discord.workspacePath ?? defaults.gateway.discord.workspacePath).trim() ||
-					defaults.gateway.discord.workspacePath
+					String(
+						discord.workspacePath ?? defaults.gateway.discord.workspacePath
+					).trim() || defaults.gateway.discord.workspacePath
 			}
 		}
 	};
@@ -460,7 +472,9 @@ export function normalizeProvider(
 		.map((model) => String(model || '').trim())
 		.filter((model) => model && modelList.includes(model));
 	const id = String(
-		provider.id || fallback?.id || `provider-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+		provider.id ||
+			fallback?.id ||
+			`provider-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 	).trim();
 
 	return {
@@ -478,10 +492,7 @@ export function normalizeProvider(
 }
 
 /** Runtime active provider: first enabled with models, else preferred id, else sidebar order. */
-export function resolveActiveProviderId(
-	providers: ProviderConfig[],
-	preferredId?: string
-): string {
+export function resolveActiveProviderId(providers: ProviderConfig[], preferredId?: string): string {
 	const preferred = preferredId
 		? providers.find((provider) => provider.id === preferredId)
 		: undefined;
@@ -495,7 +506,9 @@ export function resolveActiveProviderId(
 	return providers[0]?.id ?? '';
 }
 
-export function normalizeProviders(providers: Partial<ProviderConfig>[] | undefined): ProviderConfig[] {
+export function normalizeProviders(
+	providers: Partial<ProviderConfig>[] | undefined
+): ProviderConfig[] {
 	const saved = Array.isArray(providers) ? providers : [];
 	const normalizedDefaults = DEFAULT_PROVIDERS.map((provider) => {
 		const savedProvider = saved.find((p) => p.id === provider.id);
@@ -531,9 +544,7 @@ export function migrateSingleProvider(
 			{
 				id,
 				name:
-					id === 'opencode-go'
-						? 'OpenCode Go'
-						: id.charAt(0).toUpperCase() + id.slice(1),
+					id === 'opencode-go' ? 'OpenCode Go' : id.charAt(0).toUpperCase() + id.slice(1),
 				method:
 					id === 'openai' && String(saved.baseURL || '').includes('opencode.ai')
 						? 'opencode-go'

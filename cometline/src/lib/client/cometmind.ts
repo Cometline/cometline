@@ -126,7 +126,8 @@ function normalizeCometMindError(err: unknown): never {
 			message?: string;
 		};
 		const status = candidate.status ?? candidate.response?.status;
-		const payload = typeof candidate.error === 'string' ? undefined : (candidate.error ?? candidate.data);
+		const payload =
+			typeof candidate.error === 'string' ? undefined : (candidate.error ?? candidate.data);
 		const code = payload?.error?.code ?? payload?.code ?? '';
 		const message = payload?.error?.message ?? payload?.message ?? candidate.message ?? '';
 		if (status) throw new CometMindApiError(status, code, message || `HTTP ${status}`);
@@ -147,7 +148,9 @@ function withApiError<T>(promise: Promise<T>): Promise<T> {
 }
 
 export function isSessionNotFoundError(err: unknown): boolean {
-	return err instanceof CometMindApiError && err.status === 404 && err.code === 'session_not_found';
+	return (
+		err instanceof CometMindApiError && err.status === 404 && err.code === 'session_not_found'
+	);
 }
 
 function skillQuery(workspacePath: string) {
@@ -245,7 +248,9 @@ export async function deleteSkill(name: string, workspacePath = ''): Promise<voi
 }
 
 export async function exportSkill(name: string, workspacePath = ''): Promise<Blob> {
-	const params = workspacePath ? `?${new URLSearchParams({ workspace_path: workspacePath })}` : '';
+	const params = workspacePath
+		? `?${new URLSearchParams({ workspace_path: workspacePath })}`
+		: '';
 	const res = await fetch(
 		`${BASE_URL}/api/v1/skills/${encodeURIComponent(name)}/export${params}`
 	);
@@ -461,7 +466,8 @@ function resolveMemorySettings(raw: MemorySettingsWire): MemorySettings {
 		similarity_threshold: raw.similarity_threshold ?? def.similarity_threshold,
 		extraction_model: raw.extraction_model ?? def.extraction_model,
 		lifecycle: {
-			decay_half_life_days: lifecycle.decay_half_life_days ?? def.lifecycle.decay_half_life_days,
+			decay_half_life_days:
+				lifecycle.decay_half_life_days ?? def.lifecycle.decay_half_life_days,
 			forget_threshold: lifecycle.forget_threshold ?? def.lifecycle.forget_threshold,
 			usage_boost_factor: lifecycle.usage_boost_factor ?? def.lifecycle.usage_boost_factor,
 			max_usage_boost: lifecycle.max_usage_boost ?? def.lifecycle.max_usage_boost,
@@ -482,7 +488,9 @@ function resolveMemorySettings(raw: MemorySettingsWire): MemorySettings {
 }
 
 export function getMemorySettings(): Promise<MemorySettings> {
-	return getMemorySettingsApi({ throwOnError: true }).then(({ data }) => resolveMemorySettings(data));
+	return getMemorySettingsApi({ throwOnError: true }).then(({ data }) =>
+		resolveMemorySettings(data)
+	);
 }
 
 export function putMemorySettings(settings: MemorySettings): Promise<MemorySettings> {

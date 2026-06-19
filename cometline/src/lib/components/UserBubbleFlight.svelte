@@ -4,9 +4,9 @@
 		type FlyUserBubbleParams,
 		type UserBubbleFlightOrigin
 	} from '$lib/first-turn-flight';
-import { imageDataURL } from '$lib/files/images';
-import AssistantMarkdown from '$lib/components/AssistantMarkdown.svelte';
-import type { ImageAttachment } from '$lib/types';
+	import { imageDataURL } from '$lib/files/images';
+	import AssistantMarkdown from '$lib/components/AssistantMarkdown.svelte';
+	import type { ImageAttachment } from '$lib/types';
 
 	interface RunOptions {
 		onPrepare?: () => void;

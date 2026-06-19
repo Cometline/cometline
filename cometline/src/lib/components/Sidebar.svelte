@@ -4,7 +4,15 @@
 	import { onMount } from 'svelte';
 	import { flip } from 'svelte/animate';
 	import { fade, fly, slide } from 'svelte/transition';
-	import { ChevronDown, ChevronRight, Folder, Settings, Search, SquarePen, Trash2 } from '@lucide/svelte';
+	import {
+		ChevronDown,
+		ChevronRight,
+		Folder,
+		Settings,
+		Search,
+		SquarePen,
+		Trash2
+	} from '@lucide/svelte';
 	import type { Session } from '$lib/types';
 	import { sessionStore } from '$lib/stores/session.svelte';
 	import { deleteSession } from '$lib/client/cometmind';
@@ -18,9 +26,7 @@
 	const WORKSPACE_SESSIONS_SLIDE = { duration: 180 };
 	const WORKSPACE_GROUP_FLIP = { duration: 240 };
 
-	let {
-		collapsed = false
-	}: { collapsed?: boolean } = $props();
+	let { collapsed = false }: { collapsed?: boolean } = $props();
 	let orderWorkspacePath = $derived(shellStore.sidebarOrderWorkspacePath);
 	let highlightWorkspacePath = $derived(
 		sessionStore.current?.workspace_path ?? shellStore.sidebarOrderWorkspacePath
@@ -103,9 +109,7 @@
 			(session.title || 'Untitled').toLowerCase().includes(query)
 		);
 	});
-	let groupedSessions = $derived(
-		groupSessionsByWorkspace(filteredSessions, orderWorkspacePath)
-	);
+	let groupedSessions = $derived(groupSessionsByWorkspace(filteredSessions, orderWorkspacePath));
 	let showWorkspaceDivider = $derived(
 		groupedSessions.length > 1 && groupedSessions[0].workspacePath === orderWorkspacePath
 	);
@@ -122,7 +126,12 @@
 	}
 </script>
 
-<aside class="sidebar" class:collapsed aria-hidden={collapsed} data-workspace-path={orderWorkspacePath}>
+<aside
+	class="sidebar"
+	class:collapsed
+	aria-hidden={collapsed}
+	data-workspace-path={orderWorkspacePath}
+>
 	<div class="sidebar-content">
 		<div class="sidebar-titlebar-row">
 			<div class="search-field-wrap no-drag">
@@ -181,14 +190,22 @@
 						</button>
 
 						{#if !collapsed}
-							<div class="workspace-sessions" transition:slide={WORKSPACE_SESSIONS_SLIDE}>
+							<div
+								class="workspace-sessions"
+								transition:slide={WORKSPACE_SESSIONS_SLIDE}
+							>
 								{#each group.sessions as session (session.id)}
 									<div
 										class="session-row-wrap"
 										class:selected={currentSessionId === session.id}
 									>
-										<button class="session-row" onclick={() => selectSession(session)}>
-											<span class="session-title">{session.title || 'Untitled'}</span>
+										<button
+											class="session-row"
+											onclick={() => selectSession(session)}
+										>
+											<span class="session-title"
+												>{session.title || 'Untitled'}</span
+											>
 										</button>
 										<button
 											class="delete-session"

@@ -40,9 +40,9 @@ CometMind `localCORS()` allowed `GET, POST, PATCH, DELETE, OPTIONS` but not **PU
 
 ### B1. Main chat vs memory extract use different providers
 
-| Step | Provider | Model |
-| ---- | -------- | ----- |
-| Main turn (`Runner.Run`) | `ProviderForSession(sess)` | Session model |
+| Step                                 | Provider                                 | Model                             |
+| ------------------------------------ | ---------------------------------------- | --------------------------------- |
+| Main turn (`Runner.Run`)             | `ProviderForSession(sess)`               | Session model                     |
 | Memory extract (`memory.NewService`) | `provider.New(cfg)` — **config default** | Same session model name passed in |
 
 `runtime.New` builds the memory service once at startup with the default provider. After each turn, `emitMemoryExtract` called `ExtractAfterTurn` with `turn.ModelID` but the service's embedded provider was still the default.

@@ -118,8 +118,10 @@ export function filterSlashMenuOptions(
 		if (d.includes(q)) return 1;
 		return 0;
 	};
-	const builtins = BUILTIN_SLASH_COMMANDS
-		.map((cmd) => ({ cmd, score: q ? scoreMatch(cmd.name, cmd.description) : 4 }))
+	const builtins = BUILTIN_SLASH_COMMANDS.map((cmd) => ({
+		cmd,
+		score: q ? scoreMatch(cmd.name, cmd.description) : 4
+	}))
 		.filter((item) => item.score > 0)
 		.sort((a, b) => b.score - a.score || a.cmd.name.localeCompare(b.cmd.name))
 		.map((item) => ({

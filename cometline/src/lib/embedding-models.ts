@@ -187,7 +187,9 @@ export function resolveEmbeddingSelection(
 		const byModel = options.filter((opt) => opt.model === trimmedModel);
 		if (byModel.length === 1) return byModel[0];
 		if (trimmedProviderId) {
-			const byProviderAndModel = options.filter((opt) => opt.providerId === trimmedProviderId);
+			const byProviderAndModel = options.filter(
+				(opt) => opt.providerId === trimmedProviderId
+			);
 			if (byProviderAndModel.length === 1) return byProviderAndModel[0];
 		}
 	}
@@ -200,8 +202,7 @@ export function resolveEmbeddingSelection(
 	if (!trim(savedRef.model)) return undefined;
 
 	const savedMatch = options.find(
-		(opt) =>
-			opt.providerId === savedRef.providerId && opt.model === savedRef.model
+		(opt) => opt.providerId === savedRef.providerId && opt.model === savedRef.model
 	);
 	if (savedMatch) return savedMatch;
 

@@ -36,17 +36,17 @@ So a bare `{ key: 'Enter' }` binding matched **both** Enter and Shift+Enter. Use
 ## Fix
 
 1. **`keyboard-shortcuts.ts`**
-   - Added `insertNewline` with default `{ key: 'Enter', shift: true }`.
-   - `normalizeComposerEnterBinding` migrates legacy bare Enter send bindings to `{ key: 'Enter', shift: false }`.
-   - `matchesShortcut` rejects Shift+Enter for bare Enter bindings even before migration runs.
-   - `captureShortcut` records `shift: false` when Enter is captured without Shift.
+    - Added `insertNewline` with default `{ key: 'Enter', shift: true }`.
+    - `normalizeComposerEnterBinding` migrates legacy bare Enter send bindings to `{ key: 'Enter', shift: false }`.
+    - `matchesShortcut` rejects Shift+Enter for bare Enter bindings even before migration runs.
+    - `captureShortcut` records `shift: false` when Enter is captured without Shift.
 
 2. **`Composer.svelte`**
-   - Check `insertNewline` **before** `sendMessage`.
-   - On match: `preventDefault()` and `input.insertText('\n')`.
+    - Check `insertNewline` **before** `sendMessage`.
+    - On match: `preventDefault()` and `input.insertText('\n')`.
 
 3. **`electron/main.cjs`**
-   - Added `insertNewline` to default shortcuts so Electron-side settings stay aligned.
+    - Added `insertNewline` to default shortcuts so Electron-side settings stay aligned.
 
 ## How to avoid regressions
 

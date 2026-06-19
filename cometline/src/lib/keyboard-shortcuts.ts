@@ -184,7 +184,10 @@ function normalizeSessionNavBinding(
 	return binding;
 }
 
-function normalizeToggleWebPanelBinding(binding: ShortcutBinding | undefined, defaultBinding: ShortcutBinding) {
+function normalizeToggleWebPanelBinding(
+	binding: ShortcutBinding | undefined,
+	defaultBinding: ShortcutBinding
+) {
 	if (!binding) return { ...defaultBinding };
 	// Migrate saved bindings that collide with toggleSidebar (⌘B) or legacy ⌘⇧B.
 	if (binding.key === 'b' && binding.command && binding.alt !== true) {

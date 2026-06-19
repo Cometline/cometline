@@ -5,7 +5,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 	openExternal: (url) => ipcRenderer.invoke('cometline:open-external', url),
 	getWorkspacePath: () => ipcRenderer.invoke('cometline:get-workspace-path'),
 	selectWorkspacePath: () => ipcRenderer.invoke('cometline:select-workspace-path'),
-	setWorkspacePath: (workspacePath) => ipcRenderer.invoke('cometline:set-workspace-path', workspacePath),
+	setWorkspacePath: (workspacePath) =>
+		ipcRenderer.invoke('cometline:set-workspace-path', workspacePath),
 	listRecentWorkspaces: () => ipcRenderer.invoke('cometline:list-recent-workspaces'),
 	filterExistingWorkspacePaths: (paths) =>
 		ipcRenderer.invoke('cometline:filter-existing-workspace-paths', paths),

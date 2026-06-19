@@ -9,12 +9,12 @@ Cometline streams chat over HTTP SSE (`POST /api/v1/sessions/{id}/message`), not
 
 Before this work the **wire contract** lived in four hand-maintained places:
 
-| Layer | File | Role |
-| ----- | ---- | ---- |
-| Go emitter | `cometmind/internal/event/event.go` | `MarshalJSON` defines on-the-wire SSE JSON |
-| REST spec | `cometmind/openapi.yaml` | REST only; SSE was `type: string` + prose examples |
-| TypeScript | `cometline/src/lib/types.ts` | Hand-written `StreamEvent` union |
-| Client | `cometline/src/lib/client/cometmind.ts` | Hand-written `fetch` + `normalizeMemorySettings()` PascalCase shims |
+| Layer      | File                                    | Role                                                                |
+| ---------- | --------------------------------------- | ------------------------------------------------------------------- |
+| Go emitter | `cometmind/internal/event/event.go`     | `MarshalJSON` defines on-the-wire SSE JSON                          |
+| REST spec  | `cometmind/openapi.yaml`                | REST only; SSE was `type: string` + prose examples                  |
+| TypeScript | `cometline/src/lib/types.ts`            | Hand-written `StreamEvent` union                                    |
+| Client     | `cometline/src/lib/client/cometmind.ts` | Hand-written `fetch` + `normalizeMemorySettings()` PascalCase shims |
 
 Drift was easy: new `subagent_*` or `memory_*` events required coordinated edits across Go, TS types, reducer, and tests. Memory settings responses also needed runtime alias shims because the client did not trust snake_case from the API.
 
@@ -45,10 +45,10 @@ openapi.yaml
 
 ### Tooling
 
-| Command | Effect |
-| ------- | ------ |
-| `make generate` | Regen TS client + Go `apigen` types |
-| `make check` | Runs `check-generated` (git diff gate) + all tests |
+| Command         | Effect                                             |
+| --------------- | -------------------------------------------------- |
+| `make generate` | Regen TS client + Go `apigen` types                |
+| `make check`    | Runs `check-generated` (git diff gate) + all tests |
 
 `predev:electron` / `prebuild:sidecar` run `generate:api` so local dev stays aligned.
 

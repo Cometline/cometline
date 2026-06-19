@@ -79,11 +79,11 @@ With `composerPhase === 'centered'` on `ChatView`, hero and dock placement model
 
 ### Dock rules by surface
 
-| Surface | Loading UI | Dock when `isLoading`? |
-| ------- | ---------- | ---------------------- |
-| `+page.svelte` (home) | Empty hero | No |
+| Surface                                   | Loading UI     | Dock when `isLoading`?                       |
+| ----------------------------------------- | -------------- | -------------------------------------------- |
+| `+page.svelte` (home)                     | Empty hero     | No                                           |
 | `ChatView` (session, empty, no items yet) | Thread loading | Yes (brief; then center if transcript empty) |
-| `ChatView` (session, items or streaming) | Thread | Yes |
+| `ChatView` (session, items or streaming)  | Thread         | Yes                                          |
 
 ## How to avoid regressions
 

@@ -48,5 +48,7 @@ export function flattenSessionsInSidebarOrder(
 	sessions: Session[],
 	orderWorkspacePath = ''
 ): Session[] {
-	return groupSessionsByWorkspace(sessions, orderWorkspacePath).flatMap((group) => group.sessions);
+	return groupSessionsByWorkspace(sessions, orderWorkspacePath).flatMap(
+		(group) => group.sessions
+	);
 }

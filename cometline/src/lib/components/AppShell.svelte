@@ -16,9 +16,7 @@
 
 	const FALLBACK_SIDEBAR_DURATION = 240;
 
-	let {
-		children
-	}: { children: import('svelte').Snippet } = $props();
+	let { children }: { children: import('svelte').Snippet } = $props();
 
 	let sidebarRef = $state<{ focusSearch: () => void } | null>(null);
 

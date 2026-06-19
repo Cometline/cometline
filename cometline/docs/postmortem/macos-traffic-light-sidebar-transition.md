@@ -15,7 +15,7 @@ The repo already had a partial bridge:
 
 ```javascript
 // electron/preload.cjs
-setSidebarOpen: (open) => ipcRenderer.send('cometline:set-sidebar-open', open)
+setSidebarOpen: (open) => ipcRenderer.send('cometline:set-sidebar-open', open);
 ```
 
 But three pieces were missing:
@@ -161,17 +161,17 @@ Because `--traffic-light-gutter` is a custom property, overriding it on `.app-sh
 
 Start here:
 
-| What to change | File | Notes |
-| -------------- | ---- | ----- |
-| Native button x/y when sidebar is open | `electron/main.cjs` | Edit `WINDOW_BUTTON_OPEN_POSITION`. |
-| Native button x/y when sidebar is closed | `electron/main.cjs` | Edit `WINDOW_BUTTON_CLOSED_POSITION`. |
-| Native tween duration fallback | `electron/main.cjs` | Edit `WINDOW_BUTTON_DEFAULT_DURATION`, but keep it aligned with CSS unless intentionally different. |
-| Sidebar CSS transition duration | `app.css` | Edit `--duration-fast`; renderer sends this duration to Electron. |
-| Sidebar row left padding around traffic lights | `app.css` | Edit `--traffic-light-gutter`. This affects DOM content only, not native button position. |
-| Sidebar titlebar row structure | `Sidebar.svelte` | Keep `.sidebar-titlebar-row` as the fixed-height drag band under the native traffic lights. |
-| Drag/no-drag behavior | `Sidebar.svelte`, `app.css` | Keep the draggable strip on `.sidebar-titlebar-row`; keep actual controls as `no-drag`. |
-| IPC contract | `electron/preload.cjs`, `app.d.ts`, `AppShell.svelte`, `electron/main.cjs` | Keep payload shape `{ open, duration }` unless all four places are updated together. |
-| Fullscreen gutter behavior | `AppShell.svelte`, `electron/main.cjs` | Edit `.app-shell.is-fullscreen { --traffic-light-gutter }`; main emits `cometline:fullscreen-changed`. |
+| What to change                                 | File                                                                       | Notes                                                                                                  |
+| ---------------------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Native button x/y when sidebar is open         | `electron/main.cjs`                                                        | Edit `WINDOW_BUTTON_OPEN_POSITION`.                                                                    |
+| Native button x/y when sidebar is closed       | `electron/main.cjs`                                                        | Edit `WINDOW_BUTTON_CLOSED_POSITION`.                                                                  |
+| Native tween duration fallback                 | `electron/main.cjs`                                                        | Edit `WINDOW_BUTTON_DEFAULT_DURATION`, but keep it aligned with CSS unless intentionally different.    |
+| Sidebar CSS transition duration                | `app.css`                                                                  | Edit `--duration-fast`; renderer sends this duration to Electron.                                      |
+| Sidebar row left padding around traffic lights | `app.css`                                                                  | Edit `--traffic-light-gutter`. This affects DOM content only, not native button position.              |
+| Sidebar titlebar row structure                 | `Sidebar.svelte`                                                           | Keep `.sidebar-titlebar-row` as the fixed-height drag band under the native traffic lights.            |
+| Drag/no-drag behavior                          | `Sidebar.svelte`, `app.css`                                                | Keep the draggable strip on `.sidebar-titlebar-row`; keep actual controls as `no-drag`.                |
+| IPC contract                                   | `electron/preload.cjs`, `app.d.ts`, `AppShell.svelte`, `electron/main.cjs` | Keep payload shape `{ open, duration }` unless all four places are updated together.                   |
+| Fullscreen gutter behavior                     | `AppShell.svelte`, `electron/main.cjs`                                     | Edit `.app-shell.is-fullscreen { --traffic-light-gutter }`; main emits `cometline:fullscreen-changed`. |
 
 ## How to avoid regressions
 

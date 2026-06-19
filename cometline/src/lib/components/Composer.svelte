@@ -176,7 +176,9 @@
 	});
 	// Mentions are available whenever there is a workspace to index. The picker
 	// itself shows an "indexing" state while the file list is still loading.
-	let hasWorkspace = $derived(Boolean(shellStore.workspacePath) && shellStore.workspacePath !== '/');
+	let hasWorkspace = $derived(
+		Boolean(shellStore.workspacePath) && shellStore.workspacePath !== '/'
+	);
 	let currentWorkspaceLabel = $derived(
 		hasWorkspace ? workspaceLabel(shellStore.workspacePath) : ''
 	);
@@ -353,7 +355,11 @@
 		const expanded = expandBuiltinSlashCommand(trimmed) ?? expandSkillCommand(trimmed);
 		if (!canSubmit || disabled || !modelStore.selected) return;
 		const filePaths = input?.getFilePaths() ?? [];
-		onSend(expanded, images.length > 0 ? images : undefined, filePaths.length > 0 ? filePaths : undefined);
+		onSend(
+			expanded,
+			images.length > 0 ? images : undefined,
+			filePaths.length > 0 ? filePaths : undefined
+		);
 		input?.clear();
 		value = '';
 		images = [];
@@ -373,18 +379,12 @@
 				return;
 			}
 		}
-		if (
-			!e.isComposing &&
-			matchesShortcut(e, settingsStore.settings.shortcuts.insertNewline)
-		) {
+		if (!e.isComposing && matchesShortcut(e, settingsStore.settings.shortcuts.insertNewline)) {
 			e.preventDefault();
 			input?.insertText('\n');
 			return;
 		}
-		if (
-			!e.isComposing &&
-			matchesShortcut(e, settingsStore.settings.shortcuts.sendMessage)
-		) {
+		if (!e.isComposing && matchesShortcut(e, settingsStore.settings.shortcuts.sendMessage)) {
 			e.preventDefault();
 			submit();
 		}
@@ -619,7 +619,9 @@
 		if (e.key === 'ArrowUp') {
 			e.preventDefault();
 			if (filteredSlashOptions.length > 0) {
-				skillHighlight = (skillHighlight - 1 + filteredSlashOptions.length) % filteredSlashOptions.length;
+				skillHighlight =
+					(skillHighlight - 1 + filteredSlashOptions.length) %
+					filteredSlashOptions.length;
 				void scrollHighlightedSkillIntoView();
 			}
 			return true;
@@ -659,7 +661,8 @@
 			e.preventDefault();
 			if (filteredMentionFiles.length > 0) {
 				mentionHighlight =
-					(mentionHighlight - 1 + filteredMentionFiles.length) % filteredMentionFiles.length;
+					(mentionHighlight - 1 + filteredMentionFiles.length) %
+					filteredMentionFiles.length;
 				void scrollHighlightedMentionIntoView();
 			}
 			return true;
@@ -840,7 +843,9 @@
 			const first = result.rejected[0];
 			setDropMessage(`${first.name}: ${first.reason}`);
 		} else if (result.accepted.length > 0) {
-			setDropMessage(`Attached ${result.accepted.length} ${result.accepted.length === 1 ? 'image' : 'images'}.`);
+			setDropMessage(
+				`Attached ${result.accepted.length} ${result.accepted.length === 1 ? 'image' : 'images'}.`
+			);
 		}
 	}
 
@@ -892,13 +897,17 @@
 			}
 			if (result.accepted.length === 0) {
 				const first = result.rejected[0];
-				setDropMessage(first ? `No files added. ${first.name}: ${first.reason}` : 'No files added.');
+				setDropMessage(
+					first ? `No files added. ${first.name}: ${first.reason}` : 'No files added.'
+				);
 			} else if (result.rejected.length > 0) {
 				setDropMessage(
 					`Added ${result.accepted.length} ${result.accepted.length === 1 ? 'file' : 'files'}. ${result.rejected.length} skipped.`
 				);
 			} else {
-				setDropMessage(`Added ${result.accepted.length} ${result.accepted.length === 1 ? 'file' : 'files'}.`);
+				setDropMessage(
+					`Added ${result.accepted.length} ${result.accepted.length === 1 ? 'file' : 'files'}.`
+				);
 			}
 		} catch (err) {
 			setDropMessage(err instanceof Error ? err.message : 'Failed to read dropped files.');
@@ -917,10 +926,16 @@
 		}, 0);
 	}
 
-	type IdleHandle = { type: 'idle'; id: number } | { type: 'timeout'; id: ReturnType<typeof setTimeout> };
+	type IdleHandle =
+		| { type: 'idle'; id: number }
+		| { type: 'timeout'; id: ReturnType<typeof setTimeout> };
 
 	function scheduleIdle(cb: () => void): IdleHandle {
-		const ric = (window as unknown as { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number }).requestIdleCallback;
+		const ric = (
+			window as unknown as {
+				requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+			}
+		).requestIdleCallback;
 		if (typeof ric === 'function') {
 			return { type: 'idle', id: ric(cb, { timeout: 1500 }) };
 		}
@@ -929,7 +944,8 @@
 
 	function cancelIdle(handle: IdleHandle) {
 		if (handle.type === 'idle') {
-			const cic = (window as unknown as { cancelIdleCallback?: (id: number) => void }).cancelIdleCallback;
+			const cic = (window as unknown as { cancelIdleCallback?: (id: number) => void })
+				.cancelIdleCallback;
 			cic?.(handle.id);
 		} else {
 			clearTimeout(handle.id);
@@ -956,7 +972,9 @@
 	{/if}
 
 	{#if dropMessage}
-		<div class="drop-message" role="status" transition:fade={{ duration: 120 }}>{dropMessage}</div>
+		<div class="drop-message" role="status" transition:fade={{ duration: 120 }}>
+			{dropMessage}
+		</div>
 	{/if}
 
 	{#if workspaceMenuOpen}
@@ -1041,7 +1059,9 @@
 								<span class="skill-command-name">{option.label}</span>
 								<span class="skill-command-description">{option.modelId}</span>
 								{#if option.id === modelStore.selected?.id}
-									<span class="model-command-check"><Check size={14} stroke-width={2} /></span>
+									<span class="model-command-check"
+										><Check size={14} stroke-width={2} /></span
+									>
 								{/if}
 							</button>
 						{/each}
@@ -1132,7 +1152,9 @@
 				{/each}
 			{/if}
 			{#if mentionTruncated && !mentionQuery.trim()}
-				<p class="mention-hint">Showing first {fileIndex?.files.length ?? 0}. Type to search all files.</p>
+				<p class="mention-hint">
+					Showing first {fileIndex?.files.length ?? 0}. Type to search all files.
+				</p>
 			{/if}
 		</div>
 	{/if}

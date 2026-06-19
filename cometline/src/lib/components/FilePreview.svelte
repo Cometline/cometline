@@ -1,10 +1,7 @@
 <script lang="ts">
 	import { Loader } from '@lucide/svelte';
 	import FileEditor from '$lib/components/FileEditor.svelte';
-	import {
-		readWorkspaceFileContent,
-		writeWorkspaceFileContent
-	} from '$lib/client/cometmind';
+	import { readWorkspaceFileContent, writeWorkspaceFileContent } from '$lib/client/cometmind';
 	import { languageFromExtension, languageFromPath } from '$lib/workspace/file-preview';
 
 	type EditorState = {
@@ -148,7 +145,7 @@
 			{/if}
 			<FileEditor
 				value={draftContent}
-				language={language}
+				{language}
 				readOnly={saving}
 				onChange={(value) => {
 					draftContent = value;

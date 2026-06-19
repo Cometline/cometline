@@ -1,11 +1,7 @@
 <script lang="ts">
 	import { FolderOpen } from '@lucide/svelte';
 	import SettingsToggle from '$lib/components/SettingsToggle.svelte';
-	import {
-		formatIdList,
-		parseIdList,
-		type CometMindSettings
-	} from '$lib/cometmind-settings';
+	import { formatIdList, parseIdList, type CometMindSettings } from '$lib/cometmind-settings';
 	import type { ProviderConfig } from '$lib/types';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { listSkills, syncSkills, deleteSkill, exportSkill } from '$lib/client/cometmind';
@@ -42,7 +38,8 @@
 	function setDiscordProvider(providerId: string) {
 		const provider = providers.find((item) => item.id === providerId);
 		if (!provider) return;
-		const modelId = provider.enabledModels[0] ?? provider.selectedModel ?? provider.models[0] ?? '';
+		const modelId =
+			provider.enabledModels[0] ?? provider.selectedModel ?? provider.models[0] ?? '';
 		cometmind = {
 			...cometmind,
 			gateway: {
@@ -249,7 +246,10 @@
 				step="1"
 				placeholder="2048"
 			/>
-			<p class="field-hint">Caps the model's generated response length. Lower values reduce worst-case latency and cost.</p>
+			<p class="field-hint">
+				Caps the model's generated response length. Lower values reduce worst-case latency
+				and cost.
+			</p>
 		</label>
 	</div>
 
@@ -263,7 +263,12 @@
 		</div>
 		<label>
 			<span>Command path</span>
-			<input type="text" bind:value={cometmind.acp.command} placeholder="opencode" spellcheck="false" />
+			<input
+				type="text"
+				bind:value={cometmind.acp.command}
+				placeholder="opencode"
+				spellcheck="false"
+			/>
 		</label>
 		<label>
 			<span>Arguments (space-separated)</span>
@@ -297,8 +302,8 @@
 			<h3>Skills</h3>
 			<p>
 				CometMind reads Agent Skills from <code>~/.cometmind/skills</code>, workspace
-				<code>.agents/skills</code>/<code>.claude/skills</code>, and optional OpenCode or Claude
-				global skill folders.
+				<code>.agents/skills</code>/<code>.claude/skills</code>, and optional OpenCode or
+				Claude global skill folders.
 			</p>
 		</div>
 		<SettingsToggle
@@ -348,7 +353,9 @@
 				<strong>{skills.length}</strong>
 			</div>
 			{#if skills.length === 0}
-				<p class="field-hint">No skills discovered yet. Try <code>npx skills add ...</code> or add a custom root.</p>
+				<p class="field-hint">
+					No skills discovered yet. Try <code>npx skills add ...</code> or add a custom root.
+				</p>
 			{:else}
 				{#each skills as skill (skill.name)}
 					<div class="skill-row" title={skill.path}>
@@ -370,7 +377,12 @@
 								>
 									Confirm
 								</button>
-								<button class="secondary" type="button" disabled={skillsBusy} onclick={cancelDeleteSkill}>
+								<button
+									class="secondary"
+									type="button"
+									disabled={skillsBusy}
+									onclick={cancelDeleteSkill}
+								>
 									Cancel
 								</button>
 							{:else}
@@ -461,7 +473,10 @@
 					<option value={model}>{model}</option>
 				{/each}
 			</select>
-			<p class="field-hint">Used for new Discord / thread sessions. Falls back to the global CometMind model when empty.</p>
+			<p class="field-hint">
+				Used for new Discord / thread sessions. Falls back to the global CometMind model
+				when empty.
+			</p>
 		</label>
 		<label>
 			<span>Workspace path (repo for the gateway)</span>
@@ -472,9 +487,16 @@
 					placeholder="/path/to/cometline-release"
 					spellcheck="false"
 				/>
-				<button class="secondary" type="button" onclick={useCurrentWorkspace}>Current workspace</button>
+				<button class="secondary" type="button" onclick={useCurrentWorkspace}
+					>Current workspace</button
+				>
 				{#if onPickWorkspace}
-					<button class="secondary icon" type="button" aria-label="Choose folder" onclick={onPickWorkspace}>
+					<button
+						class="secondary icon"
+						type="button"
+						aria-label="Choose folder"
+						onclick={onPickWorkspace}
+					>
 						<FolderOpen size={14} />
 					</button>
 				{/if}

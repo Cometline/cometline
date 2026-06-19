@@ -3,7 +3,12 @@ import remend from 'remend';
 import DOMPurify from 'dompurify';
 import katex from 'katex';
 import { getHighlighter, resolveLanguage, CODE_THEME } from './highlight';
-import { buildEmbedChip, buildFileEmbedChip, buildSkillEmbedChip, findNextUserTextToken } from './embed';
+import {
+	buildEmbedChip,
+	buildFileEmbedChip,
+	buildSkillEmbedChip,
+	findNextUserTextToken
+} from './embed';
 import { stripInlinedFileBlocks } from '$lib/messages/strip-inlined-files';
 
 /** Escapes text for safe inclusion in HTML. */

@@ -34,7 +34,11 @@ export function createChatTurnQueue(
 		onChange?.();
 	}
 
-	function createQueuedMessage(text: string, images?: ImageAttachment[], filePaths?: string[]): QueuedMessage {
+	function createQueuedMessage(
+		text: string,
+		images?: ImageAttachment[],
+		filePaths?: string[]
+	): QueuedMessage {
 		nextID += 1;
 		return { id: `queued-${Date.now()}-${nextID}`, text, images, filePaths };
 	}
@@ -86,7 +90,8 @@ export function createChatTurnQueue(
 		initialFilePaths?: string[]
 	): Promise<boolean> {
 		if (processing) {
-			if (initialText !== undefined) return queueTurn(initialText, initialImages, initialFilePaths);
+			if (initialText !== undefined)
+				return queueTurn(initialText, initialImages, initialFilePaths);
 			return false;
 		}
 

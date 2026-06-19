@@ -49,20 +49,20 @@ The rule: Cometline is not the brain. CometMind is the brain. Comet SDK is only 
 
 ## Current Implementation Map
 
-| Concept | Owner | Current status |
-|---|---|---|
-| Provider runtime | `comet-sdk` | Anthropic and OpenAI-compatible providers, including DeepSeek `reasoning_content`, embedded thinking tags, and vision input |
-| Agent runtime | `cometmind/internal/agent` | Multi-step loop with streaming, reasoning, tool calls, memory retrieve/extract |
-| Semantic memory | `cometmind/internal/memory` | Embedding retrieval, post-turn extraction, compaction, REST API + Cometline settings panel |
-| ACP delegation | `cometmind/internal/acp` | `delegate_coding_task` spawns OpenCode (default); child sessions with progress/awaiting-input SSE |
-| Agent Skills | `cometmind/internal/skills` | Discovery, system-prompt index, load/read/write tools, Cometline slash commands |
-| Discord gateway | `cometmind/internal/gateway` | Allowlisted bot with per-thread sessions; Cometline can start/stop subprocess |
-| Persistence | `cometmind/internal/db` | SQLite workspaces, sessions, messages, tool calls, memories, gateway mappings |
-| Local API | `cometmind/server`, `openapi.yaml` | Health, sessions, transcript, stream message, abort, respond, skills, memory |
-| Desktop runtime | `cometline/electron` | Sidecar spawn, health polling, settings IPC, updater, tray, workspace picker |
-| Renderer UI | `cometline/src` | SvelteKit routes, sidebar, chat thread, composer, settings modal, web panel, animations |
-| Secrets | Electron JSON settings | MVP-only. API keys in `~/.cometmind/cometline-settings.json`; move to OS keychain before wide distribution |
-| Tool permission gates | Not implemented | CometMind executes requested tools directly; ACP permission prompts are subagent-scoped only |
+| Concept               | Owner                              | Current status                                                                                                              |
+| --------------------- | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Provider runtime      | `comet-sdk`                        | Anthropic and OpenAI-compatible providers, including DeepSeek `reasoning_content`, embedded thinking tags, and vision input |
+| Agent runtime         | `cometmind/internal/agent`         | Multi-step loop with streaming, reasoning, tool calls, memory retrieve/extract                                              |
+| Semantic memory       | `cometmind/internal/memory`        | Embedding retrieval, post-turn extraction, compaction, REST API + Cometline settings panel                                  |
+| ACP delegation        | `cometmind/internal/acp`           | `delegate_coding_task` spawns OpenCode (default); child sessions with progress/awaiting-input SSE                           |
+| Agent Skills          | `cometmind/internal/skills`        | Discovery, system-prompt index, load/read/write tools, Cometline slash commands                                             |
+| Discord gateway       | `cometmind/internal/gateway`       | Allowlisted bot with per-thread sessions; Cometline can start/stop subprocess                                               |
+| Persistence           | `cometmind/internal/db`            | SQLite workspaces, sessions, messages, tool calls, memories, gateway mappings                                               |
+| Local API             | `cometmind/server`, `openapi.yaml` | Health, sessions, transcript, stream message, abort, respond, skills, memory                                                |
+| Desktop runtime       | `cometline/electron`               | Sidecar spawn, health polling, settings IPC, updater, tray, workspace picker                                                |
+| Renderer UI           | `cometline/src`                    | SvelteKit routes, sidebar, chat thread, composer, settings modal, web panel, animations                                     |
+| Secrets               | Electron JSON settings             | MVP-only. API keys in `~/.cometmind/cometline-settings.json`; move to OS keychain before wide distribution                  |
+| Tool permission gates | Not implemented                    | CometMind executes requested tools directly; ACP permission prompts are subagent-scoped only                                |
 
 ## Runtime Contracts
 
@@ -108,22 +108,22 @@ Only one in-flight run per session is allowed (`409 session_running`).
 
 Exposed as `window.electronAPI` in `electron/preload.cjs`:
 
-| IPC | Purpose |
-|---|---|
-| `restartCometMind()` | Restart the sidecar |
-| `getWorkspacePath()` / `selectWorkspacePath()` / `setWorkspacePath()` | Workspace selection |
-| `getProviderSettings()` / `saveProviderSettings()` | Read/write full settings blob |
-| `fetchProviderModels(config)` | Query provider model list from main process |
-| `getDiscordGatewayStatus()` / `setDiscordGatewayEnabled()` | Discord bot subprocess |
-| `getOpenAtLogin()` / `setOpenAtLogin()` | macOS login item |
-| `setSidebarOpen()` | Animate macOS traffic lights |
-| `getFullScreen()` / `onFullScreenChange()` | Fullscreen sync |
-| `getAppVersion()` | App version string |
-| `getUpdateState()` / `checkForUpdates()` / `installUpdate()` / `onUpdateState()` | Auto-update |
-| `openExternal(url)` | Open http(s)/mailto in system browser |
-| `setShortcutCaptureActive()` / `setSessionNavigationSuspended()` | Pause global shortcuts |
-| `setWebPanelOpen()` / `onCloseWebPanel()` / `onToggleWebPanel()` / `onOpenWebPanel()` | Web panel routing |
-| `onNavigateSession()` | Previous/next chat from main-process shortcuts |
+| IPC                                                                                   | Purpose                                        |
+| ------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| `restartCometMind()`                                                                  | Restart the sidecar                            |
+| `getWorkspacePath()` / `selectWorkspacePath()` / `setWorkspacePath()`                 | Workspace selection                            |
+| `getProviderSettings()` / `saveProviderSettings()`                                    | Read/write full settings blob                  |
+| `fetchProviderModels(config)`                                                         | Query provider model list from main process    |
+| `getDiscordGatewayStatus()` / `setDiscordGatewayEnabled()`                            | Discord bot subprocess                         |
+| `getOpenAtLogin()` / `setOpenAtLogin()`                                               | macOS login item                               |
+| `setSidebarOpen()`                                                                    | Animate macOS traffic lights                   |
+| `getFullScreen()` / `onFullScreenChange()`                                            | Fullscreen sync                                |
+| `getAppVersion()`                                                                     | App version string                             |
+| `getUpdateState()` / `checkForUpdates()` / `installUpdate()` / `onUpdateState()`      | Auto-update                                    |
+| `openExternal(url)`                                                                   | Open http(s)/mailto in system browser          |
+| `setShortcutCaptureActive()` / `setSessionNavigationSuspended()`                      | Pause global shortcuts                         |
+| `setWebPanelOpen()` / `onCloseWebPanel()` / `onToggleWebPanel()` / `onOpenWebPanel()` | Web panel routing                              |
+| `onNavigateSession()`                                                                 | Previous/next chat from main-process shortcuts |
 
 IPC is for OS/native capabilities only. Chat, session, memory, and skill data stay on REST/SSE.
 
@@ -206,14 +206,14 @@ Never commit real provider API keys to docs, Makefiles, source files, or tests.
 
 ## Runtime Files
 
-| Path | Purpose |
-|---|---|
-| `~/.cometmind/cometmind.db` | CometMind SQLite database |
-| `~/.cometmind/cometline-settings.json` | Single settings file (desktop UI + CometMind runtime) |
-| `~/.cometmind/config.toml` | Legacy; read once for migration if JSON is missing |
-| `~/.cometmind/cometline-workspace.json` | Selected workspace path |
-| `~/.cometmind/cometline.log` | Electron-spawned CometMind logs (rotates at 10 MB while running → `.log.1`) |
-| `~/.cometmind/cometline-gateway.log` | Discord gateway logs (same rotation) |
+| Path                                    | Purpose                                                                     |
+| --------------------------------------- | --------------------------------------------------------------------------- |
+| `~/.cometmind/cometmind.db`             | CometMind SQLite database                                                   |
+| `~/.cometmind/cometline-settings.json`  | Single settings file (desktop UI + CometMind runtime)                       |
+| `~/.cometmind/config.toml`              | Legacy; read once for migration if JSON is missing                          |
+| `~/.cometmind/cometline-workspace.json` | Selected workspace path                                                     |
+| `~/.cometmind/cometline.log`            | Electron-spawned CometMind logs (rotates at 10 MB while running → `.log.1`) |
+| `~/.cometmind/cometline-gateway.log`    | Discord gateway logs (same rotation)                                        |
 
 Default system prompt: packaged `SOUL.md` path is stored in `cometmind.systemPromptPath` inside `cometline-settings.json`.
 

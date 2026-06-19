@@ -7,7 +7,11 @@ import {
 	type DroppedFileLike
 } from './dropped-files';
 
-function file(name: string, text: string, opts: { type?: string; size?: number } = {}): DroppedFileLike {
+function file(
+	name: string,
+	text: string,
+	opts: { type?: string; size?: number } = {}
+): DroppedFileLike {
 	return {
 		name,
 		type: opts.type ?? 'text/plain',
@@ -18,7 +22,9 @@ function file(name: string, text: string, opts: { type?: string; size?: number }
 
 describe('dropped-files', () => {
 	it('detects supported text files by MIME type or extension', () => {
-		expect(isSupportedTextFile(file('notes.unknown', 'hello', { type: 'text/plain' }))).toBe(true);
+		expect(isSupportedTextFile(file('notes.unknown', 'hello', { type: 'text/plain' }))).toBe(
+			true
+		);
 		expect(isSupportedTextFile(file('main.go', 'package main', { type: '' }))).toBe(true);
 		expect(isSupportedTextFile(file('photo.png', '', { type: 'image/png' }))).toBe(false);
 	});

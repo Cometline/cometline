@@ -22,12 +22,12 @@ An intermediate fix used `44×44` pixels thinking “22pt @2x”, but without `s
 ```javascript
 // electron/main.cjs (before)
 if (process.platform === 'darwin') {
-    const isTemplateAsset = candidate.endsWith('trayTemplate.png');
-    if (!isTemplateAsset) {
-        image = image.resize({ width: 22, height: 22, quality: 'best' });
-    }
-    image.setTemplateImage(true); // always applied on macOS
-    return image;
+	const isTemplateAsset = candidate.endsWith('trayTemplate.png');
+	if (!isTemplateAsset) {
+		image = image.resize({ width: 22, height: 22, quality: 'best' });
+	}
+	image.setTemplateImage(true); // always applied on macOS
+	return image;
 }
 ```
 
@@ -72,13 +72,13 @@ Both files must be bundled (`package.json` `extraResources`) and live in the sam
 
 ## If changing the tray icon later
 
-| What to change | File | Notes |
-| -------------- | ---- | ----- |
-| Colored tray source | `buildResources/icon.png` | Center-crop ~850×850 from the 1024 squircle, then export 16×16 + 32×32. Avoid `project_avatar_96.png` (circular, too much padding at menu bar size). |
-| Monochrome menu bar icon | `buildResources/trayTemplate.png` | Must be a true template (single color with alpha). Keep the `Template.png` suffix so `setTemplateImage(true)` is applied. |
-| Candidate order | `electron/main.cjs` | First-match wins; put the desired icon first. |
-| Menu bar icon size | `buildResources/trayIcon.png` + `trayIcon@2x.png` | 16×16 + 32×32 pair; never a lone 32px file at scaleFactor 1.0. |
-| Packaged asset inclusion | `package.json` | Include both `trayIcon.png` and `trayIcon@2x.png` in `extraResources`. |
+| What to change           | File                                              | Notes                                                                                                                                                |
+| ------------------------ | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Colored tray source      | `buildResources/icon.png`                         | Center-crop ~850×850 from the 1024 squircle, then export 16×16 + 32×32. Avoid `project_avatar_96.png` (circular, too much padding at menu bar size). |
+| Monochrome menu bar icon | `buildResources/trayTemplate.png`                 | Must be a true template (single color with alpha). Keep the `Template.png` suffix so `setTemplateImage(true)` is applied.                            |
+| Candidate order          | `electron/main.cjs`                               | First-match wins; put the desired icon first.                                                                                                        |
+| Menu bar icon size       | `buildResources/trayIcon.png` + `trayIcon@2x.png` | 16×16 + 32×32 pair; never a lone 32px file at scaleFactor 1.0.                                                                                       |
+| Packaged asset inclusion | `package.json`                                    | Include both `trayIcon.png` and `trayIcon@2x.png` in `extraResources`.                                                                               |
 
 ## How to avoid regressions
 
@@ -94,10 +94,10 @@ Both files must be bundled (`package.json` `extraResources`) and live in the sam
 
 Symptom: `make dev` logs `[tray] Menu bar icon ready` but nothing appears in the menu bar; the packaged `.app` shows an icon (sometimes oversized).
 
-| | `make dev` | Packaged release |
-| --- | --- | --- |
-| Binary | `electron .` from `cometline/` (Dock shows **Electron**) | `Cometline.app` (Dock shows **Cometline**) |
-| Tray assets | `cometline/buildResources/` via `app.getAppPath()` | `Contents/Resources/` via `process.resourcesPath` |
+|                 | `make dev`                                                                   | Packaged release                                                      |
+| --------------- | ---------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| Binary          | `electron .` from `cometline/` (Dock shows **Electron**)                     | `Cometline.app` (Dock shows **Cometline**)                            |
+| Tray assets     | `cometline/buildResources/` via `app.getAppPath()`                           | `Contents/Resources/` via `process.resourcesPath`                     |
 | Typical failure | Tray object created with invisible bitmap (wrong scale / `createFromBuffer`) | Lone 32px or 44px asset at scaleFactor 1.0 → huge white template blob |
 
 Tray is created at **startup** on macOS (not only when the window is hidden). If you only look after Cmd+W, the icon should already be in the menu bar while the window is open.

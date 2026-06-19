@@ -27,7 +27,10 @@ export interface StartChatAdapter {
 	 * Stage the user bubble and run the composer→thread flight before send.
 	 * When provided, send uses skipUser because the item is already staged.
 	 */
-	onUserMessageFlight?(payload: ChatTurnPayload | string, ctx: { firstTurn: boolean }): void | Promise<void>;
+	onUserMessageFlight?(
+		payload: ChatTurnPayload | string,
+		ctx: { firstTurn: boolean }
+	): void | Promise<void>;
 
 	/** Optional hook called after a first-turn send completes. */
 	onFirstTurnComplete?(): void;
@@ -45,7 +48,9 @@ export async function startChat(
 	const usesFlight = Boolean(adapter.onUserMessageFlight);
 
 	if (usesFlight) {
-		await adapter.onUserMessageFlight!(payload.images?.length ? payload : payload.text, { firstTurn });
+		await adapter.onUserMessageFlight!(payload.images?.length ? payload : payload.text, {
+			firstTurn
+		});
 	}
 
 	await adapter.send(payloadOrText, { skipUser: usesFlight ? true : firstTurn });

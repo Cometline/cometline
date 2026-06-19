@@ -47,9 +47,7 @@ describe('listEmbeddingModelOptions', () => {
 });
 
 describe('resolveEmbeddingSelection', () => {
-	const providers = [
-		baseProvider({ enabledModels: ['gpt-4o', 'text-embedding-3-small'] })
-	];
+	const providers = [baseProvider({ enabledModels: ['gpt-4o', 'text-embedding-3-small'] })];
 
 	it('matches by provider id and model', () => {
 		const match = resolveEmbeddingSelection(providers, 'openai', 'text-embedding-3-small');
@@ -152,16 +150,12 @@ describe('buildEmbeddingDropdownOptions', () => {
 
 	it('includes orphan from API current fields when local saved is empty', () => {
 		const providers = [baseProvider({ enabledModels: ['gpt-4o'] })];
-		const options = buildEmbeddingDropdownOptions(
-			providers,
-			undefined,
-			{
-				provider_id: 'openai',
-				provider: 'openai',
-				model: 'text-embedding-3-small',
-				base_url: 'https://api.openai.com/v1'
-			}
-		);
+		const options = buildEmbeddingDropdownOptions(providers, undefined, {
+			provider_id: 'openai',
+			provider: 'openai',
+			model: 'text-embedding-3-small',
+			base_url: 'https://api.openai.com/v1'
+		});
 		expect(options).toHaveLength(1);
 		expect(options[0]?.orphan).toBe(true);
 		expect(options[0]?.model).toBe('text-embedding-3-small');
@@ -170,9 +164,7 @@ describe('buildEmbeddingDropdownOptions', () => {
 
 describe('embeddingKeyForFields', () => {
 	it('returns key for merged embedding fields', () => {
-		const providers = [
-			baseProvider({ enabledModels: ['gpt-4o', 'text-embedding-3-small'] })
-		];
+		const providers = [baseProvider({ enabledModels: ['gpt-4o', 'text-embedding-3-small'] })];
 		const key = embeddingKeyForFields(providers, {
 			provider_id: 'openai',
 			provider: 'openai',

@@ -77,7 +77,11 @@ function createModelStore() {
 		selectByProviderModel(session.provider_id, session.model_id);
 	}
 
-	function setProviders(providers: ProviderConfig[], nextDefaultProviderId?: string, nextDefaultModelId?: string) {
+	function setProviders(
+		providers: ProviderConfig[],
+		nextDefaultProviderId?: string,
+		nextDefaultModelId?: string
+	) {
 		defaultProviderId = nextDefaultProviderId ?? '';
 		defaultModelId = nextDefaultModelId ?? '';
 		const nextOptions = providers.flatMap(optionsFromProvider);
@@ -88,7 +92,8 @@ function createModelStore() {
 		}
 		if (defaultProviderId && defaultModelId) {
 			const defaultOption = options.find(
-				(option) => option.providerId === defaultProviderId && option.modelId === defaultModelId
+				(option) =>
+					option.providerId === defaultProviderId && option.modelId === defaultModelId
 			);
 			if (defaultOption) {
 				selected = defaultOption;

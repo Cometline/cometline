@@ -35,15 +35,15 @@ If `runLoop(initialText)` were ever invoked while `processing` was already true,
 ## Fix
 
 1. **`chat-turn-queue.ts`**
-   - Track `activeTurnText` for the in-flight turn.
-   - On enqueue while busy: skip if `text === activeTurnText` or matches the last queued item.
-   - If `runLoop` is called while `processing`, queue (or dedupe) instead of running in parallel.
+    - Track `activeTurnText` for the in-flight turn.
+    - On enqueue while busy: skip if `text === activeTurnText` or matches the last queued item.
+    - If `runLoop` is called while `processing`, queue (or dedupe) instead of running in parallel.
 
 2. **`ChatView.svelte`**
-   - ~~Expose `turnQueue.processing` as `turnProcessing` via `syncQueueState`.~~ Removed 2026-06-16; queue state stays internal.
+    - ~~Expose `turnQueue.processing` as `turnProcessing` via `syncQueueState`.~~ Removed 2026-06-16; queue state stays internal.
 
 3. **`Composer.svelte`**
-   - ~~`sendLocked = turnProcessing && !streaming`~~ **Removed (2026-06-16):** Composer no longer reads `turnProcessing`. Duplicate protection is queue-only (`activeTurnText` dedupe). Send unlock aligns with `!isStreaming` so post-stream `refreshSession` does not block the composer.
+    - ~~`sendLocked = turnProcessing && !streaming`~~ **Removed (2026-06-16):** Composer no longer reads `turnProcessing`. Duplicate protection is queue-only (`activeTurnText` dedupe). Send unlock aligns with `!isStreaming` so post-stream `refreshSession` does not block the composer.
 
 Intentional queueing during an active **stream** is unchanged: different messages can still be queued with Enter while the assistant reply is streaming.
 

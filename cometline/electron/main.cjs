@@ -1,4 +1,15 @@
-const { app, BrowserWindow, dialog, ipcMain, protocol, net, shell, Tray, Menu, nativeImage } = require('electron');
+const {
+	app,
+	BrowserWindow,
+	dialog,
+	ipcMain,
+	protocol,
+	net,
+	shell,
+	Tray,
+	Menu,
+	nativeImage
+} = require('electron');
 const path = require('path');
 const { pathToFileURL } = require('url');
 const { spawn } = require('child_process');
@@ -790,10 +801,10 @@ function readStoredWorkspacePath() {
 function rememberWorkspacePath(workspacePath) {
 	const clean = path.resolve(workspacePath);
 	const store = readWorkspaceStore();
-	const recentPaths = [clean, ...store.recentPaths.filter((item) => path.resolve(item) !== clean)].slice(
-		0,
-		20
-	);
+	const recentPaths = [
+		clean,
+		...store.recentPaths.filter((item) => path.resolve(item) !== clean)
+	].slice(0, 20);
 	writeWorkspaceStore({ workspacePath: clean, recentPaths });
 	return clean;
 }
@@ -1236,9 +1247,11 @@ function configureAutoUpdater() {
 	});
 
 	const check = () => {
-		getAutoUpdater().checkForUpdates().catch((err) => {
-			console.error('Auto-update check failed:', err);
-		});
+		getAutoUpdater()
+			.checkForUpdates()
+			.catch((err) => {
+				console.error('Auto-update check failed:', err);
+			});
 	};
 
 	check();
@@ -1380,7 +1393,9 @@ async function createWindow() {
 const FETCH_MODELS_TIMEOUT_MS = 30_000;
 
 function stripTrailingSlashes(url) {
-	return String(url || '').trim().replace(/\/+$/, '');
+	return String(url || '')
+		.trim()
+		.replace(/\/+$/, '');
 }
 
 // Mirrors comet-sdk providerbase.Endpoint: tolerates base URLs that already end in /v1.
@@ -1576,10 +1591,14 @@ async function borrowCodexAuth() {
 	try {
 		auth = JSON.parse(fs.readFileSync(authPath, 'utf8'));
 	} catch (err) {
-		throw new Error(`Failed to read Codex auth file: ${err instanceof Error ? err.message : err}`);
+		throw new Error(
+			`Failed to read Codex auth file: ${err instanceof Error ? err.message : err}`
+		);
 	}
 	if (auth?.auth_mode !== 'chatgpt') {
-		throw new Error('Codex is not signed in with ChatGPT browser auth. Sign in with ChatGPT first.');
+		throw new Error(
+			'Codex is not signed in with ChatGPT browser auth. Sign in with ChatGPT first.'
+		);
 	}
 	if (!auth?.tokens?.access_token) {
 		throw new Error('Codex auth file has no access token. Sign in with ChatGPT first.');
@@ -1701,7 +1720,9 @@ async function startCodexLogin() {
 				}
 				if (!returnedCode) {
 					res.writeHead(400, { 'Content-Type': 'text/html' });
-					res.end('<h1>ChatGPT sign-in failed</h1><p>No authorization code returned.</p>');
+					res.end(
+						'<h1>ChatGPT sign-in failed</h1><p>No authorization code returned.</p>'
+					);
 					clearTimeout(timeout);
 					reject(new Error('ChatGPT sign-in failed: no authorization code returned.'));
 					return;

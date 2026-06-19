@@ -172,8 +172,9 @@
 
 	// ── Memory extraction (provider + model, falls back to session) ─────
 	const extractionProvider = $derived(
-		runtimeProviders.find((provider) => provider.id === cometmind.memory.extractionProviderId) ??
-			providers.find((provider) => provider.id === cometmind.memory.extractionProviderId)
+		runtimeProviders.find(
+			(provider) => provider.id === cometmind.memory.extractionProviderId
+		) ?? providers.find((provider) => provider.id === cometmind.memory.extractionProviderId)
 	);
 
 	const extractionModels = $derived(modelsForProvider(extractionProvider));
@@ -192,7 +193,11 @@
 			: '';
 		cometmind = {
 			...cometmind,
-			memory: { ...cometmind.memory, extractionProviderId: providerId, extractionModel: modelId }
+			memory: {
+				...cometmind.memory,
+				extractionProviderId: providerId,
+				extractionModel: modelId
+			}
 		};
 	}
 
@@ -208,7 +213,10 @@
 	<div class="section-block">
 		<div class="section-heading">
 			<h3>Default model</h3>
-			<p>Choose which model new chats use by default. You can still switch models per session.</p>
+			<p>
+				Choose which model new chats use by default. You can still switch models per
+				session.
+			</p>
 		</div>
 		<div class="default-model-picker" onfocusout={closeModelMenu}>
 			<button
@@ -247,7 +255,10 @@
 								<strong>{group.providerName}</strong>
 							</div>
 							{#each group.options as option (option.id)}
-								<button class="model-option" onclick={() => selectDefaultModel(option)}>
+								<button
+									class="model-option"
+									onclick={() => selectDefaultModel(option)}
+								>
 									<span class="model-check">
 										{#if option.providerId === defaultProviderId && option.modelId === defaultModelId}<Check
 												size={14}
@@ -273,8 +284,8 @@
 		<div class="section-heading">
 			<h3>Session titles</h3>
 			<p>
-				CometMind names each session from your first message using an LLM. Pin a cheaper / faster
-				model here, or leave as default to reuse the session's own model.
+				CometMind names each session from your first message using an LLM. Pin a cheaper /
+				faster model here, or leave as default to reuse the session's own model.
 			</p>
 		</div>
 		<label>
@@ -311,8 +322,9 @@
 		<div class="section-heading">
 			<h3>Memory extraction</h3>
 			<p>
-				After each turn, CometMind extracts durable memories in the background. Pin a cheaper model
-				from any provider for this step, or leave as default to reuse the session's own model.
+				After each turn, CometMind extracts durable memories in the background. Pin a
+				cheaper model from any provider for this step, or leave as default to reuse the
+				session's own model.
 			</p>
 		</div>
 		<label>
@@ -339,7 +351,8 @@
 					{/each}
 				</select>
 				<p class="field-hint">
-					A small, fast model is ideal — extraction runs after every turn in the background.
+					A small, fast model is ideal — extraction runs after every turn in the
+					background.
 				</p>
 			</label>
 		{/if}
@@ -422,7 +435,9 @@
 		font-size: 13px;
 		font-weight: 500;
 		cursor: pointer;
-		transition: border-color 0.15s, box-shadow 0.15s;
+		transition:
+			border-color 0.15s,
+			box-shadow 0.15s;
 	}
 
 	.model-button:hover:not(:disabled) {

@@ -113,9 +113,7 @@ function appendSubagentProgress(
 	const text = progressText.trim();
 	if (!text) return progress;
 
-	const next = progress.map((entry) =>
-		entry.kind === 'stream' ? { ...entry } : { ...entry }
-	);
+	const next = progress.map((entry) => (entry.kind === 'stream' ? { ...entry } : { ...entry }));
 	const kind = progressKind || 'message';
 
 	if (kind === 'tool_call' || kind === 'tool_call_update') {

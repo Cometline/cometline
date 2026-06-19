@@ -7,10 +7,10 @@
 
 A **dual-surface slash command model**:
 
-| Surface | Mechanism | Example |
-| ------- | --------- | ------- |
-| **Cometline composer** | User types `/name` in chat; text is expanded before the agent turn | `/create-skill`, `/commit-conventions` |
-| **Discord** | Discord Application Commands registered on the bot; interaction routes into the same gateway agent turn | `/thread`, `/create-skill` |
+| Surface                | Mechanism                                                                                               | Example                                |
+| ---------------------- | ------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| **Cometline composer** | User types `/name` in chat; text is expanded before the agent turn                                      | `/create-skill`, `/commit-conventions` |
+| **Discord**            | Discord Application Commands registered on the bot; interaction routes into the same gateway agent turn | `/thread`, `/create-skill`             |
 
 Skill discovery slash commands (`/skill-name`) are **dynamic** — any discovered skill becomes a composer command automatically. **Builtin** commands (like `create-skill`) are fixed in code and must be added explicitly on both surfaces if you want parity.
 
@@ -42,13 +42,13 @@ If you add a command on only one surface, users on the other will not see it.
 
 ### 2. Cometline checklist
 
-| Step | File | Action |
-| ---- | ---- | ------ |
-| Define builtin | `src/lib/skills/slash-commands.ts` | Add to `BUILTIN_SLASH_COMMANDS`; implement or reuse `expand…()` text |
-| Autocomplete | `Composer.svelte` | Already merges builtins via `filterSlashMenuOptions()` — no change unless UX differs |
-| Submit expansion | `Composer.svelte` | `expandBuiltinSlashCommand()` runs before `expandSkillCommand()` in `submit()` |
-| Chips | `RichComposerInput.svelte` | Do **not** add builtin names to `skillNames` unless you want skill chips |
-| Agent capability | `cometmind/internal/tools/` | Add a tool if the command needs side effects outside workspace (e.g. `write_skill` for `~/.cometmind/skills`) |
+| Step             | File                               | Action                                                                                                        |
+| ---------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Define builtin   | `src/lib/skills/slash-commands.ts` | Add to `BUILTIN_SLASH_COMMANDS`; implement or reuse `expand…()` text                                          |
+| Autocomplete     | `Composer.svelte`                  | Already merges builtins via `filterSlashMenuOptions()` — no change unless UX differs                          |
+| Submit expansion | `Composer.svelte`                  | `expandBuiltinSlashCommand()` runs before `expandSkillCommand()` in `submit()`                                |
+| Chips            | `RichComposerInput.svelte`         | Do **not** add builtin names to `skillNames` unless you want skill chips                                      |
+| Agent capability | `cometmind/internal/tools/`        | Add a tool if the command needs side effects outside workspace (e.g. `write_skill` for `~/.cometmind/skills`) |
 
 Shared expansion text for Discord and Cometline should stay **semantically aligned**. Today:
 
@@ -59,14 +59,14 @@ Keep them in sync when you change the workflow.
 
 ### 3. Discord checklist
 
-| Step | File | Action |
-| ---- | ---- | ------ |
-| Register command | `internal/gateway/discord/adapter.go` | Add entry to `applicationCommands()` |
-| Handle interaction | `adapter.go` | Add `case` in `onInteractionCreate` → dedicated handler |
-| Route to agent | Handler | Build `gateway.InboundMessage` with `Mentioned: true` if `require_mention` would block normal messages |
-| Ephemeral ack | Handler | `InteractionRespond` with ephemeral text so Discord does not hang waiting |
-| Rebuild binary | `cometmind/dist/cometmind` | Electron spawns `../cometmind/dist/cometmind` in dev — **must rebuild after Go changes** |
-| Restart gateway | Cometline Settings | Toggle Discord gateway off/on, or restart the app |
+| Step               | File                                  | Action                                                                                                 |
+| ------------------ | ------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Register command   | `internal/gateway/discord/adapter.go` | Add entry to `applicationCommands()`                                                                   |
+| Handle interaction | `adapter.go`                          | Add `case` in `onInteractionCreate` → dedicated handler                                                |
+| Route to agent     | Handler                               | Build `gateway.InboundMessage` with `Mentioned: true` if `require_mention` would block normal messages |
+| Ephemeral ack      | Handler                               | `InteractionRespond` with ephemeral text so Discord does not hang waiting                              |
+| Rebuild binary     | `cometmind/dist/cometmind`            | Electron spawns `../cometmind/dist/cometmind` in dev — **must rebuild after Go changes**               |
+| Restart gateway    | Cometline Settings                    | Toggle Discord gateway off/on, or restart the app                                                      |
 
 ### 4. Skills that need filesystem writes
 

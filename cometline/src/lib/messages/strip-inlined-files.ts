@@ -46,5 +46,8 @@ export function stripInlinedFileBlocks(text: string): string {
 		i += 1;
 	}
 
-	return kept.join('\n').replace(/\n{3,}/g, '\n\n').trimEnd();
+	return kept
+		.join('\n')
+		.replace(/\n{3,}/g, '\n\n')
+		.trimEnd();
 }

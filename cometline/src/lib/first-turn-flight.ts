@@ -81,11 +81,7 @@ export function textareaUserOrigin(textarea: DOMRect, target: DOMRect): DOMRect 
 }
 
 /** Origin rect for docked follow-up turns — starts just above the composer shell. */
-export function dockUserOrigin(
-	composerWrapper: DOMRect,
-	target: DOMRect,
-	gap = 12
-): DOMRect {
+export function dockUserOrigin(composerWrapper: DOMRect, target: DOMRect, gap = 12): DOMRect {
 	const width = target.width;
 	const height = target.height;
 	const left = Math.max(composerWrapper.left, composerWrapper.right - width);
@@ -210,7 +206,8 @@ export async function flyUserBubble(params: FlyUserBubbleParams): Promise<boolea
 	} else {
 		const textarea = root.querySelector('.composer .rce-editor');
 		const capturedFrom =
-			textareaFrom ?? (textarea instanceof HTMLElement ? textarea.getBoundingClientRect() : null);
+			textareaFrom ??
+			(textarea instanceof HTMLElement ? textarea.getBoundingClientRect() : null);
 		if (capturedFrom) {
 			fromRect = textareaUserOrigin(capturedFrom, userTo);
 		}

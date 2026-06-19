@@ -32,7 +32,10 @@ export async function readImageAttachments(
 
 	for (const file of files) {
 		if (existingCount + accepted.length >= MAX_IMAGE_ATTACHMENTS) {
-			rejected.push({ name: file.name, reason: `Only ${MAX_IMAGE_ATTACHMENTS} images can be attached.` });
+			rejected.push({
+				name: file.name,
+				reason: `Only ${MAX_IMAGE_ATTACHMENTS} images can be attached.`
+			});
 			continue;
 		}
 		if (!isSupportedImageFile(file)) {
@@ -40,7 +43,10 @@ export async function readImageAttachments(
 			continue;
 		}
 		if (file.size > MAX_IMAGE_BYTES) {
-			rejected.push({ name: file.name, reason: `Image is larger than ${MAX_IMAGE_BYTES / 1024 / 1024} MB.` });
+			rejected.push({
+				name: file.name,
+				reason: `Image is larger than ${MAX_IMAGE_BYTES / 1024 / 1024} MB.`
+			});
 			continue;
 		}
 

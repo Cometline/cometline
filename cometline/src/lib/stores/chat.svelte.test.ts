@@ -15,11 +15,7 @@ vi.mock('$lib/client/cometmind', () => ({
 	respondToSubagent: vi.fn()
 }));
 
-import {
-	getSessionMessages,
-	listChildSessions,
-	streamMessage
-} from '$lib/client/cometmind';
+import { getSessionMessages, listChildSessions, streamMessage } from '$lib/client/cometmind';
 import { chatStore } from './chat.svelte';
 import { sessionStore } from './session.svelte';
 import { startNewChat } from '$lib/actions/new-chat';
@@ -147,9 +143,9 @@ describe('chatStore session switching', () => {
 
 		chatStore.bindSession('sess-b');
 		await chatStore.loadTranscript('sess-b');
-		expect(chatStore.items.some((item) => item.type === 'user' && item.text === 'history B')).toBe(
-			true
-		);
+		expect(
+			chatStore.items.some((item) => item.type === 'user' && item.text === 'history B')
+		).toBe(true);
 
 		chatStore.bindSession('sess-a');
 		const assistantOnReturn = chatStore.items.find((item) => item.type === 'assistant');
@@ -258,11 +254,13 @@ describe('chatStore session switching', () => {
 
 		startNewChat();
 
-		await vi.waitFor(() => expect(streamMessage).toHaveBeenCalledWith(
-			'sess-a',
-			expect.objectContaining({ text: 'question A' }),
-			expect.any(AbortSignal)
-		));
+		await vi.waitFor(() =>
+			expect(streamMessage).toHaveBeenCalledWith(
+				'sess-a',
+				expect.objectContaining({ text: 'question A' }),
+				expect.any(AbortSignal)
+			)
+		);
 		await vi.waitFor(() => expect(chatStore.isStreamingFor('sess-a')).toBe(false));
 		expect(sessionStore.hasPendingMessage('sess-a')).toBe(false);
 
@@ -288,16 +286,16 @@ describe('chatStore session switching', () => {
 		if (errorItem?.type !== 'error') return;
 		expect(errorItem.text).toContain('API key is invalid or missing');
 		// The empty pending assistant must not linger as a blank row.
-		expect(
-			chatStore.items.some((item) => item.type === 'assistant' && !item.text.trim())
-		).toBe(false);
+		expect(chatStore.items.some((item) => item.type === 'assistant' && !item.text.trim())).toBe(
+			false
+		);
 	});
 
-		it('surfaces an error item when streamMessage throws before any output', async () => {
-			vi.mocked(streamMessage).mockImplementation(async function* () {
-				throw new Error('cometsdk: openai: authentication failed (HTTP 401)');
-				yield { type: 'done' };
-			});
+	it('surfaces an error item when streamMessage throws before any output', async () => {
+		vi.mocked(streamMessage).mockImplementation(async function* () {
+			throw new Error('cometsdk: openai: authentication failed (HTTP 401)');
+			yield { type: 'done' };
+		});
 
 		chatStore.bindSession('sess-a');
 		await chatStore.send('sess-a', 'hi');

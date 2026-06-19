@@ -46,7 +46,10 @@ function mapDelegationStatus(
 	}
 }
 
-function subagentFromChild(child: Session, agentName = 'opencode'): Extract<ChatItem, { type: 'subagent' }> {
+function subagentFromChild(
+	child: Session,
+	agentName = 'opencode'
+): Extract<ChatItem, { type: 'subagent' }> {
 	return {
 		id: `subagent-${child.id}`,
 		type: 'subagent',
@@ -56,7 +59,10 @@ function subagentFromChild(child: Session, agentName = 'opencode'): Extract<Chat
 		status: mapDelegationStatus(child.delegation_status),
 		progress: [],
 		summary: child.output_summary,
-		pending: child.delegation_status === 'running' || child.delegation_status === 'awaiting_user' || child.delegation_status === 'awaiting_permission',
+		pending:
+			child.delegation_status === 'running' ||
+			child.delegation_status === 'awaiting_user' ||
+			child.delegation_status === 'awaiting_permission',
 		pendingQuestion: child.pending_question || undefined
 	};
 }
@@ -608,7 +614,10 @@ function createChatStore() {
 				nextSessionID,
 				{
 					text,
-					images: images?.map((image) => ({ media_type: image.media_type, data: image.data })),
+					images: images?.map((image) => ({
+						media_type: image.media_type,
+						data: image.data
+					})),
 					file_paths: payload.filePaths
 				},
 				handle.abort.signal
@@ -712,7 +721,11 @@ function createChatStore() {
 		writeSessionItems(targetSessionID, next);
 	}
 
-	async function replyToSubagent(childSessionId: string, text: string, permissionOptionId?: string) {
+	async function replyToSubagent(
+		childSessionId: string,
+		text: string,
+		permissionOptionId?: string
+	) {
 		const parentSessionID = sessionID;
 		if (!parentSessionID) return;
 

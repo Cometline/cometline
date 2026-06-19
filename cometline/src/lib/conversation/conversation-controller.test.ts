@@ -26,9 +26,13 @@ describe('createConversationController', () => {
 		refreshSession?: Mock<ConversationControllerDeps['refreshSession']>;
 		flight?: {
 			onUserMessageFlight: Mock<ConversationFlightAdapter['onUserMessageFlight']>;
-			onFirstTurnComplete?: Mock<NonNullable<ConversationFlightAdapter['onFirstTurnComplete']>>;
+			onFirstTurnComplete?: Mock<
+				NonNullable<ConversationFlightAdapter['onFirstTurnComplete']>
+			>;
 		};
-		onAwaitingFirstAssistantChange?: Mock<NonNullable<ConversationControllerDeps['onAwaitingFirstAssistantChange']>>;
+		onAwaitingFirstAssistantChange?: Mock<
+			NonNullable<ConversationControllerDeps['onAwaitingFirstAssistantChange']>
+		>;
 	}) {
 		const send = overrides?.send ?? vi.fn().mockResolvedValue(undefined);
 		const refreshSession = overrides?.refreshSession ?? vi.fn().mockResolvedValue(undefined);
@@ -124,12 +128,14 @@ describe('createConversationController', () => {
 		const firstGate = new Promise<void>((resolve) => {
 			releaseFirst = resolve;
 		});
-		const send = vi.fn().mockImplementation(async (sessionId: string, payload: string | { text: string }) => {
-			const text = typeof payload === 'string' ? payload : payload.text;
-			order.push(`start:${sessionId}:${text}`);
-			if (text === 'first') await firstGate;
-			order.push(`end:${sessionId}:${text}`);
-		});
+		const send = vi
+			.fn()
+			.mockImplementation(async (sessionId: string, payload: string | { text: string }) => {
+				const text = typeof payload === 'string' ? payload : payload.text;
+				order.push(`start:${sessionId}:${text}`);
+				if (text === 'first') await firstGate;
+				order.push(`end:${sessionId}:${text}`);
+			});
 		const { controller } = createDeps({ send });
 
 		const first = controller.enqueue('first');

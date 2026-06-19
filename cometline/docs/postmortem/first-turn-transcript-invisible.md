@@ -33,15 +33,15 @@ On the **pending first-message path**:
 
 ```javascript
 if (!isSessionSynced || chatStore.isLoading) {
-  isInitialTranscriptPaint = true;
-  return;
+	isInitialTranscriptPaint = true;
+	return;
 }
 ```
 
 ```css
 .thread-messages.hydrating {
-  opacity: 0;
-  pointer-events: none;
+	opacity: 0;
+	pointer-events: none;
 }
 ```
 
@@ -91,8 +91,8 @@ if (chatStore.sessionID === sessionId && chatStore.items.length > 0) return;
 
 ```javascript
 if (chatStore.isLoading && threadItems.length === 0) {
-  isInitialTranscriptPaint = true;
-  return;
+	isInitialTranscriptPaint = true;
+	return;
 }
 ```
 

@@ -44,7 +44,7 @@ OpenAI (and OpenAI-compatible providers) require every tool result's
 
 Because the live system prompt is rebuilt by the agent and stored `system` rows
 are skipped in `BuildSDKMessages`, the forked "Forked from a session in …"
-notice was *not* the cause — it is dropped before the provider call.
+notice was _not_ the cause — it is dropped before the provider call.
 
 ## Fix
 

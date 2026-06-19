@@ -87,9 +87,7 @@
 		if (!snapshotSynced) return true;
 		return snapshotItems.length > 0 || snapshotLoading;
 	});
-	let composerSnap = $derived(
-		chatStore.sessionID === sessionId && chatStore.isLoading
-	);
+	let composerSnap = $derived(chatStore.sessionID === sessionId && chatStore.isLoading);
 	let composerVariant = $derived<'hero' | 'dock'>(
 		shellStore.composerPhase === 'centered' ? 'hero' : 'dock'
 	);
@@ -272,7 +270,7 @@
 				onSend={submit}
 				onStop={stop}
 				onRemoveQueued={removeQueuedMessage}
-				onModelChange={onModelChange}
+				{onModelChange}
 				onWorkspaceChanged={() => chatStore.loadTranscript(sessionId)}
 				{sessionId}
 				disabled={connectionState.status !== 'ready'}

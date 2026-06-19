@@ -4,7 +4,9 @@ import { memoryUpdateHint, memoryUpdateTooltip } from './memory-updates';
 describe('memoryUpdateHint', () => {
 	it('labels a single create as saved', () => {
 		expect(
-			memoryUpdateHint([{ action: 'create', kind: 'preference', content: 'Use Traditional Chinese' }])
+			memoryUpdateHint([
+				{ action: 'create', kind: 'preference', content: 'Use Traditional Chinese' }
+			])
 		).toBe('Memory saved');
 	});
 

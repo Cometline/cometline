@@ -111,7 +111,8 @@
 	}
 
 	.hero-composer-frame.exit {
-		animation: hero-composer-impact-exit var(--duration-hero-exit-ring) var(--ease-smooth) forwards;
+		animation: hero-composer-impact-exit var(--duration-hero-exit-ring) var(--ease-smooth)
+			forwards;
 	}
 
 	.hero-composer-slot {
@@ -147,8 +148,16 @@
 		pointer-events: none;
 		border-radius: 24px;
 		background:
-			radial-gradient(ellipse 118% 92% at 50% 100%, var(--hero-composer-glow-strong), transparent 70%),
-			radial-gradient(ellipse 88% 68% at 50% 0%, var(--hero-composer-glow-soft), transparent 74%);
+			radial-gradient(
+				ellipse 118% 92% at 50% 100%,
+				var(--hero-composer-glow-strong),
+				transparent 70%
+			),
+			radial-gradient(
+				ellipse 88% 68% at 50% 0%,
+				var(--hero-composer-glow-soft),
+				transparent 74%
+			);
 		filter: blur(20px);
 		opacity: 0;
 		transform: translateY(var(--hero-glow-travel, 0px)) scaleY(0.35);
@@ -156,11 +165,13 @@
 	}
 
 	.hero-composer-glow.ready {
-		animation: hero-composer-glow-rise var(--duration-hero-glow-rise) var(--ease-smooth) forwards;
+		animation: hero-composer-glow-rise var(--duration-hero-glow-rise) var(--ease-smooth)
+			forwards;
 	}
 
 	.hero-composer-frame.exit .hero-composer-ring {
-		animation: hero-composer-ring-exit var(--duration-hero-exit-ring) var(--ease-smooth) forwards;
+		animation: hero-composer-ring-exit var(--duration-hero-exit-ring) var(--ease-smooth)
+			forwards;
 	}
 
 	.hero-composer-frame.exit .hero-composer-glow {

@@ -95,18 +95,18 @@ Never commit real API keys.
 
 Default bindings (rebindable in Settings → Shortcuts):
 
-| Action | macOS default |
-|---|---|
-| Toggle sidebar | ⌘B |
-| Open settings | ⌘, |
-| New chat | ⌘T |
-| Stop response | ⌘C |
-| Send message | Enter |
-| Insert newline | ⇧Enter |
-| Focus search | ⌘F |
-| Previous / next chat | ⌃⌘↑ / ⌃⌘↓ |
-| Toggle web panel | ⌘⌥B |
-| Open web panel | ⌘O |
+| Action               | macOS default |
+| -------------------- | ------------- |
+| Toggle sidebar       | ⌘B            |
+| Open settings        | ⌘,            |
+| New chat             | ⌘T            |
+| Stop response        | ⌘C            |
+| Send message         | Enter         |
+| Insert newline       | ⇧Enter        |
+| Focus search         | ⌘F            |
+| Previous / next chat | ⌃⌘↑ / ⌃⌘↓     |
+| Toggle web panel     | ⌘⌥B           |
+| Open web panel       | ⌘O            |
 
 ---
 
@@ -163,14 +163,14 @@ Packaged apps embed the CometMind binary as an Electron extra resource and serve
 
 ## Runtime files
 
-| Path | Purpose |
-|---|---|
-| `~/.cometmind/cometmind.db` | CometMind SQLite database |
-| `~/.cometmind/cometline-settings.json` | Single settings file (providers, CometMind runtime, appearance, shortcuts) |
-| `~/.cometmind/config.toml` | Legacy only; CometMind migrates from this if JSON is absent |
-| `~/.cometmind/cometline-workspace.json` | Selected workspace path |
-| `~/.cometmind/cometline.log` | Sidecar stdout/stderr (rotates at 10 MB while running → `.log.1`) |
-| `~/.cometmind/cometline-gateway.log` | Discord gateway log (same rotation) |
+| Path                                    | Purpose                                                                    |
+| --------------------------------------- | -------------------------------------------------------------------------- |
+| `~/.cometmind/cometmind.db`             | CometMind SQLite database                                                  |
+| `~/.cometmind/cometline-settings.json`  | Single settings file (providers, CometMind runtime, appearance, shortcuts) |
+| `~/.cometmind/config.toml`              | Legacy only; CometMind migrates from this if JSON is absent                |
+| `~/.cometmind/cometline-workspace.json` | Selected workspace path                                                    |
+| `~/.cometmind/cometline.log`            | Sidecar stdout/stderr (rotates at 10 MB while running → `.log.1`)          |
+| `~/.cometmind/cometline-gateway.log`    | Discord gateway log (same rotation)                                        |
 
 ---
 
@@ -184,11 +184,11 @@ For a contributor-oriented map of the whole monorepo, see [`../ARCHITECTURE_GUID
 
 ## Tech stack
 
-| Layer | Choice |
-|---|---|
-| Desktop shell | Electron 42 |
-| Renderer | SvelteKit 2 + Svelte 5 + TypeScript |
-| Styling | Tailwind CSS v4 |
-| Markdown | marked, Shiki, KaTeX, DOMPurify |
-| Sidecar | CometMind Go binary on port 7700 |
-| Packaging | electron-builder (macOS DMG + ZIP, notarized) |
+| Layer         | Choice                                        |
+| ------------- | --------------------------------------------- |
+| Desktop shell | Electron 42                                   |
+| Renderer      | SvelteKit 2 + Svelte 5 + TypeScript           |
+| Styling       | Tailwind CSS v4                               |
+| Markdown      | marked, Shiki, KaTeX, DOMPurify               |
+| Sidecar       | CometMind Go binary on port 7700              |
+| Packaging     | electron-builder (macOS DMG + ZIP, notarized) |

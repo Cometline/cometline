@@ -11,7 +11,7 @@
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { chatStore } from '$lib/stores/chat.svelte';
 	import { FolderOpen } from '@lucide/svelte';
-import type { ImageAttachment } from '$lib/types';
+	import type { ImageAttachment } from '$lib/types';
 
 	let bootMessage = $derived(shellStore.bootMessage);
 

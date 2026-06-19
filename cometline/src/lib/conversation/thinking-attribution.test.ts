@@ -9,14 +9,30 @@ describe('buildThinkingAttribution', () => {
 			{
 				id: 'm1',
 				type: 'memory',
-				memories: [{ id: 'mem-1', kind: 'fact', content: 'alpha', similarity: 1, effective_weight: 1 }]
+				memories: [
+					{
+						id: 'mem-1',
+						kind: 'fact',
+						content: 'alpha',
+						similarity: 1,
+						effective_weight: 1
+					}
+				]
 			},
 			{ id: 'a1', type: 'assistant', text: 'reply one' },
 			{ id: 'u2', type: 'user', text: 'second' },
 			{
 				id: 'm2',
 				type: 'memory',
-				memories: [{ id: 'mem-2', kind: 'fact', content: 'beta', similarity: 1, effective_weight: 1 }]
+				memories: [
+					{
+						id: 'mem-2',
+						kind: 'fact',
+						content: 'beta',
+						similarity: 1,
+						effective_weight: 1
+					}
+				]
 			},
 			{ id: 'a2', type: 'assistant', text: 'reply two' }
 		];
@@ -40,7 +56,15 @@ describe('buildThinkingAttribution', () => {
 			{
 				id: 'm1',
 				type: 'memory',
-				memories: [{ id: 'mem-1', kind: 'fact', content: 'alpha', similarity: 1, effective_weight: 1 }]
+				memories: [
+					{
+						id: 'mem-1',
+						kind: 'fact',
+						content: 'alpha',
+						similarity: 1,
+						effective_weight: 1
+					}
+				]
 			}
 		];
 
@@ -81,7 +105,15 @@ describe('buildThinkingAttribution', () => {
 			{
 				id: 'm1',
 				type: 'memory',
-				memories: [{ id: 'mem-1', kind: 'fact', content: 'only turn one', similarity: 1, effective_weight: 1 }]
+				memories: [
+					{
+						id: 'mem-1',
+						kind: 'fact',
+						content: 'only turn one',
+						similarity: 1,
+						effective_weight: 1
+					}
+				]
 			},
 			{ id: 'a1', type: 'assistant', text: 'r1' },
 			{ id: 'u2', type: 'user', text: 'two' },

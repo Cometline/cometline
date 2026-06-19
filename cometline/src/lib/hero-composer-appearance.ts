@@ -43,8 +43,14 @@ export function normalizeHeroComposerAppearance(
 	appearance: Partial<HeroComposerAppearance> | undefined
 ): HeroComposerAppearance {
 	return {
-		glowColor: normalizeHexColor(appearance?.glowColor, DEFAULT_HERO_COMPOSER_APPEARANCE.glowColor),
-		ringColor: normalizeHexColor(appearance?.ringColor, DEFAULT_HERO_COMPOSER_APPEARANCE.ringColor)
+		glowColor: normalizeHexColor(
+			appearance?.glowColor,
+			DEFAULT_HERO_COMPOSER_APPEARANCE.glowColor
+		),
+		ringColor: normalizeHexColor(
+			appearance?.ringColor,
+			DEFAULT_HERO_COMPOSER_APPEARANCE.ringColor
+		)
 	};
 }
 
@@ -75,9 +81,7 @@ export function hexToRgba(hex: string, alpha: number): string {
 	return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-export function heroComposerCssVars(
-	appearance: HeroComposerAppearance
-): Record<string, string> {
+export function heroComposerCssVars(appearance: HeroComposerAppearance): Record<string, string> {
 	const colors = normalizeHeroComposerAppearance(appearance);
 	return {
 		'--hero-composer-glow-color': colors.glowColor,

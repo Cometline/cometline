@@ -128,8 +128,7 @@
 			selectedEmbeddingKey = embeddingKeyForSettings(nextSettings);
 			memories = list.memories ?? [];
 		} catch (error) {
-			loadError =
-				error instanceof Error ? error.message : 'Failed to load memory settings';
+			loadError = error instanceof Error ? error.message : 'Failed to load memory settings';
 			settings = defaultMemorySettings();
 			selectedEmbeddingKey = '';
 			memories = [];
@@ -184,7 +183,11 @@
 	async function addMemory() {
 		if (!newContent.trim()) return;
 		try {
-			const rec = await createMemory({ content: newContent.trim(), kind: 'fact', pinned: false });
+			const rec = await createMemory({
+				content: newContent.trim(),
+				kind: 'fact',
+				pinned: false
+			});
 			memories = [rec, ...memories];
 			newContent = '';
 			status = 'Memory added.';
@@ -244,7 +247,8 @@
 	<section class="memory-panel">
 		{#if loadError}
 			<p class="load-error">
-				{loadError}. Showing defaults — restart CometMind (Save in Settings → Providers) or run
+				{loadError}. Showing defaults — restart CometMind (Save in Settings → Providers) or
+				run
 				<code>make build-cometmind</code> if endpoints are missing.
 				<button class="link-button" type="button" onclick={reload}>Retry</button>
 			</p>
@@ -258,7 +262,11 @@
 
 			<div class="sliders">
 				<label>
-					<span>Similarity threshold ({Math.round(settings.similarity_threshold * 100)}%)</span>
+					<span
+						>Similarity threshold ({Math.round(
+							settings.similarity_threshold * 100
+						)}%)</span
+					>
 					<input
 						type="range"
 						min="0"
@@ -297,7 +305,8 @@
 					<span>Embedding model</span>
 					{#if embeddingDropdownOptions.length === 0}
 						<p class="empty-embedding">
-							No embedding models enabled. Enable an embedding model under Settings → Providers.
+							No embedding models enabled. Enable an embedding model under Settings →
+							Providers.
 						</p>
 					{:else}
 						<select
@@ -335,7 +344,11 @@
 
 		<label class="add-row">
 			<span>Add memory</span>
-			<textarea bind:value={newContent} rows="3" placeholder="Something the agent should remember…"></textarea>
+			<textarea
+				bind:value={newContent}
+				rows="3"
+				placeholder="Something the agent should remember…"
+			></textarea>
 			<button class="secondary" onclick={addMemory}>Add</button>
 		</label>
 
@@ -346,10 +359,15 @@
 						<strong>{memory.kind}</strong>
 						<p>{memory.content}</p>
 						<small>
-							weight {memory.effective_weight.toFixed(2)} · accessed {memory.access_count} times
+							weight {memory.effective_weight.toFixed(2)} · accessed {memory.access_count}
+							times
 						</small>
 					</div>
-					<button class="icon danger" aria-label="Delete memory" onclick={() => removeMemory(memory.id)}>
+					<button
+						class="icon danger"
+						aria-label="Delete memory"
+						onclick={() => removeMemory(memory.id)}
+					>
 						<Trash2 size={14} />
 					</button>
 				</article>
