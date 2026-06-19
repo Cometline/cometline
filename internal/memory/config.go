@@ -7,6 +7,7 @@ type Settings struct {
 	AutoRetrieve        bool
 	MaxRetrieved        int
 	SimilarityThreshold float64
+	ExtractionProvider string
 	ExtractionModel     string
 	Lifecycle           LifecycleSettings
 	Embedding           EmbeddingSettings

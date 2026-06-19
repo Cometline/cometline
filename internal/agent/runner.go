@@ -9,9 +9,11 @@ import (
 
 	cometsdk "github.com/cometline/comet-sdk"
 	"github.com/cometline/comet-sdk/llm"
+	"github.com/cometline/cometmind/internal/config"
 	"github.com/cometline/cometmind/internal/event"
 	"github.com/cometline/cometmind/internal/logging"
 	"github.com/cometline/cometmind/internal/memory"
+	"github.com/cometline/cometmind/internal/provider"
 	"github.com/cometline/cometmind/internal/session"
 	"github.com/cometline/cometmind/internal/tools"
 )
@@ -39,6 +41,7 @@ type MemoryStore interface {
 
 // Runner executes the persisted agent loop for one user turn (which may span many tool steps).
 type Runner struct {
+	Config   *config.Config
 	Provider cometsdk.Provider
 	Sessions TurnStore
 	Memory   MemoryStore
@@ -279,7 +282,19 @@ func (r *Runner) extractMemoryBackground(ctx context.Context, turn session.Agent
 		}
 	}
 	// Best-effort persistence only; the turn SSE stream has already closed.
-	_, _ = r.Memory.ExtractAfterTurn(ctx, turn.ID, turn.ModelID, r.Provider)
+	providerID, model := turn.ProviderID, turn.ModelID
+	llmProvider := r.Provider
+	if r.Config != nil {
+		providerID, model = r.Config.ExtractionLLMForSession(turn.ProviderID, turn.ModelID)
+		if providerID != turn.ProviderID {
+			if p, err := provider.NewFor(r.Config, providerID); err == nil {
+				llmProvider = p
+			} else {
+				logging.L().Warn("memory.extract.provider_failed", "session", turn.ID, "provider", providerID, "error", err)
+			}
+		}
+	}
+	_, _ = r.Memory.ExtractAfterTurn(ctx, turn.ID, model, llmProvider)
 }
 
 func (r *Runner) systemPrompt() string {

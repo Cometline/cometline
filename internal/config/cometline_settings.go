@@ -69,8 +69,9 @@ type cometlineCometmindJSON struct {
 	ACP              cometlineACPJSON    `json:"acp"`
 	Skills           cometlineSkillsJSON `json:"skills"`
 	Memory           struct {
-		ExtractionModel string                       `json:"extractionModel"`
-		Embedding       cometlineMemoryEmbeddingJSON `json:"embedding"`
+		ExtractionProviderID string                       `json:"extractionProviderId"`
+		ExtractionModel      string                       `json:"extractionModel"`
+		Embedding            cometlineMemoryEmbeddingJSON `json:"embedding"`
 	} `json:"memory"`
 	Storage cometlineStorageJSON `json:"storage"`
 	Gateway struct {
@@ -173,6 +174,7 @@ func adaptCometlineSettings(raw cometlineSettingsJSON) (*Config, error) {
 			AutoRetrieve:        memDef.AutoRetrieve,
 			MaxRetrieved:        memDef.MaxRetrieved,
 			SimilarityThreshold: memDef.SimilarityThreshold,
+			ExtractionProvider:  strings.TrimSpace(cm.Memory.ExtractionProviderID),
 			ExtractionModel:     firstNonEmpty(strings.TrimSpace(cm.Memory.ExtractionModel), memDef.ExtractionModel),
 			Lifecycle:           memDef.Lifecycle,
 			Embedding: MemoryEmbeddingConfig{

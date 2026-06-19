@@ -153,6 +153,7 @@ func (r *Runtime) RunnerFor(sess session.Session, workspacePath string) (*agent.
 	skillRegistry := r.SkillsForWorkspace(workspacePath)
 
 	return &agent.Runner{
+		Config:       r.Config,
 		Provider:     p,
 		Sessions:     r.Sessions,
 		Memory:       r.Memory,

@@ -14,6 +14,7 @@ type MemoryConfig struct {
 	AutoRetrieve        bool                  `json:"auto_retrieve" mapstructure:"auto_retrieve"`
 	MaxRetrieved        int                   `json:"max_retrieved" mapstructure:"max_retrieved"`
 	SimilarityThreshold float64               `json:"similarity_threshold" mapstructure:"similarity_threshold"`
+	ExtractionProvider  string                `json:"extraction_provider" mapstructure:"extraction_provider"`
 	ExtractionModel     string                `json:"extraction_model" mapstructure:"extraction_model"`
 	Lifecycle           MemoryLifecycleConfig `json:"lifecycle" mapstructure:"lifecycle"`
 	Embedding           MemoryEmbeddingConfig `json:"embedding" mapstructure:"embedding"`
@@ -78,6 +79,7 @@ func (c *Config) MemorySettings() memory.Settings {
 		AutoRetrieve:        mc.AutoRetrieve,
 		MaxRetrieved:        mc.MaxRetrieved,
 		SimilarityThreshold: mc.SimilarityThreshold,
+		ExtractionProvider:  mc.ExtractionProvider,
 		ExtractionModel:     mc.ExtractionModel,
 		Lifecycle: memory.LifecycleSettings{
 			DecayHalfLifeDays:     mc.Lifecycle.DecayHalfLifeDays,
@@ -230,6 +232,7 @@ func usesOpenAIEmbeddingAPI(provider string) bool {
 func (c *Config) memoryBehaviorConfigured() bool {
 	return c.Memory.Enabled || c.Memory.AutoExtract || c.Memory.AutoRetrieve ||
 		c.Memory.MaxRetrieved > 0 || c.Memory.SimilarityThreshold > 0 ||
+		strings.TrimSpace(c.Memory.ExtractionProvider) != "" ||
 		strings.TrimSpace(c.Memory.ExtractionModel) != "" ||
 		c.Memory.Lifecycle.DecayHalfLifeDays > 0 ||
 		c.Memory.Lifecycle.MaxMemories > 0
@@ -262,6 +265,7 @@ func (c *Config) EffectiveMemoryConfig() MemoryConfig {
 		AutoRetrieve:        s.AutoRetrieve,
 		MaxRetrieved:        s.MaxRetrieved,
 		SimilarityThreshold: s.SimilarityThreshold,
+		ExtractionProvider:  s.ExtractionProvider,
 		ExtractionModel:     s.ExtractionModel,
 		Lifecycle: MemoryLifecycleConfig{
 			DecayHalfLifeDays:     s.Lifecycle.DecayHalfLifeDays,
@@ -278,4 +282,22 @@ func (c *Config) EffectiveMemoryConfig() MemoryConfig {
 
 func (c *Config) memoryConfigured() bool {
 	return c.memoryBehaviorConfigured() || c.memoryEmbeddingConfigured()
+}
+
+// ExtractionLLMForSession returns the provider id and model id to use for memory
+// extraction. Configured extraction provider/model override the session values
+// when set; otherwise the session's own provider/model are used.
+func (c *Config) ExtractionLLMForSession(providerID, modelID string) (string, string) {
+	outProvider := strings.TrimSpace(providerID)
+	outModel := strings.TrimSpace(modelID)
+	if c == nil {
+		return outProvider, outModel
+	}
+	if pid := strings.TrimSpace(c.Memory.ExtractionProvider); pid != "" {
+		outProvider = pid
+	}
+	if model := strings.TrimSpace(c.Memory.ExtractionModel); model != "" {
+		outModel = model
+	}
+	return outProvider, outModel
 }
