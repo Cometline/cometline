@@ -137,6 +137,8 @@ func (p *provider) doRequest(ctx context.Context, req *cometsdk.Request, flags s
 
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Accept", "text/event-stream")
+	httpReq.Header.Set("Cache-Control", "no-cache")
+	httpReq.Header.Set("X-Accel-Buffering", "no")
 	httpReq.Header.Set("Authorization", "Bearer "+p.apiKey)
 
 	client := p.cfg.HTTPClient
