@@ -246,6 +246,17 @@ func loadCometlineSettingsJSON(path string) (*Config, error) {
 	return adaptCometlineSettings(raw)
 }
 
+// ValidateCometlineSettingsJSON checks whether data can be used as Cometline's
+// saved settings file without applying environment overrides.
+func ValidateCometlineSettingsJSON(data []byte) error {
+	var raw cometlineSettingsJSON
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return fmt.Errorf("parse cometline settings: %w", err)
+	}
+	_, err := adaptCometlineSettings(raw)
+	return err
+}
+
 func writeMinimalCometlineSettingsJSON(path string, def *Config) error {
 	raw := cometlineSettingsJSON{
 		Providers: []cometlineProviderJSON{
