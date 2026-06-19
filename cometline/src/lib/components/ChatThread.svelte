@@ -74,7 +74,6 @@
 	let thinkingOverrides = $state(new Map<string, boolean>());
 	let expandedMemoryInThinking = $state(new Set<string>());
 	let subagentFold = $state(new Map<string, boolean>());
-	let subagentReply = $state(new Map<string, string>());
 	let copiedId = $state<string | null>(null);
 	let copyResetTimer: ReturnType<typeof setTimeout> | null = null;
 	let now = $state(Date.now());
@@ -176,24 +175,22 @@
 		return `Thinking · ${parts.join(' · ')}`;
 	}
 
-	function subagentExpanded(id: string, pending: boolean) {
+	function subagentExpanded(id: string) {
 		const override = subagentFold.get(id);
 		if (override !== undefined) return override;
-		return pending;
+		return false;
 	}
 
-	function toggleSubagent(id: string, pending: boolean) {
+	function toggleSubagent(id: string) {
 		const next = new Map(subagentFold);
-		next.set(id, !subagentExpanded(id, pending));
+		next.set(id, !subagentExpanded(id));
 		subagentFold = next;
 	}
 
 	function subagentProgressLabel(item: Extract<ChatItem, { type: 'subagent' }>) {
 		const toolCount = item.progress.filter((entry) => entry.kind === 'tool').length;
 		const prefix =
-			item.status === 'awaiting_user' || item.status === 'awaiting_permission'
-				? 'OpenCode needs input'
-				: item.status === 'failed'
+			item.status === 'failed'
 					? 'OpenCode failed'
 					: item.status === 'cancelled'
 						? 'OpenCode cancelled'
@@ -204,74 +201,13 @@
 		return prefix;
 	}
 
-	function subagentCanReply(item: Extract<ChatItem, { type: 'subagent' }>) {
-		return item.status === 'awaiting_user' || item.status === 'awaiting_permission';
-	}
-
-	type SubagentChoice = { id: string; label: string; permission: boolean };
-
-	function subagentChoiceOptions(
-		item: Extract<ChatItem, { type: 'subagent' }>
-	): SubagentChoice[] {
-		if (item.permissionOptions?.length) {
-			return item.permissionOptions.map((option) => ({
-				id: option.id,
-				label: option.name,
-				permission: true
-			}));
-		}
-		if (item.status !== 'awaiting_user' || !item.pendingQuestion) return [];
-		const parsed = [...item.pendingQuestion.matchAll(/`([^`]+)`/g)]
-			.map((match) => match[1].trim())
-			.filter(Boolean);
-		const unique = [...new Set(parsed)];
-		if (unique.length < 2) return [];
-		return unique.map((label) => ({ id: label, label, permission: false }));
-	}
-
 	function subagentVisibleProgress(item: Extract<ChatItem, { type: 'subagent' }>) {
-		// Agent message is shown in pendingQuestion once we're truly awaiting input.
-		if (item.pendingQuestion || item.status === 'running') {
+		if (item.status === 'running') {
 			return item.progress.filter(
 				(entry) => !(entry.kind === 'stream' && entry.channel === 'message')
 			);
 		}
 		return item.progress;
-	}
-
-	function subagentReplyText(id: string) {
-		return subagentReply.get(id) ?? '';
-	}
-
-	function setSubagentReply(id: string, value: string) {
-		const next = new Map(subagentReply);
-		next.set(id, value);
-		subagentReply = next;
-	}
-
-	async function submitSubagentReply(item: Extract<ChatItem, { type: 'subagent' }>) {
-		const text = subagentReplyText(item.id).trim();
-		if (!text) return;
-		setSubagentReply(item.id, '');
-		await chatStore.replyToSubagent(item.childSessionId, text);
-	}
-
-	async function submitSubagentPermission(
-		item: Extract<ChatItem, { type: 'subagent' }>,
-		optionId: string
-	) {
-		await chatStore.replyToSubagent(item.childSessionId, '', optionId);
-	}
-
-	async function submitSubagentChoice(
-		item: Extract<ChatItem, { type: 'subagent' }>,
-		choice: SubagentChoice
-	) {
-		if (choice.permission) {
-			await submitSubagentPermission(item, choice.id);
-			return;
-		}
-		await chatStore.replyToSubagent(item.childSessionId, choice.label);
 	}
 
 	async function copyMessage(id: string, text: string) {
@@ -760,7 +696,7 @@
 					{/if}
 					<button
 						type="button"
-						class="message-action"
+						class="message-action mb-1"
 						class:copied={copiedId === item.id}
 						title="Copy message"
 						aria-label="Copy message"
@@ -975,46 +911,46 @@
 							></div>
 							<div class="subagent-stack">
 								<div class="fold-panel subagent-panel" class:pending={item.pending}>
-									<button
-										type="button"
-										class="fold-toggle subagent-toggle"
-										aria-expanded={subagentExpanded(
-											item.id,
-											item.pending === true
-										)}
-										onclick={() =>
-											toggleSubagent(item.id, item.pending === true)}
-									>
-										<Terminal size={13} />
-										<span>{subagentProgressLabel(item)}</span>
+									<div class="subagent-header">
+										<button
+											type="button"
+											class="fold-toggle subagent-toggle"
+											aria-expanded={subagentExpanded(item.id)}
+											onclick={() => toggleSubagent(item.id)}
+										>
+											<Terminal size={13} />
+											<span>{subagentProgressLabel(item)}</span>
+											{#if item.pending}
+												<LoaderCircle size={12} class="spin" />
+											{:else if item.status === 'failed'}
+												<TriangleAlert size={12} />
+											{:else if item.status === 'cancelled'}
+												<CircleX size={12} />
+											{:else}
+												<CircleCheck size={12} />
+											{/if}
+											<ChevronDown
+												size={13}
+												class={subagentExpanded(item.id) ? 'expanded' : ''}
+											/>
+										</button>
 										{#if item.pending}
-											<LoaderCircle size={12} class="spin" />
-										{:else if item.status === 'failed'}
-											<TriangleAlert size={12} />
-										{:else if item.status === 'cancelled'}
-											<CircleX size={12} />
-										{:else}
-											<CircleCheck size={12} />
+											<button
+												type="button"
+												class="subagent-cancel"
+												onclick={() => chatStore.cancelSubagent(item.childSessionId)}
+											>
+												Cancel
+											</button>
 										{/if}
-										<ChevronDown
-											size={13}
-											class={subagentExpanded(item.id, item.pending === true)
-												? 'expanded'
-												: ''}
-										/>
-									</button>
-									{#if subagentExpanded(item.id, item.pending === true)}
+									</div>
+									{#if subagentExpanded(item.id)}
 										{@const visibleProgress = subagentVisibleProgress(item)}
 										<div
 											class="fold-body subagent-body"
 											transition:slide={FOLD_IN}
 										>
 											<p class="subagent-purpose">{item.purpose}</p>
-											{#if item.pendingQuestion}
-												<p class="subagent-question">
-													{item.pendingQuestion}
-												</p>
-											{/if}
 											{#if visibleProgress.length > 0}
 												<div class="subagent-progress">
 													{#each visibleProgress as entry, entryIndex (`${item.id}-progress-${entry.kind}-${entryIndex}`)}
@@ -1055,80 +991,6 @@
 											{#if item.summary}
 												<div class="subagent-summary">
 													<p>{item.summary}</p>
-												</div>
-											{/if}
-											{#if subagentCanReply(item)}
-												{@const choices = subagentChoiceOptions(item)}
-												<div class="subagent-reply">
-													{#if choices.length > 0}
-														<div class="subagent-permission-options">
-															{#each choices as choice (choice.id)}
-																<button
-																	type="button"
-																	class="subagent-permission-btn"
-																	onclick={() =>
-																		submitSubagentChoice(
-																			item,
-																			choice
-																		)}
-																>
-																	{choice.label}
-																</button>
-															{/each}
-														</div>
-													{/if}
-													{#if item.status === 'awaiting_user'}
-														<textarea
-															class="subagent-reply-input"
-															rows="2"
-															placeholder={choices.length > 0
-																? 'Or type a custom reply…'
-																: 'Reply to OpenCode…'}
-															value={subagentReplyText(item.id)}
-															oninput={(e) =>
-																setSubagentReply(
-																	item.id,
-																	(
-																		e.currentTarget as HTMLTextAreaElement
-																	).value
-																)}
-														></textarea>
-														<div class="subagent-reply-actions">
-															<button
-																type="button"
-																class="subagent-reply-send"
-																onclick={() =>
-																	submitSubagentReply(item)}
-															>
-																Send
-															</button>
-															{#if item.pending}
-																<button
-																	type="button"
-																	class="subagent-reply-cancel"
-																	onclick={() =>
-																		chatStore.cancelSubagent(
-																			item.childSessionId
-																		)}
-																>
-																	Cancel
-																</button>
-															{/if}
-														</div>
-													{:else if item.pending}
-														<div class="subagent-reply-actions">
-															<button
-																type="button"
-																class="subagent-reply-cancel"
-																onclick={() =>
-																	chatStore.cancelSubagent(
-																		item.childSessionId
-																	)}
-															>
-																Cancel
-															</button>
-														</div>
-													{/if}
 												</div>
 											{/if}
 										</div>
@@ -1773,10 +1635,43 @@
 		border-color: rgba(59, 130, 246, 0.22);
 	}
 
+	.subagent-header {
+		display: flex;
+		align-items: stretch;
+		gap: 8px;
+		min-width: 0;
+	}
+
+	.subagent-toggle {
+		min-width: 0;
+		flex: 1;
+	}
+
+	.subagent-cancel {
+		flex: 0 0 auto;
+		border: 1px solid var(--border-soft);
+		border-radius: 999px;
+		padding: 0 12px;
+		font-size: 12px;
+		font-weight: 600;
+		cursor: pointer;
+		background: var(--surface-muted, var(--bg-muted));
+		color: var(--text-muted);
+	}
+
+	.subagent-cancel:hover {
+		border-color: color-mix(in srgb, var(--accent) 28%, var(--border-soft));
+		color: var(--text-main);
+	}
+
 	.subagent-body {
 		display: flex;
 		flex-direction: column;
 		gap: 10px;
+		align-self: stretch;
+		box-sizing: border-box;
+		width: 100%;
+		min-width: 0;
 	}
 
 	.subagent-purpose {
@@ -1784,66 +1679,6 @@
 		font-size: 12px;
 		line-height: 1.45;
 		color: var(--text-main);
-	}
-
-	.subagent-question {
-		margin: 8px 0 0;
-		padding: 10px 12px;
-		border-radius: 10px;
-		background: color-mix(in srgb, var(--accent) 12%, transparent);
-		font-size: 13px;
-		line-height: 1.45;
-	}
-
-	.subagent-reply {
-		margin-top: 12px;
-		display: flex;
-		flex-direction: column;
-		gap: 8px;
-	}
-
-	.subagent-reply-input {
-		width: 100%;
-		resize: vertical;
-		min-height: 56px;
-		padding: 10px 12px;
-		border-radius: 10px;
-		border: 1px solid var(--border-soft);
-		background: var(--surface-elevated, var(--bg-elevated));
-		color: var(--text-main);
-		font: inherit;
-	}
-
-	.subagent-reply-actions {
-		display: flex;
-		gap: 8px;
-	}
-
-	.subagent-reply-send,
-	.subagent-reply-cancel,
-	.subagent-permission-btn {
-		border: 0;
-		border-radius: 8px;
-		padding: 6px 12px;
-		font-size: 12px;
-		cursor: pointer;
-	}
-
-	.subagent-reply-send,
-	.subagent-permission-btn {
-		background: var(--accent);
-		color: var(--accent-contrast, #fff);
-	}
-
-	.subagent-reply-cancel {
-		background: var(--surface-muted, var(--bg-muted));
-		color: var(--text-muted);
-	}
-
-	.subagent-permission-options {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 8px;
 	}
 
 	.subagent-progress {
@@ -1857,12 +1692,14 @@
 	.subagent-stream,
 	.subagent-summary p {
 		margin: 0;
+		min-width: 0;
 		width: 100%;
 		max-width: 100%;
 		font-size: 11px;
 		line-height: 1.5;
 		white-space: pre-wrap;
-		overflow-wrap: anywhere;
+		overflow-wrap: break-word;
+		word-break: normal;
 		color: var(--text-muted);
 	}
 
@@ -1915,13 +1752,22 @@
 	}
 
 	.subagent-summary {
+		box-sizing: border-box;
+		width: 100%;
+		min-width: 0;
+		max-width: 100%;
 		padding-top: 8px;
 		border-top: 1px solid var(--border-soft);
 	}
 
 	.subagent-summary p {
+		display: block;
+		box-sizing: border-box;
+		white-space: normal;
 		max-height: 220px;
-		overflow: auto;
+		overflow-x: hidden;
+		overflow-y: auto;
+		scrollbar-gutter: stable;
 	}
 
 </style>

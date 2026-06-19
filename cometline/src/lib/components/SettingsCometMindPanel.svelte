@@ -290,11 +290,6 @@
 				spellcheck="false"
 			/>
 		</label>
-		<SettingsToggle
-			label="Interactive subagent"
-			description="Pause OpenCode when it asks a question or needs permission, so you can reply in the chat."
-			bind:checked={cometmind.acp.interactive}
-		/>
 	</div>
 
 	<div class="section-block">

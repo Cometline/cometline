@@ -4389,8 +4389,7 @@ function defaultCometMindSettings(workspacePath = "") {
     acp: {
       command: "opencode",
       args: ["acp"],
-      timeout: "30m",
-      interactive: true
+      timeout: "30m"
     },
     skills: {
       enabled: true,
@@ -4444,8 +4443,7 @@ function normalizeCometMindSettings(input, fallbackWorkspacePath = "") {
     acp: {
       command: String(acp.command ?? defaults.acp.command).trim() || defaults.acp.command,
       args: args.length > 0 ? args : defaults.acp.args,
-      timeout: String(acp.timeout ?? defaults.acp.timeout).trim() || defaults.acp.timeout,
-      interactive: typeof acp.interactive === "boolean" ? acp.interactive : defaults.acp.interactive
+      timeout: String(acp.timeout ?? defaults.acp.timeout).trim() || defaults.acp.timeout
     },
     skills: {
       enabled: typeof skills.enabled === "boolean" ? skills.enabled : defaults.skills.enabled,
@@ -4514,8 +4512,7 @@ function cloneCometMindSettings(settings) {
     acp: {
       command: settings.acp.command,
       args: [...settings.acp.args],
-      timeout: settings.acp.timeout,
-      interactive: settings.acp.interactive
+      timeout: settings.acp.timeout
     },
     skills: {
       ...settings.skills,
@@ -4762,8 +4759,7 @@ var providerSettingsSchema = external_exports.object({
     acp: external_exports.object({
       command: external_exports.string().min(1),
       args: external_exports.array(external_exports.string()),
-      timeout: external_exports.string().min(1),
-      interactive: external_exports.boolean()
+      timeout: external_exports.string().min(1)
     }),
     skills: external_exports.object({
       enabled: external_exports.boolean(),

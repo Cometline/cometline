@@ -199,7 +199,7 @@ Cometline and CometMind share settings in `~/.cometmind/cometline-settings.json`
   "activeProviderId": "openai",
   "cometmind": {
     "maxTokens": 2048,
-    "acp": { "command": "opencode", "args": ["acp"], "timeout": "30m", "interactive": true }
+    "acp": { "command": "opencode", "args": ["acp"], "timeout": "30m" }
   }
 }
 ```
