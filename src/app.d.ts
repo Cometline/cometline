@@ -1,5 +1,5 @@
 declare global {
-	type ProviderMethod = 'openai-compatible' | 'openai' | 'anthropic' | 'opencode-go';
+	type ProviderMethod = 'openai-compatible' | 'openai' | 'anthropic' | 'opencode-go' | 'codex';
 
 	interface ProviderConfig {
 		id: string;

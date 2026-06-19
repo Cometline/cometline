@@ -30,18 +30,22 @@ export const OPENCODE_GO_AVAILABLE_MODELS = [
 	'qwen3.7-plus'
 ] as const;
 
+export const CODEX_FALLBACK_MODELS = ['gpt-5.4', 'gpt-5.4-mini', 'gpt-5.4-nano'] as const;
+
 export const VALID_PROVIDER_METHODS: ProviderMethod[] = [
 	'openai-compatible',
 	'openai',
 	'anthropic',
-	'opencode-go'
+	'opencode-go',
+	'codex'
 ];
 
 const BUILTIN_PROVIDER_NAMES: Record<string, string> = {
 	'openai-compatible': 'OpenAI Compatible',
 	anthropic: 'Anthropic',
 	openai: 'OpenAI',
-	'opencode-go': 'OpenCode Go'
+	'opencode-go': 'OpenCode Go',
+	codex: 'ChatGPT Codex'
 };
 
 function providerNameOrDefault(
@@ -181,6 +185,17 @@ const DEFAULT_PROVIDERS: ProviderConfig[] = [
 		apiKey: '',
 		selectedModel: '',
 		models: [...OPENCODE_GO_AVAILABLE_MODELS],
+		enabledModels: []
+	},
+	{
+		id: 'codex',
+		name: 'ChatGPT Codex',
+		method: 'codex',
+		enabled: false,
+		baseURL: 'https://chatgpt.com/backend-api/codex',
+		apiKey: '',
+		selectedModel: '',
+		models: [...CODEX_FALLBACK_MODELS],
 		enabledModels: []
 	}
 ];
@@ -450,6 +465,8 @@ export function normalizeProvider(
 	const modelList =
 		method === 'opencode-go'
 			? Array.from(new Set([...OPENCODE_GO_AVAILABLE_MODELS, ...models]))
+			: method === 'codex'
+				? Array.from(new Set([...CODEX_FALLBACK_MODELS, ...models]))
 			: models;
 	const legacySelected = String(provider.selectedModel || fallback?.selectedModel || '').trim();
 	const rawEnabledModels = Array.isArray(provider.enabledModels)
@@ -471,7 +488,7 @@ export function normalizeProvider(
 		enabled:
 			typeof provider.enabled === 'boolean' ? provider.enabled : Boolean(fallback?.enabled),
 		baseURL: String(provider.baseURL ?? fallback?.baseURL ?? '').trim(),
-		apiKey: String(provider.apiKey ?? fallback?.apiKey ?? '').trim(),
+		apiKey: method === 'codex' ? '' : String(provider.apiKey ?? fallback?.apiKey ?? '').trim(),
 		selectedModel: enabledModels[0] || '',
 		models: [...modelList],
 		enabledModels
@@ -642,7 +659,7 @@ export function runtimeSlice(settings: ProviderSettings): RuntimeSettingsSlice |
 const providerConfigSchema = z.object({
 	id: z.string().min(1),
 	name: z.string(),
-	method: z.enum(['openai-compatible', 'openai', 'anthropic', 'opencode-go']),
+	method: z.enum(['openai-compatible', 'openai', 'anthropic', 'opencode-go', 'codex']),
 	enabled: z.boolean(),
 	baseURL: z.string(),
 	apiKey: z.string(),

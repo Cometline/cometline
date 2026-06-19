@@ -20,6 +20,7 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 // src/lib/settings/schema.ts
 var schema_exports = {};
 __export(schema_exports, {
+  CODEX_FALLBACK_MODELS: () => CODEX_FALLBACK_MODELS,
   OPENCODE_GO_AVAILABLE_MODELS: () => OPENCODE_GO_AVAILABLE_MODELS,
   SettingsValidationError: () => SettingsValidationError,
   VALID_PROVIDER_METHODS: () => VALID_PROVIDER_METHODS,
@@ -4276,17 +4277,20 @@ var OPENCODE_GO_AVAILABLE_MODELS = [
   "qwen3.7-max",
   "qwen3.7-plus"
 ];
+var CODEX_FALLBACK_MODELS = ["gpt-5.4", "gpt-5.4-mini", "gpt-5.4-nano"];
 var VALID_PROVIDER_METHODS = [
   "openai-compatible",
   "openai",
   "anthropic",
-  "opencode-go"
+  "opencode-go",
+  "codex"
 ];
 var BUILTIN_PROVIDER_NAMES = {
   "openai-compatible": "OpenAI Compatible",
   anthropic: "Anthropic",
   openai: "OpenAI",
-  "opencode-go": "OpenCode Go"
+  "opencode-go": "OpenCode Go",
+  codex: "ChatGPT Codex"
 };
 function providerNameOrDefault(provider, fallback, id) {
   const name = String(provider.name ?? "").trim();
@@ -4338,6 +4342,17 @@ var DEFAULT_PROVIDERS = [
     apiKey: "",
     selectedModel: "",
     models: [...OPENCODE_GO_AVAILABLE_MODELS],
+    enabledModels: []
+  },
+  {
+    id: "codex",
+    name: "ChatGPT Codex",
+    method: "codex",
+    enabled: false,
+    baseURL: "https://chatgpt.com/backend-api/codex",
+    apiKey: "",
+    selectedModel: "",
+    models: [...CODEX_FALLBACK_MODELS],
     enabledModels: []
   }
 ];
@@ -4554,7 +4569,7 @@ function normalizeProvider(provider, fallback) {
   const method = VALID_PROVIDER_METHODS.includes(provider.method) ? provider.method : fallback?.method ?? "openai-compatible";
   const rawModels = Array.isArray(provider.models) ? provider.models : fallback?.models ?? [];
   const models = rawModels.map((model) => String(model || "").trim()).filter(Boolean);
-  const modelList = method === "opencode-go" ? Array.from(/* @__PURE__ */ new Set([...OPENCODE_GO_AVAILABLE_MODELS, ...models])) : models;
+  const modelList = method === "opencode-go" ? Array.from(/* @__PURE__ */ new Set([...OPENCODE_GO_AVAILABLE_MODELS, ...models])) : method === "codex" ? Array.from(/* @__PURE__ */ new Set([...CODEX_FALLBACK_MODELS, ...models])) : models;
   const legacySelected = String(provider.selectedModel || fallback?.selectedModel || "").trim();
   const rawEnabledModels = Array.isArray(provider.enabledModels) ? provider.enabledModels : legacySelected ? [legacySelected] : [];
   const enabledModels = rawEnabledModels.map((model) => String(model || "").trim()).filter((model) => model && modelList.includes(model));
@@ -4567,7 +4582,7 @@ function normalizeProvider(provider, fallback) {
     method,
     enabled: typeof provider.enabled === "boolean" ? provider.enabled : Boolean(fallback?.enabled),
     baseURL: String(provider.baseURL ?? fallback?.baseURL ?? "").trim(),
-    apiKey: String(provider.apiKey ?? fallback?.apiKey ?? "").trim(),
+    apiKey: method === "codex" ? "" : String(provider.apiKey ?? fallback?.apiKey ?? "").trim(),
     selectedModel: enabledModels[0] || "",
     models: [...modelList],
     enabledModels
@@ -4697,7 +4712,7 @@ function runtimeSlice(settings) {
 var providerConfigSchema = external_exports.object({
   id: external_exports.string().min(1),
   name: external_exports.string(),
-  method: external_exports.enum(["openai-compatible", "openai", "anthropic", "opencode-go"]),
+  method: external_exports.enum(["openai-compatible", "openai", "anthropic", "opencode-go", "codex"]),
   enabled: external_exports.boolean(),
   baseURL: external_exports.string(),
   apiKey: external_exports.string(),
@@ -4802,6 +4817,7 @@ function parseAndNormalizeSettings(raw, options = {}) {
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
+  CODEX_FALLBACK_MODELS,
   OPENCODE_GO_AVAILABLE_MODELS,
   SettingsValidationError,
   VALID_PROVIDER_METHODS,

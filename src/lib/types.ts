@@ -20,7 +20,7 @@ export type {
 export type { Skill as SkillResource, ListSkillsResponse as SkillListResponse, SyncSkillsResponse as SkillSyncResponse } from '$lib/generated/cometmind-api';
 export type MemoryUpdate = MemoryChangeWire;
 
-export type ProviderMethod = 'openai-compatible' | 'openai' | 'anthropic' | 'opencode-go';
+export type ProviderMethod = 'openai-compatible' | 'openai' | 'anthropic' | 'opencode-go' | 'codex';
 
 export interface ProviderConfig {
 	id: string;

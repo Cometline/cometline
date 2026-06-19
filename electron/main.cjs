@@ -5,6 +5,7 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const {
+	CODEX_FALLBACK_MODELS,
 	OPENCODE_GO_AVAILABLE_MODELS,
 	defaultSettings,
 	normalizeProviders,
@@ -41,6 +42,10 @@ const UPDATE_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;
 const LOG_MAX_BYTES = 10 * 1024 * 1024;
 const LOG_BACKUP_COUNT = 1;
 const LOG_ROTATE_CHECK_BYTES = 512 * 1024;
+const CODEX_BASE_URL = 'https://chatgpt.com/backend-api/codex';
+const CODEX_CLIENT_ID = 'app_EMoamEEZ73f0CkXaXp7hrann';
+const CODEX_REFRESH_URL = 'https://auth.openai.com/oauth/token';
+const CODEX_CLIENT_VERSION = '1.0.0';
 
 function rotateLogIfNeeded(logPath) {
 	try {
@@ -1406,10 +1411,121 @@ async function fetchAnthropicModels(baseURL, apiKey) {
 	return Array.from(new Set(models)).sort();
 }
 
+function codexAuthPath() {
+	const codexHome = String(process.env.CODEX_HOME || '').trim();
+	return path.join(codexHome || path.join(os.homedir(), '.codex'), 'auth.json');
+}
+
+function jwtExpiresSoon(token) {
+	const parts = String(token || '').split('.');
+	if (parts.length < 2) return false;
+	try {
+		const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+		const exp = Number(payload.exp || 0);
+		if (!exp) return false;
+		return exp * 1000 <= Date.now() + 30_000;
+	} catch {
+		return false;
+	}
+}
+
+async function refreshCodexAuth(auth, authPath) {
+	const refreshToken = String(auth?.tokens?.refresh_token || '').trim();
+	if (!refreshToken) throw new Error('Codex session expired. Run `codex login` again.');
+	const res = await fetch(CODEX_REFRESH_URL, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+		body: JSON.stringify({
+			client_id: CODEX_CLIENT_ID,
+			grant_type: 'refresh_token',
+			refresh_token: refreshToken
+		}),
+		signal: AbortSignal.timeout(FETCH_MODELS_TIMEOUT_MS)
+	});
+	const payload = await res.json().catch(() => ({}));
+	if (!res.ok || payload.error) {
+		const detail = payload.error_description || payload.error || res.statusText;
+		throw new Error(`Codex refresh failed: ${detail}. Run \`codex login\` again.`);
+	}
+	if (!payload.access_token) throw new Error('Codex refresh did not return an access token');
+	auth.tokens.access_token = payload.access_token;
+	if (payload.refresh_token) auth.tokens.refresh_token = payload.refresh_token;
+	if (payload.id_token) auth.tokens.id_token = payload.id_token;
+	auth.tokens.last_refresh = new Date().toISOString();
+	const tmpPath = `${authPath}.tmp`;
+	fs.writeFileSync(tmpPath, `${JSON.stringify(auth, null, 2)}\n`, { mode: 0o600 });
+	fs.renameSync(tmpPath, authPath);
+	return auth;
+}
+
+async function borrowCodexAuth() {
+	const authPath = codexAuthPath();
+	if (!fs.existsSync(authPath)) {
+		throw new Error(`Codex auth file not found at ${authPath}. Run \`codex login\` first.`);
+	}
+	let auth;
+	try {
+		auth = JSON.parse(fs.readFileSync(authPath, 'utf8'));
+	} catch (err) {
+		throw new Error(`Failed to read Codex auth file: ${err instanceof Error ? err.message : err}`);
+	}
+	if (auth?.auth_mode !== 'chatgpt') {
+		throw new Error('Codex is not logged in with ChatGPT. Run `codex login` first.');
+	}
+	if (!auth?.tokens?.access_token) {
+		throw new Error('Codex auth file has no access token. Run `codex login` first.');
+	}
+	if (jwtExpiresSoon(auth.tokens.access_token)) {
+		auth = await refreshCodexAuth(auth, authPath);
+	}
+	return {
+		accessToken: auth.tokens.access_token,
+		accountID: auth.tokens.account_id || ''
+	};
+}
+
+function normalizeCodexModelsURL(rawBaseURL) {
+	const base = String(rawBaseURL || CODEX_BASE_URL).replace(/\/+$/, '');
+	return `${base}/models?client_version=${encodeURIComponent(CODEX_CLIENT_VERSION)}`;
+}
+
+async function fetchCodexModels(baseURL) {
+	const auth = await borrowCodexAuth();
+	const headers = {
+		Authorization: `Bearer ${auth.accessToken}`,
+		Accept: 'application/json'
+	};
+	if (auth.accountID) headers['ChatGPT-Account-ID'] = auth.accountID;
+	const res = await fetchModelsFromURL(normalizeCodexModelsURL(baseURL), headers);
+	if (!res.ok) {
+		const body = await res.text();
+		throw new Error(`${res.status}: ${body || res.statusText}`);
+	}
+	const payload = await res.json();
+	const rawModels = Array.isArray(payload?.models)
+		? payload.models
+		: Array.isArray(payload?.data)
+			? payload.data
+			: [];
+	const models = rawModels
+		.filter((item) => {
+			if (typeof item === 'string') return true;
+			if (!item || typeof item !== 'object') return false;
+			return item.supported_in_api !== false && item.visibility !== 'hidden';
+		})
+		.map((item) => (typeof item === 'string' ? item : item.slug || item.id))
+		.filter((id) => typeof id === 'string' && id.trim())
+		.map((id) => id.trim());
+	return Array.from(new Set(models.length > 0 ? models : CODEX_FALLBACK_MODELS)).sort();
+}
+
 async function fetchProviderModels(config) {
 	const method = config.method;
 	if (method === 'opencode-go') {
 		return [...OPENCODE_GO_AVAILABLE_MODELS];
+	}
+	if (method === 'codex') {
+		return fetchCodexModels(config.baseURL);
 	}
 
 	const baseURL = String(config.baseURL || '').trim();

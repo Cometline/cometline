@@ -45,14 +45,16 @@
 		'openai-compatible': 'OpenAI-compatible',
 		openai: 'OpenAI',
 		anthropic: 'Anthropic',
-		'opencode-go': 'OpenCode Go'
+		'opencode-go': 'OpenCode Go',
+		codex: 'ChatGPT Codex'
 	};
 
 	const DEFAULT_PROVIDER_IDS = new Set([
 		'openai-compatible',
 		'anthropic',
 		'openai',
-		'opencode-go'
+		'opencode-go',
+		'codex'
 	]);
 	const OPENCODE_GO_AVAILABLE_MODELS = [
 		'deepseek-v4-flash',
@@ -69,6 +71,7 @@
 		'qwen3.7-max',
 		'qwen3.7-plus'
 	];
+	const CODEX_FALLBACK_MODELS = ['gpt-5.4', 'gpt-5.4-mini', 'gpt-5.4-nano'];
 
 	function cloneProvider(provider: ProviderConfig): ProviderConfig {
 		return {
@@ -434,6 +437,15 @@
 			});
 			return;
 		}
+		if (method === 'codex') {
+			updateSelected({
+				method,
+				baseURL: 'https://chatgpt.com/backend-api/codex',
+				apiKey: '',
+				models: [...CODEX_FALLBACK_MODELS]
+			});
+			return;
+		}
 		updateSelected({ method });
 	}
 
@@ -591,6 +603,15 @@
 
 	function methodNeedsFetch(method: ProviderMethod) {
 		return method !== 'opencode-go';
+	}
+
+	function methodNeedsApiKey(method: ProviderMethod) {
+		return method !== 'codex';
+	}
+
+	function canFetchModels(provider: ProviderConfig) {
+		if (settingsStore.isFetchingModels || !provider.baseURL.trim()) return false;
+		return provider.method === 'codex' || provider.apiKey.trim().length > 0;
 	}
 </script>
 
@@ -802,6 +823,7 @@
 											<option value="anthropic">Anthropic</option>
 											<option value="openai">OpenAI</option>
 											<option value="opencode-go">OpenCode Go</option>
+											<option value="codex">ChatGPT Codex</option>
 										</select>
 									</label>
 
@@ -816,24 +838,40 @@
 										/>
 									</label>
 
-									<label>
-										<span>API Key</span>
-										<input
-											value={selectedProvider.apiKey}
-											oninput={(e) =>
-												updateSelected({ apiKey: e.currentTarget.value })}
-											type="password"
-											placeholder="sk-..."
-											spellcheck="false"
-										/>
-									</label>
+									{#if methodNeedsApiKey(selectedProvider.method)}
+										<label>
+											<span>API Key</span>
+											<input
+												value={selectedProvider.apiKey}
+												oninput={(e) =>
+													updateSelected({ apiKey: e.currentTarget.value })}
+												type="password"
+												placeholder="sk-..."
+												spellcheck="false"
+											/>
+										</label>
+									{:else}
+										<div class="field-note">
+											<span>Authentication</span>
+											<p>
+												Uses your Codex CLI ChatGPT session at <code
+													>~/.codex/auth.json</code
+												>. Run <code>codex login</code> first.
+											</p>
+										</div>
+									{/if}
 								</div>
 
 								<div class="model-section">
 									<div class="model-heading">
 										<div>
 											<h3>Models</h3>
-											{#if methodNeedsFetch(selectedProvider.method)}
+											{#if selectedProvider.method === 'codex'}
+												<p>
+													Use Fetch models to refresh models from your Codex CLI
+													ChatGPT session.
+												</p>
+											{:else if methodNeedsFetch(selectedProvider.method)}
 												<p>
 													Use Fetch models to refresh the latest list from <code
 														>/models</code
@@ -847,9 +885,7 @@
 											<button
 												class="secondary"
 												onclick={fetchModels}
-												disabled={settingsStore.isFetchingModels ||
-													!selectedProvider.baseURL.trim() ||
-													!selectedProvider.apiKey.trim()}
+												disabled={!canFetchModels(selectedProvider)}
 											>
 												{#if settingsStore.isFetchingModels}<span
 														class="spin"
@@ -1393,6 +1429,26 @@
 		font-size: 12px;
 		font-weight: 600;
 		color: var(--text-muted);
+	}
+
+	.field-note {
+		display: grid;
+		gap: 6px;
+		border: 1px solid var(--border-soft);
+		border-radius: 11px;
+		background: rgba(255, 255, 255, 0.55);
+		padding: 10px 11px;
+		font-size: 12px;
+		color: var(--text-muted);
+	}
+
+	.field-note span {
+		font-weight: 700;
+	}
+
+	.field-note p {
+		font-weight: 500;
+		line-height: 1.45;
 	}
 
 	input,
