@@ -463,6 +463,7 @@ export type MemorySettings = {
     auto_retrieve?: boolean;
     max_retrieved?: number;
     similarity_threshold?: number;
+    extraction_provider?: string;
     extraction_model?: string;
     lifecycle?: MemoryLifecycleSettings;
     embedding?: MemoryEmbeddingSettings;
