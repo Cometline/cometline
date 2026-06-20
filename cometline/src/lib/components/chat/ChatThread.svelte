@@ -130,6 +130,10 @@
 		return thinkingForAssistant.toolIdsInBuffer.has(item.id);
 	}
 
+	function isSubagentInBuffer(item: Extract<ChatItem, { type: 'subagent' }>) {
+		return thinkingForAssistant.subagentIdsInBuffer.has(item.id);
+	}
+
 	function isMemoryInBuffer(item: Extract<ChatItem, { type: 'memory' }>) {
 		return thinkingForAssistant.memoryIdsInBuffer.has(item.id);
 	}
@@ -376,7 +380,8 @@
 	function speakerFor(item: ChatItem | undefined): 'user' | 'assistant' | null {
 		if (!item) return null;
 		if (item.type === 'user') return 'user';
-		if (item.type === 'assistant' || item.type === 'tool') return 'assistant';
+		if (item.type === 'assistant' || item.type === 'tool' || item.type === 'subagent')
+			return 'assistant';
 		return null;
 	}
 
@@ -385,6 +390,12 @@
 		if (!firstTurnFlightDone) return true;
 		if (!firstAssistantItem) return true;
 		return !showAssistantRow(firstAssistantItem);
+	}
+
+	function timelineEntryKey(entry: TimelineEntry) {
+		if (entry.kind === 'reasoning') return `${entry.kind}-${entry.segmentIndex}`;
+		if (entry.kind === 'tool') return `${entry.kind}-${entry.tool.id}`;
+		return `${entry.kind}-${entry.subagent.id}`;
 	}
 
 	function firstAssistantInNormalList(item: Extract<ChatItem, { type: 'assistant' }>) {
@@ -553,7 +564,7 @@
 {#snippet assistantStack(item: Extract<ChatItem, { type: 'assistant' }>)}
 	{@const timeline = buildAssistantTimeline(item.id, threadItems, thinkingForAssistant)}
 	<div class="assistant-stack">
-		{#each timeline as entry (`${entry.kind}-${entry.kind === 'reasoning' ? entry.segmentIndex : entry.tool.id}`)}
+		{#each timeline as entry (timelineEntryKey(entry))}
 			{#if entry.kind === 'reasoning'}
 				{@const segmentKey = `${item.id}-seg-${entry.segmentIndex}`}
 				<ThinkingBlock
@@ -567,12 +578,18 @@
 					onToggle={() => toggleThinking(segmentKey, entry.pending)}
 					onToggleMemory={() => toggleMemoryInThinking(segmentKey)}
 				/>
-			{:else}
+			{:else if entry.kind === 'tool'}
 				<ToolFoldPanel
 					item={entry.tool}
 					label={toolFoldLabel(entry.tool)}
 					expanded={toolOutputExpanded(entry.tool)}
 					onToggle={() => toggleToolOutput(entry.tool.id)}
+				/>
+			{:else}
+				<SubagentPanel
+					item={entry.subagent}
+					expanded={subagentExpanded(entry.subagent.id)}
+					onToggle={() => toggleSubagent(entry.subagent.id)}
 				/>
 			{/if}
 		{/each}
@@ -757,7 +774,7 @@
 									/>
 								</div>
 							</div>
-						{:else if item.type === 'subagent'}
+						{:else if item.type === 'subagent' && !isSubagentInBuffer(item)}
 							<div
 								class="row tool-row subagent-row"
 								class:continuation-row={!startsSpeakerRun(index, 'assistant')}

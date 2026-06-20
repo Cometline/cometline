@@ -3,11 +3,13 @@ import { getReasoningSegments } from './reasoning';
 
 export type InjectedMemory = Extract<ChatItem, { type: 'memory' }>['memories'][number];
 export type ToolChatItem = Extract<ChatItem, { type: 'tool' }>;
+export type SubagentChatItem = Extract<ChatItem, { type: 'subagent' }>;
 type AssistantItem = Extract<ChatItem, { type: 'assistant' }>;
 
 export type ThinkingBlock = {
 	reasoning?: { text: string; pending?: boolean };
 	tools: ToolChatItem[];
+	subagents: SubagentChatItem[];
 	memories: InjectedMemory[];
 };
 
@@ -19,11 +21,13 @@ export type TimelineEntry =
 			pending?: boolean;
 			memories?: InjectedMemory[];
 	  }
-	| { kind: 'tool'; tool: ToolChatItem };
+	| { kind: 'tool'; tool: ToolChatItem }
+	| { kind: 'subagent'; subagent: SubagentChatItem };
 
 export type ThinkingAttribution = {
 	map: Map<string, ThinkingBlock>;
 	toolIdsInBuffer: Set<string>;
+	subagentIdsInBuffer: Set<string>;
 	memoryIdsInBuffer: Set<string>;
 };
 
@@ -31,6 +35,7 @@ export type ThinkingAttribution = {
 export function buildThinkingAttribution(items: readonly ChatItem[]): ThinkingAttribution {
 	const map = new Map<string, ThinkingBlock>();
 	const toolIdsInBuffer = new Set<string>();
+	const subagentIdsInBuffer = new Set<string>();
 	const memoryIdsInBuffer = new Set<string>();
 	let currentAssistantId: string | null = null;
 	let pendingMemories: InjectedMemory[] = [];
@@ -65,6 +70,7 @@ export function buildThinkingAttribution(items: readonly ChatItem[]): ThinkingAt
 						? { text: firstSegment.text, pending: firstSegment.pending }
 						: undefined,
 					tools: [],
+					subagents: [],
 					memories: pendingMemories
 				});
 			} else {
@@ -85,10 +91,16 @@ export function buildThinkingAttribution(items: readonly ChatItem[]): ThinkingAt
 				block.tools.push(item);
 				toolIdsInBuffer.add(item.id);
 			}
+		} else if (item.type === 'subagent' && currentAssistantId) {
+			const block = map.get(currentAssistantId);
+			if (block) {
+				block.subagents.push(item);
+				subagentIdsInBuffer.add(item.id);
+			}
 		}
 	}
 
-	return { map, toolIdsInBuffer, memoryIdsInBuffer };
+	return { map, toolIdsInBuffer, subagentIdsInBuffer, memoryIdsInBuffer };
 }
 
 /** Build chronological thinking/tool entries for one assistant turn. */
@@ -105,6 +117,7 @@ export function buildAssistantTimeline(
 
 	const block = attr.map.get(assistantId);
 	const tools = block?.tools ?? [];
+	const subagents = block?.subagents ?? [];
 	const memories = block?.memories ?? [];
 	const segments = getReasoningSegments(assistant.reasoning);
 	const timeline: TimelineEntry[] = [];
@@ -112,6 +125,9 @@ export function buildAssistantTimeline(
 	if (segments.length === 0) {
 		for (const tool of tools) {
 			timeline.push({ kind: 'tool', tool });
+		}
+		for (const subagent of subagents) {
+			timeline.push({ kind: 'subagent', subagent });
 		}
 		return timeline;
 	}
@@ -140,6 +156,10 @@ export function buildAssistantTimeline(
 		if (!placed.has(tool.id)) {
 			timeline.push({ kind: 'tool', tool });
 		}
+	}
+
+	for (const subagent of subagents) {
+		timeline.push({ kind: 'subagent', subagent });
 	}
 
 	return timeline;

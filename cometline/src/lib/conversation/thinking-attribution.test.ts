@@ -182,4 +182,43 @@ describe('buildThinkingAttribution', () => {
 		expect(map.get('a1')?.memories).toHaveLength(1);
 		expect(map.get('a2')?.memories ?? []).toEqual([]);
 	});
+
+	it('buffers subagents under the assistant and places them after tools in the timeline', () => {
+		const items: ChatItem[] = [
+			{ id: 'u1', type: 'user', text: 'delegate this' },
+			{
+				id: 'a1',
+				type: 'assistant',
+				text: 'Here is the result.',
+				reasoning: {
+					segments: [{ text: 'planning delegation', pending: false }]
+				}
+			},
+			{
+				id: 't1',
+				type: 'tool',
+				toolName: 'delegate_coding_task',
+				input: {},
+				output: 'child-1',
+				pending: false,
+				afterSegment: 0
+			},
+			{
+				id: 's1',
+				type: 'subagent',
+				childSessionId: 'child-1',
+				purpose: 'Fix the bug',
+				agentName: 'opencode',
+				status: 'completed',
+				progress: [],
+				pending: false
+			}
+		];
+
+		const attribution = buildThinkingAttribution(items);
+		const timeline = buildAssistantTimeline('a1', items, attribution);
+
+		expect(attribution.subagentIdsInBuffer.has('s1')).toBe(true);
+		expect(timeline.map((entry) => entry.kind)).toEqual(['reasoning', 'tool', 'subagent']);
+	});
 });
