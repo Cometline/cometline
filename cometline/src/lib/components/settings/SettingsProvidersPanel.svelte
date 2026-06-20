@@ -435,6 +435,22 @@
 		margin-bottom: 10px;
 	}
 
+	.model-heading h3 {
+		margin: 0;
+		font-size: 16px;
+	}
+
+	.model-heading p {
+		margin: 4px 0 0;
+		font-size: 12px;
+		line-height: 1.45;
+		color: var(--text-muted);
+	}
+
+	.model-heading code {
+		font-size: 11px;
+	}
+
 	.model-search {
 		width: 100%;
 		margin-bottom: 10px;
