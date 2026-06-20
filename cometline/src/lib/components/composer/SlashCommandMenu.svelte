@@ -104,6 +104,10 @@
 		color: var(--text-soft);
 	}
 
+	.skill-command-menu :global(.slash-group-heading:first-child) {
+		padding-top: 4px;
+	}
+
 	.skill-command-menu :global(.workspace-search-hint) {
 		display: flex;
 		align-items: center;
@@ -118,6 +122,11 @@
 		line-height: 1.2;
 	}
 
+	.skill-command-menu :global(.workspace-search-hint svg) {
+		flex-shrink: 0;
+		color: var(--text-soft);
+	}
+
 	.skill-command-menu :global(.workspace-search-value) {
 		min-width: 0;
 		overflow: hidden;
@@ -129,5 +138,73 @@
 
 	.skill-command-menu :global(.workspace-search-placeholder) {
 		color: var(--text-soft);
+	}
+
+	.skill-command-menu :global(.skill-command-loading .mention-spinner) {
+		flex-shrink: 0;
+		color: var(--text-soft);
+		animation: mention-spin 0.7s linear infinite;
+	}
+
+	@keyframes mention-spin {
+		to {
+			transform: rotate(360deg);
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.skill-command-menu :global(.skill-command-loading .mention-spinner) {
+			animation: none;
+		}
+	}
+
+	.skill-command-menu :global(.mention-option) {
+		flex-direction: row;
+		align-items: center;
+		gap: 8px;
+		padding: 7px 10px;
+	}
+
+	.skill-command-menu :global(.mention-option svg) {
+		flex-shrink: 0;
+		color: var(--text-soft);
+	}
+
+	.skill-command-menu :global(.mention-path) {
+		font-size: 12px;
+		font-weight: 500;
+		color: var(--text-main);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.skill-command-menu :global(.mention-hint) {
+		margin: 2px 0 0;
+		padding: 6px 10px 2px;
+		font-size: 10px;
+		color: var(--text-soft);
+		border-top: 1px solid var(--border-soft);
+	}
+
+	.skill-command-menu:global(.model-command-menu) {
+		max-height: 320px;
+		overflow-y: auto;
+	}
+
+	.skill-command-menu :global(.model-command-option) {
+		position: relative;
+	}
+
+	.skill-command-menu :global(.model-command-option.is-selected) {
+		background: rgba(0, 102, 204, 0.04);
+	}
+
+	.skill-command-menu :global(.model-command-check) {
+		position: absolute;
+		right: 10px;
+		top: 50%;
+		transform: translateY(-50%);
+		color: rgba(0, 102, 204, 0.7);
 	}
 </style>

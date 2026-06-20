@@ -10,7 +10,11 @@ import {
 import type { ChatItem, ImageAttachment, Session, StreamEvent, TranscriptItem } from '$lib/types';
 import type { ChatTurnPayload } from '$lib/actions/start-chat';
 import { reduceChatState } from '$lib/reducers/chat';
-import { anyReasoningPending, getReasoningSegments, hasReasoning } from '$lib/conversation/reasoning';
+import {
+	anyReasoningPending,
+	getReasoningSegments,
+	hasReasoning
+} from '$lib/conversation/reasoning';
 import { stripInlinedFileBlocks } from '$lib/messages/strip-inlined-files';
 import { sessionStore } from '$lib/stores/session.svelte';
 import { chatDebug, summarizeChatItems, summarizeStreamEvent } from '../debug/chat';
@@ -138,7 +142,8 @@ function itemsFromTranscript(transcriptItems: TranscriptItem[]): ChatItem[] {
 			const toolItem = itemFromTranscript(item, i);
 			if (toolItem.type === 'tool') {
 				const host = out.findLast(
-					(row): row is Extract<ChatItem, { type: 'assistant' }> => row.type === 'assistant'
+					(row): row is Extract<ChatItem, { type: 'assistant' }> =>
+						row.type === 'assistant'
 				);
 				toolItem.afterSegment = host
 					? Math.max(0, getReasoningSegments(host.reasoning).length - 1)
@@ -288,8 +293,7 @@ function createChatStore() {
 		if (streamHandles.has(targetSessionID)) return true;
 		return getCachedItems(targetSessionID).some(
 			(item) =>
-				item.type === 'assistant' &&
-				(item.pending === true || anyReasoningPending(item))
+				item.type === 'assistant' && (item.pending === true || anyReasoningPending(item))
 		);
 	}
 
@@ -362,10 +366,7 @@ function createChatStore() {
 			ctx.assistant.current = null;
 		}
 		const last = cached.at(-1);
-		if (
-			last?.type === 'assistant' &&
-			(last.pending === true || anyReasoningPending(last))
-		) {
+		if (last?.type === 'assistant' && (last.pending === true || anyReasoningPending(last))) {
 			ctx.assistant.current = last;
 		}
 	}

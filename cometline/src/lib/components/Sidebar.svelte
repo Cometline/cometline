@@ -134,17 +134,17 @@
 			{#each groupedSessions as group, index (group.workspacePath)}
 				<div animate:flip={WORKSPACE_GROUP_FLIP}>
 					<WorkspaceGroup
-					label={group.label}
-					workspacePath={group.workspacePath}
-					sessions={group.sessions}
-					collapsed={isGroupCollapsed(group.workspacePath)}
-					active={group.workspacePath === highlightWorkspacePath}
-					showDivider={index === 0 && showWorkspaceDivider}
-					{currentSessionId}
-					{deletingID}
-					onToggle={() => toggleGroup(group.workspacePath)}
-					onSelectSession={selectSession}
-					onDeleteSession={removeSession}
+						label={group.label}
+						workspacePath={group.workspacePath}
+						sessions={group.sessions}
+						collapsed={isGroupCollapsed(group.workspacePath)}
+						active={group.workspacePath === highlightWorkspacePath}
+						showDivider={index === 0 && showWorkspaceDivider}
+						{currentSessionId}
+						{deletingID}
+						onToggle={() => toggleGroup(group.workspacePath)}
+						onSelectSession={selectSession}
+						onDeleteSession={removeSession}
 					/>
 				</div>
 			{/each}

@@ -14,7 +14,13 @@
 	} = $props();
 </script>
 
-<button class="provider-card" class:selected class:enabled {onclick} transition:fly={{ y: 4, duration: 100 }}>
+<button
+	class="provider-card"
+	class:selected
+	class:enabled
+	{onclick}
+	transition:fly={{ y: 4, duration: 100 }}
+>
 	<span>
 		<strong>{name}</strong>
 	</span>

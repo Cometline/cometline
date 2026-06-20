@@ -69,8 +69,7 @@ export async function measureStableUserBubble(target: HTMLElement): Promise<DOMR
 
 	for (let frame = 0; frame < MAX_LAYOUT_WAIT_FRAMES; frame++) {
 		await afterPaint();
-		const stackWidth =
-			stack instanceof HTMLElement ? stack.getBoundingClientRect().width : 0;
+		const stackWidth = stack instanceof HTMLElement ? stack.getBoundingClientRect().width : 0;
 		if (stackWidth > 0 && stackWidth === prevWidth) {
 			stableFrames++;
 			if (stableFrames >= LAYOUT_STABLE_FRAMES) {

@@ -38,10 +38,10 @@ The default approach for component-specific layout, pseudo-elements, animations,
 <div class="bubble">...</div>
 
 <style>
-  .bubble {
-    border-radius: var(--radius-card);
-    background: var(--panel-bg);
-  }
+	.bubble {
+		border-radius: var(--radius-card);
+		background: var(--panel-bg);
+	}
 </style>
 ```
 
@@ -59,23 +59,23 @@ Use for simple layout and spacing in HTML when it keeps markup readable:
 
 ## When to use what
 
-| Approach | When | Example |
-|----------|------|---------|
-| `app.css` tokens | Shared color/spacing/motion | `var(--text-muted)` |
-| Tailwind utilities | Simple layout in markup | `flex gap-2 text-xs` |
-| Scoped `<style>` | Component layout, animations, states | `.composer.is-docked` |
-| `:global()` | Injected or third-party DOM only | Markdown headings, Shiki blocks |
-| `style:` directive | Per-instance dynamic values | `style:height`, `style:--thinking-color` |
-| `@apply` | **Never** | Anti-pattern in Tailwind v4 |
+| Approach           | When                                 | Example                                  |
+| ------------------ | ------------------------------------ | ---------------------------------------- |
+| `app.css` tokens   | Shared color/spacing/motion          | `var(--text-muted)`                      |
+| Tailwind utilities | Simple layout in markup              | `flex gap-2 text-xs`                     |
+| Scoped `<style>`   | Component layout, animations, states | `.composer.is-docked`                    |
+| `:global()`        | Injected or third-party DOM only     | Markdown headings, Shiki blocks          |
+| `style:` directive | Per-instance dynamic values          | `style:height`, `style:--thinking-color` |
+| `@apply`           | **Never**                            | Anti-pattern in Tailwind v4              |
 
 ## Component size guidelines
 
-| Scoped CSS lines | Action |
-|------------------|--------|
-| < 100 | Fine as-is |
-| 100–200 | Acceptable; watch for duplication |
-| 200–400 | Consider extracting child components |
-| 400+ | Should split |
+| Scoped CSS lines | Action                               |
+| ---------------- | ------------------------------------ |
+| < 100            | Fine as-is                           |
+| 100–200          | Acceptable; watch for duplication    |
+| 200–400          | Consider extracting child components |
+| 400+             | Should split                         |
 
 Target for new components: **< 200 lines CSS, < 400 lines total**.
 
@@ -110,10 +110,10 @@ Good small components to follow:
 
 ## Global utilities in `app.css`
 
-| Class | Purpose |
-|-------|---------|
-| `.spin` | Loading spinner animation |
-| `.spin.small` | 14×14 spinner variant |
-| `.content-panel-surface` | Panel border/shadow surface |
-| `.pane-focus-active` | Focused pane highlight |
-| `.no-drag` | Electron window drag region override |
+| Class                    | Purpose                              |
+| ------------------------ | ------------------------------------ |
+| `.spin`                  | Loading spinner animation            |
+| `.spin.small`            | 14×14 spinner variant                |
+| `.content-panel-surface` | Panel border/shadow surface          |
+| `.pane-focus-active`     | Focused pane highlight               |
+| `.no-drag`               | Electron window drag region override |

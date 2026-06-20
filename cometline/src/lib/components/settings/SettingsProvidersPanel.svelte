@@ -1,13 +1,6 @@
 <script lang="ts">
 	import { fly } from 'svelte/transition';
-	import {
-		Check,
-		LogIn,
-		LoaderCircle,
-		Plus,
-		RefreshCw,
-		Trash2
-	} from '@lucide/svelte';
+	import { Check, LogIn, LoaderCircle, Plus, RefreshCw, Trash2 } from '@lucide/svelte';
 	import type { ProviderConfig, ProviderMethod } from '$lib/types';
 	import { settingsStore } from '$lib/stores/settings.svelte';
 	import ProviderCard from './ProviderCard.svelte';
@@ -122,7 +115,8 @@
 				<div>
 					<h3>{selectedProvider.name}</h3>
 					<p>
-						{METHOD_LABELS[selectedProvider.method]} · {selectedProvider.enabledModels.length}
+						{METHOD_LABELS[selectedProvider.method]} · {selectedProvider.enabledModels
+							.length}
 						enabled models
 					</p>
 				</div>
@@ -200,9 +194,9 @@
 					<div class="field-note">
 						<span>Authentication</span>
 						<p>
-							Uses your ChatGPT Plus/Pro browser sign-in and stores a local Codex-compatible
-							session at <code>~/.codex/auth.json</code>. No API key or Codex CLI install is
-							required.
+							Uses your ChatGPT Plus/Pro browser sign-in and stores a local
+							Codex-compatible session at <code>~/.codex/auth.json</code>. No API key
+							or Codex CLI install is required.
 						</p>
 						{#if codexAuthStatus}
 							<p class:ok={codexAuthStatus.authenticated}>
@@ -216,7 +210,8 @@
 								class="secondary"
 								type="button"
 								onclick={onStartCodexLogin}
-								disabled={startingCodexLogin || !window.electronAPI?.startCodexLogin}
+								disabled={startingCodexLogin ||
+									!window.electronAPI?.startCodexLogin}
 							>
 								{#if startingCodexLogin}<span class="spin"
 										><LoaderCircle size={14} /></span
@@ -227,7 +222,8 @@
 								class="secondary"
 								type="button"
 								onclick={onRefreshCodexAuth}
-								disabled={checkingCodexAuth || !window.electronAPI?.getCodexAuthStatus}
+								disabled={checkingCodexAuth ||
+									!window.electronAPI?.getCodexAuthStatus}
 							>
 								{#if checkingCodexAuth}<span class="spin"
 										><LoaderCircle size={14} /></span
@@ -244,14 +240,20 @@
 					<div>
 						<h3>Models</h3>
 						{#if selectedProvider.method === 'codex'}
-							<p>Use Fetch models to refresh models from your ChatGPT browser session.</p>
+							<p>
+								Use Fetch models to refresh models from your ChatGPT browser
+								session.
+							</p>
 						{:else if selectedProvider.method === 'opencode-go'}
 							<p>
-								Use Fetch models to refresh the latest list from <code>/models</code> at OpenCode
-								Go.
+								Use Fetch models to refresh the latest list from <code>/models</code
+								> at OpenCode Go.
 							</p>
 						{:else}
-							<p>Use Fetch models to refresh the latest list from <code>/models</code>.</p>
+							<p>
+								Use Fetch models to refresh the latest list from <code>/models</code
+								>.
+							</p>
 						{/if}
 					</div>
 					<button

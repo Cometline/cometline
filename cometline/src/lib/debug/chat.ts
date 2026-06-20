@@ -1,5 +1,9 @@
 import type { ChatItem, StreamEvent } from '../types';
-import { anyReasoningPending, getReasoningSegments, reasoningTextLength } from '../conversation/reasoning';
+import {
+	anyReasoningPending,
+	getReasoningSegments,
+	reasoningTextLength
+} from '../conversation/reasoning';
 
 type DebugGlobal = typeof globalThis & { __cometlineDebugChat?: boolean };
 

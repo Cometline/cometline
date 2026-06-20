@@ -2,16 +2,7 @@
 	import { onDestroy, tick } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { fade } from 'svelte/transition';
-	import {
-		Check,
-		FileText,
-		Folder,
-		Loader,
-		Search,
-		Send,
-		Square,
-		X
-	} from '@lucide/svelte';
+	import { Check, FileText, Folder, Loader, Search, Send, Square, X } from '@lucide/svelte';
 	import type { QueuedMessage } from '$lib/actions/chat-turn-queue';
 	import { modelStore, type ModelOption } from '$lib/stores/model.svelte';
 	import { settingsStore } from '$lib/stores/settings.svelte';
@@ -1006,7 +997,11 @@
 	{/if}
 
 	{#if mentionMenuOpen}
-		<SlashCommandMenu ariaLabel="Workspace files" class="mention-menu" bind:menuRef={mentionMenu}>
+		<SlashCommandMenu
+			ariaLabel="Workspace files"
+			class="mention-menu"
+			bind:menuRef={mentionMenu}
+		>
 			{#if !fileIndexReady && filteredMentionFiles.length === 0}
 				<p class="skill-command-loading">
 					<Loader size={13} stroke-width={2} class="mention-spinner" />
@@ -1172,211 +1167,6 @@
 		line-height: 1.35;
 	}
 
-	.skill-command-menu {
-		position: absolute;
-		left: 14px;
-		right: 14px;
-		bottom: calc(100% + 8px);
-		z-index: 28;
-		max-height: 260px;
-		overflow: auto;
-		padding: 6px;
-		border: 1px solid var(--border-soft);
-		border-radius: 14px;
-		background: rgba(246, 249, 252, 0.98);
-		box-shadow: var(--shadow-card);
-		scrollbar-gutter: stable;
-	}
-
-	.skill-command-option {
-		display: flex;
-		width: 100%;
-		flex-direction: column;
-		gap: 3px;
-		padding: 9px 10px;
-		border: none;
-		border-radius: 10px;
-		background: transparent;
-		text-align: left;
-		cursor: pointer;
-	}
-
-	.skill-command-option:hover,
-	.skill-command-option.highlighted {
-		background: rgba(15, 23, 42, 0.06);
-	}
-
-	.skill-command-name {
-		font-size: 12px;
-		font-weight: 700;
-		color: var(--text-main);
-	}
-
-	.skill-command-description {
-		font-size: 11px;
-		line-height: 1.35;
-		color: var(--text-soft);
-		display: -webkit-box;
-		-webkit-box-orient: vertical;
-		-webkit-line-clamp: 2;
-		line-clamp: 2;
-		overflow: hidden;
-	}
-
-	.skill-command-empty {
-		margin: 0;
-		padding: 10px 12px;
-		font-size: 12px;
-		color: var(--text-muted);
-	}
-
-	.skill-command-loading {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		margin: 0;
-		padding: 10px 12px;
-		font-size: 12px;
-		color: var(--text-muted);
-	}
-
-	.skill-command-loading :global(.mention-spinner) {
-		flex-shrink: 0;
-		color: var(--text-soft);
-		animation: mention-spin 0.7s linear infinite;
-	}
-
-	@keyframes mention-spin {
-		to {
-			transform: rotate(360deg);
-		}
-	}
-
-	@media (prefers-reduced-motion: reduce) {
-		.skill-command-loading :global(.mention-spinner) {
-			animation: none;
-		}
-	}
-
-	.slash-group-heading {
-		margin: 0;
-		padding: 8px 10px 4px;
-		font-size: 10px;
-		font-weight: 700;
-		text-transform: uppercase;
-		letter-spacing: 0.04em;
-		color: var(--text-soft);
-	}
-
-	.slash-group-heading:first-child {
-		padding-top: 4px;
-	}
-
-	.workspace-search-hint {
-		display: flex;
-		align-items: center;
-		gap: 7px;
-		margin: 2px 2px 6px;
-		padding: 7px 10px;
-		border: 1px solid var(--border-soft);
-		border-radius: 9px;
-		background: rgba(255, 255, 255, 0.7);
-		color: var(--text-soft);
-		font-size: 12px;
-		line-height: 1.2;
-	}
-
-	.workspace-search-hint :global(svg) {
-		flex-shrink: 0;
-		color: var(--text-soft);
-	}
-
-	.workspace-search-value {
-		min-width: 0;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-		color: var(--text-main);
-		font-weight: 500;
-	}
-
-	.workspace-search-placeholder {
-		color: var(--text-soft);
-	}
-
-	.mention-option {
-		flex-direction: row;
-		align-items: center;
-		gap: 8px;
-		padding: 7px 10px;
-	}
-
-	.mention-option :global(svg) {
-		flex-shrink: 0;
-		color: var(--text-soft);
-	}
-
-	.mention-path {
-		font-size: 12px;
-		font-weight: 500;
-		color: var(--text-main);
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-	}
-
-	.mention-hint {
-		margin: 2px 0 0;
-		padding: 6px 10px 2px;
-		font-size: 10px;
-		color: var(--text-soft);
-		border-top: 1px solid var(--border-soft);
-	}
-
-	.image-attachments {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 8px;
-		margin-top: -2px;
-	}
-
-	.image-attachment {
-		position: relative;
-		width: 58px;
-		height: 58px;
-		border: 1px solid var(--border-soft);
-		border-radius: 11px;
-		background: rgba(15, 23, 42, 0.04);
-		overflow: hidden;
-	}
-
-	.image-attachment img {
-		width: 100%;
-		height: 100%;
-		object-fit: cover;
-		display: block;
-	}
-
-	.image-remove {
-		position: absolute;
-		top: 4px;
-		right: 4px;
-		display: grid;
-		place-items: center;
-		width: 18px;
-		height: 18px;
-		padding: 0;
-		border: none;
-		border-radius: 999px;
-		background: rgba(15, 23, 42, 0.72);
-		color: white;
-		cursor: pointer;
-	}
-
-	.image-remove:hover {
-		background: rgba(180, 35, 24, 0.9);
-	}
-
 	.composer.hero {
 		padding: 24px 24px 16px;
 		border-radius: 24px;
@@ -1395,118 +1185,6 @@
 		align-items: center;
 		gap: 8px;
 		min-width: 0;
-	}
-
-	.queue-picker {
-		position: relative;
-		display: flex;
-		flex-direction: column;
-		gap: 6px;
-	}
-
-	.queue-banner {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 8px;
-		width: 100%;
-		margin: -2px 0 -4px;
-		padding: 6px 10px;
-		border: none;
-		border-radius: 10px;
-		background: rgba(15, 23, 42, 0.04);
-		font-size: 11px;
-		font-weight: 500;
-		line-height: 1.2;
-		color: var(--text-soft);
-		cursor: pointer;
-		text-align: left;
-	}
-
-	.queue-banner:hover,
-	.queue-banner.open {
-		background: rgba(15, 23, 42, 0.07);
-		color: var(--text-muted);
-	}
-
-	.queue-banner :global(svg) {
-		flex-shrink: 0;
-		transition: transform var(--duration-fast) var(--ease-smooth);
-	}
-
-	.queue-banner :global(.expanded) {
-		transform: rotate(180deg);
-	}
-
-	.queue-preview {
-		padding: 8px;
-		border: 1px solid var(--border-soft);
-		border-radius: 12px;
-		background: rgba(255, 255, 255, 0.92);
-		box-shadow: var(--shadow-card);
-	}
-
-	.queue-preview-list {
-		list-style: none;
-		margin: 0;
-		padding: 0;
-		display: flex;
-		flex-direction: column;
-		gap: 6px;
-		max-height: 160px;
-		overflow-y: auto;
-		scrollbar-gutter: stable;
-	}
-
-	.queue-preview-item {
-		display: flex;
-		align-items: flex-start;
-		gap: 8px;
-		padding: 7px 8px;
-		border-radius: 8px;
-		background: rgba(15, 23, 42, 0.03);
-	}
-
-	.queue-remove {
-		flex: 0 0 auto;
-		display: grid;
-		place-items: center;
-		margin-left: auto;
-		padding: 4px;
-		border: none;
-		border-radius: 6px;
-		background: transparent;
-		color: var(--text-soft);
-		cursor: pointer;
-	}
-
-	.queue-remove:hover {
-		background: rgba(180, 35, 24, 0.08);
-		color: #b42318;
-	}
-
-	.queue-preview-index {
-		flex: 0 0 auto;
-		font-size: 10px;
-		font-weight: 600;
-		line-height: 1.45;
-		color: var(--text-soft);
-	}
-
-	.queue-preview-text {
-		margin: 0;
-		min-width: 0;
-		flex: 1;
-		font-size: 12px;
-		line-height: 1.45;
-		color: var(--text-main);
-		white-space: pre-wrap;
-		word-break: break-word;
-		display: -webkit-box;
-		-webkit-box-orient: vertical;
-		-webkit-line-clamp: 3;
-		line-clamp: 3;
-		overflow: hidden;
 	}
 
 	.composer-footer button {
@@ -1551,8 +1229,7 @@
 		background: rgba(180, 35, 24, 0.08);
 	}
 
-	.workspace-indicator,
-	.model-button {
+	.workspace-indicator {
 		display: inline-flex;
 		align-items: center;
 		gap: 5px;
@@ -1563,170 +1240,21 @@
 		line-height: 1;
 		color: var(--text-muted);
 		white-space: nowrap;
-	}
-
-	.workspace-indicator span,
-	.model-button span {
-		min-width: 0;
-		max-width: 150px;
-		overflow: hidden;
-		text-overflow: ellipsis;
-	}
-
-	.workspace-indicator span {
-		text-transform: uppercase;
-	}
-
-	.workspace-indicator :global(svg),
-	.model-button :global(svg:first-child) {
-		flex-shrink: 0;
-	}
-
-	.model-button svg:last-child {
-		flex-shrink: 0;
-	}
-
-	.model-picker {
-		position: relative;
-		min-width: 0;
-	}
-
-	.model-button,
-	.workspace-indicator {
 		border: none;
 		background: transparent;
 		border-radius: 7px;
 		cursor: pointer;
 	}
 
-	.model-menu {
-		position: absolute;
-		left: 0;
-		bottom: calc(100% + 8px);
-		width: 330px;
-		max-height: 420px;
-		overflow: auto;
-		scrollbar-gutter: stable;
-		padding: 6px;
-		border: 1px solid var(--border-soft);
-		border-radius: 13px;
-		background: rgba(246, 249, 252, 0.98);
-		box-shadow: var(--shadow-card);
-		z-index: 30;
-	}
-
-	.model-search {
-		width: 100%;
-		border: none;
-		border-bottom: 1px solid var(--border-soft);
-		background: transparent;
-		padding: 10px 12px 12px;
-		font: inherit;
-		font-size: 13px;
-		color: var(--text-main);
-		outline: none;
-	}
-
-	.model-search::placeholder {
-		color: var(--text-soft);
-	}
-
-	.model-group {
-		padding: 6px 0;
-	}
-
-	.model-group-heading {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		padding: 6px 10px;
-		color: var(--text-muted);
-	}
-
-	.model-group-heading strong {
-		font-size: 12px;
-		font-weight: 700;
-	}
-
-	.model-group-heading small {
-		border-radius: 999px;
-		background: rgba(15, 23, 42, 0.06);
-		padding: 2px 7px;
-		font-size: 10px;
-		font-weight: 700;
-		text-transform: uppercase;
-		letter-spacing: 0.02em;
-	}
-
-	.model-option {
-		display: flex;
-		align-items: center;
-		gap: 10px;
-		width: 100%;
-		padding: 9px 10px;
-		text-align: left;
-		color: var(--text-main);
-	}
-
-	.model-check {
-		width: 18px;
-		display: grid;
-		place-items: center;
-		color: var(--text-main);
-		flex-shrink: 0;
-	}
-
-	.model-option-copy {
-		display: flex;
+	.workspace-indicator span {
 		min-width: 0;
-		width: 100%;
-		flex-direction: column;
-		gap: 2px;
-	}
-
-	.model-option-copy strong,
-	.model-option-copy small {
+		max-width: 150px;
 		overflow: hidden;
 		text-overflow: ellipsis;
-		white-space: nowrap;
+		text-transform: uppercase;
 	}
 
-	.model-option-copy strong {
-		font-size: 13px;
-		font-weight: 600;
-	}
-
-	.model-option-copy small {
-		font-size: 11px;
-		font-weight: 400;
-		color: var(--text-soft);
-	}
-
-	.model-empty {
-		margin: 0;
-		padding: 12px;
-		font-size: 12px;
-		color: var(--text-muted);
-	}
-
-	.model-command-menu {
-		max-height: 320px;
-		overflow-y: auto;
-	}
-
-	.model-command-option {
-		position: relative;
-	}
-
-	.model-command-option.is-selected {
-		background: rgba(0, 102, 204, 0.04);
-	}
-
-	.model-command-check {
-		position: absolute;
-		right: 10px;
-		top: 50%;
-		transform: translateY(-50%);
-		color: rgba(0, 102, 204, 0.7);
+	.workspace-indicator :global(svg) {
+		flex-shrink: 0;
 	}
 </style>

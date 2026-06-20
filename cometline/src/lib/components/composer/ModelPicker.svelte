@@ -25,7 +25,11 @@
 			}
 		>();
 		for (const option of modelStore.options) {
-			if (query && !option.label.toLowerCase().includes(query) && !option.modelId.toLowerCase().includes(query)) {
+			if (
+				query &&
+				!option.label.toLowerCase().includes(query) &&
+				!option.modelId.toLowerCase().includes(query)
+			) {
 				continue;
 			}
 			const existing = groups.get(option.providerId);

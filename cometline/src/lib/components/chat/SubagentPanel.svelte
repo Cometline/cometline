@@ -88,7 +88,8 @@
 						{#if entry.kind === 'tool'}
 							<div
 								class="subagent-tool"
-								class:pending={entry.status === 'pending' || entry.status === 'in_progress'}
+								class:pending={entry.status === 'pending' ||
+									entry.status === 'in_progress'}
 							>
 								<div class="subagent-tool-header">
 									<Terminal size={12} />

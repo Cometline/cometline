@@ -125,7 +125,6 @@ function settlePendingTools(items: ChatItem[]) {
 	}
 }
 
-
 function appendSubagentProgress(
 	progress: SubagentProgressEntry[],
 	progressKind: string,
@@ -296,9 +295,7 @@ function applyEvent(
 		const host = ensureAssistantForText();
 		if (reasoning.current) reasoning.current.pending = false;
 		reasoning.current = null;
-		const withReasoning = host.reasoning
-			? finalizeAllReasoningSegments(host)
-			: host;
+		const withReasoning = host.reasoning ? finalizeAllReasoningSegments(host) : host;
 		publishAssistant({
 			...withReasoning,
 			text: host.text + event.delta,

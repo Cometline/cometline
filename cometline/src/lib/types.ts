@@ -149,12 +149,7 @@ export type ChatItem =
 			childSessionId: string;
 			purpose: string;
 			agentName: string;
-			status:
-				| 'running'
-				| 'completed'
-				| 'failed'
-				| 'cancelled'
-				| 'pending';
+			status: 'running' | 'completed' | 'failed' | 'cancelled' | 'pending';
 			progress: SubagentProgressEntry[];
 			summary?: string;
 			pending?: boolean;

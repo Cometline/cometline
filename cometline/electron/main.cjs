@@ -292,7 +292,9 @@ function installCometMindCliShim() {
 
 function pathWithCometMindCliBins(envPath = '') {
 	const delimiter = path.delimiter;
-	const existing = String(envPath || '').split(delimiter).filter(Boolean);
+	const existing = String(envPath || '')
+		.split(delimiter)
+		.filter(Boolean);
 	const entries = [...cometMindCliBinDirs(), ...existing];
 	return [...new Set(entries)].join(delimiter);
 }

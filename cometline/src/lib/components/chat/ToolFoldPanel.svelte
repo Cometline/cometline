@@ -1,6 +1,12 @@
 <script lang="ts">
 	import { slide } from 'svelte/transition';
-	import { Terminal, ChevronDown, LoaderCircle, TriangleAlert, CircleCheck } from '@lucide/svelte';
+	import {
+		Terminal,
+		ChevronDown,
+		LoaderCircle,
+		TriangleAlert,
+		CircleCheck
+	} from '@lucide/svelte';
 	import type { ChatItem } from '$lib/stores/chat.svelte';
 
 	const FOLD_IN = { duration: 180 };

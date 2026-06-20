@@ -1,12 +1,7 @@
 <script lang="ts">
 	import { tick, untrack } from 'svelte';
 	import { fade } from 'svelte/transition';
-	import {
-		Brain,
-		Check,
-		Copy,
-		TriangleAlert
-	} from '@lucide/svelte';
+	import { Brain, Check, Copy, TriangleAlert } from '@lucide/svelte';
 	import { chatStore, type ChatItem } from '$lib/stores/chat.svelte';
 	import { settingsStore } from '$lib/stores/settings.svelte';
 	import { chatDebug, chatDebugEnabled, summarizeChatItem } from '$lib/debug/chat';
@@ -85,9 +80,7 @@
 	let threadItems = $derived(isSessionSynced ? chatStore.items : snapshotItems);
 	let firstAssistantItem = $derived(
 		threadItems.find(
-			(item) =>
-				item.type === 'assistant' &&
-				(item.text.trim() || hasReasoning(item))
+			(item) => item.type === 'assistant' && (item.text.trim() || hasReasoning(item))
 		) as Extract<ChatItem, { type: 'assistant' }> | undefined
 	);
 	let firstAssistantId = $derived(firstAssistantItem?.id ?? null);
@@ -317,7 +310,9 @@
 	function toolFoldLabel(item: Extract<ChatItem, { type: 'tool' }>) {
 		const status = item.pending ? 'running' : item.error ? 'fail' : 'success';
 		const duration = toolDurationLabel(item);
-		return duration ? `${item.toolName} → ${status} · ${duration}` : `${item.toolName} → ${status}`;
+		return duration
+			? `${item.toolName} → ${status} · ${duration}`
+			: `${item.toolName} → ${status}`;
 	}
 
 	let heroGlowColor = $derived(settingsStore.settings.appearance.heroComposer.glowColor);
@@ -521,12 +516,9 @@
 	// below it. This is the one deliberate auto-scroll in the thread.
 	function scrollUserMessageToTop(userId: string) {
 		if (!scroller) return;
-		const target = scroller.querySelector<HTMLElement>(
-			`[data-user-item-id="${userId}"]`
-		);
+		const target = scroller.querySelector<HTMLElement>(`[data-user-item-id="${userId}"]`);
 		if (!target) return;
-		const offset =
-			userMessageCount > 1 ? USER_SEND_FOLLOWUP_OFFSET : USER_SEND_TOP_OFFSET;
+		const offset = userMessageCount > 1 ? USER_SEND_FOLLOWUP_OFFSET : USER_SEND_TOP_OFFSET;
 		const top = Math.max(0, target.offsetTop - scroller.offsetTop - offset);
 		scroller.scrollTo({ top, behavior: 'smooth' });
 		updateJumpToBottom();
@@ -630,186 +622,192 @@
 <div class="thread-wrap">
 	<div class="thread" bind:this={scroller} onscroll={onThreadScroll} aria-live="polite">
 		<div class="thread-inner">
-		{#if showMessages}
-			<div
-				class="thread-messages"
-				class:hydrating={isInitialTranscriptPaint}
-				in:fade={transcriptFadeIn}
-			>
-				{#if awaitingFirstAssistant && !firstUserId}
-					<div class="row assistant-row flight-placeholder" aria-hidden="true">
-						<ThreadAvatar
-							variant="avatar"
-							{iconVariant}
-							flightHidden={!firstTurnFlightDone}
-							flightTarget="avatar"
-						/>
-						{#if firstAssistantItem && showAssistantRow(firstAssistantItem)}
-							{@render assistantStack(firstAssistantItem)}
-						{:else if sessionStreaming}
-							<div class="assistant-stack">
-								{@render assistantActivitySpinner()}
-							</div>
-						{:else}
-							<div class="assistant-stack"></div>
-						{/if}
-					</div>
-				{/if}
-
-				{#each threadItems as item, index (item.id)}
-					{#if item.type === 'user'}
-						<div
-							class="row user-row"
-							class:continuation-row={!startsSpeakerRun(index, 'user')}
-							data-user-item-id={item.id}
-						>
-							<ThreadAvatar variant="gutter" {iconVariant} />
-							<div class="user-stack">
-								<div
-									class="bubble user-bubble"
-									class:flight-hidden={item.reveal === false}
-									data-flight-target={item.reveal === false ? 'user' : undefined}
-								>
-									{#if item.images?.length}
-										<div
-											class="user-images"
-											class:text-following={Boolean(item.text)}
-										>
-											{#each item.images as image, imageIndex (`${item.id}-image-${image.id ?? imageIndex}`)}
-												<img
-													src={imageDataURL(image)}
-													alt={image.name ?? 'Attached image'}
-												/>
-											{/each}
-										</div>
-									{/if}
-									{#if item.text?.trim()}
-										<AssistantMarkdown source={item.text.trim()} mode="user" />
-									{/if}
+			{#if showMessages}
+				<div
+					class="thread-messages"
+					class:hydrating={isInitialTranscriptPaint}
+					in:fade={transcriptFadeIn}
+				>
+					{#if awaitingFirstAssistant && !firstUserId}
+						<div class="row assistant-row flight-placeholder" aria-hidden="true">
+							<ThreadAvatar
+								variant="avatar"
+								{iconVariant}
+								flightHidden={!firstTurnFlightDone}
+								flightTarget="avatar"
+							/>
+							{#if firstAssistantItem && showAssistantRow(firstAssistantItem)}
+								{@render assistantStack(firstAssistantItem)}
+							{:else if sessionStreaming}
+								<div class="assistant-stack">
+									{@render assistantActivitySpinner()}
 								</div>
-								{#if item.text?.trim()}
-									<div class="message-actions user-message-actions">
-										<button
-											type="button"
-											class="message-action m-1"
-											class:copied={copiedId === item.id}
-											title="Copy message"
-											aria-label="Copy message"
-											onclick={() => copyMessage(item.id, item.text.trim())}
-										>
-											{#if copiedId === item.id}
-												<Check size={13} />
-												<span>Copied</span>
-											{:else}
-												<Copy size={13} />
-												<span>Copy</span>
-											{/if}
-										</button>
-									</div>
-								{/if}
-							</div>
-						</div>
-						{#if showFirstTurnAvatarSlot() && item.id === firstUserId}
-							<div
-								class="row assistant-row"
-								class:flight-placeholder={!firstAssistantId}
-								aria-hidden={!firstAssistantId}
-							>
-								<ThreadAvatar
-									variant="avatar"
-									{iconVariant}
-									flightHidden={!firstTurnFlightDone}
-									flightTarget="avatar"
-								/>
-								{#if firstAssistantItem && showAssistantRow(firstAssistantItem)}
-									{@render assistantStack(firstAssistantItem)}
-								{:else if sessionStreaming}
-									<div class="assistant-stack">
-										{@render assistantActivitySpinner()}
-									</div>
-								{:else}
-									<div class="assistant-stack"></div>
-								{/if}
-							</div>
-						{/if}
-					{:else if item.type === 'assistant' && showAssistantRow(item) && firstAssistantInNormalList(item)}
-						<div
-							class="row assistant-row"
-							class:continuation-row={!startsSpeakerRun(index, 'assistant')}
-						>
-							{#if startsSpeakerRun(index, 'assistant')}
-								<ThreadAvatar variant="avatar" {iconVariant} />
 							{:else}
-								<ThreadAvatar variant="gutter" {iconVariant} />
+								<div class="assistant-stack"></div>
 							{/if}
-							{@render assistantStack(item)}
-						</div>
-					{:else if item.type === 'tool' && !isToolInBuffer(item)}
-						<div
-							class="row tool-row"
-							class:continuation-row={!startsSpeakerRun(index, 'assistant')}
-						>
-							<ThreadAvatar variant="gutter" {iconVariant} />
-							<div class="tool-stack">
-								<ToolFoldPanel
-									{item}
-									label={toolFoldLabel(item)}
-									expanded={toolOutputExpanded(item)}
-									onToggle={() => toggleToolOutput(item.id)}
-								/>
-							</div>
-						</div>
-					{:else if item.type === 'subagent'}
-						<div
-							class="row tool-row subagent-row"
-							class:continuation-row={!startsSpeakerRun(index, 'assistant')}
-						>
-							<ThreadAvatar variant="gutter" {iconVariant} />
-							<div class="subagent-stack">
-								<SubagentPanel
-									{item}
-									expanded={subagentExpanded(item.id)}
-									onToggle={() => toggleSubagent(item.id)}
-								/>
-							</div>
-						</div>
-					{:else if item.type === 'memory' && !isMemoryInBuffer(item)}
-						<div class="row event-row">
-							<div class="event-card memory-card">
-								<div class="event-title">
-									<Brain size={14} /><span>Memories used</span>
-								</div>
-								<div class="memory-chips">
-									{#each item.memories as mem (mem.id)}
-										<span class="memory-chip" title={mem.content}
-											>{mem.kind}: {mem.content}</span
-										>
-									{/each}
-								</div>
-							</div>
-						</div>
-					{:else if item.type === 'status'}
-						<div class="status">{usageText(item)}</div>
-					{:else if item.type === 'error'}
-						<div class="row event-row">
-							<div class="event-card error-card">
-								<div class="event-title">
-									<TriangleAlert size={14} /><span>Error</span>
-								</div>
-								<p>{item.text}</p>
-							</div>
 						</div>
 					{/if}
-				{/each}
-				{#if bottomSpacerHeight > 0}
-					<div
-						class="thread-bottom-spacer"
-						style:height="{bottomSpacerHeight}px"
-						aria-hidden="true"
-					></div>
-				{/if}
-			</div>
-		{/if}
+
+					{#each threadItems as item, index (item.id)}
+						{#if item.type === 'user'}
+							<div
+								class="row user-row"
+								class:continuation-row={!startsSpeakerRun(index, 'user')}
+								data-user-item-id={item.id}
+							>
+								<ThreadAvatar variant="gutter" {iconVariant} />
+								<div class="user-stack">
+									<div
+										class="bubble user-bubble"
+										class:flight-hidden={item.reveal === false}
+										data-flight-target={item.reveal === false
+											? 'user'
+											: undefined}
+									>
+										{#if item.images?.length}
+											<div
+												class="user-images"
+												class:text-following={Boolean(item.text)}
+											>
+												{#each item.images as image, imageIndex (`${item.id}-image-${image.id ?? imageIndex}`)}
+													<img
+														src={imageDataURL(image)}
+														alt={image.name ?? 'Attached image'}
+													/>
+												{/each}
+											</div>
+										{/if}
+										{#if item.text?.trim()}
+											<AssistantMarkdown
+												source={item.text.trim()}
+												mode="user"
+											/>
+										{/if}
+									</div>
+									{#if item.text?.trim()}
+										<div class="message-actions user-message-actions">
+											<button
+												type="button"
+												class="message-action m-1"
+												class:copied={copiedId === item.id}
+												title="Copy message"
+												aria-label="Copy message"
+												onclick={() =>
+													copyMessage(item.id, item.text.trim())}
+											>
+												{#if copiedId === item.id}
+													<Check size={13} />
+													<span>Copied</span>
+												{:else}
+													<Copy size={13} />
+													<span>Copy</span>
+												{/if}
+											</button>
+										</div>
+									{/if}
+								</div>
+							</div>
+							{#if showFirstTurnAvatarSlot() && item.id === firstUserId}
+								<div
+									class="row assistant-row"
+									class:flight-placeholder={!firstAssistantId}
+									aria-hidden={!firstAssistantId}
+								>
+									<ThreadAvatar
+										variant="avatar"
+										{iconVariant}
+										flightHidden={!firstTurnFlightDone}
+										flightTarget="avatar"
+									/>
+									{#if firstAssistantItem && showAssistantRow(firstAssistantItem)}
+										{@render assistantStack(firstAssistantItem)}
+									{:else if sessionStreaming}
+										<div class="assistant-stack">
+											{@render assistantActivitySpinner()}
+										</div>
+									{:else}
+										<div class="assistant-stack"></div>
+									{/if}
+								</div>
+							{/if}
+						{:else if item.type === 'assistant' && showAssistantRow(item) && firstAssistantInNormalList(item)}
+							<div
+								class="row assistant-row"
+								class:continuation-row={!startsSpeakerRun(index, 'assistant')}
+							>
+								{#if startsSpeakerRun(index, 'assistant')}
+									<ThreadAvatar variant="avatar" {iconVariant} />
+								{:else}
+									<ThreadAvatar variant="gutter" {iconVariant} />
+								{/if}
+								{@render assistantStack(item)}
+							</div>
+						{:else if item.type === 'tool' && !isToolInBuffer(item)}
+							<div
+								class="row tool-row"
+								class:continuation-row={!startsSpeakerRun(index, 'assistant')}
+							>
+								<ThreadAvatar variant="gutter" {iconVariant} />
+								<div class="tool-stack">
+									<ToolFoldPanel
+										{item}
+										label={toolFoldLabel(item)}
+										expanded={toolOutputExpanded(item)}
+										onToggle={() => toggleToolOutput(item.id)}
+									/>
+								</div>
+							</div>
+						{:else if item.type === 'subagent'}
+							<div
+								class="row tool-row subagent-row"
+								class:continuation-row={!startsSpeakerRun(index, 'assistant')}
+							>
+								<ThreadAvatar variant="gutter" {iconVariant} />
+								<div class="subagent-stack">
+									<SubagentPanel
+										{item}
+										expanded={subagentExpanded(item.id)}
+										onToggle={() => toggleSubagent(item.id)}
+									/>
+								</div>
+							</div>
+						{:else if item.type === 'memory' && !isMemoryInBuffer(item)}
+							<div class="row event-row">
+								<div class="event-card memory-card">
+									<div class="event-title">
+										<Brain size={14} /><span>Memories used</span>
+									</div>
+									<div class="memory-chips">
+										{#each item.memories as mem (mem.id)}
+											<span class="memory-chip" title={mem.content}
+												>{mem.kind}: {mem.content}</span
+											>
+										{/each}
+									</div>
+								</div>
+							</div>
+						{:else if item.type === 'status'}
+							<div class="status">{usageText(item)}</div>
+						{:else if item.type === 'error'}
+							<div class="row event-row">
+								<div class="event-card error-card">
+									<div class="event-title">
+										<TriangleAlert size={14} /><span>Error</span>
+									</div>
+									<p>{item.text}</p>
+								</div>
+							</div>
+						{/if}
+					{/each}
+					{#if bottomSpacerHeight > 0}
+						<div
+							class="thread-bottom-spacer"
+							style:height="{bottomSpacerHeight}px"
+							aria-hidden="true"
+						></div>
+					{/if}
+				</div>
+			{/if}
 		</div>
 	</div>
 	{#if showJumpToBottom}
@@ -1123,5 +1121,4 @@
 		flex: 1;
 		max-width: var(--chat-assistant-column);
 	}
-
 </style>
