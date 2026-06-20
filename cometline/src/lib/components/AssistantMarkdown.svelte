@@ -205,6 +205,8 @@
 	/* User messages are literal text (only URLs become chips); keep newlines. */
 	.markdown.user-text {
 		white-space: pre-wrap;
+		overflow-wrap: break-word;
+		word-break: normal;
 	}
 
 	/* Opaque chip backgrounds so the blue user bubble does not bleed through. */

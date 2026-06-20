@@ -760,10 +760,14 @@
 				{#each threadItems as item, index (item.id)}
 					{#if item.type === 'user'}
 						<div
-							class="row user-row"
+							class="row user-row gap-2.5 md:gap-3 lg:gap-4"
 							class:continuation-row={!startsSpeakerRun(index, 'user')}
 							data-user-item-id={item.id}
 						>
+							<div
+								class="avatar-gutter size-9 shrink-0 md:size-10 lg:size-11 xl:size-12"
+								aria-hidden="true"
+							></div>
 							<div class="user-stack">
 								<div
 									class="bubble user-bubble"
@@ -1242,15 +1246,16 @@
 	}
 
 	.user-row {
-		justify-content: flex-end;
+		justify-content: flex-start;
 	}
 
 	.user-stack {
 		display: flex;
 		flex-direction: column;
 		align-items: flex-end;
-		max-width: var(--chat-content-column);
+		flex: 1 1 auto;
 		min-width: 0;
+		max-width: var(--chat-assistant-column);
 	}
 
 	.assistant-row,
@@ -1474,11 +1479,13 @@
 	}
 
 	.user-bubble {
+		width: fit-content;
+		max-width: 100%;
+		word-break: normal;
 		background: var(--user-bubble-bg);
 		color: white;
 		border-bottom-right-radius: 6px;
 		box-shadow: 0 8px 20px var(--user-bubble-shadow);
-		max-width: var(--chat-content-column);
 		/* The bubble wraps optional image + text children, so the template
 		 * introduces whitespace-only text nodes between them. Collapse that
 		 * whitespace here; the actual user text keeps its newlines via

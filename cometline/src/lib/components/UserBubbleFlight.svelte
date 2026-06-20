@@ -116,6 +116,8 @@
 	}
 
 	.user-flight {
+		width: fit-content;
+		max-width: var(--chat-content-column, min(360px, 72vw));
 		padding: 11px 14px;
 		border-radius: 18px 18px 6px 18px;
 		background: var(--user-bubble-bg);
@@ -127,7 +129,7 @@
 		 * `normal` so template whitespace doesn't inflate the particle (matches
 		 * the final `.user-bubble`), so there's no visible swap on handoff. */
 		white-space: normal;
-		word-break: break-word;
+		word-break: normal;
 		box-shadow: 0 16px 40px var(--user-bubble-shadow);
 		animation: user-bubble-flight var(--duration-flight) var(--ease-smooth) forwards;
 	}
