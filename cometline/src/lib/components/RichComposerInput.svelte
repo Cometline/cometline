@@ -60,7 +60,9 @@
 	let visualY = 0;
 	let animStart = 0; // performance.now() when the current move began
 	let animating = false;
-	// Timestamp of the last user text input — used to snap the caret during fast typing.
+	// When true, head snaps to target immediately and only the trail quad animates.
+	let trailOnly = false;
+	// Timestamp of the last user text input — used to detect typing/IME moves.
 	let lastInputAt = 0;
 
 	let caretTrailEnabled = $derived(caretTrail.enabled);
@@ -76,6 +78,18 @@
 	// Move animation duration in ms, shorter when "speed" is high.
 	function moveDuration(): number {
 		return 90 + (1 - clampUnit(caretTrail.speed)) * 220;
+	}
+
+	// Short smear for same-line typing / IME composition.
+	function typingTrailDuration(): number {
+		return 90 + (1 - clampUnit(caretTrail.speed)) * 110;
+	}
+
+	function isTypingMove(dy: number): boolean {
+		return (
+			(composing || performance.now() - lastInputAt < 120) &&
+			!isLineCrossing(dy)
+		);
 	}
 
 	// Vertical jump (in px) above which a move is treated as a teleport: the
@@ -147,6 +161,7 @@
 			raf = 0;
 		}
 		animating = false;
+		trailOnly = false;
 		targetX = originX = x;
 		targetY = originY = y;
 		setCaretVisual(x, y);
@@ -258,15 +273,15 @@
 			return;
 		}
 
-		// Fast same-line typing: snap immediately so the custom caret never lags
-		// behind the hidden native caret. Trail animation is reserved for clicks,
-		// arrow keys, and selection drags.
-		if (performance.now() - lastInputAt < 50 && !isLineCrossing(dy)) {
-			snapCaretTo(measured.x, measured.y);
-			return;
-		}
+		const typing = isTypingMove(dy);
+		trailOnly = typing;
 
-		if (isLineCrossing(dy)) {
+		if (typing) {
+			// Head snaps to the real caret immediately; only the trail smears.
+			originX = visualX;
+			originY = visualY;
+			setCaretVisual(measured.x, measured.y);
+		} else if (isLineCrossing(dy)) {
 			// Line wrap / newline: the literal old→new path would slash a diagonal
 			// across the editor. Instead, drop the comet in vertically — anchor the
 			// tail directly above the new caret position (same X, one line up) so
@@ -315,21 +330,35 @@
 			return;
 		}
 		const now = performance.now();
-		const duration = moveDuration();
+		const duration = trailOnly ? typingTrailDuration() : moveDuration();
 		const progress = clampUnit((now - animStart) / duration);
 
-		// Head leads, tail follows with a delay so the smear stretches then
-		// collapses — same head/tail easing split as cursor_tail.glsl.
-		const headEased = easeOutCirc(progress);
-		const tailDelay = 0.18 + clampUnit(caretTrail.intensity) * 0.32;
-		const tailEased = easeOutCirc(clampUnit((progress - tailDelay) / (1 - tailDelay)));
+		let headX: number;
+		let headY: number;
+		let tailX: number;
+		let tailY: number;
 
-		const headX = originX + (targetX - originX) * headEased;
-		const headY = originY + (targetY - originY) * headEased;
-		const tailX = originX + (targetX - originX) * tailEased;
-		const tailY = originY + (targetY - originY) * tailEased;
+		if (trailOnly) {
+			// Head stays locked on target; tail smears from origin.
+			headX = targetX;
+			headY = targetY;
+			const tailEased = easeOutCirc(progress);
+			tailX = originX + (targetX - originX) * tailEased;
+			tailY = originY + (targetY - originY) * tailEased;
+			setCaretVisual(headX, headY);
+		} else {
+			// Head leads, tail follows with a delay so the smear stretches then
+			// collapses — same head/tail easing split as cursor_tail.glsl.
+			const headEased = easeOutCirc(progress);
+			const tailDelay = 0.18 + clampUnit(caretTrail.intensity) * 0.32;
+			const tailEased = easeOutCirc(clampUnit((progress - tailDelay) / (1 - tailDelay)));
 
-		setCaretVisual(headX, headY);
+			headX = originX + (targetX - originX) * headEased;
+			headY = originY + (targetY - originY) * headEased;
+			tailX = originX + (targetX - originX) * tailEased;
+			tailY = originY + (targetY - originY) * tailEased;
+			setCaretVisual(headX, headY);
+		}
 
 		const span = Math.hypot(headX - tailX, headY - tailY);
 		if (span > 0.6) {
@@ -341,6 +370,7 @@
 
 		if (progress >= 1) {
 			animating = false;
+			trailOnly = false;
 			originX = targetX;
 			originY = targetY;
 			snapCaretTo(targetX, targetY);
@@ -355,6 +385,7 @@
 		raf = 0;
 		caretReady = false;
 		animating = false;
+		trailOnly = false;
 		visualX = 0;
 		visualY = 0;
 		clearTrail();
