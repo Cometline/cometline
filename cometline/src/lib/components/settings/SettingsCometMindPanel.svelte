@@ -228,9 +228,10 @@
 	}
 </script>
 
-<section class="cometmind-panel">
-	<div class="section-block">
-		<div class="section-heading">
+<section class="cometmind-panel settings-panel-frame">
+	<div class="settings-panel-body">
+	<div class="settings-section">
+		<div class="settings-section-heading">
 			<h3>Runtime</h3>
 			<p>
 				Controls sent to CometMind for each agent response. Settings are saved to
@@ -246,15 +247,15 @@
 				step="1"
 				placeholder="2048"
 			/>
-			<p class="field-hint">
+			<p class="settings-field-hint">
 				Caps the model's generated response length. Lower values reduce worst-case latency
 				and cost.
 			</p>
 		</label>
 	</div>
 
-	<div class="section-block">
-		<div class="section-heading">
+	<div class="settings-section">
+		<div class="settings-section-heading">
 			<h3>OpenCode subagent (ACP)</h3>
 			<p>
 				Delegate coding tasks to the local OpenCode CLI. Written to <code>[acp]</code> in
@@ -292,8 +293,8 @@
 		</label>
 	</div>
 
-	<div class="section-block">
-		<div class="section-heading">
+	<div class="settings-section">
+		<div class="settings-section-heading">
 			<h3>Skills</h3>
 			<p>
 				CometMind reads Agent Skills from <code>~/.cometmind/skills</code>, workspace
@@ -340,7 +341,7 @@
 			</button>
 		</div>
 		{#if skillsStatus}
-			<p class="field-hint">{skillsStatus}</p>
+			<p class="settings-field-hint">{skillsStatus}</p>
 		{/if}
 		<div class="skills-list">
 			<div class="skills-list-header">
@@ -348,7 +349,7 @@
 				<strong>{skills.length}</strong>
 			</div>
 			{#if skills.length === 0}
-				<p class="field-hint">
+				<p class="settings-field-hint">
 					No skills discovered yet. Try <code>npx skills add ...</code> or add a custom root.
 				</p>
 			{:else}
@@ -417,8 +418,8 @@
 		{/if}
 	</div>
 
-	<div class="section-block">
-		<div class="section-heading">
+	<div class="settings-section">
+		<div class="settings-section-heading">
 			<h3>Discord gateway</h3>
 			<p>
 				Runs <code>cometmind gateway run --platform discord</code> while Cometline is open.
@@ -468,7 +469,7 @@
 					<option value={model}>{model}</option>
 				{/each}
 			</select>
-			<p class="field-hint">
+			<p class="settings-field-hint">
 				Used for new Discord / thread sessions. Falls back to the global CometMind model
 				when empty.
 			</p>
@@ -524,39 +525,10 @@
 			<span>Require @mention in server channels</span>
 		</label>
 	</div>
+	</div>
 </section>
 
 <style>
-	.cometmind-panel {
-		display: flex;
-		flex-direction: column;
-		gap: 28px;
-	}
-
-	.section-block {
-		display: flex;
-		flex-direction: column;
-		gap: 12px;
-	}
-
-	.section-heading h3 {
-		margin: 0 0 4px;
-		font-size: 15px;
-		font-weight: 650;
-		color: var(--text-main);
-	}
-
-	.section-heading p {
-		margin: 0;
-		font-size: 12px;
-		line-height: 1.5;
-		color: var(--text-muted);
-	}
-
-	.section-heading code {
-		font-size: 11px;
-	}
-
 	.gateway-runtime {
 		display: flex;
 		flex-direction: column;
@@ -667,38 +639,6 @@
 		border-radius: 10px;
 		padding: 8px 10px;
 		background: rgba(255, 236, 224, 0.45);
-	}
-
-	label {
-		display: flex;
-		flex-direction: column;
-		gap: 6px;
-		font-size: 12px;
-		color: var(--text-muted);
-	}
-
-	label span {
-		font-weight: 600;
-		color: var(--text-main);
-	}
-
-	.field-hint {
-		margin: 0;
-		font-size: 11px;
-		line-height: 1.45;
-		color: var(--text-muted);
-	}
-
-	input[type='text'],
-	input[type='password'],
-	select,
-	textarea {
-		border: 1px solid var(--border-soft);
-		border-radius: 10px;
-		padding: 9px 11px;
-		font-size: 13px;
-		color: var(--text-main);
-		background: rgba(255, 255, 255, 0.82);
 	}
 
 	textarea {

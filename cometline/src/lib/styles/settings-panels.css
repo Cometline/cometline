@@ -1,0 +1,195 @@
+/* Shared layout for Settings modal panels */
+
+.settings-panel-stack {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	min-width: 0;
+}
+
+.settings-panel-frame {
+	border: 1px solid var(--border-soft);
+	border-radius: 14px;
+	padding: 16px;
+	background: rgba(255, 255, 255, 0.55);
+	min-width: 0;
+}
+
+.settings-panel-body {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+
+.settings-section {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	min-width: 0;
+}
+
+.settings-section + .settings-section {
+	margin-top: 20px;
+	padding-top: 20px;
+	border-top: 1px solid var(--border-soft);
+}
+
+.settings-section + .settings-row {
+	border-top: 1px solid var(--border-soft);
+}
+
+.settings-section-heading {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 12px;
+}
+
+.settings-section-heading > div:first-child {
+	min-width: 0;
+}
+
+.settings-section-heading h3,
+.settings-section-heading h4 {
+	margin: 0 0 4px;
+	font-size: 14px;
+	font-weight: 650;
+	color: var(--text-main);
+}
+
+.settings-section-heading p {
+	margin: 0;
+	font-size: 12px;
+	line-height: 1.5;
+	color: var(--text-muted);
+}
+
+.settings-section-heading code {
+	font-size: 11px;
+}
+
+.settings-fields {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.settings-field {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	font-size: 12px;
+	color: var(--text-muted);
+}
+
+.settings-field > span:first-child,
+.settings-field > label > span:first-child {
+	font-weight: 600;
+	color: var(--text-main);
+}
+
+.settings-field-hint {
+	margin: 0;
+	font-size: 11px;
+	line-height: 1.45;
+	color: var(--text-muted);
+}
+
+.settings-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+	padding: 12px 0;
+}
+
+.settings-row + .settings-row {
+	border-top: 1px solid var(--border-soft);
+}
+
+.settings-row.align-start {
+	align-items: flex-start;
+}
+
+.settings-row-label {
+	display: block;
+	font-size: 12px;
+	font-weight: 600;
+	color: var(--text-muted);
+}
+
+.settings-row-value {
+	font-size: 13px;
+	font-weight: 650;
+	color: var(--text-main);
+	font-variant-numeric: tabular-nums;
+}
+
+.settings-row-copy {
+	display: grid;
+	gap: 4px;
+	min-width: 0;
+}
+
+.settings-row-hint {
+	font-size: 12px;
+	line-height: 1.45;
+	color: var(--text-muted);
+	font-weight: 500;
+}
+
+.settings-row-actions {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: flex-end;
+	gap: 8px;
+	flex-shrink: 0;
+}
+
+.settings-scroll-list {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	max-height: min(320px, 40vh);
+	overflow-y: auto;
+	min-height: 0;
+	scrollbar-gutter: stable;
+}
+
+.settings-panel-frame label {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	font-size: 12px;
+	color: var(--text-muted);
+}
+
+.settings-panel-frame label > span:first-child {
+	font-weight: 600;
+	color: var(--text-main);
+}
+
+.settings-panel-frame input:not([type='checkbox']):not([type='radio']):not([type='color']):not(
+		[type='range']
+	),
+.settings-panel-frame select,
+.settings-panel-frame textarea {
+	width: 100%;
+	border: 1px solid var(--border-soft);
+	border-radius: 11px;
+	background: rgba(255, 255, 255, 0.76);
+	padding: 10px 11px;
+	font: inherit;
+	font-size: 13px;
+	color: var(--text-main);
+	outline: none;
+}
+
+.settings-panel-frame input:not([type='checkbox']):not([type='radio']):not([type='color']):not(
+		[type='range']
+	):focus,
+.settings-panel-frame select:focus,
+.settings-panel-frame textarea:focus {
+	border-color: rgba(0, 102, 204, 0.35);
+	box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+}

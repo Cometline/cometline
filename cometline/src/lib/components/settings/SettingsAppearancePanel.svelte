@@ -25,16 +25,18 @@
 	}
 </script>
 
-<section class="appearance-panel">
-	<div class="appearance-heading">
-		<div>
-			<h3>Hero composer glow</h3>
-			<p>Customize the rising glow and border on the new-chat composer.</p>
-		</div>
-		<button class="secondary" type="button" onclick={resetDefaults}>Reset defaults</button>
-	</div>
+<section class="appearance-panel settings-panel-frame">
+	<div class="settings-panel-body">
+		<div class="settings-section">
+			<div class="settings-section-heading">
+				<div>
+					<h3>Hero composer glow</h3>
+					<p>Customize the rising glow and border on the new-chat composer.</p>
+				</div>
+				<button class="secondary" type="button" onclick={resetDefaults}>Reset defaults</button>
+			</div>
 
-	<div class="appearance-grid">
+			<div class="appearance-grid">
 		<div class="appearance-fields">
 			<div class="preset-group">
 				<span class="field-label">Presets</span>
@@ -97,28 +99,29 @@
 			<div class="preview-glow" aria-hidden="true"></div>
 			<div class="preview-ring" aria-hidden="true"></div>
 		</div>
-	</div>
-
-	<div class="caret-panel">
-		<div class="caret-heading">
-			<div>
-				<h3>Input caret trail</h3>
-				<p>The custom caret color follows the Hero glow color above.</p>
 			</div>
-			<button
-				class="switch"
-				class:on={caretTrail.enabled}
-				role="switch"
-				aria-checked={caretTrail.enabled}
-				aria-label="Toggle input caret trail"
-				type="button"
-				onclick={() => (caretTrail = { ...caretTrail, enabled: !caretTrail.enabled })}
-			>
-				<span></span>
-			</button>
 		</div>
 
-		<div class="slider-grid">
+		<div class="settings-section">
+			<div class="settings-section-heading">
+				<div>
+					<h3>Input caret trail</h3>
+					<p>The custom caret color follows the Hero glow color above.</p>
+				</div>
+				<button
+					class="switch"
+					class:on={caretTrail.enabled}
+					role="switch"
+					aria-checked={caretTrail.enabled}
+					aria-label="Toggle input caret trail"
+					type="button"
+					onclick={() => (caretTrail = { ...caretTrail, enabled: !caretTrail.enabled })}
+				>
+					<span></span>
+				</button>
+			</div>
+
+			<div class="slider-grid">
 			<label>
 				<span>Trail intensity</span>
 				<input
@@ -144,58 +147,16 @@
 						(caretTrail = { ...caretTrail, speed: Number(e.currentTarget.value) })}
 				/>
 			</label>
+			</div>
 		</div>
 	</div>
 </section>
 
 <style>
-	.appearance-panel {
-		border: 1px solid var(--border-soft);
-		border-radius: 18px;
-		background: rgba(251, 251, 250, 0.72);
-		padding: 16px;
-	}
-
-	.appearance-heading,
-	.caret-heading,
 	.color-field,
 	.preset-row {
 		display: flex;
 		align-items: center;
-	}
-
-	.appearance-heading,
-	.caret-heading {
-		justify-content: space-between;
-		gap: 12px;
-		margin-bottom: 16px;
-	}
-
-	.appearance-heading h3,
-	.appearance-heading p,
-	.caret-heading h3,
-	.caret-heading p {
-		margin: 0;
-	}
-
-	.appearance-heading h3,
-	.caret-heading h3 {
-		font-size: 15px;
-		font-weight: 700;
-	}
-
-	.appearance-heading p,
-	.caret-heading p {
-		margin-top: 4px;
-		font-size: 12px;
-		line-height: 1.45;
-		color: var(--text-muted);
-	}
-
-	.caret-panel {
-		margin-top: 14px;
-		padding-top: 14px;
-		border-top: 1px solid var(--border-soft);
 	}
 
 	.slider-grid {

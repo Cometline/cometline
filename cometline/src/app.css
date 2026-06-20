@@ -1,6 +1,7 @@
 @import 'tailwindcss';
 @import 'katex/dist/katex.min.css';
 @import './lib/styles/chat-bubble.css';
+@import './lib/styles/settings-panels.css';
 
 @utility scrollbar-gutter-stable {
 	scrollbar-gutter: stable;

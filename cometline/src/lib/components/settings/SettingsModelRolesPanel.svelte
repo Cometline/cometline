@@ -209,14 +209,17 @@
 	}
 </script>
 
-<section class="model-roles-panel">
-	<div class="section-block">
-		<div class="section-heading">
-			<h3>Default model</h3>
-			<p>
-				Choose which model new chats use by default. You can still switch models per
-				session.
-			</p>
+<section class="model-roles-panel settings-panel-frame">
+	<div class="settings-panel-body">
+	<div class="settings-section">
+		<div class="settings-section-heading">
+			<div>
+				<h3>Default model</h3>
+				<p>
+					Choose which model new chats use by default. You can still switch models per
+					session.
+				</p>
+			</div>
 		</div>
 		<div class="default-model-picker" onfocusout={closeModelMenu}>
 			<button
@@ -280,8 +283,8 @@
 		</div>
 	</div>
 
-	<div class="section-block">
-		<div class="section-heading">
+	<div class="settings-section">
+		<div class="settings-section-heading">
 			<h3>Session titles</h3>
 			<p>
 				CometMind names each session from your first message using an LLM. Pin a cheaper /
@@ -311,15 +314,15 @@
 						<option value={model}>{model}</option>
 					{/each}
 				</select>
-				<p class="field-hint">
+				<p class="settings-field-hint">
 					A small, fast model is ideal — titles are short and don't need a frontier model.
 				</p>
 			</label>
 		{/if}
 	</div>
 
-	<div class="section-block">
-		<div class="section-heading">
+	<div class="settings-section">
+		<div class="settings-section-heading">
 			<h3>Memory extraction</h3>
 			<p>
 				After each turn, CometMind extracts durable memories in the background. Pin a
@@ -350,71 +353,17 @@
 						<option value={model}>{model}</option>
 					{/each}
 				</select>
-				<p class="field-hint">
+				<p class="settings-field-hint">
 					A small, fast model is ideal — extraction runs after every turn in the
 					background.
 				</p>
 			</label>
 		{/if}
 	</div>
+	</div>
 </section>
 
 <style>
-	.model-roles-panel {
-		display: flex;
-		flex-direction: column;
-		gap: 28px;
-	}
-
-	.section-block {
-		display: flex;
-		flex-direction: column;
-		gap: 12px;
-	}
-
-	.section-heading h3 {
-		margin: 0 0 4px;
-		font-size: 15px;
-		font-weight: 650;
-		color: var(--text-main);
-	}
-
-	.section-heading p {
-		margin: 0;
-		font-size: 12px;
-		line-height: 1.5;
-		color: var(--text-muted);
-	}
-
-	label {
-		display: flex;
-		flex-direction: column;
-		gap: 6px;
-		font-size: 12px;
-		color: var(--text-muted);
-	}
-
-	label span {
-		font-weight: 600;
-		color: var(--text-main);
-	}
-
-	.field-hint {
-		margin: 0;
-		font-size: 11px;
-		line-height: 1.45;
-		color: var(--text-muted);
-	}
-
-	select {
-		border: 1px solid var(--border-soft);
-		border-radius: 10px;
-		padding: 9px 11px;
-		font-size: 13px;
-		color: var(--text-main);
-		background: rgba(255, 255, 255, 0.82);
-	}
-
 	.default-model-picker {
 		position: relative;
 		display: flex;

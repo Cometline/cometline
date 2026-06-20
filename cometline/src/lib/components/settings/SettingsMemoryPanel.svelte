@@ -244,17 +244,26 @@
 {#if loading}
 	<p class="muted">Loading memory settings…</p>
 {:else if settings}
-	<section class="memory-panel">
-		{#if loadError}
-			<p class="load-error">
-				{loadError}. Showing defaults — restart CometMind (Save in Settings → Providers) or
-				run
-				<code>make build-cometmind</code> if endpoints are missing.
-				<button class="link-button" type="button" onclick={reload}>Retry</button>
-			</p>
-		{/if}
+	<section class="memory-panel settings-panel-frame">
+		<div class="settings-panel-body">
+			{#if loadError}
+				<p class="load-error">
+					{loadError}. Showing defaults — restart CometMind (Save in Settings → Providers)
+					or run
+					<code>make build-cometmind</code> if endpoints are missing.
+					<button class="link-button" type="button" onclick={reload}>Retry</button>
+				</p>
+			{/if}
 
-		<div class="settings-grid">
+			<div class="settings-section">
+				<div class="settings-section-heading">
+					<div>
+						<h3>Retrieval & lifecycle</h3>
+						<p>Control when memories are retrieved, extracted, and aged out.</p>
+					</div>
+				</div>
+
+				<div class="settings-grid">
 			<div class="toggles">
 				<SettingsToggle label="Auto retrieve" bind:checked={settings.auto_retrieve} />
 				<SettingsToggle label="Auto summarize" bind:checked={settings.auto_extract} />
@@ -327,17 +336,35 @@
 					{/if}
 				</label>
 			</div>
-		</div>
+				</div>
+			</div>
 
-		<div class="actions">
+			<div class="settings-section">
+				<div class="settings-section-heading">
+					<div>
+						<h3>Compaction</h3>
+						<p>Preview or run memory compaction to merge and prune stored memories.</p>
+					</div>
+				</div>
+
+				<div class="actions">
 			<button class="secondary" onclick={previewCompact}>Preview compaction</button>
 			<button class="secondary" onclick={runCompact} disabled={compacting}>
 				{#if compacting}<span class="spin"><LoaderCircle size={14} /></span>{/if}
 				Run compaction
-			</button>
-		</div>
+				</button>
+			</div>
+			</div>
 
-		<div class="search-row">
+			<div class="settings-section">
+				<div class="settings-section-heading">
+					<div>
+						<h3>Memories</h3>
+						<p>Search, add, or remove individual memories stored for this workspace.</p>
+					</div>
+				</div>
+
+				<div class="search-row">
 			<input bind:value={searchQuery} placeholder="Search memories…" spellcheck="false" />
 			<button class="secondary" onclick={runSearch}><Search size={14} /> Search</button>
 		</div>
@@ -376,9 +403,11 @@
 			{/each}
 		</div>
 
-		{#if status}
-			<p class="status">{status}</p>
-		{/if}
+				{#if status}
+					<p class="status">{status}</p>
+				{/if}
+			</div>
+		</div>
 	</section>
 {:else}
 	<p class="load-error">
@@ -388,11 +417,6 @@
 {/if}
 
 <style>
-	.memory-panel {
-		display: grid;
-		gap: 14px;
-	}
-
 	.muted,
 	.status,
 	.load-error,
@@ -459,17 +483,8 @@
 		color: var(--text-muted);
 	}
 
-	input,
-	select,
-	textarea {
+	input[type='range'] {
 		width: 100%;
-		border: 1px solid var(--border-soft);
-		border-radius: 11px;
-		background: rgba(255, 255, 255, 0.76);
-		padding: 10px 11px;
-		font: inherit;
-		font-size: 13px;
-		color: var(--text-main);
 	}
 
 	.actions,
@@ -493,6 +508,7 @@
 		gap: 8px;
 		max-height: 280px;
 		overflow: auto;
+		scrollbar-gutter: stable;
 	}
 
 	.memory-card {

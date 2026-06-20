@@ -798,7 +798,8 @@
 
 			<div class="settings-pane">
 				{#if activeSection === 'models'}
-					<SettingsProvidersPanel
+					<div class="settings-panel-stack">
+						<SettingsProvidersPanel
 						providers={draft.providers}
 						bind:selectedProviderId
 						bind:modelSearch
@@ -824,6 +825,7 @@
 						bind:defaultProviderId={draft.defaultProviderId}
 						providers={draft.providers}
 					/>
+					</div>
 				{:else if activeSection === 'memory'}
 					{#key memoryPanelKey}
 						<SettingsMemoryPanel
@@ -843,189 +845,216 @@
 						/>
 					{/key}
 				{:else if activeSection === 'appearance'}
-					<SettingsAppearancePanel
-						bind:appearance={draft.appearance.heroComposer}
-						bind:caretTrail={draft.appearance.caretTrail}
-					/>
-					<div class="about-pane appearance-icon">
-						<div class="about-row icon-variant-row">
-							<div class="icon-variant-copy">
-								<span class="about-label">Project icon</span>
-								<span class="about-value">
-									Chat avatar, intro animation, Dock, menu bar, and SOUL persona
-								</span>
+					<div class="settings-panel-stack">
+						<SettingsAppearancePanel
+							bind:appearance={draft.appearance.heroComposer}
+							bind:caretTrail={draft.appearance.caretTrail}
+						/>
+						<section class="settings-panel-frame">
+							<div class="settings-section">
+								<div class="settings-section-heading">
+									<div>
+										<h3>Project icon</h3>
+										<p>
+											Chat avatar, intro animation, Dock, menu bar, and SOUL
+											persona
+										</p>
+									</div>
+								</div>
+								<div
+									class="icon-variant-options"
+									role="radiogroup"
+									aria-label="Project icon style"
+								>
+									{#each ICON_VARIANT_OPTIONS as option (option.id)}
+										<button
+											type="button"
+											class="icon-variant-chip"
+											class:selected={draft.app.iconVariant === option.id}
+											role="radio"
+											aria-checked={draft.app.iconVariant === option.id}
+											onclick={() => setIconVariant(option.id)}
+										>
+											<img
+												src={projectAvatarSrc(option.id, 96)}
+												alt=""
+												width="40"
+												height="40"
+											/>
+											<span>{option.label}</span>
+										</button>
+									{/each}
+								</div>
 							</div>
-							<div
-								class="icon-variant-options"
-								role="radiogroup"
-								aria-label="Project icon style"
-							>
-								{#each ICON_VARIANT_OPTIONS as option (option.id)}
-									<button
-										type="button"
-										class="icon-variant-chip"
-										class:selected={draft.app.iconVariant === option.id}
-										role="radio"
-										aria-checked={draft.app.iconVariant === option.id}
-										onclick={() => setIconVariant(option.id)}
-									>
-										<img
-											src={projectAvatarSrc(option.id, 96)}
-											alt=""
-											width="40"
-											height="40"
-										/>
-										<span>{option.label}</span>
-									</button>
-								{/each}
-							</div>
-						</div>
+						</section>
 					</div>
 				{:else if activeSection === 'shortcuts'}
 					<SettingsShortcutsPanel shortcuts={draft.shortcuts} onChange={updateShortcut} />
 				{:else}
-					<div class="app-pane">
+					<div class="settings-panel-stack">
 						<SettingsGeneralPanel
 							bind:openAtLogin={draft.app.openAtLogin}
 							bind:storage={draft.cometmind.storage}
 							onOpenAtLoginChange={setOpenAtLogin}
 						/>
-						<div class="about-pane">
-							<div class="about-row settings-file-row">
-								<div class="workspace-info">
-									<span class="about-label">Settings backup</span>
-									<span class="about-hint">
-										Export or import all Cometline settings. Exports may include
-										provider API keys.
-									</span>
-								</div>
-								<div class="settings-file-actions">
-									<button
-										class="secondary"
-										onclick={exportSettings}
-										disabled={exportingSettings}
-									>
-										{#if exportingSettings}
-											<span class="spin small"
-												><LoaderCircle size={14} /></span
-											>
-										{:else}
-											<Download size={14} />
-										{/if}
-										Export
-									</button>
-									<button
-										class="secondary"
-										onclick={importSettings}
-										disabled={importingSettings}
-									>
-										{#if importingSettings}
-											<span class="spin small"
-												><LoaderCircle size={14} /></span
-											>
-										{:else}
-											<Upload size={14} />
-										{/if}
-										Import
-									</button>
-								</div>
-							</div>
-							<div class="about-row">
-								<span class="about-label">Version</span>
-								<span class="about-value">{appVersion || '—'}</span>
-							</div>
-							<div class="about-row workspace-row">
-								<div class="workspace-info">
-									<span class="about-label">Workspace</span>
-									<span
-										class="about-value workspace-path"
-										title={shellStore.workspacePath}
-									>
-										{shellStore.workspacePath}
-									</span>
-								</div>
-								<button class="secondary" onclick={changeWorkspace}>
-									<FolderOpen size={14} />
-									Change
-								</button>
-							</div>
-							<div class="about-row workspace-row">
-								<div class="workspace-info">
-									<span class="about-label">Workspace cleanup</span>
-									<span class="about-hint">
-										Remove deleted workspace folders from /change and CometMind
-										registrations.
-									</span>
-									{#if workspacePruneMessage}
-										<span class="workspace-prune-message"
-											>{workspacePruneMessage}</span
+						<section class="settings-panel-frame">
+							<div class="settings-panel-body">
+								<div class="settings-section">
+									<div class="settings-section-heading">
+										<div>
+											<h3>Settings backup</h3>
+											<p>
+												Export or import all Cometline settings. Exports may
+												include provider API keys.
+											</p>
+										</div>
+									</div>
+									<div class="settings-row-actions">
+										<button
+											class="secondary"
+											onclick={exportSettings}
+											disabled={exportingSettings}
 										>
-									{/if}
+											{#if exportingSettings}
+												<span class="spin small"
+													><LoaderCircle size={14} /></span
+												>
+											{:else}
+												<Download size={14} />
+											{/if}
+											Export
+										</button>
+										<button
+											class="secondary"
+											onclick={importSettings}
+											disabled={importingSettings}
+										>
+											{#if importingSettings}
+												<span class="spin small"
+													><LoaderCircle size={14} /></span
+												>
+											{:else}
+												<Upload size={14} />
+											{/if}
+											Import
+										</button>
+									</div>
 								</div>
-								<button
-									class="secondary"
-									onclick={cleanupWorkspaces}
-									disabled={workspacePruning}
-								>
-									{#if workspacePruning}
-										<span class="spin small"><LoaderCircle size={14} /></span>
-									{:else}
-										<Trash2 size={14} />
-									{/if}
-									Clean up
-								</button>
-							</div>
-							<div class="about-row update-row">
-								<div class="update-info">
-									<span class="about-label">Updates</span>
-									<span
-										class="update-status"
-										class:update-error={updateState.status === 'error'}
-										class:update-ready={updateState.status === 'ready'}
-									>
-										{#if checkingUpdates || updateState.status === 'checking' || updateState.status === 'downloading'}
-											<span class="spin small"
-												><LoaderCircle size={14} /></span
+
+								<div class="settings-row">
+									<span class="settings-row-label">Version</span>
+									<span class="settings-row-value">{appVersion || '—'}</span>
+								</div>
+
+								<div class="settings-row align-start">
+									<div class="settings-row-copy">
+										<span class="settings-row-label">Workspace</span>
+										<span
+											class="settings-row-value workspace-path"
+											title={shellStore.workspacePath}
+										>
+											{shellStore.workspacePath}
+										</span>
+									</div>
+									<div class="settings-row-actions">
+										<button class="secondary" onclick={changeWorkspace}>
+											<FolderOpen size={14} />
+											Change
+										</button>
+									</div>
+								</div>
+
+								<div class="settings-row align-start">
+									<div class="settings-row-copy">
+										<span class="settings-row-label">Workspace cleanup</span>
+										<span class="settings-row-hint">
+											Remove deleted workspace folders from /change and
+											CometMind registrations.
+										</span>
+										{#if workspacePruneMessage}
+											<span class="workspace-prune-message"
+												>{workspacePruneMessage}</span
 											>
 										{/if}
-										{updateStatusText}
-									</span>
+									</div>
+									<div class="settings-row-actions">
+										<button
+											class="secondary"
+											onclick={cleanupWorkspaces}
+											disabled={workspacePruning}
+										>
+											{#if workspacePruning}
+												<span class="spin small"
+													><LoaderCircle size={14} /></span
+												>
+											{:else}
+												<Trash2 size={14} />
+											{/if}
+											Clean up
+										</button>
+									</div>
 								</div>
-								{#if updateState.status === 'ready'}
-									<button
-										class="primary"
-										onclick={installUpdate}
-										disabled={installingUpdate}
-									>
-										{#if installingUpdate}<span class="spin"
-												><LoaderCircle size={14} /></span
-											>{:else}<Download size={14} />{/if}
-										Install update
-									</button>
-								{:else}
-									<button
-										class="secondary"
-										onclick={checkForUpdates}
-										disabled={!canCheckUpdates}
-									>
-										{#if checkingUpdates || updateState.status === 'checking'}<span
-												class="spin"><LoaderCircle size={14} /></span
-											>{:else}<RefreshCw size={14} />{/if}
-										Check for updates
-									</button>
-								{/if}
-							</div>
-							<div class="about-row">
-								<div class="update-info">
-									<span class="about-label">Intro</span>
-									<span class="about-value">Replay the first-run animation</span>
+
+								<div class="settings-row align-start">
+									<div class="settings-row-copy">
+										<span class="settings-row-label">Updates</span>
+										<span
+											class="update-status"
+											class:update-error={updateState.status === 'error'}
+											class:update-ready={updateState.status === 'ready'}
+										>
+											{#if checkingUpdates || updateState.status === 'checking' || updateState.status === 'downloading'}
+												<span class="spin small"
+													><LoaderCircle size={14} /></span
+												>
+											{/if}
+											{updateStatusText}
+										</span>
+									</div>
+									<div class="settings-row-actions">
+										{#if updateState.status === 'ready'}
+											<button
+												class="primary"
+												onclick={installUpdate}
+												disabled={installingUpdate}
+											>
+												{#if installingUpdate}<span class="spin"
+														><LoaderCircle size={14} /></span
+													>{:else}<Download size={14} />{/if}
+												Install update
+											</button>
+										{:else}
+											<button
+												class="secondary"
+												onclick={checkForUpdates}
+												disabled={!canCheckUpdates}
+											>
+												{#if checkingUpdates || updateState.status === 'checking'}<span
+														class="spin"
+														><LoaderCircle size={14} /></span
+													>{:else}<RefreshCw size={14} />{/if}
+												Check for updates
+											</button>
+										{/if}
+									</div>
 								</div>
-								<button class="secondary" onclick={replayIntro}>
-									<Sparkles size={14} />
-									Replay intro
-								</button>
+
+								<div class="settings-row">
+									<div class="settings-row-copy">
+										<span class="settings-row-label">Intro</span>
+										<span class="settings-row-hint"
+											>Replay the first-run animation</span
+										>
+									</div>
+									<div class="settings-row-actions">
+										<button class="secondary" onclick={replayIntro}>
+											<Sparkles size={14} />
+											Replay intro
+										</button>
+									</div>
+								</div>
 							</div>
-						</div>
+						</section>
 					</div>
 				{/if}
 			</div>
@@ -1274,54 +1303,6 @@
 		margin-right: auto;
 	}
 
-	.about-pane {
-		display: grid;
-		gap: 16px;
-		padding: 4px 2px;
-	}
-
-	.app-pane {
-		display: grid;
-		gap: 28px;
-	}
-
-	.appearance-icon {
-		margin-top: 8px;
-	}
-
-	.about-row {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 16px;
-		padding: 14px 16px;
-		border: 1px solid var(--border-soft);
-		border-radius: 16px;
-		background: rgba(251, 251, 250, 0.72);
-	}
-
-	.about-label {
-		font-size: 12px;
-		font-weight: 600;
-		color: var(--text-muted);
-	}
-
-	.about-value {
-		font-size: 13px;
-		font-weight: 650;
-		color: var(--text-main);
-		font-variant-numeric: tabular-nums;
-	}
-
-	.update-row {
-		align-items: flex-start;
-	}
-
-	.update-info {
-		display: grid;
-		gap: 6px;
-	}
-
 	.update-status {
 		display: inline-flex;
 		align-items: center;
@@ -1339,38 +1320,10 @@
 		color: #027a48;
 	}
 
-	.workspace-row {
-		align-items: flex-start;
-	}
-
-	.settings-file-row {
-		align-items: flex-start;
-	}
-
-	.settings-file-actions {
-		display: flex;
-		flex-wrap: wrap;
-		justify-content: flex-end;
-		gap: 8px;
-	}
-
-	.workspace-info {
-		display: grid;
-		gap: 6px;
-		min-width: 0;
-	}
-
 	.workspace-path {
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
-		max-width: 420px;
-	}
-
-	.about-hint {
-		font-size: 12px;
-		line-height: 1.45;
-		color: var(--text-soft);
 		max-width: 420px;
 	}
 
@@ -1379,17 +1332,6 @@
 		line-height: 1.45;
 		color: var(--text-muted);
 		max-width: 420px;
-	}
-
-	.icon-variant-row {
-		align-items: flex-start;
-		flex-direction: column;
-		gap: 14px;
-	}
-
-	.icon-variant-copy {
-		display: grid;
-		gap: 6px;
 	}
 
 	.icon-variant-options {
@@ -1432,14 +1374,6 @@
 	@media (max-width: 780px) {
 		.settings-body {
 			grid-template-columns: 1fr;
-		}
-
-		.settings-file-row {
-			flex-direction: column;
-		}
-
-		.settings-file-actions {
-			justify-content: flex-start;
 		}
 
 		.modal {

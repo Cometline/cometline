@@ -38,9 +38,10 @@
 	}
 </script>
 
-<section class="general-panel">
-	<div class="section-block">
-		<div class="section-heading">
+<section class="general-panel settings-panel-frame">
+	<div class="settings-panel-body">
+	<div class="settings-section">
+		<div class="settings-section-heading">
 			<h3>Startup</h3>
 			<p>Control how Cometline launches on your Mac.</p>
 		</div>
@@ -53,8 +54,8 @@
 		/>
 	</div>
 
-	<div class="section-block">
-		<div class="section-heading">
+	<div class="settings-section">
+		<div class="settings-section-heading">
 			<h3>Storage & retention</h3>
 			<p>
 				Automatic cleanup runs when CometMind starts and after settings are saved. Set a
@@ -129,35 +130,10 @@
 			channel starts a fresh session without prior Cometline history.
 		</p>
 	</div>
+	</div>
 </section>
 
 <style>
-	.general-panel {
-		display: flex;
-		flex-direction: column;
-		gap: 28px;
-	}
-
-	.section-block {
-		display: flex;
-		flex-direction: column;
-		gap: 14px;
-	}
-
-	.section-heading h3 {
-		margin: 0 0 4px;
-		font-size: 15px;
-		font-weight: 650;
-		color: var(--text-main);
-	}
-
-	.section-heading p {
-		margin: 0;
-		font-size: 12px;
-		line-height: 1.5;
-		color: var(--text-muted);
-	}
-
 	.field {
 		display: flex;
 		flex-direction: column;
@@ -168,19 +144,6 @@
 
 	.field input {
 		max-width: 160px;
-		padding: 10px 11px;
-		border-radius: 11px;
-		border: 1px solid var(--border-soft);
-		background: rgba(255, 255, 255, 0.76);
-		color: var(--text-main);
-		font: inherit;
-		font-size: 13px;
-		outline: none;
-	}
-
-	.field input:focus {
-		border-color: rgba(0, 102, 204, 0.35);
-		box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
 	}
 
 	.field small {

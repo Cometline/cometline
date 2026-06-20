@@ -53,20 +53,15 @@
 	}
 </script>
 
-<div class="shortcuts-panel">
-	<div class="shortcuts-header">
-		<div>
-			<h3>Keyboard shortcuts</h3>
-			<p>Click a shortcut and press the new key combination. Changes apply immediately.</p>
-		</div>
-	</div>
-
-	<div class="shortcuts-sections">
+<div class="shortcuts-panel settings-panel-frame">
+	<div class="settings-panel-body">
 		{#each groupedShortcuts as group (group.category.id)}
-			<section class="section-block">
-				<div class="section-heading">
-					<h4>{group.category.title}</h4>
-					<p>{group.category.description}</p>
+			<section class="settings-section">
+				<div class="settings-section-heading">
+					<div>
+						<h3>{group.category.title}</h3>
+						<p>{group.category.description}</p>
+					</div>
 				</div>
 
 				<div class="shortcuts-list">
@@ -118,67 +113,9 @@
 </div>
 
 <style>
-	.shortcuts-panel {
-		padding: 4px;
-	}
-
-	.shortcuts-header {
-		display: flex;
-		align-items: flex-start;
-		gap: 12px;
-		margin-bottom: 22px;
-		color: var(--text-main);
-	}
-
-	.shortcuts-header h3,
-	.shortcuts-header p {
-		margin: 0;
-	}
-
-	.shortcuts-header h3 {
-		font-size: 15px;
-		font-weight: 700;
-	}
-
-	.shortcuts-header p {
-		font-size: 12px;
-		color: var(--text-muted);
-		margin-top: 2px;
-	}
-
-	.shortcuts-sections {
-		display: flex;
-		flex-direction: column;
-		gap: 28px;
-	}
-
-	.section-block {
-		display: flex;
-		flex-direction: column;
-		gap: 12px;
-	}
-
-	.section-heading h4,
-	.section-heading p {
-		margin: 0;
-	}
-
-	.section-heading h4 {
-		font-size: 14px;
-		font-weight: 650;
-		color: var(--text-main);
-	}
-
-	.section-heading p {
-		margin-top: 2px;
-		font-size: 12px;
-		line-height: 1.45;
-		color: var(--text-muted);
-	}
-
 	.shortcuts-list {
 		display: grid;
-		gap: 8px;
+		gap: 0;
 	}
 
 	.shortcut-row {
@@ -186,10 +123,14 @@
 		align-items: center;
 		justify-content: space-between;
 		gap: 16px;
-		padding: 10px 12px;
-		border: 1px solid var(--border-soft);
-		border-radius: 13px;
-		background: rgba(255, 255, 255, 0.72);
+		padding: 10px 0;
+		border: none;
+		border-radius: 0;
+		background: transparent;
+	}
+
+	.shortcut-row + .shortcut-row {
+		border-top: 1px solid var(--border-soft);
 	}
 
 	.shortcut-row.editing {

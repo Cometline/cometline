@@ -1,6 +1,5 @@
 <script lang="ts">
-	import { fly } from 'svelte/transition';
-	import { Check, LogIn, LoaderCircle, Plus, RefreshCw, Trash2 } from '@lucide/svelte';
+	import { LogIn, LoaderCircle, Plus, RefreshCw, Trash2 } from '@lucide/svelte';
 	import type { ProviderConfig, ProviderMethod } from '$lib/types';
 	import { settingsStore } from '$lib/stores/settings.svelte';
 	import ProviderCard from './ProviderCard.svelte';
@@ -83,7 +82,7 @@
 	}
 </script>
 
-<div class="provider-shell">
+<div class="provider-shell settings-panel-frame">
 	<aside class="provider-sidebar">
 		<div class="provider-sidebar-title">
 			<span>{enabledProviderCount} enabled</span>
@@ -235,8 +234,8 @@
 				{/if}
 			</div>
 
-			<div class="model-section">
-				<div class="model-heading">
+			<div class="settings-section model-section">
+				<div class="settings-section-heading model-heading">
 					<div>
 						<h3>Models</h3>
 						{#if selectedProvider.method === 'codex'}
@@ -275,7 +274,7 @@
 					spellcheck="false"
 				/>
 
-				<div class="models">
+				<div class="settings-scroll-list model-list">
 					{#each filteredModels as model (model)}
 						<ModelRow
 							{model}
@@ -304,11 +303,14 @@
 		min-height: 0;
 	}
 
+
 	.provider-sidebar {
 		display: flex;
 		flex-direction: column;
 		gap: 10px;
 		min-height: 0;
+		padding-right: 12px;
+		border-right: 1px solid var(--border-soft);
 	}
 
 	.provider-sidebar-title {
@@ -423,21 +425,18 @@
 	}
 
 	.model-section {
+		margin-top: 4px;
+		padding-top: 20px;
 		border-top: 1px solid var(--border-soft);
-		padding-top: 14px;
 	}
 
 	.model-heading {
-		display: flex;
-		align-items: flex-start;
-		justify-content: space-between;
-		gap: 12px;
-		margin-bottom: 10px;
+		margin-bottom: 0;
 	}
 
 	.model-heading h3 {
 		margin: 0;
-		font-size: 16px;
+		font-size: 14px;
 	}
 
 	.model-heading p {
@@ -454,12 +453,6 @@
 	.model-search {
 		width: 100%;
 		margin-bottom: 10px;
-	}
-
-	.models {
-		display: flex;
-		flex-direction: column;
-		gap: 6px;
 	}
 
 	.secondary {
