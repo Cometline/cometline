@@ -10,6 +10,22 @@ import (
 	"database/sql"
 )
 
+const compactChildSession = `-- name: CompactChildSession :exec
+UPDATE sessions
+SET
+    token_usage = '{}',
+    context_summary = '',
+    compacted_until_message_id = NULL,
+    context_summary_updated_at = NULL,
+    updated_at = unixepoch ('now', 'subsec') * 1000
+WHERE id = ?
+`
+
+func (q *Queries) CompactChildSession(ctx context.Context, id string) error {
+	_, err := q.db.ExecContext(ctx, compactChildSession, id)
+	return err
+}
+
 const createChildSession = `-- name: CreateChildSession :one
 INSERT INTO sessions (
     id,
@@ -21,10 +37,11 @@ INSERT INTO sessions (
     parent_session_id,
     purpose,
     delegation_status,
-    output_summary
+    output_summary,
+    subagent_kind
 )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, workspace_id, title, model_id, provider_id, status, token_usage, parent_session_id, purpose, delegation_status, output_summary, acp_session_id, pending_question, pinned, context_summary, compacted_until_message_id, context_summary_updated_at, created_at, updated_at
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING id, workspace_id, title, model_id, provider_id, status, token_usage, parent_session_id, purpose, delegation_status, output_summary, acp_session_id, pending_question, subagent_kind, pinned, context_summary, compacted_until_message_id, context_summary_updated_at, created_at, updated_at
 `
 
 type CreateChildSessionParams struct {
@@ -38,6 +55,7 @@ type CreateChildSessionParams struct {
 	Purpose          string         `json:"purpose"`
 	DelegationStatus string         `json:"delegation_status"`
 	OutputSummary    string         `json:"output_summary"`
+	SubagentKind     string         `json:"subagent_kind"`
 }
 
 func (q *Queries) CreateChildSession(ctx context.Context, arg CreateChildSessionParams) (Session, error) {
@@ -52,6 +70,7 @@ func (q *Queries) CreateChildSession(ctx context.Context, arg CreateChildSession
 		arg.Purpose,
 		arg.DelegationStatus,
 		arg.OutputSummary,
+		arg.SubagentKind,
 	)
 	var i Session
 	err := row.Scan(
@@ -68,6 +87,7 @@ func (q *Queries) CreateChildSession(ctx context.Context, arg CreateChildSession
 		&i.OutputSummary,
 		&i.AcpSessionID,
 		&i.PendingQuestion,
+		&i.SubagentKind,
 		&i.Pinned,
 		&i.ContextSummary,
 		&i.CompactedUntilMessageID,
@@ -81,7 +101,7 @@ func (q *Queries) CreateChildSession(ctx context.Context, arg CreateChildSession
 const createSession = `-- name: CreateSession :one
 INSERT INTO sessions (id, workspace_id, title, model_id, provider_id, status)
 VALUES (?, ?, ?, ?, ?, ?)
-RETURNING id, workspace_id, title, model_id, provider_id, status, token_usage, parent_session_id, purpose, delegation_status, output_summary, acp_session_id, pending_question, pinned, context_summary, compacted_until_message_id, context_summary_updated_at, created_at, updated_at
+RETURNING id, workspace_id, title, model_id, provider_id, status, token_usage, parent_session_id, purpose, delegation_status, output_summary, acp_session_id, pending_question, subagent_kind, pinned, context_summary, compacted_until_message_id, context_summary_updated_at, created_at, updated_at
 `
 
 type CreateSessionParams struct {
@@ -117,6 +137,7 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (S
 		&i.OutputSummary,
 		&i.AcpSessionID,
 		&i.PendingQuestion,
+		&i.SubagentKind,
 		&i.Pinned,
 		&i.ContextSummary,
 		&i.CompactedUntilMessageID,
@@ -138,7 +159,7 @@ func (q *Queries) DeleteSession(ctx context.Context, id string) error {
 }
 
 const getActiveChildForParent = `-- name: GetActiveChildForParent :one
-SELECT id, workspace_id, title, model_id, provider_id, status, token_usage, parent_session_id, purpose, delegation_status, output_summary, acp_session_id, pending_question, pinned, context_summary, compacted_until_message_id, context_summary_updated_at, created_at, updated_at
+SELECT id, workspace_id, title, model_id, provider_id, status, token_usage, parent_session_id, purpose, delegation_status, output_summary, acp_session_id, pending_question, subagent_kind, pinned, context_summary, compacted_until_message_id, context_summary_updated_at, created_at, updated_at
 FROM sessions
 WHERE
     parent_session_id = ?
@@ -164,6 +185,7 @@ func (q *Queries) GetActiveChildForParent(ctx context.Context, parentSessionID s
 		&i.OutputSummary,
 		&i.AcpSessionID,
 		&i.PendingQuestion,
+		&i.SubagentKind,
 		&i.Pinned,
 		&i.ContextSummary,
 		&i.CompactedUntilMessageID,
@@ -175,7 +197,7 @@ func (q *Queries) GetActiveChildForParent(ctx context.Context, parentSessionID s
 }
 
 const getSession = `-- name: GetSession :one
-SELECT id, workspace_id, title, model_id, provider_id, status, token_usage, parent_session_id, purpose, delegation_status, output_summary, acp_session_id, pending_question, pinned, context_summary, compacted_until_message_id, context_summary_updated_at, created_at, updated_at
+SELECT id, workspace_id, title, model_id, provider_id, status, token_usage, parent_session_id, purpose, delegation_status, output_summary, acp_session_id, pending_question, subagent_kind, pinned, context_summary, compacted_until_message_id, context_summary_updated_at, created_at, updated_at
 FROM sessions
 WHERE id = ?
 LIMIT 1
@@ -198,6 +220,7 @@ func (q *Queries) GetSession(ctx context.Context, id string) (Session, error) {
 		&i.OutputSummary,
 		&i.AcpSessionID,
 		&i.PendingQuestion,
+		&i.SubagentKind,
 		&i.Pinned,
 		&i.ContextSummary,
 		&i.CompactedUntilMessageID,
@@ -209,41 +232,58 @@ func (q *Queries) GetSession(ctx context.Context, id string) (Session, error) {
 }
 
 const listAllSessions = `-- name: ListAllSessions :many
-SELECT id, workspace_id, title, model_id, provider_id, status, token_usage, parent_session_id, purpose, delegation_status, output_summary, acp_session_id, pending_question, pinned, context_summary, compacted_until_message_id, context_summary_updated_at, created_at, updated_at
-FROM sessions
-WHERE parent_session_id IS NULL
-ORDER BY pinned DESC, updated_at DESC
+SELECT
+    s.id, s.workspace_id, s.title, s.model_id, s.provider_id, s.status, s.token_usage, s.parent_session_id, s.purpose, s.delegation_status, s.output_summary, s.acp_session_id, s.pending_question, s.subagent_kind, s.pinned, s.context_summary, s.compacted_until_message_id, s.context_summary_updated_at, s.created_at, s.updated_at,
+    COALESCE(g.platform, '') AS gateway_platform,
+    COALESCE(g.platform_channel_id, '') AS gateway_channel_id,
+    COALESCE(g.thread_id, '') AS gateway_thread_id
+FROM
+    sessions s
+    LEFT JOIN gateway_sessions g ON g.cometmind_session_id = s.id
+WHERE s.parent_session_id IS NULL
+ORDER BY s.pinned DESC, s.updated_at DESC
 `
 
-func (q *Queries) ListAllSessions(ctx context.Context) ([]Session, error) {
+type ListAllSessionsRow struct {
+	Session          Session `json:"session"`
+	GatewayPlatform  string  `json:"gateway_platform"`
+	GatewayChannelID string  `json:"gateway_channel_id"`
+	GatewayThreadID  string  `json:"gateway_thread_id"`
+}
+
+func (q *Queries) ListAllSessions(ctx context.Context) ([]ListAllSessionsRow, error) {
 	rows, err := q.db.QueryContext(ctx, listAllSessions)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []Session{}
+	items := []ListAllSessionsRow{}
 	for rows.Next() {
-		var i Session
+		var i ListAllSessionsRow
 		if err := rows.Scan(
-			&i.ID,
-			&i.WorkspaceID,
-			&i.Title,
-			&i.ModelID,
-			&i.ProviderID,
-			&i.Status,
-			&i.TokenUsage,
-			&i.ParentSessionID,
-			&i.Purpose,
-			&i.DelegationStatus,
-			&i.OutputSummary,
-			&i.AcpSessionID,
-			&i.PendingQuestion,
-			&i.Pinned,
-			&i.ContextSummary,
-			&i.CompactedUntilMessageID,
-			&i.ContextSummaryUpdatedAt,
-			&i.CreatedAt,
-			&i.UpdatedAt,
+			&i.Session.ID,
+			&i.Session.WorkspaceID,
+			&i.Session.Title,
+			&i.Session.ModelID,
+			&i.Session.ProviderID,
+			&i.Session.Status,
+			&i.Session.TokenUsage,
+			&i.Session.ParentSessionID,
+			&i.Session.Purpose,
+			&i.Session.DelegationStatus,
+			&i.Session.OutputSummary,
+			&i.Session.AcpSessionID,
+			&i.Session.PendingQuestion,
+			&i.Session.SubagentKind,
+			&i.Session.Pinned,
+			&i.Session.ContextSummary,
+			&i.Session.CompactedUntilMessageID,
+			&i.Session.ContextSummaryUpdatedAt,
+			&i.Session.CreatedAt,
+			&i.Session.UpdatedAt,
+			&i.GatewayPlatform,
+			&i.GatewayChannelID,
+			&i.GatewayThreadID,
 		); err != nil {
 			return nil, err
 		}
@@ -259,7 +299,7 @@ func (q *Queries) ListAllSessions(ctx context.Context) ([]Session, error) {
 }
 
 const listChildSessions = `-- name: ListChildSessions :many
-SELECT id, workspace_id, title, model_id, provider_id, status, token_usage, parent_session_id, purpose, delegation_status, output_summary, acp_session_id, pending_question, pinned, context_summary, compacted_until_message_id, context_summary_updated_at, created_at, updated_at
+SELECT id, workspace_id, title, model_id, provider_id, status, token_usage, parent_session_id, purpose, delegation_status, output_summary, acp_session_id, pending_question, subagent_kind, pinned, context_summary, compacted_until_message_id, context_summary_updated_at, created_at, updated_at
 FROM sessions
 WHERE parent_session_id = ?
 ORDER BY created_at ASC
@@ -288,6 +328,7 @@ func (q *Queries) ListChildSessions(ctx context.Context, parentSessionID sql.Nul
 			&i.OutputSummary,
 			&i.AcpSessionID,
 			&i.PendingQuestion,
+			&i.SubagentKind,
 			&i.Pinned,
 			&i.ContextSummary,
 			&i.CompactedUntilMessageID,
@@ -309,7 +350,7 @@ func (q *Queries) ListChildSessions(ctx context.Context, parentSessionID sql.Nul
 }
 
 const listSessionsByWorkspace = `-- name: ListSessionsByWorkspace :many
-SELECT id, workspace_id, title, model_id, provider_id, status, token_usage, parent_session_id, purpose, delegation_status, output_summary, acp_session_id, pending_question, pinned, context_summary, compacted_until_message_id, context_summary_updated_at, created_at, updated_at
+SELECT id, workspace_id, title, model_id, provider_id, status, token_usage, parent_session_id, purpose, delegation_status, output_summary, acp_session_id, pending_question, subagent_kind, pinned, context_summary, compacted_until_message_id, context_summary_updated_at, created_at, updated_at
 FROM sessions
 WHERE workspace_id = ?
 ORDER BY pinned DESC, updated_at DESC
@@ -338,6 +379,7 @@ func (q *Queries) ListSessionsByWorkspace(ctx context.Context, workspaceID strin
 			&i.OutputSummary,
 			&i.AcpSessionID,
 			&i.PendingQuestion,
+			&i.SubagentKind,
 			&i.Pinned,
 			&i.ContextSummary,
 			&i.CompactedUntilMessageID,
@@ -359,16 +401,17 @@ func (q *Queries) ListSessionsByWorkspace(ctx context.Context, workspaceID strin
 }
 
 const listSessionsByWorkspaceAsc = `-- name: ListSessionsByWorkspaceAsc :many
-SELECT id, updated_at, delegation_status
+SELECT id, updated_at, delegation_status, parent_session_id
 FROM sessions
 WHERE workspace_id = ?
 ORDER BY updated_at ASC
 `
 
 type ListSessionsByWorkspaceAscRow struct {
-	ID               string `json:"id"`
-	UpdatedAt        int64  `json:"updated_at"`
-	DelegationStatus string `json:"delegation_status"`
+	ID               string         `json:"id"`
+	UpdatedAt        int64          `json:"updated_at"`
+	DelegationStatus string         `json:"delegation_status"`
+	ParentSessionID  sql.NullString `json:"parent_session_id"`
 }
 
 func (q *Queries) ListSessionsByWorkspaceAsc(ctx context.Context, workspaceID string) ([]ListSessionsByWorkspaceAscRow, error) {
@@ -380,10 +423,48 @@ func (q *Queries) ListSessionsByWorkspaceAsc(ctx context.Context, workspaceID st
 	items := []ListSessionsByWorkspaceAscRow{}
 	for rows.Next() {
 		var i ListSessionsByWorkspaceAscRow
-		if err := rows.Scan(&i.ID, &i.UpdatedAt, &i.DelegationStatus); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.UpdatedAt,
+			&i.DelegationStatus,
+			&i.ParentSessionID,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listStaleChildSessionIDs = `-- name: ListStaleChildSessionIDs :many
+SELECT id
+FROM sessions
+WHERE
+    parent_session_id IS NOT NULL
+    AND delegation_status IN ('completed', 'failed', 'cancelled')
+    AND updated_at < ?
+ORDER BY updated_at ASC
+`
+
+func (q *Queries) ListStaleChildSessionIDs(ctx context.Context, updatedAt int64) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listStaleChildSessionIDs, updatedAt)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err
@@ -618,6 +699,24 @@ type UpdateSessionPinnedParams struct {
 
 func (q *Queries) UpdateSessionPinned(ctx context.Context, arg UpdateSessionPinnedParams) error {
 	_, err := q.db.ExecContext(ctx, updateSessionPinned, arg.Pinned, arg.ID)
+	return err
+}
+
+const updateSessionSubagentKind = `-- name: UpdateSessionSubagentKind :exec
+UPDATE sessions
+SET
+    subagent_kind = ?,
+    updated_at = unixepoch ('now', 'subsec') * 1000
+WHERE id = ?
+`
+
+type UpdateSessionSubagentKindParams struct {
+	SubagentKind string `json:"subagent_kind"`
+	ID           string `json:"id"`
+}
+
+func (q *Queries) UpdateSessionSubagentKind(ctx context.Context, arg UpdateSessionSubagentKindParams) error {
+	_, err := q.db.ExecContext(ctx, updateSessionSubagentKind, arg.SubagentKind, arg.ID)
 	return err
 }
 

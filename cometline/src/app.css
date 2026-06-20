@@ -98,6 +98,9 @@
 	--pinned-group-color: #b45309;
 	--pinned-group-bg: color-mix(in srgb, var(--pinned-group-color) 10%, transparent);
 	--pinned-group-bg-hover: color-mix(in srgb, var(--pinned-group-color) 16%, transparent);
+	--discord-group-color: #5865f2;
+	--discord-group-bg: color-mix(in srgb, var(--discord-group-color) 10%, transparent);
+	--discord-group-bg-hover: color-mix(in srgb, var(--discord-group-color) 16%, transparent);
 }
 
 @theme inline {

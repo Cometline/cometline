@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Pin, PinOff, Trash2 } from '@lucide/svelte';
 	import type { Session } from '$lib/types';
-	import { workspaceLabel } from '$lib/sessions/group-by-workspace';
+	import { workspaceLabel, gatewaySessionLabel } from '$lib/sessions/group-by-workspace';
 
 	let {
 		session,
@@ -9,6 +9,8 @@
 		deleting = false,
 		pinning = false,
 		showWorkspaceLabel = false,
+		showGatewayLabel = false,
+		showPin = true,
 		onSelect,
 		onDelete,
 		onPin,
@@ -19,6 +21,8 @@
 		deleting?: boolean;
 		pinning?: boolean;
 		showWorkspaceLabel?: boolean;
+		showGatewayLabel?: boolean;
+		showPin?: boolean;
 		onSelect: () => void;
 		onDelete: () => void;
 		onPin: () => void;
@@ -39,12 +43,15 @@
 >
 	<button class="session-row" onclick={onSelect}>
 		<span class="session-title">{session.title || 'Untitled'}</span>
-		{#if showWorkspaceLabel}
+		{#if showGatewayLabel}
+			<span class="session-workspace session-gateway">{gatewaySessionLabel(session)}</span>
+		{:else if showWorkspaceLabel}
 			<span class="session-workspace">{workspaceLabel(session.workspace_path)}</span>
 		{/if}
 	</button>
 	<div class="session-actions">
-		<button
+		{#if showPin}
+			<button
 			class="pin-session"
 			class:active={session.pinned}
 			disabled={pinning}
@@ -58,6 +65,7 @@
 				<PinOff size={13} stroke-width={1.9} />
 			{/if}
 		</button>
+		{/if}
 		<button
 			class="delete-session"
 			disabled={deleting}

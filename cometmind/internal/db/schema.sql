@@ -32,6 +32,8 @@ CREATE TABLE sessions (
     output_summary     TEXT NOT NULL DEFAULT '',
     acp_session_id     TEXT NOT NULL DEFAULT '',
     pending_question   TEXT NOT NULL DEFAULT '',
+    subagent_kind      TEXT NOT NULL DEFAULT ''
+                       CHECK (subagent_kind IN ('', 'general', 'acp')),
     pinned             INTEGER NOT NULL DEFAULT 0,
     context_summary    TEXT NOT NULL DEFAULT '',
     compacted_until_message_id TEXT,

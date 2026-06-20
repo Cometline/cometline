@@ -291,48 +291,6 @@ describe('reduceChatState', () => {
 		expect(tool.afterSegment).toBe(0);
 	});
 
-	it('accumulates subagent stream chunks and updates tool status', () => {
-		let state = initChatState();
-		state = reduceChatState(state, {
-			type: 'subagent_started',
-			child_session_id: 'child-1',
-			purpose: 'Run tests',
-			agent_name: 'opencode'
-		});
-		state = reduceChatState(state, {
-			type: 'subagent_progress',
-			child_session_id: 'child-1',
-			progress_kind: 'message',
-			progress_text: 'the '
-		});
-		state = reduceChatState(state, {
-			type: 'subagent_progress',
-			child_session_id: 'child-1',
-			progress_kind: 'message',
-			progress_text: 'fix.'
-		});
-		state = reduceChatState(state, {
-			type: 'subagent_progress',
-			child_session_id: 'child-1',
-			progress_kind: 'tool_call',
-			progress_text: 'bash (pending)'
-		});
-		state = reduceChatState(state, {
-			type: 'subagent_progress',
-			child_session_id: 'child-1',
-			progress_kind: 'tool_call_update',
-			progress_text: 'bash (in_progress)'
-		});
-
-		const card = state.items.find((item) => item.type === 'subagent');
-		expect(card?.type).toBe('subagent');
-		if (card?.type !== 'subagent') return;
-		expect(card.progress).toEqual([
-			{ kind: 'stream', channel: 'message', text: 'the fix.' },
-			{ kind: 'tool', title: 'bash', status: 'in_progress' }
-		]);
-	});
-
 	it('merges message progress after tool entries into the same stream', () => {
 		let state = initChatState();
 		state = reduceChatState(state, {
@@ -367,5 +325,72 @@ describe('reduceChatState', () => {
 			{ kind: 'stream', channel: 'message', text: 'Which branch?' },
 			{ kind: 'tool', title: 'bash', status: 'pending' }
 		]);
+	});
+
+	it('stores general subagent status and tool progress as separate chips', () => {
+		let state = initChatState();
+		state = reduceChatState(state, {
+			type: 'subagent_started',
+			child_session_id: 'child-1',
+			purpose: 'Research hermes-agent',
+			agent_name: 'cometmind'
+		});
+		state = reduceChatState(state, {
+			type: 'subagent_progress',
+			child_session_id: 'child-1',
+			progress_kind: 'status',
+			progress_text: 'contacting_model'
+		});
+		state = reduceChatState(state, {
+			type: 'subagent_progress',
+			child_session_id: 'child-1',
+			progress_kind: 'status',
+			progress_text: 'composing_response'
+		});
+		state = reduceChatState(state, {
+			type: 'subagent_progress',
+			child_session_id: 'child-1',
+			progress_kind: 'tool',
+			progress_text: 'web_fetch'
+		});
+		state = reduceChatState(state, {
+			type: 'subagent_progress',
+			child_session_id: 'child-1',
+			progress_kind: 'error',
+			progress_text: 'max_steps_exceeded'
+		});
+
+		const card = state.items.find((item) => item.type === 'subagent');
+		expect(card?.type).toBe('subagent');
+		if (card?.type !== 'subagent') return;
+		expect(card.agentName).toBe('cometmind');
+		expect(card.progress).toEqual([
+			{ kind: 'status', text: 'contacting model' },
+			{ kind: 'status', text: 'composing response' },
+			{ kind: 'tool', title: 'web_fetch', status: 'running' },
+			{ kind: 'status', text: 'error: max steps exceeded' }
+		]);
+	});
+
+	it('maps max-step subagent finishes to incomplete status', () => {
+		let state = initChatState();
+		state = reduceChatState(state, {
+			type: 'subagent_started',
+			child_session_id: 'child-1',
+			purpose: 'Research task',
+			agent_name: 'cometmind'
+		});
+		state = reduceChatState(state, {
+			type: 'subagent_finished',
+			child_session_id: 'child-1',
+			delegation_status: 'failed',
+			summary: 'Partial progress from tool calls:\n- web_fetch: results\n\n(Step limit reached — research incomplete.)'
+		});
+
+		const card = state.items.find((item) => item.type === 'subagent');
+		expect(card?.type).toBe('subagent');
+		if (card?.type !== 'subagent') return;
+		expect(card.status).toBe('incomplete');
+		expect(card.summary).toContain('Partial progress from tool calls');
 	});
 });

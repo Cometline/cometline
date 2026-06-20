@@ -70,8 +70,10 @@ export function estimateChatContextTokens(items: ChatItem[]): number {
 				for (const entry of item.progress) {
 					if (entry.kind === 'stream') {
 						total += estimateTokensFromText(entry.text);
-					} else {
+					} else if (entry.kind === 'tool') {
 						total += estimateTokensFromText(entry.title);
+					} else {
+						total += estimateTokensFromText(entry.text);
 					}
 				}
 				break;

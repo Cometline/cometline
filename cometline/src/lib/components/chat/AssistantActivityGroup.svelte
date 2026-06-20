@@ -15,6 +15,7 @@
 	import SubagentPanel from '$lib/components/chat/SubagentPanel.svelte';
 	import type { ChatItem } from '$lib/stores/chat.svelte';
 	import type { TimelineEntry, InjectedMemory } from '$lib/conversation/thinking-attribution';
+	import { subagentProgressLabel } from '$lib/conversation/subagent-display';
 
 	const FOLD_IN = { duration: 180 };
 
@@ -62,20 +63,6 @@
 		return `Thinking · ${memories.length} memor${memories.length === 1 ? 'y' : 'ies'}`;
 	}
 
-	function subagentProgressLabel(subagent: Extract<ChatItem, { type: 'subagent' }>) {
-		const toolCount = subagent.progress.filter((entry) => entry.kind === 'tool').length;
-		const prefix =
-			subagent.status === 'failed'
-				? 'OpenCode failed'
-				: subagent.status === 'cancelled'
-					? 'OpenCode cancelled'
-					: `OpenCode · ${subagent.agentName}`;
-		if (toolCount > 0) {
-			return `${prefix} · ${toolCount} tool${toolCount === 1 ? '' : 's'}`;
-		}
-		return prefix;
-	}
-
 	function parentLabel(entry: TimelineEntry) {
 		if (entry.kind === 'reasoning') return thinkingLabel(entry.memories);
 		if (entry.kind === 'tool') return toolFoldLabel(entry.tool);
@@ -114,7 +101,7 @@
 			{:else if firstEntry.kind === 'subagent'}
 				{#if firstEntry.subagent.pending}
 					<LoaderCircle size={12} class="spin" />
-				{:else if firstEntry.subagent.status === 'failed'}
+				{:else if firstEntry.subagent.status === 'failed' || firstEntry.subagent.status === 'incomplete'}
 					<TriangleAlert size={12} />
 				{:else if firstEntry.subagent.status === 'cancelled'}
 					<CircleX size={12} />

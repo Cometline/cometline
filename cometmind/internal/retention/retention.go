@@ -15,6 +15,7 @@ import (
 // Result summarizes one retention pass.
 type Result struct {
 	SessionsDeleted    int
+	SubagentsDeleted   int
 	MemoriesPurged     int
 	MemoryEventsPurged int
 	Vacuumed           bool
@@ -39,11 +40,12 @@ func (r *Runner) Run(ctx context.Context) (Result, error) {
 	var out Result
 
 	if cfg.RetentionEnabled() {
-		n, err := r.purgeSessions(ctx)
+		n, sub, err := r.purgeSessions(ctx)
 		if err != nil {
 			return out, err
 		}
 		out.SessionsDeleted = n
+		out.SubagentsDeleted = sub
 	}
 
 	if r.Memory != nil && cfg.MemoryPurgeEnabled() {
@@ -55,17 +57,18 @@ func (r *Runner) Run(ctx context.Context) (Result, error) {
 		out.MemoryEventsPurged = events
 	}
 
-	if cfg.VacuumAfterPurge && (out.SessionsDeleted > 0 || out.MemoriesPurged > 0) {
+	if cfg.VacuumAfterPurge && (out.SessionsDeleted > 0 || out.SubagentsDeleted > 0 || out.MemoriesPurged > 0) {
 		if _, err := r.DB.ExecContext(ctx, "VACUUM"); err != nil {
 			return out, err
 		}
 		out.Vacuumed = true
 	}
 
-	if out.SessionsDeleted > 0 || out.MemoriesPurged > 0 {
+	if out.SessionsDeleted > 0 || out.SubagentsDeleted > 0 || out.MemoriesPurged > 0 {
 		log.Printf(
-			"cometmind: retention complete sessions_deleted=%d memories_purged=%d memory_events_purged=%d vacuumed=%v",
+			"cometmind: retention complete sessions_deleted=%d subagents_deleted=%d memories_purged=%d memory_events_purged=%d vacuumed=%v",
 			out.SessionsDeleted,
+			out.SubagentsDeleted,
 			out.MemoriesPurged,
 			out.MemoryEventsPurged,
 			out.Vacuumed,
@@ -74,14 +77,34 @@ func (r *Runner) Run(ctx context.Context) (Result, error) {
 	return out, nil
 }
 
-func (r *Runner) purgeSessions(ctx context.Context) (int, error) {
+func (r *Runner) purgeSessions(ctx context.Context) (int, int, error) {
 	q := db.New(r.DB)
 	workspaces, err := q.ListWorkspaces(ctx)
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 
 	deleted := make(map[string]struct{})
+	subagentsDeleted := 0
+
+	if r.Config.SubagentRetentionDays > 0 {
+		cutoff := time.Now().Add(-time.Duration(r.Config.SubagentRetentionDays) * 24 * time.Hour).UnixMilli()
+		ids, err := q.ListStaleChildSessionIDs(ctx, cutoff)
+		if err != nil {
+			return 0, 0, err
+		}
+		for _, id := range ids {
+			if r.skipSession(id) {
+				continue
+			}
+			if err := r.Sessions.DeleteSession(ctx, id); err != nil {
+				return 0, 0, err
+			}
+			deleted[id] = struct{}{}
+			subagentsDeleted++
+		}
+	}
+
 	for _, ws := range workspaces {
 		if r.Config.RetentionDays > 0 {
 			cutoff := time.Now().Add(-time.Duration(r.Config.RetentionDays) * 24 * time.Hour).UnixMilli()
@@ -90,14 +113,14 @@ func (r *Runner) purgeSessions(ctx context.Context) (int, error) {
 				UpdatedAt:   cutoff,
 			})
 			if err != nil {
-				return 0, err
+				return 0, 0, err
 			}
 			for _, id := range ids {
 				if r.skipSession(id) {
 					continue
 				}
 				if err := r.Sessions.DeleteSession(ctx, id); err != nil {
-					return 0, err
+					return 0, 0, err
 				}
 				deleted[id] = struct{}{}
 			}
@@ -106,13 +129,20 @@ func (r *Runner) purgeSessions(ctx context.Context) (int, error) {
 		if r.Config.MaxSessionsPerWorkspace > 0 {
 			rows, err := q.ListSessionsByWorkspaceAsc(ctx, ws.ID)
 			if err != nil {
-				return 0, err
+				return 0, 0, err
 			}
-			extra := len(rows) - r.Config.MaxSessionsPerWorkspace
+			var topLevel []db.ListSessionsByWorkspaceAscRow
+			for _, row := range rows {
+				if row.ParentSessionID.Valid {
+					continue
+				}
+				topLevel = append(topLevel, row)
+			}
+			extra := len(topLevel) - r.Config.MaxSessionsPerWorkspace
 			if extra <= 0 {
 				continue
 			}
-			for _, row := range rows {
+			for _, row := range topLevel {
 				if extra <= 0 {
 					break
 				}
@@ -126,14 +156,14 @@ func (r *Runner) purgeSessions(ctx context.Context) (int, error) {
 					continue
 				}
 				if err := r.Sessions.DeleteSession(ctx, row.ID); err != nil {
-					return 0, err
+					return 0, 0, err
 				}
 				deleted[row.ID] = struct{}{}
 				extra--
 			}
 		}
 	}
-	return len(deleted), nil
+	return len(deleted) - subagentsDeleted, subagentsDeleted, nil
 }
 
 func (r *Runner) skipSession(sessionID string) bool {

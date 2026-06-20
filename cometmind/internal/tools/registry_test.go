@@ -7,6 +7,25 @@ import (
 	"testing"
 )
 
+func TestNewSubagentRegistryExcludesWriteAndDelegateTools(t *testing.T) {
+	r := NewSubagentRegistry(t.TempDir(), nil)
+	excluded := []string{
+		"write_file", "run_command", "write_skill",
+		"delegate_coding_task", "spawn_general_agent", "wait_subagents",
+	}
+	for _, name := range excluded {
+		if r.Has(name) {
+			t.Errorf("subagent registry should not include %q", name)
+		}
+	}
+	included := []string{"read_file", "list_dir", "glob", "grep", "web_fetch"}
+	for _, name := range included {
+		if !r.Has(name) {
+			t.Errorf("subagent registry missing %q", name)
+		}
+	}
+}
+
 func TestNewRegistryCapturesWorkspaceAndExposesSpecs(t *testing.T) {
 	root := t.TempDir()
 	if err := os.WriteFile(filepath.Join(root, "hello.txt"), []byte("world"), 0o644); err != nil {

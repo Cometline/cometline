@@ -104,6 +104,46 @@ describe('layoutSessionsForSidebar', () => {
 		expect(layout.workspaceGroups[0].sessions.map((item) => item.id)).toEqual(['recent']);
 		expect(layout.workspaceGroups[1].sessions.map((item) => item.id)).toEqual(['b1']);
 	});
+
+	it('partitions Discord gateway sessions into a bottom group when inactive', () => {
+		const desktop = session('desktop', '/ws-a', 100);
+		const discord = session('discord-1', '/ws-a', 90);
+		discord.gateway = { platform: 'discord', channel_id: '123', thread_id: '' };
+
+		const layout = layoutSessionsForSidebar([desktop, discord], '/ws-a', false);
+
+		expect(layout.discordFirst).toBe(false);
+		expect(layout.workspaceGroups[0].sessions.map((item) => item.id)).toEqual(['desktop']);
+		expect(layout.discordSessions.map((item) => item.id)).toEqual(['discord-1']);
+	});
+
+	it('places Discord gateway sessions first when active', () => {
+		const desktop = session('desktop', '/ws-a', 100);
+		const discord = session('discord-1', '/ws-a', 90);
+		discord.gateway = { platform: 'discord', channel_id: '123', thread_id: '' };
+
+		const layout = layoutSessionsForSidebar([desktop, discord], '/ws-a', true);
+
+		expect(layout.discordFirst).toBe(true);
+	});
+
+	it('orders Discord before workspace groups in keyboard navigation when active', () => {
+		const desktop = session('desktop', '/ws-a', 100);
+		const discord = session('discord-1', '/ws-a', 90);
+		discord.gateway = { platform: 'discord', channel_id: '123', thread_id: '' };
+
+		const flat = flattenSessionsInSidebarOrder([desktop, discord], '/ws-a', true);
+		expect(flat.map((item) => item.id)).toEqual(['discord-1', 'desktop']);
+	});
+
+	it('orders Discord after workspace groups in keyboard navigation when inactive', () => {
+		const desktop = session('desktop', '/ws-a', 100);
+		const discord = session('discord-1', '/ws-a', 90);
+		discord.gateway = { platform: 'discord', channel_id: '123', thread_id: '' };
+
+		const flat = flattenSessionsInSidebarOrder([desktop, discord], '/ws-a', false);
+		expect(flat.map((item) => item.id)).toEqual(['desktop', 'discord-1']);
+	});
 });
 
 describe('pinned sidebar order', () => {

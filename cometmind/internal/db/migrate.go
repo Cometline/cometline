@@ -125,6 +125,11 @@ var alterStatements = [][]string{
 		"ALTER TABLE sessions ADD COLUMN compacted_until_message_id TEXT",
 		"ALTER TABLE sessions ADD COLUMN context_summary_updated_at TEXT",
 	},
+	// v10 -> v11: subagent kind for lifecycle and retention.
+	{
+		"ALTER TABLE sessions ADD COLUMN subagent_kind TEXT NOT NULL DEFAULT ''",
+		`UPDATE sessions SET subagent_kind = 'acp' WHERE trim(acp_session_id) != '' AND parent_session_id IS NOT NULL`,
+	},
 }
 
 // execAlter runs one incremental DDL statement, tolerating idempotent failures
@@ -163,7 +168,7 @@ func splitStatements(sql string) []string {
 	return out
 }
 
-const schemaVersion = 10
+const schemaVersion = 11
 
 // EnsureSchema runs [Migrate] once per database file using PRAGMA user_version.
 // For existing databases, it applies incremental ALTER statements to upgrade

@@ -79,6 +79,7 @@ type Config struct {
 	Skills           SkillsConfig    `mapstructure:"skills"`
 	Memory           MemoryConfig    `mapstructure:"memory"`
 	Storage          StorageConfig   `mapstructure:"storage"`
+	Subagent         SubagentSettings `mapstructure:"subagent"`
 	Gateway          GatewayConfig   `mapstructure:"gateway"`
 	MCP              MCPConfig       `mapstructure:"mcp"`
 }
@@ -138,6 +139,7 @@ func Load() (*Config, error) {
 	applyEnvOverrides(cfg, def)
 	cfg.Memory = cfg.EffectiveMemoryConfig()
 	cfg.Storage = cfg.EffectiveStorageConfig()
+	cfg.Subagent = cfg.EffectiveSubagentSettings()
 	return cfg, nil
 }
 
@@ -231,6 +233,15 @@ func applyEnvOverrides(c *Config, def *Config) {
 	}
 	if v.IsSet("storage_vacuum_after_purge") {
 		c.Storage.VacuumAfterPurge = v.GetBool("storage_vacuum_after_purge")
+	}
+	if v.IsSet("subagent_general_max_steps") {
+		c.Subagent.GeneralMaxSteps = v.GetInt("subagent_general_max_steps")
+	}
+	if v.IsSet("subagent_max_concurrent_per_parent") {
+		c.Subagent.MaxConcurrentPerParent = v.GetInt("subagent_max_concurrent_per_parent")
+	}
+	if v.IsSet("storage_subagent_retention_days") {
+		c.Storage.SubagentRetentionDays = v.GetInt("storage_subagent_retention_days")
 	}
 }
 

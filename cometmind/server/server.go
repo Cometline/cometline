@@ -21,6 +21,7 @@ import (
 	mcppkg "github.com/cometline/cometmind/internal/mcp"
 	"github.com/cometline/cometmind/internal/session"
 	skillpkg "github.com/cometline/cometmind/internal/skills"
+	"github.com/cometline/cometmind/internal/subagent"
 	"github.com/cometline/cometmind/internal/tools/sandbox"
 	workspacefiles "github.com/cometline/cometmind/internal/workspace/files"
 	"github.com/gin-gonic/gin"
@@ -47,23 +48,25 @@ type Runner interface {
 type RunnerFactory func(sess session.Session, workspacePath string) (Runner, error)
 
 type Deps struct {
-	Config    *config.Config
-	Sessions  *session.Service
-	Memory    *memory.Service
-	NewRunner RunnerFactory
-	Runs      *RunManager
-	ACPMgr    *acp.SessionManager
-	MCPMgr    *mcppkg.Manager
+	Config        *config.Config
+	Sessions      *session.Service
+	Memory        *memory.Service
+	NewRunner     RunnerFactory
+	Runs          *RunManager
+	ACPMgr        *acp.SessionManager
+	MCPMgr        *mcppkg.Manager
+	SubagentOrch  *subagent.Orchestrator
 }
 
 type App struct {
-	config    *config.Config
-	sessions  *session.Service
-	memory    *memory.Service
-	newRunner RunnerFactory
-	runs      *RunManager
-	acpMgr    *acp.SessionManager
-	mcpMgr    *mcppkg.Manager
+	config       *config.Config
+	sessions     *session.Service
+	memory       *memory.Service
+	newRunner    RunnerFactory
+	runs         *RunManager
+	acpMgr       *acp.SessionManager
+	mcpMgr       *mcppkg.Manager
+	subagentOrch *subagent.Orchestrator
 }
 
 func New(deps Deps) (*gin.Engine, error) {
@@ -81,13 +84,14 @@ func New(deps Deps) (*gin.Engine, error) {
 	}
 
 	app := &App{
-		config:    deps.Config,
-		sessions:  deps.Sessions,
-		memory:    deps.Memory,
-		newRunner: deps.NewRunner,
-		runs:      deps.Runs,
-		acpMgr:    deps.ACPMgr,
-		mcpMgr:    deps.MCPMgr,
+		config:       deps.Config,
+		sessions:     deps.Sessions,
+		memory:       deps.Memory,
+		newRunner:    deps.NewRunner,
+		runs:         deps.Runs,
+		acpMgr:       deps.ACPMgr,
+		mcpMgr:       deps.MCPMgr,
+		subagentOrch: deps.SubagentOrch,
 	}
 
 	r := gin.New()
@@ -263,6 +267,12 @@ type tokenUsageResource struct {
 	CacheWrite   int `json:"cache_write"`
 }
 
+type gatewayResource struct {
+	Platform  string `json:"platform"`
+	ChannelID string `json:"channel_id"`
+	ThreadID  string `json:"thread_id,omitempty"`
+}
+
 type sessionResource struct {
 	ID               string             `json:"id"`
 	WorkspaceID      string             `json:"workspace_id"`
@@ -278,6 +288,8 @@ type sessionResource struct {
 	OutputSummary    string             `json:"output_summary,omitempty"`
 	ACPSessionID     string             `json:"acp_session_id,omitempty"`
 	PendingQuestion  string             `json:"pending_question,omitempty"`
+	SubagentKind     string             `json:"subagent_kind,omitempty"`
+	Gateway          *gatewayResource   `json:"gateway,omitempty"`
 	Pinned           bool               `json:"pinned"`
 	CreatedAt        int64              `json:"created_at"`
 	UpdatedAt        int64              `json:"updated_at"`
@@ -1081,11 +1093,14 @@ func (a *App) handleAbortSession(c *gin.Context) {
 		_ = a.sessions.UpdateDelegationState(c.Request.Context(), sessID, "cancelled", "", "")
 	}
 	if sess.ParentSessionID == "" {
+		if a.subagentOrch != nil {
+			a.subagentOrch.CancelForParent(sessID)
+		}
 		children, err := a.sessions.ListChildSessions(c.Request.Context(), sessID)
 		if err == nil && a.acpMgr != nil {
 			for _, child := range children {
 				switch child.DelegationStatus {
-				case "running":
+				case "running", "pending":
 					_ = a.acpMgr.Cancel(child.ID)
 					_ = a.sessions.UpdateDelegationState(c.Request.Context(), child.ID, "cancelled", "", "")
 				}
@@ -1284,10 +1299,23 @@ func sessionResourceFromModel(sess session.Session, workspacePath string) (sessi
 		OutputSummary:    sess.OutputSummary,
 		ACPSessionID:     sess.ACPSessionID,
 		PendingQuestion:  sess.PendingQuestion,
+		SubagentKind:     sess.SubagentKind,
+		Gateway:          gatewayResourceFromModel(sess.Gateway),
 		Pinned:           sess.Pinned,
 		CreatedAt:        sess.CreatedAt,
 		UpdatedAt:        sess.UpdatedAt,
 	}, nil
+}
+
+func gatewayResourceFromModel(gw *session.SessionGateway) *gatewayResource {
+	if gw == nil || gw.Platform == "" {
+		return nil
+	}
+	return &gatewayResource{
+		Platform:  gw.Platform,
+		ChannelID: gw.ChannelID,
+		ThreadID:  gw.ThreadID,
+	}
 }
 
 func decodeTokenUsage(raw string) (tokenUsageResource, error) {

@@ -1350,6 +1350,23 @@ components:
         pending_question:
           type: string
           description: Legacy field retained for persisted child session compatibility.
+        subagent_kind:
+          type: string
+          enum: ['', general, acp]
+          description: Kind of delegated subagent for child sessions.
+        gateway:
+          type: object
+          additionalProperties: false
+          properties:
+            platform:
+              type: string
+              enum: [discord]
+            channel_id:
+              type: string
+              description: Discord channel ID (parent channel for threads)
+            thread_id:
+              type: string
+              description: Thread channel ID when the conversation is in a thread
 
     SessionListResponse:
       type: object

@@ -10,6 +10,13 @@ type Workspace struct {
 	CreatedAt int64
 }
 
+// SessionGateway links a top-level session to an external chat surface.
+type SessionGateway struct {
+	Platform  string
+	ChannelID string
+	ThreadID  string
+}
+
 // Session is the session-store view of a persisted chat session.
 type Session struct {
 	ID                      string
@@ -25,6 +32,8 @@ type Session struct {
 	OutputSummary           string
 	ACPSessionID            string
 	PendingQuestion         string
+	SubagentKind            string
+	Gateway                 *SessionGateway
 	Pinned                  bool
 	ContextSummary          string
 	CompactedUntilMessageID string
@@ -80,6 +89,7 @@ func sessionFromDB(s db.Session) Session {
 		OutputSummary:           s.OutputSummary,
 		ACPSessionID:            s.AcpSessionID,
 		PendingQuestion:         s.PendingQuestion,
+		SubagentKind:            s.SubagentKind,
 		Pinned:                  s.Pinned != 0,
 		ContextSummary:          s.ContextSummary,
 		CompactedUntilMessageID: compactedUntil,

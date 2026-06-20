@@ -572,7 +572,7 @@ func TestClearSessionRemovesChildSessions(t *testing.T) {
 	if _, err := svc.AppendUserMessage(ctx, parent.ID, "delegate something"); err != nil {
 		t.Fatalf("AppendUserMessage() error = %v", err)
 	}
-	if _, err := svc.NewChildSession(ctx, parent, "refactor auth module"); err != nil {
+	if _, err := svc.NewChildSession(ctx, parent, "refactor auth module", "acp"); err != nil {
 		t.Fatalf("NewChildSession() error = %v", err)
 	}
 	children, err := svc.ListChildSessions(ctx, parent.ID)
@@ -1574,6 +1574,56 @@ func TestListAllSessionsAcrossWorkspaces(t *testing.T) {
 	}
 	if !paths[ws1.Path] || !paths[ws2.Path] {
 		t.Fatalf("expected sessions for both workspaces, got %+v", got.Sessions)
+	}
+}
+
+func TestListAllSessionsIncludesGatewayMetadata(t *testing.T) {
+	t.Parallel()
+
+	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
+			ch <- event.Done()
+			return nil
+		}), nil
+	})
+	defer cleanup()
+
+	ctx := context.Background()
+	ws, err := svc.EnsureWorkspace(ctx, t.TempDir())
+	if err != nil {
+		t.Fatalf("EnsureWorkspace() error = %v", err)
+	}
+	sess, err := svc.NewSession(ctx, ws.ID, "m", "p")
+	if err != nil {
+		t.Fatalf("NewSession() error = %v", err)
+	}
+	if _, err := svc.UpsertGatewaySession(ctx, "discord", "user-1", "channel-9", "thread-3", sess.ID, ws.ID); err != nil {
+		t.Fatalf("UpsertGatewaySession() error = %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/sessions?all=true", nil)
+	engine.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	var got listSessionsResponse
+	decodeJSON(t, rec.Body.Bytes(), &got)
+	if len(got.Sessions) != 1 {
+		t.Fatalf("sessions len = %d want 1", len(got.Sessions))
+	}
+	if got.Sessions[0].Gateway == nil {
+		t.Fatal("expected gateway metadata")
+	}
+	if got.Sessions[0].Gateway.Platform != "discord" {
+		t.Fatalf("gateway.platform = %q want discord", got.Sessions[0].Gateway.Platform)
+	}
+	if got.Sessions[0].Gateway.ChannelID != "channel-9" {
+		t.Fatalf("gateway.channel_id = %q want channel-9", got.Sessions[0].Gateway.ChannelID)
+	}
+	if got.Sessions[0].Gateway.ThreadID != "thread-3" {
+		t.Fatalf("gateway.thread_id = %q want thread-3", got.Sessions[0].Gateway.ThreadID)
 	}
 }
 

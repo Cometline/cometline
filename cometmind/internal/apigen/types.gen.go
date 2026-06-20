@@ -106,6 +106,21 @@ func (e SessionDelegationStatus) Valid() bool {
 	}
 }
 
+// Defines values for SessionGatewayPlatform.
+const (
+	Discord SessionGatewayPlatform = "discord"
+)
+
+// Valid indicates whether the value is a known member of the SessionGatewayPlatform enum.
+func (e SessionGatewayPlatform) Valid() bool {
+	switch e {
+	case Discord:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SessionStatus.
 const (
 	Active   SessionStatus = "active"
@@ -118,6 +133,27 @@ func (e SessionStatus) Valid() bool {
 	case Active:
 		return true
 	case Archived:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SessionSubagentKind.
+const (
+	Acp     SessionSubagentKind = "acp"
+	Empty   SessionSubagentKind = ""
+	General SessionSubagentKind = "general"
+)
+
+// Valid indicates whether the value is a known member of the SessionSubagentKind enum.
+func (e SessionSubagentKind) Valid() bool {
+	switch e {
+	case Acp:
+		return true
+	case Empty:
+		return true
+	case General:
 		return true
 	default:
 		return false
@@ -504,8 +540,16 @@ type Session struct {
 	// CreatedAt Unix epoch milliseconds.
 	CreatedAt        int64                    `json:"created_at"`
 	DelegationStatus *SessionDelegationStatus `json:"delegation_status,omitempty"`
-	Id               string                   `json:"id"`
-	ModelId          string                   `json:"model_id"`
+	Gateway          *struct {
+		// ChannelId Discord channel ID (parent channel for threads)
+		ChannelId *string                 `json:"channel_id,omitempty"`
+		Platform  *SessionGatewayPlatform `json:"platform,omitempty"`
+
+		// ThreadId Thread channel ID when the conversation is in a thread
+		ThreadId *string `json:"thread_id,omitempty"`
+	} `json:"gateway,omitempty"`
+	Id      string `json:"id"`
+	ModelId string `json:"model_id"`
 
 	// OutputSummary Final summary from a delegated child session.
 	OutputSummary *string `json:"output_summary,omitempty"`
@@ -521,10 +565,13 @@ type Session struct {
 	ProviderId string `json:"provider_id"`
 
 	// Purpose Delegation task purpose for child sessions.
-	Purpose    *string       `json:"purpose,omitempty"`
-	Status     SessionStatus `json:"status"`
-	Title      string        `json:"title"`
-	TokenUsage TokenUsage    `json:"token_usage"`
+	Purpose *string       `json:"purpose,omitempty"`
+	Status  SessionStatus `json:"status"`
+
+	// SubagentKind Kind of delegated subagent for child sessions.
+	SubagentKind *SessionSubagentKind `json:"subagent_kind,omitempty"`
+	Title        string               `json:"title"`
+	TokenUsage   TokenUsage           `json:"token_usage"`
 
 	// UpdatedAt Unix epoch milliseconds.
 	UpdatedAt     int64  `json:"updated_at"`
@@ -535,8 +582,14 @@ type Session struct {
 // SessionDelegationStatus defines model for Session.DelegationStatus.
 type SessionDelegationStatus string
 
+// SessionGatewayPlatform defines model for Session.Gateway.Platform.
+type SessionGatewayPlatform string
+
 // SessionStatus defines model for Session.Status.
 type SessionStatus string
+
+// SessionSubagentKind Kind of delegated subagent for child sessions.
+type SessionSubagentKind string
 
 // SessionListResponse defines model for SessionListResponse.
 type SessionListResponse struct {

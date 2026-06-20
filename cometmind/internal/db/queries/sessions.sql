@@ -14,9 +14,10 @@ INSERT INTO sessions (
     parent_session_id,
     purpose,
     delegation_status,
-    output_summary
+    output_summary,
+    subagent_kind
 )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: ListChildSessions :many
@@ -69,7 +70,7 @@ DELETE FROM sessions
 WHERE id = ?;
 
 -- name: ListSessionsByWorkspaceAsc :many
-SELECT id, updated_at, delegation_status
+SELECT id, updated_at, delegation_status, parent_session_id
 FROM sessions
 WHERE workspace_id = ?
 ORDER BY updated_at ASC;
@@ -92,11 +93,43 @@ FROM sessions
 WHERE workspace_id = ?
 ORDER BY pinned DESC, updated_at DESC;
 
--- name: ListAllSessions :many
-SELECT *
+-- name: UpdateSessionSubagentKind :exec
+UPDATE sessions
+SET
+    subagent_kind = ?,
+    updated_at = unixepoch ('now', 'subsec') * 1000
+WHERE id = ?;
+
+-- name: CompactChildSession :exec
+UPDATE sessions
+SET
+    token_usage = '{}',
+    context_summary = '',
+    compacted_until_message_id = NULL,
+    context_summary_updated_at = NULL,
+    updated_at = unixepoch ('now', 'subsec') * 1000
+WHERE id = ?;
+
+-- name: ListStaleChildSessionIDs :many
+SELECT id
 FROM sessions
-WHERE parent_session_id IS NULL
-ORDER BY pinned DESC, updated_at DESC;
+WHERE
+    parent_session_id IS NOT NULL
+    AND delegation_status IN ('completed', 'failed', 'cancelled')
+    AND updated_at < ?
+ORDER BY updated_at ASC;
+
+-- name: ListAllSessions :many
+SELECT
+    sqlc.embed(s),
+    COALESCE(g.platform, '') AS gateway_platform,
+    COALESCE(g.platform_channel_id, '') AS gateway_channel_id,
+    COALESCE(g.thread_id, '') AS gateway_thread_id
+FROM
+    sessions s
+    LEFT JOIN gateway_sessions g ON g.cometmind_session_id = s.id
+WHERE s.parent_session_id IS NULL
+ORDER BY s.pinned DESC, s.updated_at DESC;
 
 -- name: UpdateSessionTitle :exec
 UPDATE sessions

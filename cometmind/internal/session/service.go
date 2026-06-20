@@ -367,11 +367,33 @@ func (s *Service) ListAllSessions(ctx context.Context) ([]Session, error) {
 	if err != nil {
 		return nil, err
 	}
-	return sessionsFromDB(rows), nil
+	out := make([]Session, len(rows))
+	for i, row := range rows {
+		sess := sessionFromDB(row.Session)
+		if row.GatewayPlatform != "" {
+			sess.Gateway = &SessionGateway{
+				Platform:  row.GatewayPlatform,
+				ChannelID: row.GatewayChannelID,
+				ThreadID:  row.GatewayThreadID,
+			}
+		}
+		out[i] = sess
+	}
+	return out, nil
 }
 
 // DeleteSession removes a session and cascades its messages and tool calls.
+// Child sessions are deleted first so delegated rows cannot orphan into the sidebar.
 func (s *Service) DeleteSession(ctx context.Context, sessionID string) error {
+	children, err := s.ListChildSessions(ctx, sessionID)
+	if err != nil {
+		return err
+	}
+	for _, child := range children {
+		if err := s.DeleteSession(ctx, child.ID); err != nil {
+			return err
+		}
+	}
 	return s.q.DeleteSession(ctx, sessionID)
 }
 
@@ -890,7 +912,7 @@ func assistantBlocks(m db.Message, tcs []db.ToolCall) []cometsdk.Block {
 }
 
 // NewChildSession creates a delegated child session linked to a parent.
-func (s *Service) NewChildSession(ctx context.Context, parent Session, purpose string) (Session, error) {
+func (s *Service) NewChildSession(ctx context.Context, parent Session, purpose, subagentKind string) (Session, error) {
 	title := purpose
 	if len(title) > 80 {
 		title = title[:80]
@@ -906,11 +928,34 @@ func (s *Service) NewChildSession(ctx context.Context, parent Session, purpose s
 		Purpose:          purpose,
 		DelegationStatus: "pending",
 		OutputSummary:    "",
+		SubagentKind:     subagentKind,
 	})
 	if err != nil {
 		return Session{}, err
 	}
 	return sessionFromDB(sess), nil
+}
+
+// CompactChildSession wipes a child transcript while preserving delegation metadata.
+func (s *Service) CompactChildSession(ctx context.Context, childID string) error {
+	if err := s.q.DeleteMessagesBySession(ctx, childID); err != nil {
+		return err
+	}
+	return s.q.CompactChildSession(ctx, childID)
+}
+
+// LastAssistantText returns the most recent assistant message text for a session.
+func (s *Service) LastAssistantText(ctx context.Context, sessionID string) (string, error) {
+	msgs, err := s.q.ListMessagesBySession(ctx, sessionID)
+	if err != nil {
+		return "", err
+	}
+	for i := len(msgs) - 1; i >= 0; i-- {
+		if msgs[i].Role == "assistant" {
+			return msgs[i].Content, nil
+		}
+	}
+	return "", nil
 }
 
 // ListChildSessions returns delegated sessions for a parent session.

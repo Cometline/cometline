@@ -102,7 +102,8 @@ export interface ProviderSettings {
 
 export type SubagentProgressEntry =
 	| { kind: 'stream'; channel: 'message' | 'thought' | 'plan'; text: string }
-	| { kind: 'tool'; title: string; status: string };
+	| { kind: 'tool'; title: string; status: string }
+	| { kind: 'status'; text: string };
 
 export type ChatItem =
 	| { id: string; type: 'user'; text: string; images?: ImageAttachment[]; reveal?: boolean }
@@ -155,7 +156,7 @@ export type ChatItem =
 			childSessionId: string;
 			purpose: string;
 			agentName: string;
-			status: 'running' | 'completed' | 'failed' | 'cancelled' | 'pending';
+			status: 'running' | 'completed' | 'failed' | 'cancelled' | 'pending' | 'incomplete';
 			progress: SubagentProgressEntry[];
 			summary?: string;
 			pending?: boolean;

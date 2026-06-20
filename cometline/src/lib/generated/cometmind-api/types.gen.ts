@@ -182,6 +182,21 @@ export type Session = {
      * Legacy field retained for persisted child session compatibility.
      */
     pending_question?: string;
+    /**
+     * Kind of delegated subagent for child sessions.
+     */
+    subagent_kind?: '' | 'general' | 'acp';
+    gateway?: {
+        platform?: 'discord';
+        /**
+         * Discord channel ID (parent channel for threads)
+         */
+        channel_id?: string;
+        /**
+         * Thread channel ID when the conversation is in a thread
+         */
+        thread_id?: string;
+    };
 };
 
 export type SessionListResponse = {

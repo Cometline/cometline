@@ -9,14 +9,16 @@ import (
 	"github.com/cometline/cometmind/internal/acp"
 	"github.com/cometline/cometmind/internal/event"
 	"github.com/cometline/cometmind/internal/session"
+	"github.com/cometline/cometmind/internal/subagent"
 )
 
 // DelegateCodingTask hands coding work to an external ACP agent such as OpenCode.
 type DelegateCodingTask struct {
-	Workspace Workspace
-	Sessions  *session.Service
-	ACP       acp.Config
-	ACPMgr    *acp.SessionManager
+	Workspace    Workspace
+	Sessions     *session.Service
+	ACP          acp.Config
+	ACPMgr       *acp.SessionManager
+	Orchestrator *subagent.Orchestrator
 }
 
 func (DelegateCodingTask) Spec() ToolSpec {
@@ -65,7 +67,7 @@ func (d DelegateCodingTask) Execute(ctx context.Context, input json.RawMessage) 
 		return Result{OK: false, Output: err.Error()}, nil
 	}
 
-	child, err := d.Sessions.NewChildSession(ctx, parent, task)
+	child, err := d.Sessions.NewChildSession(ctx, parent, task, "acp")
 	if err != nil {
 		return Result{OK: false, Output: err.Error()}, nil
 	}
@@ -107,30 +109,51 @@ func (d DelegateCodingTask) Execute(ctx context.Context, input json.RawMessage) 
 	}
 
 	if in.Async {
-		go d.finishDelegation(context.WithoutCancel(ctx), child.ID, mgr, runOpts, emit)
+		runCtx, cancel := context.WithCancel(context.WithoutCancel(ctx))
+		if d.Orchestrator != nil {
+			if err := d.Orchestrator.Register(parentID, child.ID, subagent.KindACP, cancel); err != nil {
+				cancel()
+				return Result{OK: false, Output: err.Error()}, nil
+			}
+		}
+		go d.finishDelegation(runCtx, parentID, child.ID, mgr, runOpts, emit)
 		out := fmt.Sprintf("child_session_id: %s\nstatus: running\nagent: %s\n\nasync delegation started",
 			child.ID, d.ACP.Command)
 		return Result{OK: true, Output: out}, nil
 	}
 
 	result, runErr := mgr.Run(ctx, runOpts)
-	return d.buildResult(ctx, child.ID, result, runErr, emit)
+	return d.buildResult(ctx, parentID, child.ID, result, runErr, emit)
 }
 
 func (d DelegateCodingTask) finishDelegation(
 	ctx context.Context,
-	childID string,
+	parentID, childID string,
 	mgr *acp.SessionManager,
 	runOpts acp.RunOptions,
 	emit func(event.Event),
 ) {
 	result, runErr := mgr.Run(ctx, runOpts)
-	_, _ = d.buildResult(ctx, childID, result, runErr, emit)
+	res, _ := d.buildResult(ctx, parentID, childID, result, runErr, emit)
+	if d.Orchestrator != nil {
+		status := "failed"
+		if res.OK {
+			status = "completed"
+		}
+		if ctx.Err() != nil {
+			status = "cancelled"
+		}
+		d.Orchestrator.Complete(childID, subagent.Result{
+			Kind:    subagent.KindACP,
+			Status:  status,
+			Summary: res.Output,
+		})
+	}
 }
 
 func (d DelegateCodingTask) buildResult(
 	ctx context.Context,
-	childID string,
+	parentID, childID string,
 	result acp.TaskResult,
 	runErr error,
 	emit func(event.Event),
@@ -159,5 +182,6 @@ func (d DelegateCodingTask) buildResult(
 	if runErr != nil {
 		ok = false
 	}
+	_ = parentID
 	return Result{OK: ok, Output: out}, nil
 }

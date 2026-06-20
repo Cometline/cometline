@@ -78,6 +78,7 @@ type Session struct {
 	OutputSummary           string         `json:"output_summary"`
 	AcpSessionID            string         `json:"acp_session_id"`
 	PendingQuestion         string         `json:"pending_question"`
+	SubagentKind            string         `json:"subagent_kind"`
 	Pinned                  int64          `json:"pinned"`
 	ContextSummary          string         `json:"context_summary"`
 	CompactedUntilMessageID sql.NullString `json:"compacted_until_message_id"`

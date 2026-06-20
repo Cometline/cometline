@@ -15,6 +15,7 @@ import {
 	getReasoningSegments,
 	hasReasoning
 } from '$lib/conversation/reasoning';
+import { isSubagentStepLimit } from '$lib/conversation/subagent-display';
 import { stripInlinedFileBlocks } from '$lib/messages/strip-inlined-files';
 import { sessionStore } from '$lib/stores/session.svelte';
 import { chatDebug, summarizeChatItems, summarizeStreamEvent } from '../debug/chat';
@@ -46,52 +47,165 @@ function mapDelegationStatus(
 	}
 }
 
+function finalizeSubagentItem(
+	item: Extract<ChatItem, { type: 'subagent' }>
+): Extract<ChatItem, { type: 'subagent' }> {
+	if (item.status === 'failed' && isSubagentStepLimit(item)) {
+		return { ...item, status: 'incomplete' };
+	}
+	return item;
+}
+
 function subagentFromChild(
 	child: Session,
 	agentName = 'opencode'
 ): Extract<ChatItem, { type: 'subagent' }> {
-	return {
+	return finalizeSubagentItem({
 		id: `subagent-${child.id}`,
 		type: 'subagent',
 		childSessionId: child.id,
-		purpose: child.purpose ?? child.title ?? 'Delegated coding task',
+		purpose: child.purpose ?? child.title ?? 'Delegated task',
 		agentName,
 		status: mapDelegationStatus(child.delegation_status),
 		progress: [],
 		summary: child.output_summary,
 		pending: child.delegation_status === 'running'
+	});
+}
+
+const SUBAGENT_SPAWN_TOOLS = new Set(['delegate_coding_task', 'spawn_general_agent']);
+
+function agentNameForTool(toolName: string): string {
+	return toolName === 'spawn_general_agent' ? 'cometmind' : 'opencode';
+}
+
+type ParsedSubagentBlock = {
+	childSessionId: string;
+	kind: string;
+	status: string;
+	summary: string;
+};
+
+function parseSubagentBlock(block: string): ParsedSubagentBlock | null {
+	const lines = block.split('\n');
+	let childSessionId = '';
+	let kind = '';
+	let status = '';
+	const summaryLines: string[] = [];
+	let inSummary = false;
+
+	for (const line of lines) {
+		if (line.startsWith('child_session_id:')) {
+			childSessionId = line.slice('child_session_id:'.length).trim();
+			continue;
+		}
+		if (line.startsWith('kind:')) {
+			kind = line.slice('kind:'.length).trim();
+			continue;
+		}
+		if (line.startsWith('status:')) {
+			status = line.slice('status:'.length).trim();
+			continue;
+		}
+		if (line.trim() === '' && !inSummary && childSessionId) {
+			inSummary = true;
+			continue;
+		}
+		if (inSummary) {
+			summaryLines.push(line);
+		}
+	}
+
+	if (!childSessionId) return null;
+	return {
+		childSessionId,
+		kind,
+		status,
+		summary: summaryLines.join('\n').trim()
 	};
 }
 
+function parseSubagentToolOutput(output: string | undefined): ParsedSubagentBlock[] {
+	if (!output?.trim()) return [];
+	if (output.includes('\n\nchild_session_id:')) {
+		return output
+			.split(/\n\n(?=child_session_id:)/)
+			.map(parseSubagentBlock)
+			.filter((block): block is ParsedSubagentBlock => block !== null);
+	}
+	const single = parseSubagentBlock(output);
+	return single ? [single] : [];
+}
+
+function subagentFromParsed(block: ParsedSubagentBlock, toolName: string): Extract<ChatItem, { type: 'subagent' }> {
+	return finalizeSubagentItem({
+		id: `subagent-${block.childSessionId}`,
+		type: 'subagent',
+		childSessionId: block.childSessionId,
+		purpose: block.summary.split('\n')[0] || 'Delegated task',
+		agentName: block.kind === 'general' ? 'cometmind' : agentNameForTool(toolName),
+		status: mapDelegationStatus(block.status),
+		progress: [],
+		summary: block.summary,
+		pending: block.status === 'running'
+	});
+}
+
 function mergeSubagents(items: ChatItem[], children: Session[]): ChatItem[] {
-	if (children.length === 0) return items;
 	const used = new Set<string>();
 	const out: ChatItem[] = [];
 
 	for (const item of items) {
-		if (item.type === 'tool' && item.toolName === 'delegate_coding_task') {
+		if (item.type === 'tool' && SUBAGENT_SPAWN_TOOLS.has(item.toolName)) {
 			const match = children.find(
 				(child) => !used.has(child.id) && item.output?.includes(child.id)
 			);
 			if (match) {
 				used.add(match.id);
-				out.push(subagentFromChild(match));
+				out.push(subagentFromChild(match, agentNameForTool(item.toolName)));
+				continue;
+			}
+			const parsed = parseSubagentToolOutput(item.output)[0];
+			if (parsed) {
+				used.add(parsed.childSessionId);
+				out.push(subagentFromParsed(parsed, item.toolName));
 				continue;
 			}
 		}
+
+		if (item.type === 'tool' && item.toolName === 'wait_subagents') {
+			out.push(item);
+			for (const block of parseSubagentToolOutput(item.output)) {
+				if (used.has(block.childSessionId)) continue;
+				const child = children.find((c) => c.id === block.childSessionId);
+				if (child) {
+					used.add(child.id);
+					out.push(subagentFromChild(child, block.kind === 'general' ? 'cometmind' : 'opencode'));
+				} else {
+					used.add(block.childSessionId);
+					out.push(subagentFromParsed(block, 'wait_subagents'));
+				}
+			}
+			continue;
+		}
+
 		out.push(item);
 	}
 
-	const hasDelegateTool = out.some(
-		(item) => item.type === 'tool' && item.toolName === 'delegate_coding_task'
+	const hasSubagentTools = out.some(
+		(item) =>
+			item.type === 'tool' &&
+			(SUBAGENT_SPAWN_TOOLS.has(item.toolName) || item.toolName === 'wait_subagents')
 	);
-	if (hasDelegateTool) {
+	if (hasSubagentTools) {
 		for (const child of children) {
 			if (!used.has(child.id)) {
-				out.push(subagentFromChild(child));
+				const agentName = child.subagent_kind === 'general' ? 'cometmind' : 'opencode';
+				out.push(subagentFromChild(child, agentName));
 			}
 		}
 	}
+
 	return out;
 }
 

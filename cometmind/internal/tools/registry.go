@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 
 	cometsdk "github.com/cometline/comet-sdk"
+	"github.com/cometline/cometmind/internal/skills"
 )
 
 // Registry holds built-in tools for a workspace.
@@ -42,16 +43,54 @@ func NewRegistry(workspaceRoot string, opts ...RegistryOptions) *Registry {
 	}
 	if opt.Sessions != nil {
 		add(DelegateCodingTask{
-			Workspace: ws,
-			Sessions:  opt.Sessions,
-			ACP:       opt.ACP,
-			ACPMgr:    opt.ACPMgr,
+			Workspace:    ws,
+			Sessions:     opt.Sessions,
+			ACP:          opt.ACP,
+			ACPMgr:       opt.ACPMgr,
+			Orchestrator: opt.Orchestrator,
 		})
+		if opt.Orchestrator != nil && opt.RunnerFactory != nil {
+			add(SpawnGeneralAgent{
+				Workspace:      ws,
+				Sessions:       opt.Sessions,
+				Orchestrator:   opt.Orchestrator,
+				RunnerFactory:  opt.RunnerFactory,
+				SubagentConfig: opt.SubagentConfig,
+			})
+			add(WaitSubagents{
+				Sessions:       opt.Sessions,
+				Orchestrator:   opt.Orchestrator,
+				SubagentConfig: opt.SubagentConfig,
+			})
+		}
 	}
 	if opt.MCP != nil {
 		for _, tool := range mcpToolsFromManager(opt.MCP) {
 			add(tool)
 		}
+	}
+
+	return r
+}
+
+// NewSubagentRegistry returns read/search tools for general subagent workers.
+func NewSubagentRegistry(workspaceRoot string, skills *skills.Registry) *Registry {
+	ws := Workspace{Root: workspaceRoot}
+	r := &Registry{workspace: ws, byName: make(map[string]Tool)}
+	add := func(t Tool) {
+		spec := t.Spec()
+		r.byName[spec.Name] = t
+		r.order = append(r.order, t)
+	}
+
+	add(ReadFile{Workspace: ws})
+	add(ListDir{Workspace: ws})
+	add(Glob{Workspace: ws})
+	add(Grep{Workspace: ws})
+	add(WebFetch{})
+	if skills != nil {
+		add(LoadSkill{Skills: skills})
+		add(ReadSkillFile{Skills: skills})
 	}
 
 	return r
@@ -81,4 +120,10 @@ func (r *Registry) Execute(ctx context.Context, name string, input json.RawMessa
 		return Result{OK: false, Output: "unknown tool: " + name}, nil
 	}
 	return t.Execute(ctx, input)
+}
+
+// Has reports whether a tool is registered.
+func (r *Registry) Has(name string) bool {
+	_, ok := r.byName[name]
+	return ok
 }

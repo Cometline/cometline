@@ -1,4 +1,5 @@
 import type { ChatItem, StreamEvent, SubagentProgressEntry } from '$lib/types';
+import { isSubagentStepLimit } from '../conversation/subagent-display';
 import { turnStatusLabel } from '../conversation/turn-status';
 import {
 	cloneReasoning as cloneReasoningSegments,
@@ -137,10 +138,10 @@ function appendSubagentProgress(
 	const next = progress.map((entry) => (entry.kind === 'stream' ? { ...entry } : { ...entry }));
 	const kind = progressKind || 'message';
 
-	if (kind === 'tool_call' || kind === 'tool_call_update') {
+	if (kind === 'tool_call' || kind === 'tool_call_update' || kind === 'tool') {
 		const match = text.match(/^(.+?)(?:\s+\(([^)]+)\))?$/);
 		const title = (match?.[1] ?? text).trim();
-		const status = (match?.[2] ?? '').trim();
+		const status = (match?.[2] ?? (kind === 'tool' ? 'running' : '')).trim();
 		const index = next.findIndex((entry) => entry.kind === 'tool' && entry.title === title);
 		if (index >= 0) {
 			const existing = next[index];
@@ -154,6 +155,17 @@ function appendSubagentProgress(
 		} else {
 			next.push({ kind: 'tool', title, status });
 		}
+		return next;
+	}
+
+	if (kind === 'status' || kind === 'error') {
+		const label =
+			kind === 'error' ? `error: ${text.replace(/_/g, ' ')}` : text.replace(/_/g, ' ');
+		const last = next[next.length - 1];
+		if (last?.kind === 'status' && last.text === label) {
+			return next;
+		}
+		next.push({ kind: 'status', text: label });
 		return next;
 	}
 
@@ -411,17 +423,25 @@ function applyEvent(
 		) as Extract<ChatItem, { type: 'subagent' }> | undefined;
 		if (card) {
 			const index = items.indexOf(card);
-			const status =
+			let status: Extract<ChatItem, { type: 'subagent' }>['status'] =
 				event.delegation_status === 'completed'
 					? 'completed'
 					: event.delegation_status === 'cancelled'
 						? 'cancelled'
 						: 'failed';
-			items[index] = {
+			const summary = event.summary;
+			const finishedCard: Extract<ChatItem, { type: 'subagent' }> = {
 				...card,
 				status,
-				summary: event.summary,
+				summary,
 				pending: false
+			};
+			if (status === 'failed' && isSubagentStepLimit(finishedCard)) {
+				status = 'incomplete';
+			}
+			items[index] = {
+				...finishedCard,
+				status
 			};
 		}
 		return;

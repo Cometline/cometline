@@ -2,6 +2,7 @@ import { goto } from '$app/navigation';
 import { modelStore } from '$lib/stores/model.svelte';
 import { sessionStore } from '$lib/stores/session.svelte';
 import { shellStore } from '$lib/stores/shell.svelte';
+import { isDiscordSession } from '$lib/sessions/group-by-workspace';
 import type { Session } from '$lib/types';
 
 export interface NavigateToSessionOptions {
@@ -21,8 +22,11 @@ export function navigateToSession(session: Session, options: NavigateToSessionOp
 		shellStore.setWorkspacePath(session.workspace_path);
 	}
 
-	if (commitSidebarOrder && session.workspace_path) {
-		shellStore.setSidebarOrderWorkspacePath(session.workspace_path);
+	if (commitSidebarOrder) {
+		if (session.workspace_path) {
+			shellStore.setSidebarOrderWorkspacePath(session.workspace_path);
+		}
+		shellStore.setSidebarOrderDiscordActive(isDiscordSession(session));
 	}
 
 	void goto(`/session/${session.id}`);

@@ -14,10 +14,12 @@
 	import { isNarrowViewport } from '$lib/layout/narrow-viewport';
 	import {
 		layoutSessionsForSidebar,
-		PINNED_GROUP_KEY
+		PINNED_GROUP_KEY,
+		DISCORD_GROUP_KEY
 	} from '$lib/sessions/group-by-workspace';
 	import SidebarSearch from '$lib/components/sidebar/SidebarSearch.svelte';
 	import PinnedGroup from '$lib/components/sidebar/PinnedGroup.svelte';
+	import DiscordGroup from '$lib/components/sidebar/DiscordGroup.svelte';
 	import WorkspaceGroup from '$lib/components/sidebar/WorkspaceGroup.svelte';
 	import DeleteConfirmDialog from '$lib/components/sidebar/DeleteConfirmDialog.svelte';
 	import RenameSessionDialog from '$lib/components/sidebar/RenameSessionDialog.svelte';
@@ -27,6 +29,7 @@
 
 	let { collapsed = false }: { collapsed?: boolean } = $props();
 	let orderWorkspacePath = $derived(shellStore.sidebarOrderWorkspacePath);
+	let orderDiscordActive = $derived(shellStore.sidebarOrderDiscordActive);
 	let highlightWorkspacePath = $derived(
 		sessionStore.current?.workspace_path ?? shellStore.sidebarOrderWorkspacePath
 	);
@@ -151,23 +154,29 @@
 		);
 	});
 	let sidebarLayout = $derived(
-		layoutSessionsForSidebar(filteredSessions, orderWorkspacePath)
+		layoutSessionsForSidebar(filteredSessions, orderWorkspacePath, orderDiscordActive)
 	);
 	let pinnedSessions = $derived(sidebarLayout.pinnedSessions);
 	let groupedSessions = $derived(sidebarLayout.workspaceGroups);
-	let showWorkspaceDivider = $derived(
-		groupedSessions.length > 1 && groupedSessions[0].workspacePath === orderWorkspacePath
+	let discordSessions = $derived(sidebarLayout.discordSessions);
+	let discordFirst = $derived(sidebarLayout.discordFirst);
+	let showActiveWorkspaceDivider = $derived(
+		groupedSessions.length > 0 && groupedSessions[0].workspacePath === orderWorkspacePath
 	);
 	let totalSessions = $derived(filteredSessions.length);
 
 	function toggleGroup(path: string) {
-		collapsedGroups = { ...collapsedGroups, [path]: !collapsedGroups[path] };
+		collapsedGroups = { ...collapsedGroups, [path]: !isGroupCollapsed(path) };
 	}
 
 	function isGroupCollapsed(path: string): boolean {
 		// While searching, force all groups open so matches are always visible.
 		if (searchQuery.trim()) return false;
-		return Boolean(collapsedGroups[path]);
+		if (path in collapsedGroups) {
+			return Boolean(collapsedGroups[path]);
+		}
+		// Discord gateway sessions stay folded until explicitly expanded.
+		return path === DISCORD_GROUP_KEY;
 	}
 </script>
 
@@ -197,6 +206,20 @@
 					onSessionContextMenu={openSessionContextMenu}
 				/>
 			{/if}
+			{#if discordFirst && discordSessions.length > 0}
+				<DiscordGroup
+					sessions={discordSessions}
+					collapsed={isGroupCollapsed(DISCORD_GROUP_KEY)}
+					active
+					showDivider
+					{currentSessionId}
+					{deletingID}
+					onToggle={() => toggleGroup(DISCORD_GROUP_KEY)}
+					onSelectSession={selectSession}
+					onDeleteSession={removeSession}
+					onSessionContextMenu={openSessionContextMenu}
+				/>
+			{/if}
 			{#each groupedSessions as group, index (group.workspacePath)}
 				<div animate:flip={WORKSPACE_GROUP_FLIP}>
 					<WorkspaceGroup
@@ -205,7 +228,7 @@
 						sessions={group.sessions}
 						collapsed={isGroupCollapsed(group.workspacePath)}
 						active={group.workspacePath === highlightWorkspacePath}
-						showDivider={index === 0 && showWorkspaceDivider}
+						showDivider={index === 0 && showActiveWorkspaceDivider}
 						{currentSessionId}
 						{deletingID}
 						{pinningID}
@@ -217,6 +240,18 @@
 					/>
 				</div>
 			{/each}
+			{#if !discordFirst && discordSessions.length > 0}
+				<DiscordGroup
+					sessions={discordSessions}
+					collapsed={isGroupCollapsed(DISCORD_GROUP_KEY)}
+					{currentSessionId}
+					{deletingID}
+					onToggle={() => toggleGroup(DISCORD_GROUP_KEY)}
+					onSelectSession={selectSession}
+					onDeleteSession={removeSession}
+					onSessionContextMenu={openSessionContextMenu}
+				/>
+			{/if}
 			{#if totalSessions === 0}
 				<p class="session-empty">
 					{searchQuery.trim() ? 'No chats match your search' : 'No chats yet'}

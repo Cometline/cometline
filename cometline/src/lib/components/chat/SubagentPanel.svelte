@@ -10,6 +10,7 @@
 	} from '@lucide/svelte';
 	import { chatStore } from '$lib/stores/chat.svelte';
 	import type { ChatItem } from '$lib/stores/chat.svelte';
+	import { subagentProgressLabel } from '$lib/conversation/subagent-display';
 
 	const FOLD_IN = { duration: 180 };
 
@@ -26,20 +27,6 @@
 		nested?: boolean;
 		contentOnly?: boolean;
 	} = $props();
-
-	function subagentProgressLabel(subagent: Extract<ChatItem, { type: 'subagent' }>) {
-		const toolCount = subagent.progress.filter((entry) => entry.kind === 'tool').length;
-		const prefix =
-			subagent.status === 'failed'
-				? 'OpenCode failed'
-				: subagent.status === 'cancelled'
-					? 'OpenCode cancelled'
-					: `OpenCode · ${subagent.agentName}`;
-		if (toolCount > 0) {
-			return `${prefix} · ${toolCount} tool${toolCount === 1 ? '' : 's'}`;
-		}
-		return prefix;
-	}
 
 	function subagentVisibleProgress(subagent: Extract<ChatItem, { type: 'subagent' }>) {
 		if (subagent.status === 'running') {
@@ -66,6 +53,8 @@
 					<LoaderCircle size={12} class="spin" />
 				{:else if item.status === 'failed'}
 					<TriangleAlert size={12} />
+				{:else if item.status === 'incomplete'}
+					<TriangleAlert size={12} class="step-limit-icon" />
 				{:else if item.status === 'cancelled'}
 					<CircleX size={12} />
 				{:else}
@@ -100,7 +89,14 @@
 			<p class="subagent-purpose">{item.purpose}</p>
 			{#if visibleProgress.length > 0}
 				<div class="subagent-progress">
-					{#each visibleProgress as entry, entryIndex (`${item.id}-progress-${entry.kind}-${entryIndex}`)}
+					{#if visibleProgress.some((entry) => entry.kind === 'status')}
+						<div class="subagent-status-row">
+							{#each visibleProgress.filter((entry) => entry.kind === 'status') as entry, entryIndex (`${item.id}-status-${entryIndex}`)}
+								<span class="subagent-status-chip">{entry.text}</span>
+							{/each}
+						</div>
+					{/if}
+					{#each visibleProgress.filter((entry) => entry.kind !== 'status') as entry, entryIndex (`${item.id}-progress-${entry.kind}-${entryIndex}`)}
 						{#if entry.kind === 'tool'}
 							<div
 								class="subagent-tool"
@@ -194,6 +190,13 @@
 		flex: 1;
 	}
 
+	.subagent-toggle span {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
 	.fold-toggle:hover {
 		background: rgba(255, 255, 255, 0.92);
 		color: var(--text-main);
@@ -252,6 +255,30 @@
 		gap: 8px;
 		width: 100%;
 		min-width: 0;
+	}
+
+	.subagent-status-row {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 4px;
+		min-width: 0;
+	}
+
+	.subagent-status-chip {
+		display: inline-flex;
+		align-items: center;
+		max-width: 100%;
+		padding: 2px 8px;
+		border-radius: 999px;
+		border: 1px solid var(--border-soft);
+		background: rgba(255, 255, 255, 0.72);
+		font-size: 10px;
+		font-weight: 600;
+		line-height: 1.4;
+		color: var(--text-muted);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 
 	.subagent-stream,

@@ -23,6 +23,8 @@ function createShellStore() {
 	let workspacePath = $state('/');
 	/** Sidebar group ordering; updated on explicit commit (click, send, workspace picker). */
 	let sidebarOrderWorkspacePath = $state('/');
+	/** When true, Discord gateway sessions are ordered before workspace groups. */
+	let sidebarOrderDiscordActive = $state(false);
 	let bootMessage = $state('');
 	let fullscreen = $state(false);
 	let webPanelsBySession = $state<Record<string, SessionWebPanel>>({});
@@ -73,6 +75,9 @@ function createShellStore() {
 		get sidebarOrderWorkspacePath() {
 			return sidebarOrderWorkspacePath;
 		},
+		get sidebarOrderDiscordActive() {
+			return sidebarOrderDiscordActive;
+		},
 		get bootMessage() {
 			return bootMessage;
 		},
@@ -114,10 +119,14 @@ function createShellStore() {
 		setSidebarOrderWorkspacePath(path: string) {
 			sidebarOrderWorkspacePath = path;
 		},
+		setSidebarOrderDiscordActive(active: boolean) {
+			sidebarOrderDiscordActive = active;
+		},
 		/** Keep composer and sidebar ordering in sync (explicit user commit). */
 		commitWorkspace(path: string) {
 			workspacePath = path;
 			sidebarOrderWorkspacePath = path;
+			sidebarOrderDiscordActive = false;
 		},
 		setBootMessage(message: string) {
 			bootMessage = message;

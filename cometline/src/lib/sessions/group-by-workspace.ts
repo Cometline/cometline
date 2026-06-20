@@ -1,6 +1,7 @@
 import type { Session } from '$lib/types';
 
 export const PINNED_GROUP_KEY = '__pinned__';
+export const DISCORD_GROUP_KEY = '__discord__';
 
 export interface WorkspaceSessionGroup {
 	workspacePath: string;
@@ -11,12 +12,20 @@ export interface WorkspaceSessionGroup {
 export interface SidebarSessionLayout {
 	pinnedSessions: Session[];
 	workspaceGroups: WorkspaceSessionGroup[];
+	discordSessions: Session[];
+	/** True when Discord is the committed sidebar context and should appear first. */
+	discordFirst: boolean;
 }
 
 /** Returns the final path segment used as a short directory label. */
 export function workspaceLabel(path: string): string {
 	const parts = path.split(/[/\\]/).filter(Boolean);
 	return parts[parts.length - 1] || path;
+}
+
+/** True when the session is linked to a Discord gateway mapping. */
+export function isDiscordSession(session: Session): boolean {
+	return session.gateway?.platform === 'discord';
 }
 
 /** Sort sessions by most recently updated first. */
@@ -74,31 +83,49 @@ export function groupSessionsByWorkspace(
 }
 
 /**
- * Builds sidebar layout: a global pinned section followed by workspace groups
- * containing only unpinned sessions.
+ * Builds sidebar layout: pinned section, workspace groups, and Discord gateway sessions.
+ * Discord appears first when active, otherwise last.
  */
 export function layoutSessionsForSidebar(
 	sessions: Session[],
-	activeWorkspacePath = ''
+	activeWorkspacePath = '',
+	discordActive = false
 ): SidebarSessionLayout {
-	const { pinned, unpinned } = partitionPinnedSessions(sessions);
+	const desktop = sessions.filter((s) => !isDiscordSession(s));
+	const discord = sessions.filter(isDiscordSession);
+	const { pinned, unpinned } = partitionPinnedSessions(desktop);
 	return {
 		pinnedSessions: sortSessionsByRecency(pinned),
-		workspaceGroups: groupSessionsByWorkspace(unpinned, activeWorkspacePath)
+		workspaceGroups: groupSessionsByWorkspace(unpinned, activeWorkspacePath),
+		discordSessions: sortSessionsByRecency(discord),
+		discordFirst: discordActive && discord.length > 0
 	};
 }
 
 /** Flatten sessions in sidebar group order for keyboard navigation. */
 export function flattenSessionsInSidebarOrder(
 	sessions: Session[],
-	orderWorkspacePath = ''
+	orderWorkspacePath = '',
+	discordActive = false
 ): Session[] {
-	const { pinnedSessions, workspaceGroups } = layoutSessionsForSidebar(
-		sessions,
-		orderWorkspacePath
-	);
-	return [
-		...pinnedSessions,
-		...workspaceGroups.flatMap((group) => group.sessions)
-	];
+	const { pinnedSessions, workspaceGroups, discordSessions, discordFirst } =
+		layoutSessionsForSidebar(sessions, orderWorkspacePath, discordActive);
+	const workspaceSessions = workspaceGroups.flatMap((group) => group.sessions);
+	if (discordFirst) {
+		return [...pinnedSessions, ...discordSessions, ...workspaceSessions];
+	}
+	return [...pinnedSessions, ...workspaceSessions, ...discordSessions];
+}
+
+/** Gateway subtitle for Discord sidebar rows. */
+export function gatewaySessionLabel(session: Session): string {
+	const ws = workspaceLabel(session.workspace_path);
+	const channel = session.gateway?.channel_id ?? '';
+	if (!channel) return ws;
+	let label = `${ws} · ch:${channel}`;
+	const thread = session.gateway?.thread_id?.trim();
+	if (thread) {
+		label += ` · thread:${thread}`;
+	}
+	return label;
 }

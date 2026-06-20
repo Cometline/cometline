@@ -10,6 +10,8 @@ type StorageConfig struct {
 	ArchivedMemoryPurgeDays int `json:"archived_memory_purge_days" mapstructure:"archived_memory_purge_days"`
 	// VacuumAfterPurge runs SQLite VACUUM after any purge deleted rows.
 	VacuumAfterPurge bool `json:"vacuum_after_purge" mapstructure:"vacuum_after_purge"`
+	// SubagentRetentionDays purges terminal child session rows after inactivity. 0 keeps until parent delete.
+	SubagentRetentionDays int `json:"subagent_retention_days" mapstructure:"subagent_retention_days"`
 }
 
 func defaultStorageConfig() StorageConfig {
@@ -18,12 +20,13 @@ func defaultStorageConfig() StorageConfig {
 		MaxSessionsPerWorkspace: 0,
 		ArchivedMemoryPurgeDays: 90,
 		VacuumAfterPurge:        true,
+		SubagentRetentionDays:   7,
 	}
 }
 
 // RetentionEnabled reports whether any session retention rule is active.
 func (s StorageConfig) RetentionEnabled() bool {
-	return s.RetentionDays > 0 || s.MaxSessionsPerWorkspace > 0
+	return s.RetentionDays > 0 || s.MaxSessionsPerWorkspace > 0 || s.SubagentRetentionDays > 0
 }
 
 // MemoryPurgeEnabled reports whether archived memory purge is active.
@@ -44,5 +47,6 @@ func (c *Config) storageConfigured() bool {
 	return s.RetentionDays != 0 ||
 		s.MaxSessionsPerWorkspace != 0 ||
 		s.ArchivedMemoryPurgeDays != 0 ||
+		s.SubagentRetentionDays != 0 ||
 		s.VacuumAfterPurge
 }

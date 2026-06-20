@@ -7,7 +7,8 @@ import { shellStore } from '$lib/stores/shell.svelte';
 export function navigateAdjacentSession(direction: 'prev' | 'next') {
 	const sessions = flattenSessionsInSidebarOrder(
 		sessionStore.sessions,
-		shellStore.sidebarOrderWorkspacePath
+		shellStore.sidebarOrderWorkspacePath,
+		shellStore.sidebarOrderDiscordActive
 	);
 	if (sessions.length === 0) return;
 

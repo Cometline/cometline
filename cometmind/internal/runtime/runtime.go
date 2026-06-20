@@ -25,6 +25,7 @@ import (
 	"github.com/cometline/cometmind/internal/session"
 	"github.com/cometline/cometmind/internal/skills"
 	"github.com/cometline/cometmind/internal/store"
+	"github.com/cometline/cometmind/internal/subagent"
 	"github.com/cometline/cometmind/internal/tools"
 )
 
@@ -43,6 +44,7 @@ type Runtime struct {
 	SystemPrompt string
 	acpMgr       *acp.SessionManager
 	mcpMgr       *mcppkg.Manager
+	subagentOrch *subagent.Orchestrator
 	memorySem    chan struct{} // bounds concurrent memory-extraction goroutines
 }
 
@@ -156,6 +158,14 @@ func (r *Runtime) MCPManager() *mcppkg.Manager {
 	return r.mcpMgr
 }
 
+// SubagentOrchestrator returns the shared subagent orchestrator.
+func (r *Runtime) SubagentOrchestrator() *subagent.Orchestrator {
+	if r.subagentOrch == nil {
+		r.subagentOrch = subagent.NewOrchestrator(r.Config.EffectiveSubagentSettings().MaxConcurrentPerParent)
+	}
+	return r.subagentOrch
+}
+
 // RunnerFor returns an agent runner wired for a specific session and workspace.
 func (r *Runtime) RunnerFor(sess session.Session, workspacePath string) (*agent.Runner, error) {
 	p, err := r.ProviderForSession(sess)
@@ -169,7 +179,7 @@ func (r *Runtime) RunnerFor(sess session.Session, workspacePath string) (*agent.
 		Provider:     p,
 		Sessions:     r.Sessions,
 		Memory:       r.Memory,
-		Registry:     tools.NewRegistry(workspacePath, tools.RegistryOptions{Sessions: r.Sessions, ACP: r.Config.ACPSettings(), ACPMgr: r.ACPManager(), Skills: &skillRegistry, MCP: r.mcpMgr}),
+		Registry:     r.toolRegistry(workspacePath, skillRegistry),
 		MaxSteps:     r.Config.MaxSteps,
 		MaxTokens:    r.Config.MaxTokens,
 		SystemPrompt: r.SystemPrompt,
@@ -177,6 +187,44 @@ func (r *Runtime) RunnerFor(sess session.Session, workspacePath string) (*agent.
 		MemorySem:    r.memorySem,
 		Compactor:    &agent.ContextCompactor{Sessions: r.Sessions, Config: r.Config},
 	}, nil
+}
+
+// SubagentRunnerFor returns a restricted runner for a general subagent child session.
+func (r *Runtime) SubagentRunnerFor(child session.Session, workspacePath string, maxSteps int) (*agent.Runner, error) {
+	p, err := r.ProviderForSession(child)
+	if err != nil {
+		return nil, err
+	}
+	skillRegistry := r.SkillsForWorkspace(workspacePath)
+	return &agent.Runner{
+		Config:       r.Config,
+		Provider:     p,
+		Sessions:     r.Sessions,
+		Registry:     tools.NewSubagentRegistry(workspacePath, &skillRegistry),
+		MaxSteps:     maxSteps,
+		MaxTokens:    r.Config.MaxTokens,
+		SystemPrompt: r.SystemPrompt,
+		SkillIndex:   skillRegistry.PromptIndex(),
+	}, nil
+}
+
+func (r *Runtime) toolRegistry(workspacePath string, skillRegistry skills.Registry) *tools.Registry {
+	sub := r.Config.EffectiveSubagentSettings()
+	return tools.NewRegistry(workspacePath, tools.RegistryOptions{
+		Sessions:     r.Sessions,
+		ACP:          r.Config.ACPSettings(),
+		ACPMgr:       r.ACPManager(),
+		Skills:       &skillRegistry,
+		MCP:          r.mcpMgr,
+		Orchestrator: r.SubagentOrchestrator(),
+		RunnerFactory: func(child session.Session, workspaceRoot string, maxSteps int) (tools.AgentLoopRunner, error) {
+			return r.SubagentRunnerFor(child, workspaceRoot, maxSteps)
+		},
+		SubagentConfig: tools.SubagentToolConfig{
+			GeneralMaxSteps: sub.GeneralMaxSteps,
+			WaitTimeoutSec:  1800,
+		},
+	})
 }
 
 // SkillsForWorkspace discovers Agent Skills visible to one workspace.
