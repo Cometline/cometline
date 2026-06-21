@@ -64,6 +64,24 @@ func TestOrchestrator_MaxConcurrent(t *testing.T) {
 	}
 }
 
+func TestOrchestrator_CancelChild(t *testing.T) {
+	o := NewOrchestrator(5)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	if err := o.Register("parent", "child", KindACP, cancel); err != nil {
+		t.Fatal(err)
+	}
+	if !o.CancelChild("child") {
+		t.Fatal("expected CancelChild to succeed")
+	}
+	select {
+	case <-ctx.Done():
+	case <-time.After(time.Second):
+		t.Fatal("expected context cancelled")
+	}
+}
+
 func TestOrchestrator_CancelForParent(t *testing.T) {
 	o := NewOrchestrator(5)
 	ctx, cancel := context.WithCancel(context.Background())

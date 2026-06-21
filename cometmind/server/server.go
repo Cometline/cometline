@@ -1092,6 +1092,9 @@ func (a *App) handleAbortSession(c *gin.Context) {
 		_ = a.acpMgr.Cancel(sessID)
 		_ = a.sessions.UpdateDelegationState(c.Request.Context(), sessID, "cancelled", "", "")
 	}
+	if a.subagentOrch != nil && sess.ParentSessionID != "" {
+		a.subagentOrch.CancelChild(sessID)
+	}
 	if sess.ParentSessionID == "" {
 		if a.subagentOrch != nil {
 			a.subagentOrch.CancelForParent(sessID)

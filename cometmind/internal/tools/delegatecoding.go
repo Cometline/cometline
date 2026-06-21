@@ -3,6 +3,7 @@ package tools
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -20,6 +21,8 @@ type DelegateCodingTask struct {
 	ACPMgr       *acp.SessionManager
 	Orchestrator *subagent.Orchestrator
 }
+
+const delegationCancelledByUser = "delegation cancelled by user"
 
 func (DelegateCodingTask) Spec() ToolSpec {
 	return ToolSpec{
@@ -123,7 +126,8 @@ func (d DelegateCodingTask) Execute(ctx context.Context, input json.RawMessage) 
 	}
 
 	result, runErr := mgr.Run(ctx, runOpts)
-	return d.buildResult(ctx, parentID, child.ID, result, runErr, emit)
+	res, _, _ := d.buildResult(ctx, parentID, child.ID, result, runErr, emit)
+	return res, nil
 }
 
 func (d DelegateCodingTask) finishDelegation(
@@ -134,19 +138,18 @@ func (d DelegateCodingTask) finishDelegation(
 	emit func(event.Event),
 ) {
 	result, runErr := mgr.Run(ctx, runOpts)
-	res, _ := d.buildResult(ctx, parentID, childID, result, runErr, emit)
+	_, status, summary := d.buildResult(ctx, parentID, childID, result, runErr, emit)
 	if d.Orchestrator != nil {
-		status := "failed"
-		if res.OK {
-			status = "completed"
-		}
 		if ctx.Err() != nil {
 			status = "cancelled"
+			if summary == "" {
+				summary = delegationCancelledByUser
+			}
 		}
 		d.Orchestrator.Complete(childID, subagent.Result{
 			Kind:    subagent.KindACP,
 			Status:  status,
-			Summary: res.Output,
+			Summary: summary,
 		})
 	}
 }
@@ -157,31 +160,45 @@ func (d DelegateCodingTask) buildResult(
 	result acp.TaskResult,
 	runErr error,
 	emit func(event.Event),
-) (Result, error) {
-	status := result.Status
-	if status == "" {
-		status = "failed"
-	}
-	if runErr != nil && status == "completed" {
-		status = "failed"
-	}
-
-	summary := result.Summary
-	if summary == "" && runErr != nil {
-		summary = runErr.Error()
-	}
+) (Result, string, string) {
+	status, summary := normalizeDelegationOutcome(result, runErr)
 	_ = d.Sessions.UpdateDelegationState(ctx, childID, status, summary, "")
 
 	if emit != nil {
 		emit(event.SubagentFinished(childID, status, summary))
 	}
 
-	out := fmt.Sprintf("child_session_id: %s\nstatus: %s\nagent: %s\n\n%s",
-		childID, status, result.AgentName, summary)
-	ok := status == "completed"
-	if runErr != nil {
-		ok = false
+	out := fmt.Sprintf("child_session_id: %s\nstatus: %s\nagent: %s",
+		childID, status, result.AgentName)
+	if status == "cancelled" {
+		out += "\ncancelled_by: user"
 	}
+	if summary != "" {
+		out += "\n\n" + summary
+	}
+	ok := status == "completed"
 	_ = parentID
-	return Result{OK: ok, Output: out}, nil
+	return Result{OK: ok, Output: out}, status, summary
+}
+
+func normalizeDelegationOutcome(result acp.TaskResult, runErr error) (status, summary string) {
+	status = result.Status
+	if status == "" {
+		status = "failed"
+	}
+	summary = strings.TrimSpace(result.Summary)
+
+	if runErr != nil && status == "completed" {
+		status = "failed"
+	}
+	if errors.Is(runErr, context.Canceled) || status == "cancelled" {
+		status = "cancelled"
+		if summary == "" || summary == context.Canceled.Error() {
+			summary = delegationCancelledByUser
+		}
+	}
+	if summary == "" && runErr != nil && status != "cancelled" {
+		summary = runErr.Error()
+	}
+	return status, summary
 }

@@ -189,6 +189,22 @@ func (o *Orchestrator) CancelForParent(parentID string) {
 	}
 }
 
+// CancelChild cancels one in-flight subagent by child session ID.
+func (o *Orchestrator) CancelChild(childID string) bool {
+	o.mu.Lock()
+	h, ok := o.children[childID]
+	var cancel context.CancelFunc
+	if ok {
+		cancel = h.cancel
+	}
+	o.mu.Unlock()
+	if !ok || cancel == nil {
+		return false
+	}
+	cancel()
+	return true
+}
+
 // ActiveCount returns how many subagents are in flight for a parent.
 func (o *Orchestrator) ActiveCount(parentID string) int {
 	o.mu.Lock()

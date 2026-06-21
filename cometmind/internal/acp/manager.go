@@ -2,6 +2,7 @@ package acp
 
 import (
 	"context"
+	"errors"
 	"io"
 	"strings"
 	"sync"
@@ -138,6 +139,9 @@ func (m *SessionManager) Run(ctx context.Context, opts RunOptions) (TaskResult, 
 		Prompt:    []acpsdk.ContentBlock{acpsdk.TextBlock(promptText)},
 	})
 	if err != nil {
+		if errors.Is(err, context.Canceled) || runCtx.Err() != nil {
+			return TaskResult{Status: "cancelled", AgentName: agentName}, context.Canceled
+		}
 		return TaskResult{Status: "failed", Summary: err.Error(), AgentName: agentName}, err
 	}
 	if promptResp.StopReason == acpsdk.StopReasonCancelled {
