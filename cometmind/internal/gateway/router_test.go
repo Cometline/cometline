@@ -20,6 +20,18 @@ func (routerTestRunner) RunTurn(_ context.Context, _ session.Session, _, _ strin
 	return nil
 }
 
+type subagentNoiseRunner struct{}
+
+func (subagentNoiseRunner) RunTurn(_ context.Context, _ session.Session, _, _ string, onEvent func(event.Event)) error {
+	if onEvent == nil {
+		return nil
+	}
+	onEvent(event.TextDelta("final answer"))
+	onEvent(event.SubagentProgress("child-1", "tool", "web_fetch"))
+	onEvent(event.SubagentFinished("child-1", "completed", "intermediate summary"))
+	return nil
+}
+
 func TestRouterAllowed(t *testing.T) {
 	t.Parallel()
 	r := &Router{
@@ -276,5 +288,55 @@ func TestHandleInboundPersistsImages(t *testing.T) {
 	}
 	if len(transcript[0].Images) != 1 || transcript[0].Images[0].MediaType != "image/png" || transcript[0].Images[0].Data != "aGVsbG8=" {
 		t.Fatalf("images = %#v, want one png image", transcript[0].Images)
+	}
+}
+
+func TestHandleInboundReplyOmitsSubagentEvents(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	dbPath := filepath.Join(t.TempDir(), "cometmind.db")
+	sqlDB, err := store.OpenSQLite(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("OpenSQLite() error = %v", err)
+	}
+	t.Cleanup(func() { _ = sqlDB.Close() })
+
+	svc := session.New(sqlDB)
+	ws, err := svc.EnsureWorkspace(ctx, t.TempDir())
+	if err != nil {
+		t.Fatalf("EnsureWorkspace() error = %v", err)
+	}
+
+	var replyText string
+	r := &Router{
+		Sessions: svc,
+		Runner:   subagentNoiseRunner{},
+		Config: &config.Config{
+			Model:    "test-model",
+			Provider: "test-provider",
+			Gateway: config.GatewayConfig{
+				Discord: config.DiscordGatewayConfig{
+					WorkspacePath: ws.Path,
+				},
+			},
+		},
+	}
+	r.SetReplyHandler(func(_ context.Context, msg OutboundMessage) error {
+		replyText = msg.Text
+		return nil
+	})
+
+	if err := r.HandleInbound(ctx, InboundMessage{
+		Platform:  "discord",
+		UserID:    "user-1",
+		ChannelID: "chan-1",
+		Text:      "research this",
+		Mentioned: true,
+	}); err != nil {
+		t.Fatalf("HandleInbound() error = %v", err)
+	}
+	if replyText != "final answer" {
+		t.Fatalf("reply = %q, want %q", replyText, "final answer")
 	}
 }

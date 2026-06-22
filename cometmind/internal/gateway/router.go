@@ -94,18 +94,6 @@ func (r *Router) HandleInbound(ctx context.Context, msg InboundMessage) error {
 				reply.WriteString(ev.Message)
 				reply.WriteByte('\n')
 			}
-		case event.KindSubagentProgress:
-			if ev.ProgressText != "" {
-				reply.WriteString("\n[subagent] ")
-				reply.WriteString(ev.ProgressText)
-				reply.WriteByte('\n')
-			}
-		case event.KindSubagentFinished:
-			if ev.Summary != "" {
-				reply.WriteString("\n[subagent done] ")
-				reply.WriteString(ev.Summary)
-				reply.WriteByte('\n')
-			}
 		}
 	})
 	var text string
