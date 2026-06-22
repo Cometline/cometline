@@ -27,7 +27,8 @@ type ContentBlock struct {
 }
 
 type contentEnvelope struct {
-	Blocks []ContentBlock `json:"blocks"`
+	Blocks      []ContentBlock `json:"blocks"`
+	DisplayText string         `json:"display_text,omitempty"`
 }
 
 // toolResultPayload is stored in messages.content for role=tool_result.
@@ -552,12 +553,13 @@ func (s *Service) UpdateSessionTitle(ctx context.Context, sessionID, title strin
 
 // AppendUserMessage persists a user turn.
 func (s *Service) AppendUserMessage(ctx context.Context, sessionID, text string) (Message, error) {
-	return s.AppendUserMessageContent(ctx, sessionID, []ContentBlock{{Type: "text", Text: text}})
+	return s.AppendUserMessageContent(ctx, sessionID, []ContentBlock{{Type: "text", Text: text}}, "")
 }
 
 // AppendUserMessageContent persists a user turn with text and optional image blocks.
-func (s *Service) AppendUserMessageContent(ctx context.Context, sessionID string, blocks []ContentBlock) (Message, error) {
-	content, err := marshalMessageContent(blocks)
+// When displayText is set, transcript UIs show it instead of the agent-facing text.
+func (s *Service) AppendUserMessageContent(ctx context.Context, sessionID string, blocks []ContentBlock, displayText string) (Message, error) {
+	content, err := marshalMessageContent(blocks, displayText)
 	if err != nil {
 		return Message{}, err
 	}
@@ -574,11 +576,16 @@ func (s *Service) AppendUserMessageContent(ctx context.Context, sessionID string
 	return messageFromDB(msg), nil
 }
 
-func marshalMessageContent(blocks []ContentBlock) (string, error) {
-	if len(blocks) == 1 && blocks[0].Type == "text" {
+func marshalMessageContent(blocks []ContentBlock, displayText string) (string, error) {
+	displayText = strings.TrimSpace(displayText)
+	if displayText == "" && len(blocks) == 1 && blocks[0].Type == "text" {
 		return blocks[0].Text, nil
 	}
-	raw, err := json.Marshal(contentEnvelope{Blocks: blocks})
+	env := contentEnvelope{Blocks: blocks}
+	if displayText != "" {
+		env.DisplayText = displayText
+	}
+	raw, err := json.Marshal(env)
 	if err != nil {
 		return "", err
 	}
@@ -613,7 +620,7 @@ func sdkBlocksFromContent(blocks []ContentBlock) []cometsdk.Block {
 	return out
 }
 
-// PlainTextFromContent extracts display/title text from decoded content blocks.
+// PlainTextFromContent extracts agent-facing text from decoded content blocks.
 func PlainTextFromContent(blocks []ContentBlock) string {
 	var b strings.Builder
 	for _, block := range blocks {
@@ -622,6 +629,29 @@ func PlainTextFromContent(blocks []ContentBlock) string {
 		}
 	}
 	return b.String()
+}
+
+// DisplayTextFromStoredContent returns the UI label for a persisted user message.
+func DisplayTextFromStoredContent(raw string) string {
+	if !strings.HasPrefix(raw, contentEnvelopePrefix) {
+		return raw
+	}
+	var env contentEnvelope
+	if err := json.Unmarshal([]byte(strings.TrimPrefix(raw, contentEnvelopePrefix)), &env); err != nil {
+		return raw
+	}
+	if strings.TrimSpace(env.DisplayText) != "" {
+		return env.DisplayText
+	}
+	return PlainTextFromContent(env.Blocks)
+}
+
+// TitleTextFromContent picks a short session title from user content.
+func TitleTextFromContent(blocks []ContentBlock, displayText string) string {
+	if strings.TrimSpace(displayText) != "" {
+		return displayText
+	}
+	return PlainTextFromContent(blocks)
 }
 
 // AppendUserMessageAndMaybeTitle persists a user turn and, if the session

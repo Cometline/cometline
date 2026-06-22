@@ -443,7 +443,10 @@ func (a *Adapter) handleJobsAutocomplete(s *discordgo.Session, i *discordgo.Inte
 		if len(choices) >= 25 {
 			break
 		}
-		name := fmt.Sprintf("%s %s", job.ID, job.Description)
+		name := job.Description
+		if job.Priority > 0 {
+			name = fmt.Sprintf("(p=%d) %s", job.Priority, job.Description)
+		}
 		if len(name) > 100 {
 			name = name[:97] + "..."
 		}

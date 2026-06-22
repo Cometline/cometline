@@ -12,6 +12,7 @@ import type { ImageAttachment } from '$lib/types';
 
 export interface ChatTurnPayload {
 	text: string;
+	displayText?: string;
 	images?: ImageAttachment[];
 	filePaths?: string[];
 }

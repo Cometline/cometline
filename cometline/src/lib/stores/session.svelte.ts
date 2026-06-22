@@ -3,6 +3,7 @@ import type { ImageAttachment, Session } from '$lib/types';
 export interface PendingMessage {
 	sessionId: string;
 	text: string;
+	displayText?: string;
 	images?: ImageAttachment[];
 	filePaths?: string[];
 }
@@ -48,9 +49,15 @@ function createSessionStore() {
 		sessionId: string,
 		text: string,
 		images?: ImageAttachment[],
-		filePaths?: string[]
+		filePaths?: string[],
+		displayText?: string
 	) {
-		pendingMessages = new Map(pendingMessages).set(sessionId, { text, images, filePaths });
+		pendingMessages = new Map(pendingMessages).set(sessionId, {
+			text,
+			images,
+			filePaths,
+			displayText
+		});
 	}
 
 	function hasPendingMessage(sessionId: string) {

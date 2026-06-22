@@ -24,18 +24,18 @@ const maxTitleLen = 80
 // The call is synchronous but bounded (MaxTokens: 32) so the generated title is
 // ready before the turn's SSE stream completes and the client refreshes the
 // session. LLM failures are non-fatal: the plain-text fallback remains.
-func (a *App) maybeGenerateTitle(ctx context.Context, sess session.Session, blocks []session.ContentBlock) {
+func (a *App) maybeGenerateTitle(ctx context.Context, sess session.Session, blocks []session.ContentBlock, displayText string) {
 	if strings.TrimSpace(sess.Title) != "" {
 		return
 	}
 
-	fallback := plainTextTitle(blocks)
+	fallback := plainTextTitle(blocks, displayText)
 	if err := a.sessions.SetTitleIfEmpty(ctx, sess.ID, fallback); err != nil {
 		logging.L().Warn("title.fallback_failed", "session", sess.ID, "error", err)
 		return
 	}
 
-	text := strings.TrimSpace(session.PlainTextFromContent(blocks))
+	text := strings.TrimSpace(session.TitleTextFromContent(blocks, displayText))
 	if text == "" {
 		// Image-only first turn: nothing useful to summarize.
 		return
@@ -99,8 +99,8 @@ func (a *App) generateTitleLLM(ctx context.Context, sess session.Session, messag
 }
 
 // plainTextTitle is the provisional first-turn title derived from the message.
-func plainTextTitle(blocks []session.ContentBlock) string {
-	title := strings.TrimSpace(session.PlainTextFromContent(blocks))
+func plainTextTitle(blocks []session.ContentBlock, displayText string) string {
+	title := strings.TrimSpace(session.TitleTextFromContent(blocks, displayText))
 	if title == "" {
 		return "Image"
 	}

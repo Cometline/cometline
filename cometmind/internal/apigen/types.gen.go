@@ -621,6 +621,9 @@ type MemoryWire struct {
 
 // PostMessageRequest defines model for PostMessageRequest.
 type PostMessageRequest struct {
+	// DisplayText Optional transcript label for the user bubble. When set, the UI shows this instead of text while the agent still receives text.
+	DisplayText *string `json:"display_text,omitempty"`
+
 	// FilePaths Workspace-relative file paths to include as context. Each file must be a readable text file at most 256 KB.
 	FilePaths *[]string `json:"file_paths,omitempty"`
 

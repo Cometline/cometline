@@ -738,6 +738,7 @@ function createChatStore() {
 	) {
 		const payload = typeof payloadOrText === 'string' ? { text: payloadOrText } : payloadOrText;
 		const text = payload.text;
+		const displayText = payload.displayText ?? text;
 		const images = payload.images;
 		if (isStreamingFor(nextSessionID)) {
 			chatDebug('store:send-blocked', {
@@ -764,7 +765,7 @@ function createChatStore() {
 			sessionErrors.delete(nextSessionID);
 		}
 
-		if (!opts?.skipUser) addUserToSession(nextSessionID, text, images);
+		if (!opts?.skipUser) addUserToSession(nextSessionID, displayText, images);
 		markStreaming(nextSessionID, handle);
 
 		const ctx = handle.ctx;
@@ -787,6 +788,7 @@ function createChatStore() {
 				nextSessionID,
 				{
 					text,
+					display_text: payload.displayText,
 					images: images?.map((image) => ({
 						media_type: image.media_type,
 						data: image.data
@@ -907,6 +909,10 @@ function createChatStore() {
 		}
 	}
 
+	function appendLocalUserMessage(targetSessionID: string, text: string) {
+		addUserToSession(targetSessionID, text);
+	}
+
 	return {
 		get sessionID() {
 			return sessionID;
@@ -938,7 +944,8 @@ function createChatStore() {
 		revealStagedUser,
 		send,
 		cancel,
-		cancelSubagent
+		cancelSubagent,
+		appendLocalUserMessage
 	};
 }
 

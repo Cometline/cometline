@@ -80,7 +80,7 @@ describe('createConversationController', () => {
 			expect.objectContaining({ firstTurn: true, sessionId: 'sess-1' })
 		);
 		expect(revealSpy).not.toHaveBeenCalled();
-		expect(send).toHaveBeenCalledWith('sess-1', 'hello', { skipUser: true });
+		expect(send).toHaveBeenCalledWith('sess-1', { text: 'hello' }, { skipUser: true });
 		expect(refreshSession).toHaveBeenCalledWith('sess-1');
 		stageSpy.mockRestore();
 		revealSpy.mockRestore();
@@ -106,7 +106,7 @@ describe('createConversationController', () => {
 		);
 		expect(stageSpy).toHaveBeenCalledWith('sess-1', 'hello', undefined);
 		expect(revealSpy).toHaveBeenCalledWith('sess-1');
-		expect(send).toHaveBeenCalledWith('sess-1', 'hello', { skipUser: true });
+		expect(send).toHaveBeenCalledWith('sess-1', { text: 'hello' }, { skipUser: true });
 		stageSpy.mockRestore();
 		revealSpy.mockRestore();
 	});
@@ -130,7 +130,7 @@ describe('createConversationController', () => {
 		const turn = controller.enqueue('hello');
 
 		await vi.waitFor(() =>
-			expect(send).toHaveBeenCalledWith('sess-1', 'hello', { skipUser: true })
+			expect(send).toHaveBeenCalledWith('sess-1', { text: 'hello' }, { skipUser: true })
 		);
 		expect(revealSpy).not.toHaveBeenCalled();
 
@@ -182,7 +182,7 @@ describe('createConversationController', () => {
 		expect(onUserMessageFlight).toHaveBeenCalledTimes(1);
 		expect(stageSpy).toHaveBeenCalledWith('sess-a', 'background hello', undefined);
 		expect(revealSpy).toHaveBeenCalledWith('sess-a');
-		expect(send).toHaveBeenCalledWith('sess-a', 'background hello', { skipUser: true });
+		expect(send).toHaveBeenCalledWith('sess-a', { text: 'background hello' }, { skipUser: true });
 		stageSpy.mockRestore();
 		revealSpy.mockRestore();
 	});
@@ -201,7 +201,7 @@ describe('createConversationController', () => {
 			'hello again',
 			expect.objectContaining({ firstTurn: false, sessionId: 'sess-1' })
 		);
-		expect(send).toHaveBeenCalledWith('sess-1', 'hello again', { skipUser: true });
+		expect(send).toHaveBeenCalledWith('sess-1', { text: 'hello again' }, { skipUser: true });
 	});
 
 	it('starts active follow-up send before the bubble flight resolves', async () => {
@@ -221,7 +221,7 @@ describe('createConversationController', () => {
 
 		await vi.waitFor(() => expect(onUserMessageFlight).toHaveBeenCalled());
 		await vi.waitFor(() =>
-			expect(send).toHaveBeenCalledWith('sess-1', 'hello again', { skipUser: true })
+			expect(send).toHaveBeenCalledWith('sess-1', { text: 'hello again' }, { skipUser: true })
 		);
 		expect(revealSpy).not.toHaveBeenCalled();
 
@@ -237,14 +237,14 @@ describe('createConversationController', () => {
 
 		await controller.enqueue('hello again');
 
-		expect(send).toHaveBeenCalledWith('sess-1', 'hello again', { skipUser: false });
+		expect(send).toHaveBeenCalledWith('sess-1', { text: 'hello again' }, { skipUser: false });
 	});
 
 	it('passes file paths through to send', async () => {
 		const { controller, send } = createDeps({ hasVisibleConversation: true });
 		const images = [{ media_type: 'image/png' as const, data: 'abc', id: '1' }];
 
-		await controller.enqueue('review', images, ['README.md']);
+		await controller.enqueue({ text: 'review', images, filePaths: ['README.md'] });
 
 		expect(send).toHaveBeenCalledWith(
 			'sess-1',
@@ -313,7 +313,7 @@ describe('createConversationController', () => {
 		controller.onMount();
 
 		await vi.waitFor(() => expect(send).toHaveBeenCalled());
-		expect(send).toHaveBeenCalledWith('sess-1', 'from home', { skipUser: true });
+		expect(send).toHaveBeenCalledWith('sess-1', { text: 'from home' }, { skipUser: true });
 		expect(sessionStore.hasPendingMessage('sess-1')).toBe(false);
 	});
 
@@ -328,8 +328,8 @@ describe('createConversationController', () => {
 
 		await vi.waitFor(() => expect(send1).toHaveBeenCalled());
 		await vi.waitFor(() => expect(send2).toHaveBeenCalled());
-		expect(send1).toHaveBeenCalledWith('sess-1', 'first session', { skipUser: true });
-		expect(send2).toHaveBeenCalledWith('sess-2', 'second session', { skipUser: true });
+	expect(send1).toHaveBeenCalledWith('sess-1', { text: 'first session' }, { skipUser: true });
+	expect(send2).toHaveBeenCalledWith('sess-2', { text: 'second session' }, { skipUser: true });
 		expect(sessionStore.hasPendingMessage('sess-1')).toBe(false);
 		expect(sessionStore.hasPendingMessage('sess-2')).toBe(false);
 	});
@@ -385,7 +385,7 @@ describe('createConversationController', () => {
 		await vi.waitFor(() => expect(stageSpy).toHaveBeenCalledWith('sess-a', 'question A', undefined));
 		await vi.waitFor(() => expect(onUserMessageFlight).toHaveBeenCalled());
 		expect(currentSessionId).toBe('sess-b');
-		expect(send).toHaveBeenCalledWith('sess-a', 'question A', { skipUser: true });
+		expect(send).toHaveBeenCalledWith('sess-a', { text: 'question A' }, { skipUser: true });
 		expect(revealSpy).not.toHaveBeenCalled();
 
 		releaseFlight!();
@@ -426,12 +426,12 @@ describe('createConversationController', () => {
 		expect(ctrlA.pendingCount).toBe(1);
 
 		await ctrlB.enqueue('msg-b-1');
-		expect(send).toHaveBeenCalledWith('sess-b', 'msg-b-1', { skipUser: true });
+		expect(send).toHaveBeenCalledWith('sess-b', { text: 'msg-b-1' }, { skipUser: true });
 		expect(ctrlA.pendingCount).toBe(1);
 
 		releaseA!();
 		await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(3));
-		expect(send).toHaveBeenNthCalledWith(3, 'sess-a', 'msg-a-2', { skipUser: true });
+		expect(send).toHaveBeenNthCalledWith(3, 'sess-a', { text: 'msg-a-2' }, { skipUser: true });
 	});
 
 	it('shouldSkipTranscriptLoad when cached items exist for inactive session', () => {

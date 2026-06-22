@@ -8,6 +8,7 @@ import {
 import { modelStore } from '$lib/stores/model.svelte';
 import { sessionStore } from '$lib/stores/session.svelte';
 import { shellStore } from '$lib/stores/shell.svelte';
+import { jobUserDisplayText } from '$lib/jobs/format-job-label';
 
 function executionPromptForJob(claimed: JobResource): string {
 	let prompt = buildJobExecutionPrompt(claimed);
@@ -25,7 +26,7 @@ export async function startJobInChat(job: JobResource): Promise<void> {
 	if (current) {
 		const claimed = await claimJob(job.id, current.id);
 		const prompt = executionPromptForJob(claimed);
-		sessionStore.queuePendingMessage(current.id, prompt);
+		sessionStore.queuePendingMessage(current.id, prompt, undefined, undefined, jobUserDisplayText(claimed));
 		await goto(`/session/${current.id}`);
 		return;
 	}
@@ -43,7 +44,7 @@ export async function startJobInChat(job: JobResource): Promise<void> {
 	const claimed = await claimJob(job.id, session.id);
 	const prompt = executionPromptForJob(claimed);
 	sessionStore.appendSession(session);
-	sessionStore.queuePendingMessage(session.id, prompt);
+	sessionStore.queuePendingMessage(session.id, prompt, undefined, undefined, jobUserDisplayText(claimed));
 	shellStore.migrateDraftPanel(session.id);
 	await goto(`/session/${session.id}`);
 }

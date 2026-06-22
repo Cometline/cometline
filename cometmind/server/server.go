@@ -260,9 +260,10 @@ type workspaceFileListResponse struct {
 }
 
 type postMessageRequest struct {
-	Text      string              `json:"text"`
-	Images    []messageImageInput `json:"images,omitempty"`
-	FilePaths []string            `json:"file_paths,omitempty"`
+	Text        string              `json:"text"`
+	DisplayText string              `json:"display_text,omitempty"`
+	Images      []messageImageInput `json:"images,omitempty"`
+	FilePaths   []string            `json:"file_paths,omitempty"`
 }
 
 type messageImageInput struct {
@@ -1023,13 +1024,13 @@ func (a *App) handlePostMessage(c *gin.Context) {
 		}
 	}
 
-	if _, err := a.sessions.AppendUserMessageContent(c.Request.Context(), sess.ID, blocks); err != nil {
+	if _, err := a.sessions.AppendUserMessageContent(c.Request.Context(), sess.ID, blocks, strings.TrimSpace(req.DisplayText)); err != nil {
 		writeError(c, http.StatusInternalServerError, "internal_error", err.Error())
 		return
 	}
 	// Generate the session title from the first user message (no-op after the
 	// first turn). Failures are non-fatal and leave a plain-text fallback.
-	a.maybeGenerateTitle(c.Request.Context(), sess, blocks)
+	a.maybeGenerateTitle(c.Request.Context(), sess, blocks, strings.TrimSpace(req.DisplayText))
 
 	c.Status(http.StatusOK)
 	c.Header("Content-Type", "text/event-stream")

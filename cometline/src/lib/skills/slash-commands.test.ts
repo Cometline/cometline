@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { filterJobOptions, parseJobCommand } from './slash-commands';
+import { filterJobOptions, parseJobCommand, parseListJobsCommand } from './slash-commands';
+
+describe('parseListJobsCommand', () => {
+	it('matches exact /list-jobs', () => {
+		expect(parseListJobsCommand('/list-jobs')).toBe(true);
+		expect(parseListJobsCommand('/list-jobs ')).toBe(true);
+		expect(parseListJobsCommand('/job')).toBe(false);
+	});
+});
 
 describe('parseJobCommand', () => {
 	it('parses /job with optional query', () => {

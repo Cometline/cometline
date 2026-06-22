@@ -4,6 +4,7 @@
 	import { fade } from 'svelte/transition';
 	import { Check, FileText, Folder, Loader, Search, Send, Square, Trash2, X } from '@lucide/svelte';
 	import type { QueuedMessage } from '$lib/actions/chat-turn-queue';
+	import type { ChatTurnPayload } from '$lib/actions/start-chat';
 	import { modelStore, type ModelOption } from '$lib/stores/model.svelte';
 	import { settingsStore } from '$lib/stores/settings.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
@@ -23,6 +24,8 @@
 		refreshFileIndex,
 		searchWorkspaceFiles
 	} from '$lib/workspace/file-index';
+	import { jobMenuSubtitle, jobUserDisplayText } from '$lib/jobs/format-job-label';
+	import { listJobsUserDisplayText } from '$lib/jobs/format-ready-jobs-list';
 	import { sessionStore } from '$lib/stores/session.svelte';
 	import { chatStore } from '$lib/stores/chat.svelte';
 	import {
@@ -35,6 +38,7 @@
 		parseClearCommand,
 		parseModelCommand,
 		parseJobCommand,
+		parseListJobsCommand,
 		filterJobOptions,
 		type SlashMenuOption,
 		type WorkspaceMenuOption
@@ -52,6 +56,7 @@
 
 	let {
 		onSend,
+		onLocalUserMessage,
 		onStop,
 		onRemoveQueued,
 		onModelChange,
@@ -66,7 +71,8 @@
 		variant = 'dock',
 		autofocus = true
 	}: {
-		onSend: (text: string, images?: ImageAttachment[], filePaths?: string[]) => void;
+		onSend: (payload: ChatTurnPayload | string) => void;
+		onLocalUserMessage?: (text: string) => void;
 		onStop?: () => void;
 		onRemoveQueued?: (id: string) => void;
 		onModelChange?: (option: ModelOption) => void | Promise<void>;
@@ -316,6 +322,14 @@
 		if (dropMessageTimer) clearTimeout(dropMessageTimer);
 	});
 
+	function sendTurn(payload: ChatTurnPayload | string) {
+		if (typeof payload === 'string') {
+			onSend({ text: payload });
+			return;
+		}
+		onSend(payload);
+	}
+
 	function submit() {
 		const trimmed = value.trim();
 		if (isChangeWorkspaceCommand(trimmed)) {
@@ -324,6 +338,10 @@
 		}
 		if (parseClearCommand(trimmed)) {
 			void handleClearSubmit();
+			return;
+		}
+		if (parseListJobsCommand(trimmed)) {
+			void handleListJobsSubmit();
 			return;
 		}
 		if (modelCommand) {
@@ -337,14 +355,26 @@
 		const expanded = expandBuiltinSlashCommand(trimmed) ?? expandSkillCommand(trimmed);
 		if (!canSubmit || disabled || !modelStore.selected) return;
 		const filePaths = input?.getFilePaths() ?? [];
-		onSend(
-			expanded,
-			images.length > 0 ? images : undefined,
-			filePaths.length > 0 ? filePaths : undefined
-		);
+		sendTurn({
+			text: expanded,
+			images: images.length > 0 ? images : undefined,
+			filePaths: filePaths.length > 0 ? filePaths : undefined
+		});
 		input?.clear();
 		value = '';
 		images = [];
+	}
+
+	async function handleListJobsSubmit() {
+		input?.clear();
+		value = '';
+		try {
+			const res = await listJobs({ ready_only: true });
+			const text = listJobsUserDisplayText(res.jobs ?? []);
+			onLocalUserMessage?.(text);
+		} catch (err) {
+			dropMessage = err instanceof Error ? err.message : 'Failed to list jobs';
+		}
 	}
 
 	function onKeydown(e: KeyboardEvent) {
@@ -662,7 +692,7 @@
 			}
 			input?.clear();
 			value = '';
-			onSend(prompt);
+			sendTurn({ text: prompt, displayText: jobUserDisplayText(claimed) });
 		} catch (err) {
 			dropMessage = err instanceof Error ? err.message : 'Failed to claim job';
 		}
@@ -864,6 +894,12 @@
 	function selectSlashOption(option: SlashMenuOption) {
 		if (option.kind === 'builtin' && option.name === 'change') {
 			openChangeWorkspace();
+			return;
+		}
+		if (option.kind === 'builtin' && option.name === 'list-jobs') {
+			input?.clear();
+			value = '';
+			void handleListJobsSubmit();
 			return;
 		}
 		const next = `/${option.name} `;
@@ -1198,7 +1234,9 @@
 						}}
 					>
 						<span class="skill-command-name">{job.description}</span>
-						<span class="skill-command-description">p={job.priority} · {job.id.slice(0, 8)}</span>
+						{#if jobMenuSubtitle(job)}
+							<span class="skill-command-description">{jobMenuSubtitle(job)}</span>
+						{/if}
 					</button>
 				{/each}
 			{/if}

@@ -62,7 +62,7 @@ export interface ConversationController {
 		firstTurnActive: boolean;
 		awaitingFirstAssistant: boolean;
 	}): void;
-	enqueue(text: string, images?: ImageAttachment[], filePaths?: string[]): Promise<boolean>;
+	enqueue(payload: ChatTurnPayload | string): Promise<boolean>;
 	removeQueued(id: string): boolean;
 	clearQueue(): void;
 	cancel(): void;
@@ -77,12 +77,13 @@ async function runTurn(
 	getHasVisibleConversation: () => boolean
 ): Promise<void> {
 	const payload = typeof payloadOrText === 'string' ? { text: payloadOrText } : payloadOrText;
+	const userDisplay = payload.displayText ?? payload.text;
 	const usesFlight = Boolean(deps.flight?.onUserMessageFlight);
 	const isViewing = deps.getSessionId() === turnSessionId;
 	const firstTurn = usesFlight && !isViewing
 		? chatStore.getCachedItemCount(turnSessionId) === 0
 		: !getHasVisibleConversation();
-	const flightPayload = payload.images?.length ? payload : payload.text;
+	const flightPayload = payload.images?.length ? payload : userDisplay;
 	const stageUser = (text: string, images?: ImageAttachment[]) => {
 		chatStore.stageUserForSession(turnSessionId, text, images);
 	};
@@ -117,7 +118,7 @@ async function runTurn(
 			revealStagedUser
 		});
 	} else if (usesFlight && isViewing) {
-		stageUser(payload.text, payload.images);
+		stageUser(userDisplay, payload.images);
 		flightPromise = Promise.resolve(
 			deps.flight!.onUserMessageFlight!(flightPayload, {
 				firstTurn,
@@ -129,7 +130,7 @@ async function runTurn(
 			.catch(() => undefined)
 			.finally(revealStagedUser);
 	} else if (usesFlight) {
-		stageUser(payload.text, payload.images);
+		stageUser(userDisplay, payload.images);
 		revealStagedUser();
 	}
 
@@ -152,24 +153,8 @@ function ensureQueue(
 	let queue = turnQueues.get(sessionId);
 	if (!queue) {
 		const queueForSessionId = sessionId;
-		queue = createChatTurnQueue(async (text, images, filePaths) => {
-			if (images === undefined && filePaths === undefined) {
-				await runTurn(deps, queueForSessionId, text, getHasVisibleConversation);
-			} else if (filePaths === undefined) {
-				await runTurn(
-					deps,
-					queueForSessionId,
-					{ text, images },
-					getHasVisibleConversation
-				);
-			} else {
-				await runTurn(
-					deps,
-					queueForSessionId,
-					{ text, images, filePaths },
-					getHasVisibleConversation
-				);
-			}
+		queue = createChatTurnQueue(async (payload) => {
+			await runTurn(deps, queueForSessionId, payload, getHasVisibleConversation);
 		}, deps.onQueueChange);
 		turnQueues.set(sessionId, queue);
 	}
@@ -217,11 +202,12 @@ export function createConversationController(
 			const sessionId = deps.getSessionId();
 			const pending = sessionStore.takePendingMessage(sessionId);
 			if (pending) {
-				void ensureQueue(sessionId, deps, deps.getHasVisibleConversation).enqueue(
-					pending.text,
-					pending.images,
-					pending.filePaths
-				);
+				void ensureQueue(sessionId, deps, deps.getHasVisibleConversation).enqueue({
+					text: pending.text,
+					displayText: pending.displayText,
+					images: pending.images,
+					filePaths: pending.filePaths
+				});
 				return;
 			}
 			if (!this.shouldSkipTranscriptLoad()) {
@@ -241,11 +227,9 @@ export function createConversationController(
 			}
 		},
 
-		enqueue(text: string, images?: ImageAttachment[], filePaths?: string[]) {
+	enqueue(payload: ChatTurnPayload | string) {
 			return ensureQueue(deps.getSessionId(), deps, deps.getHasVisibleConversation).enqueue(
-				text,
-				images,
-				filePaths
+				payload
 			);
 		},
 

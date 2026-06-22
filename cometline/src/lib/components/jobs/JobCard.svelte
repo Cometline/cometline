@@ -59,7 +59,6 @@
 		</div>
 	{/if}
 
-	<span class="job-card-id">{job.id.slice(0, 8)}</span>
 </button>
 
 <style>
@@ -151,11 +150,5 @@
 
 	.job-chip.progress {
 		max-width: 100%;
-	}
-
-	.job-card-id {
-		font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-		font-size: 10px;
-		color: var(--text-soft);
 	}
 </style>

@@ -567,7 +567,7 @@ func ExecutionPrompt(job Job) string {
 		dod = "(none specified)"
 	}
 	return fmt.Sprintf(
-		"Please work on job %s.\n\nDescription: %s\n\nDefinition of done: %s\n\nUpdate progress with `update_job` as you go. When finished, call `complete_job` with a final progress summary.",
-		job.ID, job.Description, dod,
+		"Please work on: %s\n\nDefinition of done: %s\n\nUpdate progress with `update_job` as you go. When finished, call `complete_job` with a final progress summary.\n\n(Use job_id %q when calling job tools.)",
+		job.Description, dod, job.ID,
 	)
 }

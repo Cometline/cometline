@@ -1588,6 +1588,9 @@ components:
         text:
           type: string
           description: User input text. Required when images is empty.
+        display_text:
+          type: string
+          description: Optional transcript label for the user bubble. When set, the UI shows this instead of text while the agent still receives text.
         images:
           type: array
           maxItems: 6

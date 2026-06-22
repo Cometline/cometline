@@ -23,6 +23,10 @@ export const BUILTIN_SLASH_COMMANDS: BuiltinSlashCommand[] = [
 	{
 		name: 'job',
 		description: 'Claim a ready job and start working on it'
+	},
+	{
+		name: 'list-jobs',
+		description: 'List ready jobs in the queue'
 	}
 ];
 
@@ -65,6 +69,9 @@ export function expandBuiltinSlashCommand(text: string): string | null {
 	if (name === 'job') {
 		return null;
 	}
+	if (name === 'list-jobs') {
+		return null;
+	}
 	return null;
 }
 
@@ -72,6 +79,10 @@ export function parseJobCommand(text: string): { query: string } | null {
 	const match = /^\s*\/job(?:\s+(.*))?$/i.exec(text);
 	if (!match) return null;
 	return { query: (match[1] ?? '').trim() };
+}
+
+export function parseListJobsCommand(text: string): boolean {
+	return /^\s*\/list-jobs\s*$/i.test(text);
 }
 
 export function filterJobOptions<T extends { id: string; description: string }>(query: string, jobs: T[]): T[] {

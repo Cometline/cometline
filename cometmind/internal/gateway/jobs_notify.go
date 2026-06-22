@@ -20,14 +20,14 @@ func (n DiscordJobNotifier) OnJobEvent(ctx context.Context, job jobs.Job, action
 	var text string
 	switch action {
 	case jobs.EventClaimed:
-		text = fmt.Sprintf("Job %s claimed.", job.ID)
+		text = fmt.Sprintf("Job claimed: %s.", job.Description)
 	case jobs.EventCompleted:
-		text = fmt.Sprintf("Job %s completed.", job.ID)
+		text = fmt.Sprintf("Job completed: %s.", job.Description)
 		if strings.TrimSpace(detail) != "" {
 			text += "\n" + detail
 		}
 	case jobs.EventReleased, jobs.EventLeaseExpired:
-		text = fmt.Sprintf("Job %s released (%s).", job.ID, detail)
+		text = fmt.Sprintf("Job released: %s (%s).", job.Description, detail)
 	default:
 		return
 	}

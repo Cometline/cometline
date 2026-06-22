@@ -27,7 +27,7 @@ func TestMessageContentBlocksRoundTrip(t *testing.T) {
 		{Type: "image", MediaType: "image/png", Data: "aGVsbG8="},
 	}
 
-	raw, err := marshalMessageContent(blocks)
+	raw, err := marshalMessageContent(blocks, "")
 	if err != nil {
 		t.Fatalf("marshalMessageContent() error = %v", err)
 	}
@@ -63,5 +63,18 @@ func TestDecodeMessageContentPlainText(t *testing.T) {
 	}
 	if len(decoded) != 1 || decoded[0].Type != "text" || decoded[0].Text != "hello" {
 		t.Fatalf("decoded = %#v", decoded)
+	}
+}
+
+func TestDisplayTextFromStoredContent(t *testing.T) {
+	raw, err := marshalMessageContent([]ContentBlock{{Type: "text", Text: "agent prompt"}}, "/job Fix login")
+	if err != nil {
+		t.Fatalf("marshalMessageContent() error = %v", err)
+	}
+	if got := DisplayTextFromStoredContent(raw); got != "/job Fix login" {
+		t.Fatalf("DisplayTextFromStoredContent() = %q", got)
+	}
+	if got := PlainTextFromContent([]ContentBlock{{Type: "text", Text: "agent prompt"}}); got != "agent prompt" {
+		t.Fatalf("PlainTextFromContent() = %q", got)
 	}
 }

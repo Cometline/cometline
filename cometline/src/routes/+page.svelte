@@ -11,7 +11,7 @@
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { chatStore } from '$lib/stores/chat.svelte';
 	import { FolderOpen } from '@lucide/svelte';
-	import type { ImageAttachment } from '$lib/types';
+	import type { ChatTurnPayload } from '$lib/actions/start-chat';
 
 	let bootMessage = $derived(shellStore.bootMessage);
 
@@ -30,7 +30,8 @@
 		shellStore.openSettings();
 	}
 
-	async function onSend(text: string, images?: ImageAttachment[], filePaths?: string[]) {
+	async function onSend(payload: ChatTurnPayload | string) {
+		const message = typeof payload === 'string' ? { text: payload } : payload;
 		const selectedModel = modelStore.selected;
 		if (!selectedModel) return;
 		const workspace = shellStore.workspacePath;
@@ -40,7 +41,13 @@
 			provider_id: selectedModel.providerId
 		});
 		sessionStore.appendSession(session);
-		sessionStore.queuePendingMessage(session.id, text, images, filePaths);
+		sessionStore.queuePendingMessage(
+			session.id,
+			message.text,
+			message.images,
+			message.filePaths,
+			message.displayText
+		);
 		shellStore.migrateDraftPanel(session.id);
 		await goto(`/session/${session.id}`);
 	}

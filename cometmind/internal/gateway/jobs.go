@@ -15,7 +15,11 @@ func FormatReadyJobsList(items []jobs.Job) string {
 	}
 	var b strings.Builder
 	for _, j := range items {
-		fmt.Fprintf(&b, "• `%s` (p=%d) %s\n", j.ID, j.Priority, j.Description)
+		prefix := ""
+		if j.Priority > 0 {
+			prefix = fmt.Sprintf("(p=%d) ", j.Priority)
+		}
+		fmt.Fprintf(&b, "• %s%s\n", prefix, j.Description)
 	}
 	return strings.TrimSpace(b.String())
 }
@@ -43,7 +47,7 @@ func (r *Router) HandleJobsSlash(ctx context.Context, msg InboundMessage, jobID 
 		return "", "", err
 	}
 	_ = r.Jobs.Heartbeat(ctx, job.ID, sessID)
-	return fmt.Sprintf("Claimed job `%s`. Starting work…", job.ID), jobs.ExecutionPrompt(job), nil
+	return fmt.Sprintf("Claimed: %s. Starting work…", job.Description), jobs.ExecutionPrompt(job), nil
 }
 
 func (r *Router) sessionForInbound(ctx context.Context, msg InboundMessage) (sessID string, wsPath string, err error) {

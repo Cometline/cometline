@@ -20,7 +20,8 @@
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { settingsStore } from '$lib/stores/settings.svelte';
 	import { matchesShortcut } from '$lib/keyboard-shortcuts';
-	import type { ImageAttachment, ChatItem } from '$lib/types';
+	import type { ChatTurnPayload } from '$lib/actions/start-chat';
+	import type { ChatItem } from '$lib/types';
 	import type { ModelOption } from '$lib/stores/model.svelte';
 	import ProviderSwitchDialog from '$lib/components/ProviderSwitchDialog.svelte';
 	import { analyzeProviderSwitch, type ProviderSwitchWarning } from '$lib/provider-switch';
@@ -201,9 +202,13 @@
 		}
 	});
 
-	function submit(text: string, images?: ImageAttachment[], filePaths?: string[]) {
+	function submit(payload: ChatTurnPayload | string) {
 		if (connectionState.status !== 'ready') return;
-		void conversation.enqueue(text, images, filePaths);
+		void conversation.enqueue(payload);
+	}
+
+	function showLocalUserMessage(text: string) {
+		chatStore.appendLocalUserMessage(sessionId, text);
 	}
 
 	function stop() {
@@ -336,6 +341,7 @@
 			<Composer
 				bind:this={composerRef}
 				onSend={submit}
+				onLocalUserMessage={showLocalUserMessage}
 				onStop={stop}
 				onRemoveQueued={removeQueuedMessage}
 				{onModelChange}

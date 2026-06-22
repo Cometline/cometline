@@ -636,5 +636,5 @@ export function putJobSettings(settings: JobSettings): Promise<JobSettings> {
 
 export function buildJobExecutionPrompt(job: JobResource): string {
 	const dod = job.definition_of_done?.trim() || '(none specified)';
-	return `Please work on job ${job.id}.\n\nDescription: ${job.description}\n\nDefinition of done: ${dod}\n\nUpdate progress with update_job as you go. When finished, call complete_job with a final progress summary.`;
+	return `Please work on: ${job.description}\n\nDefinition of done: ${dod}\n\nUpdate progress with update_job as you go. When finished, call complete_job with a final progress summary.\n\n(Use job_id "${job.id}" when calling job tools.)`;
 }

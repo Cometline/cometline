@@ -107,7 +107,6 @@
 			/>
 		{:else if job}
 			<div class="drawer-meta">
-				<p><span>ID</span> <code>{job.id}</code></p>
 				<p><span>Status</span> {job.status}</p>
 				{#if job.assigned_session_id}
 					<p><span>Assigned</span> <code>{job.assigned_session_id}</code></p>

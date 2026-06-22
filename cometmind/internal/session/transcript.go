@@ -86,7 +86,7 @@ func (s *Service) LoadTranscript(ctx context.Context, sessionID string) ([]Trans
 			}
 			out = append(out, TranscriptEntry{
 				Kind:   TranscriptKindUser,
-				Text:   PlainTextFromContent(blocks),
+				Text:   DisplayTextFromStoredContent(m.Content),
 				Images: images,
 			})
 		case "assistant":

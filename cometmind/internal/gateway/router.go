@@ -72,7 +72,7 @@ func (r *Router) HandleInbound(ctx context.Context, msg InboundMessage) error {
 	}
 
 	blocks := contentBlocksFromInbound(msg)
-	if _, err := r.Sessions.AppendUserMessageContent(ctx, sess.ID, blocks); err != nil {
+	if _, err := r.Sessions.AppendUserMessageContent(ctx, sess.ID, blocks, ""); err != nil {
 		return err
 	}
 	if err := r.Sessions.SetTitleIfEmpty(ctx, sess.ID, titleFromInbound(msg)); err != nil {

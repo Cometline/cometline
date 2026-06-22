@@ -117,6 +117,10 @@ export type PostMessageRequest = {
      */
     text?: string;
     /**
+     * Optional transcript label for the user bubble. When set, the UI shows this instead of text while the agent still receives text.
+     */
+    display_text?: string;
+    /**
      * Optional base64 image attachments. Supported media types are image/png, image/jpeg, image/gif, and image/webp.
      */
     images?: Array<ImageAttachment>;

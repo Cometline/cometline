@@ -15,6 +15,7 @@
 		groupJobsByColumn,
 		type GroupedJobs
 	} from '$lib/jobs/group-jobs';
+	import { truncateJobLabel } from '$lib/jobs/format-job-label';
 	import JobCard from './JobCard.svelte';
 	import JobDetailDrawer from './JobDetailDrawer.svelte';
 	import JobsKanbanBoard from './JobsKanbanBoard.svelte';
@@ -152,7 +153,7 @@
 	}
 
 	async function handleDelete(job: JobResource) {
-		if (!confirm(`Delete job ${job.id}?`)) return;
+		if (!confirm(`Delete "${truncateJobLabel(job.description)}"?`)) return;
 		try {
 			await deleteJob(job.id);
 			closeDrawer();
