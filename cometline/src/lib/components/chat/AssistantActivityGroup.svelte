@@ -18,6 +18,9 @@
 	import type { TimelineEntry, InjectedMemory } from '$lib/conversation/thinking-attribution';
 	import { subagentProgressLabel } from '$lib/conversation/subagent-display';
 
+	import type { ChatTurnPayload } from '$lib/actions/start-chat';
+	import type { JobResource } from '$lib/client/cometmind';
+
 	const FOLD_IN = { duration: 180 };
 
 	let {
@@ -37,7 +40,10 @@
 		toolOutputExpanded,
 		toggleToolOutput,
 		subagentExpanded,
-		toggleSubagent
+		toggleSubagent,
+		sessionId = '',
+		onNotifyAgent,
+		onStartJob
 	}: {
 		assistant: Extract<ChatItem, { type: 'assistant' }>;
 		assistantId: string;
@@ -66,6 +72,9 @@
 		toggleToolOutput: (id: string) => void;
 		subagentExpanded: (id: string) => boolean;
 		toggleSubagent: (id: string) => void;
+		sessionId?: string;
+		onNotifyAgent?: (payload: ChatTurnPayload) => void | Promise<void>;
+		onStartJob?: (job: JobResource) => void | Promise<void>;
 	} = $props();
 
 	let firstEntry = $derived(timeline[0]);
@@ -157,6 +166,9 @@
 						expanded={toolOutputExpanded(firstEntry.tool)}
 						nested={true}
 						onToggle={() => toggleToolOutput(firstEntry.tool.id)}
+						{sessionId}
+						{onNotifyAgent}
+						{onStartJob}
 					/>
 				{:else}
 					<SubagentPanel
@@ -198,6 +210,9 @@
 							expanded={toolOutputExpanded(entry.tool)}
 							nested={true}
 							onToggle={() => toggleToolOutput(entry.tool.id)}
+							{sessionId}
+							{onNotifyAgent}
+							{onStartJob}
 						/>
 					{:else}
 						<SubagentPanel

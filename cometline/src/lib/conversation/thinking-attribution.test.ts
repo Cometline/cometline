@@ -386,6 +386,45 @@ describe('shouldGroupAssistantTimeline', () => {
 	});
 });
 
+describe('propose_job pinning', () => {
+	const proposeTool: Extract<ChatItem, { type: 'tool' }> = {
+		id: 'pj1',
+		type: 'tool',
+		toolName: 'propose_job',
+		input: { description: 'Fix auth' },
+		output: '{"status":"awaiting_workspace","description":"Fix auth"}',
+		pending: false
+	};
+
+	it('does not buffer completed propose_job', () => {
+		const items: ChatItem[] = [
+			{ id: 'u1', type: 'user', text: 'create a job' },
+			{ id: 'a1', type: 'assistant', text: 'Please confirm below.' },
+			proposeTool
+		];
+		const attribution = buildThinkingAttribution(items);
+		expect(attribution.toolIdsInBuffer.has('pj1')).toBe(false);
+	});
+
+	it('does not group timeline when completed propose_job is present', () => {
+		const assistant: Extract<ChatItem, { type: 'assistant' }> = {
+			id: 'a1',
+			type: 'assistant',
+			text: 'Please confirm below.'
+		};
+		const timeline = [
+			{
+				kind: 'reasoning' as const,
+				segmentIndex: 0,
+				text: 'planning',
+				pending: false
+			},
+			{ kind: 'tool' as const, tool: proposeTool }
+		];
+		expect(shouldGroupAssistantTimeline(assistant, timeline)).toBe(false);
+	});
+});
+
 describe('defaultActivityGroupExpanded', () => {
 	const assistant: Extract<ChatItem, { type: 'assistant' }> = {
 		id: 'a1',

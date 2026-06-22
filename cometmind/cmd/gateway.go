@@ -52,10 +52,11 @@ func runGateway(_ *cobra.Command, _ []string) error {
 	rt.StartJobsMaintenance(ctx)
 
 	router := &gateway.Router{
-		Sessions: rt.Sessions,
-		Config:   rt.Config,
-		Jobs:     rt.Jobs,
-		Turns:    turns,
+		Sessions:     rt.Sessions,
+		Config:       rt.Config,
+		Jobs:         rt.Jobs,
+		Turns:        turns,
+		JobProposals: gateway.NewJobProposalStore(),
 		Runner: gateway.AgentRunner{
 			NewRunner: func(sess session.Session, workspacePath string, msg gateway.InboundMessage) (gateway.TurnRunner, error) {
 				channelID := msg.ChannelID
@@ -111,6 +112,15 @@ func runGateway(_ *cobra.Command, _ []string) error {
 			}
 			return filtered, nil
 		})
+		router.DeliverJobProposal = adapter.DeliverJobProposal
+		adapter.SetCreateJobHandler(func(ctx context.Context, msg gateway.InboundMessage, description, dod, workspace string) (string, error) {
+			return router.HandleCreateJobSlash(ctx, msg, description, dod, workspace)
+		})
+		adapter.SetJobProposalHandlers(
+			router.HandleJobProposalSelect,
+			router.HandleJobProposalConfirm,
+			router.HandleJobProposalCancel,
+		)
 		adapter.SetInboundHandler(func(ctx context.Context, msg gateway.InboundMessage) {
 			if err := router.HandleInbound(ctx, msg); err != nil {
 				log.Printf("discord: handle inbound failed: %v", err)

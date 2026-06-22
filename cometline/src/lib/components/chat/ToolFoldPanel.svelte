@@ -8,6 +8,17 @@
 		CircleCheck
 	} from '@lucide/svelte';
 	import type { ChatItem } from '$lib/stores/chat.svelte';
+	import JobProposeCard from '$lib/components/chat/JobProposeCard.svelte';
+	import { parseJobProposal } from '$lib/jobs/parse-job-proposal';
+	import {
+		dismissJobProposal,
+		getJobProposalDismissal,
+		isJobProposalDismissed,
+		jobProposalDismissalSummary,
+		type JobProposalDismissAction
+	} from '$lib/jobs/job-proposal-dismissals';
+	import type { ChatTurnPayload } from '$lib/actions/start-chat';
+	import type { JobResource } from '$lib/client/cometmind';
 
 	const FOLD_IN = { duration: 180 };
 
@@ -17,7 +28,10 @@
 		expanded,
 		onToggle,
 		nested = false,
-		contentOnly = false
+		contentOnly = false,
+		sessionId = '',
+		onNotifyAgent,
+		onStartJob
 	}: {
 		item: Extract<ChatItem, { type: 'tool' }>;
 		label: string;
@@ -25,7 +39,38 @@
 		onToggle: () => void;
 		nested?: boolean;
 		contentOnly?: boolean;
+		sessionId?: string;
+		onNotifyAgent?: (payload: ChatTurnPayload) => void | Promise<void>;
+		onStartJob?: (job: JobResource) => void | Promise<void>;
 	} = $props();
+
+	const isProposeJob = $derived(item.toolName === 'propose_job');
+	const jobProposal = $derived(
+		isProposeJob && !item.pending && !item.error
+			? parseJobProposal(item.input, item.output)
+			: null
+	);
+
+	let dismissRevision = $state(0);
+	const proposalDismissed = $derived.by(() => {
+		dismissRevision;
+		return Boolean(
+			jobProposal && sessionId && isJobProposalDismissed(sessionId, jobProposal)
+		);
+	});
+	const proposalDismissal = $derived.by(() => {
+		dismissRevision;
+		return jobProposal && sessionId
+			? getJobProposalDismissal(sessionId, jobProposal)
+			: null;
+	});
+
+	function handleProposalDismiss(action: JobProposalDismissAction, jobId?: string) {
+		if (!jobProposal || !sessionId) return;
+		dismissJobProposal(sessionId, jobProposal, { action, jobId });
+		dismissRevision++;
+		if (expanded) onToggle();
+	}
 
 	function formatToolInput(input: unknown) {
 		if (input == null) return '';
@@ -60,12 +105,22 @@
 	{/if}
 	{#if expanded}
 		<div class="fold-body tool-output-body" transition:slide={FOLD_IN}>
-			{#if formatToolInput(item.input)}
+			{#if jobProposal && sessionId && !proposalDismissed}
+				<JobProposeCard
+					proposal={jobProposal}
+					{sessionId}
+					{onNotifyAgent}
+					{onStartJob}
+					onDismiss={handleProposalDismiss}
+				/>
+			{:else if jobProposal && proposalDismissal}
+				<p class="proposal-dismissed">{jobProposalDismissalSummary(proposalDismissal)}</p>
+			{:else if formatToolInput(item.input)}
 				<pre class="tool-input-text scrollbar-gutter-stable">{formatToolInput(item.input)}</pre>
 			{/if}
 			{#if item.error}
 				<pre class="tool-error-text scrollbar-gutter-stable">{item.error}</pre>
-			{:else if item.output}
+			{:else if !jobProposal && item.output}
 				<pre class="scrollbar-gutter-stable">{item.output}</pre>
 			{/if}
 			{#if item.pending && !item.output && !item.error}
@@ -132,5 +187,11 @@
 
 	.tool-error-text {
 		color: #b42318;
+	}
+
+	.proposal-dismissed {
+		margin: 0;
+		font-size: 12px;
+		color: var(--text-muted);
 	}
 </style>

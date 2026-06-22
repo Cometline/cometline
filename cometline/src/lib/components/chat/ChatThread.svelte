@@ -31,6 +31,11 @@
 		hasReasoning,
 		reasoningTextLength
 	} from '$lib/conversation/reasoning';
+	import { isJobProposalDismissed } from '$lib/jobs/job-proposal-dismissals';
+	import { parseJobProposal } from '$lib/jobs/parse-job-proposal';
+
+	import type { ChatTurnPayload } from '$lib/actions/start-chat';
+	import type { JobResource } from '$lib/client/cometmind';
 
 	const TRANSCRIPT_IN = { duration: 140 };
 
@@ -38,12 +43,16 @@
 		sessionId,
 		awaitingFirstAssistant = false,
 		firstTurnFlightDone = false,
-		firstTurnHandoffPending = false
+		firstTurnHandoffPending = false,
+		onNotifyAgent,
+		onStartJob
 	}: {
 		sessionId: string;
 		awaitingFirstAssistant?: boolean;
 		firstTurnFlightDone?: boolean;
 		firstTurnHandoffPending?: boolean;
+		onNotifyAgent?: (payload: ChatTurnPayload) => void | Promise<void>;
+		onStartJob?: (job: JobResource) => void | Promise<void>;
 	} = $props();
 
 	let iconVariant = $derived(settingsStore.settings.app.iconVariant);
@@ -79,6 +88,36 @@
 	// assistant avatar/response to appear below it (never clipped).
 	let viewportHeight = $state(0);
 	let expandedToolOutput = $state(new Set<string>());
+	let proposeJobAutoExpanded = $state(new Set<string>());
+
+	$effect(() => {
+		if (!isSessionSynced) return;
+		let nextExpanded: Set<string> | null = null;
+		let nextAutoExpanded: Set<string> | null = null;
+		for (const item of snapshotItems) {
+			if (
+				item.type !== 'tool' ||
+				item.toolName !== 'propose_job' ||
+				item.pending ||
+				item.error ||
+				proposeJobAutoExpanded.has(item.id)
+			) {
+				continue;
+			}
+			nextAutoExpanded ??= new Set(proposeJobAutoExpanded);
+			nextAutoExpanded.add(item.id);
+			const proposal = parseJobProposal(item.input, item.output);
+			if (proposal && sessionId && isJobProposalDismissed(sessionId, proposal)) {
+				continue;
+			}
+			if (!expandedToolOutput.has(item.id)) {
+				nextExpanded ??= new Set(expandedToolOutput);
+				nextExpanded.add(item.id);
+			}
+		}
+		if (nextAutoExpanded) proposeJobAutoExpanded = nextAutoExpanded;
+		if (nextExpanded) expandedToolOutput = nextExpanded;
+	});
 	let thinkingOverrides = $state(new Map<string, boolean>());
 	let activityGroupOverrides = $state(new Map<string, boolean>());
 	let expandedMemoryInThinking = $state(new Set<string>());
@@ -268,6 +307,8 @@
 		void sessionId;
 		thinkingOverrides = new Map();
 		activityGroupOverrides = new Map();
+		expandedToolOutput = new Set();
+		proposeJobAutoExpanded = new Set();
 		// Treat the session's existing latest user message as already-positioned so
 		// switching sessions doesn't trigger the send auto-scroll.
 		lastScrolledUserId = untrack(() => lastUserId);
@@ -640,6 +681,9 @@
 				{toggleToolOutput}
 				{subagentExpanded}
 				{toggleSubagent}
+				{sessionId}
+				{onNotifyAgent}
+				{onStartJob}
 			/>
 		{:else}
 			{#each timeline as entry (timelineEntryKey(entry))}
@@ -668,6 +712,9 @@
 						label={toolFoldLabel(entry.tool)}
 						expanded={toolOutputExpanded(entry.tool)}
 						onToggle={() => toggleToolOutput(entry.tool.id)}
+						{sessionId}
+						{onNotifyAgent}
+						{onStartJob}
 					/>
 				{:else}
 					<SubagentPanel
@@ -878,6 +925,9 @@
 										label={toolFoldLabel(item)}
 										expanded={toolOutputExpanded(item)}
 										onToggle={() => toggleToolOutput(item.id)}
+										{sessionId}
+										{onNotifyAgent}
+										{onStartJob}
 									/>
 								</div>
 							</div>

@@ -25,6 +25,8 @@
 	import type { ModelOption } from '$lib/stores/model.svelte';
 	import ProviderSwitchDialog from '$lib/components/ProviderSwitchDialog.svelte';
 	import { analyzeProviderSwitch, type ProviderSwitchWarning } from '$lib/provider-switch';
+	import { startJobInSession } from '$lib/jobs/start-job-in-chat';
+	import type { JobResource } from '$lib/client/cometmind';
 
 	const THREAD_IN = { duration: 140 };
 
@@ -207,6 +209,10 @@
 		void conversation.enqueue(payload);
 	}
 
+	function startJobFromCard(job: JobResource) {
+		return startJobInSession(job, sessionId, submit);
+	}
+
 	function showLocalUserMessage(text: string) {
 		chatStore.appendLocalUserMessage(sessionId, text);
 	}
@@ -298,6 +304,8 @@
 				{awaitingFirstAssistant}
 				{firstTurnFlightDone}
 				{firstTurnHandoffPending}
+				onNotifyAgent={submit}
+				onStartJob={startJobFromCard}
 			/>
 		</div>
 	{/if}

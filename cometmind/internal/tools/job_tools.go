@@ -11,10 +11,11 @@ import (
 
 // JobsDeps provides job queue operations to agent tools.
 type JobsDeps struct {
-	Service           *jobs.Service
-	SessionID         string
-	SourcePlatform    string
-	SourceChannelID   string
+	Service              *jobs.Service
+	SessionID            string
+	SessionWorkspacePath string
+	SourcePlatform       string
+	SourceChannelID      string
 }
 
 type listJobsTool struct{ deps JobsDeps }
@@ -100,10 +101,14 @@ func (t createJobTool) Execute(ctx context.Context, input json.RawMessage) (Resu
 	if platform == "" {
 		platform = jobs.PlatformDesktop
 	}
+	workspacePath := strings.TrimSpace(in.WorkspacePath)
+	if workspacePath == "" {
+		workspacePath = strings.TrimSpace(t.deps.SessionWorkspacePath)
+	}
 	job, err := t.deps.Service.Create(ctx, jobs.CreateInput{
 		Description:      in.Description,
 		DefinitionOfDone: in.DefinitionOfDone,
-		WorkspacePath:    in.WorkspacePath,
+		WorkspacePath:    workspacePath,
 		CreatedBy:        jobs.CreatedByAgent,
 		SourceSessionID:  t.deps.SessionID,
 		SourcePlatform:   platform,
@@ -282,9 +287,66 @@ func (t releaseJobTool) Execute(ctx context.Context, input json.RawMessage) (Res
 	return Result{OK: true, Output: fmt.Sprintf("Released job %s (status=%s)", job.ID, job.Status)}, nil
 }
 
+type proposeJobTool struct {
+	deps JobsDeps
+}
+
+func (proposeJobTool) Spec() ToolSpec {
+	return ToolSpec{
+		Name:        "propose_job",
+		Description: "Propose a global todo job for the user to confirm in chat. Does not create the job until the user picks a workspace in the UI.",
+		Parameters: json.RawMessage(`{
+			"type":"object",
+			"properties":{
+				"description":{"type":"string","description":"What needs to be done"},
+				"definition_of_done":{"type":"string","description":"How to know the job is finished"}
+			},
+			"required":["description"]
+		}`),
+	}
+}
+
+func (t proposeJobTool) Execute(_ context.Context, input json.RawMessage) (Result, error) {
+	var in struct {
+		Description      string `json:"description"`
+		DefinitionOfDone string `json:"definition_of_done"`
+	}
+	if err := json.Unmarshal(input, &in); err != nil {
+		return Result{}, err
+	}
+	if strings.TrimSpace(in.Description) == "" {
+		return Result{OK: false, Output: "description is required"}, nil
+	}
+	payload := map[string]string{
+		"status":            "awaiting_workspace",
+		"description":       strings.TrimSpace(in.Description),
+		"definition_of_done": strings.TrimSpace(in.DefinitionOfDone),
+		"default_workspace": strings.TrimSpace(t.deps.SessionWorkspacePath),
+	}
+	out, err := json.Marshal(payload)
+	if err != nil {
+		return Result{}, err
+	}
+	return Result{OK: true, Output: string(out)}, nil
+}
+
 // JobPromptIndex returns system prompt guidance for job tools.
-func JobPromptIndex() string {
-	return "\n\n## Global Jobs\nUse `list_jobs` when the user asks about pending work. Use `create_job` to record follow-up tasks. To execute a job, `claim_job` first. While working a claimed job, call `update_job` with `progress` after each meaningful milestone so another session can resume. Call `complete_job` when done or `release_job` to abandon."
+func JobPromptIndex(sessionWorkspace, platform string) string {
+	ws := strings.TrimSpace(sessionWorkspace)
+	wsLine := ""
+	if ws != "" {
+		wsLine = fmt.Sprintf(" Current session workspace: `%s`.", ws)
+	}
+	if platform == jobs.PlatformDiscord {
+		return fmt.Sprintf(
+			"\n\n## Global Jobs\nUse `list_jobs` when the user asks about pending work. When the user wants to create a job, call `propose_job` first — Discord will post a workspace selection message with a dropdown and Confirm/Cancel buttons. Tell the user to use that message (or `/create-job`) to pick a workspace. Use `create_job` directly only when the user already named the workspace in the same message.%s To execute a job, `claim_job` first or use `/jobs`. While working a claimed job, call `update_job` with `progress` after each meaningful milestone. Call `complete_job` when done or `release_job` to abandon.",
+			wsLine,
+		)
+	}
+	return fmt.Sprintf(
+		"\n\n## Global Jobs\nUse `list_jobs` when the user asks about pending work. When the user wants to create a job, call `propose_job` first so they can confirm the workspace in chat — do not call `create_job` directly unless the user already specified the workspace in the same message. Use `create_job` only after workspace is confirmed or explicitly stated.%s The chat UI pre-fills the current session workspace. To execute a job, `claim_job` first. While working a claimed job, call `update_job` with `progress` after each meaningful milestone so another session can resume. Call `complete_job` when done or `release_job` to abandon.",
+		wsLine,
+	)
 }
 
 // RegisterJobTools adds job tools when deps are configured.
@@ -298,6 +360,7 @@ func RegisterJobTools(r *Registry, deps JobsDeps) {
 		r.order = append(r.order, t)
 	}
 	add(listJobsTool{deps: deps})
+	add(proposeJobTool{deps: deps})
 	add(createJobTool{deps: deps})
 	add(claimJobTool{deps: deps})
 	add(updateJobTool{deps: deps})

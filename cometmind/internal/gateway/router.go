@@ -23,13 +23,15 @@ type Runner interface {
 
 // Router maps platform identities to CometMind sessions and runs turns.
 type Router struct {
-	Sessions *session.Service
-	Config   *config.Config
-	Jobs     *jobs.Service
-	Runner   Runner
-	Typing   TypingIndicator
-	Turns    *TurnRunTracker
-	onReply  func(context.Context, OutboundMessage) error
+	Sessions           *session.Service
+	Config             *config.Config
+	Jobs               *jobs.Service
+	Runner             Runner
+	Typing             TypingIndicator
+	Turns              *TurnRunTracker
+	JobProposals       *JobProposalStore
+	DeliverJobProposal func(ctx context.Context, msg OutboundMessage, proposal *PendingJobProposal, workspacePaths []string) error
+	onReply            func(context.Context, OutboundMessage) error
 }
 
 // SetReplyHandler registers the callback used to deliver outbound messages.
@@ -100,6 +102,8 @@ func (r *Router) HandleInbound(ctx context.Context, msg InboundMessage) error {
 
 	log.Printf("discord: running agent turn session=%s workspace=%s", sess.ID, runPath)
 	var reply strings.Builder
+	var jobProposal *JobProposalPayload
+	sourceChannelID := deliveryChannelID(msg)
 	err = r.Runner.RunTurn(runCtx, sess, runPath, msg, func(ev event.Event) {
 		switch ev.Kind {
 		case event.KindTextDelta:
@@ -109,6 +113,12 @@ func (r *Router) HandleInbound(ctx context.Context, msg InboundMessage) error {
 				reply.WriteString("\n[error] ")
 				reply.WriteString(ev.Message)
 				reply.WriteByte('\n')
+			}
+		case event.KindToolResult:
+			if ev.Tool == "propose_job" && ev.ToolErr == "" {
+				if payload, ok := ParseJobProposalOutput(ev.Output); ok {
+					jobProposal = payload
+				}
 			}
 		}
 	})
@@ -124,13 +134,44 @@ func (r *Router) HandleInbound(ctx context.Context, msg InboundMessage) error {
 	}
 	if r.onReply != nil {
 		log.Printf("discord: replying to channel=%s (%d bytes)", msg.ChannelID, len(text))
-		return r.onReply(ctx, OutboundMessage{
+		if err := r.onReply(ctx, OutboundMessage{
 			Platform:  msg.Platform,
 			UserID:    msg.UserID,
 			ChannelID: msg.ChannelID,
 			ThreadID:  msg.ThreadID,
 			Text:      text,
-		})
+		}); err != nil {
+			return err
+		}
+	}
+	if jobProposal != nil && r.JobProposals != nil && r.DeliverJobProposal != nil {
+		paths, pathErr := r.SuggestWorkspacePaths(ctx, "", 25)
+		if pathErr != nil {
+			log.Printf("discord: job proposal workspace paths: %v", pathErr)
+			paths = nil
+		}
+		if runPath != "" {
+			hasDefault := false
+			for _, p := range paths {
+				if p == runPath {
+					hasDefault = true
+					break
+				}
+			}
+			if !hasDefault {
+				paths = append([]string{runPath}, paths...)
+			}
+		}
+		pending := r.JobProposals.Put(msg, *jobProposal, sess.ID, sourceChannelID, runPath)
+		out := OutboundMessage{
+			Platform:  msg.Platform,
+			UserID:    msg.UserID,
+			ChannelID: msg.ChannelID,
+			ThreadID:  msg.ThreadID,
+		}
+		if err := r.DeliverJobProposal(ctx, out, pending, paths); err != nil {
+			log.Printf("discord: deliver job proposal failed: %v", err)
+		}
 	}
 	return nil
 }

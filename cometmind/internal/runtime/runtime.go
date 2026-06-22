@@ -257,7 +257,7 @@ func (r *Runtime) RunnerFor(sess session.Session, workspacePath string) (*agent.
 		MaxTokens:    r.Config.MaxTokens,
 		SystemPrompt: r.SystemPrompt,
 		SkillIndex:   skillRegistry.PromptIndex(),
-		JobIndex:     tools.JobPromptIndex(),
+		JobIndex:     tools.JobPromptIndex(workspacePath, jobs.PlatformDesktop),
 		MemorySem:    r.memorySem,
 		Compactor:    &agent.ContextCompactor{Sessions: r.Sessions, Config: r.Config},
 	}, nil
@@ -301,7 +301,7 @@ func (r *Runtime) RunnerForGateway(sess session.Session, workspacePath, platform
 		MaxTokens:    r.Config.MaxTokens,
 		SystemPrompt: r.SystemPrompt,
 		SkillIndex:   skillRegistry.PromptIndex(),
-		JobIndex:     tools.JobPromptIndex(),
+		JobIndex:     tools.JobPromptIndex(workspacePath, platform),
 		MemorySem:    r.memorySem,
 		Compactor:    &agent.ContextCompactor{Sessions: r.Sessions, Config: r.Config},
 	}, nil

@@ -45,6 +45,10 @@ type Adapter struct {
 	onSuggest func(context.Context, string) ([]string, error)
 	onJobs    func(context.Context, gateway.InboundMessage, string) (string, string, error)
 	jobSuggest func(context.Context, string) ([]jobs.Job, error)
+	onCreateJob func(context.Context, gateway.InboundMessage, string, string, string) (string, error)
+	onJobProposalSelect func(string, string) (string, error)
+	onJobProposalConfirm func(context.Context, gateway.InboundMessage, string) (string, error)
+	onJobProposalCancel func(string) error
 
 	mu sync.Mutex
 }
@@ -154,7 +158,7 @@ func (a *Adapter) Start(ctx context.Context) error {
 		if err := a.registerCommands(s, r); err != nil {
 			log.Printf("discord: slash command registration failed: %v", err)
 		} else {
-			log.Printf("discord: slash commands registered (thread, create-skill, change, jobs)")
+			log.Printf("discord: slash commands registered (thread, create-skill, change, jobs, create-job)")
 		}
 	})
 	if err := a.Session.Open(); err != nil {
@@ -219,6 +223,7 @@ func applicationCommands() []*discordgo.ApplicationCommand {
 				},
 			},
 		},
+		createJobApplicationCommand(),
 	}
 }
 
@@ -355,7 +360,11 @@ func (a *Adapter) onInteractionCreate(s *discordgo.Session, i *discordgo.Interac
 			a.handleChangeCommand(s, i, data)
 		case "jobs":
 			a.handleJobsCommand(s, i, data)
+		case "create-job":
+			a.handleCreateJobCommand(s, i, data)
 		}
+	case discordgo.InteractionMessageComponent:
+		a.handleJobProposalComponent(s, i)
 	}
 }
 
@@ -366,6 +375,8 @@ func (a *Adapter) handleAutocomplete(s *discordgo.Session, i *discordgo.Interact
 		a.handleChangeAutocomplete(s, i, data)
 	case "jobs":
 		a.handleJobsAutocomplete(s, i, data)
+	case "create-job":
+		a.handleCreateJobAutocomplete(s, i, data)
 	default:
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionApplicationCommandAutocompleteResult,

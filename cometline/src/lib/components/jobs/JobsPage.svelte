@@ -18,6 +18,7 @@
 		type JobColumn
 	} from '$lib/jobs/group-jobs';
 	import { truncateJobLabel } from '$lib/jobs/format-job-label';
+	import { shellStore } from '$lib/stores/shell.svelte';
 	import JobCard from './JobCard.svelte';
 	import JobDetailDrawer from './JobDetailDrawer.svelte';
 	import JobsKanbanBoard from './JobsKanbanBoard.svelte';
@@ -114,6 +115,7 @@
 		selectedJob = null;
 		events = [];
 		resetCreateForm();
+		createWorkspacePath = shellStore.workspacePath?.trim() ?? '';
 		drawerMode = 'create';
 	}
 

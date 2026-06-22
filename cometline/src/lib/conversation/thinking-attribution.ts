@@ -31,6 +31,11 @@ export type ThinkingAttribution = {
 	memoryIdsInBuffer: Set<string>;
 };
 
+/** Completed propose_job tools render as standalone rows (workspace picker must stay visible). */
+export function isPinnedJobProposalTool(item: ToolChatItem): boolean {
+	return item.toolName === 'propose_job' && !item.pending && !item.error;
+}
+
 /** Attribute memory/tool rows to the assistant in the same user turn (full transcript scan). */
 export function buildThinkingAttribution(items: readonly ChatItem[]): ThinkingAttribution {
 	const map = new Map<string, ThinkingBlock>();
@@ -97,6 +102,9 @@ export function buildThinkingAttribution(items: readonly ChatItem[]): ThinkingAt
 			pendingMemories = [];
 			pendingMemoryId = null;
 		} else if (item.type === 'tool' && currentAssistantId) {
+			if (isPinnedJobProposalTool(item)) {
+				continue;
+			}
 			const block = map.get(currentAssistantId);
 			if (block) {
 				block.tools.push(item);
@@ -188,6 +196,11 @@ export function shouldGroupAssistantTimeline(
 	timeline: TimelineEntry[]
 ): boolean {
 	if (timeline.length === 0) return false;
+	for (const entry of timeline) {
+		if (entry.kind === 'tool' && isPinnedJobProposalTool(entry.tool)) {
+			return false;
+		}
+	}
 	if (timeline.length >= 2) return true;
 	return assistant.text.trim().length > 0;
 }
