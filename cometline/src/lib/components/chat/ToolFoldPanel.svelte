@@ -116,15 +116,15 @@
 			{:else if jobProposal && proposalDismissal}
 				<p class="proposal-dismissed">{jobProposalDismissalSummary(proposalDismissal)}</p>
 			{:else if formatToolInput(item.input)}
-				<pre class="tool-input-text scrollbar-gutter-stable">{formatToolInput(item.input)}</pre>
+				<pre class="tool-input-text scrollbar-none">{formatToolInput(item.input)}</pre>
 			{/if}
 			{#if item.error}
-				<pre class="tool-error-text scrollbar-gutter-stable">{item.error}</pre>
+				<pre class="tool-error-text scrollbar-none">{item.error}</pre>
 			{:else if !jobProposal && item.output}
-				<pre class="scrollbar-gutter-stable">{item.output}</pre>
+				<pre class="scrollbar-none">{item.output}</pre>
 			{/if}
 			{#if item.pending && !item.output && !item.error}
-				<pre class="scrollbar-gutter-stable">Running…</pre>
+				<pre class="scrollbar-none">Running…</pre>
 			{/if}
 		</div>
 	{/if}

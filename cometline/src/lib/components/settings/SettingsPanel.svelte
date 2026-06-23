@@ -861,7 +861,7 @@
 				</button>
 			</nav>
 
-			<div class="settings-pane scrollbar-gutter-stable">
+			<div class="settings-pane scrollbar-none">
 				{#if activeSection === 'models'}
 					<div class="settings-panel-stack">
 						<SettingsTabPersistence section="models" />

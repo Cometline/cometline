@@ -244,7 +244,7 @@
 			{/if}
 
 			{#if modelMenuOpen}
-				<div class="model-menu" transition:fly={{ y: 6, duration: 120 }}>
+				<div class="model-menu scrollbar-none" transition:fly={{ y: 6, duration: 120 }}>
 					<input
 						class="model-search"
 						bind:this={modelSearchInput}

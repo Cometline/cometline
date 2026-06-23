@@ -354,7 +354,7 @@
 			<button class="close-btn" aria-label="Close" onclick={skip}><X size={16} /></button>
 		</header>
 
-		<div class="step-body">
+		<div class="step-body scrollbar-none">
 			{#if step === 'provider'}
 				<p class="step-intro">
 					Pick the LLM provider you'd like to use. You can add more later in Settings.
@@ -463,7 +463,7 @@
 						{/if}
 					</div>
 					{#if selectedProvider.models.length > 0}
-						<div class="model-list">
+						<div class="model-list scrollbar-none">
 							{#each selectedProvider.models as model (model)}
 								<button
 									class="model-option"

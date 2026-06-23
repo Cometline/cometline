@@ -125,7 +125,7 @@
 			{/if}
 			{#if item.summary}
 				<div class="subagent-summary">
-					<p class="scrollbar-gutter-stable">{item.summary}</p>
+					<p class="scrollbar-none">{item.summary}</p>
 				</div>
 			{/if}
 		</div>

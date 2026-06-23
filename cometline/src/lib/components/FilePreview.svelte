@@ -126,7 +126,7 @@
 	});
 </script>
 
-<div class="file-preview" aria-live="polite">
+<div class="file-preview scrollbar-none" aria-live="polite">
 	{#if loading}
 		<div class="file-preview-state">
 			<Loader size={16} stroke-width={2} class="file-preview-spinner" />

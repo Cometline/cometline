@@ -40,7 +40,7 @@
 	);
 </script>
 
-<div class="kanban-board" class:single-column={statusFilter !== 'all'}>
+<div class="kanban-board scrollbar-none" class:single-column={statusFilter !== 'all'}>
 	{#each columns as column (column.key)}
 		<JobsKanbanColumn
 			title={column.title}

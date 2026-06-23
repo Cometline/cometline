@@ -819,7 +819,7 @@
 {/snippet}
 
 <div class="thread-wrap">
-	<div class="thread scrollbar-gutter-stable" bind:this={scroller} onscroll={onThreadScroll} aria-live="polite">
+	<div class="thread scrollbar-none" bind:this={scroller} onscroll={onThreadScroll} aria-live="polite">
 		<div class="thread-inner">
 			{#if showMessages}
 				<div
@@ -1057,7 +1057,6 @@
 		overflow-y: auto;
 		overflow-x: hidden;
 		padding: 32px var(--chat-gutter) var(--thread-padding-bottom);
-		scrollbar-width: thin;
 	}
 
 	.thread-inner {

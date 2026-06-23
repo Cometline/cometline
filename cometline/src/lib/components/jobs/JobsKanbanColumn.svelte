@@ -33,7 +33,7 @@
 		{/if}
 	</header>
 
-	<div class="kanban-column-body">
+	<div class="kanban-column-body scrollbar-none">
 		{#if jobs.length === 0}
 			<p class="kanban-empty">No jobs</p>
 		{:else}

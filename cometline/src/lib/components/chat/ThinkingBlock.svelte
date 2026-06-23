@@ -56,7 +56,7 @@
 	{#if expanded}
 		<div class="fold-body thinking-body" transition:slide={FOLD_IN}>
 			<div class="thinking-reasoning">
-				<p class="scrollbar-gutter-stable" use:autoScrollBottom={text}>
+				<p class="scrollbar-none" use:autoScrollBottom={text}>
 					{text || 'Thinking…'}
 				</p>
 			</div>

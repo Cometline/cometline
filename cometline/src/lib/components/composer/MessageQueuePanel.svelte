@@ -53,7 +53,7 @@
 				aria-label="Queued messages"
 				transition:fly={{ y: -4, duration: 120 }}
 			>
-				<ul class="queue-preview-list scrollbar-gutter-stable">
+				<ul class="queue-preview-list scrollbar-none">
 					{#each queuedMessages as message, index (message.id)}
 						<li class="queue-preview-item">
 							<span class="queue-preview-index">{index + 1}</span>

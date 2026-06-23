@@ -92,7 +92,7 @@
 		</button>
 	</header>
 
-	<div class="drawer-body">
+	<div class="drawer-body scrollbar-none">
 		{#if mode === 'create'}
 			<JobCreateForm
 				bind:description={createDescription}

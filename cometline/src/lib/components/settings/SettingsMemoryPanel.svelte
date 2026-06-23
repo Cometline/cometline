@@ -452,7 +452,7 @@
 					></textarea>
 				</div>
 
-		<div class="memory-list scrollbar-gutter-stable">
+		<div class="memory-list scrollbar-none">
 			{#each memories as memory (memory.id)}
 				<article class="memory-card">
 					<div>

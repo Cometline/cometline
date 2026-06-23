@@ -234,7 +234,7 @@
 				{#if archivedJobs.length === 0}
 					<p class="jobs-muted">No archived jobs.</p>
 				{:else}
-					<div class="archived-list">
+					<div class="archived-list scrollbar-none">
 						{#each archivedJobs as job (job.id)}
 							<JobCard
 								{job}

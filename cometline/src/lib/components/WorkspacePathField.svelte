@@ -146,7 +146,7 @@
 
 	{#if panelOpen}
 		<div
-			class="workspace-panel"
+			class="workspace-panel scrollbar-none"
 			role="listbox"
 			tabindex="-1"
 			aria-label="Available workspaces"

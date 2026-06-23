@@ -16,7 +16,7 @@
 </script>
 
 <div
-	class="skill-command-menu scrollbar-gutter-stable {className}"
+	class="skill-command-menu scrollbar-none {className}"
 	role="listbox"
 	aria-label={ariaLabel}
 	bind:this={menuRef}

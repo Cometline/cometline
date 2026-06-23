@@ -91,7 +91,7 @@
 			</button>
 		</div>
 
-		<div class="provider-list">
+		<div class="provider-list scrollbar-none">
 			{#each providers as provider (provider.id)}
 				<ProviderCard
 					name={provider.name}
@@ -109,7 +109,7 @@
 	</aside>
 
 	{#if selectedProvider}
-		<section class="provider-detail">
+		<section class="provider-detail scrollbar-none">
 			<div class="detail-heading">
 				<div>
 					<h3>{selectedProvider.name}</h3>
@@ -274,7 +274,7 @@
 					spellcheck="false"
 				/>
 
-				<div class="settings-scroll-list model-list scrollbar-gutter-stable">
+				<div class="settings-scroll-list model-list scrollbar-none">
 					{#each filteredModels as model (model)}
 						<ModelRow
 							{model}

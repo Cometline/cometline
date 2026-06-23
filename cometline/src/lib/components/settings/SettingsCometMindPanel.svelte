@@ -438,7 +438,7 @@
 				{/each}
 			</div>
 		</div>
-		<div class="skills-list">
+		<div class="skills-list scrollbar-none">
 			<div class="skills-list-header">
 				<span>Available skills</span>
 				<strong>

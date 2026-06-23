@@ -950,7 +950,7 @@
 	{/if}
 	<div
 		bind:this={editor}
-		class="rce-editor"
+		class="rce-editor scrollbar-none"
 		class:trail-enabled={caretTrailEnabled}
 		contenteditable="true"
 		role="textbox"
