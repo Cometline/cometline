@@ -185,11 +185,16 @@ CometMind connects to external MCP servers and exposes their tools to the **main
 
 **Config:** Settings → CometMind → MCP, persisted in `cometmind.mcp` inside `~/.cometmind/cometline-settings.json`.
 
-**OAuth tokens:** Stored separately at `~/.cometmind/mcp-oauth/{serverId}.json` (mode `0600`), not in settings JSON. Connect via the desktop app's OAuth flow (Electron IPC).
+**OAuth (remote servers):** For OAuth-protected remote MCP servers (e.g. the [Atlassian Remote MCP server](https://www.atlassian.com/platform/remote-mcp-server)), users just click **Connect with OAuth** — no client ID or endpoint URLs to paste. CometMind drives the full spec-compliant flow itself:
+- Protected Resource Metadata discovery (RFC 9728) → Authorization Server Metadata discovery (RFC 8414) → Dynamic Client Registration (RFC 7591) → Authorization Code + PKCE.
+- CometMind owns the loopback listener (`http://localhost:1456/mcp/oauth/callback`) and opens the system browser. A manual `clientId` in settings JSON is honored as a preregistered-client fallback.
+- **Token storage:** access/refresh token at `~/.cometmind/mcp-oauth/{serverId}.json` (mode `0600`); the registered client identity + discovered token endpoint at `~/.cometmind/mcp-oauth/{serverId}.client.json` (mode `0600`). Neither lives in settings JSON.
+- **Headless refresh:** at runtime connect, the saved token is auto-refreshed via the stored client info (no browser). Only if refresh fails is the user nudged to re-run Connect.
+- **Code map:** interactive flow in `cometmind/internal/mcp/oauth_flow.go` + `oauth_login.go`; refreshing handler in `oauth.go`; client-info persistence in `oauth_client.go`; endpoint `POST /api/v1/mcp/servers/{id}/oauth/start`. Recommend the **http** (streamable) transport for OAuth servers.
 
 **Transports:** stdio subprocess, HTTP (streamable), and legacy SSE.
 
-**Management API:** `GET /api/v1/mcp/servers`, `GET /api/v1/mcp/tools`, `POST /api/v1/mcp/servers/{id}/test`, `POST /api/v1/mcp/servers/{id}/reconnect`
+**Management API:** `GET /api/v1/mcp/servers`, `GET /api/v1/mcp/tools`, `POST /api/v1/mcp/servers/{id}/test`, `POST /api/v1/mcp/servers/{id}/reconnect`, `POST /api/v1/mcp/servers/{id}/oauth/start`
 
 **Library:** `github.com/modelcontextprotocol/go-sdk`
 

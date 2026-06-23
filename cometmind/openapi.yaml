@@ -850,6 +850,38 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/v1/mcp/servers/{id}/oauth/start:
+    post:
+      tags: [MCP]
+      summary: Run interactive OAuth (discovery, DCR, browser authorization) for one MCP server
+      description: >-
+        Starts the OAuth 2.0 authorization-code + PKCE flow for an HTTP/SSE MCP
+        server. The runtime performs protected-resource and authorization-server
+        metadata discovery, dynamic client registration (RFC 7591), opens the
+        system browser, captures the redirect on a loopback listener, exchanges
+        the code, and persists the resulting token. The call blocks until the
+        flow completes, fails, or times out, then reconnects the server.
+      operationId: startMcpOAuth
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OAuth completed and server reconnected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/McpReconnectResponse'
+        '502':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/InternalError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /api/v1/memories:
     get:
       tags: [Memory]

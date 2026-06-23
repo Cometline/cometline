@@ -172,9 +172,9 @@ Cometline is a three-layer system: a desktop chat UI, a local agent runtime, and
 6. Agent loop calls MCP tools through the same tool_call / tool_result SSE path
 ```
 
-OAuth tokens for remote MCP servers live in `~/.cometmind/mcp-oauth/{serverId}.json`. The Electron shell runs the browser OAuth callback flow; CometMind reads tokens at connect time.
+OAuth tokens for remote MCP servers live in `~/.cometmind/mcp-oauth/{serverId}.json`, with the registered client identity in `{serverId}.client.json`. CometMind drives the full OAuth flow itself (metadata discovery + dynamic client registration + Authorization Code/PKCE), owning the loopback callback listener and opening the system browser; tokens are auto-refreshed headlessly at connect time.
 
-Management endpoints (`/api/v1/mcp/*`) expose connection status, tool previews, test, and reconnect without editing settings.
+Management endpoints (`/api/v1/mcp/*`) expose connection status, tool previews, test, reconnect, and interactive OAuth (`/oauth/start`) without editing settings.
 
 ### Discord gateway
 

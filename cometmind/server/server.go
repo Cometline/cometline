@@ -146,6 +146,7 @@ func New(deps Deps) (*gin.Engine, error) {
 	api.GET("/mcp/tools", app.handleListMCPTools)
 	api.POST("/mcp/servers/:id/test", app.handleTestMCPServer)
 	api.POST("/mcp/servers/:id/reconnect", app.handleReconnectMCPServer)
+	api.POST("/mcp/servers/:id/oauth/start", app.handleStartMCPOAuth)
 
 	// Memories
 	api.GET("/memories", app.handleListMemories)

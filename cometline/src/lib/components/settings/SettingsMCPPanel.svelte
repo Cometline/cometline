@@ -14,6 +14,7 @@
 		listMcpServers,
 		listMcpTools,
 		reconnectMcpServer,
+		startMcpOAuth,
 		testMcpServer,
 		type McpServerStatus,
 		type McpToolInfo
@@ -44,7 +45,6 @@
 	let headerTexts = $state<Record<string, string>>({});
 	let argsTexts = $state<Record<string, string>>({});
 	let allowedToolsTexts = $state<Record<string, string>>({});
-	let scopesTexts = $state<Record<string, string>>({});
 	let expandedServerId = $state<string | null>(null);
 	let advancedOpen = $state<Record<string, boolean>>({});
 
@@ -57,19 +57,16 @@
 		const nextHeaders: Record<string, string> = {};
 		const nextArgs: Record<string, string> = {};
 		const nextAllowed: Record<string, string> = {};
-		const nextScopes: Record<string, string> = {};
 		for (const server of mcp.servers ?? []) {
 			nextEnv[server.id] = formatEnv(server.env);
 			nextHeaders[server.id] = formatEnv(server.headers);
 			nextArgs[server.id] = (server.args ?? []).join(' ');
 			nextAllowed[server.id] = formatIdList(server.allowedTools ?? []);
-			nextScopes[server.id] = formatIdList(server.oauth?.scopes ?? []);
 		}
 		envTexts = nextEnv;
 		headerTexts = nextHeaders;
 		argsTexts = nextArgs;
 		allowedToolsTexts = nextAllowed;
-		scopesTexts = nextScopes;
 	}
 
 	$effect(() => {
@@ -266,29 +263,20 @@
 	}
 
 	async function onConnectOAuth(server: MCPServerConfig) {
-		if (!window.electronAPI?.startMcpOAuth) {
-			mcpStatus = 'OAuth connect is only available in the desktop app.';
-			return;
-		}
-		if (!server.oauth?.clientId || !server.oauth.authorizationUrl || !server.oauth.tokenUrl) {
-			mcpStatus = 'Fill OAuth client ID, authorization URL, and token URL first.';
+		if (!String(server.url ?? '').trim()) {
+			mcpStatus = 'Set the server URL before connecting with OAuth.';
 			return;
 		}
 		mcpBusy = true;
-		mcpStatus = '';
+		mcpStatus = 'Opening your browser to authorize. Complete sign-in, then return here…';
 		try {
-			const result = await window.electronAPI.startMcpOAuth({
-				serverId: server.id,
-				oauth: {
-					clientId: server.oauth.clientId,
-					scopes: server.oauth.scopes ?? [],
-					authorizationUrl: server.oauth.authorizationUrl,
-					tokenUrl: server.oauth.tokenUrl
-				}
-			});
-			mcpStatus = result.message;
+			// CometMind drives the entire OAuth flow: metadata discovery, dynamic
+			// client registration, browser authorization (loopback capture), token
+			// exchange, and reconnect. No manual client ID / URLs required.
+			await startMcpOAuth(server.id);
+			mcpStatus = 'Connected with OAuth.';
 			oauthStatus = { ...oauthStatus, [server.id]: true };
-			await onReconnectServer(server.id);
+			await refreshMcpRuntime();
 		} catch (err) {
 			mcpStatus = err instanceof Error ? err.message : 'OAuth connect failed';
 		} finally {
@@ -309,17 +297,11 @@
 				headers: parseEnv(headerTexts[server.id] ?? ''),
 				allowedTools: parseIdList(allowedToolsTexts[server.id] ?? ''),
 				oauth: server.oauth
-					? {
-							...server.oauth,
-							scopes: parseIdList(scopesTexts[server.id] ?? '')
-						}
-					: undefined
 			}))
 		});
 	}
 
 	function syncServerLists(serverId: string) {
-		const current = mcp.servers.find((s) => s.id === serverId);
 		updateServer(serverId, {
 			args: (argsTexts[serverId] ?? '')
 				.split(/\s+/)
@@ -327,13 +309,7 @@
 				.filter(Boolean),
 			env: parseEnv(envTexts[serverId] ?? ''),
 			headers: parseEnv(headerTexts[serverId] ?? ''),
-			allowedTools: parseIdList(allowedToolsTexts[serverId] ?? ''),
-			oauth: current?.oauth
-				? {
-						...current.oauth,
-						scopes: parseIdList(scopesTexts[serverId] ?? '')
-					}
-				: undefined
+			allowedTools: parseIdList(allowedToolsTexts[serverId] ?? '')
 		});
 	}
 </script>
@@ -592,64 +568,13 @@
 										</SettingsField>
 
 										<div class="oauth-block">
-											<p class="advanced-label">OAuth (optional)</p>
+											<p class="advanced-label">OAuth</p>
 											<p class="settings-field-hint">
-												Tokens are stored in <code>~/.cometmind/mcp-oauth/</code>, not in settings JSON.
+												For servers that require sign-in (e.g. Atlassian), click Connect to
+												authorize in your browser. Cometline handles discovery and registration
+												automatically — no client ID or URLs needed. Tokens are stored in
+												<code>~/.cometmind/mcp-oauth/</code>, not in settings JSON.
 											</p>
-											<SettingsField label="Client ID">
-												<input
-													type="text"
-													value={server.oauth?.clientId ?? ''}
-													oninput={(e) =>
-														updateServer(server.id, {
-															oauth: {
-																...(server.oauth ?? {}),
-																clientId: e.currentTarget.value
-															}
-														})}
-													spellcheck="false"
-												/>
-											</SettingsField>
-											<SettingsField label="Authorization URL">
-												<input
-													type="text"
-													value={server.oauth?.authorizationUrl ?? ''}
-													oninput={(e) =>
-														updateServer(server.id, {
-															oauth: {
-																...(server.oauth ?? {}),
-																authorizationUrl: e.currentTarget.value
-															}
-														})}
-													spellcheck="false"
-												/>
-											</SettingsField>
-											<SettingsField label="Token URL">
-												<input
-													type="text"
-													value={server.oauth?.tokenUrl ?? ''}
-													oninput={(e) =>
-														updateServer(server.id, {
-															oauth: {
-																...(server.oauth ?? {}),
-																tokenUrl: e.currentTarget.value
-															}
-														})}
-													spellcheck="false"
-												/>
-											</SettingsField>
-											<SettingsField label="Scopes" note="One scope per line.">
-												<textarea
-													value={scopesTexts[server.id] ?? ''}
-													oninput={(e) => {
-														scopesTexts = setTextField(scopesTexts, server.id, e.currentTarget.value);
-													}}
-													onchange={() => syncServerLists(server.id)}
-													onblur={() => syncServerLists(server.id)}
-													rows="2"
-													spellcheck="false"
-												></textarea>
-											</SettingsField>
 											<div class="oauth-actions">
 												<SettingsButton
 													variant="secondary"

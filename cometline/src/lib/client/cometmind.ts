@@ -29,6 +29,7 @@ import {
 	patchSession as patchSessionApi,
 	putMemorySettings as putMemorySettingsApi,
 	reconnectMcpServer as reconnectMcpServerApi,
+	startMcpOAuth as startMcpOAuthApi,
 	searchMemories as searchMemoriesApi,
 	syncSkills as syncSkillsApi,
 	testMcpServer as testMcpServerApi,
@@ -304,6 +305,17 @@ export async function testMcpServer(serverId: string): Promise<McpTestResult> {
 
 export async function reconnectMcpServer(serverId: string): Promise<void> {
 	await reconnectMcpServerApi({
+		path: { id: serverId },
+		throwOnError: true
+	});
+}
+
+// startMcpOAuth runs the full interactive OAuth flow (discovery, dynamic client
+// registration, browser authorization, token exchange) in the CometMind runtime
+// and reconnects the server on success. This is a long-running call: it resolves
+// only after the user completes the browser round-trip.
+export async function startMcpOAuth(serverId: string): Promise<void> {
+	await startMcpOAuthApi({
 		path: { id: serverId },
 		throwOnError: true
 	});

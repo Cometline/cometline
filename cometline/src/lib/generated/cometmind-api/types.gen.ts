@@ -1618,6 +1618,41 @@ export type ReconnectMcpServerResponses = {
 
 export type ReconnectMcpServerResponse = ReconnectMcpServerResponses[keyof ReconnectMcpServerResponses];
 
+export type StartMcpOAuthData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/mcp/servers/{id}/oauth/start';
+};
+
+export type StartMcpOAuthErrors = {
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    502: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    503: ErrorResponse;
+};
+
+export type StartMcpOAuthError = StartMcpOAuthErrors[keyof StartMcpOAuthErrors];
+
+export type StartMcpOAuthResponses = {
+    /**
+     * OAuth completed and server reconnected
+     */
+    200: McpReconnectResponse;
+};
+
+export type StartMcpOAuthResponse = StartMcpOAuthResponses[keyof StartMcpOAuthResponses];
+
 export type ListMemoriesData = {
     body?: never;
     path?: never;

@@ -49,3 +49,20 @@ func (a *App) handleReconnectMCPServer(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
+
+// handleStartMCPOAuth runs the interactive OAuth flow (discovery, dynamic client
+// registration, browser authorization, token exchange) for one MCP server and
+// reconnects it on success. This is a blocking call: it returns once the user
+// completes the browser round-trip or the flow fails/times out.
+func (a *App) handleStartMCPOAuth(c *gin.Context) {
+	if a.mcpMgr == nil {
+		writeError(c, http.StatusServiceUnavailable, "mcp_unavailable", "MCP manager is not initialized")
+		return
+	}
+	id := c.Param("id")
+	if err := a.mcpMgr.StartOAuth(c.Request.Context(), id); err != nil {
+		writeError(c, http.StatusBadGateway, "mcp_oauth_failed", err.Error())
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
