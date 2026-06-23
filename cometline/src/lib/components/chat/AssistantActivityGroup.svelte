@@ -147,7 +147,7 @@
 			<ChevronDown size={13} class={parentExpanded ? 'expanded' : ''} />
 		</button>
 		{#if parentExpanded}
-			<div class="fold-body activity-group-body" transition:slide={FOLD_IN}>
+			<div class="fold-body activity-group-body scrollbar-none" transition:slide={FOLD_IN}>
 			{#if firstEntry.kind === 'reasoning'}
 				{@const key = segmentKey(firstEntry)}
 				<ThinkingBlock
@@ -274,6 +274,8 @@
 		flex-direction: column;
 		gap: 8px;
 		align-self: stretch;
+		max-height: 400px;
+		overflow-y: auto;
 	}
 
 	.activity-group-body :global(.thinking-panel.content-only .fold-body) {
