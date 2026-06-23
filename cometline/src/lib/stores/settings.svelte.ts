@@ -32,6 +32,26 @@ function readLocalSettings(): ProviderSettings {
 	}
 }
 
+/**
+ * Synchronously reads hasSeenIntro from localStorage before any async IPC
+ * round-trip. Used to set the initial introOpen state so the very first
+ * rendered frame is already correct — no flash of home page for returning
+ * users, and no delayed intro for new users.
+ *
+ * Returns false (= user has NOT seen intro) when localStorage is empty or
+ * unparseable, which is the safe default (show the intro).
+ */
+export function readHasSeenIntroSync(): boolean {
+	try {
+		const raw = localStorage.getItem(LOCAL_SETTINGS_KEY);
+		if (!raw) return false;
+		const parsed = JSON.parse(raw) as { app?: { hasSeenIntro?: unknown } };
+		return parsed?.app?.hasSeenIntro === true;
+	} catch {
+		return false;
+	}
+}
+
 function writeLocalSettings(settings: ProviderSettings) {
 	localStorage.setItem(LOCAL_SETTINGS_KEY, JSON.stringify(settings));
 }

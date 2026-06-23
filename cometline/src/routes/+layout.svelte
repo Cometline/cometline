@@ -21,8 +21,16 @@
 			}
 		});
 		void settingsStore.load().then(() => {
-			// First launch: play the cinematic intro once.
-			if (!settingsStore.settings.app.hasSeenIntro) {
+			// The sync localStorage read in shell.svelte.ts already sets introOpen
+			// correctly for the first frame. This IPC result is the authoritative
+			// source and handles edge cases:
+			// - localStorage cleared but JSON file still has hasSeenIntro=true
+			//   → close any intro that the sync read left open.
+			// - Fresh install with no localStorage → hasSeenIntro=false
+			//   → intro already open; openIntro() is a no-op.
+			if (settingsStore.settings.app.hasSeenIntro) {
+				shellStore.closeIntro();
+			} else {
 				shellStore.openIntro();
 			}
 		});
