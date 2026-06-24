@@ -18,6 +18,7 @@ export default [
 			'node_modules/',
 			'pnpm-lock.yaml',
 			'static/',
+			'storybook-static/',
 			'*.config.{js,ts,cjs,mjs}',
 			'coverage/'
 		]

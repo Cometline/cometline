@@ -15,4 +15,13 @@ if (typeof window !== 'undefined') {
 			dispatchEvent: vi.fn()
 		}))
 	});
+
+	if (!HTMLElement.prototype.animate) {
+		HTMLElement.prototype.animate = vi.fn().mockReturnValue({
+			finished: Promise.resolve(),
+			cancel: vi.fn(),
+			play: vi.fn(),
+			pause: vi.fn()
+		});
+	}
 }
