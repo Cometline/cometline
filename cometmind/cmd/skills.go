@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/cometline/cometmind/internal/runtime"
@@ -67,7 +66,11 @@ var skillsSyncCmd = &cobra.Command{
 			return err
 		}
 		defer rt.Close()
-		created, skipped, err := reg.SyncMirror(filepath.Join("~", ".cometmind", "skills"))
+		mirrorRoot, err := skills.MirrorRoot()
+		if err != nil {
+			return err
+		}
+		created, skipped, err := reg.SyncMirror(mirrorRoot)
 		if err != nil {
 			return err
 		}

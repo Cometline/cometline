@@ -9,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/cometline/cometmind/internal/paths"
 )
 
 // Capabilities describes what UI/API operations are allowed for one skill.
@@ -18,9 +20,9 @@ type Capabilities struct {
 	CanExport bool
 }
 
-// MirrorRoot returns ~/.cometmind/skills.
+// MirrorRoot returns the managed skills directory under the CometMind data dir.
 func MirrorRoot() (string, error) {
-	return expandPath("~/.cometmind/skills")
+	return paths.SkillsDir()
 }
 
 // SkillCapabilities reports export/delete rules for a discovered skill.

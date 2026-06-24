@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/cometline/cometmind/internal/paths"
 	"gopkg.in/yaml.v3"
 )
 
@@ -47,7 +48,9 @@ type frontmatter struct {
 func DefaultRoots(workspaceRoot string, cfg Config) []string {
 	roots := make([]string, 0, 5+len(cfg.Roots))
 	roots = append(roots, cfg.Roots...)
-	roots = append(roots, "~/.cometmind/skills")
+	if skillsRoot, err := paths.SkillsDir(); err == nil {
+		roots = append(roots, skillsRoot)
+	}
 	if workspaceRoot != "" {
 		roots = append(roots, filepath.Join(workspaceRoot, ".agents", "skills"))
 		roots = append(roots, filepath.Join(workspaceRoot, ".claude", "skills"))

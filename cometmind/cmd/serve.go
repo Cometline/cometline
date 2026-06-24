@@ -3,8 +3,11 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
+	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -18,6 +21,7 @@ import (
 
 var (
 	servePort        int
+	serveBind        string
 	serveWatchParent bool
 )
 
@@ -28,7 +32,8 @@ var serveCmd = &cobra.Command{
 }
 
 func init() {
-	serveCmd.Flags().IntVar(&servePort, "port", 7700, "Port to bind on 127.0.0.1")
+	serveCmd.Flags().IntVar(&servePort, "port", 7700, "Port to bind")
+	serveCmd.Flags().StringVar(&serveBind, "bind", "127.0.0.1", "Address to bind (use 0.0.0.0 in containers)")
 	serveCmd.Flags().BoolVar(&serveWatchParent, "watch-parent", false, "Shut down automatically when the launching parent process exits (for sidecar use)")
 	rootCmd.AddCommand(serveCmd)
 }
@@ -80,8 +85,12 @@ func runServe(_ *cobra.Command, _ []string) error {
 	rt.SetSessionRunningChecker(runs.Running)
 	rt.StartJobsMaintenance(ctx)
 
+	bindAddr := serveListenAddr(serveBind)
+	if err := validateServeBind(bindAddr); err != nil {
+		return err
+	}
 	httpServer := &http.Server{
-		Addr:              fmt.Sprintf("127.0.0.1:%d", servePort),
+		Addr:              fmt.Sprintf("%s:%d", bindAddr, servePort),
 		Handler:           engine,
 		ReadHeaderTimeout: 5 * time.Second,
 	}
@@ -109,4 +118,25 @@ func runServe(_ *cobra.Command, _ []string) error {
 		}
 		return nil
 	}
+}
+
+func serveListenAddr(flagValue string) string {
+	if v := strings.TrimSpace(os.Getenv("COMETMIND_BIND_ADDR")); v != "" {
+		return v
+	}
+	if v := strings.TrimSpace(flagValue); v != "" {
+		return v
+	}
+	return "127.0.0.1"
+}
+
+// validateServeBind ensures the bind address is usable.
+func validateServeBind(addr string) error {
+	if strings.TrimSpace(addr) == "" {
+		return fmt.Errorf("bind address is empty")
+	}
+	if _, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:0", addr)); err != nil {
+		return fmt.Errorf("invalid bind address %q: %w", addr, err)
+	}
+	return nil
 }

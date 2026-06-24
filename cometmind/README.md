@@ -241,6 +241,9 @@ Only one run is allowed per session at a time (`409 session_running` on duplicat
 | `cometmind model set <provider> <model>` | Set default model in settings |
 | `cometmind skills list\|show\|sync\|delete\|export` | Manage Agent Skills |
 | `cometmind gateway run --platform discord` | Start the Discord messaging gateway |
+| `cometmind gateway show` | Print Discord gateway settings (token redacted) |
+| `cometmind gateway set` | Update Discord gateway settings in JSON |
+| `cometmind config validate` | Validate cometline-settings.json |
 
 Persistent flag: `--workspace` / `-w` (defaults to current directory).
 
@@ -256,7 +259,9 @@ cometmind session list --all --json                 # machine-readable output
 
 ## Configuration
 
-Settings live at `~/.cometmind/cometline-settings.json` (shared with Cometline). The SQLite database is at `~/.cometmind/cometmind.db`.
+Settings live at `~/.cometmind/cometline-settings.json` by default (override the data root with `COMETMIND_DATA_DIR`, e.g. `/data` in containers). The SQLite database is at `{data-dir}/cometmind.db`.
+
+For headless/container deployment, see [docs/deploy/headless-runbook.md](../docs/deploy/headless-runbook.md) and [deploy/helm/cometmind/README.md](../deploy/helm/cometmind/README.md).
 
 If `cometline-settings.json` is missing but legacy `config.toml` exists, CometMind loads the TOML once and logs a migration hint. New installs get a minimal JSON template from `cometmind init` / first `Load()`.
 

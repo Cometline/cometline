@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/cometline/cometmind/internal/paths"
 )
 
 type cometlineWorkspaceStore struct {
@@ -28,9 +30,9 @@ func recentWorkspacePaths(fallback string) []string {
 		out = append(out, clean)
 	}
 
-	home, err := os.UserHomeDir()
+	storePath, err := paths.WorkspaceStorePath()
 	if err == nil {
-		raw, err := os.ReadFile(filepath.Join(home, ".cometmind", "cometline-workspace.json"))
+		raw, err := os.ReadFile(storePath)
 		if err == nil {
 			var store cometlineWorkspaceStore
 			if json.Unmarshal(raw, &store) == nil {

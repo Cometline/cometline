@@ -1,0 +1,94 @@
+image:
+  repository: ghcr.io/cometline/cometmind
+  tag: latest
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+service:
+  type: ClusterIP
+  port: 7700
+
+ingress:
+  enabled: false
+  className: ""
+  host: ""
+  tls: []
+
+persistence:
+  enabled: true
+  size: 5Gi
+  storageClass: ""
+  accessModes:
+    - ReadWriteOnce
+
+workspace:
+  # When emptyDir is true, /workspace is ephemeral. Set false and mount a PVC for persistent project files.
+  emptyDir: true
+  size: 1Gi
+  storageClass: ""
+
+env:
+  COMETMIND_DATA_DIR: /data
+  COMETMIND_BIND_ADDR: 0.0.0.0
+  COMETMIND_LOG_LEVEL: info
+
+secrets:
+  # Provider and Discord tokens (injected as env vars; referenced from settings JSON via botTokenEnv / provider keys).
+  ANTHROPIC_API_KEY: ""
+  OPENAI_API_KEY: ""
+  DISCORD_BOT_TOKEN: ""
+
+# Non-secret Cometline settings JSON. Mounted to /data/cometline-settings.json when settings.create is true.
+settings:
+  create: true
+  # Inline JSON object merged into the ConfigMap. See deploy/helm/cometmind/README.md for the full shape.
+  json:
+    providers:
+      - id: anthropic
+        name: Anthropic
+        method: anthropic
+        enabled: true
+        baseURL: https://api.anthropic.com
+        apiKey: ""
+        selectedModel: claude-sonnet-4-5
+        models:
+          - claude-sonnet-4-5
+        enabledModels:
+          - claude-sonnet-4-5
+    activeProviderId: anthropic
+    defaultProviderId: anthropic
+    defaultModelId: claude-sonnet-4-5
+    cometmind:
+      gateway:
+        discord:
+          enabled: true
+          botTokenEnv: DISCORD_BOT_TOKEN
+          workspacePath: /workspace
+          allowedUsers: []
+          requireMention: true
+          providerId: anthropic
+          modelId: claude-sonnet-4-5
+
+discord:
+  enabled: true
+
+resources:
+  serve:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+  gateway:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

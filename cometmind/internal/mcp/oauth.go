@@ -13,24 +13,15 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cometline/cometmind/internal/paths"
 	"github.com/modelcontextprotocol/go-sdk/auth"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"golang.org/x/oauth2"
 )
 
-const oauthDirName = "mcp-oauth"
-
-// OAuthTokenDir returns ~/.cometmind/mcp-oauth (created if missing).
+// OAuthTokenDir returns the MCP OAuth token directory under the CometMind data dir.
 func OAuthTokenDir() (string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
-	}
-	dir := filepath.Join(home, ".cometmind", oauthDirName)
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return "", err
-	}
-	return dir, nil
+	return paths.MCPOAuthDir()
 }
 
 func oauthTokenPath(serverID string) (string, error) {

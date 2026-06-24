@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/cometline/cometmind/internal/paths"
 )
 
 //go:embed builtin/*/SKILL.md
@@ -13,7 +15,7 @@ var builtinSkills embed.FS
 
 // BuiltinRoot returns the materialized root for bundled skills.
 func BuiltinRoot() (string, error) {
-	return expandPath("~/.cometmind/builtin-skills")
+	return paths.BuiltinSkillsDir()
 }
 
 func ensureBuiltinSkills() (string, error) {

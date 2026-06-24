@@ -2,11 +2,13 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os/signal"
 	"strings"
 	"syscall"
 
+	"github.com/cometline/cometmind/internal/config"
 	"github.com/cometline/cometmind/internal/gateway"
 	discordgw "github.com/cometline/cometmind/internal/gateway/discord"
 	"github.com/cometline/cometmind/internal/jobs"
@@ -31,9 +33,40 @@ var gatewayRunCmd = &cobra.Command{
 	RunE:  runGateway,
 }
 
+var gatewayShowCmd = &cobra.Command{
+	Use:   "show",
+	Short: "Print Discord gateway configuration (token redacted)",
+	RunE:  runGatewayShow,
+}
+
+var gatewaySetCmd = &cobra.Command{
+	Use:   "set",
+	Short: "Update Discord gateway settings in cometline-settings.json",
+	RunE:  runGatewaySet,
+}
+
+var (
+	gatewaySetWorkspace       string
+	gatewaySetProvider        string
+	gatewaySetModel           string
+	gatewaySetBotTokenEnv     string
+	gatewaySetAllowedUsers    []string
+	gatewaySetAllowedChannels []string
+	gatewaySetRequireMention  bool
+	gatewaySetEnabled         bool
+)
+
 func init() {
 	gatewayRunCmd.Flags().StringVar(&gatewayPlatform, "platform", "discord", "Platform adapter to start")
-	gatewayCmd.AddCommand(gatewayRunCmd)
+	gatewaySetCmd.Flags().StringVar(&gatewaySetWorkspace, "workspace", "", "Default workspace path for Discord sessions")
+	gatewaySetCmd.Flags().StringVar(&gatewaySetProvider, "provider", "", "Provider id for Discord sessions")
+	gatewaySetCmd.Flags().StringVar(&gatewaySetModel, "model", "", "Model id for Discord sessions")
+	gatewaySetCmd.Flags().StringVar(&gatewaySetBotTokenEnv, "bot-token-env", "", "Environment variable name for the Discord bot token")
+	gatewaySetCmd.Flags().StringSliceVar(&gatewaySetAllowedUsers, "allowed-user", nil, "Allowed Discord user id (repeatable)")
+	gatewaySetCmd.Flags().StringSliceVar(&gatewaySetAllowedChannels, "allowed-channel", nil, "Allowed Discord channel id (repeatable)")
+	gatewaySetCmd.Flags().BoolVar(&gatewaySetRequireMention, "require-mention", true, "Require @mention outside threads")
+	gatewaySetCmd.Flags().BoolVar(&gatewaySetEnabled, "enabled", true, "Enable Discord gateway")
+	gatewayCmd.AddCommand(gatewayRunCmd, gatewayShowCmd, gatewaySetCmd)
 	rootCmd.AddCommand(gatewayCmd)
 }
 
@@ -135,4 +168,65 @@ func runGateway(_ *cobra.Command, _ []string) error {
 	default:
 		return fmt.Errorf("unsupported platform %q", gatewayPlatform)
 	}
+}
+
+func runGatewayShow(_ *cobra.Command, _ []string) error {
+	cfg, err := config.LoadDiscordGateway()
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(cfg.BotToken) != "" {
+		cfg.BotToken = "<redacted>"
+	}
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return err
+	}
+	fmt.Println(string(data))
+	return nil
+}
+
+func runGatewaySet(cmd *cobra.Command, _ []string) error {
+	patch := config.DiscordGatewayPatch{}
+	changed := false
+	if cmd.Flags().Changed("workspace") {
+		patch.WorkspacePath = &gatewaySetWorkspace
+		changed = true
+	}
+	if cmd.Flags().Changed("provider") {
+		patch.ProviderID = &gatewaySetProvider
+		changed = true
+	}
+	if cmd.Flags().Changed("model") {
+		patch.ModelID = &gatewaySetModel
+		changed = true
+	}
+	if cmd.Flags().Changed("bot-token-env") {
+		patch.BotTokenEnv = &gatewaySetBotTokenEnv
+		changed = true
+	}
+	if cmd.Flags().Changed("require-mention") {
+		patch.RequireMention = &gatewaySetRequireMention
+		changed = true
+	}
+	if cmd.Flags().Changed("enabled") {
+		patch.Enabled = &gatewaySetEnabled
+		changed = true
+	}
+	if cmd.Flags().Changed("allowed-user") {
+		patch.AllowedUsers = gatewaySetAllowedUsers
+		changed = true
+	}
+	if cmd.Flags().Changed("allowed-channel") {
+		patch.AllowedChannels = gatewaySetAllowedChannels
+		changed = true
+	}
+	if !changed {
+		return fmt.Errorf("no gateway fields to update; pass at least one flag")
+	}
+	if err := config.UpdateDiscordGateway(patch); err != nil {
+		return err
+	}
+	fmt.Println("Discord gateway settings updated")
+	return nil
 }

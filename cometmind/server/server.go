@@ -424,7 +424,12 @@ func (a *App) handleGetSkill(c *gin.Context) {
 
 func (a *App) handleSyncSkills(c *gin.Context) {
 	reg := a.skillsForRequest(c)
-	created, skipped, err := reg.SyncMirror(filepath.Join("~", ".cometmind", "skills"))
+	mirrorRoot, err := skillpkg.MirrorRoot()
+	if err != nil {
+		writeError(c, http.StatusInternalServerError, "sync_failed", err.Error())
+		return
+	}
+	created, skipped, err := reg.SyncMirror(mirrorRoot)
 	if err != nil {
 		writeError(c, http.StatusInternalServerError, "sync_failed", err.Error())
 		return

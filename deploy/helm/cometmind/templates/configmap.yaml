@@ -1,0 +1,11 @@
+{{- if and .Values.settings.create .Values.settings.json }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "cometmind.fullname" . }}-settings
+  labels:
+    {{- include "cometmind.labels" . | nindent 4 }}
+data:
+  cometline-settings.json: |
+{{ toJson .Values.settings.json | indent 4 }}
+{{- end }}

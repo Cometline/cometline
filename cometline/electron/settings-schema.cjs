@@ -4490,6 +4490,8 @@ function defaultCometMindStorageSettings() {
 }
 function defaultCometMindSettings(workspacePath = "") {
   return {
+    serverUrl: "",
+    serverToken: "",
     systemPromptPath: "",
     maxTokens: 2048,
     logLevel: "error",
@@ -4552,6 +4554,8 @@ function normalizeCometMindSettings(input, fallbackWorkspacePath = "") {
   const args = Array.isArray(acp.args) ? acp.args.map((a) => String(a).trim()).filter(Boolean) : defaults.acp.args;
   const { botToken, botTokenEnv } = migrateDiscordTokenFields(discord);
   return {
+    serverUrl: String(input?.serverUrl ?? defaults.serverUrl).trim(),
+    serverToken: String(input?.serverToken ?? defaults.serverToken).trim(),
     systemPromptPath: String(input?.systemPromptPath ?? defaults.systemPromptPath).trim(),
     maxTokens: normalizePositiveInt(input?.maxTokens, defaults.maxTokens),
     logLevel: normalizeLogLevel(input?.logLevel ?? defaults.logLevel),
@@ -4647,6 +4651,8 @@ function normalizeCometMindSettings(input, fallbackWorkspacePath = "") {
 }
 function cloneCometMindSettings(settings) {
   return {
+    serverUrl: settings.serverUrl,
+    serverToken: settings.serverToken,
     systemPromptPath: settings.systemPromptPath,
     maxTokens: settings.maxTokens,
     logLevel: settings.logLevel,
@@ -4914,6 +4920,8 @@ var providerSettingsSchema = external_exports.object({
     iconVariant: external_exports.enum(["default", "man"])
   }),
   cometmind: external_exports.object({
+    serverUrl: external_exports.union([external_exports.string().url(), external_exports.literal("")]),
+    serverToken: external_exports.string(),
     systemPromptPath: external_exports.string(),
     maxTokens: external_exports.number().int().positive(),
     logLevel: external_exports.enum(["debug", "info", "warn", "error"]),
