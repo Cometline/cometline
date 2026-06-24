@@ -32,10 +32,10 @@ import (
 	"github.com/cometline/cometmind/internal/tools"
 )
 
-// memoryExtractionConcurrency is the maximum number of extractMemoryBackground
-// goroutines that may run simultaneously across all sessions. Each completed
-// turn spawns one such goroutine; without a cap, N simultaneous completions
-// would fire N concurrent LLM API calls and contend on the SQLite write lock.
+// memoryExtractionConcurrency is the maximum number of extractMemoryAfterTurn
+// calls that may run simultaneously across all sessions. Each completed turn
+// runs one such call before the SSE stream closes; without a cap, N simultaneous
+// completions would fire N concurrent LLM API calls and contend on the SQLite write lock.
 const memoryExtractionConcurrency = 3
 
 // Runtime is the composition root shared by the CLI and server.

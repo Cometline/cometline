@@ -13,7 +13,6 @@
 		shouldGroupAssistantTimeline
 	} from '$lib/conversation/thinking-attribution';
 	import { timelineEntryKey } from '$lib/conversation/thread-view-helpers';
-	import { memoryUpdateHint, memoryUpdateTooltip } from '$lib/memory-updates';
 	import type { AssistantStackContext } from '$lib/conversation/assistant-stack-props';
 	import type { ChatItem } from '$lib/stores/chat.svelte';
 
@@ -90,15 +89,6 @@
 	{/each}
 	{#if item.text && item.id !== context.streamingAssistantId}
 		<div class="message-actions m-1">
-			{#if item.memoryUpdates?.length}
-				<span
-					class="message-action memory-hint"
-					title={memoryUpdateTooltip(item.memoryUpdates)}
-					aria-label={memoryUpdateTooltip(item.memoryUpdates)}
-				>
-					{memoryUpdateHint(item.memoryUpdates)}
-				</span>
-			{/if}
 			<button
 				type="button"
 				class="message-action m-1"
@@ -203,16 +193,6 @@
 
 	.message-action.copied {
 		color: var(--status-success);
-	}
-
-	.memory-hint {
-		cursor: default;
-	}
-
-	.memory-hint:hover {
-		background: transparent;
-		border-color: transparent;
-		color: var(--text-soft);
 	}
 
 	.message-action :global(svg) {

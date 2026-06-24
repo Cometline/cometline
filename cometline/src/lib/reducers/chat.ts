@@ -457,20 +457,6 @@ function applyEvent(
 		return;
 	}
 
-	if (event.type === 'memory_updated') {
-		if (!assistant.current) return;
-		const index = items.findIndex((item) => item.id === assistant.current!.id);
-		if (index < 0) return;
-		const current = items[index] as AssistantItem;
-		const next: AssistantItem = {
-			...current,
-			memoryUpdates: [...(current.memoryUpdates ?? []), ...event.changes]
-		};
-		items[index] = next;
-		assistant.current = next;
-		return;
-	}
-
 	if (event.type === 'error') {
 		settleTurn();
 		// clearEmptyAssistant() reassigns draft.items to a new array, so the local
@@ -504,8 +490,7 @@ function cloneAssistant(a: AssistantItem | null): AssistantItem | null {
 	if (!a) return null;
 	return {
 		...a,
-		reasoning: cloneReasoningSegments(a.reasoning),
-		memoryUpdates: a.memoryUpdates?.map((update) => ({ ...update }))
+		reasoning: cloneReasoningSegments(a.reasoning)
 	};
 }
 

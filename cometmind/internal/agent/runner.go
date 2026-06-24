@@ -56,7 +56,7 @@ type Runner struct {
 	JobIndex               string
 
 	// MemorySem is an optional semaphore that bounds the number of
-	// extractMemoryBackground goroutines that may run concurrently across all
+	// extractMemoryAfterTurn calls that may run concurrently across all
 	// sessions. When non-nil, each background goroutine acquires one slot
 	// before starting and releases it on completion. A nil value means
 	// unlimited (the previous behaviour).
@@ -81,7 +81,9 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 
 	completeTurn := func() error {
 		sendDone()
-		go r.extractMemoryBackground(context.WithoutCancel(ctx), turn)
+		// Extraction runs after done so the UI can settle the turn immediately,
+		// then memory_updated arrives on the same SSE connection before it closes.
+		r.extractMemoryAfterTurn(context.WithoutCancel(ctx), turn, ch)
 		return nil
 	}
 
@@ -370,7 +372,23 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 	return fmt.Errorf("max steps exceeded")
 }
 
-func (r *Runner) extractMemoryBackground(ctx context.Context, turn session.AgentTurn) {
+func memoryChangesToWire(changes []memory.Change) []event.MemoryChangeWire {
+	if len(changes) == 0 {
+		return nil
+	}
+	wire := make([]event.MemoryChangeWire, 0, len(changes))
+	for _, change := range changes {
+		wire = append(wire, event.MemoryChangeWire{
+			Action:  change.Action,
+			Kind:    change.Kind,
+			Content: change.Content,
+			ID:      change.ID,
+		})
+	}
+	return wire
+}
+
+func (r *Runner) extractMemoryAfterTurn(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) {
 	if r.Memory == nil || !r.Memory.Enabled() {
 		return
 	}
@@ -385,7 +403,6 @@ func (r *Runner) extractMemoryBackground(ctx context.Context, turn session.Agent
 			return
 		}
 	}
-	// Best-effort persistence only; the turn SSE stream has already closed.
 	providerID, model := turn.ProviderID, turn.ModelID
 	llmProvider := r.Provider
 	if r.Config != nil {
@@ -398,7 +415,14 @@ func (r *Runner) extractMemoryBackground(ctx context.Context, turn session.Agent
 			}
 		}
 	}
-	_, _ = r.Memory.ExtractAfterTurn(ctx, turn.ID, model, llmProvider)
+	changes, err := r.Memory.ExtractAfterTurn(ctx, turn.ID, model, llmProvider)
+	if err != nil {
+		logging.L().Warn("memory.extract.after_turn_failed", "session", turn.ID, "provider", providerID, "error", err)
+		return
+	}
+	if wire := memoryChangesToWire(changes); len(wire) > 0 {
+		ch <- event.MemoryUpdated(wire)
+	}
 }
 
 func (r *Runner) systemPrompt() string {

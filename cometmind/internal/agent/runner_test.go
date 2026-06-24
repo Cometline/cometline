@@ -97,8 +97,10 @@ func (p *sequentialFakeProvider) Stream(ctx context.Context, req *cometsdk.Reque
 type fakeMemory struct {
 	retrieveCalls int
 	baselineCalls int
+	extractCalls  int
 	waitForCancel bool
 	preferences   []memory.ScoredMemory
+	extractChanges []memory.Change
 }
 
 func (m *fakeMemory) Enabled() bool { return true }
@@ -118,20 +120,28 @@ func (m *fakeMemory) RetrieveForTurn(ctx context.Context, query string) ([]memor
 }
 
 func (m *fakeMemory) ExtractAfterTurn(ctx context.Context, sessionID, model string, llmProvider cometsdk.Provider) ([]memory.Change, error) {
-	return nil, nil
+	m.extractCalls++
+	return m.extractChanges, nil
 }
 
-// drain collects events the runner emits until it sends its terminal done
-// event. The runner sends done but does not close the channel, so we stop there.
+// drain collects events the runner emits until the channel closes.
 func drain(ch <-chan event.Event) []event.Event {
 	var out []event.Event
 	for ev := range ch {
 		out = append(out, ev)
-		if ev.Kind == event.KindDone {
-			break
-		}
 	}
 	return out
+}
+
+func runAndDrain(t *testing.T, r *Runner, turn session.AgentTurn) ([]event.Event, error) {
+	t.Helper()
+	ch := make(chan event.Event, 64)
+	var runErr error
+	go func() {
+		runErr = r.Run(context.Background(), turn, ch)
+		close(ch)
+	}()
+	return drain(ch), runErr
 }
 
 func TestRunner_TextOnlyTurnPersistsAndStops(t *testing.T) {
@@ -148,12 +158,7 @@ func TestRunner_TextOnlyTurnPersistsAndStops(t *testing.T) {
 		Registry: tools.NewRegistry(t.TempDir()),
 	}
 
-	ch := make(chan event.Event, 16)
-	var runErr error
-	go func() {
-		runErr = r.Run(context.Background(), session.AgentTurn{ID: "s1", ModelID: "m"}, ch)
-	}()
-	events := drain(ch)
+	events, runErr := runAndDrain(t, r, session.AgentTurn{ID: "s1", ModelID: "m"})
 
 	if runErr != nil {
 		t.Fatalf("Run returned error: %v", runErr)
@@ -177,12 +182,65 @@ func TestRunner_TextOnlyTurnPersistsAndStops(t *testing.T) {
 		if ev.Kind == event.KindTextDelta && ev.Delta == "hello" {
 			sawText = true
 		}
-		if ev.Kind == event.KindMemoryUpdated {
-			t.Fatalf("memory_updated should not be streamed; got %+v", ev)
-		}
 	}
 	if !sawText {
 		t.Errorf("expected a text_delta 'hello' event, got %+v", events)
+	}
+}
+
+func TestRunner_EmitsMemoryUpdatedAfterDone(t *testing.T) {
+	store := &fakeStore{}
+	provider := &fakeProvider{events: []cometsdk.Event{
+		cometsdk.TextDeltaEvent{Text: "noted"},
+		cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishStop},
+		cometsdk.DoneEvent{},
+	}}
+	mem := &fakeMemory{
+		extractChanges: []memory.Change{{
+			Action:  "create",
+			Kind:    "preference",
+			Content: "loves zhajiangmian",
+			ID:      "mem-1",
+		}},
+	}
+
+	r := &Runner{
+		Provider: provider,
+		Sessions: store,
+		Memory:   mem,
+		Registry: tools.NewRegistry(t.TempDir()),
+	}
+
+	events, runErr := runAndDrain(t, r, session.AgentTurn{ID: "s1", ModelID: "m"})
+
+	if runErr != nil {
+		t.Fatalf("Run returned error: %v", runErr)
+	}
+	if mem.extractCalls != 1 {
+		t.Fatalf("ExtractAfterTurn called %d times, want 1", mem.extractCalls)
+	}
+
+	doneIdx := -1
+	updatedIdx := -1
+	for i, ev := range events {
+		if ev.Kind == event.KindDone {
+			doneIdx = i
+		}
+		if ev.Kind == event.KindMemoryUpdated {
+			updatedIdx = i
+		}
+	}
+	if doneIdx < 0 {
+		t.Fatalf("expected done event, got %+v", events)
+	}
+	if updatedIdx < 0 {
+		t.Fatalf("expected memory_updated event, got %+v", events)
+	}
+	if updatedIdx <= doneIdx {
+		t.Fatalf("memory_updated should follow done; done=%d updated=%d events=%+v", doneIdx, updatedIdx, events)
+	}
+	if len(events[updatedIdx].MemoryChanges) != 1 || events[updatedIdx].MemoryChanges[0].Content != "loves zhajiangmian" {
+		t.Fatalf("unexpected memory changes: %+v", events[updatedIdx].MemoryChanges)
 	}
 }
 
@@ -208,12 +266,7 @@ func TestRunner_MaxTokensWithoutToolsContinuesThenStops(t *testing.T) {
 		MaxTokens: 4096,
 	}
 
-	ch := make(chan event.Event, 32)
-	var runErr error
-	go func() {
-		runErr = r.Run(context.Background(), session.AgentTurn{ID: "s1", ModelID: "m"}, ch)
-	}()
-	events := drain(ch)
+	events, runErr := runAndDrain(t, r, session.AgentTurn{ID: "s1", ModelID: "m"})
 
 	if runErr != nil {
 		t.Fatalf("Run returned error: %v", runErr)
@@ -262,12 +315,7 @@ func TestRunner_MaxTokensWithoutToolsStopsAfterContinuationCap(t *testing.T) {
 		Registry: tools.NewRegistry(t.TempDir()),
 	}
 
-	ch := make(chan event.Event, 32)
-	var runErr error
-	go func() {
-		runErr = r.Run(context.Background(), session.AgentTurn{ID: "s1", ModelID: "m"}, ch)
-	}()
-	_ = drain(ch)
+	_, runErr := runAndDrain(t, r, session.AgentTurn{ID: "s1", ModelID: "m"})
 
 	if runErr != nil {
 		t.Fatalf("Run returned error: %v", runErr)
@@ -294,10 +342,7 @@ func TestRunner_SkipsMemoryRetrievalForLowValueTurn(t *testing.T) {
 	}}
 
 	r := &Runner{Provider: provider, Sessions: store, Memory: mem, Registry: tools.NewRegistry(t.TempDir())}
-	ch := make(chan event.Event, 16)
-	var runErr error
-	go func() { runErr = r.Run(context.Background(), session.AgentTurn{ID: "s1", ModelID: "m"}, ch) }()
-	_ = drain(ch)
+	_, runErr := runAndDrain(t, r, session.AgentTurn{ID: "s1", ModelID: "m"})
 
 	if runErr != nil {
 		t.Fatalf("Run returned error: %v", runErr)
@@ -323,10 +368,7 @@ func TestRunner_RetrievesMemoryForSubstantiveTurn(t *testing.T) {
 	}}
 
 	r := &Runner{Provider: provider, Sessions: store, Memory: mem, Registry: tools.NewRegistry(t.TempDir())}
-	ch := make(chan event.Event, 16)
-	var runErr error
-	go func() { runErr = r.Run(context.Background(), session.AgentTurn{ID: "s1", ModelID: "m"}, ch) }()
-	_ = drain(ch)
+	_, runErr := runAndDrain(t, r, session.AgentTurn{ID: "s1", ModelID: "m"})
 
 	if runErr != nil {
 		t.Fatalf("Run returned error: %v", runErr)
@@ -358,10 +400,7 @@ func TestRunner_MemoryRetrievalTimeoutDoesNotEmitError(t *testing.T) {
 		Registry:               tools.NewRegistry(t.TempDir()),
 		MemoryRetrievalTimeout: 10 * time.Millisecond,
 	}
-	ch := make(chan event.Event, 16)
-	var runErr error
-	go func() { runErr = r.Run(context.Background(), session.AgentTurn{ID: "s1", ModelID: "m"}, ch) }()
-	events := drain(ch)
+	events, runErr := runAndDrain(t, r, session.AgentTurn{ID: "s1", ModelID: "m"})
 
 	if runErr != nil {
 		t.Fatalf("Run returned error: %v", runErr)
@@ -403,10 +442,7 @@ func TestRunner_InjectsPreferencesWhenSemanticRetrievalTimesOut(t *testing.T) {
 		Registry:               tools.NewRegistry(t.TempDir()),
 		MemoryRetrievalTimeout: 10 * time.Millisecond,
 	}
-	ch := make(chan event.Event, 16)
-	var runErr error
-	go func() { runErr = r.Run(context.Background(), session.AgentTurn{ID: "s1", ModelID: "m"}, ch) }()
-	_ = drain(ch)
+	_, runErr := runAndDrain(t, r, session.AgentTurn{ID: "s1", ModelID: "m"})
 
 	if runErr != nil {
 		t.Fatalf("Run returned error: %v", runErr)
@@ -485,12 +521,7 @@ func TestRunner_JobProgressNudgeInjectedAfterTools(t *testing.T) {
 		},
 	}
 
-	ch := make(chan event.Event, 64)
-	var runErr error
-	go func() {
-		runErr = r.Run(context.Background(), session.AgentTurn{ID: "s1", ModelID: "m"}, ch)
-	}()
-	_ = drain(ch)
+	_, runErr := runAndDrain(t, r, session.AgentTurn{ID: "s1", ModelID: "m"})
 
 	if runErr != nil {
 		t.Fatalf("Run returned error: %v", runErr)

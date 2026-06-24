@@ -250,8 +250,16 @@ export function createConversationController(
 
 /** Refresh session metadata after a turn (title, etc.). */
 export async function refreshConversationSession(sessionId: string): Promise<void> {
-	try {
+	const apply = async () => {
 		sessionStore.updateSession(await getSession(sessionId));
+	};
+	try {
+		await apply();
+		// Title LLM runs asynchronously after the first message; retry once so
+		// the sidebar can pick up the generated title without another turn.
+		window.setTimeout(() => {
+			void apply().catch(() => undefined);
+		}, 2500);
 	} catch {
 		// Transcript is source of truth; title refresh is best effort.
 	}

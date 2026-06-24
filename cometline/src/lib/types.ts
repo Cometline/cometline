@@ -1,4 +1,4 @@
-import type { ImageAttachment, MemoryChangeWire, TokenUsage } from '$lib/generated/cometmind-api';
+import type { ImageAttachment, TokenUsage } from '$lib/generated/cometmind-api';
 
 export type {
 	CreateSessionRequest,
@@ -18,7 +18,6 @@ export type {
 	ListSkillsResponse as SkillListResponse,
 	SyncSkillsResponse as SkillSyncResponse
 } from '$lib/generated/cometmind-api';
-export type MemoryUpdate = MemoryChangeWire;
 
 export type ProviderMethod = 'openai-compatible' | 'openai' | 'anthropic' | 'opencode-go' | 'codex';
 
@@ -122,7 +121,6 @@ export type ChatItem =
 				text?: string;
 				pending?: boolean;
 			};
-			memoryUpdates?: MemoryUpdate[];
 	  }
 	| {
 			id: string;

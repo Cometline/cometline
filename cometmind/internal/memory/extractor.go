@@ -58,6 +58,24 @@ func (e *extractor) extractAfterTurn(ctx context.Context, sessionID, model strin
 		logging.L().Info("memory.extract.noop", "session", sessionID, "reason", "low_value_turn", "messages", len(msgs))
 		return nil, nil
 	}
+
+	useModel := strings.TrimSpace(e.settings.ExtractionModel)
+	if useModel == "" {
+		useModel = model
+	}
+
+	if pm, ok := tryExplicitRemember(msgs); ok {
+		logging.L().Info("memory.extract.explicit", "session", sessionID, "content_bytes", len(pm.Content))
+		change, err := e.ingestProposal(ctx, sessionID, pm, llmProvider, useModel)
+		if err != nil {
+			return nil, err
+		}
+		if change.Action != "" {
+			return []Change{change}, nil
+		}
+		return nil, nil
+	}
+
 	originalMessages := len(msgs)
 	msgs = recentMessages(msgs, extractionTranscriptMessages)
 	logging.L().Info("memory.extract.start", "session", sessionID, "model", model, "messages", len(msgs), "total_messages", originalMessages)
@@ -87,11 +105,6 @@ Return JSON: {"memories":[{"content":"...","kind":"fact|preference|project","pre
 Conversation:
 %s`, transcript.String())
 
-	useModel := strings.TrimSpace(e.settings.ExtractionModel)
-	if useModel == "" {
-		useModel = model
-	}
-
 	var result extractionResult
 	req := &cometsdk.Request{
 		Model:  useModel,
@@ -103,7 +116,8 @@ Conversation:
 		MaxTokens: extractionMaxTokens,
 	}
 	if err := llm.GenerateJSON(ctx, llmProvider, req, &result); err != nil {
-		return nil, err
+		logging.L().Warn("memory.extract.llm_failed", "session", sessionID, "model", useModel, "error", err)
+		return nil, nil
 	}
 	logging.L().Info("memory.extract.proposed", "session", sessionID, "count", len(result.Memories), "model", useModel)
 
@@ -141,7 +155,12 @@ func (e *extractor) ingestProposal(ctx context.Context, sessionID string, pm pro
 	if sim > simSkipThreshold {
 		_ = e.store.logEvent(ctx, existing.ID, "extract_skip", fmt.Sprintf("similarity=%.3f", sim))
 		logging.L().Info("memory.extract.change", "session", sessionID, "action", "skip", "reason", "similar", "memory_id", existing.ID, "similarity", sim)
-		return Change{}, nil
+		return Change{
+			Action:  "update",
+			Kind:    existing.Kind,
+			Content: existing.Content,
+			ID:      existing.ID,
+		}, nil
 	}
 	if sim >= simUpdateThreshold {
 		logging.L().Info("memory.extract.change", "session", sessionID, "action", "update", "memory_id", existing.ID, "similarity", sim)

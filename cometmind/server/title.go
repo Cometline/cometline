@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"strings"
+	"time"
 
 	cometsdk "github.com/cometline/comet-sdk"
 	"github.com/cometline/comet-sdk/llm"
@@ -15,15 +16,16 @@ const titleSystemPrompt = "You generate short, descriptive titles for chat conve
 	"Reply with only the title: 3 to 6 words, no quotes, no trailing punctuation, no markdown."
 
 const maxTitleLen = 80
+const titleLLMTimeout = 20 * time.Second
 
 // maybeGenerateTitle sets the session title from its first user message. It runs
 // only when the session has no title yet (first turn). It first writes a fast
 // plain-text fallback so the sidebar never shows "Untitled", then asks the LLM
-// for a concise title and overwrites the fallback on success.
+// for a concise title asynchronously and overwrites the fallback on success.
 //
-// The call is synchronous but bounded (MaxTokens: 32) so the generated title is
-// ready before the turn's SSE stream completes and the client refreshes the
-// session. LLM failures are non-fatal: the plain-text fallback remains.
+// LLM generation uses a detached context so a client disconnect during streaming
+// does not cancel title generation. The frontend refreshes session metadata
+// after each turn, so the sidebar picks up the LLM title once it lands.
 func (a *App) maybeGenerateTitle(ctx context.Context, sess session.Session, blocks []session.ContentBlock, displayText string) {
 	if strings.TrimSpace(sess.Title) != "" {
 		return
@@ -41,20 +43,29 @@ func (a *App) maybeGenerateTitle(ctx context.Context, sess session.Session, bloc
 		return
 	}
 
-	title, err := a.generateTitleLLM(ctx, sess, text)
+	sessionID := sess.ID
+	sessionCopy := sess
+	go a.generateTitleAsync(context.WithoutCancel(ctx), sessionCopy, text, sessionID)
+}
+
+func (a *App) generateTitleAsync(ctx context.Context, sess session.Session, message, sessionID string) {
+	ctx, cancel := context.WithTimeout(ctx, titleLLMTimeout)
+	defer cancel()
+
+	title, err := a.generateTitleLLM(ctx, sess, message)
 	if err != nil {
-		logging.L().Warn("title.generate_failed", "session", sess.ID, "error", err)
+		logging.L().Warn("title.generate_failed", "session", sessionID, "error", err)
 		return
 	}
 	title = sanitizeTitle(title)
 	if title == "" {
 		return
 	}
-	if err := a.sessions.UpdateTitle(ctx, sess.ID, title); err != nil {
-		logging.L().Warn("title.update_failed", "session", sess.ID, "error", err)
+	if err := a.sessions.UpdateTitle(ctx, sessionID, title); err != nil {
+		logging.L().Warn("title.update_failed", "session", sessionID, "error", err)
 		return
 	}
-	logging.L().Info("title.generated", "session", sess.ID, "title", title)
+	logging.L().Info("title.generated", "session", sessionID, "title", title)
 }
 
 // generateTitleLLM asks an LLM for a concise title for the message. It uses the

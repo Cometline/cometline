@@ -192,6 +192,14 @@ function createChatStore() {
 		const last = cached.at(-1);
 		if (last?.type === 'assistant' && (last.pending === true || anyReasoningPending(last))) {
 			ctx.assistant.current = last;
+			return;
+		}
+		for (let i = cached.length - 1; i >= 0; i--) {
+			const item = cached[i];
+			if (item.type === 'assistant') {
+				ctx.assistant.current = item;
+				return;
+			}
 		}
 	}
 
@@ -457,6 +465,7 @@ function createChatStore() {
 		writeSessionItems(nextSessionID, preItems);
 		ctx.assistant.current = preAssistant;
 		let eventIndex = 0;
+		let streamDone = false;
 		let streamOutcome: 'success' | 'abort' | 'error' = 'success';
 		try {
 			for await (const event of streamMessage(
@@ -479,6 +488,28 @@ function createChatStore() {
 				}
 				eventIndex += 1;
 				const before = summarizeChatItems(getCachedItems(nextSessionID));
+				if (event.type === 'done') {
+					if (!streamDone) {
+						streamDone = true;
+						flushBatchForSession(nextSessionID, ctx, handle);
+						applyEventToSession(nextSessionID, event, ctx);
+						unmarkStreaming(nextSessionID);
+						if (streamOutcome === 'success' && !sessionErrors.get(nextSessionID)) {
+							playResponseCompleteSound();
+						}
+					}
+					chatDebug('store:stream-event', {
+						sessionID: nextSessionID,
+						run: handle.run,
+						eventIndex,
+						event: summarizeStreamEvent(event),
+						before,
+						after: summarizeChatItems(getCachedItems(nextSessionID)),
+						assistantID: ctx.assistant.current?.id ?? null,
+						reasoning: ctx.reasoning.current
+					});
+					continue;
+				}
 				applyStreamEventForSession(nextSessionID, event, ctx, handle);
 				chatDebug('store:stream-event', {
 					sessionID: nextSessionID,
@@ -490,7 +521,6 @@ function createChatStore() {
 					assistantID: ctx.assistant.current?.id ?? null,
 					reasoning: ctx.reasoning.current
 				});
-				if (event.type === 'done') break;
 			}
 		} catch (err) {
 			const current = streamHandles.get(nextSessionID);
@@ -522,8 +552,13 @@ function createChatStore() {
 			if (streamHandles.get(nextSessionID) === handle) {
 				flushBatchForSession(nextSessionID, ctx, handle);
 				const beforeDone = summarizeChatItems(getCachedItems(nextSessionID));
-				applyEventToSession(nextSessionID, { type: 'done' }, ctx);
-				unmarkStreaming(nextSessionID);
+				if (!streamDone) {
+					applyEventToSession(nextSessionID, { type: 'done' }, ctx);
+					unmarkStreaming(nextSessionID);
+					if (streamOutcome === 'success' && !sessionErrors.get(nextSessionID)) {
+						playResponseCompleteSound();
+					}
+				}
 				chatDebug('store:send-finish', {
 					sessionID: nextSessionID,
 					run: handle.run,
@@ -533,9 +568,6 @@ function createChatStore() {
 					reasoning: ctx.reasoning.current,
 					error: sessionErrors.get(nextSessionID) ?? ''
 				});
-				if (streamOutcome === 'success' && !sessionErrors.get(nextSessionID)) {
-					playResponseCompleteSound();
-				}
 			}
 		}
 	}
