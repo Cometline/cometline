@@ -63,9 +63,9 @@ describe('showAssistantRow', () => {
 
 describe('showFirstTurnAvatarSlot', () => {
 	it('returns true during handoff pending', () => {
-		expect(showFirstTurnAvatarSlot(ctx({ firstUserId: 'u1', firstTurnHandoffPending: true }))).toBe(
-			true
-		);
+		expect(
+			showFirstTurnAvatarSlot(ctx({ firstUserId: 'u1', firstTurnHandoffPending: true }))
+		).toBe(true);
 	});
 
 	it('returns false once first turn is done and assistant row is visible', () => {

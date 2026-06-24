@@ -14,7 +14,10 @@ const PHASE_DETAIL: Partial<Record<TurnStatusPhase, string>> = {
 	continuing: 'Continuing…'
 };
 
-function phaseDetail(phase: string | undefined, activityMessage: string | undefined): string | undefined {
+function phaseDetail(
+	phase: string | undefined,
+	activityMessage: string | undefined
+): string | undefined {
 	const custom = String(activityMessage ?? '').trim();
 	if (custom) return custom;
 	if (!phase) return undefined;

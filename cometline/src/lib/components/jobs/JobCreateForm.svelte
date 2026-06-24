@@ -28,13 +28,19 @@
 	<div class="settings-field">
 		<label>
 			<span>Description</span>
-			<textarea bind:value={description} rows={3} required placeholder="What needs to be done?"></textarea>
+			<textarea
+				bind:value={description}
+				rows={3}
+				required
+				placeholder="What needs to be done?"
+			></textarea>
 		</label>
 	</div>
 	<div class="settings-field">
 		<label>
 			<span>Definition of done</span>
-			<textarea bind:value={dod} rows={3} placeholder="How will you know it's finished?"></textarea>
+			<textarea bind:value={dod} rows={3} placeholder="How will you know it's finished?"
+			></textarea>
 		</label>
 	</div>
 	<div class="settings-field">

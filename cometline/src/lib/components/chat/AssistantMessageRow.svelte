@@ -1,6 +1,7 @@
 <script lang="ts">
 	import AssistantStack from '$lib/components/chat/AssistantStack.svelte';
 	import ThreadAvatar from '$lib/components/chat/ThreadAvatar.svelte';
+	import ThreadRow from '$lib/components/chat/ThreadRow.svelte';
 	import {
 		assistantStackBindings,
 		type AssistantStackContext
@@ -33,7 +34,7 @@
 	const startsRun = $derived(startsSpeakerRun(threadItems, index, 'assistant'));
 </script>
 
-<div class="row assistant-row" class:continuation-row={continuationRow}>
+<ThreadRow variant="assistant" {continuationRow}>
 	{#if startsRun}
 		<ThreadAvatar variant="avatar" {iconVariant} flightHidden={hideAvatarForFirstTurn} />
 	{:else}
@@ -44,24 +45,9 @@
 			{...assistantStackBindings(stackContext, item, showActivitySpinner(item))}
 		/>
 	</div>
-</div>
+</ThreadRow>
 
 <style>
-	.row {
-		display: flex;
-		width: 100%;
-		gap: var(--chat-row-gap);
-	}
-
-	.continuation-row {
-		margin-top: -6px;
-	}
-
-	.assistant-row {
-		justify-content: flex-start;
-		align-items: flex-start;
-	}
-
 	.assistant-column {
 		min-width: 0;
 		flex: 1;

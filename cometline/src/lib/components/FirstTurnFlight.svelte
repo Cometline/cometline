@@ -40,11 +40,7 @@
 	let iconVariant = $derived(settingsStore.settings.app.iconVariant);
 	let showAvatarFlight = $state(false);
 
-	export function run(
-		text: string,
-		images?: ImageAttachment[],
-		opts: RunOptions = {}
-	): void {
+	export function run(text: string, images?: ImageAttachment[], opts: RunOptions = {}): void {
 		if (active) return;
 		void animate(text, images, opts);
 	}
@@ -118,7 +114,11 @@
 		return rect;
 	}
 
-	async function animate(text: string, images?: ImageAttachment[], opts: RunOptions = {}): Promise<void> {
+	async function animate(
+		text: string,
+		images?: ImageAttachment[],
+		opts: RunOptions = {}
+	): Promise<void> {
 		const visualOnly = opts.visualOnly ?? false;
 		const runStageUser = opts.stageUser ?? stageUser;
 		const runRevealStagedUser = opts.revealStagedUser ?? revealStagedUser;

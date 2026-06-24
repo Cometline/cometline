@@ -1,6 +1,7 @@
 <script lang="ts">
 	import ToolFoldPanel from '$lib/components/chat/ToolFoldPanel.svelte';
 	import ThreadAvatar from '$lib/components/chat/ThreadAvatar.svelte';
+	import ThreadRow from '$lib/components/chat/ThreadRow.svelte';
 	import { startsSpeakerRun } from '$lib/conversation/thread-view-helpers';
 	import type { AssistantStackFoldController } from '$lib/conversation/assistant-stack-props';
 	import type { ChatItem } from '$lib/stores/chat.svelte';
@@ -31,9 +32,10 @@
 	} = $props();
 </script>
 
-<div
-	class="row tool-row"
-	class:continuation-row={!startsSpeakerRun(threadItems, index, 'assistant')}
+<ThreadRow
+	variant="assistant"
+	class="tool-row"
+	continuationRow={!startsSpeakerRun(threadItems, index, 'assistant')}
 >
 	<ThreadAvatar variant="gutter" {iconVariant} />
 	<div class="tool-stack">
@@ -47,22 +49,11 @@
 			{onStartJob}
 		/>
 	</div>
-</div>
+</ThreadRow>
 
 <style>
-	.row {
-		display: flex;
-		width: 100%;
-		gap: var(--chat-row-gap);
-	}
-
-	.continuation-row {
+	:global(.tool-row.continuation-row) {
 		margin-top: -16px;
-	}
-
-	.tool-row {
-		justify-content: flex-start;
-		align-items: flex-start;
 	}
 
 	.tool-stack {

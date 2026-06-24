@@ -577,7 +577,12 @@ describe('chatStore clear and subagents', () => {
 					model_id: 'model',
 					provider_id: 'provider',
 					status: 'active',
-					token_usage: { input_tokens: 0, output_tokens: 0, cache_read: 0, cache_write: 0 },
+					token_usage: {
+						input_tokens: 0,
+						output_tokens: 0,
+						cache_read: 0,
+						cache_write: 0
+					},
 					pinned: false,
 					parent_session_id: 'sess-a',
 					purpose: 'refactor auth',

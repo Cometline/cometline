@@ -47,7 +47,7 @@
 			jobs={grouped[column.key]}
 			{selectedJobId}
 			showAdd={column.showAdd}
-			onSelectJob={onSelectJob}
+			{onSelectJob}
 			onAdd={column.showAdd ? onAddJob : undefined}
 		/>
 	{/each}

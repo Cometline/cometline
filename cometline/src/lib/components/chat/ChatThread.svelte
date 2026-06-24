@@ -3,7 +3,10 @@
 	import { chatStore, type ChatItem } from '$lib/stores/chat.svelte';
 	import { settingsStore } from '$lib/stores/settings.svelte';
 	import { chatDebug, chatDebugEnabled, summarizeChatItem } from '$lib/debug/chat';
-	import { toolFoldLabel as formatToolFoldLabel, usageText } from '$lib/conversation/thread-format';
+	import {
+		toolFoldLabel as formatToolFoldLabel,
+		usageText
+	} from '$lib/conversation/thread-format';
 	import type { AssistantStackContext } from '$lib/conversation/assistant-stack-props';
 	import FirstTurnAssistantSlot from '$lib/components/chat/FirstTurnAssistantSlot.svelte';
 	import UserMessageRow from '$lib/components/chat/UserMessageRow.svelte';
@@ -184,9 +187,7 @@
 	});
 
 	let bottomSpacerHeight = $derived(
-		userMessageCount > 1 &&
-			scroll.viewportHeight > 0 &&
-			threadItems.at(-1)?.type === 'user'
+		userMessageCount > 1 && scroll.viewportHeight > 0 && threadItems.at(-1)?.type === 'user'
 			? Math.max(0, scroll.viewportHeight - 240)
 			: 0
 	);
@@ -194,9 +195,7 @@
 		threadItems.length > 0 || (isSessionSynced && awaitingFirstAssistant && !firstUserId)
 	);
 	let transcriptFadeIn = $derived(
-		awaitingFirstAssistant || scroll.isInitialTranscriptPaint
-			? { duration: 0 }
-			: TRANSCRIPT_IN
+		awaitingFirstAssistant || scroll.isInitialTranscriptPaint ? { duration: 0 } : TRANSCRIPT_IN
 	);
 
 	let renderDebugSnapshot = $derived.by(() => ({
@@ -234,6 +233,8 @@
 		class="thread scrollbar-none"
 		bind:this={scrollerEl}
 		onscroll={scroll.onScroll}
+		role="log"
+		aria-label="Conversation"
 		aria-live="polite"
 	>
 		<div class="thread-inner">
@@ -306,13 +307,7 @@
 								{onStartJob}
 							/>
 						{:else if item.type === 'subagent' && !isSubagentInBuffer(item)}
-							<SubagentMessageRow
-								{item}
-								{threadItems}
-								{index}
-								{iconVariant}
-								{fold}
-							/>
+							<SubagentMessageRow {item} {threadItems} {index} {iconVariant} {fold} />
 						{:else if item.type === 'memory' && !isMemoryInBuffer(item)}
 							<MemoryEventRow {item} memoryCycleTick={clocks.memoryCycleTick} />
 						{:else if item.type === 'status'}

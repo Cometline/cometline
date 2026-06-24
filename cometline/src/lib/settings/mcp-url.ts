@@ -135,7 +135,10 @@ export function normalizeHttpConnection(
  */
 export function normalizeServerConnection(server: MCPServerConfig): MCPServerConfig {
 	if (server.transport !== 'http' && server.transport !== 'sse') return server;
-	const { url, headers, movedToQuery } = normalizeHttpConnection(server.url ?? '', server.headers);
+	const { url, headers, movedToQuery } = normalizeHttpConnection(
+		server.url ?? '',
+		server.headers
+	);
 	if (movedToQuery.length === 0 && url === (server.url ?? '').trim()) return server;
 	return { ...server, url, headers };
 }

@@ -52,11 +52,11 @@ export function showAssistantPending(
 export function showAssistantRow(item: AssistantItem, ctx: ThreadVisibilityContext) {
 	return Boolean(
 		item.text ||
-			hasReasoning(item) ||
-			hasVisibleThinkingBlock(item.id, ctx.threadItems, ctx.thinkingForAssistant) ||
-			pinnedJobProposalsForAssistant(item.id, ctx.threadItems).length > 0 ||
-			showAssistantPending(item, ctx) ||
-			showAssistantActivitySpinner(item, ctx.streamingAssistantId, ctx.sessionStreaming)
+		hasReasoning(item) ||
+		hasVisibleThinkingBlock(item.id, ctx.threadItems, ctx.thinkingForAssistant) ||
+		pinnedJobProposalsForAssistant(item.id, ctx.threadItems).length > 0 ||
+		showAssistantPending(item, ctx) ||
+		showAssistantActivitySpinner(item, ctx.streamingAssistantId, ctx.sessionStreaming)
 	);
 }
 

@@ -1,7 +1,16 @@
 <script lang="ts">
 	import { fade, scale } from 'svelte/transition';
 	import { untrack } from 'svelte';
-	import { Check, ChevronRight, ChevronLeft, LoaderCircle, LogIn, RefreshCw, Sparkles, X } from '@lucide/svelte';
+	import {
+		Check,
+		ChevronRight,
+		ChevronLeft,
+		LoaderCircle,
+		LogIn,
+		RefreshCw,
+		Sparkles,
+		X
+	} from '@lucide/svelte';
 	import { settingsStore } from '$lib/stores/settings.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { connectionState } from '$lib/stores/runtime.svelte';
@@ -30,10 +39,6 @@
 		codex: 'ChatGPT Codex',
 		'openai-compatible': 'OpenAI Compatible'
 	};
-
-	function methodNeedsApiKey(method: ProviderMethod) {
-		return method !== 'codex';
-	}
 
 	function canFetchModels(provider: ProviderConfig) {
 		if (settingsStore.isFetchingModels || !provider.baseURL.trim()) return false;
@@ -86,7 +91,12 @@
 	);
 
 	let selectedProviderId = $state(
-		untrack(() => draft.providers.find((p) => p.id === 'anthropic')?.id ?? draft.providers[0]?.id ?? '')
+		untrack(
+			() =>
+				draft.providers.find((p) => p.id === 'anthropic')?.id ??
+				draft.providers[0]?.id ??
+				''
+		)
 	);
 
 	let selectedProvider = $derived(
@@ -104,7 +114,8 @@
 			}
 			return selectedProvider.apiKey.trim().length > 0;
 		}
-		if (step === 'model') return Boolean(selectedProvider) && selectedProvider.enabledModels.length > 0;
+		if (step === 'model')
+			return Boolean(selectedProvider) && selectedProvider.enabledModels.length > 0;
 		// Embedding step is always skippable.
 		if (step === 'embedding') return true;
 		return true;
@@ -246,7 +257,9 @@
 				embedding: { provider_id: '', provider: '', model: '', base_url: '', api_key: '' }
 			};
 		}
-		const option = embeddingOptions.find((opt) => embeddingOptionKey(opt) === selectedEmbeddingKey);
+		const option = embeddingOptions.find(
+			(opt) => embeddingOptionKey(opt) === selectedEmbeddingKey
+		);
 		if (!option) return memorySettings;
 		return {
 			...memorySettings,
@@ -264,9 +277,7 @@
 		if (!selectedProvider) return;
 		// Enable the chosen provider and set it as active + default.
 		const finalProviders = draft.providers.map((p) =>
-			p.id === selectedProvider.id
-				? cloneProvider({ ...p, enabled: true })
-				: p
+			p.id === selectedProvider.id ? cloneProvider({ ...p, enabled: true }) : p
 		);
 		const finalDraft: ProviderSettings = {
 			...draft,
@@ -285,7 +296,7 @@
 		try {
 			await settingsStore.save(finalDraft, {
 				restartCometMind: true,
-				memory: hasEmbedding ? memoryPayload ?? undefined : undefined
+				memory: hasEmbedding ? (memoryPayload ?? undefined) : undefined
 			});
 			draft = JSON.parse(JSON.stringify(settingsStore.settings)) as ProviderSettings;
 			// Poll until the sidecar is healthy after restart.
@@ -297,7 +308,8 @@
 				await settingsStore.markSetupComplete();
 				shellStore.closeSetup();
 			} else {
-				saveError = 'CometMind is still starting up. Your settings were saved — try sending a message in a moment.';
+				saveError =
+					'CometMind is still starting up. Your settings were saved — try sending a message in a moment.';
 			}
 		} catch (err) {
 			saveError = err instanceof Error ? err.message : 'Failed to save settings.';
@@ -376,78 +388,89 @@
 						</button>
 					{/each}
 				</div>
-		{:else if step === 'apikey'}
-			{#if selectedProvider}
-				{#if selectedProvider.method === 'codex'}
-					<p class="step-intro">
-						Sign in with your ChatGPT Plus/Pro browser session. Cometline stores a
-						local Codex-compatible session at <code>~/.codex/auth.json</code>. No API key
-						or Codex CLI install is required.
-					</p>
-					{#if codexAuthStatus}
-						<p class="codex-status" class:ok={codexAuthStatus.authenticated}>
-							{codexAuthStatus.authenticated
-								? 'Signed in with ChatGPT browser session.'
-								: (codexAuthStatus.error ?? 'Not signed in.')}
+			{:else if step === 'apikey'}
+				{#if selectedProvider}
+					{#if selectedProvider.method === 'codex'}
+						<p class="step-intro">
+							Sign in with your ChatGPT Plus/Pro browser session. Cometline stores a
+							local Codex-compatible session at <code>~/.codex/auth.json</code>. No
+							API key or Codex CLI install is required.
 						</p>
-					{/if}
-					<div class="inline-actions">
-						<SettingsButton
-							variant="primary"
-							onclick={startCodexLogin}
-							disabled={startingCodexLogin || !window.electronAPI?.startCodexLogin}
-						>
-							{#if startingCodexLogin}<LoaderCircle size={14} class="spin" />{:else}<LogIn size={14} />{/if}
-							Sign in with ChatGPT
-						</SettingsButton>
-						<SettingsButton
-							variant="secondary"
-							onclick={refreshCodexAuthStatus}
-							disabled={checkingCodexAuth || !window.electronAPI?.getCodexAuthStatus}
-						>
-							{#if checkingCodexAuth}<LoaderCircle size={14} class="spin" />{:else}<RefreshCw size={14} />{/if}
-							Check session
-						</SettingsButton>
-					</div>
-				{:else}
-					<p class="step-intro">
-						Enter your API key for {selectedProvider.name || METHOD_LABELS[selectedProvider.method]}.
-						It's stored locally and never sent anywhere except the provider.
-					</p>
-					<label class="field">
-						<span class="field-label">API key</span>
-						<div class="api-key-row">
-							<input
-								type={showApiKey ? 'text' : 'password'}
-								class="field-input"
-								placeholder="Paste your API key"
-								value={selectedProvider.apiKey}
-								oninput={(e) => patchSelected({ apiKey: e.currentTarget.value })}
-							/>
-							<button
-								class="toggle-visibility"
-								onclick={() => (showApiKey = !showApiKey)}
-								type="button"
+						{#if codexAuthStatus}
+							<p class="codex-status" class:ok={codexAuthStatus.authenticated}>
+								{codexAuthStatus.authenticated
+									? 'Signed in with ChatGPT browser session.'
+									: (codexAuthStatus.error ?? 'Not signed in.')}
+							</p>
+						{/if}
+						<div class="inline-actions">
+							<SettingsButton
+								variant="primary"
+								onclick={startCodexLogin}
+								disabled={startingCodexLogin ||
+									!window.electronAPI?.startCodexLogin}
 							>
-								{showApiKey ? 'Hide' : 'Show'}
-							</button>
+								{#if startingCodexLogin}<LoaderCircle
+										size={14}
+										class="spin"
+									/>{:else}<LogIn size={14} />{/if}
+								Sign in with ChatGPT
+							</SettingsButton>
+							<SettingsButton
+								variant="secondary"
+								onclick={refreshCodexAuthStatus}
+								disabled={checkingCodexAuth ||
+									!window.electronAPI?.getCodexAuthStatus}
+							>
+								{#if checkingCodexAuth}<LoaderCircle
+										size={14}
+										class="spin"
+									/>{:else}<RefreshCw size={14} />{/if}
+								Check session
+							</SettingsButton>
 						</div>
-					</label>
-					<label class="field">
-						<span class="field-label">Base URL</span>
-						<input
-							type="text"
-							class="field-input"
-							value={selectedProvider.baseURL}
-							oninput={(e) => patchSelected({ baseURL: e.currentTarget.value })}
-						/>
-					</label>
+					{:else}
+						<p class="step-intro">
+							Enter your API key for {selectedProvider.name ||
+								METHOD_LABELS[selectedProvider.method]}. It's stored locally and
+							never sent anywhere except the provider.
+						</p>
+						<label class="field">
+							<span class="field-label">API key</span>
+							<div class="api-key-row">
+								<input
+									type={showApiKey ? 'text' : 'password'}
+									class="field-input"
+									placeholder="Paste your API key"
+									value={selectedProvider.apiKey}
+									oninput={(e) =>
+										patchSelected({ apiKey: e.currentTarget.value })}
+								/>
+								<button
+									class="toggle-visibility"
+									onclick={() => (showApiKey = !showApiKey)}
+									type="button"
+								>
+									{showApiKey ? 'Hide' : 'Show'}
+								</button>
+							</div>
+						</label>
+						<label class="field">
+							<span class="field-label">Base URL</span>
+							<input
+								type="text"
+								class="field-input"
+								value={selectedProvider.baseURL}
+								oninput={(e) => patchSelected({ baseURL: e.currentTarget.value })}
+							/>
+						</label>
+					{/if}
 				{/if}
-			{/if}
 			{:else if step === 'model'}
 				{#if selectedProvider}
 					<p class="step-intro">
-						Choose which model to use. Fetch the available list from the provider, or type a model ID manually.
+						Choose which model to use. Fetch the available list from the provider, or
+						type a model ID manually.
 					</p>
 					<div class="fetch-row">
 						<button
@@ -455,11 +478,16 @@
 							onclick={fetchModels}
 							disabled={!canFetchModels(selectedProvider)}
 						>
-							{#if settingsStore.isFetchingModels}<LoaderCircle size={14} class="spin" />{/if}
+							{#if settingsStore.isFetchingModels}<LoaderCircle
+									size={14}
+									class="spin"
+								/>{/if}
 							Fetch models
 						</button>
 						{#if selectedProvider.models.length > 0}
-							<span class="fetch-hint">{selectedProvider.models.length} models available</span>
+							<span class="fetch-hint"
+								>{selectedProvider.models.length} models available</span
+							>
 						{/if}
 					</div>
 					{#if selectedProvider.models.length > 0}
@@ -492,35 +520,49 @@
 								}
 							}}
 						/>
-						<button class="manual-add" onclick={addManualModel} disabled={!manualModel.trim()}>
+						<button
+							class="manual-add"
+							onclick={addManualModel}
+							disabled={!manualModel.trim()}
+						>
 							Add
 						</button>
 					</div>
 				{/if}
 			{:else if step === 'embedding'}
 				<p class="step-intro">
-					Cometline can store and retrieve memories across sessions using an embedding model.
-					Pick one from your enabled providers, or skip this step — you can configure it later
-					in Settings → Memory.
+					Cometline can store and retrieve memories across sessions using an embedding
+					model. Pick one from your enabled providers, or skip this step — you can
+					configure it later in Settings → Memory.
 				</p>
 				{#if memoryLoading}
-					<p class="embedding-loading"><LoaderCircle size={14} class="spin" /> Loading memory settings…</p>
+					<p class="embedding-loading">
+						<LoaderCircle size={14} class="spin" /> Loading memory settings…
+					</p>
 				{:else if memoryError}
 					<p class="wizard-error">{memoryError}</p>
-					<p class="step-intro">You can skip this step and configure memory later in Settings.</p>
+					<p class="step-intro">
+						You can skip this step and configure memory later in Settings.
+					</p>
 				{:else if embeddingOptions.length === 0}
 					<p class="step-intro">
-						No embedding models are available from your enabled providers. To use memory,
-						enable a provider with an embedding model (e.g. OpenAI's
+						No embedding models are available from your enabled providers. To use
+						memory, enable a provider with an embedding model (e.g. OpenAI's
 						<code>text-embedding-3-small</code>) in Settings later.
 					</p>
 				{:else}
 					<label class="field">
 						<span class="field-label">Embedding model</span>
-						<select class="field-input" value={selectedEmbeddingKey} onchange={(e) => selectEmbedding(e.currentTarget.value)}>
+						<select
+							class="field-input"
+							value={selectedEmbeddingKey}
+							onchange={(e) => selectEmbedding(e.currentTarget.value)}
+						>
 							<option value="">— Skip (configure later) —</option>
 							{#each embeddingOptions as opt (embeddingOptionKey(opt))}
-								<option value={embeddingOptionKey(opt)}>{opt.providerName} · {opt.model}</option>
+								<option value={embeddingOptionKey(opt)}
+									>{opt.providerName} · {opt.model}</option
+								>
 							{/each}
 						</select>
 					</label>
@@ -533,19 +575,40 @@
 				<div class="review">
 					<div class="review-row">
 						<span>Provider</span>
-						<strong>{selectedProvider?.name || METHOD_LABELS[selectedProvider?.method ?? 'anthropic']}</strong>
+						<strong
+							>{selectedProvider?.name ||
+								METHOD_LABELS[selectedProvider?.method ?? 'anthropic']}</strong
+						>
 					</div>
 					<div class="review-row">
 						<span>Model</span>
-						<strong>{(selectedProvider?.enabledModels[0] ?? selectedProvider?.selectedModel) || '—'}</strong>
+						<strong
+							>{(selectedProvider?.enabledModels[0] ??
+								selectedProvider?.selectedModel) ||
+								'—'}</strong
+						>
 					</div>
 					<div class="review-row">
 						<span>API key</span>
-						<strong>{selectedProvider?.method === 'codex' ? (codexAuthStatus?.authenticated ? 'ChatGPT session' : 'Not signed in') : (selectedProvider?.apiKey ? 'Set' : 'Missing')}</strong>
+						<strong
+							>{selectedProvider?.method === 'codex'
+								? codexAuthStatus?.authenticated
+									? 'ChatGPT session'
+									: 'Not signed in'
+								: selectedProvider?.apiKey
+									? 'Set'
+									: 'Missing'}</strong
+						>
 					</div>
 					<div class="review-row">
 						<span>Embedding</span>
-						<strong>{selectedEmbeddingKey ? embeddingOptions.find((o) => embeddingOptionKey(o) === selectedEmbeddingKey)?.model ?? '—' : 'Skipped'}</strong>
+						<strong
+							>{selectedEmbeddingKey
+								? (embeddingOptions.find(
+										(o) => embeddingOptionKey(o) === selectedEmbeddingKey
+									)?.model ?? '—')
+								: 'Skipped'}</strong
+						>
 					</div>
 				</div>
 				{#if saveError}
@@ -569,7 +632,11 @@
 						<ChevronRight size={14} />
 					</SettingsButton>
 				{:else}
-					<SettingsButton variant="primary" onclick={saveAndConnect} disabled={saving || connecting}>
+					<SettingsButton
+						variant="primary"
+						onclick={saveAndConnect}
+						disabled={saving || connecting}
+					>
 						{#if saving || connecting}<LoaderCircle size={14} class="spin" />{/if}
 						{connecting ? 'Connecting…' : saving ? 'Saving…' : 'Save & connect'}
 					</SettingsButton>

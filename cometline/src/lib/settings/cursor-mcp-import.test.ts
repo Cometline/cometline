@@ -76,8 +76,24 @@ describe('cursor-mcp-import', () => {
 
 	it('merges imported servers without clobbering existing ids', () => {
 		const merged = mergeImportedMcpServers(
-			[{ id: 'filesystem', name: 'filesystem', enabled: true, transport: 'stdio', command: 'npx' }],
-			[{ id: 'filesystem', name: 'filesystem', enabled: true, transport: 'stdio', command: 'uvx' }]
+			[
+				{
+					id: 'filesystem',
+					name: 'filesystem',
+					enabled: true,
+					transport: 'stdio',
+					command: 'npx'
+				}
+			],
+			[
+				{
+					id: 'filesystem',
+					name: 'filesystem',
+					enabled: true,
+					transport: 'stdio',
+					command: 'uvx'
+				}
+			]
 		);
 
 		expect(merged).toHaveLength(2);

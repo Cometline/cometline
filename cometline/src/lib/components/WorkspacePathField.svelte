@@ -83,10 +83,10 @@
 	<div class="path-row">
 		<input
 			type="text"
-			value={value}
+			{value}
 			readonly
 			{placeholder}
-			disabled={disabled}
+			{disabled}
 			spellcheck="false"
 			class="path-input"
 			aria-readonly="true"
@@ -113,7 +113,12 @@
 
 	{#if showCurrentShortcut && currentWorkspace}
 		<div class="workspace-shortcuts">
-			<button type="button" class="current-workspace-link" {disabled} onclick={useCurrentWorkspace}>
+			<button
+				type="button"
+				class="current-workspace-link"
+				{disabled}
+				onclick={useCurrentWorkspace}
+			>
 				Use current workspace
 			</button>
 			{#if value.trim()}
@@ -318,7 +323,9 @@
 		padding: 8px 10px;
 		background: transparent;
 		cursor: pointer;
-		transition: background 140ms ease, border-color 140ms ease;
+		transition:
+			background 140ms ease,
+			border-color 140ms ease;
 	}
 
 	.workspace-option:hover {

@@ -87,10 +87,7 @@
 	}
 
 	function isTypingMove(dy: number): boolean {
-		return (
-			(composing || performance.now() - lastInputAt < 120) &&
-			!isLineCrossing(dy)
-		);
+		return (composing || performance.now() - lastInputAt < 120) && !isLineCrossing(dy);
 	}
 
 	// Vertical jump (in px) above which a move is treated as a teleport: the

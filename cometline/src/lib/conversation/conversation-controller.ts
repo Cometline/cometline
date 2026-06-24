@@ -80,9 +80,10 @@ async function runTurn(
 	const userDisplay = payload.displayText ?? payload.text;
 	const usesFlight = Boolean(deps.flight?.onUserMessageFlight);
 	const isViewing = deps.getSessionId() === turnSessionId;
-	const firstTurn = usesFlight && !isViewing
-		? chatStore.getCachedItemCount(turnSessionId) === 0
-		: !getHasVisibleConversation();
+	const firstTurn =
+		usesFlight && !isViewing
+			? chatStore.getCachedItemCount(turnSessionId) === 0
+			: !getHasVisibleConversation();
 	const flightPayload = payload.images?.length ? payload : userDisplay;
 	const stageUser = (text: string, images?: ImageAttachment[]) => {
 		chatStore.stageUserForSession(turnSessionId, text, images);
@@ -227,7 +228,7 @@ export function createConversationController(
 			}
 		},
 
-	enqueue(payload: ChatTurnPayload | string) {
+		enqueue(payload: ChatTurnPayload | string) {
 			return ensureQueue(deps.getSessionId(), deps, deps.getHasVisibleConversation).enqueue(
 				payload
 			);

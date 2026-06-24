@@ -10,11 +10,7 @@
 	} = $props();
 
 	const tierLabel = $derived(
-		tier === 'pending'
-			? 'Save changes'
-			: tier === 'instant'
-				? 'Instant'
-				: 'Action'
+		tier === 'pending' ? 'Save changes' : tier === 'instant' ? 'Instant' : 'Action'
 	);
 
 	const tierDescription = $derived(
@@ -29,6 +25,7 @@
 <p class="settings-persistence-hint" data-tier={tier}>
 	<span class="settings-persistence-tier">{tierLabel}</span>
 	<span class="settings-persistence-copy">
-		{tierDescription}{#if detail && tier !== 'action'} — {detail}{/if}
+		{tierDescription}{#if detail && tier !== 'action'}
+			— {detail}{/if}
 	</span>
 </p>

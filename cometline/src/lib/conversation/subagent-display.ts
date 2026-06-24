@@ -12,9 +12,7 @@ export function isSubagentStepLimit(subagent: SubagentChatItem): boolean {
 	if (subagent.status !== 'failed' && subagent.status !== 'incomplete') return false;
 	const haystack = [
 		subagent.summary ?? '',
-		...subagent.progress
-			.filter((entry) => entry.kind === 'status')
-			.map((entry) => entry.text)
+		...subagent.progress.filter((entry) => entry.kind === 'status').map((entry) => entry.text)
 	]
 		.join('\n')
 		.toLowerCase();

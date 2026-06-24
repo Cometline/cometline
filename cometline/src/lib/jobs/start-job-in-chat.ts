@@ -19,8 +19,7 @@ function executionPromptForJob(claimed: JobResource): string {
 	const jobPath = claimed.workspace_path?.trim();
 	const sessionPath = shellStore.workspacePath?.trim();
 	if (jobPath && sessionPath && jobPath !== sessionPath) {
-		prompt +=
-			`\n\nNote: this job targets workspace \`${jobPath}\` but this session uses \`${sessionPath}\`. Consider /change to fork into the correct workspace before editing files.`;
+		prompt += `\n\nNote: this job targets workspace \`${jobPath}\` but this session uses \`${sessionPath}\`. Consider /change to fork into the correct workspace before editing files.`;
 	}
 	return prompt;
 }

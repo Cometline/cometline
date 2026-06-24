@@ -301,403 +301,416 @@
 
 <section class="cometmind-panel settings-panel-frame">
 	<div class="settings-panel-body">
-	<div class="settings-section">
-		<div class="settings-section-heading">
-			<h3>Runtime</h3>
-			<p>
-				Controls sent to CometMind for each agent response. Settings are saved to
-				<code>~/.cometmind/cometline-settings.json</code>.
-			</p>
-		</div>
-		<label>
-			<span>Context window budget</span>
-			<select bind:value={cometmind.contextWindowLimit}>
-				<option value={128_000}>128K</option>
-				<option value={256_000}>256K</option>
-			</select>
-			<p class="settings-field-hint">
-				Used for compaction timing and the composer context ring. Does not change the
-				provider's actual model limit.
-			</p>
-		</label>
-		<label>
-			<span>Max output tokens</span>
-			<input
-				type="number"
-				bind:value={cometmind.maxTokens}
-				min="1"
-				step="1"
-				placeholder="2048"
-			/>
-			<p class="settings-field-hint">
-				Caps the model's generated response length. Lower values reduce worst-case latency
-				and cost.
-			</p>
-		</label>
-		<label>
-			<span>Log level</span>
-			<select bind:value={cometmind.logLevel}>
-				<option value="error">Error</option>
-				<option value="warn">Warn</option>
-				<option value="info">Info</option>
-				<option value="debug">Debug</option>
-			</select>
-			<p class="settings-field-hint">
-				Controls what CometMind writes to <code>~/.cometmind/cometline.log</code> and
-				<code>cometline-gateway.log</code>. CometMind restarts when you save changes.
-			</p>
-		</label>
-	</div>
-
-	<div class="settings-section">
-		<div class="settings-section-heading">
-			<h3>OpenCode subagent (ACP)</h3>
-			<p>
-				Delegate coding tasks to the local OpenCode CLI. Written to <code>[acp]</code> in
-				<code>~/.cometmind/cometline-settings.json</code>.
-			</p>
-		</div>
-		<label>
-			<span>Command path</span>
-			<input
-				type="text"
-				bind:value={cometmind.acp.command}
-				placeholder="opencode"
-				spellcheck="false"
-			/>
-		</label>
-		<label>
-			<span>Arguments (space-separated)</span>
-			<input
-				type="text"
-				bind:value={argsText}
-				onchange={syncListsFromText}
-				onblur={syncListsFromText}
-				placeholder="acp"
-				spellcheck="false"
-			/>
-		</label>
-		<label>
-			<span>Timeout</span>
-			<input
-				type="text"
-				bind:value={cometmind.acp.timeout}
-				placeholder="30m"
-				spellcheck="false"
-			/>
-		</label>
-	</div>
-
-	<div class="settings-section">
-		<div class="settings-section-heading">
-			<h3>Skills</h3>
-			<p>
-				CometMind reads Agent Skills from <code>~/.cometmind/skills</code>, workspace
-				<code>.agents/skills</code>/<code>.claude/skills</code>, OpenCode, and Claude Code
-				skill folders.
-			</p>
-		</div>
-		<SettingsToggle
-			label="Enable skills"
-			description="Expose a compact skill index to CometMind and allow read-only loading via load_skill."
-			bind:checked={cometmind.skills.enabled}
-		/>
-		<div class="skills-actions">
-			<button class="secondary" type="button" onclick={refreshSkills} disabled={skillsBusy}>
-				{skillsBusy ? 'Loading...' : 'Refresh skills'}
-			</button>
-			<button class="secondary" type="button" onclick={onSyncSkills} disabled={skillsBusy}>
-				Sync symlinks
-			</button>
-		</div>
-		{#if skillsStatus}
-			<p class="settings-field-hint">{skillsStatus}</p>
-		{/if}
-		<div class="skills-toolbar">
-			<div class="skills-search">
-				<Search size={14} aria-hidden="true" />
+		<div class="settings-section">
+			<div class="settings-section-heading">
+				<h3>Runtime</h3>
+				<p>
+					Controls sent to CometMind for each agent response. Settings are saved to
+					<code>~/.cometmind/cometline-settings.json</code>.
+				</p>
+			</div>
+			<label>
+				<span>Context window budget</span>
+				<select bind:value={cometmind.contextWindowLimit}>
+					<option value={128_000}>128K</option>
+					<option value={256_000}>256K</option>
+				</select>
+				<p class="settings-field-hint">
+					Used for compaction timing and the composer context ring. Does not change the
+					provider's actual model limit.
+				</p>
+			</label>
+			<label>
+				<span>Max output tokens</span>
 				<input
-					type="search"
-					bind:value={skillSearch}
-					placeholder="Search skills by name, description, or path…"
+					type="number"
+					bind:value={cometmind.maxTokens}
+					min="1"
+					step="1"
+					placeholder="2048"
+				/>
+				<p class="settings-field-hint">
+					Caps the model's generated response length. Lower values reduce worst-case
+					latency and cost.
+				</p>
+			</label>
+			<label>
+				<span>Log level</span>
+				<select bind:value={cometmind.logLevel}>
+					<option value="error">Error</option>
+					<option value="warn">Warn</option>
+					<option value="info">Info</option>
+					<option value="debug">Debug</option>
+				</select>
+				<p class="settings-field-hint">
+					Controls what CometMind writes to <code>~/.cometmind/cometline.log</code> and
+					<code>cometline-gateway.log</code>. CometMind restarts when you save changes.
+				</p>
+			</label>
+		</div>
+
+		<div class="settings-section">
+			<div class="settings-section-heading">
+				<h3>OpenCode subagent (ACP)</h3>
+				<p>
+					Delegate coding tasks to the local OpenCode CLI. Written to <code>[acp]</code>
+					in
+					<code>~/.cometmind/cometline-settings.json</code>.
+				</p>
+			</div>
+			<label>
+				<span>Command path</span>
+				<input
+					type="text"
+					bind:value={cometmind.acp.command}
+					placeholder="opencode"
 					spellcheck="false"
 				/>
-			</div>
-			<div class="skills-filters" role="group" aria-label="Filter skills by source">
-				{#each SKILL_SOURCE_FILTERS as filter (filter.id)}
-					<button
-						type="button"
-						class="skills-filter-chip"
-						class:active={skillSourceFilter === filter.id}
-						aria-pressed={skillSourceFilter === filter.id}
-						onclick={() => (skillSourceFilter = filter.id)}
-					>
-						{filter.label}
-						<span class="skills-filter-count">{skillSourceCounts[filter.id]}</span>
-					</button>
-				{/each}
-			</div>
+			</label>
+			<label>
+				<span>Arguments (space-separated)</span>
+				<input
+					type="text"
+					bind:value={argsText}
+					onchange={syncListsFromText}
+					onblur={syncListsFromText}
+					placeholder="acp"
+					spellcheck="false"
+				/>
+			</label>
+			<label>
+				<span>Timeout</span>
+				<input
+					type="text"
+					bind:value={cometmind.acp.timeout}
+					placeholder="30m"
+					spellcheck="false"
+				/>
+			</label>
 		</div>
-		<div class="skills-list scrollbar-none">
-			<div class="skills-list-header">
-				<span>Available skills</span>
-				<strong>
-					{#if filteredSkills.length === skills.length}
-						{skills.length}
-					{:else}
-						{filteredSkills.length} / {skills.length}
-					{/if}
-				</strong>
-			</div>
-			{#if skills.length === 0}
-				<p class="settings-field-hint skills-empty">
-					No skills discovered yet. Try <code>npx skills add ...</code> or add a custom root.
+
+		<div class="settings-section">
+			<div class="settings-section-heading">
+				<h3>Skills</h3>
+				<p>
+					CometMind reads Agent Skills from <code>~/.cometmind/skills</code>, workspace
+					<code>.agents/skills</code>/<code>.claude/skills</code>, OpenCode, and Claude
+					Code skill folders.
 				</p>
-			{:else if filteredSkills.length === 0}
-				<p class="settings-field-hint skills-empty">No skills match your search or filter.</p>
-			{:else}
-				{#each filteredSkills as skill (skill.name)}
-					<div class="skill-row" title={skill.path}>
-						<div class="skill-row-main">
-							<div class="skill-row-title">
-								<strong>{skill.name}</strong>
-								<span class="skill-badge">{SKILL_SOURCE_LABELS[skillSourceCategory(skill)]}</span>
-								{#if skill.is_symlink}
-									<span class="skill-badge">symlink</span>
-								{/if}
-							</div>
-							<p>{skill.description}</p>
-						</div>
-						<div class="skill-row-actions">
-							{#if deletePending === skill.name && skill.can_delete}
-								<span class="skill-delete-prompt">Delete {skill.name}?</span>
-								<button
-									class="secondary danger"
-									type="button"
-									disabled={skillsBusy}
-									onclick={() => confirmDeleteSkill(skill.name)}
-								>
-									Confirm
-								</button>
-								<button
-									class="secondary"
-									type="button"
-									disabled={skillsBusy}
-									onclick={cancelDeleteSkill}
-								>
-									Cancel
-								</button>
-							{:else}
-								{#if skill.can_export}
-									<button
-										class="secondary"
-										type="button"
-										disabled={skillsBusy}
-										onclick={() => onExportSkill(skill.name)}
+			</div>
+			<SettingsToggle
+				label="Enable skills"
+				description="Expose a compact skill index to CometMind and allow read-only loading via load_skill."
+				bind:checked={cometmind.skills.enabled}
+			/>
+			<div class="skills-actions">
+				<button
+					class="secondary"
+					type="button"
+					onclick={refreshSkills}
+					disabled={skillsBusy}
+				>
+					{skillsBusy ? 'Loading...' : 'Refresh skills'}
+				</button>
+				<button
+					class="secondary"
+					type="button"
+					onclick={onSyncSkills}
+					disabled={skillsBusy}
+				>
+					Sync symlinks
+				</button>
+			</div>
+			{#if skillsStatus}
+				<p class="settings-field-hint">{skillsStatus}</p>
+			{/if}
+			<div class="skills-toolbar">
+				<div class="skills-search">
+					<Search size={14} aria-hidden="true" />
+					<input
+						type="search"
+						bind:value={skillSearch}
+						placeholder="Search skills by name, description, or path…"
+						spellcheck="false"
+					/>
+				</div>
+				<div class="skills-filters" role="group" aria-label="Filter skills by source">
+					{#each SKILL_SOURCE_FILTERS as filter (filter.id)}
+						<button
+							type="button"
+							class="skills-filter-chip"
+							class:active={skillSourceFilter === filter.id}
+							aria-pressed={skillSourceFilter === filter.id}
+							onclick={() => (skillSourceFilter = filter.id)}
+						>
+							{filter.label}
+							<span class="skills-filter-count">{skillSourceCounts[filter.id]}</span>
+						</button>
+					{/each}
+				</div>
+			</div>
+			<div class="skills-list scrollbar-none">
+				<div class="skills-list-header">
+					<span>Available skills</span>
+					<strong>
+						{#if filteredSkills.length === skills.length}
+							{skills.length}
+						{:else}
+							{filteredSkills.length} / {skills.length}
+						{/if}
+					</strong>
+				</div>
+				{#if skills.length === 0}
+					<p class="settings-field-hint skills-empty">
+						No skills discovered yet. Try <code>npx skills add ...</code> or add a custom
+						root.
+					</p>
+				{:else if filteredSkills.length === 0}
+					<p class="settings-field-hint skills-empty">
+						No skills match your search or filter.
+					</p>
+				{:else}
+					{#each filteredSkills as skill (skill.name)}
+						<div class="skill-row" title={skill.path}>
+							<div class="skill-row-main">
+								<div class="skill-row-title">
+									<strong>{skill.name}</strong>
+									<span class="skill-badge"
+										>{SKILL_SOURCE_LABELS[skillSourceCategory(skill)]}</span
 									>
-										Export
-									</button>
-								{/if}
-								{#if skill.can_delete}
+									{#if skill.is_symlink}
+										<span class="skill-badge">symlink</span>
+									{/if}
+								</div>
+								<p>{skill.description}</p>
+							</div>
+							<div class="skill-row-actions">
+								{#if deletePending === skill.name && skill.can_delete}
+									<span class="skill-delete-prompt">Delete {skill.name}?</span>
 									<button
 										class="secondary danger"
 										type="button"
 										disabled={skillsBusy}
-										title="Delete from ~/.cometmind/skills"
-										onclick={() => requestDeleteSkill(skill.name)}
+										onclick={() => confirmDeleteSkill(skill.name)}
 									>
-										Delete
+										Confirm
 									</button>
+									<button
+										class="secondary"
+										type="button"
+										disabled={skillsBusy}
+										onclick={cancelDeleteSkill}
+									>
+										Cancel
+									</button>
+								{:else}
+									{#if skill.can_export}
+										<button
+											class="secondary"
+											type="button"
+											disabled={skillsBusy}
+											onclick={() => onExportSkill(skill.name)}
+										>
+											Export
+										</button>
+									{/if}
+									{#if skill.can_delete}
+										<button
+											class="secondary danger"
+											type="button"
+											disabled={skillsBusy}
+											title="Delete from ~/.cometmind/skills"
+											onclick={() => requestDeleteSkill(skill.name)}
+										>
+											Delete
+										</button>
+									{/if}
 								{/if}
-							{/if}
+							</div>
 						</div>
-					</div>
-				{/each}
-			{/if}
-		</div>
-		{#if skillErrors.length > 0}
-			<div class="skill-errors">
-				{#each skillErrors as error}
-					<p>{error}</p>
-				{/each}
-			</div>
-		{/if}
-	</div>
-
-	<SettingsMCPPanel
-		bind:this={mcpPanel}
-		mcp={cometmind.mcp}
-		onMcpChange={(next) => {
-			cometmind = { ...cometmind, mcp: next };
-		}}
-	/>
-
-	<div class="settings-section">
-		<div class="settings-section-heading">
-			<h3>Jobs</h3>
-			<p>Global work queue notifications and lease timing.</p>
-		</div>
-		<SettingsToggle
-			label="Job notifications"
-			description="Show desktop alerts when jobs are claimed or completed."
-			bind:checked={cometmind.jobs.notifications.enabled}
-		/>
-		<SettingsToggle
-			label="Notify on claimed"
-			description="Alert when a job is claimed by a session."
-			bind:checked={cometmind.jobs.notifications.onClaimed}
-			disabled={!cometmind.jobs.notifications.enabled}
-		/>
-		<SettingsToggle
-			label="Notify on completed"
-			description="Alert when a job is marked done."
-			bind:checked={cometmind.jobs.notifications.onCompleted}
-			disabled={!cometmind.jobs.notifications.enabled}
-		/>
-		<SettingsToggle
-			label="Notify on released"
-			description="Alert when an ongoing job returns to todo."
-			bind:checked={cometmind.jobs.notifications.onReleased}
-			disabled={!cometmind.jobs.notifications.enabled}
-		/>
-		<label>
-			<span>Lease duration (minutes)</span>
-			<input
-				type="number"
-				min="1"
-				step="1"
-				bind:value={cometmind.jobs.leaseMinutes}
-			/>
-		</label>
-		<label>
-			<span>Reconcile interval (seconds)</span>
-			<input
-				type="number"
-				min="30"
-				step="1"
-				bind:value={cometmind.jobs.reconcileIntervalSeconds}
-			/>
-		</label>
-		<label>
-			<span>Deleted job purge (days)</span>
-			<input
-				type="number"
-				min="1"
-				step="1"
-				bind:value={cometmind.jobs.deletedPurgeDays}
-			/>
-		</label>
-		<SettingsPersistenceHint tier="action" detail="Job notification settings" />
-	</div>
-
-	<div class="settings-section">
-		<div class="settings-section-heading">
-			<h3>Discord gateway</h3>
-			<p>
-				Runs <code>cometmind gateway run --platform discord</code> while Cometline is open.
-				Settings are saved to <code>~/.cometmind/cometline-settings.json</code>.
-			</p>
-		</div>
-		<div class="gateway-runtime">
-			<SettingsToggle
-				label="Run Discord gateway"
-				description="Start the Discord bot automatically while this app is running."
-				bind:checked={cometmind.gateway.discord.enabled}
-				disabled={gatewayBusy || !window.electronAPI?.setDiscordGatewayEnabled}
-				onchange={onDiscordGatewayToggle}
-			/>
-			<p class="gateway-status" class:running={gatewayRunning}>
-				Status: {gatewayRunning ? 'Running' : 'Stopped'}
-			</p>
-			<SettingsPersistenceHint tier="instant" detail="Run Discord gateway toggle" />
-		</div>
-		<label>
-			<span>Bot Token</span>
-			<input
-				type="password"
-				bind:value={cometmind.gateway.discord.botToken}
-				placeholder="Paste from Discord Developer Portal"
-				spellcheck="false"
-				autocomplete="off"
-			/>
-		</label>
-		<label>
-			<span>Default provider</span>
-			<select
-				value={cometmind.gateway.discord.providerId || discordProvider?.id || ''}
-				onchange={(e) => setDiscordProvider(e.currentTarget.value)}
-			>
-				{#each providers as provider (provider.id)}
-					<option value={provider.id}>{provider.name}</option>
-				{/each}
-			</select>
-		</label>
-		<label>
-			<span>Default model</span>
-			<select
-				value={cometmind.gateway.discord.modelId || discordModels[0] || ''}
-				onchange={(e) => setDiscordModel(e.currentTarget.value)}
-			>
-				{#each discordModels as model (model)}
-					<option value={model}>{model}</option>
-				{/each}
-			</select>
-			<p class="settings-field-hint">
-				Used for new Discord / thread sessions. Falls back to the global CometMind model
-				when empty.
-			</p>
-		</label>
-		<label>
-			<span>Workspace path (repo for the gateway)</span>
-			<div class="path-row">
-				<input
-					type="text"
-					bind:value={cometmind.gateway.discord.workspacePath}
-					placeholder="/path/to/cometline-release"
-					spellcheck="false"
-				/>
-				<button class="secondary" type="button" onclick={useCurrentWorkspace}
-					>Current workspace</button
-				>
-				{#if onPickWorkspace}
-					<button
-						class="secondary icon"
-						type="button"
-						aria-label="Choose folder"
-						onclick={onPickWorkspace}
-					>
-						<FolderOpen size={14} />
-					</button>
+					{/each}
 				{/if}
 			</div>
-		</label>
-		<label>
-			<span>Allowed user IDs (one per line)</span>
-			<textarea
-				bind:value={allowedUsersText}
-				onchange={syncListsFromText}
-				onblur={syncListsFromText}
-				rows="3"
-				placeholder="123456789012345678"
-				spellcheck="false"
-			></textarea>
-		</label>
-		<label>
-			<span>Allowed channel IDs (one per line; leave empty for no channel restriction)</span>
-			<textarea
-				bind:value={allowedChannelsText}
-				onchange={syncListsFromText}
-				onblur={syncListsFromText}
-				rows="3"
-				placeholder="987654321098765432"
-				spellcheck="false"
-			></textarea>
-		</label>
-		<label class="checkbox-row">
-			<input type="checkbox" bind:checked={cometmind.gateway.discord.requireMention} />
-			<span>Require @mention in server channels</span>
-		</label>
-	</div>
+			{#if skillErrors.length > 0}
+				<div class="skill-errors">
+					{#each skillErrors as error}
+						<p>{error}</p>
+					{/each}
+				</div>
+			{/if}
+		</div>
+
+		<SettingsMCPPanel
+			bind:this={mcpPanel}
+			mcp={cometmind.mcp}
+			onMcpChange={(next) => {
+				cometmind = { ...cometmind, mcp: next };
+			}}
+		/>
+
+		<div class="settings-section">
+			<div class="settings-section-heading">
+				<h3>Jobs</h3>
+				<p>Global work queue notifications and lease timing.</p>
+			</div>
+			<SettingsToggle
+				label="Job notifications"
+				description="Show desktop alerts when jobs are claimed or completed."
+				bind:checked={cometmind.jobs.notifications.enabled}
+			/>
+			<SettingsToggle
+				label="Notify on claimed"
+				description="Alert when a job is claimed by a session."
+				bind:checked={cometmind.jobs.notifications.onClaimed}
+				disabled={!cometmind.jobs.notifications.enabled}
+			/>
+			<SettingsToggle
+				label="Notify on completed"
+				description="Alert when a job is marked done."
+				bind:checked={cometmind.jobs.notifications.onCompleted}
+				disabled={!cometmind.jobs.notifications.enabled}
+			/>
+			<SettingsToggle
+				label="Notify on released"
+				description="Alert when an ongoing job returns to todo."
+				bind:checked={cometmind.jobs.notifications.onReleased}
+				disabled={!cometmind.jobs.notifications.enabled}
+			/>
+			<label>
+				<span>Lease duration (minutes)</span>
+				<input type="number" min="1" step="1" bind:value={cometmind.jobs.leaseMinutes} />
+			</label>
+			<label>
+				<span>Reconcile interval (seconds)</span>
+				<input
+					type="number"
+					min="30"
+					step="1"
+					bind:value={cometmind.jobs.reconcileIntervalSeconds}
+				/>
+			</label>
+			<label>
+				<span>Deleted job purge (days)</span>
+				<input
+					type="number"
+					min="1"
+					step="1"
+					bind:value={cometmind.jobs.deletedPurgeDays}
+				/>
+			</label>
+			<SettingsPersistenceHint tier="action" detail="Job notification settings" />
+		</div>
+
+		<div class="settings-section">
+			<div class="settings-section-heading">
+				<h3>Discord gateway</h3>
+				<p>
+					Runs <code>cometmind gateway run --platform discord</code> while Cometline is
+					open. Settings are saved to <code>~/.cometmind/cometline-settings.json</code>.
+				</p>
+			</div>
+			<div class="gateway-runtime">
+				<SettingsToggle
+					label="Run Discord gateway"
+					description="Start the Discord bot automatically while this app is running."
+					bind:checked={cometmind.gateway.discord.enabled}
+					disabled={gatewayBusy || !window.electronAPI?.setDiscordGatewayEnabled}
+					onchange={onDiscordGatewayToggle}
+				/>
+				<p class="gateway-status" class:running={gatewayRunning}>
+					Status: {gatewayRunning ? 'Running' : 'Stopped'}
+				</p>
+				<SettingsPersistenceHint tier="instant" detail="Run Discord gateway toggle" />
+			</div>
+			<label>
+				<span>Bot Token</span>
+				<input
+					type="password"
+					bind:value={cometmind.gateway.discord.botToken}
+					placeholder="Paste from Discord Developer Portal"
+					spellcheck="false"
+					autocomplete="off"
+				/>
+			</label>
+			<label>
+				<span>Default provider</span>
+				<select
+					value={cometmind.gateway.discord.providerId || discordProvider?.id || ''}
+					onchange={(e) => setDiscordProvider(e.currentTarget.value)}
+				>
+					{#each providers as provider (provider.id)}
+						<option value={provider.id}>{provider.name}</option>
+					{/each}
+				</select>
+			</label>
+			<label>
+				<span>Default model</span>
+				<select
+					value={cometmind.gateway.discord.modelId || discordModels[0] || ''}
+					onchange={(e) => setDiscordModel(e.currentTarget.value)}
+				>
+					{#each discordModels as model (model)}
+						<option value={model}>{model}</option>
+					{/each}
+				</select>
+				<p class="settings-field-hint">
+					Used for new Discord / thread sessions. Falls back to the global CometMind model
+					when empty.
+				</p>
+			</label>
+			<label>
+				<span>Workspace path (repo for the gateway)</span>
+				<div class="path-row">
+					<input
+						type="text"
+						bind:value={cometmind.gateway.discord.workspacePath}
+						placeholder="/path/to/cometline-release"
+						spellcheck="false"
+					/>
+					<button class="secondary" type="button" onclick={useCurrentWorkspace}
+						>Current workspace</button
+					>
+					{#if onPickWorkspace}
+						<button
+							class="secondary icon"
+							type="button"
+							aria-label="Choose folder"
+							onclick={onPickWorkspace}
+						>
+							<FolderOpen size={14} />
+						</button>
+					{/if}
+				</div>
+			</label>
+			<label>
+				<span>Allowed user IDs (one per line)</span>
+				<textarea
+					bind:value={allowedUsersText}
+					onchange={syncListsFromText}
+					onblur={syncListsFromText}
+					rows="3"
+					placeholder="123456789012345678"
+					spellcheck="false"
+				></textarea>
+			</label>
+			<label>
+				<span
+					>Allowed channel IDs (one per line; leave empty for no channel restriction)</span
+				>
+				<textarea
+					bind:value={allowedChannelsText}
+					onchange={syncListsFromText}
+					onblur={syncListsFromText}
+					rows="3"
+					placeholder="987654321098765432"
+					spellcheck="false"
+				></textarea>
+			</label>
+			<label class="checkbox-row">
+				<input type="checkbox" bind:checked={cometmind.gateway.discord.requireMention} />
+				<span>Require @mention in server channels</span>
+			</label>
+		</div>
 	</div>
 </section>
 

@@ -8,12 +8,7 @@ import {
 } from '$lib/sessions/group-by-workspace';
 import type { Session } from '$lib/types';
 
-function session(
-	id: string,
-	workspacePath: string,
-	updatedAt: number,
-	pinned = false
-): Session {
+function session(id: string, workspacePath: string, updatedAt: number, pinned = false): Session {
 	return {
 		id,
 		workspace_id: `ws-${workspacePath}`,

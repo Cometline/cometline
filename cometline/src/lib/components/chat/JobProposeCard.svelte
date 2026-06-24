@@ -12,7 +12,7 @@
 
 	let {
 		proposal,
-		sessionId,
+		sessionId: _sessionId,
 		onNotifyAgent,
 		onStartJob,
 		onDismiss
@@ -84,7 +84,8 @@
 
 	async function handleDone() {
 		if (!createdJob || phase !== 'created') return;
-		const path = createdJob.workspace_path?.trim() || selectedWorkspacePath.trim() || 'unspecified';
+		const path =
+			createdJob.workspace_path?.trim() || selectedWorkspacePath.trim() || 'unspecified';
 		await onNotifyAgent?.({
 			text: `Created job ${createdJob.id} in workspace ${path}.`,
 			displayText: `Created job: ${proposal.description}`
@@ -120,7 +121,9 @@
 	{#if phase === 'idle'}
 		<div class="card-actions">
 			<button type="button" class="secondary" onclick={handleCancel}>Cancel</button>
-			<button type="button" class="primary" onclick={() => void handleCreate()}>Create job</button>
+			<button type="button" class="primary" onclick={() => void handleCreate()}
+				>Create job</button
+			>
 		</div>
 	{:else if phase === 'creating' || phase === 'starting'}
 		<div class="card-status">
@@ -133,13 +136,17 @@
 		</div>
 		<div class="card-actions">
 			<button type="button" class="secondary" onclick={() => void handleDone()}>Done</button>
-			<button type="button" class="primary" onclick={() => void handleStartNow()}>Start now</button>
+			<button type="button" class="primary" onclick={() => void handleStartNow()}
+				>Start now</button
+			>
 		</div>
 	{:else if phase === 'cancelled'}
 		<p class="card-muted">Dismissed.</p>
 	{:else if phase === 'error'}
 		<div class="card-actions">
-			<button type="button" class="secondary" onclick={() => (phase = 'idle')}>Try again</button>
+			<button type="button" class="secondary" onclick={() => (phase = 'idle')}
+				>Try again</button
+			>
 		</div>
 	{/if}
 </div>

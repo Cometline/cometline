@@ -32,7 +32,9 @@ describe('looksLikeApiKeyHeader', () => {
 
 describe('appendQueryParam', () => {
 	it('adds the first query parameter with ?', () => {
-		expect(appendQueryParam('https://x.com/mcp', 'KEY', 'abc')).toBe('https://x.com/mcp?KEY=abc');
+		expect(appendQueryParam('https://x.com/mcp', 'KEY', 'abc')).toBe(
+			'https://x.com/mcp?KEY=abc'
+		);
 	});
 
 	it('appends to an existing query string with &', () => {
@@ -54,7 +56,9 @@ describe('appendQueryParam', () => {
 	});
 
 	it('encodes name and value', () => {
-		expect(appendQueryParam('https://x.com/mcp', 'A B', 'a/b')).toBe('https://x.com/mcp?A%20B=a%2Fb');
+		expect(appendQueryParam('https://x.com/mcp', 'A B', 'a/b')).toBe(
+			'https://x.com/mcp?A%20B=a%2Fb'
+		);
 	});
 });
 
@@ -107,7 +111,10 @@ describe('normalizeHttpConnection', () => {
 	});
 
 	it('preserves a pasted full URL with the key already in the query string', () => {
-		const result = normalizeHttpConnection('https://mcp.typefully.com/mcp?TYPEFULLY_API_KEY=k', {});
+		const result = normalizeHttpConnection(
+			'https://mcp.typefully.com/mcp?TYPEFULLY_API_KEY=k',
+			{}
+		);
 		expect(result.url).toBe('https://mcp.typefully.com/mcp?TYPEFULLY_API_KEY=k');
 		expect(result.movedToQuery).toEqual([]);
 	});

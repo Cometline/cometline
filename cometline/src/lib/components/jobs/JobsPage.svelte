@@ -33,7 +33,6 @@
 		{ id: 'done', label: 'Done' }
 	];
 
-	let jobs = $state<JobResource[]>([]);
 	let grouped = $state<GroupedJobs>({ todo: [], ongoing: [], done: [] });
 	let archivedJobs = $state<JobResource[]>([]);
 	let statusFilter = $state<StatusFilter>('all');
@@ -57,7 +56,6 @@
 	let createWorkspacePath = $state('');
 
 	function applyJobs(next: JobResource[]) {
-		jobs = next;
 		grouped = groupJobsByColumn(next);
 		archivedJobs = filterArchivedJobs(next);
 	}
@@ -70,7 +68,8 @@
 			const res = await listJobs({ include_deleted: true });
 			applyJobs(res.jobs ?? []);
 			if (selectedJob) {
-				const refreshed = (res.jobs ?? []).find((job) => job.id === selectedJob?.id) ?? null;
+				const refreshed =
+					(res.jobs ?? []).find((job) => job.id === selectedJob?.id) ?? null;
 				selectedJob = refreshed;
 			}
 		} catch (e) {

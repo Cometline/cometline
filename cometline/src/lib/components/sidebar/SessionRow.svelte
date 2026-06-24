@@ -71,7 +71,9 @@
 				class:active={session.pinned}
 				disabled={pinning}
 				onclick={onPin}
-				aria-label={session.pinned ? `Unpin ${session.title || 'Untitled'}` : `Pin ${session.title || 'Untitled'}`}
+				aria-label={session.pinned
+					? `Unpin ${session.title || 'Untitled'}`
+					: `Pin ${session.title || 'Untitled'}`}
 				title={session.pinned ? 'Unpin session' : 'Pin session'}
 			>
 				{#if session.pinned}

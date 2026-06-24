@@ -16,9 +16,7 @@ export function toolDurationLabel(item: Extract<ChatItem, { type: 'tool' }>, now
 export function toolFoldLabel(item: Extract<ChatItem, { type: 'tool' }>, now: number) {
 	const status = item.pending ? 'running' : item.error ? 'fail' : 'success';
 	const duration = toolDurationLabel(item, now);
-	return duration
-		? `${item.toolName} → ${status} · ${duration}`
-		: `${item.toolName} → ${status}`;
+	return duration ? `${item.toolName} → ${status} · ${duration}` : `${item.toolName} → ${status}`;
 }
 
 export function usageText(item: Extract<ChatItem, { type: 'status' }>) {

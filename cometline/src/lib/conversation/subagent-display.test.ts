@@ -42,7 +42,9 @@ describe('subagentProgressLabel', () => {
 	});
 
 	it('labels ACP delegates as OpenCode', () => {
-		expect(subagentProgressLabel(subagent({ agentName: 'opencode' }))).toBe('OpenCode · opencode');
+		expect(subagentProgressLabel(subagent({ agentName: 'opencode' }))).toBe(
+			'OpenCode · opencode'
+		);
 	});
 
 	it('counts tools in the label', () => {

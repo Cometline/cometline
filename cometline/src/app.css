@@ -16,6 +16,12 @@
 	--text-soft: #98a2b3;
 	--border-soft: #e5e7eb;
 	--accent: #0066cc;
+	--status-success: #15803d;
+	--status-error: #b42318;
+	--status-error-strong: #b42318;
+	--status-error-bg: rgba(255, 245, 245, 0.82);
+	--status-error-border: rgba(244, 63, 94, 0.18);
+	--overlay-scrim: rgba(251, 251, 250, 0.86);
 
 	/* Effects */
 	--shadow-card: 0 8px 28px rgba(15, 23, 42, 0.08);
@@ -103,9 +109,17 @@
 	/* Sidebar session rows — tints derive from --session-group-color (set by parent group) */
 	--session-group-color: var(--workspace-group-color);
 	--session-row-rail: color-mix(in srgb, var(--session-group-color) 32%, var(--border-soft));
-	--session-row-rail-hover: color-mix(in srgb, var(--session-group-color) 58%, var(--border-soft));
+	--session-row-rail-hover: color-mix(
+		in srgb,
+		var(--session-group-color) 58%,
+		var(--border-soft)
+	);
 	--session-row-rail-active: var(--session-group-color);
-	--session-row-rail-streaming: color-mix(in srgb, var(--session-group-color) 72%, var(--border-soft));
+	--session-row-rail-streaming: color-mix(
+		in srgb,
+		var(--session-group-color) 72%,
+		var(--border-soft)
+	);
 	--session-row-bg-hover: color-mix(in srgb, var(--session-group-color) 11%, transparent);
 	--session-row-bg-streaming: color-mix(in srgb, var(--session-group-color) 9%, transparent);
 	--session-row-bg-active: color-mix(in srgb, var(--session-group-color) 26%, transparent);
@@ -122,6 +136,8 @@
 	--color-text-soft: var(--text-soft);
 	--color-border-soft: var(--border-soft);
 	--color-accent: var(--accent);
+	--color-status-success: var(--status-success);
+	--color-status-error: var(--status-error);
 	--color-pane-focus-border: var(--pane-focus-border);
 	--color-intro-bg: var(--intro-bg);
 	--color-intro-ink: var(--intro-ink);

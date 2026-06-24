@@ -1,6 +1,7 @@
 <script lang="ts">
 	import SubagentPanel from '$lib/components/chat/SubagentPanel.svelte';
 	import ThreadAvatar from '$lib/components/chat/ThreadAvatar.svelte';
+	import ThreadRow from '$lib/components/chat/ThreadRow.svelte';
 	import { startsSpeakerRun } from '$lib/conversation/thread-view-helpers';
 	import type { AssistantStackFoldController } from '$lib/conversation/assistant-stack-props';
 	import type { ChatItem } from '$lib/stores/chat.svelte';
@@ -21,9 +22,10 @@
 	} = $props();
 </script>
 
-<div
-	class="row tool-row subagent-row"
-	class:continuation-row={!startsSpeakerRun(threadItems, index, 'assistant')}
+<ThreadRow
+	variant="assistant"
+	class="subagent-row"
+	continuationRow={!startsSpeakerRun(threadItems, index, 'assistant')}
 >
 	<ThreadAvatar variant="gutter" {iconVariant} />
 	<div class="subagent-stack">
@@ -33,25 +35,11 @@
 			onToggle={() => fold.toggleSubagent(item.id)}
 		/>
 	</div>
-</div>
+</ThreadRow>
 
 <style>
-	.row {
-		display: flex;
-		width: 100%;
-		gap: var(--chat-row-gap);
-	}
-
-	.continuation-row {
+	:global(.subagent-row.continuation-row) {
 		margin-top: -16px;
-	}
-
-	.tool-row {
-		justify-content: flex-start;
-	}
-
-	.subagent-row {
-		align-items: flex-start;
 	}
 
 	.subagent-stack {

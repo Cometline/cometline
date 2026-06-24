@@ -1,17 +1,12 @@
 <script lang="ts">
-	import {
-		formatContextPercent,
-		formatContextUsageTokens
-	} from '$lib/context-window';
+	import { formatContextPercent, formatContextUsageTokens } from '$lib/context-window';
 
 	let { usedTokens, limitTokens }: { usedTokens: number; limitTokens: number } = $props();
 
 	const radius = 8;
 	const circumference = 2 * Math.PI * radius;
 
-	let percent = $derived(
-		limitTokens > 0 ? Math.min(100, (usedTokens / limitTokens) * 100) : 0
-	);
+	let percent = $derived(limitTokens > 0 ? Math.min(100, (usedTokens / limitTokens) * 100) : 0);
 	let displayPercent = $derived(usedTokens > 0 && percent < 1.5 ? 1.5 : percent);
 	let dashOffset = $derived(circumference - (displayPercent / 100) * circumference);
 	let level = $derived(percent >= 90 ? 'critical' : percent >= 75 ? 'high' : 'normal');
@@ -79,11 +74,7 @@
 
 	/* Light blue empty ring — follows hero glow palette */
 	.track {
-		stroke: color-mix(
-			in srgb,
-			var(--hero-composer-glow-color, #72c0ff) 42%,
-			white
-		);
+		stroke: color-mix(in srgb, var(--hero-composer-glow-color, #72c0ff) 42%, white);
 	}
 
 	/* Filled arc deepens toward accent as context grows */

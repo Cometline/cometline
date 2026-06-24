@@ -85,14 +85,14 @@ export function parseListJobsCommand(text: string): boolean {
 	return /^\s*\/list-jobs\s*$/i.test(text);
 }
 
-export function filterJobOptions<T extends { id: string; description: string }>(query: string, jobs: T[]): T[] {
+export function filterJobOptions<T extends { id: string; description: string }>(
+	query: string,
+	jobs: T[]
+): T[] {
 	const q = query.toLowerCase();
 	return jobs.filter((job) => {
 		if (!q) return true;
-		return (
-			job.id.toLowerCase().includes(q) ||
-			job.description.toLowerCase().includes(q)
-		);
+		return job.id.toLowerCase().includes(q) || job.description.toLowerCase().includes(q);
 	});
 }
 

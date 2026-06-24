@@ -75,7 +75,10 @@ import type {
 } from '$lib/generated/cometmind-api';
 import { client } from '$lib/generated/cometmind-api/client.gen';
 import { createSSEParser } from '$lib/sse/parser';
-import { buildJobExecutionPrompt as buildJobExecutionPromptImpl, type JobExecutionPromptInput } from '$lib/jobs/build-job-execution-prompt';
+import {
+	buildJobExecutionPrompt as buildJobExecutionPromptImpl,
+	type JobExecutionPromptInput
+} from '$lib/jobs/build-job-execution-prompt';
 
 export type {
 	CompactMemoryPreviewResponse,
@@ -86,7 +89,13 @@ export type {
 	MemoryResource
 } from '$lib/generated/cometmind-api';
 
-export type { JobResource, JobEventResource, JobSettings, CreateJobRequest, UpdateJobRequest } from '$lib/generated/cometmind-api';
+export type {
+	JobResource,
+	JobEventResource,
+	JobSettings,
+	CreateJobRequest,
+	UpdateJobRequest
+} from '$lib/generated/cometmind-api';
 
 export type MemoryLifecycleSettings = {
 	decay_half_life_days: number;
@@ -638,11 +647,7 @@ export function claimJob(id: string, sessionId: string): Promise<JobResource> {
 	}).then(({ data }) => data);
 }
 
-export function releaseJob(
-	id: string,
-	sessionId: string,
-	reason?: string
-): Promise<JobResource> {
+export function releaseJob(id: string, sessionId: string, reason?: string): Promise<JobResource> {
 	return releaseJobApi({
 		path: { id },
 		body: { session_id: sessionId, reason },

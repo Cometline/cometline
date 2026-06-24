@@ -99,12 +99,7 @@ describe('usageText', () => {
 describe('assistantWaitSeconds', () => {
 	it('returns 0 when item is missing or has no pendingStartedAt', () => {
 		expect(assistantWaitSeconds(undefined, 5000)).toBe(0);
-		expect(
-			assistantWaitSeconds(
-				{ id: 'a1', type: 'assistant', text: '' },
-				5000
-			)
-		).toBe(0);
+		expect(assistantWaitSeconds({ id: 'a1', type: 'assistant', text: '' }, 5000)).toBe(0);
 	});
 
 	it('floors elapsed seconds from pendingStartedAt', () => {

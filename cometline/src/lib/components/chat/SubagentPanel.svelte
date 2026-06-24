@@ -40,7 +40,12 @@
 	}
 </script>
 
-<div class="fold-panel subagent-panel" class:pending={item.pending} class:nested class:content-only={contentOnly}>
+<div
+	class="fold-panel subagent-panel"
+	class:pending={item.pending}
+	class:nested
+	class:content-only={contentOnly}
+>
 	{#if !contentOnly}
 		<div class="subagent-header">
 			<button

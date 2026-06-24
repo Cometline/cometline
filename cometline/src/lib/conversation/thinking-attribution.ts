@@ -282,10 +282,7 @@ export function isAssistantResponseActive(
 	streamingAssistantId: string | null,
 	sessionStreaming: boolean
 ): boolean {
-	return (
-		!assistant.text.trim() ||
-		(assistant.id === streamingAssistantId && sessionStreaming)
-	);
+	return !assistant.text.trim() || (assistant.id === streamingAssistantId && sessionStreaming);
 }
 
 /** Default thinking fold: all segments start collapsed; user expands manually. */

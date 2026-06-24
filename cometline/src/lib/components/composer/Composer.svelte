@@ -2,7 +2,7 @@
 	import { onDestroy, tick } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { fade } from 'svelte/transition';
-	import { Check, FileText, Folder, Loader, Search, Send, Square, Trash2, X } from '@lucide/svelte';
+	import { Check, FileText, Folder, Loader, Search, Send, Square, Trash2 } from '@lucide/svelte';
 	import type { QueuedMessage } from '$lib/actions/chat-turn-queue';
 	import type { ChatTurnPayload } from '$lib/actions/start-chat';
 	import { modelStore, type ModelOption } from '$lib/stores/model.svelte';
@@ -15,7 +15,16 @@
 	import MessageQueuePanel from '$lib/components/composer/MessageQueuePanel.svelte';
 	import ModelPicker from '$lib/components/composer/ModelPicker.svelte';
 	import SlashCommandMenu from '$lib/components/composer/SlashCommandMenu.svelte';
-	import { listSkills, listWorkspaces, forkSession, clearSession, deleteWorkspace, listJobs, claimJob, buildJobExecutionPrompt } from '$lib/client/cometmind';
+	import {
+		listSkills,
+		listWorkspaces,
+		forkSession,
+		clearSession,
+		deleteWorkspace,
+		listJobs,
+		claimJob,
+		buildJobExecutionPrompt
+	} from '$lib/client/cometmind';
 	import {
 		filterFileIndex,
 		getFileIndex,
@@ -53,6 +62,7 @@
 	import { isSupportedImageFile, readImageAttachments } from '$lib/files/images';
 	import type { ImageAttachment, SkillResource } from '$lib/types';
 	import type { JobResource } from '$lib/generated/cometmind-api';
+	import { createComposerInputController } from '$lib/components/composer/composer-controller.svelte';
 
 	let {
 		onSend,
@@ -90,6 +100,21 @@
 
 	let value = $state('');
 	let images = $state<ImageAttachment[]>([]);
+
+	function clearDraft() {
+		value = '';
+		images = [];
+	}
+
+	const inputController = createComposerInputController({
+		onSend: (payload) => onSend(payload),
+		getValue: () => value,
+		getImages: () => images,
+		getDisabled: () => disabled,
+		getHasSelectedModel: () => Boolean(modelStore.selected),
+		clearDraft
+	});
+
 	let input = $state<RichComposerInput | null>(null);
 	let skillMenu = $state<HTMLDivElement | null>(null);
 	let skills = $state<SkillResource[]>([]);
@@ -122,11 +147,10 @@
 	let dropProcessing = $state(false);
 	let dropMessageTimer: ReturnType<typeof setTimeout> | null = null;
 	let dragActive = $derived(dragDepth > 0 || dropProcessing);
-	let canSubmit = $derived(Boolean(value.trim() || images.length > 0));
+	let canSubmit = $derived(inputController.canSubmit());
 	let contextWindowUsage = $derived.by(() => {
 		const limit = resolveContextWindow(settingsStore.settings.cometmind.contextWindowLimit);
-		const items =
-			sessionId && chatStore.sessionID === sessionId ? chatStore.items : [];
+		const items = sessionId && chatStore.sessionID === sessionId ? chatStore.items : [];
 		const draftTokens = value.trim() ? estimateTokensFromText(value) : 0;
 		const used = estimateChatContextTokens(items) + draftTokens;
 		return { used, limit };
@@ -323,11 +347,7 @@
 	});
 
 	function sendTurn(payload: ChatTurnPayload | string) {
-		if (typeof payload === 'string') {
-			onSend({ text: payload });
-			return;
-		}
-		onSend(payload);
+		inputController.sendTurn(payload);
 	}
 
 	function submit() {
@@ -361,8 +381,7 @@
 			filePaths: filePaths.length > 0 ? filePaths : undefined
 		});
 		input?.clear();
-		value = '';
-		images = [];
+		clearDraft();
 	}
 
 	async function handleListJobsSubmit() {
@@ -687,8 +706,7 @@
 			const jobPath = claimed.workspace_path?.trim();
 			const sessionPath = shellStore.workspacePath?.trim();
 			if (jobPath && sessionPath && jobPath !== sessionPath) {
-				prompt +=
-					`\n\nNote: this job targets workspace \`${jobPath}\` but this session uses \`${sessionPath}\`. Consider /change to fork into the correct workspace before editing files.`;
+				prompt += `\n\nNote: this job targets workspace \`${jobPath}\` but this session uses \`${sessionPath}\`. Consider /change to fork into the correct workspace before editing files.`;
 			}
 			input?.clear();
 			value = '';
@@ -727,7 +745,8 @@
 			e.preventDefault();
 			if (filteredJobOptions.length > 0) {
 				jobCommandHighlight =
-					(jobCommandHighlight - 1 + filteredJobOptions.length) % filteredJobOptions.length;
+					(jobCommandHighlight - 1 + filteredJobOptions.length) %
+					filteredJobOptions.length;
 			}
 			return true;
 		}
@@ -1385,7 +1404,6 @@
 			{/if}
 		</div>
 	</div>
-
 </div>
 
 <style>

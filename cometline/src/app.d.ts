@@ -244,8 +244,7 @@ declare global {
 				};
 			}) => Promise<{ started: boolean; message: string }>;
 			readCursorMcpConfig?: () => Promise<
-				| { ok: true; path: string; config: unknown }
-				| { ok: false; error: string }
+				{ ok: true; path: string; config: unknown } | { ok: false; error: string }
 			>;
 			getDiscordGatewayStatus?: () => Promise<{ running: boolean; enabled: boolean }>;
 			setDiscordGatewayEnabled?: (
@@ -253,7 +252,9 @@ declare global {
 			) => Promise<{ running: boolean; enabled: boolean }>;
 			getOpenAtLogin?: () => Promise<OpenAtLoginState>;
 			setOpenAtLogin?: (enabled: boolean) => Promise<OpenAtLoginState>;
-			fetchProviderModels?: (config: ProviderConfig) => Promise<FetchProviderModelsResult | string[]>;
+			fetchProviderModels?: (
+				config: ProviderConfig
+			) => Promise<FetchProviderModelsResult | string[]>;
 			saveProviderSettings?: (
 				settings: ProviderSettings,
 				options?: { restartCometMind?: boolean }
@@ -267,9 +268,7 @@ declare global {
 			selectWorkspacePath?: () => Promise<string | null>;
 			setWorkspacePath?: (workspacePath: string) => Promise<string>;
 			listRecentWorkspaces?: () => Promise<string[]>;
-			removeRecentWorkspacePath?: (
-				workspacePath: string
-			) => Promise<{ removed: boolean }>;
+			removeRecentWorkspacePath?: (workspacePath: string) => Promise<{ removed: boolean }>;
 			filterExistingWorkspacePaths?: (paths: string[]) => Promise<string[]>;
 			pruneWorkspaceStore?: () => Promise<{ removedRecent: number; clearedCurrent: boolean }>;
 			readWorkspaceFile?: (

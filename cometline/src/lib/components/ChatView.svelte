@@ -15,7 +15,6 @@
 	import { sessionStore } from '$lib/stores/session.svelte';
 	import { updateSession } from '$lib/client/cometmind';
 	import { chatStore } from '$lib/stores/chat.svelte';
-	import { connectionState } from '$lib/stores/runtime.svelte';
 	import { modelStore } from '$lib/stores/model.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { settingsStore } from '$lib/stores/settings.svelte';
@@ -27,6 +26,7 @@
 	import { analyzeProviderSwitch, type ProviderSwitchWarning } from '$lib/provider-switch';
 	import { startJobInSession } from '$lib/jobs/start-job-in-chat';
 	import type { JobResource } from '$lib/client/cometmind';
+	import { createChatViewController } from '$lib/conversation/chat-view-controller.svelte';
 
 	const THREAD_IN = { duration: 140 };
 
@@ -54,14 +54,16 @@
 						firstTurnHandoffPending = false;
 						return;
 					}
-					return firstTurnFlight?.runAsync(payload.text, payload.images, {
-						stageUser,
-						revealStagedUser
-					}).catch((error) => {
-						firstTurnFlightDone = true;
-						firstTurnHandoffPending = false;
-						throw error;
-					});
+					return firstTurnFlight
+						?.runAsync(payload.text, payload.images, {
+							stageUser,
+							revealStagedUser
+						})
+						.catch((error) => {
+							firstTurnFlightDone = true;
+							firstTurnHandoffPending = false;
+							throw error;
+						});
 				}
 				return userBubbleFlight
 					?.runAsync(payload.text, payload.images, {
@@ -114,14 +116,21 @@
 		return snapshotItems.length > 0 || snapshotLoading;
 	});
 	let composerSnap = $derived(chatStore.sessionID === sessionId && chatStore.isLoading);
-	let composerVariant = $derived<'hero' | 'dock'>(
-		shellStore.composerPhase === 'centered' ? 'hero' : 'dock'
-	);
-	let heroLayout = $derived(
-		shellStore.composerPhase === 'centered' &&
-			((!hasVisibleConversation && !firstTurnActive) ||
-				(firstTurnActive && !firstTurnFlightDone))
-	);
+
+	const chatView = createChatViewController({
+		getSessionId: () => sessionId,
+		getHasVisibleConversation: () => hasVisibleConversation,
+		getFirstTurnActive: () => firstTurnActive,
+		getFirstTurnFlightDone: () => firstTurnFlightDone,
+		getAwaitingFirstAssistant: () => awaitingFirstAssistant,
+		enqueue: (payload) => {
+			void conversation.enqueue(payload);
+		},
+		cancelTurn: () => conversation.cancel()
+	});
+
+	let composerVariant = $derived(chatView.composerVariant);
+	let heroLayout = $derived(chatView.heroLayout);
 
 	let heroFrameExiting = $state(false);
 
@@ -205,8 +214,7 @@
 	});
 
 	function submit(payload: ChatTurnPayload | string) {
-		if (connectionState.status !== 'ready') return;
-		void conversation.enqueue(payload);
+		chatView.submit(payload);
 	}
 
 	function startJobFromCard(job: JobResource) {
@@ -218,7 +226,7 @@
 	}
 
 	function stop() {
-		conversation.cancel();
+		chatView.stop();
 	}
 
 	function removeQueuedMessage(id: string) {
@@ -359,7 +367,7 @@
 					syncQueueState();
 				}}
 				{sessionId}
-				disabled={connectionState.status !== 'ready'}
+				disabled={!chatView.canSend}
 				streaming={chatStore.isStreamingFor(sessionId)}
 				{queuedCount}
 				{queuedMessages}
@@ -438,7 +446,7 @@
 		max-width: 520px;
 		font-size: 12px;
 		line-height: 1.5;
-		color: #b42318;
+		color: var(--status-error);
 		text-align: center;
 	}
 

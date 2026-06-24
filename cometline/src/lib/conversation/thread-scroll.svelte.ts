@@ -26,9 +26,7 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 	let scrollFrame = 0;
 	let isInitialTranscriptPaint = $state(true);
 
-	const scrollKey = $derived(
-		buildScrollKey(deps.getThreadItems(), deps.getSessionStreaming())
-	);
+	const scrollKey = $derived(buildScrollKey(deps.getThreadItems(), deps.getSessionStreaming()));
 
 	function setScroller(element: HTMLDivElement | undefined) {
 		scroller = element;
@@ -57,11 +55,7 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 		const target = scroller.querySelector<HTMLElement>(`[data-user-item-id="${userId}"]`);
 		if (!target) return;
 		const absoluteTop = offsetTopRelativeTo(target, scroller);
-		const top = userMessageScrollTop(
-			absoluteTop,
-			deps.getUserMessageCount(),
-			viewportHeight
-		);
+		const top = userMessageScrollTop(absoluteTop, deps.getUserMessageCount(), viewportHeight);
 		scroller.scrollTo({ top, behavior: 'smooth' });
 		updateJumpToBottom();
 	}

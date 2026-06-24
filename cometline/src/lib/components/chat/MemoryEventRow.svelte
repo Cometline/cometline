@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { fade } from 'svelte/transition';
 	import { Brain } from '@lucide/svelte';
+	import ThreadRow from '$lib/components/chat/ThreadRow.svelte';
+	import EventCard from '$lib/components/chat/EventCard.svelte';
 	import type { ChatItem } from '$lib/stores/chat.svelte';
 
 	let {
@@ -12,8 +14,8 @@
 	} = $props();
 </script>
 
-<div class="row event-row">
-	<div class="event-card memory-card">
+<ThreadRow variant="event">
+	<EventCard variant="memory">
 		<div class="event-title">
 			<Brain size={14} /><span>Memories used · {item.memories.length}</span>
 		</div>
@@ -24,56 +26,15 @@
 					<span
 						class="memory-chip memory-chip-cycling"
 						in:fade={{ duration: 500 }}
-						title={mem.content}
-					>{mem.kind}: {mem.content}</span
+						title={mem.content}>{mem.kind}: {mem.content}</span
 					>
 				</div>
 			{/key}
 		{/if}
-	</div>
-</div>
+	</EventCard>
+</ThreadRow>
 
 <style>
-	.row {
-		display: flex;
-		width: 100%;
-		gap: var(--chat-row-gap);
-	}
-
-	.event-row {
-		justify-content: flex-start;
-	}
-
-	.event-row .event-card {
-		max-width: var(--chat-content-column);
-	}
-
-	.event-card {
-		min-width: 0;
-		width: 100%;
-		max-width: 100%;
-		border: 1px solid var(--border-soft);
-		background: rgba(255, 255, 255, 0.68);
-		border-radius: 14px;
-		padding: 10px 12px;
-		color: var(--text-muted);
-		box-shadow: 0 6px 18px rgba(15, 23, 42, 0.04);
-	}
-
-	.event-title {
-		display: flex;
-		align-items: center;
-		gap: 7px;
-		font-size: 12px;
-		font-weight: 650;
-		color: var(--text-main);
-		margin-bottom: 7px;
-	}
-
-	.event-title :global(svg:last-child) {
-		flex-shrink: 0;
-	}
-
 	.memory-chip {
 		display: block;
 		width: 100%;

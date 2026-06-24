@@ -55,16 +55,12 @@
 
 	let dismissRevision = $state(0);
 	const proposalDismissed = $derived.by(() => {
-		dismissRevision;
-		return Boolean(
-			jobProposal && sessionId && isJobProposalDismissed(sessionId, jobProposal)
-		);
+		void dismissRevision;
+		return Boolean(jobProposal && sessionId && isJobProposalDismissed(sessionId, jobProposal));
 	});
 	const proposalDismissal = $derived.by(() => {
-		dismissRevision;
-		return jobProposal && sessionId
-			? getJobProposalDismissal(sessionId, jobProposal)
-			: null;
+		void dismissRevision;
+		return jobProposal && sessionId ? getJobProposalDismissal(sessionId, jobProposal) : null;
 	});
 
 	function handleProposalDismiss(action: JobProposalDismissAction, jobId?: string) {
@@ -85,7 +81,12 @@
 	}
 </script>
 
-<div class="fold-panel tool-fold-panel" class:error={!!item.error} class:nested class:content-only={contentOnly}>
+<div
+	class="fold-panel tool-fold-panel"
+	class:error={!!item.error}
+	class:nested
+	class:content-only={contentOnly}
+>
 	{#if !contentOnly}
 		<button
 			type="button"

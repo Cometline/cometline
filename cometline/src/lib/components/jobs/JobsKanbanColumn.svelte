@@ -27,7 +27,13 @@
 			<span class="kanban-count">{jobs.length}</span>
 		</div>
 		{#if showAdd && onAdd}
-			<button type="button" class="kanban-add" aria-label="New job" title="New job" onclick={onAdd}>
+			<button
+				type="button"
+				class="kanban-add"
+				aria-label="New job"
+				title="New job"
+				onclick={onAdd}
+			>
 				<Plus size={14} stroke-width={2} />
 			</button>
 		{/if}
@@ -100,7 +106,9 @@
 		display: grid;
 		place-items: center;
 		flex-shrink: 0;
-		transition: background 140ms ease, color 140ms ease;
+		transition:
+			background 140ms ease,
+			color 140ms ease;
 	}
 
 	.kanban-add:hover {

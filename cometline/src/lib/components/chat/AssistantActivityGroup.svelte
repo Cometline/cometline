@@ -11,17 +11,12 @@
 		TriangleAlert
 	} from '@lucide/svelte';
 	import ThinkingSpinner from '$lib/components/ThinkingSpinner.svelte';
-	import ThinkingBlock from '$lib/components/chat/ThinkingBlock.svelte';
 	import MemoryCard from '$lib/components/chat/MemoryCard.svelte';
-	import ToolFoldPanel from '$lib/components/chat/ToolFoldPanel.svelte';
-	import SubagentPanel from '$lib/components/chat/SubagentPanel.svelte';
+	import TimelineEntryRow from '$lib/components/chat/TimelineEntryRow.svelte';
+	import { getChatTurnContext } from '$lib/conversation/chat-turn-context';
 	import type { ChatItem } from '$lib/stores/chat.svelte';
 	import type { TimelineEntry, InjectedMemory } from '$lib/conversation/thinking-attribution';
-	import { isTimelineEntryToggleDisabled } from '$lib/conversation/thinking-attribution';
 	import { subagentProgressLabel } from '$lib/conversation/subagent-display';
-
-	import type { ChatTurnPayload } from '$lib/actions/start-chat';
-	import type { JobResource } from '$lib/client/cometmind';
 
 	let {
 		assistant,
@@ -30,20 +25,7 @@
 		parentExpanded,
 		onToggleParent,
 		timelineEntryKey,
-		toolFoldLabel,
-		thinkingExpanded,
-		toggleThinking,
-		memoryInThinkingExpanded,
-		toggleMemoryInThinking,
-		thinkingActive,
 		showThinkingSpinner,
-		toolOutputExpanded,
-		toggleToolOutput,
-		subagentExpanded,
-		toggleSubagent,
-		sessionId = '',
-		onNotifyAgent,
-		onStartJob,
 		maxVisibleReasoning = 0,
 		cycling = false
 	}: {
@@ -53,33 +35,13 @@
 		parentExpanded: boolean;
 		onToggleParent: () => void;
 		timelineEntryKey: (entry: TimelineEntry) => string;
-		toolFoldLabel: (item: Extract<ChatItem, { type: 'tool' }>) => string;
-		thinkingExpanded: (
-			assistant: Extract<ChatItem, { type: 'assistant' }>,
-			segmentKey: string,
-			segmentIndex: number,
-			pending?: boolean
-		) => boolean;
-		toggleThinking: (
-			assistant: Extract<ChatItem, { type: 'assistant' }>,
-			segmentKey: string,
-			segmentIndex: number,
-			pending?: boolean
-		) => void;
-		memoryInThinkingExpanded: (segmentKey: string) => boolean;
-		toggleMemoryInThinking: (segmentKey: string) => void;
-		thinkingActive: (pending?: boolean) => boolean;
 		showThinkingSpinner: boolean;
-		toolOutputExpanded: (item: Extract<ChatItem, { type: 'tool' }>) => boolean;
-		toggleToolOutput: (id: string) => void;
-		subagentExpanded: (id: string) => boolean;
-		toggleSubagent: (id: string) => void;
-		sessionId?: string;
-		onNotifyAgent?: (payload: ChatTurnPayload) => void | Promise<void>;
-		onStartJob?: (job: JobResource) => void | Promise<void>;
 		maxVisibleReasoning?: number;
 		cycling?: boolean;
 	} = $props();
+
+	const ctx = getChatTurnContext();
+	const bodyId = $derived(`activity-group-body-${assistantId}`);
 
 	let firstEntry = $derived(timeline[0]);
 	let childEntries = $derived(timeline.slice(1));
@@ -99,12 +61,12 @@
 	function parentLabel(entry: TimelineEntry) {
 		if (entry.kind === 'reasoning') return 'Thinking';
 		if (entry.kind === 'memory') return memoryLabel(entry.memories);
-		if (entry.kind === 'tool') return toolFoldLabel(entry.tool);
+		if (entry.kind === 'tool') return ctx.toolFoldLabel(entry.tool);
 		return subagentProgressLabel(entry.subagent);
 	}
 
-	function segmentKey(entry: Extract<TimelineEntry, { kind: 'reasoning' }>) {
-		return `${assistantId}-seg-${entry.segmentIndex}`;
+	function thinkingActive(pending?: boolean) {
+		return pending === true;
 	}
 
 	const CHILD_FADE = { duration: 500 };
@@ -126,57 +88,13 @@
 	}
 </script>
 
-{#snippet timelineChild(entry: TimelineEntry)}
-	{@const toggleDisabled = isTimelineEntryToggleDisabled(entry)}
-	{#if entry.kind === 'reasoning'}
-		{@const key = segmentKey(entry)}
-		<ThinkingBlock
-			text={entry.text}
-			pending={entry.pending}
-			expanded={thinkingExpanded(assistant, key, entry.segmentIndex, entry.pending)}
-			showSpinner={thinkingActive(entry.pending) && showThinkingSpinner}
-			nested={true}
-			{toggleDisabled}
-			onToggle={() => toggleThinking(assistant, key, entry.segmentIndex, entry.pending)}
-		/>
-	{:else if entry.kind === 'memory'}
-		{@const memoryKey = `${assistantId}-memory`}
-		<MemoryCard
-			memories={entry.memories}
-			expanded={memoryInThinkingExpanded(memoryKey)}
-			nested={true}
-			onToggle={() => toggleMemoryInThinking(memoryKey)}
-			{cycling}
-		/>
-	{:else if entry.kind === 'tool'}
-		<ToolFoldPanel
-			item={entry.tool}
-			label={toolFoldLabel(entry.tool)}
-			expanded={toolOutputExpanded(entry.tool)}
-			nested={true}
-			{toggleDisabled}
-			onToggle={() => toggleToolOutput(entry.tool.id)}
-			{sessionId}
-			{onNotifyAgent}
-			{onStartJob}
-		/>
-	{:else}
-		<SubagentPanel
-			item={entry.subagent}
-			expanded={subagentExpanded(entry.subagent.id)}
-			nested={true}
-			{toggleDisabled}
-			onToggle={() => toggleSubagent(entry.subagent.id)}
-		/>
-	{/if}
-{/snippet}
-
 {#if firstEntry}
 	<div class="fold-panel activity-group">
 		<button
 			type="button"
 			class="fold-toggle activity-group-toggle"
 			aria-expanded={parentExpanded}
+			aria-controls={bodyId}
 			onclick={onToggleParent}
 		>
 			{#if firstEntry.kind === 'reasoning' || firstEntry.kind === 'memory'}
@@ -209,25 +127,8 @@
 			<ChevronDown size={13} class={parentExpanded ? 'expanded' : ''} />
 		</button>
 		{#if parentExpanded}
-			<div class="fold-body activity-group-body scrollbar-none">
-			{#if firstEntry.kind === 'reasoning'}
-				{@const key = segmentKey(firstEntry)}
-				<ThinkingBlock
-					text={firstEntry.text}
-					pending={firstEntry.pending}
-					expanded={thinkingExpanded(assistant, key, firstEntry.segmentIndex, firstEntry.pending)}
-					showSpinner={thinkingActive(firstEntry.pending) && showThinkingSpinner}
-					nested={true}
-					toggleDisabled={isTimelineEntryToggleDisabled(firstEntry)}
-					onToggle={() =>
-						toggleThinking(
-							assistant,
-							key,
-							firstEntry.segmentIndex,
-							firstEntry.pending
-						)}
-				/>
-				{:else if firstEntry.kind === 'memory'}
+			<div id={bodyId} class="fold-body activity-group-body scrollbar-none">
+				{#if firstEntry.kind === 'memory'}
 					<MemoryCard
 						memories={firstEntry.memories}
 						expanded={true}
@@ -236,25 +137,14 @@
 						onToggle={() => {}}
 						{cycling}
 					/>
-				{:else if firstEntry.kind === 'tool'}
-					<ToolFoldPanel
-						item={firstEntry.tool}
-						label={toolFoldLabel(firstEntry.tool)}
-						expanded={toolOutputExpanded(firstEntry.tool)}
-						nested={true}
-						toggleDisabled={isTimelineEntryToggleDisabled(firstEntry)}
-						onToggle={() => toggleToolOutput(firstEntry.tool.id)}
-						{sessionId}
-						{onNotifyAgent}
-						{onStartJob}
-					/>
 				{:else}
-					<SubagentPanel
-						item={firstEntry.subagent}
-						expanded={subagentExpanded(firstEntry.subagent.id)}
+					<TimelineEntryRow
+						entry={firstEntry}
+						{assistant}
+						{assistantId}
 						nested={true}
-						toggleDisabled={isTimelineEntryToggleDisabled(firstEntry)}
-						onToggle={() => toggleSubagent(firstEntry.subagent.id)}
+						{showThinkingSpinner}
+						{cycling}
 					/>
 				{/if}
 				{#each visibleChildren as entry (timelineEntryKey(entry))}
@@ -265,7 +155,14 @@
 							animate: slidingWindow
 						}}
 					>
-						{@render timelineChild(entry)}
+						<TimelineEntryRow
+							{entry}
+							{assistant}
+							{assistantId}
+							nested={true}
+							{showThinkingSpinner}
+							{cycling}
+						/>
 					</div>
 				{/each}
 				{#if hiddenCount > 0}
@@ -279,10 +176,6 @@
 {/if}
 
 <style>
-	/* Base .fold-panel / .fold-toggle / .fold-body styles live in
-	   src/lib/styles/fold-panel.css. Only component-specific overrides here. */
-
-	/* Let the activity-group toggle pill grow to its natural label width. */
 	.activity-group-toggle {
 		max-width: none;
 	}

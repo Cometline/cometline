@@ -303,7 +303,6 @@
 		min-height: 0;
 	}
 
-
 	.provider-sidebar {
 		display: flex;
 		flex-direction: column;

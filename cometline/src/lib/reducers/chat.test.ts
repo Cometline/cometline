@@ -384,7 +384,8 @@ describe('reduceChatState', () => {
 			type: 'subagent_finished',
 			child_session_id: 'child-1',
 			delegation_status: 'failed',
-			summary: 'Partial progress from tool calls:\n- web_fetch: results\n\n(Step limit reached — research incomplete.)'
+			summary:
+				'Partial progress from tool calls:\n- web_fetch: results\n\n(Step limit reached — research incomplete.)'
 		});
 
 		const card = state.items.find((item) => item.type === 'subagent');

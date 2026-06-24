@@ -1,14 +1,11 @@
 <script lang="ts">
-	import { fade, fly, scale } from 'svelte/transition';
+	import { fade, scale } from 'svelte/transition';
 	import {
-		Check,
 		Download,
 		FolderOpen,
 		Keyboard,
-		LogIn,
 		LoaderCircle,
 		Palette,
-		Plus,
 		Power,
 		RefreshCw,
 		Settings,
@@ -56,14 +53,6 @@
 		authPath: string;
 		accountID?: string;
 		error?: string;
-	};
-
-	const METHOD_LABELS: Record<ProviderMethod, string> = {
-		openai: 'OpenAI',
-		anthropic: 'Anthropic',
-		'opencode-go': 'OpenCode Go',
-		codex: 'ChatGPT Codex',
-		'openai-compatible': 'OpenAI Compatible'
 	};
 
 	const DEFAULT_PROVIDER_IDS = new Set([
@@ -177,9 +166,7 @@
 		!checkingUpdates && updateState.status !== 'downloading' && !installingUpdate
 	);
 
-	let draftPendingDirty = $derived(
-		settingsPendingDirty(draft, settingsStore.settings)
-	);
+	let draftPendingDirty = $derived(settingsPendingDirty(draft, settingsStore.settings));
 
 	let memoryPendingDirty = $derived(memoryPanel?.isDirty?.() ?? false);
 
@@ -430,9 +417,7 @@
 		const restartNote = restartCometMind ? ' CometMind restarted.' : '';
 		switch (section) {
 			case 'models':
-				return restartCometMind
-					? `Changes saved.${restartNote}`
-					: 'Changes saved.';
+				return restartCometMind ? `Changes saved.${restartNote}` : 'Changes saved.';
 			case 'agent':
 				return `Changes saved.${restartNote}`;
 			case 'appearance':
@@ -730,21 +715,8 @@
 		draft = { ...draft, app: { ...draft.app, iconVariant } };
 	}
 
-	function methodNeedsApiKey(method: ProviderMethod) {
-		return method !== 'codex';
-	}
-
 	function discardSettings() {
 		shellStore.closeSettings();
-	}
-
-	function canFetchModels(provider: ProviderConfig) {
-		if (settingsStore.isFetchingModels || !provider.baseURL.trim()) return false;
-		return (
-			provider.method === 'codex' ||
-			provider.method === 'opencode-go' ||
-			provider.apiKey.trim().length > 0
-		);
 	}
 </script>
 
@@ -866,31 +838,31 @@
 					<div class="settings-panel-stack">
 						<SettingsTabPersistence section="models" />
 						<SettingsProvidersPanel
-						providers={draft.providers}
-						bind:selectedProviderId
-						bind:modelSearch
-						{enabledProviderCount}
-						{filteredModels}
-						{selectedProvider}
-						{codexAuthStatus}
-						{checkingCodexAuth}
-						{startingCodexLogin}
-						onAddProvider={addProvider}
-						onRemoveProvider={removeProvider}
-						onToggleProvider={toggleProvider}
-						onUpdateSelected={updateSelected}
-						onSetMethod={setSelectedMethod}
-						onFetchModels={fetchModels}
-						onToggleModel={toggleModel}
-						onStartCodexLogin={startCodexLogin}
-						onRefreshCodexAuth={refreshCodexAuthStatus}
-					/>
-					<SettingsModelRolesPanel
-						bind:cometmind={draft.cometmind}
-						bind:defaultModelId={draft.defaultModelId}
-						bind:defaultProviderId={draft.defaultProviderId}
-						providers={draft.providers}
-					/>
+							providers={draft.providers}
+							bind:selectedProviderId
+							bind:modelSearch
+							{enabledProviderCount}
+							{filteredModels}
+							{selectedProvider}
+							{codexAuthStatus}
+							{checkingCodexAuth}
+							{startingCodexLogin}
+							onAddProvider={addProvider}
+							onRemoveProvider={removeProvider}
+							onToggleProvider={toggleProvider}
+							onUpdateSelected={updateSelected}
+							onSetMethod={setSelectedMethod}
+							onFetchModels={fetchModels}
+							onToggleModel={toggleModel}
+							onStartCodexLogin={startCodexLogin}
+							onRefreshCodexAuth={refreshCodexAuthStatus}
+						/>
+						<SettingsModelRolesPanel
+							bind:cometmind={draft.cometmind}
+							bind:defaultModelId={draft.defaultModelId}
+							bind:defaultProviderId={draft.defaultProviderId}
+							providers={draft.providers}
+						/>
 					</div>
 				{:else if activeSection === 'memory'}
 					<SettingsTabPersistence section="memory" />
@@ -1133,7 +1105,7 @@
 									</div>
 								</div>
 								<div class="settings-row">
-									<span class="settings-row-label ">Version</span>
+									<span class="settings-row-label">Version</span>
 									<span class="settings-row-value mr-2">{appVersion || '—'}</span>
 								</div>
 							</div>
@@ -1157,11 +1129,14 @@
 					{#if hasPendingChanges}<strong>Unsaved changes ·</strong>{/if}
 					Save applies all tabs. Close without saving discards pending edits.
 				{/if}
-				{#if modelsSectionWarning}<span class="settings-footer-warning">{modelsSectionWarning}</span>{/if}
+				{#if modelsSectionWarning}<span class="settings-footer-warning"
+						>{modelsSectionWarning}</span
+					>{/if}
 			</p>
 			<SettingsButton variant="secondary" onclick={discardSettings}>Discard</SettingsButton>
 			<SettingsButton variant="primary" onclick={save} disabled={saveDisabled}>
-				{#if settingsStore.isSaving}<span class="spin"><LoaderCircle size={14} /></span>{/if}
+				{#if settingsStore.isSaving}<span class="spin"><LoaderCircle size={14} /></span
+					>{/if}
 				Save changes
 			</SettingsButton>
 		</footer>

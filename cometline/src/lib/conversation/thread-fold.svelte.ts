@@ -1,9 +1,6 @@
 import { untrack } from 'svelte';
 import type { ChatItem } from '$lib/stores/chat.svelte';
-import {
-	defaultActivityGroupExpanded,
-	defaultThinkingExpanded
-} from './thinking-attribution';
+import { defaultActivityGroupExpanded, defaultThinkingExpanded } from './thinking-attribution';
 import {
 	createStreamingFoldState,
 	nextStreamingFoldOverride,

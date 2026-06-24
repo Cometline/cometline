@@ -266,7 +266,7 @@ SDK stream tests use checked-in SSE fixtures under each provider's `fixtures/` d
 ### Code style
 
 - **Go:** Follow standard Go conventions. Use `gofmt` and `goimports`.
-- **TypeScript/Svelte:** Follow existing patterns in the codebase. Use TypeScript strict mode.
+- **TypeScript/Svelte:** Follow existing patterns in the codebase. Use TypeScript strict mode. See [cometline/docs/FRONTEND_PATTERNS.md](./cometline/docs/FRONTEND_PATTERNS.md) for controller, error, and testing conventions.
 - **Comments:** Add comments only when necessary to explain non-obvious logic.
 
 ### Commit messages

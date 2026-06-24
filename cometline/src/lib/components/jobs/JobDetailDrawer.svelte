@@ -78,13 +78,17 @@
 	}
 </script>
 
-<button class="drawer-scrim" aria-label="Close job details" onclick={onClose} transition:fade={{ duration: 120 }}
+<button
+	class="drawer-scrim"
+	aria-label="Close job details"
+	onclick={onClose}
+	transition:fade={{ duration: 120 }}
 ></button>
 
 <aside class="job-drawer settings-ui" transition:fly={{ x: 320, duration: 200 }}>
 	<header class="drawer-header">
 		<div>
-			<p class="drawer-eyebrow">{mode === 'create' ? 'New job' : job?.status ?? ''}</p>
+			<p class="drawer-eyebrow">{mode === 'create' ? 'New job' : (job?.status ?? '')}</p>
 			<h2>{mode === 'create' ? 'Create job' : (job?.description ?? 'Job')}</h2>
 		</div>
 		<button type="button" class="secondary icon-only" aria-label="Close" onclick={onClose}>
@@ -152,11 +156,15 @@
 							<span class="field-label">Workspace path</span>
 							<WorkspacePathField bind:value={editWorkspacePath} />
 						</div>
-						<button type="submit" class="secondary" disabled={saving}>Save changes</button>
+						<button type="submit" class="secondary" disabled={saving}
+							>Save changes</button
+						>
 					</form>
 				</section>
 			{:else if job.status === 'ongoing'}
-				<p class="drawer-note">Claimed by session <code>{job.assigned_session_id}</code>.</p>
+				<p class="drawer-note">
+					Claimed by session <code>{job.assigned_session_id}</code>.
+				</p>
 			{/if}
 
 			<section class="drawer-section">

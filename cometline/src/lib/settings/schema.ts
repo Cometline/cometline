@@ -6,7 +6,6 @@ import {
 import { defaultKeyboardShortcuts, normalizeKeyboardShortcuts } from '../keyboard-shortcuts';
 import type {
 	AppSettings,
-	FetchProviderModelsResult,
 	IconVariant,
 	AppearanceSettings,
 	CaretTrailSettings,
@@ -141,7 +140,9 @@ export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 const LOG_LEVELS: LogLevel[] = ['debug', 'info', 'warn', 'error'];
 
 function normalizeLogLevel(value: unknown): LogLevel {
-	const raw = String(value ?? '').trim().toLowerCase();
+	const raw = String(value ?? '')
+		.trim()
+		.toLowerCase();
 	if (LOG_LEVELS.includes(raw as LogLevel)) {
 		return raw as LogLevel;
 	}
@@ -314,7 +315,9 @@ function normalizeMCPTransport(value: unknown, fallback: MCPTransport): MCPTrans
 	return VALID_MCP_TRANSPORTS.includes(raw) ? raw : fallback;
 }
 
-function normalizeMCPOAuth(input: Partial<MCPOAuthSettings> | undefined): MCPOAuthSettings | undefined {
+function normalizeMCPOAuth(
+	input: Partial<MCPOAuthSettings> | undefined
+): MCPOAuthSettings | undefined {
 	if (!input) return undefined;
 	const clientId = String(input.clientId ?? '').trim();
 	const authorizationUrl = String(input.authorizationUrl ?? '').trim();
@@ -360,7 +363,9 @@ function normalizeMCPServer(
 	};
 }
 
-function normalizeCometMindMCPSettings(input: Partial<CometMindMCPSettings> | undefined): CometMindMCPSettings {
+function normalizeCometMindMCPSettings(
+	input: Partial<CometMindMCPSettings> | undefined
+): CometMindMCPSettings {
 	const defaults = defaultCometMindMCPSettings();
 	const enabled = typeof input?.enabled === 'boolean' ? input.enabled : defaults.enabled;
 	const ids = new Set<string>();
@@ -623,7 +628,9 @@ export function cloneCometMindSettings(settings: CometMindSettings): CometMindSe
 				args: [...(server.args ?? [])],
 				env: { ...(server.env ?? {}) },
 				headers: { ...(server.headers ?? {}) },
-				oauth: server.oauth ? { ...server.oauth, scopes: [...(server.oauth.scopes ?? [])] } : undefined,
+				oauth: server.oauth
+					? { ...server.oauth, scopes: [...(server.oauth.scopes ?? [])] }
+					: undefined,
 				allowedTools: [...(server.allowedTools ?? [])]
 			}))
 		},
@@ -662,17 +669,16 @@ function defaultAppearance(): AppearanceSettings {
 }
 
 function defaultAppSettings(): AppSettings {
-	return { openAtLogin: false, hasSeenIntro: false, hasCompletedSetup: false, iconVariant: 'default' };
+	return {
+		openAtLogin: false,
+		hasSeenIntro: false,
+		hasCompletedSetup: false,
+		iconVariant: 'default'
+	};
 }
 
 function normalizeIconVariant(value: unknown): IconVariant {
 	return value === 'man' ? 'man' : 'default';
-}
-
-function normalizeOptionalPositiveInt(value: unknown): number | undefined {
-	const n = Number(value);
-	if (!Number.isFinite(n) || n <= 0) return undefined;
-	return Math.floor(n);
 }
 
 export function cloneProvider(provider: ProviderConfig): ProviderConfig {

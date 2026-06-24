@@ -52,28 +52,7 @@ export function assistantStackBindings(
 ) {
 	return {
 		item,
-		threadItems: ctx.threadItems,
-		thinkingForAssistant: ctx.thinkingForAssistant,
-		streamingAssistantId: ctx.streamingAssistantId,
-		sessionStreaming: ctx.sessionStreaming,
-		sessionId: ctx.sessionId,
-		now: ctx.now,
-		heroGlowColor: ctx.heroGlowColor,
-		copiedId: ctx.copiedId,
-		showActivitySpinner,
-		toolFoldLabel: ctx.toolFoldLabel,
-		onCopyMessage: ctx.onCopyMessage,
-		onNotifyAgent: ctx.onNotifyAgent,
-		onStartJob: ctx.onStartJob,
-		thinkingExpanded: ctx.fold.thinkingExpanded,
-		toggleThinking: ctx.fold.toggleThinking,
-		activityGroupExpanded: ctx.fold.activityGroupExpanded,
-		toggleActivityGroup: ctx.fold.toggleActivityGroup,
-		memoryInThinkingExpanded: ctx.fold.memoryInThinkingExpanded,
-		toggleMemoryInThinking: ctx.fold.toggleMemoryInThinking,
-		toolOutputExpanded: ctx.fold.toolOutputExpanded,
-		toggleToolOutput: ctx.fold.toggleToolOutput,
-		subagentExpanded: ctx.fold.subagentExpanded,
-		toggleSubagent: ctx.fold.toggleSubagent
+		context: ctx,
+		showActivitySpinner
 	};
 }

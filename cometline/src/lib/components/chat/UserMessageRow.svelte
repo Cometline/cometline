@@ -2,9 +2,9 @@
 	import { Check, Copy } from '@lucide/svelte';
 	import AssistantMarkdown from '$lib/components/AssistantMarkdown.svelte';
 	import ThreadAvatar from '$lib/components/chat/ThreadAvatar.svelte';
+	import ThreadRow from '$lib/components/chat/ThreadRow.svelte';
 	import { imageDataURL } from '$lib/files/images';
 	import type { ChatItem } from '$lib/stores/chat.svelte';
-
 	import type { IconVariant } from '$lib/types';
 
 	let {
@@ -22,11 +22,7 @@
 	} = $props();
 </script>
 
-<div
-	class="row user-row"
-	class:continuation-row={continuationRow}
-	data-user-item-id={item.id}
->
+<ThreadRow variant="user" {continuationRow} data-user-item-id={item.id}>
 	<ThreadAvatar variant="gutter" {iconVariant} />
 	<div class="user-stack">
 		<div
@@ -66,23 +62,9 @@
 			</div>
 		{/if}
 	</div>
-</div>
+</ThreadRow>
 
 <style>
-	.row {
-		display: flex;
-		width: 100%;
-		gap: var(--chat-row-gap);
-	}
-
-	.continuation-row {
-		margin-top: -6px;
-	}
-
-	.user-row {
-		justify-content: flex-start;
-	}
-
 	.user-stack {
 		display: flex;
 		flex-direction: column;
@@ -141,7 +123,7 @@
 	}
 
 	.message-action.copied {
-		color: #15803d;
+		color: var(--status-success);
 	}
 
 	.message-action :global(svg) {

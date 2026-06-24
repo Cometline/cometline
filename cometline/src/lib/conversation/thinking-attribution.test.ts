@@ -461,7 +461,15 @@ describe('pinnedJobProposalsForAssistant', () => {
 			{
 				id: 'm1',
 				type: 'memory',
-				memories: [{ id: 'mem-1', content: 'note', kind: 'fact', similarity: 1, effective_weight: 1 }]
+				memories: [
+					{
+						id: 'mem-1',
+						content: 'note',
+						kind: 'fact',
+						similarity: 1,
+						effective_weight: 1
+					}
+				]
 			},
 			proposeTool
 		];

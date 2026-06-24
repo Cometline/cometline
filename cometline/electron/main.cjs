@@ -9,7 +9,7 @@ const {
 	Tray,
 	Menu,
 	nativeImage,
-	Notification
+	Notification: ElectronNotification
 } = require('electron');
 const path = require('path');
 const { pathToFileURL } = require('url');
@@ -1012,14 +1012,10 @@ function startCometMind() {
 		return;
 	}
 
-	const child = spawn(
-		binary,
-		['serve', '--port', String(COMETMIND_PORT), '--watch-parent'],
-		{
-			stdio: ['ignore', 'pipe', 'pipe'],
-			env: providerEnv()
-		}
-	);
+	const child = spawn(binary, ['serve', '--port', String(COMETMIND_PORT), '--watch-parent'], {
+		stdio: ['ignore', 'pipe', 'pipe'],
+		env: providerEnv()
+	});
 	cometMindProcess = child;
 
 	child.stdout.on('data', (data) => logStream.write(data));
@@ -2205,8 +2201,8 @@ process.on('exit', () => {
 
 ipcMain.on('jobs:notify', (_event, payload) => {
 	if (!payload || typeof payload.title !== 'string') return;
-	if (!Notification.isSupported()) return;
-	const notification = new Notification({
+	if (!ElectronNotification.isSupported()) return;
+	const notification = new ElectronNotification({
 		title: payload.title,
 		body: typeof payload.body === 'string' ? payload.body : ''
 	});
@@ -2270,9 +2266,7 @@ ipcMain.handle('cometline:get-codex-auth-status', () => getCodexAuthStatus());
 
 ipcMain.handle('cometline:start-codex-login', () => startCodexLogin());
 
-ipcMain.handle('cometline:get-mcp-oauth-status', (_event, serverId) =>
-	getMcpOAuthStatus(serverId)
-);
+ipcMain.handle('cometline:get-mcp-oauth-status', (_event, serverId) => getMcpOAuthStatus(serverId));
 
 ipcMain.handle('cometline:start-mcp-oauth', (_event, payload) => startMcpOAuth(payload));
 

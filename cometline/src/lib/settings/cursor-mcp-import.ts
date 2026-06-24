@@ -45,13 +45,19 @@ function inferTransport(entry: CursorMcpEntry): MCPTransport | null {
 	const url = String(entry.url ?? '').trim();
 	if (!url) return 'stdio';
 
-	const type = String(entry.type ?? '').trim().toLowerCase();
+	const type = String(entry.type ?? '')
+		.trim()
+		.toLowerCase();
 	if (type === 'sse') return 'sse';
 	if (type === 'http' || type === 'streamablehttp' || type === 'streamable-http') return 'http';
 	return 'http';
 }
 
-function parseCursorMcpEntry(key: string, entry: CursorMcpEntry, ids: Set<string>): MCPServerConfig | null {
+function parseCursorMcpEntry(
+	key: string,
+	entry: CursorMcpEntry,
+	ids: Set<string>
+): MCPServerConfig | null {
 	const transport = inferTransport(entry);
 	if (!transport) return null;
 

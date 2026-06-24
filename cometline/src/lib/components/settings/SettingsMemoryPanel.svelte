@@ -327,78 +327,92 @@
 				</div>
 
 				<div class="settings-grid">
-			<div class="toggles">
-				<SettingsToggle label="Auto retrieve" bind:checked={settings.auto_retrieve} />
-				<SettingsToggle label="Auto summarize" bind:checked={settings.auto_extract} />
-			</div>
+					<div class="toggles">
+						<SettingsToggle
+							label="Auto retrieve"
+							bind:checked={settings.auto_retrieve}
+						/>
+						<SettingsToggle
+							label="Auto summarize"
+							bind:checked={settings.auto_extract}
+						/>
+					</div>
 
-			<div class="sliders">
-				<label>
-					<span
-						>Similarity threshold ({Math.round(
-							settings.similarity_threshold * 100
-						)}%)</span
-					>
-					<input
-						type="range"
-						min="0"
-						max="1"
-						step="0.05"
-						bind:value={settings.similarity_threshold}
-					/>
-				</label>
-				<label>
-					<span>Max retrieved ({settings.max_retrieved})</span>
-					<input type="range" min="1" max="20" bind:value={settings.max_retrieved} />
-				</label>
-				<label>
-					<span>Decay half-life (days): {settings.lifecycle.decay_half_life_days}</span>
-					<input
-						type="range"
-						min="7"
-						max="90"
-						bind:value={settings.lifecycle.decay_half_life_days}
-					/>
-				</label>
-				<label>
-					<span>Max memories: {settings.lifecycle.max_memories}</span>
-					<input
-						type="range"
-						min="100"
-						max="2000"
-						step="50"
-						bind:value={settings.lifecycle.max_memories}
-					/>
-				</label>
-			</div>
+					<div class="sliders">
+						<label>
+							<span
+								>Similarity threshold ({Math.round(
+									settings.similarity_threshold * 100
+								)}%)</span
+							>
+							<input
+								type="range"
+								min="0"
+								max="1"
+								step="0.05"
+								bind:value={settings.similarity_threshold}
+							/>
+						</label>
+						<label>
+							<span>Max retrieved ({settings.max_retrieved})</span>
+							<input
+								type="range"
+								min="1"
+								max="20"
+								bind:value={settings.max_retrieved}
+							/>
+						</label>
+						<label>
+							<span
+								>Decay half-life (days): {settings.lifecycle
+									.decay_half_life_days}</span
+							>
+							<input
+								type="range"
+								min="7"
+								max="90"
+								bind:value={settings.lifecycle.decay_half_life_days}
+							/>
+						</label>
+						<label>
+							<span>Max memories: {settings.lifecycle.max_memories}</span>
+							<input
+								type="range"
+								min="100"
+								max="2000"
+								step="50"
+								bind:value={settings.lifecycle.max_memories}
+							/>
+						</label>
+					</div>
 
-			<div class="embedding-row">
-				<label>
-					<span>Embedding model</span>
-					{#if embeddingDropdownOptions.length === 0}
-						<p class="empty-embedding">
-							No embedding models enabled. Enable an embedding model under Settings →
-							Providers.
-						</p>
-					{:else}
-						<select
-							bind:value={selectedEmbeddingKey}
-							onchange={(event) => {
-								selectedEmbeddingKey = event.currentTarget.value;
-							}}
-						>
-							<option value="">Select embedding model…</option>
-							{#each embeddingDropdownOptions as option (embeddingOptionKey(option))}
-								<option value={embeddingOptionKey(option)}>
-									{option.providerName} · {option.model}{option.orphan
-										? ' (enable in Providers)'
-										: ''}
-								</option>
-							{/each}
-						</select>
-					{/if}
-				</label>
-			</div>
+					<div class="embedding-row">
+						<label>
+							<span>Embedding model</span>
+							{#if embeddingDropdownOptions.length === 0}
+								<p class="empty-embedding">
+									No embedding models enabled. Enable an embedding model under
+									Settings → Providers.
+								</p>
+							{:else}
+								<select
+									bind:value={selectedEmbeddingKey}
+									onchange={(event) => {
+										selectedEmbeddingKey = event.currentTarget.value;
+									}}
+								>
+									<option value="">Select embedding model…</option>
+									{#each embeddingDropdownOptions as option (embeddingOptionKey(option))}
+										<option value={embeddingOptionKey(option)}>
+											{option.providerName} · {option.model}{option.orphan
+												? ' (enable in Providers)'
+												: ''}
+										</option>
+									{/each}
+								</select>
+							{/if}
+						</label>
+					</div>
 				</div>
 			</div>
 
@@ -411,12 +425,12 @@
 				</div>
 
 				<div class="actions">
-			<button class="secondary" onclick={previewCompact}>Preview compaction</button>
-			<button class="secondary" onclick={runCompact} disabled={compacting}>
-				{#if compacting}<span class="spin"><LoaderCircle size={14} /></span>{/if}
-				Run compaction
-				</button>
-			</div>
+					<button class="secondary" onclick={previewCompact}>Preview compaction</button>
+					<button class="secondary" onclick={runCompact} disabled={compacting}>
+						{#if compacting}<span class="spin"><LoaderCircle size={14} /></span>{/if}
+						Run compaction
+					</button>
+				</div>
 			</div>
 
 			<div class="settings-section">
@@ -452,29 +466,29 @@
 					></textarea>
 				</div>
 
-		<div class="memory-list scrollbar-none">
-			{#each memories as memory (memory.id)}
-				<article class="memory-card">
-					<div>
-						<strong>{memory.kind}</strong>
-						<p>{memory.content}</p>
-						<small>
-							weight {memory.effective_weight.toFixed(2)} · accessed {memory.access_count}
-							times
-						</small>
-					</div>
-					<button
-						class="icon danger"
-						aria-label="Delete memory"
-						onclick={() => removeMemory(memory.id)}
-					>
-						<Trash2 size={14} />
-					</button>
-				</article>
-			{:else}
-				<p class="muted">No memories yet.</p>
-			{/each}
-		</div>
+				<div class="memory-list scrollbar-none">
+					{#each memories as memory (memory.id)}
+						<article class="memory-card">
+							<div>
+								<strong>{memory.kind}</strong>
+								<p>{memory.content}</p>
+								<small>
+									weight {memory.effective_weight.toFixed(2)} · accessed {memory.access_count}
+									times
+								</small>
+							</div>
+							<button
+								class="icon danger"
+								aria-label="Delete memory"
+								onclick={() => removeMemory(memory.id)}
+							>
+								<Trash2 size={14} />
+							</button>
+						</article>
+					{:else}
+						<p class="muted">No memories yet.</p>
+					{/each}
+				</div>
 
 				{#if status}
 					<p class="status">{status}</p>

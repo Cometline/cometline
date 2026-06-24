@@ -33,72 +33,79 @@
 					<h3>Hero composer glow</h3>
 					<p>Customize the rising glow and border on the new-chat composer.</p>
 				</div>
-				<button class="secondary" type="button" onclick={resetDefaults}>Reset defaults</button>
+				<button class="secondary" type="button" onclick={resetDefaults}
+					>Reset defaults</button
+				>
 			</div>
 
 			<div class="appearance-grid">
-		<div class="appearance-fields">
-			<div class="preset-group">
-				<span class="field-label">Presets</span>
-				<div class="preset-row" role="group" aria-label="Hero glow presets">
-					{#each HERO_COMPOSER_PRESETS as preset (preset.id)}
-						<button
-							type="button"
-							class="preset-chip"
-							class:selected={activePreset === preset.id}
-							aria-pressed={activePreset === preset.id}
-							onclick={() => applyPreset(preset)}
-						>
-							<span
-								class="preset-swatch"
-								style="background: linear-gradient(135deg, {preset.appearance
-									.glowColor} 0%, {preset.appearance.ringColor} 100%)"
-								aria-hidden="true"
-							></span>
-							{preset.label}
-						</button>
-					{/each}
-					{#if activePreset === 'custom'}
-						<span class="preset-custom">Custom</span>
-					{/if}
-				</div>
-			</div>
+				<div class="appearance-fields">
+					<div class="preset-group">
+						<span class="field-label">Presets</span>
+						<div class="preset-row" role="group" aria-label="Hero glow presets">
+							{#each HERO_COMPOSER_PRESETS as preset (preset.id)}
+								<button
+									type="button"
+									class="preset-chip"
+									class:selected={activePreset === preset.id}
+									aria-pressed={activePreset === preset.id}
+									onclick={() => applyPreset(preset)}
+								>
+									<span
+										class="preset-swatch"
+										style="background: linear-gradient(135deg, {preset
+											.appearance.glowColor} 0%, {preset.appearance
+											.ringColor} 100%)"
+										aria-hidden="true"
+									></span>
+									{preset.label}
+								</button>
+							{/each}
+							{#if activePreset === 'custom'}
+								<span class="preset-custom">Custom</span>
+							{/if}
+						</div>
+					</div>
 
-			<label>
-				<span>Glow color</span>
-				<div class="color-field">
-					<input type="color" bind:value={appearance.glowColor} aria-label="Glow color" />
-					<input
-						type="text"
-						bind:value={appearance.glowColor}
-						spellcheck="false"
-						pattern="^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
-					/>
-				</div>
-			</label>
+					<label>
+						<span>Glow color</span>
+						<div class="color-field">
+							<input
+								type="color"
+								bind:value={appearance.glowColor}
+								aria-label="Glow color"
+							/>
+							<input
+								type="text"
+								bind:value={appearance.glowColor}
+								spellcheck="false"
+								pattern="^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
+							/>
+						</div>
+					</label>
 
-			<label>
-				<span>Border color</span>
-				<div class="color-field">
-					<input
-						type="color"
-						bind:value={appearance.ringColor}
-						aria-label="Border color"
-					/>
-					<input
-						type="text"
-						bind:value={appearance.ringColor}
-						spellcheck="false"
-						pattern="^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
-					/>
+					<label>
+						<span>Border color</span>
+						<div class="color-field">
+							<input
+								type="color"
+								bind:value={appearance.ringColor}
+								aria-label="Border color"
+							/>
+							<input
+								type="text"
+								bind:value={appearance.ringColor}
+								spellcheck="false"
+								pattern="^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
+							/>
+						</div>
+					</label>
 				</div>
-			</label>
-		</div>
 
-		<div class="appearance-preview" style={previewStyle}>
-			<div class="preview-glow" aria-hidden="true"></div>
-			<div class="preview-ring" aria-hidden="true"></div>
-		</div>
+				<div class="appearance-preview" style={previewStyle}>
+					<div class="preview-glow" aria-hidden="true"></div>
+					<div class="preview-ring" aria-hidden="true"></div>
+				</div>
 			</div>
 		</div>
 
@@ -122,31 +129,34 @@
 			</div>
 
 			<div class="slider-grid">
-			<label>
-				<span>Trail intensity</span>
-				<input
-					type="range"
-					min="0"
-					max="1"
-					step="0.01"
-					value={caretTrail.intensity}
-					oninput={(e) =>
-						(caretTrail = { ...caretTrail, intensity: Number(e.currentTarget.value) })}
-				/>
-			</label>
+				<label>
+					<span>Trail intensity</span>
+					<input
+						type="range"
+						min="0"
+						max="1"
+						step="0.01"
+						value={caretTrail.intensity}
+						oninput={(e) =>
+							(caretTrail = {
+								...caretTrail,
+								intensity: Number(e.currentTarget.value)
+							})}
+					/>
+				</label>
 
-			<label>
-				<span>Animation speed</span>
-				<input
-					type="range"
-					min="0"
-					max="1"
-					step="0.01"
-					value={caretTrail.speed}
-					oninput={(e) =>
-						(caretTrail = { ...caretTrail, speed: Number(e.currentTarget.value) })}
-				/>
-			</label>
+				<label>
+					<span>Animation speed</span>
+					<input
+						type="range"
+						min="0"
+						max="1"
+						step="0.01"
+						value={caretTrail.speed}
+						oninput={(e) =>
+							(caretTrail = { ...caretTrail, speed: Number(e.currentTarget.value) })}
+					/>
+				</label>
 			</div>
 		</div>
 	</div>

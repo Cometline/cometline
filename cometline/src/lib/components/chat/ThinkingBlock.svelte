@@ -7,7 +7,7 @@
 
 	let {
 		text,
-		pending = false,
+		pending: _pending = false,
 		expanded,
 		showSpinner = false,
 		onToggle,

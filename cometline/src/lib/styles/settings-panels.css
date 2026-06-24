@@ -250,9 +250,8 @@
 	color: var(--text-main);
 }
 
-.settings-panel-frame input:not([type='checkbox']):not([type='radio']):not([type='color']):not(
-		[type='range']
-	),
+.settings-panel-frame
+	input:not([type='checkbox']):not([type='radio']):not([type='color']):not([type='range']),
 .settings-panel-frame select,
 .settings-panel-frame textarea {
 	width: 100%;
@@ -266,9 +265,8 @@
 	outline: none;
 }
 
-.settings-panel-frame input:not([type='checkbox']):not([type='radio']):not([type='color']):not(
-		[type='range']
-	):focus,
+.settings-panel-frame
+	input:not([type='checkbox']):not([type='radio']):not([type='color']):not([type='range']):focus,
 .settings-panel-frame select:focus,
 .settings-panel-frame textarea:focus {
 	border-color: rgba(0, 102, 204, 0.35);
@@ -279,8 +277,8 @@
 
 .settings-ui {
 	--settings-control-transition:
-		background 140ms ease, border-color 140ms ease, color 140ms ease,
-		box-shadow 140ms ease, transform 80ms cubic-bezier(0.2, 0, 0, 1);
+		background 140ms ease, border-color 140ms ease, color 140ms ease, box-shadow 140ms ease,
+		transform 80ms cubic-bezier(0.2, 0, 0, 1);
 }
 
 .settings-ui button {

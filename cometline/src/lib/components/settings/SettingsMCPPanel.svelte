@@ -29,8 +29,16 @@
 	} = $props();
 
 	const transportOptions: { value: MCPTransport; label: string; hint: string }[] = [
-		{ value: 'stdio', label: 'Local command', hint: 'Run npx, node, uvx, or another CLI on this machine.' },
-		{ value: 'http', label: 'Remote URL (HTTP)', hint: 'Connect to a hosted MCP server over HTTP.' },
+		{
+			value: 'stdio',
+			label: 'Local command',
+			hint: 'Run npx, node, uvx, or another CLI on this machine.'
+		},
+		{
+			value: 'http',
+			label: 'Remote URL (HTTP)',
+			hint: 'Connect to a hosted MCP server over HTTP.'
+		},
 		{ value: 'sse', label: 'Remote URL (SSE)', hint: 'Legacy server-sent events transport.' }
 	];
 
@@ -210,7 +218,8 @@
 		const next = { ...knownToolsByServer };
 		for (const server of mcp.servers ?? []) {
 			const byName = new Map<string, string>();
-			for (const existing of next[server.id] ?? []) byName.set(existing.name, existing.description);
+			for (const existing of next[server.id] ?? [])
+				byName.set(existing.name, existing.description);
 			for (const tool of toolsForServer(server.id)) {
 				const name = tool.tool_name?.trim();
 				if (!name) continue;
@@ -257,8 +266,7 @@
 			currentlyAllowed.add(toolName);
 		}
 
-		const allEnabled =
-			known.length > 0 && known.every((name) => currentlyAllowed.has(name));
+		const allEnabled = known.length > 0 && known.every((name) => currentlyAllowed.has(name));
 		const next = allEnabled ? [] : known.filter((name) => currentlyAllowed.has(name));
 		updateServer(serverId, { allowedTools: next });
 	}
@@ -402,8 +410,8 @@
 	<div class="settings-section-heading">
 		<h3>MCP servers</h3>
 		<p>
-			Connect external tool servers so CometMind can search, browse, and interact with services
-			beyond built-in tools. You can also add servers manually under
+			Connect external tool servers so CometMind can search, browse, and interact with
+			services beyond built-in tools. You can also add servers manually under
 			<code>cometmind.mcp</code> in <code>~/.cometmind/cometline-settings.json</code>.
 		</p>
 	</div>
@@ -416,7 +424,11 @@
 	/>
 
 	{#if mcpStatus}
-		<p class="settings-field-hint" class:error={mcpStatus.toLowerCase().includes('fail') || mcpStatus.toLowerCase().includes('invalid')}>
+		<p
+			class="settings-field-hint"
+			class:error={mcpStatus.toLowerCase().includes('fail') ||
+				mcpStatus.toLowerCase().includes('invalid')}
+		>
 			{mcpStatus}
 		</p>
 	{/if}
@@ -481,7 +493,10 @@
 								<input
 									type="checkbox"
 									checked={server.enabled}
-									onchange={(e) => updateServer(server.id, { enabled: e.currentTarget.checked })}
+									onchange={(e) =>
+										updateServer(server.id, {
+											enabled: e.currentTarget.checked
+										})}
 								/>
 								<span>On</span>
 							</label>
@@ -510,7 +525,8 @@
 								<input
 									type="text"
 									value={server.name}
-									oninput={(e) => updateServer(server.id, { name: e.currentTarget.value })}
+									oninput={(e) =>
+										updateServer(server.id, { name: e.currentTarget.value })}
 								/>
 							</SettingsField>
 
@@ -536,17 +552,27 @@
 									<input
 										type="text"
 										value={server.command ?? ''}
-										oninput={(e) => updateServer(server.id, { command: e.currentTarget.value })}
+										oninput={(e) =>
+											updateServer(server.id, {
+												command: e.currentTarget.value
+											})}
 										placeholder="npx"
 										spellcheck="false"
 									/>
 								</SettingsField>
-								<SettingsField label="Arguments" note="Space-separated command arguments.">
+								<SettingsField
+									label="Arguments"
+									note="Space-separated command arguments."
+								>
 									<input
 										type="text"
 										value={argsTexts[server.id] ?? ''}
 										oninput={(e) => {
-											argsTexts = setTextField(argsTexts, server.id, e.currentTarget.value);
+											argsTexts = setTextField(
+												argsTexts,
+												server.id,
+												e.currentTarget.value
+											);
 										}}
 										onchange={() => syncServerLists(server.id)}
 										onblur={() => syncServerLists(server.id)}
@@ -562,7 +588,8 @@
 									<input
 										type="text"
 										value={server.url ?? ''}
-										oninput={(e) => updateServer(server.id, { url: e.currentTarget.value })}
+										oninput={(e) =>
+											updateServer(server.id, { url: e.currentTarget.value })}
 										onblur={() => normalizeConnection(server.id)}
 										placeholder="https://example.com/mcp?API_KEY=…"
 										spellcheck="false"
@@ -587,11 +614,18 @@
 							{/if}
 
 							{#if server.transport === 'stdio'}
-								<SettingsField label="Environment variables" note="One KEY=value per line.">
+								<SettingsField
+									label="Environment variables"
+									note="One KEY=value per line."
+								>
 									<textarea
 										value={envTexts[server.id] ?? ''}
 										oninput={(e) => {
-											envTexts = setTextField(envTexts, server.id, e.currentTarget.value);
+											envTexts = setTextField(
+												envTexts,
+												server.id,
+												e.currentTarget.value
+											);
 										}}
 										onchange={() => syncServerLists(server.id)}
 										onblur={() => syncServerLists(server.id)}
@@ -607,7 +641,11 @@
 									<textarea
 										value={headerTexts[server.id] ?? ''}
 										oninput={(e) => {
-											headerTexts = setTextField(headerTexts, server.id, e.currentTarget.value);
+											headerTexts = setTextField(
+												headerTexts,
+												server.id,
+												e.currentTarget.value
+											);
 										}}
 										onchange={() => syncServerLists(server.id)}
 										onblur={() => {
@@ -622,9 +660,10 @@
 								<div class="oauth-block">
 									<p class="advanced-label">OAuth</p>
 									<p class="settings-field-hint">
-										For servers that require sign-in (e.g. Atlassian), click Connect to authorize
-										in your browser. Cometline handles discovery and registration automatically —
-										no client ID or URLs needed. Tokens are stored in
+										For servers that require sign-in (e.g. Atlassian), click
+										Connect to authorize in your browser. Cometline handles
+										discovery and registration automatically — no client ID or
+										URLs needed. Tokens are stored in
 										<code>~/.cometmind/mcp-oauth/</code>, not in settings JSON.
 									</p>
 									<div class="oauth-actions">
@@ -636,7 +675,9 @@
 											Connect with OAuth
 										</SettingsButton>
 										<span class="oauth-status">
-											{oauthStatus[server.id] ? 'OAuth token saved' : 'Not connected'}
+											{oauthStatus[server.id]
+												? 'OAuth token saved'
+												: 'Not connected'}
 										</span>
 									</div>
 								</div>
@@ -666,7 +707,9 @@
 												<span class="tool-toggle-text">
 													<strong>{tool.name}</strong>
 													{#if tool.description}
-														<span class="tool-toggle-desc">{tool.description}</span>
+														<span class="tool-toggle-desc"
+															>{tool.description}</span
+														>
 													{/if}
 												</span>
 											</button>
@@ -674,8 +717,9 @@
 									</div>
 								{:else}
 									<p class="settings-field-hint">
-										No tools discovered yet. Save settings, then use Test connection to load this
-										server's tools — they'll appear here as toggles.
+										No tools discovered yet. Save settings, then use Test
+										connection to load this server's tools — they'll appear here
+										as toggles.
 									</p>
 								{/if}
 							</SettingsField>
@@ -688,7 +732,8 @@
 
 	{#if (toolPreview ?? []).length > 0}
 		<p class="settings-field-hint mcp-footnote">
-			{(toolPreview ?? []).length} tool(s) registered across all servers. Save settings to apply changes.
+			{(toolPreview ?? []).length} tool(s) registered across all servers. Save settings to apply
+			changes.
 		</p>
 	{/if}
 </div>

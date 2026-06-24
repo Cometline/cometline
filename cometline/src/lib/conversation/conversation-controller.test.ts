@@ -147,17 +147,19 @@ describe('createConversationController', () => {
 		const firstSendGate = new Promise<void>((resolve) => {
 			releaseFirstSend = resolve;
 		});
-		const send = vi.fn().mockImplementation(async (_sessionId: string, payload: FlightPayload) => {
-			const text = typeof payload === 'string' ? payload : payload.text;
-			if (text === 'first') await firstSendGate;
-		});
-		const onUserMessageFlight = vi.fn().mockImplementation(
-			(payload: FlightPayload, ctx: FlightContext) => {
+		const send = vi
+			.fn()
+			.mockImplementation(async (_sessionId: string, payload: FlightPayload) => {
+				const text = typeof payload === 'string' ? payload : payload.text;
+				if (text === 'first') await firstSendGate;
+			});
+		const onUserMessageFlight = vi
+			.fn()
+			.mockImplementation((payload: FlightPayload, ctx: FlightContext) => {
 				const text = typeof payload === 'string' ? payload : payload.text;
 				ctx.stageUser(text, typeof payload === 'string' ? undefined : payload.images);
 				ctx.revealStagedUser();
-			}
-		);
+			});
 		const stageSpy = vi.spyOn(chatStore, 'stageUserForSession');
 		const revealSpy = vi.spyOn(chatStore, 'revealStagedUserForSession');
 		chatStore.bindSession('sess-a');
@@ -182,7 +184,11 @@ describe('createConversationController', () => {
 		expect(onUserMessageFlight).toHaveBeenCalledTimes(1);
 		expect(stageSpy).toHaveBeenCalledWith('sess-a', 'background hello', undefined);
 		expect(revealSpy).toHaveBeenCalledWith('sess-a');
-		expect(send).toHaveBeenCalledWith('sess-a', { text: 'background hello' }, { skipUser: true });
+		expect(send).toHaveBeenCalledWith(
+			'sess-a',
+			{ text: 'background hello' },
+			{ skipUser: true }
+		);
 		stageSpy.mockRestore();
 		revealSpy.mockRestore();
 	});
@@ -328,8 +334,12 @@ describe('createConversationController', () => {
 
 		await vi.waitFor(() => expect(send1).toHaveBeenCalled());
 		await vi.waitFor(() => expect(send2).toHaveBeenCalled());
-	expect(send1).toHaveBeenCalledWith('sess-1', { text: 'first session' }, { skipUser: true });
-	expect(send2).toHaveBeenCalledWith('sess-2', { text: 'second session' }, { skipUser: true });
+		expect(send1).toHaveBeenCalledWith('sess-1', { text: 'first session' }, { skipUser: true });
+		expect(send2).toHaveBeenCalledWith(
+			'sess-2',
+			{ text: 'second session' },
+			{ skipUser: true }
+		);
 		expect(sessionStore.hasPendingMessage('sess-1')).toBe(false);
 		expect(sessionStore.hasPendingMessage('sess-2')).toBe(false);
 	});
@@ -362,13 +372,15 @@ describe('createConversationController', () => {
 			releaseFlight = resolve;
 		});
 		const send = vi.fn().mockResolvedValue(undefined);
-		const onUserMessageFlight = vi.fn().mockImplementation(async (_payload: unknown, ctx: FlightContext) => {
-			ctx.stageUser('question A', undefined);
-			currentSessionId = 'sess-b';
-			chatStore.bindSession('sess-b');
-			await flightGate;
-			ctx.revealStagedUser();
-		});
+		const onUserMessageFlight = vi
+			.fn()
+			.mockImplementation(async (_payload: unknown, ctx: FlightContext) => {
+				ctx.stageUser('question A', undefined);
+				currentSessionId = 'sess-b';
+				chatStore.bindSession('sess-b');
+				await flightGate;
+				ctx.revealStagedUser();
+			});
 		const stageSpy = vi.spyOn(chatStore, 'stageUserForSession');
 		const revealSpy = vi.spyOn(chatStore, 'revealStagedUserForSession');
 		chatStore.bindSession('sess-a');
@@ -382,7 +394,9 @@ describe('createConversationController', () => {
 		});
 
 		const turn = controller.enqueue('question A');
-		await vi.waitFor(() => expect(stageSpy).toHaveBeenCalledWith('sess-a', 'question A', undefined));
+		await vi.waitFor(() =>
+			expect(stageSpy).toHaveBeenCalledWith('sess-a', 'question A', undefined)
+		);
 		await vi.waitFor(() => expect(onUserMessageFlight).toHaveBeenCalled());
 		expect(currentSessionId).toBe('sess-b');
 		expect(send).toHaveBeenCalledWith('sess-a', { text: 'question A' }, { skipUser: true });
@@ -401,10 +415,12 @@ describe('createConversationController', () => {
 		const gateA = new Promise<void>((resolve) => {
 			releaseA = resolve;
 		});
-		const send = vi.fn().mockImplementation(async (_sessionId: string, payload: string | { text: string }) => {
-			const text = typeof payload === 'string' ? payload : payload.text;
-			if (text === 'msg-a-1') await gateA;
-		});
+		const send = vi
+			.fn()
+			.mockImplementation(async (_sessionId: string, payload: string | { text: string }) => {
+				const text = typeof payload === 'string' ? payload : payload.text;
+				if (text === 'msg-a-1') await gateA;
+			});
 		const flight = { onUserMessageFlight: vi.fn().mockResolvedValue(undefined) };
 
 		const ctrlA = createDeps({

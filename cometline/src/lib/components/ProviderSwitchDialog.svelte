@@ -16,10 +16,7 @@
 </script>
 
 <div class="switch-scrim" transition:fade={{ duration: 100 }}>
-	<button
-		class="switch-scrim-button"
-		aria-label="Cancel provider switch"
-		onclick={onCancel}
+	<button class="switch-scrim-button" aria-label="Cancel provider switch" onclick={onCancel}
 	></button>
 	<div
 		class="switch-dialog"

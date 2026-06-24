@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { JobResource } from '$lib/client/cometmind';
-import {
-	filterArchivedJobs,
-	groupJobsByColumn,
-	sortJobs
-} from './group-jobs';
+import { filterArchivedJobs, groupJobsByColumn, sortJobs } from './group-jobs';
 
 function job(overrides: Partial<JobResource> & Pick<JobResource, 'id' | 'status'>): JobResource {
 	return {

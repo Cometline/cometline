@@ -36,9 +36,9 @@ describe('startsSpeakerRun', () => {
 
 describe('timelineEntryKey', () => {
 	it('keys reasoning segments by index', () => {
-		expect(
-			timelineEntryKey({ kind: 'reasoning', segmentIndex: 2, text: 'thinking' })
-		).toBe('reasoning-2');
+		expect(timelineEntryKey({ kind: 'reasoning', segmentIndex: 2, text: 'thinking' })).toBe(
+			'reasoning-2'
+		);
 	});
 
 	it('keys tools and subagents by id', () => {

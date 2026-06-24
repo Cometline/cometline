@@ -211,155 +211,156 @@
 
 <section class="model-roles-panel settings-panel-frame">
 	<div class="settings-panel-body">
-	<div class="settings-section">
-		<div class="settings-section-heading">
-			<div>
-				<h3>Default model</h3>
-				<p>
-					Choose which model new chats use by default. You can still switch models per
-					session.
-				</p>
+		<div class="settings-section">
+			<div class="settings-section-heading">
+				<div>
+					<h3>Default model</h3>
+					<p>
+						Choose which model new chats use by default. You can still switch models per
+						session.
+					</p>
+				</div>
+			</div>
+			<div class="default-model-picker" onfocusout={closeModelMenu}>
+				<button
+					class="model-button"
+					aria-label="Select default model"
+					aria-expanded={modelMenuOpen}
+					disabled={modelOptions.length === 0}
+					onclick={toggleModelMenu}
+				>
+					<Sparkles size={14} stroke-width={1.8} />
+					<span>{selectedLabel}</span>
+					<ChevronDown size={12} stroke-width={2} />
+				</button>
+				{#if defaultModelId}
+					<button
+						class="clear-default-button"
+						onclick={clearDefaultModel}
+						title="Clear default (use first enabled model)"
+					>
+						&times;
+					</button>
+				{/if}
+
+				{#if modelMenuOpen}
+					<div class="model-menu scrollbar-none" transition:fly={{ y: 6, duration: 120 }}>
+						<input
+							class="model-search"
+							bind:this={modelSearchInput}
+							bind:value={modelSearch}
+							placeholder="Search models..."
+							spellcheck="false"
+						/>
+						{#each groupedModelOptions as group (group.providerId)}
+							<div class="model-group" transition:fade={{ duration: 90 }}>
+								<div class="model-group-heading">
+									<strong>{group.providerName}</strong>
+								</div>
+								{#each group.options as option (option.id)}
+									<button
+										class="model-option"
+										onclick={() => selectDefaultModel(option)}
+									>
+										<span class="model-check">
+											{#if option.providerId === defaultProviderId && option.modelId === defaultModelId}<Check
+													size={14}
+													stroke-width={2}
+												/>{/if}
+										</span>
+										<span class="model-option-copy">
+											<strong>{option.label}</strong>
+											<small>{option.modelId}</small>
+										</span>
+									</button>
+								{/each}
+							</div>
+						{:else}
+							<p class="model-empty">No enabled models match your search.</p>
+						{/each}
+					</div>
+				{/if}
 			</div>
 		</div>
-		<div class="default-model-picker" onfocusout={closeModelMenu}>
-			<button
-				class="model-button"
-				aria-label="Select default model"
-				aria-expanded={modelMenuOpen}
-				disabled={modelOptions.length === 0}
-				onclick={toggleModelMenu}
-			>
-				<Sparkles size={14} stroke-width={1.8} />
-				<span>{selectedLabel}</span>
-				<ChevronDown size={12} stroke-width={2} />
-			</button>
-			{#if defaultModelId}
-				<button
-					class="clear-default-button"
-					onclick={clearDefaultModel}
-					title="Clear default (use first enabled model)"
-				>
-					&times;
-				</button>
-			{/if}
 
-			{#if modelMenuOpen}
-				<div class="model-menu scrollbar-none" transition:fly={{ y: 6, duration: 120 }}>
-					<input
-						class="model-search"
-						bind:this={modelSearchInput}
-						bind:value={modelSearch}
-						placeholder="Search models..."
-						spellcheck="false"
-					/>
-					{#each groupedModelOptions as group (group.providerId)}
-						<div class="model-group" transition:fade={{ duration: 90 }}>
-							<div class="model-group-heading">
-								<strong>{group.providerName}</strong>
-							</div>
-							{#each group.options as option (option.id)}
-								<button
-									class="model-option"
-									onclick={() => selectDefaultModel(option)}
-								>
-									<span class="model-check">
-										{#if option.providerId === defaultProviderId && option.modelId === defaultModelId}<Check
-												size={14}
-												stroke-width={2}
-											/>{/if}
-									</span>
-									<span class="model-option-copy">
-										<strong>{option.label}</strong>
-										<small>{option.modelId}</small>
-									</span>
-								</button>
-							{/each}
-						</div>
-					{:else}
-						<p class="model-empty">No enabled models match your search.</p>
-					{/each}
-				</div>
-			{/if}
-		</div>
-	</div>
-
-	<div class="settings-section">
-		<div class="settings-section-heading">
-			<h3>Session titles</h3>
-			<p>
-				CometMind names each session from your first message using an LLM. Pin a cheaper /
-				faster model here, or leave as default to reuse the session's own model.
-			</p>
-		</div>
-		<label>
-			<span>Title provider</span>
-			<select
-				value={cometmind.titleProviderId}
-				onchange={(e) => setTitleProvider(e.currentTarget.value)}
-			>
-				<option value="">Use session model (default)</option>
-				{#each providers as provider (provider.id)}
-					<option value={provider.id}>{provider.name}</option>
-				{/each}
-			</select>
-		</label>
-		{#if cometmind.titleProviderId}
+		<div class="settings-section">
+			<div class="settings-section-heading">
+				<h3>Session titles</h3>
+				<p>
+					CometMind names each session from your first message using an LLM. Pin a cheaper
+					/ faster model here, or leave as default to reuse the session's own model.
+				</p>
+			</div>
 			<label>
-				<span>Title model</span>
+				<span>Title provider</span>
 				<select
-					value={cometmind.titleModelId || titleModels[0] || ''}
-					onchange={(e) => setTitleModel(e.currentTarget.value)}
+					value={cometmind.titleProviderId}
+					onchange={(e) => setTitleProvider(e.currentTarget.value)}
 				>
-					{#each titleModels as model (model)}
-						<option value={model}>{model}</option>
+					<option value="">Use session model (default)</option>
+					{#each providers as provider (provider.id)}
+						<option value={provider.id}>{provider.name}</option>
 					{/each}
 				</select>
-				<p class="settings-field-hint">
-					A small, fast model is ideal — titles are short and don't need a frontier model.
-				</p>
 			</label>
-		{/if}
-	</div>
-
-	<div class="settings-section">
-		<div class="settings-section-heading">
-			<h3>Memory extraction</h3>
-			<p>
-				After each turn, CometMind extracts durable memories in the background. Pin a
-				cheaper model from any provider for this step, or leave as default to reuse the
-				session's own model.
-			</p>
+			{#if cometmind.titleProviderId}
+				<label>
+					<span>Title model</span>
+					<select
+						value={cometmind.titleModelId || titleModels[0] || ''}
+						onchange={(e) => setTitleModel(e.currentTarget.value)}
+					>
+						{#each titleModels as model (model)}
+							<option value={model}>{model}</option>
+						{/each}
+					</select>
+					<p class="settings-field-hint">
+						A small, fast model is ideal — titles are short and don't need a frontier
+						model.
+					</p>
+				</label>
+			{/if}
 		</div>
-		<label>
-			<span>Extraction provider</span>
-			<select
-				value={cometmind.memory.extractionProviderId}
-				onchange={(e) => setExtractionProvider(e.currentTarget.value)}
-			>
-				<option value="">Use session model (default)</option>
-				{#each providers as provider (provider.id)}
-					<option value={provider.id}>{provider.name}</option>
-				{/each}
-			</select>
-		</label>
-		{#if cometmind.memory.extractionProviderId}
+
+		<div class="settings-section">
+			<div class="settings-section-heading">
+				<h3>Memory extraction</h3>
+				<p>
+					After each turn, CometMind extracts durable memories in the background. Pin a
+					cheaper model from any provider for this step, or leave as default to reuse the
+					session's own model.
+				</p>
+			</div>
 			<label>
-				<span>Extraction model</span>
+				<span>Extraction provider</span>
 				<select
-					value={cometmind.memory.extractionModel || extractionModels[0] || ''}
-					onchange={(e) => setExtractionModel(e.currentTarget.value)}
+					value={cometmind.memory.extractionProviderId}
+					onchange={(e) => setExtractionProvider(e.currentTarget.value)}
 				>
-					{#each extractionModels as model (model)}
-						<option value={model}>{model}</option>
+					<option value="">Use session model (default)</option>
+					{#each providers as provider (provider.id)}
+						<option value={provider.id}>{provider.name}</option>
 					{/each}
 				</select>
-				<p class="settings-field-hint">
-					A small, fast model is ideal — extraction runs after every turn in the
-					background.
-				</p>
 			</label>
-		{/if}
-	</div>
+			{#if cometmind.memory.extractionProviderId}
+				<label>
+					<span>Extraction model</span>
+					<select
+						value={cometmind.memory.extractionModel || extractionModels[0] || ''}
+						onchange={(e) => setExtractionModel(e.currentTarget.value)}
+					>
+						{#each extractionModels as model (model)}
+							<option value={model}>{model}</option>
+						{/each}
+					</select>
+					<p class="settings-field-hint">
+						A small, fast model is ideal — extraction runs after every turn in the
+						background.
+					</p>
+				</label>
+			{/if}
+		</div>
 	</div>
 </section>
 
