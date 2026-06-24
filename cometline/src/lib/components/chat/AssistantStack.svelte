@@ -5,7 +5,7 @@
 	import ToolFoldPanel from '$lib/components/chat/ToolFoldPanel.svelte';
 	import AssistantActivityGroup from '$lib/components/chat/AssistantActivityGroup.svelte';
 	import TimelineEntryRow from '$lib/components/chat/TimelineEntryRow.svelte';
-	import { setChatTurnContext } from '$lib/conversation/chat-turn-context';
+	import { setReactiveChatTurnContext } from '$lib/conversation/chat-turn-context';
 	import { assistantThinkingWait } from '$lib/conversation/thread-format';
 	import {
 		buildAssistantTimeline,
@@ -29,9 +29,7 @@
 		showActivitySpinner: boolean;
 	} = $props();
 
-	$effect(() => {
-		setChatTurnContext(context);
-	});
+	setReactiveChatTurnContext(() => context);
 
 	const timeline = $derived(
 		buildAssistantTimeline(item.id, context.threadItems, context.thinkingForAssistant)

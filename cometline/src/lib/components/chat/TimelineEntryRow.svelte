@@ -24,7 +24,7 @@
 		cycling?: boolean;
 	} = $props();
 
-	const ctx = getChatTurnContext();
+	const ctx = $derived(getChatTurnContext());
 	const toggleDisabled = $derived(isTimelineEntryToggleDisabled(entry));
 
 	function thinkingActive(pending?: boolean) {

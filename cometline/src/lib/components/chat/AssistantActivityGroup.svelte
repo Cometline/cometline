@@ -40,7 +40,7 @@
 		cycling?: boolean;
 	} = $props();
 
-	const ctx = getChatTurnContext();
+	const ctx = $derived(getChatTurnContext());
 	const bodyId = $derived(`activity-group-body-${assistantId}`);
 
 	let firstEntry = $derived(timeline[0]);

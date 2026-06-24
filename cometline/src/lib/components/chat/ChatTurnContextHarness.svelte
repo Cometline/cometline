@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { setChatTurnContext } from '$lib/conversation/chat-turn-context';
+	import { setReactiveChatTurnContext } from '$lib/conversation/chat-turn-context';
 	import type { AssistantStackContext } from '$lib/conversation/assistant-stack-props';
 
 	let {
@@ -11,9 +11,7 @@
 		children: Snippet;
 	} = $props();
 
-	$effect(() => {
-		setChatTurnContext(ctx);
-	});
+	setReactiveChatTurnContext(() => ctx);
 </script>
 
 {@render children()}
