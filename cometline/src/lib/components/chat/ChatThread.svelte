@@ -123,6 +123,14 @@
 	});
 	let thinkingOverrides = $state(new Map<string, boolean>());
 	let activityGroupOverrides = $state(new Map<string, boolean>());
+	// Per-turn auto-fold bookkeeping (non-reactive; only mutated inside untrack):
+	// each streaming turn auto-expands once, then auto-collapses once when the
+	// turn finishes (its final response is fully delivered). After that, the user
+	// controls the toggle. lastStreamingTurnId remembers the turn that was
+	// streaming so we can collapse it the moment streaming ends.
+	let autoExpandedTurns = new Set<string>();
+	let autoCollapsedTurns = new Set<string>();
+	let lastStreamingTurnId: string | null = null;
 	let expandedMemoryInThinking = $state(new Set<string>());
 	let subagentFold = $state(new Map<string, boolean>());
 	let copiedId = $state<string | null>(null);
@@ -307,20 +315,59 @@
 		showJumpToBottom = false;
 	}
 
+	// Reset fold state only when the session actually changes. Everything inside
+	// runs untracked so streaming item updates (chatStore.items) don't re-trigger
+	// this effect and wipe the user's per-block expand/collapse choices.
 	$effect(() => {
 		void sessionId;
-		thinkingOverrides = new Map();
-		activityGroupOverrides = new Map();
-		expandedToolOutput = new Set();
-		proposeJobAutoExpanded = new Set();
-		// Treat the session's existing latest user message as already-positioned so
-		// switching sessions doesn't trigger the send auto-scroll.
-		lastScrolledUserId = untrack(() => lastUserId);
-		if (sessionHasCachedTranscript(sessionId)) {
-			isInitialTranscriptPaint = false;
-			return;
-		}
-		isInitialTranscriptPaint = true;
+		untrack(() => {
+			thinkingOverrides = new Map();
+			activityGroupOverrides = new Map();
+			expandedToolOutput = new Set();
+			proposeJobAutoExpanded = new Set();
+			autoExpandedTurns = new Set();
+			autoCollapsedTurns = new Set();
+			lastStreamingTurnId = null;
+			// Treat the session's existing latest user message as already-positioned so
+			// switching sessions doesn't trigger the send auto-scroll.
+			lastScrolledUserId = lastUserId;
+			isInitialTranscriptPaint = !sessionHasCachedTranscript(sessionId);
+		});
+	});
+
+	// Drive the activity group's default fold for a streaming turn:
+	//   1. expand once while it is reasoning / running tools, then
+	//   2. collapse once the turn finishes streaming (final response delivered).
+	// Keeping the group open through the whole stream means intermediate response
+	// text in a multi-step turn never collapses it early; only the real final
+	// response does. Both transitions fire at most once per turn, so afterwards
+	// the user's manual toggle is preserved. Overrides are mutated untracked so a
+	// user toggle never re-triggers this effect.
+	$effect(() => {
+		const id = streamingAssistantId;
+		const streaming = sessionStreaming;
+		untrack(() => {
+			const setOverride = (turnId: string, value: boolean) => {
+				const next = new Map(activityGroupOverrides);
+				next.set(turnId, value);
+				activityGroupOverrides = next;
+			};
+			if (id && streaming) {
+				lastStreamingTurnId = id;
+				if (!autoExpandedTurns.has(id)) {
+					autoExpandedTurns.add(id);
+					setOverride(id, true);
+				}
+				return;
+			}
+			// Streaming just ended: collapse the turn that was active.
+			const finished = lastStreamingTurnId;
+			if (finished && !autoCollapsedTurns.has(finished)) {
+				autoCollapsedTurns.add(finished);
+				setOverride(finished, false);
+			}
+			lastStreamingTurnId = null;
+		});
 	});
 
 	let scrollKey = $derived.by(() => {

@@ -518,33 +518,17 @@ describe('defaultActivityGroupExpanded', () => {
 		text: 'Reply text'
 	};
 
-	it('defaults collapsed once response exists and turn is idle', () => {
+	it('defaults collapsed; ChatThread auto-expands the active streaming turn', () => {
 		expect(defaultActivityGroupExpanded(assistant, null, false)).toBe(false);
+		expect(defaultActivityGroupExpanded(assistant, 'a1', true)).toBe(false);
 		expect(defaultActivityGroupExpanded(assistant, 'other-id', false)).toBe(false);
-	});
-
-	it('defaults expanded while the same assistant is still streaming text', () => {
-		expect(defaultActivityGroupExpanded(assistant, 'a1', true)).toBe(true);
-	});
-
-	it('defaults expanded when no response text yet', () => {
 		const pendingAssistant: Extract<ChatItem, { type: 'assistant' }> = {
 			id: 'a1',
 			type: 'assistant',
 			text: ''
 		};
-		expect(defaultActivityGroupExpanded(pendingAssistant, 'a1', true)).toBe(true);
-		expect(defaultActivityGroupExpanded(pendingAssistant, null, false)).toBe(true);
-	});
-
-	it('defaults collapsed after reload when all steps are done', () => {
-		const refreshedAssistant: Extract<ChatItem, { type: 'assistant' }> = {
-			id: 'a1',
-			type: 'assistant',
-			text: 'Done.',
-			reasoning: { segments: [{ text: 'thought', pending: false }] }
-		};
-		expect(defaultActivityGroupExpanded(refreshedAssistant, null, false)).toBe(false);
+		expect(defaultActivityGroupExpanded(pendingAssistant, 'a1', true)).toBe(false);
+		expect(defaultActivityGroupExpanded(pendingAssistant, null, false)).toBe(false);
 	});
 });
 
@@ -555,17 +539,13 @@ describe('defaultThinkingExpanded', () => {
 		text: ''
 	};
 
-	it('auto-expands the first segment while the response is active', () => {
-		expect(defaultThinkingExpanded(0, true, assistant, 'a1', true)).toBe(true);
-		expect(defaultThinkingExpanded(0, false, assistant, 'a1', true)).toBe(true);
+	it('keeps every segment collapsed by default while the response is active', () => {
+		expect(defaultThinkingExpanded(0, true, assistant, 'a1', true)).toBe(false);
+		expect(defaultThinkingExpanded(0, false, assistant, 'a1', true)).toBe(false);
 		expect(defaultThinkingExpanded(1, true, assistant, 'a1', true)).toBe(false);
 	});
 
-	it('keeps the first segment open while the same turn is still active', () => {
-		expect(defaultThinkingExpanded(0, false, assistant, 'a1', true)).toBe(true);
-	});
-
-	it('folds all segments once the final response is idle', () => {
+	it('keeps every segment collapsed once the final response is idle', () => {
 		const done: Extract<ChatItem, { type: 'assistant' }> = {
 			id: 'a1',
 			type: 'assistant',

@@ -267,16 +267,13 @@ export function shouldGroupAssistantTimeline(
 	return assistant.text.trim().length > 0;
 }
 
-/** Default parent activity group fold: collapsed after response, open while streaming. */
+/** Default parent activity group fold: collapsed; ChatThread auto-expands the active streaming turn. */
 export function defaultActivityGroupExpanded(
-	assistant: AssistantItem,
-	streamingAssistantId: string | null,
-	sessionStreaming: boolean
+	_assistant: AssistantItem,
+	_streamingAssistantId: string | null,
+	_sessionStreaming: boolean
 ): boolean {
-	if (assistant.text.trim() && !(assistant.id === streamingAssistantId && sessionStreaming)) {
-		return false;
-	}
-	return true;
+	return false;
 }
 
 /** Whether an assistant turn is still in the pre-final / streaming response phase. */
