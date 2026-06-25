@@ -11,7 +11,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-const defaultConnectTimeout = 30 * time.Second
+const defaultConnectTimeout = 10 * time.Second
 
 var clientImpl = &mcp.Implementation{Name: "cometmind", Version: "0.1.0"}
 

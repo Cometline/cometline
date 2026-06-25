@@ -50,11 +50,16 @@ func runServe(_ *cobra.Command, _ []string) error {
 	}
 	defer rt.Close()
 
-	if pruned, err := rt.Sessions.PruneMissingWorkspaces(ctx); err != nil {
-		return fmt.Errorf("prune missing workspaces: %w", err)
-	} else if pruned > 0 {
-		logging.L().Info("workspace.pruned", "count", pruned)
-	}
+	// Prune workspaces whose filesystem path no longer exists. This stats every
+	// workspace path (slow on network mounts), so run it in the background to
+	// keep it off the startup critical path.
+	go func() {
+		if pruned, err := rt.Sessions.PruneMissingWorkspaces(ctx); err != nil {
+			logging.L().Warn("workspace.prune_failed", "error", err)
+		} else if pruned > 0 {
+			logging.L().Info("workspace.pruned", "count", pruned)
+		}
+	}()
 
 	runs := server.NewRunManager()
 	engine, err := server.New(server.Deps{

@@ -100,7 +100,11 @@ func New(ctx context.Context) (*Runtime, error) {
 		logging.L().Warn("jobs.reconcile.startup_failed", "error", err)
 	}
 	r.mcpMgr = mcppkg.NewManager(cfg.MCPSettings())
-	r.mcpMgr.Start(ctx)
+	// Connect MCP servers in the background so a slow or unreachable server
+	// cannot block startup. The HTTP server (and health endpoint) come up
+	// immediately; MCP tools are gathered lazily per agent turn, so any
+	// in-progress connections simply surface their tools once ready.
+	go r.mcpMgr.Start(ctx)
 	return r, nil
 }
 
@@ -109,12 +113,13 @@ func runRetention(ctx context.Context, db *sql.DB, sessions *session.Service, me
 		return
 	}
 	rr := &retention.Runner{
-		DB:       db,
-		Sessions: sessions,
-		Memory:   mem,
-		Jobs:     jobSvc,
-		Config:   cfg,
-		IsRunning: isRunning,
+		DB:          db,
+		Sessions:    sessions,
+		Memory:      mem,
+		Jobs:        jobSvc,
+		Config:      cfg,
+		IsRunning:   isRunning,
+		VacuumAsync: true,
 	}
 	if _, err := rr.Run(ctx); err != nil {
 		logging.L().Warn("retention.failed", "error", err)

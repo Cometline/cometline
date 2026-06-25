@@ -32,6 +32,9 @@ type Runner struct {
 	Config   config.StorageConfig
 	// IsRunning, when set, skips sessions with an in-flight agent turn.
 	IsRunning func(sessionID string) bool
+	// VacuumAsync runs the post-purge VACUUM in a background goroutine instead
+	// of blocking. Used on startup to keep VACUUM off the critical path.
+	VacuumAsync bool
 }
 
 // Run applies configured retention rules. It is safe to call on startup.
@@ -69,10 +72,22 @@ func (r *Runner) Run(ctx context.Context) (Result, error) {
 	}
 
 	if cfg.VacuumAfterPurge && (out.SessionsDeleted > 0 || out.SubagentsDeleted > 0 || out.MemoriesPurged > 0 || out.JobsPurged > 0) {
-		if _, err := r.DB.ExecContext(ctx, "VACUUM"); err != nil {
+		if r.VacuumAsync {
+			// VACUUM takes an exclusive lock and rewrites the whole file, so it
+			// can be slow on large databases. On startup we run it in the
+			// background to keep it off the critical path; it is safe to run
+			// concurrently with readers in WAL mode.
+			db := r.DB
+			go func() {
+				if _, err := db.ExecContext(context.Background(), "VACUUM"); err != nil {
+					logging.L().Warn("retention.vacuum.failed", "error", err)
+				}
+			}()
+		} else if _, err := r.DB.ExecContext(ctx, "VACUUM"); err != nil {
 			return out, err
+		} else {
+			out.Vacuumed = true
 		}
-		out.Vacuumed = true
 	}
 
 	if out.SessionsDeleted > 0 || out.SubagentsDeleted > 0 || out.MemoriesPurged > 0 || out.JobsPurged > 0 {

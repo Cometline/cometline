@@ -2123,14 +2123,20 @@ app.whenReady().then(async () => {
 	const startupSettings = readProviderSettings();
 	applyOpenAtLoginSetting(startupSettings.app?.openAtLogin);
 	startCometMind();
-	const healthy = await waitForHealth();
-	if (!healthy) {
-		console.error('CometMind failed to become healthy');
-	}
-	if (startupSettings.cometmind?.gateway?.discord?.enabled) {
-		startDiscordGateway();
-	}
-	await createWindow();
+	// Create the window immediately and let the sidecar warm up in parallel.
+	// The renderer shows its own connecting/loading state until the health
+	// check passes, so we no longer block the window behind waitForHealth().
+	const windowReady = createWindow();
+	waitForHealth().then((healthy) => {
+		if (!healthy) {
+			console.error('CometMind failed to become healthy');
+			return;
+		}
+		if (startupSettings.cometmind?.gateway?.discord?.enabled) {
+			startDiscordGateway();
+		}
+	});
+	await windowReady;
 	applyIconVariant(startupSettings.app?.iconVariant);
 	configureAutoUpdater();
 
