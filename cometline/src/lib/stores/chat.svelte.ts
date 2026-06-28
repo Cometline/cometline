@@ -14,6 +14,7 @@ import { anyReasoningPending, hasReasoning } from '$lib/conversation/reasoning';
 import { sessionStore } from '$lib/stores/session.svelte';
 import { chatDebug, summarizeChatItems, summarizeStreamEvent } from '../debug/chat';
 import { playResponseCompleteSound } from '$lib/sound/response-complete';
+import { publishWindowSync, subscribeWindowSync } from '$lib/window-sync';
 
 import { itemsFromTranscript, localID, mergeSubagents } from '$lib/stores/chat-transcript';
 import {
@@ -40,6 +41,8 @@ function createChatStore() {
 	const sessionCache = new Map<string, ChatItem[]>();
 	const sessionErrors = new Map<string, string>();
 	const streamHandles = new Map<string, SessionStream>();
+	const localStreamingSessionIds = new Set<string>();
+	const remoteStreamingSessionIds = new Set<string>();
 	let streamingSessionIds = $state.raw<Set<string>>(new Set());
 
 	const BATCHABLE_EVENTS = BATCHABLE_STREAM_EVENTS;
@@ -60,10 +63,22 @@ function createChatStore() {
 		return sessionCache.get(targetSessionID) ?? [];
 	}
 
-	function writeSessionItems(targetSessionID: string, nextItems: ChatItem[]) {
+	function refreshStreamingState() {
+		streamingSessionIds = new Set([...localStreamingSessionIds, ...remoteStreamingSessionIds]);
+	}
+
+	function writeSessionItems(
+		targetSessionID: string,
+		nextItems: ChatItem[],
+		options: { broadcast?: boolean } = {}
+	) {
+		const { broadcast = true } = options;
 		sessionCache.set(targetSessionID, nextItems);
 		if (sessionID === targetSessionID) {
 			items = nextItems;
+		}
+		if (broadcast) {
+			publishWindowSync({ type: 'chat-items', sessionId: targetSessionID, items: nextItems });
 		}
 	}
 
@@ -85,15 +100,26 @@ function createChatStore() {
 
 	function markStreaming(targetSessionID: string, handle: SessionStream) {
 		streamHandles.set(targetSessionID, handle);
-		streamingSessionIds.add(targetSessionID);
-		streamingSessionIds = new Set(streamingSessionIds);
+		localStreamingSessionIds.add(targetSessionID);
+		refreshStreamingState();
+		publishWindowSync({ type: 'chat-streaming', sessionId: targetSessionID, streaming: true });
 	}
 
 	function unmarkStreaming(targetSessionID: string) {
 		streamHandles.delete(targetSessionID);
-		if (streamingSessionIds.delete(targetSessionID)) {
-			streamingSessionIds = new Set(streamingSessionIds);
+		if (localStreamingSessionIds.delete(targetSessionID)) {
+			refreshStreamingState();
 		}
+		publishWindowSync({ type: 'chat-streaming', sessionId: targetSessionID, streaming: false });
+	}
+
+	function setRemoteStreamingState(targetSessionID: string, streaming: boolean) {
+		if (streaming) {
+			remoteStreamingSessionIds.add(targetSessionID);
+		} else {
+			remoteStreamingSessionIds.delete(targetSessionID);
+		}
+		refreshStreamingState();
 	}
 
 	function isStreamingFor(targetSessionID: string) {
@@ -130,7 +156,8 @@ function createChatStore() {
 			handle.abort.abort();
 		}
 		streamHandles.clear();
-		streamingSessionIds = new Set();
+		localStreamingSessionIds.clear();
+		refreshStreamingState();
 		globalStreamRun += 1;
 	}
 
@@ -576,10 +603,10 @@ function createChatStore() {
 		const id = targetSessionID ?? sessionID;
 		if (!id) return;
 		const handle = streamHandles.get(id);
-		if (!handle) return;
+		if (!handle && !isStreamingFor(id)) return;
 
 		chatDebug('store:cancel-start', { sessionID: id });
-		handle.abort.abort();
+		handle?.abort.abort();
 		try {
 			await abortSession(id);
 		} catch (err) {
@@ -618,6 +645,18 @@ function createChatStore() {
 
 	function appendLocalUserMessage(targetSessionID: string, text: string) {
 		addUserToSession(targetSessionID, text);
+	}
+
+	if (browser) {
+		subscribeWindowSync((message) => {
+			if (message.type === 'chat-items') {
+				writeSessionItems(message.sessionId, message.items, { broadcast: false });
+				return;
+			}
+			if (message.type === 'chat-streaming') {
+				setRemoteStreamingState(message.sessionId, message.streaming);
+			}
+		});
 	}
 
 	return {

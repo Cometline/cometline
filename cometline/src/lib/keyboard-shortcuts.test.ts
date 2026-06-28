@@ -96,4 +96,9 @@ describe('keyboard-shortcuts', () => {
 		const normalized = normalizeKeyboardShortcuts({});
 		expect(normalized.openWebPanel).toEqual({ command: true, key: 'o' });
 	});
+
+	it('includes toggleMiniWindow default shortcut', () => {
+		const normalized = normalizeKeyboardShortcuts({});
+		expect(normalized.toggleMiniWindow).toEqual({ command: true, shift: true, key: 'k' });
+	});
 });

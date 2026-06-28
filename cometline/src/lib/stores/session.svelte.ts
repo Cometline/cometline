@@ -1,4 +1,6 @@
+import { browser } from '$app/environment';
 import type { ImageAttachment, Session } from '$lib/types';
+import { publishWindowSync, subscribeWindowSync } from '$lib/window-sync';
 
 export interface PendingMessage {
 	sessionId: string;
@@ -13,6 +15,25 @@ function createSessionStore() {
 	let current = $state<Session | null>(null);
 	let pendingMessages = $state.raw(new Map<string, Omit<PendingMessage, 'sessionId'>>());
 
+	function upsertSession(
+		session: Session,
+		options: { selectCurrent?: boolean; prepend?: boolean; broadcast?: boolean } = {}
+	) {
+		const { selectCurrent = false, prepend = false, broadcast = true } = options;
+		const existingIndex = sessions.findIndex((item) => item.id === session.id);
+		if (existingIndex === -1) {
+			sessions = prepend ? [session, ...sessions] : [...sessions, session];
+		} else if (prepend) {
+			sessions = [session, ...sessions.filter((item) => item.id !== session.id)];
+		} else {
+			sessions = sessions.map((item) => (item.id === session.id ? session : item));
+		}
+		if (selectCurrent || current?.id === session.id) current = session;
+		if (broadcast) {
+			publishWindowSync({ type: 'session-upsert', session });
+		}
+	}
+
 	function selectSession(session: Session | null) {
 		current = session;
 	}
@@ -22,22 +43,24 @@ function createSessionStore() {
 	}
 
 	function appendSession(session: Session) {
-		sessions = [session, ...sessions];
-		current = session;
+		upsertSession(session, { selectCurrent: true, prepend: true });
 	}
 
 	function updateSession(session: Session) {
-		sessions = sessions.map((item) => (item.id === session.id ? session : item));
-		if (current?.id === session.id) current = session;
+		upsertSession(session, { prepend: true });
 	}
 
-	function removeSession(id: string) {
+	function removeSession(id: string, options: { broadcast?: boolean } = {}) {
+		const { broadcast = true } = options;
 		sessions = sessions.filter((item) => item.id !== id);
 		if (current?.id === id) current = null;
+		if (broadcast) {
+			publishWindowSync({ type: 'session-remove', sessionId: id });
+		}
 	}
 
-	function discardSession(id: string) {
-		removeSession(id);
+	function discardSession(id: string, options: { broadcast?: boolean } = {}) {
+		removeSession(id, options);
 		if (pendingMessages.has(id)) {
 			const next = new Map(pendingMessages);
 			next.delete(id);
@@ -73,6 +96,18 @@ function createSessionStore() {
 		return message;
 	}
 
+	if (browser) {
+		subscribeWindowSync((message) => {
+			if (message.type === 'session-upsert') {
+				upsertSession(message.session, { prepend: true, broadcast: false });
+				return;
+			}
+			if (message.type === 'session-remove') {
+				removeSession(message.sessionId, { broadcast: false });
+			}
+		});
+	}
+
 	return {
 		get sessions() {
 			return sessions;
@@ -82,6 +117,7 @@ function createSessionStore() {
 		},
 		selectSession,
 		setSessions,
+		upsertSession,
 		appendSession,
 		updateSession,
 		removeSession,

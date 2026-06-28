@@ -2,6 +2,7 @@ const {
 	app,
 	BrowserWindow,
 	dialog,
+	globalShortcut,
 	ipcMain,
 	protocol,
 	net,
@@ -9,7 +10,8 @@ const {
 	Tray,
 	Menu,
 	nativeImage,
-	Notification: ElectronNotification
+	Notification: ElectronNotification,
+	screen
 } = require('electron');
 const path = require('path');
 const { pathToFileURL } = require('url');
@@ -48,6 +50,11 @@ const APP_ORIGIN = `${APP_SCHEME}://${APP_HOST}`;
 /** Minimum window size — chat-only layout works below the sidebar breakpoint (900px). */
 const MIN_WINDOW_WIDTH = 400;
 const MIN_WINDOW_HEIGHT = 480;
+const MINI_WINDOW_WIDTH = 460;
+const MINI_WINDOW_HEIGHT = 640;
+const MINI_WINDOW_MIN_WIDTH = 360;
+const MINI_WINDOW_MIN_HEIGHT = 440;
+const MINI_WINDOW_SCREEN_MARGIN = 18;
 const HEALTH_URL = `http://127.0.0.1:${COMETMIND_PORT}/api/v1/health`;
 const MAX_RETRIES = 50;
 const POLL_MS = 100;
@@ -128,6 +135,7 @@ protocol.registerSchemesAsPrivileged([
 ]);
 
 let mainWindow = null;
+let miniWindow = null;
 let tray = null;
 let cometMindProcess = null;
 let cometMindGatewayProcess = null;
@@ -137,6 +145,7 @@ let relaunchForUpdate = false;
 let updateCheckTimer = null;
 let windowButtonAnimationTimer = null;
 let windowButtonPosition = { x: 16, y: 17 };
+let registeredMiniWindowShortcut = '';
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 
@@ -372,6 +381,41 @@ function matchesInputShortcut(input, binding) {
 	return true;
 }
 
+function acceleratorKeyForShortcut(key) {
+	const normalized = String(key || '').trim();
+	if (!normalized) return '';
+	const named = {
+		ArrowUp: 'Up',
+		ArrowDown: 'Down',
+		ArrowLeft: 'Left',
+		ArrowRight: 'Right',
+		',': 'Comma',
+		'.': 'Period',
+		Escape: 'Escape',
+		Esc: 'Escape',
+		Enter: 'Enter',
+		Space: 'Space',
+		' ': 'Space'
+	};
+	if (named[normalized]) return named[normalized];
+	if (/^F\d{1,2}$/i.test(normalized)) return normalized.toUpperCase();
+	if (normalized.length === 1) return normalized.toUpperCase();
+	return normalized;
+}
+
+function shortcutBindingToAccelerator(binding) {
+	if (!binding?.key) return '';
+	const modifiers = [];
+	if (binding.command) modifiers.push('CommandOrControl');
+	if (binding.ctrl) modifiers.push('Control');
+	if (binding.meta) modifiers.push('Meta');
+	if (binding.alt) modifiers.push('Alt');
+	if (binding.shift) modifiers.push('Shift');
+	const key = acceleratorKeyForShortcut(binding.key);
+	if (!key) return '';
+	return [...modifiers, key].join('+');
+}
+
 let shortcutCaptureActive = false;
 let sessionNavigationSuspended = false;
 let webPanelOpen = false;
@@ -392,6 +436,42 @@ function sendOpenWebPanel() {
 	if (mainWindow && !mainWindow.isDestroyed()) {
 		mainWindow.webContents.send('cometline:open-web-panel');
 	}
+}
+
+function loadAppRoute(window, route = '/') {
+	const cleanRoute = String(route || '/').startsWith('/') ? String(route || '/') : `/${route}`;
+	if (app.isPackaged) {
+		return window.loadURL(`${APP_ORIGIN}${cleanRoute}`);
+	}
+	return window.loadURL(`http://127.0.0.1:5173${cleanRoute}`);
+}
+
+function attachExternalNavigationGuards(window) {
+	window.webContents.setWindowOpenHandler(({ url }) => {
+		if (isExternallyOpenableUrl(url)) void shell.openExternal(url);
+		return { action: 'deny' };
+	});
+	window.webContents.on('will-navigate', (event, url) => {
+		const allowed = url.startsWith(`${APP_ORIGIN}/`) || url.startsWith('http://127.0.0.1:5173');
+		if (!allowed) {
+			event.preventDefault();
+			if (isExternallyOpenableUrl(url)) void shell.openExternal(url);
+		}
+	});
+}
+
+function windowCanShow(window) {
+	return Boolean(window && !window.isDestroyed());
+}
+
+function positionMiniWindowBottomRight() {
+	if (!windowCanShow(miniWindow)) return;
+	const cursorPoint = screen.getCursorScreenPoint();
+	const display = screen.getDisplayNearestPoint(cursorPoint);
+	const { width, height } = miniWindow.getBounds();
+	const x = Math.round(display.workArea.x + display.workArea.width - width - MINI_WINDOW_SCREEN_MARGIN);
+	const y = Math.round(display.workArea.y + display.workArea.height - height - MINI_WINDOW_SCREEN_MARGIN);
+	miniWindow.setPosition(x, y, false);
 }
 
 // macOS menu bar icons are 16pt. Ship trayIcon.png (16px) + trayIcon@2x.png (32px);
@@ -558,6 +638,36 @@ function hideMainWindow() {
 	}
 }
 
+async function showMiniWindow() {
+	if (!windowCanShow(miniWindow)) {
+		await createMiniWindow();
+		return;
+	}
+	if (miniWindow.isMinimized()) {
+		miniWindow.restore();
+	}
+	miniWindow.show();
+	miniWindow.focus();
+}
+
+function hideMiniWindow() {
+	if (!windowCanShow(miniWindow)) return;
+	writeMiniWindowState({ lastActiveAt: Date.now() });
+	miniWindow.hide();
+}
+
+async function toggleMiniWindow() {
+	if (!windowCanShow(miniWindow) || !miniWindow.isVisible()) {
+		await showMiniWindow();
+		return;
+	}
+	if (miniWindow.isFocused()) {
+		hideMiniWindow();
+		return;
+	}
+	miniWindow.focus();
+}
+
 function isDarwinCloseWindowShortcut(input) {
 	return (
 		process.platform === 'darwin' &&
@@ -570,23 +680,24 @@ function isDarwinCloseWindowShortcut(input) {
 	);
 }
 
-function handleDarwinCloseWindowShortcut(event, input) {
+function handleDarwinCloseWindowShortcut(event, input, onCloseWindow) {
 	if (!isDarwinCloseWindowShortcut(input)) return false;
 	event.preventDefault();
-	if (webPanelOpen) {
+	if (onCloseWindow === hideMainWindow && webPanelOpen) {
 		sendCloseWebPanel();
 	} else {
-		hideMainWindow();
+		onCloseWindow();
 	}
 	return true;
 }
 
-function attachMainWindowShortcuts(webContents) {
+function attachWindowShortcuts(webContents, { onCloseWindow, includeSessionNavigation = false }) {
 	webContents.on('before-input-event', (event, input) => {
-		if (handleDarwinCloseWindowShortcut(event, input)) {
+		if (handleDarwinCloseWindowShortcut(event, input, onCloseWindow)) {
 			return;
 		}
 
+		if (!includeSessionNavigation) return;
 		if (shortcutCaptureActive || sessionNavigationSuspended) return;
 		const shortcuts = readProviderSettings().shortcuts ?? defaultSettings().shortcuts;
 		if (matchesInputShortcut(input, shortcuts.previousSession)) {
@@ -601,8 +712,21 @@ function attachMainWindowShortcuts(webContents) {
 	});
 }
 
+function attachMainWindowShortcuts(webContents) {
+	attachWindowShortcuts(webContents, {
+		onCloseWindow: hideMainWindow,
+		includeSessionNavigation: true
+	});
+}
+
+function attachMiniWindowShortcuts(webContents) {
+	attachWindowShortcuts(webContents, {
+		onCloseWindow: hideMiniWindow
+	});
+}
+
 function handleWebPanelGuestShortcuts(event, input) {
-	if (handleDarwinCloseWindowShortcut(event, input)) {
+	if (handleDarwinCloseWindowShortcut(event, input, hideMainWindow)) {
 		return true;
 	}
 	if (shortcutCaptureActive || sessionNavigationSuspended) return false;
@@ -714,6 +838,54 @@ function writeProviderSettings(settings) {
 		/* ignore */
 	}
 	return next;
+}
+
+function readMiniWindowState() {
+	const settings = readProviderSettings();
+	return {
+		sessionId: String(settings.app?.miniWindowSessionId || ''),
+		lastActiveAt: Number(settings.app?.miniWindowLastActiveAt || 0),
+		inactivityTimeoutMinutes: Number(settings.app?.miniWindowInactivityTimeoutMinutes || 30)
+	};
+}
+
+function writeMiniWindowState(partial) {
+	const settings = readProviderSettings();
+	settings.app = {
+		...settings.app,
+		...(typeof partial?.sessionId === 'string'
+			? { miniWindowSessionId: partial.sessionId }
+			: {}),
+		...(Number.isFinite(partial?.lastActiveAt)
+			? { miniWindowLastActiveAt: Math.max(0, Math.floor(partial.lastActiveAt)) }
+			: {})
+	};
+	const saved = writeProviderSettings(settings);
+	return {
+		sessionId: String(saved.app?.miniWindowSessionId || ''),
+		lastActiveAt: Number(saved.app?.miniWindowLastActiveAt || 0),
+		inactivityTimeoutMinutes: Number(saved.app?.miniWindowInactivityTimeoutMinutes || 30)
+	};
+}
+
+function refreshGlobalShortcuts() {
+	if (!app.isReady()) return;
+	if (registeredMiniWindowShortcut) {
+		globalShortcut.unregister(registeredMiniWindowShortcut);
+		registeredMiniWindowShortcut = '';
+	}
+	const shortcuts = readProviderSettings().shortcuts ?? defaultSettings().shortcuts;
+	const accelerator = shortcutBindingToAccelerator(shortcuts.toggleMiniWindow);
+	if (!accelerator) return;
+	const registered = globalShortcut.register(accelerator, () => {
+		if (shortcutCaptureActive) return;
+		void toggleMiniWindow();
+	});
+	if (!registered) {
+		console.warn(`Failed to register mini window shortcut: ${accelerator}`);
+		return;
+	}
+	registeredMiniWindowShortcut = accelerator;
 }
 
 async function exportProviderSettings() {
@@ -1424,31 +1596,13 @@ async function createWindow() {
 		if (!dockIcon.isEmpty()) app.dock?.setIcon(dockIcon);
 	}
 
-	// Defense in depth: untrusted markdown links must never navigate the app
-	// window or spawn Electron child windows. External links are routed through
-	// the validated cometline:open-external IPC handler instead.
-	mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-		if (isExternallyOpenableUrl(url)) void shell.openExternal(url);
-		return { action: 'deny' };
-	});
-	mainWindow.webContents.on('will-navigate', (event, url) => {
-		// Allow the app's own origin (dev server or app:// bundle); block the rest.
-		const allowed = url.startsWith(`${APP_ORIGIN}/`) || url.startsWith('http://127.0.0.1:5173');
-		if (!allowed) {
-			event.preventDefault();
-			if (isExternallyOpenableUrl(url)) void shell.openExternal(url);
-		}
-	});
+	attachExternalNavigationGuards(mainWindow);
 	attachMainWindowShortcuts(mainWindow.webContents);
 	mainWindow.webContents.on('did-attach-webview', (_event, webContents) => {
 		attachWebviewPanelShortcuts(webContents);
 	});
 
-	if (app.isPackaged) {
-		await mainWindow.loadURL(`${APP_ORIGIN}/`);
-	} else {
-		await mainWindow.loadURL('http://127.0.0.1:5173');
-	}
+	await loadAppRoute(mainWindow, '/');
 
 	mainWindow.once('ready-to-show', () => {
 		mainWindow.show();
@@ -1483,6 +1637,55 @@ async function createWindow() {
 		}
 		mainWindow = null;
 	});
+}
+
+async function createMiniWindow() {
+	const iconPath = getAppIconPath(getIconVariant());
+	miniWindow = new BrowserWindow({
+		width: MINI_WINDOW_WIDTH,
+		height: MINI_WINDOW_HEIGHT,
+		minWidth: MINI_WINDOW_MIN_WIDTH,
+		minHeight: MINI_WINDOW_MIN_HEIGHT,
+		resizable: false,
+		titleBarStyle: process.platform === 'darwin' ? 'hidden' : 'default',
+		...(process.platform === 'darwin'
+			? {
+				backgroundColor: '#111111',
+				trafficLightPosition: { x: 14, y: 14 }
+			}
+			: {}),
+		...(iconPath ? { icon: iconPath } : {}),
+		show: false,
+		webPreferences: {
+			preload: path.join(__dirname, 'preload.cjs'),
+			contextIsolation: true,
+			nodeIntegration: false,
+			allowRunningInsecureContent: false,
+			webviewTag: true
+		}
+	});
+	attachExternalNavigationGuards(miniWindow);
+	attachMiniWindowShortcuts(miniWindow.webContents);
+	positionMiniWindowBottomRight();
+	await loadAppRoute(miniWindow, '/mini');
+	miniWindow.once('ready-to-show', () => {
+		positionMiniWindowBottomRight();
+		miniWindow?.show();
+		miniWindow?.focus();
+	});
+	miniWindow.on('hide', () => {
+		writeMiniWindowState({ lastActiveAt: Date.now() });
+	});
+	miniWindow.on('close', (event) => {
+		if (!stoppingForQuit && !stoppedForQuit) {
+			event.preventDefault();
+			hideMiniWindow();
+		}
+	});
+	miniWindow.on('closed', () => {
+		miniWindow = null;
+	});
+	return miniWindow;
 }
 
 const FETCH_MODELS_TIMEOUT_MS = 30_000;
@@ -2148,6 +2351,7 @@ app.whenReady().then(async () => {
 	installCometMindCliShim();
 	const startupSettings = readProviderSettings();
 	applyOpenAtLoginSetting(startupSettings.app?.openAtLogin);
+	refreshGlobalShortcuts();
 	startCometMind();
 	// Create the window immediately and let the sidecar warm up in parallel.
 	// The renderer shows its own connecting/loading state until the health
@@ -2209,6 +2413,7 @@ app.on('before-quit', async (event) => {
 	}
 	await stopDiscordGateway();
 	await stopCometMind();
+	globalShortcut.unregisterAll();
 	stoppedForQuit = true;
 	app.quit();
 });
@@ -2318,6 +2523,7 @@ ipcMain.handle('cometline:save-provider-settings', async (_event, settings, opti
 	const iconVariantChanged =
 		(previous.app?.iconVariant ?? 'default') !== (saved.app?.iconVariant ?? 'default');
 	const shouldRestartCometMind = options.restartCometMind !== false || iconVariantChanged;
+	refreshGlobalShortcuts();
 	if (shouldRestartCometMind) {
 		await stopCometMind();
 		startCometMind();
@@ -2328,6 +2534,10 @@ ipcMain.handle('cometline:save-provider-settings', async (_event, settings, opti
 	applyIconVariant(saved.app?.iconVariant);
 	return saved;
 });
+
+ipcMain.handle('cometline:get-mini-window-state', () => readMiniWindowState());
+
+ipcMain.handle('cometline:save-mini-window-state', (_event, state) => writeMiniWindowState(state));
 
 ipcMain.handle('cometline:export-provider-settings', () => exportProviderSettings());
 
@@ -2370,10 +2580,10 @@ ipcMain.handle('cometline:get-open-at-login', () => {
 
 ipcMain.handle('cometline:set-open-at-login', (_event, openAtLogin) => {
 	const settings = readProviderSettings();
-	settings.app = normalizeAppSettings({
+	settings.app = {
 		...settings.app,
 		openAtLogin: Boolean(openAtLogin)
-	});
+	};
 	const saved = writeProviderSettings(settings);
 	const result = applyOpenAtLoginSetting(saved.app.openAtLogin);
 	return {

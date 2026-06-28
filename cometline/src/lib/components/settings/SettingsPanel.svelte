@@ -314,6 +314,7 @@
 					<div class="settings-panel-stack">
 						<SettingsGeneralPanel
 							bind:openAtLogin={draft.app.openAtLogin}
+							bind:miniWindowInactivityTimeoutMinutes={draft.app.miniWindowInactivityTimeoutMinutes}
 							bind:storage={draft.cometmind.storage}
 							onOpenAtLoginChange={panelController.setOpenAtLogin}
 						/>

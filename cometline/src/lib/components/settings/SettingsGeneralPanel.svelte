@@ -5,13 +5,22 @@
 
 	let {
 		openAtLogin = $bindable(false),
+		miniWindowInactivityTimeoutMinutes = $bindable(30),
 		storage = $bindable<CometMindStorageSettings>(),
 		onOpenAtLoginChange
 	}: {
 		openAtLogin: boolean;
+		miniWindowInactivityTimeoutMinutes: number;
 		storage: CometMindStorageSettings;
 		onOpenAtLoginChange?: (enabled: boolean) => void | Promise<void>;
 	} = $props();
+
+	function onMiniWindowTimeoutInput(event: Event) {
+		const value = Number((event.currentTarget as HTMLInputElement).value);
+		miniWindowInactivityTimeoutMinutes = Number.isFinite(value)
+			? Math.min(24 * 60, Math.max(1, Math.floor(value)))
+			: 30;
+	}
 
 	function patchStorage(patch: Partial<CometMindStorageSettings>) {
 		storage = { ...storage, ...patch };
@@ -61,6 +70,31 @@
 				onchange={onOpenAtLoginChange}
 			/>
 			<SettingsPersistenceHint tier="instant" />
+		</div>
+
+		<div class="settings-section">
+			<div class="settings-section-heading">
+				<h3>Storage & retention</h3>
+				<p>Control how long CometMind keeps archived sessions and memory before purging.</p>
+			</div>
+			<SettingsPersistenceHint tier="pending" detail="Included in Save changes" />
+			<label class="field">
+				<span>Mini window reset timeout (minutes)</span>
+				<input
+					type="number"
+					min="1"
+					max="1440"
+					step="1"
+					value={miniWindowInactivityTimeoutMinutes}
+					oninput={onMiniWindowTimeoutInput}
+				/>
+				<small>
+					After the mini window stays hidden long enough, the next hotkey open starts a new
+					rolling session. Current setting: {miniWindowInactivityTimeoutMinutes} minute{miniWindowInactivityTimeoutMinutes === 1
+						? ''
+						: 's'}.
+				</small>
+			</label>
 		</div>
 
 		<div class="settings-section">

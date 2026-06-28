@@ -2,6 +2,7 @@ export type ShortcutAction =
 	| 'toggleSidebar'
 	| 'openSettings'
 	| 'newChat'
+	| 'toggleMiniWindow'
 	| 'stopResponse'
 	| 'sendMessage'
 	| 'insertNewline'
@@ -67,6 +68,12 @@ export const SHORTCUT_DEFINITIONS: KeyboardShortcutDefinition[] = [
 		label: 'New chat',
 		category: 'chats',
 		defaultBinding: { command: true, key: 't' }
+	},
+	{
+		id: 'toggleMiniWindow',
+		label: 'Toggle mini window',
+		category: 'chats',
+		defaultBinding: { command: true, shift: true, key: 'k' }
 	},
 	{
 		id: 'previousSession',

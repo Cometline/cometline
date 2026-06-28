@@ -30,7 +30,11 @@
 
 	const THREAD_IN = { duration: 140 };
 
-	let { sessionId, bootMessage = '' }: { sessionId: string; bootMessage?: string } = $props();
+	let {
+		sessionId,
+		bootMessage = '',
+		compact = false
+	}: { sessionId: string; bootMessage?: string; compact?: boolean } = $props();
 
 	const conversation = createConversationController({
 		getSessionId: () => sessionId,
@@ -123,6 +127,8 @@
 		getFirstTurnActive: () => firstTurnActive,
 		getFirstTurnFlightDone: () => firstTurnFlightDone,
 		getAwaitingFirstAssistant: () => awaitingFirstAssistant,
+		getStreaming: () => chatStore.isStreamingFor(sessionId),
+		getForceDocked: () => compact,
 		enqueue: (payload) => {
 			void conversation.enqueue(payload);
 		},
@@ -292,9 +298,14 @@
 	class="chat-home"
 	class:hero-layout={heroLayout}
 	class:first-turn-active={firstTurnActive}
+	class:compact
 	bind:this={chatHome}
 >
-	{#if !hasVisibleConversation && !firstTurnActive}
+	{#if compact}
+		<div class="mini-drag-region" aria-hidden="true"></div>
+	{/if}
+
+	{#if !compact && !hasVisibleConversation && !firstTurnActive}
 		<div class="empty-region">
 			<EmptyChatState />
 			{#if bootMessage}
@@ -344,7 +355,7 @@
 
 	<div
 		class="composer-wrapper"
-		class:centered={shellStore.composerPhase === 'centered'}
+		class:centered={!compact && shellStore.composerPhase === 'centered'}
 		class:snap={composerSnap}
 	>
 		<HeroComposerFrame
@@ -396,6 +407,41 @@
 		overflow: hidden;
 	}
 
+	.chat-home.compact {
+		flex: none;
+		height: 100vh;
+		min-height: 100vh;
+		-webkit-app-region: drag;
+		background:
+			radial-gradient(
+				circle at top,
+				color-mix(in srgb, var(--hero-composer-glow-color) 16%, transparent),
+				transparent 42%
+			),
+			var(--app-bg);
+	}
+
+	.mini-drag-region {
+		position: absolute;
+		top: 0;
+		left: 82px;
+		right: 0;
+		height: 42px;
+		z-index: 30;
+		-webkit-app-region: drag;
+	}
+
+	.chat-home.compact .thread-shell,
+	.chat-home.compact .composer-wrapper,
+	.chat-home.compact :global(button),
+	.chat-home.compact :global(input),
+	.chat-home.compact :global(textarea),
+	.chat-home.compact :global(select),
+	.chat-home.compact :global(a),
+	.chat-home.compact :global([role='button']) {
+		-webkit-app-region: no-drag;
+	}
+
 	.chat-home.hero-layout {
 		display: grid;
 		place-items: center;
@@ -441,6 +487,10 @@
 		bottom: var(--thread-dock-inset);
 	}
 
+	.chat-home.compact .thread-shell.docked {
+		bottom: calc(var(--thread-dock-inset) - 18px);
+	}
+
 	.boot-error {
 		margin: 18px 0 0;
 		max-width: 520px;
@@ -476,6 +526,10 @@
 	.composer-wrapper:not(.centered) {
 		bottom: var(--composer-dock-bottom);
 		transform: none;
+	}
+
+	.chat-home.compact .composer-wrapper {
+		padding-inline: 14px;
 	}
 
 	.composer-wrapper :global(.hero-composer-frame) {
