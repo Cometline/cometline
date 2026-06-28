@@ -32,7 +32,13 @@ async function sendViaQueue(sessionId: string, payload: ChatTurnPayload): Promis
 		payload.filePaths,
 		payload.displayText
 	);
-	await goto(`/session/${sessionId}`);
+	await goto(sessionRouteFor(sessionId));
+}
+
+function sessionRouteFor(sessionId: string) {
+	return window.location.pathname.startsWith('/mini')
+		? `/mini/session/${sessionId}`
+		: `/session/${sessionId}`;
 }
 
 /** Claim and start a job in-session, forking when the job workspace differs. */
@@ -57,7 +63,7 @@ export async function startJobInSession(
 			undefined,
 			jobUserDisplayText(claimed)
 		);
-		await goto(`/session/${forked.id}`);
+		await goto(sessionRouteFor(forked.id));
 		return;
 	}
 

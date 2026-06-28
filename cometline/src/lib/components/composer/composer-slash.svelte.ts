@@ -318,7 +318,7 @@ export function createComposerSlashController(deps: {
 			workspaceHighlight = 0;
 			if (forkedId) {
 				deps.setDropMessage(`Forked session into ${clean}`);
-				await goto(`/session/${forkedId}`);
+				await goto(sessionRouteFor(forkedId));
 			} else {
 				deps.setDropMessage(`Switched workspace to ${clean}`);
 				await deps.onWorkspaceChanged?.();
@@ -327,6 +327,12 @@ export function createComposerSlashController(deps: {
 		} catch (err) {
 			deps.setDropMessage(err instanceof Error ? err.message : 'Failed to fork session');
 		}
+	}
+
+	function sessionRouteFor(sessionId: string) {
+		return window.location.pathname.startsWith('/mini')
+			? `/mini/session/${sessionId}`
+			: `/session/${sessionId}`;
 	}
 
 	async function removeWorkspaceFromList(path: string, event: Event) {

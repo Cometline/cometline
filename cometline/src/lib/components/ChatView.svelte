@@ -49,6 +49,14 @@
 			onUserMessageFlight: (payloadOrText, { firstTurn, stageUser, revealStagedUser }) => {
 				const payload =
 					typeof payloadOrText === 'string' ? { text: payloadOrText } : payloadOrText;
+				if (compact && firstTurn) {
+					awaitingFirstAssistant = true;
+					firstTurnFlightDone = true;
+					firstTurnHandoffPending = false;
+					stageUser(payload.text, payload.images);
+					revealStagedUser();
+					return;
+				}
 				if (firstTurn) {
 					awaitingFirstAssistant = true;
 					firstTurnFlightDone = false;
