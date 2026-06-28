@@ -37,8 +37,10 @@ declare global {
 		| 'toggleSidebar'
 		| 'openSettings'
 		| 'newChat'
+		| 'toggleMiniWindow'
 		| 'stopResponse'
 		| 'sendMessage'
+		| 'insertNewline'
 		| 'closeSettings'
 		| 'focusSearch'
 		| 'previousSession'
@@ -65,6 +67,15 @@ declare global {
 		hasCompletedSetup: boolean;
 		hasDismissedSetupWizard: boolean;
 		iconVariant: 'default' | 'man';
+		miniWindowSessionId: string;
+		miniWindowLastActiveAt: number;
+		miniWindowInactivityTimeoutMinutes: number;
+	}
+
+	interface MiniWindowState {
+		sessionId: string;
+		lastActiveAt: number;
+		inactivityTimeoutMinutes: number;
 	}
 
 	interface OpenAtLoginState {
@@ -253,6 +264,7 @@ declare global {
 			) => Promise<{ running: boolean; enabled: boolean }>;
 			getOpenAtLogin?: () => Promise<OpenAtLoginState>;
 			setOpenAtLogin?: (enabled: boolean) => Promise<OpenAtLoginState>;
+			openSessionInMainWindow?: (sessionId: string) => Promise<boolean>;
 			fetchProviderModels?: (
 				config: ProviderConfig
 			) => Promise<FetchProviderModelsResult | string[]>;
@@ -288,6 +300,11 @@ declare global {
 			onToggleWebPanel?: (callback: () => void) => () => void;
 			onOpenWebPanel?: (callback: () => void) => () => void;
 			onNavigateSession?: (callback: (direction: 'prev' | 'next') => void) => () => void;
+			getMiniWindowState?: () => Promise<MiniWindowState>;
+			saveMiniWindowState?: (state: {
+				sessionId?: string;
+				lastActiveAt?: number;
+			}) => Promise<MiniWindowState>;
 			notifyJob?: (payload: { title: string; body: string }) => void;
 		};
 	}

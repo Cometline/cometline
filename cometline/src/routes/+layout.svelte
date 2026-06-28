@@ -1,5 +1,6 @@
 <script lang="ts">
 	import '../app.css';
+	import { page } from '$app/state';
 	import { onMount } from 'svelte';
 	import AppShell from '$lib/components/AppShell.svelte';
 	import { connectionState } from '$lib/stores/runtime.svelte';
@@ -13,6 +14,9 @@
 	let { children } = $props();
 
 	let settingsLoaded = $state(false);
+	let isMiniRoute = $derived(
+		page.url.pathname === '/mini' || page.url.pathname.startsWith('/mini/')
+	);
 	// Prevents the setup wizard from re-opening after the user skips it
 	// within the same session (in-memory guard). The durable guard is
 	// hasDismissedSetupWizard persisted in settings.
@@ -136,6 +140,10 @@
 	}
 </script>
 
-<AppShell>
+{#if isMiniRoute}
 	{@render children()}
-</AppShell>
+{:else}
+	<AppShell>
+		{@render children()}
+	</AppShell>
+{/if}

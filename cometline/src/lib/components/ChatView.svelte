@@ -30,7 +30,11 @@
 
 	const THREAD_IN = { duration: 140 };
 
-	let { sessionId, bootMessage = '' }: { sessionId: string; bootMessage?: string } = $props();
+	let {
+		sessionId,
+		bootMessage = '',
+		compact = false
+	}: { sessionId: string; bootMessage?: string; compact?: boolean } = $props();
 
 	const conversation = createConversationController({
 		getSessionId: () => sessionId,
@@ -45,6 +49,14 @@
 			onUserMessageFlight: (payloadOrText, { firstTurn, stageUser, revealStagedUser }) => {
 				const payload =
 					typeof payloadOrText === 'string' ? { text: payloadOrText } : payloadOrText;
+				if (compact && firstTurn) {
+					awaitingFirstAssistant = true;
+					firstTurnFlightDone = true;
+					firstTurnHandoffPending = false;
+					stageUser(payload.text, payload.images);
+					revealStagedUser();
+					return;
+				}
 				if (firstTurn) {
 					awaitingFirstAssistant = true;
 					firstTurnFlightDone = false;
@@ -123,6 +135,8 @@
 		getFirstTurnActive: () => firstTurnActive,
 		getFirstTurnFlightDone: () => firstTurnFlightDone,
 		getAwaitingFirstAssistant: () => awaitingFirstAssistant,
+		getStreaming: () => chatStore.isStreamingFor(sessionId),
+		getForceDocked: () => compact,
 		enqueue: (payload) => {
 			void conversation.enqueue(payload);
 		},
@@ -284,6 +298,11 @@
 		pendingSwitch = null;
 		revertModelSelection();
 	}
+
+	async function openInMainWindow() {
+		if (!sessionId) return;
+		await window.electronAPI?.openSessionInMainWindow?.(sessionId);
+	}
 </script>
 
 <svelte:window onkeydown={onWindowKeydown} />
@@ -292,9 +311,29 @@
 	class="chat-home"
 	class:hero-layout={heroLayout}
 	class:first-turn-active={firstTurnActive}
+	class:compact
 	bind:this={chatHome}
 >
-	{#if !hasVisibleConversation && !firstTurnActive}
+	{#if compact}
+		<div class="mini-titlebar" aria-label="Mini window drag area">
+			<span>Mini Chat</span>
+			<button
+				class="mini-open-main"
+				type="button"
+				title="Open this chat in the main window"
+				aria-label="Open this chat in the main window"
+				onclick={openInMainWindow}
+			>
+				<svg viewBox="0 0 16 16" aria-hidden="true">
+					<path d="M5 3.5h7.5V11" />
+					<path d="M12.5 3.5 6.25 9.75" />
+					<path d="M10.5 12.5h-7v-7" />
+				</svg>
+			</button>
+		</div>
+	{/if}
+
+	{#if !compact && !hasVisibleConversation && !firstTurnActive}
 		<div class="empty-region">
 			<EmptyChatState />
 			{#if bootMessage}
@@ -344,7 +383,7 @@
 
 	<div
 		class="composer-wrapper"
-		class:centered={shellStore.composerPhase === 'centered'}
+		class:centered={!compact && shellStore.composerPhase === 'centered'}
 		class:snap={composerSnap}
 	>
 		<HeroComposerFrame
@@ -396,6 +435,87 @@
 		overflow: hidden;
 	}
 
+	.chat-home.compact {
+		flex: none;
+		height: 100vh;
+		min-height: 100vh;
+		--mini-titlebar-height: 46px;
+		background:
+			radial-gradient(
+				circle at top,
+				color-mix(in srgb, var(--hero-composer-glow-color) 16%, transparent),
+				transparent 42%
+			),
+			var(--app-bg);
+	}
+
+	.mini-titlebar {
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		height: var(--mini-titlebar-height);
+		z-index: 40;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 8px;
+		padding: 0 96px;
+		border-bottom: 1px solid color-mix(in srgb, var(--border-soft) 72%, transparent);
+		background: color-mix(in srgb, var(--panel-bg) 82%, transparent);
+		color: var(--text-muted);
+		font-size: 11px;
+		font-weight: 650;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		user-select: none;
+		-webkit-app-region: drag;
+	}
+
+	.mini-open-main {
+		position: absolute;
+		right: 12px;
+		top: 50%;
+		transform: translateY(-50%);
+		width: 28px;
+		height: 28px;
+		display: grid;
+		place-items: center;
+		padding: 0;
+		border: 1px solid color-mix(in srgb, var(--border-soft) 80%, transparent);
+		border-radius: 999px;
+		background: color-mix(in srgb, var(--panel-bg) 88%, var(--text-main) 6%);
+		color: var(--text-main);
+		cursor: pointer;
+		-webkit-app-region: no-drag;
+	}
+
+	.mini-open-main svg {
+		width: 14px;
+		height: 14px;
+		fill: none;
+		stroke: currentColor;
+		stroke-width: 1.7;
+		stroke-linecap: round;
+		stroke-linejoin: round;
+	}
+
+	.mini-open-main:hover {
+		border-color: color-mix(in srgb, var(--hero-composer-glow-color) 54%, var(--border-soft));
+		background: color-mix(in srgb, var(--hero-composer-glow-color) 18%, var(--panel-bg));
+	}
+
+	.chat-home.compact .thread-shell,
+	.chat-home.compact .composer-wrapper,
+	.chat-home.compact :global(button),
+	.chat-home.compact :global(input),
+	.chat-home.compact :global(textarea),
+	.chat-home.compact :global(select),
+	.chat-home.compact :global(a),
+	.chat-home.compact :global([role='button']) {
+		-webkit-app-region: no-drag;
+	}
+
 	.chat-home.hero-layout {
 		display: grid;
 		place-items: center;
@@ -441,6 +561,11 @@
 		bottom: var(--thread-dock-inset);
 	}
 
+	.chat-home.compact .thread-shell.docked {
+		top: var(--mini-titlebar-height);
+		bottom: calc(var(--thread-dock-inset) - 18px);
+	}
+
 	.boot-error {
 		margin: 18px 0 0;
 		max-width: 520px;
@@ -476,6 +601,10 @@
 	.composer-wrapper:not(.centered) {
 		bottom: var(--composer-dock-bottom);
 		transform: none;
+	}
+
+	.chat-home.compact .composer-wrapper {
+		padding-inline: 14px;
 	}
 
 	.composer-wrapper :global(.hero-composer-frame) {

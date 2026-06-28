@@ -26,7 +26,8 @@ export function pendingSettingsSnapshot(settings: ProviderSettings): string {
 			caretTrail: { ...settings.appearance.caretTrail }
 		},
 		app: {
-			iconVariant: settings.app?.iconVariant ?? 'default'
+			iconVariant: settings.app?.iconVariant ?? 'default',
+			miniWindowInactivityTimeoutMinutes: settings.app?.miniWindowInactivityTimeoutMinutes ?? 30
 		},
 		cometmind: {
 			...cometmind,
@@ -82,7 +83,10 @@ function appearanceSectionSnapshot(settings: ProviderSettings): string {
 
 function appSectionSnapshot(settings: ProviderSettings): string {
 	const cometmind = cloneCometMindSettings(normalizeCometMindSettings(settings.cometmind));
-	return JSON.stringify({ storage: cometmind.storage });
+	return JSON.stringify({
+		storage: cometmind.storage,
+		miniWindowInactivityTimeoutMinutes: settings.app?.miniWindowInactivityTimeoutMinutes ?? 30
+	});
 }
 
 export function sectionPendingDirty(
@@ -133,7 +137,7 @@ export const SECTION_PERSISTENCE_HINTS: Record<
 		instant: 'Every shortcut binding'
 	},
 	app: {
-		pending: 'Session storage and retention',
+		pending: 'Session storage, retention, and mini window timeout',
 		instant: 'Open at login',
 		action: 'Export, import, workspace, and updates'
 	}

@@ -674,12 +674,27 @@ function defaultAppSettings(): AppSettings {
 		hasSeenIntro: false,
 		hasCompletedSetup: false,
 		hasDismissedSetupWizard: false,
-		iconVariant: 'default'
+		iconVariant: 'default',
+		miniWindowSessionId: '',
+		miniWindowLastActiveAt: 0,
+		miniWindowInactivityTimeoutMinutes: 30
 	};
 }
 
 function normalizeIconVariant(value: unknown): IconVariant {
 	return value === 'man' ? 'man' : 'default';
+}
+
+function normalizeMiniWindowLastActiveAt(value: unknown): number {
+	if (typeof value !== 'number' || !Number.isFinite(value)) return 0;
+	return Math.max(0, Math.floor(value));
+}
+
+function normalizeMiniWindowInactivityTimeoutMinutes(value: unknown): number {
+	if (typeof value !== 'number' || !Number.isFinite(value)) {
+		return defaultAppSettings().miniWindowInactivityTimeoutMinutes;
+	}
+	return Math.min(24 * 60, Math.max(1, Math.floor(value)));
 }
 
 export function cloneProvider(provider: ProviderConfig): ProviderConfig {
@@ -861,7 +876,12 @@ export function normalizeSettings(
 				typeof next.app?.hasDismissedSetupWizard === 'boolean'
 					? next.app.hasDismissedSetupWizard
 					: defaultAppSettings().hasDismissedSetupWizard,
-			iconVariant: normalizeIconVariant(next.app?.iconVariant)
+			iconVariant: normalizeIconVariant(next.app?.iconVariant),
+			miniWindowSessionId: String(next.app?.miniWindowSessionId ?? '').trim(),
+			miniWindowLastActiveAt: normalizeMiniWindowLastActiveAt(next.app?.miniWindowLastActiveAt),
+			miniWindowInactivityTimeoutMinutes: normalizeMiniWindowInactivityTimeoutMinutes(
+				next.app?.miniWindowInactivityTimeoutMinutes
+			)
 		},
 		cometmind
 	};
@@ -942,7 +962,10 @@ const providerSettingsSchema = z.object({
 		hasSeenIntro: z.boolean(),
 		hasCompletedSetup: z.boolean(),
 		hasDismissedSetupWizard: z.boolean(),
-		iconVariant: z.enum(['default', 'man'])
+		iconVariant: z.enum(['default', 'man']),
+		miniWindowSessionId: z.string(),
+		miniWindowLastActiveAt: z.number().int().min(0),
+		miniWindowInactivityTimeoutMinutes: z.number().int().min(1).max(24 * 60)
 	}),
 	cometmind: z.object({
 		systemPromptPath: z.string(),

@@ -4125,6 +4125,12 @@ var SHORTCUT_DEFINITIONS = [
     defaultBinding: { command: true, key: "t" }
   },
   {
+    id: "toggleMiniWindow",
+    label: "Toggle mini window",
+    category: "chats",
+    defaultBinding: { command: true, shift: true, key: "k" }
+  },
+  {
     id: "previousSession",
     label: "Previous chat",
     category: "chats",
@@ -4719,11 +4725,24 @@ function defaultAppSettings() {
     hasSeenIntro: false,
     hasCompletedSetup: false,
     hasDismissedSetupWizard: false,
-    iconVariant: "default"
+    iconVariant: "default",
+    miniWindowSessionId: "",
+    miniWindowLastActiveAt: 0,
+    miniWindowInactivityTimeoutMinutes: 30
   };
 }
 function normalizeIconVariant(value) {
   return value === "man" ? "man" : "default";
+}
+function normalizeMiniWindowLastActiveAt(value) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return 0;
+  return Math.max(0, Math.floor(value));
+}
+function normalizeMiniWindowInactivityTimeoutMinutes(value) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return defaultAppSettings().miniWindowInactivityTimeoutMinutes;
+  }
+  return Math.min(24 * 60, Math.max(1, Math.floor(value)));
 }
 function cloneProvider(provider) {
   return {
@@ -4845,7 +4864,12 @@ function normalizeSettings(next, options = {}) {
       hasSeenIntro: typeof next.app?.hasSeenIntro === "boolean" ? next.app.hasSeenIntro : defaultAppSettings().hasSeenIntro,
       hasCompletedSetup: typeof next.app?.hasCompletedSetup === "boolean" ? next.app.hasCompletedSetup : defaultAppSettings().hasCompletedSetup,
       hasDismissedSetupWizard: typeof next.app?.hasDismissedSetupWizard === "boolean" ? next.app.hasDismissedSetupWizard : defaultAppSettings().hasDismissedSetupWizard,
-      iconVariant: normalizeIconVariant(next.app?.iconVariant)
+      iconVariant: normalizeIconVariant(next.app?.iconVariant),
+      miniWindowSessionId: String(next.app?.miniWindowSessionId ?? "").trim(),
+      miniWindowLastActiveAt: normalizeMiniWindowLastActiveAt(next.app?.miniWindowLastActiveAt),
+      miniWindowInactivityTimeoutMinutes: normalizeMiniWindowInactivityTimeoutMinutes(
+        next.app?.miniWindowInactivityTimeoutMinutes
+      )
     },
     cometmind
   };
@@ -4919,7 +4943,10 @@ var providerSettingsSchema = external_exports.object({
     hasSeenIntro: external_exports.boolean(),
     hasCompletedSetup: external_exports.boolean(),
     hasDismissedSetupWizard: external_exports.boolean(),
-    iconVariant: external_exports.enum(["default", "man"])
+    iconVariant: external_exports.enum(["default", "man"]),
+    miniWindowSessionId: external_exports.string(),
+    miniWindowLastActiveAt: external_exports.number().int().min(0),
+    miniWindowInactivityTimeoutMinutes: external_exports.number().int().min(1).max(24 * 60)
   }),
   cometmind: external_exports.object({
     systemPromptPath: external_exports.string(),

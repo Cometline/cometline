@@ -57,6 +57,7 @@ export type ShortcutAction =
 	| 'toggleSidebar'
 	| 'openSettings'
 	| 'newChat'
+	| 'toggleMiniWindow'
 	| 'stopResponse'
 	| 'sendMessage'
 	| 'insertNewline'
@@ -88,6 +89,9 @@ export interface AppSettings {
 	hasCompletedSetup: boolean;
 	hasDismissedSetupWizard: boolean;
 	iconVariant: IconVariant;
+	miniWindowSessionId: string;
+	miniWindowLastActiveAt: number;
+	miniWindowInactivityTimeoutMinutes: number;
 }
 
 export interface ProviderSettings {

@@ -11,6 +11,7 @@ import { modelStore } from '$lib/stores/model.svelte';
 import { sessionStore } from '$lib/stores/session.svelte';
 import { shellStore } from '$lib/stores/shell.svelte';
 import { jobUserDisplayText } from '$lib/jobs/format-job-label';
+import { sessionRouteFor } from '$lib/routes/session-route';
 
 export type JobStartSender = (payload: ChatTurnPayload) => void | Promise<void>;
 
@@ -32,7 +33,7 @@ async function sendViaQueue(sessionId: string, payload: ChatTurnPayload): Promis
 		payload.filePaths,
 		payload.displayText
 	);
-	await goto(`/session/${sessionId}`);
+	await goto(sessionRouteFor(sessionId));
 }
 
 /** Claim and start a job in-session, forking when the job workspace differs. */
@@ -57,7 +58,7 @@ export async function startJobInSession(
 			undefined,
 			jobUserDisplayText(claimed)
 		);
-		await goto(`/session/${forked.id}`);
+		await goto(sessionRouteFor(forked.id));
 		return;
 	}
 

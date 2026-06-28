@@ -26,6 +26,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
 		ipcRenderer.invoke('cometline:set-discord-gateway-enabled', enabled),
 	getOpenAtLogin: () => ipcRenderer.invoke('cometline:get-open-at-login'),
 	setOpenAtLogin: (enabled) => ipcRenderer.invoke('cometline:set-open-at-login', enabled),
+	openSessionInMainWindow: (sessionId) =>
+		ipcRenderer.invoke('cometline:open-session-in-main-window', sessionId),
+	getMiniWindowState: () => ipcRenderer.invoke('cometline:get-mini-window-state'),
+	saveMiniWindowState: (state) => ipcRenderer.invoke('cometline:save-mini-window-state', state),
 	fetchProviderModels: (config) => ipcRenderer.invoke('cometline:fetch-provider-models', config),
 	saveProviderSettings: (settings, options) =>
 		ipcRenderer.invoke('cometline:save-provider-settings', settings, options),

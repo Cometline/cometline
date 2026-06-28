@@ -35,7 +35,11 @@ export function cloneSettings(settings: ProviderSettings): ProviderSettings {
 			hasSeenIntro: settings.app?.hasSeenIntro ?? false,
 			hasCompletedSetup: settings.app?.hasCompletedSetup ?? false,
 			hasDismissedSetupWizard: settings.app?.hasDismissedSetupWizard ?? false,
-			iconVariant: settings.app?.iconVariant ?? 'default'
+			iconVariant: settings.app?.iconVariant ?? 'default',
+			miniWindowSessionId: settings.app?.miniWindowSessionId ?? '',
+			miniWindowLastActiveAt: settings.app?.miniWindowLastActiveAt ?? 0,
+			miniWindowInactivityTimeoutMinutes:
+				settings.app?.miniWindowInactivityTimeoutMinutes ?? 30
 		},
 		cometmind: cloneCometMindSettings(normalizeCometMindSettings(settings.cometmind))
 	};
