@@ -298,6 +298,11 @@
 		pendingSwitch = null;
 		revertModelSelection();
 	}
+
+	async function openInMainWindow() {
+		if (!sessionId) return;
+		await window.electronAPI?.openSessionInMainWindow?.(sessionId);
+	}
 </script>
 
 <svelte:window onkeydown={onWindowKeydown} />
@@ -312,6 +317,19 @@
 	{#if compact}
 		<div class="mini-titlebar" aria-label="Mini window drag area">
 			<span>Mini Chat</span>
+			<button
+				class="mini-open-main"
+				type="button"
+				title="Open this chat in the main window"
+				aria-label="Open this chat in the main window"
+				onclick={openInMainWindow}
+			>
+				<svg viewBox="0 0 16 16" aria-hidden="true">
+					<path d="M5 3.5h7.5V11" />
+					<path d="M12.5 3.5 6.25 9.75" />
+					<path d="M10.5 12.5h-7v-7" />
+				</svg>
+			</button>
 		</div>
 	{/if}
 
@@ -454,11 +472,37 @@
 		-webkit-app-region: drag;
 	}
 
-	.mini-grabber {
+	.mini-open-main {
+		position: absolute;
+		right: 12px;
+		top: 50%;
+		transform: translateY(-50%);
 		width: 28px;
-		height: 4px;
+		height: 28px;
+		display: grid;
+		place-items: center;
+		padding: 0;
+		border: 1px solid color-mix(in srgb, var(--border-soft) 80%, transparent);
 		border-radius: 999px;
-		background: color-mix(in srgb, var(--text-muted) 42%, transparent);
+		background: color-mix(in srgb, var(--panel-bg) 88%, var(--text-main) 6%);
+		color: var(--text-main);
+		cursor: pointer;
+		-webkit-app-region: no-drag;
+	}
+
+	.mini-open-main svg {
+		width: 14px;
+		height: 14px;
+		fill: none;
+		stroke: currentColor;
+		stroke-width: 1.7;
+		stroke-linecap: round;
+		stroke-linejoin: round;
+	}
+
+	.mini-open-main:hover {
+		border-color: color-mix(in srgb, var(--hero-composer-glow-color) 54%, var(--border-soft));
+		background: color-mix(in srgb, var(--hero-composer-glow-color) 18%, var(--panel-bg));
 	}
 
 	.chat-home.compact .thread-shell,

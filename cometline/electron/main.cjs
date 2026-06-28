@@ -620,6 +620,23 @@ function showMainWindow() {
 	}
 }
 
+async function openSessionInMainWindow(sessionId) {
+	const cleanSessionId = typeof sessionId === 'string' ? sessionId.trim() : '';
+	if (!cleanSessionId) return false;
+	if (!windowCanShow(mainWindow)) {
+		await createWindow();
+	}
+	if (!windowCanShow(mainWindow)) return false;
+	if (mainWindow.isMinimized()) {
+		mainWindow.restore();
+	}
+	await loadAppRoute(mainWindow, `/session/${encodeURIComponent(cleanSessionId)}`);
+	mainWindow.show();
+	mainWindow.focus();
+	hideMiniWindow();
+	return true;
+}
+
 function hideMainWindow() {
 	if (!mainWindow || mainWindow.isDestroyed()) return;
 	if (mainWindow.isFullScreen()) {
@@ -2477,6 +2494,10 @@ ipcMain.handle('cometline:get-fullscreen', () =>
 );
 
 ipcMain.handle('cometline:get-workspace-path', () => getWorkspacePath());
+
+ipcMain.handle('cometline:open-session-in-main-window', (_event, sessionId) =>
+	openSessionInMainWindow(sessionId)
+);
 
 ipcMain.handle('cometline:select-workspace-path', selectWorkspacePath);
 

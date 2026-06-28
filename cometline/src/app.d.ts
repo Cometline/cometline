@@ -264,6 +264,7 @@ declare global {
 			) => Promise<{ running: boolean; enabled: boolean }>;
 			getOpenAtLogin?: () => Promise<OpenAtLoginState>;
 			setOpenAtLogin?: (enabled: boolean) => Promise<OpenAtLoginState>;
+			openSessionInMainWindow?: (sessionId: string) => Promise<boolean>;
 			fetchProviderModels?: (
 				config: ProviderConfig
 			) => Promise<FetchProviderModelsResult | string[]>;
