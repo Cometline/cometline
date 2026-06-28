@@ -138,6 +138,12 @@ let updateCheckTimer = null;
 let windowButtonAnimationTimer = null;
 let windowButtonPosition = { x: 16, y: 17 };
 
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
+
+if (!hasSingleInstanceLock) {
+	app.quit();
+}
+
 // Vertically center the native buttons on the sidebar search bar. The titlebar
 // row now sits flush against the window top, so the search input center is:
 // titlebar row top padding (10px) + half the 28px search input (14px) = 24px.
@@ -1051,6 +1057,12 @@ function openMacLoginItemsSettings() {
 }
 
 function readLoginItemState() {
+	if (!app.isPackaged) {
+		return {
+			openAtLogin: false,
+			status: 'unsupported'
+		};
+	}
 	const query =
 		process.platform === 'darwin' && isMacOS13OrLater()
 			? { type: 'mainAppService' }
@@ -1067,6 +1079,17 @@ function applyOpenAtLoginSetting(openAtLogin) {
 	const wantsLogin = Boolean(openAtLogin);
 	if (process.platform !== 'darwin' && process.platform !== 'win32') {
 		return { openAtLogin: false, status: 'unsupported' };
+	}
+	if (!app.isPackaged) {
+		if (wantsLogin) {
+			console.warn('Open at login is only supported in packaged builds.');
+		}
+		return {
+			openAtLogin: false,
+			status: 'unsupported',
+			isDev: wantsLogin && process.platform === 'darwin',
+			message: 'Open at login is only supported in packaged builds.'
+		};
 	}
 
 	const settings = { openAtLogin: wantsLogin };
@@ -2108,6 +2131,9 @@ async function fetchProviderModels(config) {
 }
 
 app.whenReady().then(async () => {
+	if (!hasSingleInstanceLock) {
+		return;
+	}
 	// Serve the packaged bundle over the custom app:// scheme.
 	if (app.isPackaged) registerAppProtocol();
 
@@ -2139,6 +2165,10 @@ app.whenReady().then(async () => {
 	await windowReady;
 	applyIconVariant(startupSettings.app?.iconVariant);
 	configureAutoUpdater();
+
+	app.on('second-instance', () => {
+		showMainWindow();
+	});
 
 	app.on('activate', () => {
 		// Reopening from the Dock: re-show the warm, hidden window if it still
