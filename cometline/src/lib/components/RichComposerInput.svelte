@@ -713,6 +713,16 @@
 		filter: drop-shadow(0 0 6px var(--rce-caret-color));
 	}
 
+	@keyframes rce-caret-blink {
+		0%,
+		100% {
+			opacity: 1;
+		}
+		50% {
+			opacity: 0.75;
+		}
+	}
+
 	.rce-caret {
 		position: absolute;
 		top: 0;
@@ -723,6 +733,11 @@
 		background: var(--rce-caret-color);
 		box-shadow: 0 0 9px var(--rce-caret-color);
 		will-change: transform;
+		animation: rce-caret-blink 1.1s ease-in-out infinite;
+	}
+
+	:global(.rce-caret.moving) {
+		animation: none;
 	}
 
 	.rce-caret::after {

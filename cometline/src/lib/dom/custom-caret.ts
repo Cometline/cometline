@@ -93,6 +93,10 @@ export const customCaret: Action<HTMLDivElement, CustomCaretParams> = (node, ini
 		trail?.setAttribute('points', '');
 	}
 
+	function setCaretMoving(isMoving: boolean) {
+		caret?.classList.toggle('moving', isMoving);
+	}
+
 	function setCaretVisual(x: number, y: number) {
 		visualX = x;
 		visualY = y;
@@ -110,6 +114,7 @@ export const customCaret: Action<HTMLDivElement, CustomCaretParams> = (node, ini
 		targetX = originX = x;
 		targetY = originY = y;
 		setCaretVisual(x, y);
+		setCaretMoving(false);
 		clearTrail();
 	}
 
@@ -121,6 +126,7 @@ export const customCaret: Action<HTMLDivElement, CustomCaretParams> = (node, ini
 		trailOnly = false;
 		visualX = 0;
 		visualY = 0;
+		setCaretMoving(false);
 		clearTrail();
 		notifyState();
 	}
@@ -298,6 +304,7 @@ export const customCaret: Action<HTMLDivElement, CustomCaretParams> = (node, ini
 		targetY = measured.y;
 		animStart = performance.now();
 		animating = true;
+		setCaretMoving(true);
 		if (!raf) raf = requestAnimationFrame(animateCaret);
 	}
 
