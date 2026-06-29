@@ -25,6 +25,7 @@ Short write-ups of non-obvious bugs in the Cometline UI layer (and cross-cutting
 | 2026-06-17 | Streaming avatar disappears and spinner jumps between turns                      | [streaming-avatar-disappears-spinner-jumps.md](./streaming-avatar-disappears-spinner-jumps.md)                     |
 | 2026-06-21 | Reload: reasoning-less tool/memory rows become loose, ungrouped pills            | [reload-loose-tool-memory-pills-no-reasoning.md](./reload-loose-tool-memory-pills-no-reasoning.md)                 |
 | 2026-06-23 | Provider label casing inconsistency ("OpenAI Compatible" vs "OpenAI-compatible") | [provider-label-casing-inconsistency.md](./provider-label-casing-inconsistency.md)                                 |
+| 2026-06-29 | Settings "Save changes" stuck disabled after picking embedding model (state mutation in `$derived`) | [settings-save-disabled-state-mutation-in-derived.md](./settings-save-disabled-state-mutation-in-derived.md)       |
 
 ## When to add a postmortem
 

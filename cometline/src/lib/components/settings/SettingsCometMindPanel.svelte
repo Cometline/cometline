@@ -265,6 +265,12 @@
 		mcpPanel?.syncFields();
 	}
 
+	// Flushes the local text mirrors (argsText / allowedUsersText /
+	// allowedChannelsText) into the bound `cometmind` draft. The inputs wire this
+	// to `oninput` (not just change/blur) so editing one of these fields enables
+	// the Save button immediately — without it the first Save click can land
+	// while the button is still disabled. `syncFields()` keeps it as a save-time
+	// backstop. See docs/postmortem/settings-save-disabled-state-mutation-in-derived.md.
 	function syncListsFromText() {
 		cometmind = {
 			...cometmind,
@@ -372,6 +378,7 @@
 				<input
 					type="text"
 					bind:value={argsText}
+					oninput={syncListsFromText}
 					onchange={syncListsFromText}
 					onblur={syncListsFromText}
 					placeholder="acp"
@@ -686,6 +693,7 @@
 				<span>Allowed user IDs (one per line)</span>
 				<textarea
 					bind:value={allowedUsersText}
+					oninput={syncListsFromText}
 					onchange={syncListsFromText}
 					onblur={syncListsFromText}
 					rows="3"
@@ -699,6 +707,7 @@
 				>
 				<textarea
 					bind:value={allowedChannelsText}
+					oninput={syncListsFromText}
 					onchange={syncListsFromText}
 					onblur={syncListsFromText}
 					rows="3"

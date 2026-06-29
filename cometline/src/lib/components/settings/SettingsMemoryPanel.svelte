@@ -93,16 +93,20 @@
 		selectedEmbeddingKey = embeddingKeyForSettings(settings);
 	});
 
-	function applyEmbeddingSelection(): MemorySettings | null {
-		if (!settings) return null;
+	// Pure: derives the would-be MemorySettings from `base` + the current
+	// `selectedEmbeddingKey`/`embeddingDropdownOptions` WITHOUT mutating any
+	// reactive state. Safe to call from inside a `$derived`/`$effect` (e.g.
+	// `isDirty()`). Do NOT add `$state` writes here — see the comment on
+	// `isDirty()` for why that breaks the Save button.
+	function computeEmbeddingPayload(base: MemorySettings): MemorySettings {
 		const option = embeddingDropdownOptions.find(
 			(opt) => embeddingOptionKey(opt) === selectedEmbeddingKey
 		);
 		if (!option) {
-			const next = {
-				...settings,
+			return {
+				...base,
 				embedding: {
-					...settings.embedding,
+					...base.embedding,
 					provider_id: '',
 					provider: '',
 					model: '',
@@ -110,13 +114,11 @@
 					api_key: ''
 				}
 			};
-			settings = next;
-			return next;
 		}
-		const next = {
-			...settings,
+		return {
+			...base,
 			embedding: {
-				...settings.embedding,
+				...base.embedding,
 				provider_id: option.providerId,
 				provider: embeddingProviderForMethod(option.method),
 				model: option.model,
@@ -124,6 +126,13 @@
 				api_key: option.apiKey
 			}
 		};
+	}
+
+	// Impure: commits the computed payload to `settings`. Only call at actual
+	// save time (never from a `$derived`/`$effect`).
+	function applyEmbeddingSelection(): MemorySettings | null {
+		if (!settings) return null;
+		const next = computeEmbeddingPayload(settings);
 		settings = next;
 		return next;
 	}
@@ -171,14 +180,18 @@
 		markSavedSnapshot(next);
 	}
 
+	// POSTMORTEM GUARDRAIL: `isDirty()` is consumed inside a `$derived`
+	// (`saveDisabled` in settings-controller.svelte.ts via `getMemoryPanelDirty`).
+	// It and every helper it calls MUST be a pure read of reactive state. Never
+	// call `buildSavePayload()`/`applyEmbeddingSelection()` here — those assign to
+	// the `settings` `$state`, and mutating reactive state during a `$derived`
+	// evaluation breaks Svelte 5 dependency tracking, so changing the embedding
+	// dropdown no longer re-triggers `saveDisabled` and the "Save changes" button
+	// stays disabled. Use the pure `computeEmbeddingPayload()` instead.
 	export function isDirty(): boolean {
 		if (loading || !settings) return false;
-		try {
-			const payload = buildSavePayload();
-			return memorySettingsSnapshot(payload) !== savedSnapshot;
-		} catch {
-			return false;
-		}
+		const candidate = computeEmbeddingPayload(settings);
+		return memorySettingsSnapshot(candidate) !== savedSnapshot;
 	}
 
 	export function buildSavePayload(): MemorySettings {

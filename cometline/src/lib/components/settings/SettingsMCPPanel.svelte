@@ -373,6 +373,14 @@
 		});
 	}
 
+	// Parses the local text mirrors (argsTexts / envTexts / headerTexts) into the
+	// bound `mcp` draft for one server. Called from `oninput` (not just
+	// change/blur) so editing these fields enables the Save button immediately;
+	// otherwise the first Save click can land while the button is still disabled.
+	// Safe to call per keystroke: the inputs bind to the text maps, not to this
+	// parsed output, and it does not change the server-id set so the
+	// syncTextFieldsFromSettings() $effect won't clobber in-flight edits.
+	// See docs/postmortem/settings-save-disabled-state-mutation-in-derived.md.
 	function syncServerLists(serverId: string) {
 		updateServer(serverId, {
 			args: (argsTexts[serverId] ?? '')
@@ -573,6 +581,7 @@
 												server.id,
 												e.currentTarget.value
 											);
+											syncServerLists(server.id);
 										}}
 										onchange={() => syncServerLists(server.id)}
 										onblur={() => syncServerLists(server.id)}
@@ -626,6 +635,7 @@
 												server.id,
 												e.currentTarget.value
 											);
+											syncServerLists(server.id);
 										}}
 										onchange={() => syncServerLists(server.id)}
 										onblur={() => syncServerLists(server.id)}
@@ -646,6 +656,7 @@
 												server.id,
 												e.currentTarget.value
 											);
+											syncServerLists(server.id);
 										}}
 										onchange={() => syncServerLists(server.id)}
 										onblur={() => {
