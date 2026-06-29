@@ -47,9 +47,9 @@ const COMETMIND_PORT = 7700;
 const APP_SCHEME = 'app';
 const APP_HOST = 'bundle';
 const APP_ORIGIN = `${APP_SCHEME}://${APP_HOST}`;
-/** Minimum window size — chat-only layout works below the sidebar breakpoint (900px). */
-const MIN_WINDOW_WIDTH = 400;
-const MIN_WINDOW_HEIGHT = 480;
+/** Minimum width sized for sidebar + chat pane + web panel all being open. */
+const MIN_WINDOW_WIDTH = 1320;
+const MIN_WINDOW_HEIGHT = 620;
 const MINI_WINDOW_WIDTH = 460;
 const MINI_WINDOW_HEIGHT = 640;
 const MINI_WINDOW_MIN_WIDTH = 360;

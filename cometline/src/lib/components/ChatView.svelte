@@ -145,6 +145,7 @@
 
 	let composerVariant = $derived(chatView.composerVariant);
 	let heroLayout = $derived(chatView.heroLayout);
+	let composerFocusRequestId = $derived(shellStore.composerFocusRequestId);
 
 	let heroFrameExiting = $state(false);
 
@@ -218,6 +219,11 @@
 			firstTurnActive,
 			awaitingFirstAssistant
 		});
+	});
+
+	$effect(() => {
+		if (!composerFocusRequestId || shellStore.focusedPane !== 'chat') return;
+		setTimeout(() => composerRef?.focus(), 0);
 	});
 
 	$effect(() => {

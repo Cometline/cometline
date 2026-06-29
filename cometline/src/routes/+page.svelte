@@ -15,7 +15,14 @@
 	import { renderUserText } from '$lib/markdown/render';
 
 	let bootMessage = $derived(shellStore.bootMessage);
+	let composerRef = $state<{ focus: () => void } | null>(null);
+	let composerFocusRequestId = $derived(shellStore.composerFocusRequestId);
 	let listJobsMessage = $state<string | null>(null);
+
+	$effect(() => {
+		if (!composerFocusRequestId || shellStore.focusedPane !== 'chat') return;
+		setTimeout(() => composerRef?.focus(), 0);
+	});
 
 	// Entering the home route is a one-shot reset: no reactive inputs, so this
 	// is a lifecycle action, not a reactive effect.
@@ -94,6 +101,7 @@
 		{/if}
 		<HeroComposerFrame>
 			<Composer
+				bind:this={composerRef}
 				{onSend}
 				onLocalUserMessage={showLocalUserMessage}
 				disabled={connectionState.status !== 'ready'}

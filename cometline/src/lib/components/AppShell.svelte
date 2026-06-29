@@ -20,6 +20,7 @@
 	let { children }: { children: import('svelte').Snippet } = $props();
 
 	let sidebarRef = $state<{ focusSearch: () => void } | null>(null);
+	let contentRowRef = $state<HTMLDivElement | null>(null);
 
 	let activeSessionId = $derived(sessionStore.current?.id ?? null);
 
@@ -78,6 +79,8 @@
 	}
 
 	onMount(() => {
+		let resizeObserver: ResizeObserver | null = null;
+
 		if (narrowViewportQuery().matches) {
 			shellStore.closeSidebar();
 		}
@@ -194,17 +197,29 @@
 
 		// Keep a custom panel width within bounds when the window is resized so a
 		// previously-saved large width can't exceed the viewport.
-		function onWindowResize() {
+		function clampPanelWidthToLayout() {
+			if (!shellStore.webPanelOpen) return;
 			const raw = document.documentElement.style.getPropertyValue('--web-panel-width').trim();
-			if (!raw.endsWith('px')) return;
-			const px = Number.parseFloat(raw);
+			const current = raw.endsWith('px') ? Number.parseFloat(raw) : currentPanelWidth();
+			const px = Number.isFinite(current) ? current : currentPanelWidth();
 			if (!Number.isFinite(px)) return;
 			const clamped = clampPanelWidth(px);
 			if (clamped !== px) {
 				document.documentElement.style.setProperty('--web-panel-width', `${clamped}px`);
 			}
 		}
+
+		function onWindowResize() {
+			clampPanelWidthToLayout();
+		}
 		window.addEventListener('resize', onWindowResize);
+
+		if (contentRowRef) {
+			resizeObserver = new ResizeObserver(() => {
+				clampPanelWidthToLayout();
+			});
+			resizeObserver.observe(contentRowRef);
+		}
 
 		return () => {
 			unsubscribeNarrowViewport();
@@ -217,6 +232,7 @@
 			unsubscribeFullScreen?.();
 			document.removeEventListener('fullscreenchange', onDomFullScreenChange);
 			window.removeEventListener('resize', onWindowResize);
+			resizeObserver?.disconnect();
 		};
 	});
 
@@ -243,14 +259,34 @@
 		});
 	});
 
-	function handleMainMouseDown() {
+	function handleMainMouseDown(event: MouseEvent) {
 		shellStore.setFocusedPane('chat');
+		if (event.button !== 0) return;
+		const target = event.target;
+		if (!(target instanceof HTMLElement)) {
+			shellStore.requestComposerFocus();
+			return;
+		}
+		if (
+			target.closest(
+				'button, a, input, textarea, select, [role="button"], [contenteditable="true"]'
+			)
+		) {
+			return;
+		}
+		const selection = window.getSelection();
+		if (selection && !selection.isCollapsed) return;
+		shellStore.requestComposerFocus();
 	}
 
 	// --- Web/file panel resize ---------------------------------------------
 	const PANEL_MIN_WIDTH = 320;
+	// Keep the chat pane wide enough for avatar + bubble layout even when the
+	// sidebar and web panel are both visible.
+	const MAIN_PANEL_MIN_WIDTH = 720;
 	function panelMaxWidth() {
-		return Math.max(PANEL_MIN_WIDTH, Math.round(window.innerWidth * 0.75));
+		const rowWidth = contentRowRef?.clientWidth ?? window.innerWidth;
+		return Math.max(PANEL_MIN_WIDTH, rowWidth - MAIN_PANEL_MIN_WIDTH);
 	}
 	function currentPanelWidth() {
 		const raw = getComputedStyle(document.documentElement)
@@ -319,7 +355,7 @@
 	class:is-fullscreen={shellStore.fullscreen}
 >
 	<Sidebar bind:this={sidebarRef} collapsed={!shellStore.sidebarOpen} />
-	<div class="content-row">
+	<div class="content-row" bind:this={contentRowRef}>
 		<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 		<main
 			class="main content-panel-surface max-[900px]:shadow-none"

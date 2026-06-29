@@ -40,6 +40,7 @@ function createShellStore() {
 	let webPanelsBySession = $state<Record<string, SessionWebPanel>>({});
 	let focusedPane = $state<FocusedPane>('chat');
 	let addressBarFocusRequestId = $state(0);
+	let composerFocusRequestId = $state(0);
 
 	function activeSessionId(): string | null {
 		return getActiveSessionId();
@@ -129,6 +130,9 @@ function createShellStore() {
 		get addressBarFocusRequestId() {
 			return addressBarFocusRequestId;
 		},
+		get composerFocusRequestId() {
+			return composerFocusRequestId;
+		},
 		/** Update persisted default; sync active when no session is open (home). */
 		setDefaultWorkspacePath(path: string) {
 			defaultWorkspacePath = path;
@@ -210,6 +214,10 @@ function createShellStore() {
 		},
 		setFocusedPane(pane: FocusedPane) {
 			focusedPane = pane;
+		},
+		requestComposerFocus() {
+			focusedPane = 'chat';
+			composerFocusRequestId += 1;
 		},
 		onActiveSessionChange() {
 			focusedPane = 'chat';
