@@ -119,8 +119,16 @@
 		}
 	}
 
-	function handlePanelMouseDown() {
+	function handlePanelMouseDown(event: MouseEvent) {
 		shellStore.setFocusedPane('web');
+		if (panelMode !== 'url' || event.button !== 0) return;
+		const target = event.target;
+		if (!(target instanceof HTMLElement)) {
+			shellStore.requestAddressBarFocus();
+			return;
+		}
+		if (target.closest('button, input, textarea, select, a, [role="button"]')) return;
+		shellStore.requestAddressBarFocus();
 	}
 
 	function submitAddress() {
@@ -272,6 +280,7 @@
 		const requestId = shellStore.addressBarFocusRequestId;
 		if (!requestId || !panelOpen) return;
 		queueMicrotask(() => {
+			shellStore.setFocusedPane('web');
 			addressInputEl?.focus();
 			addressInputEl?.select();
 		});

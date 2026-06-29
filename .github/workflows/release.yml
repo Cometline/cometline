@@ -49,7 +49,7 @@ jobs:
             VERSION="${LATEST#v}"
             IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
             PATCH=$((PATCH + 1))
-            if [ "$PATCH" -gt 999 ]; then
+            if [ "$PATCH" -gt 99 ]; then
               PATCH=0
               MINOR=$((MINOR + 1))
             fi

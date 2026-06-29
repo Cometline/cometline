@@ -86,6 +86,19 @@
 		}
 	});
 
+	// Apply the persisted web/file panel width. 0 means "use the CSS default".
+	$effect(() => {
+		const width = settingsStore.settings.app.webPanelWidth;
+		const root = document.documentElement;
+		if (width > 0) {
+			const max = Math.round(window.innerWidth * 0.75);
+			const clamped = Math.min(Math.max(width, 320), Math.max(320, max));
+			root.style.setProperty('--web-panel-width', `${clamped}px`);
+		} else {
+			root.style.removeProperty('--web-panel-width');
+		}
+	});
+
 	$effect(() => {
 		if (connectionState.status !== 'ready') return;
 		if (shellStore.bootMessage) {

@@ -183,6 +183,31 @@ function createSettingsStore() {
 		await save(next, { restartCometMind: false });
 	}
 
+	async function saveWebPanelWidth(width: number) {
+		const next = Math.max(0, Math.floor(width));
+		if (settings.app.webPanelWidth === next) return;
+		error = '';
+		try {
+			const normalized = normalizeSettings({
+				...settings,
+				app: { ...settings.app, webPanelWidth: next }
+			});
+			if (window.electronAPI?.saveProviderSettings) {
+				apply(
+					await window.electronAPI.saveProviderSettings(normalized, {
+						restartCometMind: false
+					})
+				);
+				return;
+			}
+			writeLocalSettings(normalized);
+			apply(normalized);
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Failed to save panel width';
+			throw err;
+		}
+	}
+
 	async function saveShortcuts(shortcuts: ProviderSettings['shortcuts']) {
 		error = '';
 		try {
@@ -289,6 +314,7 @@ function createSettingsStore() {
 		markSetupComplete,
 		markSetupDismissed,
 		saveShortcuts,
+		saveWebPanelWidth,
 		setActiveProvider,
 		updateProvider,
 		addProvider,

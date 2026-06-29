@@ -40,6 +40,7 @@ function createShellStore() {
 	let webPanelsBySession = $state<Record<string, SessionWebPanel>>({});
 	let focusedPane = $state<FocusedPane>('chat');
 	let addressBarFocusRequestId = $state(0);
+	let composerFocusRequestId = $state(0);
 
 	function activeSessionId(): string | null {
 		return getActiveSessionId();
@@ -129,6 +130,9 @@ function createShellStore() {
 		get addressBarFocusRequestId() {
 			return addressBarFocusRequestId;
 		},
+		get composerFocusRequestId() {
+			return composerFocusRequestId;
+		},
 		/** Update persisted default; sync active when no session is open (home). */
 		setDefaultWorkspacePath(path: string) {
 			defaultWorkspacePath = path;
@@ -211,6 +215,10 @@ function createShellStore() {
 		setFocusedPane(pane: FocusedPane) {
 			focusedPane = pane;
 		},
+		requestComposerFocus() {
+			focusedPane = 'chat';
+			composerFocusRequestId += 1;
+		},
 		onActiveSessionChange() {
 			focusedPane = 'chat';
 			syncWebPanelOpenForActiveSession();
@@ -222,6 +230,7 @@ function createShellStore() {
 			};
 			focusedPane = 'web';
 			syncWebPanelOpen(true);
+			addressBarFocusRequestId += 1;
 		},
 		openFilePreview(filePath: string, sessionId: string) {
 			webPanelsBySession = {
@@ -249,6 +258,7 @@ function createShellStore() {
 			};
 			focusedPane = 'web';
 			syncWebPanelOpen(true);
+			addressBarFocusRequestId += 1;
 		},
 		requestAddressBarFocus() {
 			const sessionId = panelSessionKey();
@@ -282,6 +292,9 @@ function createShellStore() {
 			};
 			focusedPane = visible ? 'web' : 'chat';
 			syncWebPanelOpen(visible);
+			if (visible && panel.mode === 'url') {
+				addressBarFocusRequestId += 1;
+			}
 		},
 		closeWebPanel() {
 			const sessionId = panelSessionKey();
@@ -289,7 +302,7 @@ function createShellStore() {
 			const next = { ...webPanelsBySession };
 			delete next[sessionId];
 			webPanelsBySession = next;
-			focusedPane = 'chat';
+			this.requestComposerFocus();
 			syncWebPanelOpen(false);
 		},
 		clearWebPanelForSession(sessionId: string) {
@@ -298,7 +311,7 @@ function createShellStore() {
 			delete next[sessionId];
 			webPanelsBySession = next;
 			if (activeSessionId() === sessionId) {
-				focusedPane = 'chat';
+				this.requestComposerFocus();
 				syncWebPanelOpen(false);
 			}
 		},

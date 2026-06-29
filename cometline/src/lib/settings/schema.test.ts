@@ -39,6 +39,27 @@ describe('settings schema', () => {
 		expect(settings.app.hasDismissedSetupWizard).toBe(true);
 	});
 
+	it('defaults webPanelWidth to 0 (use CSS default)', () => {
+		expect(defaultSettings().app.webPanelWidth).toBe(0);
+	});
+
+	it('normalizes webPanelWidth: floors, clamps negatives, falls back on invalid', () => {
+		const base = defaultSettings();
+		expect(
+			normalizeSettings({ ...base, app: { ...base.app, webPanelWidth: 642.9 } }).app
+				.webPanelWidth
+		).toBe(642);
+		expect(
+			normalizeSettings({ ...base, app: { ...base.app, webPanelWidth: -10 } }).app.webPanelWidth
+		).toBe(0);
+		expect(
+			normalizeSettings({
+				...base,
+				app: { ...base.app, webPanelWidth: 'oops' as unknown as number }
+			}).app.webPanelWidth
+		).toBe(0);
+	});
+
 	it('appends custom providers after built-ins', () => {
 		const settings = normalizeSettings({
 			...defaultSettings(),

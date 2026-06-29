@@ -70,6 +70,7 @@ declare global {
 		miniWindowSessionId: string;
 		miniWindowLastActiveAt: number;
 		miniWindowInactivityTimeoutMinutes: number;
+		webPanelWidth: number;
 	}
 
 	interface MiniWindowState {
@@ -301,6 +302,9 @@ declare global {
 			onToggleWebPanel?: (callback: () => void) => () => void;
 			onOpenWebPanel?: (callback: () => void) => () => void;
 			onNavigateSession?: (callback: (direction: 'prev' | 'next') => void) => () => void;
+			onShortcutAction?: (
+				callback: (action: import('$lib/keyboard-shortcuts').ShortcutAction) => void
+			) => () => void;
 			getMiniWindowState?: () => Promise<MiniWindowState>;
 			saveMiniWindowState?: (state: {
 				sessionId?: string;

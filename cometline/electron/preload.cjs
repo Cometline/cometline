@@ -78,5 +78,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
 		ipcRenderer.on('cometline:navigate-session', handler);
 		return () => ipcRenderer.removeListener('cometline:navigate-session', handler);
 	},
+	onShortcutAction: (callback) => {
+		const handler = (_event, action) => {
+			if (typeof action === 'string') callback(action);
+		};
+		ipcRenderer.on('cometline:shortcut-action', handler);
+		return () => ipcRenderer.removeListener('cometline:shortcut-action', handler);
+	},
 	notifyJob: (payload) => ipcRenderer.send('jobs:notify', payload)
 });

@@ -47,9 +47,9 @@ const COMETMIND_PORT = 7700;
 const APP_SCHEME = 'app';
 const APP_HOST = 'bundle';
 const APP_ORIGIN = `${APP_SCHEME}://${APP_HOST}`;
-/** Minimum window size — chat-only layout works below the sidebar breakpoint (900px). */
-const MIN_WINDOW_WIDTH = 400;
-const MIN_WINDOW_HEIGHT = 480;
+/** Minimum width sized for sidebar + chat pane + web panel all being open. */
+const MIN_WINDOW_WIDTH = 1320;
+const MIN_WINDOW_HEIGHT = 620;
 const MINI_WINDOW_WIDTH = 460;
 const MINI_WINDOW_HEIGHT = 640;
 const MINI_WINDOW_MIN_WIDTH = 360;
@@ -426,15 +426,9 @@ function sendCloseWebPanel() {
 	}
 }
 
-function sendToggleWebPanel() {
+function sendShortcutAction(action) {
 	if (mainWindow && !mainWindow.isDestroyed()) {
-		mainWindow.webContents.send('cometline:toggle-web-panel');
-	}
-}
-
-function sendOpenWebPanel() {
-	if (mainWindow && !mainWindow.isDestroyed()) {
-		mainWindow.webContents.send('cometline:open-web-panel');
+		mainWindow.webContents.send('cometline:shortcut-action', action);
 	}
 }
 
@@ -746,16 +740,36 @@ function handleWebPanelGuestShortcuts(event, input) {
 	if (handleDarwinCloseWindowShortcut(event, input, hideMainWindow)) {
 		return true;
 	}
-	if (shortcutCaptureActive || sessionNavigationSuspended) return false;
+	if (shortcutCaptureActive) return false;
 	const shortcuts = readProviderSettings().shortcuts ?? defaultSettings().shortcuts;
-	if (matchesInputShortcut(input, shortcuts.toggleWebPanel)) {
+
+	// Forward the full set of global app shortcuts to the main renderer so they
+	// keep working while the webview guest holds DOM focus.
+	const forwardActions = [
+		'toggleSidebar',
+		'openWebPanel',
+		'toggleWebPanel',
+		'openSettings',
+		'newChat',
+		'focusSearch'
+	];
+	for (const action of forwardActions) {
+		if (matchesInputShortcut(input, shortcuts[action])) {
+			event.preventDefault();
+			sendShortcutAction(action);
+			return true;
+		}
+	}
+
+	if (sessionNavigationSuspended) return false;
+	if (matchesInputShortcut(input, shortcuts.previousSession)) {
 		event.preventDefault();
-		sendToggleWebPanel();
+		sendShortcutAction('previousSession');
 		return true;
 	}
-	if (matchesInputShortcut(input, shortcuts.openWebPanel)) {
+	if (matchesInputShortcut(input, shortcuts.nextSession)) {
 		event.preventDefault();
-		sendOpenWebPanel();
+		sendShortcutAction('nextSession');
 		return true;
 	}
 	return false;

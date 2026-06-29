@@ -4733,8 +4733,15 @@ function defaultAppSettings() {
     iconVariant: "default",
     miniWindowSessionId: "",
     miniWindowLastActiveAt: 0,
-    miniWindowInactivityTimeoutMinutes: 30
+    miniWindowInactivityTimeoutMinutes: 30,
+    webPanelWidth: 0
   };
+}
+function normalizeWebPanelWidth(value) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return defaultAppSettings().webPanelWidth;
+  }
+  return Math.max(0, Math.floor(value));
 }
 function normalizeIconVariant(value) {
   return value === "man" ? "man" : "default";
@@ -4874,7 +4881,8 @@ function normalizeSettings(next, options = {}) {
       miniWindowLastActiveAt: normalizeMiniWindowLastActiveAt(next.app?.miniWindowLastActiveAt),
       miniWindowInactivityTimeoutMinutes: normalizeMiniWindowInactivityTimeoutMinutes(
         next.app?.miniWindowInactivityTimeoutMinutes
-      )
+      ),
+      webPanelWidth: normalizeWebPanelWidth(next.app?.webPanelWidth)
     },
     cometmind
   };
@@ -4951,7 +4959,8 @@ var providerSettingsSchema = external_exports.object({
     iconVariant: external_exports.enum(["default", "man"]),
     miniWindowSessionId: external_exports.string(),
     miniWindowLastActiveAt: external_exports.number().int().min(0),
-    miniWindowInactivityTimeoutMinutes: external_exports.number().int().min(1).max(24 * 60)
+    miniWindowInactivityTimeoutMinutes: external_exports.number().int().min(1).max(24 * 60),
+    webPanelWidth: external_exports.number().int().min(0)
   }),
   cometmind: external_exports.object({
     systemPromptPath: external_exports.string(),

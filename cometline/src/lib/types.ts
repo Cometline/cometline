@@ -92,6 +92,8 @@ export interface AppSettings {
 	miniWindowSessionId: string;
 	miniWindowLastActiveAt: number;
 	miniWindowInactivityTimeoutMinutes: number;
+	/** Web/file panel width in px. 0 means use the default (50vw). */
+	webPanelWidth: number;
 }
 
 export interface ProviderSettings {

@@ -187,6 +187,18 @@ body {
 	box-shadow: var(--shadow-card);
 }
 
+/* While dragging the panel resizer, disable width/margin transitions so the
+   panel tracks the pointer directly, and prevent text selection. */
+body.panel-resizing {
+	cursor: col-resize;
+	user-select: none;
+}
+
+body.panel-resizing .main,
+body.panel-resizing .web-panel {
+	transition: none !important;
+}
+
 .content-panel-surface {
 	border: var(--content-panel-border-width) solid var(--border-soft);
 	border-radius: var(--radius-window);
