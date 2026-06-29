@@ -83,9 +83,9 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 
 	completeTurn := func() error {
 		sendDone()
-		// Extraction runs after done so the UI can settle the turn immediately,
-		// then memory_updated arrives on the same SSE connection before it closes.
-		r.extractMemoryAfterTurn(context.WithoutCancel(ctx), turn, ch)
+		// Extraction runs in the background so the SSE stream can close on done
+		// and the next queued message can start without waiting on the extractor.
+		go r.extractMemoryAfterTurn(context.WithoutCancel(ctx), turn, nil)
 		return nil
 	}
 
@@ -476,8 +476,10 @@ func (r *Runner) extractMemoryAfterTurn(ctx context.Context, turn session.AgentT
 		logging.L().Warn("memory.extract.after_turn_failed", "session", turn.ID, "provider", providerID, "error", err)
 		return
 	}
-	if wire := memoryChangesToWire(changes); len(wire) > 0 {
-		ch <- event.MemoryUpdated(wire)
+	if ch != nil {
+		if wire := memoryChangesToWire(changes); len(wire) > 0 {
+			ch <- event.MemoryUpdated(wire)
+		}
 	}
 }
 

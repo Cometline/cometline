@@ -459,6 +459,14 @@ async function* streamSse(
 	const decoder = new TextDecoder();
 	const parser = createSSEParser();
 
+	const finishStream = async () => {
+		try {
+			await reader.cancel();
+		} catch {
+			// Best-effort: the server may already have closed the connection.
+		}
+	};
+
 	try {
 		while (true) {
 			if (signal?.aborted) return;
@@ -466,14 +474,32 @@ async function* streamSse(
 			if (done) break;
 			const chunk = decoder.decode(value, { stream: true });
 			for (const result of parser.feed(chunk)) {
-				if (result === 'done') return;
-				if (result) yield result;
+				if (result === 'done') {
+					await finishStream();
+					return;
+				}
+				if (result) {
+					yield result;
+					if (result.type === 'done') {
+						await finishStream();
+						return;
+					}
+				}
 			}
 		}
 
 		for (const result of parser.flush()) {
-			if (result === 'done') return;
-			if (result) yield result;
+			if (result === 'done') {
+				await finishStream();
+				return;
+			}
+			if (result) {
+				yield result;
+				if (result.type === 'done') {
+					await finishStream();
+					return;
+				}
+			}
 		}
 	} catch (err) {
 		if (signal?.aborted || (err instanceof DOMException && err.name === 'AbortError')) return;

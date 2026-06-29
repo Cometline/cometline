@@ -230,7 +230,7 @@ func TestRunner_TextOnlyTurnPersistsAndStops(t *testing.T) {
 	}
 }
 
-func TestRunner_EmitsMemoryUpdatedAfterDone(t *testing.T) {
+func TestRunner_ExtractsMemoryInBackgroundAfterDone(t *testing.T) {
 	store := &fakeStore{}
 	provider := &fakeProvider{events: []cometsdk.Event{
 		cometsdk.TextDeltaEvent{Text: "noted"},
@@ -258,31 +258,21 @@ func TestRunner_EmitsMemoryUpdatedAfterDone(t *testing.T) {
 	if runErr != nil {
 		t.Fatalf("Run returned error: %v", runErr)
 	}
-	if mem.extractCalls != 1 {
-		t.Fatalf("ExtractAfterTurn called %d times, want 1", mem.extractCalls)
+	if len(events) == 0 || events[len(events)-1].Kind != event.KindDone {
+		t.Fatalf("expected stream to end with done, got %+v", events)
+	}
+	for _, ev := range events {
+		if ev.Kind == event.KindMemoryUpdated {
+			t.Fatalf("memory_updated should not be emitted on the turn stream, got %+v", events)
+		}
 	}
 
-	doneIdx := -1
-	updatedIdx := -1
-	for i, ev := range events {
-		if ev.Kind == event.KindDone {
-			doneIdx = i
-		}
-		if ev.Kind == event.KindMemoryUpdated {
-			updatedIdx = i
-		}
+	deadline := time.Now().Add(2 * time.Second)
+	for mem.extractCalls == 0 && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
 	}
-	if doneIdx < 0 {
-		t.Fatalf("expected done event, got %+v", events)
-	}
-	if updatedIdx < 0 {
-		t.Fatalf("expected memory_updated event, got %+v", events)
-	}
-	if updatedIdx <= doneIdx {
-		t.Fatalf("memory_updated should follow done; done=%d updated=%d events=%+v", doneIdx, updatedIdx, events)
-	}
-	if len(events[updatedIdx].MemoryChanges) != 1 || events[updatedIdx].MemoryChanges[0].Content != "loves zhajiangmian" {
-		t.Fatalf("unexpected memory changes: %+v", events[updatedIdx].MemoryChanges)
+	if mem.extractCalls != 1 {
+		t.Fatalf("ExtractAfterTurn called %d times, want 1", mem.extractCalls)
 	}
 }
 

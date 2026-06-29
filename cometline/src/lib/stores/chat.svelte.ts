@@ -538,7 +538,7 @@ function createChatStore() {
 						assistantID: ctx.assistant.current?.id ?? null,
 						reasoning: ctx.reasoning.current
 					});
-					continue;
+					break;
 				}
 				applyStreamEventForSession(nextSessionID, event, ctx, handle);
 				chatDebug('store:stream-event', {
