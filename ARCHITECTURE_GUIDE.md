@@ -122,7 +122,7 @@ The renderer treats this object as optional so browser dev mode still works.
 
 ```text
 Electron app ready
-  -> write CometMind config from desktop provider settings
+  -> ensure ~/.cometmind/cometline-settings.json exists from desktop provider settings
   -> spawn cometmind serve --port 7700 --watch-parent
   -> poll /api/v1/health
   -> create BrowserWindow
@@ -136,7 +136,7 @@ Key references:
 |---|---|
 | Port and health constants | `cometline/electron/main.cjs:9-20` |
 | Resolve sidecar binary | `cometline/electron/main.cjs:251-262` |
-| Write generated `config.toml` | `cometline/electron/main.cjs:497-534` |
+| Ensure shared JSON settings file exists | `cometline/electron/main.cjs` settings read/write helpers |
 | Spawn sidecar | `cometline/electron/main.cjs:615-650` |
 | Health polling | `cometline/electron/main.cjs:692-703` |
 | App ready sequence | `cometline/electron/main.cjs:965-979` |

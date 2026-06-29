@@ -2,4 +2,10 @@
 .DS_Store
 .pnpm-store
 ISSUE.md
-docs/
+docs/*
+!docs/README.md
+!docs/MODULE_GUIDE.md
+!docs/SETTINGS_AND_PERSISTENCE.md
+!docs/FRONTEND_DESIGN_SYSTEM.md
+!docs/postmortems/
+!docs/postmortems/**
