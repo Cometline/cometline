@@ -128,7 +128,7 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/workspace-prune-runs:
+  /api/v1/workspaces/prune-runs:
     post:
       tags: [Workspaces]
       summary: Prune missing workspace registrations
@@ -147,7 +147,7 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/workspace-files:
+  /api/v1/workspaces/files:
     get:
       tags: [Files]
       summary: List files in a workspace
@@ -197,7 +197,7 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/workspace-file-content:
+  /api/v1/workspaces/files/content:
     get:
       tags: [Files]
       summary: Read a workspace file for preview
@@ -681,7 +681,7 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/skill-sync-runs:
+  /api/v1/skills/sync-runs:
     post:
       tags: [Skills]
       summary: Symlink discovered skills into ~/.cometmind/skills
@@ -947,7 +947,7 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/memory-searches:
+  /api/v1/memories/searches:
     post:
       tags: [Memory]
       summary: Semantic memory search
@@ -1028,7 +1028,7 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/memory-settings:
+  /api/v1/memories/settings:
     get:
       tags: [Memory]
       summary: Get memory settings
@@ -1064,7 +1064,7 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/memory-purge-runs:
+  /api/v1/memories/purge-runs:
     post:
       tags: [Memory]
       summary: Purge archived memories
@@ -1093,7 +1093,7 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/memory-compaction-runs:
+  /api/v1/memories/compaction-runs:
     post:
       tags: [Memory]
       summary: Run memory compaction
@@ -1114,7 +1114,7 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/memory-compaction-preview:
+  /api/v1/memories/compaction-preview:
     get:
       tags: [Memory]
       summary: Preview compaction candidates
@@ -1204,7 +1204,7 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/job-settings:
+  /api/v1/jobs/settings:
     get:
       tags: [Jobs]
       summary: Get job notification settings

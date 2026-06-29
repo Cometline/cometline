@@ -174,10 +174,10 @@ Localhost-only HTTP + SSE, versioned under `/api/v1` (default `http://127.0.0.1:
 | `GET /api/v1/health` | Liveness (`{status:ok}`) |
 | `GET /api/v1/workspaces` | List registered workspaces |
 | `POST /api/v1/workspaces` | Register a workspace by absolute path |
-| `POST /api/v1/workspace-prune-runs` | Remove registrations whose directories no longer exist |
-| `GET /api/v1/workspace-files` | List previewable workspace files |
-| `GET /api/v1/workspace-file-content` | Read a previewable text/image file |
-| `PUT /api/v1/workspace-file-content` | Write a small UTF-8 text file from the preview editor |
+| `POST /api/v1/workspaces/prune-runs` | Remove registrations whose directories no longer exist |
+| `GET /api/v1/workspaces/files` | List previewable workspace files |
+| `GET /api/v1/workspaces/files/content` | Read a previewable text/image file |
+| `PUT /api/v1/workspaces/files/content` | Write a small UTF-8 text file from the preview editor |
 
 ### Sessions
 
@@ -202,7 +202,7 @@ Localhost-only HTTP + SSE, versioned under `/api/v1` (default `http://127.0.0.1:
 |---|---|
 | `GET /api/v1/skills` | List discovered skills |
 | `GET /api/v1/skills/{name}` | Read one skill's `SKILL.md` |
-| `POST /api/v1/skill-sync-runs` | Symlink discovered skills into `~/.cometmind/skills` |
+| `POST /api/v1/skills/sync-runs` | Symlink discovered skills into `~/.cometmind/skills` |
 | `DELETE /api/v1/skills/{name}` | Delete a managed skill |
 | `GET /api/v1/skills/{name}/archive` | Download skill as zip |
 
@@ -214,12 +214,12 @@ Localhost-only HTTP + SSE, versioned under `/api/v1` (default `http://127.0.0.1:
 | `POST /api/v1/memories` | Create a memory manually |
 | `PATCH /api/v1/memories/{id}` | Update a memory |
 | `DELETE /api/v1/memories/{id}` | Delete a memory |
-| `POST /api/v1/memory-searches` | Semantic search |
-| `GET /api/v1/memory-settings` | Read memory configuration |
-| `PUT /api/v1/memory-settings` | Update memory configuration |
-| `POST /api/v1/memory-purge-runs` | Hard-delete archived memories older than a threshold |
-| `POST /api/v1/memory-compaction-runs` | Run compaction |
-| `GET /api/v1/memory-compaction-preview` | Preview compaction candidates |
+| `POST /api/v1/memories/searches` | Semantic search |
+| `GET /api/v1/memories/settings` | Read memory configuration |
+| `PUT /api/v1/memories/settings` | Update memory configuration |
+| `POST /api/v1/memories/purge-runs` | Hard-delete archived memories older than a threshold |
+| `POST /api/v1/memories/compaction-runs` | Run compaction |
+| `GET /api/v1/memories/compaction-preview` | Preview compaction candidates |
 
 ### SSE event names
 

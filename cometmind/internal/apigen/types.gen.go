@@ -1018,14 +1018,14 @@ type ListSessionsParams struct {
 	All *bool `form:"all,omitempty" json:"all,omitempty"`
 }
 
-// SyncSkillsParams defines parameters for SyncSkills.
-type SyncSkillsParams struct {
-	WorkspacePath *string `form:"workspace_path,omitempty" json:"workspace_path,omitempty"`
-}
-
 // ListSkillsParams defines parameters for ListSkills.
 type ListSkillsParams struct {
 	// WorkspacePath Optional workspace path used to include project-local skill roots.
+	WorkspacePath *string `form:"workspace_path,omitempty" json:"workspace_path,omitempty"`
+}
+
+// SyncSkillsParams defines parameters for SyncSkills.
+type SyncSkillsParams struct {
 	WorkspacePath *string `form:"workspace_path,omitempty" json:"workspace_path,omitempty"`
 }
 
@@ -1044,13 +1044,10 @@ type ExportSkillParams struct {
 	WorkspacePath *string `form:"workspace_path,omitempty" json:"workspace_path,omitempty"`
 }
 
-// ReadWorkspaceFileContentParams defines parameters for ReadWorkspaceFileContent.
-type ReadWorkspaceFileContentParams struct {
-	WorkspaceId   *string `form:"workspace_id,omitempty" json:"workspace_id,omitempty"`
-	WorkspacePath *string `form:"workspace_path,omitempty" json:"workspace_path,omitempty"`
-
-	// Path Workspace-relative file path.
-	Path string `form:"path" json:"path"`
+// DeleteWorkspaceParams defines parameters for DeleteWorkspace.
+type DeleteWorkspaceParams struct {
+	// WorkspacePath Absolute workspace path to remove from CometMind registrations.
+	WorkspacePath string `form:"workspace_path" json:"workspace_path"`
 }
 
 // ListWorkspaceFilesParams defines parameters for ListWorkspaceFiles.
@@ -1068,17 +1065,20 @@ type ListWorkspaceFilesParams struct {
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
-// DeleteWorkspaceParams defines parameters for DeleteWorkspace.
-type DeleteWorkspaceParams struct {
-	// WorkspacePath Absolute workspace path to remove from CometMind registrations.
-	WorkspacePath string `form:"workspace_path" json:"workspace_path"`
-}
+// ReadWorkspaceFileContentParams defines parameters for ReadWorkspaceFileContent.
+type ReadWorkspaceFileContentParams struct {
+	WorkspaceId   *string `form:"workspace_id,omitempty" json:"workspace_id,omitempty"`
+	WorkspacePath *string `form:"workspace_path,omitempty" json:"workspace_path,omitempty"`
 
-// PutJobSettingsJSONRequestBody defines body for PutJobSettings for application/json ContentType.
-type PutJobSettingsJSONRequestBody = JobSettings
+	// Path Workspace-relative file path.
+	Path string `form:"path" json:"path"`
+}
 
 // CreateJobJSONRequestBody defines body for CreateJob for application/json ContentType.
 type CreateJobJSONRequestBody = CreateJobRequest
+
+// PutJobSettingsJSONRequestBody defines body for PutJobSettings for application/json ContentType.
+type PutJobSettingsJSONRequestBody = JobSettings
 
 // UpdateJobJSONRequestBody defines body for UpdateJob for application/json ContentType.
 type UpdateJobJSONRequestBody = UpdateJobRequest
@@ -1098,9 +1098,6 @@ type ClaimJobJSONRequestBody = JobSessionRequest
 // CreateMemoryJSONRequestBody defines body for CreateMemory for application/json ContentType.
 type CreateMemoryJSONRequestBody = CreateMemoryRequest
 
-// PatchMemoryJSONRequestBody defines body for PatchMemory for application/json ContentType.
-type PatchMemoryJSONRequestBody = UpdateMemoryRequest
-
 // PurgeArchivedMemoryJSONRequestBody defines body for PurgeArchivedMemory for application/json ContentType.
 type PurgeArchivedMemoryJSONRequestBody = PurgeArchivedMemoryRequest
 
@@ -1109,6 +1106,9 @@ type SearchMemoriesJSONRequestBody = SearchMemoryRequest
 
 // PutMemorySettingsJSONRequestBody defines body for PutMemorySettings for application/json ContentType.
 type PutMemorySettingsJSONRequestBody = MemorySettings
+
+// PatchMemoryJSONRequestBody defines body for PatchMemory for application/json ContentType.
+type PatchMemoryJSONRequestBody = UpdateMemoryRequest
 
 // CreateSessionJSONRequestBody defines body for CreateSession for application/json ContentType.
 type CreateSessionJSONRequestBody = CreateSessionRequest
@@ -1125,11 +1125,11 @@ type PostSessionMessageJSONRequestBody = PostMessageRequest
 // ChangeSessionWorkspaceJSONRequestBody defines body for ChangeSessionWorkspace for application/json ContentType.
 type ChangeSessionWorkspaceJSONRequestBody = ChangeSessionWorkspaceRequest
 
-// WriteWorkspaceFileContentJSONRequestBody defines body for WriteWorkspaceFileContent for application/json ContentType.
-type WriteWorkspaceFileContentJSONRequestBody = WriteWorkspaceFileRequest
-
 // CreateWorkspaceJSONRequestBody defines body for CreateWorkspace for application/json ContentType.
 type CreateWorkspaceJSONRequestBody = CreateWorkspaceRequest
+
+// WriteWorkspaceFileContentJSONRequestBody defines body for WriteWorkspaceFileContent for application/json ContentType.
+type WriteWorkspaceFileContentJSONRequestBody = WriteWorkspaceFileRequest
 
 // AsTextDeltaEvent returns the union data inside the StreamEvent as a TextDeltaEvent
 func (t StreamEvent) AsTextDeltaEvent() (TextDeltaEvent, error) {

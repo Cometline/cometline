@@ -114,7 +114,7 @@ Cometline is a three-layer system: a desktop chat UI, a local agent runtime, and
 ```
 1. User types in Composer.svelte and hits Enter
    ↓
-2. Cometline POSTs to /api/v1/sessions/{id}/message
+2. Cometline POSTs to /api/v1/sessions/{id}/messages
    ↓
 3. CometMind receives request, persists user message to SQLite
    ↓
@@ -174,7 +174,7 @@ Cometline is a three-layer system: a desktop chat UI, a local agent runtime, and
 
 OAuth tokens for remote MCP servers live in `~/.cometmind/mcp-oauth/{serverId}.json`, with the registered client identity in `{serverId}.client.json`. CometMind drives the full OAuth flow itself (metadata discovery + dynamic client registration + Authorization Code/PKCE), owning the loopback callback listener and opening the system browser; tokens are auto-refreshed headlessly at connect time.
 
-Management endpoints (`/api/v1/mcp/*`) expose connection status, tool previews, test, reconnect, and interactive OAuth (`/oauth/start`) without editing settings.
+Management endpoints (`/api/v1/mcp/*`) expose connection status, tool previews, connection tests, reconnection runs, and interactive OAuth flows without editing settings.
 
 ### Discord gateway
 
@@ -200,12 +200,12 @@ CometMind serves a REST/SSE API on `127.0.0.1:7700`. The OpenAPI spec is `cometm
 - `GET /api/v1/health` — liveness check
 - `POST /api/v1/sessions` — create workspace-scoped session
 - `GET /api/v1/sessions?workspace_path=...` — list sessions
-- `POST /api/v1/sessions/{id}/message` — send message, receive SSE stream
-- `POST /api/v1/sessions/{id}/abort` — cancel in-flight run
+- `POST /api/v1/sessions/{id}/messages` — send message, receive SSE stream
+- `DELETE /api/v1/sessions/{id}/runs/current` — cancel in-flight run
 - `GET /api/v1/mcp/servers` — MCP server connection status
 - `GET /api/v1/mcp/tools` — registered MCP tools preview
-- `POST /api/v1/mcp/servers/{id}/test` — test MCP connection
-- `POST /api/v1/mcp/servers/{id}/reconnect` — reconnect one MCP server
+- `POST /api/v1/mcp/servers/{id}/connection-tests` — test MCP connection
+- `POST /api/v1/mcp/servers/{id}/reconnection-runs` — reconnect one MCP server
 
 **Client:** `cometline/src/lib/client/cometmind.ts`
 

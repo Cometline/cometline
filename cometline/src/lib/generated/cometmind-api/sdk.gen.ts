@@ -89,7 +89,7 @@ export const createWorkspace = <ThrowOnError extends boolean = false>(options: O
  */
 export const pruneWorkspaces = <ThrowOnError extends boolean = false>(options?: Options<PruneWorkspacesData, ThrowOnError>) => {
     return (options?.client ?? _heyApiClient).post<PruneWorkspacesResponse2, PruneWorkspacesError, ThrowOnError>({
-        url: '/api/v1/workspace-prune-runs',
+        url: '/api/v1/workspaces/prune-runs',
         ...options
     });
 };
@@ -103,7 +103,7 @@ export const pruneWorkspaces = <ThrowOnError extends boolean = false>(options?: 
  */
 export const listWorkspaceFiles = <ThrowOnError extends boolean = false>(options?: Options<ListWorkspaceFilesData, ThrowOnError>) => {
     return (options?.client ?? _heyApiClient).get<ListWorkspaceFilesResponse, ListWorkspaceFilesError, ThrowOnError>({
-        url: '/api/v1/workspace-files',
+        url: '/api/v1/workspaces/files',
         ...options
     });
 };
@@ -117,7 +117,7 @@ export const listWorkspaceFiles = <ThrowOnError extends boolean = false>(options
  */
 export const readWorkspaceFileContent = <ThrowOnError extends boolean = false>(options: Options<ReadWorkspaceFileContentData, ThrowOnError>) => {
     return (options.client ?? _heyApiClient).get<ReadWorkspaceFileContentResponse, ReadWorkspaceFileContentError, ThrowOnError>({
-        url: '/api/v1/workspace-file-content',
+        url: '/api/v1/workspaces/files/content',
         ...options
     });
 };
@@ -130,7 +130,7 @@ export const readWorkspaceFileContent = <ThrowOnError extends boolean = false>(o
  */
 export const writeWorkspaceFileContent = <ThrowOnError extends boolean = false>(options: Options<WriteWorkspaceFileContentData, ThrowOnError>) => {
     return (options.client ?? _heyApiClient).put<WriteWorkspaceFileContentResponse, WriteWorkspaceFileContentError, ThrowOnError>({
-        url: '/api/v1/workspace-file-content',
+        url: '/api/v1/workspaces/files/content',
         ...options,
         headers: {
             'Content-Type': 'application/json',
@@ -335,7 +335,7 @@ export const listSkills = <ThrowOnError extends boolean = false>(options?: Optio
  */
 export const syncSkills = <ThrowOnError extends boolean = false>(options?: Options<SyncSkillsData, ThrowOnError>) => {
     return (options?.client ?? _heyApiClient).post<SyncSkillsResponse2, SyncSkillsError, ThrowOnError>({
-        url: '/api/v1/skill-sync-runs',
+        url: '/api/v1/skills/sync-runs',
         ...options
     });
 };
@@ -450,7 +450,7 @@ export const createMemory = <ThrowOnError extends boolean = false>(options: Opti
  */
 export const searchMemories = <ThrowOnError extends boolean = false>(options: Options<SearchMemoriesData, ThrowOnError>) => {
     return (options.client ?? _heyApiClient).post<SearchMemoriesResponse, SearchMemoriesError, ThrowOnError>({
-        url: '/api/v1/memory-searches',
+        url: '/api/v1/memories/searches',
         ...options,
         headers: {
             'Content-Type': 'application/json',
@@ -488,7 +488,7 @@ export const patchMemory = <ThrowOnError extends boolean = false>(options: Optio
  */
 export const getMemorySettings = <ThrowOnError extends boolean = false>(options?: Options<GetMemorySettingsData, ThrowOnError>) => {
     return (options?.client ?? _heyApiClient).get<GetMemorySettingsResponse, GetMemorySettingsError, ThrowOnError>({
-        url: '/api/v1/memory-settings',
+        url: '/api/v1/memories/settings',
         ...options
     });
 };
@@ -498,7 +498,7 @@ export const getMemorySettings = <ThrowOnError extends boolean = false>(options?
  */
 export const putMemorySettings = <ThrowOnError extends boolean = false>(options: Options<PutMemorySettingsData, ThrowOnError>) => {
     return (options.client ?? _heyApiClient).put<PutMemorySettingsResponse, PutMemorySettingsError, ThrowOnError>({
-        url: '/api/v1/memory-settings',
+        url: '/api/v1/memories/settings',
         ...options,
         headers: {
             'Content-Type': 'application/json',
@@ -512,7 +512,7 @@ export const putMemorySettings = <ThrowOnError extends boolean = false>(options:
  */
 export const purgeArchivedMemory = <ThrowOnError extends boolean = false>(options: Options<PurgeArchivedMemoryData, ThrowOnError>) => {
     return (options.client ?? _heyApiClient).post<PurgeArchivedMemoryResponse2, PurgeArchivedMemoryError, ThrowOnError>({
-        url: '/api/v1/memory-purge-runs',
+        url: '/api/v1/memories/purge-runs',
         ...options,
         headers: {
             'Content-Type': 'application/json',
@@ -526,7 +526,7 @@ export const purgeArchivedMemory = <ThrowOnError extends boolean = false>(option
  */
 export const compactMemory = <ThrowOnError extends boolean = false>(options?: Options<CompactMemoryData, ThrowOnError>) => {
     return (options?.client ?? _heyApiClient).post<CompactMemoryResponse, CompactMemoryError, ThrowOnError>({
-        url: '/api/v1/memory-compaction-runs',
+        url: '/api/v1/memories/compaction-runs',
         ...options
     });
 };
@@ -536,7 +536,7 @@ export const compactMemory = <ThrowOnError extends boolean = false>(options?: Op
  */
 export const compactMemoryPreview = <ThrowOnError extends boolean = false>(options?: Options<CompactMemoryPreviewData, ThrowOnError>) => {
     return (options?.client ?? _heyApiClient).get<CompactMemoryPreviewResponse2, CompactMemoryPreviewError, ThrowOnError>({
-        url: '/api/v1/memory-compaction-preview',
+        url: '/api/v1/memories/compaction-preview',
         ...options
     });
 };
@@ -584,7 +584,7 @@ export const createJob = <ThrowOnError extends boolean = false>(options: Options
  */
 export const getJobSettings = <ThrowOnError extends boolean = false>(options?: Options<GetJobSettingsData, ThrowOnError>) => {
     return (options?.client ?? _heyApiClient).get<GetJobSettingsResponse, GetJobSettingsError, ThrowOnError>({
-        url: '/api/v1/job-settings',
+        url: '/api/v1/jobs/settings',
         ...options
     });
 };
@@ -594,7 +594,7 @@ export const getJobSettings = <ThrowOnError extends boolean = false>(options?: O
  */
 export const putJobSettings = <ThrowOnError extends boolean = false>(options: Options<PutJobSettingsData, ThrowOnError>) => {
     return (options.client ?? _heyApiClient).put<PutJobSettingsResponse, PutJobSettingsError, ThrowOnError>({
-        url: '/api/v1/job-settings',
+        url: '/api/v1/jobs/settings',
         ...options,
         headers: {
             'Content-Type': 'application/json',

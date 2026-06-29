@@ -74,8 +74,8 @@ The authoritative local backend surface is under `/api/v1`, registered in `comet
 | `GET` | `/api/v1/sessions/{id}` | Fetch a session resource |
 | `DELETE` | `/api/v1/sessions/{id}` | Delete a session and cascade messages/tool calls |
 | `GET` | `/api/v1/sessions/{id}/messages` | Load transcript items for UI rendering |
-| `POST` | `/api/v1/sessions/{id}/message` | Send a user turn and receive SSE events |
-| `POST` | `/api/v1/sessions/{id}/abort` | Cancel an in-flight run |
+| `POST` | `/api/v1/sessions/{id}/messages` | Send a user turn and receive SSE events |
+| `DELETE` | `/api/v1/sessions/{id}/runs/current` | Cancel an in-flight run |
 
 The renderer client for these endpoints is `cometline/src/lib/client/cometmind.ts:12-119`.
 
@@ -151,7 +151,7 @@ User submits hero composer
   -> route navigates to /session/{id}
   -> ChatView consumes pending message
   -> startChat coordinates first-turn animation
-  -> chatStore streams POST /sessions/{id}/message
+  -> chatStore streams POST /sessions/{id}/messages
   -> reducer turns SSE events into ChatItem rows
   -> session title refresh runs after turn
 ```
@@ -171,7 +171,7 @@ Key references:
 ### Flow 3: CometMind HTTP Turn Execution
 
 ```text
-POST /api/v1/sessions/{id}/message
+POST /api/v1/sessions/{id}/messages
   -> validate JSON and session
   -> construct runner for session/workspace
   -> acquire single in-flight run slot

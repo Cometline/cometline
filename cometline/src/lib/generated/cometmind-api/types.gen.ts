@@ -799,7 +799,7 @@ export type PruneWorkspacesData = {
     body?: never;
     path?: never;
     query?: never;
-    url: '/api/v1/workspace-prune-runs';
+    url: '/api/v1/workspaces/prune-runs';
 };
 
 export type PruneWorkspacesErrors = {
@@ -841,7 +841,7 @@ export type ListWorkspaceFilesData = {
          */
         limit?: number;
     };
-    url: '/api/v1/workspace-files';
+    url: '/api/v1/workspaces/files';
 };
 
 export type ListWorkspaceFilesErrors = {
@@ -881,7 +881,7 @@ export type ReadWorkspaceFileContentData = {
          */
         path: string;
     };
-    url: '/api/v1/workspace-file-content';
+    url: '/api/v1/workspaces/files/content';
 };
 
 export type ReadWorkspaceFileContentErrors = {
@@ -910,7 +910,7 @@ export type WriteWorkspaceFileContentData = {
     body: WriteWorkspaceFileRequest;
     path?: never;
     query?: never;
-    url: '/api/v1/workspace-file-content';
+    url: '/api/v1/workspaces/files/content';
 };
 
 export type WriteWorkspaceFileContentErrors = {
@@ -1418,7 +1418,7 @@ export type SyncSkillsData = {
     query?: {
         workspace_path?: string;
     };
-    url: '/api/v1/skill-sync-runs';
+    url: '/api/v1/skills/sync-runs';
 };
 
 export type SyncSkillsErrors = {
@@ -1763,7 +1763,7 @@ export type SearchMemoriesData = {
     body: SearchMemoryRequest;
     path?: never;
     query?: never;
-    url: '/api/v1/memory-searches';
+    url: '/api/v1/memories/searches';
 };
 
 export type SearchMemoriesErrors = {
@@ -1862,7 +1862,7 @@ export type GetMemorySettingsData = {
     body?: never;
     path?: never;
     query?: never;
-    url: '/api/v1/memory-settings';
+    url: '/api/v1/memories/settings';
 };
 
 export type GetMemorySettingsErrors = {
@@ -1887,7 +1887,7 @@ export type PutMemorySettingsData = {
     body: MemorySettings;
     path?: never;
     query?: never;
-    url: '/api/v1/memory-settings';
+    url: '/api/v1/memories/settings';
 };
 
 export type PutMemorySettingsErrors = {
@@ -1916,7 +1916,7 @@ export type PurgeArchivedMemoryData = {
     body: PurgeArchivedMemoryRequest;
     path?: never;
     query?: never;
-    url: '/api/v1/memory-purge-runs';
+    url: '/api/v1/memories/purge-runs';
 };
 
 export type PurgeArchivedMemoryErrors = {
@@ -1949,7 +1949,7 @@ export type CompactMemoryData = {
     body?: never;
     path?: never;
     query?: never;
-    url: '/api/v1/memory-compaction-runs';
+    url: '/api/v1/memories/compaction-runs';
 };
 
 export type CompactMemoryErrors = {
@@ -1978,7 +1978,7 @@ export type CompactMemoryPreviewData = {
     body?: never;
     path?: never;
     query?: never;
-    url: '/api/v1/memory-compaction-preview';
+    url: '/api/v1/memories/compaction-preview';
 };
 
 export type CompactMemoryPreviewErrors = {
@@ -2090,7 +2090,7 @@ export type GetJobSettingsData = {
     body?: never;
     path?: never;
     query?: never;
-    url: '/api/v1/job-settings';
+    url: '/api/v1/jobs/settings';
 };
 
 export type GetJobSettingsErrors = {
@@ -2115,7 +2115,7 @@ export type PutJobSettingsData = {
     body: JobSettings;
     path?: never;
     query?: never;
-    url: '/api/v1/job-settings';
+    url: '/api/v1/jobs/settings';
 };
 
 export type PutJobSettingsErrors = {
