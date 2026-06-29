@@ -41,7 +41,6 @@
 		streaming = false,
 		queuedCount = 0,
 		queuedMessages = [],
-		waitingForReply = false,
 		variant = 'dock',
 		autofocus = true
 	}: {
@@ -57,7 +56,6 @@
 		streaming?: boolean;
 		queuedCount?: number;
 		queuedMessages?: QueuedMessage[];
-		waitingForReply?: boolean;
 		variant?: 'hero' | 'dock';
 		autofocus?: boolean;
 	} = $props();
@@ -235,8 +233,8 @@
 		caretTrail={settingsStore.settings.appearance.caretTrail}
 		caretColor={settingsStore.settings.appearance.heroComposer.glowColor}
 		onkeydown={onKeydown}
-		placeholder={waitingForReply
-			? 'Waiting for reply…'
+		placeholder={streaming
+			? 'Add a follow-up…'
 			: variant === 'hero'
 				? 'Type something. Anything.'
 				: 'Type something…'}

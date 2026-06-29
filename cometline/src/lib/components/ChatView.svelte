@@ -97,7 +97,6 @@
 	let firstTurnHandoffPending = $state(false);
 	let queuedCount = $state(0);
 	let queuedMessages = $state<QueuedMessage[]>([]);
-	let turnBusy = $state(false);
 	let pendingSwitch = $state<{ option: ModelOption; warnings: ProviderSwitchWarning[] } | null>(
 		null
 	);
@@ -135,7 +134,6 @@
 		getFirstTurnActive: () => firstTurnActive,
 		getFirstTurnFlightDone: () => firstTurnFlightDone,
 		getAwaitingFirstAssistant: () => awaitingFirstAssistant,
-		getStreaming: () => chatStore.isStreamingFor(sessionId),
 		getForceDocked: () => compact,
 		enqueue: (payload) => {
 			void conversation.enqueue(payload);
@@ -150,7 +148,6 @@
 	let heroFrameExiting = $state(false);
 
 	function syncQueueState() {
-		turnBusy = conversation.processing;
 		queuedCount = conversation.pendingCount;
 		queuedMessages = [...conversation.pendingMessages];
 	}
@@ -423,7 +420,6 @@
 				streaming={chatStore.isStreamingFor(sessionId)}
 				{queuedCount}
 				{queuedMessages}
-				waitingForReply={turnBusy || firstTurnActive}
 				variant={composerVariant}
 			/>
 		</HeroComposerFrame>

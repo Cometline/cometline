@@ -61,16 +61,15 @@
 			<button class="stop-button" onclick={() => onStop?.()} aria-label="Stop response">
 				<Square size={14} fill="currentColor" stroke-width={0} />
 			</button>
-		{:else}
-			<button
-				class="send-button"
-				onclick={onSubmit}
-				disabled={!canSubmit || disabled || !modelStore.selected}
-				aria-label="Send"
-			>
-				<Send size={16} stroke-width={1.8} />
-			</button>
 		{/if}
+		<button
+			class="send-button"
+			onclick={onSubmit}
+			disabled={!canSubmit || disabled || !modelStore.selected}
+			aria-label={streaming ? 'Queue follow-up' : 'Send'}
+		>
+			<Send size={16} stroke-width={1.8} />
+		</button>
 	</div>
 </div>
 

@@ -8,12 +8,11 @@ export function createChatViewController(deps: {
 	getFirstTurnActive: () => boolean;
 	getFirstTurnFlightDone: () => boolean;
 	getAwaitingFirstAssistant: () => boolean;
-	getStreaming: () => boolean;
 	getForceDocked?: () => boolean;
 	enqueue: (payload: ChatTurnPayload | string) => void | Promise<void>;
 	cancelTurn: () => void;
 }) {
-	const canSend = $derived(connectionState.status === 'ready' && !deps.getStreaming());
+	const canSend = $derived(connectionState.status === 'ready');
 
 	const composerVariant = $derived<'hero' | 'dock'>(
 		deps.getForceDocked?.() || shellStore.composerPhase !== 'centered' ? 'dock' : 'hero'
