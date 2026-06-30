@@ -8,6 +8,7 @@ import (
 
 	"github.com/cometline/cometmind/internal/config"
 	"github.com/cometline/cometmind/internal/paths"
+	"github.com/cometline/cometmind/internal/processctl"
 	"github.com/spf13/cobra"
 )
 
@@ -95,7 +96,7 @@ var settingsReloadCmd = &cobra.Command{
 	Use:   "reload",
 	Short: "Request running CometMind processes to reload settings",
 	RunE: func(_ *cobra.Command, _ []string) error {
-		count, err := signalProcesses(syscall.SIGHUP, processModeServe, processModeGatewayDiscord)
+		count, err := processctl.Signal(syscall.SIGHUP, processctl.ModeServe, processctl.ModeGatewayDiscord)
 		if err != nil {
 			return err
 		}

@@ -11,6 +11,7 @@ import (
 
 	"github.com/cometline/cometmind/internal/jobs"
 	"github.com/cometline/cometmind/internal/logging"
+	"github.com/cometline/cometmind/internal/processctl"
 	"github.com/cometline/cometmind/internal/runtime"
 	"github.com/cometline/cometmind/internal/session"
 	"github.com/cometline/cometmind/server"
@@ -53,10 +54,10 @@ func runServe(_ *cobra.Command, _ []string) error {
 		return err
 	}
 	defer rt.Close()
-	if err := writeProcessMetadata(processModeServe); err != nil {
+	if err := processctl.WriteMetadata(processctl.ModeServe); err != nil {
 		return err
 	}
-	defer removeProcessMetadata(processModeServe)
+	defer processctl.RemoveMetadata(processctl.ModeServe)
 	go handleReloadSignal(ctx, hupCh, func(reloadCtx context.Context) error {
 		return rt.Reload(reloadCtx)
 	})
@@ -88,6 +89,15 @@ func runServe(_ *cobra.Command, _ []string) error {
 		ACPMgr:       rt.ACPManager(),
 		MCPMgr:       rt.MCPManager(),
 		SubagentOrch: rt.SubagentOrchestrator(),
+		ReloadRuntime: func(ctx context.Context) error {
+			return rt.Reload(ctx)
+		},
+		RequestStop: func() {
+			go func() {
+				time.Sleep(100 * time.Millisecond)
+				stop()
+			}()
+		},
 		NewRunner: func(sess session.Session, workspacePath string) (server.Runner, error) {
 			return rt.RunnerFor(sess, workspacePath)
 		},

@@ -10,6 +10,96 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Defines values for AdminProcessControlRequestModes.
+const (
+	AdminProcessControlRequestModesGatewayDiscord AdminProcessControlRequestModes = "gateway-discord"
+	AdminProcessControlRequestModesServe          AdminProcessControlRequestModes = "serve"
+)
+
+// Valid indicates whether the value is a known member of the AdminProcessControlRequestModes enum.
+func (e AdminProcessControlRequestModes) Valid() bool {
+	switch e {
+	case AdminProcessControlRequestModesGatewayDiscord:
+		return true
+	case AdminProcessControlRequestModesServe:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AdminProcessControlResponseReloadedProcesses.
+const (
+	AdminProcessControlResponseReloadedProcessesGatewayDiscord AdminProcessControlResponseReloadedProcesses = "gateway-discord"
+	AdminProcessControlResponseReloadedProcessesServe          AdminProcessControlResponseReloadedProcesses = "serve"
+)
+
+// Valid indicates whether the value is a known member of the AdminProcessControlResponseReloadedProcesses enum.
+func (e AdminProcessControlResponseReloadedProcesses) Valid() bool {
+	switch e {
+	case AdminProcessControlResponseReloadedProcessesGatewayDiscord:
+		return true
+	case AdminProcessControlResponseReloadedProcessesServe:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AdminProcessControlResponseStatus.
+const (
+	Accepted AdminProcessControlResponseStatus = "accepted"
+	Ok       AdminProcessControlResponseStatus = "ok"
+)
+
+// Valid indicates whether the value is a known member of the AdminProcessControlResponseStatus enum.
+func (e AdminProcessControlResponseStatus) Valid() bool {
+	switch e {
+	case Accepted:
+		return true
+	case Ok:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AdminProcessControlResponseStoppedProcesses.
+const (
+	AdminProcessControlResponseStoppedProcessesGatewayDiscord AdminProcessControlResponseStoppedProcesses = "gateway-discord"
+	AdminProcessControlResponseStoppedProcessesServe          AdminProcessControlResponseStoppedProcesses = "serve"
+)
+
+// Valid indicates whether the value is a known member of the AdminProcessControlResponseStoppedProcesses enum.
+func (e AdminProcessControlResponseStoppedProcesses) Valid() bool {
+	switch e {
+	case AdminProcessControlResponseStoppedProcessesGatewayDiscord:
+		return true
+	case AdminProcessControlResponseStoppedProcessesServe:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AdminProcessStatusMode.
+const (
+	AdminProcessStatusModeGatewayDiscord AdminProcessStatusMode = "gateway-discord"
+	AdminProcessStatusModeServe          AdminProcessStatusMode = "serve"
+)
+
+// Valid indicates whether the value is a known member of the AdminProcessStatusMode enum.
+func (e AdminProcessStatusMode) Valid() bool {
+	switch e {
+	case AdminProcessStatusModeGatewayDiscord:
+		return true
+	case AdminProcessStatusModeServe:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ImageAttachmentMediaType.
 const (
 	Imagegif  ImageAttachmentMediaType = "image/gif"
@@ -292,6 +382,46 @@ func (e ListJobsParamsStatus) Valid() bool {
 	}
 }
 
+// AdminProcessControlRequest defines model for AdminProcessControlRequest.
+type AdminProcessControlRequest struct {
+	Modes *[]AdminProcessControlRequestModes `json:"modes,omitempty"`
+}
+
+// AdminProcessControlRequestModes defines model for AdminProcessControlRequest.Modes.
+type AdminProcessControlRequestModes string
+
+// AdminProcessControlResponse defines model for AdminProcessControlResponse.
+type AdminProcessControlResponse struct {
+	Processes         *[]AdminProcessStatus                           `json:"processes,omitempty"`
+	ReloadedProcesses *[]AdminProcessControlResponseReloadedProcesses `json:"reloaded_processes,omitempty"`
+	Status            AdminProcessControlResponseStatus               `json:"status"`
+	StoppedProcesses  *[]AdminProcessControlResponseStoppedProcesses  `json:"stopped_processes,omitempty"`
+}
+
+// AdminProcessControlResponseReloadedProcesses defines model for AdminProcessControlResponse.ReloadedProcesses.
+type AdminProcessControlResponseReloadedProcesses string
+
+// AdminProcessControlResponseStatus defines model for AdminProcessControlResponse.Status.
+type AdminProcessControlResponseStatus string
+
+// AdminProcessControlResponseStoppedProcesses defines model for AdminProcessControlResponse.StoppedProcesses.
+type AdminProcessControlResponseStoppedProcesses string
+
+// AdminProcessStatus defines model for AdminProcessStatus.
+type AdminProcessStatus struct {
+	DataDir      *string                `json:"data_dir,omitempty"`
+	Mode         AdminProcessStatusMode `json:"mode"`
+	Pid          *int                   `json:"pid,omitempty"`
+	Present      bool                   `json:"present"`
+	Running      bool                   `json:"running"`
+	SettingsPath *string                `json:"settings_path,omitempty"`
+	Stale        bool                   `json:"stale"`
+	StartedAt    *string                `json:"started_at,omitempty"`
+}
+
+// AdminProcessStatusMode defines model for AdminProcessStatus.Mode.
+type AdminProcessStatusMode string
+
 // ChangeSessionWorkspaceRequest defines model for ChangeSessionWorkspaceRequest.
 type ChangeSessionWorkspaceRequest struct {
 	// WorkspacePath Absolute filesystem path for the new workspace root.
@@ -455,6 +585,11 @@ type JobSettings struct {
 	LeaseMinutes             *int                     `json:"lease_minutes,omitempty"`
 	Notifications            *JobNotificationSettings `json:"notifications,omitempty"`
 	ReconcileIntervalSeconds *int                     `json:"reconcile_interval_seconds,omitempty"`
+}
+
+// ListAdminProcessesResponse defines model for ListAdminProcessesResponse.
+type ListAdminProcessesResponse struct {
+	Processes []AdminProcessStatus `json:"processes"`
 }
 
 // ListJobEventsResponse defines model for ListJobEventsResponse.
@@ -1073,6 +1208,12 @@ type ReadWorkspaceFileContentParams struct {
 	// Path Workspace-relative file path.
 	Path string `form:"path" json:"path"`
 }
+
+// ReloadAdminProcessesJSONRequestBody defines body for ReloadAdminProcesses for application/json ContentType.
+type ReloadAdminProcessesJSONRequestBody = AdminProcessControlRequest
+
+// RestartAdminProcessesJSONRequestBody defines body for RestartAdminProcesses for application/json ContentType.
+type RestartAdminProcessesJSONRequestBody = AdminProcessControlRequest
 
 // CreateJobJSONRequestBody defines body for CreateJob for application/json ContentType.
 type CreateJobJSONRequestBody = CreateJobRequest

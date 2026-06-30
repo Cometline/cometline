@@ -46,6 +46,8 @@ type Deps struct {
 	ACPMgr         *acp.SessionManager
 	MCPMgr         *mcppkg.Manager
 	SubagentOrch   *subagent.Orchestrator
+	ReloadRuntime  func(context.Context) error
+	RequestStop    func()
 }
 
 type App struct {
@@ -60,6 +62,8 @@ type App struct {
 	acpMgr         *acp.SessionManager
 	mcpMgr         *mcppkg.Manager
 	subagentOrch   *subagent.Orchestrator
+	reloadRuntime  func(context.Context) error
+	requestStop    func()
 }
 
 func New(deps Deps) (*gin.Engine, error) {
@@ -88,6 +92,8 @@ func New(deps Deps) (*gin.Engine, error) {
 		acpMgr:         deps.ACPMgr,
 		mcpMgr:         deps.MCPMgr,
 		subagentOrch:   deps.SubagentOrch,
+		reloadRuntime:  deps.ReloadRuntime,
+		requestStop:    deps.RequestStop,
 	}
 
 	r := gin.New()
@@ -99,6 +105,9 @@ func New(deps Deps) (*gin.Engine, error) {
 
 	// Health
 	api.GET("/health", app.handleHealth)
+	api.GET("/admin/processes", app.handleListProcesses)
+	api.POST("/admin/reload-runs", app.handleAdminReload)
+	api.POST("/admin/restart-runs", app.handleAdminRestart)
 
 	// Models
 	api.GET("/models", app.handleListModels)
@@ -308,6 +317,32 @@ type syncSkillsResponse struct {
 	Created []string `json:"created"`
 	Skipped []string `json:"skipped"`
 	Errors  []string `json:"errors,omitempty"`
+}
+
+type adminProcessStatus struct {
+	Mode         string `json:"mode"`
+	Present      bool   `json:"present"`
+	Running      bool   `json:"running"`
+	Stale        bool   `json:"stale"`
+	Pid          int    `json:"pid,omitempty"`
+	StartedAt    string `json:"started_at,omitempty"`
+	DataDir      string `json:"data_dir,omitempty"`
+	SettingsPath string `json:"settings_path,omitempty"`
+}
+
+type listAdminProcessesResponse struct {
+	Processes []adminProcessStatus `json:"processes"`
+}
+
+type adminProcessControlRequest struct {
+	Modes []string `json:"modes"`
+}
+
+type adminProcessControlResponse struct {
+	Status            string               `json:"status"`
+	ReloadedProcesses []string             `json:"reloaded_processes,omitempty"`
+	StoppedProcesses  []string             `json:"stopped_processes,omitempty"`
+	Processes         []adminProcessStatus `json:"processes,omitempty"`
 }
 
 func (a *App) handleHealth(c *gin.Context) {

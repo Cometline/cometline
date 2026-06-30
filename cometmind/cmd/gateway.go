@@ -12,6 +12,7 @@ import (
 	discordgw "github.com/cometline/cometmind/internal/gateway/discord"
 	"github.com/cometline/cometmind/internal/jobs"
 	"github.com/cometline/cometmind/internal/logging"
+	"github.com/cometline/cometmind/internal/processctl"
 	"github.com/cometline/cometmind/internal/runtime"
 	"github.com/cometline/cometmind/internal/session"
 	"github.com/spf13/cobra"
@@ -51,10 +52,10 @@ func runGateway(_ *cobra.Command, _ []string) error {
 	}
 	defer rt.Close()
 	if gatewayPlatform == "discord" {
-		if err := writeProcessMetadata(processModeGatewayDiscord); err != nil {
+		if err := processctl.WriteMetadata(processctl.ModeGatewayDiscord); err != nil {
 			return err
 		}
-		defer removeProcessMetadata(processModeGatewayDiscord)
+		defer processctl.RemoveMetadata(processctl.ModeGatewayDiscord)
 	}
 	go handleReloadSignal(ctx, hupCh, func(reloadCtx context.Context) error {
 		return rt.Reload(reloadCtx)

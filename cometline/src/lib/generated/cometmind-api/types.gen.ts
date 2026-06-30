@@ -4,6 +4,32 @@ export type HealthResponse = {
     status: 'ok';
 };
 
+export type AdminProcessStatus = {
+    mode: 'serve' | 'gateway-discord';
+    present: boolean;
+    running: boolean;
+    stale: boolean;
+    pid?: number;
+    started_at?: string;
+    data_dir?: string;
+    settings_path?: string;
+};
+
+export type ListAdminProcessesResponse = {
+    processes: Array<AdminProcessStatus>;
+};
+
+export type AdminProcessControlRequest = {
+    modes?: Array<'serve' | 'gateway-discord'>;
+};
+
+export type AdminProcessControlResponse = {
+    status: 'ok' | 'accepted';
+    reloaded_processes?: Array<'serve' | 'gateway-discord'>;
+    stopped_processes?: Array<'serve' | 'gateway-discord'>;
+    processes?: Array<AdminProcessStatus>;
+};
+
 /**
  * Provide either `workspace_id` or `workspace_path`.
  */
@@ -677,6 +703,97 @@ export type GetHealthResponses = {
 };
 
 export type GetHealthResponse = GetHealthResponses[keyof GetHealthResponses];
+
+export type ListAdminProcessesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/admin/processes';
+};
+
+export type ListAdminProcessesErrors = {
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type ListAdminProcessesError = ListAdminProcessesErrors[keyof ListAdminProcessesErrors];
+
+export type ListAdminProcessesResponses = {
+    /**
+     * Process status list
+     */
+    200: ListAdminProcessesResponse;
+};
+
+export type ListAdminProcessesResponse2 = ListAdminProcessesResponses[keyof ListAdminProcessesResponses];
+
+export type ReloadAdminProcessesData = {
+    body?: AdminProcessControlRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/admin/reload-runs';
+};
+
+export type ReloadAdminProcessesErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    503: ErrorResponse;
+};
+
+export type ReloadAdminProcessesError = ReloadAdminProcessesErrors[keyof ReloadAdminProcessesErrors];
+
+export type ReloadAdminProcessesResponses = {
+    /**
+     * Reload request applied
+     */
+    200: AdminProcessControlResponse;
+};
+
+export type ReloadAdminProcessesResponse = ReloadAdminProcessesResponses[keyof ReloadAdminProcessesResponses];
+
+export type RestartAdminProcessesData = {
+    body?: AdminProcessControlRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/admin/restart-runs';
+};
+
+export type RestartAdminProcessesErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    503: ErrorResponse;
+};
+
+export type RestartAdminProcessesError = RestartAdminProcessesErrors[keyof RestartAdminProcessesErrors];
+
+export type RestartAdminProcessesResponses = {
+    /**
+     * Restart request accepted
+     */
+    202: AdminProcessControlResponse;
+};
+
+export type RestartAdminProcessesResponse = RestartAdminProcessesResponses[keyof RestartAdminProcessesResponses];
 
 export type ListModelsData = {
     body?: never;

@@ -12,6 +12,7 @@ servers:
     description: Default local bind address
 tags:
   - name: Health
+  - name: Admin
   - name: Models
   - name: Workspaces
   - name: Files
@@ -35,6 +36,71 @@ paths:
                 $ref: '#/components/schemas/HealthResponse'
               example:
                 status: ok
+
+  /api/v1/admin/processes:
+    get:
+      tags: [Admin]
+      summary: List known CometMind process states
+      operationId: listAdminProcesses
+      responses:
+        '200':
+          description: Process status list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListAdminProcessesResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/admin/reload-runs:
+    post:
+      tags: [Admin]
+      summary: Reload running CometMind processes
+      operationId: reloadAdminProcesses
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminProcessControlRequest'
+      responses:
+        '200':
+          description: Reload request applied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProcessControlResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/admin/restart-runs:
+    post:
+      tags: [Admin]
+      summary: Request graceful restart of running CometMind processes
+      operationId: restartAdminProcesses
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminProcessControlRequest'
+      responses:
+        '202':
+          description: Restart request accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProcessControlResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/InternalError'
 
   /api/v1/models:
     get:
@@ -1523,6 +1589,72 @@ components:
         status:
           type: string
           const: ok
+
+    AdminProcessStatus:
+      type: object
+      additionalProperties: false
+      required: [mode, present, running, stale]
+      properties:
+        mode:
+          type: string
+          enum: [serve, gateway-discord]
+        present:
+          type: boolean
+        running:
+          type: boolean
+        stale:
+          type: boolean
+        pid:
+          type: integer
+        started_at:
+          type: string
+        data_dir:
+          type: string
+        settings_path:
+          type: string
+
+    ListAdminProcessesResponse:
+      type: object
+      additionalProperties: false
+      required: [processes]
+      properties:
+        processes:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminProcessStatus'
+
+    AdminProcessControlRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        modes:
+          type: array
+          items:
+            type: string
+            enum: [serve, gateway-discord]
+
+    AdminProcessControlResponse:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ok, accepted]
+        reloaded_processes:
+          type: array
+          items:
+            type: string
+            enum: [serve, gateway-discord]
+        stopped_processes:
+          type: array
+          items:
+            type: string
+            enum: [serve, gateway-discord]
+        processes:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminProcessStatus'
 
     CreateSessionRequest:
       type: object
