@@ -9,3 +9,4 @@ docs/*
 !docs/FRONTEND_DESIGN_SYSTEM.md
 !docs/postmortems/
 !docs/postmortems/**
+.claude/*
