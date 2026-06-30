@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 	"os/signal"
 	"syscall"
 	"time"
@@ -36,6 +37,9 @@ func init() {
 func runServe(_ *cobra.Command, _ []string) error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+	hupCh := make(chan os.Signal, 1)
+	signal.Notify(hupCh, syscall.SIGHUP)
+	defer signal.Stop(hupCh)
 
 	if serveWatchParent {
 		watchCtx, cancel := context.WithCancel(ctx)
@@ -49,6 +53,13 @@ func runServe(_ *cobra.Command, _ []string) error {
 		return err
 	}
 	defer rt.Close()
+	if err := writeProcessMetadata(processModeServe); err != nil {
+		return err
+	}
+	defer removeProcessMetadata(processModeServe)
+	go handleReloadSignal(ctx, hupCh, func(reloadCtx context.Context) error {
+		return rt.Reload(reloadCtx)
+	})
 
 	// Prune workspaces whose filesystem path no longer exists. This stats every
 	// workspace path (slow on network mounts), so run it in the background to

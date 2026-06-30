@@ -54,6 +54,7 @@ type Runtime struct {
 	memorySem     chan struct{} // bounds concurrent memory-extraction goroutines
 	isRunning     func(sessionID string) bool
 	retentionMu   sync.Mutex
+	reloadMu      sync.Mutex
 }
 
 // New builds a Runtime from the environment and filesystem.
@@ -265,6 +266,41 @@ func (r *Runtime) Close() error {
 		_ = r.mcpMgr.Close()
 	}
 	return r.DB.Close()
+}
+
+// Reload re-reads config and applies settings that can change without a full process restart.
+func (r *Runtime) Reload(ctx context.Context) error {
+	if r == nil {
+		return fmt.Errorf("runtime is nil")
+	}
+	r.reloadMu.Lock()
+	defer r.reloadMu.Unlock()
+
+	cfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("reload config: %w", err)
+	}
+	systemPrompt, err := loadSystemPrompt(cfg.SystemPromptPath)
+	if err != nil {
+		return err
+	}
+
+	if r.mcpMgr != nil {
+		if err := r.mcpMgr.Reload(ctx, cfg.MCPSettings()); err != nil {
+			return fmt.Errorf("reload mcp: %w", err)
+		}
+	}
+	if r.acpMgr != nil {
+		r.acpMgr.UpdateConfig(cfg.ACPSettings())
+	}
+	if r.Memory != nil {
+		r.Memory.UpdateSettings(cfg.MemorySettings())
+	}
+	r.SetJobSettings(cfg.JobsSettings())
+	*r.Config = *cfg
+	r.SystemPrompt = systemPrompt
+	logging.L().Info("runtime.reloaded")
+	return nil
 }
 
 // WorkspaceForCommand resolves the current directory (or the explicit workspace

@@ -47,6 +47,16 @@ func NewSessionManager(cfg Config) *SessionManager {
 	}
 }
 
+// UpdateConfig replaces the config used for future delegations.
+func (m *SessionManager) UpdateConfig(cfg Config) {
+	if m == nil {
+		return
+	}
+	m.mu.Lock()
+	m.Config = cfg
+	m.mu.Unlock()
+}
+
 // Run executes a delegated task.
 func (m *SessionManager) Run(ctx context.Context, opts RunOptions) (TaskResult, error) {
 	cfg := m.Config

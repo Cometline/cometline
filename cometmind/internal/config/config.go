@@ -4,10 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/cometline/cometmind/internal/logging"
+	"github.com/cometline/cometmind/internal/paths"
 	"github.com/spf13/viper"
 )
 
@@ -102,16 +102,17 @@ func Defaults() *Config {
 
 // Load reads ~/.cometmind/cometline-settings.json (with legacy config.toml migration), merges env, and unmarshals.
 func Load() (*Config, error) {
-	dataDir, err := os.UserHomeDir()
+	if _, err := paths.DataDir(); err != nil {
+		return nil, err
+	}
+	settingsPath, err := paths.SettingsPath()
 	if err != nil {
 		return nil, err
 	}
-	dataDir = filepath.Join(dataDir, ".cometmind")
-	if err := os.MkdirAll(dataDir, 0o700); err != nil {
+	legacyTomlPath, err := paths.LegacyConfigPath()
+	if err != nil {
 		return nil, err
 	}
-	settingsPath := filepath.Join(dataDir, "cometline-settings.json")
-	legacyTomlPath := filepath.Join(dataDir, "config.toml")
 
 	def := Defaults()
 

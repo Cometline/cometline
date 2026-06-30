@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/signal"
 	"strings"
 	"syscall"
@@ -40,12 +41,24 @@ func init() {
 func runGateway(_ *cobra.Command, _ []string) error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+	hupCh := make(chan os.Signal, 1)
+	signal.Notify(hupCh, syscall.SIGHUP)
+	defer signal.Stop(hupCh)
 
 	rt, err := runtime.New(ctx)
 	if err != nil {
 		return err
 	}
 	defer rt.Close()
+	if gatewayPlatform == "discord" {
+		if err := writeProcessMetadata(processModeGatewayDiscord); err != nil {
+			return err
+		}
+		defer removeProcessMetadata(processModeGatewayDiscord)
+	}
+	go handleReloadSignal(ctx, hupCh, func(reloadCtx context.Context) error {
+		return rt.Reload(reloadCtx)
+	})
 
 	turns := gateway.NewTurnRunTracker()
 	rt.SetSessionRunningChecker(turns.Running)

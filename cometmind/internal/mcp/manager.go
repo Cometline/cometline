@@ -20,23 +20,23 @@ const (
 
 // ServerRuntimeStatus is exposed via the management API.
 type ServerRuntimeStatus struct {
-	ID         string       `json:"id"`
-	Name       string       `json:"name"`
-	Enabled    bool         `json:"enabled"`
-	Transport  string       `json:"transport"`
-	Status     ServerStatus `json:"status"`
-	ToolCount  int          `json:"tool_count"`
-	LastError  string       `json:"last_error,omitempty"`
-	OAuthConnected bool     `json:"oauth_connected,omitempty"`
+	ID             string       `json:"id"`
+	Name           string       `json:"name"`
+	Enabled        bool         `json:"enabled"`
+	Transport      string       `json:"transport"`
+	Status         ServerStatus `json:"status"`
+	ToolCount      int          `json:"tool_count"`
+	LastError      string       `json:"last_error,omitempty"`
+	OAuthConnected bool         `json:"oauth_connected,omitempty"`
 }
 
 // ToolInfo describes one registered MCP tool.
 type ToolInfo struct {
-	ServerID    string `json:"server_id"`
-	ServerName  string `json:"server_name"`
-	ToolName    string `json:"tool_name"`
+	ServerID     string `json:"server_id"`
+	ServerName   string `json:"server_name"`
+	ToolName     string `json:"tool_name"`
 	RegistryName string `json:"registry_name"`
-	Description string `json:"description"`
+	Description  string `json:"description"`
 }
 
 // TestResult is returned by ephemeral connect tests.
@@ -158,6 +158,19 @@ func (m *Manager) Close() error {
 		}
 		entry.status = StatusDisconnected
 	}
+	return nil
+}
+
+// Reload replaces the manager config and reconnects enabled servers.
+func (m *Manager) Reload(ctx context.Context, cfg Config) error {
+	if m == nil {
+		return nil
+	}
+	_ = m.Close()
+	m.mu.Lock()
+	m.cfg = cfg
+	m.mu.Unlock()
+	m.Start(ctx)
 	return nil
 }
 

@@ -49,6 +49,23 @@ func TestLoadReadsBaseURLEnvironmentOverride(t *testing.T) {
 	}
 }
 
+func TestLoadUsesConfiguredDataDir(t *testing.T) {
+	home := t.TempDir()
+	dataDir := filepath.Join(t.TempDir(), "cometmind-data")
+	t.Setenv("HOME", home)
+	t.Setenv("COMETMIND_DATA_DIR", dataDir)
+
+	_, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	path := filepath.Join(dataDir, "cometline-settings.json")
+	if _, err := os.Stat(path); err != nil {
+		t.Fatalf("expected settings file at %s: %v", path, err)
+	}
+}
+
 func TestLoadReadsSystemPromptPathEnvironmentOverride(t *testing.T) {
 	home := t.TempDir()
 	promptPath := filepath.Join(home, "SOUL.md")
