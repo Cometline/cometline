@@ -95,9 +95,20 @@
 		resetCustomCaret(editor);
 	}
 
+	let queuedCaretState: CustomCaretState | null = null;
+	let caretStateUpdateQueued = false;
+
 	function onCaretStateChange(state: CustomCaretState) {
-		focused = state.focused;
-		caretReady = state.ready;
+		queuedCaretState = state;
+		if (caretStateUpdateQueued) return;
+		caretStateUpdateQueued = true;
+		queueMicrotask(() => {
+			caretStateUpdateQueued = false;
+			if (!queuedCaretState) return;
+			focused = queuedCaretState.focused;
+			caretReady = queuedCaretState.ready;
+			queuedCaretState = null;
+		});
 	}
 
 	/** Build a non-editable inline chip element for a URL. */

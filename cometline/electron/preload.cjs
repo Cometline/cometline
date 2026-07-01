@@ -15,6 +15,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
 	pruneWorkspaceStore: () => ipcRenderer.invoke('cometline:prune-workspace-store'),
 	readWorkspaceFile: (workspacePath, relativePath) =>
 		ipcRenderer.invoke('cometline:read-workspace-file', workspacePath, relativePath),
+	listCustomPersonas: () => ipcRenderer.invoke('cometline:list-custom-personas'),
+	saveCustomPersona: (payload) => ipcRenderer.invoke('cometline:save-custom-persona', payload),
+	deleteCustomPersona: (id) => ipcRenderer.invoke('cometline:delete-custom-persona', id),
+	readPersonaAvatar: (id) => ipcRenderer.invoke('cometline:read-persona-avatar', id),
+	readBuiltinSoul: (personaId) => ipcRenderer.invoke('cometline:read-builtin-soul', personaId),
 	getProviderSettings: () => ipcRenderer.invoke('cometline:get-provider-settings'),
 	getCodexAuthStatus: () => ipcRenderer.invoke('cometline:get-codex-auth-status'),
 	startCodexLogin: () => ipcRenderer.invoke('cometline:start-codex-login'),

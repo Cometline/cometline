@@ -6,6 +6,7 @@
 	import { resolvePersona, personaAvatarSrcset as builtinAvatarSrcset } from '$lib/personas';
 	import { personaAvatarCache } from '$lib/personas/avatar-cache.svelte';
 	import { rectStyle } from '$lib/first-turn-flight';
+	import { normalizeHeroComposerAppearance } from '$lib/hero-composer-appearance';
 
 	// ──────────────────────────────────────────────────────────────────────────
 	// Cometline first-run intro.
@@ -52,7 +53,9 @@
 		resolvedPersona.kind === 'builtin' ? builtinAvatarSrcset(resolvedPersona) : undefined
 	);
 
-	const GLOW = () => settingsStore.settings.appearance.heroComposer.glowColor || '#72c0ff';
+	let heroGlowColor = $derived(
+		normalizeHeroComposerAppearance(settingsStore.settings.appearance.heroComposer).glowColor
+	);
 
 	function readCssVar(name: string, fallback: string): string {
 		if (typeof window === 'undefined') return fallback;
@@ -70,6 +73,17 @@
 		ctx.fillRect(0, 0, 1, 1);
 		const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
 		return { r, g, b };
+	}
+
+	function darkenRgb(
+		{ r, g, b }: { r: number; g: number; b: number },
+		factor: number
+	): { r: number; g: number; b: number } {
+		return {
+			r: Math.round(r * factor),
+			g: Math.round(g * factor),
+			b: Math.round(b * factor)
+		};
 	}
 
 	// easeOutCubic for cinematic deceleration.
@@ -154,10 +168,11 @@
 		resize();
 		window.addEventListener('resize', resize);
 
-		// Palette: hero glow blue + tomlord.io ink, on warm paper.
-		const glow = toRgb(GLOW()); // hero glow blue (#72c0ff)
-		const ink = toRgb(readCssVar('--intro-blue', '#4078f2')); // tomlord accent
-		const inkDeep = toRgb(readCssVar('--intro-blue-deep', '#0184bc'));
+		// Palette: user's hero-glow preset on warm paper.
+		const glowHex = readCssVar('--hero-composer-glow-color', heroGlowColor);
+		const glow = toRgb(glowHex);
+		const ink = glow;
+		const inkDeep = darkenRgb(glow, 0.58);
 		const bg = readCssVar('--intro-bg', '#fafafa');
 		const bgDeep = readCssVar('--intro-bg-deep', '#eef1f6');
 
@@ -424,11 +439,11 @@
 		display: block;
 	}
 
-	/* Vintage double-rule border in blue ink, inset from the edges. */
+	/* Vintage double-rule border in hero-glow ink, inset from the edges. */
 	.frame {
 		position: absolute;
 		inset: 26px;
-		border: 1px solid color-mix(in srgb, var(--intro-blue, #4078f2) 38%, transparent);
+		border: 1px solid color-mix(in srgb, var(--hero-composer-glow-color, #72c0ff) 38%, transparent);
 		border-radius: 4px;
 		pointer-events: none;
 		opacity: 0;
@@ -439,7 +454,7 @@
 		content: '';
 		position: absolute;
 		inset: 5px;
-		border: 1px solid color-mix(in srgb, var(--intro-blue, #4078f2) 18%, transparent);
+		border: 1px solid color-mix(in srgb, var(--hero-composer-glow-color, #72c0ff) 18%, transparent);
 		border-radius: 2px;
 	}
 
@@ -516,7 +531,7 @@
 	}
 
 	.wordmark .trail {
-		color: var(--intro-ink, #383a42);
+		color: var(--hero-composer-glow-color, #72c0ff);
 	}
 
 	.tagline {
@@ -525,7 +540,7 @@
 		font-style: italic;
 		font-size: clamp(13px, 1.7vw, 17px);
 		letter-spacing: 0.04em;
-		color: var(--intro-ink-soft, rgba(56, 58, 66, 0.55));
+		color: color-mix(in srgb, var(--hero-composer-glow-color, #72c0ff) 42%, var(--intro-ink, #383a42));
 		opacity: 0;
 		transform: translateY(8px);
 		transition:
@@ -546,7 +561,7 @@
 		z-index: 3;
 		border: 0;
 		background: transparent;
-		color: var(--intro-ink-soft, rgba(56, 58, 66, 0.55));
+		color: color-mix(in srgb, var(--hero-composer-glow-color, #72c0ff) 35%, var(--intro-ink, #383a42));
 		font-size: 11px;
 		letter-spacing: 0.16em;
 		text-transform: uppercase;
@@ -560,7 +575,7 @@
 
 	.skip:hover {
 		opacity: 1;
-		color: var(--intro-blue, #4078f2);
+		color: var(--hero-composer-glow-color, #72c0ff);
 	}
 
 	.is-exit .card {

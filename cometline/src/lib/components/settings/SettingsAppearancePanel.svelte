@@ -4,7 +4,8 @@
 		DEFAULT_HERO_COMPOSER_APPEARANCE,
 		HERO_COMPOSER_PRESETS,
 		heroComposerCssVarStyle,
-		matchHeroComposerPreset
+		matchHeroComposerPreset,
+		normalizeHeroComposerAppearance
 	} from '$lib/hero-composer-appearance';
 
 	let {
@@ -14,9 +15,40 @@
 
 	let previewStyle = $derived(heroComposerCssVarStyle(appearance));
 	let activePreset = $derived(matchHeroComposerPreset(appearance));
+	let hasCustomPreset = $derived(Boolean(appearance.customPreset));
+	let customControlsDisabled = $derived(activePreset !== 'custom');
 
 	function applyPreset(preset: (typeof HERO_COMPOSER_PRESETS)[number]) {
-		appearance = { ...preset.appearance };
+		appearance = {
+			...preset.appearance,
+			customPreset: appearance.customPreset ? { ...appearance.customPreset } : undefined
+		};
+	}
+
+	function createOrSelectCustomPreset() {
+		const normalized = normalizeHeroComposerAppearance(appearance);
+		const customPreset = normalized.customPreset ?? {
+			glowColor: normalized.glowColor,
+			ringColor: normalized.ringColor
+		};
+		appearance = {
+			presetId: 'custom',
+			...customPreset,
+			customPreset: { ...customPreset }
+		};
+	}
+
+	function updateCustomColor(key: 'glowColor' | 'ringColor', value: string) {
+		const base = appearance.customPreset ?? {
+			glowColor: appearance.glowColor,
+			ringColor: appearance.ringColor
+		};
+		const customPreset = { ...base, [key]: value };
+		appearance = {
+			presetId: 'custom',
+			...customPreset,
+			customPreset
+		};
 	}
 
 	function resetDefaults() {
@@ -61,9 +93,24 @@
 									{preset.label}
 								</button>
 							{/each}
-							{#if activePreset === 'custom'}
-								<span class="preset-custom">Custom</span>
-							{/if}
+							<button
+								type="button"
+								class="preset-chip custom-preset-chip"
+								class:selected={activePreset === 'custom'}
+								aria-pressed={activePreset === 'custom'}
+								onclick={createOrSelectCustomPreset}
+							>
+								<span
+									class="preset-swatch"
+									class:empty={!hasCustomPreset}
+									style={hasCustomPreset
+										? `background: linear-gradient(135deg, ${appearance.customPreset?.glowColor} 0%, ${appearance.customPreset?.ringColor} 100%)`
+										: "background: linear-gradient(135deg, #23232a 0%, #454553 100%)"}
+					
+									aria-hidden="true"
+								></span>
+								Custom
+							</button>
 						</div>
 					</div>
 
@@ -72,14 +119,18 @@
 						<div class="color-field">
 							<input
 								type="color"
-								bind:value={appearance.glowColor}
+								value={appearance.glowColor}
+								disabled={customControlsDisabled}
 								aria-label="Glow color"
+								oninput={(e) => updateCustomColor('glowColor', e.currentTarget.value)}
 							/>
 							<input
 								type="text"
-								bind:value={appearance.glowColor}
+								value={appearance.glowColor}
+								disabled={customControlsDisabled}
 								spellcheck="false"
 								pattern="^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
+								oninput={(e) => updateCustomColor('glowColor', e.currentTarget.value)}
 							/>
 						</div>
 					</label>
@@ -89,14 +140,18 @@
 						<div class="color-field">
 							<input
 								type="color"
-								bind:value={appearance.ringColor}
+								value={appearance.ringColor}
+								disabled={customControlsDisabled}
 								aria-label="Border color"
+								oninput={(e) => updateCustomColor('ringColor', e.currentTarget.value)}
 							/>
 							<input
 								type="text"
-								bind:value={appearance.ringColor}
+								value={appearance.ringColor}
+								disabled={customControlsDisabled}
 								spellcheck="false"
 								pattern="^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
+								oninput={(e) => updateCustomColor('ringColor', e.currentTarget.value)}
 							/>
 						</div>
 					</label>
@@ -226,6 +281,10 @@
 		background: rgba(15, 23, 42, 0.08);
 	}
 
+	.custom-preset-chip {
+		padding-right: 12px;
+	}
+
 	.preset-swatch {
 		width: 22px;
 		height: 22px;
@@ -235,11 +294,11 @@
 		flex-shrink: 0;
 	}
 
-	.preset-custom {
-		font-size: 11px;
-		font-weight: 600;
-		color: var(--text-soft);
-		padding: 0 4px;
+	.preset-swatch.empty {
+		background:
+			linear-gradient(90deg, transparent 9px, rgba(15, 23, 42, 0.16) 9px 11px, transparent 11px),
+			linear-gradient(0deg, transparent 9px, rgba(15, 23, 42, 0.16) 9px 11px, transparent 11px),
+			rgba(15, 23, 42, 0.04);
 	}
 
 	label {
@@ -284,6 +343,11 @@
 	input[type='color']:focus {
 		border-color: rgba(0, 102, 204, 0.35);
 		box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+	}
+
+	input:disabled {
+		cursor: not-allowed;
+		opacity: 0.56;
 	}
 
 	.appearance-preview {

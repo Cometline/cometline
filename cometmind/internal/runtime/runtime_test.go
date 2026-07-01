@@ -71,6 +71,68 @@ func TestRuntimeNewDoesNotRequireAPIKey(t *testing.T) {
 	}
 }
 
+func TestRuntimeReloadUpdatesSystemPromptFromSettings(t *testing.T) {
+	ctx := context.Background()
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("ANTHROPIC_API_KEY", "test-key")
+
+	soulA := filepath.Join(home, "SOUL_A.md")
+	soulB := filepath.Join(home, "SOUL_B.md")
+	if err := os.WriteFile(soulA, []byte("persona A soul\n"), 0o600); err != nil {
+		t.Fatalf("write soul A: %v", err)
+	}
+	if err := os.WriteFile(soulB, []byte("persona B soul\n"), 0o600); err != nil {
+		t.Fatalf("write soul B: %v", err)
+	}
+
+	settingsPath := filepath.Join(home, ".cometmind", "cometline-settings.json")
+	if err := os.MkdirAll(filepath.Dir(settingsPath), 0o700); err != nil {
+		t.Fatalf("mkdir settings dir: %v", err)
+	}
+	writeSettings := func(promptPath string) {
+		t.Helper()
+		body := []byte(`{"providers":[{"id":"anthropic","name":"Anthropic","method":"anthropic","enabled":true,"apiKey":"test-key","selectedModel":"claude-sonnet-4-5","models":["claude-sonnet-4-5"],"enabledModels":["claude-sonnet-4-5"]}],"activeProviderId":"anthropic","cometmind":{"systemPromptPath":"` + promptPath + `"}}`)
+		if err := os.WriteFile(settingsPath, body, 0o600); err != nil {
+			t.Fatalf("write settings: %v", err)
+		}
+	}
+	writeSettings(soulA)
+
+	rt, err := New(ctx)
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	defer rt.Close()
+	if rt.SystemPrompt != "persona A soul" {
+		t.Fatalf("SystemPrompt = %q, want persona A soul", rt.SystemPrompt)
+	}
+
+	writeSettings(soulB)
+	if err := rt.Reload(ctx); err != nil {
+		t.Fatalf("Reload() error = %v", err)
+	}
+	if rt.SystemPrompt != "persona B soul" {
+		t.Fatalf("after Reload SystemPrompt = %q, want persona B soul", rt.SystemPrompt)
+	}
+
+	ws, err := rt.WorkspaceForCommand(ctx, t.TempDir())
+	if err != nil {
+		t.Fatalf("WorkspaceForCommand() error = %v", err)
+	}
+	sess, err := rt.Sessions.NewSession(ctx, ws.ID, rt.Config.Model, rt.Config.Provider)
+	if err != nil {
+		t.Fatalf("NewSession() error = %v", err)
+	}
+	runner, err := rt.RunnerFor(sess, ws.Path)
+	if err != nil {
+		t.Fatalf("RunnerFor() error = %v", err)
+	}
+	if runner.SystemPrompt != "persona B soul" {
+		t.Fatalf("runner.SystemPrompt = %q, want persona B soul", runner.SystemPrompt)
+	}
+}
+
 func TestRuntimeLoadsSystemPromptFromConfiguredPath(t *testing.T) {
 	ctx := context.Background()
 	home := t.TempDir()

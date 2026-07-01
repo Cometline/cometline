@@ -364,7 +364,9 @@ export function createSettingsPanelController(deps: {
 		const payload: ProviderSettings = providerPayloadFromDraft(draft);
 		payload.activeProviderId = activeProvider?.id ?? '';
 		const personaIdChanged = settingsStore.settings.app.personaId !== draft.app.personaId;
-		const runtimeAction = runtimeActionForSettingsSave(settingsStore.settings, payload);
+		const runtimeAction = personaIdChanged
+			? 'reload'
+			: runtimeActionForSettingsSave(settingsStore.settings, payload);
 		const { settings: saved } = await settingsStore.save(payload, { runtimeAction });
 		deps.setDraft(cloneSettings(saved));
 		cometmindPanelKey += 1;
@@ -550,6 +552,7 @@ export function createSettingsPanelController(deps: {
 				settingsStore.apply(settings);
 				deps.setDraft(cloneSettings(settings));
 			}
+			setTimeout(replayIntro, 600);
 		}
 		return result;
 	}
@@ -565,6 +568,7 @@ export function createSettingsPanelController(deps: {
 				settingsStore.apply(settings);
 				deps.setDraft(cloneSettings(settings));
 			}
+			setTimeout(replayIntro, 600);
 		}
 		return result;
 	}

@@ -984,8 +984,15 @@ const providerSettingsSchema = z.object({
 	defaultProviderId: z.string(),
 	appearance: z.object({
 		heroComposer: z.object({
+			presetId: z.enum(['blue', 'rose', 'custom']),
 			glowColor: z.string(),
-			ringColor: z.string()
+			ringColor: z.string(),
+			customPreset: z
+				.object({
+					glowColor: z.string(),
+					ringColor: z.string()
+				})
+				.optional()
 		}),
 		caretTrail: z.object({
 			enabled: z.boolean(),

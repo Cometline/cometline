@@ -200,7 +200,35 @@ let variants: [Variant] = [
 	)
 ]
 
-let requestedVariant = CommandLine.arguments.dropFirst().first
+let cliArgs = Array(CommandLine.arguments.dropFirst())
+if cliArgs.first == "persona" {
+	guard cliArgs.count >= 3 else {
+		fail("usage: generate-project-icons.swift persona <source-image> <output-app-icon.png>")
+	}
+	let sourcePath = cliArgs[1]
+	let outputPath = cliArgs[2]
+	guard FileManager.default.fileExists(atPath: sourcePath) else {
+		fail("source image not found: \(sourcePath)")
+	}
+	guard let source = CGImageSourceCreateWithURL(URL(fileURLWithPath: sourcePath) as CFURL, nil),
+		let sourceImage = CGImageSourceCreateImageAtIndex(source, 0, nil),
+		let cropped = centerCroppedSquare(from: sourceImage)
+	else {
+		fail("could not read or crop \(sourcePath)")
+	}
+	let personaDockOutput = Output(
+		path: outputPath,
+		size: 1024,
+		radius: 224,
+		artworkScale: 0.8125,
+		clipToRoundedRect: true
+	)
+	renderOutput(personaDockOutput, from: cropped)
+	print("Generated persona app icon at \(outputPath).")
+	exit(0)
+}
+
+let requestedVariant = cliArgs.first
 let selectedVariants = variants.filter { variant in
 	guard let requestedVariant else { return true }
 	return variant.label == requestedVariant

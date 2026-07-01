@@ -62,7 +62,7 @@
 	let personaEditorAvatarDataUrl = $state<string | undefined>(undefined);
 	let personaEditorError = $state('');
 	let personaEditorBusy = $state(false);
-let personaAvatarFileInput = $state<HTMLInputElement | undefined>(undefined);
+	let personaAvatarFileInput = $state<HTMLInputElement | undefined>(undefined);
 
 	interface CustomPersonaLike {
 		id: string;
@@ -444,7 +444,10 @@ let personaAvatarFileInput = $state<HTMLInputElement | undefined>(undefined);
 										</button>
 									{/each}
 									{#each customPersonas as persona (persona.id)}
-										<div class="icon-variant-chip custom-persona-chip">
+										<div
+											class="icon-variant-chip custom-persona-chip"
+											class:selected={draft.app.personaId === persona.id}
+										>
 											<button
 												type="button"
 												class="custom-persona-select"
@@ -524,7 +527,7 @@ let personaAvatarFileInput = $state<HTMLInputElement | undefined>(undefined);
 											class="secondary"
 											onclick={() => (soulPreviewOpen = false)}>Close</button
 										>
-									</div>
+										</div>
 								</div>
 								<pre class="soul-preview-body">{soulPreviewText}</pre>
 							</div>
@@ -1085,8 +1088,8 @@ let personaAvatarFileInput = $state<HTMLInputElement | undefined>(undefined);
 	}
 
 	.icon-variant-chip.selected {
-		border-color: rgba(0, 102, 204, 0.4);
-		box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.08);
+		border-color: var(--pane-focus-border);
+		box-shadow: 0 0 0 3px var(--pane-focus-glow);
 	}
 
 	.icon-variant-chip:hover {
@@ -1115,6 +1118,11 @@ let personaAvatarFileInput = $state<HTMLInputElement | undefined>(undefined);
 		border-radius: 10px;
 	}
 
+	.custom-persona-select:focus-visible {
+		outline: none;
+		box-shadow: 0 0 0 3px var(--pane-focus-glow);
+	}
+
 	.custom-persona-select img {
 		width: 40px;
 		height: 40px;
@@ -1124,7 +1132,12 @@ let personaAvatarFileInput = $state<HTMLInputElement | undefined>(undefined);
 	}
 
 	.custom-persona-select.selected {
-		color: var(--accent);
+		color: var(--hero-composer-glow-color);
+	}
+
+	.custom-persona-chip.selected {
+		border-color: var(--pane-focus-border);
+		box-shadow: 0 0 0 3px var(--pane-focus-glow);
 	}
 
 	.custom-persona-actions {
@@ -1202,6 +1215,7 @@ let personaAvatarFileInput = $state<HTMLInputElement | undefined>(undefined);
 		position: relative;
 		z-index: 1;
 		display: grid;
+		grid-template-rows: auto minmax(0, 1fr);
 		gap: 12px;
 		width: min(560px, 100%);
 		max-height: min(640px, calc(100vh - 60px));
@@ -1215,6 +1229,7 @@ let personaAvatarFileInput = $state<HTMLInputElement | undefined>(undefined);
 
 	.persona-editor-panel {
 		background: rgba(255, 255, 255, 0.98);
+		grid-template-rows: auto auto minmax(0, auto) auto;
 		overflow-y: auto;
 	}
 
@@ -1239,6 +1254,8 @@ let personaAvatarFileInput = $state<HTMLInputElement | undefined>(undefined);
 
 	.soul-preview-body {
 		margin: 0;
+		min-height: 0;
+		max-height: min(520px, calc(100vh - 180px));
 		overflow: auto;
 		white-space: pre-wrap;
 		word-break: break-word;

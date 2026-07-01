@@ -4085,10 +4085,20 @@ var coerce = {
 var NEVER = INVALID;
 
 // src/lib/hero-composer-appearance.ts
+var HERO_COMPOSER_PRESET_ROSE = {
+  presetId: "rose",
+  glowColor: "#f43f5e",
+  ringColor: "#fb7185"
+};
 var HERO_COMPOSER_PRESET_BLUE = {
+  presetId: "blue",
   glowColor: "#72c0ff",
   ringColor: "#4a9de8"
 };
+var HERO_COMPOSER_PRESETS = [
+  { id: "blue", label: "Blue", appearance: HERO_COMPOSER_PRESET_BLUE },
+  { id: "rose", label: "Rose", appearance: HERO_COMPOSER_PRESET_ROSE }
+];
 var DEFAULT_HERO_COMPOSER_APPEARANCE = {
   ...HERO_COMPOSER_PRESET_BLUE
 };
@@ -4103,8 +4113,27 @@ function normalizeHexColor(value, fallback) {
   }
   return trimmed.toLowerCase();
 }
-function normalizeHeroComposerAppearance(appearance) {
+function presetAppearanceFor(id) {
+  return id === "rose" ? HERO_COMPOSER_PRESET_ROSE : HERO_COMPOSER_PRESET_BLUE;
+}
+function presetIdFromValue(value) {
+  return value === "rose" || value === "custom" ? value : value === "blue" ? "blue" : void 0;
+}
+function normalizeCustomPreset(appearance) {
+  if (!appearance?.customPreset) return void 0;
   return {
+    glowColor: normalizeHexColor(
+      appearance.customPreset.glowColor,
+      DEFAULT_HERO_COMPOSER_APPEARANCE.glowColor
+    ),
+    ringColor: normalizeHexColor(
+      appearance.customPreset.ringColor,
+      DEFAULT_HERO_COMPOSER_APPEARANCE.ringColor
+    )
+  };
+}
+function normalizeHeroComposerAppearance(appearance) {
+  const legacyColors = {
     glowColor: normalizeHexColor(
       appearance?.glowColor,
       DEFAULT_HERO_COMPOSER_APPEARANCE.glowColor
@@ -4114,6 +4143,17 @@ function normalizeHeroComposerAppearance(appearance) {
       DEFAULT_HERO_COMPOSER_APPEARANCE.ringColor
     )
   };
+  const matchedPreset = HERO_COMPOSER_PRESETS.find(
+    (preset2) => legacyColors.glowColor === preset2.appearance.glowColor && legacyColors.ringColor === preset2.appearance.ringColor
+  )?.id;
+  const customPreset = normalizeCustomPreset(appearance) ?? (matchedPreset ? void 0 : legacyColors);
+  const presetId = presetIdFromValue(appearance?.presetId) ?? matchedPreset ?? "blue";
+  if (presetId === "custom") {
+    const custom2 = customPreset ?? legacyColors;
+    return { presetId: "custom", ...custom2, customPreset: custom2 };
+  }
+  const preset = presetAppearanceFor(presetId);
+  return { ...preset, customPreset };
 }
 
 // src/lib/keyboard-shortcuts.ts
@@ -4997,8 +5037,13 @@ var providerSettingsSchema = external_exports.object({
   defaultProviderId: external_exports.string(),
   appearance: external_exports.object({
     heroComposer: external_exports.object({
+      presetId: external_exports.enum(["blue", "rose", "custom"]),
       glowColor: external_exports.string(),
-      ringColor: external_exports.string()
+      ringColor: external_exports.string(),
+      customPreset: external_exports.object({
+        glowColor: external_exports.string(),
+        ringColor: external_exports.string()
+      }).optional()
     }),
     caretTrail: external_exports.object({
       enabled: external_exports.boolean(),

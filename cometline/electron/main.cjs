@@ -15,7 +15,7 @@ const {
 } = require('electron');
 const path = require('path');
 const { pathToFileURL } = require('url');
-const { spawn } = require('child_process');
+const { spawn, execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const http = require('http');
@@ -327,15 +327,127 @@ function pathWithCometMindCliBins(envPath = '') {
 	return [...new Set(entries)].join(delimiter);
 }
 
-function resolveSystemPromptPath(variant = 'default') {
-	if (process.env.COMETMIND_SYSTEM_PROMPT_PATH) {
-		return path.resolve(process.env.COMETMIND_SYSTEM_PROMPT_PATH);
+const BUILTIN_PERSONA_IDS = new Set(['minako', 'souma']);
+const PERSONA_IMAGE_MIME_BY_EXT = {
+	'.png': 'image/png',
+	'.jpg': 'image/jpeg',
+	'.jpeg': 'image/jpeg',
+	'.webp': 'image/webp'
+};
+const PERSONA_AVATAR_MAX_BYTES = 2 * 1024 * 1024;
+const PERSONA_APP_ICON_SIZE = 1024;
+const PERSONA_APP_ICON_RADIUS = 224;
+const PERSONA_APP_ICON_ARTWORK_SCALE = 0.8125;
+const PERSONA_ICON_SCRIPT = path.join(__dirname, '..', 'scripts', 'generate-project-icons.swift');
+
+function migratePersonaIdFromIconVariant(iconVariant) {
+	return iconVariant === 'man' ? 'souma' : 'minako';
+}
+
+function builtinPersonaToIconVariant(personaId) {
+	return personaId === 'souma' ? 'man' : 'default';
+}
+
+function isBuiltinPersonaId(personaId) {
+	return BUILTIN_PERSONA_IDS.has(String(personaId || ''));
+}
+
+function normalizePersonaSlug(value) {
+	return String(value || '')
+		.trim()
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, '-')
+		.replace(/^-+|-+$/g, '')
+		.slice(0, 48);
+}
+
+function expandHomePath(filePath) {
+	const clean = String(filePath || '').trim();
+	if (clean === '~') return os.homedir();
+	if (clean.startsWith(`~${path.sep}`) || clean.startsWith('~/')) {
+		return path.join(os.homedir(), clean.slice(2));
 	}
-	const filename = variant === 'man' ? 'SOUL_MAN.md' : 'SOUL.md';
+	return clean;
+}
+
+function getPersonasDir() {
+	const dir = path.join(os.homedir(), '.cometmind', 'personas');
+	if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+	return dir;
+}
+
+function getPersonaDir(id) {
+	const slug = normalizePersonaSlug(id);
+	if (!slug) return '';
+	const root = getPersonasDir();
+	const dir = path.resolve(root, slug);
+	if (dir !== root && dir.startsWith(root + path.sep)) return dir;
+	return '';
+}
+
+function builtinSoulFilename(personaId) {
+	return personaId === 'souma' ? 'SOUL_MAN.md' : 'SOUL.md';
+}
+
+function resolveBuiltinSoulPath(personaId = 'minako') {
+	const filename = builtinSoulFilename(personaId);
 	if (app.isPackaged) {
 		return path.join(process.resourcesPath, filename);
 	}
 	return path.join(__dirname, '..', filename);
+}
+
+function normalizeCustomPersonaEntry(value) {
+	if (!value || typeof value !== 'object') return null;
+	const id = normalizePersonaSlug(value.id);
+	const name = String(value.name || '').trim();
+	const soulPath = path.resolve(expandHomePath(value.soulPath));
+	if (!id || !name || !soulPath) return null;
+	const avatarPath = String(value.avatarPath || '').trim()
+		? path.resolve(expandHomePath(value.avatarPath))
+		: '';
+	return {
+		id,
+		name,
+		avatarPath,
+		soulPath,
+		createdAt: Number.isFinite(value.createdAt) ? Number(value.createdAt) : Date.now()
+	};
+}
+
+function customPersonasFromSettings(settings) {
+	const custom = settings?.app?.personas?.custom;
+	if (!Array.isArray(custom)) return [];
+	return custom.map(normalizeCustomPersonaEntry).filter(Boolean);
+}
+
+function findCustomPersona(settings, personaId) {
+	const id = normalizePersonaSlug(personaId);
+	return customPersonasFromSettings(settings).find((persona) => persona.id === id) ?? null;
+}
+
+function readSavedPersonaId(saved) {
+	const requested = String(saved?.app?.personaId || '').trim();
+	if (isBuiltinPersonaId(requested) || findCustomPersona(saved, requested)) return requested;
+	return migratePersonaIdFromIconVariant(saved?.app?.iconVariant);
+}
+
+function resolveNextPersonaId(settings, current) {
+	const merged = { app: { ...(current.app ?? {}), ...(settings.app ?? {}) } };
+	const requested = String(settings.app?.personaId || '').trim();
+	if (isBuiltinPersonaId(requested) || findCustomPersona(merged, requested)) return requested;
+	return readSavedPersonaId(current);
+}
+
+function resolveSystemPromptPath(personaId = 'minako', settings = undefined) {
+	if (process.env.COMETMIND_SYSTEM_PROMPT_PATH) {
+		return path.resolve(process.env.COMETMIND_SYSTEM_PROMPT_PATH);
+	}
+	const customPersona = findCustomPersona(settings, personaId);
+	if (customPersona?.soulPath) {
+		return path.resolve(expandHomePath(customPersona.soulPath));
+	}
+	return resolveBuiltinSoulPath(personaId);
 }
 
 function getLogPath() {
@@ -350,22 +462,11 @@ function getSettingsPath() {
 	return path.join(dir, 'cometline-settings.json');
 }
 
-function settingsNormalizeOptions(iconVariant = 'default') {
+function settingsNormalizeOptions(personaId = 'minako', settings = undefined) {
 	return {
 		fallbackWorkspacePath: readStoredWorkspacePath() || getDefaultWorkspacePath(),
-		systemPromptPath: resolveSystemPromptPath(iconVariant)
+		systemPromptPath: resolveSystemPromptPath(personaId, settings)
 	};
-}
-
-function readSavedIconVariant(saved) {
-	return saved?.app?.iconVariant === 'man' ? 'man' : 'default';
-}
-
-function resolveNextIconVariant(settings, current) {
-	if (settings.app?.iconVariant === 'man' || settings.app?.iconVariant === 'default') {
-		return settings.app.iconVariant;
-	}
-	return current.app?.iconVariant === 'man' ? 'man' : 'default';
 }
 
 function shortcutKeyMatches(a, b) {
@@ -564,7 +665,8 @@ function ensureTray() {
 	if (process.platform !== 'darwin') return false;
 	if (tray) return true;
 
-	const variant = getIconVariant();
+	const personaId = getPersonaId();
+	const variant = builtinPersonaToIconVariant(personaId);
 	const trayIconPath = resolveTrayResourcePath(
 		variant === 'man' ? 'trayIcon_man.png' : 'trayIcon.png'
 	);
@@ -839,8 +941,8 @@ function readSavedProviderSettings() {
 		}
 	}
 
-	const iconVariant = readSavedIconVariant(saved);
-	return parseAndNormalizeSettings(saved, settingsNormalizeOptions(iconVariant));
+	const personaId = readSavedPersonaId(saved);
+	return parseAndNormalizeSettings(saved, settingsNormalizeOptions(personaId, saved));
 }
 
 function writeProviderSettings(settings) {
@@ -855,10 +957,12 @@ function writeProviderSettings(settings) {
 			: (nextProviders.find((p) => p.enabled && p.enabledModels.length > 0)?.id ??
 				nextProviders[0]?.id ??
 				'');
-	const iconVariant = resolveNextIconVariant(settings, current);
+	const appSettings = { ...(current.app ?? {}), ...(settings.app ?? {}) };
+	const personaId = resolveNextPersonaId(settings, current);
+	appSettings.personaId = personaId;
 	const nextCometMind = {
 		...(settings.cometmind ?? current.cometmind),
-		systemPromptPath: resolveSystemPromptPath(iconVariant)
+		systemPromptPath: resolveSystemPromptPath(personaId, { app: appSettings })
 	};
 	const next = validateSettings(
 		normalizeSettings(
@@ -870,9 +974,9 @@ function writeProviderSettings(settings) {
 				appearance: settings.appearance ?? current.appearance,
 				shortcuts: settings.shortcuts ?? current.shortcuts,
 				cometmind: nextCometMind,
-				app: { ...(current.app ?? {}), ...(settings.app ?? {}), iconVariant }
+				app: appSettings
 			},
-			settingsNormalizeOptions(iconVariant)
+			settingsNormalizeOptions(personaId, { app: appSettings })
 		)
 	);
 	const settingsPath = getSettingsPath();
@@ -966,9 +1070,9 @@ async function importProviderSettings() {
 	const filePath = result.filePaths[0];
 	const raw = fs.readFileSync(filePath, 'utf8');
 	const parsed = JSON.parse(raw);
-	const iconVariant = readSavedIconVariant(parsed);
+	const personaId = readSavedPersonaId(parsed);
 	const imported = validateSettings(
-		parseAndNormalizeSettings(parsed, settingsNormalizeOptions(iconVariant))
+		parseAndNormalizeSettings(parsed, settingsNormalizeOptions(personaId, parsed))
 	);
 	const saved = writeProviderSettings(imported);
 	await stopCometMind();
@@ -976,7 +1080,7 @@ async function importProviderSettings() {
 	await waitForHealth();
 	await syncDiscordGatewayFromSettings(saved);
 	applyOpenAtLoginSetting(saved.app?.openAtLogin);
-	applyIconVariant(saved.app?.iconVariant);
+	applyPersona(saved.app?.personaId);
 	return { canceled: false, path: filePath, settings: saved };
 }
 
@@ -995,8 +1099,11 @@ function providerEnv() {
 		COMETMIND_PROVIDER: active.id,
 		COMETMIND_MODEL: active.enabledModels[0] || active.selectedModel || active.models[0] || '',
 		COMETMIND_MAX_TOKENS: String(settings.cometmind?.maxTokens ?? 2048),
-		COMETMIND_LOG_LEVEL: settings.cometmind?.logLevel ?? 'error',
-		COMETMIND_SYSTEM_PROMPT_PATH: resolveSystemPromptPath(getIconVariant())
+		COMETMIND_LOG_LEVEL: settings.cometmind?.logLevel ?? 'error'
+		// Persona SOUL path lives in cometline-settings.json (cometmind.systemPromptPath).
+		// Do not inject COMETMIND_SYSTEM_PROMPT_PATH here — it is captured at process
+		// start and would override config.Load() on SIGHUP reload, so persona switches
+		// would not take effect until a full CometMind restart.
 	};
 	if (active.baseURL) env.COMETMIND_BASE_URL = active.baseURL;
 	if (active.apiKey) env.COMETMIND_API_KEY = active.apiKey;
@@ -1155,12 +1262,22 @@ async function selectWorkspacePath() {
 	return writeStoredWorkspacePath(result.filePaths[0]);
 }
 
-function getIconVariant() {
-	const variant = readProviderSettings().app?.iconVariant;
-	return variant === 'man' ? 'man' : 'default';
+function getPersonaId() {
+	return readSavedPersonaId(readProviderSettings());
 }
 
-function resolveAppIconPaths(variant = 'default') {
+function customPersonaAppIconPath(personaId) {
+	const dir = getPersonaDir(personaId);
+	return dir ? path.join(dir, 'app_icon.png') : '';
+}
+
+function resolveAppIconPaths(personaId = 'minako', settings = undefined) {
+	const customPersona = findCustomPersona(settings ?? readProviderSettings(), personaId);
+	if (customPersona) {
+		const appIconPath = customPersonaAppIconPath(customPersona.id);
+		return appIconPath ? [appIconPath] : [];
+	}
+	const variant = builtinPersonaToIconVariant(personaId);
 	if (variant === 'man') {
 		if (app.isPackaged) {
 			return [path.join(process.resourcesPath, 'app_icon_man.png')];
@@ -1173,14 +1290,123 @@ function resolveAppIconPaths(variant = 'default') {
 	if (app.isPackaged) {
 		return [path.join(process.resourcesPath, 'icon.png')];
 	}
-	return [path.join(__dirname, '..', 'buildResources', 'icon.png')];
+	return [
+		path.join(app.getAppPath(), 'static', 'app_icon.png'),
+		path.join(__dirname, '..', 'static', 'app_icon.png'),
+		path.join(__dirname, '..', 'buildResources', 'icon.png')
+	];
 }
 
-function getAppIconPath(variant = getIconVariant()) {
-	return resolveAppIconPaths(variant).find((candidate) => fs.existsSync(candidate));
+function getAppIconPath(personaId = getPersonaId(), settings = undefined) {
+	return resolveAppIconPaths(personaId, settings).find((candidate) => fs.existsSync(candidate));
 }
 
-function resolveTrayImageSource(variant = getIconVariant()) {
+function createCustomPersonaAppIcon(customPersona) {
+	if (!customPersona?.avatarPath || !fs.existsSync(customPersona.avatarPath)) return null;
+	const ext = path.extname(customPersona.avatarPath).toLowerCase();
+	if (!PERSONA_IMAGE_MIME_BY_EXT[ext]) return null;
+	const artworkSize = PERSONA_APP_ICON_SIZE * PERSONA_APP_ICON_ARTWORK_SCALE;
+	const artworkInset = (PERSONA_APP_ICON_SIZE - artworkSize) / 2;
+	const artworkRadius = PERSONA_APP_ICON_RADIUS * PERSONA_APP_ICON_ARTWORK_SCALE;
+	const avatarHref = pathToFileURL(path.resolve(customPersona.avatarPath)).href;
+	const svg = [
+		`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"`,
+		`width="${PERSONA_APP_ICON_SIZE}" height="${PERSONA_APP_ICON_SIZE}"`,
+		`viewBox="0 0 ${PERSONA_APP_ICON_SIZE} ${PERSONA_APP_ICON_SIZE}">`,
+		`<defs><clipPath id="persona-icon">`,
+		`<rect x="${artworkInset}" y="${artworkInset}" width="${artworkSize}" height="${artworkSize}"`,
+		`rx="${artworkRadius}" ry="${artworkRadius}"/></clipPath></defs>`,
+		`<rect x="${artworkInset}" y="${artworkInset}" width="${artworkSize}" height="${artworkSize}"`,
+		`rx="${artworkRadius}" ry="${artworkRadius}" fill="#ffffff"/>`,
+		`<image href="${avatarHref}" xlink:href="${avatarHref}" x="${artworkInset}" y="${artworkInset}"`,
+		`width="${artworkSize}" height="${artworkSize}" preserveAspectRatio="xMidYMid slice"`,
+		`clip-path="url(#persona-icon)"/></svg>`
+	].join('');
+	const image = nativeImage.createFromDataURL(
+		`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
+	);
+	return image.isEmpty() ? null : image;
+}
+
+function generatePersonaAppIconPng(avatarPath, outputPath) {
+	if (!avatarPath || !fs.existsSync(avatarPath) || !outputPath) return false;
+	try {
+		fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+	} catch {
+		return false;
+	}
+	if (process.platform === 'darwin' && fs.existsSync(PERSONA_ICON_SCRIPT)) {
+		try {
+			execFileSync(
+				'swift',
+				[PERSONA_ICON_SCRIPT, 'persona', path.resolve(avatarPath), outputPath],
+				{ stdio: 'pipe', timeout: 30000 }
+			);
+			if (fs.existsSync(outputPath)) return true;
+		} catch (error) {
+			console.warn(
+				'[icon] Swift persona icon generation failed, falling back to SVG:',
+				error?.message ?? error
+			);
+		}
+	}
+	const fallback = createCustomPersonaAppIcon({ avatarPath, id: 'fallback' });
+	if (!fallback) return false;
+	try {
+		fs.writeFileSync(outputPath, fallback.toPNG());
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+function ensureCustomPersonaAppIcon(customPersona) {
+	if (!customPersona?.avatarPath || !fs.existsSync(customPersona.avatarPath)) return null;
+	const iconPath = customPersonaAppIconPath(customPersona.id);
+	if (!iconPath) return createCustomPersonaAppIcon(customPersona);
+
+	let avatarMtime = 0;
+	let iconMtime = 0;
+	try {
+		avatarMtime = fs.statSync(customPersona.avatarPath).mtimeMs;
+		if (fs.existsSync(iconPath)) iconMtime = fs.statSync(iconPath).mtimeMs;
+	} catch {
+		return createCustomPersonaAppIcon(customPersona);
+	}
+
+	if (!fs.existsSync(iconPath) || iconMtime < avatarMtime) {
+		generatePersonaAppIconPng(customPersona.avatarPath, iconPath);
+	}
+
+	if (fs.existsSync(iconPath)) {
+		const cached = nativeImage.createFromPath(iconPath);
+		if (!cached.isEmpty()) return cached;
+	}
+	return createCustomPersonaAppIcon(customPersona);
+}
+
+function getAppIconImage(personaId = getPersonaId(), settings = undefined) {
+	const resolvedSettings = settings ?? readProviderSettings();
+	const customPersona = findCustomPersona(resolvedSettings, personaId);
+	if (customPersona) {
+		const customIcon = ensureCustomPersonaAppIcon(customPersona);
+		if (customIcon) return customIcon;
+	}
+	const iconPath = getAppIconPath(personaId, resolvedSettings);
+	if (!iconPath) return null;
+	const image = nativeImage.createFromPath(iconPath);
+	return image.isEmpty() ? null : image;
+}
+
+function resolveTrayImageSource(personaId = getPersonaId(), settings = undefined) {
+	const customPersona = findCustomPersona(settings ?? readProviderSettings(), personaId);
+	if (customPersona?.avatarPath && fs.existsSync(customPersona.avatarPath)) {
+		const image = ensureCustomPersonaAppIcon(customPersona);
+		if (image && !image.isEmpty()) {
+			return image.resize({ width: 18, height: 18, quality: 'best' });
+		}
+	}
+	const variant = builtinPersonaToIconVariant(personaId);
 	const trayIconPath = resolveTrayResourcePath(
 		variant === 'man' ? 'trayIcon_man.png' : 'trayIcon.png'
 	);
@@ -1190,15 +1416,10 @@ function resolveTrayImageSource(variant = getIconVariant()) {
 	return resolveTrayIcon(variant);
 }
 
-function applyIconVariant(variant = getIconVariant()) {
-	const iconPath = getAppIconPath(variant);
-	if (!iconPath) {
-		console.warn('[icon] No app icon found for variant', variant);
-		return;
-	}
-	const image = nativeImage.createFromPath(iconPath);
-	if (image.isEmpty()) {
-		console.warn('[icon] Failed to load app icon for variant', variant, iconPath);
+function applyPersona(personaId = getPersonaId(), settings = undefined) {
+	const image = getAppIconImage(personaId, settings);
+	if (!image) {
+		console.warn('[icon] No app icon found for persona', personaId);
 		return;
 	}
 	if (process.platform === 'darwin') {
@@ -1207,8 +1428,11 @@ function applyIconVariant(variant = getIconVariant()) {
 	if (mainWindow && !mainWindow.isDestroyed()) {
 		mainWindow.setIcon(image);
 	}
+	if (miniWindow && !miniWindow.isDestroyed()) {
+		miniWindow.setIcon(image);
+	}
 	if (!tray) return;
-	const trayImageSource = resolveTrayImageSource(variant);
+	const trayImageSource = resolveTrayImageSource(personaId, settings);
 	if (typeof trayImageSource === 'string') {
 		tray.setImage(trayImageSource);
 		return;
@@ -1707,7 +1931,7 @@ function registerAppProtocol() {
 }
 
 async function createWindow() {
-	const iconPath = getAppIconPath(getIconVariant());
+	const appIcon = getAppIconImage(getPersonaId());
 	mainWindow = new BrowserWindow({
 		width: 1200,
 		height: 800,
@@ -1726,7 +1950,7 @@ async function createWindow() {
 					visualEffectState: 'active'
 				}
 			: {}),
-		...(iconPath ? { icon: iconPath } : {}),
+		...(appIcon ? { icon: appIcon } : {}),
 		show: false,
 		webPreferences: {
 			preload: path.join(__dirname, 'preload.cjs'),
@@ -1737,9 +1961,8 @@ async function createWindow() {
 		}
 	});
 	setWindowButtonPosition(WINDOW_BUTTON_OPEN_POSITION);
-	if (process.platform === 'darwin' && iconPath) {
-		const dockIcon = nativeImage.createFromPath(iconPath);
-		if (!dockIcon.isEmpty()) app.dock?.setIcon(dockIcon);
+	if (process.platform === 'darwin' && appIcon) {
+		app.dock?.setIcon(appIcon);
 	}
 
 	attachExternalNavigationGuards(mainWindow);
@@ -1786,7 +2009,7 @@ async function createWindow() {
 }
 
 async function createMiniWindow() {
-	const iconPath = getAppIconPath(getIconVariant());
+	const appIcon = getAppIconImage(getPersonaId());
 	miniWindow = new BrowserWindow({
 		width: MINI_WINDOW_WIDTH,
 		height: MINI_WINDOW_HEIGHT,
@@ -1800,7 +2023,7 @@ async function createMiniWindow() {
 					trafficLightPosition: { x: 14, y: 14 }
 				}
 			: {}),
-		...(iconPath ? { icon: iconPath } : {}),
+		...(appIcon ? { icon: appIcon } : {}),
 		show: false,
 		webPreferences: {
 			preload: path.join(__dirname, 'preload.cjs'),
@@ -2513,7 +2736,7 @@ app.whenReady().then(async () => {
 		}
 	});
 	await windowReady;
-	applyIconVariant(startupSettings.app?.iconVariant);
+	applyPersona(startupSettings.app?.personaId, startupSettings);
 	configureAutoUpdater();
 
 	app.on('second-instance', () => {
@@ -2651,6 +2874,16 @@ ipcMain.handle('cometline:read-workspace-file', (_event, workspacePath, relative
 	readWorkspaceFileForPreview(workspacePath, relativePath)
 );
 
+ipcMain.handle('cometline:list-custom-personas', () => customPersonasFromSettings(readProviderSettings()));
+
+ipcMain.handle('cometline:read-persona-avatar', (_event, id) => readPersonaAvatar(id));
+
+ipcMain.handle('cometline:read-builtin-soul', (_event, personaId) => readPersonaSoul(personaId));
+
+ipcMain.handle('cometline:save-custom-persona', (_event, payload) => saveCustomPersona(payload));
+
+ipcMain.handle('cometline:delete-custom-persona', (_event, id) => deleteCustomPersona(id));
+
 ipcMain.handle('cometline:get-provider-settings', () => readProviderSettings());
 
 ipcMain.handle('cometline:get-codex-auth-status', () => getCodexAuthStatus());
@@ -2670,10 +2903,15 @@ ipcMain.handle('cometline:fetch-provider-models', async (_event, config) => {
 ipcMain.handle('cometline:save-provider-settings', async (_event, settings, options = {}) => {
 	const previous = readProviderSettings();
 	const saved = writeProviderSettings(settings);
-	const iconVariantChanged =
-		(previous.app?.iconVariant ?? 'default') !== (saved.app?.iconVariant ?? 'default');
-	const runtimeAction =
+	const personaIdChanged = (previous.app?.personaId ?? 'minako') !== (saved.app?.personaId ?? 'minako');
+	let runtimeAction =
 		options.runtimeAction ?? (options.restartCometMind === false ? 'none' : 'restart');
+	if (
+		runtimeAction === 'none' &&
+		(previous.cometmind?.systemPromptPath ?? '') !== (saved.cometmind?.systemPromptPath ?? '')
+	) {
+		runtimeAction = 'reload';
+	}
 	refreshGlobalShortcuts();
 	if (runtimeAction === 'restart') {
 		await stopCometMind();
@@ -2684,8 +2922,8 @@ ipcMain.handle('cometline:save-provider-settings', async (_event, settings, opti
 	}
 	await syncDiscordGatewayFromSettings(saved);
 	applyOpenAtLoginSetting(saved.app?.openAtLogin);
-	if (iconVariantChanged) {
-		applyIconVariant(saved.app?.iconVariant);
+	if (personaIdChanged) {
+		applyPersona(saved.app?.personaId, saved);
 	}
 	return saved;
 });
@@ -2824,6 +3062,136 @@ async function readWorkspaceFileForPreview(workspacePath, relativePath) {
 	}
 
 	return { ok: true, kind: 'text', content, extension: ext };
+}
+
+async function readPersonaSoul(personaId) {
+	const settings = readProviderSettings();
+	const customPersona = findCustomPersona(settings, personaId);
+	const soulPath = customPersona?.soulPath ?? resolveBuiltinSoulPath(personaId);
+	try {
+		const stat = await fs.promises.stat(soulPath);
+		if (!stat.isFile()) return { ok: false, error: 'SOUL file is not a file' };
+		const content = await fs.promises.readFile(soulPath, 'utf8');
+		return { ok: true, content };
+	} catch {
+		return { ok: false, error: 'SOUL file not found' };
+	}
+}
+
+async function readPersonaAvatar(id) {
+	const settings = readProviderSettings();
+	const customPersona = findCustomPersona(settings, id);
+	if (!customPersona?.avatarPath) return { ok: false, error: 'Avatar image not found' };
+	const avatarPath = path.resolve(expandHomePath(customPersona.avatarPath));
+	let stat;
+	try {
+		stat = await fs.promises.stat(avatarPath);
+	} catch {
+		return { ok: false, error: 'Avatar image not found' };
+	}
+	if (!stat.isFile()) return { ok: false, error: 'Avatar image is not a file' };
+	if (stat.size > PERSONA_AVATAR_MAX_BYTES) {
+		return { ok: false, error: 'Avatar image exceeds 2 MB limit' };
+	}
+	const ext = path.extname(avatarPath).toLowerCase();
+	const mimeType = PERSONA_IMAGE_MIME_BY_EXT[ext];
+	if (!mimeType) return { ok: false, error: 'Unsupported avatar image type' };
+	const buffer = await fs.promises.readFile(avatarPath);
+	return { ok: true, dataUrl: `data:${mimeType};base64,${buffer.toString('base64')}` };
+}
+
+function decodePersonaAvatarDataUrl(dataUrl) {
+	const match = String(dataUrl || '').match(/^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=]+)$/);
+	if (!match) return null;
+	const ext = match[1] === 'image/jpeg' ? '.jpg' : match[1] === 'image/webp' ? '.webp' : '.png';
+	const buffer = Buffer.from(match[2], 'base64');
+	if (buffer.length > PERSONA_AVATAR_MAX_BYTES) {
+		throw new Error('Avatar image exceeds 2 MB limit');
+	}
+	return { ext, buffer };
+}
+
+function nextCustomPersonaId(requestedId, name, existingPersonas) {
+	const existing = new Set(existingPersonas.map((persona) => persona.id));
+	const base = normalizePersonaSlug(requestedId) || normalizePersonaSlug(name) || 'persona';
+	if (requestedId || !existing.has(base)) return base;
+	for (let i = 2; i < 1000; i += 1) {
+		const candidate = `${base}-${i}`;
+		if (!existing.has(candidate)) return candidate;
+	}
+	return `${base}-${Date.now()}`;
+}
+
+async function saveCustomPersona(payload = {}) {
+	const name = String(payload.name || '').trim();
+	const soulMarkdown = String(payload.soulMarkdown || '').trim();
+	if (!name) return { ok: false, error: 'Persona name is required.' };
+	if (!soulMarkdown) return { ok: false, error: 'SOUL.md content is required.' };
+
+	const settings = readProviderSettings();
+	const customPersonas = customPersonasFromSettings(settings);
+	const id = nextCustomPersonaId(payload.id, name, customPersonas);
+	const personaDir = getPersonaDir(id);
+	if (!personaDir) return { ok: false, error: 'Invalid persona id.' };
+	await fs.promises.mkdir(personaDir, { recursive: true });
+
+	const existing = customPersonas.find((persona) => persona.id === id);
+	const soulPath = path.join(personaDir, 'SOUL.md');
+	await fs.promises.writeFile(soulPath, `${soulMarkdown}\n`, { mode: 0o600 });
+
+	let avatarPath = existing?.avatarPath ?? '';
+	if (payload.avatarDataUrl) {
+		let decoded;
+		try {
+			decoded = decodePersonaAvatarDataUrl(payload.avatarDataUrl);
+		} catch (err) {
+			return { ok: false, error: err?.message ?? 'Invalid avatar image.' };
+		}
+		if (!decoded) return { ok: false, error: 'Avatar image must be PNG, JPEG, or WebP.' };
+		avatarPath = path.join(personaDir, `avatar${decoded.ext}`);
+		await fs.promises.writeFile(avatarPath, decoded.buffer, { mode: 0o600 });
+	}
+
+	const persona = {
+		id,
+		name,
+		avatarPath,
+		soulPath,
+		createdAt: existing?.createdAt ?? Date.now()
+	};
+	const nextCustomPersonas = [...customPersonas.filter((item) => item.id !== id), persona];
+	settings.app = {
+		...settings.app,
+		personaId: id,
+		personas: { custom: nextCustomPersonas }
+	};
+	const saved = writeProviderSettings(settings);
+	generatePersonaAppIconPng(persona.avatarPath, customPersonaAppIconPath(persona.id));
+	await reloadCometMind();
+	applyPersona(saved.app?.personaId, saved);
+	return { ok: true, persona };
+}
+
+async function deleteCustomPersona(id) {
+	const cleanId = normalizePersonaSlug(id);
+	if (!cleanId) return { ok: false, error: 'Invalid persona id.' };
+	const settings = readProviderSettings();
+	const customPersonas = customPersonasFromSettings(settings);
+	const existing = customPersonas.find((persona) => persona.id === cleanId);
+	if (!existing) return { ok: false, error: 'Persona not found.' };
+	settings.app = {
+		...settings.app,
+		personaId: settings.app?.personaId === cleanId ? 'minako' : settings.app?.personaId,
+		personas: { custom: customPersonas.filter((persona) => persona.id !== cleanId) }
+	};
+	const saved = writeProviderSettings(settings);
+	const personaDir = getPersonaDir(cleanId);
+	if (personaDir) {
+		await fs.promises.rm(personaDir, { recursive: true, force: true });
+	}
+	await reloadCometMind();
+	applyPersona(saved.app?.personaId, saved);
+	return { ok: true };
 }
 
 ipcMain.handle('cometline:open-external', async (_event, rawUrl) => {

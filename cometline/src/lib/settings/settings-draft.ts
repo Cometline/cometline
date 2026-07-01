@@ -26,7 +26,12 @@ export function cloneSettings(settings: ProviderSettings): ProviderSettings {
 		defaultModelId: settings.defaultModelId ?? '',
 		defaultProviderId: settings.defaultProviderId ?? '',
 		appearance: {
-			heroComposer: { ...settings.appearance.heroComposer },
+			heroComposer: {
+				...settings.appearance.heroComposer,
+				customPreset: settings.appearance.heroComposer.customPreset
+					? { ...settings.appearance.heroComposer.customPreset }
+					: undefined
+			},
 			caretTrail: { ...settings.appearance.caretTrail }
 		},
 		shortcuts: cloneShortcuts(settings),
@@ -58,7 +63,12 @@ export function providerPayloadFromDraft(draft: ProviderSettings): ProviderSetti
 		defaultModelId: draft.defaultModelId ?? '',
 		defaultProviderId: draft.defaultProviderId ?? '',
 		appearance: {
-			heroComposer: { ...draft.appearance.heroComposer },
+			heroComposer: {
+				...draft.appearance.heroComposer,
+				customPreset: draft.appearance.heroComposer.customPreset
+					? { ...draft.appearance.heroComposer.customPreset }
+					: undefined
+			},
 			caretTrail: { ...draft.appearance.caretTrail }
 		},
 		shortcuts: cloneShortcuts(draft),
