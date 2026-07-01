@@ -1,18 +1,23 @@
 import type { HeroComposerAppearance } from '$lib/types';
 
 export interface HeroComposerPreset {
-	id: 'blue' | 'rose';
+	id: HeroComposerPresetId;
 	label: string;
 	appearance: HeroComposerAppearance;
 }
 
+export type HeroComposerPresetId = 'blue' | 'rose';
+export type HeroComposerPresetSelection = HeroComposerPresetId | 'custom';
+
 export const HERO_COMPOSER_PRESET_ROSE: HeroComposerAppearance = {
+	presetId: 'rose',
 	glowColor: '#f43f5e',
 	ringColor: '#fb7185'
 };
 
 /** Soft Arc-style blue — default hero glow. */
 export const HERO_COMPOSER_PRESET_BLUE: HeroComposerAppearance = {
+	presetId: 'blue',
 	glowColor: '#72c0ff',
 	ringColor: '#4a9de8'
 };
@@ -39,10 +44,34 @@ export function normalizeHexColor(value: string | undefined, fallback: string): 
 	return trimmed.toLowerCase();
 }
 
+function presetAppearanceFor(id: HeroComposerPresetId): HeroComposerAppearance {
+	return id === 'rose' ? HERO_COMPOSER_PRESET_ROSE : HERO_COMPOSER_PRESET_BLUE;
+}
+
+function presetIdFromValue(value: unknown): HeroComposerPresetSelection | undefined {
+	return value === 'rose' || value === 'custom' ? value : value === 'blue' ? 'blue' : undefined;
+}
+
+function normalizeCustomPreset(
+	appearance: Partial<HeroComposerAppearance> | undefined
+): HeroComposerAppearance['customPreset'] | undefined {
+	if (!appearance?.customPreset) return undefined;
+	return {
+		glowColor: normalizeHexColor(
+			appearance.customPreset.glowColor,
+			DEFAULT_HERO_COMPOSER_APPEARANCE.glowColor
+		),
+		ringColor: normalizeHexColor(
+			appearance.customPreset.ringColor,
+			DEFAULT_HERO_COMPOSER_APPEARANCE.ringColor
+		)
+	};
+}
+
 export function normalizeHeroComposerAppearance(
 	appearance: Partial<HeroComposerAppearance> | undefined
 ): HeroComposerAppearance {
-	return {
+	const legacyColors = {
 		glowColor: normalizeHexColor(
 			appearance?.glowColor,
 			DEFAULT_HERO_COMPOSER_APPEARANCE.glowColor
@@ -52,6 +81,19 @@ export function normalizeHeroComposerAppearance(
 			DEFAULT_HERO_COMPOSER_APPEARANCE.ringColor
 		)
 	};
+	const matchedPreset = HERO_COMPOSER_PRESETS.find(
+		(preset) =>
+			legacyColors.glowColor === preset.appearance.glowColor &&
+			legacyColors.ringColor === preset.appearance.ringColor
+	)?.id;
+	const customPreset = normalizeCustomPreset(appearance) ?? (matchedPreset ? undefined : legacyColors);
+	const presetId = presetIdFromValue(appearance?.presetId) ?? matchedPreset ?? 'blue';
+	if (presetId === 'custom') {
+		const custom = customPreset ?? legacyColors;
+		return { presetId: 'custom', ...custom, customPreset: custom };
+	}
+	const preset = presetAppearanceFor(presetId);
+	return { ...preset, customPreset };
 }
 
 export function heroComposerAppearanceEquals(
@@ -65,12 +107,9 @@ export function heroComposerAppearanceEquals(
 
 export function matchHeroComposerPreset(
 	appearance: HeroComposerAppearance
-): HeroComposerPreset['id'] | 'custom' {
+): HeroComposerPresetSelection {
 	const normalized = normalizeHeroComposerAppearance(appearance);
-	for (const preset of HERO_COMPOSER_PRESETS) {
-		if (heroComposerAppearanceEquals(normalized, preset.appearance)) return preset.id;
-	}
-	return 'custom';
+	return normalized.presetId;
 }
 
 export function hexToRgba(hex: string, alpha: number): string {

@@ -335,6 +335,9 @@ const PERSONA_IMAGE_MIME_BY_EXT = {
 	'.webp': 'image/webp'
 };
 const PERSONA_AVATAR_MAX_BYTES = 2 * 1024 * 1024;
+const PERSONA_APP_ICON_SIZE = 1024;
+const PERSONA_APP_ICON_RADIUS = 224;
+const PERSONA_APP_ICON_ARTWORK_SCALE = 0.8125;
 
 function migratePersonaIdFromIconVariant(iconVariant) {
 	return iconVariant === 'man' ? 'souma' : 'minako';
@@ -1284,11 +1287,41 @@ function getAppIconPath(personaId = getPersonaId(), settings = undefined) {
 	return resolveAppIconPaths(personaId, settings).find((candidate) => fs.existsSync(candidate));
 }
 
+function createCustomPersonaAppIcon(customPersona) {
+	if (!customPersona?.avatarPath || !fs.existsSync(customPersona.avatarPath)) return null;
+	const ext = path.extname(customPersona.avatarPath).toLowerCase();
+	const mimeType = PERSONA_IMAGE_MIME_BY_EXT[ext];
+	if (!mimeType) return null;
+	let buffer;
+	try {
+		buffer = fs.readFileSync(customPersona.avatarPath);
+	} catch {
+		return null;
+	}
+	const artworkSize = PERSONA_APP_ICON_SIZE * PERSONA_APP_ICON_ARTWORK_SCALE;
+	const artworkInset = (PERSONA_APP_ICON_SIZE - artworkSize) / 2;
+	const artworkRadius = PERSONA_APP_ICON_RADIUS * PERSONA_APP_ICON_ARTWORK_SCALE;
+	const avatarDataUrl = `data:${mimeType};base64,${buffer.toString('base64')}`;
+	const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${PERSONA_APP_ICON_SIZE}" height="${PERSONA_APP_ICON_SIZE}" viewBox="0 0 ${PERSONA_APP_ICON_SIZE} ${PERSONA_APP_ICON_SIZE}"><defs><clipPath id="persona-icon"><rect x="${artworkInset}" y="${artworkInset}" width="${artworkSize}" height="${artworkSize}" rx="${artworkRadius}" ry="${artworkRadius}"/></clipPath></defs><image href="${avatarDataUrl}" x="${artworkInset}" y="${artworkInset}" width="${artworkSize}" height="${artworkSize}" preserveAspectRatio="xMidYMid slice" clip-path="url(#persona-icon)"/></svg>`;
+	const image = nativeImage.createFromDataURL(`data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`);
+	return image.isEmpty() ? null : image;
+}
+
+function getAppIconImage(personaId = getPersonaId(), settings = undefined) {
+	const resolvedSettings = settings ?? readProviderSettings();
+	const customPersona = findCustomPersona(resolvedSettings, personaId);
+	const customIcon = createCustomPersonaAppIcon(customPersona);
+	if (customIcon) return customIcon;
+	const iconPath = getAppIconPath(personaId, resolvedSettings);
+	if (!iconPath) return null;
+	const image = nativeImage.createFromPath(iconPath);
+	return image.isEmpty() ? null : image;
+}
 
 function resolveTrayImageSource(personaId = getPersonaId(), settings = undefined) {
 	const customPersona = findCustomPersona(settings ?? readProviderSettings(), personaId);
 	if (customPersona?.avatarPath && fs.existsSync(customPersona.avatarPath)) {
-		const image = nativeImage.createFromPath(customPersona.avatarPath);
+		const image = createCustomPersonaAppIcon(customPersona) ?? nativeImage.createFromPath(customPersona.avatarPath);
 		if (!image.isEmpty()) return image.resize({ width: 18, height: 18, quality: 'best' });
 	}
 	const variant = builtinPersonaToIconVariant(personaId);
@@ -1302,14 +1335,9 @@ function resolveTrayImageSource(personaId = getPersonaId(), settings = undefined
 }
 
 function applyPersona(personaId = getPersonaId(), settings = undefined) {
-	const iconPath = getAppIconPath(personaId, settings);
-	if (!iconPath) {
+	const image = getAppIconImage(personaId, settings);
+	if (!image) {
 		console.warn('[icon] No app icon found for persona', personaId);
-		return;
-	}
-	const image = nativeImage.createFromPath(iconPath);
-	if (image.isEmpty()) {
-		console.warn('[icon] Failed to load app icon for persona', personaId, iconPath);
 		return;
 	}
 	if (process.platform === 'darwin') {
@@ -1818,7 +1846,7 @@ function registerAppProtocol() {
 }
 
 async function createWindow() {
-	const iconPath = getAppIconPath(getPersonaId());
+	const appIcon = getAppIconImage(getPersonaId());
 	mainWindow = new BrowserWindow({
 		width: 1200,
 		height: 800,
@@ -1837,7 +1865,7 @@ async function createWindow() {
 					visualEffectState: 'active'
 				}
 			: {}),
-		...(iconPath ? { icon: iconPath } : {}),
+		...(appIcon ? { icon: appIcon } : {}),
 		show: false,
 		webPreferences: {
 			preload: path.join(__dirname, 'preload.cjs'),
@@ -1848,9 +1876,8 @@ async function createWindow() {
 		}
 	});
 	setWindowButtonPosition(WINDOW_BUTTON_OPEN_POSITION);
-	if (process.platform === 'darwin' && iconPath) {
-		const dockIcon = nativeImage.createFromPath(iconPath);
-		if (!dockIcon.isEmpty()) app.dock?.setIcon(dockIcon);
+	if (process.platform === 'darwin' && appIcon) {
+		app.dock?.setIcon(appIcon);
 	}
 
 	attachExternalNavigationGuards(mainWindow);
@@ -1897,7 +1924,7 @@ async function createWindow() {
 }
 
 async function createMiniWindow() {
-	const iconPath = getAppIconPath(getPersonaId());
+	const appIcon = getAppIconImage(getPersonaId());
 	miniWindow = new BrowserWindow({
 		width: MINI_WINDOW_WIDTH,
 		height: MINI_WINDOW_HEIGHT,
@@ -1911,7 +1938,7 @@ async function createMiniWindow() {
 					trafficLightPosition: { x: 14, y: 14 }
 				}
 			: {}),
-		...(iconPath ? { icon: iconPath } : {}),
+		...(appIcon ? { icon: appIcon } : {}),
 		show: false,
 		webPreferences: {
 			preload: path.join(__dirname, 'preload.cjs'),

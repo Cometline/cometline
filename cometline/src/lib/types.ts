@@ -38,8 +38,13 @@ export interface FetchProviderModelsResult {
 }
 
 export interface HeroComposerAppearance {
+	presetId: 'blue' | 'rose' | 'custom';
 	glowColor: string;
 	ringColor: string;
+	customPreset?: {
+		glowColor: string;
+		ringColor: string;
+	};
 }
 
 export interface CaretTrailSettings {
