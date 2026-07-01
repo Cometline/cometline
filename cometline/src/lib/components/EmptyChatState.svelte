@@ -1,18 +1,20 @@
 <script lang="ts">
 	import { settingsStore } from '$lib/stores/settings.svelte';
-	import { projectAvatarSrc, projectAvatarSrcset } from '$lib/project-icon';
+	import { resolvePersona, personaAvatarSrcset as builtinAvatarSrcset } from '$lib/personas';
+	import { personaAvatarCache } from '$lib/personas/avatar-cache.svelte';
 
-	let iconVariant = $derived(settingsStore.settings.app.iconVariant);
+	let resolvedPersona = $derived(
+		resolvePersona(settingsStore.settings.app.personaId, settingsStore.settings.app.personas.custom)
+	);
+	let avatarSrc = $derived(personaAvatarCache.avatarSrcFor(resolvedPersona, 192));
+	let avatarSrcset = $derived(
+		resolvedPersona.kind === 'builtin' ? builtinAvatarSrcset(resolvedPersona) : undefined
+	);
 </script>
 
 <div class="empty-state">
 	<div class="avatar rounded-full border border-gray-400" aria-hidden="true">
-		<img
-			src={projectAvatarSrc(iconVariant, 192)}
-			srcset={projectAvatarSrcset(iconVariant)}
-			sizes="82px"
-			alt=""
-		/>
+		<img src={avatarSrc} srcset={avatarSrcset} sizes="82px" alt="" />
 	</div>
 	<p class="subtitle">A thought, a task, a file — Cometline continues.</p>
 </div>

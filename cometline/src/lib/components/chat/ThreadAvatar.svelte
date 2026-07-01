@@ -1,15 +1,14 @@
 <script lang="ts">
-	import { projectAvatarSrc, projectAvatarSrcset } from '$lib/project-icon';
-	import type { IconVariant } from '$lib/types';
-
 	let {
 		variant,
-		iconVariant,
+		avatarSrc,
+		avatarSrcset,
 		flightHidden = false,
 		flightTarget
 	}: {
 		variant: 'avatar' | 'gutter';
-		iconVariant: IconVariant;
+		avatarSrc: string;
+		avatarSrcset?: string;
 		flightHidden?: boolean;
 		flightTarget?: string;
 	} = $props();
@@ -23,8 +22,8 @@
 		style:visibility={flightHidden ? 'hidden' : undefined}
 	>
 		<img
-			src={projectAvatarSrc(iconVariant, 96)}
-			srcset={projectAvatarSrcset(iconVariant)}
+			src={avatarSrc}
+			srcset={avatarSrcset}
 			sizes="(min-width: 1280px) 48px, (min-width: 1024px) 44px, (min-width: 768px) 40px, 36px"
 			alt=""
 		/>

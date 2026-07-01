@@ -3,7 +3,8 @@
 	import UserBubbleFlight from '$lib/components/UserBubbleFlight.svelte';
 	import { afterPaint, FLIGHT_MS, rectStyle, waitForSelector } from '$lib/first-turn-flight';
 	import { settingsStore } from '$lib/stores/settings.svelte';
-	import { projectAvatarSrc, projectAvatarSrcset } from '$lib/project-icon';
+	import { resolvePersona, personaAvatarSrcset as builtinAvatarSrcset } from '$lib/personas';
+	import { personaAvatarCache } from '$lib/personas/avatar-cache.svelte';
 	import type { ImageAttachment } from '$lib/types';
 
 	interface Props {
@@ -37,7 +38,13 @@
 	let active = $state(false);
 	let avatarFlightElement = $state<HTMLDivElement | null>(null);
 	let avatarFlightStyle = $state('');
-	let iconVariant = $derived(settingsStore.settings.app.iconVariant);
+	let resolvedPersona = $derived(
+		resolvePersona(settingsStore.settings.app.personaId, settingsStore.settings.app.personas.custom)
+	);
+	let avatarSrc = $derived(personaAvatarCache.avatarSrcFor(resolvedPersona, 192));
+	let avatarSrcset = $derived(
+		resolvedPersona.kind === 'builtin' ? builtinAvatarSrcset(resolvedPersona) : undefined
+	);
 	let showAvatarFlight = $state(false);
 
 	export function run(text: string, images?: ImageAttachment[], opts: RunOptions = {}): void {
@@ -197,12 +204,7 @@
 		class="flight-particle avatar-flight rounded-full border border-gray-400 overflow-hidden"
 		style={avatarFlightStyle}
 	>
-		<img
-			src={projectAvatarSrc(iconVariant, 192)}
-			srcset={projectAvatarSrcset(iconVariant)}
-			sizes="82px"
-			alt=""
-		/>
+		<img src={avatarSrc} srcset={avatarSrcset} sizes="82px" alt="" />
 	</div>
 {/if}
 

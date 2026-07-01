@@ -5,7 +5,6 @@
 	import { startsSpeakerRun } from '$lib/conversation/thread-view-helpers';
 	import type { AssistantStackFoldController } from '$lib/conversation/assistant-stack-props';
 	import type { ChatItem } from '$lib/stores/chat.svelte';
-	import type { IconVariant } from '$lib/types';
 	import type { ChatTurnPayload } from '$lib/actions/start-chat';
 	import type { JobResource } from '$lib/client/cometmind';
 
@@ -13,7 +12,8 @@
 		item,
 		threadItems,
 		index,
-		iconVariant,
+		avatarSrc,
+		avatarSrcset,
 		sessionId,
 		toolFoldLabel,
 		fold,
@@ -23,7 +23,8 @@
 		item: Extract<ChatItem, { type: 'tool' }>;
 		threadItems: readonly ChatItem[];
 		index: number;
-		iconVariant: IconVariant;
+		avatarSrc: string;
+		avatarSrcset?: string;
 		sessionId: string;
 		toolFoldLabel: (tool: Extract<ChatItem, { type: 'tool' }>) => string;
 		fold: AssistantStackFoldController;
@@ -37,7 +38,7 @@
 	class="tool-row"
 	continuationRow={!startsSpeakerRun(threadItems, index, 'assistant')}
 >
-	<ThreadAvatar variant="gutter" {iconVariant} />
+	<ThreadAvatar variant="gutter" {avatarSrc} {avatarSrcset} />
 	<div class="tool-stack">
 		<ToolFoldPanel
 			{item}

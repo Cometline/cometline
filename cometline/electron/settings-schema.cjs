@@ -4280,6 +4280,50 @@ function normalizeContextWindowLimit(value) {
   return Number(value) === 256e3 ? 256e3 : 128e3;
 }
 
+// src/lib/personas/builtins.ts
+var BUILTIN_PERSONAS = [
+  { id: "minako", label: "Minako", soulFilename: "SOUL.md" },
+  { id: "souma", label: "Souma", soulFilename: "SOUL_MAN.md" }
+];
+var VALID_BUILTIN_PERSONA_IDS = new Set(
+  BUILTIN_PERSONAS.map((persona) => persona.id)
+);
+function isBuiltinPersonaId(value) {
+  return typeof value === "string" && VALID_BUILTIN_PERSONA_IDS.has(value);
+}
+function migratePersonaIdFromIconVariant(iconVariant) {
+  return iconVariant === "man" ? "souma" : "minako";
+}
+
+// src/lib/personas/index.ts
+function normalizeCustomPersona(value) {
+  if (!value || typeof value !== "object") return null;
+  const raw = value;
+  const id = typeof raw.id === "string" ? raw.id.trim() : "";
+  const name = typeof raw.name === "string" ? raw.name.trim() : "";
+  const avatarPath = typeof raw.avatarPath === "string" ? raw.avatarPath : "";
+  const soulPath = typeof raw.soulPath === "string" ? raw.soulPath : "";
+  const createdAt = typeof raw.createdAt === "number" ? raw.createdAt : Date.now();
+  if (!id || !name || !soulPath) return null;
+  return { id, name, avatarPath, soulPath, createdAt };
+}
+function normalizeCustomPersonas(value) {
+  if (!Array.isArray(value)) return [];
+  const result = [];
+  for (const item of value) {
+    const persona = normalizeCustomPersona(item);
+    if (persona) result.push(persona);
+  }
+  return result;
+}
+function normalizePersonaId(value, customPersonas) {
+  if (isBuiltinPersonaId(value)) return value;
+  if (typeof value === "string" && (customPersonas ?? []).some((p) => p.id === value)) {
+    return value;
+  }
+  return "minako";
+}
+
 // src/lib/settings/schema.ts
 var VALID_PROVIDER_METHODS = [
   "openai-compatible",
@@ -4730,7 +4774,8 @@ function defaultAppSettings() {
     hasSeenIntro: false,
     hasCompletedSetup: false,
     hasDismissedSetupWizard: false,
-    iconVariant: "default",
+    personaId: "minako",
+    personas: { custom: [] },
     miniWindowSessionId: "",
     miniWindowLastActiveAt: 0,
     miniWindowInactivityTimeoutMinutes: 30,
@@ -4743,8 +4788,15 @@ function normalizeWebPanelWidth(value) {
   }
   return Math.max(0, Math.floor(value));
 }
-function normalizeIconVariant(value) {
-  return value === "man" ? "man" : "default";
+function normalizeAppPersonaId(rawApp, customPersonas) {
+  const app = rawApp ?? {};
+  if (typeof app.personaId === "string" && app.personaId.trim()) {
+    return normalizePersonaId(app.personaId, customPersonas);
+  }
+  if (app.iconVariant !== void 0) {
+    return migratePersonaIdFromIconVariant(app.iconVariant);
+  }
+  return "minako";
 }
 function normalizeMiniWindowLastActiveAt(value) {
   if (typeof value !== "number" || !Number.isFinite(value)) return 0;
@@ -4861,6 +4913,7 @@ function normalizeSettings(next, options = {}) {
   if (options.systemPromptPath) {
     cometmind.systemPromptPath = options.systemPromptPath;
   }
+  const customPersonas = normalizeCustomPersonas(next.app?.personas?.custom);
   return {
     providers,
     activeProviderId,
@@ -4876,7 +4929,8 @@ function normalizeSettings(next, options = {}) {
       hasSeenIntro: typeof next.app?.hasSeenIntro === "boolean" ? next.app.hasSeenIntro : defaultAppSettings().hasSeenIntro,
       hasCompletedSetup: typeof next.app?.hasCompletedSetup === "boolean" ? next.app.hasCompletedSetup : defaultAppSettings().hasCompletedSetup,
       hasDismissedSetupWizard: typeof next.app?.hasDismissedSetupWizard === "boolean" ? next.app.hasDismissedSetupWizard : defaultAppSettings().hasDismissedSetupWizard,
-      iconVariant: normalizeIconVariant(next.app?.iconVariant),
+      personaId: normalizeAppPersonaId(next.app, customPersonas),
+      personas: { custom: customPersonas },
       miniWindowSessionId: String(next.app?.miniWindowSessionId ?? "").trim(),
       miniWindowLastActiveAt: normalizeMiniWindowLastActiveAt(
         next.app?.miniWindowLastActiveAt
@@ -4958,7 +5012,18 @@ var providerSettingsSchema = external_exports.object({
     hasSeenIntro: external_exports.boolean(),
     hasCompletedSetup: external_exports.boolean(),
     hasDismissedSetupWizard: external_exports.boolean(),
-    iconVariant: external_exports.enum(["default", "man"]),
+    personaId: external_exports.string().min(1),
+    personas: external_exports.object({
+      custom: external_exports.array(
+        external_exports.object({
+          id: external_exports.string().min(1),
+          name: external_exports.string().min(1),
+          avatarPath: external_exports.string(),
+          soulPath: external_exports.string().min(1),
+          createdAt: external_exports.number()
+        })
+      )
+    }),
     miniWindowSessionId: external_exports.string(),
     miniWindowLastActiveAt: external_exports.number().int().min(0),
     miniWindowInactivityTimeoutMinutes: external_exports.number().int().min(1).max(24 * 60),

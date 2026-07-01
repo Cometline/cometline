@@ -11,7 +11,6 @@ import {
 	saveStatusMessage
 } from '$lib/settings/settings-save';
 import type {
-	IconVariant,
 	ProviderConfig,
 	ProviderMethod,
 	ProviderSettings,
@@ -364,7 +363,7 @@ export function createSettingsPanelController(deps: {
 			) ?? draft.providers[0];
 		const payload: ProviderSettings = providerPayloadFromDraft(draft);
 		payload.activeProviderId = activeProvider?.id ?? '';
-		const iconVariantChanged = settingsStore.settings.app.iconVariant !== draft.app.iconVariant;
+		const personaIdChanged = settingsStore.settings.app.personaId !== draft.app.personaId;
 		const runtimeAction = runtimeActionForSettingsSave(settingsStore.settings, payload);
 		const { settings: saved } = await settingsStore.save(payload, { runtimeAction });
 		deps.setDraft(cloneSettings(saved));
@@ -379,9 +378,9 @@ export function createSettingsPanelController(deps: {
 		deps.settingsController.status = saveStatusMessage(
 			preservedSection,
 			runtimeAction,
-			iconVariantChanged
+			personaIdChanged
 		);
-		if (iconVariantChanged) {
+		if (personaIdChanged) {
 			setTimeout(replayIntro, 600);
 		}
 	}
@@ -530,9 +529,44 @@ export function createSettingsPanelController(deps: {
 		await settingsStore.save(providerPayloadFromDraft(draft), { restartCometMind: false });
 	}
 
-	function setIconVariant(iconVariant: IconVariant) {
+	function setPersonaId(personaId: string) {
 		const draft = deps.getDraft();
-		deps.setDraft({ ...draft, app: { ...draft.app, iconVariant } });
+		deps.setDraft({ ...draft, app: { ...draft.app, personaId } });
+	}
+
+	async function saveCustomPersona(payload: {
+		id?: string;
+		name: string;
+		soulMarkdown: string;
+		avatarDataUrl?: string;
+	}): Promise<SaveCustomPersonaResult> {
+		if (!window.electronAPI?.saveCustomPersona) {
+			return { ok: false, error: 'Custom personas are only available in the desktop app.' };
+		}
+		const result = await window.electronAPI.saveCustomPersona(payload);
+		if (result.ok) {
+			const settings = await window.electronAPI.getProviderSettings?.();
+			if (settings) {
+				settingsStore.apply(settings);
+				deps.setDraft(cloneSettings(settings));
+			}
+		}
+		return result;
+	}
+
+	async function deleteCustomPersona(id: string): Promise<DeleteCustomPersonaResult> {
+		if (!window.electronAPI?.deleteCustomPersona) {
+			return { ok: false, error: 'Custom personas are only available in the desktop app.' };
+		}
+		const result = await window.electronAPI.deleteCustomPersona(id);
+		if (result.ok) {
+			const settings = await window.electronAPI.getProviderSettings?.();
+			if (settings) {
+				settingsStore.apply(settings);
+				deps.setDraft(cloneSettings(settings));
+			}
+		}
+		return result;
 	}
 
 	function discardSettings() {
@@ -614,7 +648,9 @@ export function createSettingsPanelController(deps: {
 		removeProvider,
 		pickGatewayWorkspace,
 		persistMemoryEmbedding,
-		setIconVariant,
+		setPersonaId,
+		saveCustomPersona,
+		deleteCustomPersona,
 		discardSettings,
 		selectSection
 	};

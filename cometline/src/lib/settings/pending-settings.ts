@@ -26,7 +26,8 @@ export function pendingSettingsSnapshot(settings: ProviderSettings): string {
 			caretTrail: { ...settings.appearance.caretTrail }
 		},
 		app: {
-			iconVariant: settings.app?.iconVariant ?? 'default',
+			personaId: settings.app?.personaId ?? 'minako',
+			personas: settings.app?.personas?.custom ?? [],
 			miniWindowInactivityTimeoutMinutes:
 				settings.app?.miniWindowInactivityTimeoutMinutes ?? 30
 		},
@@ -78,7 +79,8 @@ function appearanceSectionSnapshot(settings: ProviderSettings): string {
 			heroComposer: { ...settings.appearance.heroComposer },
 			caretTrail: { ...settings.appearance.caretTrail }
 		},
-		iconVariant: settings.app?.iconVariant ?? 'default'
+		personaId: settings.app?.personaId ?? 'minako',
+		personas: settings.app?.personas?.custom ?? []
 	});
 }
 
@@ -132,7 +134,7 @@ export const SECTION_PERSISTENCE_HINTS: Record<
 		action: 'Refresh skills, sync symlinks, MCP test'
 	},
 	appearance: {
-		pending: 'Hero composer, caret trail, and project icon'
+		pending: 'Hero composer, caret trail, and persona'
 	},
 	shortcuts: {
 		instant: 'Every shortcut binding'

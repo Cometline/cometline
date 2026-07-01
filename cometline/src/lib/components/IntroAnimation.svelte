@@ -3,7 +3,8 @@
 	import { onMount } from 'svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { settingsStore } from '$lib/stores/settings.svelte';
-	import { projectAvatarSrc, projectAvatarSrcset } from '$lib/project-icon';
+	import { resolvePersona, personaAvatarSrcset as builtinAvatarSrcset } from '$lib/personas';
+	import { personaAvatarCache } from '$lib/personas/avatar-cache.svelte';
 	import { rectStyle } from '$lib/first-turn-flight';
 
 	// ──────────────────────────────────────────────────────────────────────────
@@ -43,7 +44,13 @@
 	let showFlyIcon = $state(false);
 	let flyIconStyle = $state('');
 
-	let iconVariant = $derived(settingsStore.settings.app.iconVariant);
+	let resolvedPersona = $derived(
+		resolvePersona(settingsStore.settings.app.personaId, settingsStore.settings.app.personas.custom)
+	);
+	let avatarSrc = $derived(personaAvatarCache.avatarSrcFor(resolvedPersona, 192));
+	let avatarSrcset = $derived(
+		resolvedPersona.kind === 'builtin' ? builtinAvatarSrcset(resolvedPersona) : undefined
+	);
 
 	const GLOW = () => settingsStore.settings.appearance.heroComposer.glowColor || '#72c0ff';
 
@@ -353,12 +360,7 @@
 
 {#if showFlyIcon}
 	<div class="fly-icon" style={flyIconStyle} aria-hidden="true">
-		<img
-			src={projectAvatarSrc(iconVariant, 192)}
-			srcset={projectAvatarSrcset(iconVariant)}
-			sizes="82px"
-			alt=""
-		/>
+		<img src={avatarSrc} srcset={avatarSrcset} sizes="82px" alt="" />
 	</div>
 {/if}
 
@@ -383,8 +385,8 @@
 			class="project-icon"
 			class:in={showWordmark}
 			class:is-flying={showFlyIcon}
-			src={projectAvatarSrc(iconVariant, 192)}
-			srcset={projectAvatarSrcset(iconVariant)}
+			src={avatarSrc}
+			srcset={avatarSrcset}
 			sizes="82px"
 			alt=""
 		/>

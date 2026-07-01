@@ -6,12 +6,12 @@
 	import AssistantThinkingWait from '$lib/components/chat/AssistantThinkingWait.svelte';
 	import ThreadAvatar from '$lib/components/chat/ThreadAvatar.svelte';
 	import type { ChatItem } from '$lib/stores/chat.svelte';
-	import type { IconVariant } from '$lib/types';
 
 	type AssistantItem = Extract<ChatItem, { type: 'assistant' }>;
 
 	let {
-		iconVariant,
+		avatarSrc,
+		avatarSrcset,
 		firstTurnHandoffPending,
 		firstAssistantItem,
 		sessionStreaming,
@@ -21,7 +21,8 @@
 		flightPlaceholder = false,
 		ariaHidden = false
 	}: {
-		iconVariant: IconVariant;
+		avatarSrc: string;
+		avatarSrcset?: string;
 		firstTurnHandoffPending: boolean;
 		firstAssistantItem: AssistantItem | undefined;
 		sessionStreaming: boolean;
@@ -42,7 +43,8 @@
 >
 	<ThreadAvatar
 		variant="avatar"
-		{iconVariant}
+		{avatarSrc}
+		{avatarSrcset}
 		flightHidden={firstTurnHandoffPending}
 		flightTarget="avatar"
 	/>

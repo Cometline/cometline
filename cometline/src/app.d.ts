@@ -61,12 +61,21 @@ declare global {
 		[action: string]: ShortcutBinding;
 	}
 
+	interface CustomPersona {
+		id: string;
+		name: string;
+		avatarPath: string;
+		soulPath: string;
+		createdAt: number;
+	}
+
 	interface AppSettings {
 		openAtLogin: boolean;
 		hasSeenIntro: boolean;
 		hasCompletedSetup: boolean;
 		hasDismissedSetupWizard: boolean;
-		iconVariant: 'default' | 'man';
+		personaId: string;
+		personas: { custom: CustomPersona[] };
 		miniWindowSessionId: string;
 		miniWindowLastActiveAt: number;
 		miniWindowInactivityTimeoutMinutes: number;
@@ -230,6 +239,16 @@ declare global {
 		| { ok: true; kind: 'image'; mimeType: string; dataUrl: string }
 		| { ok: false; error: string };
 
+	type ReadPersonaSoulResult = { ok: true; content: string } | { ok: false; error: string };
+
+	type ReadPersonaAvatarResult = { ok: true; dataUrl: string } | { ok: false; error: string };
+
+	type SaveCustomPersonaResult =
+		| { ok: true; persona: CustomPersona }
+		| { ok: false; error: string };
+
+	type DeleteCustomPersonaResult = { ok: true } | { ok: false; error: string };
+
 	interface Window {
 		electronAPI?: {
 			restartCometMind?: () => void;
@@ -311,6 +330,16 @@ declare global {
 				lastActiveAt?: number;
 			}) => Promise<MiniWindowState>;
 			notifyJob?: (payload: { title: string; body: string }) => void;
+			listCustomPersonas?: () => Promise<CustomPersona[]>;
+			saveCustomPersona?: (payload: {
+				id?: string;
+				name: string;
+				soulMarkdown: string;
+				avatarDataUrl?: string;
+			}) => Promise<SaveCustomPersonaResult>;
+			deleteCustomPersona?: (id: string) => Promise<DeleteCustomPersonaResult>;
+			readPersonaAvatar?: (id: string) => Promise<ReadPersonaAvatarResult>;
+			readBuiltinSoul?: (personaId: string) => Promise<ReadPersonaSoulResult>;
 		};
 	}
 }

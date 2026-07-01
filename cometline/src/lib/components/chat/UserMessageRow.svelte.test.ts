@@ -8,7 +8,7 @@ describe('UserMessageRow', () => {
 		render(UserMessageRow, {
 			props: {
 				item: { id: 'u1', type: 'user', text: 'Hello Cometline' },
-				iconVariant: 'default',
+				avatarSrc: '/project_avatar_192.png',
 				copiedId: null,
 				onCopyMessage: () => {}
 			}

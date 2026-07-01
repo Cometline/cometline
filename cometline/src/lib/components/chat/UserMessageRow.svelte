@@ -5,17 +5,18 @@
 	import ThreadRow from '$lib/components/chat/ThreadRow.svelte';
 	import { imageDataURL } from '$lib/files/images';
 	import type { ChatItem } from '$lib/stores/chat.svelte';
-	import type { IconVariant } from '$lib/types';
 
 	let {
 		item,
-		iconVariant,
+		avatarSrc,
+		avatarSrcset,
 		continuationRow = false,
 		copiedId,
 		onCopyMessage
 	}: {
 		item: Extract<ChatItem, { type: 'user' }>;
-		iconVariant: IconVariant;
+		avatarSrc: string;
+		avatarSrcset?: string;
 		continuationRow?: boolean;
 		copiedId: string | null;
 		onCopyMessage: (id: string, text: string) => void | Promise<void>;
@@ -23,7 +24,7 @@
 </script>
 
 <ThreadRow variant="user" {continuationRow} data-user-item-id={item.id}>
-	<ThreadAvatar variant="gutter" {iconVariant} />
+	<ThreadAvatar variant="gutter" {avatarSrc} {avatarSrcset} />
 	<div class="user-stack">
 		<div
 			class="bubble user-bubble"

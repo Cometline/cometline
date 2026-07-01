@@ -21,7 +21,7 @@ describe('settings schema', () => {
 		]);
 		expect(settings.providers.find((p) => p.id === 'codex')?.apiKey).toBe('');
 		expect(settings.activeProviderId).toBe('codex');
-		expect(settings.app.iconVariant).toBe('default');
+		expect(settings.app.personaId).toBe('minako');
 		expect(settings.app.hasCompletedSetup).toBe(false);
 		expect(settings.app.hasDismissedSetupWizard).toBe(false);
 		expect(settings.cometmind.systemPromptPath).toBe('');

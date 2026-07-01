@@ -6,7 +6,7 @@ import {
 import { defaultKeyboardShortcuts, normalizeKeyboardShortcuts } from '../keyboard-shortcuts';
 import type {
 	AppSettings,
-	IconVariant,
+	CustomPersona,
 	AppearanceSettings,
 	CaretTrailSettings,
 	ProviderConfig,
@@ -18,6 +18,11 @@ import {
 	normalizeContextWindowLimit,
 	type ContextWindowLimit
 } from '../context-window';
+import {
+	migratePersonaIdFromIconVariant,
+	normalizeCustomPersonas as normalizeCustomPersonaList,
+	normalizePersonaId as resolveNormalizedPersonaId
+} from '../personas';
 
 export const VALID_PROVIDER_METHODS: ProviderMethod[] = [
 	'openai-compatible',
@@ -680,7 +685,8 @@ function defaultAppSettings(): AppSettings {
 		hasSeenIntro: false,
 		hasCompletedSetup: false,
 		hasDismissedSetupWizard: false,
-		iconVariant: 'default',
+		personaId: 'minako',
+		personas: { custom: [] },
 		miniWindowSessionId: '',
 		miniWindowLastActiveAt: 0,
 		miniWindowInactivityTimeoutMinutes: 30,
@@ -695,8 +701,20 @@ function normalizeWebPanelWidth(value: unknown): number {
 	return Math.max(0, Math.floor(value));
 }
 
-function normalizeIconVariant(value: unknown): IconVariant {
-	return value === 'man' ? 'man' : 'default';
+/**
+ * Normalizes `app.personaId`, migrating from the legacy `app.iconVariant`
+ * field (`'default' | 'man'`) when `personaId` is absent. `customPersonas`
+ * must already be normalized so a custom persona id is recognized as valid.
+ */
+function normalizeAppPersonaId(rawApp: unknown, customPersonas: CustomPersona[]): string {
+	const app = (rawApp ?? {}) as { personaId?: unknown; iconVariant?: unknown };
+	if (typeof app.personaId === 'string' && app.personaId.trim()) {
+		return resolveNormalizedPersonaId(app.personaId, customPersonas);
+	}
+	if (app.iconVariant !== undefined) {
+		return migratePersonaIdFromIconVariant(app.iconVariant);
+	}
+	return 'minako';
 }
 
 function normalizeMiniWindowLastActiveAt(value: unknown): number {
@@ -863,6 +881,7 @@ export function normalizeSettings(
 	if (options.systemPromptPath) {
 		cometmind.systemPromptPath = options.systemPromptPath;
 	}
+	const customPersonas = normalizeCustomPersonaList(next.app?.personas?.custom);
 	return {
 		providers,
 		activeProviderId,
@@ -890,7 +909,8 @@ export function normalizeSettings(
 				typeof next.app?.hasDismissedSetupWizard === 'boolean'
 					? next.app.hasDismissedSetupWizard
 					: defaultAppSettings().hasDismissedSetupWizard,
-			iconVariant: normalizeIconVariant(next.app?.iconVariant),
+			personaId: normalizeAppPersonaId(next.app, customPersonas),
+			personas: { custom: customPersonas },
 			miniWindowSessionId: String(next.app?.miniWindowSessionId ?? '').trim(),
 			miniWindowLastActiveAt: normalizeMiniWindowLastActiveAt(
 				next.app?.miniWindowLastActiveAt
@@ -979,7 +999,18 @@ const providerSettingsSchema = z.object({
 		hasSeenIntro: z.boolean(),
 		hasCompletedSetup: z.boolean(),
 		hasDismissedSetupWizard: z.boolean(),
-		iconVariant: z.enum(['default', 'man']),
+		personaId: z.string().min(1),
+		personas: z.object({
+			custom: z.array(
+				z.object({
+					id: z.string().min(1),
+					name: z.string().min(1),
+					avatarPath: z.string(),
+					soulPath: z.string().min(1),
+					createdAt: z.number()
+				})
+			)
+		}),
 		miniWindowSessionId: z.string(),
 		miniWindowLastActiveAt: z.number().int().min(0),
 		miniWindowInactivityTimeoutMinutes: z

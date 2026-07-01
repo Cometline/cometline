@@ -63,7 +63,7 @@ export function runtimeActionForSettingsSave(
 export function saveStatusMessage(
 	section: SettingsSection,
 	runtimeAction: RuntimeApplyAction,
-	iconVariantChanged = false
+	personaIdChanged = false
 ): string {
 	const runtimeNote =
 		runtimeAction === 'restart'
@@ -77,7 +77,7 @@ export function saveStatusMessage(
 		case 'agent':
 			return `Changes saved.${runtimeNote}`;
 		case 'appearance':
-			return iconVariantChanged || runtimeAction !== 'none'
+			return personaIdChanged || runtimeAction !== 'none'
 				? `Changes saved.${runtimeNote}`
 				: 'Changes saved.';
 		case 'app':

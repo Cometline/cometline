@@ -5,19 +5,20 @@
 	import { startsSpeakerRun } from '$lib/conversation/thread-view-helpers';
 	import type { AssistantStackFoldController } from '$lib/conversation/assistant-stack-props';
 	import type { ChatItem } from '$lib/stores/chat.svelte';
-	import type { IconVariant } from '$lib/types';
 
 	let {
 		item,
 		threadItems,
 		index,
-		iconVariant,
+		avatarSrc,
+		avatarSrcset,
 		fold
 	}: {
 		item: Extract<ChatItem, { type: 'subagent' }>;
 		threadItems: readonly ChatItem[];
 		index: number;
-		iconVariant: IconVariant;
+		avatarSrc: string;
+		avatarSrcset?: string;
 		fold: AssistantStackFoldController;
 	} = $props();
 </script>
@@ -27,7 +28,7 @@
 	class="subagent-row"
 	continuationRow={!startsSpeakerRun(threadItems, index, 'assistant')}
 >
-	<ThreadAvatar variant="gutter" {iconVariant} />
+	<ThreadAvatar variant="gutter" {avatarSrc} {avatarSrcset} />
 	<div class="subagent-stack">
 		<SubagentPanel
 			{item}

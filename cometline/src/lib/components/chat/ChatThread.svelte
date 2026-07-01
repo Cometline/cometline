@@ -35,6 +35,8 @@
 	import { hasReasoning } from '$lib/conversation/reasoning';
 	import type { ChatTurnPayload } from '$lib/actions/start-chat';
 	import type { JobResource } from '$lib/client/cometmind';
+	import { resolvePersona, personaAvatarSrcset as builtinAvatarSrcset } from '$lib/personas';
+	import { personaAvatarCache } from '$lib/personas/avatar-cache.svelte';
 
 	const TRANSCRIPT_IN = { duration: 140 };
 
@@ -54,7 +56,13 @@
 		onStartJob?: (job: JobResource) => void | Promise<void>;
 	} = $props();
 
-	let iconVariant = $derived(settingsStore.settings.app.iconVariant);
+	let resolvedPersona = $derived(
+		resolvePersona(settingsStore.settings.app.personaId, settingsStore.settings.app.personas.custom)
+	);
+	let avatarSrc = $derived(personaAvatarCache.avatarSrcFor(resolvedPersona, 96));
+	let avatarSrcset = $derived(
+		resolvedPersona.kind === 'builtin' ? builtinAvatarSrcset(resolvedPersona) : undefined
+	);
 
 	let isSessionSynced = $derived(chatStore.sessionID === sessionId);
 	let sessionStreaming = $derived(chatStore.isStreamingFor(sessionId));
@@ -246,7 +254,8 @@
 				>
 					{#if awaitingFirstAssistant && !firstUserId}
 						<FirstTurnAssistantSlot
-							{iconVariant}
+							{avatarSrc}
+							{avatarSrcset}
 							{firstTurnHandoffPending}
 							{firstAssistantItem}
 							{sessionStreaming}
@@ -262,14 +271,16 @@
 						{#if item.type === 'user'}
 							<UserMessageRow
 								{item}
-								{iconVariant}
+								{avatarSrc}
+								{avatarSrcset}
 								continuationRow={!startsSpeakerRun(threadItems, index, 'user')}
 								copiedId={clocks.copiedId}
 								onCopyMessage={clocks.copyMessage}
 							/>
 							{#if showFirstTurnAvatarSlot(visibilityContext) && item.id === firstUserId}
 								<FirstTurnAssistantSlot
-									{iconVariant}
+									{avatarSrc}
+									{avatarSrcset}
 									{firstTurnHandoffPending}
 									{firstAssistantItem}
 									{sessionStreaming}
@@ -285,7 +296,8 @@
 								{item}
 								{threadItems}
 								{index}
-								{iconVariant}
+								{avatarSrc}
+								{avatarSrcset}
 								{stackContext}
 								{showActivitySpinner}
 								hideAvatarForFirstTurn={hideAssistantAvatarForFirstTurn(
@@ -299,7 +311,8 @@
 								{item}
 								{threadItems}
 								{index}
-								{iconVariant}
+								{avatarSrc}
+								{avatarSrcset}
 								{sessionId}
 								toolFoldLabel={stackContext.toolFoldLabel}
 								{fold}
@@ -307,7 +320,14 @@
 								{onStartJob}
 							/>
 						{:else if item.type === 'subagent' && !isSubagentInBuffer(item)}
-							<SubagentMessageRow {item} {threadItems} {index} {iconVariant} {fold} />
+							<SubagentMessageRow
+							{item}
+							{threadItems}
+							{index}
+							{avatarSrc}
+							{avatarSrcset}
+							{fold}
+						/>
 						{:else if item.type === 'memory' && !isMemoryInBuffer(item)}
 							<MemoryEventRow {item} memoryCycleTick={clocks.memoryCycleTick} />
 						{:else if item.type === 'status'}

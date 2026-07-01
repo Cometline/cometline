@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { fade, scale } from 'svelte/transition';
+	import { fade, fly, scale } from 'svelte/transition';
 	import {
 		Download,
 		FolderOpen,
@@ -28,7 +28,12 @@
 	import SettingsProvidersPanel from './SettingsProvidersPanel.svelte';
 	import SettingsButton from './SettingsButton.svelte';
 	import SettingsTabPersistence from './SettingsTabPersistence.svelte';
-	import { ICON_VARIANT_OPTIONS, projectAvatarSrc } from '$lib/project-icon';
+	import {
+		BUILTIN_PERSONAS,
+		resolvePersona,
+		personaAvatarSrc as builtinPersonaThumbSrc
+	} from '$lib/personas';
+	import { personaAvatarCache } from '$lib/personas/avatar-cache.svelte';
 	import { heroComposerCssVars } from '$lib/hero-composer-appearance';
 	import { onMount } from 'svelte';
 	import { createSettingsController } from './settings-controller.svelte';
@@ -43,6 +48,139 @@
 
 	let selectedProvider = $derived(
 		draft.providers.find((p) => p.id === selectedProviderId) ?? draft.providers[0]
+	);
+
+	let customPersonas = $state<CustomPersonaLike[]>([]);
+	let soulPreviewOpen = $state(false);
+	let soulPreviewText = $state('');
+	let soulPreviewLabel = $state('');
+	let soulPreviewCopied = $state(false);
+	let personaEditorOpen = $state(false);
+	let personaEditorId = $state<string | undefined>(undefined);
+	let personaEditorName = $state('');
+	let personaEditorSoul = $state('');
+	let personaEditorAvatarDataUrl = $state<string | undefined>(undefined);
+	let personaEditorError = $state('');
+	let personaEditorBusy = $state(false);
+let personaAvatarFileInput = $state<HTMLInputElement | undefined>(undefined);
+
+	interface CustomPersonaLike {
+		id: string;
+		name: string;
+		avatarPath: string;
+		soulPath: string;
+		createdAt: number;
+	}
+
+	async function refreshCustomPersonas() {
+		if (!window.electronAPI?.listCustomPersonas) return;
+		customPersonas = await window.electronAPI.listCustomPersonas();
+	}
+
+	onMount(() => {
+		void refreshCustomPersonas();
+	});
+
+	async function openBuiltinSoulPreview(personaId: string, label: string) {
+		soulPreviewLabel = label;
+		soulPreviewText = 'Loading…';
+		soulPreviewOpen = true;
+		soulPreviewCopied = false;
+		if (!window.electronAPI?.readBuiltinSoul) {
+			soulPreviewText = 'SOUL preview is only available in the desktop app.';
+			return;
+		}
+		const result = await window.electronAPI.readBuiltinSoul(personaId);
+		soulPreviewText = result.ok ? result.content : `Could not load SOUL: ${result.error}`;
+	}
+
+	async function copySoulPreview() {
+		try {
+			await navigator.clipboard.writeText(soulPreviewText);
+			soulPreviewCopied = true;
+			setTimeout(() => (soulPreviewCopied = false), 1500);
+		} catch {
+			// ignore clipboard failures
+		}
+	}
+
+	function openPersonaEditorForCreate() {
+		personaEditorId = undefined;
+		personaEditorName = '';
+		personaEditorSoul = '';
+		personaEditorAvatarDataUrl = undefined;
+		personaEditorError = '';
+		personaEditorOpen = true;
+	}
+
+	async function openPersonaEditorForEdit(persona: CustomPersonaLike) {
+		personaEditorId = persona.id;
+		personaEditorName = persona.name;
+		personaEditorAvatarDataUrl = undefined;
+		personaEditorError = '';
+		personaEditorSoul = '';
+		if (window.electronAPI?.readPersonaAvatar) {
+			const avatar = await window.electronAPI.readPersonaAvatar(persona.id);
+			if (avatar.ok) personaEditorAvatarDataUrl = avatar.dataUrl;
+		}
+		personaEditorOpen = true;
+		// Load current SOUL text for editing by reading it back via readBuiltinSoul-style path.
+		if (window.electronAPI?.readBuiltinSoul) {
+			const soul = await window.electronAPI.readBuiltinSoul(persona.id);
+			if (soul.ok) personaEditorSoul = soul.content;
+		}
+	}
+
+	function onPersonaAvatarFileChange(event: Event) {
+		const input = event.target as HTMLInputElement;
+		const file = input.files?.[0];
+		if (!file) return;
+		const reader = new FileReader();
+		reader.onload = () => {
+			personaEditorAvatarDataUrl = String(reader.result);
+		};
+		reader.readAsDataURL(file);
+	}
+
+	async function submitPersonaEditor() {
+		personaEditorError = '';
+		if (!personaEditorName.trim()) {
+			personaEditorError = 'Give your persona a name.';
+			return;
+		}
+		if (!personaEditorSoul.trim()) {
+			personaEditorError = 'SOUL content cannot be empty.';
+			return;
+		}
+		personaEditorBusy = true;
+		try {
+			const result = await panelController.saveCustomPersona({
+				id: personaEditorId,
+				name: personaEditorName.trim(),
+				soulMarkdown: personaEditorSoul,
+				avatarDataUrl: personaEditorAvatarDataUrl
+			});
+			if (!result.ok) {
+				personaEditorError = result.error;
+				return;
+			}
+			personaEditorOpen = false;
+			await refreshCustomPersonas();
+			personaAvatarCache.invalidate(result.persona.id);
+		} finally {
+			personaEditorBusy = false;
+		}
+	}
+
+	async function removeCustomPersona(id: string) {
+		const result = await panelController.deleteCustomPersona(id);
+		if (result.ok) {
+			await refreshCustomPersonas();
+		}
+	}
+
+	let resolvedDraftPersona = $derived(
+		resolvePersona(draft.app.personaId, draft.app.personas.custom)
 	);
 
 	const settingsController = createSettingsController({
@@ -269,30 +407,35 @@
 							<div class="settings-section">
 								<div class="settings-section-heading">
 									<div>
-										<h3>Project icon</h3>
+										<h3>Persona</h3>
 										<p>
 											Chat avatar, intro animation, Dock, menu bar, and SOUL
-											persona
+											system prompt
 										</p>
 									</div>
+									<SettingsButton onclick={openPersonaEditorForCreate}
+										>New persona</SettingsButton
+									>
 								</div>
 								<div
 									class="icon-variant-options"
 									role="radiogroup"
-									aria-label="Project icon style"
+									aria-label="Persona"
 								>
-									{#each ICON_VARIANT_OPTIONS as option (option.id)}
+									{#each BUILTIN_PERSONAS as option (option.id)}
 										<button
 											type="button"
 											class="icon-variant-chip"
-											class:selected={draft.app.iconVariant === option.id}
+											class:selected={draft.app.personaId === option.id}
 											role="radio"
-											aria-checked={draft.app.iconVariant === option.id}
-											onclick={() =>
-												panelController.setIconVariant(option.id)}
+											aria-checked={draft.app.personaId === option.id}
+											onclick={() => panelController.setPersonaId(option.id)}
 										>
 											<img
-												src={projectAvatarSrc(option.id, 96)}
+												src={builtinPersonaThumbSrc(
+													{ kind: 'builtin', id: option.id, label: option.label },
+													96
+												)}
 												alt=""
 												width="40"
 												height="40"
@@ -300,10 +443,170 @@
 											<span>{option.label}</span>
 										</button>
 									{/each}
+									{#each customPersonas as persona (persona.id)}
+										<div class="icon-variant-chip custom-persona-chip">
+											<button
+												type="button"
+												class="custom-persona-select"
+												class:selected={draft.app.personaId === persona.id}
+												role="radio"
+												aria-checked={draft.app.personaId === persona.id}
+												onclick={() =>
+													panelController.setPersonaId(persona.id)}
+											>
+												<img
+													src={personaAvatarCache.avatarSrcFor(
+														{ kind: 'custom', id: persona.id, label: persona.name, persona },
+														96
+													)}
+													alt=""
+													width="40"
+													height="40"
+												/>
+												<span>{persona.name}</span>
+											</button>
+											<div class="custom-persona-actions">
+												<button
+													type="button"
+													class="persona-action-edit"
+													onclick={() => openPersonaEditorForEdit(persona)}
+													>Edit</button
+												>
+												<button
+													type="button"
+													class="persona-action-delete"
+													onclick={() => removeCustomPersona(persona.id)}
+													>Delete</button
+												>
+											</div>
+										</div>
+									{/each}
 								</div>
+								{#if resolvedDraftPersona.kind === 'builtin'}
+									<button
+										type="button"
+										class="soul-preview-trigger"
+										onclick={() =>
+											openBuiltinSoulPreview(
+												resolvedDraftPersona.id,
+												resolvedDraftPersona.label
+											)}
+									>
+										View full SOUL for {resolvedDraftPersona.label}
+									</button>
+								{/if}
 							</div>
 						</section>
 					</div>
+
+					{#if soulPreviewOpen}
+						<div class="soul-preview-overlay" transition:fade={{ duration: 100 }}>
+							<button
+								class="soul-preview-scrim"
+								aria-label="Close SOUL preview"
+								onclick={() => (soulPreviewOpen = false)}
+							></button>
+							<div
+								class="soul-preview-panel"
+								role="dialog"
+								aria-modal="true"
+								aria-label="SOUL preview"
+								transition:fly={{ y: 8, duration: 140 }}
+							>
+								<div class="soul-preview-header">
+									<h4>{soulPreviewLabel} — SOUL.md</h4>
+									<div class="soul-preview-header-actions">
+										<button type="button" class="secondary" onclick={copySoulPreview}>
+											{soulPreviewCopied ? 'Copied' : 'Copy'}
+										</button>
+										<button
+											type="button"
+											class="secondary"
+											onclick={() => (soulPreviewOpen = false)}>Close</button
+										>
+									</div>
+								</div>
+								<pre class="soul-preview-body">{soulPreviewText}</pre>
+							</div>
+						</div>
+					{/if}
+
+					{#if personaEditorOpen}
+						<div class="soul-preview-overlay" transition:fade={{ duration: 100 }}>
+							<button
+								class="soul-preview-scrim"
+								aria-label="Close persona editor"
+								onclick={() => (personaEditorOpen = false)}
+							></button>
+							<div
+								class="soul-preview-panel persona-editor-panel settings-panel-frame"
+								role="dialog"
+								aria-modal="true"
+								aria-label="Persona editor"
+								transition:fly={{ y: 8, duration: 140 }}
+							>
+								<div class="soul-preview-header">
+									<h4>{personaEditorId ? 'Edit persona' : 'New persona'}</h4>
+									<button
+										type="button"
+										class="secondary"
+										onclick={() => (personaEditorOpen = false)}>Close</button
+									>
+								</div>
+								{#if personaEditorError}
+									<p class="persona-editor-error">{personaEditorError}</p>
+								{/if}
+								<div class="settings-fields">
+									<label class="settings-field">
+										<span>Name</span>
+										<input type="text" bind:value={personaEditorName} />
+									</label>
+									<label class="settings-field">
+										<span>Avatar image</span>
+										<div class="persona-editor-avatar-row">
+											{#if personaEditorAvatarDataUrl}
+												<img
+													class="persona-editor-avatar-preview"
+													src={personaEditorAvatarDataUrl}
+													alt=""
+													width="64"
+													height="64"
+												/>
+											{/if}
+											<button
+												type="button"
+												class="secondary"
+												onclick={() => personaAvatarFileInput?.click()}
+											>
+												Choose image
+											</button>
+											<input
+												bind:this={personaAvatarFileInput}
+												type="file"
+												class="persona-editor-file-input"
+												accept="image/png,image/jpeg,image/webp"
+												onchange={onPersonaAvatarFileChange}
+											/>
+										</div>
+									</label>
+									<label class="settings-field">
+										<span>SOUL.md content</span>
+										<textarea rows="10" bind:value={personaEditorSoul}></textarea>
+									</label>
+								</div>
+								<div class="persona-editor-actions">
+									<button
+										type="button"
+										class="primary"
+										disabled={personaEditorBusy}
+										onclick={submitPersonaEditor}
+									>
+										{personaEditorBusy ? 'Saving…' : 'Save persona'}
+									</button>
+								</div>
+							</div>
+						</div>
+					{/if}
 				{:else if settingsController.activeSection === 'shortcuts'}
 					<SettingsTabPersistence section="shortcuts" />
 					<SettingsShortcutsPanel
@@ -788,6 +1091,210 @@
 
 	.icon-variant-chip:hover {
 		background: rgba(15, 23, 42, 0.08);
+	}
+
+	.custom-persona-chip {
+		flex-direction: column;
+		align-items: stretch;
+		gap: 6px;
+		padding: 8px;
+	}
+
+	.custom-persona-select {
+		display: inline-flex;
+		align-items: center;
+		gap: 10px;
+		border: none;
+		background: none;
+		padding: 0;
+		font: inherit;
+		font-size: 13px;
+		font-weight: 650;
+		color: var(--text-main);
+		cursor: pointer;
+		border-radius: 10px;
+	}
+
+	.custom-persona-select img {
+		width: 40px;
+		height: 40px;
+		border-radius: 999px;
+		object-fit: cover;
+		border: 1px solid rgba(15, 23, 42, 0.08);
+	}
+
+	.custom-persona-select.selected {
+		color: var(--accent);
+	}
+
+	.custom-persona-actions {
+		display: flex;
+		justify-content: flex-end;
+		gap: 6px;
+	}
+
+	.custom-persona-actions button {
+		border: 1px solid var(--border-soft);
+		border-radius: 8px;
+		background: rgba(255, 255, 255, 0.82);
+		padding: 4px 9px;
+		font: inherit;
+		font-size: 11px;
+		font-weight: 600;
+		color: var(--text-muted);
+		cursor: pointer;
+		transition:
+			background 140ms ease,
+			border-color 140ms ease,
+			color 140ms ease;
+	}
+
+	.custom-persona-actions button:hover {
+		background: rgba(15, 23, 42, 0.08);
+		color: var(--text-main);
+	}
+
+	.custom-persona-actions .persona-action-delete:hover {
+		background: rgba(180, 35, 24, 0.08);
+		border-color: rgba(180, 35, 24, 0.22);
+		color: var(--status-error);
+	}
+
+	.soul-preview-trigger {
+		align-self: flex-start;
+		border: 1px solid var(--border-soft);
+		border-radius: 10px;
+		background: rgba(255, 255, 255, 0.82);
+		padding: 8px 11px;
+		font: inherit;
+		font-size: 12px;
+		font-weight: 600;
+		color: var(--text-main);
+		cursor: pointer;
+		transition:
+			background 140ms ease,
+			border-color 140ms ease;
+	}
+
+	.soul-preview-trigger:hover {
+		background: rgba(15, 23, 42, 0.08);
+		border-color: rgba(15, 23, 42, 0.18);
+	}
+
+	.soul-preview-overlay {
+		position: fixed;
+		inset: 0;
+		z-index: 100;
+		display: grid;
+		place-items: center;
+		padding: 24px;
+	}
+
+	.soul-preview-scrim {
+		position: absolute;
+		inset: 0;
+		border: none;
+		background: rgba(15, 23, 42, 0.18);
+		cursor: pointer;
+	}
+
+	.soul-preview-panel {
+		position: relative;
+		z-index: 1;
+		display: grid;
+		gap: 12px;
+		width: min(560px, 100%);
+		max-height: min(640px, calc(100vh - 60px));
+		overflow: hidden;
+		padding: 16px;
+		border: 1px solid var(--border-soft);
+		border-radius: 12px;
+		background: rgba(255, 255, 255, 0.98);
+		box-shadow: var(--shadow-card);
+	}
+
+	.persona-editor-panel {
+		background: rgba(255, 255, 255, 0.98);
+		overflow-y: auto;
+	}
+
+	.soul-preview-header {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 12px;
+	}
+
+	.soul-preview-header h4 {
+		margin: 0;
+		font-size: 14px;
+		font-weight: 650;
+		color: var(--text-main);
+	}
+
+	.soul-preview-header-actions {
+		display: flex;
+		gap: 8px;
+	}
+
+	.soul-preview-body {
+		margin: 0;
+		overflow: auto;
+		white-space: pre-wrap;
+		word-break: break-word;
+		font-family:
+			ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+		font-size: 12px;
+		line-height: 1.6;
+		color: var(--text-main);
+		background: rgba(15, 23, 42, 0.03);
+		border: 1px solid var(--border-soft);
+		border-radius: 10px;
+		padding: 12px;
+	}
+
+	.persona-editor-error {
+		margin: 0;
+		font-size: 12px;
+		line-height: 1.45;
+		color: var(--status-error);
+		background: var(--status-error-bg);
+		border: 1px solid var(--status-error-border);
+		border-radius: 10px;
+		padding: 8px 11px;
+	}
+
+	.persona-editor-avatar-row {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+	}
+
+	.persona-editor-avatar-preview {
+		width: 64px;
+		height: 64px;
+		border-radius: 999px;
+		object-fit: cover;
+		border: 1px solid rgba(15, 23, 42, 0.08);
+		flex-shrink: 0;
+	}
+
+	.persona-editor-file-input {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		margin: -1px;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+		border: 0;
+	}
+
+	.persona-editor-actions {
+		display: flex;
+		justify-content: flex-end;
+		gap: 8px;
 	}
 
 	@media (max-width: 780px) {

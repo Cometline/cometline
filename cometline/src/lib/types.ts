@@ -81,14 +81,21 @@ export type KeyboardShortcuts = Partial<Record<ShortcutAction, ShortcutBinding>>
 
 import type { CometMindSettings } from '$lib/cometmind-settings';
 
-export type IconVariant = 'default' | 'man';
+export interface CustomPersona {
+	id: string;
+	name: string;
+	avatarPath: string;
+	soulPath: string;
+	createdAt: number;
+}
 
 export interface AppSettings {
 	openAtLogin: boolean;
 	hasSeenIntro: boolean;
 	hasCompletedSetup: boolean;
 	hasDismissedSetupWizard: boolean;
-	iconVariant: IconVariant;
+	personaId: string;
+	personas: { custom: CustomPersona[] };
 	miniWindowSessionId: string;
 	miniWindowLastActiveAt: number;
 	miniWindowInactivityTimeoutMinutes: number;
