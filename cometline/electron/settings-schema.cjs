@@ -24,6 +24,7 @@ __export(schema_exports, {
   VALID_PROVIDER_METHODS: () => VALID_PROVIDER_METHODS,
   cloneCometMindSettings: () => cloneCometMindSettings,
   cloneProvider: () => cloneProvider,
+  defaultCometMindAutonomousJobsSettings: () => defaultCometMindAutonomousJobsSettings,
   defaultCometMindJobsSettings: () => defaultCometMindJobsSettings,
   defaultCometMindMCPSettings: () => defaultCometMindMCPSettings,
   defaultCometMindSettings: () => defaultCometMindSettings,
@@ -4569,6 +4570,14 @@ function defaultCometMindJobsSettings() {
     reconcileIntervalSeconds: 120
   };
 }
+function defaultCometMindAutonomousJobsSettings() {
+  return {
+    enabled: false,
+    maxConcurrent: 1,
+    pollIntervalSeconds: 30,
+    maxStepsPerRun: 0
+  };
+}
 function defaultCometMindStorageSettings() {
   return {
     cleanupIntervalMinutes: 60,
@@ -4625,7 +4634,8 @@ function defaultCometMindSettings(workspacePath = "") {
       }
     },
     mcp: defaultCometMindMCPSettings(),
-    jobs: defaultCometMindJobsSettings()
+    jobs: defaultCometMindJobsSettings(),
+    autonomy: defaultCometMindAutonomousJobsSettings()
   };
 }
 function normalizeCometMindSettings(input, fallbackWorkspacePath = "") {
@@ -4640,6 +4650,8 @@ function normalizeCometMindSettings(input, fallbackWorkspacePath = "") {
   const jobsInput = input?.jobs ?? {};
   const jobsDefaults = defaults.jobs;
   const jobsNotifications = jobsInput.notifications ?? {};
+  const autonomyInput = input?.autonomy ?? {};
+  const autonomyDefaults = defaults.autonomy;
   const args = Array.isArray(acp.args) ? acp.args.map((a) => String(a).trim()).filter(Boolean) : defaults.acp.args;
   const { botToken, botTokenEnv } = migrateDiscordTokenFields(discord);
   return {
@@ -4737,6 +4749,21 @@ function normalizeCometMindSettings(input, fallbackWorkspacePath = "") {
         jobsInput.reconcileIntervalSeconds,
         jobsDefaults.reconcileIntervalSeconds
       )
+    },
+    autonomy: {
+      enabled: typeof autonomyInput.enabled === "boolean" ? autonomyInput.enabled : autonomyDefaults.enabled,
+      maxConcurrent: normalizePositiveInt(
+        autonomyInput.maxConcurrent,
+        autonomyDefaults.maxConcurrent
+      ),
+      pollIntervalSeconds: normalizePositiveInt(
+        autonomyInput.pollIntervalSeconds,
+        autonomyDefaults.pollIntervalSeconds
+      ),
+      maxStepsPerRun: normalizeNonNegativeInt(
+        autonomyInput.maxStepsPerRun,
+        autonomyDefaults.maxStepsPerRun
+      )
     }
   };
 }
@@ -4784,7 +4811,8 @@ function cloneCometMindSettings(settings) {
     jobs: {
       ...settings.jobs,
       notifications: { ...settings.jobs.notifications }
-    }
+    },
+    autonomy: { ...settings.autonomy }
   };
 }
 function defaultCaretTrailSettings() {
@@ -5191,6 +5219,7 @@ function parseAndNormalizeSettings(raw, options = {}) {
   VALID_PROVIDER_METHODS,
   cloneCometMindSettings,
   cloneProvider,
+  defaultCometMindAutonomousJobsSettings,
   defaultCometMindJobsSettings,
   defaultCometMindMCPSettings,
   defaultCometMindSettings,

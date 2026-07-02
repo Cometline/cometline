@@ -604,6 +604,45 @@
 
 		<div class="settings-section">
 			<div class="settings-section-heading">
+				<h3>Autonomous jobs</h3>
+				<p>
+					Let CometMind claim and run ready jobs on its own, without a human opening a
+					chat session first. Off by default.
+				</p>
+			</div>
+			<SettingsToggle
+				label="Enable autonomous job pickup"
+				description="A background worker polls the job queue and executes ready jobs automatically."
+				bind:checked={cometmind.autonomy.enabled}
+			/>
+			<label>
+				<span>Max concurrent jobs</span>
+				<input
+					type="number"
+					min="1"
+					step="1"
+					bind:value={cometmind.autonomy.maxConcurrent}
+					disabled={!cometmind.autonomy.enabled}
+				/>
+			</label>
+			<label>
+				<span>Poll interval (seconds)</span>
+				<input
+					type="number"
+					min="5"
+					step="1"
+					bind:value={cometmind.autonomy.pollIntervalSeconds}
+					disabled={!cometmind.autonomy.enabled}
+				/>
+			</label>
+			<SettingsPersistenceHint
+				tier="pending"
+				detail="Included in Save changes — restarts CometMind"
+			/>
+		</div>
+
+		<div class="settings-section">
+			<div class="settings-section-heading">
 				<h3>Discord gateway</h3>
 				<p>
 					Runs <code>cometmind gateway run --platform discord</code> while Cometline is

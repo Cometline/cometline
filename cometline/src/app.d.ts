@@ -178,6 +178,13 @@ declare global {
 		reconcileIntervalSeconds: number;
 	}
 
+	interface CometMindAutonomousJobsSettings {
+		enabled: boolean;
+		maxConcurrent: number;
+		pollIntervalSeconds: number;
+		maxStepsPerRun: number;
+	}
+
 	type MCPTransport = 'stdio' | 'http' | 'sse';
 
 	interface MCPOAuthSettings {
@@ -222,6 +229,7 @@ declare global {
 		};
 		mcp: CometMindMCPSettings;
 		jobs: CometMindJobsSettings;
+		autonomy: CometMindAutonomousJobsSettings;
 	}
 
 	interface SidebarChromeState {

@@ -45,6 +45,9 @@ export function runtimeActionForSettingsSave(
 	) {
 		return 'restart';
 	}
+	if (JSON.stringify(persisted.cometmind.autonomy) !== JSON.stringify(next.cometmind.autonomy)) {
+		return 'restart';
+	}
 
 	const changedProviderIds = providerChangedIds(persisted, next);
 	if (changedProviderIds.size > 0) {

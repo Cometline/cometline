@@ -1,10 +1,12 @@
 export {
 	cloneCometMindSettings,
+	defaultCometMindAutonomousJobsSettings,
 	defaultCometMindJobsSettings,
 	defaultCometMindMCPSettings,
 	defaultCometMindSettings,
 	normalizeCometMindSettings,
 	type CometMindACPSettings,
+	type CometMindAutonomousJobsSettings,
 	type CometMindDiscordGatewaySettings,
 	type CometMindJobsNotificationSettings,
 	type CometMindJobsSettings,

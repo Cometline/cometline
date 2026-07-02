@@ -141,6 +141,13 @@ export interface CometMindJobsSettings {
 	reconcileIntervalSeconds: number;
 }
 
+export interface CometMindAutonomousJobsSettings {
+	enabled: boolean;
+	maxConcurrent: number;
+	pollIntervalSeconds: number;
+	maxStepsPerRun: number;
+}
+
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 const LOG_LEVELS: LogLevel[] = ['debug', 'info', 'warn', 'error'];
@@ -171,6 +178,7 @@ export interface CometMindSettings {
 	};
 	mcp: CometMindMCPSettings;
 	jobs: CometMindJobsSettings;
+	autonomy: CometMindAutonomousJobsSettings;
 }
 
 export interface RuntimeProviderEntry {
@@ -399,6 +407,15 @@ export function defaultCometMindJobsSettings(): CometMindJobsSettings {
 	};
 }
 
+export function defaultCometMindAutonomousJobsSettings(): CometMindAutonomousJobsSettings {
+	return {
+		enabled: false,
+		maxConcurrent: 1,
+		pollIntervalSeconds: 30,
+		maxStepsPerRun: 0
+	};
+}
+
 export function defaultCometMindStorageSettings(): CometMindStorageSettings {
 	return {
 		cleanupIntervalMinutes: 60,
@@ -456,7 +473,8 @@ export function defaultCometMindSettings(workspacePath = ''): CometMindSettings 
 			}
 		},
 		mcp: defaultCometMindMCPSettings(),
-		jobs: defaultCometMindJobsSettings()
+		jobs: defaultCometMindJobsSettings(),
+		autonomy: defaultCometMindAutonomousJobsSettings()
 	};
 }
 
@@ -476,6 +494,8 @@ export function normalizeCometMindSettings(
 	const jobsDefaults = defaults.jobs;
 	const jobsNotifications: Partial<CometMindJobsNotificationSettings> =
 		jobsInput.notifications ?? {};
+	const autonomyInput: Partial<CometMindAutonomousJobsSettings> = input?.autonomy ?? {};
+	const autonomyDefaults = defaults.autonomy;
 	const args = Array.isArray(acp.args)
 		? acp.args.map((a) => String(a).trim()).filter(Boolean)
 		: defaults.acp.args;
@@ -598,6 +618,24 @@ export function normalizeCometMindSettings(
 				jobsInput.reconcileIntervalSeconds,
 				jobsDefaults.reconcileIntervalSeconds
 			)
+		},
+		autonomy: {
+			enabled:
+				typeof autonomyInput.enabled === 'boolean'
+					? autonomyInput.enabled
+					: autonomyDefaults.enabled,
+			maxConcurrent: normalizePositiveInt(
+				autonomyInput.maxConcurrent,
+				autonomyDefaults.maxConcurrent
+			),
+			pollIntervalSeconds: normalizePositiveInt(
+				autonomyInput.pollIntervalSeconds,
+				autonomyDefaults.pollIntervalSeconds
+			),
+			maxStepsPerRun: normalizeNonNegativeInt(
+				autonomyInput.maxStepsPerRun,
+				autonomyDefaults.maxStepsPerRun
+			)
 		}
 	};
 }
@@ -648,7 +686,8 @@ export function cloneCometMindSettings(settings: CometMindSettings): CometMindSe
 		jobs: {
 			...settings.jobs,
 			notifications: { ...settings.jobs.notifications }
-		}
+		},
+		autonomy: { ...settings.autonomy }
 	};
 }
 
