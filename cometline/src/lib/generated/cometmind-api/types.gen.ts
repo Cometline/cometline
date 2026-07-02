@@ -659,11 +659,11 @@ export type ScheduledJobResource = {
     source_platform: '' | 'desktop' | 'discord';
     source_channel_id?: string;
     /**
-     * Reserved for future recurring schedules. Currently rejected when provided.
+     * Standard 5-field cron expression for recurring schedules. Mutually exclusive with run_at.
      */
     cron_expr?: string;
     /**
-     * One-shot run time in Unix milliseconds.
+     * One-shot run time in Unix milliseconds. Mutually exclusive with cron_expr.
      */
     run_at?: number;
     next_run_at: number;
@@ -686,13 +686,13 @@ export type CreateScheduledJobRequest = {
     source_platform?: '' | 'desktop' | 'discord';
     source_channel_id?: string;
     /**
-     * Reserved for future recurring schedules. Currently rejected when provided.
+     * Standard 5-field cron expression for recurring schedules. Mutually exclusive with run_at.
      */
     cron_expr?: string;
     /**
-     * One-shot run time in Unix milliseconds.
+     * One-shot run time in Unix milliseconds. Mutually exclusive with cron_expr.
      */
-    run_at: number;
+    run_at?: number;
 };
 
 export type UpdateScheduledJobRequest = {

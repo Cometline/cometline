@@ -10,6 +10,34 @@ import (
 	"database/sql"
 )
 
+const advanceScheduledJob = `-- name: AdvanceScheduledJob :execrows
+UPDATE scheduled_jobs
+SET last_run_at = ?,
+    next_run_at = ?,
+    updated_at = ?
+WHERE id = ? AND enabled = 1
+`
+
+type AdvanceScheduledJobParams struct {
+	LastRunAt sql.NullInt64 `json:"last_run_at"`
+	NextRunAt int64         `json:"next_run_at"`
+	UpdatedAt int64         `json:"updated_at"`
+	ID        string        `json:"id"`
+}
+
+func (q *Queries) AdvanceScheduledJob(ctx context.Context, arg AdvanceScheduledJobParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, advanceScheduledJob,
+		arg.LastRunAt,
+		arg.NextRunAt,
+		arg.UpdatedAt,
+		arg.ID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const deleteScheduledJob = `-- name: DeleteScheduledJob :execrows
 DELETE FROM scheduled_jobs WHERE id = ?
 `

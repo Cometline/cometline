@@ -130,11 +130,71 @@ func TestMaterializeDueCreatesJobAndDisablesSchedule(t *testing.T) {
 	}
 }
 
-func TestCreateRejectsCronUntilRecurringSchedulesExist(t *testing.T) {
+func TestCreateRejectsBothCronAndRunAt(t *testing.T) {
 	ctx := context.Background()
 	svc, _ := newSchedulerTestServices(t)
-	if _, err := svc.Create(ctx, CreateInput{Description: "repeat", CronExpr: "* * * * *", RunAt: 1000}); err == nil {
-		t.Fatal("expected cron schedule rejection")
+	if _, err := svc.Create(ctx, CreateInput{Description: "d", CronExpr: "* * * * *", RunAt: 1000}); !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("expected ErrInvalidInput, got %v", err)
+	}
+}
+
+func TestCreateRequiresCronOrRunAt(t *testing.T) {
+	ctx := context.Background()
+	svc, _ := newSchedulerTestServices(t)
+	if _, err := svc.Create(ctx, CreateInput{Description: "d"}); !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("expected ErrInvalidInput, got %v", err)
+	}
+}
+
+func TestRecurringScheduleAdvancesAfterMaterialize(t *testing.T) {
+	ctx := context.Background()
+	svc, jobSvc := newSchedulerTestServices(t)
+
+	created, err := svc.Create(ctx, CreateInput{
+		Description: "weekly report",
+		CronExpr:    "0 0 * * 0",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !created.Enabled {
+		t.Fatal("recurring schedule should be enabled")
+	}
+	if created.CronExpr != "0 0 * * 0" {
+		t.Fatalf("cron_expr=%s", created.CronExpr)
+	}
+
+	count, err := svc.MaterializeDue(ctx, jobSvc, created.NextRunAt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 1 {
+		t.Fatalf("count=%d", count)
+	}
+
+	after, err := svc.Get(ctx, created.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !after.Enabled {
+		t.Fatal("recurring schedule should remain enabled after firing")
+	}
+	if after.NextRunAt <= created.NextRunAt {
+		t.Fatal("next_run_at should advance after firing")
+	}
+	if after.LastRunAt == nil {
+		t.Fatal("last_run_at should be set after firing")
+	}
+
+	jobs, err := jobSvc.List(ctx, jobs.ListFilter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(jobs) != 1 {
+		t.Fatalf("expected 1 materialized job, got %d", len(jobs))
+	}
+	if jobs[0].Description != "weekly report" {
+		t.Fatalf("job description=%s", jobs[0].Description)
 	}
 }
 

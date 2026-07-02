@@ -3048,11 +3048,11 @@ components:
           type: string
         cron_expr:
           type: string
-          description: Reserved for future recurring schedules. Currently rejected when provided.
+          description: Standard 5-field cron expression for recurring schedules. Mutually exclusive with run_at.
         run_at:
           type: integer
           format: int64
-          description: One-shot run time in Unix milliseconds.
+          description: One-shot run time in Unix milliseconds. Mutually exclusive with cron_expr.
         next_run_at:
           type: integer
           format: int64
@@ -3081,7 +3081,7 @@ components:
     CreateScheduledJobRequest:
       type: object
       additionalProperties: false
-      required: [description, run_at]
+      required: [description]
       properties:
         description:
           type: string
@@ -3101,11 +3101,11 @@ components:
           type: string
         cron_expr:
           type: string
-          description: Reserved for future recurring schedules. Currently rejected when provided.
+          description: Standard 5-field cron expression for recurring schedules. Mutually exclusive with run_at.
         run_at:
           type: integer
           format: int64
-          description: One-shot run time in Unix milliseconds.
+          description: One-shot run time in Unix milliseconds. Mutually exclusive with cron_expr.
 
     UpdateScheduledJobRequest:
       type: object

@@ -47,5 +47,12 @@ SET last_run_at = ?,
     updated_at = ?
 WHERE id = ? AND enabled = 1;
 
+-- name: AdvanceScheduledJob :execrows
+UPDATE scheduled_jobs
+SET last_run_at = ?,
+    next_run_at = ?,
+    updated_at = ?
+WHERE id = ? AND enabled = 1;
+
 -- name: DeleteScheduledJob :execrows
 DELETE FROM scheduled_jobs WHERE id = ?;

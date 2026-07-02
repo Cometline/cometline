@@ -110,7 +110,7 @@ func TestScheduledJobHandlersCRUD(t *testing.T) {
 	}
 }
 
-func TestScheduledJobHandlersRejectCron(t *testing.T) {
+func TestScheduledJobHandlersRejectBothCronAndRunAt(t *testing.T) {
 	engine := newScheduledJobTestServer(t)
 	body := `{"description":"repeat","cron_expr":"* * * * *","run_at":3000000}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/scheduled-jobs", bytes.NewBufferString(body))

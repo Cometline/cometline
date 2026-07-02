@@ -11,6 +11,7 @@ import (
 	"github.com/cometline/cometmind/internal/db"
 	"github.com/cometline/cometmind/internal/id"
 	"github.com/cometline/cometmind/internal/jobs"
+	"github.com/robfig/cron/v3"
 )
 
 var (
@@ -74,17 +75,31 @@ func scheduledJobFromRow(row db.ScheduledJob) ScheduledJob {
 	}
 }
 
-func validateOneShot(description, cronExpr string, runAt int64) error {
+func validateSchedule(description, cronExpr string, runAt int64) error {
 	if strings.TrimSpace(description) == "" {
 		return fmt.Errorf("%w: description is required", ErrInvalidInput)
 	}
-	if strings.TrimSpace(cronExpr) != "" {
-		return fmt.Errorf("%w: cron schedules are not supported yet", ErrInvalidInput)
+	cronExpr = strings.TrimSpace(cronExpr)
+	if cronExpr != "" && runAt > 0 {
+		return fmt.Errorf("%w: provide either cron_expr or run_at, not both", ErrInvalidInput)
 	}
-	if runAt <= 0 {
-		return fmt.Errorf("%w: run_at is required", ErrInvalidInput)
+	if cronExpr == "" && runAt <= 0 {
+		return fmt.Errorf("%w: either cron_expr or run_at is required", ErrInvalidInput)
+	}
+	if cronExpr != "" {
+		if _, err := cron.ParseStandard(cronExpr); err != nil {
+			return fmt.Errorf("%w: invalid cron_expr: %v", ErrInvalidInput, err)
+		}
 	}
 	return nil
+}
+
+func nextCronRun(cronExpr string, from time.Time) (int64, error) {
+	sched, err := cron.ParseStandard(cronExpr)
+	if err != nil {
+		return 0, fmt.Errorf("%w: invalid cron_expr: %v", ErrInvalidInput, err)
+	}
+	return sched.Next(from).UnixMilli(), nil
 }
 
 func validateCreatedBy(v string) error {
@@ -106,7 +121,7 @@ func validateSourcePlatform(v string) error {
 }
 
 func (s *Service) Create(ctx context.Context, in CreateInput) (ScheduledJob, error) {
-	if err := validateOneShot(in.Description, in.CronExpr, in.RunAt); err != nil {
+	if err := validateSchedule(in.Description, in.CronExpr, in.RunAt); err != nil {
 		return ScheduledJob{}, err
 	}
 	createdBy := strings.TrimSpace(in.CreatedBy)
@@ -120,6 +135,19 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (ScheduledJob, err
 	if err := validateSourcePlatform(sourcePlatform); err != nil {
 		return ScheduledJob{}, err
 	}
+	cronExpr := strings.TrimSpace(in.CronExpr)
+	var runAtVal sql.NullInt64
+	var nextRunAt int64
+	if cronExpr != "" {
+		nr, err := nextCronRun(cronExpr, time.Now())
+		if err != nil {
+			return ScheduledJob{}, err
+		}
+		nextRunAt = nr
+	} else {
+		runAtVal = sql.NullInt64{Int64: in.RunAt, Valid: true}
+		nextRunAt = in.RunAt
+	}
 	ts := nowMillis()
 	scheduleID := id.New()
 	if err := s.q.InsertScheduledJob(ctx, db.InsertScheduledJobParams{
@@ -131,9 +159,9 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (ScheduledJob, err
 		SourceSessionID:  optionalNullString(in.SourceSessionID),
 		SourcePlatform:   sourcePlatform,
 		SourceChannelID:  optionalNullString(in.SourceChannelID),
-		CronExpr:         optionalNullString(in.CronExpr),
-		RunAt:            sql.NullInt64{Int64: in.RunAt, Valid: true},
-		NextRunAt:        in.RunAt,
+		CronExpr:         optionalNullString(cronExpr),
+		RunAt:            runAtVal,
+		NextRunAt:        nextRunAt,
 		LastRunAt:        sql.NullInt64{},
 		Enabled:          1,
 		CreatedAt:        ts,
@@ -168,7 +196,7 @@ func (s *Service) List(ctx context.Context) ([]ScheduledJob, error) {
 }
 
 func (s *Service) Update(ctx context.Context, scheduleID string, in UpdateInput) (ScheduledJob, error) {
-	if err := validateOneShot(in.Description, "", in.RunAt); err != nil {
+	if err := validateSchedule(in.Description, "", in.RunAt); err != nil {
 		return ScheduledJob{}, err
 	}
 	enabled := int64(0)
@@ -238,9 +266,31 @@ func (s *Service) MarkFired(ctx context.Context, scheduleID string, firedAt int6
 	return nil
 }
 
+func (s *Service) AdvanceRecurring(ctx context.Context, scheduleID string, firedAt, nextRunAt int64) error {
+	if firedAt <= 0 {
+		firedAt = nowMillis()
+	}
+	n, err := s.q.AdvanceScheduledJob(ctx, db.AdvanceScheduledJobParams{
+		LastRunAt: sql.NullInt64{Int64: firedAt, Valid: true},
+		NextRunAt: nextRunAt,
+		UpdatedAt: firedAt,
+		ID:        scheduleID,
+	})
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return ErrConflict
+	}
+	return nil
+}
+
 func (s *Service) MaterializeDue(ctx context.Context, jobSvc *jobs.Service, atMillis int64) (int, error) {
 	if jobSvc == nil {
 		return 0, fmt.Errorf("jobs service is required")
+	}
+	if atMillis <= 0 {
+		atMillis = nowMillis()
 	}
 	due, err := s.DueNow(ctx, atMillis)
 	if err != nil {
@@ -248,11 +298,24 @@ func (s *Service) MaterializeDue(ctx context.Context, jobSvc *jobs.Service, atMi
 	}
 	created := 0
 	for _, item := range due {
-		if err := s.MarkFired(ctx, item.ID, atMillis); err != nil {
-			if err == ErrConflict {
-				continue
+		if item.CronExpr != "" {
+			nextRun, err := nextCronRun(item.CronExpr, time.UnixMilli(atMillis))
+			if err != nil {
+				return created, err
 			}
-			return created, err
+			if err := s.AdvanceRecurring(ctx, item.ID, atMillis, nextRun); err != nil {
+				if err == ErrConflict {
+					continue
+				}
+				return created, err
+			}
+		} else {
+			if err := s.MarkFired(ctx, item.ID, atMillis); err != nil {
+				if err == ErrConflict {
+					continue
+				}
+				return created, err
+			}
 		}
 		if _, err := jobSvc.Create(ctx, jobs.CreateInput{
 			Description:      item.Description,

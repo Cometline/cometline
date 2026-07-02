@@ -455,13 +455,13 @@ type CreateMemoryRequest struct {
 type CreateScheduledJobRequest struct {
 	CreatedBy *CreateScheduledJobRequestCreatedBy `json:"created_by,omitempty"`
 
-	// CronExpr Reserved for future recurring schedules. Currently rejected when provided.
+	// CronExpr Standard 5-field cron expression for recurring schedules. Mutually exclusive with run_at.
 	CronExpr         *string `json:"cron_expr,omitempty"`
 	DefinitionOfDone *string `json:"definition_of_done,omitempty"`
 	Description      string  `json:"description"`
 
-	// RunAt One-shot run time in Unix milliseconds.
-	RunAt           int64                                    `json:"run_at"`
+	// RunAt One-shot run time in Unix milliseconds. Mutually exclusive with cron_expr.
+	RunAt           *int64                                   `json:"run_at,omitempty"`
 	SourceChannelId *string                                  `json:"source_channel_id,omitempty"`
 	SourcePlatform  *CreateScheduledJobRequestSourcePlatform `json:"source_platform,omitempty"`
 	SourceSessionId *string                                  `json:"source_session_id,omitempty"`
@@ -856,7 +856,7 @@ type ScheduledJobResource struct {
 	CreatedAt int64                         `json:"created_at"`
 	CreatedBy ScheduledJobResourceCreatedBy `json:"created_by"`
 
-	// CronExpr Reserved for future recurring schedules. Currently rejected when provided.
+	// CronExpr Standard 5-field cron expression for recurring schedules. Mutually exclusive with run_at.
 	CronExpr         *string `json:"cron_expr,omitempty"`
 	DefinitionOfDone string  `json:"definition_of_done"`
 	Description      string  `json:"description"`
@@ -865,7 +865,7 @@ type ScheduledJobResource struct {
 	LastRunAt        *int64  `json:"last_run_at,omitempty"`
 	NextRunAt        int64   `json:"next_run_at"`
 
-	// RunAt One-shot run time in Unix milliseconds.
+	// RunAt One-shot run time in Unix milliseconds. Mutually exclusive with cron_expr.
 	RunAt           *int64                             `json:"run_at,omitempty"`
 	SourceChannelId *string                            `json:"source_channel_id,omitempty"`
 	SourcePlatform  ScheduledJobResourceSourcePlatform `json:"source_platform"`
