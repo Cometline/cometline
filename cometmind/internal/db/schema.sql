@@ -156,7 +156,7 @@ CREATE TABLE jobs (
     definition_of_done  TEXT NOT NULL DEFAULT '',
     progress            TEXT NOT NULL DEFAULT '',
     status              TEXT NOT NULL DEFAULT 'todo'
-                        CHECK (status IN ('todo', 'ongoing', 'done')),
+                        CHECK (status IN ('todo', 'ongoing', 'done', 'blocked')),
     workspace_path      TEXT,
     assigned_session_id TEXT,
     lease_expires_at    INTEGER,
@@ -167,6 +167,9 @@ CREATE TABLE jobs (
                         CHECK (source_platform IN ('', 'desktop', 'discord')),
     source_channel_id   TEXT,
     archived_at         INTEGER,
+    failure_count       INTEGER NOT NULL DEFAULT 0,
+    next_retry_at       INTEGER,
+    last_failure_reason TEXT,
     deleted_at          INTEGER,
     created_at          INTEGER NOT NULL DEFAULT (unixepoch ('now', 'subsec') * 1000),
     updated_at          INTEGER NOT NULL DEFAULT (unixepoch ('now', 'subsec') * 1000)

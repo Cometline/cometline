@@ -1166,7 +1166,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [todo, ongoing, done]
+            enum: [todo, ongoing, done, blocked]
         - name: ready_only
           in: query
           schema:
@@ -1377,6 +1377,31 @@ paths:
       responses:
         '200':
           description: Unarchived
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobResource'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/jobs/{id}/retry-runs:
+    post:
+      tags: [Jobs]
+      summary: Reset a blocked job for retry
+      operationId: unblockJob
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Ready for retry
           content:
             application/json:
               schema:
@@ -2599,6 +2624,7 @@ components:
         - definition_of_done
         - progress
         - status
+        - failure_count
         - created_by
         - created_at
         - updated_at
@@ -2613,7 +2639,7 @@ components:
           type: string
         status:
           type: string
-          enum: [todo, ongoing, done]
+          enum: [todo, ongoing, done, blocked]
         workspace_path:
           type: string
         assigned_session_id:
@@ -2632,6 +2658,14 @@ components:
         archived_at:
           type: integer
           format: int64
+        failure_count:
+          type: integer
+          format: int64
+        next_retry_at:
+          type: integer
+          format: int64
+        last_failure_reason:
+          type: string
         deleted_at:
           type: integer
           format: int64
@@ -2753,6 +2787,8 @@ components:
           type: boolean
         on_released:
           type: boolean
+        on_blocked:
+          type: boolean
 
     JobSettings:
       type: object
@@ -2767,6 +2803,12 @@ components:
         archived_purge_days:
           type: integer
         stale_review_minutes:
+          type: integer
+        max_consecutive_failures:
+          type: integer
+        retry_cooldown_minutes:
+          type: integer
+        max_retry_cooldown_minutes:
           type: integer
         reconcile_interval_seconds:
           type: integer

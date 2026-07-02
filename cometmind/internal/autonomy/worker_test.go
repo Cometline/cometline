@@ -188,8 +188,8 @@ func TestWorkerRunJobReleasesWhenAgentDoesNotCompleteJob(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Status != jobs.StatusTodo || got.AssignedSessionID != "" {
-		t.Fatalf("job=%+v, want released todo job", got)
+	if got.Status != jobs.StatusTodo || got.AssignedSessionID != "" || got.FailureCount != 1 || got.NextRetryAt == nil {
+		t.Fatalf("job=%+v, want failed todo job with retry metadata", got)
 	}
 	ws, err := fx.sessions.LookupWorkspaceByPath(ctx, fx.root)
 	if err != nil {
@@ -209,14 +209,14 @@ func TestWorkerRunJobReleasesWhenAgentDoesNotCompleteJob(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var sawRelease bool
+	var sawFailure bool
 	for _, ev := range events {
-		if ev.Action == jobs.EventReleased && ev.Detail == "worker: run ended without explicit completion" {
-			sawRelease = true
+		if ev.Action == jobs.EventFailed && ev.Detail == "worker: run ended without explicit completion" {
+			sawFailure = true
 		}
 	}
-	if !sawRelease {
-		t.Fatalf("release event not found in %+v", events)
+	if !sawFailure {
+		t.Fatalf("failure event not found in %+v", events)
 	}
 }
 

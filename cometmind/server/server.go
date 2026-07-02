@@ -167,6 +167,7 @@ func New(deps Deps) (*gin.Engine, error) {
 	api.DELETE("/jobs/:id", app.handleDeleteJob)
 	api.PUT("/jobs/:id/archive", app.handleArchiveJob)
 	api.DELETE("/jobs/:id/archive", app.handleUnarchiveJob)
+	api.POST("/jobs/:id/retry-runs", app.handleUnblockJob)
 	api.GET("/jobs/:id/events", app.handleListJobEvents)
 	api.PUT("/jobs/:id/lease", app.handleClaimJob)
 	api.DELETE("/jobs/:id/lease", app.handleReleaseJob)

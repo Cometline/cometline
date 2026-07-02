@@ -169,6 +169,7 @@ declare global {
 		onClaimed: boolean;
 		onCompleted: boolean;
 		onReleased: boolean;
+		onBlocked: boolean;
 	}
 
 	interface CometMindJobsSettings {
@@ -177,6 +178,9 @@ declare global {
 		deletedPurgeDays: number;
 		archivedPurgeDays: number;
 		staleReviewMinutes: number;
+		maxConsecutiveFailures: number;
+		retryCooldownMinutes: number;
+		maxRetryCooldownMinutes: number;
 		reconcileIntervalSeconds: number;
 	}
 

@@ -26,8 +26,11 @@
 		<p class="job-card-title">{job.description}</p>
 	</div>
 
-	{#if job.workspace_path || job.assigned_session_id || progressPreview}
+	{#if job.status === 'blocked' || job.workspace_path || job.assigned_session_id || progressPreview}
 		<div class="job-card-chips">
+			{#if job.status === 'blocked'}
+				<span class="job-chip blocked">Blocked after {job.failure_count} failures</span>
+			{/if}
 			{#if job.workspace_path}
 				<span class="job-chip" title={job.workspace_path}>
 					{truncateWorkspacePath(job.workspace_path)}
@@ -113,5 +116,10 @@
 
 	.job-chip.progress {
 		max-width: 100%;
+	}
+
+	.job-chip.blocked {
+		background: color-mix(in srgb, var(--status-error) 12%, transparent);
+		color: var(--status-error);
 	}
 </style>

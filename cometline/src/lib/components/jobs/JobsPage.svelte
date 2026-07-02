@@ -8,6 +8,7 @@
 		listJobEvents,
 		listJobs,
 		updateJob,
+		unblockJob,
 		unarchiveJob,
 		type JobEventResource,
 		type JobResource
@@ -213,6 +214,19 @@
 		}
 	}
 
+	async function handleRetryJob(job: JobResource) {
+		saving = true;
+		error = '';
+		try {
+			selectedJob = await unblockJob(job.id);
+			await loadJobs({ silent: true });
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Failed to retry job';
+		} finally {
+			saving = false;
+		}
+	}
+
 	onMount(() => {
 		void loadJobs();
 		const jobsTimer = setInterval(() => void loadJobs({ silent: true }), OBSERVER_REFRESH_MS);
@@ -410,6 +424,7 @@
 		onDelete={handleDelete}
 		onArchive={handleArchive}
 		onUnarchive={handleUnarchive}
+		onRetry={handleRetryJob}
 		onCreate={handleCreate}
 	/>
 {/if}

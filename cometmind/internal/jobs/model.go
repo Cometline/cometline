@@ -8,6 +8,7 @@ const (
 	StatusTodo    = "todo"
 	StatusOngoing = "ongoing"
 	StatusDone    = "done"
+	StatusBlocked = "blocked"
 
 	CreatedByUser  = "user"
 	CreatedByAgent = "agent"
@@ -18,6 +19,9 @@ const (
 	DefaultLeaseMinutes       = 30
 	DefaultReconcileInterval  = 2 * time.Minute
 	DefaultStaleReviewMinutes = 30
+	DefaultMaxFailures        = 3
+	DefaultRetryCooldownMins  = 5
+	DefaultMaxRetryCooldown   = 60
 
 	EventCreated      = "created"
 	EventClaimed      = "claimed"
@@ -26,9 +30,20 @@ const (
 	EventUpdated      = "updated"
 	EventArchived     = "archived"
 	EventUnarchived   = "unarchived"
+	EventFailed       = "failed"
+	EventBlocked      = "blocked"
 	EventDeleted      = "deleted"
 	EventLeaseExpired = "lease_expired"
 	EventNotified     = "notified"
+)
+
+type FailureClass string
+
+const (
+	FailureNone         FailureClass = "none"
+	FailureAgentHandoff FailureClass = "agent_handoff"
+	FailureWorkerError  FailureClass = "worker_error"
+	FailureInfra        FailureClass = "infra"
 )
 
 // Job is the domain view of a global work item.
@@ -46,6 +61,9 @@ type Job struct {
 	SourcePlatform    string
 	SourceChannelID   string
 	ArchivedAt        *int64
+	FailureCount      int64
+	NextRetryAt       *int64
+	LastFailureReason string
 	DeletedAt         *int64
 	CreatedAt         int64
 	UpdatedAt         int64

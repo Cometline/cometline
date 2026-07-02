@@ -576,7 +576,7 @@ export type JobResource = {
     description: string;
     definition_of_done: string;
     progress: string;
-    status: 'todo' | 'ongoing' | 'done';
+    status: 'todo' | 'ongoing' | 'done' | 'blocked';
     workspace_path?: string;
     assigned_session_id?: string;
     lease_expires_at?: number;
@@ -585,6 +585,9 @@ export type JobResource = {
     source_platform?: string;
     source_channel_id?: string;
     archived_at?: number;
+    failure_count: number;
+    next_retry_at?: number;
+    last_failure_reason?: string;
     deleted_at?: number;
     created_at: number;
     updated_at: number;
@@ -642,6 +645,7 @@ export type JobNotificationSettings = {
     on_claimed?: boolean;
     on_completed?: boolean;
     on_released?: boolean;
+    on_blocked?: boolean;
 };
 
 export type JobSettings = {
@@ -650,6 +654,9 @@ export type JobSettings = {
     deleted_purge_days?: number;
     archived_purge_days?: number;
     stale_review_minutes?: number;
+    max_consecutive_failures?: number;
+    retry_cooldown_minutes?: number;
+    max_retry_cooldown_minutes?: number;
     reconcile_interval_seconds?: number;
 };
 
@@ -2039,7 +2046,7 @@ export type ListJobsData = {
     body?: never;
     path?: never;
     query?: {
-        status?: 'todo' | 'ongoing' | 'done';
+        status?: 'todo' | 'ongoing' | 'done' | 'blocked';
         ready_only?: boolean;
         include_deleted?: boolean;
         include_archived?: boolean;
@@ -2349,6 +2356,41 @@ export type ArchiveJobResponses = {
 };
 
 export type ArchiveJobResponse = ArchiveJobResponses[keyof ArchiveJobResponses];
+
+export type UnblockJobData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/jobs/{id}/retry-runs';
+};
+
+export type UnblockJobErrors = {
+    /**
+     * Resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * State conflict
+     */
+    409: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type UnblockJobError = UnblockJobErrors[keyof UnblockJobErrors];
+
+export type UnblockJobResponses = {
+    /**
+     * Ready for retry
+     */
+    200: JobResource;
+};
+
+export type UnblockJobResponse = UnblockJobResponses[keyof UnblockJobResponses];
 
 export type ReleaseJobData = {
     body: JobReleaseRequest;

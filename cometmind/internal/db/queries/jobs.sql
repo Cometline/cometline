@@ -13,11 +13,14 @@ INSERT INTO jobs (
     source_platform,
     source_channel_id,
     archived_at,
+    failure_count,
+    next_retry_at,
+    last_failure_reason,
     deleted_at,
     created_at,
     updated_at
 ) VALUES (
-    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
 );
 
 -- name: GetJob :one
@@ -39,6 +42,7 @@ FROM jobs
 WHERE deleted_at IS NULL
   AND archived_at IS NULL
   AND status = 'todo'
+  AND (next_retry_at IS NULL OR next_retry_at <= ?)
 ORDER BY updated_at ASC;
 
 -- name: ListOngoingJobs :many
@@ -94,6 +98,7 @@ WHERE id = ?
   AND status = 'todo'
   AND deleted_at IS NULL
   AND archived_at IS NULL
+  AND (next_retry_at IS NULL OR next_retry_at <= ?)
   AND assigned_session_id IS NULL;
 
 -- name: ReleaseJob :execrows
@@ -114,6 +119,9 @@ SET
     status = 'done',
     assigned_session_id = NULL,
     lease_expires_at = NULL,
+    failure_count = 0,
+    next_retry_at = NULL,
+    last_failure_reason = NULL,
     updated_at = ?
 WHERE id = ?
   AND status = 'ongoing'
@@ -157,12 +165,45 @@ UPDATE jobs
 SET
     deleted_at = ?,
     archived_at = NULL,
+    failure_count = 0,
+    next_retry_at = NULL,
+    last_failure_reason = NULL,
     assigned_session_id = NULL,
     lease_expires_at = NULL,
-    status = CASE WHEN status = 'ongoing' THEN 'todo' ELSE status END,
+    status = CASE WHEN status IN ('ongoing', 'blocked') THEN 'todo' ELSE status END,
     updated_at = ?
 WHERE id = ?
   AND deleted_at IS NULL;
+
+-- name: RecordJobFailure :execrows
+UPDATE jobs
+SET
+    failure_count = failure_count + 1,
+    next_retry_at = ?,
+    last_failure_reason = ?,
+    status = ?,
+    assigned_session_id = NULL,
+    lease_expires_at = NULL,
+    updated_at = ?
+WHERE id = ?
+  AND status = 'ongoing'
+  AND deleted_at IS NULL
+  AND archived_at IS NULL;
+
+-- name: ResetJobFailures :execrows
+UPDATE jobs
+SET
+    failure_count = 0,
+    next_retry_at = NULL,
+    last_failure_reason = NULL,
+    status = 'todo',
+    assigned_session_id = NULL,
+    lease_expires_at = NULL,
+    updated_at = ?
+WHERE id = ?
+  AND status = 'blocked'
+  AND deleted_at IS NULL
+  AND archived_at IS NULL;
 
 -- name: HardDeleteJob :exec
 DELETE FROM jobs

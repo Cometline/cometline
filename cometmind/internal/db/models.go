@@ -33,6 +33,9 @@ type Job struct {
 	SourcePlatform    string         `json:"source_platform"`
 	SourceChannelID   sql.NullString `json:"source_channel_id"`
 	ArchivedAt        sql.NullInt64  `json:"archived_at"`
+	FailureCount      int64          `json:"failure_count"`
+	NextRetryAt       sql.NullInt64  `json:"next_retry_at"`
+	LastFailureReason sql.NullString `json:"last_failure_reason"`
 	DeletedAt         sql.NullInt64  `json:"deleted_at"`
 	CreatedAt         int64          `json:"created_at"`
 	UpdatedAt         int64          `json:"updated_at"`

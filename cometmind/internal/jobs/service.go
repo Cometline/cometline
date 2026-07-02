@@ -55,6 +55,10 @@ func (n *Notifier) emit(ctx context.Context, job Job, action, detail string) {
 		if !cfg.OnCompleted {
 			return
 		}
+	case EventBlocked:
+		if !cfg.OnBlocked {
+			return
+		}
 	case EventReleased, EventLeaseExpired:
 		if !cfg.OnReleased {
 			return
@@ -143,6 +147,9 @@ func jobFromRow(row db.Job) Job {
 		SourcePlatform:    row.SourcePlatform,
 		SourceChannelID:   nullStringVal(row.SourceChannelID),
 		ArchivedAt:        nullInt64Ptr(row.ArchivedAt),
+		FailureCount:      row.FailureCount,
+		NextRetryAt:       nullInt64Ptr(row.NextRetryAt),
+		LastFailureReason: nullStringVal(row.LastFailureReason),
 		DeletedAt:         nullInt64Ptr(row.DeletedAt),
 		CreatedAt:         row.CreatedAt,
 		UpdatedAt:         row.UpdatedAt,
@@ -208,6 +215,9 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (Job, error) {
 		SourcePlatform:    strings.TrimSpace(in.SourcePlatform),
 		SourceChannelID:   optionalNullString(in.SourceChannelID),
 		ArchivedAt:        sql.NullInt64{},
+		FailureCount:      0,
+		NextRetryAt:       sql.NullInt64{},
+		LastFailureReason: sql.NullString{},
 		DeletedAt:         sql.NullInt64{},
 		CreatedAt:         ts,
 		UpdatedAt:         ts,
@@ -312,7 +322,7 @@ func (s *Service) Unarchive(ctx context.Context, jobID string) (Job, error) {
 // ListReady returns todo jobs that are ready to be claimed.
 func (s *Service) ListReady(ctx context.Context) ([]Job, error) {
 	_, _ = s.Reconcile(ctx, nil)
-	rows, err := s.q.ListReadyJobs(ctx)
+	rows, err := s.q.ListReadyJobs(ctx, sql.NullInt64{Int64: nowMillis(), Valid: true})
 	if err != nil {
 		return nil, err
 	}
@@ -438,6 +448,7 @@ func (s *Service) Claim(ctx context.Context, jobID, sessionID string) (Job, erro
 		LeaseExpiresAt:    sql.NullInt64{Int64: leaseUntil, Valid: true},
 		UpdatedAt:         ts,
 		ID:                jobID,
+		NextRetryAt:       sql.NullInt64{Int64: ts, Valid: true},
 	})
 	if err != nil {
 		return Job{}, err
@@ -446,6 +457,9 @@ func (s *Service) Claim(ctx context.Context, jobID, sessionID string) (Job, erro
 		if job, getErr := s.Get(ctx, jobID); getErr == nil {
 			if job.Status == StatusOngoing {
 				return Job{}, ErrAlreadyClaimed
+			}
+			if job.Status == StatusBlocked {
+				return Job{}, ErrConflict
 			}
 			if job.DeletedAt != nil {
 				return Job{}, ErrNotFound
@@ -461,8 +475,13 @@ func (s *Service) Claim(ctx context.Context, jobID, sessionID string) (Job, erro
 	return job, err
 }
 
-// Release returns an ongoing job to todo.
+// Release returns an ongoing job to todo for an agent handoff.
 func (s *Service) Release(ctx context.Context, jobID, sessionID, reason string) (Job, error) {
+	return s.ReleaseWithClass(ctx, jobID, sessionID, reason, FailureAgentHandoff)
+}
+
+// ReleaseWithClass releases an ongoing job and optionally records worker failure state.
+func (s *Service) ReleaseWithClass(ctx context.Context, jobID, sessionID, reason string, class FailureClass) (Job, error) {
 	job, err := s.Get(ctx, jobID)
 	if err != nil {
 		return Job{}, err
@@ -474,6 +493,10 @@ func (s *Service) Release(ctx context.Context, jobID, sessionID, reason string) 
 		return Job{}, ErrNotAssigned
 	}
 	ts := nowMillis()
+	detail := strings.TrimSpace(reason)
+	if class == FailureWorkerError {
+		return s.recordWorkerFailure(ctx, job, sessionID, detail, ts)
+	}
 	n, err := s.q.ReleaseJob(ctx, db.ReleaseJobParams{UpdatedAt: ts, ID: jobID})
 	if err != nil {
 		return Job{}, err
@@ -482,9 +505,68 @@ func (s *Service) Release(ctx context.Context, jobID, sessionID, reason string) 
 		return Job{}, ErrConflict
 	}
 	action := EventReleased
-	detail := strings.TrimSpace(reason)
+	if class == FailureInfra && detail == "lease expired" {
+		action = EventLeaseExpired
+	}
 	_ = s.recordEvent(ctx, jobID, action, detail, sessionID)
 	job, err = s.Get(ctx, jobID)
+	if err == nil && s.notifier != nil {
+		s.notifier.emit(ctx, job, action, detail)
+	}
+	return job, err
+}
+
+func (s *Service) retryCooldown(failureCount int64) time.Duration {
+	settings := s.Settings()
+	unit := settings.RetryCooldownMinutes
+	if unit <= 0 {
+		unit = DefaultRetryCooldownMins
+	}
+	maxMinutes := settings.MaxRetryCooldownMinutes
+	if maxMinutes <= 0 {
+		maxMinutes = DefaultMaxRetryCooldown
+	}
+	minutes := int(failureCount) * unit
+	if minutes > maxMinutes {
+		minutes = maxMinutes
+	}
+	return time.Duration(minutes) * time.Minute
+}
+
+func (s *Service) maxConsecutiveFailures() int64 {
+	maxFailures := s.Settings().MaxConsecutiveFailures
+	if maxFailures <= 0 {
+		maxFailures = DefaultMaxFailures
+	}
+	return int64(maxFailures)
+}
+
+func (s *Service) recordWorkerFailure(ctx context.Context, job Job, sessionID, detail string, ts int64) (Job, error) {
+	nextFailureCount := job.FailureCount + 1
+	nextStatus := StatusTodo
+	action := EventFailed
+	var nextRetryAt sql.NullInt64
+	if nextFailureCount >= s.maxConsecutiveFailures() {
+		nextStatus = StatusBlocked
+		action = EventBlocked
+	} else {
+		nextRetryAt = sql.NullInt64{Int64: ts + s.retryCooldown(nextFailureCount).Milliseconds(), Valid: true}
+	}
+	n, err := s.q.RecordJobFailure(ctx, db.RecordJobFailureParams{
+		NextRetryAt:       nextRetryAt,
+		LastFailureReason: optionalNullString(detail),
+		Status:            nextStatus,
+		UpdatedAt:         ts,
+		ID:                job.ID,
+	})
+	if err != nil {
+		return Job{}, err
+	}
+	if n == 0 {
+		return Job{}, ErrConflict
+	}
+	_ = s.recordEvent(ctx, job.ID, action, detail, sessionID)
+	job, err = s.Get(ctx, job.ID)
 	if err == nil && s.notifier != nil {
 		s.notifier.emit(ctx, job, action, detail)
 	}
@@ -522,6 +604,23 @@ func (s *Service) Complete(ctx context.Context, jobID, sessionID, progress strin
 		s.notifier.emit(ctx, job, EventCompleted, job.Progress)
 	}
 	return job, err
+}
+
+// Unblock resets retry state for a blocked job so it can be claimed again.
+func (s *Service) Unblock(ctx context.Context, jobID string) (Job, error) {
+	if _, err := s.Get(ctx, jobID); err != nil {
+		return Job{}, err
+	}
+	ts := nowMillis()
+	n, err := s.q.ResetJobFailures(ctx, db.ResetJobFailuresParams{UpdatedAt: ts, ID: jobID})
+	if err != nil {
+		return Job{}, err
+	}
+	if n == 0 {
+		return Job{}, ErrConflict
+	}
+	_ = s.recordEvent(ctx, jobID, EventReleased, "retry now", "")
+	return s.Get(ctx, jobID)
 }
 
 // Heartbeat extends the lease for an ongoing job.
@@ -607,10 +706,12 @@ func (s *Service) Reconcile(ctx context.Context, isRunning func(sessionID string
 			action = EventLeaseExpired
 			reason = "lease expired"
 		}
-		if _, err := s.Release(ctx, job.ID, "", reason); err != nil {
+		if _, err := s.ReleaseWithClass(ctx, job.ID, "", reason, FailureInfra); err != nil {
 			continue
 		}
-		_ = s.recordEvent(ctx, job.ID, action, reason, job.AssignedSessionID)
+		if action != EventLeaseExpired {
+			_ = s.recordEvent(ctx, job.ID, action, reason, job.AssignedSessionID)
+		}
 		released++
 	}
 	return released, nil

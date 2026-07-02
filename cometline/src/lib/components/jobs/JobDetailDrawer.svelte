@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { fly, fade } from 'svelte/transition';
 	import { onMount } from 'svelte';
-	import { Archive, RotateCcw, X, Trash2, Play, ExternalLink } from '@lucide/svelte';
+	import { Archive, RotateCcw, X, Trash2, Play, ExternalLink, RefreshCw } from '@lucide/svelte';
 	import { getSession, type JobEventResource, type JobResource } from '$lib/client/cometmind';
 	import { navigateToSession } from '$lib/actions/navigate-to-session';
 	import JobCreateForm from './JobCreateForm.svelte';
@@ -27,6 +27,7 @@
 		onDelete,
 		onArchive,
 		onUnarchive,
+		onRetry,
 		onCreate,
 		onStartInChat
 	}: {
@@ -46,6 +47,7 @@
 		onDelete?: (job: JobResource) => void | Promise<void>;
 		onArchive?: (job: JobResource) => void | Promise<void>;
 		onUnarchive?: (job: JobResource) => void | Promise<void>;
+		onRetry?: (job: JobResource) => void | Promise<void>;
 		onCreate?: () => void | Promise<void>;
 		onStartInChat?: (job: JobResource) => void | Promise<void>;
 	} = $props();
@@ -55,6 +57,7 @@
 	let openingSession = $state(false);
 	let openSessionError = $state('');
 	const isArchived = $derived(job?.archived_at != null);
+	const isBlocked = $derived(job?.status === 'blocked');
 
 	onMount(() => {
 		function onKeydown(event: KeyboardEvent) {
@@ -98,6 +101,15 @@
 			openingSession = false;
 		}
 	}
+
+	function formatRetryTime(ms?: number): string {
+		if (!ms) return 'not scheduled';
+		return new Intl.DateTimeFormat(undefined, {
+			hour: '2-digit',
+			minute: '2-digit',
+			second: '2-digit'
+		}).format(new Date(ms));
+	}
 </script>
 
 <button
@@ -130,6 +142,12 @@
 		{:else if job}
 			<div class="drawer-meta">
 				<p><span>Status</span> {job.status}</p>
+				{#if job.failure_count > 0}
+					<p><span>Failures</span> {job.failure_count}</p>
+				{/if}
+				{#if job.next_retry_at}
+					<p><span>Next retry</span> {formatRetryTime(job.next_retry_at)}</p>
+				{/if}
 				{#if job.assigned_session_id}
 					<p><span>Assigned</span> <code>{job.assigned_session_id}</code></p>
 				{/if}
@@ -137,6 +155,19 @@
 					<p><span>Workspace</span> <code>{job.workspace_path}</code></p>
 				{/if}
 			</div>
+
+			{#if isBlocked}
+				<section class="drawer-section blocked-section">
+					<h3>Blocked</h3>
+					<p class="drawer-copy">
+						This job reached the retry limit. Review the latest failure, then retry it
+						when the underlying issue is fixed.
+					</p>
+					{#if job.last_failure_reason}
+						<pre class="drawer-pre">{job.last_failure_reason}</pre>
+					{/if}
+				</section>
+			{/if}
 
 			{#if job.progress?.trim()}
 				<section class="drawer-section">
@@ -238,6 +269,17 @@
 				>
 					<Play size={14} />
 					Start in chat
+				</button>
+			{/if}
+			{#if isBlocked && !isArchived}
+				<button
+					type="button"
+					class="primary"
+					disabled={saving || starting || openingSession}
+					onclick={() => void onRetry?.(job)}
+				>
+					<RefreshCw size={14} />
+					Retry now
 				</button>
 			{/if}
 			{#if job.status === 'done' && !isArchived}

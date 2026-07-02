@@ -132,6 +132,7 @@ export interface CometMindJobsNotificationSettings {
 	onClaimed: boolean;
 	onCompleted: boolean;
 	onReleased: boolean;
+	onBlocked: boolean;
 }
 
 export interface CometMindJobsSettings {
@@ -140,6 +141,9 @@ export interface CometMindJobsSettings {
 	deletedPurgeDays: number;
 	archivedPurgeDays: number;
 	staleReviewMinutes: number;
+	maxConsecutiveFailures: number;
+	retryCooldownMinutes: number;
+	maxRetryCooldownMinutes: number;
 	reconcileIntervalSeconds: number;
 }
 
@@ -401,12 +405,16 @@ export function defaultCometMindJobsSettings(): CometMindJobsSettings {
 			enabled: true,
 			onClaimed: true,
 			onCompleted: true,
-			onReleased: false
+			onReleased: false,
+			onBlocked: true
 		},
 		leaseMinutes: 30,
 		deletedPurgeDays: 30,
 		archivedPurgeDays: 30,
 		staleReviewMinutes: 30,
+		maxConsecutiveFailures: 3,
+		retryCooldownMinutes: 5,
+		maxRetryCooldownMinutes: 60,
 		reconcileIntervalSeconds: 120
 	};
 }
@@ -611,7 +619,11 @@ export function normalizeCometMindSettings(
 				onReleased:
 					typeof jobsNotifications.onReleased === 'boolean'
 						? jobsNotifications.onReleased
-						: jobsDefaults.notifications.onReleased
+						: jobsDefaults.notifications.onReleased,
+				onBlocked:
+					typeof jobsNotifications.onBlocked === 'boolean'
+						? jobsNotifications.onBlocked
+						: jobsDefaults.notifications.onBlocked
 			},
 			leaseMinutes: normalizePositiveInt(jobsInput.leaseMinutes, jobsDefaults.leaseMinutes),
 			deletedPurgeDays: normalizeNonNegativeInt(
@@ -625,6 +637,18 @@ export function normalizeCometMindSettings(
 			staleReviewMinutes: normalizePositiveInt(
 				jobsInput.staleReviewMinutes,
 				jobsDefaults.staleReviewMinutes
+			),
+			maxConsecutiveFailures: normalizePositiveInt(
+				jobsInput.maxConsecutiveFailures,
+				jobsDefaults.maxConsecutiveFailures
+			),
+			retryCooldownMinutes: normalizePositiveInt(
+				jobsInput.retryCooldownMinutes,
+				jobsDefaults.retryCooldownMinutes
+			),
+			maxRetryCooldownMinutes: normalizePositiveInt(
+				jobsInput.maxRetryCooldownMinutes,
+				jobsDefaults.maxRetryCooldownMinutes
 			),
 			reconcileIntervalSeconds: normalizePositiveInt(
 				jobsInput.reconcileIntervalSeconds,
@@ -1159,12 +1183,16 @@ const providerSettingsSchema = z.object({
 				enabled: z.boolean(),
 				onClaimed: z.boolean(),
 				onCompleted: z.boolean(),
-				onReleased: z.boolean()
+				onReleased: z.boolean(),
+				onBlocked: z.boolean()
 			}),
 			leaseMinutes: z.number().int().positive(),
 			deletedPurgeDays: z.number().int().min(0),
 			archivedPurgeDays: z.number().int().min(0),
 			staleReviewMinutes: z.number().int().positive(),
+			maxConsecutiveFailures: z.number().int().positive(),
+			retryCooldownMinutes: z.number().int().positive(),
+			maxRetryCooldownMinutes: z.number().int().positive(),
 			reconcileIntervalSeconds: z.number().int().positive()
 		})
 	})

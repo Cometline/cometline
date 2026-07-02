@@ -11,7 +11,7 @@ export function sortJobs(jobs: JobResource[]): JobResource[] {
 export function groupJobsByColumn(jobs: JobResource[]): GroupedJobs {
 	const active = jobs.filter((job) => !job.deleted_at && !job.archived_at);
 	return {
-		todo: sortJobs(active.filter((job) => job.status === 'todo')),
+		todo: sortJobs(active.filter((job) => job.status === 'todo' || job.status === 'blocked')),
 		ongoing: sortJobs(active.filter((job) => job.status === 'ongoing')),
 		done: sortJobs(active.filter((job) => job.status === 'done'))
 	};

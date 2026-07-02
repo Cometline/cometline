@@ -95,6 +95,7 @@ type cometlineJobsNotificationsJSON struct {
 	OnClaimed   bool `json:"onClaimed"`
 	OnCompleted bool `json:"onCompleted"`
 	OnReleased  bool `json:"onReleased"`
+	OnBlocked   bool `json:"onBlocked"`
 }
 
 type cometlineJobsJSON struct {
@@ -103,6 +104,9 @@ type cometlineJobsJSON struct {
 	DeletedPurgeDays         int                            `json:"deletedPurgeDays"`
 	ArchivedPurgeDays        int                            `json:"archivedPurgeDays"`
 	StaleReviewMinutes       int                            `json:"staleReviewMinutes"`
+	MaxConsecutiveFailures   int                            `json:"maxConsecutiveFailures"`
+	RetryCooldownMinutes     int                            `json:"retryCooldownMinutes"`
+	MaxRetryCooldownMinutes  int                            `json:"maxRetryCooldownMinutes"`
 	ReconcileIntervalSeconds int                            `json:"reconcileIntervalSeconds"`
 }
 
@@ -262,11 +266,15 @@ func adaptCometlineSettings(raw cometlineSettingsJSON) (*Config, error) {
 				OnClaimed:   cm.Jobs.Notifications.OnClaimed,
 				OnCompleted: cm.Jobs.Notifications.OnCompleted,
 				OnReleased:  cm.Jobs.Notifications.OnReleased,
+				OnBlocked:   cm.Jobs.Notifications.OnBlocked,
 			},
 			LeaseMinutes:             cm.Jobs.LeaseMinutes,
 			DeletedPurgeDays:         cm.Jobs.DeletedPurgeDays,
 			ArchivedPurgeDays:        cm.Jobs.ArchivedPurgeDays,
 			StaleReviewMinutes:       cm.Jobs.StaleReviewMinutes,
+			MaxConsecutiveFailures:   cm.Jobs.MaxConsecutiveFailures,
+			RetryCooldownMinutes:     cm.Jobs.RetryCooldownMinutes,
+			MaxRetryCooldownMinutes:  cm.Jobs.MaxRetryCooldownMinutes,
 			ReconcileIntervalSeconds: cm.Jobs.ReconcileIntervalSeconds,
 		},
 		Autonomy: AutonomousJobsConfig{

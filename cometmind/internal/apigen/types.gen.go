@@ -36,6 +36,7 @@ func (e ImageAttachmentMediaType) Valid() bool {
 
 // Defines values for JobResourceStatus.
 const (
+	JobResourceStatusBlocked JobResourceStatus = "blocked"
 	JobResourceStatusDone    JobResourceStatus = "done"
 	JobResourceStatusOngoing JobResourceStatus = "ongoing"
 	JobResourceStatusTodo    JobResourceStatus = "todo"
@@ -44,6 +45,8 @@ const (
 // Valid indicates whether the value is a known member of the JobResourceStatus enum.
 func (e JobResourceStatus) Valid() bool {
 	switch e {
+	case JobResourceStatusBlocked:
+		return true
 	case JobResourceStatusDone:
 		return true
 	case JobResourceStatusOngoing:
@@ -291,6 +294,7 @@ func (e WorkspaceFileTextContentKind) Valid() bool {
 
 // Defines values for ListJobsParamsStatus.
 const (
+	ListJobsParamsStatusBlocked ListJobsParamsStatus = "blocked"
 	ListJobsParamsStatusDone    ListJobsParamsStatus = "done"
 	ListJobsParamsStatusOngoing ListJobsParamsStatus = "ongoing"
 	ListJobsParamsStatusTodo    ListJobsParamsStatus = "todo"
@@ -299,6 +303,8 @@ const (
 // Valid indicates whether the value is a known member of the ListJobsParamsStatus enum.
 func (e ListJobsParamsStatus) Valid() bool {
 	switch e {
+	case ListJobsParamsStatusBlocked:
+		return true
 	case ListJobsParamsStatusDone:
 		return true
 	case ListJobsParamsStatusOngoing:
@@ -429,6 +435,7 @@ type JobEventResource struct {
 // JobNotificationSettings defines model for JobNotificationSettings.
 type JobNotificationSettings struct {
 	Enabled     *bool `json:"enabled,omitempty"`
+	OnBlocked   *bool `json:"on_blocked,omitempty"`
 	OnClaimed   *bool `json:"on_claimed,omitempty"`
 	OnCompleted *bool `json:"on_completed,omitempty"`
 	OnReleased  *bool `json:"on_released,omitempty"`
@@ -449,8 +456,11 @@ type JobResource struct {
 	DefinitionOfDone  string            `json:"definition_of_done"`
 	DeletedAt         *int64            `json:"deleted_at,omitempty"`
 	Description       string            `json:"description"`
+	FailureCount      int64             `json:"failure_count"`
 	Id                string            `json:"id"`
+	LastFailureReason *string           `json:"last_failure_reason,omitempty"`
 	LeaseExpiresAt    *int64            `json:"lease_expires_at,omitempty"`
+	NextRetryAt       *int64            `json:"next_retry_at,omitempty"`
 	Progress          string            `json:"progress"`
 	SourceChannelId   *string           `json:"source_channel_id,omitempty"`
 	SourcePlatform    *string           `json:"source_platform,omitempty"`
@@ -473,8 +483,11 @@ type JobSettings struct {
 	ArchivedPurgeDays        *int                     `json:"archived_purge_days,omitempty"`
 	DeletedPurgeDays         *int                     `json:"deleted_purge_days,omitempty"`
 	LeaseMinutes             *int                     `json:"lease_minutes,omitempty"`
+	MaxConsecutiveFailures   *int                     `json:"max_consecutive_failures,omitempty"`
+	MaxRetryCooldownMinutes  *int                     `json:"max_retry_cooldown_minutes,omitempty"`
 	Notifications            *JobNotificationSettings `json:"notifications,omitempty"`
 	ReconcileIntervalSeconds *int                     `json:"reconcile_interval_seconds,omitempty"`
+	RetryCooldownMinutes     *int                     `json:"retry_cooldown_minutes,omitempty"`
 	StaleReviewMinutes       *int                     `json:"stale_review_minutes,omitempty"`
 }
 

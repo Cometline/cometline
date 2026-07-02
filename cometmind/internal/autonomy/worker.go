@@ -153,14 +153,14 @@ func (w *Worker) runJob(ctx context.Context, job jobs.Job) {
 	prompt := jobs.ExecutionPrompt(claimed)
 	if _, err := w.Sessions.AppendUserMessage(runCtx, sess.ID, prompt); err != nil {
 		log.Printf("autonomy: seed prompt for job %s: %v", claimed.ID, err)
-		_, _ = w.Jobs.Release(runCtx, claimed.ID, sess.ID, "worker: failed to seed execution prompt")
+		_, _ = w.Jobs.ReleaseWithClass(runCtx, claimed.ID, sess.ID, "worker: failed to seed execution prompt", jobs.FailureWorkerError)
 		return
 	}
 
 	runner, err := w.NewRunner(sess, ws.Path)
 	if err != nil {
 		log.Printf("autonomy: build runner for job %s: %v", claimed.ID, err)
-		_, _ = w.Jobs.Release(runCtx, claimed.ID, sess.ID, "worker: failed to build runner")
+		_, _ = w.Jobs.ReleaseWithClass(runCtx, claimed.ID, sess.ID, "worker: failed to build runner", jobs.FailureWorkerError)
 		return
 	}
 
@@ -197,7 +197,7 @@ func (w *Worker) finalizeJob(ctx context.Context, job jobs.Job, sess session.Ses
 		if runErr != nil {
 			reason = fmt.Sprintf("worker: run ended with error: %v", runErr)
 		}
-		if _, err := w.Jobs.Release(ctx, job.ID, sess.ID, reason); err != nil {
+		if _, err := w.Jobs.ReleaseWithClass(ctx, job.ID, sess.ID, reason, jobs.FailureWorkerError); err != nil {
 			log.Printf("autonomy: release job %s after run: %v", job.ID, err)
 		}
 	}
