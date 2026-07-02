@@ -9,7 +9,7 @@ export function sortJobs(jobs: JobResource[]): JobResource[] {
 }
 
 export function groupJobsByColumn(jobs: JobResource[]): GroupedJobs {
-	const active = jobs.filter((job) => !job.deleted_at);
+	const active = jobs.filter((job) => !job.deleted_at && !job.archived_at);
 	return {
 		todo: sortJobs(active.filter((job) => job.status === 'todo')),
 		ongoing: sortJobs(active.filter((job) => job.status === 'ongoing')),
@@ -30,7 +30,7 @@ export function filterGroupedByStatus(
 }
 
 export function filterArchivedJobs(jobs: JobResource[]): JobResource[] {
-	return sortJobs(jobs.filter((job) => job.deleted_at != null));
+	return sortJobs(jobs.filter((job) => job.archived_at != null && job.deleted_at == null));
 }
 
 export function truncateWorkspacePath(path: string, maxLength = 28): string {

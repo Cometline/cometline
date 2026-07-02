@@ -442,6 +442,7 @@ type JobReleaseRequest struct {
 
 // JobResource defines model for JobResource.
 type JobResource struct {
+	ArchivedAt        *int64            `json:"archived_at,omitempty"`
 	AssignedSessionId *string           `json:"assigned_session_id,omitempty"`
 	CreatedAt         int64             `json:"created_at"`
 	CreatedBy         string            `json:"created_by"`
@@ -469,10 +470,12 @@ type JobSessionRequest struct {
 
 // JobSettings defines model for JobSettings.
 type JobSettings struct {
+	ArchivedPurgeDays        *int                     `json:"archived_purge_days,omitempty"`
 	DeletedPurgeDays         *int                     `json:"deleted_purge_days,omitempty"`
 	LeaseMinutes             *int                     `json:"lease_minutes,omitempty"`
 	Notifications            *JobNotificationSettings `json:"notifications,omitempty"`
 	ReconcileIntervalSeconds *int                     `json:"reconcile_interval_seconds,omitempty"`
+	StaleReviewMinutes       *int                     `json:"stale_review_minutes,omitempty"`
 }
 
 // ListJobEventsResponse defines model for ListJobEventsResponse.
@@ -1022,9 +1025,10 @@ type NotFound = ErrorResponse
 
 // ListJobsParams defines parameters for ListJobs.
 type ListJobsParams struct {
-	Status         *ListJobsParamsStatus `form:"status,omitempty" json:"status,omitempty"`
-	ReadyOnly      *bool                 `form:"ready_only,omitempty" json:"ready_only,omitempty"`
-	IncludeDeleted *bool                 `form:"include_deleted,omitempty" json:"include_deleted,omitempty"`
+	Status          *ListJobsParamsStatus `form:"status,omitempty" json:"status,omitempty"`
+	ReadyOnly       *bool                 `form:"ready_only,omitempty" json:"ready_only,omitempty"`
+	IncludeDeleted  *bool                 `form:"include_deleted,omitempty" json:"include_deleted,omitempty"`
+	IncludeArchived *bool                 `form:"include_archived,omitempty" json:"include_archived,omitempty"`
 }
 
 // ListJobsParamsStatus defines parameters for ListJobs.

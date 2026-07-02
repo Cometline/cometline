@@ -175,6 +175,8 @@ declare global {
 		notifications: CometMindJobsNotificationSettings;
 		leaseMinutes: number;
 		deletedPurgeDays: number;
+		archivedPurgeDays: number;
+		staleReviewMinutes: number;
 		reconcileIntervalSeconds: number;
 	}
 
@@ -304,7 +306,10 @@ declare global {
 			) => Promise<FetchProviderModelsResult | string[]>;
 			saveProviderSettings?: (
 				settings: ProviderSettings,
-				options?: { runtimeAction?: 'none' | 'reload' | 'restart'; restartCometMind?: boolean }
+				options?: {
+					runtimeAction?: 'none' | 'reload' | 'restart';
+					restartCometMind?: boolean;
+				}
 			) => Promise<ProviderSettings>;
 			exportProviderSettings?: () => Promise<SettingsFileResult>;
 			importProviderSettings?: () => Promise<SettingsFileResult>;

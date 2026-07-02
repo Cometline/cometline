@@ -166,6 +166,7 @@ CREATE TABLE jobs (
     source_platform     TEXT NOT NULL DEFAULT ''
                         CHECK (source_platform IN ('', 'desktop', 'discord')),
     source_channel_id   TEXT,
+    archived_at         INTEGER,
     deleted_at          INTEGER,
     created_at          INTEGER NOT NULL DEFAULT (unixepoch ('now', 'subsec') * 1000),
     updated_at          INTEGER NOT NULL DEFAULT (unixepoch ('now', 'subsec') * 1000)
@@ -176,6 +177,8 @@ CREATE INDEX idx_jobs_status_updated ON jobs (status, updated_at ASC);
 CREATE INDEX idx_jobs_assigned_session ON jobs (assigned_session_id);
 
 CREATE INDEX idx_jobs_deleted_at ON jobs (deleted_at);
+
+CREATE INDEX idx_jobs_archived_at ON jobs (archived_at);
 
 CREATE TABLE job_events (
     id                TEXT PRIMARY KEY,

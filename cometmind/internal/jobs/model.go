@@ -15,14 +15,17 @@ const (
 	PlatformDesktop = "desktop"
 	PlatformDiscord = "discord"
 
-	DefaultLeaseMinutes      = 30
-	DefaultReconcileInterval = 2 * time.Minute
+	DefaultLeaseMinutes       = 30
+	DefaultReconcileInterval  = 2 * time.Minute
+	DefaultStaleReviewMinutes = 30
 
 	EventCreated      = "created"
 	EventClaimed      = "claimed"
 	EventReleased     = "released"
 	EventCompleted    = "completed"
 	EventUpdated      = "updated"
+	EventArchived     = "archived"
+	EventUnarchived   = "unarchived"
 	EventDeleted      = "deleted"
 	EventLeaseExpired = "lease_expired"
 	EventNotified     = "notified"
@@ -42,6 +45,7 @@ type Job struct {
 	SourceSessionID   string
 	SourcePlatform    string
 	SourceChannelID   string
+	ArchivedAt        *int64
 	DeletedAt         *int64
 	CreatedAt         int64
 	UpdatedAt         int64
@@ -77,7 +81,8 @@ type UpdateTodoInput struct {
 
 // ListFilter filters job listings.
 type ListFilter struct {
-	Status         string
-	ReadyOnly      bool
-	IncludeDeleted bool
+	Status          string
+	ReadyOnly       bool
+	IncludeDeleted  bool
+	IncludeArchived bool
 }

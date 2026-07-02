@@ -2,11 +2,13 @@
 	import { LoaderCircle, RefreshCw } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import {
+		archiveJob,
 		createJob,
 		deleteJob,
 		listJobEvents,
 		listJobs,
 		updateJob,
+		unarchiveJob,
 		type JobEventResource,
 		type JobResource
 	} from '$lib/client/cometmind';
@@ -84,7 +86,7 @@
 		else refreshing = true;
 		error = '';
 		try {
-			const res = await listJobs({ include_deleted: true });
+			const res = await listJobs({ include_deleted: true, include_archived: true });
 			applyJobs(res.jobs ?? []);
 			if (selectedJob) {
 				const refreshed =
@@ -181,6 +183,33 @@
 			await loadJobs({ silent: true });
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to delete job';
+		}
+	}
+
+	async function handleArchive(job: JobResource) {
+		if (!confirm(`Archive "${truncateJobLabel(job.description)}"?`)) return;
+		saving = true;
+		error = '';
+		try {
+			selectedJob = await archiveJob(job.id);
+			await loadJobs({ silent: true });
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Failed to archive job';
+		} finally {
+			saving = false;
+		}
+	}
+
+	async function handleUnarchive(job: JobResource) {
+		saving = true;
+		error = '';
+		try {
+			selectedJob = await unarchiveJob(job.id);
+			await loadJobs({ silent: true });
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Failed to unarchive job';
+		} finally {
+			saving = false;
 		}
 	}
 
@@ -322,8 +351,8 @@
 
 				{#if activeJobs.length === 0}
 					<p class="observer-empty">
-						No jobs are running. When autonomous pickup or a chat session claims a ready job, it
-						will appear here within {Math.round(OBSERVER_REFRESH_MS / 1_000)} seconds.
+						No jobs are running. When autonomous pickup or a chat session claims a ready
+						job, it will appear here within {Math.round(OBSERVER_REFRESH_MS / 1_000)} seconds.
 					</p>
 				{:else}
 					<div class="observer-list">
@@ -379,6 +408,8 @@
 		onClose={closeDrawer}
 		onSave={handleSave}
 		onDelete={handleDelete}
+		onArchive={handleArchive}
+		onUnarchive={handleUnarchive}
 		onCreate={handleCreate}
 	/>
 {/if}

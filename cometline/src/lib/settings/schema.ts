@@ -138,6 +138,8 @@ export interface CometMindJobsSettings {
 	notifications: CometMindJobsNotificationSettings;
 	leaseMinutes: number;
 	deletedPurgeDays: number;
+	archivedPurgeDays: number;
+	staleReviewMinutes: number;
 	reconcileIntervalSeconds: number;
 }
 
@@ -403,6 +405,8 @@ export function defaultCometMindJobsSettings(): CometMindJobsSettings {
 		},
 		leaseMinutes: 30,
 		deletedPurgeDays: 30,
+		archivedPurgeDays: 30,
+		staleReviewMinutes: 30,
 		reconcileIntervalSeconds: 120
 	};
 }
@@ -613,6 +617,14 @@ export function normalizeCometMindSettings(
 			deletedPurgeDays: normalizeNonNegativeInt(
 				jobsInput.deletedPurgeDays,
 				jobsDefaults.deletedPurgeDays
+			),
+			archivedPurgeDays: normalizeNonNegativeInt(
+				jobsInput.archivedPurgeDays,
+				jobsDefaults.archivedPurgeDays
+			),
+			staleReviewMinutes: normalizePositiveInt(
+				jobsInput.staleReviewMinutes,
+				jobsDefaults.staleReviewMinutes
 			),
 			reconcileIntervalSeconds: normalizePositiveInt(
 				jobsInput.reconcileIntervalSeconds,
@@ -1151,6 +1163,8 @@ const providerSettingsSchema = z.object({
 			}),
 			leaseMinutes: z.number().int().positive(),
 			deletedPurgeDays: z.number().int().min(0),
+			archivedPurgeDays: z.number().int().min(0),
+			staleReviewMinutes: z.number().int().positive(),
 			reconcileIntervalSeconds: z.number().int().positive()
 		})
 	})

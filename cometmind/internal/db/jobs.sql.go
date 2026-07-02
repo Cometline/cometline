@@ -10,6 +10,33 @@ import (
 	"database/sql"
 )
 
+const archiveJob = `-- name: ArchiveJob :execrows
+UPDATE jobs
+SET
+    archived_at = ?,
+    assigned_session_id = NULL,
+    lease_expires_at = NULL,
+    updated_at = ?
+WHERE id = ?
+  AND status = 'done'
+  AND deleted_at IS NULL
+  AND archived_at IS NULL
+`
+
+type ArchiveJobParams struct {
+	ArchivedAt sql.NullInt64 `json:"archived_at"`
+	UpdatedAt  int64         `json:"updated_at"`
+	ID         string        `json:"id"`
+}
+
+func (q *Queries) ArchiveJob(ctx context.Context, arg ArchiveJobParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, archiveJob, arg.ArchivedAt, arg.UpdatedAt, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const claimJob = `-- name: ClaimJob :execrows
 UPDATE jobs
 SET
@@ -20,6 +47,7 @@ SET
 WHERE id = ?
   AND status = 'todo'
   AND deleted_at IS NULL
+  AND archived_at IS NULL
   AND assigned_session_id IS NULL
 `
 
@@ -53,6 +81,7 @@ SET
 WHERE id = ?
   AND status = 'ongoing'
   AND deleted_at IS NULL
+  AND archived_at IS NULL
 `
 
 type CompleteJobParams struct {
@@ -69,7 +98,7 @@ func (q *Queries) CompleteJob(ctx context.Context, arg CompleteJobParams) (int64
 }
 
 const getJob = `-- name: GetJob :one
-SELECT id, description, definition_of_done, progress, status, workspace_path, assigned_session_id, lease_expires_at, created_by, source_session_id, source_platform, source_channel_id, deleted_at, created_at, updated_at
+SELECT id, description, definition_of_done, progress, status, workspace_path, assigned_session_id, lease_expires_at, created_by, source_session_id, source_platform, source_channel_id, archived_at, deleted_at, created_at, updated_at
 FROM jobs
 WHERE id = ?
 `
@@ -90,6 +119,7 @@ func (q *Queries) GetJob(ctx context.Context, id string) (Job, error) {
 		&i.SourceSessionID,
 		&i.SourcePlatform,
 		&i.SourceChannelID,
+		&i.ArchivedAt,
 		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -98,11 +128,12 @@ func (q *Queries) GetJob(ctx context.Context, id string) (Job, error) {
 }
 
 const getJobByAssignedSession = `-- name: GetJobByAssignedSession :one
-SELECT id, description, definition_of_done, progress, status, workspace_path, assigned_session_id, lease_expires_at, created_by, source_session_id, source_platform, source_channel_id, deleted_at, created_at, updated_at
+SELECT id, description, definition_of_done, progress, status, workspace_path, assigned_session_id, lease_expires_at, created_by, source_session_id, source_platform, source_channel_id, archived_at, deleted_at, created_at, updated_at
 FROM jobs
 WHERE assigned_session_id = ?
   AND status = 'ongoing'
   AND deleted_at IS NULL
+  AND archived_at IS NULL
 LIMIT 1
 `
 
@@ -122,6 +153,7 @@ func (q *Queries) GetJobByAssignedSession(ctx context.Context, assignedSessionID
 		&i.SourceSessionID,
 		&i.SourcePlatform,
 		&i.SourceChannelID,
+		&i.ArchivedAt,
 		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -148,6 +180,7 @@ WHERE id = ?
   AND status = 'ongoing'
   AND assigned_session_id = ?
   AND deleted_at IS NULL
+  AND archived_at IS NULL
 `
 
 type HeartbeatJobParams struct {
@@ -184,11 +217,12 @@ INSERT INTO jobs (
     source_session_id,
     source_platform,
     source_channel_id,
+    archived_at,
     deleted_at,
     created_at,
     updated_at
 ) VALUES (
-    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
 )
 `
 
@@ -205,6 +239,7 @@ type InsertJobParams struct {
 	SourceSessionID   sql.NullString `json:"source_session_id"`
 	SourcePlatform    string         `json:"source_platform"`
 	SourceChannelID   sql.NullString `json:"source_channel_id"`
+	ArchivedAt        sql.NullInt64  `json:"archived_at"`
 	DeletedAt         sql.NullInt64  `json:"deleted_at"`
 	CreatedAt         int64          `json:"created_at"`
 	UpdatedAt         int64          `json:"updated_at"`
@@ -224,6 +259,7 @@ func (q *Queries) InsertJob(ctx context.Context, arg InsertJobParams) error {
 		arg.SourceSessionID,
 		arg.SourcePlatform,
 		arg.SourceChannelID,
+		arg.ArchivedAt,
 		arg.DeletedAt,
 		arg.CreatedAt,
 		arg.UpdatedAt,
@@ -261,6 +297,37 @@ func (q *Queries) InsertJobEvent(ctx context.Context, arg InsertJobEventParams) 
 		arg.CreatedAt,
 	)
 	return err
+}
+
+const listArchivedJobsBefore = `-- name: ListArchivedJobsBefore :many
+SELECT id
+FROM jobs
+WHERE deleted_at IS NULL
+  AND archived_at IS NOT NULL
+  AND archived_at < ?
+`
+
+func (q *Queries) ListArchivedJobsBefore(ctx context.Context, archivedAt sql.NullInt64) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listArchivedJobsBefore, archivedAt)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listDeletedJobsBefore = `-- name: ListDeletedJobsBefore :many
@@ -331,20 +398,22 @@ func (q *Queries) ListJobEvents(ctx context.Context, jobID string) ([]JobEvent, 
 }
 
 const listJobs = `-- name: ListJobs :many
-SELECT id, description, definition_of_done, progress, status, workspace_path, assigned_session_id, lease_expires_at, created_by, source_session_id, source_platform, source_channel_id, deleted_at, created_at, updated_at
+SELECT id, description, definition_of_done, progress, status, workspace_path, assigned_session_id, lease_expires_at, created_by, source_session_id, source_platform, source_channel_id, archived_at, deleted_at, created_at, updated_at
 FROM jobs
 WHERE (?1 = 1 OR deleted_at IS NULL)
-  AND (?2 IS NULL OR status = ?2)
+  AND (?2 = 1 OR archived_at IS NULL)
+  AND (?3 IS NULL OR status = ?3)
 ORDER BY updated_at ASC
 `
 
 type ListJobsParams struct {
-	IncludeDeleted interface{} `json:"include_deleted"`
-	Status         interface{} `json:"status"`
+	IncludeDeleted  interface{} `json:"include_deleted"`
+	IncludeArchived interface{} `json:"include_archived"`
+	Status          interface{} `json:"status"`
 }
 
 func (q *Queries) ListJobs(ctx context.Context, arg ListJobsParams) ([]Job, error) {
-	rows, err := q.db.QueryContext(ctx, listJobs, arg.IncludeDeleted, arg.Status)
+	rows, err := q.db.QueryContext(ctx, listJobs, arg.IncludeDeleted, arg.IncludeArchived, arg.Status)
 	if err != nil {
 		return nil, err
 	}
@@ -365,6 +434,7 @@ func (q *Queries) ListJobs(ctx context.Context, arg ListJobsParams) ([]Job, erro
 			&i.SourceSessionID,
 			&i.SourcePlatform,
 			&i.SourceChannelID,
+			&i.ArchivedAt,
 			&i.DeletedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -383,9 +453,10 @@ func (q *Queries) ListJobs(ctx context.Context, arg ListJobsParams) ([]Job, erro
 }
 
 const listOngoingJobs = `-- name: ListOngoingJobs :many
-SELECT id, description, definition_of_done, progress, status, workspace_path, assigned_session_id, lease_expires_at, created_by, source_session_id, source_platform, source_channel_id, deleted_at, created_at, updated_at
+SELECT id, description, definition_of_done, progress, status, workspace_path, assigned_session_id, lease_expires_at, created_by, source_session_id, source_platform, source_channel_id, archived_at, deleted_at, created_at, updated_at
 FROM jobs
 WHERE deleted_at IS NULL
+  AND archived_at IS NULL
   AND status = 'ongoing'
 `
 
@@ -411,6 +482,7 @@ func (q *Queries) ListOngoingJobs(ctx context.Context) ([]Job, error) {
 			&i.SourceSessionID,
 			&i.SourcePlatform,
 			&i.SourceChannelID,
+			&i.ArchivedAt,
 			&i.DeletedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -429,9 +501,10 @@ func (q *Queries) ListOngoingJobs(ctx context.Context) ([]Job, error) {
 }
 
 const listReadyJobs = `-- name: ListReadyJobs :many
-SELECT id, description, definition_of_done, progress, status, workspace_path, assigned_session_id, lease_expires_at, created_by, source_session_id, source_platform, source_channel_id, deleted_at, created_at, updated_at
+SELECT id, description, definition_of_done, progress, status, workspace_path, assigned_session_id, lease_expires_at, created_by, source_session_id, source_platform, source_channel_id, archived_at, deleted_at, created_at, updated_at
 FROM jobs
 WHERE deleted_at IS NULL
+  AND archived_at IS NULL
   AND status = 'todo'
 ORDER BY updated_at ASC
 `
@@ -458,6 +531,7 @@ func (q *Queries) ListReadyJobs(ctx context.Context) ([]Job, error) {
 			&i.SourceSessionID,
 			&i.SourcePlatform,
 			&i.SourceChannelID,
+			&i.ArchivedAt,
 			&i.DeletedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -485,6 +559,7 @@ SET
 WHERE id = ?
   AND status = 'ongoing'
   AND deleted_at IS NULL
+  AND archived_at IS NULL
 `
 
 type ReleaseJobParams struct {
@@ -504,6 +579,7 @@ const softDeleteJob = `-- name: SoftDeleteJob :execrows
 UPDATE jobs
 SET
     deleted_at = ?,
+    archived_at = NULL,
     assigned_session_id = NULL,
     lease_expires_at = NULL,
     status = CASE WHEN status = 'ongoing' THEN 'todo' ELSE status END,
@@ -526,6 +602,29 @@ func (q *Queries) SoftDeleteJob(ctx context.Context, arg SoftDeleteJobParams) (i
 	return result.RowsAffected()
 }
 
+const unarchiveJob = `-- name: UnarchiveJob :execrows
+UPDATE jobs
+SET
+    archived_at = NULL,
+    updated_at = ?
+WHERE id = ?
+  AND deleted_at IS NULL
+  AND archived_at IS NOT NULL
+`
+
+type UnarchiveJobParams struct {
+	UpdatedAt int64  `json:"updated_at"`
+	ID        string `json:"id"`
+}
+
+func (q *Queries) UnarchiveJob(ctx context.Context, arg UnarchiveJobParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, unarchiveJob, arg.UpdatedAt, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const updateJobProgress = `-- name: UpdateJobProgress :execrows
 UPDATE jobs
 SET
@@ -534,6 +633,7 @@ SET
 WHERE id = ?
   AND status = 'ongoing'
   AND deleted_at IS NULL
+  AND archived_at IS NULL
 `
 
 type UpdateJobProgressParams struct {
@@ -560,6 +660,7 @@ SET
 WHERE id = ?
   AND status = 'todo'
   AND deleted_at IS NULL
+  AND archived_at IS NULL
 `
 
 type UpdateJobTodoFieldsParams struct {

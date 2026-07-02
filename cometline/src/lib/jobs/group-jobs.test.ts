@@ -31,6 +31,7 @@ describe('groupJobsByColumn', () => {
 			job({ id: 't', status: 'todo' }),
 			job({ id: 'o', status: 'ongoing' }),
 			job({ id: 'd', status: 'done' }),
+			job({ id: 'archived', status: 'done', archived_at: 88 }),
 			job({ id: 'del', status: 'todo', deleted_at: 99 })
 		];
 		const grouped = groupJobsByColumn(jobs);
@@ -41,10 +42,11 @@ describe('groupJobsByColumn', () => {
 });
 
 describe('filterArchivedJobs', () => {
-	it('returns only soft-deleted jobs', () => {
+	it('returns only archived non-deleted jobs', () => {
 		const jobs = [
 			job({ id: 'a', status: 'todo' }),
-			job({ id: 'b', status: 'done', deleted_at: 100 })
+			job({ id: 'b', status: 'done', archived_at: 100 }),
+			job({ id: 'c', status: 'done', archived_at: 100, deleted_at: 101 })
 		];
 		expect(filterArchivedJobs(jobs).map((j) => j.id)).toEqual(['b']);
 	});

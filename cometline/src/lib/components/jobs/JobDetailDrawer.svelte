@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { fly, fade } from 'svelte/transition';
 	import { onMount } from 'svelte';
-	import { X, Trash2, Play, ExternalLink } from '@lucide/svelte';
+	import { Archive, RotateCcw, X, Trash2, Play, ExternalLink } from '@lucide/svelte';
 	import { getSession, type JobEventResource, type JobResource } from '$lib/client/cometmind';
 	import { navigateToSession } from '$lib/actions/navigate-to-session';
 	import JobCreateForm from './JobCreateForm.svelte';
@@ -25,6 +25,8 @@
 		onClose,
 		onSave,
 		onDelete,
+		onArchive,
+		onUnarchive,
 		onCreate,
 		onStartInChat
 	}: {
@@ -42,6 +44,8 @@
 		onClose: () => void;
 		onSave?: () => void | Promise<void>;
 		onDelete?: (job: JobResource) => void | Promise<void>;
+		onArchive?: (job: JobResource) => void | Promise<void>;
+		onUnarchive?: (job: JobResource) => void | Promise<void>;
 		onCreate?: () => void | Promise<void>;
 		onStartInChat?: (job: JobResource) => void | Promise<void>;
 	} = $props();
@@ -50,7 +54,7 @@
 	let startError = $state('');
 	let openingSession = $state(false);
 	let openSessionError = $state('');
-	const isArchived = $derived(job?.deleted_at != null);
+	const isArchived = $derived(job?.archived_at != null);
 
 	onMount(() => {
 		function onKeydown(event: KeyboardEvent) {
@@ -212,7 +216,7 @@
 		{/if}
 	</div>
 
-	{#if mode === 'detail' && job && (job.assigned_session_id || !isArchived)}
+	{#if mode === 'detail' && job}
 		<footer class="drawer-footer">
 			{#if job.assigned_session_id}
 				<button
@@ -225,7 +229,7 @@
 					{openingSession ? 'Opening…' : 'Open run session'}
 				</button>
 			{/if}
-			{#if job.status === 'todo'}
+			{#if job.status === 'todo' && !isArchived}
 				<button
 					type="button"
 					class="primary"
@@ -234,6 +238,28 @@
 				>
 					<Play size={14} />
 					Start in chat
+				</button>
+			{/if}
+			{#if job.status === 'done' && !isArchived}
+				<button
+					type="button"
+					class="secondary"
+					disabled={saving || starting || openingSession}
+					onclick={() => void onArchive?.(job)}
+				>
+					<Archive size={14} />
+					Archive
+				</button>
+			{/if}
+			{#if isArchived}
+				<button
+					type="button"
+					class="secondary"
+					disabled={saving || starting || openingSession}
+					onclick={() => void onUnarchive?.(job)}
+				>
+					<RotateCcw size={14} />
+					Unarchive
 				</button>
 			{/if}
 			{#if !isArchived}

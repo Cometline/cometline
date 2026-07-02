@@ -584,6 +584,7 @@ export type JobResource = {
     source_session_id?: string;
     source_platform?: string;
     source_channel_id?: string;
+    archived_at?: number;
     deleted_at?: number;
     created_at: number;
     updated_at: number;
@@ -647,6 +648,8 @@ export type JobSettings = {
     notifications?: JobNotificationSettings;
     lease_minutes?: number;
     deleted_purge_days?: number;
+    archived_purge_days?: number;
+    stale_review_minutes?: number;
     reconcile_interval_seconds?: number;
 };
 
@@ -2039,6 +2042,7 @@ export type ListJobsData = {
         status?: 'todo' | 'ongoing' | 'done';
         ready_only?: boolean;
         include_deleted?: boolean;
+        include_archived?: boolean;
     };
     url: '/api/v1/jobs';
 };
@@ -2275,6 +2279,76 @@ export type ListJobEventsResponses = {
 };
 
 export type ListJobEventsResponse2 = ListJobEventsResponses[keyof ListJobEventsResponses];
+
+export type UnarchiveJobData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/jobs/{id}/archive';
+};
+
+export type UnarchiveJobErrors = {
+    /**
+     * Resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * State conflict
+     */
+    409: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type UnarchiveJobError = UnarchiveJobErrors[keyof UnarchiveJobErrors];
+
+export type UnarchiveJobResponses = {
+    /**
+     * Unarchived
+     */
+    200: JobResource;
+};
+
+export type UnarchiveJobResponse = UnarchiveJobResponses[keyof UnarchiveJobResponses];
+
+export type ArchiveJobData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/jobs/{id}/archive';
+};
+
+export type ArchiveJobErrors = {
+    /**
+     * Resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * State conflict
+     */
+    409: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type ArchiveJobError = ArchiveJobErrors[keyof ArchiveJobErrors];
+
+export type ArchiveJobResponses = {
+    /**
+     * Archived
+     */
+    200: JobResource;
+};
+
+export type ArchiveJobResponse = ArchiveJobResponses[keyof ArchiveJobResponses];
 
 export type ReleaseJobData = {
     body: JobReleaseRequest;

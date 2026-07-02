@@ -138,3 +138,54 @@ func TestListIncludeDeleted(t *testing.T) {
 		t.Fatalf("withDeleted=%+v", withDeleted)
 	}
 }
+
+func TestArchiveCompletedJobsOnly(t *testing.T) {
+	svc := testJobsService(t)
+	ctx := context.Background()
+
+	job, err := svc.Create(ctx, jobs.CreateInput{Description: "archive me"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Archive(ctx, job.ID); err != jobs.ErrConflict {
+		t.Fatalf("archive todo err=%v want ErrConflict", err)
+	}
+	if _, err := svc.Claim(ctx, job.ID, "sess-1"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Complete(ctx, job.ID, "sess-1", "done"); err != nil {
+		t.Fatal(err)
+	}
+
+	archived, err := svc.Archive(ctx, job.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if archived.ArchivedAt == nil {
+		t.Fatalf("archived_at nil in %+v", archived)
+	}
+
+	active, err := svc.List(ctx, jobs.ListFilter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(active) != 0 {
+		t.Fatalf("active jobs=%d want 0", len(active))
+	}
+
+	withArchived, err := svc.List(ctx, jobs.ListFilter{IncludeArchived: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(withArchived) != 1 || withArchived[0].ArchivedAt == nil {
+		t.Fatalf("withArchived=%+v", withArchived)
+	}
+
+	unarchived, err := svc.Unarchive(ctx, job.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if unarchived.ArchivedAt != nil {
+		t.Fatalf("archived_at=%v want nil", unarchived.ArchivedAt)
+	}
+}

@@ -101,6 +101,8 @@ type cometlineJobsJSON struct {
 	Notifications            cometlineJobsNotificationsJSON `json:"notifications"`
 	LeaseMinutes             int                            `json:"leaseMinutes"`
 	DeletedPurgeDays         int                            `json:"deletedPurgeDays"`
+	ArchivedPurgeDays        int                            `json:"archivedPurgeDays"`
+	StaleReviewMinutes       int                            `json:"staleReviewMinutes"`
 	ReconcileIntervalSeconds int                            `json:"reconcileIntervalSeconds"`
 }
 
@@ -128,9 +130,9 @@ type cometlineCometmindJSON struct {
 	Gateway struct {
 		Discord cometlineDiscordJSON `json:"discord"`
 	} `json:"gateway"`
-	MCP      cometlineMCPJSON       `json:"mcp"`
-	Jobs     cometlineJobsJSON      `json:"jobs"`
-	Autonomy cometlineAutonomyJSON  `json:"autonomy"`
+	MCP      cometlineMCPJSON      `json:"mcp"`
+	Jobs     cometlineJobsJSON     `json:"jobs"`
+	Autonomy cometlineAutonomyJSON `json:"autonomy"`
 }
 
 type cometlineSettingsJSON struct {
@@ -263,6 +265,8 @@ func adaptCometlineSettings(raw cometlineSettingsJSON) (*Config, error) {
 			},
 			LeaseMinutes:             cm.Jobs.LeaseMinutes,
 			DeletedPurgeDays:         cm.Jobs.DeletedPurgeDays,
+			ArchivedPurgeDays:        cm.Jobs.ArchivedPurgeDays,
+			StaleReviewMinutes:       cm.Jobs.StaleReviewMinutes,
 			ReconcileIntervalSeconds: cm.Jobs.ReconcileIntervalSeconds,
 		},
 		Autonomy: AutonomousJobsConfig{

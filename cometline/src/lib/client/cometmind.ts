@@ -44,6 +44,8 @@ import {
 	releaseJob as releaseJobApi,
 	completeJob as completeJobApi,
 	heartbeatJob as heartbeatJobApi,
+	archiveJob as archiveJobApi,
+	unarchiveJob as unarchiveJobApi,
 	getJobSettings as getJobSettingsApi,
 	putJobSettings as putJobSettingsApi
 } from '$lib/generated/cometmind-api';
@@ -650,6 +652,7 @@ export type JobListQuery = {
 	status?: 'todo' | 'ongoing' | 'done';
 	ready_only?: boolean;
 	include_deleted?: boolean;
+	include_archived?: boolean;
 };
 
 export function listJobs(query: JobListQuery = {}): Promise<ListJobsResponse> {
@@ -670,6 +673,14 @@ export function updateJob(id: string, body: UpdateJobRequest): Promise<JobResour
 
 export function deleteJob(id: string): Promise<void> {
 	return deleteJobApi({ path: { id }, throwOnError: true }).then(() => undefined);
+}
+
+export function archiveJob(id: string): Promise<JobResource> {
+	return archiveJobApi({ path: { id }, throwOnError: true }).then(({ data }) => data);
+}
+
+export function unarchiveJob(id: string): Promise<JobResource> {
+	return unarchiveJobApi({ path: { id }, throwOnError: true }).then(({ data }) => data);
 }
 
 export function claimJob(id: string, sessionId: string): Promise<JobResource> {

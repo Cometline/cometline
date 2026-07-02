@@ -142,6 +142,7 @@ func jobFromRow(row db.Job) Job {
 		SourceSessionID:   nullStringVal(row.SourceSessionID),
 		SourcePlatform:    row.SourcePlatform,
 		SourceChannelID:   nullStringVal(row.SourceChannelID),
+		ArchivedAt:        nullInt64Ptr(row.ArchivedAt),
 		DeletedAt:         nullInt64Ptr(row.DeletedAt),
 		CreatedAt:         row.CreatedAt,
 		UpdatedAt:         row.UpdatedAt,
@@ -206,6 +207,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (Job, error) {
 		SourceSessionID:   optionalNullString(in.SourceSessionID),
 		SourcePlatform:    strings.TrimSpace(in.SourcePlatform),
 		SourceChannelID:   optionalNullString(in.SourceChannelID),
+		ArchivedAt:        sql.NullInt64{},
 		DeletedAt:         sql.NullInt64{},
 		CreatedAt:         ts,
 		UpdatedAt:         ts,
@@ -243,9 +245,14 @@ func (s *Service) List(ctx context.Context, filter ListFilter) ([]Job, error) {
 	if filter.IncludeDeleted {
 		includeDeleted = sql.NullInt64{Int64: 1, Valid: true}
 	}
+	var includeArchived sql.NullInt64
+	if filter.IncludeArchived {
+		includeArchived = sql.NullInt64{Int64: 1, Valid: true}
+	}
 	rows, err := s.q.ListJobs(ctx, db.ListJobsParams{
-		Status:         status,
-		IncludeDeleted: includeDeleted,
+		Status:          status,
+		IncludeDeleted:  includeDeleted,
+		IncludeArchived: includeArchived,
 	})
 	if err != nil {
 		return nil, err
@@ -255,6 +262,51 @@ func (s *Service) List(ctx context.Context, filter ListFilter) ([]Job, error) {
 		out = append(out, jobFromRow(row))
 	}
 	return out, nil
+}
+
+// Archive hides a completed job from the active board without deleting it.
+func (s *Service) Archive(ctx context.Context, jobID string) (Job, error) {
+	job, err := s.Get(ctx, jobID)
+	if err != nil {
+		return Job{}, err
+	}
+	if job.Status != StatusDone || job.DeletedAt != nil {
+		return Job{}, ErrConflict
+	}
+	if job.ArchivedAt != nil {
+		return job, nil
+	}
+	ts := nowMillis()
+	n, err := s.q.ArchiveJob(ctx, db.ArchiveJobParams{
+		ArchivedAt: sql.NullInt64{Int64: ts, Valid: true},
+		UpdatedAt:  ts,
+		ID:         jobID,
+	})
+	if err != nil {
+		return Job{}, err
+	}
+	if n == 0 {
+		return Job{}, ErrConflict
+	}
+	_ = s.recordEvent(ctx, jobID, EventArchived, "", "")
+	return s.Get(ctx, jobID)
+}
+
+// Unarchive restores an archived job to normal listings.
+func (s *Service) Unarchive(ctx context.Context, jobID string) (Job, error) {
+	if _, err := s.Get(ctx, jobID); err != nil {
+		return Job{}, err
+	}
+	ts := nowMillis()
+	n, err := s.q.UnarchiveJob(ctx, db.UnarchiveJobParams{UpdatedAt: ts, ID: jobID})
+	if err != nil {
+		return Job{}, err
+	}
+	if n == 0 {
+		return Job{}, ErrConflict
+	}
+	_ = s.recordEvent(ctx, jobID, EventUnarchived, "", "")
+	return s.Get(ctx, jobID)
 }
 
 // ListReady returns todo jobs that are ready to be claimed.
@@ -269,6 +321,44 @@ func (s *Service) ListReady(ctx context.Context) ([]Job, error) {
 		out = append(out, jobFromRow(row))
 	}
 	return out, nil
+}
+
+// StaleOngoing returns ongoing jobs that have not changed since staleAfter.
+func (s *Service) StaleOngoing(ctx context.Context, staleAfter time.Duration) ([]Job, error) {
+	if staleAfter <= 0 {
+		staleAfter = DefaultStaleReviewMinutes * time.Minute
+	}
+	rows, err := s.q.ListOngoingJobs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	cutoff := nowMillis() - staleAfter.Milliseconds()
+	out := make([]Job, 0)
+	for _, row := range rows {
+		job := jobFromRow(row)
+		if job.UpdatedAt < cutoff {
+			out = append(out, job)
+		}
+	}
+	return out, nil
+}
+
+// PurgeArchived hard-deletes archived jobs older than the cutoff.
+func (s *Service) PurgeArchived(ctx context.Context, olderThanDays int) (int, error) {
+	if olderThanDays <= 0 {
+		return 0, nil
+	}
+	cutoff := nowMillis() - int64(olderThanDays)*24*60*60*1000
+	ids, err := s.q.ListArchivedJobsBefore(ctx, sql.NullInt64{Int64: cutoff, Valid: true})
+	if err != nil {
+		return 0, err
+	}
+	for _, jobID := range ids {
+		if err := s.q.HardDeleteJob(ctx, jobID); err != nil {
+			return 0, err
+		}
+	}
+	return len(ids), nil
 }
 
 // ListEvents returns audit events for a job.
@@ -439,9 +529,9 @@ func (s *Service) Heartbeat(ctx context.Context, jobID, sessionID string) error 
 	ts := nowMillis()
 	leaseUntil := ts + s.leaseDuration().Milliseconds()
 	n, err := s.q.HeartbeatJob(ctx, db.HeartbeatJobParams{
-		LeaseExpiresAt: sql.NullInt64{Int64: leaseUntil, Valid: true},
-		UpdatedAt:      ts,
-		ID:             jobID,
+		LeaseExpiresAt:    sql.NullInt64{Int64: leaseUntil, Valid: true},
+		UpdatedAt:         ts,
+		ID:                jobID,
 		AssignedSessionID: sql.NullString{String: sessionID, Valid: true},
 	})
 	if err != nil {

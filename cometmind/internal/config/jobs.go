@@ -13,6 +13,8 @@ type JobSettings struct {
 	Notifications      JobNotificationSettings `json:"notifications"`
 	LeaseMinutes       int                     `json:"lease_minutes"`
 	DeletedPurgeDays   int                     `json:"deleted_purge_days"`
+	ArchivedPurgeDays  int                     `json:"archived_purge_days"`
+	StaleReviewMinutes int                     `json:"stale_review_minutes"`
 	ReconcileIntervalS int                     `json:"reconcile_interval_seconds"`
 }
 
@@ -27,6 +29,8 @@ func DefaultJobSettings() JobSettings {
 		},
 		LeaseMinutes:       30,
 		DeletedPurgeDays:   30,
+		ArchivedPurgeDays:  30,
+		StaleReviewMinutes: 30,
 		ReconcileIntervalS: 120,
 	}
 }
@@ -36,6 +40,8 @@ type JobsConfig struct {
 	Notifications            JobNotificationSettings `json:"notifications" mapstructure:"notifications"`
 	LeaseMinutes             int                     `json:"lease_minutes" mapstructure:"lease_minutes"`
 	DeletedPurgeDays         int                     `json:"deleted_purge_days" mapstructure:"deleted_purge_days"`
+	ArchivedPurgeDays        int                     `json:"archived_purge_days" mapstructure:"archived_purge_days"`
+	StaleReviewMinutes       int                     `json:"stale_review_minutes" mapstructure:"stale_review_minutes"`
 	ReconcileIntervalSeconds int                     `json:"reconcile_interval_seconds" mapstructure:"reconcile_interval_seconds"`
 }
 
@@ -45,6 +51,8 @@ func defaultJobsConfig() JobsConfig {
 		Notifications:            s.Notifications,
 		LeaseMinutes:             s.LeaseMinutes,
 		DeletedPurgeDays:         s.DeletedPurgeDays,
+		ArchivedPurgeDays:        s.ArchivedPurgeDays,
+		StaleReviewMinutes:       s.StaleReviewMinutes,
 		ReconcileIntervalSeconds: s.ReconcileIntervalS,
 	}
 }
@@ -60,6 +68,8 @@ func (c *Config) JobsSettings() JobSettings {
 		Notifications:      j.Notifications,
 		LeaseMinutes:       j.LeaseMinutes,
 		DeletedPurgeDays:   j.DeletedPurgeDays,
+		ArchivedPurgeDays:  j.ArchivedPurgeDays,
+		StaleReviewMinutes: j.StaleReviewMinutes,
 		ReconcileIntervalS: j.ReconcileIntervalSeconds,
 	}
 	if s.LeaseMinutes <= 0 {
@@ -73,6 +83,12 @@ func (c *Config) JobsSettings() JobSettings {
 	}
 	if s.DeletedPurgeDays <= 0 {
 		s.DeletedPurgeDays = def.DeletedPurgeDays
+	}
+	if s.ArchivedPurgeDays <= 0 {
+		s.ArchivedPurgeDays = def.ArchivedPurgeDays
+	}
+	if s.StaleReviewMinutes <= 0 {
+		s.StaleReviewMinutes = def.StaleReviewMinutes
 	}
 	if s.ReconcileIntervalS <= 0 {
 		s.ReconcileIntervalS = def.ReconcileIntervalS

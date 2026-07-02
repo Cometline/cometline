@@ -32,6 +32,7 @@ type Job struct {
 	SourceSessionID   sql.NullString `json:"source_session_id"`
 	SourcePlatform    string         `json:"source_platform"`
 	SourceChannelID   sql.NullString `json:"source_channel_id"`
+	ArchivedAt        sql.NullInt64  `json:"archived_at"`
 	DeletedAt         sql.NullInt64  `json:"deleted_at"`
 	CreatedAt         int64          `json:"created_at"`
 	UpdatedAt         int64          `json:"updated_at"`

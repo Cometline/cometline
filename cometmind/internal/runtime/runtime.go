@@ -191,11 +191,22 @@ func (r *Runtime) StartJobsMaintenance(ctx context.Context) {
 				if _, err := r.Jobs.Reconcile(ctx, r.isRunning); err != nil {
 					logging.L().Warn("jobs.reconcile.failed", "error", err)
 				}
+				settings := r.jobSettingsSnapshot()
+				if stale, err := r.Jobs.StaleOngoing(ctx, time.Duration(settings.StaleReviewMinutes)*time.Minute); err != nil {
+					logging.L().Warn("jobs.stale_review.failed", "error", err)
+				} else {
+					for _, job := range stale {
+						logging.L().Warn("jobs.stale_ongoing", "job_id", job.ID, "assigned_session_id", job.AssignedSessionID, "updated_at", job.UpdatedAt)
+					}
+				}
 				cfg := r.Config.EffectiveStorageConfig()
 				if cfg.JobPurgeEnabled() {
 					if _, err := r.Jobs.PurgeDeleted(ctx, cfg.DeletedJobPurgeDays); err != nil {
 						logging.L().Warn("jobs.purge.failed", "error", err)
 					}
+				}
+				if _, err := r.Jobs.PurgeArchived(ctx, settings.ArchivedPurgeDays); err != nil {
+					logging.L().Warn("jobs.archive_purge.failed", "error", err)
 				}
 			}
 		}

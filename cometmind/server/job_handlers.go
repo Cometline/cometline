@@ -21,6 +21,7 @@ type jobResource struct {
 	SourceSessionID   string `json:"source_session_id,omitempty"`
 	SourcePlatform    string `json:"source_platform,omitempty"`
 	SourceChannelID   string `json:"source_channel_id,omitempty"`
+	ArchivedAt        *int64 `json:"archived_at,omitempty"`
 	DeletedAt         *int64 `json:"deleted_at,omitempty"`
 	CreatedAt         int64  `json:"created_at"`
 	UpdatedAt         int64  `json:"updated_at"`
@@ -66,10 +67,12 @@ type jobCompleteRequest struct {
 }
 
 type jobSettingsRequest struct {
-	Notifications          *jobNotificationSettingsRequest `json:"notifications"`
-	LeaseMinutes           *int                            `json:"lease_minutes"`
-	DeletedPurgeDays       *int                            `json:"deleted_purge_days"`
-	ReconcileIntervalSeconds *int                          `json:"reconcile_interval_seconds"`
+	Notifications            *jobNotificationSettingsRequest `json:"notifications"`
+	LeaseMinutes             *int                            `json:"lease_minutes"`
+	DeletedPurgeDays         *int                            `json:"deleted_purge_days"`
+	ArchivedPurgeDays        *int                            `json:"archived_purge_days"`
+	StaleReviewMinutes       *int                            `json:"stale_review_minutes"`
+	ReconcileIntervalSeconds *int                            `json:"reconcile_interval_seconds"`
 }
 
 type jobNotificationSettingsRequest struct {
@@ -93,6 +96,7 @@ func jobToResource(j jobs.Job) jobResource {
 		SourceSessionID:   j.SourceSessionID,
 		SourcePlatform:    j.SourcePlatform,
 		SourceChannelID:   j.SourceChannelID,
+		ArchivedAt:        j.ArchivedAt,
 		DeletedAt:         j.DeletedAt,
 		CreatedAt:         j.CreatedAt,
 		UpdatedAt:         j.UpdatedAt,
@@ -120,6 +124,8 @@ func settingsToResponse(s jobs.Settings) gin.H {
 		},
 		"lease_minutes":              s.LeaseMinutes,
 		"deleted_purge_days":         s.DeletedPurgeDays,
+		"archived_purge_days":        s.ArchivedPurgeDays,
+		"stale_review_minutes":       s.StaleReviewMinutes,
 		"reconcile_interval_seconds": s.ReconcileIntervalS,
 	}
 }
@@ -144,9 +150,10 @@ func (a *App) handleListJobs(c *gin.Context) {
 		return
 	}
 	filter := jobs.ListFilter{
-		Status:         c.Query("status"),
-		ReadyOnly:      c.Query("ready_only") == "true",
-		IncludeDeleted: c.Query("include_deleted") == "true",
+		Status:          c.Query("status"),
+		ReadyOnly:       c.Query("ready_only") == "true",
+		IncludeDeleted:  c.Query("include_deleted") == "true",
+		IncludeArchived: c.Query("include_archived") == "true",
 	}
 	items, err := a.jobs.List(c.Request.Context(), filter)
 	if err != nil {
@@ -158,6 +165,32 @@ func (a *App) handleListJobs(c *gin.Context) {
 		out = append(out, jobToResource(item))
 	}
 	c.JSON(http.StatusOK, gin.H{"jobs": out})
+}
+
+func (a *App) handleArchiveJob(c *gin.Context) {
+	if a.jobs == nil {
+		writeError(c, http.StatusInternalServerError, "internal_error", "jobs service unavailable")
+		return
+	}
+	job, err := a.jobs.Archive(c.Request.Context(), c.Param("id"))
+	if err != nil {
+		writeJobError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, jobToResource(job))
+}
+
+func (a *App) handleUnarchiveJob(c *gin.Context) {
+	if a.jobs == nil {
+		writeError(c, http.StatusInternalServerError, "internal_error", "jobs service unavailable")
+		return
+	}
+	job, err := a.jobs.Unarchive(c.Request.Context(), c.Param("id"))
+	if err != nil {
+		writeJobError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, jobToResource(job))
 }
 
 func (a *App) handleCreateJob(c *gin.Context) {
@@ -368,6 +401,12 @@ func (a *App) handlePutJobSettings(c *gin.Context) {
 	}
 	if req.DeletedPurgeDays != nil {
 		current.DeletedPurgeDays = *req.DeletedPurgeDays
+	}
+	if req.ArchivedPurgeDays != nil {
+		current.ArchivedPurgeDays = *req.ArchivedPurgeDays
+	}
+	if req.StaleReviewMinutes != nil {
+		current.StaleReviewMinutes = *req.StaleReviewMinutes
 	}
 	if req.ReconcileIntervalSeconds != nil {
 		current.ReconcileIntervalS = *req.ReconcileIntervalSeconds

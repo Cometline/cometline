@@ -165,6 +165,8 @@ func New(deps Deps) (*gin.Engine, error) {
 	api.GET("/jobs/:id", app.handleGetJob)
 	api.PATCH("/jobs/:id", app.handleUpdateJob)
 	api.DELETE("/jobs/:id", app.handleDeleteJob)
+	api.PUT("/jobs/:id/archive", app.handleArchiveJob)
+	api.DELETE("/jobs/:id/archive", app.handleUnarchiveJob)
 	api.GET("/jobs/:id/events", app.handleListJobEvents)
 	api.PUT("/jobs/:id/lease", app.handleClaimJob)
 	api.DELETE("/jobs/:id/lease", app.handleReleaseJob)
