@@ -17,6 +17,7 @@ import (
 	cometsdk "github.com/cometline/comet-sdk"
 	"github.com/cometline/cometmind/internal/acp"
 	"github.com/cometline/cometmind/internal/agent"
+	"github.com/cometline/cometmind/internal/autonomy"
 	"github.com/cometline/cometmind/internal/config"
 	"github.com/cometline/cometmind/internal/jobs"
 	"github.com/cometline/cometmind/internal/logging"
@@ -240,6 +241,26 @@ func (r *Runtime) StartRetentionMaintenance(ctx context.Context) {
 			}
 		}
 	}()
+}
+
+// StartAutonomousJobWorker starts the background worker that claims and
+// executes ready jobs without a human opening a chat session first. It is a
+// no-op if autonomy is disabled in config (Worker.Run checks this itself).
+func (r *Runtime) StartAutonomousJobWorker(ctx context.Context, guard autonomy.RunGuard) {
+	if r == nil || r.Jobs == nil || r.Sessions == nil {
+		return
+	}
+	w := &autonomy.Worker{
+		Jobs:              r.Jobs,
+		Sessions:          r.Sessions,
+		Memory:            r.Memory,
+		NewRunner:         r.RunnerFor,
+		Guard:             guard,
+		Config:            r.Config.EffectiveAutonomousJobsSettings(),
+		DefaultModelID:    r.Config.Model,
+		DefaultProviderID: r.Config.Provider,
+	}
+	go w.Run(ctx)
 }
 
 func (r *Runtime) jobSettingsSnapshot() jobs.Settings {
