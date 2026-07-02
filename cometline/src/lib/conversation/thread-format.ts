@@ -1,4 +1,5 @@
 import { assistantThinkingWaitStatus } from './assistant-wait-status';
+import { formatToolDisplayName, type McpServerNameLookup } from './mcp-tool-display';
 import type { ChatItem } from '$lib/stores/chat.svelte';
 
 export function formatToolDuration(ms: number) {
@@ -13,10 +14,17 @@ export function toolDurationLabel(item: Extract<ChatItem, { type: 'tool' }>, now
 	return '';
 }
 
-export function toolFoldLabel(item: Extract<ChatItem, { type: 'tool' }>, now: number) {
+export function toolFoldLabel(
+	item: Extract<ChatItem, { type: 'tool' }>,
+	now: number,
+	mcpServers: McpServerNameLookup[] = []
+) {
+	const displayName = formatToolDisplayName(item.toolName, mcpServers);
 	const status = item.pending ? 'running' : item.error ? 'fail' : 'success';
 	const duration = toolDurationLabel(item, now);
-	return duration ? `${item.toolName} → ${status} · ${duration}` : `${item.toolName} → ${status}`;
+	return duration
+		? `${displayName} → ${status} · ${duration}`
+		: `${displayName} → ${status}`;
 }
 
 export function usageText(item: Extract<ChatItem, { type: 'status' }>) {

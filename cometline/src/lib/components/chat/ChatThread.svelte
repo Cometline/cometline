@@ -190,7 +190,8 @@
 		heroGlowColor,
 		copiedId: clocks.copiedId,
 		fold,
-		toolFoldLabel: (item) => formatToolFoldLabel(item, clocks.now),
+		toolFoldLabel: (item) =>
+			formatToolFoldLabel(item, clocks.now, settingsStore.settings.cometmind.mcp.servers),
 		onCopyMessage: clocks.copyMessage,
 		onNotifyAgent,
 		onStartJob

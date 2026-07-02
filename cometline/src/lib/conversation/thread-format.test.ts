@@ -49,6 +49,21 @@ describe('toolDurationLabel', () => {
 });
 
 describe('toolFoldLabel', () => {
+	it('shows MCP server display names instead of registry ids', () => {
+		const item: Extract<ChatItem, { type: 'tool' }> = {
+			id: 't1',
+			type: 'tool',
+			toolName: 'mcp_server-1782968109811_searxng_web_search',
+			input: '',
+			output: '',
+			pending: false,
+			durationMs: 2500
+		};
+		expect(
+			toolFoldLabel(item, 1000, [{ id: 'server-1782968109811', name: 'SearXNG' }])
+		).toBe('SearXNG · searxng_web_search → success · 2.5s');
+	});
+
 	it('includes status and duration', () => {
 		const item: Extract<ChatItem, { type: 'tool' }> = {
 			id: 't1',
