@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { fly, fade } from 'svelte/transition';
 	import { onMount } from 'svelte';
-	import { X, Trash2, Play } from '@lucide/svelte';
-	import type { JobEventResource, JobResource } from '$lib/client/cometmind';
+	import { X, Trash2, Play, ExternalLink } from '@lucide/svelte';
+	import { getSession, type JobEventResource, type JobResource } from '$lib/client/cometmind';
+	import { navigateToSession } from '$lib/actions/navigate-to-session';
 	import JobCreateForm from './JobCreateForm.svelte';
 	import WorkspacePathField from '$lib/components/WorkspacePathField.svelte';
 	import { startJobInChat } from '$lib/jobs/start-job-in-chat';
@@ -47,6 +48,8 @@
 
 	let starting = $state(false);
 	let startError = $state('');
+	let openingSession = $state(false);
+	let openSessionError = $state('');
 	const isArchived = $derived(job?.deleted_at != null);
 
 	onMount(() => {
@@ -74,6 +77,21 @@
 			startError = err instanceof Error ? err.message : 'Failed to start job';
 		} finally {
 			starting = false;
+		}
+	}
+
+	async function handleOpenRunSession() {
+		if (!job?.assigned_session_id) return;
+		openingSession = true;
+		openSessionError = '';
+		try {
+			const session = await getSession(job.assigned_session_id);
+			navigateToSession(session);
+			onClose();
+		} catch (err) {
+			openSessionError = err instanceof Error ? err.message : 'Failed to open run session';
+		} finally {
+			openingSession = false;
 		}
 	}
 </script>
@@ -188,11 +206,25 @@
 			{#if startError}
 				<p class="drawer-error">{startError}</p>
 			{/if}
+			{#if openSessionError}
+				<p class="drawer-error">{openSessionError}</p>
+			{/if}
 		{/if}
 	</div>
 
-	{#if mode === 'detail' && job && !isArchived}
+	{#if mode === 'detail' && job && (job.assigned_session_id || !isArchived)}
 		<footer class="drawer-footer">
+			{#if job.assigned_session_id}
+				<button
+					type="button"
+					class="secondary"
+					disabled={openingSession || saving || starting}
+					onclick={() => void handleOpenRunSession()}
+				>
+					<ExternalLink size={14} />
+					{openingSession ? 'Opening…' : 'Open run session'}
+				</button>
+			{/if}
 			{#if job.status === 'todo'}
 				<button
 					type="button"
@@ -204,15 +236,17 @@
 					Start in chat
 				</button>
 			{/if}
-			<button
-				type="button"
-				class="secondary danger"
-				disabled={saving || starting}
-				onclick={() => void onDelete?.(job)}
-			>
-				<Trash2 size={14} />
-				Delete
-			</button>
+			{#if !isArchived}
+				<button
+					type="button"
+					class="secondary danger"
+					disabled={saving || starting || openingSession}
+					onclick={() => void onDelete?.(job)}
+				>
+					<Trash2 size={14} />
+					Delete
+				</button>
+			{/if}
 		</footer>
 	{/if}
 </aside>
