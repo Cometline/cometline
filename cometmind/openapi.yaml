@@ -1531,6 +1531,113 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/v1/scheduled-jobs:
+    get:
+      tags: [Jobs]
+      summary: List scheduled jobs
+      operationId: listScheduledJobs
+      responses:
+        '200':
+          description: Scheduled jobs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListScheduledJobsResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags: [Jobs]
+      summary: Schedule a one-shot job
+      operationId: createScheduledJob
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateScheduledJobRequest'
+      responses:
+        '201':
+          description: Scheduled job created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduledJobResource'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/scheduled-jobs/{id}:
+    get:
+      tags: [Jobs]
+      summary: Get a scheduled job
+      operationId: getScheduledJob
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Scheduled job
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduledJobResource'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    patch:
+      tags: [Jobs]
+      summary: Update a scheduled job
+      operationId: updateScheduledJob
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateScheduledJobRequest'
+      responses:
+        '200':
+          description: Scheduled job updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduledJobResource'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      tags: [Jobs]
+      summary: Delete a scheduled job
+      operationId: deleteScheduledJob
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Deleted
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
 components:
   parameters:
     SessionId:
@@ -2714,6 +2821,115 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/JobEventResource'
+
+    ScheduledJobResource:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - description
+        - definition_of_done
+        - created_by
+        - source_platform
+        - next_run_at
+        - enabled
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+        description:
+          type: string
+        definition_of_done:
+          type: string
+        workspace_path:
+          type: string
+        created_by:
+          type: string
+          enum: [user, agent]
+        source_session_id:
+          type: string
+        source_platform:
+          type: string
+          enum: ['', desktop, discord]
+        source_channel_id:
+          type: string
+        cron_expr:
+          type: string
+          description: Reserved for future recurring schedules. Currently rejected when provided.
+        run_at:
+          type: integer
+          format: int64
+          description: One-shot run time in Unix milliseconds.
+        next_run_at:
+          type: integer
+          format: int64
+        last_run_at:
+          type: integer
+          format: int64
+        enabled:
+          type: boolean
+        created_at:
+          type: integer
+          format: int64
+        updated_at:
+          type: integer
+          format: int64
+
+    ListScheduledJobsResponse:
+      type: object
+      additionalProperties: false
+      required: [scheduled_jobs]
+      properties:
+        scheduled_jobs:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScheduledJobResource'
+
+    CreateScheduledJobRequest:
+      type: object
+      additionalProperties: false
+      required: [description, run_at]
+      properties:
+        description:
+          type: string
+        definition_of_done:
+          type: string
+        workspace_path:
+          type: string
+        created_by:
+          type: string
+          enum: [user, agent]
+        source_session_id:
+          type: string
+        source_platform:
+          type: string
+          enum: ['', desktop, discord]
+        source_channel_id:
+          type: string
+        cron_expr:
+          type: string
+          description: Reserved for future recurring schedules. Currently rejected when provided.
+        run_at:
+          type: integer
+          format: int64
+          description: One-shot run time in Unix milliseconds.
+
+    UpdateScheduledJobRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        description:
+          type: string
+        definition_of_done:
+          type: string
+        workspace_path:
+          type: string
+        run_at:
+          type: integer
+          format: int64
+        enabled:
+          type: boolean
 
     CreateJobRequest:
       type: object

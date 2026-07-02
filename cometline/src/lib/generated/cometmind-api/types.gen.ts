@@ -610,6 +610,60 @@ export type ListJobEventsResponse = {
     events: Array<JobEventResource>;
 };
 
+export type ScheduledJobResource = {
+    id: string;
+    description: string;
+    definition_of_done: string;
+    workspace_path?: string;
+    created_by: 'user' | 'agent';
+    source_session_id?: string;
+    source_platform: '' | 'desktop' | 'discord';
+    source_channel_id?: string;
+    /**
+     * Reserved for future recurring schedules. Currently rejected when provided.
+     */
+    cron_expr?: string;
+    /**
+     * One-shot run time in Unix milliseconds.
+     */
+    run_at?: number;
+    next_run_at: number;
+    last_run_at?: number;
+    enabled: boolean;
+    created_at: number;
+    updated_at: number;
+};
+
+export type ListScheduledJobsResponse = {
+    scheduled_jobs: Array<ScheduledJobResource>;
+};
+
+export type CreateScheduledJobRequest = {
+    description: string;
+    definition_of_done?: string;
+    workspace_path?: string;
+    created_by?: 'user' | 'agent';
+    source_session_id?: string;
+    source_platform?: '' | 'desktop' | 'discord';
+    source_channel_id?: string;
+    /**
+     * Reserved for future recurring schedules. Currently rejected when provided.
+     */
+    cron_expr?: string;
+    /**
+     * One-shot run time in Unix milliseconds.
+     */
+    run_at: number;
+};
+
+export type UpdateScheduledJobRequest = {
+    description?: string;
+    definition_of_done?: string;
+    workspace_path?: string;
+    run_at?: number;
+    enabled?: boolean;
+};
+
 export type CreateJobRequest = {
     description: string;
     definition_of_done?: string;
@@ -2531,6 +2585,161 @@ export type CompleteJobResponses = {
 };
 
 export type CompleteJobResponse = CompleteJobResponses[keyof CompleteJobResponses];
+
+export type ListScheduledJobsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/scheduled-jobs';
+};
+
+export type ListScheduledJobsErrors = {
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type ListScheduledJobsError = ListScheduledJobsErrors[keyof ListScheduledJobsErrors];
+
+export type ListScheduledJobsResponses = {
+    /**
+     * Scheduled jobs
+     */
+    200: ListScheduledJobsResponse;
+};
+
+export type ListScheduledJobsResponse2 = ListScheduledJobsResponses[keyof ListScheduledJobsResponses];
+
+export type CreateScheduledJobData = {
+    body: CreateScheduledJobRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/scheduled-jobs';
+};
+
+export type CreateScheduledJobErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type CreateScheduledJobError = CreateScheduledJobErrors[keyof CreateScheduledJobErrors];
+
+export type CreateScheduledJobResponses = {
+    /**
+     * Scheduled job created
+     */
+    201: ScheduledJobResource;
+};
+
+export type CreateScheduledJobResponse = CreateScheduledJobResponses[keyof CreateScheduledJobResponses];
+
+export type DeleteScheduledJobData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/scheduled-jobs/{id}';
+};
+
+export type DeleteScheduledJobErrors = {
+    /**
+     * Resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type DeleteScheduledJobError = DeleteScheduledJobErrors[keyof DeleteScheduledJobErrors];
+
+export type DeleteScheduledJobResponses = {
+    /**
+     * Deleted
+     */
+    204: void;
+};
+
+export type DeleteScheduledJobResponse = DeleteScheduledJobResponses[keyof DeleteScheduledJobResponses];
+
+export type GetScheduledJobData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/scheduled-jobs/{id}';
+};
+
+export type GetScheduledJobErrors = {
+    /**
+     * Resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type GetScheduledJobError = GetScheduledJobErrors[keyof GetScheduledJobErrors];
+
+export type GetScheduledJobResponses = {
+    /**
+     * Scheduled job
+     */
+    200: ScheduledJobResource;
+};
+
+export type GetScheduledJobResponse = GetScheduledJobResponses[keyof GetScheduledJobResponses];
+
+export type UpdateScheduledJobData = {
+    body: UpdateScheduledJobRequest;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/scheduled-jobs/{id}';
+};
+
+export type UpdateScheduledJobErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * State conflict
+     */
+    409: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type UpdateScheduledJobError = UpdateScheduledJobErrors[keyof UpdateScheduledJobErrors];
+
+export type UpdateScheduledJobResponses = {
+    /**
+     * Scheduled job updated
+     */
+    200: ScheduledJobResource;
+};
+
+export type UpdateScheduledJobResponse = UpdateScheduledJobResponses[keyof UpdateScheduledJobResponses];
 
 export type ClientOptions = {
     baseUrl: 'http://127.0.0.1:7700' | (string & {});

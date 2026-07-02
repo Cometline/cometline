@@ -117,6 +117,11 @@ type cometlineAutonomyJSON struct {
 	MaxStepsPerRun      int  `json:"maxStepsPerRun"`
 }
 
+type cometlineSchedulerJSON struct {
+	Enabled             bool `json:"enabled"`
+	PollIntervalSeconds int  `json:"pollIntervalSeconds"`
+}
+
 type cometlineCometmindJSON struct {
 	SystemPromptPath   string              `json:"systemPromptPath"`
 	MaxTokens          int                 `json:"maxTokens"`
@@ -134,9 +139,10 @@ type cometlineCometmindJSON struct {
 	Gateway struct {
 		Discord cometlineDiscordJSON `json:"discord"`
 	} `json:"gateway"`
-	MCP      cometlineMCPJSON      `json:"mcp"`
-	Jobs     cometlineJobsJSON     `json:"jobs"`
-	Autonomy cometlineAutonomyJSON `json:"autonomy"`
+	MCP       cometlineMCPJSON       `json:"mcp"`
+	Jobs      cometlineJobsJSON      `json:"jobs"`
+	Autonomy  cometlineAutonomyJSON  `json:"autonomy"`
+	Scheduler cometlineSchedulerJSON `json:"scheduler"`
 }
 
 type cometlineSettingsJSON struct {
@@ -282,6 +288,10 @@ func adaptCometlineSettings(raw cometlineSettingsJSON) (*Config, error) {
 			MaxConcurrent:       cm.Autonomy.MaxConcurrent,
 			PollIntervalSeconds: cm.Autonomy.PollIntervalSeconds,
 			MaxStepsPerRun:      cm.Autonomy.MaxStepsPerRun,
+		},
+		Scheduler: SchedulerConfig{
+			Enabled:             cm.Scheduler.Enabled,
+			PollIntervalSeconds: cm.Scheduler.PollIntervalSeconds,
 		},
 		Gateway: GatewayConfig{
 			Discord: DiscordGatewayConfig{

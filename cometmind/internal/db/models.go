@@ -95,6 +95,24 @@ type Message struct {
 	CreatedAt        int64  `json:"created_at"`
 }
 
+type ScheduledJob struct {
+	ID               string         `json:"id"`
+	Description      string         `json:"description"`
+	DefinitionOfDone string         `json:"definition_of_done"`
+	WorkspacePath    sql.NullString `json:"workspace_path"`
+	CreatedBy        string         `json:"created_by"`
+	SourceSessionID  sql.NullString `json:"source_session_id"`
+	SourcePlatform   string         `json:"source_platform"`
+	SourceChannelID  sql.NullString `json:"source_channel_id"`
+	CronExpr         sql.NullString `json:"cron_expr"`
+	RunAt            sql.NullInt64  `json:"run_at"`
+	NextRunAt        int64          `json:"next_run_at"`
+	LastRunAt        sql.NullInt64  `json:"last_run_at"`
+	Enabled          int64          `json:"enabled"`
+	CreatedAt        int64          `json:"created_at"`
+	UpdatedAt        int64          `json:"updated_at"`
+}
+
 type Session struct {
 	ID                      string         `json:"id"`
 	WorkspaceID             string         `json:"workspace_id"`

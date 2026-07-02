@@ -10,6 +10,45 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Defines values for CreateScheduledJobRequestCreatedBy.
+const (
+	CreateScheduledJobRequestCreatedByAgent CreateScheduledJobRequestCreatedBy = "agent"
+	CreateScheduledJobRequestCreatedByUser  CreateScheduledJobRequestCreatedBy = "user"
+)
+
+// Valid indicates whether the value is a known member of the CreateScheduledJobRequestCreatedBy enum.
+func (e CreateScheduledJobRequestCreatedBy) Valid() bool {
+	switch e {
+	case CreateScheduledJobRequestCreatedByAgent:
+		return true
+	case CreateScheduledJobRequestCreatedByUser:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CreateScheduledJobRequestSourcePlatform.
+const (
+	CreateScheduledJobRequestSourcePlatformDesktop CreateScheduledJobRequestSourcePlatform = "desktop"
+	CreateScheduledJobRequestSourcePlatformDiscord CreateScheduledJobRequestSourcePlatform = "discord"
+	CreateScheduledJobRequestSourcePlatformEmpty   CreateScheduledJobRequestSourcePlatform = ""
+)
+
+// Valid indicates whether the value is a known member of the CreateScheduledJobRequestSourcePlatform enum.
+func (e CreateScheduledJobRequestSourcePlatform) Valid() bool {
+	switch e {
+	case CreateScheduledJobRequestSourcePlatformDesktop:
+		return true
+	case CreateScheduledJobRequestSourcePlatformDiscord:
+		return true
+	case CreateScheduledJobRequestSourcePlatformEmpty:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ImageAttachmentMediaType.
 const (
 	Imagegif  ImageAttachmentMediaType = "image/gif"
@@ -97,6 +136,45 @@ func (e MemoryChangeWireAction) Valid() bool {
 	case Supersede:
 		return true
 	case Update:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ScheduledJobResourceCreatedBy.
+const (
+	ScheduledJobResourceCreatedByAgent ScheduledJobResourceCreatedBy = "agent"
+	ScheduledJobResourceCreatedByUser  ScheduledJobResourceCreatedBy = "user"
+)
+
+// Valid indicates whether the value is a known member of the ScheduledJobResourceCreatedBy enum.
+func (e ScheduledJobResourceCreatedBy) Valid() bool {
+	switch e {
+	case ScheduledJobResourceCreatedByAgent:
+		return true
+	case ScheduledJobResourceCreatedByUser:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ScheduledJobResourceSourcePlatform.
+const (
+	ScheduledJobResourceSourcePlatformDesktop ScheduledJobResourceSourcePlatform = "desktop"
+	ScheduledJobResourceSourcePlatformDiscord ScheduledJobResourceSourcePlatform = "discord"
+	ScheduledJobResourceSourcePlatformEmpty   ScheduledJobResourceSourcePlatform = ""
+)
+
+// Valid indicates whether the value is a known member of the ScheduledJobResourceSourcePlatform enum.
+func (e ScheduledJobResourceSourcePlatform) Valid() bool {
+	switch e {
+	case ScheduledJobResourceSourcePlatformDesktop:
+		return true
+	case ScheduledJobResourceSourcePlatformDiscord:
+		return true
+	case ScheduledJobResourceSourcePlatformEmpty:
 		return true
 	default:
 		return false
@@ -349,6 +427,29 @@ type CreateMemoryRequest struct {
 	Pinned     *bool    `json:"pinned,omitempty"`
 }
 
+// CreateScheduledJobRequest defines model for CreateScheduledJobRequest.
+type CreateScheduledJobRequest struct {
+	CreatedBy *CreateScheduledJobRequestCreatedBy `json:"created_by,omitempty"`
+
+	// CronExpr Reserved for future recurring schedules. Currently rejected when provided.
+	CronExpr         *string `json:"cron_expr,omitempty"`
+	DefinitionOfDone *string `json:"definition_of_done,omitempty"`
+	Description      string  `json:"description"`
+
+	// RunAt One-shot run time in Unix milliseconds.
+	RunAt           int64                                    `json:"run_at"`
+	SourceChannelId *string                                  `json:"source_channel_id,omitempty"`
+	SourcePlatform  *CreateScheduledJobRequestSourcePlatform `json:"source_platform,omitempty"`
+	SourceSessionId *string                                  `json:"source_session_id,omitempty"`
+	WorkspacePath   *string                                  `json:"workspace_path,omitempty"`
+}
+
+// CreateScheduledJobRequestCreatedBy defines model for CreateScheduledJobRequest.CreatedBy.
+type CreateScheduledJobRequestCreatedBy string
+
+// CreateScheduledJobRequestSourcePlatform defines model for CreateScheduledJobRequest.SourcePlatform.
+type CreateScheduledJobRequestSourcePlatform string
+
 // CreateSessionRequest Provide either `workspace_id` or `workspace_path`.
 type CreateSessionRequest struct {
 	// ModelId Optional model override; defaults to current config.
@@ -514,6 +615,11 @@ type ListMcpToolsResponse struct {
 // ListMemoriesResponse defines model for ListMemoriesResponse.
 type ListMemoriesResponse struct {
 	Memories []MemoryResource `json:"memories"`
+}
+
+// ListScheduledJobsResponse defines model for ListScheduledJobsResponse.
+type ListScheduledJobsResponse struct {
+	ScheduledJobs []ScheduledJobResource `json:"scheduled_jobs"`
 }
 
 // ListSkillsResponse defines model for ListSkillsResponse.
@@ -715,6 +821,35 @@ type RunStorageRetentionResponse struct {
 	SubagentsDeleted   int    `json:"subagents_deleted"`
 	Vacuumed           bool   `json:"vacuumed"`
 }
+
+// ScheduledJobResource defines model for ScheduledJobResource.
+type ScheduledJobResource struct {
+	CreatedAt int64                         `json:"created_at"`
+	CreatedBy ScheduledJobResourceCreatedBy `json:"created_by"`
+
+	// CronExpr Reserved for future recurring schedules. Currently rejected when provided.
+	CronExpr         *string `json:"cron_expr,omitempty"`
+	DefinitionOfDone string  `json:"definition_of_done"`
+	Description      string  `json:"description"`
+	Enabled          bool    `json:"enabled"`
+	Id               string  `json:"id"`
+	LastRunAt        *int64  `json:"last_run_at,omitempty"`
+	NextRunAt        int64   `json:"next_run_at"`
+
+	// RunAt One-shot run time in Unix milliseconds.
+	RunAt           *int64                             `json:"run_at,omitempty"`
+	SourceChannelId *string                            `json:"source_channel_id,omitempty"`
+	SourcePlatform  ScheduledJobResourceSourcePlatform `json:"source_platform"`
+	SourceSessionId *string                            `json:"source_session_id,omitempty"`
+	UpdatedAt       int64                              `json:"updated_at"`
+	WorkspacePath   *string                            `json:"workspace_path,omitempty"`
+}
+
+// ScheduledJobResourceCreatedBy defines model for ScheduledJobResource.CreatedBy.
+type ScheduledJobResourceCreatedBy string
+
+// ScheduledJobResourceSourcePlatform defines model for ScheduledJobResource.SourcePlatform.
+type ScheduledJobResourceSourcePlatform string
 
 // SearchMemoryRequest defines model for SearchMemoryRequest.
 type SearchMemoryRequest struct {
@@ -943,6 +1078,15 @@ type UpdateMemoryRequest struct {
 	Pinned     *bool    `json:"pinned,omitempty"`
 }
 
+// UpdateScheduledJobRequest defines model for UpdateScheduledJobRequest.
+type UpdateScheduledJobRequest struct {
+	DefinitionOfDone *string `json:"definition_of_done,omitempty"`
+	Description      *string `json:"description,omitempty"`
+	Enabled          *bool   `json:"enabled,omitempty"`
+	RunAt            *int64  `json:"run_at,omitempty"`
+	WorkspacePath    *string `json:"workspace_path,omitempty"`
+}
+
 // UpdateSessionRequest defines model for UpdateSessionRequest.
 type UpdateSessionRequest struct {
 	ModelId *string `json:"model_id,omitempty"`
@@ -1150,6 +1294,12 @@ type PutMemorySettingsJSONRequestBody = MemorySettings
 
 // PatchMemoryJSONRequestBody defines body for PatchMemory for application/json ContentType.
 type PatchMemoryJSONRequestBody = UpdateMemoryRequest
+
+// CreateScheduledJobJSONRequestBody defines body for CreateScheduledJob for application/json ContentType.
+type CreateScheduledJobJSONRequestBody = CreateScheduledJobRequest
+
+// UpdateScheduledJobJSONRequestBody defines body for UpdateScheduledJob for application/json ContentType.
+type UpdateScheduledJobJSONRequestBody = UpdateScheduledJobRequest
 
 // CreateSessionJSONRequestBody defines body for CreateSession for application/json ContentType.
 type CreateSessionJSONRequestBody = CreateSessionRequest

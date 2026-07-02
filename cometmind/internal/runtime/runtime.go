@@ -26,6 +26,7 @@ import (
 	"github.com/cometline/cometmind/internal/paths"
 	"github.com/cometline/cometmind/internal/provider"
 	"github.com/cometline/cometmind/internal/retention"
+	"github.com/cometline/cometmind/internal/scheduler"
 	"github.com/cometline/cometmind/internal/session"
 	"github.com/cometline/cometmind/internal/skills"
 	"github.com/cometline/cometmind/internal/store"
@@ -46,6 +47,7 @@ type Runtime struct {
 	Sessions      *session.Service
 	Memory        *memory.Service
 	Jobs          *jobs.Service
+	Scheduler     *scheduler.Service
 	jobSettings   jobs.Settings
 	jobSettingsMu sync.RWMutex
 	SystemPrompt  string
@@ -89,6 +91,7 @@ func New(ctx context.Context) (*Runtime, error) {
 	}
 	notifier := jobs.NewNotifier(r.jobSettingsSnapshot)
 	r.Jobs = jobs.NewService(sqlDB, r.jobSettingsSnapshot, notifier)
+	r.Scheduler = scheduler.NewService(sqlDB)
 	if cfg.MemoryRuntimeEnabled() {
 		p, err := provider.New(cfg)
 		if err != nil {
@@ -119,6 +122,38 @@ func New(ctx context.Context) (*Runtime, error) {
 	// in-progress connections simply surface their tools once ready.
 	go r.mcpMgr.Start(ctx)
 	return r, nil
+}
+
+// StartScheduler materializes due scheduled jobs into the normal jobs queue.
+func (r *Runtime) StartScheduler(ctx context.Context) {
+	if r == nil || r.Scheduler == nil || r.Jobs == nil {
+		return
+	}
+	cfg := r.Config.EffectiveSchedulerSettings()
+	if !cfg.Enabled {
+		return
+	}
+	interval := time.Duration(cfg.PollIntervalSeconds) * time.Second
+	if interval <= 0 {
+		interval = time.Minute
+	}
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				count, err := r.Scheduler.MaterializeDue(ctx, r.Jobs, 0)
+				if err != nil {
+					logging.L().Warn("scheduler.materialize.failed", "error", err)
+				} else if count > 0 {
+					logging.L().Info("scheduler.materialized", "count", count)
+				}
+			}
+		}
+	}()
 }
 
 func runRetention(ctx context.Context, db *sql.DB, sessions *session.Service, mem *memory.Service, jobSvc *jobs.Service, cfg config.StorageConfig, isRunning func(string) bool) (retention.Result, error) {

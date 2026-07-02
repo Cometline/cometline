@@ -75,10 +75,11 @@ func runServe(_ *cobra.Command, _ []string) error {
 
 	runs := server.NewRunManager()
 	engine, err := server.New(server.Deps{
-		Config:   rt.Config,
-		Sessions: rt.Sessions,
-		Memory:   rt.Memory,
-		Jobs:     rt.Jobs,
+		Config:    rt.Config,
+		Sessions:  rt.Sessions,
+		Memory:    rt.Memory,
+		Jobs:      rt.Jobs,
+		Scheduler: rt.Scheduler,
 		RunRetention: func(ctx context.Context) (server.RetentionResult, error) {
 			return rt.RunRetention(ctx)
 		},
@@ -100,6 +101,7 @@ func runServe(_ *cobra.Command, _ []string) error {
 	rt.SetSessionRunningChecker(runs.Running)
 	rt.StartJobsMaintenance(ctx)
 	rt.StartRetentionMaintenance(ctx)
+	rt.StartScheduler(ctx)
 	rt.StartAutonomousJobWorker(ctx, runs)
 
 	httpServer := &http.Server{

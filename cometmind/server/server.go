@@ -18,6 +18,7 @@ import (
 	mcppkg "github.com/cometline/cometmind/internal/mcp"
 	"github.com/cometline/cometmind/internal/memory"
 	"github.com/cometline/cometmind/internal/retention"
+	"github.com/cometline/cometmind/internal/scheduler"
 	"github.com/cometline/cometmind/internal/session"
 	skillpkg "github.com/cometline/cometmind/internal/skills"
 	"github.com/cometline/cometmind/internal/subagent"
@@ -39,6 +40,7 @@ type Deps struct {
 	Sessions       *session.Service
 	Memory         *memory.Service
 	Jobs           *jobs.Service
+	Scheduler      *scheduler.Service
 	RunRetention   RetentionRunner
 	SetJobSettings func(jobs.Settings)
 	NewRunner      RunnerFactory
@@ -53,6 +55,7 @@ type App struct {
 	sessions       *session.Service
 	memory         *memory.Service
 	jobs           *jobs.Service
+	scheduler      *scheduler.Service
 	runRetention   RetentionRunner
 	setJobSettings func(jobs.Settings)
 	newRunner      RunnerFactory
@@ -81,6 +84,7 @@ func New(deps Deps) (*gin.Engine, error) {
 		sessions:       deps.Sessions,
 		memory:         deps.Memory,
 		jobs:           deps.Jobs,
+		scheduler:      deps.Scheduler,
 		runRetention:   deps.RunRetention,
 		setJobSettings: deps.SetJobSettings,
 		newRunner:      deps.NewRunner,
@@ -173,6 +177,13 @@ func New(deps Deps) (*gin.Engine, error) {
 	api.DELETE("/jobs/:id/lease", app.handleReleaseJob)
 	api.PUT("/jobs/:id/completion", app.handleCompleteJob)
 	api.PATCH("/jobs/:id/lease", app.handleHeartbeatJob)
+
+	// Scheduled jobs
+	api.GET("/scheduled-jobs", app.handleListScheduledJobs)
+	api.POST("/scheduled-jobs", app.handleCreateScheduledJob)
+	api.GET("/scheduled-jobs/:id", app.handleGetScheduledJob)
+	api.PATCH("/scheduled-jobs/:id", app.handlePatchScheduledJob)
+	api.DELETE("/scheduled-jobs/:id", app.handleDeleteScheduledJob)
 
 	return r, nil
 }

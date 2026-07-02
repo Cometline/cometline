@@ -84,6 +84,7 @@ type Config struct {
 	MCP                MCPConfig            `mapstructure:"mcp"`
 	Jobs               JobsConfig           `mapstructure:"jobs"`
 	Autonomy           AutonomousJobsConfig `mapstructure:"autonomy"`
+	Scheduler          SchedulerConfig      `mapstructure:"scheduler"`
 }
 
 // Defaults returns baseline values when the config file is missing keys.
@@ -99,6 +100,7 @@ func Defaults() *Config {
 		Storage:            defaultStorageConfig(),
 		Jobs:               defaultJobsConfig(),
 		Autonomy:           defaultAutonomousJobsConfig(),
+		Scheduler:          defaultSchedulerConfig(),
 	}
 }
 
@@ -149,6 +151,7 @@ func Load() (*Config, error) {
 	cfg.Storage = cfg.EffectiveStorageConfig()
 	cfg.Subagent = cfg.EffectiveSubagentSettings()
 	cfg.Autonomy = cfg.EffectiveAutonomousJobsSettings()
+	cfg.Scheduler = cfg.EffectiveSchedulerSettings()
 	return cfg, nil
 }
 
