@@ -142,6 +142,24 @@ func (e SessionGatewayPlatform) Valid() bool {
 	}
 }
 
+// Defines values for SessionOrigin.
+const (
+	SessionOriginAutonomy SessionOrigin = "autonomy"
+	SessionOriginUser     SessionOrigin = "user"
+)
+
+// Valid indicates whether the value is a known member of the SessionOrigin enum.
+func (e SessionOrigin) Valid() bool {
+	switch e {
+	case SessionOriginAutonomy:
+		return true
+	case SessionOriginUser:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SessionStatus.
 const (
 	Active   SessionStatus = "active"
@@ -183,28 +201,28 @@ func (e SessionSubagentKind) Valid() bool {
 
 // Defines values for TranscriptItemType.
 const (
-	Assistant TranscriptItemType = "assistant"
-	Memory    TranscriptItemType = "memory"
-	Reasoning TranscriptItemType = "reasoning"
-	System    TranscriptItemType = "system"
-	Tool      TranscriptItemType = "tool"
-	User      TranscriptItemType = "user"
+	TranscriptItemTypeAssistant TranscriptItemType = "assistant"
+	TranscriptItemTypeMemory    TranscriptItemType = "memory"
+	TranscriptItemTypeReasoning TranscriptItemType = "reasoning"
+	TranscriptItemTypeSystem    TranscriptItemType = "system"
+	TranscriptItemTypeTool      TranscriptItemType = "tool"
+	TranscriptItemTypeUser      TranscriptItemType = "user"
 )
 
 // Valid indicates whether the value is a known member of the TranscriptItemType enum.
 func (e TranscriptItemType) Valid() bool {
 	switch e {
-	case Assistant:
+	case TranscriptItemTypeAssistant:
 		return true
-	case Memory:
+	case TranscriptItemTypeMemory:
 		return true
-	case Reasoning:
+	case TranscriptItemTypeReasoning:
 		return true
-	case System:
+	case TranscriptItemTypeSystem:
 		return true
-	case Tool:
+	case TranscriptItemTypeTool:
 		return true
-	case User:
+	case TranscriptItemTypeUser:
 		return true
 	default:
 		return false
@@ -707,6 +725,9 @@ type Session struct {
 	Id      string `json:"id"`
 	ModelId string `json:"model_id"`
 
+	// Origin Whether this session was created by a user action or an autonomous job run.
+	Origin SessionOrigin `json:"origin"`
+
 	// OutputSummary Final summary from a delegated child session.
 	OutputSummary *string `json:"output_summary,omitempty"`
 
@@ -740,6 +761,9 @@ type SessionDelegationStatus string
 
 // SessionGatewayPlatform defines model for Session.Gateway.Platform.
 type SessionGatewayPlatform string
+
+// SessionOrigin Whether this session was created by a user action or an autonomous job run.
+type SessionOrigin string
 
 // SessionStatus defines model for Session.Status.
 type SessionStatus string

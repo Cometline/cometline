@@ -98,6 +98,7 @@ type Session struct {
 	ModelID                 string         `json:"model_id"`
 	ProviderID              string         `json:"provider_id"`
 	Status                  string         `json:"status"`
+	Origin                  string         `json:"origin"`
 	TokenUsage              string         `json:"token_usage"`
 	ParentSessionID         sql.NullString `json:"parent_session_id"`
 	Purpose                 string         `json:"purpose"`

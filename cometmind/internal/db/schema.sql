@@ -13,6 +13,8 @@ CREATE TABLE sessions (
     provider_id        TEXT NOT NULL,
     status             TEXT NOT NULL DEFAULT 'active'
                        CHECK (status IN ('active', 'archived')),
+    origin             TEXT NOT NULL DEFAULT 'user'
+                       CHECK (origin IN ('user', 'autonomy')),
     token_usage        TEXT NOT NULL DEFAULT '{}',
     parent_session_id  TEXT REFERENCES sessions (id) ON DELETE SET NULL,
     purpose            TEXT NOT NULL DEFAULT '',
@@ -70,6 +72,8 @@ CREATE TABLE tool_calls (
 CREATE INDEX idx_sessions_workspace ON sessions (workspace_id);
 
 CREATE INDEX idx_sessions_updated ON sessions (updated_at DESC);
+
+CREATE INDEX idx_sessions_origin ON sessions (origin);
 
 CREATE INDEX idx_messages_session ON messages (session_id, created_at);
 

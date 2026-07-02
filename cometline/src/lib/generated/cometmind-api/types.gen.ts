@@ -152,6 +152,10 @@ export type Session = {
     model_id: string;
     provider_id: string;
     status: 'active' | 'archived';
+    /**
+     * Whether this session was created by a user action or an autonomous job run.
+     */
+    origin: 'user' | 'autonomy';
     token_usage: TokenUsage;
     /**
      * Whether the session is pinned to the top of its workspace group.

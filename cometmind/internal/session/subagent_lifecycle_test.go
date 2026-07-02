@@ -121,3 +121,46 @@ func TestListAllSessionsExcludesChildRows(t *testing.T) {
 		t.Fatalf("ListAllSessions()[0].ID = %q want parent", all[0].ID)
 	}
 }
+
+func TestListAllSessionsExcludesAutonomyRows(t *testing.T) {
+	ctx := context.Background()
+	conn, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	if err := db.EnsureSchema(ctx, conn); err != nil {
+		t.Fatal(err)
+	}
+
+	svc := New(conn)
+	ws, err := svc.EnsureWorkspace(ctx, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	userSession, err := svc.NewSession(ctx, ws.ID, "user-model", "anthropic")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if userSession.Origin != "user" {
+		t.Fatalf("NewSession origin = %q want user", userSession.Origin)
+	}
+	autonomySession, err := svc.NewAutonomySession(ctx, ws.ID, "worker-model", "anthropic")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if autonomySession.Origin != "autonomy" {
+		t.Fatalf("NewAutonomySession origin = %q want autonomy", autonomySession.Origin)
+	}
+
+	all, err := svc.ListAllSessions(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(all) != 1 {
+		t.Fatalf("ListAllSessions() len = %d want 1", len(all))
+	}
+	if all[0].ID != userSession.ID {
+		t.Fatalf("ListAllSessions()[0].ID = %q want user session", all[0].ID)
+	}
+}

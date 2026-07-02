@@ -1,6 +1,6 @@
 -- name: CreateSession :one
-INSERT INTO sessions (id, workspace_id, title, model_id, provider_id, status)
-VALUES (?, ?, ?, ?, ?, ?)
+INSERT INTO sessions (id, workspace_id, title, model_id, provider_id, status, origin)
+VALUES (?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: CreateChildSession :one
@@ -135,6 +135,7 @@ FROM
     sessions s
     LEFT JOIN gateway_sessions g ON g.cometmind_session_id = s.id
 WHERE s.parent_session_id IS NULL
+  AND s.origin != 'autonomy'
 ORDER BY s.pinned DESC, s.updated_at DESC;
 
 -- name: UpdateSessionTitle :exec

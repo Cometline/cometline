@@ -191,6 +191,20 @@ func TestWorkerRunJobReleasesWhenAgentDoesNotCompleteJob(t *testing.T) {
 	if got.Status != jobs.StatusTodo || got.AssignedSessionID != "" {
 		t.Fatalf("job=%+v, want released todo job", got)
 	}
+	ws, err := fx.sessions.LookupWorkspaceByPath(ctx, fx.root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	allSessions, err := fx.sessions.ListSessions(ctx, ws.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(allSessions) != 1 {
+		t.Fatalf("ListSessions() len = %d want 1", len(allSessions))
+	}
+	if allSessions[0].Origin != "autonomy" {
+		t.Fatalf("worker session origin = %q want autonomy", allSessions[0].Origin)
+	}
 	events, err := fx.jobs.ListEvents(ctx, job.ID)
 	if err != nil {
 		t.Fatal(err)

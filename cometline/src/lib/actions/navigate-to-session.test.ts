@@ -37,6 +37,7 @@ function session(overrides: Partial<Session> = {}): Session {
 		model_id: 'm',
 		provider_id: 'p',
 		status: 'active',
+		origin: 'user',
 		token_usage: {
 			input_tokens: 0,
 			output_tokens: 0,

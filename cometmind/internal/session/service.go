@@ -242,6 +242,7 @@ func (s *Service) ForkSession(ctx context.Context, sessionID, absPath string) (S
 		ModelID:     src.ModelID,
 		ProviderID:  src.ProviderID,
 		Status:      "active",
+		Origin:      "user",
 	})
 	if err != nil {
 		return Session{}, err
@@ -350,6 +351,15 @@ func (s *Service) AppendSystemMessage(ctx context.Context, sessionID, text strin
 
 // NewSession creates a persisted session row scoped to a workspace.
 func (s *Service) NewSession(ctx context.Context, workspaceID string, modelID, providerID string) (Session, error) {
+	return s.newSessionWithOrigin(ctx, workspaceID, modelID, providerID, "user")
+}
+
+// NewAutonomySession creates a session dedicated to an autonomous job run.
+func (s *Service) NewAutonomySession(ctx context.Context, workspaceID string, modelID, providerID string) (Session, error) {
+	return s.newSessionWithOrigin(ctx, workspaceID, modelID, providerID, "autonomy")
+}
+
+func (s *Service) newSessionWithOrigin(ctx context.Context, workspaceID string, modelID, providerID, origin string) (Session, error) {
 	sess, err := s.q.CreateSession(ctx, db.CreateSessionParams{
 		ID:          id.New(),
 		WorkspaceID: workspaceID,
@@ -357,6 +367,7 @@ func (s *Service) NewSession(ctx context.Context, workspaceID string, modelID, p
 		ModelID:     modelID,
 		ProviderID:  providerID,
 		Status:      "active",
+		Origin:      origin,
 	})
 	if err != nil {
 		return Session{}, err
@@ -387,8 +398,9 @@ func (s *Service) ListSessions(ctx context.Context, workspaceID string) ([]Sessi
 	return sessionsFromDB(rows), nil
 }
 
-// ListAllSessions lists top-level sessions across every workspace, ordered by
-// recent activity. Delegated child sessions are excluded.
+// ListAllSessions lists user-facing top-level sessions across every workspace,
+// ordered by recent activity. Delegated child sessions and autonomous job-run
+// sessions are excluded.
 func (s *Service) ListAllSessions(ctx context.Context) ([]Session, error) {
 	rows, err := s.q.ListAllSessions(ctx)
 	if err != nil {

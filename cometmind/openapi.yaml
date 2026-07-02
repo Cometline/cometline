@@ -298,6 +298,7 @@ paths:
                 model_id: claude-sonnet-4-5
                 provider_id: anthropic
                 status: active
+                origin: user
                 token_usage:
                   input_tokens: 0
                   output_tokens: 0
@@ -358,6 +359,7 @@ paths:
                     model_id: claude-sonnet-4-5
                     provider_id: anthropic
                     status: active
+                    origin: user
                     token_usage:
                       input_tokens: 1200
                       output_tokens: 340
@@ -1713,6 +1715,7 @@ components:
         - model_id
         - provider_id
         - status
+        - origin
         - token_usage
         - pinned
         - created_at
@@ -1733,6 +1736,10 @@ components:
         status:
           type: string
           enum: [active, archived]
+        origin:
+          type: string
+          enum: [user, autonomy]
+          description: Whether this session was created by a user action or an autonomous job run.
         token_usage:
           $ref: '#/components/schemas/TokenUsage'
         pinned:

@@ -175,6 +175,11 @@ var alterStatements = [][]string{
 		`ALTER TABLE jobs DROP COLUMN scheduled_at`,
 		`ALTER TABLE jobs DROP COLUMN due_at`,
 	},
+	// v13 -> v14: tag user-created vs autonomous operator sessions.
+	{
+		"ALTER TABLE sessions ADD COLUMN origin TEXT NOT NULL DEFAULT 'user' CHECK (origin IN ('user', 'autonomy'))",
+		"CREATE INDEX IF NOT EXISTS idx_sessions_origin ON sessions (origin)",
+	},
 }
 
 // execAlter runs one incremental DDL statement, tolerating idempotent failures
@@ -213,7 +218,7 @@ func splitStatements(sql string) []string {
 	return out
 }
 
-const schemaVersion = 13
+const schemaVersion = 14
 
 // EnsureSchema runs [Migrate] once per database file using PRAGMA user_version.
 // For existing databases, it applies incremental ALTER statements to upgrade

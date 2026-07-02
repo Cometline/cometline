@@ -128,7 +128,7 @@ func (w *Worker) runJob(ctx context.Context, job jobs.Job) {
 		return
 	}
 
-	sess, err := w.Sessions.NewSession(ctx, ws.ID, w.DefaultModelID, w.DefaultProviderID)
+	sess, err := w.Sessions.NewAutonomySession(ctx, ws.ID, w.DefaultModelID, w.DefaultProviderID)
 	if err != nil {
 		log.Printf("autonomy: create session for job %s: %v", job.ID, err)
 		return
