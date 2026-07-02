@@ -157,6 +157,11 @@ export interface CometMindAutonomousJobsSettings {
 	maxStepsPerRun: number;
 }
 
+export interface CometMindSchedulerSettings {
+	enabled: boolean;
+	pollIntervalSeconds: number;
+}
+
 export interface CometMindPlanningSettings {
 	enabled: boolean;
 }
@@ -192,6 +197,7 @@ export interface CometMindSettings {
 	mcp: CometMindMCPSettings;
 	jobs: CometMindJobsSettings;
 	autonomy: CometMindAutonomousJobsSettings;
+	scheduler: CometMindSchedulerSettings;
 	planning: CometMindPlanningSettings;
 }
 
@@ -440,6 +446,10 @@ export function defaultCometMindPlanningSettings(): CometMindPlanningSettings {
 	return { enabled: false };
 }
 
+export function defaultCometMindSchedulerSettings(): CometMindSchedulerSettings {
+	return { enabled: false, pollIntervalSeconds: 60 };
+}
+
 export function defaultCometMindStorageSettings(): CometMindStorageSettings {
 	return {
 		cleanupIntervalMinutes: 60,
@@ -502,6 +512,7 @@ export function defaultCometMindSettings(workspacePath = ''): CometMindSettings 
 		mcp: defaultCometMindMCPSettings(),
 		jobs: defaultCometMindJobsSettings(),
 		autonomy: defaultCometMindAutonomousJobsSettings(),
+		scheduler: defaultCometMindSchedulerSettings(),
 		planning: defaultCometMindPlanningSettings()
 	};
 }
@@ -525,6 +536,7 @@ export function normalizeCometMindSettings(
 	const autonomyInput: Partial<CometMindAutonomousJobsSettings> = input?.autonomy ?? {};
 	const autonomyDefaults = defaults.autonomy;
 	const planningInput: Partial<CometMindPlanningSettings> = input?.planning ?? {};
+	const schedulerInput: Partial<CometMindSchedulerSettings> = input?.scheduler ?? {};
 	const args = Array.isArray(acp.args)
 		? acp.args.map((a) => String(a).trim()).filter(Boolean)
 		: defaults.acp.args;
@@ -703,6 +715,16 @@ export function normalizeCometMindSettings(
 				typeof planningInput.enabled === 'boolean'
 					? planningInput.enabled
 					: defaults.planning.enabled
+		},
+		scheduler: {
+			enabled:
+				typeof schedulerInput.enabled === 'boolean'
+					? schedulerInput.enabled
+					: defaults.scheduler.enabled,
+			pollIntervalSeconds: normalizePositiveInt(
+				schedulerInput.pollIntervalSeconds,
+				defaults.scheduler.pollIntervalSeconds
+			)
 		}
 	};
 }
@@ -755,6 +777,7 @@ export function cloneCometMindSettings(settings: CometMindSettings): CometMindSe
 			notifications: { ...settings.jobs.notifications }
 		},
 		autonomy: { ...settings.autonomy },
+		scheduler: { ...settings.scheduler },
 		planning: { ...settings.planning }
 	};
 }
@@ -1232,6 +1255,10 @@ const providerSettingsSchema = z.object({
 		}),
 		planning: z.object({
 			enabled: z.boolean()
+		}),
+		scheduler: z.object({
+			enabled: z.boolean(),
+			pollIntervalSeconds: z.number().int().positive()
 		})
 	})
 });

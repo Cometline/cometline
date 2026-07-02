@@ -28,6 +28,7 @@ __export(schema_exports, {
   defaultCometMindJobsSettings: () => defaultCometMindJobsSettings,
   defaultCometMindMCPSettings: () => defaultCometMindMCPSettings,
   defaultCometMindPlanningSettings: () => defaultCometMindPlanningSettings,
+  defaultCometMindSchedulerSettings: () => defaultCometMindSchedulerSettings,
   defaultCometMindSettings: () => defaultCometMindSettings,
   defaultCometMindStorageSettings: () => defaultCometMindStorageSettings,
   defaultSettings: () => defaultSettings,
@@ -4588,6 +4589,9 @@ function defaultCometMindAutonomousJobsSettings() {
 function defaultCometMindPlanningSettings() {
   return { enabled: false };
 }
+function defaultCometMindSchedulerSettings() {
+  return { enabled: false, pollIntervalSeconds: 60 };
+}
 function defaultCometMindStorageSettings() {
   return {
     cleanupIntervalMinutes: 60,
@@ -4649,6 +4653,7 @@ function defaultCometMindSettings(workspacePath = "") {
     mcp: defaultCometMindMCPSettings(),
     jobs: defaultCometMindJobsSettings(),
     autonomy: defaultCometMindAutonomousJobsSettings(),
+    scheduler: defaultCometMindSchedulerSettings(),
     planning: defaultCometMindPlanningSettings()
   };
 }
@@ -4667,6 +4672,7 @@ function normalizeCometMindSettings(input, fallbackWorkspacePath = "") {
   const autonomyInput = input?.autonomy ?? {};
   const autonomyDefaults = defaults.autonomy;
   const planningInput = input?.planning ?? {};
+  const schedulerInput = input?.scheduler ?? {};
   const args = Array.isArray(acp.args) ? acp.args.map((a) => String(a).trim()).filter(Boolean) : defaults.acp.args;
   const { botToken, botTokenEnv } = migrateDiscordTokenFields(discord);
   return {
@@ -4808,6 +4814,13 @@ function normalizeCometMindSettings(input, fallbackWorkspacePath = "") {
     },
     planning: {
       enabled: typeof planningInput.enabled === "boolean" ? planningInput.enabled : defaults.planning.enabled
+    },
+    scheduler: {
+      enabled: typeof schedulerInput.enabled === "boolean" ? schedulerInput.enabled : defaults.scheduler.enabled,
+      pollIntervalSeconds: normalizePositiveInt(
+        schedulerInput.pollIntervalSeconds,
+        defaults.scheduler.pollIntervalSeconds
+      )
     }
   };
 }
@@ -4857,6 +4870,7 @@ function cloneCometMindSettings(settings) {
       notifications: { ...settings.jobs.notifications }
     },
     autonomy: { ...settings.autonomy },
+    scheduler: { ...settings.scheduler },
     planning: { ...settings.planning }
   };
 }
@@ -5243,6 +5257,10 @@ var providerSettingsSchema = external_exports.object({
     }),
     planning: external_exports.object({
       enabled: external_exports.boolean()
+    }),
+    scheduler: external_exports.object({
+      enabled: external_exports.boolean(),
+      pollIntervalSeconds: external_exports.number().int().positive()
     })
   })
 });
@@ -5280,6 +5298,7 @@ function parseAndNormalizeSettings(raw, options = {}) {
   defaultCometMindJobsSettings,
   defaultCometMindMCPSettings,
   defaultCometMindPlanningSettings,
+  defaultCometMindSchedulerSettings,
   defaultCometMindSettings,
   defaultCometMindStorageSettings,
   defaultSettings,

@@ -198,6 +198,11 @@ declare global {
 		enabled: boolean;
 	}
 
+	interface CometMindSchedulerSettings {
+		enabled: boolean;
+		pollIntervalSeconds: number;
+	}
+
 	type MCPTransport = 'stdio' | 'http' | 'sse';
 
 	interface MCPOAuthSettings {
@@ -243,6 +248,7 @@ declare global {
 		mcp: CometMindMCPSettings;
 		jobs: CometMindJobsSettings;
 		autonomy: CometMindAutonomousJobsSettings;
+		scheduler: CometMindSchedulerSettings;
 		planning: CometMindPlanningSettings;
 	}
 
