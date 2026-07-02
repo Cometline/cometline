@@ -137,6 +137,8 @@ CREATE INDEX idx_memories_preference_category ON memories (
     updated_at DESC
 );
 
+CREATE INDEX idx_memories_kind_created ON memories (archived, kind, created_at DESC);
+
 CREATE TABLE memory_events (
     id          TEXT PRIMARY KEY,
     memory_id   TEXT,

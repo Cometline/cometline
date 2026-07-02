@@ -131,6 +131,60 @@ func (s *Service) BaselinePreferences(ctx context.Context, limit int) ([]ScoredM
 	return out, nil
 }
 
+// RecentTaskOutcomes returns recent task outcomes for continuity across job runs.
+func (s *Service) RecentTaskOutcomes(ctx context.Context, limit int) ([]ScoredMemory, error) {
+	if !s.settings.Enabled {
+		logging.L().Info("memory.task_outcomes.skipped", "enabled", false)
+		return nil, nil
+	}
+	if limit <= 0 {
+		limit = 3
+	}
+	started := time.Now()
+	recs, err := s.store.listRecentByKind(ctx, "task_outcome", limit)
+	if err != nil {
+		logging.L().Error("memory.task_outcomes.failed", "limit", limit, "error", err)
+		return nil, err
+	}
+	now := time.Now()
+	out := make([]ScoredMemory, len(recs))
+	for i, rec := range recs {
+		out[i] = ScoredMemory{Record: rec, EffectiveWeight: EffectiveWeight(rec, now, s.settings.Lifecycle)}
+		_ = s.store.touchAccess(ctx, rec.ID)
+		_ = s.store.logEvent(ctx, rec.ID, "task_outcome_inject", "")
+	}
+	logging.L().Info("memory.task_outcomes.loaded", "count", len(out), "limit", limit, "duration_ms", time.Since(started).Milliseconds())
+	return out, nil
+}
+
+// SearchTaskOutcomes searches active task outcome memories for the explicit recall tool.
+func (s *Service) SearchTaskOutcomes(ctx context.Context, query string, limit int) ([]ScoredMemory, error) {
+	if !s.settings.Enabled {
+		logging.L().Info("memory.task_outcome_search.skipped", "enabled", false)
+		return nil, nil
+	}
+	if limit <= 0 {
+		limit = 5
+	}
+	results, err := s.Search(ctx, query, limit*2)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]ScoredMemory, 0, limit)
+	for _, item := range results {
+		if item.Kind != "task_outcome" {
+			continue
+		}
+		out = append(out, item)
+		_ = s.store.logEvent(ctx, item.ID, "task_outcome_recall", "search")
+		if len(out) >= limit {
+			break
+		}
+	}
+	logging.L().Info("memory.task_outcome_search.completed", "count", len(out), "limit", limit)
+	return out, nil
+}
+
 func (s *Service) CompactPreferenceCategory(ctx context.Context, category string) error {
 	category = normalizePreferenceCategory("preference", "", category)
 	active, err := s.store.listActive(ctx)
@@ -405,18 +459,25 @@ func (s *Service) Delete(ctx context.Context, id string) error {
 }
 
 type PromptMemories struct {
-	Preferences []ScoredMemory
-	Relevant    []ScoredMemory
+	Preferences  []ScoredMemory
+	TaskOutcomes []ScoredMemory
+	Relevant     []ScoredMemory
 }
 
 func FormatPromptMemories(mems PromptMemories) string {
-	if len(mems.Preferences) == 0 && len(mems.Relevant) == 0 {
+	if len(mems.Preferences) == 0 && len(mems.TaskOutcomes) == 0 && len(mems.Relevant) == 0 {
 		return ""
 	}
 	var b strings.Builder
 	if len(mems.Preferences) > 0 {
 		b.WriteString("\n\n## User preferences\n")
 		for i, m := range mems.Preferences {
+			fmt.Fprintf(&b, "%d. %s\n", i+1, m.Content)
+		}
+	}
+	if len(mems.TaskOutcomes) > 0 {
+		b.WriteString("\n\n## Recent task outcomes\n")
+		for i, m := range mems.TaskOutcomes {
 			fmt.Fprintf(&b, "%d. %s\n", i+1, m.Content)
 		}
 	}

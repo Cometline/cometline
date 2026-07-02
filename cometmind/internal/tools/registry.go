@@ -78,6 +78,9 @@ func NewRegistry(workspaceRoot string, opts ...RegistryOptions) *Registry {
 			SourceChannelID:      opt.JobSourceChannelID,
 		})
 	}
+	if opt.Memory != nil {
+		add(RecallTaskOutcome{Memory: opt.Memory})
+	}
 
 	return r
 }

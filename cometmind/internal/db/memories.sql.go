@@ -440,6 +440,62 @@ func (q *Queries) ListMemoryEvents(ctx context.Context, limit int64) ([]MemoryEv
 	return items, nil
 }
 
+const listRecentMemoriesByKind = `-- name: ListRecentMemoriesByKind :many
+SELECT id, scope, kind, preference_category, content, embedding, embedding_model, source, base_weight, access_count, pinned, source_session_id, superseded_by, archived, archived_reason, last_accessed_at, created_at, updated_at
+FROM memories
+WHERE archived = 0
+  AND kind = ?
+ORDER BY created_at DESC
+LIMIT ?
+`
+
+type ListRecentMemoriesByKindParams struct {
+	Kind  string `json:"kind"`
+	Limit int64  `json:"limit"`
+}
+
+func (q *Queries) ListRecentMemoriesByKind(ctx context.Context, arg ListRecentMemoriesByKindParams) ([]Memory, error) {
+	rows, err := q.db.QueryContext(ctx, listRecentMemoriesByKind, arg.Kind, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Memory{}
+	for rows.Next() {
+		var i Memory
+		if err := rows.Scan(
+			&i.ID,
+			&i.Scope,
+			&i.Kind,
+			&i.PreferenceCategory,
+			&i.Content,
+			&i.Embedding,
+			&i.EmbeddingModel,
+			&i.Source,
+			&i.BaseWeight,
+			&i.AccessCount,
+			&i.Pinned,
+			&i.SourceSessionID,
+			&i.SupersededBy,
+			&i.Archived,
+			&i.ArchivedReason,
+			&i.LastAccessedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const touchMemoryAccess = `-- name: TouchMemoryAccess :exec
 UPDATE memories
 SET

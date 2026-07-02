@@ -133,11 +133,13 @@ func (p *sequentialFakeProvider) Stream(ctx context.Context, req *cometsdk.Reque
 }
 
 type fakeMemory struct {
-	retrieveCalls int
-	baselineCalls int
-	extractCalls  int
-	waitForCancel bool
-	preferences   []memory.ScoredMemory
+	retrieveCalls  int
+	baselineCalls  int
+	outcomeCalls   int
+	extractCalls   int
+	waitForCancel  bool
+	preferences    []memory.ScoredMemory
+	outcomes       []memory.ScoredMemory
 	extractChanges []memory.Change
 }
 
@@ -146,6 +148,11 @@ func (m *fakeMemory) Enabled() bool { return true }
 func (m *fakeMemory) BaselinePreferences(ctx context.Context, limit int) ([]memory.ScoredMemory, error) {
 	m.baselineCalls++
 	return m.preferences, nil
+}
+
+func (m *fakeMemory) RecentTaskOutcomes(ctx context.Context, limit int) ([]memory.ScoredMemory, error) {
+	m.outcomeCalls++
+	return m.outcomes, nil
 }
 
 func (m *fakeMemory) RetrieveForTurn(ctx context.Context, query string) ([]memory.ScoredMemory, error) {
@@ -407,6 +414,9 @@ func TestRunner_SkipsMemoryRetrievalForLowValueTurn(t *testing.T) {
 	if mem.baselineCalls != 0 {
 		t.Fatalf("BaselinePreferences called %d times, want 0", mem.baselineCalls)
 	}
+	if mem.outcomeCalls != 0 {
+		t.Fatalf("RecentTaskOutcomes called %d times, want 0", mem.outcomeCalls)
+	}
 }
 
 func TestRunner_RetrievesMemoryForSubstantiveTurn(t *testing.T) {
@@ -432,6 +442,9 @@ func TestRunner_RetrievesMemoryForSubstantiveTurn(t *testing.T) {
 	}
 	if mem.baselineCalls != 1 {
 		t.Fatalf("BaselinePreferences called %d times, want 1", mem.baselineCalls)
+	}
+	if mem.outcomeCalls != 1 {
+		t.Fatalf("RecentTaskOutcomes called %d times, want 1", mem.outcomeCalls)
 	}
 }
 
@@ -464,6 +477,9 @@ func TestRunner_MemoryRetrievalTimeoutDoesNotEmitError(t *testing.T) {
 	}
 	if mem.baselineCalls != 1 {
 		t.Fatalf("BaselinePreferences called %d times, want 1", mem.baselineCalls)
+	}
+	if mem.outcomeCalls != 1 {
+		t.Fatalf("RecentTaskOutcomes called %d times, want 1", mem.outcomeCalls)
 	}
 	for _, ev := range events {
 		if ev.Kind == event.KindError {
@@ -501,8 +517,40 @@ func TestRunner_InjectsPreferencesWhenSemanticRetrievalTimesOut(t *testing.T) {
 	if runErr != nil {
 		t.Fatalf("Run returned error: %v", runErr)
 	}
-	if mem.baselineCalls != 1 || mem.retrieveCalls != 1 {
-		t.Fatalf("baseline=%d retrieve=%d, want 1/1", mem.baselineCalls, mem.retrieveCalls)
+	if mem.baselineCalls != 1 || mem.outcomeCalls != 1 || mem.retrieveCalls != 1 {
+		t.Fatalf("baseline=%d outcomes=%d retrieve=%d, want 1/1/1", mem.baselineCalls, mem.outcomeCalls, mem.retrieveCalls)
+	}
+}
+
+func TestRunner_InjectsRecentTaskOutcomes(t *testing.T) {
+	store := &fakeStore{history: []cometsdk.Message{{
+		Role:    cometsdk.RoleUser,
+		Content: []cometsdk.Block{cometsdk.TextBlock{Text: "what have you worked on recently?"}},
+	}}}
+	mem := &fakeMemory{outcomes: []memory.ScoredMemory{{Record: memory.Record{
+		ID: "task-1", Kind: "task_outcome", Content: "Completed the autonomous jobs retry policy.",
+	}}}}
+	provider := &capturingSequentialFakeProvider{sequences: [][]cometsdk.Event{{
+		cometsdk.TextDeltaEvent{Text: "ok"},
+		cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishStop},
+		cometsdk.DoneEvent{},
+	}}}
+
+	r := &Runner{Provider: provider, Sessions: store, Memory: mem, Registry: tools.NewRegistry(t.TempDir())}
+	_, runErr := runAndDrain(t, r, session.AgentTurn{ID: "s1", ModelID: "m"})
+
+	if runErr != nil {
+		t.Fatalf("Run returned error: %v", runErr)
+	}
+	if mem.outcomeCalls != 1 {
+		t.Fatalf("RecentTaskOutcomes called %d times, want 1", mem.outcomeCalls)
+	}
+	if len(provider.requests) != 1 {
+		t.Fatalf("captured %d requests, want 1", len(provider.requests))
+	}
+	system := provider.requests[0].System
+	if !strings.Contains(system, "## Recent task outcomes") || !strings.Contains(system, "Completed the autonomous jobs retry policy.") {
+		t.Fatalf("system prompt missing task outcome recall: %q", system)
 	}
 }
 

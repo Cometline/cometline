@@ -36,6 +36,7 @@ type TurnStore interface {
 type MemoryStore interface {
 	Enabled() bool
 	BaselinePreferences(ctx context.Context, limit int) ([]memory.ScoredMemory, error)
+	RecentTaskOutcomes(ctx context.Context, limit int) ([]memory.ScoredMemory, error)
 	RetrieveForTurn(ctx context.Context, query string) ([]memory.ScoredMemory, error)
 	ExtractAfterTurn(ctx context.Context, sessionID, model string, llmProvider cometsdk.Provider) ([]memory.Change, error)
 }
@@ -191,6 +192,10 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 				if prefErr != nil {
 					logging.L().Error("memory.preferences.failed", "session", turn.ID, "error", prefErr)
 				}
+				outcomes, outcomeErr := r.Memory.RecentTaskOutcomes(ctx, 3)
+				if outcomeErr != nil {
+					logging.L().Error("memory.task_outcomes.failed", "session", turn.ID, "error", outcomeErr)
+				}
 				query := memory.BuildRetrievalQuery(memory.RetrievalQueryInput{
 					Messages: msgs,
 				})
@@ -205,9 +210,9 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 						ch <- event.Errorf(memErr.Error(), "memory")
 					}
 				}
-				if len(prefs) > 0 || len(mems) > 0 {
-					logging.L().Info("memory.injected", "session", turn.ID, "preferences", len(prefs), "relevant", len(mems))
-					system += memory.FormatPromptMemories(memory.PromptMemories{Preferences: prefs, Relevant: mems})
+				if len(prefs) > 0 || len(outcomes) > 0 || len(mems) > 0 {
+					logging.L().Info("memory.injected", "session", turn.ID, "preferences", len(prefs), "task_outcomes", len(outcomes), "relevant", len(mems))
+					system += memory.FormatPromptMemories(memory.PromptMemories{Preferences: prefs, TaskOutcomes: outcomes, Relevant: mems})
 					// Only relevant (semantic) memories are surfaced to the UI as a
 					// memory card. Preferences are injected into the prompt silently,
 					// so skip the wire event when there is nothing relevant to show.

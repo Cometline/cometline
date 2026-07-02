@@ -89,6 +89,14 @@ WHERE archived = 0
 ORDER BY pinned DESC, updated_at DESC, base_weight DESC, access_count DESC
 LIMIT ?;
 
+-- name: ListRecentMemoriesByKind :many
+SELECT *
+FROM memories
+WHERE archived = 0
+  AND kind = ?
+ORDER BY created_at DESC
+LIMIT ?;
+
 -- name: ListActivePreferencesByCategory :many
 SELECT *
 FROM memories
