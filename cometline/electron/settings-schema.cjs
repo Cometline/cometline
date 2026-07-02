@@ -4567,6 +4567,8 @@ function defaultCometMindJobsSettings() {
     },
     leaseMinutes: 30,
     deletedPurgeDays: 30,
+    archivedPurgeDays: 30,
+    staleReviewMinutes: 30,
     reconcileIntervalSeconds: 120
   };
 }
@@ -4744,6 +4746,14 @@ function normalizeCometMindSettings(input, fallbackWorkspacePath = "") {
       deletedPurgeDays: normalizeNonNegativeInt(
         jobsInput.deletedPurgeDays,
         jobsDefaults.deletedPurgeDays
+      ),
+      archivedPurgeDays: normalizeNonNegativeInt(
+        jobsInput.archivedPurgeDays,
+        jobsDefaults.archivedPurgeDays
+      ),
+      staleReviewMinutes: normalizePositiveInt(
+        jobsInput.staleReviewMinutes,
+        jobsDefaults.staleReviewMinutes
       ),
       reconcileIntervalSeconds: normalizePositiveInt(
         jobsInput.reconcileIntervalSeconds,
@@ -5185,6 +5195,8 @@ var providerSettingsSchema = external_exports.object({
       }),
       leaseMinutes: external_exports.number().int().positive(),
       deletedPurgeDays: external_exports.number().int().min(0),
+      archivedPurgeDays: external_exports.number().int().min(0),
+      staleReviewMinutes: external_exports.number().int().positive(),
       reconcileIntervalSeconds: external_exports.number().int().positive()
     })
   })
