@@ -87,6 +87,24 @@ func validateOneShot(description, cronExpr string, runAt int64) error {
 	return nil
 }
 
+func validateCreatedBy(v string) error {
+	switch v {
+	case CreatedByUser, CreatedByAgent:
+		return nil
+	default:
+		return fmt.Errorf("%w: created_by must be 'user' or 'agent'", ErrInvalidInput)
+	}
+}
+
+func validateSourcePlatform(v string) error {
+	switch v {
+	case "", PlatformDesktop, PlatformDiscord:
+		return nil
+	default:
+		return fmt.Errorf("%w: source_platform must be '', 'desktop', or 'discord'", ErrInvalidInput)
+	}
+}
+
 func (s *Service) Create(ctx context.Context, in CreateInput) (ScheduledJob, error) {
 	if err := validateOneShot(in.Description, in.CronExpr, in.RunAt); err != nil {
 		return ScheduledJob{}, err
@@ -94,6 +112,13 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (ScheduledJob, err
 	createdBy := strings.TrimSpace(in.CreatedBy)
 	if createdBy == "" {
 		createdBy = CreatedByUser
+	}
+	if err := validateCreatedBy(createdBy); err != nil {
+		return ScheduledJob{}, err
+	}
+	sourcePlatform := strings.TrimSpace(in.SourcePlatform)
+	if err := validateSourcePlatform(sourcePlatform); err != nil {
+		return ScheduledJob{}, err
 	}
 	ts := nowMillis()
 	scheduleID := id.New()
@@ -104,7 +129,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (ScheduledJob, err
 		WorkspacePath:    optionalNullString(in.WorkspacePath),
 		CreatedBy:        createdBy,
 		SourceSessionID:  optionalNullString(in.SourceSessionID),
-		SourcePlatform:   strings.TrimSpace(in.SourcePlatform),
+		SourcePlatform:   sourcePlatform,
 		SourceChannelID:  optionalNullString(in.SourceChannelID),
 		CronExpr:         optionalNullString(in.CronExpr),
 		RunAt:            sql.NullInt64{Int64: in.RunAt, Valid: true},
@@ -223,6 +248,12 @@ func (s *Service) MaterializeDue(ctx context.Context, jobSvc *jobs.Service, atMi
 	}
 	created := 0
 	for _, item := range due {
+		if err := s.MarkFired(ctx, item.ID, atMillis); err != nil {
+			if err == ErrConflict {
+				continue
+			}
+			return created, err
+		}
 		if _, err := jobSvc.Create(ctx, jobs.CreateInput{
 			Description:      item.Description,
 			DefinitionOfDone: item.DefinitionOfDone,
@@ -232,9 +263,6 @@ func (s *Service) MaterializeDue(ctx context.Context, jobSvc *jobs.Service, atMi
 			SourcePlatform:   item.SourcePlatform,
 			SourceChannelID:  item.SourceChannelID,
 		}); err != nil {
-			return created, err
-		}
-		if err := s.MarkFired(ctx, item.ID, atMillis); err != nil {
 			return created, err
 		}
 		created++

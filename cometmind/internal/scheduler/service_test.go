@@ -2,6 +2,7 @@ package scheduler
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/cometline/cometmind/internal/jobs"
@@ -134,5 +135,16 @@ func TestCreateRejectsCronUntilRecurringSchedulesExist(t *testing.T) {
 	svc, _ := newSchedulerTestServices(t)
 	if _, err := svc.Create(ctx, CreateInput{Description: "repeat", CronExpr: "* * * * *", RunAt: 1000}); err == nil {
 		t.Fatal("expected cron schedule rejection")
+	}
+}
+
+func TestCreateRejectsInvalidEnums(t *testing.T) {
+	ctx := context.Background()
+	svc, _ := newSchedulerTestServices(t)
+	if _, err := svc.Create(ctx, CreateInput{Description: "d", RunAt: 1000, CreatedBy: "bad"}); !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("expected ErrInvalidInput for bad created_by, got %v", err)
+	}
+	if _, err := svc.Create(ctx, CreateInput{Description: "d", RunAt: 1000, SourcePlatform: "web"}); !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("expected ErrInvalidInput for bad source_platform, got %v", err)
 	}
 }

@@ -27,7 +27,7 @@ func (listJobsTool) Spec() ToolSpec {
 		Parameters: json.RawMessage(`{
 			"type":"object",
 			"properties":{
-				"status":{"type":"string","enum":["todo","ongoing","done"],"description":"Filter by status"},
+				"status":{"type":"string","enum":["todo","ongoing","done","blocked"],"description":"Filter by status"},
 				"ready_only":{"type":"boolean","description":"When true, only return todo jobs ready to claim"}
 			}
 		}`),
@@ -318,10 +318,10 @@ func (t proposeJobTool) Execute(_ context.Context, input json.RawMessage) (Resul
 		return Result{OK: false, Output: "description is required"}, nil
 	}
 	payload := map[string]string{
-		"status":            "awaiting_workspace",
-		"description":       strings.TrimSpace(in.Description),
+		"status":             "awaiting_workspace",
+		"description":        strings.TrimSpace(in.Description),
 		"definition_of_done": strings.TrimSpace(in.DefinitionOfDone),
-		"default_workspace": strings.TrimSpace(t.deps.SessionWorkspacePath),
+		"default_workspace":  strings.TrimSpace(t.deps.SessionWorkspacePath),
 	}
 	out, err := json.Marshal(payload)
 	if err != nil {

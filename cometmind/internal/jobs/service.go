@@ -42,30 +42,6 @@ func (n *Notifier) emit(ctx context.Context, job Job, action, detail string) {
 	if n == nil {
 		return
 	}
-	cfg := n.settings().Notifications
-	if !cfg.Enabled {
-		return
-	}
-	switch action {
-	case EventClaimed:
-		if !cfg.OnClaimed {
-			return
-		}
-	case EventCompleted:
-		if !cfg.OnCompleted {
-			return
-		}
-	case EventBlocked:
-		if !cfg.OnBlocked {
-			return
-		}
-	case EventReleased, EventLeaseExpired:
-		if !cfg.OnReleased {
-			return
-		}
-	default:
-		return
-	}
 	for _, h := range n.handlers {
 		h.OnJobEvent(ctx, job, action, detail)
 	}
