@@ -24,6 +24,7 @@ import (
 	mcppkg "github.com/cometline/cometmind/internal/mcp"
 	"github.com/cometline/cometmind/internal/memory"
 	"github.com/cometline/cometmind/internal/paths"
+	"github.com/cometline/cometmind/internal/planning"
 	"github.com/cometline/cometmind/internal/provider"
 	"github.com/cometline/cometmind/internal/retention"
 	"github.com/cometline/cometmind/internal/scheduler"
@@ -48,6 +49,7 @@ type Runtime struct {
 	Memory        *memory.Service
 	Jobs          *jobs.Service
 	Scheduler     *scheduler.Service
+	Planning      *planning.Service
 	jobSettings   jobs.Settings
 	jobSettingsMu sync.RWMutex
 	SystemPrompt  string
@@ -92,6 +94,7 @@ func New(ctx context.Context) (*Runtime, error) {
 	notifier := jobs.NewNotifier(r.jobSettingsSnapshot)
 	r.Jobs = jobs.NewService(sqlDB, r.jobSettingsSnapshot, notifier)
 	r.Scheduler = scheduler.NewService(sqlDB)
+	r.Planning = planning.NewService(sqlDB)
 	if cfg.MemoryRuntimeEnabled() {
 		p, err := provider.New(cfg)
 		if err != nil {
@@ -478,6 +481,7 @@ func (r *Runtime) runnerFor(sess session.Session, workspacePath string, opts Run
 		Provider:             p,
 		Sessions:             r.Sessions,
 		Memory:               r.Memory,
+		PlanStore:            r.planningForAgent(),
 		Registry:             registry,
 		Jobs:                 r.Jobs,
 		MaxSteps:             maxSteps,
@@ -512,6 +516,7 @@ func (r *Runtime) toolRegistryWithJobMeta(workspacePath string, skillRegistry sk
 		Orchestrator:       r.SubagentOrchestrator(),
 		Jobs:               r.Jobs,
 		Memory:             r.Memory,
+		Planning:           r.planningForAgent(),
 		SessionID:          sessionID,
 		JobPlatform:        platform,
 		JobSourceChannelID: sourceChannelID,
@@ -523,6 +528,13 @@ func (r *Runtime) toolRegistryWithJobMeta(workspacePath string, skillRegistry sk
 			WaitTimeoutSec:  1800,
 		},
 	})
+}
+
+func (r *Runtime) planningForAgent() *planning.Service {
+	if r == nil || r.Config == nil || !r.Config.EffectivePlanningSettings().Enabled {
+		return nil
+	}
+	return r.Planning
 }
 
 // SkillsForWorkspace discovers Agent Skills visible to one workspace.

@@ -14,6 +14,7 @@ import (
 	"github.com/cometline/cometmind/internal/event"
 	"github.com/cometline/cometmind/internal/jobs"
 	"github.com/cometline/cometmind/internal/memory"
+	"github.com/cometline/cometmind/internal/planning"
 	"github.com/cometline/cometmind/internal/session"
 	"github.com/cometline/cometmind/internal/subagent"
 	"github.com/cometline/cometmind/internal/tools"
@@ -167,6 +168,16 @@ func (m *fakeMemory) RetrieveForTurn(ctx context.Context, query string) ([]memor
 func (m *fakeMemory) ExtractAfterTurn(ctx context.Context, sessionID, model string, llmProvider cometsdk.Provider) ([]memory.Change, error) {
 	m.extractCalls++
 	return m.extractChanges, nil
+}
+
+type fakePlanStore struct {
+	calls int
+	steps []planning.Step
+}
+
+func (p *fakePlanStore) GetPlan(ctx context.Context, sessionID string) ([]planning.Step, error) {
+	p.calls++
+	return p.steps, nil
 }
 
 // drain collects events the runner emits until the channel closes.
@@ -551,6 +562,40 @@ func TestRunner_InjectsRecentTaskOutcomes(t *testing.T) {
 	system := provider.requests[0].System
 	if !strings.Contains(system, "## Recent task outcomes") || !strings.Contains(system, "Completed the autonomous jobs retry policy.") {
 		t.Fatalf("system prompt missing task outcome recall: %q", system)
+	}
+}
+
+func TestRunner_InjectsCurrentPlan(t *testing.T) {
+	store := &fakeStore{history: []cometsdk.Message{{
+		Role:    cometsdk.RoleUser,
+		Content: []cometsdk.Block{cometsdk.TextBlock{Text: "continue the implementation"}},
+	}}}
+	plans := &fakePlanStore{steps: []planning.Step{{
+		StepIndex:   0,
+		Description: "inspect the code paths",
+		Status:      planning.StatusInProgress,
+	}}}
+	provider := &capturingSequentialFakeProvider{sequences: [][]cometsdk.Event{{
+		cometsdk.TextDeltaEvent{Text: "ok"},
+		cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishStop},
+		cometsdk.DoneEvent{},
+	}}}
+
+	r := &Runner{Provider: provider, Sessions: store, PlanStore: plans, Registry: tools.NewRegistry(t.TempDir())}
+	_, runErr := runAndDrain(t, r, session.AgentTurn{ID: "s1", ModelID: "m"})
+
+	if runErr != nil {
+		t.Fatalf("Run returned error: %v", runErr)
+	}
+	if plans.calls != 1 {
+		t.Fatalf("GetPlan called %d times, want 1", plans.calls)
+	}
+	if len(provider.requests) != 1 {
+		t.Fatalf("captured %d requests, want 1", len(provider.requests))
+	}
+	system := provider.requests[0].System
+	if !strings.Contains(system, "## Current Plan") || !strings.Contains(system, "inspect the code paths") {
+		t.Fatalf("system prompt missing current plan: %q", system)
 	}
 }
 

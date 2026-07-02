@@ -75,6 +75,21 @@ CREATE INDEX idx_sessions_updated ON sessions (updated_at DESC);
 
 CREATE INDEX idx_sessions_origin ON sessions (origin);
 
+CREATE TABLE session_plans (
+    id              TEXT PRIMARY KEY,
+    session_id      TEXT NOT NULL REFERENCES sessions (id) ON DELETE CASCADE,
+    step_index      INTEGER NOT NULL,
+    description     TEXT NOT NULL,
+    status          TEXT NOT NULL DEFAULT 'pending'
+                    CHECK (status IN ('pending', 'in_progress', 'completed', 'blocked')),
+    blocker_reason  TEXT NOT NULL DEFAULT '',
+    created_at      INTEGER NOT NULL DEFAULT (unixepoch ('now', 'subsec') * 1000),
+    updated_at      INTEGER NOT NULL DEFAULT (unixepoch ('now', 'subsec') * 1000),
+    UNIQUE (session_id, step_index)
+);
+
+CREATE INDEX idx_session_plans_session ON session_plans (session_id, step_index);
+
 CREATE INDEX idx_messages_session ON messages (session_id, created_at);
 
 CREATE INDEX idx_tool_calls_message ON tool_calls (message_id);

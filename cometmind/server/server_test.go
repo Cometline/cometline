@@ -19,6 +19,7 @@ import (
 	"github.com/cometline/cometmind/internal/config"
 	"github.com/cometline/cometmind/internal/contract"
 	"github.com/cometline/cometmind/internal/event"
+	"github.com/cometline/cometmind/internal/planning"
 	"github.com/cometline/cometmind/internal/session"
 	"github.com/cometline/cometmind/internal/skills"
 	"github.com/cometline/cometmind/internal/store"
@@ -1876,6 +1877,55 @@ func TestListModels(t *testing.T) {
 	}
 }
 
+func TestGetSessionPlan(t *testing.T) {
+	t.Parallel()
+	gin.SetMode(gin.TestMode)
+	ctx := context.Background()
+	dbPath := filepath.Join(t.TempDir(), "cometmind-test.db")
+	sqlDB, err := store.OpenSQLite(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("OpenSQLite() error = %v", err)
+	}
+	t.Cleanup(func() { _ = sqlDB.Close() })
+	sessions := session.New(sqlDB)
+	plans := planning.NewService(sqlDB)
+	engine, err := New(Deps{
+		Config:   &config.Config{Provider: "test-provider", Model: "test-model", MaxTokens: 256, MaxSteps: 8},
+		Sessions: sessions,
+		Planning: plans,
+		NewRunner: func(session.Session, string) (Runner, error) {
+			return fakeRunner(func(context.Context, session.AgentTurn, chan<- event.Event) error { return nil }), nil
+		},
+		Runs: NewRunManager(),
+	})
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	ws, err := sessions.EnsureWorkspace(ctx, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	sess, err := sessions.NewSession(ctx, ws.ID, "model", "provider")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := plans.SetPlan(ctx, sess.ID, []planning.StepInput{{Description: "inspect", Status: planning.StatusCompleted}}); err != nil {
+		t.Fatal(err)
+	}
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/sessions/"+sess.ID+"/plan", nil)
+	engine.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var got sessionPlanResponse
+	decodeJSON(t, rec.Body.Bytes(), &got)
+	if got.SessionID != sess.ID || len(got.Steps) != 1 || got.Steps[0].Description != "inspect" {
+		t.Fatalf("plan response=%+v", got)
+	}
+}
+
 func newTestEngine(t *testing.T, newRunner RunnerFactory) (*gin.Engine, *session.Service, func()) {
 	t.Helper()
 
@@ -1901,6 +1951,7 @@ func newTestEngine(t *testing.T, newRunner RunnerFactory) (*gin.Engine, *session
 			},
 		},
 		Sessions:  svc,
+		Planning:  planning.NewService(sqlDB),
 		NewRunner: newRunner,
 		Runs:      NewRunManager(),
 	})

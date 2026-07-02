@@ -280,6 +280,30 @@ func (e SessionSubagentKind) Valid() bool {
 	}
 }
 
+// Defines values for SessionPlanStepStatus.
+const (
+	SessionPlanStepStatusBlocked    SessionPlanStepStatus = "blocked"
+	SessionPlanStepStatusCompleted  SessionPlanStepStatus = "completed"
+	SessionPlanStepStatusInProgress SessionPlanStepStatus = "in_progress"
+	SessionPlanStepStatusPending    SessionPlanStepStatus = "pending"
+)
+
+// Valid indicates whether the value is a known member of the SessionPlanStepStatus enum.
+func (e SessionPlanStepStatus) Valid() bool {
+	switch e {
+	case SessionPlanStepStatusBlocked:
+		return true
+	case SessionPlanStepStatusCompleted:
+		return true
+	case SessionPlanStepStatusInProgress:
+		return true
+	case SessionPlanStepStatusPending:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for TranscriptItemType.
 const (
 	TranscriptItemTypeAssistant TranscriptItemType = "assistant"
@@ -372,22 +396,22 @@ func (e WorkspaceFileTextContentKind) Valid() bool {
 
 // Defines values for ListJobsParamsStatus.
 const (
-	ListJobsParamsStatusBlocked ListJobsParamsStatus = "blocked"
-	ListJobsParamsStatusDone    ListJobsParamsStatus = "done"
-	ListJobsParamsStatusOngoing ListJobsParamsStatus = "ongoing"
-	ListJobsParamsStatusTodo    ListJobsParamsStatus = "todo"
+	Blocked ListJobsParamsStatus = "blocked"
+	Done    ListJobsParamsStatus = "done"
+	Ongoing ListJobsParamsStatus = "ongoing"
+	Todo    ListJobsParamsStatus = "todo"
 )
 
 // Valid indicates whether the value is a known member of the ListJobsParamsStatus enum.
 func (e ListJobsParamsStatus) Valid() bool {
 	switch e {
-	case ListJobsParamsStatusBlocked:
+	case Blocked:
 		return true
-	case ListJobsParamsStatusDone:
+	case Done:
 		return true
-	case ListJobsParamsStatusOngoing:
+	case Ongoing:
 		return true
-	case ListJobsParamsStatusTodo:
+	case Todo:
 		return true
 	default:
 		return false
@@ -931,6 +955,31 @@ type SessionSubagentKind string
 type SessionListResponse struct {
 	Sessions []Session `json:"sessions"`
 }
+
+// SessionPlanResponse defines model for SessionPlanResponse.
+type SessionPlanResponse struct {
+	SessionId string            `json:"session_id"`
+	Steps     []SessionPlanStep `json:"steps"`
+}
+
+// SessionPlanStep defines model for SessionPlanStep.
+type SessionPlanStep struct {
+	BlockerReason string `json:"blocker_reason"`
+
+	// CreatedAt Unix epoch milliseconds.
+	CreatedAt   int64                 `json:"created_at"`
+	Description string                `json:"description"`
+	Id          string                `json:"id"`
+	SessionId   string                `json:"session_id"`
+	Status      SessionPlanStepStatus `json:"status"`
+	StepIndex   int64                 `json:"step_index"`
+
+	// UpdatedAt Unix epoch milliseconds.
+	UpdatedAt int64 `json:"updated_at"`
+}
+
+// SessionPlanStepStatus defines model for SessionPlanStep.Status.
+type SessionPlanStepStatus string
 
 // SimpleErrorResponse defines model for SimpleErrorResponse.
 type SimpleErrorResponse struct {

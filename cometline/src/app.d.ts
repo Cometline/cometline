@@ -194,6 +194,10 @@ declare global {
 		maxStepsPerRun: number;
 	}
 
+	interface CometMindPlanningSettings {
+		enabled: boolean;
+	}
+
 	type MCPTransport = 'stdio' | 'http' | 'sse';
 
 	interface MCPOAuthSettings {
@@ -239,6 +243,7 @@ declare global {
 		mcp: CometMindMCPSettings;
 		jobs: CometMindJobsSettings;
 		autonomy: CometMindAutonomousJobsSettings;
+		planning: CometMindPlanningSettings;
 	}
 
 	interface SidebarChromeState {

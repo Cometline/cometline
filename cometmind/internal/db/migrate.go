@@ -276,6 +276,21 @@ var alterStatements = [][]string{
 		"CREATE INDEX IF NOT EXISTS idx_scheduled_jobs_due ON scheduled_jobs (enabled, next_run_at)",
 		"CREATE INDEX IF NOT EXISTS idx_scheduled_jobs_updated ON scheduled_jobs (updated_at DESC)",
 	},
+	// v18 -> v19: per-session agent plans.
+	{
+		`CREATE TABLE IF NOT EXISTS session_plans (
+			id TEXT PRIMARY KEY,
+			session_id TEXT NOT NULL REFERENCES sessions (id) ON DELETE CASCADE,
+			step_index INTEGER NOT NULL,
+			description TEXT NOT NULL,
+			status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'in_progress', 'completed', 'blocked')),
+			blocker_reason TEXT NOT NULL DEFAULT '',
+			created_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000),
+			updated_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000),
+			UNIQUE (session_id, step_index)
+		)`,
+		"CREATE INDEX IF NOT EXISTS idx_session_plans_session ON session_plans (session_id, step_index)",
+	},
 }
 
 // execAlter runs one incremental DDL statement, tolerating idempotent failures
@@ -314,7 +329,7 @@ func splitStatements(sql string) []string {
 	return out
 }
 
-const schemaVersion = 18
+const schemaVersion = 19
 
 // EnsureSchema runs [Migrate] once per database file using PRAGMA user_version.
 // For existing databases, it applies incremental ALTER statements to upgrade

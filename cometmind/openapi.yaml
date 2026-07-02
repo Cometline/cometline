@@ -499,6 +499,24 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/v1/sessions/{id}/plan:
+    get:
+      tags: [Sessions]
+      summary: Get session plan
+      description: Returns the current checklist-style plan for a long-running session.
+      operationId: getSessionPlan
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200':
+          description: Current session plan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionPlanResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /api/v1/sessions/{id}/messages:
     delete:
       tags: [Sessions]
@@ -2075,6 +2093,54 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Session'
+
+    SessionPlanStep:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - session_id
+        - step_index
+        - description
+        - status
+        - blocker_reason
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+        session_id:
+          type: string
+        step_index:
+          type: integer
+          format: int64
+        description:
+          type: string
+        status:
+          type: string
+          enum: [pending, in_progress, completed, blocked]
+        blocker_reason:
+          type: string
+        created_at:
+          type: integer
+          format: int64
+          description: Unix epoch milliseconds.
+        updated_at:
+          type: integer
+          format: int64
+          description: Unix epoch milliseconds.
+
+    SessionPlanResponse:
+      type: object
+      additionalProperties: false
+      required: [session_id, steps]
+      properties:
+        session_id:
+          type: string
+        steps:
+          type: array
+          items:
+            $ref: '#/components/schemas/SessionPlanStep'
 
     ModelEntry:
       type: object

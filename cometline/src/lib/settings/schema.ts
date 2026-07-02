@@ -157,6 +157,10 @@ export interface CometMindAutonomousJobsSettings {
 	maxStepsPerRun: number;
 }
 
+export interface CometMindPlanningSettings {
+	enabled: boolean;
+}
+
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 const LOG_LEVELS: LogLevel[] = ['debug', 'info', 'warn', 'error'];
@@ -188,6 +192,7 @@ export interface CometMindSettings {
 	mcp: CometMindMCPSettings;
 	jobs: CometMindJobsSettings;
 	autonomy: CometMindAutonomousJobsSettings;
+	planning: CometMindPlanningSettings;
 }
 
 export interface RuntimeProviderEntry {
@@ -431,6 +436,10 @@ export function defaultCometMindAutonomousJobsSettings(): CometMindAutonomousJob
 	};
 }
 
+export function defaultCometMindPlanningSettings(): CometMindPlanningSettings {
+	return { enabled: false };
+}
+
 export function defaultCometMindStorageSettings(): CometMindStorageSettings {
 	return {
 		cleanupIntervalMinutes: 60,
@@ -492,7 +501,8 @@ export function defaultCometMindSettings(workspacePath = ''): CometMindSettings 
 		},
 		mcp: defaultCometMindMCPSettings(),
 		jobs: defaultCometMindJobsSettings(),
-		autonomy: defaultCometMindAutonomousJobsSettings()
+		autonomy: defaultCometMindAutonomousJobsSettings(),
+		planning: defaultCometMindPlanningSettings()
 	};
 }
 
@@ -514,6 +524,7 @@ export function normalizeCometMindSettings(
 		jobsInput.notifications ?? {};
 	const autonomyInput: Partial<CometMindAutonomousJobsSettings> = input?.autonomy ?? {};
 	const autonomyDefaults = defaults.autonomy;
+	const planningInput: Partial<CometMindPlanningSettings> = input?.planning ?? {};
 	const args = Array.isArray(acp.args)
 		? acp.args.map((a) => String(a).trim()).filter(Boolean)
 		: defaults.acp.args;
@@ -686,6 +697,12 @@ export function normalizeCometMindSettings(
 				autonomyInput.maxStepsPerRun,
 				autonomyDefaults.maxStepsPerRun
 			)
+		},
+		planning: {
+			enabled:
+				typeof planningInput.enabled === 'boolean'
+					? planningInput.enabled
+					: defaults.planning.enabled
 		}
 	};
 }
@@ -737,7 +754,8 @@ export function cloneCometMindSettings(settings: CometMindSettings): CometMindSe
 			...settings.jobs,
 			notifications: { ...settings.jobs.notifications }
 		},
-		autonomy: { ...settings.autonomy }
+		autonomy: { ...settings.autonomy },
+		planning: { ...settings.planning }
 	};
 }
 
@@ -1211,6 +1229,9 @@ const providerSettingsSchema = z.object({
 			retryCooldownMinutes: z.number().int().positive(),
 			maxRetryCooldownMinutes: z.number().int().positive(),
 			reconcileIntervalSeconds: z.number().int().positive()
+		}),
+		planning: z.object({
+			enabled: z.boolean()
 		})
 	})
 });
