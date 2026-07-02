@@ -1,17 +1,22 @@
 <script lang="ts">
-	import { LoaderCircle, RefreshCw } from '@lucide/svelte';
+	import { CalendarClock, LoaderCircle, Plus, RefreshCw, Trash2 } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import {
 		archiveJob,
 		createJob,
+		createScheduledJob,
 		deleteJob,
+		deleteScheduledJob,
 		listJobEvents,
 		listJobs,
+		listScheduledJobs,
 		updateJob,
+		updateScheduledJob,
 		unblockJob,
 		unarchiveJob,
 		type JobEventResource,
-		type JobResource
+		type JobResource,
+		type ScheduledJobResource
 	} from '$lib/client/cometmind';
 	import {
 		filterArchivedJobs,
@@ -28,6 +33,7 @@
 
 	type DrawerMode = 'detail' | 'create' | null;
 	type StatusFilter = 'all' | JobColumn;
+	type View = 'active' | 'archived' | 'scheduled';
 
 	const STATUS_FILTERS: { id: StatusFilter; label: string }[] = [
 		{ id: 'all', label: 'All' },
@@ -39,6 +45,7 @@
 
 	let grouped = $state<GroupedJobs>({ todo: [], ongoing: [], done: [] });
 	let archivedJobs = $state<JobResource[]>([]);
+	let scheduledJobs = $state<ScheduledJobResource[]>([]);
 	let statusFilter = $state<StatusFilter>('all');
 	let filteredGrouped = $derived(filterGroupedByStatus(grouped, statusFilter));
 	let activeJobs = $derived(grouped.ongoing);
@@ -48,7 +55,7 @@
 	let error = $state('');
 	let lastLoadedAt = $state(0);
 	let nowMs = $state(Date.now());
-	let showArchived = $state(false);
+	let view = $state<View>('active');
 	let drawerMode = $state<DrawerMode>(null);
 	let selectedJob = $state<JobResource | null>(null);
 	let events = $state<JobEventResource[]>([]);
@@ -62,6 +69,13 @@
 	let createDescription = $state('');
 	let createDod = $state('');
 	let createWorkspacePath = $state('');
+
+	let showScheduleForm = $state(false);
+	let scheduleDescription = $state('');
+	let scheduleDod = $state('');
+	let scheduleWorkspacePath = $state('');
+	let scheduleCronExpr = $state('');
+	let scheduleRunAtLocal = $state('');
 
 	function applyJobs(next: JobResource[]) {
 		grouped = groupJobsByColumn(next);
@@ -227,9 +241,86 @@
 		}
 	}
 
+	async function loadScheduledJobs(options: { silent?: boolean } = {}) {
+		if (options.silent && (loading || refreshing)) return;
+		try {
+			const res = await listScheduledJobs();
+			scheduledJobs = res.scheduled_jobs ?? [];
+		} catch {
+			if (!options.silent) scheduledJobs = [];
+		}
+	}
+
+	function resetScheduleForm() {
+		scheduleDescription = '';
+		scheduleDod = '';
+		scheduleWorkspacePath = '';
+		scheduleCronExpr = '';
+		scheduleRunAtLocal = '';
+	}
+
+	function localDatetimeToMillis(local: string): number | undefined {
+		if (!local) return undefined;
+		const ms = new Date(local).getTime();
+		return Number.isNaN(ms) ? undefined : ms;
+	}
+
+	async function handleCreateScheduled() {
+		if (!scheduleDescription.trim()) return;
+		const cron = scheduleCronExpr.trim();
+		const runAt = localDatetimeToMillis(scheduleRunAtLocal);
+		if (!cron && !runAt) {
+			error = 'Provide either a cron expression or a run time.';
+			return;
+		}
+		saving = true;
+		error = '';
+		try {
+			await createScheduledJob({
+				description: scheduleDescription.trim(),
+				definition_of_done: scheduleDod.trim() || undefined,
+				workspace_path: scheduleWorkspacePath.trim() || undefined,
+				cron_expr: cron || undefined,
+				run_at: runAt,
+				created_by: 'user',
+				source_platform: 'desktop'
+			});
+			resetScheduleForm();
+			showScheduleForm = false;
+			await loadScheduledJobs({ silent: true });
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Failed to create scheduled job';
+		} finally {
+			saving = false;
+		}
+	}
+
+	async function handleDeleteScheduled(job: ScheduledJobResource) {
+		if (!confirm(`Delete scheduled job "${truncateJobLabel(job.description)}"?`)) return;
+		try {
+			await deleteScheduledJob(job.id);
+			await loadScheduledJobs({ silent: true });
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Failed to delete scheduled job';
+		}
+	}
+
+	async function handleToggleScheduled(job: ScheduledJobResource) {
+		try {
+			await updateScheduledJob(job.id, { enabled: !job.enabled });
+			await loadScheduledJobs({ silent: true });
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Failed to toggle scheduled job';
+		}
+	}
+
 	onMount(() => {
 		void loadJobs();
-		const jobsTimer = setInterval(() => void loadJobs({ silent: true }), OBSERVER_REFRESH_MS);
+		void loadScheduledJobs({ silent: true });
+		const jobsTimer = setInterval(() => {
+			void loadJobs({ silent: true });
+			if (view === 'scheduled') void loadScheduledJobs({ silent: true });
+		}, OBSERVER_REFRESH_MS);
 		const clockTimer = setInterval(() => (nowMs = Date.now()), 1_000);
 		return () => {
 			clearInterval(jobsTimer);
@@ -275,6 +366,17 @@
 	function sessionLabel(job: JobResource): string {
 		return job.assigned_session_id ? job.assigned_session_id.slice(0, 8) : 'unassigned';
 	}
+
+	function scheduleLabel(job: ScheduledJobResource): string {
+		if (job.cron_expr) return `cron: ${job.cron_expr}`;
+		if (job.run_at) return `one-shot: ${formatClock(job.run_at)}`;
+		return 'unscheduled';
+	}
+
+	function nextRunLabel(job: ScheduledJobResource): string {
+		if (!job.enabled) return 'disabled';
+		return formatRelativeTime(job.next_run_at);
+	}
 </script>
 
 <div class="jobs-page settings-ui">
@@ -284,7 +386,7 @@
 			<p>Global work queue shared across sessions.</p>
 		</div>
 		<div class="jobs-header-actions">
-			{#if !showArchived}
+			{#if view === 'active'}
 				<div class="status-filters" role="group" aria-label="Filter by status">
 					{#each STATUS_FILTERS as filter (filter.id)}
 						<button
@@ -299,17 +401,45 @@
 					{/each}
 				</div>
 			{/if}
-			<label class="archived-toggle">
-				<input type="checkbox" bind:checked={showArchived} />
-				<span>Show archived</span>
-			</label>
+			<div class="view-toggle" role="group" aria-label="Switch view">
+				<button
+					type="button"
+					class="view-btn"
+					class:active={view === 'active'}
+					aria-pressed={view === 'active'}
+					onclick={() => (view = 'active')}
+				>
+					Active
+				</button>
+				<button
+					type="button"
+					class="view-btn"
+					class:active={view === 'archived'}
+					aria-pressed={view === 'archived'}
+					onclick={() => (view = 'archived')}
+				>
+					Archived
+				</button>
+				<button
+					type="button"
+					class="view-btn"
+					class:active={view === 'scheduled'}
+					aria-pressed={view === 'scheduled'}
+					onclick={() => (view = 'scheduled')}
+				>
+					Scheduled
+				</button>
+			</div>
 			<button
 				type="button"
 				class="secondary icon-only"
 				aria-label="Refresh jobs"
 				title="Refresh"
 				disabled={loading || refreshing}
-				onclick={() => void loadJobs({ silent: true })}
+				onclick={() => {
+					void loadJobs({ silent: true });
+					void loadScheduledJobs({ silent: true });
+				}}
 			>
 				<RefreshCw size={14} class={refreshing ? 'spin' : ''} />
 			</button>
@@ -326,7 +456,7 @@
 				<LoaderCircle size={18} class="spin" />
 				<span>Loading jobs…</span>
 			</div>
-		{:else if showArchived}
+		{:else if view === 'archived'}
 			<section class="archived-panel settings-panel-frame">
 				<header class="archived-header">
 					<h2>Archived</h2>
@@ -342,6 +472,126 @@
 								selected={selectedJob?.id === job.id}
 								onclick={() => void openJob(job)}
 							/>
+						{/each}
+					</div>
+				{/if}
+			</section>
+		{:else if view === 'scheduled'}
+			<section class="scheduled-panel settings-panel-frame">
+				<header class="scheduled-header">
+					<h2>Scheduled</h2>
+					<button
+						type="button"
+						class="secondary"
+						onclick={() => {
+							showScheduleForm = !showScheduleForm;
+							if (showScheduleForm) {
+								scheduleWorkspacePath = shellStore.workspacePath?.trim() ?? '';
+							}
+						}}
+					>
+						<Plus size={14} />
+						{showScheduleForm ? 'Cancel' : 'Schedule job'}
+					</button>
+				</header>
+
+				{#if showScheduleForm}
+					<form
+						class="schedule-form"
+						onsubmit={(e) => {
+							e.preventDefault();
+							void handleCreateScheduled();
+						}}
+					>
+						<label class="form-field">
+							<span>Description</span>
+							<input
+								type="text"
+								bind:value={scheduleDescription}
+								placeholder="What should this job do?"
+								required
+							/>
+						</label>
+						<label class="form-field">
+							<span>Definition of done</span>
+							<textarea bind:value={scheduleDod} rows="2"></textarea>
+						</label>
+						<label class="form-field">
+							<span>Workspace path</span>
+							<input type="text" bind:value={scheduleWorkspacePath} />
+						</label>
+						<div class="schedule-mode">
+							<label class="form-field">
+								<span>Cron expression (recurring)</span>
+								<input
+									type="text"
+									bind:value={scheduleCronExpr}
+									placeholder="0 9 * * 1"
+									disabled={!!scheduleRunAtLocal}
+								/>
+								<small
+									>5-field cron, e.g. <code>0 9 * * 1</code> for every Monday 9am</small
+								>
+							</label>
+							<label class="form-field">
+								<span>Run at (one-shot)</span>
+								<input
+									type="datetime-local"
+									bind:value={scheduleRunAtLocal}
+									disabled={!!scheduleCronExpr}
+								/>
+								<small>Local time. Leave empty if using cron.</small>
+							</label>
+						</div>
+						<button type="submit" class="primary" disabled={saving}>
+							{#if saving}
+								<LoaderCircle size={14} class="spin" />
+							{/if}
+							Create schedule
+						</button>
+					</form>
+				{/if}
+
+				{#if scheduledJobs.length === 0}
+					<p class="jobs-muted">No scheduled jobs. Create one to defer work.</p>
+				{:else}
+					<div class="scheduled-list scrollbar-none">
+						{#each scheduledJobs as job (job.id)}
+							<div class="scheduled-card" class:disabled={!job.enabled}>
+								<div class="scheduled-card-main">
+									<strong>{job.description}</strong>
+									<div class="scheduled-card-meta">
+										<span class="chip">
+											<CalendarClock size={11} />
+											{scheduleLabel(job)}
+										</span>
+										<span class="chip">Next: {nextRunLabel(job)}</span>
+										{#if job.last_run_at}
+											<span class="chip"
+												>Last: {formatClock(job.last_run_at)}</span
+											>
+										{/if}
+									</div>
+								</div>
+								<div class="scheduled-card-actions">
+									<button
+										type="button"
+										class="secondary icon-only"
+										title={job.enabled ? 'Disable' : 'Enable'}
+										onclick={() => void handleToggleScheduled(job)}
+									>
+										{job.enabled ? 'Disable' : 'Enable'}
+									</button>
+									<button
+										type="button"
+										class="danger icon-only"
+										title="Delete"
+										onclick={() => void handleDeleteScheduled(job)}
+									>
+										<Trash2 size={14} />
+									</button>
+								</div>
+							</div>
 						{/each}
 					</div>
 				{/if}
@@ -501,13 +751,35 @@
 		color: var(--text-main);
 	}
 
-	.archived-toggle {
+	.view-toggle {
 		display: inline-flex;
 		align-items: center;
-		gap: 8px;
-		font-size: 12px;
+		gap: 4px;
+		padding: 3px;
+		border-radius: 999px;
+		background: rgba(15, 23, 42, 0.05);
+	}
+
+	.view-btn {
+		border: none;
+		background: transparent;
 		color: var(--text-muted);
-		user-select: none;
+		font: inherit;
+		font-size: 11px;
+		font-weight: 600;
+		padding: 5px 10px;
+		border-radius: 999px;
+		cursor: pointer;
+	}
+
+	.view-btn.active {
+		background: var(--panel-bg);
+		color: var(--text-main);
+		box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+	}
+
+	.view-btn:hover:not(.active) {
+		color: var(--text-main);
 	}
 
 	.jobs-content {
@@ -736,5 +1008,142 @@
 		.observer-header {
 			flex-direction: column;
 		}
+	}
+
+	.scheduled-panel {
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+		min-height: 0;
+		height: 100%;
+		padding: 14px;
+		overflow: hidden;
+	}
+
+	.scheduled-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 8px;
+	}
+
+	.scheduled-header h2 {
+		margin: 0;
+		font-size: 14px;
+		font-weight: 650;
+	}
+
+	.schedule-form {
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+		padding: 12px;
+		border-radius: 10px;
+		background: var(--panel-bg);
+		border: 1px solid var(--border-soft);
+	}
+
+	.form-field {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		font-size: 12px;
+		color: var(--text-muted);
+	}
+
+	.form-field input,
+	.form-field textarea {
+		font: inherit;
+		font-size: 13px;
+		color: var(--text-main);
+		padding: 7px 9px;
+		border: 1px solid var(--border-soft);
+		border-radius: 7px;
+		background: var(--panel-bg);
+		resize: vertical;
+	}
+
+	.form-field small {
+		font-size: 10px;
+		color: var(--text-muted);
+	}
+
+	.form-field code {
+		font-size: 10px;
+		padding: 1px 4px;
+		border-radius: 4px;
+		background: rgba(15, 23, 42, 0.06);
+	}
+
+	.schedule-mode {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 10px;
+	}
+
+	.scheduled-list {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+		gap: 10px;
+		overflow-y: auto;
+		min-height: 0;
+		padding-right: 2px;
+	}
+
+	.scheduled-card {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 10px;
+		border: 1px solid var(--border-soft);
+		border-radius: 10px;
+		background: var(--panel-bg);
+		padding: 10px 12px;
+	}
+
+	.scheduled-card.disabled {
+		opacity: 0.55;
+	}
+
+	.scheduled-card-main {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+		min-width: 0;
+	}
+
+	.scheduled-card-main strong {
+		font-size: 12px;
+		color: var(--text-main);
+	}
+
+	.scheduled-card-meta {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 5px;
+	}
+
+	.chip {
+		display: inline-flex;
+		align-items: center;
+		gap: 3px;
+		font-size: 10px;
+		font-weight: 600;
+		padding: 2px 7px;
+		border-radius: 999px;
+		background: rgba(15, 23, 42, 0.06);
+		color: var(--text-muted);
+	}
+
+	.scheduled-card-actions {
+		display: flex;
+		flex-direction: column;
+		gap: 5px;
+		flex-shrink: 0;
+	}
+
+	.scheduled-card-actions button {
+		font-size: 10px;
+		padding: 4px 8px;
 	}
 </style>

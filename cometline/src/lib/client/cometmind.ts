@@ -48,7 +48,12 @@ import {
 	unarchiveJob as unarchiveJobApi,
 	unblockJob as unblockJobApi,
 	getJobSettings as getJobSettingsApi,
-	putJobSettings as putJobSettingsApi
+	putJobSettings as putJobSettingsApi,
+	listScheduledJobs as listScheduledJobsApi,
+	createScheduledJob as createScheduledJobApi,
+	getScheduledJob as getScheduledJobApi,
+	updateScheduledJob as updateScheduledJobApi,
+	deleteScheduledJob as deleteScheduledJobApi
 } from '$lib/generated/cometmind-api';
 import type {
 	CompactMemoryPreviewResponse,
@@ -76,7 +81,11 @@ import type {
 	JobEventResource,
 	JobSettings,
 	CreateJobRequest,
-	UpdateJobRequest
+	UpdateJobRequest,
+	ScheduledJobResource,
+	ListScheduledJobsResponse,
+	CreateScheduledJobRequest,
+	UpdateScheduledJobRequest
 } from '$lib/generated/cometmind-api';
 import { client } from '$lib/generated/cometmind-api/client.gen';
 import { createSSEParser } from '$lib/sse/parser';
@@ -100,7 +109,11 @@ export type {
 	JobEventResource,
 	JobSettings,
 	CreateJobRequest,
-	UpdateJobRequest
+	UpdateJobRequest,
+	ScheduledJobResource,
+	ListScheduledJobsResponse,
+	CreateScheduledJobRequest,
+	UpdateScheduledJobRequest
 } from '$lib/generated/cometmind-api';
 
 export type MemoryLifecycleSettings = {
@@ -738,4 +751,29 @@ export function putJobSettings(settings: JobSettings): Promise<JobSettings> {
 
 export function buildJobExecutionPrompt(job: JobExecutionPromptInput): string {
 	return buildJobExecutionPromptImpl(job);
+}
+
+export function listScheduledJobs(): Promise<ListScheduledJobsResponse> {
+	return listScheduledJobsApi({ throwOnError: true }).then(({ data }) => data);
+}
+
+export function createScheduledJob(body: CreateScheduledJobRequest): Promise<ScheduledJobResource> {
+	return createScheduledJobApi({ body, throwOnError: true }).then(({ data }) => data);
+}
+
+export function getScheduledJob(id: string): Promise<ScheduledJobResource> {
+	return getScheduledJobApi({ path: { id }, throwOnError: true }).then(({ data }) => data);
+}
+
+export function updateScheduledJob(
+	id: string,
+	body: UpdateScheduledJobRequest
+): Promise<ScheduledJobResource> {
+	return updateScheduledJobApi({ path: { id }, body, throwOnError: true }).then(
+		({ data }) => data
+	);
+}
+
+export function deleteScheduledJob(id: string): Promise<void> {
+	return deleteScheduledJobApi({ path: { id }, throwOnError: true }).then(() => undefined);
 }
