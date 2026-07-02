@@ -28,11 +28,14 @@ type cometlineACPJSON struct {
 }
 
 type cometlineSkillsJSON struct {
-	Enabled           bool     `json:"enabled"`
-	Roots             []string `json:"roots"`
-	IncludeOpenCode   bool     `json:"includeOpenCode"`
-	IncludeClaude     bool     `json:"includeClaude"`
-	MirrorToCometMind bool     `json:"mirrorToCometMind"`
+	Enabled             bool     `json:"enabled"`
+	Roots               []string `json:"roots"`
+	IncludeOpenCode     bool     `json:"includeOpenCode"`
+	IncludeClaude       bool     `json:"includeClaude"`
+	MirrorToCometMind   bool     `json:"mirrorToCometMind"`
+	SynthesisEnabled    bool     `json:"synthesisEnabled"`
+	SynthesisProviderID string   `json:"synthesisProviderId"`
+	SynthesisModel      string   `json:"synthesisModel"`
 }
 
 type cometlineMemoryEmbeddingJSON struct {
@@ -235,11 +238,14 @@ func adaptCometlineSettings(raw cometlineSettingsJSON) (*Config, error) {
 			Timeout: strings.TrimSpace(cm.ACP.Timeout),
 		},
 		Skills: SkillsConfig{
-			Enabled:           cm.Skills.Enabled,
-			Roots:             append([]string(nil), cm.Skills.Roots...),
-			IncludeOpenCode:   cm.Skills.IncludeOpenCode,
-			IncludeClaude:     cm.Skills.IncludeClaude,
-			MirrorToCometMind: cm.Skills.MirrorToCometMind,
+			Enabled:             cm.Skills.Enabled,
+			Roots:               append([]string(nil), cm.Skills.Roots...),
+			IncludeOpenCode:     cm.Skills.IncludeOpenCode,
+			IncludeClaude:       cm.Skills.IncludeClaude,
+			MirrorToCometMind:   cm.Skills.MirrorToCometMind,
+			SynthesisEnabled:    cm.Skills.SynthesisEnabled,
+			SynthesisProviderID: strings.TrimSpace(cm.Skills.SynthesisProviderID),
+			SynthesisModel:      strings.TrimSpace(cm.Skills.SynthesisModel),
 		},
 		Memory: MemoryConfig{
 			Enabled:             memDef.Enabled,

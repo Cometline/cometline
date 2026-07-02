@@ -622,6 +622,11 @@ type ListScheduledJobsResponse struct {
 	ScheduledJobs []ScheduledJobResource `json:"scheduled_jobs"`
 }
 
+// ListSkillDraftsResponse defines model for ListSkillDraftsResponse.
+type ListSkillDraftsResponse struct {
+	Drafts []SkillDraft `json:"drafts"`
+}
+
 // ListSkillsResponse defines model for ListSkillsResponse.
 type ListSkillsResponse struct {
 	Errors *[]string `json:"errors,omitempty"`
@@ -948,6 +953,21 @@ type Skill struct {
 type SkillDetailResponse struct {
 	Content string `json:"content"`
 	Skill   Skill  `json:"skill"`
+}
+
+// SkillDraft defines model for SkillDraft.
+type SkillDraft struct {
+	CreatedAt   int64  `json:"created_at"`
+	Description string `json:"description"`
+	Name        string `json:"name"`
+	Path        string `json:"path"`
+	UpdatedAt   int64  `json:"updated_at"`
+}
+
+// SkillDraftDetailResponse defines model for SkillDraftDetailResponse.
+type SkillDraftDetailResponse struct {
+	Content string     `json:"content"`
+	Draft   SkillDraft `json:"draft"`
 }
 
 // StatusResponse defines model for StatusResponse.

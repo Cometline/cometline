@@ -38,11 +38,14 @@ type ACPConfig struct {
 
 // SkillsConfig controls local Agent Skills discovery.
 type SkillsConfig struct {
-	Enabled           bool     `mapstructure:"enabled"`
-	Roots             []string `mapstructure:"roots"`
-	IncludeOpenCode   bool     `mapstructure:"include_opencode"`
-	IncludeClaude     bool     `mapstructure:"include_claude"`
-	MirrorToCometMind bool     `mapstructure:"mirror_to_cometmind"`
+	Enabled             bool     `mapstructure:"enabled"`
+	Roots               []string `mapstructure:"roots"`
+	IncludeOpenCode     bool     `mapstructure:"include_opencode"`
+	IncludeClaude       bool     `mapstructure:"include_claude"`
+	MirrorToCometMind   bool     `mapstructure:"mirror_to_cometmind"`
+	SynthesisEnabled    bool     `mapstructure:"synthesis_enabled"`
+	SynthesisProviderID string   `mapstructure:"synthesis_provider_id"`
+	SynthesisModel      string   `mapstructure:"synthesis_model"`
 }
 
 // DiscordGatewayConfig configures the Discord messaging adapter.

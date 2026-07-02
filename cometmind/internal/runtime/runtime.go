@@ -109,6 +109,22 @@ func New(ctx context.Context) (*Runtime, error) {
 			}
 		}
 	}
+	if cfg.Skills.SynthesisEnabled {
+		providerID := strings.TrimSpace(cfg.Skills.SynthesisProviderID)
+		if providerID == "" {
+			providerID = cfg.Provider
+		}
+		model := strings.TrimSpace(cfg.Skills.SynthesisModel)
+		if model == "" {
+			model = cfg.Model
+		}
+		p, err := provider.NewFor(cfg, providerID)
+		if err != nil {
+			logging.L().Warn("skills.synthesis.provider.init_failed", "error", err)
+		} else {
+			notifier.Register(&skillSynthesisNotifier{provider: p, model: model, memory: r.Memory})
+		}
+	}
 	if _, err := r.RunRetention(ctx); err != nil {
 		logging.L().Warn("retention.startup_failed", "error", err)
 	}

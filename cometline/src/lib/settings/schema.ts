@@ -76,6 +76,9 @@ export interface CometMindSkillsSettings {
 	includeOpenCode: boolean;
 	includeClaude: boolean;
 	mirrorToCometMind: boolean;
+	synthesisEnabled: boolean;
+	synthesisProviderId: string;
+	synthesisModel: string;
 }
 
 export interface CometMindMemorySettings {
@@ -457,7 +460,10 @@ export function defaultCometMindSettings(workspacePath = ''): CometMindSettings 
 			roots: [],
 			includeOpenCode: true,
 			includeClaude: true,
-			mirrorToCometMind: true
+			mirrorToCometMind: true,
+			synthesisEnabled: false,
+			synthesisProviderId: '',
+			synthesisModel: ''
 		},
 		memory: {
 			extractionProviderId: '',
@@ -532,7 +538,15 @@ export function normalizeCometMindSettings(
 			roots: [],
 			includeOpenCode: true,
 			includeClaude: true,
-			mirrorToCometMind: true
+			mirrorToCometMind: true,
+			synthesisEnabled:
+				typeof skills.synthesisEnabled === 'boolean'
+					? skills.synthesisEnabled
+					: defaults.skills.synthesisEnabled,
+			synthesisProviderId: String(
+				skills.synthesisProviderId ?? defaults.skills.synthesisProviderId
+			).trim(),
+			synthesisModel: String(skills.synthesisModel ?? defaults.skills.synthesisModel).trim()
 		},
 		memory: {
 			extractionProviderId: String(
@@ -1119,7 +1133,10 @@ const providerSettingsSchema = z.object({
 			roots: z.array(z.string()),
 			includeOpenCode: z.boolean(),
 			includeClaude: z.boolean(),
-			mirrorToCometMind: z.boolean()
+			mirrorToCometMind: z.boolean(),
+			synthesisEnabled: z.boolean(),
+			synthesisProviderId: z.string(),
+			synthesisModel: z.string()
 		}),
 		memory: z.object({
 			extractionProviderId: z.string(),

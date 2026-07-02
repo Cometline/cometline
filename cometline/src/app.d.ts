@@ -141,6 +141,9 @@ declare global {
 		includeOpenCode: boolean;
 		includeClaude: boolean;
 		mirrorToCometMind: boolean;
+		synthesisEnabled: boolean;
+		synthesisProviderId: string;
+		synthesisModel: string;
 	}
 
 	interface CometMindMemorySettings {

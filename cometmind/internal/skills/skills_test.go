@@ -218,6 +218,55 @@ func TestWriteSkillAndDeleteManagedSkill(t *testing.T) {
 	}
 }
 
+func TestDraftPromoteRejectRoundTrip(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	content := "---\nname: draft-skill\ndescription: Draft skill\n---\n\nUse this draft."
+	if err := WriteDraft("draft-skill", content, false); err != nil {
+		t.Fatalf("WriteDraft() error = %v", err)
+	}
+	reg := Discover("", Config{Enabled: true})
+	if _, ok := reg.Find("draft-skill"); ok {
+		t.Fatalf("draft should not be discoverable before promotion")
+	}
+	drafts, err := ListDrafts()
+	if err != nil {
+		t.Fatalf("ListDrafts() error = %v", err)
+	}
+	if len(drafts) != 1 || drafts[0].Name != "draft-skill" {
+		t.Fatalf("ListDrafts() = %+v", drafts)
+	}
+	if err := PromoteDraft("draft-skill"); err != nil {
+		t.Fatalf("PromoteDraft() error = %v", err)
+	}
+	reg = Discover("", Config{Enabled: true})
+	if _, ok := reg.Find("draft-skill"); !ok {
+		t.Fatalf("promoted skill should be discoverable")
+	}
+	drafts, err = ListDrafts()
+	if err != nil {
+		t.Fatalf("ListDrafts() after promote error = %v", err)
+	}
+	if len(drafts) != 0 {
+		t.Fatalf("draft should be removed after promotion: %+v", drafts)
+	}
+
+	rejected := strings.ReplaceAll(content, "draft-skill", "rejected-skill")
+	if err := WriteDraft("rejected-skill", rejected, false); err != nil {
+		t.Fatalf("WriteDraft(rejected) error = %v", err)
+	}
+	if err := RejectDraft("rejected-skill"); err != nil {
+		t.Fatalf("RejectDraft() error = %v", err)
+	}
+	drafts, err = ListDrafts()
+	if err != nil {
+		t.Fatalf("ListDrafts() after reject error = %v", err)
+	}
+	if len(drafts) != 0 {
+		t.Fatalf("draft should be removed after rejection: %+v", drafts)
+	}
+}
+
 func TestExpandCreateSkillCommandIncludesRequest(t *testing.T) {
 	out := ExpandCreateSkillCommand("commit message helper")
 	if !strings.Contains(out, "write_skill") || !strings.Contains(out, "commit message helper") {

@@ -791,6 +791,94 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/v1/skill-drafts:
+    get:
+      tags: [Skills]
+      summary: List pending skill drafts
+      operationId: listSkillDrafts
+      responses:
+        '200':
+          description: Pending skill drafts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListSkillDraftsResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/skill-drafts/{name}:
+    get:
+      tags: [Skills]
+      summary: Read one pending skill draft
+      operationId: getSkillDraft
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Skill draft detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SkillDraftDetailResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      tags: [Skills]
+      summary: Reject a pending skill draft
+      operationId: rejectSkillDraft
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Skill draft rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/skill-drafts/{name}/promote:
+    post:
+      tags: [Skills]
+      summary: Promote a pending skill draft into the managed skills root
+      operationId: promoteSkillDraft
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Skill draft promoted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Draft cannot be promoted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /api/v1/mcp/servers:
     get:
       tags: [MCP]
@@ -2115,6 +2203,44 @@ components:
       properties:
         skill:
           $ref: '#/components/schemas/Skill'
+        content:
+          type: string
+
+    SkillDraft:
+      type: object
+      additionalProperties: false
+      required: [name, description, path, created_at, updated_at]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        path:
+          type: string
+        created_at:
+          type: integer
+          format: int64
+        updated_at:
+          type: integer
+          format: int64
+
+    ListSkillDraftsResponse:
+      type: object
+      additionalProperties: false
+      required: [drafts]
+      properties:
+        drafts:
+          type: array
+          items:
+            $ref: '#/components/schemas/SkillDraft'
+
+    SkillDraftDetailResponse:
+      type: object
+      additionalProperties: false
+      required: [draft, content]
+      properties:
+        draft:
+          $ref: '#/components/schemas/SkillDraft'
         content:
           type: string
 

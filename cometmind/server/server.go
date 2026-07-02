@@ -136,6 +136,10 @@ func New(deps Deps) (*gin.Engine, error) {
 	api.GET("/skills/:name/archive", app.handleExportSkill)
 	api.DELETE("/skills/:name", app.handleDeleteSkill)
 	api.GET("/skills/:name", app.handleGetSkill)
+	api.GET("/skill-drafts", app.handleListSkillDrafts)
+	api.GET("/skill-drafts/:name", app.handleGetSkillDraft)
+	api.POST("/skill-drafts/:name/promote", app.handlePromoteSkillDraft)
+	api.DELETE("/skill-drafts/:name", app.handleRejectSkillDraft)
 
 	// MCP
 	api.GET("/mcp/servers", app.handleListMCPServers)

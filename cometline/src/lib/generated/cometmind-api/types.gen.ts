@@ -278,6 +278,23 @@ export type SkillDetailResponse = {
     content: string;
 };
 
+export type SkillDraft = {
+    name: string;
+    description: string;
+    path: string;
+    created_at: number;
+    updated_at: number;
+};
+
+export type ListSkillDraftsResponse = {
+    drafts: Array<SkillDraft>;
+};
+
+export type SkillDraftDetailResponse = {
+    draft: SkillDraft;
+    content: string;
+};
+
 export type SyncSkillsResponse = {
     created: Array<string>;
     skipped: Array<string>;
@@ -1613,6 +1630,128 @@ export type ExportSkillResponses = {
 };
 
 export type ExportSkillResponse = ExportSkillResponses[keyof ExportSkillResponses];
+
+export type ListSkillDraftsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/skill-drafts';
+};
+
+export type ListSkillDraftsErrors = {
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type ListSkillDraftsError = ListSkillDraftsErrors[keyof ListSkillDraftsErrors];
+
+export type ListSkillDraftsResponses = {
+    /**
+     * Pending skill drafts
+     */
+    200: ListSkillDraftsResponse;
+};
+
+export type ListSkillDraftsResponse2 = ListSkillDraftsResponses[keyof ListSkillDraftsResponses];
+
+export type RejectSkillDraftData = {
+    body?: never;
+    path: {
+        name: string;
+    };
+    query?: never;
+    url: '/api/v1/skill-drafts/{name}';
+};
+
+export type RejectSkillDraftErrors = {
+    /**
+     * Resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type RejectSkillDraftError = RejectSkillDraftErrors[keyof RejectSkillDraftErrors];
+
+export type RejectSkillDraftResponses = {
+    /**
+     * Skill draft rejected
+     */
+    200: StatusResponse;
+};
+
+export type RejectSkillDraftResponse = RejectSkillDraftResponses[keyof RejectSkillDraftResponses];
+
+export type GetSkillDraftData = {
+    body?: never;
+    path: {
+        name: string;
+    };
+    query?: never;
+    url: '/api/v1/skill-drafts/{name}';
+};
+
+export type GetSkillDraftErrors = {
+    /**
+     * Resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type GetSkillDraftError = GetSkillDraftErrors[keyof GetSkillDraftErrors];
+
+export type GetSkillDraftResponses = {
+    /**
+     * Skill draft detail
+     */
+    200: SkillDraftDetailResponse;
+};
+
+export type GetSkillDraftResponse = GetSkillDraftResponses[keyof GetSkillDraftResponses];
+
+export type PromoteSkillDraftData = {
+    body?: never;
+    path: {
+        name: string;
+    };
+    query?: never;
+    url: '/api/v1/skill-drafts/{name}/promote';
+};
+
+export type PromoteSkillDraftErrors = {
+    /**
+     * Resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * Draft cannot be promoted
+     */
+    409: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type PromoteSkillDraftError = PromoteSkillDraftErrors[keyof PromoteSkillDraftErrors];
+
+export type PromoteSkillDraftResponses = {
+    /**
+     * Skill draft promoted
+     */
+    200: StatusResponse;
+};
+
+export type PromoteSkillDraftResponse = PromoteSkillDraftResponses[keyof PromoteSkillDraftResponses];
 
 export type ListMcpServersData = {
     body?: never;

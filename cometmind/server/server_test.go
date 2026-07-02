@@ -1221,6 +1221,92 @@ func TestSkillsDeleteAndExport(t *testing.T) {
 	}
 }
 
+func TestSkillDraftHandlersPromoteAndReject(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	draftContent := "---\nname: api-draft\ndescription: api draft skill\n---\n\n# Draft\n"
+	if err := skills.WriteDraft("api-draft", draftContent, false); err != nil {
+		t.Fatalf("WriteDraft() error = %v", err)
+	}
+
+	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
+			ch <- event.Done()
+			return nil
+		}), nil
+	})
+	defer cleanup()
+
+	listRec := httptest.NewRecorder()
+	listReq := httptest.NewRequest(http.MethodGet, "/api/v1/skill-drafts", nil)
+	engine.ServeHTTP(listRec, listReq)
+	if listRec.Code != http.StatusOK {
+		t.Fatalf("list status = %d, want %d body=%s", listRec.Code, http.StatusOK, listRec.Body.String())
+	}
+	var list listSkillDraftsResponse
+	decodeJSON(t, listRec.Body.Bytes(), &list)
+	if len(list.Drafts) != 1 || list.Drafts[0].Name != "api-draft" {
+		t.Fatalf("draft list = %+v, want api-draft", list.Drafts)
+	}
+
+	detailRec := httptest.NewRecorder()
+	detailReq := httptest.NewRequest(http.MethodGet, "/api/v1/skill-drafts/api-draft", nil)
+	engine.ServeHTTP(detailRec, detailReq)
+	if detailRec.Code != http.StatusOK {
+		t.Fatalf("detail status = %d, want %d body=%s", detailRec.Code, http.StatusOK, detailRec.Body.String())
+	}
+	var detail skillDraftDetailResponse
+	decodeJSON(t, detailRec.Body.Bytes(), &detail)
+	if !strings.Contains(detail.Content, "api draft skill") {
+		t.Fatalf("detail content missing draft text: %q", detail.Content)
+	}
+
+	promoteRec := httptest.NewRecorder()
+	promoteReq := httptest.NewRequest(http.MethodPost, "/api/v1/skill-drafts/api-draft/promote", nil)
+	engine.ServeHTTP(promoteRec, promoteReq)
+	if promoteRec.Code != http.StatusOK {
+		t.Fatalf("promote status = %d, want %d body=%s", promoteRec.Code, http.StatusOK, promoteRec.Body.String())
+	}
+
+	skillsRec := httptest.NewRecorder()
+	skillsReq := httptest.NewRequest(http.MethodGet, "/api/v1/skills", nil)
+	engine.ServeHTTP(skillsRec, skillsReq)
+	if skillsRec.Code != http.StatusOK {
+		t.Fatalf("skills status = %d, want %d body=%s", skillsRec.Code, http.StatusOK, skillsRec.Body.String())
+	}
+	var skillsList listSkillsResponse
+	decodeJSON(t, skillsRec.Body.Bytes(), &skillsList)
+	found := false
+	for _, skill := range skillsList.Skills {
+		if skill.Name == "api-draft" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("promoted skill not listed: %+v", skillsList.Skills)
+	}
+
+	rejectContent := "---\nname: rejected-draft\ndescription: rejected draft skill\n---\n\n# Reject\n"
+	if err := skills.WriteDraft("rejected-draft", rejectContent, false); err != nil {
+		t.Fatalf("WriteDraft(rejected) error = %v", err)
+	}
+	rejectRec := httptest.NewRecorder()
+	rejectReq := httptest.NewRequest(http.MethodDelete, "/api/v1/skill-drafts/rejected-draft", nil)
+	engine.ServeHTTP(rejectRec, rejectReq)
+	if rejectRec.Code != http.StatusOK {
+		t.Fatalf("reject status = %d, want %d body=%s", rejectRec.Code, http.StatusOK, rejectRec.Body.String())
+	}
+
+	missingRec := httptest.NewRecorder()
+	missingReq := httptest.NewRequest(http.MethodDelete, "/api/v1/skill-drafts/rejected-draft", nil)
+	engine.ServeHTTP(missingRec, missingReq)
+	if missingRec.Code != http.StatusNotFound {
+		t.Fatalf("missing reject status = %d, want %d body=%s", missingRec.Code, http.StatusNotFound, missingRec.Body.String())
+	}
+}
+
 func TestListWorkspaces(t *testing.T) {
 	t.Parallel()
 
