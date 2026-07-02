@@ -4856,7 +4856,8 @@ function cloneCometMindSettings(settings) {
       ...settings.jobs,
       notifications: { ...settings.jobs.notifications }
     },
-    autonomy: { ...settings.autonomy }
+    autonomy: { ...settings.autonomy },
+    planning: { ...settings.planning }
   };
 }
 function defaultCaretTrailSettings() {
