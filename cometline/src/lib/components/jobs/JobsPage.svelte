@@ -242,12 +242,14 @@
 	}
 
 	async function loadScheduledJobs(options: { silent?: boolean } = {}) {
-		if (options.silent && (loading || refreshing)) return;
 		try {
 			const res = await listScheduledJobs();
 			scheduledJobs = res.scheduled_jobs ?? [];
-		} catch {
+		} catch (e) {
 			if (!options.silent) scheduledJobs = [];
+			if (!options.silent || view === 'scheduled') {
+				error = e instanceof Error ? e.message : 'Failed to load scheduled jobs';
+			}
 		}
 	}
 
@@ -326,6 +328,12 @@
 			clearInterval(jobsTimer);
 			clearInterval(clockTimer);
 		};
+	});
+
+	$effect(() => {
+		if (view === 'scheduled') {
+			void loadScheduledJobs({ silent: true });
+		}
 	});
 
 	function formatClock(ms: number): string {

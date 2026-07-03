@@ -95,7 +95,7 @@ func (c *Config) MemorySettings() memory.Settings {
 	if s.MaxRetrieved <= 0 {
 		s.MaxRetrieved = def.MaxRetrieved
 	}
-	if s.SimilarityThreshold <= 0 {
+	if s.SimilarityThreshold < 0 {
 		s.SimilarityThreshold = def.SimilarityThreshold
 	}
 	if s.Lifecycle.DecayHalfLifeDays <= 0 {

@@ -46,6 +46,28 @@ type cometlineMemoryEmbeddingJSON struct {
 	APIKey     string `json:"apiKey"`
 }
 
+type cometlineMemoryLifecycleJSON struct {
+	DecayHalfLifeDays     float64 `json:"decayHalfLifeDays"`
+	ForgetThreshold       float64 `json:"forgetThreshold"`
+	UsageBoostFactor      float64 `json:"usageBoostFactor"`
+	MaxUsageBoost         float64 `json:"maxUsageBoost"`
+	MaxMemories           int     `json:"maxMemories"`
+	CompactionTargetRatio float64 `json:"compactionTargetRatio"`
+	CompactionOnExtract   bool    `json:"compactionOnExtract"`
+}
+
+type cometlineMemoryJSON struct {
+	Enabled              bool                         `json:"enabled"`
+	AutoExtract          bool                         `json:"autoExtract"`
+	AutoRetrieve         bool                         `json:"autoRetrieve"`
+	MaxRetrieved         int                          `json:"maxRetrieved"`
+	SimilarityThreshold  float64                      `json:"similarityThreshold"`
+	ExtractionProviderID string                       `json:"extractionProviderId"`
+	ExtractionModel      string                       `json:"extractionModel"`
+	Lifecycle            cometlineMemoryLifecycleJSON `json:"lifecycle"`
+	Embedding            cometlineMemoryEmbeddingJSON `json:"embedding"`
+}
+
 type cometlineDiscordJSON struct {
 	Enabled         bool     `json:"enabled"`
 	BotToken        string   `json:"botToken"`
@@ -132,20 +154,16 @@ type cometlinePlanningJSON struct {
 }
 
 type cometlineCometmindJSON struct {
-	SystemPromptPath   string              `json:"systemPromptPath"`
-	MaxTokens          int                 `json:"maxTokens"`
-	ContextWindowLimit int                 `json:"contextWindowLimit"`
-	TitleProviderID    string              `json:"titleProviderId"`
-	TitleModelID       string              `json:"titleModelId"`
-	ACP                cometlineACPJSON    `json:"acp"`
-	Skills             cometlineSkillsJSON `json:"skills"`
-	Memory             struct {
-		ExtractionProviderID string                       `json:"extractionProviderId"`
-		ExtractionModel      string                       `json:"extractionModel"`
-		Embedding            cometlineMemoryEmbeddingJSON `json:"embedding"`
-	} `json:"memory"`
-	Storage cometlineStorageJSON `json:"storage"`
-	Gateway struct {
+	SystemPromptPath   string               `json:"systemPromptPath"`
+	MaxTokens          int                  `json:"maxTokens"`
+	ContextWindowLimit int                  `json:"contextWindowLimit"`
+	TitleProviderID    string               `json:"titleProviderId"`
+	TitleModelID       string               `json:"titleModelId"`
+	ACP                cometlineACPJSON     `json:"acp"`
+	Skills             cometlineSkillsJSON  `json:"skills"`
+	Memory             cometlineMemoryJSON  `json:"memory"`
+	Storage            cometlineStorageJSON `json:"storage"`
+	Gateway            struct {
 		Discord cometlineDiscordJSON `json:"discord"`
 	} `json:"gateway"`
 	MCP       cometlineMCPJSON       `json:"mcp"`
@@ -255,14 +273,22 @@ func adaptCometlineSettings(raw cometlineSettingsJSON) (*Config, error) {
 			SynthesisModel:      strings.TrimSpace(cm.Skills.SynthesisModel),
 		},
 		Memory: MemoryConfig{
-			Enabled:             memDef.Enabled,
-			AutoExtract:         memDef.AutoExtract,
-			AutoRetrieve:        memDef.AutoRetrieve,
-			MaxRetrieved:        memDef.MaxRetrieved,
-			SimilarityThreshold: memDef.SimilarityThreshold,
+			Enabled:             cm.Memory.Enabled,
+			AutoExtract:         cm.Memory.AutoExtract,
+			AutoRetrieve:        cm.Memory.AutoRetrieve,
+			MaxRetrieved:        cm.Memory.MaxRetrieved,
+			SimilarityThreshold: cm.Memory.SimilarityThreshold,
 			ExtractionProvider:  strings.TrimSpace(cm.Memory.ExtractionProviderID),
 			ExtractionModel:     firstNonEmpty(strings.TrimSpace(cm.Memory.ExtractionModel), memDef.ExtractionModel),
-			Lifecycle:           memDef.Lifecycle,
+			Lifecycle: MemoryLifecycleConfig{
+				DecayHalfLifeDays:     cm.Memory.Lifecycle.DecayHalfLifeDays,
+				ForgetThreshold:       cm.Memory.Lifecycle.ForgetThreshold,
+				UsageBoostFactor:      cm.Memory.Lifecycle.UsageBoostFactor,
+				MaxUsageBoost:         cm.Memory.Lifecycle.MaxUsageBoost,
+				MaxMemories:           cm.Memory.Lifecycle.MaxMemories,
+				CompactionTargetRatio: cm.Memory.Lifecycle.CompactionTargetRatio,
+				CompactionOnExtract:   cm.Memory.Lifecycle.CompactionOnExtract,
+			},
 			Embedding: MemoryEmbeddingConfig{
 				ProviderID: strings.TrimSpace(cm.Memory.Embedding.ProviderID),
 				Provider:   strings.TrimSpace(cm.Memory.Embedding.Provider),

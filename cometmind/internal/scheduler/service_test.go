@@ -3,6 +3,7 @@ package scheduler
 import (
 	"context"
 	"errors"
+	"path/filepath"
 	"testing"
 
 	"github.com/cometline/cometmind/internal/jobs"
@@ -61,6 +62,39 @@ func TestCreateListAndUpdateOneShotSchedule(t *testing.T) {
 	}
 	if updated.Description != "write better report" || updated.Enabled || updated.NextRunAt != runAt+1000 {
 		t.Fatalf("updated=%+v", updated)
+	}
+}
+
+func TestScheduledJobsPersistAcrossSQLiteReopen(t *testing.T) {
+	ctx := context.Background()
+	dbPath := filepath.Join(t.TempDir(), "cometmind.db")
+	conn, err := store.OpenSQLite(ctx, dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	created, err := NewService(conn).Create(ctx, CreateInput{
+		Description: "persist scheduled job",
+		RunAt:       2_000_000,
+	})
+	if err != nil {
+		_ = conn.Close()
+		t.Fatal(err)
+	}
+	if err := conn.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	reopened, err := store.OpenSQLite(ctx, dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = reopened.Close() })
+	items, err := NewService(reopened).List(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 1 || items[0].ID != created.ID || items[0].Description != created.Description {
+		t.Fatalf("items after reopen=%+v, created=%+v", items, created)
 	}
 }
 

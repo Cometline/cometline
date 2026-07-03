@@ -285,6 +285,72 @@ func TestAdaptCometlineSettingsAutonomyModelOverride(t *testing.T) {
 	}
 }
 
+func TestAdaptCometlineSettingsMemoryBehavior(t *testing.T) {
+	cfg, err := adaptCometlineSettings(cometlineSettingsJSON{
+		Providers: []cometlineProviderJSON{{
+			ID: "codex", Name: "Codex", Method: "codex", Enabled: true, EnabledModels: []string{"gpt-5.4"},
+		}},
+		ActiveProviderID: "codex",
+		Cometmind: cometlineCometmindJSON{
+			Memory: cometlineMemoryJSON{
+				Enabled:             true,
+				AutoExtract:         false,
+				AutoRetrieve:        false,
+				MaxRetrieved:        9,
+				SimilarityThreshold: 0.72,
+				Lifecycle: cometlineMemoryLifecycleJSON{
+					DecayHalfLifeDays:     45,
+					ForgetThreshold:       0.22,
+					UsageBoostFactor:      0.33,
+					MaxUsageBoost:         3.5,
+					MaxMemories:           777,
+					CompactionTargetRatio: 0.66,
+					CompactionOnExtract:   false,
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("adaptCometlineSettings() error = %v", err)
+	}
+	if !cfg.Memory.Enabled {
+		t.Fatal("Memory.Enabled = false, want true")
+	}
+	if cfg.Memory.AutoExtract {
+		t.Fatal("Memory.AutoExtract = true, want false")
+	}
+	if cfg.Memory.AutoRetrieve {
+		t.Fatal("Memory.AutoRetrieve = true, want false")
+	}
+	if cfg.Memory.MaxRetrieved != 9 {
+		t.Fatalf("Memory.MaxRetrieved = %d, want 9", cfg.Memory.MaxRetrieved)
+	}
+	if cfg.Memory.SimilarityThreshold != 0.72 {
+		t.Fatalf("Memory.SimilarityThreshold = %v, want 0.72", cfg.Memory.SimilarityThreshold)
+	}
+	if cfg.Memory.Lifecycle.DecayHalfLifeDays != 45 {
+		t.Fatalf("Memory.Lifecycle.DecayHalfLifeDays = %v, want 45", cfg.Memory.Lifecycle.DecayHalfLifeDays)
+	}
+	if cfg.Memory.Lifecycle.ForgetThreshold != 0.22 {
+		t.Fatalf("Memory.Lifecycle.ForgetThreshold = %v, want 0.22", cfg.Memory.Lifecycle.ForgetThreshold)
+	}
+	if cfg.Memory.Lifecycle.UsageBoostFactor != 0.33 {
+		t.Fatalf("Memory.Lifecycle.UsageBoostFactor = %v, want 0.33", cfg.Memory.Lifecycle.UsageBoostFactor)
+	}
+	if cfg.Memory.Lifecycle.MaxUsageBoost != 3.5 {
+		t.Fatalf("Memory.Lifecycle.MaxUsageBoost = %v, want 3.5", cfg.Memory.Lifecycle.MaxUsageBoost)
+	}
+	if cfg.Memory.Lifecycle.MaxMemories != 777 {
+		t.Fatalf("Memory.Lifecycle.MaxMemories = %d, want 777", cfg.Memory.Lifecycle.MaxMemories)
+	}
+	if cfg.Memory.Lifecycle.CompactionTargetRatio != 0.66 {
+		t.Fatalf("Memory.Lifecycle.CompactionTargetRatio = %v, want 0.66", cfg.Memory.Lifecycle.CompactionTargetRatio)
+	}
+	if cfg.Memory.Lifecycle.CompactionOnExtract {
+		t.Fatal("Memory.Lifecycle.CompactionOnExtract = true, want false")
+	}
+}
+
 // TestLoadBootsWithNoEnabledProviders simulates a fresh Electron install:
 // the renderer writes a settings JSON where every provider is disabled with
 // no enabled models. The sidecar must still boot (Load returns no error) with

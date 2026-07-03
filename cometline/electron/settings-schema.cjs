@@ -4481,6 +4481,10 @@ function normalizePositiveInt(value, fallback) {
   if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
   return Math.max(1, Math.floor(value));
 }
+function normalizePositiveNumber(value, fallback) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
+  return Math.max(Number.EPSILON, value);
+}
 function cleanStringMap(values) {
   if (!values || typeof values !== "object") return {};
   const out = {};
@@ -4628,8 +4632,22 @@ function defaultCometMindSettings(workspacePath = "") {
       synthesisModel: ""
     },
     memory: {
+      enabled: true,
+      autoExtract: true,
+      autoRetrieve: true,
+      maxRetrieved: 5,
+      similarityThreshold: 0.5,
       extractionProviderId: "",
       extractionModel: "",
+      lifecycle: {
+        decayHalfLifeDays: 30,
+        forgetThreshold: 0.1,
+        usageBoostFactor: 0.15,
+        maxUsageBoost: 2,
+        maxMemories: 500,
+        compactionTargetRatio: 0.8,
+        compactionOnExtract: true
+      },
       embedding: {
         providerId: "",
         provider: "",
@@ -4664,6 +4682,7 @@ function normalizeCometMindSettings(input, fallbackWorkspacePath = "") {
   const acp = input?.acp ?? {};
   const skills = input?.skills ?? {};
   const memory = input?.memory ?? {};
+  const memoryLifecycle = memory.lifecycle ?? {};
   const embedding = memory.embedding ?? {};
   const storage = input?.storage ?? {};
   const discord = input?.gateway?.discord ?? {};
@@ -4704,12 +4723,47 @@ function normalizeCometMindSettings(input, fallbackWorkspacePath = "") {
       synthesisModel: String(skills.synthesisModel ?? defaults.skills.synthesisModel).trim()
     },
     memory: {
+      enabled: typeof memory.enabled === "boolean" ? memory.enabled : defaults.memory.enabled,
+      autoExtract: typeof memory.autoExtract === "boolean" ? memory.autoExtract : defaults.memory.autoExtract,
+      autoRetrieve: typeof memory.autoRetrieve === "boolean" ? memory.autoRetrieve : defaults.memory.autoRetrieve,
+      maxRetrieved: normalizePositiveInt(memory.maxRetrieved, defaults.memory.maxRetrieved),
+      similarityThreshold: normalizeUnit(
+        memory.similarityThreshold,
+        defaults.memory.similarityThreshold
+      ),
       extractionProviderId: String(
         memory.extractionProviderId ?? defaults.memory.extractionProviderId
       ).trim(),
       extractionModel: String(
         memory.extractionModel ?? defaults.memory.extractionModel
       ).trim(),
+      lifecycle: {
+        decayHalfLifeDays: normalizePositiveInt(
+          memoryLifecycle.decayHalfLifeDays,
+          defaults.memory.lifecycle.decayHalfLifeDays
+        ),
+        forgetThreshold: normalizeUnit(
+          memoryLifecycle.forgetThreshold,
+          defaults.memory.lifecycle.forgetThreshold
+        ),
+        usageBoostFactor: normalizeUnit(
+          memoryLifecycle.usageBoostFactor,
+          defaults.memory.lifecycle.usageBoostFactor
+        ),
+        maxUsageBoost: normalizePositiveNumber(
+          memoryLifecycle.maxUsageBoost,
+          defaults.memory.lifecycle.maxUsageBoost
+        ),
+        maxMemories: normalizePositiveInt(
+          memoryLifecycle.maxMemories,
+          defaults.memory.lifecycle.maxMemories
+        ),
+        compactionTargetRatio: normalizeUnit(
+          memoryLifecycle.compactionTargetRatio,
+          defaults.memory.lifecycle.compactionTargetRatio
+        ),
+        compactionOnExtract: typeof memoryLifecycle.compactionOnExtract === "boolean" ? memoryLifecycle.compactionOnExtract : defaults.memory.lifecycle.compactionOnExtract
+      },
       embedding: {
         providerId: String(
           embedding.providerId ?? defaults.memory.embedding.providerId
@@ -4846,8 +4900,14 @@ function cloneCometMindSettings(settings) {
       roots: [...settings.skills.roots]
     },
     memory: {
+      enabled: settings.memory.enabled,
+      autoExtract: settings.memory.autoExtract,
+      autoRetrieve: settings.memory.autoRetrieve,
+      maxRetrieved: settings.memory.maxRetrieved,
+      similarityThreshold: settings.memory.similarityThreshold,
       extractionProviderId: settings.memory.extractionProviderId,
       extractionModel: settings.memory.extractionModel,
+      lifecycle: { ...settings.memory.lifecycle },
       embedding: { ...settings.memory.embedding }
     },
     storage: { ...settings.storage },
@@ -5102,8 +5162,14 @@ function runtimeSlice(settings) {
     acp: { ...settings.cometmind.acp, args: [...settings.cometmind.acp.args] },
     skills: { ...settings.cometmind.skills, roots: [...settings.cometmind.skills.roots] },
     memory: {
+      enabled: settings.cometmind.memory.enabled,
+      autoExtract: settings.cometmind.memory.autoExtract,
+      autoRetrieve: settings.cometmind.memory.autoRetrieve,
+      maxRetrieved: settings.cometmind.memory.maxRetrieved,
+      similarityThreshold: settings.cometmind.memory.similarityThreshold,
       extractionProviderId: settings.cometmind.memory.extractionProviderId,
       extractionModel: settings.cometmind.memory.extractionModel,
+      lifecycle: { ...settings.cometmind.memory.lifecycle },
       embedding: { ...settings.cometmind.memory.embedding }
     },
     gateway: cloneCometMindSettings(settings.cometmind).gateway,
@@ -5188,8 +5254,22 @@ var providerSettingsSchema = external_exports.object({
       synthesisModel: external_exports.string()
     }),
     memory: external_exports.object({
+      enabled: external_exports.boolean(),
+      autoExtract: external_exports.boolean(),
+      autoRetrieve: external_exports.boolean(),
+      maxRetrieved: external_exports.number().int().positive(),
+      similarityThreshold: external_exports.number().min(0).max(1),
       extractionProviderId: external_exports.string(),
       extractionModel: external_exports.string(),
+      lifecycle: external_exports.object({
+        decayHalfLifeDays: external_exports.number().positive(),
+        forgetThreshold: external_exports.number().min(0).max(1),
+        usageBoostFactor: external_exports.number().min(0).max(1),
+        maxUsageBoost: external_exports.number().positive(),
+        maxMemories: external_exports.number().int().positive(),
+        compactionTargetRatio: external_exports.number().min(0).max(1),
+        compactionOnExtract: external_exports.boolean()
+      }),
       embedding: external_exports.object({
         providerId: external_exports.string(),
         provider: external_exports.string(),

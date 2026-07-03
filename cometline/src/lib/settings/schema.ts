@@ -82,8 +82,22 @@ export interface CometMindSkillsSettings {
 }
 
 export interface CometMindMemorySettings {
+	enabled: boolean;
+	autoExtract: boolean;
+	autoRetrieve: boolean;
+	maxRetrieved: number;
+	similarityThreshold: number;
 	extractionProviderId: string;
 	extractionModel: string;
+	lifecycle: {
+		decayHalfLifeDays: number;
+		forgetThreshold: number;
+		usageBoostFactor: number;
+		maxUsageBoost: number;
+		maxMemories: number;
+		compactionTargetRatio: number;
+		compactionOnExtract: boolean;
+	};
 	embedding: {
 		providerId: string;
 		provider: string;
@@ -318,6 +332,11 @@ function normalizePositiveInt(value: unknown, fallback: number): number {
 	return Math.max(1, Math.floor(value));
 }
 
+function normalizePositiveNumber(value: unknown, fallback: number): number {
+	if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
+	return Math.max(Number.EPSILON, value);
+}
+
 function cleanStringMap(values: unknown): Record<string, string> {
 	if (!values || typeof values !== 'object') return {};
 	const out: Record<string, string> = {};
@@ -489,8 +508,22 @@ export function defaultCometMindSettings(workspacePath = ''): CometMindSettings 
 			synthesisModel: ''
 		},
 		memory: {
+			enabled: true,
+			autoExtract: true,
+			autoRetrieve: true,
+			maxRetrieved: 5,
+			similarityThreshold: 0.5,
 			extractionProviderId: '',
 			extractionModel: '',
+			lifecycle: {
+				decayHalfLifeDays: 30,
+				forgetThreshold: 0.1,
+				usageBoostFactor: 0.15,
+				maxUsageBoost: 2,
+				maxMemories: 500,
+				compactionTargetRatio: 0.8,
+				compactionOnExtract: true
+			},
 			embedding: {
 				providerId: '',
 				provider: '',
@@ -529,6 +562,7 @@ export function normalizeCometMindSettings(
 	const acp: Partial<CometMindACPSettings> = input?.acp ?? {};
 	const skills: Partial<CometMindSkillsSettings> = input?.skills ?? {};
 	const memory: Partial<CometMindMemorySettings> = input?.memory ?? {};
+	const memoryLifecycle: Partial<CometMindMemorySettings['lifecycle']> = memory.lifecycle ?? {};
 	const embedding: Partial<CometMindMemorySettings['embedding']> = memory.embedding ?? {};
 	const storage: Partial<CometMindStorageSettings> = input?.storage ?? {};
 	const discord: Partial<CometMindDiscordGatewaySettings> = input?.gateway?.discord ?? {};
@@ -576,12 +610,56 @@ export function normalizeCometMindSettings(
 			synthesisModel: String(skills.synthesisModel ?? defaults.skills.synthesisModel).trim()
 		},
 		memory: {
+			enabled: typeof memory.enabled === 'boolean' ? memory.enabled : defaults.memory.enabled,
+			autoExtract:
+				typeof memory.autoExtract === 'boolean'
+					? memory.autoExtract
+					: defaults.memory.autoExtract,
+			autoRetrieve:
+				typeof memory.autoRetrieve === 'boolean'
+					? memory.autoRetrieve
+					: defaults.memory.autoRetrieve,
+			maxRetrieved: normalizePositiveInt(memory.maxRetrieved, defaults.memory.maxRetrieved),
+			similarityThreshold: normalizeUnit(
+				memory.similarityThreshold,
+				defaults.memory.similarityThreshold
+			),
 			extractionProviderId: String(
 				memory.extractionProviderId ?? defaults.memory.extractionProviderId
 			).trim(),
 			extractionModel: String(
 				memory.extractionModel ?? defaults.memory.extractionModel
 			).trim(),
+			lifecycle: {
+				decayHalfLifeDays: normalizePositiveInt(
+					memoryLifecycle.decayHalfLifeDays,
+					defaults.memory.lifecycle.decayHalfLifeDays
+				),
+				forgetThreshold: normalizeUnit(
+					memoryLifecycle.forgetThreshold,
+					defaults.memory.lifecycle.forgetThreshold
+				),
+				usageBoostFactor: normalizeUnit(
+					memoryLifecycle.usageBoostFactor,
+					defaults.memory.lifecycle.usageBoostFactor
+				),
+				maxUsageBoost: normalizePositiveNumber(
+					memoryLifecycle.maxUsageBoost,
+					defaults.memory.lifecycle.maxUsageBoost
+				),
+				maxMemories: normalizePositiveInt(
+					memoryLifecycle.maxMemories,
+					defaults.memory.lifecycle.maxMemories
+				),
+				compactionTargetRatio: normalizeUnit(
+					memoryLifecycle.compactionTargetRatio,
+					defaults.memory.lifecycle.compactionTargetRatio
+				),
+				compactionOnExtract:
+					typeof memoryLifecycle.compactionOnExtract === 'boolean'
+						? memoryLifecycle.compactionOnExtract
+						: defaults.memory.lifecycle.compactionOnExtract
+			},
 			embedding: {
 				providerId: String(
 					embedding.providerId ?? defaults.memory.embedding.providerId
@@ -753,8 +831,14 @@ export function cloneCometMindSettings(settings: CometMindSettings): CometMindSe
 			roots: [...settings.skills.roots]
 		},
 		memory: {
+			enabled: settings.memory.enabled,
+			autoExtract: settings.memory.autoExtract,
+			autoRetrieve: settings.memory.autoRetrieve,
+			maxRetrieved: settings.memory.maxRetrieved,
+			similarityThreshold: settings.memory.similarityThreshold,
 			extractionProviderId: settings.memory.extractionProviderId,
 			extractionModel: settings.memory.extractionModel,
+			lifecycle: { ...settings.memory.lifecycle },
 			embedding: { ...settings.memory.embedding }
 		},
 		storage: { ...settings.storage },
@@ -1092,8 +1176,14 @@ export function runtimeSlice(settings: ProviderSettings): RuntimeSettingsSlice |
 		acp: { ...settings.cometmind.acp, args: [...settings.cometmind.acp.args] },
 		skills: { ...settings.cometmind.skills, roots: [...settings.cometmind.skills.roots] },
 		memory: {
+			enabled: settings.cometmind.memory.enabled,
+			autoExtract: settings.cometmind.memory.autoExtract,
+			autoRetrieve: settings.cometmind.memory.autoRetrieve,
+			maxRetrieved: settings.cometmind.memory.maxRetrieved,
+			similarityThreshold: settings.cometmind.memory.similarityThreshold,
 			extractionProviderId: settings.cometmind.memory.extractionProviderId,
 			extractionModel: settings.cometmind.memory.extractionModel,
+			lifecycle: { ...settings.cometmind.memory.lifecycle },
 			embedding: { ...settings.cometmind.memory.embedding }
 		},
 		gateway: cloneCometMindSettings(settings.cometmind).gateway,
@@ -1186,8 +1276,22 @@ const providerSettingsSchema = z.object({
 			synthesisModel: z.string()
 		}),
 		memory: z.object({
+			enabled: z.boolean(),
+			autoExtract: z.boolean(),
+			autoRetrieve: z.boolean(),
+			maxRetrieved: z.number().int().positive(),
+			similarityThreshold: z.number().min(0).max(1),
 			extractionProviderId: z.string(),
 			extractionModel: z.string(),
+			lifecycle: z.object({
+				decayHalfLifeDays: z.number().positive(),
+				forgetThreshold: z.number().min(0).max(1),
+				usageBoostFactor: z.number().min(0).max(1),
+				maxUsageBoost: z.number().positive(),
+				maxMemories: z.number().int().positive(),
+				compactionTargetRatio: z.number().min(0).max(1),
+				compactionOnExtract: z.boolean()
+			}),
 			embedding: z.object({
 				providerId: z.string(),
 				provider: z.string(),

@@ -65,6 +65,20 @@ func TestMemorySettingsEmptyWithoutEmbeddingModel(t *testing.T) {
 	}
 }
 
+func TestMemorySettingsAllowsZeroSimilarityThreshold(t *testing.T) {
+	cfg := &Config{
+		Memory: MemoryConfig{
+			Enabled:             true,
+			MaxRetrieved:        5,
+			SimilarityThreshold: 0,
+		},
+	}
+	s := cfg.MemorySettings()
+	if s.SimilarityThreshold != 0 {
+		t.Fatalf("SimilarityThreshold = %v, want 0", s.SimilarityThreshold)
+	}
+}
+
 func TestMemorySettingsOpenAICompatibleExplicitOverrides(t *testing.T) {
 	t.Setenv("OPENAI_API_KEY", "env-key")
 

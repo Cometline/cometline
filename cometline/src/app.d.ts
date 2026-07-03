@@ -147,8 +147,22 @@ declare global {
 	}
 
 	interface CometMindMemorySettings {
+		enabled: boolean;
+		autoExtract: boolean;
+		autoRetrieve: boolean;
+		maxRetrieved: number;
+		similarityThreshold: number;
 		extractionProviderId: string;
 		extractionModel: string;
+		lifecycle: {
+			decayHalfLifeDays: number;
+			forgetThreshold: number;
+			usageBoostFactor: number;
+			maxUsageBoost: number;
+			maxMemories: number;
+			compactionTargetRatio: number;
+			compactionOnExtract: boolean;
+		};
 		embedding: {
 			providerId: string;
 			provider: string;
