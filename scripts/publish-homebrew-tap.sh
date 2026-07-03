@@ -21,6 +21,7 @@ WORKDIR="$(mktemp -d)"
 trap 'rm -rf "$WORKDIR"' EXIT
 
 gh repo clone "$TAP_REPO" "$WORKDIR/tap"
+git -C "$WORKDIR/tap" remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${TAP_REPO}.git"
 
 mkdir -p "$WORKDIR/tap/Casks"
 "$ROOT/scripts/render-homebrew-cask.sh" "$TAG" "$SHA" "$DOWNLOAD_REPO" > "$WORKDIR/tap/Casks/cometline.rb"
