@@ -13,6 +13,7 @@ import {
 	deleteSkill as deleteSkillApi,
 	getMemorySettings as getMemorySettingsApi,
 	getSession as getSessionApi,
+	getSessionPlan as getSessionPlanApi,
 	getSessionMessages as getSessionMessagesApi,
 	listChildSessions as listChildSessionsApi,
 	listMemories as listMemoriesApi,
@@ -44,8 +45,16 @@ import {
 	releaseJob as releaseJobApi,
 	completeJob as completeJobApi,
 	heartbeatJob as heartbeatJobApi,
+	archiveJob as archiveJobApi,
+	unarchiveJob as unarchiveJobApi,
+	unblockJob as unblockJobApi,
 	getJobSettings as getJobSettingsApi,
-	putJobSettings as putJobSettingsApi
+	putJobSettings as putJobSettingsApi,
+	listScheduledJobs as listScheduledJobsApi,
+	createScheduledJob as createScheduledJobApi,
+	getScheduledJob as getScheduledJobApi,
+	updateScheduledJob as updateScheduledJobApi,
+	deleteScheduledJob as deleteScheduledJobApi
 } from '$lib/generated/cometmind-api';
 import type {
 	CompactMemoryPreviewResponse,
@@ -62,6 +71,7 @@ import type {
 	RunStorageRetentionResponse,
 	Session,
 	SessionListResponse,
+	SessionPlanResponse,
 	StreamEvent,
 	SyncSkillsResponse,
 	TranscriptResponse,
@@ -73,7 +83,11 @@ import type {
 	JobEventResource,
 	JobSettings,
 	CreateJobRequest,
-	UpdateJobRequest
+	UpdateJobRequest,
+	ScheduledJobResource,
+	ListScheduledJobsResponse,
+	CreateScheduledJobRequest,
+	UpdateScheduledJobRequest
 } from '$lib/generated/cometmind-api';
 import { client } from '$lib/generated/cometmind-api/client.gen';
 import { createSSEParser } from '$lib/sse/parser';
@@ -93,11 +107,17 @@ export type {
 } from '$lib/generated/cometmind-api';
 
 export type {
+	SessionPlanResponse,
+	SessionPlanStep,
 	JobResource,
 	JobEventResource,
 	JobSettings,
 	CreateJobRequest,
-	UpdateJobRequest
+	UpdateJobRequest,
+	ScheduledJobResource,
+	ListScheduledJobsResponse,
+	CreateScheduledJobRequest,
+	UpdateScheduledJobRequest
 } from '$lib/generated/cometmind-api';
 
 export type MemoryLifecycleSettings = {
@@ -123,6 +143,7 @@ export type MemorySettings = {
 	auto_extract: boolean;
 	auto_retrieve: boolean;
 	max_retrieved: number;
+	task_outcome_limit: number;
 	similarity_threshold: number;
 	extraction_model: string;
 	lifecycle: MemoryLifecycleSettings;
@@ -389,6 +410,15 @@ export function getSession(id: string): Promise<Session> {
 	);
 }
 
+export function getSessionPlan(id: string): Promise<SessionPlanResponse> {
+	return withApiError(
+		getSessionPlanApi({
+			path: { id },
+			throwOnError: true
+		}).then(({ data }) => data)
+	);
+}
+
 export function updateSession(id: string, req: UpdateSessionRequest): Promise<Session> {
 	return patchSessionApi({
 		path: { id },
@@ -549,6 +579,7 @@ export function defaultMemorySettings(): MemorySettings {
 		auto_extract: true,
 		auto_retrieve: true,
 		max_retrieved: 5,
+		task_outcome_limit: 3,
 		similarity_threshold: 0.5,
 		extraction_model: '',
 		lifecycle: {
@@ -579,6 +610,7 @@ function resolveMemorySettings(raw: MemorySettingsWire): MemorySettings {
 		auto_extract: raw.auto_extract ?? def.auto_extract,
 		auto_retrieve: raw.auto_retrieve ?? def.auto_retrieve,
 		max_retrieved: raw.max_retrieved ?? def.max_retrieved,
+		task_outcome_limit: raw.task_outcome_limit ?? def.task_outcome_limit,
 		similarity_threshold: raw.similarity_threshold ?? def.similarity_threshold,
 		extraction_model: raw.extraction_model ?? def.extraction_model,
 		lifecycle: {
@@ -647,9 +679,10 @@ export function compactMemoryPreview(): Promise<CompactMemoryPreviewResponse> {
 }
 
 export type JobListQuery = {
-	status?: 'todo' | 'ongoing' | 'done';
+	status?: 'todo' | 'ongoing' | 'done' | 'blocked';
 	ready_only?: boolean;
 	include_deleted?: boolean;
+	include_archived?: boolean;
 };
 
 export function listJobs(query: JobListQuery = {}): Promise<ListJobsResponse> {
@@ -670,6 +703,18 @@ export function updateJob(id: string, body: UpdateJobRequest): Promise<JobResour
 
 export function deleteJob(id: string): Promise<void> {
 	return deleteJobApi({ path: { id }, throwOnError: true }).then(() => undefined);
+}
+
+export function archiveJob(id: string): Promise<JobResource> {
+	return archiveJobApi({ path: { id }, throwOnError: true }).then(({ data }) => data);
+}
+
+export function unarchiveJob(id: string): Promise<JobResource> {
+	return unarchiveJobApi({ path: { id }, throwOnError: true }).then(({ data }) => data);
+}
+
+export function unblockJob(id: string): Promise<JobResource> {
+	return unblockJobApi({ path: { id }, throwOnError: true }).then(({ data }) => data);
 }
 
 export function claimJob(id: string, sessionId: string): Promise<JobResource> {
@@ -722,4 +767,29 @@ export function putJobSettings(settings: JobSettings): Promise<JobSettings> {
 
 export function buildJobExecutionPrompt(job: JobExecutionPromptInput): string {
 	return buildJobExecutionPromptImpl(job);
+}
+
+export function listScheduledJobs(): Promise<ListScheduledJobsResponse> {
+	return listScheduledJobsApi({ throwOnError: true }).then(({ data }) => data);
+}
+
+export function createScheduledJob(body: CreateScheduledJobRequest): Promise<ScheduledJobResource> {
+	return createScheduledJobApi({ body, throwOnError: true }).then(({ data }) => data);
+}
+
+export function getScheduledJob(id: string): Promise<ScheduledJobResource> {
+	return getScheduledJobApi({ path: { id }, throwOnError: true }).then(({ data }) => data);
+}
+
+export function updateScheduledJob(
+	id: string,
+	body: UpdateScheduledJobRequest
+): Promise<ScheduledJobResource> {
+	return updateScheduledJobApi({ path: { id }, body, throwOnError: true }).then(
+		({ data }) => data
+	);
+}
+
+export function deleteScheduledJob(id: string): Promise<void> {
+	return deleteScheduledJobApi({ path: { id }, throwOnError: true }).then(() => undefined);
 }

@@ -28,6 +28,7 @@ func TestAPISession(t *testing.T) {
 		ModelID:          "claude-sonnet",
 		ProviderID:       "anthropic",
 		Status:           "idle",
+		Origin:           "autonomy",
 		TokenUsage:       string(usageJSON),
 		ParentSessionID:  parentID,
 		Purpose:          "review diff",
@@ -62,6 +63,9 @@ func TestAPISession(t *testing.T) {
 	}
 	if got.ParentSessionId == nil || *got.ParentSessionId != parentID {
 		t.Errorf("ParentSessionId = %v, want %q", got.ParentSessionId, parentID)
+	}
+	if string(got.Origin) != "autonomy" {
+		t.Errorf("Origin = %q, want autonomy", got.Origin)
 	}
 	if got.Gateway == nil || got.Gateway.Platform == nil || string(*got.Gateway.Platform) != "discord" {
 		t.Fatalf("Gateway = %+v, want discord platform", got.Gateway)

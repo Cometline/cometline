@@ -5,6 +5,7 @@ type JobSnapshot = {
 	id: string;
 	status: string;
 	assigned_session_id?: string | null;
+	failure_count?: number;
 	description: string;
 };
 
@@ -22,11 +23,12 @@ export function startJobNotificationPoller(opts: {
 		try {
 			const res = await listJobs();
 			for (const job of res.jobs ?? []) {
-				if (job.deleted_at) continue;
+				if (job.deleted_at || job.archived_at) continue;
 				const snap: JobSnapshot = {
 					id: job.id,
 					status: job.status,
 					assigned_session_id: job.assigned_session_id,
+					failure_count: job.failure_count,
 					description: job.description
 				};
 				const prev = last.get(job.id);
@@ -44,6 +46,13 @@ export function startJobNotificationPoller(opts: {
 					}
 					if (settings.onReleased && prev.status === 'ongoing' && job.status === 'todo') {
 						opts.onNotify('Job released', job.description);
+					}
+					if (
+						settings.onBlocked &&
+						prev.status !== 'blocked' &&
+						job.status === 'blocked'
+					) {
+						opts.onNotify('Job blocked', job.description);
 					}
 				}
 				last.set(job.id, snap);

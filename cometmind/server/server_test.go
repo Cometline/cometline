@@ -19,6 +19,7 @@ import (
 	"github.com/cometline/cometmind/internal/config"
 	"github.com/cometline/cometmind/internal/contract"
 	"github.com/cometline/cometmind/internal/event"
+	"github.com/cometline/cometmind/internal/planning"
 	"github.com/cometline/cometmind/internal/session"
 	"github.com/cometline/cometmind/internal/skills"
 	"github.com/cometline/cometmind/internal/store"
@@ -1221,6 +1222,92 @@ func TestSkillsDeleteAndExport(t *testing.T) {
 	}
 }
 
+func TestSkillDraftHandlersPromoteAndReject(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	draftContent := "---\nname: api-draft\ndescription: api draft skill\n---\n\n# Draft\n"
+	if err := skills.WriteDraft("api-draft", draftContent, false); err != nil {
+		t.Fatalf("WriteDraft() error = %v", err)
+	}
+
+	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
+			ch <- event.Done()
+			return nil
+		}), nil
+	})
+	defer cleanup()
+
+	listRec := httptest.NewRecorder()
+	listReq := httptest.NewRequest(http.MethodGet, "/api/v1/skill-drafts", nil)
+	engine.ServeHTTP(listRec, listReq)
+	if listRec.Code != http.StatusOK {
+		t.Fatalf("list status = %d, want %d body=%s", listRec.Code, http.StatusOK, listRec.Body.String())
+	}
+	var list listSkillDraftsResponse
+	decodeJSON(t, listRec.Body.Bytes(), &list)
+	if len(list.Drafts) != 1 || list.Drafts[0].Name != "api-draft" {
+		t.Fatalf("draft list = %+v, want api-draft", list.Drafts)
+	}
+
+	detailRec := httptest.NewRecorder()
+	detailReq := httptest.NewRequest(http.MethodGet, "/api/v1/skill-drafts/api-draft", nil)
+	engine.ServeHTTP(detailRec, detailReq)
+	if detailRec.Code != http.StatusOK {
+		t.Fatalf("detail status = %d, want %d body=%s", detailRec.Code, http.StatusOK, detailRec.Body.String())
+	}
+	var detail skillDraftDetailResponse
+	decodeJSON(t, detailRec.Body.Bytes(), &detail)
+	if !strings.Contains(detail.Content, "api draft skill") {
+		t.Fatalf("detail content missing draft text: %q", detail.Content)
+	}
+
+	promoteRec := httptest.NewRecorder()
+	promoteReq := httptest.NewRequest(http.MethodPost, "/api/v1/skill-drafts/api-draft/promote", nil)
+	engine.ServeHTTP(promoteRec, promoteReq)
+	if promoteRec.Code != http.StatusOK {
+		t.Fatalf("promote status = %d, want %d body=%s", promoteRec.Code, http.StatusOK, promoteRec.Body.String())
+	}
+
+	skillsRec := httptest.NewRecorder()
+	skillsReq := httptest.NewRequest(http.MethodGet, "/api/v1/skills", nil)
+	engine.ServeHTTP(skillsRec, skillsReq)
+	if skillsRec.Code != http.StatusOK {
+		t.Fatalf("skills status = %d, want %d body=%s", skillsRec.Code, http.StatusOK, skillsRec.Body.String())
+	}
+	var skillsList listSkillsResponse
+	decodeJSON(t, skillsRec.Body.Bytes(), &skillsList)
+	found := false
+	for _, skill := range skillsList.Skills {
+		if skill.Name == "api-draft" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("promoted skill not listed: %+v", skillsList.Skills)
+	}
+
+	rejectContent := "---\nname: rejected-draft\ndescription: rejected draft skill\n---\n\n# Reject\n"
+	if err := skills.WriteDraft("rejected-draft", rejectContent, false); err != nil {
+		t.Fatalf("WriteDraft(rejected) error = %v", err)
+	}
+	rejectRec := httptest.NewRecorder()
+	rejectReq := httptest.NewRequest(http.MethodDelete, "/api/v1/skill-drafts/rejected-draft", nil)
+	engine.ServeHTTP(rejectRec, rejectReq)
+	if rejectRec.Code != http.StatusOK {
+		t.Fatalf("reject status = %d, want %d body=%s", rejectRec.Code, http.StatusOK, rejectRec.Body.String())
+	}
+
+	missingRec := httptest.NewRecorder()
+	missingReq := httptest.NewRequest(http.MethodDelete, "/api/v1/skill-drafts/rejected-draft", nil)
+	engine.ServeHTTP(missingRec, missingReq)
+	if missingRec.Code != http.StatusNotFound {
+		t.Fatalf("missing reject status = %d, want %d body=%s", missingRec.Code, http.StatusNotFound, missingRec.Body.String())
+	}
+}
+
 func TestListWorkspaces(t *testing.T) {
 	t.Parallel()
 
@@ -1790,6 +1877,55 @@ func TestListModels(t *testing.T) {
 	}
 }
 
+func TestGetSessionPlan(t *testing.T) {
+	t.Parallel()
+	gin.SetMode(gin.TestMode)
+	ctx := context.Background()
+	dbPath := filepath.Join(t.TempDir(), "cometmind-test.db")
+	sqlDB, err := store.OpenSQLite(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("OpenSQLite() error = %v", err)
+	}
+	t.Cleanup(func() { _ = sqlDB.Close() })
+	sessions := session.New(sqlDB)
+	plans := planning.NewService(sqlDB)
+	engine, err := New(Deps{
+		Config:   &config.Config{Provider: "test-provider", Model: "test-model", MaxTokens: 256, MaxSteps: 8},
+		Sessions: sessions,
+		Planning: plans,
+		NewRunner: func(session.Session, string) (Runner, error) {
+			return fakeRunner(func(context.Context, session.AgentTurn, chan<- event.Event) error { return nil }), nil
+		},
+		Runs: NewRunManager(),
+	})
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	ws, err := sessions.EnsureWorkspace(ctx, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	sess, err := sessions.NewSession(ctx, ws.ID, "model", "provider")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := plans.SetPlan(ctx, sess.ID, []planning.StepInput{{Description: "inspect", Status: planning.StatusCompleted}}); err != nil {
+		t.Fatal(err)
+	}
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/sessions/"+sess.ID+"/plan", nil)
+	engine.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var got sessionPlanResponse
+	decodeJSON(t, rec.Body.Bytes(), &got)
+	if got.SessionID != sess.ID || len(got.Steps) != 1 || got.Steps[0].Description != "inspect" {
+		t.Fatalf("plan response=%+v", got)
+	}
+}
+
 func newTestEngine(t *testing.T, newRunner RunnerFactory) (*gin.Engine, *session.Service, func()) {
 	t.Helper()
 
@@ -1815,6 +1951,7 @@ func newTestEngine(t *testing.T, newRunner RunnerFactory) (*gin.Engine, *session
 			},
 		},
 		Sessions:  svc,
+		Planning:  planning.NewService(sqlDB),
 		NewRunner: newRunner,
 		Runs:      NewRunManager(),
 	})

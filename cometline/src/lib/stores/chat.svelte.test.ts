@@ -86,6 +86,7 @@ describe('chatStore session switching', () => {
 				model_id: 'model',
 				provider_id: 'provider',
 				status: 'active',
+				origin: 'user',
 				token_usage: { input_tokens: 0, output_tokens: 0, cache_read: 0, cache_write: 0 },
 				pinned: false,
 				created_at: 0,
@@ -254,6 +255,7 @@ describe('chatStore session switching', () => {
 			model_id: 'model',
 			provider_id: 'provider',
 			status: 'active',
+			origin: 'user',
 			token_usage: { input_tokens: 0, output_tokens: 0, cache_read: 0, cache_write: 0 },
 			pinned: false,
 			created_at: 0,
@@ -577,6 +579,7 @@ describe('chatStore clear and subagents', () => {
 					model_id: 'model',
 					provider_id: 'provider',
 					status: 'active',
+					origin: 'user',
 					token_usage: {
 						input_tokens: 0,
 						output_tokens: 0,

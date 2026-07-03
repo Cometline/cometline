@@ -42,26 +42,6 @@ func (n *Notifier) emit(ctx context.Context, job Job, action, detail string) {
 	if n == nil {
 		return
 	}
-	cfg := n.settings().Notifications
-	if !cfg.Enabled {
-		return
-	}
-	switch action {
-	case EventClaimed:
-		if !cfg.OnClaimed {
-			return
-		}
-	case EventCompleted:
-		if !cfg.OnCompleted {
-			return
-		}
-	case EventReleased, EventLeaseExpired:
-		if !cfg.OnReleased {
-			return
-		}
-	default:
-		return
-	}
 	for _, h := range n.handlers {
 		h.OnJobEvent(ctx, job, action, detail)
 	}
@@ -142,6 +122,10 @@ func jobFromRow(row db.Job) Job {
 		SourceSessionID:   nullStringVal(row.SourceSessionID),
 		SourcePlatform:    row.SourcePlatform,
 		SourceChannelID:   nullStringVal(row.SourceChannelID),
+		ArchivedAt:        nullInt64Ptr(row.ArchivedAt),
+		FailureCount:      row.FailureCount,
+		NextRetryAt:       nullInt64Ptr(row.NextRetryAt),
+		LastFailureReason: nullStringVal(row.LastFailureReason),
 		DeletedAt:         nullInt64Ptr(row.DeletedAt),
 		CreatedAt:         row.CreatedAt,
 		UpdatedAt:         row.UpdatedAt,
@@ -206,6 +190,10 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (Job, error) {
 		SourceSessionID:   optionalNullString(in.SourceSessionID),
 		SourcePlatform:    strings.TrimSpace(in.SourcePlatform),
 		SourceChannelID:   optionalNullString(in.SourceChannelID),
+		ArchivedAt:        sql.NullInt64{},
+		FailureCount:      0,
+		NextRetryAt:       sql.NullInt64{},
+		LastFailureReason: sql.NullString{},
 		DeletedAt:         sql.NullInt64{},
 		CreatedAt:         ts,
 		UpdatedAt:         ts,
@@ -243,9 +231,14 @@ func (s *Service) List(ctx context.Context, filter ListFilter) ([]Job, error) {
 	if filter.IncludeDeleted {
 		includeDeleted = sql.NullInt64{Int64: 1, Valid: true}
 	}
+	var includeArchived sql.NullInt64
+	if filter.IncludeArchived {
+		includeArchived = sql.NullInt64{Int64: 1, Valid: true}
+	}
 	rows, err := s.q.ListJobs(ctx, db.ListJobsParams{
-		Status:         status,
-		IncludeDeleted: includeDeleted,
+		Status:          status,
+		IncludeDeleted:  includeDeleted,
+		IncludeArchived: includeArchived,
 	})
 	if err != nil {
 		return nil, err
@@ -257,10 +250,55 @@ func (s *Service) List(ctx context.Context, filter ListFilter) ([]Job, error) {
 	return out, nil
 }
 
+// Archive hides a completed job from the active board without deleting it.
+func (s *Service) Archive(ctx context.Context, jobID string) (Job, error) {
+	job, err := s.Get(ctx, jobID)
+	if err != nil {
+		return Job{}, err
+	}
+	if job.Status != StatusDone || job.DeletedAt != nil {
+		return Job{}, ErrConflict
+	}
+	if job.ArchivedAt != nil {
+		return job, nil
+	}
+	ts := nowMillis()
+	n, err := s.q.ArchiveJob(ctx, db.ArchiveJobParams{
+		ArchivedAt: sql.NullInt64{Int64: ts, Valid: true},
+		UpdatedAt:  ts,
+		ID:         jobID,
+	})
+	if err != nil {
+		return Job{}, err
+	}
+	if n == 0 {
+		return Job{}, ErrConflict
+	}
+	_ = s.recordEvent(ctx, jobID, EventArchived, "", "")
+	return s.Get(ctx, jobID)
+}
+
+// Unarchive restores an archived job to normal listings.
+func (s *Service) Unarchive(ctx context.Context, jobID string) (Job, error) {
+	if _, err := s.Get(ctx, jobID); err != nil {
+		return Job{}, err
+	}
+	ts := nowMillis()
+	n, err := s.q.UnarchiveJob(ctx, db.UnarchiveJobParams{UpdatedAt: ts, ID: jobID})
+	if err != nil {
+		return Job{}, err
+	}
+	if n == 0 {
+		return Job{}, ErrConflict
+	}
+	_ = s.recordEvent(ctx, jobID, EventUnarchived, "", "")
+	return s.Get(ctx, jobID)
+}
+
 // ListReady returns todo jobs that are ready to be claimed.
 func (s *Service) ListReady(ctx context.Context) ([]Job, error) {
 	_, _ = s.Reconcile(ctx, nil)
-	rows, err := s.q.ListReadyJobs(ctx)
+	rows, err := s.q.ListReadyJobs(ctx, sql.NullInt64{Int64: nowMillis(), Valid: true})
 	if err != nil {
 		return nil, err
 	}
@@ -269,6 +307,74 @@ func (s *Service) ListReady(ctx context.Context) ([]Job, error) {
 		out = append(out, jobFromRow(row))
 	}
 	return out, nil
+}
+
+// StaleOngoing returns ongoing jobs that have not changed since staleAfter.
+func (s *Service) StaleOngoing(ctx context.Context, staleAfter time.Duration) ([]Job, error) {
+	if staleAfter <= 0 {
+		staleAfter = DefaultStaleReviewMinutes * time.Minute
+	}
+	rows, err := s.q.ListOngoingJobs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	cutoff := nowMillis() - staleAfter.Milliseconds()
+	out := make([]Job, 0)
+	for _, row := range rows {
+		job := jobFromRow(row)
+		if job.UpdatedAt < cutoff {
+			out = append(out, job)
+		}
+	}
+	return out, nil
+}
+
+// PurgeArchived hard-deletes archived jobs older than the cutoff.
+func (s *Service) PurgeArchived(ctx context.Context, olderThanDays int) (int, error) {
+	if olderThanDays <= 0 {
+		return 0, nil
+	}
+	cutoff := nowMillis() - int64(olderThanDays)*24*60*60*1000
+	ids, err := s.q.ListArchivedJobsBefore(ctx, sql.NullInt64{Int64: cutoff, Valid: true})
+	if err != nil {
+		return 0, err
+	}
+	for _, jobID := range ids {
+		if err := s.q.HardDeleteJob(ctx, jobID); err != nil {
+			return 0, err
+		}
+	}
+	return len(ids), nil
+}
+
+// ArchiveDone archives completed jobs older than the cutoff without deleting them.
+func (s *Service) ArchiveDone(ctx context.Context, olderThanDays int) (int, error) {
+	if olderThanDays <= 0 {
+		return 0, nil
+	}
+	cutoff := nowMillis() - int64(olderThanDays)*24*60*60*1000
+	ids, err := s.q.ListDoneJobsBefore(ctx, cutoff)
+	if err != nil {
+		return 0, err
+	}
+	archived := 0
+	for _, jobID := range ids {
+		ts := nowMillis()
+		n, err := s.q.ArchiveJob(ctx, db.ArchiveJobParams{
+			ArchivedAt: sql.NullInt64{Int64: ts, Valid: true},
+			UpdatedAt:  ts,
+			ID:         jobID,
+		})
+		if err != nil {
+			return archived, err
+		}
+		if n == 0 {
+			continue
+		}
+		archived++
+		_ = s.recordEvent(ctx, jobID, EventArchived, "auto-archive", "")
+	}
+	return archived, nil
 }
 
 // ListEvents returns audit events for a job.
@@ -348,6 +454,7 @@ func (s *Service) Claim(ctx context.Context, jobID, sessionID string) (Job, erro
 		LeaseExpiresAt:    sql.NullInt64{Int64: leaseUntil, Valid: true},
 		UpdatedAt:         ts,
 		ID:                jobID,
+		NextRetryAt:       sql.NullInt64{Int64: ts, Valid: true},
 	})
 	if err != nil {
 		return Job{}, err
@@ -356,6 +463,9 @@ func (s *Service) Claim(ctx context.Context, jobID, sessionID string) (Job, erro
 		if job, getErr := s.Get(ctx, jobID); getErr == nil {
 			if job.Status == StatusOngoing {
 				return Job{}, ErrAlreadyClaimed
+			}
+			if job.Status == StatusBlocked {
+				return Job{}, ErrConflict
 			}
 			if job.DeletedAt != nil {
 				return Job{}, ErrNotFound
@@ -371,8 +481,13 @@ func (s *Service) Claim(ctx context.Context, jobID, sessionID string) (Job, erro
 	return job, err
 }
 
-// Release returns an ongoing job to todo.
+// Release returns an ongoing job to todo for an agent handoff.
 func (s *Service) Release(ctx context.Context, jobID, sessionID, reason string) (Job, error) {
+	return s.ReleaseWithClass(ctx, jobID, sessionID, reason, FailureAgentHandoff)
+}
+
+// ReleaseWithClass releases an ongoing job and optionally records worker failure state.
+func (s *Service) ReleaseWithClass(ctx context.Context, jobID, sessionID, reason string, class FailureClass) (Job, error) {
 	job, err := s.Get(ctx, jobID)
 	if err != nil {
 		return Job{}, err
@@ -384,6 +499,10 @@ func (s *Service) Release(ctx context.Context, jobID, sessionID, reason string) 
 		return Job{}, ErrNotAssigned
 	}
 	ts := nowMillis()
+	detail := strings.TrimSpace(reason)
+	if class == FailureWorkerError {
+		return s.recordWorkerFailure(ctx, job, sessionID, detail, ts)
+	}
 	n, err := s.q.ReleaseJob(ctx, db.ReleaseJobParams{UpdatedAt: ts, ID: jobID})
 	if err != nil {
 		return Job{}, err
@@ -392,9 +511,68 @@ func (s *Service) Release(ctx context.Context, jobID, sessionID, reason string) 
 		return Job{}, ErrConflict
 	}
 	action := EventReleased
-	detail := strings.TrimSpace(reason)
+	if class == FailureInfra && detail == "lease expired" {
+		action = EventLeaseExpired
+	}
 	_ = s.recordEvent(ctx, jobID, action, detail, sessionID)
 	job, err = s.Get(ctx, jobID)
+	if err == nil && s.notifier != nil {
+		s.notifier.emit(ctx, job, action, detail)
+	}
+	return job, err
+}
+
+func (s *Service) retryCooldown(failureCount int64) time.Duration {
+	settings := s.Settings()
+	unit := settings.RetryCooldownMinutes
+	if unit <= 0 {
+		unit = DefaultRetryCooldownMins
+	}
+	maxMinutes := settings.MaxRetryCooldownMinutes
+	if maxMinutes <= 0 {
+		maxMinutes = DefaultMaxRetryCooldown
+	}
+	minutes := int(failureCount) * unit
+	if minutes > maxMinutes {
+		minutes = maxMinutes
+	}
+	return time.Duration(minutes) * time.Minute
+}
+
+func (s *Service) maxConsecutiveFailures() int64 {
+	maxFailures := s.Settings().MaxConsecutiveFailures
+	if maxFailures <= 0 {
+		maxFailures = DefaultMaxFailures
+	}
+	return int64(maxFailures)
+}
+
+func (s *Service) recordWorkerFailure(ctx context.Context, job Job, sessionID, detail string, ts int64) (Job, error) {
+	nextFailureCount := job.FailureCount + 1
+	nextStatus := StatusTodo
+	action := EventFailed
+	var nextRetryAt sql.NullInt64
+	if nextFailureCount >= s.maxConsecutiveFailures() {
+		nextStatus = StatusBlocked
+		action = EventBlocked
+	} else {
+		nextRetryAt = sql.NullInt64{Int64: ts + s.retryCooldown(nextFailureCount).Milliseconds(), Valid: true}
+	}
+	n, err := s.q.RecordJobFailure(ctx, db.RecordJobFailureParams{
+		NextRetryAt:       nextRetryAt,
+		LastFailureReason: optionalNullString(detail),
+		Status:            nextStatus,
+		UpdatedAt:         ts,
+		ID:                job.ID,
+	})
+	if err != nil {
+		return Job{}, err
+	}
+	if n == 0 {
+		return Job{}, ErrConflict
+	}
+	_ = s.recordEvent(ctx, job.ID, action, detail, sessionID)
+	job, err = s.Get(ctx, job.ID)
 	if err == nil && s.notifier != nil {
 		s.notifier.emit(ctx, job, action, detail)
 	}
@@ -434,14 +612,31 @@ func (s *Service) Complete(ctx context.Context, jobID, sessionID, progress strin
 	return job, err
 }
 
+// Unblock resets retry state for a blocked job so it can be claimed again.
+func (s *Service) Unblock(ctx context.Context, jobID string) (Job, error) {
+	if _, err := s.Get(ctx, jobID); err != nil {
+		return Job{}, err
+	}
+	ts := nowMillis()
+	n, err := s.q.ResetJobFailures(ctx, db.ResetJobFailuresParams{UpdatedAt: ts, ID: jobID})
+	if err != nil {
+		return Job{}, err
+	}
+	if n == 0 {
+		return Job{}, ErrConflict
+	}
+	_ = s.recordEvent(ctx, jobID, EventReleased, "retry now", "")
+	return s.Get(ctx, jobID)
+}
+
 // Heartbeat extends the lease for an ongoing job.
 func (s *Service) Heartbeat(ctx context.Context, jobID, sessionID string) error {
 	ts := nowMillis()
 	leaseUntil := ts + s.leaseDuration().Milliseconds()
 	n, err := s.q.HeartbeatJob(ctx, db.HeartbeatJobParams{
-		LeaseExpiresAt: sql.NullInt64{Int64: leaseUntil, Valid: true},
-		UpdatedAt:      ts,
-		ID:             jobID,
+		LeaseExpiresAt:    sql.NullInt64{Int64: leaseUntil, Valid: true},
+		UpdatedAt:         ts,
+		ID:                jobID,
 		AssignedSessionID: sql.NullString{String: sessionID, Valid: true},
 	})
 	if err != nil {
@@ -517,10 +712,12 @@ func (s *Service) Reconcile(ctx context.Context, isRunning func(sessionID string
 			action = EventLeaseExpired
 			reason = "lease expired"
 		}
-		if _, err := s.Release(ctx, job.ID, "", reason); err != nil {
+		if _, err := s.ReleaseWithClass(ctx, job.ID, "", reason, FailureInfra); err != nil {
 			continue
 		}
-		_ = s.recordEvent(ctx, job.ID, action, reason, job.AssignedSessionID)
+		if action != EventLeaseExpired {
+			_ = s.recordEvent(ctx, job.ID, action, reason, job.AssignedSessionID)
+		}
 		released++
 	}
 	return released, nil

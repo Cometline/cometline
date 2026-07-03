@@ -76,11 +76,29 @@ export interface CometMindSkillsSettings {
 	includeOpenCode: boolean;
 	includeClaude: boolean;
 	mirrorToCometMind: boolean;
+	synthesisEnabled: boolean;
+	synthesisProviderId: string;
+	synthesisModel: string;
 }
 
 export interface CometMindMemorySettings {
+	enabled: boolean;
+	autoExtract: boolean;
+	autoRetrieve: boolean;
+	maxRetrieved: number;
+	taskOutcomeLimit: number;
+	similarityThreshold: number;
 	extractionProviderId: string;
 	extractionModel: string;
+	lifecycle: {
+		decayHalfLifeDays: number;
+		forgetThreshold: number;
+		usageBoostFactor: number;
+		maxUsageBoost: number;
+		maxMemories: number;
+		compactionTargetRatio: number;
+		compactionOnExtract: boolean;
+	};
 	embedding: {
 		providerId: string;
 		provider: string;
@@ -132,13 +150,38 @@ export interface CometMindJobsNotificationSettings {
 	onClaimed: boolean;
 	onCompleted: boolean;
 	onReleased: boolean;
+	onBlocked: boolean;
 }
 
 export interface CometMindJobsSettings {
 	notifications: CometMindJobsNotificationSettings;
 	leaseMinutes: number;
 	deletedPurgeDays: number;
+	doneArchiveDays: number;
+	archivedPurgeDays: number;
+	staleReviewMinutes: number;
+	maxConsecutiveFailures: number;
+	retryCooldownMinutes: number;
+	maxRetryCooldownMinutes: number;
 	reconcileIntervalSeconds: number;
+}
+
+export interface CometMindAutonomousJobsSettings {
+	enabled: boolean;
+	maxConcurrent: number;
+	pollIntervalSeconds: number;
+	maxStepsPerRun: number;
+	providerId: string;
+	modelId: string;
+}
+
+export interface CometMindSchedulerSettings {
+	enabled: boolean;
+	pollIntervalSeconds: number;
+}
+
+export interface CometMindPlanningSettings {
+	enabled: boolean;
 }
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
@@ -171,6 +214,9 @@ export interface CometMindSettings {
 	};
 	mcp: CometMindMCPSettings;
 	jobs: CometMindJobsSettings;
+	autonomy: CometMindAutonomousJobsSettings;
+	scheduler: CometMindSchedulerSettings;
+	planning: CometMindPlanningSettings;
 }
 
 export interface RuntimeProviderEntry {
@@ -288,6 +334,11 @@ function normalizePositiveInt(value: unknown, fallback: number): number {
 	return Math.max(1, Math.floor(value));
 }
 
+function normalizePositiveNumber(value: unknown, fallback: number): number {
+	if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
+	return Math.max(Number.EPSILON, value);
+}
+
 function cleanStringMap(values: unknown): Record<string, string> {
 	if (!values || typeof values !== 'object') return {};
 	const out: Record<string, string> = {};
@@ -391,12 +442,38 @@ export function defaultCometMindJobsSettings(): CometMindJobsSettings {
 			enabled: true,
 			onClaimed: true,
 			onCompleted: true,
-			onReleased: false
+			onReleased: false,
+			onBlocked: true
 		},
 		leaseMinutes: 30,
 		deletedPurgeDays: 30,
+		doneArchiveDays: 3,
+		archivedPurgeDays: 30,
+		staleReviewMinutes: 30,
+		maxConsecutiveFailures: 3,
+		retryCooldownMinutes: 5,
+		maxRetryCooldownMinutes: 60,
 		reconcileIntervalSeconds: 120
 	};
+}
+
+export function defaultCometMindAutonomousJobsSettings(): CometMindAutonomousJobsSettings {
+	return {
+		enabled: false,
+		maxConcurrent: 1,
+		pollIntervalSeconds: 30,
+		maxStepsPerRun: 0,
+		providerId: '',
+		modelId: ''
+	};
+}
+
+export function defaultCometMindPlanningSettings(): CometMindPlanningSettings {
+	return { enabled: false };
+}
+
+export function defaultCometMindSchedulerSettings(): CometMindSchedulerSettings {
+	return { enabled: false, pollIntervalSeconds: 60 };
 }
 
 export function defaultCometMindStorageSettings(): CometMindStorageSettings {
@@ -428,11 +505,29 @@ export function defaultCometMindSettings(workspacePath = ''): CometMindSettings 
 			roots: [],
 			includeOpenCode: true,
 			includeClaude: true,
-			mirrorToCometMind: true
+			mirrorToCometMind: true,
+			synthesisEnabled: false,
+			synthesisProviderId: '',
+			synthesisModel: ''
 		},
 		memory: {
+			enabled: true,
+			autoExtract: true,
+			autoRetrieve: true,
+			maxRetrieved: 5,
+			taskOutcomeLimit: 3,
+			similarityThreshold: 0.5,
 			extractionProviderId: '',
 			extractionModel: '',
+			lifecycle: {
+				decayHalfLifeDays: 30,
+				forgetThreshold: 0.1,
+				usageBoostFactor: 0.15,
+				maxUsageBoost: 2,
+				maxMemories: 500,
+				compactionTargetRatio: 0.8,
+				compactionOnExtract: true
+			},
 			embedding: {
 				providerId: '',
 				provider: '',
@@ -456,7 +551,10 @@ export function defaultCometMindSettings(workspacePath = ''): CometMindSettings 
 			}
 		},
 		mcp: defaultCometMindMCPSettings(),
-		jobs: defaultCometMindJobsSettings()
+		jobs: defaultCometMindJobsSettings(),
+		autonomy: defaultCometMindAutonomousJobsSettings(),
+		scheduler: defaultCometMindSchedulerSettings(),
+		planning: defaultCometMindPlanningSettings()
 	};
 }
 
@@ -468,6 +566,7 @@ export function normalizeCometMindSettings(
 	const acp: Partial<CometMindACPSettings> = input?.acp ?? {};
 	const skills: Partial<CometMindSkillsSettings> = input?.skills ?? {};
 	const memory: Partial<CometMindMemorySettings> = input?.memory ?? {};
+	const memoryLifecycle: Partial<CometMindMemorySettings['lifecycle']> = memory.lifecycle ?? {};
 	const embedding: Partial<CometMindMemorySettings['embedding']> = memory.embedding ?? {};
 	const storage: Partial<CometMindStorageSettings> = input?.storage ?? {};
 	const discord: Partial<CometMindDiscordGatewaySettings> = input?.gateway?.discord ?? {};
@@ -476,6 +575,10 @@ export function normalizeCometMindSettings(
 	const jobsDefaults = defaults.jobs;
 	const jobsNotifications: Partial<CometMindJobsNotificationSettings> =
 		jobsInput.notifications ?? {};
+	const autonomyInput: Partial<CometMindAutonomousJobsSettings> = input?.autonomy ?? {};
+	const autonomyDefaults = defaults.autonomy;
+	const planningInput: Partial<CometMindPlanningSettings> = input?.planning ?? {};
+	const schedulerInput: Partial<CometMindSchedulerSettings> = input?.scheduler ?? {};
 	const args = Array.isArray(acp.args)
 		? acp.args.map((a) => String(a).trim()).filter(Boolean)
 		: defaults.acp.args;
@@ -500,15 +603,71 @@ export function normalizeCometMindSettings(
 			roots: [],
 			includeOpenCode: true,
 			includeClaude: true,
-			mirrorToCometMind: true
+			mirrorToCometMind: true,
+			synthesisEnabled:
+				typeof skills.synthesisEnabled === 'boolean'
+					? skills.synthesisEnabled
+					: defaults.skills.synthesisEnabled,
+			synthesisProviderId: String(
+				skills.synthesisProviderId ?? defaults.skills.synthesisProviderId
+			).trim(),
+			synthesisModel: String(skills.synthesisModel ?? defaults.skills.synthesisModel).trim()
 		},
 		memory: {
+			enabled: typeof memory.enabled === 'boolean' ? memory.enabled : defaults.memory.enabled,
+			autoExtract:
+				typeof memory.autoExtract === 'boolean'
+					? memory.autoExtract
+					: defaults.memory.autoExtract,
+			autoRetrieve:
+				typeof memory.autoRetrieve === 'boolean'
+					? memory.autoRetrieve
+					: defaults.memory.autoRetrieve,
+			maxRetrieved: normalizePositiveInt(memory.maxRetrieved, defaults.memory.maxRetrieved),
+			taskOutcomeLimit: normalizePositiveInt(
+				memory.taskOutcomeLimit,
+				defaults.memory.taskOutcomeLimit
+			),
+			similarityThreshold: normalizeUnit(
+				memory.similarityThreshold,
+				defaults.memory.similarityThreshold
+			),
 			extractionProviderId: String(
 				memory.extractionProviderId ?? defaults.memory.extractionProviderId
 			).trim(),
 			extractionModel: String(
 				memory.extractionModel ?? defaults.memory.extractionModel
 			).trim(),
+			lifecycle: {
+				decayHalfLifeDays: normalizePositiveInt(
+					memoryLifecycle.decayHalfLifeDays,
+					defaults.memory.lifecycle.decayHalfLifeDays
+				),
+				forgetThreshold: normalizeUnit(
+					memoryLifecycle.forgetThreshold,
+					defaults.memory.lifecycle.forgetThreshold
+				),
+				usageBoostFactor: normalizeUnit(
+					memoryLifecycle.usageBoostFactor,
+					defaults.memory.lifecycle.usageBoostFactor
+				),
+				maxUsageBoost: normalizePositiveNumber(
+					memoryLifecycle.maxUsageBoost,
+					defaults.memory.lifecycle.maxUsageBoost
+				),
+				maxMemories: normalizePositiveInt(
+					memoryLifecycle.maxMemories,
+					defaults.memory.lifecycle.maxMemories
+				),
+				compactionTargetRatio: normalizeUnit(
+					memoryLifecycle.compactionTargetRatio,
+					defaults.memory.lifecycle.compactionTargetRatio
+				),
+				compactionOnExtract:
+					typeof memoryLifecycle.compactionOnExtract === 'boolean'
+						? memoryLifecycle.compactionOnExtract
+						: defaults.memory.lifecycle.compactionOnExtract
+			},
 			embedding: {
 				providerId: String(
 					embedding.providerId ?? defaults.memory.embedding.providerId
@@ -587,16 +746,80 @@ export function normalizeCometMindSettings(
 				onReleased:
 					typeof jobsNotifications.onReleased === 'boolean'
 						? jobsNotifications.onReleased
-						: jobsDefaults.notifications.onReleased
+						: jobsDefaults.notifications.onReleased,
+				onBlocked:
+					typeof jobsNotifications.onBlocked === 'boolean'
+						? jobsNotifications.onBlocked
+						: jobsDefaults.notifications.onBlocked
 			},
 			leaseMinutes: normalizePositiveInt(jobsInput.leaseMinutes, jobsDefaults.leaseMinutes),
 			deletedPurgeDays: normalizeNonNegativeInt(
 				jobsInput.deletedPurgeDays,
 				jobsDefaults.deletedPurgeDays
 			),
+			doneArchiveDays: normalizeNonNegativeInt(
+				jobsInput.doneArchiveDays,
+				jobsDefaults.doneArchiveDays
+			),
+			archivedPurgeDays: normalizeNonNegativeInt(
+				jobsInput.archivedPurgeDays,
+				jobsDefaults.archivedPurgeDays
+			),
+			staleReviewMinutes: normalizePositiveInt(
+				jobsInput.staleReviewMinutes,
+				jobsDefaults.staleReviewMinutes
+			),
+			maxConsecutiveFailures: normalizePositiveInt(
+				jobsInput.maxConsecutiveFailures,
+				jobsDefaults.maxConsecutiveFailures
+			),
+			retryCooldownMinutes: normalizePositiveInt(
+				jobsInput.retryCooldownMinutes,
+				jobsDefaults.retryCooldownMinutes
+			),
+			maxRetryCooldownMinutes: normalizePositiveInt(
+				jobsInput.maxRetryCooldownMinutes,
+				jobsDefaults.maxRetryCooldownMinutes
+			),
 			reconcileIntervalSeconds: normalizePositiveInt(
 				jobsInput.reconcileIntervalSeconds,
 				jobsDefaults.reconcileIntervalSeconds
+			)
+		},
+		autonomy: {
+			enabled:
+				typeof autonomyInput.enabled === 'boolean'
+					? autonomyInput.enabled
+					: autonomyDefaults.enabled,
+			maxConcurrent: normalizePositiveInt(
+				autonomyInput.maxConcurrent,
+				autonomyDefaults.maxConcurrent
+			),
+			pollIntervalSeconds: normalizePositiveInt(
+				autonomyInput.pollIntervalSeconds,
+				autonomyDefaults.pollIntervalSeconds
+			),
+			maxStepsPerRun: normalizeNonNegativeInt(
+				autonomyInput.maxStepsPerRun,
+				autonomyDefaults.maxStepsPerRun
+			),
+			providerId: String(autonomyInput.providerId ?? autonomyDefaults.providerId).trim(),
+			modelId: String(autonomyInput.modelId ?? autonomyDefaults.modelId).trim()
+		},
+		planning: {
+			enabled:
+				typeof planningInput.enabled === 'boolean'
+					? planningInput.enabled
+					: defaults.planning.enabled
+		},
+		scheduler: {
+			enabled:
+				typeof schedulerInput.enabled === 'boolean'
+					? schedulerInput.enabled
+					: defaults.scheduler.enabled,
+			pollIntervalSeconds: normalizePositiveInt(
+				schedulerInput.pollIntervalSeconds,
+				defaults.scheduler.pollIntervalSeconds
 			)
 		}
 	};
@@ -620,8 +843,15 @@ export function cloneCometMindSettings(settings: CometMindSettings): CometMindSe
 			roots: [...settings.skills.roots]
 		},
 		memory: {
+			enabled: settings.memory.enabled,
+			autoExtract: settings.memory.autoExtract,
+			autoRetrieve: settings.memory.autoRetrieve,
+			maxRetrieved: settings.memory.maxRetrieved,
+			taskOutcomeLimit: settings.memory.taskOutcomeLimit,
+			similarityThreshold: settings.memory.similarityThreshold,
 			extractionProviderId: settings.memory.extractionProviderId,
 			extractionModel: settings.memory.extractionModel,
+			lifecycle: { ...settings.memory.lifecycle },
 			embedding: { ...settings.memory.embedding }
 		},
 		storage: { ...settings.storage },
@@ -648,7 +878,10 @@ export function cloneCometMindSettings(settings: CometMindSettings): CometMindSe
 		jobs: {
 			...settings.jobs,
 			notifications: { ...settings.jobs.notifications }
-		}
+		},
+		autonomy: { ...settings.autonomy },
+		scheduler: { ...settings.scheduler },
+		planning: { ...settings.planning }
 	};
 }
 
@@ -956,8 +1189,15 @@ export function runtimeSlice(settings: ProviderSettings): RuntimeSettingsSlice |
 		acp: { ...settings.cometmind.acp, args: [...settings.cometmind.acp.args] },
 		skills: { ...settings.cometmind.skills, roots: [...settings.cometmind.skills.roots] },
 		memory: {
+			enabled: settings.cometmind.memory.enabled,
+			autoExtract: settings.cometmind.memory.autoExtract,
+			autoRetrieve: settings.cometmind.memory.autoRetrieve,
+			maxRetrieved: settings.cometmind.memory.maxRetrieved,
+			taskOutcomeLimit: settings.cometmind.memory.taskOutcomeLimit,
+			similarityThreshold: settings.cometmind.memory.similarityThreshold,
 			extractionProviderId: settings.cometmind.memory.extractionProviderId,
 			extractionModel: settings.cometmind.memory.extractionModel,
+			lifecycle: { ...settings.cometmind.memory.lifecycle },
 			embedding: { ...settings.cometmind.memory.embedding }
 		},
 		gateway: cloneCometMindSettings(settings.cometmind).gateway,
@@ -1044,11 +1284,29 @@ const providerSettingsSchema = z.object({
 			roots: z.array(z.string()),
 			includeOpenCode: z.boolean(),
 			includeClaude: z.boolean(),
-			mirrorToCometMind: z.boolean()
+			mirrorToCometMind: z.boolean(),
+			synthesisEnabled: z.boolean(),
+			synthesisProviderId: z.string(),
+			synthesisModel: z.string()
 		}),
 		memory: z.object({
+			enabled: z.boolean(),
+			autoExtract: z.boolean(),
+			autoRetrieve: z.boolean(),
+			maxRetrieved: z.number().int().positive(),
+			taskOutcomeLimit: z.number().int().positive(),
+			similarityThreshold: z.number().min(0).max(1),
 			extractionProviderId: z.string(),
 			extractionModel: z.string(),
+			lifecycle: z.object({
+				decayHalfLifeDays: z.number().positive(),
+				forgetThreshold: z.number().min(0).max(1),
+				usageBoostFactor: z.number().min(0).max(1),
+				maxUsageBoost: z.number().positive(),
+				maxMemories: z.number().int().positive(),
+				compactionTargetRatio: z.number().min(0).max(1),
+				compactionOnExtract: z.boolean()
+			}),
 			embedding: z.object({
 				providerId: z.string(),
 				provider: z.string(),
@@ -1108,11 +1366,33 @@ const providerSettingsSchema = z.object({
 				enabled: z.boolean(),
 				onClaimed: z.boolean(),
 				onCompleted: z.boolean(),
-				onReleased: z.boolean()
+				onReleased: z.boolean(),
+				onBlocked: z.boolean()
 			}),
 			leaseMinutes: z.number().int().positive(),
 			deletedPurgeDays: z.number().int().min(0),
+			doneArchiveDays: z.number().int().min(0),
+			archivedPurgeDays: z.number().int().min(0),
+			staleReviewMinutes: z.number().int().positive(),
+			maxConsecutiveFailures: z.number().int().positive(),
+			retryCooldownMinutes: z.number().int().positive(),
+			maxRetryCooldownMinutes: z.number().int().positive(),
 			reconcileIntervalSeconds: z.number().int().positive()
+		}),
+		autonomy: z.object({
+			enabled: z.boolean(),
+			maxConcurrent: z.number().int().positive(),
+			pollIntervalSeconds: z.number().int().positive(),
+			maxStepsPerRun: z.number().int().min(0),
+			providerId: z.string(),
+			modelId: z.string()
+		}),
+		planning: z.object({
+			enabled: z.boolean()
+		}),
+		scheduler: z.object({
+			enabled: z.boolean(),
+			pollIntervalSeconds: z.number().int().positive()
 		})
 	})
 });

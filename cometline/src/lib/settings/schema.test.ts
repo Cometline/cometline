@@ -208,6 +208,83 @@ describe('settings schema', () => {
 		expect(runtimeSlice(settings)?.maxTokens).toBe(3072);
 	});
 
+	it('preserves CometMind runtime settings through normalization and validation', () => {
+		const base = defaultSettings();
+		const settings = normalizeSettings({
+			...base,
+			cometmind: {
+				...base.cometmind,
+				skills: {
+					...base.cometmind.skills,
+					synthesisEnabled: true,
+					synthesisProviderId: 'codex',
+					synthesisModel: 'gpt-5.1-codex'
+				},
+				memory: {
+					...base.cometmind.memory,
+					enabled: true,
+					autoExtract: false,
+					autoRetrieve: false,
+					maxRetrieved: 9,
+					taskOutcomeLimit: 4,
+					similarityThreshold: 0.72,
+					extractionProviderId: 'codex',
+					extractionModel: 'gpt-5.1-codex',
+					lifecycle: {
+						decayHalfLifeDays: 45,
+						forgetThreshold: 0.22,
+						usageBoostFactor: 0.33,
+						maxUsageBoost: 3.5,
+						maxMemories: 777,
+						compactionTargetRatio: 0.66,
+						compactionOnExtract: false
+					},
+					embedding: {
+						providerId: 'openai',
+						provider: 'openai',
+						model: 'text-embedding-3-small',
+						baseURL: 'https://api.openai.com/v1',
+						apiKey: 'env'
+					}
+				},
+				jobs: {
+					...base.cometmind.jobs,
+					doneArchiveDays: 5,
+					archivedPurgeDays: 12,
+					staleReviewMinutes: 31,
+					maxConsecutiveFailures: 4,
+					retryCooldownMinutes: 6,
+					maxRetryCooldownMinutes: 66,
+					notifications: {
+						...base.cometmind.jobs.notifications,
+						onBlocked: false
+					}
+				},
+				autonomy: {
+					...base.cometmind.autonomy,
+					enabled: true,
+					providerId: 'codex',
+					modelId: 'gpt-5.1-codex'
+				},
+				scheduler: { enabled: true, pollIntervalSeconds: 45 },
+				planning: { enabled: true }
+			}
+		});
+
+		expect(() => validateSettings(settings)).not.toThrow();
+		expect(settings.cometmind.skills.synthesisEnabled).toBe(true);
+		expect(settings.cometmind.memory.autoRetrieve).toBe(false);
+		expect(settings.cometmind.memory.maxRetrieved).toBe(9);
+		expect(settings.cometmind.memory.taskOutcomeLimit).toBe(4);
+		expect(settings.cometmind.memory.lifecycle.maxMemories).toBe(777);
+		expect(settings.cometmind.jobs.doneArchiveDays).toBe(5);
+		expect(settings.cometmind.jobs.archivedPurgeDays).toBe(12);
+		expect(settings.cometmind.jobs.notifications.onBlocked).toBe(false);
+		expect(settings.cometmind.autonomy.providerId).toBe('codex');
+		expect(settings.cometmind.scheduler.enabled).toBe(true);
+		expect(settings.cometmind.planning.enabled).toBe(true);
+	});
+
 	it('normalizes context window limit to 128k or 256k', () => {
 		const settings = normalizeSettings({
 			...defaultSettings(),

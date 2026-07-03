@@ -35,6 +35,40 @@
 		return provider.enabledModels.length ? provider.enabledModels : provider.models;
 	}
 
+	function firstModelForProvider(provider: ProviderConfig | undefined): string {
+		return provider
+			? (provider.enabledModels[0] ?? provider.selectedModel ?? provider.models[0] ?? '')
+			: '';
+	}
+
+	function providerById(providerId: string) {
+		return providers.find((provider) => provider.id === providerId);
+	}
+
+	function firstRuntimeProvider() {
+		return runtimeProviders[0];
+	}
+
+	function explicitRole(providerId: string, modelId: string) {
+		let provider = providerById(providerId);
+		if (!provider || !modelsForProvider(provider).includes(modelId)) {
+			provider = firstRuntimeProvider();
+		}
+		const model = modelsForProvider(provider).includes(modelId)
+			? modelId
+			: firstModelForProvider(provider);
+		return {
+			providerId: provider?.id ?? '',
+			modelId: model
+		};
+	}
+
+	function roleLabel(providerId: string, modelId: string) {
+		const provider = providerById(providerId);
+		if (!provider || !modelId) return 'No model selected';
+		return `${provider?.name ?? providerId} · ${modelId}`;
+	}
+
 	// ── Default model picker ────────────────────────────────────────────
 	let modelMenuOpen = $state(false);
 	let modelSearch = $state('');
@@ -99,23 +133,15 @@
 	});
 
 	let selectedLabel = $derived.by(() => {
-		if (!defaultModelId || !defaultProviderId) return 'First enabled model';
 		const match = modelOptions.find(
 			(o) => o.providerId === defaultProviderId && o.modelId === defaultModelId
 		);
-		return match?.label ?? 'First enabled model';
+		return match ? `${match.providerName} · ${match.modelId}` : 'No model selected';
 	});
 
 	function selectDefaultModel(option: ModelEntry) {
 		defaultModelId = option.modelId;
 		defaultProviderId = option.providerId;
-		modelMenuOpen = false;
-		modelSearch = '';
-	}
-
-	function clearDefaultModel() {
-		defaultModelId = '';
-		defaultProviderId = '';
 		modelMenuOpen = false;
 		modelSearch = '';
 	}
@@ -159,10 +185,7 @@
 			cometmind = { ...cometmind, titleProviderId: '', titleModelId: '' };
 			return;
 		}
-		const provider = providers.find((item) => item.id === providerId);
-		const modelId = provider
-			? (provider.enabledModels[0] ?? provider.selectedModel ?? provider.models[0] ?? '')
-			: '';
+		const modelId = firstModelForProvider(providerById(providerId));
 		cometmind = { ...cometmind, titleProviderId: providerId, titleModelId: modelId };
 	}
 
@@ -187,10 +210,7 @@
 			};
 			return;
 		}
-		const provider = providers.find((item) => item.id === providerId);
-		const modelId = provider
-			? (provider.enabledModels[0] ?? provider.selectedModel ?? provider.models[0] ?? '')
-			: '';
+		const modelId = firstModelForProvider(providerById(providerId));
 		cometmind = {
 			...cometmind,
 			memory: {
@@ -206,6 +226,90 @@
 			...cometmind,
 			memory: { ...cometmind.memory, extractionModel: modelId }
 		};
+	}
+
+	// ── Autonomous jobs and skill synthesis model roles ─────────────────
+	const autonomyProvider = $derived(providerById(cometmind.autonomy.providerId));
+	const autonomyModels = $derived(modelsForProvider(autonomyProvider));
+	const autonomyRoleLabel = $derived(
+		roleLabel(cometmind.autonomy.providerId, cometmind.autonomy.modelId)
+	);
+	const synthesisProvider = $derived(providerById(cometmind.skills.synthesisProviderId));
+	const synthesisModels = $derived(modelsForProvider(synthesisProvider));
+	const synthesisRoleLabel = $derived(
+		roleLabel(cometmind.skills.synthesisProviderId, cometmind.skills.synthesisModel)
+	);
+
+	$effect(() => {
+		const first = modelOptions[0];
+		const selected = modelOptions.find(
+			(option) => option.providerId === defaultProviderId && option.modelId === defaultModelId
+		);
+		if (!selected && first) {
+			defaultProviderId = first.providerId;
+			defaultModelId = first.modelId;
+		}
+	});
+
+	$effect(() => {
+		const autonomy = explicitRole(cometmind.autonomy.providerId, cometmind.autonomy.modelId);
+		const synthesis = explicitRole(
+			cometmind.skills.synthesisProviderId,
+			cometmind.skills.synthesisModel
+		);
+		const autonomyChanged =
+			autonomy.providerId !== cometmind.autonomy.providerId ||
+			autonomy.modelId !== cometmind.autonomy.modelId;
+		const synthesisChanged =
+			synthesis.providerId !== cometmind.skills.synthesisProviderId ||
+			synthesis.modelId !== cometmind.skills.synthesisModel;
+		if (autonomyChanged || synthesisChanged) {
+			cometmind = {
+				...cometmind,
+				autonomy: {
+					...cometmind.autonomy,
+					providerId: autonomy.providerId,
+					modelId: autonomy.modelId
+				},
+				skills: {
+					...cometmind.skills,
+					synthesisProviderId: synthesis.providerId,
+					synthesisModel: synthesis.modelId
+				}
+			};
+		}
+	});
+
+	function setAutonomyProvider(providerId: string) {
+		const provider = providerById(providerId) ?? firstRuntimeProvider();
+		cometmind = {
+			...cometmind,
+			autonomy: {
+				...cometmind.autonomy,
+				providerId: provider?.id ?? '',
+				modelId: firstModelForProvider(provider)
+			}
+		};
+	}
+
+	function setAutonomyModel(modelId: string) {
+		cometmind = { ...cometmind, autonomy: { ...cometmind.autonomy, modelId } };
+	}
+
+	function setSynthesisProvider(providerId: string) {
+		const provider = providerById(providerId) ?? firstRuntimeProvider();
+		cometmind = {
+			...cometmind,
+			skills: {
+				...cometmind.skills,
+				synthesisProviderId: provider?.id ?? '',
+				synthesisModel: firstModelForProvider(provider)
+			}
+		};
+	}
+
+	function setSynthesisModel(modelId: string) {
+		cometmind = { ...cometmind, skills: { ...cometmind.skills, synthesisModel: modelId } };
 	}
 </script>
 
@@ -233,16 +337,6 @@
 					<span>{selectedLabel}</span>
 					<ChevronDown size={12} stroke-width={2} />
 				</button>
-				{#if defaultModelId}
-					<button
-						class="clear-default-button"
-						onclick={clearDefaultModel}
-						title="Clear default (use first enabled model)"
-					>
-						&times;
-					</button>
-				{/if}
-
 				{#if modelMenuOpen}
 					<div class="model-menu scrollbar-none" transition:fly={{ y: 6, duration: 120 }}>
 						<input
@@ -281,6 +375,86 @@
 					</div>
 				{/if}
 			</div>
+		</div>
+
+		<div class="settings-section">
+			<div class="settings-section-heading">
+				<h3>Autonomous jobs</h3>
+				<p>Choose the exact model used when CometMind claims jobs in the background.</p>
+			</div>
+			<div class="role-summary">
+				<span>Currently uses</span>
+				<strong>{autonomyRoleLabel}</strong>
+			</div>
+			<label>
+				<span>Autonomous jobs provider</span>
+				<select
+					value={cometmind.autonomy.providerId}
+					onchange={(e) => setAutonomyProvider(e.currentTarget.value)}
+				>
+					{#each runtimeProviders as provider (provider.id)}
+						<option value={provider.id}>{provider.name}</option>
+					{/each}
+				</select>
+			</label>
+			{#if autonomyProvider}
+				<label>
+					<span>Autonomous jobs model</span>
+					<select
+						value={cometmind.autonomy.modelId || autonomyModels[0] || ''}
+						onchange={(e) => setAutonomyModel(e.currentTarget.value)}
+					>
+						{#each autonomyModels as model (model)}
+							<option value={model}>{model}</option>
+						{/each}
+					</select>
+					<p class="settings-field-hint">
+						Pick a reliable coding-capable model. Job runs can execute tools and
+						continue without a visible chat open.
+					</p>
+				</label>
+			{/if}
+		</div>
+
+		<div class="settings-section">
+			<div class="settings-section-heading">
+				<h3>Skill synthesis</h3>
+				<p>
+					Choose the exact model that proposes reusable skill drafts after completed jobs.
+				</p>
+			</div>
+			<div class="role-summary">
+				<span>Currently uses</span>
+				<strong>{synthesisRoleLabel}</strong>
+			</div>
+			<label>
+				<span>Synthesis provider</span>
+				<select
+					value={cometmind.skills.synthesisProviderId}
+					onchange={(e) => setSynthesisProvider(e.currentTarget.value)}
+				>
+					{#each runtimeProviders as provider (provider.id)}
+						<option value={provider.id}>{provider.name}</option>
+					{/each}
+				</select>
+			</label>
+			{#if synthesisProvider}
+				<label>
+					<span>Synthesis model</span>
+					<select
+						value={cometmind.skills.synthesisModel || synthesisModels[0] || ''}
+						onchange={(e) => setSynthesisModel(e.currentTarget.value)}
+					>
+						{#each synthesisModels as model (model)}
+							<option value={model}>{model}</option>
+						{/each}
+					</select>
+					<p class="settings-field-hint">
+						This model only drafts skills. Drafts still require explicit promotion
+						before becoming active skills.
+					</p>
+				</label>
+			{/if}
 		</div>
 
 		<div class="settings-section">
@@ -400,25 +574,27 @@
 		cursor: default;
 	}
 
-	.clear-default-button {
-		display: inline-flex;
+	.role-summary {
+		display: flex;
 		align-items: center;
-		justify-content: center;
-		width: 22px;
-		height: 22px;
-		border-radius: 50%;
-		border: none;
-		background: rgba(0, 0, 0, 0.06);
-		color: var(--text-muted);
-		font-size: 14px;
-		line-height: 1;
-		cursor: pointer;
-		transition: background 0.15s;
+		justify-content: space-between;
+		gap: 12px;
+		padding: 10px 12px;
+		border: 1px solid var(--border-soft);
+		border-radius: 12px;
+		background: rgba(15, 23, 42, 0.04);
+		font-size: 12px;
 	}
 
-	.clear-default-button:hover {
-		background: rgba(0, 0, 0, 0.12);
+	.role-summary span {
+		color: var(--text-muted);
+	}
+
+	.role-summary strong {
+		font-size: 12px;
+		font-weight: 600;
 		color: var(--text-main);
+		text-align: right;
 	}
 
 	.model-menu {

@@ -175,6 +175,122 @@ var alterStatements = [][]string{
 		`ALTER TABLE jobs DROP COLUMN scheduled_at`,
 		`ALTER TABLE jobs DROP COLUMN due_at`,
 	},
+	// v13 -> v14: tag user-created vs autonomous operator sessions.
+	{
+		"ALTER TABLE sessions ADD COLUMN origin TEXT NOT NULL DEFAULT 'user' CHECK (origin IN ('user', 'autonomy'))",
+		"CREATE INDEX IF NOT EXISTS idx_sessions_origin ON sessions (origin)",
+	},
+	// v14 -> v15: archive completed jobs separately from deletion.
+	{
+		"ALTER TABLE jobs ADD COLUMN archived_at INTEGER",
+		"CREATE INDEX IF NOT EXISTS idx_jobs_archived_at ON jobs (archived_at)",
+	},
+	// v15 -> v16: retry failed job runs and block repeated failures.
+	{
+		"PRAGMA foreign_keys = OFF",
+		`CREATE TABLE IF NOT EXISTS jobs_new (
+			id TEXT PRIMARY KEY,
+			description TEXT NOT NULL,
+			definition_of_done TEXT NOT NULL DEFAULT '',
+			progress TEXT NOT NULL DEFAULT '',
+			status TEXT NOT NULL DEFAULT 'todo' CHECK (status IN ('todo', 'ongoing', 'done', 'blocked')),
+			workspace_path TEXT,
+			assigned_session_id TEXT,
+			lease_expires_at INTEGER,
+			created_by TEXT NOT NULL DEFAULT 'user' CHECK (created_by IN ('user', 'agent')),
+			source_session_id TEXT,
+			source_platform TEXT NOT NULL DEFAULT '' CHECK (source_platform IN ('', 'desktop', 'discord')),
+			source_channel_id TEXT,
+			archived_at INTEGER,
+			failure_count INTEGER NOT NULL DEFAULT 0,
+			next_retry_at INTEGER,
+			last_failure_reason TEXT,
+			deleted_at INTEGER,
+			created_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000),
+			updated_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000)
+		)`,
+		`INSERT INTO jobs_new (
+			id, description, definition_of_done, progress, status, workspace_path,
+			assigned_session_id, lease_expires_at, created_by, source_session_id,
+			source_platform, source_channel_id, archived_at, failure_count,
+			next_retry_at, last_failure_reason, deleted_at, created_at, updated_at
+		)
+		SELECT
+			id, description, definition_of_done, progress, status, workspace_path,
+			assigned_session_id, lease_expires_at, created_by, source_session_id,
+			source_platform, source_channel_id, archived_at, 0,
+			NULL, NULL, deleted_at, created_at, updated_at
+		FROM jobs`,
+		"DROP TABLE jobs",
+		"ALTER TABLE jobs_new RENAME TO jobs",
+		"CREATE INDEX IF NOT EXISTS idx_jobs_status_updated ON jobs (status, updated_at ASC)",
+		"CREATE INDEX IF NOT EXISTS idx_jobs_assigned_session ON jobs (assigned_session_id)",
+		"CREATE INDEX IF NOT EXISTS idx_jobs_deleted_at ON jobs (deleted_at)",
+		"CREATE INDEX IF NOT EXISTS idx_jobs_archived_at ON jobs (archived_at)",
+		"CREATE INDEX IF NOT EXISTS idx_jobs_next_retry_at ON jobs (next_retry_at)",
+		"PRAGMA foreign_keys = ON",
+	},
+	// v16 -> v17: recent memory lookups by kind.
+	{
+		`CREATE TABLE IF NOT EXISTS memories (
+			id TEXT PRIMARY KEY,
+			scope TEXT NOT NULL DEFAULT 'global',
+			kind TEXT NOT NULL DEFAULT 'fact',
+			preference_category TEXT NOT NULL DEFAULT '',
+			content TEXT NOT NULL,
+			embedding BLOB,
+			embedding_model TEXT,
+			source TEXT NOT NULL,
+			base_weight REAL NOT NULL DEFAULT 1.0,
+			access_count INTEGER NOT NULL DEFAULT 0,
+			pinned INTEGER NOT NULL DEFAULT 0,
+			source_session_id TEXT,
+			superseded_by TEXT,
+			archived INTEGER NOT NULL DEFAULT 0,
+			archived_reason TEXT,
+			last_accessed_at INTEGER,
+			created_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000),
+			updated_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000)
+		)`,
+		"CREATE INDEX IF NOT EXISTS idx_memories_kind_created ON memories (archived, kind, created_at DESC)",
+	},
+	// v17 -> v18: scheduled one-shot job definitions.
+	{
+		`CREATE TABLE IF NOT EXISTS scheduled_jobs (
+			id TEXT PRIMARY KEY,
+			description TEXT NOT NULL,
+			definition_of_done TEXT NOT NULL DEFAULT '',
+			workspace_path TEXT,
+			created_by TEXT NOT NULL DEFAULT 'user' CHECK (created_by IN ('user', 'agent')),
+			source_session_id TEXT,
+			source_platform TEXT NOT NULL DEFAULT '' CHECK (source_platform IN ('', 'desktop', 'discord')),
+			source_channel_id TEXT,
+			cron_expr TEXT,
+			run_at INTEGER,
+			next_run_at INTEGER NOT NULL,
+			last_run_at INTEGER,
+			enabled INTEGER NOT NULL DEFAULT 1,
+			created_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000),
+			updated_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000)
+		)`,
+		"CREATE INDEX IF NOT EXISTS idx_scheduled_jobs_due ON scheduled_jobs (enabled, next_run_at)",
+		"CREATE INDEX IF NOT EXISTS idx_scheduled_jobs_updated ON scheduled_jobs (updated_at DESC)",
+	},
+	// v18 -> v19: per-session agent plans.
+	{
+		`CREATE TABLE IF NOT EXISTS session_plans (
+			id TEXT PRIMARY KEY,
+			session_id TEXT NOT NULL REFERENCES sessions (id) ON DELETE CASCADE,
+			step_index INTEGER NOT NULL,
+			description TEXT NOT NULL,
+			status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'in_progress', 'completed', 'blocked')),
+			blocker_reason TEXT NOT NULL DEFAULT '',
+			created_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000),
+			updated_at INTEGER NOT NULL DEFAULT (unixepoch('now', 'subsec') * 1000),
+			UNIQUE (session_id, step_index)
+		)`,
+		"CREATE INDEX IF NOT EXISTS idx_session_plans_session ON session_plans (session_id, step_index)",
+	},
 }
 
 // execAlter runs one incremental DDL statement, tolerating idempotent failures
@@ -213,7 +329,7 @@ func splitStatements(sql string) []string {
 	return out
 }
 
-const schemaVersion = 13
+const schemaVersion = 19
 
 // EnsureSchema runs [Migrate] once per database file using PRAGMA user_version.
 // For existing databases, it applies incremental ALTER statements to upgrade

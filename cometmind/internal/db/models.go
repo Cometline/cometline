@@ -32,6 +32,10 @@ type Job struct {
 	SourceSessionID   sql.NullString `json:"source_session_id"`
 	SourcePlatform    string         `json:"source_platform"`
 	SourceChannelID   sql.NullString `json:"source_channel_id"`
+	ArchivedAt        sql.NullInt64  `json:"archived_at"`
+	FailureCount      int64          `json:"failure_count"`
+	NextRetryAt       sql.NullInt64  `json:"next_retry_at"`
+	LastFailureReason sql.NullString `json:"last_failure_reason"`
 	DeletedAt         sql.NullInt64  `json:"deleted_at"`
 	CreatedAt         int64          `json:"created_at"`
 	UpdatedAt         int64          `json:"updated_at"`
@@ -91,6 +95,24 @@ type Message struct {
 	CreatedAt        int64  `json:"created_at"`
 }
 
+type ScheduledJob struct {
+	ID               string         `json:"id"`
+	Description      string         `json:"description"`
+	DefinitionOfDone string         `json:"definition_of_done"`
+	WorkspacePath    sql.NullString `json:"workspace_path"`
+	CreatedBy        string         `json:"created_by"`
+	SourceSessionID  sql.NullString `json:"source_session_id"`
+	SourcePlatform   string         `json:"source_platform"`
+	SourceChannelID  sql.NullString `json:"source_channel_id"`
+	CronExpr         sql.NullString `json:"cron_expr"`
+	RunAt            sql.NullInt64  `json:"run_at"`
+	NextRunAt        int64          `json:"next_run_at"`
+	LastRunAt        sql.NullInt64  `json:"last_run_at"`
+	Enabled          int64          `json:"enabled"`
+	CreatedAt        int64          `json:"created_at"`
+	UpdatedAt        int64          `json:"updated_at"`
+}
+
 type Session struct {
 	ID                      string         `json:"id"`
 	WorkspaceID             string         `json:"workspace_id"`
@@ -98,6 +120,7 @@ type Session struct {
 	ModelID                 string         `json:"model_id"`
 	ProviderID              string         `json:"provider_id"`
 	Status                  string         `json:"status"`
+	Origin                  string         `json:"origin"`
 	TokenUsage              string         `json:"token_usage"`
 	ParentSessionID         sql.NullString `json:"parent_session_id"`
 	Purpose                 string         `json:"purpose"`
@@ -112,6 +135,17 @@ type Session struct {
 	ContextSummaryUpdatedAt sql.NullString `json:"context_summary_updated_at"`
 	CreatedAt               int64          `json:"created_at"`
 	UpdatedAt               int64          `json:"updated_at"`
+}
+
+type SessionPlan struct {
+	ID            string `json:"id"`
+	SessionID     string `json:"session_id"`
+	StepIndex     int64  `json:"step_index"`
+	Description   string `json:"description"`
+	Status        string `json:"status"`
+	BlockerReason string `json:"blocker_reason"`
+	CreatedAt     int64  `json:"created_at"`
+	UpdatedAt     int64  `json:"updated_at"`
 }
 
 type ToolCall struct {

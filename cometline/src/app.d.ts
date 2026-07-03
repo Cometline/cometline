@@ -141,11 +141,29 @@ declare global {
 		includeOpenCode: boolean;
 		includeClaude: boolean;
 		mirrorToCometMind: boolean;
+		synthesisEnabled: boolean;
+		synthesisProviderId: string;
+		synthesisModel: string;
 	}
 
 	interface CometMindMemorySettings {
+		enabled: boolean;
+		autoExtract: boolean;
+		autoRetrieve: boolean;
+		maxRetrieved: number;
+		taskOutcomeLimit: number;
+		similarityThreshold: number;
 		extractionProviderId: string;
 		extractionModel: string;
+		lifecycle: {
+			decayHalfLifeDays: number;
+			forgetThreshold: number;
+			usageBoostFactor: number;
+			maxUsageBoost: number;
+			maxMemories: number;
+			compactionTargetRatio: number;
+			compactionOnExtract: boolean;
+		};
 		embedding: {
 			providerId: string;
 			provider: string;
@@ -169,13 +187,38 @@ declare global {
 		onClaimed: boolean;
 		onCompleted: boolean;
 		onReleased: boolean;
+		onBlocked: boolean;
 	}
 
 	interface CometMindJobsSettings {
 		notifications: CometMindJobsNotificationSettings;
 		leaseMinutes: number;
 		deletedPurgeDays: number;
+		doneArchiveDays: number;
+		archivedPurgeDays: number;
+		staleReviewMinutes: number;
+		maxConsecutiveFailures: number;
+		retryCooldownMinutes: number;
+		maxRetryCooldownMinutes: number;
 		reconcileIntervalSeconds: number;
+	}
+
+	interface CometMindAutonomousJobsSettings {
+		enabled: boolean;
+		maxConcurrent: number;
+		pollIntervalSeconds: number;
+		maxStepsPerRun: number;
+		providerId: string;
+		modelId: string;
+	}
+
+	interface CometMindPlanningSettings {
+		enabled: boolean;
+	}
+
+	interface CometMindSchedulerSettings {
+		enabled: boolean;
+		pollIntervalSeconds: number;
 	}
 
 	type MCPTransport = 'stdio' | 'http' | 'sse';
@@ -222,6 +265,9 @@ declare global {
 		};
 		mcp: CometMindMCPSettings;
 		jobs: CometMindJobsSettings;
+		autonomy: CometMindAutonomousJobsSettings;
+		scheduler: CometMindSchedulerSettings;
+		planning: CometMindPlanningSettings;
 	}
 
 	interface SidebarChromeState {
@@ -296,7 +342,10 @@ declare global {
 			) => Promise<FetchProviderModelsResult | string[]>;
 			saveProviderSettings?: (
 				settings: ProviderSettings,
-				options?: { runtimeAction?: 'none' | 'reload' | 'restart'; restartCometMind?: boolean }
+				options?: {
+					runtimeAction?: 'none' | 'reload' | 'restart';
+					restartCometMind?: boolean;
+				}
 			) => Promise<ProviderSettings>;
 			exportProviderSettings?: () => Promise<SettingsFileResult>;
 			importProviderSettings?: () => Promise<SettingsFileResult>;

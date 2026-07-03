@@ -152,6 +152,10 @@ export type Session = {
     model_id: string;
     provider_id: string;
     status: 'active' | 'archived';
+    /**
+     * Whether this session was created by a user action or an autonomous job run.
+     */
+    origin: 'user' | 'autonomy';
     token_usage: TokenUsage;
     /**
      * Whether the session is pinned to the top of its workspace group.
@@ -205,6 +209,28 @@ export type Session = {
 
 export type SessionListResponse = {
     sessions: Array<Session>;
+};
+
+export type SessionPlanStep = {
+    id: string;
+    session_id: string;
+    step_index: number;
+    description: string;
+    status: 'pending' | 'in_progress' | 'completed' | 'blocked';
+    blocker_reason: string;
+    /**
+     * Unix epoch milliseconds.
+     */
+    created_at: number;
+    /**
+     * Unix epoch milliseconds.
+     */
+    updated_at: number;
+};
+
+export type SessionPlanResponse = {
+    session_id: string;
+    steps: Array<SessionPlanStep>;
 };
 
 export type ModelEntry = {
@@ -271,6 +297,23 @@ export type ListSkillsResponse = {
 
 export type SkillDetailResponse = {
     skill: Skill;
+    content: string;
+};
+
+export type SkillDraft = {
+    name: string;
+    description: string;
+    path: string;
+    created_at: number;
+    updated_at: number;
+};
+
+export type ListSkillDraftsResponse = {
+    drafts: Array<SkillDraft>;
+};
+
+export type SkillDraftDetailResponse = {
+    draft: SkillDraft;
     content: string;
 };
 
@@ -533,6 +576,7 @@ export type MemorySettings = {
     auto_extract?: boolean;
     auto_retrieve?: boolean;
     max_retrieved?: number;
+    task_outcome_limit?: number;
     similarity_threshold?: number;
     extraction_provider?: string;
     extraction_model?: string;
@@ -572,7 +616,7 @@ export type JobResource = {
     description: string;
     definition_of_done: string;
     progress: string;
-    status: 'todo' | 'ongoing' | 'done';
+    status: 'todo' | 'ongoing' | 'done' | 'blocked';
     workspace_path?: string;
     assigned_session_id?: string;
     lease_expires_at?: number;
@@ -580,6 +624,10 @@ export type JobResource = {
     source_session_id?: string;
     source_platform?: string;
     source_channel_id?: string;
+    archived_at?: number;
+    failure_count: number;
+    next_retry_at?: number;
+    last_failure_reason?: string;
     deleted_at?: number;
     created_at: number;
     updated_at: number;
@@ -600,6 +648,67 @@ export type ListJobsResponse = {
 
 export type ListJobEventsResponse = {
     events: Array<JobEventResource>;
+};
+
+export type ScheduledJobResource = {
+    id: string;
+    description: string;
+    definition_of_done: string;
+    workspace_path?: string;
+    created_by: 'user' | 'agent';
+    source_session_id?: string;
+    source_platform: '' | 'desktop' | 'discord';
+    source_channel_id?: string;
+    /**
+     * Standard 5-field cron expression for recurring schedules. Mutually exclusive with run_at.
+     */
+    cron_expr?: string;
+    /**
+     * One-shot run time in Unix milliseconds. Mutually exclusive with cron_expr.
+     */
+    run_at?: number;
+    next_run_at: number;
+    last_run_at?: number;
+    enabled: boolean;
+    created_at: number;
+    updated_at: number;
+};
+
+export type ListScheduledJobsResponse = {
+    scheduled_jobs: Array<ScheduledJobResource>;
+};
+
+export type CreateScheduledJobRequest = {
+    description: string;
+    definition_of_done?: string;
+    workspace_path?: string;
+    created_by?: 'user' | 'agent';
+    source_session_id?: string;
+    source_platform?: '' | 'desktop' | 'discord';
+    source_channel_id?: string;
+    /**
+     * Standard 5-field cron expression for recurring schedules. Mutually exclusive with run_at.
+     */
+    cron_expr?: string;
+    /**
+     * One-shot run time in Unix milliseconds. Mutually exclusive with cron_expr.
+     */
+    run_at?: number;
+};
+
+export type UpdateScheduledJobRequest = {
+    description?: string;
+    definition_of_done?: string;
+    workspace_path?: string;
+    /**
+     * Standard 5-field cron expression for recurring schedules. Mutually exclusive with run_at.
+     */
+    cron_expr?: string;
+    /**
+     * One-shot run time in Unix milliseconds. Mutually exclusive with cron_expr.
+     */
+    run_at?: number;
+    enabled?: boolean;
 };
 
 export type CreateJobRequest = {
@@ -637,12 +746,19 @@ export type JobNotificationSettings = {
     on_claimed?: boolean;
     on_completed?: boolean;
     on_released?: boolean;
+    on_blocked?: boolean;
 };
 
 export type JobSettings = {
     notifications?: JobNotificationSettings;
     lease_minutes?: number;
     deleted_purge_days?: number;
+    done_archive_days?: number;
+    archived_purge_days?: number;
+    stale_review_minutes?: number;
+    max_consecutive_failures?: number;
+    retry_cooldown_minutes?: number;
+    max_retry_cooldown_minutes?: number;
     reconcile_interval_seconds?: number;
 };
 
@@ -1196,6 +1312,36 @@ export type ForkSessionResponses = {
 
 export type ForkSessionResponse = ForkSessionResponses[keyof ForkSessionResponses];
 
+export type GetSessionPlanData = {
+    body?: never;
+    path: {
+        /**
+         * Persisted CometMind session identifier.
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/sessions/{id}/plan';
+};
+
+export type GetSessionPlanErrors = {
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type GetSessionPlanError = GetSessionPlanErrors[keyof GetSessionPlanErrors];
+
+export type GetSessionPlanResponses = {
+    /**
+     * Current session plan
+     */
+    200: SessionPlanResponse;
+};
+
+export type GetSessionPlanResponse = GetSessionPlanResponses[keyof GetSessionPlanResponses];
+
 export type ClearSessionData = {
     body?: never;
     path: {
@@ -1545,6 +1691,128 @@ export type ExportSkillResponses = {
 };
 
 export type ExportSkillResponse = ExportSkillResponses[keyof ExportSkillResponses];
+
+export type ListSkillDraftsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/skill-drafts';
+};
+
+export type ListSkillDraftsErrors = {
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type ListSkillDraftsError = ListSkillDraftsErrors[keyof ListSkillDraftsErrors];
+
+export type ListSkillDraftsResponses = {
+    /**
+     * Pending skill drafts
+     */
+    200: ListSkillDraftsResponse;
+};
+
+export type ListSkillDraftsResponse2 = ListSkillDraftsResponses[keyof ListSkillDraftsResponses];
+
+export type RejectSkillDraftData = {
+    body?: never;
+    path: {
+        name: string;
+    };
+    query?: never;
+    url: '/api/v1/skill-drafts/{name}';
+};
+
+export type RejectSkillDraftErrors = {
+    /**
+     * Resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type RejectSkillDraftError = RejectSkillDraftErrors[keyof RejectSkillDraftErrors];
+
+export type RejectSkillDraftResponses = {
+    /**
+     * Skill draft rejected
+     */
+    200: StatusResponse;
+};
+
+export type RejectSkillDraftResponse = RejectSkillDraftResponses[keyof RejectSkillDraftResponses];
+
+export type GetSkillDraftData = {
+    body?: never;
+    path: {
+        name: string;
+    };
+    query?: never;
+    url: '/api/v1/skill-drafts/{name}';
+};
+
+export type GetSkillDraftErrors = {
+    /**
+     * Resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type GetSkillDraftError = GetSkillDraftErrors[keyof GetSkillDraftErrors];
+
+export type GetSkillDraftResponses = {
+    /**
+     * Skill draft detail
+     */
+    200: SkillDraftDetailResponse;
+};
+
+export type GetSkillDraftResponse = GetSkillDraftResponses[keyof GetSkillDraftResponses];
+
+export type PromoteSkillDraftData = {
+    body?: never;
+    path: {
+        name: string;
+    };
+    query?: never;
+    url: '/api/v1/skill-drafts/{name}/promote';
+};
+
+export type PromoteSkillDraftErrors = {
+    /**
+     * Resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * Draft cannot be promoted
+     */
+    409: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type PromoteSkillDraftError = PromoteSkillDraftErrors[keyof PromoteSkillDraftErrors];
+
+export type PromoteSkillDraftResponses = {
+    /**
+     * Skill draft promoted
+     */
+    200: StatusResponse;
+};
+
+export type PromoteSkillDraftResponse = PromoteSkillDraftResponses[keyof PromoteSkillDraftResponses];
 
 export type ListMcpServersData = {
     body?: never;
@@ -2032,9 +2300,10 @@ export type ListJobsData = {
     body?: never;
     path?: never;
     query?: {
-        status?: 'todo' | 'ongoing' | 'done';
+        status?: 'todo' | 'ongoing' | 'done' | 'blocked';
         ready_only?: boolean;
         include_deleted?: boolean;
+        include_archived?: boolean;
     };
     url: '/api/v1/jobs';
 };
@@ -2272,6 +2541,111 @@ export type ListJobEventsResponses = {
 
 export type ListJobEventsResponse2 = ListJobEventsResponses[keyof ListJobEventsResponses];
 
+export type UnarchiveJobData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/jobs/{id}/archive';
+};
+
+export type UnarchiveJobErrors = {
+    /**
+     * Resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * State conflict
+     */
+    409: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type UnarchiveJobError = UnarchiveJobErrors[keyof UnarchiveJobErrors];
+
+export type UnarchiveJobResponses = {
+    /**
+     * Unarchived
+     */
+    200: JobResource;
+};
+
+export type UnarchiveJobResponse = UnarchiveJobResponses[keyof UnarchiveJobResponses];
+
+export type ArchiveJobData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/jobs/{id}/archive';
+};
+
+export type ArchiveJobErrors = {
+    /**
+     * Resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * State conflict
+     */
+    409: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type ArchiveJobError = ArchiveJobErrors[keyof ArchiveJobErrors];
+
+export type ArchiveJobResponses = {
+    /**
+     * Archived
+     */
+    200: JobResource;
+};
+
+export type ArchiveJobResponse = ArchiveJobResponses[keyof ArchiveJobResponses];
+
+export type UnblockJobData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/jobs/{id}/retry-runs';
+};
+
+export type UnblockJobErrors = {
+    /**
+     * Resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * State conflict
+     */
+    409: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type UnblockJobError = UnblockJobErrors[keyof UnblockJobErrors];
+
+export type UnblockJobResponses = {
+    /**
+     * Ready for retry
+     */
+    200: JobResource;
+};
+
+export type UnblockJobResponse = UnblockJobResponses[keyof UnblockJobResponses];
+
 export type ReleaseJobData = {
     body: JobReleaseRequest;
     path: {
@@ -2411,6 +2785,161 @@ export type CompleteJobResponses = {
 };
 
 export type CompleteJobResponse = CompleteJobResponses[keyof CompleteJobResponses];
+
+export type ListScheduledJobsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/scheduled-jobs';
+};
+
+export type ListScheduledJobsErrors = {
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type ListScheduledJobsError = ListScheduledJobsErrors[keyof ListScheduledJobsErrors];
+
+export type ListScheduledJobsResponses = {
+    /**
+     * Scheduled jobs
+     */
+    200: ListScheduledJobsResponse;
+};
+
+export type ListScheduledJobsResponse2 = ListScheduledJobsResponses[keyof ListScheduledJobsResponses];
+
+export type CreateScheduledJobData = {
+    body: CreateScheduledJobRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/scheduled-jobs';
+};
+
+export type CreateScheduledJobErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type CreateScheduledJobError = CreateScheduledJobErrors[keyof CreateScheduledJobErrors];
+
+export type CreateScheduledJobResponses = {
+    /**
+     * Scheduled job created
+     */
+    201: ScheduledJobResource;
+};
+
+export type CreateScheduledJobResponse = CreateScheduledJobResponses[keyof CreateScheduledJobResponses];
+
+export type DeleteScheduledJobData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/scheduled-jobs/{id}';
+};
+
+export type DeleteScheduledJobErrors = {
+    /**
+     * Resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type DeleteScheduledJobError = DeleteScheduledJobErrors[keyof DeleteScheduledJobErrors];
+
+export type DeleteScheduledJobResponses = {
+    /**
+     * Deleted
+     */
+    204: void;
+};
+
+export type DeleteScheduledJobResponse = DeleteScheduledJobResponses[keyof DeleteScheduledJobResponses];
+
+export type GetScheduledJobData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/scheduled-jobs/{id}';
+};
+
+export type GetScheduledJobErrors = {
+    /**
+     * Resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type GetScheduledJobError = GetScheduledJobErrors[keyof GetScheduledJobErrors];
+
+export type GetScheduledJobResponses = {
+    /**
+     * Scheduled job
+     */
+    200: ScheduledJobResource;
+};
+
+export type GetScheduledJobResponse = GetScheduledJobResponses[keyof GetScheduledJobResponses];
+
+export type UpdateScheduledJobData = {
+    body: UpdateScheduledJobRequest;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/scheduled-jobs/{id}';
+};
+
+export type UpdateScheduledJobErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * State conflict
+     */
+    409: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type UpdateScheduledJobError = UpdateScheduledJobErrors[keyof UpdateScheduledJobErrors];
+
+export type UpdateScheduledJobResponses = {
+    /**
+     * Scheduled job updated
+     */
+    200: ScheduledJobResource;
+};
+
+export type UpdateScheduledJobResponse = UpdateScheduledJobResponses[keyof UpdateScheduledJobResponses];
 
 export type ClientOptions = {
     baseUrl: 'http://127.0.0.1:7700' | (string & {});

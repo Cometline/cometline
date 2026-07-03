@@ -3,13 +3,11 @@ import { shellStore } from '$lib/stores/shell.svelte';
 import { settingsStore } from '$lib/stores/settings.svelte';
 import {
 	applyMemoryEmbeddingToDraft,
+	applyMemorySettingsToDraft,
 	cloneSettings,
 	providerPayloadFromDraft
 } from '$lib/settings/settings-draft';
-import {
-	runtimeActionForSettingsSave,
-	saveStatusMessage
-} from '$lib/settings/settings-save';
+import { runtimeActionForSettingsSave, saveStatusMessage } from '$lib/settings/settings-save';
 import type {
 	ProviderConfig,
 	ProviderMethod,
@@ -336,7 +334,7 @@ export function createSettingsPanelController(deps: {
 				if (!memoryPayload) {
 					throw new Error('Memory settings are not available');
 				}
-				const draft = applyMemoryEmbeddingToDraft(deps.getDraft(), memoryPayload.embedding);
+				const draft = applyMemorySettingsToDraft(deps.getDraft(), memoryPayload);
 				deps.setDraft(draft);
 				const payload = providerPayloadFromDraft(draft);
 				const runtimeAction = runtimeActionForSettingsSave(settingsStore.settings, payload);

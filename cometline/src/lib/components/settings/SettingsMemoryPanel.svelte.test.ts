@@ -24,6 +24,7 @@ vi.mock('$lib/client/cometmind', () => {
 		auto_extract: true,
 		auto_retrieve: true,
 		max_retrieved: 5,
+		task_outcome_limit: 3,
 		similarity_threshold: 0.5,
 		extraction_model: '',
 		lifecycle: {

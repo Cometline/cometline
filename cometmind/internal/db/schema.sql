@@ -13,6 +13,8 @@ CREATE TABLE sessions (
     provider_id        TEXT NOT NULL,
     status             TEXT NOT NULL DEFAULT 'active'
                        CHECK (status IN ('active', 'archived')),
+    origin             TEXT NOT NULL DEFAULT 'user'
+                       CHECK (origin IN ('user', 'autonomy')),
     token_usage        TEXT NOT NULL DEFAULT '{}',
     parent_session_id  TEXT REFERENCES sessions (id) ON DELETE SET NULL,
     purpose            TEXT NOT NULL DEFAULT '',
@@ -70,6 +72,23 @@ CREATE TABLE tool_calls (
 CREATE INDEX idx_sessions_workspace ON sessions (workspace_id);
 
 CREATE INDEX idx_sessions_updated ON sessions (updated_at DESC);
+
+CREATE INDEX idx_sessions_origin ON sessions (origin);
+
+CREATE TABLE session_plans (
+    id              TEXT PRIMARY KEY,
+    session_id      TEXT NOT NULL REFERENCES sessions (id) ON DELETE CASCADE,
+    step_index      INTEGER NOT NULL,
+    description     TEXT NOT NULL,
+    status          TEXT NOT NULL DEFAULT 'pending'
+                    CHECK (status IN ('pending', 'in_progress', 'completed', 'blocked')),
+    blocker_reason  TEXT NOT NULL DEFAULT '',
+    created_at      INTEGER NOT NULL DEFAULT (unixepoch ('now', 'subsec') * 1000),
+    updated_at      INTEGER NOT NULL DEFAULT (unixepoch ('now', 'subsec') * 1000),
+    UNIQUE (session_id, step_index)
+);
+
+CREATE INDEX idx_session_plans_session ON session_plans (session_id, step_index);
 
 CREATE INDEX idx_messages_session ON messages (session_id, created_at);
 
@@ -133,6 +152,8 @@ CREATE INDEX idx_memories_preference_category ON memories (
     updated_at DESC
 );
 
+CREATE INDEX idx_memories_kind_created ON memories (archived, kind, created_at DESC);
+
 CREATE TABLE memory_events (
     id          TEXT PRIMARY KEY,
     memory_id   TEXT,
@@ -152,7 +173,7 @@ CREATE TABLE jobs (
     definition_of_done  TEXT NOT NULL DEFAULT '',
     progress            TEXT NOT NULL DEFAULT '',
     status              TEXT NOT NULL DEFAULT 'todo'
-                        CHECK (status IN ('todo', 'ongoing', 'done')),
+                        CHECK (status IN ('todo', 'ongoing', 'done', 'blocked')),
     workspace_path      TEXT,
     assigned_session_id TEXT,
     lease_expires_at    INTEGER,
@@ -162,6 +183,10 @@ CREATE TABLE jobs (
     source_platform     TEXT NOT NULL DEFAULT ''
                         CHECK (source_platform IN ('', 'desktop', 'discord')),
     source_channel_id   TEXT,
+    archived_at         INTEGER,
+    failure_count       INTEGER NOT NULL DEFAULT 0,
+    next_retry_at       INTEGER,
+    last_failure_reason TEXT,
     deleted_at          INTEGER,
     created_at          INTEGER NOT NULL DEFAULT (unixepoch ('now', 'subsec') * 1000),
     updated_at          INTEGER NOT NULL DEFAULT (unixepoch ('now', 'subsec') * 1000)
@@ -172,6 +197,34 @@ CREATE INDEX idx_jobs_status_updated ON jobs (status, updated_at ASC);
 CREATE INDEX idx_jobs_assigned_session ON jobs (assigned_session_id);
 
 CREATE INDEX idx_jobs_deleted_at ON jobs (deleted_at);
+
+CREATE INDEX idx_jobs_archived_at ON jobs (archived_at);
+
+CREATE INDEX idx_jobs_next_retry_at ON jobs (next_retry_at);
+
+CREATE TABLE scheduled_jobs (
+    id                 TEXT PRIMARY KEY,
+    description        TEXT NOT NULL,
+    definition_of_done TEXT NOT NULL DEFAULT '',
+    workspace_path     TEXT,
+    created_by         TEXT NOT NULL DEFAULT 'user'
+                       CHECK (created_by IN ('user', 'agent')),
+    source_session_id  TEXT,
+    source_platform    TEXT NOT NULL DEFAULT ''
+                       CHECK (source_platform IN ('', 'desktop', 'discord')),
+    source_channel_id  TEXT,
+    cron_expr          TEXT,
+    run_at             INTEGER,
+    next_run_at        INTEGER NOT NULL,
+    last_run_at        INTEGER,
+    enabled            INTEGER NOT NULL DEFAULT 1,
+    created_at         INTEGER NOT NULL DEFAULT (unixepoch ('now', 'subsec') * 1000),
+    updated_at         INTEGER NOT NULL DEFAULT (unixepoch ('now', 'subsec') * 1000)
+);
+
+CREATE INDEX idx_scheduled_jobs_due ON scheduled_jobs (enabled, next_run_at);
+
+CREATE INDEX idx_scheduled_jobs_updated ON scheduled_jobs (updated_at DESC);
 
 CREATE TABLE job_events (
     id                TEXT PRIMARY KEY,

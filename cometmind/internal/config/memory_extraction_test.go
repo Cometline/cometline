@@ -33,11 +33,7 @@ func TestAdaptCometlineSettingsMapsExtractionProvider(t *testing.T) {
 		}},
 		ActiveProviderID: "codex",
 		Cometmind: cometlineCometmindJSON{
-			Memory: struct {
-				ExtractionProviderID string                       `json:"extractionProviderId"`
-				ExtractionModel      string                       `json:"extractionModel"`
-				Embedding            cometlineMemoryEmbeddingJSON `json:"embedding"`
-			}{
+			Memory: cometlineMemoryJSON{
 				ExtractionProviderID: "opencode-go",
 				ExtractionModel:      "deepseek-v4-flash",
 			},

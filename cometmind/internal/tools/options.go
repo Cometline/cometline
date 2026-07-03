@@ -6,8 +6,10 @@ import (
 	"github.com/cometline/cometmind/internal/acp"
 	"github.com/cometline/cometmind/internal/event"
 	"github.com/cometline/cometmind/internal/jobs"
-	"github.com/cometline/cometmind/internal/session"
 	mcppkg "github.com/cometline/cometmind/internal/mcp"
+	"github.com/cometline/cometmind/internal/memory"
+	"github.com/cometline/cometmind/internal/planning"
+	"github.com/cometline/cometmind/internal/session"
 	"github.com/cometline/cometmind/internal/skills"
 	"github.com/cometline/cometmind/internal/subagent"
 )
@@ -22,15 +24,17 @@ type ChildRunnerFactory func(child session.Session, workspaceRoot string, maxSte
 
 // RegistryOptions configures optional registry capabilities.
 type RegistryOptions struct {
-	Sessions       session.ChildSessionReader
-	ACP            acp.Config
-	ACPMgr         *acp.SessionManager
-	Skills         *skills.Registry
-	MCP            *mcppkg.Manager
-	Orchestrator   *subagent.Orchestrator
-	RunnerFactory  ChildRunnerFactory
+	Sessions           session.ChildSessionReader
+	ACP                acp.Config
+	ACPMgr             *acp.SessionManager
+	Skills             *skills.Registry
+	MCP                *mcppkg.Manager
+	Orchestrator       *subagent.Orchestrator
+	RunnerFactory      ChildRunnerFactory
 	SubagentConfig     SubagentToolConfig
 	Jobs               *jobs.Service
+	Memory             *memory.Service
+	Planning           *planning.Service
 	SessionID          string
 	JobPlatform        string
 	JobSourceChannelID string

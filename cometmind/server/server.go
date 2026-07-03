@@ -17,7 +17,9 @@ import (
 	"github.com/cometline/cometmind/internal/logging"
 	mcppkg "github.com/cometline/cometmind/internal/mcp"
 	"github.com/cometline/cometmind/internal/memory"
+	"github.com/cometline/cometmind/internal/planning"
 	"github.com/cometline/cometmind/internal/retention"
+	"github.com/cometline/cometmind/internal/scheduler"
 	"github.com/cometline/cometmind/internal/session"
 	skillpkg "github.com/cometline/cometmind/internal/skills"
 	"github.com/cometline/cometmind/internal/subagent"
@@ -39,6 +41,8 @@ type Deps struct {
 	Sessions       *session.Service
 	Memory         *memory.Service
 	Jobs           *jobs.Service
+	Scheduler      *scheduler.Service
+	Planning       *planning.Service
 	RunRetention   RetentionRunner
 	SetJobSettings func(jobs.Settings)
 	NewRunner      RunnerFactory
@@ -53,6 +57,8 @@ type App struct {
 	sessions       *session.Service
 	memory         *memory.Service
 	jobs           *jobs.Service
+	scheduler      *scheduler.Service
+	planning       *planning.Service
 	runRetention   RetentionRunner
 	setJobSettings func(jobs.Settings)
 	newRunner      RunnerFactory
@@ -81,6 +87,8 @@ func New(deps Deps) (*gin.Engine, error) {
 		sessions:       deps.Sessions,
 		memory:         deps.Memory,
 		jobs:           deps.Jobs,
+		scheduler:      deps.Scheduler,
+		planning:       deps.Planning,
 		runRetention:   deps.RunRetention,
 		setJobSettings: deps.SetJobSettings,
 		newRunner:      deps.NewRunner,
@@ -124,6 +132,7 @@ func New(deps Deps) (*gin.Engine, error) {
 	api.POST("/sessions/:id/messages", app.handlePostMessage)
 	api.DELETE("/sessions/:id/messages", app.handleClearSession)
 	api.GET("/sessions/:id/children", app.handleListChildSessions)
+	api.GET("/sessions/:id/plan", app.handleGetSessionPlan)
 	api.DELETE("/sessions/:id/runs/current", app.handleAbortSession)
 
 	// Skills
@@ -132,6 +141,10 @@ func New(deps Deps) (*gin.Engine, error) {
 	api.GET("/skills/:name/archive", app.handleExportSkill)
 	api.DELETE("/skills/:name", app.handleDeleteSkill)
 	api.GET("/skills/:name", app.handleGetSkill)
+	api.GET("/skill-drafts", app.handleListSkillDrafts)
+	api.GET("/skill-drafts/:name", app.handleGetSkillDraft)
+	api.POST("/skill-drafts/:name/promote", app.handlePromoteSkillDraft)
+	api.DELETE("/skill-drafts/:name", app.handleRejectSkillDraft)
 
 	// MCP
 	api.GET("/mcp/servers", app.handleListMCPServers)
@@ -165,11 +178,21 @@ func New(deps Deps) (*gin.Engine, error) {
 	api.GET("/jobs/:id", app.handleGetJob)
 	api.PATCH("/jobs/:id", app.handleUpdateJob)
 	api.DELETE("/jobs/:id", app.handleDeleteJob)
+	api.PUT("/jobs/:id/archive", app.handleArchiveJob)
+	api.DELETE("/jobs/:id/archive", app.handleUnarchiveJob)
+	api.POST("/jobs/:id/retry-runs", app.handleUnblockJob)
 	api.GET("/jobs/:id/events", app.handleListJobEvents)
 	api.PUT("/jobs/:id/lease", app.handleClaimJob)
 	api.DELETE("/jobs/:id/lease", app.handleReleaseJob)
 	api.PUT("/jobs/:id/completion", app.handleCompleteJob)
 	api.PATCH("/jobs/:id/lease", app.handleHeartbeatJob)
+
+	// Scheduled jobs
+	api.GET("/scheduled-jobs", app.handleListScheduledJobs)
+	api.POST("/scheduled-jobs", app.handleCreateScheduledJob)
+	api.GET("/scheduled-jobs/:id", app.handleGetScheduledJob)
+	api.PATCH("/scheduled-jobs/:id", app.handlePatchScheduledJob)
+	api.DELETE("/scheduled-jobs/:id", app.handleDeleteScheduledJob)
 
 	return r, nil
 }

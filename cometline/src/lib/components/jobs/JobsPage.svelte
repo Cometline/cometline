@@ -1,14 +1,24 @@
 <script lang="ts">
-	import { LoaderCircle, RefreshCw } from '@lucide/svelte';
+	import { CalendarClock, LoaderCircle, Pencil, Plus, RefreshCw, Trash2 } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import {
+		archiveJob,
 		createJob,
+		createScheduledJob,
 		deleteJob,
+		deleteScheduledJob,
 		listJobEvents,
 		listJobs,
+		listScheduledJobs,
 		updateJob,
+		updateScheduledJob,
+		unblockJob,
+		unarchiveJob,
+		type CreateScheduledJobRequest,
 		type JobEventResource,
-		type JobResource
+		type JobResource,
+		type ScheduledJobResource,
+		type UpdateScheduledJobRequest
 	} from '$lib/client/cometmind';
 	import {
 		filterArchivedJobs,
@@ -25,6 +35,9 @@
 
 	type DrawerMode = 'detail' | 'create' | null;
 	type StatusFilter = 'all' | JobColumn;
+	type View = 'active' | 'archived' | 'scheduled';
+	type ScheduleMode = 'one-shot' | 'recurring';
+	type ScheduleFrequency = 'daily' | 'weekly' | 'monthly';
 
 	const STATUS_FILTERS: { id: StatusFilter; label: string }[] = [
 		{ id: 'all', label: 'All' },
@@ -32,15 +45,21 @@
 		{ id: 'ongoing', label: 'Ongoing' },
 		{ id: 'done', label: 'Done' }
 	];
+	const OBSERVER_REFRESH_MS = 5_000;
 
 	let grouped = $state<GroupedJobs>({ todo: [], ongoing: [], done: [] });
 	let archivedJobs = $state<JobResource[]>([]);
+	let scheduledJobs = $state<ScheduledJobResource[]>([]);
 	let statusFilter = $state<StatusFilter>('all');
 	let filteredGrouped = $derived(filterGroupedByStatus(grouped, statusFilter));
+	let activeJobs = $derived(grouped.ongoing);
+	let readyJobCount = $derived(grouped.todo.length);
 	let loading = $state(true);
 	let refreshing = $state(false);
 	let error = $state('');
-	let showArchived = $state(false);
+	let lastLoadedAt = $state(0);
+	let nowMs = $state(Date.now());
+	let view = $state<View>('active');
 	let drawerMode = $state<DrawerMode>(null);
 	let selectedJob = $state<JobResource | null>(null);
 	let events = $state<JobEventResource[]>([]);
@@ -55,22 +74,57 @@
 	let createDod = $state('');
 	let createWorkspacePath = $state('');
 
+	let showScheduleForm = $state(false);
+	let editingScheduledId = $state('');
+	let scheduleDescription = $state('');
+	let scheduleDod = $state('');
+	let scheduleWorkspacePath = $state('');
+	let scheduleRunAtLocal = $state('');
+	let scheduleMode = $state<ScheduleMode>('one-shot');
+	let scheduleFrequency = $state<ScheduleFrequency>('daily');
+	let scheduleTime = $state('09:00');
+	let scheduleWeekday = $state('1');
+	let scheduleMonthDay = $state('1');
+	let scheduleUnsupportedCron = $state('');
+
+	let generatedCron = $derived(buildCronExpression());
+	let scheduleSummary = $derived(
+		scheduleMode === 'recurring' ? summarizeRecurringSchedule() : ''
+	);
+
 	function applyJobs(next: JobResource[]) {
 		grouped = groupJobsByColumn(next);
 		archivedJobs = filterArchivedJobs(next);
+		lastLoadedAt = Date.now();
+	}
+
+	async function loadEventsForJob(jobId: string, options: { silent?: boolean } = {}) {
+		if (!options.silent) loadingEvents = true;
+		try {
+			const res = await listJobEvents(jobId);
+			events = res.events ?? [];
+		} catch {
+			events = [];
+		} finally {
+			if (!options.silent) loadingEvents = false;
+		}
 	}
 
 	async function loadJobs(options: { silent?: boolean } = {}) {
+		if (options.silent && (loading || refreshing)) return;
 		if (!options.silent) loading = true;
 		else refreshing = true;
 		error = '';
 		try {
-			const res = await listJobs({ include_deleted: true });
+			const res = await listJobs({ include_deleted: true, include_archived: true });
 			applyJobs(res.jobs ?? []);
 			if (selectedJob) {
 				const refreshed =
 					(res.jobs ?? []).find((job) => job.id === selectedJob?.id) ?? null;
 				selectedJob = refreshed;
+				if (refreshed && drawerMode === 'detail') {
+					void loadEventsForJob(refreshed.id, { silent: true });
+				}
 			}
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to load jobs';
@@ -99,15 +153,7 @@
 		editDescription = job.description;
 		editDod = job.definition_of_done ?? '';
 		editWorkspacePath = job.workspace_path ?? '';
-		loadingEvents = true;
-		try {
-			const res = await listJobEvents(job.id);
-			events = res.events ?? [];
-		} catch {
-			events = [];
-		} finally {
-			loadingEvents = false;
-		}
+		await loadEventsForJob(job.id);
 	}
 
 	function openCreate() {
@@ -170,9 +216,339 @@
 		}
 	}
 
+	async function handleArchive(job: JobResource) {
+		if (!confirm(`Archive "${truncateJobLabel(job.description)}"?`)) return;
+		saving = true;
+		error = '';
+		try {
+			selectedJob = await archiveJob(job.id);
+			await loadJobs({ silent: true });
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Failed to archive job';
+		} finally {
+			saving = false;
+		}
+	}
+
+	async function handleUnarchive(job: JobResource) {
+		saving = true;
+		error = '';
+		try {
+			selectedJob = await unarchiveJob(job.id);
+			await loadJobs({ silent: true });
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Failed to unarchive job';
+		} finally {
+			saving = false;
+		}
+	}
+
+	async function handleRetryJob(job: JobResource) {
+		saving = true;
+		error = '';
+		try {
+			selectedJob = await unblockJob(job.id);
+			await loadJobs({ silent: true });
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Failed to retry job';
+		} finally {
+			saving = false;
+		}
+	}
+
+	async function loadScheduledJobs(options: { silent?: boolean } = {}) {
+		try {
+			const res = await listScheduledJobs();
+			scheduledJobs = res.scheduled_jobs ?? [];
+		} catch (e) {
+			if (!options.silent) scheduledJobs = [];
+			if (!options.silent || view === 'scheduled') {
+				error = e instanceof Error ? e.message : 'Failed to load scheduled jobs';
+			}
+		}
+	}
+
+	function resetScheduleForm() {
+		editingScheduledId = '';
+		scheduleDescription = '';
+		scheduleDod = '';
+		scheduleWorkspacePath = '';
+		scheduleRunAtLocal = '';
+		scheduleMode = 'one-shot';
+		scheduleFrequency = 'daily';
+		scheduleTime = '09:00';
+		scheduleWeekday = '1';
+		scheduleMonthDay = '1';
+		scheduleUnsupportedCron = '';
+	}
+
+	function openNewScheduleForm() {
+		resetScheduleForm();
+		scheduleWorkspacePath = shellStore.workspacePath?.trim() ?? '';
+		showScheduleForm = true;
+	}
+
+	function cancelScheduleForm() {
+		resetScheduleForm();
+		showScheduleForm = false;
+	}
+
+	function localDatetimeToMillis(local: string): number | undefined {
+		if (!local) return undefined;
+		const ms = new Date(local).getTime();
+		return Number.isNaN(ms) ? undefined : ms;
+	}
+
+	function millisToLocalDatetime(ms?: number): string {
+		if (!ms) return '';
+		const date = new Date(ms);
+		const offset = date.getTimezoneOffset() * 60_000;
+		return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+	}
+
+	function parseSupportedCron(expr: string): boolean {
+		const parts = expr.trim().split(/\s+/);
+		if (parts.length !== 5) return false;
+		const [minute, hour, dayOfMonth, month, dayOfWeek] = parts;
+		if (month !== '*') return false;
+		if (!/^\d+$/.test(minute) || !/^\d+$/.test(hour)) return false;
+		const minuteNum = Number(minute);
+		const hourNum = Number(hour);
+		if (minuteNum < 0 || minuteNum > 59 || hourNum < 0 || hourNum > 23) return false;
+		scheduleTime = `${String(hourNum).padStart(2, '0')}:${String(minuteNum).padStart(2, '0')}`;
+		if (dayOfMonth === '*' && dayOfWeek === '*') {
+			scheduleFrequency = 'daily';
+			return true;
+		}
+		if (dayOfMonth === '*' && /^\d+$/.test(dayOfWeek)) {
+			scheduleFrequency = 'weekly';
+			scheduleWeekday = String(Math.min(6, Math.max(0, Number(dayOfWeek))));
+			return true;
+		}
+		if (dayOfWeek === '*' && /^\d+$/.test(dayOfMonth)) {
+			scheduleFrequency = 'monthly';
+			scheduleMonthDay = String(Math.min(28, Math.max(1, Number(dayOfMonth))));
+			return true;
+		}
+		return false;
+	}
+
+	function buildCronExpression(): string {
+		const [hourRaw, minuteRaw] = scheduleTime.split(':');
+		const hour = Math.min(23, Math.max(0, Number(hourRaw) || 0));
+		const minute = Math.min(59, Math.max(0, Number(minuteRaw) || 0));
+		if (scheduleFrequency === 'weekly') {
+			return `${minute} ${hour} * * ${scheduleWeekday}`;
+		}
+		if (scheduleFrequency === 'monthly') {
+			return `${minute} ${hour} ${scheduleMonthDay} * *`;
+		}
+		return `${minute} ${hour} * * *`;
+	}
+
+	function summarizeRecurringSchedule(): string {
+		return summarizeCronParts(
+			scheduleFrequency,
+			scheduleTime,
+			scheduleWeekday,
+			scheduleMonthDay
+		);
+	}
+
+	function summarizeCronParts(
+		frequency: ScheduleFrequency,
+		time: string,
+		weekday: string,
+		monthDay: string
+	): string {
+		const displayTime = time || '09:00';
+		if (frequency === 'weekly') {
+			const weekdays = [
+				'Sunday',
+				'Monday',
+				'Tuesday',
+				'Wednesday',
+				'Thursday',
+				'Friday',
+				'Saturday'
+			];
+			return `Every ${weekdays[Number(weekday)] ?? 'Monday'} at ${displayTime}`;
+		}
+		if (frequency === 'monthly') {
+			return `Every month on day ${monthDay} at ${displayTime}`;
+		}
+		return `Every day at ${displayTime}`;
+	}
+
+	function cronDisplayLabel(expr: string): string {
+		const parts = expr.trim().split(/\s+/);
+		if (parts.length !== 5) return `cron: ${expr}`;
+		const [minute, hour, dayOfMonth, month, dayOfWeek] = parts;
+		if (month !== '*' || !/^\d+$/.test(minute) || !/^\d+$/.test(hour)) return `cron: ${expr}`;
+		const time = `${String(Number(hour)).padStart(2, '0')}:${String(Number(minute)).padStart(2, '0')}`;
+		if (dayOfMonth === '*' && dayOfWeek === '*') {
+			return summarizeCronParts('daily', time, '1', '1');
+		}
+		if (dayOfMonth === '*' && /^\d+$/.test(dayOfWeek)) {
+			return summarizeCronParts('weekly', time, dayOfWeek, '1');
+		}
+		if (dayOfWeek === '*' && /^\d+$/.test(dayOfMonth)) {
+			return summarizeCronParts('monthly', time, '1', dayOfMonth);
+		}
+		return `cron: ${expr}`;
+	}
+
+	function editScheduled(job: ScheduledJobResource) {
+		editingScheduledId = job.id;
+		scheduleDescription = job.description;
+		scheduleDod = job.definition_of_done ?? '';
+		scheduleWorkspacePath = job.workspace_path ?? '';
+		scheduleUnsupportedCron = '';
+		if (job.cron_expr) {
+			scheduleMode = 'recurring';
+			if (!parseSupportedCron(job.cron_expr)) {
+				scheduleFrequency = 'daily';
+				scheduleTime = '09:00';
+				scheduleUnsupportedCron = job.cron_expr;
+			}
+		} else {
+			scheduleMode = 'one-shot';
+			scheduleRunAtLocal = millisToLocalDatetime(job.run_at ?? job.next_run_at);
+		}
+		showScheduleForm = true;
+	}
+
+	async function handleCreateScheduled() {
+		if (!scheduleDescription.trim()) return;
+		const cron = scheduleMode === 'recurring' ? generatedCron : '';
+		const runAt =
+			scheduleMode === 'one-shot' ? localDatetimeToMillis(scheduleRunAtLocal) : undefined;
+		if (scheduleMode === 'one-shot' && !runAt) {
+			error = 'Choose when this one-shot schedule should run.';
+			return;
+		}
+		saving = true;
+		error = '';
+		try {
+			const scheduleFields: UpdateScheduledJobRequest = {
+				description: scheduleDescription.trim(),
+				definition_of_done: scheduleDod.trim() || undefined,
+				workspace_path: scheduleWorkspacePath.trim() || undefined,
+				cron_expr: cron || undefined,
+				run_at: runAt
+			};
+			if (editingScheduledId) {
+				await updateScheduledJob(editingScheduledId, scheduleFields);
+			} else {
+				const body: CreateScheduledJobRequest = {
+					description: scheduleDescription.trim(),
+					definition_of_done: scheduleFields.definition_of_done,
+					workspace_path: scheduleFields.workspace_path,
+					cron_expr: scheduleFields.cron_expr,
+					run_at: scheduleFields.run_at,
+					created_by: 'user',
+					source_platform: 'desktop'
+				};
+				await createScheduledJob(body);
+			}
+			resetScheduleForm();
+			showScheduleForm = false;
+			await loadScheduledJobs({ silent: true });
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Failed to save scheduled job';
+		} finally {
+			saving = false;
+		}
+	}
+
+	async function handleDeleteScheduled(job: ScheduledJobResource) {
+		if (!confirm(`Delete scheduled job "${truncateJobLabel(job.description)}"?`)) return;
+		try {
+			await deleteScheduledJob(job.id);
+			await loadScheduledJobs({ silent: true });
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Failed to delete scheduled job';
+		}
+	}
+
+	async function handleToggleScheduled(job: ScheduledJobResource) {
+		try {
+			await updateScheduledJob(job.id, { enabled: !job.enabled });
+			await loadScheduledJobs({ silent: true });
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Failed to toggle scheduled job';
+		}
+	}
+
 	onMount(() => {
 		void loadJobs();
+		void loadScheduledJobs({ silent: true });
+		const jobsTimer = setInterval(() => {
+			void loadJobs({ silent: true });
+			if (view === 'scheduled') void loadScheduledJobs({ silent: true });
+		}, OBSERVER_REFRESH_MS);
+		const clockTimer = setInterval(() => (nowMs = Date.now()), 1_000);
+		return () => {
+			clearInterval(jobsTimer);
+			clearInterval(clockTimer);
+		};
 	});
+
+	$effect(() => {
+		if (view === 'scheduled') {
+			void loadScheduledJobs({ silent: true });
+		}
+	});
+
+	function formatClock(ms: number): string {
+		if (!ms) return 'Never';
+		return new Intl.DateTimeFormat(undefined, {
+			hour: '2-digit',
+			minute: '2-digit',
+			second: '2-digit'
+		}).format(new Date(ms));
+	}
+
+	function formatRelativeTime(ms?: number): string {
+		if (!ms) return 'unknown';
+		const diff = ms - nowMs;
+		const abs = Math.abs(diff);
+		if (abs < 5_000) return diff >= 0 ? 'now' : 'just now';
+		const units: [number, string][] = [
+			[86_400_000, 'd'],
+			[3_600_000, 'h'],
+			[60_000, 'm'],
+			[1_000, 's']
+		];
+		const [unitMs, label] = units.find(([size]) => abs >= size) ?? units[units.length - 1];
+		const value = Math.floor(abs / unitMs);
+		return `${value}${label} ${diff >= 0 ? 'left' : 'ago'}`;
+	}
+
+	function leaseLabel(job: JobResource): string {
+		if (!job.lease_expires_at) return 'No active lease expiry';
+		if (job.lease_expires_at <= nowMs) return 'Lease expired';
+		return `Lease ${formatRelativeTime(job.lease_expires_at)}`;
+	}
+
+	function progressPreview(job: JobResource): string {
+		return job.progress?.trim().split('\n')[0] ?? '';
+	}
+
+	function sessionLabel(job: JobResource): string {
+		return job.assigned_session_id ? job.assigned_session_id.slice(0, 8) : 'unassigned';
+	}
+
+	function scheduleLabel(job: ScheduledJobResource): string {
+		if (job.cron_expr) return cronDisplayLabel(job.cron_expr);
+		if (job.run_at) return `one-shot: ${formatClock(job.run_at)}`;
+		return 'unscheduled';
+	}
+
+	function nextRunLabel(job: ScheduledJobResource): string {
+		if (!job.enabled) return 'disabled';
+		return formatRelativeTime(job.next_run_at);
+	}
 </script>
 
 <div class="jobs-page settings-ui">
@@ -182,7 +558,7 @@
 			<p>Global work queue shared across sessions.</p>
 		</div>
 		<div class="jobs-header-actions">
-			{#if !showArchived}
+			{#if view === 'active'}
 				<div class="status-filters" role="group" aria-label="Filter by status">
 					{#each STATUS_FILTERS as filter (filter.id)}
 						<button
@@ -197,17 +573,45 @@
 					{/each}
 				</div>
 			{/if}
-			<label class="archived-toggle">
-				<input type="checkbox" bind:checked={showArchived} />
-				<span>Show archived</span>
-			</label>
+			<div class="view-toggle" role="group" aria-label="Switch view">
+				<button
+					type="button"
+					class="view-btn"
+					class:active={view === 'active'}
+					aria-pressed={view === 'active'}
+					onclick={() => (view = 'active')}
+				>
+					Active
+				</button>
+				<button
+					type="button"
+					class="view-btn"
+					class:active={view === 'archived'}
+					aria-pressed={view === 'archived'}
+					onclick={() => (view = 'archived')}
+				>
+					Archived
+				</button>
+				<button
+					type="button"
+					class="view-btn"
+					class:active={view === 'scheduled'}
+					aria-pressed={view === 'scheduled'}
+					onclick={() => (view = 'scheduled')}
+				>
+					Scheduled
+				</button>
+			</div>
 			<button
 				type="button"
 				class="secondary icon-only"
 				aria-label="Refresh jobs"
 				title="Refresh"
 				disabled={loading || refreshing}
-				onclick={() => void loadJobs({ silent: true })}
+				onclick={() => {
+					void loadJobs({ silent: true });
+					void loadScheduledJobs({ silent: true });
+				}}
 			>
 				<RefreshCw size={14} class={refreshing ? 'spin' : ''} />
 			</button>
@@ -224,7 +628,7 @@
 				<LoaderCircle size={18} class="spin" />
 				<span>Loading jobs…</span>
 			</div>
-		{:else if showArchived}
+		{:else if view === 'archived'}
 			<section class="archived-panel settings-panel-frame">
 				<header class="archived-header">
 					<h2>Archived</h2>
@@ -244,7 +648,243 @@
 					</div>
 				{/if}
 			</section>
+		{:else if view === 'scheduled'}
+			<section class="scheduled-panel settings-panel-frame">
+				<header class="scheduled-header">
+					<h2>Scheduled</h2>
+					<button
+						type="button"
+						class="secondary"
+						onclick={() => {
+							if (showScheduleForm) cancelScheduleForm();
+							else openNewScheduleForm();
+						}}
+					>
+						<Plus size={14} />
+						{showScheduleForm ? 'Cancel' : 'Schedule job'}
+					</button>
+				</header>
+
+				{#if showScheduleForm}
+					<form
+						class="schedule-form"
+						onsubmit={(e) => {
+							e.preventDefault();
+							void handleCreateScheduled();
+						}}
+					>
+						<label class="form-field">
+							<span>Description</span>
+							<input
+								type="text"
+								bind:value={scheduleDescription}
+								placeholder="What should this job do?"
+								required
+							/>
+						</label>
+						<label class="form-field">
+							<span>Definition of done</span>
+							<textarea bind:value={scheduleDod} rows="2"></textarea>
+						</label>
+						<label class="form-field">
+							<span>Workspace path</span>
+							<input type="text" bind:value={scheduleWorkspacePath} />
+						</label>
+						<div class="schedule-kind" role="group" aria-label="Schedule type">
+							<button
+								type="button"
+								class:active={scheduleMode === 'one-shot'}
+								onclick={() => {
+									scheduleMode = 'one-shot';
+									scheduleUnsupportedCron = '';
+								}}
+							>
+								One time
+							</button>
+							<button
+								type="button"
+								class:active={scheduleMode === 'recurring'}
+								onclick={() => (scheduleMode = 'recurring')}
+							>
+								Recurring
+							</button>
+						</div>
+						<div class="schedule-mode">
+							{#if scheduleMode === 'one-shot'}
+								<label class="form-field">
+									<span>Run at</span>
+									<input type="datetime-local" bind:value={scheduleRunAtLocal} />
+									<small>Local time on this device.</small>
+								</label>
+							{:else}
+								<label class="form-field">
+									<span>Repeat</span>
+									<select bind:value={scheduleFrequency}>
+										<option value="daily">Every day</option>
+										<option value="weekly">Every week</option>
+										<option value="monthly">Every month</option>
+									</select>
+								</label>
+								{#if scheduleFrequency === 'weekly'}
+									<label class="form-field">
+										<span>Weekday</span>
+										<select bind:value={scheduleWeekday}>
+											<option value="1">Monday</option>
+											<option value="2">Tuesday</option>
+											<option value="3">Wednesday</option>
+											<option value="4">Thursday</option>
+											<option value="5">Friday</option>
+											<option value="6">Saturday</option>
+											<option value="0">Sunday</option>
+										</select>
+									</label>
+								{/if}
+								{#if scheduleFrequency === 'monthly'}
+									<label class="form-field">
+										<span>Day of month</span>
+										<select bind:value={scheduleMonthDay}>
+											{#each Array.from( { length: 28 }, (_, i) => String(i + 1) ) as day}
+												<option value={day}>{day}</option>
+											{/each}
+										</select>
+										<small
+											>Limited to days 1-28 so every month has the date.</small
+										>
+									</label>
+								{/if}
+								<label class="form-field">
+									<span>Time</span>
+									<input type="time" bind:value={scheduleTime} />
+								</label>
+								<div class="schedule-generated">
+									<span>{scheduleSummary}</span>
+									<code>{generatedCron}</code>
+									{#if scheduleUnsupportedCron}
+										<small
+											>Existing custom cron <code
+												>{scheduleUnsupportedCron}</code
+											> is not editable with this picker. Saving will replace it
+											with the schedule above.</small
+										>
+									{/if}
+								</div>
+							{/if}
+						</div>
+						<div class="schedule-actions">
+							<button type="submit" class="primary" disabled={saving}>
+								{#if saving}
+									<LoaderCircle size={14} class="spin" />
+								{/if}
+								{editingScheduledId ? 'Save schedule' : 'Create schedule'}
+							</button>
+							<button type="button" class="secondary" onclick={cancelScheduleForm}
+								>Cancel</button
+							>
+						</div>
+					</form>
+				{/if}
+
+				{#if scheduledJobs.length === 0}
+					<p class="jobs-muted">No scheduled jobs. Create one to defer work.</p>
+				{:else}
+					<div class="scheduled-list scrollbar-none">
+						{#each scheduledJobs as job (job.id)}
+							<div class="scheduled-card" class:disabled={!job.enabled}>
+								<div class="scheduled-card-main">
+									<strong>{job.description}</strong>
+									<div class="scheduled-card-meta">
+										<span class="chip">
+											<CalendarClock size={11} />
+											{scheduleLabel(job)}
+										</span>
+										<span class="chip">Next: {nextRunLabel(job)}</span>
+										{#if job.last_run_at}
+											<span class="chip"
+												>Last: {formatClock(job.last_run_at)}</span
+											>
+										{/if}
+									</div>
+								</div>
+								<div class="scheduled-card-actions">
+									<button
+										type="button"
+										class="secondary icon-only"
+										title="Edit"
+										onclick={() => editScheduled(job)}
+									>
+										<Pencil size={14} />
+									</button>
+									<button
+										type="button"
+										class="secondary icon-only"
+										title={job.enabled ? 'Disable' : 'Enable'}
+										onclick={() => void handleToggleScheduled(job)}
+									>
+										{job.enabled ? 'Disable' : 'Enable'}
+									</button>
+									<button
+										type="button"
+										class="danger icon-only"
+										title="Delete"
+										onclick={() => void handleDeleteScheduled(job)}
+									>
+										<Trash2 size={14} />
+									</button>
+								</div>
+							</div>
+						{/each}
+					</div>
+				{/if}
+			</section>
 		{:else}
+			<section class="autonomy-observer settings-panel-frame" aria-label="Live job activity">
+				<header class="observer-header">
+					<div>
+						<p class="observer-eyebrow">Live activity</p>
+						<h2>Autonomous job observation</h2>
+					</div>
+					<div class="observer-status">
+						<span>{activeJobs.length} running</span>
+						<span>{readyJobCount} ready</span>
+						<span>Updated {formatClock(lastLoadedAt)}</span>
+						{#if refreshing}
+							<span class="observer-polling">Refreshing…</span>
+						{/if}
+					</div>
+				</header>
+
+				{#if activeJobs.length === 0}
+					<p class="observer-empty">
+						No jobs are running. When autonomous pickup or a chat session claims a ready
+						job, it will appear here within {Math.round(OBSERVER_REFRESH_MS / 1_000)} seconds.
+					</p>
+				{:else}
+					<div class="observer-list">
+						{#each activeJobs as job (job.id)}
+							<button
+								type="button"
+								class="observer-job"
+								class:selected={selectedJob?.id === job.id}
+								onclick={() => void openJob(job)}
+							>
+								<div class="observer-job-main">
+									<span class="observer-dot" aria-hidden="true"></span>
+									<div>
+										<strong>{job.description}</strong>
+										<p>{progressPreview(job) || 'No progress note yet.'}</p>
+									</div>
+								</div>
+								<div class="observer-job-meta">
+									<span>Session {sessionLabel(job)}</span>
+									<span>{leaseLabel(job)}</span>
+									<span>Updated {formatRelativeTime(job.updated_at)}</span>
+								</div>
+							</button>
+						{/each}
+					</div>
+				{/if}
+			</section>
+
 			<JobsKanbanBoard
 				grouped={filteredGrouped}
 				{statusFilter}
@@ -272,6 +912,9 @@
 		onClose={closeDrawer}
 		onSave={handleSave}
 		onDelete={handleDelete}
+		onArchive={handleArchive}
+		onUnarchive={handleUnarchive}
+		onRetry={handleRetryJob}
 		onCreate={handleCreate}
 	/>
 {/if}
@@ -348,13 +991,35 @@
 		color: var(--text-main);
 	}
 
-	.archived-toggle {
+	.view-toggle {
 		display: inline-flex;
 		align-items: center;
-		gap: 8px;
-		font-size: 12px;
+		gap: 4px;
+		padding: 3px;
+		border-radius: 999px;
+		background: rgba(15, 23, 42, 0.05);
+	}
+
+	.view-btn {
+		border: none;
+		background: transparent;
 		color: var(--text-muted);
-		user-select: none;
+		font: inherit;
+		font-size: 11px;
+		font-weight: 600;
+		padding: 5px 10px;
+		border-radius: 999px;
+		cursor: pointer;
+	}
+
+	.view-btn.active {
+		background: var(--panel-bg);
+		color: var(--text-main);
+		box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+	}
+
+	.view-btn:hover:not(.active) {
+		color: var(--text-main);
 	}
 
 	.jobs-content {
@@ -362,6 +1027,7 @@
 		min-height: 0;
 		display: flex;
 		flex-direction: column;
+		gap: 12px;
 	}
 
 	.jobs-loading {
@@ -424,6 +1090,142 @@
 		padding-right: 2px;
 	}
 
+	.autonomy-observer {
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+		padding: 14px;
+		flex-shrink: 0;
+		background:
+			linear-gradient(135deg, rgba(96, 165, 250, 0.1), rgba(168, 85, 247, 0.08)),
+			var(--panel-bg);
+	}
+
+	.observer-header {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 12px;
+	}
+
+	.observer-eyebrow {
+		margin: 0 0 3px;
+		font-size: 10px;
+		font-weight: 700;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--text-muted);
+	}
+
+	.observer-header h2 {
+		margin: 0;
+		font-size: 14px;
+		font-weight: 650;
+		color: var(--text-main);
+	}
+
+	.observer-status,
+	.observer-job-meta {
+		display: flex;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 6px;
+	}
+
+	.observer-status span,
+	.observer-job-meta span {
+		font-size: 10px;
+		font-weight: 600;
+		line-height: 1.3;
+		padding: 3px 7px;
+		border-radius: 999px;
+		background: rgba(15, 23, 42, 0.06);
+		color: var(--text-muted);
+	}
+
+	.observer-status .observer-polling {
+		color: var(--accent);
+		background: color-mix(in srgb, var(--accent) 12%, transparent);
+	}
+
+	.observer-empty {
+		margin: 0;
+		max-width: 760px;
+		font-size: 12px;
+		line-height: 1.5;
+		color: var(--text-muted);
+	}
+
+	.observer-list {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+		gap: 10px;
+	}
+
+	.observer-job {
+		width: 100%;
+		border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--border-soft));
+		border-radius: 12px;
+		background: rgba(255, 255, 255, 0.78);
+		padding: 10px 12px;
+		text-align: left;
+		cursor: pointer;
+		display: flex;
+		flex-direction: column;
+		gap: 9px;
+		transition:
+			background var(--duration-fast) var(--ease-smooth),
+			border-color var(--duration-fast) var(--ease-smooth),
+			box-shadow var(--duration-fast) var(--ease-smooth);
+	}
+
+	.observer-job:hover,
+	.observer-job.selected {
+		background: rgba(255, 255, 255, 0.96);
+		border-color: var(--pane-focus-border);
+		box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+	}
+
+	.observer-job-main {
+		display: grid;
+		grid-template-columns: auto minmax(0, 1fr);
+		gap: 8px;
+		align-items: flex-start;
+	}
+
+	.observer-dot {
+		width: 8px;
+		height: 8px;
+		margin-top: 5px;
+		border-radius: 999px;
+		background: var(--accent);
+		box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 14%, transparent);
+	}
+
+	.observer-job strong {
+		display: block;
+		font-size: 12px;
+		line-height: 1.35;
+		color: var(--text-main);
+		display: -webkit-box;
+		-webkit-line-clamp: 2;
+		line-clamp: 2;
+		-webkit-box-orient: vertical;
+		overflow: hidden;
+	}
+
+	.observer-job p {
+		margin: 3px 0 0;
+		font-size: 11px;
+		line-height: 1.4;
+		color: var(--text-muted);
+		display: -webkit-box;
+		-webkit-line-clamp: 2;
+		line-clamp: 2;
+		-webkit-box-orient: vertical;
+		overflow: hidden;
+	}
+
 	:global(.spin) {
 		animation: spin 1s linear infinite;
 	}
@@ -442,5 +1244,199 @@
 		.jobs-header {
 			flex-direction: column;
 		}
+
+		.observer-header {
+			flex-direction: column;
+		}
+	}
+
+	.scheduled-panel {
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+		min-height: 0;
+		height: 100%;
+		padding: 14px;
+		overflow: hidden;
+	}
+
+	.scheduled-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 8px;
+	}
+
+	.scheduled-header h2 {
+		margin: 0;
+		font-size: 14px;
+		font-weight: 650;
+	}
+
+	.schedule-form {
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+		padding: 12px;
+		border-radius: 10px;
+		background: var(--panel-bg);
+		border: 1px solid var(--border-soft);
+	}
+
+	.form-field {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		font-size: 12px;
+		color: var(--text-muted);
+	}
+
+	.form-field input,
+	.form-field textarea,
+	.form-field select {
+		font: inherit;
+		font-size: 13px;
+		color: var(--text-main);
+		padding: 7px 9px;
+		border: 1px solid var(--border-soft);
+		border-radius: 7px;
+		background: var(--panel-bg);
+		min-height: 34px;
+		resize: vertical;
+	}
+
+	.form-field small {
+		font-size: 10px;
+		color: var(--text-muted);
+	}
+
+	.schedule-mode {
+		display: grid;
+		gap: 10px;
+	}
+
+	.schedule-kind {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		width: fit-content;
+		padding: 3px;
+		border-radius: 999px;
+		background: rgba(15, 23, 42, 0.05);
+	}
+
+	.schedule-kind button {
+		border: none;
+		background: transparent;
+		color: var(--text-muted);
+		font: inherit;
+		font-size: 11px;
+		font-weight: 650;
+		padding: 5px 10px;
+		border-radius: 999px;
+		cursor: pointer;
+	}
+
+	.schedule-kind button.active {
+		background: var(--panel-bg);
+		color: var(--text-main);
+		box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+	}
+
+	.schedule-generated {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		justify-content: center;
+		padding: 8px 10px;
+		border-radius: 8px;
+		background: color-mix(in srgb, var(--accent) 8%, transparent);
+		border: 1px solid color-mix(in srgb, var(--accent) 14%, var(--border-soft));
+		font-size: 11px;
+		color: var(--text-main);
+	}
+
+	.schedule-generated code {
+		width: fit-content;
+		font-size: 11px;
+	}
+
+	.schedule-generated small {
+		font-size: 10px;
+		line-height: 1.4;
+		color: var(--text-muted);
+	}
+
+	.schedule-actions {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		flex-wrap: wrap;
+	}
+
+	.scheduled-list {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+		gap: 10px;
+		overflow-y: auto;
+		min-height: 0;
+		padding-right: 2px;
+	}
+
+	.scheduled-card {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 10px;
+		border: 1px solid var(--border-soft);
+		border-radius: 10px;
+		background: var(--panel-bg);
+		padding: 10px 12px;
+	}
+
+	.scheduled-card.disabled {
+		opacity: 0.55;
+	}
+
+	.scheduled-card-main {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+		min-width: 0;
+	}
+
+	.scheduled-card-main strong {
+		font-size: 12px;
+		color: var(--text-main);
+	}
+
+	.scheduled-card-meta {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 5px;
+	}
+
+	.chip {
+		display: inline-flex;
+		align-items: center;
+		gap: 3px;
+		font-size: 10px;
+		font-weight: 600;
+		padding: 2px 7px;
+		border-radius: 999px;
+		background: rgba(15, 23, 42, 0.06);
+		color: var(--text-muted);
+	}
+
+	.scheduled-card-actions {
+		display: flex;
+		flex-direction: column;
+		gap: 5px;
+		flex-shrink: 0;
+	}
+
+	.scheduled-card-actions button {
+		font-size: 10px;
+		padding: 4px 8px;
 	}
 </style>

@@ -81,8 +81,40 @@ export function applyMemoryEmbeddingToDraft(
 	draft: ProviderSettings,
 	embedding: MemorySettings['embedding']
 ): ProviderSettings {
-	let providerId = embedding.provider_id.trim();
-	const model = embedding.model.trim();
+	return applyMemorySettingsToDraft(draft, {
+		enabled: draft.cometmind.memory.enabled,
+		auto_extract: draft.cometmind.memory.autoExtract,
+		auto_retrieve: draft.cometmind.memory.autoRetrieve,
+		max_retrieved: draft.cometmind.memory.maxRetrieved,
+		task_outcome_limit: draft.cometmind.memory.taskOutcomeLimit,
+		similarity_threshold: draft.cometmind.memory.similarityThreshold,
+		extraction_model: draft.cometmind.memory.extractionModel,
+		lifecycle: {
+			decay_half_life_days: draft.cometmind.memory.lifecycle.decayHalfLifeDays,
+			forget_threshold: draft.cometmind.memory.lifecycle.forgetThreshold,
+			usage_boost_factor: draft.cometmind.memory.lifecycle.usageBoostFactor,
+			max_usage_boost: draft.cometmind.memory.lifecycle.maxUsageBoost,
+			max_memories: draft.cometmind.memory.lifecycle.maxMemories,
+			compaction_target_ratio: draft.cometmind.memory.lifecycle.compactionTargetRatio,
+			compaction_on_extract: draft.cometmind.memory.lifecycle.compactionOnExtract
+		},
+		embedding: {
+			provider_id: embedding.provider_id,
+			provider: embedding.provider,
+			model: embedding.model,
+			base_url: embedding.base_url,
+			api_key: embedding.api_key
+		}
+	});
+}
+
+export function applyMemorySettingsToDraft(
+	draft: ProviderSettings,
+	memory: MemorySettings
+): ProviderSettings {
+	const embedding = memory.embedding ?? {};
+	let providerId = String(embedding.provider_id ?? '').trim();
+	const model = String(embedding.model ?? '').trim();
 	if ((!providerId || providerId === '__saved__') && model) {
 		const matched = draft.providers.find(
 			(p) => p.enabledModels.includes(model) || p.models.includes(model)
@@ -109,11 +141,44 @@ export function applyMemoryEmbeddingToDraft(
 			...draft.cometmind,
 			memory: {
 				...draft.cometmind.memory,
+				enabled: memory.enabled ?? draft.cometmind.memory.enabled,
+				autoExtract: memory.auto_extract ?? draft.cometmind.memory.autoExtract,
+				autoRetrieve: memory.auto_retrieve ?? draft.cometmind.memory.autoRetrieve,
+				maxRetrieved: memory.max_retrieved ?? draft.cometmind.memory.maxRetrieved,
+				taskOutcomeLimit:
+					memory.task_outcome_limit ?? draft.cometmind.memory.taskOutcomeLimit,
+				similarityThreshold:
+					memory.similarity_threshold ?? draft.cometmind.memory.similarityThreshold,
+				extractionProviderId: draft.cometmind.memory.extractionProviderId,
+				extractionModel: memory.extraction_model ?? draft.cometmind.memory.extractionModel,
+				lifecycle: {
+					decayHalfLifeDays:
+						memory.lifecycle?.decay_half_life_days ??
+						draft.cometmind.memory.lifecycle.decayHalfLifeDays,
+					forgetThreshold:
+						memory.lifecycle?.forget_threshold ??
+						draft.cometmind.memory.lifecycle.forgetThreshold,
+					usageBoostFactor:
+						memory.lifecycle?.usage_boost_factor ??
+						draft.cometmind.memory.lifecycle.usageBoostFactor,
+					maxUsageBoost:
+						memory.lifecycle?.max_usage_boost ??
+						draft.cometmind.memory.lifecycle.maxUsageBoost,
+					maxMemories:
+						memory.lifecycle?.max_memories ??
+						draft.cometmind.memory.lifecycle.maxMemories,
+					compactionTargetRatio:
+						memory.lifecycle?.compaction_target_ratio ??
+						draft.cometmind.memory.lifecycle.compactionTargetRatio,
+					compactionOnExtract:
+						memory.lifecycle?.compaction_on_extract ??
+						draft.cometmind.memory.lifecycle.compactionOnExtract
+				},
 				embedding: {
 					providerId: providerId || embedding.provider_id,
-					provider: embedding.provider,
-					model: embedding.model,
-					baseURL: embedding.base_url,
+					provider: embedding.provider ?? '',
+					model: embedding.model ?? '',
+					baseURL: embedding.base_url ?? '',
 					apiKey: embedding.api_key ?? ''
 				}
 			}

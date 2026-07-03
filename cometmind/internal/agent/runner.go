@@ -13,6 +13,7 @@ import (
 	"github.com/cometline/cometmind/internal/event"
 	"github.com/cometline/cometmind/internal/logging"
 	"github.com/cometline/cometmind/internal/memory"
+	"github.com/cometline/cometmind/internal/planning"
 	"github.com/cometline/cometmind/internal/provider"
 	"github.com/cometline/cometmind/internal/session"
 	"github.com/cometline/cometmind/internal/subagent"
@@ -36,18 +37,24 @@ type TurnStore interface {
 type MemoryStore interface {
 	Enabled() bool
 	BaselinePreferences(ctx context.Context, limit int) ([]memory.ScoredMemory, error)
+	RecentTaskOutcomes(ctx context.Context, limit int) ([]memory.ScoredMemory, error)
 	RetrieveForTurn(ctx context.Context, query string) ([]memory.ScoredMemory, error)
 	ExtractAfterTurn(ctx context.Context, sessionID, model string, llmProvider cometsdk.Provider) ([]memory.Change, error)
 }
 
+type PlanStore interface {
+	GetPlan(ctx context.Context, sessionID string) ([]planning.Step, error)
+}
+
 // Runner executes the persisted agent loop for one user turn (which may span many tool steps).
 type Runner struct {
-	Config   *config.Config
-	Provider cometsdk.Provider
-	Sessions TurnStore
-	Memory   MemoryStore
-	Registry *tools.Registry
-	Jobs     OngoingJobLookup
+	Config    *config.Config
+	Provider  cometsdk.Provider
+	Sessions  TurnStore
+	Memory    MemoryStore
+	PlanStore PlanStore
+	Registry  *tools.Registry
+	Jobs      OngoingJobLookup
 
 	MaxSteps               int
 	MaxTokens              int
@@ -140,7 +147,8 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 			emitStatus(event.PhaseContinuing)
 		}
 
-		baseSystem := r.buildSystemPrompt(sess.ContextSummary, truncationContinue, jobProgressNudge, jobTracker.JobID, subagentWaitNudge, pendingSubagentResults)
+		planBlock := r.planPromptBlock(ctx, turn.ID)
+		baseSystem := r.buildSystemPrompt(sess.ContextSummary, planBlock, truncationContinue, jobProgressNudge, jobTracker.JobID, subagentWaitNudge, pendingSubagentResults)
 		if steps == 0 && r.Compactor != nil && sess.ID != "" {
 			updated, err := r.Compactor.MaybeCompact(
 				ctx,
@@ -191,6 +199,10 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 				if prefErr != nil {
 					logging.L().Error("memory.preferences.failed", "session", turn.ID, "error", prefErr)
 				}
+				outcomes, outcomeErr := r.Memory.RecentTaskOutcomes(ctx, 0)
+				if outcomeErr != nil {
+					logging.L().Error("memory.task_outcomes.failed", "session", turn.ID, "error", outcomeErr)
+				}
 				query := memory.BuildRetrievalQuery(memory.RetrievalQueryInput{
 					Messages: msgs,
 				})
@@ -205,9 +217,9 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 						ch <- event.Errorf(memErr.Error(), "memory")
 					}
 				}
-				if len(prefs) > 0 || len(mems) > 0 {
-					logging.L().Info("memory.injected", "session", turn.ID, "preferences", len(prefs), "relevant", len(mems))
-					system += memory.FormatPromptMemories(memory.PromptMemories{Preferences: prefs, Relevant: mems})
+				if len(prefs) > 0 || len(outcomes) > 0 || len(mems) > 0 {
+					logging.L().Info("memory.injected", "session", turn.ID, "preferences", len(prefs), "task_outcomes", len(outcomes), "relevant", len(mems))
+					system += memory.FormatPromptMemories(memory.PromptMemories{Preferences: prefs, TaskOutcomes: outcomes, Relevant: mems})
 					// Only relevant (semantic) memories are surfaced to the UI as a
 					// memory card. Preferences are injected into the prompt silently,
 					// so skip the wire event when there is nothing relevant to show.
@@ -494,11 +506,14 @@ func (r *Runner) systemPrompt() string {
 	return base + r.SkillIndex + r.JobIndex
 }
 
-func (r *Runner) buildSystemPrompt(contextSummary string, truncationContinue, jobProgressNudge bool, jobID string, subagentWaitNudge bool, pendingSubagentResults string) string {
+func (r *Runner) buildSystemPrompt(contextSummary, planBlock string, truncationContinue, jobProgressNudge bool, jobID string, subagentWaitNudge bool, pendingSubagentResults string) string {
 	base := r.systemPrompt()
 	var parts []string
 	if block := FormatSummaryPromptBlock(contextSummary); block != "" {
 		parts = append(parts, block)
+	}
+	if strings.TrimSpace(planBlock) != "" {
+		parts = append(parts, strings.TrimSpace(planBlock))
 	}
 	if block := FormatOutputBudgetPromptBlock(r.MaxTokens); block != "" {
 		parts = append(parts, block)
@@ -523,6 +538,18 @@ func (r *Runner) buildSystemPrompt(contextSummary string, truncationContinue, jo
 		return base
 	}
 	return base + "\n\n" + strings.Join(parts, "\n\n")
+}
+
+func (r *Runner) planPromptBlock(ctx context.Context, sessionID string) string {
+	if r == nil || r.PlanStore == nil || strings.TrimSpace(sessionID) == "" {
+		return ""
+	}
+	steps, err := r.PlanStore.GetPlan(ctx, sessionID)
+	if err != nil {
+		logging.L().Warn("planning.prompt.failed", "session", sessionID, "error", err)
+		return ""
+	}
+	return planning.FormatPromptBlock(steps)
 }
 
 func int64PtrFromIntPtr(v *int) *int64 {

@@ -135,6 +135,24 @@ func (s *store) listBaselinePreferences(ctx context.Context, limit int) ([]Recor
 	return out, nil
 }
 
+func (s *store) listRecentByKind(ctx context.Context, kind string, limit int) ([]Record, error) {
+	if limit <= 0 {
+		limit = 3
+	}
+	rows, err := s.q.ListRecentMemoriesByKind(ctx, db.ListRecentMemoriesByKindParams{
+		Kind:  normalizeKind(kind),
+		Limit: int64(limit),
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Record, len(rows))
+	for i, row := range rows {
+		out[i] = recordFromDB(row)
+	}
+	return out, nil
+}
+
 func (s *store) listActivePreferencesByCategory(ctx context.Context, category string) ([]Record, error) {
 	rows, err := s.q.ListActivePreferencesByCategory(ctx, category)
 	if err != nil {

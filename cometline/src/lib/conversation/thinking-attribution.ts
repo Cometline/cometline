@@ -264,6 +264,7 @@ export function shouldGroupAssistantTimeline(
 		}
 	}
 	if (timeline.length >= 2) return true;
+	if (!assistant.pending) return true;
 	return assistant.text.trim().length > 0;
 }
 

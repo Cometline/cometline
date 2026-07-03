@@ -65,3 +65,111 @@ func TestJobHandlersCreateListClaim(t *testing.T) {
 		t.Fatalf("claim status=%d body=%s", w.Code, w.Body.String())
 	}
 }
+
+func TestJobHandlersArchiveCompletedJob(t *testing.T) {
+	ctx := context.Background()
+	sqlDB, err := store.OpenSQLite(ctx, ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer sqlDB.Close()
+
+	sessions := session.New(sqlDB)
+	jobSvc := jobs.NewService(sqlDB, nil, nil)
+	engine, err := New(Deps{
+		Config:    config.Defaults(),
+		Sessions:  sessions,
+		Jobs:      jobSvc,
+		NewRunner: func(session.Session, string) (Runner, error) { return nil, nil },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	job, err := jobSvc.Create(ctx, jobs.CreateInput{Description: "archive through api"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := jobSvc.Claim(ctx, job.ID, "sess-1"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := jobSvc.Complete(ctx, job.ID, "sess-1", "done"); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/jobs/"+job.ID+"/archive", nil)
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("archive status=%d body=%s", w.Code, w.Body.String())
+	}
+	var archived struct {
+		ArchivedAt *int64 `json:"archived_at"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &archived); err != nil {
+		t.Fatal(err)
+	}
+	if archived.ArchivedAt == nil {
+		t.Fatalf("archived_at nil body=%s", w.Body.String())
+	}
+
+	req = httptest.NewRequest(http.MethodDelete, "/api/v1/jobs/"+job.ID+"/archive", nil)
+	w = httptest.NewRecorder()
+	engine.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("unarchive status=%d body=%s", w.Code, w.Body.String())
+	}
+}
+
+func TestJobHandlersRetryBlockedJob(t *testing.T) {
+	ctx := context.Background()
+	sqlDB, err := store.OpenSQLite(ctx, ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer sqlDB.Close()
+
+	sessions := session.New(sqlDB)
+	jobSvc := jobs.NewService(sqlDB, func() jobs.Settings {
+		settings := jobs.DefaultSettings()
+		settings.MaxConsecutiveFailures = 1
+		return settings
+	}, nil)
+	engine, err := New(Deps{
+		Config:    config.Defaults(),
+		Sessions:  sessions,
+		Jobs:      jobSvc,
+		NewRunner: func(session.Session, string) (Runner, error) { return nil, nil },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	job, err := jobSvc.Create(ctx, jobs.CreateInput{Description: "retry through api"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := jobSvc.Claim(ctx, job.ID, "sess-1"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := jobSvc.ReleaseWithClass(ctx, job.ID, "sess-1", "worker failed", jobs.FailureWorkerError); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/jobs/"+job.ID+"/retry-runs", nil)
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("retry status=%d body=%s", w.Code, w.Body.String())
+	}
+	var retried struct {
+		Status       string `json:"status"`
+		FailureCount int64  `json:"failure_count"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &retried); err != nil {
+		t.Fatal(err)
+	}
+	if retried.Status != jobs.StatusTodo || retried.FailureCount != 0 {
+		t.Fatalf("retried=%+v", retried)
+	}
+}

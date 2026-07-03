@@ -410,6 +410,12 @@
 				description="Expose a compact skill index to CometMind and allow read-only loading via load_skill."
 				bind:checked={cometmind.skills.enabled}
 			/>
+			<SettingsToggle
+				label="Synthesize skill drafts from completed jobs"
+				description="After a job completes, an LLM proposes a reusable skill draft for review. Choose its model in Models → Skill synthesis."
+				bind:checked={cometmind.skills.synthesisEnabled}
+				disabled={!cometmind.skills.enabled}
+			/>
 			<div class="skills-actions">
 				<button
 					class="secondary"
@@ -577,6 +583,12 @@
 				bind:checked={cometmind.jobs.notifications.onReleased}
 				disabled={!cometmind.jobs.notifications.enabled}
 			/>
+			<SettingsToggle
+				label="Notify on blocked"
+				description="Alert when a job is blocked after repeated failures."
+				bind:checked={cometmind.jobs.notifications.onBlocked}
+				disabled={!cometmind.jobs.notifications.enabled}
+			/>
 			<label>
 				<span>Lease duration (minutes)</span>
 				<input type="number" min="1" step="1" bind:value={cometmind.jobs.leaseMinutes} />
@@ -599,7 +611,154 @@
 					bind:value={cometmind.jobs.deletedPurgeDays}
 				/>
 			</label>
+			<label>
+				<span>Auto-archive completed jobs (days)</span>
+				<input type="number" min="0" step="1" bind:value={cometmind.jobs.doneArchiveDays} />
+				<p class="settings-field-hint">
+					Moves completed jobs out of the active Done column after this many days. Set to
+					0 to keep completed jobs visible.
+				</p>
+			</label>
+			<label>
+				<span>Archived job purge (days)</span>
+				<input
+					type="number"
+					min="0"
+					step="1"
+					bind:value={cometmind.jobs.archivedPurgeDays}
+				/>
+				<p class="settings-field-hint">
+					Hard-deletes archived jobs older than this many days. Set to 0 to keep archived
+					jobs indefinitely.
+				</p>
+			</label>
+			<label>
+				<span>Stale ongoing review (minutes)</span>
+				<input
+					type="number"
+					min="1"
+					step="1"
+					bind:value={cometmind.jobs.staleReviewMinutes}
+				/>
+				<p class="settings-field-hint">
+					Jobs stuck in ongoing longer than this are logged as stale during maintenance.
+				</p>
+			</label>
+			<label>
+				<span>Max consecutive failures</span>
+				<input
+					type="number"
+					min="1"
+					step="1"
+					bind:value={cometmind.jobs.maxConsecutiveFailures}
+				/>
+			</label>
+			<label>
+				<span>Retry cooldown (minutes)</span>
+				<input
+					type="number"
+					min="1"
+					step="1"
+					bind:value={cometmind.jobs.retryCooldownMinutes}
+				/>
+			</label>
+			<label>
+				<span>Max retry cooldown (minutes)</span>
+				<input
+					type="number"
+					min="1"
+					step="1"
+					bind:value={cometmind.jobs.maxRetryCooldownMinutes}
+				/>
+			</label>
 			<SettingsPersistenceHint tier="action" detail="Job notification settings" />
+		</div>
+
+		<div class="settings-section">
+			<div class="settings-section-heading">
+				<h3>Autonomous jobs</h3>
+				<p>
+					Let CometMind claim and run ready jobs on its own, without a human opening a
+					chat session first. Off by default.
+				</p>
+			</div>
+			<SettingsToggle
+				label="Enable autonomous job pickup"
+				description="A background worker polls the job queue and executes ready jobs automatically."
+				bind:checked={cometmind.autonomy.enabled}
+			/>
+			<label>
+				<span>Max concurrent jobs</span>
+				<input
+					type="number"
+					min="1"
+					step="1"
+					bind:value={cometmind.autonomy.maxConcurrent}
+					disabled={!cometmind.autonomy.enabled}
+				/>
+			</label>
+			<label>
+				<span>Poll interval (seconds)</span>
+				<input
+					type="number"
+					min="5"
+					step="1"
+					bind:value={cometmind.autonomy.pollIntervalSeconds}
+					disabled={!cometmind.autonomy.enabled}
+				/>
+			</label>
+			<SettingsPersistenceHint
+				tier="pending"
+				detail="Included in Save changes — restarts CometMind"
+			/>
+		</div>
+
+		<div class="settings-section">
+			<div class="settings-section-heading">
+				<h3>Scheduler</h3>
+				<p>
+					Materialize deferred and recurring scheduled jobs into the job queue. Off by
+					default.
+				</p>
+			</div>
+			<SettingsToggle
+				label="Enable scheduler"
+				description="A background ticker polls for due scheduled jobs and creates normal job entries."
+				bind:checked={cometmind.scheduler.enabled}
+			/>
+			<label>
+				<span>Poll interval (seconds)</span>
+				<input
+					type="number"
+					min="10"
+					step="1"
+					bind:value={cometmind.scheduler.pollIntervalSeconds}
+					disabled={!cometmind.scheduler.enabled}
+				/>
+			</label>
+			<SettingsPersistenceHint
+				tier="pending"
+				detail="Included in Save changes — restarts CometMind"
+			/>
+		</div>
+
+		<div class="settings-section">
+			<div class="settings-section-heading">
+				<h3>Session planning</h3>
+				<p>
+					Give the agent <code>plan_write</code>/<code>plan_update</code> tools and inject the
+					current plan into each turn. Off by default.
+				</p>
+			</div>
+			<SettingsToggle
+				label="Enable session planning"
+				description="Exposes plan management tools to the agent and shows the current plan in the system prompt."
+				bind:checked={cometmind.planning.enabled}
+			/>
+			<SettingsPersistenceHint
+				tier="pending"
+				detail="Included in Save changes — restarts CometMind"
+			/>
 		</div>
 
 		<div class="settings-section">

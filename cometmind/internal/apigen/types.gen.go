@@ -10,6 +10,45 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Defines values for CreateScheduledJobRequestCreatedBy.
+const (
+	CreateScheduledJobRequestCreatedByAgent CreateScheduledJobRequestCreatedBy = "agent"
+	CreateScheduledJobRequestCreatedByUser  CreateScheduledJobRequestCreatedBy = "user"
+)
+
+// Valid indicates whether the value is a known member of the CreateScheduledJobRequestCreatedBy enum.
+func (e CreateScheduledJobRequestCreatedBy) Valid() bool {
+	switch e {
+	case CreateScheduledJobRequestCreatedByAgent:
+		return true
+	case CreateScheduledJobRequestCreatedByUser:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CreateScheduledJobRequestSourcePlatform.
+const (
+	CreateScheduledJobRequestSourcePlatformDesktop CreateScheduledJobRequestSourcePlatform = "desktop"
+	CreateScheduledJobRequestSourcePlatformDiscord CreateScheduledJobRequestSourcePlatform = "discord"
+	CreateScheduledJobRequestSourcePlatformEmpty   CreateScheduledJobRequestSourcePlatform = ""
+)
+
+// Valid indicates whether the value is a known member of the CreateScheduledJobRequestSourcePlatform enum.
+func (e CreateScheduledJobRequestSourcePlatform) Valid() bool {
+	switch e {
+	case CreateScheduledJobRequestSourcePlatformDesktop:
+		return true
+	case CreateScheduledJobRequestSourcePlatformDiscord:
+		return true
+	case CreateScheduledJobRequestSourcePlatformEmpty:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ImageAttachmentMediaType.
 const (
 	Imagegif  ImageAttachmentMediaType = "image/gif"
@@ -36,6 +75,7 @@ func (e ImageAttachmentMediaType) Valid() bool {
 
 // Defines values for JobResourceStatus.
 const (
+	JobResourceStatusBlocked JobResourceStatus = "blocked"
 	JobResourceStatusDone    JobResourceStatus = "done"
 	JobResourceStatusOngoing JobResourceStatus = "ongoing"
 	JobResourceStatusTodo    JobResourceStatus = "todo"
@@ -44,6 +84,8 @@ const (
 // Valid indicates whether the value is a known member of the JobResourceStatus enum.
 func (e JobResourceStatus) Valid() bool {
 	switch e {
+	case JobResourceStatusBlocked:
+		return true
 	case JobResourceStatusDone:
 		return true
 	case JobResourceStatusOngoing:
@@ -100,6 +142,45 @@ func (e MemoryChangeWireAction) Valid() bool {
 	}
 }
 
+// Defines values for ScheduledJobResourceCreatedBy.
+const (
+	ScheduledJobResourceCreatedByAgent ScheduledJobResourceCreatedBy = "agent"
+	ScheduledJobResourceCreatedByUser  ScheduledJobResourceCreatedBy = "user"
+)
+
+// Valid indicates whether the value is a known member of the ScheduledJobResourceCreatedBy enum.
+func (e ScheduledJobResourceCreatedBy) Valid() bool {
+	switch e {
+	case ScheduledJobResourceCreatedByAgent:
+		return true
+	case ScheduledJobResourceCreatedByUser:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ScheduledJobResourceSourcePlatform.
+const (
+	ScheduledJobResourceSourcePlatformDesktop ScheduledJobResourceSourcePlatform = "desktop"
+	ScheduledJobResourceSourcePlatformDiscord ScheduledJobResourceSourcePlatform = "discord"
+	ScheduledJobResourceSourcePlatformEmpty   ScheduledJobResourceSourcePlatform = ""
+)
+
+// Valid indicates whether the value is a known member of the ScheduledJobResourceSourcePlatform enum.
+func (e ScheduledJobResourceSourcePlatform) Valid() bool {
+	switch e {
+	case ScheduledJobResourceSourcePlatformDesktop:
+		return true
+	case ScheduledJobResourceSourcePlatformDiscord:
+		return true
+	case ScheduledJobResourceSourcePlatformEmpty:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SessionDelegationStatus.
 const (
 	Cancelled SessionDelegationStatus = "cancelled"
@@ -136,6 +217,24 @@ const (
 func (e SessionGatewayPlatform) Valid() bool {
 	switch e {
 	case Discord:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SessionOrigin.
+const (
+	SessionOriginAutonomy SessionOrigin = "autonomy"
+	SessionOriginUser     SessionOrigin = "user"
+)
+
+// Valid indicates whether the value is a known member of the SessionOrigin enum.
+func (e SessionOrigin) Valid() bool {
+	switch e {
+	case SessionOriginAutonomy:
+		return true
+	case SessionOriginUser:
 		return true
 	default:
 		return false
@@ -181,30 +280,54 @@ func (e SessionSubagentKind) Valid() bool {
 	}
 }
 
+// Defines values for SessionPlanStepStatus.
+const (
+	SessionPlanStepStatusBlocked    SessionPlanStepStatus = "blocked"
+	SessionPlanStepStatusCompleted  SessionPlanStepStatus = "completed"
+	SessionPlanStepStatusInProgress SessionPlanStepStatus = "in_progress"
+	SessionPlanStepStatusPending    SessionPlanStepStatus = "pending"
+)
+
+// Valid indicates whether the value is a known member of the SessionPlanStepStatus enum.
+func (e SessionPlanStepStatus) Valid() bool {
+	switch e {
+	case SessionPlanStepStatusBlocked:
+		return true
+	case SessionPlanStepStatusCompleted:
+		return true
+	case SessionPlanStepStatusInProgress:
+		return true
+	case SessionPlanStepStatusPending:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for TranscriptItemType.
 const (
-	Assistant TranscriptItemType = "assistant"
-	Memory    TranscriptItemType = "memory"
-	Reasoning TranscriptItemType = "reasoning"
-	System    TranscriptItemType = "system"
-	Tool      TranscriptItemType = "tool"
-	User      TranscriptItemType = "user"
+	TranscriptItemTypeAssistant TranscriptItemType = "assistant"
+	TranscriptItemTypeMemory    TranscriptItemType = "memory"
+	TranscriptItemTypeReasoning TranscriptItemType = "reasoning"
+	TranscriptItemTypeSystem    TranscriptItemType = "system"
+	TranscriptItemTypeTool      TranscriptItemType = "tool"
+	TranscriptItemTypeUser      TranscriptItemType = "user"
 )
 
 // Valid indicates whether the value is a known member of the TranscriptItemType enum.
 func (e TranscriptItemType) Valid() bool {
 	switch e {
-	case Assistant:
+	case TranscriptItemTypeAssistant:
 		return true
-	case Memory:
+	case TranscriptItemTypeMemory:
 		return true
-	case Reasoning:
+	case TranscriptItemTypeReasoning:
 		return true
-	case System:
+	case TranscriptItemTypeSystem:
 		return true
-	case Tool:
+	case TranscriptItemTypeTool:
 		return true
-	case User:
+	case TranscriptItemTypeUser:
 		return true
 	default:
 		return false
@@ -273,19 +396,22 @@ func (e WorkspaceFileTextContentKind) Valid() bool {
 
 // Defines values for ListJobsParamsStatus.
 const (
-	ListJobsParamsStatusDone    ListJobsParamsStatus = "done"
-	ListJobsParamsStatusOngoing ListJobsParamsStatus = "ongoing"
-	ListJobsParamsStatusTodo    ListJobsParamsStatus = "todo"
+	Blocked ListJobsParamsStatus = "blocked"
+	Done    ListJobsParamsStatus = "done"
+	Ongoing ListJobsParamsStatus = "ongoing"
+	Todo    ListJobsParamsStatus = "todo"
 )
 
 // Valid indicates whether the value is a known member of the ListJobsParamsStatus enum.
 func (e ListJobsParamsStatus) Valid() bool {
 	switch e {
-	case ListJobsParamsStatusDone:
+	case Blocked:
 		return true
-	case ListJobsParamsStatusOngoing:
+	case Done:
 		return true
-	case ListJobsParamsStatusTodo:
+	case Ongoing:
+		return true
+	case Todo:
 		return true
 	default:
 		return false
@@ -324,6 +450,29 @@ type CreateMemoryRequest struct {
 	Kind       *string  `json:"kind,omitempty"`
 	Pinned     *bool    `json:"pinned,omitempty"`
 }
+
+// CreateScheduledJobRequest defines model for CreateScheduledJobRequest.
+type CreateScheduledJobRequest struct {
+	CreatedBy *CreateScheduledJobRequestCreatedBy `json:"created_by,omitempty"`
+
+	// CronExpr Standard 5-field cron expression for recurring schedules. Mutually exclusive with run_at.
+	CronExpr         *string `json:"cron_expr,omitempty"`
+	DefinitionOfDone *string `json:"definition_of_done,omitempty"`
+	Description      string  `json:"description"`
+
+	// RunAt One-shot run time in Unix milliseconds. Mutually exclusive with cron_expr.
+	RunAt           *int64                                   `json:"run_at,omitempty"`
+	SourceChannelId *string                                  `json:"source_channel_id,omitempty"`
+	SourcePlatform  *CreateScheduledJobRequestSourcePlatform `json:"source_platform,omitempty"`
+	SourceSessionId *string                                  `json:"source_session_id,omitempty"`
+	WorkspacePath   *string                                  `json:"workspace_path,omitempty"`
+}
+
+// CreateScheduledJobRequestCreatedBy defines model for CreateScheduledJobRequest.CreatedBy.
+type CreateScheduledJobRequestCreatedBy string
+
+// CreateScheduledJobRequestSourcePlatform defines model for CreateScheduledJobRequest.SourcePlatform.
+type CreateScheduledJobRequestSourcePlatform string
 
 // CreateSessionRequest Provide either `workspace_id` or `workspace_path`.
 type CreateSessionRequest struct {
@@ -411,6 +560,7 @@ type JobEventResource struct {
 // JobNotificationSettings defines model for JobNotificationSettings.
 type JobNotificationSettings struct {
 	Enabled     *bool `json:"enabled,omitempty"`
+	OnBlocked   *bool `json:"on_blocked,omitempty"`
 	OnClaimed   *bool `json:"on_claimed,omitempty"`
 	OnCompleted *bool `json:"on_completed,omitempty"`
 	OnReleased  *bool `json:"on_released,omitempty"`
@@ -424,14 +574,18 @@ type JobReleaseRequest struct {
 
 // JobResource defines model for JobResource.
 type JobResource struct {
+	ArchivedAt        *int64            `json:"archived_at,omitempty"`
 	AssignedSessionId *string           `json:"assigned_session_id,omitempty"`
 	CreatedAt         int64             `json:"created_at"`
 	CreatedBy         string            `json:"created_by"`
 	DefinitionOfDone  string            `json:"definition_of_done"`
 	DeletedAt         *int64            `json:"deleted_at,omitempty"`
 	Description       string            `json:"description"`
+	FailureCount      int64             `json:"failure_count"`
 	Id                string            `json:"id"`
+	LastFailureReason *string           `json:"last_failure_reason,omitempty"`
 	LeaseExpiresAt    *int64            `json:"lease_expires_at,omitempty"`
+	NextRetryAt       *int64            `json:"next_retry_at,omitempty"`
 	Progress          string            `json:"progress"`
 	SourceChannelId   *string           `json:"source_channel_id,omitempty"`
 	SourcePlatform    *string           `json:"source_platform,omitempty"`
@@ -451,10 +605,16 @@ type JobSessionRequest struct {
 
 // JobSettings defines model for JobSettings.
 type JobSettings struct {
+	ArchivedPurgeDays        *int                     `json:"archived_purge_days,omitempty"`
 	DeletedPurgeDays         *int                     `json:"deleted_purge_days,omitempty"`
+	DoneArchiveDays          *int                     `json:"done_archive_days,omitempty"`
 	LeaseMinutes             *int                     `json:"lease_minutes,omitempty"`
+	MaxConsecutiveFailures   *int                     `json:"max_consecutive_failures,omitempty"`
+	MaxRetryCooldownMinutes  *int                     `json:"max_retry_cooldown_minutes,omitempty"`
 	Notifications            *JobNotificationSettings `json:"notifications,omitempty"`
 	ReconcileIntervalSeconds *int                     `json:"reconcile_interval_seconds,omitempty"`
+	RetryCooldownMinutes     *int                     `json:"retry_cooldown_minutes,omitempty"`
+	StaleReviewMinutes       *int                     `json:"stale_review_minutes,omitempty"`
 }
 
 // ListJobEventsResponse defines model for ListJobEventsResponse.
@@ -480,6 +640,16 @@ type ListMcpToolsResponse struct {
 // ListMemoriesResponse defines model for ListMemoriesResponse.
 type ListMemoriesResponse struct {
 	Memories []MemoryResource `json:"memories"`
+}
+
+// ListScheduledJobsResponse defines model for ListScheduledJobsResponse.
+type ListScheduledJobsResponse struct {
+	ScheduledJobs []ScheduledJobResource `json:"scheduled_jobs"`
+}
+
+// ListSkillDraftsResponse defines model for ListSkillDraftsResponse.
+type ListSkillDraftsResponse struct {
+	Drafts []SkillDraft `json:"drafts"`
 }
 
 // ListSkillsResponse defines model for ListSkillsResponse.
@@ -596,6 +766,7 @@ type MemorySettings struct {
 	Lifecycle           *MemoryLifecycleSettings `json:"lifecycle,omitempty"`
 	MaxRetrieved        *int                     `json:"max_retrieved,omitempty"`
 	SimilarityThreshold *float32                 `json:"similarity_threshold,omitempty"`
+	TaskOutcomeLimit    *int                     `json:"task_outcome_limit,omitempty"`
 }
 
 // MemoryUpdatedEvent defines model for MemoryUpdatedEvent.
@@ -682,6 +853,35 @@ type RunStorageRetentionResponse struct {
 	Vacuumed           bool   `json:"vacuumed"`
 }
 
+// ScheduledJobResource defines model for ScheduledJobResource.
+type ScheduledJobResource struct {
+	CreatedAt int64                         `json:"created_at"`
+	CreatedBy ScheduledJobResourceCreatedBy `json:"created_by"`
+
+	// CronExpr Standard 5-field cron expression for recurring schedules. Mutually exclusive with run_at.
+	CronExpr         *string `json:"cron_expr,omitempty"`
+	DefinitionOfDone string  `json:"definition_of_done"`
+	Description      string  `json:"description"`
+	Enabled          bool    `json:"enabled"`
+	Id               string  `json:"id"`
+	LastRunAt        *int64  `json:"last_run_at,omitempty"`
+	NextRunAt        int64   `json:"next_run_at"`
+
+	// RunAt One-shot run time in Unix milliseconds. Mutually exclusive with cron_expr.
+	RunAt           *int64                             `json:"run_at,omitempty"`
+	SourceChannelId *string                            `json:"source_channel_id,omitempty"`
+	SourcePlatform  ScheduledJobResourceSourcePlatform `json:"source_platform"`
+	SourceSessionId *string                            `json:"source_session_id,omitempty"`
+	UpdatedAt       int64                              `json:"updated_at"`
+	WorkspacePath   *string                            `json:"workspace_path,omitempty"`
+}
+
+// ScheduledJobResourceCreatedBy defines model for ScheduledJobResource.CreatedBy.
+type ScheduledJobResourceCreatedBy string
+
+// ScheduledJobResourceSourcePlatform defines model for ScheduledJobResource.SourcePlatform.
+type ScheduledJobResourceSourcePlatform string
+
 // SearchMemoryRequest defines model for SearchMemoryRequest.
 type SearchMemoryRequest struct {
 	Limit *int   `json:"limit,omitempty"`
@@ -706,6 +906,9 @@ type Session struct {
 	} `json:"gateway,omitempty"`
 	Id      string `json:"id"`
 	ModelId string `json:"model_id"`
+
+	// Origin Whether this session was created by a user action or an autonomous job run.
+	Origin SessionOrigin `json:"origin"`
 
 	// OutputSummary Final summary from a delegated child session.
 	OutputSummary *string `json:"output_summary,omitempty"`
@@ -741,6 +944,9 @@ type SessionDelegationStatus string
 // SessionGatewayPlatform defines model for Session.Gateway.Platform.
 type SessionGatewayPlatform string
 
+// SessionOrigin Whether this session was created by a user action or an autonomous job run.
+type SessionOrigin string
+
 // SessionStatus defines model for Session.Status.
 type SessionStatus string
 
@@ -751,6 +957,31 @@ type SessionSubagentKind string
 type SessionListResponse struct {
 	Sessions []Session `json:"sessions"`
 }
+
+// SessionPlanResponse defines model for SessionPlanResponse.
+type SessionPlanResponse struct {
+	SessionId string            `json:"session_id"`
+	Steps     []SessionPlanStep `json:"steps"`
+}
+
+// SessionPlanStep defines model for SessionPlanStep.
+type SessionPlanStep struct {
+	BlockerReason string `json:"blocker_reason"`
+
+	// CreatedAt Unix epoch milliseconds.
+	CreatedAt   int64                 `json:"created_at"`
+	Description string                `json:"description"`
+	Id          string                `json:"id"`
+	SessionId   string                `json:"session_id"`
+	Status      SessionPlanStepStatus `json:"status"`
+	StepIndex   int64                 `json:"step_index"`
+
+	// UpdatedAt Unix epoch milliseconds.
+	UpdatedAt int64 `json:"updated_at"`
+}
+
+// SessionPlanStepStatus defines model for SessionPlanStep.Status.
+type SessionPlanStepStatus string
 
 // SimpleErrorResponse defines model for SimpleErrorResponse.
 type SimpleErrorResponse struct {
@@ -773,6 +1004,21 @@ type Skill struct {
 type SkillDetailResponse struct {
 	Content string `json:"content"`
 	Skill   Skill  `json:"skill"`
+}
+
+// SkillDraft defines model for SkillDraft.
+type SkillDraft struct {
+	CreatedAt   int64  `json:"created_at"`
+	Description string `json:"description"`
+	Name        string `json:"name"`
+	Path        string `json:"path"`
+	UpdatedAt   int64  `json:"updated_at"`
+}
+
+// SkillDraftDetailResponse defines model for SkillDraftDetailResponse.
+type SkillDraftDetailResponse struct {
+	Content string     `json:"content"`
+	Draft   SkillDraft `json:"draft"`
 }
 
 // StatusResponse defines model for StatusResponse.
@@ -903,6 +1149,19 @@ type UpdateMemoryRequest struct {
 	Pinned     *bool    `json:"pinned,omitempty"`
 }
 
+// UpdateScheduledJobRequest defines model for UpdateScheduledJobRequest.
+type UpdateScheduledJobRequest struct {
+	// CronExpr Standard 5-field cron expression for recurring schedules. Mutually exclusive with run_at.
+	CronExpr         *string `json:"cron_expr,omitempty"`
+	DefinitionOfDone *string `json:"definition_of_done,omitempty"`
+	Description      *string `json:"description,omitempty"`
+	Enabled          *bool   `json:"enabled,omitempty"`
+
+	// RunAt One-shot run time in Unix milliseconds. Mutually exclusive with cron_expr.
+	RunAt         *int64  `json:"run_at,omitempty"`
+	WorkspacePath *string `json:"workspace_path,omitempty"`
+}
+
 // UpdateSessionRequest defines model for UpdateSessionRequest.
 type UpdateSessionRequest struct {
 	ModelId *string `json:"model_id,omitempty"`
@@ -998,9 +1257,10 @@ type NotFound = ErrorResponse
 
 // ListJobsParams defines parameters for ListJobs.
 type ListJobsParams struct {
-	Status         *ListJobsParamsStatus `form:"status,omitempty" json:"status,omitempty"`
-	ReadyOnly      *bool                 `form:"ready_only,omitempty" json:"ready_only,omitempty"`
-	IncludeDeleted *bool                 `form:"include_deleted,omitempty" json:"include_deleted,omitempty"`
+	Status          *ListJobsParamsStatus `form:"status,omitempty" json:"status,omitempty"`
+	ReadyOnly       *bool                 `form:"ready_only,omitempty" json:"ready_only,omitempty"`
+	IncludeDeleted  *bool                 `form:"include_deleted,omitempty" json:"include_deleted,omitempty"`
+	IncludeArchived *bool                 `form:"include_archived,omitempty" json:"include_archived,omitempty"`
 }
 
 // ListJobsParamsStatus defines parameters for ListJobs.
@@ -1109,6 +1369,12 @@ type PutMemorySettingsJSONRequestBody = MemorySettings
 
 // PatchMemoryJSONRequestBody defines body for PatchMemory for application/json ContentType.
 type PatchMemoryJSONRequestBody = UpdateMemoryRequest
+
+// CreateScheduledJobJSONRequestBody defines body for CreateScheduledJob for application/json ContentType.
+type CreateScheduledJobJSONRequestBody = CreateScheduledJobRequest
+
+// UpdateScheduledJobJSONRequestBody defines body for UpdateScheduledJob for application/json ContentType.
+type UpdateScheduledJobJSONRequestBody = UpdateScheduledJobRequest
 
 // CreateSessionJSONRequestBody defines body for CreateSession for application/json ContentType.
 type CreateSessionJSONRequestBody = CreateSessionRequest

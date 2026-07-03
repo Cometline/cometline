@@ -80,6 +80,30 @@ func TestBaselinePreferencesReturnsOnlyPreferencesAndTouchesAccess(t *testing.T)
 	}
 }
 
+func TestRecentTaskOutcomesReturnsRecentTaskOutcomesAndTouchesAccess(t *testing.T) {
+	ctx, conn, svc := newPreferenceTestService(t)
+	defer conn.Close()
+
+	insertPreferenceTestRecord(t, ctx, svc.store, "old", "task_outcome", "", "Old outcome", false)
+	insertPreferenceTestRecord(t, ctx, svc.store, "fact", "fact", "", "A fact", false)
+	insertPreferenceTestRecord(t, ctx, svc.store, "new", "task_outcome", "", "New outcome", false)
+
+	got, err := svc.RecentTaskOutcomes(ctx, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 || got[0].ID != "new" || got[1].ID != "old" {
+		t.Fatalf("got %+v, want newest task outcomes only", got)
+	}
+	rec, err := svc.store.get(ctx, "new")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rec.AccessCount != 1 {
+		t.Fatalf("AccessCount = %d, want 1", rec.AccessCount)
+	}
+}
+
 func TestCompactPreferenceCategoryArchivesOldNonPinnedBeyondCap(t *testing.T) {
 	ctx, conn, svc := newPreferenceTestService(t)
 	defer conn.Close()
@@ -149,12 +173,14 @@ func TestCompactPreferenceCategoryDoesNotArchivePinnedPreferences(t *testing.T) 
 
 func TestFormatPromptMemoriesSeparatesPreferencesAndDedupesRelevant(t *testing.T) {
 	pref := ScoredMemory{Record: Record{ID: "p", Kind: "preference", Content: "User prefers Traditional Chinese replies."}}
+	outcome := ScoredMemory{Record: Record{ID: "o", Kind: "task_outcome", Content: "Completed the retry policy."}}
 	relevant := ScoredMemory{Record: Record{ID: "r", Kind: "project", Content: "CometMind uses SQLite."}}
 	out := FormatPromptMemories(PromptMemories{
-		Preferences: []ScoredMemory{pref},
-		Relevant:    []ScoredMemory{pref, relevant},
+		Preferences:  []ScoredMemory{pref},
+		TaskOutcomes: []ScoredMemory{outcome},
+		Relevant:     []ScoredMemory{pref, relevant},
 	})
-	if !strings.Contains(out, "## User preferences") || !strings.Contains(out, "## Relevant memories") {
+	if !strings.Contains(out, "## User preferences") || !strings.Contains(out, "## Recent task outcomes") || !strings.Contains(out, "## Relevant memories") {
 		t.Fatalf("missing sections: %q", out)
 	}
 	if strings.Count(out, "User prefers Traditional Chinese replies.") != 1 {
@@ -162,6 +188,9 @@ func TestFormatPromptMemoriesSeparatesPreferencesAndDedupesRelevant(t *testing.T
 	}
 	if !strings.Contains(out, "[project] CometMind uses SQLite.") {
 		t.Fatalf("missing relevant memory: %q", out)
+	}
+	if !strings.Contains(out, "Completed the retry policy.") {
+		t.Fatalf("missing task outcome: %q", out)
 	}
 }
 

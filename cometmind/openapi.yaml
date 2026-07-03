@@ -298,6 +298,7 @@ paths:
                 model_id: claude-sonnet-4-5
                 provider_id: anthropic
                 status: active
+                origin: user
                 token_usage:
                   input_tokens: 0
                   output_tokens: 0
@@ -358,6 +359,7 @@ paths:
                     model_id: claude-sonnet-4-5
                     provider_id: anthropic
                     status: active
+                    origin: user
                     token_usage:
                       input_tokens: 1200
                       output_tokens: 340
@@ -494,6 +496,24 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/sessions/{id}/plan:
+    get:
+      tags: [Sessions]
+      summary: Get session plan
+      description: Returns the current checklist-style plan for a long-running session.
+      operationId: getSessionPlan
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200':
+          description: Current session plan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionPlanResponse'
         '500':
           $ref: '#/components/responses/InternalError'
 
@@ -786,6 +806,94 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/skill-drafts:
+    get:
+      tags: [Skills]
+      summary: List pending skill drafts
+      operationId: listSkillDrafts
+      responses:
+        '200':
+          description: Pending skill drafts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListSkillDraftsResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/skill-drafts/{name}:
+    get:
+      tags: [Skills]
+      summary: Read one pending skill draft
+      operationId: getSkillDraft
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Skill draft detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SkillDraftDetailResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      tags: [Skills]
+      summary: Reject a pending skill draft
+      operationId: rejectSkillDraft
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Skill draft rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/skill-drafts/{name}/promote:
+    post:
+      tags: [Skills]
+      summary: Promote a pending skill draft into the managed skills root
+      operationId: promoteSkillDraft
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Skill draft promoted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Draft cannot be promoted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '500':
           $ref: '#/components/responses/InternalError'
 
@@ -1164,12 +1272,16 @@ paths:
           in: query
           schema:
             type: string
-            enum: [todo, ongoing, done]
+            enum: [todo, ongoing, done, blocked]
         - name: ready_only
           in: query
           schema:
             type: boolean
         - name: include_deleted
+          in: query
+          schema:
+            type: boolean
+        - name: include_archived
           in: query
           schema:
             type: boolean
@@ -1334,6 +1446,79 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/v1/jobs/{id}/archive:
+    put:
+      tags: [Jobs]
+      summary: Archive a completed job
+      operationId: archiveJob
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Archived
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobResource'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      tags: [Jobs]
+      summary: Restore an archived job
+      operationId: unarchiveJob
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Unarchived
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobResource'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/jobs/{id}/retry-runs:
+    post:
+      tags: [Jobs]
+      summary: Reset a blocked job for retry
+      operationId: unblockJob
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Ready for retry
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobResource'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /api/v1/jobs/{id}/lease:
     put:
       tags: [Jobs]
@@ -1449,6 +1634,113 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/scheduled-jobs:
+    get:
+      tags: [Jobs]
+      summary: List scheduled jobs
+      operationId: listScheduledJobs
+      responses:
+        '200':
+          description: Scheduled jobs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListScheduledJobsResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags: [Jobs]
+      summary: Schedule a one-shot job
+      operationId: createScheduledJob
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateScheduledJobRequest'
+      responses:
+        '201':
+          description: Scheduled job created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduledJobResource'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/scheduled-jobs/{id}:
+    get:
+      tags: [Jobs]
+      summary: Get a scheduled job
+      operationId: getScheduledJob
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Scheduled job
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduledJobResource'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    patch:
+      tags: [Jobs]
+      summary: Update a scheduled job
+      operationId: updateScheduledJob
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateScheduledJobRequest'
+      responses:
+        '200':
+          description: Scheduled job updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduledJobResource'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      tags: [Jobs]
+      summary: Delete a scheduled job
+      operationId: deleteScheduledJob
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Deleted
+        '404':
+          $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalError'
 
@@ -1713,6 +2005,7 @@ components:
         - model_id
         - provider_id
         - status
+        - origin
         - token_usage
         - pinned
         - created_at
@@ -1733,6 +2026,10 @@ components:
         status:
           type: string
           enum: [active, archived]
+        origin:
+          type: string
+          enum: [user, autonomy]
+          description: Whether this session was created by a user action or an autonomous job run.
         token_usage:
           $ref: '#/components/schemas/TokenUsage'
         pinned:
@@ -1796,6 +2093,54 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Session'
+
+    SessionPlanStep:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - session_id
+        - step_index
+        - description
+        - status
+        - blocker_reason
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+        session_id:
+          type: string
+        step_index:
+          type: integer
+          format: int64
+        description:
+          type: string
+        status:
+          type: string
+          enum: [pending, in_progress, completed, blocked]
+        blocker_reason:
+          type: string
+        created_at:
+          type: integer
+          format: int64
+          description: Unix epoch milliseconds.
+        updated_at:
+          type: integer
+          format: int64
+          description: Unix epoch milliseconds.
+
+    SessionPlanResponse:
+      type: object
+      additionalProperties: false
+      required: [session_id, steps]
+      properties:
+        session_id:
+          type: string
+        steps:
+          type: array
+          items:
+            $ref: '#/components/schemas/SessionPlanStep'
 
     ModelEntry:
       type: object
@@ -1924,6 +2269,44 @@ components:
       properties:
         skill:
           $ref: '#/components/schemas/Skill'
+        content:
+          type: string
+
+    SkillDraft:
+      type: object
+      additionalProperties: false
+      required: [name, description, path, created_at, updated_at]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        path:
+          type: string
+        created_at:
+          type: integer
+          format: int64
+        updated_at:
+          type: integer
+          format: int64
+
+    ListSkillDraftsResponse:
+      type: object
+      additionalProperties: false
+      required: [drafts]
+      properties:
+        drafts:
+          type: array
+          items:
+            $ref: '#/components/schemas/SkillDraft'
+
+    SkillDraftDetailResponse:
+      type: object
+      additionalProperties: false
+      required: [draft, content]
+      properties:
+        draft:
+          $ref: '#/components/schemas/SkillDraft'
         content:
           type: string
 
@@ -2447,6 +2830,8 @@ components:
           type: boolean
         max_retrieved:
           type: integer
+        task_outcome_limit:
+          type: integer
         similarity_threshold:
           type: number
         extraction_provider:
@@ -2540,6 +2925,7 @@ components:
         - definition_of_done
         - progress
         - status
+        - failure_count
         - created_by
         - created_at
         - updated_at
@@ -2554,7 +2940,7 @@ components:
           type: string
         status:
           type: string
-          enum: [todo, ongoing, done]
+          enum: [todo, ongoing, done, blocked]
         workspace_path:
           type: string
         assigned_session_id:
@@ -2569,6 +2955,17 @@ components:
         source_platform:
           type: string
         source_channel_id:
+          type: string
+        archived_at:
+          type: integer
+          format: int64
+        failure_count:
+          type: integer
+          format: int64
+        next_retry_at:
+          type: integer
+          format: int64
+        last_failure_reason:
           type: string
         deleted_at:
           type: integer
@@ -2618,6 +3015,119 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/JobEventResource'
+
+    ScheduledJobResource:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - description
+        - definition_of_done
+        - created_by
+        - source_platform
+        - next_run_at
+        - enabled
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+        description:
+          type: string
+        definition_of_done:
+          type: string
+        workspace_path:
+          type: string
+        created_by:
+          type: string
+          enum: [user, agent]
+        source_session_id:
+          type: string
+        source_platform:
+          type: string
+          enum: ['', desktop, discord]
+        source_channel_id:
+          type: string
+        cron_expr:
+          type: string
+          description: Standard 5-field cron expression for recurring schedules. Mutually exclusive with run_at.
+        run_at:
+          type: integer
+          format: int64
+          description: One-shot run time in Unix milliseconds. Mutually exclusive with cron_expr.
+        next_run_at:
+          type: integer
+          format: int64
+        last_run_at:
+          type: integer
+          format: int64
+        enabled:
+          type: boolean
+        created_at:
+          type: integer
+          format: int64
+        updated_at:
+          type: integer
+          format: int64
+
+    ListScheduledJobsResponse:
+      type: object
+      additionalProperties: false
+      required: [scheduled_jobs]
+      properties:
+        scheduled_jobs:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScheduledJobResource'
+
+    CreateScheduledJobRequest:
+      type: object
+      additionalProperties: false
+      required: [description]
+      properties:
+        description:
+          type: string
+        definition_of_done:
+          type: string
+        workspace_path:
+          type: string
+        created_by:
+          type: string
+          enum: [user, agent]
+        source_session_id:
+          type: string
+        source_platform:
+          type: string
+          enum: ['', desktop, discord]
+        source_channel_id:
+          type: string
+        cron_expr:
+          type: string
+          description: Standard 5-field cron expression for recurring schedules. Mutually exclusive with run_at.
+        run_at:
+          type: integer
+          format: int64
+          description: One-shot run time in Unix milliseconds. Mutually exclusive with cron_expr.
+
+    UpdateScheduledJobRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        description:
+          type: string
+        definition_of_done:
+          type: string
+        workspace_path:
+          type: string
+        cron_expr:
+          type: string
+          description: Standard 5-field cron expression for recurring schedules. Mutually exclusive with run_at.
+        run_at:
+          type: integer
+          format: int64
+          description: One-shot run time in Unix milliseconds. Mutually exclusive with cron_expr.
+        enabled:
+          type: boolean
 
     CreateJobRequest:
       type: object
@@ -2691,6 +3201,8 @@ components:
           type: boolean
         on_released:
           type: boolean
+        on_blocked:
+          type: boolean
 
     JobSettings:
       type: object
@@ -2701,6 +3213,18 @@ components:
         lease_minutes:
           type: integer
         deleted_purge_days:
+          type: integer
+        done_archive_days:
+          type: integer
+        archived_purge_days:
+          type: integer
+        stale_review_minutes:
+          type: integer
+        max_consecutive_failures:
+          type: integer
+        retry_cooldown_minutes:
+          type: integer
+        max_retry_cooldown_minutes:
           type: integer
         reconcile_interval_seconds:
           type: integer

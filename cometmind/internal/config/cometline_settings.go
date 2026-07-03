@@ -28,11 +28,14 @@ type cometlineACPJSON struct {
 }
 
 type cometlineSkillsJSON struct {
-	Enabled           bool     `json:"enabled"`
-	Roots             []string `json:"roots"`
-	IncludeOpenCode   bool     `json:"includeOpenCode"`
-	IncludeClaude     bool     `json:"includeClaude"`
-	MirrorToCometMind bool     `json:"mirrorToCometMind"`
+	Enabled             bool     `json:"enabled"`
+	Roots               []string `json:"roots"`
+	IncludeOpenCode     bool     `json:"includeOpenCode"`
+	IncludeClaude       bool     `json:"includeClaude"`
+	MirrorToCometMind   bool     `json:"mirrorToCometMind"`
+	SynthesisEnabled    bool     `json:"synthesisEnabled"`
+	SynthesisProviderID string   `json:"synthesisProviderId"`
+	SynthesisModel      string   `json:"synthesisModel"`
 }
 
 type cometlineMemoryEmbeddingJSON struct {
@@ -41,6 +44,29 @@ type cometlineMemoryEmbeddingJSON struct {
 	Model      string `json:"model"`
 	BaseURL    string `json:"baseURL"`
 	APIKey     string `json:"apiKey"`
+}
+
+type cometlineMemoryLifecycleJSON struct {
+	DecayHalfLifeDays     float64 `json:"decayHalfLifeDays"`
+	ForgetThreshold       float64 `json:"forgetThreshold"`
+	UsageBoostFactor      float64 `json:"usageBoostFactor"`
+	MaxUsageBoost         float64 `json:"maxUsageBoost"`
+	MaxMemories           int     `json:"maxMemories"`
+	CompactionTargetRatio float64 `json:"compactionTargetRatio"`
+	CompactionOnExtract   bool    `json:"compactionOnExtract"`
+}
+
+type cometlineMemoryJSON struct {
+	Enabled              bool                         `json:"enabled"`
+	AutoExtract          bool                         `json:"autoExtract"`
+	AutoRetrieve         bool                         `json:"autoRetrieve"`
+	MaxRetrieved         int                          `json:"maxRetrieved"`
+	TaskOutcomeLimit     int                          `json:"taskOutcomeLimit"`
+	SimilarityThreshold  float64                      `json:"similarityThreshold"`
+	ExtractionProviderID string                       `json:"extractionProviderId"`
+	ExtractionModel      string                       `json:"extractionModel"`
+	Lifecycle            cometlineMemoryLifecycleJSON `json:"lifecycle"`
+	Embedding            cometlineMemoryEmbeddingJSON `json:"embedding"`
 }
 
 type cometlineDiscordJSON struct {
@@ -95,34 +121,58 @@ type cometlineJobsNotificationsJSON struct {
 	OnClaimed   bool `json:"onClaimed"`
 	OnCompleted bool `json:"onCompleted"`
 	OnReleased  bool `json:"onReleased"`
+	OnBlocked   bool `json:"onBlocked"`
 }
 
 type cometlineJobsJSON struct {
 	Notifications            cometlineJobsNotificationsJSON `json:"notifications"`
 	LeaseMinutes             int                            `json:"leaseMinutes"`
 	DeletedPurgeDays         int                            `json:"deletedPurgeDays"`
+	DoneArchiveDays          int                            `json:"doneArchiveDays"`
+	ArchivedPurgeDays        int                            `json:"archivedPurgeDays"`
+	StaleReviewMinutes       int                            `json:"staleReviewMinutes"`
+	MaxConsecutiveFailures   int                            `json:"maxConsecutiveFailures"`
+	RetryCooldownMinutes     int                            `json:"retryCooldownMinutes"`
+	MaxRetryCooldownMinutes  int                            `json:"maxRetryCooldownMinutes"`
 	ReconcileIntervalSeconds int                            `json:"reconcileIntervalSeconds"`
 }
 
+type cometlineAutonomyJSON struct {
+	Enabled             bool   `json:"enabled"`
+	MaxConcurrent       int    `json:"maxConcurrent"`
+	PollIntervalSeconds int    `json:"pollIntervalSeconds"`
+	MaxStepsPerRun      int    `json:"maxStepsPerRun"`
+	ProviderID          string `json:"providerId"`
+	ModelID             string `json:"modelId"`
+}
+
+type cometlineSchedulerJSON struct {
+	Enabled             bool `json:"enabled"`
+	PollIntervalSeconds int  `json:"pollIntervalSeconds"`
+}
+
+type cometlinePlanningJSON struct {
+	Enabled bool `json:"enabled"`
+}
+
 type cometlineCometmindJSON struct {
-	SystemPromptPath   string              `json:"systemPromptPath"`
-	MaxTokens          int                 `json:"maxTokens"`
-	ContextWindowLimit int                 `json:"contextWindowLimit"`
-	TitleProviderID    string              `json:"titleProviderId"`
-	TitleModelID       string              `json:"titleModelId"`
-	ACP                cometlineACPJSON    `json:"acp"`
-	Skills             cometlineSkillsJSON `json:"skills"`
-	Memory             struct {
-		ExtractionProviderID string                       `json:"extractionProviderId"`
-		ExtractionModel      string                       `json:"extractionModel"`
-		Embedding            cometlineMemoryEmbeddingJSON `json:"embedding"`
-	} `json:"memory"`
-	Storage cometlineStorageJSON `json:"storage"`
-	Gateway struct {
+	SystemPromptPath   string               `json:"systemPromptPath"`
+	MaxTokens          int                  `json:"maxTokens"`
+	ContextWindowLimit int                  `json:"contextWindowLimit"`
+	TitleProviderID    string               `json:"titleProviderId"`
+	TitleModelID       string               `json:"titleModelId"`
+	ACP                cometlineACPJSON     `json:"acp"`
+	Skills             cometlineSkillsJSON  `json:"skills"`
+	Memory             cometlineMemoryJSON  `json:"memory"`
+	Storage            cometlineStorageJSON `json:"storage"`
+	Gateway            struct {
 		Discord cometlineDiscordJSON `json:"discord"`
 	} `json:"gateway"`
-	MCP  cometlineMCPJSON  `json:"mcp"`
-	Jobs cometlineJobsJSON `json:"jobs"`
+	MCP       cometlineMCPJSON       `json:"mcp"`
+	Jobs      cometlineJobsJSON      `json:"jobs"`
+	Autonomy  cometlineAutonomyJSON  `json:"autonomy"`
+	Scheduler cometlineSchedulerJSON `json:"scheduler"`
+	Planning  cometlinePlanningJSON  `json:"planning"`
 }
 
 type cometlineSettingsJSON struct {
@@ -215,21 +265,33 @@ func adaptCometlineSettings(raw cometlineSettingsJSON) (*Config, error) {
 			Timeout: strings.TrimSpace(cm.ACP.Timeout),
 		},
 		Skills: SkillsConfig{
-			Enabled:           cm.Skills.Enabled,
-			Roots:             append([]string(nil), cm.Skills.Roots...),
-			IncludeOpenCode:   cm.Skills.IncludeOpenCode,
-			IncludeClaude:     cm.Skills.IncludeClaude,
-			MirrorToCometMind: cm.Skills.MirrorToCometMind,
+			Enabled:             cm.Skills.Enabled,
+			Roots:               append([]string(nil), cm.Skills.Roots...),
+			IncludeOpenCode:     cm.Skills.IncludeOpenCode,
+			IncludeClaude:       cm.Skills.IncludeClaude,
+			MirrorToCometMind:   cm.Skills.MirrorToCometMind,
+			SynthesisEnabled:    cm.Skills.SynthesisEnabled,
+			SynthesisProviderID: strings.TrimSpace(cm.Skills.SynthesisProviderID),
+			SynthesisModel:      strings.TrimSpace(cm.Skills.SynthesisModel),
 		},
 		Memory: MemoryConfig{
-			Enabled:             memDef.Enabled,
-			AutoExtract:         memDef.AutoExtract,
-			AutoRetrieve:        memDef.AutoRetrieve,
-			MaxRetrieved:        memDef.MaxRetrieved,
-			SimilarityThreshold: memDef.SimilarityThreshold,
+			Enabled:             cm.Memory.Enabled,
+			AutoExtract:         cm.Memory.AutoExtract,
+			AutoRetrieve:        cm.Memory.AutoRetrieve,
+			MaxRetrieved:        cm.Memory.MaxRetrieved,
+			TaskOutcomeLimit:    cm.Memory.TaskOutcomeLimit,
+			SimilarityThreshold: cm.Memory.SimilarityThreshold,
 			ExtractionProvider:  strings.TrimSpace(cm.Memory.ExtractionProviderID),
 			ExtractionModel:     firstNonEmpty(strings.TrimSpace(cm.Memory.ExtractionModel), memDef.ExtractionModel),
-			Lifecycle:           memDef.Lifecycle,
+			Lifecycle: MemoryLifecycleConfig{
+				DecayHalfLifeDays:     cm.Memory.Lifecycle.DecayHalfLifeDays,
+				ForgetThreshold:       cm.Memory.Lifecycle.ForgetThreshold,
+				UsageBoostFactor:      cm.Memory.Lifecycle.UsageBoostFactor,
+				MaxUsageBoost:         cm.Memory.Lifecycle.MaxUsageBoost,
+				MaxMemories:           cm.Memory.Lifecycle.MaxMemories,
+				CompactionTargetRatio: cm.Memory.Lifecycle.CompactionTargetRatio,
+				CompactionOnExtract:   cm.Memory.Lifecycle.CompactionOnExtract,
+			},
 			Embedding: MemoryEmbeddingConfig{
 				ProviderID: strings.TrimSpace(cm.Memory.Embedding.ProviderID),
 				Provider:   strings.TrimSpace(cm.Memory.Embedding.Provider),
@@ -252,10 +314,32 @@ func adaptCometlineSettings(raw cometlineSettingsJSON) (*Config, error) {
 				OnClaimed:   cm.Jobs.Notifications.OnClaimed,
 				OnCompleted: cm.Jobs.Notifications.OnCompleted,
 				OnReleased:  cm.Jobs.Notifications.OnReleased,
+				OnBlocked:   cm.Jobs.Notifications.OnBlocked,
 			},
 			LeaseMinutes:             cm.Jobs.LeaseMinutes,
 			DeletedPurgeDays:         cm.Jobs.DeletedPurgeDays,
+			DoneArchiveDays:          cm.Jobs.DoneArchiveDays,
+			ArchivedPurgeDays:        cm.Jobs.ArchivedPurgeDays,
+			StaleReviewMinutes:       cm.Jobs.StaleReviewMinutes,
+			MaxConsecutiveFailures:   cm.Jobs.MaxConsecutiveFailures,
+			RetryCooldownMinutes:     cm.Jobs.RetryCooldownMinutes,
+			MaxRetryCooldownMinutes:  cm.Jobs.MaxRetryCooldownMinutes,
 			ReconcileIntervalSeconds: cm.Jobs.ReconcileIntervalSeconds,
+		},
+		Autonomy: AutonomousJobsConfig{
+			Enabled:             cm.Autonomy.Enabled,
+			MaxConcurrent:       cm.Autonomy.MaxConcurrent,
+			PollIntervalSeconds: cm.Autonomy.PollIntervalSeconds,
+			MaxStepsPerRun:      cm.Autonomy.MaxStepsPerRun,
+			ProviderID:          strings.TrimSpace(cm.Autonomy.ProviderID),
+			ModelID:             strings.TrimSpace(cm.Autonomy.ModelID),
+		},
+		Scheduler: SchedulerConfig{
+			Enabled:             cm.Scheduler.Enabled,
+			PollIntervalSeconds: cm.Scheduler.PollIntervalSeconds,
+		},
+		Planning: PlanningConfig{
+			Enabled: cm.Planning.Enabled,
 		},
 		Gateway: GatewayConfig{
 			Discord: DiscordGatewayConfig{

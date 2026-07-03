@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { fly, fade } from 'svelte/transition';
 	import { onMount } from 'svelte';
-	import { X, Trash2, Play } from '@lucide/svelte';
-	import type { JobEventResource, JobResource } from '$lib/client/cometmind';
+	import { Archive, RotateCcw, X, Trash2, Play, ExternalLink, RefreshCw } from '@lucide/svelte';
+	import { getSession, type JobEventResource, type JobResource } from '$lib/client/cometmind';
+	import { navigateToSession } from '$lib/actions/navigate-to-session';
 	import JobCreateForm from './JobCreateForm.svelte';
 	import WorkspacePathField from '$lib/components/WorkspacePathField.svelte';
 	import { startJobInChat } from '$lib/jobs/start-job-in-chat';
@@ -24,6 +25,9 @@
 		onClose,
 		onSave,
 		onDelete,
+		onArchive,
+		onUnarchive,
+		onRetry,
 		onCreate,
 		onStartInChat
 	}: {
@@ -41,13 +45,19 @@
 		onClose: () => void;
 		onSave?: () => void | Promise<void>;
 		onDelete?: (job: JobResource) => void | Promise<void>;
+		onArchive?: (job: JobResource) => void | Promise<void>;
+		onUnarchive?: (job: JobResource) => void | Promise<void>;
+		onRetry?: (job: JobResource) => void | Promise<void>;
 		onCreate?: () => void | Promise<void>;
 		onStartInChat?: (job: JobResource) => void | Promise<void>;
 	} = $props();
 
 	let starting = $state(false);
 	let startError = $state('');
-	const isArchived = $derived(job?.deleted_at != null);
+	let openingSession = $state(false);
+	let openSessionError = $state('');
+	const isArchived = $derived(job?.archived_at != null);
+	const isBlocked = $derived(job?.status === 'blocked');
 
 	onMount(() => {
 		function onKeydown(event: KeyboardEvent) {
@@ -75,6 +85,30 @@
 		} finally {
 			starting = false;
 		}
+	}
+
+	async function handleOpenRunSession() {
+		if (!job?.assigned_session_id) return;
+		openingSession = true;
+		openSessionError = '';
+		try {
+			const session = await getSession(job.assigned_session_id);
+			navigateToSession(session);
+			onClose();
+		} catch (err) {
+			openSessionError = err instanceof Error ? err.message : 'Failed to open run session';
+		} finally {
+			openingSession = false;
+		}
+	}
+
+	function formatRetryTime(ms?: number): string {
+		if (!ms) return 'not scheduled';
+		return new Intl.DateTimeFormat(undefined, {
+			hour: '2-digit',
+			minute: '2-digit',
+			second: '2-digit'
+		}).format(new Date(ms));
 	}
 </script>
 
@@ -108,6 +142,12 @@
 		{:else if job}
 			<div class="drawer-meta">
 				<p><span>Status</span> {job.status}</p>
+				{#if job.failure_count > 0}
+					<p><span>Failures</span> {job.failure_count}</p>
+				{/if}
+				{#if job.next_retry_at}
+					<p><span>Next retry</span> {formatRetryTime(job.next_retry_at)}</p>
+				{/if}
 				{#if job.assigned_session_id}
 					<p><span>Assigned</span> <code>{job.assigned_session_id}</code></p>
 				{/if}
@@ -115,6 +155,19 @@
 					<p><span>Workspace</span> <code>{job.workspace_path}</code></p>
 				{/if}
 			</div>
+
+			{#if isBlocked}
+				<section class="drawer-section blocked-section">
+					<h3>Blocked</h3>
+					<p class="drawer-copy">
+						This job reached the retry limit. Review the latest failure, then retry it
+						when the underlying issue is fixed.
+					</p>
+					{#if job.last_failure_reason}
+						<pre class="drawer-pre">{job.last_failure_reason}</pre>
+					{/if}
+				</section>
+			{/if}
 
 			{#if job.progress?.trim()}
 				<section class="drawer-section">
@@ -188,12 +241,26 @@
 			{#if startError}
 				<p class="drawer-error">{startError}</p>
 			{/if}
+			{#if openSessionError}
+				<p class="drawer-error">{openSessionError}</p>
+			{/if}
 		{/if}
 	</div>
 
-	{#if mode === 'detail' && job && !isArchived}
+	{#if mode === 'detail' && job}
 		<footer class="drawer-footer">
-			{#if job.status === 'todo'}
+			{#if job.assigned_session_id}
+				<button
+					type="button"
+					class="secondary"
+					disabled={openingSession || saving || starting}
+					onclick={() => void handleOpenRunSession()}
+				>
+					<ExternalLink size={14} />
+					{openingSession ? 'Opening…' : 'Open run session'}
+				</button>
+			{/if}
+			{#if job.status === 'todo' && !isArchived}
 				<button
 					type="button"
 					class="primary"
@@ -204,15 +271,50 @@
 					Start in chat
 				</button>
 			{/if}
-			<button
-				type="button"
-				class="secondary danger"
-				disabled={saving || starting}
-				onclick={() => void onDelete?.(job)}
-			>
-				<Trash2 size={14} />
-				Delete
-			</button>
+			{#if isBlocked && !isArchived}
+				<button
+					type="button"
+					class="primary"
+					disabled={saving || starting || openingSession}
+					onclick={() => void onRetry?.(job)}
+				>
+					<RefreshCw size={14} />
+					Retry now
+				</button>
+			{/if}
+			{#if job.status === 'done' && !isArchived}
+				<button
+					type="button"
+					class="secondary"
+					disabled={saving || starting || openingSession}
+					onclick={() => void onArchive?.(job)}
+				>
+					<Archive size={14} />
+					Archive
+				</button>
+			{/if}
+			{#if isArchived}
+				<button
+					type="button"
+					class="secondary"
+					disabled={saving || starting || openingSession}
+					onclick={() => void onUnarchive?.(job)}
+				>
+					<RotateCcw size={14} />
+					Unarchive
+				</button>
+			{/if}
+			{#if !isArchived}
+				<button
+					type="button"
+					class="secondary danger"
+					disabled={saving || starting || openingSession}
+					onclick={() => void onDelete?.(job)}
+				>
+					<Trash2 size={14} />
+					Delete
+				</button>
+			{/if}
 		</footer>
 	{/if}
 </aside>

@@ -17,14 +17,17 @@ import (
 	cometsdk "github.com/cometline/comet-sdk"
 	"github.com/cometline/cometmind/internal/acp"
 	"github.com/cometline/cometmind/internal/agent"
+	"github.com/cometline/cometmind/internal/autonomy"
 	"github.com/cometline/cometmind/internal/config"
 	"github.com/cometline/cometmind/internal/jobs"
 	"github.com/cometline/cometmind/internal/logging"
 	mcppkg "github.com/cometline/cometmind/internal/mcp"
 	"github.com/cometline/cometmind/internal/memory"
 	"github.com/cometline/cometmind/internal/paths"
+	"github.com/cometline/cometmind/internal/planning"
 	"github.com/cometline/cometmind/internal/provider"
 	"github.com/cometline/cometmind/internal/retention"
+	"github.com/cometline/cometmind/internal/scheduler"
 	"github.com/cometline/cometmind/internal/session"
 	"github.com/cometline/cometmind/internal/skills"
 	"github.com/cometline/cometmind/internal/store"
@@ -45,6 +48,8 @@ type Runtime struct {
 	Sessions      *session.Service
 	Memory        *memory.Service
 	Jobs          *jobs.Service
+	Scheduler     *scheduler.Service
+	Planning      *planning.Service
 	jobSettings   jobs.Settings
 	jobSettingsMu sync.RWMutex
 	SystemPrompt  string
@@ -88,6 +93,8 @@ func New(ctx context.Context) (*Runtime, error) {
 	}
 	notifier := jobs.NewNotifier(r.jobSettingsSnapshot)
 	r.Jobs = jobs.NewService(sqlDB, r.jobSettingsSnapshot, notifier)
+	r.Scheduler = scheduler.NewService(sqlDB)
+	r.Planning = planning.NewService(sqlDB)
 	if cfg.MemoryRuntimeEnabled() {
 		p, err := provider.New(cfg)
 		if err != nil {
@@ -105,6 +112,22 @@ func New(ctx context.Context) (*Runtime, error) {
 			}
 		}
 	}
+	if cfg.Skills.SynthesisEnabled {
+		providerID := strings.TrimSpace(cfg.Skills.SynthesisProviderID)
+		if providerID == "" {
+			providerID = cfg.Provider
+		}
+		model := strings.TrimSpace(cfg.Skills.SynthesisModel)
+		if model == "" {
+			model = cfg.Model
+		}
+		p, err := provider.NewFor(cfg, providerID)
+		if err != nil {
+			logging.L().Warn("skills.synthesis.provider.init_failed", "error", err)
+		} else {
+			notifier.Register(&skillSynthesisNotifier{provider: p, model: model, memory: r.Memory})
+		}
+	}
 	if _, err := r.RunRetention(ctx); err != nil {
 		logging.L().Warn("retention.startup_failed", "error", err)
 	}
@@ -118,6 +141,38 @@ func New(ctx context.Context) (*Runtime, error) {
 	// in-progress connections simply surface their tools once ready.
 	go r.mcpMgr.Start(ctx)
 	return r, nil
+}
+
+// StartScheduler materializes due scheduled jobs into the normal jobs queue.
+func (r *Runtime) StartScheduler(ctx context.Context) {
+	if r == nil || r.Scheduler == nil || r.Jobs == nil {
+		return
+	}
+	cfg := r.Config.EffectiveSchedulerSettings()
+	if !cfg.Enabled {
+		return
+	}
+	interval := time.Duration(cfg.PollIntervalSeconds) * time.Second
+	if interval <= 0 {
+		interval = time.Minute
+	}
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				count, err := r.Scheduler.MaterializeDue(ctx, r.Jobs, 0)
+				if err != nil {
+					logging.L().Warn("scheduler.materialize.failed", "error", err)
+				} else if count > 0 {
+					logging.L().Info("scheduler.materialized", "count", count)
+				}
+			}
+		}
+	}()
 }
 
 func runRetention(ctx context.Context, db *sql.DB, sessions *session.Service, mem *memory.Service, jobSvc *jobs.Service, cfg config.StorageConfig, isRunning func(string) bool) (retention.Result, error) {
@@ -190,11 +245,25 @@ func (r *Runtime) StartJobsMaintenance(ctx context.Context) {
 				if _, err := r.Jobs.Reconcile(ctx, r.isRunning); err != nil {
 					logging.L().Warn("jobs.reconcile.failed", "error", err)
 				}
+				settings := r.jobSettingsSnapshot()
+				if stale, err := r.Jobs.StaleOngoing(ctx, time.Duration(settings.StaleReviewMinutes)*time.Minute); err != nil {
+					logging.L().Warn("jobs.stale_review.failed", "error", err)
+				} else {
+					for _, job := range stale {
+						logging.L().Warn("jobs.stale_ongoing", "job_id", job.ID, "assigned_session_id", job.AssignedSessionID, "updated_at", job.UpdatedAt)
+					}
+				}
 				cfg := r.Config.EffectiveStorageConfig()
 				if cfg.JobPurgeEnabled() {
 					if _, err := r.Jobs.PurgeDeleted(ctx, cfg.DeletedJobPurgeDays); err != nil {
 						logging.L().Warn("jobs.purge.failed", "error", err)
 					}
+				}
+				if _, err := r.Jobs.ArchiveDone(ctx, settings.DoneArchiveDays); err != nil {
+					logging.L().Warn("jobs.done_archive.failed", "error", err)
+				}
+				if _, err := r.Jobs.PurgeArchived(ctx, settings.ArchivedPurgeDays); err != nil {
+					logging.L().Warn("jobs.archive_purge.failed", "error", err)
 				}
 			}
 		}
@@ -240,6 +309,46 @@ func (r *Runtime) StartRetentionMaintenance(ctx context.Context) {
 			}
 		}
 	}()
+}
+
+// StartAutonomousJobWorker starts the background worker that claims and
+// executes ready jobs without a human opening a chat session first. It is a
+// no-op if autonomy is disabled in config (Worker.Run checks this itself).
+func (r *Runtime) StartAutonomousJobWorker(ctx context.Context, guard autonomy.RunGuard) {
+	if r == nil || r.Jobs == nil || r.Sessions == nil {
+		return
+	}
+	w := &autonomy.Worker{
+		Jobs:              r.Jobs,
+		Sessions:          r.Sessions,
+		Memory:            r.Memory,
+		NewRunner:         r.RunnerFor,
+		Guard:             guard,
+		Config:            r.Config.EffectiveAutonomousJobsSettings(),
+		DefaultModelID:    r.autonomyModelID(),
+		DefaultProviderID: r.autonomyProviderID(),
+	}
+	go w.Run(ctx)
+}
+
+func (r *Runtime) autonomyProviderID() string {
+	if r == nil || r.Config == nil {
+		return ""
+	}
+	if providerID := strings.TrimSpace(r.Config.Autonomy.ProviderID); providerID != "" {
+		return providerID
+	}
+	return r.Config.Provider
+}
+
+func (r *Runtime) autonomyModelID() string {
+	if r == nil || r.Config == nil {
+		return ""
+	}
+	if modelID := strings.TrimSpace(r.Config.Autonomy.ModelID); modelID != "" {
+		return modelID
+	}
+	return r.Config.Model
 }
 
 func (r *Runtime) jobSettingsSnapshot() jobs.Settings {
@@ -395,6 +504,7 @@ func (r *Runtime) runnerFor(sess session.Session, workspacePath string, opts Run
 		Provider:             p,
 		Sessions:             r.Sessions,
 		Memory:               r.Memory,
+		PlanStore:            r.planningForAgent(),
 		Registry:             registry,
 		Jobs:                 r.Jobs,
 		MaxSteps:             maxSteps,
@@ -428,6 +538,8 @@ func (r *Runtime) toolRegistryWithJobMeta(workspacePath string, skillRegistry sk
 		MCP:                r.mcpMgr,
 		Orchestrator:       r.SubagentOrchestrator(),
 		Jobs:               r.Jobs,
+		Memory:             r.Memory,
+		Planning:           r.planningForAgent(),
 		SessionID:          sessionID,
 		JobPlatform:        platform,
 		JobSourceChannelID: sourceChannelID,
@@ -439,6 +551,13 @@ func (r *Runtime) toolRegistryWithJobMeta(workspacePath string, skillRegistry sk
 			WaitTimeoutSec:  1800,
 		},
 	})
+}
+
+func (r *Runtime) planningForAgent() *planning.Service {
+	if r == nil || r.Config == nil || !r.Config.EffectivePlanningSettings().Enabled {
+		return nil
+	}
+	return r.Planning
 }
 
 // SkillsForWorkspace discovers Agent Skills visible to one workspace.

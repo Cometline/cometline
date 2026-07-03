@@ -13,6 +13,7 @@ type MemoryConfig struct {
 	AutoExtract         bool                  `json:"auto_extract" mapstructure:"auto_extract"`
 	AutoRetrieve        bool                  `json:"auto_retrieve" mapstructure:"auto_retrieve"`
 	MaxRetrieved        int                   `json:"max_retrieved" mapstructure:"max_retrieved"`
+	TaskOutcomeLimit    int                   `json:"task_outcome_limit" mapstructure:"task_outcome_limit"`
 	SimilarityThreshold float64               `json:"similarity_threshold" mapstructure:"similarity_threshold"`
 	ExtractionProvider  string                `json:"extraction_provider" mapstructure:"extraction_provider"`
 	ExtractionModel     string                `json:"extraction_model" mapstructure:"extraction_model"`
@@ -47,6 +48,7 @@ func defaultMemoryConfig() MemoryConfig {
 		AutoExtract:         def.AutoExtract,
 		AutoRetrieve:        def.AutoRetrieve,
 		MaxRetrieved:        def.MaxRetrieved,
+		TaskOutcomeLimit:    def.TaskOutcomeLimit,
 		SimilarityThreshold: def.SimilarityThreshold,
 		Lifecycle: MemoryLifecycleConfig{
 			DecayHalfLifeDays:     def.Lifecycle.DecayHalfLifeDays,
@@ -78,6 +80,7 @@ func (c *Config) MemorySettings() memory.Settings {
 		AutoExtract:         mc.AutoExtract,
 		AutoRetrieve:        mc.AutoRetrieve,
 		MaxRetrieved:        mc.MaxRetrieved,
+		TaskOutcomeLimit:    mc.TaskOutcomeLimit,
 		SimilarityThreshold: mc.SimilarityThreshold,
 		ExtractionProvider:  mc.ExtractionProvider,
 		ExtractionModel:     mc.ExtractionModel,
@@ -95,7 +98,10 @@ func (c *Config) MemorySettings() memory.Settings {
 	if s.MaxRetrieved <= 0 {
 		s.MaxRetrieved = def.MaxRetrieved
 	}
-	if s.SimilarityThreshold <= 0 {
+	if s.TaskOutcomeLimit <= 0 {
+		s.TaskOutcomeLimit = def.TaskOutcomeLimit
+	}
+	if s.SimilarityThreshold < 0 {
 		s.SimilarityThreshold = def.SimilarityThreshold
 	}
 	if s.Lifecycle.DecayHalfLifeDays <= 0 {
@@ -231,7 +237,7 @@ func usesOpenAIEmbeddingAPI(provider string) bool {
 
 func (c *Config) memoryBehaviorConfigured() bool {
 	return c.Memory.Enabled || c.Memory.AutoExtract || c.Memory.AutoRetrieve ||
-		c.Memory.MaxRetrieved > 0 || c.Memory.SimilarityThreshold > 0 ||
+		c.Memory.MaxRetrieved > 0 || c.Memory.TaskOutcomeLimit > 0 || c.Memory.SimilarityThreshold > 0 ||
 		strings.TrimSpace(c.Memory.ExtractionProvider) != "" ||
 		strings.TrimSpace(c.Memory.ExtractionModel) != "" ||
 		c.Memory.Lifecycle.DecayHalfLifeDays > 0 ||
@@ -264,6 +270,7 @@ func (c *Config) EffectiveMemoryConfig() MemoryConfig {
 		AutoExtract:         s.AutoExtract,
 		AutoRetrieve:        s.AutoRetrieve,
 		MaxRetrieved:        s.MaxRetrieved,
+		TaskOutcomeLimit:    s.TaskOutcomeLimit,
 		SimilarityThreshold: s.SimilarityThreshold,
 		ExtractionProvider:  s.ExtractionProvider,
 		ExtractionModel:     s.ExtractionModel,

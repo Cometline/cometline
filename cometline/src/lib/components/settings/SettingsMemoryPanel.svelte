@@ -376,6 +376,19 @@
 							/>
 						</label>
 						<label>
+							<span>Task outcomes in prompt ({settings.task_outcome_limit})</span>
+							<input
+								type="range"
+								min="1"
+								max="10"
+								bind:value={settings.task_outcome_limit}
+							/>
+							<p class="field-hint">
+								Recent completed-job outcomes injected separately from semantic
+								memory retrieval.
+							</p>
+						</label>
+						<label>
 							<span
 								>Decay half-life (days): {settings.lifecycle
 									.decay_half_life_days}</span

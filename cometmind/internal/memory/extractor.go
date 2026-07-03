@@ -245,7 +245,7 @@ func messageText(m cometsdk.Message) string {
 
 func normalizeKind(kind string) string {
 	switch strings.ToLower(strings.TrimSpace(kind)) {
-	case "preference", "project":
+	case "preference", "project", "task_outcome":
 		return strings.ToLower(kind)
 	default:
 		return "fact"

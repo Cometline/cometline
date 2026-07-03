@@ -347,8 +347,21 @@ describe('shouldGroupAssistantTimeline', () => {
 		}
 	};
 
-	it('does not group a single timeline entry before final text', () => {
-		expect(shouldGroupAssistantTimeline(assistantNoText, [reasoningEntry])).toBe(false);
+	it('does not group a single timeline entry while streaming (pending)', () => {
+		const streaming: Extract<ChatItem, { type: 'assistant' }> = {
+			...assistantNoText,
+			pending: true
+		};
+		expect(shouldGroupAssistantTimeline(streaming, [reasoningEntry])).toBe(false);
+	});
+
+	it('groups a single timeline entry after the turn settles (abort or complete)', () => {
+		const settled: Extract<ChatItem, { type: 'assistant' }> = {
+			...assistantNoText,
+			pending: false
+		};
+		expect(shouldGroupAssistantTimeline(settled, [reasoningEntry])).toBe(true);
+		expect(shouldGroupAssistantTimeline(assistantNoText, [reasoningEntry])).toBe(true);
 	});
 
 	it('groups once the timeline has multiple entries, even without final text', () => {

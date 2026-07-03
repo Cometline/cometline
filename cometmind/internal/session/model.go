@@ -25,6 +25,7 @@ type Session struct {
 	ModelID                 string
 	ProviderID              string
 	Status                  string
+	Origin                  string
 	TokenUsage              string
 	ParentSessionID         string
 	Purpose                 string
@@ -82,6 +83,7 @@ func sessionFromDB(s db.Session) Session {
 		ModelID:                 s.ModelID,
 		ProviderID:              s.ProviderID,
 		Status:                  s.Status,
+		Origin:                  s.Origin,
 		TokenUsage:              s.TokenUsage,
 		ParentSessionID:         parent,
 		Purpose:                 s.Purpose,

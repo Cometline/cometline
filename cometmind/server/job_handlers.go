@@ -21,6 +21,10 @@ type jobResource struct {
 	SourceSessionID   string `json:"source_session_id,omitempty"`
 	SourcePlatform    string `json:"source_platform,omitempty"`
 	SourceChannelID   string `json:"source_channel_id,omitempty"`
+	ArchivedAt        *int64 `json:"archived_at,omitempty"`
+	FailureCount      int64  `json:"failure_count"`
+	NextRetryAt       *int64 `json:"next_retry_at,omitempty"`
+	LastFailureReason string `json:"last_failure_reason,omitempty"`
 	DeletedAt         *int64 `json:"deleted_at,omitempty"`
 	CreatedAt         int64  `json:"created_at"`
 	UpdatedAt         int64  `json:"updated_at"`
@@ -66,10 +70,16 @@ type jobCompleteRequest struct {
 }
 
 type jobSettingsRequest struct {
-	Notifications          *jobNotificationSettingsRequest `json:"notifications"`
-	LeaseMinutes           *int                            `json:"lease_minutes"`
-	DeletedPurgeDays       *int                            `json:"deleted_purge_days"`
-	ReconcileIntervalSeconds *int                          `json:"reconcile_interval_seconds"`
+	Notifications            *jobNotificationSettingsRequest `json:"notifications"`
+	LeaseMinutes             *int                            `json:"lease_minutes"`
+	DeletedPurgeDays         *int                            `json:"deleted_purge_days"`
+	DoneArchiveDays          *int                            `json:"done_archive_days"`
+	ArchivedPurgeDays        *int                            `json:"archived_purge_days"`
+	StaleReviewMinutes       *int                            `json:"stale_review_minutes"`
+	MaxConsecutiveFailures   *int                            `json:"max_consecutive_failures"`
+	RetryCooldownMinutes     *int                            `json:"retry_cooldown_minutes"`
+	MaxRetryCooldownMinutes  *int                            `json:"max_retry_cooldown_minutes"`
+	ReconcileIntervalSeconds *int                            `json:"reconcile_interval_seconds"`
 }
 
 type jobNotificationSettingsRequest struct {
@@ -77,6 +87,7 @@ type jobNotificationSettingsRequest struct {
 	OnClaimed   *bool `json:"on_claimed"`
 	OnCompleted *bool `json:"on_completed"`
 	OnReleased  *bool `json:"on_released"`
+	OnBlocked   *bool `json:"on_blocked"`
 }
 
 func jobToResource(j jobs.Job) jobResource {
@@ -93,6 +104,10 @@ func jobToResource(j jobs.Job) jobResource {
 		SourceSessionID:   j.SourceSessionID,
 		SourcePlatform:    j.SourcePlatform,
 		SourceChannelID:   j.SourceChannelID,
+		ArchivedAt:        j.ArchivedAt,
+		FailureCount:      j.FailureCount,
+		NextRetryAt:       j.NextRetryAt,
+		LastFailureReason: j.LastFailureReason,
 		DeletedAt:         j.DeletedAt,
 		CreatedAt:         j.CreatedAt,
 		UpdatedAt:         j.UpdatedAt,
@@ -117,9 +132,16 @@ func settingsToResponse(s jobs.Settings) gin.H {
 			"on_claimed":   s.Notifications.OnClaimed,
 			"on_completed": s.Notifications.OnCompleted,
 			"on_released":  s.Notifications.OnReleased,
+			"on_blocked":   s.Notifications.OnBlocked,
 		},
 		"lease_minutes":              s.LeaseMinutes,
 		"deleted_purge_days":         s.DeletedPurgeDays,
+		"done_archive_days":          s.DoneArchiveDays,
+		"archived_purge_days":        s.ArchivedPurgeDays,
+		"stale_review_minutes":       s.StaleReviewMinutes,
+		"max_consecutive_failures":   s.MaxConsecutiveFailures,
+		"retry_cooldown_minutes":     s.RetryCooldownMinutes,
+		"max_retry_cooldown_minutes": s.MaxRetryCooldownMinutes,
 		"reconcile_interval_seconds": s.ReconcileIntervalS,
 	}
 }
@@ -144,9 +166,10 @@ func (a *App) handleListJobs(c *gin.Context) {
 		return
 	}
 	filter := jobs.ListFilter{
-		Status:         c.Query("status"),
-		ReadyOnly:      c.Query("ready_only") == "true",
-		IncludeDeleted: c.Query("include_deleted") == "true",
+		Status:          c.Query("status"),
+		ReadyOnly:       c.Query("ready_only") == "true",
+		IncludeDeleted:  c.Query("include_deleted") == "true",
+		IncludeArchived: c.Query("include_archived") == "true",
 	}
 	items, err := a.jobs.List(c.Request.Context(), filter)
 	if err != nil {
@@ -158,6 +181,45 @@ func (a *App) handleListJobs(c *gin.Context) {
 		out = append(out, jobToResource(item))
 	}
 	c.JSON(http.StatusOK, gin.H{"jobs": out})
+}
+
+func (a *App) handleArchiveJob(c *gin.Context) {
+	if a.jobs == nil {
+		writeError(c, http.StatusInternalServerError, "internal_error", "jobs service unavailable")
+		return
+	}
+	job, err := a.jobs.Archive(c.Request.Context(), c.Param("id"))
+	if err != nil {
+		writeJobError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, jobToResource(job))
+}
+
+func (a *App) handleUnarchiveJob(c *gin.Context) {
+	if a.jobs == nil {
+		writeError(c, http.StatusInternalServerError, "internal_error", "jobs service unavailable")
+		return
+	}
+	job, err := a.jobs.Unarchive(c.Request.Context(), c.Param("id"))
+	if err != nil {
+		writeJobError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, jobToResource(job))
+}
+
+func (a *App) handleUnblockJob(c *gin.Context) {
+	if a.jobs == nil {
+		writeError(c, http.StatusInternalServerError, "internal_error", "jobs service unavailable")
+		return
+	}
+	job, err := a.jobs.Unblock(c.Request.Context(), c.Param("id"))
+	if err != nil {
+		writeJobError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, jobToResource(job))
 }
 
 func (a *App) handleCreateJob(c *gin.Context) {
@@ -362,12 +424,33 @@ func (a *App) handlePutJobSettings(c *gin.Context) {
 		if req.Notifications.OnReleased != nil {
 			current.Notifications.OnReleased = *req.Notifications.OnReleased
 		}
+		if req.Notifications.OnBlocked != nil {
+			current.Notifications.OnBlocked = *req.Notifications.OnBlocked
+		}
 	}
 	if req.LeaseMinutes != nil {
 		current.LeaseMinutes = *req.LeaseMinutes
 	}
 	if req.DeletedPurgeDays != nil {
 		current.DeletedPurgeDays = *req.DeletedPurgeDays
+	}
+	if req.DoneArchiveDays != nil {
+		current.DoneArchiveDays = *req.DoneArchiveDays
+	}
+	if req.ArchivedPurgeDays != nil {
+		current.ArchivedPurgeDays = *req.ArchivedPurgeDays
+	}
+	if req.StaleReviewMinutes != nil {
+		current.StaleReviewMinutes = *req.StaleReviewMinutes
+	}
+	if req.MaxConsecutiveFailures != nil {
+		current.MaxConsecutiveFailures = *req.MaxConsecutiveFailures
+	}
+	if req.RetryCooldownMinutes != nil {
+		current.RetryCooldownMinutes = *req.RetryCooldownMinutes
+	}
+	if req.MaxRetryCooldownMinutes != nil {
+		current.MaxRetryCooldownMinutes = *req.MaxRetryCooldownMinutes
 	}
 	if req.ReconcileIntervalSeconds != nil {
 		current.ReconcileIntervalS = *req.ReconcileIntervalSeconds
