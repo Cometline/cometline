@@ -224,3 +224,31 @@ jobs:
           done
           echo "$ASSETS" | grep -q '\.dmg$' || { echo "Missing .dmg"; exit 1; }
           echo "$ASSETS" | grep -q '\-mac\.zip$' || { echo "Missing -mac.zip"; exit 1; }
+
+      - name: Publish Homebrew tap
+        if: steps.release_tag.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+          TAG: ${{ steps.release_tag.outputs.tag }}
+          TAP_REPO: ${{ vars.HOMEBREW_TAP_REPOSITORY }}
+          DOWNLOAD_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GH_TOKEN:-}" ] || [ -z "${TAP_REPO:-}" ]; then
+            echo "Homebrew tap publishing not configured; skipping"
+            exit 0
+          fi
+
+          set -- cometline/dist/*-mac.zip
+          if [ "$1" = 'cometline/dist/*-mac.zip' ]; then
+            echo "No -mac.zip artifact found"
+            exit 1
+          fi
+          if [ "$#" -ne 1 ]; then
+            echo "Expected exactly one -mac.zip artifact, found $#"
+            exit 1
+          fi
+
+          ZIP="$1"
+          SHA="$(shasum -a 256 "$ZIP" | cut -d ' ' -f 1)"
+          ./scripts/publish-homebrew-tap.sh "$TAG" "$SHA" "$TAP_REPO" "$DOWNLOAD_REPO"
