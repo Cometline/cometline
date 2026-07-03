@@ -3,7 +3,7 @@
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
 	import { flip } from 'svelte/animate';
-	import { Settings, Briefcase } from '@lucide/svelte';
+	import { Settings, Briefcase, Sparkles } from '@lucide/svelte';
 	import type { Session } from '$lib/types';
 	import { sessionStore } from '$lib/stores/session.svelte';
 	import { deleteSession, updateSession } from '$lib/client/cometmind';
@@ -291,6 +291,14 @@
 				onclick={() => goto('/jobs')}
 			>
 				<Briefcase size={16} stroke-width={1.8} />
+			</button>
+			<button
+				aria-label="Skill Drafts"
+				title="Skill Drafts"
+				class:active={page.url.pathname === '/skill-drafts'}
+				onclick={() => goto('/skill-drafts')}
+			>
+				<Sparkles size={16} stroke-width={1.8} />
 			</button>
 		</div>
 	</div>

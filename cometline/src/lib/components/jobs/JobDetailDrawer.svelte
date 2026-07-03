@@ -2,7 +2,13 @@
 	import { fly, fade } from 'svelte/transition';
 	import { onMount } from 'svelte';
 	import { Archive, RotateCcw, X, Trash2, Play, ExternalLink, RefreshCw } from '@lucide/svelte';
-	import { getSession, type JobEventResource, type JobResource } from '$lib/client/cometmind';
+	import {
+		getSession,
+		type JobEventResource,
+		type JobResource,
+		type SessionPlanResponse,
+		type SessionPlanStep
+	} from '$lib/client/cometmind';
 	import { navigateToSession } from '$lib/actions/navigate-to-session';
 	import JobCreateForm from './JobCreateForm.svelte';
 	import WorkspacePathField from '$lib/components/WorkspacePathField.svelte';
@@ -16,6 +22,8 @@
 		events = [],
 		saving = false,
 		loadingEvents = false,
+		sessionPlan = null,
+		loadingSessionPlan = false,
 		editDescription = $bindable(''),
 		editDod = $bindable(''),
 		editWorkspacePath = $bindable(''),
@@ -36,6 +44,8 @@
 		events?: JobEventResource[];
 		saving?: boolean;
 		loadingEvents?: boolean;
+		sessionPlan?: SessionPlanResponse | null;
+		loadingSessionPlan?: boolean;
 		editDescription?: string;
 		editDod?: string;
 		editWorkspacePath?: string;
@@ -110,6 +120,10 @@
 			second: '2-digit'
 		}).format(new Date(ms));
 	}
+
+	function statusLabel(status: SessionPlanStep['status']) {
+		return status.replace('_', ' ');
+	}
 </script>
 
 <button
@@ -173,6 +187,35 @@
 				<section class="drawer-section">
 					<h3>Progress</h3>
 					<pre class="drawer-pre">{job.progress}</pre>
+				</section>
+			{/if}
+
+			{#if job.status === 'ongoing'}
+				<section class="drawer-section">
+					<h3>Current plan</h3>
+					{#if loadingSessionPlan}
+						<p class="drawer-muted">Loading checklist…</p>
+					{:else if sessionPlan?.dismissed}
+						<p class="drawer-muted">Checklist hidden for this session.</p>
+					{:else if sessionPlan?.steps?.length}
+						<ol class="plan-steps">
+							{#each sessionPlan.steps as step (step.id)}
+								<li class="plan-step" class:completed={step.status === 'completed'}>
+									<div class="plan-step-line">
+										<span class="plan-step-description">{step.description}</span>
+										<span class="plan-step-status" data-status={step.status}
+											>{statusLabel(step.status)}</span
+										>
+									</div>
+									{#if step.status === 'blocked' && step.blocker_reason}
+										<p class="drawer-muted">{step.blocker_reason}</p>
+									{/if}
+								</li>
+							{/each}
+						</ol>
+					{:else}
+						<p class="drawer-muted">No structured checklist yet.</p>
+					{/if}
 				</section>
 			{/if}
 
@@ -467,6 +510,66 @@
 
 	.drawer-events code {
 		font-size: 11px;
+	}
+
+	.plan-steps {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+	}
+
+	.plan-step {
+		padding: 8px 10px;
+		border: 1px solid var(--border-soft);
+		border-radius: 10px;
+		background: var(--app-bg);
+	}
+
+	.plan-step.completed .plan-step-description {
+		color: var(--text-muted);
+		text-decoration: line-through;
+	}
+
+	.plan-step-line {
+		display: flex;
+		justify-content: space-between;
+		gap: 10px;
+		align-items: flex-start;
+	}
+
+	.plan-step-description {
+		font-size: 12px;
+		line-height: 1.45;
+		color: var(--text-main);
+	}
+
+	.plan-step-status {
+		flex: none;
+		padding: 2px 7px;
+		border-radius: 999px;
+		background: rgba(15, 23, 42, 0.06);
+		font-size: 10px;
+		font-weight: 700;
+		text-transform: capitalize;
+		color: var(--text-muted);
+	}
+
+	.plan-step-status[data-status='in_progress'] {
+		background: color-mix(in srgb, var(--hero-composer-glow-color) 18%, transparent);
+		color: var(--text-main);
+	}
+
+	.plan-step-status[data-status='completed'] {
+		background: color-mix(in srgb, var(--status-success) 14%, transparent);
+		color: var(--status-success);
+	}
+
+	.plan-step-status[data-status='blocked'] {
+		background: color-mix(in srgb, var(--status-error) 12%, transparent);
+		color: var(--status-error);
 	}
 
 	.drawer-footer {

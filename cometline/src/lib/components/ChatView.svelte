@@ -300,10 +300,11 @@
 	$effect(() => {
 		const id = sessionId;
 		const current = sessionStore.current;
-		if (!id || current?.id !== id || current.origin !== 'autonomy') return;
+		if (!id || current?.id !== id) return;
 		const interval = window.setInterval(() => {
 			if (chatStore.isStreamingFor(id) || chatStore.hasInFlightTurn(id)) return;
 			void chatStore.refreshTranscript(id);
+			void loadSessionPlan(id);
 		}, 2500);
 		return () => window.clearInterval(interval);
 	});

@@ -4,7 +4,12 @@
 	import { formatIdList, parseIdList, type CometMindSettings } from '$lib/cometmind-settings';
 	import type { ProviderConfig } from '$lib/types';
 	import { shellStore } from '$lib/stores/shell.svelte';
-	import { listSkills, syncSkills, deleteSkill, exportSkill } from '$lib/client/cometmind';
+	import {
+		listSkills,
+		syncSkills,
+		deleteSkill,
+		exportSkill
+	} from '$lib/client/cometmind';
 	import type { SkillResource } from '$lib/types';
 	import { onMount } from 'svelte';
 	import SettingsMCPPanel from './SettingsMCPPanel.svelte';
