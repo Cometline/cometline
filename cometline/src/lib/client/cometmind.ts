@@ -13,6 +13,7 @@ import {
 	deleteSkill as deleteSkillApi,
 	getMemorySettings as getMemorySettingsApi,
 	getSession as getSessionApi,
+	getSessionPlan as getSessionPlanApi,
 	getSessionMessages as getSessionMessagesApi,
 	listChildSessions as listChildSessionsApi,
 	listMemories as listMemoriesApi,
@@ -70,6 +71,7 @@ import type {
 	RunStorageRetentionResponse,
 	Session,
 	SessionListResponse,
+	SessionPlanResponse,
 	StreamEvent,
 	SyncSkillsResponse,
 	TranscriptResponse,
@@ -105,6 +107,8 @@ export type {
 } from '$lib/generated/cometmind-api';
 
 export type {
+	SessionPlanResponse,
+	SessionPlanStep,
 	JobResource,
 	JobEventResource,
 	JobSettings,
@@ -399,6 +403,15 @@ export function listAllSessions(): Promise<SessionListResponse> {
 export function getSession(id: string): Promise<Session> {
 	return withApiError(
 		getSessionApi({
+			path: { id },
+			throwOnError: true
+		}).then(({ data }) => data)
+	);
+}
+
+export function getSessionPlan(id: string): Promise<SessionPlanResponse> {
+	return withApiError(
+		getSessionPlanApi({
 			path: { id },
 			throwOnError: true
 		}).then(({ data }) => data)

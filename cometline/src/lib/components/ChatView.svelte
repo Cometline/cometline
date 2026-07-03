@@ -5,6 +5,7 @@
 	import Composer from '$lib/components/composer/Composer.svelte';
 	import HeroComposerFrame from '$lib/components/HeroComposerFrame.svelte';
 	import ChatThread from '$lib/components/chat/ChatThread.svelte';
+	import SessionPlanPanel from '$lib/components/chat/SessionPlanPanel.svelte';
 	import FirstTurnFlight from '$lib/components/FirstTurnFlight.svelte';
 	import UserBubbleFlight from '$lib/components/UserBubbleFlight.svelte';
 	import {
@@ -13,7 +14,7 @@
 	} from '$lib/conversation/conversation-controller';
 	import type { QueuedMessage } from '$lib/actions/chat-turn-queue';
 	import { sessionStore } from '$lib/stores/session.svelte';
-	import { updateSession } from '$lib/client/cometmind';
+	import { getSessionPlan, updateSession, type SessionPlanResponse } from '$lib/client/cometmind';
 	import { chatStore } from '$lib/stores/chat.svelte';
 	import { modelStore } from '$lib/stores/model.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
@@ -102,6 +103,10 @@
 	);
 
 	let snapshotItems = $state.raw<ChatItem[]>([]);
+	let sessionPlan = $state<SessionPlanResponse | null>(null);
+	let sessionPlanLoading = $state(false);
+	let sessionPlanError = $state('');
+	let sessionPlanRequest = 0;
 	// Default to "loading" until the store binds this session so a freshly
 	// mounted ChatView (e.g. switching sessions while a previous transcript is
 	// still in flight) shows the loading state instead of flashing the empty
@@ -239,6 +244,39 @@
 		return startJobInSession(job, sessionId, submit);
 	}
 
+	async function loadSessionPlan(id: string) {
+		const request = ++sessionPlanRequest;
+		if (sessionPlan?.session_id !== id) sessionPlan = null;
+		sessionPlanLoading = true;
+		sessionPlanError = '';
+		try {
+			const plan = await getSessionPlan(id);
+			if (request !== sessionPlanRequest || sessionId !== id) return;
+			sessionPlan = plan;
+		} catch (error) {
+			if (request !== sessionPlanRequest || sessionId !== id) return;
+			sessionPlanError =
+				error instanceof Error ? error.message : 'Failed to load session plan';
+		} finally {
+			if (request === sessionPlanRequest && sessionId === id) {
+				sessionPlanLoading = false;
+			}
+		}
+	}
+
+	$effect(() => {
+		const id = sessionId;
+		const streaming = chatStore.isStreamingFor(id);
+		const synced = chatStore.sessionID === id;
+		const itemCount = synced ? chatStore.items.length : snapshotItems.length;
+		if (!id || streaming) return;
+		const timeout = window.setTimeout(() => {
+			void itemCount;
+			void loadSessionPlan(id);
+		}, 180);
+		return () => window.clearTimeout(timeout);
+	});
+
 	function showLocalUserMessage(text: string) {
 		chatStore.appendLocalUserMessage(sessionId, text);
 	}
@@ -364,6 +402,13 @@
 				onNotifyAgent={submit}
 				onStartJob={startJobFromCard}
 			/>
+			<div class="plan-overlay" aria-live="polite">
+				<SessionPlanPanel
+					plan={sessionPlan}
+					loading={sessionPlanLoading}
+					error={sessionPlanError}
+				/>
+			</div>
 		</div>
 	{/if}
 
@@ -566,6 +611,14 @@
 		transition: bottom var(--duration-flight) var(--ease-smooth);
 	}
 
+	.plan-overlay {
+		position: absolute;
+		top: 18px;
+		right: var(--chat-gutter);
+		z-index: 8;
+		pointer-events: auto;
+	}
+
 	.thread-shell.docked {
 		bottom: var(--thread-dock-inset);
 	}
@@ -573,6 +626,11 @@
 	.chat-home.compact .thread-shell.docked {
 		top: var(--mini-titlebar-height);
 		bottom: calc(var(--thread-dock-inset) - 18px);
+	}
+
+	.chat-home.compact .plan-overlay {
+		top: 12px;
+		right: 14px;
 	}
 
 	.boot-error {
@@ -630,6 +688,12 @@
 		.empty-region {
 			inset: 0 0 160px;
 			padding-inline: 28px;
+		}
+
+		.plan-overlay {
+			left: 12px;
+			right: 12px;
+			top: 12px;
 		}
 	}
 </style>
