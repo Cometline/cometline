@@ -85,6 +85,7 @@ declare global {
 		miniWindowLastActiveAt: number;
 		miniWindowInactivityTimeoutMinutes: number;
 		webPanelWidth: number;
+		updateChannel: 'stable' | 'test';
 	}
 
 	interface MiniWindowState {

@@ -106,6 +106,8 @@ export interface AppSettings {
 	miniWindowInactivityTimeoutMinutes: number;
 	/** Web/file panel width in px. 0 means use the default (50vw). */
 	webPanelWidth: number;
+	/** Auto-update channel. 'test' opts into prerelease/test builds published from non-main branches. */
+	updateChannel: 'stable' | 'test';
 }
 
 export interface ProviderSettings {

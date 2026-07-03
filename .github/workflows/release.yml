@@ -27,12 +27,36 @@ jobs:
         id: release_tag
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          DISPATCH_REF_NAME: ${{ github.ref_name }}
+          RUN_NUMBER: ${{ github.run_number }}
         run: |
           set -euo pipefail
+
+          # Emits the resolved tag plus its update channel. Any tag containing
+          # "-test" (created here for non-main dispatches, or pushed manually)
+          # is published under the "test" channel instead of "latest" so it
+          # never reaches stable auto-update users.
+          finish() {
+            local tag="$1"
+            local is_test="$2"
+            local channel="latest"
+            if [ "$is_test" = "true" ]; then
+              channel="test"
+            fi
+            echo "tag=$tag" >> "$GITHUB_OUTPUT"
+            echo "is_test=$is_test" >> "$GITHUB_OUTPUT"
+            echo "channel=$channel" >> "$GITHUB_OUTPUT"
+            echo "channel_file=${channel}-mac.yml" >> "$GITHUB_OUTPUT"
+          }
+
           if [ "${{ github.ref_type }}" = "tag" ]; then
             TAG="${{ github.ref_name }}"
             echo "Using existing tag: $TAG"
-            echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+            IS_TEST="false"
+            case "$TAG" in
+              *-test*) IS_TEST="true" ;;
+            esac
+            finish "$TAG" "$IS_TEST"
             exit 0
           fi
 
@@ -42,7 +66,16 @@ jobs:
             exit 0
           fi
 
-          LATEST="$(git tag -l 'v*' --sort=-version:refname | head -1)"
+          # workflow_dispatch on a branch other than main produces a test
+          # release; main produces a normal release.
+          IS_TEST="false"
+          if [ "$DISPATCH_REF_NAME" != "main" ]; then
+            IS_TEST="true"
+          fi
+
+          # Exclude prior test tags from the version-bump baseline so test
+          # releases never influence real release numbering.
+          LATEST="$(git tag -l 'v*' --sort=-version:refname | grep -v -- '-test' | head -1)"
           if [ -z "$LATEST" ]; then
             NEXT="v0.0.1"
           else
@@ -59,6 +92,11 @@ jobs:
             fi
             NEXT="v${MAJOR}.${MINOR}.${PATCH}"
           fi
+
+          if [ "$IS_TEST" = "true" ]; then
+            NEXT="${NEXT}-test.${RUN_NUMBER}"
+          fi
+
           if git rev-parse "$NEXT" >/dev/null 2>&1; then
             echo "Tag $NEXT already exists"
             exit 1
@@ -71,7 +109,7 @@ jobs:
           git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           git tag -a "$NEXT" -m "Release $NEXT"
           git push origin "$NEXT"
-          echo "tag=$NEXT" >> "$GITHUB_OUTPUT"
+          finish "$NEXT" "$IS_TEST"
 
       - name: Setup Go
         if: steps.release_tag.outputs.skip != 'true'
@@ -116,13 +154,16 @@ jobs:
 
       - name: Configure GitHub release target
         if: steps.release_tag.outputs.skip != 'true'
+        env:
+          CHANNEL: ${{ steps.release_tag.outputs.channel }}
         run: |
           node <<'NODE'
           const fs = require('fs');
           const path = 'cometline/package.json';
           const pkg = JSON.parse(fs.readFileSync(path, 'utf8'));
           const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
-          pkg.build.publish = [{ provider: 'github', owner, repo }];
+          const channel = process.env.CHANNEL || 'latest';
+          pkg.build.publish = [{ provider: 'github', owner, repo, channel }];
           fs.writeFileSync(path, `${JSON.stringify(pkg, null, '\t')}\n`);
           NODE
 
@@ -166,9 +207,11 @@ jobs:
 
       - name: Verify build artifacts
         if: steps.release_tag.outputs.skip != 'true'
+        env:
+          CHANNEL_FILE: ${{ steps.release_tag.outputs.channel_file }}
         run: |
           set -euo pipefail
-          test -f cometline/dist/latest-mac.yml
+          test -f "cometline/dist/${CHANNEL_FILE}"
           ls -lh cometline/dist/*.dmg cometline/dist/*.zip cometline/dist/*.blockmap
           # Fail early if the large binaries are missing/empty.
           for f in cometline/dist/*.dmg cometline/dist/*.zip; do
@@ -193,34 +236,42 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ steps.release_tag.outputs.tag }}
+          CHANNEL_FILE: ${{ steps.release_tag.outputs.channel_file }}
+          IS_TEST: ${{ steps.release_tag.outputs.is_test }}
         run: |
           set -euo pipefail
           # Create a NON-draft release and upload every asset synchronously.
           # gh release create waits for each upload to finish, unlike
           # electron-builder's fire-and-forget --publish always.
+          PRERELEASE_FLAG=()
+          TITLE="Cometline $TAG"
+          if [ "$IS_TEST" = "true" ]; then
+            PRERELEASE_FLAG=(--prerelease)
+            TITLE="Cometline $TAG (test build)"
+          fi
           gh release create "$TAG" \
             --repo "${{ github.repository }}" \
             --target "$GITHUB_SHA" \
-            --title "Cometline $TAG" \
+            --title "$TITLE" \
             --notes-file release-notes.md \
+            "${PRERELEASE_FLAG[@]}" \
             cometline/dist/*.dmg \
             cometline/dist/*.dmg.blockmap \
             cometline/dist/*.zip \
             cometline/dist/*.zip.blockmap \
-            cometline/dist/latest-mac.yml
+            "cometline/dist/${CHANNEL_FILE}"
 
       - name: Verify release assets uploaded
         if: steps.release_tag.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ steps.release_tag.outputs.tag }}
+          CHANNEL_FILE: ${{ steps.release_tag.outputs.channel_file }}
         run: |
           set -euo pipefail
           ASSETS="$(gh release view "$TAG" --repo "${{ github.repository }}" --json assets --jq '.assets[].name')"
           echo "Uploaded assets:"
           echo "$ASSETS"
-          for required in latest-mac.yml; do
-            echo "$ASSETS" | grep -q "$required" || { echo "Missing $required"; exit 1; }
-          done
+          echo "$ASSETS" | grep -q "$CHANNEL_FILE" || { echo "Missing $CHANNEL_FILE"; exit 1; }
           echo "$ASSETS" | grep -q '\.dmg$' || { echo "Missing .dmg"; exit 1; }
           echo "$ASSETS" | grep -q '\-mac\.zip$' || { echo "Missing -mac.zip"; exit 1; }

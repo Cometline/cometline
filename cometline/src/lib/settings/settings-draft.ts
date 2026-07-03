@@ -46,7 +46,8 @@ export function cloneSettings(settings: ProviderSettings): ProviderSettings {
 			miniWindowLastActiveAt: settings.app?.miniWindowLastActiveAt ?? 0,
 			miniWindowInactivityTimeoutMinutes:
 				settings.app?.miniWindowInactivityTimeoutMinutes ?? 30,
-			webPanelWidth: settings.app?.webPanelWidth ?? 0
+			webPanelWidth: settings.app?.webPanelWidth ?? 0,
+			updateChannel: settings.app?.updateChannel === 'test' ? 'test' : 'stable'
 		},
 		cometmind: cloneCometMindSettings(normalizeCometMindSettings(settings.cometmind))
 	};

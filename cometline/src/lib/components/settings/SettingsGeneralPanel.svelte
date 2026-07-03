@@ -7,11 +7,13 @@
 		openAtLogin = $bindable(false),
 		miniWindowInactivityTimeoutMinutes = $bindable(30),
 		storage = $bindable<CometMindStorageSettings>(),
+		updateChannel = $bindable<'stable' | 'test'>('stable'),
 		onOpenAtLoginChange
 	}: {
 		openAtLogin: boolean;
 		miniWindowInactivityTimeoutMinutes: number;
 		storage: CometMindStorageSettings;
+		updateChannel: 'stable' | 'test';
 		onOpenAtLoginChange?: (enabled: boolean) => void | Promise<void>;
 	} = $props();
 
@@ -77,6 +79,22 @@
 				onchange={onOpenAtLoginChange}
 			/>
 			<SettingsPersistenceHint tier="instant" />
+		</div>
+
+		<div class="settings-section">
+			<div class="settings-section-heading">
+				<h3>Updates</h3>
+				<p>Choose which release channel Cometline checks for auto-updates.</p>
+			</div>
+			<SettingsToggle
+				label="Use test builds"
+				description="Opt into prerelease builds published from non-main branches, in addition to stable releases. Only applies to packaged builds."
+				checked={updateChannel === 'test'}
+				onchange={(enabled) => {
+					updateChannel = enabled ? 'test' : 'stable';
+				}}
+			/>
+			<SettingsPersistenceHint tier="pending" detail="Included in Save changes" />
 		</div>
 
 		<div class="settings-section">

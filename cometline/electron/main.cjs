@@ -1506,10 +1506,7 @@ function scheduleCometMindRespawn(reason) {
 		);
 		return;
 	}
-	const delay = Math.min(
-		RESPAWN_BASE_MS * 2 ** cometMindRespawnAttempts,
-		RESPAWN_MAX_MS
-	);
+	const delay = Math.min(RESPAWN_BASE_MS * 2 ** cometMindRespawnAttempts, RESPAWN_MAX_MS);
 	cometMindRespawnAttempts += 1;
 	console.warn(
 		`CometMind died unexpectedly (${reason}); respawning in ${delay}ms ` +
@@ -1553,7 +1550,9 @@ function runCometMindCommand(args) {
 			}
 			reject(
 				new Error(
-					stderr.trim() || stdout.trim() || `CometMind ${args.join(' ')} exited with code ${code}`
+					stderr.trim() ||
+						stdout.trim() ||
+						`CometMind ${args.join(' ')} exited with code ${code}`
 				)
 			);
 		});
@@ -1843,6 +1842,13 @@ function setUpdateState(next) {
 	}
 }
 
+function applyUpdateChannel(updateChannel) {
+	// electron-updater defaults to the 'latest' channel when `channel` is
+	// undefined. We only need to override it for the opt-in test channel;
+	// clearing back to undefined restores the default stable behavior.
+	getAutoUpdater().channel = updateChannel === 'test' ? 'test' : undefined;
+}
+
 function configureAutoUpdater() {
 	if (!app.isPackaged) return;
 
@@ -1850,6 +1856,7 @@ function configureAutoUpdater() {
 	// download automatically but never install behind their back.
 	getAutoUpdater().autoDownload = true;
 	getAutoUpdater().autoInstallOnAppQuit = false;
+	applyUpdateChannel(readProviderSettings().app?.updateChannel);
 	getAutoUpdater().logger = {
 		info: (message) => console.log(`[auto-updater] ${message}`),
 		warn: (message) => console.warn(`[auto-updater] ${message}`),
@@ -2876,7 +2883,9 @@ ipcMain.handle('cometline:read-workspace-file', (_event, workspacePath, relative
 	readWorkspaceFileForPreview(workspacePath, relativePath)
 );
 
-ipcMain.handle('cometline:list-custom-personas', () => customPersonasFromSettings(readProviderSettings()));
+ipcMain.handle('cometline:list-custom-personas', () =>
+	customPersonasFromSettings(readProviderSettings())
+);
 
 ipcMain.handle('cometline:read-persona-avatar', (_event, id) => readPersonaAvatar(id));
 
@@ -2905,7 +2914,8 @@ ipcMain.handle('cometline:fetch-provider-models', async (_event, config) => {
 ipcMain.handle('cometline:save-provider-settings', async (_event, settings, options = {}) => {
 	const previous = readProviderSettings();
 	const saved = writeProviderSettings(settings);
-	const personaIdChanged = (previous.app?.personaId ?? 'minako') !== (saved.app?.personaId ?? 'minako');
+	const personaIdChanged =
+		(previous.app?.personaId ?? 'minako') !== (saved.app?.personaId ?? 'minako');
 	let runtimeAction =
 		options.runtimeAction ?? (options.restartCometMind === false ? 'none' : 'restart');
 	if (
@@ -2926,6 +2936,17 @@ ipcMain.handle('cometline:save-provider-settings', async (_event, settings, opti
 	applyOpenAtLoginSetting(saved.app?.openAtLogin);
 	if (personaIdChanged) {
 		applyPersona(saved.app?.personaId, saved);
+	}
+	if (
+		app.isPackaged &&
+		(previous.app?.updateChannel ?? 'stable') !== (saved.app?.updateChannel ?? 'stable')
+	) {
+		applyUpdateChannel(saved.app?.updateChannel);
+		getAutoUpdater()
+			.checkForUpdates()
+			.catch((err) => {
+				console.error('Update channel check failed:', err);
+			});
 	}
 	return saved;
 });
@@ -3103,7 +3124,9 @@ async function readPersonaAvatar(id) {
 }
 
 function decodePersonaAvatarDataUrl(dataUrl) {
-	const match = String(dataUrl || '').match(/^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=]+)$/);
+	const match = String(dataUrl || '').match(
+		/^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=]+)$/
+	);
 	if (!match) return null;
 	const ext = match[1] === 'image/jpeg' ? '.jpg' : match[1] === 'image/webp' ? '.webp' : '.png';
 	const buffer = Buffer.from(match[2], 'base64');

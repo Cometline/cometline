@@ -4819,7 +4819,8 @@ function defaultAppSettings() {
     miniWindowSessionId: "",
     miniWindowLastActiveAt: 0,
     miniWindowInactivityTimeoutMinutes: 30,
-    webPanelWidth: 0
+    webPanelWidth: 0,
+    updateChannel: "stable"
   };
 }
 function normalizeWebPanelWidth(value) {
@@ -4978,7 +4979,8 @@ function normalizeSettings(next, options = {}) {
       miniWindowInactivityTimeoutMinutes: normalizeMiniWindowInactivityTimeoutMinutes(
         next.app?.miniWindowInactivityTimeoutMinutes
       ),
-      webPanelWidth: normalizeWebPanelWidth(next.app?.webPanelWidth)
+      webPanelWidth: normalizeWebPanelWidth(next.app?.webPanelWidth),
+      updateChannel: next.app?.updateChannel === "test" ? "test" : "stable"
     },
     cometmind
   };
@@ -5072,7 +5074,8 @@ var providerSettingsSchema = external_exports.object({
     miniWindowSessionId: external_exports.string(),
     miniWindowLastActiveAt: external_exports.number().int().min(0),
     miniWindowInactivityTimeoutMinutes: external_exports.number().int().min(1).max(24 * 60),
-    webPanelWidth: external_exports.number().int().min(0)
+    webPanelWidth: external_exports.number().int().min(0),
+    updateChannel: external_exports.enum(["stable", "test"])
   }),
   cometmind: external_exports.object({
     systemPromptPath: external_exports.string(),
