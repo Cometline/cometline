@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-TAG="${1:?Usage: render-homebrew-cask.sh <tag> <sha256> [download_repo]}"
-SHA="${2:?Usage: render-homebrew-cask.sh <tag> <sha256> [download_repo]}"
-DOWNLOAD_REPO="${3:-cometline/cometline}"
+TAG="${1:?Usage: render-homebrew-cask.sh <tag> <sha256> <asset_name> [download_repo]}"
+SHA="${2:?Usage: render-homebrew-cask.sh <tag> <sha256> <asset_name> [download_repo]}"
+ASSET_NAME="${3:?Usage: render-homebrew-cask.sh <tag> <sha256> <asset_name> [download_repo]}"
+DOWNLOAD_REPO="${4:-cometline/cometline}"
 
 VERSION="${TAG#v}"
 if [ "$VERSION" = "$TAG" ]; then
@@ -16,12 +17,12 @@ cask "cometline" do
   version "${VERSION}"
   sha256 "${SHA}"
 
-  url "https://github.com/${DOWNLOAD_REPO}/releases/download/v#{version}/Cometline-#{version}-mac.zip"
+  url "https://github.com/${DOWNLOAD_REPO}/releases/download/v#{version}/${ASSET_NAME}"
   name "Cometline"
   desc "Local-first AI companion for your workspace"
   homepage "https://github.com/${DOWNLOAD_REPO}"
   auto_updates true
-  depends_on macos: ">= :ventura"
+  depends_on macos: :ventura
 
   app "Cometline.app"
 end

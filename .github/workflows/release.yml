@@ -250,5 +250,6 @@ jobs:
           fi
 
           ZIP="$1"
+          ASSET_NAME="$(basename "$ZIP")"
           SHA="$(shasum -a 256 "$ZIP" | cut -d ' ' -f 1)"
-          ./scripts/publish-homebrew-tap.sh "$TAG" "$SHA" "$TAP_REPO" "$DOWNLOAD_REPO"
+          ./scripts/publish-homebrew-tap.sh "$TAG" "$SHA" "$ASSET_NAME" "$TAP_REPO" "$DOWNLOAD_REPO"

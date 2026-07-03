@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-TAG="${1:?Usage: publish-homebrew-tap.sh <tag> <sha256> <tap_repo> [download_repo]}"
-SHA="${2:?Usage: publish-homebrew-tap.sh <tag> <sha256> <tap_repo> [download_repo]}"
-TAP_REPO="${3:?Usage: publish-homebrew-tap.sh <tag> <sha256> <tap_repo> [download_repo]}"
-DOWNLOAD_REPO="${4:-cometline/cometline}"
+TAG="${1:?Usage: publish-homebrew-tap.sh <tag> <sha256> <asset_name> <tap_repo> [download_repo]}"
+SHA="${2:?Usage: publish-homebrew-tap.sh <tag> <sha256> <asset_name> <tap_repo> [download_repo]}"
+ASSET_NAME="${3:?Usage: publish-homebrew-tap.sh <tag> <sha256> <asset_name> <tap_repo> [download_repo]}"
+TAP_REPO="${4:?Usage: publish-homebrew-tap.sh <tag> <sha256> <asset_name> <tap_repo> [download_repo]}"
+DOWNLOAD_REPO="${5:-cometline/cometline}"
 
 : "${GH_TOKEN:?GH_TOKEN is required to push to the tap repository}"
 
@@ -24,7 +25,7 @@ gh repo clone "$TAP_REPO" "$WORKDIR/tap"
 git -C "$WORKDIR/tap" remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${TAP_REPO}.git"
 
 mkdir -p "$WORKDIR/tap/Casks"
-"$ROOT/scripts/render-homebrew-cask.sh" "$TAG" "$SHA" "$DOWNLOAD_REPO" > "$WORKDIR/tap/Casks/cometline.rb"
+"$ROOT/scripts/render-homebrew-cask.sh" "$TAG" "$SHA" "$ASSET_NAME" "$DOWNLOAD_REPO" > "$WORKDIR/tap/Casks/cometline.rb"
 
 if [ ! -f "$WORKDIR/tap/README.md" ]; then
   TAP_NAME="$(tap_name)"
