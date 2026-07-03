@@ -34,6 +34,7 @@ UPDATE scheduled_jobs
 SET description = ?,
     definition_of_done = ?,
     workspace_path = ?,
+    cron_expr = ?,
     run_at = ?,
     next_run_at = ?,
     enabled = ?,

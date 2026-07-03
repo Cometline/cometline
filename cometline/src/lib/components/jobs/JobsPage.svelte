@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { CalendarClock, LoaderCircle, Plus, RefreshCw, Trash2 } from '@lucide/svelte';
+	import { CalendarClock, LoaderCircle, Pencil, Plus, RefreshCw, Trash2 } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import {
 		archiveJob,
@@ -14,9 +14,11 @@
 		updateScheduledJob,
 		unblockJob,
 		unarchiveJob,
+		type CreateScheduledJobRequest,
 		type JobEventResource,
 		type JobResource,
-		type ScheduledJobResource
+		type ScheduledJobResource,
+		type UpdateScheduledJobRequest
 	} from '$lib/client/cometmind';
 	import {
 		filterArchivedJobs,
@@ -34,6 +36,8 @@
 	type DrawerMode = 'detail' | 'create' | null;
 	type StatusFilter = 'all' | JobColumn;
 	type View = 'active' | 'archived' | 'scheduled';
+	type ScheduleMode = 'one-shot' | 'recurring';
+	type ScheduleFrequency = 'daily' | 'weekly' | 'monthly';
 
 	const STATUS_FILTERS: { id: StatusFilter; label: string }[] = [
 		{ id: 'all', label: 'All' },
@@ -71,11 +75,22 @@
 	let createWorkspacePath = $state('');
 
 	let showScheduleForm = $state(false);
+	let editingScheduledId = $state('');
 	let scheduleDescription = $state('');
 	let scheduleDod = $state('');
 	let scheduleWorkspacePath = $state('');
-	let scheduleCronExpr = $state('');
 	let scheduleRunAtLocal = $state('');
+	let scheduleMode = $state<ScheduleMode>('one-shot');
+	let scheduleFrequency = $state<ScheduleFrequency>('daily');
+	let scheduleTime = $state('09:00');
+	let scheduleWeekday = $state('1');
+	let scheduleMonthDay = $state('1');
+	let scheduleUnsupportedCron = $state('');
+
+	let generatedCron = $derived(buildCronExpression());
+	let scheduleSummary = $derived(
+		scheduleMode === 'recurring' ? summarizeRecurringSchedule() : ''
+	);
 
 	function applyJobs(next: JobResource[]) {
 		grouped = groupJobsByColumn(next);
@@ -254,11 +269,28 @@
 	}
 
 	function resetScheduleForm() {
+		editingScheduledId = '';
 		scheduleDescription = '';
 		scheduleDod = '';
 		scheduleWorkspacePath = '';
-		scheduleCronExpr = '';
 		scheduleRunAtLocal = '';
+		scheduleMode = 'one-shot';
+		scheduleFrequency = 'daily';
+		scheduleTime = '09:00';
+		scheduleWeekday = '1';
+		scheduleMonthDay = '1';
+		scheduleUnsupportedCron = '';
+	}
+
+	function openNewScheduleForm() {
+		resetScheduleForm();
+		scheduleWorkspacePath = shellStore.workspacePath?.trim() ?? '';
+		showScheduleForm = true;
+	}
+
+	function cancelScheduleForm() {
+		resetScheduleForm();
+		showScheduleForm = false;
 	}
 
 	function localDatetimeToMillis(local: string): number | undefined {
@@ -267,31 +299,163 @@
 		return Number.isNaN(ms) ? undefined : ms;
 	}
 
+	function millisToLocalDatetime(ms?: number): string {
+		if (!ms) return '';
+		const date = new Date(ms);
+		const offset = date.getTimezoneOffset() * 60_000;
+		return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+	}
+
+	function parseSupportedCron(expr: string): boolean {
+		const parts = expr.trim().split(/\s+/);
+		if (parts.length !== 5) return false;
+		const [minute, hour, dayOfMonth, month, dayOfWeek] = parts;
+		if (month !== '*') return false;
+		if (!/^\d+$/.test(minute) || !/^\d+$/.test(hour)) return false;
+		const minuteNum = Number(minute);
+		const hourNum = Number(hour);
+		if (minuteNum < 0 || minuteNum > 59 || hourNum < 0 || hourNum > 23) return false;
+		scheduleTime = `${String(hourNum).padStart(2, '0')}:${String(minuteNum).padStart(2, '0')}`;
+		if (dayOfMonth === '*' && dayOfWeek === '*') {
+			scheduleFrequency = 'daily';
+			return true;
+		}
+		if (dayOfMonth === '*' && /^\d+$/.test(dayOfWeek)) {
+			scheduleFrequency = 'weekly';
+			scheduleWeekday = String(Math.min(6, Math.max(0, Number(dayOfWeek))));
+			return true;
+		}
+		if (dayOfWeek === '*' && /^\d+$/.test(dayOfMonth)) {
+			scheduleFrequency = 'monthly';
+			scheduleMonthDay = String(Math.min(28, Math.max(1, Number(dayOfMonth))));
+			return true;
+		}
+		return false;
+	}
+
+	function buildCronExpression(): string {
+		const [hourRaw, minuteRaw] = scheduleTime.split(':');
+		const hour = Math.min(23, Math.max(0, Number(hourRaw) || 0));
+		const minute = Math.min(59, Math.max(0, Number(minuteRaw) || 0));
+		if (scheduleFrequency === 'weekly') {
+			return `${minute} ${hour} * * ${scheduleWeekday}`;
+		}
+		if (scheduleFrequency === 'monthly') {
+			return `${minute} ${hour} ${scheduleMonthDay} * *`;
+		}
+		return `${minute} ${hour} * * *`;
+	}
+
+	function summarizeRecurringSchedule(): string {
+		return summarizeCronParts(
+			scheduleFrequency,
+			scheduleTime,
+			scheduleWeekday,
+			scheduleMonthDay
+		);
+	}
+
+	function summarizeCronParts(
+		frequency: ScheduleFrequency,
+		time: string,
+		weekday: string,
+		monthDay: string
+	): string {
+		const displayTime = time || '09:00';
+		if (frequency === 'weekly') {
+			const weekdays = [
+				'Sunday',
+				'Monday',
+				'Tuesday',
+				'Wednesday',
+				'Thursday',
+				'Friday',
+				'Saturday'
+			];
+			return `Every ${weekdays[Number(weekday)] ?? 'Monday'} at ${displayTime}`;
+		}
+		if (frequency === 'monthly') {
+			return `Every month on day ${monthDay} at ${displayTime}`;
+		}
+		return `Every day at ${displayTime}`;
+	}
+
+	function cronDisplayLabel(expr: string): string {
+		const parts = expr.trim().split(/\s+/);
+		if (parts.length !== 5) return `cron: ${expr}`;
+		const [minute, hour, dayOfMonth, month, dayOfWeek] = parts;
+		if (month !== '*' || !/^\d+$/.test(minute) || !/^\d+$/.test(hour)) return `cron: ${expr}`;
+		const time = `${String(Number(hour)).padStart(2, '0')}:${String(Number(minute)).padStart(2, '0')}`;
+		if (dayOfMonth === '*' && dayOfWeek === '*') {
+			return summarizeCronParts('daily', time, '1', '1');
+		}
+		if (dayOfMonth === '*' && /^\d+$/.test(dayOfWeek)) {
+			return summarizeCronParts('weekly', time, dayOfWeek, '1');
+		}
+		if (dayOfWeek === '*' && /^\d+$/.test(dayOfMonth)) {
+			return summarizeCronParts('monthly', time, '1', dayOfMonth);
+		}
+		return `cron: ${expr}`;
+	}
+
+	function editScheduled(job: ScheduledJobResource) {
+		editingScheduledId = job.id;
+		scheduleDescription = job.description;
+		scheduleDod = job.definition_of_done ?? '';
+		scheduleWorkspacePath = job.workspace_path ?? '';
+		scheduleUnsupportedCron = '';
+		if (job.cron_expr) {
+			scheduleMode = 'recurring';
+			if (!parseSupportedCron(job.cron_expr)) {
+				scheduleFrequency = 'daily';
+				scheduleTime = '09:00';
+				scheduleUnsupportedCron = job.cron_expr;
+			}
+		} else {
+			scheduleMode = 'one-shot';
+			scheduleRunAtLocal = millisToLocalDatetime(job.run_at ?? job.next_run_at);
+		}
+		showScheduleForm = true;
+	}
+
 	async function handleCreateScheduled() {
 		if (!scheduleDescription.trim()) return;
-		const cron = scheduleCronExpr.trim();
-		const runAt = localDatetimeToMillis(scheduleRunAtLocal);
-		if (!cron && !runAt) {
-			error = 'Provide either a cron expression or a run time.';
+		const cron = scheduleMode === 'recurring' ? generatedCron : '';
+		const runAt =
+			scheduleMode === 'one-shot' ? localDatetimeToMillis(scheduleRunAtLocal) : undefined;
+		if (scheduleMode === 'one-shot' && !runAt) {
+			error = 'Choose when this one-shot schedule should run.';
 			return;
 		}
 		saving = true;
 		error = '';
 		try {
-			await createScheduledJob({
+			const scheduleFields: UpdateScheduledJobRequest = {
 				description: scheduleDescription.trim(),
 				definition_of_done: scheduleDod.trim() || undefined,
 				workspace_path: scheduleWorkspacePath.trim() || undefined,
 				cron_expr: cron || undefined,
-				run_at: runAt,
-				created_by: 'user',
-				source_platform: 'desktop'
-			});
+				run_at: runAt
+			};
+			if (editingScheduledId) {
+				await updateScheduledJob(editingScheduledId, scheduleFields);
+			} else {
+				const body: CreateScheduledJobRequest = {
+					description: scheduleDescription.trim(),
+					definition_of_done: scheduleFields.definition_of_done,
+					workspace_path: scheduleFields.workspace_path,
+					cron_expr: scheduleFields.cron_expr,
+					run_at: scheduleFields.run_at,
+					created_by: 'user',
+					source_platform: 'desktop'
+				};
+				await createScheduledJob(body);
+			}
 			resetScheduleForm();
 			showScheduleForm = false;
 			await loadScheduledJobs({ silent: true });
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to create scheduled job';
+			error = e instanceof Error ? e.message : 'Failed to save scheduled job';
 		} finally {
 			saving = false;
 		}
@@ -376,7 +540,7 @@
 	}
 
 	function scheduleLabel(job: ScheduledJobResource): string {
-		if (job.cron_expr) return `cron: ${job.cron_expr}`;
+		if (job.cron_expr) return cronDisplayLabel(job.cron_expr);
 		if (job.run_at) return `one-shot: ${formatClock(job.run_at)}`;
 		return 'unscheduled';
 	}
@@ -492,10 +656,8 @@
 						type="button"
 						class="secondary"
 						onclick={() => {
-							showScheduleForm = !showScheduleForm;
-							if (showScheduleForm) {
-								scheduleWorkspacePath = shellStore.workspacePath?.trim() ?? '';
-							}
+							if (showScheduleForm) cancelScheduleForm();
+							else openNewScheduleForm();
 						}}
 					>
 						<Plus size={14} />
@@ -528,35 +690,97 @@
 							<span>Workspace path</span>
 							<input type="text" bind:value={scheduleWorkspacePath} />
 						</label>
-						<div class="schedule-mode">
-							<label class="form-field">
-								<span>Cron expression (recurring)</span>
-								<input
-									type="text"
-									bind:value={scheduleCronExpr}
-									placeholder="0 9 * * 1"
-									disabled={!!scheduleRunAtLocal}
-								/>
-								<small
-									>5-field cron, e.g. <code>0 9 * * 1</code> for every Monday 9am</small
-								>
-							</label>
-							<label class="form-field">
-								<span>Run at (one-shot)</span>
-								<input
-									type="datetime-local"
-									bind:value={scheduleRunAtLocal}
-									disabled={!!scheduleCronExpr}
-								/>
-								<small>Local time. Leave empty if using cron.</small>
-							</label>
+						<div class="schedule-kind" role="group" aria-label="Schedule type">
+							<button
+								type="button"
+								class:active={scheduleMode === 'one-shot'}
+								onclick={() => {
+									scheduleMode = 'one-shot';
+									scheduleUnsupportedCron = '';
+								}}
+							>
+								One time
+							</button>
+							<button
+								type="button"
+								class:active={scheduleMode === 'recurring'}
+								onclick={() => (scheduleMode = 'recurring')}
+							>
+								Recurring
+							</button>
 						</div>
-						<button type="submit" class="primary" disabled={saving}>
-							{#if saving}
-								<LoaderCircle size={14} class="spin" />
+						<div class="schedule-mode">
+							{#if scheduleMode === 'one-shot'}
+								<label class="form-field">
+									<span>Run at</span>
+									<input type="datetime-local" bind:value={scheduleRunAtLocal} />
+									<small>Local time on this device.</small>
+								</label>
+							{:else}
+								<label class="form-field">
+									<span>Repeat</span>
+									<select bind:value={scheduleFrequency}>
+										<option value="daily">Every day</option>
+										<option value="weekly">Every week</option>
+										<option value="monthly">Every month</option>
+									</select>
+								</label>
+								{#if scheduleFrequency === 'weekly'}
+									<label class="form-field">
+										<span>Weekday</span>
+										<select bind:value={scheduleWeekday}>
+											<option value="1">Monday</option>
+											<option value="2">Tuesday</option>
+											<option value="3">Wednesday</option>
+											<option value="4">Thursday</option>
+											<option value="5">Friday</option>
+											<option value="6">Saturday</option>
+											<option value="0">Sunday</option>
+										</select>
+									</label>
+								{/if}
+								{#if scheduleFrequency === 'monthly'}
+									<label class="form-field">
+										<span>Day of month</span>
+										<select bind:value={scheduleMonthDay}>
+											{#each Array.from( { length: 28 }, (_, i) => String(i + 1) ) as day}
+												<option value={day}>{day}</option>
+											{/each}
+										</select>
+										<small
+											>Limited to days 1-28 so every month has the date.</small
+										>
+									</label>
+								{/if}
+								<label class="form-field">
+									<span>Time</span>
+									<input type="time" bind:value={scheduleTime} />
+								</label>
+								<div class="schedule-generated">
+									<span>{scheduleSummary}</span>
+									<code>{generatedCron}</code>
+									{#if scheduleUnsupportedCron}
+										<small
+											>Existing custom cron <code
+												>{scheduleUnsupportedCron}</code
+											> is not editable with this picker. Saving will replace it
+											with the schedule above.</small
+										>
+									{/if}
+								</div>
 							{/if}
-							Create schedule
-						</button>
+						</div>
+						<div class="schedule-actions">
+							<button type="submit" class="primary" disabled={saving}>
+								{#if saving}
+									<LoaderCircle size={14} class="spin" />
+								{/if}
+								{editingScheduledId ? 'Save schedule' : 'Create schedule'}
+							</button>
+							<button type="button" class="secondary" onclick={cancelScheduleForm}
+								>Cancel</button
+							>
+						</div>
 					</form>
 				{/if}
 
@@ -582,6 +806,14 @@
 									</div>
 								</div>
 								<div class="scheduled-card-actions">
+									<button
+										type="button"
+										class="secondary icon-only"
+										title="Edit"
+										onclick={() => editScheduled(job)}
+									>
+										<Pencil size={14} />
+									</button>
 									<button
 										type="button"
 										class="secondary icon-only"
@@ -1060,7 +1292,8 @@
 	}
 
 	.form-field input,
-	.form-field textarea {
+	.form-field textarea,
+	.form-field select {
 		font: inherit;
 		font-size: 13px;
 		color: var(--text-main);
@@ -1068,6 +1301,7 @@
 		border: 1px solid var(--border-soft);
 		border-radius: 7px;
 		background: var(--panel-bg);
+		min-height: 34px;
 		resize: vertical;
 	}
 
@@ -1076,17 +1310,68 @@
 		color: var(--text-muted);
 	}
 
-	.form-field code {
-		font-size: 10px;
-		padding: 1px 4px;
-		border-radius: 4px;
-		background: rgba(15, 23, 42, 0.06);
-	}
-
 	.schedule-mode {
 		display: grid;
-		grid-template-columns: 1fr 1fr;
 		gap: 10px;
+	}
+
+	.schedule-kind {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		width: fit-content;
+		padding: 3px;
+		border-radius: 999px;
+		background: rgba(15, 23, 42, 0.05);
+	}
+
+	.schedule-kind button {
+		border: none;
+		background: transparent;
+		color: var(--text-muted);
+		font: inherit;
+		font-size: 11px;
+		font-weight: 650;
+		padding: 5px 10px;
+		border-radius: 999px;
+		cursor: pointer;
+	}
+
+	.schedule-kind button.active {
+		background: var(--panel-bg);
+		color: var(--text-main);
+		box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+	}
+
+	.schedule-generated {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		justify-content: center;
+		padding: 8px 10px;
+		border-radius: 8px;
+		background: color-mix(in srgb, var(--accent) 8%, transparent);
+		border: 1px solid color-mix(in srgb, var(--accent) 14%, var(--border-soft));
+		font-size: 11px;
+		color: var(--text-main);
+	}
+
+	.schedule-generated code {
+		width: fit-content;
+		font-size: 11px;
+	}
+
+	.schedule-generated small {
+		font-size: 10px;
+		line-height: 1.4;
+		color: var(--text-muted);
+	}
+
+	.schedule-actions {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		flex-wrap: wrap;
 	}
 
 	.scheduled-list {

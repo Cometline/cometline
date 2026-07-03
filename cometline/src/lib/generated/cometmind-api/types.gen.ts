@@ -699,6 +699,13 @@ export type UpdateScheduledJobRequest = {
     description?: string;
     definition_of_done?: string;
     workspace_path?: string;
+    /**
+     * Standard 5-field cron expression for recurring schedules. Mutually exclusive with run_at.
+     */
+    cron_expr?: string;
+    /**
+     * One-shot run time in Unix milliseconds. Mutually exclusive with cron_expr.
+     */
     run_at?: number;
     enabled?: boolean;
 };

@@ -196,19 +196,33 @@ func (s *Service) List(ctx context.Context) ([]ScheduledJob, error) {
 }
 
 func (s *Service) Update(ctx context.Context, scheduleID string, in UpdateInput) (ScheduledJob, error) {
-	if err := validateSchedule(in.Description, "", in.RunAt); err != nil {
+	if err := validateSchedule(in.Description, in.CronExpr, in.RunAt); err != nil {
 		return ScheduledJob{}, err
 	}
 	enabled := int64(0)
 	if in.Enabled {
 		enabled = 1
 	}
+	cronExpr := strings.TrimSpace(in.CronExpr)
+	var runAtVal sql.NullInt64
+	var nextRunAt int64
+	if cronExpr != "" {
+		nr, err := nextCronRun(cronExpr, time.Now())
+		if err != nil {
+			return ScheduledJob{}, err
+		}
+		nextRunAt = nr
+	} else {
+		runAtVal = sql.NullInt64{Int64: in.RunAt, Valid: true}
+		nextRunAt = in.RunAt
+	}
 	n, err := s.q.UpdateScheduledJob(ctx, db.UpdateScheduledJobParams{
 		Description:      strings.TrimSpace(in.Description),
 		DefinitionOfDone: strings.TrimSpace(in.DefinitionOfDone),
 		WorkspacePath:    optionalNullString(in.WorkspacePath),
-		RunAt:            sql.NullInt64{Int64: in.RunAt, Valid: true},
-		NextRunAt:        in.RunAt,
+		CronExpr:         optionalNullString(cronExpr),
+		RunAt:            runAtVal,
+		NextRunAt:        nextRunAt,
 		Enabled:          enabled,
 		UpdatedAt:        nowMillis(),
 		ID:               scheduleID,

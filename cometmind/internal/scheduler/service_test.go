@@ -65,6 +65,39 @@ func TestCreateListAndUpdateOneShotSchedule(t *testing.T) {
 	}
 }
 
+func TestUpdateScheduleCanSwitchBetweenOneShotAndCron(t *testing.T) {
+	ctx := context.Background()
+	svc, _ := newSchedulerTestServices(t)
+
+	created, err := svc.Create(ctx, CreateInput{Description: "switch schedule", RunAt: 2_000_000})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cron, err := svc.Update(ctx, created.ID, UpdateInput{
+		Description: "switch schedule",
+		CronExpr:    "30 8 * * 1",
+		Enabled:     true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cron.CronExpr != "30 8 * * 1" || cron.RunAt != nil || !cron.Enabled {
+		t.Fatalf("cron update=%+v", cron)
+	}
+
+	oneShot, err := svc.Update(ctx, created.ID, UpdateInput{
+		Description: "switch schedule",
+		RunAt:       3_000_000,
+		Enabled:     true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if oneShot.CronExpr != "" || oneShot.RunAt == nil || *oneShot.RunAt != 3_000_000 || oneShot.NextRunAt != 3_000_000 {
+		t.Fatalf("one-shot update=%+v", oneShot)
+	}
+}
+
 func TestScheduledJobsPersistAcrossSQLiteReopen(t *testing.T) {
 	ctx := context.Background()
 	dbPath := filepath.Join(t.TempDir(), "cometmind.db")

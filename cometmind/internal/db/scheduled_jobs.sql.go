@@ -252,6 +252,7 @@ UPDATE scheduled_jobs
 SET description = ?,
     definition_of_done = ?,
     workspace_path = ?,
+    cron_expr = ?,
     run_at = ?,
     next_run_at = ?,
     enabled = ?,
@@ -263,6 +264,7 @@ type UpdateScheduledJobParams struct {
 	Description      string         `json:"description"`
 	DefinitionOfDone string         `json:"definition_of_done"`
 	WorkspacePath    sql.NullString `json:"workspace_path"`
+	CronExpr         sql.NullString `json:"cron_expr"`
 	RunAt            sql.NullInt64  `json:"run_at"`
 	NextRunAt        int64          `json:"next_run_at"`
 	Enabled          int64          `json:"enabled"`
@@ -275,6 +277,7 @@ func (q *Queries) UpdateScheduledJob(ctx context.Context, arg UpdateScheduledJob
 		arg.Description,
 		arg.DefinitionOfDone,
 		arg.WorkspacePath,
+		arg.CronExpr,
 		arg.RunAt,
 		arg.NextRunAt,
 		arg.Enabled,

@@ -3117,9 +3117,13 @@ components:
           type: string
         workspace_path:
           type: string
+        cron_expr:
+          type: string
+          description: Standard 5-field cron expression for recurring schedules. Mutually exclusive with run_at.
         run_at:
           type: integer
           format: int64
+          description: One-shot run time in Unix milliseconds. Mutually exclusive with cron_expr.
         enabled:
           type: boolean
 

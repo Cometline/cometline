@@ -8,8 +8,8 @@ const (
 	PlatformDiscord = "discord"
 )
 
-// ScheduledJob is a deferred job definition. The first cut supports one-shot
-// run_at schedules; cron_expr is reserved for recurring schedules.
+// ScheduledJob is a deferred job definition. It supports one-shot run_at
+// schedules and standard cron_expr recurring schedules.
 type ScheduledJob struct {
 	ID               string
 	Description      string
@@ -44,6 +44,7 @@ type UpdateInput struct {
 	Description      string
 	DefinitionOfDone string
 	WorkspacePath    string
+	CronExpr         string
 	RunAt            int64
 	Enabled          bool
 }

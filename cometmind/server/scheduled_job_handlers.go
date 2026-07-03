@@ -42,6 +42,7 @@ type updateScheduledJobRequest struct {
 	Description      string `json:"description"`
 	DefinitionOfDone string `json:"definition_of_done"`
 	WorkspacePath    string `json:"workspace_path"`
+	CronExpr         string `json:"cron_expr"`
 	RunAt            int64  `json:"run_at"`
 	Enabled          *bool  `json:"enabled"`
 }
@@ -147,11 +148,21 @@ func (a *App) handlePatchScheduledJob(c *gin.Context) {
 	if req.Enabled != nil {
 		enabled = *req.Enabled
 	}
+	cronExpr := current.CronExpr
+	var runAt int64
+	if current.CronExpr == "" && current.RunAt != nil {
+		runAt = *current.RunAt
+	}
+	if req.CronExpr != "" || req.RunAt != 0 {
+		cronExpr = req.CronExpr
+		runAt = req.RunAt
+	}
 	item, err := a.scheduler.Update(c.Request.Context(), current.ID, scheduler.UpdateInput{
 		Description:      firstNonEmpty(req.Description, current.Description),
 		DefinitionOfDone: firstNonEmpty(req.DefinitionOfDone, current.DefinitionOfDone),
 		WorkspacePath:    firstNonEmpty(req.WorkspacePath, current.WorkspacePath),
-		RunAt:            firstNonZero(req.RunAt, current.NextRunAt),
+		CronExpr:         cronExpr,
+		RunAt:            runAt,
 		Enabled:          enabled,
 	})
 	if err != nil {

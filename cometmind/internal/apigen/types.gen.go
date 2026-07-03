@@ -1149,11 +1149,15 @@ type UpdateMemoryRequest struct {
 
 // UpdateScheduledJobRequest defines model for UpdateScheduledJobRequest.
 type UpdateScheduledJobRequest struct {
+	// CronExpr Standard 5-field cron expression for recurring schedules. Mutually exclusive with run_at.
+	CronExpr         *string `json:"cron_expr,omitempty"`
 	DefinitionOfDone *string `json:"definition_of_done,omitempty"`
 	Description      *string `json:"description,omitempty"`
 	Enabled          *bool   `json:"enabled,omitempty"`
-	RunAt            *int64  `json:"run_at,omitempty"`
-	WorkspacePath    *string `json:"workspace_path,omitempty"`
+
+	// RunAt One-shot run time in Unix milliseconds. Mutually exclusive with cron_expr.
+	RunAt         *int64  `json:"run_at,omitempty"`
+	WorkspacePath *string `json:"workspace_path,omitempty"`
 }
 
 // UpdateSessionRequest defines model for UpdateSessionRequest.
