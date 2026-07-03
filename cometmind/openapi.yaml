@@ -2830,6 +2830,8 @@ components:
           type: boolean
         max_retrieved:
           type: integer
+        task_outcome_limit:
+          type: integer
         similarity_threshold:
           type: number
         extraction_provider:
@@ -3211,6 +3213,8 @@ components:
         lease_minutes:
           type: integer
         deleted_purge_days:
+          type: integer
+        done_archive_days:
           type: integer
         archived_purge_days:
           type: integer

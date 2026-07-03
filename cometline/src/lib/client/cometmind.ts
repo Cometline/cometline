@@ -143,6 +143,7 @@ export type MemorySettings = {
 	auto_extract: boolean;
 	auto_retrieve: boolean;
 	max_retrieved: number;
+	task_outcome_limit: number;
 	similarity_threshold: number;
 	extraction_model: string;
 	lifecycle: MemoryLifecycleSettings;
@@ -578,6 +579,7 @@ export function defaultMemorySettings(): MemorySettings {
 		auto_extract: true,
 		auto_retrieve: true,
 		max_retrieved: 5,
+		task_outcome_limit: 3,
 		similarity_threshold: 0.5,
 		extraction_model: '',
 		lifecycle: {
@@ -608,6 +610,7 @@ function resolveMemorySettings(raw: MemorySettingsWire): MemorySettings {
 		auto_extract: raw.auto_extract ?? def.auto_extract,
 		auto_retrieve: raw.auto_retrieve ?? def.auto_retrieve,
 		max_retrieved: raw.max_retrieved ?? def.max_retrieved,
+		task_outcome_limit: raw.task_outcome_limit ?? def.task_outcome_limit,
 		similarity_threshold: raw.similarity_threshold ?? def.similarity_threshold,
 		extraction_model: raw.extraction_model ?? def.extraction_model,
 		lifecycle: {

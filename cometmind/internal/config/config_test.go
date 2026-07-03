@@ -297,6 +297,7 @@ func TestAdaptCometlineSettingsMemoryBehavior(t *testing.T) {
 				AutoExtract:         false,
 				AutoRetrieve:        false,
 				MaxRetrieved:        9,
+				TaskOutcomeLimit:    4,
 				SimilarityThreshold: 0.72,
 				Lifecycle: cometlineMemoryLifecycleJSON{
 					DecayHalfLifeDays:     45,
@@ -324,6 +325,9 @@ func TestAdaptCometlineSettingsMemoryBehavior(t *testing.T) {
 	}
 	if cfg.Memory.MaxRetrieved != 9 {
 		t.Fatalf("Memory.MaxRetrieved = %d, want 9", cfg.Memory.MaxRetrieved)
+	}
+	if cfg.Memory.TaskOutcomeLimit != 4 {
+		t.Fatalf("Memory.TaskOutcomeLimit = %d, want 4", cfg.Memory.TaskOutcomeLimit)
 	}
 	if cfg.Memory.SimilarityThreshold != 0.72 {
 		t.Fatalf("Memory.SimilarityThreshold = %v, want 0.72", cfg.Memory.SimilarityThreshold)

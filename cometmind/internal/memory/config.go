@@ -6,8 +6,9 @@ type Settings struct {
 	AutoExtract         bool
 	AutoRetrieve        bool
 	MaxRetrieved        int
+	TaskOutcomeLimit    int
 	SimilarityThreshold float64
-	ExtractionProvider string
+	ExtractionProvider  string
 	ExtractionModel     string
 	Lifecycle           LifecycleSettings
 	Embedding           EmbeddingSettings
@@ -39,6 +40,7 @@ func DefaultSettings() Settings {
 		AutoExtract:         true,
 		AutoRetrieve:        true,
 		MaxRetrieved:        5,
+		TaskOutcomeLimit:    3,
 		SimilarityThreshold: 0.5,
 		Lifecycle: LifecycleSettings{
 			DecayHalfLifeDays:     30,

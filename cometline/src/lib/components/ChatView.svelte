@@ -277,6 +277,17 @@
 		return () => window.clearTimeout(timeout);
 	});
 
+	$effect(() => {
+		const id = sessionId;
+		const current = sessionStore.current;
+		if (!id || current?.id !== id || current.origin !== 'autonomy') return;
+		const interval = window.setInterval(() => {
+			if (chatStore.isStreamingFor(id) || chatStore.hasInFlightTurn(id)) return;
+			void chatStore.refreshTranscript(id);
+		}, 2500);
+		return () => window.clearInterval(interval);
+	});
+
 	function showLocalUserMessage(text: string) {
 		chatStore.appendLocalUserMessage(sessionId, text);
 	}

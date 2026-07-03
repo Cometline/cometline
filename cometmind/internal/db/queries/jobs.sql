@@ -65,6 +65,14 @@ WHERE deleted_at IS NULL
   AND archived_at IS NOT NULL
   AND archived_at < ?;
 
+-- name: ListDoneJobsBefore :many
+SELECT id
+FROM jobs
+WHERE deleted_at IS NULL
+  AND archived_at IS NULL
+  AND status = 'done'
+  AND updated_at < ?;
+
 -- name: UpdateJobTodoFields :execrows
 UPDATE jobs
 SET
@@ -117,7 +125,6 @@ WHERE id = ?
 UPDATE jobs
 SET
     status = 'done',
-    assigned_session_id = NULL,
     lease_expires_at = NULL,
     failure_count = 0,
     next_retry_at = NULL,
@@ -143,7 +150,6 @@ WHERE id = ?
 UPDATE jobs
 SET
     archived_at = ?,
-    assigned_session_id = NULL,
     lease_expires_at = NULL,
     updated_at = ?
 WHERE id = ?

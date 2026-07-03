@@ -259,6 +259,9 @@ func (r *Runtime) StartJobsMaintenance(ctx context.Context) {
 						logging.L().Warn("jobs.purge.failed", "error", err)
 					}
 				}
+				if _, err := r.Jobs.ArchiveDone(ctx, settings.DoneArchiveDays); err != nil {
+					logging.L().Warn("jobs.done_archive.failed", "error", err)
+				}
 				if _, err := r.Jobs.PurgeArchived(ctx, settings.ArchivedPurgeDays); err != nil {
 					logging.L().Warn("jobs.archive_purge.failed", "error", err)
 				}

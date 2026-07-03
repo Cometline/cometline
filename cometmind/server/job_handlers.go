@@ -73,6 +73,7 @@ type jobSettingsRequest struct {
 	Notifications            *jobNotificationSettingsRequest `json:"notifications"`
 	LeaseMinutes             *int                            `json:"lease_minutes"`
 	DeletedPurgeDays         *int                            `json:"deleted_purge_days"`
+	DoneArchiveDays          *int                            `json:"done_archive_days"`
 	ArchivedPurgeDays        *int                            `json:"archived_purge_days"`
 	StaleReviewMinutes       *int                            `json:"stale_review_minutes"`
 	MaxConsecutiveFailures   *int                            `json:"max_consecutive_failures"`
@@ -135,6 +136,7 @@ func settingsToResponse(s jobs.Settings) gin.H {
 		},
 		"lease_minutes":              s.LeaseMinutes,
 		"deleted_purge_days":         s.DeletedPurgeDays,
+		"done_archive_days":          s.DoneArchiveDays,
 		"archived_purge_days":        s.ArchivedPurgeDays,
 		"stale_review_minutes":       s.StaleReviewMinutes,
 		"max_consecutive_failures":   s.MaxConsecutiveFailures,
@@ -431,6 +433,9 @@ func (a *App) handlePutJobSettings(c *gin.Context) {
 	}
 	if req.DeletedPurgeDays != nil {
 		current.DeletedPurgeDays = *req.DeletedPurgeDays
+	}
+	if req.DoneArchiveDays != nil {
+		current.DoneArchiveDays = *req.DoneArchiveDays
 	}
 	if req.ArchivedPurgeDays != nil {
 		current.ArchivedPurgeDays = *req.ArchivedPurgeDays

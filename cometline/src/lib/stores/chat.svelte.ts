@@ -324,6 +324,39 @@ function createChatStore() {
 		return loadPromise;
 	}
 
+	async function refreshTranscript(nextSessionID: string) {
+		if (!nextSessionID) return;
+		if (hasInFlightTurn(nextSessionID)) return;
+		const run = ++loadRun;
+		try {
+			const transcript = await getSessionMessages(nextSessionID);
+			const children = await listChildSessions(nextSessionID).catch(() => ({
+				sessions: [] as Session[]
+			}));
+			if (run !== loadRun && sessionID !== nextSessionID) return;
+			if (hasInFlightTurn(nextSessionID)) return;
+			const loaded = mergeSubagents(itemsFromTranscript(transcript.items), children.sessions);
+			writeSessionItems(nextSessionID, loaded);
+			sessionErrors.delete(nextSessionID);
+			if (sessionID === nextSessionID) error = '';
+			chatDebug('store:refresh-transcript', {
+				sessionID: nextSessionID,
+				rawItems: transcript.items,
+				items: summarizeChatItems(getCachedItems(nextSessionID))
+			});
+		} catch (err) {
+			if (isSessionNotFoundError(err)) {
+				discardMissingSession(nextSessionID);
+				return;
+			}
+			if (run !== loadRun && sessionID !== nextSessionID) return;
+			if (hasInFlightTurn(nextSessionID)) return;
+			const message = err instanceof Error ? err.message : 'Failed to refresh transcript';
+			sessionErrors.set(nextSessionID, message);
+			if (sessionID === nextSessionID) error = message;
+		}
+	}
+
 	function addUserToSession(
 		targetSessionID: string,
 		text: string,
@@ -687,6 +720,7 @@ function createChatStore() {
 		detachActiveSession,
 		bindSession,
 		loadTranscript,
+		refreshTranscript,
 		stageUserForSession,
 		revealStagedUserForSession,
 		stageUser,

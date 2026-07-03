@@ -607,6 +607,7 @@ type JobSessionRequest struct {
 type JobSettings struct {
 	ArchivedPurgeDays        *int                     `json:"archived_purge_days,omitempty"`
 	DeletedPurgeDays         *int                     `json:"deleted_purge_days,omitempty"`
+	DoneArchiveDays          *int                     `json:"done_archive_days,omitempty"`
 	LeaseMinutes             *int                     `json:"lease_minutes,omitempty"`
 	MaxConsecutiveFailures   *int                     `json:"max_consecutive_failures,omitempty"`
 	MaxRetryCooldownMinutes  *int                     `json:"max_retry_cooldown_minutes,omitempty"`
@@ -765,6 +766,7 @@ type MemorySettings struct {
 	Lifecycle           *MemoryLifecycleSettings `json:"lifecycle,omitempty"`
 	MaxRetrieved        *int                     `json:"max_retrieved,omitempty"`
 	SimilarityThreshold *float32                 `json:"similarity_threshold,omitempty"`
+	TaskOutcomeLimit    *int                     `json:"task_outcome_limit,omitempty"`
 }
 
 // MemoryUpdatedEvent defines model for MemoryUpdatedEvent.

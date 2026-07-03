@@ -199,7 +199,7 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 				if prefErr != nil {
 					logging.L().Error("memory.preferences.failed", "session", turn.ID, "error", prefErr)
 				}
-				outcomes, outcomeErr := r.Memory.RecentTaskOutcomes(ctx, 3)
+				outcomes, outcomeErr := r.Memory.RecentTaskOutcomes(ctx, 0)
 				if outcomeErr != nil {
 					logging.L().Error("memory.task_outcomes.failed", "session", turn.ID, "error", outcomeErr)
 				}

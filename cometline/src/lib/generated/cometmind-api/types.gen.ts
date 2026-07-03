@@ -576,6 +576,7 @@ export type MemorySettings = {
     auto_extract?: boolean;
     auto_retrieve?: boolean;
     max_retrieved?: number;
+    task_outcome_limit?: number;
     similarity_threshold?: number;
     extraction_provider?: string;
     extraction_model?: string;
@@ -752,6 +753,7 @@ export type JobSettings = {
     notifications?: JobNotificationSettings;
     lease_minutes?: number;
     deleted_purge_days?: number;
+    done_archive_days?: number;
     archived_purge_days?: number;
     stale_review_minutes?: number;
     max_consecutive_failures?: number;

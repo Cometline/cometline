@@ -14,6 +14,7 @@ type JobSettings struct {
 	Notifications           JobNotificationSettings `json:"notifications"`
 	LeaseMinutes            int                     `json:"lease_minutes"`
 	DeletedPurgeDays        int                     `json:"deleted_purge_days"`
+	DoneArchiveDays         int                     `json:"done_archive_days"`
 	ArchivedPurgeDays       int                     `json:"archived_purge_days"`
 	StaleReviewMinutes      int                     `json:"stale_review_minutes"`
 	MaxConsecutiveFailures  int                     `json:"max_consecutive_failures"`
@@ -34,6 +35,7 @@ func DefaultJobSettings() JobSettings {
 		},
 		LeaseMinutes:            30,
 		DeletedPurgeDays:        30,
+		DoneArchiveDays:         3,
 		ArchivedPurgeDays:       30,
 		StaleReviewMinutes:      30,
 		MaxConsecutiveFailures:  3,
@@ -48,6 +50,7 @@ type JobsConfig struct {
 	Notifications            JobNotificationSettings `json:"notifications" mapstructure:"notifications"`
 	LeaseMinutes             int                     `json:"lease_minutes" mapstructure:"lease_minutes"`
 	DeletedPurgeDays         int                     `json:"deleted_purge_days" mapstructure:"deleted_purge_days"`
+	DoneArchiveDays          int                     `json:"done_archive_days" mapstructure:"done_archive_days"`
 	ArchivedPurgeDays        int                     `json:"archived_purge_days" mapstructure:"archived_purge_days"`
 	StaleReviewMinutes       int                     `json:"stale_review_minutes" mapstructure:"stale_review_minutes"`
 	MaxConsecutiveFailures   int                     `json:"max_consecutive_failures" mapstructure:"max_consecutive_failures"`
@@ -62,6 +65,7 @@ func defaultJobsConfig() JobsConfig {
 		Notifications:            s.Notifications,
 		LeaseMinutes:             s.LeaseMinutes,
 		DeletedPurgeDays:         s.DeletedPurgeDays,
+		DoneArchiveDays:          s.DoneArchiveDays,
 		ArchivedPurgeDays:        s.ArchivedPurgeDays,
 		StaleReviewMinutes:       s.StaleReviewMinutes,
 		MaxConsecutiveFailures:   s.MaxConsecutiveFailures,
@@ -82,6 +86,7 @@ func (c *Config) JobsSettings() JobSettings {
 		Notifications:           j.Notifications,
 		LeaseMinutes:            j.LeaseMinutes,
 		DeletedPurgeDays:        j.DeletedPurgeDays,
+		DoneArchiveDays:         j.DoneArchiveDays,
 		ArchivedPurgeDays:       j.ArchivedPurgeDays,
 		StaleReviewMinutes:      j.StaleReviewMinutes,
 		MaxConsecutiveFailures:  j.MaxConsecutiveFailures,
@@ -100,6 +105,9 @@ func (c *Config) JobsSettings() JobSettings {
 	}
 	if s.DeletedPurgeDays <= 0 {
 		s.DeletedPurgeDays = def.DeletedPurgeDays
+	}
+	if s.DoneArchiveDays <= 0 {
+		s.DoneArchiveDays = def.DoneArchiveDays
 	}
 	if s.ArchivedPurgeDays <= 0 {
 		s.ArchivedPurgeDays = def.ArchivedPurgeDays

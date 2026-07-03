@@ -151,6 +151,7 @@ declare global {
 		autoExtract: boolean;
 		autoRetrieve: boolean;
 		maxRetrieved: number;
+		taskOutcomeLimit: number;
 		similarityThreshold: number;
 		extractionProviderId: string;
 		extractionModel: string;
@@ -193,6 +194,7 @@ declare global {
 		notifications: CometMindJobsNotificationSettings;
 		leaseMinutes: number;
 		deletedPurgeDays: number;
+		doneArchiveDays: number;
 		archivedPurgeDays: number;
 		staleReviewMinutes: number;
 		maxConsecutiveFailures: number;

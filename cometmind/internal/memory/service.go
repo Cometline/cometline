@@ -138,7 +138,10 @@ func (s *Service) RecentTaskOutcomes(ctx context.Context, limit int) ([]ScoredMe
 		return nil, nil
 	}
 	if limit <= 0 {
-		limit = 3
+		limit = s.settings.TaskOutcomeLimit
+		if limit <= 0 {
+			limit = DefaultSettings().TaskOutcomeLimit
+		}
 	}
 	started := time.Now()
 	recs, err := s.store.listRecentByKind(ctx, "task_outcome", limit)

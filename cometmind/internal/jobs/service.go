@@ -347,6 +347,36 @@ func (s *Service) PurgeArchived(ctx context.Context, olderThanDays int) (int, er
 	return len(ids), nil
 }
 
+// ArchiveDone archives completed jobs older than the cutoff without deleting them.
+func (s *Service) ArchiveDone(ctx context.Context, olderThanDays int) (int, error) {
+	if olderThanDays <= 0 {
+		return 0, nil
+	}
+	cutoff := nowMillis() - int64(olderThanDays)*24*60*60*1000
+	ids, err := s.q.ListDoneJobsBefore(ctx, cutoff)
+	if err != nil {
+		return 0, err
+	}
+	archived := 0
+	for _, jobID := range ids {
+		ts := nowMillis()
+		n, err := s.q.ArchiveJob(ctx, db.ArchiveJobParams{
+			ArchivedAt: sql.NullInt64{Int64: ts, Valid: true},
+			UpdatedAt:  ts,
+			ID:         jobID,
+		})
+		if err != nil {
+			return archived, err
+		}
+		if n == 0 {
+			continue
+		}
+		archived++
+		_ = s.recordEvent(ctx, jobID, EventArchived, "auto-archive", "")
+	}
+	return archived, nil
+}
+
 // ListEvents returns audit events for a job.
 func (s *Service) ListEvents(ctx context.Context, jobID string) ([]JobEvent, error) {
 	rows, err := s.q.ListJobEvents(ctx, jobID)

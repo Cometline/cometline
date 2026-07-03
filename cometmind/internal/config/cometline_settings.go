@@ -61,6 +61,7 @@ type cometlineMemoryJSON struct {
 	AutoExtract          bool                         `json:"autoExtract"`
 	AutoRetrieve         bool                         `json:"autoRetrieve"`
 	MaxRetrieved         int                          `json:"maxRetrieved"`
+	TaskOutcomeLimit     int                          `json:"taskOutcomeLimit"`
 	SimilarityThreshold  float64                      `json:"similarityThreshold"`
 	ExtractionProviderID string                       `json:"extractionProviderId"`
 	ExtractionModel      string                       `json:"extractionModel"`
@@ -127,6 +128,7 @@ type cometlineJobsJSON struct {
 	Notifications            cometlineJobsNotificationsJSON `json:"notifications"`
 	LeaseMinutes             int                            `json:"leaseMinutes"`
 	DeletedPurgeDays         int                            `json:"deletedPurgeDays"`
+	DoneArchiveDays          int                            `json:"doneArchiveDays"`
 	ArchivedPurgeDays        int                            `json:"archivedPurgeDays"`
 	StaleReviewMinutes       int                            `json:"staleReviewMinutes"`
 	MaxConsecutiveFailures   int                            `json:"maxConsecutiveFailures"`
@@ -277,6 +279,7 @@ func adaptCometlineSettings(raw cometlineSettingsJSON) (*Config, error) {
 			AutoExtract:         cm.Memory.AutoExtract,
 			AutoRetrieve:        cm.Memory.AutoRetrieve,
 			MaxRetrieved:        cm.Memory.MaxRetrieved,
+			TaskOutcomeLimit:    cm.Memory.TaskOutcomeLimit,
 			SimilarityThreshold: cm.Memory.SimilarityThreshold,
 			ExtractionProvider:  strings.TrimSpace(cm.Memory.ExtractionProviderID),
 			ExtractionModel:     firstNonEmpty(strings.TrimSpace(cm.Memory.ExtractionModel), memDef.ExtractionModel),
@@ -315,6 +318,7 @@ func adaptCometlineSettings(raw cometlineSettingsJSON) (*Config, error) {
 			},
 			LeaseMinutes:             cm.Jobs.LeaseMinutes,
 			DeletedPurgeDays:         cm.Jobs.DeletedPurgeDays,
+			DoneArchiveDays:          cm.Jobs.DoneArchiveDays,
 			ArchivedPurgeDays:        cm.Jobs.ArchivedPurgeDays,
 			StaleReviewMinutes:       cm.Jobs.StaleReviewMinutes,
 			MaxConsecutiveFailures:   cm.Jobs.MaxConsecutiveFailures,

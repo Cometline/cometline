@@ -86,6 +86,7 @@ export interface CometMindMemorySettings {
 	autoExtract: boolean;
 	autoRetrieve: boolean;
 	maxRetrieved: number;
+	taskOutcomeLimit: number;
 	similarityThreshold: number;
 	extractionProviderId: string;
 	extractionModel: string;
@@ -156,6 +157,7 @@ export interface CometMindJobsSettings {
 	notifications: CometMindJobsNotificationSettings;
 	leaseMinutes: number;
 	deletedPurgeDays: number;
+	doneArchiveDays: number;
 	archivedPurgeDays: number;
 	staleReviewMinutes: number;
 	maxConsecutiveFailures: number;
@@ -445,6 +447,7 @@ export function defaultCometMindJobsSettings(): CometMindJobsSettings {
 		},
 		leaseMinutes: 30,
 		deletedPurgeDays: 30,
+		doneArchiveDays: 3,
 		archivedPurgeDays: 30,
 		staleReviewMinutes: 30,
 		maxConsecutiveFailures: 3,
@@ -512,6 +515,7 @@ export function defaultCometMindSettings(workspacePath = ''): CometMindSettings 
 			autoExtract: true,
 			autoRetrieve: true,
 			maxRetrieved: 5,
+			taskOutcomeLimit: 3,
 			similarityThreshold: 0.5,
 			extractionProviderId: '',
 			extractionModel: '',
@@ -620,6 +624,10 @@ export function normalizeCometMindSettings(
 					? memory.autoRetrieve
 					: defaults.memory.autoRetrieve,
 			maxRetrieved: normalizePositiveInt(memory.maxRetrieved, defaults.memory.maxRetrieved),
+			taskOutcomeLimit: normalizePositiveInt(
+				memory.taskOutcomeLimit,
+				defaults.memory.taskOutcomeLimit
+			),
 			similarityThreshold: normalizeUnit(
 				memory.similarityThreshold,
 				defaults.memory.similarityThreshold
@@ -749,6 +757,10 @@ export function normalizeCometMindSettings(
 				jobsInput.deletedPurgeDays,
 				jobsDefaults.deletedPurgeDays
 			),
+			doneArchiveDays: normalizeNonNegativeInt(
+				jobsInput.doneArchiveDays,
+				jobsDefaults.doneArchiveDays
+			),
 			archivedPurgeDays: normalizeNonNegativeInt(
 				jobsInput.archivedPurgeDays,
 				jobsDefaults.archivedPurgeDays
@@ -835,6 +847,7 @@ export function cloneCometMindSettings(settings: CometMindSettings): CometMindSe
 			autoExtract: settings.memory.autoExtract,
 			autoRetrieve: settings.memory.autoRetrieve,
 			maxRetrieved: settings.memory.maxRetrieved,
+			taskOutcomeLimit: settings.memory.taskOutcomeLimit,
 			similarityThreshold: settings.memory.similarityThreshold,
 			extractionProviderId: settings.memory.extractionProviderId,
 			extractionModel: settings.memory.extractionModel,
@@ -1180,6 +1193,7 @@ export function runtimeSlice(settings: ProviderSettings): RuntimeSettingsSlice |
 			autoExtract: settings.cometmind.memory.autoExtract,
 			autoRetrieve: settings.cometmind.memory.autoRetrieve,
 			maxRetrieved: settings.cometmind.memory.maxRetrieved,
+			taskOutcomeLimit: settings.cometmind.memory.taskOutcomeLimit,
 			similarityThreshold: settings.cometmind.memory.similarityThreshold,
 			extractionProviderId: settings.cometmind.memory.extractionProviderId,
 			extractionModel: settings.cometmind.memory.extractionModel,
@@ -1280,6 +1294,7 @@ const providerSettingsSchema = z.object({
 			autoExtract: z.boolean(),
 			autoRetrieve: z.boolean(),
 			maxRetrieved: z.number().int().positive(),
+			taskOutcomeLimit: z.number().int().positive(),
 			similarityThreshold: z.number().min(0).max(1),
 			extractionProviderId: z.string(),
 			extractionModel: z.string(),
@@ -1356,6 +1371,7 @@ const providerSettingsSchema = z.object({
 			}),
 			leaseMinutes: z.number().int().positive(),
 			deletedPurgeDays: z.number().int().min(0),
+			doneArchiveDays: z.number().int().min(0),
 			archivedPurgeDays: z.number().int().min(0),
 			staleReviewMinutes: z.number().int().positive(),
 			maxConsecutiveFailures: z.number().int().positive(),

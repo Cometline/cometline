@@ -86,6 +86,7 @@ export function applyMemoryEmbeddingToDraft(
 		auto_extract: draft.cometmind.memory.autoExtract,
 		auto_retrieve: draft.cometmind.memory.autoRetrieve,
 		max_retrieved: draft.cometmind.memory.maxRetrieved,
+		task_outcome_limit: draft.cometmind.memory.taskOutcomeLimit,
 		similarity_threshold: draft.cometmind.memory.similarityThreshold,
 		extraction_model: draft.cometmind.memory.extractionModel,
 		lifecycle: {
@@ -144,6 +145,8 @@ export function applyMemorySettingsToDraft(
 				autoExtract: memory.auto_extract ?? draft.cometmind.memory.autoExtract,
 				autoRetrieve: memory.auto_retrieve ?? draft.cometmind.memory.autoRetrieve,
 				maxRetrieved: memory.max_retrieved ?? draft.cometmind.memory.maxRetrieved,
+				taskOutcomeLimit:
+					memory.task_outcome_limit ?? draft.cometmind.memory.taskOutcomeLimit,
 				similarityThreshold:
 					memory.similarity_threshold ?? draft.cometmind.memory.similarityThreshold,
 				extractionProviderId: draft.cometmind.memory.extractionProviderId,

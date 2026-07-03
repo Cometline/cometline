@@ -44,7 +44,7 @@ func (n *skillSynthesisNotifier) OnJobEvent(ctx context.Context, job jobs.Job, a
 		var outcomes []memory.ScoredMemory
 		if n.memory != nil {
 			var err error
-			outcomes, err = n.memory.RecentTaskOutcomes(ctx, 3)
+			outcomes, err = n.memory.RecentTaskOutcomes(ctx, 0)
 			if err != nil {
 				logging.L().Warn("skills.synthesis.outcomes_failed", "job_id", job.ID, "error", err)
 			}

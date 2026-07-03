@@ -70,10 +70,14 @@ func TestMemorySettingsAllowsZeroSimilarityThreshold(t *testing.T) {
 		Memory: MemoryConfig{
 			Enabled:             true,
 			MaxRetrieved:        5,
+			TaskOutcomeLimit:    4,
 			SimilarityThreshold: 0,
 		},
 	}
 	s := cfg.MemorySettings()
+	if s.TaskOutcomeLimit != 4 {
+		t.Fatalf("TaskOutcomeLimit = %d, want 4", s.TaskOutcomeLimit)
+	}
 	if s.SimilarityThreshold != 0 {
 		t.Fatalf("SimilarityThreshold = %v, want 0", s.SimilarityThreshold)
 	}

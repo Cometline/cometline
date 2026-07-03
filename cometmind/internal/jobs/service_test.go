@@ -17,6 +17,11 @@ func testJobsService(t *testing.T) *jobs.Service {
 }
 
 func testJobsServiceWithSettings(t *testing.T, settingsFn func() jobs.Settings) *jobs.Service {
+	svc, _ := testJobsServiceWithDB(t, settingsFn)
+	return svc
+}
+
+func testJobsServiceWithDB(t *testing.T, settingsFn func() jobs.Settings) (*jobs.Service, *sql.DB) {
 	t.Helper()
 	conn, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
@@ -26,7 +31,7 @@ func testJobsServiceWithSettings(t *testing.T, settingsFn func() jobs.Settings) 
 	if err := db.EnsureSchema(context.Background(), conn); err != nil {
 		t.Fatal(err)
 	}
-	return jobs.NewService(conn, settingsFn, nil)
+	return jobs.NewService(conn, settingsFn, nil), conn
 }
 
 func TestCreateClaimComplete(t *testing.T) {
@@ -61,8 +66,62 @@ func TestCreateClaimComplete(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if done.Status != jobs.StatusDone || done.Progress != "all green" {
+	if done.Status != jobs.StatusDone || done.Progress != "all green" || done.AssignedSessionID != "sess-1" {
 		t.Fatalf("done=%+v", done)
+	}
+}
+
+func TestArchiveDoneArchivesOnlyOldCompletedJobs(t *testing.T) {
+	svc, conn := testJobsServiceWithDB(t, nil)
+	ctx := context.Background()
+
+	oldJob, err := svc.Create(ctx, jobs.CreateInput{Description: "old done"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Claim(ctx, oldJob.ID, "sess-old"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Complete(ctx, oldJob.ID, "sess-old", "done"); err != nil {
+		t.Fatal(err)
+	}
+	oldUpdatedAt := time.Now().Add(-5 * 24 * time.Hour).UnixMilli()
+	if _, err := conn.ExecContext(ctx, `UPDATE jobs SET updated_at = ? WHERE id = ?`, oldUpdatedAt, oldJob.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	recentJob, err := svc.Create(ctx, jobs.CreateInput{Description: "recent done"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Claim(ctx, recentJob.ID, "sess-recent"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Complete(ctx, recentJob.ID, "sess-recent", "done"); err != nil {
+		t.Fatal(err)
+	}
+
+	archived, err := svc.ArchiveDone(ctx, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if archived != 1 {
+		t.Fatalf("archived=%d want 1", archived)
+	}
+
+	oldAfter, err := svc.Get(ctx, oldJob.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if oldAfter.ArchivedAt == nil || oldAfter.AssignedSessionID != "sess-old" {
+		t.Fatalf("oldAfter=%+v", oldAfter)
+	}
+	recentAfter, err := svc.Get(ctx, recentJob.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if recentAfter.ArchivedAt != nil {
+		t.Fatalf("recent archived unexpectedly: %+v", recentAfter)
 	}
 }
 

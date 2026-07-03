@@ -612,6 +612,14 @@
 				/>
 			</label>
 			<label>
+				<span>Auto-archive completed jobs (days)</span>
+				<input type="number" min="0" step="1" bind:value={cometmind.jobs.doneArchiveDays} />
+				<p class="settings-field-hint">
+					Moves completed jobs out of the active Done column after this many days. Set to
+					0 to keep completed jobs visible.
+				</p>
+			</label>
+			<label>
 				<span>Archived job purge (days)</span>
 				<input
 					type="number"

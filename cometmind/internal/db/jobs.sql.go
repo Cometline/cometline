@@ -14,7 +14,6 @@ const archiveJob = `-- name: ArchiveJob :execrows
 UPDATE jobs
 SET
     archived_at = ?,
-    assigned_session_id = NULL,
     lease_expires_at = NULL,
     updated_at = ?
 WHERE id = ?
@@ -78,7 +77,6 @@ const completeJob = `-- name: CompleteJob :execrows
 UPDATE jobs
 SET
     status = 'done',
-    assigned_session_id = NULL,
     lease_expires_at = NULL,
     failure_count = 0,
     next_retry_at = NULL,
@@ -360,6 +358,38 @@ WHERE deleted_at IS NOT NULL
 
 func (q *Queries) ListDeletedJobsBefore(ctx context.Context, deletedAt sql.NullInt64) ([]string, error) {
 	rows, err := q.db.QueryContext(ctx, listDeletedJobsBefore, deletedAt)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listDoneJobsBefore = `-- name: ListDoneJobsBefore :many
+SELECT id
+FROM jobs
+WHERE deleted_at IS NULL
+  AND archived_at IS NULL
+  AND status = 'done'
+  AND updated_at < ?
+`
+
+func (q *Queries) ListDoneJobsBefore(ctx context.Context, updatedAt int64) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listDoneJobsBefore, updatedAt)
 	if err != nil {
 		return nil, err
 	}

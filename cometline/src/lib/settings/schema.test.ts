@@ -226,6 +226,7 @@ describe('settings schema', () => {
 					autoExtract: false,
 					autoRetrieve: false,
 					maxRetrieved: 9,
+					taskOutcomeLimit: 4,
 					similarityThreshold: 0.72,
 					extractionProviderId: 'codex',
 					extractionModel: 'gpt-5.1-codex',
@@ -248,6 +249,7 @@ describe('settings schema', () => {
 				},
 				jobs: {
 					...base.cometmind.jobs,
+					doneArchiveDays: 5,
 					archivedPurgeDays: 12,
 					staleReviewMinutes: 31,
 					maxConsecutiveFailures: 4,
@@ -273,7 +275,9 @@ describe('settings schema', () => {
 		expect(settings.cometmind.skills.synthesisEnabled).toBe(true);
 		expect(settings.cometmind.memory.autoRetrieve).toBe(false);
 		expect(settings.cometmind.memory.maxRetrieved).toBe(9);
+		expect(settings.cometmind.memory.taskOutcomeLimit).toBe(4);
 		expect(settings.cometmind.memory.lifecycle.maxMemories).toBe(777);
+		expect(settings.cometmind.jobs.doneArchiveDays).toBe(5);
 		expect(settings.cometmind.jobs.archivedPurgeDays).toBe(12);
 		expect(settings.cometmind.jobs.notifications.onBlocked).toBe(false);
 		expect(settings.cometmind.autonomy.providerId).toBe('codex');
