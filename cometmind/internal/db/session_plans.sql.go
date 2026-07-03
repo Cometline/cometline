@@ -7,6 +7,7 @@ package db
 
 import (
 	"context"
+	"database/sql"
 )
 
 const deletePlanForSession = `-- name: DeletePlanForSession :exec
@@ -17,6 +18,26 @@ WHERE session_id = ?
 func (q *Queries) DeletePlanForSession(ctx context.Context, sessionID string) error {
 	_, err := q.db.ExecContext(ctx, deletePlanForSession, sessionID)
 	return err
+}
+
+const dismissPlanForSession = `-- name: DismissPlanForSession :execrows
+UPDATE session_plans
+SET dismissed_at = ?, updated_at = ?
+WHERE session_id = ? AND dismissed_at IS NULL
+`
+
+type DismissPlanForSessionParams struct {
+	DismissedAt sql.NullInt64 `json:"dismissed_at"`
+	UpdatedAt   int64         `json:"updated_at"`
+	SessionID   string        `json:"session_id"`
+}
+
+func (q *Queries) DismissPlanForSession(ctx context.Context, arg DismissPlanForSessionParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, dismissPlanForSession, arg.DismissedAt, arg.UpdatedAt, arg.SessionID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const insertPlanStep = `-- name: InsertPlanStep :exec
@@ -50,7 +71,7 @@ func (q *Queries) InsertPlanStep(ctx context.Context, arg InsertPlanStepParams) 
 }
 
 const listPlanSteps = `-- name: ListPlanSteps :many
-SELECT id, session_id, step_index, description, status, blocker_reason, created_at, updated_at FROM session_plans
+SELECT id, session_id, step_index, description, status, blocker_reason, dismissed_at, created_at, updated_at FROM session_plans
 WHERE session_id = ?
 ORDER BY step_index ASC
 `
@@ -71,6 +92,7 @@ func (q *Queries) ListPlanSteps(ctx context.Context, sessionID string) ([]Sessio
 			&i.Description,
 			&i.Status,
 			&i.BlockerReason,
+			&i.DismissedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {

@@ -231,6 +231,13 @@ export type SessionPlanStep = {
 export type SessionPlanResponse = {
     session_id: string;
     steps: Array<SessionPlanStep>;
+    /**
+     * True once the plan has been dismissed (e.g. after all steps
+     * completed, or the user closed it). Clients should treat a
+     * dismissed plan as having no steps to display.
+     *
+     */
+    dismissed: boolean;
 };
 
 export type ModelEntry = {
@@ -1311,6 +1318,36 @@ export type ForkSessionResponses = {
 };
 
 export type ForkSessionResponse = ForkSessionResponses[keyof ForkSessionResponses];
+
+export type DismissSessionPlanData = {
+    body?: never;
+    path: {
+        /**
+         * Persisted CometMind session identifier.
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/sessions/{id}/plan';
+};
+
+export type DismissSessionPlanErrors = {
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type DismissSessionPlanError = DismissSessionPlanErrors[keyof DismissSessionPlanErrors];
+
+export type DismissSessionPlanResponses = {
+    /**
+     * Plan dismissed
+     */
+    204: void;
+};
+
+export type DismissSessionPlanResponse = DismissSessionPlanResponses[keyof DismissSessionPlanResponses];
 
 export type GetSessionPlanData = {
     body?: never;

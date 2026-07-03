@@ -17,11 +17,21 @@ INSERT INTO jobs (
     next_retry_at,
     last_failure_reason,
     deleted_at,
+    scheduled_job_id,
     created_at,
     updated_at
 ) VALUES (
-    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
 );
+
+-- name: HasOpenJobForScheduledJob :one
+SELECT EXISTS (
+    SELECT 1
+    FROM jobs
+    WHERE scheduled_job_id = ?
+      AND status IN ('todo', 'ongoing', 'blocked')
+      AND deleted_at IS NULL
+) AS has_open_job;
 
 -- name: GetJob :one
 SELECT *

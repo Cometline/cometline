@@ -37,6 +37,7 @@ type Job struct {
 	NextRetryAt       sql.NullInt64  `json:"next_retry_at"`
 	LastFailureReason sql.NullString `json:"last_failure_reason"`
 	DeletedAt         sql.NullInt64  `json:"deleted_at"`
+	ScheduledJobID    sql.NullString `json:"scheduled_job_id"`
 	CreatedAt         int64          `json:"created_at"`
 	UpdatedAt         int64          `json:"updated_at"`
 }
@@ -138,14 +139,15 @@ type Session struct {
 }
 
 type SessionPlan struct {
-	ID            string `json:"id"`
-	SessionID     string `json:"session_id"`
-	StepIndex     int64  `json:"step_index"`
-	Description   string `json:"description"`
-	Status        string `json:"status"`
-	BlockerReason string `json:"blocker_reason"`
-	CreatedAt     int64  `json:"created_at"`
-	UpdatedAt     int64  `json:"updated_at"`
+	ID            string        `json:"id"`
+	SessionID     string        `json:"session_id"`
+	StepIndex     int64         `json:"step_index"`
+	Description   string        `json:"description"`
+	Status        string        `json:"status"`
+	BlockerReason string        `json:"blocker_reason"`
+	DismissedAt   sql.NullInt64 `json:"dismissed_at"`
+	CreatedAt     int64         `json:"created_at"`
+	UpdatedAt     int64         `json:"updated_at"`
 }
 
 type ToolCall struct {

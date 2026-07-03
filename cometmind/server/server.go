@@ -133,6 +133,7 @@ func New(deps Deps) (*gin.Engine, error) {
 	api.DELETE("/sessions/:id/messages", app.handleClearSession)
 	api.GET("/sessions/:id/children", app.handleListChildSessions)
 	api.GET("/sessions/:id/plan", app.handleGetSessionPlan)
+	api.DELETE("/sessions/:id/plan", app.handleDismissSessionPlan)
 	api.DELETE("/sessions/:id/runs/current", app.handleAbortSession)
 
 	// Skills

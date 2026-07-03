@@ -14,7 +14,12 @@
 	} from '$lib/conversation/conversation-controller';
 	import type { QueuedMessage } from '$lib/actions/chat-turn-queue';
 	import { sessionStore } from '$lib/stores/session.svelte';
-	import { getSessionPlan, updateSession, type SessionPlanResponse } from '$lib/client/cometmind';
+	import {
+		getSessionPlan,
+		dismissSessionPlan,
+		updateSession,
+		type SessionPlanResponse
+	} from '$lib/client/cometmind';
 	import { chatStore } from '$lib/stores/chat.svelte';
 	import { modelStore } from '$lib/stores/model.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
@@ -264,6 +269,21 @@
 		}
 	}
 
+	function handleDismissSessionPlan() {
+		const id = sessionId;
+		if (sessionPlan && sessionPlan.session_id === id) {
+			// Reflect dismissal locally right away so a subsequent refetch
+			// (triggered by the next chat turn) doesn't resurrect the panel
+			// before the backend write lands.
+			sessionPlan = { ...sessionPlan, dismissed: true };
+		}
+		void dismissSessionPlan(id).catch(() => {
+			// Best-effort: the panel already hid itself client-side; a failed
+			// persist just means it may reappear next time this session is
+			// opened, which is not worth surfacing as an error to the user.
+		});
+	}
+
 	$effect(() => {
 		const id = sessionId;
 		const streaming = chatStore.isStreamingFor(id);
@@ -418,6 +438,7 @@
 					plan={sessionPlan}
 					loading={sessionPlanLoading}
 					error={sessionPlanError}
+					onDismiss={handleDismissSessionPlan}
 				/>
 			</div>
 		</div>

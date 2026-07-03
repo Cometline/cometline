@@ -299,6 +299,19 @@ func (s *Service) AdvanceRecurring(ctx context.Context, scheduleID string, fired
 	return nil
 }
 
+// MaterializeDue creates a job for each due schedule, skipping any schedule
+// that already has an outstanding (todo/ongoing/blocked) job so a recurring
+// schedule never accumulates more than one open job at a time. A skipped
+// schedule's state is left untouched (next_run_at is not advanced, one-shot
+// is not marked fired), so it stays "due" and is picked up again on the very
+// next tick once its outstanding job clears — the schedule effectively waits
+// rather than silently dropping the occurrence.
+//
+// The job is created BEFORE the schedule's fire-state is advanced (the
+// reverse of a naive implementation) so that if job creation fails, the
+// schedule is left due and simply retried on the next tick instead of
+// silently losing that firing (the schedule's next_run_at/enabled would
+// otherwise have already moved on with no job ever created for it).
 func (s *Service) MaterializeDue(ctx context.Context, jobSvc *jobs.Service, atMillis int64) (int, error) {
 	if jobSvc == nil {
 		return 0, fmt.Errorf("jobs service is required")
@@ -312,25 +325,16 @@ func (s *Service) MaterializeDue(ctx context.Context, jobSvc *jobs.Service, atMi
 	}
 	created := 0
 	for _, item := range due {
-		if item.CronExpr != "" {
-			nextRun, err := nextCronRun(item.CronExpr, time.UnixMilli(atMillis))
-			if err != nil {
-				return created, err
-			}
-			if err := s.AdvanceRecurring(ctx, item.ID, atMillis, nextRun); err != nil {
-				if err == ErrConflict {
-					continue
-				}
-				return created, err
-			}
-		} else {
-			if err := s.MarkFired(ctx, item.ID, atMillis); err != nil {
-				if err == ErrConflict {
-					continue
-				}
-				return created, err
-			}
+		hasOpen, err := jobSvc.HasOpenJobForScheduledJob(ctx, item.ID)
+		if err != nil {
+			return created, err
 		}
+		if hasOpen {
+			// Previous firing's job hasn't been completed/cancelled yet;
+			// leave the schedule due and try again next tick.
+			continue
+		}
+
 		if _, err := jobSvc.Create(ctx, jobs.CreateInput{
 			Description:      item.Description,
 			DefinitionOfDone: item.DefinitionOfDone,
@@ -339,10 +343,25 @@ func (s *Service) MaterializeDue(ctx context.Context, jobSvc *jobs.Service, atMi
 			SourceSessionID:  item.SourceSessionID,
 			SourcePlatform:   item.SourcePlatform,
 			SourceChannelID:  item.SourceChannelID,
+			ScheduledJobID:   item.ID,
 		}); err != nil {
 			return created, err
 		}
 		created++
+
+		if item.CronExpr != "" {
+			nextRun, err := nextCronRun(item.CronExpr, time.UnixMilli(atMillis))
+			if err != nil {
+				return created, err
+			}
+			if err := s.AdvanceRecurring(ctx, item.ID, atMillis, nextRun); err != nil && err != ErrConflict {
+				return created, err
+			}
+		} else {
+			if err := s.MarkFired(ctx, item.ID, atMillis); err != nil && err != ErrConflict {
+				return created, err
+			}
+		}
 	}
 	return created, nil
 }

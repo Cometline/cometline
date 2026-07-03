@@ -960,6 +960,10 @@ type SessionListResponse struct {
 
 // SessionPlanResponse defines model for SessionPlanResponse.
 type SessionPlanResponse struct {
+	// Dismissed True once the plan has been dismissed (e.g. after all steps
+	// completed, or the user closed it). Clients should treat a
+	// dismissed plan as having no steps to display.
+	Dismissed bool              `json:"dismissed"`
 	SessionId string            `json:"session_id"`
 	Steps     []SessionPlanStep `json:"steps"`
 }

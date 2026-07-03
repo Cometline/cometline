@@ -516,6 +516,21 @@ paths:
                 $ref: '#/components/schemas/SessionPlanResponse'
         '500':
           $ref: '#/components/responses/InternalError'
+    delete:
+      tags: [Sessions]
+      summary: Dismiss session plan
+      description: |
+        Marks the session's current plan as dismissed so it stops appearing in
+        the UI (e.g. after all steps complete). The underlying step history is
+        retained; a new plan_write call starts a fresh, un-dismissed plan.
+      operationId: dismissSessionPlan
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '204':
+          description: Plan dismissed
+        '500':
+          $ref: '#/components/responses/InternalError'
 
   /api/v1/sessions/{id}/messages:
     delete:
@@ -2133,7 +2148,7 @@ components:
     SessionPlanResponse:
       type: object
       additionalProperties: false
-      required: [session_id, steps]
+      required: [session_id, steps, dismissed]
       properties:
         session_id:
           type: string
@@ -2141,6 +2156,12 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SessionPlanStep'
+        dismissed:
+          type: boolean
+          description: |
+            True once the plan has been dismissed (e.g. after all steps
+            completed, or the user closed it). Clients should treat a
+            dismissed plan as having no steps to display.
 
     ModelEntry:
       type: object

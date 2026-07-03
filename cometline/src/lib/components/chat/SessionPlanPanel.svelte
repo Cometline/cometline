@@ -1,22 +1,72 @@
 <script lang="ts">
 	import type { SessionPlanResponse, SessionPlanStep } from '$lib/client/cometmind';
 
+	// How long to keep a fully-completed checklist visible (so the last item's
+	// checkmark is seen) before auto-fading it out.
+	const AUTO_DISMISS_DELAY_MS = 3200;
+
 	let {
 		plan,
 		loading = false,
-		error = ''
-	}: { plan: SessionPlanResponse | null; loading?: boolean; error?: string } = $props();
+		error = '',
+		onDismiss
+	}: {
+		plan: SessionPlanResponse | null;
+		loading?: boolean;
+		error?: string;
+		onDismiss?: () => void;
+	} = $props();
 
 	let steps = $derived(plan?.steps ?? []);
-	let hasContent = $derived(steps.length > 0 || Boolean(error));
+	let allCompleted = $derived(steps.length > 0 && steps.every((s) => s.status === 'completed'));
+	// Identity of "this particular plan" so a brand-new plan (different
+	// session, or the agent started a fresh plan_write, which replaces all
+	// step rows with new ids) resets dismissal even if the previous plan had
+	// been auto-hidden or closed by the user.
+	let planIdentity = $derived(plan ? `${plan.session_id}:${steps[0]?.id ?? ''}` : '');
+
+	let manuallyDismissed = $state(false);
+	let autoDismissed = $state(false);
+	let lastPlanIdentity = '';
+	let dismissTimeout: ReturnType<typeof setTimeout> | undefined;
+
+	$effect(() => {
+		if (planIdentity !== lastPlanIdentity) {
+			lastPlanIdentity = planIdentity;
+			manuallyDismissed = false;
+			autoDismissed = false;
+		}
+	});
+
+	$effect(() => {
+		if (dismissTimeout) {
+			clearTimeout(dismissTimeout);
+			dismissTimeout = undefined;
+		}
+		if (!allCompleted || autoDismissed || manuallyDismissed) return;
+		dismissTimeout = setTimeout(() => {
+			autoDismissed = true;
+		}, AUTO_DISMISS_DELAY_MS);
+		return () => {
+			if (dismissTimeout) clearTimeout(dismissTimeout);
+		};
+	});
+
+	let dismissed = $derived(Boolean(plan?.dismissed) || manuallyDismissed || autoDismissed);
+	let hasContent = $derived((steps.length > 0 || Boolean(error)) && !dismissed);
 
 	function statusLabel(status: SessionPlanStep['status']) {
 		return status.replace('_', ' ');
 	}
+
+	function handleDismiss() {
+		manuallyDismissed = true;
+		onDismiss?.();
+	}
 </script>
 
 {#if hasContent}
-	<aside class="session-plan" aria-label="Session plan">
+	<aside class="session-plan" class:completed={allCompleted} aria-label="Session plan">
 		<header class="plan-header">
 			<div>
 				<p class="eyebrow">Current plan</p>
@@ -25,6 +75,14 @@
 			{#if loading}
 				<span class="plan-loading">Refreshing</span>
 			{/if}
+			<button
+				type="button"
+				class="plan-close"
+				aria-label="Dismiss plan"
+				onclick={handleDismiss}
+			>
+				&times;
+			</button>
 		</header>
 
 		{#if error}
@@ -75,6 +133,26 @@
 			var(--panel-bg);
 		box-shadow: 0 18px 42px color-mix(in srgb, var(--shadow-color) 16%, transparent);
 		backdrop-filter: blur(18px);
+		opacity: 1;
+		transition:
+			opacity 0.4s ease,
+			transform 0.4s ease;
+	}
+
+	.session-plan.completed {
+		animation: plan-complete-pulse 0.5s ease;
+	}
+
+	@keyframes plan-complete-pulse {
+		0% {
+			transform: scale(1);
+		}
+		40% {
+			transform: scale(1.015);
+		}
+		100% {
+			transform: scale(1);
+		}
 	}
 
 	.plan-header {
@@ -108,6 +186,30 @@
 		background: color-mix(in srgb, var(--hero-composer-glow-color) 12%, transparent);
 		color: var(--text-muted);
 		font-size: 11px;
+	}
+
+	.plan-close {
+		flex: none;
+		display: grid;
+		place-items: center;
+		width: 24px;
+		height: 24px;
+		margin: -4px -4px 0 0;
+		border: none;
+		border-radius: 999px;
+		background: transparent;
+		color: var(--text-muted);
+		font-size: 16px;
+		line-height: 1;
+		cursor: pointer;
+		transition:
+			background 0.15s ease,
+			color 0.15s ease;
+	}
+
+	.plan-close:hover {
+		background: color-mix(in srgb, var(--text-main) 8%, transparent);
+		color: var(--text-main);
 	}
 
 	.plan-error {

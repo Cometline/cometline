@@ -83,6 +83,7 @@ CREATE TABLE session_plans (
     status          TEXT NOT NULL DEFAULT 'pending'
                     CHECK (status IN ('pending', 'in_progress', 'completed', 'blocked')),
     blocker_reason  TEXT NOT NULL DEFAULT '',
+    dismissed_at    INTEGER,
     created_at      INTEGER NOT NULL DEFAULT (unixepoch ('now', 'subsec') * 1000),
     updated_at      INTEGER NOT NULL DEFAULT (unixepoch ('now', 'subsec') * 1000),
     UNIQUE (session_id, step_index)
@@ -188,6 +189,7 @@ CREATE TABLE jobs (
     next_retry_at       INTEGER,
     last_failure_reason TEXT,
     deleted_at          INTEGER,
+    scheduled_job_id    TEXT REFERENCES scheduled_jobs (id) ON DELETE SET NULL,
     created_at          INTEGER NOT NULL DEFAULT (unixepoch ('now', 'subsec') * 1000),
     updated_at          INTEGER NOT NULL DEFAULT (unixepoch ('now', 'subsec') * 1000)
 );
@@ -201,6 +203,9 @@ CREATE INDEX idx_jobs_deleted_at ON jobs (deleted_at);
 CREATE INDEX idx_jobs_archived_at ON jobs (archived_at);
 
 CREATE INDEX idx_jobs_next_retry_at ON jobs (next_retry_at);
+
+CREATE INDEX idx_jobs_scheduled_job_open ON jobs (scheduled_job_id, status)
+    WHERE scheduled_job_id IS NOT NULL;
 
 CREATE TABLE scheduled_jobs (
     id                 TEXT PRIMARY KEY,

@@ -65,6 +65,7 @@ type Job struct {
 	NextRetryAt       *int64
 	LastFailureReason string
 	DeletedAt         *int64
+	ScheduledJobID    string
 	CreatedAt         int64
 	UpdatedAt         int64
 }
@@ -88,6 +89,10 @@ type CreateInput struct {
 	SourceSessionID  string
 	SourcePlatform   string
 	SourceChannelID  string
+	// ScheduledJobID links this job back to the scheduled_jobs row that
+	// materialized it, if any. Used to prevent a recurring schedule from
+	// accumulating more than one outstanding (todo/ongoing/blocked) job.
+	ScheduledJobID string
 }
 
 // UpdateTodoInput holds editable fields while status is todo.

@@ -8,14 +8,17 @@ import {
 	createSession as createSessionApi,
 	createWorkspace as createWorkspaceApi,
 	forkSession as forkSessionApi,
+	dismissSessionPlan as dismissSessionPlanApi,
 	deleteMemory as deleteMemoryApi,
 	deleteSession as deleteSessionApi,
 	deleteSkill as deleteSkillApi,
+	getSkillDraft as getSkillDraftApi,
 	getMemorySettings as getMemorySettingsApi,
 	getSession as getSessionApi,
 	getSessionPlan as getSessionPlanApi,
 	getSessionMessages as getSessionMessagesApi,
 	listChildSessions as listChildSessionsApi,
+	listSkillDrafts as listSkillDraftsApi,
 	listMemories as listMemoriesApi,
 	listSessions as listSessionsApi,
 	listSkills as listSkillsApi,
@@ -31,6 +34,8 @@ import {
 	putMemorySettings as putMemorySettingsApi,
 	runStorageRetention as runStorageRetentionApi,
 	reconnectMcpServer as reconnectMcpServerApi,
+	rejectSkillDraft as rejectSkillDraftApi,
+	promoteSkillDraft as promoteSkillDraftApi,
 	startMcpOAuth as startMcpOAuthApi,
 	searchMemories as searchMemoriesApi,
 	syncSkills as syncSkillsApi,
@@ -66,6 +71,8 @@ import type {
 	McpTestResult,
 	McpToolInfo,
 	MemoryResource,
+	SkillDraft,
+	SkillDraftDetailResponse,
 	MemorySettings as MemorySettingsWire,
 	PostMessageRequest,
 	RunStorageRetentionResponse,
@@ -109,6 +116,8 @@ export type {
 export type {
 	SessionPlanResponse,
 	SessionPlanStep,
+	SkillDraft,
+	SkillDraftDetailResponse,
 	JobResource,
 	JobEventResource,
 	JobSettings,
@@ -315,6 +324,22 @@ export function listSkills(workspacePath = ''): Promise<ListSkillsResponse> {
 	}).then(({ data }) => data);
 }
 
+export function listSkillDrafts(): Promise<SkillDraft[]> {
+	return listSkillDraftsApi({ throwOnError: true }).then(({ data }) => data.drafts ?? []);
+}
+
+export function getSkillDraft(name: string): Promise<SkillDraftDetailResponse> {
+	return getSkillDraftApi({ path: { name }, throwOnError: true }).then(({ data }) => data);
+}
+
+export function promoteSkillDraft(name: string): Promise<void> {
+	return promoteSkillDraftApi({ path: { name }, throwOnError: true }).then(() => undefined);
+}
+
+export function rejectSkillDraft(name: string): Promise<void> {
+	return rejectSkillDraftApi({ path: { name }, throwOnError: true }).then(() => undefined);
+}
+
 export function syncSkills(workspacePath = ''): Promise<SyncSkillsResponse> {
 	return syncSkillsApi({
 		query: skillQuery(workspacePath),
@@ -416,6 +441,15 @@ export function getSessionPlan(id: string): Promise<SessionPlanResponse> {
 			path: { id },
 			throwOnError: true
 		}).then(({ data }) => data)
+	);
+}
+
+export function dismissSessionPlan(id: string): Promise<void> {
+	return withApiError(
+		dismissSessionPlanApi({
+			path: { id },
+			throwOnError: true
+		}).then(() => undefined)
 	);
 }
 

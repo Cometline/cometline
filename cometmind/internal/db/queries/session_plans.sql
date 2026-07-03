@@ -15,3 +15,8 @@ ORDER BY step_index ASC;
 UPDATE session_plans
 SET status = ?, blocker_reason = ?, updated_at = ?
 WHERE session_id = ? AND step_index = ?;
+
+-- name: DismissPlanForSession :execrows
+UPDATE session_plans
+SET dismissed_at = ?, updated_at = ?
+WHERE session_id = ? AND dismissed_at IS NULL;

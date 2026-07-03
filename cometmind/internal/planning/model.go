@@ -15,6 +15,7 @@ type Step struct {
 	Description   string `json:"description"`
 	Status        string `json:"status"`
 	BlockerReason string `json:"blocker_reason"`
+	DismissedAt   *int64 `json:"dismissed_at,omitempty"`
 	CreatedAt     int64  `json:"created_at"`
 	UpdatedAt     int64  `json:"updated_at"`
 }

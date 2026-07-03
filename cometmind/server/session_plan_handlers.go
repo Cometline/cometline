@@ -21,6 +21,12 @@ type sessionPlanStepResource struct {
 type sessionPlanResponse struct {
 	SessionID string                    `json:"session_id"`
 	Steps     []sessionPlanStepResource `json:"steps"`
+	// Dismissed is true once the user (or an auto-hide timer) has dismissed
+	// this plan, e.g. after all steps completed. Callers should treat a
+	// dismissed plan as having no steps to display, even though the
+	// underlying rows are retained for history. All steps in a plan share
+	// the same dismissed state (dismissal applies to the whole session plan).
+	Dismissed bool `json:"dismissed"`
 }
 
 func sessionPlanStepToResource(step planning.Step) sessionPlanStepResource {
@@ -48,8 +54,25 @@ func (a *App) handleGetSessionPlan(c *gin.Context) {
 		return
 	}
 	out := make([]sessionPlanStepResource, 0, len(steps))
+	dismissed := len(steps) > 0
 	for _, step := range steps {
 		out = append(out, sessionPlanStepToResource(step))
+		if step.DismissedAt == nil {
+			dismissed = false
+		}
 	}
-	c.JSON(http.StatusOK, sessionPlanResponse{SessionID: sessionID, Steps: out})
+	c.JSON(http.StatusOK, sessionPlanResponse{SessionID: sessionID, Steps: out, Dismissed: dismissed})
+}
+
+func (a *App) handleDismissSessionPlan(c *gin.Context) {
+	if a.planning == nil {
+		writeError(c, http.StatusServiceUnavailable, "planning_unavailable", "planning service unavailable")
+		return
+	}
+	sessionID := c.Param("id")
+	if err := a.planning.DismissPlan(c.Request.Context(), sessionID); err != nil {
+		writeError(c, http.StatusInternalServerError, "planning_error", err.Error())
+		return
+	}
+	c.Status(http.StatusNoContent)
 }

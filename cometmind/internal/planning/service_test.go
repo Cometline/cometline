@@ -74,6 +74,50 @@ func TestSetPlanReplacesExistingPlan(t *testing.T) {
 	}
 }
 
+func TestDismissPlanSetsDismissedAtOnAllSteps(t *testing.T) {
+	ctx := context.Background()
+	svc, sess := newPlanningTestService(t)
+
+	if _, err := svc.SetPlan(ctx, sess.ID, []StepInput{
+		{Description: "step one", Status: StatusCompleted},
+		{Description: "step two", Status: StatusCompleted},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := svc.DismissPlan(ctx, sess.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	steps, err := svc.GetPlan(ctx, sess.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(steps) != 2 {
+		t.Fatalf("steps=%+v", steps)
+	}
+	for _, step := range steps {
+		if step.DismissedAt == nil {
+			t.Fatalf("expected DismissedAt to be set, got %+v", step)
+		}
+	}
+
+	// Dismissing again is a no-op, not an error.
+	if err := svc.DismissPlan(ctx, sess.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	// A brand-new plan (plan_write) is not dismissed even though the
+	// previous one for this session was.
+	fresh, err := svc.SetPlan(ctx, sess.ID, []StepInput{{Description: "new plan step"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(fresh) != 1 || fresh[0].DismissedAt != nil {
+		t.Fatalf("fresh plan should not be dismissed: %+v", fresh)
+	}
+}
+
 func TestPlanValidation(t *testing.T) {
 	ctx := context.Background()
 	svc, sess := newPlanningTestService(t)

@@ -38,6 +38,14 @@ func normalizeStatus(status string) (string, error) {
 	}
 }
 
+func nullInt64Ptr(v sql.NullInt64) *int64 {
+	if !v.Valid {
+		return nil
+	}
+	n := v.Int64
+	return &n
+}
+
 func stepFromDB(row db.SessionPlan) Step {
 	return Step{
 		ID:            row.ID,
@@ -46,6 +54,7 @@ func stepFromDB(row db.SessionPlan) Step {
 		Description:   row.Description,
 		Status:        row.Status,
 		BlockerReason: row.BlockerReason,
+		DismissedAt:   nullInt64Ptr(row.DismissedAt),
 		CreatedAt:     row.CreatedAt,
 		UpdatedAt:     row.UpdatedAt,
 	}
@@ -142,6 +151,26 @@ func (s *Service) UpdateStep(ctx context.Context, sessionID string, stepIndex in
 		return nil, sql.ErrNoRows
 	}
 	return s.GetPlan(ctx, sessionID)
+}
+
+// DismissPlan marks the session's current plan steps as dismissed so the UI
+// stops showing a completed checklist when the session is revisited. It is
+// a no-op (not an error) if the session has no plan or it's already
+// dismissed.
+func (s *Service) DismissPlan(ctx context.Context, sessionID string) error {
+	if s == nil || s.q == nil {
+		return fmt.Errorf("planning service unavailable")
+	}
+	sessionID = strings.TrimSpace(sessionID)
+	if sessionID == "" {
+		return fmt.Errorf("%w: session_id is required", ErrInvalidInput)
+	}
+	_, err := s.q.DismissPlanForSession(ctx, db.DismissPlanForSessionParams{
+		DismissedAt: sql.NullInt64{Int64: nowMillis(), Valid: true},
+		UpdatedAt:   nowMillis(),
+		SessionID:   sessionID,
+	})
+	return err
 }
 
 func FormatPromptBlock(steps []Step) string {

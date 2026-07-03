@@ -127,6 +127,7 @@ func jobFromRow(row db.Job) Job {
 		NextRetryAt:       nullInt64Ptr(row.NextRetryAt),
 		LastFailureReason: nullStringVal(row.LastFailureReason),
 		DeletedAt:         nullInt64Ptr(row.DeletedAt),
+		ScheduledJobID:    nullStringVal(row.ScheduledJobID),
 		CreatedAt:         row.CreatedAt,
 		UpdatedAt:         row.UpdatedAt,
 	}
@@ -195,6 +196,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (Job, error) {
 		NextRetryAt:       sql.NullInt64{},
 		LastFailureReason: sql.NullString{},
 		DeletedAt:         sql.NullInt64{},
+		ScheduledJobID:    optionalNullString(in.ScheduledJobID),
 		CreatedAt:         ts,
 		UpdatedAt:         ts,
 	}
@@ -204,6 +206,18 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (Job, error) {
 	_ = s.recordEvent(ctx, jobID, EventCreated, "", in.SourceSessionID)
 	job, err := s.Get(ctx, jobID)
 	return job, err
+}
+
+// HasOpenJobForScheduledJob reports whether a scheduled job already has an
+// outstanding (todo/ongoing/blocked, non-deleted) materialized job. Used by
+// the scheduler to avoid materializing a duplicate job for a recurring
+// schedule while a previous firing's job is still unresolved.
+func (s *Service) HasOpenJobForScheduledJob(ctx context.Context, scheduledJobID string) (bool, error) {
+	scheduledJobID = strings.TrimSpace(scheduledJobID)
+	if scheduledJobID == "" {
+		return false, nil
+	}
+	return s.q.HasOpenJobForScheduledJob(ctx, optionalNullString(scheduledJobID))
 }
 
 // Get returns one job by id.
@@ -688,7 +702,19 @@ func (s *Service) ReleaseForSession(ctx context.Context, sessionID, reason strin
 	return err
 }
 
-// Reconcile releases orphan or expired ongoing jobs.
+// Reconcile releases ongoing jobs whose lease has expired.
+//
+// isRunning is used only to annotate *why* the lease expired (the assigned
+// session is gone vs. a still-live session whose heartbeat failed to renew
+// the lease in time) — it does not by itself trigger a release. A job's
+// session legitimately has no in-flight HTTP/agent turn between chat
+// messages (e.g. waiting on the next user message or the next scheduler
+// tick), so treating "no active turn right now" as orphaned would release
+// jobs that are still being worked, causing them to bounce back to todo and
+// be re-claimed in a loop even though the agent eventually completes them.
+// The lease (kept alive by periodic heartbeats while the job is actively
+// worked, see internal/gateway/job_heartbeat.go and internal/autonomy/worker.go)
+// is the single source of truth for liveness.
 func (s *Service) Reconcile(ctx context.Context, isRunning func(sessionID string) bool) (int, error) {
 	rows, err := s.q.ListOngoingJobs(ctx)
 	if err != nil {
@@ -698,19 +724,15 @@ func (s *Service) Reconcile(ctx context.Context, isRunning func(sessionID string
 	released := 0
 	for _, row := range rows {
 		job := jobFromRow(row)
-		orphan := false
 		expired := job.LeaseExpiresAt != nil && *job.LeaseExpiresAt < now
-		if isRunning != nil && job.AssignedSessionID != "" {
-			orphan = !isRunning(job.AssignedSessionID)
-		}
-		if !orphan && !expired {
+		if !expired {
 			continue
 		}
-		action := EventReleased
-		reason := "orphan session"
-		if expired && !orphan {
-			action = EventLeaseExpired
-			reason = "lease expired"
+		action := EventLeaseExpired
+		reason := "lease expired"
+		if isRunning != nil && job.AssignedSessionID != "" && !isRunning(job.AssignedSessionID) {
+			action = EventReleased
+			reason = "orphan session"
 		}
 		if _, err := s.ReleaseWithClass(ctx, job.ID, "", reason, FailureInfra); err != nil {
 			continue

@@ -183,7 +183,7 @@ func TestConcurrentClaimOnlyAssignsOneSession(t *testing.T) {
 }
 
 func TestReconcileOrphan(t *testing.T) {
-	svc := testJobsService(t)
+	svc, conn := testJobsServiceWithDB(t, nil)
 	ctx := context.Background()
 
 	job, err := svc.Create(ctx, jobs.CreateInput{Description: "orphan test"})
@@ -191,6 +191,12 @@ func TestReconcileOrphan(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := svc.Claim(ctx, job.ID, "sess-orphan"); err != nil {
+		t.Fatal(err)
+	}
+	// Force the lease into the past: Reconcile only releases jobs whose
+	// lease has actually expired, regardless of isRunning.
+	expiredLease := time.Now().Add(-1 * time.Minute).UnixMilli()
+	if _, err := conn.ExecContext(ctx, `UPDATE jobs SET lease_expires_at = ? WHERE id = ?`, expiredLease, job.ID); err != nil {
 		t.Fatal(err)
 	}
 
@@ -207,6 +213,43 @@ func TestReconcileOrphan(t *testing.T) {
 	}
 	if got.Status != jobs.StatusTodo {
 		t.Fatalf("status=%s want todo", got.Status)
+	}
+}
+
+// TestReconcileDoesNotReleaseLiveLeaseWithoutActiveTurn guards against a
+// regression where Reconcile treated "isRunning returns false" as sufficient
+// grounds to release an ongoing job. A session legitimately has no in-flight
+// HTTP/agent turn between chat messages (waiting on the next user message,
+// between tool calls, etc.) while its heartbeat keeps the job's lease fresh.
+// Releasing in that window bounces the job back to todo and causes it to be
+// re-claimed and reworked in a loop even though the agent is actively
+// (if intermittently) making progress toward completion.
+func TestReconcileDoesNotReleaseLiveLeaseWithoutActiveTurn(t *testing.T) {
+	svc := testJobsService(t)
+	ctx := context.Background()
+
+	job, err := svc.Create(ctx, jobs.CreateInput{Description: "still being worked"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Claim(ctx, job.ID, "sess-between-turns"); err != nil {
+		t.Fatal(err)
+	}
+	// Claim already set a fresh (non-expired) lease. isRunning reports false
+	// here to simulate the window between two chat turns for the same job.
+	n, err := svc.Reconcile(ctx, func(sessionID string) bool { return false })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 0 {
+		t.Fatalf("released=%d want 0 (lease still fresh)", n)
+	}
+	got, err := svc.Get(ctx, job.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Status != jobs.StatusOngoing || got.AssignedSessionID != "sess-between-turns" {
+		t.Fatalf("job=%+v want still ongoing/assigned", got)
 	}
 }
 
@@ -394,7 +437,7 @@ func TestWorkerErrorReleaseBlocksAtThresholdAndUnblockResets(t *testing.T) {
 }
 
 func TestAgentAndInfraReleaseDoNotIncrementFailures(t *testing.T) {
-	svc := testJobsService(t)
+	svc, conn := testJobsServiceWithDB(t, nil)
 	ctx := context.Background()
 
 	agentJob, err := svc.Create(ctx, jobs.CreateInput{Description: "handoff"})
@@ -417,6 +460,11 @@ func TestAgentAndInfraReleaseDoNotIncrementFailures(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := svc.Claim(ctx, infraJob.ID, "sess-infra"); err != nil {
+		t.Fatal(err)
+	}
+	// Reconcile only releases jobs whose lease has actually expired.
+	expiredLease := time.Now().Add(-1 * time.Minute).UnixMilli()
+	if _, err := conn.ExecContext(ctx, `UPDATE jobs SET lease_expires_at = ? WHERE id = ?`, expiredLease, infraJob.ID); err != nil {
 		t.Fatal(err)
 	}
 	if n, err := svc.Reconcile(ctx, func(string) bool { return false }); err != nil || n != 1 {

@@ -265,6 +265,103 @@ func TestRecurringScheduleAdvancesAfterMaterialize(t *testing.T) {
 	}
 }
 
+// TestRecurringScheduleDoesNotDuplicateJobWhileOutstanding guards against a
+// regression where a recurring schedule that fires again before its
+// previous job is claimed/completed would materialize a second, duplicate
+// todo job. The schedule's own next_run_at must not advance either, so it
+// stays "due" and is retried on subsequent ticks until the outstanding job
+// clears.
+func TestRecurringScheduleDoesNotDuplicateJobWhileOutstanding(t *testing.T) {
+	ctx := context.Background()
+	svc, jobSvc := newSchedulerTestServices(t)
+
+	created, err := svc.Create(ctx, CreateInput{
+		Description: "hourly digest",
+		CronExpr:    "0 * * * *",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// First firing materializes exactly one job and links it to the schedule.
+	count, err := svc.MaterializeDue(ctx, jobSvc, created.NextRunAt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 1 {
+		t.Fatalf("first materialize count=%d want 1", count)
+	}
+	afterFirst, err := svc.Get(ctx, created.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	jobsList, err := jobSvc.List(ctx, jobs.ListFilter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(jobsList) != 1 {
+		t.Fatalf("jobs after first materialize=%+v", jobsList)
+	}
+	if jobsList[0].ScheduledJobID != created.ID {
+		t.Fatalf("job.ScheduledJobID=%q want %q", jobsList[0].ScheduledJobID, created.ID)
+	}
+	firstJobID := jobsList[0].ID
+
+	// A later tick (the schedule's own next natural firing) must NOT create
+	// a second job while the first one is still todo/ongoing/blocked, and
+	// must leave the schedule's fire-state untouched so it stays due.
+	count, err = svc.MaterializeDue(ctx, jobSvc, afterFirst.NextRunAt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 0 {
+		t.Fatalf("second materialize count=%d want 0 (outstanding job should block re-materialization)", count)
+	}
+	afterSecondAttempt, err := svc.Get(ctx, created.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if afterSecondAttempt.NextRunAt != afterFirst.NextRunAt {
+		t.Fatalf("next_run_at advanced despite outstanding job: before=%d after=%d", afterFirst.NextRunAt, afterSecondAttempt.NextRunAt)
+	}
+	jobsList, err = jobSvc.List(ctx, jobs.ListFilter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(jobsList) != 1 {
+		t.Fatalf("expected still exactly 1 job, got %+v", jobsList)
+	}
+
+	// Once the outstanding job resolves (completed here), the schedule is
+	// free to materialize a new job on the next due tick.
+	if _, err := jobSvc.Claim(ctx, firstJobID, "sess-digest"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := jobSvc.Complete(ctx, firstJobID, "sess-digest", "done"); err != nil {
+		t.Fatal(err)
+	}
+	count, err = svc.MaterializeDue(ctx, jobSvc, afterFirst.NextRunAt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 1 {
+		t.Fatalf("materialize after completion count=%d want 1", count)
+	}
+	jobsList, err = jobSvc.List(ctx, jobs.ListFilter{Status: jobs.StatusTodo})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(jobsList) != 1 {
+		t.Fatalf("expected exactly 1 new todo job after previous completed, got %+v", jobsList)
+	}
+	if jobsList[0].ID == firstJobID {
+		t.Fatal("expected a newly materialized job, not the completed one")
+	}
+	if jobsList[0].ScheduledJobID != created.ID {
+		t.Fatalf("new job.ScheduledJobID=%q want %q", jobsList[0].ScheduledJobID, created.ID)
+	}
+}
+
 func TestCreateRejectsInvalidEnums(t *testing.T) {
 	ctx := context.Background()
 	svc, _ := newSchedulerTestServices(t)

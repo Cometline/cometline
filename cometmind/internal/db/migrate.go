@@ -291,6 +291,19 @@ var alterStatements = [][]string{
 		)`,
 		"CREATE INDEX IF NOT EXISTS idx_session_plans_session ON session_plans (session_id, step_index)",
 	},
+	// v19 -> v20: link materialized jobs back to the scheduled job that
+	// created them, so a schedule with an outstanding (todo/ongoing) job
+	// isn't re-materialized into a duplicate job on the next due tick.
+	{
+		"ALTER TABLE jobs ADD COLUMN scheduled_job_id TEXT REFERENCES scheduled_jobs (id) ON DELETE SET NULL",
+		`CREATE INDEX IF NOT EXISTS idx_jobs_scheduled_job_open ON jobs (scheduled_job_id, status)
+			WHERE scheduled_job_id IS NOT NULL`,
+	},
+	// v20 -> v21: let a session plan be dismissed from the UI once all steps
+	// are complete without losing its history in session_plans.
+	{
+		"ALTER TABLE session_plans ADD COLUMN dismissed_at INTEGER",
+	},
 }
 
 // execAlter runs one incremental DDL statement, tolerating idempotent failures
@@ -329,7 +342,7 @@ func splitStatements(sql string) []string {
 	return out
 }
 
-const schemaVersion = 19
+const schemaVersion = 21
 
 // EnsureSchema runs [Migrate] once per database file using PRAGMA user_version.
 // For existing databases, it applies incremental ALTER statements to upgrade
