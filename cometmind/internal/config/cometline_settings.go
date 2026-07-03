@@ -114,10 +114,12 @@ type cometlineJobsJSON struct {
 }
 
 type cometlineAutonomyJSON struct {
-	Enabled             bool `json:"enabled"`
-	MaxConcurrent       int  `json:"maxConcurrent"`
-	PollIntervalSeconds int  `json:"pollIntervalSeconds"`
-	MaxStepsPerRun      int  `json:"maxStepsPerRun"`
+	Enabled             bool   `json:"enabled"`
+	MaxConcurrent       int    `json:"maxConcurrent"`
+	PollIntervalSeconds int    `json:"pollIntervalSeconds"`
+	MaxStepsPerRun      int    `json:"maxStepsPerRun"`
+	ProviderID          string `json:"providerId"`
+	ModelID             string `json:"modelId"`
 }
 
 type cometlineSchedulerJSON struct {
@@ -299,6 +301,8 @@ func adaptCometlineSettings(raw cometlineSettingsJSON) (*Config, error) {
 			MaxConcurrent:       cm.Autonomy.MaxConcurrent,
 			PollIntervalSeconds: cm.Autonomy.PollIntervalSeconds,
 			MaxStepsPerRun:      cm.Autonomy.MaxStepsPerRun,
+			ProviderID:          strings.TrimSpace(cm.Autonomy.ProviderID),
+			ModelID:             strings.TrimSpace(cm.Autonomy.ModelID),
 		},
 		Scheduler: SchedulerConfig{
 			Enabled:             cm.Scheduler.Enabled,

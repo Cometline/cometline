@@ -4,10 +4,12 @@ package config
 // background worker that claims ready jobs from the queue and runs them to
 // completion without a human opening a chat session first.
 type AutonomousJobsConfig struct {
-	Enabled             bool `json:"enabled" mapstructure:"enabled"`
-	MaxConcurrent       int  `json:"max_concurrent" mapstructure:"max_concurrent"`
-	PollIntervalSeconds int  `json:"poll_interval_seconds" mapstructure:"poll_interval_seconds"`
-	MaxStepsPerRun      int  `json:"max_steps_per_run" mapstructure:"max_steps_per_run"`
+	Enabled             bool   `json:"enabled" mapstructure:"enabled"`
+	MaxConcurrent       int    `json:"max_concurrent" mapstructure:"max_concurrent"`
+	PollIntervalSeconds int    `json:"poll_interval_seconds" mapstructure:"poll_interval_seconds"`
+	MaxStepsPerRun      int    `json:"max_steps_per_run" mapstructure:"max_steps_per_run"`
+	ProviderID          string `json:"provider_id" mapstructure:"provider_id"`
+	ModelID             string `json:"model_id" mapstructure:"model_id"`
 }
 
 func defaultAutonomousJobsConfig() AutonomousJobsConfig {

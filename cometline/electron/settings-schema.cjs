@@ -4583,7 +4583,9 @@ function defaultCometMindAutonomousJobsSettings() {
     enabled: false,
     maxConcurrent: 1,
     pollIntervalSeconds: 30,
-    maxStepsPerRun: 0
+    maxStepsPerRun: 0,
+    providerId: "",
+    modelId: ""
   };
 }
 function defaultCometMindPlanningSettings() {
@@ -4810,7 +4812,9 @@ function normalizeCometMindSettings(input, fallbackWorkspacePath = "") {
       maxStepsPerRun: normalizeNonNegativeInt(
         autonomyInput.maxStepsPerRun,
         autonomyDefaults.maxStepsPerRun
-      )
+      ),
+      providerId: String(autonomyInput.providerId ?? autonomyDefaults.providerId).trim(),
+      modelId: String(autonomyInput.modelId ?? autonomyDefaults.modelId).trim()
     },
     planning: {
       enabled: typeof planningInput.enabled === "boolean" ? planningInput.enabled : defaults.planning.enabled
@@ -5254,6 +5258,14 @@ var providerSettingsSchema = external_exports.object({
       retryCooldownMinutes: external_exports.number().int().positive(),
       maxRetryCooldownMinutes: external_exports.number().int().positive(),
       reconcileIntervalSeconds: external_exports.number().int().positive()
+    }),
+    autonomy: external_exports.object({
+      enabled: external_exports.boolean(),
+      maxConcurrent: external_exports.number().int().positive(),
+      pollIntervalSeconds: external_exports.number().int().positive(),
+      maxStepsPerRun: external_exports.number().int().min(0),
+      providerId: external_exports.string(),
+      modelId: external_exports.string()
     }),
     planning: external_exports.object({
       enabled: external_exports.boolean()

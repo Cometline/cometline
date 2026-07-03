@@ -241,6 +241,50 @@ func TestAdaptCometlineSettingsContextWindowLimit(t *testing.T) {
 	}
 }
 
+func TestAdaptCometlineSettingsAutonomyModelOverride(t *testing.T) {
+	cfg, err := adaptCometlineSettings(cometlineSettingsJSON{
+		Providers: []cometlineProviderJSON{
+			{
+				ID:            "anthropic",
+				Name:          "Anthropic",
+				Method:        ProviderAnthropic,
+				Enabled:       true,
+				BaseURL:       "https://api.anthropic.com",
+				EnabledModels: []string{"claude-sonnet-4-20250514"},
+			},
+			{
+				ID:            "codex",
+				Name:          "Codex",
+				Method:        ProviderCodex,
+				Enabled:       true,
+				EnabledModels: []string{"gpt-5.1-codex"},
+			},
+		},
+		ActiveProviderID: "anthropic",
+		Cometmind: cometlineCometmindJSON{
+			Autonomy: cometlineAutonomyJSON{
+				ProviderID: " codex ",
+				ModelID:    " gpt-5.1-codex ",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("adaptCometlineSettings() error = %v", err)
+	}
+	if cfg.Provider != "anthropic" {
+		t.Fatalf("Provider = %q, want active provider anthropic", cfg.Provider)
+	}
+	if cfg.Model != "claude-sonnet-4-20250514" {
+		t.Fatalf("Model = %q, want active model claude-sonnet-4-20250514", cfg.Model)
+	}
+	if cfg.Autonomy.ProviderID != "codex" {
+		t.Fatalf("Autonomy.ProviderID = %q, want codex", cfg.Autonomy.ProviderID)
+	}
+	if cfg.Autonomy.ModelID != "gpt-5.1-codex" {
+		t.Fatalf("Autonomy.ModelID = %q, want gpt-5.1-codex", cfg.Autonomy.ModelID)
+	}
+}
+
 // TestLoadBootsWithNoEnabledProviders simulates a fresh Electron install:
 // the renderer writes a settings JSON where every provider is disabled with
 // no enabled models. The sidecar must still boot (Load returns no error) with

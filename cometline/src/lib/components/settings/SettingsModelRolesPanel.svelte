@@ -35,6 +35,22 @@
 		return provider.enabledModels.length ? provider.enabledModels : provider.models;
 	}
 
+	function firstModelForProvider(provider: ProviderConfig | undefined): string {
+		return provider
+			? (provider.enabledModels[0] ?? provider.selectedModel ?? provider.models[0] ?? '')
+			: '';
+	}
+
+	function providerById(providerId: string) {
+		return providers.find((provider) => provider.id === providerId);
+	}
+
+	function roleLabel(providerId: string, modelId: string) {
+		if (!providerId || !modelId) return 'Use app default';
+		const provider = providerById(providerId);
+		return `${provider?.name ?? providerId} · ${modelId}`;
+	}
+
 	// ── Default model picker ────────────────────────────────────────────
 	let modelMenuOpen = $state(false);
 	let modelSearch = $state('');
@@ -159,10 +175,7 @@
 			cometmind = { ...cometmind, titleProviderId: '', titleModelId: '' };
 			return;
 		}
-		const provider = providers.find((item) => item.id === providerId);
-		const modelId = provider
-			? (provider.enabledModels[0] ?? provider.selectedModel ?? provider.models[0] ?? '')
-			: '';
+		const modelId = firstModelForProvider(providerById(providerId));
 		cometmind = { ...cometmind, titleProviderId: providerId, titleModelId: modelId };
 	}
 
@@ -187,10 +200,7 @@
 			};
 			return;
 		}
-		const provider = providers.find((item) => item.id === providerId);
-		const modelId = provider
-			? (provider.enabledModels[0] ?? provider.selectedModel ?? provider.models[0] ?? '')
-			: '';
+		const modelId = firstModelForProvider(providerById(providerId));
 		cometmind = {
 			...cometmind,
 			memory: {
@@ -206,6 +216,62 @@
 			...cometmind,
 			memory: { ...cometmind.memory, extractionModel: modelId }
 		};
+	}
+
+	// ── Autonomous jobs and skill synthesis model roles ─────────────────
+	const autonomyProvider = $derived(providerById(cometmind.autonomy.providerId));
+	const autonomyModels = $derived(modelsForProvider(autonomyProvider));
+	const autonomyRoleLabel = $derived(
+		roleLabel(cometmind.autonomy.providerId, cometmind.autonomy.modelId)
+	);
+	const synthesisProvider = $derived(providerById(cometmind.skills.synthesisProviderId));
+	const synthesisModels = $derived(modelsForProvider(synthesisProvider));
+	const synthesisRoleLabel = $derived(
+		roleLabel(cometmind.skills.synthesisProviderId, cometmind.skills.synthesisModel)
+	);
+
+	function setAutonomyProvider(providerId: string) {
+		if (!providerId) {
+			cometmind = {
+				...cometmind,
+				autonomy: { ...cometmind.autonomy, providerId: '', modelId: '' }
+			};
+			return;
+		}
+		cometmind = {
+			...cometmind,
+			autonomy: {
+				...cometmind.autonomy,
+				providerId,
+				modelId: firstModelForProvider(providerById(providerId))
+			}
+		};
+	}
+
+	function setAutonomyModel(modelId: string) {
+		cometmind = { ...cometmind, autonomy: { ...cometmind.autonomy, modelId } };
+	}
+
+	function setSynthesisProvider(providerId: string) {
+		if (!providerId) {
+			cometmind = {
+				...cometmind,
+				skills: { ...cometmind.skills, synthesisProviderId: '', synthesisModel: '' }
+			};
+			return;
+		}
+		cometmind = {
+			...cometmind,
+			skills: {
+				...cometmind.skills,
+				synthesisProviderId: providerId,
+				synthesisModel: firstModelForProvider(providerById(providerId))
+			}
+		};
+	}
+
+	function setSynthesisModel(modelId: string) {
+		cometmind = { ...cometmind, skills: { ...cometmind.skills, synthesisModel: modelId } };
 	}
 </script>
 
@@ -281,6 +347,92 @@
 					</div>
 				{/if}
 			</div>
+		</div>
+
+		<div class="settings-section">
+			<div class="settings-section-heading">
+				<h3>Autonomous jobs</h3>
+				<p>
+					Choose the model used when CometMind claims jobs in the background. Leave it on
+					app default to follow the same model as new chats.
+				</p>
+			</div>
+			<div class="role-summary">
+				<span>Currently uses</span>
+				<strong>{autonomyRoleLabel}</strong>
+			</div>
+			<label>
+				<span>Autonomous jobs provider</span>
+				<select
+					value={cometmind.autonomy.providerId}
+					onchange={(e) => setAutonomyProvider(e.currentTarget.value)}
+				>
+					<option value="">Use app default</option>
+					{#each runtimeProviders as provider (provider.id)}
+						<option value={provider.id}>{provider.name}</option>
+					{/each}
+				</select>
+			</label>
+			{#if cometmind.autonomy.providerId}
+				<label>
+					<span>Autonomous jobs model</span>
+					<select
+						value={cometmind.autonomy.modelId || autonomyModels[0] || ''}
+						onchange={(e) => setAutonomyModel(e.currentTarget.value)}
+					>
+						{#each autonomyModels as model (model)}
+							<option value={model}>{model}</option>
+						{/each}
+					</select>
+					<p class="settings-field-hint">
+						Pick a reliable coding-capable model. Job runs can execute tools and
+						continue without a visible chat open.
+					</p>
+				</label>
+			{/if}
+		</div>
+
+		<div class="settings-section">
+			<div class="settings-section-heading">
+				<h3>Skill synthesis</h3>
+				<p>
+					Choose the model that proposes reusable skill drafts after completed jobs. Leave
+					it on app default unless you want a cheaper or more specialized reviewer.
+				</p>
+			</div>
+			<div class="role-summary">
+				<span>Currently uses</span>
+				<strong>{synthesisRoleLabel}</strong>
+			</div>
+			<label>
+				<span>Synthesis provider</span>
+				<select
+					value={cometmind.skills.synthesisProviderId}
+					onchange={(e) => setSynthesisProvider(e.currentTarget.value)}
+				>
+					<option value="">Use app default</option>
+					{#each runtimeProviders as provider (provider.id)}
+						<option value={provider.id}>{provider.name}</option>
+					{/each}
+				</select>
+			</label>
+			{#if cometmind.skills.synthesisProviderId}
+				<label>
+					<span>Synthesis model</span>
+					<select
+						value={cometmind.skills.synthesisModel || synthesisModels[0] || ''}
+						onchange={(e) => setSynthesisModel(e.currentTarget.value)}
+					>
+						{#each synthesisModels as model (model)}
+							<option value={model}>{model}</option>
+						{/each}
+					</select>
+					<p class="settings-field-hint">
+						This model only drafts skills. Drafts still require explicit promotion
+						before becoming active skills.
+					</p>
+				</label>
+			{/if}
 		</div>
 
 		<div class="settings-section">
@@ -419,6 +571,29 @@
 	.clear-default-button:hover {
 		background: rgba(0, 0, 0, 0.12);
 		color: var(--text-main);
+	}
+
+	.role-summary {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+		padding: 10px 12px;
+		border: 1px solid var(--border-soft);
+		border-radius: 12px;
+		background: rgba(15, 23, 42, 0.04);
+		font-size: 12px;
+	}
+
+	.role-summary span {
+		color: var(--text-muted);
+	}
+
+	.role-summary strong {
+		font-size: 12px;
+		font-weight: 600;
+		color: var(--text-main);
+		text-align: right;
 	}
 
 	.model-menu {

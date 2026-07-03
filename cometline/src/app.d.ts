@@ -192,6 +192,8 @@ declare global {
 		maxConcurrent: number;
 		pollIntervalSeconds: number;
 		maxStepsPerRun: number;
+		providerId: string;
+		modelId: string;
 	}
 
 	interface CometMindPlanningSettings {

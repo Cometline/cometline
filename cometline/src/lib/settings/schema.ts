@@ -155,6 +155,8 @@ export interface CometMindAutonomousJobsSettings {
 	maxConcurrent: number;
 	pollIntervalSeconds: number;
 	maxStepsPerRun: number;
+	providerId: string;
+	modelId: string;
 }
 
 export interface CometMindSchedulerSettings {
@@ -438,7 +440,9 @@ export function defaultCometMindAutonomousJobsSettings(): CometMindAutonomousJob
 		enabled: false,
 		maxConcurrent: 1,
 		pollIntervalSeconds: 30,
-		maxStepsPerRun: 0
+		maxStepsPerRun: 0,
+		providerId: '',
+		modelId: ''
 	};
 }
 
@@ -708,7 +712,9 @@ export function normalizeCometMindSettings(
 			maxStepsPerRun: normalizeNonNegativeInt(
 				autonomyInput.maxStepsPerRun,
 				autonomyDefaults.maxStepsPerRun
-			)
+			),
+			providerId: String(autonomyInput.providerId ?? autonomyDefaults.providerId).trim(),
+			modelId: String(autonomyInput.modelId ?? autonomyDefaults.modelId).trim()
 		},
 		planning: {
 			enabled:
@@ -1252,6 +1258,14 @@ const providerSettingsSchema = z.object({
 			retryCooldownMinutes: z.number().int().positive(),
 			maxRetryCooldownMinutes: z.number().int().positive(),
 			reconcileIntervalSeconds: z.number().int().positive()
+		}),
+		autonomy: z.object({
+			enabled: z.boolean(),
+			maxConcurrent: z.number().int().positive(),
+			pollIntervalSeconds: z.number().int().positive(),
+			maxStepsPerRun: z.number().int().min(0),
+			providerId: z.string(),
+			modelId: z.string()
 		}),
 		planning: z.object({
 			enabled: z.boolean()

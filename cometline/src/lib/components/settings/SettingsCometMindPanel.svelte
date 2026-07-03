@@ -412,40 +412,10 @@
 			/>
 			<SettingsToggle
 				label="Synthesize skill drafts from completed jobs"
-				description="After a job completes, an LLM proposes a reusable skill draft for review. Off by default."
+				description="After a job completes, an LLM proposes a reusable skill draft for review. Choose its model in Models → Skill synthesis."
 				bind:checked={cometmind.skills.synthesisEnabled}
 				disabled={!cometmind.skills.enabled}
 			/>
-			{#if cometmind.skills.synthesisEnabled}
-				<label>
-					<span>Synthesis provider</span>
-					<select
-						value={cometmind.skills.synthesisProviderId || ''}
-						onchange={(e) =>
-							(cometmind = {
-								...cometmind,
-								skills: {
-									...cometmind.skills,
-									synthesisProviderId: e.currentTarget.value
-								}
-							})}
-					>
-						<option value="">Use default provider</option>
-						{#each providers as provider (provider.id)}
-							<option value={provider.id}>{provider.name}</option>
-						{/each}
-					</select>
-				</label>
-				<label>
-					<span>Synthesis model</span>
-					<input
-						type="text"
-						bind:value={cometmind.skills.synthesisModel}
-						placeholder="Leave empty for default model"
-						spellcheck="false"
-					/>
-				</label>
-			{/if}
 			<div class="skills-actions">
 				<button
 					class="secondary"

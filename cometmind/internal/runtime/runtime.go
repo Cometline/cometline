@@ -322,10 +322,30 @@ func (r *Runtime) StartAutonomousJobWorker(ctx context.Context, guard autonomy.R
 		NewRunner:         r.RunnerFor,
 		Guard:             guard,
 		Config:            r.Config.EffectiveAutonomousJobsSettings(),
-		DefaultModelID:    r.Config.Model,
-		DefaultProviderID: r.Config.Provider,
+		DefaultModelID:    r.autonomyModelID(),
+		DefaultProviderID: r.autonomyProviderID(),
 	}
 	go w.Run(ctx)
+}
+
+func (r *Runtime) autonomyProviderID() string {
+	if r == nil || r.Config == nil {
+		return ""
+	}
+	if providerID := strings.TrimSpace(r.Config.Autonomy.ProviderID); providerID != "" {
+		return providerID
+	}
+	return r.Config.Provider
+}
+
+func (r *Runtime) autonomyModelID() string {
+	if r == nil || r.Config == nil {
+		return ""
+	}
+	if modelID := strings.TrimSpace(r.Config.Autonomy.ModelID); modelID != "" {
+		return modelID
+	}
+	return r.Config.Model
 }
 
 func (r *Runtime) jobSettingsSnapshot() jobs.Settings {
