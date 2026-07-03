@@ -243,10 +243,13 @@ jobs:
           # Create a NON-draft release and upload every asset synchronously.
           # gh release create waits for each upload to finish, unlike
           # electron-builder's fire-and-forget --publish always.
-          PRERELEASE_FLAG=()
+          # NOTE: macos-latest ships bash 3.2, where "${ARR[@]}" on an empty
+          # array throws "unbound variable" under `set -u`. Use a plain
+          # string flag instead of an array to stay bash-3.2-safe.
+          PRERELEASE_FLAG=""
           TITLE="Cometline $TAG"
           if [ "$IS_TEST" = "true" ]; then
-            PRERELEASE_FLAG=(--prerelease)
+            PRERELEASE_FLAG="--prerelease"
             TITLE="Cometline $TAG (test build)"
           fi
           gh release create "$TAG" \
@@ -254,7 +257,7 @@ jobs:
             --target "$GITHUB_SHA" \
             --title "$TITLE" \
             --notes-file release-notes.md \
-            "${PRERELEASE_FLAG[@]}" \
+            ${PRERELEASE_FLAG} \
             cometline/dist/*.dmg \
             cometline/dist/*.dmg.blockmap \
             cometline/dist/*.zip \
