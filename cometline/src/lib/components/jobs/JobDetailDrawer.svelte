@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { fly, fade } from 'svelte/transition';
 	import { onMount } from 'svelte';
-	import { Archive, RotateCcw, X, Trash2, Play, ExternalLink, RefreshCw } from '@lucide/svelte';
+	import { Archive, RotateCcw, X, Trash2, ExternalLink, RefreshCw } from '@lucide/svelte';
 	import {
 		getSession,
 		type JobEventResource,
@@ -12,7 +12,6 @@
 	import { navigateToSession } from '$lib/actions/navigate-to-session';
 	import JobCreateForm from './JobCreateForm.svelte';
 	import WorkspacePathField from '$lib/components/WorkspacePathField.svelte';
-	import { startJobInChat } from '$lib/jobs/start-job-in-chat';
 
 	type DrawerMode = 'detail' | 'create';
 
@@ -36,8 +35,7 @@
 		onArchive,
 		onUnarchive,
 		onRetry,
-		onCreate,
-		onStartInChat
+		onCreate
 	}: {
 		job?: JobResource | null;
 		mode?: DrawerMode;
@@ -59,11 +57,8 @@
 		onUnarchive?: (job: JobResource) => void | Promise<void>;
 		onRetry?: (job: JobResource) => void | Promise<void>;
 		onCreate?: () => void | Promise<void>;
-		onStartInChat?: (job: JobResource) => void | Promise<void>;
 	} = $props();
 
-	let starting = $state(false);
-	let startError = $state('');
 	let openingSession = $state(false);
 	let openSessionError = $state('');
 	const isArchived = $derived(job?.archived_at != null);
@@ -79,23 +74,6 @@
 		window.addEventListener('keydown', onKeydown);
 		return () => window.removeEventListener('keydown', onKeydown);
 	});
-
-	async function handleStartInChat() {
-		if (!job || job.status !== 'todo') return;
-		starting = true;
-		startError = '';
-		try {
-			if (onStartInChat) {
-				await onStartInChat(job);
-			} else {
-				await startJobInChat(job);
-			}
-		} catch (err) {
-			startError = err instanceof Error ? err.message : 'Failed to start job';
-		} finally {
-			starting = false;
-		}
-	}
 
 	async function handleOpenRunSession() {
 		if (!job?.assigned_session_id) return;
@@ -281,9 +259,6 @@
 				{/if}
 			</section>
 
-			{#if startError}
-				<p class="drawer-error">{startError}</p>
-			{/if}
 			{#if openSessionError}
 				<p class="drawer-error">{openSessionError}</p>
 			{/if}
@@ -292,33 +267,23 @@
 
 	{#if mode === 'detail' && job}
 		<footer class="drawer-footer">
-			{#if job.assigned_session_id}
+			{#if job.assigned_session_id && job.status === 'done'}
 				<button
 					type="button"
 					class="secondary"
-					disabled={openingSession || saving || starting}
+					title="Open the completed session transcript."
+					disabled={openingSession || saving}
 					onclick={() => void handleOpenRunSession()}
 				>
 					<ExternalLink size={14} />
-					{openingSession ? 'Opening…' : 'Open run session'}
-				</button>
-			{/if}
-			{#if job.status === 'todo' && !isArchived}
-				<button
-					type="button"
-					class="primary"
-					disabled={starting || saving}
-					onclick={() => void handleStartInChat()}
-				>
-					<Play size={14} />
-					Start in chat
+					{openingSession ? 'Opening…' : 'Open session'}
 				</button>
 			{/if}
 			{#if isBlocked && !isArchived}
 				<button
 					type="button"
 					class="primary"
-					disabled={saving || starting || openingSession}
+					disabled={saving || openingSession}
 					onclick={() => void onRetry?.(job)}
 				>
 					<RefreshCw size={14} />
@@ -329,7 +294,7 @@
 				<button
 					type="button"
 					class="secondary"
-					disabled={saving || starting || openingSession}
+					disabled={saving || openingSession}
 					onclick={() => void onArchive?.(job)}
 				>
 					<Archive size={14} />
@@ -340,7 +305,7 @@
 				<button
 					type="button"
 					class="secondary"
-					disabled={saving || starting || openingSession}
+					disabled={saving || openingSession}
 					onclick={() => void onUnarchive?.(job)}
 				>
 					<RotateCcw size={14} />
@@ -351,7 +316,7 @@
 				<button
 					type="button"
 					class="secondary danger"
-					disabled={saving || starting || openingSession}
+					disabled={saving || openingSession}
 					onclick={() => void onDelete?.(job)}
 				>
 					<Trash2 size={14} />

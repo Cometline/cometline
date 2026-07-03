@@ -189,7 +189,13 @@
 		align-items: flex-start;
 	}
 
-	.page-header h1,
+	.page-header h1 {
+		margin: 0 0 4px;
+		font-size: 20px;
+		font-weight: 650;
+		color: var(--text-main);
+	}
+
 	.section-header h2,
 	.preview-header h2,
 	.empty-state h2 {

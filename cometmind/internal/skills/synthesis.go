@@ -13,6 +13,8 @@ import (
 
 const synthesisMaxTokens = 2500
 
+const synthesisSystemPrompt = "You identify reusable Agent Skill opportunities and output JSON only."
+
 type synthesisResult struct {
 	ShouldPropose bool   `json:"should_propose"`
 	Name          string `json:"name"`
@@ -68,17 +70,8 @@ Workspace: %s
 Recent task outcomes:
 %s`, strings.TrimSpace(job.Description), strings.TrimSpace(job.DefinitionOfDone), strings.TrimSpace(job.Progress), strings.TrimSpace(job.WorkspacePath), strings.TrimSpace(contextBlock.String()))
 
-	var out synthesisResult
-	req := &cometsdk.Request{
-		Model:  model,
-		System: "You identify reusable Agent Skill opportunities and output JSON only.",
-		Messages: []cometsdk.Message{{
-			Role:    cometsdk.RoleUser,
-			Content: []cometsdk.Block{cometsdk.TextBlock{Text: prompt}},
-		}},
-		MaxTokens: synthesisMaxTokens,
-	}
-	if err := llm.GenerateJSON(ctx, p, req, &out); err != nil {
+	out, err := generateSynthesisResult(ctx, p, model, job, prompt)
+	if err != nil {
 		return err
 	}
 	if !out.ShouldPropose {
@@ -95,4 +88,46 @@ Recent task outcomes:
 	}
 	logging.L().Info("skills.synthesis.draft_written", "job_id", job.ID, "draft", name)
 	return nil
+}
+
+func generateSynthesisResult(ctx context.Context, p cometsdk.Provider, model string, job SynthesisJob, prompt string) (synthesisResult, error) {
+	var out synthesisResult
+	zero := 0.0
+	req := &cometsdk.Request{
+		Model:  model,
+		System: synthesisSystemPrompt,
+		Messages: []cometsdk.Message{{
+			Role:    cometsdk.RoleUser,
+			Content: []cometsdk.Block{cometsdk.TextBlock{Text: prompt}},
+		}},
+		MaxTokens:   synthesisMaxTokens,
+		Temperature: &zero,
+	}
+	if err := llm.GenerateJSON(ctx, p, req, &out); err != nil {
+		if !shouldRetrySynthesisJSON(err) {
+			return synthesisResult{}, err
+		}
+		logging.L().Warn("skills.synthesis.invalid_json_retry", "job_id", job.ID, "error", err)
+		repairPrompt := prompt + `
+
+Your previous response was invalid for the required JSON contract.
+Respond again with exactly one valid JSON object and nothing else.
+If this job is not reusable, set "should_propose" to false and leave "name" and "content" empty.`
+		retryReq := &cometsdk.Request{
+			Model:       model,
+			System:      synthesisSystemPrompt,
+			Messages:    []cometsdk.Message{{Role: cometsdk.RoleUser, Content: []cometsdk.Block{cometsdk.TextBlock{Text: repairPrompt}}}},
+			MaxTokens:   synthesisMaxTokens,
+			Temperature: &zero,
+		}
+		if retryErr := llm.GenerateJSON(ctx, p, retryReq, &out); retryErr != nil {
+			return synthesisResult{}, retryErr
+		}
+	}
+	return out, nil
+}
+
+func shouldRetrySynthesisJSON(err error) bool {
+	msg := err.Error()
+	return strings.Contains(msg, "GenerateJSON: parse response:") || strings.Contains(msg, "GenerateJSON: unmarshal:")
 }
