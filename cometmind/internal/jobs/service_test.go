@@ -3,6 +3,7 @@ package jobs_test
 import (
 	"context"
 	"database/sql"
+	"sync"
 	"testing"
 	"time"
 
@@ -21,6 +22,7 @@ func testJobsServiceWithSettings(t *testing.T, settingsFn func() jobs.Settings) 
 	if err != nil {
 		t.Fatal(err)
 	}
+	conn.SetMaxOpenConns(1)
 	if err := db.EnsureSchema(context.Background(), conn); err != nil {
 		t.Fatal(err)
 	}
@@ -61,6 +63,63 @@ func TestCreateClaimComplete(t *testing.T) {
 	}
 	if done.Status != jobs.StatusDone || done.Progress != "all green" {
 		t.Fatalf("done=%+v", done)
+	}
+}
+
+func TestConcurrentClaimOnlyAssignsOneSession(t *testing.T) {
+	svc := testJobsService(t)
+	ctx := context.Background()
+
+	job, err := svc.Create(ctx, jobs.CreateInput{Description: "claim race"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	const contenders = 8
+	start := make(chan struct{})
+	type result struct {
+		sessionID string
+		err       error
+	}
+	results := make(chan result, contenders)
+	var wg sync.WaitGroup
+	for i := 0; i < contenders; i++ {
+		sessionID := "sess-race-" + string(rune('a'+i))
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			_, err := svc.Claim(ctx, job.ID, sessionID)
+			results <- result{sessionID: sessionID, err: err}
+		}()
+	}
+	close(start)
+	wg.Wait()
+	close(results)
+
+	var winner string
+	for res := range results {
+		if res.err == nil {
+			if winner != "" {
+				t.Fatalf("multiple successful claims: %s and %s", winner, res.sessionID)
+			}
+			winner = res.sessionID
+			continue
+		}
+		if res.err != jobs.ErrAlreadyClaimed && res.err != jobs.ErrConflict {
+			t.Fatalf("claim error for %s = %v", res.sessionID, res.err)
+		}
+	}
+	if winner == "" {
+		t.Fatal("no claim succeeded")
+	}
+
+	got, err := svc.Get(ctx, job.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Status != jobs.StatusOngoing || got.AssignedSessionID != winner {
+		t.Fatalf("job=%+v winner=%s", got, winner)
 	}
 }
 
