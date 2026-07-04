@@ -16,14 +16,15 @@ export interface ThreadScrollDeps {
 
 export function createThreadScroll(deps: ThreadScrollDeps) {
 	let scroller = $state<HTMLDivElement | undefined>(undefined);
+	let lastSessionId: string | null = null;
 	let lastScrolledUserId: string | null = null;
 	let viewportHeight = $state(0);
 	let isInitialTranscriptPaint = $state(true);
-	/** Keeps min-height on the latest turn from send until the next user message. */
-	let activeTurnCanvas = $state(false);
+	/** The follow-up user row pinned while its response is in flight. */
+	let activePinnedUserId = $state<string | null>(null);
 
 	const turnMinHeight = $derived.by(() =>
-		activeTurnCanvas ? activeTurnMinHeight(viewportHeight) : 0
+		activePinnedUserId ? activeTurnMinHeight(viewportHeight) : 0
 	);
 	const userPinScrollMargin = $derived(followUpPinScrollMargin(viewportHeight));
 
@@ -40,6 +41,7 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 	function pinUserMessageAfterLayout(userId: string) {
 		let frame = 0;
 		const settle = () => {
+			if (activePinnedUserId !== userId || !deps.getSessionStreaming()) return;
 			scrollUserMessageIntoView(userId);
 			frame += 1;
 			if (frame < 3) requestAnimationFrame(settle);
@@ -48,11 +50,21 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 	}
 
 	$effect(() => {
-		void deps.getSessionId();
+		const sessionId = deps.getSessionId();
+		if (sessionId === lastSessionId) return;
+		lastSessionId = sessionId;
 		untrack(() => {
 			lastScrolledUserId = deps.getLastUserId();
-			isInitialTranscriptPaint = !deps.sessionHasCachedTranscript(deps.getSessionId());
-			activeTurnCanvas = false;
+			isInitialTranscriptPaint = !deps.sessionHasCachedTranscript(sessionId);
+			activePinnedUserId = null;
+		});
+	});
+
+	$effect.pre(() => {
+		const streaming = deps.getSessionStreaming();
+		if (streaming) return;
+		untrack(() => {
+			activePinnedUserId = null;
 		});
 	});
 
@@ -140,8 +152,9 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 		}
 		if (userId === lastScrolledUserId) return;
 		lastScrolledUserId = userId;
+		if (!deps.getSessionStreaming()) return;
 		if (isInitialTranscriptPaint || deps.getUserMessageCount() <= 1) return;
-		activeTurnCanvas = true;
+		activePinnedUserId = userId;
 		void tick().then(() => {
 			pinUserMessageAfterLayout(userId);
 		});
