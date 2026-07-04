@@ -5,12 +5,14 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/cometline/cometmind/internal/skills"
 )
 
 func TestNewSubagentRegistryExcludesWriteAndDelegateTools(t *testing.T) {
 	r := NewSubagentRegistry(t.TempDir(), nil)
 	excluded := []string{
-		"write_file", "run_command", "write_skill",
+		"write_file", "run_command", "write_skill", "write_skill_draft",
 		"delegate_coding_task", "spawn_general_agent", "wait_subagents",
 	}
 	for _, name := range excluded {
@@ -57,5 +59,16 @@ func TestNewRegistryCapturesWorkspaceAndExposesSpecs(t *testing.T) {
 	}
 	if res.Output != "world" {
 		t.Errorf("read_file output = %q, want %q", res.Output, "world")
+	}
+}
+
+func TestNewRegistryIncludesSkillDraftToolsWhenSkillsEnabled(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	reg := skills.Discover("", skills.Config{Enabled: true})
+	r := NewRegistry(t.TempDir(), RegistryOptions{Skills: &reg})
+	for _, name := range []string{"write_skill_draft", "list_skill_drafts", "read_skill_draft", "promote_skill_draft"} {
+		if !r.Has(name) {
+			t.Fatalf("registry missing %q", name)
+		}
 	}
 }
