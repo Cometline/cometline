@@ -1263,6 +1263,18 @@ func TestSkillDraftHandlersPromoteAndReject(t *testing.T) {
 		t.Fatalf("detail content missing draft text: %q", detail.Content)
 	}
 
+	updateRec := httptest.NewRecorder()
+	updateReq := httptest.NewRequest(http.MethodPut, "/api/v1/skill-drafts/api-draft", bytes.NewBufferString(`{"content":"---\nname: api-draft\ndescription: edited api draft skill\n---\n\n# Draft\n\nUpdated body\n"}`))
+	updateReq.Header.Set("Content-Type", "application/json")
+	engine.ServeHTTP(updateRec, updateReq)
+	if updateRec.Code != http.StatusOK {
+		t.Fatalf("update status = %d, want %d body=%s", updateRec.Code, http.StatusOK, updateRec.Body.String())
+	}
+	decodeJSON(t, updateRec.Body.Bytes(), &detail)
+	if detail.Draft.Description != "edited api draft skill" || !strings.Contains(detail.Content, "Updated body") {
+		t.Fatalf("updated draft = %+v", detail)
+	}
+
 	promoteRec := httptest.NewRecorder()
 	promoteReq := httptest.NewRequest(http.MethodPost, "/api/v1/skill-drafts/api-draft/promote", nil)
 	engine.ServeHTTP(promoteRec, promoteReq)

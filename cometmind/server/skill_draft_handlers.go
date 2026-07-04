@@ -27,6 +27,10 @@ type skillDraftDetailResponse struct {
 	Content string             `json:"content"`
 }
 
+type updateSkillDraftRequest struct {
+	Content string `json:"content"`
+}
+
 func skillDraftResourceFromModel(draft skills.Draft) skillDraftResource {
 	return skillDraftResource{
 		Name:        draft.Name,
@@ -65,6 +69,25 @@ func (a *App) handleListSkillDrafts(c *gin.Context) {
 
 func (a *App) handleGetSkillDraft(c *gin.Context) {
 	draft, content, err := skills.DraftMarkdown(c.Param("name"))
+	if err != nil {
+		writeSkillDraftError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, skillDraftDetailResponse{Draft: skillDraftResourceFromModel(draft), Content: content})
+}
+
+func (a *App) handleUpdateSkillDraft(c *gin.Context) {
+	name := strings.TrimSpace(c.Param("name"))
+	var req updateSkillDraftRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		writeError(c, http.StatusBadRequest, "bad_request", "invalid JSON body")
+		return
+	}
+	if err := skills.WriteDraft(name, req.Content, true); err != nil {
+		writeSkillDraftError(c, err)
+		return
+	}
+	draft, content, err := skills.DraftMarkdown(name)
 	if err != nil {
 		writeSkillDraftError(c, err)
 		return

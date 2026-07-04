@@ -324,6 +324,10 @@ export type SkillDraftDetailResponse = {
     content: string;
 };
 
+export type UpdateSkillDraftRequest = {
+    content: string;
+};
+
 export type SyncSkillsResponse = {
     created: Array<string>;
     skipped: Array<string>;
@@ -1815,6 +1819,41 @@ export type GetSkillDraftResponses = {
 };
 
 export type GetSkillDraftResponse = GetSkillDraftResponses[keyof GetSkillDraftResponses];
+
+export type UpdateSkillDraftData = {
+    body: UpdateSkillDraftRequest;
+    path: {
+        name: string;
+    };
+    query?: never;
+    url: '/api/v1/skill-drafts/{name}';
+};
+
+export type UpdateSkillDraftErrors = {
+    /**
+     * Resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * Draft cannot be updated
+     */
+    409: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type UpdateSkillDraftError = UpdateSkillDraftErrors[keyof UpdateSkillDraftErrors];
+
+export type UpdateSkillDraftResponses = {
+    /**
+     * Updated skill draft detail
+     */
+    200: SkillDraftDetailResponse;
+};
+
+export type UpdateSkillDraftResponse = UpdateSkillDraftResponses[keyof UpdateSkillDraftResponses];
 
 export type PromoteSkillDraftData = {
     body?: never;

@@ -1178,6 +1178,11 @@ type UpdateSessionRequest struct {
 	Title *string `json:"title,omitempty"`
 }
 
+// UpdateSkillDraftRequest defines model for UpdateSkillDraftRequest.
+type UpdateSkillDraftRequest struct {
+	Content string `json:"content"`
+}
+
 // Workspace defines model for Workspace.
 type Workspace struct {
 	Id   string `json:"id"`
@@ -1394,6 +1399,9 @@ type PostSessionMessageJSONRequestBody = PostMessageRequest
 
 // ChangeSessionWorkspaceJSONRequestBody defines body for ChangeSessionWorkspace for application/json ContentType.
 type ChangeSessionWorkspaceJSONRequestBody = ChangeSessionWorkspaceRequest
+
+// UpdateSkillDraftJSONRequestBody defines body for UpdateSkillDraft for application/json ContentType.
+type UpdateSkillDraftJSONRequestBody = UpdateSkillDraftRequest
 
 // CreateWorkspaceJSONRequestBody defines body for CreateWorkspace for application/json ContentType.
 type CreateWorkspaceJSONRequestBody = CreateWorkspaceRequest

@@ -144,6 +144,7 @@ func New(deps Deps) (*gin.Engine, error) {
 	api.GET("/skills/:name", app.handleGetSkill)
 	api.GET("/skill-drafts", app.handleListSkillDrafts)
 	api.GET("/skill-drafts/:name", app.handleGetSkillDraft)
+	api.PUT("/skill-drafts/:name", app.handleUpdateSkillDraft)
 	api.POST("/skill-drafts/:name/promote", app.handlePromoteSkillDraft)
 	api.DELETE("/skill-drafts/:name", app.handleRejectSkillDraft)
 
