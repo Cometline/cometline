@@ -95,6 +95,28 @@ func TestRunCommandAllowsHTTPURLs(t *testing.T) {
 	}
 }
 
+func TestRunCommandAllowsRedirectToDevNull(t *testing.T) {
+	tool := RunCommand{Workspace: Workspace{Root: t.TempDir()}}
+	res, err := tool.Execute(context.Background(), json.RawMessage(`{"command":"printf ok 2>/dev/null"}`))
+	if err != nil {
+		t.Fatalf("Execute error: %v", err)
+	}
+	if !res.OK || res.Output != "ok" {
+		t.Fatalf("result = %+v, want printed output", res)
+	}
+}
+
+func TestRunCommandRejectsRedirectToOtherDevPaths(t *testing.T) {
+	tool := RunCommand{Workspace: Workspace{Root: t.TempDir()}}
+	res, err := tool.Execute(context.Background(), json.RawMessage(`{"command":"printf ok >/dev/random"}`))
+	if err != nil {
+		t.Fatalf("Execute error: %v", err)
+	}
+	if res.OK || !strings.Contains(res.Output, "matched > /dev/") {
+		t.Fatalf("result = %+v, want /dev guardrail error", res)
+	}
+}
+
 func TestWriteFileRejectsSymlinkEscape(t *testing.T) {
 	root := t.TempDir()
 	outside := t.TempDir()

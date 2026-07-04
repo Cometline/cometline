@@ -85,13 +85,19 @@ var deniedCommandPatterns = []struct {
 }{
 	{re: regexp.MustCompile(`(^|[^[:alnum:]_./-])mkfs([^[:alnum:]_./-]|$)`), msg: "command rejected by safety guardrail (matched mkfs)"},
 	{re: regexp.MustCompile(`\bdd\s+if=`), msg: "command rejected by safety guardrail (matched dd if=)"},
-	{re: regexp.MustCompile(`>\s*/dev/`), msg: "command rejected by safety guardrail (matched > /dev/)"},
 	{re: regexp.MustCompile(`(^|[^[:alnum:]_./-])sudo\s+rm([^[:alnum:]_./-]|$)`), msg: "command rejected by safety guardrail (matched sudo rm)"},
 	{re: regexp.MustCompile(`(^|[^[:alnum:]_./-])rm\s+-rf\s+/([^[:alnum:]_./-]|$)`), msg: "command rejected by safety guardrail (matched rm -rf /)"},
 }
 
+var devRedirectPattern = regexp.MustCompile(`(?:^|[^[:alnum:]_./-])\d*>\s*(/dev/[[:alnum:]_.-]+)`)
+
 func denylistCheck(cmd string) error {
 	c := strings.ToLower(cmd)
+	for _, m := range devRedirectPattern.FindAllStringSubmatch(c, -1) {
+		if len(m) > 1 && m[1] != "/dev/null" {
+			return fmt.Errorf("command rejected by safety guardrail (matched > /dev/)")
+		}
+	}
 	for _, pattern := range deniedCommandPatterns {
 		if pattern.re.MatchString(c) {
 			return fmt.Errorf("%s", pattern.msg)
