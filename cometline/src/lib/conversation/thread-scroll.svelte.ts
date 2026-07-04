@@ -106,7 +106,6 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 	});
 
 	$effect(() => {
-		const sessionId = deps.getSessionId();
 		const isSessionSynced = deps.getIsSessionSynced();
 		const threadItems = deps.getThreadItems();
 		const isLoading = deps.getIsLoading();
