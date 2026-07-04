@@ -1,7 +1,11 @@
 import { tick, untrack } from 'svelte';
 import type { ChatItem } from '$lib/stores/chat.svelte';
 import { activeTurnMinHeight } from './thread-turns';
-import { followUpPinScrollMargin } from './thread-scroll';
+import {
+	buildScrollKey,
+	followUpPinScrollMargin,
+	shouldShowJumpToBottom
+} from './thread-scroll';
 
 export interface ThreadScrollDeps {
 	getSessionId: () => string;
@@ -16,13 +20,16 @@ export interface ThreadScrollDeps {
 
 export function createThreadScroll(deps: ThreadScrollDeps) {
 	let scroller = $state<HTMLDivElement | undefined>(undefined);
+	let showJumpToBottom = $state(false);
 	let lastSessionId: string | null = null;
 	let lastScrolledUserId: string | null = null;
 	let viewportHeight = $state(0);
+	let scrollFrame = 0;
 	let isInitialTranscriptPaint = $state(true);
 	/** The follow-up user row pinned while its response is in flight. */
 	let activePinnedUserId = $state<string | null>(null);
 
+	const scrollKey = $derived(buildScrollKey(deps.getThreadItems(), deps.getSessionStreaming()));
 	const turnMinHeight = $derived.by(() =>
 		activePinnedUserId ? activeTurnMinHeight(viewportHeight) : 0
 	);
@@ -32,10 +39,39 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 		scroller = element;
 	}
 
+	function latestSentinel() {
+		return scroller?.querySelector<HTMLElement>('[data-thread-latest-sentinel]') ?? null;
+	}
+
+	function updateJumpToBottom() {
+		if (!scroller) {
+			showJumpToBottom = false;
+			return;
+		}
+		showJumpToBottom = shouldShowJumpToBottom(scroller, latestSentinel());
+	}
+
+	function onScroll() {
+		updateJumpToBottom();
+	}
+
+	function jumpToBottom() {
+		const latest = latestSentinel();
+		if (latest) {
+			latest.scrollIntoView({ block: 'end', behavior: 'smooth' });
+			showJumpToBottom = false;
+			return;
+		}
+		if (!scroller) return;
+		scroller.scrollTo({ top: scroller.scrollHeight, behavior: 'smooth' });
+		showJumpToBottom = false;
+	}
+
 	function scrollUserMessageIntoView(userId: string) {
 		if (!scroller) return;
 		const target = scroller.querySelector<HTMLElement>(`[data-user-item-id="${userId}"]`);
 		target?.scrollIntoView({ block: 'start', behavior: 'auto' });
+		updateJumpToBottom();
 	}
 
 	function pinUserMessageAfterLayout(userId: string) {
@@ -55,8 +91,9 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 		lastSessionId = sessionId;
 		untrack(() => {
 			lastScrolledUserId = deps.getLastUserId();
-			isInitialTranscriptPaint = !deps.sessionHasCachedTranscript(sessionId);
+			isInitialTranscriptPaint = true;
 			activePinnedUserId = null;
+			showJumpToBottom = false;
 		});
 	});
 
@@ -75,7 +112,7 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 		const isLoading = deps.getIsLoading();
 
 		if (!isSessionSynced) {
-			isInitialTranscriptPaint = !deps.sessionHasCachedTranscript(sessionId);
+			isInitialTranscriptPaint = true;
 			return;
 		}
 		if (isLoading && threadItems.length === 0) {
@@ -99,6 +136,7 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 			if (cancelled) return;
 			if (scroller) scroller.scrollTop = scroller.scrollHeight;
 			isInitialTranscriptPaint = false;
+			updateJumpToBottom();
 		};
 
 		const settle = () => {
@@ -134,6 +172,22 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 	});
 
 	$effect(() => {
+		void scrollKey;
+		if (scrollFrame) cancelAnimationFrame(scrollFrame);
+		scrollFrame = requestAnimationFrame(() => {
+			void tick().then(() => {
+				scrollFrame = 0;
+				if (!scroller) return;
+				if (isInitialTranscriptPaint) return;
+				updateJumpToBottom();
+			});
+		});
+		return () => {
+			if (scrollFrame) cancelAnimationFrame(scrollFrame);
+		};
+	});
+
+	$effect(() => {
 		if (!scroller) return;
 		viewportHeight = scroller.clientHeight;
 		if (typeof ResizeObserver === 'undefined') return;
@@ -161,6 +215,9 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 	});
 
 	return {
+		get showJumpToBottom() {
+			return showJumpToBottom;
+		},
 		get activeTurnMinHeight() {
 			return turnMinHeight;
 		},
@@ -173,6 +230,8 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 		get isInitialTranscriptPaint() {
 			return isInitialTranscriptPaint;
 		},
-		setScroller
+		setScroller,
+		onScroll,
+		jumpToBottom
 	};
 }

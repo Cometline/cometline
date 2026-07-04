@@ -15,6 +15,7 @@
 	import ToolMessageRow from '$lib/components/chat/ToolMessageRow.svelte';
 	import SubagentMessageRow from '$lib/components/chat/SubagentMessageRow.svelte';
 	import ErrorEventRow from '$lib/components/chat/ErrorEventRow.svelte';
+	import JumpToBottom from '$lib/components/chat/JumpToBottom.svelte';
 	import {
 		buildThinkingAttribution,
 		pinnedJobProposalToolIds
@@ -237,6 +238,7 @@
 	<div
 		class="thread scrollbar-none"
 		bind:this={scrollerEl}
+		onscroll={scroll.onScroll}
 		style:--thread-user-pin-offset-followup="{scroll.userPinScrollMargin}px"
 		role="log"
 		aria-label="Conversation"
@@ -346,12 +348,18 @@
 									<ErrorEventRow {item} />
 								{/if}
 							{/each}
+							{#if turn.id === lastUserId}
+								<div class="thread-latest-sentinel" data-thread-latest-sentinel aria-hidden="true"></div>
+							{/if}
 						</div>
 					{/each}
 				</div>
 			{/if}
 		</div>
 	</div>
+	{#if scroll.showJumpToBottom}
+		<JumpToBottom onclick={scroll.jumpToBottom} />
+	{/if}
 </div>
 
 <style>
@@ -401,6 +409,12 @@
 
 	.thread-turn-active :global(.user-row) {
 		scroll-margin-top: var(--thread-user-pin-offset-followup);
+	}
+
+	.thread-latest-sentinel {
+		width: 1px;
+		height: 1px;
+		pointer-events: none;
 	}
 
 	@media (min-width: 768px) {
