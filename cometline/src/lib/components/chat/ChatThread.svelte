@@ -15,7 +15,6 @@
 	import ToolMessageRow from '$lib/components/chat/ToolMessageRow.svelte';
 	import SubagentMessageRow from '$lib/components/chat/SubagentMessageRow.svelte';
 	import ErrorEventRow from '$lib/components/chat/ErrorEventRow.svelte';
-	import JumpToBottom from '$lib/components/chat/JumpToBottom.svelte';
 	import {
 		buildThinkingAttribution,
 		pinnedJobProposalToolIds
@@ -238,7 +237,6 @@
 	<div
 		class="thread scrollbar-none"
 		bind:this={scrollerEl}
-		onscroll={scroll.onScroll}
 		style:--thread-user-pin-offset-followup="{scroll.userPinScrollMargin}px"
 		role="log"
 		aria-label="Conversation"
@@ -354,9 +352,6 @@
 			{/if}
 		</div>
 	</div>
-	{#if scroll.showJumpToBottom}
-		<JumpToBottom onclick={scroll.jumpToBottom} />
-	{/if}
 </div>
 
 <style>
