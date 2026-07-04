@@ -5,6 +5,7 @@
 		listSkillDrafts,
 		promoteSkillDraft,
 		rejectSkillDraft,
+		updateSkillDraft,
 		type SkillDraft,
 		type SkillDraftDetailResponse
 	} from '$lib/client/cometmind';
@@ -14,8 +15,11 @@
 	let selectedDraftName = $state('');
 	let busy = $state(false);
 	let contentBusy = $state(false);
+	let saveBusy = $state(false);
 	let status = $state('');
+	let draftContent = $state('');
 	let selectedDraftId = $derived(selectedDraft?.draft.name ?? '');
+	let draftDirty = $derived(selectedDraft !== null && draftContent !== selectedDraft.content);
 
 	onMount(() => {
 		void refreshDrafts();
@@ -49,11 +53,28 @@
 		contentBusy = true;
 		try {
 			selectedDraft = await getSkillDraft(name);
+			draftContent = selectedDraft.content;
 		} catch (err) {
 			selectedDraft = null;
+			draftContent = '';
 			status = err instanceof Error ? err.message : 'Failed to load draft';
 		} finally {
 			contentBusy = false;
+		}
+	}
+
+	async function saveDraft(name: string) {
+		saveBusy = true;
+		status = '';
+		try {
+			selectedDraft = await updateSkillDraft(name, draftContent);
+			draftContent = selectedDraft.content;
+			status = `Saved draft ${name}.`;
+			await refreshDrafts({ keepSelection: true });
+		} catch (err) {
+			status = err instanceof Error ? err.message : 'Failed to save draft';
+		} finally {
+			saveBusy = false;
 		}
 	}
 
@@ -91,8 +112,9 @@
 		<div>
 			<h1>Skill Drafts</h1>
 			<p>
-				Review reusable skills proposed from completed jobs. Drafts stay inactive until you
-				promote them into <code>~/.cometmind/skills</code>.
+				Review and edit reusable skills drafted from <code>/create-skill</code> or completed
+				jobs. Drafts stay inactive until you promote them into
+				<code>~/.cometmind/skills</code>.
 			</p>
 		</div>
 		<button class="secondary" type="button" onclick={() => void refreshDrafts({ keepSelection: true })}>
@@ -108,8 +130,8 @@
 		<section class="empty-state settings-panel-frame">
 			<h2>No pending drafts</h2>
 			<p>
-				When skill synthesis is enabled, completed jobs can propose drafts here for manual
-				review.
+				Use <code>/create-skill</code> or enable skill synthesis for completed jobs to create
+				drafts here for manual review.
 			</p>
 		</section>
 	{:else}
@@ -147,7 +169,15 @@
 							<button
 								type="button"
 								class="secondary"
-								disabled={busy}
+								disabled={saveBusy || busy || !draftDirty}
+								onclick={() => void saveDraft(selectedDraftId)}
+							>
+								{saveBusy ? 'Saving...' : 'Save'}
+							</button>
+							<button
+								type="button"
+								class="secondary"
+								disabled={busy || saveBusy}
 								onclick={() => void rejectDraft(selectedDraftId)}
 							>
 								Reject
@@ -155,14 +185,14 @@
 							<button
 								type="button"
 								class="primary"
-								disabled={busy}
+								disabled={busy || saveBusy || draftDirty}
 								onclick={() => void promoteDraft(selectedDraftId)}
 							>
 								Promote
 							</button>
 						</div>
 					</header>
-					<pre class="draft-markdown">{selectedDraft.content}</pre>
+					<textarea class="draft-markdown" bind:value={draftContent} spellcheck="false"></textarea>
 				{:else}
 					<p class="page-muted">Select a draft to preview it.</p>
 				{/if}
@@ -313,6 +343,9 @@
 		color: var(--text-main);
 		overflow: auto;
 		flex: 1;
+		width: 100%;
+		resize: none;
+		font-family: var(--font-mono, 'SFMono-Regular', ui-monospace, monospace);
 	}
 
 	@media (max-width: 980px) {

@@ -269,7 +269,7 @@ func TestDraftPromoteRejectRoundTrip(t *testing.T) {
 
 func TestExpandCreateSkillCommandIncludesRequest(t *testing.T) {
 	out := ExpandCreateSkillCommand("commit message helper")
-	if !strings.Contains(out, "write_skill") || !strings.Contains(out, "commit message helper") {
+	if !strings.Contains(out, "write_skill_draft") || !strings.Contains(out, "commit message helper") {
 		t.Fatalf("unexpected expansion: %s", out)
 	}
 }

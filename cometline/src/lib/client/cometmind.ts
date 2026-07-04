@@ -13,6 +13,7 @@ import {
 	deleteSession as deleteSessionApi,
 	deleteSkill as deleteSkillApi,
 	getSkillDraft as getSkillDraftApi,
+	updateSkillDraft as updateSkillDraftApi,
 	getMemorySettings as getMemorySettingsApi,
 	getSession as getSessionApi,
 	getSessionPlan as getSessionPlanApi,
@@ -330,6 +331,14 @@ export function listSkillDrafts(): Promise<SkillDraft[]> {
 
 export function getSkillDraft(name: string): Promise<SkillDraftDetailResponse> {
 	return getSkillDraftApi({ path: { name }, throwOnError: true }).then(({ data }) => data);
+}
+
+export function updateSkillDraft(name: string, content: string): Promise<SkillDraftDetailResponse> {
+	return updateSkillDraftApi({
+		path: { name },
+		body: { content },
+		throwOnError: true
+	}).then(({ data }) => data);
 }
 
 export function promoteSkillDraft(name: string): Promise<void> {

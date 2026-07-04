@@ -14,7 +14,7 @@ export const BUILTIN_SLASH_COMMANDS: BuiltinSlashCommand[] = [
 	},
 	{
 		name: 'create-skill',
-		description: 'Build a new Agent Skill in ~/.cometmind/skills'
+		description: 'Draft a new Agent Skill for review in Skill Drafts'
 	},
 	{
 		name: 'model',
@@ -33,14 +33,15 @@ export const BUILTIN_SLASH_COMMANDS: BuiltinSlashCommand[] = [
 export function expandCreateSkillCommand(userText: string): string {
 	const rest = userText.trim();
 	let prompt =
-		'Create a new Agent Skill for CometMind.\n\n' +
-		'Target directory: ~/.cometmind/skills/{skill-name}/\n\n' +
+		'Draft a new Agent Skill for CometMind.\n\n' +
+		'Target directory: ~/.cometmind/skill-drafts/{skill-name}/\n\n' +
 		'Requirements:\n' +
-		'1. Use the `write_skill` tool to create SKILL.md (YAML frontmatter with name and description, then markdown body).\n' +
-		'2. Follow Agent Skills conventions: clear trigger scenarios, step-by-step workflow, examples, and constraints.\n' +
-		'3. Skill names use lowercase letters, numbers, and hyphens only.\n' +
-		'4. If the request is vague, ask up to two clarifying questions before writing.\n' +
-		'5. After writing, summarize the skill name, what it does, and how to invoke it with /{skill-name} in Cometline.';
+		'1. Use the `write_skill_draft` tool to create SKILL.md (YAML frontmatter with name and description, then markdown body).\n' +
+		'2. If the user did not provide a detailed request, infer the draft from the current session context or the current completed job being discussed.\n' +
+		'3. Follow Agent Skills conventions: clear trigger scenarios, step-by-step workflow, examples, and constraints.\n' +
+		'4. Skill names use lowercase letters, numbers, and hyphens only.\n' +
+		'5. If there is not enough reusable signal yet, explain that instead of forcing a draft.\n' +
+		'6. After writing, summarize the draft name, what it does, and that it can be edited or promoted from Skill Drafts.';
 	if (rest) {
 		prompt += '\n\nUser request:\n' + rest;
 	}

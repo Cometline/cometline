@@ -10,7 +10,7 @@ import (
 func TestExpandCreateSkillCommandForDiscord(t *testing.T) {
 	t.Parallel()
 	out := skillpkg.ExpandCreateSkillCommand("commit helper")
-	if !strings.Contains(out, "write_skill") || !strings.Contains(out, "commit helper") {
+	if !strings.Contains(out, "write_skill_draft") || !strings.Contains(out, "commit helper") {
 		t.Fatalf("unexpected expansion: %s", out)
 	}
 }
