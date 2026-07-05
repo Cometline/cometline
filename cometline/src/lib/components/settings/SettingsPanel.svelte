@@ -1004,6 +1004,7 @@
 		background: color-mix(in srgb, var(--text-main) 7%, transparent);
 		color: var(--text-main);
 		box-shadow: none;
+		border: 1px solid var(--border-soft);
 	}
 
 	.modal.window-mode .settings-nav-item.has-pending::after {
@@ -1113,7 +1114,7 @@
 		display: flex;
 		align-items: center;
 		gap: 8px;
-		width: 100%;
+		/* width: 70%; */
 		border: 1px solid var(--border-soft);
 		border-radius: 13px;
 		background: rgba(255, 255, 255, 0.72);
