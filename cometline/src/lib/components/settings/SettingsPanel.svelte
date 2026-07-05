@@ -934,8 +934,11 @@
 	}
 
 	.modal.window-mode header {
-		min-height: 46px;
-		padding: 7px 0 7px 84px;
+		min-height: 30px;
+		justify-content: center;
+		padding: 7px 0 0;
+		border-bottom: none;
+		text-align: center;
 		-webkit-app-region: drag;
 	}
 
@@ -948,46 +951,76 @@
 	}
 
 	.modal.window-mode header h2 {
-		font-size: 14px;
+		font-size: 13px;
 		font-weight: 700;
 		letter-spacing: -0.01em;
+		color: color-mix(in srgb, var(--text-main) 74%, transparent);
 	}
 
 	.modal.window-mode header p {
-		min-height: 0;
-		font-size: 11px;
-		line-height: 1.25;
+		display: none;
 	}
 
 	.modal.window-mode .settings-body {
-		grid-template-columns: 184px minmax(0, 1fr);
-		gap: 20px;
-		padding: 14px 0 18px;
+		display: flex;
+		flex-direction: column;
+		gap: 0;
+		padding: 6px 0 18px;
 	}
 
 	.modal.window-mode .settings-nav {
-		gap: 2px;
-		padding-right: 12px;
-		border-right: 1px solid color-mix(in srgb, var(--border-soft) 72%, transparent);
+		display: flex;
+		justify-content: center;
+		gap: 28px;
+		padding: 0 72px 12px;
+		border-bottom: 1px solid color-mix(in srgb, var(--border-soft) 80%, transparent);
+		-webkit-app-region: drag;
 	}
 
 	.modal.window-mode .settings-nav-item {
+		position: relative;
+		display: grid;
+		place-items: center;
+		gap: 4px;
+		min-width: 82px;
 		border: none;
-		border-radius: 8px;
+		border-radius: 12px;
 		background: transparent;
-		padding: 7px 10px;
-		font-size: 13px;
-		font-weight: 600;
+		padding: 8px 10px 9px;
+		font-size: 12px;
+		font-weight: 700;
+		color: color-mix(in srgb, var(--text-main) 58%, transparent);
 		box-shadow: none;
+		-webkit-app-region: no-drag;
+	}
+
+	.modal.window-mode .settings-nav-item :global(svg) {
+		width: 24px;
+		height: 24px;
+		stroke-width: 1.9;
 	}
 
 	.modal.window-mode .settings-nav-item.selected {
-		background: color-mix(in srgb, var(--accent) 12%, transparent);
+		background: color-mix(in srgb, var(--text-main) 7%, transparent);
+		color: var(--text-main);
 		box-shadow: none;
 	}
 
+	.modal.window-mode .settings-nav-item.has-pending::after {
+		content: '';
+		position: absolute;
+		top: 9px;
+		right: 12px;
+		width: 5px;
+		height: 5px;
+		border-radius: 999px;
+		background: var(--accent);
+	}
+
 	.modal.window-mode .settings-pane {
-		padding-right: 4px;
+		width: min(100%, 1160px);
+		margin: 0 auto;
+		padding: 18px 2px 0;
 	}
 
 	header,
@@ -1438,15 +1471,23 @@
 
 		.modal.window-mode header {
 			padding-left: 76px;
+			justify-content: flex-start;
+			text-align: left;
 		}
 
 		.modal.window-mode .settings-body {
-			grid-template-columns: 1fr;
+			display: flex;
 		}
 
 		.modal.window-mode .settings-nav {
-			border-right: none;
-			padding-right: 0;
+			justify-content: flex-start;
+			gap: 10px;
+			overflow-x: auto;
+			padding: 0 0 10px;
+		}
+
+		.modal.window-mode .settings-nav-item {
+			min-width: 76px;
 		}
 	}
 </style>

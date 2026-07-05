@@ -921,15 +921,24 @@ function handleDarwinCloseWindowShortcut(event, input, onCloseWindow) {
 	return true;
 }
 
-function attachWindowShortcuts(webContents, { onCloseWindow, includeSessionNavigation = false }) {
+function attachWindowShortcuts(
+	webContents,
+	{ onCloseWindow, includeSessionNavigation = false, includeSettingsShortcut = false }
+) {
 	webContents.on('before-input-event', (event, input) => {
 		if (handleDarwinCloseWindowShortcut(event, input, onCloseWindow)) {
 			return;
 		}
 
+		const shortcuts = readProviderSettings().shortcuts ?? defaultSettings().shortcuts;
+		if (includeSettingsShortcut && matchesInputShortcut(input, shortcuts.openSettings)) {
+			event.preventDefault();
+			void showSettingsWindow();
+			return;
+		}
+
 		if (!includeSessionNavigation) return;
 		if (shortcutCaptureActive || sessionNavigationSuspended) return;
-		const shortcuts = readProviderSettings().shortcuts ?? defaultSettings().shortcuts;
 		if (matchesInputShortcut(input, shortcuts.previousSession)) {
 			event.preventDefault();
 			webContents.send('cometline:navigate-session', 'prev');
@@ -951,7 +960,8 @@ function attachMainWindowShortcuts(webContents) {
 
 function attachMiniWindowShortcuts(webContents) {
 	attachWindowShortcuts(webContents, {
-		onCloseWindow: hideMiniWindow
+		onCloseWindow: hideMiniWindow,
+		includeSettingsShortcut: true
 	});
 }
 
