@@ -54,6 +54,10 @@ const MINI_WINDOW_WIDTH = 460;
 const MINI_WINDOW_HEIGHT = 640;
 const MINI_WINDOW_MIN_WIDTH = 360;
 const MINI_WINDOW_MIN_HEIGHT = 440;
+const SETTINGS_WINDOW_WIDTH = 1040;
+const SETTINGS_WINDOW_HEIGHT = 760;
+const SETTINGS_WINDOW_MIN_WIDTH = 780;
+const SETTINGS_WINDOW_MIN_HEIGHT = 560;
 const MINI_WINDOW_SCREEN_MARGIN = 18;
 const HEALTH_URL = `http://127.0.0.1:${COMETMIND_PORT}/api/v1/health`;
 const MAX_RETRIES = 50;
@@ -141,6 +145,7 @@ protocol.registerSchemesAsPrivileged([
 
 let mainWindow = null;
 let miniWindow = null;
+let settingsWindow = null;
 let tray = null;
 let cometMindProcess = null;
 let cometMindGatewayProcess = null;
@@ -545,6 +550,14 @@ function sendShortcutAction(action) {
 	}
 }
 
+function broadcastProviderSettingsChanged(settings) {
+	for (const browserWindow of BrowserWindow.getAllWindows()) {
+		if (!browserWindow.isDestroyed()) {
+			browserWindow.webContents.send('cometline:provider-settings-changed', settings);
+		}
+	}
+}
+
 function loadAppRoute(window, route = '/') {
 	const cleanRoute = String(route || '/').startsWith('/') ? String(route || '/') : `/${route}`;
 	if (app.isPackaged) {
@@ -690,6 +703,10 @@ function ensureTray() {
 			label: 'Show Cometline',
 			click: () => showMainWindow()
 		},
+		{
+			label: 'Settings...',
+			click: () => void showSettingsWindow()
+		},
 		{ type: 'separator' },
 		{
 			label: 'Quit Cometline',
@@ -697,7 +714,7 @@ function ensureTray() {
 		}
 	]);
 	tray.setContextMenu(menu);
-	tray.on('click', () => showMainWindow());
+	tray.on('click', () => tray?.popUpContextMenu());
 
 	// macOS may hide new status items when the menu bar is crowded; re-assert once.
 	setTimeout(() => {
@@ -718,6 +735,73 @@ function destroyTray() {
 	if (!tray) return;
 	tray.destroy();
 	tray = null;
+}
+
+function configureApplicationMenu() {
+	const shortcuts = readProviderSettings().shortcuts ?? defaultSettings().shortcuts;
+	const settingsAccelerator = shortcutBindingToAccelerator(shortcuts.openSettings);
+	const settingsItem = {
+		label: 'Settings...',
+		...(settingsAccelerator ? { accelerator: settingsAccelerator } : {}),
+		click: () => void showSettingsWindow()
+	};
+	const template = [
+		...(process.platform === 'darwin'
+			? [
+					{
+						label: app.name,
+						submenu: [
+							settingsItem,
+							{ type: 'separator' },
+							{ role: 'services' },
+							{ type: 'separator' },
+							{ role: 'hide' },
+							{ role: 'hideOthers' },
+							{ role: 'unhide' },
+							{ type: 'separator' },
+							{ role: 'quit' }
+						]
+					}
+				]
+			: []),
+		{
+			label: 'File',
+			submenu: [
+				...(process.platform === 'darwin' ? [] : [settingsItem, { type: 'separator' }]),
+				{ role: 'close' }
+			]
+		},
+		{
+			label: 'Edit',
+			submenu: [
+				{ role: 'undo' },
+				{ role: 'redo' },
+				{ type: 'separator' },
+				{ role: 'cut' },
+				{ role: 'copy' },
+				{ role: 'paste' },
+				{ role: 'selectAll' }
+			]
+		},
+		{
+			label: 'View',
+			submenu: [
+				{ role: 'reload' },
+				{ role: 'toggleDevTools' },
+				{ type: 'separator' },
+				{ role: 'resetZoom' },
+				{ role: 'zoomIn' },
+				{ role: 'zoomOut' },
+				{ type: 'separator' },
+				{ role: 'togglefullscreen' }
+			]
+		},
+		{
+			label: 'Window',
+			submenu: [{ role: 'minimize' }, { role: 'zoom' }]
+		}
+	];
+	Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
 function showMainWindow() {
@@ -779,10 +863,27 @@ async function showMiniWindow() {
 	miniWindow.focus();
 }
 
+async function showSettingsWindow() {
+	if (!windowCanShow(settingsWindow)) {
+		await createSettingsWindow();
+		return;
+	}
+	if (settingsWindow.isMinimized()) {
+		settingsWindow.restore();
+	}
+	settingsWindow.show();
+	settingsWindow.focus();
+}
+
 function hideMiniWindow() {
 	if (!windowCanShow(miniWindow)) return;
 	writeMiniWindowState({ lastActiveAt: Date.now() });
 	miniWindow.hide();
+}
+
+function hideSettingsWindow() {
+	if (!windowCanShow(settingsWindow)) return;
+	settingsWindow.hide();
 }
 
 async function toggleMiniWindow() {
@@ -851,6 +952,12 @@ function attachMainWindowShortcuts(webContents) {
 function attachMiniWindowShortcuts(webContents) {
 	attachWindowShortcuts(webContents, {
 		onCloseWindow: hideMiniWindow
+	});
+}
+
+function attachSettingsWindowShortcuts(webContents) {
+	attachWindowShortcuts(webContents, {
+		onCloseWindow: hideSettingsWindow
 	});
 }
 
@@ -2059,6 +2166,45 @@ async function createMiniWindow() {
 	return miniWindow;
 }
 
+async function createSettingsWindow() {
+	const appIcon = getAppIconImage(getPersonaId());
+	settingsWindow = new BrowserWindow({
+		width: SETTINGS_WINDOW_WIDTH,
+		height: SETTINGS_WINDOW_HEIGHT,
+		minWidth: SETTINGS_WINDOW_MIN_WIDTH,
+		minHeight: SETTINGS_WINDOW_MIN_HEIGHT,
+		title: 'Settings',
+		titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
+		...(appIcon ? { icon: appIcon } : {}),
+		show: false,
+		backgroundColor: '#f5f7fb',
+		webPreferences: {
+			preload: path.join(__dirname, 'preload.cjs'),
+			contextIsolation: true,
+			nodeIntegration: false,
+			allowRunningInsecureContent: false,
+			webviewTag: false
+		}
+	});
+	attachExternalNavigationGuards(settingsWindow);
+	attachSettingsWindowShortcuts(settingsWindow.webContents);
+	await loadAppRoute(settingsWindow, '/settings');
+	settingsWindow.once('ready-to-show', () => {
+		settingsWindow?.show();
+		settingsWindow?.focus();
+	});
+	settingsWindow.on('close', (event) => {
+		if (!stoppingForQuit && !stoppedForQuit) {
+			event.preventDefault();
+			hideSettingsWindow();
+		}
+	});
+	settingsWindow.on('closed', () => {
+		settingsWindow = null;
+	});
+	return settingsWindow;
+}
+
 const FETCH_MODELS_TIMEOUT_MS = 30_000;
 
 function stripTrailingSlashes(url) {
@@ -2722,6 +2868,7 @@ app.whenReady().then(async () => {
 	installCometMindCliShim();
 	const startupSettings = readProviderSettings();
 	applyOpenAtLoginSetting(startupSettings.app?.openAtLogin);
+	configureApplicationMenu();
 	refreshGlobalShortcuts();
 	startCometMind();
 	// Create the window immediately and let the sidecar warm up in parallel.
@@ -2915,6 +3062,7 @@ ipcMain.handle('cometline:save-provider-settings', async (_event, settings, opti
 		runtimeAction = 'reload';
 	}
 	refreshGlobalShortcuts();
+	configureApplicationMenu();
 	if (runtimeAction === 'restart') {
 		await stopCometMind();
 		startCometMind();
@@ -2927,7 +3075,13 @@ ipcMain.handle('cometline:save-provider-settings', async (_event, settings, opti
 	if (personaIdChanged) {
 		applyPersona(saved.app?.personaId, saved);
 	}
+	broadcastProviderSettingsChanged(saved);
 	return saved;
+});
+
+ipcMain.handle('cometline:open-settings-window', async () => {
+	await showSettingsWindow();
+	return true;
 });
 
 ipcMain.handle('cometline:get-mini-window-state', () => readMiniWindowState());

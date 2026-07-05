@@ -10,6 +10,7 @@
 	import { modelStore } from '$lib/stores/model.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { chatStore } from '$lib/stores/chat.svelte';
+	import { openSettings } from '$lib/actions/open-settings';
 	import { FolderOpen, X } from '@lucide/svelte';
 	import type { ChatTurnPayload } from '$lib/actions/start-chat';
 	import { renderUserText } from '$lib/markdown/render';
@@ -35,10 +36,6 @@
 		modelStore.selectDefault();
 		listJobsMessage = null;
 	});
-
-	function openSettings() {
-		shellStore.openSettings();
-	}
 
 	function showLocalUserMessage(text: string) {
 		listJobsMessage = text;

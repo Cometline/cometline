@@ -12,7 +12,6 @@
 		Trash2,
 		Upload,
 		Workflow,
-		X,
 		Brain,
 		Sparkles
 	} from '@lucide/svelte';
@@ -39,6 +38,11 @@
 	import { createSettingsController } from './settings-controller.svelte';
 	import { createSettingsPanelController } from './settings-panel-controller.svelte';
 	import { cloneSettings } from '$lib/settings/settings-draft';
+
+	type SettingsPanelMode = 'modal' | 'window';
+
+	let { mode = 'modal', onClose }: { mode?: SettingsPanelMode; onClose?: () => void } =
+		$props();
 
 	let draft = $state<ProviderSettings>(cloneSettings(settingsStore.settings));
 	let selectedProviderId = $state<string>(settingsStore.settings.providers[0]?.id || '');
@@ -215,6 +219,11 @@
 		return selectedProvider.models.filter((model) => model.toLowerCase().includes(query));
 	});
 
+	function closeSettings() {
+		onClose?.();
+		if (!onClose) shellStore.closeSettings();
+	}
+
 	let enabledProviderCount = $derived(
 		draft.providers.filter((provider) => provider.enabled).length
 	);
@@ -250,14 +259,24 @@
 	onMount(() => panelController.initElectron());
 </script>
 
-<div class="settings-layer" transition:fade={{ duration: 120 }}>
-	<button class="scrim" aria-label="Close settings" onclick={shellStore.closeSettings}></button>
+<div
+	class="settings-layer"
+	class:window-mode={mode === 'window'}
+	transition:fade={{ duration: mode === 'modal' ? 120 : 0 }}
+>
+	{#if mode === 'modal'}
+		<button class="scrim" aria-label="Close settings" onclick={closeSettings}></button>
+	{/if}
 	<div
 		class="modal settings-ui"
-		role="dialog"
-		aria-modal="true"
+		class:window-mode={mode === 'window'}
+		role={mode === 'modal' ? 'dialog' : undefined}
+		aria-modal={mode === 'modal' ? 'true' : undefined}
 		aria-labelledby="settings-title"
-		transition:scale={{ start: 0.97, duration: 140 }}
+		transition:scale={{
+			start: mode === 'modal' ? 0.97 : 1,
+			duration: mode === 'modal' ? 140 : 0
+		}}
 	>
 		<header>
 			<div class="title-mark"><Settings size={16} /></div>
@@ -279,13 +298,15 @@
 					{/if}
 				</p>
 			</div>
-			<button
-				class="icon-button"
-				aria-label="Close settings"
-				onclick={shellStore.closeSettings}
-			>
-				<X size={16} />
-			</button>
+			{#if mode === 'modal'}
+				<button
+					class="icon-button"
+					aria-label="Close settings"
+					onclick={closeSettings}
+				>
+					Close
+				</button>
+			{/if}
 		</header>
 
 		<div class="settings-body">
@@ -861,6 +882,21 @@
 		padding: 30px;
 	}
 
+	.settings-layer.window-mode {
+		position: relative;
+		min-height: 100vh;
+		padding: 46px 0 0;
+		background: rgba(255, 255, 255, 0.96);
+	}
+
+	.settings-layer.window-mode::before {
+		content: '';
+		position: absolute;
+		inset: 0 0 auto;
+		height: 46px;
+		-webkit-app-region: drag;
+	}
+
 	.scrim {
 		position: absolute;
 		inset: 0;
@@ -882,6 +918,68 @@
 		border-radius: 22px;
 		box-shadow: 0 22px 70px rgba(15, 23, 42, 0.18);
 		padding: 18px;
+	}
+
+	.modal.window-mode {
+		width: 100%;
+		height: calc(100vh - 46px);
+		max-height: none;
+		background: rgba(255, 255, 255, 0.96);
+		border: none;
+		border-radius: 0;
+		box-shadow: none;
+		padding: 18px 28px 16px;
+		-webkit-app-region: no-drag;
+	}
+
+	.modal.window-mode header {
+		min-height: 56px;
+		padding-bottom: 14px;
+	}
+
+	.modal.window-mode .title-mark {
+		display: none;
+	}
+
+	.modal.window-mode header h2 {
+		font-size: 22px;
+		font-weight: 700;
+		letter-spacing: -0.02em;
+	}
+
+	.modal.window-mode header p {
+		font-size: 13px;
+	}
+
+	.modal.window-mode .settings-body {
+		grid-template-columns: 184px minmax(0, 1fr);
+		gap: 20px;
+		padding: 18px 0;
+	}
+
+	.modal.window-mode .settings-nav {
+		gap: 2px;
+		padding-right: 12px;
+		border-right: 1px solid color-mix(in srgb, var(--border-soft) 72%, transparent);
+	}
+
+	.modal.window-mode .settings-nav-item {
+		border: none;
+		border-radius: 8px;
+		background: transparent;
+		padding: 7px 10px;
+		font-size: 13px;
+		font-weight: 600;
+		box-shadow: none;
+	}
+
+	.modal.window-mode .settings-nav-item.selected {
+		background: color-mix(in srgb, var(--accent) 12%, transparent);
+		box-shadow: none;
+	}
+
+	.modal.window-mode .settings-pane {
+		padding-right: 4px;
 	}
 
 	header,
@@ -1322,6 +1420,21 @@
 		.modal {
 			height: calc(100vh - 40px);
 			max-height: calc(100vh - 40px);
+		}
+
+		.modal.window-mode {
+			height: calc(100vh - 46px);
+			max-height: none;
+			padding: 18px;
+		}
+
+		.modal.window-mode .settings-body {
+			grid-template-columns: 1fr;
+		}
+
+		.modal.window-mode .settings-nav {
+			border-right: none;
+			padding-right: 0;
 		}
 	}
 </style>

@@ -33,6 +33,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 	setOpenAtLogin: (enabled) => ipcRenderer.invoke('cometline:set-open-at-login', enabled),
 	openSessionInMainWindow: (sessionId) =>
 		ipcRenderer.invoke('cometline:open-session-in-main-window', sessionId),
+	openSettingsWindow: () => ipcRenderer.invoke('cometline:open-settings-window'),
 	getMiniWindowState: () => ipcRenderer.invoke('cometline:get-mini-window-state'),
 	saveMiniWindowState: (state) => ipcRenderer.invoke('cometline:save-mini-window-state', state),
 	fetchProviderModels: (config) => ipcRenderer.invoke('cometline:fetch-provider-models', config),
@@ -89,6 +90,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
 		};
 		ipcRenderer.on('cometline:shortcut-action', handler);
 		return () => ipcRenderer.removeListener('cometline:shortcut-action', handler);
+	},
+	onProviderSettingsChanged: (callback) => {
+		const handler = (_event, settings) => callback(settings);
+		ipcRenderer.on('cometline:provider-settings-changed', handler);
+		return () => ipcRenderer.removeListener('cometline:provider-settings-changed', handler);
 	},
 	notifyJob: (payload) => ipcRenderer.send('jobs:notify', payload)
 });

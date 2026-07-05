@@ -572,7 +572,19 @@ export function createSettingsPanelController(deps: {
 	}
 
 	function discardSettings() {
-		shellStore.closeSettings();
+		const saved = cloneSettings(settingsStore.settings);
+		const selectedProviderId = deps.getSelectedProviderId();
+		deps.setDraft(saved);
+		deps.setSelectedProviderId(
+			saved.providers.some((provider) => provider.id === selectedProviderId)
+				? selectedProviderId
+				: (saved.providers[0]?.id ?? '')
+		);
+		deps.setModelSearch('');
+		cometmindPanelKey += 1;
+		memoryPanelKey += 1;
+		workspacePruneMessage = '';
+		deps.settingsController.status = 'Discarded unsaved changes.';
 	}
 
 	function selectSection(section: SettingsSection) {

@@ -337,6 +337,7 @@ declare global {
 			getOpenAtLogin?: () => Promise<OpenAtLoginState>;
 			setOpenAtLogin?: (enabled: boolean) => Promise<OpenAtLoginState>;
 			openSessionInMainWindow?: (sessionId: string) => Promise<boolean>;
+			openSettingsWindow?: () => Promise<boolean>;
 			fetchProviderModels?: (
 				config: ProviderConfig
 			) => Promise<FetchProviderModelsResult | string[]>;
@@ -378,6 +379,7 @@ declare global {
 			onShortcutAction?: (
 				callback: (action: import('$lib/keyboard-shortcuts').ShortcutAction) => void
 			) => () => void;
+			onProviderSettingsChanged?: (callback: (settings: ProviderSettings) => void) => () => void;
 			getMiniWindowState?: () => Promise<MiniWindowState>;
 			saveMiniWindowState?: (state: {
 				sessionId?: string;

@@ -11,6 +11,7 @@
 	import { sessionStore } from '$lib/stores/session.svelte';
 	import { settingsStore } from '$lib/stores/settings.svelte';
 	import { startNewChat } from '$lib/actions/new-chat';
+	import { openSettings } from '$lib/actions/open-settings';
 	import { navigateAdjacentSession } from '$lib/actions/navigate-adjacent-session';
 	import { narrowViewportQuery, subscribeNarrowViewport } from '$lib/layout/narrow-viewport';
 	import { matchesShortcut, type ShortcutAction } from '$lib/keyboard-shortcuts';
@@ -58,7 +59,7 @@
 				shellStore.openWebPanelFromShortcut();
 				return;
 			case 'openSettings':
-				shellStore.openSettings();
+				openSettings();
 				return;
 			case 'newChat':
 				startNewChat();
