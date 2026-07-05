@@ -971,7 +971,7 @@
 	.modal.window-mode .settings-nav {
 		display: flex;
 		justify-content: center;
-		gap: 28px;
+		gap: 18px;
 		padding: 0 72px 12px;
 		border-bottom: 1px solid color-mix(in srgb, var(--border-soft) 80%, transparent);
 		-webkit-app-region: drag;
@@ -981,13 +981,13 @@
 		position: relative;
 		display: grid;
 		place-items: center;
-		gap: 4px;
-		min-width: 82px;
+		gap: 3px;
+		min-width: 72px;
 		border: none;
 		border-radius: 12px;
 		background: transparent;
-		padding: 8px 10px 9px;
-		font-size: 12px;
+		padding: 7px 8px 8px;
+		font-size: 11px;
 		font-weight: 700;
 		color: color-mix(in srgb, var(--text-main) 58%, transparent);
 		box-shadow: none;
@@ -995,8 +995,8 @@
 	}
 
 	.modal.window-mode .settings-nav-item :global(svg) {
-		width: 24px;
-		height: 24px;
+		width: 20px;
+		height: 20px;
 		stroke-width: 1.9;
 	}
 
@@ -1481,13 +1481,13 @@
 
 		.modal.window-mode .settings-nav {
 			justify-content: flex-start;
-			gap: 10px;
+			gap: 8px;
 			overflow-x: auto;
 			padding: 0 0 10px;
 		}
 
 		.modal.window-mode .settings-nav-item {
-			min-width: 76px;
+			min-width: 68px;
 		}
 	}
 </style>

@@ -56,8 +56,10 @@ const MINI_WINDOW_MIN_WIDTH = 360;
 const MINI_WINDOW_MIN_HEIGHT = 440;
 const SETTINGS_WINDOW_WIDTH = 1040;
 const SETTINGS_WINDOW_HEIGHT = 760;
-const SETTINGS_WINDOW_MIN_WIDTH = 780;
-const SETTINGS_WINDOW_MIN_HEIGHT = 560;
+const SETTINGS_WINDOW_MIN_WIDTH = 900;
+const SETTINGS_WINDOW_MIN_HEIGHT = 640;
+const SETTINGS_WINDOW_MAX_WIDTH = 1280;
+const SETTINGS_WINDOW_MAX_HEIGHT = 920;
 const MINI_WINDOW_SCREEN_MARGIN = 18;
 const HEALTH_URL = `http://127.0.0.1:${COMETMIND_PORT}/api/v1/health`;
 const MAX_RETRIES = 50;
@@ -2183,6 +2185,8 @@ async function createSettingsWindow() {
 		height: SETTINGS_WINDOW_HEIGHT,
 		minWidth: SETTINGS_WINDOW_MIN_WIDTH,
 		minHeight: SETTINGS_WINDOW_MIN_HEIGHT,
+		maxWidth: SETTINGS_WINDOW_MAX_WIDTH,
+		maxHeight: SETTINGS_WINDOW_MAX_HEIGHT,
 		title: 'Settings',
 		titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
 		...(appIcon ? { icon: appIcon } : {}),
