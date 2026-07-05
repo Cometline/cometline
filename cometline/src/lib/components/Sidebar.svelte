@@ -11,6 +11,7 @@
 	import { navigateToSession } from '$lib/actions/navigate-to-session';
 	import { chatStore } from '$lib/stores/chat.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
+	import { openSettings } from '$lib/actions/open-settings';
 	import { isNarrowViewport } from '$lib/layout/narrow-viewport';
 	import {
 		layoutSessionsForSidebar,
@@ -281,7 +282,7 @@
 		</div>
 
 		<div class="sidebar-footer p-2">
-			<button aria-label="Settings" title="Settings" onclick={shellStore.openSettings}>
+			<button aria-label="Settings" title="Settings" onclick={openSettings}>
 				<Settings size={16} stroke-width={1.8} />
 			</button>
 			<button

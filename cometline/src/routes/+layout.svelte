@@ -18,6 +18,9 @@
 	let isMiniRoute = $derived(
 		page.url.pathname === '/mini' || page.url.pathname.startsWith('/mini/')
 	);
+	let isSettingsRoute = $derived(
+		page.url.pathname === '/settings' || page.url.pathname.startsWith('/settings/')
+	);
 	// Prevents the setup wizard from re-opening after the user skips it
 	// within the same session (in-memory guard). The durable guard is
 	// hasDismissedSetupWizard persisted in settings.
@@ -34,6 +37,9 @@
 			onNotify: (title, body) => {
 				window.electronAPI?.notifyJob?.({ title, body });
 			}
+		});
+		const unsubscribeSettingsChanged = window.electronAPI?.onProviderSettingsChanged?.((settings) => {
+			settingsStore.apply(settings);
 		});
 		void settingsStore.load().then(() => {
 			settingsLoaded = true;
@@ -58,6 +64,7 @@
 			connectionState.stopPolling();
 			stopJobNotifications();
 			stopStorageRetentionSync?.();
+			unsubscribeSettingsChanged?.();
 		};
 	});
 
@@ -159,7 +166,7 @@
 	}
 </script>
 
-{#if isMiniRoute}
+{#if isMiniRoute || isSettingsRoute}
 	{@render children()}
 {:else}
 	<AppShell>

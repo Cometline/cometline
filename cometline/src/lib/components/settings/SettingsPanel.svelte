@@ -12,7 +12,6 @@
 		Trash2,
 		Upload,
 		Workflow,
-		X,
 		Brain,
 		Sparkles
 	} from '@lucide/svelte';
@@ -39,6 +38,11 @@
 	import { createSettingsController } from './settings-controller.svelte';
 	import { createSettingsPanelController } from './settings-panel-controller.svelte';
 	import { cloneSettings } from '$lib/settings/settings-draft';
+
+	type SettingsPanelMode = 'modal' | 'window';
+
+	let { mode = 'modal', onClose }: { mode?: SettingsPanelMode; onClose?: () => void } =
+		$props();
 
 	let draft = $state<ProviderSettings>(cloneSettings(settingsStore.settings));
 	let selectedProviderId = $state<string>(settingsStore.settings.providers[0]?.id || '');
@@ -215,6 +219,11 @@
 		return selectedProvider.models.filter((model) => model.toLowerCase().includes(query));
 	});
 
+	function closeSettings() {
+		onClose?.();
+		if (!onClose) shellStore.closeSettings();
+	}
+
 	let enabledProviderCount = $derived(
 		draft.providers.filter((provider) => provider.enabled).length
 	);
@@ -250,16 +259,26 @@
 	onMount(() => panelController.initElectron());
 </script>
 
-<div class="settings-layer" transition:fade={{ duration: 120 }}>
-	<button class="scrim" aria-label="Close settings" onclick={shellStore.closeSettings}></button>
+<div
+	class="settings-layer"
+	class:window-mode={mode === 'window'}
+	transition:fade={{ duration: mode === 'modal' ? 120 : 0 }}
+>
+	{#if mode === 'modal'}
+		<button class="scrim" aria-label="Close settings" onclick={closeSettings}></button>
+	{/if}
 	<div
 		class="modal settings-ui"
-		role="dialog"
-		aria-modal="true"
+		class:window-mode={mode === 'window'}
+		role={mode === 'modal' ? 'dialog' : undefined}
+		aria-modal={mode === 'modal' ? 'true' : undefined}
 		aria-labelledby="settings-title"
-		transition:scale={{ start: 0.97, duration: 140 }}
+		transition:scale={{
+			start: mode === 'modal' ? 0.97 : 1,
+			duration: mode === 'modal' ? 140 : 0
+		}}
 	>
-		<header>
+		<header class:window-header={mode === 'window'}>
 			<div class="title-mark"><Settings size={16} /></div>
 			<div>
 				<h2 id="settings-title">Settings</h2>
@@ -279,13 +298,15 @@
 					{/if}
 				</p>
 			</div>
-			<button
-				class="icon-button"
-				aria-label="Close settings"
-				onclick={shellStore.closeSettings}
-			>
-				<X size={16} />
-			</button>
+			{#if mode === 'modal'}
+				<button
+					class="icon-button"
+					aria-label="Close settings"
+					onclick={closeSettings}
+				>
+					Close
+				</button>
+			{/if}
 		</header>
 
 		<div class="settings-body">
@@ -861,6 +882,22 @@
 		padding: 30px;
 	}
 
+	.settings-layer.window-mode {
+		position: relative;
+		min-height: 100vh;
+		padding: 0;
+		background: rgba(255, 255, 255, 0.96);
+	}
+
+	.settings-layer.window-mode::before {
+		content: '';
+		position: absolute;
+		inset: 0 0 auto;
+		height: 46px;
+		z-index: 3;
+		-webkit-app-region: drag;
+	}
+
 	.scrim {
 		position: absolute;
 		inset: 0;
@@ -882,6 +919,109 @@
 		border-radius: 22px;
 		box-shadow: 0 22px 70px rgba(15, 23, 42, 0.18);
 		padding: 18px;
+	}
+
+	.modal.window-mode {
+		width: 100%;
+		height: 100vh;
+		max-height: none;
+		background: rgba(255, 255, 255, 0.96);
+		border: none;
+		border-radius: 0;
+		box-shadow: none;
+		padding: 0 28px 16px;
+		-webkit-app-region: no-drag;
+	}
+
+	.modal.window-mode header {
+		min-height: 30px;
+		justify-content: center;
+		padding: 7px 0 0;
+		border-bottom: none;
+		text-align: center;
+		-webkit-app-region: drag;
+	}
+
+	.modal.window-mode header > * {
+		-webkit-app-region: no-drag;
+	}
+
+	.modal.window-mode .title-mark {
+		display: none;
+	}
+
+	.modal.window-mode header h2 {
+		font-size: 13px;
+		font-weight: 700;
+		letter-spacing: -0.01em;
+		color: color-mix(in srgb, var(--text-main) 74%, transparent);
+	}
+
+	.modal.window-mode header p {
+		display: none;
+	}
+
+	.modal.window-mode .settings-body {
+		display: flex;
+		flex-direction: column;
+		gap: 0;
+		padding: 6px 0 18px;
+	}
+
+	.modal.window-mode .settings-nav {
+		display: flex;
+		justify-content: center;
+		gap: 18px;
+		padding: 0 72px 12px;
+		border-bottom: 1px solid color-mix(in srgb, var(--border-soft) 80%, transparent);
+		-webkit-app-region: drag;
+	}
+
+	.modal.window-mode .settings-nav-item {
+		position: relative;
+		display: grid;
+		place-items: center;
+		gap: 3px;
+		min-width: 72px;
+		border: none;
+		border-radius: 12px;
+		background: transparent;
+		padding: 7px 8px 8px;
+		font-size: 11px;
+		font-weight: 700;
+		color: color-mix(in srgb, var(--text-main) 58%, transparent);
+		box-shadow: none;
+		-webkit-app-region: no-drag;
+	}
+
+	.modal.window-mode .settings-nav-item :global(svg) {
+		width: 20px;
+		height: 20px;
+		stroke-width: 1.9;
+	}
+
+	.modal.window-mode .settings-nav-item.selected {
+		background: color-mix(in srgb, var(--text-main) 7%, transparent);
+		color: var(--text-main);
+		box-shadow: none;
+		border: 1px solid var(--border-soft);
+	}
+
+	.modal.window-mode .settings-nav-item.has-pending::after {
+		content: '';
+		position: absolute;
+		top: 9px;
+		right: 12px;
+		width: 5px;
+		height: 5px;
+		border-radius: 999px;
+		background: var(--accent);
+	}
+
+	.modal.window-mode .settings-pane {
+		width: min(100%, 1160px);
+		margin: 0 auto;
+		padding: 18px 2px 0;
 	}
 
 	header,
@@ -974,7 +1114,7 @@
 		display: flex;
 		align-items: center;
 		gap: 8px;
-		width: 100%;
+		/* width: 70%; */
 		border: 1px solid var(--border-soft);
 		border-radius: 13px;
 		background: rgba(255, 255, 255, 0.72);
@@ -1322,6 +1462,33 @@
 		.modal {
 			height: calc(100vh - 40px);
 			max-height: calc(100vh - 40px);
+		}
+
+		.modal.window-mode {
+			height: 100vh;
+			max-height: none;
+			padding: 0 18px 18px;
+		}
+
+		.modal.window-mode header {
+			padding-left: 76px;
+			justify-content: flex-start;
+			text-align: left;
+		}
+
+		.modal.window-mode .settings-body {
+			display: flex;
+		}
+
+		.modal.window-mode .settings-nav {
+			justify-content: flex-start;
+			gap: 8px;
+			overflow-x: auto;
+			padding: 0 0 10px;
+		}
+
+		.modal.window-mode .settings-nav-item {
+			min-width: 68px;
 		}
 	}
 </style>
