@@ -278,7 +278,7 @@
 			duration: mode === 'modal' ? 140 : 0
 		}}
 	>
-		<header>
+		<header class:window-header={mode === 'window'}>
 			<div class="title-mark"><Settings size={16} /></div>
 			<div>
 				<h2 id="settings-title">Settings</h2>
@@ -885,7 +885,7 @@
 	.settings-layer.window-mode {
 		position: relative;
 		min-height: 100vh;
-		padding: 46px 0 0;
+		padding: 0;
 		background: rgba(255, 255, 255, 0.96);
 	}
 
@@ -894,6 +894,7 @@
 		position: absolute;
 		inset: 0 0 auto;
 		height: 46px;
+		z-index: 3;
 		-webkit-app-region: drag;
 	}
 
@@ -922,19 +923,24 @@
 
 	.modal.window-mode {
 		width: 100%;
-		height: calc(100vh - 46px);
+		height: 100vh;
 		max-height: none;
 		background: rgba(255, 255, 255, 0.96);
 		border: none;
 		border-radius: 0;
 		box-shadow: none;
-		padding: 18px 28px 16px;
+		padding: 0 28px 16px;
 		-webkit-app-region: no-drag;
 	}
 
 	.modal.window-mode header {
-		min-height: 56px;
-		padding-bottom: 14px;
+		min-height: 46px;
+		padding: 7px 0 7px 84px;
+		-webkit-app-region: drag;
+	}
+
+	.modal.window-mode header > * {
+		-webkit-app-region: no-drag;
 	}
 
 	.modal.window-mode .title-mark {
@@ -942,19 +948,21 @@
 	}
 
 	.modal.window-mode header h2 {
-		font-size: 22px;
+		font-size: 14px;
 		font-weight: 700;
-		letter-spacing: -0.02em;
+		letter-spacing: -0.01em;
 	}
 
 	.modal.window-mode header p {
-		font-size: 13px;
+		min-height: 0;
+		font-size: 11px;
+		line-height: 1.25;
 	}
 
 	.modal.window-mode .settings-body {
 		grid-template-columns: 184px minmax(0, 1fr);
 		gap: 20px;
-		padding: 18px 0;
+		padding: 14px 0 18px;
 	}
 
 	.modal.window-mode .settings-nav {
@@ -1423,9 +1431,13 @@
 		}
 
 		.modal.window-mode {
-			height: calc(100vh - 46px);
+			height: 100vh;
 			max-height: none;
-			padding: 18px;
+			padding: 0 18px 18px;
+		}
+
+		.modal.window-mode header {
+			padding-left: 76px;
 		}
 
 		.modal.window-mode .settings-body {
