@@ -266,8 +266,7 @@ describe('settings schema', () => {
 					providerId: 'codex',
 					modelId: 'gpt-5.1-codex'
 				},
-				scheduler: { enabled: true, pollIntervalSeconds: 45 },
-				planning: { enabled: true }
+				scheduler: { enabled: true, pollIntervalSeconds: 45 }
 			}
 		});
 
@@ -282,7 +281,6 @@ describe('settings schema', () => {
 		expect(settings.cometmind.jobs.notifications.onBlocked).toBe(false);
 		expect(settings.cometmind.autonomy.providerId).toBe('codex');
 		expect(settings.cometmind.scheduler.enabled).toBe(true);
-		expect(settings.cometmind.planning.enabled).toBe(true);
 	});
 
 	it('normalizes context window limit to 128k or 256k', () => {

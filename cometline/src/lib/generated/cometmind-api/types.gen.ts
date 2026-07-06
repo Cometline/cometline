@@ -211,35 +211,6 @@ export type SessionListResponse = {
     sessions: Array<Session>;
 };
 
-export type SessionPlanStep = {
-    id: string;
-    session_id: string;
-    step_index: number;
-    description: string;
-    status: 'pending' | 'in_progress' | 'completed' | 'blocked';
-    blocker_reason: string;
-    /**
-     * Unix epoch milliseconds.
-     */
-    created_at: number;
-    /**
-     * Unix epoch milliseconds.
-     */
-    updated_at: number;
-};
-
-export type SessionPlanResponse = {
-    session_id: string;
-    steps: Array<SessionPlanStep>;
-    /**
-     * True once the plan has been dismissed (e.g. after all steps
-     * completed, or the user closed it). Clients should treat a
-     * dismissed plan as having no steps to display.
-     *
-     */
-    dismissed: boolean;
-};
-
 export type ModelEntry = {
     provider_id: string;
     model_id: string;
@@ -1322,66 +1293,6 @@ export type ForkSessionResponses = {
 };
 
 export type ForkSessionResponse = ForkSessionResponses[keyof ForkSessionResponses];
-
-export type DismissSessionPlanData = {
-    body?: never;
-    path: {
-        /**
-         * Persisted CometMind session identifier.
-         */
-        id: string;
-    };
-    query?: never;
-    url: '/api/v1/sessions/{id}/plan';
-};
-
-export type DismissSessionPlanErrors = {
-    /**
-     * Unexpected server error
-     */
-    500: ErrorResponse;
-};
-
-export type DismissSessionPlanError = DismissSessionPlanErrors[keyof DismissSessionPlanErrors];
-
-export type DismissSessionPlanResponses = {
-    /**
-     * Plan dismissed
-     */
-    204: void;
-};
-
-export type DismissSessionPlanResponse = DismissSessionPlanResponses[keyof DismissSessionPlanResponses];
-
-export type GetSessionPlanData = {
-    body?: never;
-    path: {
-        /**
-         * Persisted CometMind session identifier.
-         */
-        id: string;
-    };
-    query?: never;
-    url: '/api/v1/sessions/{id}/plan';
-};
-
-export type GetSessionPlanErrors = {
-    /**
-     * Unexpected server error
-     */
-    500: ErrorResponse;
-};
-
-export type GetSessionPlanError = GetSessionPlanErrors[keyof GetSessionPlanErrors];
-
-export type GetSessionPlanResponses = {
-    /**
-     * Current session plan
-     */
-    200: SessionPlanResponse;
-};
-
-export type GetSessionPlanResponse = GetSessionPlanResponses[keyof GetSessionPlanResponses];
 
 export type ClearSessionData = {
     body?: never;

@@ -4,12 +4,7 @@
 	import { formatIdList, parseIdList, type CometMindSettings } from '$lib/cometmind-settings';
 	import type { ProviderConfig } from '$lib/types';
 	import { shellStore } from '$lib/stores/shell.svelte';
-	import {
-		listSkills,
-		syncSkills,
-		deleteSkill,
-		exportSkill
-	} from '$lib/client/cometmind';
+	import { listSkills, syncSkills, deleteSkill, exportSkill } from '$lib/client/cometmind';
 	import type { SkillResource } from '$lib/types';
 	import { onMount } from 'svelte';
 	import SettingsMCPPanel from './SettingsMCPPanel.svelte';
@@ -741,25 +736,6 @@
 					disabled={!cometmind.scheduler.enabled}
 				/>
 			</label>
-			<SettingsPersistenceHint
-				tier="pending"
-				detail="Included in Save changes — restarts CometMind"
-			/>
-		</div>
-
-		<div class="settings-section">
-			<div class="settings-section-heading">
-				<h3>Session planning</h3>
-				<p>
-					Give the agent <code>plan_write</code>/<code>plan_update</code> tools and inject the
-					current plan into each turn. Off by default.
-				</p>
-			</div>
-			<SettingsToggle
-				label="Enable session planning"
-				description="Exposes plan management tools to the agent and shows the current plan in the system prompt."
-				bind:checked={cometmind.planning.enabled}
-			/>
 			<SettingsPersistenceHint
 				tier="pending"
 				detail="Included in Save changes — restarts CometMind"

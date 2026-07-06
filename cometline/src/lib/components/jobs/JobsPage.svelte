@@ -7,7 +7,6 @@
 		createScheduledJob,
 		deleteJob,
 		deleteScheduledJob,
-		getSessionPlan,
 		listJobEvents,
 		listJobs,
 		listScheduledJobs,
@@ -19,8 +18,6 @@
 		type JobEventResource,
 		type JobResource,
 		type ScheduledJobResource,
-		type SessionPlanResponse,
-		type SessionPlanStep,
 		type UpdateScheduledJobRequest
 	} from '$lib/client/cometmind';
 	import {
@@ -67,8 +64,6 @@
 	let selectedJob = $state<JobResource | null>(null);
 	let events = $state<JobEventResource[]>([]);
 	let loadingEvents = $state(false);
-	let sessionPlansBySessionId = $state<Record<string, SessionPlanResponse | null>>({});
-	let planLoadingBySessionId = $state<Record<string, boolean>>({});
 	let saving = $state(false);
 
 	let editDescription = $state('');
@@ -123,7 +118,6 @@
 		try {
 			const res = await listJobs({ include_deleted: true, include_archived: true });
 			applyJobs(res.jobs ?? []);
-			void refreshActiveSessionPlans(res.jobs ?? []);
 			if (selectedJob) {
 				const refreshed =
 					(res.jobs ?? []).find((job) => job.id === selectedJob?.id) ?? null;
@@ -159,48 +153,7 @@
 		editDescription = job.description;
 		editDod = job.definition_of_done ?? '';
 		editWorkspacePath = job.workspace_path ?? '';
-		if (job.status === 'ongoing' && job.assigned_session_id && !sessionPlansBySessionId[job.assigned_session_id]) {
-			void loadSessionPlanForSession(job.assigned_session_id);
-		}
 		await loadEventsForJob(job.id);
-	}
-
-	async function loadSessionPlanForSession(sessionId: string) {
-		if (!sessionId) return;
-		planLoadingBySessionId = { ...planLoadingBySessionId, [sessionId]: true };
-		try {
-			const plan = await getSessionPlan(sessionId);
-			sessionPlansBySessionId = {
-				...sessionPlansBySessionId,
-				[sessionId]: plan.dismissed ? null : plan
-			};
-		} catch {
-			sessionPlansBySessionId = { ...sessionPlansBySessionId, [sessionId]: null };
-		} finally {
-			planLoadingBySessionId = { ...planLoadingBySessionId, [sessionId]: false };
-		}
-	}
-
-	async function refreshActiveSessionPlans(allJobs: JobResource[]) {
-		const sessionIds = Array.from(
-			new Set(
-				allJobs
-					.filter((job) => job.status === 'ongoing' && Boolean(job.assigned_session_id))
-					.map((job) => job.assigned_session_id!)
-			)
-		);
-		const keep = new Set(sessionIds);
-		const nextPlans: Record<string, SessionPlanResponse | null> = {};
-		const nextLoading: Record<string, boolean> = {};
-		for (const [id, plan] of Object.entries(sessionPlansBySessionId)) {
-			if (keep.has(id)) nextPlans[id] = plan;
-		}
-		for (const [id, loading] of Object.entries(planLoadingBySessionId)) {
-			if (keep.has(id)) nextLoading[id] = loading;
-		}
-		sessionPlansBySessionId = nextPlans;
-		planLoadingBySessionId = nextLoading;
-		await Promise.all(sessionIds.map((sessionId) => loadSessionPlanForSession(sessionId)));
 	}
 
 	function openCreate() {
@@ -582,33 +535,6 @@
 		return job.progress?.trim().split('\n')[0] ?? '';
 	}
 
-	function planSteps(job: JobResource): SessionPlanStep[] {
-		const plan = job.assigned_session_id ? sessionPlansBySessionId[job.assigned_session_id] : null;
-		if (!plan || plan.dismissed) return [];
-		return plan.steps ?? [];
-	}
-
-	function planHeadline(job: JobResource): string {
-		const steps = planSteps(job);
-		if (steps.length === 0) return '';
-		const active = steps.find((step) => step.status === 'in_progress');
-		if (active) return active.description;
-		const next = steps.find((step) => step.status === 'pending');
-		if (next) return next.description;
-		return 'All checklist steps completed.';
-	}
-
-	function planCounts(job: JobResource): string {
-		const steps = planSteps(job);
-		if (steps.length === 0) return '';
-		const completed = steps.filter((step) => step.status === 'completed').length;
-		const blocked = steps.filter((step) => step.status === 'blocked').length;
-		const inProgress = steps.filter((step) => step.status === 'in_progress').length;
-		if (blocked > 0) return `${completed}/${steps.length} done, ${blocked} blocked`;
-		if (inProgress > 0) return `${completed}/${steps.length} done, ${inProgress} active`;
-		return `${completed}/${steps.length} done`;
-	}
-
 	function sessionLabel(job: JobResource): string {
 		return job.assigned_session_id ? job.assigned_session_id.slice(0, 8) : 'unassigned';
 	}
@@ -943,14 +869,11 @@
 							>
 								<div class="observer-job-main">
 									<span class="observer-dot" aria-hidden="true"></span>
-								<div>
-									<strong>{job.description}</strong>
-									<p>{planHeadline(job) || progressPreview(job) || 'No progress note yet.'}</p>
-									{#if planCounts(job)}
-										<p class="observer-plan-meta">{planCounts(job)}</p>
-									{/if}
+									<div>
+										<strong>{job.description}</strong>
+										<p>{progressPreview(job) || 'No progress note yet.'}</p>
+									</div>
 								</div>
-							</div>
 								<div class="observer-job-meta">
 									<span>Session {sessionLabel(job)}</span>
 									<span>{leaseLabel(job)}</span>
@@ -980,12 +903,6 @@
 		{events}
 		{saving}
 		{loadingEvents}
-		sessionPlan={selectedJob?.assigned_session_id
-			? (sessionPlansBySessionId[selectedJob.assigned_session_id] ?? null)
-			: null}
-		loadingSessionPlan={selectedJob?.assigned_session_id
-			? Boolean(planLoadingBySessionId[selectedJob.assigned_session_id])
-			: false}
 		bind:editDescription
 		bind:editDod
 		bind:editWorkspacePath
@@ -1307,12 +1224,6 @@
 		line-clamp: 2;
 		-webkit-box-orient: vertical;
 		overflow: hidden;
-	}
-
-	.observer-plan-meta {
-		font-size: 10px;
-		font-weight: 600;
-		color: var(--accent);
 	}
 
 	:global(.spin) {

@@ -27,7 +27,6 @@ __export(schema_exports, {
   defaultCometMindAutonomousJobsSettings: () => defaultCometMindAutonomousJobsSettings,
   defaultCometMindJobsSettings: () => defaultCometMindJobsSettings,
   defaultCometMindMCPSettings: () => defaultCometMindMCPSettings,
-  defaultCometMindPlanningSettings: () => defaultCometMindPlanningSettings,
   defaultCometMindSchedulerSettings: () => defaultCometMindSchedulerSettings,
   defaultCometMindSettings: () => defaultCometMindSettings,
   defaultCometMindStorageSettings: () => defaultCometMindStorageSettings,
@@ -4593,9 +4592,6 @@ function defaultCometMindAutonomousJobsSettings() {
     modelId: ""
   };
 }
-function defaultCometMindPlanningSettings() {
-  return { enabled: false };
-}
 function defaultCometMindSchedulerSettings() {
   return { enabled: false, pollIntervalSeconds: 60 };
 }
@@ -4675,8 +4671,7 @@ function defaultCometMindSettings(workspacePath = "") {
     mcp: defaultCometMindMCPSettings(),
     jobs: defaultCometMindJobsSettings(),
     autonomy: defaultCometMindAutonomousJobsSettings(),
-    scheduler: defaultCometMindSchedulerSettings(),
-    planning: defaultCometMindPlanningSettings()
+    scheduler: defaultCometMindSchedulerSettings()
   };
 }
 function normalizeCometMindSettings(input, fallbackWorkspacePath = "") {
@@ -4694,7 +4689,6 @@ function normalizeCometMindSettings(input, fallbackWorkspacePath = "") {
   const jobsNotifications = jobsInput.notifications ?? {};
   const autonomyInput = input?.autonomy ?? {};
   const autonomyDefaults = defaults.autonomy;
-  const planningInput = input?.planning ?? {};
   const schedulerInput = input?.scheduler ?? {};
   const args = Array.isArray(acp.args) ? acp.args.map((a) => String(a).trim()).filter(Boolean) : defaults.acp.args;
   const { botToken, botTokenEnv } = migrateDiscordTokenFields(discord);
@@ -4880,9 +4874,6 @@ function normalizeCometMindSettings(input, fallbackWorkspacePath = "") {
       providerId: String(autonomyInput.providerId ?? autonomyDefaults.providerId).trim(),
       modelId: String(autonomyInput.modelId ?? autonomyDefaults.modelId).trim()
     },
-    planning: {
-      enabled: typeof planningInput.enabled === "boolean" ? planningInput.enabled : defaults.planning.enabled
-    },
     scheduler: {
       enabled: typeof schedulerInput.enabled === "boolean" ? schedulerInput.enabled : defaults.scheduler.enabled,
       pollIntervalSeconds: normalizePositiveInt(
@@ -4945,8 +4936,7 @@ function cloneCometMindSettings(settings) {
       notifications: { ...settings.jobs.notifications }
     },
     autonomy: { ...settings.autonomy },
-    scheduler: { ...settings.scheduler },
-    planning: { ...settings.planning }
+    scheduler: { ...settings.scheduler }
   };
 }
 function defaultCaretTrailSettings() {
@@ -5361,9 +5351,6 @@ var providerSettingsSchema = external_exports.object({
       providerId: external_exports.string(),
       modelId: external_exports.string()
     }),
-    planning: external_exports.object({
-      enabled: external_exports.boolean()
-    }),
     scheduler: external_exports.object({
       enabled: external_exports.boolean(),
       pollIntervalSeconds: external_exports.number().int().positive()
@@ -5403,7 +5390,6 @@ function parseAndNormalizeSettings(raw, options = {}) {
   defaultCometMindAutonomousJobsSettings,
   defaultCometMindJobsSettings,
   defaultCometMindMCPSettings,
-  defaultCometMindPlanningSettings,
   defaultCometMindSchedulerSettings,
   defaultCometMindSettings,
   defaultCometMindStorageSettings,

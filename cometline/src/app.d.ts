@@ -212,10 +212,6 @@ declare global {
 		modelId: string;
 	}
 
-	interface CometMindPlanningSettings {
-		enabled: boolean;
-	}
-
 	interface CometMindSchedulerSettings {
 		enabled: boolean;
 		pollIntervalSeconds: number;
@@ -267,7 +263,6 @@ declare global {
 		jobs: CometMindJobsSettings;
 		autonomy: CometMindAutonomousJobsSettings;
 		scheduler: CometMindSchedulerSettings;
-		planning: CometMindPlanningSettings;
 	}
 
 	interface SidebarChromeState {
@@ -379,7 +374,9 @@ declare global {
 			onShortcutAction?: (
 				callback: (action: import('$lib/keyboard-shortcuts').ShortcutAction) => void
 			) => () => void;
-			onProviderSettingsChanged?: (callback: (settings: ProviderSettings) => void) => () => void;
+			onProviderSettingsChanged?: (
+				callback: (settings: ProviderSettings) => void
+			) => () => void;
 			getMiniWindowState?: () => Promise<MiniWindowState>;
 			saveMiniWindowState?: (state: {
 				sessionId?: string;

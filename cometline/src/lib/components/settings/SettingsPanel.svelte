@@ -41,8 +41,7 @@
 
 	type SettingsPanelMode = 'modal' | 'window';
 
-	let { mode = 'modal', onClose }: { mode?: SettingsPanelMode; onClose?: () => void } =
-		$props();
+	let { mode = 'modal', onClose }: { mode?: SettingsPanelMode; onClose?: () => void } = $props();
 
 	let draft = $state<ProviderSettings>(cloneSettings(settingsStore.settings));
 	let selectedProviderId = $state<string>(settingsStore.settings.providers[0]?.id || '');
@@ -209,6 +208,7 @@
 		getSelectedProvider: () => selectedProvider,
 		getCometmindPanel: () => cometmindPanel,
 		getMemoryPanel: () => memoryPanel,
+		closeSettings,
 		settingsController
 	});
 
@@ -299,11 +299,7 @@
 				</p>
 			</div>
 			{#if mode === 'modal'}
-				<button
-					class="icon-button"
-					aria-label="Close settings"
-					onclick={closeSettings}
-				>
+				<button class="icon-button" aria-label="Close settings" onclick={closeSettings}>
 					Close
 				</button>
 			{/if}
@@ -454,7 +450,11 @@
 										>
 											<img
 												src={builtinPersonaThumbSrc(
-													{ kind: 'builtin', id: option.id, label: option.label },
+													{
+														kind: 'builtin',
+														id: option.id,
+														label: option.label
+													},
 													96
 												)}
 												alt=""
@@ -480,7 +480,12 @@
 											>
 												<img
 													src={personaAvatarCache.avatarSrcFor(
-														{ kind: 'custom', id: persona.id, label: persona.name, persona },
+														{
+															kind: 'custom',
+															id: persona.id,
+															label: persona.name,
+															persona
+														},
 														96
 													)}
 													alt=""
@@ -493,7 +498,8 @@
 												<button
 													type="button"
 													class="persona-action-edit"
-													onclick={() => openPersonaEditorForEdit(persona)}
+													onclick={() =>
+														openPersonaEditorForEdit(persona)}
 													>Edit</button
 												>
 												<button
@@ -540,7 +546,11 @@
 								<div class="soul-preview-header">
 									<h4>{soulPreviewLabel} — SOUL.md</h4>
 									<div class="soul-preview-header-actions">
-										<button type="button" class="secondary" onclick={copySoulPreview}>
+										<button
+											type="button"
+											class="secondary"
+											onclick={copySoulPreview}
+										>
 											{soulPreviewCopied ? 'Copied' : 'Copy'}
 										</button>
 										<button
@@ -548,7 +558,7 @@
 											class="secondary"
 											onclick={() => (soulPreviewOpen = false)}>Close</button
 										>
-										</div>
+									</div>
 								</div>
 								<pre class="soul-preview-body">{soulPreviewText}</pre>
 							</div>
@@ -615,7 +625,8 @@
 									</label>
 									<label class="settings-field">
 										<span>SOUL.md content</span>
-										<textarea rows="10" bind:value={personaEditorSoul}></textarea>
+										<textarea rows="10" bind:value={personaEditorSoul}
+										></textarea>
 									</label>
 								</div>
 								<div class="persona-editor-actions">
@@ -1399,8 +1410,7 @@
 		overflow: auto;
 		white-space: pre-wrap;
 		word-break: break-word;
-		font-family:
-			ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+		font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
 		font-size: 12px;
 		line-height: 1.6;
 		color: var(--text-main);

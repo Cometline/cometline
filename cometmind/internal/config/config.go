@@ -88,7 +88,6 @@ type Config struct {
 	Jobs               JobsConfig           `mapstructure:"jobs"`
 	Autonomy           AutonomousJobsConfig `mapstructure:"autonomy"`
 	Scheduler          SchedulerConfig      `mapstructure:"scheduler"`
-	Planning           PlanningConfig       `mapstructure:"planning"`
 }
 
 // Defaults returns baseline values when the config file is missing keys.
@@ -105,7 +104,6 @@ func Defaults() *Config {
 		Jobs:               defaultJobsConfig(),
 		Autonomy:           defaultAutonomousJobsConfig(),
 		Scheduler:          defaultSchedulerConfig(),
-		Planning:           defaultPlanningConfig(),
 	}
 }
 
@@ -157,7 +155,6 @@ func Load() (*Config, error) {
 	cfg.Subagent = cfg.EffectiveSubagentSettings()
 	cfg.Autonomy = cfg.EffectiveAutonomousJobsSettings()
 	cfg.Scheduler = cfg.EffectiveSchedulerSettings()
-	cfg.Planning = cfg.EffectivePlanningSettings()
 	return cfg, nil
 }
 

@@ -53,6 +53,7 @@ export function createSettingsPanelController(deps: {
 	getSelectedProvider: () => ProviderConfig | undefined;
 	getCometmindPanel: () => CometMindPanelRef | undefined;
 	getMemoryPanel: () => MemoryPanelRef | undefined;
+	closeSettings: () => void;
 	settingsController: ReturnType<typeof createSettingsController>;
 }) {
 	let codexAuthStatus = $state<CodexAuthStatus | undefined>();
@@ -585,6 +586,7 @@ export function createSettingsPanelController(deps: {
 		memoryPanelKey += 1;
 		workspacePruneMessage = '';
 		deps.settingsController.status = 'Discarded unsaved changes.';
+		deps.closeSettings();
 	}
 
 	function selectSection(section: SettingsSection) {

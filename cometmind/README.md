@@ -17,7 +17,7 @@ cometline   →  Electron desktop shell (also starts CometMind as a sidecar)
 
 CometMind started as a coding-focused agent and is now a **general-purpose orchestrator**:
 
-- The runtime owns **reasoning, planning, semantic memory, skills, and tool orchestration**.
+- The runtime owns **reasoning, semantic memory, skills, and tool orchestration**.
 - **Coding tasks are delegated** to an external ACP-speaking agent instead of being hardcoded into the runtime.
 - The same agent loop powers the **desktop app**, the **CLI**, and the **Discord gateway**.
 - Built-in workspace tools cover file I/O, shell commands, web fetch, and skill management.

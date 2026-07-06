@@ -13,7 +13,6 @@ import (
 	"github.com/cometline/cometmind/internal/event"
 	"github.com/cometline/cometmind/internal/logging"
 	"github.com/cometline/cometmind/internal/memory"
-	"github.com/cometline/cometmind/internal/planning"
 	"github.com/cometline/cometmind/internal/provider"
 	"github.com/cometline/cometmind/internal/session"
 	"github.com/cometline/cometmind/internal/subagent"
@@ -42,19 +41,14 @@ type MemoryStore interface {
 	ExtractAfterTurn(ctx context.Context, sessionID, model string, llmProvider cometsdk.Provider) ([]memory.Change, error)
 }
 
-type PlanStore interface {
-	GetPlan(ctx context.Context, sessionID string) ([]planning.Step, error)
-}
-
 // Runner executes the persisted agent loop for one user turn (which may span many tool steps).
 type Runner struct {
-	Config    *config.Config
-	Provider  cometsdk.Provider
-	Sessions  TurnStore
-	Memory    MemoryStore
-	PlanStore PlanStore
-	Registry  *tools.Registry
-	Jobs      OngoingJobLookup
+	Config   *config.Config
+	Provider cometsdk.Provider
+	Sessions TurnStore
+	Memory   MemoryStore
+	Registry *tools.Registry
+	Jobs     OngoingJobLookup
 
 	MaxSteps               int
 	MaxTokens              int
@@ -128,18 +122,6 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 		ch <- event.TurnStatus(phase, "")
 	}
 
-	// Resolve the target provider family once so session history (which may
-	// have been produced by a different provider) can be normalized before
-	// replay. Switching, say, an Anthropic session to Codex must not feed raw
-	// chain-of-thought the Codex adapter would otherwise drop.
-	providerFamily := ""
-	if r.Config != nil {
-		providerID := turn.ProviderID
-		if providerID == "" {
-			providerID = r.Config.Provider
-		}
-		providerFamily = provider.SDKFamily(r.Config, providerID)
-	}
 	degradationsReported := false
 
 	for steps < r.MaxSteps {
@@ -147,8 +129,7 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 			emitStatus(event.PhaseContinuing)
 		}
 
-		planBlock := r.planPromptBlock(ctx, turn.ID)
-		baseSystem := r.buildSystemPrompt(sess.ContextSummary, planBlock, truncationContinue, jobProgressNudge, jobTracker.JobID, subagentWaitNudge, pendingSubagentResults)
+		baseSystem := r.buildSystemPrompt(sess.ContextSummary, truncationContinue, jobProgressNudge, jobTracker.JobID, subagentWaitNudge, pendingSubagentResults)
 		if steps == 0 && r.Compactor != nil && sess.ID != "" {
 			updated, err := r.Compactor.MaybeCompact(
 				ctx,
@@ -170,17 +151,14 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 			return err
 		}
 
-		// Adapt cross-provider history (e.g. reasoning that the target provider
-		// cannot replay) and report any lossy degradations once per turn.
-		if providerFamily != "" {
-			normalized, degradations := NormalizeHistoryForProvider(providerFamily, msgs)
-			msgs = normalized
-			if !degradationsReported {
-				for _, d := range degradations {
-					logging.L().Info("history.normalized", "session", turn.ID, "provider", providerFamily, "kind", d.Kind, "count", d.Count)
-				}
-				degradationsReported = true
+		// Normalize replay history and report any lossy degradations once per turn.
+		normalized, degradations := NormalizeHistory(msgs)
+		msgs = normalized
+		if !degradationsReported {
+			for _, d := range degradations {
+				logging.L().Info("history.normalized", "session", turn.ID, "kind", d.Kind, "count", d.Count)
 			}
+			degradationsReported = true
 		}
 
 		logging.L().Info("agent.step.start", "session", turn.ID, "step", steps+1, "model", turn.ModelID, "messages", len(msgs), "max_tokens", r.MaxTokens)
@@ -506,14 +484,11 @@ func (r *Runner) systemPrompt() string {
 	return base + r.SkillIndex + r.JobIndex
 }
 
-func (r *Runner) buildSystemPrompt(contextSummary, planBlock string, truncationContinue, jobProgressNudge bool, jobID string, subagentWaitNudge bool, pendingSubagentResults string) string {
+func (r *Runner) buildSystemPrompt(contextSummary string, truncationContinue, jobProgressNudge bool, jobID string, subagentWaitNudge bool, pendingSubagentResults string) string {
 	base := r.systemPrompt()
 	var parts []string
 	if block := FormatSummaryPromptBlock(contextSummary); block != "" {
 		parts = append(parts, block)
-	}
-	if strings.TrimSpace(planBlock) != "" {
-		parts = append(parts, strings.TrimSpace(planBlock))
 	}
 	if block := FormatOutputBudgetPromptBlock(r.MaxTokens); block != "" {
 		parts = append(parts, block)
@@ -538,18 +513,6 @@ func (r *Runner) buildSystemPrompt(contextSummary, planBlock string, truncationC
 		return base
 	}
 	return base + "\n\n" + strings.Join(parts, "\n\n")
-}
-
-func (r *Runner) planPromptBlock(ctx context.Context, sessionID string) string {
-	if r == nil || r.PlanStore == nil || strings.TrimSpace(sessionID) == "" {
-		return ""
-	}
-	steps, err := r.PlanStore.GetPlan(ctx, sessionID)
-	if err != nil {
-		logging.L().Warn("planning.prompt.failed", "session", sessionID, "error", err)
-		return ""
-	}
-	return planning.FormatPromptBlock(steps)
 }
 
 func int64PtrFromIntPtr(v *int) *int64 {

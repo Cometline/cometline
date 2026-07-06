@@ -138,18 +138,6 @@ type Session struct {
 	UpdatedAt               int64          `json:"updated_at"`
 }
 
-type SessionPlan struct {
-	ID            string        `json:"id"`
-	SessionID     string        `json:"session_id"`
-	StepIndex     int64         `json:"step_index"`
-	Description   string        `json:"description"`
-	Status        string        `json:"status"`
-	BlockerReason string        `json:"blocker_reason"`
-	DismissedAt   sql.NullInt64 `json:"dismissed_at"`
-	CreatedAt     int64         `json:"created_at"`
-	UpdatedAt     int64         `json:"updated_at"`
-}
-
 type ToolCall struct {
 	ID         string        `json:"id"`
 	MessageID  string        `json:"message_id"`

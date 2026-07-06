@@ -17,7 +17,6 @@ import (
 	"github.com/cometline/cometmind/internal/logging"
 	mcppkg "github.com/cometline/cometmind/internal/mcp"
 	"github.com/cometline/cometmind/internal/memory"
-	"github.com/cometline/cometmind/internal/planning"
 	"github.com/cometline/cometmind/internal/retention"
 	"github.com/cometline/cometmind/internal/scheduler"
 	"github.com/cometline/cometmind/internal/session"
@@ -42,7 +41,6 @@ type Deps struct {
 	Memory         *memory.Service
 	Jobs           *jobs.Service
 	Scheduler      *scheduler.Service
-	Planning       *planning.Service
 	RunRetention   RetentionRunner
 	SetJobSettings func(jobs.Settings)
 	NewRunner      RunnerFactory
@@ -58,7 +56,6 @@ type App struct {
 	memory         *memory.Service
 	jobs           *jobs.Service
 	scheduler      *scheduler.Service
-	planning       *planning.Service
 	runRetention   RetentionRunner
 	setJobSettings func(jobs.Settings)
 	newRunner      RunnerFactory
@@ -88,7 +85,6 @@ func New(deps Deps) (*gin.Engine, error) {
 		memory:         deps.Memory,
 		jobs:           deps.Jobs,
 		scheduler:      deps.Scheduler,
-		planning:       deps.Planning,
 		runRetention:   deps.RunRetention,
 		setJobSettings: deps.SetJobSettings,
 		newRunner:      deps.NewRunner,
@@ -132,8 +128,6 @@ func New(deps Deps) (*gin.Engine, error) {
 	api.POST("/sessions/:id/messages", app.handlePostMessage)
 	api.DELETE("/sessions/:id/messages", app.handleClearSession)
 	api.GET("/sessions/:id/children", app.handleListChildSessions)
-	api.GET("/sessions/:id/plan", app.handleGetSessionPlan)
-	api.DELETE("/sessions/:id/plan", app.handleDismissSessionPlan)
 	api.DELETE("/sessions/:id/runs/current", app.handleAbortSession)
 
 	// Skills

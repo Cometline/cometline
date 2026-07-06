@@ -8,7 +8,6 @@ import (
 	"github.com/cometline/cometmind/internal/jobs"
 	mcppkg "github.com/cometline/cometmind/internal/mcp"
 	"github.com/cometline/cometmind/internal/memory"
-	"github.com/cometline/cometmind/internal/planning"
 	"github.com/cometline/cometmind/internal/session"
 	"github.com/cometline/cometmind/internal/skills"
 	"github.com/cometline/cometmind/internal/subagent"
@@ -34,7 +33,6 @@ type RegistryOptions struct {
 	SubagentConfig     SubagentToolConfig
 	Jobs               *jobs.Service
 	Memory             *memory.Service
-	Planning           *planning.Service
 	SessionID          string
 	JobPlatform        string
 	JobSourceChannelID string

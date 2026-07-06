@@ -5,7 +5,6 @@
 	import Composer from '$lib/components/composer/Composer.svelte';
 	import HeroComposerFrame from '$lib/components/HeroComposerFrame.svelte';
 	import ChatThread from '$lib/components/chat/ChatThread.svelte';
-	import SessionPlanPanel from '$lib/components/chat/SessionPlanPanel.svelte';
 	import FirstTurnFlight from '$lib/components/FirstTurnFlight.svelte';
 	import UserBubbleFlight from '$lib/components/UserBubbleFlight.svelte';
 	import {
@@ -14,12 +13,7 @@
 	} from '$lib/conversation/conversation-controller';
 	import type { QueuedMessage } from '$lib/actions/chat-turn-queue';
 	import { sessionStore } from '$lib/stores/session.svelte';
-	import {
-		getSessionPlan,
-		dismissSessionPlan,
-		updateSession,
-		type SessionPlanResponse
-	} from '$lib/client/cometmind';
+	import { updateSession } from '$lib/client/cometmind';
 	import { chatStore } from '$lib/stores/chat.svelte';
 	import { modelStore } from '$lib/stores/model.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
@@ -28,8 +22,6 @@
 	import type { ChatTurnPayload } from '$lib/actions/start-chat';
 	import type { ChatItem } from '$lib/types';
 	import type { ModelOption } from '$lib/stores/model.svelte';
-	import ProviderSwitchDialog from '$lib/components/ProviderSwitchDialog.svelte';
-	import { analyzeProviderSwitch, type ProviderSwitchWarning } from '$lib/provider-switch';
 	import { startJobInSession } from '$lib/jobs/start-job-in-chat';
 	import type { JobResource } from '$lib/client/cometmind';
 	import { createChatViewController } from '$lib/conversation/chat-view-controller.svelte';
@@ -103,15 +95,8 @@
 	let firstTurnHandoffPending = $state(false);
 	let queuedCount = $state(0);
 	let queuedMessages = $state<QueuedMessage[]>([]);
-	let pendingSwitch = $state<{ option: ModelOption; warnings: ProviderSwitchWarning[] } | null>(
-		null
-	);
 
 	let snapshotItems = $state.raw<ChatItem[]>([]);
-	let sessionPlan = $state<SessionPlanResponse | null>(null);
-	let sessionPlanLoading = $state(false);
-	let sessionPlanError = $state('');
-	let sessionPlanRequest = 0;
 	// Default to "loading" until the store binds this session so a freshly
 	// mounted ChatView (e.g. switching sessions while a previous transcript is
 	// still in flight) shows the loading state instead of flashing the empty
@@ -249,54 +234,6 @@
 		return startJobInSession(job, sessionId, submit);
 	}
 
-	async function loadSessionPlan(id: string) {
-		const request = ++sessionPlanRequest;
-		if (sessionPlan?.session_id !== id) sessionPlan = null;
-		sessionPlanLoading = true;
-		sessionPlanError = '';
-		try {
-			const plan = await getSessionPlan(id);
-			if (request !== sessionPlanRequest || sessionId !== id) return;
-			sessionPlan = plan;
-		} catch (error) {
-			if (request !== sessionPlanRequest || sessionId !== id) return;
-			sessionPlanError =
-				error instanceof Error ? error.message : 'Failed to load session plan';
-		} finally {
-			if (request === sessionPlanRequest && sessionId === id) {
-				sessionPlanLoading = false;
-			}
-		}
-	}
-
-	function handleDismissSessionPlan() {
-		const id = sessionId;
-		if (sessionPlan && sessionPlan.session_id === id) {
-			// Reflect dismissal locally right away so a subsequent refetch
-			// (triggered by the next chat turn) doesn't resurrect the panel
-			// before the backend write lands.
-			sessionPlan = { ...sessionPlan, dismissed: true };
-		}
-		void dismissSessionPlan(id).catch(() => {
-			// Best-effort: the panel already hid itself client-side; a failed
-			// persist just means it may reappear next time this session is
-			// opened, which is not worth surfacing as an error to the user.
-		});
-	}
-
-	$effect(() => {
-		const id = sessionId;
-		const streaming = chatStore.isStreamingFor(id);
-		const synced = chatStore.sessionID === id;
-		const itemCount = synced ? chatStore.items.length : snapshotItems.length;
-		if (!id || streaming) return;
-		const timeout = window.setTimeout(() => {
-			void itemCount;
-			void loadSessionPlan(id);
-		}, 180);
-		return () => window.clearTimeout(timeout);
-	});
-
 	$effect(() => {
 		const id = sessionId;
 		const current = sessionStore.current;
@@ -304,7 +241,6 @@
 		const interval = window.setInterval(() => {
 			if (chatStore.isStreamingFor(id) || chatStore.hasInFlightTurn(id)) return;
 			void chatStore.refreshTranscript(id);
-			void loadSessionPlan(id);
 		}, 2500);
 		return () => window.clearInterval(interval);
 	});
@@ -356,27 +292,7 @@
 	}
 
 	async function onModelChange(option: ModelOption) {
-		// Warn before switching to a provider that handles existing history
-		// differently (e.g. Codex summarizes prior chain-of-thought). The model
-		// store has already optimistically selected the option, so cancelling
-		// must revert to the persisted session selection.
-		const warnings = analyzeProviderSwitch(snapshotItems, option.providerMethod);
-		if (warnings.length > 0) {
-			pendingSwitch = { option, warnings };
-			return;
-		}
 		await commitModelChange(option);
-	}
-
-	function confirmPendingSwitch() {
-		const pending = pendingSwitch;
-		pendingSwitch = null;
-		if (pending) void commitModelChange(pending.option);
-	}
-
-	function cancelPendingSwitch() {
-		pendingSwitch = null;
-		revertModelSelection();
 	}
 
 	async function openInMainWindow() {
@@ -434,14 +350,6 @@
 				onNotifyAgent={submit}
 				onStartJob={startJobFromCard}
 			/>
-			<div class="plan-overlay" aria-live="polite">
-				<SessionPlanPanel
-					plan={sessionPlan}
-					loading={sessionPlanLoading}
-					error={sessionPlanError}
-					onDismiss={handleDismissSessionPlan}
-				/>
-			</div>
 		</div>
 	{/if}
 
@@ -503,15 +411,6 @@
 		</HeroComposerFrame>
 	</div>
 </div>
-
-{#if pendingSwitch}
-	<ProviderSwitchDialog
-		providerName={pendingSwitch.option.providerName}
-		warnings={pendingSwitch.warnings}
-		onCancel={cancelPendingSwitch}
-		onConfirm={confirmPendingSwitch}
-	/>
-{/if}
 
 <style>
 	.chat-home {
@@ -644,14 +543,6 @@
 		transition: bottom var(--duration-flight) var(--ease-smooth);
 	}
 
-	.plan-overlay {
-		position: absolute;
-		top: 18px;
-		right: var(--chat-gutter);
-		z-index: 8;
-		pointer-events: auto;
-	}
-
 	.thread-shell.docked {
 		bottom: var(--thread-dock-inset);
 	}
@@ -659,11 +550,6 @@
 	.chat-home.compact .thread-shell.docked {
 		top: var(--mini-titlebar-height);
 		bottom: calc(var(--thread-dock-inset) - 18px);
-	}
-
-	.chat-home.compact .plan-overlay {
-		top: 12px;
-		right: 14px;
 	}
 
 	.boot-error {
@@ -721,12 +607,6 @@
 		.empty-region {
 			inset: 0 0 160px;
 			padding-inline: 28px;
-		}
-
-		.plan-overlay {
-			left: 12px;
-			right: 12px;
-			top: 12px;
 		}
 	}
 </style>

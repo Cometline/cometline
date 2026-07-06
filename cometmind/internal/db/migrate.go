@@ -304,6 +304,11 @@ var alterStatements = [][]string{
 	{
 		"ALTER TABLE session_plans ADD COLUMN dismissed_at INTEGER",
 	},
+	// v21 -> v22: remove session planning storage.
+	{
+		"DROP INDEX IF EXISTS idx_session_plans_session",
+		"DROP TABLE IF EXISTS session_plans",
+	},
 }
 
 // execAlter runs one incremental DDL statement, tolerating idempotent failures
@@ -342,7 +347,7 @@ func splitStatements(sql string) []string {
 	return out
 }
 
-const schemaVersion = 21
+const schemaVersion = 22
 
 // EnsureSchema runs [Migrate] once per database file using PRAGMA user_version.
 // For existing databases, it applies incremental ALTER statements to upgrade

@@ -151,10 +151,6 @@ type cometlineSchedulerJSON struct {
 	PollIntervalSeconds int  `json:"pollIntervalSeconds"`
 }
 
-type cometlinePlanningJSON struct {
-	Enabled bool `json:"enabled"`
-}
-
 type cometlineCometmindJSON struct {
 	SystemPromptPath   string               `json:"systemPromptPath"`
 	MaxTokens          int                  `json:"maxTokens"`
@@ -172,7 +168,6 @@ type cometlineCometmindJSON struct {
 	Jobs      cometlineJobsJSON      `json:"jobs"`
 	Autonomy  cometlineAutonomyJSON  `json:"autonomy"`
 	Scheduler cometlineSchedulerJSON `json:"scheduler"`
-	Planning  cometlinePlanningJSON  `json:"planning"`
 }
 
 type cometlineSettingsJSON struct {
@@ -337,9 +332,6 @@ func adaptCometlineSettings(raw cometlineSettingsJSON) (*Config, error) {
 		Scheduler: SchedulerConfig{
 			Enabled:             cm.Scheduler.Enabled,
 			PollIntervalSeconds: cm.Scheduler.PollIntervalSeconds,
-		},
-		Planning: PlanningConfig{
-			Enabled: cm.Planning.Enabled,
 		},
 		Gateway: GatewayConfig{
 			Discord: DiscordGatewayConfig{
