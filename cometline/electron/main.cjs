@@ -1957,8 +1957,10 @@ let updateState = { status: 'idle' };
 
 function setUpdateState(next) {
 	updateState = { ...next, updatedAt: Date.now() };
-	if (mainWindow && !mainWindow.isDestroyed()) {
-		mainWindow.webContents.send('cometline:update-state', updateState);
+	for (const window of [mainWindow, miniWindow, settingsWindow]) {
+		if (window && !window.isDestroyed()) {
+			window.webContents.send('cometline:update-state', updateState);
+		}
 	}
 }
 
