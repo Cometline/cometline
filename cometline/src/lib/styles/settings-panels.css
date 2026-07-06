@@ -154,7 +154,7 @@
 	position: relative;
 }
 
-.settings-nav-item.has-pending > span::after {
+.modal:not(.window-mode) .settings-nav-item.has-pending > span::after {
 	content: '';
 	display: inline-block;
 	width: 6px;
