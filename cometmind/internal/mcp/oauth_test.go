@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -120,6 +122,144 @@ func TestPersistingTokenSourcePersistsRotatedToken(t *testing.T) {
 	if loaded.AccessToken != "new" {
 		t.Errorf("persisted AccessToken = %q, want new", loaded.AccessToken)
 	}
+}
+
+func TestFileOAuthHandlerConcurrentTokenSourceRefreshesOnce(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	var refreshes atomic.Int32
+	tokenEndpoint := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseForm(); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if got := r.Form.Get("refresh_token"); got != "r1" {
+			http.Error(w, "unexpected refresh token", http.StatusBadRequest)
+			return
+		}
+		if refreshes.Add(1) > 1 {
+			http.Error(w, `{"error":"invalid_grant"}`, http.StatusBadRequest)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"access_token":"a2","refresh_token":"r2","token_type":"Bearer","expires_in":3600}`))
+	}))
+	defer tokenEndpoint.Close()
+
+	const serverID = "rotating-concurrent"
+	if err := saveOAuthClientInfo(serverID, &oauthClientInfo{
+		TokenEndpoint: tokenEndpoint.URL,
+		ClientID:      "client",
+		AuthStyle:     oauth2.AuthStyleInParams,
+	}); err != nil {
+		t.Fatalf("saveOAuthClientInfo: %v", err)
+	}
+	if err := SaveOAuthToken(serverID, &oauth2.Token{
+		AccessToken:  "a1",
+		RefreshToken: "r1",
+		TokenType:    "Bearer",
+		Expiry:       time.Now().Add(-time.Hour),
+	}); err != nil {
+		t.Fatalf("SaveOAuthToken: %v", err)
+	}
+
+	handler := fileOAuthHandler{serverID: serverID}
+	const callers = 12
+	start := make(chan struct{})
+	errs := make(chan error, callers)
+	var wg sync.WaitGroup
+	for i := 0; i < callers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			ts, err := handler.TokenSource(context.Background())
+			if err != nil {
+				errs <- err
+				return
+			}
+			tok, err := ts.Token()
+			if err != nil {
+				errs <- err
+				return
+			}
+			if tok.AccessToken != "a2" || tok.RefreshToken != "r2" {
+				errs <- &unexpectedTokenError{access: tok.AccessToken, refresh: tok.RefreshToken}
+			}
+		}()
+	}
+	close(start)
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := refreshes.Load(); got != 1 {
+		t.Fatalf("refresh requests = %d, want 1", got)
+	}
+	loaded, err := LoadOAuthToken(serverID)
+	if err != nil {
+		t.Fatalf("LoadOAuthToken: %v", err)
+	}
+	if loaded.RefreshToken != "r2" {
+		t.Fatalf("persisted refresh token = %q, want r2", loaded.RefreshToken)
+	}
+}
+
+func TestFileOAuthHandlerAuthorizeForcesRefresh(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	var refreshes atomic.Int32
+	tokenEndpoint := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		refreshes.Add(1)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"access_token":"fresh","refresh_token":"r2","token_type":"Bearer","expires_in":3600}`))
+	}))
+	defer tokenEndpoint.Close()
+
+	const serverID = "authorize-refresh"
+	if err := saveOAuthClientInfo(serverID, &oauthClientInfo{
+		TokenEndpoint: tokenEndpoint.URL,
+		ClientID:      "client",
+		AuthStyle:     oauth2.AuthStyleInParams,
+	}); err != nil {
+		t.Fatalf("saveOAuthClientInfo: %v", err)
+	}
+	if err := SaveOAuthToken(serverID, &oauth2.Token{
+		AccessToken:  "stale",
+		RefreshToken: "r1",
+		TokenType:    "Bearer",
+		Expiry:       time.Now().Add(time.Hour),
+	}); err != nil {
+		t.Fatalf("SaveOAuthToken: %v", err)
+	}
+
+	handler := fileOAuthHandler{serverID: serverID}
+	resp := &http.Response{StatusCode: http.StatusUnauthorized, Body: http.NoBody}
+	if err := handler.Authorize(context.Background(), nil, resp); err != nil {
+		t.Fatalf("Authorize: %v", err)
+	}
+	if got := refreshes.Load(); got != 1 {
+		t.Fatalf("refresh requests = %d, want 1", got)
+	}
+	loaded, err := LoadOAuthToken(serverID)
+	if err != nil {
+		t.Fatalf("LoadOAuthToken: %v", err)
+	}
+	if loaded.AccessToken != "fresh" || loaded.RefreshToken != "r2" {
+		t.Fatalf("persisted token = (%q, %q), want (fresh, r2)", loaded.AccessToken, loaded.RefreshToken)
+	}
+}
+
+type unexpectedTokenError struct {
+	access  string
+	refresh string
+}
+
+func (e *unexpectedTokenError) Error() string {
+	return "unexpected token: access=" + e.access + " refresh=" + e.refresh
 }
 
 func TestProtectedResourceMetadataCandidates(t *testing.T) {
