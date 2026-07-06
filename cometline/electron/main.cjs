@@ -47,8 +47,8 @@ const COMETMIND_PORT = 7700;
 const APP_SCHEME = 'app';
 const APP_HOST = 'bundle';
 const APP_ORIGIN = `${APP_SCHEME}://${APP_HOST}`;
-/** Minimum width sized for sidebar + chat pane + web panel all being open. */
-const MIN_WINDOW_WIDTH = 1320;
+/** Match the mini-window floor so the main window can be narrowed for compact chat. */
+const MIN_WINDOW_WIDTH = 360;
 const MIN_WINDOW_HEIGHT = 620;
 const MINI_WINDOW_WIDTH = 460;
 const MINI_WINDOW_HEIGHT = 640;
