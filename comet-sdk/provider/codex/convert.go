@@ -24,6 +24,7 @@ type codexInput struct {
 	Type    string             `json:"type,omitempty"`
 	Role    string             `json:"role,omitempty"`
 	Content []codexContentPart `json:"content,omitempty"`
+	Summary []codexContentPart `json:"summary,omitempty"`
 	CallID  string             `json:"call_id,omitempty"`
 	Name    string             `json:"name,omitempty"`
 	Args    string             `json:"arguments,omitempty"`
@@ -99,7 +100,15 @@ func convertMessage(m cometsdk.Message, toolNames map[string]string) ([]codexInp
 		return []codexInput{{Role: "user", Content: parts}}, nil
 	case cometsdk.RoleAssistant:
 		var out []codexInput
+		reasoningSummary := reasoningSummaryParts(m.ReasoningContent)
+		if len(reasoningSummary) > 0 {
+			out = append(out, codexInput{
+				Type:    "reasoning",
+				Summary: reasoningSummary,
+			})
+		}
 		var textParts []codexContentPart
+		var toolCalls []codexInput
 		for _, b := range m.Content {
 			switch v := b.(type) {
 			case cometsdk.TextBlock:
@@ -110,14 +119,15 @@ func convertMessage(m cometsdk.Message, toolNames map[string]string) ([]codexInp
 					args = json.RawMessage(`{}`)
 				}
 				toolNames[v.ID] = v.Name
-				out = append(out, codexInput{Type: "function_call", CallID: v.ID, Name: v.Name, Args: string(args)})
+				toolCalls = append(toolCalls, codexInput{Type: "function_call", CallID: v.ID, Name: v.Name, Args: string(args)})
 			default:
 				return nil, fmt.Errorf("codex: unsupported block type %T in assistant message", b)
 			}
 		}
 		if len(textParts) > 0 {
-			out = append([]codexInput{{Role: "assistant", Content: textParts}}, out...)
+			out = append(out, codexInput{Role: "assistant", Content: textParts})
 		}
+		out = append(out, toolCalls...)
 		return out, nil
 	case cometsdk.RoleToolResult:
 		var out []codexInput
@@ -132,6 +142,23 @@ func convertMessage(m cometsdk.Message, toolNames map[string]string) ([]codexInp
 	default:
 		return nil, fmt.Errorf("codex: unknown role %q", m.Role)
 	}
+}
+
+func reasoningSummaryParts(blocks []cometsdk.Block) []codexContentPart {
+	parts := make([]codexContentPart, 0, len(blocks))
+	for _, b := range blocks {
+		switch v := b.(type) {
+		case cometsdk.ReasoningBlock:
+			if text := strings.TrimSpace(v.Text); text != "" {
+				parts = append(parts, codexContentPart{Type: "summary_text", Text: text})
+			}
+		case cometsdk.TextBlock:
+			if text := strings.TrimSpace(v.Text); text != "" {
+				parts = append(parts, codexContentPart{Type: "summary_text", Text: text})
+			}
+		}
+	}
+	return parts
 }
 
 func inputContentParts(blocks []cometsdk.Block) ([]codexContentPart, error) {

@@ -32,6 +32,8 @@ func TestConvertRequest_ResponsesShape(t *testing.T) {
 			{Role: cometsdk.RoleAssistant, Content: []cometsdk.Block{
 				cometsdk.TextBlock{Text: "Calling a tool"},
 				cometsdk.ToolCallBlock{ID: "call_1", Name: "read_file", Input: json.RawMessage(`{"path":"main.go"}`)},
+			}, ReasoningContent: []cometsdk.Block{
+				cometsdk.ReasoningBlock{Text: "Need to inspect the file"},
 			}},
 			{Role: cometsdk.RoleToolResult, Content: []cometsdk.Block{
 				cometsdk.ToolResultBlock{ToolCallID: "call_1", Content: "file contents"},
@@ -50,13 +52,17 @@ func TestConvertRequest_ResponsesShape(t *testing.T) {
 	require.True(t, out.Stream)
 	require.False(t, out.Store)
 	require.Equal(t, 123, out.MaxOutputTokens)
-	require.Len(t, out.Input, 4)
+	require.Len(t, out.Input, 5)
 	require.Equal(t, "user", out.Input[0].Role)
 	require.Equal(t, "input_image", out.Input[0].Content[1].Type)
-	require.Equal(t, "function_call", out.Input[2].Type)
-	require.Equal(t, `{"path":"main.go"}`, out.Input[2].Args)
-	require.Equal(t, "function_call_output", out.Input[3].Type)
-	require.Equal(t, "read_file", out.Input[3].Name)
+	require.Equal(t, "reasoning", out.Input[1].Type)
+	require.Equal(t, "summary_text", out.Input[1].Summary[0].Type)
+	require.Equal(t, "Need to inspect the file", out.Input[1].Summary[0].Text)
+	require.Equal(t, "assistant", out.Input[2].Role)
+	require.Equal(t, "function_call", out.Input[3].Type)
+	require.Equal(t, `{"path":"main.go"}`, out.Input[3].Args)
+	require.Equal(t, "function_call_output", out.Input[4].Type)
+	require.Equal(t, "read_file", out.Input[4].Name)
 	require.Len(t, out.Tools, 1)
 	require.False(t, out.Tools[0].Strict)
 
