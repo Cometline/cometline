@@ -67,6 +67,14 @@ func LoadOAuthToken(serverID string) (*oauth2.Token, error) {
 
 // SaveOAuthToken writes an OAuth token for one MCP server (mode 0600).
 func SaveOAuthToken(serverID string, tok *oauth2.Token) error {
+	if err := saveOAuthToken(serverID, tok); err != nil {
+		return err
+	}
+	invalidateOAuthTokenSource(serverID)
+	return nil
+}
+
+func saveOAuthToken(serverID string, tok *oauth2.Token) error {
 	if tok == nil || strings.TrimSpace(tok.AccessToken) == "" {
 		return fmt.Errorf("empty oauth token")
 	}
@@ -79,6 +87,10 @@ func SaveOAuthToken(serverID string, tok *oauth2.Token) error {
 		return err
 	}
 	return os.WriteFile(path, data, 0o600)
+}
+
+func invalidateOAuthTokenSource(serverID string) {
+	oauthTokenSources.Delete(strings.TrimSpace(serverID))
 }
 
 // OAuthConnected reports whether a non-empty token file exists for the server.
@@ -96,14 +108,20 @@ type fileOAuthHandler struct {
 	serverID string
 }
 
-func (h fileOAuthHandler) TokenSource(ctx context.Context) (oauth2.TokenSource, error) {
-	tok, err := LoadOAuthToken(h.serverID)
+var oauthTokenSources sync.Map // map[string]*persistingTokenSource
+
+func (h fileOAuthHandler) TokenSource(_ context.Context) (oauth2.TokenSource, error) {
+	serverID := strings.TrimSpace(h.serverID)
+	if cached, ok := oauthTokenSources.Load(serverID); ok {
+		return cached.(*persistingTokenSource), nil
+	}
+	tok, err := LoadOAuthToken(serverID)
 	if err != nil {
 		return nil, nil
 	}
 	// If we have persisted client info, build a refreshing source so expired
 	// access tokens are renewed via the stored refresh token + token endpoint.
-	if info, infoErr := loadOAuthClientInfo(h.serverID); infoErr == nil && info != nil {
+	if info, infoErr := loadOAuthClientInfo(serverID); infoErr == nil && info != nil {
 		cfg := &oauth2.Config{
 			ClientID:     info.ClientID,
 			ClientSecret: info.ClientSecret,
@@ -113,9 +131,9 @@ func (h fileOAuthHandler) TokenSource(ctx context.Context) (oauth2.TokenSource, 
 			},
 			Scopes: info.Scopes,
 		}
-		clientCtx := context.WithValue(ctx, oauth2.HTTPClient, &http.Client{Timeout: 30 * time.Second})
-		base := cfg.TokenSource(clientCtx, tok)
-		return &persistingTokenSource{serverID: h.serverID, base: base, last: tok}, nil
+		source := newPersistingTokenSource(serverID, cfg, tok)
+		actual, _ := oauthTokenSources.LoadOrStore(serverID, source)
+		return actual.(*persistingTokenSource), nil
 	}
 	// No client info (e.g. token injected externally): serve it statically.
 	return oauth2.StaticTokenSource(tok), nil
@@ -128,7 +146,13 @@ func (h fileOAuthHandler) Authorize(ctx context.Context, _ *http.Request, resp *
 	// A 401 reached Authorize, meaning the bearer token was rejected. Attempt a
 	// silent refresh; only if that fails do we surface an actionable error.
 	if ts, err := h.TokenSource(ctx); err == nil && ts != nil {
-		if _, refreshErr := ts.Token(); refreshErr == nil {
+		if refresher, ok := ts.(*persistingTokenSource); ok {
+			if _, refreshErr := refresher.ForceRefresh(); refreshErr == nil {
+				// Refresh succeeded; returning nil triggers an immediate retry with
+				// the freshly persisted token.
+				return nil
+			}
+		} else if _, refreshErr := ts.Token(); refreshErr == nil {
 			// Refresh succeeded; returning nil triggers an immediate retry with
 			// the freshly persisted token.
 			return nil
@@ -141,24 +165,70 @@ func (h fileOAuthHandler) Authorize(ctx context.Context, _ *http.Request, resp *
 // tokens back to disk so subsequent runtime connects reuse the refreshed token.
 type persistingTokenSource struct {
 	serverID string
+	cfg      *oauth2.Config
 	base     oauth2.TokenSource
 	mu       sync.Mutex
 	last     *oauth2.Token
 }
 
+func newPersistingTokenSource(serverID string, cfg *oauth2.Config, tok *oauth2.Token) *persistingTokenSource {
+	return &persistingTokenSource{
+		serverID: serverID,
+		cfg:      cfg,
+		base:     cfg.TokenSource(oauthClientContext(), tok),
+		last:     tok,
+	}
+}
+
+func oauthClientContext() context.Context {
+	return context.WithValue(context.Background(), oauth2.HTTPClient, &http.Client{Timeout: 30 * time.Second})
+}
+
 func (p *persistingTokenSource) Token() (*oauth2.Token, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	tok, err := p.base.Token()
 	if err != nil {
 		return nil, err
 	}
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	if p.last == nil || tok.AccessToken != p.last.AccessToken {
+	if p.last == nil || tokenChanged(tok, p.last) {
 		// Token rotated; persist it (best-effort, do not fail the request).
-		_ = SaveOAuthToken(p.serverID, tok)
+		_ = saveOAuthToken(p.serverID, tok)
 		p.last = tok
 	}
 	return tok, nil
+}
+
+func (p *persistingTokenSource) ForceRefresh() (*oauth2.Token, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	seed, err := LoadOAuthToken(p.serverID)
+	if err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(seed.RefreshToken) == "" {
+		return nil, fmt.Errorf("oauth token missing refresh_token")
+	}
+	expired := *seed
+	expired.Expiry = time.Now().Add(-time.Hour)
+	p.base = p.cfg.TokenSource(oauthClientContext(), &expired)
+	tok, err := p.base.Token()
+	if err != nil {
+		return nil, err
+	}
+	_ = saveOAuthToken(p.serverID, tok)
+	p.last = tok
+	return tok, nil
+}
+
+func tokenChanged(a, b *oauth2.Token) bool {
+	if a == nil || b == nil {
+		return a != b
+	}
+	return a.AccessToken != b.AccessToken ||
+		a.RefreshToken != b.RefreshToken ||
+		a.TokenType != b.TokenType ||
+		!a.Expiry.Equal(b.Expiry)
 }
 
 func oauthHandlerFor(serverID string, _ *OAuthConfig) auth.OAuthHandler {
