@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -22,14 +23,27 @@ import (
 // fakeStore is an in-memory TurnStore. It records the persistence calls the
 // runner makes so the agent loop can be exercised without a live database.
 type fakeStore struct {
-	history     []cometsdk.Message
-	usageSaved  int
-	appendCalls int
-	toolUpdates int
-	toolResults int
+	history          []cometsdk.Message
+	allHistory       []cometsdk.Message
+	rows             []db.Message
+	contextSummary   string
+	compactedUntil   string
+	usageSaved       int
+	appendCalls      int
+	toolUpdates      int
+	toolResults      int
+	compactCalls     int
+	inflateAfterTool bool
 }
 
 func (f *fakeStore) BuildSDKMessages(ctx context.Context, sessionID string) ([]cometsdk.Message, error) {
+	return f.history, nil
+}
+
+func (f *fakeStore) BuildSDKMessagesAll(ctx context.Context, sessionID string) ([]cometsdk.Message, error) {
+	if f.allHistory != nil {
+		return f.allHistory, nil
+	}
 	return f.history, nil
 }
 
@@ -54,11 +68,32 @@ func (f *fakeStore) UpdateToolCallResult(ctx context.Context, toolCallID, result
 
 func (f *fakeStore) AppendToolResultMessage(ctx context.Context, sessionID, toolCallID, output string, isErr bool) (session.Message, error) {
 	f.toolResults++
+	if f.inflateAfterTool {
+		inflated := strings.Repeat("tool output ", 70000)
+		f.allHistory = append(f.allHistory, cometsdk.Message{
+			Role: cometsdk.RoleUser,
+			Content: []cometsdk.Block{
+				cometsdk.TextBlock{Text: inflated},
+			},
+		})
+		f.rows = append(f.rows, db.Message{ID: "tool-result-big", Role: "tool_result", Content: output})
+	}
 	return session.Message{}, nil
 }
 
 func (f *fakeStore) GetSession(ctx context.Context, sessionID string) (session.Session, error) {
-	return session.Session{ID: sessionID}, nil
+	return session.Session{ID: sessionID, ContextSummary: f.contextSummary, CompactedUntilMessageID: f.compactedUntil}, nil
+}
+
+func (f *fakeStore) ListMessageRows(ctx context.Context, sessionID string) ([]db.Message, error) {
+	return f.rows, nil
+}
+
+func (f *fakeStore) UpdateContextSummary(ctx context.Context, sessionID, summary, untilMessageID string) error {
+	f.compactCalls++
+	f.contextSummary = summary
+	f.compactedUntil = untilMessageID
+	return nil
 }
 
 func (f *fakeStore) NewChildSession(ctx context.Context, parent session.Session, purpose, subagentKind string) (session.Session, error) {
@@ -387,6 +422,73 @@ func TestRunner_MaxTokensWithoutToolsStopsAfterContinuationCap(t *testing.T) {
 	}
 	if store.appendCalls != 3 {
 		t.Fatalf("AppendAssistantStep called %d times, want 3", store.appendCalls)
+	}
+}
+
+func TestRunner_CompactsAgainAfterToolResultsInflatePrompt(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "small.txt"), []byte("small result"), 0o644); err != nil {
+		t.Fatalf("write small.txt: %v", err)
+	}
+
+	rows := make([]db.Message, 0, 11)
+	allHistory := make([]cometsdk.Message, 0, 11)
+	for i := 0; i < 11; i++ {
+		id := fmt.Sprintf("u%d", i+1)
+		text := fmt.Sprintf("small prior user turn %d", i+1)
+		rows = append(rows, db.Message{ID: id, Role: "user", Content: text})
+		allHistory = append(allHistory, cometsdk.Message{
+			Role:    cometsdk.RoleUser,
+			Content: []cometsdk.Block{cometsdk.TextBlock{Text: text}},
+		})
+	}
+	store := &fakeStore{
+		history:          allHistory,
+		allHistory:       allHistory,
+		rows:             rows,
+		inflateAfterTool: true,
+	}
+	provider := &capturingSequentialFakeProvider{sequences: [][]cometsdk.Event{
+		toolStep("tc1", "read_file", `{"path":"small.txt"}`),
+		{
+			cometsdk.TextDeltaEvent{Text: "summary after tool"},
+			cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishStop},
+			cometsdk.DoneEvent{},
+		},
+		{
+			cometsdk.TextDeltaEvent{Text: "final answer"},
+			cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishStop},
+			cometsdk.DoneEvent{},
+		},
+	}}
+
+	r := &Runner{
+		Provider:  provider,
+		Sessions:  store,
+		Registry:  tools.NewRegistry(dir),
+		Compactor: &ContextCompactor{Sessions: store},
+	}
+
+	_, runErr := runAndDrain(t, r, session.AgentTurn{ID: "s1", ModelID: "m"})
+
+	if runErr != nil {
+		t.Fatalf("Run returned error: %v", runErr)
+	}
+	if store.compactCalls != 1 {
+		t.Fatalf("UpdateContextSummary called %d times, want 1", store.compactCalls)
+	}
+	if provider.calls != 3 {
+		t.Fatalf("Stream called %d times, want 3", provider.calls)
+	}
+	if len(provider.requests) != 3 {
+		t.Fatalf("captured %d requests, want 3", len(provider.requests))
+	}
+	if strings.Contains(provider.requests[0].System, "summary after tool") {
+		t.Fatalf("step 1 unexpectedly included post-tool summary:\n%s", provider.requests[0].System)
+	}
+	if !strings.Contains(provider.requests[2].System, "Earlier conversation summary") ||
+		!strings.Contains(provider.requests[2].System, "summary after tool") {
+		t.Fatalf("final synthesis request missing compacted summary:\n%s", provider.requests[2].System)
 	}
 }
 

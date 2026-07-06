@@ -42,6 +42,24 @@ describe('context-window', () => {
 		expect(estimateChatContextTokens(items)).toBeGreaterThan(0);
 	});
 
+	it('includes prompt-sized tool output in transcript estimates', () => {
+		const base = estimateChatContextTokens([
+			{ id: 't1', type: 'tool' as const, toolName: 'read_file', input: {}, output: '' }
+		]);
+		const withOutput = estimateChatContextTokens([
+			{
+				id: 't1',
+				type: 'tool' as const,
+				toolName: 'read_file',
+				input: {},
+				output: 'x'.repeat(8000)
+			}
+		]);
+
+		expect(withOutput).toBeGreaterThan(base);
+		expect(withOutput - base).toBeLessThan(1200);
+	});
+
 	it('formats usage tooltip values', () => {
 		expect(formatContextUsageTokens(180_400)).toBe('180.4K');
 		expect(formatContextPercent(180_400, 256_000)).toBe('70.5');

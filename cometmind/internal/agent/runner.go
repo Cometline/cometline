@@ -41,6 +41,10 @@ type MemoryStore interface {
 	ExtractAfterTurn(ctx context.Context, sessionID, model string, llmProvider cometsdk.Provider) ([]memory.Change, error)
 }
 
+type sessionLoader interface {
+	GetSession(ctx context.Context, sessionID string) (session.Session, error)
+}
+
 // Runner executes the persisted agent loop for one user turn (which may span many tool steps).
 type Runner struct {
 	Config   *config.Config
@@ -113,10 +117,13 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 	// AppendAssistantStep call so they persist and rebuild on reload.
 	var pendingMemories []session.InjectedMemory
 	var sess session.Session
-	if svc, ok := r.Sessions.(*session.Service); ok {
+	if svc, ok := r.Sessions.(sessionLoader); ok {
 		if loaded, err := svc.GetSession(ctx, turn.ID); err == nil {
 			sess = loaded
 		}
+	}
+	if sess.ID == "" {
+		sess.ID = turn.ID
 	}
 	emitStatus := func(phase event.TurnPhase) {
 		ch <- event.TurnStatus(phase, "")
@@ -130,7 +137,7 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 		}
 
 		baseSystem := r.buildSystemPrompt(sess.ContextSummary, truncationContinue, jobProgressNudge, jobTracker.JobID, subagentWaitNudge, pendingSubagentResults)
-		if steps == 0 && r.Compactor != nil && sess.ID != "" {
+		if r.Compactor != nil && sess.ID != "" {
 			updated, err := r.Compactor.MaybeCompact(
 				ctx,
 				sess,
@@ -142,6 +149,7 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 			)
 			if err == nil {
 				sess = updated
+				baseSystem = r.buildSystemPrompt(sess.ContextSummary, truncationContinue, jobProgressNudge, jobTracker.JobID, subagentWaitNudge, pendingSubagentResults)
 			}
 		}
 

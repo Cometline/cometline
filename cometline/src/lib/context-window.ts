@@ -4,6 +4,7 @@ import type { ChatItem } from '$lib/types';
 export const CONTEXT_WINDOW_LIMIT_OPTIONS = [128_000, 256_000] as const;
 export type ContextWindowLimit = (typeof CONTEXT_WINDOW_LIMIT_OPTIONS)[number];
 export const DEFAULT_CONTEXT_WINDOW_LIMIT: ContextWindowLimit = 128_000;
+const TOOL_RESULT_PROMPT_RUNE_LIMIT = 4000;
 
 export function normalizeContextWindowLimit(value: unknown): ContextWindowLimit {
 	return Number(value) === 256_000 ? 256_000 : 128_000;
@@ -34,6 +35,12 @@ export function estimateTokensFromText(text: string): number {
 	return tokens < 1 && n > 0 ? 1 : tokens;
 }
 
+function promptSizedToolOutput(text: string): string {
+	const runes = [...text];
+	if (runes.length <= TOOL_RESULT_PROMPT_RUNE_LIMIT) return text;
+	return `${runes.slice(0, TOOL_RESULT_PROMPT_RUNE_LIMIT).join('')}\n\n(tool result truncated for prompt)`;
+}
+
 /** Estimates prompt tokens from visible transcript items (approximate). */
 export function estimateChatContextTokens(items: ChatItem[]): number {
 	let total = 0;
@@ -51,6 +58,8 @@ export function estimateChatContextTokens(items: ChatItem[]): number {
 			case 'tool':
 				total += estimateTokensFromText(item.toolName);
 				total += estimateTokensFromText(JSON.stringify(item.input));
+				if (item.output) total += estimateTokensFromText(promptSizedToolOutput(item.output));
+				if (item.error) total += estimateTokensFromText(promptSizedToolOutput(item.error));
 				break;
 			case 'status':
 				total += estimateTokensFromText(item.text);
