@@ -411,6 +411,7 @@
 							bind:cometmind={draft.cometmind}
 							providers={draft.providers}
 							onPickWorkspace={panelController.pickGatewayWorkspace}
+							onPersistBeforeRuntimeAction={panelController.persistDraftForRuntime}
 						/>
 					{/key}
 				{:else if settingsController.activeSection === 'appearance'}

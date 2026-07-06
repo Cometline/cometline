@@ -386,6 +386,20 @@ export function createSettingsPanelController(deps: {
 		}
 	}
 
+	async function persistDraftForRuntime() {
+		deps.getCometmindPanel()?.syncFields?.();
+		const draft = deps.getDraft();
+		const activeProvider =
+			draft.providers.find(
+				(provider) => provider.enabled && provider.enabledModels.length > 0
+			) ?? draft.providers[0];
+		const payload: ProviderSettings = providerPayloadFromDraft(draft);
+		payload.activeProviderId = activeProvider?.id ?? '';
+		const runtimeAction = runtimeActionForSettingsSave(settingsStore.settings, payload);
+		const { settings: saved } = await settingsStore.save(payload, { runtimeAction });
+		deps.setDraft(cloneSettings(saved));
+	}
+
 	function setSelectedMethod(method: ProviderMethod) {
 		if (method === 'opencode-go') {
 			updateSelected({
@@ -654,6 +668,7 @@ export function createSettingsPanelController(deps: {
 		updateShortcut,
 		setOpenAtLogin,
 		save,
+		persistDraftForRuntime,
 		setSelectedMethod,
 		toggleProvider,
 		toggleModel,

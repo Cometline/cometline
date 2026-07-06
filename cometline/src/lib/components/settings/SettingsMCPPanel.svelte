@@ -20,7 +20,13 @@
 	import { ChevronDown, ChevronRight, Download, Plus, RefreshCw, Trash2 } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 
-	let { mcp = $bindable() }: { mcp: CometMindMCPSettings } = $props();
+	let {
+		mcp = $bindable(),
+		onPersistBeforeRuntimeAction
+	}: {
+		mcp: CometMindMCPSettings;
+		onPersistBeforeRuntimeAction?: () => Promise<void>;
+	} = $props();
 
 	const MCP_REFRESH_TIMEOUT_MS = 8_000;
 
@@ -370,8 +376,12 @@
 			return;
 		}
 		mcpBusy = true;
-		mcpStatus = 'Opening your browser to authorize. Complete sign-in, then return here…';
+		mcpStatus = 'Saving settings before OAuth connect…';
 		try {
+			syncServerLists(server.id);
+			normalizeConnection(server.id);
+			await onPersistBeforeRuntimeAction?.();
+			mcpStatus = 'Opening your browser to authorize. Complete sign-in, then return here…';
 			// CometMind drives the entire OAuth flow: metadata discovery, dynamic
 			// client registration, browser authorization (loopback capture), token
 			// exchange, and reconnect. No manual client ID / URLs required.

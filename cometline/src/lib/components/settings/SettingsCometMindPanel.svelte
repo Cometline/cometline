@@ -13,11 +13,13 @@
 	let {
 		cometmind = $bindable(),
 		providers = [],
-		onPickWorkspace
+		onPickWorkspace,
+		onPersistBeforeRuntimeAction
 	}: {
 		cometmind: CometMindSettings;
 		providers?: ProviderConfig[];
 		onPickWorkspace?: () => void | Promise<void>;
+		onPersistBeforeRuntimeAction?: () => Promise<void>;
 	} = $props();
 
 	type SkillSourceFilter = 'all' | 'cometmind' | 'workspace' | 'opencode' | 'claude' | 'other';
@@ -553,7 +555,11 @@
 			{/if}
 		</div>
 
-		<SettingsMCPPanel bind:this={mcpPanel} bind:mcp={cometmind.mcp} />
+		<SettingsMCPPanel
+			bind:this={mcpPanel}
+			bind:mcp={cometmind.mcp}
+			onPersistBeforeRuntimeAction={onPersistBeforeRuntimeAction}
+		/>
 
 		<div class="settings-section">
 			<div class="settings-section-heading">
