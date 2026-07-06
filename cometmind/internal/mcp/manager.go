@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -16,6 +17,13 @@ const (
 	StatusConnected    ServerStatus = "connected"
 	StatusError        ServerStatus = "error"
 	StatusDisconnected ServerStatus = "disconnected"
+	// StatusReloading is a transient, manager-wide overlay (not a per-server
+	// stored state) reported by ListServers while a settings Reload is in
+	// flight. It replaces what would otherwise read as "disconnected" for
+	// servers that are enabled and were connected before the reload started,
+	// so a UI polling status mid-reload does not mistake "reconnecting" for
+	// "got disabled".
+	StatusReloading ServerStatus = "reloading"
 )
 
 // ServerRuntimeStatus is exposed via the management API.
@@ -52,6 +60,13 @@ type Manager struct {
 	mu      sync.RWMutex
 	cfg     Config
 	servers map[string]*managedServer
+	// reloading is true for the duration of Reload's Close+Start cycle. It is
+	// surfaced via ListServers as StatusReloading and used to reject
+	// Reconnect/TestServer calls that would otherwise race against Start
+	// rebuilding the servers map from scratch (see #6 in the MCP stability
+	// review: a manual reconnect that grabs the pre-reload managedServer
+	// pointer would silently write into an entry Start() is about to discard).
+	reloading bool
 }
 
 type managedServer struct {
@@ -161,11 +176,25 @@ func (m *Manager) Close() error {
 	return nil
 }
 
-// Reload replaces the manager config and reconnects enabled servers.
+// Reload replaces the manager config and reconnects enabled servers. While a
+// reload is in flight, ListServers reports enabled servers as StatusReloading
+// (rather than the misleading StatusDisconnected produced by Close) and
+// Reconnect rejects concurrent calls for the same window, since Start
+// rebuilds the servers map from scratch and would otherwise race a manual
+// reconnect for a leaked, untracked connection.
 func (m *Manager) Reload(ctx context.Context, cfg Config) error {
 	if m == nil {
 		return nil
 	}
+	m.mu.Lock()
+	m.reloading = true
+	m.mu.Unlock()
+	defer func() {
+		m.mu.Lock()
+		m.reloading = false
+		m.mu.Unlock()
+	}()
+
 	_ = m.Close()
 	m.mu.Lock()
 	m.cfg = cfg
@@ -204,6 +233,8 @@ func (m *Manager) ListServers() []ServerRuntimeStatus {
 		lastError := entry.lastError
 		if !m.cfg.Enabled || !entry.cfg.Enabled {
 			status = StatusDisabled
+		} else if m.reloading {
+			status = StatusReloading
 		}
 		toolCount := 0
 		if entry.conn != nil {
@@ -248,8 +279,12 @@ func (m *Manager) ListToolInfos() []ToolInfo {
 // TestServer attempts a one-off connect + list tools without persisting.
 func (m *Manager) TestServer(ctx context.Context, serverID string) TestResult {
 	m.mu.RLock()
+	reloading := m.reloading
 	entry, ok := m.servers[serverID]
 	m.mu.RUnlock()
+	if reloading {
+		return TestResult{Error: "MCP is reloading; try again in a moment"}
+	}
 	if !ok {
 		return TestResult{Error: "unknown server: " + serverID}
 	}
@@ -267,11 +302,18 @@ func (m *Manager) TestServer(ctx context.Context, serverID string) TestResult {
 	return TestResult{OK: true, ToolCount: len(conn.tools), Tools: names}
 }
 
-// Reconnect disconnects and reconnects one server.
+// Reconnect disconnects and reconnects one server. It refuses to run while a
+// full Reload is in flight: Reload's Start() rebuilds the servers map from
+// scratch, so a Reconnect racing that rebuild could write a stale connection
+// into an entry Start() is about to discard or has already superseded.
 func (m *Manager) Reconnect(ctx context.Context, serverID string) error {
 	m.mu.RLock()
+	reloading := m.reloading
 	entry, ok := m.servers[serverID]
 	m.mu.RUnlock()
+	if reloading {
+		return fmt.Errorf("MCP is reloading; try again in a moment")
+	}
 	if !ok {
 		return nil
 	}

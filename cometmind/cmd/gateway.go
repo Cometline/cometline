@@ -57,7 +57,7 @@ func runGateway(_ *cobra.Command, _ []string) error {
 		}
 		defer processctl.RemoveMetadata(processctl.ModeGatewayDiscord)
 	}
-	go handleReloadSignal(ctx, hupCh, func(reloadCtx context.Context) error {
+	go handleReloadSignal(ctx, hupCh, processctl.ModeGatewayDiscord, func(reloadCtx context.Context) error {
 		return rt.Reload(reloadCtx)
 	})
 

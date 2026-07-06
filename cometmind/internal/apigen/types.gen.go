@@ -103,6 +103,7 @@ const (
 	Disabled     McpServerStatusStatus = "disabled"
 	Disconnected McpServerStatusStatus = "disconnected"
 	Error        McpServerStatusStatus = "error"
+	Reloading    McpServerStatusStatus = "reloading"
 )
 
 // Valid indicates whether the value is a known member of the McpServerStatusStatus enum.
@@ -115,6 +116,8 @@ func (e McpServerStatusStatus) Valid() bool {
 	case Disconnected:
 		return true
 	case Error:
+		return true
+	case Reloading:
 		return true
 	default:
 		return false

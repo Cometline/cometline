@@ -310,7 +310,7 @@ export type McpServerStatus = {
     name: string;
     enabled: boolean;
     transport: string;
-    status: 'disabled' | 'connected' | 'error' | 'disconnected';
+    status: 'disabled' | 'connected' | 'error' | 'disconnected' | 'reloading';
     tool_count: number;
     last_error?: string;
     oauth_connected?: boolean;

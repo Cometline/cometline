@@ -280,6 +280,25 @@ declare global {
 		updatedAt?: number;
 	}
 
+	/**
+	 * Real outcome of applying a settings save to the running CometMind sidecar.
+	 * `action` distinguishes a confirmed in-place reload from a fallback/cold
+	 * restart so the UI can report what actually happened instead of assuming
+	 * every save silently succeeded.
+	 */
+	interface RuntimeReloadOutcome {
+		action: 'reload' | 'restart' | 'restart-fallback';
+		healthy: boolean;
+		/** Present when action is 'restart-fallback': why the in-place reload failed. */
+		error?: string;
+	}
+
+	interface SaveProviderSettingsResult {
+		settings: ProviderSettings;
+		/** null when the save did not request any runtime action (e.g. shortcuts). */
+		reload: RuntimeReloadOutcome | null;
+	}
+
 	type ReadWorkspaceFileResult =
 		| { ok: true; kind: 'text'; content: string; extension: string }
 		| { ok: true; kind: 'image'; mimeType: string; dataUrl: string }
@@ -342,7 +361,7 @@ declare global {
 					runtimeAction?: 'none' | 'reload' | 'restart';
 					restartCometMind?: boolean;
 				}
-			) => Promise<ProviderSettings>;
+			) => Promise<SaveProviderSettingsResult>;
 			exportProviderSettings?: () => Promise<SettingsFileResult>;
 			importProviderSettings?: () => Promise<SettingsFileResult>;
 			setSidebarOpen?: (state: SidebarChromeState) => void;

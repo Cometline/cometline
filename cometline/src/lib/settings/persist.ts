@@ -12,18 +12,32 @@ export interface PersistSettingsOptions {
 	memory?: MemorySettings;
 }
 
+export interface PersistSettingsResult {
+	settings: ProviderSettings;
+	memory?: MemorySettings;
+	/**
+	 * Real outcome of applying the save to the running sidecar, or null when no
+	 * runtime action was requested, or undefined outside Electron (browser/dev
+	 * fallback path, which only writes to localStorage).
+	 */
+	reload?: RuntimeReloadOutcome | null;
+}
+
 export async function persistSettings(
 	draft: ProviderSettings,
 	options: PersistSettingsOptions = {}
-): Promise<{ settings: ProviderSettings; memory?: MemorySettings }> {
+): Promise<PersistSettingsResult> {
 	const runtimeAction = options.runtimeAction ?? (options.restartCometMind === false ? 'none' : 'restart');
 	const normalized = validateSettings(normalizeSettings(draft));
 
 	let saved: ProviderSettings;
+	let reload: RuntimeReloadOutcome | null | undefined;
 	if (window.electronAPI?.saveProviderSettings) {
-		saved = await window.electronAPI.saveProviderSettings(normalized, {
+		const result = await window.electronAPI.saveProviderSettings(normalized, {
 			runtimeAction
 		});
+		saved = result.settings;
+		reload = result.reload;
 	} else {
 		localStorage.setItem('cometline-settings', JSON.stringify(normalized));
 		saved = normalized;
@@ -42,5 +56,5 @@ export async function persistSettings(
 		connectionState.reconnect();
 	}
 
-	return { settings: saved, memory };
+	return { settings: saved, memory, reload };
 }

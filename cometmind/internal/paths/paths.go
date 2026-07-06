@@ -98,3 +98,15 @@ func ProcessMetaPath(mode string) (string, error) {
 	}
 	return filepath.Join(d, mode+".json"), nil
 }
+
+// ProcessReloadResultPath returns the path a long-lived process writes its most
+// recent settings-reload outcome to, so a short-lived CLI invocation (e.g.
+// `cometmind settings reload`) can confirm the reload actually completed
+// instead of merely delivering a SIGHUP.
+func ProcessReloadResultPath(mode string) (string, error) {
+	d, err := DataDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(d, mode+".reload.json"), nil
+}

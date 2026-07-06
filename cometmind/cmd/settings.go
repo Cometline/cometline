@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"syscall"
+	"time"
 
 	"github.com/cometline/cometmind/internal/config"
 	"github.com/cometline/cometmind/internal/paths"
@@ -92,20 +93,75 @@ var settingsImportCmd = &cobra.Command{
 	},
 }
 
+// reloadConfirmTimeout bounds how long `settings reload` waits for the
+// running process to actually finish applying the reload (config re-read +
+// MCP manager Reload) before giving up and reporting an unconfirmed reload.
+// Must comfortably exceed Runtime.Reload's own internal reload context
+// timeout (30s) plus MCP connect fan-out time.
+const reloadConfirmTimeout = 35 * time.Second
+
 var settingsReloadCmd = &cobra.Command{
 	Use:   "reload",
-	Short: "Request running CometMind processes to reload settings",
+	Short: "Request running CometMind processes to reload settings and confirm the result",
 	RunE: func(_ *cobra.Command, _ []string) error {
-		count, err := processctl.Signal(syscall.SIGHUP, processctl.ModeServe, processctl.ModeGatewayDiscord)
+		modes := []string{processctl.ModeServe, processctl.ModeGatewayDiscord}
+		baseline := make(map[string]int64, len(modes))
+		targets := make([]string, 0, len(modes))
+		for _, mode := range modes {
+			state, err := processctl.ReadState(mode)
+			if err != nil {
+				return err
+			}
+			if !state.Running {
+				continue
+			}
+			result, err := processctl.ReadReloadResult(mode)
+			if err != nil {
+				return err
+			}
+			baseline[mode] = result.Generation
+			targets = append(targets, mode)
+		}
+		if len(targets) == 0 {
+			return fmt.Errorf("no running CometMind processes found")
+		}
+
+		count, err := processctl.Signal(syscall.SIGHUP, targets...)
 		if err != nil {
 			return err
 		}
 		if count == 0 {
 			return fmt.Errorf("no running CometMind processes found")
 		}
-		fmt.Printf("requested settings reload for %d process(es)\n", count)
+
+		var failures []string
+		for _, mode := range targets {
+			result, confirmed := processctl.WaitForReloadGeneration(mode, baseline[mode], reloadConfirmTimeout)
+			if !confirmed {
+				failures = append(failures, fmt.Sprintf("%s: reload did not confirm within %s", mode, reloadConfirmTimeout))
+				continue
+			}
+			if !result.Success {
+				failures = append(failures, fmt.Sprintf("%s: %s", mode, result.Error))
+			}
+		}
+		if len(failures) > 0 {
+			return fmt.Errorf("settings reload failed for %d process(es):\n%s", len(failures), joinLines(failures))
+		}
+		fmt.Printf("confirmed settings reload for %d process(es)\n", count)
 		return nil
 	},
+}
+
+func joinLines(lines []string) string {
+	out := ""
+	for i, line := range lines {
+		if i > 0 {
+			out += "\n"
+		}
+		out += "  - " + line
+	}
+	return out
 }
 
 func init() {

@@ -58,7 +58,7 @@ func runServe(_ *cobra.Command, _ []string) error {
 		return err
 	}
 	defer processctl.RemoveMetadata(processctl.ModeServe)
-	go handleReloadSignal(ctx, hupCh, func(reloadCtx context.Context) error {
+	go handleReloadSignal(ctx, hupCh, processctl.ModeServe, func(reloadCtx context.Context) error {
 		return rt.Reload(reloadCtx)
 	})
 

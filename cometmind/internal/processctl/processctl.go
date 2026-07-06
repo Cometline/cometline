@@ -35,6 +35,20 @@ type State struct {
 	Stale    bool     `json:"stale"`
 }
 
+// ReloadResult is written by a long-lived process (serve/gateway) after it
+// finishes handling a SIGHUP-triggered settings reload. A short-lived CLI
+// invocation (`cometmind settings reload`) polls this file so it can report
+// whether the reload actually succeeded instead of just "signal delivered".
+type ReloadResult struct {
+	// Generation increments on every reload attempt, success or failure, so a
+	// poller can detect "a new reload happened" even if two attempts produce
+	// the same Success value.
+	Generation int64  `json:"generation"`
+	Success    bool   `json:"success"`
+	Error      string `json:"error,omitempty"`
+	FinishedAt string `json:"finished_at"`
+}
+
 func KnownModes() []string {
 	return []string{ModeServe, ModeGatewayDiscord}
 }
@@ -91,10 +105,10 @@ func WriteMetadata(mode string) error {
 		return err
 	}
 	data = append(data, '\n')
-	if err := os.WriteFile(metaPath, data, 0o600); err != nil {
+	if err := writeFileAtomic(metaPath, data, 0o600); err != nil {
 		return err
 	}
-	if err := os.WriteFile(pidPath, []byte(strconv.Itoa(meta.PID)+"\n"), 0o600); err != nil {
+	if err := writeFileAtomic(pidPath, []byte(strconv.Itoa(meta.PID)+"\n"), 0o600); err != nil {
 		return err
 	}
 	return nil
@@ -107,6 +121,83 @@ func RemoveMetadata(mode string) {
 	if pidPath, err := paths.ProcessPIDPath(mode); err == nil {
 		_ = os.Remove(pidPath)
 	}
+}
+
+// ReadReloadResult reads the last-recorded reload outcome for one process
+// mode. A missing file (no reload has happened yet this process lifetime)
+// returns a zero-value result with Generation 0, not an error.
+func ReadReloadResult(mode string) (ReloadResult, error) {
+	if !isKnownMode(mode) {
+		return ReloadResult{}, fmt.Errorf("unknown process mode %q", mode)
+	}
+	path, err := reloadResultPath(mode)
+	if err != nil {
+		return ReloadResult{}, err
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return ReloadResult{}, nil
+		}
+		return ReloadResult{}, err
+	}
+	var result ReloadResult
+	if err := json.Unmarshal(data, &result); err != nil {
+		return ReloadResult{}, err
+	}
+	return result, nil
+}
+
+// WriteReloadResult persists the outcome of one reload attempt. It is
+// intentionally best-effort from the caller's perspective (the runtime reload
+// itself already succeeded or failed; this just records that fact) but
+// returns the write error so callers can log it.
+func WriteReloadResult(mode string, result ReloadResult) error {
+	if !isKnownMode(mode) {
+		return fmt.Errorf("unknown process mode %q", mode)
+	}
+	path, err := reloadResultPath(mode)
+	if err != nil {
+		return err
+	}
+	data, err := json.MarshalIndent(result, "", "  ")
+	if err != nil {
+		return err
+	}
+	data = append(data, '\n')
+	return writeFileAtomic(path, data, 0o600)
+}
+
+// WaitForReloadGeneration polls the reload-result file for one process mode
+// until its Generation exceeds sinceGeneration (a new reload attempt has been
+// recorded) or timeout elapses. It returns the observed result and whether a
+// new generation was seen before the timeout.
+func WaitForReloadGeneration(mode string, sinceGeneration int64, timeout time.Duration) (ReloadResult, bool) {
+	deadline := time.Now().Add(timeout)
+	for {
+		result, err := ReadReloadResult(mode)
+		if err == nil && result.Generation > sinceGeneration {
+			return result, true
+		}
+		if time.Now().After(deadline) {
+			return result, false
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+}
+
+func reloadResultPath(mode string) (string, error) {
+	return paths.ProcessReloadResultPath(mode)
+}
+
+// writeFileAtomic writes data to path via a temp file + rename so a reader
+// (e.g. a concurrent poller) never observes a partially-written file.
+func writeFileAtomic(path string, data []byte, perm os.FileMode) error {
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, data, perm); err != nil {
+		return err
+	}
+	return os.Rename(tmp, path)
 }
 
 func Signal(sig syscall.Signal, modes ...string) (int, error) {

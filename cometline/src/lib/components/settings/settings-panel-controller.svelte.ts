@@ -339,7 +339,7 @@ export function createSettingsPanelController(deps: {
 				deps.setDraft(draft);
 				const payload = providerPayloadFromDraft(draft);
 				const runtimeAction = runtimeActionForSettingsSave(settingsStore.settings, payload);
-				const { settings: saved, memory } = await settingsStore.save(payload, {
+				const { settings: saved, memory, reload } = await settingsStore.save(payload, {
 					runtimeAction,
 					memory: memoryPayload
 				});
@@ -347,7 +347,7 @@ export function createSettingsPanelController(deps: {
 					deps.getMemoryPanel()?.applySavedMemory?.(memory);
 				}
 				deps.setDraft(cloneSettings(saved));
-				deps.settingsController.status = saveStatusMessage('memory', runtimeAction);
+				deps.settingsController.status = saveStatusMessage('memory', runtimeAction, false, reload);
 			} catch (error) {
 				deps.settingsController.status =
 					error instanceof Error ? error.message : 'Failed to save memory settings';
@@ -366,7 +366,7 @@ export function createSettingsPanelController(deps: {
 		const runtimeAction = personaIdChanged
 			? 'reload'
 			: runtimeActionForSettingsSave(settingsStore.settings, payload);
-		const { settings: saved } = await settingsStore.save(payload, { runtimeAction });
+		const { settings: saved, reload } = await settingsStore.save(payload, { runtimeAction });
 		deps.setDraft(cloneSettings(saved));
 		cometmindPanelKey += 1;
 		deps.settingsController.activeSection = preservedSection;
@@ -379,7 +379,8 @@ export function createSettingsPanelController(deps: {
 		deps.settingsController.status = saveStatusMessage(
 			preservedSection,
 			runtimeAction,
-			personaIdChanged
+			personaIdChanged,
+			reload
 		);
 		if (personaIdChanged) {
 			setTimeout(replayIntro, 600);
@@ -399,8 +400,17 @@ export function createSettingsPanelController(deps: {
 		payload.activeProviderId = activeProvider?.id ?? '';
 		payload.cometmind = { ...payload.cometmind, ...overrides };
 		const runtimeAction = runtimeActionForSettingsSave(settingsStore.settings, payload);
-		const { settings: saved } = await settingsStore.save(payload, { runtimeAction });
+		const { settings: saved, reload } = await settingsStore.save(payload, { runtimeAction });
 		deps.setDraft(cloneSettings(saved));
+		// Surface a failed-but-fallback-worked reload so a caller like the MCP
+		// OAuth pre-save flow doesn't silently proceed to open a browser against
+		// config that may not have actually applied. A hard failure (unhealthy)
+		// already throws from settingsStore.save/persistSettings.
+		if (reload && reload.action === 'restart-fallback') {
+			throw new Error(
+				`Settings saved, but CometMind had to restart instead of reloading in place: ${reload.error ?? 'unknown error'}`
+			);
+		}
 	}
 
 	function setSelectedMethod(method: ProviderMethod) {

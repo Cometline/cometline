@@ -3,11 +3,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, waitFor } from '@testing-library/svelte';
 import { flushSync } from 'svelte';
 import Harness from './SettingsMCPPanel.harness.svelte';
-import { startMcpOAuth } from '$lib/client/cometmind';
+import { listMcpServers, startMcpOAuth } from '$lib/client/cometmind';
 import type { CometMindMCPSettings } from '$lib/cometmind-settings';
+import { defaultSettings } from '$lib/settings/schema';
+import { settingsStore } from '$lib/stores/settings.svelte';
+import type { ProviderSettings } from '$lib/types';
 
 vi.mock('$lib/client/cometmind', () => ({
-	listMcpServers: () => Promise.resolve([]),
+	listMcpServers: vi.fn(() => Promise.resolve([])),
 	listMcpTools: () => Promise.resolve([]),
 	reconnectMcpServer: vi.fn(),
 	startMcpOAuth: vi.fn()
@@ -15,7 +18,17 @@ vi.mock('$lib/client/cometmind', () => ({
 
 afterEach(() => {
 	vi.clearAllMocks();
+	settingsStore.apply(defaultSettings());
 });
+
+/** Seeds settingsStore.settings.cometmind.mcp so resyncDraftFromPersistedSettings has something to pull. */
+function seedPersistedMcp(mcp: CometMindMCPSettings) {
+	const next: ProviderSettings = {
+		...defaultSettings(),
+		cometmind: { ...defaultSettings().cometmind, mcp }
+	};
+	settingsStore.apply(next);
+}
 
 function clickAddServer(container: HTMLElement) {
 	const addButton = [...container.querySelectorAll('button')].find((button) =>
@@ -47,6 +60,19 @@ function oauthButton(container: HTMLElement): HTMLButtonElement {
 		candidate.textContent?.includes('Connect with OAuth')
 	) as HTMLButtonElement | undefined;
 	expect(button).toBeTruthy();
+	return button!;
+}
+
+/** Finds the toolbar's refresh button, waiting out onMount's initial refresh
+ *  (which flips the label to "Refreshing…" until it settles). */
+async function waitForRefreshButton(container: HTMLElement): Promise<HTMLButtonElement> {
+	let button: HTMLButtonElement | undefined;
+	await waitFor(() => {
+		button = [...container.querySelectorAll('button')].find((candidate) =>
+			candidate.textContent?.includes('Refresh status')
+		) as HTMLButtonElement | undefined;
+		expect(button).toBeTruthy();
+	});
 	return button!;
 }
 
@@ -169,5 +195,97 @@ describe('SettingsMCPPanel add server', () => {
 			expect(container.textContent).toContain('save failed');
 		});
 		expect(startMcpOAuth).not.toHaveBeenCalled();
+	});
+});
+
+describe('SettingsMCPPanel refresh status resync (fix for stuck toggle)', () => {
+	it('Refresh status re-syncs mcp.enabled from persisted settings when the draft reverted', async () => {
+		// Simulate the reported bug: persisted settings have MCP enabled, but the
+		// in-memory draft (e.g. after a discard or panel remount) reverted to
+		// disabled. Before the fix, clicking Refresh status never looked at
+		// persisted settings and so could never recover from this.
+		seedPersistedMcp({ enabled: true, servers: [] });
+		const { container } = render(Harness);
+
+		await waitFor(() => {
+			expect(container.querySelector('[data-testid="mcp-enabled"]')?.textContent).toBe('true');
+		});
+	});
+
+	it('Refresh status pulls in a server enabled flag that changed on disk without touching an expanded (in-progress) server', async () => {
+		const { container } = render(Harness);
+		clickAddServer(container);
+		await waitFor(() => {
+			expect(container.querySelector('.mcp-server-editor')).toBeTruthy();
+		});
+		const serverId = container
+			.querySelector('[data-testid="server-ids"]')
+			?.textContent?.split(',')[0];
+		expect(serverId).toBeTruthy();
+
+		// Persisted settings now show this server as disabled (e.g. saved from
+		// another window), but the user has it expanded/mid-edit here.
+		seedPersistedMcp({
+			enabled: true,
+			servers: [
+				{
+					id: serverId!,
+					name: 'Persisted Name',
+					enabled: false,
+					transport: 'stdio',
+					command: '',
+					args: [],
+					env: {},
+					url: '',
+					headers: {}
+				}
+			]
+		});
+
+		const refreshButton = await waitForRefreshButton(container);
+		await fireEvent.click(refreshButton);
+
+		// Expanded server is being edited right now — resync must not clobber it.
+		await waitFor(() => {
+			expect(container.querySelector('[data-testid="mcp-enabled"]')?.textContent).toBe('true');
+		});
+		const displayNameInput = container.querySelector(
+			'input[type="text"]'
+		) as HTMLInputElement | null;
+		expect(displayNameInput?.value).not.toBe('Persisted Name');
+	});
+
+	it('shows a reloading hint and badge while CometMind reports a server as reloading', async () => {
+		// MCP is already enabled and saved (as it would be for this scenario to
+		// be reachable in practice), then the user adds a new server locally.
+		seedPersistedMcp({ enabled: true, servers: [] });
+		const { container } = render(Harness);
+		clickAddServer(container);
+		await waitFor(() => {
+			expect(container.querySelector('.mcp-server-editor')).toBeTruthy();
+		});
+		const serverId = container
+			.querySelector('[data-testid="server-ids"]')
+			?.textContent?.split(',')[0];
+		expect(serverId).toBeTruthy();
+
+		vi.mocked(listMcpServers).mockResolvedValue([
+			{
+				id: serverId!,
+				name: 'MCP Server 1',
+				enabled: true,
+				transport: 'stdio',
+				status: 'reloading',
+				tool_count: 0
+			}
+		]);
+
+		const refreshButton = await waitForRefreshButton(container);
+		await fireEvent.click(refreshButton);
+
+		await waitFor(() => {
+			expect(container.textContent).toContain('CometMind is reloading MCP servers');
+			expect(container.querySelector('.status-badge.pending')).toBeTruthy();
+		});
 	});
 });

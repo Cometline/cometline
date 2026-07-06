@@ -17,6 +17,7 @@
 		type McpServerStatus,
 		type McpToolInfo
 	} from '$lib/client/cometmind';
+	import { settingsStore } from '$lib/stores/settings.svelte';
 	import { ChevronDown, ChevronRight, Download, Plus, RefreshCw, Trash2 } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 
@@ -299,6 +300,7 @@
 		const value = statusLabel(status, server);
 		if (value === 'connected') return 'connected';
 		if (value === 'error' || value === 'disconnected') return 'error';
+		if (value === 'reloading') return 'pending';
 		if (value === 'Disabled' || value === 'Off') return 'idle';
 		return 'idle';
 	}
@@ -331,10 +333,36 @@
 		}
 	}
 
+	/**
+	 * Re-reads persisted MCP settings (`settingsStore.settings.cometmind.mcp`)
+	 * into the local editing draft, but only for servers the user is not
+	 * actively editing (expanded). This is the fix for the "toggle MCP off/on,
+	 * click Refresh status, it's still stuck" report: previously
+	 * refreshMcpRuntime() only pulled runtime *connection* status
+	 * (listMcpServers/listMcpTools) and never looked at whether the on-disk
+	 * `enabled` flags actually matched the draft, so Refresh could never
+	 * self-heal a draft that silently reverted (unsaved-changes discard, panel
+	 * remount, etc.) — it always looked "successful" while showing stale data.
+	 *
+	 * The expanded server (if any) is left alone so this cannot clobber
+	 * in-progress edits the user hasn't saved yet.
+	 */
+	function resyncDraftFromPersistedSettings() {
+		const persisted = settingsStore.settings.cometmind.mcp;
+		const persistedById = new Map(persisted.servers.map((server) => [server.id, server]));
+		const nextServers = mcp.servers.map((server) => {
+			if (server.id === expandedServerId) return server;
+			const saved = persistedById.get(server.id);
+			return saved ? { ...server, ...saved } : server;
+		});
+		updateMcp({ enabled: persisted.enabled, servers: nextServers });
+	}
+
 	async function refreshMcpRuntime() {
 		mcpBusy = true;
 		mcpStatus = '';
 		try {
+			resyncDraftFromPersistedSettings();
 			const [servers, tools] = await Promise.all([
 				withTimeout(listMcpServers(), 'MCP server status'),
 				withTimeout(listMcpTools(), 'MCP tool list')
@@ -349,6 +377,9 @@
 				})
 			);
 			oauthStatus = Object.fromEntries(oauthEntries);
+			if (servers?.some((server) => server.status === 'reloading')) {
+				mcpStatus = 'CometMind is reloading MCP servers…';
+			}
 		} catch (err) {
 			mcpStatus = err instanceof Error ? err.message : 'Failed to load MCP status';
 		} finally {
@@ -965,6 +996,11 @@
 	.status-badge.error {
 		background: rgba(180, 35, 24, 0.12);
 		color: var(--status-error);
+	}
+
+	.status-badge.pending {
+		background: rgba(180, 130, 24, 0.14);
+		color: #8a5a10;
 	}
 
 	.tool-toggles {

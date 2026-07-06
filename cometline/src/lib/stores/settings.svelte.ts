@@ -198,11 +198,10 @@ function createSettingsStore() {
 				app: { ...settings.app, webPanelWidth: next }
 			});
 			if (window.electronAPI?.saveProviderSettings) {
-				apply(
-					await window.electronAPI.saveProviderSettings(normalized, {
-						restartCometMind: false
-					})
-				);
+				const result = await window.electronAPI.saveProviderSettings(normalized, {
+					restartCometMind: false
+				});
+				apply(result.settings);
 				return;
 			}
 			writeLocalSettings(normalized);
@@ -218,11 +217,10 @@ function createSettingsStore() {
 		try {
 			const normalized = normalizeSettings({ ...settings, shortcuts });
 			if (window.electronAPI?.saveProviderSettings) {
-				apply(
-					await window.electronAPI.saveProviderSettings(normalized, {
-						restartCometMind: false
-					})
-				);
+				const result = await window.electronAPI.saveProviderSettings(normalized, {
+					restartCometMind: false
+				});
+				apply(result.settings);
 				return;
 			}
 			writeLocalSettings(normalized);

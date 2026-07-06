@@ -100,17 +100,34 @@ func init() {
 	rootCmd.AddCommand(processCmd)
 }
 
-func handleReloadSignal(ctx context.Context, hupCh <-chan os.Signal, reload func(context.Context) error) {
+// handleReloadSignal waits for SIGHUP and runs reload, recording the outcome
+// via processctl.WriteReloadResult under mode so a separate short-lived CLI
+// invocation (`cometmind settings reload`) can confirm the reload actually
+// completed — and why it failed, if it did — instead of only knowing the
+// signal was delivered.
+func handleReloadSignal(ctx context.Context, hupCh <-chan os.Signal, mode string, reload func(context.Context) error) {
+	var generation int64
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-hupCh:
+			generation++
 			reloadCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-			if err := reload(reloadCtx); err != nil {
-				logging.L().Error("runtime.reload_failed", "error", err)
-			}
+			err := reload(reloadCtx)
 			cancel()
+			result := processctl.ReloadResult{
+				Generation: generation,
+				Success:    err == nil,
+				FinishedAt: time.Now().UTC().Format(time.RFC3339),
+			}
+			if err != nil {
+				logging.L().Error("runtime.reload_failed", "error", err)
+				result.Error = err.Error()
+			}
+			if werr := processctl.WriteReloadResult(mode, result); werr != nil {
+				logging.L().Warn("runtime.reload_result_write_failed", "error", werr)
+			}
 		}
 	}
 }

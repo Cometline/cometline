@@ -34,9 +34,52 @@ describe('runtimeActionForSettingsSave', () => {
 });
 
 describe('saveStatusMessage', () => {
-	it('reports reload distinctly from restart', () => {
+	it('reports reload distinctly from restart when no reload outcome is known', () => {
 		expect(saveStatusMessage('agent', 'reload')).toBe('Changes saved. CometMind reloaded.');
 		expect(saveStatusMessage('agent', 'restart')).toBe('Changes saved. CometMind restarted.');
 		expect(saveStatusMessage('agent', 'none')).toBe('Changes saved.');
+	});
+
+	it('reports a confirmed reload the same as before when reload succeeded', () => {
+		const message = saveStatusMessage('agent', 'reload', false, {
+			action: 'reload',
+			healthy: true
+		});
+		expect(message).toBe('Changes saved. CometMind reloaded.');
+	});
+
+	it('surfaces a restart fallback with the underlying error instead of pretending the reload worked', () => {
+		const message = saveStatusMessage('agent', 'reload', false, {
+			action: 'restart-fallback',
+			healthy: true,
+			error: 'settings reload did not confirm within 35s'
+		});
+		expect(message).toBe(
+			'Changes saved. CometMind reload failed and restarted instead (settings reload did not confirm within 35s).'
+		);
+	});
+
+	it('surfaces an unhealthy restart fallback distinctly from a healthy one', () => {
+		const message = saveStatusMessage('agent', 'reload', false, {
+			action: 'restart-fallback',
+			healthy: false,
+			error: 'boom'
+		});
+		expect(message).toBe(
+			'Changes saved. CometMind reload failed and the restart did not come back up (boom). Check the CometMind log.'
+		);
+	});
+
+	it('flags a reload/restart that did not come back healthy', () => {
+		expect(
+			saveStatusMessage('agent', 'reload', false, { action: 'reload', healthy: false })
+		).toBe('Changes saved. CometMind reloaded but is not responding yet. Check the CometMind log.');
+		expect(
+			saveStatusMessage('agent', 'restart', false, { action: 'restart', healthy: false })
+		).toBe('Changes saved. CometMind restarted but is not responding yet. Check the CometMind log.');
+	});
+
+	it('reports no runtime note when reload is explicitly null (no action requested)', () => {
+		expect(saveStatusMessage('agent', 'none', false, null)).toBe('Changes saved.');
 	});
 });

@@ -1101,13 +1101,25 @@ function writeProviderSettings(settings) {
 		)
 	);
 	const settingsPath = getSettingsPath();
-	fs.writeFileSync(settingsPath, JSON.stringify(next, null, 2));
+	writeJsonFileAtomic(settingsPath, next, 0o600);
+	return next;
+}
+
+// writeJsonFileAtomic writes JSON to a temp file in the same directory then
+// renames it over the target path. A concurrent reader (e.g. CometMind
+// re-reading cometline-settings.json during a settings-reload signal) always
+// observes either the old complete file or the new complete file, never a
+// half-written one — rename is atomic on the same filesystem, a plain
+// writeFileSync is not.
+function writeJsonFileAtomic(targetPath, data, mode) {
+	const tmpPath = `${targetPath}.${process.pid}.tmp`;
+	fs.writeFileSync(tmpPath, JSON.stringify(data, null, 2), { mode });
 	try {
-		fs.chmodSync(settingsPath, 0o600);
+		fs.chmodSync(tmpPath, mode);
 	} catch {
 		/* ignore */
 	}
-	return next;
+	fs.renameSync(tmpPath, targetPath);
 }
 
 function readMiniWindowState() {
@@ -1931,10 +1943,22 @@ async function waitForHealth() {
 	return false;
 }
 
+// reloadCometMind() applies settings changes to the running sidecar without a
+// full restart. It returns a structured outcome instead of a bare boolean so
+// callers (currently save-provider-settings) can tell the difference between
+// "confirmed reload", "reload failed and we fell back to a full restart", and
+// "everything failed" — previously all three collapsed into the same
+// hardcoded "Changes saved. CometMind reloaded." message.
+//
+// `cometmind settings reload` (see cmd/settings.go) now blocks until the
+// target process's reload-result file reports a new generation, so a
+// resolved promise here means the sidecar actually re-read config and
+// finished Manager.Reload, not just that a SIGHUP was delivered.
 async function reloadCometMind() {
 	if (!isCometMindRunning()) {
 		startCometMind();
-		return waitForHealth();
+		const healthy = await waitForHealth();
+		return { action: 'restart', healthy };
 	}
 	try {
 		await runCometMindCommand(['settings', 'reload']);
@@ -1942,12 +1966,17 @@ async function reloadCometMind() {
 		if (!healthy) {
 			throw new Error('CometMind did not report healthy after reload');
 		}
-		return true;
+		return { action: 'reload', healthy: true };
 	} catch (error) {
 		console.warn('CometMind reload failed, falling back to restart:', error);
 		await stopCometMind();
 		startCometMind();
-		return waitForHealth();
+		const healthy = await waitForHealth();
+		return {
+			action: 'restart-fallback',
+			healthy,
+			error: error instanceof Error ? error.message : String(error)
+		};
 	}
 }
 
@@ -3079,12 +3108,18 @@ ipcMain.handle('cometline:save-provider-settings', async (_event, settings, opti
 	}
 	refreshGlobalShortcuts();
 	configureApplicationMenu();
+	// `reload` carries the real applied outcome (confirmed reload / fell back to
+	// restart / restarted from cold) instead of the previous hardcoded "it
+	// worked" assumption baked into the caller's status message. null means no
+	// runtime action was requested (e.g. shortcuts/webPanelWidth saves).
+	let reload = null;
 	if (runtimeAction === 'restart') {
 		await stopCometMind();
 		startCometMind();
-		await waitForHealth();
+		const healthy = await waitForHealth();
+		reload = { action: 'restart', healthy };
 	} else if (runtimeAction === 'reload') {
-		await reloadCometMind();
+		reload = await reloadCometMind();
 	}
 	await syncDiscordGatewayFromSettings(saved);
 	applyOpenAtLoginSetting(saved.app?.openAtLogin);
@@ -3092,7 +3127,7 @@ ipcMain.handle('cometline:save-provider-settings', async (_event, settings, opti
 		applyPersona(saved.app?.personaId, saved);
 	}
 	broadcastProviderSettingsChanged(saved);
-	return saved;
+	return { settings: saved, reload };
 });
 
 ipcMain.handle('cometline:open-settings-window', async () => {

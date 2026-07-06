@@ -2318,7 +2318,7 @@ components:
           type: string
         status:
           type: string
-          enum: [disabled, connected, error, disconnected]
+          enum: [disabled, connected, error, disconnected, reloading]
         tool_count:
           type: integer
         last_error:
