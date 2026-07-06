@@ -77,7 +77,8 @@
 	.composer-footer {
 		display: flex;
 		align-items: center;
-		justify-content: space-between;
+		gap: 8px;
+		min-width: 0;
 	}
 
 	.composer-tools,
@@ -86,6 +87,15 @@
 		align-items: center;
 		gap: 8px;
 		min-width: 0;
+	}
+
+	.composer-tools {
+		flex: 1 1 auto;
+	}
+
+	.composer-actions {
+		flex: 0 0 auto;
+		margin-left: auto;
 	}
 
 	.composer-footer button {
@@ -113,6 +123,7 @@
 
 	.send-button {
 		display: grid;
+		flex-shrink: 0;
 		place-items: center;
 		padding: 6px;
 		border-radius: 999px;
@@ -144,6 +155,7 @@
 
 	.stop-button {
 		display: grid;
+		flex-shrink: 0;
 		place-items: center;
 		padding: 6px;
 		border-radius: 999px;
@@ -175,9 +187,11 @@
 
 	.workspace-indicator {
 		display: inline-flex;
+		flex: 0 1 auto;
 		align-items: center;
 		gap: 5px;
-		max-width: 100%;
+		min-width: 0;
+		max-width: min(10rem, 42%);
 		padding: 5px 8px;
 		font-size: 13px;
 		font-weight: 500;
@@ -192,9 +206,9 @@
 
 	.workspace-indicator span {
 		min-width: 0;
-		max-width: 150px;
 		overflow: hidden;
 		text-overflow: ellipsis;
+		white-space: nowrap;
 		text-transform: uppercase;
 	}
 

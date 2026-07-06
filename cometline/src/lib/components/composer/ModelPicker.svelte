@@ -127,12 +127,16 @@
 <style>
 	.model-picker {
 		position: relative;
+		flex: 0 1 auto;
+		min-width: 0;
+		max-width: min(16rem, 58%);
 	}
 
 	.model-button {
 		display: inline-flex;
 		align-items: center;
 		gap: 5px;
+		min-width: 0;
 		max-width: 100%;
 		padding: 5px 8px;
 		border: none;
@@ -148,7 +152,6 @@
 
 	.model-button span {
 		min-width: 0;
-		max-width: 150px;
 		overflow: hidden;
 		text-overflow: ellipsis;
 	}
