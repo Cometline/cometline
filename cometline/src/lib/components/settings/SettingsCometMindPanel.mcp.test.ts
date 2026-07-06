@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { render, waitFor } from '@testing-library/svelte';
+import { fireEvent, render, waitFor } from '@testing-library/svelte';
 import { flushSync } from 'svelte';
 import Harness from './SettingsCometMindPanel.mcp.harness.svelte';
 
@@ -24,6 +24,24 @@ afterEach(() => {
 });
 
 describe('SettingsCometMindPanel MCP add server', () => {
+	it('keeps the parent draft in sync when toggling MCP tools', async () => {
+		const { container } = render(Harness);
+
+		await waitFor(() => {
+			expect(container.querySelector('[data-testid="mcp-enabled"]')?.textContent).toBe('false');
+		});
+
+		const toggle = [...container.querySelectorAll('button[role="switch"]')].find((button) =>
+			button.getAttribute('aria-label')?.includes('Use MCP tools')
+		) as HTMLButtonElement | undefined;
+		expect(toggle).toBeTruthy();
+		await fireEvent.click(toggle!);
+
+		await waitFor(() => {
+			expect(container.querySelector('[data-testid="mcp-enabled"]')?.textContent).toBe('true');
+		});
+	});
+
 	it('shows the new server in the MCP list after Add server', async () => {
 		const { container } = render(Harness);
 

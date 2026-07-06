@@ -19,7 +19,7 @@
 		cometmind: CometMindSettings;
 		providers?: ProviderConfig[];
 		onPickWorkspace?: () => void | Promise<void>;
-		onPersistBeforeRuntimeAction?: () => Promise<void>;
+		onPersistBeforeRuntimeAction?: (overrides?: Partial<Pick<CometMindSettings, 'mcp'>>) => Promise<void>;
 	} = $props();
 
 	type SkillSourceFilter = 'all' | 'cometmind' | 'workspace' | 'opencode' | 'claude' | 'other';

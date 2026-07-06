@@ -4,6 +4,7 @@ import { fireEvent, render, waitFor } from '@testing-library/svelte';
 import { flushSync } from 'svelte';
 import Harness from './SettingsMCPPanel.harness.svelte';
 import { startMcpOAuth } from '$lib/client/cometmind';
+import type { CometMindMCPSettings } from '$lib/cometmind-settings';
 
 vi.mock('$lib/client/cometmind', () => ({
 	listMcpServers: () => Promise.resolve([]),
@@ -50,6 +51,30 @@ function oauthButton(container: HTMLElement): HTMLButtonElement {
 }
 
 describe('SettingsMCPPanel add server', () => {
+	it('updates the draft when toggling MCP tools on and off', async () => {
+		const { container } = render(Harness);
+
+		await waitFor(() => {
+			expect(container.querySelector('[data-testid="mcp-enabled"]')?.textContent).toBe('false');
+		});
+
+		const toggle = container.querySelector('button[role="switch"]') as HTMLButtonElement | null;
+		expect(toggle).toBeTruthy();
+		await fireEvent.click(toggle!);
+
+		await waitFor(() => {
+			expect(container.querySelector('[data-testid="mcp-enabled"]')?.textContent).toBe('true');
+			expect(toggle!.getAttribute('aria-checked')).toBe('true');
+		});
+
+		await fireEvent.click(toggle!);
+
+		await waitFor(() => {
+			expect(container.querySelector('[data-testid="mcp-enabled"]')?.textContent).toBe('false');
+			expect(toggle!.getAttribute('aria-checked')).toBe('false');
+		});
+	});
+
 	it('adds a server and shows the expanded editor', async () => {
 		const { container } = render(Harness);
 
@@ -106,7 +131,7 @@ describe('SettingsMCPPanel add server', () => {
 
 	it('saves settings before starting OAuth for a draft server', async () => {
 		const calls: string[] = [];
-		const persist = vi.fn(async () => {
+		const persist = vi.fn(async (_overrides?: { mcp: CometMindMCPSettings }) => {
 			calls.push('save');
 		});
 		vi.mocked(startMcpOAuth).mockImplementation(async () => {
@@ -123,6 +148,8 @@ describe('SettingsMCPPanel add server', () => {
 			expect(persist).toHaveBeenCalledTimes(1);
 			expect(startMcpOAuth).toHaveBeenCalledTimes(1);
 		});
+		expect(persist.mock.calls[0]?.[0]?.mcp.enabled).toBe(true);
+		expect(persist.mock.calls[0]?.[0]?.mcp.servers[0]?.url).toBe('https://mcp.example.com/mcp');
 		expect(calls).toEqual(['save', 'oauth']);
 	});
 

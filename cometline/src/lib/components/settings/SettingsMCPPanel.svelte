@@ -25,7 +25,7 @@
 		onPersistBeforeRuntimeAction
 	}: {
 		mcp: CometMindMCPSettings;
-		onPersistBeforeRuntimeAction?: () => Promise<void>;
+		onPersistBeforeRuntimeAction?: (overrides?: { mcp: CometMindMCPSettings }) => Promise<void>;
 	} = $props();
 
 	const MCP_REFRESH_TIMEOUT_MS = 8_000;
@@ -380,7 +380,7 @@
 		try {
 			syncServerLists(server.id);
 			normalizeConnection(server.id);
-			await onPersistBeforeRuntimeAction?.();
+			await onPersistBeforeRuntimeAction?.({ mcp });
 			mcpStatus = 'Opening your browser to authorize. Complete sign-in, then return here…';
 			// CometMind drives the entire OAuth flow: metadata discovery, dynamic
 			// client registration, browser authorization (loopback capture), token

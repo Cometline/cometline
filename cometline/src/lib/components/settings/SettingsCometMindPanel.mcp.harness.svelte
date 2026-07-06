@@ -7,4 +7,5 @@
 
 <SettingsCometMindPanel bind:cometmind providers={[]} />
 
+<p data-testid="mcp-enabled">{String(cometmind.mcp.enabled)}</p>
 <p data-testid="server-count">{cometmind.mcp.servers.length}</p>

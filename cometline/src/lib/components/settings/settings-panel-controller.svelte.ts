@@ -386,7 +386,9 @@ export function createSettingsPanelController(deps: {
 		}
 	}
 
-	async function persistDraftForRuntime() {
+	async function persistDraftForRuntime(
+		overrides: Partial<Pick<ProviderSettings['cometmind'], 'mcp'>> = {}
+	) {
 		deps.getCometmindPanel()?.syncFields?.();
 		const draft = deps.getDraft();
 		const activeProvider =
@@ -395,6 +397,7 @@ export function createSettingsPanelController(deps: {
 			) ?? draft.providers[0];
 		const payload: ProviderSettings = providerPayloadFromDraft(draft);
 		payload.activeProviderId = activeProvider?.id ?? '';
+		payload.cometmind = { ...payload.cometmind, ...overrides };
 		const runtimeAction = runtimeActionForSettingsSave(settingsStore.settings, payload);
 		const { settings: saved } = await settingsStore.save(payload, { runtimeAction });
 		deps.setDraft(cloneSettings(saved));
