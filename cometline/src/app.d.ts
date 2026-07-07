@@ -352,6 +352,8 @@ declare global {
 			setOpenAtLogin?: (enabled: boolean) => Promise<OpenAtLoginState>;
 			openSessionInMainWindow?: (sessionId: string) => Promise<boolean>;
 			openSettingsWindow?: () => Promise<boolean>;
+			replayIntroInMainWindow?: () => Promise<boolean>;
+			runSetupWizardInMainWindow?: () => Promise<boolean>;
 			fetchProviderModels?: (
 				config: ProviderConfig
 			) => Promise<FetchProviderModelsResult | string[]>;
@@ -396,6 +398,8 @@ declare global {
 			onProviderSettingsChanged?: (
 				callback: (settings: ProviderSettings) => void
 			) => () => void;
+			onReplayIntro?: (callback: () => void) => () => void;
+			onRunSetupWizard?: (callback: () => void) => () => void;
 			getMiniWindowState?: () => Promise<MiniWindowState>;
 			saveMiniWindowState?: (state: {
 				sessionId?: string;

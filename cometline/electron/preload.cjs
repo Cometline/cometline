@@ -34,6 +34,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 	openSessionInMainWindow: (sessionId) =>
 		ipcRenderer.invoke('cometline:open-session-in-main-window', sessionId),
 	openSettingsWindow: () => ipcRenderer.invoke('cometline:open-settings-window'),
+	replayIntroInMainWindow: () => ipcRenderer.invoke('cometline:replay-intro'),
+	runSetupWizardInMainWindow: () => ipcRenderer.invoke('cometline:run-setup-wizard'),
 	getMiniWindowState: () => ipcRenderer.invoke('cometline:get-mini-window-state'),
 	saveMiniWindowState: (state) => ipcRenderer.invoke('cometline:save-mini-window-state', state),
 	fetchProviderModels: (config) => ipcRenderer.invoke('cometline:fetch-provider-models', config),
@@ -95,6 +97,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
 		const handler = (_event, settings) => callback(settings);
 		ipcRenderer.on('cometline:provider-settings-changed', handler);
 		return () => ipcRenderer.removeListener('cometline:provider-settings-changed', handler);
+	},
+	onReplayIntro: (callback) => {
+		const handler = () => callback();
+		ipcRenderer.on('cometline:replay-intro', handler);
+		return () => ipcRenderer.removeListener('cometline:replay-intro', handler);
+	},
+	onRunSetupWizard: (callback) => {
+		const handler = () => callback();
+		ipcRenderer.on('cometline:run-setup-wizard', handler);
+		return () => ipcRenderer.removeListener('cometline:run-setup-wizard', handler);
 	},
 	notifyJob: (payload) => ipcRenderer.send('jobs:notify', payload)
 });

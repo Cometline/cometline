@@ -182,6 +182,16 @@
 			runShortcutAction(action);
 		});
 
+		// Onboarding surfaces replayed from the separate Settings window. They can
+		// only render here (inside AppShell), so the Settings window forwards the
+		// request over IPC and we open them against this window's shell store.
+		const unsubscribeReplayIntro = window.electronAPI?.onReplayIntro?.(() => {
+			shellStore.openIntro();
+		});
+		const unsubscribeRunSetupWizard = window.electronAPI?.onRunSetupWizard?.(() => {
+			shellStore.openSetup();
+		});
+
 		function updateFullScreen(isFullScreen: boolean) {
 			if (import.meta.env.DEV) {
 				console.log('[AppShell] fullscreen state:', isFullScreen);
@@ -230,6 +240,8 @@
 			unsubscribeToggleWebPanel?.();
 			unsubscribeOpenWebPanel?.();
 			unsubscribeShortcutAction?.();
+			unsubscribeReplayIntro?.();
+			unsubscribeRunSetupWizard?.();
 			unsubscribeFullScreen?.();
 			document.removeEventListener('fullscreenchange', onDomFullScreenChange);
 			window.removeEventListener('resize', onWindowResize);

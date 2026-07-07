@@ -54,6 +54,13 @@ export function createSettingsPanelController(deps: {
 	getCometmindPanel: () => CometMindPanelRef | undefined;
 	getMemoryPanel: () => MemoryPanelRef | undefined;
 	closeSettings: () => void;
+	/**
+	 * How the panel is presented. In `'window'` mode Settings runs in its own
+	 * Electron window whose route is not wrapped in AppShell, so the intro and
+	 * setup wizard (which only mount inside AppShell in the main window) must be
+	 * triggered there via IPC instead of the local shell store.
+	 */
+	getMode: () => 'modal' | 'window';
 	settingsController: ReturnType<typeof createSettingsController>;
 }) {
 	let codexAuthStatus = $state<CodexAuthStatus | undefined>();
@@ -248,11 +255,21 @@ export function createSettingsPanelController(deps: {
 	}
 
 	function replayIntro() {
+		// In a separate Settings window the intro has no AppShell to render into,
+		// so ask the main window to play it and reveal itself.
+		if (deps.getMode() === 'window' && window.electronAPI?.replayIntroInMainWindow) {
+			void window.electronAPI.replayIntroInMainWindow();
+			return;
+		}
 		shellStore.closeSettings();
 		shellStore.openIntro();
 	}
 
 	function runSetupWizard() {
+		if (deps.getMode() === 'window' && window.electronAPI?.runSetupWizardInMainWindow) {
+			void window.electronAPI.runSetupWizardInMainWindow();
+			return;
+		}
 		shellStore.closeSettings();
 		shellStore.openSetup();
 	}
