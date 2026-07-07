@@ -7,6 +7,7 @@
 	import { settingsStore, readHasDismissedSetupWizardSync } from '$lib/stores/settings.svelte';
 	import { sessionStore } from '$lib/stores/session.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
+	import { personaAvatarCache } from '$lib/personas/avatar-cache.svelte';
 	import { heroComposerCssVars } from '$lib/hero-composer-appearance';
 	import { ensureWorkspace, listAllSessions } from '$lib/client/cometmind';
 	import { startJobNotificationPoller } from '$lib/jobs/job-notifications';
@@ -41,6 +42,11 @@
 		const unsubscribeSettingsChanged = window.electronAPI?.onProviderSettingsChanged?.((settings) => {
 			settingsStore.apply(settings);
 		});
+		// A custom persona's avatar image was replaced (same id) — drop the stale
+		// cached data URL so intro/avatars re-fetch the new image.
+		const unsubscribePersonaAvatar = window.electronAPI?.onPersonaAvatarChanged?.((personaId) => {
+			personaAvatarCache.invalidate(personaId);
+		});
 		void settingsStore.load().then(() => {
 			settingsLoaded = true;
 			stopStorageRetentionSync = startStorageRetentionSync(
@@ -65,6 +71,7 @@
 			stopJobNotifications();
 			stopStorageRetentionSync?.();
 			unsubscribeSettingsChanged?.();
+			unsubscribePersonaAvatar?.();
 		};
 	});
 

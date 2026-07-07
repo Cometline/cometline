@@ -578,6 +578,18 @@ function broadcastProviderSettingsChanged(settings) {
 	}
 }
 
+// Tell every window to drop its cached avatar for a persona whose image just
+// changed. Each renderer keeps its own avatar cache keyed by persona id, so a
+// re-uploaded avatar (same id) would otherwise stay stale until a reload.
+function broadcastPersonaAvatarChanged(personaId) {
+	if (!personaId) return;
+	for (const browserWindow of BrowserWindow.getAllWindows()) {
+		if (!browserWindow.isDestroyed()) {
+			browserWindow.webContents.send('cometline:persona-avatar-changed', personaId);
+		}
+	}
+}
+
 function loadAppRoute(window, route = '/') {
 	const cleanRoute = String(route || '/').startsWith('/') ? String(route || '/') : `/${route}`;
 	if (app.isPackaged) {
@@ -3431,6 +3443,10 @@ async function saveCustomPersona(payload = {}) {
 	generatePersonaAppIconPng(persona.avatarPath, customPersonaAppIconPath(persona.id));
 	await reloadCometMind();
 	applyPersona(saved.app?.personaId, saved);
+	// Notify all windows so the main window's intro/avatar reflect the new active
+	// persona, and invalidate its cached avatar in case the image was replaced.
+	broadcastProviderSettingsChanged(saved);
+	if (payload.avatarDataUrl) broadcastPersonaAvatarChanged(persona.id);
 	return { ok: true, persona };
 }
 
@@ -3453,6 +3469,7 @@ async function deleteCustomPersona(id) {
 	}
 	await reloadCometMind();
 	applyPersona(saved.app?.personaId, saved);
+	broadcastProviderSettingsChanged(saved);
 	return { ok: true };
 }
 

@@ -98,6 +98,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
 		ipcRenderer.on('cometline:provider-settings-changed', handler);
 		return () => ipcRenderer.removeListener('cometline:provider-settings-changed', handler);
 	},
+	onPersonaAvatarChanged: (callback) => {
+		const handler = (_event, personaId) => callback(personaId);
+		ipcRenderer.on('cometline:persona-avatar-changed', handler);
+		return () => ipcRenderer.removeListener('cometline:persona-avatar-changed', handler);
+	},
 	onReplayIntro: (callback) => {
 		const handler = () => callback();
 		ipcRenderer.on('cometline:replay-intro', handler);

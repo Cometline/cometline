@@ -398,6 +398,7 @@ declare global {
 			onProviderSettingsChanged?: (
 				callback: (settings: ProviderSettings) => void
 			) => () => void;
+			onPersonaAvatarChanged?: (callback: (personaId: string) => void) => () => void;
 			onReplayIntro?: (callback: () => void) => () => void;
 			onRunSetupWizard?: (callback: () => void) => () => void;
 			getMiniWindowState?: () => Promise<MiniWindowState>;
