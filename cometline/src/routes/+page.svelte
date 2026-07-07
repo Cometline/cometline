@@ -119,6 +119,11 @@
 
 	.chat-home.hero-layout {
 		display: grid;
+		/* Cap the column to the container so the fixed-width hero composer shrinks
+		   to fit instead of overflowing and being clipped by `.chat-home`'s
+		   `overflow: hidden` when the window (or main pane, with the sidebar open)
+		   is narrow. */
+		grid-template-columns: minmax(0, 1fr);
 		place-items: center;
 		align-content: center;
 		gap: 52px;

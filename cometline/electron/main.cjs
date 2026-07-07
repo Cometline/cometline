@@ -47,8 +47,13 @@ const COMETMIND_PORT = 7700;
 const APP_SCHEME = 'app';
 const APP_HOST = 'bundle';
 const APP_ORIGIN = `${APP_SCHEME}://${APP_HOST}`;
-/** Match the mini-window floor so the main window can be narrowed for compact chat. */
-const MIN_WINDOW_WIDTH = 360;
+/**
+ * Floor wide enough that the new-session hero composer (avatar, tagline, and the
+ * composer footer: model picker + workspace + context ring + send) has room to
+ * lay out without cramping. The hero layout also shrinks gracefully below this,
+ * but this keeps the default compact window comfortable.
+ */
+const MIN_WINDOW_WIDTH = 560;
 const MIN_WINDOW_HEIGHT = 620;
 const MINI_WINDOW_WIDTH = 460;
 const MINI_WINDOW_HEIGHT = 640;
