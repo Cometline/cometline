@@ -552,6 +552,25 @@ function sendShortcutAction(action) {
 	}
 }
 
+// Onboarding surfaces (intro cinematic, setup wizard) only mount inside the
+// main window's AppShell. When they are triggered from the separate Settings
+// window, reveal the main window, forward the request to it, and tuck the
+// Settings window away so the surface isn't hidden behind it.
+async function triggerMainWindowOnboarding(channel) {
+	if (!windowCanShow(mainWindow)) {
+		await createWindow();
+	}
+	if (!windowCanShow(mainWindow)) return false;
+	if (mainWindow.isMinimized()) {
+		mainWindow.restore();
+	}
+	mainWindow.show();
+	mainWindow.focus();
+	mainWindow.webContents.send(channel);
+	hideSettingsWindow();
+	return true;
+}
+
 function broadcastProviderSettingsChanged(settings) {
 	for (const browserWindow of BrowserWindow.getAllWindows()) {
 		if (!browserWindow.isDestroyed()) {
@@ -3134,6 +3153,14 @@ ipcMain.handle('cometline:open-settings-window', async () => {
 	await showSettingsWindow();
 	return true;
 });
+
+ipcMain.handle('cometline:replay-intro', () =>
+	triggerMainWindowOnboarding('cometline:replay-intro')
+);
+
+ipcMain.handle('cometline:run-setup-wizard', () =>
+	triggerMainWindowOnboarding('cometline:run-setup-wizard')
+);
 
 ipcMain.handle('cometline:get-mini-window-state', () => readMiniWindowState());
 

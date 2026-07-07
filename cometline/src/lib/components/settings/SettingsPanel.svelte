@@ -209,6 +209,7 @@
 		getCometmindPanel: () => cometmindPanel,
 		getMemoryPanel: () => memoryPanel,
 		closeSettings,
+		getMode: () => mode,
 		settingsController
 	});
 
