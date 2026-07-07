@@ -18,3 +18,5 @@ Guides in this folder:
 - `SETTINGS_AND_PERSISTENCE.md` - settings modal rules, dirty-state guardrails, and cross-layer save flow
 - `FRONTEND_DESIGN_SYSTEM.md` - current visual system, styling rules, and known frontend consistency gaps
 - `postmortems/` - incident and root-cause writeups
+
+Historical postmortems preserve the route names and component names involved in the incident. If a postmortem mentions an older API path, prefer the living architecture docs above for the current contract.

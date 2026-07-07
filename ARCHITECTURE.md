@@ -24,6 +24,8 @@ Cometline is a three-layer system: a desktop chat UI, a local agent runtime, and
 │  - SQLite persistence (sessions, messages, memories)            │
 │  - Built-in tools (file ops, commands, web fetch)               │
 │  - ACP delegation (OpenCode, Claude Code)                       │
+│  - MCP client manager and OAuth token refresh                    │
+│  - Jobs, scheduled jobs, and autonomous job worker               │
 │  - Discord gateway                                              │
 │  - Semantic memory (retrieval, extraction, compaction)          │
 └─────────────────────────────────────────────────────────────────┘
@@ -48,6 +50,7 @@ Cometline is a three-layer system: a desktop chat UI, a local agent runtime, and
 - Session navigation and workspace switching
 - Multimodal input (images, file drops)
 - Native desktop features (tray icon, keyboard shortcuts, auto-update)
+- Jobs board, skill draft editor, settings route, mini-window routes, and workspace file preview/editor
 
 **Must not own:**
 - Tool execution
@@ -70,6 +73,8 @@ Cometline is a three-layer system: a desktop chat UI, a local agent runtime, and
 - SQLite persistence (messages, tool calls, memories)
 - Built-in tools (file operations, command execution, web fetch)
 - ACP delegation to external coding agents
+- MCP server lifecycle and remote tool execution
+- Jobs, scheduled jobs, job leases, job maintenance, and autonomous job execution
 - Discord messaging gateway
 - Semantic memory (auto-retrieve before turns, auto-extract after)
 
@@ -85,6 +90,8 @@ Cometline is a three-layer system: a desktop chat UI, a local agent runtime, and
 - `internal/tools/registry.go` — built-in tool registration
 - `internal/db/` — SQLite schema and queries (sqlc-generated)
 - `internal/memory/` — semantic memory service
+- `internal/mcp/` — MCP client manager, bindings, OAuth login, and token persistence
+- `internal/jobs/`, `internal/scheduler/`, `internal/autonomy/` — durable jobs, schedule materialization, and background workers
 
 ### comet-sdk (LLM I/O Library)
 
@@ -119,17 +126,19 @@ Cometline is a three-layer system: a desktop chat UI, a local agent runtime, and
 3. CometMind receives request, persists user message to SQLite
    ↓
 4. Agent loop starts:
-   a. Retrieve relevant memories (semantic search)
-   b. Build prompt with system prompt + transcript + memories
-   c. Call comet-sdk StreamMessage with provider/model
-   d. Stream SSE events back to Cometline:
-      - reasoning_delta (thinking tokens)
-      - text_delta (visible response)
-      - tool_call (model requests a tool)
-      - tool_result (tool execution complete)
-      - step_finish (one model step done)
-   e. If tool_call: execute tool, persist result, goto (a)
-   f. If done: persist assistant message, emit done event
+    a. Retrieve relevant memories (semantic search)
+    b. Compact context when the transcript exceeds the configured budget
+    c. Build prompt with system prompt + transcript + memories + skill index
+    d. Call comet-sdk StreamMessage with provider/model
+    e. Stream SSE events back to Cometline:
+       - turn_status (retrieval, compaction, model contact, tools)
+       - reasoning_delta (thinking tokens)
+       - text_delta (visible response)
+       - tool_call (model requests a tool)
+       - tool_result (tool execution complete)
+       - step_finish (one model step done)
+    f. If tool_call: execute tool, persist result, goto (a)
+    g. If done: persist assistant message, emit done event
    ↓
 5. Cometline renders streaming events in ChatView.svelte
    ↓
@@ -149,11 +158,11 @@ Cometline is a three-layer system: a desktop chat UI, a local agent runtime, and
    ↓
 5. CometMind emits subagent_progress SSE events to Cometline
    ↓
-6. Cometline renders progress in SubagentBubble.svelte
+6. Cometline renders progress in the subagent chat components
    ↓
 7. External agent completes, returns result
    ↓
-8. CometMind emits subagent_complete, continues agent loop
+8. CometMind emits subagent_finished, continues agent loop
 ```
 
 ### MCP tool integration
@@ -163,11 +172,11 @@ Cometline is a three-layer system: a desktop chat UI, a local agent runtime, and
    ↓
 2. Settings saved to ~/.cometmind/cometline-settings.json (cometmind.mcp)
    ↓
-3. Sidecar restart → runtime.New() starts mcp.Manager
+3. Save or runtime reload → runtime.New()/Runtime.Reload starts or refreshes mcp.Manager
    ↓
 4. Manager connects enabled servers (stdio / HTTP / SSE) via go-sdk
    ↓
-5. tools.Registry merges MCP tools as mcp/{serverId}/{toolName}
+5. tools.Registry merges MCP tools as provider-safe `mcp_{serverId}_{toolName}` tools
    ↓
 6. Agent loop calls MCP tools through the same tool_call / tool_result SSE path
 ```
@@ -175,6 +184,22 @@ Cometline is a three-layer system: a desktop chat UI, a local agent runtime, and
 OAuth tokens for remote MCP servers live in `~/.cometmind/mcp-oauth/{serverId}.json`, with the registered client identity in `{serverId}.client.json`. CometMind drives the full OAuth flow itself (metadata discovery + dynamic client registration + Authorization Code/PKCE), owning the loopback callback listener and opening the system browser; tokens are auto-refreshed headlessly at connect time.
 
 Management endpoints (`/api/v1/mcp/*`) expose connection status, tool previews, connection tests, reconnection runs, and interactive OAuth flows without editing settings.
+
+### Jobs and scheduled jobs
+
+```
+1. User or agent creates a job through /api/v1/jobs
+   ↓
+2. Job is persisted with status todo / ongoing / done / blocked
+   ↓
+3. A session or autonomous worker claims the job lease
+   ↓
+4. Worker heartbeats progress, records job events, and either completes, releases, or blocks the job
+   ↓
+5. Cometline polls jobs for board updates and optional desktop notifications
+```
+
+Scheduled jobs are stored separately under `/api/v1/scheduled-jobs`. The scheduler materializes due one-shot or cron schedules into regular jobs so downstream execution uses the same lease/completion path.
 
 ### Discord gateway
 
@@ -202,10 +227,17 @@ CometMind serves a REST/SSE API on `127.0.0.1:7700`. The OpenAPI spec is `cometm
 - `GET /api/v1/sessions?workspace_path=...` — list sessions
 - `POST /api/v1/sessions/{id}/messages` — send message, receive SSE stream
 - `DELETE /api/v1/sessions/{id}/runs/current` — cancel in-flight run
+- `GET /api/v1/workspaces/files` — list previewable workspace files
+- `GET /api/v1/workspaces/files/content` / `PUT /api/v1/workspaces/files/content` — read/write small workspace files
+- `GET /api/v1/skill-drafts` and related draft endpoints — list, edit, promote, or reject skill drafts
 - `GET /api/v1/mcp/servers` — MCP server connection status
 - `GET /api/v1/mcp/tools` — registered MCP tools preview
 - `POST /api/v1/mcp/servers/{id}/connection-tests` — test MCP connection
 - `POST /api/v1/mcp/servers/{id}/reconnection-runs` — reconnect one MCP server
+- `POST /api/v1/mcp/servers/{id}/oauth-flows` — start interactive MCP OAuth login
+- `GET /api/v1/jobs` and `/api/v1/jobs/{id}` — jobs board and job detail APIs
+- `PUT /api/v1/jobs/{id}/lease`, `PATCH /api/v1/jobs/{id}/lease`, `DELETE /api/v1/jobs/{id}/lease`, `PUT /api/v1/jobs/{id}/completion` — job worker lifecycle
+- `GET /api/v1/scheduled-jobs` and `/api/v1/scheduled-jobs/{id}` — scheduled job management
 
 **Client:** `cometline/src/lib/client/cometmind.ts`
 
@@ -222,7 +254,10 @@ CometMind emits JSON SSE frames with a `type` discriminator:
 | `tool_result` | Tool execution completed |
 | `step_finish` | One model step ended |
 | `subagent_progress` | ACP agent progress update |
-| `subagent_complete` | ACP agent finished |
+| `subagent_finished` | ACP/general subagent finished |
+| `memory_injected` | Retrieved memories were injected into the turn |
+| `memory_updated` | Post-turn memory extraction changed memory state |
+| `turn_status` | Pre-output activity status such as retrieving memories or contacting the model |
 | `error` | Runtime/model/tool error |
 | `done` | Terminal stream event |
 
@@ -239,6 +274,9 @@ Electron main process exposes native capabilities to the renderer via preload:
 - `setWorkspacePath` / `listRecentWorkspaces` — workspace management
 - `setOpenAtLogin` — macOS login item
 - `checkForUpdates` — auto-update
+- `getMcpOAuthStatus` / `startMcpOAuth` — native browser/loopback MCP OAuth flow
+- `notifyJob` — desktop notifications for job state changes
+- `openMiniWindow` / mini route support — compact chat window lifecycle
 
 **Source:** `cometline/electron/main.cjs`  
 **Preload:** `cometline/electron/preload.cjs`

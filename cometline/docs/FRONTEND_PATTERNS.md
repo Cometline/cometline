@@ -38,6 +38,21 @@ ChatThread.svelte          — thin orchestrator + {#each} dispatch
 
 Use [`ChatTurnContext`](../src/lib/conversation/chat-turn-context.ts) for stable bindings shared across the assistant subtree (fold controller, copy handler). Pass per-row data (`message`, `index`) as props.
 
+## Route Surfaces
+
+The renderer is no longer only the chat route. Current first-class routes are:
+
+| Route | Surface |
+| --- | --- |
+| `/` | New chat hero composer |
+| `/session/[id]` | Full chat thread |
+| `/jobs` | Jobs board and job detail drawer |
+| `/skill-drafts` | Skill draft review and promotion |
+| `/settings` | Direct settings route outside `AppShell` |
+| `/mini` and `/mini/session/[id]` | Compact mini-window chat |
+
+Shared shell state lives in `shell.svelte.ts`; route-local state should stay in route components or feature controllers.
+
 ## Error taxonomy
 
 | Level       | When                             | UI                                                  |
@@ -55,11 +70,14 @@ Fatal errors use `role="alert"`. Recoverable errors use `role="alert"` on a dism
 - Semantic status colors: `--status-success`, `--status-error`
 - No hardcoded hex in components — add a token if a new semantic color is needed
 - Shared chat row chrome: [`ThreadRow.svelte`](../src/lib/components/chat/ThreadRow.svelte)
+- Jobs/file/settings panels should reuse global panel/card tokens rather than introducing route-local color systems
 
 ## Testing
 
 - Pure logic: `*.test.ts` in `node` environment
 - Components: `*.svelte.test.ts` in `jsdom` with `@testing-library/svelte`
+- E2E: Playwright is available via `pnpm run test:e2e`
+- Storybook is available for isolated component work via `pnpm run storybook`
 - Do not test generated OpenAPI client files
 
 ## Import boundaries
@@ -67,3 +85,5 @@ Fatal errors use `role="alert"`. Recoverable errors use `role="alert"` on a dism
 - `components/` must not import from `electron/`
 - `conversation/*.ts` (non-`.svelte.ts`) must not import `.svelte` files
 - Generated code under `generated/` is read-only
+- API data flows through `src/lib/client/cometmind.ts`; components should not import generated endpoint functions directly
+- Electron IPC remains optional in renderer code so Vite/browser dev contexts can still render

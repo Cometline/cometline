@@ -31,6 +31,7 @@ The rule: **Cometline is not the brain.** CometMind is the brain. Comet SDK is o
 - Multimodal input: paste/drop up to 6 images (PNG/JPEG/GIF/WebP)
 - Drop text files as fenced code blocks in the composer
 - Slash commands: `/change`, `/create-skill`, `/model`, plus dynamic `/skill-name` menu from CometMind skills
+- Skill drafts page for reviewing, editing, promoting, or rejecting generated skills
 
 ### Markdown & links
 
@@ -44,10 +45,18 @@ The rule: **Cometline is not the brain.** CometMind is the brain. Comet SDK is o
 - In-thread display of retrieved memories during reasoning
 - Post-turn memory update hints on assistant messages
 
+### Jobs
+
+- `/jobs` board for `todo`, `ongoing`, `blocked`, and `done` work
+- Create, edit, archive, unblock, delete, and inspect job history
+- Scheduled jobs for one-shot or cron-like recurring work
+- Optional desktop notifications when jobs are claimed, completed, released, or blocked
+
 ### Settings
 
 - **Providers** — ChatGPT Codex, OpenAI, Anthropic, OpenAI-compatible, OpenCode Go, plus custom providers; fetch models from the provider API where available
 - **CometMind** — ACP (OpenCode) config, Agent Skills management, Discord gateway toggle and config
+- **MCP** — stdio/http/sse server config, Cursor `mcp.json` import, connection tests, reconnect, and OAuth login
 - **Memory** — auto retrieve/extract, thresholds, embedding model, compaction
 - **General** — open at login (macOS); session retention, max sessions per workspace, archived memory purge
 - **Hero glow** — composer glow/border presets and custom colors; caret trail animation
@@ -61,6 +70,8 @@ The rule: **Cometline is not the brain.** CometMind is the brain. Comet SDK is o
 - GitHub auto-update (check on launch + every 4 hours; manual install)
 - First-run intro animation (replayable from Settings → About)
 - Workspace picker (default `~/Cometline`)
+- Mini window routes under `/mini` for compact quick access
+- Workspace file preview/editor panel backed by CometMind workspace file APIs
 
 ---
 
@@ -122,6 +133,7 @@ cometline/
 │   └── lib/
 │       ├── client/       CometMind REST/SSE client
 │       ├── components/   AppShell, ChatView, Composer, Settings*, WebPanel, ...
+│       ├── jobs/         job prompts, notifications, and board helpers
 │       ├── stores/       chat, session, settings, model, shell, runtime
 │       └── reducers/     pure SSE → chat item reducer
 ├── buildResources/       app icon, tray icons, entitlements
@@ -171,6 +183,8 @@ Packaged apps embed the CometMind binary as an Electron extra resource and serve
 | `~/.cometmind/cometline-workspace.json` | Selected workspace path                                                    |
 | `~/.cometmind/cometline.log`            | Sidecar stdout/stderr (rotates at 10 MB while running → `.log.1`)          |
 | `~/.cometmind/cometline-gateway.log`    | Discord gateway log (same rotation)                                        |
+| `~/.cometmind/mcp-oauth/{server}.json`  | MCP OAuth access/refresh token cache                                        |
+| `~/.cometmind/mcp-oauth/{server}.client.json` | MCP OAuth registered-client metadata                                  |
 
 ---
 

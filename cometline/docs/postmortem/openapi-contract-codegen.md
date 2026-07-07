@@ -5,7 +5,7 @@
 
 ## Problem
 
-Cometline streams chat over HTTP SSE (`POST /api/v1/sessions/{id}/message`), not Electron IPC. Each `data:` frame is JSON discriminated by `type` (`text_delta`, `tool_call`, `memory_injected`, …).
+Cometline streams chat over HTTP SSE (`POST /api/v1/sessions/{id}/messages` today; this incident used the earlier singular route), not Electron IPC. Each `data:` frame is JSON discriminated by `type` (`text_delta`, `tool_call`, `memory_injected`, …).
 
 Before this work the **wire contract** lived in four hand-maintained places:
 
@@ -67,7 +67,7 @@ Not done yet (optional follow-ups): runtime SSE validation in `parser.ts` (e.g. 
 
 ### Add a new SSE event type
 
-1. **`cometmind/openapi.yaml`** — add per-kind schema + `StreamEvent` `oneOf` / discriminator entry. Field names must match `MarshalJSON` exactly (`text_delta` uses `delta`, not `text`; `subagent_awaiting_input` uses `kind` for awaiting kind).
+1. **`cometmind/openapi.yaml`** — add per-kind schema + `StreamEvent` `oneOf` / discriminator entry. Field names must match `MarshalJSON` exactly (`text_delta` uses `delta`, not `text`).
 2. **`cometmind/internal/event/event.go`** — add `Kind`, fields, `MarshalJSON` branch, constructor.
 3. **`make generate`** — commit `cometline/src/lib/generated/cometmind-api/` and `cometmind/internal/apigen/types.gen.go`.
 4. **`cometline/src/lib/reducers/chat.ts`** — handle the new `type` in reducer logic.

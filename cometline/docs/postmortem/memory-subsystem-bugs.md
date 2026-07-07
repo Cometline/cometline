@@ -36,7 +36,7 @@ Saving embedding touched three places (CometMind API, local JSON, config.toml). 
 
 ### A3. CORS blocked PUT in dev
 
-CometMind `localCORS()` allowed `GET, POST, PATCH, DELETE, OPTIONS` but not **PUT**. Memory settings use `PUT /api/v1/memory/settings`.
+CometMind `localCORS()` allowed `GET, POST, PATCH, DELETE, OPTIONS` but not **PUT**. Memory settings use `PUT` (`/api/v1/memories/settings` today; this incident used the earlier singular route).
 
 ### B1. Main chat vs memory extract use different providers
 
