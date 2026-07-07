@@ -28,21 +28,29 @@ CometMind still has a clear runtime boundary inside the product: it owns the CLI
 
 ```
 main.go              entry point → cmd.Execute()
-cmd/                 Cobra commands (init, serve, chat, session, skills, gateway)
+cmd/                 Cobra commands (init, serve, chat, session, skills, gateway, settings, process, model)
 server/
   server.go          Gin engine; /api/v1 handlers; SSE encoding
   memory_handlers.go memory CRUD, search, compaction
+  job_handlers.go    jobs, leases, events, completion, settings
+  scheduled_job_handlers.go deferred and recurring job definitions
+  mcp_handlers.go    MCP status, tools, reconnect, OAuth start
   run_manager.go     per-session single in-flight run control
 internal/
   runtime/           shared composition root (config · DB · services · runner factory)
   agent/runner.go    core agent loop (multi-step tool iteration, max 50 steps)
   agent/request.go   builds cometsdk.Request from session history + memory + skills
+  agent/contextwindow.go context budget and transcript compaction helpers
   session/           domain types + Service (workspaces, sessions, messages, delegation)
   memory/            semantic memory (embed, retrieve, extract, compact)
+  jobs/              durable jobs, leases, events, lifecycle settings
+  scheduler/         one-shot and cron scheduled job materialization
+  autonomy/          autonomous job worker loop
   tools/             ToolSpec + Workspace + registry + built-in implementations
   tools/sandbox/     pathcheck — prevents path escape out of the workspace
   skills/            Agent Skills discovery, sync, export, write
   acp/               ACP client for delegate_coding_task (OpenCode by default)
+  mcp/               stdio/http/sse MCP manager plus OAuth login/token refresh
   gateway/           messaging adapters (Discord today)
   provider/          builds a comet-sdk provider from config/session (Anthropic, OpenAI-compatible, Codex)
   config/            cometline-settings.json loading + legacy TOML migration + COMETMIND_* env
@@ -56,8 +64,8 @@ openapi.yaml         OpenAPI 3.1 spec for the local serve API
 
 The runner iterates up to `max_steps` (default 50):
 
-1. **Retrieve memories** (when enabled) → inject into system prompt → emit `memory_injected`.
-2. Rebuild the conversation from SQLite → call the provider via `llm.StreamMessage`.
+1. **Retrieve memories** (when enabled) → inject into system prompt → emit `memory_injected` and `turn_status`.
+2. Compact the context window when needed, then rebuild the conversation from SQLite → call the provider via `llm.StreamMessage`.
 3. Stream SDK events → translate to CometMind `event.Event` and push to the caller.
 4. Persist token usage and the assistant step (reasoning + tool-call shells).
 5. If there are tool calls: execute each via `Registry.Execute`, record duration/exit, persist the tool result, and emit `tool_result`.
@@ -80,7 +88,14 @@ Registered per workspace in `internal/tools/registry.go`:
 | `load_skill` | Load full `SKILL.md` for a discovered skill |
 | `read_skill_file` | Read auxiliary files inside a skill directory |
 | `write_skill` | Create or update a skill under `~/.cometmind/skills/{name}/` |
+| `list_skill_drafts` | List pending skill drafts |
+| `write_skill_draft` | Create or update a draft skill for review before promotion |
+| `read_skill_draft` | Read a draft skill |
+| `promote_skill_draft` | Promote a draft into the managed skills directory |
 | `delegate_coding_task` | Spawn an ACP child session (sync or async) |
+| `spawn_general_agent` / `wait_subagents` | Launch and wait for general subagents |
+| `list_jobs`, `create_job`, `claim_job`, `update_job`, `complete_job`, `release_job`, `propose_job` | Interact with durable jobs |
+| `recall_task_outcome` | Retrieve remembered task outcomes |
 
 File tools are workspace-scoped through `internal/tools/sandbox/pathcheck.go`.
 
@@ -110,6 +125,28 @@ CometMind stores durable facts, preferences, and project notes in SQLite with em
 - Embedding uses an OpenAI-compatible endpoint (default model: `text-embedding-3-small`).
 
 Memory is configured under `[memory]` in config and exposed through REST (see API below). Cometline renders injected memories in the chat UI and provides a full memory settings panel.
+
+### MCP client
+
+CometMind can connect external MCP servers and merge their tools into the main agent's registry. MCP tools are not exposed to ACP child agents.
+
+Supported transports:
+
+- `stdio` subprocess servers
+- streamable `http` servers
+- legacy `sse` servers
+
+Remote OAuth servers are handled by CometMind itself: Protected Resource Metadata discovery, Authorization Server Metadata discovery, Dynamic Client Registration, Authorization Code + PKCE, a loopback callback listener, token persistence, and headless refresh. Access/refresh tokens live in `~/.cometmind/mcp-oauth/{serverId}.json`; registered client metadata lives in `{serverId}.client.json`.
+
+### Jobs, scheduler, and autonomy
+
+Jobs are durable work items with status `todo`, `ongoing`, `done`, or `blocked`. They can be created by users, agents, Discord, or scheduled job materialization.
+
+- `internal/jobs` owns job CRUD, leases, events, retry/blocking, archive, purge, and settings.
+- `internal/scheduler` owns scheduled jobs with either `run_at` or `cron_expr`, materializing due schedules into normal jobs.
+- `internal/autonomy` can claim ready jobs and run them through a bounded agent session when enabled.
+- `internal/gateway` can propose jobs from Discord and notify channels about job progress.
+- Cometline renders the `/jobs` board and polls for optional desktop notifications.
 
 ### Storage & retention
 
@@ -161,7 +198,7 @@ go run . gateway run --platform discord
 
 Features: allowlisted users/channels, `@mention` gating, per-thread sessions, typing indicators, reply chunking, `/thread` and `/create-skill` slash commands.
 
-See [`docs/GATEWAY.md`](docs/GATEWAY.md) for setup.
+Discord configuration is managed through Cometline Settings → CometMind → Discord or the shared `cometmind.gateway.discord` JSON settings subtree.
 
 ## Local serve API
 
@@ -196,6 +233,16 @@ Localhost-only HTTP + SSE, versioned under `/api/v1` (default `http://127.0.0.1:
 | `GET /api/v1/sessions/{id}/children` | Delegated child sessions |
 | `DELETE /api/v1/sessions/{id}/runs/current` | Abort in-flight run (202, or 409 if none) |
 
+### MCP
+
+| Method & Path | Purpose |
+|---|---|
+| `GET /api/v1/mcp/servers` | List configured MCP server status |
+| `GET /api/v1/mcp/tools` | Preview registered MCP tools |
+| `POST /api/v1/mcp/servers/{id}/connection-tests` | Test one server connection |
+| `POST /api/v1/mcp/servers/{id}/reconnection-runs` | Reconnect one server |
+| `POST /api/v1/mcp/servers/{id}/oauth-flows` | Start interactive OAuth login |
+
 ### Skills
 
 | Method & Path | Purpose |
@@ -205,6 +252,11 @@ Localhost-only HTTP + SSE, versioned under `/api/v1` (default `http://127.0.0.1:
 | `POST /api/v1/skills/sync-runs` | Symlink discovered skills into `~/.cometmind/skills` |
 | `DELETE /api/v1/skills/{name}` | Delete a managed skill |
 | `GET /api/v1/skills/{name}/archive` | Download skill as zip |
+| `GET /api/v1/skill-drafts` | List draft skills |
+| `GET /api/v1/skill-drafts/{name}` | Read one draft skill |
+| `PUT /api/v1/skill-drafts/{name}` | Update one draft skill |
+| `POST /api/v1/skill-drafts/{name}/promote` | Promote a draft into managed skills |
+| `DELETE /api/v1/skill-drafts/{name}` | Reject/delete a draft |
 
 ### Memory
 
@@ -223,9 +275,30 @@ Localhost-only HTTP + SSE, versioned under `/api/v1` (default `http://127.0.0.1:
 
 ### SSE event names
 
-`text_delta`, `reasoning_start`, `reasoning_delta`, `tool_call`, `tool_result`, `step_finish`, `subagent_started`, `subagent_progress`, `subagent_finished`, `memory_injected`, `memory_updated`, `error`, `done`
+`text_delta`, `reasoning_start`, `reasoning_delta`, `tool_call`, `tool_result`, `step_finish`, `subagent_started`, `subagent_progress`, `subagent_finished`, `memory_injected`, `memory_updated`, `turn_status`, `error`, `done`
 
 Only one run is allowed per session at a time (`409 session_running` on duplicate POST).
+
+### Jobs and scheduled jobs
+
+| Method & Path | Purpose |
+|---|---|
+| `GET /api/v1/jobs` | List jobs with filters |
+| `POST /api/v1/jobs` | Create a job |
+| `GET /api/v1/jobs/settings` | Read job runtime settings |
+| `PUT /api/v1/jobs/settings` | Update job runtime settings |
+| `GET /api/v1/jobs/{id}` | Fetch one job |
+| `PATCH /api/v1/jobs/{id}` | Update an editable job |
+| `DELETE /api/v1/jobs/{id}` | Soft-delete a job |
+| `PUT /api/v1/jobs/{id}/archive` / `DELETE /api/v1/jobs/{id}/archive` | Archive or unarchive a job |
+| `POST /api/v1/jobs/{id}/retry-runs` | Unblock a failed/blocked job for retry |
+| `GET /api/v1/jobs/{id}/events` | List job event history |
+| `PUT /api/v1/jobs/{id}/lease` | Claim a job for a session |
+| `PATCH /api/v1/jobs/{id}/lease` | Heartbeat a claimed job |
+| `DELETE /api/v1/jobs/{id}/lease` | Release a job claim |
+| `PUT /api/v1/jobs/{id}/completion` | Mark a job completed |
+| `GET /api/v1/scheduled-jobs` / `POST /api/v1/scheduled-jobs` | List or create scheduled jobs |
+| `GET /api/v1/scheduled-jobs/{id}` / `PATCH /api/v1/scheduled-jobs/{id}` / `DELETE /api/v1/scheduled-jobs/{id}` | Read, update, or delete one schedule |
 
 ## CLI
 
@@ -351,6 +424,9 @@ SQLite schema (version 7) includes:
 | `gateway_sessions` | Maps external chat surfaces to CometMind sessions |
 | `memories` | Semantic memories with embeddings and lifecycle metadata |
 | `memory_events` | Audit log for memory changes |
+| `jobs` | Durable work items, leases, retry metadata, archive/delete state |
+| `scheduled_jobs` | One-shot and recurring job definitions |
+| `job_events` | Audit log for job lifecycle changes |
 
 After schema or query changes, run `sqlc generate` and add incremental migrations in `internal/db/migrate.go`.
 

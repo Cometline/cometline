@@ -8,6 +8,8 @@ Primary source files:
 - `cometline/STYLING.md`
 - `cometline/docs/FRONTEND_PATTERNS.md`
 - `cometline/src/app.css`
+- `cometline/src/lib/components/jobs/`
+- `cometline/src/lib/components/settings/`
 
 ## Core Styling Model
 
@@ -179,6 +181,8 @@ Examples of motion-heavy components:
 - `IntroAnimation.svelte`
 - `ThinkingIndicator.svelte`
 - `WebPanel.svelte`
+- `FilePreview.svelte` / `FileEditor.svelte`
+- `JobsKanbanBoard.svelte`
 - `RichComposerInput.svelte`
 
 Rule:
@@ -200,6 +204,7 @@ Rule:
 - `SettingsToggle.svelte`
 - `SettingsField.svelte`
 - `SettingsSection.svelte`
+- `SettingsPersistenceHint.svelte`
 
 ### Chat/thread primitives
 
@@ -217,8 +222,19 @@ Rule:
 - `ContextWindowRing.svelte`
 - `RichComposerInput.svelte`
 
+### Jobs and file surfaces
+
+- `JobsKanbanBoard.svelte`
+- `JobsKanbanColumn.svelte`
+- `JobCard.svelte`
+- `JobDetailDrawer.svelte`
+- `JobCreateForm.svelte`
+- `FilePreview.svelte`
+- `FileEditor.svelte`
+
 Rule:
 
+- Jobs and file-panel UI should reuse the existing light panel/card/pill vocabulary instead of introducing a separate productivity-app visual system.
 - Reuse these before inventing a new visual pattern in a nearby area.
 
 ## Current Consistency Gaps
@@ -281,6 +297,10 @@ Examples:
 Rule:
 
 - When extending an existing local recipe into a broader pattern, promote it into shared tokens.
+
+### 6. More routes share the same shell tokens
+
+Current route surfaces include chat, jobs, skill drafts, settings, mini routes, web panel, and file preview/editor. These should share app-level tokens for surfaces, gutters, focus rings, and panel widths rather than creating route-specific duplicates.
 
 ## Recommended Workflow Before Frontend Changes
 

@@ -86,7 +86,7 @@ It owns:
 - semantic memory and compaction
 - provider factory and runtime config
 - localhost REST/SSE API
-- ACP, MCP, jobs, and Discord gateway integration
+- ACP, MCP, jobs, scheduled jobs, autonomous job workers, and Discord gateway integration
 
 It must not own:
 
@@ -102,6 +102,10 @@ It must not own:
 - `cometmind/internal/session/service.go`
 - `cometmind/internal/tools/registry.go`
 - `cometmind/internal/memory/service.go`
+- `cometmind/internal/mcp/manager.go`
+- `cometmind/internal/jobs/service.go`
+- `cometmind/internal/scheduler/service.go`
+- `cometmind/internal/autonomy/worker.go`
 - `cometmind/internal/provider/factory.go`
 - `cometmind/internal/event/event.go`
 - `cometmind/server/server.go`
@@ -139,6 +143,7 @@ It owns:
 - renderer API client and stream handling
 - chat/session UI and transitions
 - slash-command and skill UX
+- jobs board, skill draft editor, workspace file preview/editor, settings route, mini routes
 - updater, tray, workspace picker, web panel, and shortcuts
 
 It must not own:
@@ -158,9 +163,13 @@ It must not own:
 - `cometline/src/lib/stores/chat.svelte.ts`
 - `cometline/src/lib/stores/model.svelte.ts`
 - `cometline/src/lib/stores/settings.svelte.ts`
+- `cometline/src/lib/jobs/`
 - `cometline/src/lib/settings/schema.ts`
 - `cometline/src/routes/+page.svelte`
 - `cometline/src/routes/session/[id]/+page.svelte`
+- `cometline/src/routes/jobs/+page.svelte`
+- `cometline/src/routes/skill-drafts/+page.svelte`
+- `cometline/src/routes/mini/`
 
 ### Design rules
 
@@ -212,6 +221,33 @@ When you change shared settings, inspect all of:
 - `cometmind/internal/config/`
 
 Do not update only one layer.
+
+### Jobs and scheduled job changes
+
+Jobs span CometMind persistence, background workers, Discord, and Cometline UI. Review all of:
+
+- `cometmind/internal/jobs/`
+- `cometmind/internal/scheduler/`
+- `cometmind/internal/autonomy/`
+- `cometmind/internal/gateway/jobs*.go`
+- `cometmind/openapi.yaml`
+- `cometline/src/lib/client/cometmind.ts`
+- `cometline/src/lib/components/jobs/`
+- `cometline/src/lib/jobs/`
+- `cometline/src/lib/settings/schema.ts`
+
+Schema changes need SQLC regeneration and incremental migration entries.
+
+### MCP changes
+
+MCP spans shared settings, native OAuth orchestration, runtime connection management, and tool registration. Review all of:
+
+- `cometmind/internal/mcp/`
+- `cometmind/internal/tools/registry.go`
+- `cometline/src/lib/components/settings/SettingsMCPPanel.svelte`
+- `cometline/electron/main.cjs`
+- `cometline/electron/preload.cjs`
+- `cometmind/openapi.yaml`
 
 ### Memory changes
 

@@ -18,15 +18,15 @@ comet-sdk
 
 cometmind
   Local agent runtime.
-  Owns agent loop, semantic memory, SQLite persistence, workspace/session APIs,
-  tool registry, ACP delegation, skills, Discord gateway, provider factory,
-  local HTTP/SSE server, and CLI.
+  Owns agent loop, semantic memory, SQLite persistence, workspace/session/job APIs,
+  tool registry, ACP delegation, MCP client management, skills, scheduler,
+  autonomous job workers, Discord gateway, provider factory, local HTTP/SSE server, and CLI.
 
 cometline
   Desktop shell and UI.
   Owns Electron lifecycle, CometMind sidecar startup, SvelteKit routes,
-  chat rendering, memory/settings UI, web panel, transitions, auto-update,
-  and desktop assets.
+  chat/jobs/file rendering, memory/settings/MCP UI, web panel, transitions,
+  mini windows, auto-update, and desktop assets.
 ```
 
 Dependency direction:
@@ -54,11 +54,13 @@ The rule: Cometline is not the brain. CometMind is the brain. Comet SDK is only 
 | Provider runtime      | `comet-sdk`                        | Anthropic and OpenAI-compatible providers, including DeepSeek `reasoning_content`, embedded thinking tags, and vision input |
 | Agent runtime         | `cometmind/internal/agent`         | Multi-step loop with streaming, reasoning, tool calls, memory retrieve/extract                                              |
 | Semantic memory       | `cometmind/internal/memory`        | Embedding retrieval, post-turn extraction, compaction, REST API + Cometline settings panel                                  |
+| MCP client            | `cometmind/internal/mcp`           | stdio/http/sse servers, tool binding, OAuth discovery/registration/login/refresh                                             |
+| Jobs and scheduler    | `cometmind/internal/jobs`, `scheduler`, `autonomy` | Durable jobs, leases, scheduled materialization, autonomous workers, Discord proposals                 |
 | ACP delegation        | `cometmind/internal/acp`           | `delegate_coding_task` spawns OpenCode (default); child sessions with progress/awaiting-input SSE                           |
 | Agent Skills          | `cometmind/internal/skills`        | Discovery, system-prompt index, load/read/write tools, Cometline slash commands                                             |
 | Discord gateway       | `cometmind/internal/gateway`       | Allowlisted bot with per-thread sessions; Cometline can start/stop subprocess                                               |
 | Persistence           | `cometmind/internal/db`            | SQLite workspaces, sessions, messages, tool calls, memories, gateway mappings                                               |
-| Local API             | `cometmind/server`, `openapi.yaml` | Health, sessions, transcript, stream message, abort, respond, skills, memory                                                |
+| Local API             | `cometmind/server`, `openapi.yaml` | Health, sessions, transcript, stream message, abort, files, skills, skill drafts, MCP, memory, jobs                         |
 | Desktop runtime       | `cometline/electron`               | Sidecar spawn, health polling, settings IPC, updater, tray, workspace picker                                                |
 | Renderer UI           | `cometline/src`                    | SvelteKit routes, sidebar, chat thread, composer, settings modal, web panel, animations                                     |
 | Secrets               | Electron JSON settings             | MVP-only. API keys in `~/.cometmind/cometline-settings.json`; move to OS keychain before wide distribution                  |
@@ -79,18 +81,30 @@ Sessions and chat:
 - `DELETE /api/v1/sessions/{id}`
 - `GET /api/v1/sessions/{id}/messages`
 - `GET /api/v1/sessions/{id}/children`
-- `POST /api/v1/sessions/{id}/message` returning SSE
-- `POST /api/v1/sessions/{id}/abort`
-- `POST /api/v1/sessions/{id}/respond`
+- `POST /api/v1/sessions/{id}/messages` returning SSE
+- `DELETE /api/v1/sessions/{id}/runs/current`
+- `GET /api/v1/workspaces/files`, `GET /api/v1/workspaces/files/content`, `PUT /api/v1/workspaces/files/content`
 
 Skills and memory:
 
-- `GET /api/v1/skills`, `GET /api/v1/skills/{name}`, `POST /api/v1/skills/sync`
+- `GET /api/v1/skills`, `GET /api/v1/skills/{name}`, `POST /api/v1/skills/sync-runs`
 - `DELETE /api/v1/skills/{name}`, `GET /api/v1/skills/{name}/export`
+- `GET /api/v1/skill-drafts`, `GET /api/v1/skill-drafts/{name}`, `PUT /api/v1/skill-drafts/{name}`
+- `POST /api/v1/skill-drafts/{name}/promote`, `DELETE /api/v1/skill-drafts/{name}`
 - `GET /api/v1/memories`, `POST /api/v1/memories`, `PATCH /api/v1/memories/{id}`, `DELETE /api/v1/memories/{id}`
-- `POST /api/v1/memories/search`
-- `GET /api/v1/memory/settings`, `PUT /api/v1/memory/settings`
-- `POST /api/v1/memory/compact`, `GET /api/v1/memory/compact/preview`
+- `POST /api/v1/memories/searches`
+- `GET /api/v1/memories/settings`, `PUT /api/v1/memories/settings`
+- `POST /api/v1/memories/compaction-runs`, `GET /api/v1/memories/compaction-preview`
+
+MCP and jobs:
+
+- `GET /api/v1/mcp/servers`, `GET /api/v1/mcp/tools`
+- `POST /api/v1/mcp/servers/{id}/connection-tests`, `/reconnection-runs`, `/oauth-flows`
+- `GET /api/v1/jobs`, `POST /api/v1/jobs`, `GET /api/v1/jobs/settings`, `PUT /api/v1/jobs/settings`
+- `GET /api/v1/jobs/{id}`, `PATCH /api/v1/jobs/{id}`, `DELETE /api/v1/jobs/{id}`
+- `PUT /api/v1/jobs/{id}/lease`, `PATCH /api/v1/jobs/{id}/lease`, `DELETE /api/v1/jobs/{id}/lease`, `PUT /api/v1/jobs/{id}/completion`
+- `GET /api/v1/jobs/{id}/events`, archive/unarchive, and retry-run endpoints
+- `GET /api/v1/scheduled-jobs`, `POST /api/v1/scheduled-jobs`, `GET/PATCH/DELETE /api/v1/scheduled-jobs/{id}`
 
 Renderer client: `src/lib/client/cometmind.ts`.
 
@@ -98,8 +112,9 @@ SSE event names currently rendered:
 
 - `text_delta`, `reasoning_start`, `reasoning_delta`
 - `tool_call`, `tool_result`, `step_finish`
-- `subagent_started`, `subagent_progress`, `subagent_awaiting_input`, `subagent_finished`
+- `subagent_started`, `subagent_progress`, `subagent_finished`
 - `memory_injected`, `memory_updated`
+- `turn_status`
 - `error`, `done`
 
 Only one in-flight run per session is allowed (`409 session_running`).
@@ -115,6 +130,9 @@ Exposed as `window.electronAPI` in `electron/preload.cjs`:
 | `getProviderSettings()` / `saveProviderSettings()`                                    | Read/write full settings blob                  |
 | `fetchProviderModels(config)`                                                         | Query provider model list from main process    |
 | `getDiscordGatewayStatus()` / `setDiscordGatewayEnabled()`                            | Discord bot subprocess                         |
+| `getMcpOAuthStatus()` / `startMcpOAuth()`                                             | Native MCP OAuth browser + callback flow       |
+| `readCursorMcpConfig()`                                                               | Import Cursor-style MCP config                 |
+| `notifyJob()`                                                                         | Desktop notification for job events            |
 | `getOpenAtLogin()` / `setOpenAtLogin()`                                               | macOS login item                               |
 | `setSidebarOpen()`                                                                    | Animate macOS traffic lights                   |
 | `getFullScreen()` / `onFullScreenChange()`                                            | Fullscreen sync                                |
@@ -134,6 +152,7 @@ Cometline desktop may:
 - Start, stop, and restart the CometMind child process (and optional Discord gateway subprocess).
 - Persist desktop-level provider, CometMind, memory, appearance, and shortcut settings.
 - Render session/chat/tool/memory/subagent state from CometMind.
+- Render jobs, scheduled jobs, skill drafts, and workspace file previews from CometMind.
 - Fetch provider model lists through Electron IPC.
 - Open external links and host an in-app webview panel.
 
@@ -151,6 +170,10 @@ Cometline desktop must not:
 
 - `/` — new-session landing with centered project icon and hero composer.
 - `/session/[id]` — active thread; consumes pending first messages from the home route.
+- `/jobs` — jobs board and detail drawer.
+- `/skill-drafts` — draft skill review/editor surface.
+- `/settings` — direct settings route outside the normal shell.
+- `/mini` and `/mini/session/[id]` — compact mini-window chat routes.
 
 ### Chat flow
 
@@ -162,7 +185,7 @@ Cometline desktop must not:
 ### Settings sections
 
 - **Providers** — API keys, base URLs, model fetch/enable
-- **CometMind** — ACP config, skills list/sync/export/delete, Discord gateway
+- **CometMind** — ACP config, MCP config/status/OAuth, skills list/sync/export/delete, Discord gateway, jobs/autonomy/scheduler settings
 - **Memory** — config, CRUD, search, compaction preview/run
 - **General** — open at login
 - **Hero glow** — composer appearance and caret trail
@@ -214,6 +237,8 @@ Never commit real provider API keys to docs, Makefiles, source files, or tests.
 | `~/.cometmind/cometline-workspace.json` | Selected workspace path                                                     |
 | `~/.cometmind/cometline.log`            | Electron-spawned CometMind logs (rotates at 10 MB while running → `.log.1`) |
 | `~/.cometmind/cometline-gateway.log`    | Discord gateway logs (same rotation)                                        |
+| `~/.cometmind/mcp-oauth/{server}.json`  | MCP OAuth access/refresh token cache                                        |
+| `~/.cometmind/mcp-oauth/{server}.client.json` | MCP OAuth registered client metadata                                  |
 
 Default system prompt: packaged `SOUL.md` path is stored in `cometmind.systemPromptPath` inside `cometline-settings.json`.
 
@@ -310,7 +335,7 @@ CometMind currently executes built-in tool calls directly. Before real daily use
 - Run-loop pause/resume for pending permissions
 - Cometline approval UI
 
-ACP subagent permission prompts exist today (`subagent_awaiting_input`) but only for delegated coding sessions.
+ACP subagent permission prompts are currently handled inside the delegated agent flow; CometMind does not expose general built-in tool approval events yet.
 
 ### 2. Secret Storage
 

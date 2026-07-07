@@ -19,13 +19,14 @@ Pick the companion personality that fits your workflow in Settings → About. Sw
 
 - **Persona switch** — Choose between companion personas (e.g. Minako or Souma) in Settings; each persona has its own avatar, tone, and SOUL system prompt
 - **Semantic memory** — Automatically retrieves and learns context across sessions so your companion remembers preferences, decisions, and project details
+- **Jobs and scheduling** — Track work on a Kanban-style jobs board, let the runtime claim/complete jobs, and materialize scheduled jobs from one-shot or cron definitions
 - **Coding agent delegation** — Hand off complex tasks to OpenCode or Claude Code via ACP (Agent Communication Protocol), with progress streamed back to your chat
 - **Workspace isolation** — Separate chat history, sessions, tools, and memories per project; file access stays sandboxed to the active workspace
 - **Agent Skills** — Reusable prompt templates invoked with slash commands (`/tdd`, `/create-skill`, or custom skills in your workspace)
 - **Discord bot** — Run the same agent runtime as a Discord bot with per-thread sessions, @mention gating, and skill invocation
 - **Native chat UI** — SvelteKit + Electron desktop app with streaming responses, reasoning blocks, syntax highlighting, and smooth animations; includes a mini-window for quick access
 - **Multi-provider** — Switch between Anthropic, OpenAI, OpenAI-compatible APIs, OpenCode Go, and ChatGPT Codex
-- **MCP client support** — Connect to external Model Context Protocol servers to expose additional tools to the main agent
+- **MCP client support** — Connect to external Model Context Protocol servers over stdio, streamable HTTP, or SSE, including OAuth-protected remote servers
 
 ## Quick Start
 
@@ -63,6 +64,15 @@ Cometline builds a persistent memory layer for your companion:
 - **Workspace-scoped** — memories stay tied to the project they belong to
 - **Manageable** — browse, edit, search, and compact memories in Settings
 
+### Jobs And Scheduling
+
+Cometline includes a lightweight work queue for tasks that outlive a single chat turn:
+
+- **Jobs board** — create, edit, archive, unblock, and inspect job event history in the desktop UI
+- **Runtime leases** — CometMind can claim a job for a session, heartbeat while work is active, release it, or mark it complete
+- **Scheduled jobs** — define one-shot `run_at` jobs or recurring `cron_expr` schedules that materialize into the normal jobs queue
+- **Notifications** — optional desktop notifications for claimed, completed, released, or blocked jobs
+
 ### Workspace Isolation
 
 Every project is a first-class workspace with its own boundary:
@@ -76,6 +86,8 @@ Every project is a first-class workspace with its own boundary:
 - **Streaming responses** with visible reasoning blocks and tool call activity
 - **Multimodal input** — paste or drop images (PNG, JPEG, GIF, WebP) and text files
 - **Rich markdown** — syntax highlighting, math (KaTeX), tables, and embedded link previews
+- **Mini mode** — compact `/mini` routes for quick session access outside the full shell
+- **File panel** — preview and edit small workspace files through CometMind's workspace-scoped file APIs
 
 ### Agent Delegation
 
@@ -127,6 +139,17 @@ Skills are reusable prompt templates — built-in slash commands plus custom ski
 /my-skill Run my custom workflow
 ```
 
+Skills can also be drafted before promotion. Drafts live in `~/.cometmind/skill-drafts/` and are managed through CometMind's skill draft APIs plus the Cometline `/skill-drafts` route.
+
+### MCP Tools
+
+MCP servers are configured in Settings → CometMind → MCP and persisted under `cometmind.mcp` in `~/.cometmind/cometline-settings.json`.
+
+- Supported transports: `stdio`, streamable `http`, and legacy `sse`
+- Tools are exposed to the main agent as provider-safe names like `mcp_{serverId}_{toolName}`
+- Remote OAuth servers use CometMind-managed PRM/authorization-server discovery, Dynamic Client Registration, Authorization Code + PKCE, and headless refresh
+- OAuth token files live under `~/.cometmind/mcp-oauth/`, not inside the settings JSON
+
 ## Architecture
 
 ```
@@ -136,7 +159,8 @@ Skills are reusable prompt templates — built-in slash commands plus custom ski
 ├─────────────────────────────────────────────────────────┤
 │  cometmind    Go agent runtime                          │
 │               Agent loop, tools, memory, ACP,           │
-│               Discord gateway, HTTP/SSE API             │
+│               MCP, jobs, scheduler, Discord gateway,    │
+│               HTTP/SSE API                              │
 ├─────────────────────────────────────────────────────────┤
 │  comet-sdk    Go LLM I/O library                        │
 │               Anthropic + OpenAI + Codex + compatible   │

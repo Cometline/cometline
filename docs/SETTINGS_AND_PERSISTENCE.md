@@ -50,6 +50,8 @@ Examples:
 - mini window inactivity timeout
 - storage and retention settings
 - memory retrieval, lifecycle, and embedding settings
+- MCP server configuration
+- jobs, autonomous job worker, and scheduler settings
 
 ### 2. Instant-save settings
 
@@ -73,6 +75,8 @@ Examples:
 - Codex sign-in
 - memory create/delete/search
 - memory compaction preview/run
+- job create/update/archive/unblock/delete and scheduled-job operations
+- MCP connection tests, reconnects, OAuth logins, and Cursor config import
 - import/export settings
 - workspace selection and cleanup
 
@@ -191,7 +195,8 @@ Memory-section behavior:
 
 - normalizes and validates settings
 - saves through Electron IPC or browser `localStorage`
-- optionally sends `PUT /api/v1/memory/settings`
+- optionally sends `PUT /api/v1/memories/settings`
+- optionally sends `PUT /api/v1/jobs/settings`
 - runs retention/session sync when the runtime is ready
 - reconnects to CometMind when restart was requested
 
@@ -235,9 +240,13 @@ Rule:
 
 CometMind restart is required when:
 
-- provider runtime settings changed
-- `cometmind` runtime subtree changed
+- memory settings, memory provider, or embedding provider swaps change
+- storage cleanup interval or job reconcile interval changes
+- process-level bind settings such as host or port change
+- Discord token/process environment changes
 - icon variant changed and packaged runtime prompt path or related native state must be refreshed
+
+CometMind can reload many settings in place for new work, including provider/default model changes, ACP config, skills config, MCP config, log level, context window limit, and many runtime settings. The renderer still uses explicit restart/reconnect paths when a setting belongs to the restart-required class above.
 
 CometMind restart is not required for:
 
@@ -246,6 +255,7 @@ CometMind restart is not required for:
 - Discord gateway enabled toggle
 - web panel width
 - intro/setup flags
+- MCP connection tests/reconnect/OAuth actions
 
 Operational detail:
 
@@ -265,6 +275,8 @@ Also persisted:
 - `~/.cometmind/cometmind.db` - runtime SQLite database
 - `~/.cometmind/cometline.log` - CometMind sidecar log
 - `~/.cometmind/cometline-gateway.log` - Discord gateway log
+- `~/.cometmind/mcp-oauth/{server}.json` - MCP OAuth access/refresh token cache
+- `~/.cometmind/mcp-oauth/{server}.client.json` - MCP OAuth registered client metadata
 
 Rule:
 
@@ -280,7 +292,7 @@ Shared JSON persistence clearly covers:
 
 Live runtime API persistence clearly covers:
 
-- `PUT /api/v1/memory/settings`
+- `PUT /api/v1/memories/settings`
 
 But the full durability path for every memory retrieval/lifecycle runtime setting is less obvious than the main shared JSON path.
 
