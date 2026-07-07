@@ -15,7 +15,7 @@ const {
 } = require('electron');
 const path = require('path');
 const { pathToFileURL } = require('url');
-const { spawn, execFileSync } = require('child_process');
+const { spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const http = require('http');
@@ -347,7 +347,6 @@ const PERSONA_AVATAR_MAX_BYTES = 2 * 1024 * 1024;
 const PERSONA_APP_ICON_SIZE = 1024;
 const PERSONA_APP_ICON_RADIUS = 224;
 const PERSONA_APP_ICON_ARTWORK_SCALE = 0.8125;
-const PERSONA_ICON_SCRIPT = path.join(__dirname, '..', 'scripts', 'generate-project-icons.swift');
 
 function migratePersonaIdFromIconVariant(iconVariant) {
 	return iconVariant === 'man' ? 'souma' : 'minako';
@@ -1453,59 +1452,88 @@ function getAppIconPath(personaId = getPersonaId(), settings = undefined) {
 	return resolveAppIconPaths(personaId, settings).find((candidate) => fs.existsSync(candidate));
 }
 
+// Antialiased coverage (0..1) for pixel (x,y) inside a rounded rectangle. 1 in
+// the straight edges/interior, feathered across a 1px band on the corner arcs.
+function roundedRectCoverage(x, y, width, height, radius) {
+	const px = x + 0.5;
+	const py = y + 0.5;
+	if (px >= radius && px <= width - radius) return 1;
+	if (py >= radius && py <= height - radius) return 1;
+	const cx = px < radius ? radius : width - radius;
+	const cy = py < radius ? radius : height - radius;
+	const dist = Math.hypot(px - cx, py - cy);
+	if (dist <= radius - 0.5) return 1;
+	if (dist >= radius + 0.5) return 0;
+	return radius + 0.5 - dist;
+}
+
+// Build a macOS-style rounded app icon from a persona's uploaded avatar using
+// only nativeImage bitmap ops. This deliberately avoids two approaches that
+// only work during local development:
+//   - the Swift generator script (not bundled in the packaged app, and `swift`
+//     is absent on end-user machines), and
+//   - rasterizing an SVG via nativeImage (which cannot render SVG at all).
+// Doing the compositing in JS makes custom persona icons appear identically in
+// `make dev` and in a release build.
 function createCustomPersonaAppIcon(customPersona) {
 	if (!customPersona?.avatarPath || !fs.existsSync(customPersona.avatarPath)) return null;
 	const ext = path.extname(customPersona.avatarPath).toLowerCase();
 	if (!PERSONA_IMAGE_MIME_BY_EXT[ext]) return null;
-	const artworkSize = PERSONA_APP_ICON_SIZE * PERSONA_APP_ICON_ARTWORK_SCALE;
-	const artworkInset = (PERSONA_APP_ICON_SIZE - artworkSize) / 2;
-	const artworkRadius = PERSONA_APP_ICON_RADIUS * PERSONA_APP_ICON_ARTWORK_SCALE;
-	const avatarHref = pathToFileURL(path.resolve(customPersona.avatarPath)).href;
-	const svg = [
-		`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"`,
-		`width="${PERSONA_APP_ICON_SIZE}" height="${PERSONA_APP_ICON_SIZE}"`,
-		`viewBox="0 0 ${PERSONA_APP_ICON_SIZE} ${PERSONA_APP_ICON_SIZE}">`,
-		`<defs><clipPath id="persona-icon">`,
-		`<rect x="${artworkInset}" y="${artworkInset}" width="${artworkSize}" height="${artworkSize}"`,
-		`rx="${artworkRadius}" ry="${artworkRadius}"/></clipPath></defs>`,
-		`<rect x="${artworkInset}" y="${artworkInset}" width="${artworkSize}" height="${artworkSize}"`,
-		`rx="${artworkRadius}" ry="${artworkRadius}" fill="#ffffff"/>`,
-		`<image href="${avatarHref}" xlink:href="${avatarHref}" x="${artworkInset}" y="${artworkInset}"`,
-		`width="${artworkSize}" height="${artworkSize}" preserveAspectRatio="xMidYMid slice"`,
-		`clip-path="url(#persona-icon)"/></svg>`
-	].join('');
-	const image = nativeImage.createFromDataURL(
-		`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
-	);
+
+	let source = nativeImage.createFromPath(path.resolve(customPersona.avatarPath));
+	if (source.isEmpty()) return null;
+
+	// Center-crop to a square so the avatar fills the artwork without distortion.
+	const srcSize = source.getSize();
+	if (srcSize.width !== srcSize.height) {
+		const side = Math.min(srcSize.width, srcSize.height);
+		source = source.crop({
+			x: Math.round((srcSize.width - side) / 2),
+			y: Math.round((srcSize.height - side) / 2),
+			width: side,
+			height: side
+		});
+	}
+
+	const size = PERSONA_APP_ICON_SIZE;
+	const artwork = Math.round(size * PERSONA_APP_ICON_ARTWORK_SCALE);
+	const inset = Math.round((size - artwork) / 2);
+	const radius = Math.round(PERSONA_APP_ICON_RADIUS * PERSONA_APP_ICON_ARTWORK_SCALE);
+
+	const scaled = source.resize({ width: artwork, height: artwork, quality: 'best' });
+	const src = Buffer.from(scaled.toBitmap());
+	if (src.length < artwork * artwork * 4) return null;
+
+	// Transparent full-size canvas; composite the rounded avatar (flattened over
+	// a white card so transparent avatars still read) into the centered region,
+	// leaving macOS-style padding around it. Channel order is preserved verbatim
+	// from source to canvas, so this is agnostic to BGRA vs RGBA byte layout.
+	const canvas = Buffer.alloc(size * size * 4);
+	for (let y = 0; y < artwork; y++) {
+		for (let x = 0; x < artwork; x++) {
+			const coverage = roundedRectCoverage(x, y, artwork, artwork, radius);
+			if (coverage <= 0) continue;
+			const s = (y * artwork + x) * 4;
+			const alpha = src[s + 3] / 255;
+			const d = ((y + inset) * size + (x + inset)) * 4;
+			canvas[d] = Math.round(src[s] * alpha + 255 * (1 - alpha));
+			canvas[d + 1] = Math.round(src[s + 1] * alpha + 255 * (1 - alpha));
+			canvas[d + 2] = Math.round(src[s + 2] * alpha + 255 * (1 - alpha));
+			canvas[d + 3] = Math.round(255 * coverage);
+		}
+	}
+
+	const image = nativeImage.createFromBitmap(canvas, { width: size, height: size });
 	return image.isEmpty() ? null : image;
 }
 
 function generatePersonaAppIconPng(avatarPath, outputPath) {
 	if (!avatarPath || !fs.existsSync(avatarPath) || !outputPath) return false;
+	const image = createCustomPersonaAppIcon({ avatarPath, id: 'generated' });
+	if (!image) return false;
 	try {
 		fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-	} catch {
-		return false;
-	}
-	if (process.platform === 'darwin' && fs.existsSync(PERSONA_ICON_SCRIPT)) {
-		try {
-			execFileSync(
-				'swift',
-				[PERSONA_ICON_SCRIPT, 'persona', path.resolve(avatarPath), outputPath],
-				{ stdio: 'pipe', timeout: 30000 }
-			);
-			if (fs.existsSync(outputPath)) return true;
-		} catch (error) {
-			console.warn(
-				'[icon] Swift persona icon generation failed, falling back to SVG:',
-				error?.message ?? error
-			);
-		}
-	}
-	const fallback = createCustomPersonaAppIcon({ avatarPath, id: 'fallback' });
-	if (!fallback) return false;
-	try {
-		fs.writeFileSync(outputPath, fallback.toPNG());
+		fs.writeFileSync(outputPath, image.toPNG());
 		return true;
 	} catch {
 		return false;
