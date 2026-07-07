@@ -30,6 +30,8 @@
 	} = $props();
 
 	const MCP_REFRESH_TIMEOUT_MS = 8_000;
+	const MCP_RELOADING_POLL_MS = 1_500;
+	const MCP_RELOADING_STATUS_MESSAGE = 'CometMind is reloading MCP servers…';
 
 	const transportOptions: { value: MCPTransport; label: string; hint: string }[] = [
 		{
@@ -48,6 +50,7 @@
 	let serverStatuses = $state<McpServerStatus[]>([]);
 	let toolPreview = $state<McpToolInfo[]>([]);
 	let mcpBusy = $state(false);
+	let autoRefreshInFlight = $state(false);
 	let mcpStatus = $state('');
 	let oauthStatus = $state<Record<string, boolean>>({});
 	let envTexts = $state<Record<string, string>>({});
@@ -95,6 +98,17 @@
 
 	onMount(() => {
 		void refreshMcpRuntime();
+	});
+
+	$effect(() => {
+		const hasReloadingServer = serverStatuses.some((server) => server.status === 'reloading');
+		if (!hasReloadingServer || mcpBusy || autoRefreshInFlight) return;
+
+		const timeoutId = setTimeout(() => {
+			void refreshMcpRuntime({ silent: true });
+		}, MCP_RELOADING_POLL_MS);
+
+		return () => clearTimeout(timeoutId);
 	});
 
 	function formatEnv(values: Record<string, string> | undefined): string {
@@ -355,12 +369,21 @@
 			const saved = persistedById.get(server.id);
 			return saved ? { ...server, ...saved } : server;
 		});
+		for (const saved of persisted.servers) {
+			if (!nextServers.some((server) => server.id === saved.id)) {
+				nextServers.push(saved);
+			}
+		}
 		updateMcp({ enabled: persisted.enabled, servers: nextServers });
 	}
 
-	async function refreshMcpRuntime() {
-		mcpBusy = true;
-		mcpStatus = '';
+	async function refreshMcpRuntime({ silent = false }: { silent?: boolean } = {}) {
+		if (silent) {
+			autoRefreshInFlight = true;
+		} else {
+			mcpBusy = true;
+			mcpStatus = '';
+		}
 		try {
 			resyncDraftFromPersistedSettings();
 			const [servers, tools] = await Promise.all([
@@ -378,12 +401,18 @@
 			);
 			oauthStatus = Object.fromEntries(oauthEntries);
 			if (servers?.some((server) => server.status === 'reloading')) {
-				mcpStatus = 'CometMind is reloading MCP servers…';
+				mcpStatus = MCP_RELOADING_STATUS_MESSAGE;
+			} else if (mcpStatus === MCP_RELOADING_STATUS_MESSAGE) {
+				mcpStatus = '';
 			}
 		} catch (err) {
 			mcpStatus = err instanceof Error ? err.message : 'Failed to load MCP status';
 		} finally {
-			mcpBusy = false;
+			if (silent) {
+				autoRefreshInFlight = false;
+			} else {
+				mcpBusy = false;
+			}
 		}
 	}
 
@@ -520,7 +549,7 @@
 			<Download size={14} strokeWidth={2} />
 			Import from Cursor
 		</SettingsButton>
-		<SettingsButton variant="secondary" disabled={mcpBusy} onclick={refreshMcpRuntime}>
+		<SettingsButton variant="secondary" disabled={mcpBusy} onclick={() => refreshMcpRuntime()}>
 			<RefreshCw size={14} strokeWidth={2} class={mcpBusy ? 'spin' : ''} />
 			{mcpBusy ? 'Refreshing…' : 'Refresh status'}
 		</SettingsButton>
@@ -768,10 +797,8 @@
 								label="Allowed tools"
 								note="Turn tools off to hide them from the agent. All on (the default) exposes every tool."
 							>
-								{@const knownTools = knownToolsFor(server)}
-								{#if knownTools.length > 0}
-									<div class="tool-toggles">
-										{#each knownTools as tool (tool.name)}
+								<div class="tool-toggles">
+									{#each knownToolsFor(server) as tool (tool.name)}
 											<button
 												type="button"
 												class="tool-toggle"
@@ -794,15 +821,14 @@
 													{/if}
 												</span>
 											</button>
-										{/each}
-									</div>
-								{:else}
+									{:else}
 									<p class="settings-field-hint">
 										No tools discovered yet. Save settings, then use Test
 										connection to load this server's tools — they'll appear here
 										as toggles.
 									</p>
-								{/if}
+									{/each}
+								</div>
 							</SettingsField>
 						</div>
 					{/if}

@@ -176,12 +176,13 @@ func (m *Manager) Close() error {
 	return nil
 }
 
-// Reload replaces the manager config and reconnects enabled servers. While a
-// reload is in flight, ListServers reports enabled servers as StatusReloading
-// (rather than the misleading StatusDisconnected produced by Close) and
-// Reconnect rejects concurrent calls for the same window, since Start
-// rebuilds the servers map from scratch and would otherwise race a manual
-// reconnect for a leaked, untracked connection.
+// Reload replaces the manager config synchronously, then reconnects enabled
+// servers in the background. While that background reconnect is in flight,
+// ListServers reports enabled servers as StatusReloading (rather than the
+// misleading StatusDisconnected produced by Close) and Reconnect rejects
+// concurrent calls for the same window, since Start rebuilds the servers map
+// from scratch and would otherwise race a manual reconnect for a leaked,
+// untracked connection.
 func (m *Manager) Reload(ctx context.Context, cfg Config) error {
 	if m == nil {
 		return nil
@@ -189,17 +190,48 @@ func (m *Manager) Reload(ctx context.Context, cfg Config) error {
 	m.mu.Lock()
 	m.reloading = true
 	m.mu.Unlock()
-	defer func() {
-		m.mu.Lock()
-		m.reloading = false
-		m.mu.Unlock()
-	}()
 
 	_ = m.Close()
 	m.mu.Lock()
 	m.cfg = cfg
+	m.servers = make(map[string]*managedServer, len(cfg.Servers))
+	for _, srv := range cfg.Servers {
+		entry := &managedServer{cfg: srv}
+		if !cfg.Enabled || !srv.Enabled {
+			entry.status = StatusDisabled
+		} else {
+			entry.status = StatusDisconnected
+		}
+		m.servers[srv.ID] = entry
+	}
 	m.mu.Unlock()
-	m.Start(ctx)
+
+	// Detach reconnects from the SIGHUP reload context. The caller only needs to
+	// know that settings were applied; slow or wedged MCP transports should not
+	// keep the settings save UI stuck until a full reload timeout elapses.
+	go func() {
+		defer func() {
+			m.mu.Lock()
+			m.reloading = false
+			m.mu.Unlock()
+		}()
+		connectCtx, cancel := context.WithTimeout(context.Background(), defaultConnectTimeout)
+		defer cancel()
+		var wg sync.WaitGroup
+		for _, srv := range cfg.Servers {
+			if !cfg.Enabled || !srv.Enabled {
+				continue
+			}
+			wg.Add(1)
+			go func(id string) {
+				defer wg.Done()
+				if err := m.connectOne(connectCtx, id); err != nil {
+					logging.L().Error("mcp.connect_failed", "server", id, "error", err)
+				}
+			}(srv.ID)
+		}
+		wg.Wait()
+	}()
 	return nil
 }
 

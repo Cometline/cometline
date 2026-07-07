@@ -122,6 +122,44 @@ func TestWaitForReloadGenerationTimesOutWithoutNewGeneration(t *testing.T) {
 	}
 }
 
+// TestWaitForReloadGenerationConcurrentCallsDoNotStackTimeouts documents the
+// contract `cmd.settingsReloadCmd` relies on: waiting on N modes concurrently
+// takes ~1x timeout in the worst case, not Nx. Before the fix, settingsReloadCmd
+// awaited each mode's WaitForReloadGeneration sequentially, so with both
+// `serve` and `gateway-discord` timing out (as happened when the generation
+// counter regressed, see cmd/process_test.go), the CLI could take up to 2x
+// reloadConfirmTimeout — long enough that Electron's own budget expired first
+// and force-restarted the whole sidecar. WaitForReloadGeneration itself is
+// mode-independent, so this test exercises the same concurrency pattern
+// settingsReloadCmd now uses.
+func TestWaitForReloadGenerationConcurrentCallsDoNotStackTimeouts(t *testing.T) {
+	withTempDataDir(t)
+
+	const timeout = 200 * time.Millisecond
+	modes := []string{ModeServe, ModeGatewayDiscord}
+
+	start := time.Now()
+	results := make(chan bool, len(modes))
+	for _, mode := range modes {
+		go func(mode string) {
+			_, confirmed := WaitForReloadGeneration(mode, 0, timeout)
+			results <- confirmed
+		}(mode)
+	}
+	for range modes {
+		if confirmed := <-results; confirmed {
+			t.Fatal("expected timeout (no generation written), got confirmed = true")
+		}
+	}
+	elapsed := time.Since(start)
+
+	// Sequential waiting would take ~2x timeout (400ms); concurrent waiting
+	// should stay close to 1x timeout regardless of how many modes are waited on.
+	if elapsed >= 2*timeout {
+		t.Fatalf("elapsed = %v, want < %v (waits should run concurrently, not stack)", elapsed, 2*timeout)
+	}
+}
+
 func TestWriteMetadataUsesAtomicWrite(t *testing.T) {
 	withTempDataDir(t)
 

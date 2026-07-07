@@ -134,15 +134,34 @@ var settingsReloadCmd = &cobra.Command{
 			return fmt.Errorf("no running CometMind processes found")
 		}
 
-		var failures []string
+		// Wait for each target concurrently. Waiting sequentially would let
+		// worst-case latency stack (each wait can take up to
+		// reloadConfirmTimeout), so with both serve and gateway-discord
+		// running a sequential wait could take up to 2x reloadConfirmTimeout
+		// before Electron's caller (which only budgets ~35s) gives up and
+		// force-restarts the whole sidecar.
+		type waitResult struct {
+			mode      string
+			result    processctl.ReloadResult
+			confirmed bool
+		}
+		results := make(chan waitResult, len(targets))
 		for _, mode := range targets {
-			result, confirmed := processctl.WaitForReloadGeneration(mode, baseline[mode], reloadConfirmTimeout)
-			if !confirmed {
-				failures = append(failures, fmt.Sprintf("%s: reload did not confirm within %s", mode, reloadConfirmTimeout))
+			go func(mode string) {
+				result, confirmed := processctl.WaitForReloadGeneration(mode, baseline[mode], reloadConfirmTimeout)
+				results <- waitResult{mode: mode, result: result, confirmed: confirmed}
+			}(mode)
+		}
+
+		var failures []string
+		for range targets {
+			r := <-results
+			if !r.confirmed {
+				failures = append(failures, fmt.Sprintf("%s: reload did not confirm within %s", r.mode, reloadConfirmTimeout))
 				continue
 			}
-			if !result.Success {
-				failures = append(failures, fmt.Sprintf("%s: %s", mode, result.Error))
+			if !r.result.Success {
+				failures = append(failures, fmt.Sprintf("%s: %s", r.mode, r.result.Error))
 			}
 		}
 		if len(failures) > 0 {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 )
 
 // TestListServersReportsReloadingOverlay verifies that while a Reload is in
@@ -105,9 +106,39 @@ func TestTestServerRejectsWhileReloading(t *testing.T) {
 	}
 }
 
-// TestReloadClearsReloadingFlagOnCompletion ensures the reloading overlay is
-// always cleared after Reload returns, even though Start() connects
-// concurrently — a stuck true here would permanently mask real server status.
+// TestReloadPublishesNewConfigBeforeReconnect ensures Settings UI refreshes see
+// the just-saved server list immediately, even though actual reconnects run in
+// the background.
+func TestReloadPublishesNewConfigBeforeReconnect(t *testing.T) {
+	mgr := NewManager(Config{
+		Enabled: true,
+		Servers: []ServerConfig{
+			{ID: "old", Name: "Old", Enabled: true, Transport: TransportStdio, Command: "false"},
+		},
+	})
+	mgr.Start(context.Background())
+
+	if err := mgr.Reload(context.Background(), Config{
+		Enabled: false,
+		Servers: []ServerConfig{
+			{ID: "new", Name: "New", Enabled: true, Transport: TransportStdio, Command: "false"},
+		},
+	}); err != nil {
+		t.Fatalf("Reload() error = %v", err)
+	}
+
+	statuses := statusByID(mgr.ListServers())
+	if _, ok := statuses["old"]; ok {
+		t.Fatalf("old server still present after Reload(): %#v", statuses)
+	}
+	if statuses["new"] != StatusDisabled {
+		t.Fatalf("status[new] = %q, want %q", statuses["new"], StatusDisabled)
+	}
+}
+
+// TestReloadClearsReloadingFlagAfterBackgroundReconnect ensures the reloading
+// overlay is cleared after Reload's background reconnect finishes — a stuck
+// true here would permanently mask real server status.
 func TestReloadClearsReloadingFlagOnCompletion(t *testing.T) {
 	mgr := NewManager(Config{Enabled: true})
 	mgr.Start(context.Background())
@@ -121,11 +152,18 @@ func TestReloadClearsReloadingFlagOnCompletion(t *testing.T) {
 		t.Fatalf("Reload() error = %v", err)
 	}
 
-	mgr.mu.RLock()
-	reloading := mgr.reloading
-	mgr.mu.RUnlock()
-	if reloading {
-		t.Fatal("reloading flag still true after Reload() returned")
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		mgr.mu.RLock()
+		reloading := mgr.reloading
+		mgr.mu.RUnlock()
+		if !reloading {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("reloading flag still true after background reconnect should have finished")
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
 
 	statuses := statusByID(mgr.ListServers())

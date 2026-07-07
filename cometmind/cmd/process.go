@@ -106,16 +106,47 @@ func init() {
 // completed — and why it failed, if it did — instead of only knowing the
 // signal was delivered.
 func handleReloadSignal(ctx context.Context, hupCh <-chan os.Signal, mode string, reload func(context.Context) error) {
+	handleReloadSignalWithTimeout(ctx, hupCh, mode, reload, 30*time.Second)
+}
+
+func handleReloadSignalWithTimeout(ctx context.Context, hupCh <-chan os.Signal, mode string, reload func(context.Context) error, timeout time.Duration) {
+	// Seed from the last generation persisted to disk (if any) instead of
+	// starting at 0. The generation counter must survive process restarts:
+	// `cometmind settings reload` reads the on-disk generation as its baseline
+	// before signaling, so if this fresh process incarnation started counting
+	// from 0 again, its first reload would write a *lower* generation than a
+	// previous incarnation already left on disk. WaitForReloadGeneration only
+	// looks for generation > baseline, so that write would never be seen as
+	// "new" and every reload after a restart would hang until timeout (#mcp
+	// stability regression: reload never confirms, every save falls back to a
+	// disruptive full restart).
 	var generation int64
+	if seed, err := processctl.ReadReloadResult(mode); err == nil {
+		generation = seed.Generation
+	}
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-hupCh:
 			generation++
-			reloadCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-			err := reload(reloadCtx)
-			cancel()
+			reloadCtx, cancel := context.WithTimeout(ctx, timeout)
+			errCh := make(chan error, 1)
+			go func() {
+				errCh <- reload(reloadCtx)
+			}()
+
+			var err error
+			select {
+			case <-ctx.Done():
+				cancel()
+				return
+			case err = <-errCh:
+				cancel()
+			case <-reloadCtx.Done():
+				err = fmt.Errorf("reload timed out after %s: %w", timeout, reloadCtx.Err())
+				cancel()
+			}
 			result := processctl.ReloadResult{
 				Generation: generation,
 				Success:    err == nil,

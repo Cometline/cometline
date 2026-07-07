@@ -17,6 +17,7 @@ vi.mock('$lib/client/cometmind', () => ({
 }));
 
 afterEach(() => {
+	vi.useRealTimers();
 	vi.clearAllMocks();
 	settingsStore.apply(defaultSettings());
 });
@@ -287,5 +288,59 @@ describe('SettingsMCPPanel refresh status resync (fix for stuck toggle)', () => 
 			expect(container.textContent).toContain('CometMind is reloading MCP servers');
 			expect(container.querySelector('.status-badge.pending')).toBeTruthy();
 		});
+	});
+
+	it('auto-refreshes while reloading until the server becomes connected', async () => {
+		seedPersistedMcp({
+			enabled: true,
+			servers: [
+				{
+					id: 'server-1',
+					name: 'MCP Server 1',
+					enabled: true,
+					transport: 'stdio',
+					command: 'false',
+					args: [],
+					env: {},
+					url: '',
+					headers: {}
+				}
+			]
+		});
+		vi.mocked(listMcpServers)
+			.mockResolvedValueOnce([
+				{
+					id: 'server-1',
+					name: 'MCP Server 1',
+					enabled: true,
+					transport: 'stdio',
+					status: 'reloading',
+					tool_count: 0
+				}
+			])
+			.mockResolvedValue([
+				{
+					id: 'server-1',
+					name: 'MCP Server 1',
+					enabled: true,
+					transport: 'stdio',
+					status: 'connected',
+					tool_count: 2
+				}
+			]);
+
+		const { container } = render(Harness);
+
+		await waitFor(() => {
+			expect(container.textContent).toContain('CometMind is reloading MCP servers');
+			expect(container.querySelector('.status-badge.pending')).toBeTruthy();
+		});
+
+		await waitFor(() => {
+			expect(container.textContent).not.toContain('CometMind is reloading MCP servers');
+			expect(container.querySelector('.status-badge.connected')).toBeTruthy();
+			expect(container.textContent).toContain('connected');
+		}, { timeout: 3_000 });
+		expect(listMcpServers).toHaveBeenCalledTimes(2);
 	});
 });
