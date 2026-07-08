@@ -295,8 +295,14 @@
 		await commitModelChange(option);
 	}
 
+	let openInMainWindowBlocked = $derived(chatStore.isStreamingFor(sessionId));
+
 	async function openInMainWindow() {
 		if (!sessionId) return;
+		// Guard against the race where the button's disabled state hasn't
+		// re-rendered yet but streaming already started/ended: re-check live
+		// state at click time rather than trusting only the derived UI flag.
+		if (chatStore.isStreamingFor(sessionId)) return;
 		await window.electronAPI?.openSessionInMainWindow?.(sessionId);
 	}
 </script>
@@ -316,8 +322,13 @@
 			<button
 				class="mini-open-main"
 				type="button"
-				title="Open this chat in the main window"
-				aria-label="Open this chat in the main window"
+				disabled={openInMainWindowBlocked}
+				title={openInMainWindowBlocked
+					? 'Wait for the response to finish before opening in the main window'
+					: 'Open this chat in the main window'}
+				aria-label={openInMainWindowBlocked
+					? 'Open this chat in the main window (disabled while responding)'
+					: 'Open this chat in the main window'}
 				onclick={openInMainWindow}
 			>
 				<svg viewBox="0 0 16 16" aria-hidden="true">
@@ -489,6 +500,16 @@
 	.mini-open-main:hover {
 		border-color: color-mix(in srgb, var(--hero-composer-glow-color) 54%, var(--border-soft));
 		background: color-mix(in srgb, var(--hero-composer-glow-color) 18%, var(--panel-bg));
+	}
+
+	.mini-open-main:disabled {
+		cursor: not-allowed;
+		opacity: 0.4;
+	}
+
+	.mini-open-main:disabled:hover {
+		border-color: color-mix(in srgb, var(--border-soft) 80%, transparent);
+		background: color-mix(in srgb, var(--panel-bg) 88%, var(--text-main) 6%);
 	}
 
 	.chat-home.compact .thread-shell,
