@@ -14,6 +14,18 @@ import (
 
 const defaultConnectTimeout = 10 * time.Second
 
+// defaultKeepAlive enables the go-sdk's built-in ping/keepalive loop
+// (mcp.ClientOptions.KeepAlive) for every MCP session, regardless of
+// transport (stdio, HTTP, or SSE). Without this, a silently-dead connection
+// (network drop, idle load-balancer reap, subprocess exit) is never detected
+// proactively — the SDK only surfaces the failure reactively, the next time a
+// tool call happens to be attempted. With KeepAlive set, the SDK pings the
+// peer on this interval and, if a ping fails, closes the session itself
+// (see go-sdk mcp/shared.go startKeepalive), which Manager's monitorConnection
+// observes via ClientSession.Wait() to correct the cached status and drive a
+// bounded automatic reconnect.
+const defaultKeepAlive = 30 * time.Second
+
 var clientImpl = &mcp.Implementation{Name: "cometmind", Version: "0.1.0"}
 
 // DiscoveredTool is one MCP tool exposed to CometMind.
@@ -44,6 +56,7 @@ func connectServer(ctx context.Context, cfg ServerConfig) (*connectedServer, err
 
 	client := mcp.NewClient(clientImpl, &mcp.ClientOptions{
 		Capabilities: &mcp.ClientCapabilities{},
+		KeepAlive:    defaultKeepAlive,
 	})
 	session, err := client.Connect(connectCtx, transport, nil)
 	if err != nil {

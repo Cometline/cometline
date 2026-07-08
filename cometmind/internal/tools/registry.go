@@ -69,6 +69,8 @@ func NewRegistry(workspaceRoot string, opts ...RegistryOptions) *Registry {
 		}
 	}
 	if opt.MCP != nil {
+		add(listMCPServersTool{mgr: opt.MCP})
+		add(reconnectMCPServerTool{mgr: opt.MCP})
 		for _, tool := range mcpToolsFromManager(opt.MCP) {
 			add(tool)
 		}

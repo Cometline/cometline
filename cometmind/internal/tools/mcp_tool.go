@@ -5,10 +5,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	mcppkg "github.com/cometline/cometmind/internal/mcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
+
+// mcpCallToolTimeout bounds a single MCP tool call, mirroring the timeout
+// pattern used by other built-in tools (grep.go, runcommand.go, webfetch.go).
+// Without this, a zombie MCP session (see internal/mcp keepalive handling)
+// could otherwise hang for the full duration of the parent turn's context.
+const mcpCallToolTimeout = 60 * time.Second
 
 type mcpTool struct {
 	serverID    string
@@ -62,7 +69,9 @@ func (t mcpTool) Execute(ctx context.Context, input json.RawMessage) (Result, er
 			return Result{OK: false, Output: "invalid tool input: " + err.Error()}, nil
 		}
 	}
-	res, err := t.session.CallTool(ctx, &mcp.CallToolParams{
+	callCtx, cancel := context.WithTimeout(ctx, mcpCallToolTimeout)
+	defer cancel()
+	res, err := t.session.CallTool(callCtx, &mcp.CallToolParams{
 		Name:      t.toolName,
 		Arguments: args,
 	})
