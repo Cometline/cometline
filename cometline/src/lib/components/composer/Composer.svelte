@@ -158,6 +158,7 @@
 		const filePaths = input?.getFilePaths() ?? [];
 		inputController.sendTurn({
 			text: action.text,
+			displayText: action.displayText,
 			images: images.length > 0 ? images : undefined,
 			filePaths: filePaths.length > 0 ? filePaths : undefined
 		});

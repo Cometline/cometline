@@ -48,7 +48,9 @@ export function expandCreateSkillCommand(userText: string): string {
 	return prompt;
 }
 
-export function expandBuiltinSlashCommand(text: string): string | null {
+export function expandBuiltinSlashCommand(
+	text: string
+): { text: string; displayText?: string } | null {
 	const match = /^\s*\/([\w-]+)(?:\s+([\s\S]*))?$/.exec(text);
 	if (!match) return null;
 	const name = match[1];
@@ -56,22 +58,8 @@ export function expandBuiltinSlashCommand(text: string): string | null {
 	if (!builtin) return null;
 	const rest = match[2]?.trimStart() ?? '';
 	if (name === 'create-skill') {
-		return expandCreateSkillCommand(rest);
-	}
-	if (name === 'change') {
-		return null;
-	}
-	if (name === 'clear') {
-		return null;
-	}
-	if (name === 'model') {
-		return null;
-	}
-	if (name === 'job') {
-		return null;
-	}
-	if (name === 'list-jobs') {
-		return null;
+		const displayText = rest ? `/create-skill ${rest}` : '/create-skill';
+		return { text: expandCreateSkillCommand(rest), displayText };
 	}
 	return null;
 }

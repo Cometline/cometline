@@ -37,7 +37,9 @@ import type { ImageAttachment, SkillResource } from '$lib/types';
 import type { JobResource } from '$lib/generated/cometmind-api';
 import type { ComposerInputRef } from '$lib/components/composer/composer-input-ref';
 
-export type ComposerSubmitResolution = { kind: 'handled' } | { kind: 'message'; text: string };
+export type ComposerSubmitResolution =
+	| { kind: 'handled' }
+	| { kind: 'message'; text: string; displayText?: string };
 
 export function createComposerSlashController(deps: {
 	getValue: () => string;
@@ -415,11 +417,13 @@ export function createComposerSlashController(deps: {
 		return { skillName, rest: match[2]?.trimStart() ?? '' };
 	}
 
-	function expandSkillCommand(text: string) {
+	function expandSkillCommand(text: string): { text: string; displayText?: string } {
 		const command = parseLeadingSkillCommand(text);
-		if (!command) return text;
+		if (!command) return { text };
 		const rest = command.rest ? `\n\n${command.rest}` : '';
-		return `Use the \`${command.skillName}\` skill for this request. Load it with the \`load_skill\` tool before proceeding.${rest}`;
+		const expanded = `Use the \`${command.skillName}\` skill for this request. Load it with the \`load_skill\` tool before proceeding.${rest}`;
+		const displayText = command.rest ? `/${command.skillName} ${command.rest}` : `/${command.skillName}`;
+		return { text: expanded, displayText };
 	}
 
 	function resolveSubmitAction(trimmed: string): ComposerSubmitResolution {
@@ -443,8 +447,12 @@ export function createComposerSlashController(deps: {
 			handleJobCommandSubmit();
 			return { kind: 'handled' };
 		}
-		const expanded = expandBuiltinSlashCommand(trimmed) ?? expandSkillCommand(trimmed);
-		return { kind: 'message', text: expanded };
+		const builtin = expandBuiltinSlashCommand(trimmed);
+		if (builtin) {
+			return { kind: 'message', text: builtin.text, displayText: builtin.displayText };
+		}
+		const skill = expandSkillCommand(trimmed);
+		return { kind: 'message', text: skill.text, displayText: skill.displayText };
 	}
 
 	function handleWorkspaceMenuKeydown(e: KeyboardEvent): boolean {
