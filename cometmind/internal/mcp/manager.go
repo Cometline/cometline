@@ -74,6 +74,15 @@ type managedServer struct {
 	conn      *connectedServer
 	status    ServerStatus
 	lastError string
+	// generation identifies the current connection "episode" for this
+	// server. It is bumped by connectOne every time it (re)connects — success
+	// or failure — and by Close for every entry it tears down. A
+	// monitorConnection/autoReconnect goroutine captures the generation at
+	// the moment its connection was installed; before acting on a wake-up it
+	// re-checks the entry's current generation against that captured value,
+	// so a stale goroutine racing a newer connect/reconnect/reload for the
+	// same server safely no-ops instead of clobbering fresher state.
+	generation uint64
 }
 
 // NewManager builds a manager from settings without connecting.
@@ -138,13 +147,23 @@ func (m *Manager) connectOne(ctx context.Context, serverID string) error {
 		_ = entry.conn.session.Close()
 		entry.conn = nil
 	}
+	// Bump generation before the (slow, unlocked) connectServer call so that
+	// any monitorConnection goroutine watching a session we just closed above
+	// sees a generation mismatch when its Wait() unblocks, and treats the
+	// closure as an intentional supersession rather than an unexpected death.
+	entry.generation++
+	gen := entry.generation
 	m.mu.Unlock()
 
 	conn, err := connectServer(ctx, cfg)
+
 	m.mu.Lock()
-	defer m.mu.Unlock()
 	entry, ok = m.servers[serverID]
-	if !ok {
+	if !ok || entry.generation != gen {
+		// The server was removed, or a newer connect/reconnect/reload already
+		// superseded this attempt while connectServer was in flight — discard
+		// this (now-stale) result instead of clobbering fresher state.
+		m.mu.Unlock()
 		if conn != nil && conn.session != nil {
 			_ = conn.session.Close()
 		}
@@ -154,12 +173,88 @@ func (m *Manager) connectOne(ctx context.Context, serverID string) error {
 		entry.conn = nil
 		entry.status = StatusError
 		entry.lastError = err.Error()
+		m.mu.Unlock()
 		return err
 	}
 	entry.conn = conn
 	entry.status = StatusConnected
 	entry.lastError = ""
+	m.mu.Unlock()
+
+	go m.monitorConnection(serverID, gen, conn)
 	return nil
+}
+
+// mcpAutoReconnectBackoff defines the bounded automatic-reconnect policy
+// applied when monitorConnection observes a live session die unexpectedly.
+// After these attempts are exhausted, the server is left in StatusError with
+// lastError set — matching manual recovery via the existing
+// reconnection-runs API / Settings UI reconnect button, rather than retrying
+// silently forever.
+var mcpAutoReconnectBackoff = []time.Duration{2 * time.Second, 8 * time.Second, 30 * time.Second}
+
+// monitorConnection watches one connected session for the underlying
+// transport dying — a failed keepalive ping (see defaultKeepAlive in
+// client.go), a stdio subprocess exiting, or any other transport-level
+// error — and reacts by correcting the cached status (which would otherwise
+// stay StatusConnected forever) and driving a bounded automatic reconnect.
+//
+// gen is the generation captured at the moment this conn was installed. If,
+// by the time session.Wait() returns, the entry's live generation no longer
+// matches gen, some other connect/reconnect/reload/close already superseded
+// this connection intentionally, and this goroutine is a no-op.
+func (m *Manager) monitorConnection(serverID string, gen uint64, conn *connectedServer) {
+	waitErr := conn.session.Wait()
+
+	m.mu.Lock()
+	entry, ok := m.servers[serverID]
+	if !ok || entry.generation != gen {
+		m.mu.Unlock()
+		return
+	}
+	entry.conn = nil
+	entry.status = StatusError
+	if waitErr != nil {
+		entry.lastError = waitErr.Error()
+	} else {
+		entry.lastError = "MCP session closed unexpectedly"
+	}
+	m.mu.Unlock()
+
+	logging.L().Error("mcp.session_closed", "server", serverID, "error", waitErr)
+	m.autoReconnect(serverID)
+}
+
+// autoReconnect retries connectOne a bounded number of times with backoff
+// after monitorConnection detects an unexpected session death. It bails out
+// early if the server was disabled, the manager started reloading, or
+// something else (a manual Reconnect racing this loop) already restored the
+// connection — connectOne itself remains the single source of truth for
+// generation-safe connect races, so this loop only needs to decide whether
+// it's still worth attempting another connect.
+func (m *Manager) autoReconnect(serverID string) {
+	for attempt, delay := range mcpAutoReconnectBackoff {
+		time.Sleep(delay)
+
+		m.mu.RLock()
+		entry, ok := m.servers[serverID]
+		reloading := m.reloading
+		alreadyConnected := ok && entry.status == StatusConnected
+		enabled := ok && m.cfg.Enabled && entry.cfg.Enabled
+		m.mu.RUnlock()
+		if !ok || reloading || !enabled || alreadyConnected {
+			return
+		}
+
+		connectCtx, cancel := context.WithTimeout(context.Background(), defaultConnectTimeout)
+		err := m.connectOne(connectCtx, serverID)
+		cancel()
+		if err == nil {
+			logging.L().Info("mcp.auto_reconnect_succeeded", "server", serverID, "attempt", attempt+1)
+			return
+		}
+		logging.L().Warn("mcp.auto_reconnect_failed", "server", serverID, "attempt", attempt+1, "error", err)
+	}
 }
 
 // Close disconnects all MCP sessions.
@@ -167,6 +262,13 @@ func (m *Manager) Close() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for _, entry := range m.servers {
+		// Bump generation first so any monitorConnection goroutine watching
+		// this session sees a mismatch when session.Close() below unblocks
+		// its Wait() call, and treats this as an intentional shutdown rather
+		// than an unexpected death — otherwise it would overwrite
+		// StatusDisconnected with StatusError and kick off a pointless
+		// autoReconnect loop against a manager that is shutting down.
+		entry.generation++
 		if entry.conn != nil && entry.conn.session != nil {
 			_ = entry.conn.session.Close()
 			entry.conn = nil
