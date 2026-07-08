@@ -262,7 +262,7 @@
 <style>
 	.composer {
 		position: relative;
-		background: rgba(255, 255, 255, 0.74);
+		background: var(--panel-bg);
 		border: 1px solid var(--border-soft);
 		border-radius: var(--radius-card);
 		box-shadow: var(--shadow-card);
@@ -270,8 +270,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: 10px;
-		backdrop-filter: blur(18px) saturate(170%);
-		-webkit-backdrop-filter: blur(18px) saturate(170%);
 		transition:
 			width var(--duration-flight) var(--ease-smooth),
 			padding var(--duration-flight) var(--ease-smooth),
@@ -283,7 +281,7 @@
 
 	.composer.dragging {
 		border-color: rgba(37, 99, 235, 0.26);
-		background: rgba(248, 251, 255, 0.92);
+		background: #f8fbff;
 		box-shadow:
 			var(--shadow-card),
 			0 0 0 4px rgba(37, 99, 235, 0.08);
