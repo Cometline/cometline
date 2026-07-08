@@ -19,6 +19,7 @@ const (
 	TranscriptKindTool      TranscriptKind = "tool"
 	TranscriptKindSystem    TranscriptKind = "system"
 	TranscriptKindMemory    TranscriptKind = "memory"
+	TranscriptKindError     TranscriptKind = "error"
 )
 
 // TranscriptEntry is a persisted message or tool row formatted for chat-style UIs.
@@ -128,6 +129,13 @@ func (s *Service) LoadTranscript(ctx context.Context, sessionID string) ([]Trans
 				})
 			}
 		case "system":
+			if text, ok := DecodeErrorMessageContent(m.Content); ok {
+				out = append(out, TranscriptEntry{
+					Kind: TranscriptKindError,
+					Text: text,
+				})
+				continue
+			}
 			out = append(out, TranscriptEntry{
 				Kind: TranscriptKindSystem,
 				Text: strings.TrimSpace(m.Content),

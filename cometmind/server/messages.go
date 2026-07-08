@@ -114,6 +114,11 @@ func (a *App) handlePostMessage(c *gin.Context) {
 	}()
 
 	for ev := range evCh {
+		if ev.Kind == event.KindError && strings.TrimSpace(ev.Message) != "" {
+			if _, err := a.sessions.AppendErrorMessage(c.Request.Context(), sess.ID, ev.Message); err != nil {
+				logging.L().Warn("message.error_persist_failed", "session", sess.ID, "error", err)
+			}
+		}
 		if err := writeSSE(c.Writer, ev); err != nil {
 			return
 		}

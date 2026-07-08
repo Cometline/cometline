@@ -62,7 +62,8 @@
 		if (entry.kind === 'reasoning') return 'Thinking';
 		if (entry.kind === 'memory') return memoryLabel(entry.memories);
 		if (entry.kind === 'tool') return ctx.toolFoldLabel(entry.tool);
-		return subagentProgressLabel(entry.subagent);
+		if (entry.kind === 'subagent') return subagentProgressLabel(entry.subagent);
+		return 'Error';
 	}
 
 	function thinkingActive(pending?: boolean) {
@@ -99,6 +100,8 @@
 		>
 			{#if firstEntry.kind === 'reasoning' || firstEntry.kind === 'memory'}
 				<Brain size={13} />
+			{:else if firstEntry.kind === 'error'}
+				<TriangleAlert size={13} />
 			{:else}
 				<Terminal size={13} />
 			{/if}
@@ -123,6 +126,8 @@
 				{:else}
 					<CircleCheck size={12} />
 				{/if}
+			{:else if firstEntry.kind === 'error'}
+				<TriangleAlert size={12} />
 			{/if}
 			<ChevronDown size={13} class={parentExpanded ? 'expanded' : ''} />
 		</button>

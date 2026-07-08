@@ -149,6 +149,10 @@
 		return thinkingForAssistant.memoryIdsInBuffer.has(item.id);
 	}
 
+	function isErrorInBuffer(item: Extract<ChatItem, { type: 'error' }>) {
+		return thinkingForAssistant.errorIdsInBuffer.has(item.id);
+	}
+
 	const clocks = createThreadClocks({
 		getThreadItems: () => threadItems,
 		getSessionStreaming: () => sessionStreaming,
@@ -344,7 +348,7 @@
 									<MemoryEventRow {item} memoryCycleTick={clocks.memoryCycleTick} />
 								{:else if item.type === 'status'}
 									<div class="status">{usageText(item)}</div>
-								{:else if item.type === 'error'}
+								{:else if item.type === 'error' && !isErrorInBuffer(item)}
 									<ErrorEventRow {item} />
 								{/if}
 							{/each}

@@ -13,7 +13,8 @@ const emptyAttribution: ThinkingAttribution = {
 	map: new Map(),
 	toolIdsInBuffer: new Set(),
 	subagentIdsInBuffer: new Set(),
-	memoryIdsInBuffer: new Set()
+	memoryIdsInBuffer: new Set(),
+	errorIdsInBuffer: new Set()
 };
 
 function ctx(overrides: Partial<ThreadVisibilityContext> = {}): ThreadVisibilityContext {

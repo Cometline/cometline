@@ -99,25 +99,25 @@ func (e JobResourceStatus) Valid() bool {
 
 // Defines values for McpServerStatusStatus.
 const (
-	Connected    McpServerStatusStatus = "connected"
-	Disabled     McpServerStatusStatus = "disabled"
-	Disconnected McpServerStatusStatus = "disconnected"
-	Error        McpServerStatusStatus = "error"
-	Reloading    McpServerStatusStatus = "reloading"
+	McpServerStatusStatusConnected    McpServerStatusStatus = "connected"
+	McpServerStatusStatusDisabled     McpServerStatusStatus = "disabled"
+	McpServerStatusStatusDisconnected McpServerStatusStatus = "disconnected"
+	McpServerStatusStatusError        McpServerStatusStatus = "error"
+	McpServerStatusStatusReloading    McpServerStatusStatus = "reloading"
 )
 
 // Valid indicates whether the value is a known member of the McpServerStatusStatus enum.
 func (e McpServerStatusStatus) Valid() bool {
 	switch e {
-	case Connected:
+	case McpServerStatusStatusConnected:
 		return true
-	case Disabled:
+	case McpServerStatusStatusDisabled:
 		return true
-	case Disconnected:
+	case McpServerStatusStatusDisconnected:
 		return true
-	case Error:
+	case McpServerStatusStatusError:
 		return true
-	case Reloading:
+	case McpServerStatusStatusReloading:
 		return true
 	default:
 		return false
@@ -228,16 +228,16 @@ func (e SessionGatewayPlatform) Valid() bool {
 
 // Defines values for SessionOrigin.
 const (
-	SessionOriginAutonomy SessionOrigin = "autonomy"
-	SessionOriginUser     SessionOrigin = "user"
+	Autonomy SessionOrigin = "autonomy"
+	User     SessionOrigin = "user"
 )
 
 // Valid indicates whether the value is a known member of the SessionOrigin enum.
 func (e SessionOrigin) Valid() bool {
 	switch e {
-	case SessionOriginAutonomy:
+	case Autonomy:
 		return true
-	case SessionOriginUser:
+	case User:
 		return true
 	default:
 		return false
@@ -286,6 +286,7 @@ func (e SessionSubagentKind) Valid() bool {
 // Defines values for TranscriptItemType.
 const (
 	TranscriptItemTypeAssistant TranscriptItemType = "assistant"
+	TranscriptItemTypeError     TranscriptItemType = "error"
 	TranscriptItemTypeMemory    TranscriptItemType = "memory"
 	TranscriptItemTypeReasoning TranscriptItemType = "reasoning"
 	TranscriptItemTypeSystem    TranscriptItemType = "system"
@@ -297,6 +298,8 @@ const (
 func (e TranscriptItemType) Valid() bool {
 	switch e {
 	case TranscriptItemTypeAssistant:
+		return true
+	case TranscriptItemTypeError:
 		return true
 	case TranscriptItemTypeMemory:
 		return true

@@ -5,7 +5,8 @@ const emptyThinking: ThinkingAttribution = {
 	map: new Map(),
 	toolIdsInBuffer: new Set(),
 	subagentIdsInBuffer: new Set(),
-	memoryIdsInBuffer: new Set()
+	memoryIdsInBuffer: new Set(),
+	errorIdsInBuffer: new Set()
 };
 
 export function mockChatTurnContext(

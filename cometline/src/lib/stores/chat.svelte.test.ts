@@ -302,10 +302,10 @@ describe('chatStore session switching', () => {
 		expect(errorItem).toBeDefined();
 		if (errorItem?.type !== 'error') return;
 		expect(errorItem.text).toContain('API key is invalid or missing');
-		// The empty pending assistant must not linger as a blank row.
-		expect(chatStore.items.some((item) => item.type === 'assistant' && !item.text.trim())).toBe(
-			false
+		const assistantHost = chatStore.items.find(
+			(item) => item.type === 'assistant' && !item.text.trim()
 		);
+		expect(assistantHost).toBeDefined();
 	});
 
 	it('surfaces an error item when streamMessage throws before any output', async () => {

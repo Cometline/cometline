@@ -576,6 +576,8 @@ func transcriptItemFromModel(item session.TranscriptEntry) transcriptItem {
 			})
 		}
 		return out
+	case session.TranscriptKindError:
+		return transcriptItem{Type: "error", Text: item.Text}
 	default:
 		return transcriptItem{Type: string(item.Kind), Text: item.Text}
 	}

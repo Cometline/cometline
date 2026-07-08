@@ -241,6 +241,11 @@ export function itemsFromTranscript(transcriptItems: TranscriptItem[]): ChatItem
 			out.push(itemFromTranscript(item, i));
 			continue;
 		}
+		if (item.type === 'error') {
+			ensureAssistant(i);
+			out.push(itemFromTranscript(item, i));
+			continue;
+		}
 		if (item.type === 'assistant') {
 			appendAssistantText(i, item.text ?? '');
 			continue;
@@ -292,6 +297,8 @@ function itemFromTranscript(item: TranscriptItem, index: number): ChatItem {
 		return { id: `history-${index}`, type: 'assistant', text: item.text ?? '' };
 	if (item.type === 'system')
 		return { id: `history-${index}`, type: 'status', text: item.text ?? '' };
+	if (item.type === 'error')
+		return { id: `history-${index}`, type: 'error', text: item.text ?? '' };
 	if (item.type === 'reasoning')
 		return {
 			id: `history-${index}`,

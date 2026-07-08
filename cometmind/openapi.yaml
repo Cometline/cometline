@@ -2150,7 +2150,7 @@ components:
       properties:
         type:
           type: string
-          enum: [user, reasoning, assistant, tool, system, memory]
+          enum: [user, reasoning, assistant, tool, system, memory, error]
         text:
           type: string
         images:

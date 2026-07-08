@@ -16,7 +16,10 @@ import (
 	"github.com/cometline/cometmind/internal/id"
 )
 
-const contentEnvelopePrefix = "cometmind:content:v1\n"
+const (
+	contentEnvelopePrefix = "cometmind:content:v1\n"
+	errorMessagePrefix    = "cometmind:error:v1\n"
+)
 
 // ContentBlock is the persisted/API representation of user multimodal content.
 type ContentBlock struct {
@@ -29,6 +32,10 @@ type ContentBlock struct {
 type contentEnvelope struct {
 	Blocks      []ContentBlock `json:"blocks"`
 	DisplayText string         `json:"display_text,omitempty"`
+}
+
+type errorMessageEnvelope struct {
+	Message string `json:"message"`
 }
 
 // toolResultPayload is stored in messages.content for role=tool_result.
@@ -347,6 +354,40 @@ func (s *Service) AppendSystemMessage(ctx context.Context, sessionID, text strin
 		return Message{}, err
 	}
 	return messageFromDB(msg), nil
+}
+
+// AppendErrorMessage persists a turn-level error notice for transcript replay.
+func (s *Service) AppendErrorMessage(ctx context.Context, sessionID, text string) (Message, error) {
+	raw, err := marshalErrorMessageContent(text)
+	if err != nil {
+		return Message{}, err
+	}
+	return s.AppendSystemMessage(ctx, sessionID, raw)
+}
+
+func marshalErrorMessageContent(message string) (string, error) {
+	env := errorMessageEnvelope{Message: strings.TrimSpace(message)}
+	raw, err := json.Marshal(env)
+	if err != nil {
+		return "", err
+	}
+	return errorMessagePrefix + string(raw), nil
+}
+
+// DecodeErrorMessageContent decodes system rows that represent transcript errors.
+func DecodeErrorMessageContent(raw string) (string, bool) {
+	if !strings.HasPrefix(raw, errorMessagePrefix) {
+		return "", false
+	}
+	var env errorMessageEnvelope
+	if err := json.Unmarshal([]byte(strings.TrimPrefix(raw, errorMessagePrefix)), &env); err != nil {
+		return strings.TrimSpace(raw), true
+	}
+	msg := strings.TrimSpace(env.Message)
+	if msg == "" {
+		msg = "The request failed."
+	}
+	return msg, true
 }
 
 // NewSession creates a persisted session row scoped to a workspace.

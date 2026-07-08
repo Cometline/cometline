@@ -139,7 +139,7 @@ describe('reduceChatState', () => {
 		if (state.items[1].type !== 'error') return;
 		expect(state.items[1].text).toBe('something broke');
 		expect(state.error).toBe('something broke');
-		expect(state.assistant).toBeNull();
+		expect(state.assistant?.id).toBe(state.items[0].id);
 	});
 
 	it('rewrites provider header-timeout errors into a readable message', () => {
@@ -149,11 +149,12 @@ describe('reduceChatState', () => {
 			message:
 				'openai: http: Post "https://api.example.com/v1/chat/completions": context deadline exceeded (Client.Timeout exceeded while awaiting headers)'
 		});
-		expect(state.items).toHaveLength(1);
-		expect(state.items[0].type).toBe('error');
-		if (state.items[0].type !== 'error') return;
-		expect(state.items[0].text).toContain('did not start responding');
-		expect(state.items[0].text).not.toContain('Client.Timeout');
+		expect(state.items).toHaveLength(2);
+		expect(state.items[0].type).toBe('assistant');
+		expect(state.items[1].type).toBe('error');
+		if (state.items[1].type !== 'error') return;
+		expect(state.items[1].text).toContain('did not start responding');
+		expect(state.items[1].text).not.toContain('Client.Timeout');
 	});
 
 	it('rewrites 401 auth errors into a settings hint', () => {
@@ -162,9 +163,9 @@ describe('reduceChatState', () => {
 			type: 'error',
 			message: 'cometsdk: openai: authentication failed (HTTP 401)'
 		});
-		expect(state.items).toHaveLength(1);
-		if (state.items[0].type !== 'error') return;
-		expect(state.items[0].text).toContain('API key is invalid or missing');
+		expect(state.items).toHaveLength(2);
+		if (state.items[1].type !== 'error') return;
+		expect(state.items[1].text).toContain('API key is invalid or missing');
 	});
 
 	it('merges text across tool calls into one assistant bubble', () => {

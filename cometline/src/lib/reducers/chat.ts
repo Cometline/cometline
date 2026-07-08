@@ -58,6 +58,21 @@ function cleanErrorMessage(message: string) {
 function removeEmptyAssistant(items: ChatItem[], assistant: AssistantItem | null): ChatItem[] {
 	if (!assistant) return items;
 	if (assistant.text.trim() || hasReasoning(assistant)) return items;
+	const start = items.findIndex((item) => item.id === assistant.id);
+	if (start >= 0) {
+		for (let i = start + 1; i < items.length; i++) {
+			const item = items[i];
+			if (item.type === 'user' || item.type === 'assistant' || item.type === 'status') break;
+			if (
+				item.type === 'tool' ||
+				item.type === 'subagent' ||
+				item.type === 'memory' ||
+				item.type === 'error'
+			) {
+				return items;
+			}
+		}
+	}
 	return items.filter((item) => item.id !== assistant.id);
 }
 
@@ -115,15 +130,24 @@ function currentAfterSegment(assistant: AssistantItem): number {
 	return Math.max(0, ensureReasoningSegments(assistant).length - 1);
 }
 
-function settlePendingTools(items: ChatItem[]) {
+function settlePendingActivity(items: ChatItem[], errorMessage?: string) {
 	for (let i = 0; i < items.length; i++) {
 		const item = items[i];
-		if (item.type !== 'tool' || !item.pending) continue;
-		items[i] = {
-			...item,
-			pending: false,
-			durationMs: item.startedAt != null ? Date.now() - item.startedAt : item.durationMs
-		};
+		if (item.type === 'tool' && item.pending) {
+			items[i] = {
+				...item,
+				pending: false,
+				error: errorMessage ?? item.error,
+				durationMs: item.startedAt != null ? Date.now() - item.startedAt : item.durationMs
+			};
+		} else if (item.type === 'subagent' && item.pending) {
+			items[i] = {
+				...item,
+				pending: false,
+				status: 'failed',
+				summary: errorMessage ?? item.summary
+			};
+		}
 	}
 }
 
@@ -459,21 +483,19 @@ function applyEvent(
 
 	if (event.type === 'error') {
 		settleTurn();
-		// clearEmptyAssistant() reassigns draft.items to a new array, so the local
-		// `items` reference captured at the top of applyEvent becomes stale. Push
-		// the error onto the live draft.items array (not the orphaned `items` one),
-		// otherwise the error card silently never renders.
-		clearEmptyAssistant();
-		settlePendingTools(draft.items);
 		draft.error = cleanErrorMessage(event.message);
+		settlePendingActivity(items, draft.error);
+		if (!assistant.current) {
+			pushAssistant({ id: localID('assistant', draft.nextId++).id, type: 'assistant', text: '' });
+		}
 		const id = localID('error', draft.nextId++).id;
-		draft.items.push({ id, type: 'error', text: draft.error });
+		items.push({ id, type: 'error', text: draft.error });
 		return;
 	}
 
 	if (event.type === 'done') {
 		settleTurn();
-		settlePendingTools(items);
+		settlePendingActivity(items);
 		if (assistant.current && !assistant.current.text.trim()) {
 			clearEmptyAssistant();
 		}

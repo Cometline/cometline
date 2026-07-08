@@ -230,7 +230,7 @@ export type TranscriptResponse = {
 };
 
 export type TranscriptItem = {
-    type: 'user' | 'reasoning' | 'assistant' | 'tool' | 'system' | 'memory';
+    type: 'user' | 'reasoning' | 'assistant' | 'tool' | 'system' | 'memory' | 'error';
     text?: string;
     images?: Array<ImageAttachment>;
     tool_name?: string;

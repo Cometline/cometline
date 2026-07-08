@@ -5,11 +5,13 @@ export type InjectedMemory = Extract<ChatItem, { type: 'memory' }>['memories'][n
 export type ToolChatItem = Extract<ChatItem, { type: 'tool' }>;
 export type SubagentChatItem = Extract<ChatItem, { type: 'subagent' }>;
 export type AssistantItem = Extract<ChatItem, { type: 'assistant' }>;
+export type ErrorChatItem = Extract<ChatItem, { type: 'error' }>;
 
 export type ThinkingBlock = {
 	reasoning?: { text: string; pending?: boolean };
 	tools: ToolChatItem[];
 	subagents: SubagentChatItem[];
+	errors: ErrorChatItem[];
 	memories: InjectedMemory[];
 };
 
@@ -22,13 +24,15 @@ export type TimelineEntry =
 	  }
 	| { kind: 'memory'; memories: InjectedMemory[] }
 	| { kind: 'tool'; tool: ToolChatItem }
-	| { kind: 'subagent'; subagent: SubagentChatItem };
+	| { kind: 'subagent'; subagent: SubagentChatItem }
+	| { kind: 'error'; error: ErrorChatItem };
 
 export type ThinkingAttribution = {
 	map: Map<string, ThinkingBlock>;
 	toolIdsInBuffer: Set<string>;
 	subagentIdsInBuffer: Set<string>;
 	memoryIdsInBuffer: Set<string>;
+	errorIdsInBuffer: Set<string>;
 };
 
 /** Completed propose_job tools render as standalone rows (workspace picker must stay visible). */
@@ -89,13 +93,14 @@ export function buildThinkingAttribution(items: readonly ChatItem[]): ThinkingAt
 	const toolIdsInBuffer = new Set<string>();
 	const subagentIdsInBuffer = new Set<string>();
 	const memoryIdsInBuffer = new Set<string>();
+	const errorIdsInBuffer = new Set<string>();
 	let currentAssistantId: string | null = null;
 	let pendingMemories: InjectedMemory[] = [];
 	let pendingMemoryId: string | null = null;
 
 	for (let index = 0; index < items.length; index++) {
 		const item = items[index];
-		if (item.type === 'user' || item.type === 'status' || item.type === 'error') {
+		if (item.type === 'user' || item.type === 'status') {
 			currentAssistantId = null;
 			pendingMemories = [];
 			pendingMemoryId = null;
@@ -130,6 +135,7 @@ export function buildThinkingAttribution(items: readonly ChatItem[]): ThinkingAt
 						: undefined,
 					tools: [],
 					subagents: [],
+					errors: [],
 					memories: pendingMemories
 				});
 			} else {
@@ -163,10 +169,16 @@ export function buildThinkingAttribution(items: readonly ChatItem[]): ThinkingAt
 				block.subagents.push(item);
 				subagentIdsInBuffer.add(item.id);
 			}
+		} else if (item.type === 'error' && currentAssistantId) {
+			const block = map.get(currentAssistantId);
+			if (block) {
+				block.errors.push(item);
+				errorIdsInBuffer.add(item.id);
+			}
 		}
 	}
 
-	return { map, toolIdsInBuffer, subagentIdsInBuffer, memoryIdsInBuffer };
+	return { map, toolIdsInBuffer, subagentIdsInBuffer, memoryIdsInBuffer, errorIdsInBuffer };
 }
 
 /** Build chronological thinking/tool entries for one assistant turn. */
@@ -184,6 +196,7 @@ export function buildAssistantTimeline(
 	const block = attr.map.get(assistantId);
 	const tools = block?.tools ?? [];
 	const subagents = block?.subagents ?? [];
+	const errors = block?.errors ?? [];
 	const memories = block?.memories ?? [];
 	const segments = getReasoningSegments(assistant.reasoning);
 	const timeline: TimelineEntry[] = [];
@@ -201,6 +214,9 @@ export function buildAssistantTimeline(
 		}
 		for (const subagent of subagents) {
 			timeline.push({ kind: 'subagent', subagent });
+		}
+		for (const error of errors) {
+			timeline.push({ kind: 'error', error });
 		}
 		return timeline;
 	}
@@ -232,6 +248,10 @@ export function buildAssistantTimeline(
 
 	for (const subagent of subagents) {
 		timeline.push({ kind: 'subagent', subagent });
+	}
+
+	for (const error of errors) {
+		timeline.push({ kind: 'error', error });
 	}
 
 	return timeline;

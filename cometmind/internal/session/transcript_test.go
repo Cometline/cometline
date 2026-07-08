@@ -78,3 +78,20 @@ func TestDisplayTextFromStoredContent(t *testing.T) {
 		t.Fatalf("PlainTextFromContent() = %q", got)
 	}
 }
+
+func TestErrorMessageContentRoundTrip(t *testing.T) {
+	raw, err := marshalErrorMessageContent("provider failed")
+	if err != nil {
+		t.Fatalf("marshalErrorMessageContent() error = %v", err)
+	}
+	if !strings.HasPrefix(raw, errorMessagePrefix) {
+		t.Fatalf("error content missing envelope prefix: %q", raw)
+	}
+	got, ok := DecodeErrorMessageContent(raw)
+	if !ok {
+		t.Fatalf("DecodeErrorMessageContent() did not recognize envelope")
+	}
+	if got != "provider failed" {
+		t.Fatalf("DecodeErrorMessageContent() = %q", got)
+	}
+}

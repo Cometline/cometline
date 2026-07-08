@@ -26,5 +26,6 @@ export function timelineEntryKey(entry: TimelineEntry) {
 	if (entry.kind === 'reasoning') return `${entry.kind}-${entry.segmentIndex}`;
 	if (entry.kind === 'memory') return entry.kind;
 	if (entry.kind === 'tool') return `${entry.kind}-${entry.tool.id}`;
-	return `${entry.kind}-${entry.subagent.id}`;
+	if (entry.kind === 'subagent') return `${entry.kind}-${entry.subagent.id}`;
+	return `${entry.kind}-${entry.error.id}`;
 }

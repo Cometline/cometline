@@ -194,6 +194,32 @@ describe('buildThinkingAttribution', () => {
 		expect(map.get('a2')?.tools ?? []).toEqual([]);
 	});
 
+	it('buffers turn-level errors under the active assistant', () => {
+		const items: ChatItem[] = [
+			{ id: 'u1', type: 'user', text: 'run tool' },
+			{ id: 'a1', type: 'assistant', text: '' },
+			{
+				id: 't1',
+				type: 'tool',
+				toolName: 'read_file',
+				input: '{}',
+				error: 'interrupted',
+				pending: false
+			},
+			{ id: 'e1', type: 'error', text: 'provider failed' },
+			{ id: 'u2', type: 'user', text: 'next' }
+		];
+
+		const attribution = buildThinkingAttribution(items);
+		const timeline = buildAssistantTimeline('a1', items, attribution);
+
+		expect(attribution.errorIdsInBuffer.has('e1')).toBe(true);
+		expect(timeline.map((entry) => entry.kind)).toEqual(['tool', 'error']);
+		if (timeline[1].kind === 'error') {
+			expect(timeline[1].error.text).toBe('provider failed');
+		}
+	});
+
 	it('interleaves tools after the matching reasoning segment', () => {
 		const items: ChatItem[] = [
 			{ id: 'u1', type: 'user', text: 'run tool' },

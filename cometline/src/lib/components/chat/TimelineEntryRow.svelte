@@ -3,6 +3,7 @@
 	import MemoryCard from '$lib/components/chat/MemoryCard.svelte';
 	import ToolFoldPanel from '$lib/components/chat/ToolFoldPanel.svelte';
 	import SubagentPanel from '$lib/components/chat/SubagentPanel.svelte';
+	import { TriangleAlert } from '@lucide/svelte';
 	import { getChatTurnContext } from '$lib/conversation/chat-turn-context';
 	import { isTimelineEntryToggleDisabled } from '$lib/conversation/thinking-attribution';
 	import type { ChatItem } from '$lib/stores/chat.svelte';
@@ -68,7 +69,7 @@
 		onNotifyAgent={ctx.onNotifyAgent}
 		onStartJob={ctx.onStartJob}
 	/>
-{:else}
+{:else if entry.kind === 'subagent'}
 	<SubagentPanel
 		item={entry.subagent}
 		expanded={ctx.fold.subagentExpanded(entry.subagent.id)}
@@ -76,4 +77,44 @@
 		{toggleDisabled}
 		onToggle={() => ctx.fold.toggleSubagent(entry.subagent.id)}
 	/>
+{:else}
+	<div class="activity-error" class:nested>
+		<div class="activity-error-title"><TriangleAlert size={13} /><span>Error</span></div>
+		<p>{entry.error.text}</p>
+	</div>
 {/if}
+
+<style>
+	.activity-error {
+		box-sizing: border-box;
+		width: min(var(--assistant-activity-width, 80%), 100%);
+		min-width: 0;
+		border: 1px solid var(--status-error-border);
+		background: var(--status-error-bg);
+		border-radius: 12px;
+		padding: 10px 12px;
+		color: var(--status-error);
+	}
+
+	.activity-error.nested {
+		width: 100%;
+	}
+
+	.activity-error-title {
+		display: flex;
+		align-items: center;
+		gap: 7px;
+		margin-bottom: 6px;
+		font-size: 12px;
+		font-weight: 650;
+		color: var(--text-main);
+	}
+
+	.activity-error p {
+		margin: 0;
+		font-size: 12px;
+		line-height: 1.5;
+		white-space: pre-wrap;
+		overflow-wrap: break-word;
+	}
+</style>
