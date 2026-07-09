@@ -193,7 +193,10 @@ func (w *Worker) finalizeJob(ctx context.Context, job jobs.Job, sess session.Ses
 		return
 	}
 	if ok && current.ID == job.ID && current.Status == jobs.StatusOngoing {
-		reason := "worker: run ended without explicit completion"
+		// Deterministic safety net: after the runner's hard completion gate is
+		// exhausted (or the turn crashed), still-ongoing means the model never
+		// issued a terminal job tool. Progress is preserved for resume.
+		reason := "worker: run ended without terminal job tool (complete_job/release_job)"
 		if runErr != nil {
 			reason = fmt.Sprintf("worker: run ended with error: %v", runErr)
 		}

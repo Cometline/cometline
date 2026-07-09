@@ -7,11 +7,13 @@ import (
 	"strings"
 
 	"github.com/cometline/cometmind/internal/jobs"
+	"github.com/cometline/cometmind/internal/scheduler"
 )
 
-// JobsDeps provides job queue operations to agent tools.
+// JobsDeps provides job queue and scheduled-job operations to agent tools.
 type JobsDeps struct {
 	Service              *jobs.Service
+	Scheduler            *scheduler.Service
 	SessionID            string
 	SessionWorkspacePath string
 	SourcePlatform       string
@@ -71,8 +73,10 @@ type createJobTool struct {
 
 func (createJobTool) Spec() ToolSpec {
 	return ToolSpec{
-		Name:        "create_job",
-		Description: "Create a global todo job for later execution by any session.",
+		Name: "create_job",
+		Description: "Create an immediate todo job on the global queue for soon or manual claim. " +
+			"Do not use for delayed, tomorrow, or recurring work — use create_scheduled_job with cron_expr or run_at/run_at_iso instead. " +
+			"Never put schedule/time/cron only in description or definition_of_done.",
 		Parameters: json.RawMessage(`{
 			"type":"object",
 			"properties":{
@@ -337,21 +341,28 @@ func JobPromptIndex(sessionWorkspace, platform string) string {
 	if ws != "" {
 		wsLine = fmt.Sprintf(" Current session workspace: `%s`.", ws)
 	}
+	const scheduleGuide = "\n\n### Jobs vs scheduled jobs\n" +
+		"- Immediate work / put on the queue now → `propose_job` / `create_job`.\n" +
+		"- Run later or on a recurring schedule → `create_scheduled_job` with `cron_expr` or `run_at`/`run_at_iso` (never encode time/cron only in definition_of_done of a normal job).\n" +
+		"- Inspect / change schedules with `list_scheduled_jobs`, `update_scheduled_job`, `delete_scheduled_job` (pause with enabled=false).\n" +
+		"- `definition_of_done` is success criteria for the work, not the schedule."
 	if platform == jobs.PlatformDiscord {
 		return fmt.Sprintf(
-			"\n\n## Global Jobs\nUse `list_jobs` when the user asks about pending work. When the user wants to create a job, call `propose_job` first — Discord will post a workspace selection message with a dropdown and Confirm/Cancel buttons. Tell the user to use that message (or `/create-job`) to pick a workspace. Use `create_job` directly only when the user already named the workspace in the same message.%s To execute a job, `claim_job` first or use `/jobs`. While working a claimed job, call `update_job` with `progress` after each meaningful milestone. Call `complete_job` when done or `release_job` to abandon.",
+			"\n\n## Global Jobs\nUse `list_jobs` when the user asks about pending work. When the user wants to create a job, call `propose_job` first — Discord will post a workspace selection message with a dropdown and Confirm/Cancel buttons. Tell the user to use that message (or `/create-job`) to pick a workspace. Use `create_job` directly only when the user already named the workspace in the same message.%s To execute a job, `claim_job` first or use `/jobs`. While working a claimed job, call `update_job` with `progress` after each meaningful milestone. Call `complete_job` when done or `release_job` to abandon.%s",
 			wsLine,
+			scheduleGuide,
 		)
 	}
 	return fmt.Sprintf(
-		"\n\n## Global Jobs\nUse `list_jobs` when the user asks about pending work. When the user wants to create a job, call `propose_job` first so they can confirm the workspace in chat — do not call `create_job` directly unless the user already specified the workspace in the same message. Use `create_job` only after workspace is confirmed or explicitly stated.%s The chat UI pre-fills the current session workspace. To execute a job, `claim_job` first. While working a claimed job, call `update_job` with `progress` after each meaningful milestone so another session can resume. Call `complete_job` when done or `release_job` to abandon.",
+		"\n\n## Global Jobs\nUse `list_jobs` when the user asks about pending work. When the user wants to create a job, call `propose_job` first so they can confirm the workspace in chat — do not call `create_job` directly unless the user already specified the workspace in the same message. Use `create_job` only after workspace is confirmed or explicitly stated.%s The chat UI pre-fills the current session workspace. To execute a job, `claim_job` first. While working a claimed job, call `update_job` with `progress` after each meaningful milestone so another session can resume. Call `complete_job` when done or `release_job` to abandon.%s",
 		wsLine,
+		scheduleGuide,
 	)
 }
 
-// RegisterJobTools adds job tools when deps are configured.
+// RegisterJobTools adds job and scheduled-job tools when deps are configured.
 func RegisterJobTools(r *Registry, deps JobsDeps) {
-	if deps.Service == nil {
+	if r == nil {
 		return
 	}
 	add := func(t Tool) {
@@ -359,11 +370,19 @@ func RegisterJobTools(r *Registry, deps JobsDeps) {
 		r.byName[spec.Name] = t
 		r.order = append(r.order, t)
 	}
-	add(listJobsTool{deps: deps})
-	add(proposeJobTool{deps: deps})
-	add(createJobTool{deps: deps})
-	add(claimJobTool{deps: deps})
-	add(updateJobTool{deps: deps})
-	add(completeJobTool{deps: deps})
-	add(releaseJobTool{deps: deps})
+	if deps.Service != nil {
+		add(listJobsTool{deps: deps})
+		add(proposeJobTool{deps: deps})
+		add(createJobTool{deps: deps})
+		add(claimJobTool{deps: deps})
+		add(updateJobTool{deps: deps})
+		add(completeJobTool{deps: deps})
+		add(releaseJobTool{deps: deps})
+	}
+	if deps.Scheduler != nil {
+		add(listScheduledJobsTool{deps: deps})
+		add(createScheduledJobTool{deps: deps})
+		add(updateScheduledJobTool{deps: deps})
+		add(deleteScheduledJobTool{deps: deps})
+	}
 }

@@ -704,15 +704,20 @@ func TestRunner_JobProgressNudgeInjectedAfterTools(t *testing.T) {
 		t.Fatalf("write hello.txt: %v", err)
 	}
 
+	// After the progress nudge step, the job completion gate refuses two more
+	// text-only stops before allowing the turn to end.
+	textStop := []cometsdk.Event{
+		cometsdk.TextDeltaEvent{Text: "done"},
+		cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishStop},
+		cometsdk.DoneEvent{},
+	}
 	provider := &capturingSequentialFakeProvider{sequences: [][]cometsdk.Event{
 		toolStep("tc1", "read_file", `{"path":"hello.txt"}`),
 		toolStep("tc2", "read_file", `{"path":"hello.txt"}`),
 		toolStep("tc3", "read_file", `{"path":"hello.txt"}`),
-		{
-			cometsdk.TextDeltaEvent{Text: "done"},
-			cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishStop},
-			cometsdk.DoneEvent{},
-		},
+		textStop,
+		textStop,
+		textStop,
 	}}
 
 	r := &Runner{
@@ -730,11 +735,12 @@ func TestRunner_JobProgressNudgeInjectedAfterTools(t *testing.T) {
 	if runErr != nil {
 		t.Fatalf("Run returned error: %v", runErr)
 	}
-	if provider.calls != 4 {
-		t.Fatalf("Stream called %d times, want 4", provider.calls)
+	// 3 tool steps + 1 progress-nudged stop + 2 completion-gate steps
+	if provider.calls != 6 {
+		t.Fatalf("Stream called %d times, want 6", provider.calls)
 	}
-	if len(provider.requests) < 4 {
-		t.Fatalf("captured %d requests, want 4", len(provider.requests))
+	if len(provider.requests) < 6 {
+		t.Fatalf("captured %d requests, want 6", len(provider.requests))
 	}
 
 	nudge := FormatJobProgressNudgeBlock("job-1")
@@ -745,6 +751,90 @@ func TestRunner_JobProgressNudgeInjectedAfterTools(t *testing.T) {
 		if strings.Contains(provider.requests[i].System, nudge) {
 			t.Fatalf("step %d system should not include nudge yet", i+1)
 		}
+	}
+	gate := FormatJobCompletionGateBlock("job-1")
+	if !strings.Contains(provider.requests[4].System, gate) {
+		t.Fatalf("step 5 system missing completion gate:\n%s", provider.requests[4].System)
+	}
+	if !strings.Contains(provider.requests[5].System, gate) {
+		t.Fatalf("step 6 system missing completion gate:\n%s", provider.requests[5].System)
+	}
+}
+
+func TestRunner_JobCompletionGateForcesTerminalToolPath(t *testing.T) {
+	dir := t.TempDir()
+	provider := &capturingSequentialFakeProvider{sequences: [][]cometsdk.Event{
+		{
+			cometsdk.TextDeltaEvent{Text: "I finished the work."},
+			cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishStop},
+			cometsdk.DoneEvent{},
+		},
+		{
+			cometsdk.TextDeltaEvent{Text: "still done"},
+			cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishStop},
+			cometsdk.DoneEvent{},
+		},
+		{
+			cometsdk.TextDeltaEvent{Text: "really done"},
+			cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishStop},
+			cometsdk.DoneEvent{},
+		},
+	}}
+
+	r := &Runner{
+		Provider: provider,
+		Sessions: &fakeStore{},
+		Registry: tools.NewRegistry(dir),
+		Jobs: &fakeOngoingJobLookup{
+			ok:  true,
+			job: jobs.Job{ID: "job-gate", Status: jobs.StatusOngoing},
+		},
+		MaxSteps: 10,
+	}
+
+	_, runErr := runAndDrain(t, r, session.AgentTurn{ID: "s-gate", ModelID: "m"})
+	if runErr != nil {
+		t.Fatalf("Run returned error: %v", runErr)
+	}
+	// First stop is gated twice, third stop ends the turn.
+	if provider.calls != 3 {
+		t.Fatalf("Stream called %d times, want 3", provider.calls)
+	}
+	gate := FormatJobCompletionGateBlock("job-gate")
+	if strings.Contains(provider.requests[0].System, gate) {
+		t.Fatal("first step should not include completion gate")
+	}
+	if !strings.Contains(provider.requests[1].System, gate) {
+		t.Fatalf("second step missing gate:\n%s", provider.requests[1].System)
+	}
+	if !strings.Contains(provider.requests[2].System, gate) {
+		t.Fatalf("third step missing gate:\n%s", provider.requests[2].System)
+	}
+}
+
+func TestRunner_JobCompletionGateSkippedWithoutOngoingJob(t *testing.T) {
+	dir := t.TempDir()
+	provider := &capturingSequentialFakeProvider{sequences: [][]cometsdk.Event{
+		{
+			cometsdk.TextDeltaEvent{Text: "hello"},
+			cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishStop},
+			cometsdk.DoneEvent{},
+		},
+	}}
+
+	r := &Runner{
+		Provider: provider,
+		Sessions: &fakeStore{},
+		Registry: tools.NewRegistry(dir),
+		Jobs:     &fakeOngoingJobLookup{ok: false},
+	}
+
+	_, runErr := runAndDrain(t, r, session.AgentTurn{ID: "s-plain", ModelID: "m"})
+	if runErr != nil {
+		t.Fatalf("Run returned error: %v", runErr)
+	}
+	if provider.calls != 1 {
+		t.Fatalf("Stream called %d times, want 1 (no gate without job)", provider.calls)
 	}
 }
 

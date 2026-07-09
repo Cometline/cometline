@@ -94,7 +94,8 @@ Registered per workspace in `internal/tools/registry.go`:
 | `promote_skill_draft` | Promote a draft into the managed skills directory |
 | `delegate_coding_task` | Spawn an ACP child session (sync or async) |
 | `spawn_general_agent` / `wait_subagents` | Launch and wait for general subagents |
-| `list_jobs`, `create_job`, `claim_job`, `update_job`, `complete_job`, `release_job`, `propose_job` | Interact with durable jobs |
+| `list_jobs`, `create_job`, `claim_job`, `update_job`, `complete_job`, `release_job`, `propose_job` | Interact with durable immediate jobs |
+| `list_scheduled_jobs`, `create_scheduled_job`, `update_scheduled_job`, `delete_scheduled_job` | Create/list/edit/delete deferred or recurring schedules (`cron_expr` or `run_at`/`run_at_iso`); do not put schedules in a normal job's DoD |
 | `recall_task_outcome` | Retrieve remembered task outcomes |
 
 File tools are workspace-scoped through `internal/tools/sandbox/pathcheck.go`.

@@ -8,6 +8,7 @@ import (
 	"github.com/cometline/cometmind/internal/jobs"
 	mcppkg "github.com/cometline/cometmind/internal/mcp"
 	"github.com/cometline/cometmind/internal/memory"
+	"github.com/cometline/cometmind/internal/scheduler"
 	"github.com/cometline/cometmind/internal/session"
 	"github.com/cometline/cometmind/internal/skills"
 	"github.com/cometline/cometmind/internal/subagent"
@@ -32,6 +33,7 @@ type RegistryOptions struct {
 	RunnerFactory      ChildRunnerFactory
 	SubagentConfig     SubagentToolConfig
 	Jobs               *jobs.Service
+	Scheduler          *scheduler.Service
 	Memory             *memory.Service
 	SessionID          string
 	JobPlatform        string
