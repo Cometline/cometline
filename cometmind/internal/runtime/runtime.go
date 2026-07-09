@@ -534,6 +534,7 @@ func (r *Runtime) toolRegistryWithJobMeta(workspacePath string, skillRegistry sk
 		MCP:                r.mcpMgr,
 		Orchestrator:       r.SubagentOrchestrator(),
 		Jobs:               r.Jobs,
+		Scheduler:          r.Scheduler,
 		Memory:             r.Memory,
 		SessionID:          sessionID,
 		JobPlatform:        platform,
