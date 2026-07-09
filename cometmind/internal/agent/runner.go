@@ -283,7 +283,7 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 		result, err := stream.Result()
 		if err != nil {
 			logging.L().Error("agent.step.failed", "session", turn.ID, "step", steps+1, "events", eventCount, "saw_first_event", firstEventLogged, "saw_first_output", firstOutputLogged, "duration_ms", time.Since(streamStarted).Milliseconds(), "error", err)
-			ch <- event.Errorf(err.Error(), "llm")
+			ch <- event.Errorf(userFacingAgentError(err), "llm")
 			return err
 		}
 		logging.L().Info("agent.step.finish", "session", turn.ID, "step", steps+1, "finish_reason", string(result.FinishReason), "tool_calls", len(result.ToolCalls), "input_tokens", result.Usage.InputTokens, "output_tokens", result.Usage.OutputTokens, "events", eventCount, "duration_ms", time.Since(streamStarted).Milliseconds())
@@ -293,7 +293,9 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 			return err
 		}
 
-		text := assistantPlainText(result.Message)
+		// Whitespace-only content (common from some mini models on tool steps)
+		// is treated as empty so we do not persist invisible assistant bubbles.
+		text := strings.TrimSpace(assistantPlainText(result.Message))
 		reasoningBlocks := result.Message.ReasoningContent
 		persistedToolIDs := map[string]string{}
 		if text != "" || len(reasoningBlocks) > 0 || len(result.ToolCalls) > 0 {
@@ -570,6 +572,34 @@ func assistantPlainText(m cometsdk.Message) string {
 		}
 	}
 	return b.String()
+}
+
+// userFacingAgentError maps provider/runtime errors into short messages safe
+// to show in the chat transcript. Context cancel (client abort or disconnect)
+// is the most common silent-empty-turn cause for mini models.
+func userFacingAgentError(err error) string {
+	if err == nil {
+		return "The request failed."
+	}
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return "The model timed out before finishing. Send the message again to continue."
+		}
+		return "Response interrupted. Send the message again to continue."
+	}
+	msg := strings.TrimSpace(err.Error())
+	if msg == "" {
+		return "The request failed."
+	}
+	// Some providers wrap cancel without satisfying errors.Is.
+	lower := strings.ToLower(msg)
+	if strings.Contains(lower, "context canceled") || strings.Contains(lower, "context cancelled") {
+		return "Response interrupted. Send the message again to continue."
+	}
+	if strings.Contains(lower, "deadline exceeded") || strings.Contains(lower, "timeout") {
+		return "The model timed out before finishing. Send the message again to continue."
+	}
+	return msg
 }
 
 // backgroundProgressEmitter is used for tool callbacks that may outlive the

@@ -952,3 +952,19 @@ func TestRunner_AutoCollectsActiveSubagentResultsBeforeFinishing(t *testing.T) {
 		t.Fatalf("expected final event to be done, got %+v", events)
 	}
 }
+
+func TestUserFacingAgentError(t *testing.T) {
+	t.Parallel()
+	if got := userFacingAgentError(context.Canceled); !strings.Contains(got, "interrupted") {
+		t.Fatalf("canceled = %q", got)
+	}
+	if got := userFacingAgentError(fmt.Errorf("openai: context canceled")); !strings.Contains(got, "interrupted") {
+		t.Fatalf("wrapped canceled = %q", got)
+	}
+	if got := userFacingAgentError(context.DeadlineExceeded); !strings.Contains(got, "timed out") {
+		t.Fatalf("deadline = %q", got)
+	}
+	if got := userFacingAgentError(fmt.Errorf("provider exploded")); got != "provider exploded" {
+		t.Fatalf("passthrough = %q", got)
+	}
+}

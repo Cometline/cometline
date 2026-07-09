@@ -295,6 +295,9 @@ func TestJobPromptIndexMentionsScheduledJobs(t *testing.T) {
 	if !strings.Contains(idx, "Jobs vs scheduled jobs") {
 		t.Fatalf("expected disambiguation section, got %q", idx)
 	}
+	if !strings.Contains(idx, "call `list_scheduled_jobs` immediately") {
+		t.Fatalf("expected immediate list_scheduled_jobs guidance for mini models, got %q", idx)
+	}
 }
 
 func TestCreateJobToolDescriptionDisambiguates(t *testing.T) {

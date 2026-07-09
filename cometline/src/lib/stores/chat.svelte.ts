@@ -477,6 +477,57 @@ function createChatStore() {
 		applyEventToSession(targetSessionID, event, ctx);
 	}
 
+	/** True when the latest user turn left something the user can read. */
+	function turnHasVisibleContent(sessionItems: ChatItem[], assistant: AssistantItem | null): boolean {
+		let lastUser = -1;
+		for (let i = sessionItems.length - 1; i >= 0; i--) {
+			if (sessionItems[i].type === 'user') {
+				lastUser = i;
+				break;
+			}
+		}
+		const tail = lastUser >= 0 ? sessionItems.slice(lastUser + 1) : sessionItems;
+		for (const item of tail) {
+			if (item.type === 'error' && item.text.trim()) return true;
+			if (item.type === 'assistant' && (item.text.trim() || hasReasoning(item))) return true;
+			if (item.type === 'tool' || item.type === 'subagent' || item.type === 'memory') return true;
+		}
+		if (assistant && (assistant.text.trim() || hasReasoning(assistant))) return true;
+		return false;
+	}
+
+	/**
+	 * After stream settle, if nothing visible remains (common after cancel mid-stream
+	 * or mini-model empty finish), surface a clear in-thread error instead of a blank avatar.
+	 */
+	function ensureVisibleTurnFeedback(
+		targetSessionID: string,
+		ctx: StreamCtx,
+		outcome: 'success' | 'abort' | 'error'
+	) {
+		const sessionItems = getCachedItems(targetSessionID);
+		if (turnHasVisibleContent(sessionItems, ctx.assistant.current)) {
+			return;
+		}
+		if (sessionErrors.get(targetSessionID)?.trim()) {
+			return;
+		}
+		const message =
+			outcome === 'abort'
+				? 'Response interrupted. Send the message again to continue.'
+				: outcome === 'error'
+					? 'The request failed before a reply was ready. Try again.'
+					: 'The model finished without a visible reply. Try again, or switch to a stronger model.';
+		applyEventToSession(
+			targetSessionID,
+			{
+				type: 'error',
+				message
+			},
+			ctx
+		);
+	}
+
 	async function send(
 		nextSessionID: string,
 		payloadOrText: ChatTurnPayload | string,
@@ -622,6 +673,9 @@ function createChatStore() {
 						playResponseCompleteSound();
 					}
 				}
+				// Mini models / aborted streams can settle with no visible assistant
+				// content. Never leave a blank first-turn avatar with no feedback.
+				ensureVisibleTurnFeedback(nextSessionID, ctx, streamOutcome);
 				chatDebug('store:send-finish', {
 					sessionID: nextSessionID,
 					run: handle.run,

@@ -344,6 +344,7 @@ func JobPromptIndex(sessionWorkspace, platform string) string {
 	const scheduleGuide = "\n\n### Jobs vs scheduled jobs\n" +
 		"- Immediate work / put on the queue now → `propose_job` / `create_job`.\n" +
 		"- Run later or on a recurring schedule → `create_scheduled_job` with `cron_expr` or `run_at`/`run_at_iso` (never encode time/cron only in definition_of_done of a normal job).\n" +
+		"- When the user asks to show, list, or inspect scheduled jobs, call `list_scheduled_jobs` immediately — do not only promise to fetch them, and summarize the tool result in your reply.\n" +
 		"- Inspect / change schedules with `list_scheduled_jobs`, `update_scheduled_job`, `delete_scheduled_job` (pause with enabled=false).\n" +
 		"- `definition_of_done` is success criteria for the work, not the schedule."
 	if platform == jobs.PlatformDiscord {

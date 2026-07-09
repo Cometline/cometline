@@ -95,3 +95,34 @@ func TestErrorMessageContentRoundTrip(t *testing.T) {
 		t.Fatalf("DecodeErrorMessageContent() = %q", got)
 	}
 }
+
+func TestMarshalReasoningContentEmptyIsArray(t *testing.T) {
+	t.Parallel()
+	got, err := marshalReasoningContent(nil)
+	if err != nil {
+		t.Fatalf("marshalReasoningContent(nil) error = %v", err)
+	}
+	if got != "[]" {
+		t.Fatalf("marshalReasoningContent(nil) = %q, want []", got)
+	}
+	got, err = marshalReasoningContent([]cometsdk.Block{})
+	if err != nil {
+		t.Fatalf("marshalReasoningContent(empty) error = %v", err)
+	}
+	if got != "[]" {
+		t.Fatalf("marshalReasoningContent(empty) = %q, want []", got)
+	}
+}
+
+func TestUnmarshalReasoningContentToleratesNull(t *testing.T) {
+	t.Parallel()
+	for _, raw := range []string{"", "null", "[]"} {
+		blocks, err := unmarshalReasoningContent(raw)
+		if err != nil {
+			t.Fatalf("unmarshalReasoningContent(%q) error = %v", raw, err)
+		}
+		if len(blocks) != 0 {
+			t.Fatalf("unmarshalReasoningContent(%q) len = %d, want 0", raw, len(blocks))
+		}
+	}
+}

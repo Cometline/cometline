@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
 	"net/http"
@@ -106,6 +107,12 @@ func (a *App) handlePostMessage(c *gin.Context) {
 		return
 	}
 
+	// Persistence must outlive request cancel: when the client disconnects or
+	// aborts, Request.Context is canceled and AppendErrorMessage would no-op,
+	// leaving the transcript as a silent empty turn (avatar-only UI).
+	persistCtx, persistCancel := context.WithTimeout(context.WithoutCancel(c.Request.Context()), 10*time.Second)
+	defer persistCancel()
+
 	evCh := make(chan event.Event, 64)
 	errCh := make(chan error, 1)
 	go func() {
@@ -113,26 +120,69 @@ func (a *App) handlePostMessage(c *gin.Context) {
 		close(evCh)
 	}()
 
+	clientGone := false
+	errorPersisted := false
 	for ev := range evCh {
 		if ev.Kind == event.KindError && strings.TrimSpace(ev.Message) != "" {
-			if _, err := a.sessions.AppendErrorMessage(c.Request.Context(), sess.ID, ev.Message); err != nil {
-				logging.L().Warn("message.error_persist_failed", "session", sess.ID, "error", err)
+			msg := userFacingMessageError(ev.Message)
+			ev.Message = msg
+			if !errorPersisted {
+				if _, err := a.sessions.AppendErrorMessage(persistCtx, sess.ID, msg); err != nil {
+					logging.L().Warn("message.error_persist_failed", "session", sess.ID, "error", err)
+				} else {
+					errorPersisted = true
+				}
 			}
 		}
-		if err := writeSSE(c.Writer, ev); err != nil {
-			return
+		if !clientGone {
+			if err := writeSSE(c.Writer, ev); err != nil {
+				clientGone = true
+				logging.L().Info("message.sse_client_gone", "session", sess.ID, "error", err)
+				// Keep draining so later error events still reach SQLite.
+				continue
+			}
+			flusher.Flush()
 		}
-		flusher.Flush()
 	}
 
 	if err := <-errCh; err != nil {
 		if a.jobs != nil {
-			_ = a.jobs.ReleaseForSession(c.Request.Context(), sess.ID, err.Error())
+			_ = a.jobs.ReleaseForSession(persistCtx, sess.ID, err.Error())
 		}
 		logging.L().Error("message.failed", "session", sess.ID, "duration_ms", time.Since(started).Milliseconds(), "error", err)
+		if !errorPersisted {
+			msg := userFacingMessageError(err.Error())
+			if _, perr := a.sessions.AppendErrorMessage(persistCtx, sess.ID, msg); perr != nil {
+				logging.L().Warn("message.error_persist_failed", "session", sess.ID, "error", perr)
+			}
+			if !clientGone {
+				_ = writeSSE(c.Writer, event.Errorf(msg, "llm"))
+				flusher.Flush()
+				_ = writeSSE(c.Writer, event.Done())
+				flusher.Flush()
+			}
+		}
 		return
 	}
 	logging.L().Info("message.completed", "session", sess.ID, "duration_ms", time.Since(started).Milliseconds())
+}
+
+// userFacingMessageError maps raw runner/provider errors into transcript copy.
+func userFacingMessageError(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "The request failed."
+	}
+	lower := strings.ToLower(raw)
+	if raw == context.Canceled.Error() ||
+		strings.Contains(lower, "context canceled") ||
+		strings.Contains(lower, "context cancelled") {
+		return "Response interrupted. Send the message again to continue."
+	}
+	if strings.Contains(lower, "deadline exceeded") {
+		return "The model timed out before finishing. Send the message again to continue."
+	}
+	return raw
 }
 
 func contentBlocksFromRequest(req postMessageRequest, workspacePath string) ([]session.ContentBlock, error) {

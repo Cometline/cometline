@@ -726,7 +726,9 @@ type reasoningBlockPayload struct {
 }
 
 func marshalReasoningContent(blocks []cometsdk.Block) (string, error) {
-	var payloads []reasoningBlockPayload
+	// Always emit a JSON array (never "null") so the NOT NULL column and
+	// OpenAI-compatible reasoning_content replay stay well-formed.
+	payloads := make([]reasoningBlockPayload, 0, len(blocks))
 	for _, b := range blocks {
 		switch v := b.(type) {
 		case cometsdk.TextBlock:
@@ -770,6 +772,10 @@ func unmarshalInjectedMemories(raw string) []InjectedMemory {
 }
 
 func unmarshalReasoningContent(raw string) ([]cometsdk.Block, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" || raw == "null" || raw == "[]" {
+		return nil, nil
+	}
 	var payloads []reasoningBlockPayload
 	if err := json.Unmarshal([]byte(raw), &payloads); err != nil {
 		return nil, err

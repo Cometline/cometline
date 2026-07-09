@@ -565,17 +565,18 @@ describe('defaultActivityGroupExpanded', () => {
 		text: 'Reply text'
 	};
 
-	it('defaults collapsed; ChatThread auto-expands the active streaming turn', () => {
+	it('collapses when final text exists; expands tool-only turns after settle', () => {
 		expect(defaultActivityGroupExpanded(assistant, null, false)).toBe(false);
 		expect(defaultActivityGroupExpanded(assistant, 'a1', true)).toBe(false);
-		expect(defaultActivityGroupExpanded(assistant, 'other-id', false)).toBe(false);
-		const pendingAssistant: Extract<ChatItem, { type: 'assistant' }> = {
+		const emptyAssistant: Extract<ChatItem, { type: 'assistant' }> = {
 			id: 'a1',
 			type: 'assistant',
 			text: ''
 		};
-		expect(defaultActivityGroupExpanded(pendingAssistant, 'a1', true)).toBe(false);
-		expect(defaultActivityGroupExpanded(pendingAssistant, null, false)).toBe(false);
+		// Still streaming: keep collapsed so the activity chip does not thrash.
+		expect(defaultActivityGroupExpanded(emptyAssistant, 'a1', true)).toBe(false);
+		// Settled with no final text: expand so tool/reasoning output is visible.
+		expect(defaultActivityGroupExpanded(emptyAssistant, null, false)).toBe(true);
 	});
 });
 
