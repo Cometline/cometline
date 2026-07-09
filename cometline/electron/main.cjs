@@ -168,6 +168,10 @@ let updateCheckTimer = null;
 let windowButtonAnimationTimer = null;
 let windowButtonPosition = { x: 16, y: 17 };
 let registeredMiniWindowShortcut = '';
+// Swallow macOS activate that often fires right after hide()-ing the last
+// focused auxiliary window (mini / settings), which would otherwise force the
+// main window to pop open via showMainWindow().
+let ignoreActivateUntil = 0;
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 
@@ -912,15 +916,54 @@ async function showSettingsWindow() {
 	settingsWindow.focus();
 }
 
+function suppressSpuriousActivate() {
+	// Brief window: long enough to cover hide → activate churn, short enough
+	// that a real Dock click still restores the main window.
+	ignoreActivateUntil = Date.now() + 400;
+}
+
 function hideMiniWindow() {
 	if (!windowCanShow(miniWindow)) return;
 	writeMiniWindowState({ lastActiveAt: Date.now() });
+	suppressSpuriousActivate();
 	miniWindow.hide();
 }
 
 function hideSettingsWindow() {
 	if (!windowCanShow(settingsWindow)) return;
+	suppressSpuriousActivate();
 	settingsWindow.hide();
+}
+
+/** Focus an already-visible surface, or restore main only when nothing is shown. */
+function handleAppActivate() {
+	if (Date.now() < ignoreActivateUntil) {
+		return;
+	}
+	// Prefer keeping the user on whatever surface they already have open.
+	if (windowCanShow(settingsWindow) && settingsWindow.isVisible()) {
+		if (settingsWindow.isMinimized()) settingsWindow.restore();
+		settingsWindow.focus();
+		return;
+	}
+	if (windowCanShow(miniWindow) && miniWindow.isVisible()) {
+		if (miniWindow.isMinimized()) miniWindow.restore();
+		miniWindow.focus();
+		return;
+	}
+	if (windowCanShow(mainWindow) && mainWindow.isVisible()) {
+		if (mainWindow.isMinimized()) mainWindow.restore();
+		mainWindow.focus();
+		return;
+	}
+	// All hidden/destroyed: Dock click restores the primary main window.
+	if (windowCanShow(mainWindow)) {
+		showMainWindow();
+		return;
+	}
+	if (BrowserWindow.getAllWindows().length === 0) {
+		void createWindow();
+	}
 }
 
 async function toggleMiniWindow() {
@@ -3002,13 +3045,9 @@ app.whenReady().then(async () => {
 	});
 
 	app.on('activate', () => {
-		// Reopening from the Dock: re-show the warm, hidden window if it still
-		// exists (instant); only build a fresh one if it was actually destroyed.
-		if (mainWindow && !mainWindow.isDestroyed()) {
-			showMainWindow();
-		} else if (BrowserWindow.getAllWindows().length === 0) {
-			createWindow();
-		}
+		// Multi-window aware: do not force main open when the user only closed
+		// mini/settings, or when mini/settings is already the visible surface.
+		handleAppActivate();
 	});
 });
 
