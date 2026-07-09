@@ -27,6 +27,8 @@
 
 	let html = $state('');
 	let rendered = $state(false);
+	// Intentionally start empty; $effect.pre snaps to `source` before first paint
+	// so we never read the prop into $state() (avoids state_referenced_locally).
 	let displaySource = $state('');
 	let snappedExistingSource = $state(false);
 	let renderVersion = 0;

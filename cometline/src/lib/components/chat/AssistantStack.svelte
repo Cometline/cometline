@@ -68,7 +68,7 @@
 			/>
 		{/each}
 	{/if}
-	{#if item.text}
+	{#if item.text.trim()}
 		<div class="bubble assistant-bubble">
 			<AssistantMarkdown
 				source={item.text}
@@ -87,7 +87,7 @@
 			onStartJob={context.onStartJob}
 		/>
 	{/each}
-	{#if item.text && item.id !== context.streamingAssistantId}
+	{#if item.text.trim() && item.id !== context.streamingAssistantId}
 		<div class="message-actions m-1">
 			<button
 				type="button"
