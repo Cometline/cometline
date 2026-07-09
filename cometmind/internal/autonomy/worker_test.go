@@ -175,11 +175,13 @@ func TestWorkerRunJobReleasesWhenAgentDoesNotCompleteJob(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// MaxSteps must exceed the runner completion-gate budget so a text-only
+	// model exhausts the gate and hits the worker finalize path cleanly.
 	w := newWorker(t, fx, &staticProvider{}, config.AutonomousJobsConfig{
 		Enabled:             true,
 		MaxConcurrent:       1,
 		PollIntervalSeconds: 1,
-		MaxStepsPerRun:      2,
+		MaxStepsPerRun:      10,
 	})
 
 	w.runJob(ctx, job)
@@ -211,7 +213,7 @@ func TestWorkerRunJobReleasesWhenAgentDoesNotCompleteJob(t *testing.T) {
 	}
 	var sawFailure bool
 	for _, ev := range events {
-		if ev.Action == jobs.EventFailed && ev.Detail == "worker: run ended without explicit completion" {
+		if ev.Action == jobs.EventFailed && ev.Detail == "worker: run ended without terminal job tool (complete_job/release_job)" {
 			sawFailure = true
 		}
 	}

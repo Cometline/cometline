@@ -26,6 +26,9 @@ func TestExecutionPromptWithoutProgress(t *testing.T) {
 	if !strings.Contains(got, "after each meaningful milestone") {
 		t.Fatalf("missing periodic update guidance: %q", got)
 	}
+	if !strings.Contains(got, "protocol violation") {
+		t.Fatalf("missing protocol violation guidance: %q", got)
+	}
 	if !strings.Contains(got, `job_id "job-1"`) {
 		t.Fatalf("missing job id: %q", got)
 	}
@@ -38,13 +41,19 @@ func TestExecutionPromptWithProgress(t *testing.T) {
 		Description: "Ship feature",
 		Progress:    "Updated middleware; tests still failing.",
 	})
-	if !strings.Contains(got, "Previous progress (from an earlier attempt):") {
+	if !strings.Contains(got, "Previous progress (authoritative resume state):") {
 		t.Fatalf("missing progress header: %q", got)
 	}
 	if !strings.Contains(got, "Updated middleware; tests still failing.") {
 		t.Fatalf("missing progress body: %q", got)
 	}
-	if !strings.Contains(got, "Continue from here.") {
-		t.Fatalf("missing continue hint: %q", got)
+	if !strings.Contains(got, "Resume protocol (mandatory order):") {
+		t.Fatalf("missing resume protocol: %q", got)
+	}
+	if !strings.Contains(got, "call `complete_job` immediately") {
+		t.Fatalf("missing resume-first complete guidance: %q", got)
+	}
+	if strings.Contains(got, "Continue from here.") {
+		t.Fatalf("legacy continue hint should be gone: %q", got)
 	}
 }

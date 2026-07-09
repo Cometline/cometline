@@ -109,6 +109,7 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 	outputTruncationContinuations := 0
 	truncationContinue := false
 	jobProgressNudge := false
+	jobCompletionGate := false
 	jobTracker := newJobProgressTracker(ctx, r.Jobs, turn.ID)
 	subagentWaitNudge := false
 	pendingSubagentResults := ""
@@ -136,7 +137,7 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 			emitStatus(event.PhaseContinuing)
 		}
 
-		baseSystem := r.buildSystemPrompt(sess.ContextSummary, truncationContinue, jobProgressNudge, jobTracker.JobID, subagentWaitNudge, pendingSubagentResults)
+		baseSystem := r.buildSystemPrompt(sess.ContextSummary, truncationContinue, jobProgressNudge, jobCompletionGate, jobTracker.JobID, subagentWaitNudge, pendingSubagentResults)
 		if r.Compactor != nil && sess.ID != "" {
 			updated, err := r.Compactor.MaybeCompact(
 				ctx,
@@ -149,7 +150,7 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 			)
 			if err == nil {
 				sess = updated
-				baseSystem = r.buildSystemPrompt(sess.ContextSummary, truncationContinue, jobProgressNudge, jobTracker.JobID, subagentWaitNudge, pendingSubagentResults)
+				baseSystem = r.buildSystemPrompt(sess.ContextSummary, truncationContinue, jobProgressNudge, jobCompletionGate, jobTracker.JobID, subagentWaitNudge, pendingSubagentResults)
 			}
 		}
 
@@ -174,6 +175,7 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 		system := baseSystem
 		truncationContinue = false
 		jobProgressNudge = false
+		jobCompletionGate = false
 		if r.Memory != nil && r.Memory.Enabled() && steps == 0 {
 			decision := memory.DecideRetrieval(msgs)
 			logging.L().Info("memory.retrieve.policy", "session", turn.ID, "retrieve", decision.Retrieve, "reason", decision.Reason, "score", decision.Score, "text_bytes", decision.TextBytes)
@@ -318,6 +320,18 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 				steps++
 				continue
 			}
+			if jobTracker.TryConsumeCompletionGate() {
+				jobCompletionGate = true
+				logging.L().Info(
+					"agent.job_completion_gate",
+					"session", turn.ID,
+					"job_id", jobTracker.JobID,
+					"gate_used", jobTracker.completionGateUsed,
+					"gate_budget", jobTracker.completionGateBudget,
+				)
+				steps++
+				continue
+			}
 			return completeTurn()
 		}
 		if len(result.ToolCalls) == 0 {
@@ -341,6 +355,18 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 			} else if waited {
 				pendingSubagentResults = collected
 				subagentWaitNudge = false
+				steps++
+				continue
+			}
+			if jobTracker.TryConsumeCompletionGate() {
+				jobCompletionGate = true
+				logging.L().Info(
+					"agent.job_completion_gate",
+					"session", turn.ID,
+					"job_id", jobTracker.JobID,
+					"gate_used", jobTracker.completionGateUsed,
+					"gate_budget", jobTracker.completionGateBudget,
+				)
 				steps++
 				continue
 			}
@@ -492,7 +518,7 @@ func (r *Runner) systemPrompt() string {
 	return base + r.SkillIndex + r.JobIndex
 }
 
-func (r *Runner) buildSystemPrompt(contextSummary string, truncationContinue, jobProgressNudge bool, jobID string, subagentWaitNudge bool, pendingSubagentResults string) string {
+func (r *Runner) buildSystemPrompt(contextSummary string, truncationContinue, jobProgressNudge, jobCompletionGate bool, jobID string, subagentWaitNudge bool, pendingSubagentResults string) string {
 	base := r.systemPrompt()
 	var parts []string
 	if block := FormatSummaryPromptBlock(contextSummary); block != "" {
@@ -506,6 +532,11 @@ func (r *Runner) buildSystemPrompt(contextSummary string, truncationContinue, jo
 	}
 	if jobProgressNudge {
 		if block := FormatJobProgressNudgeBlock(jobID); block != "" {
+			parts = append(parts, block)
+		}
+	}
+	if jobCompletionGate {
+		if block := FormatJobCompletionGateBlock(jobID); block != "" {
 			parts = append(parts, block)
 		}
 	}

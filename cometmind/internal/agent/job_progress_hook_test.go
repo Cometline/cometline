@@ -86,3 +86,49 @@ func TestFormatJobProgressNudgeBlock(t *testing.T) {
 		t.Fatalf("block = %q, want update_job mention", block)
 	}
 }
+
+func TestJobProgressTracker_CompletionGateBudget(t *testing.T) {
+	t.Parallel()
+	tracker := &JobProgressTracker{
+		JobID:                "job-1",
+		active:               true,
+		completionGateBudget: defaultJobCompletionGateBudget,
+	}
+	if !tracker.NeedsCompletionGate() {
+		t.Fatal("expected active job to need completion gate")
+	}
+	if !tracker.TryConsumeCompletionGate() {
+		t.Fatal("first gate consume should succeed")
+	}
+	if !tracker.TryConsumeCompletionGate() {
+		t.Fatal("second gate consume should succeed")
+	}
+	if tracker.TryConsumeCompletionGate() {
+		t.Fatal("third gate consume should fail after budget")
+	}
+
+	tracker.ObserveTool("complete_job", json.RawMessage(`{"job_id":"job-1"}`))
+	if tracker.NeedsCompletionGate() {
+		t.Fatal("gate should be inactive after complete_job")
+	}
+	if tracker.TryConsumeCompletionGate() {
+		t.Fatal("inactive tracker must not consume gate")
+	}
+}
+
+func TestFormatJobCompletionGateBlock(t *testing.T) {
+	t.Parallel()
+	block := FormatJobCompletionGateBlock("job-xyz")
+	if block == "" {
+		t.Fatal("expected non-empty block")
+	}
+	if !strings.Contains(block, "job-xyz") {
+		t.Fatalf("block = %q, want job id", block)
+	}
+	if !strings.Contains(block, "complete_job") || !strings.Contains(block, "release_job") {
+		t.Fatalf("block = %q, want terminal tools", block)
+	}
+	if FormatJobCompletionGateBlock("") != "" {
+		t.Fatal("empty job id should yield empty block")
+	}
+}

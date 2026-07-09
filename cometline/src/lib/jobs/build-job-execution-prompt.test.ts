@@ -11,18 +11,21 @@ describe('buildJobExecutionPrompt', () => {
 		expect(prompt).toContain('Please work on: Fix auth');
 		expect(prompt).toContain('Definition of done: tests pass');
 		expect(prompt).toContain('after each meaningful milestone');
+		expect(prompt).toContain('protocol violation');
 		expect(prompt).toContain('job_id "job-1"');
 		expect(prompt).not.toContain('Previous progress');
 	});
 
-	it('includes previous progress when present', () => {
+	it('includes resume-first protocol when progress is present', () => {
 		const prompt = buildJobExecutionPrompt({
 			id: 'job-2',
 			description: 'Ship feature',
 			progress: 'Middleware done; tests red.'
 		});
-		expect(prompt).toContain('Previous progress (from an earlier attempt):');
+		expect(prompt).toContain('Previous progress (authoritative resume state):');
 		expect(prompt).toContain('Middleware done; tests red.');
-		expect(prompt).toContain('Continue from here.');
+		expect(prompt).toContain('Resume protocol (mandatory order):');
+		expect(prompt).toContain('call complete_job immediately');
+		expect(prompt).not.toContain('Continue from here.');
 	});
 });
