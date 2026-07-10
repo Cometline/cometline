@@ -4266,6 +4266,9 @@ function normalizeSessionNavBinding(action, binding, defaultBinding) {
 }
 function normalizeToggleWebPanelBinding(binding, defaultBinding) {
   if (!binding) return { ...defaultBinding };
+  if (binding.key === "\u222B" && binding.command && binding.alt === true) {
+    return { ...defaultBinding };
+  }
   if (binding.key === "b" && binding.command && binding.alt !== true) {
     return { ...defaultBinding };
   }

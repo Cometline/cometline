@@ -440,8 +440,8 @@
 
 	.panel-resizer {
 		flex: 0 0 auto;
-		width: 8px;
-		margin: 0 -3px;
+		width: 12px;
+		margin: 0 -3px 0 -9px;
 		z-index: 2;
 		cursor: col-resize;
 		align-self: stretch;
@@ -455,7 +455,7 @@
 		top: 50%;
 		left: 50%;
 		transform: translate(-50%, -50%);
-		width: 2px;
+		width: 4px;
 		height: 36px;
 		border-radius: 999px;
 		background: var(--border-subtle, rgba(148, 163, 184, 0.4));
