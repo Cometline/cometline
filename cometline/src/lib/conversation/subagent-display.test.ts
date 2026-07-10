@@ -41,10 +41,18 @@ describe('subagentProgressLabel', () => {
 		).toBe('CometMind · step limit');
 	});
 
-	it('labels ACP delegates as OpenCode', () => {
+	it('labels legacy coding delegates as OpenCode', () => {
 		expect(subagentProgressLabel(subagent({ agentName: 'opencode' }))).toBe(
 			'OpenCode · opencode'
 		);
+	});
+
+	it('labels Claude Code delegates', () => {
+		expect(subagentProgressLabel(subagent({ agentName: 'Claude Code' }))).toBe('Claude Code');
+	});
+
+	it('labels Codex delegates', () => {
+		expect(subagentProgressLabel(subagent({ agentName: 'Codex' }))).toBe('Codex');
 	});
 
 	it('counts tools in the label', () => {

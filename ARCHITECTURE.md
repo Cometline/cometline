@@ -23,7 +23,7 @@ Cometline is a three-layer system: a desktop chat UI, a local agent runtime, and
 │  - Agent loop (up to 50 steps)                                  │
 │  - SQLite persistence (sessions, messages, memories)            │
 │  - Built-in tools (file ops, commands, web fetch)               │
-│  - ACP delegation (OpenCode, Claude Code)                       │
+│  - Coding-harness CLI delegation (OpenCode, Claude Code, Codex) │
 │  - MCP client manager and OAuth token refresh                    │
 │  - Jobs, scheduled jobs, and autonomous job worker               │
 │  - Discord gateway                                              │
@@ -72,7 +72,7 @@ Cometline is a three-layer system: a desktop chat UI, a local agent runtime, and
 - Session and workspace management
 - SQLite persistence (messages, tool calls, memories)
 - Built-in tools (file operations, command execution, web fetch)
-- ACP delegation to external coding agents
+- Coding-harness CLI delegation to external coding agents
 - MCP server lifecycle and remote tool execution
 - Jobs, scheduled jobs, job leases, job maintenance, and autonomous job execution
 - Discord messaging gateway
@@ -145,16 +145,16 @@ Cometline is a three-layer system: a desktop chat UI, a local agent runtime, and
 6. CometMind extracts memories from the turn for future retrieval
 ```
 
-### Agent delegation (ACP)
+### Agent delegation (coding-harness CLI)
 
 ```
 1. User asks CometMind to delegate a coding task
    ↓
 2. CometMind calls delegate_coding_task tool
    ↓
-3. Tool spawns external agent (e.g., `opencode acp`) via ACP protocol
+3. Tool spawns the selected external harness using its fixed non-interactive CLI profile
    ↓
-4. External agent streams progress back via ACP
+4. External agent streams JSON/JSONL progress back through stdout
    ↓
 5. CometMind emits subagent_progress SSE events to Cometline
    ↓
@@ -253,8 +253,8 @@ CometMind emits JSON SSE frames with a `type` discriminator:
 | `tool_call` | Model requested a tool |
 | `tool_result` | Tool execution completed |
 | `step_finish` | One model step ended |
-| `subagent_progress` | ACP agent progress update |
-| `subagent_finished` | ACP/general subagent finished |
+| `subagent_progress` | Coding-harness or general-subagent progress update |
+| `subagent_finished` | Coding-harness or general-subagent finished |
 | `memory_injected` | Retrieved memories were injected into the turn |
 | `memory_updated` | Post-turn memory extraction changed memory state |
 | `turn_status` | Pre-output activity status such as retrieving memories or contacting the model |
@@ -340,9 +340,7 @@ max_tokens = 8192
 max_steps = 50
 
 [acp]
-command = "opencode"
-args = ["acp"]
-timeout = "30m"
+default_harness = "opencode" # opencode, claude, or codex
 
 [gateway.discord]
 enabled = false

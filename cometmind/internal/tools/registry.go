@@ -45,7 +45,7 @@ func NewRegistry(workspaceRoot string, opts ...RegistryOptions) *Registry {
 		add(ReadSkillDraft{})
 		add(PromoteSkillDraft{})
 	}
-	if opt.Sessions != nil {
+	if opt.Sessions != nil && opt.ACP.CommandAvailable() {
 		add(DelegateCodingTask{
 			Workspace:    ws,
 			Sessions:     opt.Sessions,
@@ -53,20 +53,20 @@ func NewRegistry(workspaceRoot string, opts ...RegistryOptions) *Registry {
 			ACPMgr:       opt.ACPMgr,
 			Orchestrator: opt.Orchestrator,
 		})
-		if opt.Orchestrator != nil && opt.RunnerFactory != nil {
-			add(SpawnGeneralAgent{
-				Workspace:      ws,
-				Sessions:       opt.Sessions,
-				Orchestrator:   opt.Orchestrator,
-				RunnerFactory:  opt.RunnerFactory,
-				SubagentConfig: opt.SubagentConfig,
-			})
-			add(WaitSubagents{
-				Sessions:       opt.Sessions,
-				Orchestrator:   opt.Orchestrator,
-				SubagentConfig: opt.SubagentConfig,
-			})
-		}
+	}
+	if opt.Sessions != nil && opt.Orchestrator != nil && opt.RunnerFactory != nil {
+		add(SpawnGeneralAgent{
+			Workspace:      ws,
+			Sessions:       opt.Sessions,
+			Orchestrator:   opt.Orchestrator,
+			RunnerFactory:  opt.RunnerFactory,
+			SubagentConfig: opt.SubagentConfig,
+		})
+		add(WaitSubagents{
+			Sessions:       opt.Sessions,
+			Orchestrator:   opt.Orchestrator,
+			SubagentConfig: opt.SubagentConfig,
+		})
 	}
 	if opt.MCP != nil {
 		add(listMCPServersTool{mgr: opt.MCP})

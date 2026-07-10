@@ -63,6 +63,7 @@ type ParsedSubagentBlock = {
 	childSessionId: string;
 	kind: string;
 	status: string;
+	agentName: string;
 	summary: string;
 };
 
@@ -71,6 +72,7 @@ function parseSubagentBlock(block: string): ParsedSubagentBlock | null {
 	let childSessionId = '';
 	let kind = '';
 	let status = '';
+	let agentName = '';
 	const summaryLines: string[] = [];
 	let inSummary = false;
 
@@ -87,6 +89,10 @@ function parseSubagentBlock(block: string): ParsedSubagentBlock | null {
 			status = line.slice('status:'.length).trim();
 			continue;
 		}
+		if (line.startsWith('agent:')) {
+			agentName = line.slice('agent:'.length).trim();
+			continue;
+		}
 		if (line.trim() === '' && !inSummary && childSessionId) {
 			inSummary = true;
 			continue;
@@ -101,6 +107,7 @@ function parseSubagentBlock(block: string): ParsedSubagentBlock | null {
 		childSessionId,
 		kind,
 		status,
+		agentName,
 		summary: summaryLines.join('\n').trim()
 	};
 }
@@ -126,7 +133,8 @@ function subagentFromParsed(
 		type: 'subagent',
 		childSessionId: block.childSessionId,
 		purpose: block.summary.split('\n')[0] || 'Delegated task',
-		agentName: block.kind === 'general' ? 'cometmind' : agentNameForTool(toolName),
+		agentName:
+			block.kind === 'general' ? 'cometmind' : block.agentName || agentNameForTool(toolName),
 		status: mapDelegationStatus(block.status),
 		progress: [],
 		summary: block.summary,
@@ -145,7 +153,10 @@ export function mergeSubagents(items: ChatItem[], children: Session[]): ChatItem
 			);
 			if (match) {
 				used.add(match.id);
-				out.push(subagentFromChild(match, agentNameForTool(item.toolName)));
+				const parsed = parseSubagentToolOutput(item.output)[0];
+				out.push(
+					subagentFromChild(match, parsed?.agentName || agentNameForTool(item.toolName))
+				);
 				continue;
 			}
 			const parsed = parseSubagentToolOutput(item.output)[0];
@@ -166,7 +177,7 @@ export function mergeSubagents(items: ChatItem[], children: Session[]): ChatItem
 					out.push(
 						subagentFromChild(
 							child,
-							block.kind === 'general' ? 'cometmind' : 'opencode'
+							block.kind === 'general' ? 'cometmind' : block.agentName || 'opencode'
 						)
 					);
 				} else {

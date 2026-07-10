@@ -3,6 +3,7 @@ package tools
 import (
 	"context"
 	"io"
+	"strings"
 	"testing"
 
 	"github.com/cometline/cometmind/internal/acp"
@@ -10,7 +11,7 @@ import (
 	"github.com/cometline/cometmind/internal/store"
 )
 
-func TestDelegateCodingTaskWithFakeACP(t *testing.T) {
+func TestDelegateCodingTaskWithFakeCLI(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
@@ -31,8 +32,13 @@ func TestDelegateCodingTaskWithFakeACP(t *testing.T) {
 	}
 
 	mgr := acp.NewSessionManager(acp.DefaultConfig())
-	mgr.ProcessStarter = func(ctx context.Context, cfg acp.Config) (io.WriteCloser, io.ReadCloser, io.Closer, error) {
-		return acp.StartFakeAgentPipes(ctx)
+	mgr.CLIProcessStarter = func(
+		ctx context.Context,
+		cfg acp.Config,
+		workspaceRoot string,
+		prompt string,
+	) (io.ReadCloser, io.ReadCloser, io.Closer, error) {
+		return io.NopCloser(strings.NewReader("task completed\n")), io.NopCloser(strings.NewReader("")), io.NopCloser(strings.NewReader("")), nil
 	}
 	tool := DelegateCodingTask{
 		Workspace: Workspace{Root: ws.Path},

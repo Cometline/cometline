@@ -29,7 +29,8 @@ Comet SDK is the **LLM I/O layer** of the Cometline stack. CometMind consumes it
 ├─────────────────────────────────────────────┤
 │  cometmind   General AI agent runtime       │  ← brain
 │              (agent loop, tools, memory,    │
-│               ACP delegation, persistence)  │
+│               coding CLI delegation,        │
+│               persistence)                  │
 ├─────────────────────────────────────────────┤
 │  comet-sdk   Provider-agnostic LLM I/O      │  ← this repo
 └─────────────────────────────────────────────┘

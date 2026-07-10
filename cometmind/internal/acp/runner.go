@@ -2,28 +2,96 @@ package acp
 
 import (
 	"context"
-	"io"
 	"os/exec"
+	"strings"
 	"sync"
 	"time"
 
-	acpsdk "github.com/coder/acp-go-sdk"
 	"github.com/cometline/cometmind/internal/process"
 )
 
-// Config controls how CometMind spawns an external ACP coding agent.
+// Harness identifies the external coding agent CometMind delegates to.
+type Harness string
+
+const (
+	HarnessOpenCode Harness = "opencode"
+	HarnessClaude   Harness = "claude"
+	HarnessCodex    Harness = "codex"
+)
+
+// ParseHarness normalizes a user-facing harness identifier. Unknown values
+// fall back to OpenCode so legacy settings remain safe and usable.
+func ParseHarness(value string) Harness {
+	switch Harness(strings.ToLower(strings.TrimSpace(value))) {
+	case HarnessClaude:
+		return HarnessClaude
+	case HarnessCodex:
+		return HarnessCodex
+	default:
+		return HarnessOpenCode
+	}
+}
+
+// Config controls how CometMind spawns an external coding agent.
 type Config struct {
-	Command string
-	Args    []string
+	Harness Harness
 	Timeout time.Duration
 }
 
-// DefaultConfig returns defaults for OpenCode in ACP mode.
+// ProgressUpdate is a normalized child-agent progress chunk for the parent
+// session.
+type ProgressUpdate struct {
+	Kind    string
+	Content string
+	Title   string
+	Status  string
+}
+
+// DefaultConfig returns the default OpenCode CLI profile.
 func DefaultConfig() Config {
-	return Config{
-		Command: "opencode",
-		Args:    []string{"acp"},
-		Timeout: 30 * time.Minute,
+	return DefaultHarnessConfig(HarnessOpenCode)
+}
+
+// DefaultHarnessConfig returns the fixed runtime profile for a harness.
+// Command names and arguments are intentionally kept internal so users can
+// select a harness without changing how CometMind invokes it.
+func DefaultHarnessConfig(harness Harness) Config {
+	harness = ParseHarness(string(harness))
+	return Config{Harness: harness, Timeout: 30 * time.Minute}
+}
+
+func (c Config) normalized() Config {
+	harness := ParseHarness(string(c.Harness))
+	defaults := DefaultHarnessConfig(harness)
+	if c.Timeout <= 0 {
+		c.Timeout = defaults.Timeout
+	}
+	c.Harness = harness
+	return c
+}
+
+// CommandAvailable reports whether the selected fixed CLI harness can be
+// resolved in the same environment used to launch delegated tasks.
+func (c Config) CommandAvailable() bool {
+	return c.commandAvailableWithResolver(resolveAgentCommand)
+}
+
+func (c Config) commandAvailableWithResolver(resolve func(string) (string, error)) bool {
+	command, _ := c.normalized().commandArgs()
+	_, err := resolve(command)
+	return err == nil
+}
+
+// Label returns the stable display label used in progress events and tool
+// results.
+func (c Config) Label() string {
+	switch ParseHarness(string(c.Harness)) {
+	case HarnessClaude:
+		return "Claude Code"
+	case HarnessCodex:
+		return "Codex"
+	default:
+		return "OpenCode"
 	}
 }
 
@@ -44,21 +112,18 @@ type TaskResult struct {
 	AgentName    string
 }
 
-// AgentRunner connects to an ACP agent subprocess and runs one prompt turn.
+// AgentRunner runs one prompt turn against a fixed CLI coding harness.
 type AgentRunner struct {
 	Config Config
-	// ProcessStarter spawns the agent; defaults to exec.Command when nil.
-	ProcessStarter func(ctx context.Context, cfg Config) (io.WriteCloser, io.ReadCloser, io.Closer, error)
+	// ProcessStarter starts the harness; defaults to exec.Command when nil.
+	ProcessStarter CLIProcessStarter
 }
 
-// Run executes a single delegated task against an ACP agent.
+// Run executes a single delegated task against the selected CLI harness.
 func (r *AgentRunner) Run(ctx context.Context, req TaskRequest) (TaskResult, error) {
-	cfg := r.Config
-	if cfg.Command == "" {
-		cfg = DefaultConfig()
-	}
+	cfg := r.Config.normalized()
 	mgr := NewSessionManager(cfg)
-	mgr.ProcessStarter = r.ProcessStarter
+	mgr.CLIProcessStarter = r.ProcessStarter
 	return mgr.Run(ctx, RunOptions{
 		WorkspaceRoot: req.WorkspaceRoot,
 		Task:          req.Task,
@@ -68,46 +133,26 @@ func (r *AgentRunner) Run(ctx context.Context, req TaskRequest) (TaskResult, err
 	})
 }
 
-// Cancel sends session/cancel when a connection is active.
-func Cancel(conn *acpsdk.ClientSideConnection, sessionID acpsdk.SessionId) error {
-	if conn == nil {
-		return nil
-	}
-	return conn.Cancel(context.Background(), acpsdk.CancelNotification{SessionId: sessionID})
-}
-
-func defaultProcessStarter(ctx context.Context, cfg Config) (io.WriteCloser, io.ReadCloser, io.Closer, error) {
-	command, err := process.ResolveCommand(cfg.Command)
-	if err != nil {
-		return nil, nil, nil, process.CommandNotFoundError(cfg.Command, err)
-	}
-	cmd := exec.CommandContext(ctx, command, cfg.Args...)
-	cmd.Dir = "."
-	cmd.Env = process.Env()
-	stdin, err := cmd.StdinPipe()
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	cmd.Stderr = io.Discard
-	if err := cmd.Start(); err != nil {
-		return nil, nil, nil, err
-	}
-	return stdin, stdout, &cmdWaitCloser{cmd: cmd}, nil
-}
-
 type cmdWaitCloser struct {
 	cmd  *exec.Cmd
 	once sync.Once
 }
 
+func (c Config) commandArgs() (string, []string) {
+	switch ParseHarness(string(c.Harness)) {
+	case HarnessClaude:
+		return "claude", []string{"-p", "--output-format", "stream-json", "--verbose", "--dangerously-skip-permissions"}
+	case HarnessCodex:
+		return "codex", []string{"exec", "--json", "--dangerously-bypass-approvals-and-sandbox"}
+	default:
+		return "opencode", []string{"run", "--format", "json", "--auto"}
+	}
+}
+
 func (c *cmdWaitCloser) Close() error {
 	var err error
 	c.once.Do(func() {
-		if c.cmd.Process != nil {
+		if c.cmd.Process != nil && c.cmd.ProcessState == nil {
 			_ = c.cmd.Process.Kill()
 		}
 		err = c.cmd.Wait()

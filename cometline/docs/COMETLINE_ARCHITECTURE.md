@@ -19,7 +19,7 @@ comet-sdk
 cometmind
   Local agent runtime.
   Owns agent loop, semantic memory, SQLite persistence, workspace/session/job APIs,
-  tool registry, ACP delegation, MCP client management, skills, scheduler,
+  tool registry, coding-harness CLI delegation, MCP client management, skills, scheduler,
   autonomous job workers, Discord gateway, provider factory, local HTTP/SSE server, and CLI.
 
 cometline
@@ -34,7 +34,7 @@ Dependency direction:
 ```text
 cometline renderer
   -> CometMind local API on 127.0.0.1:7700
-    -> cometmind runtime / storage / tools / memory / ACP
+    -> cometmind runtime / storage / tools / memory / coding CLI delegation
       -> comet-sdk provider interface
         -> Anthropic / OpenAI / OpenAI-compatible APIs
 
@@ -56,7 +56,7 @@ The rule: Cometline is not the brain. CometMind is the brain. Comet SDK is only 
 | Semantic memory       | `cometmind/internal/memory`        | Embedding retrieval, post-turn extraction, compaction, REST API + Cometline settings panel                                  |
 | MCP client            | `cometmind/internal/mcp`           | stdio/http/sse servers, tool binding, OAuth discovery/registration/login/refresh                                             |
 | Jobs and scheduler    | `cometmind/internal/jobs`, `scheduler`, `autonomy` | Durable jobs, leases, scheduled materialization, autonomous workers, Discord proposals                 |
-| ACP delegation        | `cometmind/internal/acp`           | `delegate_coding_task` spawns OpenCode (default); child sessions with progress/awaiting-input SSE                           |
+| Coding-harness delegation | `cometmind/internal/acp`       | `delegate_coding_task` spawns the selected OpenCode, Claude Code, or Codex CLI profile; child sessions stream progress SSE |
 | Agent Skills          | `cometmind/internal/skills`        | Discovery, system-prompt index, load/read/write tools, Cometline slash commands                                             |
 | Discord gateway       | `cometmind/internal/gateway`       | Allowlisted bot with per-thread sessions; Cometline can start/stop subprocess                                               |
 | Persistence           | `cometmind/internal/db`            | SQLite workspaces, sessions, messages, tool calls, memories, gateway mappings                                               |
@@ -64,7 +64,7 @@ The rule: Cometline is not the brain. CometMind is the brain. Comet SDK is only 
 | Desktop runtime       | `cometline/electron`               | Sidecar spawn, health polling, settings IPC, updater, tray, workspace picker                                                |
 | Renderer UI           | `cometline/src`                    | SvelteKit routes, sidebar, chat thread, composer, settings modal, web panel, animations                                     |
 | Secrets               | Electron JSON settings             | MVP-only. API keys in `~/.cometmind/cometline-settings.json`; move to OS keychain before wide distribution                  |
-| Tool permission gates | Not implemented                    | CometMind executes requested tools directly; ACP permission prompts are subagent-scoped only                                |
+| Tool permission gates | Not implemented                    | CometMind executes requested tools directly; harness permission behavior is controlled by each fixed CLI profile            |
 
 ## Runtime Contracts
 
@@ -185,7 +185,7 @@ Cometline desktop must not:
 ### Settings sections
 
 - **Providers** — API keys, base URLs, model fetch/enable
-- **CometMind** — ACP config, MCP config/status/OAuth, skills list/sync/export/delete, Discord gateway, jobs/autonomy/scheduler settings
+- **CometMind** — coding-harness selector, MCP config/status/OAuth, skills list/sync/export/delete, Discord gateway, jobs/autonomy/scheduler settings
 - **Memory** — config, CRUD, search, compaction preview/run
 - **General** — open at login
 - **Hero glow** — composer appearance and caret trail
@@ -335,7 +335,7 @@ CometMind currently executes built-in tool calls directly. Before real daily use
 - Run-loop pause/resume for pending permissions
 - Cometline approval UI
 
-ACP subagent permission prompts are currently handled inside the delegated agent flow; CometMind does not expose general built-in tool approval events yet.
+Coding-harness permissions are handled by the selected CLI profile; CometMind does not expose general built-in tool approval events yet.
 
 ### 2. Secret Storage
 

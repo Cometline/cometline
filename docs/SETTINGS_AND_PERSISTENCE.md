@@ -246,7 +246,7 @@ CometMind restart is required when:
 - Discord token/process environment changes
 - icon variant changed and packaged runtime prompt path or related native state must be refreshed
 
-CometMind can reload many settings in place for new work, including provider/default model changes, ACP config, skills config, MCP config, log level, context window limit, and many runtime settings. The renderer still uses explicit restart/reconnect paths when a setting belongs to the restart-required class above.
+CometMind can reload many settings in place for new work, including provider/default model changes, coding-harness selection, skills config, MCP config, log level, context window limit, and many runtime settings. The renderer still uses explicit restart/reconnect paths when a setting belongs to the restart-required class above.
 
 CometMind restart is not required for:
 

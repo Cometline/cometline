@@ -19,7 +19,9 @@
 		cometmind: CometMindSettings;
 		providers?: ProviderConfig[];
 		onPickWorkspace?: () => void | Promise<void>;
-		onPersistBeforeRuntimeAction?: (overrides?: Partial<Pick<CometMindSettings, 'mcp'>>) => Promise<void>;
+		onPersistBeforeRuntimeAction?: (
+			overrides?: Partial<Pick<CometMindSettings, 'mcp'>>
+		) => Promise<void>;
 	} = $props();
 
 	type SkillSourceFilter = 'all' | 'cometmind' | 'workspace' | 'opencode' | 'claude' | 'other';
@@ -89,7 +91,6 @@
 
 	let allowedUsersText = $state(formatIdList(cometmind.gateway.discord.allowedUsers));
 	let allowedChannelsText = $state(formatIdList(cometmind.gateway.discord.allowedChannels));
-	let argsText = $state(cometmind.acp.args.join(' '));
 	let skills = $state<SkillResource[]>([]);
 	let skillErrors = $state<string[]>([]);
 	let skillsBusy = $state(false);
@@ -267,7 +268,7 @@
 		mcpPanel?.syncFields();
 	}
 
-	// Flushes the local text mirrors (argsText / allowedUsersText /
+	// Flushes the local text mirrors (allowedUsersText /
 	// allowedChannelsText) into the bound `cometmind` draft. The inputs wire this
 	// to `oninput` (not just change/blur) so editing one of these fields enables
 	// the Save button immediately — without it the first Save click can land
@@ -276,13 +277,6 @@
 	function syncListsFromText() {
 		cometmind = {
 			...cometmind,
-			acp: {
-				...cometmind.acp,
-				args: argsText
-					.split(/\s+/)
-					.map((part) => part.trim())
-					.filter(Boolean)
-			},
 			gateway: {
 				discord: {
 					...cometmind.gateway.discord,
@@ -359,42 +353,25 @@
 
 		<div class="settings-section">
 			<div class="settings-section-heading">
-				<h3>OpenCode subagent (ACP)</h3>
+				<h3>Coding task delegation</h3>
 				<p>
-					Delegate coding tasks to the local OpenCode CLI. Written to <code>[acp]</code>
-					in
+					Choose the local coding harness used by <code>delegate_coding_task</code>.
+					Settings are written to <code>[acp]</code> in
 					<code>~/.cometmind/cometline-settings.json</code>.
 				</p>
 			</div>
 			<label>
-				<span>Command path</span>
-				<input
-					type="text"
-					bind:value={cometmind.acp.command}
-					placeholder="opencode"
-					spellcheck="false"
-				/>
-			</label>
-			<label>
-				<span>Arguments (space-separated)</span>
-				<input
-					type="text"
-					bind:value={argsText}
-					oninput={syncListsFromText}
-					onchange={syncListsFromText}
-					onblur={syncListsFromText}
-					placeholder="acp"
-					spellcheck="false"
-				/>
-			</label>
-			<label>
-				<span>Timeout</span>
-				<input
-					type="text"
-					bind:value={cometmind.acp.timeout}
-					placeholder="30m"
-					spellcheck="false"
-				/>
+				<span>Coding harness</span>
+				<select bind:value={cometmind.acp.defaultHarness}>
+					<option value="opencode">OpenCode</option>
+					<option value="claude">Claude Code</option>
+					<option value="codex">Codex</option>
+				</select>
+				<p class="settings-field-hint">
+					Each harness uses a built-in non-interactive CLI profile. Claude Code and Codex
+					use their own local login/configuration. Only select a harness for workspaces
+					you trust.
+				</p>
 			</label>
 		</div>
 
@@ -558,7 +535,7 @@
 		<SettingsMCPPanel
 			bind:this={mcpPanel}
 			bind:mcp={cometmind.mcp}
-			onPersistBeforeRuntimeAction={onPersistBeforeRuntimeAction}
+			{onPersistBeforeRuntimeAction}
 		/>
 
 		<div class="settings-section">

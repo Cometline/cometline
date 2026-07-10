@@ -1,27 +1,14 @@
 package config
 
 import (
-	"time"
-
 	"github.com/cometline/cometmind/internal/acp"
 )
 
-// ACPSettings converts config to runtime ACP settings.
+// ACPSettings converts the selected coding harness into the fixed runtime
+// profile. The legacy method name is retained for config/runtime compatibility.
 func (c *Config) ACPSettings() acp.Config {
-	out := acp.DefaultConfig()
 	if c == nil {
-		return out
+		return acp.DefaultConfig()
 	}
-	if c.ACP.Command != "" {
-		out.Command = c.ACP.Command
-	}
-	if len(c.ACP.Args) > 0 {
-		out.Args = c.ACP.Args
-	}
-	if c.ACP.Timeout != "" {
-		if d, err := time.ParseDuration(c.ACP.Timeout); err == nil {
-			out.Timeout = d
-		}
-	}
-	return out
+	return acp.DefaultHarnessConfig(acp.ParseHarness(c.ACP.DefaultHarness))
 }
