@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
 	defaultSettings,
+	defaultCometMindSettings,
+	normalizeCometMindSettings,
 	migrateSingleProvider,
 	normalizeSettings,
 	parseAndNormalizeSettings,
@@ -29,6 +31,22 @@ describe('settings schema', () => {
 		expect(settings.cometmind.contextWindowLimit).toBe(128_000);
 		expect(settings.cometmind.storage.retentionDays).toBe(90);
 		expect(settings.cometmind.storage.maxSessionsPerWorkspace).toBe(0);
+		expect(settings.cometmind.acp.defaultHarness).toBe('opencode');
+	});
+
+	it('normalizes legacy ACP settings with the new harness defaults', () => {
+		const defaults = defaultCometMindSettings();
+		const normalized = normalizeCometMindSettings({
+			...defaults,
+			acp: {
+				defaultHarness: 'codex',
+				command: 'custom-agent',
+				args: ['--user-controlled'],
+				timeout: '1m'
+			} as typeof defaults.acp
+		});
+
+		expect(normalized.acp).toEqual({ defaultHarness: 'codex' });
 	});
 
 	it('round-trips hasDismissedSetupWizard through normalizeSettings', () => {

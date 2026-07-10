@@ -117,10 +117,10 @@ declare global {
 		| { canceled: true }
 		| { canceled: false; path: string; settings?: ProviderSettings };
 
+	type CodingHarness = 'opencode' | 'claude' | 'codex';
+
 	interface CometMindACPSettings {
-		command: string;
-		args: string[];
-		timeout: string;
+		defaultHarness: CodingHarness;
 	}
 
 	interface CometMindDiscordGatewaySettings {

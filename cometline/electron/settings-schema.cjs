@@ -4614,9 +4614,7 @@ function defaultCometMindSettings(workspacePath = "") {
     titleProviderId: "",
     titleModelId: "",
     acp: {
-      command: "opencode",
-      args: ["acp"],
-      timeout: "30m"
+      defaultHarness: "opencode"
     },
     skills: {
       enabled: true,
@@ -4690,7 +4688,10 @@ function normalizeCometMindSettings(input, fallbackWorkspacePath = "") {
   const autonomyInput = input?.autonomy ?? {};
   const autonomyDefaults = defaults.autonomy;
   const schedulerInput = input?.scheduler ?? {};
-  const args = Array.isArray(acp.args) ? acp.args.map((a) => String(a).trim()).filter(Boolean) : defaults.acp.args;
+  const normalizeHarness = (value) => {
+    const raw = String(value ?? "").trim();
+    return raw === "claude" || raw === "codex" || raw === "opencode" ? raw : defaults.acp.defaultHarness;
+  };
   const { botToken, botTokenEnv } = migrateDiscordTokenFields(discord);
   return {
     systemPromptPath: String(input?.systemPromptPath ?? defaults.systemPromptPath).trim(),
@@ -4702,9 +4703,7 @@ function normalizeCometMindSettings(input, fallbackWorkspacePath = "") {
     titleProviderId: String(input?.titleProviderId ?? defaults.titleProviderId).trim(),
     titleModelId: String(input?.titleModelId ?? defaults.titleModelId).trim(),
     acp: {
-      command: String(acp.command ?? defaults.acp.command).trim() || defaults.acp.command,
-      args: args.length > 0 ? args : defaults.acp.args,
-      timeout: String(acp.timeout ?? defaults.acp.timeout).trim() || defaults.acp.timeout
+      defaultHarness: normalizeHarness(acp.defaultHarness)
     },
     skills: {
       enabled: typeof skills.enabled === "boolean" ? skills.enabled : defaults.skills.enabled,
@@ -4892,9 +4891,7 @@ function cloneCometMindSettings(settings) {
     titleProviderId: settings.titleProviderId,
     titleModelId: settings.titleModelId,
     acp: {
-      command: settings.acp.command,
-      args: [...settings.acp.args],
-      timeout: settings.acp.timeout
+      defaultHarness: settings.acp.defaultHarness
     },
     skills: {
       ...settings.skills,
@@ -5160,7 +5157,7 @@ function runtimeSlice(settings) {
       apiKey: p.apiKey,
       model: primaryModel(p)
     })),
-    acp: { ...settings.cometmind.acp, args: [...settings.cometmind.acp.args] },
+    acp: { ...settings.cometmind.acp },
     skills: { ...settings.cometmind.skills, roots: [...settings.cometmind.skills.roots] },
     memory: {
       enabled: settings.cometmind.memory.enabled,
@@ -5241,9 +5238,7 @@ var providerSettingsSchema = external_exports.object({
     titleProviderId: external_exports.string(),
     titleModelId: external_exports.string(),
     acp: external_exports.object({
-      command: external_exports.string().min(1),
-      args: external_exports.array(external_exports.string()),
-      timeout: external_exports.string().min(1)
+      defaultHarness: external_exports.enum(["opencode", "claude", "codex"])
     }),
     skills: external_exports.object({
       enabled: external_exports.boolean(),

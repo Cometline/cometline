@@ -2,9 +2,19 @@ import type { ChatItem } from '$lib/types';
 
 export type SubagentChatItem = Extract<ChatItem, { type: 'subagent' }>;
 
-/** General subagents run in-process; ACP delegates use OpenCode. */
+/** General subagents run in-process; coding delegates use the selected harness. */
 export function isGeneralSubagent(subagent: SubagentChatItem): boolean {
 	return subagent.agentName === 'cometmind';
+}
+
+function codingHarnessLabel(agentName: string): string {
+	const normalized = agentName.trim().toLowerCase();
+	if (normalized.includes('claude')) return 'Claude Code';
+	if (normalized.includes('codex')) return 'Codex';
+	if (!normalized || normalized.includes('opencode') || normalized === 'acp-agent') {
+		return 'OpenCode';
+	}
+	return agentName;
 }
 
 /** True when the subagent hit its step limit rather than a hard error. */
@@ -24,18 +34,20 @@ export function subagentProgressLabel(subagent: SubagentChatItem): string {
 	const toolCount = subagent.progress.filter((entry) => entry.kind === 'tool').length;
 	const general = isGeneralSubagent(subagent);
 	const stepLimit = isSubagentStepLimit(subagent);
+	const harness = general ? 'CometMind' : codingHarnessLabel(subagent.agentName);
+	const suffix = !general && harness !== subagent.agentName ? ` · ${subagent.agentName}` : '';
 
 	let prefix: string;
 	if (subagent.status === 'incomplete' || stepLimit) {
-		prefix = general ? 'CometMind · step limit' : 'OpenCode · step limit';
+		prefix = `${harness} · step limit`;
 	} else if (subagent.status === 'failed') {
-		prefix = general ? 'CometMind failed' : 'OpenCode failed';
+		prefix = `${harness} failed`;
 	} else if (subagent.status === 'cancelled') {
-		prefix = general ? 'CometMind cancelled' : 'OpenCode cancelled';
+		prefix = `${harness} cancelled`;
 	} else if (general) {
 		prefix = 'CometMind · research';
 	} else {
-		prefix = `OpenCode · ${subagent.agentName}`;
+		prefix = `${harness}${suffix}`;
 	}
 
 	if (toolCount > 0) {
