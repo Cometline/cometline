@@ -22,9 +22,7 @@ type cometlineProviderJSON struct {
 }
 
 type cometlineACPJSON struct {
-	Command string   `json:"command"`
-	Args    []string `json:"args"`
-	Timeout string   `json:"timeout"`
+	DefaultHarness string `json:"defaultHarness"`
 }
 
 type cometlineSkillsJSON struct {
@@ -255,9 +253,7 @@ func adaptCometlineSettings(raw cometlineSettingsJSON) (*Config, error) {
 		SystemPromptPath:   strings.TrimSpace(cm.SystemPromptPath),
 		Providers:          providers,
 		ACP: ACPConfig{
-			Command: strings.TrimSpace(cm.ACP.Command),
-			Args:    append([]string(nil), cm.ACP.Args...),
-			Timeout: strings.TrimSpace(cm.ACP.Timeout),
+			DefaultHarness: strings.TrimSpace(cm.ACP.DefaultHarness),
 		},
 		Skills: SkillsConfig{
 			Enabled:             cm.Skills.Enabled,
@@ -349,14 +345,8 @@ func adaptCometlineSettings(raw cometlineSettingsJSON) (*Config, error) {
 		MCP: adaptMCPJSON(cm.MCP),
 	}
 
-	if cfg.ACP.Command == "" {
-		cfg.ACP.Command = "opencode"
-	}
-	if len(cfg.ACP.Args) == 0 {
-		cfg.ACP.Args = []string{"acp"}
-	}
-	if cfg.ACP.Timeout == "" {
-		cfg.ACP.Timeout = "30m"
+	if cfg.ACP.DefaultHarness == "" {
+		cfg.ACP.DefaultHarness = "opencode"
 	}
 	if cfg.Gateway.Discord.BotTokenEnv == "" {
 		cfg.Gateway.Discord.BotTokenEnv = "DISCORD_BOT_TOKEN"
@@ -468,9 +458,7 @@ func writeMinimalCometlineSettingsJSON(path string, def *Config) error {
 			MaxTokens:          def.MaxTokens,
 			ContextWindowLimit: def.ContextWindowLimit,
 			ACP: cometlineACPJSON{
-				Command: "opencode",
-				Args:    []string{"acp"},
-				Timeout: "30m",
+				DefaultHarness: "opencode",
 			},
 			Skills: cometlineSkillsJSON{
 				Enabled:         true,

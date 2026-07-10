@@ -6,11 +6,9 @@ import (
 	"io"
 	"strings"
 	"sync"
-
-	acpsdk "github.com/coder/acp-go-sdk"
 )
 
-// RunOptions configures one delegated run.
+// RunOptions configures one delegated coding-harness run.
 type RunOptions struct {
 	ChildSessionID string
 	WorkspaceRoot  string
@@ -18,28 +16,24 @@ type RunOptions struct {
 	Context        string
 	VerifyCommand  string
 	OnProgress     func(ProgressUpdate)
-	OnACPSessionID func(sessionID string)
 }
 
-// SessionManager keeps long-lived ACP connections keyed by child session ID.
+// SessionManager keeps active CLI processes keyed by child session ID.
 type SessionManager struct {
-	Config         Config
-	ProcessStarter func(ctx context.Context, cfg Config) (io.WriteCloser, io.ReadCloser, io.Closer, error)
+	Config            Config
+	CLIProcessStarter CLIProcessStarter
 
 	mu     sync.Mutex
 	active map[string]*activeSession
 }
 
 type activeSession struct {
-	mu        sync.Mutex
-	conn      *acpsdk.ClientSideConnection
-	sessionID acpsdk.SessionId
-	closer    io.Closer
-	client    *WorkspaceClient
-	cancel    context.CancelFunc
+	mu     sync.Mutex
+	closer io.Closer
+	cancel context.CancelFunc
 }
 
-// NewSessionManager returns a manager for ACP delegations.
+// NewSessionManager returns a manager for coding-harness delegations.
 func NewSessionManager(cfg Config) *SessionManager {
 	return &SessionManager{
 		Config: cfg,
@@ -47,7 +41,7 @@ func NewSessionManager(cfg Config) *SessionManager {
 	}
 }
 
-// UpdateConfig replaces the config used for future delegations.
+// UpdateConfig replaces the harness selection used for future delegations.
 func (m *SessionManager) UpdateConfig(cfg Config) {
 	if m == nil {
 		return
@@ -57,113 +51,62 @@ func (m *SessionManager) UpdateConfig(cfg Config) {
 	m.mu.Unlock()
 }
 
-// Run executes a delegated task.
+// Run executes a delegated task through the selected fixed CLI profile.
 func (m *SessionManager) Run(ctx context.Context, opts RunOptions) (TaskResult, error) {
-	cfg := m.Config
-	if cfg.Command == "" {
-		cfg = DefaultConfig()
-	}
-	if cfg.Timeout <= 0 {
-		cfg.Timeout = DefaultConfig().Timeout
-	}
-
+	cfg := m.configSnapshot().normalized()
 	runCtx, cancel := context.WithTimeout(ctx, cfg.Timeout)
 	defer cancel()
-
-	start := m.ProcessStarter
-	if start == nil {
-		start = defaultProcessStarter
-	}
-	stdin, stdout, closer, err := start(runCtx, cfg)
-	if err != nil {
-		return TaskResult{Status: "failed", Summary: err.Error()}, err
-	}
-	defer closer.Close()
-
-	client := &WorkspaceClient{
-		WorkspaceRoot: opts.WorkspaceRoot,
-		OnProgress:    opts.OnProgress,
-	}
-
-	conn := acpsdk.NewClientSideConnection(client, stdin, stdout)
-
-	initResp, err := conn.Initialize(runCtx, acpsdk.InitializeRequest{
-		ProtocolVersion: acpsdk.ProtocolVersionNumber,
-		ClientCapabilities: acpsdk.ClientCapabilities{
-			Fs: acpsdk.FileSystemCapabilities{
-				ReadTextFile:  true,
-				WriteTextFile: true,
-			},
-			Terminal: true,
-		},
-	})
-	if err != nil {
-		return TaskResult{Status: "failed", Summary: err.Error()}, err
-	}
-	agentName := "acp-agent"
-	if initResp.AgentInfo != nil && initResp.AgentInfo.Name != "" {
-		agentName = initResp.AgentInfo.Name
-	}
-
-	sess, err := conn.NewSession(runCtx, acpsdk.NewSessionRequest{
-		Cwd:        opts.WorkspaceRoot,
-		McpServers: []acpsdk.McpServer{},
-	})
-	if err != nil {
-		return TaskResult{Status: "failed", Summary: err.Error(), AgentName: agentName}, err
-	}
-	if opts.OnACPSessionID != nil {
-		opts.OnACPSessionID(string(sess.SessionId))
-	}
-
-	act := &activeSession{
-		conn:      conn,
-		sessionID: sess.SessionId,
-		closer:    closer,
-		client:    client,
-		cancel:    cancel,
-	}
-	if opts.ChildSessionID != "" {
-		m.register(opts.ChildSessionID, act)
-		defer m.unregister(opts.ChildSessionID)
-	}
 
 	promptText := opts.Task
 	if strings.TrimSpace(opts.Context) != "" {
 		promptText = opts.Context + "\n\nTask:\n" + opts.Task
 	}
 
-	var chunks []string
-	prev := client.OnProgress
-	client.OnProgress = func(u ProgressUpdate) {
-		if prev != nil {
-			prev(u)
-		}
-		if u.Content != "" {
-			chunks = append(chunks, u.Content)
-		}
+	start := m.CLIProcessStarter
+	if start == nil {
+		start = defaultCLIProcessStarter
+	}
+	stdout, stderr, closer, err := start(runCtx, cfg, opts.WorkspaceRoot, promptText)
+	if err != nil {
+		return TaskResult{Status: "failed", Summary: err.Error(), AgentName: cfg.Label()}, err
+	}
+	defer stdout.Close()
+	defer stderr.Close()
+	defer closer.Close()
+
+	if opts.ChildSessionID != "" {
+		m.register(opts.ChildSessionID, &activeSession{closer: closer, cancel: cancel})
+		defer m.unregister(opts.ChildSessionID)
 	}
 
-	promptResp, err := conn.Prompt(runCtx, acpsdk.PromptRequest{
-		SessionId: sess.SessionId,
-		Prompt:    []acpsdk.ContentBlock{acpsdk.TextBlock(promptText)},
-	})
-	if err != nil {
-		if errors.Is(err, context.Canceled) || runCtx.Err() != nil {
-			return TaskResult{Status: "cancelled", AgentName: agentName}, context.Canceled
-		}
-		return TaskResult{Status: "failed", Summary: err.Error(), AgentName: agentName}, err
+	summary, stderrText, scanErr, waitErr := collectCLIOutput(
+		runCtx,
+		cfg.Harness,
+		stdout,
+		stderr,
+		closer,
+		opts.OnProgress,
+	)
+	if errors.Is(runCtx.Err(), context.Canceled) || errors.Is(runCtx.Err(), context.DeadlineExceeded) {
+		return TaskResult{Status: "cancelled", AgentName: cfg.Label()}, context.Canceled
 	}
-	if promptResp.StopReason == acpsdk.StopReasonCancelled {
-		return TaskResult{Status: "cancelled", AgentName: agentName}, nil
+	if scanErr != nil {
+		return TaskResult{Status: "failed", Summary: scanErr.Error(), AgentName: cfg.Label()}, scanErr
+	}
+	if waitErr != nil {
+		if summary == "" {
+			summary = stderrText
+		}
+		if summary == "" {
+			summary = waitErr.Error()
+		}
+		return TaskResult{Status: "failed", Summary: summary, AgentName: cfg.Label()}, waitErr
 	}
 
 	verifyOut := ""
 	if strings.TrimSpace(opts.VerifyCommand) != "" {
 		verifyOut, _ = runVerifyCommand(runCtx, opts.WorkspaceRoot, opts.VerifyCommand)
 	}
-
-	summary := strings.TrimSpace(strings.Join(chunks, "\n"))
 	if summary == "" {
 		summary = "delegation finished"
 	}
@@ -175,11 +118,17 @@ func (m *SessionManager) Run(ctx context.Context, opts RunOptions) (TaskResult, 
 		Status:       "completed",
 		Summary:      summary,
 		VerifyOutput: verifyOut,
-		AgentName:    agentName,
+		AgentName:    cfg.Label(),
 	}, nil
 }
 
-// Cancel stops an active delegated session.
+func (m *SessionManager) configSnapshot() Config {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.Config
+}
+
+// Cancel stops an active coding-harness process.
 func (m *SessionManager) Cancel(childSessionID string) error {
 	act := m.get(childSessionID)
 	if act == nil {
@@ -189,9 +138,6 @@ func (m *SessionManager) Cancel(childSessionID string) error {
 	defer act.mu.Unlock()
 	if act.cancel != nil {
 		act.cancel()
-	}
-	if act.conn != nil {
-		_ = Cancel(act.conn, act.sessionID)
 	}
 	if act.closer != nil {
 		_ = act.closer.Close()

@@ -13,7 +13,7 @@ import (
 	"github.com/cometline/cometmind/internal/subagent"
 )
 
-// DelegateCodingTask hands coding work to an external ACP agent such as OpenCode.
+// DelegateCodingTask hands coding work to an external coding harness.
 type DelegateCodingTask struct {
 	Workspace    Workspace
 	Sessions     session.ChildSessionReader
@@ -27,7 +27,7 @@ const delegationCancelledByUser = "delegation cancelled by user"
 func (DelegateCodingTask) Spec() ToolSpec {
 	return ToolSpec{
 		Name: "delegate_coding_task",
-		Description: "Delegate a coding task to an external OpenCode agent over ACP. " +
+		Description: "Delegate a coding task to the configured external coding harness (OpenCode, Claude Code, or Codex). " +
 			"Use for multi-file edits, refactors, and test runs. Returns a summary with verify output.",
 		Parameters: json.RawMessage(`{
 			"type":"object",
@@ -77,7 +77,7 @@ func (d DelegateCodingTask) Execute(ctx context.Context, input json.RawMessage) 
 
 	emit := ProgressFrom(ctx)
 	if emit != nil {
-		emit(event.SubagentStarted(child.ID, task, d.ACP.Command))
+		emit(event.SubagentStarted(child.ID, task, d.ACP.Label()))
 	}
 
 	_ = d.Sessions.UpdateDelegationState(ctx, child.ID, session.DelegationRunning, "", "")
@@ -106,9 +106,6 @@ func (d DelegateCodingTask) Execute(ctx context.Context, input json.RawMessage) 
 			}
 			emit(event.SubagentProgress(child.ID, u.Kind, text))
 		},
-		OnACPSessionID: func(acpSessionID string) {
-			_ = d.Sessions.UpdateACPSessionID(ctx, child.ID, acpSessionID)
-		},
 	}
 
 	if in.Async {
@@ -121,7 +118,7 @@ func (d DelegateCodingTask) Execute(ctx context.Context, input json.RawMessage) 
 		}
 		go d.finishDelegation(runCtx, parentID, child.ID, mgr, runOpts, emit, cancel)
 		out := fmt.Sprintf("child_session_id: %s\nstatus: running\nagent: %s\n\nasync delegation started",
-			child.ID, d.ACP.Command)
+			child.ID, d.ACP.Label())
 		return Result{OK: true, Output: out}, nil
 	}
 

@@ -29,11 +29,11 @@ type ProviderEntry struct {
 	Model   string `mapstructure:"model"`
 }
 
-// ACPConfig controls external coding agent delegation.
+// ACPConfig is the legacy config-section name for external coding-harness
+// delegation. The command profiles are fixed in the runtime; only the
+// selected harness is user-configurable.
 type ACPConfig struct {
-	Command string   `mapstructure:"command"`
-	Args    []string `mapstructure:"args"`
-	Timeout string   `mapstructure:"timeout"`
+	DefaultHarness string `mapstructure:"default_harness"`
 }
 
 // SkillsConfig controls local Agent Skills discovery.

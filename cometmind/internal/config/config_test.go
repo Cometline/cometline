@@ -134,6 +134,9 @@ func TestLoadReadsCometlineSettingsJSON(t *testing.T) {
 	if !cfg.Storage.VacuumAfterPurge {
 		t.Fatal("expected Storage.VacuumAfterPurge true")
 	}
+	if cfg.ACP.DefaultHarness != "opencode" {
+		t.Fatalf("ACP.DefaultHarness = %q, want opencode", cfg.ACP.DefaultHarness)
+	}
 }
 
 func TestLoadReadsLegacyProvidersToml(t *testing.T) {

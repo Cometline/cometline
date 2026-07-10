@@ -89,7 +89,7 @@ func buildTransport(cfg ServerConfig) (mcp.Transport, error) {
 		}
 		cmd := exec.Command(resolved, cfg.Args...)
 		// Packaged Cometline/Electron often inherits a minimal PATH (no /usr/local/bin).
-		// Use the same augmented PATH as ACP and built-in shell tools.
+		// Use the same augmented PATH as coding harnesses and built-in shell tools.
 		cmd.Env = process.Env()
 		if len(cfg.Env) > 0 {
 			cmd.Env = append(cmd.Env, envPairs(cfg.Env)...)
