@@ -5,6 +5,7 @@
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { isWebPanelUrl, normalizeUserUrl, openLink } from '$lib/open-link';
 	import { openExternalLink } from '$lib/external-link';
+	import { loadWebPanelFileOptions } from '$lib/workspace/web-panel-input-options';
 
 	type WebviewElement = HTMLElement & {
 		src: string;
@@ -32,6 +33,9 @@
 	let canGoForward = $state(false);
 	let loading = $state(false);
 	let addressInput = $state('');
+	let addressOptionHighlight = $state(0);
+	let fileOptions = $state<string[]>([]);
+	let fileOptionsLoading = $state(false);
 	let pageTitle = $state('');
 	let webviewSessionId = $state<string | null>(null);
 	let webviewLoadedUrl = $state<string | null>(null);
@@ -52,6 +56,23 @@
 	);
 	const dirty = $derived(Boolean(editorState?.dirty));
 	const saving = $derived(Boolean(editorState?.saving));
+	const addressQuery = $derived(addressInput.trim());
+	const showAddressOptions = $derived(
+		panelMode === 'url' && addressEditing && Boolean(addressQuery)
+	);
+	const addressOptionCount = $derived(showAddressOptions ? 1 + fileOptions.length : 0);
+	const webOptionVerb = $derived.by(() => {
+		const normalized = normalizeUserUrl(addressInput);
+		if (!normalized) return 'Search web';
+		try {
+			const parsed = new URL(normalized);
+			return parsed.hostname === 'www.google.com' && parsed.pathname === '/search'
+				? 'Search web'
+				: 'Open URL';
+		} catch {
+			return 'Search web';
+		}
+	});
 
 	function syncAddressFromNavigation() {
 		if (addressEditing) return;
@@ -132,22 +153,60 @@
 		shellStore.requestAddressBarFocus();
 	}
 
-	function submitAddress() {
+	function selectWebOption() {
 		const normalized = normalizeUserUrl(addressInput);
 		if (!normalized) return;
 		addressEditing = false;
+		fileOptions = [];
 		shellStore.navigateWebPanel(normalized);
 	}
 
+	function selectFileOption(path: string) {
+		addressEditing = false;
+		fileOptions = [];
+		addressInput = path;
+		shellStore.openFilePreviewForActive(path);
+	}
+
+	function selectHighlightedAddressOption() {
+		if (!showAddressOptions || addressOptionHighlight === 0) {
+			selectWebOption();
+			return;
+		}
+		const filePath = fileOptions[addressOptionHighlight - 1];
+		if (filePath) {
+			selectFileOption(filePath);
+			return;
+		}
+		selectWebOption();
+	}
+
+	function onAddressInput() {
+		addressOptionHighlight = 0;
+	}
+
 	function onAddressKeydown(event: KeyboardEvent) {
+		if (showAddressOptions && event.key === 'ArrowDown') {
+			event.preventDefault();
+			addressOptionHighlight = (addressOptionHighlight + 1) % Math.max(addressOptionCount, 1);
+			return;
+		}
+		if (showAddressOptions && event.key === 'ArrowUp') {
+			event.preventDefault();
+			addressOptionHighlight =
+				(addressOptionHighlight - 1 + Math.max(addressOptionCount, 1)) %
+				Math.max(addressOptionCount, 1);
+			return;
+		}
 		if (event.key === 'Enter') {
 			event.preventDefault();
-			submitAddress();
+			selectHighlightedAddressOption();
 			return;
 		}
 		if (event.key === 'Escape') {
 			event.preventDefault();
 			addressEditing = false;
+			fileOptions = [];
 			syncAddressFromNavigation();
 			addressInputEl?.blur();
 		}
@@ -160,7 +219,12 @@
 
 	function onAddressBlur() {
 		addressEditing = false;
+		fileOptions = [];
 		syncAddressFromNavigation();
+	}
+
+	function keepAddressFocus(event: MouseEvent) {
+		event.preventDefault();
 	}
 
 	function onNewWindow(event: Event & { url?: string; preventDefault?: () => void }) {
@@ -221,6 +285,7 @@
 	// input (or a late effect run) doesn't refocus twice and a brand-new request
 	// always wins regardless of which path observes it first.
 	let satisfiedFocusRequestId = 0;
+	let fileOptionSeq = 0;
 
 	function applyAddressFocus() {
 		const requestId = shellStore.addressBarFocusRequestId;
@@ -315,6 +380,36 @@
 		if (!requestId || !open) return;
 		void tick().then(applyAddressFocus);
 	});
+
+	$effect(() => {
+		const workspacePath = shellStore.workspacePath;
+		const query = addressQuery;
+		if (!addressEditing || !query) {
+			fileOptionSeq += 1;
+			fileOptions = [];
+			fileOptionsLoading = false;
+			return;
+		}
+
+		const seq = ++fileOptionSeq;
+		fileOptionsLoading = true;
+		void loadWebPanelFileOptions(workspacePath, query)
+			.then((options) => {
+				if (seq !== fileOptionSeq) return;
+				fileOptions = options;
+				if (addressOptionHighlight >= 1 + options.length) {
+					addressOptionHighlight = 0;
+				}
+			})
+			.catch(() => {
+				if (seq !== fileOptionSeq) return;
+				fileOptions = [];
+				addressOptionHighlight = 0;
+			})
+			.finally(() => {
+				if (seq === fileOptionSeq) fileOptionsLoading = false;
+			});
+	});
 </script>
 
 <svelte:window onkeydown={handlePanelKeydown} />
@@ -378,17 +473,61 @@
 						use:trackAddressInput
 						class="address-input"
 						type="text"
-						inputmode="url"
+						inputmode="search"
+						role="combobox"
 						spellcheck="false"
 						autocapitalize="off"
 						autocomplete="off"
-						placeholder="Enter a URL"
+						placeholder="Search web or open workspace file"
 						bind:value={addressInput}
+						oninput={onAddressInput}
 						onfocus={onAddressFocus}
 						onblur={onAddressBlur}
 						onkeydown={onAddressKeydown}
 						aria-label="Web panel address"
+						aria-expanded={showAddressOptions}
+						aria-controls="web-panel-address-options"
 					/>
+					{#if showAddressOptions}
+						<div
+							id="web-panel-address-options"
+							class="address-options"
+							role="listbox"
+							tabindex="-1"
+							onmousedown={keepAddressFocus}
+						>
+							<button
+								type="button"
+								class:highlighted={addressOptionHighlight === 0}
+								class="address-option"
+								role="option"
+								aria-selected={addressOptionHighlight === 0}
+								onmouseenter={() => (addressOptionHighlight = 0)}
+								onclick={selectWebOption}
+							>
+								<span class="address-option-label">{webOptionVerb}</span>
+								<span class="address-option-detail">{addressQuery}</span>
+							</button>
+							{#each fileOptions as filePath, index}
+								<button
+									type="button"
+									class:highlighted={addressOptionHighlight === index + 1}
+									class="address-option"
+									role="option"
+									aria-selected={addressOptionHighlight === index + 1}
+									title={filePath}
+									onmouseenter={() => (addressOptionHighlight = index + 1)}
+									onclick={() => selectFileOption(filePath)}
+								>
+									<span class="address-option-label">Open file</span>
+									<span class="address-option-detail">{filePath}</span>
+								</button>
+							{/each}
+							{#if fileOptionsLoading && fileOptions.length === 0}
+								<div class="address-option address-option-muted">Searching workspace files...</div>
+							{/if}
+						</div>
+					{/if}
 				{/if}
 			</div>
 			{#if panelMode === 'file' && editorState}
@@ -519,6 +658,7 @@
 	}
 
 	.url-field {
+		position: relative;
 		flex: 1;
 		min-width: 0;
 		display: flex;
@@ -559,6 +699,69 @@
 	.address-input::placeholder {
 		color: var(--text-muted);
 		opacity: 0.7;
+	}
+
+	.address-options {
+		position: absolute;
+		z-index: 5;
+		top: calc(100% + 8px);
+		left: 0;
+		right: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		max-height: min(320px, calc(100vh - 120px));
+		overflow: auto;
+		padding: 6px;
+		border: 1px solid var(--border-soft);
+		border-radius: 12px;
+		background: rgba(255, 255, 255, 0.98);
+		box-shadow: 0 18px 48px rgba(15, 23, 42, 0.18);
+	}
+
+	.address-option {
+		display: grid;
+		grid-template-columns: minmax(72px, auto) minmax(0, 1fr);
+		align-items: center;
+		gap: 8px;
+		width: 100%;
+		min-width: 0;
+		padding: 7px 8px;
+		border: none;
+		border-radius: 8px;
+		background: transparent;
+		color: var(--text-main);
+		text-align: left;
+		cursor: pointer;
+	}
+
+	.address-option.highlighted,
+	.address-option:hover {
+		background: rgba(15, 23, 42, 0.06);
+	}
+
+	.address-option-label {
+		font-size: 10px;
+		font-weight: 700;
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+		color: var(--text-muted);
+		white-space: nowrap;
+	}
+
+	.address-option-detail {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		font-size: 12px;
+	}
+
+	.address-option-muted {
+		grid-template-columns: 1fr;
+		font-size: 11px;
+		color: var(--text-muted);
+		cursor: default;
 	}
 
 	.file-path-display {
