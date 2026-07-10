@@ -282,6 +282,27 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 
 		result, err := stream.Result()
 		if err != nil {
+			if result != nil {
+				// MessageStream retains output received before a mid-stream
+				// failure. Persist that output before surfacing the error so a
+				// reconnect or transcript reload does not erase the partial reply.
+				partialText := strings.TrimSpace(assistantPlainText(result.Message))
+				if partialText != "" || len(result.Message.ReasoningContent) > 0 {
+					persistCtx, persistCancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+					_, _, persistErr := r.Sessions.AppendAssistantStep(
+						persistCtx,
+						turn.ID,
+						partialText,
+						result.Message.ReasoningContent,
+						nil,
+						pendingMemories,
+					)
+					persistCancel()
+					if persistErr != nil {
+						logging.L().Warn("agent.partial_persist_failed", "session", turn.ID, "error", persistErr)
+					}
+				}
+			}
 			logging.L().Error("agent.step.failed", "session", turn.ID, "step", steps+1, "events", eventCount, "saw_first_event", firstEventLogged, "saw_first_output", firstOutputLogged, "duration_ms", time.Since(streamStarted).Milliseconds(), "error", err)
 			ch <- event.Errorf(userFacingAgentError(err), "llm")
 			return err

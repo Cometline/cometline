@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	cometsdk "github.com/cometline/comet-sdk"
 	"github.com/cometline/cometmind/internal/apigen"
@@ -1169,6 +1170,133 @@ func TestAbortSessionCancelsRunningStream(t *testing.T) {
 	}
 	if !strings.Contains(got.Body, `"type":"done"`) {
 		t.Fatalf("stream body missing done event:\n%s", got.Body)
+	}
+}
+
+func TestPostMessageEmitsDoneAfterRunnerErrorEvent(t *testing.T) {
+	t.Parallel()
+
+	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
+			ch <- event.Errorf("provider disconnected", "llm")
+			return fmt.Errorf("provider disconnected")
+		}), nil
+	})
+	defer cleanup()
+
+	workspace, err := svc.EnsureWorkspace(context.Background(), t.TempDir())
+	if err != nil {
+		t.Fatalf("EnsureWorkspace() error = %v", err)
+	}
+	sess, err := svc.NewSession(context.Background(), workspace.ID, "test-model", "test-provider")
+	if err != nil {
+		t.Fatalf("NewSession() error = %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/sessions/"+sess.ID+"/messages",
+		bytes.NewBufferString(`{"text":"hello"}`),
+	)
+	req.Header.Set("Content-Type", "application/json")
+	engine.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d body=%s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	frames := parseSSEDataFrames(rec.Body.String())
+	if len(frames) != 2 {
+		t.Fatalf("SSE frame count = %d, want 2 body=%s", len(frames), rec.Body.String())
+	}
+	var gotError, gotDone struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(frames[0], &gotError); err != nil {
+		t.Fatalf("decode error event: %v", err)
+	}
+	if err := json.Unmarshal(frames[1], &gotDone); err != nil {
+		t.Fatalf("decode done event: %v", err)
+	}
+	if gotError.Type != string(event.KindError) || gotDone.Type != string(event.KindDone) {
+		t.Fatalf("event types = %q, %q; want error, done", gotError.Type, gotDone.Type)
+	}
+}
+
+func TestPostMessageKeepsAgentRunningAfterClientDisconnect(t *testing.T) {
+	t.Parallel()
+
+	started := make(chan struct{})
+	release := make(chan struct{})
+	finished := make(chan struct{})
+	cancelled := make(chan struct{})
+	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
+			close(started)
+			select {
+			case <-ctx.Done():
+				close(cancelled)
+				return ctx.Err()
+			case <-release:
+				close(finished)
+				ch <- event.Done()
+				return nil
+			}
+		}), nil
+	})
+	defer cleanup()
+
+	workspace, err := svc.EnsureWorkspace(context.Background(), t.TempDir())
+	if err != nil {
+		t.Fatalf("EnsureWorkspace() error = %v", err)
+	}
+	sess, err := svc.NewSession(context.Background(), workspace.ID, "test-model", "test-provider")
+	if err != nil {
+		t.Fatalf("NewSession() error = %v", err)
+	}
+
+	srv := httptest.NewServer(engine)
+	defer srv.Close()
+
+	requestCtx, cancelRequest := context.WithCancel(context.Background())
+	request, err := http.NewRequestWithContext(
+		requestCtx,
+		http.MethodPost,
+		srv.URL+"/api/v1/sessions/"+sess.ID+"/messages",
+		bytes.NewBufferString(`{"text":"hello"}`),
+	)
+	if err != nil {
+		t.Fatalf("NewRequest() error = %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	requestDone := make(chan error, 1)
+	go func() {
+		response, requestErr := http.DefaultClient.Do(request)
+		if requestErr == nil {
+			_, _ = io.Copy(io.Discard, response.Body)
+			_ = response.Body.Close()
+		}
+		requestDone <- requestErr
+	}()
+
+	<-started
+	cancelRequest()
+	select {
+	case <-requestDone:
+	case <-time.After(2 * time.Second):
+		t.Fatal("client request did not disconnect")
+	}
+
+	close(release)
+	select {
+	case <-finished:
+	case <-time.After(2 * time.Second):
+		t.Fatal("agent did not finish after client disconnect")
+	}
+	select {
+	case <-cancelled:
+		t.Fatal("client disconnect cancelled the agent run")
+	default:
 	}
 }
 

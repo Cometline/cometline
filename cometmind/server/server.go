@@ -45,9 +45,12 @@ type Deps struct {
 	SetJobSettings func(jobs.Settings)
 	NewRunner      RunnerFactory
 	Runs           *RunManager
-	ACPMgr         *acp.SessionManager
-	MCPMgr         *mcppkg.Manager
-	SubagentOrch   *subagent.Orchestrator
+	// RunContext owns agent lifetimes independently from individual SSE
+	// requests. A renderer disconnect must not cancel the model/tool loop.
+	RunContext   context.Context
+	ACPMgr       *acp.SessionManager
+	MCPMgr       *mcppkg.Manager
+	SubagentOrch *subagent.Orchestrator
 }
 
 type App struct {
@@ -60,6 +63,7 @@ type App struct {
 	setJobSettings func(jobs.Settings)
 	newRunner      RunnerFactory
 	runs           *RunManager
+	runContext     context.Context
 	acpMgr         *acp.SessionManager
 	mcpMgr         *mcppkg.Manager
 	subagentOrch   *subagent.Orchestrator
@@ -78,6 +82,10 @@ func New(deps Deps) (*gin.Engine, error) {
 	if deps.Runs == nil {
 		deps.Runs = NewRunManager()
 	}
+	runContext := deps.RunContext
+	if runContext == nil {
+		runContext = context.Background()
+	}
 
 	app := &App{
 		config:         deps.Config,
@@ -89,6 +97,7 @@ func New(deps Deps) (*gin.Engine, error) {
 		setJobSettings: deps.SetJobSettings,
 		newRunner:      deps.NewRunner,
 		runs:           deps.Runs,
+		runContext:     runContext,
 		acpMgr:         deps.ACPMgr,
 		mcpMgr:         deps.MCPMgr,
 		subagentOrch:   deps.SubagentOrch,

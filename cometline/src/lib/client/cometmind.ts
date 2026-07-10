@@ -171,6 +171,13 @@ export class CometMindApiError extends Error {
 	}
 }
 
+export class UnexpectedStreamEndError extends Error {
+	constructor() {
+		super('The response stream ended before CometMind sent a done event.');
+		this.name = 'UnexpectedStreamEndError';
+	}
+}
+
 function parseErrorBody(raw: string): { code: string; message: string } {
 	try {
 		const parsed = JSON.parse(raw);
@@ -508,6 +515,7 @@ async function* streamSse(
 	const reader = res.body.getReader();
 	const decoder = new TextDecoder();
 	const parser = createSSEParser();
+	let receivedDone = false;
 
 	const finishStream = async () => {
 		try {
@@ -519,18 +527,22 @@ async function* streamSse(
 
 	try {
 		while (true) {
-			if (signal?.aborted) return;
+			if (signal?.aborted) {
+				throw new DOMException('The response stream was aborted.', 'AbortError');
+			}
 			const { done, value } = await reader.read();
 			if (done) break;
 			const chunk = decoder.decode(value, { stream: true });
 			for (const result of parser.feed(chunk)) {
 				if (result === 'done') {
+					receivedDone = true;
 					await finishStream();
 					return;
 				}
 				if (result) {
 					yield result;
 					if (result.type === 'done') {
+						receivedDone = true;
 						await finishStream();
 						return;
 					}
@@ -540,20 +552,23 @@ async function* streamSse(
 
 		for (const result of parser.flush()) {
 			if (result === 'done') {
+				receivedDone = true;
 				await finishStream();
 				return;
 			}
 			if (result) {
 				yield result;
 				if (result.type === 'done') {
+					receivedDone = true;
 					await finishStream();
 					return;
 				}
 			}
 		}
-	} catch (err) {
-		if (signal?.aborted || (err instanceof DOMException && err.name === 'AbortError')) return;
-		throw err;
+
+		if (!receivedDone && !signal?.aborted) {
+			throw new UnexpectedStreamEndError();
+		}
 	} finally {
 		reader.releaseLock();
 	}

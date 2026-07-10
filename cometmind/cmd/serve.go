@@ -87,6 +87,7 @@ func runServe(_ *cobra.Command, _ []string) error {
 			rt.SetJobSettings(s)
 		},
 		Runs:         runs,
+		RunContext:   ctx,
 		ACPMgr:       rt.ACPManager(),
 		MCPMgr:       rt.MCPManager(),
 		SubagentOrch: rt.SubagentOrchestrator(),

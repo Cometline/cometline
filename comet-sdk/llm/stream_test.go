@@ -182,11 +182,15 @@ func TestStreamMessage_StreamError(t *testing.T) {
 	}
 	assert.Equal(t, []string{"partial"}, tokens)
 
-	// Error surfaces via Result.
+	// Error surfaces via Result while retaining the partial output.
 	result, err := stream.Result()
-	assert.Nil(t, result)
+	require.NotNil(t, result)
 	require.Error(t, err)
 	assert.Equal(t, "server disconnect", err.Error())
+	require.Len(t, result.Message.Content, 1)
+	partial, ok := result.Message.Content[0].(cometsdk.TextBlock)
+	require.True(t, ok)
+	assert.Equal(t, "partial", partial.Text)
 }
 
 func TestStreamMessage_StreamErrorWithoutDone(t *testing.T) {
@@ -202,9 +206,10 @@ func TestStreamMessage_StreamErrorWithoutDone(t *testing.T) {
 	}
 
 	result, err := stream.Result()
-	assert.Nil(t, result)
+	require.NotNil(t, result)
 	require.Error(t, err)
 	assert.Equal(t, "scanner token too long", err.Error())
+	assert.Empty(t, result.Message.Content)
 }
 
 func TestStreamMessage_ContextCancelled(t *testing.T) {
@@ -219,7 +224,7 @@ func TestStreamMessage_ContextCancelled(t *testing.T) {
 	}
 
 	result, err := stream.Result()
-	assert.Nil(t, result)
+	assert.NotNil(t, result)
 	assert.ErrorIs(t, err, context.Canceled)
 }
 

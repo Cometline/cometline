@@ -73,7 +73,10 @@ func (a *App) handlePostMessage(c *gin.Context) {
 		return
 	}
 
-	runCtx, finish, err := a.runs.Start(c.Request.Context(), sess.ID)
+	// Keep the agent lifetime owned by the server rather than the SSE request.
+	// Reconnects and transient network drops must not cancel the model/tool loop;
+	// the explicit DELETE /runs/current endpoint remains the cancellation path.
+	runCtx, finish, err := a.runs.Start(a.runContext, sess.ID)
 	if err != nil {
 		writeError(c, http.StatusConflict, "session_running", err.Error())
 		return
@@ -158,9 +161,14 @@ func (a *App) handlePostMessage(c *gin.Context) {
 			if !clientGone {
 				_ = writeSSE(c.Writer, event.Errorf(msg, "llm"))
 				flusher.Flush()
-				_ = writeSSE(c.Writer, event.Done())
-				flusher.Flush()
 			}
+		}
+		// The runner may already have emitted the error event. Always terminate
+		// the SSE contract explicitly so clients can distinguish a failed run
+		// from an unexpectedly broken connection.
+		if !clientGone {
+			_ = writeSSE(c.Writer, event.Done())
+			flusher.Flush()
 		}
 		return
 	}

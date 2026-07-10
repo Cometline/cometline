@@ -99,7 +99,9 @@ func (ms *MessageStream) Events() <-chan cometsdk.Event {
 // [GenerateMessageResult]. The caller MUST drain [Events] before calling
 // Result, otherwise Result will deadlock.
 //
-// If a streaming or pre-stream error occurred, it is returned here.
+// If a streaming or pre-stream error occurred, it is returned here. For a
+// mid-stream error, the result is non-nil and contains the output received
+// before the failure; pre-stream errors still return a nil result.
 func (ms *MessageStream) Result() (*GenerateMessageResult, error) {
 	<-ms.done
 
@@ -118,7 +120,6 @@ func (ms *MessageStream) run(ctx context.Context, ch <-chan cometsdk.Event, even
 		toolCalls    []cometsdk.ToolCallBlock
 		finish       string
 		usage        cometsdk.TokenUsage
-		streamErr    error
 	)
 
 	for {
@@ -128,15 +129,11 @@ func (ms *MessageStream) run(ctx context.Context, ch <-chan cometsdk.Event, even
 				for range ch {
 				}
 			}()
-			ms.setResult(nil, ctx.Err())
+			ms.setPartialResult(textBuf, reasoningBuf, toolCalls, finish, usage, ctx.Err())
 			return
 
 		case ev, ok := <-ch:
 			if !ok {
-				if streamErr != nil {
-					ms.setResult(nil, streamErr)
-					return
-				}
 				ms.setFinalMessage(textBuf, reasoningBuf, toolCalls, finish, usage)
 				return
 			}
@@ -174,15 +171,14 @@ func (ms *MessageStream) run(ctx context.Context, ch <-chan cometsdk.Event, even
 				events <- e
 
 			case cometsdk.ErrorEvent:
-				streamErr = e.Err
-				// Do NOT forward — caller gets the error from Result().
+				// Do NOT forward — caller gets the error from Result(). Preserve
+				// everything emitted before the stream failed so agent callers can
+				// persist a useful partial response.
+				ms.setPartialResult(textBuf, reasoningBuf, toolCalls, finish, usage, e.Err)
+				return
 
 			case cometsdk.DoneEvent:
 				// Do NOT forward — caller sees channel close instead.
-				if streamErr != nil {
-					ms.setResult(nil, streamErr)
-					return
-				}
 				ms.setFinalMessage(textBuf, reasoningBuf, toolCalls, finish, usage)
 				return
 			}
@@ -191,6 +187,14 @@ func (ms *MessageStream) run(ctx context.Context, ch <-chan cometsdk.Event, even
 }
 
 func (ms *MessageStream) setFinalMessage(textBuf, reasoningBuf []byte, toolCalls []cometsdk.ToolCallBlock, finish string, usage cometsdk.TokenUsage) {
+	ms.setResult(buildMessageResult(textBuf, reasoningBuf, toolCalls, finish, usage), nil)
+}
+
+func (ms *MessageStream) setPartialResult(textBuf, reasoningBuf []byte, toolCalls []cometsdk.ToolCallBlock, finish string, usage cometsdk.TokenUsage, err error) {
+	ms.setResult(buildMessageResult(textBuf, reasoningBuf, toolCalls, finish, usage), err)
+}
+
+func buildMessageResult(textBuf, reasoningBuf []byte, toolCalls []cometsdk.ToolCallBlock, finish string, usage cometsdk.TokenUsage) *GenerateMessageResult {
 	var blocks []cometsdk.Block
 
 	text := string(textBuf)
@@ -207,7 +211,7 @@ func (ms *MessageStream) setFinalMessage(textBuf, reasoningBuf []byte, toolCalls
 		reasoningBlocks = append(reasoningBlocks, cometsdk.ReasoningBlock{Text: reasoning})
 	}
 
-	ms.setResult(&GenerateMessageResult{
+	return &GenerateMessageResult{
 		Message: cometsdk.Message{
 			Role:             cometsdk.RoleAssistant,
 			Content:          blocks,
@@ -216,7 +220,7 @@ func (ms *MessageStream) setFinalMessage(textBuf, reasoningBuf []byte, toolCalls
 		ToolCalls:    toolCalls,
 		FinishReason: finish,
 		Usage:        usage,
-	}, nil)
+	}
 }
 
 func (ms *MessageStream) setResult(r *GenerateMessageResult, err error) {

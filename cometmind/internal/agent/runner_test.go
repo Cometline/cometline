@@ -30,6 +30,8 @@ type fakeStore struct {
 	compactedUntil   string
 	usageSaved       int
 	appendCalls      int
+	appendTexts      []string
+	appendReasoning  [][]cometsdk.Block
 	toolUpdates      int
 	toolResults      int
 	compactCalls     int
@@ -54,6 +56,8 @@ func (f *fakeStore) SaveTokenUsage(ctx context.Context, sessionID string, u come
 
 func (f *fakeStore) AppendAssistantStep(ctx context.Context, sessionID, text string, reasoningBlocks []cometsdk.Block, toolCalls []cometsdk.ToolCallBlock, injectedMemories []session.InjectedMemory) (session.Message, map[string]string, error) {
 	f.appendCalls++
+	f.appendTexts = append(f.appendTexts, text)
+	f.appendReasoning = append(f.appendReasoning, reasoningBlocks)
 	ids := make(map[string]string, len(toolCalls))
 	for _, tc := range toolCalls {
 		ids[tc.ID] = "persisted-" + tc.ID
@@ -269,6 +273,41 @@ func TestRunner_TextOnlyTurnPersistsAndStops(t *testing.T) {
 	}
 	if !sawText {
 		t.Errorf("expected a text_delta 'hello' event, got %+v", events)
+	}
+}
+
+func TestRunner_PersistsPartialResponseBeforeStreamError(t *testing.T) {
+	store := &fakeStore{}
+	provider := &fakeProvider{events: []cometsdk.Event{
+		cometsdk.ReasoningStartEvent{},
+		cometsdk.ReasoningContentEvent{Text: "thinking"},
+		cometsdk.TextDeltaEvent{Text: "partial reply"},
+		cometsdk.ErrorEvent{Err: fmt.Errorf("provider disconnected")},
+	}}
+
+	events, runErr := runAndDrain(t, &Runner{
+		Provider: provider,
+		Sessions: store,
+		Registry: tools.NewRegistry(t.TempDir()),
+	}, session.AgentTurn{ID: "s1", ModelID: "m"})
+
+	if runErr == nil {
+		t.Fatal("Run returned nil error, want stream failure")
+	}
+	if store.appendCalls != 1 {
+		t.Fatalf("AppendAssistantStep called %d times, want 1", store.appendCalls)
+	}
+	if got := store.appendTexts[0]; got != "partial reply" {
+		t.Fatalf("persisted partial text = %q, want %q", got, "partial reply")
+	}
+	if len(store.appendReasoning[0]) != 1 {
+		t.Fatalf("persisted reasoning blocks = %d, want 1", len(store.appendReasoning[0]))
+	}
+	if len(events) < 2 || events[len(events)-1].Kind != event.KindDone {
+		t.Fatalf("expected error and terminal done events, got %+v", events)
+	}
+	if events[len(events)-2].Kind != event.KindError {
+		t.Fatalf("expected error before done, got %+v", events)
 	}
 }
 
