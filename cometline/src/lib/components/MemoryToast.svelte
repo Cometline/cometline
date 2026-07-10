@@ -14,12 +14,7 @@
 	<div class="toast-container" aria-live="polite" aria-label="Memory updates">
 		{#each memoryToastStore.toasts as toast (toast.id)}
 			{@const Icon = icons[toast.action]}
-			<div
-				class:toast-create={toast.action === 'create'}
-				class:toast-update={toast.action === 'update' || toast.action === 'supersede'}
-				class:toast-delete={toast.action === 'delete'}
-				class="toast"
-			>
+			<div class="toast">
 				<span class="toast-icon">
 					<Icon size={17} strokeWidth={2} aria-hidden="true" />
 				</span>
@@ -60,35 +55,15 @@
 		min-width: 0;
 		padding: 0.625rem 0.75rem 0.625rem 0.875rem;
 		background: var(--panel-bg);
-		border-left: 3px solid var(--accent);
+		border: 1px solid var(--border-soft);
 		border-radius: var(--radius-card);
 		box-shadow: var(--shadow-card);
 		pointer-events: auto;
 		animation: toast-in var(--duration-fast) var(--ease-smooth) both;
 	}
 
-	.toast-create {
-		border-left-color: var(--status-success);
-	}
-
-	.toast-update {
-		border-left-color: var(--accent);
-	}
-
-	.toast-delete {
-		border-left-color: var(--text-muted);
-	}
-
 	.toast-icon {
 		flex: 0 0 auto;
-		color: var(--accent);
-	}
-
-	.toast-create .toast-icon {
-		color: var(--status-success);
-	}
-
-	.toast-delete .toast-icon {
 		color: var(--text-muted);
 	}
 
