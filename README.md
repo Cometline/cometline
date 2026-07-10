@@ -20,7 +20,7 @@ Pick the companion personality that fits your workflow in Settings → About. Sw
 - **Persona switch** — Choose between companion personas (e.g. Minako or Souma) in Settings; each persona has its own avatar, tone, and SOUL system prompt
 - **Semantic memory** — Automatically retrieves and learns context across sessions so your companion remembers preferences, decisions, and project details
 - **Jobs and scheduling** — Track work on a Kanban-style jobs board, let the runtime claim/complete jobs, and materialize scheduled jobs from one-shot or cron definitions
-- **Coding agent delegation** — Hand off complex tasks to OpenCode or Claude Code via ACP (Agent Communication Protocol), with progress streamed back to your chat
+- **Coding agent delegation** — Hand off complex tasks to OpenCode, Claude Code, or Codex through fixed non-interactive CLI profiles, with progress streamed back to your chat
 - **Workspace isolation** — Separate chat history, sessions, tools, and memories per project; file access stays sandboxed to the active workspace
 - **Agent Skills** — Reusable prompt templates invoked with slash commands (`/tdd`, `/create-skill`, or custom skills in your workspace)
 - **Discord bot** — Run the same agent runtime as a Discord bot with per-thread sessions, @mention gating, and skill invocation
@@ -91,16 +91,16 @@ Every project is a first-class workspace with its own boundary:
 
 ### Agent Delegation
 
-Cometline can delegate coding tasks to external agents via ACP:
+Cometline can delegate coding tasks to external coding harnesses:
 
 ```
 You: Help me refactor the auth module
-CometMind: I'll delegate this to OpenCode...
-[OpenCode agent spawns, streams progress back]
+CometMind: I'll delegate this to the selected coding harness...
+[Coding harness spawns, streams progress back]
 OpenCode: I've refactored auth.go to use middleware...
 ```
 
-Configure ACP delegation in Settings → CometMind → ACP. The settings are persisted in `~/.cometmind/cometline-settings.json`.
+Choose OpenCode, Claude Code, or Codex in Settings → CometMind → Coding task delegation. The settings are persisted in `~/.cometmind/cometline-settings.json`; command paths and arguments are built into CometMind and are not user-editable.
 
 ### Discord Bot
 
@@ -158,7 +158,7 @@ MCP servers are configured in Settings → CometMind → MCP and persisted under
 │               Chat UI, settings, animations             │
 ├─────────────────────────────────────────────────────────┤
 │  cometmind    Go agent runtime                          │
-│               Agent loop, tools, memory, ACP,           │
+│               Agent loop, tools, memory, coding CLI,   │
 │               MCP, jobs, scheduler, Discord gateway,    │
 │               HTTP/SSE API                              │
 ├─────────────────────────────────────────────────────────┤

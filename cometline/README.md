@@ -8,7 +8,7 @@ Cometline is the **desktop shell** in the Cometline stack:
 
 ```
 cometline   →  Electron + SvelteKit UI, sidecar lifecycle, settings, animations
-cometmind   →  local agent runtime, SQLite, HTTP/SSE API, tools, memory, ACP
+cometmind   →  local agent runtime, SQLite, HTTP/SSE API, tools, memory, coding CLI delegation
 comet-sdk   →  provider-agnostic LLM I/O
 ```
 
@@ -24,7 +24,7 @@ The rule: **Cometline is not the brain.** CometMind is the brain. Comet SDK is o
 - Hero composer on `/` for new chats; docked composer on `/session/[id]`
 - First-turn flight animation from hero to thread
 - Live streaming of assistant text, reasoning blocks, and tool calls/results
-- Subagent delegation UI (ACP progress, awaiting-input prompts)
+- Subagent delegation UI (coding-harness progress, awaiting-input prompts)
 - Message queue while a turn is in flight
 - Stop streaming (⌘C or composer stop button)
 - Per-session model picker grouped by provider
@@ -55,7 +55,7 @@ The rule: **Cometline is not the brain.** CometMind is the brain. Comet SDK is o
 ### Settings
 
 - **Providers** — ChatGPT Codex, OpenAI, Anthropic, OpenAI-compatible, OpenCode Go, plus custom providers; fetch models from the provider API where available
-- **CometMind** — ACP (OpenCode) config, Agent Skills management, Discord gateway toggle and config
+- **CometMind** — coding-harness selector, Agent Skills management, Discord gateway toggle and config
 - **MCP** — stdio/http/sse server config, Cursor `mcp.json` import, connection tests, reconnect, and OAuth login
 - **Memory** — auto retrieve/extract, thresholds, embedding model, compaction
 - **General** — open at login (macOS); session retention, max sessions per workspace, archived memory purge

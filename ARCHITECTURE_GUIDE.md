@@ -42,7 +42,7 @@ The rule that explains most boundaries: `cometline` is the UI shell, `cometmind`
 | Module | Runtime | Owns | Must Not Own |
 |---|---|---|---|
 | `comet-sdk` | Go library | Provider-normalized requests, streaming events, retries, tool-call assembly, typed errors | Agent loops, tools, persistence, sessions |
-| `cometmind` | Go binary/library packages | Agent loop, SQLite persistence, workspace/session/job model, local HTTP/SSE API, CLI, built-in tools, MCP, ACP, Discord | Desktop windowing, renderer state, direct UI transitions |
+| `cometmind` | Go binary/library packages | Agent loop, SQLite persistence, workspace/session/job model, local HTTP/SSE API, CLI, built-in tools, MCP, coding-harness CLI delegation, Discord | Desktop windowing, renderer state, direct UI transitions |
 | `cometline` | Electron main + SvelteKit renderer | Native shell, sidecar lifecycle, settings UI, chat/jobs/file rendering, animations, update flow | Tool execution, provider request construction, database writes |
 
 ## Tech Stack By Concern
@@ -105,7 +105,7 @@ CometMind emits JSON SSE frames whose `type` field is the discriminator. The can
 | `tool_call` | `type`, `id`, `tool`, `input` | Model requested a tool |
 | `tool_result` | `type`, `id`, `tool`, `output`, `error?` | Tool execution completed |
 | `step_finish` | `type`, `usage` | One model step ended |
-| `subagent_started` | `child_session_id`, `purpose`, `agent_name` | ACP/general subagent started |
+| `subagent_started` | `child_session_id`, `purpose`, `agent_name` | Coding-harness/general subagent started |
 | `subagent_progress` | `child_session_id`, `progress_kind`, `progress_text` | Subagent progress update |
 | `subagent_finished` | `child_session_id`, `delegation_status`, `summary` | Subagent finished |
 | `memory_injected` | `memories` | Retrieved memories injected before model contact |
@@ -426,7 +426,7 @@ To add a new stream event type:
 
 `cometmind` is the local agent runtime. It owns reasoning orchestration, session persistence, workspace scoping, tool execution, and the localhost API consumed by the desktop app.
 
-The README frames it as a general AI agent runtime and describes ACP-based delegation for coding tasks (`cometmind/README.md:1-20`, `cometmind/README.md:56-58`). In the current codebase, the implemented runtime is the built-in multi-step LLM/tool loop in `internal/agent`; there is no separate ACP implementation package visible in this repo yet.
+The README frames it as a general AI agent runtime. The implemented runtime is the built-in multi-step LLM/tool loop in `internal/agent`, with coding tasks delegated through fixed non-interactive CLI profiles in `internal/acp` for OpenCode, Claude Code, and Codex.
 
 ## Package Boundaries
 

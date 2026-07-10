@@ -5,12 +5,12 @@ description: Help configure Cometline providers, model defaults, skills, delegat
 
 # Setup Cometline
 
-Use this skill when the user wants help configuring Cometline or CometMind. This includes initial setup, provider API keys, model selection, default model roles, Agent Skills, ACP delegation, Discord gateway settings, memory, storage, import/export, or troubleshooting a broken local setup.
+Use this skill when the user wants help configuring Cometline or CometMind. This includes initial setup, provider API keys, model selection, default model roles, Agent Skills, coding-harness delegation, Discord gateway settings, memory, storage, import/export, or troubleshooting a broken local setup.
 
 ## Workflow
 
 1. Identify what the user wants to configure before changing anything. If the request is ambiguous, ask one focused question.
-2. Prefer the Settings UI for user-facing configuration instructions. Mention exact sections such as Settings -> Providers, Settings -> CometMind -> Skills, Settings -> CometMind -> ACP, Settings -> CometMind -> Discord, or Settings -> CometMind -> Storage.
+2. Prefer the Settings UI for user-facing configuration instructions. Mention exact sections such as Settings -> Providers, Settings -> CometMind -> Skills, Settings -> CometMind -> Coding task delegation, Settings -> CometMind -> Discord, or Settings -> CometMind -> Storage.
 3. Prefer CLI commands when the user wants the agent to inspect or modify settings directly. Use `cometmind settings path`, `cometmind settings show`, `cometmind settings export`, `cometmind settings import`, `cometmind settings reload`, and `cometmind process status|stop|restart` when available. If `cometmind` is not found, try `~/.cometmind/bin/cometmind`; the desktop app installs this shim on startup and also tries common PATH locations such as `~/.local/bin`, `/opt/homebrew/bin`, and `/usr/local/bin` when writable. In a development checkout, build it with `cd cometline && pnpm run build:sidecar` or run `cd cometmind && go run . settings path`.
 4. Treat provider API keys and exported settings as secrets. Warn the user before printing, exporting, or moving files that may contain API keys.
 5. After changing runtime settings that affect CometMind, tell the user whether CometMind can hot-reload or must restart. Provider changes, default model changes, system prompt changes, and many runtime settings can reload in place. Memory settings, memory provider changes, storage cleanup interval changes, job reconcile interval changes, host or port changes, and Discord token or session changes still require restart. The desktop app tries reload first and falls back to restart when needed.
@@ -27,7 +27,7 @@ Use `/create-skill` when the user wants the agent to create a reusable skill. Th
 
 ## Delegation Setup
 
-ACP delegation is configured under Settings -> CometMind -> ACP. Use it when the user wants CometMind to hand coding work to OpenCode, Claude Code, or another ACP-compatible coding agent. Confirm the configured command, arguments, and working directory behavior.
+Coding-harness delegation is configured under Settings -> CometMind -> Coding task delegation. Use it when the user wants CometMind to hand coding work to OpenCode, Claude Code, or Codex. The UI exposes only the harness selector; command paths, arguments, permissions, and working-directory behavior are fixed by CometMind.
 
 ## Discord Gateway
 

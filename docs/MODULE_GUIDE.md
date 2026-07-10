@@ -86,7 +86,7 @@ It owns:
 - semantic memory and compaction
 - provider factory and runtime config
 - localhost REST/SSE API
-- ACP, MCP, jobs, scheduled jobs, autonomous job workers, and Discord gateway integration
+- coding-harness CLI delegation, MCP, jobs, scheduled jobs, autonomous job workers, and Discord gateway integration
 
 It must not own:
 

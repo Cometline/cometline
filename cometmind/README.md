@@ -1,6 +1,6 @@
 # CometMind
 
-> A local, session-first **general AI agent runtime**. CometMind is the brain — it reasons, plans, remembers, and acts through a pluggable tool layer, and delegates coding work to specialized coding agents (OpenCode, Claude Code, etc.) over **ACP**.
+> A local, session-first **general AI agent runtime**. CometMind is the brain — it reasons, plans, remembers, and acts through a pluggable tool layer, and delegates coding work to specialized coding agents (OpenCode, Claude Code, Codex, etc.).
 
 This directory is one module inside the `cometline` monorepo. The historical standalone `cometmind` repo is archived; current development, issues, and pull requests land in the monorepo root.
 
@@ -9,7 +9,7 @@ CometMind is the middle tier of the Cometline stack:
 ```
 comet-sdk   →  provider-agnostic LLM I/O (Anthropic, OpenAI, Codex, compatible APIs)
 cometmind   →  general agent brain: agent loop + tools + memory + persistence + HTTP/SSE + CLI
-  └─ ACP ──→  opencode / claude-code (coding specialist, invoked via delegate_coding_task)
+  └─ Coding harness ──→  OpenCode (CLI), Claude Code (CLI), or Codex (CLI)
 cometline   →  Electron desktop shell (also starts CometMind as a sidecar)
 ```
 
@@ -18,7 +18,7 @@ cometline   →  Electron desktop shell (also starts CometMind as a sidecar)
 CometMind started as a coding-focused agent and is now a **general-purpose orchestrator**:
 
 - The runtime owns **reasoning, semantic memory, skills, and tool orchestration**.
-- **Coding tasks are delegated** to an external ACP-speaking agent instead of being hardcoded into the runtime.
+- **Coding tasks are delegated** to an external coding harness instead of being hardcoded into the runtime.
 - The same agent loop powers the **desktop app**, the **CLI**, and the **Discord gateway**.
 - Built-in workspace tools cover file I/O, shell commands, web fetch, and skill management.
 
@@ -49,7 +49,7 @@ internal/
   tools/             ToolSpec + Workspace + registry + built-in implementations
   tools/sandbox/     pathcheck — prevents path escape out of the workspace
   skills/            Agent Skills discovery, sync, export, write
-  acp/               ACP client for delegate_coding_task (OpenCode by default)
+  acp/               Coding-harness CLI runner for delegate_coding_task (OpenCode by default)
   mcp/               stdio/http/sse MCP manager plus OAuth login/token refresh
   gateway/           messaging adapters (Discord today)
   provider/          builds a comet-sdk provider from config/session (Anthropic, OpenAI-compatible, Codex)
@@ -92,7 +92,7 @@ Registered per workspace in `internal/tools/registry.go`:
 | `write_skill_draft` | Create or update a draft skill for review before promotion |
 | `read_skill_draft` | Read a draft skill |
 | `promote_skill_draft` | Promote a draft into the managed skills directory |
-| `delegate_coding_task` | Spawn an ACP child session (sync or async) |
+| `delegate_coding_task` | Spawn a coding-harness child session (sync or async) |
 | `spawn_general_agent` / `wait_subagents` | Launch and wait for general subagents |
 | `list_jobs`, `create_job`, `claim_job`, `update_job`, `complete_job`, `release_job`, `propose_job` | Interact with durable immediate jobs |
 | `list_scheduled_jobs`, `create_scheduled_job`, `update_scheduled_job`, `delete_scheduled_job` | Create/list/edit/delete deferred or recurring schedules (`cron_expr` or `run_at`/`run_at_iso`); do not put schedules in a normal job's DoD |
@@ -100,21 +100,28 @@ Registered per workspace in `internal/tools/registry.go`:
 
 File tools are workspace-scoped through `internal/tools/sandbox/pathcheck.go`.
 
-### ACP delegation
+### Coding-harness delegation
 
-When the model calls `delegate_coding_task`, CometMind spawns an external coding agent (default: `opencode acp`) and streams progress back through the same SSE pipeline:
+When the model calls `delegate_coding_task`, CometMind spawns the selected external coding harness and streams progress back through the same SSE pipeline. OpenCode, Claude Code, and Codex all run through their non-interactive CLI modes; CometMind normalizes each harness's JSON/JSONL output into the same subagent events.
 
-- Child sessions are persisted with `parent_session_id`, delegation status, and ACP session ID.
-- ACP permission prompts are handled automatically by selecting an allow-style option when available.
+The runtime owns the invocation profiles:
 
-Configure in Settings → CometMind → ACP, persisted in `~/.cometmind/cometline-settings.json` (legacy `config.toml` is read only when JSON settings are missing):
+- OpenCode: `opencode run --format json --auto`
+- Claude Code: `claude -p --output-format stream-json --verbose --dangerously-skip-permissions`
+- Codex: `codex exec --json --dangerously-bypass-approvals-and-sandbox`
+
+- Child sessions are persisted with `parent_session_id` and delegation status. The legacy ACP session-ID field remains in the wire model for compatibility, but CLI delegations do not populate it.
+- Harness-specific progress is normalized into the same subagent events.
+- Harnesses inherit the user's local authentication and configuration. Only enable unattended delegation for trusted workspaces.
+
+Settings expose one choice—OpenCode, Claude Code, or Codex—in Settings → CometMind → Coding task delegation. Settings are persisted in `~/.cometmind/cometline-settings.json` (legacy `config.toml` is read only when JSON settings are missing):
 
 ```toml
 [acp]
-command = "opencode"
-args = ["acp"]
-timeout = "30m"
+default_harness = "opencode" # opencode, claude, or codex
 ```
+
+The old command, argument, and timeout fields are ignored during settings migration. Users cannot replace the executable or alter the built-in arguments; they only select the harness. If the selected harness is not installed, CometMind leaves `delegate_coding_task` out of the main agent's tool list until the harness is installed or the selection changes.
 
 ### Semantic memory
 
@@ -129,7 +136,7 @@ Memory is configured under `[memory]` in config and exposed through REST (see AP
 
 ### MCP client
 
-CometMind can connect external MCP servers and merge their tools into the main agent's registry. MCP tools are not exposed to ACP child agents.
+CometMind can connect external MCP servers and merge their tools into the main agent's registry. CometMind's MCP tools are not injected into coding-harness child processes.
 
 Supported transports:
 
@@ -459,7 +466,7 @@ CometMind is not versioned or released independently today, and the current docu
 
 ## Closed-loop self-improvement
 
-Register this repo as the workspace (`go run . init` from the monorepo root or open it in Cometline), then ask CometMind to improve Cometline. It can call `delegate_coding_task` to hand coding to OpenCode, review test output in the parent session, and iterate.
+Register this repo as the workspace (`go run . init` from the monorepo root or open it in Cometline), then ask CometMind to improve Cometline. It can call `delegate_coding_task` to hand coding to the selected harness, review test output in the parent session, and iterate.
 
 Example verify command: `cd cometmind && go test ./...`
 
