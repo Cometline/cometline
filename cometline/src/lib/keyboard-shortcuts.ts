@@ -154,9 +154,64 @@ export function shortcutsByCategory(): Array<{
 }
 
 const MODIFIER_KEYS = new Set(['Control', 'Shift', 'Alt', 'Meta']);
+const UNRELIABLE_KEY_VALUES = new Set(['', 'Process', 'Unidentified', 'Dead']);
+
+const CODE_KEY_MAP: Record<string, string> = {
+	Comma: ',',
+	Period: '.',
+	Slash: '/',
+	Backslash: '\\',
+	Semicolon: ';',
+	Quote: "'",
+	BracketLeft: '[',
+	BracketRight: ']',
+	Minus: '-',
+	Equal: '=',
+	Backquote: '`',
+	Space: ' ',
+	ArrowUp: 'ArrowUp',
+	ArrowDown: 'ArrowDown',
+	ArrowLeft: 'ArrowLeft',
+	ArrowRight: 'ArrowRight',
+	Enter: 'Enter',
+	Escape: 'Escape',
+	Tab: 'Tab',
+	Backspace: 'Backspace',
+	Delete: 'Delete'
+};
 
 function keyMatches(a: string, b: string): boolean {
 	return a === b || a.toLowerCase() === b.toLowerCase();
+}
+
+function hasShortcutModifier(event: KeyboardEvent): boolean {
+	return event.ctrlKey || event.metaKey || event.altKey;
+}
+
+export function keyFromKeyboardCode(code: string | undefined): string | null {
+	if (!code) return null;
+	const letter = code.match(/^Key([A-Z])$/);
+	if (letter) return letter[1].toLowerCase();
+	const digit = code.match(/^Digit([0-9])$/);
+	if (digit) return digit[1];
+	const fn = code.match(/^F([1-9]|1[0-9]|2[0-4])$/);
+	if (fn) return code.toUpperCase();
+	return CODE_KEY_MAP[code] ?? null;
+}
+
+function isUnreliableKey(key: string): boolean {
+	return UNRELIABLE_KEY_VALUES.has(key);
+}
+
+function shortcutEventKey(event: KeyboardEvent): string {
+	const codeKey = keyFromKeyboardCode(event.code);
+	if (
+		codeKey &&
+		(hasShortcutModifier(event) || isUnreliableKey(event.key) || event.isComposing)
+	) {
+		return codeKey;
+	}
+	return event.key;
 }
 
 export function defaultKeyboardShortcuts(): KeyboardShortcuts {
@@ -196,6 +251,10 @@ function normalizeToggleWebPanelBinding(
 	defaultBinding: ShortcutBinding
 ) {
 	if (!binding) return { ...defaultBinding };
+	// macOS Option+B produces "∫" as event.key; older captures could persist it.
+	if (binding.key === '∫' && binding.command && binding.alt === true) {
+		return { ...defaultBinding };
+	}
 	// Migrate saved bindings that collide with toggleSidebar (⌘B) or legacy ⌘⇧B.
 	if (binding.key === 'b' && binding.command && binding.alt !== true) {
 		return { ...defaultBinding };
@@ -271,7 +330,7 @@ export function matchesShortcut(
 	binding: ShortcutBinding | undefined
 ): boolean {
 	if (!binding) return false;
-	if (!keyMatches(event.key, binding.key)) return false;
+	if (!keyMatches(shortcutEventKey(event), binding.key)) return false;
 
 	const expectsCommand = binding.command ?? false;
 	if (expectsCommand) {
@@ -295,11 +354,13 @@ export function matchesShortcut(
 export function captureShortcut(event: KeyboardEvent): ShortcutBinding | null {
 	if (MODIFIER_KEYS.has(event.key)) return null;
 
-	const binding: ShortcutBinding = { key: event.key };
 	const hasCtrl = event.ctrlKey;
 	const hasMeta = event.metaKey;
 	const hasAlt = event.altKey;
 	const hasShift = event.shiftKey;
+	const capturedKey =
+		hasCtrl || hasMeta || hasAlt ? (keyFromKeyboardCode(event.code) ?? event.key) : event.key;
+	const binding: ShortcutBinding = { key: capturedKey };
 
 	if (hasAlt) binding.alt = true;
 	if (hasShift) {

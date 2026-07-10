@@ -490,9 +490,60 @@ function shortcutKeyMatches(a, b) {
 	return a === b || String(a).toLowerCase() === String(b).toLowerCase();
 }
 
+const UNRELIABLE_SHORTCUT_KEYS = new Set(['', 'Process', 'Unidentified', 'Dead']);
+const SHORTCUT_CODE_KEY_MAP = {
+	Comma: ',',
+	Period: '.',
+	Slash: '/',
+	Backslash: '\\',
+	Semicolon: ';',
+	Quote: "'",
+	BracketLeft: '[',
+	BracketRight: ']',
+	Minus: '-',
+	Equal: '=',
+	Backquote: '`',
+	Space: ' ',
+	ArrowUp: 'ArrowUp',
+	ArrowDown: 'ArrowDown',
+	ArrowLeft: 'ArrowLeft',
+	ArrowRight: 'ArrowRight',
+	Enter: 'Enter',
+	Escape: 'Escape',
+	Tab: 'Tab',
+	Backspace: 'Backspace',
+	Delete: 'Delete'
+};
+
+function keyFromInputCode(code) {
+	if (!code) return null;
+	const letter = String(code).match(/^Key([A-Z])$/);
+	if (letter) return letter[1].toLowerCase();
+	const digit = String(code).match(/^Digit([0-9])$/);
+	if (digit) return digit[1];
+	const fn = String(code).match(/^F([1-9]|1[0-9]|2[0-4])$/);
+	if (fn) return String(code).toUpperCase();
+	return SHORTCUT_CODE_KEY_MAP[code] ?? null;
+}
+
+function shortcutInputKey(input) {
+	const codeKey = keyFromInputCode(input.code);
+	if (
+		codeKey &&
+		(input.control ||
+			input.meta ||
+			input.alt ||
+			UNRELIABLE_SHORTCUT_KEYS.has(input.key) ||
+			input.isComposing)
+	) {
+		return codeKey;
+	}
+	return input.key;
+}
+
 function matchesInputShortcut(input, binding) {
 	if (input.type !== 'keyDown' || !binding?.key) return false;
-	if (!shortcutKeyMatches(input.key, binding.key)) return false;
+	if (!shortcutKeyMatches(shortcutInputKey(input), binding.key)) return false;
 
 	const expectsCommand = binding.command ?? false;
 	if (expectsCommand) {
@@ -1744,10 +1795,7 @@ function scheduleCometMindRespawn(reason) {
 		);
 		return;
 	}
-	const delay = Math.min(
-		RESPAWN_BASE_MS * 2 ** cometMindRespawnAttempts,
-		RESPAWN_MAX_MS
-	);
+	const delay = Math.min(RESPAWN_BASE_MS * 2 ** cometMindRespawnAttempts, RESPAWN_MAX_MS);
 	cometMindRespawnAttempts += 1;
 	console.warn(
 		`CometMind died unexpectedly (${reason}); respawning in ${delay}ms ` +
@@ -1791,7 +1839,9 @@ function runCometMindCommand(args) {
 			}
 			reject(
 				new Error(
-					stderr.trim() || stdout.trim() || `CometMind ${args.join(' ')} exited with code ${code}`
+					stderr.trim() ||
+						stdout.trim() ||
+						`CometMind ${args.join(' ')} exited with code ${code}`
 				)
 			);
 		});
@@ -3171,7 +3221,9 @@ ipcMain.handle('cometline:read-workspace-file', (_event, workspacePath, relative
 	readWorkspaceFileForPreview(workspacePath, relativePath)
 );
 
-ipcMain.handle('cometline:list-custom-personas', () => customPersonasFromSettings(readProviderSettings()));
+ipcMain.handle('cometline:list-custom-personas', () =>
+	customPersonasFromSettings(readProviderSettings())
+);
 
 ipcMain.handle('cometline:read-persona-avatar', (_event, id) => readPersonaAvatar(id));
 
@@ -3200,7 +3252,8 @@ ipcMain.handle('cometline:fetch-provider-models', async (_event, config) => {
 ipcMain.handle('cometline:save-provider-settings', async (_event, settings, options = {}) => {
 	const previous = readProviderSettings();
 	const saved = writeProviderSettings(settings);
-	const personaIdChanged = (previous.app?.personaId ?? 'minako') !== (saved.app?.personaId ?? 'minako');
+	const personaIdChanged =
+		(previous.app?.personaId ?? 'minako') !== (saved.app?.personaId ?? 'minako');
 	let runtimeAction =
 		options.runtimeAction ?? (options.restartCometMind === false ? 'none' : 'restart');
 	if (
@@ -3419,7 +3472,9 @@ async function readPersonaAvatar(id) {
 }
 
 function decodePersonaAvatarDataUrl(dataUrl) {
-	const match = String(dataUrl || '').match(/^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=]+)$/);
+	const match = String(dataUrl || '').match(
+		/^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=]+)$/
+	);
 	if (!match) return null;
 	const ext = match[1] === 'image/jpeg' ? '.jpg' : match[1] === 'image/webp' ? '.webp' : '.png';
 	const buffer = Buffer.from(match[2], 'base64');

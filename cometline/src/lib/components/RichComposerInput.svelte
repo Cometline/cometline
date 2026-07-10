@@ -437,7 +437,7 @@
 	}
 
 	function onKeydownInternal(e: KeyboardEvent) {
-		if (composing || e.isComposing) return;
+		if ((composing || e.isComposing) && !e.ctrlKey && !e.metaKey && !e.altKey) return;
 		onkeydown?.(e);
 	}
 

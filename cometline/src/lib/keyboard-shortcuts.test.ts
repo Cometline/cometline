@@ -3,17 +3,21 @@ import { captureShortcut, matchesShortcut, normalizeKeyboardShortcuts } from './
 
 function keyEvent(init: {
 	key: string;
+	code?: string;
 	ctrlKey?: boolean;
 	metaKey?: boolean;
 	altKey?: boolean;
 	shiftKey?: boolean;
+	isComposing?: boolean;
 }): KeyboardEvent {
 	return {
 		key: init.key,
+		code: init.code ?? '',
 		ctrlKey: init.ctrlKey ?? false,
 		metaKey: init.metaKey ?? false,
 		altKey: init.altKey ?? false,
-		shiftKey: init.shiftKey ?? false
+		shiftKey: init.shiftKey ?? false,
+		isComposing: init.isComposing ?? false
 	} as KeyboardEvent;
 }
 
@@ -61,6 +65,44 @@ describe('keyboard-shortcuts', () => {
 		).toBe(false);
 	});
 
+	it('matches modifier shortcuts by physical code for IME sentinel keys', () => {
+		expect(
+			matchesShortcut(keyEvent({ key: 'Process', code: 'KeyT', metaKey: true }), {
+				command: true,
+				key: 't'
+			})
+		).toBe(true);
+		expect(
+			matchesShortcut(
+				keyEvent({ key: 'Unidentified', code: 'KeyB', metaKey: true, altKey: true }),
+				{ command: true, alt: true, key: 'b' }
+			)
+		).toBe(true);
+	});
+
+	it('matches macOS Option-produced characters by physical code', () => {
+		expect(
+			matchesShortcut(keyEvent({ key: '∫', code: 'KeyB', metaKey: true, altKey: true }), {
+				command: true,
+				alt: true,
+				key: 'b'
+			})
+		).toBe(true);
+	});
+
+	it('matches session navigation by physical arrow code under IME', () => {
+		expect(
+			matchesShortcut(
+				keyEvent({ key: 'Process', code: 'ArrowUp', ctrlKey: true, metaKey: true }),
+				{
+					ctrl: true,
+					meta: true,
+					key: 'ArrowUp'
+				}
+			)
+		).toBe(true);
+	});
+
 	it('distinguishes send message from insert newline on Enter', () => {
 		const send = { key: 'Enter', shift: false };
 		const newline = { key: 'Enter', shift: true };
@@ -92,6 +134,16 @@ describe('keyboard-shortcuts', () => {
 		});
 	});
 
+	it('captureShortcut records physical key for modified Option characters', () => {
+		expect(
+			captureShortcut(keyEvent({ key: '∫', code: 'KeyB', metaKey: true, altKey: true }))
+		).toEqual({
+			key: 'b',
+			alt: true,
+			command: true
+		});
+	});
+
 	it('includes openWebPanel default shortcut', () => {
 		const normalized = normalizeKeyboardShortcuts({});
 		expect(normalized.openWebPanel).toEqual({ command: true, key: 'o' });
@@ -100,5 +152,12 @@ describe('keyboard-shortcuts', () => {
 	it('includes toggleMiniWindow default shortcut', () => {
 		const normalized = normalizeKeyboardShortcuts({});
 		expect(normalized.toggleMiniWindow).toEqual({ command: true, shift: true, key: 'k' });
+	});
+
+	it('migrates macOS Option-produced toggle web panel binding', () => {
+		const normalized = normalizeKeyboardShortcuts({
+			toggleWebPanel: { command: true, alt: true, key: '∫' }
+		});
+		expect(normalized.toggleWebPanel).toEqual({ command: true, alt: true, key: 'b' });
 	});
 });
