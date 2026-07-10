@@ -19,6 +19,7 @@ import (
 	"github.com/cometline/cometmind/internal/agent"
 	"github.com/cometline/cometmind/internal/autonomy"
 	"github.com/cometline/cometmind/internal/config"
+	"github.com/cometline/cometmind/internal/event"
 	"github.com/cometline/cometmind/internal/jobs"
 	"github.com/cometline/cometmind/internal/logging"
 	mcppkg "github.com/cometline/cometmind/internal/mcp"
@@ -46,6 +47,7 @@ type Runtime struct {
 	DB            *sql.DB
 	Sessions      *session.Service
 	Memory        *memory.Service
+	Events        *event.Hub
 	Jobs          *jobs.Service
 	Scheduler     *scheduler.Service
 	jobSettings   jobs.Settings
@@ -85,6 +87,7 @@ func New(ctx context.Context) (*Runtime, error) {
 		Config:       cfg,
 		DB:           sqlDB,
 		Sessions:     sessions,
+		Events:       event.NewHub(),
 		SystemPrompt: systemPrompt,
 		memorySem:    make(chan struct{}, memoryExtractionConcurrency),
 		jobSettings:  cfg.JobsSettings(),
@@ -536,6 +539,7 @@ func (r *Runtime) toolRegistryWithJobMeta(workspacePath string, skillRegistry sk
 		Jobs:               r.Jobs,
 		Scheduler:          r.Scheduler,
 		Memory:             r.Memory,
+		MemoryEvents:       r.Events,
 		SessionID:          sessionID,
 		JobPlatform:        platform,
 		JobSourceChannelID: sourceChannelID,

@@ -6,6 +6,7 @@
 	import IntroAnimation from './IntroAnimation.svelte';
 	import SetupWizard from './onboarding/SetupWizard.svelte';
 	import UpdateButton from './UpdateButton.svelte';
+	import MemoryToast from './MemoryToast.svelte';
 	import WebPanel from './WebPanel.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { sessionStore } from '$lib/stores/session.svelte';
@@ -383,6 +384,7 @@
 	</div>
 	<SettingsModal />
 	<UpdateButton />
+	<MemoryToast />
 	{#if shellStore.introOpen}
 		<IntroAnimation />
 	{/if}

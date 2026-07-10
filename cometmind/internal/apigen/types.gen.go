@@ -127,6 +127,7 @@ func (e McpServerStatusStatus) Valid() bool {
 // Defines values for MemoryChangeWireAction.
 const (
 	Create    MemoryChangeWireAction = "create"
+	Delete    MemoryChangeWireAction = "delete"
 	Supersede MemoryChangeWireAction = "supersede"
 	Update    MemoryChangeWireAction = "update"
 )
@@ -135,6 +136,8 @@ const (
 func (e MemoryChangeWireAction) Valid() bool {
 	switch e {
 	case Create:
+		return true
+	case Delete:
 		return true
 	case Supersede:
 		return true

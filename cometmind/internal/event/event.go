@@ -49,7 +49,7 @@ type MemoryWire struct {
 	EffectiveWeight float64 `json:"effective_weight"`
 }
 
-// MemoryChangeWire is the SSE payload for a memory create/update/supersede.
+// MemoryChangeWire is the SSE payload for an agent or extractor memory change.
 type MemoryChangeWire struct {
 	Action  string `json:"action"`
 	Kind    string `json:"kind"`
@@ -98,7 +98,7 @@ type Event struct {
 	// memory_updated
 	MemoryChanges []MemoryChangeWire
 	// turn_status
-	Phase   TurnPhase
+	Phase         TurnPhase
 	StatusMessage string
 	// error
 	Message string

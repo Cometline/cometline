@@ -87,6 +87,11 @@ func NewRegistry(workspaceRoot string, opts ...RegistryOptions) *Registry {
 	}
 	if opt.Memory != nil {
 		add(RecallTaskOutcome{Memory: opt.Memory})
+		add(ListMemories{Memory: opt.Memory})
+		add(SearchMemories{Memory: opt.Memory})
+		add(CreateMemory{Memory: opt.Memory, Events: opt.MemoryEvents})
+		add(UpdateMemory{Memory: opt.Memory, Events: opt.MemoryEvents})
+		add(DeleteMemory{Memory: opt.Memory, Events: opt.MemoryEvents})
 	}
 	return r
 }

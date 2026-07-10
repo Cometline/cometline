@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/cometline/cometmind/internal/db"
+	"github.com/oklog/ulid/v2"
 )
 
 // Record is the domain view of a memory row.
@@ -27,6 +28,10 @@ type Record struct {
 	CreatedAt          time.Time
 	UpdatedAt          time.Time
 }
+
+// NewID returns a durable identifier for a memory that is about to be written.
+// Callers can reserve the id before doing slow embedding work.
+func NewID() string { return ulid.Make().String() }
 
 func recordFromDB(row db.Memory) Record {
 	r := Record{

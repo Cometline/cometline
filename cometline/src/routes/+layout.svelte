@@ -9,7 +9,12 @@
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { personaAvatarCache } from '$lib/personas/avatar-cache.svelte';
 	import { heroComposerCssVars } from '$lib/hero-composer-appearance';
-	import { ensureWorkspace, listAllSessions } from '$lib/client/cometmind';
+	import {
+		ensureWorkspace,
+		listAllSessions,
+		startRuntimeEventStream
+	} from '$lib/client/cometmind';
+	import { memoryToastStore } from '$lib/stores/memory-toasts.svelte';
 	import { startJobNotificationPoller } from '$lib/jobs/job-notifications';
 	import { startStorageRetentionSync } from '$lib/retention/storage-retention-sync';
 
@@ -32,6 +37,11 @@
 
 	onMount(() => {
 		connectionState.startPolling();
+		const stopRuntimeEvents = startRuntimeEventStream((event) => {
+			if (event.type === 'memory_updated') {
+				memoryToastStore.add(event.changes);
+			}
+		});
 		let stopStorageRetentionSync: (() => void) | null = null;
 		const stopJobNotifications = startJobNotificationPoller({
 			getSettings: () => settingsStore.settings.cometmind.jobs.notifications,
@@ -39,14 +49,18 @@
 				window.electronAPI?.notifyJob?.({ title, body });
 			}
 		});
-		const unsubscribeSettingsChanged = window.electronAPI?.onProviderSettingsChanged?.((settings) => {
-			settingsStore.apply(settings);
-		});
+		const unsubscribeSettingsChanged = window.electronAPI?.onProviderSettingsChanged?.(
+			(settings) => {
+				settingsStore.apply(settings);
+			}
+		);
 		// A custom persona's avatar image was replaced (same id) — drop the stale
 		// cached data URL so intro/avatars re-fetch the new image.
-		const unsubscribePersonaAvatar = window.electronAPI?.onPersonaAvatarChanged?.((personaId) => {
-			personaAvatarCache.invalidate(personaId);
-		});
+		const unsubscribePersonaAvatar = window.electronAPI?.onPersonaAvatarChanged?.(
+			(personaId) => {
+				personaAvatarCache.invalidate(personaId);
+			}
+		);
 		void settingsStore.load().then(() => {
 			settingsLoaded = true;
 			stopStorageRetentionSync = startStorageRetentionSync(
@@ -68,6 +82,7 @@
 		void initializeWorkspace();
 		return () => {
 			connectionState.stopPolling();
+			stopRuntimeEvents();
 			stopJobNotifications();
 			stopStorageRetentionSync?.();
 			unsubscribeSettingsChanged?.();

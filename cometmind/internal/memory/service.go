@@ -11,7 +11,6 @@ import (
 	cometsdk "github.com/cometline/comet-sdk"
 	"github.com/cometline/cometmind/internal/logging"
 	"github.com/cometline/cometmind/internal/session"
-	"github.com/oklog/ulid/v2"
 )
 
 // Service is the global memory facade.
@@ -362,9 +361,18 @@ func (s *Service) ListActive(ctx context.Context) ([]ScoredMemory, error) {
 
 // CreateManual inserts a user-authored memory.
 func (s *Service) CreateManual(ctx context.Context, content, kind string, pinned bool, baseWeight float64) (Record, error) {
+	return s.CreateManualWithID(ctx, NewID(), content, kind, pinned, baseWeight)
+}
+
+// CreateManualWithID inserts a user-authored memory with a caller-provided id.
+// It lets asynchronous callers return an accepted id before embedding finishes.
+func (s *Service) CreateManualWithID(ctx context.Context, id, content, kind string, pinned bool, baseWeight float64) (Record, error) {
 	content = strings.TrimSpace(content)
 	if content == "" {
 		return Record{}, fmt.Errorf("content is required")
+	}
+	if strings.TrimSpace(id) == "" {
+		id = NewID()
 	}
 	vecs, err := s.retriever.embedder.Embed(ctx, content)
 	if err != nil {
@@ -378,7 +386,7 @@ func (s *Service) CreateManual(ctx context.Context, content, kind string, pinned
 		baseWeight = 1.0
 	}
 	rec := Record{
-		ID:                 ulid.Make().String(),
+		ID:                 id,
 		Scope:              "global",
 		Kind:               normalizeKind(kind),
 		PreferenceCategory: normalizePreferenceCategory(kind, content, ""),
@@ -449,16 +457,27 @@ func (s *Service) UpdateManual(ctx context.Context, id, content, kind string, pi
 
 // Delete removes a memory permanently.
 func (s *Service) Delete(ctx context.Context, id string) error {
+	_, err := s.DeleteManual(ctx, id)
+	return err
+}
+
+// DeleteManual permanently removes a memory and returns its previous value so
+// callers can describe the change to the user.
+func (s *Service) DeleteManual(ctx context.Context, id string) (Record, error) {
+	rec, err := s.store.get(ctx, id)
+	if err != nil {
+		return Record{}, err
+	}
 	if err := s.store.delete(ctx, id); err != nil {
 		logging.L().Error("memory.manual_delete.failed", "memory_id", id, "error", err)
-		return err
+		return Record{}, err
 	}
 	if err := s.store.logEvent(ctx, id, "manual_delete", ""); err != nil {
 		logging.L().Error("memory.manual_delete_event.failed", "memory_id", id, "error", err)
-		return err
+		return Record{}, err
 	}
 	logging.L().Info("memory.manual_delete.completed", "memory_id", id)
-	return nil
+	return rec, nil
 }
 
 type PromptMemories struct {

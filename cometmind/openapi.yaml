@@ -610,6 +610,25 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/v1/events:
+    get:
+      tags: [Events]
+      summary: Stream background runtime events over SSE
+      description: |
+        Streams events that can complete after a request-scoped message stream,
+        including agent-initiated memory CRUD notifications. Each `data:` frame
+        body matches `#/components/schemas/StreamEvent`.
+      operationId: streamRuntimeEvents
+      responses:
+        '200':
+          description: SSE event stream
+          content:
+            text/event-stream:
+              schema:
+                $ref: '#/components/schemas/StreamEvent'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /api/v1/sessions/{id}/children:
     get:
       tags: [Sessions]
@@ -2432,7 +2451,7 @@ components:
       properties:
         action:
           type: string
-          enum: [create, update, supersede]
+          enum: [create, update, delete, supersede]
         kind:
           type: string
         content:

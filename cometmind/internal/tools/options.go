@@ -35,6 +35,7 @@ type RegistryOptions struct {
 	Jobs               *jobs.Service
 	Scheduler          *scheduler.Service
 	Memory             *memory.Service
+	MemoryEvents       *event.Hub
 	SessionID          string
 	JobPlatform        string
 	JobSourceChannelID string

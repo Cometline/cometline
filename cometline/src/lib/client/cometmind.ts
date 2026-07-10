@@ -494,6 +494,69 @@ export async function* streamMessage(
 	yield* streamSse(`/api/v1/sessions/${id}/messages`, req, signal);
 }
 
+/** Stream events that can outlive a request-scoped message stream. */
+export async function* streamRuntimeEvents(
+	signal?: AbortSignal
+): AsyncGenerator<StreamEvent, void, unknown> {
+	const res = await fetch(`${BASE_URL}/api/v1/events`, {
+		method: 'GET',
+		headers: { Accept: 'text/event-stream' },
+		cache: 'no-store',
+		signal
+	});
+	if (!res.ok || !res.body) {
+		throw new CometMindApiError(res.status, 'event_stream_failed', res.statusText);
+	}
+
+	const reader = res.body.getReader();
+	const decoder = new TextDecoder();
+	const parser = createSSEParser();
+	try {
+		while (true) {
+			if (signal?.aborted) return;
+			const { done, value } = await reader.read();
+			if (done) break;
+			for (const result of parser.feed(decoder.decode(value, { stream: true }))) {
+				if (result && result !== 'done') yield result;
+			}
+		}
+		for (const result of parser.flush()) {
+			if (result && result !== 'done') yield result;
+		}
+	} finally {
+		reader.releaseLock();
+	}
+}
+
+/** Keep a background event subscription alive until the caller stops it. */
+export function startRuntimeEventStream(onEvent: (event: StreamEvent) => void): () => void {
+	const controller = new AbortController();
+	let stopped = false;
+
+	const run = async () => {
+		while (!stopped) {
+			try {
+				for await (const event of streamRuntimeEvents(controller.signal)) {
+					if (stopped) return;
+					onEvent(event);
+				}
+				if (!stopped) {
+					await new Promise((resolve) => setTimeout(resolve, 1000));
+				}
+			} catch {
+				if (stopped) return;
+				await new Promise((resolve) => setTimeout(resolve, 1000));
+			}
+		}
+	};
+
+	void run();
+	return () => {
+		stopped = true;
+		controller.abort();
+	};
+}
+
 async function* streamSse(
 	path: string,
 	body: unknown,

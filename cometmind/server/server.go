@@ -39,6 +39,7 @@ type Deps struct {
 	Config         *config.Config
 	Sessions       *session.Service
 	Memory         *memory.Service
+	Events         *event.Hub
 	Jobs           *jobs.Service
 	Scheduler      *scheduler.Service
 	RunRetention   RetentionRunner
@@ -57,6 +58,7 @@ type App struct {
 	config         *config.Config
 	sessions       *session.Service
 	memory         *memory.Service
+	events         *event.Hub
 	jobs           *jobs.Service
 	scheduler      *scheduler.Service
 	runRetention   RetentionRunner
@@ -91,6 +93,7 @@ func New(deps Deps) (*gin.Engine, error) {
 		config:         deps.Config,
 		sessions:       deps.Sessions,
 		memory:         deps.Memory,
+		events:         deps.Events,
 		jobs:           deps.Jobs,
 		scheduler:      deps.Scheduler,
 		runRetention:   deps.RunRetention,
@@ -134,6 +137,7 @@ func New(deps Deps) (*gin.Engine, error) {
 	api.POST("/sessions/:id/forks", app.handleForkSession)
 	api.DELETE("/sessions/:id", app.handleDeleteSession)
 	api.GET("/sessions/:id/messages", app.handleGetMessages)
+	api.GET("/events", app.handleEvents)
 	api.POST("/sessions/:id/messages", app.handlePostMessage)
 	api.DELETE("/sessions/:id/messages", app.handleClearSession)
 	api.GET("/sessions/:id/children", app.handleListChildSessions)

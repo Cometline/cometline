@@ -78,6 +78,7 @@ func runServe(_ *cobra.Command, _ []string) error {
 		Config:    rt.Config,
 		Sessions:  rt.Sessions,
 		Memory:    rt.Memory,
+		Events:    rt.Events,
 		Jobs:      rt.Jobs,
 		Scheduler: rt.Scheduler,
 		RunRetention: func(ctx context.Context) (server.RetentionResult, error) {

@@ -368,7 +368,7 @@ export type MemoryWire = {
 };
 
 export type MemoryChangeWire = {
-    action: 'create' | 'update' | 'supersede';
+    action: 'create' | 'update' | 'delete' | 'supersede';
     kind: string;
     content: string;
     id?: string;
@@ -1407,6 +1407,31 @@ export type PostSessionMessageResponses = {
 };
 
 export type PostSessionMessageResponse = PostSessionMessageResponses[keyof PostSessionMessageResponses];
+
+export type StreamRuntimeEventsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/events';
+};
+
+export type StreamRuntimeEventsErrors = {
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type StreamRuntimeEventsError = StreamRuntimeEventsErrors[keyof StreamRuntimeEventsErrors];
+
+export type StreamRuntimeEventsResponses = {
+    /**
+     * SSE event stream
+     */
+    200: StreamEvent;
+};
+
+export type StreamRuntimeEventsResponse = StreamRuntimeEventsResponses[keyof StreamRuntimeEventsResponses];
 
 export type ListChildSessionsData = {
     body?: never;
