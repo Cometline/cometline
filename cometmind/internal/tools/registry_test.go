@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/cometline/cometmind/internal/acp"
+	"github.com/cometline/cometmind/internal/session"
 	"github.com/cometline/cometmind/internal/skills"
 )
 
@@ -70,5 +72,24 @@ func TestNewRegistryIncludesSkillDraftToolsWhenSkillsEnabled(t *testing.T) {
 		if !r.Has(name) {
 			t.Fatalf("registry missing %q", name)
 		}
+	}
+}
+
+func TestNewRegistryGatesDelegateOnHarnessAvailability(t *testing.T) {
+	for _, harness := range []acp.Harness{
+		acp.HarnessOpenCode,
+		acp.HarnessClaude,
+		acp.HarnessCodex,
+	} {
+		t.Run(string(harness), func(t *testing.T) {
+			cfg := acp.DefaultHarnessConfig(harness)
+			r := NewRegistry(t.TempDir(), RegistryOptions{
+				Sessions: &session.Service{},
+				ACP:      cfg,
+			})
+			if got, want := r.Has("delegate_coding_task"), cfg.CommandAvailable(); got != want {
+				t.Fatalf("delegate_coding_task registered = %v, want %v", got, want)
+			}
+		})
 	}
 }
