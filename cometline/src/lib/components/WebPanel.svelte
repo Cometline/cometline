@@ -37,7 +37,6 @@
 		capturedAt: number;
 	};
 
-	const PAGE_CONTEXT_CAPTURE_DELAY_MS = 250;
 	const PAGE_CONTEXT_CACHE_TTL_MS = 10_000;
 
 	let webviewEl = $state<WebviewElement | null>(null);
@@ -60,7 +59,6 @@
 	let contextMessage = $state('');
 	let pageCaptureRun = 0;
 	let fileCaptureRun = 0;
-	let pageCaptureTimer: ReturnType<typeof setTimeout> | null = null;
 	let cachedPageContext = $state<CachedPageContext | null>(null);
 
 	const panelOpen = $derived(shellStore.webPanelOpen);
@@ -119,6 +117,7 @@
 		} catch {
 			pageTitle = '';
 		}
+		updatePendingPageMetadata();
 	}
 
 	function onBack() {
@@ -135,18 +134,17 @@
 		webviewEl?.reload();
 	}
 
-	function cancelScheduledPageCapture() {
-		if (!pageCaptureTimer) return;
-		clearTimeout(pageCaptureTimer);
-		pageCaptureTimer = null;
-	}
-
-	function queuePageContextCapture() {
-		cancelScheduledPageCapture();
-		pageCaptureTimer = setTimeout(() => {
-			pageCaptureTimer = null;
-			void capturePageContext();
-		}, PAGE_CONTEXT_CAPTURE_DELAY_MS);
+	function updatePendingPageMetadata() {
+		const el = webviewEl;
+		if (!el || panelMode !== 'url' || !panelUrl) return;
+		let url = panelUrl;
+		try {
+			url = String(el.getURL() || panelUrl).trim();
+		} catch {
+			// Use panel state while the webview is still exposing its first URL.
+		}
+		if (!url.startsWith('http://') && !url.startsWith('https://')) return;
+		shellStore.setPendingPageContextForActive({ title: pageTitle, source: url });
 	}
 
 	function addCachedPageContext(context: CachedPageContext) {
@@ -229,6 +227,29 @@
 		} finally {
 			capturingContext = false;
 		}
+	}
+
+	async function resolvePageContext(source: string) {
+		const el = webviewEl;
+		if (!el || panelMode !== 'url' || !panelUrl) return null;
+		let currentUrl = panelUrl;
+		try {
+			currentUrl = String(el.getURL() || panelUrl).trim();
+		} catch {
+			// A newly-mounted webview may not expose its URL yet; use panel state.
+		}
+		if (currentUrl !== source) return null;
+		await capturePageContext();
+		const cached = cachedPageContext;
+		if (cached?.sessionKey === panelSessionKey && cached.url === source) {
+			return {
+				kind: 'page' as const,
+				title: cached.title,
+				source: cached.url,
+				content: cached.content
+			};
+		}
+		return null;
 	}
 
 	async function captureFileContext(workspacePath: string, filePath: string) {
@@ -384,7 +405,6 @@
 		};
 		const onInPageNavigate = () => {
 			updateNavigationState();
-			queuePageContextCapture();
 		};
 		const onStartLoading = () => {
 			loading = true;
@@ -392,10 +412,10 @@
 		const onStopLoading = () => {
 			loading = false;
 			updateNavigationState();
-			queuePageContextCapture();
 		};
 		const onTitleUpdated = (event: Event & { title?: string }) => {
 			pageTitle = event.title ?? '';
+			updatePendingPageMetadata();
 		};
 		const onFocus = () => {
 			shellStore.setFocusedPane('web');
@@ -410,7 +430,6 @@
 		el.addEventListener('focus', onFocus);
 
 		return () => {
-			cancelScheduledPageCapture();
 			el.removeEventListener('did-navigate', onNavigate);
 			el.removeEventListener('did-navigate-in-page', onInPageNavigate);
 			el.removeEventListener('did-start-loading', onStartLoading);
@@ -462,6 +481,8 @@
 		return attachWebview(el);
 	});
 
+	$effect(() => shellStore.registerPageContextResolver(resolvePageContext));
+
 	$effect(() => {
 		const el = webviewEl;
 		const sessionKey = panelSessionKey;
@@ -495,7 +516,6 @@
 
 	$effect(() => {
 		if (!shellStore.hasWebPanelForSession) {
-			cancelScheduledPageCapture();
 			cachedPageContext = null;
 			loading = false;
 			canGoBack = false;
