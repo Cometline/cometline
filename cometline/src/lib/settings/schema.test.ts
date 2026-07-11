@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import {
 	defaultSettings,
 	defaultCometMindSettings,
@@ -11,6 +13,31 @@ import {
 } from './schema';
 
 describe('settings schema', () => {
+	it('normalizes the runtime settings contract fixture consumed by CometMind', () => {
+		const fixture = JSON.parse(
+			readFileSync(
+				resolve(process.cwd(), '../cometmind/internal/config/testdata/cometline-settings.json'),
+				'utf8'
+			)
+		) as unknown;
+		const settings = normalizeSettings(fixture);
+
+		expect(settings.activeProviderId).toBe('local-llm');
+		expect(settings.cometmind.systemPromptPath).toBe('/tmp/SOUL.md');
+		expect(settings.cometmind.storage).toMatchObject({
+			retentionDays: 90,
+			maxSessionsPerWorkspace: 0,
+			archivedMemoryPurgeDays: 90,
+			vacuumAfterPurge: true
+		});
+		expect(runtimeSlice(settings)).toMatchObject({
+			provider: 'local-llm',
+			model: 'qwen2.5',
+			maxTokens: 2048,
+			systemPromptPath: '/tmp/SOUL.md'
+		});
+	});
+
 	it('orders built-in providers for the settings sidebar', () => {
 		const settings = defaultSettings();
 		expect(settings.providers).toHaveLength(5);

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cometline/cometmind/internal/agent"
 	"github.com/cometline/cometmind/internal/event"
 	"github.com/cometline/cometmind/internal/logging"
 	"github.com/cometline/cometmind/internal/session"
@@ -135,16 +136,9 @@ func (a *App) handlePostMessage(c *gin.Context) {
 	persistCtx, persistCancel := context.WithTimeout(context.WithoutCancel(c.Request.Context()), 10*time.Second)
 	defer persistCancel()
 
-	evCh := make(chan event.Event, 64)
-	errCh := make(chan error, 1)
-	go func() {
-		errCh <- runner.Run(runCtx, session.AgentTurnFromSession(sess), evCh)
-		close(evCh)
-	}()
-
 	clientGone := false
 	errorPersisted := false
-	for ev := range evCh {
+	runErr := agent.RunHostedTurn(runCtx, runner, session.AgentTurnFromSession(sess), func(ev event.Event) {
 		if ev.Kind == event.KindError && strings.TrimSpace(ev.Message) != "" {
 			msg := userFacingMessageError(ev.Message)
 			ev.Message = msg
@@ -161,13 +155,13 @@ func (a *App) handlePostMessage(c *gin.Context) {
 				clientGone = true
 				logging.L().Info("message.sse_client_gone", "session", sess.ID, "error", err)
 				// Keep draining so later error events still reach SQLite.
-				continue
+				return
 			}
 			flusher.Flush()
 		}
-	}
+	})
 
-	if err := <-errCh; err != nil {
+	if err := runErr; err != nil {
 		if a.jobs != nil {
 			_ = a.jobs.ReleaseForSession(persistCtx, sess.ID, err.Error())
 		}

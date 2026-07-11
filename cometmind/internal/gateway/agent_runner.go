@@ -3,6 +3,7 @@ package gateway
 import (
 	"context"
 
+	"github.com/cometline/cometmind/internal/agent"
 	"github.com/cometline/cometmind/internal/event"
 	"github.com/cometline/cometmind/internal/session"
 )
@@ -23,16 +24,9 @@ func (a AgentRunner) RunTurn(ctx context.Context, sess session.Session, workspac
 	if err != nil {
 		return err
 	}
-	ch := make(chan event.Event, 64)
-	errCh := make(chan error, 1)
-	go func() {
-		errCh <- runner.Run(ctx, session.AgentTurnFromSession(sess), ch)
-		close(ch)
-	}()
-	for ev := range ch {
+	return agent.RunHostedTurn(ctx, runner, session.AgentTurnFromSession(sess), func(ev event.Event) {
 		if onEvent != nil {
 			onEvent(ev)
 		}
-	}
-	return <-errCh
+	})
 }

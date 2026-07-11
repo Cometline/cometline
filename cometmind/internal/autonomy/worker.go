@@ -167,17 +167,10 @@ func (w *Worker) runJob(ctx context.Context, job jobs.Job) {
 	stopHeartbeat := startJobHeartbeatDuringTurn(runCtx, w.Jobs, sess.ID)
 	defer stopHeartbeat()
 
-	evCh := make(chan event.Event, 64)
-	errCh := make(chan error, 1)
-	go func() {
-		errCh <- runner.Run(runCtx, session.AgentTurnFromSession(sess), evCh)
-		close(evCh)
-	}()
-	for range evCh {
+	runErr := agent.RunHostedTurn(runCtx, runner, session.AgentTurnFromSession(sess), func(_ event.Event) {
 		// Autonomous runs have no SSE subscriber; drain and discard.
 		// (Phase 1 non-goal: no SSE forwarding for autonomous turns.)
-	}
-	runErr := <-errCh
+	})
 
 	w.finalizeJob(ctx, claimed, sess, runErr)
 }
