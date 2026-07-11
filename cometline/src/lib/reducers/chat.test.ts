@@ -413,6 +413,10 @@ describe('reduceChatState', () => {
 		expect(assistant?.type).toBe('assistant');
 		if (assistant?.type !== 'assistant') return;
 		expect(assistant.text).toBe('stable recovered answer');
-		expect(assistant.reasoning?.segments.at(-1)?.text).toBe('');
+		expect(assistant.reasoning).toBeDefined();
+		if (!assistant.reasoning) return;
+		expect(assistant.reasoning.segments).toBeDefined();
+		if (!assistant.reasoning.segments) return;
+		expect(assistant.reasoning.segments.at(-1)?.text).toBe('');
 	});
 });

@@ -479,12 +479,12 @@ describe('createConversationController', () => {
 		dockSpy.mockRestore();
 	});
 
-	it('does not refresh when send throws', async () => {
+	it('does not refresh when send rejects and keeps the queue drainable', async () => {
 		const send = vi.fn().mockRejectedValue(new Error('network'));
 		const refreshSession = vi.fn().mockResolvedValue(undefined);
 		const { controller } = createDeps({ send, refreshSession });
 
-		await expect(controller.enqueue('oops')).rejects.toThrow('network');
+		await expect(controller.enqueue('oops')).resolves.toBe(true);
 		expect(refreshSession).not.toHaveBeenCalled();
 	});
 

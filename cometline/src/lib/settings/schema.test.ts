@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import type { ProviderSettings } from '$lib/types';
 import {
 	defaultSettings,
 	defaultCometMindSettings,
@@ -19,7 +20,7 @@ describe('settings schema', () => {
 				resolve(process.cwd(), '../cometmind/internal/config/testdata/cometline-settings.json'),
 				'utf8'
 			)
-		) as unknown;
+		) as Partial<ProviderSettings>;
 		const settings = normalizeSettings(fixture);
 
 		expect(settings.activeProviderId).toBe('local-llm');
