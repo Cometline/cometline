@@ -57,7 +57,6 @@
 	let editorState = $state<FileEditorState | null>(null);
 	let displayedFilePath = $state<string | null>(null);
 	let capturingContext = $state(false);
-	let announcingContextCapture = $state(false);
 	let contextMessage = $state('');
 	let pageCaptureRun = 0;
 	let fileCaptureRun = 0;
@@ -184,7 +183,6 @@
 		}
 
 		capturingContext = true;
-		announcingContextCapture = announce;
 		if (announce) contextMessage = '';
 		try {
 			const page = await el.executeJavaScript<{
@@ -230,7 +228,6 @@
 			}
 		} finally {
 			capturingContext = false;
-			announcingContextCapture = false;
 		}
 	}
 
@@ -625,10 +622,7 @@
 						aria-label="Add page to chat context"
 						title="Add page to next message"
 					>
-						<FileText
-							size={16}
-							class={announcingContextCapture ? 'context-capture-pulse' : ''}
-						/>
+						<FileText size={16} />
 					</button>
 				</div>
 			{/if}
@@ -989,34 +983,13 @@
 		animation: web-panel-spin 0.8s linear infinite;
 	}
 
-	:global(.context-capture-pulse) {
-		transform-origin: center;
-		animation: web-panel-context-capture 0.9s var(--ease-smooth) infinite;
-	}
-
 	@keyframes web-panel-spin {
 		to {
 			transform: rotate(360deg);
 		}
 	}
 
-	@keyframes web-panel-context-capture {
-		0%,
-		100% {
-			opacity: 1;
-			transform: scale(1);
-		}
-		50% {
-			opacity: 0.58;
-			transform: scale(0.82);
-		}
-	}
-
 	@media (prefers-reduced-motion: reduce) {
-		:global(.context-capture-pulse) {
-			animation: none;
-		}
-
 		.web-panel {
 			transition: none;
 		}
