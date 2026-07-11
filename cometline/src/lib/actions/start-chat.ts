@@ -10,11 +10,19 @@
 
 import type { ImageAttachment } from '$lib/types';
 
+export interface WebContext {
+	kind: 'page' | 'file';
+	title?: string;
+	source: string;
+	content: string;
+}
+
 export interface ChatTurnPayload {
 	text: string;
 	displayText?: string;
 	images?: ImageAttachment[];
 	filePaths?: string[];
+	webContexts?: WebContext[];
 }
 
 export interface StartChatAdapter {

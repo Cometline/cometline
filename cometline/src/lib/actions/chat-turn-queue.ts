@@ -45,7 +45,8 @@ export function createChatTurnQueue(
 			text: payload.text,
 			displayText: payload.displayText ?? '',
 			images: payload.images?.map((image) => image.data) ?? [],
-			filePaths: payload.filePaths ?? []
+			filePaths: payload.filePaths ?? [],
+			webContexts: payload.webContexts ?? []
 		});
 	}
 
@@ -85,9 +86,9 @@ export function createChatTurnQueue(
 				await runTurnTracked(initialPayload);
 			}
 			while (queue.length > 0) {
-				const { text, displayText, images, filePaths } = queue.shift()!;
+				const { text, displayText, images, filePaths, webContexts } = queue.shift()!;
 				notifyChange();
-				await runTurnTracked({ text, displayText, images, filePaths });
+				await runTurnTracked({ text, displayText, images, filePaths, webContexts });
 			}
 		} finally {
 			activeTurnSignature = null;

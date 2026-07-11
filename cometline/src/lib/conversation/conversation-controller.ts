@@ -207,7 +207,8 @@ export function createConversationController(
 					text: pending.text,
 					displayText: pending.displayText,
 					images: pending.images,
-					filePaths: pending.filePaths
+					filePaths: pending.filePaths,
+					webContexts: pending.webContexts
 				});
 				return;
 			}

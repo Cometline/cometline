@@ -12,7 +12,12 @@ export function startNewChat() {
 			void chatStore
 				.send(
 					currentSessionId,
-					{ text: pending.text, images: pending.images, filePaths: pending.filePaths },
+					{
+						text: pending.text,
+						images: pending.images,
+						filePaths: pending.filePaths,
+						webContexts: pending.webContexts
+					},
 					{ skipUser: false }
 				)
 				.catch(() => {});

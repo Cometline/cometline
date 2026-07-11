@@ -20,10 +20,23 @@ describe('createChatTurnQueue', () => {
 		const queue = createChatTurnQueue(runTurn);
 		const images = [{ media_type: 'image/png' as const, data: 'abc', id: '1' }];
 
-		await queue.enqueue({ text: 'hello', images, filePaths: ['README.md'] });
+		const webContexts = [
+			{
+				kind: 'page' as const,
+				title: 'Example',
+				source: 'https://example.com',
+				content: 'Page text'
+			}
+		];
+		await queue.enqueue({ text: 'hello', images, filePaths: ['README.md'], webContexts });
 
 		expect(runTurn).toHaveBeenCalledTimes(1);
-		expect(runTurn).toHaveBeenCalledWith({ text: 'hello', images, filePaths: ['README.md'] });
+		expect(runTurn).toHaveBeenCalledWith({
+			text: 'hello',
+			images,
+			filePaths: ['README.md'],
+			webContexts
+		});
 	});
 
 	it('does not place the first idle submit in the pending queue', async () => {
