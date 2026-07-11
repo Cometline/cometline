@@ -128,6 +128,12 @@ func (r *Router) HandleInbound(ctx context.Context, msg InboundMessage) error {
 		}
 	})
 	var text string
+	if errors.Is(err, context.Canceled) {
+		// /stop intentionally cancels the runtime context. The slash command
+		// already acknowledges that action ephemerally, so do not emit a noisy
+		// provider cancellation error into the conversation channel.
+		return nil
+	}
 	if err != nil {
 		text = fmt.Sprintf("Error: %v", err)
 		logging.L().Error("gateway.agent_turn.failed",
@@ -314,6 +320,32 @@ func (r *Router) HandleClearSlash(ctx context.Context, msg InboundMessage) (stri
 		return "", err
 	}
 	return "Cleared this CometMind conversation transcript.", nil
+}
+
+// HandleStopSlash cancels the active turn for the session mapped to the
+// current platform channel or thread. It does not alter the transcript.
+func (r *Router) HandleStopSlash(ctx context.Context, msg InboundMessage) (string, error) {
+	if r == nil || r.Sessions == nil {
+		return "", fmt.Errorf("gateway router is not configured")
+	}
+	if !r.allowed(msg) {
+		return "", fmt.Errorf("not allowed")
+	}
+	if r.Turns == nil {
+		return "No active turn to stop.", nil
+	}
+
+	mapped, err := r.Sessions.LookupGatewaySession(ctx, msg.Platform, msg.UserID, msg.ChannelID, msg.ThreadID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "No active turn to stop.", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	if !r.Turns.Stop(mapped.CometmindSessionID) {
+		return "No active turn to stop.", nil
+	}
+	return "Stopping the active turn.", nil
 }
 
 // SuggestWorkspacePaths returns workspace roots matching query for autocomplete UIs.
