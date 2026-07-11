@@ -3,7 +3,7 @@
 	import { fade } from 'svelte/transition';
 	import { FileText } from '@lucide/svelte';
 	import type { QueuedMessage } from '$lib/actions/chat-turn-queue';
-	import type { ChatTurnPayload } from '$lib/actions/start-chat';
+	import type { ChatTurnPayload, WebContext } from '$lib/actions/start-chat';
 	import { modelStore, type ModelOption } from '$lib/stores/model.svelte';
 	import { settingsStore } from '$lib/stores/settings.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
@@ -138,6 +138,7 @@
 		mentions.hasWorkspace ? workspaceLabel(shellStore.workspacePath) : ''
 	);
 	const pendingWebContexts = $derived(shellStore.pendingWebContexts);
+	const webContextChipLabel = $derived(formatWebContextChipLabel(pendingWebContexts));
 
 	export function focus() {
 		void focusInput();
@@ -196,6 +197,35 @@
 	function removeQueued(id: string) {
 		onRemoveQueued?.(id);
 	}
+
+	function formatWebContextChipLabel(contexts: readonly WebContext[]): string {
+		const first = contexts[0];
+		if (!first) return '';
+		const label = webContextLabel(first);
+		if (contexts.length === 1) return label;
+		return `${label} + ${contexts.length - 1} more`;
+	}
+
+	function webContextLabel(context: WebContext): string {
+		const title = context.title?.trim();
+		if (title) return title;
+		if (context.kind === 'file') return fileNameFromSource(context.source);
+		return pageNameFromSource(context.source);
+	}
+
+	function fileNameFromSource(source: string): string {
+		const path = source.replace(/^workspace-file:/, '');
+		return path.split(/[/\\]/).filter(Boolean).pop() || path || 'File';
+	}
+
+	function pageNameFromSource(source: string): string {
+		try {
+			const url = new URL(source);
+			return url.hostname || source;
+		} catch {
+			return source || 'Page';
+		}
+	}
 </script>
 
 <div
@@ -234,15 +264,11 @@
 	{#if pendingWebContexts.length > 0}
 		<div class="web-context-chip" role="status">
 			<FileText size={14} />
-			<span>
-				Web context: {pendingWebContexts.length} item{pendingWebContexts.length === 1
-					? ''
-					: 's'}
-			</span>
+			<span title={webContextChipLabel}>Web context: {webContextChipLabel}</span>
 			<button
 				type="button"
 				onclick={() => shellStore.clearWebContextForActive()}
-				aria-label="Remove page context"
+				aria-label="Remove web context"
 			>
 				×
 			</button>
@@ -352,11 +378,26 @@
 		gap: 7px;
 		max-width: 100%;
 		padding: 7px 9px;
-		border: 1px solid rgba(37, 99, 235, 0.18);
+		border: 1px solid
+			color-mix(in srgb, var(--hero-composer-glow-color, #72c0ff) 20%, var(--border-soft));
 		border-radius: 9px;
-		background: rgba(239, 246, 255, 0.82);
-		color: #1d4ed8;
+		background: color-mix(
+			in srgb,
+			var(--hero-composer-glow-color, #72c0ff) 7%,
+			var(--panel-bg)
+		);
+		color: var(--text-muted);
 		font-size: 12px;
+		box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.58);
+	}
+
+	.web-context-chip :global(svg) {
+		flex-shrink: 0;
+		color: color-mix(
+			in srgb,
+			var(--hero-composer-glow-color, #72c0ff) 62%,
+			var(--accent, #0066cc)
+		);
 	}
 
 	.web-context-chip span {
@@ -370,10 +411,14 @@
 		margin-left: auto;
 		border: 0;
 		background: transparent;
-		color: inherit;
+		color: var(--text-soft);
 		font-size: 18px;
 		line-height: 1;
 		cursor: pointer;
+	}
+
+	.web-context-chip button:hover {
+		color: var(--text-main);
 	}
 
 	.composer.hero {
