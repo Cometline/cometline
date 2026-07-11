@@ -46,7 +46,10 @@
 	let flyIconStyle = $state('');
 
 	let resolvedPersona = $derived(
-		resolvePersona(settingsStore.settings.app.personaId, settingsStore.settings.app.personas.custom)
+		resolvePersona(
+			settingsStore.settings.app.personaId,
+			settingsStore.settings.app.personas.custom
+		)
 	);
 	let avatarSrc = $derived(personaAvatarCache.avatarSrcFor(resolvedPersona, 192));
 	let avatarSrcset = $derived(
@@ -156,6 +159,30 @@
 		const dpr = Math.min(window.devicePixelRatio || 1, 2);
 		let W = 0;
 		let H = 0;
+		let sheetGradient: CanvasGradient | null = null;
+		let vignetteGradient: CanvasGradient | null = null;
+		let grainOffsetX = 0;
+		let grainOffsetY = 0;
+
+		function rebuildStaticCanvasState() {
+			const cx = W / 2;
+			const cy = H / 2;
+			sheetGradient = ctx.createLinearGradient(0, 0, 0, H);
+			sheetGradient.addColorStop(0, bg);
+			sheetGradient.addColorStop(1, bgDeep);
+
+			vignetteGradient = ctx.createRadialGradient(
+				cx,
+				cy,
+				H * 0.25,
+				cx,
+				cy,
+				Math.max(W, H) * 0.78
+			);
+			vignetteGradient.addColorStop(0, 'rgba(40,46,70,0)');
+			vignetteGradient.addColorStop(1, 'rgba(40,46,70,0.14)');
+		}
+
 		const resize = () => {
 			W = window.innerWidth;
 			H = window.innerHeight;
@@ -164,6 +191,7 @@
 			el.style.width = W + 'px';
 			el.style.height = H + 'px';
 			ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+			if (sheetGradient && vignetteGradient) rebuildStaticCanvasState();
 		};
 		resize();
 		window.addEventListener('resize', resize);
@@ -207,6 +235,9 @@
 			}
 			gctx.putImageData(img, 0, 0);
 		}
+		grainOffsetX = (Math.random() * 160) | 0;
+		grainOffsetY = (Math.random() * 160) | 0;
+		rebuildStaticCanvasState();
 
 		const start = performance.now();
 
@@ -220,10 +251,7 @@
 			const ringForm = seg(now, T.comet, T.ring);
 
 			// 1. Warm paper sheet — soft top-down gradient like the icon ground.
-			const sheet = ctx.createLinearGradient(0, 0, 0, H);
-			sheet.addColorStop(0, bg);
-			sheet.addColorStop(1, bgDeep);
-			ctx.fillStyle = sheet;
+			ctx.fillStyle = sheetGradient ?? bg;
 			ctx.fillRect(0, 0, W, H);
 
 			// Gentle blue ink wash that breathes in behind the mark.
@@ -330,20 +358,15 @@
 			}
 
 			// 6. Paper vignette — soft warm edges darkening toward the corners.
-			const vig = ctx.createRadialGradient(cx, cy, H * 0.25, cx, cy, Math.max(W, H) * 0.78);
-			vig.addColorStop(0, 'rgba(40,46,70,0)');
-			vig.addColorStop(1, 'rgba(40,46,70,0.14)');
-			ctx.fillStyle = vig;
+			ctx.fillStyle = vignetteGradient ?? 'rgba(40,46,70,0.14)';
 			ctx.fillRect(0, 0, W, H);
 
 			// 7. Paper-fiber grain — multiplied so it darkens like real stock.
 			if (grain) {
 				ctx.globalAlpha = 0.05;
 				ctx.globalCompositeOperation = 'multiply';
-				const ox = (Math.random() * 160) | 0;
-				const oy = (Math.random() * 160) | 0;
-				for (let x = -ox; x < W; x += 160) {
-					for (let y = -oy; y < H; y += 160) {
+				for (let x = -grainOffsetX; x < W; x += 160) {
+					for (let y = -grainOffsetY; y < H; y += 160) {
 						ctx.drawImage(grain, x, y);
 					}
 				}
@@ -443,7 +466,8 @@
 	.frame {
 		position: absolute;
 		inset: 26px;
-		border: 1px solid color-mix(in srgb, var(--hero-composer-glow-color, #72c0ff) 38%, transparent);
+		border: 1px solid
+			color-mix(in srgb, var(--hero-composer-glow-color, #72c0ff) 38%, transparent);
 		border-radius: 4px;
 		pointer-events: none;
 		opacity: 0;
@@ -454,7 +478,8 @@
 		content: '';
 		position: absolute;
 		inset: 5px;
-		border: 1px solid color-mix(in srgb, var(--hero-composer-glow-color, #72c0ff) 18%, transparent);
+		border: 1px solid
+			color-mix(in srgb, var(--hero-composer-glow-color, #72c0ff) 18%, transparent);
 		border-radius: 2px;
 	}
 
@@ -540,7 +565,11 @@
 		font-style: italic;
 		font-size: clamp(13px, 1.7vw, 17px);
 		letter-spacing: 0.04em;
-		color: color-mix(in srgb, var(--hero-composer-glow-color, #72c0ff) 42%, var(--intro-ink, #383a42));
+		color: color-mix(
+			in srgb,
+			var(--hero-composer-glow-color, #72c0ff) 42%,
+			var(--intro-ink, #383a42)
+		);
 		opacity: 0;
 		transform: translateY(8px);
 		transition:
@@ -561,7 +590,11 @@
 		z-index: 3;
 		border: 0;
 		background: transparent;
-		color: color-mix(in srgb, var(--hero-composer-glow-color, #72c0ff) 35%, var(--intro-ink, #383a42));
+		color: color-mix(
+			in srgb,
+			var(--hero-composer-glow-color, #72c0ff) 35%,
+			var(--intro-ink, #383a42)
+		);
 		font-size: 11px;
 		letter-spacing: 0.16em;
 		text-transform: uppercase;
