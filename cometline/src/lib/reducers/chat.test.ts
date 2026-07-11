@@ -395,4 +395,24 @@ describe('reduceChatState', () => {
 		expect(card.status).toBe('incomplete');
 		expect(card.summary).toContain('Partial progress from tool calls');
 	});
+
+	it('removes partial stream output before a recovered attempt continues', () => {
+		let state = initChatState();
+		state = reduceChatState(state, { type: 'text_delta', delta: 'stable' });
+		state = reduceChatState(state, { type: 'reasoning_start' });
+		state = reduceChatState(state, { type: 'reasoning_delta', text: 'partial thought' });
+		state = reduceChatState(state, { type: 'text_delta', delta: ' partial answer' });
+		state = reduceChatState(state, {
+			type: 'turn_recover',
+			text_chars: ' partial answer'.length,
+			reasoning_chars: 'partial thought'.length
+		});
+		state = reduceChatState(state, { type: 'text_delta', delta: ' recovered answer' });
+
+		const assistant = state.items.find((item) => item.type === 'assistant');
+		expect(assistant?.type).toBe('assistant');
+		if (assistant?.type !== 'assistant') return;
+		expect(assistant.text).toBe('stable recovered answer');
+		expect(assistant.reasoning?.segments.at(-1)?.text).toBe('');
+	});
 });

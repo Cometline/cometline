@@ -326,6 +326,29 @@ function applyEvent(
 		return;
 	}
 
+	if (event.type === 'turn_recover') {
+		if (assistant.current) {
+			const host = assistant.current;
+			const text = event.text_chars > 0 ? host.text.slice(0, -event.text_chars) : host.text;
+			let next = { ...host, text };
+			if (event.reasoning_chars > 0) {
+				const segments = ensureReasoningSegments(next);
+				if (segments.length > 0) {
+					const last = segments.length - 1;
+					segments[last] = {
+						...segments[last],
+						text: segments[last].text.slice(0, -event.reasoning_chars),
+						pending: false
+					};
+					next = withReasoningSegments(next, segments);
+				}
+			}
+			publishAssistant(next);
+		}
+		reasoning.current = null;
+		return;
+	}
+
 	if (event.type === 'reasoning_start') {
 		reasoning.current = { text: '', pending: true };
 		let host = ensureReasoningHost();

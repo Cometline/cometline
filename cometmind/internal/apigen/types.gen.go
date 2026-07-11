@@ -1106,6 +1106,13 @@ type TranscriptResponse struct {
 	SessionId string           `json:"session_id"`
 }
 
+// TurnRecoverEvent defines model for TurnRecoverEvent.
+type TurnRecoverEvent struct {
+	ReasoningChars int    `json:"reasoning_chars"`
+	TextChars      int    `json:"text_chars"`
+	Type           string `json:"type"`
+}
+
 // TurnStatusEvent defines model for TurnStatusEvent.
 type TurnStatusEvent struct {
 	Message *string              `json:"message,omitempty"`
@@ -1751,6 +1758,34 @@ func (t *StreamEvent) MergeTurnStatusEvent(v TurnStatusEvent) error {
 	return err
 }
 
+// AsTurnRecoverEvent returns the union data inside the StreamEvent as a TurnRecoverEvent
+func (t StreamEvent) AsTurnRecoverEvent() (TurnRecoverEvent, error) {
+	var body TurnRecoverEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTurnRecoverEvent overwrites any union data inside the StreamEvent as the provided TurnRecoverEvent
+func (t *StreamEvent) FromTurnRecoverEvent(v TurnRecoverEvent) error {
+	v.Type = "turn_recover"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTurnRecoverEvent performs a merge with any union data inside the StreamEvent, using the provided TurnRecoverEvent
+func (t *StreamEvent) MergeTurnRecoverEvent(v TurnRecoverEvent) error {
+	v.Type = "turn_recover"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 // AsErrorEvent returns the union data inside the StreamEvent as a ErrorEvent
 func (t StreamEvent) AsErrorEvent() (ErrorEvent, error) {
 	var body ErrorEvent
@@ -1847,6 +1882,8 @@ func (t StreamEvent) ValueByDiscriminator() (interface{}, error) {
 		return t.AsToolCallEvent()
 	case "tool_result":
 		return t.AsToolResultEvent()
+	case "turn_recover":
+		return t.AsTurnRecoverEvent()
 	case "turn_status":
 		return t.AsTurnStatusEvent()
 	default:

@@ -24,6 +24,7 @@ const (
 	KindMemoryInjected   Kind = "memory_injected"
 	KindMemoryUpdated    Kind = "memory_updated"
 	KindTurnStatus       Kind = "turn_status"
+	KindTurnRecover      Kind = "turn_recover"
 	KindError            Kind = "error"
 	KindDone             Kind = "done"
 )
@@ -100,6 +101,9 @@ type Event struct {
 	// turn_status
 	Phase         TurnPhase
 	StatusMessage string
+	// turn_recover
+	TextChars      int
+	ReasoningChars int
 	// error
 	Message string
 	Code    string
@@ -187,6 +191,12 @@ func (e Event) MarshalJSON() ([]byte, error) {
 			out.Message = e.StatusMessage
 		}
 		return json.Marshal(out)
+	case KindTurnRecover:
+		return json.Marshal(struct {
+			Type           string `json:"type"`
+			TextChars      int    `json:"text_chars"`
+			ReasoningChars int    `json:"reasoning_chars"`
+		}{t, e.TextChars, e.ReasoningChars})
 	case KindError:
 		return json.Marshal(struct {
 			Type    string `json:"type"`
@@ -270,6 +280,12 @@ func MemoryUpdated(changes []MemoryChangeWire) Event {
 // TurnStatus builds a turn_status event for pre-stream activity feedback.
 func TurnStatus(phase TurnPhase, message string) Event {
 	return Event{Kind: KindTurnStatus, Phase: phase, StatusMessage: message}
+}
+
+// TurnRecover tells clients to discard partial rendering from a failed stream
+// attempt before the same logical assistant step is retried.
+func TurnRecover(textChars, reasoningChars int) Event {
+	return Event{Kind: KindTurnRecover, TextChars: textChars, ReasoningChars: reasoningChars}
 }
 
 // SubagentFinished builds a subagent_finished event.

@@ -73,6 +73,16 @@ export function createChatTurnQueue(
 		}
 	}
 
+	async function runTurnSafely(payload: ChatTurnPayload): Promise<void> {
+		try {
+			await runTurnTracked(payload);
+		} catch {
+			// A failed turn must not strand later user messages in the queue. The
+			// turn owner is responsible for rendering its error; the queue only
+			// guarantees FIFO progress for the remaining submissions.
+		}
+	}
+
 	async function runLoop(initialPayload?: ChatTurnPayload): Promise<boolean> {
 		if (processing) {
 			if (initialPayload !== undefined) return queueTurn(initialPayload);
@@ -83,12 +93,12 @@ export function createChatTurnQueue(
 		notifyChange();
 		try {
 			if (initialPayload !== undefined) {
-				await runTurnTracked(initialPayload);
+				await runTurnSafely(initialPayload);
 			}
 			while (queue.length > 0) {
 				const { text, displayText, images, filePaths, webContexts } = queue.shift()!;
 				notifyChange();
-				await runTurnTracked({ text, displayText, images, filePaths, webContexts });
+				await runTurnSafely({ text, displayText, images, filePaths, webContexts });
 			}
 		} finally {
 			activeTurnSignature = null;

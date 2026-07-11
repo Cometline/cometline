@@ -509,6 +509,9 @@ function createChatStore() {
 		ctx: StreamCtx,
 		outcome: 'success' | 'abort' | 'error'
 	) {
+		// A user-initiated stop is a successful control action. The done reducer
+		// has already settled or removed the pending assistant placeholder.
+		if (outcome === 'abort') return;
 		const sessionItems = getCachedItems(targetSessionID);
 		if (turnHasVisibleContent(sessionItems, ctx.assistant.current)) {
 			return;
@@ -517,11 +520,9 @@ function createChatStore() {
 			return;
 		}
 		const message =
-			outcome === 'abort'
-				? 'Response interrupted. Send the message again to continue.'
-				: outcome === 'error'
-					? 'The request failed before a reply was ready. Try again.'
-					: 'The model finished without a visible reply. Try again, or switch to a stronger model.';
+			outcome === 'error'
+				? 'The request failed before a reply was ready. Try again.'
+				: 'The model finished without a visible reply. Try again, or switch to a stronger model.';
 		applyEventToSession(
 			targetSessionID,
 			{

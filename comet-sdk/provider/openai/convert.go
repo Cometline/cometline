@@ -28,7 +28,7 @@ type streamOptions struct {
 
 type openAIMessage struct {
 	Role       string           `json:"role"`
-	Content    any              `json:"content"`                     // string | []openAIContentPart | null
+	Content    any              `json:"content"`                     // string | []openAIContentPart
 	Reasoning  any              `json:"reasoning_content,omitempty"` // string | []openAIContentPart
 	ToolCalls  []openAIToolCall `json:"tool_calls,omitempty"`
 	ToolCallID string           `json:"tool_call_id,omitempty"`
@@ -191,9 +191,10 @@ func convertMessage(m cometsdk.Message, disableImageContent bool) ([]openAIMessa
 			msg.Content = textParts[0].Text
 		} else if len(textParts) > 1 {
 			msg.Content = textParts
-		} else if len(textParts) == 0 && len(toolCalls) > 0 {
-			// content: null for tool-call-only responses (OpenAI gateway requires this)
-			msg.Content = nil
+		} else {
+			// OpenAI itself accepts null here, but a number of OpenAI-compatible
+			// gateways reject it. Keep every assistant replay structurally valid.
+			msg.Content = ""
 		}
 		msg.ToolCalls = toolCalls
 

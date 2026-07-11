@@ -89,6 +89,31 @@ describe('createChatTurnQueue', () => {
 		expect(queue.processing).toBe(false);
 	});
 
+	it('keeps draining queued messages after the active turn fails', async () => {
+		const order: string[] = [];
+		let rejectFirst: ((error: Error) => void) | undefined;
+		const firstGate = new Promise<void>((_, reject) => {
+			rejectFirst = reject;
+		});
+		const runTurn = vi.fn().mockImplementation(async (payload: ChatTurnPayload) => {
+			order.push(`start:${payload.text}`);
+			if (payload.text === 'first') await firstGate;
+			order.push(`end:${payload.text}`);
+		});
+		const queue = createChatTurnQueue(runTurn);
+
+		const first = queue.enqueue('first');
+		const second = queue.enqueue('second');
+		await vi.waitFor(() => expect(queue.pendingMessages.map((item) => item.text)).toEqual(['second']));
+
+		rejectFirst!(new Error('provider failed'));
+		await Promise.all([first, second]);
+
+		expect(order).toEqual(['start:first', 'start:second', 'end:second']);
+		expect(queue.pendingCount).toBe(0);
+		expect(queue.processing).toBe(false);
+	});
+
 	it('clear drops pending turns but does not interrupt the active turn', async () => {
 		let releaseFirst: (() => void) | undefined;
 		const firstGate = new Promise<void>((resolve) => {

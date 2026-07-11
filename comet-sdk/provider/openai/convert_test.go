@@ -124,7 +124,7 @@ func TestConvertRequest_UserImageBlockDowngradedWhenDisabled(t *testing.T) {
 	require.NotContains(t, string(data), "image_url")
 }
 
-func TestConvertRequest_AssistantToolCallsOnlyUsesNullContent(t *testing.T) {
+func TestConvertRequest_AssistantToolCallsOnlyUsesEmptyStringContent(t *testing.T) {
 	req := &cometsdk.Request{
 		Model: "gpt-4o",
 		Messages: []cometsdk.Message{
@@ -154,7 +154,7 @@ func TestConvertRequest_AssistantToolCallsOnlyUsesNullContent(t *testing.T) {
 	msg, ok := msgs[0].(map[string]any)
 	require.True(t, ok)
 	require.Contains(t, msg, "content")
-	require.Nil(t, msg["content"])
+	require.Equal(t, "", msg["content"])
 
 	toolCalls, ok := msg["tool_calls"].([]any)
 	require.True(t, ok)
@@ -164,6 +164,44 @@ func TestConvertRequest_AssistantToolCallsOnlyUsesNullContent(t *testing.T) {
 	function, ok := toolCall["function"].(map[string]any)
 	require.True(t, ok)
 	require.Equal(t, `{"path":"."}`, function["arguments"])
+}
+
+func TestConvertRequest_AssistantReasoningOnlyUsesEmptyStringContent(t *testing.T) {
+	req := &cometsdk.Request{
+		Model: "gpt-4o",
+		Messages: []cometsdk.Message{{
+			Role: cometsdk.RoleAssistant,
+			ReasoningContent: []cometsdk.Block{
+				cometsdk.ReasoningBlock{Text: "thinking"},
+			},
+		}},
+	}
+
+	data, err := toOpenAIRequest(req, false, true, false)
+	require.NoError(t, err)
+	var out map[string]any
+	require.NoError(t, json.Unmarshal(data, &out))
+	msg := out["messages"].([]any)[0].(map[string]any)
+	require.Equal(t, "", msg["content"])
+	require.Equal(t, "thinking", msg["reasoning_content"])
+}
+
+func TestConvertRequest_AssistantTextUsesStringContent(t *testing.T) {
+	req := &cometsdk.Request{
+		Model: "gpt-4o",
+		Messages: []cometsdk.Message{{
+			Role:    cometsdk.RoleAssistant,
+			Content: []cometsdk.Block{cometsdk.TextBlock{Text: "answer"}},
+		}},
+	}
+
+	data, err := toOpenAIRequest(req, false, true, false)
+	require.NoError(t, err)
+	var out map[string]any
+	require.NoError(t, json.Unmarshal(data, &out))
+	msg := out["messages"].([]any)[0].(map[string]any)
+	require.Equal(t, "answer", msg["content"])
+	require.NotContains(t, string(data), `"content":null`)
 }
 
 func TestConvertRequest_StreamOptionsIncludeUsage(t *testing.T) {

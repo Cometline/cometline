@@ -493,6 +493,12 @@ export type TurnStatusEvent = {
     message?: string;
 };
 
+export type TurnRecoverEvent = {
+    type: 'turn_recover';
+    text_chars: number;
+    reasoning_chars: number;
+};
+
 export type StreamEvent = ({
     type?: 'text_delta';
 } & TextDeltaEvent) | ({
@@ -518,6 +524,8 @@ export type StreamEvent = ({
 } & MemoryUpdatedEvent) | ({
     type?: 'turn_status';
 } & TurnStatusEvent) | ({
+    type?: 'turn_recover';
+} & TurnRecoverEvent) | ({
     type?: 'error';
 } & ErrorEvent) | ({
     type?: 'done';

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode/utf16"
 
 	cometsdk "github.com/cometline/comet-sdk"
 	"github.com/cometline/comet-sdk/llm"
@@ -238,76 +239,71 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 
 		emitStatus(event.PhaseContactingModel)
 		req := BuildRequest(turn.ModelID, system, msgs, r.Registry.CometSDK(), r.MaxTokens)
-		streamStarted := time.Now()
-		logging.L().Info("llm.stream.start", "session", turn.ID, "step", steps+1, "model", turn.ModelID, "messages", len(req.Messages), "tools", len(req.Tools), "system_bytes", len(req.System), "max_tokens", req.MaxTokens)
-		stream := llm.StreamMessage(ctx, r.Provider, req)
-		logging.L().Info("llm.stream.opened", "session", turn.ID, "step", steps+1, "duration_ms", time.Since(streamStarted).Milliseconds())
-		emitStatus(event.PhaseComposingResponse)
+		toolOutputBytes := toolResultBytes(req.Messages)
+		var result *llm.GenerateMessageResult
+		recoveryAttempt := 0
+		for {
+			streamStarted := time.Now()
+			logging.L().Info("llm.stream.start", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", steps+1, "messages", len(req.Messages), "tools", len(req.Tools), "tool_output_bytes", toolOutputBytes, "recovery_attempt", recoveryAttempt, "system_bytes", len(req.System), "max_tokens", req.MaxTokens)
+			stream := llm.StreamMessage(ctx, r.Provider, req)
+			logging.L().Info("llm.stream.opened", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", steps+1, "recovery_attempt", recoveryAttempt, "duration_ms", time.Since(streamStarted).Milliseconds())
+			emitStatus(event.PhaseComposingResponse)
 
-		firstEventLogged := false
-		firstOutputLogged := false
-		eventCount := 0
-		for ev := range stream.Events() {
-			eventCount++
-			if !firstEventLogged {
-				firstEventLogged = true
-				logging.L().Info("llm.stream.first_event", "session", turn.ID, "step", steps+1, "event_type", fmt.Sprintf("%T", ev), "duration_ms", time.Since(streamStarted).Milliseconds())
-			}
-			switch e := ev.(type) {
-			case cometsdk.TextDeltaEvent:
-				if !firstOutputLogged {
-					firstOutputLogged = true
-					logging.L().Info("llm.stream.first_output", "session", turn.ID, "step", steps+1, "event_type", fmt.Sprintf("%T", ev), "duration_ms", time.Since(streamStarted).Milliseconds())
+			firstEventLogged := false
+			firstOutputLogged := false
+			completeToolCall := false
+			eventCount := 0
+			for ev := range stream.Events() {
+				eventCount++
+				if !firstEventLogged {
+					firstEventLogged = true
+					logging.L().Info("llm.stream.first_event", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", steps+1, "recovery_attempt", recoveryAttempt, "event_type", fmt.Sprintf("%T", ev), "duration_ms", time.Since(streamStarted).Milliseconds())
 				}
-				ch <- event.TextDelta(e.Text)
-			case cometsdk.ReasoningStartEvent:
-				ch <- event.ReasoningStart()
-			case cometsdk.ReasoningContentEvent:
-				if !firstOutputLogged {
+				switch e := ev.(type) {
+				case cometsdk.TextDeltaEvent:
 					firstOutputLogged = true
-					logging.L().Info("llm.stream.first_output", "session", turn.ID, "step", steps+1, "event_type", fmt.Sprintf("%T", ev), "duration_ms", time.Since(streamStarted).Milliseconds())
-				}
-				ch <- event.ReasoningDelta(e.Text)
-			case cometsdk.ToolCallDoneEvent:
-				if !firstOutputLogged {
+					ch <- event.TextDelta(e.Text)
+				case cometsdk.ReasoningStartEvent:
+					ch <- event.ReasoningStart()
+				case cometsdk.ReasoningContentEvent:
 					firstOutputLogged = true
-					logging.L().Info("llm.stream.first_output", "session", turn.ID, "step", steps+1, "event_type", fmt.Sprintf("%T", ev), "duration_ms", time.Since(streamStarted).Milliseconds())
-				}
-				ch <- event.ToolCall(e.ID, e.Name, []byte(e.Input))
-			case cometsdk.StepFinishEvent:
-				ch <- event.StepFinish(e.Usage)
-			}
-		}
-		logging.L().Info("llm.stream.events_closed", "session", turn.ID, "step", steps+1, "events", eventCount, "saw_first_output", firstOutputLogged, "duration_ms", time.Since(streamStarted).Milliseconds())
-
-		result, err := stream.Result()
-		if err != nil {
-			if result != nil {
-				// MessageStream retains output received before a mid-stream
-				// failure. Persist that output before surfacing the error so a
-				// reconnect or transcript reload does not erase the partial reply.
-				partialText := strings.TrimSpace(assistantPlainText(result.Message))
-				if partialText != "" || len(result.Message.ReasoningContent) > 0 {
-					persistCtx, persistCancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
-					_, _, persistErr := r.Sessions.AppendAssistantStep(
-						persistCtx,
-						turn.ID,
-						partialText,
-						result.Message.ReasoningContent,
-						nil,
-						pendingMemories,
-					)
-					persistCancel()
-					if persistErr != nil {
-						logging.L().Warn("agent.partial_persist_failed", "session", turn.ID, "error", persistErr)
-					}
+					ch <- event.ReasoningDelta(e.Text)
+				case cometsdk.ToolCallDoneEvent:
+					firstOutputLogged = true
+					completeToolCall = true
+					ch <- event.ToolCall(e.ID, e.Name, []byte(e.Input))
+				case cometsdk.StepFinishEvent:
+					ch <- event.StepFinish(e.Usage)
 				}
 			}
-			logging.L().Error("agent.step.failed", "session", turn.ID, "step", steps+1, "events", eventCount, "saw_first_event", firstEventLogged, "saw_first_output", firstOutputLogged, "duration_ms", time.Since(streamStarted).Milliseconds(), "error", err)
+			result, err = stream.Result()
+			failureCategory := classifyStreamFailure(err)
+			logging.L().Info("llm.stream.events_closed", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", steps+1, "events", eventCount, "first_event", firstEventLogged, "first_output", firstOutputLogged, "complete_tool_call", completeToolCall, "failure_category", failureCategory, "recovery_attempt", recoveryAttempt, "duration_ms", time.Since(streamStarted).Milliseconds())
+			if err == nil {
+				break
+			}
+			// A cancelled runner context is the explicit /stop path (or a client
+			// disconnect). It is normal control flow, not a provider failure:
+			// retain any visible partial output, close with done, and do not add an
+			// error transcript row or SSE error card.
+			if errors.Is(err, context.Canceled) && errors.Is(ctx.Err(), context.Canceled) {
+				persistPartialStep(ctx, r.Sessions, turn.ID, result, pendingMemories)
+				logging.L().Info("agent.step.stopped", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", steps+1, "duration_ms", time.Since(streamStarted).Milliseconds())
+				return nil
+			}
+			if recoveryAttempt == 0 && recoverableStreamFailure(err) && !completeToolCall {
+				textChars, reasoningChars := partialRenderLengths(result)
+				recoveryAttempt++
+				logging.L().Warn("agent.step.recover", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", steps+1, "failure_category", failureCategory, "recovery_attempt", recoveryAttempt, "text_chars", textChars, "reasoning_chars", reasoningChars)
+				ch <- event.TurnRecover(textChars, reasoningChars)
+				continue
+			}
+			persistPartialStep(ctx, r.Sessions, turn.ID, result, pendingMemories)
+			logging.L().Error("agent.step.failed", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", steps+1, "events", eventCount, "first_event", firstEventLogged, "first_output", firstOutputLogged, "complete_tool_call", completeToolCall, "failure_category", failureCategory, "recovery_attempt", recoveryAttempt, "duration_ms", time.Since(streamStarted).Milliseconds(), "error", err)
 			ch <- event.Errorf(userFacingAgentError(err), "llm")
 			return err
 		}
-		logging.L().Info("agent.step.finish", "session", turn.ID, "step", steps+1, "finish_reason", string(result.FinishReason), "tool_calls", len(result.ToolCalls), "input_tokens", result.Usage.InputTokens, "output_tokens", result.Usage.OutputTokens, "events", eventCount, "duration_ms", time.Since(streamStarted).Milliseconds())
+		logging.L().Info("agent.step.finish", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", steps+1, "finish_reason", string(result.FinishReason), "tool_calls", len(result.ToolCalls), "input_tokens", result.Usage.InputTokens, "output_tokens", result.Usage.OutputTokens, "recovery_attempt", recoveryAttempt)
 
 		if err := r.Sessions.SaveTokenUsage(ctx, turn.ID, result.Usage); err != nil {
 			ch <- event.Errorf(err.Error(), "db")
@@ -593,6 +589,49 @@ func assistantPlainText(m cometsdk.Message) string {
 		}
 	}
 	return b.String()
+}
+
+func toolResultBytes(messages []cometsdk.Message) int {
+	total := 0
+	for _, m := range messages {
+		for _, block := range m.Content {
+			if result, ok := block.(cometsdk.ToolResultBlock); ok {
+				total += len(result.Content)
+			}
+		}
+	}
+	return total
+}
+
+func partialRenderLengths(result *llm.GenerateMessageResult) (textChars, reasoningChars int) {
+	if result == nil {
+		return 0, 0
+	}
+	textChars = len(utf16.Encode([]rune(assistantPlainText(result.Message))))
+	for _, block := range result.Message.ReasoningContent {
+		switch value := block.(type) {
+		case cometsdk.ReasoningBlock:
+			reasoningChars += len(utf16.Encode([]rune(value.Text)))
+		case cometsdk.TextBlock:
+			reasoningChars += len(utf16.Encode([]rune(value.Text)))
+		}
+	}
+	return textChars, reasoningChars
+}
+
+func persistPartialStep(ctx context.Context, store TurnStore, sessionID string, result *llm.GenerateMessageResult, memories []session.InjectedMemory) {
+	if result == nil {
+		return
+	}
+	partialText := strings.TrimSpace(assistantPlainText(result.Message))
+	if partialText == "" && len(result.Message.ReasoningContent) == 0 {
+		return
+	}
+	persistCtx, persistCancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+	defer persistCancel()
+	if _, _, err := store.AppendAssistantStep(persistCtx, sessionID, partialText, result.Message.ReasoningContent, nil, memories); err != nil {
+		logging.L().Warn("agent.partial_persist_failed", "session", sessionID, "error", err)
+	}
 }
 
 // userFacingAgentError maps provider/runtime errors into short messages safe

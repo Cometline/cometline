@@ -285,7 +285,7 @@ Localhost-only HTTP + SSE, versioned under `/api/v1` (default `http://127.0.0.1:
 
 ### SSE event names
 
-`text_delta`, `reasoning_start`, `reasoning_delta`, `tool_call`, `tool_result`, `step_finish`, `subagent_started`, `subagent_progress`, `subagent_finished`, `memory_injected`, `memory_updated`, `turn_status`, `error`, `done`
+`text_delta`, `reasoning_start`, `reasoning_delta`, `tool_call`, `tool_result`, `step_finish`, `subagent_started`, `subagent_progress`, `subagent_finished`, `memory_injected`, `memory_updated`, `turn_status`, `turn_recover`, `error`, `done`
 
 Only one run is allowed per session at a time (`409 session_running` on duplicate POST).
 

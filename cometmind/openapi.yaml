@@ -2694,6 +2694,21 @@ components:
         message:
           type: string
 
+    TurnRecoverEvent:
+      type: object
+      additionalProperties: false
+      required: [type, text_chars, reasoning_chars]
+      properties:
+        type:
+          type: string
+          const: turn_recover
+        text_chars:
+          type: integer
+          minimum: 0
+        reasoning_chars:
+          type: integer
+          minimum: 0
+
     StreamEvent:
       oneOf:
         - $ref: '#/components/schemas/TextDeltaEvent'
@@ -2708,6 +2723,7 @@ components:
         - $ref: '#/components/schemas/MemoryInjectedEvent'
         - $ref: '#/components/schemas/MemoryUpdatedEvent'
         - $ref: '#/components/schemas/TurnStatusEvent'
+        - $ref: '#/components/schemas/TurnRecoverEvent'
         - $ref: '#/components/schemas/ErrorEvent'
         - $ref: '#/components/schemas/DoneEvent'
       discriminator:
@@ -2725,6 +2741,7 @@ components:
           memory_injected: '#/components/schemas/MemoryInjectedEvent'
           memory_updated: '#/components/schemas/MemoryUpdatedEvent'
           turn_status: '#/components/schemas/TurnStatusEvent'
+          turn_recover: '#/components/schemas/TurnRecoverEvent'
           error: '#/components/schemas/ErrorEvent'
           done: '#/components/schemas/DoneEvent'
 
