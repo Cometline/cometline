@@ -87,6 +87,9 @@ const CODEX_AUTH_CALLBACK_PATH = '/auth/callback';
 const CODEX_AUTH_TIMEOUT_MS = 5 * 60 * 1000;
 const MCP_OAUTH_CALLBACK_PORT = 1456;
 const MCP_OAUTH_CALLBACK_PATH = '/mcp/oauth/callback';
+const BROWSER_SEARCH_MAX_QUERY = 500;
+const BROWSER_SEARCH_MAX_LIMIT = 10;
+const BROWSER_SEARCH_TIMEOUT_MS = 25_000;
 
 function rotateLogIfNeeded(logPath) {
 	try {
@@ -168,6 +171,11 @@ let updateCheckTimer = null;
 let windowButtonAnimationTimer = null;
 let windowButtonPosition = { x: 16, y: 17 };
 let registeredMiniWindowShortcut = '';
+let browserSearchServer = null;
+let browserSearchWindow = null;
+let browserSearchEndpoint = '';
+let browserSearchToken = '';
+let browserSearchQueue = Promise.resolve();
 // Swallow macOS activate that often fires right after hide()-ing the last
 // focused auxiliary window (mini / settings), which would otherwise force the
 // main window to pop open via showMainWindow().
@@ -301,6 +309,212 @@ function resolveCometMindBinary() {
 	const devCandidate = path.join(__dirname, '..', '..', 'cometmind', 'dist', 'cometmind');
 	if (fs.existsSync(devCandidate)) return devCandidate;
 	return path.join(__dirname, '..', '..', 'cometmind', 'cometmind');
+}
+
+function browserSearchJson(res, status, payload) {
+	res.statusCode = status;
+	res.setHeader('Content-Type', 'application/json; charset=utf-8');
+	res.setHeader('Cache-Control', 'no-store');
+	res.end(JSON.stringify(payload));
+}
+
+function readBrowserSearchBody(req) {
+	return new Promise((resolve, reject) => {
+		let body = '';
+		req.setEncoding('utf8');
+		req.on('data', (chunk) => {
+			body += chunk;
+			if (body.length > 64 * 1024) {
+				req.destroy();
+				reject(new Error('request body too large'));
+			}
+		});
+		req.once('end', () => resolve(body));
+		req.once('error', reject);
+	});
+}
+
+function validBrowserSearchToken(value) {
+	return typeof value === 'string' && value.length > 0 && value === browserSearchToken;
+}
+
+function enqueueBrowserSearch(task) {
+	const run = browserSearchQueue.then(task, task);
+	browserSearchQueue = run.catch(() => undefined);
+	return run;
+}
+
+async function searchWithHiddenBrowser({ query, limit, recency }) {
+	return enqueueBrowserSearch(async () => {
+		if (!browserSearchWindow || browserSearchWindow.isDestroyed()) {
+			browserSearchWindow = new BrowserWindow({
+				width: 1280,
+				height: 900,
+				show: false,
+				offscreen: true,
+				webPreferences: {
+					contextIsolation: true,
+					nodeIntegration: false,
+					sandbox: true,
+					partition: 'cometline-web-search'
+				}
+			});
+			browserSearchWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+			browserSearchWindow.on('closed', () => {
+				browserSearchWindow = null;
+			});
+		}
+
+		const dateFilter = {
+			day: 'd',
+			d: 'd',
+			week: 'w',
+			w: 'w',
+			month: 'm',
+			m: 'm',
+			year: 'y',
+			y: 'y'
+		}[String(recency || '').toLowerCase()];
+		const searchParams = new URLSearchParams({
+			q: query,
+			hl: 'en',
+			num: String(Math.min(20, Math.max(limit * 2, 10)))
+		});
+		if (dateFilter) searchParams.set('tbs', `qdr:${dateFilter}`);
+		const target = `https://www.google.com/search?${searchParams.toString()}`;
+		await Promise.race([
+			browserSearchWindow.loadURL(target, {
+				extraHeaders: 'Accept-Language: en-US,en;q=0.8\\r\\n'
+			}),
+			new Promise((_, reject) =>
+				setTimeout(
+					() => reject(new Error('browser search timed out')),
+					BROWSER_SEARCH_TIMEOUT_MS
+				)
+			)
+		]);
+
+		const result = await browserSearchWindow.webContents.executeJavaScript(
+			`(() => {
+				const limit = ${JSON.stringify(limit)};
+				const normalize = (raw) => {
+					try {
+						const parsed = new URL(raw, location.href);
+						if (parsed.hostname === location.hostname && parsed.pathname === '/url') {
+							const redirected = parsed.searchParams.get('q') || parsed.searchParams.get('url');
+							if (redirected) return new URL(redirected, location.href).href;
+						}
+						return parsed.href;
+					} catch {
+						return '';
+					}
+				};
+				const bodyText = document.body?.innerText || '';
+				const blocked =
+					location.hostname === 'consent.google.com' ||
+					/Before you continue to Google|unusual traffic|not a robot/i.test(bodyText);
+				const seen = new Set();
+				const results = [...document.querySelectorAll('a')]
+					.map((anchor) => {
+						const heading = anchor.querySelector('h3');
+						if (!heading) return null;
+						const card =
+							anchor.closest('div.MjjYud') ||
+							anchor.closest('div.g') ||
+							anchor.parentElement;
+						const url = normalize(anchor.href);
+						let source = '';
+						try { source = new URL(url).hostname.replace(/^www\\./, ''); } catch { /* ignore */ }
+						return {
+							title: (heading.innerText || heading.textContent || '').trim(),
+							url,
+							snippet: (card?.querySelector('.VwiC3b, .yXK7lf, [data-sncf], .kb0PBd')?.innerText || '').trim(),
+							source
+						};
+					})
+					.filter((item) => {
+						if (!item?.title || !item.url || seen.has(item.url)) return false;
+						try {
+							if (!/^https?:$/.test(new URL(item.url).protocol)) return false;
+						} catch {
+							return false;
+						}
+						seen.add(item.url);
+						return true;
+					})
+					.slice(0, limit);
+				return { blocked, results };
+			})()`
+		);
+		if (result?.blocked && (!Array.isArray(result?.results) || result.results.length === 0)) {
+			throw new Error('Google Search requires consent or is temporarily unavailable');
+		}
+		return {
+			query,
+			backend: 'electron-chromium-google',
+			results: Array.isArray(result?.results) ? result.results : []
+		};
+	});
+}
+
+async function startBrowserSearchBridge() {
+	if (browserSearchServer) return;
+	browserSearchToken = crypto.randomBytes(32).toString('hex');
+	browserSearchServer = http.createServer(async (req, res) => {
+		if (req.method !== 'POST' || req.url !== '/search') {
+			browserSearchJson(res, 404, { error: 'not_found' });
+			return;
+		}
+		if (!validBrowserSearchToken(req.headers['x-cometline-browser-token'])) {
+			browserSearchJson(res, 401, { error: 'unauthorized' });
+			return;
+		}
+		try {
+			const raw = await readBrowserSearchBody(req);
+			const input = JSON.parse(raw);
+			const query = String(input?.query || '').trim();
+			const limit = Math.min(
+				BROWSER_SEARCH_MAX_LIMIT,
+				Math.max(1, Number.isFinite(Number(input?.limit)) ? Number(input.limit) : 5)
+			);
+			if (!query || query.length > BROWSER_SEARCH_MAX_QUERY) {
+				browserSearchJson(res, 400, { error: 'invalid_query' });
+				return;
+			}
+			const result = await searchWithHiddenBrowser({ query, limit, recency: input?.recency });
+			browserSearchJson(res, 200, result);
+		} catch (error) {
+			browserSearchJson(res, 502, {
+				error: error instanceof Error ? error.message : String(error)
+			});
+		}
+	});
+
+	await new Promise((resolve, reject) => {
+		browserSearchServer.once('error', reject);
+		browserSearchServer.listen(0, '127.0.0.1', () => {
+			const address = browserSearchServer.address();
+			if (!address || typeof address === 'string') {
+				reject(new Error('browser search bridge did not expose a TCP port'));
+				return;
+			}
+			browserSearchEndpoint = `http://127.0.0.1:${address.port}/search`;
+			resolve();
+		});
+	});
+}
+
+async function stopBrowserSearchBridge() {
+	if (browserSearchWindow && !browserSearchWindow.isDestroyed()) {
+		browserSearchWindow.destroy();
+	}
+	browserSearchWindow = null;
+	browserSearchEndpoint = '';
+	browserSearchToken = '';
+	if (!browserSearchServer) return;
+	const server = browserSearchServer;
+	browserSearchServer = null;
+	await new Promise((resolve) => server.close(() => resolve()));
 }
 
 function cometMindCliBinDirs() {
@@ -1369,6 +1583,10 @@ function providerEnv() {
 	};
 	if (active.baseURL) env.COMETMIND_BASE_URL = active.baseURL;
 	if (active.apiKey) env.COMETMIND_API_KEY = active.apiKey;
+	if (browserSearchEndpoint && browserSearchToken) {
+		env.COMETLINE_BROWSER_SEARCH_URL = browserSearchEndpoint;
+		env.COMETLINE_BROWSER_SEARCH_TOKEN = browserSearchToken;
+	}
 	return env;
 }
 
@@ -3072,6 +3290,11 @@ app.whenReady().then(async () => {
 	applyOpenAtLoginSetting(startupSettings.app?.openAtLogin);
 	configureApplicationMenu();
 	refreshGlobalShortcuts();
+	try {
+		await startBrowserSearchBridge();
+	} catch (error) {
+		console.error('Browser search bridge failed to start:', error);
+	}
 	startCometMind();
 	// Create the window immediately and let the sidecar warm up in parallel.
 	// The renderer shows its own connecting/loading state until the health
@@ -3127,6 +3350,7 @@ app.on('before-quit', async (event) => {
 		clearInterval(updateCheckTimer);
 		updateCheckTimer = null;
 	}
+	await stopBrowserSearchBridge();
 	await stopDiscordGateway();
 	await stopCometMind();
 	globalShortcut.unregisterAll();
