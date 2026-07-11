@@ -26,6 +26,7 @@ type Adapter struct {
 	onThread             func(context.Context, string, string, string) error
 	onChange             func(context.Context, gateway.InboundMessage, string) (string, error)
 	onClear              func(context.Context, gateway.InboundMessage) (string, error)
+	onStop               func(context.Context, gateway.InboundMessage) (string, error)
 	onSuggest            func(context.Context, string) ([]string, error)
 	onJobs               func(context.Context, gateway.InboundMessage, string) (string, string, error)
 	jobSuggest           func(context.Context, string) ([]jobs.Job, error)
@@ -102,6 +103,11 @@ func (a *Adapter) SetChangeWorkspaceHandler(fn func(context.Context, gateway.Inb
 // SetClearHandler registers the callback used for /clear slash commands.
 func (a *Adapter) SetClearHandler(fn func(context.Context, gateway.InboundMessage) (string, error)) {
 	a.onClear = fn
+}
+
+// SetStopHandler registers the callback used for /stop slash commands.
+func (a *Adapter) SetStopHandler(fn func(context.Context, gateway.InboundMessage) (string, error)) {
+	a.onStop = fn
 }
 
 // SetWorkspaceSuggestHandler registers autocomplete suggestions for /change path.
@@ -205,6 +211,10 @@ func applicationCommands() []*discordgo.ApplicationCommand {
 		{
 			Name:        "clear",
 			Description: "Clear this channel's CometMind conversation transcript",
+		},
+		{
+			Name:        "stop",
+			Description: "Stop the active CometMind turn in this channel",
 		},
 		{
 			Name:        "change",

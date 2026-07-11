@@ -47,6 +47,17 @@ func (m *TurnRunTracker) Start(parent context.Context, sessionID string) (contex
 	return ctx, finish, nil
 }
 
+// Stop cancels the active turn for sessionID and reports whether one existed.
+func (m *TurnRunTracker) Stop(sessionID string) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	handle, ok := m.cancels[sessionID]
+	if ok {
+		handle.cancel()
+	}
+	return ok
+}
+
 // Running reports whether a session has an in-flight gateway turn.
 func (m *TurnRunTracker) Running(sessionID string) bool {
 	m.mu.Lock()

@@ -179,6 +179,21 @@ func (a *Adapter) handleClearCommand(s *discordgo.Session, i *discordgo.Interact
 	respondEphemeral(s, i, text)
 }
 
+func (a *Adapter) handleStopCommand(s *discordgo.Session, i *discordgo.InteractionCreate, _ discordgo.ApplicationCommandInteractionData) {
+	if a.onStop == nil {
+		respondEphemeral(s, i, "Stopping turns is not configured.")
+		return
+	}
+
+	msg := routingInboundMessage(s, i)
+	text, err := a.onStop(context.Background(), msg)
+	if err != nil {
+		respondEphemeral(s, i, fmt.Sprintf("Failed to stop turn: %v", err))
+		return
+	}
+	respondEphemeral(s, i, text)
+}
+
 func (a *Adapter) handleJobsCommand(s *discordgo.Session, i *discordgo.InteractionCreate, data discordgo.ApplicationCommandInteractionData) {
 	jobID := ""
 	for _, opt := range data.Options {
