@@ -1,10 +1,11 @@
 <script lang="ts">
-	import { ArrowLeft, ArrowRight, RotateCcw, RotateCw, Save, X } from '@lucide/svelte';
+	import { ArrowLeft, ArrowRight, FileText, RotateCcw, RotateCw, Save, X } from '@lucide/svelte';
 	import { tick } from 'svelte';
 	import FilePreview from '$lib/components/FilePreview.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { isWebPanelUrl, normalizeUserUrl, openLink } from '$lib/open-link';
 	import { openExternalLink } from '$lib/external-link';
+	import { readWorkspaceFileContent } from '$lib/client/cometmind';
 	import { loadWebPanelFileOptions } from '$lib/workspace/web-panel-input-options';
 
 	type WebviewElement = HTMLElement & {
@@ -17,6 +18,7 @@
 		canGoForward(): boolean;
 		getURL(): string;
 		getTitle(): string;
+		executeJavaScript<T = unknown>(code: string, userGesture?: boolean): Promise<T>;
 	};
 
 	type FileEditorState = {
@@ -42,6 +44,10 @@
 	let addressEditing = $state(false);
 	let editorState = $state<FileEditorState | null>(null);
 	let displayedFilePath = $state<string | null>(null);
+	let capturingContext = $state(false);
+	let contextMessage = $state('');
+	let pageCaptureRun = 0;
+	let fileCaptureRun = 0;
 
 	const panelOpen = $derived(shellStore.webPanelOpen);
 	const panelMode = $derived(shellStore.webPanelMode);
@@ -113,6 +119,81 @@
 
 	function onReload() {
 		webviewEl?.reload();
+	}
+
+	async function capturePageContext({ announce = false } = {}) {
+		const el = webviewEl;
+		if (!el || panelMode !== 'url' || !panelUrl || capturingContext) return;
+		const captureRun = ++pageCaptureRun;
+		const capturedPanelUrl = panelUrl;
+		const capturedSessionKey = panelSessionKey;
+		capturingContext = true;
+		if (announce) contextMessage = '';
+		try {
+			const page = await el.executeJavaScript<{
+				title?: string;
+				url?: string;
+				content?: string;
+			}>(
+				`(() => ({
+					title: document.title || '',
+					url: location.href || '',
+					content: (document.body?.innerText || '').replace(/\\n{3,}/g, '\\n\\n').trim().slice(0, 50000)
+				}))()`,
+				true
+			);
+			const url = String(page?.url || el.getURL() || panelUrl).trim();
+			const content = String(page?.content || '').trim();
+			if (
+				captureRun !== pageCaptureRun ||
+				shellStore.webPanelUrl !== capturedPanelUrl ||
+				shellStore.webPanelSessionKey !== capturedSessionKey
+			)
+				return;
+			if (!url.startsWith('http://') && !url.startsWith('https://')) {
+				throw new Error('Only http(s) pages can be added to chat context.');
+			}
+			if (!content) {
+				throw new Error('This page has no readable text content.');
+			}
+			shellStore.addWebContextForActive({
+				kind: 'page',
+				title: String(page?.title || pageTitle || '').trim(),
+				source: url,
+				content
+			});
+			if (announce) contextMessage = 'Page context added to the next message.';
+		} catch (error) {
+			if (announce) {
+				contextMessage =
+					error instanceof Error ? error.message : 'Could not read this page.';
+			}
+		} finally {
+			capturingContext = false;
+		}
+	}
+
+	async function captureFileContext(workspacePath: string, filePath: string) {
+		const captureRun = ++fileCaptureRun;
+		const capturedSessionKey = panelSessionKey;
+		try {
+			const result = await readWorkspaceFileContent(workspacePath, filePath);
+			if (
+				captureRun !== fileCaptureRun ||
+				shellStore.webPanelFilePath !== filePath ||
+				shellStore.webPanelSessionKey !== capturedSessionKey
+			)
+				return;
+			if (result.kind !== 'text' || !result.content.trim()) return;
+			shellStore.addWebContextForActive({
+				kind: 'file',
+				title: filePath.split(/[/\\]/).pop() || filePath,
+				source: `workspace-file:${filePath}`,
+				content: result.content
+			});
+		} catch {
+			// FilePreview owns the visible error state; context capture is best effort.
+		}
 	}
 
 	function confirmDiscardIfDirty(): boolean {
@@ -243,12 +324,17 @@
 		const onNavigate = () => {
 			updateNavigationState();
 		};
+		const onInPageNavigate = () => {
+			updateNavigationState();
+			void capturePageContext();
+		};
 		const onStartLoading = () => {
 			loading = true;
 		};
 		const onStopLoading = () => {
 			loading = false;
 			updateNavigationState();
+			void capturePageContext();
 		};
 		const onTitleUpdated = (event: Event & { title?: string }) => {
 			pageTitle = event.title ?? '';
@@ -258,7 +344,7 @@
 		};
 
 		el.addEventListener('did-navigate', onNavigate);
-		el.addEventListener('did-navigate-in-page', onNavigate);
+		el.addEventListener('did-navigate-in-page', onInPageNavigate);
 		el.addEventListener('did-start-loading', onStartLoading);
 		el.addEventListener('did-stop-loading', onStopLoading);
 		el.addEventListener('page-title-updated', onTitleUpdated);
@@ -267,7 +353,7 @@
 
 		return () => {
 			el.removeEventListener('did-navigate', onNavigate);
-			el.removeEventListener('did-navigate-in-page', onNavigate);
+			el.removeEventListener('did-navigate-in-page', onInPageNavigate);
 			el.removeEventListener('did-start-loading', onStartLoading);
 			el.removeEventListener('did-stop-loading', onStopLoading);
 			el.removeEventListener('page-title-updated', onTitleUpdated);
@@ -313,6 +399,12 @@
 
 	$effect(() => {
 		const el = webviewEl;
+		if (!el) return;
+		return attachWebview(el);
+	});
+
+	$effect(() => {
+		const el = webviewEl;
 		const sessionKey = panelSessionKey;
 		const url = panelUrl;
 		const open = panelOpen;
@@ -325,12 +417,6 @@
 				addressInput = url;
 			}
 		}
-	});
-
-	$effect(() => {
-		const el = webviewEl;
-		if (!el) return;
-		return attachWebview(el);
 	});
 
 	$effect(() => {
@@ -369,6 +455,16 @@
 			}
 		}
 		displayedFilePath = nextFilePath;
+	});
+
+	$effect(() => {
+		const workspace = shellStore.workspacePath;
+		const filePath = panelMode === 'file' ? panelFilePath : null;
+		if (!filePath) {
+			fileCaptureRun += 1;
+			return;
+		}
+		void captureFileContext(workspace, filePath);
 	});
 
 	$effect(() => {
@@ -450,6 +546,16 @@
 					>
 						<RotateCw size={16} class={loading ? 'spin' : ''} />
 					</button>
+					<button
+						type="button"
+						class="icon-button"
+						disabled={!showWebview || capturingContext}
+						onclick={() => void capturePageContext({ announce: true })}
+						aria-label="Add page to chat context"
+						title="Add page to next message"
+					>
+						<FileText size={16} class={capturingContext ? 'spin' : ''} />
+					</button>
 				</div>
 			{/if}
 			<div class="url-field">
@@ -524,7 +630,9 @@
 								</button>
 							{/each}
 							{#if fileOptionsLoading && fileOptions.length === 0}
-								<div class="address-option address-option-muted">Searching workspace files...</div>
+								<div class="address-option address-option-muted">
+									Searching workspace files...
+								</div>
 							{/if}
 						</div>
 					{/if}
@@ -563,6 +671,9 @@
 				<X size={16} />
 			</button>
 		</header>
+		{#if contextMessage}
+			<div class="web-panel-context-status" role="status">{contextMessage}</div>
+		{/if}
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div class="web-panel-content" onmousedown={handlePanelMouseDown}>
 			{#if showFilePreview && displayedFilePath}
@@ -618,6 +729,14 @@
 		border-bottom: 1px solid var(--border-soft);
 		background: rgba(250, 250, 249, 0.95);
 		min-height: 44px;
+	}
+
+	.web-panel-context-status {
+		padding: 6px 12px;
+		border-bottom: 1px solid var(--border-soft);
+		background: rgba(239, 246, 255, 0.78);
+		color: #1d4ed8;
+		font-size: 11px;
 	}
 
 	.nav-actions {
