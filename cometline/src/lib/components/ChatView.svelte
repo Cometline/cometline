@@ -140,8 +140,6 @@
 	let heroLayout = $derived(chatView.heroLayout);
 	let composerFocusRequestId = $derived(shellStore.composerFocusRequestId);
 
-	let heroFrameExiting = $state(false);
-
 	function syncQueueState() {
 		queuedCount = conversation.pendingCount;
 		queuedMessages = [...conversation.pendingMessages];
@@ -171,7 +169,6 @@
 		untrack(() => {
 			firstTurnActive = false;
 			firstTurnHandoffPending = false;
-			heroFrameExiting = false;
 			snapshotSynced = false;
 			snapshotLoading = true;
 			awaitingFirstAssistant = chatStore.isAwaitingFirstAssistant(sessionId);
@@ -222,7 +219,6 @@
 	$effect(() => {
 		if (!hasVisibleConversation && !firstTurnActive && !awaitingFirstAssistant) {
 			firstTurnFlightDone = false;
-			heroFrameExiting = false;
 		}
 	});
 
@@ -379,7 +375,6 @@
 		revealStagedUser={() => chatStore.revealStagedUserForSession(sessionId)}
 		onActiveChange={(active) => (firstTurnActive = active)}
 		onPrepareFlight={() => {
-			if (composerVariant === 'hero') heroFrameExiting = true;
 			shellStore.dockComposer();
 		}}
 		onFlightDoneChange={(done) => {
@@ -394,11 +389,7 @@
 		class:snap={composerSnap}
 	>
 		<HeroComposerFrame
-			active={composerVariant === 'hero' && !heroFrameExiting}
-			exiting={heroFrameExiting}
-			onExitComplete={() => {
-				heroFrameExiting = false;
-			}}
+			active={composerVariant === 'hero'}
 		>
 			<Composer
 				bind:this={composerRef}

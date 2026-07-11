@@ -1,7 +1,13 @@
 <script lang="ts">
 	import { tick } from 'svelte';
 	import UserBubbleFlight from '$lib/components/UserBubbleFlight.svelte';
-	import { afterPaint, FLIGHT_MS, rectStyle, waitForSelector } from '$lib/first-turn-flight';
+	import {
+		afterPaint,
+		FLIGHT_MS,
+		prefersReducedMotion,
+		rectStyle,
+		waitForSelector
+	} from '$lib/first-turn-flight';
 	import { settingsStore } from '$lib/stores/settings.svelte';
 	import { resolvePersona, personaAvatarSrcset as builtinAvatarSrcset } from '$lib/personas';
 	import { personaAvatarCache } from '$lib/personas/avatar-cache.svelte';
@@ -121,6 +127,53 @@
 		return rect;
 	}
 
+	async function animateComposerToDock(from: DOMRect | null): Promise<void> {
+		if (!from || !root || prefersReducedMotion()) return;
+		const composer = root.querySelector('.composer-wrapper');
+		if (!(composer instanceof HTMLElement)) return;
+
+		await tick();
+		await afterPaint();
+		const to = composer.getBoundingClientRect();
+		const dx = from.left - to.left;
+		const dy = from.top - to.top;
+		const sx = from.width / Math.max(to.width, 1);
+		const sy = from.height / Math.max(to.height, 1);
+
+		// Docking changes the wrapper's positioning context, so bottom/transform
+		// CSS interpolation cannot produce a reliable trajectory. Freeze the
+		// final layout, then animate one compositor-only transform. Scaling from
+		// the captured hero rect keeps the visible composer size continuous while
+		// the dock-sized layout is already in place.
+		composer.style.transition = 'none';
+		composer.style.transformOrigin = 'top left';
+		composer.style.transform = `translate3d(${dx}px, ${dy}px, 0) scale(${sx}, ${sy})`;
+		void composer.offsetWidth;
+		await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+
+		composer.style.transition = `transform ${FLIGHT_MS}ms var(--ease-smooth)`;
+		composer.style.transform = 'translate3d(0, 0, 0)';
+
+		await new Promise<void>((resolve) => {
+			let done = false;
+			const finish = () => {
+				if (done) return;
+				done = true;
+				composer.removeEventListener('transitionend', onEnd);
+				window.clearTimeout(timeout);
+				composer.style.transition = '';
+				composer.style.transform = '';
+				composer.style.transformOrigin = '';
+				resolve();
+			};
+			const onEnd = (event: TransitionEvent) => {
+				if (event.propertyName === 'transform') finish();
+			};
+			const timeout = window.setTimeout(finish, FLIGHT_MS + 80);
+			composer.addEventListener('transitionend', onEnd);
+		});
+	}
+
 	async function animate(
 		text: string,
 		images?: ImageAttachment[],
@@ -148,11 +201,15 @@
 		const textareaFrom =
 			textarea instanceof HTMLElement ? textarea.getBoundingClientRect() : null;
 
+		const composerElement = root.querySelector('.composer-wrapper');
+		const composerFrom =
+			composerElement instanceof HTMLElement ? composerElement.getBoundingClientRect() : null;
 		onPrepareFlight?.();
 		setActive(true);
 		setFlightDone(false);
 		if (!visualOnly) runStageUser(text, images);
 		await tick();
+		const composerFlight = animateComposerToDock(composerFrom);
 
 		let avatarFlightEnd: Promise<void> | undefined;
 		const avatarTarget = await waitForSelector(root, '[data-flight-target="avatar"]');
@@ -174,6 +231,7 @@
 
 		if (!userFlew) {
 			await avatarFlightEnd;
+			await composerFlight;
 			if (!visualOnly) runRevealStagedUser();
 			setFlightDone(true);
 			await afterPaint();
@@ -185,6 +243,7 @@
 		}
 
 		await avatarFlightEnd;
+		await composerFlight;
 		if (!visualOnly) runRevealStagedUser();
 		// Unhide the real thread avatar slot BEFORE tearing down flight particles,
 		// so the avatar never blinks out between overlay end and the thread slot.
