@@ -61,7 +61,8 @@
 			message.text,
 			message.images,
 			message.filePaths,
-			message.displayText
+			message.displayText,
+			message.webContexts
 		);
 		shellStore.migrateDraftPanel(session.id);
 		await goto(`/session/${session.id}`);

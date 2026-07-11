@@ -36,6 +36,7 @@ func NewRegistry(workspaceRoot string, opts ...RegistryOptions) *Registry {
 	add(Grep{Workspace: ws})
 	add(RunCommand{Workspace: ws})
 	add(WebFetch{})
+	add(WebSearch{Endpoint: opt.BrowserSearchURL, Token: opt.BrowserSearchToken})
 	if opt.Skills != nil {
 		add(LoadSkill{Skills: opt.Skills})
 		add(ReadSkillFile{Skills: opt.Skills})
@@ -111,6 +112,7 @@ func NewSubagentRegistry(workspaceRoot string, skills *skills.Registry) *Registr
 	add(Glob{Workspace: ws})
 	add(Grep{Workspace: ws})
 	add(WebFetch{})
+	add(WebSearch{})
 	if skills != nil {
 		add(LoadSkill{Skills: skills})
 		add(ReadSkillFile{Skills: skills})

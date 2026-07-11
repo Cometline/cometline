@@ -137,6 +137,7 @@
 	const currentWorkspaceLabel = $derived(
 		mentions.hasWorkspace ? workspaceLabel(shellStore.workspacePath) : ''
 	);
+	const pendingWebContexts = $derived(shellStore.pendingWebContexts);
 
 	export function focus() {
 		void focusInput();
@@ -156,12 +157,16 @@
 		if (action.kind === 'handled') return;
 		if (!canSubmit || disabled || !modelStore.selected) return;
 		const filePaths = input?.getFilePaths() ?? [];
+		const displayText =
+			action.displayText ?? (pendingWebContexts.length > 0 ? action.text : undefined);
 		inputController.sendTurn({
 			text: action.text,
-			displayText: action.displayText,
+			displayText,
 			images: images.length > 0 ? images : undefined,
-			filePaths: filePaths.length > 0 ? filePaths : undefined
+			filePaths: filePaths.length > 0 ? filePaths : undefined,
+			webContexts: pendingWebContexts.length > 0 ? [...pendingWebContexts] : undefined
 		});
+		if (pendingWebContexts.length > 0) shellStore.clearWebContextForActive();
 		input?.clear();
 		clearDraft();
 	}
@@ -225,6 +230,24 @@
 	<ComposerMentionMenu {mentions} bind:menuRef={mentionMenu} />
 
 	<MessageQueuePanel {queuedCount} {queuedMessages} onRemove={removeQueued} />
+
+	{#if pendingWebContexts.length > 0}
+		<div class="web-context-chip" role="status">
+			<FileText size={14} />
+			<span>
+				Web context: {pendingWebContexts.length} item{pendingWebContexts.length === 1
+					? ''
+					: 's'}
+			</span>
+			<button
+				type="button"
+				onclick={() => shellStore.clearWebContextForActive()}
+				aria-label="Remove page context"
+			>
+				×
+			</button>
+		</div>
+	{/if}
 
 	<RichComposerInput
 		bind:this={input}
@@ -321,6 +344,36 @@
 		color: var(--text-muted);
 		font-size: 12px;
 		line-height: 1.35;
+	}
+
+	.web-context-chip {
+		display: flex;
+		align-items: center;
+		gap: 7px;
+		max-width: 100%;
+		padding: 7px 9px;
+		border: 1px solid rgba(37, 99, 235, 0.18);
+		border-radius: 9px;
+		background: rgba(239, 246, 255, 0.82);
+		color: #1d4ed8;
+		font-size: 12px;
+	}
+
+	.web-context-chip span {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.web-context-chip button {
+		margin-left: auto;
+		border: 0;
+		background: transparent;
+		color: inherit;
+		font-size: 18px;
+		line-height: 1;
+		cursor: pointer;
 	}
 
 	.composer.hero {

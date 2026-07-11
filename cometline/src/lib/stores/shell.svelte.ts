@@ -1,5 +1,6 @@
 import { getActiveSessionId } from '$lib/active-session';
 import { readHasSeenIntroSync } from '$lib/stores/settings.svelte';
+import type { WebContext } from '$lib/actions/start-chat';
 
 export type WebPanelMode = 'url' | 'file';
 
@@ -38,6 +39,7 @@ function createShellStore() {
 	let bootMessage = $state('');
 	let fullscreen = $state(false);
 	let webPanelsBySession = $state<Record<string, SessionWebPanel>>({});
+	let webContextsBySession = $state<Record<string, WebContext[]>>({});
 	let focusedPane = $state<FocusedPane>('chat');
 	let addressBarFocusRequestId = $state(0);
 	let composerFocusRequestId = $state(0);
@@ -62,6 +64,13 @@ function createShellStore() {
 	function syncWebPanelOpenForActiveSession() {
 		const panel = panelForActiveSession();
 		syncWebPanelOpen(Boolean(panel?.visible));
+	}
+
+	function clearWebContextsForSession(sessionId: string) {
+		if (!(sessionId in webContextsBySession)) return;
+		const nextContexts = { ...webContextsBySession };
+		delete nextContexts[sessionId];
+		webContextsBySession = nextContexts;
 	}
 
 	return {
@@ -115,6 +124,9 @@ function createShellStore() {
 		get webPanelFilePath() {
 			const panel = panelForActiveSession();
 			return panel?.mode === 'file' ? panel.filePath : null;
+		},
+		get pendingWebContexts(): WebContext[] {
+			return webContextsBySession[panelSessionKey()] ?? [];
 		},
 		get hasWebPanelForSession() {
 			return panelForActiveSession() !== null;
@@ -215,6 +227,24 @@ function createShellStore() {
 		setFocusedPane(pane: FocusedPane) {
 			focusedPane = pane;
 		},
+		addWebContextForActive(context: WebContext) {
+			const key = panelSessionKey();
+			const nextContext: WebContext = {
+				...context,
+				content: context.content.trim().slice(0, 50000)
+			};
+			webContextsBySession = {
+				...webContextsBySession,
+				[key]: [nextContext]
+			};
+		},
+		clearWebContextForActive() {
+			const key = panelSessionKey();
+			if (!(key in webContextsBySession)) return;
+			const next = { ...webContextsBySession };
+			delete next[key];
+			webContextsBySession = next;
+		},
 		requestComposerFocus() {
 			focusedPane = 'chat';
 			composerFocusRequestId += 1;
@@ -298,10 +328,14 @@ function createShellStore() {
 		},
 		closeWebPanel() {
 			const sessionId = panelSessionKey();
-			if (!webPanelsBySession[sessionId]) return;
+			if (!webPanelsBySession[sessionId]) {
+				clearWebContextsForSession(sessionId);
+				return;
+			}
 			const next = { ...webPanelsBySession };
 			delete next[sessionId];
 			webPanelsBySession = next;
+			clearWebContextsForSession(sessionId);
 			this.requestComposerFocus();
 			syncWebPanelOpen(false);
 		},
@@ -310,6 +344,11 @@ function createShellStore() {
 			const next = { ...webPanelsBySession };
 			delete next[sessionId];
 			webPanelsBySession = next;
+			if (sessionId in webContextsBySession) {
+				const nextContexts = { ...webContextsBySession };
+				delete nextContexts[sessionId];
+				webContextsBySession = nextContexts;
+			}
 			if (activeSessionId() === sessionId) {
 				this.requestComposerFocus();
 				syncWebPanelOpen(false);
@@ -346,6 +385,11 @@ function createShellStore() {
 			const next = { ...webPanelsBySession };
 			delete next[DRAFT_SESSION_KEY];
 			webPanelsBySession = next;
+			if (DRAFT_SESSION_KEY in webContextsBySession) {
+				const nextContexts = { ...webContextsBySession };
+				delete nextContexts[DRAFT_SESSION_KEY];
+				webContextsBySession = nextContexts;
+			}
 		}
 	};
 }

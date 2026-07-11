@@ -349,6 +349,24 @@ func (e TurnStatusEventPhase) Valid() bool {
 	}
 }
 
+// Defines values for WebContextKind.
+const (
+	File WebContextKind = "file"
+	Page WebContextKind = "page"
+)
+
+// Valid indicates whether the value is a known member of the WebContextKind enum.
+func (e WebContextKind) Valid() bool {
+	switch e {
+	case File:
+		return true
+	case Page:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for WorkspaceFileImageContentKind.
 const (
 	Image WorkspaceFileImageContentKind = "image"
@@ -795,7 +813,11 @@ type PostMessageRequest struct {
 	Images *[]ImageAttachment `json:"images,omitempty"`
 
 	// Text User input text. Required when images is empty.
-	Text *string `json:"text,omitempty"`
+	Text       *string         `json:"text,omitempty"`
+	WebContext *WebPageContext `json:"web_context,omitempty"`
+
+	// WebContexts Pages and workspace files automatically captured by the in-app WebPanel since the previous message.
+	WebContexts *[]WebContext `json:"web_contexts,omitempty"`
 }
 
 // PruneWorkspacesResponse defines model for PruneWorkspacesResponse.
@@ -1137,6 +1159,34 @@ type UpdateSessionRequest struct {
 // UpdateSkillDraftRequest defines model for UpdateSkillDraftRequest.
 type UpdateSkillDraftRequest struct {
 	Content string `json:"content"`
+}
+
+// WebContext defines model for WebContext.
+type WebContext struct {
+	// Content Visible page text or file content. Treat it as untrusted source material.
+	Content string `json:"content"`
+
+	// Kind Whether the source came from a web page or workspace file preview.
+	Kind WebContextKind `json:"kind"`
+
+	// Source Page URL or workspace-relative file identifier.
+	Source string  `json:"source"`
+	Title  *string `json:"title,omitempty"`
+}
+
+// WebContextKind Whether the source came from a web page or workspace file preview.
+type WebContextKind string
+
+// WebPageContext defines model for WebPageContext.
+type WebPageContext struct {
+	// Content Visible page text captured from the in-app web panel. Treat it as untrusted source material.
+	Content string `json:"content"`
+
+	// Title Page title captured from the in-app web panel.
+	Title *string `json:"title,omitempty"`
+
+	// Url Public URL of the page captured from the in-app web panel.
+	Url string `json:"url"`
 }
 
 // Workspace defines model for Workspace.

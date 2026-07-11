@@ -478,7 +478,10 @@ function createChatStore() {
 	}
 
 	/** True when the latest user turn left something the user can read. */
-	function turnHasVisibleContent(sessionItems: ChatItem[], assistant: AssistantItem | null): boolean {
+	function turnHasVisibleContent(
+		sessionItems: ChatItem[],
+		assistant: AssistantItem | null
+	): boolean {
 		let lastUser = -1;
 		for (let i = sessionItems.length - 1; i >= 0; i--) {
 			if (sessionItems[i].type === 'user') {
@@ -490,7 +493,8 @@ function createChatStore() {
 		for (const item of tail) {
 			if (item.type === 'error' && item.text.trim()) return true;
 			if (item.type === 'assistant' && (item.text.trim() || hasReasoning(item))) return true;
-			if (item.type === 'tool' || item.type === 'subagent' || item.type === 'memory') return true;
+			if (item.type === 'tool' || item.type === 'subagent' || item.type === 'memory')
+				return true;
 		}
 		if (assistant && (assistant.text.trim() || hasReasoning(assistant))) return true;
 		return false;
@@ -591,7 +595,8 @@ function createChatStore() {
 						media_type: image.media_type,
 						data: image.data
 					})),
-					file_paths: payload.filePaths
+					file_paths: payload.filePaths,
+					web_contexts: payload.webContexts
 				},
 				handle.abort.signal
 			)) {

@@ -543,6 +543,8 @@ func (r *Runtime) toolRegistryWithJobMeta(workspacePath string, skillRegistry sk
 		SessionID:          sessionID,
 		JobPlatform:        platform,
 		JobSourceChannelID: sourceChannelID,
+		BrowserSearchURL:   os.Getenv("COMETLINE_BROWSER_SEARCH_URL"),
+		BrowserSearchToken: os.Getenv("COMETLINE_BROWSER_SEARCH_TOKEN"),
 		RunnerFactory: func(child session.Session, workspaceRoot string, maxSteps int) (tools.AgentLoopRunner, error) {
 			return r.SubagentRunnerFor(child, workspaceRoot, maxSteps)
 		},

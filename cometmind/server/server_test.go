@@ -996,6 +996,102 @@ func TestPostMessageInlinesFilePaths(t *testing.T) {
 	}
 }
 
+func TestPostMessageInlinesWebContext(t *testing.T) {
+	t.Parallel()
+
+	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
+			ch <- event.Done()
+			return nil
+		}), nil
+	})
+	defer cleanup()
+
+	ctx := context.Background()
+	workspacePath := t.TempDir()
+	ws, err := svc.EnsureWorkspace(ctx, workspacePath)
+	if err != nil {
+		t.Fatalf("EnsureWorkspace() error = %v", err)
+	}
+	sess, err := svc.NewSession(ctx, ws.ID, "test-model", "test-provider")
+	if err != nil {
+		t.Fatalf("NewSession() error = %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	body := `{"text":"Summarize this page","display_text":"Summarize this page","web_context":{"title":"Example page","url":"https://example.com/article","content":"Page body with useful facts."}}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/sessions/"+sess.ID+"/messages", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	engine.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d body=%s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	msgs, err := svc.BuildSDKMessages(ctx, sess.ID)
+	if err != nil {
+		t.Fatalf("BuildSDKMessages() error = %v", err)
+	}
+	if len(msgs) != 1 {
+		t.Fatalf("messages len = %d, want 1", len(msgs))
+	}
+	text := msgs[0].Content[0].(cometsdk.TextBlock).Text
+	for _, want := range []string{"Summarize this page", "Example page", "https://example.com/article", "Page body with useful facts.", "untrusted source material"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("user text missing %q: %q", want, text)
+		}
+	}
+
+	transcript, err := svc.LoadTranscript(ctx, sess.ID)
+	if err != nil {
+		t.Fatalf("GetTranscript() error = %v", err)
+	}
+	if len(transcript) != 1 || transcript[0].Text != "Summarize this page" {
+		t.Fatalf("transcript display text = %+v, want hidden web context", transcript)
+	}
+}
+
+func TestPostMessageInlinesMultipleWebContexts(t *testing.T) {
+	t.Parallel()
+
+	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
+			ch <- event.Done()
+			return nil
+		}), nil
+	})
+	defer cleanup()
+
+	ctx := context.Background()
+	ws, err := svc.EnsureWorkspace(ctx, t.TempDir())
+	if err != nil {
+		t.Fatalf("EnsureWorkspace() error = %v", err)
+	}
+	sess, err := svc.NewSession(ctx, ws.ID, "test-model", "test-provider")
+	if err != nil {
+		t.Fatalf("NewSession() error = %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	body := `{"text":"Compare them","web_contexts":[{"kind":"page","title":"Article","source":"https://example.com/article","content":"Article facts."},{"kind":"file","title":"notes.md","source":"workspace-file:notes.md","content":"Local notes."}]}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/sessions/"+sess.ID+"/messages", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	engine.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d body=%s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+
+	msgs, err := svc.BuildSDKMessages(ctx, sess.ID)
+	if err != nil {
+		t.Fatalf("BuildSDKMessages() error = %v", err)
+	}
+	text := msgs[0].Content[0].(cometsdk.TextBlock).Text
+	for _, want := range []string{"Article facts.", "Local notes.", "https://example.com/article", "workspace-file:notes.md"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("combined context missing %q: %q", want, text)
+		}
+	}
+}
+
 func TestLocalCORSAllowsCometlineRenderer(t *testing.T) {
 	t.Parallel()
 
