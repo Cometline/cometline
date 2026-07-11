@@ -85,7 +85,7 @@ Registered per workspace in `internal/tools/registry.go`:
 | `grep` | Search file contents (ripgrep when available); gitignore-aware |
 | `run_command` | Shell in workspace cwd (120s timeout, denylist for dangerous commands) |
 | `web_fetch` | HTTP(S) fetch with HTML→text; SSRF protection |
-| `web_search` | Public web search via Google in the Electron Chromium bridge or HTML fallback |
+| `web_search` | Public web search via DuckDuckGo, with Google bridge and protected web-fetch fallbacks |
 | `load_skill` | Load full `SKILL.md` for a discovered skill |
 | `read_skill_file` | Read auxiliary files inside a skill directory |
 | `write_skill` | Create or update a skill under `~/.cometmind/skills/{name}/` |

@@ -3,6 +3,7 @@ package tools
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -20,8 +21,11 @@ func TestWebSearchSpecIsValidJSON(t *testing.T) {
 	}
 }
 
-func TestWebSearchUsesBrowserBridge(t *testing.T) {
+func TestWebSearchFallsBackToBrowserBridgeAfterDuckDuckGoFailure(t *testing.T) {
 	client := &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		if strings.Contains(r.URL.Host, "duckduckgo.com") {
+			return nil, fmt.Errorf("DuckDuckGo unavailable")
+		}
 		if r.Method != http.MethodPost || r.Header.Get("X-Cometline-Browser-Token") != "secret" {
 			return &http.Response{StatusCode: http.StatusBadRequest, Body: io.NopCloser(strings.NewReader("bad request")), Header: make(http.Header)}, nil
 		}
@@ -44,6 +48,46 @@ func TestWebSearchUsesBrowserBridge(t *testing.T) {
 	}
 	if !strings.Contains(result.Output, "electron-chromium") {
 		t.Fatalf("backend missing from result: %s", result.Output)
+	}
+}
+
+func TestWebSearchUsesDuckDuckGoBeforeGoogleBridge(t *testing.T) {
+	client := &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		if strings.Contains(r.URL.Host, "duckduckgo.com") {
+			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`<div class="result"><a class="result__a" href="https://example.com">Example</a><div class="result__snippet">Snippet</div></div>`)), Header: http.Header{"Content-Type": []string{"text/html"}}}, nil
+		}
+		t.Fatalf("Google bridge must not run when DuckDuckGo succeeds")
+		return nil, nil
+	})}
+
+	result, err := (WebSearch{Endpoint: "http://browser.test/search", Client: client}).Execute(context.Background(), json.RawMessage(`{"query":"go testing"}`))
+	if err != nil || !result.OK {
+		t.Fatalf("Execute = %+v, %v", result, err)
+	}
+	if !strings.Contains(result.Output, "Backend: public-html") {
+		t.Fatalf("want DuckDuckGo backend, got: %s", result.Output)
+	}
+}
+
+func TestWebSearchFallsBackToWebFetch(t *testing.T) {
+	called := false
+	result, err := (WebSearch{
+		Client: &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+			return nil, fmt.Errorf("DuckDuckGo unavailable")
+		})},
+		fetchFallback: func(_ context.Context, target string) (Result, error) {
+			called = true
+			if !strings.Contains(target, "google.com/search") {
+				t.Fatalf("fallback target = %q", target)
+			}
+			return Result{OK: true, Output: "Google result text"}, nil
+		},
+	}).Execute(context.Background(), json.RawMessage(`{"query":"go testing"}`))
+	if err != nil || !result.OK || !called {
+		t.Fatalf("Execute = %+v, %v, fallback called=%t", result, err, called)
+	}
+	if !strings.Contains(result.Output, "Backend: web-fetch-google") || !strings.Contains(result.Output, "Google result text") {
+		t.Fatalf("unexpected fallback output: %s", result.Output)
 	}
 }
 

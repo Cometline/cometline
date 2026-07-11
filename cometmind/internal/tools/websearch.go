@@ -14,13 +14,14 @@ import (
 )
 
 const (
-	webSearchTimeout      = 25 * time.Second
-	webSearchMaxQuery     = 500
-	webSearchDefaultLimit = 5
-	webSearchMaxLimit     = 10
-	webSearchMaxBodyBytes = 2 << 20
-	webSearchMaxOutput    = 30000
-	webSearchUserAgent    = "CometMind/1.0 (+https://github.com/cometline/cometmind)"
+	webSearchTimeout        = 25 * time.Second
+	webSearchAttemptTimeout = 8 * time.Second
+	webSearchMaxQuery       = 500
+	webSearchDefaultLimit   = 5
+	webSearchMaxLimit       = 10
+	webSearchMaxBodyBytes   = 2 << 20
+	webSearchMaxOutput      = 30000
+	webSearchUserAgent      = "CometMind/1.0 (+https://github.com/cometline/cometmind)"
 )
 
 // SearchResult is one normalized public-web search result.
@@ -43,20 +44,22 @@ type webSearchResponse struct {
 	Results []SearchResult `json:"results"`
 }
 
-// WebSearch searches public web pages. Desktop Cometline supplies a hidden
-// Electron Chromium bridge that loads Google Search through the endpoint/token
-// fields. CLI and other runtimes use DuckDuckGo's public HTML result page as a
-// best-effort fallback.
+// WebSearch searches public web pages. DuckDuckGo's public HTML page is always
+// the primary backend. Desktop Cometline can supply a Chromium-backed Google
+// bridge as a fallback; a protected web_fetch of Google is the final fallback.
 type WebSearch struct {
 	Endpoint string
 	Token    string
 	Client   *http.Client
+
+	// fetchFallback is injectable for tests. Production uses WebFetch.
+	fetchFallback func(context.Context, string) (Result, error)
 }
 
 func (WebSearch) Spec() ToolSpec {
 	return ToolSpec{
 		Name:        "web_search",
-		Description: "Search the public web through the app's Chromium-backed Google Search page when available and return a small list of current results. Use web_fetch on selected result URLs to read their content. This tool does not log into websites or bypass consent screens, CAPTCHA, or rate limits.",
+		Description: "Search the public web through DuckDuckGo and return a small list of current results. If DuckDuckGo is unavailable, the app may fall back to Google search and then a protected web fetch. Use web_fetch on selected result URLs to read their content. This tool does not log into websites or bypass consent screens, CAPTCHA, or rate limits.",
 		Parameters: json.RawMessage(`{"type":"object","additionalProperties":false,"properties":{` +
 			`"query":{"type":"string","description":"Natural-language web search query"},` +
 			`"limit":{"type":"integer","description":"Number of results to return, from 1 to 10 (default 5)"},` +
@@ -87,16 +90,44 @@ func (w WebSearch) Execute(ctx context.Context, input json.RawMessage) (Result, 
 	searchCtx, cancel := context.WithTimeout(ctx, webSearchTimeout)
 	defer cancel()
 
-	var response webSearchResponse
-	if strings.TrimSpace(w.Endpoint) != "" {
-		response, err = w.searchBrowserBridge(searchCtx, in)
+	ddgCtx, ddgCancel := webSearchAttemptContext(searchCtx)
+	response, ddgErr := searchDuckDuckGoHTML(w, ddgCtx, in)
+	ddgCancel()
+	if ddgErr == nil && len(response.Results) > 0 {
+		return Result{OK: true, Output: formatWebSearchResponse(response)}, nil
+	}
+
+	var failures []string
+	if ddgErr != nil {
+		failures = append(failures, "DuckDuckGo: "+ddgErr.Error())
 	} else {
-		response, err = searchDuckDuckGoHTML(w, searchCtx, in)
+		failures = append(failures, "DuckDuckGo returned no results")
 	}
-	if err != nil {
-		return Result{OK: false, Output: "web search failed: " + err.Error()}, nil
+	if strings.TrimSpace(w.Endpoint) != "" {
+		bridgeCtx, bridgeCancel := webSearchAttemptContext(searchCtx)
+		response, err = w.searchBrowserBridge(bridgeCtx, in)
+		bridgeCancel()
+		if err == nil && len(response.Results) > 0 {
+			return Result{OK: true, Output: formatWebSearchResponse(response)}, nil
+		}
+		if err != nil {
+			failures = append(failures, "Google bridge: "+err.Error())
+		} else {
+			failures = append(failures, "Google bridge returned no results")
+		}
 	}
-	return Result{OK: true, Output: formatWebSearchResponse(response)}, nil
+	fetchCtx, fetchCancel := webSearchAttemptContext(searchCtx)
+	fallback, fallbackErr := w.searchViaWebFetch(fetchCtx, in)
+	fetchCancel()
+	if fallbackErr == nil {
+		return Result{OK: true, Output: formatWebSearchResponse(fallback)}, nil
+	}
+	failures = append(failures, "web_fetch: "+fallbackErr.Error())
+	return Result{OK: false, Output: "web search failed: " + strings.Join(failures, "; ")}, nil
+}
+
+func webSearchAttemptContext(parent context.Context) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(parent, webSearchAttemptTimeout)
 }
 
 func parseWebSearchInput(input json.RawMessage) (webSearchInput, error) {
@@ -170,6 +201,37 @@ func searchDuckDuckGoHTML(w WebSearch, ctx context.Context, in webSearchInput) (
 		Query:   in.Query,
 		Backend: "public-html",
 		Results: results,
+	}, in), nil
+}
+
+func (w WebSearch) searchViaWebFetch(ctx context.Context, in webSearchInput) (webSearchResponse, error) {
+	target := "https://www.google.com/search?" + url.Values{"q": []string{in.Query}}.Encode()
+	fetch := w.fetchFallback
+	if fetch == nil {
+		fetch = func(ctx context.Context, target string) (Result, error) {
+			return WebFetch{}.Execute(ctx, json.RawMessage(fmt.Sprintf(`{"url":%q,"max_chars":%d}`, target, webSearchMaxOutput)))
+		}
+	}
+	result, err := fetch(ctx, target)
+	if err != nil {
+		return webSearchResponse{}, err
+	}
+	if !result.OK {
+		return webSearchResponse{}, fmt.Errorf("%s", strings.TrimSpace(result.Output))
+	}
+	text := strings.TrimSpace(result.Output)
+	if text == "" {
+		return webSearchResponse{}, fmt.Errorf("empty Google search page")
+	}
+	return normalizeSearchResponse(webSearchResponse{
+		Query:   in.Query,
+		Backend: "web-fetch-google",
+		Results: []SearchResult{{
+			Title:   "Google search fallback",
+			URL:     target,
+			Snippet: text,
+			Source:  "Google via web_fetch",
+		}},
 	}, in), nil
 }
 
