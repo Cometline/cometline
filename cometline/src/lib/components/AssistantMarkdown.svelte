@@ -27,6 +27,7 @@
 
 	let html = $state('');
 	let rendered = $state(false);
+	let renderedSource = $state<string | null>(null);
 	// Intentionally start empty; $effect.pre snaps to `source` before first paint
 	// so we never read the prop into $state() (avoids state_referenced_locally).
 	let displaySource = $state('');
@@ -37,31 +38,38 @@
 	let lastRenderAt = 0;
 
 	async function render(text: string) {
+		if (rendered && renderedSource === text) return;
 		const version = ++renderVersion;
 		try {
 			const next = await renderMarkdown(text);
 			if (version !== renderVersion) return;
 			html = next;
 			rendered = true;
+			renderedSource = text;
 		} catch {
 			if (version !== renderVersion) return;
 			// Leave the plaintext fallback visible on failure.
 			rendered = false;
+			renderedSource = null;
+		}
+	}
+
+	function cancelScheduledRender() {
+		if (throttleTimer) {
+			clearTimeout(throttleTimer);
+			throttleTimer = null;
 		}
 	}
 
 	function scheduleRender(text: string) {
 		if (!streaming) {
-			if (throttleTimer) {
-				clearTimeout(throttleTimer);
-				throttleTimer = null;
-			}
+			cancelScheduledRender();
 			void render(text);
 			return;
 		}
 		const now = Date.now();
 		const elapsed = now - lastRenderAt;
-		if (throttleTimer) clearTimeout(throttleTimer);
+		cancelScheduledRender();
 		const run = () => {
 			throttleTimer = null;
 			lastRenderAt = Date.now();
@@ -138,10 +146,7 @@
 		void streaming;
 		scheduleRender(text);
 		return () => {
-			if (throttleTimer) {
-				clearTimeout(throttleTimer);
-				throttleTimer = null;
-			}
+			cancelScheduledRender();
 		};
 	});
 
