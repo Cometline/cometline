@@ -4,6 +4,7 @@
 	import { FileText } from '@lucide/svelte';
 	import type { QueuedMessage } from '$lib/actions/chat-turn-queue';
 	import type { ChatTurnPayload, WebContext } from '$lib/actions/start-chat';
+	import type { PendingWebContext } from '$lib/stores/shell.svelte';
 	import { modelStore, type ModelOption } from '$lib/stores/model.svelte';
 	import { settingsStore } from '$lib/stores/settings.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
@@ -65,6 +66,7 @@
 	let input = $state<RichComposerInput | null>(null);
 	let skillMenu = $state<HTMLDivElement | null>(null);
 	let mentionMenu = $state<HTMLDivElement | null>(null);
+	let resolvingWebContext = $state(false);
 
 	function clearDraft() {
 		value = '';
@@ -152,22 +154,32 @@
 
 	onDestroy(() => attachments.destroy());
 
-	function submit() {
+	async function submit() {
 		const trimmed = value.trim();
 		const action = slash.resolveSubmitAction(trimmed);
 		if (action.kind === 'handled') return;
-		if (!canSubmit || disabled || !modelStore.selected) return;
+		if (!canSubmit || disabled || resolvingWebContext || !modelStore.selected) return;
 		const filePaths = input?.getFilePaths() ?? [];
+		const contextsBeforeResolve = pendingWebContexts.length;
+		resolvingWebContext = contextsBeforeResolve > 0;
+		let webContexts: WebContext[] = [];
+		try {
+			webContexts = contextsBeforeResolve
+				? await shellStore.resolvePendingWebContextsForActive()
+				: [];
+		} finally {
+			resolvingWebContext = false;
+		}
 		const displayText =
-			action.displayText ?? (pendingWebContexts.length > 0 ? action.text : undefined);
+			action.displayText ?? (webContexts.length > 0 ? action.text : undefined);
 		inputController.sendTurn({
 			text: action.text,
 			displayText,
 			images: images.length > 0 ? images : undefined,
 			filePaths: filePaths.length > 0 ? filePaths : undefined,
-			webContexts: pendingWebContexts.length > 0 ? [...pendingWebContexts] : undefined
+			webContexts: webContexts.length > 0 ? webContexts : undefined
 		});
-		if (pendingWebContexts.length > 0) shellStore.clearWebContextForActive();
+		if (contextsBeforeResolve > 0) shellStore.clearWebContextForActive();
 		input?.clear();
 		clearDraft();
 	}
@@ -190,7 +202,7 @@
 		}
 		if (!e.isComposing && matchesShortcut(e, settingsStore.settings.shortcuts.sendMessage)) {
 			e.preventDefault();
-			submit();
+			void submit();
 		}
 	}
 
@@ -198,7 +210,7 @@
 		onRemoveQueued?.(id);
 	}
 
-	function formatWebContextChipLabel(contexts: readonly WebContext[]): string {
+	function formatWebContextChipLabel(contexts: readonly PendingWebContext[]): string {
 		const first = contexts[0];
 		if (!first) return '';
 		const label = webContextLabel(first);
@@ -206,7 +218,7 @@
 		return `${label} + ${contexts.length - 1} more`;
 	}
 
-	function webContextLabel(context: WebContext): string {
+	function webContextLabel(context: PendingWebContext): string {
 		const title = context.title?.trim();
 		if (title) return title;
 		if (context.kind === 'file') return fileNameFromSource(context.source);
@@ -305,7 +317,7 @@
 		{onModelChange}
 		onOpenChangeWorkspace={slash.openChangeWorkspace}
 		{onStop}
-		onSubmit={submit}
+		onSubmit={() => void submit()}
 	/>
 </div>
 

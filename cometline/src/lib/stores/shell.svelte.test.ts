@@ -88,3 +88,40 @@ describe('shellStore web panel focus behavior', () => {
 		shellStore.closeWebPanel();
 	});
 });
+
+describe('shellStore lazy page context', () => {
+	beforeEach(() => {
+		getActiveSessionId.mockReturnValue(null);
+		shellStore.clearWebContextForActive();
+	});
+
+	it('keeps page navigation as metadata until a resolver is requested', async () => {
+		const resolvePage = vi.fn(async (source: string) => ({
+			kind: 'page' as const,
+			title: 'Example',
+			source,
+			content: 'Captured only when sending'
+		}));
+		const unregister = shellStore.registerPageContextResolver(resolvePage);
+		shellStore.setPendingPageContextForActive({
+			title: 'Example',
+			source: 'https://example.com'
+		});
+
+		expect(shellStore.pendingWebContexts).toEqual([
+			{ kind: 'page', title: 'Example', source: 'https://example.com', lazy: true }
+		]);
+		expect(resolvePage).not.toHaveBeenCalled();
+
+		await expect(shellStore.resolvePendingWebContextsForActive()).resolves.toEqual([
+			{
+				kind: 'page',
+				title: 'Example',
+				source: 'https://example.com',
+				content: 'Captured only when sending'
+			}
+		]);
+		expect(resolvePage).toHaveBeenCalledWith('https://example.com');
+		unregister();
+	});
+});

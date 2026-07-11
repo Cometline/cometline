@@ -10,6 +10,20 @@ export type SessionWebPanel =
 
 export type FocusedPane = 'chat' | 'web';
 
+/** A page selected for the next turn whose body has not been read yet. */
+export type PendingPageContext = {
+	kind: 'page';
+	title?: string;
+	source: string;
+	lazy: true;
+};
+
+export type PendingWebContext = WebContext | PendingPageContext;
+
+function isPendingPageContext(context: PendingWebContext): context is PendingPageContext {
+	return context.kind === 'page' && 'lazy' in context && context.lazy;
+}
+
 /**
  * Sentinel key for the web panel state of a not-yet-created session (the home
  * route / new chat). Lets the panel open before a session exists; on first send
@@ -39,7 +53,8 @@ function createShellStore() {
 	let bootMessage = $state('');
 	let fullscreen = $state(false);
 	let webPanelsBySession = $state<Record<string, SessionWebPanel>>({});
-	let webContextsBySession = $state<Record<string, WebContext[]>>({});
+	let webContextsBySession = $state<Record<string, PendingWebContext[]>>({});
+	let resolvePageContext: ((source: string) => Promise<WebContext | null>) | null = null;
 	let focusedPane = $state<FocusedPane>('chat');
 	let addressBarFocusRequestId = $state(0);
 	let composerFocusRequestId = $state(0);
@@ -125,7 +140,7 @@ function createShellStore() {
 			const panel = panelForActiveSession();
 			return panel?.mode === 'file' ? panel.filePath : null;
 		},
-		get pendingWebContexts(): WebContext[] {
+		get pendingWebContexts(): PendingWebContext[] {
 			return webContextsBySession[panelSessionKey()] ?? [];
 		},
 		get hasWebPanelForSession() {
@@ -237,6 +252,29 @@ function createShellStore() {
 				...webContextsBySession,
 				[key]: [nextContext]
 			};
+		},
+		setPendingPageContextForActive(context: Omit<PendingPageContext, 'kind' | 'lazy'>) {
+			const key = panelSessionKey();
+			webContextsBySession = {
+				...webContextsBySession,
+				[key]: [{ kind: 'page', title: context.title, source: context.source, lazy: true }]
+			};
+		},
+		registerPageContextResolver(resolver: (source: string) => Promise<WebContext | null>) {
+			resolvePageContext = resolver;
+			return () => {
+				if (resolvePageContext === resolver) resolvePageContext = null;
+			};
+		},
+		async resolvePendingWebContextsForActive(): Promise<WebContext[]> {
+			const contexts = [...(webContextsBySession[panelSessionKey()] ?? [])];
+			const resolved = await Promise.all(
+				contexts.map(async (context) => {
+					if (!isPendingPageContext(context)) return context;
+					return resolvePageContext?.(context.source) ?? null;
+				})
+			);
+			return resolved.filter((context): context is WebContext => context !== null);
 		},
 		clearWebContextForActive() {
 			const key = panelSessionKey();
