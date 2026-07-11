@@ -404,14 +404,24 @@
 			updateNavigationState();
 		};
 		const onInPageNavigate = () => {
+			// History API navigation has no document load to pair with a stop event.
+			loading = false;
 			updateNavigationState();
 		};
-		const onStartLoading = () => {
+		const onStartLoading = (event: Event & { isMainFrame?: boolean }) => {
+			if (event.isMainFrame === false) return;
 			loading = true;
 		};
 		const onStopLoading = () => {
 			loading = false;
 			updateNavigationState();
+		};
+		const onFrameFinishLoad = (event: Event & { isMainFrame?: boolean }) => {
+			if (event.isMainFrame === false) return;
+			loading = false;
+		};
+		const onFailLoad = () => {
+			loading = false;
 		};
 		const onTitleUpdated = (event: Event & { title?: string }) => {
 			pageTitle = event.title ?? '';
@@ -425,6 +435,8 @@
 		el.addEventListener('did-navigate-in-page', onInPageNavigate);
 		el.addEventListener('did-start-loading', onStartLoading);
 		el.addEventListener('did-stop-loading', onStopLoading);
+		el.addEventListener('did-frame-finish-load', onFrameFinishLoad);
+		el.addEventListener('did-fail-load', onFailLoad);
 		el.addEventListener('page-title-updated', onTitleUpdated);
 		el.addEventListener('new-window', onNewWindow);
 		el.addEventListener('focus', onFocus);
@@ -434,6 +446,8 @@
 			el.removeEventListener('did-navigate-in-page', onInPageNavigate);
 			el.removeEventListener('did-start-loading', onStartLoading);
 			el.removeEventListener('did-stop-loading', onStopLoading);
+			el.removeEventListener('did-frame-finish-load', onFrameFinishLoad);
+			el.removeEventListener('did-fail-load', onFailLoad);
 			el.removeEventListener('page-title-updated', onTitleUpdated);
 			el.removeEventListener('new-window', onNewWindow);
 			el.removeEventListener('focus', onFocus);
