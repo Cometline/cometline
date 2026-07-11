@@ -355,8 +355,10 @@ async function searchWithHiddenBrowser({ query, limit, recency }) {
 				webPreferences: {
 					contextIsolation: true,
 					nodeIntegration: false,
-					sandbox: true,
-					partition: 'cometline-web-search'
+					sandbox: true
+					// Deliberately use Electron's default session, matching the
+					// user-facing Web Panel. This reuses Google consent and security
+					// state instead of presenting each tool search as a fresh profile.
 				}
 			});
 			browserSearchWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
