@@ -117,8 +117,12 @@
 	--session-row-bg-streaming: color-mix(in srgb, var(--session-group-color) 9%, transparent);
 	--session-row-bg-active: color-mix(in srgb, var(--session-group-color) 26%, transparent);
 	--session-row-bg-active-hover: color-mix(in srgb, var(--session-group-color) 34%, transparent);
-	--session-row-ring: color-mix(in srgb, var(--session-group-color) 24%, transparent);
-	--session-row-ring-active: color-mix(in srgb, var(--session-group-color) 42%, transparent);
+	--session-row-ring: color-mix(in srgb, var(--session-group-color) 36%, var(--border-soft));
+	--session-row-ring-active: color-mix(
+		in srgb,
+		var(--session-group-color) 58%,
+		var(--border-soft)
+	);
 }
 
 @theme inline {
