@@ -50,6 +50,7 @@ export const customCaret: Action<HTMLDivElement, CustomCaretParams> = (node, ini
 	let composing = false;
 	let lastInputAt = 0;
 	let raf = 0;
+	let measureRaf = 0;
 
 	function notifyState() {
 		params.onStateChange?.({ focused, ready });
@@ -105,6 +106,10 @@ export const customCaret: Action<HTMLDivElement, CustomCaretParams> = (node, ini
 	}
 
 	function snapCaretTo(x: number, y: number) {
+		if (measureRaf) {
+			cancelAnimationFrame(measureRaf);
+			measureRaf = 0;
+		}
 		if (raf) {
 			cancelAnimationFrame(raf);
 			raf = 0;
@@ -119,6 +124,8 @@ export const customCaret: Action<HTMLDivElement, CustomCaretParams> = (node, ini
 	}
 
 	function resetCaretTrail() {
+		if (measureRaf) cancelAnimationFrame(measureRaf);
+		measureRaf = 0;
 		if (raf) cancelAnimationFrame(raf);
 		raf = 0;
 		ready = false;
@@ -309,8 +316,11 @@ export const customCaret: Action<HTMLDivElement, CustomCaretParams> = (node, ini
 	}
 
 	function scheduleCaretMeasure() {
-		if (!params.caretTrail.enabled || measuring) return;
-		requestAnimationFrame(measureCaret);
+		if (!params.caretTrail.enabled || measuring || measureRaf) return;
+		measureRaf = requestAnimationFrame(() => {
+			measureRaf = 0;
+			measureCaret();
+		});
 	}
 
 	function syncRefs(next: CustomCaretParams) {
