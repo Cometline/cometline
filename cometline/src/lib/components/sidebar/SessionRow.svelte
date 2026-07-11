@@ -97,32 +97,32 @@
 
 <style>
 	.session-row-wrap {
-		border-left: 2px solid var(--session-row-rail);
 		border-radius: 8px;
-		padding-left: 8px;
+		padding-left: 0;
 		transition:
 			background-color var(--duration-fast) var(--ease-smooth),
-			border-color var(--duration-fast) var(--ease-smooth);
+			box-shadow var(--duration-fast) var(--ease-smooth);
 	}
 
 	.session-row-wrap:hover {
-		border-left-color: var(--session-row-rail-hover);
 		background: var(--session-row-bg-hover);
+		box-shadow: inset 0 0 0 1px var(--session-row-ring);
 	}
 
 	.session-row-wrap.streaming:not(.selected) {
-		border-left-color: var(--session-row-rail-streaming);
 		background: var(--session-row-bg-streaming);
+		box-shadow: inset 0 0 0 1px var(--session-row-ring);
 	}
 
 	.session-row-wrap.streaming:not(.selected):hover {
-		border-left-color: var(--session-row-rail-hover);
 		background: var(--session-row-bg-hover);
 	}
 
 	.session-row-wrap.selected {
-		border-left-color: var(--session-row-rail-active);
 		background: var(--session-row-bg-active);
+		box-shadow:
+			inset 0 0 0 1px var(--session-row-ring-active),
+			0 8px 18px color-mix(in srgb, var(--session-group-color) 8%, transparent);
 	}
 
 	.session-row-wrap.selected:hover {

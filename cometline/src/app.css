@@ -113,22 +113,12 @@
 
 	/* Sidebar session rows — tints derive from --session-group-color (set by parent group) */
 	--session-group-color: var(--workspace-group-color);
-	--session-row-rail: color-mix(in srgb, var(--session-group-color) 32%, var(--border-soft));
-	--session-row-rail-hover: color-mix(
-		in srgb,
-		var(--session-group-color) 58%,
-		var(--border-soft)
-	);
-	--session-row-rail-active: var(--session-group-color);
-	--session-row-rail-streaming: color-mix(
-		in srgb,
-		var(--session-group-color) 72%,
-		var(--border-soft)
-	);
 	--session-row-bg-hover: color-mix(in srgb, var(--session-group-color) 11%, transparent);
 	--session-row-bg-streaming: color-mix(in srgb, var(--session-group-color) 9%, transparent);
 	--session-row-bg-active: color-mix(in srgb, var(--session-group-color) 26%, transparent);
 	--session-row-bg-active-hover: color-mix(in srgb, var(--session-group-color) 34%, transparent);
+	--session-row-ring: color-mix(in srgb, var(--session-group-color) 24%, transparent);
+	--session-row-ring-active: color-mix(in srgb, var(--session-group-color) 42%, transparent);
 }
 
 @theme inline {

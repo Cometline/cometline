@@ -369,10 +369,24 @@
 	}
 
 	.markdown :global(blockquote) {
+		position: relative;
 		margin: 0 0 0.6em;
-		padding: 0.2em 0.9em;
-		border-left: 3px solid var(--border-soft);
+		padding: 0.45em 0.9em 0.45em 2.1em;
+		border: 1px solid color-mix(in srgb, var(--border-soft) 72%, transparent);
+		border-radius: 10px;
+		background: color-mix(in srgb, var(--border-soft) 22%, transparent);
 		color: var(--text-muted);
+	}
+
+	.markdown :global(blockquote::before) {
+		content: '“';
+		position: absolute;
+		left: 0.65em;
+		top: 0.2em;
+		font-family: Georgia, serif;
+		font-size: 1.35em;
+		line-height: 1;
+		color: color-mix(in srgb, var(--text-soft) 70%, transparent);
 	}
 
 	.markdown :global(hr) {

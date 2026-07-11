@@ -88,20 +88,30 @@
 		gap: 4px;
 		border-radius: 8px;
 		padding: 2px;
-		padding-left: 4px;
-		border-left: 3px solid var(--workspace-inactive-color, #9a9a9f);
-		background: var(--discord-group-bg, color-mix(in srgb, #5865f2 10%, transparent));
+		border: 1px solid color-mix(in srgb, var(--discord-group-color, #5865f2) 16%, transparent);
+		background: linear-gradient(
+			135deg,
+			var(--discord-group-bg, color-mix(in srgb, #5865f2 10%, transparent)),
+			color-mix(in srgb, var(--discord-group-color, #5865f2) 4%, transparent)
+		);
 		transition:
 			background var(--duration-fast) var(--ease-smooth),
-			border-color var(--duration-fast) var(--ease-smooth);
+			border-color var(--duration-fast) var(--ease-smooth),
+			box-shadow var(--duration-fast) var(--ease-smooth);
 	}
 
 	.discord-group:hover {
-		background: var(--discord-group-bg-hover, color-mix(in srgb, #5865f2 16%, transparent));
+		border-color: color-mix(in srgb, var(--discord-group-color, #5865f2) 24%, transparent);
+		background: linear-gradient(
+			135deg,
+			var(--discord-group-bg-hover, color-mix(in srgb, #5865f2 16%, transparent)),
+			color-mix(in srgb, var(--discord-group-color, #5865f2) 7%, transparent)
+		);
 	}
 
 	.discord-group.active {
-		border-left-color: var(--discord-group-color, #5865f2);
+		box-shadow: 0 8px 22px
+			color-mix(in srgb, var(--discord-group-color, #5865f2) 7%, transparent);
 	}
 
 	.discord-group.active .discord-label {
@@ -174,7 +184,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: 2px;
-		/* padding-left: 6px; */
 		--session-group-color: var(--discord-group-color);
 	}
 </style>

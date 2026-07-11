@@ -138,37 +138,50 @@
 		gap: 4px;
 		border-radius: 8px;
 		padding: 2px;
-		border-left: 2px solid transparent;
+		border: 1px solid transparent;
 		transition:
 			background var(--duration-fast) var(--ease-smooth),
-			border-color var(--duration-fast) var(--ease-smooth);
+			border-color var(--duration-fast) var(--ease-smooth),
+			box-shadow var(--duration-fast) var(--ease-smooth);
 	}
 
 	.workspace-group:not(.active) {
-		border-left: 3px solid var(--workspace-inactive-color, #9a9a9f);
-		padding-left: 4px;
-		background: color-mix(in srgb, var(--workspace-inactive-color, #9a9a9f) 15%, transparent);
+		background: linear-gradient(
+			135deg,
+			color-mix(in srgb, var(--workspace-inactive-color, #9a9a9f) 16%, transparent),
+			color-mix(in srgb, var(--workspace-inactive-color, #9a9a9f) 6%, transparent)
+		);
+		border-color: color-mix(in srgb, var(--workspace-inactive-color, #9a9a9f) 14%, transparent);
 	}
 
 	.workspace-group:not(.active):hover {
-		background: color-mix(in srgb, var(--workspace-inactive-color, #9a9a9f) 30%, transparent);
-	}
-
-	.workspace-group.active {
-		border-left: 3px solid var(--hero-composer-glow-color, var(--accent));
-		padding-left: 4px;
-		background: color-mix(
-			in srgb,
-			var(--hero-composer-glow-color, var(--accent)) 30%,
-			transparent
+		background: linear-gradient(
+			135deg,
+			color-mix(in srgb, var(--workspace-inactive-color, #9a9a9f) 24%, transparent),
+			color-mix(in srgb, var(--workspace-inactive-color, #9a9a9f) 9%, transparent)
 		);
 	}
 
-	.workspace-group.active:hover {
-		background: color-mix(
+	.workspace-group.active {
+		background: linear-gradient(
+			135deg,
+			color-mix(in srgb, var(--hero-composer-glow-color, var(--accent)) 31%, transparent),
+			color-mix(in srgb, var(--hero-composer-glow-color, var(--accent)) 12%, transparent)
+		);
+		border-color: color-mix(
 			in srgb,
-			var(--hero-composer-glow-color, var(--accent)) 40%,
+			var(--hero-composer-glow-color, var(--accent)) 26%,
 			transparent
+		);
+		box-shadow: 0 8px 22px
+			color-mix(in srgb, var(--hero-composer-glow-color, var(--accent)) 8%, transparent);
+	}
+
+	.workspace-group.active:hover {
+		background: linear-gradient(
+			135deg,
+			color-mix(in srgb, var(--hero-composer-glow-color, var(--accent)) 38%, transparent),
+			color-mix(in srgb, var(--hero-composer-glow-color, var(--accent)) 16%, transparent)
 		);
 	}
 
@@ -240,7 +253,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: 2px;
-		/* padding-left: 6px; */
 		--session-group-color: var(
 			--workspace-group-color,
 			var(--workspace-inactive-color, #9a9a9f)

@@ -83,14 +83,28 @@
 		flex-direction: column;
 		gap: 4px;
 		border-radius: 8px;
-		padding: 2px 2px 2px 4px;
-		border-left: 3px solid var(--pinned-group-color, #b45309);
-		background: var(--pinned-group-bg, color-mix(in srgb, #b45309 10%, transparent));
-		transition: background var(--duration-fast) var(--ease-smooth);
+		padding: 2px;
+		border: 1px solid color-mix(in srgb, var(--pinned-group-color, #b45309) 20%, transparent);
+		background: linear-gradient(
+			135deg,
+			var(--pinned-group-bg, color-mix(in srgb, #b45309 10%, transparent)),
+			color-mix(in srgb, var(--pinned-group-color, #b45309) 4%, transparent)
+		);
+		box-shadow: 0 8px 22px
+			color-mix(in srgb, var(--pinned-group-color, #b45309) 7%, transparent);
+		transition:
+			background var(--duration-fast) var(--ease-smooth),
+			border-color var(--duration-fast) var(--ease-smooth),
+			box-shadow var(--duration-fast) var(--ease-smooth);
 	}
 
 	.pinned-group:hover {
-		background: var(--pinned-group-bg-hover, color-mix(in srgb, #b45309 16%, transparent));
+		border-color: color-mix(in srgb, var(--pinned-group-color, #b45309) 30%, transparent);
+		background: linear-gradient(
+			135deg,
+			var(--pinned-group-bg-hover, color-mix(in srgb, #b45309 16%, transparent)),
+			color-mix(in srgb, var(--pinned-group-color, #b45309) 7%, transparent)
+		);
 	}
 
 	.pinned-header {
@@ -146,7 +160,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: 2px;
-		/* padding-left: 6px; */
 		--session-group-color: var(--pinned-group-color);
 	}
 </style>
