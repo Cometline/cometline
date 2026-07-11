@@ -21,7 +21,7 @@ Help the user choose a provider method, base URL, API key, enabled models, selec
 
 ## Skills Setup
 
-CometMind discovers skills from configured roots, `~/.cometmind/skills`, workspace `.agents/skills`, workspace `.claude/skills`, and optional OpenCode or Claude skill roots. User-created skills should normally live under `~/.cometmind/skills/{skill-name}/SKILL.md` or the workspace `.agents/skills` directory.
+CometMind discovers skills from configured roots, `~/.cometmind/skills`, global `~/.agents/skills`, workspace `.agents/skills`, workspace `.claude/skills`, and optional OpenCode or Claude skill roots. User-created skills should normally live under `~/.cometmind/skills/{skill-name}/SKILL.md`, global `~/.agents/skills`, or the workspace `.agents/skills` directory.
 
 Use `/create-skill` when the user wants the agent to create a reusable skill. The agent should use the `write_skill` tool rather than editing skill files manually when possible.
 

@@ -24,11 +24,13 @@
 		) => Promise<void>;
 	} = $props();
 
-	type SkillSourceFilter = 'all' | 'cometmind' | 'workspace' | 'opencode' | 'claude' | 'other';
+	type SkillSourceFilter =
+		'all' | 'cometmind' | 'global' | 'workspace' | 'opencode' | 'claude' | 'other';
 
 	const SKILL_SOURCE_FILTERS: { id: SkillSourceFilter; label: string }[] = [
 		{ id: 'all', label: 'All' },
 		{ id: 'cometmind', label: 'CometMind' },
+		{ id: 'global', label: 'Global Agent Skills' },
 		{ id: 'workspace', label: 'Workspace' },
 		{ id: 'opencode', label: 'OpenCode' },
 		{ id: 'claude', label: 'Claude Code' },
@@ -37,6 +39,7 @@
 
 	const SKILL_SOURCE_LABELS: Record<Exclude<SkillSourceFilter, 'all'>, string> = {
 		cometmind: 'CometMind',
+		global: 'Global Agent Skills',
 		workspace: 'Workspace',
 		opencode: 'OpenCode',
 		claude: 'Claude Code',
@@ -110,7 +113,12 @@
 		const path = normalizeSkillPath(skill.path);
 		if (path.includes('/.cometmind/skills/')) return 'cometmind';
 		if (path.includes('/.config/opencode/skills/')) return 'opencode';
-		if (path.includes('/.agents/skills/')) return 'workspace';
+		if (path.includes('/.agents/skills/')) {
+			const workspacePath = shellStore.workspacePath
+				? normalizeSkillPath(shellStore.workspacePath)
+				: '';
+			return workspacePath && path.startsWith(`${workspacePath}/`) ? 'workspace' : 'global';
+		}
 		if (path.includes('/.claude/skills/')) {
 			const workspacePath = shellStore.workspacePath
 				? normalizeSkillPath(shellStore.workspacePath)
@@ -142,6 +150,7 @@
 		const counts: Record<SkillSourceFilter, number> = {
 			all: skills.length,
 			cometmind: 0,
+			global: 0,
 			workspace: 0,
 			opencode: 0,
 			claude: 0,

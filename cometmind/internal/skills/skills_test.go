@@ -48,6 +48,26 @@ func TestDiscoverIncludesBundledSetupSkill(t *testing.T) {
 	}
 }
 
+func TestDiscoverIncludesGlobalAgentSkills(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	globalRoot := filepath.Join(home, ".agents", "skills")
+	writeSkill(t, globalRoot, "global-finance", "global finance skill")
+
+	reg := Discover("", Config{Enabled: true, IncludeOpenCode: false, IncludeClaude: false})
+	skill, ok := reg.Find("global-finance")
+	if !ok {
+		t.Fatalf("global Agent Skill not found; errors=%v", reg.Errors)
+	}
+	wantPath, err := filepath.EvalSymlinks(filepath.Join(globalRoot, "global-finance"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if skill.Path != wantPath {
+		t.Fatalf("skill path = %q, want %q", skill.Path, wantPath)
+	}
+}
+
 func TestDiscoverLetsUserSkillOverrideBundledSkill(t *testing.T) {
 	isolatedSkillsHome(t)
 	root := t.TempDir()

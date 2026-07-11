@@ -43,15 +43,19 @@ type frontmatter struct {
 	} `yaml:"metadata"`
 }
 
-// DefaultRoots returns configured, CometMind, workspace-local, OpenCode, and Claude roots.
+// DefaultRoots returns configured, CometMind, Agent Skills, workspace-local,
+// OpenCode, and Claude roots.
 func DefaultRoots(workspaceRoot string, cfg Config) []string {
-	roots := make([]string, 0, 5+len(cfg.Roots))
+	roots := make([]string, 0, 6+len(cfg.Roots))
 	roots = append(roots, cfg.Roots...)
 	roots = append(roots, "~/.cometmind/skills")
 	if workspaceRoot != "" {
 		roots = append(roots, filepath.Join(workspaceRoot, ".agents", "skills"))
 		roots = append(roots, filepath.Join(workspaceRoot, ".claude", "skills"))
 	}
+	// ~/.agents/skills is the user-global Agent Skills location shared by
+	// OpenCode and other compatible agents.
+	roots = append(roots, "~/.agents/skills")
 	if cfg.IncludeOpenCode {
 		roots = append(roots, "~/.config/opencode/skills")
 	}

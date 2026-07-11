@@ -174,6 +174,7 @@ Deleting a session also removes its Discord channel mapping (`gateway_sessions`)
 CometMind discovers skills from standard install locations and injects a compact index into the system prompt:
 
 - `~/.cometmind/skills`
+- `~/.agents/skills`
 - `<workspace>/.agents/skills`
 - `<workspace>/.claude/skills`
 - `~/.config/opencode/skills`

@@ -79,7 +79,7 @@ Every project is a first-class workspace with its own boundary:
 
 - **Separate sessions** — chat history does not leak across projects
 - **Scoped tools** — `read_file`, `write_file`, `list_dir`, and `run_command` operate only inside the active workspace
-- **Per-workspace skills** — discover skills from `~/.cometmind/skills/`, `{workspace}/.agents/skills/`, `{workspace}/.claude/skills/`, OpenCode, and Claude Code skill roots
+- **Per-workspace skills** — discover skills from `~/.cometmind/skills/`, `~/.agents/skills/`, `{workspace}/.agents/skills/`, `{workspace}/.claude/skills/`, OpenCode, and Claude Code skill roots
 
 ### Chat Interface
 
@@ -131,7 +131,7 @@ CometMind includes tools for file operations, command execution, and web fetchin
 
 ### Agent Skills
 
-Skills are reusable prompt templates — built-in slash commands plus custom skills in `~/.cometmind/skills/`, workspace-local `.agents/skills/` / `.claude/skills/`, and optional OpenCode or Claude Code skill roots:
+Skills are reusable prompt templates — built-in slash commands plus custom skills in `~/.cometmind/skills/`, global `~/.agents/skills/`, workspace-local `.agents/skills/` / `.claude/skills/`, and optional OpenCode or Claude Code skill roots:
 
 ```
 /create-skill Build a skill for reviewing PRs
