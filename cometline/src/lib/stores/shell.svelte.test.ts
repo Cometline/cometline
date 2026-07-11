@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const getActiveSessionId = vi.hoisted(() => vi.fn<() => string | null>(() => null));
 
@@ -58,5 +58,33 @@ describe('shellStore default vs active workspace', () => {
 		expect(shellStore.defaultWorkspacePath).toBe('/default');
 		expect(shellStore.workspacePath).toBe('/default');
 		expect(shellStore.sidebarOrderWorkspacePath).toBe('/default');
+	});
+});
+
+describe('shellStore web panel focus behavior', () => {
+	beforeEach(() => {
+		vi.stubGlobal('window', { electronAPI: undefined });
+	});
+
+	afterEach(() => {
+		vi.unstubAllGlobals();
+	});
+
+	it('does not focus the address bar when opening a URL from app content', () => {
+		const before = shellStore.addressBarFocusRequestId;
+
+		shellStore.openWebPanelForActive('https://example.com');
+
+		expect(shellStore.addressBarFocusRequestId).toBe(before);
+		shellStore.closeWebPanel();
+	});
+
+	it('requests address focus when opening an empty web panel', () => {
+		const before = shellStore.addressBarFocusRequestId;
+
+		shellStore.openWebPanelEmpty();
+
+		expect(shellStore.addressBarFocusRequestId).toBe(before + 1);
+		shellStore.closeWebPanel();
 	});
 });

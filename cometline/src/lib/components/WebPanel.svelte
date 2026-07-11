@@ -29,6 +29,17 @@
 		revert: () => void;
 	};
 
+	type CachedPageContext = {
+		sessionKey: string;
+		url: string;
+		title: string;
+		content: string;
+		capturedAt: number;
+	};
+
+	const PAGE_CONTEXT_CAPTURE_DELAY_MS = 250;
+	const PAGE_CONTEXT_CACHE_TTL_MS = 10_000;
+
 	let webviewEl = $state<WebviewElement | null>(null);
 	let addressInputEl = $state<HTMLInputElement | null>(null);
 	let canGoBack = $state(false);
@@ -42,12 +53,16 @@
 	let webviewSessionId = $state<string | null>(null);
 	let webviewLoadedUrl = $state<string | null>(null);
 	let addressEditing = $state(false);
+	let lastObservedPanelUrl = $state<string | null>(null);
 	let editorState = $state<FileEditorState | null>(null);
 	let displayedFilePath = $state<string | null>(null);
 	let capturingContext = $state(false);
+	let announcingContextCapture = $state(false);
 	let contextMessage = $state('');
 	let pageCaptureRun = 0;
 	let fileCaptureRun = 0;
+	let pageCaptureTimer: ReturnType<typeof setTimeout> | null = null;
+	let cachedPageContext = $state<CachedPageContext | null>(null);
 
 	const panelOpen = $derived(shellStore.webPanelOpen);
 	const panelMode = $derived(shellStore.webPanelMode);
@@ -121,13 +136,55 @@
 		webviewEl?.reload();
 	}
 
+	function cancelScheduledPageCapture() {
+		if (!pageCaptureTimer) return;
+		clearTimeout(pageCaptureTimer);
+		pageCaptureTimer = null;
+	}
+
+	function queuePageContextCapture() {
+		cancelScheduledPageCapture();
+		pageCaptureTimer = setTimeout(() => {
+			pageCaptureTimer = null;
+			void capturePageContext();
+		}, PAGE_CONTEXT_CAPTURE_DELAY_MS);
+	}
+
+	function addCachedPageContext(context: CachedPageContext) {
+		shellStore.addWebContextForActive({
+			kind: 'page',
+			title: context.title,
+			source: context.url,
+			content: context.content
+		});
+	}
+
 	async function capturePageContext({ announce = false } = {}) {
 		const el = webviewEl;
 		if (!el || panelMode !== 'url' || !panelUrl || capturingContext) return;
 		const captureRun = ++pageCaptureRun;
 		const capturedPanelUrl = panelUrl;
 		const capturedSessionKey = panelSessionKey;
+		let currentUrl = panelUrl;
+		try {
+			currentUrl = String(el.getURL() || panelUrl).trim();
+		} catch {
+			// A newly-mounted webview may not expose its URL yet; use panel state.
+		}
+		const cached = cachedPageContext;
+		if (
+			cached &&
+			cached.sessionKey === capturedSessionKey &&
+			cached.url === currentUrl &&
+			Date.now() - cached.capturedAt < PAGE_CONTEXT_CACHE_TTL_MS
+		) {
+			addCachedPageContext(cached);
+			if (announce) contextMessage = 'Page context added to the next message.';
+			return;
+		}
+
 		capturingContext = true;
+		announcingContextCapture = announce;
 		if (announce) contextMessage = '';
 		try {
 			const page = await el.executeJavaScript<{
@@ -156,12 +213,15 @@
 			if (!content) {
 				throw new Error('This page has no readable text content.');
 			}
-			shellStore.addWebContextForActive({
-				kind: 'page',
+			const context = {
+				sessionKey: capturedSessionKey,
+				url,
 				title: String(page?.title || pageTitle || '').trim(),
-				source: url,
-				content
-			});
+				content,
+				capturedAt: Date.now()
+			};
+			cachedPageContext = context;
+			addCachedPageContext(context);
 			if (announce) contextMessage = 'Page context added to the next message.';
 		} catch (error) {
 			if (announce) {
@@ -170,6 +230,7 @@
 			}
 		} finally {
 			capturingContext = false;
+			announcingContextCapture = false;
 		}
 	}
 
@@ -326,7 +387,7 @@
 		};
 		const onInPageNavigate = () => {
 			updateNavigationState();
-			void capturePageContext();
+			queuePageContextCapture();
 		};
 		const onStartLoading = () => {
 			loading = true;
@@ -334,7 +395,7 @@
 		const onStopLoading = () => {
 			loading = false;
 			updateNavigationState();
-			void capturePageContext();
+			queuePageContextCapture();
 		};
 		const onTitleUpdated = (event: Event & { title?: string }) => {
 			pageTitle = event.title ?? '';
@@ -352,6 +413,7 @@
 		el.addEventListener('focus', onFocus);
 
 		return () => {
+			cancelScheduledPageCapture();
 			el.removeEventListener('did-navigate', onNavigate);
 			el.removeEventListener('did-navigate-in-page', onInPageNavigate);
 			el.removeEventListener('did-start-loading', onStartLoading);
@@ -420,8 +482,15 @@
 	});
 
 	$effect(() => {
-		// Re-sync the address bar whenever the panel URL changes.
-		void panelUrl;
+		const url = panelUrl;
+		if (url !== lastObservedPanelUrl) {
+			lastObservedPanelUrl = url;
+			// Programmatic navigation, such as clicking a link in an assistant
+			// response, must dismiss any stale address suggestions first.
+			addressEditing = false;
+			fileOptions = [];
+			addressOptionHighlight = 0;
+		}
 		if (!addressEditing) {
 			syncAddressFromNavigation();
 		}
@@ -429,6 +498,8 @@
 
 	$effect(() => {
 		if (!shellStore.hasWebPanelForSession) {
+			cancelScheduledPageCapture();
+			cachedPageContext = null;
 			loading = false;
 			canGoBack = false;
 			canGoForward = false;
@@ -554,7 +625,10 @@
 						aria-label="Add page to chat context"
 						title="Add page to next message"
 					>
-						<FileText size={16} class={capturingContext ? 'spin' : ''} />
+						<FileText
+							size={16}
+							class={announcingContextCapture ? 'context-capture-pulse' : ''}
+						/>
 					</button>
 				</div>
 			{/if}
@@ -915,13 +989,34 @@
 		animation: web-panel-spin 0.8s linear infinite;
 	}
 
+	:global(.context-capture-pulse) {
+		transform-origin: center;
+		animation: web-panel-context-capture 0.9s var(--ease-smooth) infinite;
+	}
+
 	@keyframes web-panel-spin {
 		to {
 			transform: rotate(360deg);
 		}
 	}
 
+	@keyframes web-panel-context-capture {
+		0%,
+		100% {
+			opacity: 1;
+			transform: scale(1);
+		}
+		50% {
+			opacity: 0.58;
+			transform: scale(0.82);
+		}
+	}
+
 	@media (prefers-reduced-motion: reduce) {
+		:global(.context-capture-pulse) {
+			animation: none;
+		}
+
 		.web-panel {
 			transition: none;
 		}

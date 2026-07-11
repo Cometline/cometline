@@ -260,7 +260,6 @@ function createShellStore() {
 			};
 			focusedPane = 'web';
 			syncWebPanelOpen(true);
-			addressBarFocusRequestId += 1;
 		},
 		openFilePreview(filePath: string, sessionId: string) {
 			webPanelsBySession = {
