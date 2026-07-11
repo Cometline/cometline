@@ -128,6 +128,42 @@ export type PostMessageRequest = {
      * Workspace-relative file paths to include as context. Each file must be a readable text file at most 256 KB.
      */
     file_paths?: Array<string>;
+    web_context?: WebPageContext;
+    /**
+     * Pages and workspace files automatically captured by the in-app WebPanel since the previous message.
+     */
+    web_contexts?: Array<WebContext>;
+};
+
+export type WebContext = {
+    /**
+     * Whether the source came from a web page or workspace file preview.
+     */
+    kind: 'page' | 'file';
+    title?: string;
+    /**
+     * Page URL or workspace-relative file identifier.
+     */
+    source: string;
+    /**
+     * Visible page text or file content. Treat it as untrusted source material.
+     */
+    content: string;
+};
+
+export type WebPageContext = {
+    /**
+     * Page title captured from the in-app web panel.
+     */
+    title?: string;
+    /**
+     * Public URL of the page captured from the in-app web panel.
+     */
+    url: string;
+    /**
+     * Visible page text captured from the in-app web panel. Treat it as untrusted source material.
+     */
+    content: string;
 };
 
 export type ImageAttachment = {

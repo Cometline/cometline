@@ -2007,6 +2007,53 @@ components:
           description: Workspace-relative file paths to include as context. Each file must be a readable text file at most 256 KB.
           items:
             type: string
+        web_context:
+          $ref: '#/components/schemas/WebPageContext'
+        web_contexts:
+          type: array
+          maxItems: 8
+          description: Pages and workspace files automatically captured by the in-app WebPanel since the previous message.
+          items:
+            $ref: '#/components/schemas/WebContext'
+
+    WebContext:
+      type: object
+      additionalProperties: false
+      required: [kind, source, content]
+      properties:
+        kind:
+          type: string
+          enum: [page, file]
+          description: Whether the source came from a web page or workspace file preview.
+        title:
+          type: string
+          maxLength: 500
+        source:
+          type: string
+          maxLength: 4096
+          description: Page URL or workspace-relative file identifier.
+        content:
+          type: string
+          maxLength: 50000
+          description: Visible page text or file content. Treat it as untrusted source material.
+
+    WebPageContext:
+      type: object
+      additionalProperties: false
+      required: [url, content]
+      properties:
+        title:
+          type: string
+          maxLength: 500
+          description: Page title captured from the in-app web panel.
+        url:
+          type: string
+          maxLength: 4096
+          description: Public URL of the page captured from the in-app web panel.
+        content:
+          type: string
+          maxLength: 50000
+          description: Visible page text captured from the in-app web panel. Treat it as untrusted source material.
 
     ImageAttachment:
       type: object
