@@ -1,11 +1,7 @@
 import { tick, untrack } from 'svelte';
 import type { ChatItem } from '$lib/stores/chat.svelte';
 import { activeTurnMinHeight } from './thread-turns';
-import {
-	buildScrollKey,
-	followUpPinScrollMargin,
-	shouldShowJumpToBottom
-} from './thread-scroll';
+import { buildScrollKey, followUpPinScrollMargin, shouldShowJumpToBottom } from './thread-scroll';
 
 export interface ThreadScrollDeps {
 	getSessionId: () => string;
@@ -25,6 +21,7 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 	let lastScrolledUserId: string | null = null;
 	let viewportHeight = $state(0);
 	let scrollFrame = 0;
+	let scrollScheduleVersion = 0;
 	let isInitialTranscriptPaint = $state(true);
 	/** The follow-up user row pinned while its response is in flight. */
 	let activePinnedUserId = $state<string | null>(null);
@@ -53,6 +50,27 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 
 	function onScroll() {
 		updateJumpToBottom();
+	}
+
+	function cancelScheduledScrollUpdate() {
+		scrollScheduleVersion += 1;
+		if (scrollFrame) {
+			cancelAnimationFrame(scrollFrame);
+			scrollFrame = 0;
+		}
+	}
+
+	function scheduleScrollUpdate() {
+		cancelScheduledScrollUpdate();
+		const version = scrollScheduleVersion;
+		scrollFrame = requestAnimationFrame(() => {
+			void tick().then(() => {
+				if (version !== scrollScheduleVersion) return;
+				scrollFrame = 0;
+				if (!scroller || isInitialTranscriptPaint) return;
+				updateJumpToBottom();
+			});
+		});
 	}
 
 	function jumpToBottom() {
@@ -172,18 +190,8 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 
 	$effect(() => {
 		void scrollKey;
-		if (scrollFrame) cancelAnimationFrame(scrollFrame);
-		scrollFrame = requestAnimationFrame(() => {
-			void tick().then(() => {
-				scrollFrame = 0;
-				if (!scroller) return;
-				if (isInitialTranscriptPaint) return;
-				updateJumpToBottom();
-			});
-		});
-		return () => {
-			if (scrollFrame) cancelAnimationFrame(scrollFrame);
-		};
+		scheduleScrollUpdate();
+		return cancelScheduledScrollUpdate;
 	});
 
 	$effect(() => {
