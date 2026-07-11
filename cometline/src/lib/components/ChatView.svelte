@@ -65,10 +65,7 @@
 						return;
 					}
 					return firstTurnFlight
-						?.runAsync(payload.text, payload.images, {
-							stageUser,
-							revealStagedUser
-						})
+						?.runAsync(payload.text, payload.images)
 						.catch((error) => {
 							firstTurnFlightDone = true;
 							firstTurnHandoffPending = false;
@@ -388,9 +385,7 @@
 		class:centered={!compact && shellStore.composerPhase === 'centered'}
 		class:snap={composerSnap}
 	>
-		<HeroComposerFrame
-			active={composerVariant === 'hero'}
-		>
+		<HeroComposerFrame active={composerVariant === 'hero'}>
 			<Composer
 				bind:this={composerRef}
 				onSend={submit}

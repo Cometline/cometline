@@ -5,9 +5,19 @@ import {
 	blendFlightOrigin,
 	dockUserOrigin,
 	measureStableUserBubble,
+	rectTransform,
 	textareaUserOrigin,
 	translateStyle
 } from './first-turn-flight';
+
+describe('rectTransform', () => {
+	it('calculates the inverse transform from the final layout to the source rect', () => {
+		const from = new DOMRect(100, 200, 400, 120);
+		const to = new DOMRect(300, 80, 400, 60);
+
+		expect(rectTransform(from, to)).toEqual({ dx: -200, dy: 120, sx: 1, sy: 2 });
+	});
+});
 
 describe('translateStyle', () => {
 	it('locks position and measured target dimensions for the flight particle', () => {

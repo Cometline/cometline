@@ -58,6 +58,111 @@ export function translateStyle(from: DOMRect, to: DOMRect): string {
 	].join(';');
 }
 
+export interface RectTransform {
+	dx: number;
+	dy: number;
+	sx: number;
+	sy: number;
+}
+
+export function rectTransform(from: DOMRect, to: DOMRect): RectTransform {
+	return {
+		dx: from.left - to.left,
+		dy: from.top - to.top,
+		sx: from.width / Math.max(to.width, 1),
+		sy: from.height / Math.max(to.height, 1)
+	};
+}
+
+/** Wait for an element's CSS animation, with a timeout fallback. */
+export async function waitForAnimationEnd(
+	element: HTMLElement | null,
+	extraMs = 160
+): Promise<void> {
+	await tick();
+	if (!element) return;
+
+	await new Promise<void>((resolve) => {
+		let done = false;
+		const finish = () => {
+			if (done) return;
+			done = true;
+			element.removeEventListener('animationend', finish);
+			window.clearTimeout(timeout);
+			resolve();
+		};
+		const timeout = window.setTimeout(finish, FLIGHT_MS + extraMs);
+		element.addEventListener('animationend', finish, { once: true });
+	});
+}
+
+/** Measure a layout rect after it stops changing for two paint cycles. */
+export async function measureStableRect(element: HTMLElement): Promise<DOMRect> {
+	let rect = element.getBoundingClientRect();
+	let stableFrames = 0;
+
+	for (let frame = 0; frame < 40; frame++) {
+		await afterPaint();
+		const next = element.getBoundingClientRect();
+		const stable =
+			Math.abs(next.left - rect.left) < 0.5 &&
+			Math.abs(next.top - rect.top) < 0.5 &&
+			Math.abs(next.width - rect.width) < 0.5 &&
+			Math.abs(next.height - rect.height) < 0.5;
+
+		if (stable) {
+			stableFrames += 1;
+			if (stableFrames >= 2) return next;
+		} else {
+			stableFrames = 0;
+		}
+
+		rect = next;
+	}
+
+	return rect;
+}
+
+/** Animate an element from its previous rect to its current layout rect. */
+export async function animateElementToRect(
+	element: HTMLElement,
+	from: DOMRect | null
+): Promise<void> {
+	if (!from || prefersReducedMotion()) return;
+
+	await afterPaint();
+	const to = element.getBoundingClientRect();
+	const { dx, dy, sx, sy } = rectTransform(from, to);
+
+	element.style.transition = 'none';
+	element.style.transformOrigin = 'top left';
+	element.style.transform = `translate3d(${dx}px, ${dy}px, 0) scale(${sx}, ${sy})`;
+	void element.offsetWidth;
+	await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+
+	element.style.transition = `transform ${FLIGHT_MS}ms var(--ease-smooth)`;
+	element.style.transform = 'translate3d(0, 0, 0)';
+
+	await new Promise<void>((resolve) => {
+		let done = false;
+		const finish = () => {
+			if (done) return;
+			done = true;
+			element.removeEventListener('transitionend', onEnd);
+			window.clearTimeout(timeout);
+			element.style.transition = '';
+			element.style.transform = '';
+			element.style.transformOrigin = '';
+			resolve();
+		};
+		const onEnd = (event: TransitionEvent) => {
+			if (event.propertyName === 'transform') finish();
+		};
+		const timeout = window.setTimeout(finish, FLIGHT_MS + 80);
+		element.addEventListener('transitionend', onEnd);
+	});
+}
+
 const LAYOUT_STABLE_FRAMES = 2;
 const MAX_LAYOUT_WAIT_FRAMES = 24;
 

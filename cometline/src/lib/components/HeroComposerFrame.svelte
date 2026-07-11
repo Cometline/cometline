@@ -1,28 +1,22 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { onMount, tick } from 'svelte';
+	import { tick } from 'svelte';
 
 	let {
 		active = true,
-		exiting = false,
-		onExitComplete,
 		children
 	}: {
 		active?: boolean;
-		exiting?: boolean;
-		onExitComplete?: () => void;
 		children: Snippet;
 	} = $props();
 
-	const showEffects = $derived(active || exiting);
+	const showEffects = $derived(active);
 
 	let frameEl = $state<HTMLDivElement | null>(null);
 	let glowTravelPx = $state(0);
 	let glowReady = $state(false);
-	let prefersReducedMotion = $state(false);
-
 	function measureGlowTravel() {
-		if (!frameEl || exiting) return;
+		if (!frameEl) return;
 		const home = frameEl.closest('.chat-home');
 		if (!home) return;
 		const homeRect = home.getBoundingClientRect();
@@ -30,21 +24,6 @@
 		glowTravelPx = Math.max(0, Math.round(homeRect.bottom - frameRect.bottom));
 		glowReady = true;
 	}
-
-	onMount(() => {
-		const media = window.matchMedia('(prefers-reduced-motion: reduce)');
-		prefersReducedMotion = media.matches;
-		const onMotionChange = () => {
-			prefersReducedMotion = media.matches;
-		};
-		media.addEventListener('change', onMotionChange);
-		window.addEventListener('resize', measureGlowTravel);
-
-		return () => {
-			media.removeEventListener('change', onMotionChange);
-			window.removeEventListener('resize', measureGlowTravel);
-		};
-	});
 
 	$effect(() => {
 		if (!frameEl) return;
@@ -57,38 +36,22 @@
 	});
 
 	$effect(() => {
-		if (active && !exiting) {
+		if (active) {
 			void tick().then(measureGlowTravel);
 			return;
 		}
-		if (!exiting) glowReady = false;
+		glowReady = false;
 	});
-
-	$effect(() => {
-		if (!exiting || !prefersReducedMotion) return;
-		onExitComplete?.();
-	});
-
-	function handleGlowAnimationEnd(event: AnimationEvent) {
-		if (!exiting || event.animationName !== 'hero-composer-glow-exit') return;
-		onExitComplete?.();
-	}
 </script>
 
 <div
 	class="hero-composer-frame"
-	class:exit={exiting}
-	class:impact-ready={glowReady && active && !exiting}
+	class:impact-ready={glowReady && active}
 	bind:this={frameEl}
 	style:--hero-glow-travel="{glowTravelPx}px"
 >
 	{#if showEffects}
-		<div
-			class="hero-composer-glow"
-			class:ready={glowReady}
-			aria-hidden="true"
-			onanimationend={handleGlowAnimationEnd}
-		></div>
+		<div class="hero-composer-glow" class:ready={glowReady} aria-hidden="true"></div>
 		<div class="hero-composer-ring" class:ready={glowReady} aria-hidden="true"></div>
 	{/if}
 	<div class="hero-composer-slot">
@@ -108,11 +71,6 @@
 	.hero-composer-frame.impact-ready {
 		animation: hero-composer-impact var(--duration-hero-impact-rise) var(--ease-smooth)
 			var(--duration-hero-hit-delay) forwards;
-	}
-
-	.hero-composer-frame.exit {
-		animation: hero-composer-impact-exit var(--duration-hero-exit-ring) var(--ease-smooth)
-			forwards;
 	}
 
 	.hero-composer-slot {
@@ -174,15 +132,6 @@
 			forwards;
 	}
 
-	.hero-composer-frame.exit .hero-composer-ring {
-		animation: hero-composer-ring-exit var(--duration-hero-exit-ring) var(--ease-smooth)
-			forwards;
-	}
-
-	.hero-composer-frame.exit .hero-composer-glow {
-		animation: hero-composer-glow-exit var(--duration-flight) var(--ease-smooth) forwards;
-	}
-
 	@keyframes hero-composer-glow-rise {
 		from {
 			opacity: 0;
@@ -204,15 +153,6 @@
 		}
 	}
 
-	@keyframes hero-composer-impact-exit {
-		from {
-			transform: scale(var(--hero-composer-impact-scale, 1.01));
-		}
-		to {
-			transform: scale(1);
-		}
-	}
-
 	@keyframes hero-composer-ring-rise {
 		from {
 			opacity: 0;
@@ -223,35 +163,10 @@
 		}
 	}
 
-	@keyframes hero-composer-ring-exit {
-		from {
-			clip-path: inset(0 0 0 0 round 24px);
-			opacity: 1;
-		}
-		to {
-			clip-path: inset(100% 0 0 0 round 24px);
-			opacity: 0;
-		}
-	}
-
-	@keyframes hero-composer-glow-exit {
-		from {
-			opacity: 1;
-		}
-		to {
-			opacity: 0;
-		}
-	}
-
 	@media (prefers-reduced-motion: reduce) {
 		.hero-composer-frame.impact-ready {
 			animation: none;
 			transform: scale(var(--hero-composer-impact-scale, 1.01));
-		}
-
-		.hero-composer-frame.exit {
-			animation: none;
-			transform: scale(1);
 		}
 
 		.hero-composer-ring {
@@ -265,12 +180,6 @@
 			opacity: 1;
 			transform: none;
 			box-shadow: 0 0 44px var(--hero-composer-glow-ring);
-		}
-
-		.hero-composer-frame.exit .hero-composer-ring,
-		.hero-composer-frame.exit .hero-composer-glow {
-			animation: none;
-			opacity: 0;
 		}
 	}
 </style>
