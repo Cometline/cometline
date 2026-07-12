@@ -7,6 +7,7 @@ import {
 	cloneSettings,
 	providerPayloadFromDraft
 } from '$lib/settings/settings-draft';
+import { isFixedBuiltinProvider } from '$lib/settings/schema';
 import { runtimeActionForSettingsSave, saveStatusMessage } from '$lib/settings/settings-save';
 import type {
 	ProviderConfig,
@@ -451,6 +452,8 @@ export function createSettingsPanelController(deps: {
 	}
 
 	function setSelectedMethod(method: ProviderMethod) {
+		const selectedProvider = deps.getSelectedProvider();
+		if (selectedProvider && isFixedBuiltinProvider(selectedProvider.id)) return;
 		if (method === 'opencode-go') {
 			updateSelected({
 				method,

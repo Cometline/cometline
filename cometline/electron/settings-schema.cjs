@@ -31,6 +31,7 @@ __export(schema_exports, {
   defaultCometMindSettings: () => defaultCometMindSettings,
   defaultCometMindStorageSettings: () => defaultCometMindStorageSettings,
   defaultSettings: () => defaultSettings,
+  isFixedBuiltinProvider: () => isFixedBuiltinProvider,
   migrateSingleProvider: () => migrateSingleProvider,
   newProvider: () => newProvider,
   normalizeCometMindSettings: () => normalizeCometMindSettings,
@@ -4469,6 +4470,10 @@ var DEFAULT_PROVIDERS = [
     enabledModels: []
   }
 ];
+var FIXED_BUILTIN_PROVIDER_IDS = /* @__PURE__ */ new Set(["codex", "xai", "openai", "anthropic", "opencode-go"]);
+function isFixedBuiltinProvider(id) {
+  return FIXED_BUILTIN_PROVIDER_IDS.has(id);
+}
 function looksLikeDiscordBotToken(value) {
   const parts = value.split(".");
   if (parts.length !== 3) return false;
@@ -5021,18 +5026,19 @@ function cloneProvider(provider) {
   };
 }
 function normalizeProvider(provider, fallback) {
-  const method = VALID_PROVIDER_METHODS.includes(provider.method) ? provider.method : fallback?.method ?? "openai-compatible";
+  const id = String(
+    provider.id || fallback?.id || `provider-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  ).trim();
+  const fixedBuiltin = isFixedBuiltinProvider(id) ? DEFAULT_PROVIDERS.find((candidate) => candidate.id === id) : void 0;
+  const method = fixedBuiltin ? fixedBuiltin.method : VALID_PROVIDER_METHODS.includes(provider.method) ? provider.method : fallback?.method ?? "openai-compatible";
   const rawModels = Array.isArray(provider.models) ? provider.models : fallback?.models ?? [];
   const modelList = rawModels.map((model) => String(model || "").trim()).filter(Boolean);
   const legacySelected = String(provider.selectedModel || fallback?.selectedModel || "").trim();
   const rawEnabledModels = Array.isArray(provider.enabledModels) ? provider.enabledModels : legacySelected ? [legacySelected] : [];
   const enabledModels = rawEnabledModels.map((model) => String(model || "").trim()).filter((model) => model && modelList.includes(model));
-  const id = String(
-    provider.id || fallback?.id || `provider-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-  ).trim();
   return {
     id,
-    name: providerNameOrDefault(provider, fallback, id),
+    name: fixedBuiltin?.name ?? providerNameOrDefault(provider, fallback, id),
     method,
     enabled: typeof provider.enabled === "boolean" ? provider.enabled : Boolean(fallback?.enabled),
     baseURL: String(provider.baseURL ?? fallback?.baseURL ?? "").trim(),
@@ -5405,6 +5411,7 @@ function parseAndNormalizeSettings(raw, options = {}) {
   defaultCometMindSettings,
   defaultCometMindStorageSettings,
   defaultSettings,
+  isFixedBuiltinProvider,
   migrateSingleProvider,
   newProvider,
   normalizeCometMindSettings,

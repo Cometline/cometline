@@ -197,6 +197,22 @@ describe('settings schema', () => {
 		);
 	});
 
+	it('restores fixed provider names and methods while preserving custom configuration', () => {
+		const settings = normalizeSettings({
+			...defaultSettings(),
+			providers: defaultSettings().providers.map((provider) =>
+				provider.id === 'openai'
+					? { ...provider, name: 'Openai', method: 'openai-compatible' }
+					: provider
+			)
+		});
+
+		expect(settings.providers.find((p) => p.id === 'openai')).toMatchObject({
+			name: 'OpenAI',
+			method: 'openai'
+		});
+	});
+
 	it('parseAndNormalizeSettings applies systemPromptPath option', () => {
 		const settings = parseAndNormalizeSettings({}, { systemPromptPath: '/tmp/SOUL.md' });
 		expect(settings.cometmind.systemPromptPath).toBe('/tmp/SOUL.md');

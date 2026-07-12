@@ -273,6 +273,53 @@
 	box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
 }
 
+.settings-panel-frame label:has(select) {
+	position: relative;
+}
+
+.settings-panel-frame select {
+	appearance: none;
+	padding-right: 42px;
+}
+
+.settings-panel-frame label:has(select)::after {
+	content: '';
+	position: absolute;
+	right: 16px;
+	bottom: 17px;
+	width: 7px;
+	height: 7px;
+	border-right: 1.5px solid var(--text-muted);
+	border-bottom: 1.5px solid var(--text-muted);
+	pointer-events: none;
+	transform: rotate(45deg);
+}
+
+.settings-panel-frame
+	input:not([type='checkbox']):not([type='radio']):not([type='color']):not([type='range']):disabled,
+.settings-panel-frame select:disabled {
+	border-color: rgba(148, 163, 184, 0.32);
+	background: rgba(148, 163, 184, 0.12);
+	color: rgba(100, 116, 139, 0.82);
+	cursor: not-allowed;
+	opacity: 1;
+}
+
+.settings-panel-frame label.locked > span {
+	color: rgba(100, 116, 139, 0.72);
+}
+
+.settings-panel-frame
+	input:not([type='checkbox']):not([type='radio']):not([type='color']):not([type='range']).locked,
+.settings-panel-frame select.locked {
+	background: #edf1f5;
+	color: #94a3b8;
+}
+
+.settings-panel-frame label.locked:has(select)::after {
+	border-color: #94a3b8;
+}
+
 /* ---- Settings UI: click / hover feedback ---- */
 
 .settings-ui {

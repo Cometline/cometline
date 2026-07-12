@@ -1,17 +1,23 @@
 <script lang="ts">
 	import { fly } from 'svelte/transition';
+	import type { ProviderMethod } from '$lib/types';
+	import ProviderLogo from './ProviderLogo.svelte';
 
 	let {
 		name,
+		method,
 		selected = false,
 		enabled = false,
 		onclick
 	}: {
 		name: string;
+		method: ProviderMethod;
 		selected?: boolean;
 		enabled?: boolean;
 		onclick: () => void;
 	} = $props();
+
+	let displayName = $derived(name.trim().toLowerCase() === 'openai' ? 'OpenAI' : name);
 </script>
 
 <button
@@ -21,8 +27,9 @@
 	{onclick}
 	transition:fly={{ y: 4, duration: 100 }}
 >
-	<span>
-		<strong>{name}</strong>
+	<span class="provider-identity">
+		<ProviderLogo {method} />
+		<strong>{displayName}</strong>
 	</span>
 	<span class="provider-dot" aria-hidden="true"></span>
 </button>
@@ -50,6 +57,19 @@
 	.provider-card strong {
 		font-size: 12px;
 		color: var(--text-main);
+	}
+
+	.provider-identity {
+		display: flex;
+		align-items: center;
+		min-width: 0;
+		gap: 8px;
+	}
+
+	.provider-identity strong {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 
 	.provider-dot {

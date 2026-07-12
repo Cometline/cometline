@@ -309,6 +309,13 @@ const DEFAULT_PROVIDERS: ProviderConfig[] = [
 	}
 ];
 
+const FIXED_BUILTIN_PROVIDER_IDS = new Set(['codex', 'xai', 'openai', 'anthropic', 'opencode-go']);
+
+/** Built-in integrations have a stable identity; custom endpoints remain configurable. */
+export function isFixedBuiltinProvider(id: string): boolean {
+	return FIXED_BUILTIN_PROVIDER_IDS.has(id);
+}
+
 function looksLikeDiscordBotToken(value: string): boolean {
 	const parts = value.split('.');
 	if (parts.length !== 3) return false;
@@ -966,9 +973,19 @@ export function normalizeProvider(
 	provider: Partial<ProviderConfig>,
 	fallback?: ProviderConfig
 ): ProviderConfig {
-	const method = VALID_PROVIDER_METHODS.includes(provider.method as ProviderMethod)
-		? (provider.method as ProviderMethod)
-		: (fallback?.method ?? 'openai-compatible');
+	const id = String(
+		provider.id ||
+			fallback?.id ||
+			`provider-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+	).trim();
+	const fixedBuiltin = isFixedBuiltinProvider(id)
+		? DEFAULT_PROVIDERS.find((candidate) => candidate.id === id)
+		: undefined;
+	const method = fixedBuiltin
+		? fixedBuiltin.method
+		: VALID_PROVIDER_METHODS.includes(provider.method as ProviderMethod)
+			? (provider.method as ProviderMethod)
+			: (fallback?.method ?? 'openai-compatible');
 	const rawModels = Array.isArray(provider.models) ? provider.models : (fallback?.models ?? []);
 	const modelList = rawModels.map((model) => String(model || '').trim()).filter(Boolean);
 	const legacySelected = String(provider.selectedModel || fallback?.selectedModel || '').trim();
@@ -980,15 +997,9 @@ export function normalizeProvider(
 	const enabledModels = rawEnabledModels
 		.map((model) => String(model || '').trim())
 		.filter((model) => model && modelList.includes(model));
-	const id = String(
-		provider.id ||
-			fallback?.id ||
-			`provider-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-	).trim();
-
 	return {
 		id,
-		name: providerNameOrDefault(provider, fallback, id),
+		name: fixedBuiltin?.name ?? providerNameOrDefault(provider, fallback, id),
 		method,
 		enabled:
 			typeof provider.enabled === 'boolean' ? provider.enabled : Boolean(fallback?.enabled),

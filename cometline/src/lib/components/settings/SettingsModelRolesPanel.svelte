@@ -63,12 +63,6 @@
 		};
 	}
 
-	function roleLabel(providerId: string, modelId: string) {
-		const provider = providerById(providerId);
-		if (!provider || !modelId) return 'No model selected';
-		return `${provider?.name ?? providerId} · ${modelId}`;
-	}
-
 	// ── Default model picker ────────────────────────────────────────────
 	let modelMenuOpen = $state(false);
 	let modelSearch = $state('');
@@ -231,14 +225,8 @@
 	// ── Autonomous jobs and skill synthesis model roles ─────────────────
 	const autonomyProvider = $derived(providerById(cometmind.autonomy.providerId));
 	const autonomyModels = $derived(modelsForProvider(autonomyProvider));
-	const autonomyRoleLabel = $derived(
-		roleLabel(cometmind.autonomy.providerId, cometmind.autonomy.modelId)
-	);
 	const synthesisProvider = $derived(providerById(cometmind.skills.synthesisProviderId));
 	const synthesisModels = $derived(modelsForProvider(synthesisProvider));
-	const synthesisRoleLabel = $derived(
-		roleLabel(cometmind.skills.synthesisProviderId, cometmind.skills.synthesisModel)
-	);
 
 	$effect(() => {
 		const first = modelOptions[0];
@@ -382,10 +370,6 @@
 				<h3>Autonomous jobs</h3>
 				<p>Choose the exact model used when CometMind claims jobs in the background.</p>
 			</div>
-			<div class="role-summary">
-				<span>Currently uses</span>
-				<strong>{autonomyRoleLabel}</strong>
-			</div>
 			<label>
 				<span>Autonomous jobs provider</span>
 				<select
@@ -422,10 +406,6 @@
 				<p>
 					Choose the exact model that proposes reusable skill drafts after completed jobs.
 				</p>
-			</div>
-			<div class="role-summary">
-				<span>Currently uses</span>
-				<strong>{synthesisRoleLabel}</strong>
 			</div>
 			<label>
 				<span>Synthesis provider</span>
@@ -573,30 +553,7 @@
 		opacity: 0.5;
 		cursor: default;
 	}
-
-	.role-summary {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 12px;
-		padding: 10px 12px;
-		border: 1px solid var(--border-soft);
-		border-radius: 12px;
-		background: rgba(15, 23, 42, 0.04);
-		font-size: 12px;
-	}
-
-	.role-summary span {
-		color: var(--text-muted);
-	}
-
-	.role-summary strong {
-		font-size: 12px;
-		font-weight: 600;
-		color: var(--text-main);
-		text-align: right;
-	}
-
+	
 	.model-menu {
 		position: absolute;
 		top: calc(100% + 6px);

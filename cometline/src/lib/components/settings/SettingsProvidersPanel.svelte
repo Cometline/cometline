@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { LogIn, LoaderCircle, Plus, RefreshCw, Trash2 } from '@lucide/svelte';
 	import type { ProviderConfig, ProviderMethod } from '$lib/types';
+	import { isFixedBuiltinProvider } from '$lib/settings/schema';
 	import { settingsStore } from '$lib/stores/settings.svelte';
 	import ProviderCard from './ProviderCard.svelte';
 	import ModelRow from './ModelRow.svelte';
@@ -114,6 +115,7 @@
 			{#each providers as provider (provider.id)}
 				<ProviderCard
 					name={provider.name}
+					method={provider.method}
 					selected={selectedProviderId === provider.id}
 					enabled={provider.enabled}
 					onclick={() => {
@@ -163,21 +165,25 @@
 			</div>
 
 			<div class="form-grid">
-				<label>
+				<label class:locked={isFixedBuiltinProvider(selectedProvider.id)}>
 					<span>Name</span>
 					<input
+						class:locked={isFixedBuiltinProvider(selectedProvider.id)}
 						value={selectedProvider.name}
 						oninput={(e) => onUpdateSelected({ name: e.currentTarget.value })}
 						placeholder="Provider name"
 						spellcheck="false"
+						disabled={isFixedBuiltinProvider(selectedProvider.id)}
 					/>
 				</label>
 
-				<label>
+				<label class:locked={isFixedBuiltinProvider(selectedProvider.id)}>
 					<span>Method</span>
 					<select
+						class:locked={isFixedBuiltinProvider(selectedProvider.id)}
 						value={selectedProvider.method}
 						onchange={(e) => onSetMethod(e.currentTarget.value as ProviderMethod)}
+						disabled={isFixedBuiltinProvider(selectedProvider.id)}
 					>
 						<option value="codex">ChatGPT Codex</option>
 						<option value="xai">xAI Grok Subscription</option>
@@ -469,19 +475,6 @@
 		flex-wrap: wrap;
 		gap: 8px;
 		padding-top: 2px;
-	}
-
-	input,
-	select {
-		width: 100%;
-		border: 1px solid var(--border-soft);
-		border-radius: 11px;
-		background: rgba(255, 255, 255, 0.76);
-		padding: 10px 11px;
-		font: inherit;
-		font-size: 13px;
-		color: var(--text-main);
-		outline: none;
 	}
 
 	.model-section {

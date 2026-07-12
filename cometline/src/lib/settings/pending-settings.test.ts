@@ -35,7 +35,7 @@ describe('pending-settings', () => {
 		const draft = normalizeSettings({
 			...base,
 			providers: base.providers.map((provider, index) =>
-				index === 0 ? { ...provider, name: 'Renamed provider' } : provider
+				index === 5 ? { ...provider, name: 'Renamed provider' } : provider
 			)
 		});
 
