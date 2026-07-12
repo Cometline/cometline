@@ -1,5 +1,11 @@
 declare global {
-	type ProviderMethod = 'openai-compatible' | 'openai' | 'anthropic' | 'opencode-go' | 'codex';
+	type ProviderMethod =
+		| 'openai-compatible'
+		| 'openai'
+		| 'anthropic'
+		| 'opencode-go'
+		| 'codex'
+		| 'xai';
 
 	interface ProviderConfig {
 		id: string;
@@ -326,6 +332,12 @@ declare global {
 				error?: string;
 			}>;
 			startCodexLogin?: () => Promise<{ started: boolean; message: string }>;
+			getXaiAuthStatus?: () => Promise<{
+				authenticated: boolean;
+				authPath: string;
+				error?: string;
+			}>;
+			startXaiLogin?: () => Promise<{ started: boolean; message: string }>;
 			getMcpOAuthStatus?: (serverId: string) => Promise<{
 				authenticated: boolean;
 				authPath: string;

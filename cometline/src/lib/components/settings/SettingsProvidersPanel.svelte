@@ -10,6 +10,7 @@
 		anthropic: 'Anthropic',
 		'opencode-go': 'OpenCode Go',
 		codex: 'ChatGPT Codex',
+		xai: 'xAI Grok Subscription',
 		'openai-compatible': 'OpenAI Compatible'
 	};
 
@@ -18,6 +19,7 @@
 		'openai',
 		'opencode-go',
 		'codex',
+		'xai',
 		'openai-compatible'
 	]);
 
@@ -25,6 +27,11 @@
 		authenticated: boolean;
 		authPath: string;
 		accountID?: string;
+		error?: string;
+	};
+	type XaiAuthStatus = {
+		authenticated: boolean;
+		authPath: string;
 		error?: string;
 	};
 
@@ -38,6 +45,9 @@
 		codexAuthStatus,
 		checkingCodexAuth = false,
 		startingCodexLogin = false,
+		xaiAuthStatus,
+		checkingXaiAuth = false,
+		startingXaiLogin = false,
 		onAddProvider,
 		onRemoveProvider,
 		onToggleProvider,
@@ -46,7 +56,9 @@
 		onFetchModels,
 		onToggleModel,
 		onStartCodexLogin,
-		onRefreshCodexAuth
+		onRefreshCodexAuth,
+		onStartXaiLogin,
+		onRefreshXaiAuth
 	}: {
 		providers: ProviderConfig[];
 		selectedProviderId?: string;
@@ -57,6 +69,9 @@
 		codexAuthStatus?: CodexAuthStatus;
 		checkingCodexAuth?: boolean;
 		startingCodexLogin?: boolean;
+		xaiAuthStatus?: XaiAuthStatus;
+		checkingXaiAuth?: boolean;
+		startingXaiLogin?: boolean;
 		onAddProvider: () => void;
 		onRemoveProvider: (id: string) => void;
 		onToggleProvider: (id: string) => void;
@@ -66,10 +81,12 @@
 		onToggleModel: (model: string) => void;
 		onStartCodexLogin: () => void;
 		onRefreshCodexAuth: () => void;
+		onStartXaiLogin: () => void;
+		onRefreshXaiAuth: () => void;
 	} = $props();
 
 	function methodNeedsApiKey(method: ProviderMethod) {
-		return method !== 'codex';
+		return method !== 'codex' && method !== 'xai';
 	}
 
 	function canFetchModels(provider: ProviderConfig) {
@@ -77,7 +94,9 @@
 		return (
 			provider.method === 'codex' ||
 			provider.method === 'opencode-go' ||
-			provider.apiKey.trim().length > 0
+			(provider.method === 'xai'
+				? Boolean(xaiAuthStatus?.authenticated)
+				: provider.apiKey.trim().length > 0)
 		);
 	}
 </script>
@@ -161,6 +180,7 @@
 						onchange={(e) => onSetMethod(e.currentTarget.value as ProviderMethod)}
 					>
 						<option value="codex">ChatGPT Codex</option>
+						<option value="xai">xAI Grok Subscription</option>
 						<option value="openai">OpenAI</option>
 						<option value="anthropic">Anthropic</option>
 						<option value="opencode-go">OpenCode Go</option>
@@ -189,7 +209,7 @@
 							spellcheck="false"
 						/>
 					</label>
-				{:else}
+				{:else if selectedProvider.method === 'codex'}
 					<div class="field-note">
 						<span>Authentication</span>
 						<p>
@@ -231,6 +251,45 @@
 							</button>
 						</div>
 					</div>
+				{:else if selectedProvider.method === 'xai'}
+					<div class="field-note">
+						<span>Authentication</span>
+						<p>
+							Uses your SuperGrok or X Premium subscription through xAI OAuth. The
+							session is stored locally at <code>~/.cometmind/xai/auth.json</code>.
+						</p>
+						{#if xaiAuthStatus}
+							<p class:ok={xaiAuthStatus.authenticated}>
+								{xaiAuthStatus.authenticated
+									? 'Signed in with Grok subscription.'
+									: (xaiAuthStatus.error ?? 'Not signed in.')}
+							</p>
+						{/if}
+						<div class="inline-actions">
+							<button
+								class="secondary"
+								type="button"
+								onclick={onStartXaiLogin}
+								disabled={startingXaiLogin || !window.electronAPI?.startXaiLogin}
+							>
+								{#if startingXaiLogin}<span class="spin"
+										><LoaderCircle size={14} /></span
+									>{:else}<LogIn size={14} />{/if}
+								Sign in with Grok
+							</button>
+							<button
+								class="secondary"
+								type="button"
+								onclick={onRefreshXaiAuth}
+								disabled={checkingXaiAuth || !window.electronAPI?.getXaiAuthStatus}
+							>
+								{#if checkingXaiAuth}<span class="spin"
+										><LoaderCircle size={14} /></span
+									>{:else}<RefreshCw size={14} />{/if}
+								Check session
+							</button>
+						</div>
+					</div>
 				{/if}
 			</div>
 
@@ -243,6 +302,8 @@
 								Use Fetch models to refresh models from your ChatGPT browser
 								session.
 							</p>
+						{:else if selectedProvider.method === 'xai'}
+							<p>Use Fetch models to refresh the available Grok models from xAI.</p>
 						{:else if selectedProvider.method === 'opencode-go'}
 							<p>
 								Use Fetch models to refresh the latest list from <code>/models</code

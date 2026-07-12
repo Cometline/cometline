@@ -37,6 +37,7 @@
 		anthropic: 'Anthropic',
 		'opencode-go': 'OpenCode Go',
 		codex: 'ChatGPT Codex',
+		xai: 'xAI Grok Subscription',
 		'openai-compatible': 'OpenAI Compatible'
 	};
 
@@ -45,7 +46,9 @@
 		return (
 			provider.method === 'codex' ||
 			provider.method === 'opencode-go' ||
-			provider.apiKey.trim().length > 0
+			(provider.method === 'xai'
+				? Boolean(xaiAuthStatus?.authenticated)
+				: provider.apiKey.trim().length > 0)
 		);
 	}
 
@@ -76,6 +79,14 @@
 	let codexAuthStatus = $state<CodexAuthStatus | undefined>();
 	let checkingCodexAuth = $state(false);
 	let startingCodexLogin = $state(false);
+	type XaiAuthStatus = {
+		authenticated: boolean;
+		authPath: string;
+		error?: string;
+	};
+	let xaiAuthStatus = $state<XaiAuthStatus | undefined>();
+	let checkingXaiAuth = $state(false);
+	let startingXaiLogin = $state(false);
 
 	// Memory embedding state.
 	let memorySettings = $state<MemorySettings | null>(null);
@@ -108,6 +119,9 @@
 			// Codex needs a signed-in browser session, not an API key.
 			if (selectedProvider.method === 'codex') {
 				return Boolean(codexAuthStatus?.authenticated);
+			}
+			if (selectedProvider.method === 'xai') {
+				return Boolean(xaiAuthStatus?.authenticated);
 			}
 			return selectedProvider.apiKey.trim().length > 0;
 		}
@@ -148,6 +162,7 @@
 			// Auto-check Codex auth status when entering the apikey step for codex.
 			if (nextStep === 'apikey' && selectedProvider?.method === 'codex') {
 				void refreshCodexAuthStatus();
+				void refreshXaiAuthStatus();
 			}
 		}
 	}
@@ -215,6 +230,33 @@
 			};
 		} finally {
 			startingCodexLogin = false;
+		}
+	}
+
+	async function refreshXaiAuthStatus() {
+		if (!window.electronAPI?.getXaiAuthStatus || checkingXaiAuth) return;
+		checkingXaiAuth = true;
+		try {
+			xaiAuthStatus = await window.electronAPI.getXaiAuthStatus();
+		} finally {
+			checkingXaiAuth = false;
+		}
+	}
+
+	async function startXaiLogin() {
+		if (!window.electronAPI?.startXaiLogin || startingXaiLogin) return;
+		startingXaiLogin = true;
+		try {
+			await window.electronAPI.startXaiLogin();
+			setTimeout(() => void refreshXaiAuthStatus(), 1500);
+		} catch (err) {
+			xaiAuthStatus = {
+				authenticated: false,
+				authPath: '',
+				error: err instanceof Error ? err.message : 'Failed to start Grok login.'
+			};
+		} finally {
+			startingXaiLogin = false;
 		}
 	}
 
@@ -422,6 +464,42 @@
 									!window.electronAPI?.getCodexAuthStatus}
 							>
 								{#if checkingCodexAuth}<LoaderCircle
+										size={14}
+										class="spin"
+									/>{:else}<RefreshCw size={14} />{/if}
+								Check session
+							</SettingsButton>
+						</div>
+					{:else if selectedProvider.method === 'xai'}
+						<p class="step-intro">
+							Sign in with your SuperGrok or X Premium subscription. Cometline stores
+							the local xAI OAuth session at <code>~/.cometmind/xai/auth.json</code>.
+						</p>
+						{#if xaiAuthStatus}
+							<p class="codex-status" class:ok={xaiAuthStatus.authenticated}>
+								{xaiAuthStatus.authenticated
+									? 'Signed in with Grok subscription.'
+									: (xaiAuthStatus.error ?? 'Not signed in.')}
+							</p>
+						{/if}
+						<div class="inline-actions">
+							<SettingsButton
+								variant="primary"
+								onclick={startXaiLogin}
+								disabled={startingXaiLogin || !window.electronAPI?.startXaiLogin}
+							>
+								{#if startingXaiLogin}<LoaderCircle
+										size={14}
+										class="spin"
+									/>{:else}<LogIn size={14} />{/if}
+								Sign in with Grok
+							</SettingsButton>
+							<SettingsButton
+								variant="secondary"
+								onclick={refreshXaiAuthStatus}
+								disabled={checkingXaiAuth || !window.electronAPI?.getXaiAuthStatus}
+							>
+								{#if checkingXaiAuth}<LoaderCircle
 										size={14}
 										class="spin"
 									/>{:else}<RefreshCw size={14} />{/if}

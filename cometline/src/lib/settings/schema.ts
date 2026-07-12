@@ -29,7 +29,8 @@ export const VALID_PROVIDER_METHODS: ProviderMethod[] = [
 	'openai',
 	'anthropic',
 	'opencode-go',
-	'codex'
+	'codex',
+	'xai'
 ];
 
 const BUILTIN_PROVIDER_NAMES: Record<string, string> = {
@@ -37,7 +38,8 @@ const BUILTIN_PROVIDER_NAMES: Record<string, string> = {
 	anthropic: 'Anthropic',
 	openai: 'OpenAI',
 	'opencode-go': 'OpenCode Go',
-	codex: 'ChatGPT Codex'
+	codex: 'ChatGPT Codex',
+	xai: 'xAI Grok Subscription'
 };
 
 function providerNameOrDefault(
@@ -245,6 +247,17 @@ const DEFAULT_PROVIDERS: ProviderConfig[] = [
 		method: 'codex',
 		enabled: false,
 		baseURL: 'https://chatgpt.com/backend-api/codex',
+		apiKey: '',
+		selectedModel: '',
+		models: [],
+		enabledModels: []
+	},
+	{
+		id: 'xai',
+		name: 'xAI Grok Subscription',
+		method: 'xai',
+		enabled: false,
+		baseURL: 'https://api.x.ai/v1',
 		apiKey: '',
 		selectedModel: '',
 		models: [],
@@ -980,7 +993,10 @@ export function normalizeProvider(
 		enabled:
 			typeof provider.enabled === 'boolean' ? provider.enabled : Boolean(fallback?.enabled),
 		baseURL: String(provider.baseURL ?? fallback?.baseURL ?? '').trim(),
-		apiKey: method === 'codex' ? '' : String(provider.apiKey ?? fallback?.apiKey ?? '').trim(),
+		apiKey:
+			method === 'codex' || method === 'xai'
+				? ''
+				: String(provider.apiKey ?? fallback?.apiKey ?? '').trim(),
 		selectedModel: enabledModels[0] || '',
 		models: [...modelList],
 		enabledModels
@@ -1187,7 +1203,7 @@ export function runtimeSlice(settings: ProviderSettings): RuntimeSettingsSlice |
 const providerConfigSchema = z.object({
 	id: z.string().min(1),
 	name: z.string(),
-	method: z.enum(['openai-compatible', 'openai', 'anthropic', 'opencode-go', 'codex']),
+	method: z.enum(['openai-compatible', 'openai', 'anthropic', 'opencode-go', 'codex', 'xai']),
 	enabled: z.boolean(),
 	baseURL: z.string(),
 	apiKey: z.string(),

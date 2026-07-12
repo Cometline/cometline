@@ -96,6 +96,29 @@ func TestNewForFallsBackToLegacyCodexMethod(t *testing.T) {
 	}
 }
 
+func TestNewForXAIUsesSubscriptionProviderWithoutAPIKey(t *testing.T) {
+	cfg := &config.Config{
+		Provider: config.ProviderXAI,
+		Providers: []config.ProviderEntry{{
+			ID:      "xai",
+			Name:    "xAI Grok Subscription",
+			Method:  config.ProviderXAI,
+			BaseURL: "https://api.x.ai/v1",
+		}},
+	}
+
+	p, err := NewFor(cfg, config.ProviderXAI)
+	if err != nil {
+		t.Fatalf("NewFor() error = %v", err)
+	}
+	if p == nil {
+		t.Fatal("NewFor() returned nil")
+	}
+	if p.ID() != config.ProviderXAI {
+		t.Fatalf("provider ID = %q, want %q", p.ID(), config.ProviderXAI)
+	}
+}
+
 // TestNewForNoProviderConfigured covers a fresh install where the sidecar
 // booted with no enabled providers. A request must surface a clear, actionable
 // error instead of a confusing "unknown provider method" or a network failure.

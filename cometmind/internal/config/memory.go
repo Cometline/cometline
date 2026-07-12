@@ -197,6 +197,8 @@ func entrySupportsEmbeddings(entry ProviderEntry) bool {
 	switch strings.TrimSpace(entry.Method) {
 	case ProviderOpenAI, ProviderOpenAICompat, ProviderOpencodeGo:
 		return true
+	case ProviderXAI:
+		return false
 	default:
 		return providerMethodFromID(entry.ID) != ProviderAnthropic
 	}
@@ -204,7 +206,7 @@ func entrySupportsEmbeddings(entry ProviderEntry) bool {
 
 func providerMethodFromID(id string) string {
 	switch strings.TrimSpace(id) {
-	case ProviderAnthropic, ProviderOpenAI, ProviderOpenAICompat, ProviderOpencodeGo:
+	case ProviderAnthropic, ProviderOpenAI, ProviderOpenAICompat, ProviderOpencodeGo, ProviderXAI:
 		return id
 	default:
 		return ProviderOpenAICompat

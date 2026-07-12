@@ -377,6 +377,9 @@
 							codexAuthStatus={panelController.codexAuthStatus}
 							checkingCodexAuth={panelController.checkingCodexAuth}
 							startingCodexLogin={panelController.startingCodexLogin}
+							xaiAuthStatus={panelController.xaiAuthStatus}
+							checkingXaiAuth={panelController.checkingXaiAuth}
+							startingXaiLogin={panelController.startingXaiLogin}
 							onAddProvider={panelController.addProvider}
 							onRemoveProvider={panelController.removeProvider}
 							onToggleProvider={panelController.toggleProvider}
@@ -386,6 +389,8 @@
 							onToggleModel={panelController.toggleModel}
 							onStartCodexLogin={panelController.startCodexLogin}
 							onRefreshCodexAuth={panelController.refreshCodexAuthStatus}
+							onStartXaiLogin={panelController.startXaiLogin}
+							onRefreshXaiAuth={panelController.refreshXaiAuthStatus}
 						/>
 						<SettingsModelRolesPanel
 							bind:cometmind={draft.cometmind}

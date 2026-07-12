@@ -23,6 +23,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 	getProviderSettings: () => ipcRenderer.invoke('cometline:get-provider-settings'),
 	getCodexAuthStatus: () => ipcRenderer.invoke('cometline:get-codex-auth-status'),
 	startCodexLogin: () => ipcRenderer.invoke('cometline:start-codex-login'),
+	getXaiAuthStatus: () => ipcRenderer.invoke('cometline:get-xai-auth-status'),
+	startXaiLogin: () => ipcRenderer.invoke('cometline:start-xai-login'),
 	getMcpOAuthStatus: (serverId) => ipcRenderer.invoke('cometline:get-mcp-oauth-status', serverId),
 	startMcpOAuth: (payload) => ipcRenderer.invoke('cometline:start-mcp-oauth', payload),
 	readCursorMcpConfig: () => ipcRenderer.invoke('cometline:read-cursor-mcp-config'),

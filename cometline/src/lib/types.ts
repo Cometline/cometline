@@ -19,7 +19,13 @@ export type {
 	SyncSkillsResponse as SkillSyncResponse
 } from '$lib/generated/cometmind-api';
 
-export type ProviderMethod = 'openai-compatible' | 'openai' | 'anthropic' | 'opencode-go' | 'codex';
+export type ProviderMethod =
+	| 'openai-compatible'
+	| 'openai'
+	| 'anthropic'
+	| 'opencode-go'
+	| 'codex'
+	| 'xai';
 
 export interface ProviderConfig {
 	id: string;

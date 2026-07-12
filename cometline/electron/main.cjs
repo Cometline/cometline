@@ -85,6 +85,13 @@ const CODEX_CLIENT_VERSION = '1.0.0';
 const CODEX_AUTH_CALLBACK_PORT = 1455;
 const CODEX_AUTH_CALLBACK_PATH = '/auth/callback';
 const CODEX_AUTH_TIMEOUT_MS = 5 * 60 * 1000;
+const XAI_BASE_URL = 'https://api.x.ai/v1';
+const XAI_CLIENT_ID = 'b1a00492-073a-47ea-816f-4c329264a828';
+const XAI_TOKEN_URL = 'https://auth.x.ai/oauth2/token';
+const XAI_DEVICE_AUTHORIZATION_URL = 'https://auth.x.ai/oauth2/device/code';
+const XAI_DEVICE_CODE_GRANT_TYPE = 'urn:ietf:params:oauth:grant-type:device_code';
+const XAI_AUTH_TIMEOUT_MS = 5 * 60 * 1000;
+const XAI_AUTH_SCOPE = 'openid profile email offline_access grok-cli:access api:access';
 const MCP_OAUTH_CALLBACK_PORT = 1456;
 const MCP_OAUTH_CALLBACK_PATH = '/mcp/oauth/callback';
 const BROWSER_SEARCH_MAX_QUERY = 500;
@@ -2994,6 +3001,256 @@ async function startCodexLogin() {
 	}
 }
 
+function xaiAuthPath() {
+	const home = String(process.env.XAI_HOME || '').trim();
+	return path.join(home || path.join(os.homedir(), '.cometmind', 'xai'), 'auth.json');
+}
+
+function xaiAuthExpiresSoon(token, expiresAt) {
+	if (Number(expiresAt) > 0 && Number(expiresAt) <= Date.now() + 2 * 60 * 1000) return true;
+	const payload = parseJWTPayload(token);
+	const exp = Number(payload.exp || 0);
+	return exp > 0 && exp * 1000 <= Date.now() + 2 * 60 * 1000;
+}
+
+function writeXaiAuth(tokens) {
+	const authPath = xaiAuthPath();
+	const authDir = path.dirname(authPath);
+	fs.mkdirSync(authDir, { recursive: true, mode: 0o700 });
+	const expiresAt =
+		Number(tokens?.expires_in) > 0 ? Date.now() + Number(tokens.expires_in) * 1000 : 0;
+	const auth = {
+		auth_mode: 'subscription',
+		tokens: {
+			access_token: tokens.access_token,
+			refresh_token: tokens.refresh_token || '',
+			expires_at: expiresAt,
+			last_refresh: new Date().toISOString()
+		}
+	};
+	const tmpPath = `${authPath}.tmp`;
+	fs.writeFileSync(tmpPath, `${JSON.stringify(auth, null, 2)}\n`, { mode: 0o600 });
+	fs.renameSync(tmpPath, authPath);
+	return auth;
+}
+
+async function refreshXaiAuth(auth, authPath) {
+	const refreshToken = String(auth?.tokens?.refresh_token || '').trim();
+	if (!refreshToken)
+		throw new Error('Grok subscription session expired. Sign in with Grok again.');
+	const res = await fetch(XAI_TOKEN_URL, {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/x-www-form-urlencoded',
+			Accept: 'application/json',
+			'User-Agent': 'cometline'
+		},
+		body: new URLSearchParams({
+			client_id: XAI_CLIENT_ID,
+			grant_type: 'refresh_token',
+			refresh_token: refreshToken
+		}).toString(),
+		signal: AbortSignal.timeout(FETCH_MODELS_TIMEOUT_MS)
+	});
+	const payload = await res.json().catch(() => ({}));
+	if (!res.ok || payload.error) {
+		const detail = payload.error_description || payload.error || res.statusText;
+		throw new Error(`Grok refresh failed: ${detail}. Sign in with Grok again.`);
+	}
+	if (!payload.access_token) throw new Error('Grok refresh did not return an access token');
+	auth.tokens.access_token = payload.access_token;
+	if (payload.refresh_token) auth.tokens.refresh_token = payload.refresh_token;
+	auth.tokens.expires_at =
+		Number(payload.expires_in) > 0 ? Date.now() + Number(payload.expires_in) * 1000 : 0;
+	auth.tokens.last_refresh = new Date().toISOString();
+	const tmpPath = `${authPath}.tmp`;
+	fs.writeFileSync(tmpPath, `${JSON.stringify(auth, null, 2)}\n`, { mode: 0o600 });
+	fs.renameSync(tmpPath, authPath);
+	return auth;
+}
+
+async function borrowXaiAuth() {
+	const authPath = xaiAuthPath();
+	return withXaiAuthLock(authPath, async () => {
+		if (!fs.existsSync(authPath)) {
+			throw new Error(
+				`Grok subscription session not found at ${authPath}. Sign in with Grok first.`
+			);
+		}
+		let auth;
+		try {
+			auth = JSON.parse(fs.readFileSync(authPath, 'utf8'));
+		} catch (err) {
+			throw new Error(
+				`Failed to read Grok auth file: ${err instanceof Error ? err.message : err}`
+			);
+		}
+		if (auth?.auth_mode !== 'subscription') {
+			throw new Error(
+				'Grok auth file is not a subscription session. Sign in with Grok first.'
+			);
+		}
+		if (!auth?.tokens?.access_token) {
+			throw new Error('Grok auth file has no access token. Sign in with Grok first.');
+		}
+		if (xaiAuthExpiresSoon(auth.tokens.access_token, auth.tokens.expires_at)) {
+			auth = await refreshXaiAuth(auth, authPath);
+		}
+		return { accessToken: auth.tokens.access_token };
+	});
+}
+
+async function withXaiAuthLock(authPath, fn) {
+	const lockPath = `${authPath}.lock`;
+	const deadline = Date.now() + 30_000;
+	fs.mkdirSync(path.dirname(authPath), { recursive: true, mode: 0o700 });
+	while (true) {
+		try {
+			fs.mkdirSync(lockPath, { mode: 0o700 });
+			break;
+		} catch (err) {
+			if (err?.code !== 'EEXIST' || Date.now() >= deadline) {
+				throw new Error(
+					`Failed to acquire Grok auth lock: ${err instanceof Error ? err.message : err}`
+				);
+			}
+			await new Promise((resolve) => setTimeout(resolve, 50));
+		}
+	}
+	try {
+		return await fn();
+	} finally {
+		fs.rmSync(lockPath, { recursive: true, force: true });
+	}
+}
+
+function getXaiAuthStatus() {
+	const authPath = xaiAuthPath();
+	if (!fs.existsSync(authPath)) return { authenticated: false, authPath, error: 'Not signed in' };
+	try {
+		const auth = JSON.parse(fs.readFileSync(authPath, 'utf8'));
+		if (auth?.auth_mode !== 'subscription') {
+			return {
+				authenticated: false,
+				authPath,
+				error: 'Grok auth file is not a subscription session'
+			};
+		}
+		if (!auth?.tokens?.access_token) {
+			return { authenticated: false, authPath, error: 'Grok auth file has no access token' };
+		}
+		return { authenticated: true, authPath };
+	} catch (err) {
+		return {
+			authenticated: false,
+			authPath,
+			error: err instanceof Error ? err.message : String(err)
+		};
+	}
+}
+
+async function requestXaiDeviceCode() {
+	const res = await fetch(XAI_DEVICE_AUTHORIZATION_URL, {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/x-www-form-urlencoded',
+			Accept: 'application/json',
+			'User-Agent': 'cometline'
+		},
+		body: new URLSearchParams({
+			client_id: XAI_CLIENT_ID,
+			scope: XAI_AUTH_SCOPE
+		}).toString(),
+		signal: AbortSignal.timeout(FETCH_MODELS_TIMEOUT_MS)
+	});
+	const payload = await res.json().catch(() => ({}));
+	if (!res.ok || payload.error) {
+		const detail = payload.error_description || payload.error || res.statusText;
+		throw new Error(`Could not start Grok device sign-in: ${detail}`);
+	}
+	if (!payload.device_code || !payload.user_code || !payload.verification_uri) {
+		throw new Error('Grok device sign-in returned incomplete authorization details.');
+	}
+	return payload;
+}
+
+async function pollXaiDeviceCode(device) {
+	const expiresInMs =
+		Number.isFinite(Number(device.expires_in)) && Number(device.expires_in) > 0
+			? Number(device.expires_in) * 1000
+			: XAI_AUTH_TIMEOUT_MS;
+	const deadline = Date.now() + expiresInMs;
+	let intervalMs = Math.max(
+		Number.isFinite(Number(device.interval)) && Number(device.interval) > 0
+			? Number(device.interval) * 1000
+			: 5000,
+		1000
+	);
+
+	while (Date.now() < deadline) {
+		const res = await fetch(XAI_TOKEN_URL, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/x-www-form-urlencoded',
+				Accept: 'application/json',
+				'User-Agent': 'cometline'
+			},
+			body: new URLSearchParams({
+				client_id: XAI_CLIENT_ID,
+				grant_type: XAI_DEVICE_CODE_GRANT_TYPE,
+				device_code: device.device_code
+			}).toString(),
+			signal: AbortSignal.timeout(FETCH_MODELS_TIMEOUT_MS)
+		});
+		const payload = await res.json().catch(() => ({}));
+		if (res.ok && payload.access_token) return payload;
+
+		const error = payload.error;
+		if (error === 'authorization_pending') {
+			await new Promise((resolve) => setTimeout(resolve, intervalMs));
+			continue;
+		}
+		if (error === 'slow_down') {
+			intervalMs += 5000;
+			await new Promise((resolve) => setTimeout(resolve, intervalMs));
+			continue;
+		}
+		if (error === 'access_denied' || error === 'authorization_denied') {
+			throw new Error('Grok device authorization was denied.');
+		}
+		if (error === 'expired_token') throw new Error('Grok device authorization expired. Try again.');
+		const detail = payload.error_description || error || res.statusText;
+		throw new Error(`Grok device sign-in failed: ${detail}`);
+	}
+
+	throw new Error('Grok device authorization timed out. Try again.');
+}
+
+async function startXaiLogin() {
+	const device = await requestXaiDeviceCode();
+	const verificationURL = device.verification_uri_complete || device.verification_uri;
+	try {
+		await shell.openExternal(verificationURL);
+	} catch (err) {
+		throw new Error(
+			`Failed to open Grok device sign-in in your browser: ${err instanceof Error ? err.message : err}`
+		);
+	}
+	await dialog.showMessageBox({
+		type: 'info',
+		title: 'Finish signing in with Grok',
+		message: 'Complete the device sign-in in your browser.',
+		detail: `If the code is not pre-filled, enter this code:\n\n${device.user_code}\n\nVerification URL:\n${device.verification_uri}`,
+		buttons: ['Continue waiting']
+	});
+	const tokens = await pollXaiDeviceCode(device);
+	writeXaiAuth(tokens);
+	return {
+		started: true,
+		message: 'Signed in with Grok subscription. You can fetch xAI models now.'
+	};
+}
+
 function mcpOAuthTokenPath(serverId) {
 	const id = String(serverId || '').trim();
 	return path.join(os.homedir(), '.cometmind', 'mcp-oauth', `${id}.json`);
@@ -3232,6 +3489,28 @@ async function fetchCodexModels(baseURL) {
 	return result;
 }
 
+async function fetchXaiModels(baseURL) {
+	const auth = await borrowXaiAuth();
+	const res = await fetchModelsFromURL(normalizeModelsBaseURL(baseURL || XAI_BASE_URL), {
+		Authorization: `Bearer ${auth.accessToken}`,
+		Accept: 'application/json',
+		'User-Agent': 'cometline'
+	});
+	if (!res.ok) {
+		const body = await res.text();
+		throw new Error(`${res.status}: ${body || res.statusText}`);
+	}
+	const payload = await res.json();
+	const rawModels = Array.isArray(payload?.data)
+		? payload.data
+		: Array.isArray(payload)
+			? payload
+			: [];
+	const result = normalizeModelFetchResult(rawModels);
+	if (result.models.length === 0) throw new Error('No models returned by xAI');
+	return result;
+}
+
 async function fetchOpenCodeGoModels(baseURL) {
 	const url = normalizeModelsBaseURL(baseURL || 'https://opencode.ai/zen/go/v1');
 	const res = await fetchModelsFromURL(url, {
@@ -3259,6 +3538,9 @@ async function fetchProviderModels(config) {
 	}
 	if (method === 'codex') {
 		return fetchCodexModels(config.baseURL);
+	}
+	if (method === 'xai') {
+		return fetchXaiModels(config.baseURL);
 	}
 
 	const baseURL = String(config.baseURL || '').trim();
@@ -3464,6 +3746,10 @@ ipcMain.handle('cometline:get-provider-settings', () => readProviderSettings());
 ipcMain.handle('cometline:get-codex-auth-status', () => getCodexAuthStatus());
 
 ipcMain.handle('cometline:start-codex-login', () => startCodexLogin());
+
+ipcMain.handle('cometline:get-xai-auth-status', () => getXaiAuthStatus());
+
+ipcMain.handle('cometline:start-xai-login', () => startXaiLogin());
 
 ipcMain.handle('cometline:get-mcp-oauth-status', (_event, serverId) => getMcpOAuthStatus(serverId));
 

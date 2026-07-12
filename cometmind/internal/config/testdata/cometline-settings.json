@@ -43,11 +43,6 @@
   "cometmind": {
     "systemPromptPath": "/tmp/SOUL.md",
     "maxTokens": 2048,
-    "acp": {
-      "command": "opencode",
-      "args": ["acp"],
-      "timeout": "30m"
-    },
     "skills": {
       "enabled": true,
       "roots": [],

@@ -17,7 +17,10 @@ describe('settings schema', () => {
 	it('normalizes the runtime settings contract fixture consumed by CometMind', () => {
 		const fixture = JSON.parse(
 			readFileSync(
-				resolve(process.cwd(), '../cometmind/internal/config/testdata/cometline-settings.json'),
+				resolve(
+					process.cwd(),
+					'../cometmind/internal/config/testdata/cometline-settings.json'
+				),
 				'utf8'
 			)
 		) as Partial<ProviderSettings>;
@@ -41,9 +44,10 @@ describe('settings schema', () => {
 
 	it('orders built-in providers for the settings sidebar', () => {
 		const settings = defaultSettings();
-		expect(settings.providers).toHaveLength(5);
+		expect(settings.providers).toHaveLength(6);
 		expect(settings.providers.map((provider) => provider.id)).toEqual([
 			'codex',
+			'xai',
 			'openai',
 			'anthropic',
 			'opencode-go',
@@ -128,6 +132,7 @@ describe('settings schema', () => {
 
 		expect(settings.providers.map((provider) => provider.id)).toEqual([
 			'codex',
+			'xai',
 			'openai',
 			'anthropic',
 			'opencode-go',

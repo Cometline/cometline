@@ -4375,14 +4375,16 @@ var VALID_PROVIDER_METHODS = [
   "openai",
   "anthropic",
   "opencode-go",
-  "codex"
+  "codex",
+  "xai"
 ];
 var BUILTIN_PROVIDER_NAMES = {
   "openai-compatible": "OpenAI Compatible",
   anthropic: "Anthropic",
   openai: "OpenAI",
   "opencode-go": "OpenCode Go",
-  codex: "ChatGPT Codex"
+  codex: "ChatGPT Codex",
+  xai: "xAI Grok Subscription"
 };
 function providerNameOrDefault(provider, fallback, id) {
   const name = String(provider.name ?? "").trim();
@@ -4406,6 +4408,17 @@ var DEFAULT_PROVIDERS = [
     method: "codex",
     enabled: false,
     baseURL: "https://chatgpt.com/backend-api/codex",
+    apiKey: "",
+    selectedModel: "",
+    models: [],
+    enabledModels: []
+  },
+  {
+    id: "xai",
+    name: "xAI Grok Subscription",
+    method: "xai",
+    enabled: false,
+    baseURL: "https://api.x.ai/v1",
     apiKey: "",
     selectedModel: "",
     models: [],
@@ -5023,7 +5036,7 @@ function normalizeProvider(provider, fallback) {
     method,
     enabled: typeof provider.enabled === "boolean" ? provider.enabled : Boolean(fallback?.enabled),
     baseURL: String(provider.baseURL ?? fallback?.baseURL ?? "").trim(),
-    apiKey: method === "codex" ? "" : String(provider.apiKey ?? fallback?.apiKey ?? "").trim(),
+    apiKey: method === "codex" || method === "xai" ? "" : String(provider.apiKey ?? fallback?.apiKey ?? "").trim(),
     selectedModel: enabledModels[0] || "",
     models: [...modelList],
     enabledModels
@@ -5181,7 +5194,7 @@ function runtimeSlice(settings) {
 var providerConfigSchema = external_exports.object({
   id: external_exports.string().min(1),
   name: external_exports.string(),
-  method: external_exports.enum(["openai-compatible", "openai", "anthropic", "opencode-go", "codex"]),
+  method: external_exports.enum(["openai-compatible", "openai", "anthropic", "opencode-go", "codex", "xai"]),
   enabled: external_exports.boolean(),
   baseURL: external_exports.string(),
   apiKey: external_exports.string(),

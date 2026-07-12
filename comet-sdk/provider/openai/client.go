@@ -22,14 +22,27 @@ const (
 
 // provider implements cometsdk.Provider for OpenAI.
 type provider struct {
-	apiKey string
-	cfg    cometsdk.ProviderConfig
-	log    *slog.Logger
+	apiKey      string
+	tokenSource TokenSource
+	id          string
+	cfg         cometsdk.ProviderConfig
+	log         *slog.Logger
 }
+
+// TokenSource resolves the bearer token used for a request. It is useful for
+// providers such as xAI whose subscription credentials are OAuth tokens that
+// must be refreshed instead of being copied into settings.
+type TokenSource func(context.Context, *http.Client) (string, error)
 
 // NewOpenAIProvider creates a Provider for OpenAI's Chat Completions API.
 // apiKey is required. Use cometsdk.With* options to override defaults.
 func NewOpenAIProvider(apiKey string, opts ...cometsdk.Option) cometsdk.Provider {
+	return NewOpenAICompatibleProvider(apiKey, providerID, nil, opts...)
+}
+
+// NewOpenAICompatibleProvider creates an OpenAI Chat Completions provider with
+// a custom provider ID and optional request-time bearer-token source.
+func NewOpenAICompatibleProvider(apiKey, id string, tokenSource TokenSource, opts ...cometsdk.Option) cometsdk.Provider {
 	cfg := cometsdk.DefaultProviderConfig()
 	cfg.BaseURL = defaultBaseURL
 	for _, o := range opts {
@@ -37,13 +50,15 @@ func NewOpenAIProvider(apiKey string, opts ...cometsdk.Option) cometsdk.Provider
 	}
 	cfg.BaseURL = cometsdk.NormaliseBaseURL(cfg.BaseURL)
 	return &provider{
-		apiKey: apiKey,
-		cfg:    cfg,
-		log:    providerbase.Logger(cfg, providerID),
+		apiKey:      apiKey,
+		tokenSource: tokenSource,
+		id:          id,
+		cfg:         cfg,
+		log:         providerbase.Logger(cfg, id),
 	}
 }
 
-func (p *provider) ID() string { return providerID }
+func (p *provider) ID() string { return p.id }
 
 type streamFlags struct {
 	disableImageContent    bool
@@ -95,7 +110,7 @@ func (p *provider) Stream(ctx context.Context, req *cometsdk.Request) (<-chan co
 		return nil, err
 	}
 
-	go parseLoop(ctx, providerID, httpResp.Body, ch, p.log)
+	go parseLoop(ctx, p.id, httpResp.Body, ch, p.log)
 	return ch, nil
 }
 
@@ -124,6 +139,7 @@ func (p *provider) streamWithRetry(ctx context.Context, req *cometsdk.Request, f
 }
 
 func (p *provider) doRequest(ctx context.Context, req *cometsdk.Request, flags streamFlags) (*http.Response, error) {
+	client := p.httpClient()
 	body, err := toOpenAIRequest(req, flags.disableImageContent, flags.enableReasoningSplit, flags.useMaxCompletionTokens)
 	if err != nil {
 		return nil, fmt.Errorf("openai: marshal request: %w", err)
@@ -139,15 +155,14 @@ func (p *provider) doRequest(ctx context.Context, req *cometsdk.Request, flags s
 	httpReq.Header.Set("Accept", "text/event-stream")
 	httpReq.Header.Set("Cache-Control", "no-cache")
 	httpReq.Header.Set("X-Accel-Buffering", "no")
-	httpReq.Header.Set("Authorization", "Bearer "+p.apiKey)
-
-	client := p.cfg.HTTPClient
-	if p.cfg.Timeout > 0 {
-		client = &http.Client{
-			Transport: p.cfg.HTTPClient.Transport,
-			Timeout:   p.cfg.Timeout,
+	token := p.apiKey
+	if p.tokenSource != nil {
+		token, err = p.tokenSource(ctx, client)
+		if err != nil {
+			return nil, err
 		}
 	}
+	httpReq.Header.Set("Authorization", "Bearer "+token)
 
 	resp, err := client.Do(httpReq)
 	if err != nil {
@@ -161,6 +176,17 @@ func (p *provider) doRequest(ctx context.Context, req *cometsdk.Request, flags s
 	}
 
 	return resp, nil
+}
+
+func (p *provider) httpClient() *http.Client {
+	client := p.cfg.HTTPClient
+	if p.cfg.Timeout > 0 {
+		client = &http.Client{
+			Transport: p.cfg.HTTPClient.Transport,
+			Timeout:   p.cfg.Timeout,
+		}
+	}
+	return client
 }
 
 // requestHasImage reports whether any user message in req carries an image

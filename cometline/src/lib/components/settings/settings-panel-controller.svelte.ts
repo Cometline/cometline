@@ -24,6 +24,12 @@ type CodexAuthStatus = {
 	error?: string;
 };
 
+type XaiAuthStatus = {
+	authenticated: boolean;
+	authPath: string;
+	error?: string;
+};
+
 type CometMindPanelRef = {
 	syncFields?: () => void;
 };
@@ -40,6 +46,7 @@ const DEFAULT_PROVIDER_IDS = new Set([
 	'openai',
 	'opencode-go',
 	'codex',
+	'xai',
 	'openai-compatible'
 ]);
 
@@ -66,6 +73,9 @@ export function createSettingsPanelController(deps: {
 	let codexAuthStatus = $state<CodexAuthStatus | undefined>();
 	let checkingCodexAuth = $state(false);
 	let startingCodexLogin = $state(false);
+	let xaiAuthStatus = $state<XaiAuthStatus | undefined>();
+	let checkingXaiAuth = $state(false);
+	let startingXaiLogin = $state(false);
 	let updateState = $state<UpdateState>({ status: 'idle' });
 	let checkingUpdates = $state(false);
 	let installingUpdate = $state(false);
@@ -124,6 +134,7 @@ export function createSettingsPanelController(deps: {
 			if (next.status !== 'checking') checkingUpdates = false;
 		});
 		void refreshCodexAuthStatus();
+		void refreshXaiAuthStatus();
 		return () => unsubscribe?.();
 	}
 
@@ -356,7 +367,11 @@ export function createSettingsPanelController(deps: {
 				deps.setDraft(draft);
 				const payload = providerPayloadFromDraft(draft);
 				const runtimeAction = runtimeActionForSettingsSave(settingsStore.settings, payload);
-				const { settings: saved, memory, reload } = await settingsStore.save(payload, {
+				const {
+					settings: saved,
+					memory,
+					reload
+				} = await settingsStore.save(payload, {
 					runtimeAction,
 					memory: memoryPayload
 				});
@@ -364,7 +379,12 @@ export function createSettingsPanelController(deps: {
 					deps.getMemoryPanel()?.applySavedMemory?.(memory);
 				}
 				deps.setDraft(cloneSettings(saved));
-				deps.settingsController.status = saveStatusMessage('memory', runtimeAction, false, reload);
+				deps.settingsController.status = saveStatusMessage(
+					'memory',
+					runtimeAction,
+					false,
+					reload
+				);
 			} catch (error) {
 				deps.settingsController.status =
 					error instanceof Error ? error.message : 'Failed to save memory settings';
@@ -450,6 +470,16 @@ export function createSettingsPanelController(deps: {
 			});
 			return;
 		}
+		if (method === 'xai') {
+			updateSelected({
+				method,
+				baseURL: 'https://api.x.ai/v1',
+				apiKey: '',
+				models: [],
+				enabledModels: []
+			});
+			return;
+		}
 		updateSelected({ method });
 	}
 
@@ -507,6 +537,35 @@ export function createSettingsPanelController(deps: {
 				error instanceof Error ? error.message : 'Failed to start Codex login.';
 		} finally {
 			startingCodexLogin = false;
+		}
+	}
+
+	async function refreshXaiAuthStatus() {
+		if (!window.electronAPI?.getXaiAuthStatus || checkingXaiAuth) return;
+		checkingXaiAuth = true;
+		try {
+			xaiAuthStatus = await window.electronAPI.getXaiAuthStatus();
+		} finally {
+			checkingXaiAuth = false;
+		}
+	}
+
+	async function startXaiLogin() {
+		if (!window.electronAPI?.startXaiLogin || startingXaiLogin) return;
+		startingXaiLogin = true;
+		deps.settingsController.status = '';
+		try {
+			const result = await window.electronAPI.startXaiLogin();
+			deps.settingsController.status = result.message;
+			setTimeout(() => void refreshXaiAuthStatus(), 1500);
+		} catch (error) {
+			xaiAuthStatus = {
+				authenticated: false,
+				authPath: '',
+				error: error instanceof Error ? error.message : 'Failed to start Grok login.'
+			};
+		} finally {
+			startingXaiLogin = false;
 		}
 	}
 
@@ -648,6 +707,15 @@ export function createSettingsPanelController(deps: {
 		get startingCodexLogin() {
 			return startingCodexLogin;
 		},
+		get xaiAuthStatus() {
+			return xaiAuthStatus;
+		},
+		get checkingXaiAuth() {
+			return checkingXaiAuth;
+		},
+		get startingXaiLogin() {
+			return startingXaiLogin;
+		},
 		get updateState() {
 			return updateState;
 		},
@@ -705,6 +773,8 @@ export function createSettingsPanelController(deps: {
 		fetchModels,
 		refreshCodexAuthStatus,
 		startCodexLogin,
+		refreshXaiAuthStatus,
+		startXaiLogin,
 		addProvider,
 		removeProvider,
 		pickGatewayWorkspace,
