@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy, tick } from 'svelte';
+	import { onDestroy, onMount, tick } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import { FileText } from '@lucide/svelte';
 	import type { QueuedMessage } from '$lib/actions/chat-turn-queue';
@@ -67,6 +67,22 @@
 	let skillMenu = $state<HTMLDivElement | null>(null);
 	let mentionMenu = $state<HTMLDivElement | null>(null);
 	let resolvingWebContext = $state(false);
+	const heroPlaceholders = [
+		'Type something. Anything.',
+		'Ask a question.',
+		'Share a thought.',
+		'Drop in a task.',
+		'Bring an idea to life.'
+	];
+	let heroPlaceholderIndex = $state(0);
+
+	onMount(() => {
+		const rotation = window.setInterval(() => {
+			heroPlaceholderIndex = (heroPlaceholderIndex + 1) % heroPlaceholders.length;
+		}, 10000);
+
+		return () => window.clearInterval(rotation);
+	});
 
 	function clearDraft() {
 		value = '';
@@ -298,7 +314,7 @@
 		placeholder={streaming
 			? 'Add a follow-up…'
 			: variant === 'hero'
-				? 'Type something. Anything.'
+				? heroPlaceholders[heroPlaceholderIndex]
 				: 'Type something…'}
 		onfiles={(files) => void attachments.addImageFiles(files)}
 		onmentionquery={mentions.onMentionQuery}

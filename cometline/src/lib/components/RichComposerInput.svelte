@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { tick } from 'svelte';
+import { tick } from 'svelte';
+import { fly } from 'svelte/transition';
 	import type { CaretTrailSettings } from '$lib/types';
 	import {
 		customCaret,
@@ -623,7 +624,11 @@
 
 <div bind:this={wrap} class="rce-wrap">
 	{#if isEmpty}
-		<div class="rce-placeholder" aria-hidden="true">{placeholder}</div>
+		{#key placeholder}
+			<div class="rce-placeholder" in:fly={{ y: 10, duration: 1000 }} aria-hidden="true">
+				{placeholder}
+			</div>
+		{/key}
 	{/if}
 	{#if caretTrailEnabled}
 		<div class="rce-caret-layer" class:visible={focused && caretReady} aria-hidden="true">
