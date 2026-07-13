@@ -477,6 +477,13 @@ export type MemoryUpdatedEvent = {
     changes: Array<MemoryChangeWire>;
 };
 
+export type MemoryCompactionCompletedEvent = {
+    type: 'memory_compaction_completed';
+    before: number;
+    after: number;
+    trigger: 'manual' | 'automatic';
+};
+
 export type ErrorEvent = {
     type: 'error';
     message: string;
@@ -522,6 +529,8 @@ export type StreamEvent = ({
 } & MemoryInjectedEvent) | ({
     type?: 'memory_updated';
 } & MemoryUpdatedEvent) | ({
+    type?: 'memory_compaction_completed';
+} & MemoryCompactionCompletedEvent) | ({
     type?: 'turn_status';
 } & TurnStatusEvent) | ({
     type?: 'turn_recover';
@@ -635,6 +644,13 @@ export type CompactMemoryPreviewResponse = {
     to_merge: Array<Array<MemoryResource>>;
     active: number;
     max_memories: number;
+};
+
+export type MemoryCompactionResult = {
+    status: string;
+    before: number;
+    after: number;
+    trigger: 'manual' | 'automatic';
 };
 
 export type JobResource = {
@@ -2291,9 +2307,9 @@ export type CompactMemoryError = CompactMemoryErrors[keyof CompactMemoryErrors];
 
 export type CompactMemoryResponses = {
     /**
-     * Compaction started
+     * Compaction completed
      */
-    200: StatusResponse;
+    200: MemoryCompactionResult;
 };
 
 export type CompactMemoryResponse = CompactMemoryResponses[keyof CompactMemoryResponses];

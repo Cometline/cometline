@@ -1242,11 +1242,11 @@ paths:
       operationId: compactMemory
       responses:
         '200':
-          description: Compaction started
+          description: Compaction completed
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/StatusResponse'
+                $ref: '#/components/schemas/MemoryCompactionResult'
         '503':
           description: Memory subsystem disabled
           content:
@@ -2652,6 +2652,24 @@ components:
           items:
             $ref: '#/components/schemas/MemoryChangeWire'
 
+    MemoryCompactionCompletedEvent:
+      type: object
+      additionalProperties: false
+      required: [type, before, after, trigger]
+      properties:
+        type:
+          type: string
+          const: memory_compaction_completed
+        before:
+          type: integer
+          format: int64
+        after:
+          type: integer
+          format: int64
+        trigger:
+          type: string
+          enum: [manual, automatic]
+
     ErrorEvent:
       type: object
       additionalProperties: false
@@ -2722,6 +2740,7 @@ components:
         - $ref: '#/components/schemas/SubagentFinishedEvent'
         - $ref: '#/components/schemas/MemoryInjectedEvent'
         - $ref: '#/components/schemas/MemoryUpdatedEvent'
+        - $ref: '#/components/schemas/MemoryCompactionCompletedEvent'
         - $ref: '#/components/schemas/TurnStatusEvent'
         - $ref: '#/components/schemas/TurnRecoverEvent'
         - $ref: '#/components/schemas/ErrorEvent'
@@ -2740,6 +2759,7 @@ components:
           subagent_finished: '#/components/schemas/SubagentFinishedEvent'
           memory_injected: '#/components/schemas/MemoryInjectedEvent'
           memory_updated: '#/components/schemas/MemoryUpdatedEvent'
+          memory_compaction_completed: '#/components/schemas/MemoryCompactionCompletedEvent'
           turn_status: '#/components/schemas/TurnStatusEvent'
           turn_recover: '#/components/schemas/TurnRecoverEvent'
           error: '#/components/schemas/ErrorEvent'
@@ -2973,6 +2993,23 @@ components:
           type: integer
         max_memories:
           type: integer
+
+    MemoryCompactionResult:
+      type: object
+      additionalProperties: false
+      required: [status, before, after, trigger]
+      properties:
+        status:
+          type: string
+        before:
+          type: integer
+          format: int64
+        after:
+          type: integer
+          format: int64
+        trigger:
+          type: string
+          enum: [manual, automatic]
 
     JobResource:
       type: object

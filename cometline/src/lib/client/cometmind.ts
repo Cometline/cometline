@@ -62,6 +62,7 @@ import {
 } from '$lib/generated/cometmind-api';
 import type {
 	CompactMemoryPreviewResponse,
+	MemoryCompactionResult,
 	CreateMemoryRequest,
 	CreateSessionRequest,
 	ListMemoriesResponse,
@@ -103,6 +104,7 @@ import {
 
 export type {
 	CompactMemoryPreviewResponse,
+	MemoryCompactionResult,
 	CreateMemoryRequest,
 	McpServerStatus,
 	McpTestResult,
@@ -768,7 +770,7 @@ export async function purgeArchivedMemory(
 	return res.json();
 }
 
-export function compactMemory(): Promise<{ status: string }> {
+export function compactMemory(): Promise<MemoryCompactionResult> {
 	return compactMemoryApi({ throwOnError: true }).then(({ data }) => data);
 }
 
