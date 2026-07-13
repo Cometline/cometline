@@ -61,7 +61,7 @@ func IsRetryable(err error) bool {
 		return true
 	case *cometsdk.ServerError:
 		return e.StatusCode == 500 || e.StatusCode == 502 ||
-			e.StatusCode == 503 || e.StatusCode == 529
+			e.StatusCode == 503 || e.StatusCode == 504 || e.StatusCode == 529
 	}
 	return false
 }

@@ -280,7 +280,7 @@ func DefaultProviderConfig() ProviderConfig {
 	return ProviderConfig{
 		HTTPClient: &http.Client{},
 		Timeout:    2 * time.Minute,
-		MaxRetries: 4,
+		MaxRetries: 5,
 		Logger:     slog.Default(),
 	}
 }

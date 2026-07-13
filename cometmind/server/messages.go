@@ -130,12 +130,6 @@ func (a *App) handlePostMessage(c *gin.Context) {
 		return
 	}
 
-	// Persistence must outlive request cancel: when the client disconnects or
-	// aborts, Request.Context is canceled and AppendErrorMessage would no-op,
-	// leaving the transcript as a silent empty turn (avatar-only UI).
-	persistCtx, persistCancel := context.WithTimeout(context.WithoutCancel(c.Request.Context()), 10*time.Second)
-	defer persistCancel()
-
 	clientGone := false
 	errorPersisted := false
 	runErr := agent.RunHostedTurn(runCtx, runner, session.AgentTurnFromSession(sess), func(ev event.Event) {
@@ -143,11 +137,13 @@ func (a *App) handlePostMessage(c *gin.Context) {
 			msg := userFacingMessageError(ev.Message)
 			ev.Message = msg
 			if !errorPersisted {
+				persistCtx, persistCancel := messagePersistenceContext(c.Request.Context())
 				if _, err := a.sessions.AppendErrorMessage(persistCtx, sess.ID, msg); err != nil {
 					logging.L().Warn("message.error_persist_failed", "session", sess.ID, "error", err)
 				} else {
 					errorPersisted = true
 				}
+				persistCancel()
 			}
 		}
 		if !clientGone {
@@ -163,14 +159,18 @@ func (a *App) handlePostMessage(c *gin.Context) {
 
 	if err := runErr; err != nil {
 		if a.jobs != nil {
+			persistCtx, persistCancel := messagePersistenceContext(c.Request.Context())
 			_ = a.jobs.ReleaseForSession(persistCtx, sess.ID, err.Error())
+			persistCancel()
 		}
 		logging.L().Error("message.failed", "session", sess.ID, "duration_ms", time.Since(started).Milliseconds(), "error", err)
 		if !errorPersisted {
 			msg := userFacingMessageError(err.Error())
+			persistCtx, persistCancel := messagePersistenceContext(c.Request.Context())
 			if _, perr := a.sessions.AppendErrorMessage(persistCtx, sess.ID, msg); perr != nil {
 				logging.L().Warn("message.error_persist_failed", "session", sess.ID, "error", perr)
 			}
+			persistCancel()
 			if !clientGone {
 				_ = writeSSE(c.Writer, event.Errorf(msg, "llm"))
 				flusher.Flush()
@@ -186,6 +186,15 @@ func (a *App) handlePostMessage(c *gin.Context) {
 		return
 	}
 	logging.L().Info("message.completed", "session", sess.ID, "duration_ms", time.Since(started).Milliseconds())
+}
+
+// messagePersistenceContext gives each persistence operation its own timeout.
+// Creating one before the agent run causes it to expire during long model/tool
+// turns, exactly when it is needed to record a late failure. It also detaches
+// from request cancellation so a disconnected SSE client cannot suppress the
+// transcript error.
+func messagePersistenceContext(requestCtx context.Context) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.WithoutCancel(requestCtx), 10*time.Second)
 }
 
 // userFacingMessageError maps raw runner/provider errors into transcript copy.
