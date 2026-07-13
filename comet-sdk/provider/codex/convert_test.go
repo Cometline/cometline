@@ -172,6 +172,7 @@ func TestStream_MaxOutputTokensFallbackOnUnsupported(t *testing.T) {
 	p := NewCodexProvider(
 		cometsdk.WithBaseURL(srv.URL),
 		cometsdk.WithMaxRetries(1),
+		cometsdk.WithResponseTransport(cometsdk.ResponseTransportSSE),
 	)
 	req := &cometsdk.Request{
 		Model:     "gpt-5.4",
@@ -185,6 +186,35 @@ func TestStream_MaxOutputTokensFallbackOnUnsupported(t *testing.T) {
 	require.Equal(t, []string{"max_output_tokens", "none"}, fields)
 	require.Contains(t, events, cometsdk.TextDeltaEvent{Text: "hello"})
 	require.Contains(t, events, cometsdk.DoneEvent{})
+}
+
+func TestStream_LunaUsesResponsesLite(t *testing.T) {
+	t.Setenv("CODEX_HOME", t.TempDir())
+	writeTestAuthFile(t, codexAuthPath())
+
+	var gotHeader string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotHeader = r.Header.Get(responsesLiteHeader)
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("data: {\"type\":\"response.completed\",\"response\":{\"usage\":{}}}\n\n"))
+	}))
+	defer srv.Close()
+
+	p := NewCodexProvider(
+		cometsdk.WithBaseURL(srv.URL),
+		cometsdk.WithMaxRetries(1),
+		cometsdk.WithResponseTransport(cometsdk.ResponseTransportSSE),
+	)
+	req := &cometsdk.Request{
+		Model:    "gpt-5.6-luna",
+		Messages: []cometsdk.Message{{Role: cometsdk.RoleUser, Content: []cometsdk.Block{cometsdk.TextBlock{Text: "Hi"}}}},
+	}
+
+	ch, err := p.Stream(context.Background(), req)
+	require.NoError(t, err)
+	_ = collectEvents(t, ch)
+	require.Equal(t, "true", gotHeader)
 }
 
 func writeTestAuthFile(t *testing.T, path string) string {

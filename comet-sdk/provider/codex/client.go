@@ -17,6 +17,10 @@ import (
 const (
 	defaultBaseURL = "https://chatgpt.com/backend-api/codex"
 	providerID     = "codex"
+	// GPT-5.6 Luna is currently routed through Responses Lite by Codex CLI.
+	// Without this header, the Codex backend can report the model as missing
+	// even though it is present in the authenticated model catalog.
+	responsesLiteHeader = "x-openai-internal-codex-responses-lite"
 )
 
 type provider struct {
@@ -42,8 +46,20 @@ func NewCodexProvider(opts ...cometsdk.Option) cometsdk.Provider {
 func (p *provider) ID() string { return providerID }
 
 func (p *provider) Stream(ctx context.Context, req *cometsdk.Request) (<-chan cometsdk.Event, error) {
-	ch := make(chan cometsdk.Event, 32)
 	p.log.DebugContext(ctx, "stream.start", "model", req.Model)
+	if p.responseTransport() == cometsdk.ResponseTransportWebSocket {
+		ch, err := p.streamWebSocket(ctx, req)
+		if err == nil {
+			return ch, nil
+		}
+		if p.cfg.ResponseTransport == cometsdk.ResponseTransportWebSocket {
+			p.log.DebugContext(ctx, "stream.websocket_failed", "error", err, "model", req.Model)
+			return nil, err
+		}
+		p.log.DebugContext(ctx, "stream.websocket_fallback", "error", err, "model", req.Model)
+	}
+
+	ch := make(chan cometsdk.Event, 32)
 
 	flags := streamFlags{}
 	httpResp, err := p.streamWithRetry(ctx, req, flags)
@@ -59,6 +75,16 @@ func (p *provider) Stream(ctx context.Context, req *cometsdk.Request) (<-chan co
 
 	go parseLoop(ctx, providerID, httpResp.Body, ch, p.log)
 	return ch, nil
+}
+
+func (p *provider) responseTransport() cometsdk.ResponseTransport {
+	if p.cfg.ResponseTransport == cometsdk.ResponseTransportSSE {
+		return cometsdk.ResponseTransportSSE
+	}
+	// The Codex endpoint is a Responses-compatible endpoint. Its native
+	// transport is WebSocket; other providers keep their own defaults because
+	// they may not expose Responses WebSocket mode at all.
+	return cometsdk.ResponseTransportWebSocket
 }
 
 func (p *provider) streamWithRetry(ctx context.Context, req *cometsdk.Request, flags streamFlags) (*http.Response, error) {
@@ -90,6 +116,12 @@ func (p *provider) doRequest(ctx context.Context, req *cometsdk.Request, flags s
 	if err != nil {
 		return nil, fmt.Errorf("codex: marshal request: %w", err)
 	}
+	if req.Model == "gpt-5.6-luna" {
+		body, err = addResponsesLiteReasoningContext(body)
+		if err != nil {
+			return nil, fmt.Errorf("codex: add responses-lite reasoning context: %w", err)
+		}
+	}
 
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, p.cfg.BaseURL+"/responses", bytes.NewReader(body))
 	if err != nil {
@@ -98,6 +130,10 @@ func (p *provider) doRequest(ctx context.Context, req *cometsdk.Request, flags s
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Accept", "text/event-stream")
 	httpReq.Header.Set("Authorization", "Bearer "+token.AccessToken)
+	addCodexResponseHeaders(httpReq.Header, token, false)
+	if req.Model == "gpt-5.6-luna" {
+		httpReq.Header.Set(responsesLiteHeader, "true")
+	}
 	if token.AccountID != "" {
 		httpReq.Header.Set("ChatGPT-Account-ID", token.AccountID)
 	}

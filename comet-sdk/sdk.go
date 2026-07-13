@@ -261,14 +261,26 @@ const (
 	AuthModeBearer
 )
 
+// ResponseTransport controls how Responses-compatible providers deliver
+// streaming events. Auto lets a provider choose the native transport for the
+// selected API/model while keeping an explicit SSE escape hatch.
+type ResponseTransport int
+
+const (
+	ResponseTransportAuto ResponseTransport = iota
+	ResponseTransportSSE
+	ResponseTransportWebSocket
+)
+
 // ProviderConfig holds configuration common to all provider implementations.
 // It is populated by applying Option functions and is embedded by each provider.
 type ProviderConfig struct {
-	BaseURL    string
-	HTTPClient *http.Client
-	Timeout    time.Duration
-	MaxRetries int
-	AuthMode   AuthMode
+	BaseURL           string
+	HTTPClient        *http.Client
+	Timeout           time.Duration
+	MaxRetries        int
+	AuthMode          AuthMode
+	ResponseTransport ResponseTransport
 	// Logger receives structured debug-level traces of SSE events and retries.
 	// Defaults to slog.Default() if nil.
 	Logger *slog.Logger
@@ -349,5 +361,13 @@ func WithLogger(l *slog.Logger) Option {
 func WithBearerAuth() Option {
 	return func(c *ProviderConfig) {
 		c.AuthMode = AuthModeBearer
+	}
+}
+
+// WithResponseTransport selects the transport used by providers that expose
+// the Responses API. Providers using another API may ignore this option.
+func WithResponseTransport(transport ResponseTransport) Option {
+	return func(c *ProviderConfig) {
+		c.ResponseTransport = transport
 	}
 }

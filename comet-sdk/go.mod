@@ -4,6 +4,7 @@ go 1.25
 
 require (
 	github.com/cenkalti/backoff/v4 v4.3.0
+	github.com/gorilla/websocket v1.4.2
 	github.com/stretchr/testify v1.10.0
 )
 

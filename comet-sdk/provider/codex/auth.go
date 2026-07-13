@@ -35,8 +35,9 @@ type authTokens struct {
 }
 
 type borrowedToken struct {
-	AccessToken string
-	AccountID   string
+	AccessToken    string
+	AccountID      string
+	InstallationID string
 }
 
 func borrowCodexToken(ctx context.Context, client *http.Client) (borrowedToken, error) {
@@ -75,7 +76,7 @@ func borrowCodexTokenFromPath(ctx context.Context, client *http.Client, path str
 	}
 
 	if !tokenExpiresSoon(auth.Tokens.AccessToken, time.Now().Add(refreshSkew)) {
-		return borrowedToken{AccessToken: auth.Tokens.AccessToken, AccountID: auth.Tokens.AccountID}, nil
+		return borrowedToken{AccessToken: auth.Tokens.AccessToken, AccountID: auth.Tokens.AccountID, InstallationID: codexInstallationID(path)}, nil
 	}
 	if strings.TrimSpace(auth.Tokens.RefreshToken) == "" {
 		return borrowedToken{}, fmt.Errorf("codex: access token expired and no refresh token is available; run `codex login`")
@@ -96,7 +97,15 @@ func borrowCodexTokenFromPath(ctx context.Context, client *http.Client, path str
 	if err := writeAuthFile(path, auth); err != nil {
 		return borrowedToken{}, err
 	}
-	return borrowedToken{AccessToken: auth.Tokens.AccessToken, AccountID: auth.Tokens.AccountID}, nil
+	return borrowedToken{AccessToken: auth.Tokens.AccessToken, AccountID: auth.Tokens.AccountID, InstallationID: codexInstallationID(path)}, nil
+}
+
+func codexInstallationID(authPath string) string {
+	data, err := os.ReadFile(filepath.Join(filepath.Dir(authPath), "installation_id"))
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(data))
 }
 
 type refreshResponse struct {
