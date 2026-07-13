@@ -11,12 +11,13 @@
 // embedding dropdown makes `isDirty()` return true — without first calling
 // `buildSavePayload()` and without `isDirty()` mutating state.
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { render, waitFor } from '@testing-library/svelte';
+import { fireEvent, render, waitFor } from '@testing-library/svelte';
 import { flushSync } from 'svelte';
 import type { ProviderConfig } from '$lib/types';
 import SettingsMemoryPanel from './SettingsMemoryPanel.svelte';
 import { createSettingsController } from './settings-controller.svelte';
 import { settingsStore } from '$lib/stores/settings.svelte';
+import { compactMemory, compactMemoryPreview, listMemories } from '$lib/client/cometmind';
 
 vi.mock('$lib/client/cometmind', () => {
 	const base = {
@@ -41,12 +42,16 @@ vi.mock('$lib/client/cometmind', () => {
 	return {
 		getMemorySettings: () => Promise.resolve(structuredClone(base)),
 		putMemorySettings: (s: unknown) => Promise.resolve(structuredClone(s)),
-		listMemories: () => Promise.resolve({ memories: [] }),
+		listMemories: vi.fn(() => Promise.resolve({ memories: [] })),
 		searchMemories: vi.fn(),
 		createMemory: vi.fn(),
 		deleteMemory: vi.fn(),
-		compactMemory: vi.fn(),
-		compactMemoryPreview: vi.fn(),
+		compactMemory: vi.fn(() =>
+			Promise.resolve({ status: 'ok', before: 2, after: 1, trigger: 'manual' })
+		),
+		compactMemoryPreview: vi.fn(() =>
+			Promise.resolve({ to_forget: [], to_merge: [], active: 2, max_memories: 500 })
+		),
 		defaultMemorySettings: () => structuredClone(base)
 	};
 });
@@ -160,5 +165,79 @@ describe('SettingsMemoryPanel embedding selection', () => {
 			expect(observed).toBe(false);
 		});
 		cleanup();
+	});
+});
+
+describe('SettingsMemoryPanel compaction', () => {
+	it('shows the total count and keeps preview feedback in the compaction section', async () => {
+		vi.mocked(listMemories).mockResolvedValueOnce({
+			memories: [
+				{
+					id: 'm1',
+					scope: 'global',
+					kind: 'fact',
+					content: 'First',
+					source: 'manual',
+					base_weight: 1,
+					effective_weight: 1,
+					access_count: 0,
+					pinned: false,
+					created_at: 1,
+					updated_at: 1
+				},
+				{
+					id: 'm2',
+					scope: 'global',
+					kind: 'preference',
+					content: 'Second',
+					source: 'manual',
+					base_weight: 1,
+					effective_weight: 1,
+					access_count: 0,
+					pinned: false,
+					created_at: 2,
+					updated_at: 2
+				}
+			]
+		});
+		vi.mocked(compactMemoryPreview).mockResolvedValueOnce({
+			to_forget: [],
+			to_merge: [[], []],
+			active: 2,
+			max_memories: 500
+		});
+
+		const { container, getByLabelText, getByRole } = render(SettingsMemoryPanel, {
+			props: { providers }
+		});
+		await waitFor(() => expect(getByLabelText('2 total memories')).toBeTruthy());
+
+		await fireEvent.click(getByRole('button', { name: 'Preview compaction' }));
+		let preview!: HTMLElement;
+		await waitFor(() => {
+			preview = container.querySelector('[data-testid="compaction-preview"]') as HTMLElement;
+			expect(preview).toBeTruthy();
+			expect(preview.textContent?.replace(/\s+/g, ' ')).toContain('2 merge clusters');
+		});
+		expect(preview.closest('.settings-section')?.querySelector('h3')?.textContent).toBe(
+			'Compaction'
+		);
+	});
+
+	it('shows a completed run result in the compaction section', async () => {
+		const { container, getByRole } = render(SettingsMemoryPanel, { props: { providers } });
+		await waitFor(() => expect(getByRole('button', { name: 'Run compaction' })).toBeTruthy());
+
+		await fireEvent.click(getByRole('button', { name: 'Run compaction' }));
+		let result!: HTMLElement;
+		await waitFor(() => {
+			result = container.querySelector('[data-testid="compaction-result"]') as HTMLElement;
+			expect(result).toBeTruthy();
+			expect(result.textContent).toContain('2 → 1 memories');
+		});
+		expect(vi.mocked(compactMemory)).toHaveBeenCalledOnce();
+		expect(result.closest('.settings-section')?.querySelector('h3')?.textContent).toBe(
+			'Compaction'
+		);
 	});
 });

@@ -39,4 +39,20 @@ describe('memoryToastStore', () => {
 		vi.advanceTimersByTime(5000);
 		expect(memoryToastStore.toasts).toHaveLength(0);
 	});
+
+	it('summarizes completed memory compaction', () => {
+		memoryToastStore.addCompaction({
+			type: 'memory_compaction_completed',
+			before: 500,
+			after: 400,
+			trigger: 'automatic'
+		});
+
+		expect(memoryToastStore.toasts).toHaveLength(1);
+		expect(memoryToastStore.toasts[0]).toMatchObject({
+			action: 'compact',
+			label: 'Memory compaction complete',
+			preview: '500 → 400 memories · 100 removed'
+		});
+	});
 });

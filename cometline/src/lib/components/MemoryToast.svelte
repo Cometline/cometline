@@ -6,7 +6,8 @@
 		create: CircleCheck,
 		update: Pencil,
 		delete: Trash2,
-		supersede: Pencil
+		supersede: Pencil,
+		compact: Brain
 	} satisfies Record<MemoryToastAction, typeof Brain>;
 </script>
 

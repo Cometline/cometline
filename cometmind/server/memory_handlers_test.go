@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"testing"
+	"time"
 
 	cometsdk "github.com/cometline/comet-sdk"
 	"github.com/cometline/cometmind/internal/config"
@@ -45,7 +46,8 @@ func TestMemorySettingsGetPut(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	engine, err := New(Deps{Config: cfg, Sessions: sessions, Memory: mem, NewRunner: func(session.Session, string) (Runner, error) {
+	hub := event.NewHub()
+	engine, err := New(Deps{Config: cfg, Sessions: sessions, Memory: mem, Events: hub, NewRunner: func(session.Session, string) (Runner, error) {
 		return &noopRunner{}, nil
 	}, Runs: NewRunManager()})
 	if err != nil {
@@ -102,6 +104,34 @@ func TestMemorySettingsGetPut(t *testing.T) {
 	}
 	if purged.Status != "ok" || purged.MemoriesPurged != 0 || purged.MemoryEventsPurged != 0 {
 		t.Fatalf("unexpected purge response: %+v", purged)
+	}
+
+	sub := hub.Subscribe()
+	defer sub.Close()
+	rec = httptest.NewRecorder()
+	engine.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/v1/memories/compaction-runs", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("POST compaction: %d %s", rec.Code, rec.Body.String())
+	}
+	var compacted struct {
+		Status  string `json:"status"`
+		Before  int64  `json:"before"`
+		After   int64  `json:"after"`
+		Trigger string `json:"trigger"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &compacted); err != nil {
+		t.Fatal(err)
+	}
+	if compacted.Status != "ok" || compacted.Before != 0 || compacted.After != 0 || compacted.Trigger != "manual" {
+		t.Fatalf("unexpected compaction response: %+v", compacted)
+	}
+	select {
+	case got := <-sub.Events:
+		if got.Kind != event.KindMemoryCompactionCompleted || got.CompactionTrigger != "manual" {
+			t.Fatalf("unexpected compaction event: %+v", got)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for compaction event")
 	}
 }
 

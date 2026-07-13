@@ -15,13 +15,21 @@ import (
 
 // Service is the global memory facade.
 type Service struct {
-	settings  Settings
-	store     *store
-	retriever *retriever
-	extractor *extractor
-	updater   *updater
-	compactor *compactor
-	provider  cometsdk.Provider
+	settings              Settings
+	store                 *store
+	retriever             *retriever
+	extractor             *extractor
+	updater               *updater
+	compactor             *compactor
+	provider              cometsdk.Provider
+	onCompactionCompleted func(CompactionResult)
+}
+
+// CompactionResult describes a completed manual or automatic compaction pass.
+type CompactionResult struct {
+	Before  int64
+	After   int64
+	Trigger string
 }
 
 // NewService wires memory subsystems. provider is used for extraction/compaction LLM calls.
@@ -72,6 +80,17 @@ func (s *Service) UpdateSettings(settings Settings) {
 func (s *Service) Settings() Settings { return s.settings }
 
 func (s *Service) Enabled() bool { return s.settings.Enabled }
+
+// SetCompactionCompletedNotifier registers the runtime notification bridge.
+func (s *Service) SetCompactionCompletedNotifier(notify func(CompactionResult)) {
+	s.onCompactionCompleted = notify
+}
+
+func (s *Service) notifyCompactionCompleted(result CompactionResult) {
+	if s.onCompactionCompleted != nil {
+		s.onCompactionCompleted(result)
+	}
+}
 
 // RetrieveForTurn returns scored memories for injection.
 func (s *Service) RetrieveForTurn(ctx context.Context, query string) ([]ScoredMemory, error) {
@@ -297,6 +316,12 @@ func (s *Service) RunLifecycle(ctx context.Context) error {
 			logging.L().Error("memory.compact.failed", "active_count", count, "max_memories", lc.MaxMemories, "duration_ms", time.Since(started).Milliseconds(), "error", err)
 			return err
 		}
+		after, err := s.store.countActive(ctx)
+		if err != nil {
+			logging.L().Error("memory.compact.result_count_failed", "trigger", "automatic", "error", err)
+			return err
+		}
+		s.notifyCompactionCompleted(CompactionResult{Before: count, After: after, Trigger: "automatic"})
 		logging.L().Info("memory.compact.completed", "active_count", count, "max_memories", lc.MaxMemories, "duration_ms", time.Since(started).Milliseconds())
 		return nil
 	}
@@ -315,15 +340,25 @@ func (s *Service) CompactPreview(ctx context.Context) (CompactPreview, error) {
 	return preview, nil
 }
 
-// Compact runs compaction immediately.
-func (s *Service) Compact(ctx context.Context) error {
+// Compact runs compaction immediately and reports the active count change.
+func (s *Service) Compact(ctx context.Context) (CompactionResult, error) {
 	started := time.Now()
+	before, err := s.store.countActive(ctx)
+	if err != nil {
+		return CompactionResult{}, err
+	}
 	if err := s.compactor.run(ctx); err != nil {
 		logging.L().Error("memory.compact.failed", "manual", true, "duration_ms", time.Since(started).Milliseconds(), "error", err)
-		return err
+		return CompactionResult{}, err
 	}
+	after, err := s.store.countActive(ctx)
+	if err != nil {
+		return CompactionResult{}, err
+	}
+	result := CompactionResult{Before: before, After: after, Trigger: "manual"}
+	s.notifyCompactionCompleted(result)
 	logging.L().Info("memory.compact.completed", "manual", true, "duration_ms", time.Since(started).Milliseconds())
-	return nil
+	return result, nil
 }
 
 // PurgeArchived hard-deletes archived memories and old memory_events.

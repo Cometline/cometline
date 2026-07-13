@@ -105,6 +105,11 @@ func New(deps Deps) (*gin.Engine, error) {
 		mcpMgr:         deps.MCPMgr,
 		subagentOrch:   deps.SubagentOrch,
 	}
+	if deps.Memory != nil && deps.Events != nil {
+		deps.Memory.SetCompactionCompletedNotifier(func(result memory.CompactionResult) {
+			deps.Events.Publish(event.MemoryCompactionCompleted(result.Before, result.After, result.Trigger))
+		})
+	}
 
 	r := gin.New()
 	r.Use(logging.Gin())

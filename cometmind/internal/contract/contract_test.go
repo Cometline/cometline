@@ -46,6 +46,7 @@ func TestStreamEventMarshalJSONMatchesOpenAPI(t *testing.T) {
 		{name: "memory_injected", ev: event.MemoryInjected([]event.MemoryWire{{ID: "m1", Content: "fact", Kind: "preference", Similarity: 0.9, EffectiveWeight: 1.2}})},
 		{name: "memory_updated", ev: event.MemoryUpdated([]event.MemoryChangeWire{{Action: "create", Kind: "preference", Content: "likes tea"}})},
 		{name: "memory_deleted", ev: event.MemoryUpdated([]event.MemoryChangeWire{{Action: "delete", Kind: "preference", Content: "likes tea", ID: "m1"}})},
+		{name: "memory_compaction_completed", ev: event.MemoryCompactionCompleted(500, 400, "automatic")},
 		{name: "turn_status", ev: event.TurnStatus(event.PhaseCompactingContext, "")},
 		{name: "turn_recover", ev: event.TurnRecover(12, 7)},
 		{name: "error", ev: event.Errorf("boom", "llm")},

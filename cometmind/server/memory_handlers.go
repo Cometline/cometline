@@ -220,11 +220,17 @@ func (a *App) handleCompactMemory(c *gin.Context) {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "memory disabled"})
 		return
 	}
-	if err := a.memory.Compact(c.Request.Context()); err != nil {
+	result, err := a.memory.Compact(c.Request.Context())
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	c.JSON(http.StatusOK, gin.H{
+		"status":  "ok",
+		"before":  result.Before,
+		"after":   result.After,
+		"trigger": result.Trigger,
+	})
 }
 
 func (a *App) handleCompactPreview(c *gin.Context) {

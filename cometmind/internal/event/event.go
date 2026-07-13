@@ -12,21 +12,22 @@ import (
 type Kind string
 
 const (
-	KindTextDelta        Kind = "text_delta"
-	KindReasoningStart   Kind = "reasoning_start"
-	KindReasoningDelta   Kind = "reasoning_delta"
-	KindToolCall         Kind = "tool_call"
-	KindToolResult       Kind = "tool_result"
-	KindStepFinish       Kind = "step_finish"
-	KindSubagentStarted  Kind = "subagent_started"
-	KindSubagentProgress Kind = "subagent_progress"
-	KindSubagentFinished Kind = "subagent_finished"
-	KindMemoryInjected   Kind = "memory_injected"
-	KindMemoryUpdated    Kind = "memory_updated"
-	KindTurnStatus       Kind = "turn_status"
-	KindTurnRecover      Kind = "turn_recover"
-	KindError            Kind = "error"
-	KindDone             Kind = "done"
+	KindTextDelta                 Kind = "text_delta"
+	KindReasoningStart            Kind = "reasoning_start"
+	KindReasoningDelta            Kind = "reasoning_delta"
+	KindToolCall                  Kind = "tool_call"
+	KindToolResult                Kind = "tool_result"
+	KindStepFinish                Kind = "step_finish"
+	KindSubagentStarted           Kind = "subagent_started"
+	KindSubagentProgress          Kind = "subagent_progress"
+	KindSubagentFinished          Kind = "subagent_finished"
+	KindMemoryInjected            Kind = "memory_injected"
+	KindMemoryUpdated             Kind = "memory_updated"
+	KindMemoryCompactionCompleted Kind = "memory_compaction_completed"
+	KindTurnStatus                Kind = "turn_status"
+	KindTurnRecover               Kind = "turn_recover"
+	KindError                     Kind = "error"
+	KindDone                      Kind = "done"
 )
 
 // TurnPhase identifies what the agent is doing before visible output streams.
@@ -98,6 +99,10 @@ type Event struct {
 	Memories []MemoryWire
 	// memory_updated
 	MemoryChanges []MemoryChangeWire
+	// memory_compaction_completed
+	MemoryCountBefore int64
+	MemoryCountAfter  int64
+	CompactionTrigger string
 	// turn_status
 	Phase         TurnPhase
 	StatusMessage string
@@ -181,6 +186,13 @@ func (e Event) MarshalJSON() ([]byte, error) {
 			Type    string             `json:"type"`
 			Changes []MemoryChangeWire `json:"changes"`
 		}{t, e.MemoryChanges})
+	case KindMemoryCompactionCompleted:
+		return json.Marshal(struct {
+			Type    string `json:"type"`
+			Before  int64  `json:"before"`
+			After   int64  `json:"after"`
+			Trigger string `json:"trigger"`
+		}{t, e.MemoryCountBefore, e.MemoryCountAfter, e.CompactionTrigger})
 	case KindTurnStatus:
 		out := struct {
 			Type    string `json:"type"`
@@ -275,6 +287,16 @@ func MemoryInjected(wire []MemoryWire) Event {
 // MemoryUpdated builds a memory_updated event.
 func MemoryUpdated(changes []MemoryChangeWire) Event {
 	return Event{Kind: KindMemoryUpdated, MemoryChanges: changes}
+}
+
+// MemoryCompactionCompleted builds a global completion event for manual and automatic runs.
+func MemoryCompactionCompleted(before, after int64, trigger string) Event {
+	return Event{
+		Kind:              KindMemoryCompactionCompleted,
+		MemoryCountBefore: before,
+		MemoryCountAfter:  after,
+		CompactionTrigger: trigger,
+	}
 }
 
 // TurnStatus builds a turn_status event for pre-stream activity feedback.

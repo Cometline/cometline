@@ -41,6 +41,9 @@
 			if (event.type === 'memory_updated') {
 				memoryToastStore.add(event.changes);
 			}
+			if (event.type === 'memory_compaction_completed') {
+				memoryToastStore.addCompaction(event);
+			}
 		});
 		let stopStorageRetentionSync: (() => void) | null = null;
 		const stopJobNotifications = startJobNotificationPoller({

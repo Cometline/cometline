@@ -13,6 +13,8 @@
 		putMemorySettings,
 		searchMemories,
 		type MemoryResource,
+		type CompactMemoryPreviewResponse,
+		type MemoryCompactionResult,
 		type MemorySettings
 	} from '$lib/client/cometmind';
 	import {
@@ -41,10 +43,14 @@
 	let searchQuery = $state('');
 	let searching = $state(false);
 	let newContent = $state('');
-	let status = $state('');
+	let memoryStatus = $state('');
 	let loading = $state(true);
 	let saving = $state(false);
 	let compacting = $state(false);
+	let previewing = $state(false);
+	let compactionPreview = $state<CompactMemoryPreviewResponse | null>(null);
+	let compactionResult = $state<MemoryCompactionResult | null>(null);
+	let compactionError = $state('');
 	let selectedEmbeddingKey = $state('');
 
 	let loadError = $state('');
@@ -144,7 +150,7 @@
 	async function reload() {
 		loading = true;
 		loadError = '';
-		status = '';
+		memoryStatus = '';
 		try {
 			const [s, list] = await Promise.all([getMemorySettings(), listMemories()]);
 			const mergedEmbedding = mergeEmbeddingFields(s.embedding, savedEmbedding);
@@ -241,7 +247,7 @@
 			memories = res.memories;
 		} catch (error) {
 			if (searchQuery.trim() !== query) return;
-			status = error instanceof Error ? error.message : 'Search failed';
+			memoryStatus = error instanceof Error ? error.message : 'Search failed';
 		} finally {
 			if (searchQuery.trim() === query) {
 				searching = false;
@@ -278,9 +284,9 @@
 				memories = fullMemories;
 			}
 			newContent = '';
-			status = 'Memory added.';
+			memoryStatus = 'Memory added.';
 		} catch (error) {
-			status = error instanceof Error ? error.message : 'Failed to add memory';
+			memoryStatus = error instanceof Error ? error.message : 'Failed to add memory';
 		}
 	}
 
@@ -290,29 +296,33 @@
 			fullMemories = fullMemories.filter((m) => m.id !== id);
 			memories = memories.filter((m) => m.id !== id);
 		} catch (error) {
-			status = error instanceof Error ? error.message : 'Failed to delete memory';
+			memoryStatus = error instanceof Error ? error.message : 'Failed to delete memory';
 		}
 	}
 
 	async function runCompact() {
 		compacting = true;
+		compactionError = '';
 		try {
-			await compactMemory();
+			const result = await compactMemory();
 			await reload();
-			status = 'Compaction complete.';
+			compactionResult = result;
 		} catch (error) {
-			status = error instanceof Error ? error.message : 'Compaction failed';
+			compactionError = error instanceof Error ? error.message : 'Compaction failed';
 		} finally {
 			compacting = false;
 		}
 	}
 
 	async function previewCompact() {
+		previewing = true;
+		compactionError = '';
 		try {
-			const preview = await compactMemoryPreview();
-			status = `Preview: ${preview.to_forget.length} to forget, ${preview.to_merge.length} merge clusters (${preview.active}/${preview.max_memories} active).`;
+			compactionPreview = await compactMemoryPreview();
 		} catch (error) {
-			status = error instanceof Error ? error.message : 'Preview failed';
+			compactionError = error instanceof Error ? error.message : 'Preview failed';
+		} finally {
+			previewing = false;
 		}
 	}
 </script>
@@ -448,15 +458,52 @@
 						<h3>Compaction</h3>
 						<p>Preview or run memory compaction to merge and prune stored memories.</p>
 					</div>
+					<div class="memory-total" aria-label={`${fullMemories.length} total memories`}>
+						<strong>{fullMemories.length}</strong>
+						<span>total memories</span>
+					</div>
 				</div>
 
 				<div class="actions">
-					<button class="secondary" onclick={previewCompact}>Preview compaction</button>
+					<button
+						class="secondary"
+						onclick={previewCompact}
+						disabled={previewing || compacting}
+					>
+						{#if previewing}<span class="spin"><LoaderCircle size={14} /></span>{/if}
+						Preview compaction
+					</button>
 					<button class="secondary" onclick={runCompact} disabled={compacting}>
 						{#if compacting}<span class="spin"><LoaderCircle size={14} /></span>{/if}
 						Run compaction
 					</button>
 				</div>
+
+				{#if compactionPreview}
+					<div class="compaction-feedback" data-testid="compaction-preview">
+						<strong>Preview</strong>
+						<span>
+							{compactionPreview.to_forget.length} to forget · {compactionPreview
+								.to_merge.length}
+							merge {compactionPreview.to_merge.length === 1 ? 'cluster' : 'clusters'} ·
+							{compactionPreview.active} of {compactionPreview.max_memories} active
+						</span>
+					</div>
+				{/if}
+
+				{#if compactionResult}
+					<div class="compaction-feedback success" data-testid="compaction-result">
+						<strong>Compaction complete</strong>
+						<span>
+							{compactionResult.before} → {compactionResult.after} memories ·
+							{Math.max(0, compactionResult.before - compactionResult.after)} removed
+						</span>
+					</div>
+				{/if}
+
+				{#if compactionError}
+					<p class="compaction-error">{compactionError}</p>
+				{/if}
 			</div>
 
 			<div class="settings-section">
@@ -516,8 +563,8 @@
 					{/each}
 				</div>
 
-				{#if status}
-					<p class="status">{status}</p>
+				{#if memoryStatus}
+					<p class="status">{memoryStatus}</p>
 				{/if}
 			</div>
 		</div>
@@ -605,6 +652,48 @@
 		display: flex;
 		gap: 8px;
 		flex-wrap: wrap;
+	}
+
+	.memory-total {
+		display: flex;
+		flex: 0 0 auto;
+		align-items: baseline;
+		gap: 5px;
+		color: var(--text-muted);
+	}
+
+	.memory-total strong {
+		font-size: 18px;
+		color: var(--text-main);
+	}
+
+	.memory-total span {
+		font-size: 11px;
+	}
+
+	.compaction-feedback {
+		display: grid;
+		gap: 3px;
+		padding: 10px 12px;
+		border: 1px solid var(--border-soft);
+		border-radius: 11px;
+		background: rgba(251, 251, 250, 0.72);
+		font-size: 12px;
+		color: var(--text-muted);
+	}
+
+	.compaction-feedback strong {
+		color: var(--text-main);
+	}
+
+	.compaction-feedback.success {
+		border-color: color-mix(in srgb, var(--status-success) 25%, var(--border-soft));
+	}
+
+	.compaction-error {
+		margin: 0;
+		font-size: 12px;
+		color: var(--status-error);
 	}
 
 	.search-row input {
