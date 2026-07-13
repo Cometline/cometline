@@ -49,11 +49,26 @@
 					typeof payloadOrText === 'string' ? { text: payloadOrText } : payloadOrText;
 				if (compact && firstTurn) {
 					awaitingFirstAssistant = true;
-					firstTurnFlightDone = true;
-					firstTurnHandoffPending = false;
-					stageUser(payload.text, payload.images);
-					revealStagedUser();
-					return;
+					firstTurnFlightDone = false;
+					firstTurnHandoffPending = true;
+					if (!userBubbleFlight) {
+						stageUser(payload.text, payload.images);
+						revealStagedUser();
+						firstTurnFlightDone = true;
+						firstTurnHandoffPending = false;
+						return;
+					}
+					return userBubbleFlight
+						.runAsync(payload.text, payload.images, { origin: 'above-composer' })
+						.then(() => {
+							firstTurnFlightDone = true;
+							firstTurnHandoffPending = false;
+						})
+						.catch((error) => {
+							firstTurnFlightDone = true;
+							firstTurnHandoffPending = false;
+							throw error;
+						});
 				}
 				if (firstTurn) {
 					awaitingFirstAssistant = true;
