@@ -148,6 +148,42 @@ func (e MemoryChangeWireAction) Valid() bool {
 	}
 }
 
+// Defines values for MemoryCompactionCompletedEventTrigger.
+const (
+	MemoryCompactionCompletedEventTriggerAutomatic MemoryCompactionCompletedEventTrigger = "automatic"
+	MemoryCompactionCompletedEventTriggerManual    MemoryCompactionCompletedEventTrigger = "manual"
+)
+
+// Valid indicates whether the value is a known member of the MemoryCompactionCompletedEventTrigger enum.
+func (e MemoryCompactionCompletedEventTrigger) Valid() bool {
+	switch e {
+	case MemoryCompactionCompletedEventTriggerAutomatic:
+		return true
+	case MemoryCompactionCompletedEventTriggerManual:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MemoryCompactionResultTrigger.
+const (
+	MemoryCompactionResultTriggerAutomatic MemoryCompactionResultTrigger = "automatic"
+	MemoryCompactionResultTriggerManual    MemoryCompactionResultTrigger = "manual"
+)
+
+// Valid indicates whether the value is a known member of the MemoryCompactionResultTrigger enum.
+func (e MemoryCompactionResultTrigger) Valid() bool {
+	switch e {
+	case MemoryCompactionResultTriggerAutomatic:
+		return true
+	case MemoryCompactionResultTriggerManual:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ScheduledJobResourceCreatedBy.
 const (
 	ScheduledJobResourceCreatedByAgent ScheduledJobResourceCreatedBy = "agent"
@@ -708,6 +744,28 @@ type MemoryChangeWire struct {
 
 // MemoryChangeWireAction defines model for MemoryChangeWire.Action.
 type MemoryChangeWireAction string
+
+// MemoryCompactionCompletedEvent defines model for MemoryCompactionCompletedEvent.
+type MemoryCompactionCompletedEvent struct {
+	After   int64                                 `json:"after"`
+	Before  int64                                 `json:"before"`
+	Trigger MemoryCompactionCompletedEventTrigger `json:"trigger"`
+	Type    string                                `json:"type"`
+}
+
+// MemoryCompactionCompletedEventTrigger defines model for MemoryCompactionCompletedEvent.Trigger.
+type MemoryCompactionCompletedEventTrigger string
+
+// MemoryCompactionResult defines model for MemoryCompactionResult.
+type MemoryCompactionResult struct {
+	After   int64                         `json:"after"`
+	Before  int64                         `json:"before"`
+	Status  string                        `json:"status"`
+	Trigger MemoryCompactionResultTrigger `json:"trigger"`
+}
+
+// MemoryCompactionResultTrigger defines model for MemoryCompactionResult.Trigger.
+type MemoryCompactionResultTrigger string
 
 // MemoryEmbeddingSettings defines model for MemoryEmbeddingSettings.
 type MemoryEmbeddingSettings struct {
@@ -1730,6 +1788,34 @@ func (t *StreamEvent) MergeMemoryUpdatedEvent(v MemoryUpdatedEvent) error {
 	return err
 }
 
+// AsMemoryCompactionCompletedEvent returns the union data inside the StreamEvent as a MemoryCompactionCompletedEvent
+func (t StreamEvent) AsMemoryCompactionCompletedEvent() (MemoryCompactionCompletedEvent, error) {
+	var body MemoryCompactionCompletedEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMemoryCompactionCompletedEvent overwrites any union data inside the StreamEvent as the provided MemoryCompactionCompletedEvent
+func (t *StreamEvent) FromMemoryCompactionCompletedEvent(v MemoryCompactionCompletedEvent) error {
+	v.Type = "memory_compaction_completed"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMemoryCompactionCompletedEvent performs a merge with any union data inside the StreamEvent, using the provided MemoryCompactionCompletedEvent
+func (t *StreamEvent) MergeMemoryCompactionCompletedEvent(v MemoryCompactionCompletedEvent) error {
+	v.Type = "memory_compaction_completed"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 // AsTurnStatusEvent returns the union data inside the StreamEvent as a TurnStatusEvent
 func (t StreamEvent) AsTurnStatusEvent() (TurnStatusEvent, error) {
 	var body TurnStatusEvent
@@ -1860,6 +1946,8 @@ func (t StreamEvent) ValueByDiscriminator() (interface{}, error) {
 		return t.AsDoneEvent()
 	case "error":
 		return t.AsErrorEvent()
+	case "memory_compaction_completed":
+		return t.AsMemoryCompactionCompletedEvent()
 	case "memory_injected":
 		return t.AsMemoryInjectedEvent()
 	case "memory_updated":
