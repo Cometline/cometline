@@ -124,13 +124,15 @@
 			transform: translate(-5.66px, 3.54px) rotate(-148deg) scale(1.025);
 		}
 		75% {
-			transform: translate(0px, 5px) rotate(180deg) scale(1);
+			transform: translate(0px, 5px) rotate(-180deg) scale(1);
 		}
 		87.5% {
-			transform: translate(5.66px, 3.54px) rotate(148deg) scale(0.975);
+			transform: translate(5.66px, 3.54px) rotate(-212deg) scale(0.975);
 		}
 		100% {
-			transform: translate(8px, 0px) rotate(90deg) scale(0.95);
+			/* Keep the equivalent angles unwrapped so CSS never interpolates the
+			 * tail through a near-full reverse rotation at the bottom of the orbit. */
+			transform: translate(8px, 0px) rotate(-270deg) scale(0.95);
 		}
 	}
 
