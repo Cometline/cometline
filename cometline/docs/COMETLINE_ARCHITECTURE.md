@@ -51,7 +51,7 @@ The rule: Cometline is not the brain. CometMind is the brain. Comet SDK is only 
 
 | Concept               | Owner                              | Current status                                                                                                              |
 | --------------------- | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| Provider runtime      | `comet-sdk`                        | Anthropic and OpenAI-compatible providers, including DeepSeek `reasoning_content`, embedded thinking tags, and vision input |
+| Provider runtime      | `comet-sdk`                        | Anthropic, OpenAI-compatible, ChatGPT Codex (HTTP or WebSocket), and xAI Grok (subscription auth) providers, including DeepSeek `reasoning_content`, embedded thinking tags, and vision input |
 | Agent runtime         | `cometmind/internal/agent`         | Multi-step loop with streaming, reasoning, tool calls, memory retrieve/extract                                              |
 | Semantic memory       | `cometmind/internal/memory`        | Embedding retrieval, post-turn extraction, compaction, REST API + Cometline settings panel                                  |
 | MCP client            | `cometmind/internal/mcp`           | stdio/http/sse servers, tool binding, OAuth discovery/registration/login/refresh                                             |
@@ -113,7 +113,7 @@ SSE event names currently rendered:
 - `text_delta`, `reasoning_start`, `reasoning_delta`
 - `tool_call`, `tool_result`, `step_finish`
 - `subagent_started`, `subagent_progress`, `subagent_finished`
-- `memory_injected`, `memory_updated`
+- `memory_injected`, `memory_updated`, `memory_compaction_completed`
 - `turn_status`
 - `error`, `done`
 

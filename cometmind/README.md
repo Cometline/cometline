@@ -7,7 +7,7 @@ This directory is one module inside the `cometline` monorepo. The historical sta
 CometMind is the middle tier of the Cometline stack:
 
 ```
-comet-sdk   →  provider-agnostic LLM I/O (Anthropic, OpenAI, Codex, compatible APIs)
+comet-sdk   →  provider-agnostic LLM I/O (Anthropic, OpenAI, Codex, xAI, compatible APIs)
 cometmind   →  general agent brain: agent loop + tools + memory + persistence + HTTP/SSE + CLI
   └─ Coding harness ──→  OpenCode (CLI), Claude Code (CLI), or Codex (CLI)
 cometline   →  Electron desktop shell (also starts CometMind as a sidecar)
@@ -52,7 +52,7 @@ internal/
   acp/               Coding-harness CLI runner for delegate_coding_task (OpenCode by default)
   mcp/               stdio/http/sse MCP manager plus OAuth login/token refresh
   gateway/           messaging adapters (Discord today)
-  provider/          builds a comet-sdk provider from config/session (Anthropic, OpenAI-compatible, Codex)
+  provider/          builds a comet-sdk provider from config/session (Anthropic, OpenAI-compatible, Codex, xAI)
   config/            cometline-settings.json loading + legacy TOML migration + COMETMIND_* env
   db/                sqlc-generated querier + schema.sql + queries/*.sql
   event/event.go     CometMind-native event union (shared by SSE/CLI/gateway)
@@ -285,7 +285,7 @@ Localhost-only HTTP + SSE, versioned under `/api/v1` (default `http://127.0.0.1:
 
 ### SSE event names
 
-`text_delta`, `reasoning_start`, `reasoning_delta`, `tool_call`, `tool_result`, `step_finish`, `subagent_started`, `subagent_progress`, `subagent_finished`, `memory_injected`, `memory_updated`, `turn_status`, `turn_recover`, `error`, `done`
+`text_delta`, `reasoning_start`, `reasoning_delta`, `tool_call`, `tool_result`, `step_finish`, `subagent_started`, `subagent_progress`, `subagent_finished`, `memory_injected`, `memory_updated`, `memory_compaction_completed`, `turn_status`, `turn_recover`, `error`, `done`
 
 Only one run is allowed per session at a time (`409 session_running` on duplicate POST).
 
@@ -423,7 +423,7 @@ When Cometline is running, Settings writes `~/.cometmind/cometline-settings.json
 
 ## Database
 
-SQLite schema (version 7) includes:
+SQLite schema (version 22) includes:
 
 | Table | Purpose |
 |---|---|

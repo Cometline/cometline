@@ -49,7 +49,7 @@ The rule that explains most boundaries: `cometline` is the UI shell, `cometmind`
 
 | Concern | Implementation | Why It Exists | Swappable? |
 |---|---|---|---|
-| Provider-normalized LLM I/O | Go `comet-sdk` with Anthropic/OpenAI providers | One event/request vocabulary for the agent runtime | Provider implementations are swappable behind `cometsdk.Provider` |
+| Provider-normalized LLM I/O | Go `comet-sdk` with Anthropic/OpenAI/Codex/xAI providers | One event/request vocabulary for the agent runtime | Provider implementations are swappable behind `cometsdk.Provider` |
 | Streaming collection | `comet-sdk/llm.StreamMessage` | Lets UI render deltas while still assembling the final assistant message | Swappable if it preserves event ordering and final result semantics |
 | Agent orchestration | `cometmind/internal/agent.Runner` | Multi-step loop: model call, persist, execute tools, continue | Load-bearing |
 | Persistence | SQLite via `modernc.org/sqlite` and sqlc | Local-first durable sessions without native CGO dependency | Storage engine is swappable only behind `session.Service`-equivalent contracts |
@@ -110,6 +110,7 @@ CometMind emits JSON SSE frames whose `type` field is the discriminator. The can
 | `subagent_finished` | `child_session_id`, `delegation_status`, `summary` | Subagent finished |
 | `memory_injected` | `memories` | Retrieved memories injected before model contact |
 | `memory_updated` | `changes` | Post-turn memory extraction changed records |
+| `memory_compaction_completed` | `before`, `after`, `trigger` | A manual or automatic memory compaction run finished |
 | `turn_status` | `phase`, `message?` | Runtime status before visible output streams |
 | `error` | `type`, `message`, `code?` | Runtime/model/tool error |
 | `done` | `type` | Terminal stream event |
@@ -300,6 +301,8 @@ comet-sdk/
 +-- llm/                           convenience collection and streaming assembly
 +-- provider/anthropic/            Anthropic Messages API adapter
 +-- provider/openai/               OpenAI Chat Completions-compatible adapter
++-- provider/codex/                ChatGPT Codex adapter (HTTP and WebSocket transports)
++-- provider/xai/                  xAI Grok adapter (OAuth subscription auth, OpenAI-compatible wire)
 `-- internal/
     +-- providerbase/              HTTP error classification, endpoint/options helpers
     +-- retry/                     exponential retry loop
@@ -496,7 +499,7 @@ Important persisted formats:
 | `messages.content` for `tool_result` | JSON object `{tool_call_id, content, is_error}` | `cometmind/internal/session/service.go:17-22`, `cometmind/internal/session/service.go:266-290` |
 | `sessions.token_usage` | JSON-encoded `cometsdk.TokenUsage` snapshot | `cometmind/internal/session/service.go:303-313` |
 
-Schema migrations are managed with `PRAGMA user_version`; current `schemaVersion` is 2 and v1->v2 adds `reasoning_content` (`cometmind/internal/db/migrate.go:29-36`, `cometmind/internal/db/migrate.go:60-91`). Generated sqlc files under `internal/db` must not be hand-edited.
+Schema migrations are managed with `PRAGMA user_version`; current `schemaVersion` is 22, applied incrementally via `alterStatements` in `cometmind/internal/db/migrate.go`. Generated sqlc files under `internal/db` must not be hand-edited.
 
 ## HTTP/SSE Server
 

@@ -33,7 +33,7 @@ Cometline is a three-layer system: a desktop chat UI, a local agent runtime, and
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │  comet-sdk (Go library)                                         │
-│  - Streaming LLM I/O (Anthropic, OpenAI, compatible APIs)       │
+│  - Streaming LLM I/O (Anthropic, OpenAI, Codex, xAI, compatible)│
 │  - Retry logic with exponential backoff                         │
 │  - Tool-call assembly and delta tracking                        │
 │  - Typed errors (auth, rate limit, server, stream)              │
@@ -257,6 +257,7 @@ CometMind emits JSON SSE frames with a `type` discriminator:
 | `subagent_finished` | Coding-harness or general-subagent finished |
 | `memory_injected` | Retrieved memories were injected into the turn |
 | `memory_updated` | Post-turn memory extraction changed memory state |
+| `memory_compaction_completed` | A manual or automatic memory compaction run finished |
 | `turn_status` | Pre-output activity status such as retrieving memories or contacting the model |
 | `error` | Runtime/model/tool error |
 | `done` | Terminal stream event |
@@ -288,7 +289,7 @@ Electron main process exposes native capabilities to the renderer via preload:
 1. Implement `cometsdk.Provider` interface in `comet-sdk/provider/{name}/`
 2. Add provider method constant to `comet-sdk/sdk.go`
 3. Add provider config to `cometmind/internal/config/config.go`
-4. Add provider UI to `cometline/src/lib/components/SettingsPanel.svelte`
+4. Add provider UI to `cometline/src/lib/components/settings/SettingsProvidersPanel.svelte`
 5. Update `cometline/src/lib/types.ts` with new `ProviderMethod`
 
 ### Adding a new tool

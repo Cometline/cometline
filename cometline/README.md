@@ -54,7 +54,7 @@ The rule: **Cometline is not the brain.** CometMind is the brain. Comet SDK is o
 
 ### Settings
 
-- **Providers** — ChatGPT Codex, OpenAI, Anthropic, OpenAI-compatible, OpenCode Go, plus custom providers; fetch models from the provider API where available
+- **Providers** — ChatGPT Codex, OpenAI, Anthropic, OpenAI-compatible, OpenCode Go, xAI Grok (subscription auth), plus custom providers; fetch models from the provider API where available
 - **CometMind** — coding-harness selector, Agent Skills management, Discord gateway toggle and config
 - **MCP** — stdio/http/sse server config, Cursor `mcp.json` import, connection tests, reconnect, and OAuth login
 - **Memory** — auto retrieve/extract, thresholds, embedding model, compaction

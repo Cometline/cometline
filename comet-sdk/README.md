@@ -42,7 +42,7 @@ Comet SDK deliberately stays a **pure LLM I/O library**: no agent loop, no tool 
 
 ## What it does
 
-Comet SDK gives you a single `Provider` interface that works identically for Anthropic, OpenAI, ChatGPT Codex, and OpenAI-compatible endpoints (DeepSeek, company gateways, OpenCode Zen, etc.). It handles:
+Comet SDK gives you a single `Provider` interface that works identically for Anthropic, OpenAI, ChatGPT Codex, xAI Grok, and OpenAI-compatible endpoints (DeepSeek, company gateways, OpenCode Zen, etc.). It handles:
 
 - Streaming responses over SSE
 - Reasoning / chain-of-thought events (`ReasoningStartEvent`, `ReasoningContentEvent`)
@@ -84,16 +84,16 @@ Use `Provider.Stream()` directly when you need lower-level control over raw even
 │  AuthError · RateLimitError · ServerError · StreamError     │
 └────────────────┬──────────────────────┬─────────────────────┘
                  │                      │
-    ┌────────────▼────────┐  ┌──────────▼───────────┐  ┌──────────▼─────────┐
-    │  provider/anthropic  │  │   provider/openai     │  │  provider/codex    │
-    │                      │  │                       │  │                    │
-    │  client.go           │  │  client.go            │  │  client.go         │
-    │  convert.go          │  │  convert.go           │  │  convert.go        │
-    │  stream.go           │  │  stream.go            │  │  stream.go         │
-    │  fixtures/           │  │  reasoning.go         │  │  auth.go           │
-    └────────┬─────────────┘  │  fixtures/            │  └─────────┬──────────┘
-             │                └──────────┬─────────────┘            │
-             └─────────────┬─────────────┴──────────────────────────┘
+    ┌────────────▼────────┐  ┌──────────▼───────────┐  ┌──────────▼─────────┐  ┌──────────▼─────────┐
+    │  provider/anthropic  │  │   provider/openai     │  │  provider/codex    │  │  provider/xai       │
+    │                      │  │                       │  │                    │  │                     │
+    │  client.go           │  │  client.go            │  │  client.go         │  │  provider.go        │
+    │  convert.go          │  │  convert.go           │  │  convert.go        │  │  auth.go            │
+    │  stream.go           │  │  stream.go            │  │  stream.go         │  │  (wraps provider/   │
+    │  fixtures/           │  │  reasoning.go         │  │  websocket.go      │  │   openai)           │
+    └────────┬─────────────┘  │  fixtures/            │  │  auth.go           │  └─────────┬───────────┘
+             │                └──────────┬─────────────┘  └─────────┬──────────┘            │
+             └─────────────┬─────────────┴──────────────────────────┴───────────────────────┘
                            │
            ┌───────────────▼───────────────┐
            │          internal/            │
@@ -103,11 +103,11 @@ Use `Provider.Stream()` directly when you need lower-level control over raw even
            │  providerbase/providerbase.go │
            └───────────────────────────────┘
                         │
-          ┌─────────────┼──────────────────┐
-          ▼             ▼                  ▼
-   Anthropic API   OpenAI API      OpenAI-compatible APIs     ChatGPT Codex
-   /v1/messages    /v1/chat/       (DeepSeek, gateways, etc.) /responses
-                   completions
+          ┌─────────────┼──────────────────┬───────────────────────┐
+          ▼             ▼                  ▼                       ▼
+   Anthropic API   OpenAI API      OpenAI-compatible APIs     ChatGPT Codex        xAI (api.x.ai,
+   /v1/messages    /v1/chat/       (DeepSeek, gateways, etc.) /responses           OAuth subscription
+                   completions                                (HTTP or WebSocket)  session)
 ```
 
 ---
@@ -308,6 +308,12 @@ SDK-managed fields (`model`, `messages`, `stream`, `max_tokens`) cannot be overr
 ### ChatGPT Codex
 
 `provider/codex` talks to ChatGPT Codex's `/responses` endpoint and reuses the local Codex CLI login. Run `codex login` first so `~/.codex/auth.json` exists. The provider refreshes the borrowed access token when possible and does not use an API key.
+
+By default the provider streams over a WebSocket connection to the Responses API (`provider/codex/websocket.go`), falling back to the HTTP/SSE transport if the WebSocket dial or handshake fails.
+
+### xAI Grok
+
+`provider/xai` wraps the OpenAI-compatible provider pointed at `https://api.x.ai`, authenticating with a borrowed token from the local Grok subscription session (`provider/xai/auth.go`) instead of an API key.
 
 ---
 

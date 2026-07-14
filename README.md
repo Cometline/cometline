@@ -25,7 +25,7 @@ Pick the companion personality that fits your workflow in Settings → About. Sw
 - **Agent Skills** — Reusable prompt templates invoked with slash commands (`/tdd`, `/create-skill`, or custom skills in your workspace)
 - **Discord bot** — Run the same agent runtime as a Discord bot with per-thread sessions, @mention gating, and skill invocation
 - **Native chat UI** — SvelteKit + Electron desktop app with streaming responses, reasoning blocks, syntax highlighting, and smooth animations; includes a mini-window for quick access
-- **Multi-provider** — Switch between Anthropic, OpenAI, OpenAI-compatible APIs, OpenCode Go, and ChatGPT Codex
+- **Multi-provider** — Switch between Anthropic, OpenAI, OpenAI-compatible APIs, OpenCode Go, ChatGPT Codex, and xAI Grok (subscription auth)
 - **MCP client support** — Connect to external Model Context Protocol servers over stdio, streamable HTTP, or SSE, including OAuth-protected remote servers
 
 ## Quick Start
@@ -163,14 +163,14 @@ MCP servers are configured in Settings → CometMind → MCP and persisted under
 │               HTTP/SSE API                              │
 ├─────────────────────────────────────────────────────────┤
 │  comet-sdk    Go LLM I/O library                        │
-│               Anthropic + OpenAI + Codex + compatible   │
+│               Anthropic + OpenAI + Codex + xAI + compat │
 │               APIs                                      │
 └─────────────────────────────────────────────────────────┘
 ```
 
 - **cometline** — Desktop renderer that talks to CometMind over HTTP/SSE
 - **cometmind** — Local agent runtime with SQLite persistence, serves the API on `127.0.0.1:7700`
-- **comet-sdk** — Provider-agnostic streaming LLM library with retry logic, tool-call assembly, and Anthropic/OpenAI/Codex adapters
+- **comet-sdk** — Provider-agnostic streaming LLM library with retry logic, tool-call assembly, and Anthropic/OpenAI/Codex/xAI adapters
 
 See [ARCHITECTURE.md](./ARCHITECTURE.md) for detailed system design.
 
