@@ -49,26 +49,23 @@
 					typeof payloadOrText === 'string' ? { text: payloadOrText } : payloadOrText;
 				if (compact && firstTurn) {
 					awaitingFirstAssistant = true;
-					firstTurnFlightDone = false;
-					firstTurnHandoffPending = true;
+					// Mini uses the regular user-bubble flight rather than the desktop
+					// first-turn choreography. Keep its destination independent of the
+					// first assistant's lifecycle so it is revealed after the flight.
+					firstTurnFlightDone = true;
+					firstTurnHandoffPending = false;
 					if (!userBubbleFlight) {
 						stageUser(payload.text, payload.images);
 						revealStagedUser();
-						firstTurnFlightDone = true;
-						firstTurnHandoffPending = false;
 						return;
 					}
+					stageUser(payload.text, payload.images);
 					return userBubbleFlight
-						.runAsync(payload.text, payload.images, { origin: 'above-composer' })
-						.then(() => {
-							firstTurnFlightDone = true;
-							firstTurnHandoffPending = false;
+						.runAsync(payload.text, payload.images, {
+							origin: 'above-composer',
+							skipStage: true
 						})
-						.catch((error) => {
-							firstTurnFlightDone = true;
-							firstTurnHandoffPending = false;
-							throw error;
-						});
+						.then(() => undefined);
 				}
 				if (firstTurn) {
 					awaitingFirstAssistant = true;
