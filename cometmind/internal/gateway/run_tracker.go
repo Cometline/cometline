@@ -9,6 +9,7 @@ import (
 type turnHandle struct {
 	id     uint64
 	cancel context.CancelFunc
+	done   chan struct{}
 }
 
 // TurnRunTracker tracks one in-flight agent turn per session for job reconcile.
@@ -32,7 +33,7 @@ func (m *TurnRunTracker) Start(parent context.Context, sessionID string) (contex
 
 	ctx, cancel := context.WithCancel(parent)
 	m.nextID++
-	handle := turnHandle{id: m.nextID, cancel: cancel}
+	handle := turnHandle{id: m.nextID, cancel: cancel, done: make(chan struct{})}
 	m.cancels[sessionID] = handle
 
 	finish := func() {
@@ -40,6 +41,7 @@ func (m *TurnRunTracker) Start(parent context.Context, sessionID string) (contex
 		defer m.mu.Unlock()
 		if current, ok := m.cancels[sessionID]; ok && current.id == handle.id {
 			delete(m.cancels, sessionID)
+			close(handle.done)
 		}
 		cancel()
 	}
@@ -47,15 +49,16 @@ func (m *TurnRunTracker) Start(parent context.Context, sessionID string) (contex
 	return ctx, finish, nil
 }
 
-// Stop cancels the active turn for sessionID and reports whether one existed.
-func (m *TurnRunTracker) Stop(sessionID string) bool {
+// Stop cancels the active turn for sessionID and returns a channel that closes
+// after the turn and its cleanup have finished.
+func (m *TurnRunTracker) Stop(sessionID string) (<-chan struct{}, bool) {
 	m.mu.Lock()
-	defer m.mu.Unlock()
 	handle, ok := m.cancels[sessionID]
+	m.mu.Unlock()
 	if ok {
 		handle.cancel()
 	}
-	return ok
+	return handle.done, ok
 }
 
 // Running reports whether a session has an in-flight gateway turn.

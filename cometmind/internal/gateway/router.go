@@ -8,13 +8,17 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/cometline/cometmind/internal/config"
 	"github.com/cometline/cometmind/internal/event"
 	"github.com/cometline/cometmind/internal/jobs"
 	"github.com/cometline/cometmind/internal/logging"
 	"github.com/cometline/cometmind/internal/session"
+	"github.com/cometline/cometmind/internal/subagent"
 )
+
+const defaultStopWaitTimeout = 30 * time.Second
 
 // Runner executes agent turns for gateway inbound messages.
 type Runner interface {
@@ -29,6 +33,8 @@ type Router struct {
 	Runner             Runner
 	Typing             TypingIndicator
 	Turns              *TurnRunTracker
+	Subagents          *subagent.Orchestrator
+	StopWaitTimeout    time.Duration
 	JobProposals       *JobProposalStore
 	DeliverJobProposal func(ctx context.Context, msg OutboundMessage, proposal *PendingJobProposal, workspacePaths []string) error
 	onReply            func(context.Context, OutboundMessage) error
@@ -79,6 +85,16 @@ func (r *Router) HandleInbound(ctx context.Context, msg InboundMessage) error {
 		return err
 	}
 
+	runCtx := ctx
+	var finishTurn func()
+	if r.Turns != nil {
+		runCtx, finishTurn, err = r.Turns.Start(ctx, sess.ID)
+		if err != nil {
+			return err
+		}
+		defer finishTurn()
+	}
+
 	blocks := contentBlocksFromInbound(msg)
 	if _, err := r.Sessions.AppendUserMessageContent(ctx, sess.ID, blocks, ""); err != nil {
 		return err
@@ -87,21 +103,11 @@ func (r *Router) HandleInbound(ctx context.Context, msg InboundMessage) error {
 		return err
 	}
 
-	runCtx := ctx
-	var finishTurn func()
-	if r.Turns != nil {
-		var err error
-		runCtx, finishTurn, err = r.Turns.Start(ctx, sess.ID)
-		if err != nil {
-			return err
-		}
-		defer finishTurn()
-	}
 	stopHeartbeat := startJobHeartbeatDuringTurn(runCtx, r.Jobs, sess.ID)
 	defer stopHeartbeat()
 
 	if r.Typing != nil {
-		stopTyping := r.Typing.KeepTyping(ctx, deliveryChannelID(msg))
+		stopTyping := r.Typing.KeepTyping(runCtx, deliveryChannelID(msg))
 		defer stopTyping()
 	}
 
@@ -128,9 +134,13 @@ func (r *Router) HandleInbound(ctx context.Context, msg InboundMessage) error {
 		}
 	})
 	var text string
-	if errors.Is(err, context.Canceled) {
+	if errors.Is(err, context.Canceled) || errors.Is(runCtx.Err(), context.Canceled) {
+		if r.Subagents != nil {
+			r.Subagents.CancelForParent(sess.ID)
+			_, _ = r.Subagents.Wait(context.Background(), sess.ID, nil)
+		}
 		// /stop intentionally cancels the runtime context. The slash command
-		// already acknowledges that action ephemerally, so do not emit a noisy
+		// waits for this cleanup, so do not emit partial output or a noisy
 		// provider cancellation error into the conversation channel.
 		return nil
 	}
@@ -332,20 +342,35 @@ func (r *Router) HandleStopSlash(ctx context.Context, msg InboundMessage) (strin
 		return "", fmt.Errorf("not allowed")
 	}
 	if r.Turns == nil {
-		return "No active turn to stop.", nil
+		return "There is no active turn to stop.", nil
 	}
 
 	mapped, err := r.Sessions.LookupGatewaySession(ctx, msg.Platform, msg.UserID, msg.ChannelID, msg.ThreadID)
 	if errors.Is(err, sql.ErrNoRows) {
-		return "No active turn to stop.", nil
+		return "There is no active turn to stop.", nil
 	}
 	if err != nil {
 		return "", err
 	}
-	if !r.Turns.Stop(mapped.CometmindSessionID) {
-		return "No active turn to stop.", nil
+	done, ok := r.Turns.Stop(mapped.CometmindSessionID)
+	if !ok {
+		return "There is no active turn to stop.", nil
 	}
-	return "Stopping the active turn.", nil
+	if r.Subagents != nil {
+		r.Subagents.CancelForParent(mapped.CometmindSessionID)
+	}
+	timeout := r.StopWaitTimeout
+	if timeout <= 0 {
+		timeout = defaultStopWaitTimeout
+	}
+	waitCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	select {
+	case <-done:
+		return "Stopped the active turn.", nil
+	case <-waitCtx.Done():
+		return "Stop requested, but the turn is still cleaning up.", nil
+	}
 }
 
 // SuggestWorkspacePaths returns workspace roots matching query for autocomplete UIs.

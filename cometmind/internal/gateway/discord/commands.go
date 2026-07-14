@@ -184,14 +184,22 @@ func (a *Adapter) handleStopCommand(s *discordgo.Session, i *discordgo.Interacti
 		respondEphemeral(s, i, "Stopping turns is not configured.")
 		return
 	}
+	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{Flags: discordgo.MessageFlagsEphemeral},
+	}); err != nil {
+		logging.L().Warn("discord.stop.defer_failed", "error", err)
+		return
+	}
 
 	msg := routingInboundMessage(s, i)
 	text, err := a.onStop(context.Background(), msg)
 	if err != nil {
-		respondEphemeral(s, i, fmt.Sprintf("Failed to stop turn: %v", err))
-		return
+		text = fmt.Sprintf("Failed to stop turn: %v", err)
 	}
-	respondEphemeral(s, i, text)
+	if _, editErr := s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{Content: &text}); editErr != nil {
+		logging.L().Warn("discord.stop.edit_response_failed", "error", editErr)
+	}
 }
 
 func (a *Adapter) handleJobsCommand(s *discordgo.Session, i *discordgo.InteractionCreate, data discordgo.ApplicationCommandInteractionData) {

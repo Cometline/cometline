@@ -70,6 +70,7 @@ func runGateway(_ *cobra.Command, _ []string) error {
 		Config:       rt.Config,
 		Jobs:         rt.Jobs,
 		Turns:        turns,
+		Subagents:    rt.SubagentOrchestrator(),
 		JobProposals: gateway.NewJobProposalStore(),
 		Runner: gateway.AgentRunner{
 			NewRunner: func(sess session.Session, workspacePath string, msg gateway.InboundMessage) (gateway.TurnRunner, error) {
