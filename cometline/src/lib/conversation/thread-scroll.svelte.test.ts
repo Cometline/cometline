@@ -80,4 +80,56 @@ describe('createThreadScroll', () => {
 		);
 		expect(scrollIntoView).not.toHaveBeenCalled();
 	});
+
+	it('marks a synchronized empty transcript as ready for live turns', async () => {
+		const view = render(ThreadScrollHarness, {
+			props: {
+				items: [],
+				loading: true,
+				synced: true,
+				streaming: false,
+				cached: false
+			}
+		});
+		await settleEffects();
+
+		expect(screen.getByTestId('thread-scroll').dataset.initialPaint).toBe('true');
+
+		await view.rerender({ loading: false });
+		await settleEffects();
+
+		expect(screen.getByTestId('thread-scroll').dataset.initialPaint).toBe('false');
+	});
+
+	it('keeps the first live turn out of hydration after clearing the same session', async () => {
+		const view = render(ThreadScrollHarness, {
+			props: {
+				items: initialItems,
+				streaming: false,
+				cached: true
+			}
+		});
+		await settleEffects();
+		await waitFor(() =>
+			expect(screen.getByTestId('thread-scroll').dataset.initialPaint).toBe('false')
+		);
+
+		await view.rerender({ items: [], streaming: false, cached: false });
+		await settleEffects();
+
+		expect(screen.getByTestId('thread-scroll').dataset.initialPaint).toBe('false');
+
+		await view.rerender({
+			items: [
+				{ id: 'u2', type: 'user', text: 'fresh turn' },
+				{ id: 'a2', type: 'assistant', text: '', pending: true }
+			],
+			streaming: true,
+			cached: true
+		});
+		await settleEffects();
+
+		expect(screen.getByTestId('thread-scroll').dataset.initialPaint).toBe('false');
+		expect(screen.getByTestId('thread-scroll').dataset.activeMinHeight).toBe('0');
+	});
 });

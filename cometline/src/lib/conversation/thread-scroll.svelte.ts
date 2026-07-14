@@ -137,7 +137,15 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 			return;
 		}
 		if (threadItems.length === 0) {
-			isInitialTranscriptPaint = true;
+			// Once an empty transcript is fully synchronized, the next rows are a
+			// live first turn rather than historical content being hydrated. This
+			// distinction matters when /clear empties the current session without
+			// changing its id: keeping the hydration flag set would hide the next
+			// user flight and assistant handoff behind the transcript paint state.
+			isInitialTranscriptPaint = false;
+			lastScrolledUserId = null;
+			activePinnedUserId = null;
+			showJumpToBottom = false;
 			return;
 		}
 
