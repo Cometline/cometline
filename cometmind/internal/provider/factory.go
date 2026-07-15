@@ -90,6 +90,10 @@ func NewFor(cfg *config.Config, id string) (cometsdk.Provider, error) {
 	case config.ProviderOpenAI:
 		return openai.NewOpenAIProvider(key, opts...), nil
 	case config.ProviderCodex:
+		// Prefer SSE over the SDK's default WebSocket transport. Keep the
+		// WebSocket implementation available for a future switch once it reliably
+		// survives network changes such as Wi-Fi handoff.
+		opts = append(opts, cometsdk.WithResponseTransport(cometsdk.ResponseTransportSSE))
 		return codex.NewCodexProvider(opts...), nil
 	case config.ProviderXAI:
 		return xai.NewXAIProvider(key, opts...), nil

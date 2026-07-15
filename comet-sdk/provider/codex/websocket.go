@@ -185,5 +185,6 @@ func addResponsesLiteReasoningContext(data []byte) ([]byte, error) {
 	}
 	reasoning["context"] = "all_turns"
 	payload["reasoning"] = reasoning
+	payload["parallel_tool_calls"] = false
 	return json.Marshal(payload)
 }

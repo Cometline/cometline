@@ -193,8 +193,12 @@ func TestStream_LunaUsesResponsesLite(t *testing.T) {
 	writeTestAuthFile(t, codexAuthPath())
 
 	var gotHeader string
+	var parallelToolCalls any
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotHeader = r.Header.Get(responsesLiteHeader)
+		var request map[string]any
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&request))
+		parallelToolCalls = request["parallel_tool_calls"]
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("data: {\"type\":\"response.completed\",\"response\":{\"usage\":{}}}\n\n"))
@@ -215,6 +219,7 @@ func TestStream_LunaUsesResponsesLite(t *testing.T) {
 	require.NoError(t, err)
 	_ = collectEvents(t, ch)
 	require.Equal(t, "true", gotHeader)
+	require.Equal(t, false, parallelToolCalls)
 }
 
 func writeTestAuthFile(t *testing.T, path string) string {
