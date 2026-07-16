@@ -122,6 +122,15 @@ func newRegistryWithSurface(workspaceRoot string, surface ToolSurface, opt Regis
 		add(getSettingsTool{})
 		add(patchSettingsTool{Runtime: opt.SettingsRuntime})
 	}
+	if surface.Inbox && opt.Inbox != nil {
+		RegisterInboxLeaveTool(r, InboxDeps{
+			Inbox:     opt.Inbox,
+			Jobs:      opt.Jobs,
+			Sessions:  opt.Sessions,
+			Events:    opt.MemoryEvents,
+			SessionID: opt.SessionID,
+		})
+	}
 	return r
 }
 
