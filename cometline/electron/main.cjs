@@ -194,13 +194,13 @@ if (!hasSingleInstanceLock) {
 	app.quit();
 }
 
-// Vertically center the native buttons on the sidebar search bar. The titlebar
-// row now sits flush against the window top, so the search input center is:
-// titlebar row top padding (10px) + half the 28px search input (14px) = 24px.
+// Vertically center the native buttons on the sidebar search row when open.
+// titlebar row top padding (10px) + half of 28px input (14px) = 24px.
 // A traffic light is ~14px tall, so y = 24 - 7 = 17 lines the centers up.
+// When the sidebar is collapsed we hide the lights entirely (Dia-style) via
+// setWindowButtonVisibility(false) — no closed-state position needed.
 const WINDOW_BUTTON_OPEN_POSITION = { x: 16, y: 17 };
-const WINDOW_BUTTON_CLOSED_POSITION = { x: 17, y: 17 };
-const WINDOW_BUTTON_DEFAULT_DURATION = 240;
+const WINDOW_BUTTON_DEFAULT_DURATION = 360;
 const sidebarChromeEase = cubicBezier(0.22, 1, 0.36, 1);
 
 function cubicBezier(x1, y1, x2, y2) {
@@ -259,21 +259,40 @@ function setWindowButtonPosition(position) {
 	windowButtonPosition = next;
 }
 
+function setWindowButtonVisibility(visible) {
+	if (
+		process.platform !== 'darwin' ||
+		!mainWindow ||
+		typeof mainWindow.setWindowButtonVisibility !== 'function'
+	) {
+		return;
+	}
+	mainWindow.setWindowButtonVisibility(Boolean(visible));
+}
+
 function animateWindowButtons(payload) {
 	if (process.platform !== 'darwin' || !mainWindow) return;
 
 	const open = typeof payload?.open === 'boolean' ? payload.open : Boolean(payload);
-	const target = open ? WINDOW_BUTTON_OPEN_POSITION : WINDOW_BUTTON_CLOSED_POSITION;
-	const rawDuration = Number(payload?.duration);
-	const duration = Number.isFinite(rawDuration)
-		? Math.max(0, Math.min(rawDuration, 1000))
-		: WINDOW_BUTTON_DEFAULT_DURATION;
-	const start = { ...windowButtonPosition };
 
 	if (windowButtonAnimationTimer) {
 		clearTimeout(windowButtonAnimationTimer);
 		windowButtonAnimationTimer = null;
 	}
+
+	// Collapsed sidebar: hide traffic lights (no alignment against the shell titlebar).
+	if (!open) {
+		setWindowButtonVisibility(false);
+		return;
+	}
+
+	setWindowButtonVisibility(true);
+	const target = WINDOW_BUTTON_OPEN_POSITION;
+	const rawDuration = Number(payload?.duration);
+	const duration = Number.isFinite(rawDuration)
+		? Math.max(0, Math.min(rawDuration, 1000))
+		: WINDOW_BUTTON_DEFAULT_DURATION;
+	const start = { ...windowButtonPosition };
 
 	if (duration <= 16 || (start.x === target.x && start.y === target.y)) {
 		setWindowButtonPosition(target);

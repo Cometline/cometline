@@ -37,6 +37,9 @@
 	--web-panel-width: 50vw;
 	--web-panel-slot-width: calc(var(--web-panel-width) + var(--content-panel-inset));
 	--titlebar-height: 48px;
+	/* Shared height for main-panel + web-panel chrome headers (incl. border). */
+	/* Shared by collapsed main shell titlebar + web panel toolbar. */
+	--panel-header-height: 44px;
 	--traffic-light-gutter: 78px;
 
 	/* Chat column tracks avatar + gap + message width; composer is slightly wider. */
@@ -67,6 +70,7 @@
 	--duration-flight: 560ms;
 	--duration-fast: 240ms;
 	--duration-medium: 280ms;
+	--duration-sidebar: 360ms;
 	--duration-session-switch: 140ms;
 	--duration-hero-sequence: 0.65s;
 	--duration-hero-glow-rise: 0.65s;

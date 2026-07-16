@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { slide } from 'svelte/transition';
 	import { goto } from '$app/navigation';
+	import { PanelLeft } from '@lucide/svelte';
 	import Sidebar from './Sidebar.svelte';
 	import RuntimeOverlay from './RuntimeOverlay.svelte';
 	import SettingsModal from './SettingsModal.svelte';
@@ -22,7 +24,7 @@
 	import { narrowViewportQuery, subscribeNarrowViewport } from '$lib/layout/narrow-viewport';
 	import { matchesShortcut, type ShortcutAction } from '$lib/keyboard-shortcuts';
 
-	const FALLBACK_SIDEBAR_DURATION = 240;
+	const FALLBACK_SIDEBAR_DURATION = 360;
 
 	let { children }: { children: import('svelte').Snippet } = $props();
 
@@ -30,6 +32,12 @@
 	let contentRowRef = $state<HTMLDivElement | null>(null);
 
 	let activeSessionId = $derived(sessionStore.current?.id ?? null);
+	let titlebarSessionTitle = $derived.by(() => {
+		const session = sessionStore.current;
+		if (!session) return '';
+		const title = session.title?.trim();
+		return title || 'Untitled';
+	});
 
 	$effect(() => {
 		window.electronAPI?.setSessionNavigationSuspended?.(shellStore.settingsOpen);
@@ -301,7 +309,7 @@
 	function sidebarTransitionDuration() {
 		if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return 0;
 		return parseDuration(
-			getComputedStyle(document.documentElement).getPropertyValue('--duration-fast')
+			getComputedStyle(document.documentElement).getPropertyValue('--duration-sidebar')
 		);
 	}
 
@@ -312,18 +320,52 @@
 		});
 	});
 
+	// Re-clamp the web panel when sidebar chrome changes so a wide saved width
+	// cannot crush the collapsed titlebar strip.
+	$effect(() => {
+		void shellStore.sidebarOpen;
+		void shellStore.fullscreen;
+		void shellStore.webPanelOpen;
+		if (!shellStore.webPanelOpen) return;
+		queueMicrotask(() => {
+			if (!shellStore.webPanelOpen) return;
+			const px = currentPanelWidth();
+			const clamped = clampPanelWidth(px);
+			if (clamped !== px) {
+				document.documentElement.style.setProperty('--web-panel-width', `${clamped}px`);
+			}
+		});
+	});
+
 	function handleMainMouseDown() {
 		shellStore.setFocusedPane('chat');
 	}
+
+	function titlebarSlideParams() {
+		return {
+			duration: sidebarTransitionDuration(),
+			axis: 'y' as const
+		};
+	}
+
+	const showShellTitlebar = $derived(!shellStore.sidebarOpen && !shellStore.fullscreen);
 
 	// --- Web/file panel resize ---------------------------------------------
 	const PANEL_MIN_WIDTH = 320;
 	// Keep the chat pane wide enough for avatar + bubble layout even when the
 	// sidebar and web panel are both visible.
 	const MAIN_PANEL_MIN_WIDTH = 720;
+	/** Modest left chrome for the collapsed shell titlebar (lights are hidden). */
+	const COLLAPSED_MAIN_MIN_WIDTH = 72;
+	function mainPaneFloor() {
+		if (shellStore.sidebarOpen || shellStore.fullscreen) return MAIN_PANEL_MIN_WIDTH;
+		return COLLAPSED_MAIN_MIN_WIDTH;
+	}
 	function panelMaxWidth() {
 		const rowWidth = contentRowRef?.clientWidth ?? window.innerWidth;
-		return Math.max(PANEL_MIN_WIDTH, rowWidth - MAIN_PANEL_MIN_WIDTH);
+		// Prefer PANEL_MIN when there's room, but never let the web panel steal the
+		// traffic-light / titlebar strip when the sidebar is collapsed.
+		return Math.max(0, rowWidth - mainPaneFloor());
 	}
 	function currentPanelWidth() {
 		const raw = getComputedStyle(document.documentElement)
@@ -399,6 +441,28 @@
 			class:pane-focus-active={shellStore.focusedPane === 'chat' && shellStore.webPanelOpen}
 			onmousedown={handleMainMouseDown}
 		>
+			{#if showShellTitlebar}
+				<header
+					class="shell-titlebar"
+					aria-label="Window title bar"
+					transition:slide={titlebarSlideParams()}
+				>
+					<button
+						type="button"
+						class="shell-titlebar-btn"
+						aria-label="Show sidebar"
+						title="Show sidebar"
+						onclick={() => shellStore.openSidebar()}
+					>
+						<PanelLeft size={16} stroke-width={1.8} />
+					</button>
+					{#if titlebarSessionTitle}
+						<span class="shell-titlebar-title" title={titlebarSessionTitle}>
+							{titlebarSessionTitle}
+						</span>
+					{/if}
+				</header>
+			{/if}
 			{@render children()}
 			<RuntimeOverlay />
 		</main>
@@ -471,6 +535,78 @@
 		--traffic-light-gutter: 0px;
 	}
 
+	/* Internal chrome of the main card. Traffic lights are hidden while the
+	   sidebar is collapsed, so no gutter reserved for native window buttons. */
+	.shell-titlebar {
+		position: relative;
+		flex-shrink: 0;
+		height: var(--panel-header-height);
+		z-index: 40;
+		display: flex;
+		align-items: center;
+		box-sizing: border-box;
+		padding: 0 10px 0 12px;
+		border-bottom: 1px solid color-mix(in srgb, var(--border-soft) 80%, transparent);
+		background: transparent;
+		-webkit-app-region: drag;
+	}
+
+	.shell-titlebar-title {
+		position: absolute;
+		left: 50%;
+		top: 50%;
+		transform: translate(-50%, -50%);
+		min-width: 0;
+		max-width: min(36vw, 14rem);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		color: var(--text-muted);
+		font-size: 12px;
+		font-weight: 600;
+		letter-spacing: 0.01em;
+		line-height: 1;
+		user-select: none;
+		text-align: center;
+		pointer-events: none;
+	}
+
+	@media (min-width: 900px) {
+		.shell-titlebar-title {
+			max-width: min(42vw, 22rem);
+		}
+	}
+
+	@media (min-width: 1280px) {
+		.shell-titlebar-title {
+			max-width: min(48vw, 32rem);
+		}
+	}
+
+	.shell-titlebar-btn {
+		width: 26px;
+		height: 26px;
+		padding: 0;
+		border: none;
+		border-radius: 6px;
+		background: transparent;
+		color: var(--text-muted);
+		display: grid;
+		place-items: center;
+		cursor: pointer;
+		flex-shrink: 0;
+		-webkit-app-region: no-drag;
+	}
+
+	.shell-titlebar-btn:hover {
+		background: rgba(0, 0, 0, 0.04);
+		color: var(--text-main);
+	}
+
+	.shell-titlebar-btn:active {
+		background: rgba(0, 0, 0, 0.07);
+	}
+
 	.content-row {
 		flex: 1;
 		min-width: 0;
@@ -489,13 +625,19 @@
 		margin-left: calc(-1 * var(--content-panel-overlap));
 		overflow: hidden;
 		transition:
-			margin-left var(--duration-fast) var(--ease-smooth),
-			border-color var(--duration-fast) var(--ease-smooth),
-			box-shadow var(--duration-fast) var(--ease-smooth);
+			margin-left var(--duration-sidebar) var(--ease-smooth),
+			border-color var(--duration-sidebar) var(--ease-smooth),
+			box-shadow var(--duration-sidebar) var(--ease-smooth);
 	}
 
 	.app-shell.sidebar-collapsed .main {
-		margin-left: var(--content-panel-inset);
+		/* Keep the floating rounded content card under the thin titlebar. */
+		margin: var(--content-panel-inset);
+	}
+
+	/* Keep a slim main strip for the collapsed titlebar when the web panel is wide. */
+	.app-shell.sidebar-collapsed:not(.is-fullscreen) .main {
+		min-width: 72px;
 	}
 
 	.panel-resizer {

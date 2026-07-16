@@ -806,6 +806,9 @@
 
 	.web-panel.open {
 		width: var(--web-panel-slot-width);
+		max-width: 100%;
+		min-width: 0;
+		flex-shrink: 1;
 		pointer-events: auto;
 	}
 
@@ -827,10 +830,13 @@
 		display: flex;
 		align-items: center;
 		gap: 8px;
-		padding: 8px 10px;
+		box-sizing: border-box;
+		/* min-height keeps chrome aligned with the main titlebar; do not clip
+		   overflow — the address/file search dropdown is position:absolute. */
+		min-height: var(--panel-header-height);
+		padding: 0 10px;
 		border-bottom: 1px solid var(--border-soft);
 		background: rgba(250, 250, 249, 0.95);
-		min-height: 44px;
 	}
 
 	.web-panel-context-status {
