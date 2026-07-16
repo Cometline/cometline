@@ -1,8 +1,7 @@
-import { loadWikiFileOptions } from '$lib/wiki/file-options';
 import {
-	loadWebPanelFileOptions,
-	rankWorkspaceFileMatches
+	loadWebPanelFileOptions
 } from '$lib/workspace/web-panel-input-options';
+import { normalizeWorkspacePath } from '$lib/workspace/file-index';
 
 const DEFAULT_LIMIT = 8;
 
@@ -14,20 +13,8 @@ export async function loadPanelFileOptions(
 	const trimmed = query.trim();
 	if (!trimmed) return [];
 
-	const [workspaceFiles, wikiFiles] = await Promise.all([
-		workspacePath && workspacePath !== '/'
-			? loadWebPanelFileOptions(workspacePath, trimmed, limit)
-			: Promise.resolve([] as string[]),
-		loadWikiFileOptions(trimmed, limit)
-	]);
+	const normalizedWorkspace = normalizeWorkspacePath(workspacePath);
+	if (!normalizedWorkspace || normalizedWorkspace === '/') return [];
 
-	const merged = [...wikiFiles, ...workspaceFiles];
-	const seen = new Set<string>();
-	const unique: string[] = [];
-	for (const path of merged) {
-		if (seen.has(path)) continue;
-		seen.add(path);
-		unique.push(path);
-	}
-	return rankWorkspaceFileMatches(unique, trimmed).slice(0, limit);
+	return loadWebPanelFileOptions(normalizedWorkspace, trimmed, limit);
 }

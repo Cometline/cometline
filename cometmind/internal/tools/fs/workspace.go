@@ -129,7 +129,7 @@ func runtimeMountRoot(mount string) (string, error) {
 	case runtimeTmpMount:
 		name = "agent-tmp"
 	case runtimeWikiMount:
-		name = "wiki"
+		return paths.WikiDir()
 	}
 	root := filepath.Join(dataDir, name)
 	if err := os.MkdirAll(root, 0o700); err != nil {

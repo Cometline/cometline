@@ -6,10 +6,12 @@ import {
 	buildEmbedChip,
 	buildFileEmbedChip,
 	buildSkillEmbedChip,
+	canonicalFileMentionPath,
 	extractUrls,
 	findNextUserTextToken,
 	fileLabelFromPath,
-	fileMentionText
+	fileMentionText,
+	linkifyRuntimeWikiMentions
 } from './embed';
 
 describe('domainFromUrl', () => {
@@ -123,12 +125,29 @@ describe('fileMentionText', () => {
 	});
 });
 
+describe('canonicalFileMentionPath', () => {
+	it('keeps workspace paths without a leading @', () => {
+		expect(canonicalFileMentionPath('@src/lib/foo.ts')).toBe('src/lib/foo.ts');
+	});
+
+	it('preserves @runtime/wiki paths for preview routing', () => {
+		expect(canonicalFileMentionPath('@runtime/wiki/index.md')).toBe('@runtime/wiki/index.md');
+		expect(canonicalFileMentionPath('runtime/wiki/index.md')).toBe('@runtime/wiki/index.md');
+	});
+});
+
 describe('buildFileEmbedChip', () => {
 	it('renders a clickable file chip with data-file-path', () => {
 		const html = buildFileEmbedChip('src/lib/foo.ts');
 		expect(html).toContain('class="file-embed"');
 		expect(html).toContain('data-file-path="src/lib/foo.ts"');
 		expect(html).toContain('@foo.ts');
+	});
+
+	it('keeps wiki paths clickable with the runtime prefix', () => {
+		const html = buildFileEmbedChip('@runtime/wiki/index.md');
+		expect(html).toContain('data-file-path="@runtime/wiki/index.md"');
+		expect(html).toContain('@runtime/wiki/index.md');
 	});
 });
 
@@ -149,5 +168,21 @@ describe('findNextUserTextToken', () => {
 	it('does not treat email addresses as file mentions', () => {
 		const token = findNextUserTextToken('email user@domain.com', 0);
 		expect(token).toBeNull();
+	});
+
+	it('canonicalizes @runtime/wiki mentions for preview routing', () => {
+		const token = findNextUserTextToken('see @runtime/wiki/index.md', 0);
+		expect(token?.type).toBe('file');
+		if (token?.type === 'file') {
+			expect(token.path).toBe('@runtime/wiki/index.md');
+		}
+	});
+});
+
+describe('linkifyRuntimeWikiMentions', () => {
+	it('wraps wiki paths in file embed chips', () => {
+		const html = linkifyRuntimeWikiMentions('Updated @runtime/wiki/index.md for you.');
+		expect(html).toContain('class="file-embed"');
+		expect(html).toContain('data-file-path="@runtime/wiki/index.md"');
 	});
 });

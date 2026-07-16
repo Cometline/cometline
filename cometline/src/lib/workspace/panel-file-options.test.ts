@@ -3,8 +3,7 @@ import * as cometmind from '$lib/client/cometmind';
 import { loadPanelFileOptions } from './panel-file-options';
 
 vi.mock('$lib/client/cometmind', () => ({
-	listWorkspaceFiles: vi.fn(),
-	listWikiFiles: vi.fn()
+	listWorkspaceFiles: vi.fn()
 }));
 
 describe('loadPanelFileOptions', () => {
@@ -12,28 +11,18 @@ describe('loadPanelFileOptions', () => {
 		vi.clearAllMocks();
 	});
 
-	it('merges workspace files that match the query', async () => {
+	it('returns workspace matches for a query', async () => {
 		vi.mocked(cometmind.listWorkspaceFiles).mockResolvedValue({
-			files: ['docs/index.md'],
-			truncated: false
-		});
-		vi.mocked(cometmind.listWikiFiles).mockResolvedValue({
-			files: ['index.md'],
-			truncated: false
+			files: ['cometline/README.md', 'cometline/package.json'],
+			truncated: true
 		});
 
-		const result = await loadPanelFileOptions('/workspace', 'index');
-		expect(result).toEqual(['@runtime/wiki/index.md', 'docs/index.md']);
+		const result = await loadPanelFileOptions('/workspace', 'cometline');
+		expect(result.some((path) => path.startsWith('cometline/'))).toBe(true);
 	});
 
-	it('returns wiki-only results without workspace', async () => {
-		vi.mocked(cometmind.listWikiFiles).mockResolvedValue({
-			files: ['entities/foo.md'],
-			truncated: false
-		});
-
-		const result = await loadPanelFileOptions('/', 'foo');
-		expect(result).toEqual(['@runtime/wiki/entities/foo.md']);
+	it('returns empty list without a workspace', async () => {
+		expect(await loadPanelFileOptions('/', 'foo')).toEqual([]);
 		expect(cometmind.listWorkspaceFiles).not.toHaveBeenCalled();
 	});
 });

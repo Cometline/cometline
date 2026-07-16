@@ -1,30 +1,19 @@
 import { tick } from 'svelte';
 import { shellStore } from '$lib/stores/shell.svelte';
-import { toWikiUiPath } from '$lib/wiki/paths';
 import {
-	filterWikiFileIndex,
-	getWikiFileIndex,
-	isWikiFileIndexFresh,
-	isWikiFileIndexReady,
-	isWikiFileIndexTruncated,
-	refreshWikiFileIndex,
-	searchWikiFiles
-} from '$lib/wiki/file-index';
+	resolveMentionSourcePaths,
+	shouldRunMentionServerSearch
+} from '$lib/components/composer/composer-mention-search';
 import {
 	filterFileIndex,
 	getFileIndex,
 	isFileIndexFresh,
 	isFileIndexReady,
+	normalizeWorkspacePath,
 	refreshFileIndex,
 	searchWorkspaceFiles
 } from '$lib/workspace/file-index';
 import type { ComposerInputRef } from '$lib/components/composer/composer-input-ref';
-
-export type MentionFileOption = {
-	path: string;
-	source: 'workspace' | 'wiki';
-	label: string;
-};
 
 type IdleHandle =
 	| { type: 'idle'; id: number }
@@ -52,27 +41,6 @@ function cancelIdle(handle: IdleHandle) {
 	}
 }
 
-function workspaceOptions(paths: string[]): MentionFileOption[] {
-	return paths.map((path) => ({ path, source: 'workspace', label: path }));
-}
-
-function wikiOptions(paths: string[]): MentionFileOption[] {
-	return paths.map((path) => ({
-		path: toWikiUiPath(path),
-		source: 'wiki',
-		label: path
-	}));
-}
-
-function mergeMentionOptions(
-	workspacePaths: string[],
-	wikiPaths: string[],
-	limit = 16
-): MentionFileOption[] {
-	const merged = [...wikiOptions(wikiPaths), ...workspaceOptions(workspacePaths)];
-	return merged.slice(0, limit);
-}
-
 export function createComposerMentionsController(deps: {
 	getInput: () => ComposerInputRef | null;
 	getMentionMenuRef: () => HTMLDivElement | null;
@@ -81,66 +49,60 @@ export function createComposerMentionsController(deps: {
 	let mentionMenuOpen = $state(false);
 	let mentionHighlight = $state(0);
 	let mentionIndexVersion = $state(0);
-	let mentionServerResults = $state<MentionFileOption[]>([]);
+	let mentionServerResults = $state<string[]>([]);
 	let mentionServerQuery = $state('');
 	let mentionServerLoading = $state(false);
+	let mentionSearchPending = $state(false);
 	let mentionSearchTimer: ReturnType<typeof setTimeout> | null = null;
 	let mentionSearchSeq = 0;
 
-	const hasWorkspace = $derived(
-		Boolean(shellStore.workspacePath) && shellStore.workspacePath !== '/'
-	);
-	const mentionsEnabled = $derived(true);
+	const activeWorkspacePath = $derived(normalizeWorkspacePath(shellStore.workspacePath));
+	const hasWorkspace = $derived(Boolean(activeWorkspacePath) && activeWorkspacePath !== '/');
+	const mentionsEnabled = $derived(hasWorkspace);
 
 	const fileIndex = $derived.by(() => {
 		void mentionIndexVersion;
-		return hasWorkspace ? getFileIndex(shellStore.workspacePath) : null;
-	});
-
-	const wikiFileIndex = $derived.by(() => {
-		void mentionIndexVersion;
-		return getWikiFileIndex();
+		return hasWorkspace ? getFileIndex(activeWorkspacePath) : null;
 	});
 
 	const fileIndexReady = $derived.by(() => {
 		void mentionIndexVersion;
-		if (!hasWorkspace) return isWikiFileIndexReady();
-		return isFileIndexReady(shellStore.workspacePath) && isWikiFileIndexReady();
+		return hasWorkspace ? isFileIndexReady(activeWorkspacePath) : false;
 	});
 
-	const mentionTruncated = $derived(
-		Boolean(fileIndex?.truncated || wikiFileIndex.truncated)
+	const mentionTruncated = $derived(Boolean(fileIndex?.truncated));
+
+	const localMatches = $derived.by(() =>
+		filterFileIndex(fileIndex?.files ?? [], mentionQuery)
 	);
 
-	const useServerSearch = $derived(mentionQuery.trim().length > 0);
+	const queryTrimmed = $derived(mentionQuery.trim());
 
-	const filteredMentionFiles = $derived.by((): MentionFileOption[] => {
-		if (useServerSearch) {
-			if (mentionServerQuery === mentionQuery.trim()) return mentionServerResults;
-			return [];
-		}
-		const wikiPaths = filterWikiFileIndex(wikiFileIndex.files, mentionQuery);
-		const workspacePaths = hasWorkspace
-			? filterFileIndex(fileIndex?.files ?? [], mentionQuery)
-			: [];
-		return mergeMentionOptions(workspacePaths, wikiPaths);
-	});
+	const needsServerSearch = $derived(
+		shouldRunMentionServerSearch(Boolean(fileIndex?.truncated), queryTrimmed, localMatches)
+	);
 
-	$effect(() => {
-		if (!isWikiFileIndexReady()) {
-			const handle = scheduleIdle(() => {
-				if (!isWikiFileIndexReady()) void loadWikiMentionIndex();
-			});
-			return () => cancelIdle(handle);
-		}
-	});
+	const useServerSearch = $derived(needsServerSearch);
+
+	const filteredMentionFiles = $derived.by(() =>
+		resolveMentionSourcePaths(
+			localMatches,
+			mentionServerResults,
+			mentionServerQuery,
+			queryTrimmed,
+			needsServerSearch
+		)
+	);
 
 	$effect(() => {
-		const workspacePath = shellStore.workspacePath;
+		const workspacePath = activeWorkspacePath;
 		if (!workspacePath || workspacePath === '/') return;
 		if (isFileIndexReady(workspacePath)) return;
 		const handle = scheduleIdle(() => {
-			if (shellStore.workspacePath === workspacePath && !isFileIndexReady(workspacePath)) {
+			if (
+				normalizeWorkspacePath(shellStore.workspacePath) === workspacePath &&
+				!isFileIndexReady(workspacePath)
+			) {
 				void loadMentionIndex(workspacePath);
 			}
 		});
@@ -155,31 +117,26 @@ export function createComposerMentionsController(deps: {
 	});
 
 	$effect(() => {
-		const workspacePath = shellStore.workspacePath;
-		const query = mentionQuery.trim();
-		if (!mentionMenuOpen || !useServerSearch) {
+		const workspacePath = activeWorkspacePath;
+		const query = queryTrimmed;
+		if (!mentionMenuOpen || !needsServerSearch) {
 			if (mentionSearchTimer) clearTimeout(mentionSearchTimer);
 			mentionSearchTimer = null;
+			mentionServerLoading = false;
+			mentionSearchPending = false;
 			return;
 		}
 		if (mentionSearchTimer) clearTimeout(mentionSearchTimer);
 		const seq = ++mentionSearchSeq;
-		mentionServerLoading = true;
+		mentionSearchPending = true;
+		mentionServerLoading = false;
 		mentionSearchTimer = setTimeout(() => {
-			const workspaceSearch =
-				hasWorkspace &&
-				(isFileIndexTruncated(workspacePath) || query.length > 0)
-					? searchWorkspaceFiles(workspacePath, query)
-					: Promise.resolve([] as string[]);
-			const wikiSearch =
-				isWikiFileIndexTruncated() || query.length > 0
-					? searchWikiFiles(query)
-					: Promise.resolve([] as string[]);
-
-			void Promise.all([workspaceSearch, wikiSearch])
-				.then(([workspacePaths, wikiPaths]) => {
+			mentionSearchPending = false;
+			mentionServerLoading = true;
+			void searchWorkspaceFiles(workspacePath, query)
+				.then((files) => {
 					if (seq !== mentionSearchSeq) return;
-					mentionServerResults = mergeMentionOptions(workspacePaths, wikiPaths);
+					mentionServerResults = files ?? [];
 					mentionServerQuery = query;
 				})
 				.catch(() => {
@@ -194,6 +151,7 @@ export function createComposerMentionsController(deps: {
 		return () => {
 			if (mentionSearchTimer) clearTimeout(mentionSearchTimer);
 			mentionSearchTimer = null;
+			mentionSearchPending = false;
 		};
 	});
 
@@ -203,6 +161,7 @@ export function createComposerMentionsController(deps: {
 		mentionServerResults = [];
 		mentionServerQuery = '';
 		mentionServerLoading = false;
+		mentionSearchPending = false;
 		mentionSearchSeq += 1;
 		if (mentionSearchTimer) clearTimeout(mentionSearchTimer);
 		mentionSearchTimer = null;
@@ -218,8 +177,8 @@ export function createComposerMentionsController(deps: {
 		}
 	}
 
-	function selectMentionFile(option: MentionFileOption) {
-		deps.getInput()?.insertFileMention(option.path);
+	function selectMentionFile(path: string) {
+		deps.getInput()?.insertFileMention(path);
 		closeMentionMenu();
 	}
 
@@ -228,12 +187,9 @@ export function createComposerMentionsController(deps: {
 			closeMentionMenu();
 			return;
 		}
-		if (!mentionsEnabled) return;
-		if (!isWikiFileIndexFresh()) {
-			void loadWikiMentionIndex();
-		}
-		if (hasWorkspace && !isFileIndexFresh(shellStore.workspacePath)) {
-			void loadMentionIndex(shellStore.workspacePath);
+		if (!hasWorkspace) return;
+		if (!isFileIndexFresh(activeWorkspacePath)) {
+			void loadMentionIndex(activeWorkspacePath);
 		}
 		mentionQuery = payload.query;
 		mentionMenuOpen = true;
@@ -243,14 +199,6 @@ export function createComposerMentionsController(deps: {
 	async function loadMentionIndex(workspacePath: string) {
 		try {
 			await refreshFileIndex(workspacePath);
-		} finally {
-			mentionIndexVersion += 1;
-		}
-	}
-
-	async function loadWikiMentionIndex() {
-		try {
-			await refreshWikiFileIndex();
 		} finally {
 			mentionIndexVersion += 1;
 		}
@@ -282,8 +230,8 @@ export function createComposerMentionsController(deps: {
 			return true;
 		}
 		if (e.key === 'Tab' || e.key === 'Enter') {
-			const option = filteredMentionFiles[mentionHighlight];
-			if (!option) {
+			const path = filteredMentionFiles[mentionHighlight];
+			if (!path) {
 				if (e.key === 'Tab') {
 					e.preventDefault();
 					return true;
@@ -291,7 +239,7 @@ export function createComposerMentionsController(deps: {
 				return false;
 			}
 			e.preventDefault();
-			selectMentionFile(option);
+			selectMentionFile(path);
 			return true;
 		}
 		return false;
@@ -316,9 +264,6 @@ export function createComposerMentionsController(deps: {
 		get fileIndex() {
 			return fileIndex;
 		},
-		get wikiFileIndex() {
-			return wikiFileIndex;
-		},
 		get fileIndexReady() {
 			return fileIndexReady;
 		},
@@ -331,6 +276,9 @@ export function createComposerMentionsController(deps: {
 		get mentionServerLoading() {
 			return mentionServerLoading;
 		},
+		get mentionSearchPending() {
+			return mentionSearchPending;
+		},
 		get mentionQuery() {
 			return mentionQuery;
 		},
@@ -341,8 +289,4 @@ export function createComposerMentionsController(deps: {
 		onMentionQuery,
 		selectMentionFile
 	};
-}
-
-function isFileIndexTruncated(workspacePath: string): boolean {
-	return Boolean(getFileIndex(workspacePath)?.truncated);
 }

@@ -144,6 +144,31 @@ const urlEmbedExtension: TokenizerAndRendererExtension = {
 	}
 };
 
+/**
+ * Inline extension: turns `@runtime/wiki/...` into a clickable file chip in
+ * assistant markdown. Runs before GFM autolink so wiki paths stay file previews.
+ */
+const wikiFileEmbedExtension: TokenizerAndRendererExtension = {
+	name: 'wikiFileEmbed',
+	level: 'inline',
+	start(src: string) {
+		const index = src.indexOf('@runtime/wiki/');
+		return index < 0 ? undefined : index;
+	},
+	tokenizer(src: string) {
+		const match = /^@runtime\/wiki\/[A-Za-z0-9_][A-Za-z0-9_./-]*/.exec(src);
+		if (!match) return undefined;
+		return {
+			type: 'wikiFileEmbed',
+			raw: match[0],
+			text: match[0]
+		};
+	},
+	renderer(token) {
+		return buildFileEmbedChip(token.text);
+	}
+};
+
 /** Per-render cache of pre-highlighted code HTML, keyed by code token text. */
 type CodeHtmlCache = Map<string, string>;
 
@@ -177,7 +202,7 @@ function createMarkedInstance(codeCache: CodeHtmlCache): Marked {
 	});
 
 	marked.use({
-		extensions: [blockMathExtension, inlineMathExtension, urlEmbedExtension],
+		extensions: [blockMathExtension, inlineMathExtension, wikiFileEmbedExtension, urlEmbedExtension],
 		async walkTokens(token) {
 			if (token.type !== 'code') return;
 			const code = token as Tokens.Code;

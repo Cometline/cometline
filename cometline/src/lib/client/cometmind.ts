@@ -285,7 +285,7 @@ export function listWorkspaceFiles(
 	return listWorkspaceFilesApi({
 		query: { workspace_path: workspacePath, q: query, limit },
 		throwOnError: true
-	}).then(({ data }) => ({ files: data.files, truncated: Boolean(data.truncated) }));
+	}).then(({ data }) => ({ files: data.files ?? [], truncated: Boolean(data.truncated) }));
 }
 
 export function readWorkspaceFileContent(
@@ -313,7 +313,7 @@ export function listWikiFiles(query = '', limit = 50): Promise<WorkspaceFiles> {
 	return listWikiFilesApi({
 		query: { q: query, limit },
 		throwOnError: true
-	}).then(({ data }) => ({ files: data.files, truncated: Boolean(data.truncated) }));
+	}).then(({ data }) => ({ files: data.files ?? [], truncated: Boolean(data.truncated) }));
 }
 
 export function readWikiFileContent(path: string): Promise<WorkspaceFileContent> {
