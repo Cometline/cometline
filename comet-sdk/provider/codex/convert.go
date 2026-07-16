@@ -28,7 +28,7 @@ type codexInput struct {
 	CallID  string             `json:"call_id,omitempty"`
 	Name    string             `json:"name,omitempty"`
 	Args    string             `json:"arguments,omitempty"`
-	Output  string             `json:"output,omitempty"`
+	Output  *string            `json:"output,omitempty"`
 }
 
 type codexContentPart struct {
@@ -136,7 +136,8 @@ func convertMessage(m cometsdk.Message, toolNames map[string]string) ([]codexInp
 			if !ok {
 				return nil, fmt.Errorf("codex: RoleToolResult message contains non-ToolResultBlock")
 			}
-			out = append(out, codexInput{Type: "function_call_output", CallID: tr.ToolCallID, Name: toolNames[tr.ToolCallID], Output: tr.Content})
+			output := tr.Content
+			out = append(out, codexInput{Type: "function_call_output", CallID: tr.ToolCallID, Name: toolNames[tr.ToolCallID], Output: &output})
 		}
 		return out, nil
 	default:
