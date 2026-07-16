@@ -28,7 +28,7 @@ type codexInput struct {
 	CallID  string             `json:"call_id,omitempty"`
 	Name    string             `json:"name,omitempty"`
 	Args    string             `json:"arguments,omitempty"`
-	Output  string             `json:"output,omitempty"`
+	Output  string             `json:"output"`
 }
 
 type codexContentPart struct {
@@ -136,12 +136,27 @@ func convertMessage(m cometsdk.Message, toolNames map[string]string) ([]codexInp
 			if !ok {
 				return nil, fmt.Errorf("codex: RoleToolResult message contains non-ToolResultBlock")
 			}
-			out = append(out, codexInput{Type: "function_call_output", CallID: tr.ToolCallID, Name: toolNames[tr.ToolCallID], Output: tr.Content})
+			out = append(out, codexInput{
+				Type:   "function_call_output",
+				CallID: tr.ToolCallID,
+				Name:   toolNames[tr.ToolCallID],
+				Output: codexToolResultOutput(tr.Content),
+			})
 		}
 		return out, nil
 	default:
 		return nil, fmt.Errorf("codex: unknown role %q", m.Role)
 	}
+}
+
+// codexToolResultOutput ensures function_call_output always carries the output
+// field Codex requires. Empty tool results (e.g. list_dir on an empty directory)
+// must not be omitted via omitempty or the API returns HTTP 400.
+func codexToolResultOutput(content string) string {
+	if content == "" {
+		return "(no output)"
+	}
+	return content
 }
 
 func reasoningSummaryParts(blocks []cometsdk.Block) []codexContentPart {
