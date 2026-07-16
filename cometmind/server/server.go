@@ -43,6 +43,7 @@ type Deps struct {
 	Jobs           *jobs.Service
 	Scheduler      *scheduler.Service
 	RunRetention   RetentionRunner
+	RunBackup      BackupRunner
 	SetJobSettings func(jobs.Settings)
 	NewRunner      RunnerFactory
 	Runs           *RunManager
@@ -62,6 +63,7 @@ type App struct {
 	jobs           *jobs.Service
 	scheduler      *scheduler.Service
 	runRetention   RetentionRunner
+	runBackup      BackupRunner
 	setJobSettings func(jobs.Settings)
 	newRunner      RunnerFactory
 	runs           *RunManager
@@ -97,6 +99,7 @@ func New(deps Deps) (*gin.Engine, error) {
 		jobs:           deps.Jobs,
 		scheduler:      deps.Scheduler,
 		runRetention:   deps.RunRetention,
+		runBackup:      deps.RunBackup,
 		setJobSettings: deps.SetJobSettings,
 		newRunner:      deps.NewRunner,
 		runs:           deps.Runs,
@@ -132,6 +135,11 @@ func New(deps Deps) (*gin.Engine, error) {
 	api.GET("/workspaces/files", app.handleListWorkspaceFiles)
 	api.GET("/workspaces/files/content", app.handleReadWorkspaceFileContent)
 	api.PUT("/workspaces/files/content", app.handleWriteWorkspaceFileContent)
+
+	// Wiki files (global LLM wiki at ~/.cometmind/wiki/)
+	api.GET("/wiki/files", app.handleListWikiFiles)
+	api.GET("/wiki/files/content", app.handleReadWikiFileContent)
+	api.PUT("/wiki/files/content", app.handleWriteWikiFileContent)
 
 	// Sessions
 	api.POST("/sessions", app.handleCreateSession)
@@ -183,6 +191,7 @@ func New(deps Deps) (*gin.Engine, error) {
 
 	// Storage retention
 	api.POST("/storage/retention/runs", app.handleRunStorageRetention)
+	api.POST("/storage/backup/runs", app.handleRunBackup)
 
 	// Jobs
 	api.GET("/jobs", app.handleListJobs)
