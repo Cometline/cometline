@@ -362,7 +362,8 @@ async function searchWithHiddenBrowser({ query, limit, recency }) {
 				webPreferences: {
 					contextIsolation: true,
 					nodeIntegration: false,
-					sandbox: true
+					sandbox: true,
+					devTools: !app.isPackaged
 					// Deliberately use Electron's default session, matching the
 					// user-facing Web Panel. This reuses Google consent and security
 					// state instead of presenting each tool search as a fresh profile.
@@ -991,6 +992,9 @@ function loadAppRoute(window, route = '/') {
 }
 
 function attachExternalNavigationGuards(window) {
+	window.webContents.on('will-attach-webview', (_event, webPreferences) => {
+		webPreferences.devTools = !app.isPackaged;
+	});
 	window.webContents.setWindowOpenHandler(({ url }) => {
 		if (isExternallyOpenableUrl(url)) void shell.openExternal(url);
 		return { action: 'deny' };
@@ -1211,7 +1215,7 @@ function configureApplicationMenu() {
 			label: 'View',
 			submenu: [
 				{ role: 'reload' },
-				{ role: 'toggleDevTools' },
+				...(!app.isPackaged ? [{ role: 'toggleDevTools' }] : []),
 				{ type: 'separator' },
 				{ role: 'resetZoom' },
 				{ role: 'zoomIn' },
@@ -2598,7 +2602,8 @@ async function createWindow() {
 			contextIsolation: true,
 			nodeIntegration: false,
 			allowRunningInsecureContent: false,
-			webviewTag: true
+			webviewTag: true,
+			devTools: !app.isPackaged
 		}
 	});
 	setWindowButtonPosition(WINDOW_BUTTON_OPEN_POSITION);
@@ -2671,7 +2676,8 @@ async function createMiniWindow() {
 			contextIsolation: true,
 			nodeIntegration: false,
 			allowRunningInsecureContent: false,
-			webviewTag: true
+			webviewTag: true,
+			devTools: !app.isPackaged
 		}
 	});
 	attachExternalNavigationGuards(miniWindow);
@@ -2717,7 +2723,8 @@ async function createSettingsWindow() {
 			contextIsolation: true,
 			nodeIntegration: false,
 			allowRunningInsecureContent: false,
-			webviewTag: false
+			webviewTag: false,
+			devTools: !app.isPackaged
 		}
 	});
 	attachExternalNavigationGuards(settingsWindow);
