@@ -529,7 +529,7 @@ func (r *Runner) extractMemoryAfterTurn(ctx context.Context, turn session.AgentT
 func (r *Runner) systemPrompt() string {
 	base := strings.TrimSpace(r.SystemPrompt)
 	if base == "" {
-		base = DefaultSystemPrompt
+		base = DefaultSystemPrompt()
 	}
 	if strings.TrimSpace(r.SkillIndex) == "" && strings.TrimSpace(r.JobIndex) == "" {
 		return base

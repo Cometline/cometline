@@ -126,6 +126,7 @@ declare global {
 	type CodingHarness = 'opencode' | 'claude' | 'codex';
 
 	interface CometMindACPSettings {
+		enabled: boolean;
 		defaultHarness: CodingHarness;
 	}
 

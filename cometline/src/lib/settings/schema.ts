@@ -57,6 +57,8 @@ function providerNameOrDefault(
 export type CodingHarness = 'opencode' | 'claude' | 'codex';
 
 export interface CometMindACPSettings {
+	/** When false, delegate_coding_task is not registered (native tools only). */
+	enabled: boolean;
 	defaultHarness: CodingHarness;
 }
 
@@ -507,6 +509,7 @@ export function defaultCometMindSettings(workspacePath = ''): CometMindSettings 
 		titleProviderId: '',
 		titleModelId: '',
 		acp: {
+			enabled: false,
 			defaultHarness: 'opencode'
 		},
 		skills: {
@@ -604,6 +607,7 @@ export function normalizeCometMindSettings(
 		titleProviderId: String(input?.titleProviderId ?? defaults.titleProviderId).trim(),
 		titleModelId: String(input?.titleModelId ?? defaults.titleModelId).trim(),
 		acp: {
+			enabled: typeof acp.enabled === 'boolean' ? acp.enabled : defaults.acp.enabled,
 			defaultHarness: normalizeHarness(acp.defaultHarness)
 		},
 		skills: {
@@ -836,6 +840,7 @@ export function cloneCometMindSettings(settings: CometMindSettings): CometMindSe
 		titleProviderId: settings.titleProviderId,
 		titleModelId: settings.titleModelId,
 		acp: {
+			enabled: settings.acp.enabled,
 			defaultHarness: settings.acp.defaultHarness
 		},
 		skills: {
@@ -1281,6 +1286,7 @@ const providerSettingsSchema = z.object({
 		titleProviderId: z.string(),
 		titleModelId: z.string(),
 		acp: z.object({
+			enabled: z.boolean(),
 			defaultHarness: z.enum(['opencode', 'claude', 'codex'])
 		}),
 		skills: z.object({

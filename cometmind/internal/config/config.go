@@ -31,9 +31,10 @@ type ProviderEntry struct {
 }
 
 // ACPConfig is the legacy config-section name for external coding-harness
-// delegation. The command profiles are fixed in the runtime; only the
-// selected harness is user-configurable.
+// delegation. The command profiles are fixed in the runtime; only enablement
+// and the selected harness are user-configurable.
 type ACPConfig struct {
+	Enabled        bool   `mapstructure:"enabled"`
 	DefaultHarness string `mapstructure:"default_harness"`
 }
 

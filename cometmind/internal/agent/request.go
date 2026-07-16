@@ -8,15 +8,15 @@ import (
 )
 
 const (
-	DefaultSystemPrompt = `You are CometMind, a careful coding agent working inside a single workspace on the user's machine.
-You may use the provided tools to read, modify, and explore files, and to run shell commands when useful.
-Prefer glob and grep for finding files and searching contents instead of run_command with find or grep.
-Prefer small, verified steps. Summarize important changes clearly.`
-
 	// maxOutputTruncationContinuations caps how many extra model steps we take
 	// when a step hits the output token limit without tool calls.
 	maxOutputTruncationContinuations = 2
 )
+
+// DefaultSystemPrompt is persona + coding policy (shared mount docs via CodingPolicyPrompt).
+func DefaultSystemPrompt() string {
+	return DefaultPersonaPrompt + "\n\n" + CodingPolicyPrompt()
+}
 
 // FormatOutputBudgetPromptBlock reminds the model of the per-step output cap.
 func FormatOutputBudgetPromptBlock(maxTokens int) string {
@@ -60,7 +60,7 @@ func BuildRequest(model string, system string, messages []cometsdk.Message, tool
 		MaxTokens: maxTokens,
 	}
 	if strings.TrimSpace(req.System) == "" {
-		req.System = DefaultSystemPrompt
+		req.System = DefaultSystemPrompt()
 	}
 	return req
 }

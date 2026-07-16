@@ -12,20 +12,34 @@ import (
 )
 
 func TestNewSubagentRegistryExcludesWriteAndDelegateTools(t *testing.T) {
-	r := NewSubagentRegistry(t.TempDir(), nil)
+	r := NewSubagentRegistry(t.TempDir(), nil, SubagentModeResearch)
 	excluded := []string{
-		"write_file", "run_command", "write_skill", "write_skill_draft",
+		"edit_file", "write_file", "run_command", "write_skill", "write_skill_draft",
 		"delegate_coding_task", "spawn_general_agent", "wait_subagents",
 	}
 	for _, name := range excluded {
 		if r.Has(name) {
-			t.Errorf("subagent registry should not include %q", name)
+			t.Errorf("research subagent registry should not include %q", name)
 		}
 	}
 	included := []string{"read_file", "list_dir", "glob", "grep", "web_fetch", "web_search"}
 	for _, name := range included {
 		if !r.Has(name) {
 			t.Errorf("subagent registry missing %q", name)
+		}
+	}
+}
+
+func TestNewSubagentRegistryCodingIncludesEditTools(t *testing.T) {
+	r := NewSubagentRegistry(t.TempDir(), nil, SubagentModeCoding)
+	for _, name := range []string{"read_file", "edit_file", "write_file", "run_command", "grep"} {
+		if !r.Has(name) {
+			t.Errorf("coding subagent registry missing %q", name)
+		}
+	}
+	for _, name := range []string{"delegate_coding_task", "spawn_general_agent"} {
+		if r.Has(name) {
+			t.Errorf("coding subagent registry should not include %q", name)
 		}
 	}
 }
@@ -42,10 +56,10 @@ func TestNewRegistryCapturesWorkspaceAndExposesSpecs(t *testing.T) {
 	}
 
 	specs := r.CometSDK()
-	if len(specs) != 8 {
-		t.Fatalf("CometSDK() returned %d specs, want 8", len(specs))
+	if len(specs) != 9 {
+		t.Fatalf("CometSDK() returned %d specs, want 9", len(specs))
 	}
-	wantNames := []string{"read_file", "write_file", "list_dir", "glob", "grep", "run_command", "web_fetch", "web_search"}
+	wantNames := []string{"read_file", "edit_file", "write_file", "list_dir", "glob", "grep", "run_command", "web_fetch", "web_search"}
 	for i, name := range wantNames {
 		if specs[i].Name != name {
 			t.Errorf("spec[%d].Name = %q, want %q", i, specs[i].Name, name)
@@ -59,8 +73,8 @@ func TestNewRegistryCapturesWorkspaceAndExposesSpecs(t *testing.T) {
 	if !res.OK {
 		t.Fatalf("Execute(read_file) not OK: %s", res.Output)
 	}
-	if res.Output != "world" {
-		t.Errorf("read_file output = %q, want %q", res.Output, "world")
+	if res.Output != "1: world" {
+		t.Errorf("read_file output = %q, want %q", res.Output, "1: world")
 	}
 }
 
@@ -83,6 +97,7 @@ func TestNewRegistryGatesDelegateOnHarnessAvailability(t *testing.T) {
 	} {
 		t.Run(string(harness), func(t *testing.T) {
 			cfg := acp.DefaultHarnessConfig(harness)
+			cfg.Enabled = true
 			r := NewRegistry(t.TempDir(), RegistryOptions{
 				Sessions: &session.Service{},
 				ACP:      cfg,
@@ -91,5 +106,17 @@ func TestNewRegistryGatesDelegateOnHarnessAvailability(t *testing.T) {
 				t.Fatalf("delegate_coding_task registered = %v, want %v", got, want)
 			}
 		})
+	}
+}
+
+func TestNewRegistryOmitsDelegateWhenDisabled(t *testing.T) {
+	cfg := acp.DefaultHarnessConfig(acp.HarnessOpenCode)
+	cfg.Enabled = false
+	r := NewRegistry(t.TempDir(), RegistryOptions{
+		Sessions: &session.Service{},
+		ACP:      cfg,
+	})
+	if r.Has("delegate_coding_task") {
+		t.Fatal("delegate_coding_task should not register when ACP.Enabled is false")
 	}
 }

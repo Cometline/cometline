@@ -22,6 +22,7 @@ type cometlineProviderJSON struct {
 }
 
 type cometlineACPJSON struct {
+	Enabled        *bool  `json:"enabled"`
 	DefaultHarness string `json:"defaultHarness"`
 }
 
@@ -253,6 +254,8 @@ func adaptCometlineSettings(raw cometlineSettingsJSON) (*Config, error) {
 		SystemPromptPath:   strings.TrimSpace(cm.SystemPromptPath),
 		Providers:          providers,
 		ACP: ACPConfig{
+			// Missing enabled defaults to false (native coding path preferred).
+			Enabled:        cm.ACP.Enabled != nil && *cm.ACP.Enabled,
 			DefaultHarness: strings.TrimSpace(cm.ACP.DefaultHarness),
 		},
 		Skills: SkillsConfig{
@@ -458,6 +461,7 @@ func writeMinimalCometlineSettingsJSON(path string, def *Config) error {
 			MaxTokens:          def.MaxTokens,
 			ContextWindowLimit: def.ContextWindowLimit,
 			ACP: cometlineACPJSON{
+				Enabled:        boolPtr(false),
 				DefaultHarness: "opencode",
 			},
 			Skills: cometlineSkillsJSON{

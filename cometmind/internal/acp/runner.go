@@ -34,6 +34,9 @@ func ParseHarness(value string) Harness {
 
 // Config controls how CometMind spawns an external coding agent.
 type Config struct {
+	// Enabled gates whether delegate_coding_task is registered. Default false
+	// (native tools are preferred).
+	Enabled bool
 	Harness Harness
 	Timeout time.Duration
 }
@@ -95,42 +98,12 @@ func (c Config) Label() string {
 	}
 }
 
-// TaskRequest is one delegated coding turn.
-type TaskRequest struct {
-	WorkspaceRoot string
-	Task          string
-	Context       string
-	VerifyCommand string
-	OnProgress    func(ProgressUpdate)
-}
-
 // TaskResult summarizes a delegated coding turn.
 type TaskResult struct {
 	Status       string
 	Summary      string
 	VerifyOutput string
 	AgentName    string
-}
-
-// AgentRunner runs one prompt turn against a fixed CLI coding harness.
-type AgentRunner struct {
-	Config Config
-	// ProcessStarter starts the harness; defaults to exec.Command when nil.
-	ProcessStarter CLIProcessStarter
-}
-
-// Run executes a single delegated task against the selected CLI harness.
-func (r *AgentRunner) Run(ctx context.Context, req TaskRequest) (TaskResult, error) {
-	cfg := r.Config.normalized()
-	mgr := NewSessionManager(cfg)
-	mgr.CLIProcessStarter = r.ProcessStarter
-	return mgr.Run(ctx, RunOptions{
-		WorkspaceRoot: req.WorkspaceRoot,
-		Task:          req.Task,
-		Context:       req.Context,
-		VerifyCommand: req.VerifyCommand,
-		OnProgress:    req.OnProgress,
-	})
 }
 
 type cmdWaitCloser struct {

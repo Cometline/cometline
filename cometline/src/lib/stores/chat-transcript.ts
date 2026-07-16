@@ -1,6 +1,10 @@
 import type { ChatItem, Session, TranscriptItem } from '$lib/types';
 import { getReasoningSegments } from '$lib/conversation/reasoning';
-import { isSubagentStepLimit } from '$lib/conversation/subagent-display';
+import {
+	isSubagentStepLimit,
+	resolveInProcessAgentName
+} from '$lib/conversation/subagent-display';
+import { agentLabelForSessionKind } from '$lib/tools/diff-artifact';
 import { stripInlinedFileBlocks } from '$lib/messages/strip-inlined-files';
 
 let nextLocalID = 0;
@@ -56,7 +60,7 @@ function subagentFromChild(
 const SUBAGENT_SPAWN_TOOLS = new Set(['delegate_coding_task', 'spawn_general_agent']);
 
 function agentNameForTool(toolName: string): string {
-	return toolName === 'spawn_general_agent' ? 'cometmind' : 'opencode';
+	return toolName === 'spawn_general_agent' ? resolveInProcessAgentName('research') : 'opencode';
 }
 
 type ParsedSubagentBlock = {
@@ -134,7 +138,9 @@ function subagentFromParsed(
 		childSessionId: block.childSessionId,
 		purpose: block.summary.split('\n')[0] || 'Delegated task',
 		agentName:
-			block.kind === 'general' ? 'cometmind' : block.agentName || agentNameForTool(toolName),
+			block.kind === 'general' || block.kind === 'research' || block.kind === 'coding'
+				? resolveInProcessAgentName(block.kind)
+				: block.agentName || agentNameForTool(toolName),
 		status: mapDelegationStatus(block.status),
 		progress: [],
 		summary: block.summary,
@@ -177,7 +183,11 @@ export function mergeSubagents(items: ChatItem[], children: Session[]): ChatItem
 					out.push(
 						subagentFromChild(
 							child,
-							block.kind === 'general' ? 'cometmind' : block.agentName || 'opencode'
+							block.kind === 'general' ||
+								block.kind === 'research' ||
+								block.kind === 'coding'
+								? resolveInProcessAgentName(block.kind)
+								: block.agentName || 'opencode'
 						)
 					);
 				} else {
@@ -199,7 +209,10 @@ export function mergeSubagents(items: ChatItem[], children: Session[]): ChatItem
 	if (hasSubagentTools) {
 		for (const child of children) {
 			if (!used.has(child.id)) {
-				const agentName = child.subagent_kind === 'general' ? 'cometmind' : 'opencode';
+				const fromKind = agentLabelForSessionKind(child.subagent_kind);
+				const agentName =
+					fromKind ||
+					(child.subagent_kind === 'acp' ? 'opencode' : resolveInProcessAgentName('research'));
 				out.push(subagentFromChild(child, agentName));
 			}
 		}

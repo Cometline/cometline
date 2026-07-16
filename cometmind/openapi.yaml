@@ -2149,8 +2149,8 @@ components:
           description: Legacy field retained for persisted child session compatibility.
         subagent_kind:
           type: string
-          enum: ['', general, acp]
-          description: Kind of delegated subagent for child sessions.
+          enum: ['', general, coding, acp]
+          description: Kind of delegated subagent for child sessions (general=research, coding=in-process editor, acp=external harness).
         gateway:
           type: object
           additionalProperties: false

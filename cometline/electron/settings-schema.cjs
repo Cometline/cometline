@@ -4635,6 +4635,7 @@ function defaultCometMindSettings(workspacePath = "") {
     titleProviderId: "",
     titleModelId: "",
     acp: {
+      enabled: false,
       defaultHarness: "opencode"
     },
     skills: {
@@ -4724,6 +4725,7 @@ function normalizeCometMindSettings(input, fallbackWorkspacePath = "") {
     titleProviderId: String(input?.titleProviderId ?? defaults.titleProviderId).trim(),
     titleModelId: String(input?.titleModelId ?? defaults.titleModelId).trim(),
     acp: {
+      enabled: typeof acp.enabled === "boolean" ? acp.enabled : defaults.acp.enabled,
       defaultHarness: normalizeHarness(acp.defaultHarness)
     },
     skills: {
@@ -4912,6 +4914,7 @@ function cloneCometMindSettings(settings) {
     titleProviderId: settings.titleProviderId,
     titleModelId: settings.titleModelId,
     acp: {
+      enabled: settings.acp.enabled,
       defaultHarness: settings.acp.defaultHarness
     },
     skills: {
@@ -5260,6 +5263,7 @@ var providerSettingsSchema = external_exports.object({
     titleProviderId: external_exports.string(),
     titleModelId: external_exports.string(),
     acp: external_exports.object({
+      enabled: external_exports.boolean(),
       defaultHarness: external_exports.enum(["opencode", "claude", "codex"])
     }),
     skills: external_exports.object({

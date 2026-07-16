@@ -227,9 +227,9 @@ export type Session = {
      */
     pending_question?: string;
     /**
-     * Kind of delegated subagent for child sessions.
+     * Kind of delegated subagent for child sessions (general=research, coding=in-process editor, acp=external harness).
      */
-    subagent_kind?: '' | 'general' | 'acp';
+    subagent_kind?: '' | 'general' | 'coding' | 'acp';
     gateway?: {
         platform?: 'discord';
         /**

@@ -304,6 +304,7 @@ func (e SessionStatus) Valid() bool {
 // Defines values for SessionSubagentKind.
 const (
 	Acp     SessionSubagentKind = "acp"
+	Coding  SessionSubagentKind = "coding"
 	Empty   SessionSubagentKind = ""
 	General SessionSubagentKind = "general"
 )
@@ -312,6 +313,8 @@ const (
 func (e SessionSubagentKind) Valid() bool {
 	switch e {
 	case Acp:
+		return true
+	case Coding:
 		return true
 	case Empty:
 		return true
@@ -992,7 +995,7 @@ type Session struct {
 	Purpose *string       `json:"purpose,omitempty"`
 	Status  SessionStatus `json:"status"`
 
-	// SubagentKind Kind of delegated subagent for child sessions.
+	// SubagentKind Kind of delegated subagent for child sessions (general=research, coding=in-process editor, acp=external harness).
 	SubagentKind *SessionSubagentKind `json:"subagent_kind,omitempty"`
 	Title        string               `json:"title"`
 	TokenUsage   TokenUsage           `json:"token_usage"`
@@ -1015,7 +1018,7 @@ type SessionOrigin string
 // SessionStatus defines model for Session.Status.
 type SessionStatus string
 
-// SessionSubagentKind Kind of delegated subagent for child sessions.
+// SessionSubagentKind Kind of delegated subagent for child sessions (general=research, coding=in-process editor, acp=external harness).
 type SessionSubagentKind string
 
 // SessionListResponse defines model for SessionListResponse.

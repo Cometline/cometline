@@ -19,6 +19,12 @@
 	} from '$lib/jobs/job-proposal-dismissals';
 	import type { ChatTurnPayload } from '$lib/actions/start-chat';
 	import type { JobResource } from '$lib/client/cometmind';
+	import EditDiffBlock from '$lib/components/chat/EditDiffBlock.svelte';
+	import {
+		looksLikeDiffArtifact,
+		parseEditDiff,
+		shouldRenderEditDiff
+	} from '$lib/tools/parse-edit-diff';
 
 	const FOLD_IN = { duration: 180 };
 
@@ -52,6 +58,28 @@
 			? parseJobProposal(item.input, item.output)
 			: null
 	);
+	const editDiff = $derived.by(() => {
+		if (item.pending || item.error) return null;
+		const output = typeof item.output === 'string' ? item.output : '';
+		if (shouldRenderEditDiff(item.toolName, output)) {
+			const parsed = parseEditDiff(output);
+			if (parsed) return parsed;
+		}
+		if (typeof item.input === 'string' && looksLikeDiffArtifact(item.input)) {
+			return parseEditDiff(item.input);
+		}
+		return null;
+	});
+	const editInputSummary = $derived.by(() => {
+		if (!editDiff) return '';
+		if (editDiff.path) return `path: ${editDiff.path}`;
+		const input = item.input;
+		if (input && typeof input === 'object' && input !== null && 'path' in input) {
+			const path = (input as { path?: unknown }).path;
+			if (typeof path === 'string' && path.trim()) return `path: ${path.trim()}`;
+		}
+		return '';
+	});
 
 	let dismissRevision = $state(0);
 	const proposalDismissed = $derived.by(() => {
@@ -72,7 +100,11 @@
 
 	function formatToolInput(input: unknown) {
 		if (input == null) return '';
-		if (typeof input === 'string') return input.trim();
+		if (typeof input === 'string') {
+			// Don't dump DiffArtifact blobs as "input" when we already render them.
+			if (looksLikeDiffArtifact(input)) return '';
+			return input.trim();
+		}
 		try {
 			return JSON.stringify(input, null, 2);
 		} catch {
@@ -119,11 +151,15 @@
 				/>
 			{:else if jobProposal && proposalDismissal}
 				<p class="proposal-dismissed">{jobProposalDismissalSummary(proposalDismissal)}</p>
-			{:else if formatToolInput(item.input)}
+			{:else if editInputSummary}
+				<pre class="tool-input-text scrollbar-none">{editInputSummary}</pre>
+			{:else if !editDiff && formatToolInput(item.input)}
 				<pre class="tool-input-text scrollbar-none">{formatToolInput(item.input)}</pre>
 			{/if}
 			{#if item.error}
 				<pre class="tool-error-text scrollbar-none">{item.error}</pre>
+			{:else if editDiff}
+				<EditDiffBlock diff={editDiff} />
 			{:else if !jobProposal && item.output}
 				<pre class="scrollbar-none">{item.output}</pre>
 			{/if}
@@ -171,6 +207,10 @@
 		color: var(--text-muted);
 	}
 
+	.tool-output-body :global(.edit-diff) {
+		color: var(--text-primary, var(--text));
+	}
+
 	.tool-output-body pre {
 		margin: 0;
 		font-size: 12px;
@@ -181,6 +221,12 @@
 		overflow-wrap: break-word;
 		max-height: 220px;
 		overflow: auto;
+	}
+
+	.tool-output-body :global(.edit-diff-body) {
+		max-height: 280px;
+		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+		white-space: pre;
 	}
 
 	.tool-output-body pre + pre {

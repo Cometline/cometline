@@ -459,6 +459,7 @@ type RunnerOptions struct {
 	Platform        string
 	SourceChannelID string
 	Subagent        bool
+	SubagentMode    tools.SubagentMode
 }
 
 // RunnerFor returns an agent runner wired for a specific session and workspace.
@@ -466,9 +467,14 @@ func (r *Runtime) RunnerFor(sess session.Session, workspacePath string) (*agent.
 	return r.runnerFor(sess, workspacePath, RunnerOptions{})
 }
 
-// SubagentRunnerFor returns a restricted runner for a general subagent child session.
-func (r *Runtime) SubagentRunnerFor(child session.Session, workspacePath string, maxSteps int) (*agent.Runner, error) {
-	return r.runnerFor(child, workspacePath, RunnerOptions{MaxSteps: maxSteps, Subagent: true})
+// SubagentRunnerFor returns a runner for an in-process subagent child session.
+// mode selects research (read-only) vs coding (edit/write/run) tool surface.
+func (r *Runtime) SubagentRunnerFor(child session.Session, workspacePath string, maxSteps int, mode tools.SubagentMode) (*agent.Runner, error) {
+	return r.runnerFor(child, workspacePath, RunnerOptions{
+		MaxSteps:     maxSteps,
+		Subagent:     true,
+		SubagentMode: mode,
+	})
 }
 
 // RunnerForGateway is like RunnerFor but tags job tool metadata for a gateway channel.
@@ -494,7 +500,11 @@ func (r *Runtime) runnerFor(sess session.Session, workspacePath string, opts Run
 
 	var registry *tools.Registry
 	if opts.Subagent {
-		registry = tools.NewSubagentRegistry(workspacePath, &skillRegistry)
+		mode := opts.SubagentMode
+		if mode == "" {
+			mode = tools.SubagentModeResearch
+		}
+		registry = tools.NewSubagentRegistry(workspacePath, &skillRegistry, mode)
 	} else {
 		registry = r.toolRegistryWithJobMeta(workspacePath, skillRegistry, sess.ID, platform, opts.SourceChannelID)
 	}
@@ -545,8 +555,8 @@ func (r *Runtime) toolRegistryWithJobMeta(workspacePath string, skillRegistry sk
 		JobSourceChannelID: sourceChannelID,
 		BrowserSearchURL:   os.Getenv("COMETLINE_BROWSER_SEARCH_URL"),
 		BrowserSearchToken: os.Getenv("COMETLINE_BROWSER_SEARCH_TOKEN"),
-		RunnerFactory: func(child session.Session, workspaceRoot string, maxSteps int) (tools.AgentLoopRunner, error) {
-			return r.SubagentRunnerFor(child, workspaceRoot, maxSteps)
+		RunnerFactory: func(child session.Session, workspaceRoot string, maxSteps int, mode tools.SubagentMode) (tools.AgentLoopRunner, error) {
+			return r.SubagentRunnerFor(child, workspaceRoot, maxSteps, mode)
 		},
 		SubagentConfig: tools.SubagentToolConfig{
 			GeneralMaxSteps: sub.GeneralMaxSteps,

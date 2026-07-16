@@ -23,13 +23,16 @@ type SpawnGeneralAgent struct {
 func (s SpawnGeneralAgent) Spec() ToolSpec {
 	return ToolSpec{
 		Name: "spawn_general_agent",
-		Description: "Spawn a read-only research subagent that runs in parallel. " +
-			"Returns immediately with a child_session_id; use wait_subagents to collect results.",
+		Description: "Spawn an in-process CometMind subagent that runs in parallel. " +
+			"kind=research (default) is read-only exploration; kind=coding may edit files and run commands. " +
+			"Returns immediately with a child_session_id; use wait_subagents to collect results. " +
+			"Does not use external coding harnesses.",
 		Parameters: json.RawMessage(`{
 			"type":"object",
 			"properties":{
 				"task":{"type":"string","description":"Task for the subagent"},
 				"context":{"type":"string","description":"Optional extra constraints"},
+				"kind":{"type":"string","description":"research (read-only, default) or coding (edit/write/run)"},
 				"model_id":{"type":"string","description":"Optional model override"},
 				"provider_id":{"type":"string","description":"Optional provider override"}
 			},
@@ -42,6 +45,7 @@ func (s SpawnGeneralAgent) Execute(ctx context.Context, input json.RawMessage) (
 	var in struct {
 		Task       string `json:"task"`
 		Context    string `json:"context"`
+		Kind       string `json:"kind"`
 		ModelID    string `json:"model_id"`
 		ProviderID string `json:"provider_id"`
 	}
@@ -51,6 +55,15 @@ func (s SpawnGeneralAgent) Execute(ctx context.Context, input json.RawMessage) (
 	task := strings.TrimSpace(in.Task)
 	if task == "" {
 		return Result{OK: false, Output: "task is required"}, nil
+	}
+	mode := SubagentModeResearch
+	switch strings.ToLower(strings.TrimSpace(in.Kind)) {
+	case "", "research", "general":
+		mode = SubagentModeResearch
+	case "coding", "code":
+		mode = SubagentModeCoding
+	default:
+		return Result{OK: false, Output: "kind must be research or coding"}, nil
 	}
 	if s.Sessions == nil || s.Orchestrator == nil || s.RunnerFactory == nil {
 		return Result{OK: false, Output: "subagent spawning is not configured"}, nil
@@ -66,12 +79,12 @@ func (s SpawnGeneralAgent) Execute(ctx context.Context, input json.RawMessage) (
 		return Result{OK: false, Output: err.Error()}, nil
 	}
 
-	child, err := s.Sessions.NewChildSession(ctx, parent, task, "general")
+	child, err := s.Sessions.NewChildSession(ctx, parent, task, SessionKindForMode(mode))
 	if err != nil {
 		return Result{OK: false, Output: err.Error()}, nil
 	}
 
-		if in.ModelID != "" || in.ProviderID != "" {
+	if in.ModelID != "" || in.ProviderID != "" {
 		modelID := child.ModelID
 		providerID := child.ProviderID
 		if in.ModelID != "" {
@@ -95,9 +108,11 @@ func (s SpawnGeneralAgent) Execute(ctx context.Context, input json.RawMessage) (
 		return Result{OK: false, Output: err.Error()}, nil
 	}
 
+	agentLabel := AgentLabelForMode(mode)
+
 	emit := ProgressFrom(ctx)
 	if emit != nil {
-		emit(event.SubagentStarted(child.ID, task, "cometmind"))
+		emit(event.SubagentStarted(child.ID, task, agentLabel))
 	}
 	_ = s.Sessions.UpdateDelegationState(ctx, child.ID, session.DelegationRunning, "", "")
 
@@ -112,10 +127,10 @@ func (s SpawnGeneralAgent) Execute(ctx context.Context, input json.RawMessage) (
 		maxSteps = 1
 	}
 
-	go s.runGeneralSubagent(runCtx, parentID, child, emit, maxSteps)
+	go s.runGeneralSubagent(runCtx, parentID, child, emit, maxSteps, mode)
 
-	out := fmt.Sprintf("child_session_id: %s\nstatus: running\nkind: general\nmax_steps: %d",
-		child.ID, maxSteps)
+	out := fmt.Sprintf("child_session_id: %s\nstatus: running\nkind: %s\nmax_steps: %d",
+		child.ID, mode, maxSteps)
 	return Result{OK: true, Output: out}, nil
 }
 
@@ -125,6 +140,7 @@ func (s SpawnGeneralAgent) runGeneralSubagent(
 	child session.Session,
 	emit func(event.Event),
 	maxSteps int,
+	mode SubagentMode,
 ) {
 	status := session.DelegationCompleted
 	summary := ""
@@ -152,7 +168,7 @@ func (s SpawnGeneralAgent) runGeneralSubagent(
 		})
 	}()
 
-	runner, err := s.RunnerFactory(child, s.Workspace.Root, maxSteps)
+	runner, err := s.RunnerFactory(child, s.Workspace.Root, maxSteps, mode)
 	if err != nil {
 		status = session.DelegationFailed
 		runErr = err
