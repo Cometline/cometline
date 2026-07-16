@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
 // WriteFile creates or overwrites a file relative to the workspace.
@@ -45,7 +44,7 @@ func (w WriteFile) Execute(ctx context.Context, input json.RawMessage) (Result, 
 	}
 
 	// Per-file lock so concurrent sessions can write different files.
-	release := acquireFileLock(p)
+	release := w.Workspace.LockFile(p)
 	defer release()
 
 	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
@@ -54,9 +53,6 @@ func (w WriteFile) Execute(ctx context.Context, input json.RawMessage) (Result, 
 	if err := os.WriteFile(p, []byte(content), 0o644); err != nil {
 		return Result{OK: false, Output: err.Error()}, nil
 	}
-	displayPath := strings.TrimPrefix(strings.TrimPrefix(p, w.Workspace.Root), string(filepath.Separator))
-	if IsRuntimePath(path) {
-		displayPath = path
-	}
-	return Result{OK: true, Output: fmt.Sprintf("wrote %d bytes to %s", len(content), filepath.ToSlash(displayPath))}, nil
+	displayPath := w.Workspace.DisplayPath(p, path)
+	return Result{OK: true, Output: fmt.Sprintf("wrote %d bytes to %s", len(content), displayPath)}, nil
 }

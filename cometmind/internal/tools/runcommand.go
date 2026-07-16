@@ -32,7 +32,7 @@ func (RunCommand) Spec() ToolSpec {
 		Description: "Run a shell command in the workspace root. " +
 			"Best-effort guardrails reject a few obviously dangerous patterns. " +
 			"Default timeout is 300s; pass timeout_sec to override (max 1800). " +
-			"Very large output is truncated in the tool result with the full text saved under ~/.cometmind/tool-output/.",
+			"Very large output is truncated in the tool result with the full text saved under @runtime/tool-output/.",
 		Parameters: json.RawMessage(`{
 			"type":"object",
 			"properties":{
@@ -78,7 +78,7 @@ func (r RunCommand) Execute(ctx context.Context, input json.RawMessage) (Result,
 	// Acquire a per-workspace mutex so concurrent sessions do not run
 	// conflicting shell commands (e.g. git commit, go test) simultaneously
 	// against the same workspace root.
-	release := acquireWorkspaceLock(root)
+	release := r.Workspace.LockWorkspace()
 	defer release()
 
 	cmdCtx, cancel := context.WithTimeout(ctx, time.Duration(timeoutSec)*time.Second)
