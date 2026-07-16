@@ -77,6 +77,21 @@ func toCodexRequest(req *cometsdk.Request, disableMaxOutputTokens bool) ([]byte,
 	return providerbase.MarshalWithOptions(out, req.Options, providerID)
 }
 
+func addResponsesLiteReasoningContext(data []byte) ([]byte, error) {
+	var payload map[string]any
+	if err := json.Unmarshal(data, &payload); err != nil {
+		return nil, err
+	}
+	reasoning, ok := payload["reasoning"].(map[string]any)
+	if !ok {
+		reasoning = make(map[string]any)
+	}
+	reasoning["context"] = "all_turns"
+	payload["reasoning"] = reasoning
+	payload["parallel_tool_calls"] = false
+	return json.Marshal(payload)
+}
+
 func convertMessages(messages []cometsdk.Message) ([]codexInput, error) {
 	var out []codexInput
 	toolNames := make(map[string]string)

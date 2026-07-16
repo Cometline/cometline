@@ -107,15 +107,7 @@ func (p *provider) doRequest(ctx context.Context, req *cometsdk.Request) (*http.
 		httpReq.Header.Set("X-API-Key", p.apiKey)
 	}
 
-	client := p.cfg.HTTPClient
-	if p.cfg.Timeout > 0 {
-		client = &http.Client{
-			Transport: p.cfg.HTTPClient.Transport,
-			Timeout:   p.cfg.Timeout,
-		}
-	}
-
-	resp, err := client.Do(httpReq)
+	resp, err := cometsdk.StreamingHTTPClient(p.cfg).Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("anthropic: http: %w", err)
 	}

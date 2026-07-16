@@ -23,6 +23,18 @@ const (
 	responsesLiteHeader = "x-openai-internal-codex-responses-lite"
 )
 
+func addCodexResponseHeaders(header http.Header, token borrowedToken, responsesLite bool) {
+	if token.AccountID != "" {
+		header.Set("ChatGPT-Account-ID", token.AccountID)
+	}
+	if token.InstallationID != "" {
+		header.Set("x-codex-installation-id", token.InstallationID)
+	}
+	if responsesLite {
+		header.Set(responsesLiteHeader, "true")
+	}
+}
+
 type provider struct {
 	cfg cometsdk.ProviderConfig
 	log *slog.Logger
@@ -108,13 +120,7 @@ func (p *provider) doRequest(ctx context.Context, req *cometsdk.Request, flags s
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Accept", "text/event-stream")
 	httpReq.Header.Set("Authorization", "Bearer "+token.AccessToken)
-	addCodexResponseHeaders(httpReq.Header, token, false)
-	if req.Model == "gpt-5.6-luna" {
-		httpReq.Header.Set(responsesLiteHeader, "true")
-	}
-	if token.AccountID != "" {
-		httpReq.Header.Set("ChatGPT-Account-ID", token.AccountID)
-	}
+	addCodexResponseHeaders(httpReq.Header, token, req.Model == "gpt-5.6-luna")
 
 	resp, err := client.Do(httpReq)
 	if err != nil {
@@ -142,9 +148,5 @@ func isMaxOutputTokensUnsupportedError(err error) bool {
 }
 
 func (p *provider) httpClient() *http.Client {
-	client := p.cfg.HTTPClient
-	if p.cfg.Timeout > 0 {
-		client = &http.Client{Transport: p.cfg.HTTPClient.Transport, Timeout: p.cfg.Timeout}
-	}
-	return client
+	return cometsdk.StreamingHTTPClient(p.cfg)
 }

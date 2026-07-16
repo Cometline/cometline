@@ -179,14 +179,7 @@ func (p *provider) doRequest(ctx context.Context, req *cometsdk.Request, flags s
 }
 
 func (p *provider) httpClient() *http.Client {
-	client := p.cfg.HTTPClient
-	if p.cfg.Timeout > 0 {
-		client = &http.Client{
-			Transport: p.cfg.HTTPClient.Transport,
-			Timeout:   p.cfg.Timeout,
-		}
-	}
-	return client
+	return cometsdk.StreamingHTTPClient(p.cfg)
 }
 
 // requestHasImage reports whether any user message in req carries an image

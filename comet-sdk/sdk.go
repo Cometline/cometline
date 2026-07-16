@@ -261,26 +261,15 @@ const (
 	AuthModeBearer
 )
 
-// ResponseTransport controls how Responses-compatible providers deliver
-// streaming events. Auto lets a provider choose the native transport for the
-// selected API/model while keeping an explicit SSE escape hatch.
-type ResponseTransport int
-
-const (
-	ResponseTransportAuto ResponseTransport = iota
-	ResponseTransportSSE
-	ResponseTransportWebSocket
-)
-
 // ProviderConfig holds configuration common to all provider implementations.
 // It is populated by applying Option functions and is embedded by each provider.
 type ProviderConfig struct {
-	BaseURL           string
-	HTTPClient        *http.Client
-	Timeout           time.Duration
-	MaxRetries        int
-	AuthMode          AuthMode
-	ResponseTransport ResponseTransport
+	BaseURL               string
+	HTTPClient            *http.Client
+	Timeout               time.Duration
+	ResponseHeaderTimeout time.Duration
+	MaxRetries            int
+	AuthMode              AuthMode
 	// Logger receives structured debug-level traces of SSE events and retries.
 	// Defaults to slog.Default() if nil.
 	Logger *slog.Logger
@@ -290,11 +279,39 @@ type ProviderConfig struct {
 // Each provider should set its own BaseURL before applying user options.
 func DefaultProviderConfig() ProviderConfig {
 	return ProviderConfig{
-		HTTPClient: &http.Client{},
-		Timeout:    2 * time.Minute,
-		MaxRetries: 5,
-		Logger:     slog.Default(),
+		HTTPClient:            &http.Client{},
+		ResponseHeaderTimeout: 30 * time.Second,
+		MaxRetries:            5,
+		Logger:                slog.Default(),
 	}
+}
+
+// StreamingHTTPClient returns a copy of cfg.HTTPClient configured for SSE.
+// It limits only the time to receive response headers by default, so a healthy
+// long-running response body remains open until its request context is cancelled.
+func StreamingHTTPClient(cfg ProviderConfig) *http.Client {
+	base := cfg.HTTPClient
+	if base == nil {
+		base = &http.Client{}
+	}
+	client := *base
+	if cfg.Timeout > 0 {
+		client.Timeout = cfg.Timeout
+	}
+
+	if cfg.ResponseHeaderTimeout <= 0 {
+		return &client
+	}
+	transport := client.Transport
+	if transport == nil {
+		transport = http.DefaultTransport
+	}
+	if baseTransport, ok := transport.(*http.Transport); ok {
+		cloned := baseTransport.Clone()
+		cloned.ResponseHeaderTimeout = cfg.ResponseHeaderTimeout
+		client.Transport = cloned
+	}
+	return &client
 }
 
 // NormaliseBaseURL strips a trailing slash from a base URL so that appending
@@ -326,11 +343,19 @@ func WithHTTPClient(client *http.Client) Option {
 	}
 }
 
-// WithTimeout sets the per-request timeout.
-// Defaults to 2 minutes if not set.
+// WithTimeout sets a hard limit for the whole request, including streaming
+// response-body reads. By default, streaming response bodies have no deadline.
 func WithTimeout(d time.Duration) Option {
 	return func(c *ProviderConfig) {
 		c.Timeout = d
+	}
+}
+
+// WithResponseHeaderTimeout sets the maximum time to wait for response headers
+// after the request body is sent. Defaults to 30 seconds for streaming providers.
+func WithResponseHeaderTimeout(d time.Duration) Option {
+	return func(c *ProviderConfig) {
+		c.ResponseHeaderTimeout = d
 	}
 }
 
@@ -361,13 +386,5 @@ func WithLogger(l *slog.Logger) Option {
 func WithBearerAuth() Option {
 	return func(c *ProviderConfig) {
 		c.AuthMode = AuthModeBearer
-	}
-}
-
-// WithResponseTransport selects the transport used by providers that expose
-// the Responses API. Providers using another API may ignore this option.
-func WithResponseTransport(transport ResponseTransport) Option {
-	return func(c *ProviderConfig) {
-		c.ResponseTransport = transport
 	}
 }
