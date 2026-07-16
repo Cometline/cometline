@@ -117,6 +117,8 @@ export interface AppSettings {
 	miniWindowInactivityTimeoutMinutes: number;
 	/** Web/file panel width in px. 0 means use the default (50vw). */
 	webPanelWidth: number;
+	/** When true, Cmd+W shows a Close confirmation before hiding the main window. */
+	confirmCloseOnCmdW: boolean;
 }
 
 export interface ProviderSettings {

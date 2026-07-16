@@ -231,6 +231,29 @@ function createSettingsStore() {
 		}
 	}
 
+	async function saveConfirmCloseOnCmdW(enabled: boolean) {
+		if (settings.app.confirmCloseOnCmdW === enabled) return;
+		error = '';
+		try {
+			const normalized = normalizeSettings({
+				...settings,
+				app: { ...settings.app, confirmCloseOnCmdW: enabled }
+			});
+			if (window.electronAPI?.saveProviderSettings) {
+				const result = await window.electronAPI.saveProviderSettings(normalized, {
+					restartCometMind: false
+				});
+				apply(result.settings);
+				return;
+			}
+			writeLocalSettings(normalized);
+			apply(normalized);
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Failed to save close preference';
+			throw err;
+		}
+	}
+
 	function setActiveProvider(providerId: string) {
 		settings = { ...settings, activeProviderId: providerId };
 		const provider = settings.providers.find((p) => p.id === providerId);
@@ -317,6 +340,7 @@ function createSettingsStore() {
 		markSetupComplete,
 		markSetupDismissed,
 		saveShortcuts,
+		saveConfirmCloseOnCmdW,
 		saveWebPanelWidth,
 		setActiveProvider,
 		updateProvider,

@@ -6,14 +6,18 @@
 
 	let {
 		openAtLogin = $bindable(false),
+		confirmCloseOnCmdW = $bindable(true),
 		miniWindowInactivityTimeoutMinutes = $bindable(30),
 		storage = $bindable<CometMindStorageSettings>(),
-		onOpenAtLoginChange
+		onOpenAtLoginChange,
+		onConfirmCloseOnCmdWChange
 	}: {
 		openAtLogin: boolean;
+		confirmCloseOnCmdW: boolean;
 		miniWindowInactivityTimeoutMinutes: number;
 		storage: CometMindStorageSettings;
 		onOpenAtLoginChange?: (enabled: boolean) => void | Promise<void>;
+		onConfirmCloseOnCmdWChange?: (enabled: boolean) => void | Promise<void>;
 	} = $props();
 
 	let backupRunning = $state(false);
@@ -144,6 +148,20 @@
 				bind:checked={openAtLogin}
 				disabled={!window.electronAPI?.setOpenAtLogin}
 				onchange={onOpenAtLoginChange}
+			/>
+			<SettingsPersistenceHint tier="instant" />
+		</div>
+
+		<div class="settings-section">
+			<div class="settings-section-heading">
+				<h3>Window</h3>
+				<p>Control what happens when you close the main window with ⌘W.</p>
+			</div>
+			<SettingsToggle
+				label="Confirm before closing"
+				description="Ask for confirmation when closing the main window with ⌘W. The window hides to the menu bar instead of quitting."
+				bind:checked={confirmCloseOnCmdW}
+				onchange={onConfirmCloseOnCmdWChange}
 			/>
 			<SettingsPersistenceHint tier="instant" />
 		</div>

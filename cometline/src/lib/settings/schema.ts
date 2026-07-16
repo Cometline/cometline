@@ -976,7 +976,8 @@ function defaultAppSettings(): AppSettings {
 		miniWindowSessionId: '',
 		miniWindowLastActiveAt: 0,
 		miniWindowInactivityTimeoutMinutes: 30,
-		webPanelWidth: 0
+		webPanelWidth: 0,
+		confirmCloseOnCmdW: true
 	};
 }
 
@@ -1211,7 +1212,11 @@ export function normalizeSettings(
 			miniWindowInactivityTimeoutMinutes: normalizeMiniWindowInactivityTimeoutMinutes(
 				next.app?.miniWindowInactivityTimeoutMinutes
 			),
-			webPanelWidth: normalizeWebPanelWidth(next.app?.webPanelWidth)
+			webPanelWidth: normalizeWebPanelWidth(next.app?.webPanelWidth),
+			confirmCloseOnCmdW:
+				typeof next.app?.confirmCloseOnCmdW === 'boolean'
+					? next.app.confirmCloseOnCmdW
+					: defaultAppSettings().confirmCloseOnCmdW
 		},
 		cometmind
 	};
@@ -1325,7 +1330,8 @@ const providerSettingsSchema = z.object({
 			.int()
 			.min(1)
 			.max(24 * 60),
-		webPanelWidth: z.number().int().min(0)
+		webPanelWidth: z.number().int().min(0),
+		confirmCloseOnCmdW: z.boolean()
 	}),
 	cometmind: z.object({
 		systemPromptPath: z.string(),

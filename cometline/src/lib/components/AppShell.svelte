@@ -11,6 +11,8 @@
 	import SetupWizard from './onboarding/SetupWizard.svelte';
 	import UpdateButton from './UpdateButton.svelte';
 	import MemoryToast from './MemoryToast.svelte';
+	import AppToast from './AppToast.svelte';
+	import CloseConfirmModal from './CloseConfirmModal.svelte';
 	import WebPanel from './WebPanel.svelte';
 	import { getSession } from '$lib/client/cometmind';
 	import { shellStore } from '$lib/stores/shell.svelte';
@@ -35,6 +37,7 @@
 		null
 	);
 	let contentRowRef = $state<HTMLDivElement | null>(null);
+	let closeConfirmOpen = $state(false);
 
 	let activeSessionId = $derived(sessionStore.current?.id ?? null);
 	let titlebarSessionTitle = $derived.by(() => {
@@ -53,7 +56,7 @@
 		shellStore.onActiveSessionChange();
 	});
 
-	function isCloseWebPanelShortcut(event: KeyboardEvent) {
+	function isCmdW(event: KeyboardEvent) {
 		return (
 			event.metaKey &&
 			!event.ctrlKey &&
@@ -61,6 +64,40 @@
 			!event.shiftKey &&
 			event.key.toLowerCase() === 'w'
 		);
+	}
+
+	function hideMainWindow() {
+		closeConfirmOpen = false;
+		window.electronAPI?.confirmCloseWindow?.();
+	}
+
+	function handleRequestCloseWindow() {
+		if (closeConfirmOpen) {
+			hideMainWindow();
+			return;
+		}
+		if (inboxStore.drawerOpen) {
+			inboxStore.closeDrawer();
+			return;
+		}
+		if (shellStore.webPanelOpen) {
+			shellStore.closeWebPanel();
+			return;
+		}
+		if (settingsStore.settings.app.confirmCloseOnCmdW === false) {
+			hideMainWindow();
+			return;
+		}
+		closeConfirmOpen = true;
+	}
+
+	async function alwaysCloseWithoutConfirm() {
+		try {
+			await settingsStore.saveConfirmCloseOnCmdW(false);
+		} catch {
+			/* still close even if preference save fails */
+		}
+		hideMainWindow();
 	}
 
 	// Single source of truth for what each global shortcut does, so it behaves
@@ -142,18 +179,22 @@
 		function onKeydown(event: KeyboardEvent) {
 			const shortcuts = settingsStore.settings.shortcuts;
 
-			if (isCloseWebPanelShortcut(event)) {
-				if (shellStore.webPanelOpen) {
-					event.preventDefault();
-					shellStore.closeWebPanel();
-				}
+			if (closeConfirmOpen && event.key === 'Escape') {
+				event.preventDefault();
+				closeConfirmOpen = false;
+				return;
+			}
+			if (isCmdW(event)) {
+				event.preventDefault();
+				handleRequestCloseWindow();
 				return;
 			}
 			if (
 				shellStore.webPanelOpen &&
 				event.key === 'Escape' &&
 				!shellStore.settingsOpen &&
-				!inboxStore.drawerOpen
+				!inboxStore.drawerOpen &&
+				!closeConfirmOpen
 			) {
 				event.preventDefault();
 				shellStore.closeWebPanel();
@@ -243,6 +284,14 @@
 			shellStore.closeWebPanel();
 		});
 
+		const unsubscribeCloseInbox = window.electronAPI?.onCloseInbox?.(() => {
+			inboxStore.closeDrawer();
+		});
+
+		const unsubscribeRequestCloseWindow = window.electronAPI?.onRequestCloseWindow?.(() => {
+			handleRequestCloseWindow();
+		});
+
 		const unsubscribeToggleWebPanel = window.electronAPI?.onToggleWebPanel?.(() => {
 			if (shellStore.settingsOpen) return;
 			shellStore.toggleWebPanel();
@@ -314,6 +363,8 @@
 			window.removeEventListener('keydown', onKeydown, true);
 			unsubscribeNavigate?.();
 			unsubscribeCloseWebPanel?.();
+			unsubscribeCloseInbox?.();
+			unsubscribeRequestCloseWindow?.();
 			unsubscribeToggleWebPanel?.();
 			unsubscribeOpenWebPanel?.();
 			unsubscribeShortcutAction?.();
@@ -538,6 +589,13 @@
 	/>
 	<UpdateButton />
 	<MemoryToast />
+	<AppToast />
+	<CloseConfirmModal
+		open={closeConfirmOpen}
+		onCancel={() => (closeConfirmOpen = false)}
+		onClose={hideMainWindow}
+		onAlwaysClose={() => void alwaysCloseWithoutConfirm()}
+	/>
 	{#if shellStore.introOpen}
 		<IntroAnimation />
 	{/if}

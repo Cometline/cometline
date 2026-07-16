@@ -295,6 +295,27 @@ export function createSettingsPanelController(deps: {
 		}
 	}
 
+	async function setConfirmCloseOnCmdW(enabled: boolean) {
+		const draft = deps.getDraft();
+		deps.setDraft({ ...draft, app: { ...draft.app, confirmCloseOnCmdW: enabled } });
+		try {
+			await settingsStore.saveConfirmCloseOnCmdW(enabled);
+			deps.settingsController.status = enabled
+				? 'Will ask for confirmation before closing with ⌘W.'
+				: 'Closing with ⌘W will hide without confirmation.';
+		} catch (err) {
+			deps.setDraft({
+				...deps.getDraft(),
+				app: {
+					...deps.getDraft().app,
+					confirmCloseOnCmdW: settingsStore.settings.app.confirmCloseOnCmdW
+				}
+			});
+			deps.settingsController.status =
+				err instanceof Error ? err.message : 'Failed to save close preference';
+		}
+	}
+
 	async function save() {
 		deps.settingsController.status = '';
 		deps.getCometmindPanel()?.syncFields?.();
@@ -704,6 +725,7 @@ export function createSettingsPanelController(deps: {
 		updateSelected,
 		updateShortcut,
 		setOpenAtLogin,
+		setConfirmCloseOnCmdW,
 		save,
 		persistDraftForRuntime,
 		setSelectedMethod,

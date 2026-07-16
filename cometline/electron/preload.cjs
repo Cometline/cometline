@@ -65,10 +65,22 @@ contextBridge.exposeInMainWorld('electronAPI', {
 	setSessionNavigationSuspended: (suspended) =>
 		ipcRenderer.send('cometline:session-navigation-suspended', Boolean(suspended)),
 	setWebPanelOpen: (open) => ipcRenderer.send('cometline:web-panel-open', Boolean(open)),
+	setInboxOpen: (open) => ipcRenderer.send('cometline:inbox-open', Boolean(open)),
+	confirmCloseWindow: () => ipcRenderer.send('cometline:confirm-close-window'),
 	onCloseWebPanel: (callback) => {
 		const handler = () => callback();
 		ipcRenderer.on('cometline:close-web-panel', handler);
 		return () => ipcRenderer.removeListener('cometline:close-web-panel', handler);
+	},
+	onCloseInbox: (callback) => {
+		const handler = () => callback();
+		ipcRenderer.on('cometline:close-inbox', handler);
+		return () => ipcRenderer.removeListener('cometline:close-inbox', handler);
+	},
+	onRequestCloseWindow: (callback) => {
+		const handler = () => callback();
+		ipcRenderer.on('cometline:request-close-window', handler);
+		return () => ipcRenderer.removeListener('cometline:request-close-window', handler);
 	},
 	onToggleWebPanel: (callback) => {
 		const handler = () => callback();

@@ -96,6 +96,7 @@ declare global {
 		miniWindowLastActiveAt: number;
 		miniWindowInactivityTimeoutMinutes: number;
 		webPanelWidth: number;
+		confirmCloseOnCmdW: boolean;
 	}
 
 	interface MiniWindowState {
@@ -415,7 +416,11 @@ declare global {
 			setShortcutCaptureActive?: (active: boolean) => void;
 			setSessionNavigationSuspended?: (suspended: boolean) => void;
 			setWebPanelOpen?: (open: boolean) => void;
+			setInboxOpen?: (open: boolean) => void;
+			confirmCloseWindow?: () => void;
 			onCloseWebPanel?: (callback: () => void) => () => void;
+			onCloseInbox?: (callback: () => void) => () => void;
+			onRequestCloseWindow?: (callback: () => void) => () => void;
 			onToggleWebPanel?: (callback: () => void) => () => void;
 			onOpenWebPanel?: (callback: () => void) => () => void;
 			onNavigateSession?: (callback: (direction: 'prev' | 'next') => void) => () => void;

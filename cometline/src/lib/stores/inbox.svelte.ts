@@ -76,13 +76,19 @@ function createInboxStore() {
 		}
 	}
 
+	function syncInboxOpen(open: boolean) {
+		window.electronAPI?.setInboxOpen?.(open);
+	}
+
 	function openDrawer() {
 		drawerOpen = true;
+		syncInboxOpen(true);
 		void load();
 	}
 
 	function closeDrawer() {
 		drawerOpen = false;
+		syncInboxOpen(false);
 	}
 
 	function toggleDrawer() {

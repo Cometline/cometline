@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Bell, X } from '@lucide/svelte';
 	import { fade, scale } from 'svelte/transition';
+	import AssistantMarkdown from '$lib/components/AssistantMarkdown.svelte';
 	import type { InboxMessageResource } from '$lib/client/cometmind';
 	import {
 		jobLinkKey,
@@ -8,6 +9,7 @@
 		sessionLinkKey,
 		type LinkAvailabilityMap
 	} from '$lib/inbox/link-availability';
+	import { appToastStore } from '$lib/stores/app-toasts.svelte';
 
 	let {
 		open = false,
@@ -132,8 +134,10 @@
 	async function submitReply() {
 		if (!selected || !activeReply.trim() || busyId) return;
 		const id = selected.id;
+		const title = selected.title?.trim() || 'Message';
 		const content = activeReply.trim();
 		await onReply(id, content);
+		appToastStore.success('Reply sent', title);
 		replyDraft = '';
 		replyForId = null;
 		selectedId = null;
@@ -157,7 +161,6 @@
 		<div
 			class="inbox-modal"
 			class:has-selection={selected !== null}
-			class:is-empty={messages.length === 0}
 			role="dialog"
 			aria-modal="true"
 			aria-label="Inbox"
@@ -215,7 +218,9 @@
 						<div class="inbox-detail">
 							<p class="detail-title">{selected.title}</p>
 							<p class="detail-meta">{formatRelativeTime(selected.created_at)}</p>
-							<p class="detail-body">{selected.body}</p>
+							<div class="detail-body">
+								<AssistantMarkdown source={selected.body} />
+							</div>
 							{#if showDetailLinks}
 								<div class="detail-links">
 									{#if showJobLink && selected.job_id}
@@ -330,12 +335,6 @@
 		border-radius: 18px;
 		box-shadow: 0 22px 70px rgba(15, 23, 42, 0.18);
 		pointer-events: auto;
-	}
-
-	.inbox-modal.is-empty {
-		height: auto;
-		max-height: min(360px, 70vh);
-		min-height: 240px;
 	}
 
 	.inbox-header {
@@ -536,10 +535,37 @@
 	.detail-body {
 		margin: 0;
 		font-size: 13px;
-		line-height: 1.5;
+		line-height: 1.55;
 		color: var(--text-main);
-		white-space: pre-wrap;
 		flex: 1;
+		min-width: 0;
+		overflow-wrap: anywhere;
+	}
+
+	.detail-body :global(p) {
+		margin: 0 0 0.65em;
+	}
+
+	.detail-body :global(p:last-child) {
+		margin-bottom: 0;
+	}
+
+	.detail-body :global(a) {
+		color: var(--accent);
+		text-decoration: underline;
+		text-underline-offset: 2px;
+	}
+
+	.detail-body :global(ul),
+	.detail-body :global(ol) {
+		margin: 0 0 0.65em;
+		padding-left: 1.25em;
+	}
+
+	.detail-body :global(pre),
+	.detail-body :global(code) {
+		overflow-x: auto;
+		max-width: 100%;
 	}
 
 	.detail-links {

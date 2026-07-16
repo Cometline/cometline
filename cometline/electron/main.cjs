@@ -950,10 +950,23 @@ function shortcutBindingToAccelerator(binding) {
 let shortcutCaptureActive = false;
 let sessionNavigationSuspended = false;
 let webPanelOpen = false;
+let inboxOpen = false;
 
 function sendCloseWebPanel() {
 	if (mainWindow && !mainWindow.isDestroyed()) {
 		mainWindow.webContents.send('cometline:close-web-panel');
+	}
+}
+
+function sendCloseInbox() {
+	if (mainWindow && !mainWindow.isDestroyed()) {
+		mainWindow.webContents.send('cometline:close-inbox');
+	}
+}
+
+function sendRequestCloseWindow() {
+	if (mainWindow && !mainWindow.isDestroyed()) {
+		mainWindow.webContents.send('cometline:request-close-window');
 	}
 }
 
@@ -1399,11 +1412,19 @@ function isDarwinCloseWindowShortcut(input) {
 function handleDarwinCloseWindowShortcut(event, input, onCloseWindow) {
 	if (!isDarwinCloseWindowShortcut(input)) return false;
 	event.preventDefault();
-	if (onCloseWindow === hideMainWindow && webPanelOpen) {
-		sendCloseWebPanel();
-	} else {
-		onCloseWindow();
+	if (onCloseWindow === hideMainWindow) {
+		if (inboxOpen) {
+			sendCloseInbox();
+			return true;
+		}
+		if (webPanelOpen) {
+			sendCloseWebPanel();
+			return true;
+		}
+		sendRequestCloseWindow();
+		return true;
 	}
+	onCloseWindow();
 	return true;
 }
 
@@ -3792,6 +3813,14 @@ ipcMain.on('cometline:session-navigation-suspended', (_event, suspended) => {
 
 ipcMain.on('cometline:web-panel-open', (_event, open) => {
 	webPanelOpen = Boolean(open);
+});
+
+ipcMain.on('cometline:inbox-open', (_event, open) => {
+	inboxOpen = Boolean(open);
+});
+
+ipcMain.on('cometline:confirm-close-window', () => {
+	hideMainWindow();
 });
 
 ipcMain.on('cometline:set-sidebar-open', (_event, payload) => {
