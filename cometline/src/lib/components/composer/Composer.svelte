@@ -242,6 +242,10 @@
 	}
 
 	function fileNameFromSource(source: string): string {
+		if (source.startsWith('@runtime/wiki/')) {
+			const path = source.slice('@runtime/wiki/'.length);
+			return path.split(/[/\\]/).filter(Boolean).pop() || path || 'Wiki';
+		}
 		const path = source.replace(/^workspace-file:/, '');
 		return path.split(/[/\\]/).filter(Boolean).pop() || path || 'File';
 	}
@@ -307,7 +311,7 @@
 		bind:this={input}
 		bind:value
 		skillNames={slash.skillNames}
-		mentionsEnabled={mentions.hasWorkspace}
+		mentionsEnabled={mentions.mentionsEnabled}
 		caretTrail={settingsStore.settings.appearance.caretTrail}
 		caretColor={settingsStore.settings.appearance.heroComposer.glowColor}
 		onkeydown={onKeydown}

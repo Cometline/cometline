@@ -18,6 +18,7 @@ import (
 	"github.com/cometline/cometmind/internal/acp"
 	"github.com/cometline/cometmind/internal/agent"
 	"github.com/cometline/cometmind/internal/autonomy"
+	"github.com/cometline/cometmind/internal/backup"
 	"github.com/cometline/cometmind/internal/config"
 	"github.com/cometline/cometmind/internal/event"
 	"github.com/cometline/cometmind/internal/inbox"
@@ -337,6 +338,59 @@ func (r *Runtime) StartRetentionMaintenance(ctx context.Context) {
 					"vacuumed", result.Vacuumed,
 				)
 			}
+		}
+	}()
+}
+
+// RunBackup creates one zip archive of ~/.cometmind in the configured destination.
+func (r *Runtime) RunBackup(ctx context.Context) (backup.Result, error) {
+	if r == nil {
+		return backup.Result{}, fmt.Errorf("runtime is nil")
+	}
+	cfg := r.Config.EffectiveStorageConfig().Backup
+	if strings.TrimSpace(cfg.DestinationDir) == "" {
+		return backup.Result{}, fmt.Errorf("backup destination directory is not configured")
+	}
+	return (&backup.Archiver{DB: r.DB}).Run(ctx, backup.Config{
+		DestinationDir: cfg.DestinationDir,
+		MaxBackups:     cfg.MaxBackups,
+	})
+}
+
+// StartBackupMaintenance runs automatic zip backups on the configured interval.
+func (r *Runtime) StartBackupMaintenance(ctx context.Context) {
+	if r == nil {
+		return
+	}
+	go func() {
+		for {
+			cfg := r.Config.EffectiveStorageConfig()
+			enabled := cfg.BackupEnabled()
+			interval := time.Duration(cfg.Backup.IntervalHours) * time.Hour
+			if interval <= 0 {
+				interval = 24 * time.Hour
+			}
+			if !enabled {
+				interval = 2 * time.Minute
+			}
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(interval):
+			}
+			if !enabled {
+				continue
+			}
+			result, err := r.RunBackup(ctx)
+			if err != nil {
+				logging.L().Warn("backup.failed", "error", err)
+				continue
+			}
+			logging.L().Info("backup.completed",
+				"path", result.Path,
+				"files_zipped", result.FilesZipped,
+				"removed_old", result.RemovedOld,
+			)
 		}
 	}()
 }

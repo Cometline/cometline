@@ -5,8 +5,9 @@
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { isWebPanelUrl, normalizeUserUrl, openLink } from '$lib/open-link';
 	import { openExternalLink } from '$lib/external-link';
-	import { readWorkspaceFileContent } from '$lib/client/cometmind';
-	import { loadWebPanelFileOptions } from '$lib/workspace/web-panel-input-options';
+	import { readWorkspaceFileContent, readWikiFileContent } from '$lib/client/cometmind';
+	import { loadPanelFileOptions } from '$lib/workspace/panel-file-options';
+	import { isWikiUiPath, toWikiRelative } from '$lib/wiki/paths';
 
 	type WebviewElement = HTMLElement & {
 		src: string;
@@ -256,7 +257,9 @@
 		const captureRun = ++fileCaptureRun;
 		const capturedSessionKey = panelSessionKey;
 		try {
-			const result = await readWorkspaceFileContent(workspacePath, filePath);
+			const result = isWikiUiPath(filePath)
+				? await readWikiFileContent(toWikiRelative(filePath))
+				: await readWorkspaceFileContent(workspacePath, filePath);
 			if (
 				captureRun !== fileCaptureRun ||
 				shellStore.webPanelFilePath !== filePath ||
@@ -267,7 +270,7 @@
 			shellStore.addWebContextForActive({
 				kind: 'file',
 				title: filePath.split(/[/\\]/).pop() || filePath,
-				source: `workspace-file:${filePath}`,
+				source: isWikiUiPath(filePath) ? filePath : `workspace-file:${filePath}`,
 				content: result.content
 			});
 		} catch {
@@ -591,7 +594,7 @@
 
 		const seq = ++fileOptionSeq;
 		fileOptionsLoading = true;
-		void loadWebPanelFileOptions(workspacePath, query)
+		void loadPanelFileOptions(workspacePath, query)
 			.then((options) => {
 				if (seq !== fileOptionSeq) return;
 				fileOptions = options;

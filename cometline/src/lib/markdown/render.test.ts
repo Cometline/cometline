@@ -121,6 +121,13 @@ describe('renderMarkdown', () => {
 		expect(html).toContain('grok.com');
 	});
 
+	it('renders @runtime/wiki paths as clickable file chips', async () => {
+		const html = await renderMarkdown('See @runtime/wiki/index.md for details.');
+		expect(html).toContain('class="file-embed"');
+		expect(html).toContain('data-file-path="@runtime/wiki/index.md"');
+		expect(html).toContain('@runtime/wiki/index.md');
+	});
+
 	it('does not chip a URL inside a markdown link', async () => {
 		const html = await renderMarkdown('[Grok](https://grok.com)');
 		expect(html).not.toContain('link-embed');
@@ -187,6 +194,12 @@ describe('renderUserText', () => {
 		expect(html).toContain('data-file-path="src/lib/foo.ts"');
 		expect(html).toContain('review ');
 		expect(html).toContain(' please');
+	});
+
+	it('turns @runtime/wiki mentions into embed chips with runtime paths', () => {
+		const html = renderUserText('see @runtime/wiki/index.md');
+		expect(html).toContain('data-file-path="@runtime/wiki/index.md"');
+		expect(html).toContain('@runtime/wiki/index.md');
 	});
 
 	it('turns slash skills into embed chips', () => {

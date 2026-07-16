@@ -8,7 +8,7 @@ import { fly } from 'svelte/transition';
 		scheduleCustomCaretMeasure,
 		type CustomCaretState
 	} from '$lib/dom/custom-caret';
-	import { faviconUrl, domainFromUrl, isHttpUrl } from '$lib/markdown/embed';
+	import { faviconUrl, domainFromUrl, isHttpUrl, fileMentionText } from '$lib/markdown/embed';
 	import { openLink } from '$lib/open-link';
 	import { openWorkspaceFilePreview } from '$lib/workspace/open-file-preview';
 
@@ -68,7 +68,7 @@ import { fly } from 'svelte/transition';
 					} else if (child.dataset.skillCommand) {
 						out += child.dataset.skillCommand;
 					} else if (child.dataset.filePath) {
-						out += '@' + child.dataset.filePath;
+						out += fileMentionText(child.dataset.filePath);
 					} else if (child.tagName === 'BR') {
 						out += '\n';
 					} else {
@@ -160,7 +160,7 @@ import { fly } from 'svelte/transition';
 
 		const label = document.createElement('span');
 		label.className = 'rce-chip-label';
-		label.textContent = '@' + path;
+		label.textContent = fileMentionText(path);
 		chip.appendChild(label);
 		return chip;
 	}

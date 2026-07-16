@@ -112,6 +112,13 @@ export interface CometMindMemorySettings {
 	};
 }
 
+export interface CometMindStorageBackupSettings {
+	enabled: boolean;
+	destinationDir: string;
+	intervalHours: number;
+	maxBackups: number;
+}
+
 export interface CometMindStorageSettings {
 	cleanupIntervalMinutes: number;
 	retentionDays: number;
@@ -123,6 +130,7 @@ export interface CometMindStorageSettings {
 	toolOutputRetentionDays: number;
 	/** Delete ~/.cometmind/agent-tmp files older than N days. 0 disables. */
 	agentTmpRetentionDays: number;
+	backup: CometMindStorageBackupSettings;
 }
 
 export type MCPTransport = 'stdio' | 'http' | 'sse';
@@ -493,6 +501,15 @@ export function defaultCometMindSchedulerSettings(): CometMindSchedulerSettings 
 	return { enabled: false, pollIntervalSeconds: 60 };
 }
 
+export function defaultCometMindStorageBackupSettings(): CometMindStorageBackupSettings {
+	return {
+		enabled: false,
+		destinationDir: '',
+		intervalHours: 24,
+		maxBackups: 7
+	};
+}
+
 export function defaultCometMindStorageSettings(): CometMindStorageSettings {
 	return {
 		cleanupIntervalMinutes: 60,
@@ -502,7 +519,8 @@ export function defaultCometMindStorageSettings(): CometMindStorageSettings {
 		deletedJobPurgeDays: 30,
 		vacuumAfterPurge: true,
 		toolOutputRetentionDays: 7,
-		agentTmpRetentionDays: 3
+		agentTmpRetentionDays: 3,
+		backup: defaultCometMindStorageBackupSettings()
 	};
 }
 
@@ -728,7 +746,24 @@ export function normalizeCometMindSettings(
 			agentTmpRetentionDays: normalizeNonNegativeInt(
 				storage.agentTmpRetentionDays,
 				defaults.storage.agentTmpRetentionDays
-			)
+			),
+			backup: {
+				enabled:
+					typeof storage.backup?.enabled === 'boolean'
+						? storage.backup.enabled
+						: defaults.storage.backup.enabled,
+				destinationDir: String(
+					storage.backup?.destinationDir ?? defaults.storage.backup.destinationDir
+				).trim(),
+				intervalHours: normalizePositiveInt(
+					storage.backup?.intervalHours,
+					defaults.storage.backup.intervalHours
+				),
+				maxBackups: normalizeNonNegativeInt(
+					storage.backup?.maxBackups,
+					defaults.storage.backup.maxBackups
+				)
+			}
 		},
 		gateway: {
 			discord: {
@@ -1347,7 +1382,13 @@ const providerSettingsSchema = z.object({
 			deletedJobPurgeDays: z.number().int().min(0),
 			vacuumAfterPurge: z.boolean(),
 			toolOutputRetentionDays: z.number().int().min(0),
-			agentTmpRetentionDays: z.number().int().min(0)
+			agentTmpRetentionDays: z.number().int().min(0),
+			backup: z.object({
+				enabled: z.boolean(),
+				destinationDir: z.string(),
+				intervalHours: z.number().int().min(1),
+				maxBackups: z.number().int().min(0)
+			})
 		}),
 		gateway: z.object({
 			discord: z.object({

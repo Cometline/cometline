@@ -105,8 +105,8 @@ func (w Workspace) LockWorkspace() (unlock func()) {
 // MountDocs returns the coding-prompt lines describing runtime mounts.
 func MountDocs() string {
 	return "The managed runtime mounts are available without exposing secrets: " +
-		"@runtime/tool-output is read-only, @runtime/tmp is shared read/write across sessions, and " +
-		"@runtime/wiki is a persistent shared read/write knowledge wiki. " +
+		"@runtime/tool-output is read-only, @runtime/tmp is shared read/write across sessions, " +
+		"and @runtime/wiki is the persistent LLM Wiki (read/write, not age-purged). " +
 		"Use these aliases instead of guessing ~/.cometmind paths."
 }
 
@@ -136,8 +136,11 @@ func runtimeMountRoot(mount string) (string, error) {
 		return "", err
 	}
 	name := mount
-	if mount == runtimeTmpMount {
+	switch mount {
+	case runtimeTmpMount:
 		name = "agent-tmp"
+	case runtimeWikiMount:
+		return paths.WikiDir()
 	}
 	root := filepath.Join(dataDir, name)
 	if err := os.MkdirAll(root, 0o700); err != nil {

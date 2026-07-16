@@ -116,6 +116,20 @@ func AgentTmpDir() (string, error) {
 	return dir, nil
 }
 
+// WikiDir returns ~/.cometmind/wiki (created if missing).
+// Persistent LLM Wiki storage; not age-purged by retention.
+func WikiDir() (string, error) {
+	d, err := DataDir()
+	if err != nil {
+		return "", err
+	}
+	dir := filepath.Join(d, "wiki")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return "", err
+	}
+	return dir, nil
+}
+
 // MCPOAuthDir returns ~/.cometmind/mcp-oauth (created if missing).
 func MCPOAuthDir() (string, error) {
 	d, err := DataDir()

@@ -19,6 +19,7 @@ func (EditFile) Spec() ToolSpec {
 		Name: "edit_file",
 		Description: "Replace text in an existing file (search/replace). " +
 			"Prefer this over write_file for modifying existing files. " +
+			"Works on workspace paths and @runtime/tmp/... / @runtime/wiki/.... " +
 			"old_string must uniquely identify the target (or set replace_all). " +
 			"Fuzzy matching tolerates minor whitespace/indentation drift. " +
 			"Returns a unified diff on success.",

@@ -75,6 +75,42 @@ export type WorkspaceFileList = {
     truncated?: boolean;
 };
 
+export type WikiFileList = {
+    /**
+     * Wiki-root-relative markdown file paths.
+     */
+    files: Array<string>;
+    /**
+     * True when more matching files exist than the limit returned.
+     */
+    truncated?: boolean;
+};
+
+export type WikiFileTextContent = {
+    kind: 'text';
+    content: string;
+    extension: string;
+};
+
+export type WikiFileImageContent = {
+    kind: 'image';
+    mime_type: string;
+    data_url: string;
+};
+
+export type WikiFileContent = WikiFileTextContent | WikiFileImageContent;
+
+export type WriteWikiFileRequest = {
+    /**
+     * Wiki-root-relative file path.
+     */
+    path: string;
+    /**
+     * UTF-8 text content to write.
+     */
+    content: string;
+};
+
 export type WorkspaceFileTextContent = {
     kind: 'text';
     content: string;
@@ -125,7 +161,11 @@ export type PostMessageRequest = {
      */
     images?: Array<ImageAttachment>;
     /**
-     * Workspace-relative file paths to include as context. Each file must be a readable text file at most 256 KB.
+     * File paths to include as context. Workspace-relative paths resolve against
+     * the session workspace. Paths starting with `@runtime/wiki/` resolve against
+     * the global LLM wiki at `~/.cometmind/wiki/`. Each file must be readable
+     * text at most 256 KB.
+     *
      */
     file_paths?: Array<string>;
     web_context?: WebPageContext;
@@ -656,6 +696,13 @@ export type RunStorageRetentionResponse = {
     vacuumed: boolean;
 };
 
+export type RunStorageBackupResponse = {
+    status: string;
+    path: string;
+    files_zipped: number;
+    removed_old: number;
+};
+
 export type CompactMemoryPreviewResponse = {
     to_forget: Array<MemoryResource>;
     to_merge: Array<Array<MemoryResource>>;
@@ -1139,6 +1186,103 @@ export type WriteWorkspaceFileContentResponses = {
 };
 
 export type WriteWorkspaceFileContentResponse = WriteWorkspaceFileContentResponses[keyof WriteWorkspaceFileContentResponses];
+
+export type ListWikiFilesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Optional substring filter on the relative file path.
+         */
+        q?: string;
+        /**
+         * Maximum number of results to return.
+         */
+        limit?: number;
+    };
+    url: '/api/v1/wiki/files';
+};
+
+export type ListWikiFilesErrors = {
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type ListWikiFilesError = ListWikiFilesErrors[keyof ListWikiFilesErrors];
+
+export type ListWikiFilesResponses = {
+    /**
+     * Wiki file list
+     */
+    200: WikiFileList;
+};
+
+export type ListWikiFilesResponse = ListWikiFilesResponses[keyof ListWikiFilesResponses];
+
+export type ReadWikiFileContentData = {
+    body?: never;
+    path?: never;
+    query: {
+        /**
+         * Wiki-root-relative file path (e.g. `index.md`, `entities/foo.md`).
+         */
+        path: string;
+    };
+    url: '/api/v1/wiki/files/content';
+};
+
+export type ReadWikiFileContentErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type ReadWikiFileContentError = ReadWikiFileContentErrors[keyof ReadWikiFileContentErrors];
+
+export type ReadWikiFileContentResponses = {
+    /**
+     * File preview content
+     */
+    200: WikiFileContent;
+};
+
+export type ReadWikiFileContentResponse = ReadWikiFileContentResponses[keyof ReadWikiFileContentResponses];
+
+export type WriteWikiFileContentData = {
+    body: WriteWikiFileRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/wiki/files/content';
+};
+
+export type WriteWikiFileContentErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type WriteWikiFileContentError = WriteWikiFileContentErrors[keyof WriteWikiFileContentErrors];
+
+export type WriteWikiFileContentResponses = {
+    /**
+     * File saved
+     */
+    204: void;
+};
+
+export type WriteWikiFileContentResponse = WriteWikiFileContentResponses[keyof WriteWikiFileContentResponses];
 
 export type ListSessionsData = {
     body?: never;
@@ -2414,6 +2558,35 @@ export type RunStorageRetentionResponses = {
 };
 
 export type RunStorageRetentionResponse2 = RunStorageRetentionResponses[keyof RunStorageRetentionResponses];
+
+export type RunStorageBackupData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/storage/backup/runs';
+};
+
+export type RunStorageBackupErrors = {
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+    /**
+     * Backup unavailable
+     */
+    503: SimpleErrorResponse;
+};
+
+export type RunStorageBackupError = RunStorageBackupErrors[keyof RunStorageBackupErrors];
+
+export type RunStorageBackupResponses = {
+    /**
+     * Backup result
+     */
+    200: RunStorageBackupResponse;
+};
+
+export type RunStorageBackupResponse2 = RunStorageBackupResponses[keyof RunStorageBackupResponses];
 
 export type ListJobsData = {
     body?: never;

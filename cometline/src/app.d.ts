@@ -183,6 +183,13 @@ declare global {
 		};
 	}
 
+	interface CometMindStorageBackupSettings {
+		enabled: boolean;
+		destinationDir: string;
+		intervalHours: number;
+		maxBackups: number;
+	}
+
 	interface CometMindStorageSettings {
 		cleanupIntervalMinutes: number;
 		retentionDays: number;
@@ -192,6 +199,7 @@ declare global {
 		vacuumAfterPurge: boolean;
 		toolOutputRetentionDays: number;
 		agentTmpRetentionDays: number;
+		backup: CometMindStorageBackupSettings;
 	}
 
 	interface CometMindJobsNotificationSettings {
@@ -382,13 +390,12 @@ declare global {
 					restartCometMind?: boolean;
 				}
 			) => Promise<SaveProviderSettingsResult>;
-			exportProviderSettings?: () => Promise<SettingsFileResult>;
-			importProviderSettings?: () => Promise<SettingsFileResult>;
 			setSidebarOpen?: (state: SidebarChromeState) => void;
 			getFullScreen?: () => Promise<boolean>;
 			onFullScreenChange?: (callback: (isFullScreen: boolean) => void) => () => void;
 			getWorkspacePath?: () => Promise<string>;
 			selectWorkspacePath?: () => Promise<string | null>;
+			selectBackupFolder?: () => Promise<SettingsFileResult>;
 			setWorkspacePath?: (workspacePath: string) => Promise<string>;
 			listRecentWorkspaces?: () => Promise<string[]>;
 			removeRecentWorkspacePath?: (workspacePath: string) => Promise<{ removed: boolean }>;

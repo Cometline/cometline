@@ -29,9 +29,13 @@ import {
 	listWorkspaceFiles as listWorkspaceFilesApi,
 	readWorkspaceFileContent as readWorkspaceFileContentApi,
 	writeWorkspaceFileContent as writeWorkspaceFileContentApi,
+	listWikiFiles as listWikiFilesApi,
+	readWikiFileContent as readWikiFileContentApi,
+	writeWikiFileContent as writeWikiFileContentApi,
 	patchSession as patchSessionApi,
 	putMemorySettings as putMemorySettingsApi,
 	runStorageRetention as runStorageRetentionApi,
+	runStorageBackup as runStorageBackupApi,
 	reconnectMcpServer as reconnectMcpServerApi,
 	rejectSkillDraft as rejectSkillDraftApi,
 	promoteSkillDraft as promoteSkillDraftApi,
@@ -80,6 +84,7 @@ import type {
 	MemorySettings as MemorySettingsWire,
 	PostMessageRequest,
 	RunStorageRetentionResponse,
+	RunStorageBackupResponse,
 	Session,
 	SessionListResponse,
 	StreamEvent,
@@ -117,7 +122,8 @@ export type {
 	McpTestResult,
 	McpToolInfo,
 	MemoryResource,
-	RunStorageRetentionResponse
+	RunStorageRetentionResponse,
+	RunStorageBackupResponse
 } from '$lib/generated/cometmind-api';
 
 export type {
@@ -272,6 +278,10 @@ export function runStorageRetention(): Promise<RunStorageRetentionResponse> {
 	return runStorageRetentionApi({ throwOnError: true }).then(({ data }) => data);
 }
 
+export function runStorageBackup(): Promise<RunStorageBackupResponse> {
+	return runStorageBackupApi({ throwOnError: true }).then(({ data }) => data);
+}
+
 export interface WorkspaceFiles {
 	files: string[];
 	truncated: boolean;
@@ -285,7 +295,7 @@ export function listWorkspaceFiles(
 	return listWorkspaceFilesApi({
 		query: { workspace_path: workspacePath, q: query, limit },
 		throwOnError: true
-	}).then(({ data }) => ({ files: data.files, truncated: Boolean(data.truncated) }));
+	}).then(({ data }) => ({ files: data.files ?? [], truncated: Boolean(data.truncated) }));
 }
 
 export function readWorkspaceFileContent(
@@ -305,6 +315,27 @@ export async function writeWorkspaceFileContent(
 ): Promise<void> {
 	await writeWorkspaceFileContentApi({
 		body: { workspace_path: workspacePath, path, content },
+		throwOnError: true
+	});
+}
+
+export function listWikiFiles(query = '', limit = 50): Promise<WorkspaceFiles> {
+	return listWikiFilesApi({
+		query: { q: query, limit },
+		throwOnError: true
+	}).then(({ data }) => ({ files: data.files ?? [], truncated: Boolean(data.truncated) }));
+}
+
+export function readWikiFileContent(path: string): Promise<WorkspaceFileContent> {
+	return readWikiFileContentApi({
+		query: { path },
+		throwOnError: true
+	}).then(({ data }) => data as WorkspaceFileContent);
+}
+
+export async function writeWikiFileContent(path: string, content: string): Promise<void> {
+	await writeWikiFileContentApi({
+		body: { path, content },
 		throwOnError: true
 	});
 }

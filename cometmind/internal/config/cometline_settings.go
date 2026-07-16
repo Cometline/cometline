@@ -80,17 +80,23 @@ type cometlineDiscordJSON struct {
 	WorkspacePath   string   `json:"workspacePath"`
 }
 
+type cometlineStorageBackupJSON struct {
+	Enabled        bool   `json:"enabled"`
+	DestinationDir string `json:"destinationDir"`
+	IntervalHours  int    `json:"intervalHours"`
+	MaxBackups     int    `json:"maxBackups"`
+}
+
 type cometlineStorageJSON struct {
-	CleanupIntervalMinutes  int  `json:"cleanupIntervalMinutes"`
-	RetentionDays           int  `json:"retentionDays"`
-	MaxSessionsPerWorkspace int  `json:"maxSessionsPerWorkspace"`
-	ArchivedMemoryPurgeDays int  `json:"archivedMemoryPurgeDays"`
-	DeletedJobPurgeDays     int  `json:"deletedJobPurgeDays"`
-	VacuumAfterPurge        bool `json:"vacuumAfterPurge"`
-	// Pointers so omitted keys (pre-upgrade settings) get defaults, while
-	// explicit 0 still means "disable".
-	ToolOutputRetentionDays *int `json:"toolOutputRetentionDays"`
-	AgentTmpRetentionDays   *int `json:"agentTmpRetentionDays"`
+	CleanupIntervalMinutes  int                      `json:"cleanupIntervalMinutes"`
+	RetentionDays           int                      `json:"retentionDays"`
+	MaxSessionsPerWorkspace int                      `json:"maxSessionsPerWorkspace"`
+	ArchivedMemoryPurgeDays int                      `json:"archivedMemoryPurgeDays"`
+	DeletedJobPurgeDays     int                      `json:"deletedJobPurgeDays"`
+	VacuumAfterPurge        bool                     `json:"vacuumAfterPurge"`
+	ToolOutputRetentionDays *int                     `json:"toolOutputRetentionDays"`
+	AgentTmpRetentionDays   *int                     `json:"agentTmpRetentionDays"`
+	Backup                  cometlineStorageBackupJSON `json:"backup"`
 }
 
 type cometlineMCPOAuthJSON struct {
@@ -431,6 +437,18 @@ func adaptStorageConfig(cm cometlineStorageJSON) StorageConfig {
 		s.AgentTmpRetentionDays = *cm.AgentTmpRetentionDays
 	} else if hasOther {
 		s.AgentTmpRetentionDays = def.AgentTmpRetentionDays
+	}
+	s.Backup = StorageBackupConfig{
+		Enabled:        cm.Backup.Enabled,
+		DestinationDir: strings.TrimSpace(cm.Backup.DestinationDir),
+		IntervalHours:  cm.Backup.IntervalHours,
+		MaxBackups:     cm.Backup.MaxBackups,
+	}
+	if s.Backup.IntervalHours == 0 {
+		s.Backup.IntervalHours = def.Backup.IntervalHours
+	}
+	if s.Backup.MaxBackups == 0 && !s.Backup.Enabled {
+		s.Backup.MaxBackups = def.Backup.MaxBackups
 	}
 	return s
 }

@@ -1,10 +1,15 @@
 import { tick } from 'svelte';
 import { shellStore } from '$lib/stores/shell.svelte';
 import {
+	resolveMentionSourcePaths,
+	shouldRunMentionServerSearch
+} from '$lib/components/composer/composer-mention-search';
+import {
 	filterFileIndex,
 	getFileIndex,
 	isFileIndexFresh,
 	isFileIndexReady,
+	normalizeWorkspacePath,
 	refreshFileIndex,
 	searchWorkspaceFiles
 } from '$lib/workspace/file-index';
@@ -47,42 +52,57 @@ export function createComposerMentionsController(deps: {
 	let mentionServerResults = $state<string[]>([]);
 	let mentionServerQuery = $state('');
 	let mentionServerLoading = $state(false);
+	let mentionSearchPending = $state(false);
 	let mentionSearchTimer: ReturnType<typeof setTimeout> | null = null;
 	let mentionSearchSeq = 0;
 
-	const hasWorkspace = $derived(
-		Boolean(shellStore.workspacePath) && shellStore.workspacePath !== '/'
-	);
+	const activeWorkspacePath = $derived(normalizeWorkspacePath(shellStore.workspacePath));
+	const hasWorkspace = $derived(Boolean(activeWorkspacePath) && activeWorkspacePath !== '/');
+	const mentionsEnabled = $derived(hasWorkspace);
 
 	const fileIndex = $derived.by(() => {
 		void mentionIndexVersion;
-		return getFileIndex(shellStore.workspacePath);
+		return hasWorkspace ? getFileIndex(activeWorkspacePath) : null;
 	});
 
 	const fileIndexReady = $derived.by(() => {
 		void mentionIndexVersion;
-		return isFileIndexReady(shellStore.workspacePath);
+		return hasWorkspace ? isFileIndexReady(activeWorkspacePath) : false;
 	});
 
 	const mentionTruncated = $derived(Boolean(fileIndex?.truncated));
 
-	const useServerSearch = $derived(mentionTruncated && mentionQuery.trim().length > 0);
+	const localMatches = $derived.by(() =>
+		filterFileIndex(fileIndex?.files ?? [], mentionQuery)
+	);
 
-	const filteredMentionFiles = $derived.by(() => {
-		if (useServerSearch) {
-			if (mentionServerQuery === mentionQuery.trim()) return mentionServerResults;
-			return [];
-		}
-		const files = fileIndex?.files ?? [];
-		return filterFileIndex(files, mentionQuery);
-	});
+	const queryTrimmed = $derived(mentionQuery.trim());
+
+	const needsServerSearch = $derived(
+		shouldRunMentionServerSearch(Boolean(fileIndex?.truncated), queryTrimmed, localMatches)
+	);
+
+	const useServerSearch = $derived(needsServerSearch);
+
+	const filteredMentionFiles = $derived.by(() =>
+		resolveMentionSourcePaths(
+			localMatches,
+			mentionServerResults,
+			mentionServerQuery,
+			queryTrimmed,
+			needsServerSearch
+		)
+	);
 
 	$effect(() => {
-		const workspacePath = shellStore.workspacePath;
-		if (!workspacePath) return;
+		const workspacePath = activeWorkspacePath;
+		if (!workspacePath || workspacePath === '/') return;
 		if (isFileIndexReady(workspacePath)) return;
 		const handle = scheduleIdle(() => {
-			if (shellStore.workspacePath === workspacePath && !isFileIndexReady(workspacePath)) {
+			if (
+				normalizeWorkspacePath(shellStore.workspacePath) === workspacePath &&
+				!isFileIndexReady(workspacePath)
+			) {
 				void loadMentionIndex(workspacePath);
 			}
 		});
@@ -97,21 +117,26 @@ export function createComposerMentionsController(deps: {
 	});
 
 	$effect(() => {
-		const workspacePath = shellStore.workspacePath;
-		const query = mentionQuery.trim();
-		if (!mentionMenuOpen || !useServerSearch) {
+		const workspacePath = activeWorkspacePath;
+		const query = queryTrimmed;
+		if (!mentionMenuOpen || !needsServerSearch) {
 			if (mentionSearchTimer) clearTimeout(mentionSearchTimer);
 			mentionSearchTimer = null;
+			mentionServerLoading = false;
+			mentionSearchPending = false;
 			return;
 		}
 		if (mentionSearchTimer) clearTimeout(mentionSearchTimer);
 		const seq = ++mentionSearchSeq;
-		mentionServerLoading = true;
+		mentionSearchPending = true;
+		mentionServerLoading = false;
 		mentionSearchTimer = setTimeout(() => {
+			mentionSearchPending = false;
+			mentionServerLoading = true;
 			void searchWorkspaceFiles(workspacePath, query)
 				.then((files) => {
 					if (seq !== mentionSearchSeq) return;
-					mentionServerResults = files;
+					mentionServerResults = files ?? [];
 					mentionServerQuery = query;
 				})
 				.catch(() => {
@@ -126,6 +151,7 @@ export function createComposerMentionsController(deps: {
 		return () => {
 			if (mentionSearchTimer) clearTimeout(mentionSearchTimer);
 			mentionSearchTimer = null;
+			mentionSearchPending = false;
 		};
 	});
 
@@ -135,6 +161,7 @@ export function createComposerMentionsController(deps: {
 		mentionServerResults = [];
 		mentionServerQuery = '';
 		mentionServerLoading = false;
+		mentionSearchPending = false;
 		mentionSearchSeq += 1;
 		if (mentionSearchTimer) clearTimeout(mentionSearchTimer);
 		mentionSearchTimer = null;
@@ -161,8 +188,8 @@ export function createComposerMentionsController(deps: {
 			return;
 		}
 		if (!hasWorkspace) return;
-		if (!isFileIndexFresh(shellStore.workspacePath)) {
-			void loadMentionIndex(shellStore.workspacePath);
+		if (!isFileIndexFresh(activeWorkspacePath)) {
+			void loadMentionIndex(activeWorkspacePath);
 		}
 		mentionQuery = payload.query;
 		mentionMenuOpen = true;
@@ -222,6 +249,9 @@ export function createComposerMentionsController(deps: {
 		get hasWorkspace() {
 			return hasWorkspace;
 		},
+		get mentionsEnabled() {
+			return mentionsEnabled;
+		},
 		get mentionMenuOpen() {
 			return mentionMenuOpen;
 		},
@@ -245,6 +275,9 @@ export function createComposerMentionsController(deps: {
 		},
 		get mentionServerLoading() {
 			return mentionServerLoading;
+		},
+		get mentionSearchPending() {
+			return mentionSearchPending;
 		},
 		get mentionQuery() {
 			return mentionQuery;

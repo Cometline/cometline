@@ -51,3 +51,16 @@ func TestProcessPathsUseDataDir(t *testing.T) {
 		t.Fatalf("desktop path = %q", desktopPath)
 	}
 }
+
+func TestWikiDirUsesDataDir(t *testing.T) {
+	override := filepath.Join(t.TempDir(), "state")
+	t.Setenv("COMETMIND_DATA_DIR", override)
+
+	got, err := WikiDir()
+	if err != nil {
+		t.Fatalf("WikiDir() error = %v", err)
+	}
+	if got != filepath.Join(override, "wiki") {
+		t.Fatalf("WikiDir() = %q, want %q/wiki", got, override)
+	}
+}

@@ -1,5 +1,15 @@
 package config
 
+import "strings"
+
+// StorageBackupConfig controls automatic zip backups of ~/.cometmind.
+type StorageBackupConfig struct {
+	Enabled         bool   `json:"enabled" mapstructure:"enabled"`
+	DestinationDir  string `json:"destination_dir" mapstructure:"destination_dir"`
+	IntervalHours   int    `json:"interval_hours" mapstructure:"interval_hours"`
+	MaxBackups      int    `json:"max_backups" mapstructure:"max_backups"`
+}
+
 // StorageConfig controls automatic session retention and memory purge.
 type StorageConfig struct {
 	// CleanupIntervalMinutes runs automatic cleanup this often. 0 uses the default interval.
@@ -20,6 +30,16 @@ type StorageConfig struct {
 	ToolOutputRetentionDays int `json:"tool_output_retention_days" mapstructure:"tool_output_retention_days"`
 	// AgentTmpRetentionDays deletes files under ~/.cometmind/agent-tmp older than N days. 0 disables.
 	AgentTmpRetentionDays int `json:"agent_tmp_retention_days" mapstructure:"agent_tmp_retention_days"`
+	Backup                StorageBackupConfig `json:"backup" mapstructure:"backup"`
+}
+
+func defaultStorageBackupConfig() StorageBackupConfig {
+	return StorageBackupConfig{
+		Enabled:        false,
+		DestinationDir: "",
+		IntervalHours:  24,
+		MaxBackups:     7,
+	}
 }
 
 func defaultStorageConfig() StorageConfig {
@@ -33,7 +53,13 @@ func defaultStorageConfig() StorageConfig {
 		DeletedJobPurgeDays:     30,
 		ToolOutputRetentionDays: 7,
 		AgentTmpRetentionDays:   3,
+		Backup:                  defaultStorageBackupConfig(),
 	}
+}
+
+// BackupEnabled reports whether automatic backups should run.
+func (s StorageConfig) BackupEnabled() bool {
+	return s.Backup.Enabled && strings.TrimSpace(s.Backup.DestinationDir) != ""
 }
 
 // RetentionEnabled reports whether any session retention rule is active.
@@ -65,6 +91,12 @@ func (c *Config) EffectiveStorageConfig() StorageConfig {
 	def := defaultStorageConfig()
 	if s.CleanupIntervalMinutes == 0 {
 		s.CleanupIntervalMinutes = def.CleanupIntervalMinutes
+	}
+	if s.Backup.IntervalHours == 0 {
+		s.Backup.IntervalHours = def.Backup.IntervalHours
+	}
+	if s.Backup.MaxBackups == 0 && !s.Backup.Enabled {
+		s.Backup.MaxBackups = def.Backup.MaxBackups
 	}
 	return s
 }
