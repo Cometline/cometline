@@ -151,7 +151,7 @@ describe('keyboard-shortcuts', () => {
 
 	it('includes toggleMiniWindow default shortcut', () => {
 		const normalized = normalizeKeyboardShortcuts({});
-		expect(normalized.toggleMiniWindow).toEqual({ command: true, shift: true, key: 'k' });
+		expect(normalized.toggleMiniWindow).toEqual({ command: true, shift: true, key: 'l' });
 	});
 
 	it('defaults stop response to Ctrl+C while preserving a saved Cmd+C binding', () => {
