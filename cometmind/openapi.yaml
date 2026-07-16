@@ -255,6 +255,88 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/v1/wiki/files:
+    get:
+      tags: [Files]
+      summary: List markdown files in the LLM wiki
+      description: |
+        Returns wiki-root-relative `.md` paths under `~/.cometmind/wiki/`.
+        Hidden files and non-markdown files are skipped.
+      operationId: listWikiFiles
+      parameters:
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Optional substring filter on the relative file path.
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+            maximum: 500
+          description: Maximum number of results to return.
+      responses:
+        '200':
+          description: Wiki file list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WikiFileList'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/wiki/files/content:
+    get:
+      tags: [Files]
+      summary: Read a wiki file for preview
+      description: |
+        Returns the contents of a wiki-root-relative file for in-app preview.
+        Text files return UTF-8 content; common image types return a data URL.
+        Files larger than 256 KB cannot be previewed.
+      operationId: readWikiFileContent
+      parameters:
+        - name: path
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Wiki-root-relative file path (e.g. `index.md`, `entities/foo.md`).
+      responses:
+        '200':
+          description: File preview content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WikiFileContent'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    put:
+      tags: [Files]
+      summary: Write a wiki file for preview editing
+      description: |
+        Writes UTF-8 text content back to an existing wiki file.
+        `raw/**` and `WIKI.md` are read-only. Image files, binary content,
+        and files larger than 256 KB are rejected.
+      operationId: writeWikiFileContent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WriteWikiFileRequest'
+      responses:
+        '204':
+          description: File saved
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /api/v1/sessions:
     post:
       tags: [Sessions]
@@ -1296,6 +1378,31 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/v1/storage/backup/runs:
+    post:
+      tags: [Storage]
+      summary: Run CometMind data backup
+      description: |
+        Zips the entire ~/.cometmind data directory (wiki, database, settings,
+        skills, OAuth tokens, etc.) into the configured backup destination folder.
+        Requires `cometmind.storage.backup.destinationDir` to be set.
+      operationId: runStorageBackup
+      responses:
+        '200':
+          description: Backup result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunStorageBackupResponse'
+        '503':
+          description: Backup unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimpleErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /api/v1/jobs:
     get:
       tags: [Jobs]
@@ -1935,6 +2042,63 @@ components:
           type: boolean
           description: True when more matching files exist than the limit returned. Narrow with the q query parameter to find files not in this page.
 
+    WikiFileList:
+      type: object
+      additionalProperties: false
+      required: [files]
+      properties:
+        files:
+          type: array
+          items:
+            type: string
+          description: Wiki-root-relative markdown file paths.
+        truncated:
+          type: boolean
+          description: True when more matching files exist than the limit returned.
+
+    WikiFileTextContent:
+      type: object
+      additionalProperties: false
+      required: [kind, content, extension]
+      properties:
+        kind:
+          type: string
+          enum: [text]
+        content:
+          type: string
+        extension:
+          type: string
+
+    WikiFileImageContent:
+      type: object
+      additionalProperties: false
+      required: [kind, mime_type, data_url]
+      properties:
+        kind:
+          type: string
+          enum: [image]
+        mime_type:
+          type: string
+        data_url:
+          type: string
+
+    WikiFileContent:
+      oneOf:
+        - $ref: '#/components/schemas/WikiFileTextContent'
+        - $ref: '#/components/schemas/WikiFileImageContent'
+
+    WriteWikiFileRequest:
+      type: object
+      additionalProperties: false
+      required: [path, content]
+      properties:
+        path:
+          type: string
+          description: Wiki-root-relative file path.
+        content:
+          type: string
+          description: UTF-8 text content to write.
+
     WorkspaceFileTextContent:
       type: object
       additionalProperties: false
@@ -2004,7 +2168,11 @@ components:
         file_paths:
           type: array
           maxItems: 8
-          description: Workspace-relative file paths to include as context. Each file must be a readable text file at most 256 KB.
+          description: |
+            File paths to include as context. Workspace-relative paths resolve against
+            the session workspace. Paths starting with `@runtime/wiki/` resolve against
+            the global LLM wiki at `~/.cometmind/wiki/`. Each file must be readable
+            text at most 256 KB.
           items:
             type: string
         web_context:
@@ -2973,6 +3141,22 @@ components:
           minimum: 0
         vacuumed:
           type: boolean
+
+    RunStorageBackupResponse:
+      type: object
+      additionalProperties: false
+      required: [status, path, files_zipped, removed_old]
+      properties:
+        status:
+          type: string
+        path:
+          type: string
+        files_zipped:
+          type: integer
+          minimum: 0
+        removed_old:
+          type: integer
+          minimum: 0
 
     CompactMemoryPreviewResponse:
       type: object
