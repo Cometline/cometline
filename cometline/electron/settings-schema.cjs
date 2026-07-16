@@ -4228,6 +4228,24 @@ var SHORTCUT_DEFINITIONS = [
     defaultBinding: { command: true, key: "o" }
   },
   {
+    id: "openJobs",
+    label: "Open jobs",
+    category: "panels",
+    defaultBinding: { command: true, key: "1" }
+  },
+  {
+    id: "openSkillDrafts",
+    label: "Open skill drafts",
+    category: "panels",
+    defaultBinding: { command: true, key: "2" }
+  },
+  {
+    id: "openInbox",
+    label: "Open inbox",
+    category: "panels",
+    defaultBinding: { command: true, key: "3" }
+  },
+  {
     id: "openSettings",
     label: "Open settings",
     category: "settings",

@@ -57,7 +57,10 @@ declare global {
 		| 'previousSession'
 		| 'nextSession'
 		| 'toggleWebPanel'
-		| 'openWebPanel';
+		| 'openWebPanel'
+		| 'openJobs'
+		| 'openSkillDrafts'
+		| 'openInbox';
 
 	interface ShortcutBinding {
 		key: string;
