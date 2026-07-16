@@ -72,6 +72,7 @@ describe('settings schema', () => {
 		const normalized = normalizeCometMindSettings({
 			...defaults,
 			acp: {
+				enabled: false,
 				defaultHarness: 'codex',
 				command: 'custom-agent',
 				args: ['--user-controlled'],
