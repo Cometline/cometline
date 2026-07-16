@@ -87,6 +87,10 @@ type cometlineStorageJSON struct {
 	ArchivedMemoryPurgeDays int  `json:"archivedMemoryPurgeDays"`
 	DeletedJobPurgeDays     int  `json:"deletedJobPurgeDays"`
 	VacuumAfterPurge        bool `json:"vacuumAfterPurge"`
+	// Pointers so omitted keys (pre-upgrade settings) get defaults, while
+	// explicit 0 still means "disable".
+	ToolOutputRetentionDays *int `json:"toolOutputRetentionDays"`
+	AgentTmpRetentionDays   *int `json:"agentTmpRetentionDays"`
 }
 
 type cometlineMCPOAuthJSON struct {
@@ -294,14 +298,7 @@ func adaptCometlineSettings(raw cometlineSettingsJSON) (*Config, error) {
 				APIKey:     cm.Memory.Embedding.APIKey,
 			},
 		},
-		Storage: StorageConfig{
-			CleanupIntervalMinutes:  cm.Storage.CleanupIntervalMinutes,
-			RetentionDays:           cm.Storage.RetentionDays,
-			MaxSessionsPerWorkspace: cm.Storage.MaxSessionsPerWorkspace,
-			ArchivedMemoryPurgeDays: cm.Storage.ArchivedMemoryPurgeDays,
-			DeletedJobPurgeDays:     cm.Storage.DeletedJobPurgeDays,
-			VacuumAfterPurge:        cm.Storage.VacuumAfterPurge,
-		},
+		Storage: adaptStorageConfig(cm.Storage),
 		Jobs: JobsConfig{
 			Notifications: JobNotificationSettings{
 				Enabled:     cm.Jobs.Notifications.Enabled,
@@ -405,6 +402,37 @@ func adaptMCPJSON(raw cometlineMCPJSON) MCPConfig {
 		}
 	}
 	return out
+}
+
+func adaptStorageConfig(cm cometlineStorageJSON) StorageConfig {
+	def := defaultStorageConfig()
+	s := StorageConfig{
+		CleanupIntervalMinutes:  cm.CleanupIntervalMinutes,
+		RetentionDays:           cm.RetentionDays,
+		MaxSessionsPerWorkspace: cm.MaxSessionsPerWorkspace,
+		ArchivedMemoryPurgeDays: cm.ArchivedMemoryPurgeDays,
+		DeletedJobPurgeDays:     cm.DeletedJobPurgeDays,
+		VacuumAfterPurge:        cm.VacuumAfterPurge,
+	}
+	// Omitted keys (pre-upgrade JSON) get defaults when other storage rules
+	// are present; explicit 0 still means disable.
+	hasOther := s.RetentionDays != 0 ||
+		s.CleanupIntervalMinutes != 0 ||
+		s.MaxSessionsPerWorkspace != 0 ||
+		s.ArchivedMemoryPurgeDays != 0 ||
+		s.DeletedJobPurgeDays != 0 ||
+		s.VacuumAfterPurge
+	if cm.ToolOutputRetentionDays != nil {
+		s.ToolOutputRetentionDays = *cm.ToolOutputRetentionDays
+	} else if hasOther {
+		s.ToolOutputRetentionDays = def.ToolOutputRetentionDays
+	}
+	if cm.AgentTmpRetentionDays != nil {
+		s.AgentTmpRetentionDays = *cm.AgentTmpRetentionDays
+	} else if hasOther {
+		s.AgentTmpRetentionDays = def.AgentTmpRetentionDays
+	}
+	return s
 }
 
 func copyStringMapGo(in map[string]string) map[string]string {
