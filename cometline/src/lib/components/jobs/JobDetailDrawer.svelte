@@ -99,9 +99,11 @@
 
 <aside class="job-drawer settings-ui" transition:fly={{ x: 320, duration: 200 }}>
 	<header class="drawer-header">
-		<div>
+		<div class="drawer-title">
 			<p class="drawer-eyebrow">{mode === 'create' ? 'New job' : (job?.status ?? '')}</p>
-			<h2>{mode === 'create' ? 'Create job' : (job?.description ?? 'Job')}</h2>
+			<h2 title={mode === 'create' ? undefined : (job?.description ?? undefined)}>
+				{mode === 'create' ? 'Create job' : (job?.description ?? 'Job')}
+			</h2>
 		</div>
 		<button type="button" class="secondary icon-only" aria-label="Close" onclick={onClose}>
 			<X size={16} />
@@ -319,6 +321,12 @@
 		padding: 16px;
 		border-bottom: 1px solid var(--border-soft);
 		background: var(--panel-bg);
+		flex-shrink: 0;
+	}
+
+	.drawer-title {
+		min-width: 0;
+		flex: 1;
 	}
 
 	.drawer-header h2 {
@@ -326,6 +334,12 @@
 		font-size: 16px;
 		line-height: 1.35;
 		color: var(--text-main);
+		display: -webkit-box;
+		-webkit-line-clamp: 2;
+		line-clamp: 2;
+		-webkit-box-orient: vertical;
+		overflow: hidden;
+		word-break: break-word;
 	}
 
 	.drawer-eyebrow {
