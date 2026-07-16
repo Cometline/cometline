@@ -22,6 +22,7 @@ const RuntimePrefix = "@runtime"
 const (
 	runtimeToolOutputMount = "tool-output"
 	runtimeTmpMount        = "tmp"
+	runtimeWikiMount       = "wiki"
 )
 
 var (
@@ -41,7 +42,7 @@ func (w Workspace) ResolveReadable(rel string) (string, error) {
 	if !ok {
 		return w.Resolve(rel)
 	}
-	if mount != runtimeToolOutputMount && mount != runtimeTmpMount {
+	if mount != runtimeToolOutputMount && mount != runtimeTmpMount && mount != runtimeWikiMount {
 		return "", fmt.Errorf("runtime mount is not readable: %s", mount)
 	}
 	root, err := runtimeMountRoot(mount)
@@ -58,7 +59,7 @@ func (w Workspace) ResolveWritable(rel string) (string, error) {
 	if !ok {
 		return w.Resolve(rel)
 	}
-	if mount != runtimeTmpMount {
+	if mount != runtimeTmpMount && mount != runtimeWikiMount {
 		return "", fmt.Errorf("runtime mount is read-only: %s", mount)
 	}
 	root, err := runtimeMountRoot(mount)
@@ -66,6 +67,17 @@ func (w Workspace) ResolveWritable(rel string) (string, error) {
 		return "", err
 	}
 	return sandbox.ResolveWorkspacePath(root, subpath)
+}
+
+// ResolveSearchRoot resolves a path that may be a readable runtime mount and
+// returns the display prefix needed to make search results usable by other tools.
+func (w Workspace) ResolveSearchRoot(rel string) (root, displayPrefix string, err error) {
+	if !IsRuntimePath(rel) {
+		root, err = w.Resolve(rel)
+		return root, "", err
+	}
+	root, err = w.ResolveReadable(rel)
+	return root, strings.TrimSuffix(filepath.ToSlash(strings.TrimSpace(rel)), "/"), err
 }
 
 // DisplayPath returns the path shown in tool results (workspace-relative or
@@ -93,7 +105,8 @@ func (w Workspace) LockWorkspace() (unlock func()) {
 // MountDocs returns the coding-prompt lines describing runtime mounts.
 func MountDocs() string {
 	return "The managed runtime mounts are available without exposing secrets: " +
-		"@runtime/tool-output is read-only and @runtime/tmp is shared read/write across sessions. " +
+		"@runtime/tool-output is read-only, @runtime/tmp is shared read/write across sessions, and " +
+		"@runtime/wiki is a persistent shared read/write knowledge wiki. " +
 		"Use these aliases instead of guessing ~/.cometmind paths."
 }
 

@@ -74,6 +74,49 @@ func TestRuntimeToolOutputIsReadableButNotWritable(t *testing.T) {
 	}
 }
 
+func TestRuntimeWikiSupportsReadWriteAndSearch(t *testing.T) {
+	dataDir := t.TempDir()
+	t.Setenv("COMETMIND_DATA_DIR", dataDir)
+	root := t.TempDir()
+
+	writer := WriteFile{Workspace: Workspace{Root: root}}
+	res, err := writer.Execute(context.Background(), json.RawMessage(`{
+		"path":"@runtime/wiki/concepts/runtime-mounts.md",
+		"content":"# Runtime mounts\n\nA shared knowledge wiki.\n"
+	}`))
+	if err != nil || !res.OK {
+		t.Fatalf("write wiki = %+v, %v", res, err)
+	}
+
+	reader := ReadFile{Workspace: Workspace{Root: t.TempDir()}}
+	res, err = reader.Execute(context.Background(), json.RawMessage(`{"path":"@runtime/wiki/concepts/runtime-mounts.md"}`))
+	if err != nil || !res.OK || !strings.Contains(res.Output, "shared knowledge wiki") {
+		t.Fatalf("read wiki = %+v, %v", res, err)
+	}
+
+	editor := EditFile{Workspace: Workspace{Root: root}}
+	res, err = editor.Execute(context.Background(), json.RawMessage(`{
+		"path":"@runtime/wiki/concepts/runtime-mounts.md",
+		"old_string":"shared knowledge wiki",
+		"new_string":"persistent knowledge wiki"
+	}`))
+	if err != nil || !res.OK {
+		t.Fatalf("edit wiki = %+v, %v", res, err)
+	}
+
+	glob := Glob{Workspace: Workspace{Root: root}}
+	res, err = glob.Execute(context.Background(), json.RawMessage(`{"pattern":"**/*.md","path":"@runtime/wiki"}`))
+	if err != nil || !res.OK || !strings.Contains(res.Output, "@runtime/wiki/concepts/runtime-mounts.md") {
+		t.Fatalf("glob wiki = %+v, %v", res, err)
+	}
+
+	grep := Grep{Workspace: Workspace{Root: root}}
+	res, err = grep.Execute(context.Background(), json.RawMessage(`{"pattern":"persistent knowledge","path":"@runtime/wiki","literal_text":true}`))
+	if err != nil || !res.OK || !strings.Contains(res.Output, "@runtime/wiki/concepts/runtime-mounts.md:3:") {
+		t.Fatalf("grep wiki = %+v, %v", res, err)
+	}
+}
+
 func TestRuntimeMountDoesNotExposePrivateDataFiles(t *testing.T) {
 	dataDir := t.TempDir()
 	t.Setenv("COMETMIND_DATA_DIR", dataDir)
@@ -101,7 +144,7 @@ func TestListRuntimeMounts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !res.OK || res.Output != "tool-output/\ntmp/\n" {
+	if !res.OK || res.Output != "tool-output/\ntmp/\nwiki/\n" {
 		t.Fatalf("result = %+v", res)
 	}
 }

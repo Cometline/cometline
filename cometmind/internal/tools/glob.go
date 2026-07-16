@@ -30,7 +30,7 @@ func (Glob) Spec() ToolSpec {
 		Name: "glob",
 		Description: "Find files by name pattern. Supports standard glob syntax " +
 			"including ** for recursive matching. Results sorted by modification time " +
-			"(newest first), capped at 100 files. Skips gitignored paths.",
+			"(newest first), capped at 100 files. Skips gitignored paths. The path may be @runtime/wiki.",
 		Parameters: json.RawMessage(`{
 			"type": "object",
 			"properties": {
@@ -60,13 +60,16 @@ func (g Glob) Execute(ctx context.Context, input json.RawMessage) (Result, error
 		}
 	}
 
-	searchRoot, err := g.Workspace.Resolve(searchRel)
+	searchRoot, displayPrefix, err := g.Workspace.ResolveSearchRoot(searchRel)
 	if err != nil {
 		return Result{OK: false, Output: err.Error()}, nil
 	}
 	workspaceRoot, err := g.Workspace.Resolve(".")
 	if err != nil {
 		return Result{OK: false, Output: err.Error()}, nil
+	}
+	if displayPrefix != "" {
+		workspaceRoot = searchRoot
 	}
 
 	var matches []globMatch
@@ -79,7 +82,7 @@ func (g Glob) Execute(ctx context.Context, input json.RawMessage) (Result, error
 		if err != nil {
 			return nil
 		}
-		matches = append(matches, globMatch{rel: workspaceRel, mtime: info.ModTime().UnixNano()})
+		matches = append(matches, globMatch{rel: searchDisplayPath(displayPrefix, workspaceRel), mtime: info.ModTime().UnixNano()})
 		if len(matches) > globMaxFiles {
 			return fs.SkipAll
 		}
@@ -104,4 +107,11 @@ func (g Glob) Execute(ctx context.Context, input json.RawMessage) (Result, error
 
 	out := strings.Join(paths, "\n") + formatSearchFooter(len(paths), truncated, "files")
 	return Result{OK: true, Output: out}, nil
+}
+
+func searchDisplayPath(prefix, rel string) string {
+	if prefix == "" {
+		return rel
+	}
+	return strings.TrimSuffix(prefix, "/") + "/" + rel
 }

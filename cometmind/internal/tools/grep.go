@@ -34,7 +34,7 @@ func (Grep) Spec() ToolSpec {
 	return ToolSpec{
 		Name: "grep",
 		Description: "Search file contents for a pattern. Uses ripgrep syntax when available " +
-			"(not POSIX grep). Respects .gitignore. Results include line numbers.",
+			"(not POSIX grep). Respects .gitignore. Results include line numbers. The path may be @runtime/wiki.",
 		Parameters: json.RawMessage(`{
 			"type": "object",
 			"properties": {
@@ -66,13 +66,17 @@ func (g Grep) Execute(ctx context.Context, input json.RawMessage) (Result, error
 		}
 	}
 
-	searchRoot, err := g.Workspace.Resolve(searchRel)
+	searchRoot, displayPrefix, err := g.Workspace.ResolveSearchRoot(searchRel)
 	if err != nil {
 		return Result{OK: false, Output: err.Error()}, nil
 	}
 	workspaceRoot, err := g.Workspace.Resolve(".")
 	if err != nil {
 		return Result{OK: false, Output: err.Error()}, nil
+	}
+	if displayPrefix != "" {
+		workspaceRoot = searchRoot
+		searchRel = "."
 	}
 
 	include := ""
@@ -82,12 +86,12 @@ func (g Grep) Execute(ctx context.Context, input json.RawMessage) (Result, error
 	literal := in.LiteralText != nil && *in.LiteralText
 
 	if rgPath != "" {
-		return grepRipgrep(ctx, workspaceRoot, searchRel, pattern, include, literal)
+		return grepRipgrep(ctx, workspaceRoot, searchRel, pattern, include, literal, displayPrefix)
 	}
-	return grepNative(ctx, workspaceRoot, searchRoot, pattern, include, literal)
+	return grepNative(ctx, workspaceRoot, searchRoot, pattern, include, literal, displayPrefix)
 }
 
-func grepRipgrep(ctx context.Context, workspaceRoot, searchRel, pattern, include string, literal bool) (Result, error) {
+func grepRipgrep(ctx context.Context, workspaceRoot, searchRel, pattern, include string, literal bool, displayPrefix string) (Result, error) {
 	args := []string{"-n", "--no-heading", "--color=never"}
 	if literal {
 		args = append(args, "-F")
@@ -114,6 +118,7 @@ func grepRipgrep(ctx context.Context, workspaceRoot, searchRel, pattern, include
 	text := strings.TrimRight(string(out), "\n")
 	text = normalizeRipgrepOutput(text)
 	text = filterGrepOutput(workspaceRoot, text)
+	text = prefixGrepOutput(text, displayPrefix)
 
 	if err != nil {
 		var exitErr *exec.ExitError
@@ -139,7 +144,7 @@ func grepRipgrep(ctx context.Context, workspaceRoot, searchRel, pattern, include
 	return Result{OK: true, Output: outStr}, nil
 }
 
-func grepNative(ctx context.Context, workspaceRoot, searchRoot, pattern, include string, literal bool) (Result, error) {
+func grepNative(ctx context.Context, workspaceRoot, searchRoot, pattern, include string, literal bool, displayPrefix string) (Result, error) {
 	var matcher func(line string) bool
 	if literal {
 		matcher = func(line string) bool { return strings.Contains(line, pattern) }
@@ -177,7 +182,7 @@ func grepNative(ctx context.Context, workspaceRoot, searchRoot, pattern, include
 			if !matcher(line) {
 				continue
 			}
-			lines = append(lines, fmt.Sprintf("%s:%d: %s", workspaceRel, lineNum, line))
+			lines = append(lines, fmt.Sprintf("%s:%d: %s", searchDisplayPath(displayPrefix, workspaceRel), lineNum, line))
 			combined := strings.Join(lines, "\n")
 			if len([]rune(combined)) > grepMaxOutputChars {
 				return fs.SkipAll
@@ -200,6 +205,19 @@ func grepNative(ctx context.Context, workspaceRoot, searchRoot, pattern, include
 	matchCount := countGrepLines(text)
 	out := text + formatSearchFooter(matchCount, truncated, "matches")
 	return Result{OK: true, Output: out}, nil
+}
+
+func prefixGrepOutput(text, prefix string) string {
+	if text == "" || prefix == "" {
+		return text
+	}
+	lines := strings.Split(text, "\n")
+	for i, line := range lines {
+		if _, ok := grepLinePath(line); ok {
+			lines[i] = searchDisplayPath(prefix, line)
+		}
+	}
+	return strings.Join(lines, "\n")
 }
 
 func countGrepLines(text string) int {

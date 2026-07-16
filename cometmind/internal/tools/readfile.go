@@ -22,7 +22,7 @@ func (ReadFile) Spec() ToolSpec {
 	return ToolSpec{
 		Name: "read_file",
 		Description: "Read a text file relative to the workspace root. You may also read " +
-			"@runtime/tool-output/... and @runtime/tmp/...; other ~/.cometmind files are private. " +
+			"@runtime/tool-output/..., @runtime/tmp/..., and @runtime/wiki/...; other ~/.cometmind files are private. " +
 			"Each line is prefixed with its 1-based line number as \"N: content\" " +
 			"(the \"N: \" prefix is not part of the file). " +
 			"Use offset/limit to window large files.",
