@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { Loader } from '@lucide/svelte';
 	import FileEditor from '$lib/components/FileEditor.svelte';
-	import { readWorkspaceFileContent, writeWorkspaceFileContent } from '$lib/client/cometmind';
+	import { readWorkspaceFileContent, writeWorkspaceFileContent, readWikiFileContent, writeWikiFileContent } from '$lib/client/cometmind';
 	import { languageFromExtension, languageFromPath } from '$lib/workspace/file-preview';
+	import { isWikiReadOnlyPath, isWikiUiPath, toWikiRelative } from '$lib/wiki/paths';
 
 	type EditorState = {
 		dirty: boolean;
@@ -33,7 +34,8 @@
 	let saveError = $state<string | null>(null);
 	let loadVersion = 0;
 
-	const dirty = $derived(previewKind === 'text' && draftContent !== savedContent);
+	const readOnly = $derived(isWikiUiPath(filePath) && isWikiReadOnlyPath(filePath));
+	const dirty = $derived(previewKind === 'text' && draftContent !== savedContent && !readOnly);
 
 	function revert() {
 		if (previewKind !== 'text') return;
@@ -42,7 +44,7 @@
 	}
 
 	async function save() {
-		if (previewKind !== 'text' || saving || !dirty) return;
+		if (previewKind !== 'text' || saving || !dirty || readOnly) return;
 
 		const nextContent = draftContent;
 		const currentWorkspacePath = workspacePath;
@@ -51,7 +53,11 @@
 		saving = true;
 		saveError = null;
 		try {
-			await writeWorkspaceFileContent(currentWorkspacePath, currentFilePath, nextContent);
+			if (isWikiUiPath(currentFilePath)) {
+				await writeWikiFileContent(toWikiRelative(currentFilePath), nextContent);
+			} else {
+				await writeWorkspaceFileContent(currentWorkspacePath, currentFilePath, nextContent);
+			}
 			if (workspacePath !== currentWorkspacePath || filePath !== currentFilePath) return;
 			savedContent = nextContent;
 			draftContent = nextContent;
@@ -78,7 +84,9 @@
 		saveError = null;
 
 		try {
-			const result = await readWorkspaceFileContent(workspacePath, filePath);
+			const result = isWikiUiPath(filePath)
+				? await readWikiFileContent(toWikiRelative(filePath))
+				: await readWorkspaceFileContent(workspacePath, filePath);
 			if (version !== loadVersion) return;
 
 			if (result.kind === 'image') {
@@ -107,7 +115,7 @@
 
 	$effect(() => {
 		onEditorState?.(
-			previewKind === 'text' && !loading && !error
+			previewKind === 'text' && !loading && !error && !readOnly
 				? {
 						dirty,
 						saving,
@@ -146,7 +154,7 @@
 			<FileEditor
 				value={draftContent}
 				{language}
-				readOnly={saving}
+				readOnly={saving || readOnly}
 				onChange={(value) => {
 					draftContent = value;
 					if (saveError) saveError = null;
