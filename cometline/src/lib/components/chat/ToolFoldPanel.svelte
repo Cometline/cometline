@@ -19,6 +19,8 @@
 	} from '$lib/jobs/job-proposal-dismissals';
 	import type { ChatTurnPayload } from '$lib/actions/start-chat';
 	import type { JobResource } from '$lib/client/cometmind';
+	import EditDiffBlock from '$lib/components/chat/EditDiffBlock.svelte';
+	import { isEditFileTool, parseEditDiff } from '$lib/tools/parse-edit-diff';
 
 	const FOLD_IN = { duration: 180 };
 
@@ -50,6 +52,11 @@
 	const jobProposal = $derived(
 		isProposeJob && !item.pending && !item.error
 			? parseJobProposal(item.input, item.output)
+			: null
+	);
+	const editDiff = $derived(
+		isEditFileTool(item.toolName) && !item.pending && !item.error && item.output
+			? parseEditDiff(item.output)
 			: null
 	);
 
@@ -124,6 +131,8 @@
 			{/if}
 			{#if item.error}
 				<pre class="tool-error-text scrollbar-none">{item.error}</pre>
+			{:else if editDiff}
+				<EditDiffBlock diff={editDiff} />
 			{:else if !jobProposal && item.output}
 				<pre class="scrollbar-none">{item.output}</pre>
 			{/if}
