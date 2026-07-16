@@ -77,6 +77,44 @@ func DBPath() (string, error) {
 	return filepath.Join(d, "cometmind.db"), nil
 }
 
+// LogsDir returns ~/.cometmind/logs (created if missing).
+func LogsDir() (string, error) {
+	d, err := DataDir()
+	if err != nil {
+		return "", err
+	}
+	dir := filepath.Join(d, "logs")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return "", err
+	}
+	return dir, nil
+}
+
+// ToolOutputDir returns ~/.cometmind/tool-output (created if missing).
+func ToolOutputDir() (string, error) {
+	d, err := DataDir()
+	if err != nil {
+		return "", err
+	}
+	dir := filepath.Join(d, "tool-output")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return "", err
+	}
+	return dir, nil
+}
+
+// AgentTmpDir returns ~/.cometmind/agent-tmp (created if missing).
+func AgentTmpDir() (string, error) {
+	d, err := DataDir()
+	if err != nil {
+		return "", err
+	}
+	dir := filepath.Join(d, "agent-tmp")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return "", err
+	}
+	return dir, nil
+}
 
 // MCPOAuthDir returns ~/.cometmind/mcp-oauth (created if missing).
 func MCPOAuthDir() (string, error) {

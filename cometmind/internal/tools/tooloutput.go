@@ -54,15 +54,7 @@ func writeToolOutputFile(text string) (string, error) {
 }
 
 func toolOutputDir() (string, error) {
-	d, err := paths.DataDir()
-	if err != nil {
-		return "", err
-	}
-	dir := filepath.Join(d, "tool-output")
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return "", err
-	}
-	return dir, nil
+	return paths.ToolOutputDir()
 }
 
 func headTailPreview(text string, headRunes, tailRunes int) string {
