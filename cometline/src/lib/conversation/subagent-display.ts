@@ -2,9 +2,14 @@ import type { ChatItem } from '$lib/types';
 
 export type SubagentChatItem = Extract<ChatItem, { type: 'subagent' }>;
 
-/** General subagents run in-process; coding delegates use the selected harness. */
+/** In-process CometMind subagents (research or coding); external harnesses use other names. */
 export function isGeneralSubagent(subagent: SubagentChatItem): boolean {
-	return subagent.agentName === 'cometmind';
+	const name = subagent.agentName.trim().toLowerCase();
+	return name === 'cometmind' || name === 'cometmind-coding' || name.startsWith('cometmind');
+}
+
+export function isCodingSubagent(subagent: SubagentChatItem): boolean {
+	return subagent.agentName.trim().toLowerCase() === 'cometmind-coding';
 }
 
 function codingHarnessLabel(agentName: string): string {
@@ -45,7 +50,7 @@ export function subagentProgressLabel(subagent: SubagentChatItem): string {
 	} else if (subagent.status === 'cancelled') {
 		prefix = `${harness} cancelled`;
 	} else if (general) {
-		prefix = 'CometMind · research';
+		prefix = isCodingSubagent(subagent) ? 'CometMind · coding' : 'CometMind · research';
 	} else {
 		prefix = `${harness}${suffix}`;
 	}
