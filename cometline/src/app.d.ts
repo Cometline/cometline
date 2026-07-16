@@ -294,7 +294,7 @@ declare global {
 	 * every save silently succeeded.
 	 */
 	interface RuntimeReloadOutcome {
-		action: 'reload' | 'restart' | 'restart-fallback';
+		action: 'reload' | 'restart' | 'restart-fallback' | 'gateway';
 		healthy: boolean;
 		/** Present when action is 'restart-fallback': why the in-place reload failed. */
 		error?: string;
@@ -373,7 +373,7 @@ declare global {
 			saveProviderSettings?: (
 				settings: ProviderSettings,
 				options?: {
-					runtimeAction?: 'none' | 'reload' | 'restart';
+					runtimeAction?: 'none' | 'reload' | 'restart' | 'gateway';
 					restartCometMind?: boolean;
 				}
 			) => Promise<SaveProviderSettingsResult>;

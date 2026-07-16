@@ -1,27 +1,38 @@
 import type { ProviderSettings } from '$lib/types';
 import type { SettingsSection } from '$lib/components/settings/settings-controller.svelte';
 
-export type RuntimeApplyAction = 'none' | 'reload' | 'restart';
+export type RuntimeApplyAction = 'none' | 'reload' | 'restart' | 'gateway';
 
-function providerChangedIds(persisted: ProviderSettings, next: ProviderSettings): Set<string> {
-	const changed = new Set<string>();
-	const before = new Map(persisted.providers.map((provider) => [provider.id, JSON.stringify(provider)]));
-	const after = new Map(next.providers.map((provider) => [provider.id, JSON.stringify(provider)]));
-	for (const id of new Set([...before.keys(), ...after.keys()])) {
-		if (before.get(id) !== after.get(id)) changed.add(id);
-	}
-	return changed;
+function gatewayChanged(persisted: ProviderSettings, next: ProviderSettings): boolean {
+	return (
+		JSON.stringify(persisted.cometmind.gateway ?? null) !==
+		JSON.stringify(next.cometmind.gateway ?? null)
+	);
 }
 
-function memoryProviderIds(settings: ProviderSettings): Set<string> {
-	const ids = new Set<string>();
-	const extraction = settings.cometmind.memory.extractionProviderId;
-	const embedding = settings.cometmind.memory.embedding.providerId;
-	if (extraction) ids.add(extraction);
-	if (embedding) ids.add(embedding);
-	return ids;
+function processLevelServeChanged(persisted: ProviderSettings, next: ProviderSettings): boolean {
+	// Host/port are process-level for the main sidecar; keep restart if present.
+	const before = persisted.cometmind as ProviderSettings['cometmind'] & {
+		host?: string;
+		port?: number;
+	};
+	const after = next.cometmind as ProviderSettings['cometmind'] & {
+		host?: string;
+		port?: number;
+	};
+	return before.host !== after.host || before.port !== after.port;
 }
 
+/**
+ * Classify how CometMind should apply a settings save.
+ *
+ * Most cometmind/provider changes hot-reload. Changes under `cometmind.gateway`
+ * (any platform) trigger a gateway-only recycle (main serve stays up). Full
+ * serve restart is reserved for true process-level bind changes (host/port).
+ *
+ * When gateway changes together with other runtime fields, return `reload`
+ * (Electron still syncs gateways on every save).
+ */
 export function runtimeActionForSettingsSave(
 	persisted: ProviderSettings,
 	next: ProviderSettings
@@ -30,34 +41,19 @@ export function runtimeActionForSettingsSave(
 	const cometmindChanged = JSON.stringify(persisted.cometmind) !== JSON.stringify(next.cometmind);
 	if (!providersChanged && !cometmindChanged) return 'none';
 
-	if (JSON.stringify(persisted.cometmind.memory) !== JSON.stringify(next.cometmind.memory)) {
-		return 'restart';
-	}
-	if (
-		persisted.cometmind.storage.cleanupIntervalMinutes !==
-			next.cometmind.storage.cleanupIntervalMinutes
-	) {
-		return 'restart';
-	}
-	if (
-		persisted.cometmind.jobs.reconcileIntervalSeconds !==
-			next.cometmind.jobs.reconcileIntervalSeconds
-	) {
-		return 'restart';
-	}
-	if (JSON.stringify(persisted.cometmind.autonomy) !== JSON.stringify(next.cometmind.autonomy)) {
+	if (processLevelServeChanged(persisted, next)) {
 		return 'restart';
 	}
 
-	const changedProviderIds = providerChangedIds(persisted, next);
-	if (changedProviderIds.size > 0) {
-		const memoryProviders = new Set([
-			...memoryProviderIds(persisted),
-			...memoryProviderIds(next)
-		]);
-		for (const id of changedProviderIds) {
-			if (memoryProviders.has(id)) return 'restart';
-		}
+	const gatewaysChanged = gatewayChanged(persisted, next);
+	const withoutGateway = (settings: ProviderSettings) => {
+		const { gateway: _gateway, ...rest } = settings.cometmind;
+		return rest;
+	};
+	const otherCometmindEqual =
+		JSON.stringify(withoutGateway(persisted)) === JSON.stringify(withoutGateway(next));
+	if (gatewaysChanged && otherCometmindEqual && !providersChanged) {
+		return 'gateway';
 	}
 
 	return 'reload';
@@ -74,9 +70,8 @@ export function runtimeActionForSettingsSave(
  */
 function runtimeNoteFor(runtimeAction: RuntimeApplyAction, reload?: RuntimeReloadOutcome | null): string {
 	if (reload === undefined) {
-		// No reload info available (e.g. browser/dev fallback without Electron
-		// IPC) — fall back to the pre-#4 behavior of trusting runtimeAction.
 		if (runtimeAction === 'restart') return ' CometMind restarted.';
+		if (runtimeAction === 'gateway') return ' Gateway restarted.';
 		if (runtimeAction === 'reload') return ' CometMind reloaded.';
 		return '';
 	}
@@ -90,6 +85,9 @@ function runtimeNoteFor(runtimeAction: RuntimeApplyAction, reload?: RuntimeReloa
 		return reload.action === 'restart'
 			? ' CometMind restarted but is not responding yet. Check the CometMind log.'
 			: ' CometMind reloaded but is not responding yet. Check the CometMind log.';
+	}
+	if (runtimeAction === 'gateway' || reload.action === 'gateway') {
+		return ' Gateway restarted.';
 	}
 	return reload.action === 'restart' ? ' CometMind restarted.' : ' CometMind reloaded.';
 }

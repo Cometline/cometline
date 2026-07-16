@@ -60,6 +60,7 @@ type Runtime struct {
 	isRunning     func(sessionID string) bool
 	retentionMu   sync.Mutex
 	reloadMu      sync.Mutex
+	autonomyWorker *autonomy.Worker
 }
 
 // New builds a Runtime from the environment and filesystem.
@@ -226,94 +227,95 @@ func (r *Runtime) SetSessionRunningChecker(fn func(sessionID string) bool) {
 }
 
 // StartJobsMaintenance runs periodic orphan reconcile and optional purge.
+// The reconcile interval is re-read each cycle so Reload can change it live.
 func (r *Runtime) StartJobsMaintenance(ctx context.Context) {
 	if r == nil || r.Jobs == nil {
 		return
 	}
-	interval := time.Duration(r.jobSettingsSnapshot().ReconcileIntervalS) * time.Second
-	if interval <= 0 {
-		interval = jobs.DefaultReconcileInterval
-	}
 	go func() {
-		ticker := time.NewTicker(interval)
-		defer ticker.Stop()
 		for {
+			interval := time.Duration(r.jobSettingsSnapshot().ReconcileIntervalS) * time.Second
+			if interval <= 0 {
+				interval = jobs.DefaultReconcileInterval
+			}
 			select {
 			case <-ctx.Done():
 				return
-			case <-ticker.C:
-				if _, err := r.Jobs.Reconcile(ctx, r.isRunning); err != nil {
-					logging.L().Warn("jobs.reconcile.failed", "error", err)
+			case <-time.After(interval):
+			}
+			if _, err := r.Jobs.Reconcile(ctx, r.isRunning); err != nil {
+				logging.L().Warn("jobs.reconcile.failed", "error", err)
+			}
+			settings := r.jobSettingsSnapshot()
+			if stale, err := r.Jobs.StaleOngoing(ctx, time.Duration(settings.StaleReviewMinutes)*time.Minute); err != nil {
+				logging.L().Warn("jobs.stale_review.failed", "error", err)
+			} else {
+				for _, job := range stale {
+					logging.L().Warn("jobs.stale_ongoing", "job_id", job.ID, "assigned_session_id", job.AssignedSessionID, "updated_at", job.UpdatedAt)
 				}
-				settings := r.jobSettingsSnapshot()
-				if stale, err := r.Jobs.StaleOngoing(ctx, time.Duration(settings.StaleReviewMinutes)*time.Minute); err != nil {
-					logging.L().Warn("jobs.stale_review.failed", "error", err)
-				} else {
-					for _, job := range stale {
-						logging.L().Warn("jobs.stale_ongoing", "job_id", job.ID, "assigned_session_id", job.AssignedSessionID, "updated_at", job.UpdatedAt)
-					}
+			}
+			cfg := r.Config.EffectiveStorageConfig()
+			if cfg.JobPurgeEnabled() {
+				if _, err := r.Jobs.PurgeDeleted(ctx, cfg.DeletedJobPurgeDays); err != nil {
+					logging.L().Warn("jobs.purge.failed", "error", err)
 				}
-				cfg := r.Config.EffectiveStorageConfig()
-				if cfg.JobPurgeEnabled() {
-					if _, err := r.Jobs.PurgeDeleted(ctx, cfg.DeletedJobPurgeDays); err != nil {
-						logging.L().Warn("jobs.purge.failed", "error", err)
-					}
-				}
-				if _, err := r.Jobs.ArchiveDone(ctx, settings.DoneArchiveDays); err != nil {
-					logging.L().Warn("jobs.done_archive.failed", "error", err)
-				}
-				if _, err := r.Jobs.PurgeArchived(ctx, settings.ArchivedPurgeDays); err != nil {
-					logging.L().Warn("jobs.archive_purge.failed", "error", err)
-				}
+			}
+			if _, err := r.Jobs.ArchiveDone(ctx, settings.DoneArchiveDays); err != nil {
+				logging.L().Warn("jobs.done_archive.failed", "error", err)
+			}
+			if _, err := r.Jobs.PurgeArchived(ctx, settings.ArchivedPurgeDays); err != nil {
+				logging.L().Warn("jobs.archive_purge.failed", "error", err)
 			}
 		}
 	}()
 }
 
 // StartRetentionMaintenance runs full storage retention on the configured interval.
+// Interval and enablement are re-read each cycle so Reload can change them live.
 func (r *Runtime) StartRetentionMaintenance(ctx context.Context) {
 	if r == nil {
 		return
 	}
-	cfg := r.Config.EffectiveStorageConfig()
-	if !cfg.RetentionEnabled() && !cfg.MemoryPurgeEnabled() && !cfg.JobPurgeEnabled() {
-		return
-	}
-	interval := time.Duration(cfg.CleanupIntervalMinutes) * time.Minute
-	if interval <= 0 {
-		interval = time.Hour
-	}
 	go func() {
-		ticker := time.NewTicker(interval)
-		defer ticker.Stop()
 		for {
+			cfg := r.Config.EffectiveStorageConfig()
+			enabled := cfg.RetentionEnabled() || cfg.MemoryPurgeEnabled() || cfg.JobPurgeEnabled()
+			interval := time.Duration(cfg.CleanupIntervalMinutes) * time.Minute
+			if interval <= 0 {
+				interval = time.Hour
+			}
+			if !enabled {
+				interval = 2 * time.Minute
+			}
 			select {
 			case <-ctx.Done():
 				return
-			case <-ticker.C:
-				result, err := r.RunRetention(ctx)
-				if err != nil {
-					logging.L().Warn("retention.failed", "error", err)
-					continue
-				}
-				if result.SessionsDeleted > 0 || result.SubagentsDeleted > 0 || result.MemoriesPurged > 0 || result.MemoryEventsPurged > 0 || result.JobsPurged > 0 {
-					logging.L().Info("retention.completed",
-						"sessions_deleted", result.SessionsDeleted,
-						"subagents_deleted", result.SubagentsDeleted,
-						"memories_purged", result.MemoriesPurged,
-						"memory_events_purged", result.MemoryEventsPurged,
-						"jobs_purged", result.JobsPurged,
-						"vacuumed", result.Vacuumed,
-					)
-				}
+			case <-time.After(interval):
+			}
+			if !enabled {
+				continue
+			}
+			result, err := r.RunRetention(ctx)
+			if err != nil {
+				logging.L().Warn("retention.failed", "error", err)
+				continue
+			}
+			if result.SessionsDeleted > 0 || result.SubagentsDeleted > 0 || result.MemoriesPurged > 0 || result.MemoryEventsPurged > 0 || result.JobsPurged > 0 {
+				logging.L().Info("retention.completed",
+					"sessions_deleted", result.SessionsDeleted,
+					"subagents_deleted", result.SubagentsDeleted,
+					"memories_purged", result.MemoriesPurged,
+					"memory_events_purged", result.MemoryEventsPurged,
+					"jobs_purged", result.JobsPurged,
+					"vacuumed", result.Vacuumed,
+				)
 			}
 		}
 	}()
 }
 
 // StartAutonomousJobWorker starts the background worker that claims and
-// executes ready jobs without a human opening a chat session first. It is a
-// no-op if autonomy is disabled in config (Worker.Run checks this itself).
+// executes ready jobs without a human opening a chat session first.
 func (r *Runtime) StartAutonomousJobWorker(ctx context.Context, guard autonomy.RunGuard) {
 	if r == nil || r.Jobs == nil || r.Sessions == nil {
 		return
@@ -328,6 +330,7 @@ func (r *Runtime) StartAutonomousJobWorker(ctx context.Context, guard autonomy.R
 		DefaultModelID:    r.autonomyModelID(),
 		DefaultProviderID: r.autonomyProviderID(),
 	}
+	r.autonomyWorker = w
 	go w.Run(ctx)
 }
 
@@ -402,14 +405,73 @@ func (r *Runtime) Reload(ctx context.Context) error {
 	if r.acpMgr != nil {
 		r.acpMgr.UpdateConfig(cfg.ACPSettings())
 	}
-	if r.Memory != nil {
-		r.Memory.UpdateSettings(cfg.MemorySettings())
+	if err := r.reloadMemory(cfg); err != nil {
+		return err
 	}
 	r.SetJobSettings(cfg.JobsSettings())
+	if r.autonomyWorker != nil {
+		r.autonomyWorker.UpdateConfig(
+			cfg.EffectiveAutonomousJobsSettings(),
+			r.autonomyModelIDFrom(cfg),
+			r.autonomyProviderIDFrom(cfg),
+		)
+	}
 	*r.Config = *cfg
 	r.SystemPrompt = systemPrompt
 	logging.L().Info("runtime.reloaded")
 	return nil
+}
+
+func (r *Runtime) reloadMemory(cfg *config.Config) error {
+	if cfg == nil {
+		return nil
+	}
+	if !cfg.MemoryRuntimeEnabled() {
+		if r.Memory != nil {
+			_ = r.Memory.UpdateSettings(cfg.MemorySettings())
+		}
+		return nil
+	}
+	p, err := provider.New(cfg)
+	if err != nil {
+		return fmt.Errorf("reload memory provider: %w", err)
+	}
+	if r.Memory == nil {
+		mem, err := memory.NewService(r.DB, cfg.MemorySettings(), p, r.Sessions)
+		if err != nil {
+			return fmt.Errorf("create memory on reload: %w", err)
+		}
+		r.Memory = mem
+		if r.autonomyWorker != nil {
+			r.autonomyWorker.Memory = mem
+		}
+		return nil
+	}
+	if err := r.Memory.UpdateSettings(cfg.MemorySettings()); err != nil {
+		return fmt.Errorf("reload memory settings: %w", err)
+	}
+	r.Memory.SetProvider(p)
+	return nil
+}
+
+func (r *Runtime) autonomyProviderIDFrom(cfg *config.Config) string {
+	if cfg == nil {
+		return ""
+	}
+	if providerID := strings.TrimSpace(cfg.Autonomy.ProviderID); providerID != "" {
+		return providerID
+	}
+	return cfg.Provider
+}
+
+func (r *Runtime) autonomyModelIDFrom(cfg *config.Config) string {
+	if cfg == nil {
+		return ""
+	}
+	if modelID := strings.TrimSpace(cfg.Autonomy.ModelID); modelID != "" {
+		return modelID
+	}
+	return cfg.Model
 }
 
 // WorkspaceForCommand resolves the current directory (or the explicit workspace
@@ -555,6 +617,7 @@ func (r *Runtime) toolRegistryWithJobMeta(workspacePath string, skillRegistry sk
 		JobSourceChannelID: sourceChannelID,
 		BrowserSearchURL:   os.Getenv("COMETLINE_BROWSER_SEARCH_URL"),
 		BrowserSearchToken: os.Getenv("COMETLINE_BROWSER_SEARCH_TOKEN"),
+		SettingsRuntime:    r,
 		RunnerFactory: func(child session.Session, workspaceRoot string, maxSteps int, mode tools.SubagentMode) (tools.AgentLoopRunner, error) {
 			return r.SubagentRunnerFor(child, workspaceRoot, maxSteps, mode)
 		},

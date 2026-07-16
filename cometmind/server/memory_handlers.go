@@ -188,7 +188,10 @@ func (a *App) handlePutMemorySettings(c *gin.Context) {
 	}
 	a.config.Memory = req
 	if a.memory != nil {
-		a.memory.UpdateSettings(a.config.MemorySettings())
+		if err := a.memory.UpdateSettings(a.config.MemorySettings()); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
 	}
 	c.JSON(http.StatusOK, a.config.EffectiveMemoryConfig())
 }

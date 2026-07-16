@@ -110,10 +110,13 @@
 				<h3>Storage & retention</h3>
 				<p>Control how long CometMind keeps archived sessions and memory before purging.</p>
 			</div>
-			<SettingsPersistenceHint tier="pending" detail="Included in Save changes" />
+			<SettingsPersistenceHint
+				tier="pending"
+				detail="Included in Save changes — reloads CometMind in place"
+			/>
 			<p class="settings-field-hint">
 				Automatic cleanup runs on a CometMind schedule. Set a retention field to 0 to
-				disable that rule.
+				disable that rule. Interval changes apply on Save without restarting the sidecar.
 			</p>
 
 			<label class="field">

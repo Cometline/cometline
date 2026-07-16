@@ -9,9 +9,13 @@ runtime while other state is desktop-only.
 
 ## Source Of Truth
 
-Current source of truth:
+Runtime settings (agent-editable + CometMind):
 
 - `~/.cometmind/cometline-settings.json`
+
+Desktop / UI-only settings (Electron only; agent tools never write):
+
+- `~/.cometmind/cometline-desktop.json` — `appearance`, `shortcuts`, `app` (persona, open-at-login, …), plus a copy of `systemPromptPath`
 
 Legacy fallback only:
 
@@ -19,18 +23,21 @@ Legacy fallback only:
 
 Current truth in code:
 
-- Electron reads and writes `cometline-settings.json`
-- CometMind loads JSON first, then falls back to legacy TOML only if JSON is missing
+- Electron merges both files for the Settings UI, and splits on every write
+- First read of a monolithic `cometline-settings.json` peels desktop keys into `cometline-desktop.json` (idempotent migration)
+- CometMind loads only `cometline-settings.json` (runtime); it ignores the desktop file (`systemPromptPath` is stamped into the settings file by Electron)
 
 Relevant files:
 
 - `cometline/electron/main.cjs`
 - `cometmind/internal/config/config.go`
+- `cometmind/internal/settingsapply/split.go`
 - `cometline/src/lib/stores/settings.svelte.ts`
 
 Rule:
 
 - Do not write new docs or features as if `config.toml` is still the primary config path.
+- Do not teach agents to edit `cometline-desktop.json` by hand or via tools.
 
 ## Persistence Categories
 
@@ -209,14 +216,14 @@ Key file:
 Electron IPC handler `saveProviderSettings`:
 
 - normalizes the incoming settings
-- writes `~/.cometmind/cometline-settings.json`
+- splits and writes `cometline-settings.json` (runtime) + `cometline-desktop.json` (UI)
 - applies `0600` permissions
 - refreshes global shortcuts
-- optionally restarts CometMind
+- optionally reloads/restarts CometMind or recycles gateway
 - syncs Discord gateway side effects
 - applies open-at-login
-- applies icon variant
-- returns normalized saved settings back to the renderer
+- applies persona
+- returns the merged normalized settings back to the renderer
 
 Key file:
 
@@ -238,21 +245,34 @@ Rule:
 
 ## Restart Rules
 
-CometMind restart is required when:
+Almost all CometMind runtime settings apply via in-place `Runtime.Reload` so the
+current chat turn survives. That includes:
 
-- memory settings, memory provider, or embedding provider swaps change
-- storage cleanup interval or job reconcile interval changes
-- process-level bind settings such as host or port change
-- Discord token/process environment changes
-- icon variant changed and packaged runtime prompt path or related native state must be refreshed
+- provider / default model / ACP / skills / MCP / prompt-related runtime knobs
+- memory settings and embedding/extraction provider rebuilds
+- storage cleanup interval and jobs reconcile interval
+- autonomy worker config
 
-CometMind can reload many settings in place for new work, including provider/default model changes, coding-harness selection, skills config, MCP config, log level, context window limit, and many runtime settings. The renderer still uses explicit restart/reconnect paths when a setting belongs to the restart-required class above.
+Discord gateway token / process-env fields recycle the **gateway process only**
+(`gateway` apply class via `cometmind.gateway`; today `gateway-discord`). The main
+`serve` sidecar stays up. New gateway platforms should plug into the same
+`cometmind.gateway.*` tree and `processctl.GatewayModes()`.
+
+Full main-sidecar restart remains only for true process-level bind changes such
+as listen host/port (Settings UI). Desktop-only fields (persona/icon, appearance,
+shortcuts, packaged prompt path) are not agent-tool apply targets.
+
+Agent tools `list_settings` / `get_settings` / `patch_settings` (parent registry
+only) read/write `cometline-settings.json` with API-key redaction and auto-apply
+reload / gateway restart. They reject desktop keys (`appearance`, `shortcuts`,
+`app`) that belong in `cometline-desktop.json`, plus unsupported process-level
+paths.
 
 CometMind restart is not required for:
 
 - shortcuts
 - open-at-login
-- Discord gateway enabled toggle
+- Discord gateway enabled toggle (gateway process sync only)
 - web panel width
 - intro/setup flags
 - MCP connection tests/reconnect/OAuth actions
@@ -260,10 +280,12 @@ CometMind restart is not required for:
 Operational detail:
 
 - Electron waits for the sidecar to exit before respawning it to avoid port `7700` reuse and SQLite WAL lock issues.
+- `Reload` reconnects MCP; in-flight MCP tool calls can fail even though the chat turn continues.
 
 Rule:
 
-- Do not casually mark settings as restart-free. Match the existing restart helpers and native side effects.
+- Prefer reload (and `gateway` apply for `cometmind.gateway`) over full serve restart. Match
+  `runtimeActionForSettingsSave` and `settingsapply.Classify`.
 
 ## Other Persisted Files
 
@@ -298,7 +320,7 @@ But the full durability path for every memory retrieval/lifecycle runtime settin
 
 Practical rule for contributors:
 
-- If you change memory settings, verify both immediate runtime behavior and restart-time durability.
+- If you change memory settings, verify both immediate runtime behavior after reload and persistence across process restarts.
 - Do not assume that because a setting round-trips through the API, it is already persisted in the same way as shared JSON settings.
 
 ## Files To Read Before Changing Settings

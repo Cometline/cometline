@@ -11,9 +11,16 @@ Use this skill when the user wants help configuring Cometline or CometMind. This
 
 1. Identify what the user wants to configure before changing anything. If the request is ambiguous, ask one focused question.
 2. Prefer the Settings UI for user-facing configuration instructions. Mention exact sections such as Settings -> Providers, Settings -> CometMind -> Skills, Settings -> CometMind -> Coding task delegation, Settings -> CometMind -> Discord, or Settings -> CometMind -> Storage.
-3. Prefer CLI commands when the user wants the agent to inspect or modify settings directly. Use `cometmind settings path`, `cometmind settings show`, `cometmind settings export`, `cometmind settings import`, `cometmind settings reload`, and `cometmind process status|stop|restart` when available. If `cometmind` is not found, try `~/.cometmind/bin/cometmind`; the desktop app installs this shim on startup and also tries common PATH locations such as `~/.local/bin`, `/opt/homebrew/bin`, and `/usr/local/bin` when writable. In a development checkout, build it with `cd cometline && pnpm run build:sidecar` or run `cd cometmind && go run . settings path`.
-4. Treat provider API keys and exported settings as secrets. Warn the user before printing, exporting, or moving files that may contain API keys.
-5. After changing runtime settings that affect CometMind, tell the user whether CometMind can hot-reload or must restart. Provider changes, default model changes, system prompt changes, and many runtime settings can reload in place. Memory settings, memory provider changes, storage cleanup interval changes, job reconcile interval changes, host or port changes, and Discord token or session changes still require restart. The desktop app tries reload first and falls back to restart when needed.
+3. Prefer the settings tools when the agent should inspect or change settings itself:
+   - Runtime file: `~/.cometmind/cometline-settings.json` (providers, cometmind.*, defaults)
+   - Desktop file: `~/.cometmind/cometline-desktop.json` (appearance, shortcuts, app/persona) — **Electron only**; never edit via tools or shell
+   - `list_settings` — editable paths, secret flags, and apply class (`reload` / `gateway` / `unsupported`)
+   - `get_settings` — read the runtime settings file (or a dotted path subtree); secrets are redacted to `__REDACTED__` with `<field>_has_value`
+   - `patch_settings` — deep-merge a JSON patch into the runtime settings file (mode `0600`), then auto-apply (in-place reload and/or gateway process restart)
+   - Rejected via tools: `appearance`, `shortcuts`, `app`, `systemPromptPath`, host/port — tell the user to use the Settings UI
+   - When patching secrets, send a new string to set the key, or `__REDACTED__` / `***` to keep the previous value. Never ask the user to paste secrets into chat when a safer path exists.
+4. CLI fallbacks remain available (`cometmind settings path|show|export|import|reload`, `cometmind process status|stop|restart`) when tools are unavailable. If `cometmind` is not found, try `~/.cometmind/bin/cometmind`.
+5. After changes, almost all runtime fields hot-reload without killing the current chat turn. Changes under `cometmind.gateway` recycle **gateway process(es) only**. Full main-sidecar restart is reserved for true process-level bind changes (host/port) via the Settings UI.
 
 ## Provider Setup
 
@@ -31,12 +38,12 @@ Coding-harness delegation is configured under Settings -> CometMind -> Coding ta
 
 ## Discord Gateway
 
-Discord gateway configuration lives under Settings -> CometMind -> Discord. Confirm the bot token environment variable name, workspace path, allowed user IDs, and mention requirements. Do not ask the user to paste bot tokens into chat unless there is no safer option.
+Discord gateway configuration lives under Settings -> CometMind -> Discord. Confirm the bot token environment variable name, workspace path, allowed user IDs, and mention requirements. Do not ask the user to paste bot tokens into chat unless there is no safer option. Agent `patch_settings` on `cometmind.gateway` restarts gateway process(es) only — the main CometMind serve process (and the current chat turn) stays up.
 
 ## Memory And Storage
 
-Memory and storage settings live under Settings -> CometMind. Explain what will be stored locally, what may be archived, and how provider/model choices affect extraction or summarization if the user is tuning memory behavior.
+Memory and storage settings live under Settings -> CometMind. Explain what will be stored locally, what may be archived, and how provider/model choices affect extraction or summarization if the user is tuning memory behavior. Memory, storage cleanup interval, jobs reconcile interval, and autonomy changes apply via in-place reload.
 
 ## Troubleshooting
 
-If settings do not persist, check `~/.cometmind/cometline-settings.json` and file permissions. If the sidecar will not start, check `~/.cometmind/cometline.log`, port `7700`, and the packaged or development CometMind binary path.
+If settings do not persist, check `~/.cometmind/cometline-settings.json` and `~/.cometmind/cometline-desktop.json` plus file permissions. If the sidecar will not start, check `~/.cometmind/cometline.log`, port `7700`, and the packaged or development CometMind binary path. Note: `Reload` reconnects MCP servers, so in-flight MCP tool calls can fail even though the chat turn continues.
