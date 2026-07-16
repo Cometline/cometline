@@ -88,9 +88,8 @@ func newRegistryWithSurface(workspaceRoot string, surface ToolSurface, opt Regis
 			SubagentConfig: opt.SubagentConfig,
 		})
 		add(WaitSubagents{
-			Sessions:       opt.Sessions,
-			Orchestrator:   opt.Orchestrator,
-			SubagentConfig: opt.SubagentConfig,
+			Sessions:     opt.Sessions,
+			Orchestrator: opt.Orchestrator,
 		})
 	}
 	if surface.MCP && opt.MCP != nil {

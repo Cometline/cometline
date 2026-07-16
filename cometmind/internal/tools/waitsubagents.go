@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/cometline/cometmind/internal/session"
 	"github.com/cometline/cometmind/internal/subagent"
@@ -13,9 +12,8 @@ import (
 
 // WaitSubagents blocks until selected child subagents finish.
 type WaitSubagents struct {
-	Sessions       session.ChildSessionReader
-	Orchestrator   *subagent.Orchestrator
-	SubagentConfig SubagentToolConfig
+	Sessions     session.ChildSessionReader
+	Orchestrator *subagent.Orchestrator
 }
 
 func (w WaitSubagents) Spec() ToolSpec {
@@ -30,8 +28,7 @@ func (w WaitSubagents) Spec() ToolSpec {
 					"type":"array",
 					"items":{"type":"string"},
 					"description":"Child session IDs to wait for; empty waits for all active children"
-				},
-				"timeout_seconds":{"type":"integer","description":"Max wait time in seconds (default 1800)"}
+				}
 			}
 		}`),
 	}
@@ -40,7 +37,6 @@ func (w WaitSubagents) Spec() ToolSpec {
 func (w WaitSubagents) Execute(ctx context.Context, input json.RawMessage) (Result, error) {
 	var in struct {
 		ChildSessionIDs []string `json:"child_session_ids"`
-		TimeoutSeconds  int      `json:"timeout_seconds"`
 	}
 	if err := json.Unmarshal(input, &in); err != nil {
 		return Result{}, err
@@ -54,18 +50,7 @@ func (w WaitSubagents) Execute(ctx context.Context, input json.RawMessage) (Resu
 		return Result{OK: false, Output: "missing parent session context"}, nil
 	}
 
-	timeout := time.Duration(w.SubagentConfig.WaitTimeoutSec) * time.Second
-	if timeout <= 0 {
-		timeout = 30 * time.Minute
-	}
-	if in.TimeoutSeconds > 0 {
-		timeout = time.Duration(in.TimeoutSeconds) * time.Second
-	}
-
-	waitCtx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-
-	results, err := w.Orchestrator.Wait(waitCtx, parentID, in.ChildSessionIDs)
+	results, err := w.Orchestrator.Wait(ctx, parentID, in.ChildSessionIDs)
 	if err != nil {
 		return Result{OK: false, Output: err.Error()}, nil
 	}
@@ -90,10 +75,10 @@ func (w WaitSubagents) Execute(ctx context.Context, input json.RawMessage) (Resu
 			if child.ParentSessionID != parentID {
 				continue
 			}
-		if !isTerminalDelegation(child.DelegationStatus) {
-			continue
-		}
-		writeSubagentResult(&b, child.ID, child.SubagentKind, child.DelegationStatus.String(), child.OutputSummary)
+			if !isTerminalDelegation(child.DelegationStatus) {
+				continue
+			}
+			writeSubagentResult(&b, child.ID, child.SubagentKind, child.DelegationStatus.String(), child.OutputSummary)
 
 		}
 	}

@@ -642,7 +642,6 @@ func (r *Runtime) toolRegistryWithJobMeta(workspacePath string, skillRegistry sk
 		},
 		SubagentConfig: tools.SubagentToolConfig{
 			GeneralMaxSteps: sub.GeneralMaxSteps,
-			WaitTimeoutSec:  1800,
 		},
 	})
 }

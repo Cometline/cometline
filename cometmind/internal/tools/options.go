@@ -57,5 +57,4 @@ type RegistryOptions struct {
 // SubagentToolConfig holds limits passed into subagent tools.
 type SubagentToolConfig struct {
 	GeneralMaxSteps int
-	WaitTimeoutSec  int
 }
