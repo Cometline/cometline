@@ -177,19 +177,36 @@ func (r *Runtime) StartScheduler(ctx context.Context) {
 }
 
 func runRetention(ctx context.Context, db *sql.DB, sessions *session.Service, mem *memory.Service, jobSvc *jobs.Service, cfg config.StorageConfig, isRunning func(string) bool) (retention.Result, error) {
-	if !cfg.RetentionEnabled() && !cfg.MemoryPurgeEnabled() && !cfg.JobPurgeEnabled() {
-		return retention.Result{}, nil
+	var out retention.Result
+	needDB := cfg.RetentionEnabled() || cfg.MemoryPurgeEnabled() || cfg.JobPurgeEnabled()
+	if needDB {
+		rr := &retention.Runner{
+			DB:          db,
+			Sessions:    sessions,
+			Memory:      mem,
+			Jobs:        jobSvc,
+			Config:      cfg,
+			IsRunning:   isRunning,
+			VacuumAsync: true,
+		}
+		var err error
+		out, err = rr.Run(ctx)
+		if err != nil {
+			return out, err
+		}
 	}
-	rr := &retention.Runner{
-		DB:          db,
-		Sessions:    sessions,
-		Memory:      mem,
-		Jobs:        jobSvc,
-		Config:      cfg,
-		IsRunning:   isRunning,
-		VacuumAsync: true,
+	if cfg.RuntimeFilesEnabled() {
+		to, at := retention.PurgeRuntimeFiles(cfg)
+		out.ToolOutputDeleted = to
+		out.AgentTmpDeleted = at
+		if to > 0 || at > 0 {
+			logging.L().Info("retention.runtime_files",
+				"tool_output_deleted", to,
+				"agent_tmp_deleted", at,
+			)
+		}
 	}
-	return rr.Run(ctx)
+	return out, nil
 }
 
 // RunRetention executes the configured storage retention rules once.
@@ -279,7 +296,7 @@ func (r *Runtime) StartRetentionMaintenance(ctx context.Context) {
 	go func() {
 		for {
 			cfg := r.Config.EffectiveStorageConfig()
-			enabled := cfg.RetentionEnabled() || cfg.MemoryPurgeEnabled() || cfg.JobPurgeEnabled()
+			enabled := cfg.RetentionEnabled() || cfg.MemoryPurgeEnabled() || cfg.JobPurgeEnabled() || cfg.RuntimeFilesEnabled()
 			interval := time.Duration(cfg.CleanupIntervalMinutes) * time.Minute
 			if interval <= 0 {
 				interval = time.Hour
@@ -300,13 +317,15 @@ func (r *Runtime) StartRetentionMaintenance(ctx context.Context) {
 				logging.L().Warn("retention.failed", "error", err)
 				continue
 			}
-			if result.SessionsDeleted > 0 || result.SubagentsDeleted > 0 || result.MemoriesPurged > 0 || result.MemoryEventsPurged > 0 || result.JobsPurged > 0 {
+			if result.SessionsDeleted > 0 || result.SubagentsDeleted > 0 || result.MemoriesPurged > 0 || result.MemoryEventsPurged > 0 || result.JobsPurged > 0 || result.ToolOutputDeleted > 0 || result.AgentTmpDeleted > 0 {
 				logging.L().Info("retention.completed",
 					"sessions_deleted", result.SessionsDeleted,
 					"subagents_deleted", result.SubagentsDeleted,
 					"memories_purged", result.MemoriesPurged,
 					"memory_events_purged", result.MemoryEventsPurged,
 					"jobs_purged", result.JobsPurged,
+					"tool_output_deleted", result.ToolOutputDeleted,
+					"agent_tmp_deleted", result.AgentTmpDeleted,
 					"vacuumed", result.Vacuumed,
 				)
 			}
