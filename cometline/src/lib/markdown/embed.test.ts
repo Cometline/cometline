@@ -8,7 +8,8 @@ import {
 	buildSkillEmbedChip,
 	extractUrls,
 	findNextUserTextToken,
-	fileLabelFromPath
+	fileLabelFromPath,
+	fileMentionText
 } from './embed';
 
 describe('domainFromUrl', () => {
@@ -109,6 +110,16 @@ describe('extractUrls', () => {
 describe('fileLabelFromPath', () => {
 	it('returns the basename', () => {
 		expect(fileLabelFromPath('src/lib/foo.ts')).toBe('foo.ts');
+	});
+});
+
+describe('fileMentionText', () => {
+	it('prefixes workspace-relative paths with @', () => {
+		expect(fileMentionText('README.md')).toBe('@README.md');
+	});
+
+	it('does not double-prefix @runtime wiki paths', () => {
+		expect(fileMentionText('@runtime/wiki/index.md')).toBe('@runtime/wiki/index.md');
 	});
 });
 

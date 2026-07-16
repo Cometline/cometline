@@ -85,6 +85,12 @@ export function fileLabelFromPath(relativePath: string): string {
 	return parts[parts.length - 1] || relativePath;
 }
 
+/** Formats a file path for @-mention display and composer serialization. */
+export function fileMentionText(path: string): string {
+	const trimmed = path.trim();
+	return trimmed.startsWith('@') ? trimmed : `@${trimmed}`;
+}
+
 /**
  * Builds a clickable file embed chip for user messages. Uses `data-file-path` so
  * the renderer can open the side-panel preview on click.
