@@ -63,6 +63,19 @@ describe('reduceChatState', () => {
 		]);
 	});
 
+	it('separates a new reply after another thinking round', () => {
+		let state = initChatState();
+		state = reduceChatState(state, { type: 'text_delta', delta: 'I found one source.' });
+		state = reduceChatState(state, { type: 'reasoning_start' });
+		state = reduceChatState(state, { type: 'reasoning_delta', text: 'Find another source.' });
+		state = reduceChatState(state, { type: 'text_delta', delta: 'Here is another source.' });
+
+		const assistant = state.items[0];
+		expect(assistant.type).toBe('assistant');
+		if (assistant.type !== 'assistant') return;
+		expect(assistant.text).toBe('I found one source.\n\nHere is another source.');
+	});
+
 	it('creates tool items and updates them on result', () => {
 		let state = initChatState();
 		state = reduceChatState(state, {
@@ -168,7 +181,7 @@ describe('reduceChatState', () => {
 		expect(state.items[1].text).toContain('API key is invalid or missing');
 	});
 
-	it('merges text across tool calls into one assistant bubble', () => {
+	it('separates text across tool calls in one assistant bubble', () => {
 		const events: StreamEvent[] = [
 			{ type: 'text_delta', delta: 'Let me check.' },
 			{ type: 'tool_call', id: 'tc-1', tool: 'list_dir', input: { path: '.' } },
@@ -183,7 +196,7 @@ describe('reduceChatState', () => {
 		expect(state.items).toHaveLength(2);
 		expect(state.items[0].type).toBe('assistant');
 		if (state.items[0].type !== 'assistant') return;
-		expect(state.items[0].text).toBe('Let me check.Found it.');
+		expect(state.items[0].text).toBe('Let me check.\n\nFound it.');
 		expect(state.items[1].type).toBe('tool');
 	});
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"log/slog"
+	"time"
 
 	cometsdk "github.com/cometline/comet-sdk"
 	"github.com/cometline/comet-sdk/internal/sse"
@@ -11,11 +12,12 @@ import (
 
 // parseLoop reads SSE events from body and dispatches typed cometsdk.Events to ch.
 // It is run in a goroutine by Stream(). It always closes ch and body before returning.
-func parseLoop(ctx context.Context, providerID string, body io.ReadCloser, ch chan<- cometsdk.Event, log *slog.Logger) {
+func parseLoop(ctx context.Context, providerID string, body io.ReadCloser, ch chan<- cometsdk.Event, log *slog.Logger, idleTimeout time.Duration) {
 	defer close(ch)
 	defer body.Close()
 
-	scanner := sse.NewScanner(body)
+	scanner := sse.NewIdleScanner(body, idleTimeout)
+	defer scanner.Close()
 	state := newStreamState()
 
 	for scanner.Next() {

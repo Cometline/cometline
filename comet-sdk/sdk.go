@@ -268,6 +268,7 @@ type ProviderConfig struct {
 	HTTPClient            *http.Client
 	Timeout               time.Duration
 	ResponseHeaderTimeout time.Duration
+	StreamIdleTimeout     time.Duration
 	MaxRetries            int
 	AuthMode              AuthMode
 	// Logger receives structured debug-level traces of SSE events and retries.
@@ -281,6 +282,7 @@ func DefaultProviderConfig() ProviderConfig {
 	return ProviderConfig{
 		HTTPClient:            &http.Client{},
 		ResponseHeaderTimeout: 30 * time.Second,
+		StreamIdleTimeout:     2 * time.Minute,
 		MaxRetries:            5,
 		Logger:                slog.Default(),
 	}
@@ -356,6 +358,14 @@ func WithTimeout(d time.Duration) Option {
 func WithResponseHeaderTimeout(d time.Duration) Option {
 	return func(c *ProviderConfig) {
 		c.ResponseHeaderTimeout = d
+	}
+}
+
+// WithStreamIdleTimeout sets the maximum time a stream may go without an SSE
+// event. Defaults to two minutes. Set to zero to disable idle detection.
+func WithStreamIdleTimeout(d time.Duration) Option {
+	return func(c *ProviderConfig) {
+		c.StreamIdleTimeout = d
 	}
 }
 

@@ -110,7 +110,7 @@ func (p *provider) Stream(ctx context.Context, req *cometsdk.Request) (<-chan co
 		return nil, err
 	}
 
-	go parseLoop(ctx, p.id, httpResp.Body, ch, p.log)
+	go parseLoop(ctx, p.id, httpResp.Body, ch, p.log, p.cfg.StreamIdleTimeout)
 	return ch, nil
 }
 

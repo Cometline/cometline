@@ -14,6 +14,12 @@ func TestDefaultProviderConfigMaxRetries(t *testing.T) {
 	}
 }
 
+func TestDefaultProviderConfigStreamIdleTimeout(t *testing.T) {
+	if got := DefaultProviderConfig().StreamIdleTimeout; got != 2*time.Minute {
+		t.Fatalf("StreamIdleTimeout = %s, want %s", got, 2*time.Minute)
+	}
+}
+
 func TestStreamingHTTPClientUsesHeaderDeadlineWithoutBodyDeadline(t *testing.T) {
 	client := StreamingHTTPClient(DefaultProviderConfig())
 	if client.Timeout != 0 {

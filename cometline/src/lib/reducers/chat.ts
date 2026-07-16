@@ -19,11 +19,19 @@ export interface ChatState {
 	error: string;
 	assistant: Extract<ChatItem, { type: 'assistant' }> | null;
 	reasoning: { text: string; pending: boolean } | null;
+	needsTextSeparator?: boolean;
 	nextId: number;
 }
 
 export function initChatState(): ChatState {
-	return { items: [], error: '', assistant: null, reasoning: null, nextId: 0 };
+	return {
+		items: [],
+		error: '',
+		assistant: null,
+		reasoning: null,
+		needsTextSeparator: false,
+		nextId: 0
+	};
 }
 
 type AssistantItem = Extract<ChatItem, { type: 'assistant' }>;
@@ -351,6 +359,7 @@ function applyEvent(
 	}
 
 	if (event.type === 'reasoning_start') {
+		if (assistant.current?.text.trim()) draft.needsTextSeparator = true;
 		reasoning.current = { text: '', pending: true };
 		let host = ensureReasoningHost();
 		host = clearAssistantActivity(host);
@@ -372,12 +381,17 @@ function applyEvent(
 
 	if (event.type === 'text_delta') {
 		const host = ensureAssistantForText();
+		const separator =
+			draft.needsTextSeparator && host.text && event.delta && !/\s$/.test(host.text) && !/^\s/.test(event.delta)
+				? '\n\n'
+				: '';
+		draft.needsTextSeparator = false;
 		if (reasoning.current) reasoning.current.pending = false;
 		reasoning.current = null;
 		const withReasoning = host.reasoning ? finalizeAllReasoningSegments(host) : host;
 		publishAssistant({
 			...clearAssistantActivity(withReasoning),
-			text: host.text + event.delta,
+			text: host.text + separator + event.delta,
 			pending: false
 		});
 		return;
@@ -391,6 +405,7 @@ function applyEvent(
 		reasoning.current = null;
 		if (assistant.current) {
 			assistant.current = clearAssistantActivity(assistant.current);
+			draft.needsTextSeparator ||= Boolean(assistant.current.text.trim());
 		}
 		const afterSegment = assistant.current ? currentAfterSegment(assistant.current) : 0;
 		const id = localID('tool', draft.nextId++).id;
@@ -506,6 +521,7 @@ function applyEvent(
 	}
 
 	if (event.type === 'error') {
+		draft.needsTextSeparator = false;
 		settleTurn();
 		draft.error = cleanErrorMessage(event.message);
 		settlePendingActivity(items, draft.error);
@@ -518,6 +534,7 @@ function applyEvent(
 	}
 
 	if (event.type === 'done') {
+		draft.needsTextSeparator = false;
 		settleTurn();
 		settlePendingActivity(items);
 		if (assistant.current && !assistant.current.text.trim()) {
@@ -574,6 +591,7 @@ function cloneChatState(state: ChatState): ChatState {
 		error: state.error,
 		assistant,
 		reasoning: cloneReasoning(state.reasoning),
+		needsTextSeparator: state.needsTextSeparator,
 		nextId: state.nextId
 	};
 }
@@ -595,6 +613,7 @@ function reduceChatStateDelta(state: ChatState, event: StreamEvent): ChatState {
 		error: state.error,
 		assistant: state.assistant,
 		reasoning: state.reasoning ? { ...state.reasoning } : null,
+		needsTextSeparator: state.needsTextSeparator,
 		nextId: state.nextId
 	};
 	const ctx = {

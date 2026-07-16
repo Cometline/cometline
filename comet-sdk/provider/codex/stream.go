@@ -7,6 +7,7 @@ import (
 	"io"
 	"log/slog"
 	"strings"
+	"time"
 
 	cometsdk "github.com/cometline/comet-sdk"
 	"github.com/cometline/comet-sdk/internal/sse"
@@ -57,11 +58,12 @@ type codexOutputItem struct {
 	Arguments json.RawMessage `json:"arguments"`
 }
 
-func parseLoop(ctx context.Context, providerID string, body io.ReadCloser, ch chan<- cometsdk.Event, log *slog.Logger) {
+func parseLoop(ctx context.Context, providerID string, body io.ReadCloser, ch chan<- cometsdk.Event, log *slog.Logger, idleTimeout time.Duration) {
 	defer close(ch)
 	defer body.Close()
 
-	scanner := sse.NewScanner(body)
+	scanner := sse.NewIdleScanner(body, idleTimeout)
+	defer scanner.Close()
 	state := &codexStreamState{}
 	for scanner.Next() {
 		select {

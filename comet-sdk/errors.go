@@ -59,3 +59,18 @@ func (e *StreamError) Error() string {
 func (e *StreamError) Unwrap() error {
 	return e.Cause
 }
+
+// StreamIdleTimeoutError means a provider accepted the request but stopped
+// sending SSE events before the stream completed.
+type StreamIdleTimeoutError struct {
+	Duration time.Duration
+}
+
+func (e *StreamIdleTimeoutError) Error() string {
+	return fmt.Sprintf("stream idle timeout after %s", e.Duration)
+}
+
+// Timeout and Temporary allow runtimes to recover the stream like other
+// transient transport failures.
+func (e *StreamIdleTimeoutError) Timeout() bool   { return true }
+func (e *StreamIdleTimeoutError) Temporary() bool { return true }

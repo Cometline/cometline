@@ -1,8 +1,13 @@
 package sse
 
 import (
+	"errors"
+	"io"
 	"strings"
 	"testing"
+	"time"
+
+	cometsdk "github.com/cometline/comet-sdk"
 )
 
 func TestScanner_AllowsLargeEventLines(t *testing.T) {
@@ -25,5 +30,24 @@ func TestScanner_AllowsLargeEventLines(t *testing.T) {
 	}
 	if err := s.Err(); err != nil {
 		t.Fatalf("unexpected scanner err: %v", err)
+	}
+}
+
+func TestIdleScannerReportsStalledStream(t *testing.T) {
+	reader, writer := io.Pipe()
+	defer writer.Close()
+
+	s := NewIdleScanner(reader, 10*time.Millisecond)
+	defer s.Close()
+	if s.Next() {
+		t.Fatal("unexpected event")
+	}
+
+	var idle *cometsdk.StreamIdleTimeoutError
+	if !errors.As(s.Err(), &idle) {
+		t.Fatalf("Err() = %v, want StreamIdleTimeoutError", s.Err())
+	}
+	if idle.Duration != 10*time.Millisecond {
+		t.Fatalf("duration = %s, want %s", idle.Duration, 10*time.Millisecond)
 	}
 }

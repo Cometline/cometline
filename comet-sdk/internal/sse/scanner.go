@@ -6,6 +6,10 @@ import (
 	"bufio"
 	"io"
 	"strings"
+	"sync"
+	"time"
+
+	cometsdk "github.com/cometline/comet-sdk"
 )
 
 const maxEventBytes = 16 * 1024 * 1024
@@ -118,4 +122,84 @@ func (s *Scanner) Event() Event {
 // Err returns the first non-EOF error encountered by the scanner.
 func (s *Scanner) Err() error {
 	return s.err
+}
+
+// IdleScanner closes a stream body that stops producing SSE events. It wraps a
+// Scanner so existing parsing behavior remains unchanged for active streams.
+type IdleScanner struct {
+	*Scanner
+
+	body    io.ReadCloser
+	timeout time.Duration
+	timer   *time.Timer
+
+	mu       sync.Mutex
+	closed   bool
+	timedOut bool
+}
+
+// NewIdleScanner creates an SSE scanner with optional inactivity detection.
+// A timeout of zero disables idle detection.
+func NewIdleScanner(body io.ReadCloser, timeout time.Duration) *IdleScanner {
+	s := &IdleScanner{
+		Scanner: NewScanner(body),
+		body:    body,
+		timeout: timeout,
+	}
+	if timeout > 0 {
+		s.timer = time.AfterFunc(timeout, s.expire)
+	}
+	return s
+}
+
+// Next advances to the next event and resets the inactivity timer on success.
+func (s *IdleScanner) Next() bool {
+	if !s.Scanner.Next() {
+		return false
+	}
+	s.reset()
+	return true
+}
+
+// Err reports an idle timeout instead of the body-close error used to unblock
+// the underlying scanner.
+func (s *IdleScanner) Err() error {
+	s.mu.Lock()
+	timedOut := s.timedOut
+	s.mu.Unlock()
+	if timedOut {
+		return &cometsdk.StreamIdleTimeoutError{Duration: s.timeout}
+	}
+	return s.Scanner.Err()
+}
+
+// Close stops idle detection once the parser has reached a terminal event.
+func (s *IdleScanner) Close() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.closed = true
+	if s.timer != nil {
+		s.timer.Stop()
+	}
+}
+
+func (s *IdleScanner) reset() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed || s.timedOut || s.timer == nil {
+		return
+	}
+	s.timer.Stop()
+	s.timer.Reset(s.timeout)
+}
+
+func (s *IdleScanner) expire() {
+	s.mu.Lock()
+	if s.closed {
+		s.mu.Unlock()
+		return
+	}
+	s.timedOut = true
+	s.mu.Unlock()
+	_ = s.body.Close()
 }
