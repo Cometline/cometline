@@ -14,7 +14,7 @@ import (
 func TestNewSubagentRegistryExcludesWriteAndDelegateTools(t *testing.T) {
 	r := NewSubagentRegistry(t.TempDir(), nil)
 	excluded := []string{
-		"write_file", "run_command", "write_skill", "write_skill_draft",
+		"edit_file", "write_file", "run_command", "write_skill", "write_skill_draft",
 		"delegate_coding_task", "spawn_general_agent", "wait_subagents",
 	}
 	for _, name := range excluded {
@@ -42,10 +42,10 @@ func TestNewRegistryCapturesWorkspaceAndExposesSpecs(t *testing.T) {
 	}
 
 	specs := r.CometSDK()
-	if len(specs) != 8 {
-		t.Fatalf("CometSDK() returned %d specs, want 8", len(specs))
+	if len(specs) != 9 {
+		t.Fatalf("CometSDK() returned %d specs, want 9", len(specs))
 	}
-	wantNames := []string{"read_file", "write_file", "list_dir", "glob", "grep", "run_command", "web_fetch", "web_search"}
+	wantNames := []string{"read_file", "edit_file", "write_file", "list_dir", "glob", "grep", "run_command", "web_fetch", "web_search"}
 	for i, name := range wantNames {
 		if specs[i].Name != name {
 			t.Errorf("spec[%d].Name = %q, want %q", i, specs[i].Name, name)
@@ -59,8 +59,8 @@ func TestNewRegistryCapturesWorkspaceAndExposesSpecs(t *testing.T) {
 	if !res.OK {
 		t.Fatalf("Execute(read_file) not OK: %s", res.Output)
 	}
-	if res.Output != "world" {
-		t.Errorf("read_file output = %q, want %q", res.Output, "world")
+	if res.Output != "1: world" {
+		t.Errorf("read_file output = %q, want %q", res.Output, "1: world")
 	}
 }
 
