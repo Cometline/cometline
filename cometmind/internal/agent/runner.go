@@ -393,11 +393,18 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 		}
 
 		emitStatus(event.PhaseRunningTools)
-		for _, tc := range result.ToolCalls {
+		for i, tc := range result.ToolCalls {
 			persistedID := persistedToolIDs[tc.ID]
 			if persistedID == "" {
 				ch <- event.Errorf("missing persisted tool call id", "db")
 				return fmt.Errorf("missing persisted tool call id for %s", tc.ID)
+			}
+			if ctx.Err() != nil {
+				if err := persistCancelledToolResults(ctx, r.Sessions, turn.ID, result.ToolCalls[i:], persistedToolIDs); err != nil {
+					ch <- event.Errorf(err.Error(), "db")
+					return err
+				}
+				return nil
 			}
 			start := time.Now()
 			logging.L().Info("tool.call.start", "session", turn.ID, "tool", tc.Name, "tool_call_id", tc.ID, "input_bytes", len(tc.Input))
@@ -415,11 +422,7 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 			}
 
 			exit := int64PtrFromIntPtr(res.ExitCode)
-			if err := r.Sessions.UpdateToolCallResult(ctx, persistedID, out, dur, exit); err != nil {
-				ch <- event.Errorf(err.Error(), "db")
-				return err
-			}
-			if _, err := r.Sessions.AppendToolResultMessage(ctx, turn.ID, persistedID, out, isErr); err != nil {
+			if err := persistToolResult(ctx, r.Sessions, turn.ID, persistedID, out, isErr, dur, exit); err != nil {
 				ch <- event.Errorf(err.Error(), "db")
 				return err
 			}
@@ -432,6 +435,13 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 
 			if jobTracker.ObserveTool(tc.Name, tc.Input) {
 				jobProgressNudge = true
+			}
+			if ctx.Err() != nil {
+				if err := persistCancelledToolResults(ctx, r.Sessions, turn.ID, result.ToolCalls[i+1:], persistedToolIDs); err != nil {
+					ch <- event.Errorf(err.Error(), "db")
+					return err
+				}
+				return nil
 			}
 		}
 		if r.hasActiveSubagents(turn.ID) {
@@ -579,6 +589,31 @@ func int64PtrFromIntPtr(v *int) *int64 {
 	}
 	x := int64(*v)
 	return &x
+}
+
+const cancelledToolResult = "Tool execution cancelled before completion."
+
+func persistToolResult(ctx context.Context, store TurnStore, sessionID, toolCallID, output string, isErr bool, durationMS int64, exit *int64) error {
+	persistCtx, persistCancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+	defer persistCancel()
+	if err := store.UpdateToolCallResult(persistCtx, toolCallID, output, durationMS, exit); err != nil {
+		return err
+	}
+	_, err := store.AppendToolResultMessage(persistCtx, sessionID, toolCallID, output, isErr)
+	return err
+}
+
+func persistCancelledToolResults(ctx context.Context, store TurnStore, sessionID string, calls []cometsdk.ToolCallBlock, persistedToolIDs map[string]string) error {
+	for _, tc := range calls {
+		persistedID := persistedToolIDs[tc.ID]
+		if persistedID == "" {
+			return fmt.Errorf("missing persisted tool call id for %s", tc.ID)
+		}
+		if err := persistToolResult(ctx, store, sessionID, persistedID, cancelledToolResult, true, 0, nil); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func assistantPlainText(m cometsdk.Message) string {

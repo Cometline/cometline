@@ -954,6 +954,10 @@ func (s *Service) buildSDKMessagesFromRows(ctx context.Context, sessionID string
 	if err != nil {
 		return nil, err
 	}
+	completedToolCalls, err := completedToolCallIDs(rows)
+	if err != nil {
+		return nil, err
+	}
 	callsByMessage := make(map[string][]db.ToolCall, len(allCalls))
 	for _, tc := range allCalls {
 		callsByMessage[tc.MessageID] = append(callsByMessage[tc.MessageID], tc)
@@ -971,7 +975,7 @@ func (s *Service) buildSDKMessagesFromRows(ctx context.Context, sessionID string
 				Content: sdkBlocksFromContent(blocks),
 			})
 		case "assistant":
-			blocks := assistantBlocks(m, callsByMessage[m.ID])
+			blocks := assistantBlocks(m, callsByMessage[m.ID], completedToolCalls)
 			reasoningBlocks, err := unmarshalReasoningContent(m.ReasoningContent)
 			if err != nil {
 				return nil, fmt.Errorf("decode reasoning_content %s: %w", m.ID, err)
@@ -1006,12 +1010,32 @@ func (s *Service) buildSDKMessagesFromRows(ctx context.Context, sessionID string
 	return out, nil
 }
 
-func assistantBlocks(m db.Message, tcs []db.ToolCall) []cometsdk.Block {
+func completedToolCallIDs(rows []db.Message) (map[string]struct{}, error) {
+	completed := make(map[string]struct{})
+	for _, m := range rows {
+		if m.Role != "tool_result" {
+			continue
+		}
+		var p toolResultPayload
+		if err := json.Unmarshal([]byte(m.Content), &p); err != nil {
+			return nil, fmt.Errorf("decode tool_result %s: %w", m.ID, err)
+		}
+		completed[p.ToolCallID] = struct{}{}
+	}
+	return completed, nil
+}
+
+func assistantBlocks(m db.Message, tcs []db.ToolCall, completedToolCalls map[string]struct{}) []cometsdk.Block {
 	var blocks []cometsdk.Block
 	if strings.TrimSpace(m.Content) != "" {
 		blocks = append(blocks, cometsdk.TextBlock{Text: m.Content})
 	}
 	for _, tc := range tcs {
+		if _, ok := completedToolCalls[tc.ID]; !ok {
+			// A cancelled turn may have persisted the call before its result. Do not
+			// replay that incomplete protocol pair to any provider.
+			continue
+		}
 		raw := json.RawMessage(tc.Arguments)
 		if len(raw) == 0 {
 			raw = json.RawMessage("{}")

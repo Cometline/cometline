@@ -1,10 +1,12 @@
 package session
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
 	cometsdk "github.com/cometline/comet-sdk"
+	"github.com/cometline/cometmind/internal/db"
 )
 
 func TestTrimTranscriptToolOutput(t *testing.T) {
@@ -124,5 +126,28 @@ func TestUnmarshalReasoningContentToleratesNull(t *testing.T) {
 		if len(blocks) != 0 {
 			t.Fatalf("unmarshalReasoningContent(%q) len = %d, want 0", raw, len(blocks))
 		}
+	}
+}
+
+func TestAssistantBlocksDropsToolCallsWithoutResults(t *testing.T) {
+	completedPayload, err := json.Marshal(toolResultPayload{ToolCallID: "completed"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	completed, err := completedToolCallIDs([]db.Message{{ID: "result", Role: "tool_result", Content: string(completedPayload)}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	blocks := assistantBlocks(db.Message{}, []db.ToolCall{
+		{ID: "orphaned", ToolName: "list_dir", Arguments: `{}`},
+		{ID: "completed", ToolName: "read_file", Arguments: `{"path":"README.md"}`},
+	}, completed)
+	if len(blocks) != 1 {
+		t.Fatalf("blocks = %#v, want only completed tool call", blocks)
+	}
+	call, ok := blocks[0].(cometsdk.ToolCallBlock)
+	if !ok || call.ID != "completed" {
+		t.Fatalf("block = %#v, want completed tool call", blocks[0])
 	}
 }

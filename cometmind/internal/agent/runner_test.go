@@ -24,19 +24,20 @@ import (
 // fakeStore is an in-memory TurnStore. It records the persistence calls the
 // runner makes so the agent loop can be exercised without a live database.
 type fakeStore struct {
-	history          []cometsdk.Message
-	allHistory       []cometsdk.Message
-	rows             []db.Message
-	contextSummary   string
-	compactedUntil   string
-	usageSaved       int
-	appendCalls      int
-	appendTexts      []string
-	appendReasoning  [][]cometsdk.Block
-	toolUpdates      int
-	toolResults      int
-	compactCalls     int
-	inflateAfterTool bool
+	history           []cometsdk.Message
+	allHistory        []cometsdk.Message
+	rows              []db.Message
+	contextSummary    string
+	compactedUntil    string
+	usageSaved        int
+	appendCalls       int
+	appendTexts       []string
+	appendReasoning   [][]cometsdk.Block
+	toolUpdates       int
+	toolResults       int
+	compactCalls      int
+	inflateAfterTool  bool
+	cancelAfterAppend func()
 }
 
 func (f *fakeStore) BuildSDKMessages(ctx context.Context, sessionID string) ([]cometsdk.Message, error) {
@@ -62,6 +63,11 @@ func (f *fakeStore) AppendAssistantStep(ctx context.Context, sessionID, text str
 	ids := make(map[string]string, len(toolCalls))
 	for _, tc := range toolCalls {
 		ids[tc.ID] = "persisted-" + tc.ID
+	}
+	if f.cancelAfterAppend != nil {
+		cancel := f.cancelAfterAppend
+		f.cancelAfterAppend = nil
+		cancel()
 	}
 	return session.Message{}, ids, nil
 }
@@ -1130,5 +1136,23 @@ func TestRunner_UserCancelledContextFinishesWithoutError(t *testing.T) {
 		if ev.Kind == event.KindError {
 			t.Fatalf("unexpected error event: %+v", ev)
 		}
+	}
+}
+
+func TestRunner_UserCancellationPersistsUnstartedToolResults(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	provider := &sequentialFakeProvider{sequences: [][]cometsdk.Event{
+		toolStep("tc-1", "list_dir", `{"path":"."}`),
+	}}
+	store := &fakeStore{cancelAfterAppend: cancel}
+	r := &Runner{Provider: provider, Sessions: store, Registry: tools.NewRegistry(t.TempDir())}
+
+	_, err := runAndDrainWithContext(t, ctx, r, session.AgentTurn{ID: "s-stopped-tools", ModelID: "m"})
+	if err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	if store.toolUpdates != 1 || store.toolResults != 1 {
+		t.Fatalf("cancelled tool persistence = updates=%d results=%d, want 1 each", store.toolUpdates, store.toolResults)
 	}
 }
