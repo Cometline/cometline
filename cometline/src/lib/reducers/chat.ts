@@ -173,11 +173,12 @@ function appendSubagentProgress(
 				next[index] = {
 					kind: 'tool',
 					title: existing.title,
-					status: status || existing.status
+					status: status || existing.status,
+					calls: existing.calls + (kind === 'tool_call_update' ? 0 : 1)
 				};
 			}
 		} else {
-			next.push({ kind: 'tool', title, status });
+			next.push({ kind: 'tool', title, status, calls: 1 });
 		}
 		return next;
 	}

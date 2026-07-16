@@ -127,7 +127,7 @@ export interface ProviderSettings {
 
 export type SubagentProgressEntry =
 	| { kind: 'stream'; channel: 'message' | 'thought' | 'plan'; text: string }
-	| { kind: 'tool'; title: string; status: string }
+	| { kind: 'tool'; title: string; status: string; calls: number }
 	| { kind: 'status'; text: string };
 
 export type ChatItem =

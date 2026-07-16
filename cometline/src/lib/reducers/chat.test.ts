@@ -324,8 +324,41 @@ describe('reduceChatState', () => {
 		if (card?.type !== 'subagent') return;
 		expect(card.progress).toEqual([
 			{ kind: 'stream', channel: 'message', text: 'Which branch?' },
-			{ kind: 'tool', title: 'bash', status: 'pending' }
+			{ kind: 'tool', title: 'bash', status: 'pending', calls: 1 }
 		]);
+	});
+
+	it('counts repeated subagent tool calls while keeping one tool type entry', () => {
+		let state = initChatState();
+		state = reduceChatState(state, {
+			type: 'subagent_started',
+			child_session_id: 'child-1',
+			purpose: 'Run tests',
+			agent_name: 'opencode'
+		});
+		state = reduceChatState(state, {
+			type: 'subagent_progress',
+			child_session_id: 'child-1',
+			progress_kind: 'tool_call',
+			progress_text: 'bash (running)'
+		});
+		state = reduceChatState(state, {
+			type: 'subagent_progress',
+			child_session_id: 'child-1',
+			progress_kind: 'tool_call_update',
+			progress_text: 'bash (completed)'
+		});
+		state = reduceChatState(state, {
+			type: 'subagent_progress',
+			child_session_id: 'child-1',
+			progress_kind: 'tool_call',
+			progress_text: 'bash (running)'
+		});
+
+		const card = state.items.find((item) => item.type === 'subagent');
+		expect(card?.type).toBe('subagent');
+		if (card?.type !== 'subagent') return;
+		expect(card.progress).toEqual([{ kind: 'tool', title: 'bash', status: 'running', calls: 2 }]);
 	});
 
 	it('stores general subagent status and tool progress as separate chips', () => {
@@ -368,7 +401,7 @@ describe('reduceChatState', () => {
 		expect(card.progress).toEqual([
 			{ kind: 'status', text: 'contacting model' },
 			{ kind: 'status', text: 'composing response' },
-			{ kind: 'tool', title: 'web_fetch', status: 'running' },
+			{ kind: 'tool', title: 'web_fetch', status: 'running', calls: 1 },
 			{ kind: 'status', text: 'error: max steps exceeded' }
 		]);
 	});

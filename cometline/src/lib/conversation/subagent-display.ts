@@ -45,7 +45,9 @@ export function isSubagentStepLimit(subagent: SubagentChatItem): boolean {
 
 /** Human-readable label for the subagent card header. */
 export function subagentProgressLabel(subagent: SubagentChatItem): string {
-	const toolCount = subagent.progress.filter((entry) => entry.kind === 'tool').length;
+	const tools = subagent.progress.filter((entry) => entry.kind === 'tool');
+	const toolTypeCount = tools.length;
+	const toolCallCount = tools.reduce((count, tool) => count + tool.calls, 0);
 	const general = isGeneralSubagent(subagent);
 	const stepLimit = isSubagentStepLimit(subagent);
 	const harness = general ? 'CometMind' : codingHarnessLabel(subagent.agentName);
@@ -64,8 +66,8 @@ export function subagentProgressLabel(subagent: SubagentChatItem): string {
 		prefix = `${harness}${suffix}`;
 	}
 
-	if (toolCount > 0) {
-		return `${prefix} · ${toolCount} tool${toolCount === 1 ? '' : 's'}`;
+	if (toolTypeCount > 0) {
+		return `${prefix} · ${toolTypeCount} tool type${toolTypeCount === 1 ? '' : 's'} · ${toolCallCount} call${toolCallCount === 1 ? '' : 's'}`;
 	}
 	return prefix;
 }

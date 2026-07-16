@@ -60,11 +60,11 @@ describe('subagentProgressLabel', () => {
 			subagentProgressLabel(
 				subagent({
 					progress: [
-						{ kind: 'tool', title: 'web_fetch', status: 'running' },
-						{ kind: 'tool', title: 'grep', status: 'running' }
+						{ kind: 'tool', title: 'web_fetch', status: 'running', calls: 11 },
+						{ kind: 'tool', title: 'grep', status: 'running', calls: 3 }
 					]
 				})
 			)
-		).toBe('CometMind · research · 2 tools');
+		).toBe('CometMind · research · 2 tool types · 14 calls');
 	});
 });
