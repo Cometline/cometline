@@ -30,6 +30,7 @@ func NewRegistry(workspaceRoot string, opts ...RegistryOptions) *Registry {
 	}
 
 	add(ReadFile{Workspace: ws})
+	add(EditFile{Workspace: ws})
 	add(WriteFile{Workspace: ws})
 	add(ListDir{Workspace: ws})
 	add(Glob{Workspace: ws})

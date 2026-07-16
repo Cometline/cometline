@@ -14,9 +14,11 @@ type WriteFile struct{ Workspace Workspace }
 
 func (WriteFile) Spec() ToolSpec {
 	return ToolSpec{
-		Name:        "write_file",
-		Description: "Write text to a file relative to the workspace root, creating parent directories if needed.",
-		Parameters:  json.RawMessage(`{"type":"object","properties":{"path":{"type":"string"},"content":{"type":"string"}},"required":["path","content"]}`),
+		Name: "write_file",
+		Description: "Create a new file or intentionally overwrite an entire file. " +
+			"Prefer edit_file for modifying existing files. " +
+			"Creates parent directories if needed.",
+		Parameters: json.RawMessage(`{"type":"object","properties":{"path":{"type":"string"},"content":{"type":"string"}},"required":["path","content"]}`),
 	}
 }
 
@@ -41,9 +43,8 @@ func (w WriteFile) Execute(ctx context.Context, input json.RawMessage) (Result, 
 		return Result{OK: false, Output: err.Error()}, nil
 	}
 
-	// Acquire a per-workspace mutex to prevent concurrent sessions from
-	// interleaving writes to the same workspace root.
-	release := acquireWorkspaceLock(w.Workspace.Root)
+	// Per-file lock so concurrent sessions can write different files.
+	release := acquireFileLock(p)
 	defer release()
 
 	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
