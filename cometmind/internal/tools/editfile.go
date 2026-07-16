@@ -58,7 +58,7 @@ func (e EditFile) Execute(ctx context.Context, input json.RawMessage) (Result, e
 	newString := *in.NewString
 	replaceAll := in.ReplaceAll != nil && *in.ReplaceAll
 
-	abs, err := e.Workspace.Resolve(path)
+	abs, err := e.Workspace.ResolveWritable(path)
 	if err != nil {
 		return Result{OK: false, Output: err.Error()}, nil
 	}
@@ -105,6 +105,9 @@ func (e EditFile) Execute(ctx context.Context, input json.RawMessage) (Result, e
 
 	rel := strings.TrimPrefix(strings.TrimPrefix(abs, e.Workspace.Root), string(filepath.Separator))
 	rel = filepath.ToSlash(rel)
+	if IsRuntimePath(path) {
+		rel = filepath.ToSlash(path)
+	}
 	diff := unifiedDiff(rel, content, next)
 	add, del := countDiffLines(diff)
 
@@ -269,4 +272,3 @@ func countDiffLines(diff string) (add, del int) {
 	}
 	return add, del
 }
-

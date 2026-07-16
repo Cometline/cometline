@@ -21,7 +21,8 @@ const (
 func (ReadFile) Spec() ToolSpec {
 	return ToolSpec{
 		Name: "read_file",
-		Description: "Read a text file relative to the workspace root. " +
+		Description: "Read a text file relative to the workspace root. You may also read " +
+			"@runtime/tool-output/... and @runtime/tmp/...; other ~/.cometmind files are private. " +
 			"Each line is prefixed with its 1-based line number as \"N: content\" " +
 			"(the \"N: \" prefix is not part of the file). " +
 			"Use offset/limit to window large files.",
@@ -50,7 +51,7 @@ func (r ReadFile) Execute(ctx context.Context, input json.RawMessage) (Result, e
 	if !ok {
 		return bad, nil
 	}
-	p, err := r.Workspace.Resolve(path)
+	p, err := r.Workspace.ResolveReadable(path)
 	if err != nil {
 		return Result{OK: false, Output: err.Error()}, nil
 	}

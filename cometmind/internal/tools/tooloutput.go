@@ -50,7 +50,7 @@ func writeToolOutputFile(text string) (string, error) {
 	if err := os.WriteFile(path, []byte(text), 0o600); err != nil {
 		return "", err
 	}
-	return path, nil
+	return "@runtime/tool-output/" + filepath.Base(path), nil
 }
 
 func toolOutputDir() (string, error) {

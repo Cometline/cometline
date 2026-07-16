@@ -16,6 +16,7 @@ func (WriteFile) Spec() ToolSpec {
 	return ToolSpec{
 		Name: "write_file",
 		Description: "Create a new file or intentionally overwrite an entire file. " +
+			"@runtime/tmp/... is a shared cross-session temporary directory. " +
 			"Prefer edit_file for modifying existing files. " +
 			"Creates parent directories if needed.",
 		Parameters: json.RawMessage(`{"type":"object","properties":{"path":{"type":"string"},"content":{"type":"string"}},"required":["path","content"]}`),
@@ -38,7 +39,7 @@ func (w WriteFile) Execute(ctx context.Context, input json.RawMessage) (Result, 
 	if !ok {
 		return bad, nil
 	}
-	p, err := w.Workspace.Resolve(path)
+	p, err := w.Workspace.ResolveWritable(path)
 	if err != nil {
 		return Result{OK: false, Output: err.Error()}, nil
 	}
@@ -53,5 +54,9 @@ func (w WriteFile) Execute(ctx context.Context, input json.RawMessage) (Result, 
 	if err := os.WriteFile(p, []byte(content), 0o644); err != nil {
 		return Result{OK: false, Output: err.Error()}, nil
 	}
-	return Result{OK: true, Output: fmt.Sprintf("wrote %d bytes to %s", len(content), strings.TrimPrefix(strings.TrimPrefix(p, w.Workspace.Root), string(filepath.Separator)))}, nil
+	displayPath := strings.TrimPrefix(strings.TrimPrefix(p, w.Workspace.Root), string(filepath.Separator))
+	if IsRuntimePath(path) {
+		displayPath = path
+	}
+	return Result{OK: true, Output: fmt.Sprintf("wrote %d bytes to %s", len(content), filepath.ToSlash(displayPath))}, nil
 }

@@ -13,9 +13,10 @@ type ListDir struct{ Workspace Workspace }
 
 func (ListDir) Spec() ToolSpec {
 	return ToolSpec{
-		Name:        "list_dir",
-		Description: "List files and directories at a path relative to the workspace root (non-recursive).",
-		Parameters:  json.RawMessage(`{"type":"object","properties":{"path":{"type":"string","description":"Relative directory; use . for workspace root"}},"required":["path"]}`),
+		Name: "list_dir",
+		Description: "List files and directories at a path relative to the workspace root (non-recursive). " +
+			"Use @runtime to list managed shared mounts.",
+		Parameters: json.RawMessage(`{"type":"object","properties":{"path":{"type":"string","description":"Relative directory; use . for workspace root"}},"required":["path"]}`),
 	}
 }
 
@@ -30,7 +31,10 @@ func (l ListDir) Execute(ctx context.Context, input json.RawMessage) (Result, er
 	if !ok {
 		return bad, nil
 	}
-	p, err := l.Workspace.Resolve(path)
+	if path == runtimePrefix || path == runtimePrefix+"/" {
+		return Result{OK: true, Output: "tool-output/\ntmp/\n"}, nil
+	}
+	p, err := l.Workspace.ResolveReadable(path)
 	if err != nil {
 		return Result{OK: false, Output: err.Error()}, nil
 	}
