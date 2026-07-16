@@ -4171,7 +4171,7 @@ var SHORTCUT_DEFINITIONS = [
     id: "toggleMiniWindow",
     label: "Toggle mini window",
     category: "chats",
-    defaultBinding: { command: true, shift: true, key: "k" }
+    defaultBinding: { command: true, shift: true, key: "l" }
   },
   {
     id: "previousSession",
@@ -4207,7 +4207,7 @@ var SHORTCUT_DEFINITIONS = [
     id: "stopResponse",
     label: "Stop response",
     category: "composer",
-    defaultBinding: { command: true, key: "c" }
+    defaultBinding: { ctrl: true, meta: false, key: "c" }
   },
   {
     id: "toggleSidebar",
