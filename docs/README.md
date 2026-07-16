@@ -8,12 +8,14 @@ Read these in order when onboarding to the repo:
 1. `../README.md`
 2. `../ARCHITECTURE.md`
 3. `../ARCHITECTURE_GUIDE.md`
-4. `MODULE_GUIDE.md`
-5. `SETTINGS_AND_PERSISTENCE.md`
-6. `FRONTEND_DESIGN_SYSTEM.md`
+4. `learning/00-README.md` — progressive learning series (start here for a guided tour)
+5. `MODULE_GUIDE.md`
+6. `SETTINGS_AND_PERSISTENCE.md`
+7. `FRONTEND_DESIGN_SYSTEM.md`
 
 Guides in this folder:
 
+- `learning/` - progressive onboarding series (nutshell → architecture → modules → recipes)
 - `MODULE_GUIDE.md` - module ownership, boundaries, and change checklists
 - `SETTINGS_AND_PERSISTENCE.md` - settings modal rules, dirty-state guardrails, and cross-layer save flow
 - `FRONTEND_DESIGN_SYSTEM.md` - current visual system, styling rules, and known frontend consistency gaps
