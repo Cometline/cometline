@@ -187,6 +187,8 @@ declare global {
 		archivedMemoryPurgeDays: number;
 		deletedJobPurgeDays: number;
 		vacuumAfterPurge: boolean;
+		toolOutputRetentionDays: number;
+		agentTmpRetentionDays: number;
 	}
 
 	interface CometMindJobsNotificationSettings {

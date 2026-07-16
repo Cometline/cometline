@@ -119,6 +119,10 @@ export interface CometMindStorageSettings {
 	archivedMemoryPurgeDays: number;
 	deletedJobPurgeDays: number;
 	vacuumAfterPurge: boolean;
+	/** Delete ~/.cometmind/tool-output files older than N days. 0 disables. */
+	toolOutputRetentionDays: number;
+	/** Delete ~/.cometmind/agent-tmp files older than N days. 0 disables. */
+	agentTmpRetentionDays: number;
 }
 
 export type MCPTransport = 'stdio' | 'http' | 'sse';
@@ -496,7 +500,9 @@ export function defaultCometMindStorageSettings(): CometMindStorageSettings {
 		maxSessionsPerWorkspace: 0,
 		archivedMemoryPurgeDays: 90,
 		deletedJobPurgeDays: 30,
-		vacuumAfterPurge: true
+		vacuumAfterPurge: true,
+		toolOutputRetentionDays: 7,
+		agentTmpRetentionDays: 3
 	};
 }
 
@@ -714,7 +720,15 @@ export function normalizeCometMindSettings(
 			vacuumAfterPurge:
 				typeof storage.vacuumAfterPurge === 'boolean'
 					? storage.vacuumAfterPurge
-					: defaults.storage.vacuumAfterPurge
+					: defaults.storage.vacuumAfterPurge,
+			toolOutputRetentionDays: normalizeNonNegativeInt(
+				storage.toolOutputRetentionDays,
+				defaults.storage.toolOutputRetentionDays
+			),
+			agentTmpRetentionDays: normalizeNonNegativeInt(
+				storage.agentTmpRetentionDays,
+				defaults.storage.agentTmpRetentionDays
+			)
 		},
 		gateway: {
 			discord: {
@@ -1331,7 +1345,9 @@ const providerSettingsSchema = z.object({
 			maxSessionsPerWorkspace: z.number().int().min(0),
 			archivedMemoryPurgeDays: z.number().int().min(0),
 			deletedJobPurgeDays: z.number().int().min(0),
-			vacuumAfterPurge: z.boolean()
+			vacuumAfterPurge: z.boolean(),
+			toolOutputRetentionDays: z.number().int().min(0),
+			agentTmpRetentionDays: z.number().int().min(0)
 		}),
 		gateway: z.object({
 			discord: z.object({
