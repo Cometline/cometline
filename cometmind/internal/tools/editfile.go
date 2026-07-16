@@ -5,9 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/cometline/cometmind/internal/tools/diffartifact"
 )
 
 // EditFile performs surgical search/replace edits inside the workspace.
@@ -63,7 +64,7 @@ func (e EditFile) Execute(ctx context.Context, input json.RawMessage) (Result, e
 		return Result{OK: false, Output: err.Error()}, nil
 	}
 
-	release := acquireFileLock(abs)
+	release := e.Workspace.LockFile(abs)
 	defer release()
 
 	raw, err := os.ReadFile(abs)
@@ -103,26 +104,19 @@ func (e EditFile) Execute(ctx context.Context, input json.RawMessage) (Result, e
 		return Result{OK: false, Output: err.Error()}, nil
 	}
 
-	rel := strings.TrimPrefix(strings.TrimPrefix(abs, e.Workspace.Root), string(filepath.Separator))
-	rel = filepath.ToSlash(rel)
-	if IsRuntimePath(path) {
-		rel = filepath.ToSlash(path)
-	}
+	rel := e.Workspace.DisplayPath(abs, path)
 	diff := unifiedDiff(rel, content, next)
 	add, del := countDiffLines(diff)
-
-	var out strings.Builder
-	fmt.Fprintf(&out, "edited %s (+%d -%d)", rel, add, del)
+	art := diffartifact.Artifact{
+		Path:        rel,
+		Added:       add,
+		Deleted:     del,
+		UnifiedDiff: diff,
+	}
 	if replaceAll {
-		fmt.Fprintf(&out, " replace_all=%d", replaceCount)
+		art.ReplaceAllCount = replaceCount
 	}
-	out.WriteString("\n\n*** Begin Diff\n")
-	out.WriteString(diff)
-	if !strings.HasSuffix(diff, "\n") {
-		out.WriteByte('\n')
-	}
-	out.WriteString("*** End Diff")
-	return Result{OK: true, Output: out.String()}, nil
+	return Result{OK: true, Output: art.Format()}, nil
 }
 
 // unifiedDiff builds a simple line-based unified diff without external deps.
