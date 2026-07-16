@@ -1,3 +1,8 @@
+import {
+	AGENT_LABEL_CODING,
+	AGENT_LABEL_RESEARCH,
+	agentLabelForSessionKind
+} from '$lib/tools/diff-artifact';
 import type { ChatItem } from '$lib/types';
 
 export type SubagentChatItem = Extract<ChatItem, { type: 'subagent' }>;
@@ -5,11 +10,15 @@ export type SubagentChatItem = Extract<ChatItem, { type: 'subagent' }>;
 /** In-process CometMind subagents (research or coding); external harnesses use other names. */
 export function isGeneralSubagent(subagent: SubagentChatItem): boolean {
 	const name = subagent.agentName.trim().toLowerCase();
-	return name === 'cometmind' || name === 'cometmind-coding' || name.startsWith('cometmind');
+	return (
+		name === AGENT_LABEL_RESEARCH ||
+		name === AGENT_LABEL_CODING ||
+		name.startsWith('cometmind')
+	);
 }
 
 export function isCodingSubagent(subagent: SubagentChatItem): boolean {
-	return subagent.agentName.trim().toLowerCase() === 'cometmind-coding';
+	return subagent.agentName.trim().toLowerCase() === AGENT_LABEL_CODING;
 }
 
 function codingHarnessLabel(agentName: string): string {
@@ -64,4 +73,11 @@ export function subagentProgressLabel(subagent: SubagentChatItem): string {
 /** Turn phase slug → readable chip label. */
 export function formatSubagentPhaseLabel(phase: string): string {
 	return phase.trim().replace(/_/g, ' ');
+}
+
+/** Resolve display agentName from tool output kind or session kind. */
+export function resolveInProcessAgentName(kind: string | undefined): string {
+	if (kind === 'coding' || kind === 'code') return AGENT_LABEL_CODING;
+	if (kind === 'research' || kind === 'general' || !kind) return AGENT_LABEL_RESEARCH;
+	return agentLabelForSessionKind(kind) || AGENT_LABEL_RESEARCH;
 }

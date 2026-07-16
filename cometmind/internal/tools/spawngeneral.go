@@ -79,7 +79,7 @@ func (s SpawnGeneralAgent) Execute(ctx context.Context, input json.RawMessage) (
 		return Result{OK: false, Output: err.Error()}, nil
 	}
 
-	child, err := s.Sessions.NewChildSession(ctx, parent, task, "general")
+	child, err := s.Sessions.NewChildSession(ctx, parent, task, SessionKindForMode(mode))
 	if err != nil {
 		return Result{OK: false, Output: err.Error()}, nil
 	}
@@ -108,10 +108,7 @@ func (s SpawnGeneralAgent) Execute(ctx context.Context, input json.RawMessage) (
 		return Result{OK: false, Output: err.Error()}, nil
 	}
 
-	agentLabel := "cometmind"
-	if mode == SubagentModeCoding {
-		agentLabel = "cometmind-coding"
-	}
+	agentLabel := AgentLabelForMode(mode)
 
 	emit := ProgressFrom(ctx)
 	if emit != nil {

@@ -15,39 +15,62 @@ type Registry struct {
 	order     []Tool
 }
 
-// NewRegistry returns read/list/write/run tools scoped to the workspace root on disk.
+// NewRegistry returns tools for the parent agent using ParentSurface policy.
 func NewRegistry(workspaceRoot string, opts ...RegistryOptions) *Registry {
-	ws := Workspace{Root: workspaceRoot}
-	r := &Registry{workspace: ws, byName: make(map[string]Tool)}
 	var opt RegistryOptions
 	if len(opts) > 0 {
 		opt = opts[0]
 	}
+	delegate := opt.Sessions != nil && opt.ACP.Enabled && opt.ACP.CommandAvailable()
+	return newRegistryWithSurface(workspaceRoot, ParentSurface(delegate), opt)
+}
+
+// NewSubagentRegistry returns tools for in-process subagent workers via ToolSurface.
+func NewSubagentRegistry(workspaceRoot string, skillReg *skills.Registry, mode SubagentMode) *Registry {
+	opt := RegistryOptions{Skills: skillReg}
+	return newRegistryWithSurface(workspaceRoot, SurfaceForMode(mode), opt)
+}
+
+func newRegistryWithSurface(workspaceRoot string, surface ToolSurface, opt RegistryOptions) *Registry {
+	ws := Workspace{Root: workspaceRoot}
+	r := &Registry{workspace: ws, byName: make(map[string]Tool)}
 	add := func(t Tool) {
 		spec := t.Spec()
 		r.byName[spec.Name] = t
 		r.order = append(r.order, t)
 	}
 
-	add(ReadFile{Workspace: ws})
-	add(EditFile{Workspace: ws})
-	add(WriteFile{Workspace: ws})
-	add(ListDir{Workspace: ws})
-	add(Glob{Workspace: ws})
-	add(Grep{Workspace: ws})
-	add(RunCommand{Workspace: ws})
-	add(WebFetch{})
-	add(WebSearch{Endpoint: opt.BrowserSearchURL, Token: opt.BrowserSearchToken})
-	if opt.Skills != nil {
+	if surface.Read {
+		add(ReadFile{Workspace: ws})
+	}
+	if surface.Edit {
+		add(EditFile{Workspace: ws})
+		add(WriteFile{Workspace: ws})
+	}
+	if surface.Read {
+		add(ListDir{Workspace: ws})
+		add(Glob{Workspace: ws})
+		add(Grep{Workspace: ws})
+	}
+	if surface.Run {
+		add(RunCommand{Workspace: ws})
+	}
+	if surface.Read {
+		add(WebFetch{})
+		add(WebSearch{Endpoint: opt.BrowserSearchURL, Token: opt.BrowserSearchToken})
+	}
+	if surface.Skills && opt.Skills != nil {
 		add(LoadSkill{Skills: opt.Skills})
 		add(ReadSkillFile{Skills: opt.Skills})
-		add(WriteSkill{})
-		add(WriteSkillDraft{})
-		add(ListSkillDrafts{})
-		add(ReadSkillDraft{})
-		add(PromoteSkillDraft{})
+		if surface.SkillMut {
+			add(WriteSkill{})
+			add(WriteSkillDraft{})
+			add(ListSkillDrafts{})
+			add(ReadSkillDraft{})
+			add(PromoteSkillDraft{})
+		}
 	}
-	if opt.Sessions != nil && opt.ACP.Enabled && opt.ACP.CommandAvailable() {
+	if surface.Delegate && opt.Sessions != nil {
 		add(DelegateCodingTask{
 			Workspace:    ws,
 			Sessions:     opt.Sessions,
@@ -56,7 +79,7 @@ func NewRegistry(workspaceRoot string, opts ...RegistryOptions) *Registry {
 			Orchestrator: opt.Orchestrator,
 		})
 	}
-	if opt.Sessions != nil && opt.Orchestrator != nil && opt.RunnerFactory != nil {
+	if surface.Spawn && opt.Sessions != nil && opt.Orchestrator != nil && opt.RunnerFactory != nil {
 		add(SpawnGeneralAgent{
 			Workspace:      ws,
 			Sessions:       opt.Sessions,
@@ -70,14 +93,14 @@ func NewRegistry(workspaceRoot string, opts ...RegistryOptions) *Registry {
 			SubagentConfig: opt.SubagentConfig,
 		})
 	}
-	if opt.MCP != nil {
+	if surface.MCP && opt.MCP != nil {
 		add(listMCPServersTool{mgr: opt.MCP})
 		add(reconnectMCPServerTool{mgr: opt.MCP})
 		for _, tool := range mcpToolsFromManager(opt.MCP) {
 			add(tool)
 		}
 	}
-	if opt.Jobs != nil || opt.Scheduler != nil {
+	if surface.Jobs && (opt.Jobs != nil || opt.Scheduler != nil) {
 		RegisterJobTools(r, JobsDeps{
 			Service:              opt.Jobs,
 			Scheduler:            opt.Scheduler,
@@ -87,7 +110,7 @@ func NewRegistry(workspaceRoot string, opts ...RegistryOptions) *Registry {
 			SourceChannelID:      opt.JobSourceChannelID,
 		})
 	}
-	if opt.Memory != nil {
+	if surface.Memory && opt.Memory != nil {
 		add(RecallTaskOutcome{Memory: opt.Memory})
 		add(ListMemories{Memory: opt.Memory})
 		add(SearchMemories{Memory: opt.Memory})
@@ -95,37 +118,6 @@ func NewRegistry(workspaceRoot string, opts ...RegistryOptions) *Registry {
 		add(UpdateMemory{Memory: opt.Memory, Events: opt.MemoryEvents})
 		add(DeleteMemory{Memory: opt.Memory, Events: opt.MemoryEvents})
 	}
-	return r
-}
-
-// NewSubagentRegistry returns tools for in-process subagent workers.
-// Research mode is read/search only; coding mode also includes edit/write/run.
-// Neither mode includes delegate_coding_task or nested spawn tools.
-func NewSubagentRegistry(workspaceRoot string, skillReg *skills.Registry, mode SubagentMode) *Registry {
-	ws := Workspace{Root: workspaceRoot}
-	r := &Registry{workspace: ws, byName: make(map[string]Tool)}
-	add := func(t Tool) {
-		spec := t.Spec()
-		r.byName[spec.Name] = t
-		r.order = append(r.order, t)
-	}
-
-	add(ReadFile{Workspace: ws})
-	add(ListDir{Workspace: ws})
-	add(Glob{Workspace: ws})
-	add(Grep{Workspace: ws})
-	add(WebFetch{})
-	add(WebSearch{})
-	if skillReg != nil {
-		add(LoadSkill{Skills: skillReg})
-		add(ReadSkillFile{Skills: skillReg})
-	}
-	if mode == SubagentModeCoding {
-		add(EditFile{Workspace: ws})
-		add(WriteFile{Workspace: ws})
-		add(RunCommand{Workspace: ws})
-	}
-
 	return r
 }
 
