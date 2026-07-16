@@ -9,7 +9,9 @@
 		sessionLinkKey,
 		type LinkAvailabilityMap
 	} from '$lib/inbox/link-availability';
+	import { matchesShortcut } from '$lib/keyboard-shortcuts';
 	import { appToastStore } from '$lib/stores/app-toasts.svelte';
+	import { settingsStore } from '$lib/stores/settings.svelte';
 
 	let {
 		open = false,
@@ -129,6 +131,18 @@
 		if (!open || event.key !== 'Escape') return;
 		event.preventDefault();
 		onClose();
+	}
+
+	function handleReplyKeydown(event: KeyboardEvent) {
+		const shortcuts = settingsStore.settings.shortcuts;
+		// Match composer: newline before send so Shift+Enter wins if bindings overlap.
+		if (!event.isComposing && matchesShortcut(event, shortcuts.insertNewline)) {
+			return;
+		}
+		if (!event.isComposing && matchesShortcut(event, shortcuts.sendMessage)) {
+			event.preventDefault();
+			void submitReply();
+		}
 	}
 
 	async function submitReply() {
@@ -267,6 +281,7 @@
 								placeholder="Reply (saved for later; message leaves the inbox)"
 								bind:value={() => activeReply, setActiveReply}
 								disabled={busyId === selected.id}
+								onkeydown={handleReplyKeydown}
 							></textarea>
 							<div class="detail-actions">
 								<button
