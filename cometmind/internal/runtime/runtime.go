@@ -20,6 +20,8 @@ import (
 	"github.com/cometline/cometmind/internal/autonomy"
 	"github.com/cometline/cometmind/internal/config"
 	"github.com/cometline/cometmind/internal/event"
+	"github.com/cometline/cometmind/internal/inbox"
+	"github.com/cometline/cometmind/internal/inboxworker"
 	"github.com/cometline/cometmind/internal/jobs"
 	"github.com/cometline/cometmind/internal/logging"
 	mcppkg "github.com/cometline/cometmind/internal/mcp"
@@ -49,6 +51,7 @@ type Runtime struct {
 	Memory        *memory.Service
 	Events        *event.Hub
 	Jobs          *jobs.Service
+	Inbox         *inbox.Service
 	Scheduler     *scheduler.Service
 	jobSettings   jobs.Settings
 	jobSettingsMu sync.RWMutex
@@ -61,6 +64,7 @@ type Runtime struct {
 	retentionMu   sync.Mutex
 	reloadMu      sync.Mutex
 	autonomyWorker *autonomy.Worker
+	inboxWorker    *inboxworker.Worker
 }
 
 // New builds a Runtime from the environment and filesystem.
@@ -95,6 +99,7 @@ func New(ctx context.Context) (*Runtime, error) {
 	}
 	notifier := jobs.NewNotifier(r.jobSettingsSnapshot)
 	r.Jobs = jobs.NewService(sqlDB, r.jobSettingsSnapshot, notifier)
+	r.Inbox = inbox.NewService(sqlDB)
 	r.Scheduler = scheduler.NewService(sqlDB)
 	if cfg.MemoryRuntimeEnabled() {
 		p, err := provider.New(cfg)
@@ -176,16 +181,18 @@ func (r *Runtime) StartScheduler(ctx context.Context) {
 	}()
 }
 
-func runRetention(ctx context.Context, db *sql.DB, sessions *session.Service, mem *memory.Service, jobSvc *jobs.Service, cfg config.StorageConfig, isRunning func(string) bool) (retention.Result, error) {
+func runRetention(ctx context.Context, db *sql.DB, sessions *session.Service, mem *memory.Service, jobSvc *jobs.Service, inboxSvc *inbox.Service, cfg config.StorageConfig, inboxCfg config.InboxConfig, isRunning func(string) bool) (retention.Result, error) {
 	var out retention.Result
-	needDB := cfg.RetentionEnabled() || cfg.MemoryPurgeEnabled() || cfg.JobPurgeEnabled()
+	needDB := cfg.RetentionEnabled() || cfg.MemoryPurgeEnabled() || cfg.JobPurgeEnabled() || inboxSvc != nil
 	if needDB {
 		rr := &retention.Runner{
 			DB:          db,
 			Sessions:    sessions,
 			Memory:      mem,
 			Jobs:        jobSvc,
+			Inbox:       inboxSvc,
 			Config:      cfg,
+			InboxCfg:    inboxCfg,
 			IsRunning:   isRunning,
 			VacuumAsync: true,
 		}
@@ -216,7 +223,7 @@ func (r *Runtime) RunRetention(ctx context.Context) (retention.Result, error) {
 	}
 	r.retentionMu.Lock()
 	defer r.retentionMu.Unlock()
-	result, err := runRetention(ctx, r.DB, r.Sessions, r.Memory, r.Jobs, r.Config.EffectiveStorageConfig(), r.isRunning)
+	result, err := runRetention(ctx, r.DB, r.Sessions, r.Memory, r.Jobs, r.Inbox, r.Config.EffectiveStorageConfig(), r.Config.EffectiveInboxSettings(), r.isRunning)
 	if err != nil {
 		return result, err
 	}
@@ -317,13 +324,14 @@ func (r *Runtime) StartRetentionMaintenance(ctx context.Context) {
 				logging.L().Warn("retention.failed", "error", err)
 				continue
 			}
-			if result.SessionsDeleted > 0 || result.SubagentsDeleted > 0 || result.MemoriesPurged > 0 || result.MemoryEventsPurged > 0 || result.JobsPurged > 0 || result.ToolOutputDeleted > 0 || result.AgentTmpDeleted > 0 {
+			if result.SessionsDeleted > 0 || result.SubagentsDeleted > 0 || result.MemoriesPurged > 0 || result.MemoryEventsPurged > 0 || result.JobsPurged > 0 || result.InboxPurged > 0 || result.ToolOutputDeleted > 0 || result.AgentTmpDeleted > 0 {
 				logging.L().Info("retention.completed",
 					"sessions_deleted", result.SessionsDeleted,
 					"subagents_deleted", result.SubagentsDeleted,
 					"memories_purged", result.MemoriesPurged,
 					"memory_events_purged", result.MemoryEventsPurged,
 					"jobs_purged", result.JobsPurged,
+					"inbox_purged", result.InboxPurged,
 					"tool_output_deleted", result.ToolOutputDeleted,
 					"agent_tmp_deleted", result.AgentTmpDeleted,
 					"vacuumed", result.Vacuumed,
@@ -351,6 +359,52 @@ func (r *Runtime) StartAutonomousJobWorker(ctx context.Context, guard autonomy.R
 	}
 	r.autonomyWorker = w
 	go w.Run(ctx)
+}
+
+// StartInboxWorker starts the background loop that internalizes user inbox replies.
+func (r *Runtime) StartInboxWorker(ctx context.Context, guard inboxworker.RunGuard) {
+	if r == nil || r.Inbox == nil || r.Sessions == nil {
+		return
+	}
+	w := &inboxworker.Worker{
+		Inbox:             r.Inbox,
+		Sessions:          r.Sessions,
+		Jobs:              r.Jobs,
+		Memory:            r.Memory,
+		Events:            r.Events,
+		Guard:             guard,
+		Config:            r.Config.EffectiveInboxSettings(),
+		DefaultModelID:    r.autonomyModelID(),
+		DefaultProviderID: r.autonomyProviderID(),
+		NewRunner: func(sess session.Session, workspacePath string, registry *tools.Registry, maxSteps int) (*agent.Runner, error) {
+			return r.RunnerForInbox(sess, workspacePath, registry, maxSteps)
+		},
+	}
+	r.inboxWorker = w
+	go w.Run(ctx)
+}
+
+// RunnerForInbox builds a runner with a caller-supplied limited tool registry.
+func (r *Runtime) RunnerForInbox(sess session.Session, workspacePath string, registry *tools.Registry, maxSteps int) (*agent.Runner, error) {
+	p, err := r.ProviderForSession(sess)
+	if err != nil {
+		return nil, err
+	}
+	if maxSteps <= 0 {
+		maxSteps = 8
+	}
+	return &agent.Runner{
+		Config:       r.Config,
+		Provider:     p,
+		Sessions:     r.Sessions,
+		Memory:       r.Memory,
+		Registry:     registry,
+		Jobs:         r.Jobs,
+		MaxSteps:     maxSteps,
+		MaxTokens:    r.Config.MaxTokens,
+		SystemPrompt: "You internalize inbox replies into durable memory when warranted. Prefer no-op over noisy memories.",
+		MemorySem:    r.memorySem,
+	}, nil
 }
 
 func (r *Runtime) autonomyProviderID() string {
@@ -431,6 +485,13 @@ func (r *Runtime) Reload(ctx context.Context) error {
 	if r.autonomyWorker != nil {
 		r.autonomyWorker.UpdateConfig(
 			cfg.EffectiveAutonomousJobsSettings(),
+			r.autonomyModelIDFrom(cfg),
+			r.autonomyProviderIDFrom(cfg),
+		)
+	}
+	if r.inboxWorker != nil {
+		r.inboxWorker.UpdateConfig(
+			cfg.EffectiveInboxSettings(),
 			r.autonomyModelIDFrom(cfg),
 			r.autonomyProviderIDFrom(cfg),
 		)
@@ -629,6 +690,7 @@ func (r *Runtime) toolRegistryWithJobMeta(workspacePath string, skillRegistry sk
 		Orchestrator:       r.SubagentOrchestrator(),
 		Jobs:               r.Jobs,
 		Scheduler:          r.Scheduler,
+		Inbox:              r.Inbox,
 		Memory:             r.Memory,
 		MemoryEvents:       r.Events,
 		SessionID:          sessionID,
