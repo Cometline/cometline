@@ -31,6 +31,23 @@ func TestDiscoverFindsSkillsAndDeduplicatesByRootOrder(t *testing.T) {
 	}
 }
 
+func TestDiscoverIncludesBundledLLMWikiSkill(t *testing.T) {
+	isolatedSkillsHome(t)
+
+	reg := Discover("", Config{Enabled: true})
+
+	skill, ok := reg.Find("llm-wiki")
+	if !ok {
+		t.Fatalf("llm-wiki not found; errors=%v", reg.Errors)
+	}
+	if skill.Internal {
+		t.Fatal("llm-wiki should be visible to users")
+	}
+	if !strings.Contains(reg.PromptIndex(), "llm-wiki") {
+		t.Fatal("prompt index should include llm-wiki")
+	}
+}
+
 func TestDiscoverIncludesBundledSetupSkill(t *testing.T) {
 	isolatedSkillsHome(t)
 
