@@ -94,6 +94,37 @@ func TestRuntimeMountDoesNotExposePrivateDataFiles(t *testing.T) {
 	}
 }
 
+func TestRuntimeWikiMountIsReadableAndWritable(t *testing.T) {
+	dataDir := t.TempDir()
+	t.Setenv("COMETMIND_DATA_DIR", dataDir)
+	root := t.TempDir()
+
+	writer := WriteFile{Workspace: Workspace{Root: root}}
+	res, err := writer.Execute(context.Background(), json.RawMessage(`{
+		"path":"@runtime/wiki/entities/test.md",
+		"content":"# hello wiki"
+	}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.OK || !strings.Contains(res.Output, "@runtime/wiki/entities/test.md") {
+		t.Fatalf("write result = %+v", res)
+	}
+
+	reader := ReadFile{Workspace: Workspace{Root: t.TempDir()}}
+	res, err = reader.Execute(context.Background(), json.RawMessage(`{"path":"@runtime/wiki/entities/test.md"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.OK || !strings.Contains(res.Output, "# hello wiki") {
+		t.Fatalf("read result = %+v", res)
+	}
+
+	if _, err := os.Stat(filepath.Join(dataDir, "wiki", "entities", "test.md")); err != nil {
+		t.Fatalf("wiki file missing: %v", err)
+	}
+}
+
 func TestListRuntimeMounts(t *testing.T) {
 	t.Setenv("COMETMIND_DATA_DIR", t.TempDir())
 	tool := ListDir{Workspace: Workspace{Root: t.TempDir()}}
@@ -101,7 +132,7 @@ func TestListRuntimeMounts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !res.OK || res.Output != "tool-output/\ntmp/\n" {
+	if !res.OK || res.Output != "tool-output/\ntmp/\nwiki/\n" {
 		t.Fatalf("result = %+v", res)
 	}
 }

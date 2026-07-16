@@ -59,3 +59,30 @@ func TestPurgeRuntimeFilesByAge(t *testing.T) {
 		t.Fatal("old agent-tmp should be gone")
 	}
 }
+
+func TestPurgeRuntimeFilesDoesNotTouchWikiDir(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("COMETMIND_DATA_DIR", dir)
+
+	wikiDir := filepath.Join(dir, "wiki", "entities")
+	if err := os.MkdirAll(wikiDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	oldWiki := filepath.Join(wikiDir, "stale.md")
+	if err := os.WriteFile(oldWiki, []byte("knowledge"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	oldTime := time.Now().Add(-365 * 24 * time.Hour)
+	if err := os.Chtimes(oldWiki, oldTime, oldTime); err != nil {
+		t.Fatal(err)
+	}
+
+	PurgeRuntimeFiles(config.StorageConfig{
+		ToolOutputRetentionDays: 1,
+		AgentTmpRetentionDays:     1,
+	})
+
+	if _, err := os.Stat(oldWiki); err != nil {
+		t.Fatalf("wiki file should survive retention purge: %v", err)
+	}
+}

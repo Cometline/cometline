@@ -22,6 +22,7 @@ const RuntimePrefix = "@runtime"
 const (
 	runtimeToolOutputMount = "tool-output"
 	runtimeTmpMount        = "tmp"
+	runtimeWikiMount       = "wiki"
 )
 
 var (
@@ -41,7 +42,7 @@ func (w Workspace) ResolveReadable(rel string) (string, error) {
 	if !ok {
 		return w.Resolve(rel)
 	}
-	if mount != runtimeToolOutputMount && mount != runtimeTmpMount {
+	if mount != runtimeToolOutputMount && mount != runtimeTmpMount && mount != runtimeWikiMount {
 		return "", fmt.Errorf("runtime mount is not readable: %s", mount)
 	}
 	root, err := runtimeMountRoot(mount)
@@ -58,7 +59,7 @@ func (w Workspace) ResolveWritable(rel string) (string, error) {
 	if !ok {
 		return w.Resolve(rel)
 	}
-	if mount != runtimeTmpMount {
+	if mount != runtimeTmpMount && mount != runtimeWikiMount {
 		return "", fmt.Errorf("runtime mount is read-only: %s", mount)
 	}
 	root, err := runtimeMountRoot(mount)
@@ -93,7 +94,8 @@ func (w Workspace) LockWorkspace() (unlock func()) {
 // MountDocs returns the coding-prompt lines describing runtime mounts.
 func MountDocs() string {
 	return "The managed runtime mounts are available without exposing secrets: " +
-		"@runtime/tool-output is read-only and @runtime/tmp is shared read/write across sessions. " +
+		"@runtime/tool-output is read-only, @runtime/tmp is shared read/write across sessions, " +
+		"and @runtime/wiki is the persistent LLM Wiki (read/write, not age-purged). " +
 		"Use these aliases instead of guessing ~/.cometmind paths."
 }
 
@@ -123,8 +125,11 @@ func runtimeMountRoot(mount string) (string, error) {
 		return "", err
 	}
 	name := mount
-	if mount == runtimeTmpMount {
+	switch mount {
+	case runtimeTmpMount:
 		name = "agent-tmp"
+	case runtimeWikiMount:
+		name = "wiki"
 	}
 	root := filepath.Join(dataDir, name)
 	if err := os.MkdirAll(root, 0o700); err != nil {
