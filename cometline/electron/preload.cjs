@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 	openExternal: (url) => ipcRenderer.invoke('cometline:open-external', url),
 	getWorkspacePath: () => ipcRenderer.invoke('cometline:get-workspace-path'),
 	selectWorkspacePath: () => ipcRenderer.invoke('cometline:select-workspace-path'),
+	selectBackupFolder: () => ipcRenderer.invoke('cometline:select-backup-folder'),
 	setWorkspacePath: (workspacePath) =>
 		ipcRenderer.invoke('cometline:set-workspace-path', workspacePath),
 	listRecentWorkspaces: () => ipcRenderer.invoke('cometline:list-recent-workspaces'),
@@ -43,8 +44,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
 	fetchProviderModels: (config) => ipcRenderer.invoke('cometline:fetch-provider-models', config),
 	saveProviderSettings: (settings, options) =>
 		ipcRenderer.invoke('cometline:save-provider-settings', settings, options),
-	exportProviderSettings: () => ipcRenderer.invoke('cometline:export-provider-settings'),
-	importProviderSettings: () => ipcRenderer.invoke('cometline:import-provider-settings'),
 	setSidebarOpen: (payload) => ipcRenderer.send('cometline:set-sidebar-open', payload),
 	getFullScreen: () => ipcRenderer.invoke('cometline:get-fullscreen'),
 	onFullScreenChange: (callback) => {

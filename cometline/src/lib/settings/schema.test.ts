@@ -32,7 +32,13 @@ describe('settings schema', () => {
 			retentionDays: 90,
 			maxSessionsPerWorkspace: 0,
 			archivedMemoryPurgeDays: 90,
-			vacuumAfterPurge: true
+			vacuumAfterPurge: true,
+			backup: {
+				enabled: false,
+				destinationDir: '',
+				intervalHours: 24,
+				maxBackups: 7
+			}
 		});
 		expect(runtimeSlice(settings)).toMatchObject({
 			provider: 'local-llm',
