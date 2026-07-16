@@ -20,8 +20,10 @@
 	import { startNewChat } from '$lib/actions/new-chat';
 	import { openSettings } from '$lib/actions/open-settings';
 	import { navigateAdjacentSession } from '$lib/actions/navigate-adjacent-session';
+	import { navigateSessionHistory } from '$lib/actions/navigate-session-history';
 	import { navigateToSession } from '$lib/actions/navigate-to-session';
 	import { narrowViewportQuery, subscribeNarrowViewport } from '$lib/layout/narrow-viewport';
+	import { shouldUseWebPanelHistory } from '$lib/navigation/focus-nav';
 	import { matchesShortcut, type ShortcutAction } from '$lib/keyboard-shortcuts';
 
 	const FALLBACK_SIDEBAR_DURATION = 360;
@@ -29,6 +31,9 @@
 	let { children }: { children: import('svelte').Snippet } = $props();
 
 	let sidebarRef = $state<{ focusSearch: () => void } | null>(null);
+	let webPanelRef = $state<{ navigateBack: () => void; navigateForward: () => void } | null>(
+		null
+	);
 	let contentRowRef = $state<HTMLDivElement | null>(null);
 
 	let activeSessionId = $derived(sessionStore.current?.id ?? null);
@@ -71,6 +76,20 @@
 				return;
 			case 'openWebPanel':
 				shellStore.openWebPanelFromShortcut();
+				return;
+			case 'navigateBack':
+				if (shouldUseWebPanelHistory(shellStore.webPanelOpen, shellStore.focusedPane)) {
+					webPanelRef?.navigateBack();
+				} else {
+					navigateSessionHistory('back');
+				}
+				return;
+			case 'navigateForward':
+				if (shouldUseWebPanelHistory(shellStore.webPanelOpen, shellStore.focusedPane)) {
+					webPanelRef?.navigateForward();
+				} else {
+					navigateSessionHistory('forward');
+				}
 				return;
 			case 'openSettings':
 				openSettings();
@@ -158,6 +177,16 @@
 			if (matchesShortcut(event, shortcuts.openWebPanel)) {
 				event.preventDefault();
 				runShortcutAction('openWebPanel');
+				return;
+			}
+			if (matchesShortcut(event, shortcuts.navigateBack)) {
+				event.preventDefault();
+				runShortcutAction('navigateBack');
+				return;
+			}
+			if (matchesShortcut(event, shortcuts.navigateForward)) {
+				event.preventDefault();
+				runShortcutAction('navigateForward');
 				return;
 			}
 			if (matchesShortcut(event, shortcuts.openSettings)) {
@@ -483,7 +512,7 @@
 				onkeydown={onResizeKeydown}
 			></div>
 		{/if}
-		<WebPanel />
+		<WebPanel bind:this={webPanelRef} />
 	</div>
 	<SettingsModal />
 	<InboxDrawer

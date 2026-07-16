@@ -1470,6 +1470,8 @@ function handleWebPanelGuestShortcuts(event, input) {
 		'toggleSidebar',
 		'openWebPanel',
 		'toggleWebPanel',
+		'navigateBack',
+		'navigateForward',
 		'openSettings',
 		'newChat',
 		'focusSearch',

@@ -64,8 +64,7 @@ func TestConvertRequest_ResponsesShape(t *testing.T) {
 	require.Equal(t, `{"path":"main.go"}`, out.Input[3].Args)
 	require.Equal(t, "function_call_output", out.Input[4].Type)
 	require.Equal(t, "read_file", out.Input[4].Name)
-	require.NotNil(t, out.Input[4].Output)
-	require.Equal(t, "file contents", *out.Input[4].Output)
+	require.Equal(t, "file contents", out.Input[4].Output)
 	require.Len(t, out.Tools, 1)
 	require.False(t, out.Tools[0].Strict)
 

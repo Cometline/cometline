@@ -131,6 +131,15 @@
 		webviewEl.goForward();
 	}
 
+	/** Used by AppShell shared ⌘[ / ⌘] routing when the web panel is focused. */
+	export function navigateBack() {
+		onBack();
+	}
+
+	export function navigateForward() {
+		onForward();
+	}
+
 	function onReload() {
 		webviewEl?.reload();
 	}

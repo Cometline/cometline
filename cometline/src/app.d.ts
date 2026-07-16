@@ -58,6 +58,8 @@ declare global {
 		| 'nextSession'
 		| 'toggleWebPanel'
 		| 'openWebPanel'
+		| 'navigateBack'
+		| 'navigateForward'
 		| 'openJobs'
 		| 'openSkillDrafts'
 		| 'openInbox';

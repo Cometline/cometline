@@ -149,6 +149,12 @@ describe('keyboard-shortcuts', () => {
 		expect(normalized.openWebPanel).toEqual({ command: true, key: 'o' });
 	});
 
+	it('includes shared navigate back/forward defaults', () => {
+		const normalized = normalizeKeyboardShortcuts({});
+		expect(normalized.navigateBack).toEqual({ command: true, key: '[' });
+		expect(normalized.navigateForward).toEqual({ command: true, key: ']' });
+	});
+
 	it('includes jobs, skill drafts, and inbox panel shortcuts', () => {
 		const normalized = normalizeKeyboardShortcuts({});
 		expect(normalized.openJobs).toEqual({ command: true, key: '1' });

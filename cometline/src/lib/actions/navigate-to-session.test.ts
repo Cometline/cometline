@@ -7,7 +7,8 @@ const mocks = vi.hoisted(() => ({
 	selectFromSession: vi.fn(),
 	setActiveWorkspacePath: vi.fn(),
 	setSidebarOrderWorkspacePath: vi.fn(),
-	setSidebarOrderDiscordActive: vi.fn()
+	setSidebarOrderDiscordActive: vi.fn(),
+	recordVisit: vi.fn()
 }));
 
 vi.mock('$app/navigation', () => ({ goto: mocks.goto }));
@@ -24,6 +25,9 @@ vi.mock('$lib/stores/shell.svelte', () => ({
 		setSidebarOrderWorkspacePath: mocks.setSidebarOrderWorkspacePath,
 		setSidebarOrderDiscordActive: mocks.setSidebarOrderDiscordActive
 	}
+}));
+vi.mock('$lib/stores/session-visit-history.svelte', () => ({
+	sessionVisitHistory: { recordVisit: mocks.recordVisit }
 }));
 
 import { navigateToSession } from './navigate-to-session';
@@ -95,5 +99,15 @@ describe('navigateToSession sidebar order', () => {
 
 		expect(mocks.setActiveWorkspacePath).toHaveBeenCalledWith('/ws-b');
 		expect(electronSetWorkspacePath).not.toHaveBeenCalled();
+	});
+
+	it('records a visit for normal navigation', () => {
+		navigateToSession(session());
+		expect(mocks.recordVisit).toHaveBeenCalledWith('sess-1');
+	});
+
+	it('skips visit recording when navigating from history', () => {
+		navigateToSession(session(), { fromHistory: true });
+		expect(mocks.recordVisit).not.toHaveBeenCalled();
 	});
 });

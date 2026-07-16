@@ -4229,6 +4229,18 @@ var SHORTCUT_DEFINITIONS = [
     defaultBinding: { command: true, key: "o" }
   },
   {
+    id: "navigateBack",
+    label: "Back (web page or recent chat)",
+    category: "panels",
+    defaultBinding: { command: true, key: "[" }
+  },
+  {
+    id: "navigateForward",
+    label: "Forward (web page or recent chat)",
+    category: "panels",
+    defaultBinding: { command: true, key: "]" }
+  },
+  {
     id: "openJobs",
     label: "Open jobs",
     category: "panels",

@@ -12,6 +12,8 @@ export type ShortcutAction =
 	| 'nextSession'
 	| 'toggleWebPanel'
 	| 'openWebPanel'
+	| 'navigateBack'
+	| 'navigateForward'
 	| 'openJobs'
 	| 'openSkillDrafts'
 	| 'openInbox';
@@ -131,6 +133,18 @@ export const SHORTCUT_DEFINITIONS: KeyboardShortcutDefinition[] = [
 		label: 'Open web panel',
 		category: 'panels',
 		defaultBinding: { command: true, key: 'o' }
+	},
+	{
+		id: 'navigateBack',
+		label: 'Back (web page or recent chat)',
+		category: 'panels',
+		defaultBinding: { command: true, key: '[' }
+	},
+	{
+		id: 'navigateForward',
+		label: 'Forward (web page or recent chat)',
+		category: 'panels',
+		defaultBinding: { command: true, key: ']' }
 	},
 	{
 		id: 'openJobs',
