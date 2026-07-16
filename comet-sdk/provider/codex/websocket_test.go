@@ -13,7 +13,6 @@ import (
 
 	cometsdk "github.com/cometline/comet-sdk"
 	"github.com/cometline/comet-sdk/internal/sse"
-	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/require"
 )
 
@@ -27,7 +26,7 @@ func TestWriteWebSocketSSEEventPreservesMultilineJSON(t *testing.T) {
 	require.Equal(t, string(payload), scanner.Event().Data)
 }
 
-func TestStream_AutoUsesResponsesWebSocket(t *testing.T) {
+func TestStream_UsesSSEOnly(t *testing.T) {
 	codeHome := t.TempDir()
 	t.Setenv("CODEX_HOME", codeHome)
 	accessToken := writeTestAuthFile(t, codexAuthPath())
@@ -35,31 +34,22 @@ func TestStream_AutoUsesResponsesWebSocket(t *testing.T) {
 
 	var request map[string]any
 	var requestHeaders http.Header
-	upgrader := websocket.Upgrader{CheckOrigin: func(*http.Request) bool { return true }}
+	requestCount := 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, http.MethodPost, r.Method)
+		requestCount++
 		requestHeaders = r.Header.Clone()
-		conn, err := upgrader.Upgrade(w, r, nil)
-		if err != nil {
-			return
-		}
-		defer conn.Close()
-		if err := conn.ReadJSON(&request); err != nil {
-			return
-		}
-		_ = conn.WriteJSON(map[string]any{
-			"type":  "response.output_text.delta",
-			"delta": "hello",
-		})
-		_ = conn.WriteJSON(map[string]any{
-			"type":     "response.completed",
-			"response": map[string]any{"usage": map[string]any{}},
-		})
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&request))
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = w.Write([]byte("data: {\"type\":\"response.output_text.delta\",\"delta\":\"hello\"}\n\n"))
+		_, _ = w.Write([]byte("data: {\"type\":\"response.completed\",\"response\":{\"usage\":{}}}\n\n"))
 	}))
 	defer srv.Close()
 
 	p := NewCodexProvider(
 		cometsdk.WithBaseURL(srv.URL),
 		cometsdk.WithMaxRetries(1),
+		cometsdk.WithResponseTransport(cometsdk.ResponseTransportWebSocket),
 	)
 	req := &cometsdk.Request{
 		Model:    "gpt-5.6-luna",
@@ -70,11 +60,12 @@ func TestStream_AutoUsesResponsesWebSocket(t *testing.T) {
 	require.NoError(t, err)
 	events := collectEvents(t, ch)
 
+	require.Equal(t, 1, requestCount)
 	require.Equal(t, accessToken, strings.TrimPrefix(requestHeaders.Get("Authorization"), "Bearer "))
 	require.Equal(t, "installation-test", requestHeaders.Get("x-codex-installation-id"))
-	require.Equal(t, responsesWebsocketBeta, requestHeaders.Get("OpenAI-Beta"))
+	require.Empty(t, requestHeaders.Get("OpenAI-Beta"))
 	require.Equal(t, "true", requestHeaders.Get(responsesLiteHeader))
-	require.Equal(t, "response.create", request["type"])
+	require.NotContains(t, request, "type")
 	require.Equal(t, "gpt-5.6-luna", request["model"])
 	require.Equal(t, false, request["store"])
 	require.Equal(t, true, request["stream"])

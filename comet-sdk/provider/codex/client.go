@@ -47,18 +47,6 @@ func (p *provider) ID() string { return providerID }
 
 func (p *provider) Stream(ctx context.Context, req *cometsdk.Request) (<-chan cometsdk.Event, error) {
 	p.log.DebugContext(ctx, "stream.start", "model", req.Model)
-	if p.responseTransport() == cometsdk.ResponseTransportWebSocket {
-		ch, err := p.streamWebSocket(ctx, req)
-		if err == nil {
-			return ch, nil
-		}
-		if p.cfg.ResponseTransport == cometsdk.ResponseTransportWebSocket {
-			p.log.DebugContext(ctx, "stream.websocket_failed", "error", err, "model", req.Model)
-			return nil, err
-		}
-		p.log.DebugContext(ctx, "stream.websocket_fallback", "error", err, "model", req.Model)
-	}
-
 	ch := make(chan cometsdk.Event, 32)
 
 	flags := streamFlags{}
@@ -75,16 +63,6 @@ func (p *provider) Stream(ctx context.Context, req *cometsdk.Request) (<-chan co
 
 	go parseLoop(ctx, providerID, httpResp.Body, ch, p.log)
 	return ch, nil
-}
-
-func (p *provider) responseTransport() cometsdk.ResponseTransport {
-	if p.cfg.ResponseTransport == cometsdk.ResponseTransportSSE {
-		return cometsdk.ResponseTransportSSE
-	}
-	// The Codex endpoint is a Responses-compatible endpoint. Its native
-	// transport is WebSocket; other providers keep their own defaults because
-	// they may not expose Responses WebSocket mode at all.
-	return cometsdk.ResponseTransportWebSocket
 }
 
 func (p *provider) streamWithRetry(ctx context.Context, req *cometsdk.Request, flags streamFlags) (*http.Response, error) {
