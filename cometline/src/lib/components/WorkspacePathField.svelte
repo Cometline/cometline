@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { ChevronDown, FolderOpen } from '@lucide/svelte';
+	import { tick } from 'svelte';
 	import { filterWorkspaceOptions } from '$lib/skills/slash-commands';
 	import { loadWorkspacePaths } from '$lib/workspaces/load-workspace-paths';
 	import { shellStore } from '$lib/stores/shell.svelte';
@@ -22,8 +23,8 @@
 	let searchQuery = $state('');
 	let workspacePaths = $state<string[]>([]);
 	let sessionCountByPath = $state(new Map<string, number>());
+	let searchInput = $state<HTMLInputElement | null>(null);
 
-	const canBrowse = $derived(Boolean(window.electronAPI?.selectWorkspacePath));
 	const filteredOptions = $derived(
 		filterWorkspaceOptions(searchQuery, workspacePaths, sessionCountByPath)
 	);
@@ -49,7 +50,10 @@
 	async function togglePanel() {
 		if (disabled) return;
 		panelOpen = !panelOpen;
-		if (panelOpen) await ensurePathsLoaded();
+		if (!panelOpen) return;
+		await tick();
+		searchInput?.focus();
+		await ensurePathsLoaded();
 	}
 
 	async function browseFolder() {
@@ -92,11 +96,6 @@
 			aria-readonly="true"
 			onclick={() => void togglePanel()}
 		/>
-		{#if canBrowse}
-			<button type="button" class="secondary" {disabled} onclick={() => void browseFolder()}>
-				Browse
-			</button>
-		{/if}
 		<button
 			type="button"
 			class="secondary icon-only"
@@ -158,6 +157,7 @@
 			onkeydown={handlePanelKeydown}
 		>
 			<input
+				bind:this={searchInput}
 				type="search"
 				class="workspace-search"
 				placeholder="Filter workspaces…"

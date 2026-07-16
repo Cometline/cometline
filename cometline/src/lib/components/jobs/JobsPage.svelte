@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { CalendarClock, LoaderCircle, Pencil, Plus, RefreshCw, Trash2 } from '@lucide/svelte';
+	import { CalendarClock, LoaderCircle, Pencil, Plus, RefreshCw, Trash2, X } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import {
 		archiveJob,
@@ -29,6 +29,7 @@
 	} from '$lib/jobs/group-jobs';
 	import { truncateJobLabel } from '$lib/jobs/format-job-label';
 	import { shellStore } from '$lib/stores/shell.svelte';
+	import WorkspacePathField from '$lib/components/WorkspacePathField.svelte';
 	import JobCard from './JobCard.svelte';
 	import JobDetailDrawer from './JobDetailDrawer.svelte';
 	import JobsKanbanBoard from './JobsKanbanBoard.svelte';
@@ -291,6 +292,14 @@
 	function cancelScheduleForm() {
 		resetScheduleForm();
 		showScheduleForm = false;
+	}
+
+	function openNativePicker(event: Event & { currentTarget: HTMLInputElement }) {
+		try {
+			event.currentTarget.showPicker();
+		} catch {
+			// Unsupported browser, or picker already open.
+		}
 	}
 
 	function localDatetimeToMillis(local: string): number | undefined {
@@ -652,21 +661,35 @@
 			<section class="scheduled-panel settings-panel-frame">
 				<header class="scheduled-header">
 					<h2>Scheduled</h2>
-					<button
-						type="button"
-						class="secondary"
-						onclick={() => {
-							if (showScheduleForm) cancelScheduleForm();
-							else openNewScheduleForm();
-						}}
-					>
-						<Plus size={14} />
-						{showScheduleForm ? 'Cancel' : 'Schedule job'}
-					</button>
+					<div class="scheduled-header-actions">
+						{#if showScheduleForm}
+							<button type="button" class="secondary" onclick={cancelScheduleForm}>
+								<X size={14} />
+								Cancel
+							</button>
+							<button
+								type="submit"
+								class="primary"
+								form="schedule-job-form"
+								disabled={saving || !scheduleDescription.trim()}
+							>
+								{#if saving}
+									<LoaderCircle size={14} class="spin" />
+								{/if}
+								{editingScheduledId ? 'Save schedule' : 'Create schedule'}
+							</button>
+						{:else}
+							<button type="button" class="secondary" onclick={openNewScheduleForm}>
+								<Plus size={14} />
+								Schedule job
+							</button>
+						{/if}
+					</div>
 				</header>
 
 				{#if showScheduleForm}
 					<form
+						id="schedule-job-form"
 						class="schedule-form"
 						onsubmit={(e) => {
 							e.preventDefault();
@@ -675,21 +698,25 @@
 					>
 						<label class="form-field">
 							<span>Description</span>
-							<input
-								type="text"
+							<textarea
 								bind:value={scheduleDescription}
+								rows="4"
 								placeholder="What should this job do?"
 								required
-							/>
+							></textarea>
 						</label>
 						<label class="form-field">
 							<span>Definition of done</span>
-							<textarea bind:value={scheduleDod} rows="2"></textarea>
+							<textarea
+								bind:value={scheduleDod}
+								rows="4"
+								placeholder="How will you know it's finished?"
+							></textarea>
 						</label>
-						<label class="form-field">
+						<div class="form-field">
 							<span>Workspace path</span>
-							<input type="text" bind:value={scheduleWorkspacePath} />
-						</label>
+							<WorkspacePathField bind:value={scheduleWorkspacePath} />
+						</div>
 						<div class="schedule-kind" role="group" aria-label="Schedule type">
 							<button
 								type="button"
@@ -713,7 +740,11 @@
 							{#if scheduleMode === 'one-shot'}
 								<label class="form-field">
 									<span>Run at</span>
-									<input type="datetime-local" bind:value={scheduleRunAtLocal} />
+									<input
+										type="datetime-local"
+										bind:value={scheduleRunAtLocal}
+										onclick={openNativePicker}
+									/>
 									<small>Local time on this device.</small>
 								</label>
 							{:else}
@@ -754,7 +785,11 @@
 								{/if}
 								<label class="form-field">
 									<span>Time</span>
-									<input type="time" bind:value={scheduleTime} />
+									<input
+										type="time"
+										bind:value={scheduleTime}
+										onclick={openNativePicker}
+									/>
 								</label>
 								<div class="schedule-generated">
 									<span>{scheduleSummary}</span>
@@ -770,70 +805,61 @@
 								</div>
 							{/if}
 						</div>
-						<div class="schedule-actions">
-							<button type="submit" class="primary" disabled={saving}>
-								{#if saving}
-									<LoaderCircle size={14} class="spin" />
-								{/if}
-								{editingScheduledId ? 'Save schedule' : 'Create schedule'}
-							</button>
-							<button type="button" class="secondary" onclick={cancelScheduleForm}
-								>Cancel</button
-							>
-						</div>
 					</form>
 				{/if}
 
-				{#if scheduledJobs.length === 0}
-					<p class="jobs-muted">No scheduled jobs. Create one to defer work.</p>
-				{:else}
-					<div class="scheduled-list scrollbar-none">
-						{#each scheduledJobs as job (job.id)}
-							<div class="scheduled-card" class:disabled={!job.enabled}>
-								<div class="scheduled-card-main">
-									<strong>{job.description}</strong>
-									<div class="scheduled-card-meta">
-										<span class="chip">
-											<CalendarClock size={11} />
-											{scheduleLabel(job)}
-										</span>
-										<span class="chip">Next: {nextRunLabel(job)}</span>
-										{#if job.last_run_at}
-											<span class="chip"
-												>Last: {formatClock(job.last_run_at)}</span
-											>
-										{/if}
+				{#if !showScheduleForm}
+					{#if scheduledJobs.length === 0}
+						<p class="jobs-muted">No scheduled jobs. Create one to defer work.</p>
+					{:else}
+						<div class="scheduled-list scrollbar-none">
+							{#each scheduledJobs as job (job.id)}
+								<div class="scheduled-card" class:disabled={!job.enabled}>
+									<div class="scheduled-card-main">
+										<strong title={job.description}>{job.description}</strong>
+										<div class="scheduled-card-meta">
+											<span class="chip">
+												<CalendarClock size={11} />
+												{scheduleLabel(job)}
+											</span>
+											<span class="chip">Next: {nextRunLabel(job)}</span>
+											{#if job.last_run_at}
+												<span class="chip"
+													>Last: {formatClock(job.last_run_at)}</span
+												>
+											{/if}
+										</div>
+									</div>
+									<div class="scheduled-card-actions">
+										<button
+											type="button"
+											class="secondary icon-only"
+											title="Edit"
+											onclick={() => editScheduled(job)}
+										>
+											<Pencil size={14} />
+										</button>
+										<button
+											type="button"
+											class="secondary icon-only"
+											title={job.enabled ? 'Disable' : 'Enable'}
+											onclick={() => void handleToggleScheduled(job)}
+										>
+											{job.enabled ? 'Disable' : 'Enable'}
+										</button>
+										<button
+											type="button"
+											class="danger icon-only"
+											title="Delete"
+											onclick={() => void handleDeleteScheduled(job)}
+										>
+											<Trash2 size={14} />
+										</button>
 									</div>
 								</div>
-								<div class="scheduled-card-actions">
-									<button
-										type="button"
-										class="secondary icon-only"
-										title="Edit"
-										onclick={() => editScheduled(job)}
-									>
-										<Pencil size={14} />
-									</button>
-									<button
-										type="button"
-										class="secondary icon-only"
-										title={job.enabled ? 'Disable' : 'Enable'}
-										onclick={() => void handleToggleScheduled(job)}
-									>
-										{job.enabled ? 'Disable' : 'Enable'}
-									</button>
-									<button
-										type="button"
-										class="danger icon-only"
-										title="Delete"
-										onclick={() => void handleDeleteScheduled(job)}
-									>
-										<Trash2 size={14} />
-									</button>
-								</div>
-							</div>
-						{/each}
-					</div>
+							{/each}
+						</div>
+					{/if}
 				{/if}
 			</section>
 		{:else}
@@ -1267,6 +1293,14 @@
 		gap: 8px;
 	}
 
+	.scheduled-header-actions {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		flex-wrap: wrap;
+		justify-content: flex-end;
+	}
+
 	.scheduled-header h2 {
 		margin: 0;
 		font-size: 14px;
@@ -1303,6 +1337,18 @@
 		background: var(--panel-bg);
 		min-height: 34px;
 		resize: vertical;
+	}
+
+	.form-field input[type='datetime-local'],
+	.form-field input[type='time'] {
+		cursor: pointer;
+	}
+
+	.schedule-form .form-field textarea {
+		min-height: 96px;
+		max-height: 220px;
+		overflow-y: auto;
+		line-height: 1.45;
 	}
 
 	.form-field small {
@@ -1367,16 +1413,9 @@
 		color: var(--text-muted);
 	}
 
-	.schedule-actions {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		flex-wrap: wrap;
-	}
-
 	.scheduled-list {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+		display: flex;
+		flex-direction: column;
 		gap: 10px;
 		overflow-y: auto;
 		min-height: 0;
@@ -1400,6 +1439,7 @@
 
 	.scheduled-card-main {
 		display: flex;
+		flex: 1;
 		flex-direction: column;
 		gap: 6px;
 		min-width: 0;
@@ -1407,7 +1447,14 @@
 
 	.scheduled-card-main strong {
 		font-size: 12px;
+		line-height: 1.45;
 		color: var(--text-main);
+		display: -webkit-box;
+		-webkit-line-clamp: 2;
+		line-clamp: 2;
+		-webkit-box-orient: vertical;
+		overflow: hidden;
+		word-break: break-word;
 	}
 
 	.scheduled-card-meta {
