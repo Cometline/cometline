@@ -135,7 +135,7 @@ FROM
     sessions s
     LEFT JOIN gateway_sessions g ON g.cometmind_session_id = s.id
 WHERE s.parent_session_id IS NULL
-  AND s.origin != 'autonomy'
+  AND s.origin NOT IN ('autonomy', 'inbox')
 ORDER BY s.pinned DESC, s.updated_at DESC;
 
 -- name: UpdateSessionTitle :exec

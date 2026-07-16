@@ -14,7 +14,7 @@ CREATE TABLE sessions (
     status             TEXT NOT NULL DEFAULT 'active'
                        CHECK (status IN ('active', 'archived')),
     origin             TEXT NOT NULL DEFAULT 'user'
-                       CHECK (origin IN ('user', 'autonomy')),
+                       CHECK (origin IN ('user', 'autonomy', 'inbox')),
     token_usage        TEXT NOT NULL DEFAULT '{}',
     parent_session_id  TEXT REFERENCES sessions (id) ON DELETE SET NULL,
     purpose            TEXT NOT NULL DEFAULT '',
@@ -225,3 +225,38 @@ CREATE TABLE job_events (
 );
 
 CREATE INDEX idx_job_events_job ON job_events (job_id, created_at);
+
+CREATE TABLE inbox_messages (
+    id               TEXT PRIMARY KEY,
+    title            TEXT NOT NULL,
+    body             TEXT NOT NULL,
+    workspace_id     TEXT,
+    job_id           TEXT,
+    session_id       TEXT,
+    status           TEXT NOT NULL DEFAULT 'open'
+                     CHECK (status IN ('open', 'archived')),
+    archive_reason   TEXT
+                     CHECK (
+                         archive_reason IS NULL
+                         OR archive_reason IN ('replied', 'dismissed')
+                     ),
+    user_reply       TEXT,
+    processed_at     INTEGER,
+    process_error    TEXT,
+    process_attempts INTEGER NOT NULL DEFAULT 0,
+    archived_at      INTEGER,
+    deleted_at       INTEGER,
+    created_at       INTEGER NOT NULL DEFAULT (unixepoch ('now', 'subsec') * 1000),
+    updated_at       INTEGER NOT NULL DEFAULT (unixepoch ('now', 'subsec') * 1000)
+);
+
+CREATE INDEX idx_inbox_messages_status_created ON inbox_messages (status, created_at DESC);
+
+CREATE INDEX idx_inbox_messages_process ON inbox_messages (
+    status,
+    archive_reason,
+    processed_at,
+    process_attempts
+);
+
+CREATE INDEX idx_inbox_messages_archived_at ON inbox_messages (archived_at);

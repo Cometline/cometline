@@ -19,6 +19,25 @@ type GatewaySession struct {
 	LastActiveAt       int64  `json:"last_active_at"`
 }
 
+type InboxMessage struct {
+	ID              string         `json:"id"`
+	Title           string         `json:"title"`
+	Body            string         `json:"body"`
+	WorkspaceID     sql.NullString `json:"workspace_id"`
+	JobID           sql.NullString `json:"job_id"`
+	SessionID       sql.NullString `json:"session_id"`
+	Status          string         `json:"status"`
+	ArchiveReason   sql.NullString `json:"archive_reason"`
+	UserReply       sql.NullString `json:"user_reply"`
+	ProcessedAt     sql.NullInt64  `json:"processed_at"`
+	ProcessError    sql.NullString `json:"process_error"`
+	ProcessAttempts int64          `json:"process_attempts"`
+	ArchivedAt      sql.NullInt64  `json:"archived_at"`
+	DeletedAt       sql.NullInt64  `json:"deleted_at"`
+	CreatedAt       int64          `json:"created_at"`
+	UpdatedAt       int64          `json:"updated_at"`
+}
+
 type Job struct {
 	ID                string         `json:"id"`
 	Description       string         `json:"description"`
