@@ -98,8 +98,10 @@ func NewRegistry(workspaceRoot string, opts ...RegistryOptions) *Registry {
 	return r
 }
 
-// NewSubagentRegistry returns read/search tools for general subagent workers.
-func NewSubagentRegistry(workspaceRoot string, skills *skills.Registry) *Registry {
+// NewSubagentRegistry returns tools for in-process subagent workers.
+// Research mode is read/search only; coding mode also includes edit/write/run.
+// Neither mode includes delegate_coding_task or nested spawn tools.
+func NewSubagentRegistry(workspaceRoot string, skillReg *skills.Registry, mode SubagentMode) *Registry {
 	ws := Workspace{Root: workspaceRoot}
 	r := &Registry{workspace: ws, byName: make(map[string]Tool)}
 	add := func(t Tool) {
@@ -114,9 +116,14 @@ func NewSubagentRegistry(workspaceRoot string, skills *skills.Registry) *Registr
 	add(Grep{Workspace: ws})
 	add(WebFetch{})
 	add(WebSearch{})
-	if skills != nil {
-		add(LoadSkill{Skills: skills})
-		add(ReadSkillFile{Skills: skills})
+	if skillReg != nil {
+		add(LoadSkill{Skills: skillReg})
+		add(ReadSkillFile{Skills: skillReg})
+	}
+	if mode == SubagentModeCoding {
+		add(EditFile{Workspace: ws})
+		add(WriteFile{Workspace: ws})
+		add(RunCommand{Workspace: ws})
 	}
 
 	return r

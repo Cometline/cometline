@@ -12,20 +12,34 @@ import (
 )
 
 func TestNewSubagentRegistryExcludesWriteAndDelegateTools(t *testing.T) {
-	r := NewSubagentRegistry(t.TempDir(), nil)
+	r := NewSubagentRegistry(t.TempDir(), nil, SubagentModeResearch)
 	excluded := []string{
 		"edit_file", "write_file", "run_command", "write_skill", "write_skill_draft",
 		"delegate_coding_task", "spawn_general_agent", "wait_subagents",
 	}
 	for _, name := range excluded {
 		if r.Has(name) {
-			t.Errorf("subagent registry should not include %q", name)
+			t.Errorf("research subagent registry should not include %q", name)
 		}
 	}
 	included := []string{"read_file", "list_dir", "glob", "grep", "web_fetch", "web_search"}
 	for _, name := range included {
 		if !r.Has(name) {
 			t.Errorf("subagent registry missing %q", name)
+		}
+	}
+}
+
+func TestNewSubagentRegistryCodingIncludesEditTools(t *testing.T) {
+	r := NewSubagentRegistry(t.TempDir(), nil, SubagentModeCoding)
+	for _, name := range []string{"read_file", "edit_file", "write_file", "run_command", "grep"} {
+		if !r.Has(name) {
+			t.Errorf("coding subagent registry missing %q", name)
+		}
+	}
+	for _, name := range []string{"delegate_coding_task", "spawn_general_agent"} {
+		if r.Has(name) {
+			t.Errorf("coding subagent registry should not include %q", name)
 		}
 	}
 }

@@ -19,8 +19,18 @@ type AgentLoopRunner interface {
 	Run(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error
 }
 
-// ChildRunnerFactory builds a runner for a general subagent child session.
-type ChildRunnerFactory func(child session.Session, workspaceRoot string, maxSteps int) (AgentLoopRunner, error)
+// SubagentMode selects the tool surface for an in-process child agent.
+type SubagentMode string
+
+const (
+	// SubagentModeResearch is read-only exploration (no edit/write/run).
+	SubagentModeResearch SubagentMode = "research"
+	// SubagentModeCoding allows edit/write/run_command for native coding work.
+	SubagentModeCoding SubagentMode = "coding"
+)
+
+// ChildRunnerFactory builds a runner for an in-process subagent child session.
+type ChildRunnerFactory func(child session.Session, workspaceRoot string, maxSteps int, mode SubagentMode) (AgentLoopRunner, error)
 
 // RegistryOptions configures optional registry capabilities.
 type RegistryOptions struct {
