@@ -34,6 +34,9 @@ func ParseHarness(value string) Harness {
 
 // Config controls how CometMind spawns an external coding agent.
 type Config struct {
+	// Enabled gates whether delegate_coding_task is registered. Default false
+	// (native tools are preferred).
+	Enabled bool
 	Harness Harness
 	Timeout time.Duration
 }

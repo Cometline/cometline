@@ -47,7 +47,7 @@ func NewRegistry(workspaceRoot string, opts ...RegistryOptions) *Registry {
 		add(ReadSkillDraft{})
 		add(PromoteSkillDraft{})
 	}
-	if opt.Sessions != nil && opt.ACP.CommandAvailable() {
+	if opt.Sessions != nil && opt.ACP.Enabled && opt.ACP.CommandAvailable() {
 		add(DelegateCodingTask{
 			Workspace:    ws,
 			Sessions:     opt.Sessions,

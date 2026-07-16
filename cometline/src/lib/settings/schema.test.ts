@@ -63,6 +63,7 @@ describe('settings schema', () => {
 		expect(settings.cometmind.contextWindowLimit).toBe(128_000);
 		expect(settings.cometmind.storage.retentionDays).toBe(90);
 		expect(settings.cometmind.storage.maxSessionsPerWorkspace).toBe(0);
+		expect(settings.cometmind.acp.enabled).toBe(false);
 		expect(settings.cometmind.acp.defaultHarness).toBe('opencode');
 	});
 
@@ -78,7 +79,7 @@ describe('settings schema', () => {
 			} as typeof defaults.acp
 		});
 
-		expect(normalized.acp).toEqual({ defaultHarness: 'codex' });
+		expect(normalized.acp).toEqual({ enabled: false, defaultHarness: 'codex' });
 	});
 
 	it('round-trips hasDismissedSetupWizard through normalizeSettings', () => {

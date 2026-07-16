@@ -10,5 +10,9 @@ func (c *Config) ACPSettings() acp.Config {
 	if c == nil {
 		return acp.DefaultConfig()
 	}
-	return acp.DefaultHarnessConfig(acp.ParseHarness(c.ACP.DefaultHarness))
+	cfg := acp.DefaultHarnessConfig(acp.ParseHarness(c.ACP.DefaultHarness))
+	cfg.Enabled = c.ACP.Enabled
+	return cfg
 }
+
+func boolPtr(v bool) *bool { return &v }

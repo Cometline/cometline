@@ -97,6 +97,7 @@ func TestNewRegistryGatesDelegateOnHarnessAvailability(t *testing.T) {
 	} {
 		t.Run(string(harness), func(t *testing.T) {
 			cfg := acp.DefaultHarnessConfig(harness)
+			cfg.Enabled = true
 			r := NewRegistry(t.TempDir(), RegistryOptions{
 				Sessions: &session.Service{},
 				ACP:      cfg,
@@ -105,5 +106,17 @@ func TestNewRegistryGatesDelegateOnHarnessAvailability(t *testing.T) {
 				t.Fatalf("delegate_coding_task registered = %v, want %v", got, want)
 			}
 		})
+	}
+}
+
+func TestNewRegistryOmitsDelegateWhenDisabled(t *testing.T) {
+	cfg := acp.DefaultHarnessConfig(acp.HarnessOpenCode)
+	cfg.Enabled = false
+	r := NewRegistry(t.TempDir(), RegistryOptions{
+		Sessions: &session.Service{},
+		ACP:      cfg,
+	})
+	if r.Has("delegate_coding_task") {
+		t.Fatal("delegate_coding_task should not register when ACP.Enabled is false")
 	}
 }

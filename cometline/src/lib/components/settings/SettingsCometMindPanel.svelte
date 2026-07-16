@@ -364,14 +364,20 @@
 			<div class="settings-section-heading">
 				<h3>Coding task delegation</h3>
 				<p>
-					Choose the local coding harness used by <code>delegate_coding_task</code>.
-					Settings are written to <code>[acp]</code> in
+					Optional external harness for <code>delegate_coding_task</code>. Native
+					<code>edit_file</code> / <code>run_command</code> work without this. Settings
+					are written under <code>cometmind.acp</code> in
 					<code>~/.cometmind/cometline-settings.json</code>.
 				</p>
 			</div>
+			<SettingsToggle
+				label="Enable external coding harness"
+				description="Off by default. When enabled and the selected CLI is installed, CometMind can delegate multi-file coding via delegate_coding_task."
+				bind:checked={cometmind.acp.enabled}
+			/>
 			<label>
 				<span>Coding harness</span>
-				<select bind:value={cometmind.acp.defaultHarness}>
+				<select bind:value={cometmind.acp.defaultHarness} disabled={!cometmind.acp.enabled}>
 					<option value="opencode">OpenCode</option>
 					<option value="claude">Claude Code</option>
 					<option value="codex">Codex</option>
