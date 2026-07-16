@@ -46,4 +46,4 @@ Memory and storage settings live under Settings -> CometMind. Explain what will 
 
 ## Troubleshooting
 
-If settings do not persist, check `~/.cometmind/cometline-settings.json` and `~/.cometmind/cometline-desktop.json` plus file permissions. If the sidecar will not start, check `~/.cometmind/cometline.log`, port `7700`, and the packaged or development CometMind binary path. Note: `Reload` reconnects MCP servers, so in-flight MCP tool calls can fail even though the chat turn continues.
+If settings do not persist, check `~/.cometmind/cometline-settings.json` and `~/.cometmind/cometline-desktop.json` plus file permissions. If the sidecar will not start, check `~/.cometmind/logs/cometline.log`, port `7700`, and the packaged or development CometMind binary path. Note: `Reload` reconnects MCP servers, so in-flight MCP tool calls can fail even though the chat turn continues.

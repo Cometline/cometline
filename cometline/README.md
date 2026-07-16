@@ -166,7 +166,7 @@ make check              # SDK + CometMind tests + svelte-check
 make build              # SDK + CometMind binary + renderer
 make package            # packaged Electron app with embedded sidecar
 make port               # show process on 127.0.0.1:7700
-make clean-log          # remove ~/.cometmind/cometline.log
+make clean-log          # remove ~/.cometmind/logs/cometline*.log (+ legacy root paths)
 ```
 
 Packaged apps embed the CometMind binary as an Electron extra resource and serve the renderer over a custom `app://` protocol.
@@ -181,8 +181,8 @@ Packaged apps embed the CometMind binary as an Electron extra resource and serve
 | `~/.cometmind/cometline-settings.json`  | Single settings file (providers, CometMind runtime, appearance, shortcuts) |
 | `~/.cometmind/config.toml`              | Legacy only; CometMind migrates from this if JSON is absent                |
 | `~/.cometmind/cometline-workspace.json` | Selected workspace path                                                    |
-| `~/.cometmind/cometline.log`            | Sidecar stdout/stderr (rotates at 10 MB while running → `.log.1`)          |
-| `~/.cometmind/cometline-gateway.log`    | Discord gateway log (same rotation)                                        |
+| `~/.cometmind/logs/cometline.log`            | Sidecar stdout/stderr (rotates at 10 MB while running → `.log.1`)          |
+| `~/.cometmind/logs/cometline-gateway.log`    | Discord gateway log (same rotation)                                        |
 | `~/.cometmind/mcp-oauth/{server}.json`  | MCP OAuth access/refresh token cache                                        |
 | `~/.cometmind/mcp-oauth/{server}.client.json` | MCP OAuth registered-client metadata                                  |
 

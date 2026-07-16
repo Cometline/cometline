@@ -295,8 +295,10 @@ Also persisted:
 
 - `~/.cometmind/cometline-workspace.json` - selected workspace path
 - `~/.cometmind/cometmind.db` - runtime SQLite database
-- `~/.cometmind/cometline.log` - CometMind sidecar log
-- `~/.cometmind/cometline-gateway.log` - Discord gateway log
+- `~/.cometmind/logs/cometline.log` - CometMind sidecar log (10MB rotate → `.log.1`)
+- `~/.cometmind/logs/cometline-gateway.log` - Discord gateway log (same rotation)
+- `~/.cometmind/tool-output/` - spilled tool output (`@runtime/tool-output`); age-purged by retention (default 7 days)
+- `~/.cometmind/agent-tmp/` - shared `@runtime/tmp`; age-purged by retention (default 3 days)
 - `~/.cometmind/mcp-oauth/{server}.json` - MCP OAuth access/refresh token cache
 - `~/.cometmind/mcp-oauth/{server}.client.json` - MCP OAuth registered client metadata
 
