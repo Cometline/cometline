@@ -45,13 +45,22 @@ func LegacyConfigPath() (string, error) {
 	return filepath.Join(d, "config.toml"), nil
 }
 
-// SettingsPath returns ~/.cometmind/cometline-settings.json.
+// SettingsPath returns ~/.cometmind/cometline-settings.json (agent-editable runtime settings).
 func SettingsPath() (string, error) {
 	d, err := DataDir()
 	if err != nil {
 		return "", err
 	}
 	return filepath.Join(d, "cometline-settings.json"), nil
+}
+
+// DesktopSettingsPath returns ~/.cometmind/cometline-desktop.json (Electron-only UI state).
+func DesktopSettingsPath() (string, error) {
+	d, err := DataDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(d, "cometline-desktop.json"), nil
 }
 
 // ConfigPath returns ~/.cometmind/cometline-settings.json (legacy name retained for callers).
@@ -67,6 +76,7 @@ func DBPath() (string, error) {
 	}
 	return filepath.Join(d, "cometmind.db"), nil
 }
+
 
 // MCPOAuthDir returns ~/.cometmind/mcp-oauth (created if missing).
 func MCPOAuthDir() (string, error) {
