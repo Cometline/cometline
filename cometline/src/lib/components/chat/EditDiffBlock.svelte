@@ -1,7 +1,7 @@
 <script lang="ts">
-	import type { ParsedEditDiff } from '$lib/tools/parse-edit-diff';
+	import type { DiffArtifact } from '$lib/tools/parse-edit-diff';
 
-	let { diff }: { diff: ParsedEditDiff } = $props();
+	let { diff }: { diff: DiffArtifact } = $props();
 </script>
 
 <div class="edit-diff">
@@ -40,6 +40,7 @@
 		border: 1px solid var(--border-soft);
 		background: rgba(15, 23, 42, 0.04);
 		padding: 6px 0;
+		color: inherit;
 	}
 
 	.diff-line {
@@ -54,17 +55,29 @@
 	}
 
 	.kind-add {
-		color: var(--status-success, #15803d);
-		background: color-mix(in srgb, var(--status-success, #22c55e) 12%, transparent);
+		color: #15803d;
+		background: rgba(34, 197, 94, 0.14);
 	}
 
 	.kind-del {
-		color: var(--status-error, #b91c1c);
-		background: color-mix(in srgb, var(--status-error, #ef4444) 12%, transparent);
+		color: #b91c1c;
+		background: rgba(239, 68, 68, 0.14);
 	}
 
 	.kind-ctx,
 	.kind-other {
 		color: var(--text-muted);
+	}
+
+	:global([data-theme='dark']) .kind-add,
+	:global(.dark) .kind-add {
+		color: #86efac;
+		background: rgba(34, 197, 94, 0.18);
+	}
+
+	:global([data-theme='dark']) .kind-del,
+	:global(.dark) .kind-del {
+		color: #fca5a5;
+		background: rgba(239, 68, 68, 0.18);
 	}
 </style>

@@ -1,34 +1,45 @@
-export type DiffLineKind = 'meta' | 'hunk' | 'add' | 'del' | 'ctx' | 'other';
+import {
+	DIFF_BEGIN_MARKER,
+	DIFF_END_MARKER,
+	looksLikeDiffArtifact,
+	type DiffArtifact,
+	type DiffLineKind,
+	type ParsedDiffLine,
+	type ParsedEditDiff
+} from './diff-artifact';
 
-export type ParsedDiffLine = {
-	kind: DiffLineKind;
-	text: string;
-};
+export type { DiffArtifact, DiffLineKind, ParsedDiffLine, ParsedEditDiff };
+export { DIFF_BEGIN_MARKER, DIFF_END_MARKER, looksLikeDiffArtifact };
 
-export type ParsedEditDiff = {
-	summary: string;
-	lines: ParsedDiffLine[];
-};
+/** Extract DiffArtifact from edit_file tool output (Format projection). */
+export function parseEditDiff(output: string): DiffArtifact | null {
+	const text = String(output ?? '').replace(/\r\n/g, '\n');
+	const begin = text.indexOf(DIFF_BEGIN_MARKER);
+	if (begin < 0) return null;
 
-const BEGIN = '*** Begin Diff';
-const END = '*** End Diff';
-
-/** Extract summary + unified-diff lines from edit_file tool output. */
-export function parseEditDiff(output: string): ParsedEditDiff | null {
-	const text = output ?? '';
-	const begin = text.indexOf(BEGIN);
-	const end = text.indexOf(END);
-	if (begin < 0 || end < 0 || end <= begin) return null;
+	let end = text.indexOf(DIFF_END_MARKER, begin + DIFF_BEGIN_MARKER.length);
+	// Tolerate truncated streams that still have a usable unified diff body.
+	if (end < 0) end = text.length;
 
 	const summary = text.slice(0, begin).trim();
-	const body = text.slice(begin + BEGIN.length, end).replace(/^\n/, '').replace(/\n$/, '');
+	let body = text.slice(begin + DIFF_BEGIN_MARKER.length, end);
+	if (body.startsWith('\n')) body = body.slice(1);
+	if (body.endsWith('\n')) body = body.slice(0, -1);
 	if (!body.trim()) return null;
 
 	const lines: ParsedDiffLine[] = body.split('\n').map((line) => ({
 		kind: classifyDiffLine(line),
 		text: line
 	}));
-	return { summary, lines };
+
+	const artifact: DiffArtifact = { summary, lines };
+	const m = /^edited\s+(.+?)\s+\((\+\d+)\s+(-\d+)\)/.exec(summary);
+	if (m) {
+		artifact.path = m[1];
+		artifact.added = Number(m[2]);
+		artifact.deleted = Math.abs(Number(m[3]));
+	}
+	return artifact;
 }
 
 export function classifyDiffLine(line: string): DiffLineKind {
@@ -41,5 +52,15 @@ export function classifyDiffLine(line: string): DiffLineKind {
 }
 
 export function isEditFileTool(toolName: string | undefined | null): boolean {
-	return toolName === 'edit_file';
+	const name = (toolName ?? '').trim().toLowerCase();
+	return name === 'edit_file' || name.endsWith('__edit_file') || name.endsWith('/edit_file');
+}
+
+/** Whether tool output should render via EditDiffBlock. */
+export function shouldRenderEditDiff(
+	toolName: string | undefined | null,
+	output: string | undefined | null
+): boolean {
+	if (!output) return false;
+	return isEditFileTool(toolName) || looksLikeDiffArtifact(output);
 }
