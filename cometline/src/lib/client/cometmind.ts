@@ -58,7 +58,11 @@ import {
 	createScheduledJob as createScheduledJobApi,
 	getScheduledJob as getScheduledJobApi,
 	updateScheduledJob as updateScheduledJobApi,
-	deleteScheduledJob as deleteScheduledJobApi
+	deleteScheduledJob as deleteScheduledJobApi,
+	listInboxMessages as listInboxMessagesApi,
+	getInboxSummary as getInboxSummaryApi,
+	replyInboxMessage as replyInboxMessageApi,
+	dismissInboxMessage as dismissInboxMessageApi
 } from '$lib/generated/cometmind-api';
 import type {
 	CompactMemoryPreviewResponse,
@@ -93,7 +97,10 @@ import type {
 	ScheduledJobResource,
 	ListScheduledJobsResponse,
 	CreateScheduledJobRequest,
-	UpdateScheduledJobRequest
+	UpdateScheduledJobRequest,
+	InboxMessageResource,
+	ListInboxMessagesResponse,
+	InboxSummaryResponse
 } from '$lib/generated/cometmind-api';
 import { client } from '$lib/generated/cometmind-api/client.gen';
 import { createSSEParser } from '$lib/sse/parser';
@@ -124,7 +131,10 @@ export type {
 	ScheduledJobResource,
 	ListScheduledJobsResponse,
 	CreateScheduledJobRequest,
-	UpdateScheduledJobRequest
+	UpdateScheduledJobRequest,
+	InboxMessageResource,
+	ListInboxMessagesResponse,
+	InboxSummaryResponse
 } from '$lib/generated/cometmind-api';
 
 export type MemoryLifecycleSettings = {
@@ -892,4 +902,26 @@ export function updateScheduledJob(
 
 export function deleteScheduledJob(id: string): Promise<void> {
 	return deleteScheduledJobApi({ path: { id }, throwOnError: true }).then(() => undefined);
+}
+
+export function listInboxMessages(
+	status: 'open' | 'archived' = 'open'
+): Promise<ListInboxMessagesResponse> {
+	return listInboxMessagesApi({ query: { status }, throwOnError: true }).then(({ data }) => data);
+}
+
+export function getInboxSummary(): Promise<InboxSummaryResponse> {
+	return getInboxSummaryApi({ throwOnError: true }).then(({ data }) => data);
+}
+
+export function replyInboxMessage(id: string, content: string): Promise<InboxMessageResource> {
+	return replyInboxMessageApi({
+		path: { id },
+		body: { content },
+		throwOnError: true
+	}).then(({ data }) => data);
+}
+
+export function dismissInboxMessage(id: string): Promise<InboxMessageResource> {
+	return dismissInboxMessageApi({ path: { id }, throwOnError: true }).then(({ data }) => data);
 }

@@ -15,6 +15,8 @@
 		startRuntimeEventStream
 	} from '$lib/client/cometmind';
 	import { memoryToastStore } from '$lib/stores/memory-toasts.svelte';
+	import { inboxStore } from '$lib/stores/inbox.svelte';
+	import { skillDraftsStore } from '$lib/stores/skill-drafts.svelte';
 	import { startJobNotificationPoller } from '$lib/jobs/job-notifications';
 	import { startStorageRetentionSync } from '$lib/retention/storage-retention-sync';
 
@@ -44,7 +46,18 @@
 			if (event.type === 'memory_compaction_completed') {
 				memoryToastStore.addCompaction(event);
 			}
+			if (event.type === 'inbox_message_created') {
+				inboxStore.applyCreated(event.id, event.open_count);
+			}
+			if (event.type === 'inbox_message_archived') {
+				inboxStore.applyArchived(event.id, event.open_count);
+			}
 		});
+		void inboxStore.refreshSummary();
+		void skillDraftsStore.refresh();
+		const skillDraftsTimer = setInterval(() => {
+			void skillDraftsStore.refresh();
+		}, 30_000);
 		let stopStorageRetentionSync: (() => void) | null = null;
 		const stopJobNotifications = startJobNotificationPoller({
 			getSettings: () => settingsStore.settings.cometmind.jobs.notifications,
@@ -87,6 +100,7 @@
 			connectionState.stopPolling();
 			stopRuntimeEvents();
 			stopJobNotifications();
+			clearInterval(skillDraftsTimer);
 			stopStorageRetentionSync?.();
 			unsubscribeSettingsChanged?.();
 			unsubscribePersonaAvatar?.();

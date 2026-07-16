@@ -9,6 +9,7 @@
 		type SkillDraft,
 		type SkillDraftDetailResponse
 	} from '$lib/client/cometmind';
+	import { skillDraftsStore } from '$lib/stores/skill-drafts.svelte';
 
 	let drafts = $state<SkillDraft[]>([]);
 	let selectedDraft = $state<SkillDraftDetailResponse | null>(null);
@@ -31,6 +32,7 @@
 		try {
 			const nextDrafts = await listSkillDrafts();
 			drafts = nextDrafts;
+			skillDraftsStore.setCount(nextDrafts.length);
 			if (nextDrafts.length === 0) {
 				selectedDraft = null;
 				selectedDraftName = '';
