@@ -5,6 +5,7 @@ import (
 
 	"github.com/cometline/cometmind/internal/acp"
 	"github.com/cometline/cometmind/internal/event"
+	"github.com/cometline/cometmind/internal/inbox"
 	"github.com/cometline/cometmind/internal/jobs"
 	mcppkg "github.com/cometline/cometmind/internal/mcp"
 	"github.com/cometline/cometmind/internal/memory"
@@ -44,6 +45,7 @@ type RegistryOptions struct {
 	SubagentConfig     SubagentToolConfig
 	Jobs               *jobs.Service
 	Scheduler          *scheduler.Service
+	Inbox              *inbox.Service
 	Memory             *memory.Service
 	MemoryEvents       *event.Hub
 	SessionID          string

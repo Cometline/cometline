@@ -7,6 +7,7 @@ import (
 
 	"github.com/cometline/cometmind/internal/config"
 	"github.com/cometline/cometmind/internal/db"
+	"github.com/cometline/cometmind/internal/inbox"
 	"github.com/cometline/cometmind/internal/jobs"
 	"github.com/cometline/cometmind/internal/logging"
 	"github.com/cometline/cometmind/internal/memory"
@@ -20,6 +21,7 @@ type Result struct {
 	MemoriesPurged      int
 	MemoryEventsPurged  int
 	JobsPurged          int
+	InboxPurged         int
 	ToolOutputDeleted   int
 	AgentTmpDeleted     int
 	Vacuumed            bool
@@ -31,7 +33,9 @@ type Runner struct {
 	Sessions *session.Service
 	Memory   *memory.Service
 	Jobs     *jobs.Service
+	Inbox    *inbox.Service
 	Config   config.StorageConfig
+	InboxCfg config.InboxConfig
 	// IsRunning, when set, skips sessions with an in-flight agent turn.
 	IsRunning func(sessionID string) bool
 	// VacuumAsync runs the post-purge VACUUM in a background goroutine instead
@@ -73,7 +77,15 @@ func (r *Runner) Run(ctx context.Context) (Result, error) {
 		out.JobsPurged = n
 	}
 
-	if cfg.VacuumAfterPurge && (out.SessionsDeleted > 0 || out.SubagentsDeleted > 0 || out.MemoriesPurged > 0 || out.JobsPurged > 0) {
+	if r.Inbox != nil {
+		n, err := r.Inbox.PurgeExpired(ctx, r.InboxCfg.RetentionHours)
+		if err != nil {
+			return out, err
+		}
+		out.InboxPurged = int(n)
+	}
+
+	if cfg.VacuumAfterPurge && (out.SessionsDeleted > 0 || out.SubagentsDeleted > 0 || out.MemoriesPurged > 0 || out.JobsPurged > 0 || out.InboxPurged > 0) {
 		if r.VacuumAsync {
 			// VACUUM takes an exclusive lock and rewrites the whole file, so it
 			// can be slow on large databases. On startup we run it in the
@@ -92,13 +104,14 @@ func (r *Runner) Run(ctx context.Context) (Result, error) {
 		}
 	}
 
-	if out.SessionsDeleted > 0 || out.SubagentsDeleted > 0 || out.MemoriesPurged > 0 || out.JobsPurged > 0 {
+	if out.SessionsDeleted > 0 || out.SubagentsDeleted > 0 || out.MemoriesPurged > 0 || out.JobsPurged > 0 || out.InboxPurged > 0 {
 		logging.L().Info("retention.complete",
 			"sessions_deleted", out.SessionsDeleted,
 			"subagents_deleted", out.SubagentsDeleted,
 			"memories_purged", out.MemoriesPurged,
 			"memory_events_purged", out.MemoryEventsPurged,
 			"jobs_purged", out.JobsPurged,
+			"inbox_purged", out.InboxPurged,
 			"vacuumed", out.Vacuumed,
 		)
 	}

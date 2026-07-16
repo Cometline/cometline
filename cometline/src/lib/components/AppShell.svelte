@@ -1,19 +1,24 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
 	import Sidebar from './Sidebar.svelte';
 	import RuntimeOverlay from './RuntimeOverlay.svelte';
 	import SettingsModal from './SettingsModal.svelte';
+	import InboxDrawer from './inbox/InboxDrawer.svelte';
 	import IntroAnimation from './IntroAnimation.svelte';
 	import SetupWizard from './onboarding/SetupWizard.svelte';
 	import UpdateButton from './UpdateButton.svelte';
 	import MemoryToast from './MemoryToast.svelte';
 	import WebPanel from './WebPanel.svelte';
+	import { getSession } from '$lib/client/cometmind';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { sessionStore } from '$lib/stores/session.svelte';
 	import { settingsStore } from '$lib/stores/settings.svelte';
+	import { inboxStore } from '$lib/stores/inbox.svelte';
 	import { startNewChat } from '$lib/actions/new-chat';
 	import { openSettings } from '$lib/actions/open-settings';
 	import { navigateAdjacentSession } from '$lib/actions/navigate-adjacent-session';
+	import { navigateToSession } from '$lib/actions/navigate-to-session';
 	import { narrowViewportQuery, subscribeNarrowViewport } from '$lib/layout/narrow-viewport';
 	import { matchesShortcut, type ShortcutAction } from '$lib/keyboard-shortcuts';
 
@@ -77,6 +82,20 @@
 				if (shellStore.settingsOpen) return;
 				navigateAdjacentSession('next');
 				return;
+			case 'openJobs':
+				if (shellStore.settingsOpen) shellStore.closeSettings();
+				inboxStore.closeDrawer();
+				void goto('/jobs');
+				return;
+			case 'openSkillDrafts':
+				if (shellStore.settingsOpen) shellStore.closeSettings();
+				inboxStore.closeDrawer();
+				void goto('/skill-drafts');
+				return;
+			case 'openInbox':
+				if (shellStore.settingsOpen) shellStore.closeSettings();
+				inboxStore.toggleDrawer();
+				return;
 		}
 	}
 
@@ -103,7 +122,12 @@
 				}
 				return;
 			}
-			if (shellStore.webPanelOpen && event.key === 'Escape' && !shellStore.settingsOpen) {
+			if (
+				shellStore.webPanelOpen &&
+				event.key === 'Escape' &&
+				!shellStore.settingsOpen &&
+				!inboxStore.drawerOpen
+			) {
 				event.preventDefault();
 				shellStore.closeWebPanel();
 				return;
@@ -141,6 +165,21 @@
 			if (matchesShortcut(event, shortcuts.focusSearch)) {
 				event.preventDefault();
 				runShortcutAction('focusSearch');
+				return;
+			}
+			if (matchesShortcut(event, shortcuts.openJobs)) {
+				event.preventDefault();
+				runShortcutAction('openJobs');
+				return;
+			}
+			if (matchesShortcut(event, shortcuts.openSkillDrafts)) {
+				event.preventDefault();
+				runShortcutAction('openSkillDrafts');
+				return;
+			}
+			if (matchesShortcut(event, shortcuts.openInbox)) {
+				event.preventDefault();
+				runShortcutAction('openInbox');
 				return;
 			}
 			if (shellStore.settingsOpen) return;
@@ -383,6 +422,27 @@
 		<WebPanel />
 	</div>
 	<SettingsModal />
+	<InboxDrawer
+		open={inboxStore.drawerOpen}
+		messages={inboxStore.messages}
+		busyId={inboxStore.busyId}
+		error={inboxStore.error}
+		onClose={() => inboxStore.closeDrawer()}
+		onReply={(id, content) => inboxStore.reply(id, content)}
+		onDismiss={(id) => inboxStore.dismiss(id)}
+		onOpenJob={(jobId) => {
+			inboxStore.closeDrawer();
+			void goto(`/jobs?job=${encodeURIComponent(jobId)}`);
+		}}
+		onOpenSession={(sessionId) => {
+			inboxStore.closeDrawer();
+			void getSession(sessionId)
+				.then((session) => navigateToSession(session))
+				.catch(() => {
+					/* session may already be purged */
+				});
+		}}
+	/>
 	<UpdateButton />
 	<MemoryToast />
 	{#if shellStore.introOpen}

@@ -11,7 +11,10 @@ export type ShortcutAction =
 	| 'previousSession'
 	| 'nextSession'
 	| 'toggleWebPanel'
-	| 'openWebPanel';
+	| 'openWebPanel'
+	| 'openJobs'
+	| 'openSkillDrafts'
+	| 'openInbox';
 
 export interface ShortcutBinding {
 	key: string;
@@ -128,6 +131,24 @@ export const SHORTCUT_DEFINITIONS: KeyboardShortcutDefinition[] = [
 		label: 'Open web panel',
 		category: 'panels',
 		defaultBinding: { command: true, key: 'o' }
+	},
+	{
+		id: 'openJobs',
+		label: 'Open jobs',
+		category: 'panels',
+		defaultBinding: { command: true, key: '1' }
+	},
+	{
+		id: 'openSkillDrafts',
+		label: 'Open skill drafts',
+		category: 'panels',
+		defaultBinding: { command: true, key: '2' }
+	},
+	{
+		id: 'openInbox',
+		label: 'Open inbox',
+		category: 'panels',
+		defaultBinding: { command: true, key: '3' }
 	},
 	{
 		id: 'openSettings',

@@ -13,6 +13,7 @@ import (
 	"github.com/cometline/cometmind/internal/apigen"
 	"github.com/cometline/cometmind/internal/config"
 	"github.com/cometline/cometmind/internal/event"
+	"github.com/cometline/cometmind/internal/inbox"
 	"github.com/cometline/cometmind/internal/jobs"
 	"github.com/cometline/cometmind/internal/logging"
 	mcppkg "github.com/cometline/cometmind/internal/mcp"
@@ -41,6 +42,7 @@ type Deps struct {
 	Memory         *memory.Service
 	Events         *event.Hub
 	Jobs           *jobs.Service
+	Inbox          *inbox.Service
 	Scheduler      *scheduler.Service
 	RunRetention   RetentionRunner
 	SetJobSettings func(jobs.Settings)
@@ -60,6 +62,7 @@ type App struct {
 	memory         *memory.Service
 	events         *event.Hub
 	jobs           *jobs.Service
+	inbox          *inbox.Service
 	scheduler      *scheduler.Service
 	runRetention   RetentionRunner
 	setJobSettings func(jobs.Settings)
@@ -95,6 +98,7 @@ func New(deps Deps) (*gin.Engine, error) {
 		memory:         deps.Memory,
 		events:         deps.Events,
 		jobs:           deps.Jobs,
+		inbox:          deps.Inbox,
 		scheduler:      deps.Scheduler,
 		runRetention:   deps.RunRetention,
 		setJobSettings: deps.SetJobSettings,
@@ -207,6 +211,13 @@ func New(deps Deps) (*gin.Engine, error) {
 	api.GET("/scheduled-jobs/:id", app.handleGetScheduledJob)
 	api.PATCH("/scheduled-jobs/:id", app.handlePatchScheduledJob)
 	api.DELETE("/scheduled-jobs/:id", app.handleDeleteScheduledJob)
+
+	// Inbox
+	api.GET("/inbox/messages", app.handleListInboxMessages)
+	api.GET("/inbox/summary", app.handleGetInboxSummary)
+	api.GET("/inbox/messages/:id", app.handleGetInboxMessage)
+	api.POST("/inbox/messages/:id/replies", app.handleReplyInboxMessage)
+	api.POST("/inbox/messages/:id/dismissals", app.handleDismissInboxMessage)
 
 	return r, nil
 }

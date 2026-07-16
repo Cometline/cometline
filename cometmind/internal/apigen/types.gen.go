@@ -73,6 +73,60 @@ func (e ImageAttachmentMediaType) Valid() bool {
 	}
 }
 
+// Defines values for InboxMessageArchivedEventArchiveReason.
+const (
+	InboxMessageArchivedEventArchiveReasonDismissed InboxMessageArchivedEventArchiveReason = "dismissed"
+	InboxMessageArchivedEventArchiveReasonReplied   InboxMessageArchivedEventArchiveReason = "replied"
+)
+
+// Valid indicates whether the value is a known member of the InboxMessageArchivedEventArchiveReason enum.
+func (e InboxMessageArchivedEventArchiveReason) Valid() bool {
+	switch e {
+	case InboxMessageArchivedEventArchiveReasonDismissed:
+		return true
+	case InboxMessageArchivedEventArchiveReasonReplied:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InboxMessageResourceArchiveReason.
+const (
+	InboxMessageResourceArchiveReasonDismissed InboxMessageResourceArchiveReason = "dismissed"
+	InboxMessageResourceArchiveReasonReplied   InboxMessageResourceArchiveReason = "replied"
+)
+
+// Valid indicates whether the value is a known member of the InboxMessageResourceArchiveReason enum.
+func (e InboxMessageResourceArchiveReason) Valid() bool {
+	switch e {
+	case InboxMessageResourceArchiveReasonDismissed:
+		return true
+	case InboxMessageResourceArchiveReasonReplied:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InboxMessageResourceStatus.
+const (
+	InboxMessageResourceStatusArchived InboxMessageResourceStatus = "archived"
+	InboxMessageResourceStatusOpen     InboxMessageResourceStatus = "open"
+)
+
+// Valid indicates whether the value is a known member of the InboxMessageResourceStatus enum.
+func (e InboxMessageResourceStatus) Valid() bool {
+	switch e {
+	case InboxMessageResourceStatusArchived:
+		return true
+	case InboxMessageResourceStatusOpen:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for JobResourceStatus.
 const (
 	JobResourceStatusBlocked JobResourceStatus = "blocked"
@@ -285,16 +339,16 @@ func (e SessionOrigin) Valid() bool {
 
 // Defines values for SessionStatus.
 const (
-	Active   SessionStatus = "active"
-	Archived SessionStatus = "archived"
+	SessionStatusActive   SessionStatus = "active"
+	SessionStatusArchived SessionStatus = "archived"
 )
 
 // Valid indicates whether the value is a known member of the SessionStatus enum.
 func (e SessionStatus) Valid() bool {
 	switch e {
-	case Active:
+	case SessionStatusActive:
 		return true
-	case Archived:
+	case SessionStatusArchived:
 		return true
 	default:
 		return false
@@ -430,6 +484,24 @@ const (
 func (e WorkspaceFileTextContentKind) Valid() bool {
 	switch e {
 	case Text:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListInboxMessagesParamsStatus.
+const (
+	Archived ListInboxMessagesParamsStatus = "archived"
+	Open     ListInboxMessagesParamsStatus = "open"
+)
+
+// Valid indicates whether the value is a known member of the ListInboxMessagesParamsStatus enum.
+func (e ListInboxMessagesParamsStatus) Valid() bool {
+	switch e {
+	case Archived:
+		return true
+	case Open:
 		return true
 	default:
 		return false
@@ -583,6 +655,54 @@ type ImageAttachment struct {
 // ImageAttachmentMediaType defines model for ImageAttachment.MediaType.
 type ImageAttachmentMediaType string
 
+// InboxMessageArchivedEvent defines model for InboxMessageArchivedEvent.
+type InboxMessageArchivedEvent struct {
+	ArchiveReason InboxMessageArchivedEventArchiveReason `json:"archive_reason"`
+	Id            string                                 `json:"id"`
+	OpenCount     int64                                  `json:"open_count"`
+	Type          string                                 `json:"type"`
+}
+
+// InboxMessageArchivedEventArchiveReason defines model for InboxMessageArchivedEvent.ArchiveReason.
+type InboxMessageArchivedEventArchiveReason string
+
+// InboxMessageCreatedEvent defines model for InboxMessageCreatedEvent.
+type InboxMessageCreatedEvent struct {
+	Id        string `json:"id"`
+	OpenCount int64  `json:"open_count"`
+	Type      string `json:"type"`
+}
+
+// InboxMessageResource defines model for InboxMessageResource.
+type InboxMessageResource struct {
+	ArchiveReason   *InboxMessageResourceArchiveReason `json:"archive_reason,omitempty"`
+	ArchivedAt      *int64                             `json:"archived_at,omitempty"`
+	Body            string                             `json:"body"`
+	CreatedAt       int64                              `json:"created_at"`
+	Id              string                             `json:"id"`
+	JobId           *string                            `json:"job_id,omitempty"`
+	ProcessAttempts int64                              `json:"process_attempts"`
+	ProcessError    *string                            `json:"process_error,omitempty"`
+	ProcessedAt     *int64                             `json:"processed_at,omitempty"`
+	SessionId       *string                            `json:"session_id,omitempty"`
+	Status          InboxMessageResourceStatus         `json:"status"`
+	Title           string                             `json:"title"`
+	UpdatedAt       int64                              `json:"updated_at"`
+	UserReply       *string                            `json:"user_reply,omitempty"`
+	WorkspaceId     *string                            `json:"workspace_id,omitempty"`
+}
+
+// InboxMessageResourceArchiveReason defines model for InboxMessageResource.ArchiveReason.
+type InboxMessageResourceArchiveReason string
+
+// InboxMessageResourceStatus defines model for InboxMessageResource.Status.
+type InboxMessageResourceStatus string
+
+// InboxSummaryResponse defines model for InboxSummaryResponse.
+type InboxSummaryResponse struct {
+	OpenCount int64 `json:"open_count"`
+}
+
 // JobCompleteRequest defines model for JobCompleteRequest.
 type JobCompleteRequest struct {
 	Progress  *string `json:"progress,omitempty"`
@@ -657,6 +777,11 @@ type JobSettings struct {
 	ReconcileIntervalSeconds *int                     `json:"reconcile_interval_seconds,omitempty"`
 	RetryCooldownMinutes     *int                     `json:"retry_cooldown_minutes,omitempty"`
 	StaleReviewMinutes       *int                     `json:"stale_review_minutes,omitempty"`
+}
+
+// ListInboxMessagesResponse defines model for ListInboxMessagesResponse.
+type ListInboxMessagesResponse struct {
+	Messages []InboxMessageResource `json:"messages"`
 }
 
 // ListJobEventsResponse defines model for ListJobEventsResponse.
@@ -908,6 +1033,11 @@ type ReasoningDeltaEvent struct {
 // ReasoningStartEvent defines model for ReasoningStartEvent.
 type ReasoningStartEvent struct {
 	Type string `json:"type"`
+}
+
+// ReplyInboxMessageRequest defines model for ReplyInboxMessageRequest.
+type ReplyInboxMessageRequest struct {
+	Content string `json:"content"`
 }
 
 // RunStorageRetentionResponse defines model for RunStorageRetentionResponse.
@@ -1338,6 +1468,14 @@ type InternalError = ErrorResponse
 // NotFound defines model for NotFound.
 type NotFound = ErrorResponse
 
+// ListInboxMessagesParams defines parameters for ListInboxMessages.
+type ListInboxMessagesParams struct {
+	Status *ListInboxMessagesParamsStatus `form:"status,omitempty" json:"status,omitempty"`
+}
+
+// ListInboxMessagesParamsStatus defines parameters for ListInboxMessages.
+type ListInboxMessagesParamsStatus string
+
 // ListJobsParams defines parameters for ListJobs.
 type ListJobsParams struct {
 	Status          *ListJobsParamsStatus `form:"status,omitempty" json:"status,omitempty"`
@@ -1416,6 +1554,9 @@ type ReadWorkspaceFileContentParams struct {
 	// Path Workspace-relative file path.
 	Path string `form:"path" json:"path"`
 }
+
+// ReplyInboxMessageJSONRequestBody defines body for ReplyInboxMessage for application/json ContentType.
+type ReplyInboxMessageJSONRequestBody = ReplyInboxMessageRequest
 
 // CreateJobJSONRequestBody defines body for CreateJob for application/json ContentType.
 type CreateJobJSONRequestBody = CreateJobRequest
@@ -1819,6 +1960,62 @@ func (t *StreamEvent) MergeMemoryCompactionCompletedEvent(v MemoryCompactionComp
 	return err
 }
 
+// AsInboxMessageCreatedEvent returns the union data inside the StreamEvent as a InboxMessageCreatedEvent
+func (t StreamEvent) AsInboxMessageCreatedEvent() (InboxMessageCreatedEvent, error) {
+	var body InboxMessageCreatedEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromInboxMessageCreatedEvent overwrites any union data inside the StreamEvent as the provided InboxMessageCreatedEvent
+func (t *StreamEvent) FromInboxMessageCreatedEvent(v InboxMessageCreatedEvent) error {
+	v.Type = "inbox_message_created"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeInboxMessageCreatedEvent performs a merge with any union data inside the StreamEvent, using the provided InboxMessageCreatedEvent
+func (t *StreamEvent) MergeInboxMessageCreatedEvent(v InboxMessageCreatedEvent) error {
+	v.Type = "inbox_message_created"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsInboxMessageArchivedEvent returns the union data inside the StreamEvent as a InboxMessageArchivedEvent
+func (t StreamEvent) AsInboxMessageArchivedEvent() (InboxMessageArchivedEvent, error) {
+	var body InboxMessageArchivedEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromInboxMessageArchivedEvent overwrites any union data inside the StreamEvent as the provided InboxMessageArchivedEvent
+func (t *StreamEvent) FromInboxMessageArchivedEvent(v InboxMessageArchivedEvent) error {
+	v.Type = "inbox_message_archived"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeInboxMessageArchivedEvent performs a merge with any union data inside the StreamEvent, using the provided InboxMessageArchivedEvent
+func (t *StreamEvent) MergeInboxMessageArchivedEvent(v InboxMessageArchivedEvent) error {
+	v.Type = "inbox_message_archived"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 // AsTurnStatusEvent returns the union data inside the StreamEvent as a TurnStatusEvent
 func (t StreamEvent) AsTurnStatusEvent() (TurnStatusEvent, error) {
 	var body TurnStatusEvent
@@ -1949,6 +2146,10 @@ func (t StreamEvent) ValueByDiscriminator() (interface{}, error) {
 		return t.AsDoneEvent()
 	case "error":
 		return t.AsErrorEvent()
+	case "inbox_message_archived":
+		return t.AsInboxMessageArchivedEvent()
+	case "inbox_message_created":
+		return t.AsInboxMessageCreatedEvent()
 	case "memory_compaction_completed":
 		return t.AsMemoryCompactionCompletedEvent()
 	case "memory_injected":

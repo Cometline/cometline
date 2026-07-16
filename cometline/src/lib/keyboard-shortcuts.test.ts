@@ -149,6 +149,13 @@ describe('keyboard-shortcuts', () => {
 		expect(normalized.openWebPanel).toEqual({ command: true, key: 'o' });
 	});
 
+	it('includes jobs, skill drafts, and inbox panel shortcuts', () => {
+		const normalized = normalizeKeyboardShortcuts({});
+		expect(normalized.openJobs).toEqual({ command: true, key: '1' });
+		expect(normalized.openSkillDrafts).toEqual({ command: true, key: '2' });
+		expect(normalized.openInbox).toEqual({ command: true, key: '3' });
+	});
+
 	it('includes toggleMiniWindow default shortcut', () => {
 		const normalized = normalizeKeyboardShortcuts({});
 		expect(normalized.toggleMiniWindow).toEqual({ command: true, shift: true, key: 'l' });

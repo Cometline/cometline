@@ -80,6 +80,7 @@ func runServe(_ *cobra.Command, _ []string) error {
 		Memory:    rt.Memory,
 		Events:    rt.Events,
 		Jobs:      rt.Jobs,
+		Inbox:     rt.Inbox,
 		Scheduler: rt.Scheduler,
 		RunRetention: func(ctx context.Context) (server.RetentionResult, error) {
 			return rt.RunRetention(ctx)
@@ -105,6 +106,7 @@ func runServe(_ *cobra.Command, _ []string) error {
 	rt.StartRetentionMaintenance(ctx)
 	rt.StartScheduler(ctx)
 	rt.StartAutonomousJobWorker(ctx, runs)
+	rt.StartInboxWorker(ctx, runs)
 
 	httpServer := &http.Server{
 		Addr:              fmt.Sprintf("127.0.0.1:%d", servePort),

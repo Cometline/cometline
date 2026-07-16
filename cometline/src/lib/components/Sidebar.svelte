@@ -3,7 +3,7 @@
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
 	import { flip } from 'svelte/animate';
-	import { Settings, Briefcase, Sparkles } from '@lucide/svelte';
+	import { Settings, Briefcase, Sparkles, Bell } from '@lucide/svelte';
 	import type { Session } from '$lib/types';
 	import { sessionStore } from '$lib/stores/session.svelte';
 	import { deleteSession, updateSession } from '$lib/client/cometmind';
@@ -11,6 +11,8 @@
 	import { navigateToSession } from '$lib/actions/navigate-to-session';
 	import { chatStore } from '$lib/stores/chat.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
+	import { inboxStore } from '$lib/stores/inbox.svelte';
+	import { skillDraftsStore } from '$lib/stores/skill-drafts.svelte';
 	import { openSettings } from '$lib/actions/open-settings';
 	import { isNarrowViewport } from '$lib/layout/narrow-viewport';
 	import {
@@ -296,10 +298,22 @@
 			<button
 				aria-label="Skill Drafts"
 				title="Skill Drafts"
+				class="nav-badge"
+				class:has-badge={skillDraftsStore.hasDrafts}
 				class:active={page.url.pathname === '/skill-drafts'}
 				onclick={() => goto('/skill-drafts')}
 			>
 				<Sparkles size={16} stroke-width={1.8} />
+			</button>
+			<button
+				aria-label="Inbox"
+				title="Inbox"
+				class="nav-badge"
+				class:has-badge={inboxStore.openCount > 0}
+				class:active={inboxStore.drawerOpen}
+				onclick={() => inboxStore.toggleDrawer()}
+			>
+				<Bell size={16} stroke-width={1.8} />
 			</button>
 		</div>
 	</div>
@@ -442,6 +456,21 @@
 		display: flex;
 		flex-direction: row;
 		gap: 4px;
+	}
+
+	.sidebar-footer .nav-badge {
+		position: relative;
+	}
+
+	.sidebar-footer .nav-badge.has-badge::after {
+		content: '';
+		position: absolute;
+		top: 4px;
+		right: 4px;
+		width: 5px;
+		height: 5px;
+		border-radius: 999px;
+		background: var(--accent);
 	}
 
 	@media (max-width: 900px) {

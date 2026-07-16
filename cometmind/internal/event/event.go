@@ -24,6 +24,8 @@ const (
 	KindMemoryInjected            Kind = "memory_injected"
 	KindMemoryUpdated             Kind = "memory_updated"
 	KindMemoryCompactionCompleted Kind = "memory_compaction_completed"
+	KindInboxMessageCreated       Kind = "inbox_message_created"
+	KindInboxMessageArchived      Kind = "inbox_message_archived"
 	KindTurnStatus                Kind = "turn_status"
 	KindTurnRecover               Kind = "turn_recover"
 	KindError                     Kind = "error"
@@ -103,6 +105,10 @@ type Event struct {
 	MemoryCountBefore int64
 	MemoryCountAfter  int64
 	CompactionTrigger string
+	// inbox_message_created / inbox_message_archived
+	InboxMessageID  string
+	InboxOpenCount  int64
+	InboxArchiveReason string
 	// turn_status
 	Phase         TurnPhase
 	StatusMessage string
@@ -193,6 +199,19 @@ func (e Event) MarshalJSON() ([]byte, error) {
 			After   int64  `json:"after"`
 			Trigger string `json:"trigger"`
 		}{t, e.MemoryCountBefore, e.MemoryCountAfter, e.CompactionTrigger})
+	case KindInboxMessageCreated:
+		return json.Marshal(struct {
+			Type      string `json:"type"`
+			ID        string `json:"id"`
+			OpenCount int64  `json:"open_count"`
+		}{t, e.InboxMessageID, e.InboxOpenCount})
+	case KindInboxMessageArchived:
+		return json.Marshal(struct {
+			Type          string `json:"type"`
+			ID            string `json:"id"`
+			OpenCount     int64  `json:"open_count"`
+			ArchiveReason string `json:"archive_reason"`
+		}{t, e.InboxMessageID, e.InboxOpenCount, e.InboxArchiveReason})
 	case KindTurnStatus:
 		out := struct {
 			Type    string `json:"type"`
@@ -296,6 +315,25 @@ func MemoryCompactionCompleted(before, after int64, trigger string) Event {
 		MemoryCountBefore: before,
 		MemoryCountAfter:  after,
 		CompactionTrigger: trigger,
+	}
+}
+
+// InboxMessageCreated builds a runtime event when the agent leaves an inbox note.
+func InboxMessageCreated(id string, openCount int64) Event {
+	return Event{
+		Kind:           KindInboxMessageCreated,
+		InboxMessageID: id,
+		InboxOpenCount: openCount,
+	}
+}
+
+// InboxMessageArchived builds a runtime event when a user replies or dismisses.
+func InboxMessageArchived(id string, openCount int64, archiveReason string) Event {
+	return Event{
+		Kind:               KindInboxMessageArchived,
+		InboxMessageID:     id,
+		InboxOpenCount:     openCount,
+		InboxArchiveReason: archiveReason,
 	}
 }
 

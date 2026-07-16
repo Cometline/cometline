@@ -77,7 +77,10 @@ export type ShortcutAction =
 	| 'previousSession'
 	| 'nextSession'
 	| 'toggleWebPanel'
-	| 'openWebPanel';
+	| 'openWebPanel'
+	| 'openJobs'
+	| 'openSkillDrafts'
+	| 'openInbox';
 
 export interface ShortcutBinding {
 	key: string;

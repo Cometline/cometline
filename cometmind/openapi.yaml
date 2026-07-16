@@ -20,6 +20,7 @@ tags:
   - name: MCP
   - name: Memory
   - name: Storage
+  - name: Inbox
 paths:
   /api/v1/health:
     get:
@@ -1778,6 +1779,123 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/v1/inbox/messages:
+    get:
+      tags: [Inbox]
+      summary: List inbox messages
+      operationId: listInboxMessages
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [open, archived]
+      responses:
+        '200':
+          description: Inbox messages
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListInboxMessagesResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/inbox/summary:
+    get:
+      tags: [Inbox]
+      summary: Inbox open-count summary for UI badge
+      operationId: getInboxSummary
+      responses:
+        '200':
+          description: Summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InboxSummaryResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/inbox/messages/{id}:
+    get:
+      tags: [Inbox]
+      summary: Get an inbox message
+      operationId: getInboxMessage
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Inbox message
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InboxMessageResource'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/inbox/messages/{id}/replies:
+    post:
+      tags: [Inbox]
+      summary: Reply to an inbox message and archive it
+      operationId: replyInboxMessage
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplyInboxMessageRequest'
+      responses:
+        '200':
+          description: Archived with reply
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InboxMessageResource'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/inbox/messages/{id}/dismissals:
+    post:
+      tags: [Inbox]
+      summary: Dismiss an inbox message without reply
+      operationId: dismissInboxMessage
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Archived as dismissed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InboxMessageResource'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
 components:
   parameters:
     SessionId:
@@ -2670,6 +2788,37 @@ components:
           type: string
           enum: [manual, automatic]
 
+    InboxMessageCreatedEvent:
+      type: object
+      additionalProperties: false
+      required: [type, id, open_count]
+      properties:
+        type:
+          type: string
+          const: inbox_message_created
+        id:
+          type: string
+        open_count:
+          type: integer
+          format: int64
+
+    InboxMessageArchivedEvent:
+      type: object
+      additionalProperties: false
+      required: [type, id, open_count, archive_reason]
+      properties:
+        type:
+          type: string
+          const: inbox_message_archived
+        id:
+          type: string
+        open_count:
+          type: integer
+          format: int64
+        archive_reason:
+          type: string
+          enum: [replied, dismissed]
+
     ErrorEvent:
       type: object
       additionalProperties: false
@@ -2741,6 +2890,8 @@ components:
         - $ref: '#/components/schemas/MemoryInjectedEvent'
         - $ref: '#/components/schemas/MemoryUpdatedEvent'
         - $ref: '#/components/schemas/MemoryCompactionCompletedEvent'
+        - $ref: '#/components/schemas/InboxMessageCreatedEvent'
+        - $ref: '#/components/schemas/InboxMessageArchivedEvent'
         - $ref: '#/components/schemas/TurnStatusEvent'
         - $ref: '#/components/schemas/TurnRecoverEvent'
         - $ref: '#/components/schemas/ErrorEvent'
@@ -2760,6 +2911,8 @@ components:
           memory_injected: '#/components/schemas/MemoryInjectedEvent'
           memory_updated: '#/components/schemas/MemoryUpdatedEvent'
           memory_compaction_completed: '#/components/schemas/MemoryCompactionCompletedEvent'
+          inbox_message_created: '#/components/schemas/InboxMessageCreatedEvent'
+          inbox_message_archived: '#/components/schemas/InboxMessageArchivedEvent'
           turn_status: '#/components/schemas/TurnStatusEvent'
           turn_recover: '#/components/schemas/TurnRecoverEvent'
           error: '#/components/schemas/ErrorEvent'
@@ -3174,6 +3327,83 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ScheduledJobResource'
+
+    InboxMessageResource:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - title
+        - body
+        - status
+        - process_attempts
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        body:
+          type: string
+        workspace_id:
+          type: string
+        job_id:
+          type: string
+        session_id:
+          type: string
+        status:
+          type: string
+          enum: [open, archived]
+        archive_reason:
+          type: string
+          enum: [replied, dismissed]
+        user_reply:
+          type: string
+        processed_at:
+          type: integer
+          format: int64
+        process_error:
+          type: string
+        process_attempts:
+          type: integer
+          format: int64
+        archived_at:
+          type: integer
+          format: int64
+        created_at:
+          type: integer
+          format: int64
+        updated_at:
+          type: integer
+          format: int64
+
+    ListInboxMessagesResponse:
+      type: object
+      additionalProperties: false
+      required: [messages]
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/InboxMessageResource'
+
+    InboxSummaryResponse:
+      type: object
+      additionalProperties: false
+      required: [open_count]
+      properties:
+        open_count:
+          type: integer
+          format: int64
+
+    ReplyInboxMessageRequest:
+      type: object
+      additionalProperties: false
+      required: [content]
+      properties:
+        content:
+          type: string
 
     CreateScheduledJobRequest:
       type: object

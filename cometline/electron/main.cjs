@@ -1453,7 +1453,10 @@ function handleWebPanelGuestShortcuts(event, input) {
 		'toggleWebPanel',
 		'openSettings',
 		'newChat',
-		'focusSearch'
+		'focusSearch',
+		'openJobs',
+		'openSkillDrafts',
+		'openInbox'
 	];
 	for (const action of forwardActions) {
 		if (matchesInputShortcut(input, shortcuts[action])) {

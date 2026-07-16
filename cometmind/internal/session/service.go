@@ -400,6 +400,11 @@ func (s *Service) NewAutonomySession(ctx context.Context, workspaceID string, mo
 	return s.newSessionWithOrigin(ctx, workspaceID, modelID, providerID, "autonomy")
 }
 
+// NewInboxSession creates a short-lived session for inbox reply internalization.
+func (s *Service) NewInboxSession(ctx context.Context, workspaceID string, modelID, providerID string) (Session, error) {
+	return s.newSessionWithOrigin(ctx, workspaceID, modelID, providerID, "inbox")
+}
+
 func (s *Service) newSessionWithOrigin(ctx context.Context, workspaceID string, modelID, providerID, origin string) (Session, error) {
 	sess, err := s.q.CreateSession(ctx, db.CreateSessionParams{
 		ID:          id.New(),

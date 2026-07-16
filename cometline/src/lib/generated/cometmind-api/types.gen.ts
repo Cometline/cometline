@@ -484,6 +484,19 @@ export type MemoryCompactionCompletedEvent = {
     trigger: 'manual' | 'automatic';
 };
 
+export type InboxMessageCreatedEvent = {
+    type: 'inbox_message_created';
+    id: string;
+    open_count: number;
+};
+
+export type InboxMessageArchivedEvent = {
+    type: 'inbox_message_archived';
+    id: string;
+    open_count: number;
+    archive_reason: 'replied' | 'dismissed';
+};
+
 export type ErrorEvent = {
     type: 'error';
     message: string;
@@ -531,6 +544,10 @@ export type StreamEvent = ({
 } & MemoryUpdatedEvent) | ({
     type?: 'memory_compaction_completed';
 } & MemoryCompactionCompletedEvent) | ({
+    type?: 'inbox_message_created';
+} & InboxMessageCreatedEvent) | ({
+    type?: 'inbox_message_archived';
+} & InboxMessageArchivedEvent) | ({
     type?: 'turn_status';
 } & TurnStatusEvent) | ({
     type?: 'turn_recover';
@@ -718,6 +735,36 @@ export type ScheduledJobResource = {
 
 export type ListScheduledJobsResponse = {
     scheduled_jobs: Array<ScheduledJobResource>;
+};
+
+export type InboxMessageResource = {
+    id: string;
+    title: string;
+    body: string;
+    workspace_id?: string;
+    job_id?: string;
+    session_id?: string;
+    status: 'open' | 'archived';
+    archive_reason?: 'replied' | 'dismissed';
+    user_reply?: string;
+    processed_at?: number;
+    process_error?: string;
+    process_attempts: number;
+    archived_at?: number;
+    created_at: number;
+    updated_at: number;
+};
+
+export type ListInboxMessagesResponse = {
+    messages: Array<InboxMessageResource>;
+};
+
+export type InboxSummaryResponse = {
+    open_count: number;
+};
+
+export type ReplyInboxMessageRequest = {
+    content: string;
 };
 
 export type CreateScheduledJobRequest = {
@@ -3012,6 +3059,163 @@ export type UpdateScheduledJobResponses = {
 };
 
 export type UpdateScheduledJobResponse = UpdateScheduledJobResponses[keyof UpdateScheduledJobResponses];
+
+export type ListInboxMessagesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        status?: 'open' | 'archived';
+    };
+    url: '/api/v1/inbox/messages';
+};
+
+export type ListInboxMessagesErrors = {
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type ListInboxMessagesError = ListInboxMessagesErrors[keyof ListInboxMessagesErrors];
+
+export type ListInboxMessagesResponses = {
+    /**
+     * Inbox messages
+     */
+    200: ListInboxMessagesResponse;
+};
+
+export type ListInboxMessagesResponse2 = ListInboxMessagesResponses[keyof ListInboxMessagesResponses];
+
+export type GetInboxSummaryData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/inbox/summary';
+};
+
+export type GetInboxSummaryErrors = {
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type GetInboxSummaryError = GetInboxSummaryErrors[keyof GetInboxSummaryErrors];
+
+export type GetInboxSummaryResponses = {
+    /**
+     * Summary
+     */
+    200: InboxSummaryResponse;
+};
+
+export type GetInboxSummaryResponse = GetInboxSummaryResponses[keyof GetInboxSummaryResponses];
+
+export type GetInboxMessageData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/inbox/messages/{id}';
+};
+
+export type GetInboxMessageErrors = {
+    /**
+     * Resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type GetInboxMessageError = GetInboxMessageErrors[keyof GetInboxMessageErrors];
+
+export type GetInboxMessageResponses = {
+    /**
+     * Inbox message
+     */
+    200: InboxMessageResource;
+};
+
+export type GetInboxMessageResponse = GetInboxMessageResponses[keyof GetInboxMessageResponses];
+
+export type ReplyInboxMessageData = {
+    body: ReplyInboxMessageRequest;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/inbox/messages/{id}/replies';
+};
+
+export type ReplyInboxMessageErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * State conflict
+     */
+    409: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type ReplyInboxMessageError = ReplyInboxMessageErrors[keyof ReplyInboxMessageErrors];
+
+export type ReplyInboxMessageResponses = {
+    /**
+     * Archived with reply
+     */
+    200: InboxMessageResource;
+};
+
+export type ReplyInboxMessageResponse = ReplyInboxMessageResponses[keyof ReplyInboxMessageResponses];
+
+export type DismissInboxMessageData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/inbox/messages/{id}/dismissals';
+};
+
+export type DismissInboxMessageErrors = {
+    /**
+     * Resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * State conflict
+     */
+    409: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type DismissInboxMessageError = DismissInboxMessageErrors[keyof DismissInboxMessageErrors];
+
+export type DismissInboxMessageResponses = {
+    /**
+     * Archived as dismissed
+     */
+    200: InboxMessageResource;
+};
+
+export type DismissInboxMessageResponse = DismissInboxMessageResponses[keyof DismissInboxMessageResponses];
 
 export type ClientOptions = {
     baseUrl: 'http://127.0.0.1:7700' | (string & {});

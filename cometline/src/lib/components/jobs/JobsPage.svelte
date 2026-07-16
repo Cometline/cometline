@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { CalendarClock, LoaderCircle, Pencil, Plus, RefreshCw, Trash2, X } from '@lucide/svelte';
+	import { page } from '$app/state';
 	import { onMount } from 'svelte';
 	import {
 		archiveJob,
@@ -7,6 +8,7 @@
 		createScheduledJob,
 		deleteJob,
 		deleteScheduledJob,
+		getJob,
 		listJobEvents,
 		listJobs,
 		listScheduledJobs,
@@ -507,6 +509,25 @@
 		if (view === 'scheduled') {
 			void loadScheduledJobs({ silent: true });
 		}
+	});
+
+	$effect(() => {
+		const jobId = page.url.searchParams.get('job')?.trim();
+		if (!jobId || loading) return;
+		if (selectedJob?.id === jobId && drawerMode === 'detail') return;
+		const fromList =
+			[...grouped.todo, ...grouped.ongoing, ...grouped.done, ...archivedJobs].find(
+				(job) => job.id === jobId
+			) ?? null;
+		if (fromList) {
+			void openJob(fromList);
+			return;
+		}
+		void getJob(jobId)
+			.then((job) => openJob(job))
+			.catch(() => {
+				/* ignore missing deep-link targets */
+			});
 	});
 
 	function formatClock(ms: number): string {
