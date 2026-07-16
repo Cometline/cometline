@@ -25,7 +25,7 @@ help:
 	@printf "  make package          Build CometMind and package the Electron app\n"
 	@printf "  make dev              Build CometMind and launch Electron dev app\n"
 	@printf "  make port             Show process listening on 127.0.0.1:7700\n"
-	@printf "  make clean-log        Remove CometMind sidecar + gateway logs\n"
+	@printf "  make clean-log        Remove CometMind sidecar + gateway logs under ~/.cometmind/logs/\n"
 	@printf "\nmake dev reads all provider settings from ~/.cometmind/cometline-settings.json\n"
 	@printf "(configured in the in-app Settings panel). Optional one-off overrides:\n"
 	@printf "  COMETMIND_PROVIDER, COMETMIND_MODEL, COMETMIND_BASE_URL, COMETMIND_API_KEY\n"
@@ -94,5 +94,8 @@ port:
 	lsof -nP -iTCP:7700 -sTCP:LISTEN || true
 
 clean-log:
+	rm -f "$(HOME)/.cometmind/logs/cometline.log" "$(HOME)/.cometmind/logs/cometline.log.1"
+	rm -f "$(HOME)/.cometmind/logs/cometline-gateway.log" "$(HOME)/.cometmind/logs/cometline-gateway.log.1"
+	# Legacy root-level paths (pre-logs/ migration)
 	rm -f "$(HOME)/.cometmind/cometline.log" "$(HOME)/.cometmind/cometline.log.1"
 	rm -f "$(HOME)/.cometmind/cometline-gateway.log" "$(HOME)/.cometmind/cometline-gateway.log.1"

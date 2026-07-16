@@ -150,16 +150,29 @@ func newWorker(t *testing.T, fx workerFixture, provider cometsdk.Provider, cfg c
 
 func TestWorkerRunDisabledReturnsWithoutPolling(t *testing.T) {
 	fx := newWorkerFixture(t)
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	job, err := fx.jobs.Create(ctx, jobs.CreateInput{Description: "stay queued", WorkspacePath: fx.root})
 	if err != nil {
 		t.Fatal(err)
 	}
 	w := newWorker(t, fx, &staticProvider{}, config.AutonomousJobsConfig{Enabled: false})
 
-	w.Run(ctx)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		w.Run(ctx)
+	}()
+	// Disabled workers idle until cancel (so Reload can enable them live).
+	time.Sleep(50 * time.Millisecond)
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("disabled worker did not exit after cancel")
+	}
 
-	got, err := fx.jobs.Get(ctx, job.ID)
+	got, err := fx.jobs.Get(context.Background(), job.ID)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -334,7 +334,7 @@
 		<div class="settings-panel-body">
 			{#if loadError}
 				<p class="load-error">
-					{loadError}. Showing defaults — restart CometMind (Save in Settings → Providers)
+					{loadError}. Showing defaults — reload CometMind (Save in Settings → Providers)
 					or run
 					<code>make build-cometmind</code> if endpoints are missing.
 					<button class="link-button" type="button" onclick={reload}>Retry</button>

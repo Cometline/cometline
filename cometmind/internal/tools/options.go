@@ -51,6 +51,7 @@ type RegistryOptions struct {
 	JobSourceChannelID string
 	BrowserSearchURL   string
 	BrowserSearchToken string
+	SettingsRuntime    SettingsRuntime
 }
 
 // SubagentToolConfig holds limits passed into subagent tools.

@@ -28,7 +28,7 @@ make build            # Build SDK, CometMind binary, and Cometline renderer
 make package          # Build CometMind sidecar and package Electron app
 make dev              # Build CometMind sidecar and launch Electron dev app
 make port             # Show process listening on 127.0.0.1:7700
-make clean-log        # Remove ~/.cometmind/cometline.log
+make clean-log        # Remove ~/.cometmind/logs/cometline*.log
 ```
 
 ### Comet SDK (Go library)
@@ -120,7 +120,7 @@ Recent example: `memory_compaction_completed` was added this way to report manua
 
 ### CometMind
 
-- **Settings:** `~/.cometmind/cometline-settings.json` (created by `go run . init` or Cometline; managed by Settings UI)
+- **Settings:** `~/.cometmind/cometline-settings.json` (runtime; agent tools + CometMind). Desktop UI state: `~/.cometmind/cometline-desktop.json` (Electron only).
 - **Legacy config:** `~/.cometmind/config.toml` (read only when JSON settings are missing)
 - **Database:** `~/.cometmind/cometmind.db` (SQLite, pure Go via `modernc.org/sqlite`)
 - **API:** `http://127.0.0.1:7700` (localhost only)
@@ -142,11 +142,12 @@ go run . gateway run --platform discord # Start Discord gateway
 
 ### Desktop settings
 
-- **Location:** `~/.cometmind/cometline-settings.json`
-- **Managed via:** Settings UI in Cometline
-- **Contents:** Provider configs, active provider, appearance, shortcuts, app settings
+- **Location:** `~/.cometmind/cometline-settings.json` (runtime) + `~/.cometmind/cometline-desktop.json` (appearance/shortcuts/app)
+- **Managed via:** Settings UI in Cometline (Electron merges/splits both files)
+- **Contents (settings):** Provider configs, active provider, cometmind runtime
+- **Contents (desktop):** appearance, shortcuts, app/persona; agent tools never write this file
 
-Settings are synced to CometMind on save. The desktop app now prefers in-place reload for provider and many runtime changes, and falls back to restart when required (for example memory settings, memory provider changes, retention interval changes, job reconcile interval changes, or process-level changes such as host, port, and Discord token updates).
+Settings are synced to CometMind on save. The desktop app prefers in-place reload for provider and nearly all runtime changes (including memory, storage cleanup interval, jobs reconcile interval, and autonomy). Changes under `cometmind.gateway` recycle gateway process(es) only. Full main-sidecar restart remains for true process-level bind changes such as host and port.
 
 ## Key Features
 
@@ -338,7 +339,7 @@ Cometline can improve itself using the same agent runtime:
 
 ### Sidecar won't start
 
-- Check `~/.cometmind/cometline.log` for sidecar errors
+- Check `~/.cometmind/logs/cometline.log` for sidecar errors
 - Verify CometMind binary exists in `cometmind/dist/cometmind`
 - Run `make port` to see if port 7700 is already in use
 
@@ -365,7 +366,7 @@ Cometline can improve itself using the same agent runtime:
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **cometline-release** (10327 symbols, 28470 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **cometline-release** (10327 symbols, 28474 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 

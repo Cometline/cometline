@@ -354,8 +354,8 @@
 					<option value="debug">Debug</option>
 				</select>
 				<p class="settings-field-hint">
-					Controls what CometMind writes to <code>~/.cometmind/cometline.log</code> and
-					<code>cometline-gateway.log</code>. CometMind restarts when you save changes.
+					Controls what CometMind writes to <code>~/.cometmind/logs/cometline.log</code> and
+					<code>cometline-gateway.log</code>. Applied on Save via in-place reload.
 				</p>
 			</label>
 		</div>
@@ -670,6 +670,10 @@
 				/>
 			</label>
 			<SettingsPersistenceHint tier="action" detail="Job notification settings" />
+			<SettingsPersistenceHint
+				tier="pending"
+				detail="Queue / lease / reconcile fields — Save reloads CometMind in place"
+			/>
 		</div>
 
 		<div class="settings-section">
@@ -707,7 +711,7 @@
 			</label>
 			<SettingsPersistenceHint
 				tier="pending"
-				detail="Included in Save changes — restarts CometMind"
+				detail="Included in Save changes — reloads CometMind in place"
 			/>
 		</div>
 
@@ -736,7 +740,7 @@
 			</label>
 			<SettingsPersistenceHint
 				tier="pending"
-				detail="Included in Save changes — restarts CometMind"
+				detail="Included in Save changes — reloads CometMind in place"
 			/>
 		</div>
 
@@ -851,6 +855,10 @@
 				<input type="checkbox" bind:checked={cometmind.gateway.discord.requireMention} />
 				<span>Require @mention in server channels</span>
 			</label>
+			<SettingsPersistenceHint
+				tier="pending"
+				detail="Included in Save changes — restarts gateway process only (serve stays up)"
+			/>
 		</div>
 	</div>
 </section>

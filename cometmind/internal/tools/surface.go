@@ -13,6 +13,7 @@ type ToolSurface struct {
 	Jobs     bool
 	Memory   bool
 	MCP      bool
+	Settings bool // list/get/patch_settings (parent only)
 	SkillMut bool // write/promote skill drafts (parent only)
 }
 
@@ -21,7 +22,7 @@ func ParentSurface(delegateEnabled bool) ToolSurface {
 	return ToolSurface{
 		Read: true, Edit: true, Run: true, Skills: true, SkillMut: true,
 		Spawn: true, Delegate: delegateEnabled,
-		Jobs: true, Memory: true, MCP: true,
+		Jobs: true, Memory: true, MCP: true, Settings: true,
 	}
 }
 

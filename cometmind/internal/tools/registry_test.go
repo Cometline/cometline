@@ -16,6 +16,7 @@ func TestNewSubagentRegistryExcludesWriteAndDelegateTools(t *testing.T) {
 	excluded := []string{
 		"edit_file", "write_file", "run_command", "write_skill", "write_skill_draft",
 		"delegate_coding_task", "spawn_general_agent", "wait_subagents",
+		"list_settings", "get_settings", "patch_settings",
 	}
 	for _, name := range excluded {
 		if r.Has(name) {
@@ -37,7 +38,7 @@ func TestNewSubagentRegistryCodingIncludesEditTools(t *testing.T) {
 			t.Errorf("coding subagent registry missing %q", name)
 		}
 	}
-	for _, name := range []string{"delegate_coding_task", "spawn_general_agent"} {
+	for _, name := range []string{"delegate_coding_task", "spawn_general_agent", "list_settings", "patch_settings"} {
 		if r.Has(name) {
 			t.Errorf("coding subagent registry should not include %q", name)
 		}
@@ -56,10 +57,13 @@ func TestNewRegistryCapturesWorkspaceAndExposesSpecs(t *testing.T) {
 	}
 
 	specs := r.CometSDK()
-	if len(specs) != 9 {
-		t.Fatalf("CometSDK() returned %d specs, want 9", len(specs))
+	if len(specs) != 12 {
+		t.Fatalf("CometSDK() returned %d specs, want 12", len(specs))
 	}
-	wantNames := []string{"read_file", "edit_file", "write_file", "list_dir", "glob", "grep", "run_command", "web_fetch", "web_search"}
+	wantNames := []string{
+		"read_file", "edit_file", "write_file", "list_dir", "glob", "grep", "run_command",
+		"web_fetch", "web_search", "list_settings", "get_settings", "patch_settings",
+	}
 	for i, name := range wantNames {
 		if specs[i].Name != name {
 			t.Errorf("spec[%d].Name = %q, want %q", i, specs[i].Name, name)

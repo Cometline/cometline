@@ -8,6 +8,7 @@ import (
 
 	"github.com/cometline/cometmind/internal/logging"
 	"github.com/cometline/cometmind/internal/paths"
+	"github.com/cometline/cometmind/internal/settingsapply"
 	"github.com/spf13/viper"
 )
 
@@ -69,6 +70,7 @@ type GatewayConfig struct {
 }
 
 // Config holds user-visible runtime settings loaded from ~/.cometmind/cometline-settings.json and environment.
+// Desktop-only UI state lives in cometline-desktop.json and is not loaded here.
 type Config struct {
 	Provider           string               `mapstructure:"provider"`
 	Model              string               `mapstructure:"model"`
@@ -124,6 +126,10 @@ func Load() (*Config, error) {
 	}
 
 	def := Defaults()
+
+	if err := settingsapply.MigrateSplitFilesIfNeeded(); err != nil {
+		logging.L().Warn("config.settings_split_migrate_failed", "error", err)
+	}
 
 	var cfg *Config
 	switch {

@@ -12,7 +12,7 @@ func TestSurfaceForMode(t *testing.T) {
 		t.Fatalf("coding should edit/run without spawn/delegate: %+v", c)
 	}
 	p := ParentSurface(true)
-	if !p.Delegate || !p.Spawn || !p.Edit {
+	if !p.Delegate || !p.Spawn || !p.Edit || !p.Settings {
 		t.Fatalf("parent with delegate: %+v", p)
 	}
 	pOff := ParentSurface(false)

@@ -60,6 +60,20 @@
 			deletedJobPurgeDays: Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0
 		});
 	}
+
+	function onToolOutputRetentionInput(event: Event) {
+		const value = Number((event.currentTarget as HTMLInputElement).value);
+		patchStorage({
+			toolOutputRetentionDays: Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0
+		});
+	}
+
+	function onAgentTmpRetentionInput(event: Event) {
+		const value = Number((event.currentTarget as HTMLInputElement).value);
+		patchStorage({
+			agentTmpRetentionDays: Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0
+		});
+	}
 </script>
 
 <section class="general-panel settings-panel-frame">
@@ -110,10 +124,13 @@
 				<h3>Storage & retention</h3>
 				<p>Control how long CometMind keeps archived sessions and memory before purging.</p>
 			</div>
-			<SettingsPersistenceHint tier="pending" detail="Included in Save changes" />
+			<SettingsPersistenceHint
+				tier="pending"
+				detail="Included in Save changes — reloads CometMind in place"
+			/>
 			<p class="settings-field-hint">
 				Automatic cleanup runs on a CometMind schedule. Set a retention field to 0 to
-				disable that rule.
+				disable that rule. Interval changes apply on Save without restarting the sidecar.
 			</p>
 
 			<label class="field">
@@ -210,12 +227,54 @@
 				</small>
 			</label>
 
+			<label class="field">
+				<span>Purge tool-output files (days)</span>
+				<input
+					type="number"
+					min="0"
+					step="1"
+					value={storage.toolOutputRetentionDays}
+					oninput={onToolOutputRetentionInput}
+				/>
+				<small>
+					{#if storage.toolOutputRetentionDays === 0}
+						Disabled — spilled tool output under <code>~/.cometmind/tool-output/</code> stays on
+						disk.
+					{:else}
+						Delete <code>tool-output/</code> files older than {storage.toolOutputRetentionDays}
+						days.
+					{/if}
+				</small>
+			</label>
+
+			<label class="field">
+				<span>Purge agent-tmp files (days)</span>
+				<input
+					type="number"
+					min="0"
+					step="1"
+					value={storage.agentTmpRetentionDays}
+					oninput={onAgentTmpRetentionInput}
+				/>
+				<small>
+					{#if storage.agentTmpRetentionDays === 0}
+						Disabled — <code>~/.cometmind/agent-tmp/</code> files stay on disk.
+					{:else}
+						Delete <code>agent-tmp/</code> files older than {storage.agentTmpRetentionDays} days.
+					{/if}
+				</small>
+			</label>
+
 			<SettingsToggle
 				label="Vacuum database after purge"
 				description="Reclaim disk space in cometmind.db after sessions or memories are deleted."
 				checked={storage.vacuumAfterPurge}
 				onchange={(enabled) => patchStorage({ vacuumAfterPurge: enabled })}
 			/>
+
+			<p class="settings-field-hint">
+				Sidecar logs live under <code>~/.cometmind/logs/</code> (10MB rotate).
+			</p>
 
 			<p class="discord-note">
 				Deleting a session also removes its Discord channel mapping. The next message in

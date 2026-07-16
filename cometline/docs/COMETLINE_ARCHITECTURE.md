@@ -235,8 +235,8 @@ Never commit real provider API keys to docs, Makefiles, source files, or tests.
 | `~/.cometmind/cometline-settings.json`  | Single settings file (desktop UI + CometMind runtime)                       |
 | `~/.cometmind/config.toml`              | Legacy; read once for migration if JSON is missing                          |
 | `~/.cometmind/cometline-workspace.json` | Selected workspace path                                                     |
-| `~/.cometmind/cometline.log`            | Electron-spawned CometMind logs (rotates at 10 MB while running → `.log.1`) |
-| `~/.cometmind/cometline-gateway.log`    | Discord gateway logs (same rotation)                                        |
+| `~/.cometmind/logs/cometline.log`            | Electron-spawned CometMind logs (rotates at 10 MB while running → `.log.1`) |
+| `~/.cometmind/logs/cometline-gateway.log`    | Discord gateway logs (same rotation)                                        |
 | `~/.cometmind/mcp-oauth/{server}.json`  | MCP OAuth access/refresh token cache                                        |
 | `~/.cometmind/mcp-oauth/{server}.client.json` | MCP OAuth registered client metadata                                  |
 

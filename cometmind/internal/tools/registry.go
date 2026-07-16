@@ -118,6 +118,11 @@ func newRegistryWithSurface(workspaceRoot string, surface ToolSurface, opt Regis
 		add(UpdateMemory{Memory: opt.Memory, Events: opt.MemoryEvents})
 		add(DeleteMemory{Memory: opt.Memory, Events: opt.MemoryEvents})
 	}
+	if surface.Settings {
+		add(listSettingsTool{})
+		add(getSettingsTool{})
+		add(patchSettingsTool{Runtime: opt.SettingsRuntime})
+	}
 	return r
 }
 

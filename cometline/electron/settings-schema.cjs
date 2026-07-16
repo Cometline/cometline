@@ -4623,7 +4623,9 @@ function defaultCometMindStorageSettings() {
     maxSessionsPerWorkspace: 0,
     archivedMemoryPurgeDays: 90,
     deletedJobPurgeDays: 30,
-    vacuumAfterPurge: true
+    vacuumAfterPurge: true,
+    toolOutputRetentionDays: 7,
+    agentTmpRetentionDays: 3
   };
 }
 function defaultCometMindSettings(workspacePath = "") {
@@ -4817,7 +4819,15 @@ function normalizeCometMindSettings(input, fallbackWorkspacePath = "") {
         storage.deletedJobPurgeDays,
         defaults.storage.deletedJobPurgeDays
       ),
-      vacuumAfterPurge: typeof storage.vacuumAfterPurge === "boolean" ? storage.vacuumAfterPurge : defaults.storage.vacuumAfterPurge
+      vacuumAfterPurge: typeof storage.vacuumAfterPurge === "boolean" ? storage.vacuumAfterPurge : defaults.storage.vacuumAfterPurge,
+      toolOutputRetentionDays: normalizeNonNegativeInt(
+        storage.toolOutputRetentionDays,
+        defaults.storage.toolOutputRetentionDays
+      ),
+      agentTmpRetentionDays: normalizeNonNegativeInt(
+        storage.agentTmpRetentionDays,
+        defaults.storage.agentTmpRetentionDays
+      )
     },
     gateway: {
       discord: {
@@ -5308,7 +5318,9 @@ var providerSettingsSchema = external_exports.object({
       maxSessionsPerWorkspace: external_exports.number().int().min(0),
       archivedMemoryPurgeDays: external_exports.number().int().min(0),
       deletedJobPurgeDays: external_exports.number().int().min(0),
-      vacuumAfterPurge: external_exports.boolean()
+      vacuumAfterPurge: external_exports.boolean(),
+      toolOutputRetentionDays: external_exports.number().int().min(0),
+      agentTmpRetentionDays: external_exports.number().int().min(0)
     }),
     gateway: external_exports.object({
       discord: external_exports.object({

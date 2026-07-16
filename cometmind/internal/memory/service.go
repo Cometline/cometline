@@ -68,13 +68,50 @@ func NewService(dbConn *sql.DB, settings Settings, provider cometsdk.Provider, s
 	}, nil
 }
 
-// UpdateSettings replaces runtime memory settings.
-func (s *Service) UpdateSettings(settings Settings) {
+// UpdateSettings replaces runtime memory settings and rebuilds the embedder
+// when embedding credentials/model change.
+func (s *Service) UpdateSettings(settings Settings) error {
+	if s == nil {
+		return fmt.Errorf("memory service is nil")
+	}
+	if settings.MaxRetrieved <= 0 {
+		settings.MaxRetrieved = 5
+	}
+	if settings.SimilarityThreshold <= 0 {
+		settings.SimilarityThreshold = 0.5
+	}
+	needEmbedder := !embeddingSettingsEqual(s.settings.Embedding, settings.Embedding)
 	s.settings = settings
 	s.retriever.settings = settings
 	s.extractor.settings = settings
 	s.updater.settings = settings
 	s.compactor.settings = settings
+	if !needEmbedder {
+		return nil
+	}
+	embedder, err := NewEmbedder(settings.Embedding)
+	if err != nil {
+		return err
+	}
+	s.retriever.embedder = embedder
+	s.updater.embedder = embedder
+	s.compactor.embedder = embedder
+	return nil
+}
+
+// SetProvider replaces the LLM used for extraction/compaction/updates.
+func (s *Service) SetProvider(p cometsdk.Provider) {
+	if s == nil {
+		return
+	}
+	s.provider = p
+	s.extractor.provider = p
+	s.updater.provider = p
+	s.compactor.provider = p
+}
+
+func embeddingSettingsEqual(a, b EmbeddingSettings) bool {
+	return a.Provider == b.Provider && a.Model == b.Model && a.BaseURL == b.BaseURL && a.APIKey == b.APIKey
 }
 
 func (s *Service) Settings() Settings { return s.settings }

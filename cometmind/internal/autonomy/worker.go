@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cometline/cometmind/internal/agent"
@@ -49,6 +50,7 @@ type Worker struct {
 	NewRunner RunnerFactory
 	Guard     RunGuard
 
+	mu     sync.RWMutex
 	Config config.AutonomousJobsConfig
 
 	// DefaultModelID/DefaultProviderID are used for sessions the worker
@@ -60,29 +62,64 @@ type Worker struct {
 	sem chan struct{}
 }
 
-// Run starts the poll loop and blocks until ctx is canceled. It is a no-op
-// (returns immediately) if the worker is disabled in config.
+// Run starts the poll loop and blocks until ctx is canceled.
+// Enabled/interval are re-read each cycle so Reload can update autonomy live.
 func (w *Worker) Run(ctx context.Context) {
-	if w == nil || !w.Config.Enabled {
+	if w == nil {
 		return
 	}
-	w.ensureSemaphore()
-
-	interval := time.Duration(w.Config.PollIntervalSeconds) * time.Second
-	if interval <= 0 {
-		interval = 30 * time.Second
-	}
-
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
 	for {
+		cfg := w.configSnapshot()
+		if !cfg.Enabled {
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(2 * time.Second):
+				continue
+			}
+		}
+		w.ensureSemaphore()
+		interval := time.Duration(cfg.PollIntervalSeconds) * time.Second
+		if interval <= 0 {
+			interval = 30 * time.Second
+		}
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticker.C:
+		case <-time.After(interval):
 			w.pollOnce(ctx)
 		}
 	}
+}
+
+// UpdateConfig replaces autonomy settings used by the next poll cycle.
+func (w *Worker) UpdateConfig(cfg config.AutonomousJobsConfig, defaultModelID, defaultProviderID string) {
+	if w == nil {
+		return
+	}
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.Config = cfg
+	if strings.TrimSpace(defaultModelID) != "" {
+		w.DefaultModelID = defaultModelID
+	}
+	if strings.TrimSpace(defaultProviderID) != "" {
+		w.DefaultProviderID = defaultProviderID
+	}
+	// Force semaphore rebuild if concurrency changed.
+	max := cfg.MaxConcurrent
+	if max <= 0 {
+		max = 1
+	}
+	if w.sem == nil || cap(w.sem) != max {
+		w.sem = make(chan struct{}, max)
+	}
+}
+
+func (w *Worker) configSnapshot() config.AutonomousJobsConfig {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	return w.Config
 }
 
 // pollOnce lists ready jobs and attempts to claim+run as many as the
@@ -110,6 +147,8 @@ func (w *Worker) pollOnce(ctx context.Context) {
 }
 
 func (w *Worker) ensureSemaphore() {
+	w.mu.Lock()
+	defer w.mu.Unlock()
 	if w.sem != nil {
 		return
 	}

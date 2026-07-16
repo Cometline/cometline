@@ -15,12 +15,14 @@ import (
 
 // Result summarizes one retention pass.
 type Result struct {
-	SessionsDeleted    int
-	SubagentsDeleted   int
-	MemoriesPurged     int
-	MemoryEventsPurged int
-	JobsPurged         int
-	Vacuumed           bool
+	SessionsDeleted     int
+	SubagentsDeleted    int
+	MemoriesPurged      int
+	MemoryEventsPurged  int
+	JobsPurged          int
+	ToolOutputDeleted   int
+	AgentTmpDeleted     int
+	Vacuumed            bool
 }
 
 // Runner performs session retention and memory purge.

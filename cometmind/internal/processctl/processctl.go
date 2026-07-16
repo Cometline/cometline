@@ -53,6 +53,12 @@ func KnownModes() []string {
 	return []string{ModeServe, ModeGatewayDiscord}
 }
 
+// GatewayModes returns process modes for gateway platforms (not serve).
+// Add new platforms here when additional gateways ship.
+func GatewayModes() []string {
+	return []string{ModeGatewayDiscord}
+}
+
 func TargetModes(args []string) ([]string, error) {
 	if len(args) == 0 {
 		return KnownModes(), nil

@@ -13,15 +13,15 @@ describe('runtimeActionForSettingsSave', () => {
 		expect(runtimeActionForSettingsSave(persisted, next)).toBe('reload');
 	});
 
-	it('returns restart for memory settings changes', () => {
+	it('returns reload for memory settings changes', () => {
 		const persisted = defaultSettings();
 		const next = defaultSettings();
 		next.cometmind.memory.extractionModel = 'text-embedding-3-large';
 
-		expect(runtimeActionForSettingsSave(persisted, next)).toBe('restart');
+		expect(runtimeActionForSettingsSave(persisted, next)).toBe('reload');
 	});
 
-	it('returns restart when a memory provider entry changes', () => {
+	it('returns reload when a memory provider entry changes', () => {
 		const persisted = defaultSettings();
 		const next = defaultSettings();
 		next.cometmind.memory.embedding.providerId = 'openai';
@@ -29,7 +29,39 @@ describe('runtimeActionForSettingsSave', () => {
 			provider.id === 'openai' ? { ...provider, baseURL: 'http://localhost:11434/v1' } : provider
 		);
 
-		expect(runtimeActionForSettingsSave(persisted, next)).toBe('restart');
+		expect(runtimeActionForSettingsSave(persisted, next)).toBe('reload');
+	});
+
+	it('returns reload for storage cleanup / jobs reconcile / autonomy changes', () => {
+		const persisted = defaultSettings();
+		const storage = defaultSettings();
+		storage.cometmind.storage.cleanupIntervalMinutes = 99;
+		expect(runtimeActionForSettingsSave(persisted, storage)).toBe('reload');
+
+		const jobs = defaultSettings();
+		jobs.cometmind.jobs.reconcileIntervalSeconds = 42;
+		expect(runtimeActionForSettingsSave(persisted, jobs)).toBe('reload');
+
+		const autonomy = defaultSettings();
+		autonomy.cometmind.autonomy.enabled = !persisted.cometmind.autonomy.enabled;
+		expect(runtimeActionForSettingsSave(persisted, autonomy)).toBe('reload');
+	});
+
+	it('returns gateway for gateway-only changes', () => {
+		const persisted = defaultSettings();
+		const next = defaultSettings();
+		next.cometmind.gateway.discord.enabled = !persisted.cometmind.gateway.discord.enabled;
+
+		expect(runtimeActionForSettingsSave(persisted, next)).toBe('gateway');
+	});
+
+	it('returns reload when gateway changes together with other cometmind fields', () => {
+		const persisted = defaultSettings();
+		const next = defaultSettings();
+		next.cometmind.gateway.discord.enabled = !persisted.cometmind.gateway.discord.enabled;
+		next.cometmind.memory.enabled = !persisted.cometmind.memory.enabled;
+
+		expect(runtimeActionForSettingsSave(persisted, next)).toBe('reload');
 	});
 });
 
@@ -37,6 +69,7 @@ describe('saveStatusMessage', () => {
 	it('reports reload distinctly from restart when no reload outcome is known', () => {
 		expect(saveStatusMessage('agent', 'reload')).toBe('Changes saved. CometMind reloaded.');
 		expect(saveStatusMessage('agent', 'restart')).toBe('Changes saved. CometMind restarted.');
+		expect(saveStatusMessage('agent', 'gateway')).toBe('Changes saved. Gateway restarted.');
 		expect(saveStatusMessage('agent', 'none')).toBe('Changes saved.');
 	});
 

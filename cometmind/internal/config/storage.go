@@ -16,6 +16,10 @@ type StorageConfig struct {
 	SubagentRetentionDays int `json:"subagent_retention_days" mapstructure:"subagent_retention_days"`
 	// DeletedJobPurgeDays hard-deletes soft-deleted jobs older than this many days. 0 disables.
 	DeletedJobPurgeDays int `json:"deleted_job_purge_days" mapstructure:"deleted_job_purge_days"`
+	// ToolOutputRetentionDays deletes files under ~/.cometmind/tool-output older than N days. 0 disables.
+	ToolOutputRetentionDays int `json:"tool_output_retention_days" mapstructure:"tool_output_retention_days"`
+	// AgentTmpRetentionDays deletes files under ~/.cometmind/agent-tmp older than N days. 0 disables.
+	AgentTmpRetentionDays int `json:"agent_tmp_retention_days" mapstructure:"agent_tmp_retention_days"`
 }
 
 func defaultStorageConfig() StorageConfig {
@@ -27,6 +31,8 @@ func defaultStorageConfig() StorageConfig {
 		VacuumAfterPurge:        true,
 		SubagentRetentionDays:   7,
 		DeletedJobPurgeDays:     30,
+		ToolOutputRetentionDays: 7,
+		AgentTmpRetentionDays:   3,
 	}
 }
 
@@ -45,14 +51,20 @@ func (s StorageConfig) MemoryPurgeEnabled() bool {
 	return s.ArchivedMemoryPurgeDays > 0
 }
 
+// RuntimeFilesEnabled reports whether tool-output / agent-tmp age cleanup is active.
+func (s StorageConfig) RuntimeFilesEnabled() bool {
+	return s.ToolOutputRetentionDays > 0 || s.AgentTmpRetentionDays > 0
+}
+
 // EffectiveStorageConfig returns storage settings with defaults when nothing is configured.
 func (c *Config) EffectiveStorageConfig() StorageConfig {
 	if !c.storageConfigured() {
 		return defaultStorageConfig()
 	}
 	s := c.Storage
+	def := defaultStorageConfig()
 	if s.CleanupIntervalMinutes == 0 {
-		s.CleanupIntervalMinutes = defaultStorageConfig().CleanupIntervalMinutes
+		s.CleanupIntervalMinutes = def.CleanupIntervalMinutes
 	}
 	return s
 }
@@ -65,5 +77,7 @@ func (c *Config) storageConfigured() bool {
 		s.ArchivedMemoryPurgeDays != 0 ||
 		s.SubagentRetentionDays != 0 ||
 		s.DeletedJobPurgeDays != 0 ||
+		s.ToolOutputRetentionDays != 0 ||
+		s.AgentTmpRetentionDays != 0 ||
 		s.VacuumAfterPurge
 }

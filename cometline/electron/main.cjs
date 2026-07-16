@@ -690,16 +690,125 @@ function resolveSystemPromptPath(personaId = 'minako', settings = undefined) {
 	return resolveBuiltinSoulPath(personaId);
 }
 
-function getLogPath() {
-	const dir = path.join(os.homedir(), '.cometmind');
+function getLogsDir() {
+	const dir = path.join(os.homedir(), '.cometmind', 'logs');
 	if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-	return path.join(dir, 'cometline.log');
+	return dir;
+}
+
+/** Move legacy root-level log files into ~/.cometmind/logs/ once. */
+function migrateLegacyLogPaths() {
+	const root = path.join(os.homedir(), '.cometmind');
+	const logsDir = getLogsDir();
+	for (const name of [
+		'cometline.log',
+		'cometline.log.1',
+		'cometline-gateway.log',
+		'cometline-gateway.log.1'
+	]) {
+		const from = path.join(root, name);
+		const to = path.join(logsDir, name);
+		if (!fs.existsSync(from) || fs.existsSync(to)) continue;
+		try {
+			fs.renameSync(from, to);
+		} catch (err) {
+			console.warn(`Failed to migrate log ${name}:`, err);
+		}
+	}
+}
+
+function getLogPath() {
+	migrateLegacyLogPaths();
+	return path.join(getLogsDir(), 'cometline.log');
 }
 
 function getSettingsPath() {
 	const dir = path.join(os.homedir(), '.cometmind');
 	if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 	return path.join(dir, 'cometline-settings.json');
+}
+
+function getDesktopSettingsPath() {
+	const dir = path.join(os.homedir(), '.cometmind');
+	if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+	return path.join(dir, 'cometline-desktop.json');
+}
+
+const DESKTOP_TOP_LEVEL_KEYS = ['appearance', 'shortcuts', 'app'];
+
+function readJsonFileIfExists(filePath) {
+	if (!fs.existsSync(filePath)) return null;
+	try {
+		return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+	} catch {
+		return null;
+	}
+}
+
+function cloneJson(value) {
+	return JSON.parse(JSON.stringify(value ?? null));
+}
+
+/** Peel desktop-owned keys from a monolithic settings document. */
+function splitSettingsDocument(merged) {
+	const settings = cloneJson(merged ?? {});
+	const desktop = {};
+	for (const key of DESKTOP_TOP_LEVEL_KEYS) {
+		if (settings[key] !== undefined) {
+			desktop[key] = settings[key];
+			delete settings[key];
+		}
+	}
+	const prompt = settings?.cometmind?.systemPromptPath;
+	if (prompt !== undefined) {
+		desktop.systemPromptPath = prompt;
+		// Keep stamp on runtime settings so CometMind Load can ignore desktop file.
+	}
+	return { settings, desktop };
+}
+
+function mergeSettingsDocuments(settingsDoc, desktopDoc) {
+	const out = cloneJson(settingsDoc ?? {});
+	const desktop = desktopDoc ?? {};
+	for (const key of DESKTOP_TOP_LEVEL_KEYS) {
+		if (desktop[key] !== undefined) {
+			out[key] = cloneJson(desktop[key]);
+		}
+	}
+	if (desktop.systemPromptPath !== undefined) {
+		out.cometmind = { ...(out.cometmind ?? {}), systemPromptPath: desktop.systemPromptPath };
+	}
+	return out;
+}
+
+function hasDesktopKeys(doc) {
+	if (!doc || typeof doc !== 'object') return false;
+	return DESKTOP_TOP_LEVEL_KEYS.some((key) => doc[key] !== undefined);
+}
+
+/** One-shot migrate: peel appearance/shortcuts/app into cometline-desktop.json. */
+function migrateSplitSettingsIfNeeded() {
+	const settingsPath = getSettingsPath();
+	const desktopPath = getDesktopSettingsPath();
+	const saved = readJsonFileIfExists(settingsPath) ?? {};
+	if (!hasDesktopKeys(saved)) {
+		if (saved?.cometmind?.systemPromptPath !== undefined) {
+			const existingDesktop = readJsonFileIfExists(desktopPath) ?? {};
+			if (existingDesktop.systemPromptPath === undefined) {
+				writeJsonFileAtomic(
+					desktopPath,
+					{ ...existingDesktop, systemPromptPath: saved.cometmind.systemPromptPath },
+					0o600
+				);
+			}
+		}
+		return;
+	}
+	const existingDesktop = readJsonFileIfExists(desktopPath) ?? {};
+	const { settings, desktop } = splitSettingsDocument(saved);
+	const nextDesktop = { ...existingDesktop, ...desktop };
+	writeJsonFileAtomic(desktopPath, nextDesktop, 0o600);
+	writeJsonFileAtomic(settingsPath, settings, 0o600);
 }
 
 function settingsNormalizeOptions(personaId = 'minako', settings = undefined) {
@@ -1404,15 +1513,10 @@ function readProviderSettings() {
 }
 
 function readSavedProviderSettings() {
-	let saved = {};
-	const settingsPath = getSettingsPath();
-	if (fs.existsSync(settingsPath)) {
-		try {
-			saved = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
-		} catch {
-			saved = {};
-		}
-	}
+	migrateSplitSettingsIfNeeded();
+	const settingsDoc = readJsonFileIfExists(getSettingsPath()) ?? {};
+	const desktopDoc = readJsonFileIfExists(getDesktopSettingsPath()) ?? {};
+	const saved = mergeSettingsDocuments(settingsDoc, desktopDoc);
 
 	const personaId = readSavedPersonaId(saved);
 	return parseAndNormalizeSettings(saved, settingsNormalizeOptions(personaId, saved));
@@ -1452,8 +1556,9 @@ function writeProviderSettings(settings) {
 			settingsNormalizeOptions(personaId, { app: appSettings })
 		)
 	);
-	const settingsPath = getSettingsPath();
-	writeJsonFileAtomic(settingsPath, next, 0o600);
+	const { settings: runtimeDoc, desktop: desktopDoc } = splitSettingsDocument(next);
+	writeJsonFileAtomic(getSettingsPath(), runtimeDoc, 0o600);
+	writeJsonFileAtomic(getDesktopSettingsPath(), desktopDoc, 0o600);
 	return next;
 }
 
@@ -3788,6 +3893,10 @@ ipcMain.handle('cometline:save-provider-settings', async (_event, settings, opti
 		reload = { action: 'restart', healthy };
 	} else if (runtimeAction === 'reload') {
 		reload = await reloadCometMind();
+	} else if (runtimeAction === 'gateway') {
+		// Gateway process recycle only; main serve stays up. sync below applies it.
+		const healthy = await waitForHealth();
+		reload = { action: 'gateway', healthy };
 	}
 	await syncDiscordGatewayFromSettings(saved);
 	applyOpenAtLoginSetting(saved.app?.openAtLogin);
