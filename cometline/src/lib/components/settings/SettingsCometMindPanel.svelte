@@ -354,7 +354,7 @@
 					<option value="debug">Debug</option>
 				</select>
 				<p class="settings-field-hint">
-					Controls what CometMind writes to <code>~/.cometmind/cometline.log</code> and
+					Controls what CometMind writes to <code>~/.cometmind/logs/cometline.log</code> and
 					<code>cometline-gateway.log</code>. Applied on Save via in-place reload.
 				</p>
 			</label>

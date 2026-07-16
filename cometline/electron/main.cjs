@@ -690,10 +690,36 @@ function resolveSystemPromptPath(personaId = 'minako', settings = undefined) {
 	return resolveBuiltinSoulPath(personaId);
 }
 
-function getLogPath() {
-	const dir = path.join(os.homedir(), '.cometmind');
+function getLogsDir() {
+	const dir = path.join(os.homedir(), '.cometmind', 'logs');
 	if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-	return path.join(dir, 'cometline.log');
+	return dir;
+}
+
+/** Move legacy root-level log files into ~/.cometmind/logs/ once. */
+function migrateLegacyLogPaths() {
+	const root = path.join(os.homedir(), '.cometmind');
+	const logsDir = getLogsDir();
+	for (const name of [
+		'cometline.log',
+		'cometline.log.1',
+		'cometline-gateway.log',
+		'cometline-gateway.log.1'
+	]) {
+		const from = path.join(root, name);
+		const to = path.join(logsDir, name);
+		if (!fs.existsSync(from) || fs.existsSync(to)) continue;
+		try {
+			fs.renameSync(from, to);
+		} catch (err) {
+			console.warn(`Failed to migrate log ${name}:`, err);
+		}
+	}
+}
+
+function getLogPath() {
+	migrateLegacyLogPaths();
+	return path.join(getLogsDir(), 'cometline.log');
 }
 
 function getSettingsPath() {

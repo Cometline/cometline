@@ -24,7 +24,7 @@
 			</div>
 			<p class="error-message">{connectionState.message}</p>
 			<p class="error-hint">
-				Check <code>~/.cometmind/cometline.log</code> for sidecar errors, then retry.
+				Check <code>~/.cometmind/logs/cometline.log</code> for sidecar errors, then retry.
 			</p>
 			<button type="button" class="retry-button" onclick={retry}>
 				<RefreshCw size={14} aria-hidden="true" />
