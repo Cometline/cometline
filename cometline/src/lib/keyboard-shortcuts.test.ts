@@ -154,6 +154,18 @@ describe('keyboard-shortcuts', () => {
 		expect(normalized.toggleMiniWindow).toEqual({ command: true, shift: true, key: 'k' });
 	});
 
+	it('defaults stop response to Ctrl+C while preserving a saved Cmd+C binding', () => {
+		expect(normalizeKeyboardShortcuts({}).stopResponse).toEqual({
+			ctrl: true,
+			meta: false,
+			key: 'c'
+		});
+		expect(normalizeKeyboardShortcuts({ stopResponse: { command: true, key: 'c' } }).stopResponse).toEqual({
+			command: true,
+			key: 'c'
+		});
+	});
+
 	it('migrates macOS Option-produced toggle web panel binding', () => {
 		const normalized = normalizeKeyboardShortcuts({
 			toggleWebPanel: { command: true, alt: true, key: '∫' }

@@ -73,7 +73,7 @@ export const SHORTCUT_DEFINITIONS: KeyboardShortcutDefinition[] = [
 		id: 'toggleMiniWindow',
 		label: 'Toggle mini window',
 		category: 'chats',
-		defaultBinding: { command: true, shift: true, key: 'k' }
+		defaultBinding: { command: true, shift: true, key: 'l' }
 	},
 	{
 		id: 'previousSession',
@@ -109,7 +109,7 @@ export const SHORTCUT_DEFINITIONS: KeyboardShortcutDefinition[] = [
 		id: 'stopResponse',
 		label: 'Stop response',
 		category: 'composer',
-		defaultBinding: { command: true, key: 'c' }
+		defaultBinding: { ctrl: true, meta: false, key: 'c' }
 	},
 	{
 		id: 'toggleSidebar',
