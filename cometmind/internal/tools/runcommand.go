@@ -21,17 +21,33 @@ import (
 // should not rely on this as a complete security boundary.
 type RunCommand struct{ Workspace Workspace }
 
+const (
+	runCommandDefaultTimeoutSec = 300
+	runCommandMaxTimeoutSec     = 1800
+)
+
 func (RunCommand) Spec() ToolSpec {
 	return ToolSpec{
-		Name:        "run_command",
-		Description: "Run a shell command in the workspace root. Best-effort guardrails reject a few obviously dangerous patterns.",
-		Parameters:  json.RawMessage(`{"type":"object","properties":{"command":{"type":"string","description":"Command with arguments (shell interpretation)"}},"required":["command"]}`),
+		Name: "run_command",
+		Description: "Run a shell command in the workspace root. " +
+			"Best-effort guardrails reject a few obviously dangerous patterns. " +
+			"Default timeout is 300s; pass timeout_sec to override (max 1800). " +
+			"Very large output is truncated in the tool result with the full text saved under ~/.cometmind/tool-output/.",
+		Parameters: json.RawMessage(`{
+			"type":"object",
+			"properties":{
+				"command":{"type":"string","description":"Command with arguments (shell interpretation)"},
+				"timeout_sec":{"type":"integer","description":"Optional timeout in seconds (default 300, max 1800)"}
+			},
+			"required":["command"]
+		}`),
 	}
 }
 
 func (r RunCommand) Execute(ctx context.Context, input json.RawMessage) (Result, error) {
 	var in struct {
-		Command *string `json:"command"`
+		Command    *string `json:"command"`
+		TimeoutSec *int    `json:"timeout_sec"`
 	}
 	if err := json.Unmarshal(input, &in); err != nil {
 		return Result{}, err
@@ -48,13 +64,24 @@ func (r RunCommand) Execute(ctx context.Context, input json.RawMessage) (Result,
 	}
 	root := filepath.Clean(r.Workspace.Root)
 
+	timeoutSec := runCommandDefaultTimeoutSec
+	if in.TimeoutSec != nil {
+		timeoutSec = *in.TimeoutSec
+	}
+	if timeoutSec < 1 {
+		return Result{OK: false, Output: "timeout_sec must be >= 1"}, nil
+	}
+	if timeoutSec > runCommandMaxTimeoutSec {
+		timeoutSec = runCommandMaxTimeoutSec
+	}
+
 	// Acquire a per-workspace mutex so concurrent sessions do not run
 	// conflicting shell commands (e.g. git commit, go test) simultaneously
 	// against the same workspace root.
 	release := acquireWorkspaceLock(root)
 	defer release()
 
-	cmdCtx, cancel := context.WithTimeout(ctx, 120*time.Second)
+	cmdCtx, cancel := context.WithTimeout(ctx, time.Duration(timeoutSec)*time.Second)
 	defer cancel()
 
 	cmd := exec.CommandContext(cmdCtx, "sh", "-c", command) //nolint:gosec
@@ -62,10 +89,18 @@ func (r RunCommand) Execute(ctx context.Context, input json.RawMessage) (Result,
 	cmd.Env = process.Env()
 
 	out, err := cmd.CombinedOutput()
-	text := string(out)
+	text := boundToolOutput(string(out))
 
 	var exit *int
 	if err != nil {
+		if errors.Is(cmdCtx.Err(), context.DeadlineExceeded) {
+			msg := text
+			if strings.TrimSpace(msg) != "" {
+				msg += "\n"
+			}
+			msg += fmt.Sprintf("command timed out after %ds", timeoutSec)
+			return Result{OK: false, Output: msg}, nil
+		}
 		var ee *exec.ExitError
 		if errors.As(err, &ee) {
 			c := ee.ExitCode()
