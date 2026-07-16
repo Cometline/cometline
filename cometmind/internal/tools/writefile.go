@@ -16,6 +16,7 @@ func (WriteFile) Spec() ToolSpec {
 		Name: "write_file",
 		Description: "Create a new file or intentionally overwrite an entire file. " +
 			"@runtime/tmp/... is a shared cross-session temporary directory. " +
+			"@runtime/wiki/... is the persistent LLM Wiki (not age-purged). " +
 			"Prefer edit_file for modifying existing files. " +
 			"Creates parent directories if needed.",
 		Parameters: json.RawMessage(`{"type":"object","properties":{"path":{"type":"string"},"content":{"type":"string"}},"required":["path","content"]}`),

@@ -10,7 +10,6 @@
 		RefreshCw,
 		Settings,
 		Trash2,
-		Upload,
 		Workflow,
 		Brain,
 		Sparkles
@@ -668,47 +667,6 @@
 						/>
 						<section class="settings-panel-frame">
 							<div class="settings-panel-body">
-								<div class="settings-section">
-									<div class="settings-section-heading">
-										<div>
-											<h3>Settings backup</h3>
-											<p>
-												Export or import all Cometline settings. Exports may
-												include provider API keys.
-											</p>
-										</div>
-									</div>
-									<div class="settings-row-actions mb-1">
-										<button
-											class="secondary"
-											onclick={panelController.exportSettings}
-											disabled={panelController.exportingSettings}
-										>
-											{#if panelController.exportingSettings}
-												<span class="spin small"
-													><LoaderCircle size={14} /></span
-												>
-											{:else}
-												<Download size={14} />
-											{/if}
-											Export
-										</button>
-										<button
-											class="secondary"
-											onclick={panelController.importSettings}
-											disabled={panelController.importingSettings}
-										>
-											{#if panelController.importingSettings}
-												<span class="spin small"
-													><LoaderCircle size={14} /></span
-												>
-											{:else}
-												<Upload size={14} />
-											{/if}
-											Import
-										</button>
-									</div>
-								</div>
 								<div class="settings-row align-start">
 									<div class="settings-row-copy">
 										<span class="settings-row-label">Workspace</span>

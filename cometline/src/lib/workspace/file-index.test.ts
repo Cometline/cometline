@@ -131,6 +131,15 @@ describe('file-index', () => {
 		expect(cometmind.listWorkspaceFiles).toHaveBeenCalledWith('/workspace', 'match', 50);
 	});
 
+	it('normalizes workspace paths for cache keys', async () => {
+		vi.mocked(cometmind.listWorkspaceFiles).mockResolvedValue(wf(['a.go']));
+
+		await refreshFileIndex('/workspace/');
+		expect(getFileIndex('/workspace')).not.toBeNull();
+		expect(getFileIndex('/workspace/')?.files).toEqual(['a.go']);
+		expect(isFileIndexReady('/workspace')).toBe(true);
+	});
+
 	it('searchWorkspaceFiles returns empty for blank query without hitting backend', async () => {
 		const result = await searchWorkspaceFiles('/workspace', '   ');
 		expect(result).toEqual([]);

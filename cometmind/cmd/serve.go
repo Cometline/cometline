@@ -84,6 +84,9 @@ func runServe(_ *cobra.Command, _ []string) error {
 		RunRetention: func(ctx context.Context) (server.RetentionResult, error) {
 			return rt.RunRetention(ctx)
 		},
+		RunBackup: func(ctx context.Context) (server.BackupResult, error) {
+			return rt.RunBackup(ctx)
+		},
 		SetJobSettings: func(s jobs.Settings) {
 			rt.SetJobSettings(s)
 		},
@@ -103,6 +106,7 @@ func runServe(_ *cobra.Command, _ []string) error {
 	rt.SetSessionRunningChecker(runs.Running)
 	rt.StartJobsMaintenance(ctx)
 	rt.StartRetentionMaintenance(ctx)
+	rt.StartBackupMaintenance(ctx)
 	rt.StartScheduler(ctx)
 	rt.StartAutonomousJobWorker(ctx, runs)
 

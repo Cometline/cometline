@@ -406,15 +406,45 @@ func (e WebContextKind) Valid() bool {
 	}
 }
 
+// Defines values for WikiFileImageContentKind.
+const (
+	WikiFileImageContentKindImage WikiFileImageContentKind = "image"
+)
+
+// Valid indicates whether the value is a known member of the WikiFileImageContentKind enum.
+func (e WikiFileImageContentKind) Valid() bool {
+	switch e {
+	case WikiFileImageContentKindImage:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for WikiFileTextContentKind.
+const (
+	WikiFileTextContentKindText WikiFileTextContentKind = "text"
+)
+
+// Valid indicates whether the value is a known member of the WikiFileTextContentKind enum.
+func (e WikiFileTextContentKind) Valid() bool {
+	switch e {
+	case WikiFileTextContentKindText:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for WorkspaceFileImageContentKind.
 const (
-	Image WorkspaceFileImageContentKind = "image"
+	WorkspaceFileImageContentKindImage WorkspaceFileImageContentKind = "image"
 )
 
 // Valid indicates whether the value is a known member of the WorkspaceFileImageContentKind enum.
 func (e WorkspaceFileImageContentKind) Valid() bool {
 	switch e {
-	case Image:
+	case WorkspaceFileImageContentKindImage:
 		return true
 	default:
 		return false
@@ -423,13 +453,13 @@ func (e WorkspaceFileImageContentKind) Valid() bool {
 
 // Defines values for WorkspaceFileTextContentKind.
 const (
-	Text WorkspaceFileTextContentKind = "text"
+	WorkspaceFileTextContentKindText WorkspaceFileTextContentKind = "text"
 )
 
 // Valid indicates whether the value is a known member of the WorkspaceFileTextContentKind enum.
 func (e WorkspaceFileTextContentKind) Valid() bool {
 	switch e {
-	case Text:
+	case WorkspaceFileTextContentKindText:
 		return true
 	default:
 		return false
@@ -867,7 +897,10 @@ type PostMessageRequest struct {
 	// DisplayText Optional transcript label for the user bubble. When set, the UI shows this instead of text while the agent still receives text.
 	DisplayText *string `json:"display_text,omitempty"`
 
-	// FilePaths Workspace-relative file paths to include as context. Each file must be a readable text file at most 256 KB.
+	// FilePaths File paths to include as context. Workspace-relative paths resolve against
+	// the session workspace. Paths starting with `@runtime/wiki/` resolve against
+	// the global LLM wiki at `~/.cometmind/wiki/`. Each file must be readable
+	// text at most 256 KB.
 	FilePaths *[]string `json:"file_paths,omitempty"`
 
 	// Images Optional base64 image attachments. Supported media types are image/png, image/jpeg, image/gif, and image/webp.
@@ -908,6 +941,14 @@ type ReasoningDeltaEvent struct {
 // ReasoningStartEvent defines model for ReasoningStartEvent.
 type ReasoningStartEvent struct {
 	Type string `json:"type"`
+}
+
+// RunStorageBackupResponse defines model for RunStorageBackupResponse.
+type RunStorageBackupResponse struct {
+	FilesZipped int    `json:"files_zipped"`
+	Path        string `json:"path"`
+	RemovedOld  int    `json:"removed_old"`
+	Status      string `json:"status"`
 }
 
 // RunStorageRetentionResponse defines model for RunStorageRetentionResponse.
@@ -1257,6 +1298,40 @@ type WebPageContext struct {
 	Url string `json:"url"`
 }
 
+// WikiFileContent defines model for WikiFileContent.
+type WikiFileContent struct {
+	union json.RawMessage
+}
+
+// WikiFileImageContent defines model for WikiFileImageContent.
+type WikiFileImageContent struct {
+	DataUrl  string                   `json:"data_url"`
+	Kind     WikiFileImageContentKind `json:"kind"`
+	MimeType string                   `json:"mime_type"`
+}
+
+// WikiFileImageContentKind defines model for WikiFileImageContent.Kind.
+type WikiFileImageContentKind string
+
+// WikiFileList defines model for WikiFileList.
+type WikiFileList struct {
+	// Files Wiki-root-relative markdown file paths.
+	Files []string `json:"files"`
+
+	// Truncated True when more matching files exist than the limit returned.
+	Truncated *bool `json:"truncated,omitempty"`
+}
+
+// WikiFileTextContent defines model for WikiFileTextContent.
+type WikiFileTextContent struct {
+	Content   string                  `json:"content"`
+	Extension string                  `json:"extension"`
+	Kind      WikiFileTextContentKind `json:"kind"`
+}
+
+// WikiFileTextContentKind defines model for WikiFileTextContent.Kind.
+type WikiFileTextContentKind string
+
 // Workspace defines model for Workspace.
 type Workspace struct {
 	Id   string `json:"id"`
@@ -1303,6 +1378,15 @@ type WorkspaceFileTextContentKind string
 // WorkspaceListResponse defines model for WorkspaceListResponse.
 type WorkspaceListResponse struct {
 	Workspaces []Workspace `json:"workspaces"`
+}
+
+// WriteWikiFileRequest defines model for WriteWikiFileRequest.
+type WriteWikiFileRequest struct {
+	// Content UTF-8 text content to write.
+	Content string `json:"content"`
+
+	// Path Wiki-root-relative file path.
+	Path string `json:"path"`
 }
 
 // WriteWorkspaceFileRequest Provide either `workspace_id` or `workspace_path`.
@@ -1385,6 +1469,21 @@ type GetSkillParams struct {
 // ExportSkillParams defines parameters for ExportSkill.
 type ExportSkillParams struct {
 	WorkspacePath *string `form:"workspace_path,omitempty" json:"workspace_path,omitempty"`
+}
+
+// ListWikiFilesParams defines parameters for ListWikiFiles.
+type ListWikiFilesParams struct {
+	// Q Optional substring filter on the relative file path.
+	Q *string `form:"q,omitempty" json:"q,omitempty"`
+
+	// Limit Maximum number of results to return.
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// ReadWikiFileContentParams defines parameters for ReadWikiFileContent.
+type ReadWikiFileContentParams struct {
+	// Path Wiki-root-relative file path (e.g. `index.md`, `entities/foo.md`).
+	Path string `form:"path" json:"path"`
 }
 
 // DeleteWorkspaceParams defines parameters for DeleteWorkspace.
@@ -1476,6 +1575,9 @@ type ChangeSessionWorkspaceJSONRequestBody = ChangeSessionWorkspaceRequest
 
 // UpdateSkillDraftJSONRequestBody defines body for UpdateSkillDraft for application/json ContentType.
 type UpdateSkillDraftJSONRequestBody = UpdateSkillDraftRequest
+
+// WriteWikiFileContentJSONRequestBody defines body for WriteWikiFileContent for application/json ContentType.
+type WriteWikiFileContentJSONRequestBody = WriteWikiFileRequest
 
 // CreateWorkspaceJSONRequestBody defines body for CreateWorkspace for application/json ContentType.
 type CreateWorkspaceJSONRequestBody = CreateWorkspaceRequest
@@ -1988,6 +2090,68 @@ func (t StreamEvent) MarshalJSON() ([]byte, error) {
 }
 
 func (t *StreamEvent) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsWikiFileTextContent returns the union data inside the WikiFileContent as a WikiFileTextContent
+func (t WikiFileContent) AsWikiFileTextContent() (WikiFileTextContent, error) {
+	var body WikiFileTextContent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromWikiFileTextContent overwrites any union data inside the WikiFileContent as the provided WikiFileTextContent
+func (t *WikiFileContent) FromWikiFileTextContent(v WikiFileTextContent) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeWikiFileTextContent performs a merge with any union data inside the WikiFileContent, using the provided WikiFileTextContent
+func (t *WikiFileContent) MergeWikiFileTextContent(v WikiFileTextContent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsWikiFileImageContent returns the union data inside the WikiFileContent as a WikiFileImageContent
+func (t WikiFileContent) AsWikiFileImageContent() (WikiFileImageContent, error) {
+	var body WikiFileImageContent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromWikiFileImageContent overwrites any union data inside the WikiFileContent as the provided WikiFileImageContent
+func (t *WikiFileContent) FromWikiFileImageContent(v WikiFileImageContent) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeWikiFileImageContent performs a merge with any union data inside the WikiFileContent, using the provided WikiFileImageContent
+func (t *WikiFileContent) MergeWikiFileImageContent(v WikiFileImageContent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t WikiFileContent) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *WikiFileContent) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }

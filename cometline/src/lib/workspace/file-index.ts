@@ -22,25 +22,33 @@ const inFlight = new Map<string, Promise<void>>();
 /** How long a loaded index is considered fresh before a background refresh. */
 export const FILE_INDEX_TTL_MS = 30_000;
 
+/** Canonical cache key for a workspace path (trimmed, no trailing slash). */
+export function normalizeWorkspacePath(workspacePath: string): string {
+	const trimmed = workspacePath.trim();
+	if (!trimmed || trimmed === '/') return trimmed;
+	return trimmed.replace(/\/+$/, '');
+}
+
 export function getFileIndex(workspacePath: string): FileIndexEntry | null {
-	return cache.get(workspacePath) ?? null;
+	return cache.get(normalizeWorkspacePath(workspacePath)) ?? null;
 }
 
 export function isFileIndexReady(workspacePath: string): boolean {
-	const entry = cache.get(workspacePath);
+	const entry = cache.get(normalizeWorkspacePath(workspacePath));
 	return Boolean(entry?.loaded && !entry.loading);
 }
 
 /** True when the index is loaded and within its TTL (no refresh needed). */
 export function isFileIndexFresh(workspacePath: string, ttlMs = FILE_INDEX_TTL_MS): boolean {
-	const entry = cache.get(workspacePath);
+	const entry = cache.get(normalizeWorkspacePath(workspacePath));
 	if (!entry?.loaded || entry.loading) return false;
 	return Date.now() - entry.loadedAt < ttlMs;
 }
 
 export function clearFileIndex(workspacePath: string): void {
-	cache.delete(workspacePath);
-	inFlight.delete(workspacePath);
+	const key = normalizeWorkspacePath(workspacePath);
+	cache.delete(key);
+	inFlight.delete(key);
 }
 
 export function clearAllFileIndexes(): void {
@@ -49,6 +57,7 @@ export function clearAllFileIndexes(): void {
 }
 
 export async function refreshFileIndex(workspacePath: string): Promise<FileIndexEntry> {
+	workspacePath = normalizeWorkspacePath(workspacePath);
 	if (!workspacePath) {
 		const entry: FileIndexEntry = {
 			files: [],
@@ -102,7 +111,7 @@ async function load(workspacePath: string): Promise<void> {
 	try {
 		const { files, truncated } = await listWorkspaceFiles(workspacePath, '', INDEX_LIMIT);
 		cache.set(workspacePath, {
-			files,
+			files: files ?? [],
 			loading: false,
 			loaded: true,
 			error: null,
@@ -128,7 +137,7 @@ async function load(workspacePath: string): Promise<void> {
  * type-to-filter should query the backend to find files outside the cached page.
  */
 export function isFileIndexTruncated(workspacePath: string): boolean {
-	return Boolean(cache.get(workspacePath)?.truncated);
+	return Boolean(cache.get(normalizeWorkspacePath(workspacePath))?.truncated);
 }
 
 /**
@@ -139,9 +148,10 @@ export async function searchWorkspaceFiles(
 	workspacePath: string,
 	query: string
 ): Promise<string[]> {
+	workspacePath = normalizeWorkspacePath(workspacePath);
 	if (!workspacePath || !query.trim()) return [];
 	const { files } = await listWorkspaceFiles(workspacePath, query.trim(), SEARCH_LIMIT);
-	return files;
+	return files ?? [];
 }
 
 export function filterFileIndex(files: string[], query: string): string[] {

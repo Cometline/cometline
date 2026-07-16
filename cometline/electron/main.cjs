@@ -1631,53 +1631,6 @@ function refreshGlobalShortcuts() {
 	registeredMiniWindowShortcut = accelerator;
 }
 
-async function exportProviderSettings() {
-	const settings = readSavedProviderSettings();
-	const result = await dialog.showSaveDialog(mainWindow, {
-		title: 'Export Cometline settings',
-		defaultPath: 'cometline-settings.json',
-		filters: [{ name: 'JSON', extensions: ['json'] }]
-	});
-	if (result.canceled || !result.filePath) {
-		return { canceled: true };
-	}
-
-	fs.writeFileSync(result.filePath, JSON.stringify(settings, null, 2));
-	try {
-		fs.chmodSync(result.filePath, 0o600);
-	} catch {
-		/* ignore */
-	}
-	return { canceled: false, path: result.filePath };
-}
-
-async function importProviderSettings() {
-	const result = await dialog.showOpenDialog(mainWindow, {
-		title: 'Import Cometline settings',
-		properties: ['openFile'],
-		filters: [{ name: 'JSON', extensions: ['json'] }]
-	});
-	if (result.canceled || result.filePaths.length === 0) {
-		return { canceled: true };
-	}
-
-	const filePath = result.filePaths[0];
-	const raw = fs.readFileSync(filePath, 'utf8');
-	const parsed = JSON.parse(raw);
-	const personaId = readSavedPersonaId(parsed);
-	const imported = validateSettings(
-		parseAndNormalizeSettings(parsed, settingsNormalizeOptions(personaId, parsed))
-	);
-	const saved = writeProviderSettings(imported);
-	await stopCometMind();
-	startCometMind();
-	await waitForHealth();
-	await syncDiscordGatewayFromSettings(saved);
-	applyOpenAtLoginSetting(saved.app?.openAtLogin);
-	applyPersona(saved.app?.personaId);
-	return { canceled: false, path: filePath, settings: saved };
-}
-
 function providerEnv() {
 	const settings = readProviderSettings();
 	const runtimeProviders = settings.providers.filter(
@@ -1858,6 +1811,19 @@ async function selectWorkspacePath() {
 	});
 	if (result.canceled || result.filePaths.length === 0) return null;
 	return writeStoredWorkspacePath(result.filePaths[0]);
+}
+
+async function selectBackupFolder() {
+	const window = BrowserWindow.getFocusedWindow();
+	const result = await dialog.showOpenDialog(window || undefined, {
+		properties: ['openDirectory', 'createDirectory'],
+		buttonLabel: 'Select backup folder',
+		title: 'Choose a folder for CometMind backups'
+	});
+	if (result.canceled || result.filePaths.length === 0) {
+		return { canceled: true };
+	}
+	return { canceled: false, path: result.filePaths[0] };
 }
 
 function getPersonaId() {
@@ -3819,6 +3785,7 @@ ipcMain.handle('cometline:open-session-in-main-window', (_event, sessionId) =>
 );
 
 ipcMain.handle('cometline:select-workspace-path', selectWorkspacePath);
+ipcMain.handle('cometline:select-backup-folder', () => selectBackupFolder());
 
 ipcMain.handle('cometline:set-workspace-path', (_event, workspacePath) => {
 	const clean = writeStoredWorkspacePath(workspacePath);
@@ -3930,10 +3897,6 @@ ipcMain.handle('cometline:run-setup-wizard', () =>
 ipcMain.handle('cometline:get-mini-window-state', () => readMiniWindowState());
 
 ipcMain.handle('cometline:save-mini-window-state', (_event, state) => writeMiniWindowState(state));
-
-ipcMain.handle('cometline:export-provider-settings', () => exportProviderSettings());
-
-ipcMain.handle('cometline:import-provider-settings', () => importProviderSettings());
 
 ipcMain.handle('cometline:get-discord-gateway-status', () => {
 	const settings = readProviderSettings();

@@ -13,6 +13,7 @@ import (
 	"github.com/cometline/cometmind/internal/agent"
 	"github.com/cometline/cometmind/internal/event"
 	"github.com/cometline/cometmind/internal/logging"
+	"github.com/cometline/cometmind/internal/paths"
 	"github.com/cometline/cometmind/internal/session"
 	"github.com/cometline/cometmind/internal/tools/sandbox"
 	"github.com/gin-gonic/gin"
@@ -26,6 +27,7 @@ const (
 	maxWebContextChars   = 50000
 	maxWebContextTotal   = 100000
 	maxWebContexts       = 8
+	runtimeWikiPrefix    = "@runtime/wiki/"
 )
 
 var supportedImageMediaTypes = map[string]bool{
@@ -238,7 +240,7 @@ func contentBlocksFromRequest(req postMessageRequest, workspacePath string) ([]s
 		}
 		seen[rel] = true
 
-		abs, err := sandbox.ResolveWorkspacePath(workspacePath, rel)
+		abs, err := resolveMessageFilePath(workspacePath, rel)
 		if err != nil {
 			fileAppend.WriteString(fmt.Sprintf("\n\n<!-- Could not include %s: %s -->", rel, err.Error()))
 			continue
@@ -313,6 +315,22 @@ func contentBlocksFromRequest(req postMessageRequest, workspacePath string) ([]s
 		blocks = append(blocks, session.ContentBlock{Type: "image", MediaType: mediaType, Data: data})
 	}
 	return blocks, nil
+}
+
+func resolveMessageFilePath(workspacePath, rel string) (string, error) {
+	rel = strings.TrimSpace(rel)
+	if rel == "" {
+		return "", fmt.Errorf("path is required")
+	}
+	if strings.HasPrefix(rel, runtimeWikiPrefix) {
+		wikiRel := strings.TrimPrefix(rel, runtimeWikiPrefix)
+		root, err := paths.WikiDir()
+		if err != nil {
+			return "", err
+		}
+		return sandbox.ResolveWorkspacePath(root, wikiRel)
+	}
+	return sandbox.ResolveWorkspacePath(workspacePath, rel)
 }
 
 func formatWebContext(input webContextInput) (string, error) {

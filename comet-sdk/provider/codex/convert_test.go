@@ -71,6 +71,40 @@ func TestConvertRequest_ResponsesShape(t *testing.T) {
 	require.NotContains(t, string(data), "max_output_tokens")
 }
 
+func TestConvertRequest_EmptyToolResultOutput(t *testing.T) {
+	req := &cometsdk.Request{
+		Model: "gpt-5.4",
+		Messages: []cometsdk.Message{
+			{Role: cometsdk.RoleUser, Content: []cometsdk.Block{
+				cometsdk.TextBlock{Text: "List wiki"},
+			}},
+			{Role: cometsdk.RoleAssistant, Content: []cometsdk.Block{
+				cometsdk.ToolCallBlock{ID: "call_1", Name: "list_dir", Input: json.RawMessage(`{"path":"@runtime/wiki"}`)},
+				cometsdk.ToolCallBlock{ID: "call_2", Name: "list_dir", Input: json.RawMessage(`{"path":"@runtime/wiki/entities"}`)},
+			}},
+			{Role: cometsdk.RoleToolResult, Content: []cometsdk.Block{
+				cometsdk.ToolResultBlock{ToolCallID: "call_1", Content: "wiki/\n"},
+			}},
+			{Role: cometsdk.RoleToolResult, Content: []cometsdk.Block{
+				cometsdk.ToolResultBlock{ToolCallID: "call_2", Content: ""},
+			}},
+		},
+	}
+
+	data, err := toCodexRequest(req, true)
+	require.NoError(t, err)
+	require.Contains(t, string(data), `"output":"(no output)"`)
+	require.Contains(t, string(data), `"output":"wiki/\n"`)
+
+	var out codexRequest
+	require.NoError(t, json.Unmarshal(data, &out))
+	require.Equal(t, "function_call_output", out.Input[3].Type)
+	require.Equal(t, "wiki/\n", out.Input[3].Output)
+	require.Equal(t, "function_call_output", out.Input[4].Type)
+	require.Equal(t, "(no output)", out.Input[4].Output)
+	require.Equal(t, "list_dir", out.Input[4].Name)
+}
+
 func TestConvertEvent_TextToolAndCompleted(t *testing.T) {
 	state := &codexStreamState{}
 

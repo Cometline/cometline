@@ -2,6 +2,7 @@ import {
 	filterFileIndex,
 	getFileIndex,
 	isFileIndexFresh,
+	normalizeWorkspacePath,
 	refreshFileIndex,
 	searchWorkspaceFiles
 } from '$lib/workspace/file-index';
@@ -51,6 +52,7 @@ export async function loadWebPanelFileOptions(
 	query: string,
 	limit = DEFAULT_FILE_OPTION_LIMIT
 ): Promise<string[]> {
+	workspacePath = normalizeWorkspacePath(workspacePath);
 	const trimmed = query.trim();
 	if (!trimmed || !workspacePath || workspacePath === '/') return [];
 

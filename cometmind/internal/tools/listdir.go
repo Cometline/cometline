@@ -32,7 +32,7 @@ func (l ListDir) Execute(ctx context.Context, input json.RawMessage) (Result, er
 		return bad, nil
 	}
 	if path == RuntimePrefix || path == RuntimePrefix+"/" {
-		return Result{OK: true, Output: "tool-output/\ntmp/\n"}, nil
+		return Result{OK: true, Output: "tool-output/\ntmp/\nwiki/\n"}, nil
 	}
 	p, err := l.Workspace.ResolveReadable(path)
 	if err != nil {

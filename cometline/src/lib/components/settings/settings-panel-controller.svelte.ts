@@ -80,8 +80,6 @@ export function createSettingsPanelController(deps: {
 	let updateState = $state<UpdateState>({ status: 'idle' });
 	let checkingUpdates = $state(false);
 	let installingUpdate = $state(false);
-	let exportingSettings = $state(false);
-	let importingSettings = $state(false);
 	let workspacePruning = $state(false);
 	let workspacePruneMessage = $state('');
 	let appVersion = $state('');
@@ -209,60 +207,6 @@ export function createSettingsPanelController(deps: {
 				error instanceof Error ? error.message : 'Failed to clean up workspaces.';
 		} finally {
 			workspacePruning = false;
-		}
-	}
-
-	async function exportSettings() {
-		if (exportingSettings) return;
-		const api = window.electronAPI;
-		if (!api?.exportProviderSettings) {
-			deps.settingsController.status =
-				'Settings export is only available in the desktop app.';
-			return;
-		}
-		exportingSettings = true;
-		deps.settingsController.status = '';
-		try {
-			const result = await api.exportProviderSettings();
-			if (!result.canceled) {
-				deps.settingsController.status = `Settings exported to ${result.path}. Keep this file private because it may include API keys.`;
-			}
-		} catch (error) {
-			deps.settingsController.status =
-				error instanceof Error ? error.message : 'Failed to export settings.';
-		} finally {
-			exportingSettings = false;
-		}
-	}
-
-	async function importSettings() {
-		if (importingSettings) return;
-		const api = window.electronAPI;
-		if (!api?.importProviderSettings) {
-			deps.settingsController.status =
-				'Settings import is only available in the desktop app.';
-			return;
-		}
-		importingSettings = true;
-		deps.settingsController.status = '';
-		try {
-			const result = await api.importProviderSettings();
-			if (!result.canceled && result.settings) {
-				settingsStore.apply(result.settings);
-				deps.setDraft(cloneSettings(result.settings));
-				deps.setSelectedProviderId(
-					result.settings.activeProviderId || result.settings.providers[0]?.id || ''
-				);
-				cometmindPanelKey += 1;
-				memoryPanelKey += 1;
-				deps.settingsController.status =
-					'Settings imported. CometMind is restarting with the imported configuration.';
-			}
-		} catch (error) {
-			deps.settingsController.status =
-				error instanceof Error ? error.message : 'Failed to import settings.';
-		} finally {
-			importingSettings = false;
 		}
 	}
 
@@ -728,12 +672,6 @@ export function createSettingsPanelController(deps: {
 		get installingUpdate() {
 			return installingUpdate;
 		},
-		get exportingSettings() {
-			return exportingSettings;
-		},
-		get importingSettings() {
-			return importingSettings;
-		},
 		get workspacePruning() {
 			return workspacePruning;
 		},
@@ -760,8 +698,6 @@ export function createSettingsPanelController(deps: {
 		installUpdate,
 		changeWorkspace,
 		cleanupWorkspaces,
-		exportSettings,
-		importSettings,
 		replayIntro,
 		runSetupWizard,
 		updateProvider,

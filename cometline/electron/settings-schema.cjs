@@ -29,6 +29,7 @@ __export(schema_exports, {
   defaultCometMindMCPSettings: () => defaultCometMindMCPSettings,
   defaultCometMindSchedulerSettings: () => defaultCometMindSchedulerSettings,
   defaultCometMindSettings: () => defaultCometMindSettings,
+  defaultCometMindStorageBackupSettings: () => defaultCometMindStorageBackupSettings,
   defaultCometMindStorageSettings: () => defaultCometMindStorageSettings,
   defaultSettings: () => defaultSettings,
   isFixedBuiltinProvider: () => isFixedBuiltinProvider,
@@ -4616,6 +4617,14 @@ function defaultCometMindAutonomousJobsSettings() {
 function defaultCometMindSchedulerSettings() {
   return { enabled: false, pollIntervalSeconds: 60 };
 }
+function defaultCometMindStorageBackupSettings() {
+  return {
+    enabled: false,
+    destinationDir: "",
+    intervalHours: 24,
+    maxBackups: 7
+  };
+}
 function defaultCometMindStorageSettings() {
   return {
     cleanupIntervalMinutes: 60,
@@ -4625,7 +4634,8 @@ function defaultCometMindStorageSettings() {
     deletedJobPurgeDays: 30,
     vacuumAfterPurge: true,
     toolOutputRetentionDays: 7,
-    agentTmpRetentionDays: 3
+    agentTmpRetentionDays: 3,
+    backup: defaultCometMindStorageBackupSettings()
   };
 }
 function defaultCometMindSettings(workspacePath = "") {
@@ -4827,7 +4837,21 @@ function normalizeCometMindSettings(input, fallbackWorkspacePath = "") {
       agentTmpRetentionDays: normalizeNonNegativeInt(
         storage.agentTmpRetentionDays,
         defaults.storage.agentTmpRetentionDays
-      )
+      ),
+      backup: {
+        enabled: typeof storage.backup?.enabled === "boolean" ? storage.backup.enabled : defaults.storage.backup.enabled,
+        destinationDir: String(
+          storage.backup?.destinationDir ?? defaults.storage.backup.destinationDir
+        ).trim(),
+        intervalHours: normalizePositiveInt(
+          storage.backup?.intervalHours,
+          defaults.storage.backup.intervalHours
+        ),
+        maxBackups: normalizeNonNegativeInt(
+          storage.backup?.maxBackups,
+          defaults.storage.backup.maxBackups
+        )
+      }
     },
     gateway: {
       discord: {
@@ -5320,7 +5344,13 @@ var providerSettingsSchema = external_exports.object({
       deletedJobPurgeDays: external_exports.number().int().min(0),
       vacuumAfterPurge: external_exports.boolean(),
       toolOutputRetentionDays: external_exports.number().int().min(0),
-      agentTmpRetentionDays: external_exports.number().int().min(0)
+      agentTmpRetentionDays: external_exports.number().int().min(0),
+      backup: external_exports.object({
+        enabled: external_exports.boolean(),
+        destinationDir: external_exports.string(),
+        intervalHours: external_exports.number().int().min(1),
+        maxBackups: external_exports.number().int().min(0)
+      })
     }),
     gateway: external_exports.object({
       discord: external_exports.object({
@@ -5425,6 +5455,7 @@ function parseAndNormalizeSettings(raw, options = {}) {
   defaultCometMindMCPSettings,
   defaultCometMindSchedulerSettings,
   defaultCometMindSettings,
+  defaultCometMindStorageBackupSettings,
   defaultCometMindStorageSettings,
   defaultSettings,
   isFixedBuiltinProvider,

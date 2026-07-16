@@ -76,6 +76,10 @@ const URL_TRAILING_PUNCTUATION = /[.,;:!?)\]}'"]+$/;
 /** Workspace-relative file mention in user text (not email addresses). */
 const FILE_MENTION_GLOBAL = /(?<![A-Za-z0-9_])@([A-Za-z0-9_][A-Za-z0-9_./-]*)/g;
 
+/** Runtime wiki paths in assistant markdown (and user text when fully qualified). */
+const RUNTIME_WIKI_MENTION_GLOBAL =
+	/(?<![A-Za-z0-9_])@runtime\/wiki\/[A-Za-z0-9_][A-Za-z0-9_./-]*/g;
+
 /** Slash skill command in user text. */
 const SKILL_MENTION_GLOBAL = /(^|\s)\/([\w-]+)(?=\s|$|[.,;:!?)\]}'"])/g;
 
@@ -85,18 +89,46 @@ export function fileLabelFromPath(relativePath: string): string {
 	return parts[parts.length - 1] || relativePath;
 }
 
+/** Formats a file path for @-mention display and composer serialization. */
+export function fileMentionText(path: string): string {
+	const trimmed = path.trim();
+	return trimmed.startsWith('@') ? trimmed : `@${trimmed}`;
+}
+
+/**
+ * Canonical path stored on file chips and sent to the preview panel. Workspace
+ * mentions omit the leading `@`; runtime wiki paths keep `@runtime/wiki/...`.
+ */
+export function canonicalFileMentionPath(path: string): string {
+	const trimmed = path.trim();
+	if (trimmed.startsWith('@runtime/wiki/')) return trimmed;
+	if (trimmed.startsWith('runtime/wiki/')) return `@${trimmed}`;
+	return trimmed.startsWith('@') ? trimmed.slice(1) : trimmed;
+}
+
 /**
  * Builds a clickable file embed chip for user messages. Uses `data-file-path` so
  * the renderer can open the side-panel preview on click.
  */
 export function buildFileEmbedChip(relativePath: string): string {
-	const escapedPath = escapeHtml(relativePath);
-	const label = escapeHtml(fileLabelFromPath(relativePath));
+	const canonical = canonicalFileMentionPath(relativePath);
+	const escapedPath = escapeHtml(canonical);
+	const display =
+		canonical.startsWith('@runtime/wiki/') || canonical.startsWith('runtime/wiki/')
+			? fileMentionText(canonical)
+			: `@${fileLabelFromPath(canonical)}`;
+	const label = escapeHtml(display);
 	return (
 		`<span class="file-embed" role="button" tabindex="0" data-file-path="${escapedPath}" title="${escapedPath}">` +
-		`<span class="file-embed-label">@${label}</span>` +
+		`<span class="file-embed-label">${label}</span>` +
 		`</span>`
 	);
+}
+
+/** Turns bare `@runtime/wiki/...` paths in assistant markdown into file chips. */
+export function linkifyRuntimeWikiMentions(source: string): string {
+	if (!source.includes('@runtime/wiki/')) return source;
+	return source.replace(RUNTIME_WIKI_MENTION_GLOBAL, (match) => buildFileEmbedChip(match));
 }
 
 /** Visual-only skill chip for user messages (mirrors composer skill chips). */
@@ -149,7 +181,7 @@ export function findNextUserTextToken(source: string, from: number): UserTextTok
 			index: fileMatch.index,
 			length: fileMatch[0].length,
 			type: 'file',
-			path: fileMatch[1]
+			path: canonicalFileMentionPath(fileMatch[0])
 		});
 	}
 
