@@ -366,7 +366,7 @@ Cometline can improve itself using the same agent runtime:
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **cometline-release** (11521 symbols, 31810 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **cometline** (11663 symbols, 32253 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 
@@ -390,10 +390,10 @@ This project is indexed by GitNexus as **cometline-release** (11521 symbols, 318
 
 | Resource | Use for |
 |----------|---------|
-| `gitnexus://repo/cometline-release/context` | Codebase overview, check index freshness |
-| `gitnexus://repo/cometline-release/clusters` | All functional areas |
-| `gitnexus://repo/cometline-release/processes` | All execution flows |
-| `gitnexus://repo/cometline-release/process/{name}` | Step-by-step execution trace |
+| `gitnexus://repo/cometline/context` | Codebase overview, check index freshness |
+| `gitnexus://repo/cometline/clusters` | All functional areas |
+| `gitnexus://repo/cometline/processes` | All execution flows |
+| `gitnexus://repo/cometline/process/{name}` | Step-by-step execution trace |
 
 ## CLI
 
