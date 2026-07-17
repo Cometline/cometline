@@ -38,7 +38,7 @@ export function assistantThinkingWaitStatus(
 	if (seconds >= 90) {
 		return {
 			label: 'Still thinking',
-			detail: `This is taking longer than usual (${seconds}s). It may time out soon.`
+			detail: `Still working (${seconds}s). Long responses can take a few minutes.`
 		};
 	}
 	if (seconds >= 30) {

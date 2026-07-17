@@ -50,6 +50,45 @@ func FormatCollectedSubagentResultsBlock(results string) string {
 	return "The runtime waited for your active subagents before allowing this turn to finish. Here are their collected results. Synthesize them into your final answer and do not ask the user whether they want you to wait.\n\n" + results
 }
 
+// ContinueUserNudgeMessages builds in-memory user turns for agent-loop
+// continuations. Claude 4.6+ rejects requests whose messages end with an
+// assistant role (prefill). These nudges keep continue steps ending on user
+// without persisting into the transcript.
+func ContinueUserNudgeMessages(
+	truncationContinue, jobProgressNudge, jobCompletionGate bool,
+	jobID string,
+	subagentWaitNudge bool,
+	pendingSubagentResults string,
+) []cometsdk.Message {
+	var parts []string
+	if truncationContinue {
+		parts = append(parts, FormatOutputTruncationContinueBlock())
+	}
+	if jobProgressNudge {
+		if block := FormatJobProgressNudgeBlock(jobID); block != "" {
+			parts = append(parts, block)
+		}
+	}
+	if jobCompletionGate {
+		if block := FormatJobCompletionGateBlock(jobID); block != "" {
+			parts = append(parts, block)
+		}
+	}
+	if subagentWaitNudge {
+		parts = append(parts, FormatWaitForSubagentsBlock())
+	}
+	if block := FormatCollectedSubagentResultsBlock(pendingSubagentResults); block != "" {
+		parts = append(parts, block)
+	}
+	if len(parts) == 0 {
+		return nil
+	}
+	return []cometsdk.Message{{
+		Role:    cometsdk.RoleUser,
+		Content: []cometsdk.Block{cometsdk.TextBlock{Text: strings.Join(parts, "\n\n")}},
+	}}
+}
+
 // BuildRequest constructs the outbound LLM request from history and runtime settings.
 func BuildRequest(model string, system string, messages []cometsdk.Message, tools []cometsdk.Tool, maxTokens int) *cometsdk.Request {
 	req := &cometsdk.Request{

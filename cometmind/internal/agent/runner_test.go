@@ -41,14 +41,18 @@ type fakeStore struct {
 }
 
 func (f *fakeStore) BuildSDKMessages(ctx context.Context, sessionID string) ([]cometsdk.Message, error) {
-	return f.history, nil
+	out := make([]cometsdk.Message, len(f.history))
+	copy(out, f.history)
+	return out, nil
 }
 
 func (f *fakeStore) BuildSDKMessagesAll(ctx context.Context, sessionID string) ([]cometsdk.Message, error) {
 	if f.allHistory != nil {
-		return f.allHistory, nil
+		out := make([]cometsdk.Message, len(f.allHistory))
+		copy(out, f.allHistory)
+		return out, nil
 	}
-	return f.history, nil
+	return f.BuildSDKMessages(ctx, sessionID)
 }
 
 func (f *fakeStore) SaveTokenUsage(ctx context.Context, sessionID string, u cometsdk.TokenUsage) error {
@@ -61,9 +65,19 @@ func (f *fakeStore) AppendAssistantStep(ctx context.Context, sessionID, text str
 	f.appendTexts = append(f.appendTexts, text)
 	f.appendReasoning = append(f.appendReasoning, reasoningBlocks)
 	ids := make(map[string]string, len(toolCalls))
+	content := make([]cometsdk.Block, 0, 1+len(toolCalls))
+	if text != "" {
+		content = append(content, cometsdk.TextBlock{Text: text})
+	}
 	for _, tc := range toolCalls {
 		ids[tc.ID] = "persisted-" + tc.ID
+		content = append(content, tc)
 	}
+	f.history = append(f.history, cometsdk.Message{
+		Role:             cometsdk.RoleAssistant,
+		Content:          content,
+		ReasoningContent: reasoningBlocks,
+	})
 	if f.cancelAfterAppend != nil {
 		cancel := f.cancelAfterAppend
 		f.cancelAfterAppend = nil
@@ -79,6 +93,12 @@ func (f *fakeStore) UpdateToolCallResult(ctx context.Context, toolCallID, result
 
 func (f *fakeStore) AppendToolResultMessage(ctx context.Context, sessionID, toolCallID, output string, isErr bool) (session.Message, error) {
 	f.toolResults++
+	f.history = append(f.history, cometsdk.Message{
+		Role: cometsdk.RoleToolResult,
+		Content: []cometsdk.Block{
+			cometsdk.ToolResultBlock{ToolCallID: toolCallID, Content: output, IsError: isErr},
+		},
+	})
 	if f.inflateAfterTool {
 		inflated := strings.Repeat("tool output ", 70000)
 		f.allHistory = append(f.allHistory, cometsdk.Message{
@@ -429,7 +449,7 @@ func TestBackgroundProgressEmitterForwardsWhenChannelOpen(t *testing.T) {
 
 func TestRunner_MaxTokensWithoutToolsContinuesThenStops(t *testing.T) {
 	store := &fakeStore{}
-	provider := &sequentialFakeProvider{sequences: [][]cometsdk.Event{
+	provider := &capturingSequentialFakeProvider{sequences: [][]cometsdk.Event{
 		{
 			cometsdk.TextDeltaEvent{Text: "part one "},
 			cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishMaxTokens, Usage: cometsdk.TokenUsage{InputTokens: 3, OutputTokens: 4096}},
@@ -459,6 +479,19 @@ func TestRunner_MaxTokensWithoutToolsContinuesThenStops(t *testing.T) {
 	}
 	if store.appendCalls != 2 {
 		t.Fatalf("AppendAssistantStep called %d times, want 2", store.appendCalls)
+	}
+	if lastMessageRole(provider.requests[0]) == cometsdk.RoleAssistant {
+		t.Fatal("first step should not end on assistant prefill")
+	}
+	nudge := FormatOutputTruncationContinueBlock()
+	if !requestContainsUserNudge(provider.requests[1], nudge) {
+		t.Fatalf("continuation step missing truncation nudge:\n%#v", provider.requests[1].Messages)
+	}
+	if lastMessageRole(provider.requests[1]) != cometsdk.RoleUser {
+		t.Fatalf("continuation last role = %q, want user", lastMessageRole(provider.requests[1]))
+	}
+	if strings.Contains(provider.requests[1].System, nudge) {
+		t.Fatal("truncation nudge must not live only in system prompt")
 	}
 
 	var text strings.Builder
@@ -777,6 +810,30 @@ func (p *capturingSequentialFakeProvider) Stream(ctx context.Context, req *comet
 	return ch, nil
 }
 
+func requestContainsUserNudge(req *cometsdk.Request, nudge string) bool {
+	if req == nil || nudge == "" {
+		return false
+	}
+	for _, msg := range req.Messages {
+		if msg.Role != cometsdk.RoleUser {
+			continue
+		}
+		for _, b := range msg.Content {
+			if tb, ok := b.(cometsdk.TextBlock); ok && strings.Contains(tb.Text, nudge) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func lastMessageRole(req *cometsdk.Request) cometsdk.Role {
+	if req == nil || len(req.Messages) == 0 {
+		return ""
+	}
+	return req.Messages[len(req.Messages)-1].Role
+}
+
 func toolStep(toolID, name, input string) []cometsdk.Event {
 	return []cometsdk.Event{
 		cometsdk.ToolCallDoneEvent{ID: toolID, Name: name, Input: json.RawMessage(input)},
@@ -831,20 +888,26 @@ func TestRunner_JobProgressNudgeInjectedAfterTools(t *testing.T) {
 	}
 
 	nudge := FormatJobProgressNudgeBlock("job-1")
-	if !strings.Contains(provider.requests[3].System, nudge) {
-		t.Fatalf("step 4 system missing nudge block:\n%s", provider.requests[3].System)
+	if !requestContainsUserNudge(provider.requests[3], nudge) {
+		t.Fatalf("step 4 messages missing nudge block:\n%#v", provider.requests[3].Messages)
+	}
+	if lastMessageRole(provider.requests[3]) != cometsdk.RoleUser {
+		t.Fatalf("step 4 last role = %q, want user", lastMessageRole(provider.requests[3]))
 	}
 	for i := 0; i < 3; i++ {
-		if strings.Contains(provider.requests[i].System, nudge) {
-			t.Fatalf("step %d system should not include nudge yet", i+1)
+		if requestContainsUserNudge(provider.requests[i], nudge) {
+			t.Fatalf("step %d messages should not include nudge yet", i+1)
 		}
 	}
 	gate := FormatJobCompletionGateBlock("job-1")
-	if !strings.Contains(provider.requests[4].System, gate) {
-		t.Fatalf("step 5 system missing completion gate:\n%s", provider.requests[4].System)
+	if !requestContainsUserNudge(provider.requests[4], gate) {
+		t.Fatalf("step 5 messages missing completion gate:\n%#v", provider.requests[4].Messages)
 	}
-	if !strings.Contains(provider.requests[5].System, gate) {
-		t.Fatalf("step 6 system missing completion gate:\n%s", provider.requests[5].System)
+	if lastMessageRole(provider.requests[4]) != cometsdk.RoleUser {
+		t.Fatalf("step 5 last role = %q, want user", lastMessageRole(provider.requests[4]))
+	}
+	if !requestContainsUserNudge(provider.requests[5], gate) {
+		t.Fatalf("step 6 messages missing completion gate:\n%#v", provider.requests[5].Messages)
 	}
 }
 
@@ -888,14 +951,17 @@ func TestRunner_JobCompletionGateForcesTerminalToolPath(t *testing.T) {
 		t.Fatalf("Stream called %d times, want 3", provider.calls)
 	}
 	gate := FormatJobCompletionGateBlock("job-gate")
-	if strings.Contains(provider.requests[0].System, gate) {
+	if requestContainsUserNudge(provider.requests[0], gate) {
 		t.Fatal("first step should not include completion gate")
 	}
-	if !strings.Contains(provider.requests[1].System, gate) {
-		t.Fatalf("second step missing gate:\n%s", provider.requests[1].System)
+	if !requestContainsUserNudge(provider.requests[1], gate) {
+		t.Fatalf("second step missing gate:\n%#v", provider.requests[1].Messages)
 	}
-	if !strings.Contains(provider.requests[2].System, gate) {
-		t.Fatalf("third step missing gate:\n%s", provider.requests[2].System)
+	if lastMessageRole(provider.requests[1]) != cometsdk.RoleUser {
+		t.Fatalf("second step last role = %q, want user", lastMessageRole(provider.requests[1]))
+	}
+	if !requestContainsUserNudge(provider.requests[2], gate) {
+		t.Fatalf("third step missing gate:\n%#v", provider.requests[2].Messages)
 	}
 }
 
@@ -966,11 +1032,14 @@ func TestRunner_SubagentWaitNudgeInjectedWhileChildrenActive(t *testing.T) {
 	}
 
 	waitBlock := FormatWaitForSubagentsBlock()
-	if strings.Contains(provider.requests[0].System, waitBlock) {
-		t.Fatalf("step 1 system should not include wait block:\n%s", provider.requests[0].System)
+	if requestContainsUserNudge(provider.requests[0], waitBlock) {
+		t.Fatalf("step 1 messages should not include wait block:\n%#v", provider.requests[0].Messages)
 	}
-	if !strings.Contains(provider.requests[1].System, waitBlock) {
-		t.Fatalf("step 2 system missing wait block:\n%s", provider.requests[1].System)
+	if !requestContainsUserNudge(provider.requests[1], waitBlock) {
+		t.Fatalf("step 2 messages missing wait block:\n%#v", provider.requests[1].Messages)
+	}
+	if lastMessageRole(provider.requests[1]) != cometsdk.RoleUser {
+		t.Fatalf("step 2 last role = %q, want user", lastMessageRole(provider.requests[1]))
 	}
 	if !strings.Contains(runErr.Error(), context.DeadlineExceeded.Error()) {
 		t.Fatalf("runErr = %v, want %v", runErr, context.DeadlineExceeded)
@@ -1029,8 +1098,11 @@ func TestRunner_AutoCollectsActiveSubagentResultsBeforeFinishing(t *testing.T) {
 	}
 
 	collectedBlock := FormatCollectedSubagentResultsBlock("child_session_id: child-1\nkind: general\nstatus: completed\n\nsaid hello")
-	if !strings.Contains(provider.requests[2].System, collectedBlock) {
-		t.Fatalf("step 3 system missing collected subagent results:\n%s", provider.requests[2].System)
+	if !requestContainsUserNudge(provider.requests[2], collectedBlock) {
+		t.Fatalf("step 3 messages missing collected subagent results:\n%#v", provider.requests[2].Messages)
+	}
+	if lastMessageRole(provider.requests[2]) != cometsdk.RoleUser {
+		t.Fatalf("step 3 last role = %q, want user", lastMessageRole(provider.requests[2]))
 	}
 	if got := orch.ActiveCount("s1"); got != 0 {
 		t.Fatalf("ActiveCount() = %d, want 0", got)

@@ -331,7 +331,7 @@ func DefaultProviderConfig() ProviderConfig {
 	return ProviderConfig{
 		HTTPClient:            &http.Client{},
 		ResponseHeaderTimeout: 30 * time.Second,
-		StreamIdleTimeout:     2 * time.Minute,
+		StreamIdleTimeout:     10 * time.Minute,
 		MaxRetries:            5,
 		Logger:                slog.Default(),
 	}
@@ -411,7 +411,7 @@ func WithResponseHeaderTimeout(d time.Duration) Option {
 }
 
 // WithStreamIdleTimeout sets the maximum time a stream may go without an SSE
-// event. Defaults to two minutes. Set to zero to disable idle detection.
+// event. Defaults to ten minutes. Set to zero to disable idle detection.
 func WithStreamIdleTimeout(d time.Duration) Option {
 	return func(c *ProviderConfig) {
 		c.StreamIdleTimeout = d

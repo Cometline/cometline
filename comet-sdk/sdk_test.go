@@ -15,8 +15,8 @@ func TestDefaultProviderConfigMaxRetries(t *testing.T) {
 }
 
 func TestDefaultProviderConfigStreamIdleTimeout(t *testing.T) {
-	if got := DefaultProviderConfig().StreamIdleTimeout; got != 2*time.Minute {
-		t.Fatalf("StreamIdleTimeout = %s, want %s", got, 2*time.Minute)
+	if got := DefaultProviderConfig().StreamIdleTimeout; got != 10*time.Minute {
+		t.Fatalf("StreamIdleTimeout = %s, want %s", got, 10*time.Minute)
 	}
 }
 

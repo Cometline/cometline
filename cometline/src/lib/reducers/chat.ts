@@ -60,6 +60,9 @@ function cleanErrorMessage(message: string) {
 	if (text.includes('Client.Timeout exceeded while awaiting headers')) {
 		return 'The model provider did not start responding before the request timed out. This is usually a provider queue, gateway, or model availability issue. Try again, or switch provider/model if it keeps happening.';
 	}
+	if (text.toLowerCase().includes('stream idle timeout')) {
+		return 'The model stream went quiet for about 10 minutes with no new events, so CometMind stopped waiting. This is an idle gap on the provider stream, not a frontend deadline. Try again, or check the provider/gateway if it keeps happening.';
+	}
 	return text.replace(/^\d+:\s*/, '') || 'The request failed.';
 }
 

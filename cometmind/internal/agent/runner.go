@@ -144,7 +144,7 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 			emitStatus(event.PhaseContinuing)
 		}
 
-		baseSystem := r.buildSystemPrompt(sess.ContextSummary, truncationContinue, jobProgressNudge, jobCompletionGate, jobTracker.JobID, subagentWaitNudge, pendingSubagentResults)
+		baseSystem := r.buildSystemPrompt(sess.ContextSummary)
 		if r.Compactor != nil && sess.ID != "" {
 			updated, err := r.Compactor.MaybeCompact(
 				ctx,
@@ -157,7 +157,7 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 			)
 			if err == nil {
 				sess = updated
-				baseSystem = r.buildSystemPrompt(sess.ContextSummary, truncationContinue, jobProgressNudge, jobCompletionGate, jobTracker.JobID, subagentWaitNudge, pendingSubagentResults)
+				baseSystem = r.buildSystemPrompt(sess.ContextSummary)
 			}
 		}
 
@@ -170,6 +170,16 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 		// Normalize replay history and report any lossy degradations once per turn.
 		normalized, degradations := NormalizeHistory(msgs)
 		msgs = normalized
+		// Continue nudges are in-memory user turns so providers that reject
+		// trailing assistant prefills (Claude 4.6+) still accept the request.
+		msgs = append(msgs, ContinueUserNudgeMessages(
+			truncationContinue,
+			jobProgressNudge,
+			jobCompletionGate,
+			jobTracker.JobID,
+			subagentWaitNudge,
+			pendingSubagentResults,
+		)...)
 		if !degradationsReported {
 			for _, d := range degradations {
 				logging.L().Info("history.normalized", "session", turn.ID, "kind", d.Kind, "count", d.Count)
@@ -183,6 +193,8 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 		truncationContinue = false
 		jobProgressNudge = false
 		jobCompletionGate = false
+		subagentWaitNudge = false
+		pendingSubagentResults = ""
 		if r.Memory != nil && r.Memory.Enabled() && steps == 0 {
 			decision := memory.DecideRetrieval(msgs)
 			logging.L().Info("memory.retrieve.policy", "session", turn.ID, "retrieve", decision.Retrieve, "reason", decision.Reason, "score", decision.Score, "text_bytes", decision.TextBytes)
@@ -566,34 +578,13 @@ func (r *Runner) systemPrompt() string {
 	return base + r.SkillIndex + r.JobIndex
 }
 
-func (r *Runner) buildSystemPrompt(contextSummary string, truncationContinue, jobProgressNudge, jobCompletionGate bool, jobID string, subagentWaitNudge bool, pendingSubagentResults string) string {
+func (r *Runner) buildSystemPrompt(contextSummary string) string {
 	base := r.systemPrompt()
 	var parts []string
 	if block := FormatSummaryPromptBlock(contextSummary); block != "" {
 		parts = append(parts, block)
 	}
 	if block := FormatOutputBudgetPromptBlock(r.MaxTokens); block != "" {
-		parts = append(parts, block)
-	}
-	if truncationContinue {
-		parts = append(parts, FormatOutputTruncationContinueBlock())
-	}
-	if jobProgressNudge {
-		if block := FormatJobProgressNudgeBlock(jobID); block != "" {
-			parts = append(parts, block)
-		}
-	}
-	if jobCompletionGate {
-		if block := FormatJobCompletionGateBlock(jobID); block != "" {
-			parts = append(parts, block)
-		}
-	}
-	if subagentWaitNudge {
-		if block := FormatWaitForSubagentsBlock(); block != "" {
-			parts = append(parts, block)
-		}
-	}
-	if block := FormatCollectedSubagentResultsBlock(pendingSubagentResults); block != "" {
 		parts = append(parts, block)
 	}
 	if len(parts) == 0 {

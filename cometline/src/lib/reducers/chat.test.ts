@@ -189,6 +189,19 @@ describe('reduceChatState', () => {
 		expect(state.items[1].text).not.toContain('Client.Timeout');
 	});
 
+	it('rewrites stream idle timeout errors into a readable message', () => {
+		let state = initChatState();
+		state = reduceChatState(state, {
+			type: 'error',
+			message: 'cometsdk: openai: stream idle timeout after 10m0s'
+		});
+		expect(state.items).toHaveLength(2);
+		expect(state.items[1].type).toBe('error');
+		if (state.items[1].type !== 'error') return;
+		expect(state.items[1].text).toContain('went quiet for about 10 minutes');
+		expect(state.items[1].text).not.toContain('stream idle timeout after');
+	});
+
 	it('rewrites 401 auth errors into a settings hint', () => {
 		let state = initChatState();
 		state = reduceChatState(state, {

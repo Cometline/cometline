@@ -24,7 +24,12 @@ describe('assistantThinkingWaitStatus', () => {
 		expect(assistantThinkingWaitStatus(undefined, undefined, 45).detail).toContain(
 			'slower response'
 		);
-		expect(assistantThinkingWaitStatus(undefined, undefined, 120).detail).toContain('time out');
+		expect(assistantThinkingWaitStatus(undefined, undefined, 120).detail).toContain(
+			'Long responses can take a few minutes'
+		);
+		expect(assistantThinkingWaitStatus(undefined, undefined, 120).detail).not.toContain(
+			'time out'
+		);
 	});
 
 	it('defaults to a neutral thinking state', () => {
