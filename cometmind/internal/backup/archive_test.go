@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -105,5 +106,60 @@ func TestRunRejectsDestinationInsideDataDir(t *testing.T) {
 	_, err := (&Archiver{}).Run(context.Background(), Config{DestinationDir: nested})
 	if err == nil || !strings.Contains(err.Error(), "outside") {
 		t.Fatalf("expected outside error, got %v", err)
+	}
+}
+
+func TestRunRejectsSymlinkedDestinationInsideDataDir(t *testing.T) {
+	dataDir := t.TempDir()
+	t.Setenv("COMETMIND_DATA_DIR", dataDir)
+	nested := filepath.Join(dataDir, "backups")
+	if err := os.MkdirAll(nested, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(t.TempDir(), "backups")
+	if err := os.Symlink(nested, link); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	_, err := (&Archiver{}).Run(context.Background(), Config{DestinationDir: link})
+	if err == nil || !strings.Contains(err.Error(), "outside") {
+		t.Fatalf("expected outside error, got %v", err)
+	}
+}
+
+func TestCreateBackupFileAllocatesDistinctNamesConcurrently(t *testing.T) {
+	dest := t.TempDir()
+	start := make(chan struct{})
+	paths := make(chan string, 2)
+	errs := make(chan error, 2)
+	var wg sync.WaitGroup
+	for range 2 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			f, path, err := createBackupFile(dest, "2026-07-17T120000")
+			if err == nil {
+				err = f.Close()
+			}
+			if err != nil {
+				errs <- err
+				return
+			}
+			paths <- path
+		}()
+	}
+	close(start)
+	wg.Wait()
+	close(errs)
+	close(paths)
+	for err := range errs {
+		t.Fatal(err)
+	}
+	var got []string
+	for path := range paths {
+		got = append(got, path)
+	}
+	if len(got) != 2 || got[0] == got[1] {
+		t.Fatalf("paths = %v, want two distinct paths", got)
 	}
 }

@@ -46,13 +46,15 @@ func TestListMarkdownFilesMissingDir(t *testing.T) {
 
 func TestIsWriteProtected(t *testing.T) {
 	cases := map[string]bool{
-		"index.md":              false,
-		"entities/foo.md":       false,
-		"raw/note.md":           true,
-		"raw":                   true,
-		"WIKI.md":               true,
-		"wiki.md":               true,
-		"lint-report.md":        false,
+		"index.md":        false,
+		"entities/foo.md": false,
+		"raw/note.md":     true,
+		"Raw/note.md":     true,
+		"raw":             true,
+		"Raw":             true,
+		"WIKI.md":         true,
+		"wiki.md":         true,
+		"lint-report.md":  false,
 	}
 	for path, want := range cases {
 		if got := IsWriteProtected(path); got != want {

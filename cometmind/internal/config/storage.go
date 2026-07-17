@@ -4,10 +4,10 @@ import "strings"
 
 // StorageBackupConfig controls automatic zip backups of ~/.cometmind.
 type StorageBackupConfig struct {
-	Enabled         bool   `json:"enabled" mapstructure:"enabled"`
-	DestinationDir  string `json:"destination_dir" mapstructure:"destination_dir"`
-	IntervalHours   int    `json:"interval_hours" mapstructure:"interval_hours"`
-	MaxBackups      int    `json:"max_backups" mapstructure:"max_backups"`
+	Enabled        bool   `json:"enabled" mapstructure:"enabled"`
+	DestinationDir string `json:"destination_dir" mapstructure:"destination_dir"`
+	IntervalHours  int    `json:"interval_hours" mapstructure:"interval_hours"`
+	MaxBackups     int    `json:"max_backups" mapstructure:"max_backups"`
 }
 
 // StorageConfig controls automatic session retention and memory purge.
@@ -29,7 +29,7 @@ type StorageConfig struct {
 	// ToolOutputRetentionDays deletes files under ~/.cometmind/tool-output older than N days. 0 disables.
 	ToolOutputRetentionDays int `json:"tool_output_retention_days" mapstructure:"tool_output_retention_days"`
 	// AgentTmpRetentionDays deletes files under ~/.cometmind/agent-tmp older than N days. 0 disables.
-	AgentTmpRetentionDays int `json:"agent_tmp_retention_days" mapstructure:"agent_tmp_retention_days"`
+	AgentTmpRetentionDays int                 `json:"agent_tmp_retention_days" mapstructure:"agent_tmp_retention_days"`
 	Backup                StorageBackupConfig `json:"backup" mapstructure:"backup"`
 }
 
@@ -111,5 +111,9 @@ func (c *Config) storageConfigured() bool {
 		s.DeletedJobPurgeDays != 0 ||
 		s.ToolOutputRetentionDays != 0 ||
 		s.AgentTmpRetentionDays != 0 ||
-		s.VacuumAfterPurge
+		s.VacuumAfterPurge ||
+		s.Backup.Enabled ||
+		strings.TrimSpace(s.Backup.DestinationDir) != "" ||
+		s.Backup.IntervalHours != 0 ||
+		s.Backup.MaxBackups != 0
 }

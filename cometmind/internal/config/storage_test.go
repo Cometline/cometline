@@ -59,6 +59,20 @@ func TestEffectiveStorageConfig_ExplicitDisableRuntimeFiles(t *testing.T) {
 	}
 }
 
+func TestEffectiveStorageConfig_PreservesBackupOnlyConfiguration(t *testing.T) {
+	cfg := &Config{Storage: StorageConfig{Backup: StorageBackupConfig{
+		Enabled:        true,
+		DestinationDir: "/tmp/cometmind-backups",
+	}}}
+	got := cfg.EffectiveStorageConfig()
+	if !got.Backup.Enabled || got.Backup.DestinationDir != "/tmp/cometmind-backups" {
+		t.Fatalf("backup = %+v, want enabled destination", got.Backup)
+	}
+	if got.Backup.IntervalHours != 24 {
+		t.Fatalf("backup interval = %d, want 24", got.Backup.IntervalHours)
+	}
+}
+
 func TestAdaptStorageConfig_OmittedRuntimeKeysGetDefaults(t *testing.T) {
 	got := adaptStorageConfig(cometlineStorageJSON{
 		RetentionDays:    90,

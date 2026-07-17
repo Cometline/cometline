@@ -119,5 +119,5 @@ func IsWriteProtected(rel string) bool {
 	if strings.EqualFold(rel, "WIKI.md") {
 		return true
 	}
-	return strings.HasPrefix(rel, "raw/") || rel == "raw"
+	return strings.EqualFold(rel, "raw") || strings.HasPrefix(strings.ToLower(rel), "raw/")
 }

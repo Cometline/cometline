@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -25,9 +26,9 @@ type Config struct {
 
 // Result summarizes a completed archive.
 type Result struct {
-	Path       string
+	Path        string
 	FilesZipped int
-	RemovedOld int
+	RemovedOld  int
 }
 
 // Archiver creates zip backups of the CometMind data directory.
@@ -48,6 +49,10 @@ func (a *Archiver) Run(ctx context.Context, cfg Config) (Result, error) {
 	if err := os.MkdirAll(dest, 0o700); err != nil {
 		return Result{}, fmt.Errorf("create backup destination: %w", err)
 	}
+	dest, err = filepath.EvalSymlinks(dest)
+	if err != nil {
+		return Result{}, fmt.Errorf("resolve backup destination: %w", err)
+	}
 
 	dataDir, err := paths.DataDir()
 	if err != nil {
@@ -57,7 +62,11 @@ func (a *Archiver) Run(ctx context.Context, cfg Config) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
-	if strings.HasPrefix(dest, dataDir+string(filepath.Separator)) || dest == dataDir {
+	dataDir, err = filepath.EvalSymlinks(dataDir)
+	if err != nil {
+		return Result{}, fmt.Errorf("resolve CometMind data directory: %w", err)
+	}
+	if pathWithin(dest, dataDir) {
 		return Result{}, fmt.Errorf("backup destination must be outside the CometMind data directory")
 	}
 
@@ -76,8 +85,17 @@ func (a *Archiver) Run(ctx context.Context, cfg Config) (Result, error) {
 	}
 
 	stamp := time.Now().Format("2006-01-02T150405")
-	outPath := uniqueBackupPath(dest, stamp)
-	if err := writeArchive(dataDir, dbSnapshot, outPath); err != nil {
+	outFile, outPath, err := createBackupFile(dest, stamp)
+	if err != nil {
+		return Result{}, err
+	}
+	if err := writeArchive(dataDir, dbSnapshot, outFile); err != nil {
+		_ = outFile.Close()
+		_ = os.Remove(outPath)
+		return Result{}, err
+	}
+	if err := outFile.Close(); err != nil {
+		_ = os.Remove(outPath)
 		return Result{}, err
 	}
 	if err := os.Chmod(outPath, 0o600); err != nil {
@@ -111,18 +129,9 @@ func snapshotDatabase(ctx context.Context, db *sql.DB, tmpDir string) (string, e
 	return snapshotPath, nil
 }
 
-func writeArchive(dataDir, dbSnapshot, outPath string) error {
-	f, err := os.Create(outPath)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	zw := zip.NewWriter(f)
-	defer zw.Close()
-
-	filesZipped := 0
-	err = filepath.WalkDir(dataDir, func(path string, d os.DirEntry, walkErr error) error {
+func writeArchive(dataDir, dbSnapshot string, out io.Writer) error {
+	zw := zip.NewWriter(out)
+	err := filepath.WalkDir(dataDir, func(path string, d os.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
@@ -141,26 +150,39 @@ func writeArchive(dataDir, dbSnapshot, outPath string) error {
 		if err := addFileToZip(zw, src, rel); err != nil {
 			return err
 		}
-		filesZipped++
 		return nil
 	})
 	if err != nil {
+		_ = zw.Close()
 		return err
 	}
-	_ = filesZipped
-	return nil
+	return zw.Close()
 }
 
-func uniqueBackupPath(dest, stamp string) string {
-	base := backupNamePrefix + stamp + ".zip"
-	outPath := filepath.Join(dest, base)
+func createBackupFile(dest, stamp string) (*os.File, string, error) {
 	for i := 1; i < 1000; i++ {
-		if _, err := os.Stat(outPath); os.IsNotExist(err) {
-			return outPath
+		name := backupNamePrefix + stamp + ".zip"
+		if i > 1 {
+			name = backupNamePrefix + stamp + fmt.Sprintf("-%03d", i-1) + ".zip"
 		}
-		outPath = filepath.Join(dest, backupNamePrefix+stamp+fmt.Sprintf("-%03d", i)+".zip")
+		outPath := filepath.Join(dest, name)
+		f, err := os.OpenFile(outPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+		if err == nil {
+			return f, outPath, nil
+		}
+		if !errors.Is(err, os.ErrExist) {
+			return nil, "", err
+		}
 	}
-	return outPath
+	return nil, "", fmt.Errorf("allocate unique backup path")
+}
+
+func pathWithin(path, root string) bool {
+	rel, err := filepath.Rel(root, path)
+	if err != nil {
+		return false
+	}
+	return rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)))
 }
 
 func addFileToZip(zw *zip.Writer, srcPath, entryName string) error {
