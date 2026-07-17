@@ -12,6 +12,7 @@
 	import { chatStore } from '$lib/stores/chat.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { inboxStore } from '$lib/stores/inbox.svelte';
+	import { jobsIndicatorStore } from '$lib/stores/jobs-indicator.svelte';
 	import { skillDraftsStore } from '$lib/stores/skill-drafts.svelte';
 	import { openSettings } from '$lib/actions/open-settings';
 	import { isNarrowViewport } from '$lib/layout/narrow-viewport';
@@ -288,8 +289,14 @@
 				<Settings size={16} stroke-width={1.8} />
 			</button>
 			<button
-				aria-label="Jobs"
-				title="Jobs"
+				aria-label={jobsIndicatorStore.hasOngoing
+					? `Jobs (${jobsIndicatorStore.ongoingCount} ongoing)`
+					: 'Jobs'}
+				title={jobsIndicatorStore.hasOngoing
+					? `Jobs (${jobsIndicatorStore.ongoingCount} ongoing)`
+					: 'Jobs'}
+				class="nav-badge"
+				class:has-badge={jobsIndicatorStore.hasOngoing}
 				class:active={page.url.pathname === '/jobs'}
 				onclick={() => goto('/jobs')}
 			>

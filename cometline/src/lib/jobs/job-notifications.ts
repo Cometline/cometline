@@ -1,5 +1,6 @@
 import { listJobs } from '$lib/client/cometmind';
 import type { CometMindJobsNotificationSettings } from '$lib/cometmind-settings';
+import { jobsIndicatorStore } from '$lib/stores/jobs-indicator.svelte';
 
 type JobSnapshot = {
 	id: string;
@@ -19,11 +20,12 @@ export function startJobNotificationPoller(opts: {
 
 	async function poll() {
 		const settings = opts.getSettings();
-		if (!settings.enabled) return;
 		try {
 			const res = await listJobs();
+			let ongoing = 0;
 			for (const job of res.jobs ?? []) {
 				if (job.deleted_at || job.archived_at) continue;
+				if (job.status === 'ongoing') ongoing += 1;
 				const snap: JobSnapshot = {
 					id: job.id,
 					status: job.status,
@@ -32,7 +34,7 @@ export function startJobNotificationPoller(opts: {
 					description: job.description
 				};
 				const prev = last.get(job.id);
-				if (prev) {
+				if (settings.enabled && prev) {
 					if (
 						settings.onClaimed &&
 						!prev.assigned_session_id &&
@@ -57,6 +59,7 @@ export function startJobNotificationPoller(opts: {
 				}
 				last.set(job.id, snap);
 			}
+			jobsIndicatorStore.setOngoingCount(ongoing);
 		} catch {
 			// Sidecar may be offline.
 		}

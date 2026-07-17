@@ -29,6 +29,7 @@
 		type GroupedJobs,
 		type JobColumn
 	} from '$lib/jobs/group-jobs';
+	import { jobsIndicatorStore } from '$lib/stores/jobs-indicator.svelte';
 	import { truncateJobLabel } from '$lib/jobs/format-job-label';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import WorkspacePathField from '$lib/components/WorkspacePathField.svelte';
@@ -98,6 +99,7 @@
 	function applyJobs(next: JobResource[]) {
 		grouped = groupJobsByColumn(next);
 		archivedJobs = filterArchivedJobs(next);
+		jobsIndicatorStore.setOngoingCount(grouped.ongoing.length);
 		lastLoadedAt = Date.now();
 	}
 
