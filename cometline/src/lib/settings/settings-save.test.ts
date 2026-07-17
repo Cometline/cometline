@@ -21,6 +21,14 @@ describe('runtimeActionForSettingsSave', () => {
 		expect(runtimeActionForSettingsSave(persisted, next)).toBe('reload');
 	});
 
+	it('restarts the sidecar when the log level changes', () => {
+		const persisted = defaultSettings();
+		const next = defaultSettings();
+		next.cometmind.logLevel = 'debug';
+
+		expect(runtimeActionForSettingsSave(persisted, next)).toBe('restart');
+	});
+
 	it('returns reload when a memory provider entry changes', () => {
 		const persisted = defaultSettings();
 		const next = defaultSettings();

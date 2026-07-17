@@ -11,7 +11,7 @@ function gatewayChanged(persisted: ProviderSettings, next: ProviderSettings): bo
 }
 
 function processLevelServeChanged(persisted: ProviderSettings, next: ProviderSettings): boolean {
-	// Host/port are process-level for the main sidecar; keep restart if present.
+	// Host, port, and log level are captured when the main sidecar starts.
 	const before = persisted.cometmind as ProviderSettings['cometmind'] & {
 		host?: string;
 		port?: number;
@@ -20,7 +20,11 @@ function processLevelServeChanged(persisted: ProviderSettings, next: ProviderSet
 		host?: string;
 		port?: number;
 	};
-	return before.host !== after.host || before.port !== after.port;
+	return (
+		before.host !== after.host ||
+		before.port !== after.port ||
+		before.logLevel !== after.logLevel
+	);
 }
 
 /**
