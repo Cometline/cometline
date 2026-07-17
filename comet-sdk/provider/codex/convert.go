@@ -37,6 +37,52 @@ type codexInput struct {
 	EncryptedContent string             `json:"encrypted_content,omitempty"`
 }
 
+// MarshalJSON keeps encrypted reasoning items valid for the Codex Responses API.
+// A bare {type:reasoning, encrypted_content:...} is rejected with
+// Missing required parameter: 'input[N].summary', and omitempty would drop an
+// empty summary slice, so encrypted items always emit an explicit summary array.
+func (c codexInput) MarshalJSON() ([]byte, error) {
+	type wire struct {
+		Type             string             `json:"type,omitempty"`
+		Role             string             `json:"role,omitempty"`
+		Content          []codexContentPart `json:"content,omitempty"`
+		Summary          []codexContentPart `json:"summary,omitempty"`
+		CallID           string             `json:"call_id,omitempty"`
+		Name             string             `json:"name,omitempty"`
+		Args             string             `json:"arguments,omitempty"`
+		Output           string             `json:"output,omitempty"`
+		EncryptedContent string             `json:"encrypted_content,omitempty"`
+	}
+	if c.EncryptedContent == "" {
+		return json.Marshal(wire(c))
+	}
+	summary := c.Summary
+	if summary == nil {
+		summary = []codexContentPart{}
+	}
+	return json.Marshal(struct {
+		Type             string             `json:"type,omitempty"`
+		Role             string             `json:"role,omitempty"`
+		Content          []codexContentPart `json:"content,omitempty"`
+		Summary          []codexContentPart `json:"summary"`
+		CallID           string             `json:"call_id,omitempty"`
+		Name             string             `json:"name,omitempty"`
+		Args             string             `json:"arguments,omitempty"`
+		Output           string             `json:"output,omitempty"`
+		EncryptedContent string             `json:"encrypted_content,omitempty"`
+	}{
+		Type:             c.Type,
+		Role:             c.Role,
+		Content:          c.Content,
+		Summary:          summary,
+		CallID:           c.CallID,
+		Name:             c.Name,
+		Args:             c.Args,
+		Output:           c.Output,
+		EncryptedContent: c.EncryptedContent,
+	})
+}
+
 type codexContentPart struct {
 	Type     string `json:"type"`
 	Text     string `json:"text,omitempty"`
@@ -126,18 +172,24 @@ func convertMessage(m cometsdk.Message, toolNames map[string]string, modelID str
 		return []codexInput{{Role: "user", Content: parts}}, nil
 	case cometsdk.RoleAssistant:
 		var out []codexInput
+		reasoningSummary := reasoningSummaryParts(m.ReasoningContent)
+		var encrypted string
 		if replayEncryptedState {
 			for _, state := range m.ProviderState {
 				if state.ModelID == modelID && state.Data != "" {
-					out = append(out, codexInput{Type: "reasoning", EncryptedContent: state.Data})
+					// One assistant message stores at most one opaque state per model.
+					encrypted = state.Data
 				}
 			}
 		}
-		reasoningSummary := reasoningSummaryParts(m.ReasoningContent)
-		if len(reasoningSummary) > 0 {
+		// Codex requires reasoning input items to carry summary. Merge opaque
+		// encrypted state with the displayable summary into a single item so we
+		// never emit encrypted_content without summary.
+		if encrypted != "" || len(reasoningSummary) > 0 {
 			out = append(out, codexInput{
-				Type:    "reasoning",
-				Summary: reasoningSummary,
+				Type:             "reasoning",
+				EncryptedContent: encrypted,
+				Summary:          reasoningSummary,
 			})
 		}
 		var textParts []codexContentPart

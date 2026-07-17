@@ -96,6 +96,12 @@ func (p *provider) Stream(ctx context.Context, req *cometsdk.Request) (<-chan co
 			markCapabilityUnsupported(req, cometsdk.CapabilityReasoningSummary)
 			continue
 		}
+		if !flags.disableEncryptedReplay && isEncryptedReasoningReplayError(err) {
+			p.log.DebugContext(ctx, "stream.encrypted_reasoning_replay_fallback", "error", err, "model", req.Model)
+			flags.disableEncryptedReplay = true
+			markCapabilityUnsupported(req, cometsdk.CapabilityEncryptedReasoningReplay)
+			continue
+		}
 		p.log.DebugContext(ctx, "stream.failed", "error", err)
 		return nil, err
 	}
@@ -180,6 +186,21 @@ func isReasoningSummaryUnsupportedError(err error) bool {
 	return strings.Contains(msg, "reasoning") &&
 		strings.Contains(msg, "summary") &&
 		(strings.Contains(msg, "unsupported") || strings.Contains(msg, "unknown") || strings.Contains(msg, "invalid"))
+}
+
+func isEncryptedReasoningReplayError(err error) bool {
+	se, ok := err.(*cometsdk.ServerError)
+	if !ok || se.StatusCode < 400 || se.StatusCode >= 500 {
+		return false
+	}
+	msg := strings.ToLower(se.Message)
+	if strings.Contains(msg, "encrypted_content") || strings.Contains(msg, "encrypted content") {
+		return true
+	}
+	// Codex rejects reasoning items that omit summary when encrypted state is replayed.
+	return strings.Contains(msg, "input[") &&
+		strings.Contains(msg, ".summary") &&
+		strings.Contains(msg, "missing")
 }
 
 func (p *provider) httpClient() *http.Client {
