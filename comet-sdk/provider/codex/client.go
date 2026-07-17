@@ -41,7 +41,8 @@ type provider struct {
 }
 
 type streamFlags struct {
-	disableMaxOutputTokens bool
+	disableMaxOutputTokens  bool
+	disableReasoningSummary bool
 }
 
 // NewCodexProvider creates a Provider that reuses the local Codex CLI ChatGPT session.
@@ -62,19 +63,25 @@ func (p *provider) Stream(ctx context.Context, req *cometsdk.Request) (<-chan co
 	ch := make(chan cometsdk.Event, 32)
 
 	flags := streamFlags{}
-	httpResp, err := p.streamWithRetry(ctx, req, flags)
-	if err != nil && req.MaxTokens > 0 && isMaxOutputTokensUnsupportedError(err) {
-		p.log.DebugContext(ctx, "stream.max_output_tokens_fallback", "error", err, "model", req.Model)
-		flags.disableMaxOutputTokens = true
-		httpResp, err = p.streamWithRetry(ctx, req, flags)
-	}
-	if err != nil {
+	for {
+		httpResp, err := p.streamWithRetry(ctx, req, flags)
+		if err == nil {
+			go parseLoop(ctx, providerID, httpResp.Body, ch, p.log, p.cfg.StreamIdleTimeout)
+			return ch, nil
+		}
+		if req.MaxTokens > 0 && !flags.disableMaxOutputTokens && isMaxOutputTokensUnsupportedError(err) {
+			p.log.DebugContext(ctx, "stream.max_output_tokens_fallback", "error", err, "model", req.Model)
+			flags.disableMaxOutputTokens = true
+			continue
+		}
+		if !flags.disableReasoningSummary && isReasoningSummaryUnsupportedError(err) {
+			p.log.DebugContext(ctx, "stream.reasoning_summary_fallback", "error", err, "model", req.Model)
+			flags.disableReasoningSummary = true
+			continue
+		}
 		p.log.DebugContext(ctx, "stream.failed", "error", err)
 		return nil, err
 	}
-
-	go parseLoop(ctx, providerID, httpResp.Body, ch, p.log, p.cfg.StreamIdleTimeout)
-	return ch, nil
 }
 
 func (p *provider) streamWithRetry(ctx context.Context, req *cometsdk.Request, flags streamFlags) (*http.Response, error) {
@@ -102,7 +109,7 @@ func (p *provider) doRequest(ctx context.Context, req *cometsdk.Request, flags s
 	if err != nil {
 		return nil, err
 	}
-	body, err := toCodexRequest(req, flags.disableMaxOutputTokens)
+	body, err := toCodexRequest(req, flags.disableMaxOutputTokens, flags.disableReasoningSummary)
 	if err != nil {
 		return nil, fmt.Errorf("codex: marshal request: %w", err)
 	}
@@ -144,6 +151,17 @@ func isMaxOutputTokensUnsupportedError(err error) bool {
 	}
 	msg := strings.ToLower(se.Message)
 	return strings.Contains(msg, "max_output_tokens") &&
+		(strings.Contains(msg, "unsupported") || strings.Contains(msg, "unknown") || strings.Contains(msg, "invalid"))
+}
+
+func isReasoningSummaryUnsupportedError(err error) bool {
+	se, ok := err.(*cometsdk.ServerError)
+	if !ok || se.StatusCode < 400 || se.StatusCode >= 500 {
+		return false
+	}
+	msg := strings.ToLower(se.Message)
+	return strings.Contains(msg, "reasoning") &&
+		strings.Contains(msg, "summary") &&
 		(strings.Contains(msg, "unsupported") || strings.Contains(msg, "unknown") || strings.Contains(msg, "invalid"))
 }
 

@@ -107,6 +107,25 @@ describe('reduceChatState', () => {
 		expect(updated.durationMs).toBeTypeOf('number');
 	});
 
+	it('updates a pending tool with its completed input', () => {
+		let state = initChatState();
+		state = reduceChatState(state, { type: 'tool_call', id: 'tc-1', tool: 'read_file', input: {} });
+		state = reduceChatState(state, {
+			type: 'tool_call',
+			id: 'tc-1',
+			tool: 'read_file',
+			input: { path: 'README.md' }
+		});
+
+		expect(state.items).toHaveLength(1);
+		expect(state.items[0]).toMatchObject({
+			type: 'tool',
+			toolId: 'tc-1',
+			input: { path: 'README.md' },
+			pending: true
+		});
+	});
+
 	it('updates assistant activity on turn_status', () => {
 		let state = initChatState();
 		state = reduceChatState(state, {

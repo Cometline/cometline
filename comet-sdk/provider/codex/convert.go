@@ -10,14 +10,19 @@ import (
 )
 
 type codexRequest struct {
-	Model           string       `json:"model"`
-	Input           []codexInput `json:"input"`
-	Instructions    string       `json:"instructions,omitempty"`
-	Tools           []codexTool  `json:"tools,omitempty"`
-	MaxOutputTokens int          `json:"max_output_tokens,omitempty"`
-	Temperature     *float64     `json:"temperature,omitempty"`
-	Store           bool         `json:"store"`
-	Stream          bool         `json:"stream"`
+	Model           string          `json:"model"`
+	Input           []codexInput    `json:"input"`
+	Instructions    string          `json:"instructions,omitempty"`
+	Tools           []codexTool     `json:"tools,omitempty"`
+	Reasoning       *codexReasoning `json:"reasoning,omitempty"`
+	MaxOutputTokens int             `json:"max_output_tokens,omitempty"`
+	Temperature     *float64        `json:"temperature,omitempty"`
+	Store           bool            `json:"store"`
+	Stream          bool            `json:"stream"`
+}
+
+type codexReasoning struct {
+	Summary string `json:"summary,omitempty"`
 }
 
 type codexInput struct {
@@ -45,7 +50,7 @@ type codexTool struct {
 	Strict      bool            `json:"strict"`
 }
 
-func toCodexRequest(req *cometsdk.Request, disableMaxOutputTokens bool) ([]byte, error) {
+func toCodexRequest(req *cometsdk.Request, disableMaxOutputTokens, disableReasoningSummary bool) ([]byte, error) {
 	input, err := convertMessages(req.Messages)
 	if err != nil {
 		return nil, err
@@ -57,6 +62,11 @@ func toCodexRequest(req *cometsdk.Request, disableMaxOutputTokens bool) ([]byte,
 		Store:        false,
 		Stream:       true,
 		Temperature:  req.Temperature,
+	}
+	if !disableReasoningSummary {
+		// Ask for a displayable summary when the Codex model supports it. The
+		// provider retries without this field if a model rejects it.
+		out.Reasoning = &codexReasoning{Summary: "auto"}
 	}
 	if req.MaxTokens > 0 && !disableMaxOutputTokens {
 		out.MaxOutputTokens = req.MaxTokens

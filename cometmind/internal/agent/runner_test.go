@@ -283,6 +283,47 @@ func TestRunner_TextOnlyTurnPersistsAndStops(t *testing.T) {
 	}
 }
 
+func TestRunner_EmitsToolCallOnStartAndCompletion(t *testing.T) {
+	provider := &sequentialFakeProvider{sequences: [][]cometsdk.Event{
+		{
+			cometsdk.ToolCallStartEvent{ID: "tc-1", Name: "list_dir"},
+			cometsdk.ToolCallDoneEvent{ID: "tc-1", Name: "list_dir", Input: json.RawMessage(`{"path":"."}`)},
+			cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishToolUse},
+			cometsdk.DoneEvent{},
+		},
+		{
+			cometsdk.TextDeltaEvent{Text: "done"},
+			cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishStop},
+			cometsdk.DoneEvent{},
+		},
+	}}
+
+	events, runErr := runAndDrain(t, &Runner{
+		Provider: provider,
+		Sessions: &fakeStore{},
+		Registry: tools.NewRegistry(t.TempDir()),
+	}, session.AgentTurn{ID: "s1", ModelID: "m"})
+
+	if runErr != nil {
+		t.Fatalf("Run returned error: %v", runErr)
+	}
+	var calls []event.Event
+	for _, ev := range events {
+		if ev.Kind == event.KindToolCall {
+			calls = append(calls, ev)
+		}
+	}
+	if len(calls) != 2 {
+		t.Fatalf("tool call events = %d, want 2", len(calls))
+	}
+	if len(calls[0].Input) != 0 {
+		t.Fatalf("initial tool input = %q, want empty", calls[0].Input)
+	}
+	if string(calls[1].Input) != `{"path":"."}` {
+		t.Fatalf("completed tool input = %q", calls[1].Input)
+	}
+}
+
 func TestRunner_PersistsPartialResponseBeforeStreamError(t *testing.T) {
 	store := &fakeStore{}
 	provider := &fakeProvider{events: []cometsdk.Event{

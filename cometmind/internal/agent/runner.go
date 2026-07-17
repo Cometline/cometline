@@ -268,6 +268,9 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 				case cometsdk.ReasoningContentEvent:
 					firstOutputLogged = true
 					ch <- event.ReasoningDelta(e.Text)
+				case cometsdk.ToolCallStartEvent:
+					firstOutputLogged = true
+					ch <- event.ToolCall(e.ID, e.Name, nil)
 				case cometsdk.ToolCallDoneEvent:
 					firstOutputLogged = true
 					completeToolCall = true

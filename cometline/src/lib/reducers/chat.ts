@@ -398,6 +398,14 @@ function applyEvent(
 	}
 
 	if (event.type === 'tool_call') {
+		const existing = items.find(
+			(item) => item.type === 'tool' && item.toolId === event.id
+		) as Extract<ChatItem, { type: 'tool' }> | undefined;
+		if (existing) {
+			const index = items.indexOf(existing);
+			items[index] = { ...existing, toolName: event.tool, input: event.input };
+			return;
+		}
 		// Settle the current assistant so reasoning is no longer pending, but keep
 		// assistant.current alive so the next text_delta appends to the same turn
 		// instead of creating a fresh assistant row (which would lose its avatar).

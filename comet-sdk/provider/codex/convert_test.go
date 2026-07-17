@@ -43,7 +43,7 @@ func TestConvertRequest_ResponsesShape(t *testing.T) {
 		Tools: []cometsdk.Tool{{Name: "read_file", Description: "Read a file", Parameters: json.RawMessage(`{"type":"object"}`)}},
 	}
 
-	data, err := toCodexRequest(req, false)
+	data, err := toCodexRequest(req, false, false)
 	require.NoError(t, err)
 	var raw struct {
 		Input []map[string]json.RawMessage `json:"input"`
@@ -57,6 +57,7 @@ func TestConvertRequest_ResponsesShape(t *testing.T) {
 	require.Equal(t, "Be helpful.", out.Instructions)
 	require.True(t, out.Stream)
 	require.False(t, out.Store)
+	require.Equal(t, "auto", out.Reasoning.Summary)
 	require.Equal(t, 123, out.MaxOutputTokens)
 	require.Len(t, out.Input, 5)
 	require.Equal(t, "user", out.Input[0].Role)
@@ -73,7 +74,7 @@ func TestConvertRequest_ResponsesShape(t *testing.T) {
 	require.Len(t, out.Tools, 1)
 	require.False(t, out.Tools[0].Strict)
 
-	data, err = toCodexRequest(req, true)
+	data, err = toCodexRequest(req, true, false)
 	require.NoError(t, err)
 	require.NotContains(t, string(data), "max_output_tokens")
 }
@@ -98,7 +99,7 @@ func TestConvertRequest_EmptyToolResultOutput(t *testing.T) {
 		},
 	}
 
-	data, err := toCodexRequest(req, true)
+	data, err := toCodexRequest(req, true, false)
 	require.NoError(t, err)
 	require.Contains(t, string(data), `"output":"(no output)"`)
 	require.Contains(t, string(data), `"output":"wiki/\n"`)
@@ -159,7 +160,7 @@ func TestConvertEvent_AssemblesToolArgumentDeltas(t *testing.T) {
 
 	events, err := toSDKEvents("response.output_item.added", `{"item":{"type":"function_call","id":"fc_1","call_id":"call_1","name":"list_dir"}}`, state)
 	require.NoError(t, err)
-	require.Empty(t, events)
+	require.Equal(t, []cometsdk.Event{cometsdk.ToolCallStartEvent{ID: "call_1", Name: "list_dir"}}, events)
 
 	events, err = toSDKEvents("response.function_call_arguments.delta", `{"item_id":"fc_1","delta":"{\"path\":"}`, state)
 	require.NoError(t, err)
@@ -171,9 +172,19 @@ func TestConvertEvent_AssemblesToolArgumentDeltas(t *testing.T) {
 
 	events, err = toSDKEvents("response.function_call_arguments.done", `{"item_id":"fc_1"}`, state)
 	require.NoError(t, err)
-	require.Len(t, events, 3)
-	require.Equal(t, cometsdk.ToolCallStartEvent{ID: "call_1", Name: "list_dir"}, events[0])
-	require.Equal(t, cometsdk.ToolCallDoneEvent{ID: "call_1", Name: "list_dir", Input: json.RawMessage(`{"path":"."}`)}, events[2])
+	require.Len(t, events, 2)
+	require.Equal(t, cometsdk.ToolCallDoneEvent{ID: "call_1", Name: "list_dir", Input: json.RawMessage(`{"path":"."}`)}, events[1])
+}
+
+func TestConvertEvent_UsesCompletedReasoningSummaryWhenDeltasAreUnavailable(t *testing.T) {
+	state := &codexStreamState{}
+
+	events, err := toSDKEvents("response.output_item.done", `{"item":{"type":"reasoning","summary":[{"type":"summary_text","text":"Inspecting the request."}]}}`, state)
+	require.NoError(t, err)
+	require.Equal(t, []cometsdk.Event{
+		cometsdk.ReasoningStartEvent{},
+		cometsdk.ReasoningContentEvent{Text: "Inspecting the request."},
+	}, events)
 }
 
 func TestJWTExpiry(t *testing.T) {
@@ -226,6 +237,39 @@ func TestStream_MaxOutputTokensFallbackOnUnsupported(t *testing.T) {
 	require.Equal(t, []string{"max_output_tokens", "none"}, fields)
 	require.Contains(t, events, cometsdk.TextDeltaEvent{Text: "hello"})
 	require.Contains(t, events, cometsdk.DoneEvent{})
+}
+
+func TestStream_ReasoningSummaryFallbackOnUnsupported(t *testing.T) {
+	t.Setenv("CODEX_HOME", t.TempDir())
+	writeTestAuthFile(t, codexAuthPath())
+
+	var requests []map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var request map[string]any
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&request))
+		requests = append(requests, request)
+		if _, ok := request["reasoning"]; ok {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"error":{"message":"Unsupported parameter: reasoning.summary"}}`))
+			return
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = w.Write([]byte("data: {\"type\":\"response.completed\",\"response\":{\"usage\":{}}}\n\n"))
+	}))
+	defer srv.Close()
+
+	p := NewCodexProvider(cometsdk.WithBaseURL(srv.URL), cometsdk.WithMaxRetries(1))
+	ch, err := p.Stream(context.Background(), &cometsdk.Request{
+		Model: "gpt-5.4",
+		Messages: []cometsdk.Message{{Role: cometsdk.RoleUser, Content: []cometsdk.Block{
+			cometsdk.TextBlock{Text: "Hi"},
+		}}},
+	})
+	require.NoError(t, err)
+	_ = collectEvents(t, ch)
+	require.Len(t, requests, 2)
+	require.Equal(t, map[string]any{"summary": "auto"}, requests[0]["reasoning"])
+	require.NotContains(t, requests[1], "reasoning")
 }
 
 func TestStream_LunaUsesResponsesLite(t *testing.T) {
@@ -318,7 +362,7 @@ func TestStream_UsesSSE(t *testing.T) {
 	require.Equal(t, false, request["store"])
 	require.Equal(t, true, request["stream"])
 	require.Equal(t, false, request["parallel_tool_calls"])
-	require.Equal(t, map[string]any{"context": "all_turns"}, request["reasoning"])
+	require.Equal(t, map[string]any{"context": "all_turns", "summary": "auto"}, request["reasoning"])
 	require.Contains(t, events, cometsdk.TextDeltaEvent{Text: "hello"})
 	require.Contains(t, events, cometsdk.DoneEvent{})
 }

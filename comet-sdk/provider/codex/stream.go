@@ -14,16 +14,18 @@ import (
 )
 
 type codexStreamState struct {
-	sawTool bool
-	tools   map[string]*codexToolCallState
+	sawTool      bool
+	sawReasoning bool
+	tools        map[string]*codexToolCallState
 }
 
 type codexToolCallState struct {
-	callID string
-	itemID string
-	name   string
-	args   strings.Builder
-	done   bool
+	callID  string
+	itemID  string
+	name    string
+	args    strings.Builder
+	started bool
+	done    bool
 }
 
 type codexStreamEvent struct {
@@ -51,11 +53,12 @@ type codexStreamEvent struct {
 }
 
 type codexOutputItem struct {
-	Type      string          `json:"type"`
-	CallID    string          `json:"call_id"`
-	ID        string          `json:"id"`
-	Name      string          `json:"name"`
-	Arguments json.RawMessage `json:"arguments"`
+	Type      string             `json:"type"`
+	CallID    string             `json:"call_id"`
+	ID        string             `json:"id"`
+	Name      string             `json:"name"`
+	Arguments json.RawMessage    `json:"arguments"`
+	Summary   []codexContentPart `json:"summary"`
 }
 
 func parseLoop(ctx context.Context, providerID string, body io.ReadCloser, ch chan<- cometsdk.Event, log *slog.Logger, idleTimeout time.Duration) {
@@ -131,10 +134,18 @@ func toSDKEvents(eventType, data string, state *codexStreamState) ([]cometsdk.Ev
 		if ev.Delta == "" {
 			return nil, nil
 		}
-		return []cometsdk.Event{cometsdk.ReasoningContentEvent{Text: ev.Delta}}, nil
+		return reasoningEvents(ev.Delta, state), nil
 	case "response.output_item.added":
 		if ev.Item.Type == "function_call" {
-			state.rememberTool(ev.Item.CallID, ev.Item.ID, ev.Item.Name)
+			tool := state.rememberTool(ev.Item.CallID, ev.Item.ID, ev.Item.Name)
+			if !tool.started {
+				tool.started = true
+				id := ev.Item.CallID
+				if id == "" {
+					id = ev.Item.ID
+				}
+				return []cometsdk.Event{cometsdk.ToolCallStartEvent{ID: id, Name: tool.name}}, nil
+			}
 		}
 		return nil, nil
 	case "response.function_call_arguments.delta":
@@ -143,10 +154,13 @@ func toSDKEvents(eventType, data string, state *codexStreamState) ([]cometsdk.Ev
 		}
 		return nil, nil
 	case "response.output_item.done":
-		if ev.Item.Type != "function_call" {
-			return nil, nil
+		if ev.Item.Type == "function_call" {
+			return toolCallDoneEvents(ev.Item.CallID, ev.Item.ID, ev.Item.Name, ev.Item.Arguments, state)
 		}
-		return toolCallDoneEvents(ev.Item.CallID, ev.Item.ID, ev.Item.Name, ev.Item.Arguments, state)
+		if ev.Item.Type == "reasoning" && !state.sawReasoning {
+			return reasoningEvents(reasoningSummaryText(ev.Item.Summary), state), nil
+		}
+		return nil, nil
 	case "response.function_call_arguments.done":
 		// Some Responses-compatible streams emit the tool call completion as a
 		// top-level event instead of nesting it under `item`.
@@ -229,11 +243,38 @@ func toolCallDoneEvents(callID, itemID, name string, args json.RawMessage, state
 
 	tool.done = true
 	state.sawTool = true
-	return []cometsdk.Event{
-		cometsdk.ToolCallStartEvent{ID: id, Name: name},
+	events := make([]cometsdk.Event, 0, 3)
+	if !tool.started {
+		tool.started = true
+		events = append(events, cometsdk.ToolCallStartEvent{ID: id, Name: name})
+	}
+	events = append(events,
 		cometsdk.ToolCallDeltaEvent{ID: id, Delta: string(normalizedArgs)},
 		cometsdk.ToolCallDoneEvent{ID: id, Name: name, Input: normalizedArgs},
-	}, nil
+	)
+	return events, nil
+}
+
+func reasoningEvents(text string, state *codexStreamState) []cometsdk.Event {
+	if text == "" {
+		return nil
+	}
+	events := make([]cometsdk.Event, 0, 2)
+	if !state.sawReasoning {
+		state.sawReasoning = true
+		events = append(events, cometsdk.ReasoningStartEvent{})
+	}
+	return append(events, cometsdk.ReasoningContentEvent{Text: text})
+}
+
+func reasoningSummaryText(summary []codexContentPart) string {
+	var text strings.Builder
+	for _, part := range summary {
+		if part.Type == "summary_text" {
+			text.WriteString(part.Text)
+		}
+	}
+	return text.String()
 }
 
 func normalizeToolArguments(args json.RawMessage, fallback string) (json.RawMessage, error) {
