@@ -45,6 +45,11 @@ func TestConvertRequest_ResponsesShape(t *testing.T) {
 
 	data, err := toCodexRequest(req, false)
 	require.NoError(t, err)
+	var raw struct {
+		Input []map[string]json.RawMessage `json:"input"`
+	}
+	require.NoError(t, json.Unmarshal(data, &raw))
+	require.NotContains(t, raw.Input[0], "output")
 
 	var out codexRequest
 	require.NoError(t, json.Unmarshal(data, &out))

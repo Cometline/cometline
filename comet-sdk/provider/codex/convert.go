@@ -28,7 +28,7 @@ type codexInput struct {
 	CallID  string             `json:"call_id,omitempty"`
 	Name    string             `json:"name,omitempty"`
 	Args    string             `json:"arguments,omitempty"`
-	Output  string             `json:"output"`
+	Output  string             `json:"output,omitempty"`
 }
 
 type codexContentPart struct {
