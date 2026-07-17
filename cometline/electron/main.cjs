@@ -1321,7 +1321,18 @@ function applyMiniWindowPresentation(win = miniWindow) {
 		visibleOnFullScreen: true,
 		skipTransformProcessType: true
 	});
+	// Must follow setVisibleOnAllWorkspaces({ visibleOnFullScreen }) or Electron
+	// may ignore it — keeps the panel floating over fullscreen main without
+	// becoming fullscreen itself.
+	if (typeof win.setFullScreenable === 'function') {
+		win.setFullScreenable(false);
+	}
 	win.setAlwaysOnTop(true, 'pop-up-menu');
+	// Dia-style: no native traffic lights (same as main with sidebar collapsed).
+	// Close via Cmd+W / global shortcut → hideMiniWindow().
+	if (typeof win.setWindowButtonVisibility === 'function') {
+		win.setWindowButtonVisibility(false);
+	}
 }
 
 async function showMiniWindow() {
@@ -2696,6 +2707,7 @@ async function createMiniWindow() {
 					// NSPanel-style: float on the current Space without treating
 					// this as a normal document window that owns a desktop.
 					type: 'panel',
+					fullscreenable: false,
 					backgroundColor: '#111111',
 					trafficLightPosition: { x: 14, y: 14 }
 				}
