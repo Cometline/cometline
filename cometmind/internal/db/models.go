@@ -8,6 +8,14 @@ import (
 	"database/sql"
 )
 
+type AssistantProviderState struct {
+	MessageID  string `json:"message_id"`
+	ProviderID string `json:"provider_id"`
+	ModelID    string `json:"model_id"`
+	State      string `json:"state"`
+	CreatedAt  int64  `json:"created_at"`
+}
+
 type GatewaySession struct {
 	ID                 string `json:"id"`
 	Platform           string `json:"platform"`
@@ -113,6 +121,14 @@ type Message struct {
 	InjectedMemories string `json:"injected_memories"`
 	TokenCount       int64  `json:"token_count"`
 	CreatedAt        int64  `json:"created_at"`
+}
+
+type ModelCapabilityNegative struct {
+	ProviderID string `json:"provider_id"`
+	Endpoint   string `json:"endpoint"`
+	ModelID    string `json:"model_id"`
+	Feature    string `json:"feature"`
+	ExpiresAt  int64  `json:"expires_at"`
 }
 
 type ScheduledJob struct {

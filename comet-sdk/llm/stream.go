@@ -115,11 +115,12 @@ func (ms *MessageStream) run(ctx context.Context, ch <-chan cometsdk.Event, even
 	defer close(done)
 
 	var (
-		textBuf      []byte
-		reasoningBuf []byte
-		toolCalls    []cometsdk.ToolCallBlock
-		finish       string
-		usage        cometsdk.TokenUsage
+		textBuf       []byte
+		reasoningBuf  []byte
+		toolCalls     []cometsdk.ToolCallBlock
+		providerState []cometsdk.ProviderState
+		finish        string
+		usage         cometsdk.TokenUsage
 	)
 
 	for {
@@ -129,12 +130,12 @@ func (ms *MessageStream) run(ctx context.Context, ch <-chan cometsdk.Event, even
 				for range ch {
 				}
 			}()
-			ms.setPartialResult(textBuf, reasoningBuf, toolCalls, finish, usage, ctx.Err())
+			ms.setPartialResult(textBuf, reasoningBuf, toolCalls, providerState, finish, usage, ctx.Err())
 			return
 
 		case ev, ok := <-ch:
 			if !ok {
-				ms.setFinalMessage(textBuf, reasoningBuf, toolCalls, finish, usage)
+				ms.setFinalMessage(textBuf, reasoningBuf, toolCalls, providerState, finish, usage)
 				return
 			}
 
@@ -170,31 +171,34 @@ func (ms *MessageStream) run(ctx context.Context, ch <-chan cometsdk.Event, even
 				reasoningBuf = append(reasoningBuf, e.Text...)
 				events <- e
 
+			case cometsdk.ProviderStateEvent:
+				providerState = append(providerState, e.State)
+
 			case cometsdk.ErrorEvent:
 				// Do NOT forward — caller gets the error from Result(). Preserve
 				// everything emitted before the stream failed so agent callers can
 				// persist a useful partial response.
-				ms.setPartialResult(textBuf, reasoningBuf, toolCalls, finish, usage, e.Err)
+				ms.setPartialResult(textBuf, reasoningBuf, toolCalls, providerState, finish, usage, e.Err)
 				return
 
 			case cometsdk.DoneEvent:
 				// Do NOT forward — caller sees channel close instead.
-				ms.setFinalMessage(textBuf, reasoningBuf, toolCalls, finish, usage)
+				ms.setFinalMessage(textBuf, reasoningBuf, toolCalls, providerState, finish, usage)
 				return
 			}
 		}
 	}
 }
 
-func (ms *MessageStream) setFinalMessage(textBuf, reasoningBuf []byte, toolCalls []cometsdk.ToolCallBlock, finish string, usage cometsdk.TokenUsage) {
-	ms.setResult(buildMessageResult(textBuf, reasoningBuf, toolCalls, finish, usage), nil)
+func (ms *MessageStream) setFinalMessage(textBuf, reasoningBuf []byte, toolCalls []cometsdk.ToolCallBlock, providerState []cometsdk.ProviderState, finish string, usage cometsdk.TokenUsage) {
+	ms.setResult(buildMessageResult(textBuf, reasoningBuf, toolCalls, providerState, finish, usage), nil)
 }
 
-func (ms *MessageStream) setPartialResult(textBuf, reasoningBuf []byte, toolCalls []cometsdk.ToolCallBlock, finish string, usage cometsdk.TokenUsage, err error) {
-	ms.setResult(buildMessageResult(textBuf, reasoningBuf, toolCalls, finish, usage), err)
+func (ms *MessageStream) setPartialResult(textBuf, reasoningBuf []byte, toolCalls []cometsdk.ToolCallBlock, providerState []cometsdk.ProviderState, finish string, usage cometsdk.TokenUsage, err error) {
+	ms.setResult(buildMessageResult(textBuf, reasoningBuf, toolCalls, providerState, finish, usage), err)
 }
 
-func buildMessageResult(textBuf, reasoningBuf []byte, toolCalls []cometsdk.ToolCallBlock, finish string, usage cometsdk.TokenUsage) *GenerateMessageResult {
+func buildMessageResult(textBuf, reasoningBuf []byte, toolCalls []cometsdk.ToolCallBlock, providerState []cometsdk.ProviderState, finish string, usage cometsdk.TokenUsage) *GenerateMessageResult {
 	var blocks []cometsdk.Block
 
 	text := string(textBuf)
@@ -216,6 +220,7 @@ func buildMessageResult(textBuf, reasoningBuf []byte, toolCalls []cometsdk.ToolC
 			Role:             cometsdk.RoleAssistant,
 			Content:          blocks,
 			ReasoningContent: reasoningBlocks,
+			ProviderState:    providerState,
 		},
 		ToolCalls:    toolCalls,
 		FinishReason: finish,

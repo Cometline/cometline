@@ -34,6 +34,10 @@ type TurnStore interface {
 	AppendToolResultMessage(ctx context.Context, sessionID, toolCallID, output string, isErr bool) (session.Message, error)
 }
 
+type providerStateStore interface {
+	SaveAssistantProviderState(ctx context.Context, messageID string, states []cometsdk.ProviderState) error
+}
+
 type MemoryStore interface {
 	Enabled() bool
 	BaselinePreferences(ctx context.Context, limit int) ([]memory.ScoredMemory, error)
@@ -68,7 +72,9 @@ type Runner struct {
 	// sessions. When non-nil, each background goroutine acquires one slot
 	// before starting and releases it on completion. A nil value means
 	// unlimited (the previous behaviour).
-	MemorySem chan struct{}
+	MemorySem          chan struct{}
+	Compatibility      cometsdk.CapabilityResolver
+	CompatibilityScope cometsdk.CapabilityScope
 
 	// Compactor performs rolling context compaction on long sessions. Nil disables it.
 	Compactor *ContextCompactor
@@ -239,6 +245,9 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 
 		emitStatus(event.PhaseContactingModel)
 		req := BuildRequest(turn.ModelID, system, msgs, r.Registry.CometSDK(), r.MaxTokens)
+		if r.Compatibility != nil {
+			req.Compatibility = r.Compatibility.ResolveCapabilityPolicy(ctx, r.CompatibilityScope)
+		}
 		toolOutputBytes := toolResultBytes(req.Messages)
 		var result *llm.GenerateMessageResult
 		recoveryAttempt := 0
@@ -290,7 +299,7 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 			// retain any visible partial output, close with done, and do not add an
 			// error transcript row or SSE error card.
 			if errors.Is(err, context.Canceled) && errors.Is(ctx.Err(), context.Canceled) {
-				persistPartialStep(ctx, r.Sessions, turn.ID, result, pendingMemories)
+				persistPartialStep(ctx, r.Sessions, turn.ID, turn.ProviderID, result, pendingMemories)
 				logging.L().Info("agent.step.stopped", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", steps+1, "duration_ms", time.Since(streamStarted).Milliseconds())
 				return nil
 			}
@@ -301,7 +310,7 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 				ch <- event.TurnRecover(textChars, reasoningChars)
 				continue
 			}
-			persistPartialStep(ctx, r.Sessions, turn.ID, result, pendingMemories)
+			persistPartialStep(ctx, r.Sessions, turn.ID, turn.ProviderID, result, pendingMemories)
 			logging.L().Error("agent.step.failed", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", steps+1, "events", eventCount, "first_event", firstEventLogged, "first_output", firstOutputLogged, "complete_tool_call", completeToolCall, "failure_category", failureCategory, "recovery_attempt", recoveryAttempt, "duration_ms", time.Since(streamStarted).Milliseconds(), "error", err)
 			ch <- event.Errorf(userFacingAgentError(err), "llm")
 			return err
@@ -318,11 +327,18 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 		text := strings.TrimSpace(assistantPlainText(result.Message))
 		reasoningBlocks := result.Message.ReasoningContent
 		persistedToolIDs := map[string]string{}
-		if text != "" || len(reasoningBlocks) > 0 || len(result.ToolCalls) > 0 {
-			_, persistedToolIDs, err = r.Sessions.AppendAssistantStep(ctx, turn.ID, text, reasoningBlocks, result.ToolCalls, pendingMemories)
+		if text != "" || len(reasoningBlocks) > 0 || len(result.Message.ProviderState) > 0 || len(result.ToolCalls) > 0 {
+			assistant, toolIDs, err := r.Sessions.AppendAssistantStep(ctx, turn.ID, text, reasoningBlocks, result.ToolCalls, pendingMemories)
 			if err != nil {
 				ch <- event.Errorf(err.Error(), "db")
 				return err
+			}
+			persistedToolIDs = toolIDs
+			if states, ok := r.Sessions.(providerStateStore); ok {
+				if err := states.SaveAssistantProviderState(ctx, assistant.ID, scopeProviderState(result.Message.ProviderState, turn.ProviderID)); err != nil {
+					ch <- event.Errorf(err.Error(), "db")
+					return err
+				}
 			}
 		}
 		// Guard against providers that terminate a step without yielding any
@@ -657,19 +673,37 @@ func partialRenderLengths(result *llm.GenerateMessageResult) (textChars, reasoni
 	return textChars, reasoningChars
 }
 
-func persistPartialStep(ctx context.Context, store TurnStore, sessionID string, result *llm.GenerateMessageResult, memories []session.InjectedMemory) {
+func persistPartialStep(ctx context.Context, store TurnStore, sessionID, providerID string, result *llm.GenerateMessageResult, memories []session.InjectedMemory) {
 	if result == nil {
 		return
 	}
 	partialText := strings.TrimSpace(assistantPlainText(result.Message))
-	if partialText == "" && len(result.Message.ReasoningContent) == 0 {
+	if partialText == "" && len(result.Message.ReasoningContent) == 0 && len(result.Message.ProviderState) == 0 {
 		return
 	}
 	persistCtx, persistCancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
 	defer persistCancel()
-	if _, _, err := store.AppendAssistantStep(persistCtx, sessionID, partialText, result.Message.ReasoningContent, nil, memories); err != nil {
+	assistant, _, err := store.AppendAssistantStep(persistCtx, sessionID, partialText, result.Message.ReasoningContent, nil, memories)
+	if err != nil {
 		logging.L().Warn("agent.partial_persist_failed", "session", sessionID, "error", err)
+		return
 	}
+	if states, ok := store.(providerStateStore); ok {
+		if err := states.SaveAssistantProviderState(persistCtx, assistant.ID, scopeProviderState(result.Message.ProviderState, providerID)); err != nil {
+			logging.L().Warn("agent.partial_provider_state_persist_failed", "session", sessionID, "error", err)
+		}
+	}
+}
+
+func scopeProviderState(states []cometsdk.ProviderState, providerID string) []cometsdk.ProviderState {
+	if len(states) == 0 {
+		return nil
+	}
+	result := append([]cometsdk.ProviderState(nil), states...)
+	for i := range result {
+		result[i].ProviderID = providerID
+	}
+	return result
 }
 
 // userFacingAgentError maps provider/runtime errors into short messages safe

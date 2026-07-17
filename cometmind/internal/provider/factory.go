@@ -62,6 +62,16 @@ func SDKFamily(cfg *config.Config, id string) string {
 	return sdkProviderID(method)
 }
 
+// CompatibilityEndpoint returns the stable cache key component for a configured
+// provider endpoint. Providers with an implicit SDK default share "default".
+func CompatibilityEndpoint(cfg *config.Config, id string) string {
+	_, _, baseURL := providerConfigFor(cfg, id)
+	if baseURL == "" {
+		return "default"
+	}
+	return cometsdk.NormaliseBaseURL(baseURL)
+}
+
 // New returns a concrete SDK provider based on [config.Config.Provider].
 func New(cfg *config.Config) (cometsdk.Provider, error) {
 	return NewFor(cfg, cfg.Provider)

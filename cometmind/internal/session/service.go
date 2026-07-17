@@ -848,6 +848,30 @@ func (s *Service) AppendAssistantStep(ctx context.Context, sessionID string, tex
 	return messageFromDB(assistant), toolIDs, nil
 }
 
+// SaveAssistantProviderState stores opaque provider continuation state outside
+// transcript rows so it can never be returned by transcript APIs.
+func (s *Service) SaveAssistantProviderState(ctx context.Context, messageID string, states []cometsdk.ProviderState) error {
+	for _, state := range states {
+		if state.ProviderID == "" || state.ModelID == "" || state.Data == "" {
+			continue
+		}
+		if err := s.q.CreateAssistantProviderState(ctx, db.CreateAssistantProviderStateParams{
+			MessageID:  messageID,
+			ProviderID: state.ProviderID,
+			ModelID:    state.ModelID,
+			State:      state.Data,
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ClearAssistantProviderState drops opaque continuation data after compaction.
+func (s *Service) ClearAssistantProviderState(ctx context.Context, sessionID string) error {
+	return s.q.DeleteAssistantProviderStatesBySession(ctx, sessionID)
+}
+
 func sqlNullInt(v *int64) sql.NullInt64 {
 	if v == nil {
 		return sql.NullInt64{Valid: false}
@@ -922,7 +946,7 @@ func (s *Service) BuildSDKMessages(ctx context.Context, sessionID string) ([]com
 		return nil, err
 	}
 	rows = FilterMessagesAfterCompacted(rows, sess.CompactedUntilMessageID)
-	return s.buildSDKMessagesFromRows(ctx, sessionID, rows)
+	return s.buildSDKMessagesFromRows(ctx, sessionID, sess.ProviderID, rows)
 }
 
 // ListMessageRows returns raw persisted transcript rows in chronological order.
@@ -932,11 +956,15 @@ func (s *Service) ListMessageRows(ctx context.Context, sessionID string) ([]db.M
 
 // BuildSDKMessagesAll rebuilds the full transcript without compaction filtering.
 func (s *Service) BuildSDKMessagesAll(ctx context.Context, sessionID string) ([]cometsdk.Message, error) {
+	sess, err := s.GetSession(ctx, sessionID)
+	if err != nil {
+		return nil, err
+	}
 	rows, err := s.q.ListMessagesBySession(ctx, sessionID)
 	if err != nil {
 		return nil, err
 	}
-	return s.buildSDKMessagesFromRows(ctx, sessionID, rows)
+	return s.buildSDKMessagesFromRows(ctx, sessionID, sess.ProviderID, rows)
 }
 
 // ListToolCallsForSession returns all tool calls for a session in chronological order.
@@ -953,7 +981,7 @@ func GroupToolCallsByMessage(calls []db.ToolCall) map[string][]db.ToolCall {
 	return out
 }
 
-func (s *Service) buildSDKMessagesFromRows(ctx context.Context, sessionID string, rows []db.Message) ([]cometsdk.Message, error) {
+func (s *Service) buildSDKMessagesFromRows(ctx context.Context, sessionID, providerID string, rows []db.Message) ([]cometsdk.Message, error) {
 	// One query for all tool calls instead of one per assistant message.
 	allCalls, err := s.q.ListToolCallsBySession(ctx, sessionID)
 	if err != nil {
@@ -966,6 +994,21 @@ func (s *Service) buildSDKMessagesFromRows(ctx context.Context, sessionID string
 	callsByMessage := make(map[string][]db.ToolCall, len(allCalls))
 	for _, tc := range allCalls {
 		callsByMessage[tc.MessageID] = append(callsByMessage[tc.MessageID], tc)
+	}
+	states, err := s.q.ListAssistantProviderStatesBySession(ctx, sessionID)
+	if err != nil {
+		return nil, err
+	}
+	statesByMessage := make(map[string][]cometsdk.ProviderState, len(states))
+	for _, state := range states {
+		if state.ProviderID != providerID {
+			continue
+		}
+		statesByMessage[state.MessageID] = append(statesByMessage[state.MessageID], cometsdk.ProviderState{
+			ProviderID: state.ProviderID,
+			ModelID:    state.ModelID,
+			Data:       state.State,
+		})
 	}
 	out := make([]cometsdk.Message, 0, len(rows))
 	for _, m := range rows {
@@ -989,6 +1032,7 @@ func (s *Service) buildSDKMessagesFromRows(ctx context.Context, sessionID string
 				Role:             cometsdk.RoleAssistant,
 				Content:          blocks,
 				ReasoningContent: reasoningBlocks,
+				ProviderState:    statesByMessage[m.ID],
 			})
 		case "tool_result":
 			var p toolResultPayload

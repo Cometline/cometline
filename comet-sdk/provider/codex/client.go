@@ -43,6 +43,17 @@ type provider struct {
 type streamFlags struct {
 	disableMaxOutputTokens  bool
 	disableReasoningSummary bool
+	disableEncryptedReplay  bool
+}
+
+func capabilityDisabled(req *cometsdk.Request, feature cometsdk.Capability) bool {
+	return req.Compatibility != nil && req.Compatibility.Disabled(feature)
+}
+
+func markCapabilityUnsupported(req *cometsdk.Request, feature cometsdk.Capability) {
+	if req.Compatibility != nil {
+		req.Compatibility.MarkUnsupported(feature)
+	}
 }
 
 // NewCodexProvider creates a Provider that reuses the local Codex CLI ChatGPT session.
@@ -62,21 +73,33 @@ func (p *provider) Stream(ctx context.Context, req *cometsdk.Request) (<-chan co
 	p.log.DebugContext(ctx, "stream.start", "model", req.Model)
 	ch := make(chan cometsdk.Event, 32)
 
-	flags := streamFlags{}
+	flags := streamFlags{
+		disableMaxOutputTokens:  capabilityDisabled(req, cometsdk.CapabilityMaxOutputTokens),
+		disableReasoningSummary: capabilityDisabled(req, cometsdk.CapabilityReasoningSummary),
+		disableEncryptedReplay:  capabilityDisabled(req, cometsdk.CapabilityEncryptedReasoningReplay),
+	}
 	for {
 		httpResp, err := p.streamWithRetry(ctx, req, flags)
 		if err == nil {
-			go parseLoop(ctx, providerID, httpResp.Body, ch, p.log, p.cfg.StreamIdleTimeout)
+			go parseLoop(ctx, providerID, req.Model, !capabilityDisabled(req, cometsdk.CapabilityToolInputStream), httpResp.Body, ch, p.log, p.cfg.StreamIdleTimeout)
 			return ch, nil
 		}
 		if req.MaxTokens > 0 && !flags.disableMaxOutputTokens && isMaxOutputTokensUnsupportedError(err) {
 			p.log.DebugContext(ctx, "stream.max_output_tokens_fallback", "error", err, "model", req.Model)
 			flags.disableMaxOutputTokens = true
+			markCapabilityUnsupported(req, cometsdk.CapabilityMaxOutputTokens)
 			continue
 		}
 		if !flags.disableReasoningSummary && isReasoningSummaryUnsupportedError(err) {
 			p.log.DebugContext(ctx, "stream.reasoning_summary_fallback", "error", err, "model", req.Model)
 			flags.disableReasoningSummary = true
+			markCapabilityUnsupported(req, cometsdk.CapabilityReasoningSummary)
+			continue
+		}
+		if !flags.disableEncryptedReplay && isEncryptedReasoningReplayError(err) {
+			p.log.DebugContext(ctx, "stream.encrypted_reasoning_replay_fallback", "error", err, "model", req.Model)
+			flags.disableEncryptedReplay = true
+			markCapabilityUnsupported(req, cometsdk.CapabilityEncryptedReasoningReplay)
 			continue
 		}
 		p.log.DebugContext(ctx, "stream.failed", "error", err)
@@ -109,7 +132,7 @@ func (p *provider) doRequest(ctx context.Context, req *cometsdk.Request, flags s
 	if err != nil {
 		return nil, err
 	}
-	body, err := toCodexRequest(req, flags.disableMaxOutputTokens, flags.disableReasoningSummary)
+	body, err := toCodexRequest(req, flags.disableMaxOutputTokens, flags.disableReasoningSummary, flags.disableEncryptedReplay)
 	if err != nil {
 		return nil, fmt.Errorf("codex: marshal request: %w", err)
 	}
@@ -163,6 +186,21 @@ func isReasoningSummaryUnsupportedError(err error) bool {
 	return strings.Contains(msg, "reasoning") &&
 		strings.Contains(msg, "summary") &&
 		(strings.Contains(msg, "unsupported") || strings.Contains(msg, "unknown") || strings.Contains(msg, "invalid"))
+}
+
+func isEncryptedReasoningReplayError(err error) bool {
+	se, ok := err.(*cometsdk.ServerError)
+	if !ok || se.StatusCode < 400 || se.StatusCode >= 500 {
+		return false
+	}
+	msg := strings.ToLower(se.Message)
+	if strings.Contains(msg, "encrypted_content") || strings.Contains(msg, "encrypted content") {
+		return true
+	}
+	// Codex rejects reasoning items that omit summary when encrypted state is replayed.
+	return strings.Contains(msg, "input[") &&
+		strings.Contains(msg, ".summary") &&
+		strings.Contains(msg, "missing")
 }
 
 func (p *provider) httpClient() *http.Client {

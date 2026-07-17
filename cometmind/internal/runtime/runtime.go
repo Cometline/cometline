@@ -20,6 +20,7 @@ import (
 	"github.com/cometline/cometmind/internal/autonomy"
 	"github.com/cometline/cometmind/internal/backup"
 	"github.com/cometline/cometmind/internal/config"
+	"github.com/cometline/cometmind/internal/db"
 	"github.com/cometline/cometmind/internal/event"
 	"github.com/cometline/cometmind/internal/inbox"
 	"github.com/cometline/cometmind/internal/inboxworker"
@@ -27,6 +28,7 @@ import (
 	"github.com/cometline/cometmind/internal/logging"
 	mcppkg "github.com/cometline/cometmind/internal/mcp"
 	"github.com/cometline/cometmind/internal/memory"
+	"github.com/cometline/cometmind/internal/modelcompat"
 	"github.com/cometline/cometmind/internal/paths"
 	"github.com/cometline/cometmind/internal/provider"
 	"github.com/cometline/cometmind/internal/retention"
@@ -46,24 +48,25 @@ const memoryExtractionConcurrency = 3
 
 // Runtime is the composition root shared by the CLI and server.
 type Runtime struct {
-	Config        *config.Config
-	DB            *sql.DB
-	Sessions      *session.Service
-	Memory        *memory.Service
-	Events        *event.Hub
-	Jobs          *jobs.Service
-	Inbox         *inbox.Service
-	Scheduler     *scheduler.Service
-	jobSettings   jobs.Settings
-	jobSettingsMu sync.RWMutex
-	SystemPrompt  string
-	acpMgr        *acp.SessionManager
-	mcpMgr        *mcppkg.Manager
-	subagentOrch  *subagent.Orchestrator
-	memorySem     chan struct{} // bounds concurrent memory-extraction goroutines
-	isRunning     func(sessionID string) bool
-	retentionMu   sync.Mutex
-	reloadMu      sync.Mutex
+	Config         *config.Config
+	DB             *sql.DB
+	Sessions       *session.Service
+	Memory         *memory.Service
+	Compatibility  *modelcompat.Resolver
+	Events         *event.Hub
+	Jobs           *jobs.Service
+	Inbox          *inbox.Service
+	Scheduler      *scheduler.Service
+	jobSettings    jobs.Settings
+	jobSettingsMu  sync.RWMutex
+	SystemPrompt   string
+	acpMgr         *acp.SessionManager
+	mcpMgr         *mcppkg.Manager
+	subagentOrch   *subagent.Orchestrator
+	memorySem      chan struct{} // bounds concurrent memory-extraction goroutines
+	isRunning      func(sessionID string) bool
+	retentionMu    sync.Mutex
+	reloadMu       sync.Mutex
 	autonomyWorker *autonomy.Worker
 	inboxWorker    *inboxworker.Worker
 }
@@ -90,13 +93,14 @@ func New(ctx context.Context) (*Runtime, error) {
 
 	sessions := session.New(sqlDB)
 	r := &Runtime{
-		Config:       cfg,
-		DB:           sqlDB,
-		Sessions:     sessions,
-		Events:       event.NewHub(),
-		SystemPrompt: systemPrompt,
-		memorySem:    make(chan struct{}, memoryExtractionConcurrency),
-		jobSettings:  cfg.JobsSettings(),
+		Config:        cfg,
+		DB:            sqlDB,
+		Sessions:      sessions,
+		Events:        event.NewHub(),
+		SystemPrompt:  systemPrompt,
+		memorySem:     make(chan struct{}, memoryExtractionConcurrency),
+		jobSettings:   cfg.JobsSettings(),
+		Compatibility: modelcompat.New(db.New(sqlDB)),
 	}
 	notifier := jobs.NewNotifier(r.jobSettingsSnapshot)
 	r.Jobs = jobs.NewService(sqlDB, r.jobSettingsSnapshot, notifier)
@@ -718,6 +722,12 @@ func (r *Runtime) runnerFor(sess session.Session, workspacePath string, opts Run
 		SkillIndex:           skillRegistry.PromptIndex(),
 		SubagentOrchestrator: r.subagentOrchestratorForRunner(opts.Subagent),
 		MemorySem:            r.memorySem,
+		Compatibility:        r.Compatibility,
+		CompatibilityScope: cometsdk.CapabilityScope{
+			ProviderID: sess.ProviderID,
+			Endpoint:   provider.CompatibilityEndpoint(r.Config, sess.ProviderID),
+			ModelID:    sess.ModelID,
+		},
 	}
 	if !opts.Subagent {
 		runner.JobIndex = tools.JobPromptIndex(workspacePath, platform)

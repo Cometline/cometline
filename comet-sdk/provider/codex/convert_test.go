@@ -43,7 +43,7 @@ func TestConvertRequest_ResponsesShape(t *testing.T) {
 		Tools: []cometsdk.Tool{{Name: "read_file", Description: "Read a file", Parameters: json.RawMessage(`{"type":"object"}`)}},
 	}
 
-	data, err := toCodexRequest(req, false, false)
+	data, err := toCodexRequest(req, false, false, false)
 	require.NoError(t, err)
 	var raw struct {
 		Input []map[string]json.RawMessage `json:"input"`
@@ -74,7 +74,7 @@ func TestConvertRequest_ResponsesShape(t *testing.T) {
 	require.Len(t, out.Tools, 1)
 	require.False(t, out.Tools[0].Strict)
 
-	data, err = toCodexRequest(req, true, false)
+	data, err = toCodexRequest(req, true, false, false)
 	require.NoError(t, err)
 	require.NotContains(t, string(data), "max_output_tokens")
 }
@@ -99,7 +99,7 @@ func TestConvertRequest_EmptyToolResultOutput(t *testing.T) {
 		},
 	}
 
-	data, err := toCodexRequest(req, true, false)
+	data, err := toCodexRequest(req, true, false, false)
 	require.NoError(t, err)
 	require.Contains(t, string(data), `"output":"(no output)"`)
 	require.Contains(t, string(data), `"output":"wiki/\n"`)
@@ -187,6 +187,71 @@ func TestConvertEvent_UsesCompletedReasoningSummaryWhenDeltasAreUnavailable(t *t
 	}, events)
 }
 
+func TestConvertEvent_CapturesEncryptedReasoningState(t *testing.T) {
+	events, err := toSDKEvents("response.output_item.done", `{"item":{"type":"reasoning","encrypted_content":"opaque-state"}}`, &codexStreamState{})
+	require.NoError(t, err)
+	require.Equal(t, []cometsdk.Event{cometsdk.ProviderStateEvent{State: cometsdk.ProviderState{
+		ProviderID: providerID,
+		Data:       "opaque-state",
+	}}}, events)
+}
+
+func TestRedactEncryptedReasoning(t *testing.T) {
+	redacted := redactEncryptedReasoning(`{"item":{"encrypted_content":"opaque-state","summary":[{"encrypted_content":"nested"}]}}`)
+	require.NotContains(t, redacted, "opaque-state")
+	require.NotContains(t, redacted, "nested")
+	require.Contains(t, redacted, "[redacted]")
+}
+
+func TestConvertRequest_ReplaysMatchingProviderState(t *testing.T) {
+	data, err := toCodexRequest(&cometsdk.Request{
+		Model: "gpt-5.6-luna",
+		Messages: []cometsdk.Message{{
+			Role: cometsdk.RoleAssistant,
+			ProviderState: []cometsdk.ProviderState{{
+				ProviderID: "custom-codex",
+				ModelID:    "gpt-5.6-luna",
+				Data:       "opaque-state",
+			}},
+			ReasoningContent: []cometsdk.Block{
+				cometsdk.ReasoningBlock{Text: "Earlier plan"},
+			},
+		}},
+	}, true, false, false)
+	require.NoError(t, err)
+
+	var raw map[string]any
+	require.NoError(t, json.Unmarshal(data, &raw))
+	input := raw["input"].([]any)
+	require.Len(t, input, 1)
+	item := input[0].(map[string]any)
+	require.Equal(t, "reasoning", item["type"])
+	require.Equal(t, "opaque-state", item["encrypted_content"])
+	summary, ok := item["summary"].([]any)
+	require.True(t, ok, "summary must be present for encrypted reasoning replay")
+	require.Len(t, summary, 1)
+
+	// Encrypted-only items still need an explicit empty summary array.
+	data, err = toCodexRequest(&cometsdk.Request{
+		Model: "gpt-5.6-luna",
+		Messages: []cometsdk.Message{{
+			Role: cometsdk.RoleAssistant,
+			ProviderState: []cometsdk.ProviderState{{
+				ProviderID: "custom-codex",
+				ModelID:    "gpt-5.6-luna",
+				Data:       "opaque-state",
+			}},
+		}},
+	}, true, false, false)
+	require.NoError(t, err)
+	require.NoError(t, json.Unmarshal(data, &raw))
+	item = raw["input"].([]any)[0].(map[string]any)
+	require.Equal(t, "opaque-state", item["encrypted_content"])
+	summary, ok = item["summary"].([]any)
+	require.True(t, ok)
+	require.Empty(t, summary)
+}
+
 func TestJWTExpiry(t *testing.T) {
 	exp := time.Now().Add(time.Hour).Unix()
 	header := base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"none"}`))
@@ -270,6 +335,52 @@ func TestStream_ReasoningSummaryFallbackOnUnsupported(t *testing.T) {
 	require.Len(t, requests, 2)
 	require.Equal(t, map[string]any{"summary": "auto"}, requests[0]["reasoning"])
 	require.NotContains(t, requests[1], "reasoning")
+}
+
+func TestStream_EncryptedReasoningReplayFallbackOnMissingSummary(t *testing.T) {
+	t.Setenv("CODEX_HOME", t.TempDir())
+	writeTestAuthFile(t, codexAuthPath())
+
+	var sawEncrypted []bool
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var request map[string]any
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&request))
+		hasEncrypted := false
+		if input, ok := request["input"].([]any); ok {
+			for _, item := range input {
+				m, _ := item.(map[string]any)
+				if _, ok := m["encrypted_content"]; ok {
+					hasEncrypted = true
+					break
+				}
+			}
+		}
+		sawEncrypted = append(sawEncrypted, hasEncrypted)
+		if hasEncrypted {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"error":{"message":"Missing required parameter: 'input[0].summary'."}}`))
+			return
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = w.Write([]byte("data: {\"type\":\"response.completed\",\"response\":{\"usage\":{}}}\n\n"))
+	}))
+	defer srv.Close()
+
+	p := NewCodexProvider(cometsdk.WithBaseURL(srv.URL), cometsdk.WithMaxRetries(1))
+	ch, err := p.Stream(context.Background(), &cometsdk.Request{
+		Model: "gpt-5.6-luna",
+		Messages: []cometsdk.Message{{
+			Role: cometsdk.RoleAssistant,
+			ProviderState: []cometsdk.ProviderState{{
+				ProviderID: "custom-codex",
+				ModelID:    "gpt-5.6-luna",
+				Data:       "opaque-state",
+			}},
+		}},
+	})
+	require.NoError(t, err)
+	_ = collectEvents(t, ch)
+	require.Equal(t, []bool{true, false}, sawEncrypted)
 }
 
 func TestStream_LunaUsesResponsesLite(t *testing.T) {
