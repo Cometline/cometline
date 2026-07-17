@@ -185,7 +185,8 @@ let browserSearchToken = '';
 let browserSearchQueue = Promise.resolve();
 // Swallow macOS activate that often fires right after hide()-ing the last
 // focused auxiliary window (mini / settings), which would otherwise force the
-// main window to pop open via showMainWindow().
+// main window to pop open / steal focus via handleAppActivate().
+const AUXILIARY_WINDOW_ACTIVATE_SUPPRESS_MS = 1000;
 let ignoreActivateUntil = 0;
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
@@ -1311,6 +1312,29 @@ function hideMainWindow() {
 	}
 }
 
+function applyMiniWindowPresentation(win = miniWindow) {
+	if (!windowCanShow(win) || process.platform !== 'darwin') return;
+	// Panel + all-Spaces + pop-up-menu level keeps the quick window on the
+	// current desktop without Mission Control jumping to the Space that owns
+	// a normal BrowserWindow. skipTransformProcessType avoids Dock flicker.
+	win.setVisibleOnAllWorkspaces(true, {
+		visibleOnFullScreen: true,
+		skipTransformProcessType: true
+	});
+	// Must follow setVisibleOnAllWorkspaces({ visibleOnFullScreen }) or Electron
+	// may ignore it — keeps the panel floating over fullscreen main without
+	// becoming fullscreen itself.
+	if (typeof win.setFullScreenable === 'function') {
+		win.setFullScreenable(false);
+	}
+	win.setAlwaysOnTop(true, 'pop-up-menu');
+	// Dia-style: no native traffic lights (same as main with sidebar collapsed).
+	// Close via Cmd+W / global shortcut → hideMiniWindow().
+	if (typeof win.setWindowButtonVisibility === 'function') {
+		win.setWindowButtonVisibility(false);
+	}
+}
+
 async function showMiniWindow() {
 	if (!windowCanShow(miniWindow)) {
 		await createMiniWindow();
@@ -1319,6 +1343,7 @@ async function showMiniWindow() {
 	if (miniWindow.isMinimized()) {
 		miniWindow.restore();
 	}
+	applyMiniWindowPresentation();
 	miniWindow.show();
 	miniWindow.focus();
 }
@@ -1336,9 +1361,10 @@ async function showSettingsWindow() {
 }
 
 function suppressSpuriousActivate() {
-	// Brief window: long enough to cover hide → activate churn, short enough
-	// that a real Dock click still restores the main window.
-	ignoreActivateUntil = Date.now() + 400;
+	// Cover hide → activate / AppKit window-promotion churn after dismissing
+	// mini or settings. Dock / tray / second-instance call showMainWindow()
+	// directly and are unaffected by this guard.
+	ignoreActivateUntil = Date.now() + AUXILIARY_WINDOW_ACTIVATE_SUPPRESS_MS;
 }
 
 function hideMiniWindow() {
@@ -1356,6 +1382,8 @@ function hideSettingsWindow() {
 
 /** Focus an already-visible surface, or restore main only when nothing is shown. */
 function handleAppActivate() {
+	// While suppressed, skip every promote path — including focusing an
+	// already-visible main window, which would switch Spaces.
 	if (Date.now() < ignoreActivateUntil) {
 		return;
 	}
@@ -2676,6 +2704,10 @@ async function createMiniWindow() {
 		titleBarStyle: process.platform === 'darwin' ? 'hidden' : 'default',
 		...(process.platform === 'darwin'
 			? {
+					// NSPanel-style: float on the current Space without treating
+					// this as a normal document window that owns a desktop.
+					type: 'panel',
+					fullscreenable: false,
 					backgroundColor: '#111111',
 					trafficLightPosition: { x: 14, y: 14 }
 				}
@@ -2691,12 +2723,14 @@ async function createMiniWindow() {
 			devTools: !app.isPackaged
 		}
 	});
+	applyMiniWindowPresentation(miniWindow);
 	attachExternalNavigationGuards(miniWindow);
 	attachMiniWindowShortcuts(miniWindow.webContents);
 	positionMiniWindowBottomRight();
 	await loadAppRoute(miniWindow, '/mini');
 	miniWindow.once('ready-to-show', () => {
 		positionMiniWindowBottomRight();
+		applyMiniWindowPresentation();
 		miniWindow?.show();
 		miniWindow?.focus();
 	});
