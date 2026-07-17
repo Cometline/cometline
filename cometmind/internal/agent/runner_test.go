@@ -545,6 +545,153 @@ func TestRunner_MaxTokensWithoutToolsStopsAfterContinuationCap(t *testing.T) {
 	}
 }
 
+func TestRunner_IncompleteToolTruncationContinuesWithNudgeThenSucceeds(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "ok.txt"), []byte("ok"), 0o644); err != nil {
+		t.Fatalf("write ok.txt: %v", err)
+	}
+	store := &fakeStore{}
+	provider := &capturingSequentialFakeProvider{sequences: [][]cometsdk.Event{
+		{
+			cometsdk.ToolCallStartEvent{ID: "tc-trunc", Name: "write_file"},
+			cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishMaxTokens},
+			cometsdk.DoneEvent{},
+		},
+		{
+			cometsdk.ToolCallStartEvent{ID: "tc-ok", Name: "write_file"},
+			cometsdk.ToolCallDoneEvent{ID: "tc-ok", Name: "write_file", Input: json.RawMessage(`{"path":"ok.txt","content":"ok"}`)},
+			cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishToolUse},
+			cometsdk.DoneEvent{},
+		},
+		{
+			cometsdk.TextDeltaEvent{Text: "done"},
+			cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishStop},
+			cometsdk.DoneEvent{},
+		},
+	}}
+
+	r := &Runner{
+		Provider:  provider,
+		Sessions:  store,
+		Registry:  tools.NewRegistry(dir),
+		MaxTokens: 4096,
+	}
+
+	events, runErr := runAndDrain(t, r, session.AgentTurn{ID: "s1", ModelID: "m"})
+	if runErr != nil {
+		t.Fatalf("Run returned error: %v", runErr)
+	}
+	if provider.calls != 3 {
+		t.Fatalf("Stream called %d times, want 3", provider.calls)
+	}
+	if store.toolResults < 1 {
+		t.Fatalf("toolResults = %d, want at least 1 cancelled stub", store.toolResults)
+	}
+	nudge := FormatIncompleteToolTruncationContinueBlock()
+	if !requestContainsUserNudge(provider.requests[1], nudge) {
+		t.Fatalf("step 2 missing incomplete-tool nudge:\n%#v", provider.requests[1].Messages)
+	}
+	if requestContainsUserNudge(provider.requests[1], FormatOutputTruncationContinueBlock()) {
+		t.Fatal("text truncation nudge must not appear on incomplete-tool continue")
+	}
+	var sawToolResultErr bool
+	for _, ev := range events {
+		if ev.Kind == event.KindToolResult && ev.ToolErr != "" {
+			sawToolResultErr = true
+			if !strings.Contains(ev.ToolErr, "output token limit") {
+				t.Fatalf("tool result error = %q", ev.ToolErr)
+			}
+		}
+	}
+	if !sawToolResultErr {
+		t.Fatal("expected SSE tool_result error for truncated tool start")
+	}
+}
+
+func TestRunner_IncompleteToolTruncationStopsAfterCap(t *testing.T) {
+	store := &fakeStore{}
+	provider := &sequentialFakeProvider{sequences: [][]cometsdk.Event{
+		{
+			cometsdk.ToolCallStartEvent{ID: "tc-1", Name: "write_file"},
+			cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishMaxTokens},
+			cometsdk.DoneEvent{},
+		},
+		{
+			cometsdk.ToolCallStartEvent{ID: "tc-2", Name: "write_file"},
+			cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishMaxTokens},
+			cometsdk.DoneEvent{},
+		},
+		{
+			cometsdk.ToolCallStartEvent{ID: "tc-3", Name: "write_file"},
+			cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishMaxTokens},
+			cometsdk.DoneEvent{},
+		},
+	}}
+
+	r := &Runner{
+		Provider: provider,
+		Sessions: store,
+		Registry: tools.NewRegistry(t.TempDir()),
+	}
+
+	_, runErr := runAndDrain(t, r, session.AgentTurn{ID: "s1", ModelID: "m"})
+	if runErr != nil {
+		t.Fatalf("Run returned error: %v", runErr)
+	}
+	// Initial incomplete + 2 dedicated continues, then stop.
+	if provider.calls != 3 {
+		t.Fatalf("Stream called %d times, want 3", provider.calls)
+	}
+	if store.toolResults != 3 {
+		t.Fatalf("toolResults = %d, want 3 cancelled stubs", store.toolResults)
+	}
+}
+
+func TestRunner_TextTruncationCapDoesNotBlockIncompleteToolContinue(t *testing.T) {
+	store := &fakeStore{}
+	provider := &capturingSequentialFakeProvider{sequences: [][]cometsdk.Event{
+		{
+			cometsdk.TextDeltaEvent{Text: "essay1"},
+			cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishMaxTokens},
+			cometsdk.DoneEvent{},
+		},
+		{
+			cometsdk.TextDeltaEvent{Text: "essay2"},
+			cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishMaxTokens},
+			cometsdk.DoneEvent{},
+		},
+		{
+			cometsdk.ToolCallStartEvent{ID: "tc-trunc", Name: "write_file"},
+			cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishMaxTokens},
+			cometsdk.DoneEvent{},
+		},
+		{
+			cometsdk.TextDeltaEvent{Text: "recovered"},
+			cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishStop},
+			cometsdk.DoneEvent{},
+		},
+	}}
+
+	r := &Runner{
+		Provider: provider,
+		Sessions: store,
+		Registry: tools.NewRegistry(t.TempDir()),
+	}
+
+	_, runErr := runAndDrain(t, r, session.AgentTurn{ID: "s1", ModelID: "m"})
+	if runErr != nil {
+		t.Fatalf("Run returned error: %v", runErr)
+	}
+	// 2 text truncation continues burn the text budget; incomplete-tool continue is separate.
+	if provider.calls != 4 {
+		t.Fatalf("Stream called %d times, want 4", provider.calls)
+	}
+	nudge := FormatIncompleteToolTruncationContinueBlock()
+	if !requestContainsUserNudge(provider.requests[3], nudge) {
+		t.Fatalf("step 4 missing incomplete-tool nudge after text truncation cap:\n%#v", provider.requests[3].Messages)
+	}
+}
+
 func TestRunner_CompactsAgainAfterToolResultsInflatePrompt(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "small.txt"), []byte("small result"), 0o644); err != nil {

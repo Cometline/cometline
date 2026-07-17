@@ -142,13 +142,14 @@ function currentAfterSegment(assistant: AssistantItem): number {
 }
 
 function settlePendingActivity(items: ChatItem[], errorMessage?: string) {
+	const interruptedToolMessage = 'Interrupted before the tool call finished.';
 	for (let i = 0; i < items.length; i++) {
 		const item = items[i];
 		if (item.type === 'tool' && item.pending) {
 			items[i] = {
 				...item,
 				pending: false,
-				error: errorMessage ?? item.error,
+				error: errorMessage ?? item.error ?? interruptedToolMessage,
 				durationMs: item.startedAt != null ? Date.now() - item.startedAt : item.durationMs
 			};
 		} else if (item.type === 'subagent' && item.pending) {

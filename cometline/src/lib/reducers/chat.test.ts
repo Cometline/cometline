@@ -246,6 +246,23 @@ describe('reduceChatState', () => {
 		if (tool.type !== 'tool') return;
 		expect(tool.pending).toBe(false);
 		expect(tool.durationMs).toBeTypeOf('number');
+		expect(tool.error).toBe('Interrupted before the tool call finished.');
+	});
+
+	it('marks nil-input pending tools as interrupted on done', () => {
+		let state = initChatState();
+		state = reduceChatState(state, {
+			type: 'tool_call',
+			id: 'tc-1',
+			tool: 'write_file',
+			input: null as unknown as Record<string, unknown>
+		});
+		state = reduceChatState(state, { type: 'done' });
+		const tool = state.items.find((item) => item.type === 'tool');
+		expect(tool?.type).toBe('tool');
+		if (tool?.type !== 'tool') return;
+		expect(tool.pending).toBe(false);
+		expect(tool.error).toBe('Interrupted before the tool call finished.');
 	});
 
 	it('keeps one assistant across step boundaries and tool results', () => {

@@ -11,6 +11,9 @@ const (
 	// maxOutputTruncationContinuations caps how many extra model steps we take
 	// when a step hits the output token limit without tool calls.
 	maxOutputTruncationContinuations = 2
+	// maxIncompleteToolTruncationContinuations caps retries after tool-call
+	// arguments were cut off mid-stream (started but never completed).
+	maxIncompleteToolTruncationContinuations = 2
 )
 
 // DefaultSystemPrompt is persona + coding policy (shared mount docs via CodingPolicyPrompt).
@@ -24,14 +27,19 @@ func FormatOutputBudgetPromptBlock(maxTokens int) string {
 		return ""
 	}
 	return fmt.Sprintf(
-		"Each assistant step is capped at roughly %d output tokens. After tool results arrive, respond concisely—summarize findings and next steps instead of repeating large tool output or full file contents.",
+		"Each assistant step is capped at roughly %d output tokens. After tool results arrive, respond concisely—summarize findings and next steps instead of repeating large tool output or full file contents. When creating or overwriting multiple files, emit only one complete write_file (or a few small tools) per step so the full tool arguments fit under this cap—never start many large parallel write_file calls that may be truncated unfinished.",
 		maxTokens,
 	)
 }
 
 // FormatOutputTruncationContinueBlock nudges the model to finish after a truncated step.
 func FormatOutputTruncationContinueBlock() string {
-	return "Your previous assistant message in this turn was cut off at the output token limit. Continue from where you stopped. Do not repeat text already written. Be concise and finish the thought, or give a brief closing summary if the work is complete."
+	return "Your previous assistant message in this turn was cut off at the output token limit. Stop long prose. Continue unfinished work with tools instead: emit one complete, smaller write_file (or another small tool call) that fits under the output cap. Do not repeat text already written. Do not start multiple large parallel write_file calls."
+}
+
+// FormatIncompleteToolTruncationContinueBlock nudges after tool-call args were truncated.
+func FormatIncompleteToolTruncationContinueBlock() string {
+	return "Your previous tool call(s) were cut off at the output token limit before they finished, so they were not executed. Retry with exactly one smaller, complete tool call (for example one write_file whose full content fits under the output cap). Do not repeat assistant text already written. Do not re-issue the truncated parallel batch."
 }
 
 // FormatWaitForSubagentsBlock reminds the model to join any in-flight
@@ -55,13 +63,16 @@ func FormatCollectedSubagentResultsBlock(results string) string {
 // assistant role (prefill). These nudges keep continue steps ending on user
 // without persisting into the transcript.
 func ContinueUserNudgeMessages(
-	truncationContinue, jobProgressNudge, jobCompletionGate bool,
+	truncationContinue, incompleteToolTruncationContinue, jobProgressNudge, jobCompletionGate bool,
 	jobID string,
 	subagentWaitNudge bool,
 	pendingSubagentResults string,
 ) []cometsdk.Message {
 	var parts []string
-	if truncationContinue {
+	// Incomplete-tool truncation supersedes the generic text truncation nudge.
+	if incompleteToolTruncationContinue {
+		parts = append(parts, FormatIncompleteToolTruncationContinueBlock())
+	} else if truncationContinue {
 		parts = append(parts, FormatOutputTruncationContinueBlock())
 	}
 	if jobProgressNudge {

@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -114,7 +115,9 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 
 	steps := 0
 	outputTruncationContinuations := 0
+	incompleteToolTruncationContinuations := 0
 	truncationContinue := false
+	incompleteToolTruncationContinue := false
 	jobProgressNudge := false
 	jobCompletionGate := false
 	jobTracker := newJobProgressTracker(ctx, r.Jobs, turn.ID)
@@ -174,6 +177,7 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 		// trailing assistant prefills (Claude 4.6+) still accept the request.
 		msgs = append(msgs, ContinueUserNudgeMessages(
 			truncationContinue,
+			incompleteToolTruncationContinue,
 			jobProgressNudge,
 			jobCompletionGate,
 			jobTracker.JobID,
@@ -191,6 +195,7 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 
 		system := baseSystem
 		truncationContinue = false
+		incompleteToolTruncationContinue = false
 		jobProgressNudge = false
 		jobCompletionGate = false
 		subagentWaitNudge = false
@@ -263,6 +268,7 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 		toolOutputBytes := toolResultBytes(req.Messages)
 		var result *llm.GenerateMessageResult
 		recoveryAttempt := 0
+		var startedToolCalls []cometsdk.ToolCallBlock
 		for {
 			streamStarted := time.Now()
 			logging.L().Info("llm.stream.start", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", steps+1, "messages", len(req.Messages), "tools", len(req.Tools), "tool_output_bytes", toolOutputBytes, "recovery_attempt", recoveryAttempt, "system_bytes", len(req.System), "max_tokens", req.MaxTokens)
@@ -274,6 +280,8 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 			firstOutputLogged := false
 			completeToolCall := false
 			eventCount := 0
+			startedToolCalls = nil
+			startedToolIndex := map[string]int{}
 			for ev := range stream.Events() {
 				eventCount++
 				if !firstEventLogged {
@@ -291,10 +299,31 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 					ch <- event.ReasoningDelta(e.Text)
 				case cometsdk.ToolCallStartEvent:
 					firstOutputLogged = true
+					if _, ok := startedToolIndex[e.ID]; !ok {
+						startedToolIndex[e.ID] = len(startedToolCalls)
+						startedToolCalls = append(startedToolCalls, cometsdk.ToolCallBlock{
+							ID:    e.ID,
+							Name:  e.Name,
+							Input: json.RawMessage(`{}`),
+						})
+					} else {
+						startedToolCalls[startedToolIndex[e.ID]].Name = e.Name
+					}
 					ch <- event.ToolCall(e.ID, e.Name, nil)
 				case cometsdk.ToolCallDoneEvent:
 					firstOutputLogged = true
 					completeToolCall = true
+					if idx, ok := startedToolIndex[e.ID]; ok {
+						startedToolCalls[idx].Name = e.Name
+						startedToolCalls[idx].Input = json.RawMessage(e.Input)
+					} else {
+						startedToolIndex[e.ID] = len(startedToolCalls)
+						startedToolCalls = append(startedToolCalls, cometsdk.ToolCallBlock{
+							ID:    e.ID,
+							Name:  e.Name,
+							Input: json.RawMessage(e.Input),
+						})
+					}
 					ch <- event.ToolCall(e.ID, e.Name, []byte(e.Input))
 				case cometsdk.StepFinishEvent:
 					ch <- event.StepFinish(e.Usage)
@@ -338,9 +367,14 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 		// is treated as empty so we do not persist invisible assistant bubbles.
 		text := strings.TrimSpace(assistantPlainText(result.Message))
 		reasoningBlocks := result.Message.ReasoningContent
+		incompleteToolCalls := incompleteStartedToolCalls(startedToolCalls, result.ToolCalls)
+		persistToolCalls := result.ToolCalls
+		if len(incompleteToolCalls) > 0 {
+			persistToolCalls = append(append([]cometsdk.ToolCallBlock{}, result.ToolCalls...), incompleteToolCalls...)
+		}
 		persistedToolIDs := map[string]string{}
-		if text != "" || len(reasoningBlocks) > 0 || len(result.Message.ProviderState) > 0 || len(result.ToolCalls) > 0 {
-			assistant, toolIDs, err := r.Sessions.AppendAssistantStep(ctx, turn.ID, text, reasoningBlocks, result.ToolCalls, pendingMemories)
+		if text != "" || len(reasoningBlocks) > 0 || len(result.Message.ProviderState) > 0 || len(persistToolCalls) > 0 {
+			assistant, toolIDs, err := r.Sessions.AppendAssistantStep(ctx, turn.ID, text, reasoningBlocks, persistToolCalls, pendingMemories)
 			if err != nil {
 				ch <- event.Errorf(err.Error(), "db")
 				return err
@@ -359,6 +393,13 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 		// neither content nor tool calls.
 		// Memories are attached to the first persisted assistant message only.
 		pendingMemories = nil
+
+		if len(incompleteToolCalls) > 0 {
+			if err := settleIncompleteToolCalls(ctx, r.Sessions, turn.ID, incompleteToolCalls, persistedToolIDs, ch); err != nil {
+				ch <- event.Errorf(err.Error(), "db")
+				return err
+			}
+		}
 
 		if result.FinishReason == cometsdk.FinishStop {
 			if collected, waited, err := r.collectActiveSubagentResults(ctx, turn.ID); err != nil {
@@ -385,12 +426,36 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 			return completeTurn()
 		}
 		if len(result.ToolCalls) == 0 {
+			if result.FinishReason == cometsdk.FinishMaxTokens && len(incompleteToolCalls) > 0 {
+				if incompleteToolTruncationContinuations < maxIncompleteToolTruncationContinuations {
+					incompleteToolTruncationContinuations++
+					incompleteToolTruncationContinue = true
+					logging.L().Info(
+						"agent.incomplete_tool_truncation.continue",
+						"session", turn.ID,
+						"step", steps+1,
+						"continuation", incompleteToolTruncationContinuations,
+						"incomplete_tools", len(incompleteToolCalls),
+						"max_tokens", r.MaxTokens,
+					)
+					steps++
+					continue
+				}
+				logging.L().Info(
+					"agent.incomplete_tool_truncation.stop",
+					"session", turn.ID,
+					"step", steps+1,
+					"incomplete_tools", len(incompleteToolCalls),
+					"max_tokens", r.MaxTokens,
+				)
+				return completeTurn()
+			}
 			if result.FinishReason == cometsdk.FinishMaxTokens &&
 				outputTruncationContinuations < maxOutputTruncationContinuations {
 				outputTruncationContinuations++
 				truncationContinue = true
 				logging.L().Info(
-					"agent.output_truncated.continue",
+					"agent.output_truncation.continue",
 					"session", turn.ID,
 					"step", steps+1,
 					"continuation", outputTruncationContinuations,
@@ -602,6 +667,52 @@ func int64PtrFromIntPtr(v *int) *int64 {
 }
 
 const cancelledToolResult = "Tool execution cancelled before completion."
+const truncatedIncompleteToolResult = "Tool call was cut off at the output token limit before it finished. It was not executed."
+
+func incompleteStartedToolCalls(started, completed []cometsdk.ToolCallBlock) []cometsdk.ToolCallBlock {
+	if len(started) == 0 {
+		return nil
+	}
+	done := make(map[string]struct{}, len(completed))
+	for _, tc := range completed {
+		done[tc.ID] = struct{}{}
+	}
+	var out []cometsdk.ToolCallBlock
+	for _, tc := range started {
+		if _, ok := done[tc.ID]; ok {
+			continue
+		}
+		input := tc.Input
+		if len(input) == 0 {
+			input = json.RawMessage(`{}`)
+		}
+		out = append(out, cometsdk.ToolCallBlock{ID: tc.ID, Name: tc.Name, Input: input})
+	}
+	return out
+}
+
+func settleIncompleteToolCalls(
+	ctx context.Context,
+	store TurnStore,
+	sessionID string,
+	calls []cometsdk.ToolCallBlock,
+	persistedToolIDs map[string]string,
+	ch chan<- event.Event,
+) error {
+	for _, tc := range calls {
+		persistedID := persistedToolIDs[tc.ID]
+		if persistedID == "" {
+			return fmt.Errorf("missing persisted tool call id for %s", tc.ID)
+		}
+		if err := persistToolResult(ctx, store, sessionID, persistedID, truncatedIncompleteToolResult, true, 0, nil); err != nil {
+			return err
+		}
+		if ch != nil {
+			ch <- event.ToolResult(tc.ID, tc.Name, truncatedIncompleteToolResult, truncatedIncompleteToolResult)
+		}
+	}
+	return nil
+}
 
 func persistToolResult(ctx context.Context, store TurnStore, sessionID, toolCallID, output string, isErr bool, durationMS int64, exit *int64) error {
 	persistCtx, persistCancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
