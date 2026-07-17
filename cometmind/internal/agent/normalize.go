@@ -62,5 +62,5 @@ func dropEmptyAssistantMessages(messages []cometsdk.Message) ([]cometsdk.Message
 }
 
 func isEmptyAssistantMessage(m cometsdk.Message) bool {
-	return m.Role == cometsdk.RoleAssistant && len(m.Content) == 0 && len(m.ReasoningContent) == 0
+	return m.Role == cometsdk.RoleAssistant && len(m.Content) == 0 && len(m.ReasoningContent) == 0 && len(m.ProviderState) == 0
 }

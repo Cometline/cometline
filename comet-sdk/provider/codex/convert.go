@@ -26,14 +26,15 @@ type codexReasoning struct {
 }
 
 type codexInput struct {
-	Type    string             `json:"type,omitempty"`
-	Role    string             `json:"role,omitempty"`
-	Content []codexContentPart `json:"content,omitempty"`
-	Summary []codexContentPart `json:"summary,omitempty"`
-	CallID  string             `json:"call_id,omitempty"`
-	Name    string             `json:"name,omitempty"`
-	Args    string             `json:"arguments,omitempty"`
-	Output  string             `json:"output,omitempty"`
+	Type             string             `json:"type,omitempty"`
+	Role             string             `json:"role,omitempty"`
+	Content          []codexContentPart `json:"content,omitempty"`
+	Summary          []codexContentPart `json:"summary,omitempty"`
+	CallID           string             `json:"call_id,omitempty"`
+	Name             string             `json:"name,omitempty"`
+	Args             string             `json:"arguments,omitempty"`
+	Output           string             `json:"output,omitempty"`
+	EncryptedContent string             `json:"encrypted_content,omitempty"`
 }
 
 type codexContentPart struct {
@@ -50,8 +51,8 @@ type codexTool struct {
 	Strict      bool            `json:"strict"`
 }
 
-func toCodexRequest(req *cometsdk.Request, disableMaxOutputTokens, disableReasoningSummary bool) ([]byte, error) {
-	input, err := convertMessages(req.Messages)
+func toCodexRequest(req *cometsdk.Request, disableMaxOutputTokens, disableReasoningSummary, disableEncryptedReplay bool) ([]byte, error) {
+	input, err := convertMessages(req.Messages, req.Model, !disableEncryptedReplay)
 	if err != nil {
 		return nil, err
 	}
@@ -102,11 +103,11 @@ func addResponsesLiteReasoningContext(data []byte) ([]byte, error) {
 	return json.Marshal(payload)
 }
 
-func convertMessages(messages []cometsdk.Message) ([]codexInput, error) {
+func convertMessages(messages []cometsdk.Message, modelID string, replayEncryptedState bool) ([]codexInput, error) {
 	var out []codexInput
 	toolNames := make(map[string]string)
 	for _, m := range messages {
-		converted, err := convertMessage(m, toolNames)
+		converted, err := convertMessage(m, toolNames, modelID, replayEncryptedState)
 		if err != nil {
 			return nil, err
 		}
@@ -115,7 +116,7 @@ func convertMessages(messages []cometsdk.Message) ([]codexInput, error) {
 	return out, nil
 }
 
-func convertMessage(m cometsdk.Message, toolNames map[string]string) ([]codexInput, error) {
+func convertMessage(m cometsdk.Message, toolNames map[string]string, modelID string, replayEncryptedState bool) ([]codexInput, error) {
 	switch m.Role {
 	case cometsdk.RoleUser:
 		parts, err := inputContentParts(m.Content)
@@ -125,6 +126,13 @@ func convertMessage(m cometsdk.Message, toolNames map[string]string) ([]codexInp
 		return []codexInput{{Role: "user", Content: parts}}, nil
 	case cometsdk.RoleAssistant:
 		var out []codexInput
+		if replayEncryptedState {
+			for _, state := range m.ProviderState {
+				if state.ModelID == modelID && state.Data != "" {
+					out = append(out, codexInput{Type: "reasoning", EncryptedContent: state.Data})
+				}
+			}
+		}
 		reasoningSummary := reasoningSummaryParts(m.ReasoningContent)
 		if len(reasoningSummary) > 0 {
 			out = append(out, codexInput{

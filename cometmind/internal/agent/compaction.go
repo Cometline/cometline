@@ -106,6 +106,13 @@ func (c *ContextCompactor) MaybeCompact(
 		logging.L().Error("context.compact.persist_failed", "session", sess.ID, "error", err)
 		return sess, nil
 	}
+	if states, ok := c.Sessions.(interface {
+		ClearAssistantProviderState(context.Context, string) error
+	}); ok {
+		if err := states.ClearAssistantProviderState(ctx, sess.ID); err != nil {
+			logging.L().Warn("context.compact.provider_state_clear_failed", "session", sess.ID, "error", err)
+		}
+	}
 
 	logging.L().Info("context.compact.done", "session", sess.ID, "until_message", untilID, "summary_bytes", len(newSummary), "recent_start", recentStart)
 	sess.ContextSummary = newSummary

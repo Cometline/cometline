@@ -14,9 +14,10 @@ import (
 )
 
 type codexStreamState struct {
-	sawTool      bool
-	sawReasoning bool
-	tools        map[string]*codexToolCallState
+	sawTool           bool
+	sawReasoning      bool
+	tools             map[string]*codexToolCallState
+	suppressToolStart bool
 }
 
 type codexToolCallState struct {
@@ -53,21 +54,22 @@ type codexStreamEvent struct {
 }
 
 type codexOutputItem struct {
-	Type      string             `json:"type"`
-	CallID    string             `json:"call_id"`
-	ID        string             `json:"id"`
-	Name      string             `json:"name"`
-	Arguments json.RawMessage    `json:"arguments"`
-	Summary   []codexContentPart `json:"summary"`
+	Type             string             `json:"type"`
+	CallID           string             `json:"call_id"`
+	ID               string             `json:"id"`
+	Name             string             `json:"name"`
+	Arguments        json.RawMessage    `json:"arguments"`
+	Summary          []codexContentPart `json:"summary"`
+	EncryptedContent string             `json:"encrypted_content"`
 }
 
-func parseLoop(ctx context.Context, providerID string, body io.ReadCloser, ch chan<- cometsdk.Event, log *slog.Logger, idleTimeout time.Duration) {
+func parseLoop(ctx context.Context, providerID, modelID string, emitToolStart bool, body io.ReadCloser, ch chan<- cometsdk.Event, log *slog.Logger, idleTimeout time.Duration) {
 	defer close(ch)
 	defer body.Close()
 
 	scanner := sse.NewIdleScanner(body, idleTimeout)
 	defer scanner.Close()
-	state := &codexStreamState{}
+	state := &codexStreamState{suppressToolStart: !emitToolStart}
 	for scanner.Next() {
 		select {
 		case <-ctx.Done():
@@ -77,13 +79,17 @@ func parseLoop(ctx context.Context, providerID string, body io.ReadCloser, ch ch
 		}
 
 		ev := scanner.Event()
-		log.DebugContext(ctx, "sse.event", "event", ev.Type, "data", ev.Data)
+		log.DebugContext(ctx, "sse.event", "event", ev.Type, "data", redactEncryptedReasoning(ev.Data))
 		events, err := toSDKEvents(ev.Type, ev.Data, state)
 		if err != nil {
 			ch <- cometsdk.ErrorEvent{Err: &cometsdk.StreamError{ProviderID: providerID, Cause: err}}
 			return
 		}
 		for _, e := range events {
+			if providerState, ok := e.(cometsdk.ProviderStateEvent); ok {
+				providerState.State.ModelID = modelID
+				e = providerState
+			}
 			ch <- e
 			if _, ok := e.(cometsdk.DoneEvent); ok {
 				return
@@ -96,6 +102,36 @@ func parseLoop(ctx context.Context, providerID string, body io.ReadCloser, ch ch
 	}
 	ch <- cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishStop}
 	ch <- cometsdk.DoneEvent{}
+}
+
+func redactEncryptedReasoning(data string) string {
+	var value any
+	if err := json.Unmarshal([]byte(data), &value); err != nil {
+		return data
+	}
+	redactEncryptedValue(value)
+	redacted, err := json.Marshal(value)
+	if err != nil {
+		return data
+	}
+	return string(redacted)
+}
+
+func redactEncryptedValue(value any) {
+	switch v := value.(type) {
+	case map[string]any:
+		for key, child := range v {
+			if key == "encrypted_content" {
+				v[key] = "[redacted]"
+				continue
+			}
+			redactEncryptedValue(child)
+		}
+	case []any:
+		for _, child := range v {
+			redactEncryptedValue(child)
+		}
+	}
 }
 
 func toSDKEvents(eventType, data string, state *codexStreamState) ([]cometsdk.Event, error) {
@@ -138,7 +174,7 @@ func toSDKEvents(eventType, data string, state *codexStreamState) ([]cometsdk.Ev
 	case "response.output_item.added":
 		if ev.Item.Type == "function_call" {
 			tool := state.rememberTool(ev.Item.CallID, ev.Item.ID, ev.Item.Name)
-			if !tool.started {
+			if !tool.started && !state.suppressToolStart {
 				tool.started = true
 				id := ev.Item.CallID
 				if id == "" {
@@ -157,8 +193,15 @@ func toSDKEvents(eventType, data string, state *codexStreamState) ([]cometsdk.Ev
 		if ev.Item.Type == "function_call" {
 			return toolCallDoneEvents(ev.Item.CallID, ev.Item.ID, ev.Item.Name, ev.Item.Arguments, state)
 		}
-		if ev.Item.Type == "reasoning" && !state.sawReasoning {
-			return reasoningEvents(reasoningSummaryText(ev.Item.Summary), state), nil
+		if ev.Item.Type == "reasoning" {
+			events := reasoningEvents(reasoningSummaryText(ev.Item.Summary), state)
+			if ev.Item.EncryptedContent != "" {
+				events = append(events, cometsdk.ProviderStateEvent{State: cometsdk.ProviderState{
+					ProviderID: providerID,
+					Data:       ev.Item.EncryptedContent,
+				}})
+			}
+			return events, nil
 		}
 		return nil, nil
 	case "response.function_call_arguments.done":

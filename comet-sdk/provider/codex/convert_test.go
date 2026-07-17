@@ -43,7 +43,7 @@ func TestConvertRequest_ResponsesShape(t *testing.T) {
 		Tools: []cometsdk.Tool{{Name: "read_file", Description: "Read a file", Parameters: json.RawMessage(`{"type":"object"}`)}},
 	}
 
-	data, err := toCodexRequest(req, false, false)
+	data, err := toCodexRequest(req, false, false, false)
 	require.NoError(t, err)
 	var raw struct {
 		Input []map[string]json.RawMessage `json:"input"`
@@ -74,7 +74,7 @@ func TestConvertRequest_ResponsesShape(t *testing.T) {
 	require.Len(t, out.Tools, 1)
 	require.False(t, out.Tools[0].Strict)
 
-	data, err = toCodexRequest(req, true, false)
+	data, err = toCodexRequest(req, true, false, false)
 	require.NoError(t, err)
 	require.NotContains(t, string(data), "max_output_tokens")
 }
@@ -99,7 +99,7 @@ func TestConvertRequest_EmptyToolResultOutput(t *testing.T) {
 		},
 	}
 
-	data, err := toCodexRequest(req, true, false)
+	data, err := toCodexRequest(req, true, false, false)
 	require.NoError(t, err)
 	require.Contains(t, string(data), `"output":"(no output)"`)
 	require.Contains(t, string(data), `"output":"wiki/\n"`)
@@ -185,6 +185,42 @@ func TestConvertEvent_UsesCompletedReasoningSummaryWhenDeltasAreUnavailable(t *t
 		cometsdk.ReasoningStartEvent{},
 		cometsdk.ReasoningContentEvent{Text: "Inspecting the request."},
 	}, events)
+}
+
+func TestConvertEvent_CapturesEncryptedReasoningState(t *testing.T) {
+	events, err := toSDKEvents("response.output_item.done", `{"item":{"type":"reasoning","encrypted_content":"opaque-state"}}`, &codexStreamState{})
+	require.NoError(t, err)
+	require.Equal(t, []cometsdk.Event{cometsdk.ProviderStateEvent{State: cometsdk.ProviderState{
+		ProviderID: providerID,
+		Data:       "opaque-state",
+	}}}, events)
+}
+
+func TestRedactEncryptedReasoning(t *testing.T) {
+	redacted := redactEncryptedReasoning(`{"item":{"encrypted_content":"opaque-state","summary":[{"encrypted_content":"nested"}]}}`)
+	require.NotContains(t, redacted, "opaque-state")
+	require.NotContains(t, redacted, "nested")
+	require.Contains(t, redacted, "[redacted]")
+}
+
+func TestConvertRequest_ReplaysMatchingProviderState(t *testing.T) {
+	data, err := toCodexRequest(&cometsdk.Request{
+		Model: "gpt-5.6-luna",
+		Messages: []cometsdk.Message{{
+			Role: cometsdk.RoleAssistant,
+			ProviderState: []cometsdk.ProviderState{{
+				ProviderID: "custom-codex",
+				ModelID:    "gpt-5.6-luna",
+				Data:       "opaque-state",
+			}},
+		}},
+	}, true, false, false)
+	require.NoError(t, err)
+	var out codexRequest
+	require.NoError(t, json.Unmarshal(data, &out))
+	require.Len(t, out.Input, 1)
+	require.Equal(t, "reasoning", out.Input[0].Type)
+	require.Equal(t, "opaque-state", out.Input[0].EncryptedContent)
 }
 
 func TestJWTExpiry(t *testing.T) {

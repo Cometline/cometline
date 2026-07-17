@@ -259,4 +259,26 @@ CREATE INDEX idx_inbox_messages_process ON inbox_messages (
     process_attempts
 );
 
+CREATE TABLE model_capability_negatives (
+    provider_id TEXT NOT NULL,
+    endpoint    TEXT NOT NULL,
+    model_id    TEXT NOT NULL,
+    feature     TEXT NOT NULL,
+    expires_at  INTEGER NOT NULL,
+    PRIMARY KEY (provider_id, endpoint, model_id, feature)
+);
+
+CREATE INDEX idx_model_capability_negatives_expiry ON model_capability_negatives (expires_at);
+
+CREATE TABLE assistant_provider_states (
+    message_id  TEXT NOT NULL REFERENCES messages (id) ON DELETE CASCADE,
+    provider_id TEXT NOT NULL,
+    model_id    TEXT NOT NULL,
+    state       TEXT NOT NULL,
+    created_at  INTEGER NOT NULL DEFAULT (unixepoch ('now', 'subsec') * 1000),
+    PRIMARY KEY (message_id, provider_id, model_id)
+);
+
+CREATE INDEX idx_assistant_provider_states_message ON assistant_provider_states (message_id);
+
 CREATE INDEX idx_inbox_messages_archived_at ON inbox_messages (archived_at);

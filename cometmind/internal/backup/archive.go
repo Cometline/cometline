@@ -122,9 +122,22 @@ func (a *Archiver) Run(ctx context.Context, cfg Config) (Result, error) {
 func snapshotDatabase(ctx context.Context, db *sql.DB, tmpDir string) (string, error) {
 	snapshotPath := filepath.Join(tmpDir, "cometmind.db")
 	escaped := strings.ReplaceAll(snapshotPath, "'", "''")
-	query := fmt.Sprintf("VACUUM INTO '%s'", escaped)
-	if _, err := db.ExecContext(ctx, query); err != nil {
+	conn, err := db.Conn(ctx)
+	if err != nil {
 		return "", err
+	}
+	defer conn.Close()
+	if _, err := conn.ExecContext(ctx, fmt.Sprintf("VACUUM INTO '%s'", escaped)); err != nil {
+		return "", err
+	}
+	if _, err := conn.ExecContext(ctx, fmt.Sprintf("ATTACH DATABASE '%s' AS backup_snapshot", escaped)); err != nil {
+		return "", err
+	}
+	defer conn.ExecContext(context.WithoutCancel(ctx), "DETACH DATABASE backup_snapshot")
+	if _, err := conn.ExecContext(ctx, "DELETE FROM backup_snapshot.assistant_provider_states"); err != nil {
+		if !strings.Contains(strings.ToLower(err.Error()), "no such table") {
+			return "", err
+		}
 	}
 	return snapshotPath, nil
 }
