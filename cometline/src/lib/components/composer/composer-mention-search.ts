@@ -1,9 +1,8 @@
 export function shouldRunMentionServerSearch(
 	truncated: boolean,
-	query: string,
-	localMatches: string[]
+	query: string
 ): boolean {
-	return truncated && query.trim().length > 0 && localMatches.length === 0;
+	return truncated && query.trim().length > 0;
 }
 
 /** Prefer warm-cache matches; fall back to server results only when the cache has none. */
@@ -15,7 +14,6 @@ export function resolveMentionSourcePaths(
 	useServerSearch: boolean
 ): string[] {
 	const local = localMatches ?? [];
-	if (local.length > 0) return local;
 	if (!useServerSearch || serverQuery !== query.trim()) return local;
-	return serverMatches ?? [];
+	return serverMatches ?? local;
 }

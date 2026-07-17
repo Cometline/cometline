@@ -5,15 +5,13 @@ import {
 } from './composer-mention-search';
 
 describe('shouldRunMentionServerSearch', () => {
-	it('skips server search when the warm cache already matches', () => {
-		expect(shouldRunMentionServerSearch(true, 'cometline', ['cometline/README.md'])).toBe(
-			false
-		);
+	it('searches the full workspace even when the warm cache already matches', () => {
+		expect(shouldRunMentionServerSearch(true, 'cometline')).toBe(true);
 	});
 
 	it('uses server search only when truncated and the cache has no matches', () => {
-		expect(shouldRunMentionServerSearch(true, 'deep/nested', [])).toBe(true);
-		expect(shouldRunMentionServerSearch(false, 'deep/nested', [])).toBe(false);
+		expect(shouldRunMentionServerSearch(true, 'deep/nested')).toBe(true);
+		expect(shouldRunMentionServerSearch(false, 'deep/nested')).toBe(false);
 	});
 });
 
@@ -28,6 +26,18 @@ describe('resolveMentionSourcePaths', () => {
 				true
 			)
 		).toEqual(['cometline/README.md']);
+	});
+
+	it('uses complete server results after a truncated index search', () => {
+		expect(
+			resolveMentionSourcePaths(
+				['src/index.ts'],
+				['src/index.ts', 'packages/cli/index.ts'],
+				'index',
+				'index',
+				true
+			)
+		).toEqual(['src/index.ts', 'packages/cli/index.ts']);
 	});
 
 	it('falls back to server results when the cache is empty', () => {

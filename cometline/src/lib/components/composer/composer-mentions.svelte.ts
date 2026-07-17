@@ -79,7 +79,7 @@ export function createComposerMentionsController(deps: {
 	const queryTrimmed = $derived(mentionQuery.trim());
 
 	const needsServerSearch = $derived(
-		shouldRunMentionServerSearch(Boolean(fileIndex?.truncated), queryTrimmed, localMatches)
+		shouldRunMentionServerSearch(Boolean(fileIndex?.truncated), queryTrimmed)
 	);
 
 	const useServerSearch = $derived(needsServerSearch);
