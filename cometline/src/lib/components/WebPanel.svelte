@@ -904,13 +904,6 @@
 		font-size: 12px;
 	}
 
-	.address-option-muted {
-		grid-template-columns: 1fr;
-		font-size: 11px;
-		color: var(--text-muted);
-		cursor: default;
-	}
-
 	.file-path-display {
 		width: 100%;
 		min-width: 0;

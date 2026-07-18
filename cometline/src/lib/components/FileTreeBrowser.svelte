@@ -135,7 +135,7 @@
 		{#each nodes as node (dirKey(parentKey, node.name))}
 			{@const key = dirKey(parentKey, node.name)}
 			{@const hasChildren = Boolean(node.children?.length)}
-			<li class="file-tree-item" role="treeitem" aria-expanded={hasChildren ? isExpanded(key) : undefined}>
+			<li class="file-tree-item" role="treeitem" aria-selected="false" aria-expanded={hasChildren ? isExpanded(key) : undefined}>
 				{#if hasChildren}
 					<button
 						type="button"
