@@ -28,6 +28,17 @@ const {
 	parseAndNormalizeSettings,
 	validateSettings
 } = require('./settings-schema.cjs');
+const { createOllamaService } = require('./ollama-service.cjs');
+
+const ollamaService = createOllamaService({
+	sendProgress: (payload) => {
+		for (const win of BrowserWindow.getAllWindows()) {
+			if (!win.isDestroyed()) {
+				win.webContents.send('cometline:ollama-pull-progress', payload);
+			}
+		}
+	}
+});
 
 app.setName('Cometline');
 
@@ -3699,6 +3710,14 @@ async function fetchProviderModels(config) {
 	if (method === 'xai') {
 		return fetchXaiModels(config.baseURL);
 	}
+	if (method === 'ollama') {
+		const listed = await ollamaService.listModels(config.baseURL);
+		const models = listed.models.map((model) => model.name).filter(Boolean);
+		if (models.length === 0) {
+			throw new Error('No models installed in Ollama yet. Pull a model first.');
+		}
+		return { models };
+	}
 
 	const baseURL = String(config.baseURL || '').trim();
 	const apiKey = String(config.apiKey || '').trim();
@@ -3925,6 +3944,26 @@ ipcMain.handle('cometline:read-cursor-mcp-config', () => readCursorMcpConfig());
 
 ipcMain.handle('cometline:fetch-provider-models', async (_event, config) => {
 	return fetchProviderModels(config);
+});
+
+ipcMain.handle('cometline:ollama-health', async (_event, baseURL) => {
+	return ollamaService.checkHealth(baseURL);
+});
+
+ipcMain.handle('cometline:ollama-models', async (_event, baseURL) => {
+	return ollamaService.listModels(baseURL);
+});
+
+ipcMain.handle('cometline:ollama-diagnostics', async (_event, baseURL) => {
+	return ollamaService.getDiagnostics(baseURL);
+});
+
+ipcMain.handle('cometline:ollama-pull', async (_event, payload = {}) => {
+	return ollamaService.pullModel(payload);
+});
+
+ipcMain.handle('cometline:ollama-cancel-pull', async () => {
+	return ollamaService.cancelPull();
 });
 
 ipcMain.handle('cometline:save-provider-settings', async (_event, settings, options = {}) => {

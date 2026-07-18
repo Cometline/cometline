@@ -42,6 +42,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
 	getMiniWindowState: () => ipcRenderer.invoke('cometline:get-mini-window-state'),
 	saveMiniWindowState: (state) => ipcRenderer.invoke('cometline:save-mini-window-state', state),
 	fetchProviderModels: (config) => ipcRenderer.invoke('cometline:fetch-provider-models', config),
+	checkOllamaHealth: (baseURL) => ipcRenderer.invoke('cometline:ollama-health', baseURL),
+	listOllamaModels: (baseURL) => ipcRenderer.invoke('cometline:ollama-models', baseURL),
+	getOllamaDiagnostics: (baseURL) => ipcRenderer.invoke('cometline:ollama-diagnostics', baseURL),
+	pullOllamaModel: (payload) => ipcRenderer.invoke('cometline:ollama-pull', payload),
+	cancelOllamaPull: () => ipcRenderer.invoke('cometline:ollama-cancel-pull'),
+	onOllamaPullProgress: (callback) => {
+		const handler = (_event, payload) => callback(payload);
+		ipcRenderer.on('cometline:ollama-pull-progress', handler);
+		return () => ipcRenderer.removeListener('cometline:ollama-pull-progress', handler);
+	},
 	saveProviderSettings: (settings, options) =>
 		ipcRenderer.invoke('cometline:save-provider-settings', settings, options),
 	setSidebarOpen: (payload) => ipcRenderer.send('cometline:set-sidebar-open', payload),
