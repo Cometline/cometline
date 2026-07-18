@@ -30,6 +30,7 @@ import {
 	readWorkspaceFileContent as readWorkspaceFileContentApi,
 	writeWorkspaceFileContent as writeWorkspaceFileContentApi,
 	listWikiFiles as listWikiFilesApi,
+	listWikiFileBacklinks as listWikiFileBacklinksApi,
 	readWikiFileContent as readWikiFileContentApi,
 	writeWikiFileContent as writeWikiFileContentApi,
 	patchSession as patchSessionApi,
@@ -324,6 +325,13 @@ export function listWikiFiles(query = '', limit = 50): Promise<WorkspaceFiles> {
 		query: { q: query, limit },
 		throwOnError: true
 	}).then(({ data }) => ({ files: data.files ?? [], truncated: Boolean(data.truncated) }));
+}
+
+export function listWikiFileBacklinks(path: string): Promise<string[]> {
+	return listWikiFileBacklinksApi({
+		query: { path },
+		throwOnError: true
+	}).then(({ data }) => data.backlinks ?? []);
 }
 
 export function readWikiFileContent(path: string): Promise<WorkspaceFileContent> {
