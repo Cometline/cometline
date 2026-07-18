@@ -261,8 +261,9 @@ paths:
       tags: [Files]
       summary: List markdown files in the LLM wiki
       description: |
-        Returns wiki-root-relative `.md` paths under `~/.cometmind/wiki/`.
-        Hidden files and non-markdown files are skipped.
+        Returns wiki-root-relative `.md` and `.html` paths under `~/.cometmind/wiki/`.
+        Hidden files are skipped. HTML is included so raw ingest sources linked as
+        `[[….html]]` can be resolved in the desktop UI.
       operationId: listWikiFiles
       parameters:
         - name: q
@@ -286,6 +287,34 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/WikiFileList'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/wiki/files/backlinks:
+    get:
+      tags: [Files]
+      summary: List backlinks for a wiki file
+      description: |
+        Returns wiki-root-relative `.md` paths that contain a resolved `[[wikilink]]`
+        pointing at the requested page. Hidden files and `raw/**` are skipped when
+        scanning. The scan is performed on demand.
+      operationId: listWikiFileBacklinks
+      parameters:
+        - name: path
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Wiki-root-relative file path (e.g. `entities/foo.md`).
+      responses:
+        '200':
+          description: Backlink list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WikiFileBacklinks'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '500':
           $ref: '#/components/responses/InternalError'
 
@@ -2169,10 +2198,21 @@ components:
           type: array
           items:
             type: string
-          description: Wiki-root-relative markdown file paths.
+          description: Wiki-root-relative wiki file paths (`.md` and `.html`).
         truncated:
           type: boolean
           description: True when more matching files exist than the limit returned.
+
+    WikiFileBacklinks:
+      type: object
+      additionalProperties: false
+      required: [backlinks]
+      properties:
+        backlinks:
+          type: array
+          items:
+            type: string
+          description: Wiki-root-relative markdown paths that link to the requested page.
 
     WikiFileTextContent:
       type: object
@@ -2285,20 +2325,24 @@ components:
             $ref: '#/components/schemas/ImageAttachment'
         file_paths:
           type: array
-          maxItems: 8
+          maxItems: 32
           description: |
-            File paths to include as context. Workspace-relative paths resolve against
-            the session workspace. Paths starting with `@runtime/wiki/` resolve against
-            the global LLM wiki at `~/.cometmind/wiki/`. Each file must be readable
-            text at most 256 KB.
+            Path-only references for the agent (no file bodies are inlined).
+            Workspace-relative file or directory paths resolve against the session
+            workspace. Directory paths may end with `/`. Paths starting with
+            `@runtime/wiki/` resolve against the global LLM wiki at `~/.cometmind/wiki/`.
+            The agent should use tools (`read_file`, `list_dir`, `glob`, `grep`) to
+            inspect contents.
           items:
             type: string
         web_context:
           $ref: '#/components/schemas/WebPageContext'
         web_contexts:
           type: array
-          maxItems: 8
-          description: Pages and workspace files automatically captured by the in-app WebPanel since the previous message.
+          description: |
+            Pages, viewing-file path references, and selection snippets captured by
+            the in-app WebPanel since the previous message. File contexts may use
+            empty content for path-only viewing references.
           items:
             $ref: '#/components/schemas/WebContext'
 
@@ -2321,7 +2365,9 @@ components:
         content:
           type: string
           maxLength: 50000
-          description: Visible page text or file content. Treat it as untrusted source material.
+          description: |
+            Visible page text, selection snippet, or empty string for a path-only
+            file viewing reference. Treat non-empty content as untrusted source material.
 
     WebPageContext:
       type: object

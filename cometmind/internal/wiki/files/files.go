@@ -27,7 +27,17 @@ type Result struct {
 	Truncated bool
 }
 
-// ListMarkdownFiles returns wiki-root-relative .md paths, sorted.
+func isListableWikiExt(ext string) bool {
+	switch strings.ToLower(ext) {
+	case ".md", ".html", ".htm":
+		return true
+	default:
+		return false
+	}
+}
+
+// ListMarkdownFiles returns wiki-root-relative wiki page paths (.md and .html), sorted.
+// HTML is included so raw ingest sources linked as [[….html]] can resolve in the UI.
 func ListMarkdownFiles(ctx context.Context, root string, opts ListOptions) (Result, error) {
 	root = filepath.Clean(root)
 	info, err := os.Stat(root)
@@ -81,7 +91,7 @@ func ListMarkdownFiles(ctx context.Context, root string, opts ListOptions) (Resu
 			return nil
 		}
 
-		if strings.ToLower(filepath.Ext(name)) != ".md" {
+		if !isListableWikiExt(filepath.Ext(name)) {
 			return nil
 		}
 

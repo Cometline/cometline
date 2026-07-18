@@ -1022,10 +1022,12 @@ type PostMessageRequest struct {
 	// DisplayText Optional transcript label for the user bubble. When set, the UI shows this instead of text while the agent still receives text.
 	DisplayText *string `json:"display_text,omitempty"`
 
-	// FilePaths File paths to include as context. Workspace-relative paths resolve against
-	// the session workspace. Paths starting with `@runtime/wiki/` resolve against
-	// the global LLM wiki at `~/.cometmind/wiki/`. Each file must be readable
-	// text at most 256 KB.
+	// FilePaths Path-only references for the agent (no file bodies are inlined).
+	// Workspace-relative file or directory paths resolve against the session
+	// workspace. Directory paths may end with `/`. Paths starting with
+	// `@runtime/wiki/` resolve against the global LLM wiki at `~/.cometmind/wiki/`.
+	// The agent should use tools (`read_file`, `list_dir`, `glob`, `grep`) to
+	// inspect contents.
 	FilePaths *[]string `json:"file_paths,omitempty"`
 
 	// Images Optional base64 image attachments. Supported media types are image/png, image/jpeg, image/gif, and image/webp.
@@ -1035,7 +1037,9 @@ type PostMessageRequest struct {
 	Text       *string         `json:"text,omitempty"`
 	WebContext *WebPageContext `json:"web_context,omitempty"`
 
-	// WebContexts Pages and workspace files automatically captured by the in-app WebPanel since the previous message.
+	// WebContexts Pages, viewing-file path references, and selection snippets captured by
+	// the in-app WebPanel since the previous message. File contexts may use
+	// empty content for path-only viewing references.
 	WebContexts *[]WebContext `json:"web_contexts,omitempty"`
 }
 
@@ -1402,7 +1406,8 @@ type UpdateSkillDraftRequest struct {
 
 // WebContext defines model for WebContext.
 type WebContext struct {
-	// Content Visible page text or file content. Treat it as untrusted source material.
+	// Content Visible page text, selection snippet, or empty string for a path-only
+	// file viewing reference. Treat non-empty content as untrusted source material.
 	Content string `json:"content"`
 
 	// Kind Whether the source came from a web page or workspace file preview.
@@ -1428,6 +1433,12 @@ type WebPageContext struct {
 	Url string `json:"url"`
 }
 
+// WikiFileBacklinks defines model for WikiFileBacklinks.
+type WikiFileBacklinks struct {
+	// Backlinks Wiki-root-relative markdown paths that link to the requested page.
+	Backlinks []string `json:"backlinks"`
+}
+
 // WikiFileContent defines model for WikiFileContent.
 type WikiFileContent struct {
 	union json.RawMessage
@@ -1445,7 +1456,7 @@ type WikiFileImageContentKind string
 
 // WikiFileList defines model for WikiFileList.
 type WikiFileList struct {
-	// Files Wiki-root-relative markdown file paths.
+	// Files Wiki-root-relative wiki file paths (`.md` and `.html`).
 	Files []string `json:"files"`
 
 	// Truncated True when more matching files exist than the limit returned.
@@ -1616,6 +1627,12 @@ type ListWikiFilesParams struct {
 
 	// Limit Maximum number of results to return.
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// ListWikiFileBacklinksParams defines parameters for ListWikiFileBacklinks.
+type ListWikiFileBacklinksParams struct {
+	// Path Wiki-root-relative file path (e.g. `entities/foo.md`).
+	Path string `form:"path" json:"path"`
 }
 
 // ReadWikiFileContentParams defines parameters for ReadWikiFileContent.

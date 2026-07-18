@@ -1,10 +1,11 @@
 /**
- * CometMind appends attached workspace files to the persisted user message as
- * `[File: path]` fenced blocks for the agent. Those blocks should not appear in
+ * CometMind may append path-reference stubs or (legacy / drag-drop) `[File: path]`
+ * fenced blocks to the persisted user message. Those blocks should not appear in
  * the chat UI — @ mentions are rendered as clickable chips instead.
  */
 
 const FILE_HEADER = /^\[File: [^\]]+\]$/;
+const PATH_REF_STUB = /^\[Referenced (?:file|directory): [^\]]+\]$/;
 const OPEN_FENCE = /^(`{3,})(.*)$/;
 const INCLUDE_ERROR = /^<!-- Could not include /;
 
@@ -32,7 +33,7 @@ export function stripInlinedFileBlocks(text: string): string {
 	while (i < lines.length) {
 		const line = lines[i];
 
-		if (INCLUDE_ERROR.test(line)) {
+		if (INCLUDE_ERROR.test(line) || PATH_REF_STUB.test(line)) {
 			i += 1;
 			continue;
 		}

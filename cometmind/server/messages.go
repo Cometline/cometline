@@ -22,11 +22,10 @@ import (
 const (
 	maxMessageImages     = 6
 	maxMessageImageBytes = 4 * 1024 * 1024
-	maxMessageFilePaths  = 8
+	maxMessageFilePaths  = 32
 	maxMessageFileBytes  = 256 * 1024
 	maxWebContextChars   = 50000
 	maxWebContextTotal   = 100000
-	maxWebContexts       = 8
 	runtimeWikiPrefix    = "@runtime/wiki/"
 )
 
@@ -224,9 +223,6 @@ func contentBlocksFromRequest(req postMessageRequest, workspacePath string) ([]s
 	if len(req.FilePaths) > maxMessageFilePaths {
 		return nil, fmt.Errorf("at most %d file paths are allowed", maxMessageFilePaths)
 	}
-	if len(req.WebContexts) > maxWebContexts {
-		return nil, fmt.Errorf("at most %d web contexts are allowed", maxWebContexts)
-	}
 
 	var fileAppend strings.Builder
 	seen := make(map[string]bool, len(req.FilePaths))
@@ -240,7 +236,12 @@ func contentBlocksFromRequest(req postMessageRequest, workspacePath string) ([]s
 		}
 		seen[rel] = true
 
-		abs, err := resolveMessageFilePath(workspacePath, rel)
+		resolveRel := strings.TrimSuffix(rel, "/")
+		if resolveRel == "" {
+			fileAppend.WriteString(fmt.Sprintf("\n\n<!-- Could not include %s: path is required -->", rel))
+			continue
+		}
+		abs, err := resolveMessageFilePath(workspacePath, resolveRel)
 		if err != nil {
 			fileAppend.WriteString(fmt.Sprintf("\n\n<!-- Could not include %s: %s -->", rel, err.Error()))
 			continue
@@ -251,19 +252,20 @@ func contentBlocksFromRequest(req postMessageRequest, workspacePath string) ([]s
 			continue
 		}
 		if info.IsDir() {
-			fileAppend.WriteString(fmt.Sprintf("\n\n<!-- Could not include %s: path is a directory -->", rel))
+			display := resolveRel
+			if !strings.HasSuffix(display, "/") {
+				display += "/"
+			}
+			fileAppend.WriteString(fmt.Sprintf(
+				"\n\n[Referenced directory: %s — use list_dir/glob/grep as needed]",
+				display,
+			))
 			continue
 		}
-		if info.Size() > maxMessageFileBytes {
-			fileAppend.WriteString(fmt.Sprintf("\n\n<!-- Could not include %s: file is larger than %d KB -->", rel, maxMessageFileBytes/1024))
-			continue
-		}
-		data, err := os.ReadFile(abs)
-		if err != nil {
-			fileAppend.WriteString(fmt.Sprintf("\n\n<!-- Could not include %s: %s -->", rel, err.Error()))
-			continue
-		}
-		fileAppend.WriteString(fmt.Sprintf("\n\n[File: %s]\n```\n%s\n```", rel, string(data)))
+		fileAppend.WriteString(fmt.Sprintf(
+			"\n\n[Referenced file: %s — use read_file (or other tools) if you need contents; do not assume body is attached]",
+			resolveRel,
+		))
 	}
 
 	blocks := make([]session.ContentBlock, 0, 1+len(req.Images))
@@ -349,15 +351,24 @@ func formatWebContext(input webContextInput) (string, error) {
 			return "", fmt.Errorf("web page context source must be an absolute http(s) URL")
 		}
 	}
-	if content == "" {
-		return "", fmt.Errorf("web context content is required")
-	}
-	if len([]rune(content)) > maxWebContextChars {
-		content = string([]rune(content)[:maxWebContextChars]) + "\n[context truncated]"
-	}
 	title := strings.TrimSpace(input.Title)
 	if len([]rune(title)) > 500 {
 		title = string([]rune(title)[:500])
+	}
+	if content == "" {
+		if kind != "file" {
+			return "", fmt.Errorf("web context content is required")
+		}
+		var b strings.Builder
+		fmt.Fprintf(&b, "\n\n[Workspace file path — currently open in WebPanel; use read_file if you need contents]\n")
+		if title != "" {
+			fmt.Fprintf(&b, "Title: %s\n", title)
+		}
+		fmt.Fprintf(&b, "Source: %s", source)
+		return b.String(), nil
+	}
+	if len([]rune(content)) > maxWebContextChars {
+		content = string([]rune(content)[:maxWebContextChars]) + "\n[context truncated]"
 	}
 	var b strings.Builder
 	label := "Web page"

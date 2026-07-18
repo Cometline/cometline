@@ -205,10 +205,47 @@ func TestPostMessageInlinesWikiFilePaths(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := msgs[0].Content[0].(cometsdk.TextBlock).Text
-	if !strings.Contains(text, "[File: @runtime/wiki/index.md]") {
-		t.Fatalf("missing wiki file block: %q", text)
+	if !strings.Contains(text, "[Referenced file: @runtime/wiki/index.md —") {
+		t.Fatalf("missing wiki file path stub: %q", text)
 	}
-	if !strings.Contains(text, "# wiki index") {
-		t.Fatalf("missing wiki content: %q", text)
+	if strings.Contains(text, "# wiki index") {
+		t.Fatalf("wiki body should not be inlined: %q", text)
+	}
+}
+
+func TestListWikiFileBacklinks(t *testing.T) {
+	dataDir := t.TempDir()
+	t.Setenv("COMETMIND_DATA_DIR", dataDir)
+	wikiDir := filepath.Join(dataDir, "wiki")
+	if err := os.MkdirAll(filepath.Join(wikiDir, "entities"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(wikiDir, "concepts"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	mustWrite(t, filepath.Join(wikiDir, "entities", "a.md"), "See [[b]]")
+	mustWrite(t, filepath.Join(wikiDir, "concepts", "b.md"), "target")
+
+	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
+			ch <- event.Done()
+			return nil
+		}), nil
+	})
+	defer cleanup()
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/wiki/files/backlinks?path=concepts/b.md", nil)
+	engine.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	var got struct {
+		Backlinks []string `json:"backlinks"`
+	}
+	decodeJSON(t, rec.Body.Bytes(), &got)
+	if len(got.Backlinks) != 1 || got.Backlinks[0] != "entities/a.md" {
+		t.Fatalf("backlinks = %v", got.Backlinks)
 	}
 }

@@ -13,6 +13,7 @@ func TestListMarkdownFiles(t *testing.T) {
 		"index.md",
 		"entities/foo.md",
 		"raw/2026-01-01-note.md",
+		"raw/2026-01-01-paper.html",
 		"notes.txt",
 		".hidden.md",
 	} {
@@ -29,8 +30,8 @@ func TestListMarkdownFiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(result.Files) != 3 {
-		t.Fatalf("files = %v want 3 markdown paths", result.Files)
+	if len(result.Files) != 4 {
+		t.Fatalf("files = %v want 4 wiki paths (.md + .html)", result.Files)
 	}
 }
 
