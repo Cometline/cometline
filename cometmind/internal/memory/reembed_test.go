@@ -47,7 +47,7 @@ func TestPreviewAndStartReembedWithNoMemoriesAppliesImmediately(t *testing.T) {
 		Provider: "ollama",
 		Model:    "qwen3-embedding:0.6b",
 		BaseURL:  "http://127.0.0.1:11434",
-	})
+	}, true)
 	if err != nil {
 		t.Fatal(err)
 	}

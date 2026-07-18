@@ -60,6 +60,7 @@
 	let selectedEmbeddingKey = $state('');
 	let reembedJob = $state<MemoryReembedJob | null>(null);
 	let reembedStatus = $state('');
+	let reembedding = $state(false);
 
 	let loadError = $state('');
 	let savedSnapshot = $state('');
@@ -233,6 +234,43 @@
 			await new Promise((r) => setTimeout(r, 1000));
 		}
 		return reembedJob;
+	}
+
+	async function forceReembed() {
+		if (!settings || reembedding) return;
+		const payload = computeEmbeddingPayload(settings);
+		if (!payload.embedding.model.trim()) {
+			reembedStatus = 'Select an embedding model first.';
+			return;
+		}
+		if (fullMemories.length === 0) {
+			reembedStatus = 'No memories need re-embedding.';
+			return;
+		}
+		if (
+			!window.confirm(
+				`Re-embed all ${fullMemories.length} memories with “${payload.embedding.model}”?`
+			)
+		) {
+			return;
+		}
+		reembedding = true;
+		reembedStatus = '';
+		try {
+			reembedJob = await startMemoryReembed(payload.embedding, true);
+			const finished = await pollReembedJob();
+			if (finished?.status === 'failed') {
+				throw new Error(finished.error || 'Re-embed failed');
+			}
+			if (finished?.status === 'cancelled') {
+				throw new Error('Re-embed cancelled');
+			}
+			reembedStatus = 'Re-embed complete. Retrieval now uses the selected model.';
+		} catch (error) {
+			reembedStatus = error instanceof Error ? error.message : 'Re-embed failed';
+		} finally {
+			reembedding = false;
+		}
 	}
 
 	export async function saveMemorySettings(): Promise<void> {
@@ -492,33 +530,50 @@
 					</div>
 
 					<div class="embedding-row">
-						<label>
-							<span>Embedding model</span>
-							{#if embeddingDropdownOptions.length === 0}
-								<p class="empty-embedding">
-									No embedding models enabled. Enable an embedding model under
-									Settings → Providers (Ollama Local recommended for private
-									memory).
-								</p>
-							{:else}
-								<select
-									bind:value={selectedEmbeddingKey}
-									onchange={(event) => {
-										selectedEmbeddingKey = event.currentTarget.value;
-									}}
-								>
-									<option value="">Select embedding model…</option>
-									{#each embeddingDropdownOptions as option (embeddingOptionKey(option))}
-										<option value={embeddingOptionKey(option)}>
-											{option.method === 'ollama' ? 'Local · ' : ''}{option.providerName}
-											· {option.model}{option.orphan
-												? ' (enable in Providers)'
-												: ''}
-										</option>
-									{/each}
-								</select>
-							{/if}
-						</label>
+						<div class="embedding-control-row">
+							<label>
+								<span>Embedding model</span>
+								{#if embeddingDropdownOptions.length === 0}
+									<p class="empty-embedding">
+										No embedding models enabled. Enable an embedding model under
+										Settings → Providers (Ollama Local recommended for private
+										memory).
+									</p>
+								{:else}
+									<select
+										bind:value={selectedEmbeddingKey}
+										onchange={(event) => {
+											selectedEmbeddingKey = event.currentTarget.value;
+										}}
+									>
+										<option value="">Select embedding model…</option>
+										{#each embeddingDropdownOptions as option (embeddingOptionKey(option))}
+											<option value={embeddingOptionKey(option)}>
+												{option.method === 'ollama' ? 'Local · ' : ''}{option.providerName}
+												· {option.model}{option.orphan
+													? ' (enable in Providers)'
+													: ''}
+											</option>
+										{/each}
+									</select>
+								{/if}
+							</label>
+							<button
+								type="button"
+								class="secondary reembed-button"
+								onclick={() => void forceReembed()}
+								disabled={
+									reembedding ||
+									saving ||
+									loading ||
+									fullMemories.length === 0 ||
+									reembedJob?.status === 'running'
+								}
+							>
+								{#if reembedding}<span class="spin"><LoaderCircle size={14} /></span>{/if}
+								Re-embed
+							</button>
+						</div>
 						{#if reembedStatus || (reembedJob?.status && ['pending', 'running'].includes(reembedJob.status))}
 							<div class="reembed-status">
 								<p>{reembedStatus || `Re-embedding… ${reembedJob?.completed ?? 0}/${reembedJob?.total ?? 0}`}</p>
@@ -728,6 +783,31 @@
 		font-size: 12px;
 		line-height: 1.45;
 		color: var(--text-muted);
+	}
+
+	.embedding-row {
+		display: grid;
+		gap: 12px;
+	}
+
+	.embedding-control-row {
+		display: flex;
+		align-items: flex-end;
+		gap: 8px;
+	}
+
+	.embedding-control-row label {
+		min-width: 0;
+		flex: 1 1 auto;
+	}
+
+	.reembed-button {
+		flex: 0 0 auto;
+		height: 38px;
+		padding: 5px 9px;
+		font-size: 11px;
+		line-height: 1.2;
+		white-space: nowrap;
 	}
 
 	.embedding-row label {

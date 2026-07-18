@@ -1376,7 +1376,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/MemoryEmbeddingSettings'
+              $ref: '#/components/schemas/MemoryReembedRequest'
       responses:
         '200':
           description: Started or completed job
@@ -3401,6 +3401,18 @@ components:
           type: string
         migration_needed:
           type: boolean
+
+    MemoryReembedRequest:
+      type: object
+      additionalProperties: false
+      required: [embedding]
+      properties:
+        embedding:
+          $ref: '#/components/schemas/MemoryEmbeddingSettings'
+        force:
+          type: boolean
+          default: false
+          description: Re-embed every active memory, including memories already using the target model.
 
     MemoryReembedJob:
       type: object

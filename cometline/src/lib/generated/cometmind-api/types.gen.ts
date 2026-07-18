@@ -698,6 +698,14 @@ export type MemoryReembedPreview = {
     migration_needed: boolean;
 };
 
+export type MemoryReembedRequest = {
+    embedding: MemoryEmbeddingSettings;
+    /**
+     * Re-embed every active memory, including memories already using the target model.
+     */
+    force?: boolean;
+};
+
 export type MemoryReembedJob = {
     id?: string;
     status?: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
@@ -2577,7 +2585,7 @@ export type GetMemoryReembedJobResponses = {
 export type GetMemoryReembedJobResponse = GetMemoryReembedJobResponses[keyof GetMemoryReembedJobResponses];
 
 export type StartMemoryReembedData = {
-    body: MemoryEmbeddingSettings;
+    body: MemoryReembedRequest;
     path?: never;
     query?: never;
     url: '/api/v1/memories/reembed-jobs';

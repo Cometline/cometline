@@ -1,4 +1,5 @@
 import type { ProviderConfig, ProviderMethod } from '$lib/types';
+import { normalizeOllamaNativeBase } from '$lib/ollama/url';
 
 export interface EmbeddingModelOption {
 	providerId: string;
@@ -131,17 +132,38 @@ export function listEmbeddingModelOptions(providers: ProviderConfig[]): Embeddin
 	return out;
 }
 
-function findProviderForSaved(
+function isRecoverableOllamaSelection(provider: ProviderConfig, saved: SavedEmbeddingRef): boolean {
+	return (
+		provider.method === 'ollama' &&
+		Boolean(saved.model) &&
+		provider.models.includes(saved.model) &&
+		Boolean(saved.baseURL) &&
+		Boolean(provider.baseURL) &&
+		normalizeOllamaNativeBase(saved.baseURL) === normalizeOllamaNativeBase(provider.baseURL)
+	);
+}
+
+export function findProviderForSaved(
 	providers: ProviderConfig[],
 	saved: SavedEmbeddingRef
 ): ProviderConfig | undefined {
 	if (saved.providerId) {
 		const byId = providers.find((p) => p.id === saved.providerId);
-		if (byId) return byId;
+		if (byId && (byId.models.includes(saved.model) || byId.enabledModels.includes(saved.model))) {
+			return byId;
+		}
+	}
+	const recoveredOllama = providers.find((provider) =>
+		isRecoverableOllamaSelection(provider, saved)
+	);
+	if (recoveredOllama) {
+		return recoveredOllama;
 	}
 	if (saved.provider) {
 		const byMethod = providers.find(
-			(p) => p.id === saved.provider || p.method === saved.provider
+			(p) =>
+				(p.id === saved.provider || p.method === saved.provider) &&
+				(p.models.includes(saved.model) || p.enabledModels.includes(saved.model))
 		);
 		if (byMethod) return byMethod;
 	}
@@ -159,7 +181,8 @@ function orphanOptionFromSaved(
 ): EmbeddingModelOption | undefined {
 	if (!trim(saved.model)) return undefined;
 	const provider = findProviderForSaved(providers, saved);
-	const providerId = saved.providerId || provider?.id || '__saved__';
+	const recoveredProvider = provider && isRecoverableOllamaSelection(provider, saved) ? provider : undefined;
+	const providerId = recoveredProvider?.id || saved.providerId || provider?.id || '__saved__';
 	const providerName = provider?.name || saved.providerId || saved.provider || 'Saved provider';
 	const method = provider?.method ?? 'openai-compatible';
 	return {
@@ -169,7 +192,7 @@ function orphanOptionFromSaved(
 		model: saved.model,
 		baseURL: saved.baseURL || provider?.baseURL || '',
 		apiKey: saved.apiKey || provider?.apiKey || '',
-		orphan: true
+		orphan: recoveredProvider ? undefined : true
 	};
 }
 
@@ -248,7 +271,11 @@ export function buildEmbeddingDropdownOptions(
 		savedRef
 	);
 	if (!resolved) return options;
-	if (!resolved.orphan) return options;
+	if (!resolved.orphan) {
+		return options.some((opt) => embeddingOptionKey(opt) === embeddingOptionKey(resolved))
+			? options
+			: [...options, resolved];
+	}
 	if (options.some((opt) => embeddingOptionKey(opt) === embeddingOptionKey(resolved))) {
 		return options;
 	}

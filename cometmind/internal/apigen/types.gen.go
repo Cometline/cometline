@@ -1006,6 +1006,14 @@ type MemoryReembedPreview struct {
 	RequestedModel  string `json:"requested_model"`
 }
 
+// MemoryReembedRequest defines model for MemoryReembedRequest.
+type MemoryReembedRequest struct {
+	Embedding MemoryEmbeddingSettings `json:"embedding"`
+
+	// Force Re-embed every active memory, including memories already using the target model.
+	Force *bool `json:"force,omitempty"`
+}
+
 // MemoryResource defines model for MemoryResource.
 type MemoryResource struct {
 	AccessCount int64   `json:"access_count"`
@@ -1757,7 +1765,7 @@ type CreateMemoryJSONRequestBody = CreateMemoryRequest
 type PurgeArchivedMemoryJSONRequestBody = PurgeArchivedMemoryRequest
 
 // StartMemoryReembedJSONRequestBody defines body for StartMemoryReembed for application/json ContentType.
-type StartMemoryReembedJSONRequestBody = MemoryEmbeddingSettings
+type StartMemoryReembedJSONRequestBody = MemoryReembedRequest
 
 // PreviewMemoryReembedJSONRequestBody defines body for PreviewMemoryReembed for application/json ContentType.
 type PreviewMemoryReembedJSONRequestBody = MemoryEmbeddingSettings

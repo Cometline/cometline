@@ -99,10 +99,10 @@ func (s *Service) PreviewReembed(ctx context.Context, target EmbeddingSettings) 
 		}
 	}
 	return ReembedPreview{
-		ActiveCount:     total,
-		NeedsMigration:  needs,
-		CurrentModel:    current,
-		RequestedModel:  requested,
+		ActiveCount:    total,
+		NeedsMigration: needs,
+		CurrentModel:   current,
+		RequestedModel: requested,
 		// Only require an explicit migration when switching away from the
 		// currently active retrieval model while old vectors still exist.
 		MigrationNeeded: needs > 0 && requested != "" && requested != current,
@@ -141,8 +141,9 @@ LIMIT 1`)
 }
 
 // StartReembed queues a background re-embed. Retrieval keeps using the current
-// embedder until the job completes successfully.
-func (s *Service) StartReembed(ctx context.Context, target EmbeddingSettings) (*ReembedJob, error) {
+// embedder until the job completes successfully. When force is true, every
+// active memory is re-embedded, even if it already uses the target model.
+func (s *Service) StartReembed(ctx context.Context, target EmbeddingSettings, force bool) (*ReembedJob, error) {
 	if s == nil {
 		return nil, fmt.Errorf("memory service is nil")
 	}
@@ -153,7 +154,11 @@ func (s *Service) StartReembed(ctx context.Context, target EmbeddingSettings) (*
 	if err != nil {
 		return nil, err
 	}
-	if !preview.MigrationNeeded {
+	total := preview.NeedsMigration
+	if force {
+		total = preview.ActiveCount
+	}
+	if !preview.MigrationNeeded && (!force || preview.ActiveCount == 0) {
 		// Nothing to migrate — apply immediately.
 		if err := s.UpdateSettings(s.settingsWithEmbedding(target)); err != nil {
 			return nil, err
@@ -193,7 +198,7 @@ func (s *Service) StartReembed(ctx context.Context, target EmbeddingSettings) (*
 		ToModel:      strings.TrimSpace(target.Model),
 		ToBaseURL:    strings.TrimSpace(target.BaseURL),
 		TargetAPIKey: target.APIKey,
-		Total:        preview.NeedsMigration,
+		Total:        total,
 		Completed:    0,
 		CreatedAt:    now,
 		UpdatedAt:    now,
@@ -208,7 +213,7 @@ func (s *Service) StartReembed(ctx context.Context, target EmbeddingSettings) (*
 	s.reembed.job = job
 	s.reembed.mu.Unlock()
 
-	go s.runReembed(runCtx, *job, target)
+	go s.runReembed(runCtx, *job, target, force)
 	out := *job
 	return &out, nil
 }
@@ -244,7 +249,7 @@ func (s *Service) settingsWithEmbedding(embedding EmbeddingSettings) Settings {
 	return next
 }
 
-func (s *Service) runReembed(ctx context.Context, job ReembedJob, target EmbeddingSettings) {
+func (s *Service) runReembed(ctx context.Context, job ReembedJob, target EmbeddingSettings, force bool) {
 	defer func() {
 		s.reembed.mu.Lock()
 		s.reembed.cancel = nil
@@ -274,7 +279,7 @@ func (s *Service) runReembed(ctx context.Context, job ReembedJob, target Embeddi
 			s.reembed.mu.Unlock()
 			return
 		}
-		if strings.TrimSpace(rec.EmbeddingModel) == target.Model && len(rec.Embedding) > 0 {
+		if !force && strings.TrimSpace(rec.EmbeddingModel) == target.Model && len(rec.Embedding) > 0 {
 			continue
 		}
 		vectors, err := embedder.Embed(ctx, rec.Content)

@@ -849,11 +849,12 @@ export function getMemoryReembedJob(): Promise<MemoryReembedJob> {
 }
 
 export function startMemoryReembed(
-	embedding: MemorySettings['embedding']
+	embedding: MemorySettings['embedding'],
+	force = false
 ): Promise<MemoryReembedJob> {
 	return memoryJSON('/api/v1/memories/reembed-jobs', {
 		method: 'POST',
-		body: JSON.stringify(embedding)
+		body: JSON.stringify({ embedding, force })
 	});
 }
 
