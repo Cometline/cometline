@@ -11,10 +11,16 @@
 		getMemorySettings,
 		listMemories,
 		putMemorySettings,
+		previewMemoryReembed,
+		startMemoryReembed,
+		getMemoryReembedJob,
+		cancelMemoryReembed,
 		searchMemories,
+		CometMindApiError,
 		type MemoryResource,
 		type CompactMemoryPreviewResponse,
 		type MemoryCompactionResult,
+		type MemoryReembedJob,
 		type MemorySettings
 	} from '$lib/client/cometmind';
 	import {
@@ -52,6 +58,8 @@
 	let compactionResult = $state<MemoryCompactionResult | null>(null);
 	let compactionError = $state('');
 	let selectedEmbeddingKey = $state('');
+	let reembedJob = $state<MemoryReembedJob | null>(null);
+	let reembedStatus = $state('');
 
 	let loadError = $state('');
 	let savedSnapshot = $state('');
@@ -214,14 +222,75 @@
 		return payload;
 	}
 
+	async function pollReembedJob() {
+		for (let i = 0; i < 600; i++) {
+			const job = await getMemoryReembedJob();
+			reembedJob = job;
+			if (!job?.status || !['pending', 'running'].includes(job.status)) {
+				return job;
+			}
+			reembedStatus = `Re-embedding memories… ${job.completed ?? 0}/${job.total ?? 0}`;
+			await new Promise((r) => setTimeout(r, 1000));
+		}
+		return reembedJob;
+	}
+
 	export async function saveMemorySettings(): Promise<void> {
 		saving = true;
+		reembedStatus = '';
 		try {
-			settings = await putMemorySettings(buildSavePayload());
+			const payload = buildSavePayload();
+			try {
+				settings = await putMemorySettings(payload);
+			} catch (error) {
+				const conflict =
+					error instanceof CometMindApiError
+						? error.status === 409
+						: error instanceof Error && /re-embed/i.test(error.message);
+				if (!conflict) throw error;
+
+				const preview = await previewMemoryReembed(payload.embedding);
+				if (!preview.migration_needed) {
+					settings = await putMemorySettings(payload);
+				} else {
+					const confirmed = window.confirm(
+						`Switching embedding models requires re-embedding ${preview.needs_migration} memories.\n\n` +
+							`Retrieval keeps using “${preview.current_model || 'the previous model'}” until the new index is ready.\n\n` +
+							`Start background re-embed now?`
+					);
+					if (!confirmed) {
+						throw new Error('Embedding change cancelled — previous model kept.');
+					}
+					reembedJob = await startMemoryReembed(payload.embedding);
+					const finished = await pollReembedJob();
+					if (finished?.status === 'failed') {
+						throw new Error(finished.error || 'Re-embed failed');
+					}
+					if (finished?.status === 'cancelled') {
+						throw new Error('Re-embed cancelled');
+					}
+					// Job already applied the embedding; refresh settings for other fields.
+					const refreshed = await getMemorySettings();
+					settings = {
+						...payload,
+						embedding: refreshed.embedding.model
+							? refreshed.embedding
+							: payload.embedding
+					};
+					try {
+						settings = await putMemorySettings(settings);
+					} catch {
+						// Embedding already migrated; ignore a second conflict.
+						settings = await getMemorySettings();
+					}
+					reembedStatus = 'Re-embed complete. Retrieval now uses the new model.';
+				}
+			}
 			const savedFromResponse = savedEmbeddingFromApi(settings.embedding);
 			selectedEmbeddingKey =
 				embeddingKeyForFields(providers, settings.embedding, savedFromResponse) ||
 				selectedEmbeddingKey;
+			markSavedSnapshot(settings);
 			await onEmbeddingSaved?.(settings.embedding);
 		} catch (error) {
 			throw error instanceof Error ? error : new Error('Failed to save memory settings');
@@ -428,7 +497,8 @@
 							{#if embeddingDropdownOptions.length === 0}
 								<p class="empty-embedding">
 									No embedding models enabled. Enable an embedding model under
-									Settings → Providers.
+									Settings → Providers (Ollama Local recommended for private
+									memory).
 								</p>
 							{:else}
 								<select
@@ -440,7 +510,8 @@
 									<option value="">Select embedding model…</option>
 									{#each embeddingDropdownOptions as option (embeddingOptionKey(option))}
 										<option value={embeddingOptionKey(option)}>
-											{option.providerName} · {option.model}{option.orphan
+											{option.method === 'ollama' ? 'Local · ' : ''}{option.providerName}
+											· {option.model}{option.orphan
 												? ' (enable in Providers)'
 												: ''}
 										</option>
@@ -448,6 +519,20 @@
 								</select>
 							{/if}
 						</label>
+						{#if reembedStatus || (reembedJob?.status && ['pending', 'running'].includes(reembedJob.status))}
+							<div class="reembed-status">
+								<p>{reembedStatus || `Re-embedding… ${reembedJob?.completed ?? 0}/${reembedJob?.total ?? 0}`}</p>
+								{#if reembedJob?.status === 'running'}
+									<button
+										type="button"
+										class="secondary"
+										onclick={() => void cancelMemoryReembed()}
+									>
+										Cancel re-embed
+									</button>
+								{/if}
+							</div>
+						{/if}
 					</div>
 				</div>
 			</div>
@@ -628,6 +713,21 @@
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 		gap: 12px;
+	}
+
+	.reembed-status {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 10px;
+		margin-top: 8px;
+	}
+
+	.reembed-status p {
+		margin: 0;
+		font-size: 12px;
+		line-height: 1.45;
+		color: var(--text-muted);
 	}
 
 	.embedding-row label {
