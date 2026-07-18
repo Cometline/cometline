@@ -1,13 +1,12 @@
 <script lang="ts">
 	import { ArrowLeft, ArrowRight, FileText, RotateCcw, RotateCw, Save, X } from '@lucide/svelte';
-	import { tick } from 'svelte';
+	import { tick, untrack } from 'svelte';
 	import FilePreview from '$lib/components/FilePreview.svelte';
+	import FileTreeBrowser from '$lib/components/FileTreeBrowser.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { isWebPanelUrl, normalizeUserUrl, openLink } from '$lib/open-link';
 	import { openExternalLink } from '$lib/external-link';
-	import { readWorkspaceFileContent, readWikiFileContent } from '$lib/client/cometmind';
-	import { loadPanelFileOptions } from '$lib/workspace/panel-file-options';
-	import { isWikiUiPath, toWikiRelative } from '$lib/wiki/paths';
+	import { isWikiUiPath } from '$lib/wiki/paths';
 
 	type WebviewElement = HTMLElement & {
 		src: string;
@@ -46,9 +45,6 @@
 	let canGoForward = $state(false);
 	let loading = $state(false);
 	let addressInput = $state('');
-	let addressOptionHighlight = $state(0);
-	let fileOptions = $state<string[]>([]);
-	let fileOptionsLoading = $state(false);
 	let pageTitle = $state('');
 	let webviewSessionId = $state<string | null>(null);
 	let webviewLoadedUrl = $state<string | null>(null);
@@ -59,7 +55,6 @@
 	let capturingContext = $state(false);
 	let contextMessage = $state('');
 	let pageCaptureRun = 0;
-	let fileCaptureRun = 0;
 	let cachedPageContext = $state<CachedPageContext | null>(null);
 
 	const panelOpen = $derived(shellStore.webPanelOpen);
@@ -73,13 +68,21 @@
 	const showFilePreview = $derived(
 		panelMode === 'file' && Boolean(shellStore.hasWebPanelForSession && displayedFilePath)
 	);
+	const showFileBrowser = $derived(
+		Boolean(shellStore.hasWebPanelForSession && shellStore.webPanelBrowseOpen)
+	);
 	const dirty = $derived(Boolean(editorState?.dirty));
 	const saving = $derived(Boolean(editorState?.saving));
 	const addressQuery = $derived(addressInput.trim());
 	const showAddressOptions = $derived(
 		panelMode === 'url' && addressEditing && Boolean(addressQuery)
 	);
-	const addressOptionCount = $derived(showAddressOptions ? 1 + fileOptions.length : 0);
+	const toolbarCanGoBack = $derived(
+		(showWebview && canGoBack) || shellStore.canPanelHistoryBack
+	);
+	const toolbarCanGoForward = $derived(
+		(showWebview && canGoForward) || shellStore.canPanelHistoryForward
+	);
 	const webOptionVerb = $derived.by(() => {
 		const normalized = normalizeUserUrl(addressInput);
 		if (!normalized) return 'Search web';
@@ -122,13 +125,19 @@
 	}
 
 	function onBack() {
-		if (!webviewEl?.canGoBack()) return;
-		webviewEl.goBack();
+		if (showWebview && webviewEl?.canGoBack()) {
+			webviewEl.goBack();
+			return;
+		}
+		shellStore.panelHistoryBack();
 	}
 
 	function onForward() {
-		if (!webviewEl?.canGoForward()) return;
-		webviewEl.goForward();
+		if (showWebview && webviewEl?.canGoForward()) {
+			webviewEl.goForward();
+			return;
+		}
+		shellStore.panelHistoryForward();
 	}
 
 	/** Used by AppShell shared ⌘[ / ⌘] routing when the web panel is focused. */
@@ -262,29 +271,10 @@
 		return null;
 	}
 
-	async function captureFileContext(workspacePath: string, filePath: string) {
-		const captureRun = ++fileCaptureRun;
-		const capturedSessionKey = panelSessionKey;
-		try {
-			const result = isWikiUiPath(filePath)
-				? await readWikiFileContent(toWikiRelative(filePath))
-				: await readWorkspaceFileContent(workspacePath, filePath);
-			if (
-				captureRun !== fileCaptureRun ||
-				shellStore.webPanelFilePath !== filePath ||
-				shellStore.webPanelSessionKey !== capturedSessionKey
-			)
-				return;
-			if (result.kind !== 'text' || !result.content.trim()) return;
-			shellStore.addWebContextForActive({
-				kind: 'file',
-				title: filePath.split(/[/\\]/).pop() || filePath,
-				source: isWikiUiPath(filePath) ? filePath : `workspace-file:${filePath}`,
-				content: result.content
-			});
-		} catch {
-			// FilePreview owns the visible error state; context capture is best effort.
-		}
+	function captureFileContext(filePath: string) {
+		const title = filePath.split(/[/\\]/).pop() || filePath;
+		const source = isWikiUiPath(filePath) ? filePath : `workspace-file:${filePath}`;
+		shellStore.setViewingFileContextForActive(source, title);
 	}
 
 	function confirmDiscardIfDirty(): boolean {
@@ -316,6 +306,8 @@
 	function handlePanelMouseDown(event: MouseEvent) {
 		shellStore.setFocusedPane('web');
 		if (panelMode !== 'url' || event.button !== 0) return;
+		// Browse/file-tree interactions should keep focus in the tree/filter.
+		if (showFileBrowser) return;
 		const target = event.target;
 		if (!(target instanceof HTMLElement)) {
 			shellStore.requestAddressBarFocus();
@@ -329,56 +321,18 @@
 		const normalized = normalizeUserUrl(addressInput);
 		if (!normalized) return;
 		addressEditing = false;
-		fileOptions = [];
 		shellStore.navigateWebPanel(normalized);
 	}
 
-	function selectFileOption(path: string) {
-		addressEditing = false;
-		fileOptions = [];
-		addressInput = path;
-		shellStore.openFilePreviewForActive(path);
-	}
-
-	function selectHighlightedAddressOption() {
-		if (!showAddressOptions || addressOptionHighlight === 0) {
-			selectWebOption();
-			return;
-		}
-		const filePath = fileOptions[addressOptionHighlight - 1];
-		if (filePath) {
-			selectFileOption(filePath);
-			return;
-		}
-		selectWebOption();
-	}
-
-	function onAddressInput() {
-		addressOptionHighlight = 0;
-	}
-
 	function onAddressKeydown(event: KeyboardEvent) {
-		if (showAddressOptions && event.key === 'ArrowDown') {
-			event.preventDefault();
-			addressOptionHighlight = (addressOptionHighlight + 1) % Math.max(addressOptionCount, 1);
-			return;
-		}
-		if (showAddressOptions && event.key === 'ArrowUp') {
-			event.preventDefault();
-			addressOptionHighlight =
-				(addressOptionHighlight - 1 + Math.max(addressOptionCount, 1)) %
-				Math.max(addressOptionCount, 1);
-			return;
-		}
 		if (event.key === 'Enter') {
 			event.preventDefault();
-			selectHighlightedAddressOption();
+			selectWebOption();
 			return;
 		}
 		if (event.key === 'Escape') {
 			event.preventDefault();
 			addressEditing = false;
-			fileOptions = [];
 			syncAddressFromNavigation();
 			addressInputEl?.blur();
 		}
@@ -391,7 +345,6 @@
 
 	function onAddressBlur() {
 		addressEditing = false;
-		fileOptions = [];
 		syncAddressFromNavigation();
 	}
 
@@ -475,7 +428,6 @@
 	// input (or a late effect run) doesn't refocus twice and a brand-new request
 	// always wins regardless of which path observes it first.
 	let satisfiedFocusRequestId = 0;
-	let fileOptionSeq = 0;
 
 	function applyAddressFocus() {
 		const requestId = shellStore.addressBarFocusRequestId;
@@ -532,8 +484,6 @@
 			// Programmatic navigation, such as clicking a link in an assistant
 			// response, must dismiss any stale address suggestions first.
 			addressEditing = false;
-			fileOptions = [];
-			addressOptionHighlight = 0;
 		}
 		if (!addressEditing) {
 			syncAddressFromNavigation();
@@ -557,13 +507,21 @@
 		}
 	});
 
-	// Guard file switches behind an unsaved-change confirmation. The store path
-	// changes immediately, but FilePreview only reloads the locally-tracked
+	$effect(() => {
+		if (showFileBrowser) {
+			pageTitle = '';
+			canGoBack = false;
+			canGoForward = false;
+		}
+	});
+
+	// Guard leaving a dirty file behind an unsaved-change confirmation. The store
+	// path changes immediately, but FilePreview only reloads the locally-tracked
 	// displayedFilePath, so cancelling keeps the current (dirty) file open.
 	$effect(() => {
 		const nextFilePath = panelMode === 'file' ? panelFilePath : null;
 		if (nextFilePath === displayedFilePath) return;
-		if (displayedFilePath !== null && nextFilePath !== null && dirty) {
+		if (displayedFilePath !== null && nextFilePath !== displayedFilePath && dirty) {
 			if (!window.confirm('Discard unsaved changes?')) {
 				return;
 			}
@@ -572,13 +530,11 @@
 	});
 
 	$effect(() => {
-		const workspace = shellStore.workspacePath;
 		const filePath = panelMode === 'file' ? panelFilePath : null;
-		if (!filePath) {
-			fileCaptureRun += 1;
-			return;
-		}
-		void captureFileContext(workspace, filePath);
+		if (!filePath) return;
+		// untrack: setViewingFileContextForActive reads+writes pending contexts; if
+		// that read is tracked here, every write re-runs this effect forever.
+		untrack(() => captureFileContext(filePath));
 	});
 
 	$effect(() => {
@@ -589,36 +545,6 @@
 		const open = panelOpen;
 		if (!requestId || !open) return;
 		void tick().then(applyAddressFocus);
-	});
-
-	$effect(() => {
-		const workspacePath = shellStore.workspacePath;
-		const query = addressQuery;
-		if (!addressEditing || !query) {
-			fileOptionSeq += 1;
-			fileOptions = [];
-			fileOptionsLoading = false;
-			return;
-		}
-
-		const seq = ++fileOptionSeq;
-		fileOptionsLoading = true;
-		void loadPanelFileOptions(workspacePath, query)
-			.then((options) => {
-				if (seq !== fileOptionSeq) return;
-				fileOptions = options;
-				if (addressOptionHighlight >= 1 + options.length) {
-					addressOptionHighlight = 0;
-				}
-			})
-			.catch(() => {
-				if (seq !== fileOptionSeq) return;
-				fileOptions = [];
-				addressOptionHighlight = 0;
-			})
-			.finally(() => {
-				if (seq === fileOptionSeq) fileOptionsLoading = false;
-			});
 	});
 </script>
 
@@ -631,26 +557,26 @@
 	>
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<header class="web-panel-toolbar" onmousedown={handlePanelMouseDown}>
-			{#if panelMode === 'url'}
-				<div class="nav-actions">
-					<button
-						type="button"
-						class="icon-button"
-						disabled={!canGoBack}
-						onclick={onBack}
-						aria-label="Back"
-					>
-						<ArrowLeft size={16} />
-					</button>
-					<button
-						type="button"
-						class="icon-button"
-						disabled={!canGoForward}
-						onclick={onForward}
-						aria-label="Forward"
-					>
-						<ArrowRight size={16} />
-					</button>
+			<div class="nav-actions">
+				<button
+					type="button"
+					class="icon-button"
+					disabled={!toolbarCanGoBack}
+					onclick={onBack}
+					aria-label="Back"
+				>
+					<ArrowLeft size={16} />
+				</button>
+				<button
+					type="button"
+					class="icon-button"
+					disabled={!toolbarCanGoForward}
+					onclick={onForward}
+					aria-label="Forward"
+				>
+					<ArrowRight size={16} />
+				</button>
+				{#if panelMode === 'url'}
 					<button
 						type="button"
 						class="icon-button"
@@ -670,8 +596,8 @@
 					>
 						<FileText size={16} />
 					</button>
-				</div>
-			{/if}
+				{/if}
+			</div>
 			<div class="url-field">
 				{#if panelMode === 'file' && displayedFilePath}
 					<span class="page-title">
@@ -698,9 +624,8 @@
 						spellcheck="false"
 						autocapitalize="off"
 						autocomplete="off"
-						placeholder="Search web or open workspace file"
+						placeholder="Search web or enter URL"
 						bind:value={addressInput}
-						oninput={onAddressInput}
 						onfocus={onAddressFocus}
 						onblur={onAddressBlur}
 						onkeydown={onAddressKeydown}
@@ -718,36 +643,14 @@
 						>
 							<button
 								type="button"
-								class:highlighted={addressOptionHighlight === 0}
-								class="address-option"
+								class="address-option highlighted"
 								role="option"
-								aria-selected={addressOptionHighlight === 0}
-								onmouseenter={() => (addressOptionHighlight = 0)}
+								aria-selected={true}
 								onclick={selectWebOption}
 							>
 								<span class="address-option-label">{webOptionVerb}</span>
 								<span class="address-option-detail">{addressQuery}</span>
 							</button>
-							{#each fileOptions as filePath, index}
-								<button
-									type="button"
-									class:highlighted={addressOptionHighlight === index + 1}
-									class="address-option"
-									role="option"
-									aria-selected={addressOptionHighlight === index + 1}
-									title={filePath}
-									onmouseenter={() => (addressOptionHighlight = index + 1)}
-									onclick={() => selectFileOption(filePath)}
-								>
-									<span class="address-option-label">Open file</span>
-									<span class="address-option-detail">{filePath}</span>
-								</button>
-							{/each}
-							{#if fileOptionsLoading && fileOptions.length === 0}
-								<div class="address-option address-option-muted">
-									Searching workspace files...
-								</div>
-							{/if}
 						</div>
 					{/if}
 				{/if}
@@ -799,6 +702,11 @@
 			{:else if showWebview}
 				<!-- Electron webview tag; inert in plain browser dev without Electron. -->
 				<webview bind:this={webviewEl} class="web-panel-view"></webview>
+			{:else if showFileBrowser}
+				<FileTreeBrowser
+					workspacePath={shellStore.workspacePath}
+					onSelectFile={(path) => shellStore.openFilePreviewForActive(path)}
+				/>
 			{/if}
 		</div>
 	</div>

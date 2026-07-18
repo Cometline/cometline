@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { FileText, Loader } from '@lucide/svelte';
+	import { FileText, Folder, Loader } from '@lucide/svelte';
 	import SlashCommandMenu from '$lib/components/composer/SlashCommandMenu.svelte';
 	import type { createComposerMentionsController } from '$lib/components/composer/composer-mentions.svelte';
 
@@ -21,7 +21,7 @@
 </script>
 
 {#if mentions.mentionMenuOpen}
-	<SlashCommandMenu ariaLabel="Files" class="mention-menu" bind:menuRef>
+	<SlashCommandMenu ariaLabel="Files and folders" class="mention-menu" bind:menuRef>
 		{#if !mentions.fileIndexReady && mentionResults.length === 0}
 			<p class="skill-command-loading">
 				<Loader size={13} stroke-width={2} class="mention-spinner" />
@@ -39,7 +39,7 @@
 		{:else if mentionResults.length === 0}
 			<p class="skill-command-empty">No matching files.</p>
 		{:else}
-			{#each mentionResults as path, index (path)}
+			{#each mentionResults as item, index (item.kind + ':' + item.path)}
 				<button
 					type="button"
 					class="skill-command-option mention-option"
@@ -50,11 +50,15 @@
 					onpointerenter={() => (mentions.mentionHighlight = index)}
 					onpointerdown={(e) => {
 						e.preventDefault();
-						mentions.selectMentionFile(path);
+						mentions.selectMentionFile(item);
 					}}
 				>
-					<FileText size={14} stroke-width={1.8} />
-					<span class="mention-path">{path}</span>
+					{#if item.kind === 'dir'}
+						<Folder size={14} stroke-width={1.8} />
+					{:else}
+						<FileText size={14} stroke-width={1.8} />
+					{/if}
+					<span class="mention-path">{item.path}</span>
 				</button>
 			{/each}
 		{/if}

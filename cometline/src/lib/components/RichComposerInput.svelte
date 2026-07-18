@@ -10,6 +10,7 @@ import { fly } from 'svelte/transition';
 	} from '$lib/dom/custom-caret';
 	import { faviconUrl, domainFromUrl, isHttpUrl, fileMentionText } from '$lib/markdown/embed';
 	import { openLink } from '$lib/open-link';
+	import { shellStore } from '$lib/stores/shell.svelte';
 	import { openWorkspaceFilePreview } from '$lib/workspace/open-file-preview';
 
 	let {
@@ -161,6 +162,21 @@ import { fly } from 'svelte/transition';
 		const label = document.createElement('span');
 		label.className = 'rce-chip-label';
 		label.textContent = fileMentionText(path);
+		chip.appendChild(label);
+		return chip;
+	}
+
+	function makeDirChip(path: string): HTMLElement {
+		const normalized = path.endsWith('/') ? path : `${path}/`;
+		const chip = document.createElement('span');
+		chip.className = 'rce-chip rce-dir-chip';
+		chip.contentEditable = 'false';
+		chip.dataset.filePath = normalized;
+		chip.title = normalized;
+
+		const label = document.createElement('span');
+		label.className = 'rce-chip-label';
+		label.textContent = fileMentionText(normalized);
 		chip.appendChild(label);
 		return chip;
 	}
@@ -448,9 +464,15 @@ import { fly } from 'svelte/transition';
 		const chip = target.closest('.rce-chip');
 		if (!(chip instanceof HTMLElement)) return;
 		// A plain click on a file chip opens it in the side-panel editor.
+		// Directory chips open the WebPanel file browser.
 		if (chip.dataset.filePath) {
 			e.preventDefault();
-			openWorkspaceFilePreview(chip.dataset.filePath);
+			const path = chip.dataset.filePath;
+			if (chip.classList.contains('rce-dir-chip') || path.endsWith('/')) {
+				shellStore.openWebPanelEmpty();
+				return;
+			}
+			openWorkspaceFilePreview(path);
 			return;
 		}
 		// A plain click on a URL chip opens its link.
@@ -525,7 +547,7 @@ import { fly } from 'svelte/transition';
 	export function insertFileMention(path: string) {
 		if (!editor) return;
 		const mention = findActiveMention();
-		const chip = makeFileChip(path);
+		const chip = path.endsWith('/') ? makeDirChip(path) : makeFileChip(path);
 		const space = document.createTextNode('\u00a0');
 		syncing = true;
 		if (mention) {
@@ -555,7 +577,7 @@ import { fly } from 'svelte/transition';
 
 	export function getFilePaths(): string[] {
 		if (!editor) return [];
-		const chips = editor.querySelectorAll('.rce-file-chip');
+		const chips = editor.querySelectorAll('.rce-file-chip, .rce-dir-chip');
 		const paths: string[] = [];
 		for (const chip of chips) {
 			const path = (chip as HTMLElement).dataset.filePath;
@@ -796,6 +818,13 @@ import { fly } from 'svelte/transition';
 		border-color: rgba(16, 185, 129, 0.22);
 		background: rgba(16, 185, 129, 0.07);
 		color: #1d5c42;
+		font-weight: 650;
+	}
+
+	.rce-editor :global(.rce-dir-chip) {
+		border-color: rgba(59, 130, 246, 0.22);
+		background: rgba(59, 130, 246, 0.07);
+		color: #1e3a5f;
 		font-weight: 650;
 	}
 

@@ -115,14 +115,14 @@
 				shellStore.openWebPanelFromShortcut();
 				return;
 			case 'navigateBack':
-				if (shouldUseWebPanelHistory(shellStore.webPanelOpen, shellStore.focusedPane)) {
+				if (shouldUseWebPanelHistory(shellStore.webPanelOpen)) {
 					webPanelRef?.navigateBack();
 				} else {
 					navigateSessionHistory('back');
 				}
 				return;
 			case 'navigateForward':
-				if (shouldUseWebPanelHistory(shellStore.webPanelOpen, shellStore.focusedPane)) {
+				if (shouldUseWebPanelHistory(shellStore.webPanelOpen)) {
 					webPanelRef?.navigateForward();
 				} else {
 					navigateSessionHistory('forward');
