@@ -44,6 +44,25 @@ describe('listEmbeddingModelOptions', () => {
 		]);
 		expect(options).toEqual([]);
 	});
+
+	it('lists ollama embedding models without an API key', () => {
+		const options = listEmbeddingModelOptions([
+			baseProvider({
+				id: 'ollama',
+				name: 'Ollama Local',
+				method: 'ollama',
+				baseURL: 'http://127.0.0.1:11434',
+				apiKey: '',
+				enabledModels: ['qwen3-embedding:0.6b', 'gemma4:e2b-mlx']
+			})
+		]);
+		expect(options).toHaveLength(1);
+		expect(options[0]).toMatchObject({
+			providerId: 'ollama',
+			model: 'qwen3-embedding:0.6b',
+			method: 'ollama'
+		});
+	});
 });
 
 describe('resolveEmbeddingSelection', () => {

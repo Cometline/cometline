@@ -30,7 +30,12 @@ export interface MemoryEmbeddingFields {
 const EMBEDDING_MODEL_RE = /embed/i;
 
 export function providerSupportsEmbeddings(method: ProviderMethod): boolean {
-	return method === 'openai' || method === 'openai-compatible' || method === 'opencode-go';
+	return (
+		method === 'openai' ||
+		method === 'openai-compatible' ||
+		method === 'opencode-go' ||
+		method === 'ollama'
+	);
 }
 
 export function isEmbeddingModelName(model: string): boolean {
@@ -44,6 +49,8 @@ export function embeddingProviderForMethod(method: ProviderMethod): string {
 		case 'openai-compatible':
 		case 'opencode-go':
 			return 'openai-compatible';
+		case 'ollama':
+			return 'ollama';
 		default:
 			return '';
 	}

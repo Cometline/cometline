@@ -5,7 +5,8 @@ declare global {
 		| 'anthropic'
 		| 'opencode-go'
 		| 'codex'
-		| 'xai';
+		| 'xai'
+		| 'ollama';
 
 	interface ProviderConfig {
 		id: string;
@@ -386,6 +387,52 @@ declare global {
 			fetchProviderModels?: (
 				config: ProviderConfig
 			) => Promise<FetchProviderModelsResult | string[]>;
+			checkOllamaHealth?: (baseURL?: string) => Promise<{
+				ok: boolean;
+				state: 'healthy' | 'missing' | 'unreachable';
+				baseURL: string;
+				version?: string;
+				error?: string;
+			}>;
+			listOllamaModels?: (baseURL?: string) => Promise<{
+				baseURL: string;
+				models: Array<{
+					name: string;
+					size?: number;
+					digest?: string;
+					modifiedAt?: string;
+				}>;
+			}>;
+			getOllamaDiagnostics?: (baseURL?: string) => Promise<{
+				ok: boolean;
+				state: string;
+				baseURL: string;
+				version?: string;
+				error?: string;
+				models: Array<{ name: string; size?: number }>;
+				pullActive: boolean;
+				pullModel: string | null;
+			}>;
+			pullOllamaModel?: (payload: {
+				baseURL?: string;
+				catalogId?: string;
+				modelName?: string;
+			}) => Promise<{
+				ok: boolean;
+				model: string;
+				models: Array<{ name: string; size?: number }>;
+			}>;
+			cancelOllamaPull?: () => Promise<{ ok: boolean; cancelled: boolean; model?: string }>;
+			onOllamaPullProgress?: (
+				callback: (payload: {
+					model: string;
+					status: string;
+					total?: number;
+					completed?: number;
+					percent?: number;
+					done?: boolean;
+				}) => void
+			) => () => void;
 			saveProviderSettings?: (
 				settings: ProviderSettings,
 				options?: {

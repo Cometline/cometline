@@ -23,6 +23,7 @@ import {
 	normalizeCustomPersonas as normalizeCustomPersonaList,
 	normalizePersonaId as resolveNormalizedPersonaId
 } from '../personas';
+import { normalizeOllamaNativeBase } from '../ollama/url';
 
 export const VALID_PROVIDER_METHODS: ProviderMethod[] = [
 	'openai-compatible',
@@ -30,16 +31,18 @@ export const VALID_PROVIDER_METHODS: ProviderMethod[] = [
 	'anthropic',
 	'opencode-go',
 	'codex',
-	'xai'
+	'xai',
+	'ollama'
 ];
 
 const BUILTIN_PROVIDER_NAMES: Record<string, string> = {
-	'openai-compatible': 'OpenAI Compatible',
+	'openai-compatible': 'Advanced / Custom endpoint',
 	anthropic: 'Anthropic',
 	openai: 'OpenAI',
 	'opencode-go': 'OpenCode Go',
 	codex: 'ChatGPT Codex',
-	xai: 'xAI Grok Subscription'
+	xai: 'xAI Grok Subscription',
+	ollama: 'Ollama Local'
 };
 
 function providerNameOrDefault(
@@ -311,8 +314,19 @@ const DEFAULT_PROVIDERS: ProviderConfig[] = [
 		enabledModels: []
 	},
 	{
+		id: 'ollama',
+		name: 'Ollama Local',
+		method: 'ollama',
+		enabled: false,
+		baseURL: 'http://127.0.0.1:11434',
+		apiKey: '',
+		selectedModel: '',
+		models: [],
+		enabledModels: []
+	},
+	{
 		id: 'openai-compatible',
-		name: 'OpenAI Compatible',
+		name: 'Advanced / Custom endpoint',
 		method: 'openai-compatible',
 		enabled: false,
 		baseURL: '',
@@ -323,7 +337,14 @@ const DEFAULT_PROVIDERS: ProviderConfig[] = [
 	}
 ];
 
-const FIXED_BUILTIN_PROVIDER_IDS = new Set(['codex', 'xai', 'openai', 'anthropic', 'opencode-go']);
+const FIXED_BUILTIN_PROVIDER_IDS = new Set([
+	'codex',
+	'xai',
+	'openai',
+	'anthropic',
+	'opencode-go',
+	'ollama'
+]);
 
 /** Built-in integrations have a stable identity; custom endpoints remain configurable. */
 export function isFixedBuiltinProvider(id: string): boolean {
@@ -1052,15 +1073,19 @@ export function normalizeProvider(
 	const enabledModels = rawEnabledModels
 		.map((model) => String(model || '').trim())
 		.filter((model) => model && modelList.includes(model));
+	let baseURL = String(provider.baseURL ?? fallback?.baseURL ?? '').trim();
+	if (method === 'ollama') {
+		baseURL = normalizeOllamaNativeBase(baseURL || fixedBuiltin?.baseURL);
+	}
 	return {
 		id,
 		name: fixedBuiltin?.name ?? providerNameOrDefault(provider, fallback, id),
 		method,
 		enabled:
 			typeof provider.enabled === 'boolean' ? provider.enabled : Boolean(fallback?.enabled),
-		baseURL: String(provider.baseURL ?? fallback?.baseURL ?? '').trim(),
+		baseURL,
 		apiKey:
-			method === 'codex' || method === 'xai'
+			method === 'codex' || method === 'xai' || method === 'ollama'
 				? ''
 				: String(provider.apiKey ?? fallback?.apiKey ?? '').trim(),
 		selectedModel: enabledModels[0] || '',
@@ -1273,7 +1298,15 @@ export function runtimeSlice(settings: ProviderSettings): RuntimeSettingsSlice |
 const providerConfigSchema = z.object({
 	id: z.string().min(1),
 	name: z.string(),
-	method: z.enum(['openai-compatible', 'openai', 'anthropic', 'opencode-go', 'codex', 'xai']),
+	method: z.enum([
+		'openai-compatible',
+		'openai',
+		'anthropic',
+		'opencode-go',
+		'codex',
+		'xai',
+		'ollama'
+	]),
 	enabled: z.boolean(),
 	baseURL: z.string(),
 	apiKey: z.string(),

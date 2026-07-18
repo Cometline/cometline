@@ -4401,6 +4401,95 @@ function normalizePersonaId(value, customPersonas) {
   return "minako";
 }
 
+// src/lib/ollama/catalog.ts
+var OLLAMA_DEFAULT_NATIVE_BASE = "http://127.0.0.1:11434";
+var OLLAMA_CATALOG = [
+  {
+    id: "private-memory",
+    displayName: "Private Memory",
+    pullName: "qwen3-embedding:0.6b",
+    sizeEstimateBytes: 639 * 1024 * 1024,
+    sizeLabel: "~639 MB",
+    description: "Multilingual semantic memory embeddings. Recommended for first-run setup.",
+    roles: ["embedding"],
+    capabilities: {
+      chat: false,
+      title: false,
+      embedding: true,
+      agent: false,
+      extraction: false
+    },
+    featured: true,
+    licenseURL: "https://ollama.com/library/qwen3-embedding"
+  },
+  {
+    id: "local-companion-efficient",
+    displayName: "Local Companion \u2014 Efficient",
+    pullName: "gemma4:e2b-mlx",
+    sizeEstimateBytes: Math.round(6.5 * 1024 * 1024 * 1024),
+    sizeLabel: "~6.5 GB",
+    description: "Smaller local chat model for Apple Silicon. Chat and titles only in v1.",
+    roles: ["chat", "title"],
+    capabilities: {
+      chat: true,
+      title: true,
+      embedding: false,
+      agent: false,
+      extraction: false
+    },
+    featured: true,
+    architectureNote: "Optimized for Apple Silicon (MLX)",
+    licenseURL: "https://ollama.com/library/gemma4"
+  },
+  {
+    id: "local-companion-better",
+    displayName: "Local Companion \u2014 Better quality",
+    pullName: "gemma4:e4b-mlx",
+    sizeEstimateBytes: Math.round(8.8 * 1024 * 1024 * 1024),
+    sizeLabel: "~8.8 GB",
+    description: "Higher-quality local chat model for Apple Silicon. Chat and titles only in v1.",
+    roles: ["chat", "title"],
+    capabilities: {
+      chat: true,
+      title: true,
+      embedding: false,
+      agent: false,
+      extraction: false
+    },
+    featured: true,
+    architectureNote: "Optimized for Apple Silicon (MLX)",
+    licenseURL: "https://ollama.com/library/gemma4"
+  },
+  {
+    id: "private-memory-lightweight",
+    displayName: "Private Memory \u2014 Lightweight",
+    pullName: "embeddinggemma",
+    sizeEstimateBytes: 622 * 1024 * 1024,
+    sizeLabel: "~622 MB",
+    description: "Lower-resource multilingual embeddings. Available as an expandable alternative.",
+    roles: ["embedding"],
+    capabilities: {
+      chat: false,
+      title: false,
+      embedding: true,
+      agent: false,
+      extraction: false
+    },
+    featured: false,
+    licenseURL: "https://ollama.com/library/embeddinggemma"
+  }
+];
+
+// src/lib/ollama/url.ts
+function normalizeOllamaNativeBase(url) {
+  let base = String(url ?? "").trim().replace(/\/+$/, "");
+  if (!base) return OLLAMA_DEFAULT_NATIVE_BASE;
+  if (base.toLowerCase().endsWith("/v1")) {
+    base = base.slice(0, -3).replace(/\/+$/, "");
+  }
+  return base || OLLAMA_DEFAULT_NATIVE_BASE;
+}
+
 // src/lib/settings/schema.ts
 var VALID_PROVIDER_METHODS = [
   "openai-compatible",
@@ -4408,15 +4497,17 @@ var VALID_PROVIDER_METHODS = [
   "anthropic",
   "opencode-go",
   "codex",
-  "xai"
+  "xai",
+  "ollama"
 ];
 var BUILTIN_PROVIDER_NAMES = {
-  "openai-compatible": "OpenAI Compatible",
+  "openai-compatible": "Advanced / Custom endpoint",
   anthropic: "Anthropic",
   openai: "OpenAI",
   "opencode-go": "OpenCode Go",
   codex: "ChatGPT Codex",
-  xai: "xAI Grok Subscription"
+  xai: "xAI Grok Subscription",
+  ollama: "Ollama Local"
 };
 function providerNameOrDefault(provider, fallback, id) {
   const name = String(provider.name ?? "").trim();
@@ -4490,8 +4581,19 @@ var DEFAULT_PROVIDERS = [
     enabledModels: []
   },
   {
+    id: "ollama",
+    name: "Ollama Local",
+    method: "ollama",
+    enabled: false,
+    baseURL: "http://127.0.0.1:11434",
+    apiKey: "",
+    selectedModel: "",
+    models: [],
+    enabledModels: []
+  },
+  {
     id: "openai-compatible",
-    name: "OpenAI Compatible",
+    name: "Advanced / Custom endpoint",
     method: "openai-compatible",
     enabled: false,
     baseURL: "",
@@ -4501,7 +4603,14 @@ var DEFAULT_PROVIDERS = [
     enabledModels: []
   }
 ];
-var FIXED_BUILTIN_PROVIDER_IDS = /* @__PURE__ */ new Set(["codex", "xai", "openai", "anthropic", "opencode-go"]);
+var FIXED_BUILTIN_PROVIDER_IDS = /* @__PURE__ */ new Set([
+  "codex",
+  "xai",
+  "openai",
+  "anthropic",
+  "opencode-go",
+  "ollama"
+]);
 function isFixedBuiltinProvider(id) {
   return FIXED_BUILTIN_PROVIDER_IDS.has(id);
 }
@@ -5104,13 +5213,17 @@ function normalizeProvider(provider, fallback) {
   const legacySelected = String(provider.selectedModel || fallback?.selectedModel || "").trim();
   const rawEnabledModels = Array.isArray(provider.enabledModels) ? provider.enabledModels : legacySelected ? [legacySelected] : [];
   const enabledModels = rawEnabledModels.map((model) => String(model || "").trim()).filter((model) => model && modelList.includes(model));
+  let baseURL = String(provider.baseURL ?? fallback?.baseURL ?? "").trim();
+  if (method === "ollama") {
+    baseURL = normalizeOllamaNativeBase(baseURL || fixedBuiltin?.baseURL);
+  }
   return {
     id,
     name: fixedBuiltin?.name ?? providerNameOrDefault(provider, fallback, id),
     method,
     enabled: typeof provider.enabled === "boolean" ? provider.enabled : Boolean(fallback?.enabled),
-    baseURL: String(provider.baseURL ?? fallback?.baseURL ?? "").trim(),
-    apiKey: method === "codex" || method === "xai" ? "" : String(provider.apiKey ?? fallback?.apiKey ?? "").trim(),
+    baseURL,
+    apiKey: method === "codex" || method === "xai" || method === "ollama" ? "" : String(provider.apiKey ?? fallback?.apiKey ?? "").trim(),
     selectedModel: enabledModels[0] || "",
     models: [...modelList],
     enabledModels
@@ -5269,7 +5382,15 @@ function runtimeSlice(settings) {
 var providerConfigSchema = external_exports.object({
   id: external_exports.string().min(1),
   name: external_exports.string(),
-  method: external_exports.enum(["openai-compatible", "openai", "anthropic", "opencode-go", "codex", "xai"]),
+  method: external_exports.enum([
+    "openai-compatible",
+    "openai",
+    "anthropic",
+    "opencode-go",
+    "codex",
+    "xai",
+    "ollama"
+  ]),
   enabled: external_exports.boolean(),
   baseURL: external_exports.string(),
   apiKey: external_exports.string(),
