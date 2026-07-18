@@ -93,9 +93,12 @@ type ollamaEmbedder struct {
 
 func NewOllamaEmbedder(baseURL, model string) Embedder {
 	if strings.TrimSpace(model) == "" {
-		model = "nomic-embed-text"
+		model = "qwen3-embedding:0.6b"
 	}
 	base := strings.TrimRight(strings.TrimSpace(baseURL), "/")
+	if strings.HasSuffix(strings.ToLower(base), "/v1") {
+		base = strings.TrimRight(base[:len(base)-3], "/")
+	}
 	if base == "" {
 		base = "http://127.0.0.1:11434"
 	}

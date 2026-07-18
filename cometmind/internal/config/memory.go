@@ -195,7 +195,7 @@ func (c *Config) embeddingFromProvider(providerID, model string) (memory.Embeddi
 
 func entrySupportsEmbeddings(entry ProviderEntry) bool {
 	switch strings.TrimSpace(entry.Method) {
-	case ProviderOpenAI, ProviderOpenAICompat, ProviderOpencodeGo:
+	case ProviderOpenAI, ProviderOpenAICompat, ProviderOpencodeGo, ProviderOllama:
 		return true
 	case ProviderXAI:
 		return false
@@ -206,7 +206,7 @@ func entrySupportsEmbeddings(entry ProviderEntry) bool {
 
 func providerMethodFromID(id string) string {
 	switch strings.TrimSpace(id) {
-	case ProviderAnthropic, ProviderOpenAI, ProviderOpenAICompat, ProviderOpencodeGo, ProviderXAI:
+	case ProviderAnthropic, ProviderOpenAI, ProviderOpenAICompat, ProviderOpencodeGo, ProviderXAI, ProviderOllama:
 		return id
 	default:
 		return ProviderOpenAICompat
@@ -219,6 +219,8 @@ func embeddingProviderForMethod(method string) string {
 		return ProviderOpenAI
 	case ProviderOpenAICompat, ProviderOpencodeGo:
 		return ProviderOpenAICompat
+	case ProviderOllama:
+		return ProviderOllama
 	default:
 		return ""
 	}
