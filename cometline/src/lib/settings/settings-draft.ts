@@ -1,5 +1,6 @@
 import { cloneCometMindSettings, normalizeCometMindSettings } from '$lib/cometmind-settings';
 import type { MemorySettings } from '$lib/client/cometmind';
+import { findProviderForSaved } from '$lib/embedding-models';
 import type { ProviderConfig, ProviderSettings } from '$lib/types';
 
 export function cloneProvider(provider: ProviderConfig): ProviderConfig {
@@ -116,10 +117,14 @@ export function applyMemorySettingsToDraft(
 	const embedding = memory.embedding ?? {};
 	let providerId = String(embedding.provider_id ?? '').trim();
 	const model = String(embedding.model ?? '').trim();
-	if ((!providerId || providerId === '__saved__') && model) {
-		const matched = draft.providers.find(
-			(p) => p.enabledModels.includes(model) || p.models.includes(model)
-		);
+	if (model) {
+		const matched = findProviderForSaved(draft.providers, {
+			providerId,
+			provider: String(embedding.provider ?? '').trim(),
+			model,
+			baseURL: String(embedding.base_url ?? '').trim(),
+			apiKey: String(embedding.api_key ?? '').trim()
+		});
 		if (matched) providerId = matched.id;
 	}
 	let nextProviders = draft.providers.map(cloneProvider);

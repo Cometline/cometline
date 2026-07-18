@@ -48,6 +48,7 @@ const DEFAULT_PROVIDER_IDS = new Set([
 	'opencode-go',
 	'codex',
 	'xai',
+	'ollama',
 	'openai-compatible'
 ]);
 

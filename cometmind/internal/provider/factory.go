@@ -28,7 +28,7 @@ func providerConfigFor(cfg *config.Config, id string) (*config.ProviderEntry, st
 
 	// Legacy sessions may store the method name as the provider id.
 	switch id {
-	case config.ProviderAnthropic, config.ProviderOpenAI, config.ProviderOpenAICompat, config.ProviderOpencodeGo, config.ProviderCodex, config.ProviderXAI:
+	case config.ProviderAnthropic, config.ProviderOpenAI, config.ProviderOpenAICompat, config.ProviderOpencodeGo, config.ProviderCodex, config.ProviderXAI, config.ProviderOllama:
 		return nil, id, cfg.BaseURL
 	}
 
@@ -41,7 +41,7 @@ func sdkProviderID(method string) string {
 	switch method {
 	case config.ProviderAnthropic:
 		return config.ProviderAnthropic
-	case config.ProviderOpenAI, config.ProviderOpenAICompat, config.ProviderOpencodeGo:
+	case config.ProviderOpenAI, config.ProviderOpenAICompat, config.ProviderOpencodeGo, config.ProviderOllama:
 		return config.ProviderOpenAI
 	case config.ProviderCodex:
 		return config.ProviderCodex
@@ -89,6 +89,13 @@ func NewFor(cfg *config.Config, id string) (cometsdk.Provider, error) {
 	key, err := config.ProviderAPIKey(cfg, entry, method)
 	if err != nil {
 		return nil, err
+	}
+	if method == config.ProviderOllama {
+		baseURL = OllamaChatBaseURL(baseURL)
+		if key == "" {
+			// Ollama ignores auth; keep a non-empty bearer for the OpenAI client.
+			key = "ollama"
+		}
 	}
 	var opts []cometsdk.Option
 	if baseURL != "" {

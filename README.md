@@ -51,7 +51,7 @@ brew install --cask cometline/tap/cometline
 
 Or download the latest signed release from [GitHub Releases](https://github.com/cometline/cometline/releases). The app is notarized and includes auto-update support.
 
-The app will open and prompt you to configure a provider. Add your API key, enable models, and choose default model roles in Settings → Providers.
+The app will open and prompt you to configure a provider. Add your API key, enable models, and choose default model roles in Settings → Providers. For a local no-API-key path, see [Running with Ollama](./cometline/docs/ollama-local.md).
 
 ## Features
 

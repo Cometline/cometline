@@ -23,6 +23,7 @@ type Service struct {
 	compactor             *compactor
 	provider              cometsdk.Provider
 	onCompactionCompleted func(CompactionResult)
+	reembed               reembedState
 }
 
 // CompactionResult describes a completed manual or automatic compaction pass.

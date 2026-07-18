@@ -49,6 +49,10 @@
 		return runtimeProviders[0];
 	}
 
+	function providerOptionLabel(provider: ProviderConfig): string {
+		return provider.method === 'ollama' ? `${provider.name} (Local)` : provider.name;
+	}
+
 	function explicitRole(providerId: string, modelId: string) {
 		let provider = providerById(providerId);
 		if (!provider || !modelsForProvider(provider).includes(modelId)) {
@@ -377,7 +381,7 @@
 					onchange={(e) => setAutonomyProvider(e.currentTarget.value)}
 				>
 					{#each runtimeProviders as provider (provider.id)}
-						<option value={provider.id}>{provider.name}</option>
+						<option value={provider.id}>{providerOptionLabel(provider)}</option>
 					{/each}
 				</select>
 			</label>
@@ -414,7 +418,7 @@
 					onchange={(e) => setSynthesisProvider(e.currentTarget.value)}
 				>
 					{#each runtimeProviders as provider (provider.id)}
-						<option value={provider.id}>{provider.name}</option>
+						<option value={provider.id}>{providerOptionLabel(provider)}</option>
 					{/each}
 				</select>
 			</label>
@@ -453,7 +457,7 @@
 				>
 					<option value="">Use session model (default)</option>
 					{#each providers as provider (provider.id)}
-						<option value={provider.id}>{provider.name}</option>
+						<option value={provider.id}>{providerOptionLabel(provider)}</option>
 					{/each}
 				</select>
 			</label>
@@ -493,7 +497,7 @@
 				>
 					<option value="">Use session model (default)</option>
 					{#each providers as provider (provider.id)}
-						<option value={provider.id}>{provider.name}</option>
+						<option value={provider.id}>{providerOptionLabel(provider)}</option>
 					{/each}
 				</select>
 			</label>

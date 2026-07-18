@@ -44,6 +44,25 @@ describe('listEmbeddingModelOptions', () => {
 		]);
 		expect(options).toEqual([]);
 	});
+
+	it('lists ollama embedding models without an API key', () => {
+		const options = listEmbeddingModelOptions([
+			baseProvider({
+				id: 'ollama',
+				name: 'Ollama Local',
+				method: 'ollama',
+				baseURL: 'http://127.0.0.1:11434',
+				apiKey: '',
+				enabledModels: ['qwen3-embedding:0.6b', 'gemma4:e2b-mlx']
+			})
+		]);
+		expect(options).toHaveLength(1);
+		expect(options[0]).toMatchObject({
+			providerId: 'ollama',
+			model: 'qwen3-embedding:0.6b',
+			method: 'ollama'
+		});
+	});
 });
 
 describe('resolveEmbeddingSelection', () => {
@@ -93,6 +112,37 @@ describe('resolveEmbeddingSelection', () => {
 		);
 		expect(match?.orphan).toBe(true);
 		expect(match?.providerId).toBe('openai');
+	});
+
+	it('recovers a stale Ollama provider reference by model and endpoint', () => {
+		const match = resolveEmbeddingSelection(
+			[
+				baseProvider({
+					id: 'ollama',
+					name: 'Ollama Local',
+					method: 'ollama',
+					baseURL: 'http://127.0.0.1:11434',
+					models: ['qwen3-embedding:0.6b'],
+					enabledModels: []
+				}),
+				baseProvider({ id: 'openai-compatible', name: 'tmp', models: [], enabledModels: [] })
+			],
+			'openai-compatible',
+			'qwen3-embedding:0.6b',
+			{
+				providerId: 'openai-compatible',
+				provider: 'openai-compatible',
+				model: 'qwen3-embedding:0.6b',
+				baseURL: 'http://127.0.0.1:11434/v1',
+				apiKey: 'ollama'
+			}
+		);
+		expect(match).toMatchObject({
+			providerId: 'ollama',
+			providerName: 'Ollama Local',
+			model: 'qwen3-embedding:0.6b'
+		});
+		expect(match?.orphan).toBeUndefined();
 	});
 });
 

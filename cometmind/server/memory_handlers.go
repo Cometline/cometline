@@ -186,14 +186,117 @@ func (a *App) handlePutMemorySettings(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	a.config.Memory = req
 	if a.memory != nil {
+		prev := a.config.Memory
+		a.config.Memory = req
+		prospective := a.config.MemorySettings()
+		a.config.Memory = prev
+		preview, err := a.memory.PreviewReembed(c.Request.Context(), prospective.Embedding)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		if preview.MigrationNeeded {
+			c.JSON(http.StatusConflict, gin.H{
+				"error":   "embedding model change requires re-embed migration",
+				"preview": preview,
+			})
+			return
+		}
+		a.config.Memory = req
 		if err := a.memory.UpdateSettings(a.config.MemorySettings()); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
+		c.JSON(http.StatusOK, a.config.EffectiveMemoryConfig())
+		return
 	}
+	a.config.Memory = req
 	c.JSON(http.StatusOK, a.config.EffectiveMemoryConfig())
+}
+
+func embeddingSettingsFromRequest(cfg *config.Config, emb config.MemoryEmbeddingConfig) memory.EmbeddingSettings {
+	prev := cfg.Memory
+	cfg.Memory.Embedding = emb
+	out := cfg.MemorySettings().Embedding
+	cfg.Memory = prev
+	return out
+}
+
+func (a *App) handlePreviewMemoryReembed(c *gin.Context) {
+	if a.memory == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "memory disabled"})
+		return
+	}
+	var req config.MemoryEmbeddingConfig
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	preview, err := a.memory.PreviewReembed(c.Request.Context(), embeddingSettingsFromRequest(a.config, req))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, preview)
+}
+
+func (a *App) handleGetMemoryReembedJob(c *gin.Context) {
+	if a.memory == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "memory disabled"})
+		return
+	}
+	job, err := a.memory.CurrentReembedJob(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if job == nil {
+		c.JSON(http.StatusOK, gin.H{})
+		return
+	}
+	c.JSON(http.StatusOK, job)
+}
+
+func (a *App) handleStartMemoryReembed(c *gin.Context) {
+	if a.memory == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "memory disabled"})
+		return
+	}
+	var req struct {
+		Embedding config.MemoryEmbeddingConfig `json:"embedding"`
+		Force     bool                         `json:"force"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	target := embeddingSettingsFromRequest(a.config, req.Embedding)
+	job, err := a.memory.StartReembed(c.Request.Context(), target, req.Force)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	// Persist the intended embedding in config; retrieval switches when the job completes.
+	a.config.Memory.Embedding = req.Embedding
+	c.JSON(http.StatusOK, job)
+}
+
+func (a *App) handleCancelMemoryReembed(c *gin.Context) {
+	if a.memory == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "memory disabled"})
+		return
+	}
+	job, err := a.memory.CancelReembed(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if job == nil {
+		c.JSON(http.StatusOK, gin.H{})
+		return
+	}
+	c.JSON(http.StatusOK, job)
 }
 
 func (a *App) handlePurgeMemory(c *gin.Context) {

@@ -32,10 +32,11 @@ describe('pending-settings', () => {
 
 	it('detects pending provider edits', () => {
 		const base = normalizeSettings(defaultSettings());
+		const providerId = 'openai-compatible';
 		const draft = normalizeSettings({
 			...base,
-			providers: base.providers.map((provider, index) =>
-				index === 5 ? { ...provider, name: 'Renamed provider' } : provider
+			providers: base.providers.map((provider) =>
+				provider.id === providerId ? { ...provider, name: 'Renamed provider' } : provider
 			)
 		});
 

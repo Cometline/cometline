@@ -96,6 +96,33 @@ func TestNewForFallsBackToLegacyCodexMethod(t *testing.T) {
 	}
 }
 
+func TestNewForOllamaUsesOpenAIFamilyWithoutAPIKey(t *testing.T) {
+	cfg := &config.Config{
+		Provider: config.ProviderOllama,
+		Providers: []config.ProviderEntry{{
+			ID:      "ollama",
+			Name:    "Ollama Local",
+			Method:  config.ProviderOllama,
+			BaseURL: "http://127.0.0.1:11434",
+			Model:   "gemma4:e2b-mlx",
+		}},
+	}
+
+	p, err := NewFor(cfg, "ollama")
+	if err != nil {
+		t.Fatalf("NewFor() error = %v", err)
+	}
+	if p == nil {
+		t.Fatal("NewFor() returned nil")
+	}
+	if got := SDKFamily(cfg, "ollama"); got != config.ProviderOpenAI {
+		t.Fatalf("SDKFamily = %q, want %q", got, config.ProviderOpenAI)
+	}
+	if got := OllamaChatBaseURL("http://127.0.0.1:11434"); got != "http://127.0.0.1:11434/v1" {
+		t.Fatalf("OllamaChatBaseURL = %q", got)
+	}
+}
+
 func TestNewForXAIUsesSubscriptionProviderWithoutAPIKey(t *testing.T) {
 	cfg := &config.Config{
 		Provider: config.ProviderXAI,

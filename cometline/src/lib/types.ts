@@ -25,7 +25,8 @@ export type ProviderMethod =
 	| 'anthropic'
 	| 'opencode-go'
 	| 'codex'
-	| 'xai';
+	| 'xai'
+	| 'ollama';
 
 export interface ProviderConfig {
 	id: string;

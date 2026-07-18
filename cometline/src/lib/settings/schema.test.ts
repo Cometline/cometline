@@ -50,15 +50,25 @@ describe('settings schema', () => {
 
 	it('orders built-in providers for the settings sidebar', () => {
 		const settings = defaultSettings();
-		expect(settings.providers).toHaveLength(6);
+		expect(settings.providers).toHaveLength(7);
 		expect(settings.providers.map((provider) => provider.id)).toEqual([
 			'codex',
 			'xai',
 			'openai',
 			'anthropic',
 			'opencode-go',
+			'ollama',
 			'openai-compatible'
 		]);
+		expect(settings.providers.find((p) => p.id === 'ollama')).toMatchObject({
+			method: 'ollama',
+			baseURL: 'http://127.0.0.1:11434',
+			apiKey: '',
+			enabled: false
+		});
+		expect(settings.providers.find((p) => p.id === 'openai-compatible')?.name).toBe(
+			'Advanced / Custom endpoint'
+		);
 		expect(settings.providers.find((p) => p.id === 'codex')?.apiKey).toBe('');
 		expect(settings.activeProviderId).toBe('codex');
 		expect(settings.app.personaId).toBe('minako');
@@ -144,9 +154,25 @@ describe('settings schema', () => {
 			'openai',
 			'anthropic',
 			'opencode-go',
+			'ollama',
 			'openai-compatible',
 			'custom-local'
 		]);
+	});
+
+	it('normalizes ollama base URLs to native form without /v1', () => {
+		const settings = normalizeSettings({
+			...defaultSettings(),
+			providers: defaultSettings().providers.map((provider) =>
+				provider.id === 'ollama'
+					? { ...provider, baseURL: 'http://127.0.0.1:11434/v1', apiKey: 'ignored' }
+					: provider
+			)
+		});
+		expect(settings.providers.find((p) => p.id === 'ollama')).toMatchObject({
+			baseURL: 'http://127.0.0.1:11434',
+			apiKey: ''
+		});
 	});
 
 	it('normalizes Codex without an API key', () => {

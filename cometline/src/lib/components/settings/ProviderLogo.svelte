@@ -1,6 +1,7 @@
 <script lang="ts">
 	import anthropicIcon from '$lib/assets/provider-icons/anthropic.svg';
 	import grokIcon from '$lib/assets/provider-icons/grok.svg';
+	import ollamaIcon from '$lib/assets/provider-icons/ollama.svg';
 	import openaiIcon from '$lib/assets/provider-icons/openai.svg';
 	import opencodeIcon from '$lib/assets/provider-icons/opencode.svg';
 	import type { ProviderMethod } from '$lib/types';
@@ -10,7 +11,8 @@
 		codex: openaiIcon,
 		anthropic: anthropicIcon,
 		xai: grokIcon,
-		'opencode-go': opencodeIcon
+		'opencode-go': opencodeIcon,
+		ollama: ollamaIcon
 	};
 
 	let { method }: { method: ProviderMethod } = $props();
