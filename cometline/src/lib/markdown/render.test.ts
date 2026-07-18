@@ -128,6 +128,32 @@ describe('renderMarkdown', () => {
 		expect(html).toContain('@runtime/wiki/index.md');
 	});
 
+	it('resolves [[wikilinks]] when a wiki file index is provided', async () => {
+		const html = await renderMarkdown('See [[runtime-mounts|Mounts]] please.', {
+			wikiFiles: ['entities/runtime-mounts.md']
+		});
+		expect(html).toContain('data-file-path="@runtime/wiki/entities/runtime-mounts.md"');
+		expect(html).toContain('Mounts');
+	});
+
+	it('renders unresolved [[wikilinks]] as broken chips', async () => {
+		const html = await renderMarkdown('Missing [[No Such Page]].', { wikiFiles: ['index.md'] });
+		expect(html).toContain('file-embed-broken');
+		expect(html).not.toContain('data-file-path');
+		expect(html).toContain('No Such Page');
+		expect(html).not.toContain('[[No Such Page]]');
+	});
+
+	it('resolves raw html wikilinks', async () => {
+		const html = await renderMarkdown('See [[2026-07-16-agentic-reasoning-for-llms.html]].', {
+			wikiFiles: ['raw/2026-07-16-agentic-reasoning-for-llms.html']
+		});
+		expect(html).toContain(
+			'data-file-path="@runtime/wiki/raw/2026-07-16-agentic-reasoning-for-llms.html"'
+		);
+		expect(html).not.toContain('file-embed-broken');
+	});
+
 	it('does not chip a URL inside a markdown link', async () => {
 		const html = await renderMarkdown('[Grok](https://grok.com)');
 		expect(html).not.toContain('link-embed');

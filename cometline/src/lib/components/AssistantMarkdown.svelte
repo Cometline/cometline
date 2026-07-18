@@ -2,12 +2,22 @@
 	import { renderMarkdown, renderUserText } from '$lib/markdown/render';
 	import { openLink } from '$lib/open-link';
 	import { openWorkspaceFilePreview } from '$lib/workspace/open-file-preview';
+	import { getCachedWikiFiles, refreshWikiFileIndex } from '$lib/wiki/wiki-file-index';
 
 	let {
 		source = '',
 		streaming = false,
-		mode = 'assistant'
-	}: { source?: string; streaming?: boolean; mode?: 'assistant' | 'user' } = $props();
+		mode = 'assistant',
+		wikiFiles = []
+	}: {
+		source?: string;
+		streaming?: boolean;
+		mode?: 'assistant' | 'user';
+		wikiFiles?: readonly string[];
+	} = $props();
+
+	let cachedWikiFiles = $state<string[]>(getCachedWikiFiles());
+	const effectiveWikiFiles = $derived(wikiFiles.length > 0 ? wikiFiles : cachedWikiFiles);
 
 	// Throttle re-rendering while streaming so we don't reparse/highlight on every
 	// token. A render version guards against stale async results overwriting newer
@@ -38,14 +48,16 @@
 	let lastRenderAt = 0;
 
 	async function render(text: string) {
-		if (rendered && renderedSource === text) return;
+		const files = effectiveWikiFiles;
+		const cacheKey = `${text}\u0000${files.join('\n')}`;
+		if (rendered && renderedSource === cacheKey) return;
 		const version = ++renderVersion;
 		try {
-			const next = await renderMarkdown(text);
+			const next = await renderMarkdown(text, { wikiFiles: files });
 			if (version !== renderVersion) return;
 			html = next;
 			rendered = true;
-			renderedSource = text;
+			renderedSource = cacheKey;
 		} catch {
 			if (version !== renderVersion) return;
 			// Leave the plaintext fallback visible on failure.
@@ -139,11 +151,19 @@
 	});
 
 	$effect(() => {
+		if (mode !== 'assistant' || !source.includes('[[')) return;
+		void refreshWikiFileIndex().then((files) => {
+			cachedWikiFiles = files;
+		});
+	});
+
+	$effect(() => {
 		// User mode renders synchronously via the derived above; nothing to schedule.
 		if (mode === 'user') return;
 		const text = displaySource;
 		// Re-evaluate when streaming flips so the final non-throttled render lands.
 		void streaming;
+		void effectiveWikiFiles;
 		scheduleRender(text);
 		return () => {
 			cancelScheduledRender();
@@ -269,10 +289,8 @@
 	}
 
 	.markdown :global(.file-embed) {
-		display: inline-flex;
-		align-items: center;
-		max-width: 16rem;
-		vertical-align: middle;
+		display: inline;
+		vertical-align: baseline;
 		padding: 0.05em 0.45em;
 		border: 1px solid rgba(16, 185, 129, 0.22);
 		border-radius: 6px;
@@ -280,9 +298,10 @@
 		text-decoration: none;
 		line-height: 1.4;
 		color: #1d5c42;
-		overflow: hidden;
 		cursor: pointer;
 		font-weight: 650;
+		box-decoration-break: clone;
+		-webkit-box-decoration-break: clone;
 	}
 
 	.markdown :global(.file-embed:hover) {
@@ -290,10 +309,23 @@
 		border-color: rgba(16, 185, 129, 0.34);
 	}
 
+	.markdown :global(.file-embed-broken) {
+		border-color: rgba(148, 163, 184, 0.45);
+		background: rgba(148, 163, 184, 0.1);
+		color: var(--text-muted);
+		cursor: default;
+		font-weight: 550;
+	}
+
+	.markdown :global(.file-embed-broken:hover) {
+		background: rgba(148, 163, 184, 0.1);
+		border-color: rgba(148, 163, 184, 0.45);
+	}
+
 	.markdown :global(.file-embed-label) {
-		overflow: hidden;
-		white-space: nowrap;
-		text-overflow: ellipsis;
+		white-space: normal;
+		overflow-wrap: anywhere;
+		word-break: break-word;
 		font-size: 0.95em;
 	}
 

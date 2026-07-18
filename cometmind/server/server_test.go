@@ -949,6 +949,9 @@ func TestPostMessageInlinesFilePaths(t *testing.T) {
 	ctx := context.Background()
 	workspacePath := t.TempDir()
 	mustWrite(t, filepath.Join(workspacePath, "main.go"), "package main\n")
+	if err := os.MkdirAll(filepath.Join(workspacePath, "src", "lib"), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
 	mustWrite(t, filepath.Join(workspacePath, "missing.go"), "")
 	_ = os.Remove(filepath.Join(workspacePath, "missing.go"))
 
@@ -962,7 +965,7 @@ func TestPostMessageInlinesFilePaths(t *testing.T) {
 	}
 
 	rec := httptest.NewRecorder()
-	body := `{"text":"review @main.go and @missing.go","file_paths":["main.go","missing.go","main.go"]}`
+	body := `{"text":"review @main.go and @missing.go","file_paths":["main.go","missing.go","main.go","src/lib/"]}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/sessions/"+sess.ID+"/messages", bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
 	engine.ServeHTTP(rec, req)
@@ -982,17 +985,20 @@ func TestPostMessageInlinesFilePaths(t *testing.T) {
 	if !strings.Contains(text, "review @main.go and @missing.go") {
 		t.Fatalf("user text missing original prompt: %q", text)
 	}
-	if !strings.Contains(text, "[File: main.go]") {
-		t.Fatalf("user text missing main.go content: %q", text)
+	if !strings.Contains(text, "[Referenced file: main.go —") {
+		t.Fatalf("user text missing main.go path stub: %q", text)
 	}
-	if !strings.Contains(text, "package main") {
-		t.Fatalf("user text missing main.go source: %q", text)
+	if strings.Contains(text, "package main") {
+		t.Fatalf("user text should not inline main.go body: %q", text)
 	}
 	if !strings.Contains(text, "Could not include missing.go") {
 		t.Fatalf("user text missing missing.go error note: %q", text)
 	}
-	if strings.Count(text, "[File: main.go]") != 1 {
-		t.Fatalf("main.go should be inlined once, got: %q", text)
+	if !strings.Contains(text, "[Referenced directory: src/lib/ —") {
+		t.Fatalf("user text missing directory stub: %q", text)
+	}
+	if strings.Count(text, "[Referenced file: main.go —") != 1 {
+		t.Fatalf("main.go should be referenced once, got: %q", text)
 	}
 }
 
@@ -1088,6 +1094,54 @@ func TestPostMessageInlinesMultipleWebContexts(t *testing.T) {
 	for _, want := range []string{"Article facts.", "Local notes.", "https://example.com/article", "workspace-file:notes.md"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("combined context missing %q: %q", want, text)
+		}
+	}
+}
+
+func TestPostMessagePathOnlyFileWebContext(t *testing.T) {
+	t.Parallel()
+
+	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
+			ch <- event.Done()
+			return nil
+		}), nil
+	})
+	defer cleanup()
+
+	ctx := context.Background()
+	ws, err := svc.EnsureWorkspace(ctx, t.TempDir())
+	if err != nil {
+		t.Fatalf("EnsureWorkspace() error = %v", err)
+	}
+	sess, err := svc.NewSession(ctx, ws.ID, "test-model", "test-provider")
+	if err != nil {
+		t.Fatalf("NewSession() error = %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	body := `{"text":"look here","web_contexts":[{"kind":"file","title":"notes.md","source":"workspace-file:notes.md","content":""},{"kind":"file","title":"notes.md:2-3","source":"workspace-file:notes.md#L2-L3","content":"line two\nline three"}]}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/sessions/"+sess.ID+"/messages", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	engine.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d body=%s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+
+	msgs, err := svc.BuildSDKMessages(ctx, sess.ID)
+	if err != nil {
+		t.Fatalf("BuildSDKMessages() error = %v", err)
+	}
+	text := msgs[0].Content[0].(cometsdk.TextBlock).Text
+	for _, want := range []string{
+		"currently open in WebPanel",
+		"workspace-file:notes.md",
+		"notes.md:2-3",
+		"line two",
+		"workspace-file:notes.md#L2-L3",
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("path/snippet context missing %q: %q", want, text)
 		}
 	}
 }

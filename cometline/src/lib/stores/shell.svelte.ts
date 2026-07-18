@@ -1,6 +1,17 @@
 import { getActiveSessionId } from '$lib/active-session';
 import { readHasSeenIntroSync } from '$lib/stores/settings.svelte';
 import type { WebContext } from '$lib/actions/start-chat';
+import {
+	canGoBack as historyCanGoBack,
+	canGoForward as historyCanGoForward,
+	createPanelHistoryState,
+	currentEntry,
+	goBack as historyGoBack,
+	goForward as historyGoForward,
+	pushEntry,
+	type PanelHistoryEntry,
+	type PanelHistoryState
+} from '$lib/workspace/panel-history';
 
 export type WebPanelMode = 'url' | 'file';
 
@@ -18,10 +29,39 @@ export type PendingPageContext = {
 	lazy: true;
 };
 
-export type PendingWebContext = WebContext | PendingPageContext;
+/** Path-only “currently viewing” file reference (no body attached). */
+export type PendingViewingFileContext = WebContext & {
+	kind: 'file';
+	role: 'viewing';
+	content: '';
+};
+
+export type PendingWebContext = WebContext | PendingPageContext | PendingViewingFileContext;
 
 function isPendingPageContext(context: PendingWebContext): context is PendingPageContext {
 	return context.kind === 'page' && 'lazy' in context && context.lazy;
+}
+
+function isViewingFileContext(context: PendingWebContext): context is PendingViewingFileContext {
+	return context.kind === 'file' && 'role' in context && context.role === 'viewing';
+}
+
+function toWireWebContext(context: PendingWebContext): WebContext | null {
+	if (isPendingPageContext(context)) return null;
+	if (isViewingFileContext(context)) {
+		return {
+			kind: 'file',
+			title: context.title,
+			source: context.source,
+			content: ''
+		};
+	}
+	return {
+		kind: context.kind,
+		title: context.title,
+		source: context.source,
+		content: context.content
+	};
 }
 
 /**
@@ -54,9 +94,15 @@ function createShellStore() {
 	let fullscreen = $state(false);
 	let webPanelsBySession = $state<Record<string, SessionWebPanel>>({});
 	let webContextsBySession = $state<Record<string, PendingWebContext[]>>({});
+	let panelHistoryBySession = $state<Record<string, PanelHistoryState>>({});
+	/** Suppresses history recording while applying back/forward navigation. */
+	let applyingPanelHistory = false;
 	let resolvePageContext: ((source: string) => Promise<WebContext | null>) | null = null;
 	let focusedPane = $state<FocusedPane>('chat');
 	let addressBarFocusRequestId = $state(0);
+	let fileTreeFilterFocusRequestId = $state(0);
+	/** Last ⌘O focus target while the browse tree is visible. */
+	let lastWebPanelFocusTarget = $state<'filter' | 'address'>('filter');
 	let composerFocusRequestId = $state(0);
 
 	function activeSessionId(): string | null {
@@ -86,6 +132,52 @@ function createShellStore() {
 		const nextContexts = { ...webContextsBySession };
 		delete nextContexts[sessionId];
 		webContextsBySession = nextContexts;
+	}
+
+	function clearPanelHistoryForSession(sessionId: string) {
+		if (!(sessionId in panelHistoryBySession)) return;
+		const next = { ...panelHistoryBySession };
+		delete next[sessionId];
+		panelHistoryBySession = next;
+	}
+
+	function historyFor(sessionId: string): PanelHistoryState {
+		return panelHistoryBySession[sessionId] ?? createPanelHistoryState();
+	}
+
+	function recordPanelHistory(sessionId: string, entry: PanelHistoryEntry) {
+		if (applyingPanelHistory) return;
+		const next = pushEntry(historyFor(sessionId), entry);
+		panelHistoryBySession = {
+			...panelHistoryBySession,
+			[sessionId]: next
+		};
+	}
+
+	function applyPanelHistoryEntry(sessionId: string, entry: PanelHistoryEntry) {
+		applyingPanelHistory = true;
+		try {
+			if (entry.kind === 'browse') {
+				webPanelsBySession = {
+					...webPanelsBySession,
+					[sessionId]: { mode: 'url', url: '', visible: true }
+				};
+			} else if (entry.kind === 'file') {
+				webPanelsBySession = {
+					...webPanelsBySession,
+					[sessionId]: { mode: 'file', filePath: entry.path, visible: true }
+				};
+			} else {
+				webPanelsBySession = {
+					...webPanelsBySession,
+					[sessionId]: { mode: 'url', url: entry.url, visible: true }
+				};
+			}
+			focusedPane = 'web';
+			syncWebPanelOpen(true);
+		} finally {
+			applyingPanelHistory = false;
+		}
 	}
 
 	return {
@@ -157,8 +249,22 @@ function createShellStore() {
 		get addressBarFocusRequestId() {
 			return addressBarFocusRequestId;
 		},
+		get fileTreeFilterFocusRequestId() {
+			return fileTreeFilterFocusRequestId;
+		},
 		get composerFocusRequestId() {
 			return composerFocusRequestId;
+		},
+		get canPanelHistoryBack() {
+			return historyCanGoBack(historyFor(panelSessionKey()));
+		},
+		get canPanelHistoryForward() {
+			return historyCanGoForward(historyFor(panelSessionKey()));
+		},
+		/** True when the active panel is the empty browse (file tree) state. */
+		get webPanelBrowseOpen() {
+			const panel = panelForActiveSession();
+			return Boolean(panel?.visible && panel.mode === 'url' && !panel.url);
 		},
 		/** Update persisted default; sync active when no session is open (home). */
 		setDefaultWorkspacePath(path: string) {
@@ -244,20 +350,51 @@ function createShellStore() {
 		},
 		addWebContextForActive(context: WebContext) {
 			const key = panelSessionKey();
+			const existing = webContextsBySession[key] ?? [];
+			let next = existing;
+			if (context.kind === 'page') {
+				next = existing.filter(
+					(item) => !(isPendingPageContext(item) && item.source === context.source)
+				);
+			}
 			const nextContext: WebContext = {
 				...context,
 				content: context.content.trim().slice(0, 50000)
 			};
 			webContextsBySession = {
 				...webContextsBySession,
-				[key]: [nextContext]
+				[key]: [...next, nextContext]
+			};
+		},
+		setViewingFileContextForActive(source: string, title: string) {
+			const key = panelSessionKey();
+			const current = webContextsBySession[key] ?? [];
+			const existingViewing = current.find(isViewingFileContext);
+			if (existingViewing?.source === source && (existingViewing.title ?? '') === title) {
+				return;
+			}
+			const existing = current.filter((item) => !isViewingFileContext(item));
+			const viewing: PendingViewingFileContext = {
+				kind: 'file',
+				role: 'viewing',
+				title,
+				source,
+				content: ''
+			};
+			webContextsBySession = {
+				...webContextsBySession,
+				[key]: [...existing, viewing]
 			};
 		},
 		setPendingPageContextForActive(context: Omit<PendingPageContext, 'kind' | 'lazy'>) {
 			const key = panelSessionKey();
+			const existing = (webContextsBySession[key] ?? []).filter((item) => !isPendingPageContext(item));
 			webContextsBySession = {
 				...webContextsBySession,
-				[key]: [{ kind: 'page', title: context.title, source: context.source, lazy: true }]
+				[key]: [
+					...existing,
+					{ kind: 'page', title: context.title, source: context.source, lazy: true }
+				]
 			};
 		},
 		registerPageContextResolver(resolver: (source: string) => Promise<WebContext | null>) {
@@ -270,11 +407,29 @@ function createShellStore() {
 			const contexts = [...(webContextsBySession[panelSessionKey()] ?? [])];
 			const resolved = await Promise.all(
 				contexts.map(async (context) => {
-					if (!isPendingPageContext(context)) return context;
-					return resolvePageContext?.(context.source) ?? null;
+					if (isPendingPageContext(context)) {
+						return resolvePageContext?.(context.source) ?? null;
+					}
+					return toWireWebContext(context);
 				})
 			);
 			return resolved.filter((context): context is WebContext => context !== null);
+		},
+		removeWebContextAt(index: number) {
+			const key = panelSessionKey();
+			const existing = webContextsBySession[key] ?? [];
+			if (index < 0 || index >= existing.length) return;
+			const next = existing.filter((_, i) => i !== index);
+			if (next.length === 0) {
+				const copy = { ...webContextsBySession };
+				delete copy[key];
+				webContextsBySession = copy;
+				return;
+			}
+			webContextsBySession = {
+				...webContextsBySession,
+				[key]: next
+			};
 		},
 		clearWebContextForActive() {
 			const key = panelSessionKey();
@@ -296,6 +451,11 @@ function createShellStore() {
 				...webPanelsBySession,
 				[sessionId]: { mode: 'url', url, visible: true }
 			};
+			if (url) {
+				recordPanelHistory(sessionId, { kind: 'url', url });
+			} else {
+				recordPanelHistory(sessionId, { kind: 'browse' });
+			}
 			focusedPane = 'web';
 			syncWebPanelOpen(true);
 		},
@@ -304,6 +464,7 @@ function createShellStore() {
 				...webPanelsBySession,
 				[sessionId]: { mode: 'file', filePath, visible: true }
 			};
+			recordPanelHistory(sessionId, { kind: 'file', path: filePath });
 			focusedPane = 'web';
 			syncWebPanelOpen(true);
 		},
@@ -313,9 +474,10 @@ function createShellStore() {
 				...webPanelsBySession,
 				[sessionId]: { mode: 'url', url: '', visible: true }
 			};
+			recordPanelHistory(sessionId, { kind: 'browse' });
 			focusedPane = 'web';
 			syncWebPanelOpen(true);
-			addressBarFocusRequestId += 1;
+			this.requestFileTreeFilterFocus();
 		},
 		navigateWebPanel(url: string) {
 			const sessionId = panelSessionKey();
@@ -323,30 +485,83 @@ function createShellStore() {
 				...webPanelsBySession,
 				[sessionId]: { mode: 'url', url, visible: true }
 			};
+			if (url) {
+				recordPanelHistory(sessionId, { kind: 'url', url });
+			} else {
+				recordPanelHistory(sessionId, { kind: 'browse' });
+			}
 			focusedPane = 'web';
 			syncWebPanelOpen(true);
-			addressBarFocusRequestId += 1;
+			if (url) {
+				this.requestAddressBarFocus();
+			} else {
+				this.requestFileTreeFilterFocus();
+			}
 		},
-		requestAddressBarFocus() {
+		panelHistoryBack() {
+			const sessionId = panelSessionKey();
+			const prev = historyFor(sessionId);
+			if (!historyCanGoBack(prev)) return false;
+			const next = historyGoBack(prev);
+			panelHistoryBySession = { ...panelHistoryBySession, [sessionId]: next };
+			const entry = currentEntry(next);
+			if (!entry) return false;
+			applyPanelHistoryEntry(sessionId, entry);
+			return true;
+		},
+		panelHistoryForward() {
+			const sessionId = panelSessionKey();
+			const prev = historyFor(sessionId);
+			if (!historyCanGoForward(prev)) return false;
+			const next = historyGoForward(prev);
+			panelHistoryBySession = { ...panelHistoryBySession, [sessionId]: next };
+			const entry = currentEntry(next);
+			if (!entry) return false;
+			applyPanelHistoryEntry(sessionId, entry);
+			return true;
+		},
+		ensureWebPanelVisible() {
 			const sessionId = panelSessionKey();
 			const panel = webPanelsBySession[sessionId];
-			if (!panel) return;
+			if (!panel) return null;
 			if (!panel.visible) {
 				webPanelsBySession = {
 					...webPanelsBySession,
 					[sessionId]: { ...panel, visible: true }
 				};
 				syncWebPanelOpen(true);
-				focusedPane = 'web';
 			}
+			focusedPane = 'web';
+			return webPanelsBySession[sessionId] ?? panel;
+		},
+		requestFileTreeFilterFocus() {
+			if (!this.ensureWebPanelVisible()) return;
+			lastWebPanelFocusTarget = 'filter';
+			fileTreeFilterFocusRequestId += 1;
+		},
+		requestAddressBarFocus() {
+			if (!this.ensureWebPanelVisible()) return;
+			lastWebPanelFocusTarget = 'address';
 			addressBarFocusRequestId += 1;
 		},
 		openWebPanelFromShortcut() {
-			if (panelForActiveSession()) {
-				this.requestAddressBarFocus();
+			const panel = panelForActiveSession();
+			if (!panel) {
+				this.openWebPanelEmpty();
 				return;
 			}
-			this.openWebPanelEmpty();
+			const visible = this.ensureWebPanelVisible();
+			if (!visible) return;
+			const browse = visible.mode === 'url' && !visible.url;
+			if (browse) {
+				if (lastWebPanelFocusTarget === 'address') {
+					this.requestFileTreeFilterFocus();
+				} else {
+					this.requestAddressBarFocus();
+				}
+				return;
+			}
+			this.requestAddressBarFocus();
 		},
 		toggleWebPanel() {
 			const sessionId = panelSessionKey();
@@ -359,20 +574,24 @@ function createShellStore() {
 			};
 			focusedPane = visible ? 'web' : 'chat';
 			syncWebPanelOpen(visible);
-			if (visible && panel.mode === 'url') {
-				addressBarFocusRequestId += 1;
+			if (visible && panel.mode === 'url' && !panel.url) {
+				this.requestFileTreeFilterFocus();
+			} else if (visible && panel.mode === 'url') {
+				this.requestAddressBarFocus();
 			}
 		},
 		closeWebPanel() {
 			const sessionId = panelSessionKey();
 			if (!webPanelsBySession[sessionId]) {
 				clearWebContextsForSession(sessionId);
+				clearPanelHistoryForSession(sessionId);
 				return;
 			}
 			const next = { ...webPanelsBySession };
 			delete next[sessionId];
 			webPanelsBySession = next;
 			clearWebContextsForSession(sessionId);
+			clearPanelHistoryForSession(sessionId);
 			this.requestComposerFocus();
 			syncWebPanelOpen(false);
 		},
@@ -386,6 +605,7 @@ function createShellStore() {
 				delete nextContexts[sessionId];
 				webContextsBySession = nextContexts;
 			}
+			clearPanelHistoryForSession(sessionId);
 			if (activeSessionId() === sessionId) {
 				this.requestComposerFocus();
 				syncWebPanelOpen(false);
@@ -415,6 +635,12 @@ function createShellStore() {
 			const next = { ...webPanelsBySession, [sessionId]: draft };
 			delete next[DRAFT_SESSION_KEY];
 			webPanelsBySession = next;
+			const draftHistory = panelHistoryBySession[DRAFT_SESSION_KEY];
+			if (draftHistory) {
+				const nextHistory = { ...panelHistoryBySession, [sessionId]: draftHistory };
+				delete nextHistory[DRAFT_SESSION_KEY];
+				panelHistoryBySession = nextHistory;
+			}
 		},
 		/** Discards a draft panel without migrating it. */
 		clearDraftPanel() {
@@ -427,6 +653,7 @@ function createShellStore() {
 				delete nextContexts[DRAFT_SESSION_KEY];
 				webContextsBySession = nextContexts;
 			}
+			clearPanelHistoryForSession(DRAFT_SESSION_KEY);
 		}
 	};
 }

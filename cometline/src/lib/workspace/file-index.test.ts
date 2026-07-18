@@ -1,7 +1,9 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import {
 	clearAllFileIndexes,
+	directoriesFromFileIndex,
 	filterFileIndex,
+	filterMentionPaths,
 	getFileIndex,
 	isFileIndexFresh,
 	isFileIndexReady,
@@ -144,5 +146,18 @@ describe('file-index', () => {
 		const result = await searchWorkspaceFiles('/workspace', '   ');
 		expect(result).toEqual([]);
 		expect(cometmind.listWorkspaceFiles).not.toHaveBeenCalled();
+	});
+
+	it('derives unique parent directories from indexed files', () => {
+		expect(directoriesFromFileIndex(['README.md', 'src/lib/a.ts', 'src/b.ts'])).toEqual([
+			'src/',
+			'src/lib/'
+		]);
+	});
+
+	it('filters mention paths with directories first', () => {
+		const hits = filterMentionPaths(['src/lib/a.ts', 'src/b.ts', 'README.md'], 'src');
+		expect(hits.filter((h) => h.kind === 'dir').map((h) => h.path)).toEqual(['src/', 'src/lib/']);
+		expect(hits.some((h) => h.kind === 'file' && h.path === 'src/lib/a.ts')).toBe(true);
 	});
 });

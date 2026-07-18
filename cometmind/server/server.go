@@ -142,6 +142,7 @@ func New(deps Deps) (*gin.Engine, error) {
 
 	// Wiki files (global LLM wiki at ~/.cometmind/wiki/)
 	api.GET("/wiki/files", app.handleListWikiFiles)
+	api.GET("/wiki/files/backlinks", app.handleListWikiFileBacklinks)
 	api.GET("/wiki/files/content", app.handleReadWikiFileContent)
 	api.PUT("/wiki/files/content", app.handleWriteWikiFileContent)
 

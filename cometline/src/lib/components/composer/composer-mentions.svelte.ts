@@ -5,13 +5,14 @@ import {
 	shouldRunMentionServerSearch
 } from '$lib/components/composer/composer-mention-search';
 import {
-	filterFileIndex,
+	filterMentionPaths,
 	getFileIndex,
 	isFileIndexFresh,
 	isFileIndexReady,
 	normalizeWorkspacePath,
 	refreshFileIndex,
-	searchWorkspaceFiles
+	searchWorkspaceFiles,
+	type MentionPath
 } from '$lib/workspace/file-index';
 import type { ComposerInputRef } from '$lib/components/composer/composer-input-ref';
 
@@ -73,7 +74,7 @@ export function createComposerMentionsController(deps: {
 	const mentionTruncated = $derived(Boolean(fileIndex?.truncated));
 
 	const localMatches = $derived.by(() =>
-		filterFileIndex(fileIndex?.files ?? [], mentionQuery)
+		filterMentionPaths(fileIndex?.files ?? [], mentionQuery)
 	);
 
 	const queryTrimmed = $derived(mentionQuery.trim());
@@ -84,15 +85,27 @@ export function createComposerMentionsController(deps: {
 
 	const useServerSearch = $derived(needsServerSearch);
 
-	const filteredMentionFiles = $derived.by(() =>
-		resolveMentionSourcePaths(
-			localMatches,
+	const filteredMentionFiles = $derived.by((): MentionPath[] => {
+		const local = localMatches;
+		const localFiles = local.filter((item) => item.kind === 'file').map((item) => item.path);
+		const serverFiles = resolveMentionSourcePaths(
+			localFiles,
 			mentionServerResults,
 			mentionServerQuery,
 			queryTrimmed,
 			needsServerSearch
-		)
-	);
+		);
+		if (!needsServerSearch) return local;
+		const dirs = local.filter((item) => item.kind === 'dir');
+		const seen = new Set(dirs.map((item) => item.path));
+		const merged: MentionPath[] = [...dirs];
+		for (const path of serverFiles) {
+			if (seen.has(path)) continue;
+			seen.add(path);
+			merged.push({ path, kind: 'file' });
+		}
+		return merged.slice(0, 50);
+	});
 
 	$effect(() => {
 		const workspacePath = activeWorkspacePath;
@@ -177,8 +190,12 @@ export function createComposerMentionsController(deps: {
 		}
 	}
 
-	function selectMentionFile(path: string) {
-		deps.getInput()?.insertFileMention(path);
+	function selectMentionFile(path: string | MentionPath) {
+		const mention = typeof path === 'string' ? { path, kind: 'file' as const } : path;
+		const insertPath = mention.kind === 'dir' && !mention.path.endsWith('/')
+			? `${mention.path}/`
+			: mention.path;
+		deps.getInput()?.insertFileMention(insertPath);
 		closeMentionMenu();
 	}
 
@@ -230,8 +247,8 @@ export function createComposerMentionsController(deps: {
 			return true;
 		}
 		if (e.key === 'Tab' || e.key === 'Enter') {
-			const path = filteredMentionFiles[mentionHighlight];
-			if (!path) {
+			const mention = filteredMentionFiles[mentionHighlight];
+			if (!mention) {
 				if (e.key === 'Tab') {
 					e.preventDefault();
 					return true;
@@ -239,7 +256,7 @@ export function createComposerMentionsController(deps: {
 				return false;
 			}
 			e.preventDefault();
-			selectMentionFile(path);
+			selectMentionFile(mention);
 			return true;
 		}
 		return false;

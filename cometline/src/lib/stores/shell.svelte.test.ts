@@ -79,12 +79,59 @@ describe('shellStore web panel focus behavior', () => {
 		shellStore.closeWebPanel();
 	});
 
-	it('requests address focus when opening an empty web panel', () => {
-		const before = shellStore.addressBarFocusRequestId;
+	it('requests file-tree filter focus when opening an empty web panel', () => {
+		const addressBefore = shellStore.addressBarFocusRequestId;
+		const filterBefore = shellStore.fileTreeFilterFocusRequestId;
 
 		shellStore.openWebPanelEmpty();
 
-		expect(shellStore.addressBarFocusRequestId).toBe(before + 1);
+		expect(shellStore.fileTreeFilterFocusRequestId).toBe(filterBefore + 1);
+		expect(shellStore.addressBarFocusRequestId).toBe(addressBefore);
+		shellStore.closeWebPanel();
+	});
+
+	it('cycles ⌘O focus between filter and address while browsing', () => {
+		shellStore.openWebPanelEmpty();
+		const filterAfterOpen = shellStore.fileTreeFilterFocusRequestId;
+		const addressAfterOpen = shellStore.addressBarFocusRequestId;
+
+		shellStore.openWebPanelFromShortcut();
+		expect(shellStore.addressBarFocusRequestId).toBe(addressAfterOpen + 1);
+		expect(shellStore.fileTreeFilterFocusRequestId).toBe(filterAfterOpen);
+
+		shellStore.openWebPanelFromShortcut();
+		expect(shellStore.fileTreeFilterFocusRequestId).toBe(filterAfterOpen + 1);
+
+		shellStore.closeWebPanel();
+	});
+
+	it('tracks browse → file history and restores browse on back', () => {
+		shellStore.openWebPanelEmpty();
+		expect(shellStore.webPanelBrowseOpen).toBe(true);
+
+		shellStore.openFilePreviewForActive('@runtime/wiki/index.md');
+		expect(shellStore.webPanelMode).toBe('file');
+		expect(shellStore.webPanelFilePath).toBe('@runtime/wiki/index.md');
+		expect(shellStore.canPanelHistoryBack).toBe(true);
+
+		expect(shellStore.panelHistoryBack()).toBe(true);
+		expect(shellStore.webPanelBrowseOpen).toBe(true);
+		expect(shellStore.canPanelHistoryForward).toBe(true);
+
+		expect(shellStore.panelHistoryForward()).toBe(true);
+		expect(shellStore.webPanelFilePath).toBe('@runtime/wiki/index.md');
+
+		shellStore.closeWebPanel();
+		expect(shellStore.canPanelHistoryBack).toBe(false);
+	});
+
+	it('seeds browse under a direct file open so back returns to the tree', () => {
+		shellStore.openFilePreviewForActive('README.md');
+		expect(shellStore.canPanelHistoryBack).toBe(true);
+
+		expect(shellStore.panelHistoryBack()).toBe(true);
+		expect(shellStore.webPanelBrowseOpen).toBe(true);
+
 		shellStore.closeWebPanel();
 	});
 });
@@ -122,6 +169,59 @@ describe('shellStore lazy page context', () => {
 			}
 		]);
 		expect(resolvePage).toHaveBeenCalledWith('https://example.com');
+		unregister();
+	});
+
+	it('appends snippets and upserts viewing path without wiping others', async () => {
+		shellStore.setViewingFileContextForActive('workspace-file:a.md', 'a.md');
+		shellStore.addWebContextForActive({
+			kind: 'file',
+			title: 'a.md:1-2',
+			source: 'workspace-file:a.md#L1-L2',
+			content: 'hello'
+		});
+		shellStore.setPendingPageContextForActive({
+			title: 'Example',
+			source: 'https://example.com'
+		});
+		expect(shellStore.pendingWebContexts).toHaveLength(3);
+
+		shellStore.setViewingFileContextForActive('workspace-file:b.md', 'b.md');
+		expect(shellStore.pendingWebContexts.filter((c) => 'role' in c && c.role === 'viewing')).toEqual([
+			{
+				kind: 'file',
+				role: 'viewing',
+				title: 'b.md',
+				source: 'workspace-file:b.md',
+				content: ''
+			}
+		]);
+		expect(shellStore.pendingWebContexts).toHaveLength(3);
+
+		shellStore.removeWebContextAt(0); // drop the snippet; keep page + viewing
+		expect(shellStore.pendingWebContexts).toHaveLength(2);
+
+		const resolvePage = vi.fn(async (source: string) => ({
+			kind: 'page' as const,
+			title: 'Example',
+			source,
+			content: 'page body'
+		}));
+		const unregister = shellStore.registerPageContextResolver(resolvePage);
+		await expect(shellStore.resolvePendingWebContextsForActive()).resolves.toEqual([
+			{
+				kind: 'page',
+				title: 'Example',
+				source: 'https://example.com',
+				content: 'page body'
+			},
+			{
+				kind: 'file',
+				title: 'b.md',
+				source: 'workspace-file:b.md',
+				content: ''
+			}
+		]);
 		unregister();
 	});
 });

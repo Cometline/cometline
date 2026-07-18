@@ -110,17 +110,29 @@ export function canonicalFileMentionPath(path: string): string {
  * Builds a clickable file embed chip for user messages. Uses `data-file-path` so
  * the renderer can open the side-panel preview on click.
  */
-export function buildFileEmbedChip(relativePath: string): string {
+export function buildFileEmbedChip(relativePath: string, displayLabel?: string): string {
 	const canonical = canonicalFileMentionPath(relativePath);
 	const escapedPath = escapeHtml(canonical);
 	const display =
-		canonical.startsWith('@runtime/wiki/') || canonical.startsWith('runtime/wiki/')
+		displayLabel?.trim() ||
+		(canonical.startsWith('@runtime/wiki/') || canonical.startsWith('runtime/wiki/')
 			? fileMentionText(canonical)
-			: `@${fileLabelFromPath(canonical)}`;
+			: `@${fileLabelFromPath(canonical)}`);
 	const label = escapeHtml(display);
 	return (
 		`<span class="file-embed" role="button" tabindex="0" data-file-path="${escapedPath}" title="${escapedPath}">` +
 		`<span class="file-embed-label">${label}</span>` +
+		`</span>`
+	);
+}
+
+/** Non-navigating chip for an unresolved `[[wikilink]]`. */
+export function buildBrokenWikilinkChip(label: string): string {
+	const text = label.trim() || 'missing';
+	const escaped = escapeHtml(text);
+	return (
+		`<span class="file-embed file-embed-broken" title="Missing wiki page: ${escaped}">` +
+		`<span class="file-embed-label">${escaped}</span>` +
 		`</span>`
 	);
 }

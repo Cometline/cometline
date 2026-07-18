@@ -7,6 +7,7 @@ import (
 
 	"github.com/cometline/cometmind/internal/paths"
 	wikifiles "github.com/cometline/cometmind/internal/wiki/files"
+	wikilinks "github.com/cometline/cometmind/internal/wiki/links"
 	"github.com/gin-gonic/gin"
 )
 
@@ -54,6 +55,30 @@ func (a *App) handleReadWikiFileContent(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, result)
+}
+
+func (a *App) handleListWikiFileBacklinks(c *gin.Context) {
+	path := strings.TrimSpace(c.Query("path"))
+	if path == "" {
+		writeError(c, http.StatusBadRequest, "bad_request", "path is required")
+		return
+	}
+
+	root, err := paths.WikiDir()
+	if err != nil {
+		writeError(c, http.StatusInternalServerError, "internal_error", err.Error())
+		return
+	}
+
+	index, err := wikilinks.BuildBacklinkIndex(c.Request.Context(), root)
+	if err != nil {
+		writeError(c, http.StatusInternalServerError, "internal_error", err.Error())
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"backlinks": wikilinks.BacklinksFor(index, path),
+	})
 }
 
 func (a *App) handleWriteWikiFileContent(c *gin.Context) {

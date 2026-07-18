@@ -39,4 +39,15 @@ describe('stripInlinedFileBlocks', () => {
 	it('leaves plain text unchanged', () => {
 		expect(stripInlinedFileBlocks('hello @world')).toBe('hello @world');
 	});
+
+	it('removes path-only reference stubs', () => {
+		const input = [
+			'review @main.go and @src/lib/',
+			'',
+			'[Referenced file: main.go — use read_file (or other tools) if you need contents; do not assume body is attached]',
+			'',
+			'[Referenced directory: src/lib/ — use list_dir/glob/grep as needed]'
+		].join('\n');
+		expect(stripInlinedFileBlocks(input)).toBe('review @main.go and @src/lib/');
+	});
 });

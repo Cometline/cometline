@@ -156,7 +156,6 @@
 		mentions.hasWorkspace ? workspaceLabel(shellStore.workspacePath) : ''
 	);
 	const pendingWebContexts = $derived(shellStore.pendingWebContexts);
-	const webContextChipLabel = $derived(formatWebContextChipLabel(pendingWebContexts));
 
 	export function focus() {
 		void focusInput();
@@ -226,15 +225,11 @@
 		onRemoveQueued?.(id);
 	}
 
-	function formatWebContextChipLabel(contexts: readonly PendingWebContext[]): string {
-		const first = contexts[0];
-		if (!first) return '';
-		const label = webContextLabel(first);
-		if (contexts.length === 1) return label;
-		return `${label} + ${contexts.length - 1} more`;
-	}
-
 	function webContextLabel(context: PendingWebContext): string {
+		if (context.kind === 'file' && 'role' in context && context.role === 'viewing') {
+			const name = context.title?.trim() || fileNameFromSource(context.source);
+			return `Viewing ${name}`;
+		}
 		const title = context.title?.trim();
 		if (title) return title;
 		if (context.kind === 'file') return fileNameFromSource(context.source);
@@ -294,16 +289,29 @@
 	<MessageQueuePanel {queuedCount} {queuedMessages} onRemove={removeQueued} />
 
 	{#if pendingWebContexts.length > 0}
-		<div class="web-context-chip" role="status">
-			<FileText size={14} />
-			<span title={webContextChipLabel}>Web context: {webContextChipLabel}</span>
-			<button
-				type="button"
-				onclick={() => shellStore.clearWebContextForActive()}
-				aria-label="Remove web context"
-			>
-				×
-			</button>
+		<div class="web-context-chips" role="list" aria-label="Chat context">
+			{#each pendingWebContexts as context, index (context.source + ':' + index)}
+				<div class="web-context-chip" role="listitem">
+					<FileText size={14} />
+					<span title={webContextLabel(context)}>{webContextLabel(context)}</span>
+					<button
+						type="button"
+						onclick={() => shellStore.removeWebContextAt(index)}
+						aria-label="Remove {webContextLabel(context)}"
+					>
+						×
+					</button>
+				</div>
+			{/each}
+			{#if pendingWebContexts.length > 1}
+				<button
+					type="button"
+					class="web-context-clear"
+					onclick={() => shellStore.clearWebContextForActive()}
+				>
+					Clear all
+				</button>
+			{/if}
 		</div>
 	{/if}
 
@@ -404,6 +412,13 @@
 		line-height: 1.35;
 	}
 
+	.web-context-chips {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 6px;
+	}
+
 	.web-context-chip {
 		display: flex;
 		align-items: center;
@@ -421,6 +436,19 @@
 		color: var(--text-muted);
 		font-size: 12px;
 		box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.58);
+	}
+
+	.web-context-clear {
+		border: 0;
+		background: transparent;
+		color: var(--text-soft);
+		font-size: 12px;
+		cursor: pointer;
+		padding: 4px 6px;
+	}
+
+	.web-context-clear:hover {
+		color: var(--text-main);
 	}
 
 	.web-context-chip :global(svg) {

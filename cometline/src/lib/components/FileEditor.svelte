@@ -22,6 +22,23 @@
 
 	let host = $state<HTMLDivElement | null>(null);
 	let editorView = $state<EditorView | null>(null);
+
+	/** Selected text + 1-based line range, or null when empty. */
+	export function getSelectionRange(): {
+		text: string;
+		startLine: number;
+		endLine: number;
+	} | null {
+		const view = editorView;
+		if (!view) return null;
+		const { from, to } = view.state.selection.main;
+		if (from === to) return null;
+		const text = view.state.sliceDoc(from, to);
+		if (!text.trim()) return null;
+		const startLine = view.state.doc.lineAt(from).number;
+		const endLine = view.state.doc.lineAt(to > from ? to - 1 : to).number;
+		return { text, startLine, endLine };
+	}
 	const languageCompartment = new Compartment();
 	const editableCompartment = new Compartment();
 	const readOnlyCompartment = new Compartment();
@@ -84,6 +101,7 @@
 					doc: value,
 					extensions: [
 						basicSetup,
+						EditorView.lineWrapping,
 						editorTheme(),
 						saveKeymap,
 						languageCompartment.of(codemirrorLanguageSupport(language)),
