@@ -4410,7 +4410,7 @@ var OLLAMA_CATALOG = [
     pullName: "qwen3-embedding:0.6b",
     sizeEstimateBytes: 639 * 1024 * 1024,
     sizeLabel: "~639 MB",
-    description: "Multilingual semantic memory embeddings. Recommended for first-run setup.",
+    description: "qwen3-embedding:0.6b",
     roles: ["embedding"],
     capabilities: {
       chat: false,
@@ -4428,7 +4428,7 @@ var OLLAMA_CATALOG = [
     pullName: "gemma4:e2b-mlx",
     sizeEstimateBytes: Math.round(6.5 * 1024 * 1024 * 1024),
     sizeLabel: "~6.5 GB",
-    description: "Smaller local chat model for Apple Silicon. Chat and titles only in v1.",
+    description: "gemma4:e2b-mlx",
     roles: ["chat", "title"],
     capabilities: {
       chat: true,
@@ -4438,7 +4438,7 @@ var OLLAMA_CATALOG = [
       extraction: false
     },
     featured: true,
-    architectureNote: "Optimized for Apple Silicon (MLX)",
+    architectureNote: "Apple Silicon (MLX)",
     licenseURL: "https://ollama.com/library/gemma4"
   },
   {
@@ -4447,7 +4447,7 @@ var OLLAMA_CATALOG = [
     pullName: "gemma4:e4b-mlx",
     sizeEstimateBytes: Math.round(8.8 * 1024 * 1024 * 1024),
     sizeLabel: "~8.8 GB",
-    description: "Higher-quality local chat model for Apple Silicon. Chat and titles only in v1.",
+    description: "gemma4:e4b-mlx",
     roles: ["chat", "title"],
     capabilities: {
       chat: true,
@@ -4457,7 +4457,7 @@ var OLLAMA_CATALOG = [
       extraction: false
     },
     featured: true,
-    architectureNote: "Optimized for Apple Silicon (MLX)",
+    architectureNote: "Apple Silicon (MLX)",
     licenseURL: "https://ollama.com/library/gemma4"
   },
   {
@@ -4466,7 +4466,7 @@ var OLLAMA_CATALOG = [
     pullName: "embeddinggemma",
     sizeEstimateBytes: 622 * 1024 * 1024,
     sizeLabel: "~622 MB",
-    description: "Lower-resource multilingual embeddings. Available as an expandable alternative.",
+    description: "embeddinggemma",
     roles: ["embedding"],
     capabilities: {
       chat: false,

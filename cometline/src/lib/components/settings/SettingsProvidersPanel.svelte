@@ -5,6 +5,7 @@
 	import { settingsStore } from '$lib/stores/settings.svelte';
 	import ProviderCard from './ProviderCard.svelte';
 	import ModelRow from './ModelRow.svelte';
+	import OllamaProviderPanel from './OllamaProviderPanel.svelte';
 
 	const METHOD_LABELS: Record<ProviderMethod, string> = {
 		openai: 'OpenAI',
@@ -12,7 +13,8 @@
 		'opencode-go': 'OpenCode Go',
 		codex: 'ChatGPT Codex',
 		xai: 'xAI Grok Subscription',
-		'openai-compatible': 'OpenAI Compatible'
+		ollama: 'Ollama Local',
+		'openai-compatible': 'Advanced / Custom endpoint'
 	};
 
 	const DEFAULT_PROVIDER_IDS = new Set([
@@ -21,6 +23,7 @@
 		'opencode-go',
 		'codex',
 		'xai',
+		'ollama',
 		'openai-compatible'
 	]);
 
@@ -87,7 +90,7 @@
 	} = $props();
 
 	function methodNeedsApiKey(method: ProviderMethod) {
-		return method !== 'codex' && method !== 'xai';
+		return method !== 'codex' && method !== 'xai' && method !== 'ollama';
 	}
 
 	function canFetchModels(provider: ProviderConfig) {
@@ -95,6 +98,7 @@
 		return (
 			provider.method === 'codex' ||
 			provider.method === 'opencode-go' ||
+			provider.method === 'ollama' ||
 			(provider.method === 'xai'
 				? Boolean(xaiAuthStatus?.authenticated)
 				: provider.apiKey.trim().length > 0)
@@ -189,20 +193,23 @@
 						<option value="xai">xAI Grok Subscription</option>
 						<option value="openai">OpenAI</option>
 						<option value="anthropic">Anthropic</option>
+						<option value="ollama">Ollama Local</option>
 						<option value="opencode-go">OpenCode Go</option>
-						<option value="openai-compatible">OpenAI Compatible</option>
+						<option value="openai-compatible">Advanced / Custom endpoint</option>
 					</select>
 				</label>
 
-				<label>
-					<span>Base URL</span>
-					<input
-						value={selectedProvider.baseURL}
-						oninput={(e) => onUpdateSelected({ baseURL: e.currentTarget.value })}
-						placeholder="https://example.com/v1"
-						spellcheck="false"
-					/>
-				</label>
+				{#if selectedProvider.method !== 'ollama'}
+					<label>
+						<span>Base URL</span>
+						<input
+							value={selectedProvider.baseURL}
+							oninput={(e) => onUpdateSelected({ baseURL: e.currentTarget.value })}
+							placeholder="https://example.com/v1"
+							spellcheck="false"
+						/>
+					</label>
+				{/if}
 
 				{#if methodNeedsApiKey(selectedProvider.method)}
 					<label>
@@ -299,65 +306,77 @@
 				{/if}
 			</div>
 
-			<div class="settings-section model-section">
-				<div class="settings-section-heading model-heading">
-					<div>
-						<h3>Models</h3>
-						{#if selectedProvider.method === 'codex'}
-							<p>
-								Use Fetch models to refresh models from your ChatGPT browser
-								session.
-							</p>
-						{:else if selectedProvider.method === 'xai'}
-							<p>Use Fetch models to refresh the available Grok models from xAI.</p>
-						{:else if selectedProvider.method === 'opencode-go'}
-							<p>
-								Use Fetch models to refresh the latest list from <code>/models</code
-								> at OpenCode Go.
-							</p>
-						{:else}
-							<p>
-								Use Fetch models to refresh the latest list from <code>/models</code
-								>.
-							</p>
-						{/if}
+			{#if selectedProvider.method === 'ollama'}
+				<div class="settings-section model-section">
+					<div class="settings-section-heading model-heading">
+						<div>
+							<h3>Ollama Local</h3>
+							<p>No API key. Health checks and model pulls stay on loopback only.</p>
+						</div>
 					</div>
-					<button
-						class="secondary"
-						onclick={onFetchModels}
-						disabled={!canFetchModels(selectedProvider)}
-					>
-						{#if settingsStore.isFetchingModels}<span class="spin"
-								><LoaderCircle size={14} /></span
-							>{/if}
-						Fetch models
-					</button>
+					<OllamaProviderPanel provider={selectedProvider} onUpdate={onUpdateSelected} />
 				</div>
+			{:else}
+				<div class="settings-section model-section">
+					<div class="settings-section-heading model-heading">
+						<div>
+							<h3>Models</h3>
+							{#if selectedProvider.method === 'codex'}
+								<p>
+									Use Fetch models to refresh models from your ChatGPT browser
+									session.
+								</p>
+							{:else if selectedProvider.method === 'xai'}
+								<p>Use Fetch models to refresh the available Grok models from xAI.</p>
+							{:else if selectedProvider.method === 'opencode-go'}
+								<p>
+									Use Fetch models to refresh the latest list from
+									<code>/models</code> at OpenCode Go.
+								</p>
+							{:else}
+								<p>
+									Use Fetch models to refresh the latest list from
+									<code>/models</code>.
+								</p>
+							{/if}
+						</div>
+						<button
+							class="secondary"
+							onclick={onFetchModels}
+							disabled={!canFetchModels(selectedProvider)}
+						>
+							{#if settingsStore.isFetchingModels}<span class="spin"
+									><LoaderCircle size={14} /></span
+								>{/if}
+							Fetch models
+						</button>
+					</div>
 
-				<input
-					class="model-search"
-					bind:value={modelSearch}
-					placeholder="Search models..."
-					spellcheck="false"
-				/>
+					<input
+						class="model-search"
+						bind:value={modelSearch}
+						placeholder="Search models..."
+						spellcheck="false"
+					/>
 
-				<div class="settings-scroll-list model-list scrollbar-none">
-					{#each filteredModels as model (model)}
-						<ModelRow
-							{model}
-							providerId={selectedProvider.id}
-							enabled={selectedProvider.enabledModels.includes(model)}
-							onclick={() => onToggleModel(model)}
-						/>
-					{:else}
-						<p class="empty-models">
-							{selectedProvider.models.length === 0
-								? 'No models loaded yet.'
-								: 'No models match your search.'}
-						</p>
-					{/each}
+					<div class="settings-scroll-list model-list scrollbar-none">
+						{#each filteredModels as model (model)}
+							<ModelRow
+								{model}
+								providerId={selectedProvider.id}
+								enabled={selectedProvider.enabledModels.includes(model)}
+								onclick={() => onToggleModel(model)}
+							/>
+						{:else}
+							<p class="empty-models">
+								{selectedProvider.models.length === 0
+									? 'No models loaded yet.'
+									: 'No models match your search.'}
+							</p>
+						{/each}
+					</div>
 				</div>
-			</div>
+			{/if}
 		</section>
 	{/if}
 </div>

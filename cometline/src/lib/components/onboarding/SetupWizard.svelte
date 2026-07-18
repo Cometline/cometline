@@ -31,6 +31,13 @@
 		type MemorySettings
 	} from '$lib/client/cometmind';
 	import type { ProviderConfig, ProviderMethod, ProviderSettings } from '$lib/types';
+	import { getOllamaCatalogEntry, OLLAMA_DEFAULT_NATIVE_BASE } from '$lib/ollama/catalog';
+	import {
+		checkOllamaHealth,
+		openOllamaDownloadPage,
+		pullOllamaModel,
+		type OllamaHealthResult
+	} from '$lib/ollama/client';
 
 	const METHOD_LABELS: Record<ProviderMethod, string> = {
 		openai: 'OpenAI',
@@ -38,14 +45,18 @@
 		'opencode-go': 'OpenCode Go',
 		codex: 'ChatGPT Codex',
 		xai: 'xAI Grok Subscription',
-		'openai-compatible': 'OpenAI Compatible'
+		ollama: 'Ollama Local',
+		'openai-compatible': 'Advanced / Custom endpoint'
 	};
+
+	const PRIVATE_MEMORY = getOllamaCatalogEntry('private-memory')!;
 
 	function canFetchModels(provider: ProviderConfig) {
 		if (settingsStore.isFetchingModels || !provider.baseURL.trim()) return false;
 		return (
 			provider.method === 'codex' ||
 			provider.method === 'opencode-go' ||
+			provider.method === 'ollama' ||
 			(provider.method === 'xai'
 				? Boolean(xaiAuthStatus?.authenticated)
 				: provider.apiKey.trim().length > 0)
@@ -94,6 +105,10 @@
 	let memoryError = $state('');
 	let selectedEmbeddingKey = $state('');
 	let savedEmbedding = $state<SavedEmbeddingRef | undefined>();
+	let ollamaHealth = $state<OllamaHealthResult | null>(null);
+	let checkingOllama = $state(false);
+	let pullingPrivateMemory = $state(false);
+	let ollamaWizardError = $state('');
 
 	// Draft built from current settings so the wizard edits don't leak if
 	// the user cancels.
@@ -122,6 +137,9 @@
 			}
 			if (selectedProvider.method === 'xai') {
 				return Boolean(xaiAuthStatus?.authenticated);
+			}
+			if (selectedProvider.method === 'ollama') {
+				return true;
 			}
 			return selectedProvider.apiKey.trim().length > 0;
 		}
@@ -164,6 +182,86 @@
 				void refreshCodexAuthStatus();
 				void refreshXaiAuthStatus();
 			}
+			if (nextStep === 'apikey' && selectedProvider?.method === 'xai') {
+				void refreshXaiAuthStatus();
+			}
+			if (
+				(nextStep === 'apikey' || nextStep === 'embedding') &&
+				(selectedProvider?.method === 'ollama' || nextStep === 'embedding')
+			) {
+				void refreshOllamaHealth();
+			}
+		}
+	}
+
+	async function refreshOllamaHealth() {
+		checkingOllama = true;
+		ollamaWizardError = '';
+		try {
+			ollamaHealth = await checkOllamaHealth(
+				selectedProvider?.baseURL || OLLAMA_DEFAULT_NATIVE_BASE
+			);
+			if (ollamaHealth.ok && selectedProvider?.method === 'ollama') {
+				patchSelected({ baseURL: ollamaHealth.baseURL, enabled: true });
+			}
+		} catch (err) {
+			ollamaWizardError = err instanceof Error ? err.message : String(err);
+		} finally {
+			checkingOllama = false;
+		}
+	}
+
+	async function recommendPrivateMemory() {
+		pullingPrivateMemory = true;
+		ollamaWizardError = '';
+		try {
+			if (!ollamaHealth?.ok) {
+				await refreshOllamaHealth();
+			}
+			if (!ollamaHealth?.ok) {
+				throw new Error('Start Ollama first, then pull Private Memory.');
+			}
+			const result = await pullOllamaModel({
+				baseURL: ollamaHealth.baseURL,
+				catalogId: PRIVATE_MEMORY.id
+			});
+			const names = result.models.map((m) => m.name);
+			const ollamaProvider = draft.providers.find((p) => p.id === 'ollama');
+			if (ollamaProvider) {
+				draft = {
+					...draft,
+					providers: draft.providers.map((p) =>
+						p.id === 'ollama'
+							? cloneProvider({
+									...p,
+									enabled: true,
+									baseURL: ollamaHealth?.baseURL || p.baseURL,
+									models: Array.from(new Set([...p.models, ...names])),
+									enabledModels: Array.from(
+										new Set([...p.enabledModels, PRIVATE_MEMORY.pullName])
+									)
+								})
+							: p
+					)
+				};
+			}
+			selectedEmbeddingKey = `ollama:${PRIVATE_MEMORY.pullName}`;
+			if (memorySettings) {
+				memorySettings = {
+					...memorySettings,
+					embedding: {
+						provider_id: 'ollama',
+						provider: 'ollama',
+						model: PRIVATE_MEMORY.pullName,
+						base_url: ollamaHealth.baseURL,
+						api_key: ''
+					}
+				};
+			}
+		} catch (err) {
+			ollamaWizardError = err instanceof Error ? err.message : String(err);
+		} finally {
+			pullingPrivateMemory = false;
 		}
 	}
 
@@ -294,6 +392,18 @@
 			return {
 				...memorySettings,
 				embedding: { provider_id: '', provider: '', model: '', base_url: '', api_key: '' }
+			};
+		}
+		if (selectedEmbeddingKey === `ollama:${PRIVATE_MEMORY.pullName}`) {
+			return {
+				...memorySettings,
+				embedding: {
+					provider_id: 'ollama',
+					provider: 'ollama',
+					model: PRIVATE_MEMORY.pullName,
+					base_url: ollamaHealth?.baseURL || OLLAMA_DEFAULT_NATIVE_BASE,
+					api_key: ''
+				}
 			};
 		}
 		const option = embeddingOptions.find(
@@ -506,6 +616,39 @@
 								Check session
 							</SettingsButton>
 						</div>
+					{:else if selectedProvider.method === 'ollama'}
+						<p class="step-intro">
+							Ollama runs models on your Mac — no API key. Install the official app if
+							needed, launch it once, then check that the local daemon is ready.
+						</p>
+						{#if ollamaHealth}
+							<p class="codex-status" class:ok={ollamaHealth.ok}>
+								{ollamaHealth.ok
+									? `Ollama is ready${ollamaHealth.version ? ` (v${ollamaHealth.version})` : ''}.`
+									: 'Ollama is not installed or not running.'}
+							</p>
+						{/if}
+						{#if ollamaWizardError}
+							<p class="wizard-error">{ollamaWizardError}</p>
+						{/if}
+						<div class="inline-actions">
+							<SettingsButton
+								variant="secondary"
+								onclick={() => void openOllamaDownloadPage()}
+							>
+								Install Ollama
+							</SettingsButton>
+							<SettingsButton
+								variant="primary"
+								onclick={() => void refreshOllamaHealth()}
+								disabled={checkingOllama}
+							>
+								{#if checkingOllama}<LoaderCircle size={14} class="spin" />{:else}<RefreshCw
+										size={14}
+									/>{/if}
+								Check again
+							</SettingsButton>
+						</div>
 					{:else}
 						<p class="step-intro">
 							Enter your API key for {selectedProvider.name ||
@@ -608,10 +751,57 @@
 				{/if}
 			{:else if step === 'embedding'}
 				<p class="step-intro">
-					Cometline can store and retrieve memories across sessions using an embedding
-					model. Pick one from your enabled providers, or skip this step — you can
-					configure it later in Settings → Memory.
+					Most people skip cloud API keys at first. We recommend local
+					<strong>Private Memory</strong>
+					({PRIVATE_MEMORY.pullName}, {PRIVATE_MEMORY.sizeLabel}) via Ollama — no API key
+					required. You can still skip or pick a hosted embedding model.
 				</p>
+				<div class="recommend-card">
+					<div>
+						<strong>Recommended: Private Memory</strong>
+						<p>
+							Local embeddings on your Mac. Install/start Ollama if needed, then pull
+							this model.
+						</p>
+						{#if ollamaHealth}
+							<p class="codex-status" class:ok={ollamaHealth.ok}>
+								{ollamaHealth.ok
+									? 'Ollama is ready.'
+									: 'Ollama is not installed or not running.'}
+							</p>
+						{/if}
+						{#if ollamaWizardError}
+							<p class="wizard-error">{ollamaWizardError}</p>
+						{/if}
+					</div>
+					<div class="inline-actions">
+						{#if !ollamaHealth?.ok}
+							<SettingsButton
+								variant="secondary"
+								onclick={() => void openOllamaDownloadPage()}
+							>
+								Install Ollama
+							</SettingsButton>
+							<SettingsButton
+								variant="secondary"
+								onclick={() => void refreshOllamaHealth()}
+								disabled={checkingOllama}
+							>
+								Check again
+							</SettingsButton>
+						{/if}
+						<SettingsButton
+							variant="primary"
+							onclick={() => void recommendPrivateMemory()}
+							disabled={pullingPrivateMemory}
+						>
+							{#if pullingPrivateMemory}<LoaderCircle size={14} class="spin" />{/if}
+							{selectedEmbeddingKey === `ollama:${PRIVATE_MEMORY.pullName}`
+								? 'Selected'
+								: 'Use Private Memory'}
+						</SettingsButton>
+					</div>
+				</div>
 				{#if memoryLoading}
 					<p class="embedding-loading">
 						<LoaderCircle size={14} class="spin" /> Loading memory settings…
@@ -621,21 +811,18 @@
 					<p class="step-intro">
 						You can skip this step and configure memory later in Settings.
 					</p>
-				{:else if embeddingOptions.length === 0}
-					<p class="step-intro">
-						No embedding models are available from your enabled providers. To use
-						memory, enable a provider with an embedding model (e.g. OpenAI's
-						<code>text-embedding-3-small</code>) in Settings later.
-					</p>
 				{:else}
 					<label class="field">
-						<span class="field-label">Embedding model</span>
+						<span class="field-label">Or choose another embedding model</span>
 						<select
 							class="field-input"
 							value={selectedEmbeddingKey}
 							onchange={(e) => selectEmbedding(e.currentTarget.value)}
 						>
 							<option value="">— Skip (configure later) —</option>
+							<option value={`ollama:${PRIVATE_MEMORY.pullName}`}
+								>Ollama Local · {PRIVATE_MEMORY.pullName} (recommended)</option
+							>
 							{#each embeddingOptions as opt (embeddingOptionKey(opt))}
 								<option value={embeddingOptionKey(opt)}
 									>{opt.providerName} · {opt.model}</option
@@ -672,19 +859,23 @@
 								? codexAuthStatus?.authenticated
 									? 'ChatGPT session'
 									: 'Not signed in'
-								: selectedProvider?.apiKey
-									? 'Set'
-									: 'Missing'}</strong
+								: selectedProvider?.method === 'ollama'
+									? 'Local'
+									: selectedProvider?.apiKey
+										? 'Set'
+										: 'Missing'}</strong
 						>
 					</div>
 					<div class="review-row">
 						<span>Embedding</span>
 						<strong
-							>{selectedEmbeddingKey
-								? (embeddingOptions.find(
-										(o) => embeddingOptionKey(o) === selectedEmbeddingKey
-									)?.model ?? '—')
-								: 'Skipped'}</strong
+							>{selectedEmbeddingKey === `ollama:${PRIVATE_MEMORY.pullName}`
+								? `Local · ${PRIVATE_MEMORY.pullName}`
+								: selectedEmbeddingKey
+									? (embeddingOptions.find(
+											(o) => embeddingOptionKey(o) === selectedEmbeddingKey
+										)?.model ?? '—')
+									: 'Skipped'}</strong
 						>
 					</div>
 				</div>
@@ -1045,7 +1236,30 @@
 	}
 
 	.codex-status.ok {
-		color: #067647;
+		color: var(--status-success);
+	}
+
+	.recommend-card {
+		display: grid;
+		gap: 8px;
+		padding: 12px 14px;
+		border: 1px solid var(--border-soft);
+		border-radius: 11px;
+		background: rgba(255, 255, 255, 0.55);
+		margin-bottom: 14px;
+	}
+
+	.recommend-card strong {
+		font-size: 13px;
+		font-weight: 650;
+		color: var(--text-main);
+	}
+
+	.recommend-card p {
+		margin: 0;
+		font-size: 12px;
+		color: var(--text-muted);
+		line-height: 1.45;
 	}
 
 	.inline-actions {
