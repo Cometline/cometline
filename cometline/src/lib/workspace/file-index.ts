@@ -159,3 +159,43 @@ export function filterFileIndex(files: string[], query: string): string[] {
 	if (!q) return files;
 	return files.filter((path) => path.toLowerCase().includes(q));
 }
+
+/** Unique parent directories (with trailing `/`) derived from indexed file paths. */
+export function directoriesFromFileIndex(files: string[]): string[] {
+	const dirs = new Set<string>();
+	for (const file of files) {
+		const parts = file.split('/').filter(Boolean);
+		if (parts.length < 2) continue;
+		let prefix = '';
+		for (let i = 0; i < parts.length - 1; i++) {
+			prefix = prefix ? `${prefix}/${parts[i]}` : parts[i];
+			dirs.add(`${prefix}/`);
+		}
+	}
+	return [...dirs].sort((a, b) => a.localeCompare(b));
+}
+
+export type MentionPathKind = 'file' | 'dir';
+
+export type MentionPath = {
+	path: string;
+	kind: MentionPathKind;
+};
+
+/** Mixed file + directory mention results, directories first when scores tie. */
+export function filterMentionPaths(
+	files: string[],
+	query: string,
+	limit = 50
+): MentionPath[] {
+	const q = query.trim().toLowerCase();
+	const dirs = directoriesFromFileIndex(files);
+	const fileHits = (q ? files.filter((path) => path.toLowerCase().includes(q)) : files).map(
+		(path): MentionPath => ({ path, kind: 'file' })
+	);
+	const dirHits = (q ? dirs.filter((path) => path.toLowerCase().includes(q)) : dirs).map(
+		(path): MentionPath => ({ path, kind: 'dir' })
+	);
+	const merged = [...dirHits, ...fileHits];
+	return merged.slice(0, limit);
+}

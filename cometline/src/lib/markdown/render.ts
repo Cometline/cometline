@@ -4,12 +4,18 @@ import DOMPurify from 'dompurify';
 import katex from 'katex';
 import { getHighlighter, resolveLanguage, CODE_THEME } from './highlight';
 import {
+	buildBrokenWikilinkChip,
 	buildEmbedChip,
 	buildFileEmbedChip,
 	buildSkillEmbedChip,
 	findNextUserTextToken
 } from './embed';
 import { stripInlinedFileBlocks } from '$lib/messages/strip-inlined-files';
+import { toWikiUiPath } from '$lib/wiki/paths';
+import { parseWikilinkInner, resolveWikilink } from '$lib/wiki/wikilinks';
+
+/** Wiki file list used while the current `renderMarkdown` call is in flight. */
+let activeWikiFiles: readonly string[] = [];
 
 /** Escapes text for safe inclusion in HTML. */
 function escapeHtml(value: string): string {
@@ -169,6 +175,39 @@ const wikiFileEmbedExtension: TokenizerAndRendererExtension = {
 	}
 };
 
+/**
+ * Inline extension: Obsidian-style `[[Page]]` / `[[Page|alias]]` → file chips
+ * when a wiki file index is supplied to `renderMarkdown`.
+ */
+const wikilinkEmbedExtension: TokenizerAndRendererExtension = {
+	name: 'wikilinkEmbed',
+	level: 'inline',
+	start(src: string) {
+		const index = src.indexOf('[[');
+		return index < 0 ? undefined : index;
+	},
+	tokenizer(src: string) {
+		const match = /^\[\[([^\]]+)\]\]/.exec(src);
+		if (!match) return undefined;
+		const parsed = parseWikilinkInner(match[1] ?? '');
+		if (!parsed) return undefined;
+		return {
+			type: 'wikilinkEmbed',
+			raw: match[0],
+			target: parsed.target,
+			alias: parsed.alias ?? ''
+		};
+	},
+	renderer(token) {
+		const target = String((token as { target?: string }).target ?? '');
+		const alias = String((token as { alias?: string }).alias ?? '').trim();
+		const label = alias || target;
+		const resolved = resolveWikilink(target, activeWikiFiles);
+		if (!resolved) return buildBrokenWikilinkChip(label);
+		return buildFileEmbedChip(toWikiUiPath(resolved), label);
+	}
+};
+
 /** Per-render cache of pre-highlighted code HTML, keyed by code token text. */
 type CodeHtmlCache = Map<string, string>;
 
@@ -202,7 +241,13 @@ function createMarkedInstance(codeCache: CodeHtmlCache): Marked {
 	});
 
 	marked.use({
-		extensions: [blockMathExtension, inlineMathExtension, wikiFileEmbedExtension, urlEmbedExtension],
+		extensions: [
+			blockMathExtension,
+			inlineMathExtension,
+			wikiFileEmbedExtension,
+			wikilinkEmbedExtension,
+			urlEmbedExtension
+		],
 		async walkTokens(token) {
 			if (token.type !== 'code') return;
 			const code = token as Tokens.Code;
@@ -336,10 +381,19 @@ const SANITIZE_CONFIG = {
  * Shiki code renderer, raw HTML escaped) → DOMPurify (strict allowlist). The
  * returned HTML is safe to inject via Svelte `{@html}`.
  */
-export async function renderMarkdown(source: string): Promise<string> {
+export type RenderMarkdownOptions = {
+	/** Wiki-root-relative `.md` paths used to resolve `[[wikilinks]]`. */
+	wikiFiles?: readonly string[];
+};
+
+export async function renderMarkdown(
+	source: string,
+	options?: RenderMarkdownOptions
+): Promise<string> {
 	if (!source) return '';
 	ensureDomPurifyHooks();
 	activeRenderCodeKeys = new Set();
+	activeWikiFiles = options?.wikiFiles ?? [];
 	try {
 		const healed = remend(source);
 		const rawHtml = await markedInstance.parse(healed);
@@ -347,6 +401,7 @@ export async function renderMarkdown(source: string): Promise<string> {
 		return DOMPurify.sanitize(rawHtml, SANITIZE_CONFIG);
 	} finally {
 		activeRenderCodeKeys = null;
+		activeWikiFiles = [];
 	}
 }
 
