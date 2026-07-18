@@ -190,6 +190,10 @@ func New(deps Deps) (*gin.Engine, error) {
 	// Memory settings & maintenance
 	api.GET("/memories/settings", app.handleGetMemorySettings)
 	api.PUT("/memories/settings", app.handlePutMemorySettings)
+	api.POST("/memories/reembed-preview", app.handlePreviewMemoryReembed)
+	api.GET("/memories/reembed-jobs", app.handleGetMemoryReembedJob)
+	api.POST("/memories/reembed-jobs", app.handleStartMemoryReembed)
+	api.POST("/memories/reembed-jobs/current/cancellation", app.handleCancelMemoryReembed)
 	api.POST("/memories/purge-runs", app.handlePurgeMemory)
 	api.POST("/memories/compaction-runs", app.handleCompactMemory)
 	api.GET("/memories/compaction-preview", app.handleCompactPreview)

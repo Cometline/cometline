@@ -412,6 +412,24 @@ var alterStatements = [][]string{
 		)`,
 		"CREATE INDEX IF NOT EXISTS idx_assistant_provider_states_message ON assistant_provider_states (message_id)",
 	},
+	// v24 -> v25: durable memory embedding migration jobs
+	{
+		`CREATE TABLE IF NOT EXISTS memory_reembed_jobs (
+			id TEXT PRIMARY KEY,
+			status TEXT NOT NULL,
+			from_model TEXT NOT NULL DEFAULT '',
+			to_provider TEXT NOT NULL DEFAULT '',
+			to_model TEXT NOT NULL DEFAULT '',
+			to_base_url TEXT NOT NULL DEFAULT '',
+			to_api_key TEXT NOT NULL DEFAULT '',
+			total INTEGER NOT NULL DEFAULT 0,
+			completed INTEGER NOT NULL DEFAULT 0,
+			cursor_id TEXT NOT NULL DEFAULT '',
+			error TEXT NOT NULL DEFAULT '',
+			created_at INTEGER NOT NULL,
+			updated_at INTEGER NOT NULL
+		)`,
+	},
 }
 
 // execAlter runs one incremental DDL statement, tolerating idempotent failures
@@ -450,7 +468,7 @@ func splitStatements(sql string) []string {
 	return out
 }
 
-const schemaVersion = 24
+const schemaVersion = 25
 
 // EnsureSchema runs [Migrate] once per database file using PRAGMA user_version.
 // For existing databases, it applies incremental ALTER statements to upgrade

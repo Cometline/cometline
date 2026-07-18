@@ -1318,6 +1318,104 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/v1/memories/reembed-preview:
+    post:
+      tags: [Memory]
+      summary: Preview embedding model migration
+      operationId: previewMemoryReembed
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MemoryEmbeddingSettings'
+      responses:
+        '200':
+          description: Migration preview
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemoryReembedPreview'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '503':
+          description: Memory subsystem disabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimpleErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/memories/reembed-jobs:
+    get:
+      tags: [Memory]
+      summary: Get current embedding migration job
+      operationId: getMemoryReembedJob
+      responses:
+        '200':
+          description: Current job or empty object when none
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemoryReembedJob'
+        '503':
+          description: Memory subsystem disabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimpleErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags: [Memory]
+      summary: Start embedding model migration
+      operationId: startMemoryReembed
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MemoryEmbeddingSettings'
+      responses:
+        '200':
+          description: Started or completed job
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemoryReembedJob'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '503':
+          description: Memory subsystem disabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimpleErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/memories/reembed-jobs/current/cancellation:
+    post:
+      tags: [Memory]
+      summary: Cancel the active embedding migration
+      operationId: cancelMemoryReembed
+      responses:
+        '200':
+          description: Cancelled or current job
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemoryReembedJob'
+        '503':
+          description: Memory subsystem disabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimpleErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /api/v1/memories/purge-runs:
     post:
       tags: [Memory]
@@ -3287,6 +3385,54 @@ components:
           $ref: '#/components/schemas/MemoryLifecycleSettings'
         embedding:
           $ref: '#/components/schemas/MemoryEmbeddingSettings'
+
+    MemoryReembedPreview:
+      type: object
+      additionalProperties: false
+      required: [active_count, needs_migration, current_model, requested_model, migration_needed]
+      properties:
+        active_count:
+          type: integer
+        needs_migration:
+          type: integer
+        current_model:
+          type: string
+        requested_model:
+          type: string
+        migration_needed:
+          type: boolean
+
+    MemoryReembedJob:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+          enum: [pending, running, completed, failed, cancelled]
+        from_model:
+          type: string
+        to_provider:
+          type: string
+        to_model:
+          type: string
+        to_base_url:
+          type: string
+        total:
+          type: integer
+        completed:
+          type: integer
+        cursor_id:
+          type: string
+        error:
+          type: string
+        created_at:
+          type: integer
+          format: int64
+        updated_at:
+          type: integer
+          format: int64
 
     PurgeArchivedMemoryRequest:
       type: object

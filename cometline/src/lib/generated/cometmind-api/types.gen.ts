@@ -690,6 +690,29 @@ export type MemorySettings = {
     embedding?: MemoryEmbeddingSettings;
 };
 
+export type MemoryReembedPreview = {
+    active_count: number;
+    needs_migration: number;
+    current_model: string;
+    requested_model: string;
+    migration_needed: boolean;
+};
+
+export type MemoryReembedJob = {
+    id?: string;
+    status?: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
+    from_model?: string;
+    to_provider?: string;
+    to_model?: string;
+    to_base_url?: string;
+    total?: number;
+    completed?: number;
+    cursor_id?: string;
+    error?: string;
+    created_at?: number;
+    updated_at?: number;
+};
+
 export type PurgeArchivedMemoryRequest = {
     older_than_days: number;
 };
@@ -2490,6 +2513,130 @@ export type PutMemorySettingsResponses = {
 };
 
 export type PutMemorySettingsResponse = PutMemorySettingsResponses[keyof PutMemorySettingsResponses];
+
+export type PreviewMemoryReembedData = {
+    body: MemoryEmbeddingSettings;
+    path?: never;
+    query?: never;
+    url: '/api/v1/memories/reembed-preview';
+};
+
+export type PreviewMemoryReembedErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+    /**
+     * Memory subsystem disabled
+     */
+    503: SimpleErrorResponse;
+};
+
+export type PreviewMemoryReembedError = PreviewMemoryReembedErrors[keyof PreviewMemoryReembedErrors];
+
+export type PreviewMemoryReembedResponses = {
+    /**
+     * Migration preview
+     */
+    200: MemoryReembedPreview;
+};
+
+export type PreviewMemoryReembedResponse = PreviewMemoryReembedResponses[keyof PreviewMemoryReembedResponses];
+
+export type GetMemoryReembedJobData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/memories/reembed-jobs';
+};
+
+export type GetMemoryReembedJobErrors = {
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+    /**
+     * Memory subsystem disabled
+     */
+    503: SimpleErrorResponse;
+};
+
+export type GetMemoryReembedJobError = GetMemoryReembedJobErrors[keyof GetMemoryReembedJobErrors];
+
+export type GetMemoryReembedJobResponses = {
+    /**
+     * Current job or empty object when none
+     */
+    200: MemoryReembedJob;
+};
+
+export type GetMemoryReembedJobResponse = GetMemoryReembedJobResponses[keyof GetMemoryReembedJobResponses];
+
+export type StartMemoryReembedData = {
+    body: MemoryEmbeddingSettings;
+    path?: never;
+    query?: never;
+    url: '/api/v1/memories/reembed-jobs';
+};
+
+export type StartMemoryReembedErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+    /**
+     * Memory subsystem disabled
+     */
+    503: SimpleErrorResponse;
+};
+
+export type StartMemoryReembedError = StartMemoryReembedErrors[keyof StartMemoryReembedErrors];
+
+export type StartMemoryReembedResponses = {
+    /**
+     * Started or completed job
+     */
+    200: MemoryReembedJob;
+};
+
+export type StartMemoryReembedResponse = StartMemoryReembedResponses[keyof StartMemoryReembedResponses];
+
+export type CancelMemoryReembedData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/memories/reembed-jobs/current/cancellation';
+};
+
+export type CancelMemoryReembedErrors = {
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+    /**
+     * Memory subsystem disabled
+     */
+    503: SimpleErrorResponse;
+};
+
+export type CancelMemoryReembedError = CancelMemoryReembedErrors[keyof CancelMemoryReembedErrors];
+
+export type CancelMemoryReembedResponses = {
+    /**
+     * Cancelled or current job
+     */
+    200: MemoryReembedJob;
+};
+
+export type CancelMemoryReembedResponse = CancelMemoryReembedResponses[keyof CancelMemoryReembedResponses];
 
 export type PurgeArchivedMemoryData = {
     body: PurgeArchivedMemoryRequest;

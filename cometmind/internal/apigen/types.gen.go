@@ -238,6 +238,33 @@ func (e MemoryCompactionResultTrigger) Valid() bool {
 	}
 }
 
+// Defines values for MemoryReembedJobStatus.
+const (
+	MemoryReembedJobStatusCancelled MemoryReembedJobStatus = "cancelled"
+	MemoryReembedJobStatusCompleted MemoryReembedJobStatus = "completed"
+	MemoryReembedJobStatusFailed    MemoryReembedJobStatus = "failed"
+	MemoryReembedJobStatusPending   MemoryReembedJobStatus = "pending"
+	MemoryReembedJobStatusRunning   MemoryReembedJobStatus = "running"
+)
+
+// Valid indicates whether the value is a known member of the MemoryReembedJobStatus enum.
+func (e MemoryReembedJobStatus) Valid() bool {
+	switch e {
+	case MemoryReembedJobStatusCancelled:
+		return true
+	case MemoryReembedJobStatusCompleted:
+		return true
+	case MemoryReembedJobStatusFailed:
+		return true
+	case MemoryReembedJobStatusPending:
+		return true
+	case MemoryReembedJobStatusRunning:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ScheduledJobResourceCreatedBy.
 const (
 	ScheduledJobResourceCreatedByAgent ScheduledJobResourceCreatedBy = "agent"
@@ -279,25 +306,25 @@ func (e ScheduledJobResourceSourcePlatform) Valid() bool {
 
 // Defines values for SessionDelegationStatus.
 const (
-	Cancelled SessionDelegationStatus = "cancelled"
-	Completed SessionDelegationStatus = "completed"
-	Failed    SessionDelegationStatus = "failed"
-	Pending   SessionDelegationStatus = "pending"
-	Running   SessionDelegationStatus = "running"
+	SessionDelegationStatusCancelled SessionDelegationStatus = "cancelled"
+	SessionDelegationStatusCompleted SessionDelegationStatus = "completed"
+	SessionDelegationStatusFailed    SessionDelegationStatus = "failed"
+	SessionDelegationStatusPending   SessionDelegationStatus = "pending"
+	SessionDelegationStatusRunning   SessionDelegationStatus = "running"
 )
 
 // Valid indicates whether the value is a known member of the SessionDelegationStatus enum.
 func (e SessionDelegationStatus) Valid() bool {
 	switch e {
-	case Cancelled:
+	case SessionDelegationStatusCancelled:
 		return true
-	case Completed:
+	case SessionDelegationStatusCompleted:
 		return true
-	case Failed:
+	case SessionDelegationStatusFailed:
 		return true
-	case Pending:
+	case SessionDelegationStatusPending:
 		return true
-	case Running:
+	case SessionDelegationStatusRunning:
 		return true
 	default:
 		return false
@@ -949,6 +976,34 @@ type MemoryLifecycleSettings struct {
 	MaxMemories           *int     `json:"max_memories,omitempty"`
 	MaxUsageBoost         *float32 `json:"max_usage_boost,omitempty"`
 	UsageBoostFactor      *float32 `json:"usage_boost_factor,omitempty"`
+}
+
+// MemoryReembedJob defines model for MemoryReembedJob.
+type MemoryReembedJob struct {
+	Completed  *int                    `json:"completed,omitempty"`
+	CreatedAt  *int64                  `json:"created_at,omitempty"`
+	CursorId   *string                 `json:"cursor_id,omitempty"`
+	Error      *string                 `json:"error,omitempty"`
+	FromModel  *string                 `json:"from_model,omitempty"`
+	Id         *string                 `json:"id,omitempty"`
+	Status     *MemoryReembedJobStatus `json:"status,omitempty"`
+	ToBaseUrl  *string                 `json:"to_base_url,omitempty"`
+	ToModel    *string                 `json:"to_model,omitempty"`
+	ToProvider *string                 `json:"to_provider,omitempty"`
+	Total      *int                    `json:"total,omitempty"`
+	UpdatedAt  *int64                  `json:"updated_at,omitempty"`
+}
+
+// MemoryReembedJobStatus defines model for MemoryReembedJob.Status.
+type MemoryReembedJobStatus string
+
+// MemoryReembedPreview defines model for MemoryReembedPreview.
+type MemoryReembedPreview struct {
+	ActiveCount     int    `json:"active_count"`
+	CurrentModel    string `json:"current_model"`
+	MigrationNeeded bool   `json:"migration_needed"`
+	NeedsMigration  int    `json:"needs_migration"`
+	RequestedModel  string `json:"requested_model"`
 }
 
 // MemoryResource defines model for MemoryResource.
@@ -1700,6 +1755,12 @@ type CreateMemoryJSONRequestBody = CreateMemoryRequest
 
 // PurgeArchivedMemoryJSONRequestBody defines body for PurgeArchivedMemory for application/json ContentType.
 type PurgeArchivedMemoryJSONRequestBody = PurgeArchivedMemoryRequest
+
+// StartMemoryReembedJSONRequestBody defines body for StartMemoryReembed for application/json ContentType.
+type StartMemoryReembedJSONRequestBody = MemoryEmbeddingSettings
+
+// PreviewMemoryReembedJSONRequestBody defines body for PreviewMemoryReembed for application/json ContentType.
+type PreviewMemoryReembedJSONRequestBody = MemoryEmbeddingSettings
 
 // SearchMemoriesJSONRequestBody defines body for SearchMemories for application/json ContentType.
 type SearchMemoriesJSONRequestBody = SearchMemoryRequest

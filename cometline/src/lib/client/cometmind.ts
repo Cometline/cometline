@@ -791,10 +791,76 @@ export function getMemorySettings(): Promise<MemorySettings> {
 }
 
 export function putMemorySettings(settings: MemorySettings): Promise<MemorySettings> {
-	return putMemorySettingsApi({
-		body: settings,
-		throwOnError: true
-	}).then(({ data }) => resolveMemorySettings(data));
+	return withApiError(
+		putMemorySettingsApi({
+			body: settings,
+			throwOnError: true
+		}).then(({ data }) => resolveMemorySettings(data))
+	);
+}
+
+export interface MemoryReembedPreview {
+	active_count: number;
+	needs_migration: number;
+	current_model: string;
+	requested_model: string;
+	migration_needed: boolean;
+}
+
+export interface MemoryReembedJob {
+	id?: string;
+	status?: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' | string;
+	from_model?: string;
+	to_provider?: string;
+	to_model?: string;
+	to_base_url?: string;
+	total?: number;
+	completed?: number;
+	cursor_id?: string;
+	error?: string;
+	created_at?: number;
+	updated_at?: number;
+}
+
+async function memoryJSON<T>(path: string, init?: RequestInit): Promise<T> {
+	const res = await fetch(`${BASE_URL}${path}`, {
+		headers: { 'Content-Type': 'application/json' },
+		...init
+	});
+	if (!res.ok) {
+		const text = await res.text();
+		const parsed = parseErrorBody(text || res.statusText);
+		throw new CometMindApiError(res.status, parsed.code, parsed.message);
+	}
+	return res.json();
+}
+
+export function previewMemoryReembed(
+	embedding: MemorySettings['embedding']
+): Promise<MemoryReembedPreview> {
+	return memoryJSON('/api/v1/memories/reembed-preview', {
+		method: 'POST',
+		body: JSON.stringify(embedding)
+	});
+}
+
+export function getMemoryReembedJob(): Promise<MemoryReembedJob> {
+	return memoryJSON('/api/v1/memories/reembed-jobs');
+}
+
+export function startMemoryReembed(
+	embedding: MemorySettings['embedding']
+): Promise<MemoryReembedJob> {
+	return memoryJSON('/api/v1/memories/reembed-jobs', {
+		method: 'POST',
+		body: JSON.stringify(embedding)
+	});
+}
+
+export function cancelMemoryReembed(): Promise<MemoryReembedJob> {
+	return memoryJSON('/api/v1/memories/reembed-jobs/current/cancellation', {
+		method: 'POST'
+	});
 }
 
 export interface PurgeArchivedMemoryResponse {
