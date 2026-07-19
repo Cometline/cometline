@@ -1,10 +1,10 @@
 import { goto } from '$app/navigation';
 import { chatStore } from '$lib/stores/chat.svelte';
 import { sessionStore } from '$lib/stores/session.svelte';
-import { shellStore } from '$lib/stores/shell.svelte';
+import { createNewSession } from '$lib/actions/create-new-session';
 
-/** Reset to the hero new-chat screen, same as the sidebar New Chat controls. */
-export function startNewChat() {
+/** Create and open a persisted session, same as the sidebar New Chat controls. */
+export async function startNewChat() {
 	const currentSessionId = sessionStore.current?.id ?? chatStore.sessionID;
 	if (currentSessionId) {
 		const pending = sessionStore.takePendingMessage(currentSessionId);
@@ -23,9 +23,6 @@ export function startNewChat() {
 				.catch(() => {});
 		}
 	}
-	shellStore.resetActiveToDefault();
-	sessionStore.selectSession(null);
-	chatStore.detachActiveSession();
-	shellStore.centerComposer();
-	void goto('/');
+	const session = await createNewSession();
+	await goto(`/session/${session.id}`);
 }

@@ -8,6 +8,7 @@ import {
 } from '$lib/conversation/thinking-attribution';
 
 const { goto } = vi.hoisted(() => ({ goto: vi.fn() }));
+const { createNewSession } = vi.hoisted(() => ({ createNewSession: vi.fn() }));
 
 vi.mock('$app/environment', () => ({ browser: true }));
 vi.mock('$app/navigation', () => ({ goto }));
@@ -19,6 +20,7 @@ vi.mock('$lib/client/cometmind', () => ({
 	streamMessage: vi.fn(),
 	abortSession: vi.fn()
 }));
+vi.mock('$lib/actions/create-new-session', () => ({ createNewSession }));
 
 import { getSessionMessages, listChildSessions, streamMessage } from '$lib/client/cometmind';
 import { chatStore } from './chat.svelte';
@@ -69,6 +71,7 @@ describe('chatStore session switching', () => {
 		sessionStore.setSessions([]);
 		goto.mockClear();
 		vi.clearAllMocks();
+		createNewSession.mockResolvedValue({ id: 'new-session' });
 		vi.mocked(listChildSessions).mockResolvedValue({ sessions: [] });
 		vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
 			cb(0);
