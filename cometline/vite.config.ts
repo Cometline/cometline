@@ -4,6 +4,12 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
 	plugins: [tailwindcss(), sveltekit()],
+	optimizeDeps: {
+		include: ['@xterm/xterm', '@xterm/addon-fit']
+	},
+	ssr: {
+		noExternal: ['@xterm/xterm', '@xterm/addon-fit']
+	},
 	server: {
 		// Bind to the IPv4 loopback explicitly. Vite v8 defaults to the
 		// `localhost` hostname, which resolves to IPv6 `[::1]` on macOS. The

@@ -12,6 +12,7 @@ export type ShortcutAction =
 	| 'nextSession'
 	| 'toggleWebPanel'
 	| 'openWebPanel'
+	| 'openTerminal'
 	| 'navigateBack'
 	| 'navigateForward'
 	| 'openJobs'
@@ -133,6 +134,12 @@ export const SHORTCUT_DEFINITIONS: KeyboardShortcutDefinition[] = [
 		label: 'Open web panel',
 		category: 'panels',
 		defaultBinding: { command: true, key: 'o' }
+	},
+	{
+		id: 'openTerminal',
+		label: 'Open terminal',
+		category: 'panels',
+		defaultBinding: { command: true, key: 'j' }
 	},
 	{
 		id: 'navigateBack',

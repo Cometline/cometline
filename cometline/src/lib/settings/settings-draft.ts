@@ -48,7 +48,8 @@ export function cloneSettings(settings: ProviderSettings): ProviderSettings {
 			miniWindowInactivityTimeoutMinutes:
 				settings.app?.miniWindowInactivityTimeoutMinutes ?? 30,
 			webPanelWidth: settings.app?.webPanelWidth ?? 0,
-			confirmCloseOnCmdW: settings.app?.confirmCloseOnCmdW ?? true
+			confirmCloseOnCmdW: settings.app?.confirmCloseOnCmdW ?? true,
+			confirmBeforeDeletingChats: settings.app?.confirmBeforeDeletingChats ?? true
 		},
 		cometmind: cloneCometMindSettings(normalizeCometMindSettings(settings.cometmind))
 	};

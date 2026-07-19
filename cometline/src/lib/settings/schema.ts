@@ -998,7 +998,8 @@ function defaultAppSettings(): AppSettings {
 		miniWindowLastActiveAt: 0,
 		miniWindowInactivityTimeoutMinutes: 30,
 		webPanelWidth: 0,
-		confirmCloseOnCmdW: true
+		confirmCloseOnCmdW: true,
+		confirmBeforeDeletingChats: true
 	};
 }
 
@@ -1241,7 +1242,11 @@ export function normalizeSettings(
 			confirmCloseOnCmdW:
 				typeof next.app?.confirmCloseOnCmdW === 'boolean'
 					? next.app.confirmCloseOnCmdW
-					: defaultAppSettings().confirmCloseOnCmdW
+					: defaultAppSettings().confirmCloseOnCmdW,
+			confirmBeforeDeletingChats:
+				typeof next.app?.confirmBeforeDeletingChats === 'boolean'
+					? next.app.confirmBeforeDeletingChats
+					: defaultAppSettings().confirmBeforeDeletingChats
 		},
 		cometmind
 	};
@@ -1364,7 +1369,8 @@ const providerSettingsSchema = z.object({
 			.min(1)
 			.max(24 * 60),
 		webPanelWidth: z.number().int().min(0),
-		confirmCloseOnCmdW: z.boolean()
+		confirmCloseOnCmdW: z.boolean(),
+		confirmBeforeDeletingChats: z.boolean()
 	}),
 	cometmind: z.object({
 		systemPromptPath: z.string(),

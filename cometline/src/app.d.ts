@@ -59,6 +59,7 @@ declare global {
 		| 'nextSession'
 		| 'toggleWebPanel'
 		| 'openWebPanel'
+		| 'openTerminal'
 		| 'navigateBack'
 		| 'navigateForward'
 		| 'openJobs'
@@ -98,6 +99,7 @@ declare global {
 		miniWindowInactivityTimeoutMinutes: number;
 		webPanelWidth: number;
 		confirmCloseOnCmdW: boolean;
+		confirmBeforeDeletingChats: boolean;
 	}
 
 	interface MiniWindowState {
@@ -338,6 +340,17 @@ declare global {
 
 	type DeleteCustomPersonaResult = { ok: true } | { ok: false; error: string };
 
+	type TerminalStatus = 'running' | 'exited';
+
+	interface TerminalSnapshot {
+		sessionId: string;
+		status: TerminalStatus;
+		exitCode: number | null;
+		generation: number;
+		shell: string;
+		output: string;
+	}
+
 	interface Window {
 		electronAPI?: {
 			restartCometMind?: () => void;
@@ -455,6 +468,25 @@ declare global {
 				workspacePath: string,
 				relativePath: string
 			) => Promise<ReadWorkspaceFileResult>;
+			listTerminals?: () => Promise<TerminalSnapshot[]>;
+			createTerminal?: (payload: {
+				sessionId: string;
+				workspacePath: string;
+				cols?: number;
+				rows?: number;
+			}) => Promise<TerminalSnapshot>;
+			writeTerminal?: (payload: { sessionId: string; data: string }) => Promise<boolean>;
+			resizeTerminal?: (payload: {
+				sessionId: string;
+				cols: number;
+				rows: number;
+			}) => Promise<boolean>;
+			terminateTerminal?: (sessionId: string) => Promise<boolean>;
+			removeTerminal?: (sessionId: string) => Promise<boolean>;
+			onTerminalData?: (
+				callback: (payload: { sessionId: string; data: string }) => void
+			) => () => void;
+			onTerminalExit?: (callback: (snapshot: TerminalSnapshot) => void) => () => void;
 			getAppVersion?: () => Promise<string>;
 			getUpdateState?: () => Promise<UpdateState>;
 			checkForUpdates?: () => Promise<UpdateState>;

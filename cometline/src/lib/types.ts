@@ -44,6 +44,17 @@ export interface FetchProviderModelsResult {
 	models: string[];
 }
 
+export type TerminalStatus = 'running' | 'exited';
+
+export interface TerminalSnapshot {
+	sessionId: string;
+	status: TerminalStatus;
+	exitCode: number | null;
+	generation: number;
+	shell: string;
+	output: string;
+}
+
 export interface HeroComposerAppearance {
 	presetId: 'blue' | 'rose' | 'custom';
 	glowColor: string;
@@ -79,6 +90,7 @@ export type ShortcutAction =
 	| 'nextSession'
 	| 'toggleWebPanel'
 	| 'openWebPanel'
+	| 'openTerminal'
 	| 'navigateBack'
 	| 'navigateForward'
 	| 'openJobs'
@@ -120,6 +132,8 @@ export interface AppSettings {
 	webPanelWidth: number;
 	/** When true, Cmd+W shows a Close confirmation before hiding the main window. */
 	confirmCloseOnCmdW: boolean;
+	/** When true, deleting a chat requires confirmation. */
+	confirmBeforeDeletingChats: boolean;
 }
 
 export interface ProviderSettings {

@@ -19,6 +19,7 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const http = require('http');
+const pty = require('node-pty');
 // eslint-disable-next-line no-redeclare
 const crypto = require('crypto');
 const {
@@ -108,6 +109,11 @@ const MCP_OAUTH_CALLBACK_PATH = '/mcp/oauth/callback';
 const BROWSER_SEARCH_MAX_QUERY = 500;
 const BROWSER_SEARCH_MAX_LIMIT = 10;
 const BROWSER_SEARCH_TIMEOUT_MS = 25_000;
+const TERMINAL_BUFFER_MAX_CHARS = 2_000_000;
+const TERMINAL_MIN_COLS = 2;
+const TERMINAL_MAX_COLS = 500;
+const TERMINAL_MIN_ROWS = 1;
+const TERMINAL_MAX_ROWS = 500;
 
 function rotateLogIfNeeded(logPath) {
 	try {
@@ -194,11 +200,135 @@ let browserSearchWindow = null;
 let browserSearchEndpoint = '';
 let browserSearchToken = '';
 let browserSearchQueue = Promise.resolve();
+const terminalSessions = new Map();
 // Swallow macOS activate that often fires right after hide()-ing the last
 // focused auxiliary window (mini / settings), which would otherwise force the
 // main window to pop open / steal focus via handleAppActivate().
 const AUXILIARY_WINDOW_ACTIVATE_SUPPRESS_MS = 1000;
 let ignoreActivateUntil = 0;
+
+function terminalDimensions(input = {}) {
+	const cols = Number.isInteger(input.cols) ? input.cols : 80;
+	const rows = Number.isInteger(input.rows) ? input.rows : 24;
+	return {
+		cols: Math.min(TERMINAL_MAX_COLS, Math.max(TERMINAL_MIN_COLS, cols)),
+		rows: Math.min(TERMINAL_MAX_ROWS, Math.max(TERMINAL_MIN_ROWS, rows))
+	};
+}
+
+function defaultTerminalShell() {
+	let shellPath = process.env.SHELL;
+	try {
+		shellPath ||= os.userInfo().shell;
+	} catch {
+		// Fall through to macOS's default interactive shell.
+	}
+	return typeof shellPath === 'string' && path.isAbsolute(shellPath) && fs.existsSync(shellPath)
+		? shellPath
+		: '/bin/zsh';
+}
+
+function terminalSnapshot(entry) {
+	return {
+		sessionId: entry.sessionId,
+		status: entry.status,
+		exitCode: entry.exitCode,
+		generation: entry.generation,
+		shell: entry.shell,
+		output: entry.output
+	};
+}
+
+function sendTerminalEvent(channel, payload) {
+	if (!mainWindow || mainWindow.isDestroyed()) return;
+	mainWindow.webContents.send(channel, payload);
+}
+
+function isMainWindowSender(event) {
+	return Boolean(
+		mainWindow && !mainWindow.isDestroyed() && event.sender === mainWindow.webContents
+	);
+}
+
+function requireTerminalInput(event, sessionId) {
+	if (!isMainWindowSender(event))
+		throw new Error('Terminal access is only available in the main window');
+	if (typeof sessionId !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(sessionId)) {
+		throw new Error('Invalid terminal session id');
+	}
+}
+
+function appendTerminalOutput(entry, data) {
+	entry.output += data;
+	if (entry.output.length > TERMINAL_BUFFER_MAX_CHARS) {
+		entry.output = entry.output.slice(-TERMINAL_BUFFER_MAX_CHARS);
+	}
+}
+
+function createTerminal(sessionId, workspacePath, dimensions) {
+	const existing = terminalSessions.get(sessionId);
+	if (existing?.status === 'running') return terminalSnapshot(existing);
+	if (typeof workspacePath !== 'string' || !path.isAbsolute(workspacePath)) {
+		throw new Error('Terminal workspace must be an absolute path');
+	}
+	let stat;
+	try {
+		stat = fs.statSync(workspacePath);
+	} catch {
+		throw new Error('Terminal workspace does not exist');
+	}
+	if (!stat.isDirectory()) throw new Error('Terminal workspace must be a directory');
+
+	const size = terminalDimensions(dimensions);
+	const shellPath = defaultTerminalShell();
+	const ptyProcess = pty.spawn(shellPath, ['-l'], {
+		name: 'xterm-256color',
+		cols: size.cols,
+		rows: size.rows,
+		cwd: workspacePath,
+		env: { ...process.env, TERM: 'xterm-256color', TERM_PROGRAM: 'Cometline' }
+	});
+	const entry = {
+		sessionId,
+		status: 'running',
+		exitCode: null,
+		generation: (existing?.generation ?? 0) + 1,
+		shell: shellPath,
+		output: '',
+		process: ptyProcess
+	};
+	terminalSessions.set(sessionId, entry);
+	ptyProcess.onData((data) => {
+		appendTerminalOutput(entry, data);
+		sendTerminalEvent('cometline:terminal-data', { sessionId, data });
+	});
+	ptyProcess.onExit(({ exitCode }) => {
+		entry.status = 'exited';
+		entry.exitCode = exitCode;
+		entry.process = null;
+		sendTerminalEvent('cometline:terminal-exit', terminalSnapshot(entry));
+		terminalSessions.delete(sessionId);
+	});
+	return terminalSnapshot(entry);
+}
+
+function terminateTerminal(sessionId, { remove = false } = {}) {
+	const entry = terminalSessions.get(sessionId);
+	if (!entry) return false;
+	if (entry.status === 'running' && entry.process) {
+		try {
+			entry.process.kill();
+		} catch (error) {
+			console.warn(`Failed to terminate terminal for session ${sessionId}:`, error);
+		}
+	}
+	if (remove) terminalSessions.delete(sessionId);
+	return true;
+}
+
+function terminateAllTerminals() {
+	for (const sessionId of terminalSessions.keys()) terminateTerminal(sessionId, { remove: true });
+}
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 
@@ -1529,6 +1659,7 @@ function handleWebPanelGuestShortcuts(event, input) {
 	const forwardActions = [
 		'toggleSidebar',
 		'openWebPanel',
+		'openTerminal',
 		'toggleWebPanel',
 		'navigateBack',
 		'navigateForward',
@@ -3386,7 +3517,8 @@ async function pollXaiDeviceCode(device) {
 		if (error === 'access_denied' || error === 'authorization_denied') {
 			throw new Error('Grok device authorization was denied.');
 		}
-		if (error === 'expired_token') throw new Error('Grok device authorization expired. Try again.');
+		if (error === 'expired_token')
+			throw new Error('Grok device authorization expired. Try again.');
 		const detail = payload.error_description || error || res.statusText;
 		throw new Error(`Grok device sign-in failed: ${detail}`);
 	}
@@ -3811,6 +3943,7 @@ app.on('before-quit', async (event) => {
 		updateCheckTimer = null;
 	}
 	await stopBrowserSearchBridge();
+	terminateAllTerminals();
 	await stopDiscordGateway();
 	await stopCometMind();
 	globalShortcut.unregisterAll();
@@ -3824,6 +3957,7 @@ app.on('before-quit', async (event) => {
 // lock. The Go-side --watch-parent watchdog is the real safety net for hard
 // kills where no JS runs at all.
 process.on('exit', () => {
+	terminateAllTerminals();
 	if (cometMindGatewayProcess) {
 		try {
 			cometMindGatewayProcess.kill('SIGTERM');
@@ -3913,6 +4047,46 @@ ipcMain.handle('cometline:prune-workspace-store', () => pruneWorkspaceStore());
 ipcMain.handle('cometline:read-workspace-file', (_event, workspacePath, relativePath) =>
 	readWorkspaceFileForPreview(workspacePath, relativePath)
 );
+
+ipcMain.handle('cometline:terminal-list', (event) => {
+	if (!isMainWindowSender(event)) return [];
+	return [...terminalSessions.values()].map(terminalSnapshot);
+});
+
+ipcMain.handle('cometline:terminal-create', (event, payload = {}) => {
+	requireTerminalInput(event, payload.sessionId);
+	return createTerminal(payload.sessionId, payload.workspacePath, payload);
+});
+
+ipcMain.handle('cometline:terminal-write', (event, payload = {}) => {
+	requireTerminalInput(event, payload.sessionId);
+	const entry = terminalSessions.get(payload.sessionId);
+	if (!entry || entry.status !== 'running' || !entry.process) return false;
+	if (typeof payload.data !== 'string' || payload.data.length > 64 * 1024) {
+		throw new Error('Invalid terminal input');
+	}
+	entry.process.write(payload.data);
+	return true;
+});
+
+ipcMain.handle('cometline:terminal-resize', (event, payload = {}) => {
+	requireTerminalInput(event, payload.sessionId);
+	const entry = terminalSessions.get(payload.sessionId);
+	if (!entry || entry.status !== 'running' || !entry.process) return false;
+	const size = terminalDimensions(payload);
+	entry.process.resize(size.cols, size.rows);
+	return true;
+});
+
+ipcMain.handle('cometline:terminal-terminate', (event, sessionId) => {
+	requireTerminalInput(event, sessionId);
+	return terminateTerminal(sessionId);
+});
+
+ipcMain.handle('cometline:terminal-remove', (event, sessionId) => {
+	requireTerminalInput(event, sessionId);
+	return terminateTerminal(sessionId, { remove: true });
+});
 
 ipcMain.handle('cometline:list-custom-personas', () =>
 	customPersonasFromSettings(readProviderSettings())
