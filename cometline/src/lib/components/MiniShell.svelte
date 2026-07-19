@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { tick } from 'svelte';
+	import { cubicOut } from 'svelte/easing';
 	import { fly, fade } from 'svelte/transition';
 	import { matchesShortcut } from '$lib/keyboard-shortcuts';
 	import { miniShellStore } from '$lib/stores/mini-shell.svelte';
@@ -9,6 +11,7 @@
 
 	let { children } = $props();
 	let creatingSession = $state(false);
+	let sidebarRef = $state<{ focusSearch: () => void } | null>(null);
 
 	async function createSession() {
 		if (creatingSession) return;
@@ -26,10 +29,21 @@
 		miniShellStore.closeSidebar();
 	}
 
+	async function focusSearch() {
+		miniShellStore.openSidebar();
+		await tick();
+		sidebarRef?.focusSearch();
+	}
+
 	function onKeydown(event: KeyboardEvent) {
 		if (matchesShortcut(event, settingsStore.settings.shortcuts.toggleSidebar)) {
 			event.preventDefault();
 			miniShellStore.toggleSidebar();
+			return;
+		}
+		if (matchesShortcut(event, settingsStore.settings.shortcuts.focusSearch)) {
+			event.preventDefault();
+			void focusSearch();
 			return;
 		}
 		if (matchesShortcut(event, settingsStore.settings.shortcuts.newChat)) {
@@ -49,9 +63,9 @@
 <div class="mini-shell">
 	{@render children()}
 	{#if miniShellStore.sidebarOpen}
-		<button class="mini-sidebar-backdrop" type="button" aria-label="Close chats" onclick={() => miniShellStore.closeSidebar()} transition:fade={{ duration: 120 }}></button>
-		<div class="mini-sidebar-drawer" transition:fly={{ x: -220, duration: 180 }}>
-			<MiniSessionSidebar onClose={() => miniShellStore.closeSidebar()} onSelectSession={selectSession} onNewChat={() => void createSession()} />
+		<button class="mini-sidebar-backdrop" type="button" aria-label="Close chats" onclick={() => miniShellStore.closeSidebar()} transition:fade={{ duration: 180, easing: cubicOut }}></button>
+		<div class="mini-sidebar-drawer" transition:fly={{ x: -260, opacity: 0, duration: 220, easing: cubicOut }}>
+			<MiniSessionSidebar bind:this={sidebarRef} onClose={() => miniShellStore.closeSidebar()} onSelectSession={selectSession} onNewChat={() => void createSession()} />
 		</div>
 	{/if}
 </div>

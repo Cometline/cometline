@@ -1,6 +1,10 @@
 <script lang="ts">
 	import { X } from '@lucide/svelte';
+	import { flip } from 'svelte/animate';
 	import type { Session } from '$lib/types';
+	import { deleteSession, updateSession } from '$lib/client/cometmind';
+	import { createMiniWindowSession } from '$lib/mini-window-session';
+	import { chatStore } from '$lib/stores/chat.svelte';
 	import { sessionStore } from '$lib/stores/session.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import {
@@ -11,6 +15,8 @@
 	} from '$lib/sessions/group-by-workspace';
 	import SidebarSearch from '$lib/components/sidebar/SidebarSearch.svelte';
 	import SessionRow from '$lib/components/sidebar/SessionRow.svelte';
+
+	const WORKSPACE_GROUP_FLIP = { duration: 240 };
 
 	let {
 		onClose,
@@ -25,6 +31,8 @@
 	let searchQuery = $state('');
 	let searchInput = $state<HTMLInputElement | null>(null);
 	let collapsedGroups = $state<Record<string, boolean>>({});
+	let deletingID = $state<string | null>(null);
+	let pinningID = $state<string | null>(null);
 	let filteredSessions = $derived.by(() => {
 		const query = searchQuery.trim().toLowerCase();
 		if (!query) return sessionStore.sessions;
@@ -54,6 +62,38 @@
 	function selectSession(session: Session) {
 		onSelectSession(session);
 	}
+
+	export function focusSearch() {
+		searchInput?.focus();
+		searchInput?.select();
+	}
+
+	async function togglePinSession(session: Session) {
+		pinningID = session.id;
+		try {
+			const updated = await updateSession(session.id, { pinned: !session.pinned });
+			sessionStore.updateSession(updated);
+		} finally {
+			pinningID = null;
+		}
+	}
+
+	async function removeSession(session: Session) {
+		if (!window.confirm(`Delete ${session.title || 'this chat'}?`)) return;
+		deletingID = session.id;
+		try {
+			await deleteSession(session.id);
+			const wasCurrent = sessionStore.current?.id === session.id;
+			sessionStore.removeSession(session.id);
+			if (wasCurrent) {
+				chatStore.clear();
+				onClose();
+				await createMiniWindowSession();
+			}
+		} finally {
+			deletingID = null;
+		}
+	}
 </script>
 
 <aside class="mini-sidebar" aria-label="Chats">
@@ -72,23 +112,25 @@
 				</button>
 				{#if !isCollapsed(PINNED_GROUP_KEY)}
 					{#each sidebarLayout.pinnedSessions as session (session.id)}
-						<SessionRow {session} showWorkspaceLabel selected={sessionStore.current?.id === session.id} showActions={false} onSelect={() => selectSession(session)} onDelete={() => {}} onPin={() => {}} onContextMenu={() => {}} />
+						<SessionRow {session} showWorkspaceLabel selected={sessionStore.current?.id === session.id} deleting={deletingID === session.id} pinning={pinningID === session.id} onSelect={() => selectSession(session)} onDelete={() => void removeSession(session)} onPin={() => void togglePinSession(session)} onContextMenu={() => {}} />
 					{/each}
 				{/if}
 			</section>
 		{/if}
 
 		{#each sidebarLayout.workspaceGroups as group (group.workspacePath)}
-			<section class:active={group.workspacePath === shellStore.workspacePath} class="session-section">
-				<button class="section-header" aria-expanded={!isCollapsed(group.workspacePath)} onclick={() => toggleGroup(group.workspacePath)} title={group.workspacePath}>
-					<span>{group.label}</span><span>{group.sessions.length}</span>
-				</button>
-				{#if !isCollapsed(group.workspacePath)}
-					{#each group.sessions as session (session.id)}
-						<SessionRow {session} selected={sessionStore.current?.id === session.id} showActions={false} onSelect={() => selectSession(session)} onDelete={() => {}} onPin={() => {}} onContextMenu={() => {}} />
-					{/each}
-				{/if}
-			</section>
+			<div animate:flip={WORKSPACE_GROUP_FLIP}>
+				<section class:active={group.workspacePath === shellStore.workspacePath} class="session-section">
+					<button class="section-header" aria-expanded={!isCollapsed(group.workspacePath)} onclick={() => toggleGroup(group.workspacePath)} title={group.workspacePath}>
+						<span>{group.label}</span><span>{group.sessions.length}</span>
+					</button>
+					{#if !isCollapsed(group.workspacePath)}
+						{#each group.sessions as session (session.id)}
+							<SessionRow {session} selected={sessionStore.current?.id === session.id} deleting={deletingID === session.id} pinning={pinningID === session.id} onSelect={() => selectSession(session)} onDelete={() => void removeSession(session)} onPin={() => void togglePinSession(session)} onContextMenu={() => {}} />
+						{/each}
+					{/if}
+				</section>
+			</div>
 		{/each}
 
 		{#if sidebarLayout.discordSessions.length > 0}
@@ -98,7 +140,7 @@
 				</button>
 				{#if !isCollapsed(DISCORD_GROUP_KEY)}
 					{#each sidebarLayout.discordSessions as session (session.id)}
-						<SessionRow {session} showGatewayLabel={isDiscordSession(session)} selected={sessionStore.current?.id === session.id} showActions={false} onSelect={() => selectSession(session)} onDelete={() => {}} onPin={() => {}} onContextMenu={() => {}} />
+						<SessionRow {session} showGatewayLabel={isDiscordSession(session)} showPin={false} selected={sessionStore.current?.id === session.id} deleting={deletingID === session.id} onSelect={() => selectSession(session)} onDelete={() => void removeSession(session)} onPin={() => {}} onContextMenu={() => {}} />
 					{/each}
 				{/if}
 			</section>
