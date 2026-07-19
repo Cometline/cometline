@@ -158,6 +158,10 @@ function ensureQueue(
 			await runTurn(deps, queueForSessionId, payload, getHasVisibleConversation);
 		}, deps.onQueueChange);
 		turnQueues.set(sessionId, queue);
+	} else {
+		// A session queue can outlive its ChatView while it drains in the background.
+		// Point change notifications at the view that is currently showing that session.
+		queue.setOnChange(deps.onQueueChange);
 	}
 	return queue;
 }

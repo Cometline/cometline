@@ -139,6 +139,31 @@ describe('createChatTurnQueue', () => {
 		expect(runTurn).toHaveBeenCalledTimes(1);
 	});
 
+	it('updates the queue change handler when its view changes', async () => {
+		const firstView = vi.fn();
+		const currentView = vi.fn();
+		let releaseFirst: (() => void) | undefined;
+		const firstGate = new Promise<void>((resolve) => {
+			releaseFirst = resolve;
+		});
+		const runTurn = vi.fn().mockImplementation(async (payload: ChatTurnPayload) => {
+			if (payload.text === 'first') await firstGate;
+		});
+		const queue = createChatTurnQueue(runTurn, firstView);
+
+		void queue.enqueue('first');
+		await vi.waitFor(() => expect(queue.processing).toBe(true));
+		queue.setOnChange(currentView);
+		firstView.mockClear();
+
+		await queue.enqueue('second');
+
+		expect(firstView).not.toHaveBeenCalled();
+		expect(currentView).toHaveBeenCalled();
+		releaseFirst!();
+		await vi.waitFor(() => expect(queue.processing).toBe(false));
+	});
+
 	it('remove drops a specific queued turn', async () => {
 		let releaseFirst: (() => void) | undefined;
 		const firstGate = new Promise<void>((resolve) => {
