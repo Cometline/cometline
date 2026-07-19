@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import type { Session } from '$lib/types';
 
 	let {
@@ -16,12 +15,10 @@
 		onConfirm: () => void;
 	} = $props();
 
-	let dialog = $state<HTMLDialogElement | null>(null);
-
-	onMount(() => {
-		dialog?.showModal();
-		return () => dialog?.close();
-	});
+	function openModal(dialog: HTMLDialogElement) {
+		dialog.showModal();
+		return () => dialog.close();
+	}
 
 	function cancel(event?: Event) {
 		event?.preventDefault();
@@ -29,12 +26,12 @@
 	}
 
 	function cancelOnBackdrop(event: MouseEvent) {
-		if (event.target === dialog) onCancel();
+		if (event.target === event.currentTarget) onCancel();
 	}
 </script>
 
 <dialog
-	bind:this={dialog}
+	{@attach openModal}
 	class="delete-confirm"
 	oncancel={cancel}
 	onclick={cancelOnBackdrop}
