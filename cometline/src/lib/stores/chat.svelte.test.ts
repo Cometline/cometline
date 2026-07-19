@@ -291,6 +291,23 @@ describe('chatStore session switching', () => {
 		]);
 	});
 
+	it('detaches the active chat while creating a new persisted session', async () => {
+		let resolveSession: ((session: { id: string }) => void) | undefined;
+		createNewSession.mockImplementationOnce(
+			() =>
+				new Promise((resolve) => {
+					resolveSession = resolve;
+				})
+		);
+		chatStore.bindSession('sess-a');
+
+		const newChat = startNewChat();
+
+		expect(chatStore.sessionID).toBe(null);
+		resolveSession?.({ id: 'sess-b' });
+		await newChat;
+	});
+
 	it('surfaces an error item when the model fails before any output (e.g. 401)', async () => {
 		vi.mocked(streamMessage).mockImplementation(async function* () {
 			yield { type: 'error', message: 'cometsdk: openai: authentication failed (HTTP 401)' };
