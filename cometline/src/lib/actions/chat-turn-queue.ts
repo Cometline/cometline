@@ -13,6 +13,7 @@ export interface ChatTurnQueue {
 	enqueue(payload: ChatTurnPayload | string): Promise<boolean>;
 	remove(id: string): boolean;
 	clear(): void;
+	setOnChange(onChange?: () => void): void;
 	readonly pendingCount: number;
 	readonly pendingMessages: readonly QueuedMessage[];
 	readonly processing: boolean;
@@ -30,9 +31,10 @@ export function createChatTurnQueue(
 	let processing = false;
 	let activeTurnSignature: string | null = null;
 	let nextID = 0;
+	let currentOnChange = onChange;
 
 	function notifyChange() {
-		onChange?.();
+		currentOnChange?.();
 	}
 
 	function createQueuedMessage(payload: ChatTurnPayload): QueuedMessage {
@@ -133,6 +135,9 @@ export function createChatTurnQueue(
 		clear() {
 			queue = [];
 			notifyChange();
+		},
+		setOnChange(nextOnChange) {
+			currentOnChange = nextOnChange;
 		}
 	};
 }

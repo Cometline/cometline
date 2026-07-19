@@ -38,6 +38,7 @@ describe('createConversationController', () => {
 		onAwaitingFirstAssistantChange?: Mock<
 			NonNullable<ConversationControllerDeps['onAwaitingFirstAssistantChange']>
 		>;
+		onQueueChange?: Mock<NonNullable<ConversationControllerDeps['onQueueChange']>>;
 	}) {
 		const send = overrides?.send ?? vi.fn().mockResolvedValue(undefined);
 		const refreshSession = overrides?.refreshSession ?? vi.fn().mockResolvedValue(undefined);
@@ -50,6 +51,7 @@ describe('createConversationController', () => {
 			send,
 			refreshSession,
 			flight: overrides?.flight,
+			onQueueChange: overrides?.onQueueChange,
 			onAwaitingFirstAssistantChange: overrides?.onAwaitingFirstAssistantChange
 		});
 
@@ -309,6 +311,34 @@ describe('createConversationController', () => {
 			'start:sess-1:second',
 			'end:sess-1:second'
 		]);
+	});
+
+	it('rebinds queue updates after returning to a session', async () => {
+		let releaseFirst: (() => void) | undefined;
+		const firstGate = new Promise<void>((resolve) => {
+			releaseFirst = resolve;
+		});
+		const send = vi.fn().mockImplementation(async (_sessionId: string, payload: FlightPayload) => {
+			const text = typeof payload === 'string' ? payload : payload.text;
+			if (text === 'first') await firstGate;
+		});
+		const oldViewChange = vi.fn();
+		const currentViewChange = vi.fn();
+		const { controller: oldView } = createDeps({ send, onQueueChange: oldViewChange });
+
+		void oldView.enqueue('first');
+		await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+		const { controller: currentView } = createDeps({ send, onQueueChange: currentViewChange });
+		void currentView.pendingCount;
+		oldViewChange.mockClear();
+		currentViewChange.mockClear();
+
+		await currentView.enqueue('second');
+
+		expect(oldViewChange).not.toHaveBeenCalled();
+		expect(currentViewChange).toHaveBeenCalled();
+		releaseFirst!();
+		await vi.waitFor(() => expect(currentView.processing).toBe(false));
 	});
 
 	it('consumes pending first message on mount', async () => {
