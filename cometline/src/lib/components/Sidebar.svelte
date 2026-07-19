@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { onMount } from 'svelte';
 	import { flip } from 'svelte/animate';
 	import { Settings, Briefcase, Sparkles, Bell } from '@lucide/svelte';
 	import type { Session } from '$lib/types';
@@ -26,8 +25,11 @@
 	import DiscordGroup from '$lib/components/sidebar/DiscordGroup.svelte';
 	import WorkspaceGroup from '$lib/components/sidebar/WorkspaceGroup.svelte';
 	import DeleteConfirmDialog from '$lib/components/sidebar/DeleteConfirmDialog.svelte';
+	import ConfirmActionModal from '$lib/components/ConfirmActionModal.svelte';
 	import RenameSessionDialog from '$lib/components/sidebar/RenameSessionDialog.svelte';
 	import SessionContextMenu from '$lib/components/sidebar/SessionContextMenu.svelte';
+	import { terminalStore } from '$lib/stores/terminal.svelte';
+	import { settingsStore } from '$lib/stores/settings.svelte';
 
 	const WORKSPACE_GROUP_FLIP = { duration: 240 };
 
@@ -46,8 +48,8 @@
 	let renamingID = $state<string | null>(null);
 	let contextMenu = $state<{ session: Session; x: number; y: number } | null>(null);
 	let pendingDelete = $state<Session | null>(null);
+	let terminalDeleteSession = $state<Session | null>(null);
 	let pendingRename = $state<Session | null>(null);
-	let skipDeleteConfirm = $state(false);
 	let rememberDeleteChoice = $state(false);
 	let searchQuery = $state('');
 	let searchInput = $state<HTMLInputElement | null>(null);
@@ -56,10 +58,6 @@
 		searchInput?.focus();
 		searchInput?.select();
 	}
-
-	onMount(() => {
-		skipDeleteConfirm = localStorage.getItem('cometline.skipDeleteConfirm') === 'true';
-	});
 
 	function closeSidebarIfNarrow() {
 		if (isNarrowViewport()) {
@@ -78,7 +76,12 @@
 	}
 
 	async function removeSession(session: Session) {
-		if (!skipDeleteConfirm) {
+		if (terminalStore.isRunning(session.id)) {
+			terminalDeleteSession = session;
+			return;
+		}
+		if (terminalStore.hasTerminal(session.id)) await terminalStore.remove(session.id);
+		if (settingsStore.settings.app.confirmBeforeDeletingChats) {
 			pendingDelete = session;
 			rememberDeleteChoice = false;
 			return;
@@ -86,11 +89,18 @@
 		await deleteSelectedSession(session);
 	}
 
+	async function confirmTerminalDelete() {
+		const session = terminalDeleteSession;
+		if (!session) return;
+		terminalDeleteSession = null;
+		await terminalStore.remove(session.id);
+		await deleteSelectedSession(session);
+	}
+
 	async function confirmDelete() {
 		if (!pendingDelete) return;
 		if (rememberDeleteChoice) {
-			skipDeleteConfirm = true;
-			localStorage.setItem('cometline.skipDeleteConfirm', 'true');
+			await settingsStore.saveConfirmBeforeDeletingChats(false);
 		}
 		const session = pendingDelete;
 		pendingDelete = null;
@@ -200,6 +210,7 @@
 <aside
 	class="sidebar"
 	class:collapsed
+	class:modal-open={Boolean(pendingDelete || terminalDeleteSession)}
 	aria-hidden={collapsed}
 	data-workspace-path={orderWorkspacePath}
 >
@@ -335,6 +346,15 @@
 		/>
 	{/if}
 
+	<ConfirmActionModal
+		open={Boolean(terminalDeleteSession)}
+		title="Delete chat?"
+		description="This will terminate this chat's terminal and every program started from it. This cannot be undone."
+		confirmLabel="Delete chat"
+		onCancel={() => (terminalDeleteSession = null)}
+		onConfirm={() => void confirmTerminalDelete()}
+	/>
+
 	{#if pendingRename}
 		<RenameSessionDialog
 			session={pendingRename}
@@ -360,7 +380,6 @@
 <style>
 	.sidebar {
 		position: relative;
-		z-index: 0;
 		width: var(--active-sidebar-width, var(--sidebar-width));
 		flex-shrink: 0;
 		display: flex;
@@ -372,6 +391,10 @@
 		transition: width var(--duration-sidebar) var(--ease-smooth);
 		view-transition-name: sidebar;
 		--workspace-inactive-color: #9a9a9f;
+	}
+
+	.sidebar.modal-open {
+		overflow: visible;
 	}
 
 	.sidebar-content {

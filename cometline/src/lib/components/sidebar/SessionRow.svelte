@@ -3,6 +3,7 @@
 	import type { Session } from '$lib/types';
 	import { workspaceLabel, gatewaySessionLabel } from '$lib/sessions/group-by-workspace';
 	import { chatStore } from '$lib/stores/chat.svelte';
+	import { terminalStore } from '$lib/stores/terminal.svelte';
 
 	let {
 		session,
@@ -35,6 +36,7 @@
 	let streaming = $derived(
 		chatStore.isStreamingFor(session.id) || chatStore.hasInFlightTurn(session.id)
 	);
+	let terminalRunning = $derived(terminalStore.isRunning(session.id));
 
 	function handleContextMenu(event: MouseEvent) {
 		event.preventDefault();
@@ -53,12 +55,22 @@
 	<button class="session-row" onclick={onSelect}>
 		<span class="session-title-row">
 			<span
-				class="session-streaming"
-				class:active={streaming}
-				aria-hidden={!streaming}
-				aria-label={streaming ? 'Responding' : undefined}
-				title={streaming ? 'Responding' : undefined}
-			></span>
+				class="session-activity"
+				aria-label={terminalRunning
+					? streaming
+						? 'Terminal running and responding'
+						: 'Terminal running'
+					: streaming
+						? 'Responding'
+						: undefined}
+			>
+				<span
+					class:active={streaming}
+					class:terminal={terminalRunning}
+					class="session-streaming"
+					title={terminalRunning ? 'Terminal running' : streaming ? 'Responding' : undefined}
+				>{#if terminalRunning}<span class="terminal-marker">t</span>{/if}</span>
+			</span>
 			<span class="session-title">{session.title || 'Untitled'}</span>
 		</span>
 		{#if showGatewayLabel}
@@ -71,14 +83,14 @@
 		<div class="session-actions">
 			{#if showPin}
 				<button
-				class="pin-session"
-				class:active={session.pinned}
-				disabled={pinning}
-				onclick={onPin}
-				aria-label={session.pinned
-					? `Unpin ${session.title || 'Untitled'}`
-					: `Pin ${session.title || 'Untitled'}`}
-				title={session.pinned ? 'Unpin session' : 'Pin session'}
+					class="pin-session"
+					class:active={session.pinned}
+					disabled={pinning}
+					onclick={onPin}
+					aria-label={session.pinned
+						? `Unpin ${session.title || 'Untitled'}`
+						: `Pin ${session.title || 'Untitled'}`}
+					title={session.pinned ? 'Unpin session' : 'Pin session'}
 				>
 					{#if session.pinned}
 						<Pin size={13} stroke-width={2} />
@@ -88,11 +100,11 @@
 				</button>
 			{/if}
 			<button
-			class="delete-session"
-			disabled={deleting}
-			onclick={onDelete}
-			aria-label={`Delete ${session.title || 'Untitled'}`}
-			title="Delete session"
+				class="delete-session"
+				disabled={deleting}
+				onclick={onDelete}
+				aria-label={`Delete ${session.title || 'Untitled'}`}
+				title="Delete session"
 			>
 				<Trash2 size={13} stroke-width={1.9} />
 			</button>
@@ -172,10 +184,18 @@
 		min-width: 0;
 	}
 
-	.session-streaming {
+	.session-activity {
+		position: relative;
 		flex-shrink: 0;
-		width: 7px;
-		height: 7px;
+		width: 10px;
+		height: 10px;
+		display: inline-grid;
+		place-items: center;
+	}
+
+	.session-streaming {
+		width: 10px;
+		height: 10px;
 		border-radius: 50%;
 		background: var(--text-soft);
 		opacity: 0.45;
@@ -185,6 +205,16 @@
 		background: var(--session-group-color, var(--accent));
 		opacity: 1;
 		animation: session-streaming-pulse 1.2s ease-in-out infinite;
+	}
+
+	.session-streaming.terminal {
+		display: inline-grid;
+		place-items: center;
+		font-size: 7px;
+		font-weight: 800;
+		line-height: 1;
+		color: white;
+		text-transform: uppercase;
 	}
 
 	@keyframes session-streaming-pulse {

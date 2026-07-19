@@ -4229,6 +4229,12 @@ var SHORTCUT_DEFINITIONS = [
     defaultBinding: { command: true, key: "o" }
   },
   {
+    id: "openTerminal",
+    label: "Open terminal",
+    category: "panels",
+    defaultBinding: { command: true, key: "j" }
+  },
+  {
     id: "navigateBack",
     label: "Back (web page or recent chat)",
     category: "panels",
@@ -5166,7 +5172,8 @@ function defaultAppSettings() {
     miniWindowLastActiveAt: 0,
     miniWindowInactivityTimeoutMinutes: 30,
     webPanelWidth: 0,
-    confirmCloseOnCmdW: true
+    confirmCloseOnCmdW: true,
+    confirmBeforeDeletingChats: true
   };
 }
 function normalizeWebPanelWidth(value) {
@@ -5331,7 +5338,8 @@ function normalizeSettings(next, options = {}) {
         next.app?.miniWindowInactivityTimeoutMinutes
       ),
       webPanelWidth: normalizeWebPanelWidth(next.app?.webPanelWidth),
-      confirmCloseOnCmdW: typeof next.app?.confirmCloseOnCmdW === "boolean" ? next.app.confirmCloseOnCmdW : defaultAppSettings().confirmCloseOnCmdW
+      confirmCloseOnCmdW: typeof next.app?.confirmCloseOnCmdW === "boolean" ? next.app.confirmCloseOnCmdW : defaultAppSettings().confirmCloseOnCmdW,
+      confirmBeforeDeletingChats: typeof next.app?.confirmBeforeDeletingChats === "boolean" ? next.app.confirmBeforeDeletingChats : defaultAppSettings().confirmBeforeDeletingChats
     },
     cometmind
   };
@@ -5441,7 +5449,8 @@ var providerSettingsSchema = external_exports.object({
     miniWindowLastActiveAt: external_exports.number().int().min(0),
     miniWindowInactivityTimeoutMinutes: external_exports.number().int().min(1).max(24 * 60),
     webPanelWidth: external_exports.number().int().min(0),
-    confirmCloseOnCmdW: external_exports.boolean()
+    confirmCloseOnCmdW: external_exports.boolean(),
+    confirmBeforeDeletingChats: external_exports.boolean()
   }),
   cometmind: external_exports.object({
     systemPromptPath: external_exports.string(),

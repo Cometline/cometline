@@ -149,6 +149,11 @@ describe('keyboard-shortcuts', () => {
 		expect(normalized.openWebPanel).toEqual({ command: true, key: 'o' });
 	});
 
+	it('includes openTerminal default shortcut', () => {
+		const normalized = normalizeKeyboardShortcuts({});
+		expect(normalized.openTerminal).toEqual({ command: true, key: 'j' });
+	});
+
 	it('includes shared navigate back/forward defaults', () => {
 		const normalized = normalizeKeyboardShortcuts({});
 		expect(normalized.navigateBack).toEqual({ command: true, key: '[' });
@@ -173,7 +178,9 @@ describe('keyboard-shortcuts', () => {
 			meta: false,
 			key: 'c'
 		});
-		expect(normalizeKeyboardShortcuts({ stopResponse: { command: true, key: 'c' } }).stopResponse).toEqual({
+		expect(
+			normalizeKeyboardShortcuts({ stopResponse: { command: true, key: 'c' } }).stopResponse
+		).toEqual({
 			command: true,
 			key: 'c'
 		});

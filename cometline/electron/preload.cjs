@@ -16,6 +16,22 @@ contextBridge.exposeInMainWorld('electronAPI', {
 	pruneWorkspaceStore: () => ipcRenderer.invoke('cometline:prune-workspace-store'),
 	readWorkspaceFile: (workspacePath, relativePath) =>
 		ipcRenderer.invoke('cometline:read-workspace-file', workspacePath, relativePath),
+	listTerminals: () => ipcRenderer.invoke('cometline:terminal-list'),
+	createTerminal: (payload) => ipcRenderer.invoke('cometline:terminal-create', payload),
+	writeTerminal: (payload) => ipcRenderer.invoke('cometline:terminal-write', payload),
+	resizeTerminal: (payload) => ipcRenderer.invoke('cometline:terminal-resize', payload),
+	terminateTerminal: (sessionId) => ipcRenderer.invoke('cometline:terminal-terminate', sessionId),
+	removeTerminal: (sessionId) => ipcRenderer.invoke('cometline:terminal-remove', sessionId),
+	onTerminalData: (callback) => {
+		const handler = (_event, payload) => callback(payload);
+		ipcRenderer.on('cometline:terminal-data', handler);
+		return () => ipcRenderer.removeListener('cometline:terminal-data', handler);
+	},
+	onTerminalExit: (callback) => {
+		const handler = (_event, payload) => callback(payload);
+		ipcRenderer.on('cometline:terminal-exit', handler);
+		return () => ipcRenderer.removeListener('cometline:terminal-exit', handler);
+	},
 	listCustomPersonas: () => ipcRenderer.invoke('cometline:list-custom-personas'),
 	saveCustomPersona: (payload) => ipcRenderer.invoke('cometline:save-custom-persona', payload),
 	deleteCustomPersona: (id) => ipcRenderer.invoke('cometline:delete-custom-persona', id),

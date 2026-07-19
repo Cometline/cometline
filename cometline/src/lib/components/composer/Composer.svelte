@@ -162,7 +162,7 @@
 	}
 
 	$effect(() => {
-		if (!autofocus) return;
+		if (!autofocus || shellStore.focusedPane !== 'chat') return;
 		void sessionId;
 		void focusInput();
 	});
@@ -232,6 +232,7 @@
 		}
 		const title = context.title?.trim();
 		if (title) return title;
+		if (context.kind === 'terminal') return 'Terminal selection';
 		if (context.kind === 'file') return fileNameFromSource(context.source);
 		return pageNameFromSource(context.source);
 	}

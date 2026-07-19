@@ -1146,6 +1146,48 @@ func TestPostMessagePathOnlyFileWebContext(t *testing.T) {
 	}
 }
 
+func TestPostMessageInlinesExplicitTerminalContext(t *testing.T) {
+	t.Parallel()
+
+	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
+			ch <- event.Done()
+			return nil
+		}), nil
+	})
+	defer cleanup()
+
+	ctx := context.Background()
+	ws, err := svc.EnsureWorkspace(ctx, t.TempDir())
+	if err != nil {
+		t.Fatalf("EnsureWorkspace() error = %v", err)
+	}
+	sess, err := svc.NewSession(ctx, ws.ID, "test-model", "test-provider")
+	if err != nil {
+		t.Fatalf("NewSession() error = %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	body := `{"text":"Explain this","web_contexts":[{"kind":"terminal","title":"Terminal selection","source":"terminal://session-1","content":"go test ./... failed"}]}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/sessions/"+sess.ID+"/messages", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	engine.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d body=%s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+
+	msgs, err := svc.BuildSDKMessages(ctx, sess.ID)
+	if err != nil {
+		t.Fatalf("BuildSDKMessages() error = %v", err)
+	}
+	text := msgs[0].Content[0].(cometsdk.TextBlock).Text
+	for _, want := range []string{"Terminal selection", "terminal://session-1", "go test ./... failed", "untrusted source material"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("terminal context missing %q: %q", want, text)
+		}
+	}
+}
+
 func TestLocalCORSAllowsCometlineRenderer(t *testing.T) {
 	t.Parallel()
 

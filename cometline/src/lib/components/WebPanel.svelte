@@ -1,8 +1,18 @@
 <script lang="ts">
-	import { ArrowLeft, ArrowRight, FileText, RotateCcw, RotateCw, Save, X } from '@lucide/svelte';
+	import {
+		ArrowLeft,
+		ArrowRight,
+		FileText,
+		RotateCcw,
+		RotateCw,
+		Save,
+		SquareTerminal,
+		X
+	} from '@lucide/svelte';
 	import { tick, untrack } from 'svelte';
 	import FilePreview from '$lib/components/FilePreview.svelte';
 	import FileTreeBrowser from '$lib/components/FileTreeBrowser.svelte';
+	import { sessionStore } from '$lib/stores/session.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { isWebPanelUrl, normalizeUserUrl, openLink } from '$lib/open-link';
 	import { openExternalLink } from '$lib/external-link';
@@ -56,6 +66,7 @@
 	let contextMessage = $state('');
 	let pageCaptureRun = 0;
 	let cachedPageContext = $state<CachedPageContext | null>(null);
+	let fileTreeBrowser = $state<{ focusFilter: () => void } | null>(null);
 
 	const panelOpen = $derived(shellStore.webPanelOpen);
 	const panelMode = $derived(shellStore.webPanelMode);
@@ -71,15 +82,14 @@
 	const showFileBrowser = $derived(
 		Boolean(shellStore.hasWebPanelForSession && shellStore.webPanelBrowseOpen)
 	);
+	const terminalAvailable = $derived(Boolean(sessionStore.current));
 	const dirty = $derived(Boolean(editorState?.dirty));
 	const saving = $derived(Boolean(editorState?.saving));
 	const addressQuery = $derived(addressInput.trim());
 	const showAddressOptions = $derived(
 		panelMode === 'url' && addressEditing && Boolean(addressQuery)
 	);
-	const toolbarCanGoBack = $derived(
-		(showWebview && canGoBack) || shellStore.canPanelHistoryBack
-	);
+	const toolbarCanGoBack = $derived((showWebview && canGoBack) || shellStore.canPanelHistoryBack);
 	const toolbarCanGoForward = $derived(
 		(showWebview && canGoForward) || shellStore.canPanelHistoryForward
 	);
@@ -277,14 +287,8 @@
 		shellStore.setViewingFileContextForActive(source, title);
 	}
 
-	function confirmDiscardIfDirty(): boolean {
-		if (!dirty) return true;
-		return window.confirm('Discard unsaved changes?');
-	}
-
 	function onClose() {
-		if (!confirmDiscardIfDirty()) return;
-		shellStore.closeWebPanel();
+		shellStore.closeWorkspacePanel();
 	}
 
 	function onSaveClick() {
@@ -429,9 +433,9 @@
 	// always wins regardless of which path observes it first.
 	let satisfiedFocusRequestId = 0;
 
-	function applyAddressFocus() {
+	function applyAddressFocus(force = false) {
 		const requestId = shellStore.addressBarFocusRequestId;
-		if (!requestId || requestId === satisfiedFocusRequestId) return;
+		if (!requestId || (!force && requestId === satisfiedFocusRequestId)) return;
 		if (!shellStore.webPanelOpen) return;
 		const el = addressInputEl;
 		if (!el) return;
@@ -544,7 +548,27 @@
 		const requestId = shellStore.addressBarFocusRequestId;
 		const open = panelOpen;
 		if (!requestId || !open) return;
-		void tick().then(applyAddressFocus);
+		void tick().then(() =>
+			requestAnimationFrame(() => requestAnimationFrame(() => applyAddressFocus(true)))
+		);
+	});
+
+	$effect(() => {
+		const requestId = shellStore.fileTreeFilterFocusRequestId;
+		if (!requestId || !panelOpen || !showFileBrowser || !fileTreeBrowser) return;
+		void tick().then(() =>
+			requestAnimationFrame(() =>
+				requestAnimationFrame(() => {
+					if (
+						shellStore.fileTreeFilterFocusRequestId !== requestId ||
+						!shellStore.webPanelOpen ||
+						!showFileBrowser
+					)
+						return;
+					fileTreeBrowser?.focusFilter();
+				})
+			)
+		);
 	});
 </script>
 
@@ -558,6 +582,16 @@
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<header class="web-panel-toolbar" onmousedown={handlePanelMouseDown}>
 			<div class="nav-actions">
+				<button
+					type="button"
+					class="icon-button"
+					disabled={!terminalAvailable}
+					onclick={() => shellStore.requestTerminalFocus()}
+					aria-label={terminalAvailable ? 'Open terminal' : 'Terminal unavailable in draft'}
+					title={terminalAvailable ? 'Terminal (Cmd+J)' : 'Start a chat to use Terminal'}
+				>
+					<SquareTerminal size={16} />
+				</button>
 				<button
 					type="button"
 					class="icon-button"
@@ -704,6 +738,7 @@
 				<webview bind:this={webviewEl} class="web-panel-view"></webview>
 			{:else if showFileBrowser}
 				<FileTreeBrowser
+					bind:this={fileTreeBrowser}
 					workspacePath={shellStore.workspacePath}
 					onSelectFile={(path) => shellStore.openFilePreviewForActive(path)}
 				/>

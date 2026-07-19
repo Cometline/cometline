@@ -14,11 +14,13 @@
 	import AppToast from './AppToast.svelte';
 	import CloseConfirmModal from './CloseConfirmModal.svelte';
 	import WebPanel from './WebPanel.svelte';
+	import TerminalPanel from './TerminalPanel.svelte';
 	import { getSession } from '$lib/client/cometmind';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { sessionStore } from '$lib/stores/session.svelte';
 	import { settingsStore } from '$lib/stores/settings.svelte';
 	import { inboxStore } from '$lib/stores/inbox.svelte';
+	import { terminalStore } from '$lib/stores/terminal.svelte';
 	import { startNewChat } from '$lib/actions/new-chat';
 	import { openSettings } from '$lib/actions/open-settings';
 	import { navigateAdjacentSession } from '$lib/actions/navigate-adjacent-session';
@@ -80,8 +82,8 @@
 			inboxStore.closeDrawer();
 			return;
 		}
-		if (shellStore.webPanelOpen) {
-			shellStore.closeWebPanel();
+		if (shellStore.workspacePanelOpen) {
+			shellStore.closeWorkspacePanel();
 			return;
 		}
 		if (settingsStore.settings.app.confirmCloseOnCmdW === false) {
@@ -113,6 +115,9 @@
 				return;
 			case 'openWebPanel':
 				shellStore.openWebPanelFromShortcut();
+				return;
+			case 'openTerminal':
+				shellStore.requestTerminalFocus();
 				return;
 			case 'navigateBack':
 				if (shouldUseWebPanelHistory(shellStore.webPanelOpen)) {
@@ -165,6 +170,7 @@
 
 	onMount(() => {
 		let resizeObserver: ResizeObserver | null = null;
+		void terminalStore.initialize();
 
 		if (narrowViewportQuery().matches) {
 			shellStore.closeSidebar();
@@ -190,14 +196,14 @@
 				return;
 			}
 			if (
-				shellStore.webPanelOpen &&
+				shellStore.workspacePanelOpen &&
 				event.key === 'Escape' &&
 				!shellStore.settingsOpen &&
 				!inboxStore.drawerOpen &&
 				!closeConfirmOpen
 			) {
 				event.preventDefault();
-				shellStore.closeWebPanel();
+				shellStore.closeWorkspacePanel();
 				return;
 			}
 			if (matchesShortcut(event, shortcuts.closeSettings) && shellStore.settingsOpen) {
@@ -218,6 +224,11 @@
 			if (matchesShortcut(event, shortcuts.openWebPanel)) {
 				event.preventDefault();
 				runShortcutAction('openWebPanel');
+				return;
+			}
+			if (matchesShortcut(event, shortcuts.openTerminal)) {
+				event.preventDefault();
+				runShortcutAction('openTerminal');
 				return;
 			}
 			if (matchesShortcut(event, shortcuts.navigateBack)) {
@@ -281,7 +292,7 @@
 		});
 
 		const unsubscribeCloseWebPanel = window.electronAPI?.onCloseWebPanel?.(() => {
-			shellStore.closeWebPanel();
+			shellStore.closeWorkspacePanel();
 		});
 
 		const unsubscribeCloseInbox = window.electronAPI?.onCloseInbox?.(() => {
@@ -335,7 +346,7 @@
 		// Keep a custom panel width within bounds when the window is resized so a
 		// previously-saved large width can't exceed the viewport.
 		function clampPanelWidthToLayout() {
-			if (!shellStore.webPanelOpen) return;
+			if (!shellStore.workspacePanelOpen) return;
 			const raw = document.documentElement.style.getPropertyValue('--web-panel-width').trim();
 			const current = raw.endsWith('px') ? Number.parseFloat(raw) : currentPanelWidth();
 			const px = Number.isFinite(current) ? current : currentPanelWidth();
@@ -405,10 +416,10 @@
 	$effect(() => {
 		void shellStore.sidebarOpen;
 		void shellStore.fullscreen;
-		void shellStore.webPanelOpen;
-		if (!shellStore.webPanelOpen) return;
+		void shellStore.workspacePanelOpen;
+		if (!shellStore.workspacePanelOpen) return;
 		queueMicrotask(() => {
-			if (!shellStore.webPanelOpen) return;
+			if (!shellStore.workspacePanelOpen) return;
 			const px = currentPanelWidth();
 			const clamped = clampPanelWidth(px);
 			if (clamped !== px) {
@@ -454,7 +465,9 @@
 		const px = Number.parseFloat(raw);
 		if (raw.endsWith('px') && Number.isFinite(px)) return px;
 		// Fallback for vw/default: measure the rendered panel inner element.
-		const inner = document.querySelector<HTMLElement>('.web-panel-inner');
+		const inner = document.querySelector<HTMLElement>(
+			'.web-panel-inner, .terminal-panel-inner'
+		);
 		if (inner) return inner.getBoundingClientRect().width;
 		return Math.round(window.innerWidth * 0.5);
 	}
@@ -518,7 +531,8 @@
 		<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 		<main
 			class="main content-panel-surface max-[900px]:shadow-none"
-			class:pane-focus-active={shellStore.focusedPane === 'chat' && shellStore.webPanelOpen}
+			class:pane-focus-active={shellStore.focusedPane === 'chat' &&
+				shellStore.workspacePanelOpen}
 			onmousedown={handleMainMouseDown}
 		>
 			{#if showShellTitlebar}
@@ -546,7 +560,7 @@
 			{@render children()}
 			<RuntimeOverlay />
 		</main>
-		{#if shellStore.webPanelOpen}
+		{#if shellStore.workspacePanelOpen}
 			<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 			<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 			<div
@@ -564,6 +578,7 @@
 			></div>
 		{/if}
 		<WebPanel bind:this={webPanelRef} />
+		<TerminalPanel />
 	</div>
 	<SettingsModal />
 	<InboxDrawer

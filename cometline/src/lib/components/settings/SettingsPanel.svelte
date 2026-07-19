@@ -660,12 +660,16 @@
 						<SettingsGeneralPanel
 							bind:openAtLogin={draft.app.openAtLogin}
 							bind:confirmCloseOnCmdW={draft.app.confirmCloseOnCmdW}
+							bind:confirmBeforeDeletingChats={draft.app.confirmBeforeDeletingChats}
 							bind:miniWindowInactivityTimeoutMinutes={
 								draft.app.miniWindowInactivityTimeoutMinutes
 							}
 							bind:storage={draft.cometmind.storage}
 							onOpenAtLoginChange={panelController.setOpenAtLogin}
 							onConfirmCloseOnCmdWChange={panelController.setConfirmCloseOnCmdW}
+							onConfirmBeforeDeletingChatsChange={
+								panelController.setConfirmBeforeDeletingChats
+							}
 						/>
 						<section class="settings-panel-frame">
 							<div class="settings-panel-body">

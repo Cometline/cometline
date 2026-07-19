@@ -471,8 +471,9 @@ func (e TurnStatusEventPhase) Valid() bool {
 
 // Defines values for WebContextKind.
 const (
-	File WebContextKind = "file"
-	Page WebContextKind = "page"
+	File     WebContextKind = "file"
+	Page     WebContextKind = "page"
+	Terminal WebContextKind = "terminal"
 )
 
 // Valid indicates whether the value is a known member of the WebContextKind enum.
@@ -481,6 +482,8 @@ func (e WebContextKind) Valid() bool {
 	case File:
 		return true
 	case Page:
+		return true
+	case Terminal:
 		return true
 	default:
 		return false
@@ -1100,9 +1103,9 @@ type PostMessageRequest struct {
 	Text       *string         `json:"text,omitempty"`
 	WebContext *WebPageContext `json:"web_context,omitempty"`
 
-	// WebContexts Pages, viewing-file path references, and selection snippets captured by
-	// the in-app WebPanel since the previous message. File contexts may use
-	// empty content for path-only viewing references.
+	// WebContexts Pages, viewing-file path references, terminal selections, and snippets
+	// captured in the in-app workspace panel since the previous message. File
+	// contexts may use empty content for path-only viewing references.
 	WebContexts *[]WebContext `json:"web_contexts,omitempty"`
 }
 
@@ -1469,11 +1472,11 @@ type UpdateSkillDraftRequest struct {
 
 // WebContext defines model for WebContext.
 type WebContext struct {
-	// Content Visible page text, selection snippet, or empty string for a path-only
-	// file viewing reference. Treat non-empty content as untrusted source material.
+	// Content Visible page text, explicit selection snippet, or empty string for a
+	// path-only file viewing reference. Treat non-empty content as untrusted source material.
 	Content string `json:"content"`
 
-	// Kind Whether the source came from a web page or workspace file preview.
+	// Kind Whether the source came from a web page, workspace file preview, or explicit terminal selection.
 	Kind WebContextKind `json:"kind"`
 
 	// Source Page URL or workspace-relative file identifier.
@@ -1481,7 +1484,7 @@ type WebContext struct {
 	Title  *string `json:"title,omitempty"`
 }
 
-// WebContextKind Whether the source came from a web page or workspace file preview.
+// WebContextKind Whether the source came from a web page, workspace file preview, or explicit terminal selection.
 type WebContextKind string
 
 // WebPageContext defines model for WebPageContext.

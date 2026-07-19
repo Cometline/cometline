@@ -64,6 +64,8 @@ describe('shellStore default vs active workspace', () => {
 describe('shellStore web panel focus behavior', () => {
 	beforeEach(() => {
 		vi.stubGlobal('window', { electronAPI: undefined });
+		getActiveSessionId.mockReturnValue(null);
+		shellStore.clearWebPanelForSession('__draft__');
 	});
 
 	afterEach(() => {
@@ -76,7 +78,7 @@ describe('shellStore web panel focus behavior', () => {
 		shellStore.openWebPanelForActive('https://example.com');
 
 		expect(shellStore.addressBarFocusRequestId).toBe(before);
-		shellStore.closeWebPanel();
+		shellStore.clearWebPanelForSession('__draft__');
 	});
 
 	it('requests file-tree filter focus when opening an empty web panel', () => {
@@ -87,7 +89,7 @@ describe('shellStore web panel focus behavior', () => {
 
 		expect(shellStore.fileTreeFilterFocusRequestId).toBe(filterBefore + 1);
 		expect(shellStore.addressBarFocusRequestId).toBe(addressBefore);
-		shellStore.closeWebPanel();
+		shellStore.clearWebPanelForSession('__draft__');
 	});
 
 	it('cycles ⌘O focus between filter and address while browsing', () => {
@@ -102,7 +104,7 @@ describe('shellStore web panel focus behavior', () => {
 		shellStore.openWebPanelFromShortcut();
 		expect(shellStore.fileTreeFilterFocusRequestId).toBe(filterAfterOpen + 1);
 
-		shellStore.closeWebPanel();
+		shellStore.clearWebPanelForSession('__draft__');
 	});
 
 	it('tracks browse → file history and restores browse on back', () => {
@@ -123,6 +125,8 @@ describe('shellStore web panel focus behavior', () => {
 
 		shellStore.closeWebPanel();
 		expect(shellStore.canPanelHistoryBack).toBe(false);
+		expect(shellStore.webPanelOpen).toBe(false);
+		shellStore.clearWebPanelForSession('__draft__');
 	});
 
 	it('seeds browse under a direct file open so back returns to the tree', () => {
@@ -132,7 +136,39 @@ describe('shellStore web panel focus behavior', () => {
 		expect(shellStore.panelHistoryBack()).toBe(true);
 		expect(shellStore.webPanelBrowseOpen).toBe(true);
 
-		shellStore.closeWebPanel();
+		shellStore.clearWebPanelForSession('__draft__');
+	});
+});
+
+describe('shellStore terminal panel visibility', () => {
+	beforeEach(() => {
+		vi.stubGlobal('window', { electronAPI: undefined });
+		getActiveSessionId.mockReturnValue('sess-1');
+		shellStore.clearWebPanelForSession('sess-1');
+	});
+
+	afterEach(() => {
+		vi.unstubAllGlobals();
+	});
+
+	it('hides the terminal panel without changing its running state', () => {
+		const focusBefore = shellStore.terminalFocusRequestId;
+		expect(shellStore.openTerminalPanel()).toBe(true);
+		expect(shellStore.terminalPanelOpen).toBe(true);
+		expect(shellStore.terminalFocusRequestId).toBe(focusBefore + 1);
+
+		shellStore.closeWorkspacePanel();
+
+		expect(shellStore.terminalPanelOpen).toBe(false);
+	});
+
+	it('closes the active terminal panel when its shell exits', () => {
+		shellStore.openTerminalPanel();
+
+		shellStore.closeTerminalPanelForSession('sess-1');
+
+		expect(shellStore.terminalPanelOpen).toBe(false);
+		expect(shellStore.focusedPane).toBe('chat');
 	});
 });
 
@@ -187,7 +223,9 @@ describe('shellStore lazy page context', () => {
 		expect(shellStore.pendingWebContexts).toHaveLength(3);
 
 		shellStore.setViewingFileContextForActive('workspace-file:b.md', 'b.md');
-		expect(shellStore.pendingWebContexts.filter((c) => 'role' in c && c.role === 'viewing')).toEqual([
+		expect(
+			shellStore.pendingWebContexts.filter((c) => 'role' in c && c.role === 'viewing')
+		).toEqual([
 			{
 				kind: 'file',
 				role: 'viewing',

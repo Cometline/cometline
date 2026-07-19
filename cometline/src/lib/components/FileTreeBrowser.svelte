@@ -103,6 +103,12 @@
 		const el = filterInputEl;
 		if (!el) return;
 		satisfiedFilterFocusRequestId = requestId;
+		focusFilter();
+	}
+
+	export function focusFilter() {
+		const el = filterInputEl;
+		if (!el) return;
 		shellStore.setFocusedPane('web');
 		el.focus({ preventScroll: true });
 		el.select();
