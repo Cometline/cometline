@@ -1,5 +1,5 @@
 import { goto } from '$app/navigation';
-import { createSession, listSessions } from '$lib/client/cometmind';
+import { createSession, listAllSessions } from '$lib/client/cometmind';
 import { createNewSession } from '$lib/actions/create-new-session';
 import { modelStore } from '$lib/stores/model.svelte';
 import { sessionStore } from '$lib/stores/session.svelte';
@@ -42,7 +42,9 @@ export async function ensureMiniWindowSession(preferredSessionId = '') {
 	const workspacePath = (await window.electronAPI?.getWorkspacePath?.()) ?? '/';
 
 	if (sessionId && shouldReuseSession) {
-		const sessions = await listSessions(workspacePath);
+		// Mini sessions may be pinned or belong to another workspace. The route ID
+		// is authoritative, so do not filter it through Electron's default workspace.
+		const sessions = await listAllSessions();
 		const session = sessions.sessions.find((item) => item.id === sessionId);
 		if (session) {
 			sessionStore.upsertSession(session);

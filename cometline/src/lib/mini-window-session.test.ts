@@ -4,6 +4,7 @@ import type { Session } from '$lib/types';
 const mocks = vi.hoisted(() => ({
 	goto: vi.fn().mockResolvedValue(undefined),
 	createNewSession: vi.fn(),
+	listAllSessions: vi.fn(),
 	selectSession: vi.fn(),
 	selectFromSession: vi.fn(),
 	setActiveWorkspacePath: vi.fn(),
@@ -14,7 +15,10 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('$app/navigation', () => ({ goto: mocks.goto }));
 vi.mock('$lib/actions/create-new-session', () => ({ createNewSession: mocks.createNewSession }));
-vi.mock('$lib/client/cometmind', () => ({ createSession: vi.fn(), listSessions: vi.fn() }));
+vi.mock('$lib/client/cometmind', () => ({
+	createSession: vi.fn(),
+	listAllSessions: mocks.listAllSessions
+}));
 vi.mock('$lib/stores/model.svelte', () => ({
 	modelStore: { options: [], selected: null, selectDefault: vi.fn(), selectFromSession: mocks.selectFromSession }
 }));
@@ -34,7 +38,11 @@ vi.mock('$lib/stores/session-visit-history.svelte', () => ({
 	sessionVisitHistory: { recordVisit: mocks.recordVisit }
 }));
 
-import { createMiniWindowSession, navigateMiniToSession } from './mini-window-session';
+import {
+	createMiniWindowSession,
+	ensureMiniWindowSession,
+	navigateMiniToSession
+} from './mini-window-session';
 
 const session: Session = {
 	id: 'mini-session',
@@ -55,6 +63,7 @@ describe('mini window sessions', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		mocks.createNewSession.mockResolvedValue(session);
+		mocks.listAllSessions.mockResolvedValue({ sessions: [session] });
 		vi.stubGlobal('window', {
 			electronAPI: { saveMiniWindowState: vi.fn().mockResolvedValue(undefined) }
 		});
@@ -82,5 +91,12 @@ describe('mini window sessions', () => {
 			sessionId: 'mini-session'
 		});
 		expect(mocks.goto).toHaveBeenCalledWith('/mini/session/mini-session');
+	});
+
+	it('reuses a preferred session from another workspace', async () => {
+		await expect(ensureMiniWindowSession('mini-session')).resolves.toBe('mini-session');
+
+		expect(mocks.listAllSessions).toHaveBeenCalledOnce();
+		expect(mocks.createNewSession).not.toHaveBeenCalled();
 	});
 });
