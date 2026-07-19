@@ -3,6 +3,7 @@
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
 	import AppShell from '$lib/components/AppShell.svelte';
+	import MiniShell from '$lib/components/MiniShell.svelte';
 	import { connectionState } from '$lib/stores/runtime.svelte';
 	import { settingsStore, readHasDismissedSetupWizardSync } from '$lib/stores/settings.svelte';
 	import { sessionStore } from '$lib/stores/session.svelte';
@@ -205,7 +206,11 @@
 	}
 </script>
 
-{#if isMiniRoute || isSettingsRoute}
+{#if isMiniRoute}
+	<MiniShell>
+		{@render children()}
+	</MiniShell>
+{:else if isSettingsRoute}
 	{@render children()}
 {:else}
 	<AppShell>

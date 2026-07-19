@@ -25,6 +25,8 @@
 	import { startJobInSession } from '$lib/jobs/start-job-in-chat';
 	import type { JobResource } from '$lib/client/cometmind';
 	import { createChatViewController } from '$lib/conversation/chat-view-controller.svelte';
+	import { PanelLeft } from '@lucide/svelte';
+	import { miniShellStore } from '$lib/stores/mini-shell.svelte';
 
 	const THREAD_IN = { duration: 140 };
 
@@ -325,6 +327,15 @@
 		<div class="mini-titlebar" aria-label="Mini window drag area">
 			<span>Mini Chat</span>
 			<button
+				class="mini-sidebar-toggle"
+				type="button"
+				aria-label="Show chats"
+				title="Show chats"
+				onclick={() => miniShellStore.toggleSidebar()}
+			>
+				<PanelLeft size={15} stroke-width={1.8} />
+			</button>
+			<button
 				class="mini-open-main"
 				type="button"
 				disabled={openInMainWindowBlocked}
@@ -485,6 +496,24 @@
 		-webkit-app-region: no-drag;
 	}
 
+	.mini-sidebar-toggle {
+		position: absolute;
+		left: 12px;
+		top: 50%;
+		transform: translateY(-50%);
+		width: 28px;
+		height: 28px;
+		display: grid;
+		place-items: center;
+		padding: 0;
+		border: 1px solid color-mix(in srgb, var(--border-soft) 80%, transparent);
+		border-radius: 999px;
+		background: color-mix(in srgb, var(--panel-bg) 88%, var(--text-main) 6%);
+		color: var(--text-main);
+		cursor: pointer;
+		-webkit-app-region: no-drag;
+	}
+
 	.mini-open-main svg {
 		width: 14px;
 		height: 14px;
@@ -495,7 +524,8 @@
 		stroke-linejoin: round;
 	}
 
-	.mini-open-main:hover {
+	.mini-open-main:hover,
+	.mini-sidebar-toggle:hover {
 		border-color: color-mix(in srgb, var(--hero-composer-glow-color) 54%, var(--border-soft));
 		background: color-mix(in srgb, var(--hero-composer-glow-color) 18%, var(--panel-bg));
 	}

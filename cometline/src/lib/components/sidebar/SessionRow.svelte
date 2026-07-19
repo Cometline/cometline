@@ -12,6 +12,7 @@
 		showWorkspaceLabel = false,
 		showGatewayLabel = false,
 		showPin = true,
+		showActions = true,
 		onSelect,
 		onDelete,
 		onPin,
@@ -24,6 +25,7 @@
 		showWorkspaceLabel?: boolean;
 		showGatewayLabel?: boolean;
 		showPin?: boolean;
+		showActions?: boolean;
 		onSelect: () => void;
 		onDelete: () => void;
 		onPin: () => void;
@@ -44,6 +46,7 @@
 	class="session-row-wrap group relative flex items-stretch"
 	class:selected
 	class:streaming={streaming && !selected}
+	class:has-actions={showActions}
 	role="group"
 	oncontextmenu={handleContextMenu}
 >
@@ -64,9 +67,10 @@
 			<span class="session-workspace">{workspaceLabel(session.workspace_path)}</span>
 		{/if}
 	</button>
-	<div class="session-actions">
-		{#if showPin}
-			<button
+	{#if showActions}
+		<div class="session-actions">
+			{#if showPin}
+				<button
 				class="pin-session"
 				class:active={session.pinned}
 				disabled={pinning}
@@ -75,24 +79,25 @@
 					? `Unpin ${session.title || 'Untitled'}`
 					: `Pin ${session.title || 'Untitled'}`}
 				title={session.pinned ? 'Unpin session' : 'Pin session'}
-			>
-				{#if session.pinned}
-					<Pin size={13} stroke-width={2} />
-				{:else}
-					<PinOff size={13} stroke-width={1.9} />
-				{/if}
-			</button>
-		{/if}
-		<button
+				>
+					{#if session.pinned}
+						<Pin size={13} stroke-width={2} />
+					{:else}
+						<PinOff size={13} stroke-width={1.9} />
+					{/if}
+				</button>
+			{/if}
+			<button
 			class="delete-session"
 			disabled={deleting}
 			onclick={onDelete}
 			aria-label={`Delete ${session.title || 'Untitled'}`}
 			title="Delete session"
-		>
-			<Trash2 size={13} stroke-width={1.9} />
-		</button>
-	</div>
+			>
+				<Trash2 size={13} stroke-width={1.9} />
+			</button>
+		</div>
+	{/if}
 </div>
 
 <style>
@@ -133,7 +138,7 @@
 		width: 100%;
 		text-align: left;
 		padding: 6px 8px;
-		padding-right: 58px;
+		padding-right: 8px;
 		border: none;
 		background: transparent;
 		color: var(--text-main);
@@ -141,6 +146,10 @@
 		line-height: 1.35;
 		font-weight: 450;
 		cursor: pointer;
+	}
+
+	.session-row-wrap.has-actions .session-row {
+		padding-right: 58px;
 	}
 
 	.session-row-wrap.selected .session-title {

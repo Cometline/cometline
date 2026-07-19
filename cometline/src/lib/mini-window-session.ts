@@ -1,7 +1,13 @@
+import { goto } from '$app/navigation';
 import { createSession, listSessions } from '$lib/client/cometmind';
+import { createNewSession } from '$lib/actions/create-new-session';
 import { modelStore } from '$lib/stores/model.svelte';
 import { sessionStore } from '$lib/stores/session.svelte';
 import { settingsStore } from '$lib/stores/settings.svelte';
+import { shellStore } from '$lib/stores/shell.svelte';
+import { sessionVisitHistory } from '$lib/stores/session-visit-history.svelte';
+import { isDiscordSession } from '$lib/sessions/group-by-workspace';
+import type { Session } from '$lib/types';
 
 async function resolveSelectedModel() {
 	if (modelStore.options.length === 0) {
@@ -56,4 +62,28 @@ export async function ensureMiniWindowSession(preferredSessionId = '') {
 	await window.electronAPI?.saveMiniWindowState?.({ sessionId: session.id });
 	sessionStore.appendSession(session);
 	return session.id;
+}
+
+/** Select a session without leaving the mini-window route namespace. */
+export async function navigateMiniToSession(session: Session) {
+	sessionStore.selectSession(session);
+	modelStore.selectFromSession(session);
+	if (session.workspace_path && session.workspace_path !== shellStore.workspacePath) {
+		shellStore.setActiveWorkspacePath(session.workspace_path);
+	}
+	if (session.workspace_path) {
+		shellStore.setSidebarOrderWorkspacePath(session.workspace_path);
+	}
+	shellStore.setSidebarOrderDiscordActive(isDiscordSession(session));
+	sessionVisitHistory.recordVisit(session.id);
+	await window.electronAPI?.saveMiniWindowState?.({ sessionId: session.id });
+	await goto(`/mini/session/${session.id}`);
+}
+
+/** Create and open a persisted mini-window session using the configured default model. */
+export async function createMiniWindowSession() {
+	const session = await createNewSession();
+	await window.electronAPI?.saveMiniWindowState?.({ sessionId: session.id });
+	await goto(`/mini/session/${session.id}`);
+	return session;
 }
