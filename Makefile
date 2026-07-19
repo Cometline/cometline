@@ -14,7 +14,7 @@ COMETMIND_API_KEY ?=
 COMETMIND_WORKSPACE_PATH ?= $(CURDIR)
 COMETMIND_BINARY_PATH ?= $(CURDIR)/cometmind/dist/cometmind
 
-.PHONY: help install generate check-generated check test build package dev sdk-build sdk-test cometmind-build cometmind-test cometline-check cometline-e2e cometline-build cometline-package cometline-dev port clean-log
+.PHONY: help install generate check-generated check test build package dev sdk-build sdk-test cometmind-build cometmind-test cometline-check cometline-build cometline-package cometline-dev port clean-log
 
 help:
 	@printf "Cometline targets:\n"
@@ -77,10 +77,6 @@ cometline-check:
 	cd cometline && $(PNPM) run check
 	cd cometline && $(PNPM) run lint
 	cd cometline && $(PNPM) run test
-
-cometline-e2e:
-	cd cometline && $(PNPM) exec playwright install chromium --with-deps
-	cd cometline && $(PNPM) run test:e2e
 
 cometline-build:
 	cd cometline && $(PNPM) run build
