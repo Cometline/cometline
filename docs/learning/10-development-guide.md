@@ -71,7 +71,6 @@ pnpm run dev       # Vite + Electron
 pnpm run check     # Type checking
 pnpm run test      # Vitest
 pnpm run lint      # ESLint
-pnpm run test:e2e  # Playwright
 pnpm run storybook # Storybook
 pnpm run build     # Production SvelteKit build
 ```

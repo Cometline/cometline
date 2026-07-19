@@ -16,7 +16,7 @@ The renderer owns chat UI, jobs UI, settings UI, skill drafts, mini routes, sess
 | Styling | Tailwind CSS v4 |
 | State | Module-level store singletons (not Svelte stores) |
 | API client | Hand-written `cometmind.ts` + generated OpenAPI types |
-| Tests | Vitest, Playwright, Storybook |
+| Tests | Vitest, Storybook |
 
 Patterns reference: `cometline/docs/FRONTEND_PATTERNS.md`
 
@@ -268,7 +268,6 @@ cd cometline
 pnpm run test        # Vitest
 pnpm run check       # svelte-check + types
 pnpm run lint        # ESLint
-pnpm run test:e2e    # Playwright
 pnpm run storybook   # Isolated component development
 ```
 

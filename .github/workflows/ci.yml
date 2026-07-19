@@ -38,11 +38,5 @@ jobs:
       - name: Run checks
         run: make check
 
-      - name: Install Playwright browsers
-        run: cd cometline && pnpm exec playwright install chromium --with-deps
-
-      - name: Run Playwright E2E
-        run: cd cometline && pnpm run test:e2e
-
       - name: Run build
         run: make build

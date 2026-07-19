@@ -76,7 +76,6 @@ Fatal errors use `role="alert"`. Recoverable errors use `role="alert"` on a dism
 
 - Pure logic: `*.test.ts` in `node` environment
 - Components: `*.svelte.test.ts` in `jsdom` with `@testing-library/svelte`
-- E2E: Playwright is available via `pnpm run test:e2e`
 - Storybook is available for isolated component work via `pnpm run storybook`
 - Do not test generated OpenAPI client files
 
