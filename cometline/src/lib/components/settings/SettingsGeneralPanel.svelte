@@ -7,17 +7,21 @@
 	let {
 		openAtLogin = $bindable(false),
 		confirmCloseOnCmdW = $bindable(true),
+		confirmBeforeDeletingChats = $bindable(true),
 		miniWindowInactivityTimeoutMinutes = $bindable(30),
 		storage = $bindable<CometMindStorageSettings>(),
 		onOpenAtLoginChange,
-		onConfirmCloseOnCmdWChange
+		onConfirmCloseOnCmdWChange,
+		onConfirmBeforeDeletingChatsChange
 	}: {
 		openAtLogin: boolean;
 		confirmCloseOnCmdW: boolean;
+		confirmBeforeDeletingChats: boolean;
 		miniWindowInactivityTimeoutMinutes: number;
 		storage: CometMindStorageSettings;
 		onOpenAtLoginChange?: (enabled: boolean) => void | Promise<void>;
 		onConfirmCloseOnCmdWChange?: (enabled: boolean) => void | Promise<void>;
+		onConfirmBeforeDeletingChatsChange?: (enabled: boolean) => void | Promise<void>;
 	} = $props();
 
 	let backupRunning = $state(false);
@@ -148,6 +152,13 @@
 				bind:checked={openAtLogin}
 				disabled={!window.electronAPI?.setOpenAtLogin}
 				onchange={onOpenAtLoginChange}
+			/>
+			<SettingsPersistenceHint tier="instant" />
+			<SettingsToggle
+				label="Confirm before deleting chats"
+				description="Ask for confirmation before permanently deleting a chat."
+				bind:checked={confirmBeforeDeletingChats}
+				onchange={onConfirmBeforeDeletingChatsChange}
 			/>
 			<SettingsPersistenceHint tier="instant" />
 		</div>

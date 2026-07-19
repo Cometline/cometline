@@ -317,6 +317,27 @@ export function createSettingsPanelController(deps: {
 		}
 	}
 
+	async function setConfirmBeforeDeletingChats(enabled: boolean) {
+		const draft = deps.getDraft();
+		deps.setDraft({ ...draft, app: { ...draft.app, confirmBeforeDeletingChats: enabled } });
+		try {
+			await settingsStore.saveConfirmBeforeDeletingChats(enabled);
+			deps.settingsController.status = enabled
+				? 'Will ask for confirmation before deleting chats.'
+				: 'Chats will delete without confirmation.';
+		} catch (err) {
+			deps.setDraft({
+				...deps.getDraft(),
+				app: {
+					...deps.getDraft().app,
+					confirmBeforeDeletingChats: settingsStore.settings.app.confirmBeforeDeletingChats
+				}
+			});
+			deps.settingsController.status =
+				err instanceof Error ? err.message : 'Failed to save delete confirmation preference';
+		}
+	}
+
 	async function save() {
 		deps.settingsController.status = '';
 		deps.getCometmindPanel()?.syncFields?.();
@@ -727,6 +748,7 @@ export function createSettingsPanelController(deps: {
 		updateShortcut,
 		setOpenAtLogin,
 		setConfirmCloseOnCmdW,
+		setConfirmBeforeDeletingChats,
 		save,
 		persistDraftForRuntime,
 		setSelectedMethod,

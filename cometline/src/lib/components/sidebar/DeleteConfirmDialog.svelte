@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { fly, fade } from 'svelte/transition';
+	import { onMount } from 'svelte';
 	import type { Session } from '$lib/types';
 
 	let {
@@ -15,12 +15,36 @@
 		onCancel: () => void;
 		onConfirm: () => void;
 	} = $props();
+
+	let dialog = $state<HTMLDialogElement | null>(null);
+
+	onMount(() => {
+		dialog?.showModal();
+		return () => dialog?.close();
+	});
+
+	function cancel(event?: Event) {
+		event?.preventDefault();
+		onCancel();
+	}
+
+	function cancelOnBackdrop(event: MouseEvent) {
+		if (event.target === dialog) onCancel();
+	}
 </script>
 
-<div class="delete-confirm" transition:fly={{ y: 8, duration: 140 }}>
+<dialog
+	bind:this={dialog}
+	class="delete-confirm"
+	oncancel={cancel}
+	onclick={cancelOnBackdrop}
+	aria-labelledby="delete-confirm-title"
+	aria-describedby="delete-confirm-description"
+>
+	<img class="app-icon" src="/project_avatar_96.png" alt="" width="56" height="56" />
 	<div class="delete-copy">
-		<strong>Delete “{session.title || 'Untitled'}”?</strong>
-		<span>This cannot be undone.</span>
+		<h2 id="delete-confirm-title">Delete “{session.title || 'Untitled'}”?</h2>
+		<p id="delete-confirm-description">This cannot be undone.</p>
 	</div>
 	<label class="delete-check">
 		<input type="checkbox" bind:checked={rememberDeleteChoice} />
@@ -30,60 +54,77 @@
 		<button class="cancel-delete" onclick={onCancel}>Cancel</button>
 		<button class="confirm-delete" onclick={onConfirm} disabled={deleting}>Delete</button>
 	</div>
-</div>
-<button
-	class="delete-scrim"
-	aria-label="Cancel delete"
-	onclick={onCancel}
-	transition:fade={{ duration: 100 }}
-></button>
+</dialog>
 
 <style>
 	.delete-confirm {
-		position: absolute;
-		left: 12px;
-		right: 12px;
-		bottom: 56px;
-		z-index: 20;
 		display: grid;
-		gap: 10px;
-		padding: 12px;
-		border: 1px solid var(--border-soft);
-		border-radius: 12px;
-		background: rgba(255, 255, 255, 0.98);
-		box-shadow: var(--shadow-card);
+		gap: 0;
+		width: min(440px, calc(100vw - 48px));
+		margin: auto;
+		padding: 22px 22px 16px;
+		border: 1px solid color-mix(in srgb, var(--border-soft) 80%, transparent);
+		border-radius: 18px;
+		background: rgba(250, 250, 249, 0.98);
+		box-shadow: 0 18px 48px rgba(15, 23, 42, 0.18);
+	}
+
+	.delete-confirm::backdrop {
+		background: rgba(17, 24, 39, 0.32);
+		backdrop-filter: blur(8px);
+	}
+
+	.app-icon {
+		display: block;
+		width: 56px;
+		height: 56px;
+		margin: 0 0 14px;
+		border-radius: 14px;
+		object-fit: cover;
 	}
 
 	.delete-copy {
 		display: grid;
 		gap: 4px;
-		font-size: 12px;
-		color: var(--text-muted);
 	}
 
-	.delete-copy strong {
+	h2 {
+		margin: 0;
 		color: var(--text-main);
+		font-size: 16px;
+		font-weight: 650;
+		line-height: 1.3;
+	}
+
+	p {
+		margin: 8px 0 0;
+		color: var(--text-muted);
+		font-size: 13px;
+		line-height: 1.45;
 	}
 
 	.delete-check {
 		display: flex;
 		align-items: center;
 		gap: 8px;
+		margin-top: 14px;
 		font-size: 11px;
 		color: var(--text-muted);
 	}
 
 	.delete-actions {
 		display: flex;
-		justify-content: flex-end;
 		gap: 8px;
+		margin-top: 18px;
 	}
 
 	.cancel-delete,
 	.confirm-delete {
+		flex: 1 1 0;
+		min-height: 34px;
 		border: none;
 		border-radius: 8px;
-		padding: 7px 10px;
+		padding: 0 10px;
 		font: inherit;
 		font-size: 12px;
 		font-weight: 600;
@@ -91,12 +132,12 @@
 	}
 
 	.cancel-delete {
-		background: rgba(15, 23, 42, 0.05);
+		background: rgba(15, 23, 42, 0.06);
 		color: var(--text-main);
 	}
 
 	.confirm-delete {
-		background: var(--status-error);
+		background: #e11d48;
 		color: white;
 	}
 
@@ -105,12 +146,4 @@
 		cursor: not-allowed;
 	}
 
-	.delete-scrim {
-		position: absolute;
-		inset: 0;
-		z-index: 15;
-		border: none;
-		background: rgba(15, 23, 42, 0.12);
-		cursor: pointer;
-	}
 </style>
