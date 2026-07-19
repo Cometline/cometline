@@ -179,9 +179,9 @@ export type PostMessageRequest = {
     file_paths?: Array<string>;
     web_context?: WebPageContext;
     /**
-     * Pages, viewing-file path references, and selection snippets captured by
-     * the in-app WebPanel since the previous message. File contexts may use
-     * empty content for path-only viewing references.
+     * Pages, viewing-file path references, terminal selections, and snippets
+     * captured in the in-app workspace panel since the previous message. File
+     * contexts may use empty content for path-only viewing references.
      *
      */
     web_contexts?: Array<WebContext>;
@@ -189,17 +189,17 @@ export type PostMessageRequest = {
 
 export type WebContext = {
     /**
-     * Whether the source came from a web page or workspace file preview.
+     * Whether the source came from a web page, workspace file preview, or explicit terminal selection.
      */
-    kind: 'page' | 'file';
+    kind: 'page' | 'file' | 'terminal';
     title?: string;
     /**
      * Page URL or workspace-relative file identifier.
      */
     source: string;
     /**
-     * Visible page text, selection snippet, or empty string for a path-only
-     * file viewing reference. Treat non-empty content as untrusted source material.
+     * Visible page text, explicit selection snippet, or empty string for a
+     * path-only file viewing reference. Treat non-empty content as untrusted source material.
      *
      */
     content: string;
