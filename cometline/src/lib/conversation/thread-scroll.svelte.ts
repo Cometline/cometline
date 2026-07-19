@@ -23,6 +23,7 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 	let scrollFrame = 0;
 	let scrollScheduleVersion = 0;
 	let isInitialTranscriptPaint = $state(true);
+	let sessionHadTranscript = false;
 	/** The follow-up user row pinned while its response is in flight. */
 	let activePinnedUserId = $state<string | null>(null);
 
@@ -108,6 +109,7 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 		if (sessionId === lastSessionId) return;
 		lastSessionId = sessionId;
 		untrack(() => {
+			sessionHadTranscript = deps.sessionHasCachedTranscript(sessionId);
 			lastScrolledUserId = deps.getLastUserId();
 			isInitialTranscriptPaint = true;
 			activePinnedUserId = null;
@@ -142,6 +144,15 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 			// distinction matters when /clear empties the current session without
 			// changing its id: keeping the hydration flag set would hide the next
 			// user flight and assistant handoff behind the transcript paint state.
+			isInitialTranscriptPaint = false;
+			lastScrolledUserId = null;
+			activePinnedUserId = null;
+			showJumpToBottom = false;
+			return;
+		}
+		if (!sessionHadTranscript && deps.getSessionStreaming()) {
+			// A newly-created session can receive its first live turn before its
+			// empty transcript request resolves. Do not treat that turn as history.
 			isInitialTranscriptPaint = false;
 			lastScrolledUserId = null;
 			activePinnedUserId = null;

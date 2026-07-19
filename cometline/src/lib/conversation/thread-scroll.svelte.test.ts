@@ -101,6 +101,30 @@ describe('createThreadScroll', () => {
 		expect(screen.getByTestId('thread-scroll').dataset.initialPaint).toBe('false');
 	});
 
+	it('keeps a fresh session live when its first turn starts during transcript loading', async () => {
+		const view = render(ThreadScrollHarness, {
+			props: {
+				items: [],
+				loading: true,
+				synced: true,
+				streaming: false,
+				cached: false
+			}
+		});
+		await settleEffects();
+
+		await view.rerender({
+			items: [
+				{ id: 'u1', type: 'user', text: 'first' },
+				{ id: 'a1', type: 'assistant', text: '', pending: true }
+			],
+			streaming: true
+		});
+		await settleEffects();
+
+		expect(screen.getByTestId('thread-scroll').dataset.initialPaint).toBe('false');
+	});
+
 	it('keeps the first live turn out of hydration after clearing the same session', async () => {
 		const view = render(ThreadScrollHarness, {
 			props: {
