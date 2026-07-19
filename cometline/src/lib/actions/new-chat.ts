@@ -23,6 +23,9 @@ export async function startNewChat() {
 				.catch(() => {});
 		}
 	}
+	// Creating the next persisted session may wait on the sidecar. Unbind now so
+	// the current turn queue can keep draining without the old view staying active.
+	chatStore.detachActiveSession();
 	const session = await createNewSession();
 	await goto(`/session/${session.id}`);
 }
