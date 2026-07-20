@@ -377,6 +377,7 @@
 		inset: 0;
 		overflow-y: auto;
 		overflow-x: hidden;
+		overflow-anchor: none;
 		padding: 32px var(--chat-gutter) var(--thread-padding-bottom);
 	}
 
@@ -409,10 +410,13 @@
 		display: flex;
 		flex-direction: column;
 		gap: 14px;
+		/* Keep min-height growth from sticky-anchoring the bubble (esp. mini). */
+		overflow-anchor: none;
 	}
 
 	.thread-turn-active :global(.user-row) {
 		scroll-margin-top: var(--thread-user-pin-offset-followup);
+		overflow-anchor: none;
 	}
 
 	.thread-latest-sentinel {
