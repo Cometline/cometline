@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Search, SquarePen } from '@lucide/svelte';
+	import Tooltip from '$lib/components/Tooltip.svelte';
 
 	let {
 		searchQuery = $bindable(''),
@@ -28,9 +29,11 @@
 			/>
 		</label>
 		<div class="search-divider" aria-hidden="true"></div>
-		<button class="new-chat-button" onclick={onNewChat} aria-label="New chat" title="New chat">
-			<SquarePen size={16} stroke-width={1.8} />
-		</button>
+		<Tooltip label="New chat" action="newChat">
+			<button class="new-chat-button" onclick={onNewChat} aria-label="New chat">
+				<SquarePen size={16} stroke-width={1.8} />
+			</button>
+		</Tooltip>
 	</div>
 </div>
 
@@ -98,9 +101,15 @@
 		background: var(--border-soft);
 	}
 
+	.search-composite :global(.tooltip-wrap) {
+		align-self: stretch;
+		height: 100%;
+	}
+
 	.new-chat-button {
 		display: grid;
 		width: 1.625rem;
+		height: 100%;
 		flex-shrink: 0;
 		place-items: center;
 		border: 0;

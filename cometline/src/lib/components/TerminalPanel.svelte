@@ -2,6 +2,7 @@
 	import { Globe, Play, Power, SquareTerminal, X } from '@lucide/svelte';
 	import ConfirmActionModal from '$lib/components/ConfirmActionModal.svelte';
 	import TerminalInstance from '$lib/components/TerminalInstance.svelte';
+	import Tooltip from '$lib/components/Tooltip.svelte';
 	import { sessionStore } from '$lib/stores/session.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { terminalStore } from '$lib/stores/terminal.svelte';
@@ -49,24 +50,26 @@
 	>
 		<header class="terminal-panel-toolbar">
 			<div class="surface-switcher" role="group" aria-label="Workspace panel surface">
-				<button
-					type="button"
-					class="icon-button"
-					onclick={() => shellStore.openWebPanelFromShortcut()}
-					aria-label="Open web panel"
-					title="Web (Cmd+O)"
-				>
-					<Globe size={16} />
-				</button>
-				<button
-					type="button"
-					class="icon-button active"
-					onclick={() => shellStore.requestTerminalFocus()}
-					aria-label="Focus terminal"
-					title="Terminal (Cmd+J)"
-				>
-					<SquareTerminal size={16} />
-				</button>
+				<Tooltip label="Web" action="openWebPanel">
+					<button
+						type="button"
+						class="icon-button"
+						onclick={() => shellStore.openWebPanelFromShortcut()}
+						aria-label="Open web panel"
+					>
+						<Globe size={16} />
+					</button>
+				</Tooltip>
+				<Tooltip label="Terminal" action="openTerminal">
+					<button
+						type="button"
+						class="icon-button active"
+						onclick={() => shellStore.requestTerminalFocus()}
+						aria-label="Focus terminal"
+					>
+						<SquareTerminal size={16} />
+					</button>
+				</Tooltip>
 			</div>
 			<div class="terminal-title">
 				{#if activeTerminal?.status === 'running'}

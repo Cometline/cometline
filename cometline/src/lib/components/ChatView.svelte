@@ -27,6 +27,7 @@
 	import { createChatViewController } from '$lib/conversation/chat-view-controller.svelte';
 	import { PanelLeft } from '@lucide/svelte';
 	import { miniShellStore } from '$lib/stores/mini-shell.svelte';
+	import Tooltip from '$lib/components/Tooltip.svelte';
 
 	const THREAD_IN = { duration: 140 };
 
@@ -347,15 +348,16 @@
 	{#if compact}
 		<div class="mini-titlebar" aria-label="Mini window drag area">
 			<span>Mini Chat</span>
-			<button
-				class="mini-sidebar-toggle"
-				type="button"
-				aria-label="Show chats"
-				title="Show chats"
-				onclick={() => miniShellStore.toggleSidebar()}
-			>
-				<PanelLeft size={15} stroke-width={1.8} />
-			</button>
+			<Tooltip label="Show chats" action="toggleSidebar">
+				<button
+					class="mini-sidebar-toggle"
+					type="button"
+					aria-label="Show chats"
+					onclick={() => miniShellStore.toggleSidebar()}
+				>
+					<PanelLeft size={15} stroke-width={1.8} />
+				</button>
+			</Tooltip>
 			<button
 				class="mini-open-main"
 				type="button"
@@ -517,11 +519,15 @@
 		-webkit-app-region: no-drag;
 	}
 
-	.mini-sidebar-toggle {
+	.mini-titlebar :global(.tooltip-wrap) {
 		position: absolute;
 		left: 12px;
 		top: 50%;
 		transform: translateY(-50%);
+		-webkit-app-region: no-drag;
+	}
+
+	.mini-sidebar-toggle {
 		width: 28px;
 		height: 28px;
 		display: grid;
@@ -532,7 +538,6 @@
 		background: color-mix(in srgb, var(--panel-bg) 88%, var(--text-main) 6%);
 		color: var(--text-main);
 		cursor: pointer;
-		-webkit-app-region: no-drag;
 	}
 
 	.mini-open-main svg {
