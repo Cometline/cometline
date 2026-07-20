@@ -17,11 +17,17 @@
 	interface Props {
 		root: HTMLElement | null;
 		userBubbleFlight: UserBubbleFlight;
-		stageUser: (text: string, images?: ImageAttachment[]) => void;
+		stageUser: (text: string, images?: ImageAttachment[]) => string;
 		revealStagedUser: () => void;
 		onActiveChange?: (active: boolean) => void;
 		onFlightDoneChange?: (done: boolean) => void;
 		onPrepareFlight?: () => void;
+	}
+
+	interface RunOptions {
+		stageUser?: (text: string, images?: ImageAttachment[]) => string;
+		revealStagedUser?: () => void;
+		signal?: AbortSignal;
 	}
 
 	let {
@@ -49,9 +55,19 @@
 	);
 	let showAvatarFlight = $state(false);
 
-	export async function runAsync(text: string, images?: ImageAttachment[]): Promise<void> {
+	export async function runAsync(
+		text: string,
+		images?: ImageAttachment[],
+		opts: RunOptions = {}
+	): Promise<void> {
 		if (active) return;
-		await animate(text, images);
+		await animate(text, images, opts);
+	}
+
+	export function cancel() {
+		hideAvatarParticle();
+		userBubbleFlight.dismissParticle();
+		setActive(false);
 	}
 
 	function setActive(value: boolean) {
@@ -69,10 +85,17 @@
 		avatarFlightStyle = '';
 	}
 
-	async function animate(text: string, images?: ImageAttachment[]): Promise<void> {
+	async function animate(
+		text: string,
+		images?: ImageAttachment[],
+		opts: RunOptions = {}
+	): Promise<void> {
+		const runStageUser = opts.stageUser ?? stageUser;
+		const runRevealStagedUser = opts.revealStagedUser ?? revealStagedUser;
+		const { signal } = opts;
 		if (!root) {
-			stageUser(text, images);
-			revealStagedUser();
+			runStageUser(text, images);
+			runRevealStagedUser();
 			setFlightDone(true);
 			setActive(false);
 			return;
@@ -91,7 +114,7 @@
 		onPrepareFlight?.();
 		setActive(true);
 		setFlightDone(false);
-		stageUser(text, images);
+		const userItemId = runStageUser(text, images);
 		await tick();
 		const composerFlight =
 			composerElement instanceof HTMLElement
@@ -99,7 +122,17 @@
 				: Promise.resolve();
 
 		let avatarFlightEnd: Promise<void> | undefined;
-		const avatarTarget = await waitForSelector(root, '[data-flight-target="avatar"]');
+		const avatarTarget = await waitForSelector(
+			root,
+			'[data-flight-target="avatar"]',
+			4000,
+			undefined,
+			signal
+		);
+		if (signal?.aborted) {
+			runRevealStagedUser();
+			return;
+		}
 		if (avatarFrom && avatarTarget instanceof HTMLElement) {
 			const avatarTo = await measureStableRect(avatarTarget);
 			avatarFlightStyle = rectStyle(avatarFrom, avatarTo);
@@ -112,13 +145,19 @@
 			skipStage: true,
 			textareaFrom,
 			deferReveal: true,
-			deferHideParticle: true
+			deferHideParticle: true,
+			targetUserId: userItemId,
+			signal
 		});
+		if (signal?.aborted) {
+			runRevealStagedUser();
+			return;
+		}
 
 		if (!userFlew) {
 			await avatarFlightEnd;
 			await composerFlight;
-			revealStagedUser();
+			runRevealStagedUser();
 			setFlightDone(true);
 			await afterPaint();
 			hideAvatarParticle();
@@ -129,7 +168,7 @@
 
 		await avatarFlightEnd;
 		await composerFlight;
-		revealStagedUser();
+		runRevealStagedUser();
 		// Unhide the real thread avatar slot BEFORE tearing down flight particles,
 		// so the avatar never blinks out between overlay end and the thread slot.
 		setFlightDone(true);

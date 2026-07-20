@@ -67,7 +67,9 @@ describe('createConversationController', () => {
 
 	it('lets active first-turn flight own staging before sending with skipUser', async () => {
 		chatStore.bindSession('sess-1');
-		const onUserMessageFlight = vi.fn().mockResolvedValue(undefined);
+		const onUserMessageFlight = vi.fn().mockImplementation((_, ctx: FlightContext) => {
+			ctx.stageUser('hello', undefined);
+		});
 		const stageSpy = vi.spyOn(chatStore, 'stageUserForSession');
 		const revealSpy = vi.spyOn(chatStore, 'revealStagedUserForSession');
 		const { controller, send, refreshSession } = createDeps({
@@ -76,14 +78,35 @@ describe('createConversationController', () => {
 
 		await controller.enqueue('hello');
 
-		expect(stageSpy).not.toHaveBeenCalled();
+		expect(stageSpy).toHaveBeenCalledWith('sess-1', 'hello', undefined);
 		expect(onUserMessageFlight).toHaveBeenCalledWith(
 			'hello',
 			expect.objectContaining({ firstTurn: true, sessionId: 'sess-1' })
 		);
-		expect(revealSpy).not.toHaveBeenCalled();
+		expect(revealSpy).toHaveBeenCalledWith('sess-1');
 		expect(send).toHaveBeenCalledWith('sess-1', { text: 'hello' }, { skipUser: true });
 		expect(refreshSession).toHaveBeenCalledWith('sess-1');
+		stageSpy.mockRestore();
+		revealSpy.mockRestore();
+	});
+
+	it('reveals and sends a first turn when its flight fails', async () => {
+		chatStore.bindSession('sess-1');
+		const onUserMessageFlight = vi.fn().mockImplementation((_, ctx: FlightContext) => {
+			ctx.stageUser('hello', undefined);
+			throw new Error('flight interrupted');
+		});
+		const stageSpy = vi.spyOn(chatStore, 'stageUserForSession');
+		const revealSpy = vi.spyOn(chatStore, 'revealStagedUserForSession');
+		const { controller, send } = createDeps({
+			flight: { onUserMessageFlight }
+		});
+
+		await controller.enqueue('hello');
+
+		expect(stageSpy).toHaveBeenCalledWith('sess-1', 'hello', undefined);
+		expect(revealSpy).toHaveBeenCalledWith('sess-1');
+		expect(send).toHaveBeenCalledWith('sess-1', { text: 'hello' }, { skipUser: true });
 		stageSpy.mockRestore();
 		revealSpy.mockRestore();
 	});
@@ -318,10 +341,12 @@ describe('createConversationController', () => {
 		const firstGate = new Promise<void>((resolve) => {
 			releaseFirst = resolve;
 		});
-		const send = vi.fn().mockImplementation(async (_sessionId: string, payload: FlightPayload) => {
-			const text = typeof payload === 'string' ? payload : payload.text;
-			if (text === 'first') await firstGate;
-		});
+		const send = vi
+			.fn()
+			.mockImplementation(async (_sessionId: string, payload: FlightPayload) => {
+				const text = typeof payload === 'string' ? payload : payload.text;
+				if (text === 'first') await firstGate;
+			});
 		const oldViewChange = vi.fn();
 		const currentViewChange = vi.fn();
 		const { controller: oldView } = createDeps({ send, onQueueChange: oldViewChange });

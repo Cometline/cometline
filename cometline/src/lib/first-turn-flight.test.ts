@@ -7,7 +7,8 @@ import {
 	measureStableUserBubble,
 	rectTransform,
 	textareaUserOrigin,
-	translateStyle
+	translateStyle,
+	waitForSelector
 } from './first-turn-flight';
 
 describe('rectTransform', () => {
@@ -70,6 +71,39 @@ describe('blendFlightOrigin', () => {
 		expect(blended.left).toBeCloseTo(294, 5);
 		expect(blended.top).toBeCloseTo(293.6, 5);
 		expect(blended.width).toBe(280);
+	});
+});
+
+describe('waitForSelector', () => {
+	it('selects the staged user target by its item ID', async () => {
+		const root = document.createElement('div');
+		root.innerHTML = `
+			<div data-flight-target="user" data-flight-user-id="stale"></div>
+			<div data-flight-target="user" data-flight-user-id="current"></div>
+		`;
+
+		const target = await waitForSelector(
+			root,
+			'[data-flight-target="user"]',
+			0,
+			(element) => element.getAttribute('data-flight-user-id') === 'current'
+		);
+
+		expect(target?.getAttribute('data-flight-user-id')).toBe('current');
+	});
+
+	it('stops waiting when the active session flight is aborted', async () => {
+		const controller = new AbortController();
+		const waiting = waitForSelector(
+			document.createElement('div'),
+			'[data-flight-target="user"]',
+			4000,
+			undefined,
+			controller.signal
+		);
+		controller.abort();
+
+		expect(await waiting).toBeNull();
 	});
 });
 

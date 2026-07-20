@@ -30,6 +30,7 @@
 			class="bubble user-bubble"
 			class:flight-hidden={item.reveal === false}
 			data-flight-target={item.reveal === false ? 'user' : undefined}
+			data-flight-user-id={item.reveal === false ? item.id : undefined}
 		>
 			{#if item.images?.length}
 				<div class="user-images" class:text-following={Boolean(item.text)}>

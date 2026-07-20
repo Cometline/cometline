@@ -17,6 +17,8 @@
 		skipStage?: boolean;
 		skipReveal?: boolean;
 		origin?: UserBubbleFlightOrigin;
+		targetUserId?: string;
+		signal?: AbortSignal;
 	}
 
 	interface Props {
@@ -60,6 +62,8 @@
 			root,
 			text,
 			images,
+			targetUserId: opts.targetUserId,
+			signal: opts.signal,
 			stageUser,
 			revealStagedUser,
 			onPrepare: opts.onPrepare,

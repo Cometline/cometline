@@ -28,8 +28,9 @@ export interface ConversationFlightAdapter {
 		ctx: {
 			firstTurn: boolean;
 			sessionId: string;
-			stageUser: (text: string, images?: ImageAttachment[]) => void;
+			stageUser: (text: string, images?: ImageAttachment[]) => string;
 			revealStagedUser: () => void;
+			userItemId?: string;
 		}
 	): void | Promise<void>;
 	onFirstTurnComplete?(): void;
@@ -85,12 +86,7 @@ async function runTurn(
 			? chatStore.getCachedItemCount(turnSessionId) === 0
 			: !getHasVisibleConversation();
 	const flightPayload = payload.images?.length ? payload : userDisplay;
-	const stageUser = (text: string, images?: ImageAttachment[]) => {
-		chatStore.stageUserForSession(turnSessionId, text, images);
-	};
-	const revealStagedUser = () => {
-		chatStore.revealStagedUserForSession(turnSessionId);
-	};
+	let stagedUserId: string | undefined;
 	let flightPromise: Promise<void> | undefined;
 	let sendPromise: Promise<void> | undefined;
 	const startSend = () => {
@@ -102,6 +98,14 @@ async function runTurn(
 		}
 		return sendPromise;
 	};
+	const stageUser = (text: string, images?: ImageAttachment[]) => {
+		stagedUserId ??= chatStore.stageUserForSession(turnSessionId, text, images);
+		void startSend();
+		return stagedUserId;
+	};
+	const revealStagedUser = () => {
+		chatStore.revealStagedUserForSession(turnSessionId);
+	};
 
 	commitSidebarWorkspaceForSession(
 		sessionStore.sessions.find((session) => session.id === turnSessionId) ??
@@ -109,23 +113,28 @@ async function runTurn(
 	);
 
 	if (usesFlight && isViewing && firstTurn) {
-		await deps.flight!.onUserMessageFlight!(flightPayload, {
-			firstTurn,
-			sessionId: turnSessionId,
-			stageUser: (text, images) => {
-				stageUser(text, images);
-				void startSend();
-			},
-			revealStagedUser
-		});
+		try {
+			await deps.flight!.onUserMessageFlight!(flightPayload, {
+				firstTurn,
+				sessionId: turnSessionId,
+				stageUser,
+				revealStagedUser
+			});
+		} catch {
+			// A flight failure must not lose or strand the user turn.
+			if (!stagedUserId) stageUser(userDisplay, payload.images);
+		} finally {
+			revealStagedUser();
+		}
 	} else if (usesFlight && isViewing) {
-		stageUser(userDisplay, payload.images);
+		const userItemId = stageUser(userDisplay, payload.images);
 		flightPromise = Promise.resolve(
 			deps.flight!.onUserMessageFlight!(flightPayload, {
 				firstTurn,
 				sessionId: turnSessionId,
 				stageUser,
-				revealStagedUser
+				revealStagedUser,
+				userItemId
 			})
 		)
 			.catch(() => undefined)

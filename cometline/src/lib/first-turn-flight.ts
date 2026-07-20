@@ -222,8 +222,17 @@ export function dockUserOrigin(composerWrapper: DOMRect, target: DOMRect, gap = 
 	return new DOMRect(left, top, width, height);
 }
 
-export function wait(ms: number): Promise<void> {
-	return new Promise((resolve) => window.setTimeout(resolve, ms));
+export function wait(ms: number, signal?: AbortSignal): Promise<void> {
+	if (signal?.aborted) return Promise.resolve();
+	return new Promise((resolve) => {
+		const timeout = window.setTimeout(finish, ms);
+		function finish() {
+			window.clearTimeout(timeout);
+			signal?.removeEventListener('abort', finish);
+			resolve();
+		}
+		signal?.addEventListener('abort', finish, { once: true });
+	});
 }
 
 /** Wait until the browser has painted pending DOM updates. */
@@ -238,26 +247,46 @@ export function afterPaint(): Promise<void> {
 export async function waitForSelector(
 	root: ParentNode,
 	selector: string,
-	timeoutMs = 4000
+	timeoutMs = 4000,
+	predicate?: (element: Element) => boolean,
+	signal?: AbortSignal
 ): Promise<Element | null> {
-	const existing = root.querySelector(selector);
+	if (signal?.aborted) return null;
+	const findMatch = () => {
+		const elements = root.querySelectorAll(selector);
+		return predicate ? ([...elements].find(predicate) ?? null) : (elements[0] ?? null);
+	};
+
+	const existing = findMatch();
 	if (existing) return existing;
 
 	return new Promise((resolve) => {
 		const started = performance.now();
+		let frame = 0;
+		const finish = (result: Element | null) => {
+			if (frame) cancelAnimationFrame(frame);
+			signal?.removeEventListener('abort', onAbort);
+			resolve(result);
+		};
+		const onAbort = () => finish(null);
 		const tick = () => {
-			const found = root.querySelector(selector);
+			if (signal?.aborted) {
+				finish(null);
+				return;
+			}
+			const found = findMatch();
 			if (found) {
-				resolve(found);
+				finish(found);
 				return;
 			}
 			if (performance.now() - started >= timeoutMs) {
-				resolve(null);
+				finish(null);
 				return;
 			}
-			requestAnimationFrame(tick);
+			frame = requestAnimationFrame(tick);
 		};
-		requestAnimationFrame(tick);
+		signal?.addEventListener('abort', onAbort, { once: true });
+		frame = requestAnimationFrame(tick);
 	});
 }
 
@@ -265,6 +294,8 @@ export interface FlyUserBubbleParams {
 	root: HTMLElement;
 	text: string;
 	images?: ImageAttachment[];
+	targetUserId?: string;
+	signal?: AbortSignal;
 	stageUser: (text: string, images?: ImageAttachment[]) => void;
 	revealStagedUser: () => void;
 	onPrepare?: () => void;
@@ -292,6 +323,8 @@ export async function flyUserBubble(params: FlyUserBubbleParams): Promise<boolea
 		root,
 		text,
 		images,
+		targetUserId,
+		signal,
 		stageUser,
 		revealStagedUser,
 		onPrepare,
@@ -324,10 +357,19 @@ export async function flyUserBubble(params: FlyUserBubbleParams): Promise<boolea
 	if (!skipOnPrepare) onPrepare?.();
 	if (!skipStage) stageUser(text, images);
 	await tick();
+	if (signal?.aborted) return false;
 	if (!isFollowUpTurn) scrollThreadToBottom(root);
 	await afterPaint();
 
-	const userTarget = await waitForSelector(root, '[data-flight-target="user"]');
+	const userTarget = await waitForSelector(
+		root,
+		'[data-flight-target="user"]',
+		4000,
+		targetUserId
+			? (element) => element.getAttribute('data-flight-user-id') === targetUserId
+			: undefined,
+		signal
+	);
 	if (!(userTarget instanceof HTMLElement)) {
 		reveal();
 		return false;
@@ -361,7 +403,8 @@ export async function flyUserBubble(params: FlyUserBubbleParams): Promise<boolea
 	const style = translateStyle(fromRect, userTo);
 
 	onShowParticle(text, images, style);
-	await wait(FLIGHT_MS);
+	await wait(FLIGHT_MS, signal);
+	if (signal?.aborted) return false;
 	if (!deferHideParticle) onHideParticle();
 	reveal();
 	return true;
