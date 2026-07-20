@@ -611,13 +611,16 @@ func (r *Runner) extractMemoryAfterTurn(ctx context.Context, turn session.AgentT
 	providerID, model := turn.ProviderID, turn.ModelID
 	llmProvider := r.Provider
 	if r.Config != nil {
-		providerID, model = r.Config.ExtractionLLMForSession(turn.ProviderID, turn.ModelID)
-		if providerID != turn.ProviderID {
-			if p, err := provider.NewFor(r.Config, providerID); err == nil {
-				llmProvider = p
-			} else {
-				logging.L().Warn("memory.extract.provider_failed", "session", turn.ID, "provider", providerID, "error", err)
-			}
+		providerID, model = r.Config.ExtractionLLM()
+		if providerID == "" || model == "" {
+			logging.L().Warn("memory.extract.skipped_no_model", "session", turn.ID)
+			return
+		}
+		if p, err := provider.NewFor(r.Config, providerID); err == nil {
+			llmProvider = p
+		} else {
+			logging.L().Warn("memory.extract.provider_failed", "session", turn.ID, "provider", providerID, "error", err)
+			return
 		}
 	}
 	changes, err := r.Memory.ExtractAfterTurn(ctx, turn.ID, model, llmProvider)

@@ -38,6 +38,36 @@ func TestNewForFallsBackToLegacyMethod(t *testing.T) {
 	}
 }
 
+func TestNewMemoryLLMUsesExtractionProvider(t *testing.T) {
+	cfg := &config.Config{
+		Provider: config.ProviderCodex,
+		Providers: []config.ProviderEntry{
+			{ID: "codex", Method: config.ProviderCodex},
+			{
+				ID:      "opencode-go",
+				Method:  config.ProviderOpencodeGo,
+				APIKey:  "opencode-key",
+				BaseURL: "http://example.com/v1",
+				Model:   "qwen3.7-plus",
+			},
+		},
+		Memory: config.MemoryConfig{
+			ExtractionProvider: "opencode-go",
+			ExtractionModel:    "qwen3.7-plus",
+		},
+	}
+	p, err := NewMemoryLLM(cfg)
+	if err != nil {
+		t.Fatalf("NewMemoryLLM() error = %v", err)
+	}
+	if p == nil {
+		t.Fatal("NewMemoryLLM() returned nil")
+	}
+	if family := SDKFamily(cfg, cfg.MemoryLLMProviderID()); family != config.ProviderOpenAI {
+		t.Fatalf("memory LLM family = %q, want openai (opencode-go), not active codex", family)
+	}
+}
+
 func TestNewForUsesMultiProviderEntry(t *testing.T) {
 	t.Setenv("OPENAI_API_KEY", "entry-key")
 

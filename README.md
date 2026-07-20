@@ -234,7 +234,8 @@ Cometline and CometMind share settings in `~/.cometmind/cometline-settings.json`
       "enabledModels": ["gpt-4o"]
     }
   ],
-  "activeProviderId": "openai",
+  "defaultProviderId": "openai",
+  "defaultModelId": "gpt-4o",
   "cometmind": {
     "maxTokens": 2048,
     "acp": { "command": "opencode", "args": ["acp"], "timeout": "30m" }

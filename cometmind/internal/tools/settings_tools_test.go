@@ -38,7 +38,8 @@ func TestSettingsToolsParentOnlyAndRedactionRoundTrip(t *testing.T) {
 				"enabledModels": []any{"gpt-4o"},
 			},
 		},
-		"activeProviderId": "openai",
+		"defaultProviderId": "openai",
+		"defaultModelId": "gpt-4o",
 		"cometmind": map[string]any{
 			"systemPromptPath":   "",
 			"maxTokens":          4096,

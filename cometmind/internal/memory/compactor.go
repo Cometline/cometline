@@ -239,6 +239,10 @@ func (c *compactor) mergeCluster(ctx context.Context, cluster []Record) error {
 			maxWeight = m.BaseWeight
 		}
 	}
+	model := extractionModel(c.settings)
+	if model == "" {
+		return fmt.Errorf("memory compaction requires a model: set Memory extraction model, or configure an active chat model")
+	}
 	prompt := fmt.Sprintf(`Merge these related memories into one concise factual memory. Preserve specific details.
 Return JSON: {"content":"..."}
 
@@ -249,7 +253,7 @@ Memories:
 		Content string `json:"content"`
 	}
 	req := &cometsdk.Request{
-		Model:  extractionModel(c.settings),
+		Model:  model,
 		System: "You consolidate memories. Output JSON only.",
 		Messages: []cometsdk.Message{{
 			Role:    cometsdk.RoleUser,
@@ -302,5 +306,5 @@ func extractionModel(s Settings) string {
 	if strings.TrimSpace(s.ExtractionModel) != "" {
 		return s.ExtractionModel
 	}
-	return "claude-sonnet-4-5"
+	return strings.TrimSpace(s.DefaultModel)
 }

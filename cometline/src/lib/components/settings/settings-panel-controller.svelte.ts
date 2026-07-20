@@ -381,12 +381,7 @@ export function createSettingsPanelController(deps: {
 		}
 
 		const draft = deps.getDraft();
-		const activeProvider =
-			draft.providers.find(
-				(provider) => provider.enabled && provider.enabledModels.length > 0
-			) ?? draft.providers[0];
 		const payload: ProviderSettings = providerPayloadFromDraft(draft);
-		payload.activeProviderId = activeProvider?.id ?? '';
 		const personaIdChanged = settingsStore.settings.app.personaId !== draft.app.personaId;
 		const runtimeAction = personaIdChanged
 			? 'reload'
@@ -417,12 +412,7 @@ export function createSettingsPanelController(deps: {
 	) {
 		deps.getCometmindPanel()?.syncFields?.();
 		const draft = deps.getDraft();
-		const activeProvider =
-			draft.providers.find(
-				(provider) => provider.enabled && provider.enabledModels.length > 0
-			) ?? draft.providers[0];
 		const payload: ProviderSettings = providerPayloadFromDraft(draft);
-		payload.activeProviderId = activeProvider?.id ?? '';
 		payload.cometmind = { ...payload.cometmind, ...overrides };
 		const runtimeAction = runtimeActionForSettingsSave(settingsStore.settings, payload);
 		const { settings: saved, reload } = await settingsStore.save(payload, { runtimeAction });
@@ -586,15 +576,21 @@ export function createSettingsPanelController(deps: {
 		if (DEFAULT_PROVIDER_IDS.has(providerId)) return;
 		const draft = deps.getDraft();
 		const nextProviders = draft.providers.filter((p) => p.id !== providerId);
+		let nextDefaultProviderId = draft.defaultProviderId;
+		let nextDefaultModelId = draft.defaultModelId;
+		if (draft.defaultProviderId === providerId) {
+			const fallback =
+				nextProviders.find(
+					(provider) => provider.enabled && provider.enabledModels.length > 0
+				) ?? nextProviders[0];
+			nextDefaultProviderId = fallback?.id ?? '';
+			nextDefaultModelId = fallback?.enabledModels[0] ?? '';
+		}
 		deps.setDraft({
 			...draft,
 			providers: nextProviders,
-			activeProviderId:
-				nextProviders.find(
-					(provider) => provider.enabled && provider.enabledModels.length > 0
-				)?.id ??
-				nextProviders[0]?.id ??
-				''
+			defaultProviderId: nextDefaultProviderId,
+			defaultModelId: nextDefaultModelId
 		});
 		deps.setSelectedProviderId(nextProviders[0]?.id ?? '');
 	}

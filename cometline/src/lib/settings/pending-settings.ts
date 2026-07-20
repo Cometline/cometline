@@ -18,7 +18,6 @@ export function pendingSettingsSnapshot(settings: ProviderSettings): string {
 
 	return JSON.stringify({
 		providers: settings.providers.map(cloneProvider),
-		activeProviderId: settings.activeProviderId,
 		defaultModelId: settings.defaultModelId ?? '',
 		defaultProviderId: settings.defaultProviderId ?? '',
 		appearance: {
@@ -49,7 +48,6 @@ function modelsSectionSnapshot(settings: ProviderSettings): string {
 	const cometmind = cloneCometMindSettings(normalizeCometMindSettings(settings.cometmind));
 	return JSON.stringify({
 		providers: settings.providers.map(cloneProvider),
-		activeProviderId: settings.activeProviderId,
 		defaultModelId: settings.defaultModelId ?? '',
 		defaultProviderId: settings.defaultProviderId ?? '',
 		titleProviderId: cometmind.titleProviderId,

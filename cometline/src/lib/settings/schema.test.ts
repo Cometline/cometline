@@ -26,7 +26,9 @@ describe('settings schema', () => {
 		) as Partial<ProviderSettings>;
 		const settings = normalizeSettings(fixture);
 
-		expect(settings.activeProviderId).toBe('local-llm');
+		expect(settings.defaultProviderId).toBe('local-llm');
+		expect(settings.defaultModelId).toBe('qwen2.5');
+		expect(settings).not.toHaveProperty('activeProviderId');
 		expect(settings.cometmind.systemPromptPath).toBe('/tmp/SOUL.md');
 		expect(settings.cometmind.storage).toMatchObject({
 			retentionDays: 90,
@@ -70,7 +72,8 @@ describe('settings schema', () => {
 			'Advanced / Custom endpoint'
 		);
 		expect(settings.providers.find((p) => p.id === 'codex')?.apiKey).toBe('');
-		expect(settings.activeProviderId).toBe('codex');
+		expect(settings.defaultProviderId).toBe('codex');
+		expect(settings).not.toHaveProperty('activeProviderId');
 		expect(settings.app.personaId).toBe('minako');
 		expect(settings.app.hasCompletedSetup).toBe(false);
 		expect(settings.app.hasDismissedSetupWizard).toBe(false);
@@ -213,7 +216,9 @@ describe('settings schema', () => {
 			selectedModel: 'gpt-4'
 		});
 		expect(migrated?.providers).toHaveLength(1);
-		expect(migrated?.activeProviderId).toBe('openai');
+		expect(migrated?.defaultProviderId).toBe('openai');
+		expect(migrated?.defaultModelId).toBe('gpt-4');
+		expect(migrated).not.toHaveProperty('activeProviderId');
 	});
 
 	it('preserves renamed built-in provider names', () => {
@@ -252,7 +257,7 @@ describe('settings schema', () => {
 		expect(settings.cometmind.systemPromptPath).toBe('/tmp/SOUL.md');
 	});
 
-	it('runtimeSlice projects active provider', () => {
+	it('runtimeSlice projects default provider', () => {
 		const settings = normalizeSettings({
 			...defaultSettings(),
 			providers: defaultSettings().providers.map((p) =>
@@ -265,7 +270,8 @@ describe('settings schema', () => {
 						}
 					: { ...p, enabled: false, enabledModels: [] }
 			),
-			activeProviderId: 'openai',
+			defaultProviderId: 'openai',
+			defaultModelId: 'gpt-4o',
 			cometmind: {
 				...defaultSettings().cometmind,
 				systemPromptPath: '/tmp/SOUL.md'
@@ -277,6 +283,59 @@ describe('settings schema', () => {
 		expect(slice?.maxTokens).toBe(2048);
 		expect(slice?.systemPromptPath).toBe('/tmp/SOUL.md');
 		expect(slice?.providers).toHaveLength(1);
+	});
+
+	it('normalizeSettings migrates active into default and drops active', () => {
+		const settings = normalizeSettings({
+			...defaultSettings(),
+			providers: defaultSettings().providers.map((p) =>
+				p.id === 'codex'
+					? {
+							...p,
+							enabled: true,
+							enabledModels: ['gpt-5.4'],
+							models: ['gpt-5.4']
+						}
+					: { ...p, enabled: false, enabledModels: [] }
+			),
+			activeProviderId: 'codex',
+			defaultProviderId: '',
+			defaultModelId: ''
+		});
+		expect(settings.defaultProviderId).toBe('codex');
+		expect(settings.defaultModelId).toBe('gpt-5.4');
+		expect(settings).not.toHaveProperty('activeProviderId');
+	});
+
+	it('normalizeSettings prefers explicit default over active', () => {
+		const settings = normalizeSettings({
+			...defaultSettings(),
+			providers: defaultSettings().providers.map((p) => {
+				if (p.id === 'codex') {
+					return {
+						...p,
+						enabled: true,
+						enabledModels: ['gpt-5.4'],
+						models: ['gpt-5.4']
+					};
+				}
+				if (p.id === 'opencode-go') {
+					return {
+						...p,
+						enabled: true,
+						enabledModels: ['deepseek-v4-flash'],
+						models: ['deepseek-v4-flash']
+					};
+				}
+				return { ...p, enabled: false, enabledModels: [] };
+			}),
+			activeProviderId: 'codex',
+			defaultProviderId: 'opencode-go',
+			defaultModelId: 'deepseek-v4-flash'
+		});
+		expect(settings.defaultProviderId).toBe('opencode-go');
+		expect(settings.defaultModelId).toBe('deepseek-v4-flash');
+		expect(settings).not.toHaveProperty('activeProviderId');
 	});
 
 	it('validateSettings rejects empty providers list', () => {
@@ -298,7 +357,8 @@ describe('settings schema', () => {
 						}
 					: { ...p, enabled: false, enabledModels: [] }
 			),
-			activeProviderId: 'openai',
+			defaultProviderId: 'openai',
+			defaultModelId: 'gpt-4o',
 			cometmind: {
 				...defaultSettings().cometmind,
 				maxTokens: 3072

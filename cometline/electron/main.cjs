@@ -1700,7 +1700,7 @@ function attachWebviewPanelShortcuts(webContents) {
 
 function readProviderSettings() {
 	const fromEnv = {
-		activeProviderId: process.env.COMETMIND_PROVIDER,
+		providerId: process.env.COMETMIND_PROVIDER,
 		baseURL: process.env.COMETMIND_BASE_URL,
 		apiKey:
 			process.env.COMETMIND_API_KEY ||
@@ -1711,13 +1711,20 @@ function readProviderSettings() {
 
 	const base = readSavedProviderSettings();
 
-	// Allow env overrides for the active provider only. Apply provider first so
+	// Allow env overrides for the default provider. Apply provider first so
 	// key/baseURL/model attach to the provider selected by COMETMIND_PROVIDER.
-	if (fromEnv.activeProviderId) {
-		const matched = base.providers.find((p) => p.id === fromEnv.activeProviderId.trim());
-		if (matched) base.activeProviderId = matched.id;
+	if (fromEnv.providerId) {
+		const matched = base.providers.find((p) => p.id === fromEnv.providerId.trim());
+		if (matched) {
+			base.defaultProviderId = matched.id;
+			if (!base.defaultModelId || !matched.enabledModels.includes(base.defaultModelId)) {
+				base.defaultModelId =
+					matched.enabledModels[0] || matched.selectedModel || matched.models[0] || '';
+			}
+		}
 	}
-	const active = base.providers.find((p) => p.id === base.activeProviderId) ?? base.providers[0];
+	const active =
+		base.providers.find((p) => p.id === base.defaultProviderId) ?? base.providers[0];
 	if (fromEnv.baseURL) active.baseURL = fromEnv.baseURL.trim();
 	if (fromEnv.apiKey) active.apiKey = fromEnv.apiKey.trim();
 	if (fromEnv.selectedModel) {
@@ -1726,6 +1733,7 @@ function readProviderSettings() {
 		active.enabled = true;
 		if (model && !active.models.includes(model)) active.models = [...active.models, model];
 		if (model && !active.enabledModels.includes(model)) active.enabledModels = [model];
+		base.defaultModelId = model;
 	}
 
 	return base;
@@ -1746,13 +1754,26 @@ function writeProviderSettings(settings) {
 	const nextProviders = Array.isArray(settings.providers)
 		? normalizeProviders(settings.providers)
 		: current.providers;
-	const requestedActive = nextProviders.find((p) => p.id === settings.activeProviderId);
-	const nextActive =
-		requestedActive?.enabled && requestedActive.enabledModels.length > 0
-			? requestedActive.id
-			: (nextProviders.find((p) => p.enabled && p.enabledModels.length > 0)?.id ??
-				nextProviders[0]?.id ??
-				'');
+	const preferredDefaultProvider =
+		String(settings.defaultProviderId ?? current.defaultProviderId ?? '').trim();
+	const preferredDefaultModel = String(
+		settings.defaultModelId ?? current.defaultModelId ?? ''
+	).trim();
+	const runtimeProviders = nextProviders.filter((p) => p.enabled && p.enabledModels.length > 0);
+	let nextDefaultProvider =
+		runtimeProviders.find((p) => p.id === preferredDefaultProvider) ??
+		runtimeProviders.find((p) => p.id === current.defaultProviderId) ??
+		runtimeProviders[0] ??
+		nextProviders[0];
+	const nextDefaultProviderId = nextDefaultProvider?.id ?? '';
+	const nextDefaultModelId =
+		nextDefaultProvider &&
+		preferredDefaultModel &&
+		nextDefaultProvider.enabledModels.includes(preferredDefaultModel)
+			? preferredDefaultModel
+			: nextDefaultProvider?.enabledModels?.[0] ||
+				nextDefaultProvider?.selectedModel ||
+				'';
 	const appSettings = { ...(current.app ?? {}), ...(settings.app ?? {}) };
 	const personaId = resolveNextPersonaId(settings, current);
 	appSettings.personaId = personaId;
@@ -1764,9 +1785,8 @@ function writeProviderSettings(settings) {
 		normalizeSettings(
 			{
 				providers: nextProviders,
-				activeProviderId: nextActive,
-				defaultModelId: settings.defaultModelId ?? current.defaultModelId ?? '',
-				defaultProviderId: settings.defaultProviderId ?? current.defaultProviderId ?? '',
+				defaultModelId: nextDefaultModelId,
+				defaultProviderId: nextDefaultProviderId,
 				appearance: settings.appearance ?? current.appearance,
 				shortcuts: settings.shortcuts ?? current.shortcuts,
 				cometmind: nextCometMind,
@@ -1851,15 +1871,25 @@ function providerEnv() {
 	const runtimeProviders = settings.providers.filter(
 		(p) => p.enabled && p.enabledModels.length > 0
 	);
+	const defaultId = String(settings.defaultProviderId || '').trim();
 	const active =
-		runtimeProviders.find((p) => p.id === settings.activeProviderId) ??
+		runtimeProviders.find((p) => p.id === defaultId) ??
 		runtimeProviders[0] ??
 		settings.providers[0];
+	const model =
+		(settings.defaultModelId &&
+		active.enabledModels?.includes(settings.defaultModelId)
+			? settings.defaultModelId
+			: null) ||
+		active.enabledModels[0] ||
+		active.selectedModel ||
+		active.models[0] ||
+		'';
 	const env = {
 		...process.env,
 		PATH: pathWithCometMindCliBins(process.env.PATH),
 		COMETMIND_PROVIDER: active.id,
-		COMETMIND_MODEL: active.enabledModels[0] || active.selectedModel || active.models[0] || '',
+		COMETMIND_MODEL: model,
 		COMETMIND_MAX_TOKENS: String(settings.cometmind?.maxTokens ?? 2048),
 		COMETMIND_LOG_LEVEL: settings.cometmind?.logLevel ?? 'error'
 		// Persona SOUL path lives in cometline-settings.json (cometmind.systemPromptPath).

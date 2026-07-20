@@ -28,7 +28,7 @@
 <style>
 	.assistant-thinking-wait {
 		display: flex;
-		align-items: flex-start;
+		align-items: center;
 		gap: 10px;
 		padding: 8px 2px 2px;
 	}
@@ -38,7 +38,6 @@
 		flex-direction: column;
 		gap: 2px;
 		min-width: 0;
-		padding-top: 2px;
 	}
 
 	.assistant-thinking-detail {

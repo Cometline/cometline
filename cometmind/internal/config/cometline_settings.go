@@ -180,9 +180,11 @@ type cometlineCometmindJSON struct {
 }
 
 type cometlineSettingsJSON struct {
-	Providers        []cometlineProviderJSON `json:"providers"`
-	ActiveProviderID string                  `json:"activeProviderId"`
-	Cometmind        cometlineCometmindJSON  `json:"cometmind"`
+	Providers         []cometlineProviderJSON `json:"providers"`
+	ActiveProviderID  string                  `json:"activeProviderId,omitempty"` // legacy read-only; stripped on write
+	DefaultProviderID string                  `json:"defaultProviderId"`
+	DefaultModelID    string                  `json:"defaultModelId"`
+	Cometmind         cometlineCometmindJSON  `json:"cometmind"`
 }
 
 func primaryModel(provider cometlineProviderJSON) string {
@@ -225,18 +227,8 @@ func adaptCometlineSettings(raw cometlineSettingsJSON) (*Config, error) {
 		logging.L().Info("config.no_providers_configured")
 	}
 
-	var active cometlineProviderJSON
 	var providers []ProviderEntry
 	if !noProviders {
-		activeID := strings.TrimSpace(raw.ActiveProviderID)
-		activeIdx := 0
-		for i := range runtimeProviders {
-			if runtimeProviders[i].ID == activeID {
-				activeIdx = i
-				break
-			}
-		}
-		active = runtimeProviders[activeIdx]
 		providers = make([]ProviderEntry, 0, len(runtimeProviders))
 		for _, provider := range runtimeProviders {
 			providers = append(providers, ProviderEntry{
@@ -250,12 +242,16 @@ func adaptCometlineSettings(raw cometlineSettingsJSON) (*Config, error) {
 		}
 	}
 
+	defaultProviderID, defaultModelID, defaultBaseURL := resolveDefaultLLM(raw, runtimeProviders)
+
 	cm := raw.Cometmind
 	memDef := defaultMemoryConfig()
 	cfg := &Config{
-		Provider:           strings.TrimSpace(active.ID),
-		Model:              primaryModel(active),
-		BaseURL:            strings.TrimSpace(active.BaseURL),
+		Provider:           defaultProviderID,
+		Model:              defaultModelID,
+		DefaultProviderID:  defaultProviderID,
+		DefaultModelID:     defaultModelID,
+		BaseURL:            defaultBaseURL,
 		TitleProvider:      strings.TrimSpace(cm.TitleProviderID),
 		TitleModel:         strings.TrimSpace(cm.TitleModelID),
 		MaxTokens:          cm.MaxTokens,
@@ -359,9 +355,17 @@ func adaptCometlineSettings(raw cometlineSettingsJSON) (*Config, error) {
 	}
 	if cfg.Provider == "" && !noProviders {
 		cfg.Provider = def.Provider
+		cfg.DefaultProviderID = def.Provider
 	}
 	if cfg.Model == "" && !noProviders {
 		cfg.Model = def.Model
+		cfg.DefaultModelID = def.Model
+	}
+	if cfg.DefaultProviderID == "" {
+		cfg.DefaultProviderID = cfg.Provider
+	}
+	if cfg.DefaultModelID == "" {
+		cfg.DefaultModelID = cfg.Model
 	}
 	if cfg.MaxTokens == 0 {
 		cfg.MaxTokens = def.MaxTokens
@@ -371,6 +375,40 @@ func adaptCometlineSettings(raw cometlineSettingsJSON) (*Config, error) {
 	}
 
 	return cfg, nil
+}
+
+// resolveDefaultLLM picks the Default model pair. Prefer defaultProviderId +
+// defaultModelId; if Default is empty, migrate from legacy activeProviderId.
+func resolveDefaultLLM(raw cometlineSettingsJSON, runtimeProviders []cometlineProviderJSON) (providerID, modelID, baseURL string) {
+	if len(runtimeProviders) == 0 {
+		return "", "", ""
+	}
+	byID := make(map[string]cometlineProviderJSON, len(runtimeProviders))
+	for _, p := range runtimeProviders {
+		byID[strings.TrimSpace(p.ID)] = p
+	}
+
+	defID := strings.TrimSpace(raw.DefaultProviderID)
+	defModel := strings.TrimSpace(raw.DefaultModelID)
+	if defID != "" {
+		if p, ok := byID[defID]; ok {
+			if defModel == "" {
+				defModel = primaryModel(p)
+			}
+			return defID, defModel, strings.TrimSpace(p.BaseURL)
+		}
+	}
+
+	// Migrate: seed Default from legacy Active when Default is unset/invalid.
+	activeID := strings.TrimSpace(raw.ActiveProviderID)
+	if activeID != "" {
+		if p, ok := byID[activeID]; ok {
+			return activeID, primaryModel(p), strings.TrimSpace(p.BaseURL)
+		}
+	}
+
+	p := runtimeProviders[0]
+	return strings.TrimSpace(p.ID), primaryModel(p), strings.TrimSpace(p.BaseURL)
 }
 
 func normalizeContextWindowLimit(value int) int {
@@ -501,7 +539,8 @@ func writeMinimalCometlineSettingsJSON(path string, def *Config) error {
 				SelectedModel: def.Model,
 			},
 		},
-		ActiveProviderID: def.Provider,
+		DefaultProviderID: def.Provider,
+		DefaultModelID:    def.Model,
 		Cometmind: cometlineCometmindJSON{
 			SystemPromptPath:   def.SystemPromptPath,
 			MaxTokens:          def.MaxTokens,

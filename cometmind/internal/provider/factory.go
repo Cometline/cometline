@@ -77,6 +77,13 @@ func New(cfg *config.Config) (cometsdk.Provider, error) {
 	return NewFor(cfg, cfg.Provider)
 }
 
+// NewMemoryLLM returns the provider used for memory compaction and default
+// extraction/update LLM calls. It respects Memory.ExtractionProvider when set
+// so compaction does not send a pinned extraction model to the wrong backend.
+func NewMemoryLLM(cfg *config.Config) (cometsdk.Provider, error) {
+	return NewFor(cfg, cfg.MemoryLLMProviderID())
+}
+
 // NewFor returns a concrete SDK provider for a specific provider id.
 func NewFor(cfg *config.Config, id string) (cometsdk.Provider, error) {
 	entry, method, baseURL := providerConfigFor(cfg, id)

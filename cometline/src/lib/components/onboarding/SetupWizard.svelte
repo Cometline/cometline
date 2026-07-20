@@ -424,14 +424,13 @@
 
 	async function saveAndConnect() {
 		if (!selectedProvider) return;
-		// Enable the chosen provider and set it as active + default.
+		// Enable the chosen provider and set it as Default.
 		const finalProviders = draft.providers.map((p) =>
 			p.id === selectedProvider.id ? cloneProvider({ ...p, enabled: true }) : p
 		);
 		const finalDraft: ProviderSettings = {
 			...draft,
 			providers: finalProviders,
-			activeProviderId: selectedProvider.id,
 			defaultProviderId: selectedProvider.id,
 			defaultModelId: selectedProvider.enabledModels[0] ?? selectedProvider.selectedModel
 		};

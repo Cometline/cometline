@@ -12,6 +12,7 @@
 	import { tick, untrack } from 'svelte';
 	import FilePreview from '$lib/components/FilePreview.svelte';
 	import FileTreeBrowser from '$lib/components/FileTreeBrowser.svelte';
+	import Tooltip from '$lib/components/Tooltip.svelte';
 	import { sessionStore } from '$lib/stores/session.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { isWebPanelUrl, normalizeUserUrl, openLink } from '$lib/open-link';
@@ -582,34 +583,42 @@
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<header class="web-panel-toolbar" onmousedown={handlePanelMouseDown}>
 			<div class="nav-actions">
-				<button
-					type="button"
-					class="icon-button"
-					disabled={!terminalAvailable}
-					onclick={() => shellStore.requestTerminalFocus()}
-					aria-label={terminalAvailable ? 'Open terminal' : 'Terminal unavailable in draft'}
-					title={terminalAvailable ? 'Terminal (Cmd+J)' : 'Start a chat to use Terminal'}
+				<Tooltip
+					label={terminalAvailable ? 'Open terminal' : 'Start a chat to use Terminal'}
+					action={terminalAvailable ? 'openTerminal' : undefined}
 				>
-					<SquareTerminal size={16} />
-				</button>
-				<button
-					type="button"
-					class="icon-button"
-					disabled={!toolbarCanGoBack}
-					onclick={onBack}
-					aria-label="Back"
-				>
-					<ArrowLeft size={16} />
-				</button>
-				<button
-					type="button"
-					class="icon-button"
-					disabled={!toolbarCanGoForward}
-					onclick={onForward}
-					aria-label="Forward"
-				>
-					<ArrowRight size={16} />
-				</button>
+					<button
+						type="button"
+						class="icon-button"
+						disabled={!terminalAvailable}
+						onclick={() => shellStore.requestTerminalFocus()}
+						aria-label={terminalAvailable ? 'Open terminal' : 'Terminal unavailable in draft'}
+					>
+						<SquareTerminal size={16} />
+					</button>
+				</Tooltip>
+				<Tooltip label="Back" action="navigateBack">
+					<button
+						type="button"
+						class="icon-button"
+						disabled={!toolbarCanGoBack}
+						onclick={onBack}
+						aria-label="Back"
+					>
+						<ArrowLeft size={16} />
+					</button>
+				</Tooltip>
+				<Tooltip label="Forward" action="navigateForward">
+					<button
+						type="button"
+						class="icon-button"
+						disabled={!toolbarCanGoForward}
+						onclick={onForward}
+						aria-label="Forward"
+					>
+						<ArrowRight size={16} />
+					</button>
+				</Tooltip>
 				{#if panelMode === 'url'}
 					<button
 						type="button"

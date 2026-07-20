@@ -138,7 +138,6 @@ export interface AppSettings {
 
 export interface ProviderSettings {
 	providers: ProviderConfig[];
-	activeProviderId: string;
 	defaultModelId: string;
 	defaultProviderId: string;
 	appearance: AppearanceSettings;

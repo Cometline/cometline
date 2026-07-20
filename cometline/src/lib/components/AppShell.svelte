@@ -15,6 +15,7 @@
 	import CloseConfirmModal from './CloseConfirmModal.svelte';
 	import WebPanel from './WebPanel.svelte';
 	import TerminalPanel from './TerminalPanel.svelte';
+	import Tooltip from './Tooltip.svelte';
 	import { getSession } from '$lib/client/cometmind';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { sessionStore } from '$lib/stores/session.svelte';
@@ -551,15 +552,16 @@
 					aria-label="Window title bar"
 					transition:slide={titlebarSlideParams()}
 				>
-					<button
-						type="button"
-						class="shell-titlebar-btn"
-						aria-label="Show sidebar"
-						title="Show sidebar"
-						onclick={() => shellStore.openSidebar()}
-					>
-						<PanelLeft size={16} stroke-width={1.8} />
-					</button>
+					<Tooltip label="Show sidebar" action="toggleSidebar">
+						<button
+							type="button"
+							class="shell-titlebar-btn"
+							aria-label="Show sidebar"
+							onclick={() => shellStore.openSidebar()}
+						>
+							<PanelLeft size={16} stroke-width={1.8} />
+						</button>
+					</Tooltip>
 					{#if titlebarSessionTitle}
 						<span class="shell-titlebar-title" title={titlebarSessionTitle}>
 							{titlebarSessionTitle}

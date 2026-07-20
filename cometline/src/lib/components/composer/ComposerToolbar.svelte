@@ -2,6 +2,7 @@
 	import { Folder, Send, Square } from '@lucide/svelte';
 	import ContextWindowRing from '$lib/components/composer/ContextWindowRing.svelte';
 	import ModelPicker from '$lib/components/composer/ModelPicker.svelte';
+	import Tooltip from '$lib/components/Tooltip.svelte';
 	import { modelStore, type ModelOption } from '$lib/stores/model.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
 
@@ -30,6 +31,8 @@
 		onStop?: () => void;
 		onSubmit: () => void;
 	} = $props();
+
+	const sendLabel = $derived(streaming ? 'Queue follow-up' : 'Send');
 </script>
 
 <div class="composer-footer">
@@ -58,18 +61,22 @@
 			/>
 		{/if}
 		{#if streaming}
-			<button class="stop-button" onclick={() => onStop?.()} aria-label="Stop response">
-				<Square size={14} fill="currentColor" stroke-width={0} />
-			</button>
+			<Tooltip label="Stop response" action="stopResponse">
+				<button class="stop-button" onclick={() => onStop?.()} aria-label="Stop response">
+					<Square size={14} fill="currentColor" stroke-width={0} />
+				</button>
+			</Tooltip>
 		{/if}
-		<button
-			class="send-button"
-			onclick={onSubmit}
-			disabled={!canSubmit || disabled || !modelStore.selected}
-			aria-label={streaming ? 'Queue follow-up' : 'Send'}
-		>
-			<Send size={16} stroke-width={1.8} />
-		</button>
+		<Tooltip label={sendLabel} action="sendMessage">
+			<button
+				class="send-button"
+				onclick={onSubmit}
+				disabled={!canSubmit || disabled || !modelStore.selected}
+				aria-label={sendLabel}
+			>
+				<Send size={16} stroke-width={1.8} />
+			</button>
+		</Tooltip>
 	</div>
 </div>
 

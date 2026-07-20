@@ -15,6 +15,7 @@
 	} from '$lib/sessions/group-by-workspace';
 	import SidebarSearch from '$lib/components/sidebar/SidebarSearch.svelte';
 	import SessionRow from '$lib/components/sidebar/SessionRow.svelte';
+	import Tooltip from '$lib/components/Tooltip.svelte';
 
 	const WORKSPACE_GROUP_FLIP = { duration: 240 };
 
@@ -99,9 +100,11 @@
 <aside class="mini-sidebar" aria-label="Chats">
 	<header class="mini-sidebar-header">
 		<SidebarSearch bind:searchQuery bind:searchInput onNewChat={onNewChat} />
-		<button type="button" class="close-sidebar" onclick={onClose} aria-label="Close chats" title="Close chats">
-			<X size={16} stroke-width={2} />
-		</button>
+		<Tooltip label="Close chats">
+			<button type="button" class="close-sidebar" onclick={onClose} aria-label="Close chats">
+				<X size={16} stroke-width={2} />
+			</button>
+		</Tooltip>
 	</header>
 
 	<div class="session-list scrollbar-none">

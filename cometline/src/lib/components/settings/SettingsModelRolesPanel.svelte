@@ -32,17 +32,15 @@
 
 	function modelsForProvider(provider: ProviderConfig | undefined): string[] {
 		if (!provider) return [];
-		return provider.enabledModels.length ? provider.enabledModels : provider.models;
+		return [...provider.enabledModels];
 	}
 
 	function firstModelForProvider(provider: ProviderConfig | undefined): string {
-		return provider
-			? (provider.enabledModels[0] ?? provider.selectedModel ?? provider.models[0] ?? '')
-			: '';
+		return provider?.enabledModels[0] ?? '';
 	}
 
 	function providerById(providerId: string) {
-		return providers.find((provider) => provider.id === providerId);
+		return runtimeProviders.find((provider) => provider.id === providerId);
 	}
 
 	function firstRuntimeProvider() {
@@ -53,18 +51,8 @@
 		return provider.method === 'ollama' ? `${provider.name} (Local)` : provider.name;
 	}
 
-	function explicitRole(providerId: string, modelId: string) {
-		let provider = providerById(providerId);
-		if (!provider || !modelsForProvider(provider).includes(modelId)) {
-			provider = firstRuntimeProvider();
-		}
-		const model = modelsForProvider(provider).includes(modelId)
-			? modelId
-			: firstModelForProvider(provider);
-		return {
-			providerId: provider?.id ?? '',
-			modelId: model
-		};
+	function isRuntimeProviderId(providerId: string): boolean {
+		return runtimeProviders.some((provider) => provider.id === providerId);
 	}
 
 	// ── Default model picker ────────────────────────────────────────────
@@ -170,11 +158,8 @@
 		modelSearch = '';
 	}
 
-	// ── Title model (provider + model, falls back to session) ───────────
-	const titleProvider = $derived(
-		runtimeProviders.find((provider) => provider.id === cometmind.titleProviderId) ??
-			providers.find((provider) => provider.id === cometmind.titleProviderId)
-	);
+	// ── Title model (provider + model, falls back to Default) ───────────
+	const titleProvider = $derived(providerById(cometmind.titleProviderId));
 
 	const titleModels = $derived(modelsForProvider(titleProvider));
 
@@ -191,12 +176,8 @@
 		cometmind = { ...cometmind, titleModelId: modelId };
 	}
 
-	// ── Memory extraction (provider + model, falls back to session) ─────
-	const extractionProvider = $derived(
-		runtimeProviders.find(
-			(provider) => provider.id === cometmind.memory.extractionProviderId
-		) ?? providers.find((provider) => provider.id === cometmind.memory.extractionProviderId)
-	);
+	// ── Memory extraction (provider + model, falls back to Default) ─────
+	const extractionProvider = $derived(providerById(cometmind.memory.extractionProviderId));
 
 	const extractionModels = $derived(modelsForProvider(extractionProvider));
 
@@ -243,36 +224,44 @@
 		}
 	});
 
+	// Drop role pins that point at disabled / model-less providers.
 	$effect(() => {
-		const autonomy = explicitRole(cometmind.autonomy.providerId, cometmind.autonomy.modelId);
-		const synthesis = explicitRole(
-			cometmind.skills.synthesisProviderId,
-			cometmind.skills.synthesisModel
-		);
-		const autonomyChanged =
-			autonomy.providerId !== cometmind.autonomy.providerId ||
-			autonomy.modelId !== cometmind.autonomy.modelId;
-		const synthesisChanged =
-			synthesis.providerId !== cometmind.skills.synthesisProviderId ||
-			synthesis.modelId !== cometmind.skills.synthesisModel;
-		if (autonomyChanged || synthesisChanged) {
-			cometmind = {
-				...cometmind,
-				autonomy: {
-					...cometmind.autonomy,
-					providerId: autonomy.providerId,
-					modelId: autonomy.modelId
-				},
-				skills: {
-					...cometmind.skills,
-					synthesisProviderId: synthesis.providerId,
-					synthesisModel: synthesis.modelId
-				}
-			};
+		const next = { ...cometmind };
+		let changed = false;
+		if (next.titleProviderId && !isRuntimeProviderId(next.titleProviderId)) {
+			next.titleProviderId = '';
+			next.titleModelId = '';
+			changed = true;
 		}
+		if (
+			next.memory.extractionProviderId &&
+			!isRuntimeProviderId(next.memory.extractionProviderId)
+		) {
+			next.memory = { ...next.memory, extractionProviderId: '', extractionModel: '' };
+			changed = true;
+		}
+		if (next.autonomy.providerId && !isRuntimeProviderId(next.autonomy.providerId)) {
+			next.autonomy = { ...next.autonomy, providerId: '', modelId: '' };
+			changed = true;
+		}
+		if (
+			next.skills.synthesisProviderId &&
+			!isRuntimeProviderId(next.skills.synthesisProviderId)
+		) {
+			next.skills = { ...next.skills, synthesisProviderId: '', synthesisModel: '' };
+			changed = true;
+		}
+		if (changed) cometmind = next;
 	});
 
 	function setAutonomyProvider(providerId: string) {
+		if (!providerId) {
+			cometmind = {
+				...cometmind,
+				autonomy: { ...cometmind.autonomy, providerId: '', modelId: '' }
+			};
+			return;
+		}
 		const provider = providerById(providerId) ?? firstRuntimeProvider();
 		cometmind = {
 			...cometmind,
@@ -289,6 +278,13 @@
 	}
 
 	function setSynthesisProvider(providerId: string) {
+		if (!providerId) {
+			cometmind = {
+				...cometmind,
+				skills: { ...cometmind.skills, synthesisProviderId: '', synthesisModel: '' }
+			};
+			return;
+		}
 		const provider = providerById(providerId) ?? firstRuntimeProvider();
 		cometmind = {
 			...cometmind,
@@ -312,8 +308,9 @@
 				<div>
 					<h3>Default model</h3>
 					<p>
-						Choose which model new chats use by default. You can still switch models per
-						session.
+						Choose which model new chats use by default, and what unpinned roles
+						(titles, extraction, jobs, synthesis) fall back to. You can still switch
+						models per session.
 					</p>
 				</div>
 			</div>
@@ -372,7 +369,10 @@
 		<div class="settings-section">
 			<div class="settings-section-heading">
 				<h3>Autonomous jobs</h3>
-				<p>Choose the exact model used when CometMind claims jobs in the background.</p>
+				<p>
+					Optional override for background job claims. Leave empty to use the Default
+					model.
+				</p>
 			</div>
 			<label>
 				<span>Autonomous jobs provider</span>
@@ -380,12 +380,13 @@
 					value={cometmind.autonomy.providerId}
 					onchange={(e) => setAutonomyProvider(e.currentTarget.value)}
 				>
+					<option value="">Use default model</option>
 					{#each runtimeProviders as provider (provider.id)}
 						<option value={provider.id}>{providerOptionLabel(provider)}</option>
 					{/each}
 				</select>
 			</label>
-			{#if autonomyProvider}
+			{#if cometmind.autonomy.providerId}
 				<label>
 					<span>Autonomous jobs model</span>
 					<select
@@ -408,7 +409,8 @@
 			<div class="settings-section-heading">
 				<h3>Skill synthesis</h3>
 				<p>
-					Choose the exact model that proposes reusable skill drafts after completed jobs.
+					Optional override for skill draft proposals after completed jobs. Leave empty to
+					use the Default model.
 				</p>
 			</div>
 			<label>
@@ -417,12 +419,13 @@
 					value={cometmind.skills.synthesisProviderId}
 					onchange={(e) => setSynthesisProvider(e.currentTarget.value)}
 				>
+					<option value="">Use default model</option>
 					{#each runtimeProviders as provider (provider.id)}
 						<option value={provider.id}>{providerOptionLabel(provider)}</option>
 					{/each}
 				</select>
 			</label>
-			{#if synthesisProvider}
+			{#if cometmind.skills.synthesisProviderId}
 				<label>
 					<span>Synthesis model</span>
 					<select
@@ -446,7 +449,7 @@
 				<h3>Session titles</h3>
 				<p>
 					CometMind names each session from your first message using an LLM. Pin a cheaper
-					/ faster model here, or leave as default to reuse the session's own model.
+					/ faster model here, or leave empty to use the Default model.
 				</p>
 			</div>
 			<label>
@@ -455,8 +458,8 @@
 					value={cometmind.titleProviderId}
 					onchange={(e) => setTitleProvider(e.currentTarget.value)}
 				>
-					<option value="">Use session model (default)</option>
-					{#each providers as provider (provider.id)}
+					<option value="">Use default model</option>
+					{#each runtimeProviders as provider (provider.id)}
 						<option value={provider.id}>{providerOptionLabel(provider)}</option>
 					{/each}
 				</select>
@@ -484,9 +487,9 @@
 			<div class="settings-section-heading">
 				<h3>Memory extraction</h3>
 				<p>
-					After each turn, CometMind extracts durable memories in the background. Pin a
-					cheaper model from any provider for this step, or leave as default to reuse the
-					session's own model.
+					After each turn, CometMind extracts durable memories in the background. The same
+					provider also runs memory compaction merges. Leave empty to use the Default
+					model.
 				</p>
 			</div>
 			<label>
@@ -495,8 +498,8 @@
 					value={cometmind.memory.extractionProviderId}
 					onchange={(e) => setExtractionProvider(e.currentTarget.value)}
 				>
-					<option value="">Use session model (default)</option>
-					{#each providers as provider (provider.id)}
+					<option value="">Use default model</option>
+					{#each runtimeProviders as provider (provider.id)}
 						<option value={provider.id}>{providerOptionLabel(provider)}</option>
 					{/each}
 				</select>
@@ -513,8 +516,7 @@
 						{/each}
 					</select>
 					<p class="settings-field-hint">
-						A small, fast model is ideal — extraction runs after every turn in the
-						background.
+						A small, fast model is ideal — extraction and compaction both use this pin.
 					</p>
 				</label>
 			{/if}

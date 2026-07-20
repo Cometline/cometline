@@ -117,6 +117,7 @@ func (t patchSettingsTool) Execute(ctx context.Context, input json.RawMessage) (
 	if in.Patch == nil {
 		return Result{OK: false, Output: "patch is required"}, nil
 	}
+	settingsapply.RewriteLegacyActiveProviderPatch(in.Patch)
 	if desktopKeys := settingsapply.DesktopKeysInPatch(in.Patch); len(desktopKeys) > 0 {
 		return Result{OK: false, Output: settingsapply.FormatUnsupported(desktopKeys)}, nil
 	}
@@ -129,8 +130,10 @@ func (t patchSettingsTool) Execute(ctx context.Context, input json.RawMessage) (
 	merged := settingsapply.MergePatch(before, in.Patch)
 	settingsapply.RestoreSecretsInProviders(merged, before)
 	merged = settingsapply.StripDesktopKeys(merged)
+	beforeNorm := settingsapply.NormalizeLegacyActiveProvider(cloneSettingsDoc(before))
+	merged = settingsapply.NormalizeLegacyActiveProvider(merged)
 
-	plan, err := settingsapply.Classify(before, merged)
+	plan, err := settingsapply.Classify(beforeNorm, merged)
 	if err != nil {
 		return Result{OK: false, Output: err.Error()}, nil
 	}
@@ -233,6 +236,25 @@ func encodeSettingsJSON(doc map[string]any) ([]byte, error) {
 	}
 	b = append(b, '\n')
 	return b, nil
+}
+
+func cloneSettingsDoc(doc map[string]any) map[string]any {
+	if doc == nil {
+		return map[string]any{}
+	}
+	b, err := json.Marshal(doc)
+	if err != nil {
+		out := make(map[string]any, len(doc))
+		for k, v := range doc {
+			out[k] = v
+		}
+		return out
+	}
+	var out map[string]any
+	if err := json.Unmarshal(b, &out); err != nil {
+		return map[string]any{}
+	}
+	return out
 }
 
 func valueAtPath(doc map[string]any, path string) (any, error) {

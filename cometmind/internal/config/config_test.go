@@ -275,10 +275,13 @@ func TestAdaptCometlineSettingsAutonomyModelOverride(t *testing.T) {
 		t.Fatalf("adaptCometlineSettings() error = %v", err)
 	}
 	if cfg.Provider != "anthropic" {
-		t.Fatalf("Provider = %q, want active provider anthropic", cfg.Provider)
+		t.Fatalf("Provider = %q, want default-from-active anthropic", cfg.Provider)
 	}
 	if cfg.Model != "claude-sonnet-4-20250514" {
-		t.Fatalf("Model = %q, want active model claude-sonnet-4-20250514", cfg.Model)
+		t.Fatalf("Model = %q, want default-from-active model claude-sonnet-4-20250514", cfg.Model)
+	}
+	if cfg.DefaultProviderID != "anthropic" {
+		t.Fatalf("DefaultProviderID = %q, want anthropic", cfg.DefaultProviderID)
 	}
 	if cfg.Autonomy.ProviderID != "codex" {
 		t.Fatalf("Autonomy.ProviderID = %q, want codex", cfg.Autonomy.ProviderID)
@@ -375,7 +378,7 @@ func TestLoadBootsWithNoEnabledProviders(t *testing.T) {
 	empty := `{"providers":[
 		{"id":"anthropic","name":"Anthropic","method":"anthropic","enabled":false,"baseURL":"https://api.anthropic.com","apiKey":"","selectedModel":"","models":[],"enabledModels":[]},
 		{"id":"openai","name":"OpenAI","method":"openai","enabled":false,"baseURL":"https://api.openai.com/v1","apiKey":"","selectedModel":"","models":[],"enabledModels":[]}
-	],"activeProviderId":"","defaultProviderId":"","defaultModelId":""}`
+	],"defaultProviderId":"","defaultModelId":""}`
 	if err := os.WriteFile(filepath.Join(configDir, "cometline-settings.json"), []byte(empty), 0o600); err != nil {
 		t.Fatalf("write settings: %v", err)
 	}

@@ -10,8 +10,11 @@ type Settings struct {
 	SimilarityThreshold float64
 	ExtractionProvider  string
 	ExtractionModel     string
-	Lifecycle           LifecycleSettings
-	Embedding           EmbeddingSettings
+	// DefaultModel is the Default chat model, used by compaction when
+	// ExtractionModel is unset (compaction has no session model to inherit).
+	DefaultModel string
+	Lifecycle    LifecycleSettings
+	Embedding    EmbeddingSettings
 }
 
 // LifecycleSettings controls decay, forget, and compaction.

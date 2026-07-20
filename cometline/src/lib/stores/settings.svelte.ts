@@ -277,14 +277,16 @@ function createSettingsStore() {
 		}
 	}
 
-	function setActiveProvider(providerId: string) {
-		settings = { ...settings, activeProviderId: providerId };
+	function setDefaultProvider(providerId: string) {
 		const provider = settings.providers.find((p) => p.id === providerId);
+		const modelId = provider?.enabledModels[0] ?? provider?.selectedModel ?? '';
+		settings = {
+			...settings,
+			defaultProviderId: providerId,
+			defaultModelId: modelId || settings.defaultModelId
+		};
 		if (provider) {
-			modelStore.selectByProviderModel(
-				provider.id,
-				provider.enabledModels[0] ?? provider.selectedModel
-			);
+			modelStore.selectByProviderModel(provider.id, modelId);
 		}
 	}
 
@@ -316,14 +318,21 @@ function createSettingsStore() {
 
 	function removeProvider(providerId: string) {
 		const nextProviders = settings.providers.filter((p) => p.id !== providerId);
-		let nextActive = settings.activeProviderId;
-		if (nextActive === providerId) {
-			nextActive = nextProviders[0]?.id ?? '';
+		let nextDefaultProviderId = settings.defaultProviderId;
+		let nextDefaultModelId = settings.defaultModelId;
+		if (nextDefaultProviderId === providerId) {
+			const fallback =
+				nextProviders.find((p) => p.enabled && p.enabledModels.length > 0) ??
+				nextProviders[0];
+			nextDefaultProviderId = fallback?.id ?? '';
+			nextDefaultModelId =
+				fallback?.enabledModels[0] ?? fallback?.selectedModel ?? '';
 		}
 		settings = {
 			...settings,
 			providers: nextProviders,
-			activeProviderId: nextActive
+			defaultProviderId: nextDefaultProviderId,
+			defaultModelId: nextDefaultModelId
 		};
 		modelStore.setProviders(
 			settings.providers,
@@ -332,9 +341,9 @@ function createSettingsStore() {
 		);
 	}
 
-	function getActiveProvider() {
+	function getDefaultProvider() {
 		return (
-			settings.providers.find((p) => p.id === settings.activeProviderId) ??
+			settings.providers.find((p) => p.id === settings.defaultProviderId) ??
 			settings.providers[0]
 		);
 	}
@@ -366,11 +375,11 @@ function createSettingsStore() {
 		saveConfirmCloseOnCmdW,
 		saveConfirmBeforeDeletingChats,
 		saveWebPanelWidth,
-		setActiveProvider,
+		setDefaultProvider,
 		updateProvider,
 		addProvider,
 		removeProvider,
-		getActiveProvider
+		getDefaultProvider
 	};
 }
 

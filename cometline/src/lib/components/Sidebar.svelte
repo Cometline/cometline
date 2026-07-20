@@ -28,6 +28,7 @@
 	import ConfirmActionModal from '$lib/components/ConfirmActionModal.svelte';
 	import RenameSessionDialog from '$lib/components/sidebar/RenameSessionDialog.svelte';
 	import SessionContextMenu from '$lib/components/sidebar/SessionContextMenu.svelte';
+	import Tooltip from '$lib/components/Tooltip.svelte';
 	import { terminalStore } from '$lib/stores/terminal.svelte';
 	import { settingsStore } from '$lib/stores/settings.svelte';
 
@@ -296,43 +297,46 @@
 		</div>
 
 		<div class="sidebar-footer p-2">
-			<button aria-label="Settings" title="Settings" onclick={openSettings}>
-				<Settings size={16} stroke-width={1.8} />
-			</button>
-			<button
-				aria-label={jobsIndicatorStore.hasOngoing
-					? `Jobs (${jobsIndicatorStore.ongoingCount} ongoing)`
-					: 'Jobs'}
-				title={jobsIndicatorStore.hasOngoing
-					? `Jobs (${jobsIndicatorStore.ongoingCount} ongoing)`
-					: 'Jobs'}
-				class="nav-badge"
-				class:has-badge={jobsIndicatorStore.hasOngoing}
-				class:active={page.url.pathname === '/jobs'}
-				onclick={() => goto('/jobs')}
-			>
-				<Briefcase size={16} stroke-width={1.8} />
-			</button>
-			<button
-				aria-label="Skill Drafts"
-				title="Skill Drafts"
-				class="nav-badge"
-				class:has-badge={skillDraftsStore.hasDrafts}
-				class:active={page.url.pathname === '/skill-drafts'}
-				onclick={() => goto('/skill-drafts')}
-			>
-				<Sparkles size={16} stroke-width={1.8} />
-			</button>
-			<button
-				aria-label="Inbox"
-				title="Inbox"
-				class="nav-badge"
-				class:has-badge={inboxStore.openCount > 0}
-				class:active={inboxStore.drawerOpen}
-				onclick={() => inboxStore.toggleDrawer()}
-			>
-				<Bell size={16} stroke-width={1.8} />
-			</button>
+			<Tooltip label="Settings" action="openSettings">
+				<button aria-label="Settings" onclick={openSettings}>
+					<Settings size={16} stroke-width={1.8} />
+				</button>
+			</Tooltip>
+			<Tooltip label="Jobs" action="openJobs">
+				<button
+					aria-label={jobsIndicatorStore.hasOngoing
+						? `Jobs (${jobsIndicatorStore.ongoingCount} ongoing)`
+						: 'Jobs'}
+					class="nav-badge"
+					class:has-badge={jobsIndicatorStore.hasOngoing}
+					class:active={page.url.pathname === '/jobs'}
+					onclick={() => goto('/jobs')}
+				>
+					<Briefcase size={16} stroke-width={1.8} />
+				</button>
+			</Tooltip>
+			<Tooltip label="Skill Drafts" action="openSkillDrafts">
+				<button
+					aria-label="Skill Drafts"
+					class="nav-badge"
+					class:has-badge={skillDraftsStore.hasDrafts}
+					class:active={page.url.pathname === '/skill-drafts'}
+					onclick={() => goto('/skill-drafts')}
+				>
+					<Sparkles size={16} stroke-width={1.8} />
+				</button>
+			</Tooltip>
+			<Tooltip label="Inbox" action="openInbox">
+				<button
+					aria-label="Inbox"
+					class="nav-badge"
+					class:has-badge={inboxStore.openCount > 0}
+					class:active={inboxStore.drawerOpen}
+					onclick={() => inboxStore.toggleDrawer()}
+				>
+					<Bell size={16} stroke-width={1.8} />
+				</button>
+			</Tooltip>
 		</div>
 	</div>
 
