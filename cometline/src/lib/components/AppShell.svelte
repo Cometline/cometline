@@ -199,9 +199,10 @@
 				shellStore.focusedPane === 'terminal' &&
 				shellStore.terminalPanelOpen &&
 				!shellStore.settingsOpen &&
-				!inboxStore.drawerOpen
+				!inboxStore.drawerOpen &&
+				event.key === 'Escape'
 			) {
-				// Let terminal applications own Escape and keyboard shortcuts.
+				// Let terminal applications own Escape, but keep app shortcuts available.
 				return;
 			}
 			if (
