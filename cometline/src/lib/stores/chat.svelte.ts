@@ -28,6 +28,12 @@ export type { ChatItem } from '$lib/types';
 
 type AssistantItem = Extract<ChatItem, { type: 'assistant' }>;
 
+export function revealRemoteUserItems(items: ChatItem[]): ChatItem[] {
+	return items.map((item) =>
+		item.type === 'user' && item.reveal === false ? { ...item, reveal: true } : item
+	);
+}
+
 function createChatStore() {
 	let sessionID = $state<string | null>(null);
 	let items = $state.raw<ChatItem[]>([]);
@@ -364,8 +370,10 @@ function createChatStore() {
 		reveal = true
 	) {
 		const next = getCachedItems(targetSessionID).slice();
-		next.push({ id: localID('user'), type: 'user', text, images, reveal });
+		const id = localID('user');
+		next.push({ id, type: 'user', text, images, reveal });
 		writeSessionItems(targetSessionID, next);
+		return id;
 	}
 
 	function stageUserForSession(
@@ -373,7 +381,7 @@ function createChatStore() {
 		text: string,
 		images?: ImageAttachment[]
 	) {
-		addUserToSession(targetSessionID, text, images, false);
+		return addUserToSession(targetSessionID, text, images, false);
 	}
 
 	function revealStagedUserForSession(targetSessionID: string) {
@@ -746,7 +754,11 @@ function createChatStore() {
 	if (browser) {
 		subscribeWindowSync((message) => {
 			if (message.type === 'chat-items') {
-				writeSessionItems(message.sessionId, message.items, { broadcast: false });
+				// Flight visibility belongs to the sending renderer. Other windows have
+				// no matching particle, so render their copy immediately.
+				writeSessionItems(message.sessionId, revealRemoteUserItems(message.items), {
+					broadcast: false
+				});
 				return;
 			}
 			if (message.type === 'chat-streaming') {

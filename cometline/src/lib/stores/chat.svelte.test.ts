@@ -23,7 +23,7 @@ vi.mock('$lib/client/cometmind', () => ({
 vi.mock('$lib/actions/create-new-session', () => ({ createNewSession }));
 
 import { getSessionMessages, listChildSessions, streamMessage } from '$lib/client/cometmind';
-import { chatStore } from './chat.svelte';
+import { chatStore, revealRemoteUserItems } from './chat.svelte';
 import { sessionStore } from './session.svelte';
 import { startNewChat } from '$lib/actions/new-chat';
 
@@ -555,6 +555,18 @@ describe('chatStore session switching', () => {
 		// `each_key_duplicate`.
 		const ids = chatStore.items.map((item) => item.id);
 		expect(new Set(ids).size).toBe(ids.length);
+	});
+});
+
+describe('revealRemoteUserItems', () => {
+	it('does not copy a source window flight-hidden user row', () => {
+		const items = revealRemoteUserItems([
+			{ id: 'u1', type: 'user', text: 'in flight', reveal: false },
+			{ id: 'a1', type: 'assistant', text: '', pending: true }
+		]);
+
+		expect(items[0]).toMatchObject({ id: 'u1', reveal: true });
+		expect(items[1]).toMatchObject({ id: 'a1', pending: true });
 	});
 });
 

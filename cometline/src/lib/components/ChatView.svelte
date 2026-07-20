@@ -46,7 +46,10 @@
 			awaitingFirstAssistant = value;
 		},
 		flight: {
-			onUserMessageFlight: (payloadOrText, { firstTurn, stageUser, revealStagedUser }) => {
+			onUserMessageFlight: (
+				payloadOrText,
+				{ firstTurn, stageUser, revealStagedUser, userItemId }
+			) => {
 				const payload =
 					typeof payloadOrText === 'string' ? { text: payloadOrText } : payloadOrText;
 				if (compact && firstTurn) {
@@ -61,13 +64,17 @@
 						revealStagedUser();
 						return;
 					}
-					stageUser(payload.text, payload.images);
+					const compactUserItemId = stageUser(payload.text, payload.images);
+					const flight = startFlight();
 					return userBubbleFlight
 						.runAsync(payload.text, payload.images, {
 							origin: 'above-composer',
-							skipStage: true
+							skipStage: true,
+							targetUserId: compactUserItemId,
+							signal: flight.signal
 						})
-						.then(() => undefined);
+						.then(() => undefined)
+						.finally(() => finishFlight(flight));
 				}
 				if (firstTurn) {
 					awaitingFirstAssistant = true;
@@ -76,23 +83,35 @@
 					if (!firstTurnFlight) {
 						firstTurnFlightDone = true;
 						firstTurnHandoffPending = false;
+						stageUser(payload.text, payload.images);
+						revealStagedUser();
 						return;
 					}
+					const flight = startFlight();
 					return firstTurnFlight
-						?.runAsync(payload.text, payload.images)
+						?.runAsync(payload.text, payload.images, {
+							stageUser,
+							revealStagedUser,
+							signal: flight.signal
+						})
 						.catch((error) => {
 							firstTurnFlightDone = true;
 							firstTurnHandoffPending = false;
 							throw error;
-						});
+						})
+						.finally(() => finishFlight(flight));
 				}
+				const flight = startFlight();
 				return userBubbleFlight
 					?.runAsync(payload.text, payload.images, {
 						origin: 'above-composer',
 						skipStage: true,
-						skipReveal: true
+						skipReveal: true,
+						targetUserId: userItemId,
+						signal: flight.signal
 					})
-					.then(() => undefined);
+					.then(() => undefined)
+					.finally(() => finishFlight(flight));
 			}
 		}
 	});
@@ -100,6 +119,7 @@
 	let chatHome = $state<HTMLDivElement | null>(null);
 	let userBubbleFlight = $state<UserBubbleFlight>();
 	let firstTurnFlight = $state<FirstTurnFlight>();
+	let flightAbortController = $state<AbortController | null>(null);
 	let awaitingFirstAssistant = $state(false);
 	let firstTurnActive = $state(false);
 	let firstTurnFlightDone = $state(false);
@@ -151,6 +171,16 @@
 	let heroLayout = $derived(chatView.heroLayout);
 	let composerFocusRequestId = $derived(shellStore.composerFocusRequestId);
 
+	function startFlight() {
+		flightAbortController?.abort();
+		flightAbortController = new AbortController();
+		return flightAbortController;
+	}
+
+	function finishFlight(controller: AbortController) {
+		if (flightAbortController === controller) flightAbortController = null;
+	}
+
 	function syncQueueState() {
 		queuedCount = conversation.pendingCount;
 		queuedMessages = [...conversation.pendingMessages];
@@ -178,6 +208,10 @@
 	$effect(() => {
 		void sessionId;
 		untrack(() => {
+			flightAbortController?.abort();
+			flightAbortController = null;
+			firstTurnFlight?.cancel();
+			userBubbleFlight?.dismissParticle();
 			firstTurnActive = false;
 			firstTurnHandoffPending = false;
 			snapshotSynced = false;
