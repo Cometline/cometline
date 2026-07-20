@@ -44,10 +44,12 @@
 	bind:this={scrollerEl}
 	data-testid="thread-scroll"
 	data-active-min-height={scroll.activeTurnMinHeight}
+	data-active-pinned-user-id={scroll.activePinnedUserId ?? ''}
 	data-initial-paint={scroll.isInitialTranscriptPaint}
 	data-last-user-id={lastUserId}
 	data-streaming={streaming}
 	data-user-count={userMessageCount}
+	data-viewport-height={scroll.viewportHeight}
 >
 	{#each items as item (item.id)}
 		{#if item.type === 'user'}

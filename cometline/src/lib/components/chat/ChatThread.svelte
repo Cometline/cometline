@@ -271,8 +271,7 @@
 					{/if}
 
 					{#each threadTurns as turn (turn.id)}
-						{@const isActiveTurn =
-							scroll.activeTurnMinHeight > 0 && turn.id === lastUserId}
+						{@const isActiveTurn = scroll.activePinnedUserId === turn.id}
 						<div
 							class="thread-turn"
 							class:thread-turn-active={isActiveTurn}
@@ -291,6 +290,7 @@
 								)}
 								copiedId={clocks.copiedId}
 								onCopyMessage={clocks.copyMessage}
+								flyOnReveal={turn.user.id !== firstUserId}
 							/>
 							{#if showFirstTurnAvatarSlot(visibilityContext) && turn.user.id === firstUserId}
 								<FirstTurnAssistantSlot

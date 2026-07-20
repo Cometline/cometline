@@ -221,6 +221,7 @@ describe('createConversationController', () => {
 	it('skips user item on subsequent turns when flight is enabled', async () => {
 		chatStore.bindSession('sess-1');
 		const onUserMessageFlight = vi.fn().mockResolvedValue(undefined);
+		const revealSpy = vi.spyOn(chatStore, 'revealStagedUserForSession');
 		const { controller, send } = createDeps({
 			hasVisibleConversation: true,
 			flight: { onUserMessageFlight }
@@ -228,20 +229,16 @@ describe('createConversationController', () => {
 
 		await controller.enqueue('hello again');
 
-		expect(onUserMessageFlight).toHaveBeenCalledWith(
-			'hello again',
-			expect.objectContaining({ firstTurn: false, sessionId: 'sess-1' })
-		);
+		// Follow-ups no longer run particle flight — only stage + short-fade reveal.
+		expect(onUserMessageFlight).not.toHaveBeenCalled();
+		expect(revealSpy).toHaveBeenCalledWith('sess-1');
 		expect(send).toHaveBeenCalledWith('sess-1', { text: 'hello again' }, { skipUser: true });
+		revealSpy.mockRestore();
 	});
 
-	it('starts active follow-up send before the bubble flight resolves', async () => {
+	it('starts active follow-up send before the short-fade reveal resolves', async () => {
 		chatStore.bindSession('sess-1');
-		let releaseFlight: (() => void) | undefined;
-		const flightGate = new Promise<void>((resolve) => {
-			releaseFlight = resolve;
-		});
-		const onUserMessageFlight = vi.fn().mockReturnValue(flightGate);
+		const onUserMessageFlight = vi.fn().mockResolvedValue(undefined);
 		const revealSpy = vi.spyOn(chatStore, 'revealStagedUserForSession');
 		const { controller, send } = createDeps({
 			hasVisibleConversation: true,
@@ -250,13 +247,11 @@ describe('createConversationController', () => {
 
 		const turn = controller.enqueue('hello again');
 
-		await vi.waitFor(() => expect(onUserMessageFlight).toHaveBeenCalled());
 		await vi.waitFor(() =>
 			expect(send).toHaveBeenCalledWith('sess-1', { text: 'hello again' }, { skipUser: true })
 		);
-		expect(revealSpy).not.toHaveBeenCalled();
+		expect(onUserMessageFlight).not.toHaveBeenCalled();
 
-		releaseFlight!();
 		await turn;
 
 		expect(revealSpy).toHaveBeenCalledWith('sess-1');

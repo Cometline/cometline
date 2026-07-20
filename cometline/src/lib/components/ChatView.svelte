@@ -46,13 +46,13 @@
 			awaitingFirstAssistant = value;
 		},
 		flight: {
-			onUserMessageFlight: (
-				payloadOrText,
-				{ firstTurn, stageUser, revealStagedUser, userItemId }
-			) => {
+			onUserMessageFlight: (payloadOrText, { firstTurn, stageUser, revealStagedUser }) => {
 				const payload =
 					typeof payloadOrText === 'string' ? { text: payloadOrText } : payloadOrText;
-				if (compact && firstTurn) {
+				// Follow-ups are handled by the conversation controller (short fade + pin).
+				// This adapter only owns first-turn choreography (desktop + mini).
+				if (!firstTurn) return;
+				if (compact) {
 					awaitingFirstAssistant = true;
 					// Mini uses the regular user-bubble flight rather than the desktop
 					// first-turn choreography. Keep its destination independent of the
@@ -76,41 +76,28 @@
 						.then(() => undefined)
 						.finally(() => finishFlight(flight));
 				}
-				if (firstTurn) {
-					awaitingFirstAssistant = true;
-					firstTurnFlightDone = false;
-					firstTurnHandoffPending = true;
-					if (!firstTurnFlight) {
-						firstTurnFlightDone = true;
-						firstTurnHandoffPending = false;
-						stageUser(payload.text, payload.images);
-						revealStagedUser();
-						return;
-					}
-					const flight = startFlight();
-					return firstTurnFlight
-						?.runAsync(payload.text, payload.images, {
-							stageUser,
-							revealStagedUser,
-							signal: flight.signal
-						})
-						.catch((error) => {
-							firstTurnFlightDone = true;
-							firstTurnHandoffPending = false;
-							throw error;
-						})
-						.finally(() => finishFlight(flight));
+				awaitingFirstAssistant = true;
+				firstTurnFlightDone = false;
+				firstTurnHandoffPending = true;
+				if (!firstTurnFlight) {
+					firstTurnFlightDone = true;
+					firstTurnHandoffPending = false;
+					stageUser(payload.text, payload.images);
+					revealStagedUser();
+					return;
 				}
 				const flight = startFlight();
-				return userBubbleFlight
+				return firstTurnFlight
 					?.runAsync(payload.text, payload.images, {
-						origin: 'above-composer',
-						skipStage: true,
-						skipReveal: true,
-						targetUserId: userItemId,
+						stageUser,
+						revealStagedUser,
 						signal: flight.signal
 					})
-					.then(() => undefined)
+					.catch((error) => {
+						firstTurnFlightDone = true;
+						firstTurnHandoffPending = false;
+						throw error;
+					})
 					.finally(() => finishFlight(flight));
 			}
 		}

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { fly } from 'svelte/transition';
 	import { Check, Copy } from '@lucide/svelte';
 	import AssistantMarkdown from '$lib/components/AssistantMarkdown.svelte';
 	import ThreadAvatar from '$lib/components/chat/ThreadAvatar.svelte';
@@ -6,13 +7,17 @@
 	import { imageDataURL } from '$lib/files/images';
 	import type { ChatItem } from '$lib/stores/chat.svelte';
 
+	const BUBBLE_IN = { x: 20, y: 140, duration: 320 };
+
 	let {
 		item,
 		avatarSrc,
 		avatarSrcset,
 		continuationRow = false,
 		copiedId,
-		onCopyMessage
+		onCopyMessage,
+		/** Follow-ups only — first-turn reveal must not overlap the particle flight. */
+		flyOnReveal = true
 	}: {
 		item: Extract<ChatItem, { type: 'user' }>;
 		avatarSrc: string;
@@ -20,29 +25,54 @@
 		continuationRow?: boolean;
 		copiedId: string | null;
 		onCopyMessage: (id: string, text: string) => void | Promise<void>;
+		flyOnReveal?: boolean;
 	} = $props();
+
+	let flightHidden = $derived(item.reveal === false);
+	/** Only bubbles that were staged hidden should fly in on reveal — not history rows. */
+	let stagedOnce = $state(false);
+
+	$effect(() => {
+		if (item.reveal === false) stagedOnce = true;
+	});
+
+	let playFlyIn = $derived(stagedOnce && flyOnReveal);
 </script>
+
+{#snippet bubbleBody()}
+	{#if item.images?.length}
+		<div class="user-images" class:text-following={Boolean(item.text)}>
+			{#each item.images as image, imageIndex (`${item.id}-image-${image.id ?? imageIndex}`)}
+				<img src={imageDataURL(image)} alt={image.name ?? 'Attached image'} />
+			{/each}
+		</div>
+	{/if}
+	{#if item.text?.trim()}
+		<AssistantMarkdown source={item.text.trim()} mode="user" />
+	{/if}
+{/snippet}
 
 <ThreadRow variant="user" {continuationRow} data-user-item-id={item.id}>
 	<ThreadAvatar variant="gutter" {avatarSrc} {avatarSrcset} />
 	<div class="user-stack">
-		<div
-			class="bubble user-bubble"
-			class:flight-hidden={item.reveal === false}
-			data-flight-target={item.reveal === false ? 'user' : undefined}
-			data-flight-user-id={item.reveal === false ? item.id : undefined}
-		>
-			{#if item.images?.length}
-				<div class="user-images" class:text-following={Boolean(item.text)}>
-					{#each item.images as image, imageIndex (`${item.id}-image-${image.id ?? imageIndex}`)}
-						<img src={imageDataURL(image)} alt={image.name ?? 'Attached image'} />
-					{/each}
-				</div>
-			{/if}
-			{#if item.text?.trim()}
-				<AssistantMarkdown source={item.text.trim()} mode="user" />
-			{/if}
-		</div>
+		{#if flightHidden}
+			<!-- Staging placeholder for flight measure / layout; enter motion waits for reveal. -->
+			<div
+				class="bubble user-bubble flight-hidden"
+				data-flight-target="user"
+				data-flight-user-id={item.id}
+			>
+				{@render bubbleBody()}
+			</div>
+		{:else if playFlyIn}
+			<div class="bubble user-bubble" in:fly={BUBBLE_IN}>
+				{@render bubbleBody()}
+			</div>
+		{:else}
+			<div class="bubble user-bubble">
+				{@render bubbleBody()}
+			</div>
+		{/if}
 		{#if item.text?.trim()}
 			<div class="message-actions user-message-actions">
 				<button

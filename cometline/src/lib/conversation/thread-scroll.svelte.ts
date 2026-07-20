@@ -18,13 +18,14 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 	let scroller = $state<HTMLDivElement | undefined>(undefined);
 	let showJumpToBottom = $state(false);
 	let lastSessionId: string | null = null;
+	/** Successfully presented follow-up user id (only advanced when pin runs). */
 	let lastScrolledUserId: string | null = null;
 	let viewportHeight = $state(0);
 	let scrollFrame = 0;
 	let scrollScheduleVersion = 0;
 	let isInitialTranscriptPaint = $state(true);
 	let sessionHadTranscript = false;
-	/** The follow-up user row pinned while its response is in flight. */
+	/** The follow-up user row pinned while its reply canvas is active. */
 	let activePinnedUserId = $state<string | null>(null);
 
 	const scrollKey = $derived(buildScrollKey(deps.getThreadItems(), deps.getSessionStreaming()));
@@ -96,12 +97,20 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 	function pinUserMessageAfterLayout(userId: string) {
 		let frame = 0;
 		const settle = () => {
-			if (activePinnedUserId !== userId || !deps.getSessionStreaming()) return;
+			if (activePinnedUserId !== userId) return;
 			scrollUserMessageIntoView(userId);
 			frame += 1;
 			if (frame < 3) requestAnimationFrame(settle);
 		};
 		requestAnimationFrame(settle);
+	}
+
+	function presentFollowUpTurn(userId: string) {
+		activePinnedUserId = userId;
+		lastScrolledUserId = userId;
+		void tick().then(() => {
+			pinUserMessageAfterLayout(userId);
+		});
 	}
 
 	$effect(() => {
@@ -145,6 +154,9 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 		if (!sessionHadTranscript && deps.getSessionStreaming()) {
 			// A newly-created session can receive its first live turn before its
 			// empty transcript request resolves. Do not treat that turn as history.
+			// Mark the session as live-ready once so later follow-up pins are not
+			// wiped on every streaming effect re-run (common in the mini window).
+			sessionHadTranscript = true;
 			isInitialTranscriptPaint = false;
 			lastScrolledUserId = null;
 			activePinnedUserId = null;
@@ -218,23 +230,38 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 
 	$effect(() => {
 		const userId = deps.getLastUserId();
+		const hydrating = isInitialTranscriptPaint;
+		const count = deps.getUserMessageCount();
+		const vh = viewportHeight;
+		const streaming = deps.getSessionStreaming();
+
 		if (!userId) {
 			lastScrolledUserId = null;
 			return;
 		}
 		if (userId === lastScrolledUserId) return;
-		lastScrolledUserId = userId;
-		if (!deps.getSessionStreaming()) return;
-		if (isInitialTranscriptPaint || deps.getUserMessageCount() <= 1) return;
-		activePinnedUserId = userId;
-		void tick().then(() => {
-			pinUserMessageAfterLayout(userId);
-		});
+
+		// Transcript refresh may remap the pinned user id after the stream ends.
+		// Retarget the reply canvas without scrolling again.
+		if (activePinnedUserId !== null && !streaming && count > 1 && !hydrating) {
+			activePinnedUserId = userId;
+			lastScrolledUserId = userId;
+			return;
+		}
+
+		// Do not consume the id until we can actually present — retry when
+		// hydration finishes, viewport is measured, or streaming starts.
+		if (hydrating || count <= 1 || vh <= 0 || !streaming) return;
+
+		presentFollowUpTurn(userId);
 	});
 
 	return {
 		get showJumpToBottom() {
 			return showJumpToBottom;
+		},
+		get activePinnedUserId() {
+			return activePinnedUserId;
 		},
 		get activeTurnMinHeight() {
 			return turnMinHeight;

@@ -6,6 +6,7 @@
  * presentation-only and wires flight components through adapters.
  */
 
+import { tick } from 'svelte';
 import { getSession } from '$lib/client/cometmind';
 import { commitSidebarWorkspaceForSession } from '$lib/actions/commit-sidebar-workspace';
 import {
@@ -127,18 +128,12 @@ async function runTurn(
 			revealStagedUser();
 		}
 	} else if (usesFlight && isViewing) {
-		const userItemId = stageUser(userDisplay, payload.images);
-		flightPromise = Promise.resolve(
-			deps.flight!.onUserMessageFlight!(flightPayload, {
-				firstTurn,
-				sessionId: turnSessionId,
-				stageUser,
-				revealStagedUser,
-				userItemId
-			})
-		)
-			.catch(() => undefined)
-			.finally(revealStagedUser);
+		// Follow-up: no particle flight — stage hidden, then short-fade reveal.
+		// Pin scroll owns layout; first-turn keeps the flight choreography above.
+		stageUser(userDisplay, payload.images);
+		flightPromise = tick().then(() => {
+			revealStagedUser();
+		});
 	} else if (usesFlight) {
 		stageUser(userDisplay, payload.images);
 		revealStagedUser();
