@@ -50,7 +50,7 @@ describe('createThreadScroll', () => {
 		Reflect.deleteProperty(HTMLElement.prototype, 'scrollIntoView');
 	});
 
-	it('releases follow-up pinning when the response stops streaming', async () => {
+	it('keeps follow-up pinning after the response stops streaming', async () => {
 		const view = render(ThreadScrollHarness, {
 			props: {
 				items: initialItems,
@@ -69,14 +69,14 @@ describe('createThreadScroll', () => {
 		await view.rerender({ items: followUpItems, streaming: false, cached: true });
 		await settleEffects();
 		await waitFor(() =>
-			expect(screen.getByTestId('thread-scroll').dataset.activeMinHeight).toBe('0')
+			expect(screen.getByTestId('thread-scroll').dataset.activeMinHeight).toBe('504')
 		);
 
 		scrollIntoView.mockClear();
 		await view.rerender({ items: refreshedFollowUpItems, streaming: false, cached: true });
 		await settleEffects();
 		await waitFor(() =>
-			expect(screen.getByTestId('thread-scroll').dataset.activeMinHeight).toBe('0')
+			expect(screen.getByTestId('thread-scroll').dataset.activeMinHeight).toBe('504')
 		);
 		expect(scrollIntoView).not.toHaveBeenCalled();
 	});

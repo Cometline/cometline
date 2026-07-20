@@ -117,14 +117,6 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 		});
 	});
 
-	$effect.pre(() => {
-		const streaming = deps.getSessionStreaming();
-		if (streaming) return;
-		untrack(() => {
-			activePinnedUserId = null;
-		});
-	});
-
 	$effect(() => {
 		const isSessionSynced = deps.getIsSessionSynced();
 		const threadItems = deps.getThreadItems();

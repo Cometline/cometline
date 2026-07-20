@@ -7,7 +7,7 @@
 
 On follow-up turns (from the second user message onward), we wanted ChatGPT / Claude-style behavior:
 
-1. After the user sends a message, the bubble stays pinned near the **upper third** of the viewport.
+1. After the user sends a message, the bubble stays pinned near the **upper fifth** of the viewport.
 2. Enough space remains below so the start of the AI reply is visible **without scrolling down first**.
 3. **No layout shift** when streaming ends.
 4. “Jump to latest” and manual scrolling should not land in an **empty dead zone** with no content.
@@ -97,7 +97,7 @@ thread-messages
 
 ```css
 --thread-user-pin-offset-first: 24px;        /* first turn (flight-driven; pin rarely used) */
---thread-user-pin-ratio-followup: 0.28;      /* follow-up upper third */
+--thread-user-pin-ratio-followup: 0.18;      /* follow-up upper fifth */
 --thread-turn-bottom-clearance: 96px;        /* min-height = viewport - clearance */
 ```
 
@@ -174,7 +174,7 @@ Per [`FRONTEND_PATTERNS.md`](../FRONTEND_PATTERNS.md):
 
 ## Verification checklist
 
-1. **Turn 2+:** After send, user bubble near upper third; thinking / first tokens visible without scrolling down.
+1. **Turn 2+:** After send, user bubble near upper fifth; thinking / first tokens visible without scrolling down.
 2. **Stream end:** No jump; `min-height` remains until the next user message.
 3. **Jump to latest:** Shows the last AI content, not blank space.
 4. **Manual scroll:** Should not rest in a message-free dead zone (blank area is inside the turn, semantically “reply canvas”).
