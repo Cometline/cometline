@@ -3,8 +3,8 @@ import { anyReasoningPending, reasoningTextLength } from './reasoning';
 
 export const SCROLL_PIN_THRESHOLD = 96;
 export const USER_SEND_TOP_OFFSET = 24;
-/** Upper-third pin for follow-up turns (turn 2+), applied via scroll-margin-top. */
-export const USER_PIN_RATIO_FOLLOWUP = 0.28;
+/** Upper-fifth pin for follow-up turns (turn 2+), applied via scroll-margin-top. */
+export const USER_PIN_RATIO_FOLLOWUP = 0.18;
 export const USER_PIN_OFFSET_FALLBACK = 100;
 export const TURN_BOTTOM_CLEARANCE = 96;
 

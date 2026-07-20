@@ -74,8 +74,8 @@ describe('shouldShowJumpToBottom', () => {
 });
 
 describe('followUpPinScrollMargin', () => {
-	it('uses the upper-third ratio when viewport height is known', () => {
-		expect(followUpPinScrollMargin(800)).toBe(224);
+	it('uses the upper-fifth ratio when viewport height is known', () => {
+		expect(followUpPinScrollMargin(800)).toBe(144);
 	});
 
 	it('falls back when viewport height is zero', () => {

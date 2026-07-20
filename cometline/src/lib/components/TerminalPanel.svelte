@@ -111,11 +111,7 @@
 				</button>
 			</div>
 		</header>
-		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<div
-			class="terminal-panel-content"
-			onmousedown={() => shellStore.requestTerminalFocus()}
-		>
+		<div class="terminal-panel-content">
 			{#if !activeSession}
 				<div class="terminal-empty">Open a chat to start a terminal.</div>
 			{:else if !activeTerminal}
