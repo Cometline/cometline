@@ -98,6 +98,7 @@
 			cursorBlink: true,
 			fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
 			fontSize: 12,
+			macOptionClickForcesSelection: true,
 			scrollback: 10_000,
 			theme: {
 				background: '#171717',
@@ -132,7 +133,14 @@
 	});
 </script>
 
-<div class="terminal-instance" class:active onmouseup={onMouseUp} aria-hidden={!active}>
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div
+	class="terminal-instance"
+	class:active
+	onfocusin={() => shellStore.setFocusedPane('terminal')}
+	onmouseup={onMouseUp}
+	aria-hidden={!active}
+>
 	<div class="terminal-host" bind:this={host}></div>
 	{#if selection}
 		<button

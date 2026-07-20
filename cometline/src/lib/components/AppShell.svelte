@@ -196,6 +196,15 @@
 				return;
 			}
 			if (
+				shellStore.focusedPane === 'terminal' &&
+				shellStore.terminalPanelOpen &&
+				!shellStore.settingsOpen &&
+				!inboxStore.drawerOpen
+			) {
+				// Let terminal applications own Escape and keyboard shortcuts.
+				return;
+			}
+			if (
 				shellStore.workspacePanelOpen &&
 				event.key === 'Escape' &&
 				!shellStore.settingsOpen &&
