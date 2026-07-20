@@ -278,13 +278,16 @@ function createSettingsStore() {
 	}
 
 	function setActiveProvider(providerId: string) {
-		settings = { ...settings, activeProviderId: providerId };
 		const provider = settings.providers.find((p) => p.id === providerId);
+		const modelId = provider?.enabledModels[0] ?? provider?.selectedModel ?? '';
+		settings = {
+			...settings,
+			activeProviderId: providerId,
+			defaultProviderId: providerId,
+			defaultModelId: modelId || settings.defaultModelId
+		};
 		if (provider) {
-			modelStore.selectByProviderModel(
-				provider.id,
-				provider.enabledModels[0] ?? provider.selectedModel
-			);
+			modelStore.selectByProviderModel(provider.id, modelId);
 		}
 	}
 

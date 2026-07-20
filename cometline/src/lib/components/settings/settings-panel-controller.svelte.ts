@@ -381,12 +381,7 @@ export function createSettingsPanelController(deps: {
 		}
 
 		const draft = deps.getDraft();
-		const activeProvider =
-			draft.providers.find(
-				(provider) => provider.enabled && provider.enabledModels.length > 0
-			) ?? draft.providers[0];
 		const payload: ProviderSettings = providerPayloadFromDraft(draft);
-		payload.activeProviderId = activeProvider?.id ?? '';
 		const personaIdChanged = settingsStore.settings.app.personaId !== draft.app.personaId;
 		const runtimeAction = personaIdChanged
 			? 'reload'
@@ -417,12 +412,7 @@ export function createSettingsPanelController(deps: {
 	) {
 		deps.getCometmindPanel()?.syncFields?.();
 		const draft = deps.getDraft();
-		const activeProvider =
-			draft.providers.find(
-				(provider) => provider.enabled && provider.enabledModels.length > 0
-			) ?? draft.providers[0];
 		const payload: ProviderSettings = providerPayloadFromDraft(draft);
-		payload.activeProviderId = activeProvider?.id ?? '';
 		payload.cometmind = { ...payload.cometmind, ...overrides };
 		const runtimeAction = runtimeActionForSettingsSave(settingsStore.settings, payload);
 		const { settings: saved, reload } = await settingsStore.save(payload, { runtimeAction });

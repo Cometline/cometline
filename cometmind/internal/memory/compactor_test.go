@@ -85,3 +85,15 @@ func TestRunLifecycleNotifiesAutomaticCompaction(t *testing.T) {
 		t.Fatalf("unexpected notification: %+v", notified)
 	}
 }
+
+func TestExtractionModelPrefersPinnedThenFallback(t *testing.T) {
+	if got := extractionModel(Settings{ExtractionModel: "qwen3.7-plus", DefaultModel: "gpt-5.4"}); got != "qwen3.7-plus" {
+		t.Fatalf("got %q, want pinned extraction model", got)
+	}
+	if got := extractionModel(Settings{DefaultModel: "gpt-5.4"}); got != "gpt-5.4" {
+		t.Fatalf("got %q, want default chat model", got)
+	}
+	if got := extractionModel(Settings{}); got != "" {
+		t.Fatalf("got %q, want empty when no model is configured", got)
+	}
+}

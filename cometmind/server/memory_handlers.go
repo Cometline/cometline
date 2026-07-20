@@ -5,7 +5,9 @@ import (
 	"strconv"
 
 	"github.com/cometline/cometmind/internal/config"
+	"github.com/cometline/cometmind/internal/logging"
 	"github.com/cometline/cometmind/internal/memory"
+	"github.com/cometline/cometmind/internal/provider"
 	"github.com/gin-gonic/gin"
 )
 
@@ -207,6 +209,11 @@ func (a *App) handlePutMemorySettings(c *gin.Context) {
 		if err := a.memory.UpdateSettings(a.config.MemorySettings()); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
+		}
+		if p, err := provider.NewMemoryLLM(a.config); err != nil {
+			logging.L().Warn("memory.settings.provider_refresh_failed", "error", err)
+		} else {
+			a.memory.SetProvider(p)
 		}
 		c.JSON(http.StatusOK, a.config.EffectiveMemoryConfig())
 		return

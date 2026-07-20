@@ -1193,7 +1193,12 @@ export function normalizeSettings(
 	options: NormalizeSettingsOptions = {}
 ): ProviderSettings {
 	const providers = normalizeProviders(next.providers);
-	const activeProviderId = resolveActiveProviderId(providers, next.activeProviderId);
+	const { defaultProviderId, defaultModelId, activeProviderId } = resolveDefaultModelPair(
+		providers,
+		next.defaultProviderId,
+		next.defaultModelId,
+		next.activeProviderId
+	);
 	const cometmind = normalizeCometMindSettings(
 		next.cometmind,
 		options.fallbackWorkspacePath ?? ''
@@ -1204,9 +1209,10 @@ export function normalizeSettings(
 	const customPersonas = normalizeCustomPersonaList(next.app?.personas?.custom);
 	return {
 		providers,
+		// Mirror Default into activeProviderId for legacy Electron/env readers.
 		activeProviderId,
-		defaultModelId: String(next.defaultModelId ?? '').trim(),
-		defaultProviderId: String(next.defaultProviderId ?? '').trim(),
+		defaultModelId,
+		defaultProviderId,
 		appearance: {
 			heroComposer: normalizeHeroComposerAppearance(next.appearance?.heroComposer),
 			caretTrail: normalizeCaretTrailSettings(next.appearance?.caretTrail)
@@ -1252,6 +1258,40 @@ export function normalizeSettings(
 	};
 }
 
+/** Resolve Default model pair; migrate from legacy activeProviderId when Default is empty. */
+export function resolveDefaultModelPair(
+	providers: ProviderConfig[],
+	preferredDefaultProviderId?: string,
+	preferredDefaultModelId?: string,
+	legacyActiveProviderId?: string
+): { defaultProviderId: string; defaultModelId: string; activeProviderId: string } {
+	const runtime = providers.filter((p) => p.enabled && p.enabledModels.length > 0);
+	const byId = new Map(runtime.map((p) => [p.id, p]));
+
+	let defaultProviderId = String(preferredDefaultProviderId ?? '').trim();
+	let defaultModelId = String(preferredDefaultModelId ?? '').trim();
+
+	if (defaultProviderId && byId.has(defaultProviderId)) {
+		const provider = byId.get(defaultProviderId)!;
+		if (!defaultModelId || !provider.enabledModels.includes(defaultModelId)) {
+			defaultModelId = primaryModel(provider);
+		}
+	} else {
+		const legacyActive = String(legacyActiveProviderId ?? '').trim();
+		const migrated =
+			(legacyActive && byId.get(legacyActive)) || runtime[0] || providers[0] || null;
+		defaultProviderId = migrated?.id ?? '';
+		defaultModelId = migrated ? primaryModel(migrated) : '';
+	}
+
+	return {
+		defaultProviderId,
+		defaultModelId,
+		// Keep active mirrored to Default so legacy env/readers stay consistent.
+		activeProviderId: defaultProviderId
+	};
+}
+
 function primaryModel(provider: ProviderConfig): string {
 	return provider.enabledModels[0] || provider.selectedModel || provider.models[0] || '';
 }
@@ -1263,12 +1303,21 @@ export function runtimeProviders(settings: ProviderSettings): ProviderConfig[] {
 export function runtimeSlice(settings: ProviderSettings): RuntimeSettingsSlice | null {
 	const providers = runtimeProviders(settings);
 	const active =
-		providers.find((p) => p.id === settings.activeProviderId) ?? providers[0] ?? null;
+		providers.find((p) => p.id === settings.defaultProviderId) ??
+		providers.find((p) => p.id === settings.activeProviderId) ??
+		providers[0] ??
+		null;
 	if (!active) return null;
+
+	const model =
+		(settings.defaultModelId &&
+		active.enabledModels.includes(settings.defaultModelId)
+			? settings.defaultModelId
+			: primaryModel(active));
 
 	return {
 		provider: active.id,
-		model: primaryModel(active),
+		model,
 		baseURL: active.baseURL,
 		maxTokens: settings.cometmind.maxTokens,
 		maxSteps: 50,

@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -70,15 +71,11 @@ func (a *App) generateTitleAsync(ctx context.Context, sess session.Session, mess
 
 // generateTitleLLM asks an LLM for a concise title for the message. It uses the
 // configured title provider/model when set (typically a cheaper, faster model),
-// falling back to the session's own provider/model otherwise.
+// falling back to the Default model pair otherwise.
 func (a *App) generateTitleLLM(ctx context.Context, sess session.Session, message string) (string, error) {
-	providerID := strings.TrimSpace(a.config.TitleProvider)
-	if providerID == "" {
-		providerID = sess.ProviderID
-	}
-	model := strings.TrimSpace(a.config.TitleModel)
-	if model == "" {
-		model = sess.ModelID
+	providerID, model := a.config.ResolveRoleLLM(a.config.TitleProvider, a.config.TitleModel)
+	if providerID == "" || model == "" {
+		return "", fmt.Errorf("title generation requires a Default model or a pinned title model")
 	}
 
 	p, err := provider.NewFor(a.config, providerID)

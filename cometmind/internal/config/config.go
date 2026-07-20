@@ -75,6 +75,10 @@ type GatewayConfig struct {
 type Config struct {
 	Provider           string               `mapstructure:"provider"`
 	Model              string               `mapstructure:"model"`
+	// DefaultProviderID / DefaultModelID are the global Default model pair.
+	// Provider/Model mirror them for legacy callers after settings adapt.
+	DefaultProviderID  string               `mapstructure:"default_provider_id"`
+	DefaultModelID     string               `mapstructure:"default_model_id"`
 	BaseURL            string               `mapstructure:"base_url"`
 	TitleProvider      string               `mapstructure:"title_provider"`
 	TitleModel         string               `mapstructure:"title_model"`

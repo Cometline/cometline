@@ -84,6 +84,7 @@ func (c *Config) MemorySettings() memory.Settings {
 		SimilarityThreshold: mc.SimilarityThreshold,
 		ExtractionProvider:  mc.ExtractionProvider,
 		ExtractionModel:     mc.ExtractionModel,
+		DefaultModel: firstNonEmpty(strings.TrimSpace(c.DefaultModelID), strings.TrimSpace(c.Model)),
 		Lifecycle: memory.LifecycleSettings{
 			DecayHalfLifeDays:     mc.Lifecycle.DecayHalfLifeDays,
 			ForgetThreshold:       mc.Lifecycle.ForgetThreshold,
@@ -295,20 +296,24 @@ func (c *Config) memoryConfigured() bool {
 	return c.memoryBehaviorConfigured() || c.memoryEmbeddingConfigured()
 }
 
-// ExtractionLLMForSession returns the provider id and model id to use for memory
-// extraction. Configured extraction provider/model override the session values
-// when set; otherwise the session's own provider/model are used.
-func (c *Config) ExtractionLLMForSession(providerID, modelID string) (string, string) {
-	outProvider := strings.TrimSpace(providerID)
-	outModel := strings.TrimSpace(modelID)
+// ExtractionLLM returns the provider/model pair for memory extraction and
+// compaction. Pinned extraction overrides Default; session is never used.
+func (c *Config) ExtractionLLM() (string, string) {
 	if c == nil {
-		return outProvider, outModel
+		return "", ""
 	}
-	if pid := strings.TrimSpace(c.Memory.ExtractionProvider); pid != "" {
-		outProvider = pid
-	}
-	if model := strings.TrimSpace(c.Memory.ExtractionModel); model != "" {
-		outModel = model
-	}
-	return outProvider, outModel
+	return c.ResolveRoleLLM(c.Memory.ExtractionProvider, c.Memory.ExtractionModel)
+}
+
+// ExtractionLLMForSession is kept for callers that historically passed the
+// session pair. Session values are ignored; resolution is pin else Default.
+func (c *Config) ExtractionLLMForSession(_, _ string) (string, string) {
+	return c.ExtractionLLM()
+}
+
+// MemoryLLMProviderID returns the provider used for memory compaction and the
+// memory service's default LLM (extraction pin else Default).
+func (c *Config) MemoryLLMProviderID() string {
+	providerID, _ := c.ExtractionLLM()
+	return providerID
 }

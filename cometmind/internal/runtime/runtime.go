@@ -107,7 +107,7 @@ func New(ctx context.Context) (*Runtime, error) {
 	r.Inbox = inbox.NewService(sqlDB)
 	r.Scheduler = scheduler.NewService(sqlDB)
 	if cfg.MemoryRuntimeEnabled() {
-		p, err := provider.New(cfg)
+		p, err := provider.NewMemoryLLM(cfg)
 		if err != nil {
 			logging.L().Warn("memory.provider.init_failed",
 				"error", err,
@@ -124,14 +124,7 @@ func New(ctx context.Context) (*Runtime, error) {
 		}
 	}
 	if cfg.Skills.SynthesisEnabled {
-		providerID := strings.TrimSpace(cfg.Skills.SynthesisProviderID)
-		if providerID == "" {
-			providerID = cfg.Provider
-		}
-		model := strings.TrimSpace(cfg.Skills.SynthesisModel)
-		if model == "" {
-			model = cfg.Model
-		}
+		providerID, model := cfg.ResolveRoleLLM(cfg.Skills.SynthesisProviderID, cfg.Skills.SynthesisModel)
 		p, err := provider.NewFor(cfg, providerID)
 		if err != nil {
 			logging.L().Warn("skills.synthesis.provider.init_failed", "error", err)
@@ -469,20 +462,16 @@ func (r *Runtime) autonomyProviderID() string {
 	if r == nil || r.Config == nil {
 		return ""
 	}
-	if providerID := strings.TrimSpace(r.Config.Autonomy.ProviderID); providerID != "" {
-		return providerID
-	}
-	return r.Config.Provider
+	providerID, _ := r.Config.ResolveRoleLLM(r.Config.Autonomy.ProviderID, r.Config.Autonomy.ModelID)
+	return providerID
 }
 
 func (r *Runtime) autonomyModelID() string {
 	if r == nil || r.Config == nil {
 		return ""
 	}
-	if modelID := strings.TrimSpace(r.Config.Autonomy.ModelID); modelID != "" {
-		return modelID
-	}
-	return r.Config.Model
+	_, modelID := r.Config.ResolveRoleLLM(r.Config.Autonomy.ProviderID, r.Config.Autonomy.ModelID)
+	return modelID
 }
 
 func (r *Runtime) jobSettingsSnapshot() jobs.Settings {
@@ -570,7 +559,7 @@ func (r *Runtime) reloadMemory(cfg *config.Config) error {
 		}
 		return nil
 	}
-	p, err := provider.New(cfg)
+	p, err := provider.NewMemoryLLM(cfg)
 	if err != nil {
 		return fmt.Errorf("reload memory provider: %w", err)
 	}
@@ -596,20 +585,16 @@ func (r *Runtime) autonomyProviderIDFrom(cfg *config.Config) string {
 	if cfg == nil {
 		return ""
 	}
-	if providerID := strings.TrimSpace(cfg.Autonomy.ProviderID); providerID != "" {
-		return providerID
-	}
-	return cfg.Provider
+	providerID, _ := cfg.ResolveRoleLLM(cfg.Autonomy.ProviderID, cfg.Autonomy.ModelID)
+	return providerID
 }
 
 func (r *Runtime) autonomyModelIDFrom(cfg *config.Config) string {
 	if cfg == nil {
 		return ""
 	}
-	if modelID := strings.TrimSpace(cfg.Autonomy.ModelID); modelID != "" {
-		return modelID
-	}
-	return cfg.Model
+	_, modelID := cfg.ResolveRoleLLM(cfg.Autonomy.ProviderID, cfg.Autonomy.ModelID)
+	return modelID
 }
 
 // WorkspaceForCommand resolves the current directory (or the explicit workspace

@@ -252,7 +252,7 @@ describe('settings schema', () => {
 		expect(settings.cometmind.systemPromptPath).toBe('/tmp/SOUL.md');
 	});
 
-	it('runtimeSlice projects active provider', () => {
+	it('runtimeSlice projects default provider', () => {
 		const settings = normalizeSettings({
 			...defaultSettings(),
 			providers: defaultSettings().providers.map((p) =>
@@ -265,7 +265,8 @@ describe('settings schema', () => {
 						}
 					: { ...p, enabled: false, enabledModels: [] }
 			),
-			activeProviderId: 'openai',
+			defaultProviderId: 'openai',
+			defaultModelId: 'gpt-4o',
 			cometmind: {
 				...defaultSettings().cometmind,
 				systemPromptPath: '/tmp/SOUL.md'
@@ -277,6 +278,59 @@ describe('settings schema', () => {
 		expect(slice?.maxTokens).toBe(2048);
 		expect(slice?.systemPromptPath).toBe('/tmp/SOUL.md');
 		expect(slice?.providers).toHaveLength(1);
+	});
+
+	it('normalizeSettings migrates active into default and mirrors active', () => {
+		const settings = normalizeSettings({
+			...defaultSettings(),
+			providers: defaultSettings().providers.map((p) =>
+				p.id === 'codex'
+					? {
+							...p,
+							enabled: true,
+							enabledModels: ['gpt-5.4'],
+							models: ['gpt-5.4']
+						}
+					: { ...p, enabled: false, enabledModels: [] }
+			),
+			activeProviderId: 'codex',
+			defaultProviderId: '',
+			defaultModelId: ''
+		});
+		expect(settings.defaultProviderId).toBe('codex');
+		expect(settings.defaultModelId).toBe('gpt-5.4');
+		expect(settings.activeProviderId).toBe('codex');
+	});
+
+	it('normalizeSettings prefers explicit default over active', () => {
+		const settings = normalizeSettings({
+			...defaultSettings(),
+			providers: defaultSettings().providers.map((p) => {
+				if (p.id === 'codex') {
+					return {
+						...p,
+						enabled: true,
+						enabledModels: ['gpt-5.4'],
+						models: ['gpt-5.4']
+					};
+				}
+				if (p.id === 'opencode-go') {
+					return {
+						...p,
+						enabled: true,
+						enabledModels: ['deepseek-v4-flash'],
+						models: ['deepseek-v4-flash']
+					};
+				}
+				return { ...p, enabled: false, enabledModels: [] };
+			}),
+			activeProviderId: 'codex',
+			defaultProviderId: 'opencode-go',
+			defaultModelId: 'deepseek-v4-flash'
+		});
+		expect(settings.defaultProviderId).toBe('opencode-go');
+		expect(settings.defaultModelId).toBe('deepseek-v4-flash');
+		expect(settings.activeProviderId).toBe('opencode-go');
 	});
 
 	it('validateSettings rejects empty providers list', () => {

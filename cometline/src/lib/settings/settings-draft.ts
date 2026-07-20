@@ -1,6 +1,7 @@
 import { cloneCometMindSettings, normalizeCometMindSettings } from '$lib/cometmind-settings';
 import type { MemorySettings } from '$lib/client/cometmind';
 import { findProviderForSaved } from '$lib/embedding-models';
+import { resolveDefaultModelPair } from '$lib/settings/schema';
 import type { ProviderConfig, ProviderSettings } from '$lib/types';
 
 export function cloneProvider(provider: ProviderConfig): ProviderConfig {
@@ -56,15 +57,17 @@ export function cloneSettings(settings: ProviderSettings): ProviderSettings {
 }
 
 export function providerPayloadFromDraft(draft: ProviderSettings): ProviderSettings {
-	const activeProvider =
-		draft.providers.find((provider) => provider.enabled && provider.enabledModels.length > 0) ??
-		draft.providers.find((provider) => provider.enabled) ??
-		draft.providers[0];
+	const { defaultProviderId, defaultModelId, activeProviderId } = resolveDefaultModelPair(
+		draft.providers,
+		draft.defaultProviderId,
+		draft.defaultModelId,
+		draft.activeProviderId
+	);
 	return {
 		providers: draft.providers.map(cloneProvider),
-		activeProviderId: activeProvider?.id ?? '',
-		defaultModelId: draft.defaultModelId ?? '',
-		defaultProviderId: draft.defaultProviderId ?? '',
+		activeProviderId,
+		defaultModelId,
+		defaultProviderId,
 		appearance: {
 			heroComposer: {
 				...draft.appearance.heroComposer,
