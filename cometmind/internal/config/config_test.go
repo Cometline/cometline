@@ -378,7 +378,7 @@ func TestLoadBootsWithNoEnabledProviders(t *testing.T) {
 	empty := `{"providers":[
 		{"id":"anthropic","name":"Anthropic","method":"anthropic","enabled":false,"baseURL":"https://api.anthropic.com","apiKey":"","selectedModel":"","models":[],"enabledModels":[]},
 		{"id":"openai","name":"OpenAI","method":"openai","enabled":false,"baseURL":"https://api.openai.com/v1","apiKey":"","selectedModel":"","models":[],"enabledModels":[]}
-	],"activeProviderId":"","defaultProviderId":"","defaultModelId":""}`
+	],"defaultProviderId":"","defaultModelId":""}`
 	if err := os.WriteFile(filepath.Join(configDir, "cometline-settings.json"), []byte(empty), 0o600); err != nil {
 		t.Fatalf("write settings: %v", err)
 	}

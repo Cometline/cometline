@@ -40,7 +40,6 @@ __export(schema_exports, {
   normalizeProviders: () => normalizeProviders,
   normalizeSettings: () => normalizeSettings,
   parseAndNormalizeSettings: () => parseAndNormalizeSettings,
-  resolveActiveProviderId: () => resolveActiveProviderId,
   resolveDefaultModelPair: () => resolveDefaultModelPair,
   runtimeProviders: () => runtimeProviders,
   runtimeSlice: () => runtimeSlice,
@@ -5237,17 +5236,6 @@ function normalizeProvider(provider, fallback) {
     enabledModels
   };
 }
-function resolveActiveProviderId(providers, preferredId) {
-  const preferred = preferredId ? providers.find((provider) => provider.id === preferredId) : void 0;
-  if (preferred?.enabled && preferred.enabledModels.length > 0) {
-    return preferred.id;
-  }
-  const enabledWithModels = providers.find(
-    (provider) => provider.enabled && provider.enabledModels.length > 0
-  );
-  if (enabledWithModels) return enabledWithModels.id;
-  return providers[0]?.id ?? "";
-}
 function normalizeProviders(providers) {
   const saved = Array.isArray(providers) ? providers : [];
   const normalizedDefaults = DEFAULT_PROVIDERS.map((provider) => {
@@ -5287,16 +5275,17 @@ function migrateSingleProvider(saved) {
         enabledModels: saved.selectedModel ? [String(saved.selectedModel).trim()] : []
       }
     ],
-    activeProviderId: id
+    defaultProviderId: id,
+    defaultModelId: String(saved.selectedModel || "").trim()
   };
 }
 function defaultSettings() {
   const providers = DEFAULT_PROVIDERS.map(cloneProvider);
+  const { defaultProviderId, defaultModelId } = resolveDefaultModelPair(providers);
   return {
     providers,
-    activeProviderId: resolveActiveProviderId(providers),
-    defaultModelId: "",
-    defaultProviderId: "",
+    defaultModelId,
+    defaultProviderId,
     appearance: defaultAppearance(),
     shortcuts: defaultKeyboardShortcuts(),
     app: defaultAppSettings(),
@@ -5305,7 +5294,7 @@ function defaultSettings() {
 }
 function normalizeSettings(next, options = {}) {
   const providers = normalizeProviders(next.providers);
-  const { defaultProviderId, defaultModelId, activeProviderId } = resolveDefaultModelPair(
+  const { defaultProviderId, defaultModelId } = resolveDefaultModelPair(
     providers,
     next.defaultProviderId,
     next.defaultModelId,
@@ -5321,8 +5310,6 @@ function normalizeSettings(next, options = {}) {
   const customPersonas = normalizeCustomPersonas(next.app?.personas?.custom);
   return {
     providers,
-    // Mirror Default into activeProviderId for legacy Electron/env readers.
-    activeProviderId,
     defaultModelId,
     defaultProviderId,
     appearance: {
@@ -5369,9 +5356,7 @@ function resolveDefaultModelPair(providers, preferredDefaultProviderId, preferre
   }
   return {
     defaultProviderId,
-    defaultModelId,
-    // Keep active mirrored to Default so legacy env/readers stay consistent.
-    activeProviderId: defaultProviderId
+    defaultModelId
   };
 }
 function primaryModel(provider) {
@@ -5382,7 +5367,7 @@ function runtimeProviders(settings) {
 }
 function runtimeSlice(settings) {
   const providers = runtimeProviders(settings);
-  const active = providers.find((p) => p.id === settings.defaultProviderId) ?? providers.find((p) => p.id === settings.activeProviderId) ?? providers[0] ?? null;
+  const active = providers.find((p) => p.id === settings.defaultProviderId) ?? providers[0] ?? null;
   if (!active) return null;
   const model = settings.defaultModelId && active.enabledModels.includes(settings.defaultModelId) ? settings.defaultModelId : primaryModel(active);
   return {
@@ -5439,7 +5424,6 @@ var providerConfigSchema = external_exports.object({
 });
 var providerSettingsSchema = external_exports.object({
   providers: external_exports.array(providerConfigSchema).min(1),
-  activeProviderId: external_exports.string(),
   defaultModelId: external_exports.string(),
   defaultProviderId: external_exports.string(),
   appearance: external_exports.object({
@@ -5660,7 +5644,6 @@ function parseAndNormalizeSettings(raw, options = {}) {
   normalizeProviders,
   normalizeSettings,
   parseAndNormalizeSettings,
-  resolveActiveProviderId,
   resolveDefaultModelPair,
   runtimeProviders,
   runtimeSlice,

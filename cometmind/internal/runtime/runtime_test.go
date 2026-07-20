@@ -92,7 +92,7 @@ func TestRuntimeReloadUpdatesSystemPromptFromSettings(t *testing.T) {
 	}
 	writeSettings := func(promptPath string) {
 		t.Helper()
-		body := []byte(`{"providers":[{"id":"anthropic","name":"Anthropic","method":"anthropic","enabled":true,"apiKey":"test-key","selectedModel":"claude-sonnet-4-5","models":["claude-sonnet-4-5"],"enabledModels":["claude-sonnet-4-5"]}],"activeProviderId":"anthropic","cometmind":{"systemPromptPath":"` + promptPath + `"}}`)
+		body := []byte(`{"providers":[{"id":"anthropic","name":"Anthropic","method":"anthropic","enabled":true,"apiKey":"test-key","selectedModel":"claude-sonnet-4-5","models":["claude-sonnet-4-5"],"enabledModels":["claude-sonnet-4-5"]}],"defaultProviderId":"anthropic","defaultModelId":"claude-sonnet-4-5","cometmind":{"systemPromptPath":"` + promptPath + `"}}`)
 		if err := os.WriteFile(settingsPath, body, 0o600); err != nil {
 			t.Fatalf("write settings: %v", err)
 		}

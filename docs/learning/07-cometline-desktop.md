@@ -137,7 +137,7 @@ Key sections:
 
 | File | Section | Contents |
 |------|---------|----------|
-| settings | `providers[]`, `activeProviderId`, `defaultModelId` / `defaultProviderId` | Provider configs and default model roles |
+| settings | `providers[]`, `defaultModelId` / `defaultProviderId` | Provider configs and default model roles |
 | settings | `cometmind` | maxTokens, ACP/harness, MCP, memory, jobs, autonomy, scheduler, storage, gateway |
 | desktop | `appearance` | Hero glow, caret trail, … |
 | desktop | `shortcuts` | Keyboard bindings |

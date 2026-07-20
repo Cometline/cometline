@@ -35,7 +35,6 @@ func Catalog() []FieldMeta {
 	return []FieldMeta{
 		{Path: "providers", Secret: false, ApplyClass: ApplyReload, Description: "LLM provider configs (API keys are secret leaf fields)"},
 		{Path: "providers[].apiKey", Secret: true, ApplyClass: ApplyReload, Description: "Provider API key"},
-		{Path: "activeProviderId", Secret: false, ApplyClass: ApplyReload, Description: "Active provider id"},
 		{Path: "defaultModelId", Secret: false, ApplyClass: ApplyReload, Description: "Default model id for new sessions"},
 		{Path: "defaultProviderId", Secret: false, ApplyClass: ApplyReload, Description: "Default provider id for new sessions"},
 		{Path: "cometmind.acp", Secret: false, ApplyClass: ApplyReload, Description: "Coding-harness delegation"},
@@ -121,7 +120,7 @@ func Classify(before, after map[string]any) (ClassifyResult, error) {
 	cometmindSansGatewayEqual := equalSans(before["cometmind"], after["cometmind"], "gateway")
 	providersEqual := canonicalizeEqual(before["providers"], after["providers"])
 	otherTopEqual := true
-	for _, key := range []string{"activeProviderId", "defaultModelId", "defaultProviderId"} {
+	for _, key := range []string{"defaultModelId", "defaultProviderId"} {
 		if changedAt(before, after, key) {
 			otherTopEqual = false
 			break
@@ -131,7 +130,7 @@ func Classify(before, after map[string]any) (ClassifyResult, error) {
 	// as reload-worthy when they change.
 	for k := range after {
 		switch k {
-		case "providers", "activeProviderId", "defaultModelId", "defaultProviderId", "cometmind", "appearance", "shortcuts", "app":
+		case "providers", "defaultModelId", "defaultProviderId", "cometmind", "appearance", "shortcuts", "app":
 			continue
 		default:
 			if changedAt(before, after, k) {

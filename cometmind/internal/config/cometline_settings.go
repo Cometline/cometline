@@ -181,7 +181,7 @@ type cometlineCometmindJSON struct {
 
 type cometlineSettingsJSON struct {
 	Providers         []cometlineProviderJSON `json:"providers"`
-	ActiveProviderID  string                  `json:"activeProviderId"`
+	ActiveProviderID  string                  `json:"activeProviderId,omitempty"` // legacy read-only; stripped on write
 	DefaultProviderID string                  `json:"defaultProviderId"`
 	DefaultModelID    string                  `json:"defaultModelId"`
 	Cometmind         cometlineCometmindJSON  `json:"cometmind"`
@@ -539,7 +539,8 @@ func writeMinimalCometlineSettingsJSON(path string, def *Config) error {
 				SelectedModel: def.Model,
 			},
 		},
-		ActiveProviderID: def.Provider,
+		DefaultProviderID: def.Provider,
+		DefaultModelID:    def.Model,
 		Cometmind: cometlineCometmindJSON{
 			SystemPromptPath:   def.SystemPromptPath,
 			MaxTokens:          def.MaxTokens,

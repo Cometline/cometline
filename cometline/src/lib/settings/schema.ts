@@ -1095,21 +1095,6 @@ export function normalizeProvider(
 	};
 }
 
-/** Runtime active provider: first enabled with models, else preferred id, else sidebar order. */
-export function resolveActiveProviderId(providers: ProviderConfig[], preferredId?: string): string {
-	const preferred = preferredId
-		? providers.find((provider) => provider.id === preferredId)
-		: undefined;
-	if (preferred?.enabled && preferred.enabledModels.length > 0) {
-		return preferred.id;
-	}
-	const enabledWithModels = providers.find(
-		(provider) => provider.enabled && provider.enabledModels.length > 0
-	);
-	if (enabledWithModels) return enabledWithModels.id;
-	return providers[0]?.id ?? '';
-}
-
 export function normalizeProviders(
 	providers: Partial<ProviderConfig>[] | undefined
 ): ProviderConfig[] {
@@ -1165,17 +1150,23 @@ export function migrateSingleProvider(
 				enabledModels: saved.selectedModel ? [String(saved.selectedModel).trim()] : []
 			}
 		],
-		activeProviderId: id
+		defaultProviderId: id,
+		defaultModelId: String(saved.selectedModel || '').trim()
 	};
 }
 
+/** Legacy settings files may still carry activeProviderId; read-only for migration. */
+export type SettingsNormalizeInput = Partial<ProviderSettings> & {
+	activeProviderId?: string;
+};
+
 export function defaultSettings(): ProviderSettings {
 	const providers = DEFAULT_PROVIDERS.map(cloneProvider);
+	const { defaultProviderId, defaultModelId } = resolveDefaultModelPair(providers);
 	return {
 		providers,
-		activeProviderId: resolveActiveProviderId(providers),
-		defaultModelId: '',
-		defaultProviderId: '',
+		defaultModelId,
+		defaultProviderId,
 		appearance: defaultAppearance(),
 		shortcuts: defaultKeyboardShortcuts(),
 		app: defaultAppSettings(),
@@ -1189,11 +1180,11 @@ export interface NormalizeSettingsOptions {
 }
 
 export function normalizeSettings(
-	next: Partial<ProviderSettings>,
+	next: SettingsNormalizeInput,
 	options: NormalizeSettingsOptions = {}
 ): ProviderSettings {
 	const providers = normalizeProviders(next.providers);
-	const { defaultProviderId, defaultModelId, activeProviderId } = resolveDefaultModelPair(
+	const { defaultProviderId, defaultModelId } = resolveDefaultModelPair(
 		providers,
 		next.defaultProviderId,
 		next.defaultModelId,
@@ -1209,8 +1200,6 @@ export function normalizeSettings(
 	const customPersonas = normalizeCustomPersonaList(next.app?.personas?.custom);
 	return {
 		providers,
-		// Mirror Default into activeProviderId for legacy Electron/env readers.
-		activeProviderId,
 		defaultModelId,
 		defaultProviderId,
 		appearance: {
@@ -1264,7 +1253,7 @@ export function resolveDefaultModelPair(
 	preferredDefaultProviderId?: string,
 	preferredDefaultModelId?: string,
 	legacyActiveProviderId?: string
-): { defaultProviderId: string; defaultModelId: string; activeProviderId: string } {
+): { defaultProviderId: string; defaultModelId: string } {
 	const runtime = providers.filter((p) => p.enabled && p.enabledModels.length > 0);
 	const byId = new Map(runtime.map((p) => [p.id, p]));
 
@@ -1286,9 +1275,7 @@ export function resolveDefaultModelPair(
 
 	return {
 		defaultProviderId,
-		defaultModelId,
-		// Keep active mirrored to Default so legacy env/readers stay consistent.
-		activeProviderId: defaultProviderId
+		defaultModelId
 	};
 }
 
@@ -1303,10 +1290,7 @@ export function runtimeProviders(settings: ProviderSettings): ProviderConfig[] {
 export function runtimeSlice(settings: ProviderSettings): RuntimeSettingsSlice | null {
 	const providers = runtimeProviders(settings);
 	const active =
-		providers.find((p) => p.id === settings.defaultProviderId) ??
-		providers.find((p) => p.id === settings.activeProviderId) ??
-		providers[0] ??
-		null;
+		providers.find((p) => p.id === settings.defaultProviderId) ?? providers[0] ?? null;
 	if (!active) return null;
 
 	const model =
@@ -1371,7 +1355,6 @@ const providerConfigSchema = z.object({
 
 const providerSettingsSchema = z.object({
 	providers: z.array(providerConfigSchema).min(1),
-	activeProviderId: z.string(),
 	defaultModelId: z.string(),
 	defaultProviderId: z.string(),
 	appearance: z.object({

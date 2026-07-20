@@ -1700,7 +1700,7 @@ function attachWebviewPanelShortcuts(webContents) {
 
 function readProviderSettings() {
 	const fromEnv = {
-		activeProviderId: process.env.COMETMIND_PROVIDER,
+		providerId: process.env.COMETMIND_PROVIDER,
 		baseURL: process.env.COMETMIND_BASE_URL,
 		apiKey:
 			process.env.COMETMIND_API_KEY ||
@@ -1711,13 +1711,20 @@ function readProviderSettings() {
 
 	const base = readSavedProviderSettings();
 
-	// Allow env overrides for the active provider only. Apply provider first so
+	// Allow env overrides for the default provider. Apply provider first so
 	// key/baseURL/model attach to the provider selected by COMETMIND_PROVIDER.
-	if (fromEnv.activeProviderId) {
-		const matched = base.providers.find((p) => p.id === fromEnv.activeProviderId.trim());
-		if (matched) base.activeProviderId = matched.id;
+	if (fromEnv.providerId) {
+		const matched = base.providers.find((p) => p.id === fromEnv.providerId.trim());
+		if (matched) {
+			base.defaultProviderId = matched.id;
+			if (!base.defaultModelId || !matched.enabledModels.includes(base.defaultModelId)) {
+				base.defaultModelId =
+					matched.enabledModels[0] || matched.selectedModel || matched.models[0] || '';
+			}
+		}
 	}
-	const active = base.providers.find((p) => p.id === base.activeProviderId) ?? base.providers[0];
+	const active =
+		base.providers.find((p) => p.id === base.defaultProviderId) ?? base.providers[0];
 	if (fromEnv.baseURL) active.baseURL = fromEnv.baseURL.trim();
 	if (fromEnv.apiKey) active.apiKey = fromEnv.apiKey.trim();
 	if (fromEnv.selectedModel) {
@@ -1726,6 +1733,7 @@ function readProviderSettings() {
 		active.enabled = true;
 		if (model && !active.models.includes(model)) active.models = [...active.models, model];
 		if (model && !active.enabledModels.includes(model)) active.enabledModels = [model];
+		base.defaultModelId = model;
 	}
 
 	return base;
@@ -1754,8 +1762,7 @@ function writeProviderSettings(settings) {
 	const runtimeProviders = nextProviders.filter((p) => p.enabled && p.enabledModels.length > 0);
 	let nextDefaultProvider =
 		runtimeProviders.find((p) => p.id === preferredDefaultProvider) ??
-		runtimeProviders.find((p) => p.id === settings.activeProviderId) ??
-		runtimeProviders.find((p) => p.id === current.activeProviderId) ??
+		runtimeProviders.find((p) => p.id === current.defaultProviderId) ??
 		runtimeProviders[0] ??
 		nextProviders[0];
 	const nextDefaultProviderId = nextDefaultProvider?.id ?? '';
@@ -1778,8 +1785,6 @@ function writeProviderSettings(settings) {
 		normalizeSettings(
 			{
 				providers: nextProviders,
-				// Mirror Default into active for legacy readers.
-				activeProviderId: nextDefaultProviderId,
 				defaultModelId: nextDefaultModelId,
 				defaultProviderId: nextDefaultProviderId,
 				appearance: settings.appearance ?? current.appearance,
@@ -1869,7 +1874,6 @@ function providerEnv() {
 	const defaultId = String(settings.defaultProviderId || '').trim();
 	const active =
 		runtimeProviders.find((p) => p.id === defaultId) ??
-		runtimeProviders.find((p) => p.id === settings.activeProviderId) ??
 		runtimeProviders[0] ??
 		settings.providers[0];
 	const model =

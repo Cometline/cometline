@@ -24,7 +24,6 @@ export function cloneShortcuts(settings: ProviderSettings): ProviderSettings['sh
 export function cloneSettings(settings: ProviderSettings): ProviderSettings {
 	return {
 		providers: settings.providers.map(cloneProvider),
-		activeProviderId: settings.activeProviderId,
 		defaultModelId: settings.defaultModelId ?? '',
 		defaultProviderId: settings.defaultProviderId ?? '',
 		appearance: {
@@ -57,15 +56,13 @@ export function cloneSettings(settings: ProviderSettings): ProviderSettings {
 }
 
 export function providerPayloadFromDraft(draft: ProviderSettings): ProviderSettings {
-	const { defaultProviderId, defaultModelId, activeProviderId } = resolveDefaultModelPair(
+	const { defaultProviderId, defaultModelId } = resolveDefaultModelPair(
 		draft.providers,
 		draft.defaultProviderId,
-		draft.defaultModelId,
-		draft.activeProviderId
+		draft.defaultModelId
 	);
 	return {
 		providers: draft.providers.map(cloneProvider),
-		activeProviderId,
 		defaultModelId,
 		defaultProviderId,
 		appearance: {

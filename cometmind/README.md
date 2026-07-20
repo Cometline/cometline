@@ -373,7 +373,8 @@ Example JSON shape (Cometline writes the full file from Settings):
       "selectedModel": "gpt-4o"
     }
   ],
-  "activeProviderId": "my-gateway",
+  "defaultProviderId": "my-gateway",
+  "defaultModelId": "gpt-4o",
   "cometmind": {
     "systemPromptPath": "/path/to/SOUL.md",
     "memory": { "embedding": { "providerId": "", "model": "" } },
