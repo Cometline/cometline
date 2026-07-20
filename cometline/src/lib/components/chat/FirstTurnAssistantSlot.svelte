@@ -64,6 +64,7 @@
 				label={assistantThinkingWait(undefined, stackContext.now).label}
 				detail={assistantThinkingWait(undefined, stackContext.now).detail}
 				color={stackContext.heroGlowColor}
+				phase={firstAssistantItem?.activityPhase}
 			/>
 		</div>
 	{:else}

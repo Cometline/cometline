@@ -112,6 +112,7 @@
 			label={thinkingWait.label}
 			detail={thinkingWait.detail}
 			color={context.heroGlowColor}
+			phase={item.activityPhase}
 		/>
 	{/if}
 </div>

@@ -1,19 +1,25 @@
 <script lang="ts">
 	import ThinkingIndicator from '$lib/components/ThinkingIndicator.svelte';
+	import { createStickyThinkingIndicator } from '$lib/components/sticky-thinking-variant.svelte';
 
 	let {
 		label,
 		detail,
-		color
+		color,
+		phase
 	}: {
 		label: string;
 		detail: string;
 		color?: string;
+		/** Wire turn-status phase; drives sticky celestial variant. */
+		phase?: string;
 	} = $props();
+
+	const indicator = createStickyThinkingIndicator(() => phase);
 </script>
 
 <div class="assistant-thinking-wait" aria-live="polite" aria-busy="true">
-	<ThinkingIndicator size={24} {label} {color} />
+	<ThinkingIndicator size={24} {label} {color} variant={indicator.variant} />
 	<div class="assistant-thinking-copy">
 		<p class="assistant-thinking-detail">{detail}</p>
 	</div>
@@ -53,7 +59,7 @@
 		-webkit-background-clip: text;
 		color: transparent;
 		-webkit-text-fill-color: transparent;
-		animation: thinking-detail-shimmer 1.8s ease-in-out infinite;
+		animation: thinking-detail-shimmer 3.6s ease-in-out infinite;
 	}
 
 	@keyframes thinking-detail-shimmer {
