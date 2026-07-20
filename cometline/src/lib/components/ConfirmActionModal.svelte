@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { fade, scale } from 'svelte/transition';
-
 	let {
 		open = false,
 		title,
@@ -15,63 +13,51 @@
 		confirmLabel: string;
 		onCancel: () => void;
 		onConfirm: () => void;
-	} = $props();
+		} = $props();
 
-	function onKeydown(event: KeyboardEvent) {
-		if (!open) return;
-		if (event.key === 'Escape') {
-			event.preventDefault();
-			onCancel();
-		}
+	function openModal(dialog: HTMLDialogElement) {
+		dialog.showModal();
+		return () => dialog.close();
+	}
+
+	function cancel(event: Event) {
+		event.preventDefault();
+		onCancel();
+	}
+
+	function cancelOnBackdrop(event: MouseEvent) {
+		if (event.target === event.currentTarget) onCancel();
 	}
 </script>
 
-<svelte:window onkeydown={onKeydown} />
-
 {#if open}
-	<div class="confirm-layer" transition:fade={{ duration: 120 }}>
-		<button type="button" class="confirm-scrim" aria-label="Cancel" onclick={onCancel}></button>
-		<div
-			class="confirm-modal"
-			role="alertdialog"
-			aria-modal="true"
-			transition:scale={{ start: 0.96, duration: 140 }}
-		>
-			<img class="app-icon" src="/project_avatar_96.png" alt="" width="56" height="56" />
-			<h2>{title}</h2>
-			<p>{description}</p>
-			<div class="actions">
-				<button type="button" class="btn muted" onclick={onCancel}
-					>Cancel <span class="key-hint">esc</span></button
-				>
-				<button type="button" class="btn danger" onclick={onConfirm}>{confirmLabel}</button>
-			</div>
+	<dialog
+		{@attach openModal}
+		class="confirm-modal"
+		oncancel={cancel}
+		onclick={cancelOnBackdrop}
+		aria-labelledby="confirm-modal-title"
+		aria-describedby="confirm-modal-description"
+	>
+		<img class="app-icon" src="/project_avatar_96.png" alt="" width="56" height="56" />
+		<h2 id="confirm-modal-title">{title}</h2>
+		<p id="confirm-modal-description">{description}</p>
+		<div class="actions">
+			<button type="button" class="btn muted" onclick={onCancel}
+				>Cancel <span class="key-hint">esc</span></button
+			>
+			<button type="button" class="btn danger" onclick={onConfirm}>{confirmLabel}</button>
 		</div>
-	</div>
+	</dialog>
 {/if}
 
 <style>
-	.confirm-layer {
-		position: fixed;
-		inset: 0;
-		z-index: 120;
-		display: grid;
-		place-items: center;
-		padding: 24px;
-		pointer-events: none;
-	}
-	.confirm-scrim {
-		position: fixed;
-		inset: 0;
-		border: none;
-		background: rgba(17, 24, 39, 0.32);
-		backdrop-filter: blur(8px);
-		pointer-events: auto;
-		cursor: default;
-	}
 	.confirm-modal {
-		position: relative;
-		z-index: 1;
+		position: fixed;
+		top: 50%;
+		left: 50%;
+		margin: 0;
+		transform: translate(-50%, -50%);
 		width: min(440px, calc(100vw - 48px));
 		padding: 22px 22px 16px;
 		border: 1px solid color-mix(in srgb, var(--border-soft) 80%, transparent);
@@ -79,7 +65,10 @@
 		background: rgba(250, 250, 249, 0.98);
 		box-shadow: 0 18px 48px rgba(15, 23, 42, 0.18);
 		text-align: left;
-		pointer-events: auto;
+	}
+	.confirm-modal::backdrop {
+		background: rgba(17, 24, 39, 0.32);
+		backdrop-filter: blur(8px);
 	}
 	.app-icon {
 		display: block;
