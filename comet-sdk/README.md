@@ -49,7 +49,7 @@ Comet SDK gives you a single `Provider` interface that works identically for Ant
 - Multimodal user input (`ImageBlock` with base64 data URLs)
 - Tool calling with full delta assembly
 - Provider-specific message normalisation
-- Automatic retry with exponential backoff (429, 5xx, Anthropic 529)
+- Automatic retry with exponential backoff (400, 429, 5xx, Anthropic 529)
 - Token usage tracking, including Anthropic prompt-cache fields
 - Structured debug logging via `log/slog`
 

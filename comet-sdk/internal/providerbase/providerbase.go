@@ -53,14 +53,16 @@ func ClassifyHTTPError(providerID string, resp *http.Response, body []byte) erro
 	}
 }
 
-// IsRetryable reports whether err should be retried: rate limits always, and
-// the transient 5xx/529 server errors.
+// IsRetryable reports whether err should be retried: rate limits always,
+// HTTP 400 (gateways often wrap upstream/transient failures as 400), and
+// the transient 5xx/529 server errors. Auth (401/403) and other 4xx stay
+// non-retryable.
 func IsRetryable(err error) bool {
 	switch e := err.(type) {
 	case *cometsdk.RateLimitError:
 		return true
 	case *cometsdk.ServerError:
-		return e.StatusCode == 500 || e.StatusCode == 502 ||
+		return e.StatusCode == 400 || e.StatusCode == 500 || e.StatusCode == 502 ||
 			e.StatusCode == 503 || e.StatusCode == 504 || e.StatusCode == 529
 	}
 	return false
