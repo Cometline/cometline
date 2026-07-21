@@ -392,14 +392,16 @@
 			class:docked={!heroLayout}
 			in:fade={firstTurnActive ? { duration: 0 } : THREAD_IN}
 		>
-			<ChatThread
-				{sessionId}
-				{awaitingFirstAssistant}
-				{firstTurnFlightDone}
-				{firstTurnHandoffPending}
-				onNotifyAgent={submit}
-				onStartJob={startJobFromCard}
-			/>
+			{#key sessionId}
+				<ChatThread
+					{sessionId}
+					{awaitingFirstAssistant}
+					{firstTurnFlightDone}
+					{firstTurnHandoffPending}
+					onNotifyAgent={submit}
+					onStartJob={startJobFromCard}
+				/>
+			{/key}
 		</div>
 	{/if}
 
