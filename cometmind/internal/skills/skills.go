@@ -202,7 +202,11 @@ func (r Registry) PromptIndex() string {
 		return ""
 	}
 	var b strings.Builder
-	b.WriteString("\n\n## Available Skills\nUse `load_skill` when the user's task matches one of these skills. Load the full skill before following it; do not assume details from the summary alone.\nIf a request is vague or ambiguous but plausibly falls within a skill's domain, proactively mention the relevant skill and offer to use it before asking for more detail or guessing — for example: \"I have a skill called `setup-cometline` that handles this; want me to use it?\"\n")
+	b.WriteString("\n\n## Available Skills\n")
+	b.WriteString("Use `load_skill` when the user's task matches one of these skills. Load the full skill before following it; do not assume details from the summary alone.\n")
+	b.WriteString("If a request is vague or ambiguous but plausibly falls within a skill's domain, proactively mention the relevant skill and offer to use it before asking for more detail or guessing — for example: \"I have a skill called `setup-cometline` that handles this; want me to use it?\"\n")
+	b.WriteString("When a conversation produces a clear, reusable, already-validated multi-step workflow, offer to save it as an Agent Skill draft. If the user agrees or asks to remember a workflow as a skill, use `write_skill_draft` (never `write_skill`) so it stays pending human review. Skip one-off fixes and unverified advice.\n")
+	b.WriteString("Before creating a draft, the runtime compares against managed skills and pending drafts; near-duplicates are blocked. When blocked, tell the user about the overlaps and ask before re-calling with `force=true`, or update an existing same-name draft with `overwrite=true`.\n")
 	for _, skill := range r.Skills {
 		if skill.Internal {
 			continue

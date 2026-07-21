@@ -54,6 +54,17 @@ func ProposeSkillFromJob(ctx context.Context, p cometsdk.Provider, model string,
 	if name == "" || content == "" {
 		return fmt.Errorf("synthesis proposal missing name or content")
 	}
+	description := SkillMarkdownDescription(content)
+	related, err := FindRelatedManagedSkills(name, description)
+	if err != nil {
+		return err
+	}
+	// Same-name draft may be refreshed; any other blocking overlap skips (no force on auto path).
+	related = FilterSelfDraftOverwrite(related, name, true)
+	if ShouldBlockOverlap(related) {
+		logging.L().Info("skills.synthesis.skipped", "job_id", job.ID, "reason", "overlap:"+FormatOverlapBlock(related))
+		return nil
+	}
 	if err := WriteDraft(name, content, true); err != nil {
 		return err
 	}
