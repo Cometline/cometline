@@ -106,3 +106,30 @@ func TestProposeSkillFromJobRetriesAfterInvalidJSON(t *testing.T) {
 		t.Fatalf("expected exactly 2 synthesis attempts, got %d", p.i)
 	}
 }
+
+func TestProposeSkillFromJobSkipsOnManagedOverlap(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	live := `---
+name: pr-review
+description: Review pull requests for this repository
+---
+
+Body.
+`
+	if err := WriteSkill("pr-review", live, false); err != nil {
+		t.Fatalf("WriteSkill: %v", err)
+	}
+	json := `{"should_propose":true,"name":"go-pr-review","content":"---\nname: go-pr-review\ndescription: Specialized Go pull request checklist\n---\n\n## Trigger\nUse for Go PRs.","reason":"reusable"}`
+	job := SynthesisJob{ID: "job-1", Description: "Codify Go PR review"}
+	if err := ProposeSkillFromJob(context.Background(), synthesisProvider{text: json}, "test-model", job, nil); err != nil {
+		t.Fatalf("ProposeSkillFromJob() error = %v", err)
+	}
+	drafts, err := ListDrafts()
+	if err != nil {
+		t.Fatalf("ListDrafts: %v", err)
+	}
+	if len(drafts) != 0 {
+		t.Fatalf("expected overlap skip with no draft, got %+v", drafts)
+	}
+}
+

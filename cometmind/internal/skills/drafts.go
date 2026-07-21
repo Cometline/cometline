@@ -148,6 +148,15 @@ func WriteDraft(name, content string, overwrite bool) error {
 	return os.WriteFile(skillPath, []byte(content), 0o644)
 }
 
+// SkillMarkdownDescription returns the YAML description field from SKILL.md content.
+func SkillMarkdownDescription(content string) string {
+	fm, _, err := parseFrontmatter(content)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(fm.Description)
+}
+
 // PromoteDraft validates and copies a draft into ~/.cometmind/skills, then removes it.
 func PromoteDraft(name string) error {
 	_, content, err := DraftMarkdown(name)

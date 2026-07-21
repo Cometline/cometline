@@ -60,8 +60,21 @@ func TestDiscoverIncludesBundledSetupSkill(t *testing.T) {
 	if skill.Internal {
 		t.Fatal("setup-cometline should be visible to users")
 	}
-	if !strings.Contains(reg.PromptIndex(), "setup-cometline") {
+	idx := reg.PromptIndex()
+	if !strings.Contains(idx, "setup-cometline") {
 		t.Fatal("prompt index should include setup-cometline")
+	}
+	if !strings.Contains(idx, "write_skill_draft") || !strings.Contains(idx, "never `write_skill`") {
+		t.Fatalf("prompt index should nudge draft authoring: %q", idx)
+	}
+	if !strings.Contains(idx, "force=true") {
+		t.Fatalf("prompt index should mention overlap force gate: %q", idx)
+	}
+}
+
+func TestPromptIndexEmptyWhenNoSkills(t *testing.T) {
+	if got := (Registry{}).PromptIndex(); got != "" {
+		t.Fatalf("PromptIndex() = %q, want empty", got)
 	}
 }
 
