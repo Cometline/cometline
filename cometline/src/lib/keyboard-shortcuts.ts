@@ -378,6 +378,8 @@ export function matchesShortcut(
 	if (expectsCommand) {
 		const hasCommand = event.ctrlKey || event.metaKey;
 		if (!hasCommand) return false;
+		// ⌘-style bindings must not swallow ⌃⌘ chords (e.g. macOS ⌃⌘F fullscreen).
+		if (binding.ctrl !== true && event.ctrlKey && event.metaKey) return false;
 		if (binding.alt !== undefined ? binding.alt !== event.altKey : event.altKey) return false;
 		if (binding.shift !== undefined ? binding.shift !== event.shiftKey : event.shiftKey)
 			return false;

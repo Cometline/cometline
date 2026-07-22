@@ -6,7 +6,7 @@ const shared = {
 	packages: 'external',
 	platform: 'node',
 	target: 'node22',
-	sourcemap: true,
+	sourcemap: false,
 	logLevel: 'info'
 };
 

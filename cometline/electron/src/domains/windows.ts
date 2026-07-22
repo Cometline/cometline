@@ -14,23 +14,19 @@ import type os from 'node:os';
 import type path from 'node:path';
 
 import { APP_ORIGIN } from './app-protocol.js';
+import { mainWindowMinWidthForWorkArea, miniWindowOriginForWorkArea, miniWindowSizeForWorkArea } from './window-bounds.js';
 import { isExternallyOpenableUrl } from './workspace-preview.js';
 
 const MACOS_LOGIN_ITEMS_SETTINGS_URL =
 	'x-apple.systempreferences:com.apple.LoginItems-Settings.extension';
-const MIN_WINDOW_WIDTH = 560;
 const MIN_WINDOW_HEIGHT = 620;
-const MINI_WINDOW_WIDTH = 460;
-const MINI_WINDOW_HEIGHT = 640;
-const MINI_WINDOW_MIN_WIDTH = 360;
-const MINI_WINDOW_MIN_HEIGHT = 440;
-const SETTINGS_WINDOW_WIDTH = 1040;
+const MINI_WINDOW_SCREEN_MARGIN = 18;
 const SETTINGS_WINDOW_HEIGHT = 760;
 const SETTINGS_WINDOW_MIN_WIDTH = 900;
 const SETTINGS_WINDOW_MIN_HEIGHT = 640;
 const SETTINGS_WINDOW_MAX_WIDTH = 1280;
 const SETTINGS_WINDOW_MAX_HEIGHT = 920;
-const MINI_WINDOW_SCREEN_MARGIN = 18;
+const SETTINGS_WINDOW_WIDTH = 1040;
 const AUXILIARY_WINDOW_ACTIVATE_SUPPRESS_MS = 1000;
 
 type BrowserWindowFactory = new (options: BrowserWindowConstructorOptions) => BrowserWindow;
@@ -136,21 +132,26 @@ export function createWindows(dependencies: WindowsDependencies) {
 		});
 	}
 
-	function positionMiniWindowBottomRight() {
+	function displayAtCursor() {
+		const cursorPoint = screen.getCursorScreenPoint();
+		return screen.getDisplayNearestPoint(cursorPoint);
+	}
+
+	function resolveMainWindowMinWidth() {
+		return mainWindowMinWidthForWorkArea(displayAtCursor().workArea.width);
+	}
+
+	function layoutMiniWindowOnCursorDisplay() {
 		const window = miniWindow;
 		if (!windowCanShow(window)) return;
-		const cursorPoint = screen.getCursorScreenPoint();
-		const display = screen.getDisplayNearestPoint(cursorPoint);
-		const { width, height } = window.getBounds();
-		window.setPosition(
-			Math.round(
-				display.workArea.x + display.workArea.width - width - MINI_WINDOW_SCREEN_MARGIN
-			),
-			Math.round(
-				display.workArea.y + display.workArea.height - height - MINI_WINDOW_SCREEN_MARGIN
-			),
-			false
+		const display = displayAtCursor();
+		const size = miniWindowSizeForWorkArea(
+			display.workArea.width,
+			display.workArea.height,
+			MINI_WINDOW_SCREEN_MARGIN
 		);
+		const origin = miniWindowOriginForWorkArea(display.workArea, size, MINI_WINDOW_SCREEN_MARGIN);
+		window.setBounds({ ...origin, ...size }, false);
 	}
 
 	function suppressSpuriousActivate() {
@@ -209,7 +210,7 @@ export function createWindows(dependencies: WindowsDependencies) {
 		const window = new BrowserWindow({
 			width: 1200,
 			height: 800,
-			minWidth: MIN_WINDOW_WIDTH,
+			minWidth: resolveMainWindowMinWidth(),
 			minHeight: MIN_WINDOW_HEIGHT,
 			titleBarStyle: 'hidden',
 			...(platform === 'darwin'
@@ -263,11 +264,15 @@ export function createWindows(dependencies: WindowsDependencies) {
 
 	async function createMiniWindow() {
 		const appIcon = getAppIconImage(getPersonaId());
+		const display = displayAtCursor();
+		const miniSize = miniWindowSizeForWorkArea(
+			display.workArea.width,
+			display.workArea.height,
+			MINI_WINDOW_SCREEN_MARGIN
+		);
 		const window = new BrowserWindow({
-			width: MINI_WINDOW_WIDTH,
-			height: MINI_WINDOW_HEIGHT,
-			minWidth: MINI_WINDOW_MIN_WIDTH,
-			minHeight: MINI_WINDOW_MIN_HEIGHT,
+			width: miniSize.width,
+			height: miniSize.height,
 			resizable: false,
 			titleBarStyle: platform === 'darwin' ? 'hidden' : 'default',
 			...(platform === 'darwin'
@@ -294,10 +299,10 @@ export function createWindows(dependencies: WindowsDependencies) {
 		applyMiniWindowPresentation(window);
 		attachExternalNavigationGuards(window);
 		shortcuts.attachMiniWindowShortcuts(window.webContents);
-		positionMiniWindowBottomRight();
+		layoutMiniWindowOnCursorDisplay();
 		await loadAppRoute(window, '/mini');
 		window.once('ready-to-show', () => {
-			positionMiniWindowBottomRight();
+			layoutMiniWindowOnCursorDisplay();
 			applyMiniWindowPresentation();
 			miniWindow?.show();
 			miniWindow?.focus();
@@ -379,6 +384,7 @@ export function createWindows(dependencies: WindowsDependencies) {
 			return;
 		}
 		if (window.isMinimized()) window.restore();
+		layoutMiniWindowOnCursorDisplay();
 		applyMiniWindowPresentation();
 		window.show();
 		window.focus();
