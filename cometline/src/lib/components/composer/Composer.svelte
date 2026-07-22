@@ -34,7 +34,6 @@
 
 	let {
 		onSend,
-		onLocalUserMessage,
 		onStop,
 		onRemoveQueued,
 		onModelChange,
@@ -49,7 +48,6 @@
 		autofocus = true
 	}: {
 		onSend: (payload: ChatTurnPayload | string) => void;
-		onLocalUserMessage?: (text: string) => void;
 		onStop?: () => void;
 		onRemoveQueued?: (id: string) => void;
 		onModelChange?: (option: ModelOption) => void | Promise<void>;
@@ -186,7 +184,6 @@
 			images = next;
 		},
 		sendTurn: (payload) => inputController.sendTurn(payload),
-		onLocalUserMessage: (text) => onLocalUserMessage?.(text),
 		onModelChange: (option) => onModelChange?.(option),
 		onWorkspaceChanged: () => onWorkspaceChanged?.(),
 		onTranscriptCleared: () => onTranscriptCleared?.(),

@@ -43,4 +43,23 @@ describe('sessionVisitHistory', () => {
 		expect(sessionVisitHistory.goForward(exists)).toBe('d');
 		expect(sessionVisitHistory.stack).toEqual(['a', 'b', 'd']);
 	});
+
+	it('returns the current visit without moving history', () => {
+		sessionVisitHistory.recordVisit('a');
+		sessionVisitHistory.recordVisit('b');
+		sessionVisitHistory.recordVisit('c');
+		expect(sessionVisitHistory.mostRecent(() => true)).toBe('c');
+		expect(sessionVisitHistory.goBack(() => true)).toBe('b');
+		expect(sessionVisitHistory.mostRecent(() => true)).toBe('b');
+		expect(sessionVisitHistory.index).toBe(1);
+	});
+
+	it('skips missing sessions when peeking most recent', () => {
+		sessionVisitHistory.recordVisit('a');
+		sessionVisitHistory.recordVisit('gone');
+		const exists = (id: string) => id !== 'gone';
+		expect(sessionVisitHistory.mostRecent(exists)).toBe('a');
+		expect(sessionVisitHistory.stack).toEqual(['a', 'gone']);
+		expect(sessionVisitHistory.index).toBe(1);
+	});
 });

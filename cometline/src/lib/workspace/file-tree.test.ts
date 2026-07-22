@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildFileTree } from './file-tree';
+import { buildFileTree, dirKeysToExpandForPaths } from './file-tree';
 
 describe('buildFileTree', () => {
 	it('returns an empty tree for empty input', () => {
@@ -46,5 +46,20 @@ describe('buildFileTree', () => {
 
 	it('ignores blank paths', () => {
 		expect(buildFileTree(['', '  ', 'ok.md'])).toEqual([{ name: 'ok.md', path: 'ok.md' }]);
+	});
+});
+
+describe('dirKeysToExpandForPaths', () => {
+	it('expands each ancestor directory for nested matches', () => {
+		expect(dirKeysToExpandForPaths(['src/lib/foo.ts', 'README.md', 'a/b/c.md'])).toEqual({
+			src: true,
+			'src/lib': true,
+			a: true,
+			'a/b': true
+		});
+	});
+
+	it('returns an empty map for root-level files only', () => {
+		expect(dirKeysToExpandForPaths(['a.md', 'b.md'])).toEqual({});
 	});
 });

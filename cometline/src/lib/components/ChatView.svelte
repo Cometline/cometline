@@ -274,10 +274,6 @@
 		return () => window.clearInterval(interval);
 	});
 
-	function showLocalUserMessage(text: string) {
-		chatStore.appendLocalUserMessage(sessionId, text);
-	}
-
 	function stop() {
 		chatView.stop();
 	}
@@ -437,7 +433,6 @@
 			<Composer
 				bind:this={composerRef}
 				onSend={submit}
-				onLocalUserMessage={showLocalUserMessage}
 				onStop={stop}
 				onRemoveQueued={removeQueuedMessage}
 				{onModelChange}

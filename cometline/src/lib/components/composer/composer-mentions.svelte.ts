@@ -124,6 +124,12 @@ export function createComposerMentionsController(deps: {
 
 	$effect(() => {
 		if (!mentionMenuOpen) return;
+		void queryTrimmed;
+		mentionHighlight = 0;
+	});
+
+	$effect(() => {
+		if (!mentionMenuOpen) return;
 		if (mentionHighlight >= filteredMentionFiles.length) {
 			mentionHighlight = Math.max(0, filteredMentionFiles.length - 1);
 		}

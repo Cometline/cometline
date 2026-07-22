@@ -41,6 +41,15 @@ function createSessionVisitHistoryStore() {
 		return null;
 	}
 
+	/** Peek the current visit pointer (or older entries) without moving history. */
+	function mostRecent(exists: (sessionId: string) => boolean): string | null {
+		for (let i = index; i >= 0; i -= 1) {
+			const id = stack[i];
+			if (exists(id)) return id;
+		}
+		return null;
+	}
+
 	function reset() {
 		stack = [];
 		index = -1;
@@ -62,6 +71,7 @@ function createSessionVisitHistoryStore() {
 		recordVisit,
 		goBack,
 		goForward,
+		mostRecent,
 		reset
 	};
 }

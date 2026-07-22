@@ -107,38 +107,6 @@
 		padding-top: 4px;
 	}
 
-	.skill-command-menu :global(.workspace-search-hint) {
-		display: flex;
-		align-items: center;
-		gap: 7px;
-		margin: 2px 2px 6px;
-		padding: 7px 10px;
-		border: 1px solid var(--border-soft);
-		border-radius: 9px;
-		background: rgba(255, 255, 255, 0.7);
-		color: var(--text-soft);
-		font-size: 12px;
-		line-height: 1.2;
-	}
-
-	.skill-command-menu :global(.workspace-search-hint svg) {
-		flex-shrink: 0;
-		color: var(--text-soft);
-	}
-
-	.skill-command-menu :global(.workspace-search-value) {
-		min-width: 0;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-		color: var(--text-main);
-		font-weight: 500;
-	}
-
-	.skill-command-menu :global(.workspace-search-placeholder) {
-		color: var(--text-soft);
-	}
-
 	.skill-command-menu :global(.workspace-option-row) {
 		display: flex;
 		align-items: stretch;

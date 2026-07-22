@@ -25,7 +25,7 @@
 	import { startNewChat } from '$lib/actions/new-chat';
 	import { openSettings } from '$lib/actions/open-settings';
 	import { navigateAdjacentSession } from '$lib/actions/navigate-adjacent-session';
-	import { navigateSessionHistory } from '$lib/actions/navigate-session-history';
+	import { navigateSessionHistory, navigateToRecentSession } from '$lib/actions/navigate-session-history';
 	import { navigateToSession } from '$lib/actions/navigate-to-session';
 	import { narrowViewportQuery, subscribeNarrowViewport } from '$lib/layout/narrow-viewport';
 	import {
@@ -172,6 +172,11 @@
 				if (shellStore.settingsOpen) shellStore.closeSettings();
 				inboxStore.toggleDrawer();
 				return;
+			case 'recentSession':
+				if (shellStore.settingsOpen) shellStore.closeSettings();
+				inboxStore.closeDrawer();
+				navigateToRecentSession();
+				return;
 		}
 	}
 
@@ -286,6 +291,11 @@
 			if (matchesShortcut(event, shortcuts.openInbox)) {
 				event.preventDefault();
 				runShortcutAction('openInbox');
+				return;
+			}
+			if (matchesShortcut(event, shortcuts.recentSession)) {
+				event.preventDefault();
+				runShortcutAction('recentSession');
 				return;
 			}
 			if (shellStore.settingsOpen) return;

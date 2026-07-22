@@ -95,7 +95,8 @@ export type ShortcutAction =
 	| 'navigateForward'
 	| 'openJobs'
 	| 'openSkillDrafts'
-	| 'openInbox';
+	| 'openInbox'
+	| 'recentSession';
 
 export interface ShortcutBinding {
 	key: string;

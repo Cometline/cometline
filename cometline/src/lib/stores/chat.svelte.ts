@@ -747,10 +747,6 @@ function createChatStore() {
 		}
 	}
 
-	function appendLocalUserMessage(targetSessionID: string, text: string) {
-		addUserToSession(targetSessionID, text);
-	}
-
 	if (browser) {
 		subscribeWindowSync((message) => {
 			if (message.type === 'chat-items') {
@@ -799,8 +795,7 @@ function createChatStore() {
 		revealStagedUser,
 		send,
 		cancel,
-		cancelSubagent,
-		appendLocalUserMessage
+		cancelSubagent
 	};
 }
 

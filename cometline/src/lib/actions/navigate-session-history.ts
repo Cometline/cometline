@@ -19,3 +19,14 @@ export function navigateSessionHistory(direction: 'back' | 'forward') {
 
 	navigateToSession(session, { fromHistory: true, commitSidebarOrder: false });
 }
+
+/** Jump to the most recently visited session from any route. */
+export function navigateToRecentSession() {
+	const targetId = sessionVisitHistory.mostRecent(sessionExists);
+	if (!targetId) return;
+
+	const session = sessionStore.sessions.find((item) => item.id === targetId);
+	if (!session) return;
+
+	navigateToSession(session);
+}

@@ -23,10 +23,6 @@ export const BUILTIN_SLASH_COMMANDS: BuiltinSlashCommand[] = [
 	{
 		name: 'job',
 		description: 'Claim a ready job and start working on it'
-	},
-	{
-		name: 'list-jobs',
-		description: 'List ready jobs in the queue'
 	}
 ];
 
@@ -65,13 +61,10 @@ export function expandBuiltinSlashCommand(
 }
 
 export function parseJobCommand(text: string): { query: string } | null {
-	const match = /^\s*\/job(?:\s+(.*))?$/i.exec(text);
-	if (!match) return null;
-	return { query: (match[1] ?? '').trim() };
-}
-
-export function parseListJobsCommand(text: string): boolean {
-	return /^\s*\/list-jobs\s*$/i.test(text);
+	// Require a trailing space so bare `/job` stays in slash autocomplete until Enter.
+	const match = /^\s*\/job(\s+(.*))?$/i.exec(text);
+	if (!match || match[1] === undefined) return null;
+	return { query: (match[2] ?? '').trim() };
 }
 
 export function filterJobOptions<T extends { id: string; description: string }>(
@@ -86,9 +79,10 @@ export function filterJobOptions<T extends { id: string; description: string }>(
 }
 
 export function parseChangeCommand(text: string): { query: string } | null {
-	const match = /^\s*\/change(?:\s+(.*))?$/i.exec(text);
-	if (!match) return null;
-	return { query: (match[1] ?? '').trim() };
+	// Require a trailing space so bare `/change` stays in slash autocomplete until Enter.
+	const match = /^\s*\/change(\s+(.*))?$/i.exec(text);
+	if (!match || match[1] === undefined) return null;
+	return { query: (match[2] ?? '').trim() };
 }
 
 export function parseClearCommand(text: string): boolean {
@@ -100,13 +94,22 @@ export function isClearCommand(text: string): boolean {
 }
 
 export function parseModelCommand(text: string): { query: string } | null {
-	const match = /^\s*\/model(?:\s+(.*))?$/i.exec(text);
-	if (!match) return null;
-	return { query: (match[1] ?? '').trim() };
+	// Require a trailing space so bare `/model` stays in slash autocomplete until Enter.
+	const match = /^\s*\/model(\s+(.*))?$/i.exec(text);
+	if (!match || match[1] === undefined) return null;
+	return { query: (match[2] ?? '').trim() };
 }
 
 export function isChangeWorkspaceCommand(text: string): boolean {
-	return parseChangeCommand(text) !== null;
+	return /^\s*\/change(?:\s.*)?$/i.test(text);
+}
+
+export function isModelCommand(text: string): boolean {
+	return /^\s*\/model(?:\s.*)?$/i.test(text);
+}
+
+export function isJobCommand(text: string): boolean {
+	return /^\s*\/job(?:\s.*)?$/i.test(text);
 }
 
 export type WorkspaceMenuOption =
@@ -163,33 +166,52 @@ export type SlashMenuOption =
 	| { kind: 'builtin'; name: string; description: string }
 	| { kind: 'skill'; name: string; description: string };
 
+export function scoreSlashMenuMatch(query: string, name: string, description: string): number {
+	const q = query.toLowerCase();
+	if (!q) return 4;
+	const n = name.toLowerCase();
+	const d = description.toLowerCase();
+	if (n === q) return 4;
+	if (n.startsWith(q)) return 3;
+	if (n.includes(q)) return 2;
+	if (d.includes(q)) return 1;
+	return 0;
+}
+
 export function filterSlashMenuOptions(
 	query: string,
 	skills: { name: string; description: string }[]
 ): SlashMenuOption[] {
 	const q = query.toLowerCase();
-	const scoreMatch = (name: string, description: string): number => {
-		const n = name.toLowerCase();
-		const d = description.toLowerCase();
-		if (n.startsWith(q)) return 3;
-		if (n.includes(q)) return 2;
-		if (d.includes(q)) return 1;
-		return 0;
-	};
-	const builtins = BUILTIN_SLASH_COMMANDS.map((cmd) => ({
+	const scoredBuiltins = BUILTIN_SLASH_COMMANDS.map((cmd) => ({
 		cmd,
-		score: q ? scoreMatch(cmd.name, cmd.description) : 4
-	}))
-		.filter((item) => item.score > 0)
+		score: scoreSlashMenuMatch(q, cmd.name, cmd.description)
+	})).filter((item) => item.score > 0);
+	const scoredSkills = skills
+		.map((skill) => ({
+			skill,
+			score: scoreSlashMenuMatch(q, skill.name, skill.description)
+		}))
+		.filter((item) => item.score > 0);
+
+	// When the query strongly matches a name, drop description-only hits so
+	// typing `/change` does not keep unrelated skills that merely mention "change".
+	const bestScore = Math.max(
+		0,
+		...scoredBuiltins.map((item) => item.score),
+		...scoredSkills.map((item) => item.score)
+	);
+	const minScore = bestScore >= 3 ? 2 : 1;
+	const builtins = scoredBuiltins
+		.filter((item) => item.score >= minScore)
 		.sort((a, b) => b.score - a.score || a.cmd.name.localeCompare(b.cmd.name))
 		.map((item) => ({
 			kind: 'builtin' as const,
 			name: item.cmd.name,
 			description: item.cmd.description
 		}));
-	const skillOptions = skills
-		.map((skill) => ({ skill, score: q ? scoreMatch(skill.name, skill.description) : 4 }))
-		.filter((item) => item.score > 0)
+	const skillOptions = scoredSkills
+		.filter((item) => item.score >= minScore)
 		.sort((a, b) => b.score - a.score || a.skill.name.localeCompare(b.skill.name))
 		.map((item) => ({
 			kind: 'skill' as const,

@@ -66,7 +66,8 @@ declare global {
 		| 'navigateForward'
 		| 'openJobs'
 		| 'openSkillDrafts'
-		| 'openInbox';
+		| 'openInbox'
+		| 'recentSession';
 
 	interface ShortcutBinding {
 		key: string;

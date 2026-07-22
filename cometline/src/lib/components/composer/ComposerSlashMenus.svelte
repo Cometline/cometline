@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Check, Search, Trash2 } from '@lucide/svelte';
+	import { Check, Trash2 } from '@lucide/svelte';
 	import SlashCommandMenu from '$lib/components/composer/SlashCommandMenu.svelte';
 	import { jobMenuSubtitle } from '$lib/jobs/format-job-label';
 	import { modelStore } from '$lib/stores/model.svelte';
@@ -18,14 +18,6 @@
 
 {#if slash.workspaceMenuOpen}
 	<SlashCommandMenu ariaLabel="Workspace paths" bind:menuRef>
-		<div class="workspace-search-hint" aria-hidden="true">
-			<Search size={13} stroke-width={2} />
-			{#if slash.workspaceSearchQuery}
-				<span class="workspace-search-value">{slash.workspaceSearchQuery}</span>
-			{:else}
-				<span class="workspace-search-placeholder">Type to filter workspaces…</span>
-			{/if}
-		</div>
 		{#if slash.workspacePathsLoading && !slash.workspacePathsLoaded}
 			<p class="skill-command-empty">Loading workspaces...</p>
 		{:else if slash.filteredWorkspaceOptions.length === 0}
@@ -92,15 +84,7 @@
 		{/if}
 	</SlashCommandMenu>
 {:else if slash.modelCommandMenuOpen}
-	<SlashCommandMenu ariaLabel="Select model" class="model-command-menu">
-		<div class="workspace-search-hint" aria-hidden="true">
-			<Search size={13} stroke-width={2} />
-			{#if slash.modelCommandQuery}
-				<span class="workspace-search-value">{slash.modelCommandQuery}</span>
-			{:else}
-				<span class="workspace-search-placeholder">Type to filter models…</span>
-			{/if}
-		</div>
+	<SlashCommandMenu ariaLabel="Select model" class="model-command-menu" bind:menuRef>
 		{#if slash.filteredModelCommandOptions.length === 0}
 			<p class="skill-command-empty">No matching models.</p>
 		{:else}
@@ -114,6 +98,7 @@
 							class="skill-command-option model-command-option"
 							class:highlighted={flatIndex === slash.modelCommandHighlight}
 							class:is-selected={option.id === modelStore.selected?.id}
+							data-model-index={flatIndex}
 							role="option"
 							aria-selected={flatIndex === slash.modelCommandHighlight}
 							onpointerenter={() => {
@@ -137,15 +122,7 @@
 		{/if}
 	</SlashCommandMenu>
 {:else if slash.jobCommandMenuOpen}
-	<SlashCommandMenu ariaLabel="Select job" class="job-command-menu">
-		<div class="workspace-search-hint" aria-hidden="true">
-			<Search size={13} stroke-width={2} />
-			{#if slash.jobCommandQuery}
-				<span class="workspace-search-value">{slash.jobCommandQuery}</span>
-			{:else}
-				<span class="workspace-search-placeholder">Type to filter jobs…</span>
-			{/if}
-		</div>
+	<SlashCommandMenu ariaLabel="Select job" class="job-command-menu" bind:menuRef>
 		{#if slash.jobsLoading && !slash.jobsLoaded}
 			<p class="skill-command-empty">Loading jobs…</p>
 		{:else if slash.filteredJobOptions.length === 0}
@@ -156,6 +133,7 @@
 					type="button"
 					class="skill-command-option"
 					class:highlighted={index === slash.jobCommandHighlight}
+					data-job-index={index}
 					role="option"
 					aria-selected={index === slash.jobCommandHighlight}
 					onpointerenter={() => {

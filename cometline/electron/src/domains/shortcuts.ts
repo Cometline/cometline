@@ -260,7 +260,8 @@ export function createShortcutCoordinator(dependencies: ShortcutCoordinatorDepen
 			'focusSearch',
 			'openJobs',
 			'openSkillDrafts',
-			'openInbox'
+			'openInbox',
+			'recentSession'
 		];
 		for (const action of forwardActions) {
 			if (matchesInputShortcut(input, shortcuts[action])) {

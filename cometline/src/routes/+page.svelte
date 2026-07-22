@@ -11,14 +11,12 @@
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { chatStore } from '$lib/stores/chat.svelte';
 	import { openSettings } from '$lib/actions/open-settings';
-	import { FolderOpen, X } from '@lucide/svelte';
+	import { FolderOpen } from '@lucide/svelte';
 	import type { ChatTurnPayload } from '$lib/actions/start-chat';
-	import { renderUserText } from '$lib/markdown/render';
 
 	let bootMessage = $derived(shellStore.bootMessage);
 	let composerRef = $state<{ focus: () => void } | null>(null);
 	let composerFocusRequestId = $derived(shellStore.composerFocusRequestId);
-	let listJobsMessage = $state<string | null>(null);
 
 	$effect(() => {
 		if (!composerFocusRequestId || shellStore.focusedPane !== 'chat') return;
@@ -34,16 +32,7 @@
 		shellStore.centerComposer();
 		shellStore.resetActiveToDefault();
 		modelStore.selectDefault();
-		listJobsMessage = null;
 	});
-
-	function showLocalUserMessage(text: string) {
-		listJobsMessage = text;
-	}
-
-	function dismissListJobsMessage() {
-		listJobsMessage = null;
-	}
 
 	async function onSend(payload: ChatTurnPayload | string) {
 		const message = typeof payload === 'string' ? { text: payload } : payload;
@@ -84,24 +73,10 @@
 	</div>
 
 	<div class="composer-wrapper centered">
-		{#if listJobsMessage}
-			<div class="list-jobs-panel chat-bubble user" role="status">
-				<button
-					type="button"
-					class="list-jobs-dismiss"
-					aria-label="Dismiss"
-					onclick={dismissListJobsMessage}
-				>
-					<X size={14} />
-				</button>
-				<div class="list-jobs-content">{@html renderUserText(listJobsMessage)}</div>
-			</div>
-		{/if}
 		<HeroComposerFrame>
 			<Composer
 				bind:this={composerRef}
 				{onSend}
-				onLocalUserMessage={showLocalUserMessage}
 				disabled={connectionState.status !== 'ready'}
 				variant="hero"
 			/>
@@ -200,41 +175,6 @@
 
 	.set-workspace-button:hover {
 		background: rgba(15, 23, 42, 0.08);
-	}
-
-	.list-jobs-panel {
-		position: relative;
-		width: min(var(--chat-composer-width), 100%);
-		max-width: 100%;
-		padding: 12px 36px 12px 14px;
-		white-space: pre-wrap;
-		word-break: break-word;
-	}
-
-	.list-jobs-dismiss {
-		position: absolute;
-		top: 8px;
-		right: 8px;
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		width: 24px;
-		height: 24px;
-		border: none;
-		border-radius: 8px;
-		background: transparent;
-		color: var(--text-muted);
-		cursor: pointer;
-	}
-
-	.list-jobs-dismiss:hover {
-		background: rgba(15, 23, 42, 0.06);
-		color: var(--text-main);
-	}
-
-	.list-jobs-content {
-		font-size: 13px;
-		line-height: 1.5;
 	}
 
 	@media (max-width: 900px) {

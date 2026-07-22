@@ -76,3 +76,24 @@ export function buildFileTree(paths: string[]): FileTreeNode[] {
 	sortTree(tree);
 	return tree;
 }
+
+export function fileTreeDirKey(parentKey: string, name: string): string {
+	return parentKey ? `${parentKey}/${name}` : name;
+}
+
+/** Ancestor directory keys that must be expanded to reveal the given file paths. */
+export function dirKeysToExpandForPaths(paths: readonly string[]): Record<string, boolean> {
+	const expanded: Record<string, boolean> = {};
+	for (const raw of paths) {
+		const normalized = raw.trim().replace(/\\/g, '/').replace(/^\/+/, '');
+		if (!normalized) continue;
+		const parts = normalized.split('/').filter(Boolean);
+		if (parts.length < 2) continue;
+		let key = '';
+		for (let i = 0; i < parts.length - 1; i++) {
+			key = fileTreeDirKey(key, parts[i]!);
+			expanded[key] = true;
+		}
+	}
+	return expanded;
+}

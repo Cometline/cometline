@@ -4,7 +4,7 @@
 	import { listWikiFiles, listWorkspaceFiles } from '$lib/client/cometmind';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { toWikiUiPath } from '$lib/wiki/paths';
-	import { buildFileTree, type FileTreeNode } from '$lib/workspace/file-tree';
+	import { buildFileTree, dirKeysToExpandForPaths, type FileTreeNode } from '$lib/workspace/file-tree';
 	import {
 		readWebPanelTreeSource,
 		writeWebPanelTreeSource,
@@ -75,6 +75,7 @@
 		if (activeSource === 'workspace' && !workspaceAvailable) {
 			files = [];
 			truncated = false;
+			expanded = {};
 			loading = false;
 			return;
 		}
@@ -87,10 +88,12 @@
 			if (seq !== loadSeq) return;
 			files = result.files;
 			truncated = result.truncated;
+			expanded = query ? dirKeysToExpandForPaths(files) : {};
 		} catch (err) {
 			if (seq !== loadSeq) return;
 			files = [];
 			truncated = false;
+			if (!query) expanded = {};
 			error = err instanceof Error ? err.message : 'Failed to load files';
 		} finally {
 			if (seq === loadSeq) loading = false;

@@ -180,6 +180,11 @@ describe('keyboard-shortcuts', () => {
 		expect(normalized.openInbox).toEqual({ command: true, key: '3' });
 	});
 
+	it('includes return to recent chat default shortcut', () => {
+		const normalized = normalizeKeyboardShortcuts({});
+		expect(normalized.recentSession).toEqual({ command: true, shift: true, key: 'd' });
+	});
+
 	it('includes toggleMiniWindow default shortcut', () => {
 		const normalized = normalizeKeyboardShortcuts({});
 		expect(normalized.toggleMiniWindow).toEqual({ command: true, shift: true, key: 'l' });

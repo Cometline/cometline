@@ -17,7 +17,8 @@ export type ShortcutAction =
 	| 'navigateForward'
 	| 'openJobs'
 	| 'openSkillDrafts'
-	| 'openInbox';
+	| 'openInbox'
+	| 'recentSession';
 
 export interface ShortcutBinding {
 	key: string;
@@ -92,6 +93,12 @@ export const SHORTCUT_DEFINITIONS: KeyboardShortcutDefinition[] = [
 		label: 'Next chat',
 		category: 'chats',
 		defaultBinding: { ctrl: true, meta: true, key: 'ArrowDown' }
+	},
+	{
+		id: 'recentSession',
+		label: 'Return to recent chat',
+		category: 'chats',
+		defaultBinding: { command: true, shift: true, key: 'd' }
 	},
 	{
 		id: 'focusSearch',
