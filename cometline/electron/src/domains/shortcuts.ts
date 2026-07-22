@@ -87,6 +87,7 @@ function matchesInputShortcut(input: Input, binding: ShortcutBinding | undefined
 	const expectsCommand = binding.command ?? false;
 	if (expectsCommand) {
 		if (!(input.control || input.meta)) return false;
+		if (binding.ctrl !== true && input.control && input.meta) return false;
 		if (binding.alt !== undefined ? binding.alt !== input.alt : input.alt) return false;
 		if (binding.shift !== undefined ? binding.shift !== input.shift : input.shift) return false;
 		return true;

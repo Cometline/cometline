@@ -42,6 +42,7 @@ class FakeWindow {
 	readonly setFullScreen = vi.fn();
 	readonly setFullScreenable = vi.fn();
 	readonly setPosition = vi.fn();
+	readonly setBounds = vi.fn();
 	readonly setVisibleOnAllWorkspaces = vi.fn();
 	readonly setWindowButtonVisibility = vi.fn();
 	readonly show = vi.fn();
@@ -115,6 +116,8 @@ describe('window lifecycle factory', () => {
 		expect(main.options).toMatchObject({
 			titleBarStyle: 'hidden',
 			transparent: true,
+			minWidth: 480,
+			minHeight: 620,
 			webPreferences: {
 				preload: '/runtime/dist/preload.cjs',
 				contextIsolation: true,
@@ -125,7 +128,7 @@ describe('window lifecycle factory', () => {
 			}
 		});
 		expect(main.loadURL).toHaveBeenCalledWith('app://bundle/');
-		expect(mini.options).toMatchObject({ type: 'panel', fullscreenable: false });
+		expect(mini.options).toMatchObject({ type: 'panel', fullscreenable: false, width: 480, height: 668 });
 		expect(mini.setVisibleOnAllWorkspaces).toHaveBeenCalledWith(true, {
 			visibleOnFullScreen: true,
 			skipTransformProcessType: true
