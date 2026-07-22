@@ -30,6 +30,7 @@
 	import { createComposerMentionsController } from '$lib/components/composer/composer-mentions.svelte';
 	import { createComposerSlashController } from '$lib/components/composer/composer-slash.svelte';
 	import { stepHistoryIndex } from '$lib/components/composer/composer-history';
+	import { nextAttachmentRemoval } from '$lib/components/composer/composer-attachment-keydown';
 
 	let {
 		onSend,
@@ -336,6 +337,28 @@
 	function onKeydown(e: KeyboardEvent) {
 		if (slash.handleMenuKeydown(e)) return;
 		if (mentions.handleMentionMenuKeydown(e)) return;
+		if (
+			!e.isComposing &&
+			!e.metaKey &&
+			!e.ctrlKey &&
+			!e.altKey &&
+			(e.key === 'Backspace' || e.key === 'Delete')
+		) {
+			const sel = window.getSelection();
+			if (!sel || sel.isCollapsed) {
+				const removal = nextAttachmentRemoval(value, images, pendingWebContexts.length);
+				if (removal?.kind === 'image') {
+					e.preventDefault();
+					attachments.removeImage(removal.id);
+					return;
+				}
+				if (removal?.kind === 'webContext') {
+					e.preventDefault();
+					shellStore.removeWebContextAt(removal.index);
+					return;
+				}
+			}
+		}
 		if (
 			!e.isComposing &&
 			!e.metaKey &&
