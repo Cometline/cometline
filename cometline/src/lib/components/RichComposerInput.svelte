@@ -12,6 +12,7 @@ import { fly } from 'svelte/transition';
 	import { openLink } from '$lib/open-link';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { openWorkspaceFilePreview } from '$lib/workspace/open-file-preview';
+	import { isSelectionAtEditorEdge } from '$lib/components/composer/composer-caret';
 
 	let {
 		value = $bindable(''),
@@ -613,6 +614,14 @@ import { fly } from 'svelte/transition';
 			setCaretPosition(false);
 			scheduleCaretMeasure();
 		}
+	}
+
+	export function isCaretAtStart(): boolean {
+		return isSelectionAtEditorEdge(editor, 'start');
+	}
+
+	export function isCaretAtEnd(): boolean {
+		return isSelectionAtEditorEdge(editor, 'end');
 	}
 
 	// Keep the DOM in sync when `value` is set externally to empty (e.g. cleared

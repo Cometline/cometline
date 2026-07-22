@@ -16,6 +16,7 @@
 	import ComposerMentionMenu from '$lib/components/composer/ComposerMentionMenu.svelte';
 	import ComposerToolbar from '$lib/components/composer/ComposerToolbar.svelte';
 	import { chatStore } from '$lib/stores/chat.svelte';
+	import { composerHistoryStore } from '$lib/stores/composer-history.svelte';
 	import {
 		estimateChatContextTokens,
 		estimateTokensFromText,
@@ -28,6 +29,7 @@
 	import { createComposerAttachmentsController } from '$lib/components/composer/composer-attachments.svelte';
 	import { createComposerMentionsController } from '$lib/components/composer/composer-mentions.svelte';
 	import { createComposerSlashController } from '$lib/components/composer/composer-slash.svelte';
+	import { stepHistoryIndex } from '$lib/components/composer/composer-history';
 
 	let {
 		onSend,
@@ -67,6 +69,13 @@
 	let skillMenu = $state<HTMLDivElement | null>(null);
 	let mentionMenu = $state<HTMLDivElement | null>(null);
 	let resolvingWebContext = $state(false);
+	let historyIndex = $state<number | null>(null);
+	let historyLiveDraft = $state('');
+	let historyRecallList = $state.raw<string[]>([]);
+	let historyAppliedText = $state<string | null>(null);
+	let trackedSessionId = $state<string | null>(null);
+	let skippingEmptyStash = $state(false);
+	let lastNonEmptyDraft = $state('');
 	const heroPlaceholders = [
 		'Type something. Anything.',
 		'Ask a question.',
@@ -77,6 +86,7 @@
 	let heroPlaceholderIndex = $state(0);
 
 	onMount(() => {
+		void composerHistoryStore.ensureLoaded();
 		const rotation = window.setInterval(() => {
 			heroPlaceholderIndex = (heroPlaceholderIndex + 1) % heroPlaceholders.length;
 		}, 10000);
@@ -89,10 +99,50 @@
 		images = [];
 	}
 
+	function resetHistoryBrowse() {
+		historyIndex = null;
+		historyLiveDraft = '';
+		historyRecallList = [];
+		historyAppliedText = null;
+	}
+
+	function applyComposerText(text: string, nextImages: ImageAttachment[] = []) {
+		skippingEmptyStash = true;
+		value = text;
+		images = nextImages;
+		if (text) {
+			input?.setText(text);
+		} else {
+			input?.clear();
+		}
+		void tick().then(() => {
+			skippingEmptyStash = false;
+		});
+	}
+
 	const getInput = (): ComposerInputRef | null => input;
 
+	function recordSentHistory(payload: ChatTurnPayload | string) {
+		const display =
+			typeof payload === 'string'
+				? payload.trim()
+				: (payload.displayText ?? payload.text).trim();
+		if (!display) return;
+		void composerHistoryStore.append({
+			display,
+			workspacePath: shellStore.workspacePath,
+			sessionId
+		});
+		composerHistoryStore.clearPending(sessionId);
+		resetHistoryBrowse();
+		lastNonEmptyDraft = '';
+	}
+
 	const inputController = createComposerInputController({
-		onSend: (payload) => onSend(payload),
+		onSend: (payload) => {
+			recordSentHistory(payload);
+			onSend(payload);
+		},
 		getValue: () => value,
 		getImages: () => images,
 		getDisabled: () => disabled,
@@ -162,12 +212,57 @@
 	}
 
 	$effect(() => {
+		const nextSessionId = sessionId;
+		if (trackedSessionId === null) {
+			trackedSessionId = nextSessionId;
+			return;
+		}
+		if (trackedSessionId === nextSessionId) return;
+
+		const prev = trackedSessionId;
+		if (value.trim() || images.length > 0) {
+			composerHistoryStore.stashUnsent(prev, { text: value, images });
+		}
+		trackedSessionId = nextSessionId;
+		resetHistoryBrowse();
+		lastNonEmptyDraft = '';
+		applyComposerText('');
+	});
+
+	$effect(() => {
 		if (!autofocus || shellStore.focusedPane !== 'chat') return;
 		void sessionId;
 		void focusInput();
 	});
 
-	onDestroy(() => attachments.destroy());
+	$effect(() => {
+		if (historyIndex !== null && historyAppliedText !== null && value !== historyAppliedText) {
+			// User edited while browsing — leave history mode.
+			resetHistoryBrowse();
+		}
+		// While browsing history, do not treat recalled text as a live draft to stash.
+		if (historyIndex !== null) return;
+
+		const trimmed = value.trim();
+		if (trimmed) {
+			lastNonEmptyDraft = value;
+			return;
+		}
+		if (skippingEmptyStash) return;
+		if (!lastNonEmptyDraft.trim()) return;
+		composerHistoryStore.stashUnsent(sessionId, {
+			text: lastNonEmptyDraft,
+			images: images.length > 0 ? images : undefined
+		});
+		lastNonEmptyDraft = '';
+	});
+
+	onDestroy(() => {
+		if (value.trim() || images.length > 0) {
+			composerHistoryStore.stashUnsent(sessionId, { text: value, images });
+		}
+		attachments.destroy();
+	});
 
 	async function submit() {
 		const trimmed = value.trim();
@@ -195,13 +290,69 @@
 			webContexts: webContexts.length > 0 ? webContexts : undefined
 		});
 		if (contextsBeforeResolve > 0) shellStore.clearWebContextForActive();
+		skippingEmptyStash = true;
 		input?.clear();
 		clearDraft();
+		void tick().then(() => {
+			skippingEmptyStash = false;
+		});
+	}
+
+	async function navigateHistory(direction: 'up' | 'down') {
+		let list = historyRecallList;
+		if (historyIndex === null) {
+			const transcriptTexts =
+				sessionId && chatStore.sessionID === sessionId
+					? composerHistoryStore.listUserMessageTexts(chatStore.items)
+					: [];
+			list = await composerHistoryStore.recallTexts({
+				sessionId,
+				workspacePath: shellStore.workspacePath,
+				transcriptUserTexts: transcriptTexts
+			});
+			if (list.length === 0) return;
+			historyRecallList = list;
+			historyLiveDraft = value;
+		}
+
+		const next = stepHistoryIndex(historyIndex, direction, list.length);
+		if (next.index === null) {
+			applyComposerText(historyLiveDraft);
+			resetHistoryBrowse();
+			return;
+		}
+
+		historyIndex = next.index;
+		const text = list[next.index] ?? '';
+		historyAppliedText = text;
+		const pending = composerHistoryStore.getPending(sessionId);
+		const recallImages =
+			pending?.text.trim() === text.trim() && pending.images?.length
+				? pending.images
+				: [];
+		applyComposerText(text, recallImages);
 	}
 
 	function onKeydown(e: KeyboardEvent) {
 		if (slash.handleMenuKeydown(e)) return;
 		if (mentions.handleMentionMenuKeydown(e)) return;
+		if (
+			!e.isComposing &&
+			!e.metaKey &&
+			!e.ctrlKey &&
+			!e.altKey &&
+			(e.key === 'ArrowUp' || e.key === 'ArrowDown')
+		) {
+			const inHistory = historyIndex !== null;
+			const canStepUp = e.key === 'ArrowUp' && (input?.isCaretAtStart() ?? true);
+			const canStepDown =
+				e.key === 'ArrowDown' && inHistory && (input?.isCaretAtEnd() ?? true);
+			if (canStepUp || canStepDown) {
+				e.preventDefault();
+				void navigateHistory(e.key === 'ArrowUp' ? 'up' : 'down');
+				return;
+			}
+		}
 		if (matchesShortcut(e, settingsStore.settings.shortcuts.stopResponse) && streaming) {
 			const sel = window.getSelection();
 			if (!sel || sel.isCollapsed) {

@@ -152,5 +152,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 		ipcRenderer.on('cometline:run-setup-wizard', handler);
 		return () => ipcRenderer.removeListener('cometline:run-setup-wizard', handler);
 	},
-	notifyJob: (payload) => ipcRenderer.send('jobs:notify', payload)
+	notifyJob: (payload) => ipcRenderer.send('jobs:notify', payload),
+	loadComposerHistory: () => ipcRenderer.invoke('cometline:load-composer-history'),
+	appendComposerHistory: (entry) => ipcRenderer.invoke('cometline:append-composer-history', entry)
 });

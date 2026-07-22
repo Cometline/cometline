@@ -896,6 +896,109 @@ function getDesktopSettingsPath() {
 	return path.join(dir, 'cometline-desktop.json');
 }
 
+const COMPOSER_HISTORY_MAX_ENTRIES = 2000;
+
+function getComposerHistoryPath() {
+	const dir = path.join(os.homedir(), '.cometmind');
+	if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+	return path.join(dir, 'composer-history.jsonl');
+}
+
+function parseComposerHistoryEntry(value) {
+	if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+	const display = typeof value.display === 'string' ? value.display : '';
+	if (!display.trim()) return null;
+	const workspacePath =
+		typeof value.workspacePath === 'string'
+			? value.workspacePath
+			: typeof value.project === 'string'
+				? value.project
+				: '';
+	const sessionId = typeof value.sessionId === 'string' ? value.sessionId : '';
+	const timestamp =
+		typeof value.timestamp === 'number' && Number.isFinite(value.timestamp)
+			? value.timestamp
+			: Date.now();
+	return { display, timestamp, workspacePath, sessionId };
+}
+
+function loadComposerHistoryEntries() {
+	const filePath = getComposerHistoryPath();
+	if (!fs.existsSync(filePath)) return [];
+	let raw = '';
+	try {
+		raw = fs.readFileSync(filePath, 'utf8');
+	} catch {
+		return [];
+	}
+	const entries = [];
+	for (const line of raw.split('\n')) {
+		const trimmed = line.trim();
+		if (!trimmed) continue;
+		try {
+			const entry = parseComposerHistoryEntry(JSON.parse(trimmed));
+			if (entry) entries.push(entry);
+		} catch {
+			/* skip corrupt lines */
+		}
+	}
+	return entries;
+}
+
+function writeComposerHistoryEntries(entries) {
+	const filePath = getComposerHistoryPath();
+	const body =
+		entries.length === 0
+			? ''
+			: `${entries
+					.map((entry) =>
+						JSON.stringify({
+							display: entry.display,
+							timestamp: entry.timestamp,
+							workspacePath: entry.workspacePath,
+							sessionId: entry.sessionId
+						})
+					)
+					.join('\n')}\n`;
+	const tmpPath = `${filePath}.${process.pid}.tmp`;
+	fs.writeFileSync(tmpPath, body, { mode: 0o600 });
+	try {
+		fs.chmodSync(tmpPath, 0o600);
+	} catch {
+		/* ignore */
+	}
+	fs.renameSync(tmpPath, filePath);
+}
+
+function appendComposerHistoryEntry(rawEntry) {
+	const entry = parseComposerHistoryEntry(rawEntry);
+	if (!entry) return { ok: false, error: 'Invalid history entry', entries: loadComposerHistoryEntries() };
+	let entries = loadComposerHistoryEntries();
+	entries.push(entry);
+	if (entries.length > COMPOSER_HISTORY_MAX_ENTRIES) {
+		entries = entries.slice(entries.length - COMPOSER_HISTORY_MAX_ENTRIES);
+		writeComposerHistoryEntries(entries);
+	} else {
+		const filePath = getComposerHistoryPath();
+		fs.appendFileSync(
+			filePath,
+			`${JSON.stringify({
+				display: entry.display,
+				timestamp: entry.timestamp,
+				workspacePath: entry.workspacePath,
+				sessionId: entry.sessionId
+			})}\n`,
+			{ mode: 0o600 }
+		);
+		try {
+			fs.chmodSync(filePath, 0o600);
+		} catch {
+			/* ignore */
+		}
+	}
+	return { ok: true, entries };
+}
+
 const DESKTOP_TOP_LEVEL_KEYS = ['appearance', 'shortcuts', 'app'];
 
 function readJsonFileIfExists(filePath) {
@@ -4246,6 +4349,12 @@ ipcMain.handle('cometline:set-discord-gateway-enabled', async (_event, enabled) 
 		enabled: Boolean(saved.cometmind?.gateway?.discord?.enabled)
 	};
 });
+
+ipcMain.handle('cometline:load-composer-history', () => loadComposerHistoryEntries());
+
+ipcMain.handle('cometline:append-composer-history', (_event, entry) =>
+	appendComposerHistoryEntry(entry)
+);
 
 ipcMain.handle('cometline:get-open-at-login', () => {
 	const settings = readProviderSettings();
