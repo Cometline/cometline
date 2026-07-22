@@ -5,6 +5,11 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version, with or without the v prefix (for example, 1.2.3)'
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -27,6 +32,7 @@ jobs:
         id: release_tag
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
           if [ "${{ github.ref_type }}" = "tag" ]; then
@@ -36,28 +42,37 @@ jobs:
             exit 0
           fi
 
-          if git describe --exact-match --tags HEAD 2>/dev/null; then
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "Commit $(git rev-parse --short HEAD) already has tag $(git describe --exact-match --tags HEAD)"
-            exit 0
-          fi
-
-          LATEST="$(git tag -l 'v*' --sort=-version:refname | head -1)"
-          if [ -z "$LATEST" ]; then
-            NEXT="v0.0.1"
+          if [ -n "${RELEASE_VERSION:-}" ]; then
+            VERSION="${RELEASE_VERSION#v}"
+            if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+              echo "Invalid release version '$RELEASE_VERSION'; expected MAJOR.MINOR.PATCH"
+              exit 1
+            fi
+            NEXT="v$VERSION"
           else
-            VERSION="${LATEST#v}"
-            IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
-            PATCH=$((PATCH + 1))
-            if [ "$PATCH" -gt 99 ]; then
-              PATCH=0
-              MINOR=$((MINOR + 1))
+            if git describe --exact-match --tags HEAD 2>/dev/null; then
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              echo "Commit $(git rev-parse --short HEAD) already has tag $(git describe --exact-match --tags HEAD)"
+              exit 0
             fi
-            if [ "$MINOR" -gt 999 ]; then
-              MINOR=0
-              MAJOR=$((MAJOR + 1))
+
+            LATEST="$(git tag -l 'v*' --sort=-version:refname | head -1)"
+            if [ -z "$LATEST" ]; then
+              NEXT="v0.0.1"
+            else
+              VERSION="${LATEST#v}"
+              IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+              PATCH=$((PATCH + 1))
+              if [ "$PATCH" -gt 99 ]; then
+                PATCH=0
+                MINOR=$((MINOR + 1))
+              fi
+              if [ "$MINOR" -gt 999 ]; then
+                MINOR=0
+                MAJOR=$((MAJOR + 1))
+              fi
+              NEXT="v${MAJOR}.${MINOR}.${PATCH}"
             fi
-            NEXT="v${MAJOR}.${MINOR}.${PATCH}"
           fi
           if git rev-parse "$NEXT" >/dev/null 2>&1; then
             echo "Tag $NEXT already exists"
