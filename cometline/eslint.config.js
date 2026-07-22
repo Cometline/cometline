@@ -14,7 +14,7 @@ export default [
 			'build/',
 			'buildResources/',
 			'dist/',
-			'electron/settings-schema.cjs',
+			'electron/dist/',
 			'node_modules/',
 			'pnpm-lock.yaml',
 			'static/',
@@ -48,32 +48,12 @@ export default [
 		}
 	},
 	{
-		files: ['**/*.{js,ts,cjs,mjs}'],
+		files: ['**/*.{js,ts,mjs}'],
 		languageOptions: {
 			globals: {
 				...globals.browser,
 				...globals.node
 			}
-		}
-	},
-	{
-		files: ['**/*.cjs'],
-		languageOptions: {
-			sourceType: 'commonjs',
-			globals: {
-				...globals.node
-			}
-		},
-		rules: {
-			'@typescript-eslint/no-require-imports': 'off',
-			'@typescript-eslint/no-unused-vars': [
-				'error',
-				{
-					argsIgnorePattern: '^_',
-					varsIgnorePattern: '^_',
-					caughtErrorsIgnorePattern: '^_'
-				}
-			]
 		}
 	},
 	prettier,

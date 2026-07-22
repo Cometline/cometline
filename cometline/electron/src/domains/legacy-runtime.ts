@@ -1,35 +1,43 @@
-const {
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-nocheck
+// This preserves the existing main-process behavior while its large domain surface
+// is split incrementally. The typed preload contract remains checked separately.
+import {
 	app,
 	BrowserWindow,
 	dialog,
 	globalShortcut,
-	ipcMain,
 	protocol,
 	net,
 	shell,
 	Tray,
 	Menu,
 	nativeImage,
-	Notification: ElectronNotification,
-	screen: electronScreen
-} = require('electron');
-const path = require('path');
-const { pathToFileURL } = require('url');
-const { spawn } = require('child_process');
-const fs = require('fs');
-const os = require('os');
-const http = require('http');
-const pty = require('node-pty');
-// eslint-disable-next-line no-redeclare
-const crypto = require('crypto');
-const {
+	Notification as ElectronNotification,
+	screen as electronScreen
+} from 'electron';
+import crypto from 'node:crypto';
+import fs from 'node:fs';
+import http from 'node:http';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import os from 'node:os';
+import path from 'node:path';
+import {
 	defaultSettings,
 	normalizeProviders,
 	normalizeSettings,
 	parseAndNormalizeSettings,
 	validateSettings
-} = require('./settings-schema.cjs');
-const { createOllamaService } = require('./ollama-service.cjs');
+} from '../../../src/lib/settings/schema.js';
+import { createOllamaService } from '../services/ollama.js';
+import { createTerminalManager } from './terminal.js';
+import { createAutoUpdater } from './auto-updater.js';
+import { createBrowserSearchBridge } from './browser-search.js';
+import { createCometMindLifecycle } from './cometmind-lifecycle.js';
+import { registerIpcHandlers } from './ipc.js';
+
+// Keep production path resolution stable after compiling this source into electron/dist.
+const __dirname = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 const ollamaService = createOllamaService({
 	sendProgress: (payload) => {
@@ -41,16 +49,8 @@ const ollamaService = createOllamaService({
 	}
 });
 
-app.setName('Cometline');
+const MACOS_LOGIN_ITEMS_SETTINGS_URL = 'x-apple.systempreferences:com.apple.LoginItems-Settings.extension';
 
-const MACOS_LOGIN_ITEMS_SETTINGS_URL =
-	'x-apple.systempreferences:com.apple.LoginItems-Settings.extension';
-
-function getAutoUpdater() {
-	return require('electron-updater').autoUpdater;
-}
-
-const COMETMIND_PORT = 7700;
 // Custom scheme used to serve the packaged SvelteKit bundle. Loading the
 // fallback index.html over file:// breaks because adapter-static emits
 // absolute asset paths (/_app/immutable/...) that resolve against the
@@ -78,18 +78,6 @@ const SETTINGS_WINDOW_MIN_HEIGHT = 640;
 const SETTINGS_WINDOW_MAX_WIDTH = 1280;
 const SETTINGS_WINDOW_MAX_HEIGHT = 920;
 const MINI_WINDOW_SCREEN_MARGIN = 18;
-const HEALTH_URL = `http://127.0.0.1:${COMETMIND_PORT}/api/v1/health`;
-const MAX_RETRIES = 50;
-const POLL_MS = 100;
-// Auto-respawn backoff for the supervised sidecar. Capped so a persistently
-// crashing binary backs off instead of hot-looping spawns.
-const RESPAWN_BASE_MS = 500;
-const RESPAWN_MAX_MS = 10000;
-const RESPAWN_MAX_ATTEMPTS = 10;
-const UPDATE_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;
-const LOG_MAX_BYTES = 10 * 1024 * 1024;
-const LOG_BACKUP_COUNT = 1;
-const LOG_ROTATE_CHECK_BYTES = 512 * 1024;
 const CODEX_BASE_URL = 'https://chatgpt.com/backend-api/codex';
 const CODEX_CLIENT_ID = 'app_EMoamEEZ73f0CkXaXp7hrann';
 const CODEX_REFRESH_URL = 'https://auth.openai.com/oauth/token';
@@ -106,235 +94,23 @@ const XAI_AUTH_TIMEOUT_MS = 5 * 60 * 1000;
 const XAI_AUTH_SCOPE = 'openid profile email offline_access grok-cli:access api:access';
 const MCP_OAUTH_CALLBACK_PORT = 1456;
 const MCP_OAUTH_CALLBACK_PATH = '/mcp/oauth/callback';
-const BROWSER_SEARCH_MAX_QUERY = 500;
-const BROWSER_SEARCH_MAX_LIMIT = 10;
-const BROWSER_SEARCH_TIMEOUT_MS = 25_000;
-const TERMINAL_BUFFER_MAX_CHARS = 2_000_000;
-const TERMINAL_MIN_COLS = 2;
-const TERMINAL_MAX_COLS = 500;
-const TERMINAL_MIN_ROWS = 1;
-const TERMINAL_MAX_ROWS = 500;
-
-function rotateLogIfNeeded(logPath) {
-	try {
-		if (!fs.existsSync(logPath)) return;
-		const { size } = fs.statSync(logPath);
-		if (size < LOG_MAX_BYTES) return;
-		const oldest = `${logPath}.${LOG_BACKUP_COUNT}`;
-		if (fs.existsSync(oldest)) fs.unlinkSync(oldest);
-		fs.renameSync(logPath, oldest);
-	} catch (err) {
-		console.error(`Failed to rotate log ${logPath}:`, err);
-	}
-}
-
-function createRotatingLogWriter(logPath) {
-	rotateLogIfNeeded(logPath);
-	let stream = fs.createWriteStream(logPath, { flags: 'a' });
-	let bytesSinceCheck = 0;
-
-	function maybeRotate() {
-		try {
-			if (!fs.existsSync(logPath)) return;
-			if (fs.statSync(logPath).size < LOG_MAX_BYTES) return;
-			stream.end();
-			rotateLogIfNeeded(logPath);
-			stream = fs.createWriteStream(logPath, { flags: 'a' });
-			bytesSinceCheck = 0;
-		} catch (err) {
-			console.error(`Failed to rotate log ${logPath}:`, err);
-		}
-	}
-
-	return {
-		write(data) {
-			stream.write(data);
-			bytesSinceCheck += data.length;
-			if (bytesSinceCheck >= LOG_ROTATE_CHECK_BYTES) {
-				bytesSinceCheck = 0;
-				maybeRotate();
-			}
-		},
-		end() {
-			stream.end();
-		}
-	};
-}
-
-// Must run before app `ready`. Marking the scheme standard + secure gives the
-// loaded page a normal web origin (so history API routing, fetch, and module
-// scripts behave like https) instead of the restricted file:// origin.
-protocol.registerSchemesAsPrivileged([
-	{
-		scheme: APP_SCHEME,
-		privileges: {
-			standard: true,
-			secure: true,
-			supportFetchAPI: true,
-			stream: true,
-			codeCache: true
-		}
-	}
-]);
-
 let mainWindow = null;
 let miniWindow = null;
 let settingsWindow = null;
 let tray = null;
-let cometMindProcess = null;
-let cometMindGatewayProcess = null;
-// Supervisor state: auto-respawn the sidecar when it dies unexpectedly
-// (crash, panic during reload, OOM) rather than leaving the UI stranded on
-// "Cannot reach CometMind". Reset once the respawned process is healthy.
-let cometMindRespawnTimer = null;
-let cometMindRespawnAttempts = 0;
 let stoppingForQuit = false;
 let stoppedForQuit = false;
 let relaunchForUpdate = false;
-let updateCheckTimer = null;
 let windowButtonAnimationTimer = null;
 let windowButtonPosition = { x: 16, y: 17 };
 let registeredMiniWindowShortcut = '';
-let browserSearchServer = null;
-let browserSearchWindow = null;
-let browserSearchEndpoint = '';
-let browserSearchToken = '';
-let browserSearchQueue = Promise.resolve();
-const terminalSessions = new Map();
+const terminals = createTerminalManager(() => mainWindow);
+const browserSearch = createBrowserSearchBridge();
 // Swallow macOS activate that often fires right after hide()-ing the last
 // focused auxiliary window (mini / settings), which would otherwise force the
 // main window to pop open / steal focus via handleAppActivate().
 const AUXILIARY_WINDOW_ACTIVATE_SUPPRESS_MS = 1000;
 let ignoreActivateUntil = 0;
-
-function terminalDimensions(input = {}) {
-	const cols = Number.isInteger(input.cols) ? input.cols : 80;
-	const rows = Number.isInteger(input.rows) ? input.rows : 24;
-	return {
-		cols: Math.min(TERMINAL_MAX_COLS, Math.max(TERMINAL_MIN_COLS, cols)),
-		rows: Math.min(TERMINAL_MAX_ROWS, Math.max(TERMINAL_MIN_ROWS, rows))
-	};
-}
-
-function defaultTerminalShell() {
-	let shellPath = process.env.SHELL;
-	try {
-		shellPath ||= os.userInfo().shell;
-	} catch {
-		// Fall through to macOS's default interactive shell.
-	}
-	return typeof shellPath === 'string' && path.isAbsolute(shellPath) && fs.existsSync(shellPath)
-		? shellPath
-		: '/bin/zsh';
-}
-
-function terminalSnapshot(entry) {
-	return {
-		sessionId: entry.sessionId,
-		status: entry.status,
-		exitCode: entry.exitCode,
-		generation: entry.generation,
-		shell: entry.shell,
-		output: entry.output
-	};
-}
-
-function sendTerminalEvent(channel, payload) {
-	if (!mainWindow || mainWindow.isDestroyed()) return;
-	mainWindow.webContents.send(channel, payload);
-}
-
-function isMainWindowSender(event) {
-	return Boolean(
-		mainWindow && !mainWindow.isDestroyed() && event.sender === mainWindow.webContents
-	);
-}
-
-function requireTerminalInput(event, sessionId) {
-	if (!isMainWindowSender(event))
-		throw new Error('Terminal access is only available in the main window');
-	if (typeof sessionId !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(sessionId)) {
-		throw new Error('Invalid terminal session id');
-	}
-}
-
-function appendTerminalOutput(entry, data) {
-	entry.output += data;
-	if (entry.output.length > TERMINAL_BUFFER_MAX_CHARS) {
-		entry.output = entry.output.slice(-TERMINAL_BUFFER_MAX_CHARS);
-	}
-}
-
-function createTerminal(sessionId, workspacePath, dimensions) {
-	const existing = terminalSessions.get(sessionId);
-	if (existing?.status === 'running') return terminalSnapshot(existing);
-	if (typeof workspacePath !== 'string' || !path.isAbsolute(workspacePath)) {
-		throw new Error('Terminal workspace must be an absolute path');
-	}
-	let stat;
-	try {
-		stat = fs.statSync(workspacePath);
-	} catch {
-		throw new Error('Terminal workspace does not exist');
-	}
-	if (!stat.isDirectory()) throw new Error('Terminal workspace must be a directory');
-
-	const size = terminalDimensions(dimensions);
-	const shellPath = defaultTerminalShell();
-	const ptyProcess = pty.spawn(shellPath, ['-l'], {
-		name: 'xterm-256color',
-		cols: size.cols,
-		rows: size.rows,
-		cwd: workspacePath,
-		env: { ...process.env, TERM: 'xterm-256color', TERM_PROGRAM: 'Cometline' }
-	});
-	const entry = {
-		sessionId,
-		status: 'running',
-		exitCode: null,
-		generation: (existing?.generation ?? 0) + 1,
-		shell: shellPath,
-		output: '',
-		process: ptyProcess
-	};
-	terminalSessions.set(sessionId, entry);
-	ptyProcess.onData((data) => {
-		appendTerminalOutput(entry, data);
-		sendTerminalEvent('cometline:terminal-data', { sessionId, data });
-	});
-	ptyProcess.onExit(({ exitCode }) => {
-		entry.status = 'exited';
-		entry.exitCode = exitCode;
-		entry.process = null;
-		sendTerminalEvent('cometline:terminal-exit', terminalSnapshot(entry));
-		terminalSessions.delete(sessionId);
-	});
-	return terminalSnapshot(entry);
-}
-
-function terminateTerminal(sessionId, { remove = false } = {}) {
-	const entry = terminalSessions.get(sessionId);
-	if (!entry) return false;
-	if (entry.status === 'running' && entry.process) {
-		try {
-			entry.process.kill();
-		} catch (error) {
-			console.warn(`Failed to terminate terminal for session ${sessionId}:`, error);
-		}
-	}
-	if (remove) terminalSessions.delete(sessionId);
-	return true;
-}
-
-function terminateAllTerminals() {
-	for (const sessionId of terminalSessions.keys()) terminateTerminal(sessionId, { remove: true });
-}
-
-const hasSingleInstanceLock = app.requestSingleInstanceLock();
-
-if (!hasSingleInstanceLock) {
-	app.quit();
-}
 
 // Vertically center the native buttons on the sidebar search row when open.
 // titlebar row top padding (10px) + half of 28px input (14px) = 24px.
@@ -473,261 +249,10 @@ function resolveCometMindBinary() {
 	if (app.isPackaged) {
 		return path.join(process.resourcesPath, 'cometmind');
 	}
-	// Dev: repository layout from cometline/electron/main.cjs
+	// Dev: repository layout from the compiled electron/dist bundle.
 	const devCandidate = path.join(__dirname, '..', '..', 'cometmind', 'dist', 'cometmind');
 	if (fs.existsSync(devCandidate)) return devCandidate;
 	return path.join(__dirname, '..', '..', 'cometmind', 'cometmind');
-}
-
-function browserSearchJson(res, status, payload) {
-	res.statusCode = status;
-	res.setHeader('Content-Type', 'application/json; charset=utf-8');
-	res.setHeader('Cache-Control', 'no-store');
-	res.end(JSON.stringify(payload));
-}
-
-function readBrowserSearchBody(req) {
-	return new Promise((resolve, reject) => {
-		let body = '';
-		req.setEncoding('utf8');
-		req.on('data', (chunk) => {
-			body += chunk;
-			if (body.length > 64 * 1024) {
-				req.destroy();
-				reject(new Error('request body too large'));
-			}
-		});
-		req.once('end', () => resolve(body));
-		req.once('error', reject);
-	});
-}
-
-function validBrowserSearchToken(value) {
-	return typeof value === 'string' && value.length > 0 && value === browserSearchToken;
-}
-
-function enqueueBrowserSearch(task) {
-	const run = browserSearchQueue.then(task, task);
-	browserSearchQueue = run.catch(() => undefined);
-	return run;
-}
-
-async function searchWithHiddenBrowser({ query, limit, recency }) {
-	return enqueueBrowserSearch(async () => {
-		if (!browserSearchWindow || browserSearchWindow.isDestroyed()) {
-			browserSearchWindow = new BrowserWindow({
-				width: 1280,
-				height: 900,
-				show: false,
-				offscreen: true,
-				webPreferences: {
-					contextIsolation: true,
-					nodeIntegration: false,
-					sandbox: true,
-					devTools: !app.isPackaged
-					// Deliberately use Electron's default session, matching the
-					// user-facing Web Panel. This reuses Google consent and security
-					// state instead of presenting each tool search as a fresh profile.
-				}
-			});
-			browserSearchWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-			browserSearchWindow.on('closed', () => {
-				browserSearchWindow = null;
-			});
-		}
-
-		const dateFilter = {
-			day: 'd',
-			d: 'd',
-			week: 'w',
-			w: 'w',
-			month: 'm',
-			m: 'm',
-			year: 'y',
-			y: 'y'
-		}[String(recency || '').toLowerCase()];
-		const searchParams = new URLSearchParams({
-			q: query,
-			hl: 'en',
-			num: String(Math.min(20, Math.max(limit * 2, 10)))
-		});
-		if (dateFilter) searchParams.set('tbs', `qdr:${dateFilter}`);
-		const target = `https://www.google.com/search?${searchParams.toString()}`;
-		await Promise.race([
-			browserSearchWindow.loadURL(target, {
-				extraHeaders: 'Accept-Language: en-US,en;q=0.8\\r\\n'
-			}),
-			new Promise((_, reject) =>
-				setTimeout(
-					() => reject(new Error('browser search timed out')),
-					BROWSER_SEARCH_TIMEOUT_MS
-				)
-			)
-		]);
-
-		const result = await browserSearchWindow.webContents.executeJavaScript(
-			`(() => {
-				const limit = ${JSON.stringify(limit)};
-				const normalize = (raw) => {
-					try {
-						const parsed = new URL(raw, location.href);
-						if (parsed.hostname === location.hostname && parsed.pathname === '/url') {
-							const redirected = parsed.searchParams.get('q') || parsed.searchParams.get('url');
-							if (redirected) return new URL(redirected, location.href).href;
-						}
-						return parsed.href;
-					} catch {
-						return '';
-					}
-				};
-				const bodyText = document.body?.innerText || '';
-				const blocked =
-					location.hostname === 'consent.google.com' ||
-					/Before you continue to Google|unusual traffic|not a robot/i.test(bodyText);
-				const seen = new Set();
-				const results = [...document.querySelectorAll('a')]
-					.map((anchor) => {
-						const heading = anchor.querySelector('h3');
-						if (!heading) return null;
-						const card =
-							anchor.closest('div.MjjYud') ||
-							anchor.closest('div.g') ||
-							anchor.parentElement;
-						const url = normalize(anchor.href);
-						let source = '';
-						try { source = new URL(url).hostname.replace(/^www\\./, ''); } catch { /* ignore */ }
-						return {
-							title: (heading.innerText || heading.textContent || '').trim(),
-							url,
-							snippet: (card?.querySelector('.VwiC3b, .yXK7lf, [data-sncf], .kb0PBd')?.innerText || '').trim(),
-							source
-						};
-					})
-					.filter((item) => {
-						if (!item?.title || !item.url || seen.has(item.url)) return false;
-						try {
-							if (!/^https?:$/.test(new URL(item.url).protocol)) return false;
-						} catch {
-							return false;
-						}
-						seen.add(item.url);
-						return true;
-					})
-					.slice(0, limit);
-				return { blocked, results };
-			})()`
-		);
-		if (result?.blocked && (!Array.isArray(result?.results) || result.results.length === 0)) {
-			throw new Error('Google Search requires consent or is temporarily unavailable');
-		}
-		return {
-			query,
-			backend: 'electron-chromium-google',
-			results: Array.isArray(result?.results) ? result.results : []
-		};
-	});
-}
-
-async function startBrowserSearchBridge() {
-	if (browserSearchServer) return;
-	browserSearchToken = crypto.randomBytes(32).toString('hex');
-	browserSearchServer = http.createServer(async (req, res) => {
-		if (req.method !== 'POST' || req.url !== '/search') {
-			browserSearchJson(res, 404, { error: 'not_found' });
-			return;
-		}
-		if (!validBrowserSearchToken(req.headers['x-cometline-browser-token'])) {
-			browserSearchJson(res, 401, { error: 'unauthorized' });
-			return;
-		}
-		try {
-			const raw = await readBrowserSearchBody(req);
-			const input = JSON.parse(raw);
-			const query = String(input?.query || '').trim();
-			const limit = Math.min(
-				BROWSER_SEARCH_MAX_LIMIT,
-				Math.max(1, Number.isFinite(Number(input?.limit)) ? Number(input.limit) : 5)
-			);
-			if (!query || query.length > BROWSER_SEARCH_MAX_QUERY) {
-				browserSearchJson(res, 400, { error: 'invalid_query' });
-				return;
-			}
-			const result = await searchWithHiddenBrowser({ query, limit, recency: input?.recency });
-			browserSearchJson(res, 200, result);
-		} catch (error) {
-			browserSearchJson(res, 502, {
-				error: error instanceof Error ? error.message : String(error)
-			});
-		}
-	});
-
-	await new Promise((resolve, reject) => {
-		browserSearchServer.once('error', reject);
-		browserSearchServer.listen(0, '127.0.0.1', () => {
-			const address = browserSearchServer.address();
-			if (!address || typeof address === 'string') {
-				reject(new Error('browser search bridge did not expose a TCP port'));
-				return;
-			}
-			browserSearchEndpoint = `http://127.0.0.1:${address.port}/search`;
-			resolve();
-		});
-	});
-}
-
-async function stopBrowserSearchBridge() {
-	if (browserSearchWindow && !browserSearchWindow.isDestroyed()) {
-		browserSearchWindow.destroy();
-	}
-	browserSearchWindow = null;
-	browserSearchEndpoint = '';
-	browserSearchToken = '';
-	if (!browserSearchServer) return;
-	const server = browserSearchServer;
-	browserSearchServer = null;
-	await new Promise((resolve) => server.close(() => resolve()));
-}
-
-function cometMindCliBinDirs() {
-	const home = os.homedir();
-	const dirs = [path.join(home, '.cometmind', 'bin'), path.join(home, '.local', 'bin')];
-	if (process.platform === 'darwin') {
-		dirs.push('/opt/homebrew/bin', '/usr/local/bin');
-	}
-	return dirs;
-}
-
-function installCometMindCliShim() {
-	if (process.platform === 'win32') return;
-	const binary = resolveCometMindBinary();
-	if (!fs.existsSync(binary)) return;
-
-	for (const dir of cometMindCliBinDirs()) {
-		try {
-			fs.mkdirSync(dir, { recursive: true });
-			const shim = path.join(dir, 'cometmind');
-			try {
-				const stat = fs.lstatSync(shim);
-				if (!stat.isSymbolicLink()) continue;
-				if (fs.readlinkSync(shim) === binary) continue;
-				fs.unlinkSync(shim);
-			} catch (err) {
-				if (err.code !== 'ENOENT') throw err;
-			}
-			fs.symlinkSync(binary, shim);
-		} catch (err) {
-			console.warn(`Unable to install CometMind CLI shim in ${dir}:`, err);
-		}
-	}
-}
-
-function pathWithCometMindCliBins(envPath = '') {
-	const delimiter = path.delimiter;
-	const existing = String(envPath || '')
-		.split(delimiter)
-		.filter(Boolean);
-	const entries = [...cometMindCliBinDirs(), ...existing];
-	return [...new Set(entries)].join(delimiter);
 }
 
 const BUILTIN_PERSONA_IDS = new Set(['minako', 'souma']);
@@ -972,7 +497,8 @@ function writeComposerHistoryEntries(entries) {
 
 function appendComposerHistoryEntry(rawEntry) {
 	const entry = parseComposerHistoryEntry(rawEntry);
-	if (!entry) return { ok: false, error: 'Invalid history entry', entries: loadComposerHistoryEntries() };
+	if (!entry)
+		return { ok: false, error: 'Invalid history entry', entries: loadComposerHistoryEntries() };
 	let entries = loadComposerHistoryEntries();
 	entries.push(entry);
 	if (entries.length > COMPOSER_HISTORY_MAX_ENTRIES) {
@@ -1826,8 +1352,7 @@ function readProviderSettings() {
 			}
 		}
 	}
-	const active =
-		base.providers.find((p) => p.id === base.defaultProviderId) ?? base.providers[0];
+	const active = base.providers.find((p) => p.id === base.defaultProviderId) ?? base.providers[0];
 	if (fromEnv.baseURL) active.baseURL = fromEnv.baseURL.trim();
 	if (fromEnv.apiKey) active.apiKey = fromEnv.apiKey.trim();
 	if (fromEnv.selectedModel) {
@@ -1857,13 +1382,14 @@ function writeProviderSettings(settings) {
 	const nextProviders = Array.isArray(settings.providers)
 		? normalizeProviders(settings.providers)
 		: current.providers;
-	const preferredDefaultProvider =
-		String(settings.defaultProviderId ?? current.defaultProviderId ?? '').trim();
+	const preferredDefaultProvider = String(
+		settings.defaultProviderId ?? current.defaultProviderId ?? ''
+	).trim();
 	const preferredDefaultModel = String(
 		settings.defaultModelId ?? current.defaultModelId ?? ''
 	).trim();
 	const runtimeProviders = nextProviders.filter((p) => p.enabled && p.enabledModels.length > 0);
-	let nextDefaultProvider =
+	const nextDefaultProvider =
 		runtimeProviders.find((p) => p.id === preferredDefaultProvider) ??
 		runtimeProviders.find((p) => p.id === current.defaultProviderId) ??
 		runtimeProviders[0] ??
@@ -1874,9 +1400,7 @@ function writeProviderSettings(settings) {
 		preferredDefaultModel &&
 		nextDefaultProvider.enabledModels.includes(preferredDefaultModel)
 			? preferredDefaultModel
-			: nextDefaultProvider?.enabledModels?.[0] ||
-				nextDefaultProvider?.selectedModel ||
-				'';
+			: nextDefaultProvider?.enabledModels?.[0] || nextDefaultProvider?.selectedModel || '';
 	const appSettings = { ...(current.app ?? {}), ...(settings.app ?? {}) };
 	const personaId = resolveNextPersonaId(settings, current);
 	appSettings.personaId = personaId;
@@ -1980,8 +1504,7 @@ function providerEnv() {
 		runtimeProviders[0] ??
 		settings.providers[0];
 	const model =
-		(settings.defaultModelId &&
-		active.enabledModels?.includes(settings.defaultModelId)
+		(settings.defaultModelId && active.enabledModels?.includes(settings.defaultModelId)
 			? settings.defaultModelId
 			: null) ||
 		active.enabledModels[0] ||
@@ -1990,7 +1513,6 @@ function providerEnv() {
 		'';
 	const env = {
 		...process.env,
-		PATH: pathWithCometMindCliBins(process.env.PATH),
 		COMETMIND_PROVIDER: active.id,
 		COMETMIND_MODEL: model,
 		COMETMIND_MAX_TOKENS: String(settings.cometmind?.maxTokens ?? 2048),
@@ -2002,12 +1524,29 @@ function providerEnv() {
 	};
 	if (active.baseURL) env.COMETMIND_BASE_URL = active.baseURL;
 	if (active.apiKey) env.COMETMIND_API_KEY = active.apiKey;
-	if (browserSearchEndpoint && browserSearchToken) {
-		env.COMETLINE_BROWSER_SEARCH_URL = browserSearchEndpoint;
-		env.COMETLINE_BROWSER_SEARCH_TOKEN = browserSearchToken;
-	}
-	return env;
+	return { ...env, ...browserSearch.getEnvironment() };
 }
+
+const runtimeContext = {
+	getWindows: () => [mainWindow, miniWindow, settingsWindow],
+	shouldSuppressSidecarRespawn: () => stoppingForQuit || stoppedForQuit || relaunchForUpdate
+};
+const cometMind = createCometMindLifecycle({
+	context: runtimeContext,
+	resolveBinary: resolveCometMindBinary,
+	providerEnv,
+	getLogPath,
+	getGatewayLogPath: () => getLogPath().replace(/\.log$/, '-gateway.log')
+});
+const updater = createAutoUpdater({
+	context: runtimeContext,
+	beforeInstall: async () => {
+		relaunchForUpdate = true;
+		stoppingForQuit = true;
+		await cometMind.syncDiscordGateway({ cometmind: { gateway: { discord: { enabled: false } } } });
+		await cometMind.stop();
+	}
+});
 
 function getWorkspaceStoragePath() {
 	const dir = path.join(os.homedir(), '.cometmind');
@@ -2381,127 +1920,6 @@ function applyPersona(personaId = getPersonaId(), settings = undefined) {
 	if (trayImageSource) tray.setImage(trayImageSource);
 }
 
-function isCometMindRunning() {
-	return cometMindProcess != null && cometMindProcess.exitCode === null;
-}
-
-function startCometMind() {
-	if (isCometMindRunning()) return;
-	if (cometMindProcess && cometMindProcess.exitCode !== null) {
-		cometMindProcess = null;
-	}
-
-	const binary = resolveCometMindBinary();
-	const logPath = getLogPath();
-	const logStream = createRotatingLogWriter(logPath);
-
-	if (!fs.existsSync(binary)) {
-		console.error(`CometMind binary not found: ${binary}`);
-		return;
-	}
-
-	const child = spawn(binary, ['serve', '--port', String(COMETMIND_PORT), '--watch-parent'], {
-		stdio: ['ignore', 'pipe', 'pipe'],
-		env: providerEnv()
-	});
-	cometMindProcess = child;
-
-	child.stdout.on('data', (data) => logStream.write(data));
-	child.stderr.on('data', (data) => logStream.write(data));
-
-	child.on('exit', (code) => {
-		console.log(`CometMind exited with code ${code}`);
-		logStream.end();
-		// `cometMindProcess === child` means nobody intentionally stopped it
-		// (stopCometMind nulls the ref before the exit fires). Treat that as an
-		// unexpected death and supervise a respawn.
-		if (cometMindProcess === child) {
-			cometMindProcess = null;
-			scheduleCometMindRespawn(`exit code ${code}`);
-		}
-	});
-
-	child.on('error', (err) => {
-		console.error('CometMind spawn error:', err);
-		logStream.end();
-		if (cometMindProcess === child) {
-			cometMindProcess = null;
-			scheduleCometMindRespawn(`spawn error: ${err?.message ?? err}`);
-		}
-	});
-}
-
-// scheduleCometMindRespawn relaunches the sidecar after an unexpected death,
-// using exponential backoff so a binary that crashes on startup doesn't
-// hot-loop. Suppressed while the app is quitting. Backoff resets once the
-// renderer's health check confirms the new process is up (see waitForHealth
-// callers / startCometMind success path).
-function scheduleCometMindRespawn(reason) {
-	if (stoppingForQuit || stoppedForQuit || relaunchForUpdate) return;
-	if (cometMindRespawnTimer) return;
-	if (cometMindRespawnAttempts >= RESPAWN_MAX_ATTEMPTS) {
-		console.error(
-			`CometMind respawn giving up after ${cometMindRespawnAttempts} attempts (last: ${reason})`
-		);
-		return;
-	}
-	const delay = Math.min(RESPAWN_BASE_MS * 2 ** cometMindRespawnAttempts, RESPAWN_MAX_MS);
-	cometMindRespawnAttempts += 1;
-	console.warn(
-		`CometMind died unexpectedly (${reason}); respawning in ${delay}ms ` +
-			`(attempt ${cometMindRespawnAttempts}/${RESPAWN_MAX_ATTEMPTS})`
-	);
-	cometMindRespawnTimer = setTimeout(async () => {
-		cometMindRespawnTimer = null;
-		if (stoppingForQuit || stoppedForQuit || relaunchForUpdate) return;
-		if (isCometMindRunning()) return;
-		startCometMind();
-		const healthy = await waitForHealth();
-		if (healthy) {
-			cometMindRespawnAttempts = 0;
-		}
-	}, delay);
-}
-
-function runCometMindCommand(args) {
-	const binary = resolveCometMindBinary();
-	if (!fs.existsSync(binary)) {
-		return Promise.reject(new Error(`CometMind binary not found: ${binary}`));
-	}
-	return new Promise((resolve, reject) => {
-		const child = spawn(binary, args, {
-			stdio: ['ignore', 'pipe', 'pipe'],
-			env: providerEnv()
-		});
-		let stdout = '';
-		let stderr = '';
-		child.stdout.on('data', (data) => {
-			stdout += String(data);
-		});
-		child.stderr.on('data', (data) => {
-			stderr += String(data);
-		});
-		child.on('error', reject);
-		child.on('exit', (code) => {
-			if (code === 0) {
-				resolve({ stdout, stderr });
-				return;
-			}
-			reject(
-				new Error(
-					stderr.trim() ||
-						stdout.trim() ||
-						`CometMind ${args.join(' ')} exited with code ${code}`
-				)
-			);
-		});
-	});
-}
-
-function getGatewayLogPath() {
-	return getLogPath().replace(/\.log$/, '-gateway.log');
-}
-
 function isMacOS13OrLater() {
 	return process.platform === 'darwin' && Number(os.release().split('.')[0]) >= 22;
 }
@@ -2601,259 +2019,6 @@ function applyOpenAtLoginSetting(openAtLogin) {
 	}
 }
 
-function startDiscordGateway() {
-	if (cometMindGatewayProcess) return;
-
-	const settings = readProviderSettings();
-	const discord = settings.cometmind?.gateway?.discord ?? {};
-	if (!String(discord.botToken ?? '').trim() && !process.env.DISCORD_BOT_TOKEN) {
-		console.error('Discord gateway: bot token is not configured');
-		return;
-	}
-
-	const binary = resolveCometMindBinary();
-	const logPath = getGatewayLogPath();
-	const logStream = createRotatingLogWriter(logPath);
-
-	if (!fs.existsSync(binary)) {
-		console.error(`CometMind binary not found: ${binary}`);
-		return;
-	}
-
-	cometMindGatewayProcess = spawn(binary, ['gateway', 'run', '--platform', 'discord'], {
-		stdio: ['ignore', 'pipe', 'pipe'],
-		env: providerEnv()
-	});
-
-	cometMindGatewayProcess.stdout.on('data', (data) => logStream.write(data));
-	cometMindGatewayProcess.stderr.on('data', (data) => logStream.write(data));
-
-	cometMindGatewayProcess.on('exit', (code) => {
-		console.log(`Discord gateway exited with code ${code}`);
-		logStream.end();
-		cometMindGatewayProcess = null;
-	});
-
-	cometMindGatewayProcess.on('error', (err) => {
-		console.error('Discord gateway spawn error:', err);
-		logStream.end();
-		cometMindGatewayProcess = null;
-	});
-}
-
-function stopDiscordGateway() {
-	const proc = cometMindGatewayProcess;
-	if (!proc) return Promise.resolve();
-	cometMindGatewayProcess = null;
-
-	return new Promise((resolve) => {
-		let settled = false;
-		let forceTimer = null;
-		const finish = () => {
-			if (settled) return;
-			settled = true;
-			if (forceTimer) clearTimeout(forceTimer);
-			resolve();
-		};
-
-		proc.once('exit', finish);
-		forceTimer = setTimeout(() => {
-			try {
-				proc.kill('SIGKILL');
-			} catch {
-				// ignore
-			}
-			finish();
-		}, 6000);
-
-		try {
-			proc.kill('SIGTERM');
-		} catch {
-			finish();
-		}
-	});
-}
-
-async function syncDiscordGatewayFromSettings(settings) {
-	const enabled = Boolean(settings?.cometmind?.gateway?.discord?.enabled);
-	if (enabled) {
-		await stopDiscordGateway();
-		startDiscordGateway();
-	} else {
-		await stopDiscordGateway();
-	}
-}
-
-function stopCometMind() {
-	// Cancel any in-flight supervisor respawn so an intentional stop isn't
-	// undone by a queued relaunch. An intentional stop also clears the backoff
-	// budget: the next start is user-driven, not a crash loop.
-	if (cometMindRespawnTimer) {
-		clearTimeout(cometMindRespawnTimer);
-		cometMindRespawnTimer = null;
-	}
-	cometMindRespawnAttempts = 0;
-	const proc = cometMindProcess;
-	cometMindProcess = null;
-	if (!proc) return Promise.resolve();
-
-	return new Promise((resolve) => {
-		let settled = false;
-		let forceTimer = null;
-		const finish = () => {
-			if (settled) return;
-			settled = true;
-			if (forceTimer) clearTimeout(forceTimer);
-			resolve();
-		};
-
-		if (proc.exitCode !== null) {
-			finish();
-			return;
-		}
-
-		// Wait for the process to actually exit so it releases the TCP port
-		// (127.0.0.1:7700) and the SQLite WAL lock before a new `serve` spawns.
-		// Spawning a replacement too early causes "address already in use" and
-		// SQLITE_BUSY (database is locked) while both processes hold the DB.
-		proc.once('exit', finish);
-
-		// Escalate to SIGKILL if graceful shutdown stalls past the server's
-		// 5s shutdown budget, then resolve once it is gone.
-		forceTimer = setTimeout(() => {
-			try {
-				proc.kill('SIGKILL');
-			} catch {
-				// ignore
-			}
-			finish();
-		}, 6000);
-
-		try {
-			proc.kill('SIGTERM');
-		} catch {
-			finish();
-		}
-	});
-}
-
-async function waitForHealth() {
-	for (let i = 0; i < MAX_RETRIES; i++) {
-		try {
-			const res = await fetch(HEALTH_URL, { signal: AbortSignal.timeout(1000) });
-			if (res.ok) return true;
-		} catch {
-			// keep polling
-		}
-		await new Promise((resolve) => setTimeout(resolve, POLL_MS));
-	}
-	return false;
-}
-
-// reloadCometMind() applies settings changes to the running sidecar without a
-// full restart. It returns a structured outcome instead of a bare boolean so
-// callers (currently save-provider-settings) can tell the difference between
-// "confirmed reload", "reload failed and we fell back to a full restart", and
-// "everything failed" — previously all three collapsed into the same
-// hardcoded "Changes saved. CometMind reloaded." message.
-//
-// `cometmind settings reload` (see cmd/settings.go) now blocks until the
-// target process's reload-result file reports a new generation, so a
-// resolved promise here means the sidecar actually re-read config and
-// finished Manager.Reload, not just that a SIGHUP was delivered.
-async function reloadCometMind() {
-	if (!isCometMindRunning()) {
-		startCometMind();
-		const healthy = await waitForHealth();
-		return { action: 'restart', healthy };
-	}
-	try {
-		await runCometMindCommand(['settings', 'reload']);
-		const healthy = await waitForHealth();
-		if (!healthy) {
-			throw new Error('CometMind did not report healthy after reload');
-		}
-		return { action: 'reload', healthy: true };
-	} catch (error) {
-		console.warn('CometMind reload failed, falling back to restart:', error);
-		await stopCometMind();
-		startCometMind();
-		const healthy = await waitForHealth();
-		return {
-			action: 'restart-fallback',
-			healthy,
-			error: error instanceof Error ? error.message : String(error)
-		};
-	}
-}
-
-// Tracks the latest known auto-update state so a freshly loaded renderer can
-// query it via IPC instead of waiting for the next event.
-let updateState = { status: 'idle' };
-
-function setUpdateState(next) {
-	updateState = { ...next, updatedAt: Date.now() };
-	for (const window of [mainWindow, miniWindow, settingsWindow]) {
-		if (window && !window.isDestroyed()) {
-			window.webContents.send('cometline:update-state', updateState);
-		}
-	}
-}
-
-function configureAutoUpdater() {
-	if (!app.isPackaged) return;
-
-	// We surface a button in the UI and let the user choose when to restart, so
-	// download automatically but never install behind their back.
-	getAutoUpdater().autoDownload = true;
-	getAutoUpdater().autoInstallOnAppQuit = false;
-	getAutoUpdater().logger = {
-		info: (message) => console.log(`[auto-updater] ${message}`),
-		warn: (message) => console.warn(`[auto-updater] ${message}`),
-		error: (message) => console.error(`[auto-updater] ${message}`),
-		debug: (message) => console.debug(`[auto-updater] ${message}`)
-	};
-
-	getAutoUpdater().on('checking-for-update', () => {
-		setUpdateState({ status: 'checking' });
-	});
-
-	getAutoUpdater().on('update-available', (info) => {
-		setUpdateState({ status: 'downloading', version: info?.version, percent: 0 });
-	});
-
-	getAutoUpdater().on('update-not-available', (info) => {
-		setUpdateState({ status: 'idle', version: info?.version });
-	});
-
-	getAutoUpdater().on('download-progress', (progress) => {
-		setUpdateState({
-			status: 'downloading',
-			percent: Math.round(progress?.percent ?? 0)
-		});
-	});
-
-	getAutoUpdater().on('update-downloaded', (info) => {
-		setUpdateState({ status: 'ready', version: info?.version });
-	});
-
-	getAutoUpdater().on('error', (err) => {
-		console.error('Auto-update error:', err);
-		setUpdateState({ status: 'error', message: String(err?.message ?? err) });
-	});
-
-	const check = () => {
-		getAutoUpdater()
-			.checkForUpdates()
-			.catch((err) => {
-				console.error('Auto-update check failed:', err);
-			});
-	};
-
-	check();
-	updateCheckTimer = setInterval(check, UPDATE_CHECK_INTERVAL_MS);
-}
-
 function getBundleDir() {
 	return path.join(__dirname, '..', 'build');
 }
@@ -2912,9 +2077,10 @@ async function createWindow() {
 		...(appIcon ? { icon: appIcon } : {}),
 		show: false,
 		webPreferences: {
-			preload: path.join(__dirname, 'preload.cjs'),
+			preload: path.join(__dirname, 'dist', 'preload.cjs'),
 			contextIsolation: true,
 			nodeIntegration: false,
+			sandbox: true,
 			allowRunningInsecureContent: false,
 			webviewTag: true,
 			devTools: !app.isPackaged
@@ -2990,9 +2156,10 @@ async function createMiniWindow() {
 		...(appIcon ? { icon: appIcon } : {}),
 		show: false,
 		webPreferences: {
-			preload: path.join(__dirname, 'preload.cjs'),
+			preload: path.join(__dirname, 'dist', 'preload.cjs'),
 			contextIsolation: true,
 			nodeIntegration: false,
+			sandbox: true,
 			allowRunningInsecureContent: false,
 			webviewTag: true,
 			devTools: !app.isPackaged
@@ -3039,9 +2206,10 @@ async function createSettingsWindow() {
 		show: false,
 		backgroundColor: '#f5f7fb',
 		webPreferences: {
-			preload: path.join(__dirname, 'preload.cjs'),
+			preload: path.join(__dirname, 'dist', 'preload.cjs'),
 			contextIsolation: true,
 			nodeIntegration: false,
+			sandbox: true,
 			allowRunningInsecureContent: false,
 			webviewTag: false,
 			devTools: !app.isPackaged
@@ -3995,7 +3163,8 @@ async function fetchProviderModels(config) {
 	return fetchOpenAIModels(baseURL, apiKey);
 }
 
-app.whenReady().then(async () => {
+function registerAppLifecycle(hasSingleInstanceLock) {
+	app.whenReady().then(async () => {
 	if (!hasSingleInstanceLock) {
 		return;
 	}
@@ -4010,33 +3179,33 @@ app.whenReady().then(async () => {
 
 	// Ensure settings JSON exists with system prompt path before starting CometMind.
 	writeProviderSettings(readProviderSettings());
-	installCometMindCliShim();
+	cometMind.installCliShim();
 	const startupSettings = readProviderSettings();
 	applyOpenAtLoginSetting(startupSettings.app?.openAtLogin);
 	configureApplicationMenu();
 	refreshGlobalShortcuts();
 	try {
-		await startBrowserSearchBridge();
+		await browserSearch.start();
 	} catch (error) {
 		console.error('Browser search bridge failed to start:', error);
 	}
-	startCometMind();
+	cometMind.start();
 	// Create the window immediately and let the sidecar warm up in parallel.
 	// The renderer shows its own connecting/loading state until the health
 	// check passes, so we no longer block the window behind waitForHealth().
 	const windowReady = createWindow();
-	waitForHealth().then((healthy) => {
+	cometMind.waitForHealth().then((healthy) => {
 		if (!healthy) {
 			console.error('CometMind failed to become healthy');
 			return;
 		}
 		if (startupSettings.cometmind?.gateway?.discord?.enabled) {
-			startDiscordGateway();
+			void cometMind.syncDiscordGateway(startupSettings);
 		}
 	});
 	await windowReady;
 	applyPersona(startupSettings.app?.personaId, startupSettings);
-	configureAutoUpdater();
+	updater.configure();
 
 	app.on('second-instance', () => {
 		showMainWindow();
@@ -4049,346 +3218,157 @@ app.whenReady().then(async () => {
 	});
 });
 
-app.on('window-all-closed', () => {
+	app.on('window-all-closed', () => {
 	if (process.platform !== 'darwin') {
 		app.quit();
 	}
-});
+	});
 
-app.on('before-quit', async (event) => {
+	app.on('before-quit', async (event) => {
 	if (stoppedForQuit || stoppingForQuit) return;
 
 	if (relaunchForUpdate) {
 		// quitAndInstall() is driving the quit; don't intercept it so the
 		// updater can relaunch the app after installation.
-		if (updateCheckTimer) {
-			clearInterval(updateCheckTimer);
-			updateCheckTimer = null;
-		}
+		updater.stop();
 		return;
 	}
 
 	event.preventDefault();
 	stoppingForQuit = true;
 	destroyTray();
-	if (updateCheckTimer) {
-		clearInterval(updateCheckTimer);
-		updateCheckTimer = null;
-	}
-	await stopBrowserSearchBridge();
-	terminateAllTerminals();
-	await stopDiscordGateway();
-	await stopCometMind();
+	updater.stop();
+	await browserSearch.stop();
+	terminals.terminateAll();
+	await cometMind.syncDiscordGateway({ cometmind: { gateway: { discord: { enabled: false } } } });
+	await cometMind.stop();
 	globalShortcut.unregisterAll();
 	stoppedForQuit = true;
 	app.quit();
-});
+	});
 
 // Last-resort synchronous cleanup. `before-quit` handles graceful shutdown,
 // but if the main process exits without it (e.g. an uncaught crash) this best
 // effort SIGTERM avoids leaving an orphaned sidecar holding the port and DB
 // lock. The Go-side --watch-parent watchdog is the real safety net for hard
 // kills where no JS runs at all.
-process.on('exit', () => {
-	terminateAllTerminals();
-	if (cometMindGatewayProcess) {
-		try {
-			cometMindGatewayProcess.kill('SIGTERM');
-		} catch {
-			// ignore
-		}
-	}
-	if (cometMindProcess) {
-		try {
-			cometMindProcess.kill('SIGTERM');
-		} catch {
-			// ignore
-		}
-	}
-});
+	process.on('exit', () => {
+	terminals.terminateAll();
+	cometMind.terminateForExit();
+ 	});
+}
 
-ipcMain.on('jobs:notify', (_event, payload) => {
-	if (!payload || typeof payload.title !== 'string') return;
-	if (!ElectronNotification.isSupported()) return;
-	const notification = new ElectronNotification({
-		title: payload.title,
-		body: typeof payload.body === 'string' ? payload.body : ''
+function registerRuntimeIpcHandlers() {
+	registerIpcHandlers({
+	jobsNotify: (_event, payload) => {
+		if (!payload || typeof payload.title !== 'string' || !ElectronNotification.isSupported()) return;
+		new ElectronNotification({ title: payload.title, body: typeof payload.body === 'string' ? payload.body : '' }).show();
+	},
+	restartCometMind: async () => { await cometMind.stop(); cometMind.start(); await cometMind.waitForHealth(); },
+	shortcutCaptureActive: (_event, active) => { shortcutCaptureActive = Boolean(active); },
+	sessionNavigationSuspended: (_event, suspended) => { sessionNavigationSuspended = Boolean(suspended); },
+	webPanelOpen: (_event, open) => { webPanelOpen = Boolean(open); },
+	inboxOpen: (_event, open) => { inboxOpen = Boolean(open); },
+	confirmCloseWindow: () => hideMainWindow(),
+	setSidebarOpen: (_event, payload) => animateWindowButtons(payload),
+	getFullScreen: () => Boolean(mainWindow && !mainWindow.isDestroyed() && mainWindow.isFullScreen()),
+	getWorkspacePath: () => getWorkspacePath(),
+	openSessionInMainWindow: (_event, sessionId) => openSessionInMainWindow(sessionId),
+	selectWorkspacePath: () => selectWorkspacePath(),
+	selectBackupFolder: () => selectBackupFolder(),
+	setWorkspacePath: (_event, workspacePath) => writeStoredWorkspacePath(workspacePath),
+	listRecentWorkspaces: () => listRecentWorkspacePaths(),
+	removeRecentWorkspacePath: (_event, workspacePath) => removeRecentWorkspacePath(workspacePath),
+	filterExistingWorkspacePaths: (_event, paths) => filterExistingWorkspacePaths(Array.isArray(paths) ? paths : []),
+	pruneWorkspaceStore: () => pruneWorkspaceStore(),
+	readWorkspaceFile: (_event, workspacePath, relativePath) => readWorkspaceFileForPreview(workspacePath, relativePath),
+	terminalList: (event) => terminals.isMainWindowSender(event) ? terminals.list() : [],
+	terminalCreate: (event, payload = {}) => { terminals.requireInput(event, payload.sessionId); return terminals.create(payload.sessionId, payload.workspacePath, payload); },
+	terminalWrite: (event, payload = {}) => { terminals.requireInput(event, payload.sessionId); return terminals.write(payload.sessionId, payload.data); },
+	terminalResize: (event, payload = {}) => { terminals.requireInput(event, payload.sessionId); return terminals.resize(payload.sessionId, payload); },
+	terminalTerminate: (event, sessionId) => { terminals.requireInput(event, sessionId); return terminals.terminate(sessionId); },
+	terminalRemove: (event, sessionId) => { terminals.requireInput(event, sessionId); return terminals.terminate(sessionId, true); },
+	listCustomPersonas: () => customPersonasFromSettings(readProviderSettings()),
+	readPersonaAvatar: (_event, id) => readPersonaAvatar(id),
+	readBuiltinSoul: (_event, personaId) => readPersonaSoul(personaId),
+	saveCustomPersona: (_event, payload) => saveCustomPersona(payload),
+	deleteCustomPersona: (_event, id) => deleteCustomPersona(id),
+	getProviderSettings: () => readProviderSettings(),
+	getCodexAuthStatus: () => getCodexAuthStatus(),
+	startCodexLogin: () => startCodexLogin(),
+	getXaiAuthStatus: () => getXaiAuthStatus(),
+	startXaiLogin: () => startXaiLogin(),
+	getMcpOAuthStatus: (_event, serverId) => getMcpOAuthStatus(serverId),
+	startMcpOAuth: (_event, payload) => startMcpOAuth(payload),
+	readCursorMcpConfig: () => readCursorMcpConfig(),
+	fetchProviderModels: (_event, config) => fetchProviderModels(config),
+	ollamaHealth: (_event, baseURL) => ollamaService.checkHealth(baseURL),
+	ollamaModels: (_event, baseURL) => ollamaService.listModels(baseURL),
+	ollamaDiagnostics: (_event, baseURL) => ollamaService.getDiagnostics(baseURL),
+	ollamaPull: (_event, payload = {}) => ollamaService.pullModel(payload),
+	ollamaCancelPull: () => ollamaService.cancelPull(),
+	saveProviderSettings: async (_event, settings, options = {}) => {
+		const previous = readProviderSettings();
+		const saved = writeProviderSettings(settings);
+		const personaIdChanged = (previous.app?.personaId ?? 'minako') !== (saved.app?.personaId ?? 'minako');
+		let runtimeAction = options.runtimeAction ?? (options.restartCometMind === false ? 'none' : 'restart');
+		if (runtimeAction === 'none' && (previous.cometmind?.systemPromptPath ?? '') !== (saved.cometmind?.systemPromptPath ?? '')) runtimeAction = 'reload';
+		refreshGlobalShortcuts();
+		configureApplicationMenu();
+		let reload = null;
+		if (runtimeAction === 'restart') {
+			await cometMind.stop();
+			cometMind.start();
+			reload = { action: 'restart', healthy: await cometMind.waitForHealth() };
+		} else if (runtimeAction === 'reload') {
+			reload = await cometMind.reload();
+		} else if (runtimeAction === 'gateway') {
+			reload = { action: 'gateway', healthy: await cometMind.waitForHealth() };
+		}
+		await cometMind.syncDiscordGateway(saved);
+		applyOpenAtLoginSetting(saved.app?.openAtLogin);
+		if (personaIdChanged) applyPersona(saved.app?.personaId, saved);
+		broadcastProviderSettingsChanged(saved);
+		return { settings: saved, reload };
+	},
+	openSettingsWindow: async () => { await showSettingsWindow(); return true; },
+	replayIntro: () => triggerMainWindowOnboarding('cometline:replay-intro'),
+	runSetupWizard: () => triggerMainWindowOnboarding('cometline:run-setup-wizard'),
+	getMiniWindowState: () => readMiniWindowState(),
+	saveMiniWindowState: (_event, state) => writeMiniWindowState(state),
+	getDiscordGatewayStatus: () => ({ running: cometMind.isGatewayRunning(), enabled: Boolean(readProviderSettings().cometmind?.gateway?.discord?.enabled) }),
+	setDiscordGatewayEnabled: async (_event, enabled) => {
+		const settings = readProviderSettings();
+		settings.cometmind.gateway.discord.enabled = Boolean(enabled);
+		const saved = writeProviderSettings(settings);
+		await cometMind.syncDiscordGateway(saved);
+		return { running: cometMind.isGatewayRunning(), enabled: Boolean(saved.cometmind?.gateway?.discord?.enabled) };
+	},
+	loadComposerHistory: () => loadComposerHistoryEntries(),
+	appendComposerHistory: (_event, entry) => appendComposerHistoryEntry(entry),
+	getOpenAtLogin: () => {
+		const settings = readProviderSettings();
+		try { const login = readLoginItemState(); return { openAtLogin: login.openAtLogin, status: login.status }; }
+		catch { return { openAtLogin: Boolean(settings.app?.openAtLogin), status: 'unknown' }; }
+	},
+	setOpenAtLogin: (_event, openAtLogin) => {
+		const settings = readProviderSettings();
+		settings.app = { ...settings.app, openAtLogin: Boolean(openAtLogin) };
+		const saved = writeProviderSettings(settings);
+		const result = applyOpenAtLoginSetting(saved.app.openAtLogin);
+		return { openAtLogin: result.openAtLogin ?? saved.app.openAtLogin, status: result.status ?? 'unknown', needsApproval: Boolean(result.needsApproval), openedSettings: Boolean(result.openedSettings), isDev: Boolean(result.isDev), message: result.message };
+	},
+	openExternal: async (_event, rawUrl) => {
+		if (!isExternallyOpenableUrl(rawUrl)) return false;
+		await shell.openExternal(String(rawUrl));
+		return true;
+	},
+	getAppVersion: () => app.getVersion(),
+	getUpdateState: () => updater.getState(),
+	checkForUpdates: () => updater.check(),
+		installUpdate: () => updater.install()
 	});
-	notification.show();
-});
-
-ipcMain.on('cometmind:restart', async () => {
-	await stopCometMind();
-	startCometMind();
-	await waitForHealth();
-});
-
-ipcMain.on('cometline:shortcut-capture-active', (_event, active) => {
-	shortcutCaptureActive = Boolean(active);
-});
-
-ipcMain.on('cometline:session-navigation-suspended', (_event, suspended) => {
-	sessionNavigationSuspended = Boolean(suspended);
-});
-
-ipcMain.on('cometline:web-panel-open', (_event, open) => {
-	webPanelOpen = Boolean(open);
-});
-
-ipcMain.on('cometline:inbox-open', (_event, open) => {
-	inboxOpen = Boolean(open);
-});
-
-ipcMain.on('cometline:confirm-close-window', () => {
-	hideMainWindow();
-});
-
-ipcMain.on('cometline:set-sidebar-open', (_event, payload) => {
-	animateWindowButtons(payload);
-});
-
-ipcMain.handle('cometline:get-fullscreen', () =>
-	Boolean(mainWindow && !mainWindow.isDestroyed() && mainWindow.isFullScreen())
-);
-
-ipcMain.handle('cometline:get-workspace-path', () => getWorkspacePath());
-
-ipcMain.handle('cometline:open-session-in-main-window', (_event, sessionId) =>
-	openSessionInMainWindow(sessionId)
-);
-
-ipcMain.handle('cometline:select-workspace-path', selectWorkspacePath);
-ipcMain.handle('cometline:select-backup-folder', () => selectBackupFolder());
-
-ipcMain.handle('cometline:set-workspace-path', (_event, workspacePath) => {
-	const clean = writeStoredWorkspacePath(workspacePath);
-	return clean;
-});
-
-ipcMain.handle('cometline:list-recent-workspaces', () => listRecentWorkspacePaths());
-
-ipcMain.handle('cometline:remove-recent-workspace-path', (_event, workspacePath) =>
-	removeRecentWorkspacePath(workspacePath)
-);
-
-ipcMain.handle('cometline:filter-existing-workspace-paths', (_event, paths) =>
-	filterExistingWorkspacePaths(Array.isArray(paths) ? paths : [])
-);
-
-ipcMain.handle('cometline:prune-workspace-store', () => pruneWorkspaceStore());
-
-ipcMain.handle('cometline:read-workspace-file', (_event, workspacePath, relativePath) =>
-	readWorkspaceFileForPreview(workspacePath, relativePath)
-);
-
-ipcMain.handle('cometline:terminal-list', (event) => {
-	if (!isMainWindowSender(event)) return [];
-	return [...terminalSessions.values()].map(terminalSnapshot);
-});
-
-ipcMain.handle('cometline:terminal-create', (event, payload = {}) => {
-	requireTerminalInput(event, payload.sessionId);
-	return createTerminal(payload.sessionId, payload.workspacePath, payload);
-});
-
-ipcMain.handle('cometline:terminal-write', (event, payload = {}) => {
-	requireTerminalInput(event, payload.sessionId);
-	const entry = terminalSessions.get(payload.sessionId);
-	if (!entry || entry.status !== 'running' || !entry.process) return false;
-	if (typeof payload.data !== 'string' || payload.data.length > 64 * 1024) {
-		throw new Error('Invalid terminal input');
-	}
-	entry.process.write(payload.data);
-	return true;
-});
-
-ipcMain.handle('cometline:terminal-resize', (event, payload = {}) => {
-	requireTerminalInput(event, payload.sessionId);
-	const entry = terminalSessions.get(payload.sessionId);
-	if (!entry || entry.status !== 'running' || !entry.process) return false;
-	const size = terminalDimensions(payload);
-	entry.process.resize(size.cols, size.rows);
-	return true;
-});
-
-ipcMain.handle('cometline:terminal-terminate', (event, sessionId) => {
-	requireTerminalInput(event, sessionId);
-	return terminateTerminal(sessionId);
-});
-
-ipcMain.handle('cometline:terminal-remove', (event, sessionId) => {
-	requireTerminalInput(event, sessionId);
-	return terminateTerminal(sessionId, { remove: true });
-});
-
-ipcMain.handle('cometline:list-custom-personas', () =>
-	customPersonasFromSettings(readProviderSettings())
-);
-
-ipcMain.handle('cometline:read-persona-avatar', (_event, id) => readPersonaAvatar(id));
-
-ipcMain.handle('cometline:read-builtin-soul', (_event, personaId) => readPersonaSoul(personaId));
-
-ipcMain.handle('cometline:save-custom-persona', (_event, payload) => saveCustomPersona(payload));
-
-ipcMain.handle('cometline:delete-custom-persona', (_event, id) => deleteCustomPersona(id));
-
-ipcMain.handle('cometline:get-provider-settings', () => readProviderSettings());
-
-ipcMain.handle('cometline:get-codex-auth-status', () => getCodexAuthStatus());
-
-ipcMain.handle('cometline:start-codex-login', () => startCodexLogin());
-
-ipcMain.handle('cometline:get-xai-auth-status', () => getXaiAuthStatus());
-
-ipcMain.handle('cometline:start-xai-login', () => startXaiLogin());
-
-ipcMain.handle('cometline:get-mcp-oauth-status', (_event, serverId) => getMcpOAuthStatus(serverId));
-
-ipcMain.handle('cometline:start-mcp-oauth', (_event, payload) => startMcpOAuth(payload));
-
-ipcMain.handle('cometline:read-cursor-mcp-config', () => readCursorMcpConfig());
-
-ipcMain.handle('cometline:fetch-provider-models', async (_event, config) => {
-	return fetchProviderModels(config);
-});
-
-ipcMain.handle('cometline:ollama-health', async (_event, baseURL) => {
-	return ollamaService.checkHealth(baseURL);
-});
-
-ipcMain.handle('cometline:ollama-models', async (_event, baseURL) => {
-	return ollamaService.listModels(baseURL);
-});
-
-ipcMain.handle('cometline:ollama-diagnostics', async (_event, baseURL) => {
-	return ollamaService.getDiagnostics(baseURL);
-});
-
-ipcMain.handle('cometline:ollama-pull', async (_event, payload = {}) => {
-	return ollamaService.pullModel(payload);
-});
-
-ipcMain.handle('cometline:ollama-cancel-pull', async () => {
-	return ollamaService.cancelPull();
-});
-
-ipcMain.handle('cometline:save-provider-settings', async (_event, settings, options = {}) => {
-	const previous = readProviderSettings();
-	const saved = writeProviderSettings(settings);
-	const personaIdChanged =
-		(previous.app?.personaId ?? 'minako') !== (saved.app?.personaId ?? 'minako');
-	let runtimeAction =
-		options.runtimeAction ?? (options.restartCometMind === false ? 'none' : 'restart');
-	if (
-		runtimeAction === 'none' &&
-		(previous.cometmind?.systemPromptPath ?? '') !== (saved.cometmind?.systemPromptPath ?? '')
-	) {
-		runtimeAction = 'reload';
-	}
-	refreshGlobalShortcuts();
-	configureApplicationMenu();
-	// `reload` carries the real applied outcome (confirmed reload / fell back to
-	// restart / restarted from cold) instead of the previous hardcoded "it
-	// worked" assumption baked into the caller's status message. null means no
-	// runtime action was requested (e.g. shortcuts/webPanelWidth saves).
-	let reload = null;
-	if (runtimeAction === 'restart') {
-		await stopCometMind();
-		startCometMind();
-		const healthy = await waitForHealth();
-		reload = { action: 'restart', healthy };
-	} else if (runtimeAction === 'reload') {
-		reload = await reloadCometMind();
-	} else if (runtimeAction === 'gateway') {
-		// Gateway process recycle only; main serve stays up. sync below applies it.
-		const healthy = await waitForHealth();
-		reload = { action: 'gateway', healthy };
-	}
-	await syncDiscordGatewayFromSettings(saved);
-	applyOpenAtLoginSetting(saved.app?.openAtLogin);
-	if (personaIdChanged) {
-		applyPersona(saved.app?.personaId, saved);
-	}
-	broadcastProviderSettingsChanged(saved);
-	return { settings: saved, reload };
-});
-
-ipcMain.handle('cometline:open-settings-window', async () => {
-	await showSettingsWindow();
-	return true;
-});
-
-ipcMain.handle('cometline:replay-intro', () =>
-	triggerMainWindowOnboarding('cometline:replay-intro')
-);
-
-ipcMain.handle('cometline:run-setup-wizard', () =>
-	triggerMainWindowOnboarding('cometline:run-setup-wizard')
-);
-
-ipcMain.handle('cometline:get-mini-window-state', () => readMiniWindowState());
-
-ipcMain.handle('cometline:save-mini-window-state', (_event, state) => writeMiniWindowState(state));
-
-ipcMain.handle('cometline:get-discord-gateway-status', () => {
-	const settings = readProviderSettings();
-	return {
-		running: Boolean(cometMindGatewayProcess),
-		enabled: Boolean(settings.cometmind?.gateway?.discord?.enabled)
-	};
-});
-
-ipcMain.handle('cometline:set-discord-gateway-enabled', async (_event, enabled) => {
-	const settings = readProviderSettings();
-	settings.cometmind.gateway.discord.enabled = Boolean(enabled);
-	const saved = writeProviderSettings(settings);
-	await syncDiscordGatewayFromSettings(saved);
-	return {
-		running: Boolean(cometMindGatewayProcess),
-		enabled: Boolean(saved.cometmind?.gateway?.discord?.enabled)
-	};
-});
-
-ipcMain.handle('cometline:load-composer-history', () => loadComposerHistoryEntries());
-
-ipcMain.handle('cometline:append-composer-history', (_event, entry) =>
-	appendComposerHistoryEntry(entry)
-);
-
-ipcMain.handle('cometline:get-open-at-login', () => {
-	const settings = readProviderSettings();
-	try {
-		const login = readLoginItemState();
-		return {
-			openAtLogin: login.openAtLogin,
-			status: login.status
-		};
-	} catch {
-		return {
-			openAtLogin: Boolean(settings.app?.openAtLogin),
-			status: 'unknown'
-		};
-	}
-});
-
-ipcMain.handle('cometline:set-open-at-login', (_event, openAtLogin) => {
-	const settings = readProviderSettings();
-	settings.app = {
-		...settings.app,
-		openAtLogin: Boolean(openAtLogin)
-	};
-	const saved = writeProviderSettings(settings);
-	const result = applyOpenAtLoginSetting(saved.app.openAtLogin);
-	return {
-		openAtLogin: result.openAtLogin ?? saved.app.openAtLogin,
-		status: result.status ?? 'unknown',
-		needsApproval: Boolean(result.needsApproval),
-		openedSettings: Boolean(result.openedSettings),
-		isDev: Boolean(result.isDev),
-		message: result.message
-	};
-});
+}
 
 // Opens a markdown link in the user's default browser. Only http(s)/mailto are
 // allowed so a malicious link can't launch arbitrary local handlers.
@@ -4570,7 +3550,7 @@ async function saveCustomPersona(payload = {}) {
 	};
 	const saved = writeProviderSettings(settings);
 	generatePersonaAppIconPng(persona.avatarPath, customPersonaAppIconPath(persona.id));
-	await reloadCometMind();
+	await cometMind.reload();
 	applyPersona(saved.app?.personaId, saved);
 	// Notify all windows so the main window's intro/avatar reflect the new active
 	// persona, and invalidate its cached avatar in case the image was replaced.
@@ -4596,41 +3576,36 @@ async function deleteCustomPersona(id) {
 	if (personaDir) {
 		await fs.promises.rm(personaDir, { recursive: true, force: true });
 	}
-	await reloadCometMind();
+	await cometMind.reload();
 	applyPersona(saved.app?.personaId, saved);
 	broadcastProviderSettingsChanged(saved);
 	return { ok: true };
 }
 
-ipcMain.handle('cometline:open-external', async (_event, rawUrl) => {
-	if (!isExternallyOpenableUrl(rawUrl)) return false;
-	await shell.openExternal(String(rawUrl));
-	return true;
-});
+let initialized = false;
 
-ipcMain.handle('cometline:get-app-version', () => app.getVersion());
-
-ipcMain.handle('cometline:get-update-state', () => updateState);
-
-ipcMain.handle('cometline:check-for-updates', async () => {
-	if (!app.isPackaged) return { status: 'idle' };
-	try {
-		await getAutoUpdater().checkForUpdates();
-	} catch (err) {
-		console.error('Manual update check failed:', err);
-		setUpdateState({ status: 'error', message: String(err?.message ?? err) });
+/** Explicit Electron composition entrypoint. Must run before app readiness. */
+export function initializeRuntime() {
+	if (initialized) return;
+	initialized = true;
+	app.setName('Cometline');
+	protocol.registerSchemesAsPrivileged([
+		{
+			scheme: APP_SCHEME,
+			privileges: {
+				standard: true,
+				secure: true,
+				supportFetchAPI: true,
+				stream: true,
+				codeCache: true
+			}
+		}
+	]);
+	const hasSingleInstanceLock = app.requestSingleInstanceLock();
+	if (!hasSingleInstanceLock) {
+		app.quit();
+		return;
 	}
-	return updateState;
-});
-
-ipcMain.handle('cometline:install-update', async () => {
-	if (updateState.status !== 'ready') return false;
-	relaunchForUpdate = true;
-	stoppingForQuit = true;
-	// Stop the sidecar gracefully before the updater takes over the quit flow.
-	await stopDiscordGateway();
-	await stopCometMind();
-	// isSilent=true, isForceRunAfter=true so the updater relaunches the app.
-	setImmediate(() => getAutoUpdater().quitAndInstall(true, true));
-	return true;
-});
+	registerRuntimeIpcHandlers();
+	registerAppLifecycle(hasSingleInstanceLock);
+}

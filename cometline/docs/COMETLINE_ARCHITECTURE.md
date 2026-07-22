@@ -121,7 +121,8 @@ Only one in-flight run per session is allowed (`409 session_running`).
 
 ### Electron IPC Used By Cometline
 
-Exposed as `window.electronAPI` in `electron/preload.cjs`:
+Exposed as `window.electronAPI` by `electron/src/preload.ts`, with its contract in
+`electron/src/shared/api.ts`:
 
 | IPC                                                                                   | Purpose                                        |
 | ------------------------------------------------------------------------------------- | ---------------------------------------------- |

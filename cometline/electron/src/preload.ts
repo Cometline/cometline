@@ -1,6 +1,19 @@
-const { contextBridge, ipcRenderer } = require('electron');
+import { contextBridge, ipcRenderer } from 'electron';
+import type { ElectronAPI } from './shared/api.js';
 
-contextBridge.exposeInMainWorld('electronAPI', {
+const subscribe = <T>(channel: string, callback: (payload: T) => void) => {
+	const handler = (_event: Electron.IpcRendererEvent, payload: T) => callback(payload);
+	ipcRenderer.on(channel, handler);
+	return () => ipcRenderer.removeListener(channel, handler);
+};
+
+const subscribeSignal = (channel: string, callback: () => void) => {
+	const handler = () => callback();
+	ipcRenderer.on(channel, handler);
+	return () => ipcRenderer.removeListener(channel, handler);
+};
+
+const electronAPI: ElectronAPI = {
 	restartCometMind: () => ipcRenderer.send('cometmind:restart'),
 	openExternal: (url) => ipcRenderer.invoke('cometline:open-external', url),
 	getWorkspacePath: () => ipcRenderer.invoke('cometline:get-workspace-path'),
@@ -22,16 +35,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 	resizeTerminal: (payload) => ipcRenderer.invoke('cometline:terminal-resize', payload),
 	terminateTerminal: (sessionId) => ipcRenderer.invoke('cometline:terminal-terminate', sessionId),
 	removeTerminal: (sessionId) => ipcRenderer.invoke('cometline:terminal-remove', sessionId),
-	onTerminalData: (callback) => {
-		const handler = (_event, payload) => callback(payload);
-		ipcRenderer.on('cometline:terminal-data', handler);
-		return () => ipcRenderer.removeListener('cometline:terminal-data', handler);
-	},
-	onTerminalExit: (callback) => {
-		const handler = (_event, payload) => callback(payload);
-		ipcRenderer.on('cometline:terminal-exit', handler);
-		return () => ipcRenderer.removeListener('cometline:terminal-exit', handler);
-	},
+	onTerminalData: (callback) => subscribe('cometline:terminal-data', callback),
+	onTerminalExit: (callback) => subscribe('cometline:terminal-exit', callback),
 	listCustomPersonas: () => ipcRenderer.invoke('cometline:list-custom-personas'),
 	saveCustomPersona: (payload) => ipcRenderer.invoke('cometline:save-custom-persona', payload),
 	deleteCustomPersona: (id) => ipcRenderer.invoke('cometline:delete-custom-persona', id),
@@ -63,29 +68,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
 	getOllamaDiagnostics: (baseURL) => ipcRenderer.invoke('cometline:ollama-diagnostics', baseURL),
 	pullOllamaModel: (payload) => ipcRenderer.invoke('cometline:ollama-pull', payload),
 	cancelOllamaPull: () => ipcRenderer.invoke('cometline:ollama-cancel-pull'),
-	onOllamaPullProgress: (callback) => {
-		const handler = (_event, payload) => callback(payload);
-		ipcRenderer.on('cometline:ollama-pull-progress', handler);
-		return () => ipcRenderer.removeListener('cometline:ollama-pull-progress', handler);
-	},
+	onOllamaPullProgress: (callback) => subscribe('cometline:ollama-pull-progress', callback),
 	saveProviderSettings: (settings, options) =>
 		ipcRenderer.invoke('cometline:save-provider-settings', settings, options),
 	setSidebarOpen: (payload) => ipcRenderer.send('cometline:set-sidebar-open', payload),
 	getFullScreen: () => ipcRenderer.invoke('cometline:get-fullscreen'),
-	onFullScreenChange: (callback) => {
-		const handler = (_event, isFullScreen) => callback(Boolean(isFullScreen));
-		ipcRenderer.on('cometline:fullscreen-changed', handler);
-		return () => ipcRenderer.removeListener('cometline:fullscreen-changed', handler);
-	},
+	onFullScreenChange: (callback) =>
+		subscribe('cometline:fullscreen-changed', (isFullScreen) =>
+			callback(Boolean(isFullScreen))
+		),
 	getAppVersion: () => ipcRenderer.invoke('cometline:get-app-version'),
 	getUpdateState: () => ipcRenderer.invoke('cometline:get-update-state'),
 	checkForUpdates: () => ipcRenderer.invoke('cometline:check-for-updates'),
 	installUpdate: () => ipcRenderer.invoke('cometline:install-update'),
-	onUpdateState: (callback) => {
-		const handler = (_event, state) => callback(state);
-		ipcRenderer.on('cometline:update-state', handler);
-		return () => ipcRenderer.removeListener('cometline:update-state', handler);
-	},
+	onUpdateState: (callback) => subscribe('cometline:update-state', callback),
 	setShortcutCaptureActive: (active) =>
 		ipcRenderer.send('cometline:shortcut-capture-active', Boolean(active)),
 	setSessionNavigationSuspended: (suspended) =>
@@ -93,66 +89,27 @@ contextBridge.exposeInMainWorld('electronAPI', {
 	setWebPanelOpen: (open) => ipcRenderer.send('cometline:web-panel-open', Boolean(open)),
 	setInboxOpen: (open) => ipcRenderer.send('cometline:inbox-open', Boolean(open)),
 	confirmCloseWindow: () => ipcRenderer.send('cometline:confirm-close-window'),
-	onCloseWebPanel: (callback) => {
-		const handler = () => callback();
-		ipcRenderer.on('cometline:close-web-panel', handler);
-		return () => ipcRenderer.removeListener('cometline:close-web-panel', handler);
-	},
-	onCloseInbox: (callback) => {
-		const handler = () => callback();
-		ipcRenderer.on('cometline:close-inbox', handler);
-		return () => ipcRenderer.removeListener('cometline:close-inbox', handler);
-	},
-	onRequestCloseWindow: (callback) => {
-		const handler = () => callback();
-		ipcRenderer.on('cometline:request-close-window', handler);
-		return () => ipcRenderer.removeListener('cometline:request-close-window', handler);
-	},
-	onToggleWebPanel: (callback) => {
-		const handler = () => callback();
-		ipcRenderer.on('cometline:toggle-web-panel', handler);
-		return () => ipcRenderer.removeListener('cometline:toggle-web-panel', handler);
-	},
-	onOpenWebPanel: (callback) => {
-		const handler = () => callback();
-		ipcRenderer.on('cometline:open-web-panel', handler);
-		return () => ipcRenderer.removeListener('cometline:open-web-panel', handler);
-	},
-	onNavigateSession: (callback) => {
-		const handler = (_event, direction) => {
+	onCloseWebPanel: (callback) => subscribeSignal('cometline:close-web-panel', callback),
+	onCloseInbox: (callback) => subscribeSignal('cometline:close-inbox', callback),
+	onRequestCloseWindow: (callback) => subscribeSignal('cometline:request-close-window', callback),
+	onToggleWebPanel: (callback) => subscribeSignal('cometline:toggle-web-panel', callback),
+	onOpenWebPanel: (callback) => subscribeSignal('cometline:open-web-panel', callback),
+	onNavigateSession: (callback) =>
+		subscribe('cometline:navigate-session', (direction) => {
 			if (direction === 'prev' || direction === 'next') callback(direction);
-		};
-		ipcRenderer.on('cometline:navigate-session', handler);
-		return () => ipcRenderer.removeListener('cometline:navigate-session', handler);
-	},
-	onShortcutAction: (callback) => {
-		const handler = (_event, action) => {
-			if (typeof action === 'string') callback(action);
-		};
-		ipcRenderer.on('cometline:shortcut-action', handler);
-		return () => ipcRenderer.removeListener('cometline:shortcut-action', handler);
-	},
-	onProviderSettingsChanged: (callback) => {
-		const handler = (_event, settings) => callback(settings);
-		ipcRenderer.on('cometline:provider-settings-changed', handler);
-		return () => ipcRenderer.removeListener('cometline:provider-settings-changed', handler);
-	},
-	onPersonaAvatarChanged: (callback) => {
-		const handler = (_event, personaId) => callback(personaId);
-		ipcRenderer.on('cometline:persona-avatar-changed', handler);
-		return () => ipcRenderer.removeListener('cometline:persona-avatar-changed', handler);
-	},
-	onReplayIntro: (callback) => {
-		const handler = () => callback();
-		ipcRenderer.on('cometline:replay-intro', handler);
-		return () => ipcRenderer.removeListener('cometline:replay-intro', handler);
-	},
-	onRunSetupWizard: (callback) => {
-		const handler = () => callback();
-		ipcRenderer.on('cometline:run-setup-wizard', handler);
-		return () => ipcRenderer.removeListener('cometline:run-setup-wizard', handler);
-	},
+		}),
+	onShortcutAction: (callback) =>
+		subscribe('cometline:shortcut-action', (action) => {
+			if (typeof action === 'string') callback(action as Parameters<typeof callback>[0]);
+		}),
+	onProviderSettingsChanged: (callback) =>
+		subscribe('cometline:provider-settings-changed', callback),
+	onPersonaAvatarChanged: (callback) => subscribe('cometline:persona-avatar-changed', callback),
+	onReplayIntro: (callback) => subscribeSignal('cometline:replay-intro', callback),
+	onRunSetupWizard: (callback) => subscribeSignal('cometline:run-setup-wizard', callback),
 	notifyJob: (payload) => ipcRenderer.send('jobs:notify', payload),
 	loadComposerHistory: () => ipcRenderer.invoke('cometline:load-composer-history'),
 	appendComposerHistory: (entry) => ipcRenderer.invoke('cometline:append-composer-history', entry)
-});
+};
+
+contextBridge.exposeInMainWorld('electronAPI', electronAPI);

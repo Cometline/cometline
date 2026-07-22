@@ -5,7 +5,7 @@ import type { ResolvedPersona } from './index';
  * Reactive cache for custom persona avatar images. Builtin persona avatars
  * are static bundled assets and don't need caching; custom persona avatars
  * live under `~/.cometmind/personas/<id>/` and must be read via IPC as a
- * base64 data URL (see `readWorkspaceFileForPreview` in electron/main.cjs for
+ * base64 data URL (see `readWorkspaceFileForPreview` in electron/src/app.ts for
  * the analogous, already-shipped pattern this mirrors).
  */
 function createPersonaAvatarCache() {
