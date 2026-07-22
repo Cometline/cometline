@@ -28,6 +28,24 @@ export function resetCustomCaret(node: HTMLElement | null) {
 	node?.dispatchEvent(new CustomEvent(RESET_EVENT));
 }
 
+export type CaretMotionMode = 'typingTrail' | 'fullMove';
+
+/**
+ * - typingTrail: same-line typing only — head snaps, trail follows
+ * - fullMove: everything else (same-line arrows, diagonal wrap / ↑↓) — head + trail ease together
+ */
+export function resolveCaretMotion(opts: {
+	dy: number;
+	caretH: number;
+	recentlyTyped: boolean;
+}): { mode: CaretMotionMode; trailOnly: boolean } {
+	const lineCrossing = Math.abs(opts.dy) > opts.caretH * 0.5;
+	if (opts.recentlyTyped && !lineCrossing) {
+		return { mode: 'typingTrail', trailOnly: true };
+	}
+	return { mode: 'fullMove', trailOnly: false };
+}
+
 export const customCaret: Action<HTMLDivElement, CustomCaretParams> = (node, initialParams) => {
 	let params = initialParams;
 	let wrap = params.wrap ?? node.parentElement;
@@ -46,6 +64,7 @@ export const customCaret: Action<HTMLDivElement, CustomCaretParams> = (node, ini
 	let animStart = 0;
 	let animating = false;
 	let trailOnly = false;
+	let motionMode: CaretMotionMode = 'fullMove';
 	let measuring = false;
 	let composing = false;
 	let lastInputAt = 0;
@@ -76,18 +95,6 @@ export const customCaret: Action<HTMLDivElement, CustomCaretParams> = (node, ini
 
 	function typingTrailDuration(): number {
 		return 90 + (1 - clampUnit(params.caretTrail.speed)) * 110;
-	}
-
-	function maxTrailVerticalJump(): number {
-		return caretH * 1.5;
-	}
-
-	function isLineCrossing(dy: number): boolean {
-		return Math.abs(dy) > caretH * 0.5;
-	}
-
-	function isTypingMove(dy: number): boolean {
-		return (composing || performance.now() - lastInputAt < 120) && !isLineCrossing(dy);
 	}
 
 	function clearTrail() {
@@ -217,7 +224,8 @@ export const customCaret: Action<HTMLDivElement, CustomCaretParams> = (node, ini
 		}
 
 		const now = performance.now();
-		const duration = trailOnly ? typingTrailDuration() : moveDuration();
+		const duration =
+			trailOnly && motionMode === 'typingTrail' ? typingTrailDuration() : moveDuration();
 		const progress = clampUnit((now - animStart) / duration);
 
 		let headX: number;
@@ -287,24 +295,16 @@ export const customCaret: Action<HTMLDivElement, CustomCaretParams> = (node, ini
 		const dist = Math.hypot(dx, dy);
 		if (dist < 0.5) return;
 
-		if (Math.abs(dy) > maxTrailVerticalJump()) {
-			snapCaretTo(measured.x, measured.y);
-			return;
-		}
+		const recentlyTyped = composing || performance.now() - lastInputAt < 120;
+		const motion = resolveCaretMotion({ dy, caretH, recentlyTyped });
+		motionMode = motion.mode;
+		trailOnly = motion.trailOnly;
 
-		const typing = isTypingMove(dy);
-		trailOnly = typing;
-
-		if (typing) {
-			originX = visualX;
-			originY = visualY;
+		originX = visualX;
+		originY = visualY;
+		if (trailOnly) {
+			// Same-line typing: head snaps; trail catches up.
 			setCaretVisual(measured.x, measured.y);
-		} else if (isLineCrossing(dy)) {
-			originX = measured.x;
-			originY = measured.y - dy;
-		} else {
-			originX = visualX;
-			originY = visualY;
 		}
 
 		targetX = measured.x;
