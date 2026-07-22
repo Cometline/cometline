@@ -28,6 +28,12 @@
 	import { navigateSessionHistory } from '$lib/actions/navigate-session-history';
 	import { navigateToSession } from '$lib/actions/navigate-to-session';
 	import { narrowViewportQuery, subscribeNarrowViewport } from '$lib/layout/narrow-viewport';
+	import {
+		clampWebPanelWidth,
+		resolveWebPanelRatio,
+		widthFromRatio,
+		widthToRatio
+	} from '$lib/layout/web-panel-width';
 	import { shouldUseWebPanelHistory } from '$lib/navigation/focus-nav';
 	import { matchesShortcut, type ShortcutAction } from '$lib/keyboard-shortcuts';
 
@@ -354,28 +360,22 @@
 		}
 		document.addEventListener('fullscreenchange', onDomFullScreenChange);
 
-		// Keep a custom panel width within bounds when the window is resized so a
-		// previously-saved large width can't exceed the viewport.
-		function clampPanelWidthToLayout() {
-			if (!shellStore.workspacePanelOpen) return;
-			const raw = document.documentElement.style.getPropertyValue('--web-panel-width').trim();
-			const current = raw.endsWith('px') ? Number.parseFloat(raw) : currentPanelWidth();
-			const px = Number.isFinite(current) ? current : currentPanelWidth();
-			if (!Number.isFinite(px)) return;
-			const clamped = clampPanelWidth(px);
-			if (clamped !== px) {
-				document.documentElement.style.setProperty('--web-panel-width', `${clamped}px`);
-			}
+		// Keep the preferred ratio applied as the content row changes (window
+		// resize or sidebar open/close animation) so the web panel tracks
+		// proportionally instead of locking to a stale absolute width.
+		function applyPreferredRatioToLayout() {
+			if (!shellStore.workspacePanelOpen || resizing) return;
+			applyWidthFromPreferredRatio();
 		}
 
 		function onWindowResize() {
-			clampPanelWidthToLayout();
+			applyPreferredRatioToLayout();
 		}
 		window.addEventListener('resize', onWindowResize);
 
 		if (contentRowRef) {
 			resizeObserver = new ResizeObserver(() => {
-				clampPanelWidthToLayout();
+				applyPreferredRatioToLayout();
 			});
 			resizeObserver.observe(contentRowRef);
 		}
@@ -422,21 +422,20 @@
 		});
 	});
 
-	// Re-clamp the web panel when sidebar chrome changes so a wide saved width
-	// cannot crush the collapsed titlebar strip.
+	// Match web-panel ratio updates to the sidebar width animation so the
+	// panel tracks the content row without a lagged CSS width transition.
 	$effect(() => {
 		void shellStore.sidebarOpen;
-		void shellStore.fullscreen;
-		void shellStore.workspacePanelOpen;
-		if (!shellStore.workspacePanelOpen) return;
-		queueMicrotask(() => {
-			if (!shellStore.workspacePanelOpen) return;
-			const px = currentPanelWidth();
-			const clamped = clampPanelWidth(px);
-			if (clamped !== px) {
-				document.documentElement.style.setProperty('--web-panel-width', `${clamped}px`);
-			}
-		});
+		if (typeof document === 'undefined') return;
+		document.body.classList.add('sidebar-animating');
+		const timeout = window.setTimeout(
+			() => document.body.classList.remove('sidebar-animating'),
+			sidebarTransitionDuration()
+		);
+		return () => {
+			window.clearTimeout(timeout);
+			document.body.classList.remove('sidebar-animating');
+		};
 	});
 
 	function handleMainMouseDown() {
@@ -453,21 +452,20 @@
 	const showShellTitlebar = $derived(!shellStore.sidebarOpen && !shellStore.fullscreen);
 
 	// --- Web/file panel resize ---------------------------------------------
-	const PANEL_MIN_WIDTH = 320;
-	// Keep the chat pane wide enough for avatar + bubble layout even when the
-	// sidebar and web panel are both visible.
-	const MAIN_PANEL_MIN_WIDTH = 720;
-	/** Modest left chrome for the collapsed shell titlebar (lights are hidden). */
-	const COLLAPSED_MAIN_MIN_WIDTH = 72;
-	function mainPaneFloor() {
-		if (shellStore.sidebarOpen || shellStore.fullscreen) return MAIN_PANEL_MIN_WIDTH;
-		return COLLAPSED_MAIN_MIN_WIDTH;
+	/** User's preferred share of the content row; survives temporary clamps. */
+	let preferredRatio = $state(0.5);
+	let resizing = $state(false);
+	let resizeStartX = 0;
+	let resizeStartWidth = 0;
+
+	function panelChrome() {
+		return {
+			sidebarOpen: shellStore.sidebarOpen,
+			fullscreen: shellStore.fullscreen
+		};
 	}
-	function panelMaxWidth() {
-		const rowWidth = contentRowRef?.clientWidth ?? window.innerWidth;
-		// Prefer PANEL_MIN when there's room, but never let the web panel steal the
-		// traffic-light / titlebar strip when the sidebar is collapsed.
-		return Math.max(0, rowWidth - mainPaneFloor());
+	function contentRowWidth() {
+		return contentRowRef?.clientWidth ?? window.innerWidth;
 	}
 	function currentPanelWidth() {
 		const raw = getComputedStyle(document.documentElement)
@@ -483,13 +481,45 @@
 		return Math.round(window.innerWidth * 0.5);
 	}
 
-	let resizing = $state(false);
-	let resizeStartX = 0;
-	let resizeStartWidth = 0;
-
-	function clampPanelWidth(width: number) {
-		return Math.min(Math.max(width, PANEL_MIN_WIDTH), panelMaxWidth());
+	function applyWidthFromPreferredRatio() {
+		const next = widthFromRatio(preferredRatio, contentRowWidth(), panelChrome());
+		document.documentElement.style.setProperty('--web-panel-width', `${next}px`);
+		return next;
 	}
+
+	function setPanelWidthPx(width: number) {
+		const display = clampWebPanelWidth(width, contentRowWidth(), panelChrome());
+		document.documentElement.style.setProperty('--web-panel-width', `${display}px`);
+		return display;
+	}
+
+	// Keep preferredRatio in sync with persisted settings (not chrome changes).
+	$effect(() => {
+		const prefs = {
+			webPanelRatio: settingsStore.settings.app.webPanelRatio,
+			webPanelWidth: settingsStore.settings.app.webPanelWidth
+		};
+		preferredRatio = resolveWebPanelRatio(prefs, contentRowWidth());
+		// Migrate legacy absolute-only prefs to an explicit ratio once.
+		if (prefs.webPanelRatio <= 0 && prefs.webPanelWidth > 0) {
+			const width = widthFromRatio(preferredRatio, contentRowWidth(), panelChrome());
+			void settingsStore.saveWebPanelLayout(width, preferredRatio);
+		}
+	});
+
+	// Re-apply the preferred ratio when chrome changes. Opening the sidebar
+	// tightens the main-pane floor; closing it restores toward the ratio.
+	$effect(() => {
+		void shellStore.sidebarOpen;
+		void shellStore.fullscreen;
+		void shellStore.workspacePanelOpen;
+		void preferredRatio;
+		if (!shellStore.workspacePanelOpen) return;
+		queueMicrotask(() => {
+			if (!shellStore.workspacePanelOpen || resizing) return;
+			applyWidthFromPreferredRatio();
+		});
+	});
 
 	function onResizePointerDown(event: PointerEvent) {
 		if (event.button !== 0) return;
@@ -504,8 +534,8 @@
 	function onResizePointerMove(event: PointerEvent) {
 		if (!resizing) return;
 		// Panel is on the right: dragging left (negative delta) grows it.
-		const next = clampPanelWidth(resizeStartWidth - (event.clientX - resizeStartX));
-		document.documentElement.style.setProperty('--web-panel-width', `${next}px`);
+		const raw = resizeStartWidth - (event.clientX - resizeStartX);
+		setPanelWidthPx(raw);
 	}
 
 	function endResize(event: PointerEvent) {
@@ -516,7 +546,9 @@
 			target.releasePointerCapture(event.pointerId);
 		}
 		document.body.classList.remove('panel-resizing');
-		void settingsStore.saveWebPanelWidth(currentPanelWidth());
+		const width = currentPanelWidth();
+		preferredRatio = widthToRatio(width, contentRowWidth());
+		void settingsStore.saveWebPanelLayout(width, preferredRatio);
 	}
 
 	function onResizeKeydown(event: KeyboardEvent) {
@@ -526,9 +558,9 @@
 		else if (event.key === 'ArrowRight') next = currentPanelWidth() - step;
 		if (next === null) return;
 		event.preventDefault();
-		const clamped = clampPanelWidth(next);
-		document.documentElement.style.setProperty('--web-panel-width', `${clamped}px`);
-		void settingsStore.saveWebPanelWidth(clamped);
+		const width = setPanelWidthPx(next);
+		preferredRatio = widthToRatio(width, contentRowWidth());
+		void settingsStore.saveWebPanelLayout(width, preferredRatio);
 	}
 </script>
 
@@ -738,6 +770,9 @@
 		margin: var(--content-panel-inset);
 		margin-left: calc(-1 * var(--content-panel-overlap));
 		overflow: hidden;
+		/* Chat metrics respond to this pane's width when the web panel is open. */
+		container-type: inline-size;
+		container-name: main-pane;
 		transition:
 			margin-left var(--duration-sidebar) var(--ease-smooth),
 			border-color var(--duration-sidebar) var(--ease-smooth),

@@ -188,15 +188,20 @@ function createSettingsStore() {
 		await save(next, { restartCometMind: false });
 	}
 
-	async function saveWebPanelWidth(width: number) {
-		const next = Math.max(0, Math.floor(width));
-		if (settings.app.webPanelWidth === next) return;
+	async function saveWebPanelLayout(width: number, ratio: number) {
+		const nextWidth = Math.max(0, Math.floor(width));
+		const normalized = normalizeSettings({
+			...settings,
+			app: { ...settings.app, webPanelWidth: nextWidth, webPanelRatio: ratio }
+		});
+		if (
+			settings.app.webPanelWidth === normalized.app.webPanelWidth &&
+			settings.app.webPanelRatio === normalized.app.webPanelRatio
+		) {
+			return;
+		}
 		error = '';
 		try {
-			const normalized = normalizeSettings({
-				...settings,
-				app: { ...settings.app, webPanelWidth: next }
-			});
 			if (window.electronAPI?.saveProviderSettings) {
 				const result = await window.electronAPI.saveProviderSettings(normalized, {
 					restartCometMind: false
@@ -210,6 +215,13 @@ function createSettingsStore() {
 			error = err instanceof Error ? err.message : 'Failed to save panel width';
 			throw err;
 		}
+	}
+
+	/** @deprecated Prefer saveWebPanelLayout so the preferred ratio is persisted. */
+	async function saveWebPanelWidth(width: number) {
+		const rowWidth = typeof window !== 'undefined' ? window.innerWidth : width * 2;
+		const ratio = rowWidth > 0 ? width / rowWidth : 0;
+		await saveWebPanelLayout(width, ratio);
 	}
 
 	async function saveShortcuts(shortcuts: ProviderSettings['shortcuts']) {
@@ -375,6 +387,7 @@ function createSettingsStore() {
 		saveConfirmCloseOnCmdW,
 		saveConfirmBeforeDeletingChats,
 		saveWebPanelWidth,
+		saveWebPanelLayout,
 		setDefaultProvider,
 		updateProvider,
 		addProvider,

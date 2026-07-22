@@ -197,7 +197,19 @@ body.panel-resizing {
 }
 
 body.panel-resizing .main,
-body.panel-resizing .web-panel {
+body.panel-resizing .web-panel,
+body.panel-resizing .web-panel-inner,
+body.panel-resizing .terminal-panel,
+body.panel-resizing .terminal-panel-inner {
+	transition: none !important;
+}
+
+/* While the sidebar width is animating, keep the web panel on the preferred
+   ratio without lagging behind a width transition. */
+body.sidebar-animating .web-panel,
+body.sidebar-animating .web-panel-inner,
+body.sidebar-animating .terminal-panel,
+body.sidebar-animating .terminal-panel-inner {
 	transition: none !important;
 }
 
@@ -273,6 +285,56 @@ select {
 		--chat-avatar-size: 3rem;
 		--chat-content-max: 46rem;
 		--chat-gutter: 3rem;
+	}
+}
+
+/* When the web panel steals width, scale chat chrome to the main pane — not the
+   full window — so the composer/thread keep fitting as the divider moves. */
+@container main-pane (max-width: 480px) {
+	.chat-home {
+		--chat-avatar-size: 2.25rem;
+		--chat-row-gap: 0.625rem;
+		--chat-content-max: 20rem;
+		--chat-gutter: 0.75rem;
+		--composer-dock-bottom: 0.75rem;
+		--composer-dock-clearance: 13rem;
+	}
+}
+
+@container main-pane (min-width: 481px) and (max-width: 767px) {
+	.chat-home {
+		--chat-avatar-size: 2.25rem;
+		--chat-row-gap: 0.625rem;
+		--chat-content-max: 34rem;
+		--chat-gutter: 1rem;
+		--composer-dock-bottom: 0.75rem;
+		--composer-dock-clearance: 13rem;
+	}
+}
+
+@container main-pane (min-width: 768px) and (max-width: 1023px) {
+	.chat-home {
+		--chat-avatar-size: 2.5rem;
+		--chat-row-gap: 0.75rem;
+		--chat-content-max: 38rem;
+		--chat-gutter: 1.5rem;
+	}
+}
+
+@container main-pane (min-width: 1024px) and (max-width: 1279px) {
+	.chat-home {
+		--chat-avatar-size: 2.75rem;
+		--chat-row-gap: 1rem;
+		--chat-content-max: 42rem;
+		--chat-gutter: 2rem;
+	}
+}
+
+@container main-pane (min-width: 1280px) {
+	.chat-home {
+		--chat-avatar-size: 3rem;
+		--chat-content-max: 46rem;
+		--chat-gutter: 2.5rem;
 	}
 }
 

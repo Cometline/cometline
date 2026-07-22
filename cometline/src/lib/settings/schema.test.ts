@@ -112,6 +112,7 @@ describe('settings schema', () => {
 
 	it('defaults webPanelWidth to 0 (use CSS default)', () => {
 		expect(defaultSettings().app.webPanelWidth).toBe(0);
+		expect(defaultSettings().app.webPanelRatio).toBe(0);
 	});
 
 	it('normalizes webPanelWidth: floors, clamps negatives, falls back on invalid', () => {
@@ -129,6 +130,24 @@ describe('settings schema', () => {
 				...base,
 				app: { ...base.app, webPanelWidth: 'oops' as unknown as number }
 			}).app.webPanelWidth
+		).toBe(0);
+	});
+
+	it('normalizes webPanelRatio: caps at 2/3, falls back on invalid', () => {
+		const base = defaultSettings();
+		expect(
+			normalizeSettings({ ...base, app: { ...base.app, webPanelRatio: 0.5 } }).app
+				.webPanelRatio
+		).toBe(0.5);
+		expect(
+			normalizeSettings({ ...base, app: { ...base.app, webPanelRatio: 0.9 } }).app
+				.webPanelRatio
+		).toBeCloseTo(2 / 3);
+		expect(
+			normalizeSettings({
+				...base,
+				app: { ...base.app, webPanelRatio: 'oops' as unknown as number }
+			}).app.webPanelRatio
 		).toBe(0);
 	});
 

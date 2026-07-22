@@ -175,6 +175,7 @@
 		margin-left: 0;
 		overflow: hidden;
 		box-sizing: border-box;
+		transition: width var(--duration-fast) var(--ease-smooth);
 	}
 	.terminal-panel-toolbar {
 		display: flex;

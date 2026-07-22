@@ -786,6 +786,7 @@
 		box-sizing: border-box;
 		overflow: hidden;
 		transition:
+			width var(--duration-fast) var(--ease-smooth),
 			border-color var(--duration-fast) var(--ease-smooth),
 			box-shadow var(--duration-fast) var(--ease-smooth);
 	}

@@ -100,6 +100,7 @@ declare global {
 		miniWindowLastActiveAt: number;
 		miniWindowInactivityTimeoutMinutes: number;
 		webPanelWidth: number;
+		webPanelRatio: number;
 		confirmCloseOnCmdW: boolean;
 		confirmBeforeDeletingChats: boolean;
 	}

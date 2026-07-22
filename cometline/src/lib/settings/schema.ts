@@ -24,6 +24,7 @@ import {
 	normalizePersonaId as resolveNormalizedPersonaId
 } from '../personas';
 import { normalizeOllamaNativeBase } from '../ollama/url';
+import { WEB_PANEL_MAX_RATIO } from '../layout/web-panel-width';
 
 export const VALID_PROVIDER_METHODS: ProviderMethod[] = [
 	'openai-compatible',
@@ -998,6 +999,8 @@ function defaultAppSettings(): AppSettings {
 		miniWindowLastActiveAt: 0,
 		miniWindowInactivityTimeoutMinutes: 30,
 		webPanelWidth: 0,
+		/** 0 = unset (derive from webPanelWidth or use CSS default). */
+		webPanelRatio: 0,
 		confirmCloseOnCmdW: true,
 		confirmBeforeDeletingChats: true
 	};
@@ -1008,6 +1011,14 @@ function normalizeWebPanelWidth(value: unknown): number {
 		return defaultAppSettings().webPanelWidth;
 	}
 	return Math.max(0, Math.floor(value));
+}
+
+/** Preferred content-row fraction. 0 = unset; otherwise capped to the legal max. */
+function normalizeWebPanelRatio(value: unknown): number {
+	if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+		return defaultAppSettings().webPanelRatio;
+	}
+	return Math.min(WEB_PANEL_MAX_RATIO, value);
 }
 
 /**
@@ -1234,6 +1245,9 @@ export function normalizeSettings(
 				next.app?.miniWindowInactivityTimeoutMinutes
 			),
 			webPanelWidth: normalizeWebPanelWidth(next.app?.webPanelWidth),
+			webPanelRatio: normalizeWebPanelRatio(
+				(next.app as { webPanelRatio?: unknown } | undefined)?.webPanelRatio
+			),
 			confirmCloseOnCmdW:
 				typeof next.app?.confirmCloseOnCmdW === 'boolean'
 					? next.app.confirmCloseOnCmdW
@@ -1401,6 +1415,7 @@ const providerSettingsSchema = z.object({
 			.min(1)
 			.max(24 * 60),
 		webPanelWidth: z.number().int().min(0),
+		webPanelRatio: z.number().min(0).max(WEB_PANEL_MAX_RATIO),
 		confirmCloseOnCmdW: z.boolean(),
 		confirmBeforeDeletingChats: z.boolean()
 	}),

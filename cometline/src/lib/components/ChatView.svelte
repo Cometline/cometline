@@ -581,10 +581,14 @@
 
 	.chat-home.hero-layout {
 		display: grid;
+		grid-template-columns: minmax(0, 1fr);
 		place-items: center;
 		align-content: center;
-		gap: 52px;
-		padding: 48px;
+		gap: clamp(1.5rem, 6cqi, 52px);
+		padding: clamp(1rem, 5cqi, 48px);
+		min-width: 0;
+		max-width: 100%;
+		box-sizing: border-box;
 	}
 
 	.chat-home.hero-layout .empty-region {
@@ -599,6 +603,9 @@
 		left: auto;
 		transform: none;
 		width: 100%;
+		min-width: 0;
+		max-width: 100%;
+		box-sizing: border-box;
 		padding: 0 var(--chat-gutter);
 		display: flex;
 		justify-content: center;
@@ -672,7 +679,9 @@
 
 	.composer-wrapper :global(.hero-composer-frame) {
 		width: min(var(--chat-composer-width), 100%);
+		min-width: 0;
 		max-width: 100%;
+		box-sizing: border-box;
 	}
 
 	@media (max-width: 900px) {

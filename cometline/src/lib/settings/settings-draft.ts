@@ -48,6 +48,7 @@ export function cloneSettings(settings: ProviderSettings): ProviderSettings {
 			miniWindowInactivityTimeoutMinutes:
 				settings.app?.miniWindowInactivityTimeoutMinutes ?? 30,
 			webPanelWidth: settings.app?.webPanelWidth ?? 0,
+			webPanelRatio: settings.app?.webPanelRatio ?? 0,
 			confirmCloseOnCmdW: settings.app?.confirmCloseOnCmdW ?? true,
 			confirmBeforeDeletingChats: settings.app?.confirmBeforeDeletingChats ?? true
 		},

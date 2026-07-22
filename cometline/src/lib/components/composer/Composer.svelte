@@ -533,6 +533,9 @@
 		display: flex;
 		flex-direction: column;
 		gap: 10px;
+		min-width: 0;
+		max-width: 100%;
+		box-sizing: border-box;
 		transition:
 			width var(--duration-flight) var(--ease-smooth),
 			padding var(--duration-flight) var(--ease-smooth),

@@ -20,6 +20,10 @@
 	import { skillDraftsStore } from '$lib/stores/skill-drafts.svelte';
 	import { startJobNotificationPoller } from '$lib/jobs/job-notifications';
 	import { startStorageRetentionSync } from '$lib/retention/storage-retention-sync';
+	import {
+		resolveWebPanelRatio,
+		widthFromRatio
+	} from '$lib/layout/web-panel-width';
 
 	let { children } = $props();
 
@@ -133,17 +137,25 @@
 		}
 	});
 
-	// Apply the persisted web/file panel width. 0 means "use the CSS default".
+	// Seed --web-panel-width once when persisted prefs first become available.
+	// After that, AppShell exclusively owns live updates against the content-row
+	// — a second writer keyed on window.innerWidth caused shrink-then-grow when
+	// opening the sidebar.
+	let didSeedWebPanelWidth = false;
 	$effect(() => {
-		const width = settingsStore.settings.app.webPanelWidth;
-		const root = document.documentElement;
-		if (width > 0) {
-			const max = Math.round(window.innerWidth * 0.75);
-			const clamped = Math.min(Math.max(width, 320), Math.max(320, max));
-			root.style.setProperty('--web-panel-width', `${clamped}px`);
-		} else {
-			root.style.removeProperty('--web-panel-width');
-		}
+		const prefs = {
+			webPanelRatio: settingsStore.settings.app.webPanelRatio,
+			webPanelWidth: settingsStore.settings.app.webPanelWidth
+		};
+		if (didSeedWebPanelWidth) return;
+		if (prefs.webPanelRatio <= 0 && prefs.webPanelWidth <= 0) return;
+		didSeedWebPanelWidth = true;
+		const ratio = resolveWebPanelRatio(prefs, window.innerWidth);
+		const clamped = widthFromRatio(ratio, window.innerWidth, {
+			sidebarOpen: false,
+			fullscreen: false
+		});
+		document.documentElement.style.setProperty('--web-panel-width', `${clamped}px`);
 	});
 
 	$effect(() => {

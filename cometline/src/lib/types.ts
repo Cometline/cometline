@@ -130,6 +130,11 @@ export interface AppSettings {
 	miniWindowInactivityTimeoutMinutes: number;
 	/** Web/file panel width in px. 0 means use the default (50vw). */
 	webPanelWidth: number;
+	/**
+	 * Preferred web/file panel width as a fraction of the content row.
+	 * 0 means unset (derive from webPanelWidth or use the CSS default).
+	 */
+	webPanelRatio: number;
 	/** When true, Cmd+W shows a Close confirmation before hiding the main window. */
 	confirmCloseOnCmdW: boolean;
 	/** When true, deleting a chat requires confirmation. */

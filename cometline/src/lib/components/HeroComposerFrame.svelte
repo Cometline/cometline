@@ -63,7 +63,9 @@
 	.hero-composer-frame {
 		position: relative;
 		width: min(var(--chat-composer-width), 100%);
+		min-width: 0;
 		max-width: 100%;
+		box-sizing: border-box;
 		overflow: visible;
 		transform-origin: center center;
 	}
