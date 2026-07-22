@@ -2,6 +2,12 @@ import type { Action } from 'svelte/action';
 
 import type { CaretTrailSettings } from '$lib/types';
 import { viewportDeltaToLocal } from '$lib/dom/caret-geometry';
+import {
+	clampUnit,
+	easeOutCirc,
+	pointsToSvg,
+	trailPolygonPoints
+} from '$lib/dom/caret-trail-geometry';
 
 const MEASURE_EVENT = 'customcaretmeasure';
 const RESET_EVENT = 'customcaretreset';
@@ -30,20 +36,18 @@ export function resetCustomCaret(node: HTMLElement | null) {
 
 export type CaretMotionMode = 'typingTrail' | 'fullMove';
 
-/**
- * - typingTrail: same-line typing only — head snaps, trail follows
- * - fullMove: everything else (same-line arrows, diagonal wrap / ↑↓) — head + trail ease together
- */
+/** Same-line typing → head snap + trail; wrap / arrows / selection → slide caret only. */
 export function resolveCaretMotion(opts: {
 	dy: number;
 	caretH: number;
 	recentlyTyped: boolean;
-}): { mode: CaretMotionMode; trailOnly: boolean } {
+}): CaretMotionMode {
 	const lineCrossing = Math.abs(opts.dy) > opts.caretH * 0.5;
-	if (opts.recentlyTyped && !lineCrossing) {
-		return { mode: 'typingTrail', trailOnly: true };
-	}
-	return { mode: 'fullMove', trailOnly: false };
+	return opts.recentlyTyped && !lineCrossing ? 'typingTrail' : 'fullMove';
+}
+
+function lerp(a: number, b: number, t: number): number {
+	return a + (b - a) * t;
 }
 
 export const customCaret: Action<HTMLDivElement, CustomCaretParams> = (node, initialParams) => {
@@ -63,7 +67,6 @@ export const customCaret: Action<HTMLDivElement, CustomCaretParams> = (node, ini
 	let visualY = 0;
 	let animStart = 0;
 	let animating = false;
-	let trailOnly = false;
 	let motionMode: CaretMotionMode = 'fullMove';
 	let measuring = false;
 	let composing = false;
@@ -75,26 +78,13 @@ export const customCaret: Action<HTMLDivElement, CustomCaretParams> = (node, ini
 		params.onStateChange?.({ focused, ready });
 	}
 
-	function clampUnit(value: number): number {
-		if (!Number.isFinite(value)) return 0;
-		return Math.min(1, Math.max(0, value));
-	}
-
-	function easeOutCirc(value: number): number {
-		const clamped = clampUnit(value);
-		return Math.sqrt(1 - (clamped - 1) * (clamped - 1));
-	}
-
 	function baseTrailOpacity(): number {
 		return 0.32 + clampUnit(params.caretTrail.intensity) * 0.5;
 	}
 
-	function moveDuration(): number {
-		return 90 + (1 - clampUnit(params.caretTrail.speed)) * 220;
-	}
-
-	function typingTrailDuration(): number {
-		return 90 + (1 - clampUnit(params.caretTrail.speed)) * 110;
+	function animDuration(mode: CaretMotionMode): number {
+		const span = mode === 'typingTrail' ? 110 : 220;
+		return 90 + (1 - clampUnit(params.caretTrail.speed)) * span;
 	}
 
 	function clearTrail() {
@@ -112,7 +102,7 @@ export const customCaret: Action<HTMLDivElement, CustomCaretParams> = (node, ini
 		caret.style.transform = `translate3d(${x}px, ${y}px, 0)`;
 	}
 
-	function snapCaretTo(x: number, y: number) {
+	function cancelFrames() {
 		if (measureRaf) {
 			cancelAnimationFrame(measureRaf);
 			measureRaf = 0;
@@ -121,8 +111,12 @@ export const customCaret: Action<HTMLDivElement, CustomCaretParams> = (node, ini
 			cancelAnimationFrame(raf);
 			raf = 0;
 		}
+	}
+
+	function snapCaretTo(x: number, y: number) {
+		cancelFrames();
 		animating = false;
-		trailOnly = false;
+		motionMode = 'fullMove';
 		targetX = originX = x;
 		targetY = originY = y;
 		setCaretVisual(x, y);
@@ -131,13 +125,10 @@ export const customCaret: Action<HTMLDivElement, CustomCaretParams> = (node, ini
 	}
 
 	function resetCaretTrail() {
-		if (measureRaf) cancelAnimationFrame(measureRaf);
-		measureRaf = 0;
-		if (raf) cancelAnimationFrame(raf);
-		raf = 0;
+		cancelFrames();
 		ready = false;
 		animating = false;
-		trailOnly = false;
+		motionMode = 'fullMove';
 		visualX = 0;
 		visualY = 0;
 		setCaretMoving(false);
@@ -195,25 +186,15 @@ export const customCaret: Action<HTMLDivElement, CustomCaretParams> = (node, ini
 		return viewportDeltaToLocal(wrap, rect, lineHeight);
 	}
 
-	function setTrailQuad(
-		headX: number,
-		headY: number,
-		tailX: number,
-		tailY: number,
-		alpha: number
-	) {
+	function setTrailQuad(headX: number, headY: number, tailX: number, tailY: number, alpha: number) {
 		if (!trail) return;
-		const x0 = headX;
-		const x1 = headX + caretW;
-		const tx0 = tailX;
-		const tx1 = tailX + caretW;
-		const pts = [
-			`${x0.toFixed(1)},${headY.toFixed(1)}`,
-			`${x1.toFixed(1)},${headY.toFixed(1)}`,
-			`${tx1.toFixed(1)},${(tailY + caretH).toFixed(1)}`,
-			`${tx0.toFixed(1)},${(tailY + caretH).toFixed(1)}`
-		];
-		trail.setAttribute('points', pts.join(' '));
+		const points = trailPolygonPoints(
+			{ x: headX, y: headY },
+			{ x: tailX, y: tailY },
+			caretW,
+			caretH
+		);
+		trail.setAttribute('points', pointsToSvg(points));
 		trail.style.opacity = String(clampUnit(alpha) * baseTrailOpacity());
 	}
 
@@ -223,49 +204,29 @@ export const customCaret: Action<HTMLDivElement, CustomCaretParams> = (node, ini
 			return;
 		}
 
-		const now = performance.now();
-		const duration =
-			trailOnly && motionMode === 'typingTrail' ? typingTrailDuration() : moveDuration();
-		const progress = clampUnit((now - animStart) / duration);
-
-		let headX: number;
-		let headY: number;
-		let tailX: number;
-		let tailY: number;
+		const trailOnly = motionMode === 'typingTrail';
+		const progress = clampUnit((performance.now() - animStart) / animDuration(motionMode));
 
 		if (trailOnly) {
-			headX = targetX;
-			headY = targetY;
-			const tailEased = easeOutCirc(progress);
-			tailX = originX + (targetX - originX) * tailEased;
-			tailY = originY + (targetY - originY) * tailEased;
-			setCaretVisual(headX, headY);
+			const t = easeOutCirc(progress);
+			const tailX = lerp(originX, targetX, t);
+			const tailY = lerp(originY, targetY, t);
+			setCaretVisual(targetX, targetY);
+			const span = Math.hypot(targetX - tailX, targetY - tailY);
+			if (span > 0.6) {
+				setTrailQuad(targetX, targetY, tailX, tailY, 1 - progress * 0.35);
+			} else {
+				clearTrail();
+			}
 		} else {
-			const headEased = easeOutCirc(progress);
-			const tailDelay = 0.18 + clampUnit(params.caretTrail.intensity) * 0.32;
-			const tailEased = easeOutCirc(clampUnit((progress - tailDelay) / (1 - tailDelay)));
-
-			headX = originX + (targetX - originX) * headEased;
-			headY = originY + (targetY - originY) * headEased;
-			tailX = originX + (targetX - originX) * tailEased;
-			tailY = originY + (targetY - originY) * tailEased;
-			setCaretVisual(headX, headY);
-		}
-
-		const span = Math.hypot(headX - tailX, headY - tailY);
-		if (span > 0.6) {
-			setTrailQuad(headX, headY, tailX, tailY, 1 - progress * 0.35);
-		} else {
+			// fullMove: slide the caret only — no trail smear.
+			const t = easeOutCirc(progress);
+			setCaretVisual(lerp(originX, targetX, t), lerp(originY, targetY, t));
 			clearTrail();
 		}
 
 		if (progress >= 1) {
-			animating = false;
-			trailOnly = false;
-			originX = targetX;
-			originY = targetY;
 			snapCaretTo(targetX, targetY);
-			raf = 0;
 			return;
 		}
 
@@ -290,20 +251,15 @@ export const customCaret: Action<HTMLDivElement, CustomCaretParams> = (node, ini
 			return;
 		}
 
-		const dx = measured.x - visualX;
 		const dy = measured.y - visualY;
-		const dist = Math.hypot(dx, dy);
-		if (dist < 0.5) return;
+		if (Math.hypot(measured.x - visualX, dy) < 0.5) return;
 
 		const recentlyTyped = composing || performance.now() - lastInputAt < 120;
-		const motion = resolveCaretMotion({ dy, caretH, recentlyTyped });
-		motionMode = motion.mode;
-		trailOnly = motion.trailOnly;
+		motionMode = resolveCaretMotion({ dy, caretH, recentlyTyped });
 
 		originX = visualX;
 		originY = visualY;
-		if (trailOnly) {
-			// Same-line typing: head snaps; trail catches up.
+		if (motionMode === 'typingTrail') {
 			setCaretVisual(measured.x, measured.y);
 		}
 
