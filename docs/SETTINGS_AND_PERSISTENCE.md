@@ -29,7 +29,9 @@ Current truth in code:
 
 Relevant files:
 
-- `cometline/electron/main.cjs`
+- `cometline/electron/src/domains/settings.ts`
+- `cometline/electron/src/domains/settings-domain.ts`
+- `cometline/electron/src/domains/runtime-ipc.ts`
 - `cometmind/internal/config/config.go`
 - `cometmind/internal/settingsapply/split.go`
 - `cometline/src/lib/stores/settings.svelte.ts`
@@ -225,9 +227,10 @@ Electron IPC handler `saveProviderSettings`:
 - applies persona
 - returns the merged normalized settings back to the renderer
 
-Key file:
+Key files:
 
-- `cometline/electron/main.cjs`
+- `cometline/electron/src/domains/runtime-ipc.ts`
+- `cometline/electron/src/domains/settings.ts`
 
 ### Backend load path
 
@@ -333,7 +336,11 @@ Practical rule for contributors:
 - `cometline/src/lib/stores/settings.svelte.ts`
 - `cometline/src/lib/settings/pending-settings.ts`
 - `cometline/src/lib/settings/persist.ts`
-- `cometline/electron/main.cjs`
+- `cometline/electron/src/main.ts`
+- `cometline/electron/src/domains/runtime.ts`
+- `cometline/electron/src/domains/settings.ts`
+- `cometline/electron/src/domains/settings-domain.ts`
+- `cometline/electron/src/domains/runtime-ipc.ts`
 - `cometmind/internal/config/config.go`
 
 ## Tests That Protect This Area

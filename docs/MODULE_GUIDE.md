@@ -156,8 +156,11 @@ It must not own:
 
 ### Key files
 
-- `cometline/electron/main.cjs`
-- `cometline/electron/preload.cjs`
+- `cometline/electron/src/main.ts` (ESM entrypoint)
+- `cometline/electron/src/domains/runtime.ts` (main-process composition root)
+- `cometline/electron/src/preload.ts` (renderer bridge)
+- `cometline/electron/src/shared/api.ts` (typed `ElectronAPI` contract)
+- `cometline/electron/src/domains/runtime-ipc.ts` (IPC composition)
 - `cometline/src/lib/client/cometmind.ts`
 - `cometline/src/lib/reducers/chat.ts`
 - `cometline/src/lib/stores/chat.svelte.ts`
@@ -217,7 +220,9 @@ When you change shared settings, inspect all of:
 - `cometline/src/lib/stores/settings.svelte.ts`
 - `cometline/src/lib/settings/persist.ts`
 - `cometline/src/lib/components/settings/`
-- `cometline/electron/main.cjs`
+- `cometline/electron/src/domains/settings.ts`
+- `cometline/electron/src/domains/settings-domain.ts`
+- `cometline/electron/src/domains/runtime-ipc.ts`
 - `cometmind/internal/config/`
 
 Do not update only one layer.
@@ -245,8 +250,10 @@ MCP spans shared settings, native OAuth orchestration, runtime connection manage
 - `cometmind/internal/mcp/`
 - `cometmind/internal/tools/registry.go`
 - `cometline/src/lib/components/settings/SettingsMCPPanel.svelte`
-- `cometline/electron/main.cjs`
-- `cometline/electron/preload.cjs`
+- `cometline/electron/src/domains/provider-auth.ts`
+- `cometline/electron/src/domains/runtime-ipc.ts`
+- `cometline/electron/src/preload.ts`
+- `cometline/electron/src/shared/api.ts`
 - `cometmind/openapi.yaml`
 
 ### Memory changes

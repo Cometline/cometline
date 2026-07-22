@@ -29,14 +29,14 @@ sequenceDiagram
     R->>R: Start retention sync + job notification poller
 ```
 
-| Step | Source |
-|------|--------|
-| Port/health constants | `cometline/electron/main.cjs` |
-| Resolve sidecar binary | `cometline/electron/main.cjs` |
-| Spawn sidecar | `cometmind serve --port … --watch-parent` in `main.cjs` |
-| Health polling (main) | `cometline/electron/main.cjs` |
-| Renderer boot | `cometline/src/routes/+layout.svelte` |
-| Runtime health store | `cometline/src/lib/stores/runtime.svelte.ts` |
+| Step                   | Source                                                                        |
+| ---------------------- | ----------------------------------------------------------------------------- |
+| Port/health constants  | `cometline/electron/src/domains/cometmind-lifecycle.ts`                       |
+| Resolve sidecar binary | `cometline/electron/src/domains/runtime.ts`                                   |
+| Spawn sidecar          | `cometmind serve --port … --watch-parent` in `domains/cometmind-lifecycle.ts` |
+| Health polling (main)  | `cometline/electron/src/domains/cometmind-lifecycle.ts`                       |
+| Renderer boot          | `cometline/src/routes/+layout.svelte`                                         |
+| Runtime health store   | `cometline/src/lib/stores/runtime.svelte.ts`                                  |
 
 **Invariant:** Sidecar stop waits for process exit before restart so port 7700 and the SQLite WAL lock are released.
 
@@ -59,15 +59,15 @@ User submits hero composer (+page.svelte)
   → session title refresh after turn
 ```
 
-| Step | Source |
-|------|--------|
-| Home route create + queue | `cometline/src/routes/+page.svelte` |
+| Step                        | Source                                           |
+| --------------------------- | ------------------------------------------------ |
+| Home route create + queue   | `cometline/src/routes/+page.svelte`              |
 | Session route keys ChatView | `cometline/src/routes/session/[id]/+page.svelte` |
-| Pending message consumption | `cometline/src/lib/components/ChatView.svelte` |
-| Turn queue | `ChatView.svelte` + `createChatTurnQueue` |
-| Streaming loop | `cometline/src/lib/stores/chat.svelte.ts` |
-| SSE client | `cometline/src/lib/client/cometmind.ts` |
-| Reducer | `cometline/src/lib/reducers/chat.ts` |
+| Pending message consumption | `cometline/src/lib/components/ChatView.svelte`   |
+| Turn queue                  | `ChatView.svelte` + `createChatTurnQueue`        |
+| Streaming loop              | `cometline/src/lib/stores/chat.svelte.ts`        |
+| SSE client                  | `cometline/src/lib/client/cometmind.ts`          |
+| Reducer                     | `cometline/src/lib/reducers/chat.ts`             |
 
 **Why the pending-message queue exists:** Without it, navigation to `/session/{id}` races with transcript load — the first user bubble can disappear or duplicate.
 
@@ -106,12 +106,12 @@ sequenceDiagram
     H->>RM: Release run slot
 ```
 
-| Step | Source |
-|------|--------|
-| Route registration | `cometmind/server/server.go` |
-| Message handler | `cometmind/server/messages.go` — `handlePostMessage` |
-| Single-run lock | `cometmind/server/run_manager.go` |
-| Runner factory | `cometmind/internal/runtime/runtime.go` → `RunnerFor` |
+| Step               | Source                                                |
+| ------------------ | ----------------------------------------------------- |
+| Route registration | `cometmind/server/server.go`                          |
+| Message handler    | `cometmind/server/messages.go` — `handlePostMessage`  |
+| Single-run lock    | `cometmind/server/run_manager.go`                     |
+| Runner factory     | `cometmind/internal/runtime/runtime.go` → `RunnerFor` |
 
 GitNexus process `proc_78_appendusermessageand` traces user message persistence through `Service.AppendUserMessageContent` in `session/service.go`.
 
@@ -173,12 +173,12 @@ Runner.Run
   → Runner drains Events(), calls Result() after channel closes
 ```
 
-| Symbol | File |
-|--------|------|
-| `StreamMessage` | `comet-sdk/llm/stream.go` |
+| Symbol            | File                                               |
+| ----------------- | -------------------------------------------------- |
+| `StreamMessage`   | `comet-sdk/llm/stream.go`                          |
 | `Provider.Stream` | `comet-sdk/provider/{anthropic,openai,codex,xai}/` |
-| SSE scanner | `comet-sdk/internal/sse/scanner.go` |
-| Retry | `comet-sdk/internal/retry/retry.go` |
+| SSE scanner       | `comet-sdk/internal/sse/scanner.go`                |
+| Retry             | `comet-sdk/internal/retry/retry.go`                |
 
 **Critical invariant:** Callers must drain `Events()` before `Result()` — otherwise deadlock.
 
@@ -206,14 +206,14 @@ Key symbols (line numbers drift — search by name):
 
 **Reducer rules:**
 
-| Rule | Why |
-|------|-----|
-| Clone inputs, return new state | Svelte 5 needs new references for live updates |
-| Match tool rows by tool ID | Pair call with result |
-| Attach reasoning to assistant bubble | Single visual block |
-| Auth errors → settings hints | Actionable user message |
-| `step_finish` settles pending without clearing assistant | Multi-step continuity |
-| `turn_recover` restores partial stream state | Survives mid-turn failures |
+| Rule                                                     | Why                                            |
+| -------------------------------------------------------- | ---------------------------------------------- |
+| Clone inputs, return new state                           | Svelte 5 needs new references for live updates |
+| Match tool rows by tool ID                               | Pair call with result                          |
+| Attach reasoning to assistant bubble                     | Single visual block                            |
+| Auth errors → settings hints                             | Actionable user message                        |
+| `step_finish` settles pending without clearing assistant | Multi-step continuity                          |
+| `turn_recover` restores partial stream state             | Survives mid-turn failures                     |
 
 Session chat SSE is separate from the **runtime event stream** (`GET /api/v1/events`) used for memory toasts / compaction feedback — see Flow 7b.
 
@@ -369,7 +369,7 @@ Sidecar is bundled as an `extraResource`, not inside the asar archive.
 
 ## What's next
 
-Now that you understand *how data moves*, dive into each module:
+Now that you understand _how data moves_, dive into each module:
 
 - [04-comet-sdk.md](./04-comet-sdk.md) — LLM adapter layer
 - [05-cometmind-runtime.md](./05-cometmind-runtime.md) — agent brain and persistence
