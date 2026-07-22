@@ -1,3 +1,3 @@
-import { initializeRuntime } from './domains/legacy-runtime.js';
+import { initializeRuntime } from './domains/runtime.js';
 
 initializeRuntime();
