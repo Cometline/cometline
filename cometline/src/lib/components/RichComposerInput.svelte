@@ -87,7 +87,10 @@ import { fly } from 'svelte/transition';
 
 	function readValue() {
 		if (!editor) return;
-		value = serialize(editor);
+		let next = serialize(editor);
+		// Empty contenteditable often has a lone <br>; don't treat that as content.
+		if (next === '\n' && !editor.textContent) next = '';
+		value = next;
 	}
 
 	function scheduleCaretMeasure() {
@@ -650,7 +653,9 @@ import { fly } from 'svelte/transition';
 		};
 	});
 
-	let isEmpty = $derived(value.trim() === '');
+	// Placeholder hides as soon as the user has typed anything, including spaces.
+	// Phantom empty-editor <br> is normalized to '' in readValue.
+	let isEmpty = $derived(value === '');
 </script>
 
 <div bind:this={wrap} class="rce-wrap">
