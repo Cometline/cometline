@@ -5,4 +5,6 @@ export interface ComposerInputRef {
 	setText(text: string): void;
 	focusAsync(options?: { position?: 'start' | 'end' }): Promise<void>;
 	insertFileMention(path: string): void;
+	isCaretAtStart(): boolean;
+	isCaretAtEnd(): boolean;
 }

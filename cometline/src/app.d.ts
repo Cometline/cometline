@@ -517,6 +517,40 @@ declare global {
 				lastActiveAt?: number;
 			}) => Promise<MiniWindowState>;
 			notifyJob?: (payload: { title: string; body: string }) => void;
+			loadComposerHistory?: () => Promise<
+				Array<{
+					display: string;
+					timestamp: number;
+					workspacePath: string;
+					sessionId: string;
+				}>
+			>;
+			appendComposerHistory?: (entry: {
+				display: string;
+				timestamp: number;
+				workspacePath: string;
+				sessionId: string;
+			}) => Promise<
+				| {
+						ok: true;
+						entries: Array<{
+							display: string;
+							timestamp: number;
+							workspacePath: string;
+							sessionId: string;
+						}>;
+				  }
+				| {
+						ok: false;
+						error: string;
+						entries: Array<{
+							display: string;
+							timestamp: number;
+							workspacePath: string;
+							sessionId: string;
+						}>;
+				  }
+			>;
 			listCustomPersonas?: () => Promise<CustomPersona[]>;
 			saveCustomPersona?: (payload: {
 				id?: string;

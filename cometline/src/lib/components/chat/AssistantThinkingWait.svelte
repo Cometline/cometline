@@ -58,7 +58,7 @@
 		-webkit-background-clip: text;
 		color: transparent;
 		-webkit-text-fill-color: transparent;
-		animation: thinking-detail-shimmer 3.6s ease-in-out infinite;
+		animation: thinking-detail-shimmer 2s ease-in-out infinite;
 	}
 
 	@keyframes thinking-detail-shimmer {
