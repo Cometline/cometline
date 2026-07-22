@@ -36,17 +36,17 @@ cometline  →  cometmind  →  comet-sdk
 
 ## What makes it special
 
-| Feature | One-line explanation |
-|---------|---------------------|
-| **Workspace isolation** | Each project has its own sessions, memories, and sandboxed file tools |
-| **Semantic memory** | Facts are retrieved before turns and extracted after — your companion remembers |
-| **Agent Skills** | Reusable prompt templates invoked with `/skill-name` |
-| **ACP coding harness** | Hand coding tasks to OpenCode, Claude Code, or Codex via fixed CLI profiles |
-| **MCP client** | Connect external MCP servers; their tools join the main agent's toolbox |
+| Feature                 | One-line explanation                                                            |
+| ----------------------- | ------------------------------------------------------------------------------- |
+| **Workspace isolation** | Each project has its own sessions, memories, and sandboxed file tools           |
+| **Semantic memory**     | Facts are retrieved before turns and extracted after — your companion remembers |
+| **Agent Skills**        | Reusable prompt templates invoked with `/skill-name`                            |
+| **ACP coding harness**  | Hand coding tasks to OpenCode, Claude Code, or Codex via fixed CLI profiles     |
+| **MCP client**          | Connect external MCP servers; their tools join the main agent's toolbox         |
 | **Jobs and scheduling** | Durable work queue with leases, scheduled jobs, and optional autonomous workers |
-| **Skill drafts** | Generated skills can be reviewed and promoted before becoming active |
-| **Discord gateway** | Same runtime as a Discord bot with per-thread sessions |
-| **Multi-provider** | Switch models/providers per session from Settings |
+| **Skill drafts**        | Generated skills can be reviewed and promoted before becoming active            |
+| **Discord gateway**     | Same runtime as a Discord bot with per-thread sessions                          |
+| **Multi-provider**      | Switch models/providers per session from Settings                               |
 
 ## One message, end to end
 
@@ -81,22 +81,22 @@ GitNexus confirms the load-bearing link: `Runner.Run` in `cometmind/internal/age
 
 ## Where things live on disk
 
-| Path | Contents |
-|------|----------|
-| `~/.cometmind/cometline-settings.json` | Runtime settings: providers, CometMind config (agent-editable) |
-| `~/.cometmind/cometline-desktop.json` | Desktop UI only: appearance, shortcuts, app/persona |
-| `~/.cometmind/cometline-workspace.json` | Selected workspace path |
-| `~/.cometmind/cometmind.db` | Sessions, messages, tool calls, memories (SQLite) |
-| `~/.cometmind/logs/cometline.log` | Main sidecar log |
-| `~/.cometmind/skills/` | Global Agent Skills (`SKILL.md` files) |
-| `~/.cometmind/skill-drafts/` | Draft Agent Skills awaiting review/promotion |
-| `~/.cometmind/mcp-oauth/` | MCP OAuth tokens (not in settings JSON) |
-| `~/.cometmind/tool-output/` | Spilled large tool output |
-| `{workspace}/.agents/skills/` | Workspace-local skills |
+| Path                                    | Contents                                                       |
+| --------------------------------------- | -------------------------------------------------------------- |
+| `~/.cometmind/cometline-settings.json`  | Runtime settings: providers, CometMind config (agent-editable) |
+| `~/.cometmind/cometline-desktop.json`   | Desktop UI only: appearance, shortcuts, app/persona            |
+| `~/.cometmind/cometline-workspace.json` | Selected workspace path                                        |
+| `~/.cometmind/cometmind.db`             | Sessions, messages, tool calls, memories (SQLite)              |
+| `~/.cometmind/logs/cometline.log`       | Main sidecar log                                               |
+| `~/.cometmind/skills/`                  | Global Agent Skills (`SKILL.md` files)                         |
+| `~/.cometmind/skill-drafts/`            | Draft Agent Skills awaiting review/promotion                   |
+| `~/.cometmind/mcp-oauth/`               | MCP OAuth tokens (not in settings JSON)                        |
+| `~/.cometmind/tool-output/`             | Spilled large tool output                                      |
+| `{workspace}/.agents/skills/`           | Workspace-local skills                                         |
 
 ## Mental model: three processes at runtime
 
-1. **Electron main** (`cometline/electron/main.cjs`) — spawns CometMind sidecar, handles IPC, persists settings
+1. **Electron main** (`cometline/electron/src/main.ts` -> `domains/runtime.ts`) — spawns CometMind sidecar, composes IPC domains, and persists settings
 2. **CometMind** (`cometmind serve`) — HTTP API on port 7700, agent loop, SQLite
 3. **SvelteKit renderer** (`cometline/src/`) — chat UI; talks to CometMind via `fetch` + SSE
 
@@ -110,20 +110,23 @@ Break any link in that chain and something fundamental stops working — live to
 
 ## Key files (bookmark these)
 
-| Layer | File | Role |
-|-------|------|------|
-| UI input | `cometline/src/lib/components/Composer.svelte` | Message composer |
-| UI render | `cometline/src/lib/components/ChatView.svelte` | Per-session chat orchestration |
-| SSE client | `cometline/src/lib/client/cometmind.ts` | HTTP/SSE to CometMind |
-| SSE reducer | `cometline/src/lib/reducers/chat.ts` | Stream events → UI state |
-| API server | `cometmind/server/server.go` | REST/SSE registration |
-| Agent loop | `cometmind/internal/agent/runner.go` | Multi-step LLM + tools |
-| Jobs | `cometmind/internal/jobs/`, `scheduler/`, `autonomy/` | Durable work queue and scheduled work |
-| Coding harness | `cometmind/internal/acp/` | Fixed CLI profiles for `delegate_coding_task` |
-| MCP | `cometmind/internal/mcp/` | External MCP tools and OAuth |
-| LLM stream | `comet-sdk/llm/stream.go` | `StreamMessage` |
-| API contract | `cometmind/openapi.yaml` | OpenAPI source of truth |
+| Layer                 | File                                                  | Role                                                 |
+| --------------------- | ----------------------------------------------------- | ---------------------------------------------------- |
+| UI input              | `cometline/src/lib/components/Composer.svelte`        | Message composer                                     |
+| UI render             | `cometline/src/lib/components/ChatView.svelte`        | Per-session chat orchestration                       |
+| SSE client            | `cometline/src/lib/client/cometmind.ts`               | HTTP/SSE to CometMind                                |
+| SSE reducer           | `cometline/src/lib/reducers/chat.ts`                  | Stream events → UI state                             |
+| Electron entrypoint   | `cometline/electron/src/main.ts`                      | ESM main-process entrypoint                          |
+| Electron runtime      | `cometline/electron/src/domains/runtime.ts`           | Composes sidecar, settings, windows, and IPC domains |
+| Electron IPC contract | `cometline/electron/src/shared/api.ts`                | Typed `window.electronAPI` surface                   |
+| API server            | `cometmind/server/server.go`                          | REST/SSE registration                                |
+| Agent loop            | `cometmind/internal/agent/runner.go`                  | Multi-step LLM + tools                               |
+| Jobs                  | `cometmind/internal/jobs/`, `scheduler/`, `autonomy/` | Durable work queue and scheduled work                |
+| Coding harness        | `cometmind/internal/acp/`                             | Fixed CLI profiles for `delegate_coding_task`        |
+| MCP                   | `cometmind/internal/mcp/`                             | External MCP tools and OAuth                         |
+| LLM stream            | `comet-sdk/llm/stream.go`                             | `StreamMessage`                                      |
+| API contract          | `cometmind/openapi.yaml`                              | OpenAPI source of truth                              |
 
 ## What's next
 
-[02-architecture.md](./02-architecture.md) explains *why* these boundaries exist and which contracts are load-bearing.
+[02-architecture.md](./02-architecture.md) explains _why_ these boundaries exist and which contracts are load-bearing.

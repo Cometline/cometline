@@ -15,7 +15,7 @@ export default defineConfig({
 		// `localhost` hostname, which resolves to IPv6 `[::1]` on macOS. The
 		// Electron dev launcher waits on `http://127.0.0.1:5173` (see
 		// package.json `dev:electron`) and the main process loads that same
-		// URL (electron/main.cjs), so a `[::1]`-only bind makes `wait-on`
+		// URL (electron/src/app.ts), so a `[::1]`-only bind makes `wait-on`
 		// hang forever, Electron never launches, and the CometMind sidecar is
 		// never spawned — leaving the renderer stuck with no backend.
 		host: '127.0.0.1',

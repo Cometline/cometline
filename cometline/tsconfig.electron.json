@@ -1,0 +1,17 @@
+{
+	"compilerOptions": {
+		"target": "ES2022",
+		"module": "ESNext",
+		"moduleResolution": "bundler",
+		"strict": true,
+		"noEmit": true,
+		"skipLibCheck": true,
+		"ignoreDeprecations": "6.0",
+		"types": ["node"],
+		"baseUrl": ".",
+		"paths": {
+			"$lib/*": ["src/lib/*"]
+		}
+	},
+	"include": ["electron/src/**/*.ts", "src/app.d.ts"]
+}

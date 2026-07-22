@@ -63,7 +63,7 @@ Cometline is a three-layer system: a desktop chat UI, a local agent runtime, and
 - `src/lib/components/ChatView.svelte` — conversation rendering
 - `src/lib/stores/` — reactive state (chat, session, model, settings)
 - `src/lib/client/cometmind.ts` — HTTP/SSE client for CometMind API
-- `electron/main.cjs` — sidecar lifecycle, settings persistence, IPC
+- `electron/src/app.ts` — sidecar lifecycle, settings persistence, IPC
 
 ### cometmind (Agent Runtime)
 
@@ -279,8 +279,8 @@ Electron main process exposes native capabilities to the renderer via preload:
 - `notifyJob` — desktop notifications for job state changes
 - `openMiniWindow` / mini route support — compact chat window lifecycle
 
-**Source:** `cometline/electron/main.cjs`  
-**Preload:** `cometline/electron/preload.cjs`
+**Source:** `cometline/electron/src/app.ts`  
+**Preload:** `cometline/electron/src/preload.ts`
 
 ## Extension Points
 

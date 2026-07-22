@@ -30,10 +30,10 @@ cometline/src/lib/settings/schema.ts → generated JSON schema for Electron vali
 
 ### Generated outputs
 
-| Output | Generator | Path |
-|--------|-----------|------|
+| Output            | Generator             | Path                                         |
+| ----------------- | --------------------- | -------------------------------------------- |
 | TypeScript client | `@hey-api/openapi-ts` | `cometline/src/lib/generated/cometmind-api/` |
-| Go types | `oapi-codegen` | `cometmind/internal/apigen/types.gen.go` |
+| Go types          | `oapi-codegen`        | `cometmind/internal/apigen/types.gen.go`     |
 
 ### Regenerate
 
@@ -73,9 +73,9 @@ SSE events are JSON objects with a `type` discriminator. They appear in both Ope
 
 ### Consumer matrix
 
-| Consumer | Events |
-|----------|--------|
-| Chat reducer (`reducers/chat.ts`) | Most session-turn events including `turn_recover` |
+| Consumer                                                    | Events                                                |
+| ----------------------------------------------------------- | ----------------------------------------------------- |
+| Chat reducer (`reducers/chat.ts`)                           | Most session-turn events including `turn_recover`     |
 | Runtime SSE (`GET /api/v1/events` → layout / memory toasts) | Often `memory_updated`, `memory_compaction_completed` |
 
 ### Go source of truth
@@ -101,18 +101,18 @@ SSE events are JSON objects with a `type` discriminator. They appear in both Ope
 
 ### Sources
 
-| File | Role |
-|------|------|
-| `internal/db/schema.sql` | Table definitions |
+| File                        | Role                              |
+| --------------------------- | --------------------------------- |
+| `internal/db/schema.sql`    | Table definitions                 |
 | `internal/db/queries/*.sql` | SQL queries with named parameters |
 
 ### Generated (do not edit)
 
-| File | Contents |
-|------|----------|
-| `internal/db/*.sql.go` | Query methods |
-| `internal/db/db.go` | DB wrapper |
-| `internal/db/models.go` | Row structs |
+| File                    | Contents      |
+| ----------------------- | ------------- |
+| `internal/db/*.sql.go`  | Query methods |
+| `internal/db/db.go`     | DB wrapper    |
+| `internal/db/models.go` | Row structs   |
 
 ### Regenerate
 
@@ -146,13 +146,14 @@ alterStatements = []string{ ... }  // v(N-1) → vN
 
 Not codegen-managed — manually kept in sync:
 
-| Source | Mirror |
-|--------|--------|
-| `electron/preload.cjs` | Exposed methods |
-| `electron/main.cjs` | `ipcMain.handle` implementations |
-| `src/app.d.ts` | TypeScript `ElectronAPI` interface |
+| Source                                | Mirror                                               |
+| ------------------------------------- | ---------------------------------------------------- |
+| `electron/src/shared/api.ts`          | TypeScript `ElectronAPI` interface                   |
+| `electron/src/preload.ts`             | Exposed methods                                      |
+| `electron/src/domains/runtime-ipc.ts` | Typed handler composition                            |
+| `electron/src/domains/ipc.ts`         | `ipcMain.handle` / `ipcMain.on` channel registration |
 
-When adding IPC methods, update all three.
+When adding IPC methods, update the shared type, preload bridge, and matching handler/domain registration.
 
 ---
 
@@ -165,11 +166,11 @@ On disk Electron splits:
 - `~/.cometmind/cometline-settings.json` — runtime (providers, `cometmind.*`)
 - `~/.cometmind/cometline-desktop.json` — `appearance`, `shortcuts`, `app`
 
-`pnpm run build:settings-schema` generates the Electron-consumed settings schema artifact before Electron dev/build scripts. Electron still performs save-time normalization and native side effects in `main.cjs`.
+`electron/src/domains/settings.ts` imports the hand-maintained TypeScript schema directly for Electron save-time validation and normalization. `electron/src/domains/settings-domain.ts` owns the split/merge helpers and atomic disk writes; no separate settings-schema artifact is generated.
 
 Reload vs gateway recycle vs full restart is classified by `cometmind/internal/settingsapply` (and mirrored Electron helpers). Prefer reload; full restart is mainly for host/port.
 
-The TypeScript source is hand-maintained. The derived schema artifact is generated. Update this area when adding settings fields, especially fields that affect reload/restart behavior. See [../SETTINGS_AND_PERSISTENCE.md](../SETTINGS_AND_PERSISTENCE.md).
+The TypeScript schema and Electron settings domains are hand-maintained. Update them together when adding settings fields, especially fields that affect reload/restart behavior. See [../SETTINGS_AND_PERSISTENCE.md](../SETTINGS_AND_PERSISTENCE.md).
 
 ---
 
@@ -210,14 +211,14 @@ flowchart TB
 
 ## Version skew risks
 
-| Scenario | Symptom | Fix |
-|----------|---------|-----|
-| openapi.yaml changed, TS not regenerated | Type errors in client | `make generate` |
-| schema.sql changed, sqlc not run | Compile errors in session | `sqlc generate` |
-| New SSE event in Go only | Reducer ignores events | Add reducer case + TS type |
-| Migration missing | Existing users' DB breaks | Add `alterStatements` |
-| Settings schema changed but generated schema stale | Electron validation/normalization diverges | `cd cometline && pnpm run build:settings-schema` |
-| Hand-edited generated file | Next generate overwrites | Edit source only |
+| Scenario                                                             | Symptom                                     | Fix                                                                                                                           |
+| -------------------------------------------------------------------- | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| openapi.yaml changed, TS not regenerated                             | Type errors in client                       | `make generate`                                                                                                               |
+| schema.sql changed, sqlc not run                                     | Compile errors in session                   | `sqlc generate`                                                                                                               |
+| New SSE event in Go only                                             | Reducer ignores events                      | Add reducer case + TS type                                                                                                    |
+| Migration missing                                                    | Existing users' DB breaks                   | Add `alterStatements`                                                                                                         |
+| Settings schema changed but Electron settings domain was not updated | Electron persistence/normalization diverges | Update `src/lib/settings/schema.ts` and the relevant `electron/src/domains/{settings,settings-domain,runtime-ipc}.ts` modules |
+| Hand-edited generated file                                           | Next generate overwrites                    | Edit source only                                                                                                              |
 
 ---
 

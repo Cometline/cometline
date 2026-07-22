@@ -23,16 +23,16 @@ make dev        # build sidecar + launch Electron dev app
 
 ### Root Makefile
 
-| Command | What it does |
-|---------|--------------|
-| `make install` | Frontend dependencies |
-| `make generate` | Regenerate OpenAPI clients (TS + Go) |
-| `make check` | Codegen freshness + all tests + Svelte checks |
-| `make build` | SDK + CometMind + renderer production build |
-| `make package` | macOS Electron package with sidecar |
-| `make dev` | Dev sidecar + Electron |
-| `make port` | Show process listening on `127.0.0.1:7700` |
-| `make clean-log` | Remove `~/.cometmind/logs/cometline*.log` |
+| Command          | What it does                                  |
+| ---------------- | --------------------------------------------- |
+| `make install`   | Frontend dependencies                         |
+| `make generate`  | Regenerate OpenAPI clients (TS + Go)          |
+| `make check`     | Codegen freshness + all tests + Svelte checks |
+| `make build`     | SDK + CometMind + renderer production build   |
+| `make package`   | macOS Electron package with sidecar           |
+| `make dev`       | Dev sidecar + Electron                        |
+| `make port`      | Show process listening on `127.0.0.1:7700`    |
+| `make clean-log` | Remove `~/.cometmind/logs/cometline*.log`     |
 
 ### comet-sdk
 
@@ -101,7 +101,7 @@ Re-index after major changes: `node .gitnexus/run.cjs analyze`
 5. `cometline/src/lib/settings/schema.ts` — validation
 6. `cometline/src/lib/types.ts` — `ProviderMethod` type
 7. `SettingsProvidersPanel.svelte` — UI fields if non-standard
-8. `electron/main.cjs` — model discovery and/or Codex/xAI auth if subscription-based
+8. `electron/src/domains/provider-auth.ts` — model discovery and/or Codex/xAI auth if subscription-based
 9. `cd comet-sdk && make test && cd ../cometmind && go test ./...`
 
 ### Enable coding-harness delegation
@@ -159,7 +159,7 @@ Re-index after major changes: `node .gitnexus/run.cjs analyze`
 1. `settings/schema.ts` — type + normalization
 2. Decide desktop vs runtime: desktop keys go in `cometline-desktop.json` (`appearance` / `shortcuts` / `app`)
 3. Settings panel module under `components/settings/` — UI control
-4. `electron/main.cjs` — save/load split path if needed
+4. `electron/src/domains/settings.ts` and `settings-domain.ts` — save/load split path if needed
 5. `cometmind/internal/config/` + `settingsapply` — runtime consumption / classify
 6. Decide: pending-save vs instant-save vs action-based
 7. See [../SETTINGS_AND_PERSISTENCE.md](../SETTINGS_AND_PERSISTENCE.md)
@@ -179,7 +179,7 @@ Re-index after major changes: `node .gitnexus/run.cjs analyze`
 2. `cometmind/internal/tools/registry.go` if tool exposure changes
 3. `cometmind/openapi.yaml` and generated clients for management API changes
 4. `cometline/src/lib/components/settings/SettingsMCPPanel.svelte`
-5. `cometline/electron/main.cjs` / `preload.cjs` for OAuth or import IPC
+5. `cometline/electron/src/domains/provider-auth.ts`, `runtime-ipc.ts`, `preload.ts`, and `shared/api.ts` for OAuth or import IPC
 
 ---
 
@@ -227,18 +227,18 @@ Scopes: `cometline`, `cometmind`, `comet-sdk`, or cross-cutting `docs`, `ci`.
 
 ## Runtime paths (debugging)
 
-| Path | Contents |
-|------|----------|
-| `~/.cometmind/cometline-settings.json` | Runtime settings (providers, cometmind) |
-| `~/.cometmind/cometline-desktop.json` | Desktop UI settings |
-| `~/.cometmind/cometline-workspace.json` | Selected workspace |
-| `~/.cometmind/cometmind.db` | SQLite |
-| `~/.cometmind/logs/cometline.log` | Sidecar logs |
-| `~/.cometmind/logs/cometline-gateway.log` | Discord gateway logs |
-| `~/.cometmind/mcp-oauth/` | MCP tokens |
-| `~/.cometmind/tool-output/` | Spilled tool output |
-| `~/.cometmind/skills/` | Global skills |
-| `~/.cometmind/skill-drafts/` | Draft skills |
+| Path                                      | Contents                                |
+| ----------------------------------------- | --------------------------------------- |
+| `~/.cometmind/cometline-settings.json`    | Runtime settings (providers, cometmind) |
+| `~/.cometmind/cometline-desktop.json`     | Desktop UI settings                     |
+| `~/.cometmind/cometline-workspace.json`   | Selected workspace                      |
+| `~/.cometmind/cometmind.db`               | SQLite                                  |
+| `~/.cometmind/logs/cometline.log`         | Sidecar logs                            |
+| `~/.cometmind/logs/cometline-gateway.log` | Discord gateway logs                    |
+| `~/.cometmind/mcp-oauth/`                 | MCP tokens                              |
+| `~/.cometmind/tool-output/`               | Spilled tool output                     |
+| `~/.cometmind/skills/`                    | Global skills                           |
+| `~/.cometmind/skill-drafts/`              | Draft skills                            |
 
 Environment overrides:
 
@@ -255,33 +255,33 @@ OPENAI_API_KEY=...
 
 ## Troubleshooting
 
-| Problem | Check |
-|---------|-------|
-| Sidecar won't start | `~/.cometmind/logs/cometline.log`, `make port` |
-| Settings not persisting | JSON valid? `jq . ~/.cometmind/cometline-settings.json` |
-| Streaming frozen | Reducer immutability; check browser console |
-| Go test fails | Running from correct module dir? |
-| Codegen drift | `make generate` then `make check` |
-| Stale GitNexus | `node .gitnexus/run.cjs analyze` |
-| MCP OAuth broken | Check `~/.cometmind/mcp-oauth/` files and Settings → CometMind → MCP status |
-| Job stuck ongoing | Check job lease expiry, `job_events`, and autonomous worker settings |
+| Problem                 | Check                                                                       |
+| ----------------------- | --------------------------------------------------------------------------- |
+| Sidecar won't start     | `~/.cometmind/logs/cometline.log`, `make port`                              |
+| Settings not persisting | JSON valid? `jq . ~/.cometmind/cometline-settings.json`                     |
+| Streaming frozen        | Reducer immutability; check browser console                                 |
+| Go test fails           | Running from correct module dir?                                            |
+| Codegen drift           | `make generate` then `make check`                                           |
+| Stale GitNexus          | `node .gitnexus/run.cjs analyze`                                            |
+| MCP OAuth broken        | Check `~/.cometmind/mcp-oauth/` files and Settings → CometMind → MCP status |
+| Job stuck ongoing       | Check job lease expiry, `job_events`, and autonomous worker settings        |
 
 ---
 
 ## Learning path recap
 
-| # | Doc | You learned |
-|---|-----|-------------|
-| 01 | Nutshell | What Cometline is, one-message journey |
-| 02 | Architecture | Boundaries, contracts, invariants |
-| 03 | Data flows | Startup, agent loop, settings, packaging |
-| 04 | comet-sdk | Provider interface, streaming, retries |
-| 05 | cometmind runtime | Runner, sessions, server, tools |
-| 06 | Features | Memory, MCP, coding harness, Discord, skills, jobs |
-| 07 | Desktop | Electron, sidecar, IPC, settings split, native OAuth |
-| 08 | Frontend | Routes, stores, reducer, components |
-| 09 | Contracts | OpenAPI, sqlc, codegen workflow |
-| 10 | Development | Commands, recipes, verification |
+| #   | Doc               | You learned                                          |
+| --- | ----------------- | ---------------------------------------------------- |
+| 01  | Nutshell          | What Cometline is, one-message journey               |
+| 02  | Architecture      | Boundaries, contracts, invariants                    |
+| 03  | Data flows        | Startup, agent loop, settings, packaging             |
+| 04  | comet-sdk         | Provider interface, streaming, retries               |
+| 05  | cometmind runtime | Runner, sessions, server, tools                      |
+| 06  | Features          | Memory, MCP, coding harness, Discord, skills, jobs   |
+| 07  | Desktop           | Electron, sidecar, IPC, settings split, native OAuth |
+| 08  | Frontend          | Routes, stores, reducer, components                  |
+| 09  | Contracts         | OpenAPI, sqlc, codegen workflow                      |
+| 10  | Development       | Commands, recipes, verification                      |
 
 ## Further reading
 

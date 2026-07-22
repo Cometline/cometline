@@ -126,8 +126,9 @@ Default bindings (rebindable in Settings → Shortcuts):
 ```
 cometline/
 ├── electron/
-│   ├── main.cjs          sidecar lifecycle, IPC, settings, updater, tray
-│   └── preload.cjs       contextBridge -> window.electronAPI
+│   ├── src/main.ts       ESM composition root for sidecar, IPC, updater, tray
+│   ├── src/app.ts        main-process runtime implementation
+│   └── src/preload.ts    sandboxed contextBridge source -> CJS preload bundle
 ├── src/
 │   ├── routes/           SvelteKit pages (/ and /session/[id])
 │   └── lib/

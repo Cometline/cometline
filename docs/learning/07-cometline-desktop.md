@@ -12,7 +12,8 @@ The Electron layer owns everything the **browser sandbox cannot**: process manag
 ```text
 ┌─────────────────────────────────────────────────┐
 │  Electron MAIN (Node.js)                        │
-│  main.cjs — sidecar, IPC, settings, updater     │
+│  src/main.ts -> domains/runtime.ts               │
+│  Sidecar, IPC, settings, updater                 │
 ├─────────────────────────────────────────────────┤
 │  CometMind SIDECAR (Go binary)                  │
 │  cometmind serve — port 7700                    │
@@ -28,41 +29,41 @@ The Electron layer owns everything the **browser sandbox cannot**: process manag
 
 ## Security posture
 
-`BrowserWindow` webPreferences in `electron/main.cjs`:
+`BrowserWindow` webPreferences in `electron/src/domains/windows.ts`:
 
-| Setting | Value | Why |
-|---------|-------|-----|
-| `contextIsolation` | `true` | Renderer can't access Node |
-| `nodeIntegration` | `false` | No `require()` in renderer |
-| Preload only | `preload.cjs` | Controlled API surface |
+| Setting            | Value                     | Why                        |
+| ------------------ | ------------------------- | -------------------------- |
+| `contextIsolation` | `true`                    | Renderer can't access Node |
+| `nodeIntegration`  | `false`                   | No `require()` in renderer |
+| Preload only       | `electron/src/preload.ts` | Controlled API surface     |
 
 Native access is **only** through `window.electronAPI`.
 
 ## Preload bridge
 
-`electron/preload.cjs` uses `contextBridge.exposeInMainWorld('electronAPI', { ... })`.
+`electron/src/preload.ts` uses `contextBridge.exposeInMainWorld('electronAPI', { ... })`. Its `ElectronAPI` type lives in `electron/src/shared/api.ts`.
 
 The renderer checks `window.electronAPI` before calling — this lets `pnpm run dev` work in a plain browser without Electron.
 
 ## IPC contract
 
-| Method | Purpose |
-|--------|---------|
-| `restartCometMind()` | Full sidecar restart (rare; mainly host/port) |
-| `getWorkspacePath()` / `selectWorkspacePath()` / `setWorkspacePath(path)` | Workspace management |
-| `getProviderSettings()` / `saveProviderSettings(settings)` | Merge/split settings read/write + apply side effects |
-| `fetchProviderModels(config)` | Model list for API-key providers |
-| Codex / xAI auth helpers | Subscription session sign-in / auth path discovery |
-| `getMcpOAuthStatus()` / `startMcpOAuth()` | Native-browser MCP OAuth flow |
-| `readCursorMcpConfig()` | Import Cursor-style MCP config |
-| `notifyJob()` | Desktop notifications for job changes |
-| `setSidebarOpen(payload)` | macOS traffic-light animation |
-| `getFullScreen()` / `onFullScreenChange` | Window state sync |
-| `getAppVersion()` | Version string |
-| `checkForUpdates()` / `installUpdate()` | Sparkle / electron-updater |
-| `setOpenAtLogin(enabled)` | macOS login item |
+| Method                                                                    | Purpose                                              |
+| ------------------------------------------------------------------------- | ---------------------------------------------------- |
+| `restartCometMind()`                                                      | Full sidecar restart (rare; mainly host/port)        |
+| `getWorkspacePath()` / `selectWorkspacePath()` / `setWorkspacePath(path)` | Workspace management                                 |
+| `getProviderSettings()` / `saveProviderSettings(settings)`                | Merge/split settings read/write + apply side effects |
+| `fetchProviderModels(config)`                                             | Model list for API-key providers                     |
+| Codex / xAI auth helpers                                                  | Subscription session sign-in / auth path discovery   |
+| `getMcpOAuthStatus()` / `startMcpOAuth()`                                 | Native-browser MCP OAuth flow                        |
+| `readCursorMcpConfig()`                                                   | Import Cursor-style MCP config                       |
+| `notifyJob()`                                                             | Desktop notifications for job changes                |
+| `setSidebarOpen(payload)`                                                 | macOS traffic-light animation                        |
+| `getFullScreen()` / `onFullScreenChange`                                  | Window state sync                                    |
+| `getAppVersion()`                                                         | Version string                                       |
+| `checkForUpdates()` / `installUpdate()`                                   | Sparkle / electron-updater                           |
+| `setOpenAtLogin(enabled)`                                                 | macOS login item                                     |
 
-Exact handler names live in `electron/preload.cjs` and `electron/main.cjs` — prefer those files over line-number maps (main is large and moves often).
+The stable renderer contract lives in `electron/src/shared/api.ts` and `electron/src/preload.ts`; handler composition lives in `electron/src/domains/runtime-ipc.ts` and channel registration in `electron/src/domains/ipc.ts`. Prefer those modules over line-number maps.
 
 ## Sidecar lifecycle
 
@@ -95,12 +96,12 @@ SIGTERM sidecar
 
 ### Reload vs restart vs gateway recycle
 
-| Change class | Behavior |
-|--------------|----------|
-| Almost all runtime settings (providers, memory, MCP, ACP/harness, storage cleanup, jobs reconcile, autonomy, …) | In-place `Runtime.Reload` — chat turn can continue |
-| `cometmind.gateway.*` (Discord token/env) | Recycle **gateway process only**; main `serve` stays up |
-| Listen host / port (process bind) | Full main-sidecar restart |
-| Desktop-only fields (`appearance`, `shortcuts`, `app`) | No CometMind apply — Electron-only |
+| Change class                                                                                                    | Behavior                                                |
+| --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| Almost all runtime settings (providers, memory, MCP, ACP/harness, storage cleanup, jobs reconcile, autonomy, …) | In-place `Runtime.Reload` — chat turn can continue      |
+| `cometmind.gateway.*` (Discord token/env)                                                                       | Recycle **gateway process only**; main `serve` stays up |
+| Listen host / port (process bind)                                                                               | Full main-sidecar restart                               |
+| Desktop-only fields (`appearance`, `shortcuts`, `app`)                                                          | No CometMind apply — Electron-only                      |
 
 Manual `restartCometMind()` IPC still forces a full restart. Details: [../SETTINGS_AND_PERSISTENCE.md](../SETTINGS_AND_PERSISTENCE.md) § Restart Rules.
 
@@ -108,10 +109,10 @@ Manual `restartCometMind()` IPC still forces a full restart. Details: [../SETTIN
 
 ### Two-file model
 
-| File | Owns |
-|------|------|
-| `~/.cometmind/cometline-settings.json` | Runtime: providers, `cometmind.*` (ACP, MCP, memory, jobs, gateway, …). Mode `0600`. |
-| `~/.cometmind/cometline-desktop.json` | Desktop UI: `appearance`, `shortcuts`, `app` (+ stamped `systemPromptPath`). Agent tools never write this file. |
+| File                                   | Owns                                                                                                            |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `~/.cometmind/cometline-settings.json` | Runtime: providers, `cometmind.*` (ACP, MCP, memory, jobs, gateway, …). Mode `0600`.                            |
+| `~/.cometmind/cometline-desktop.json`  | Desktop UI: `appearance`, `shortcuts`, `app` (+ stamped `systemPromptPath`). Agent tools never write this file. |
 
 Electron **merges** both for the Settings UI and **splits** on every write. First read of a monolithic settings JSON peels desktop keys into the desktop file (idempotent migration). CometMind loads **only** the runtime file.
 
@@ -131,29 +132,29 @@ Renderer draft → saveProviderSettings IPC
 
 ### Normalization
 
-`main.cjs` and `settings/schema.ts` both normalize — Electron is authoritative on save; renderer validates on load. Classify logic on the Go side: `cometmind/internal/settingsapply/`.
+`electron/src/domains/settings.ts` and `settings/schema.ts` both normalize — Electron is authoritative on save; renderer validates on load. The split/merge helpers live in `electron/src/domains/settings-domain.ts`; classify logic remains on the Go side in `cometmind/internal/settingsapply/`.
 
 Key sections:
 
-| File | Section | Contents |
-|------|---------|----------|
-| settings | `providers[]`, `defaultModelId` / `defaultProviderId` | Provider configs and default model roles |
-| settings | `cometmind` | maxTokens, ACP/harness, MCP, memory, jobs, autonomy, scheduler, storage, gateway |
-| desktop | `appearance` | Hero glow, caret trail, … |
-| desktop | `shortcuts` | Keyboard bindings |
-| desktop | `app` | openAtLogin, intro completion, persona, … |
+| File     | Section                                               | Contents                                                                         |
+| -------- | ----------------------------------------------------- | -------------------------------------------------------------------------------- |
+| settings | `providers[]`, `defaultModelId` / `defaultProviderId` | Provider configs and default model roles                                         |
+| settings | `cometmind`                                           | maxTokens, ACP/harness, MCP, memory, jobs, autonomy, scheduler, storage, gateway |
+| desktop  | `appearance`                                          | Hero glow, caret trail, …                                                        |
+| desktop  | `shortcuts`                                           | Keyboard bindings                                                                |
+| desktop  | `app`                                                 | openAtLogin, intro completion, persona, …                                        |
 
 ## Model discovery
 
 Owned by **Electron main**, not CometMind:
 
-| Provider method | Discovery |
-|-----------------|-----------|
-| `opencode-go` | Hardcoded list |
-| `anthropic` | `GET {baseURL}/v1/models` + `x-api-key` |
-| `openai` / `openai-compatible` | `GET {baseURL}/models` + bearer |
-| `codex` | ChatGPT subscription session (`~/.codex/auth.json` or `$CODEX_HOME`) |
-| `xai` | Borrowed Grok session (`~/.cometmind/xai/auth.json`) |
+| Provider method                | Discovery                                                            |
+| ------------------------------ | -------------------------------------------------------------------- |
+| `opencode-go`                  | Hardcoded list                                                       |
+| `anthropic`                    | `GET {baseURL}/v1/models` + `x-api-key`                              |
+| `openai` / `openai-compatible` | `GET {baseURL}/models` + bearer                                      |
+| `codex`                        | ChatGPT subscription session (`~/.codex/auth.json` or `$CODEX_HOME`) |
+| `xai`                          | Borrowed Grok session (`~/.cometmind/xai/auth.json`)                 |
 
 Called via `fetchProviderModels` IPC (API-key providers) or dedicated Codex/xAI auth IPC from Settings UI.
 
@@ -173,12 +174,12 @@ setWorkspacePath(path):
 
 ## Logs and other paths
 
-| Path | Role |
-|------|------|
-| `~/.cometmind/logs/cometline.log` | Main sidecar log (10MB rotate → `.log.1`) |
-| `~/.cometmind/logs/cometline-gateway.log` | Discord gateway log |
-| `~/.cometmind/tool-output/` | Spilled tool output |
-| `~/.cometmind/agent-tmp/` | Shared agent tmp |
+| Path                                      | Role                                      |
+| ----------------------------------------- | ----------------------------------------- |
+| `~/.cometmind/logs/cometline.log`         | Main sidecar log (10MB rotate → `.log.1`) |
+| `~/.cometmind/logs/cometline-gateway.log` | Discord gateway log                       |
+| `~/.cometmind/tool-output/`               | Spilled tool output                       |
+| `~/.cometmind/agent-tmp/`                 | Shared agent tmp                          |
 
 ## Production URL scheme
 
@@ -201,12 +202,12 @@ Without SPA fallback, reloading a session URL in the packaged app returns 404.
 
 ## Native macOS features
 
-| Feature | Implementation |
-|---------|----------------|
+| Feature                 | Implementation                           |
+| ----------------------- | ---------------------------------------- |
 | Traffic light animation | Sidebar open/close moves window controls |
-| Hide on close | Window hides instead of quitting |
-| Tray icon | Optional system tray |
-| Login item | `setOpenAtLogin` |
+| Hide on close           | Window hides instead of quitting         |
+| Tray icon               | Optional system tray                     |
+| Login item              | `setOpenAtLogin`                         |
 
 ## Packaging pipeline
 
@@ -219,32 +220,37 @@ make package
 
 `package.json` `extraResources` includes the sidecar binary outside the asar archive.
 
-## Electron main concern map
+`pnpm run build:electron-main` runs `scripts/build-electron.mjs`: it bundles the ESM main-process source from `electron/src/main.ts` to `electron/dist/main.js`, and the TypeScript preload source from `electron/src/preload.ts` to the CommonJS preload bundle Electron loads.
+
+## Electron concern map
 
 Prefer symbol / module orientation over line numbers:
 
-| Concern | Where to look in `electron/main.cjs` |
-|---------|--------------------------------------|
-| Sidecar spawn / stop / health | `serve` argv, `--watch-parent`, health poll helpers |
-| Settings merge / split / normalize | settings read/write + desktop peel |
-| Reload / restart / gateway classify | save path + runtime action helpers |
-| Workspace | `cometline-workspace.json` + IPC |
-| Model discovery | per-method fetch + Codex/xAI auth paths |
-| MCP OAuth / Cursor import | MCP IPC helpers |
-| Auto-updater | update check/install handlers |
-| Window / tray / traffic lights | BrowserWindow + macOS UI helpers |
+| Concern                                    | Where to look                                                                |
+| ------------------------------------------ | ---------------------------------------------------------------------------- |
+| ESM main entrypoint and composition        | `electron/src/main.ts`, `app.ts`, `domains/runtime.ts`                       |
+| Sidecar spawn / stop / health              | `domains/cometmind-lifecycle.ts`                                             |
+| Settings merge / split / normalize         | `domains/settings.ts`, `domains/settings-domain.ts`                          |
+| Reload / restart / gateway apply           | `domains/runtime-ipc.ts`, `domains/cometmind-lifecycle.ts`                   |
+| Workspace                                  | `domains/settings.ts`, `domains/runtime-ipc.ts`                              |
+| Model discovery and subscription auth      | `domains/provider-auth.ts`                                                   |
+| Ollama health, model management, and pulls | `services/ollama.ts`                                                         |
+| MCP OAuth / Cursor import                  | `domains/provider-auth.ts`, `domains/runtime-ipc.ts`                         |
+| Auto-updater                               | `domains/auto-updater.ts`                                                    |
+| Window / tray / traffic lights             | `domains/windows.ts`, `domains/app-menu-tray.ts`, `domains/window-chrome.ts` |
+| Preload and typed IPC contract             | `preload.ts`, `shared/api.ts`, `domains/ipc.ts`                              |
 
 ## Invariants
 
-| Rule | If broken |
-|------|-----------|
-| Renderer never imports Node | Security collapse |
-| Native only via preload IPC | Responsibility blur |
-| Sidecar stop waits for exit | Port/WAL lock |
-| Settings files mode 0600 | API key exposure |
-| Desktop keys stay out of agent tools | Agents rewrite UI state |
-| `app://bundle` SPA fallback | Packaged route reload fails |
-| MCP OAuth token files stay outside settings JSON | Secret/token leakage |
+| Rule                                             | If broken                   |
+| ------------------------------------------------ | --------------------------- |
+| Renderer never imports Node                      | Security collapse           |
+| Native only via preload IPC                      | Responsibility blur         |
+| Sidecar stop waits for exit                      | Port/WAL lock               |
+| Settings files mode 0600                         | API key exposure            |
+| Desktop keys stay out of agent tools             | Agents rewrite UI state     |
+| `app://bundle` SPA fallback                      | Packaged route reload fails |
+| MCP OAuth token files stay outside settings JSON | Secret/token leakage        |
 
 ## What's next
 

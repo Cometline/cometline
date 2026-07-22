@@ -1,3 +1,5 @@
+import type { ElectronAPI } from '../electron/src/shared/api';
+
 declare global {
 	type ProviderMethod =
 		| 'openai-compatible'
@@ -351,217 +353,218 @@ declare global {
 	}
 
 	interface Window {
-		electronAPI?: {
-			restartCometMind?: () => void;
-			openExternal?: (url: string) => Promise<boolean>;
-			getProviderSettings?: () => Promise<ProviderSettings>;
-			getCodexAuthStatus?: () => Promise<{
-				authenticated: boolean;
-				authPath: string;
-				accountID?: string;
-				error?: string;
+		electronAPI?: ElectronAPI;
+	}
+
+	/** @deprecated ElectronAPI is defined in electron/src/shared/api.ts. */
+	interface LegacyElectronAPI {
+		restartCometMind?: () => void;
+		openExternal?: (url: string) => Promise<boolean>;
+		getProviderSettings?: () => Promise<ProviderSettings>;
+		getCodexAuthStatus?: () => Promise<{
+			authenticated: boolean;
+			authPath: string;
+			accountID?: string;
+			error?: string;
+		}>;
+		startCodexLogin?: () => Promise<{ started: boolean; message: string }>;
+		getXaiAuthStatus?: () => Promise<{
+			authenticated: boolean;
+			authPath: string;
+			error?: string;
+		}>;
+		startXaiLogin?: () => Promise<{ started: boolean; message: string }>;
+		getMcpOAuthStatus?: (serverId: string) => Promise<{
+			authenticated: boolean;
+			authPath: string;
+			expiry?: string;
+			error?: string;
+		}>;
+		startMcpOAuth?: (payload: {
+			serverId: string;
+			oauth: {
+				clientId: string;
+				scopes?: string[];
+				authorizationUrl: string;
+				tokenUrl: string;
+			};
+		}) => Promise<{ started: boolean; message: string }>;
+		readCursorMcpConfig?: () => Promise<
+			{ ok: true; path: string; config: unknown } | { ok: false; error: string }
+		>;
+		getDiscordGatewayStatus?: () => Promise<{ running: boolean; enabled: boolean }>;
+		setDiscordGatewayEnabled?: (
+			enabled: boolean
+		) => Promise<{ running: boolean; enabled: boolean }>;
+		getOpenAtLogin?: () => Promise<OpenAtLoginState>;
+		setOpenAtLogin?: (enabled: boolean) => Promise<OpenAtLoginState>;
+		openSessionInMainWindow?: (sessionId: string) => Promise<boolean>;
+		openSettingsWindow?: () => Promise<boolean>;
+		replayIntroInMainWindow?: () => Promise<boolean>;
+		runSetupWizardInMainWindow?: () => Promise<boolean>;
+		fetchProviderModels?: (
+			config: ProviderConfig
+		) => Promise<FetchProviderModelsResult | string[]>;
+		checkOllamaHealth?: (baseURL?: string) => Promise<{
+			ok: boolean;
+			state: 'healthy' | 'missing' | 'unreachable';
+			baseURL: string;
+			version?: string;
+			error?: string;
+		}>;
+		listOllamaModels?: (baseURL?: string) => Promise<{
+			baseURL: string;
+			models: Array<{
+				name: string;
+				size?: number;
+				digest?: string;
+				modifiedAt?: string;
 			}>;
-			startCodexLogin?: () => Promise<{ started: boolean; message: string }>;
-			getXaiAuthStatus?: () => Promise<{
-				authenticated: boolean;
-				authPath: string;
-				error?: string;
-			}>;
-			startXaiLogin?: () => Promise<{ started: boolean; message: string }>;
-			getMcpOAuthStatus?: (serverId: string) => Promise<{
-				authenticated: boolean;
-				authPath: string;
-				expiry?: string;
-				error?: string;
-			}>;
-			startMcpOAuth?: (payload: {
-				serverId: string;
-				oauth: {
-					clientId: string;
-					scopes?: string[];
-					authorizationUrl: string;
-					tokenUrl: string;
-				};
-			}) => Promise<{ started: boolean; message: string }>;
-			readCursorMcpConfig?: () => Promise<
-				{ ok: true; path: string; config: unknown } | { ok: false; error: string }
-			>;
-			getDiscordGatewayStatus?: () => Promise<{ running: boolean; enabled: boolean }>;
-			setDiscordGatewayEnabled?: (
-				enabled: boolean
-			) => Promise<{ running: boolean; enabled: boolean }>;
-			getOpenAtLogin?: () => Promise<OpenAtLoginState>;
-			setOpenAtLogin?: (enabled: boolean) => Promise<OpenAtLoginState>;
-			openSessionInMainWindow?: (sessionId: string) => Promise<boolean>;
-			openSettingsWindow?: () => Promise<boolean>;
-			replayIntroInMainWindow?: () => Promise<boolean>;
-			runSetupWizardInMainWindow?: () => Promise<boolean>;
-			fetchProviderModels?: (
-				config: ProviderConfig
-			) => Promise<FetchProviderModelsResult | string[]>;
-			checkOllamaHealth?: (baseURL?: string) => Promise<{
-				ok: boolean;
-				state: 'healthy' | 'missing' | 'unreachable';
-				baseURL: string;
-				version?: string;
-				error?: string;
-			}>;
-			listOllamaModels?: (baseURL?: string) => Promise<{
-				baseURL: string;
-				models: Array<{
-					name: string;
-					size?: number;
-					digest?: string;
-					modifiedAt?: string;
-				}>;
-			}>;
-			getOllamaDiagnostics?: (baseURL?: string) => Promise<{
-				ok: boolean;
-				state: string;
-				baseURL: string;
-				version?: string;
-				error?: string;
-				models: Array<{ name: string; size?: number }>;
-				pullActive: boolean;
-				pullModel: string | null;
-			}>;
-			pullOllamaModel?: (payload: {
-				baseURL?: string;
-				catalogId?: string;
-				modelName?: string;
-			}) => Promise<{
-				ok: boolean;
+		}>;
+		getOllamaDiagnostics?: (baseURL?: string) => Promise<{
+			ok: boolean;
+			state: string;
+			baseURL: string;
+			version?: string;
+			error?: string;
+			models: Array<{ name: string; size?: number }>;
+			pullActive: boolean;
+			pullModel: string | null;
+		}>;
+		pullOllamaModel?: (payload: {
+			baseURL?: string;
+			catalogId?: string;
+			modelName?: string;
+		}) => Promise<{
+			ok: boolean;
+			model: string;
+			models: Array<{ name: string; size?: number }>;
+		}>;
+		cancelOllamaPull?: () => Promise<{ ok: boolean; cancelled: boolean; model?: string }>;
+		onOllamaPullProgress?: (
+			callback: (payload: {
 				model: string;
-				models: Array<{ name: string; size?: number }>;
-			}>;
-			cancelOllamaPull?: () => Promise<{ ok: boolean; cancelled: boolean; model?: string }>;
-			onOllamaPullProgress?: (
-				callback: (payload: {
-					model: string;
-					status: string;
-					total?: number;
-					completed?: number;
-					percent?: number;
-					done?: boolean;
-				}) => void
-			) => () => void;
-			saveProviderSettings?: (
-				settings: ProviderSettings,
-				options?: {
-					runtimeAction?: 'none' | 'reload' | 'restart' | 'gateway';
-					restartCometMind?: boolean;
-				}
-			) => Promise<SaveProviderSettingsResult>;
-			setSidebarOpen?: (state: SidebarChromeState) => void;
-			getFullScreen?: () => Promise<boolean>;
-			onFullScreenChange?: (callback: (isFullScreen: boolean) => void) => () => void;
-			getWorkspacePath?: () => Promise<string>;
-			selectWorkspacePath?: () => Promise<string | null>;
-			selectBackupFolder?: () => Promise<SettingsFileResult>;
-			setWorkspacePath?: (workspacePath: string) => Promise<string>;
-			listRecentWorkspaces?: () => Promise<string[]>;
-			removeRecentWorkspacePath?: (workspacePath: string) => Promise<{ removed: boolean }>;
-			filterExistingWorkspacePaths?: (paths: string[]) => Promise<string[]>;
-			pruneWorkspaceStore?: () => Promise<{ removedRecent: number; clearedCurrent: boolean }>;
-			readWorkspaceFile?: (
-				workspacePath: string,
-				relativePath: string
-			) => Promise<ReadWorkspaceFileResult>;
-			listTerminals?: () => Promise<TerminalSnapshot[]>;
-			createTerminal?: (payload: {
-				sessionId: string;
-				workspacePath: string;
-				cols?: number;
-				rows?: number;
-			}) => Promise<TerminalSnapshot>;
-			writeTerminal?: (payload: { sessionId: string; data: string }) => Promise<boolean>;
-			resizeTerminal?: (payload: {
-				sessionId: string;
-				cols: number;
-				rows: number;
-			}) => Promise<boolean>;
-			terminateTerminal?: (sessionId: string) => Promise<boolean>;
-			removeTerminal?: (sessionId: string) => Promise<boolean>;
-			onTerminalData?: (
-				callback: (payload: { sessionId: string; data: string }) => void
-			) => () => void;
-			onTerminalExit?: (callback: (snapshot: TerminalSnapshot) => void) => () => void;
-			getAppVersion?: () => Promise<string>;
-			getUpdateState?: () => Promise<UpdateState>;
-			checkForUpdates?: () => Promise<UpdateState>;
-			installUpdate?: () => Promise<boolean>;
-			onUpdateState?: (callback: (state: UpdateState) => void) => () => void;
-			setShortcutCaptureActive?: (active: boolean) => void;
-			setSessionNavigationSuspended?: (suspended: boolean) => void;
-			setWebPanelOpen?: (open: boolean) => void;
-			setInboxOpen?: (open: boolean) => void;
-			confirmCloseWindow?: () => void;
-			onCloseWebPanel?: (callback: () => void) => () => void;
-			onCloseInbox?: (callback: () => void) => () => void;
-			onRequestCloseWindow?: (callback: () => void) => () => void;
-			onToggleWebPanel?: (callback: () => void) => () => void;
-			onOpenWebPanel?: (callback: () => void) => () => void;
-			onNavigateSession?: (callback: (direction: 'prev' | 'next') => void) => () => void;
-			onShortcutAction?: (
-				callback: (action: import('$lib/keyboard-shortcuts').ShortcutAction) => void
-			) => () => void;
-			onProviderSettingsChanged?: (
-				callback: (settings: ProviderSettings) => void
-			) => () => void;
-			onPersonaAvatarChanged?: (callback: (personaId: string) => void) => () => void;
-			onReplayIntro?: (callback: () => void) => () => void;
-			onRunSetupWizard?: (callback: () => void) => () => void;
-			getMiniWindowState?: () => Promise<MiniWindowState>;
-			saveMiniWindowState?: (state: {
-				sessionId?: string;
-				lastActiveAt?: number;
-			}) => Promise<MiniWindowState>;
-			notifyJob?: (payload: { title: string; body: string }) => void;
-			loadComposerHistory?: () => Promise<
-				Array<{
-					display: string;
-					timestamp: number;
-					workspacePath: string;
-					sessionId: string;
-				}>
-			>;
-			appendComposerHistory?: (entry: {
+				status: string;
+				total?: number;
+				completed?: number;
+				percent?: number;
+				done?: boolean;
+			}) => void
+		) => () => void;
+		saveProviderSettings?: (
+			settings: ProviderSettings,
+			options?: {
+				runtimeAction?: 'none' | 'reload' | 'restart' | 'gateway';
+				restartCometMind?: boolean;
+			}
+		) => Promise<SaveProviderSettingsResult>;
+		setSidebarOpen?: (state: SidebarChromeState) => void;
+		getFullScreen?: () => Promise<boolean>;
+		onFullScreenChange?: (callback: (isFullScreen: boolean) => void) => () => void;
+		getWorkspacePath?: () => Promise<string>;
+		selectWorkspacePath?: () => Promise<string | null>;
+		selectBackupFolder?: () => Promise<SettingsFileResult>;
+		setWorkspacePath?: (workspacePath: string) => Promise<string>;
+		listRecentWorkspaces?: () => Promise<string[]>;
+		removeRecentWorkspacePath?: (workspacePath: string) => Promise<{ removed: boolean }>;
+		filterExistingWorkspacePaths?: (paths: string[]) => Promise<string[]>;
+		pruneWorkspaceStore?: () => Promise<{ removedRecent: number; clearedCurrent: boolean }>;
+		readWorkspaceFile?: (
+			workspacePath: string,
+			relativePath: string
+		) => Promise<ReadWorkspaceFileResult>;
+		listTerminals?: () => Promise<TerminalSnapshot[]>;
+		createTerminal?: (payload: {
+			sessionId: string;
+			workspacePath: string;
+			cols?: number;
+			rows?: number;
+		}) => Promise<TerminalSnapshot>;
+		writeTerminal?: (payload: { sessionId: string; data: string }) => Promise<boolean>;
+		resizeTerminal?: (payload: {
+			sessionId: string;
+			cols: number;
+			rows: number;
+		}) => Promise<boolean>;
+		terminateTerminal?: (sessionId: string) => Promise<boolean>;
+		removeTerminal?: (sessionId: string) => Promise<boolean>;
+		onTerminalData?: (
+			callback: (payload: { sessionId: string; data: string }) => void
+		) => () => void;
+		onTerminalExit?: (callback: (snapshot: TerminalSnapshot) => void) => () => void;
+		getAppVersion?: () => Promise<string>;
+		getUpdateState?: () => Promise<UpdateState>;
+		checkForUpdates?: () => Promise<UpdateState>;
+		installUpdate?: () => Promise<boolean>;
+		onUpdateState?: (callback: (state: UpdateState) => void) => () => void;
+		setShortcutCaptureActive?: (active: boolean) => void;
+		setSessionNavigationSuspended?: (suspended: boolean) => void;
+		setWebPanelOpen?: (open: boolean) => void;
+		setInboxOpen?: (open: boolean) => void;
+		confirmCloseWindow?: () => void;
+		onCloseWebPanel?: (callback: () => void) => () => void;
+		onCloseInbox?: (callback: () => void) => () => void;
+		onRequestCloseWindow?: (callback: () => void) => () => void;
+		onToggleWebPanel?: (callback: () => void) => () => void;
+		onOpenWebPanel?: (callback: () => void) => () => void;
+		onNavigateSession?: (callback: (direction: 'prev' | 'next') => void) => () => void;
+		onShortcutAction?: (
+			callback: (action: import('$lib/keyboard-shortcuts').ShortcutAction) => void
+		) => () => void;
+		onProviderSettingsChanged?: (callback: (settings: ProviderSettings) => void) => () => void;
+		onPersonaAvatarChanged?: (callback: (personaId: string) => void) => () => void;
+		onReplayIntro?: (callback: () => void) => () => void;
+		onRunSetupWizard?: (callback: () => void) => () => void;
+		getMiniWindowState?: () => Promise<MiniWindowState>;
+		saveMiniWindowState?: (state: {
+			sessionId?: string;
+			lastActiveAt?: number;
+		}) => Promise<MiniWindowState>;
+		notifyJob?: (payload: { title: string; body: string }) => void;
+		loadComposerHistory?: () => Promise<
+			Array<{
 				display: string;
 				timestamp: number;
 				workspacePath: string;
 				sessionId: string;
-			}) => Promise<
-				| {
-						ok: true;
-						entries: Array<{
-							display: string;
-							timestamp: number;
-							workspacePath: string;
-							sessionId: string;
-						}>;
-				  }
-				| {
-						ok: false;
-						error: string;
-						entries: Array<{
-							display: string;
-							timestamp: number;
-							workspacePath: string;
-							sessionId: string;
-						}>;
-				  }
-			>;
-			listCustomPersonas?: () => Promise<CustomPersona[]>;
-			saveCustomPersona?: (payload: {
-				id?: string;
-				name: string;
-				soulMarkdown: string;
-				avatarDataUrl?: string;
-			}) => Promise<SaveCustomPersonaResult>;
-			deleteCustomPersona?: (id: string) => Promise<DeleteCustomPersonaResult>;
-			readPersonaAvatar?: (id: string) => Promise<ReadPersonaAvatarResult>;
-			readBuiltinSoul?: (personaId: string) => Promise<ReadPersonaSoulResult>;
-		};
+			}>
+		>;
+		appendComposerHistory?: (entry: {
+			display: string;
+			timestamp: number;
+			workspacePath: string;
+			sessionId: string;
+		}) => Promise<
+			| {
+					ok: true;
+					entries: Array<{
+						display: string;
+						timestamp: number;
+						workspacePath: string;
+						sessionId: string;
+					}>;
+			  }
+			| {
+					ok: false;
+					error: string;
+					entries: Array<{
+						display: string;
+						timestamp: number;
+						workspacePath: string;
+						sessionId: string;
+					}>;
+			  }
+		>;
+		listCustomPersonas?: () => Promise<CustomPersona[]>;
+		saveCustomPersona?: (payload: {
+			id?: string;
+			name: string;
+			soulMarkdown: string;
+			avatarDataUrl?: string;
+		}) => Promise<SaveCustomPersonaResult>;
+		deleteCustomPersona?: (id: string) => Promise<DeleteCustomPersonaResult>;
+		readPersonaAvatar?: (id: string) => Promise<ReadPersonaAvatarResult>;
+		readBuiltinSoul?: (personaId: string) => Promise<ReadPersonaSoulResult>;
 	}
 }
 

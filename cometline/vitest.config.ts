@@ -9,7 +9,11 @@ export default defineConfig({
 	test: {
 		globals: true,
 		environment: 'node',
-		include: ['src/lib/**/*.test.ts', 'src/lib/**/*.svelte.test.ts'],
+		include: [
+			'src/lib/**/*.test.ts',
+			'src/lib/**/*.svelte.test.ts',
+			'electron/src/**/*.test.ts'
+		],
 		environmentMatchGlobs: [['**/*.svelte.test.ts', 'jsdom']],
 		setupFiles: ['./src/test-setup.ts'],
 		coverage: {

@@ -1,5 +1,6 @@
-'use strict';
-
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-nocheck
+// Runtime validation is intentional here: Ollama's streamed JSON is untyped.
 const DEFAULT_NATIVE_BASE = 'http://127.0.0.1:11434';
 const OLLAMA_MODEL_NAME_RE = /^[a-zA-Z0-9]([a-zA-Z0-9._:-]{0,198}[a-zA-Z0-9])?$/;
 const MAX_LINE_BYTES = 64 * 1024;
@@ -121,12 +122,14 @@ function createOllamaService(deps = {}) {
 		const models = Array.isArray(body?.models) ? body.models : [];
 		return {
 			baseURL: base,
-			models: models.map((model) => ({
-				name: String(model?.name || '').trim(),
-				size: typeof model?.size === 'number' ? model.size : undefined,
-				digest: String(model?.digest || '').trim() || undefined,
-				modifiedAt: String(model?.modified_at || '').trim() || undefined
-			})).filter((model) => model.name)
+			models: models
+				.map((model) => ({
+					name: String(model?.name || '').trim(),
+					size: typeof model?.size === 'number' ? model.size : undefined,
+					digest: String(model?.digest || '').trim() || undefined,
+					modifiedAt: String(model?.modified_at || '').trim() || undefined
+				}))
+				.filter((model) => model.name)
 		};
 	}
 
@@ -273,7 +276,7 @@ function createOllamaService(deps = {}) {
 	};
 }
 
-module.exports = {
+export {
 	createOllamaService,
 	normalizeNativeBase,
 	isValidModelName,
