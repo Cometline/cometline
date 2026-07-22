@@ -1,8 +1,11 @@
 package processctl
 
 import (
+	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -177,5 +180,82 @@ func TestWriteMetadataUsesAtomicWrite(t *testing.T) {
 	}
 	if state.Metadata.PID != os.Getpid() {
 		t.Fatalf("state.Metadata.PID = %d, want %d", state.Metadata.PID, os.Getpid())
+	}
+}
+
+func TestClaimExclusiveNoPriorProcessWritesMetadata(t *testing.T) {
+	withTempDataDir(t)
+
+	if err := ClaimExclusive(ModeGatewayDiscord, time.Second); err != nil {
+		t.Fatalf("ClaimExclusive() error = %v", err)
+	}
+	defer RemoveMetadata(ModeGatewayDiscord)
+
+	state, err := ReadState(ModeGatewayDiscord)
+	if err != nil {
+		t.Fatalf("ReadState() error = %v", err)
+	}
+	if !state.Running || state.Metadata.PID != os.Getpid() {
+		t.Fatalf("state = %+v, want running with pid %d", state, os.Getpid())
+	}
+}
+
+func TestClaimExclusiveStopsOtherRunningProcess(t *testing.T) {
+	withTempDataDir(t)
+
+	cmd := exec.Command("sleep", "30")
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("start sleep: %v", err)
+	}
+	t.Cleanup(func() {
+		if cmd.Process != nil {
+			_ = cmd.Process.Kill()
+			_, _ = cmd.Process.Wait()
+		}
+	})
+
+	meta := Metadata{
+		Mode:      ModeGatewayDiscord,
+		PID:       cmd.Process.Pid,
+		StartedAt: time.Now().UTC().Format(time.RFC3339),
+		DataDir:   os.Getenv("COMETMIND_DATA_DIR"),
+		CmdArgs:   []string{"sleep", "30"},
+	}
+	data, err := json.MarshalIndent(meta, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal metadata: %v", err)
+	}
+	dataDir := os.Getenv("COMETMIND_DATA_DIR")
+	if err := os.MkdirAll(dataDir, 0o700); err != nil {
+		t.Fatalf("mkdir data dir: %v", err)
+	}
+	metaPath := filepath.Join(dataDir, ModeGatewayDiscord+".json")
+	pidPath := filepath.Join(dataDir, ModeGatewayDiscord+".pid")
+	if err := os.WriteFile(metaPath, append(data, '\n'), 0o600); err != nil {
+		t.Fatalf("write metadata: %v", err)
+	}
+	if err := os.WriteFile(pidPath, []byte(strconv.Itoa(cmd.Process.Pid)+"\n"), 0o600); err != nil {
+		t.Fatalf("write pid: %v", err)
+	}
+
+	if err := ClaimExclusive(ModeGatewayDiscord, 3*time.Second); err != nil {
+		t.Fatalf("ClaimExclusive() error = %v", err)
+	}
+	defer RemoveMetadata(ModeGatewayDiscord)
+
+	done := make(chan error, 1)
+	go func() { done <- cmd.Wait() }()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("expected prior sleep process to exit after ClaimExclusive")
+	}
+
+	state, err := ReadState(ModeGatewayDiscord)
+	if err != nil {
+		t.Fatalf("ReadState() error = %v", err)
+	}
+	if state.Metadata.PID != os.Getpid() {
+		t.Fatalf("claimed pid = %d, want %d", state.Metadata.PID, os.Getpid())
 	}
 }

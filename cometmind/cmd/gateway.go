@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/cometline/cometmind/internal/gateway"
 	discordgw "github.com/cometline/cometmind/internal/gateway/discord"
@@ -19,7 +20,8 @@ import (
 )
 
 var (
-	gatewayPlatform string
+	gatewayPlatform    string
+	gatewayWatchParent bool
 )
 
 var gatewayCmd = &cobra.Command{
@@ -35,6 +37,7 @@ var gatewayRunCmd = &cobra.Command{
 
 func init() {
 	gatewayRunCmd.Flags().StringVar(&gatewayPlatform, "platform", "discord", "Platform adapter to start")
+	gatewayRunCmd.Flags().BoolVar(&gatewayWatchParent, "watch-parent", false, "Shut down automatically when the launching parent process exits (for Electron sidecar use)")
 	gatewayCmd.AddCommand(gatewayRunCmd)
 	rootCmd.AddCommand(gatewayCmd)
 }
@@ -46,17 +49,27 @@ func runGateway(_ *cobra.Command, _ []string) error {
 	signal.Notify(hupCh, syscall.SIGHUP)
 	defer signal.Stop(hupCh)
 
+	if gatewayWatchParent {
+		watchCtx, cancel := context.WithCancel(ctx)
+		defer cancel()
+		watchParent(watchCtx, cancel)
+		ctx = watchCtx
+	}
+
+	// Claim the Discord gateway slot before opening SQLite so a previous
+	// orphaned/recycled gateway releases the DB and Websocket first.
+	if gatewayPlatform == "discord" {
+		if err := processctl.ClaimExclusive(processctl.ModeGatewayDiscord, 6*time.Second); err != nil {
+			return err
+		}
+		defer processctl.RemoveMetadata(processctl.ModeGatewayDiscord)
+	}
+
 	rt, err := runtime.New(ctx)
 	if err != nil {
 		return err
 	}
 	defer rt.Close()
-	if gatewayPlatform == "discord" {
-		if err := processctl.WriteMetadata(processctl.ModeGatewayDiscord); err != nil {
-			return err
-		}
-		defer processctl.RemoveMetadata(processctl.ModeGatewayDiscord)
-	}
 	go handleReloadSignal(ctx, hupCh, processctl.ModeGatewayDiscord, func(reloadCtx context.Context) error {
 		return rt.Reload(reloadCtx)
 	})

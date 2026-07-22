@@ -69,15 +69,16 @@ func (a *Adapter) onMessageCreate(s *discordgo.Session, m *discordgo.MessageCrea
 		"images", len(images),
 	)
 	a.onInbound(context.Background(), gateway.InboundMessage{
-		Platform:        PlatformName,
-		GuildID:         m.GuildID,
-		ParentChannelID: parentChannelID,
-		UserID:          m.Author.ID,
-		ChannelID:       routingChannelID,
-		ThreadID:        threadID,
-		Text:            text,
-		Images:          images,
-		Mentioned:       mentioned,
+		Platform:          PlatformName,
+		PlatformMessageID: m.ID,
+		GuildID:           m.GuildID,
+		ParentChannelID:   parentChannelID,
+		UserID:            m.Author.ID,
+		ChannelID:         routingChannelID,
+		ThreadID:          threadID,
+		Text:              text,
+		Images:            images,
+		Mentioned:         mentioned,
 	})
 }
 

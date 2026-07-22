@@ -37,6 +37,7 @@ type Router struct {
 	StopWaitTimeout    time.Duration
 	JobProposals       *JobProposalStore
 	DeliverJobProposal func(ctx context.Context, msg OutboundMessage, proposal *PendingJobProposal, workspacePaths []string) error
+	seenMessages       *seenPlatformMessages
 	onReply            func(context.Context, OutboundMessage) error
 }
 
@@ -60,6 +61,24 @@ func (r *Router) HandleInbound(ctx context.Context, msg InboundMessage) error {
 			)
 		}
 		return nil
+	}
+
+	if msg.PlatformMessageID != "" {
+		key := msg.Platform + ":" + msg.PlatformMessageID
+		seen := r.seenMessages
+		if seen == nil {
+			seen = defaultSeenPlatformMessages
+		}
+		if seen.seenOrAdd(key) {
+			logging.L().Info("gateway.message.ignored",
+				"platform", msg.Platform,
+				"user", msg.UserID,
+				"channel", msg.ChannelID,
+				"message_id", msg.PlatformMessageID,
+				"reason", "duplicate_platform_message",
+			)
+			return nil
+		}
 	}
 
 	wsPath := r.Config.Gateway.Discord.WorkspacePath
@@ -119,6 +138,10 @@ func (r *Router) HandleInbound(ctx context.Context, msg InboundMessage) error {
 		switch ev.Kind {
 		case event.KindTextDelta:
 			reply.WriteString(ev.Delta)
+		case event.KindTurnRecover:
+			trimmed := truncateUTF16Suffix(reply.String(), ev.TextChars)
+			reply.Reset()
+			reply.WriteString(trimmed)
 		case event.KindError:
 			if ev.Message != "" {
 				reply.WriteString("\n[error] ")

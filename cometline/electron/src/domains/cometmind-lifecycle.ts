@@ -14,6 +14,9 @@ const RESPAWN_MAX_ATTEMPTS = 10;
 const LOG_MAX_BYTES = 10 * 1024 * 1024;
 const LOG_BACKUP_COUNT = 1;
 const LOG_ROTATE_CHECK_BYTES = 512 * 1024;
+const PROCESS_STOP_GRACE_MS = 6000;
+const PROCESS_STOP_FORCE_WAIT_MS = 2000;
+const GATEWAY_PID_FILE = 'gateway-discord.pid';
 
 export interface CometMindLifecycleDeps {
 	context: RuntimeContext;
@@ -78,11 +81,58 @@ function createRotatingLogWriter(logPath: string) {
 	};
 }
 
+function gatewayPidPath() {
+	return path.join(os.homedir(), '.cometmind', GATEWAY_PID_FILE);
+}
+
+function readPidFile(pidPath: string): number | null {
+	try {
+		const raw = fs.readFileSync(pidPath, 'utf8').trim();
+		const pid = Number.parseInt(raw, 10);
+		if (!Number.isFinite(pid) || pid <= 0) return null;
+		return pid;
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
+		console.warn(`Failed to read pid file ${pidPath}:`, error);
+		return null;
+	}
+}
+
+function pidAlive(pid: number): boolean {
+	try {
+		globalThis.process.kill(pid, 0);
+		return true;
+	} catch (error) {
+		const code = (error as NodeJS.ErrnoException).code;
+		// EPERM still means the process exists.
+		return code === 'EPERM';
+	}
+}
+
+function signalPid(pid: number, signal: NodeJS.Signals) {
+	try {
+		globalThis.process.kill(pid, signal);
+	} catch (error) {
+		const code = (error as NodeJS.ErrnoException).code;
+		if (code === 'ESRCH') return;
+		console.warn(`Failed to signal pid ${pid} with ${signal}:`, error);
+	}
+}
+
+async function waitForPidExit(pid: number, timeoutMs: number) {
+	const deadline = Date.now() + timeoutMs;
+	while (Date.now() < deadline) {
+		if (!pidAlive(pid)) return;
+		await new Promise((resolve) => setTimeout(resolve, 100));
+	}
+}
+
 export function createCometMindLifecycle(deps: CometMindLifecycleDeps): CometMindLifecycle {
 	let process: ChildProcess | null = null;
 	let gatewayProcess: ChildProcess | null = null;
 	let respawnTimer: NodeJS.Timeout | null = null;
 	let respawnAttempts = 0;
+	let syncGatewayChain: Promise<void> = Promise.resolve();
 
 	function cliBinDirs() {
 		const home = os.homedir();
@@ -179,10 +229,12 @@ export function createCometMindLifecycle(deps: CometMindLifecycleDeps): CometMin
 		return new Promise<void>((resolve) => {
 			let settled = false;
 			let forceTimer: NodeJS.Timeout | null = null;
+			let hardTimer: NodeJS.Timeout | null = null;
 			const finish = () => {
 				if (settled) return;
 				settled = true;
 				if (forceTimer) clearTimeout(forceTimer);
+				if (hardTimer) clearTimeout(hardTimer);
 				resolve();
 			};
 			if (proc.exitCode !== null) return finish();
@@ -193,14 +245,26 @@ export function createCometMindLifecycle(deps: CometMindLifecycleDeps): CometMin
 				} catch {
 					// Ignore a process that has already exited.
 				}
-				finish();
-			}, 6000);
+				// Keep waiting for the real exit event; only hard-stop after a short grace.
+				hardTimer = setTimeout(finish, PROCESS_STOP_FORCE_WAIT_MS);
+			}, PROCESS_STOP_GRACE_MS);
 			try {
 				proc.kill('SIGTERM');
 			} catch {
 				finish();
 			}
 		});
+	}
+
+	async function stopRecordedGatewayPid(trackedPid?: number | null) {
+		const pid = readPidFile(gatewayPidPath());
+		if (pid == null || pid === trackedPid) return;
+		if (!pidAlive(pid)) return;
+		signalPid(pid, 'SIGTERM');
+		await waitForPidExit(pid, PROCESS_STOP_GRACE_MS);
+		if (!pidAlive(pid)) return;
+		signalPid(pid, 'SIGKILL');
+		await waitForPidExit(pid, PROCESS_STOP_FORCE_WAIT_MS);
 	}
 
 	function stop() {
@@ -214,7 +278,9 @@ export function createCometMindLifecycle(deps: CometMindLifecycleDeps): CometMin
 
 	function startGateway(settings: unknown) {
 		if (gatewayProcess) return;
-		const discord = (settings as { cometmind?: { gateway?: { discord?: { botToken?: unknown } } } })?.cometmind?.gateway?.discord ?? {};
+		const discord =
+			(settings as { cometmind?: { gateway?: { discord?: { botToken?: unknown } } } })?.cometmind?.gateway?.discord ??
+			{};
 		if (!String(discord.botToken ?? '').trim() && !globalThis.process.env.DISCORD_BOT_TOKEN) {
 			console.error('Discord gateway: bot token is not configured');
 			return;
@@ -225,26 +291,33 @@ export function createCometMindLifecycle(deps: CometMindLifecycleDeps): CometMin
 			return;
 		}
 		const logStream = createRotatingLogWriter(deps.getGatewayLogPath());
-		const child = spawn(binary, ['gateway', 'run', '--platform', 'discord'], { stdio: ['ignore', 'pipe', 'pipe'], env: environment() });
+		const child = spawn(binary, ['gateway', 'run', '--platform', 'discord', '--watch-parent'], {
+			stdio: ['ignore', 'pipe', 'pipe'],
+			env: environment()
+		});
 		gatewayProcess = child;
 		child.stdout?.on('data', (data: Buffer) => logStream.write(data));
 		child.stderr?.on('data', (data: Buffer) => logStream.write(data));
 		child.on('exit', (code) => {
 			console.log(`Discord gateway exited with code ${code}`);
 			logStream.end();
-			gatewayProcess = null;
+			// Only clear if this exit belongs to the currently tracked child.
+			// A delayed exit from a previous gateway must not wipe a newer spawn.
+			if (gatewayProcess === child) gatewayProcess = null;
 		});
 		child.on('error', (error) => {
 			console.error('Discord gateway spawn error:', error);
 			logStream.end();
-			gatewayProcess = null;
+			if (gatewayProcess === child) gatewayProcess = null;
 		});
 	}
 
-	function stopGateway() {
+	async function stopGateway() {
 		const current = gatewayProcess;
+		const trackedPid = current?.pid ?? null;
 		gatewayProcess = null;
-		return stopProcess(current, () => undefined);
+		await stopProcess(current, () => undefined);
+		await stopRecordedGatewayPid(trackedPid);
 	}
 
 	async function waitForHealth() {
@@ -298,14 +371,29 @@ export function createCometMindLifecycle(deps: CometMindLifecycleDeps): CometMin
 				console.warn('CometMind reload failed, falling back to restart:', error);
 				await stop();
 				start();
-				return { action: 'restart-fallback', healthy: await waitForHealth(), error: error instanceof Error ? error.message : String(error) };
+				return {
+					action: 'restart-fallback',
+					healthy: await waitForHealth(),
+					error: error instanceof Error ? error.message : String(error)
+				};
 			}
 		},
 		waitForHealth,
 		async syncDiscordGateway(settings) {
-			const enabled = Boolean((settings as { cometmind?: { gateway?: { discord?: { enabled?: unknown } } } })?.cometmind?.gateway?.discord?.enabled);
-			await stopGateway();
-			if (enabled) startGateway(settings);
+			const run = async () => {
+				const enabled = Boolean(
+					(settings as { cometmind?: { gateway?: { discord?: { enabled?: unknown } } } })?.cometmind?.gateway
+						?.discord?.enabled
+				);
+				await stopGateway();
+				if (enabled) startGateway(settings);
+			};
+			const next = syncGatewayChain.then(run, run);
+			syncGatewayChain = next.then(
+				() => undefined,
+				() => undefined
+			);
+			return next;
 		},
 		isGatewayRunning: () => Boolean(gatewayProcess),
 		terminateForExit() {
@@ -316,6 +404,8 @@ export function createCometMindLifecycle(deps: CometMindLifecycleDeps): CometMin
 					// Ignore a process that already exited.
 				}
 			}
+			const pid = readPidFile(gatewayPidPath());
+			if (pid != null && pid !== gatewayProcess?.pid) signalPid(pid, 'SIGTERM');
 		}
 	};
 }

@@ -120,6 +120,97 @@ func WriteMetadata(mode string) error {
 	return nil
 }
 
+// ClaimExclusive stops any other live process for mode, then writes this
+// process's metadata. Used by gateway so a recycled or orphaned Discord bot
+// cannot keep a second Websocket open and double-handle MESSAGE_CREATE.
+func ClaimExclusive(mode string, timeout time.Duration) error {
+	if !isKnownMode(mode) {
+		return fmt.Errorf("unknown process mode %q", mode)
+	}
+	if timeout <= 0 {
+		timeout = 6 * time.Second
+	}
+	if err := stopOtherRunning(mode, timeout); err != nil {
+		return err
+	}
+	return WriteMetadata(mode)
+}
+
+func stopOtherRunning(mode string, timeout time.Duration) error {
+	state, err := ReadState(mode)
+	if err != nil {
+		return err
+	}
+	if !state.Running {
+		return nil
+	}
+	pid := state.Metadata.PID
+	if pid <= 0 || pid == os.Getpid() {
+		return nil
+	}
+	proc, err := os.FindProcess(pid)
+	if err != nil {
+		return nil
+	}
+	if err := proc.Signal(syscall.SIGTERM); err != nil && !errors.Is(err, os.ErrProcessDone) {
+		// Process may have exited between ReadState and Signal.
+		if !processAlive(pid) {
+			return nil
+		}
+		return fmt.Errorf("signal %s pid %d: %w", mode, pid, err)
+	}
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if !processAlive(pid) {
+			return nil
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	if !processAlive(pid) {
+		return nil
+	}
+	_ = proc.Signal(syscall.SIGKILL)
+	killDeadline := time.Now().Add(time.Second)
+	for time.Now().Before(killDeadline) {
+		if !processAlive(pid) {
+			return nil
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	if processAlive(pid) {
+		return fmt.Errorf("%s pid %d still running after SIGKILL", mode, pid)
+	}
+	return nil
+}
+
+func processAlive(pid int) bool {
+	if pid <= 0 {
+		return false
+	}
+	proc, err := os.FindProcess(pid)
+	if err != nil {
+		return false
+	}
+	err = proc.Signal(syscall.Signal(0))
+	if err != nil {
+		// On some platforms EPERM still means the process exists.
+		if !strings.Contains(err.Error(), "operation not permitted") {
+			return false
+		}
+	}
+	// Signal(0) still succeeds for unreaped zombies. Those cannot run the
+	// Discord gateway, so treat them as gone for exclusive claim purposes.
+	out, err := exec.Command("ps", "-p", strconv.Itoa(pid), "-o", "state=").Output()
+	if err != nil {
+		return false
+	}
+	state := strings.TrimSpace(string(out))
+	if state == "" || strings.HasPrefix(state, "Z") {
+		return false
+	}
+	return true
+}
+
 func RemoveMetadata(mode string) {
 	if metaPath, err := paths.ProcessMetaPath(mode); err == nil {
 		_ = os.Remove(metaPath)

@@ -716,6 +716,109 @@ func TestHandleStopSlashWithoutMappedSession(t *testing.T) {
 	}
 }
 
+type recoverAwareRunner struct{}
+
+func (recoverAwareRunner) RunTurn(_ context.Context, _ session.Session, _ string, _ InboundMessage, onEvent func(event.Event)) error {
+	if onEvent == nil {
+		return nil
+	}
+	onEvent(event.TextDelta("partial"))
+	onEvent(event.TurnRecover(len("partial"), 0))
+	onEvent(event.TextDelta("complete"))
+	return nil
+}
+
+func TestHandleInboundTurnRecoverDropsPartialText(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	svc, ws, _ := newMappedGatewaySession(t, "")
+	var replyText string
+	r := &Router{
+		Sessions: svc,
+		Runner:   recoverAwareRunner{},
+		Config:   gatewayTestConfig(ws.Path),
+	}
+	r.SetReplyHandler(func(_ context.Context, msg OutboundMessage) error {
+		replyText = msg.Text
+		return nil
+	})
+
+	if err := r.HandleInbound(ctx, InboundMessage{
+		Platform:  "discord",
+		UserID:    "user-1",
+		ChannelID: "chan-1",
+		Text:      "retry please",
+		Mentioned: true,
+	}); err != nil {
+		t.Fatalf("HandleInbound() error = %v", err)
+	}
+	if replyText != "complete" {
+		t.Fatalf("reply = %q, want %q", replyText, "complete")
+	}
+}
+
+func TestHandleInboundDedupesPlatformMessageID(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	svc, ws, sess := newMappedGatewaySession(t, "")
+	seen := newSeenPlatformMessages()
+	var replies int
+	r := &Router{
+		Sessions:     svc,
+		Runner:       routerTestRunner{},
+		Config:       gatewayTestConfig(ws.Path),
+		seenMessages: seen,
+	}
+	r.SetReplyHandler(func(_ context.Context, _ OutboundMessage) error {
+		replies++
+		return nil
+	})
+
+	msg := InboundMessage{
+		Platform:          "discord",
+		PlatformMessageID: "msg-dedupe-1",
+		UserID:            "user-1",
+		ChannelID:         "chan-1",
+		Text:              "only once",
+		Mentioned:         true,
+	}
+	if err := r.HandleInbound(ctx, msg); err != nil {
+		t.Fatalf("first HandleInbound() error = %v", err)
+	}
+	if err := r.HandleInbound(ctx, msg); err != nil {
+		t.Fatalf("second HandleInbound() error = %v", err)
+	}
+	if replies != 1 {
+		t.Fatalf("replies = %d, want 1", replies)
+	}
+	transcript, err := svc.LoadTranscript(ctx, sess.ID)
+	if err != nil {
+		t.Fatalf("LoadTranscript() error = %v", err)
+	}
+	userTurns := 0
+	for _, m := range transcript {
+		if m.Kind == session.TranscriptKindUser {
+			userTurns++
+		}
+	}
+	if userTurns != 1 {
+		t.Fatalf("user turns = %d, want 1", userTurns)
+	}
+}
+
+func TestTruncateUTF16Suffix(t *testing.T) {
+	t.Parallel()
+	if got := truncateUTF16Suffix("helloWORLD", 5); got != "hello" {
+		t.Fatalf("truncateUTF16Suffix ASCII = %q, want hello", got)
+	}
+	// "😀" is one rune but two UTF-16 code units.
+	if got := truncateUTF16Suffix("ab😀", 2); got != "ab" {
+		t.Fatalf("truncateUTF16Suffix emoji = %q, want ab", got)
+	}
+}
+
 func newMappedGatewaySession(t *testing.T, threadID string) (*session.Service, session.Workspace, session.Session) {
 	t.Helper()
 	ctx := context.Background()
