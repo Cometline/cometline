@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { Check, Trash2 } from '@lucide/svelte';
 	import SlashCommandMenu from '$lib/components/composer/SlashCommandMenu.svelte';
+	import ModelCapabilityIcons from '$lib/components/model/ModelCapabilityIcons.svelte';
+	import { formatContextWindow } from '$lib/context-window';
 	import { jobMenuSubtitle } from '$lib/jobs/format-job-label';
 	import { modelStore } from '$lib/stores/model.svelte';
 	import type { createComposerSlashController } from '$lib/components/composer/composer-slash.svelte';
@@ -108,7 +110,20 @@
 								void slash.selectModelCommandOption(option);
 							}}
 						>
-							<span class="skill-command-name">{option.label}</span>
+							<span class="skill-command-name model-command-name">
+								<span class="model-command-label">
+									{option.label}
+									<ModelCapabilityIcons
+										modalities={option.inputModalities}
+										known={option.visionKnown}
+									/>
+								</span>
+								{#if option.context && option.context > 0}
+									<span class="model-command-context-hint">
+										· {formatContextWindow(option.context)} ctx
+									</span>
+								{/if}
+							</span>
 							<span class="skill-command-description">{option.modelId}</span>
 							{#if option.id === modelStore.selected?.id}
 								<span class="model-command-check"

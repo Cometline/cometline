@@ -218,10 +218,31 @@
 
 	.skill-command-menu :global(.model-command-option) {
 		position: relative;
+		padding-right: 28px;
 	}
 
 	.skill-command-menu :global(.model-command-option.is-selected) {
 		background: rgba(0, 102, 204, 0.04);
+	}
+
+	.skill-command-menu :global(.model-command-name) {
+		display: inline-flex;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 4px;
+		min-width: 0;
+	}
+
+	.skill-command-menu :global(.model-command-label) {
+		display: inline-flex;
+		align-items: center;
+		gap: 5px;
+		min-width: 0;
+	}
+
+	.skill-command-menu :global(.model-command-context-hint) {
+		font-weight: 500;
+		color: var(--text-soft);
 	}
 
 	.skill-command-menu :global(.model-command-check) {
