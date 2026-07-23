@@ -1,0 +1,201 @@
+{
+  "anthropic": {
+    "id": "anthropic",
+    "models": {
+      "claude-opus-4-1": {
+        "id": "claude-opus-4-1",
+        "attachment": true,
+        "modalities": {
+          "input": [
+            "text",
+            "image",
+            "pdf"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "limit": {
+          "context": 200000,
+          "output": 32000
+        }
+      },
+      "claude-sonnet-4-6": {
+        "id": "claude-sonnet-4-6",
+        "attachment": true,
+        "modalities": {
+          "input": [
+            "text",
+            "image",
+            "pdf"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "limit": {
+          "context": 1000000,
+          "output": 128000
+        }
+      }
+    }
+  },
+  "openai": {
+    "id": "openai",
+    "models": {
+      "gpt-5-codex": {
+        "id": "gpt-5-codex",
+        "attachment": false,
+        "modalities": {
+          "input": [
+            "text",
+            "image"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "limit": {
+          "context": 400000,
+          "input": 272000,
+          "output": 128000
+        }
+      },
+      "gpt-5.5-pro": {
+        "id": "gpt-5.5-pro",
+        "attachment": true,
+        "modalities": {
+          "input": [
+            "text",
+            "image",
+            "pdf"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "limit": {
+          "context": 1050000,
+          "input": 922000,
+          "output": 128000
+        }
+      },
+      "o3-mini": {
+        "id": "o3-mini",
+        "attachment": false,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "limit": {
+          "context": 200000,
+          "output": 100000
+        }
+      }
+    }
+  },
+  "xai": {
+    "id": "xai",
+    "models": {
+      "grok-imagine-video": {
+        "id": "grok-imagine-video",
+        "attachment": true,
+        "modalities": {
+          "input": [
+            "text",
+            "image",
+            "video",
+            "pdf"
+          ],
+          "output": [
+            "video"
+          ]
+        },
+        "limit": {
+          "context": 1024,
+          "output": 0
+        }
+      },
+      "grok-imagine-image-quality": {
+        "id": "grok-imagine-image-quality",
+        "attachment": true,
+        "modalities": {
+          "input": [
+            "text",
+            "image",
+            "pdf"
+          ],
+          "output": [
+            "image",
+            "pdf"
+          ]
+        },
+        "limit": {
+          "context": 8000,
+          "output": 0
+        }
+      }
+    }
+  },
+  "opencode": {
+    "id": "opencode",
+    "models": {
+      "claude-opus-4-8": {
+        "id": "claude-opus-4-8",
+        "attachment": true,
+        "modalities": {
+          "input": [
+            "text",
+            "image",
+            "pdf"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "limit": {
+          "context": 1000000,
+          "output": 128000
+        }
+      },
+      "gpt-5-codex": {
+        "id": "gpt-5-codex",
+        "attachment": true,
+        "modalities": {
+          "input": [
+            "text",
+            "image"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "limit": {
+          "context": 400000,
+          "input": 272000,
+          "output": 128000
+        }
+      },
+      "minimax-m2.5-free": {
+        "id": "minimax-m2.5-free",
+        "attachment": false,
+        "modalities": {
+          "input": [
+            "text"
+          ],
+          "output": [
+            "text"
+          ]
+        },
+        "limit": {
+          "context": 204800,
+          "output": 131072
+        }
+      }
+    }
+  }
+}
