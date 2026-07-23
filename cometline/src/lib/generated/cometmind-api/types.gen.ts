@@ -308,6 +308,59 @@ export type ModelEntry = {
      * Human-readable label derived from the model id.
      */
     name: string;
+    /**
+     * Resolved context window tokens (models.dev or fallback).
+     */
+    context: number;
+    /**
+     * Catalog max output tokens when known; 0 when unset.
+     */
+    output: number;
+    /**
+     * Whether context/output came from models.dev or the silent fallback.
+     */
+    limit_source: 'catalog' | 'fallback';
+    /**
+     * True when modalities.input includes image (only meaningful when vision_known).
+     */
+    vision: boolean;
+    /**
+     * False on silent fallback; callers must not proactive-strip images.
+     */
+    vision_known: boolean;
+    /**
+     * Normalized catalog input modalities (text, image, video, audio, pdf) when known.
+     */
+    input_modalities: Array<'text' | 'image' | 'video' | 'audio' | 'pdf'>;
+};
+
+export type ModelCatalogLookupRequest = {
+    /**
+     * Provider method (anthropic, openai, codex, opencode-go, …).
+     */
+    method: string;
+    /**
+     * Optional provider id used when method is empty.
+     */
+    provider_id?: string;
+    model_ids: Array<string>;
+};
+
+export type ModelCatalogLookupEntry = {
+    model_id: string;
+    context: number;
+    output: number;
+    limit_source: 'catalog' | 'fallback';
+    vision: boolean;
+    vision_known: boolean;
+    /**
+     * Normalized catalog input modalities (text, image, video, audio, pdf) when known.
+     */
+    input_modalities: Array<'text' | 'image' | 'video' | 'audio' | 'pdf'>;
+};
+
+export type ModelCatalogLookupResponse = {
+    models: Array<ModelCatalogLookupEntry>;
 };
 
 export type ModelListResponse = {
@@ -545,11 +598,11 @@ export type ContextBudgetEvent = {
      */
     estimated: number;
     /**
-     * Compaction ceiling (context_window minus max output tokens)
+     * Compaction ceiling (context_window minus max(effectiveMaxTokens, 20k))
      */
     available: number;
     /**
-     * Configured context window limit
+     * Resolved model context window (models.dev or fallback)
      */
     context_window: number;
     /**
@@ -1021,6 +1074,35 @@ export type ListModelsResponses = {
 };
 
 export type ListModelsResponse = ListModelsResponses[keyof ListModelsResponses];
+
+export type LookupModelCatalogData = {
+    body: ModelCatalogLookupRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/models/catalog-lookups';
+};
+
+export type LookupModelCatalogErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type LookupModelCatalogError = LookupModelCatalogErrors[keyof LookupModelCatalogErrors];
+
+export type LookupModelCatalogResponses = {
+    /**
+     * Resolved catalog entries
+     */
+    200: ModelCatalogLookupResponse;
+};
+
+export type LookupModelCatalogResponse = LookupModelCatalogResponses[keyof LookupModelCatalogResponses];
 
 export type DeleteWorkspaceData = {
     body?: never;

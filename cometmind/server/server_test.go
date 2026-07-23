@@ -2208,6 +2208,38 @@ func TestListModels(t *testing.T) {
 	}
 }
 
+func TestLookupModelCatalogEndpoint(t *testing.T) {
+	engine, _, cleanup := newTestEngine(t, func(session.Session, string) (Runner, error) {
+		return fakeRunner(func(context.Context, session.AgentTurn, chan<- event.Event) error {
+			return nil
+		}), nil
+	})
+	defer cleanup()
+
+	body, _ := json.Marshal(map[string]any{
+		"method":    "openai-compatible",
+		"model_ids": []string{"llama3", "llama3"},
+	})
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/models/catalog-lookups", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	engine.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d body=%s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	var got apigen.ModelCatalogLookupResponse
+	decodeJSON(t, rec.Body.Bytes(), &got)
+	if len(got.Models) != 1 {
+		t.Fatalf("models len = %d, want 1", len(got.Models))
+	}
+	if got.Models[0].VisionKnown {
+		t.Fatal("openai-compatible must not claim vision_known")
+	}
+	if got.Models[0].LimitSource != apigen.ModelCatalogLookupEntryLimitSourceFallback {
+		t.Fatalf("limit_source = %q", got.Models[0].LimitSource)
+	}
+}
+
 func newTestEngine(t *testing.T, newRunner RunnerFactory) (*gin.Engine, *session.Service, func()) {
 	t.Helper()
 

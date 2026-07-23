@@ -265,6 +265,96 @@ func (e MemoryReembedJobStatus) Valid() bool {
 	}
 }
 
+// Defines values for ModelCatalogLookupEntryInputModalities.
+const (
+	ModelCatalogLookupEntryInputModalitiesAudio ModelCatalogLookupEntryInputModalities = "audio"
+	ModelCatalogLookupEntryInputModalitiesImage ModelCatalogLookupEntryInputModalities = "image"
+	ModelCatalogLookupEntryInputModalitiesPdf   ModelCatalogLookupEntryInputModalities = "pdf"
+	ModelCatalogLookupEntryInputModalitiesText  ModelCatalogLookupEntryInputModalities = "text"
+	ModelCatalogLookupEntryInputModalitiesVideo ModelCatalogLookupEntryInputModalities = "video"
+)
+
+// Valid indicates whether the value is a known member of the ModelCatalogLookupEntryInputModalities enum.
+func (e ModelCatalogLookupEntryInputModalities) Valid() bool {
+	switch e {
+	case ModelCatalogLookupEntryInputModalitiesAudio:
+		return true
+	case ModelCatalogLookupEntryInputModalitiesImage:
+		return true
+	case ModelCatalogLookupEntryInputModalitiesPdf:
+		return true
+	case ModelCatalogLookupEntryInputModalitiesText:
+		return true
+	case ModelCatalogLookupEntryInputModalitiesVideo:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ModelCatalogLookupEntryLimitSource.
+const (
+	ModelCatalogLookupEntryLimitSourceCatalog  ModelCatalogLookupEntryLimitSource = "catalog"
+	ModelCatalogLookupEntryLimitSourceFallback ModelCatalogLookupEntryLimitSource = "fallback"
+)
+
+// Valid indicates whether the value is a known member of the ModelCatalogLookupEntryLimitSource enum.
+func (e ModelCatalogLookupEntryLimitSource) Valid() bool {
+	switch e {
+	case ModelCatalogLookupEntryLimitSourceCatalog:
+		return true
+	case ModelCatalogLookupEntryLimitSourceFallback:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ModelEntryInputModalities.
+const (
+	ModelEntryInputModalitiesAudio ModelEntryInputModalities = "audio"
+	ModelEntryInputModalitiesImage ModelEntryInputModalities = "image"
+	ModelEntryInputModalitiesPdf   ModelEntryInputModalities = "pdf"
+	ModelEntryInputModalitiesText  ModelEntryInputModalities = "text"
+	ModelEntryInputModalitiesVideo ModelEntryInputModalities = "video"
+)
+
+// Valid indicates whether the value is a known member of the ModelEntryInputModalities enum.
+func (e ModelEntryInputModalities) Valid() bool {
+	switch e {
+	case ModelEntryInputModalitiesAudio:
+		return true
+	case ModelEntryInputModalitiesImage:
+		return true
+	case ModelEntryInputModalitiesPdf:
+		return true
+	case ModelEntryInputModalitiesText:
+		return true
+	case ModelEntryInputModalitiesVideo:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ModelEntryLimitSource.
+const (
+	ModelEntryLimitSourceCatalog  ModelEntryLimitSource = "catalog"
+	ModelEntryLimitSourceFallback ModelEntryLimitSource = "fallback"
+)
+
+// Valid indicates whether the value is a known member of the ModelEntryLimitSource enum.
+func (e ModelEntryLimitSource) Valid() bool {
+	switch e {
+	case ModelEntryLimitSourceCatalog:
+		return true
+	case ModelEntryLimitSourceFallback:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ScheduledJobResourceCreatedBy.
 const (
 	ScheduledJobResourceCreatedByAgent ScheduledJobResourceCreatedBy = "agent"
@@ -608,13 +698,13 @@ type CompactMemoryPreviewResponse struct {
 
 // ContextBudgetEvent defines model for ContextBudgetEvent.
 type ContextBudgetEvent struct {
-	// Available Compaction ceiling (context_window minus max output tokens)
+	// Available Compaction ceiling (context_window minus max(effectiveMaxTokens, 20k))
 	Available int `json:"available"`
 
 	// Compacted True when this snapshot follows a successful context compaction in the same step
 	Compacted *bool `json:"compacted,omitempty"`
 
-	// ContextWindow Configured context window limit
+	// ContextWindow Resolved model context window (models.dev or fallback)
 	ContextWindow int `json:"context_window"`
 
 	// Estimated Chars/4 prompt estimate matching MaybeCompact (system + active messages + tools)
@@ -1085,14 +1175,71 @@ type MemoryWire struct {
 	Similarity      float32 `json:"similarity"`
 }
 
+// ModelCatalogLookupEntry defines model for ModelCatalogLookupEntry.
+type ModelCatalogLookupEntry struct {
+	Context int `json:"context"`
+
+	// InputModalities Normalized catalog input modalities (text, image, video, audio, pdf) when known.
+	InputModalities []ModelCatalogLookupEntryInputModalities `json:"input_modalities"`
+	LimitSource     ModelCatalogLookupEntryLimitSource       `json:"limit_source"`
+	ModelId         string                                   `json:"model_id"`
+	Output          int                                      `json:"output"`
+	Vision          bool                                     `json:"vision"`
+	VisionKnown     bool                                     `json:"vision_known"`
+}
+
+// ModelCatalogLookupEntryInputModalities defines model for ModelCatalogLookupEntry.InputModalities.
+type ModelCatalogLookupEntryInputModalities string
+
+// ModelCatalogLookupEntryLimitSource defines model for ModelCatalogLookupEntry.LimitSource.
+type ModelCatalogLookupEntryLimitSource string
+
+// ModelCatalogLookupRequest defines model for ModelCatalogLookupRequest.
+type ModelCatalogLookupRequest struct {
+	// Method Provider method (anthropic, openai, codex, opencode-go, …).
+	Method   string   `json:"method"`
+	ModelIds []string `json:"model_ids"`
+
+	// ProviderId Optional provider id used when method is empty.
+	ProviderId *string `json:"provider_id,omitempty"`
+}
+
+// ModelCatalogLookupResponse defines model for ModelCatalogLookupResponse.
+type ModelCatalogLookupResponse struct {
+	Models []ModelCatalogLookupEntry `json:"models"`
+}
+
 // ModelEntry defines model for ModelEntry.
 type ModelEntry struct {
-	ModelId string `json:"model_id"`
+	// Context Resolved context window tokens (models.dev or fallback).
+	Context int `json:"context"`
+
+	// InputModalities Normalized catalog input modalities (text, image, video, audio, pdf) when known.
+	InputModalities []ModelEntryInputModalities `json:"input_modalities"`
+
+	// LimitSource Whether context/output came from models.dev or the silent fallback.
+	LimitSource ModelEntryLimitSource `json:"limit_source"`
+	ModelId     string                `json:"model_id"`
 
 	// Name Human-readable label derived from the model id.
-	Name       string `json:"name"`
+	Name string `json:"name"`
+
+	// Output Catalog max output tokens when known; 0 when unset.
+	Output     int    `json:"output"`
 	ProviderId string `json:"provider_id"`
+
+	// Vision True when modalities.input includes image (only meaningful when vision_known).
+	Vision bool `json:"vision"`
+
+	// VisionKnown False on silent fallback; callers must not proactive-strip images.
+	VisionKnown bool `json:"vision_known"`
 }
+
+// ModelEntryInputModalities defines model for ModelEntry.InputModalities.
+type ModelEntryInputModalities string
+
+// ModelEntryLimitSource Whether context/output came from models.dev or the silent fallback.
+type ModelEntryLimitSource string
 
 // ModelListResponse defines model for ModelListResponse.
 type ModelListResponse struct {
@@ -1797,6 +1944,9 @@ type PutMemorySettingsJSONRequestBody = MemorySettings
 
 // PatchMemoryJSONRequestBody defines body for PatchMemory for application/json ContentType.
 type PatchMemoryJSONRequestBody = UpdateMemoryRequest
+
+// LookupModelCatalogJSONRequestBody defines body for LookupModelCatalog for application/json ContentType.
+type LookupModelCatalogJSONRequestBody = ModelCatalogLookupRequest
 
 // CreateScheduledJobJSONRequestBody defines body for CreateScheduledJob for application/json ContentType.
 type CreateScheduledJobJSONRequestBody = CreateScheduledJobRequest

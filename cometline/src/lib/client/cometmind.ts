@@ -19,6 +19,8 @@ import {
 	listChildSessions as listChildSessionsApi,
 	listSkillDrafts as listSkillDraftsApi,
 	listMemories as listMemoriesApi,
+	listModels as listModelsApi,
+	lookupModelCatalog as lookupModelCatalogApi,
 	listSessions as listSessionsApi,
 	listSkills as listSkillsApi,
 	listMcpServers as listMcpServersApi,
@@ -486,6 +488,47 @@ export function listAllSessions(): Promise<SessionListResponse> {
 		query: { all: true },
 		throwOnError: true
 	}).then(({ data }) => data);
+}
+
+export function listModels(): Promise<
+	Array<{
+		provider_id: string;
+		model_id: string;
+		name: string;
+		context: number;
+		output: number;
+		limit_source: 'catalog' | 'fallback';
+		vision: boolean;
+		vision_known: boolean;
+		input_modalities: Array<'text' | 'image' | 'video' | 'audio' | 'pdf'>;
+	}>
+> {
+	return listModelsApi({ throwOnError: true }).then(({ data }) => data.models ?? []);
+}
+
+export function lookupModelCatalog(input: {
+	method: string;
+	providerId?: string;
+	modelIds: string[];
+}): Promise<
+	Array<{
+		model_id: string;
+		context: number;
+		output: number;
+		limit_source: 'catalog' | 'fallback';
+		vision: boolean;
+		vision_known: boolean;
+		input_modalities: Array<'text' | 'image' | 'video' | 'audio' | 'pdf'>;
+	}>
+> {
+	return lookupModelCatalogApi({
+		body: {
+			method: input.method,
+			provider_id: input.providerId,
+			model_ids: input.modelIds
+		},
+		throwOnError: true
+	}).then(({ data }) => data.models ?? []);
 }
 
 export function getSession(id: string): Promise<Session> {

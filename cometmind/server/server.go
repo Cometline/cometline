@@ -130,6 +130,7 @@ func New(deps Deps) (*gin.Engine, error) {
 
 	// Models
 	api.GET("/models", app.handleListModels)
+	api.POST("/models/catalog-lookups", app.handleLookupModelCatalog)
 
 	// Workspaces
 	api.GET("/workspaces", app.handleListWorkspaces)
@@ -385,12 +386,56 @@ func (a *App) handleListModels(c *gin.Context) {
 	items := make([]apigen.ModelEntry, 0, len(models))
 	for _, m := range models {
 		items = append(items, apigen.ModelEntry{
-			ProviderId: m.ProviderID,
-			ModelId:    m.ModelID,
-			Name:       m.Name,
+			ProviderId:      m.ProviderID,
+			ModelId:         m.ModelID,
+			Name:            m.Name,
+			Context:         m.Context,
+			Output:          m.Output,
+			LimitSource:     apigen.ModelEntryLimitSource(m.LimitSource),
+			Vision:          m.Vision,
+			VisionKnown:     m.VisionKnown,
+			InputModalities: toModelEntryInputModalities(m.InputModalities),
 		})
 	}
 	c.JSON(http.StatusOK, apigen.ModelListResponse{Models: items})
+}
+
+func (a *App) handleLookupModelCatalog(c *gin.Context) {
+	var req apigen.ModelCatalogLookupRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		writeError(c, http.StatusBadRequest, "bad_request", "invalid JSON body")
+		return
+	}
+	if strings.TrimSpace(req.Method) == "" && (req.ProviderId == nil || strings.TrimSpace(*req.ProviderId) == "") {
+		writeError(c, http.StatusBadRequest, "bad_request", "method or provider_id is required")
+		return
+	}
+	if len(req.ModelIds) == 0 {
+		c.JSON(http.StatusOK, apigen.ModelCatalogLookupResponse{Models: []apigen.ModelCatalogLookupEntry{}})
+		return
+	}
+	if len(req.ModelIds) > 500 {
+		writeError(c, http.StatusBadRequest, "bad_request", "at most 500 model_ids are allowed")
+		return
+	}
+	providerID := ""
+	if req.ProviderId != nil {
+		providerID = *req.ProviderId
+	}
+	looked := config.LookupModelCatalog(req.Method, providerID, req.ModelIds)
+	items := make([]apigen.ModelCatalogLookupEntry, 0, len(looked))
+	for _, m := range looked {
+		items = append(items, apigen.ModelCatalogLookupEntry{
+			ModelId:         m.ModelID,
+			Context:         m.Context,
+			Output:          m.Output,
+			LimitSource:     apigen.ModelCatalogLookupEntryLimitSource(m.LimitSource),
+			Vision:          m.Vision,
+			VisionKnown:     m.VisionKnown,
+			InputModalities: toModelCatalogLookupInputModalities(m.InputModalities),
+		})
+	}
+	c.JSON(http.StatusOK, apigen.ModelCatalogLookupResponse{Models: items})
 }
 
 func (a *App) handleListSkills(c *gin.Context) {
@@ -654,4 +699,20 @@ func writeError(c *gin.Context, status int, code, message string) {
 			Message: message,
 		},
 	})
+}
+
+func toModelEntryInputModalities(in []string) []apigen.ModelEntryInputModalities {
+	out := make([]apigen.ModelEntryInputModalities, 0, len(in))
+	for _, m := range in {
+		out = append(out, apigen.ModelEntryInputModalities(m))
+	}
+	return out
+}
+
+func toModelCatalogLookupInputModalities(in []string) []apigen.ModelCatalogLookupEntryInputModalities {
+	out := make([]apigen.ModelCatalogLookupEntryInputModalities, 0, len(in))
+	for _, m := range in {
+		out = append(out, apigen.ModelCatalogLookupEntryInputModalities(m))
+	}
+	return out
 }

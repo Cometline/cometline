@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/cometline/cometmind/internal/modelcatalog"
 )
 
 func TestLabelForModel(t *testing.T) {
@@ -48,8 +50,40 @@ func TestModelEntriesFromSettings(t *testing.T) {
 	if got[0].ProviderID != "anthropic" || got[0].ModelID != "claude-sonnet-4-5" {
 		t.Fatalf("first entry = %+v", got[0])
 	}
+	if got[0].Context <= 0 || got[0].LimitSource == "" {
+		t.Fatalf("first entry missing limits: %+v", got[0])
+	}
 	if got[1].ProviderID != "openai" || got[1].ModelID != "gpt-4o" {
 		t.Fatalf("second entry = %+v", got[1])
+	}
+}
+
+func TestLookupModelCatalog(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "modelcatalog", "testdata", "models-dev-snippet.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	modelcatalog.ResetCacheForTest()
+	if err := modelcatalog.LoadFromJSONForTest(data); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(modelcatalog.ResetCacheForTest)
+
+	got := LookupModelCatalog("openai", "openai", []string{"o3-mini", "o3-mini", "  ", "missing-model"})
+	if len(got) != 2 {
+		t.Fatalf("len = %d, want 2 (dedupe + skip blank)", len(got))
+	}
+	if got[0].ModelID != "o3-mini" || !got[0].VisionKnown || got[0].Vision {
+		t.Fatalf("entry = %+v", got[0])
+	}
+	if len(got[0].InputModalities) != 1 || got[0].InputModalities[0] != "text" {
+		t.Fatalf("modalities = %v, want [text]", got[0].InputModalities)
+	}
+	if got[1].ModelID != "missing-model" || got[1].VisionKnown {
+		t.Fatalf("miss = %+v", got[1])
+	}
+	if len(got[1].InputModalities) != 0 {
+		t.Fatalf("fallback modalities = %v, want empty", got[1].InputModalities)
 	}
 }
 

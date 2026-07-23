@@ -7,14 +7,21 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/cometline/cometmind/internal/modelcatalog"
 	"github.com/cometline/cometmind/internal/paths"
 )
 
 // ModelEntry is one selectable model from Cometline provider settings.
 type ModelEntry struct {
-	ProviderID string `json:"provider_id"`
-	ModelID    string `json:"model_id"`
-	Name       string `json:"name"`
+	ProviderID      string   `json:"provider_id"`
+	ModelID         string   `json:"model_id"`
+	Name            string   `json:"name"`
+	Context         int      `json:"context"`
+	Output          int      `json:"output"`
+	LimitSource     string   `json:"limit_source"`
+	Vision          bool     `json:"vision"`
+	VisionKnown     bool     `json:"vision_known"`
+	InputModalities []string `json:"input_modalities"`
 }
 
 // LabelForModel formats a model id for display (matches Cometline UI labeling).
@@ -67,10 +74,17 @@ func modelEntriesFromSettings(raw cometlineSettingsJSON) []ModelEntry {
 				continue
 			}
 			seen[key] = struct{}{}
+			limits := modelcatalog.ResolveLimits(provider.Method, provider.ID, modelID)
 			out = append(out, ModelEntry{
-				ProviderID: strings.TrimSpace(provider.ID),
-				ModelID:    modelID,
-				Name:       LabelForModel(modelID),
+				ProviderID:      strings.TrimSpace(provider.ID),
+				ModelID:         modelID,
+				Name:            LabelForModel(modelID),
+				Context:         limits.Context,
+				Output:          limits.Output,
+				LimitSource:     limits.Source,
+				Vision:          limits.Vision,
+				VisionKnown:     limits.VisionKnown,
+				InputModalities: append([]string(nil), limits.InputModalities...),
 			})
 		}
 	}
@@ -160,4 +174,42 @@ func readCometlineSettingsJSON() (cometlineSettingsJSON, error) {
 		return cometlineSettingsJSON{}, fmt.Errorf("parse settings JSON: %w", err)
 	}
 	return raw, nil
+}
+
+// LookupModelCatalog resolves catalog limits for arbitrary model ids under a method.
+func LookupModelCatalog(method, providerID string, modelIDs []string) []ModelCatalogLookupEntry {
+	out := make([]ModelCatalogLookupEntry, 0, len(modelIDs))
+	seen := make(map[string]struct{}, len(modelIDs))
+	for _, modelID := range modelIDs {
+		modelID = strings.TrimSpace(modelID)
+		if modelID == "" {
+			continue
+		}
+		if _, ok := seen[modelID]; ok {
+			continue
+		}
+		seen[modelID] = struct{}{}
+		limits := modelcatalog.ResolveLimits(method, providerID, modelID)
+		out = append(out, ModelCatalogLookupEntry{
+			ModelID:         modelID,
+			Context:         limits.Context,
+			Output:          limits.Output,
+			LimitSource:     limits.Source,
+			Vision:          limits.Vision,
+			VisionKnown:     limits.VisionKnown,
+			InputModalities: append([]string(nil), limits.InputModalities...),
+		})
+	}
+	return out
+}
+
+// ModelCatalogLookupEntry is one resolved catalog row for fetch-time enrichment.
+type ModelCatalogLookupEntry struct {
+	ModelID         string   `json:"model_id"`
+	Context         int      `json:"context"`
+	Output          int      `json:"output"`
+	LimitSource     string   `json:"limit_source"`
+	Vision          bool     `json:"vision"`
+	VisionKnown     bool     `json:"vision_known"`
+	InputModalities []string `json:"input_modalities"`
 }

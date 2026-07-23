@@ -56,9 +56,48 @@ paths:
                   - provider_id: anthropic
                     model_id: claude-opus-4-5
                     name: CLAUDE-OPUS-4-5
+                    context: 200000
+                    output: 32000
+                    limit_source: catalog
+                    vision: true
+                    vision_known: true
+                    input_modalities: [text, image, pdf]
                   - provider_id: anthropic
                     model_id: claude-sonnet-4-5
                     name: CLAUDE-SONNET-4-5
+                    context: 200000
+                    output: 64000
+                    limit_source: catalog
+                    vision: true
+                    vision_known: true
+                    input_modalities: [text, image, pdf]
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/models/catalog-lookups:
+    post:
+      tags: [Models]
+      summary: Resolve catalog limits for model ids
+      description: |
+        Batch-resolves models.dev context/output/vision for arbitrary model ids
+        under a provider method. Used after Fetch models so the settings list can
+        show limits before models are enabled and saved.
+      operationId: lookupModelCatalog
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ModelCatalogLookupRequest'
+      responses:
+        '200':
+          description: Resolved catalog entries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelCatalogLookupResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '500':
           $ref: '#/components/responses/InternalError'
 
@@ -2608,7 +2647,7 @@ components:
     ModelEntry:
       type: object
       additionalProperties: false
-      required: [provider_id, model_id, name]
+      required: [provider_id, model_id, name, context, output, limit_source, vision, vision_known, input_modalities]
       properties:
         provider_id:
           type: string
@@ -2617,6 +2656,80 @@ components:
         name:
           type: string
           description: Human-readable label derived from the model id.
+        context:
+          type: integer
+          description: Resolved context window tokens (models.dev or fallback).
+        output:
+          type: integer
+          description: Catalog max output tokens when known; 0 when unset.
+        limit_source:
+          type: string
+          enum: [catalog, fallback]
+          description: Whether context/output came from models.dev or the silent fallback.
+        vision:
+          type: boolean
+          description: True when modalities.input includes image (only meaningful when vision_known).
+        vision_known:
+          type: boolean
+          description: False on silent fallback; callers must not proactive-strip images.
+        input_modalities:
+          type: array
+          description: Normalized catalog input modalities (text, image, video, audio, pdf) when known.
+          items:
+            type: string
+            enum: [text, image, video, audio, pdf]
+
+    ModelCatalogLookupRequest:
+      type: object
+      additionalProperties: false
+      required: [method, model_ids]
+      properties:
+        method:
+          type: string
+          description: Provider method (anthropic, openai, codex, opencode-go, …).
+        provider_id:
+          type: string
+          description: Optional provider id used when method is empty.
+        model_ids:
+          type: array
+          items:
+            type: string
+          maxItems: 500
+
+    ModelCatalogLookupEntry:
+      type: object
+      additionalProperties: false
+      required: [model_id, context, output, limit_source, vision, vision_known, input_modalities]
+      properties:
+        model_id:
+          type: string
+        context:
+          type: integer
+        output:
+          type: integer
+        limit_source:
+          type: string
+          enum: [catalog, fallback]
+        vision:
+          type: boolean
+        vision_known:
+          type: boolean
+        input_modalities:
+          type: array
+          description: Normalized catalog input modalities (text, image, video, audio, pdf) when known.
+          items:
+            type: string
+            enum: [text, image, video, audio, pdf]
+
+    ModelCatalogLookupResponse:
+      type: object
+      additionalProperties: false
+      required: [models]
+      properties:
+        models:
+          type: array
+          items:
+            $ref: '#/components/schemas/ModelCatalogLookupEntry'
 
     ModelListResponse:
       type: object
@@ -3113,10 +3226,10 @@ components:
           description: Chars/4 prompt estimate matching MaybeCompact (system + active messages + tools)
         available:
           type: integer
-          description: Compaction ceiling (context_window minus max output tokens)
+          description: Compaction ceiling (context_window minus max(effectiveMaxTokens, 20k))
         context_window:
           type: integer
-          description: Configured context window limit
+          description: Resolved model context window (models.dev or fallback)
         compacted:
           type: boolean
           description: True when this snapshot follows a successful context compaction in the same step
