@@ -22,7 +22,7 @@
 		hasWorkspace: boolean;
 		currentWorkspaceLabel: string;
 		workspaceMenuOpen: boolean;
-		contextWindowUsage: { used: number; limit: number };
+		contextWindowUsage: { used: number; limit: number; source: 'server' | 'fallback' };
 		streaming: boolean;
 		canSubmit: boolean;
 		disabled: boolean;
@@ -58,6 +58,7 @@
 			<ContextWindowRing
 				usedTokens={contextWindowUsage.used}
 				limitTokens={contextWindowUsage.limit}
+				source={contextWindowUsage.source}
 			/>
 		{/if}
 		{#if streaming}

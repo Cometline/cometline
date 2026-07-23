@@ -139,6 +139,31 @@ describe('reduceChatState', () => {
 		expect(assistant.activityMessage).toContain('Summarizing');
 	});
 
+	it('stores context_budget snapshots for the composer ring', () => {
+		let state = initChatState();
+		state = reduceChatState(state, {
+			type: 'context_budget',
+			estimated: 12_000,
+			available: 125_952,
+			context_window: 128_000
+		});
+		expect(state.contextBudget).toEqual({
+			estimated: 12_000,
+			available: 125_952,
+			contextWindow: 128_000,
+			compacted: false
+		});
+		state = reduceChatState(state, {
+			type: 'context_budget',
+			estimated: 8_000,
+			available: 125_952,
+			context_window: 128_000,
+			compacted: true
+		});
+		expect(state.contextBudget?.estimated).toBe(8_000);
+		expect(state.contextBudget?.compacted).toBe(true);
+	});
+
 	it('settles reasoning on step_finish', () => {
 		let state = initChatState();
 		state = reduceChatState(state, { type: 'reasoning_delta', text: 'done' });

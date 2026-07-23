@@ -17,11 +17,7 @@
 	import ComposerToolbar from '$lib/components/composer/ComposerToolbar.svelte';
 	import { chatStore } from '$lib/stores/chat.svelte';
 	import { composerHistoryStore } from '$lib/stores/composer-history.svelte';
-	import {
-		estimateChatContextTokens,
-		estimateTokensFromText,
-		resolveContextWindow
-	} from '$lib/context-window';
+	import { resolveContextWindowUsage } from '$lib/context-window';
 	import { workspaceLabel } from '$lib/sessions/group-by-workspace';
 	import type { ImageAttachment } from '$lib/types';
 	import type { ComposerInputRef } from '$lib/components/composer/composer-input-ref';
@@ -194,11 +190,15 @@
 
 	const canSubmit = $derived(inputController.canSubmit());
 	const contextWindowUsage = $derived.by(() => {
-		const limit = resolveContextWindow(settingsStore.settings.cometmind.contextWindowLimit);
 		const items = sessionId && chatStore.sessionID === sessionId ? chatStore.items : [];
-		const draftTokens = value.trim() ? estimateTokensFromText(value) : 0;
-		const used = estimateChatContextTokens(items) + draftTokens;
-		return { used, limit };
+		const budget = sessionId && chatStore.sessionID === sessionId ? chatStore.contextBudget : null;
+		return resolveContextWindowUsage({
+			budget,
+			items,
+			draftText: value,
+			contextWindowLimit: settingsStore.settings.cometmind.contextWindowLimit,
+			maxTokens: settingsStore.settings.cometmind.maxTokens
+		});
 	});
 	const currentWorkspaceLabel = $derived(
 		mentions.hasWorkspace ? workspaceLabel(shellStore.workspacePath) : ''

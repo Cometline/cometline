@@ -10,6 +10,7 @@ import {
 import type { ChatItem, ImageAttachment, Session, StreamEvent } from '$lib/types';
 import type { ChatTurnPayload } from '$lib/actions/start-chat';
 import { reduceChatState } from '$lib/reducers/chat';
+import type { ContextBudgetSnapshot } from '$lib/context-window';
 import { anyReasoningPending, hasReasoning } from '$lib/conversation/reasoning';
 import { sessionStore } from '$lib/stores/session.svelte';
 import { chatDebug, summarizeChatItems, summarizeStreamEvent } from '../debug/chat';
@@ -47,10 +48,12 @@ function createChatStore() {
 
 	const sessionCache = new Map<string, ChatItem[]>();
 	const sessionErrors = new Map<string, string>();
+	const sessionContextBudgets = new Map<string, ContextBudgetSnapshot>();
 	const streamHandles = new Map<string, SessionStream>();
 	const localStreamingSessionIds = new Set<string>();
 	const remoteStreamingSessionIds = new Set<string>();
 	let streamingSessionIds = $state.raw<Set<string>>(new Set());
+	let contextBudget = $state.raw<ContextBudgetSnapshot | null>(null);
 
 	const BATCHABLE_EVENTS = BATCHABLE_STREAM_EVENTS;
 
@@ -95,11 +98,13 @@ function createChatStore() {
 		unmarkStreaming(targetSessionID);
 		sessionCache.delete(targetSessionID);
 		sessionErrors.delete(targetSessionID);
+		sessionContextBudgets.delete(targetSessionID);
 		sessionStore.discardSession(targetSessionID);
 		if (sessionID === targetSessionID) {
 			sessionID = null;
 			items = [];
 			error = '';
+			contextBudget = null;
 			isLoading = false;
 		}
 		if (browser) {
@@ -174,10 +179,12 @@ function createChatStore() {
 		abortAllStreams();
 		sessionCache.clear();
 		sessionErrors.clear();
+		sessionContextBudgets.clear();
 		sessionID = null;
 		items = [];
 		isLoading = false;
 		error = '';
+		contextBudget = null;
 		loadRun += 1;
 		loadPromise = null;
 		loadPromiseSession = null;
@@ -188,10 +195,12 @@ function createChatStore() {
 		loadPromise = null;
 		loadPromiseSession = null;
 		sessionErrors.delete(targetSessionID);
+		sessionContextBudgets.delete(targetSessionID);
 		writeSessionItems(targetSessionID, []);
 		if (sessionID === targetSessionID) {
 			error = '';
 			isLoading = false;
+			contextBudget = null;
 		}
 	}
 
@@ -210,6 +219,7 @@ function createChatStore() {
 		items = [];
 		isLoading = false;
 		error = '';
+		contextBudget = null;
 	}
 
 	function reconcileStreamCtx(targetSessionID: string, ctx: StreamCtx) {
@@ -256,6 +266,7 @@ function createChatStore() {
 		sessionID = nextSessionID;
 		items = sessionCache.get(nextSessionID) ?? [];
 		error = sessionErrors.get(nextSessionID) ?? '';
+		contextBudget = sessionContextBudgets.get(nextSessionID) ?? null;
 		isLoading = false;
 	}
 
@@ -276,6 +287,8 @@ function createChatStore() {
 			}
 			sessionID = nextSessionID;
 			items = sessionCache.get(nextSessionID) ?? [];
+			error = sessionErrors.get(nextSessionID) ?? '';
+			contextBudget = sessionContextBudgets.get(nextSessionID) ?? null;
 		} else {
 			sessionID = nextSessionID;
 		}
@@ -426,13 +439,19 @@ function createChatStore() {
 				error: sessionError,
 				assistant: ctx.assistant.current,
 				reasoning: ctx.reasoning.current,
-				nextId
+				nextId,
+				contextBudget: sessionContextBudgets.get(targetSessionID) ?? null
 			},
 			event
 		);
 		nextId = reduced.nextId;
 		ctx.assistant.current = reduced.assistant;
 		ctx.reasoning.current = reduced.reasoning;
+		if (reduced.contextBudget) {
+			sessionContextBudgets.set(targetSessionID, reduced.contextBudget);
+		} else {
+			sessionContextBudgets.delete(targetSessionID);
+		}
 		if (reduced.error) {
 			sessionErrors.set(targetSessionID, reduced.error);
 		} else {
@@ -440,6 +459,7 @@ function createChatStore() {
 		}
 		if (sessionID === targetSessionID) {
 			error = reduced.error;
+			contextBudget = reduced.contextBudget;
 		}
 		writeSessionItems(targetSessionID, reduced.items);
 	}
@@ -778,6 +798,9 @@ function createChatStore() {
 		},
 		get error() {
 			return error;
+		},
+		get contextBudget() {
+			return contextBudget;
 		},
 		isStreamingFor,
 		hasInFlightTurn,

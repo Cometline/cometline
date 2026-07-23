@@ -7,7 +7,8 @@ import {
 	formatContextUsageTokens,
 	formatContextWindow,
 	normalizeContextWindowLimit,
-	resolveContextWindow
+	resolveContextWindow,
+	resolveContextWindowUsage
 } from './context-window';
 
 describe('context-window', () => {
@@ -63,5 +64,31 @@ describe('context-window', () => {
 	it('formats usage tooltip values', () => {
 		expect(formatContextUsageTokens(180_400)).toBe('180.4K');
 		expect(formatContextPercent(180_400, 256_000)).toBe('70.5');
+	});
+
+	it('prefers server budget and adds draft tokens', () => {
+		const usage = resolveContextWindowUsage({
+			budget: { estimated: 1000, available: 125_952, contextWindow: 128_000 },
+			items: [{ id: '1', type: 'user', text: 'ignored when server budget present' }],
+			draftText: 'abcd',
+			contextWindowLimit: 128_000,
+			maxTokens: 2048
+		});
+		expect(usage.source).toBe('server');
+		expect(usage.used).toBe(1001);
+		expect(usage.limit).toBe(125_952);
+	});
+
+	it('falls back to transcript estimate with available denominator', () => {
+		const usage = resolveContextWindowUsage({
+			budget: null,
+			items: [{ id: '1', type: 'user', text: 'abcd' }],
+			draftText: '',
+			contextWindowLimit: 128_000,
+			maxTokens: 2048
+		});
+		expect(usage.source).toBe('fallback');
+		expect(usage.used).toBe(1);
+		expect(usage.limit).toBe(128_000 - 2048);
 	});
 });

@@ -109,3 +109,52 @@ export function formatContextPercent(used: number, limit: number): string {
 	const percent = Math.min(100, (used / limit) * 100);
 	return percent % 1 === 0 ? String(percent) : percent.toFixed(1);
 }
+
+export type ContextBudgetSnapshot = {
+	estimated: number;
+	available: number;
+	contextWindow: number;
+	compacted?: boolean;
+};
+
+export type ContextWindowUsage = {
+	used: number;
+	limit: number;
+	source: 'server' | 'fallback';
+};
+
+/** Available prompt budget matching MaybeCompact (window minus output reserve). */
+export function resolveContextAvailableBudget(
+	contextWindowLimit?: ContextWindowLimit | number | null,
+	maxTokens?: number | null
+): number {
+	const window = resolveContextWindow(contextWindowLimit);
+	const reserve = Number.isFinite(maxTokens) && (maxTokens as number) > 0 ? Math.floor(maxTokens as number) : 2048;
+	return Math.max(1, window - reserve);
+}
+
+/**
+ * Prefer server context_budget (same math as MaybeCompact); fall back to visible
+ * transcript estimate with the same available-budget denominator.
+ */
+export function resolveContextWindowUsage(input: {
+	budget: ContextBudgetSnapshot | null | undefined;
+	items: ChatItem[];
+	draftText: string;
+	contextWindowLimit?: ContextWindowLimit | number | null;
+	maxTokens?: number | null;
+}): ContextWindowUsage {
+	const draftTokens = input.draftText.trim() ? estimateTokensFromText(input.draftText) : 0;
+	if (input.budget && Number.isFinite(input.budget.available) && input.budget.available > 0) {
+		return {
+			used: Math.max(0, input.budget.estimated) + draftTokens,
+			limit: Math.max(1, input.budget.available),
+			source: 'server'
+		};
+	}
+	return {
+		used: estimateChatContextTokens(input.items) + draftTokens,
+		limit: resolveContextAvailableBudget(input.contextWindowLimit, input.maxTokens),
+		source: 'fallback'
+	};
+}

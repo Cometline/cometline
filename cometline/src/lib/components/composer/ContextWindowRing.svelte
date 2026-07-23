@@ -1,7 +1,15 @@
 <script lang="ts">
 	import { formatContextPercent, formatContextUsageTokens } from '$lib/context-window';
 
-	let { usedTokens, limitTokens }: { usedTokens: number; limitTokens: number } = $props();
+	let {
+		usedTokens,
+		limitTokens,
+		source = 'fallback'
+	}: {
+		usedTokens: number;
+		limitTokens: number;
+		source?: 'server' | 'fallback';
+	} = $props();
 
 	const radius = 8;
 	const circumference = 2 * Math.PI * radius;
@@ -39,7 +47,9 @@
 	</button>
 	<div class="context-tooltip" role="tooltip">
 		<p class="context-tooltip-main">{tooltipLine}</p>
-		<p class="context-tooltip-note">Estimated from visible transcript</p>
+		<p class="context-tooltip-note">
+			{source === 'server' ? 'Synced with context budget' : 'Estimated from visible transcript'}
+		</p>
 	</div>
 </div>
 

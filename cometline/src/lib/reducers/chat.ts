@@ -1,4 +1,5 @@
 import type { ChatItem, StreamEvent, SubagentProgressEntry } from '$lib/types';
+import type { ContextBudgetSnapshot } from '$lib/context-window';
 import { isSubagentStepLimit } from '../conversation/subagent-display';
 import { turnStatusLabel } from '../conversation/turn-status';
 import {
@@ -21,6 +22,7 @@ export interface ChatState {
 	reasoning: { text: string; pending: boolean } | null;
 	needsTextSeparator?: boolean;
 	nextId: number;
+	contextBudget: ContextBudgetSnapshot | null;
 }
 
 export function initChatState(): ChatState {
@@ -30,7 +32,8 @@ export function initChatState(): ChatState {
 		assistant: null,
 		reasoning: null,
 		needsTextSeparator: false,
-		nextId: 0
+		nextId: 0,
+		contextBudget: null
 	};
 }
 
@@ -339,6 +342,16 @@ function applyEvent(
 		return;
 	}
 
+	if (event.type === 'context_budget') {
+		draft.contextBudget = {
+			estimated: event.estimated,
+			available: event.available,
+			contextWindow: event.context_window,
+			compacted: event.compacted === true
+		};
+		return;
+	}
+
 	if (event.type === 'turn_recover') {
 		if (assistant.current) {
 			const host = assistant.current;
@@ -604,7 +617,15 @@ function cloneChatState(state: ChatState): ChatState {
 		assistant,
 		reasoning: cloneReasoning(state.reasoning),
 		needsTextSeparator: state.needsTextSeparator,
-		nextId: state.nextId
+		nextId: state.nextId,
+		contextBudget: state.contextBudget
+			? {
+					estimated: state.contextBudget.estimated,
+					available: state.contextBudget.available,
+					contextWindow: state.contextBudget.contextWindow,
+					compacted: state.contextBudget.compacted
+				}
+			: null
 	};
 }
 
@@ -626,7 +647,8 @@ function reduceChatStateDelta(state: ChatState, event: StreamEvent): ChatState {
 		assistant: state.assistant,
 		reasoning: state.reasoning ? { ...state.reasoning } : null,
 		needsTextSeparator: state.needsTextSeparator,
-		nextId: state.nextId
+		nextId: state.nextId,
+		contextBudget: state.contextBudget
 	};
 	const ctx = {
 		assistant: { current: draft.assistant },
