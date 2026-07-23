@@ -916,8 +916,8 @@ func TestRunner_EmitsContextBudget(t *testing.T) {
 	if budgets[0].BudgetEstimated <= 0 {
 		t.Fatalf("estimated=%d, want > 0", budgets[0].BudgetEstimated)
 	}
-	if budgets[0].BudgetAvailable != 128_000-2048 {
-		t.Fatalf("available=%d, want %d", budgets[0].BudgetAvailable, 128_000-2048)
+	if budgets[0].BudgetAvailable != 128_000-CompactionOutputBuffer {
+		t.Fatalf("available=%d, want %d", budgets[0].BudgetAvailable, 128_000-CompactionOutputBuffer)
 	}
 }
 
@@ -1578,3 +1578,114 @@ func TestRunner_UserCancellationPersistsUnstartedToolResults(t *testing.T) {
 		t.Fatalf("cancelled tool persistence = updates=%d results=%d, want 1 each", store.toolUpdates, store.toolResults)
 	}
 }
+
+func TestRunner_OverflowCompactsAndRetriesOnce(t *testing.T) {
+	rows := make([]db.Message, 0, 12)
+	history := make([]cometsdk.Message, 0, 12)
+	// Keep estimate under the available budget so proactive compaction does not
+	// consume a Stream call before the intentional overflow failure.
+	for i := 0; i < 12; i++ {
+		id := fmt.Sprintf("u%d", i+1)
+		text := fmt.Sprintf("short turn-%d content for overflow recovery", i+1)
+		rows = append(rows, db.Message{ID: id, Role: "user", Content: text})
+		history = append(history, cometsdk.Message{
+			Role:    cometsdk.RoleUser,
+			Content: []cometsdk.Block{cometsdk.TextBlock{Text: text}},
+		})
+	}
+	store := &compactingFakeStore{fakeStore: fakeStore{history: history, rows: rows}}
+	provider := &sequentialFakeProvider{sequences: [][]cometsdk.Event{
+		{cometsdk.ErrorEvent{Err: &cometsdk.ServerError{ProviderID: "fake", StatusCode: 400, Message: "prompt is too long"}}},
+		// force compact summarize
+		{
+			cometsdk.TextDeltaEvent{Text: "Goals: survive overflow.\nPending: answer."},
+			cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishStop},
+			cometsdk.DoneEvent{},
+		},
+		// retry after compact
+		{
+			cometsdk.TextDeltaEvent{Text: "recovered"},
+			cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishStop},
+			cometsdk.DoneEvent{},
+		},
+	}}
+	r := &Runner{
+		Provider:  provider,
+		Sessions:  store,
+		Registry:  tools.NewRegistry(t.TempDir()),
+		Compactor: &ContextCompactor{Sessions: store},
+		MaxTokens: 2048,
+	}
+	events, err := runAndDrain(t, r, session.AgentTurn{ID: "s-overflow", ModelID: "m", ProviderID: "fake"})
+	if err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	if store.compactCalls != 1 {
+		t.Fatalf("compactCalls=%d, want 1", store.compactCalls)
+	}
+	// Stream calls: 1 overflow + 1 summarize (GenerateText uses Stream) + 1 retry = 3
+	if provider.calls < 3 {
+		t.Fatalf("provider.calls=%d, want >= 3", provider.calls)
+	}
+	var sawCompacting, sawBudgetCompacted bool
+	for _, ev := range events {
+		if ev.Kind == event.KindTurnStatus && ev.Phase == event.PhaseCompactingContext {
+			sawCompacting = true
+		}
+		if ev.Kind == event.KindContextBudget && ev.BudgetCompacted {
+			sawBudgetCompacted = true
+		}
+		if ev.Kind == event.KindError {
+			t.Fatalf("unexpected error event: %+v", ev)
+		}
+	}
+	if !sawCompacting {
+		t.Fatal("expected compacting_context status")
+	}
+	if !sawBudgetCompacted {
+		t.Fatal("expected compacted context_budget event")
+	}
+}
+
+func TestRunner_OverflowDoesNotRetryTwice(t *testing.T) {
+	rows := make([]db.Message, 0, 12)
+	history := make([]cometsdk.Message, 0, 12)
+	for i := 0; i < 12; i++ {
+		id := fmt.Sprintf("u%d", i+1)
+		text := fmt.Sprintf("short turn-%d for second overflow", i+1)
+		rows = append(rows, db.Message{ID: id, Role: "user", Content: text})
+		history = append(history, cometsdk.Message{
+			Role:    cometsdk.RoleUser,
+			Content: []cometsdk.Block{cometsdk.TextBlock{Text: text}},
+		})
+	}
+	store := &compactingFakeStore{fakeStore: fakeStore{history: history, rows: rows}}
+	overflow := cometsdk.ErrorEvent{Err: &cometsdk.ServerError{ProviderID: "fake", StatusCode: 400, Message: "maximum context length exceeded"}}
+	provider := &sequentialFakeProvider{sequences: [][]cometsdk.Event{
+		{overflow},
+		{
+			cometsdk.TextDeltaEvent{Text: "summary"},
+			cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishStop},
+			cometsdk.DoneEvent{},
+		},
+		{overflow},
+	}}
+	r := &Runner{
+		Provider:  provider,
+		Sessions:  store,
+		Registry:  tools.NewRegistry(t.TempDir()),
+		Compactor: &ContextCompactor{Sessions: store},
+		MaxTokens: 2048,
+	}
+	_, err := runAndDrain(t, r, session.AgentTurn{ID: "s-overflow-2", ModelID: "m", ProviderID: "fake"})
+	if err == nil {
+		t.Fatal("expected overflow error after single recovery")
+	}
+	if !isContextOverflowError(err) {
+		t.Fatalf("err = %v, want context overflow", err)
+	}
+	if store.compactCalls != 1 {
+		t.Fatalf("compactCalls=%d, want 1 (no second force compact)", store.compactCalls)
+	}
+}
+

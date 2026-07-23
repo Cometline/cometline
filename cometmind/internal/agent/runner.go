@@ -141,17 +141,21 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 	}
 
 	degradationsReported := false
+	sessionBudget := ResolveSessionBudget(r.Config, turn.ProviderID, turn.ModelID, r.MaxTokens)
+	effectiveMaxTokens := sessionBudget.EffectiveMaxTokens
 
 	for steps < r.MaxSteps {
 		if steps > 0 {
 			emitStatus(event.PhaseContinuing)
 		}
 
-		baseSystem := r.buildSystemPrompt(sess.ContextSummary)
+		baseSystem := r.buildSystemPrompt(sess.ContextSummary, effectiveMaxTokens)
 		if r.Compactor != nil && sess.ID != "" {
 			tools := r.Registry.CometSDK()
 			emitBudget := func(compacted bool) {
-				budget, err := r.Compactor.EstimatePromptBudget(ctx, sess.ID, baseSystem, tools, r.MaxTokens)
+				budget, err := r.Compactor.EstimatePromptBudget(
+					ctx, sess.ID, baseSystem, tools, turn.ProviderID, turn.ModelID, r.MaxTokens,
+				)
 				if err != nil {
 					logging.L().Warn("context.budget.estimate_failed", "session", sess.ID, "error", err)
 					return
@@ -167,12 +171,15 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 				baseSystem,
 				tools,
 				r.Provider,
+				turn.ProviderID,
+				turn.ModelID,
 				r.MaxTokens,
+				false,
 				func(ev event.Event) { ch <- ev },
 			)
 			if err == nil {
 				sess = updated
-				baseSystem = r.buildSystemPrompt(sess.ContextSummary)
+				baseSystem = r.buildSystemPrompt(sess.ContextSummary, effectiveMaxTokens)
 				if sess.ContextSummary != beforeSummary || sess.CompactedUntilMessageID != beforeUntil {
 					emitBudget(true)
 				}
@@ -206,9 +213,10 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 			degradationsReported = true
 		}
 
-		logging.L().Info("agent.step.start", "session", turn.ID, "step", steps+1, "model", turn.ModelID, "messages", len(msgs), "max_tokens", r.MaxTokens)
+		logging.L().Info("agent.step.start", "session", turn.ID, "step", steps+1, "model", turn.ModelID, "messages", len(msgs), "max_tokens", effectiveMaxTokens, "context_window", sessionBudget.Context, "limit_source", sessionBudget.LimitSource)
 
 		system := baseSystem
+		memoryPromptSuffix := ""
 		truncationContinue = false
 		incompleteToolTruncationContinue = false
 		jobProgressNudge = false
@@ -246,7 +254,8 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 				}
 				if len(prefs) > 0 || len(outcomes) > 0 || len(mems) > 0 {
 					logging.L().Info("memory.injected", "session", turn.ID, "preferences", len(prefs), "task_outcomes", len(outcomes), "relevant", len(mems))
-					system += memory.FormatPromptMemories(memory.PromptMemories{Preferences: prefs, TaskOutcomes: outcomes, Relevant: mems})
+					memoryPromptSuffix = memory.FormatPromptMemories(memory.PromptMemories{Preferences: prefs, TaskOutcomes: outcomes, Relevant: mems})
+					system += memoryPromptSuffix
 					// Only relevant (semantic) memories are surfaced to the UI as a
 					// memory card. Preferences are injected into the prompt silently,
 					// so skip the wire event when there is nothing relevant to show.
@@ -276,17 +285,19 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 		}
 
 		emitStatus(event.PhaseContactingModel)
-		req := BuildRequest(turn.ModelID, system, msgs, r.Registry.CometSDK(), r.MaxTokens)
+		requestMsgs := DowngradeImagesForNonVision(msgs, sessionBudget.VisionKnown, sessionBudget.Vision)
+		req := BuildRequest(turn.ModelID, system, requestMsgs, r.Registry.CometSDK(), effectiveMaxTokens)
 		if r.Compatibility != nil {
 			req.Compatibility = r.Compatibility.ResolveCapabilityPolicy(ctx, r.CompatibilityScope)
 		}
 		toolOutputBytes := toolResultBytes(req.Messages)
 		var result *llm.GenerateMessageResult
 		recoveryAttempt := 0
+		overflowRecovered := false
 		var startedToolCalls []cometsdk.ToolCallBlock
 		for {
 			streamStarted := time.Now()
-			logging.L().Info("llm.stream.start", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", steps+1, "messages", len(req.Messages), "tools", len(req.Tools), "tool_output_bytes", toolOutputBytes, "recovery_attempt", recoveryAttempt, "system_bytes", len(req.System), "max_tokens", req.MaxTokens)
+			logging.L().Info("llm.stream.start", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", steps+1, "messages", len(req.Messages), "tools", len(req.Tools), "tool_output_bytes", toolOutputBytes, "recovery_attempt", recoveryAttempt, "overflow_recovered", overflowRecovered, "system_bytes", len(req.System), "max_tokens", req.MaxTokens)
 			stream := llm.StreamMessage(ctx, r.Provider, req)
 			logging.L().Info("llm.stream.opened", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", steps+1, "recovery_attempt", recoveryAttempt, "duration_ms", time.Since(streamStarted).Milliseconds())
 			emitStatus(event.PhaseComposingResponse)
@@ -358,6 +369,62 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 				persistPartialStep(ctx, r.Sessions, turn.ID, turn.ProviderID, result, pendingMemories)
 				logging.L().Info("agent.step.stopped", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", steps+1, "duration_ms", time.Since(streamStarted).Milliseconds())
 				return nil
+			}
+			if !overflowRecovered && isContextOverflowError(err) && !completeToolCall && r.Compactor != nil && sess.ID != "" {
+				overflowRecovered = true
+				logging.L().Warn("agent.step.overflow_recover", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", steps+1, "error", err)
+				tools := r.Registry.CometSDK()
+				beforeSummary := sess.ContextSummary
+				beforeUntil := sess.CompactedUntilMessageID
+				updated, compactErr := r.Compactor.MaybeCompact(
+					ctx,
+					sess,
+					baseSystem,
+					tools,
+					r.Provider,
+					turn.ProviderID,
+					turn.ModelID,
+					r.MaxTokens,
+					true,
+					func(ev event.Event) { ch <- ev },
+				)
+				if compactErr == nil {
+					sess = updated
+					baseSystem = r.buildSystemPrompt(sess.ContextSummary, effectiveMaxTokens)
+					system = baseSystem + memoryPromptSuffix
+					rebuildMsgs, rebuildErr := r.Sessions.BuildSDKMessages(ctx, turn.ID)
+					if rebuildErr == nil {
+						rebuildMsgs, _ = NormalizeHistory(rebuildMsgs)
+						rebuildMsgs = append(rebuildMsgs, ContinueUserNudgeMessages(
+							truncationContinue,
+							incompleteToolTruncationContinue,
+							jobProgressNudge,
+							jobCompletionGate,
+							jobTracker.JobID,
+							subagentWaitNudge,
+							pendingSubagentResults,
+						)...)
+						msgs = rebuildMsgs
+						requestMsgs := DowngradeImagesForNonVision(msgs, sessionBudget.VisionKnown, sessionBudget.Vision)
+						req = BuildRequest(turn.ModelID, system, requestMsgs, r.Registry.CometSDK(), effectiveMaxTokens)
+						if r.Compatibility != nil {
+							req.Compatibility = r.Compatibility.ResolveCapabilityPolicy(ctx, r.CompatibilityScope)
+						}
+						toolOutputBytes = toolResultBytes(req.Messages)
+						if sess.ContextSummary != beforeSummary || sess.CompactedUntilMessageID != beforeUntil {
+							budget, budgetErr := r.Compactor.EstimatePromptBudget(
+								ctx, sess.ID, baseSystem, tools, turn.ProviderID, turn.ModelID, r.MaxTokens,
+							)
+							if budgetErr == nil {
+								ch <- event.ContextBudget(budget.Estimated, budget.Available, budget.ContextWindow, true)
+							}
+						}
+						continue
+					}
+					logging.L().Warn("agent.step.overflow_rebuild_failed", "session", turn.ID, "error", rebuildErr)
+				} else {
+					logging.L().Warn("agent.step.overflow_compact_failed", "session", turn.ID, "error", compactErr)
+				}
 			}
 			if recoveryAttempt == 0 && recoverableStreamFailure(err) && !completeToolCall {
 				textChars, reasoningChars := partialRenderLengths(result)
@@ -661,13 +728,13 @@ func (r *Runner) systemPrompt() string {
 	return base + r.SkillIndex + r.JobIndex
 }
 
-func (r *Runner) buildSystemPrompt(contextSummary string) string {
+func (r *Runner) buildSystemPrompt(contextSummary string, maxTokens int) string {
 	base := r.systemPrompt()
 	var parts []string
 	if block := FormatSummaryPromptBlock(contextSummary); block != "" {
 		parts = append(parts, block)
 	}
-	if block := FormatOutputBudgetPromptBlock(r.MaxTokens); block != "" {
+	if block := FormatOutputBudgetPromptBlock(maxTokens); block != "" {
 		parts = append(parts, block)
 	}
 	if len(parts) == 0 {
