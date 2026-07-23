@@ -11,14 +11,14 @@ const showModal = vi.fn(function (this: HTMLDialogElement) {
 
 function renderModal(
 	overrides: {
-		onCancel?: ReturnType<typeof vi.fn>;
-		onConfirm?: ReturnType<typeof vi.fn>;
-		onSecondary?: ReturnType<typeof vi.fn>;
+		onCancel?: () => void;
+		onConfirm?: () => void;
+		onSecondary?: () => void;
 		secondaryLabel?: string;
 	} = {}
 ) {
-	const onCancel = overrides.onCancel ?? vi.fn();
-	const onConfirm = overrides.onConfirm ?? vi.fn();
+	const onCancel = overrides.onCancel ?? vi.fn(() => {});
+	const onConfirm = overrides.onConfirm ?? vi.fn(() => {});
 	return {
 		onCancel,
 		onConfirm,
@@ -88,7 +88,7 @@ describe('ConfirmActionModal', () => {
 	});
 
 	it('shows secondary button and fires onSecondary when secondaryLabel is provided', async () => {
-		const onSecondary = vi.fn();
+		const onSecondary = vi.fn(() => {});
 		renderModal({ secondaryLabel: 'Always close', onSecondary });
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Always close' }));
@@ -105,7 +105,7 @@ describe('ConfirmActionModal', () => {
 	});
 
 	it('shows text input when showInput is set and confirms with Enter', async () => {
-		const onConfirm = vi.fn();
+		const onConfirm = vi.fn(() => {});
 		render(ConfirmActionModal, {
 			open: true,
 			title: 'Rename session',
@@ -115,7 +115,7 @@ describe('ConfirmActionModal', () => {
 			showInput: true,
 			inputValue: 'Draft title',
 			inputPlaceholder: 'Untitled',
-			onCancel: vi.fn(),
+			onCancel: () => {},
 			onConfirm
 		});
 
