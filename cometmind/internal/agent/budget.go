@@ -78,10 +78,10 @@ func EstimateToolsTokens(tools []cometsdk.Tool) int {
 
 // PromptBudgetInput carries prompt components for budget estimation.
 type PromptBudgetInput struct {
-	System      string
-	Summary     string
-	Messages    []cometsdk.Message
-	Tools       []cometsdk.Tool
+	System       string
+	Summary      string
+	Messages     []cometsdk.Message
+	Tools        []cometsdk.Tool
 	OutputBudget int
 }
 
@@ -96,12 +96,9 @@ func EstimatePromptTokens(in PromptBudgetInput) int {
 	return total
 }
 
-// ShouldCompact reports whether estimated input exceeds the configured context budget.
-func ShouldCompact(estimatedInput, contextWindow, outputBudget int) bool {
-	if contextWindow <= 0 {
-		return false
-	}
-	available := contextWindow - outputBudget
+// ShouldCompact reports whether estimated input exceeds the available prompt budget.
+// available is typically context − max(effectiveMaxTokens, 20k).
+func ShouldCompact(estimatedInput, available int) bool {
 	if available <= 0 {
 		return true
 	}

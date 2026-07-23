@@ -36,6 +36,8 @@ type PromptBudget struct {
 	Estimated     int
 	Available     int
 	ContextWindow int
+	Reserve       int
+	EffectiveMax  int
 }
 
 // EstimatePromptBudget computes the same budget numbers MaybeCompact uses.
@@ -44,19 +46,18 @@ func (c *ContextCompactor) EstimatePromptBudget(
 	sessionID string,
 	system string,
 	tools []cometsdk.Tool,
-	maxTokens int,
+	providerID, modelID string,
+	userMaxTokens int,
 ) (PromptBudget, error) {
 	budget := PromptBudget{}
 	if c == nil {
 		return budget, nil
 	}
-	contextWindow := ResolveContextWindow(c.Config)
-	available := contextWindow - maxTokens
-	if available < 0 {
-		available = 0
-	}
-	budget.ContextWindow = contextWindow
-	budget.Available = available
+	sb := ResolveSessionBudget(c.Config, providerID, modelID, userMaxTokens)
+	budget.ContextWindow = sb.Context
+	budget.Available = sb.Available
+	budget.Reserve = sb.Reserve
+	budget.EffectiveMax = sb.EffectiveMaxTokens
 	if c.Sessions == nil || sessionID == "" {
 		return budget, nil
 	}
@@ -68,12 +69,14 @@ func (c *ContextCompactor) EstimatePromptBudget(
 		System:       system,
 		Messages:     msgs,
 		Tools:        tools,
-		OutputBudget: maxTokens,
+		OutputBudget: sb.EffectiveMaxTokens,
 	})
 	return budget, nil
 }
 
 // MaybeCompact summarizes older history when the prompt budget is exceeded.
+// When force is true, compaction runs even if the estimate is under the threshold
+// (used for provider context-overflow recovery).
 // Failures are logged and leave prior summary state untouched.
 func (c *ContextCompactor) MaybeCompact(
 	ctx context.Context,
@@ -81,14 +84,16 @@ func (c *ContextCompactor) MaybeCompact(
 	system string,
 	tools []cometsdk.Tool,
 	provider cometsdk.Provider,
-	maxTokens int,
+	providerID, modelID string,
+	userMaxTokens int,
+	force bool,
 	status func(event.Event),
 ) (session.Session, error) {
 	if c == nil || c.Sessions == nil {
 		return sess, nil
 	}
 
-	contextWindow := ResolveContextWindow(c.Config)
+	sb := ResolveSessionBudget(c.Config, providerID, modelID, userMaxTokens)
 	rows, err := c.Sessions.ListMessageRows(ctx, sess.ID)
 	if err != nil {
 		return sess, err
@@ -103,9 +108,9 @@ func (c *ContextCompactor) MaybeCompact(
 		System:       system,
 		Messages:     msgs,
 		Tools:        tools,
-		OutputBudget: maxTokens,
+		OutputBudget: sb.EffectiveMaxTokens,
 	})
-	if !ShouldCompact(estimated, contextWindow, maxTokens) {
+	if !force && !ShouldCompact(estimated, sb.Available) {
 		return sess, nil
 	}
 
@@ -119,11 +124,11 @@ func (c *ContextCompactor) MaybeCompact(
 		activeRows,
 		callsByMessage,
 		recentTurnPreserveCount,
-		contextWindow,
-		maxTokens,
+		sb.Context,
+		sb.Reserve,
 	)
 	if recentStart <= 0 {
-		logging.L().Info("context.compact.skipped", "session", sess.ID, "reason", "no_prefix_messages")
+		logging.L().Info("context.compact.skipped", "session", sess.ID, "reason", "no_prefix_messages", "force", force)
 		return sess, nil
 	}
 
@@ -137,7 +142,7 @@ func (c *ContextCompactor) MaybeCompact(
 		status(event.TurnStatus(event.PhaseCompactingContext, ""))
 	}
 
-	newSummary, err := c.summarize(ctx, provider, sess.ModelID, maxTokens, sess.ContextSummary, prefixText)
+	newSummary, err := c.summarize(ctx, provider, sess.ModelID, sb.EffectiveMaxTokens, sess.ContextSummary, prefixText)
 	if err != nil {
 		logging.L().Error("context.compact.failed", "session", sess.ID, "error", err)
 		return sess, nil
@@ -155,7 +160,7 @@ func (c *ContextCompactor) MaybeCompact(
 		}
 	}
 
-	logging.L().Info("context.compact.done", "session", sess.ID, "until_message", untilID, "summary_bytes", len(newSummary), "recent_start", recentStart)
+	logging.L().Info("context.compact.done", "session", sess.ID, "until_message", untilID, "summary_bytes", len(newSummary), "recent_start", recentStart, "force", force)
 	sess.ContextSummary = newSummary
 	sess.CompactedUntilMessageID = untilID
 	sess.ContextSummaryUpdatedAt = time.Now().UTC().Format(time.RFC3339)
