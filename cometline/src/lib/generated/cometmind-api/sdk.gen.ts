@@ -342,7 +342,7 @@ export const getSessionMessages = <ThrowOnError extends boolean = false>(options
  * `text_delta`, `reasoning_start`, `reasoning_delta`, `tool_call`,
  * `tool_result`, `step_finish`, `subagent_started`, `subagent_progress`,
  * `subagent_finished`, `memory_injected`,
- * `memory_updated`, `error`, and `done`.
+ * `memory_updated`, `context_budget`, `error`, and `done`.
  *
  * Each `data:` frame body matches `#/components/schemas/StreamEvent`.
  * `tool_call.input` is a JSON object. `tool_result.output` is text.

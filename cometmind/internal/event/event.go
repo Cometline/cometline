@@ -24,6 +24,7 @@ const (
 	KindMemoryInjected            Kind = "memory_injected"
 	KindMemoryUpdated             Kind = "memory_updated"
 	KindMemoryCompactionCompleted Kind = "memory_compaction_completed"
+	KindContextBudget             Kind = "context_budget"
 	KindInboxMessageCreated       Kind = "inbox_message_created"
 	KindInboxMessageArchived      Kind = "inbox_message_archived"
 	KindTurnStatus                Kind = "turn_status"
@@ -105,6 +106,11 @@ type Event struct {
 	MemoryCountBefore int64
 	MemoryCountAfter  int64
 	CompactionTrigger string
+	// context_budget
+	BudgetEstimated     int
+	BudgetAvailable     int
+	BudgetContextWindow int
+	BudgetCompacted     bool
 	// inbox_message_created / inbox_message_archived
 	InboxMessageID  string
 	InboxOpenCount  int64
@@ -199,6 +205,23 @@ func (e Event) MarshalJSON() ([]byte, error) {
 			After   int64  `json:"after"`
 			Trigger string `json:"trigger"`
 		}{t, e.MemoryCountBefore, e.MemoryCountAfter, e.CompactionTrigger})
+	case KindContextBudget:
+		out := struct {
+			Type          string `json:"type"`
+			Estimated     int    `json:"estimated"`
+			Available     int    `json:"available"`
+			ContextWindow int    `json:"context_window"`
+			Compacted     bool   `json:"compacted,omitempty"`
+		}{
+			Type:          t,
+			Estimated:     e.BudgetEstimated,
+			Available:     e.BudgetAvailable,
+			ContextWindow: e.BudgetContextWindow,
+		}
+		if e.BudgetCompacted {
+			out.Compacted = true
+		}
+		return json.Marshal(out)
 	case KindInboxMessageCreated:
 		return json.Marshal(struct {
 			Type      string `json:"type"`
@@ -315,6 +338,17 @@ func MemoryCompactionCompleted(before, after int64, trigger string) Event {
 		MemoryCountBefore: before,
 		MemoryCountAfter:  after,
 		CompactionTrigger: trigger,
+	}
+}
+
+// ContextBudget reports the chars/4 prompt estimate used by context compaction.
+func ContextBudget(estimated, available, contextWindow int, compacted bool) Event {
+	return Event{
+		Kind:                KindContextBudget,
+		BudgetEstimated:     estimated,
+		BudgetAvailable:     available,
+		BudgetContextWindow: contextWindow,
+		BudgetCompacted:     compacted,
 	}
 }
 

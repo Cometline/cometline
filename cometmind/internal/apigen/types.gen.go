@@ -606,6 +606,22 @@ type CompactMemoryPreviewResponse struct {
 	ToMerge     [][]MemoryResource `json:"to_merge"`
 }
 
+// ContextBudgetEvent defines model for ContextBudgetEvent.
+type ContextBudgetEvent struct {
+	// Available Compaction ceiling (context_window minus max output tokens)
+	Available int `json:"available"`
+
+	// Compacted True when this snapshot follows a successful context compaction in the same step
+	Compacted *bool `json:"compacted,omitempty"`
+
+	// ContextWindow Configured context window limit
+	ContextWindow int `json:"context_window"`
+
+	// Estimated Chars/4 prompt estimate matching MaybeCompact (system + active messages + tools)
+	Estimated int    `json:"estimated"`
+	Type      string `json:"type"`
+}
+
 // CreateJobRequest defines model for CreateJobRequest.
 type CreateJobRequest struct {
 	CreatedBy        *string `json:"created_by,omitempty"`
@@ -2151,6 +2167,34 @@ func (t *StreamEvent) MergeMemoryCompactionCompletedEvent(v MemoryCompactionComp
 	return err
 }
 
+// AsContextBudgetEvent returns the union data inside the StreamEvent as a ContextBudgetEvent
+func (t StreamEvent) AsContextBudgetEvent() (ContextBudgetEvent, error) {
+	var body ContextBudgetEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromContextBudgetEvent overwrites any union data inside the StreamEvent as the provided ContextBudgetEvent
+func (t *StreamEvent) FromContextBudgetEvent(v ContextBudgetEvent) error {
+	v.Type = "context_budget"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeContextBudgetEvent performs a merge with any union data inside the StreamEvent, using the provided ContextBudgetEvent
+func (t *StreamEvent) MergeContextBudgetEvent(v ContextBudgetEvent) error {
+	v.Type = "context_budget"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 // AsInboxMessageCreatedEvent returns the union data inside the StreamEvent as a InboxMessageCreatedEvent
 func (t StreamEvent) AsInboxMessageCreatedEvent() (InboxMessageCreatedEvent, error) {
 	var body InboxMessageCreatedEvent
@@ -2333,6 +2377,8 @@ func (t StreamEvent) ValueByDiscriminator() (interface{}, error) {
 		return nil, err
 	}
 	switch discriminator {
+	case "context_budget":
+		return t.AsContextBudgetEvent()
 	case "done":
 		return t.AsDoneEvent()
 	case "error":

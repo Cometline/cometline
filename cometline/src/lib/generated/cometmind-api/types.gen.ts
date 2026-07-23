@@ -538,6 +538,26 @@ export type MemoryCompactionCompletedEvent = {
     trigger: 'manual' | 'automatic';
 };
 
+export type ContextBudgetEvent = {
+    type: 'context_budget';
+    /**
+     * Chars/4 prompt estimate matching MaybeCompact (system + active messages + tools)
+     */
+    estimated: number;
+    /**
+     * Compaction ceiling (context_window minus max output tokens)
+     */
+    available: number;
+    /**
+     * Configured context window limit
+     */
+    context_window: number;
+    /**
+     * True when this snapshot follows a successful context compaction in the same step
+     */
+    compacted?: boolean;
+};
+
 export type InboxMessageCreatedEvent = {
     type: 'inbox_message_created';
     id: string;
@@ -598,6 +618,8 @@ export type StreamEvent = ({
 } & MemoryUpdatedEvent) | ({
     type?: 'memory_compaction_completed';
 } & MemoryCompactionCompletedEvent) | ({
+    type?: 'context_budget';
+} & ContextBudgetEvent) | ({
     type?: 'inbox_message_created';
 } & InboxMessageCreatedEvent) | ({
     type?: 'inbox_message_archived';
