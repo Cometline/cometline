@@ -321,17 +321,6 @@
 				</p>
 			</div>
 			<label>
-				<span>Context window budget</span>
-				<select bind:value={cometmind.contextWindowLimit}>
-					<option value={128_000}>128K</option>
-					<option value={256_000}>256K</option>
-				</select>
-				<p class="settings-field-hint">
-					Used for compaction timing and the composer context ring. Does not change the
-					provider's actual model limit.
-				</p>
-			</label>
-			<label>
 				<span>Max output tokens</span>
 				<input
 					type="number"

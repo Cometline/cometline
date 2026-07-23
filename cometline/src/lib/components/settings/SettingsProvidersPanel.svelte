@@ -2,6 +2,7 @@
 	import { LogIn, LoaderCircle, Plus, RefreshCw, Trash2 } from '@lucide/svelte';
 	import type { ProviderConfig, ProviderMethod } from '$lib/types';
 	import { isFixedBuiltinProvider } from '$lib/settings/schema';
+	import { modelStore } from '$lib/stores/model.svelte';
 	import { settingsStore } from '$lib/stores/settings.svelte';
 	import ProviderCard from './ProviderCard.svelte';
 	import ModelRow from './ModelRow.svelte';
@@ -361,10 +362,14 @@
 
 					<div class="settings-scroll-list model-list scrollbar-none">
 						{#each filteredModels as model (model)}
+							{@const limits = modelStore.limitFor(selectedProvider.id, model)}
 							<ModelRow
 								{model}
 								providerId={selectedProvider.id}
 								enabled={selectedProvider.enabledModels.includes(model)}
+								context={limits?.context}
+								inputModalities={limits?.inputModalities}
+								modalitiesKnown={limits?.visionKnown}
 								onclick={() => onToggleModel(model)}
 							/>
 						{:else}

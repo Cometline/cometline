@@ -17,7 +17,7 @@
 	import ComposerToolbar from '$lib/components/composer/ComposerToolbar.svelte';
 	import { chatStore } from '$lib/stores/chat.svelte';
 	import { composerHistoryStore } from '$lib/stores/composer-history.svelte';
-	import { resolveContextWindowUsage } from '$lib/context-window';
+	import { DEFAULT_CONTEXT_WINDOW_LIMIT, resolveContextWindowUsage } from '$lib/context-window';
 	import { workspaceLabel } from '$lib/sessions/group-by-workspace';
 	import type { ImageAttachment } from '$lib/types';
 	import type { ComposerInputRef } from '$lib/components/composer/composer-input-ref';
@@ -192,12 +192,14 @@
 	const contextWindowUsage = $derived.by(() => {
 		const items = sessionId && chatStore.sessionID === sessionId ? chatStore.items : [];
 		const budget = sessionId && chatStore.sessionID === sessionId ? chatStore.contextBudget : null;
+		const selected = modelStore.selected;
 		return resolveContextWindowUsage({
 			budget,
 			items,
 			draftText: value,
-			contextWindowLimit: settingsStore.settings.cometmind.contextWindowLimit,
-			maxTokens: settingsStore.settings.cometmind.maxTokens
+			contextWindowLimit: selected?.context ?? DEFAULT_CONTEXT_WINDOW_LIMIT,
+			maxTokens: settingsStore.settings.cometmind.maxTokens,
+			modelOutput: selected?.output ?? null
 		});
 	});
 	const currentWorkspaceLabel = $derived(
@@ -504,6 +506,12 @@
 
 	<ImageAttachments {images} onRemove={attachments.removeImage} />
 
+	{#if images.length > 0 && modelStore.selected?.visionKnown && modelStore.selected?.vision === false}
+		<p class="vision-capability-hint" role="status">
+			This model can't view images — they'll be sent as metadata only.
+		</p>
+	{/if}
+
 	<ComposerToolbar
 		hasWorkspace={mentions.hasWorkspace}
 		{currentWorkspaceLabel}
@@ -583,6 +591,13 @@
 		color: var(--text-muted);
 		font-size: 12px;
 		line-height: 1.35;
+	}
+
+	.vision-capability-hint {
+		margin: 0;
+		font-size: 12px;
+		line-height: 1.35;
+		color: var(--text-muted);
 	}
 
 	.web-context-chips {

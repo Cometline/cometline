@@ -1,17 +1,25 @@
 import { getReasoningSegments } from '$lib/conversation/reasoning';
 import type { ChatItem } from '$lib/types';
 
+/** @deprecated Global 128k/256k UI removed; kept for settings JSON backward compat. */
 export const CONTEXT_WINDOW_LIMIT_OPTIONS = [128_000, 256_000] as const;
+/** @deprecated */
 export type ContextWindowLimit = (typeof CONTEXT_WINDOW_LIMIT_OPTIONS)[number];
-export const DEFAULT_CONTEXT_WINDOW_LIMIT: ContextWindowLimit = 128_000;
+export const DEFAULT_CONTEXT_WINDOW_LIMIT = 128_000;
+/** Matches CometMind CompactionOutputBuffer. */
+export const COMPACTION_OUTPUT_BUFFER = 20_000;
 const TOOL_RESULT_PROMPT_RUNE_LIMIT = 4000;
 
+/** @deprecated Prefer model.context from /api/v1/models. */
 export function normalizeContextWindowLimit(value: unknown): ContextWindowLimit {
 	return Number(value) === 256_000 ? 256_000 : 128_000;
 }
 
+/** @deprecated Prefer model.context / ResolveSessionBudget. */
 export function resolveContextWindow(limit?: ContextWindowLimit | number | null): number {
-	return normalizeContextWindowLimit(limit ?? DEFAULT_CONTEXT_WINDOW_LIMIT);
+	const n = Number(limit);
+	if (Number.isFinite(n) && n > 0) return Math.floor(n);
+	return DEFAULT_CONTEXT_WINDOW_LIMIT;
 }
 
 export function formatContextWindow(tokens: number): string {
@@ -123,13 +131,31 @@ export type ContextWindowUsage = {
 	source: 'server' | 'fallback';
 };
 
-/** Available prompt budget matching MaybeCompact (window minus output reserve). */
+export type ModelLimitHints = {
+	context?: number | null;
+	output?: number | null;
+};
+
+/** effectiveMaxTokens = min(userMaxTokens, catalogOutput) when catalogOutput > 0 */
+export function effectiveMaxTokens(userMaxTokens?: number | null, catalogOutput?: number | null): number {
+	const user = Number.isFinite(userMaxTokens) && (userMaxTokens as number) > 0 ? Math.floor(userMaxTokens as number) : 2048;
+	const output = Number.isFinite(catalogOutput) && (catalogOutput as number) > 0 ? Math.floor(catalogOutput as number) : 0;
+	if (output > 0 && output < user) return output;
+	return user;
+}
+
+/**
+ * Available prompt budget matching ResolveSessionBudget:
+ * reserve = max(effectiveMaxTokens, 20_000); available = context - reserve.
+ */
 export function resolveContextAvailableBudget(
-	contextWindowLimit?: ContextWindowLimit | number | null,
-	maxTokens?: number | null
+	contextWindow?: number | null,
+	maxTokens?: number | null,
+	catalogOutput?: number | null
 ): number {
-	const window = resolveContextWindow(contextWindowLimit);
-	const reserve = Number.isFinite(maxTokens) && (maxTokens as number) > 0 ? Math.floor(maxTokens as number) : 2048;
+	const window = resolveContextWindow(contextWindow ?? DEFAULT_CONTEXT_WINDOW_LIMIT);
+	const effective = effectiveMaxTokens(maxTokens, catalogOutput);
+	const reserve = Math.max(effective, COMPACTION_OUTPUT_BUFFER);
 	return Math.max(1, window - reserve);
 }
 
@@ -141,8 +167,9 @@ export function resolveContextWindowUsage(input: {
 	budget: ContextBudgetSnapshot | null | undefined;
 	items: ChatItem[];
 	draftText: string;
-	contextWindowLimit?: ContextWindowLimit | number | null;
+	contextWindowLimit?: number | null;
 	maxTokens?: number | null;
+	modelOutput?: number | null;
 }): ContextWindowUsage {
 	const draftTokens = input.draftText.trim() ? estimateTokensFromText(input.draftText) : 0;
 	if (input.budget && Number.isFinite(input.budget.available) && input.budget.available > 0) {
@@ -154,7 +181,7 @@ export function resolveContextWindowUsage(input: {
 	}
 	return {
 		used: estimateChatContextTokens(input.items) + draftTokens,
-		limit: resolveContextAvailableBudget(input.contextWindowLimit, input.maxTokens),
+		limit: resolveContextAvailableBudget(input.contextWindowLimit, input.maxTokens, input.modelOutput),
 		source: 'fallback'
 	};
 }

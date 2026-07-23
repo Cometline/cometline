@@ -22,6 +22,7 @@
 	} from '$lib/ollama/client';
 	import SettingsButton from './SettingsButton.svelte';
 	import ModelRow from './ModelRow.svelte';
+	import { modelStore } from '$lib/stores/model.svelte';
 
 	let {
 		provider,
@@ -339,11 +340,15 @@
 			{:else}
 				<div class="settings-scroll-list model-list scrollbar-none">
 					{#each installed as model (model.name)}
+						{@const limits = modelStore.limitFor(provider.id, model.name)}
 						<div class="installed-row">
 							<ModelRow
 								model={model.name}
 								providerId={provider.id}
 								enabled={provider.enabledModels.includes(model.name)}
+								context={limits?.context}
+								inputModalities={limits?.inputModalities}
+								modalitiesKnown={limits?.visionKnown}
 								onclick={() => toggleModel(model.name)}
 							/>
 							{#if model.size}

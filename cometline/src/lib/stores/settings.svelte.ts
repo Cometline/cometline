@@ -16,12 +16,66 @@ import {
 } from '$lib/settings/schema';
 import type { RuntimeApplyAction } from '$lib/settings/settings-save';
 import type { MemorySettings } from '$lib/client/cometmind';
+import { lookupModelCatalog } from '$lib/client/cometmind';
 import type { FetchProviderModelsResult, ProviderConfig, ProviderSettings } from '$lib/types';
 import { defaultKeyboardShortcuts } from '$lib/keyboard-shortcuts';
-import { modelStore } from './model.svelte';
+import type { InputModality } from '$lib/model-modalities';
+import { modelStore, type ModelLimitEntry } from './model.svelte';
 import { persistSettings } from '$lib/settings/persist';
 
 const LOCAL_SETTINGS_KEY = 'cometline-settings';
+
+function toLimitEntry(
+	providerId: string,
+	entry: {
+		model_id: string;
+		context: number;
+		output: number;
+		limit_source: 'catalog' | 'fallback';
+		vision: boolean;
+		vision_known: boolean;
+		input_modalities?: Array<'text' | 'image' | 'video' | 'audio' | 'pdf'>;
+	}
+): ModelLimitEntry {
+	return {
+		providerId,
+		modelId: entry.model_id,
+		context: entry.context,
+		output: entry.output,
+		limitSource: entry.limit_source,
+		vision: entry.vision,
+		visionKnown: entry.vision_known,
+		inputModalities: (entry.input_modalities ?? []) as InputModality[]
+	};
+}
+
+/** Re-resolve catalog caps for every fetched model id (enabled + disabled). */
+async function refreshModelLimits(providers: ProviderConfig[]) {
+	try {
+		const batches = await Promise.all(
+			providers.map(async (provider) => {
+				const modelIds = provider.models.filter((id) => id.trim());
+				if (modelIds.length === 0) return [] as ModelLimitEntry[];
+				try {
+					const looked = await lookupModelCatalog({
+						method: provider.method,
+						providerId: provider.id,
+						modelIds
+					});
+					return looked.map((entry) => toLimitEntry(provider.id, entry));
+				} catch {
+					return [] as ModelLimitEntry[];
+				}
+			})
+		);
+		const entries = batches.flat();
+		if (entries.length > 0) {
+			modelStore.applyLimits(entries);
+		}
+	} catch {
+		// Sidecar may be offline during early boot; cold-start ring falls back to 128k.
+	}
+}
 
 function readLocalSettings(): ProviderSettings {
 	try {
@@ -103,6 +157,7 @@ function createSettingsStore() {
 			settings.defaultProviderId,
 			settings.defaultModelId
 		);
+		void refreshModelLimits(settings.providers);
 	}
 
 	async function load() {
@@ -130,6 +185,18 @@ function createSettingsStore() {
 			const selectedModel =
 				enabledModels[0] ??
 				(models.includes(provider.selectedModel) ? provider.selectedModel : '');
+			if (models.length > 0) {
+				try {
+					const looked = await lookupModelCatalog({
+						method: provider.method,
+						providerId: provider.id,
+						modelIds: models
+					});
+					modelStore.applyLimits(looked.map((entry) => toLimitEntry(provider.id, entry)));
+				} catch {
+					// Catalog lookup is best-effort; model list still returns without limits.
+				}
+			}
 			return { ...provider, models, enabledModels, selectedModel };
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to fetch models';

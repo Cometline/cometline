@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { fade, fly } from 'svelte/transition';
 	import { Check, Sparkles } from '@lucide/svelte';
+	import { formatContextWindow } from '$lib/context-window';
+	import ModelCapabilityIcons from '$lib/components/model/ModelCapabilityIcons.svelte';
 	import { modelStore, type ModelOption } from '$lib/stores/model.svelte';
 
 	let {
@@ -111,7 +113,20 @@
 								{/if}
 							</span>
 							<span class="model-option-copy">
-								<strong>{option.label}</strong>
+								<strong>
+									<span class="model-option-label">
+										{option.label}
+										<ModelCapabilityIcons
+											modalities={option.inputModalities}
+											known={option.visionKnown}
+										/>
+									</span>
+									{#if option.context && option.context > 0}
+										<span class="model-context-hint">
+											· {formatContextWindow(option.context)} ctx
+										</span>
+									{/if}
+								</strong>
 								<small>{option.modelId}</small>
 							</span>
 						</button>
@@ -262,9 +277,25 @@
 	}
 
 	.model-option-copy strong {
+		display: inline-flex;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 4px;
 		font-size: 12px;
 		font-weight: 600;
 		color: var(--text-main);
+	}
+
+	.model-option-label {
+		display: inline-flex;
+		align-items: center;
+		gap: 5px;
+		min-width: 0;
+	}
+
+	.model-context-hint {
+		font-weight: 500;
+		color: var(--text-soft);
 	}
 
 	.model-option-copy small {
