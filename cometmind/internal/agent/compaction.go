@@ -52,15 +52,14 @@ func (c *ContextCompactor) MaybeCompact(
 		return sess, err
 	}
 
-	allMsgs, err := c.Sessions.BuildSDKMessagesAll(ctx, sess.ID)
+	msgs, err := c.Sessions.BuildSDKMessages(ctx, sess.ID)
 	if err != nil {
 		return sess, err
 	}
 
 	estimated := EstimatePromptTokens(PromptBudgetInput{
 		System:       system,
-		Summary:      sess.ContextSummary,
-		Messages:     allMsgs,
+		Messages:     msgs,
 		Tools:        tools,
 		OutputBudget: maxTokens,
 	})
@@ -73,20 +72,20 @@ func (c *ContextCompactor) MaybeCompact(
 		return sess, err
 	}
 	callsByMessage := session.GroupToolCallsByMessage(allCalls)
+	activeRows := session.FilterMessagesAfterCompacted(rows, sess.CompactedUntilMessageID)
 	recentStart := session.RecentWindowStartForBudget(
-		rows,
+		activeRows,
 		callsByMessage,
 		recentTurnPreserveCount,
 		contextWindow,
 		maxTokens,
 	)
-	prefixStart, prefixEnd := session.CompactionPrefixRange(rows, sess.CompactedUntilMessageID, recentStart)
-	if prefixEnd <= prefixStart {
+	if recentStart <= 0 {
 		logging.L().Info("context.compact.skipped", "session", sess.ID, "reason", "no_prefix_messages")
 		return sess, nil
 	}
 
-	prefixRows := rows[prefixStart:prefixEnd]
+	prefixRows := activeRows[:recentStart]
 	prefixText := session.FormatTranscriptForSummary(prefixRows)
 	if prefixText == "" {
 		return sess, nil

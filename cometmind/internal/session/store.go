@@ -95,7 +95,7 @@ type ToolCallsReader interface {
 // CompactorStore is the narrow seam for the compaction module.
 type CompactorStore interface {
 	MessageRowsReader
-	SDKMessagesAllReader
+	TranscriptReader
 	ToolCallsReader
 	UpdateContextSummary(ctx context.Context, sessionID, summary, untilMessageID string) error
 }

@@ -692,7 +692,7 @@ func TestRunner_TextTruncationCapDoesNotBlockIncompleteToolContinue(t *testing.T
 	}
 }
 
-func TestRunner_CompactsAgainAfterToolResultsInflatePrompt(t *testing.T) {
+func TestRunner_DoesNotCompactForHistoryOutsideActivePrompt(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "small.txt"), []byte("small result"), 0o644); err != nil {
 		t.Fatalf("write small.txt: %v", err)
@@ -741,21 +741,17 @@ func TestRunner_CompactsAgainAfterToolResultsInflatePrompt(t *testing.T) {
 	if runErr != nil {
 		t.Fatalf("Run returned error: %v", runErr)
 	}
-	if store.compactCalls != 1 {
-		t.Fatalf("UpdateContextSummary called %d times, want 1", store.compactCalls)
+	if store.compactCalls != 0 {
+		t.Fatalf("UpdateContextSummary called %d times, want 0", store.compactCalls)
 	}
-	if provider.calls != 3 {
-		t.Fatalf("Stream called %d times, want 3", provider.calls)
+	if provider.calls != 2 {
+		t.Fatalf("Stream called %d times, want 2", provider.calls)
 	}
-	if len(provider.requests) != 3 {
-		t.Fatalf("captured %d requests, want 3", len(provider.requests))
+	if len(provider.requests) != 2 {
+		t.Fatalf("captured %d requests, want 2", len(provider.requests))
 	}
-	if strings.Contains(provider.requests[0].System, "summary after tool") {
-		t.Fatalf("step 1 unexpectedly included post-tool summary:\n%s", provider.requests[0].System)
-	}
-	if !strings.Contains(provider.requests[2].System, "Earlier conversation summary") ||
-		!strings.Contains(provider.requests[2].System, "summary after tool") {
-		t.Fatalf("final synthesis request missing compacted summary:\n%s", provider.requests[2].System)
+	if strings.Contains(provider.requests[1].System, "Earlier conversation summary") {
+		t.Fatalf("second request unexpectedly included a summary:\n%s", provider.requests[1].System)
 	}
 }
 
