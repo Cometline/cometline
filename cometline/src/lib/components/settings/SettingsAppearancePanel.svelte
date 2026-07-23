@@ -1,5 +1,9 @@
 <script lang="ts">
-	import type { CaretTrailSettings, HeroComposerAppearance } from '$lib/types';
+	import type {
+		CaretTrailSettings,
+		HeroComposerAppearance,
+		TerminalAppearanceSettings
+	} from '$lib/types';
 	import {
 		DEFAULT_HERO_COMPOSER_APPEARANCE,
 		HERO_COMPOSER_PRESETS,
@@ -7,16 +11,27 @@
 		matchHeroComposerPreset,
 		normalizeHeroComposerAppearance
 	} from '$lib/hero-composer-appearance';
+	import {
+		DEFAULT_TERMINAL_APPEARANCE,
+		normalizeTerminalFontSize,
+		TERMINAL_THEME_PRESETS
+	} from '$lib/terminal-appearance';
 
 	let {
 		appearance = $bindable({ ...DEFAULT_HERO_COMPOSER_APPEARANCE }),
-		caretTrail = $bindable({ enabled: true, intensity: 0.72, speed: 0.68 })
-	}: { appearance: HeroComposerAppearance; caretTrail: CaretTrailSettings } = $props();
+		caretTrail = $bindable({ enabled: true, intensity: 0.72, speed: 0.68 }),
+		terminal = $bindable({ ...DEFAULT_TERMINAL_APPEARANCE })
+	}: {
+		appearance: HeroComposerAppearance;
+		caretTrail: CaretTrailSettings;
+		terminal: TerminalAppearanceSettings;
+	} = $props();
 
 	let previewStyle = $derived(heroComposerCssVarStyle(appearance));
 	let activePreset = $derived(matchHeroComposerPreset(appearance));
 	let hasCustomPreset = $derived(Boolean(appearance.customPreset));
 	let customControlsDisabled = $derived(activePreset !== 'custom');
+	let terminalTheme = $derived(TERMINAL_THEME_PRESETS[terminal.theme]);
 
 	function applyPreset(preset: (typeof HERO_COMPOSER_PRESETS)[number]) {
 		appearance = {
@@ -54,6 +69,14 @@
 	function resetDefaults() {
 		appearance = { ...DEFAULT_HERO_COMPOSER_APPEARANCE };
 		caretTrail = { enabled: true, intensity: 0.72, speed: 0.68 };
+		terminal = { ...DEFAULT_TERMINAL_APPEARANCE };
+	}
+
+	function updateTerminal<K extends keyof TerminalAppearanceSettings>(
+		key: K,
+		value: TerminalAppearanceSettings[K]
+	) {
+		terminal = { ...terminal, [key]: value };
 	}
 </script>
 
@@ -105,8 +128,7 @@
 									class:empty={!hasCustomPreset}
 									style={hasCustomPreset
 										? `background: linear-gradient(135deg, ${appearance.customPreset?.glowColor} 0%, ${appearance.customPreset?.ringColor} 100%)`
-										: "background: linear-gradient(135deg, #23232a 0%, #454553 100%)"}
-					
+										: 'background: linear-gradient(135deg, #23232a 0%, #454553 100%)'}
 									aria-hidden="true"
 								></span>
 								Custom
@@ -122,7 +144,8 @@
 								value={appearance.glowColor}
 								disabled={customControlsDisabled}
 								aria-label="Glow color"
-								oninput={(e) => updateCustomColor('glowColor', e.currentTarget.value)}
+								oninput={(e) =>
+									updateCustomColor('glowColor', e.currentTarget.value)}
 							/>
 							<input
 								type="text"
@@ -130,7 +153,8 @@
 								disabled={customControlsDisabled}
 								spellcheck="false"
 								pattern="^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
-								oninput={(e) => updateCustomColor('glowColor', e.currentTarget.value)}
+								oninput={(e) =>
+									updateCustomColor('glowColor', e.currentTarget.value)}
 							/>
 						</div>
 					</label>
@@ -143,7 +167,8 @@
 								value={appearance.ringColor}
 								disabled={customControlsDisabled}
 								aria-label="Border color"
-								oninput={(e) => updateCustomColor('ringColor', e.currentTarget.value)}
+								oninput={(e) =>
+									updateCustomColor('ringColor', e.currentTarget.value)}
 							/>
 							<input
 								type="text"
@@ -151,7 +176,8 @@
 								disabled={customControlsDisabled}
 								spellcheck="false"
 								pattern="^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
-								oninput={(e) => updateCustomColor('ringColor', e.currentTarget.value)}
+								oninput={(e) =>
+									updateCustomColor('ringColor', e.currentTarget.value)}
 							/>
 						</div>
 					</label>
@@ -160,6 +186,66 @@
 				<div class="appearance-preview" style={previewStyle}>
 					<div class="preview-glow" aria-hidden="true"></div>
 					<div class="preview-ring" aria-hidden="true"></div>
+				</div>
+			</div>
+		</div>
+
+		<div class="settings-section">
+			<div class="settings-section-heading">
+				<div>
+					<h3>Terminal</h3>
+					<p>Choose the text size and color scheme for the built-in terminal.</p>
+				</div>
+			</div>
+
+			<div class="terminal-settings-grid">
+				<div class="terminal-fields">
+					<div class="terminal-inline-fields">
+						<label>
+							<span>Text size</span>
+							<input
+								type="number"
+								min="8"
+								max="32"
+								value={terminal.fontSize}
+								oninput={(event) =>
+									updateTerminal(
+										'fontSize',
+										normalizeTerminalFontSize(event.currentTarget.valueAsNumber)
+									)}
+							/>
+						</label>
+
+						<label>
+							<span>Color scheme</span>
+							<select
+								value={terminal.theme}
+								onchange={(event) =>
+									updateTerminal(
+										'theme',
+										event.currentTarget.value as typeof terminal.theme
+									)}
+							>
+								{#each Object.entries(TERMINAL_THEME_PRESETS) as [id, preset] (id)}
+									<option value={id}>{preset.label}</option>
+								{/each}
+							</select>
+						</label>
+					</div>
+				</div>
+
+				<div
+					class="terminal-preview"
+					style:background={terminalTheme.colors.background}
+					style:color={terminalTheme.colors.foreground}
+					style:font-size={`${terminal.fontSize}px`}
+				>
+					<div class="terminal-preview-title">cometline %</div>
+					<div class="terminal-preview-line">
+						<span style:color={terminalTheme.colors.green}>$ git status</span>
+						<span style:color={terminalTheme.colors.cyan}> ready</span>
+					</div>
+					<p role="status">Preview reflects the selected text size and color scheme.</p>
 				</div>
 			</div>
 		</div>
@@ -222,6 +308,53 @@
 	.preset-row {
 		display: flex;
 		align-items: center;
+	}
+
+	.terminal-settings-grid {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) minmax(220px, 0.8fr);
+		gap: 16px;
+		align-items: start;
+	}
+
+	.terminal-fields,
+	.terminal-inline-fields {
+		display: grid;
+		gap: 12px;
+		align-content: start;
+	}
+
+	.terminal-inline-fields {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		align-items: start;
+	}
+
+	.terminal-preview {
+		display: grid;
+		align-content: center;
+		gap: 8px;
+		min-height: 130px;
+		padding: 18px;
+		border: 1px solid var(--border-soft);
+		border-radius: 14px;
+		overflow: hidden;
+		box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+	}
+
+	.terminal-preview-title {
+		font-weight: 700;
+	}
+
+	.terminal-preview-line {
+		white-space: nowrap;
+	}
+
+	.terminal-preview p {
+		margin: 0;
+		opacity: 0.7;
+		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+		font-size: 11px;
+		line-height: 1.35;
 	}
 
 	.slider-grid {
@@ -296,8 +429,18 @@
 
 	.preset-swatch.empty {
 		background:
-			linear-gradient(90deg, transparent 9px, rgba(15, 23, 42, 0.16) 9px 11px, transparent 11px),
-			linear-gradient(0deg, transparent 9px, rgba(15, 23, 42, 0.16) 9px 11px, transparent 11px),
+			linear-gradient(
+				90deg,
+				transparent 9px,
+				rgba(15, 23, 42, 0.16) 9px 11px,
+				transparent 11px
+			),
+			linear-gradient(
+				0deg,
+				transparent 9px,
+				rgba(15, 23, 42, 0.16) 9px 11px,
+				transparent 11px
+			),
 			rgba(15, 23, 42, 0.04);
 	}
 
@@ -335,11 +478,27 @@
 		outline: none;
 	}
 
+	input[type='number'],
+	select {
+		width: 100%;
+		height: 42px;
+		border: 1px solid var(--border-soft);
+		border-radius: 11px;
+		background: rgba(255, 255, 255, 0.76);
+		padding: 10px 11px;
+		font: inherit;
+		font-size: 13px;
+		color: var(--text-main);
+		outline: none;
+	}
+
 	input[type='range'] {
 		accent-color: var(--hero-composer-glow-color);
 	}
 
 	input[type='text']:focus,
+	input[type='number']:focus,
+	select:focus,
 	input[type='color']:focus {
 		border-color: rgba(0, 102, 204, 0.35);
 		box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
@@ -426,6 +585,11 @@
 		}
 
 		.slider-grid {
+			grid-template-columns: 1fr;
+		}
+
+		.terminal-settings-grid,
+		.terminal-inline-fields {
 			grid-template-columns: 1fr;
 		}
 	}

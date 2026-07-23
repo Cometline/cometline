@@ -4,9 +4,9 @@
 	import { FitAddon } from '@xterm/addon-fit';
 	import '@xterm/xterm/css/xterm.css';
 	import { shellStore } from '$lib/stores/shell.svelte';
+	import { settingsStore } from '$lib/stores/settings.svelte';
 	import { terminalStore } from '$lib/stores/terminal.svelte';
-
-	const MAX_CONTEXT_CHARS = 50_000;
+	import { DEFAULT_TERMINAL_FONT_FAMILY, TERMINAL_THEME_PRESETS } from '$lib/terminal-appearance';
 
 	let {
 		sessionId,
@@ -19,12 +19,18 @@
 	} = $props();
 
 	let host = $state<HTMLDivElement | null>(null);
-	let terminal: Terminal | null = null;
-	let fitAddon: FitAddon | null = null;
+	let terminal = $state<Terminal | null>(null);
+	let fitAddon = $state<FitAddon | null>(null);
 	let fitFrame: number | null = null;
-	let selection = $state<{ text: string; top: number; left: number } | null>(null);
-	let selectionError = $state('');
 	const snapshot = $derived(terminalStore.getSnapshot(sessionId));
+	const terminalAppearance = $derived(settingsStore.settings.appearance.terminal);
+	const terminalTheme = $derived(TERMINAL_THEME_PRESETS[terminalAppearance.theme].colors);
+
+	function applyAppearance(instance: Terminal) {
+		instance.options.fontFamily = DEFAULT_TERMINAL_FONT_FAMILY;
+		instance.options.fontSize = terminalAppearance.fontSize;
+		instance.options.theme = terminalTheme;
+	}
 
 	function fit() {
 		if (!active || !fitAddon || !terminal) return;
@@ -44,37 +50,6 @@
 		});
 	}
 
-	function onMouseUp(event: MouseEvent) {
-		queueMicrotask(() => {
-			const text = terminal?.getSelection().trim() ?? '';
-			if (!text) {
-				selection = null;
-				selectionError = '';
-				return;
-			}
-			if (text.length > MAX_CONTEXT_CHARS) {
-				selection = null;
-				selectionError = 'Selection is too large. Select up to 50,000 characters.';
-				return;
-			}
-			selectionError = '';
-			selection = { text, top: event.clientY + 10, left: event.clientX };
-		});
-	}
-
-	function addSelectionToContext() {
-		if (!selection) return;
-		shellStore.addWebContextForActive({
-			kind: 'terminal',
-			title: 'Terminal selection',
-			source: `terminal://${sessionId}`,
-			content: selection.text
-		});
-		shellStore.requestComposerFocus();
-		terminal?.clearSelection();
-		selection = null;
-	}
-
 	$effect(() => {
 		const requestId = focusRequestId;
 		if (!active || !requestId) return;
@@ -90,28 +65,34 @@
 		);
 	});
 
+	$effect(() => {
+		const { fontSize } = terminalAppearance;
+		const theme = terminalTheme;
+		if (!terminal) return;
+		terminal.options.fontFamily = DEFAULT_TERMINAL_FONT_FAMILY;
+		terminal.options.fontSize = fontSize;
+		terminal.options.theme = theme;
+		scheduleFit();
+	});
+
 	onMount(() => {
 		if (!host) return;
 		const nextTerminal = new Terminal({
 			allowProposedApi: false,
 			convertEol: false,
 			cursorBlink: true,
-			fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-			fontSize: 12,
+			fontFamily: DEFAULT_TERMINAL_FONT_FAMILY,
+			fontSize: terminalAppearance.fontSize,
 			macOptionClickForcesSelection: true,
 			scrollback: 10_000,
-			theme: {
-				background: '#171717',
-				foreground: '#f4f4f5',
-				cursor: '#f4f4f5',
-				selectionBackground: 'rgba(147, 197, 253, 0.35)'
-			}
+			theme: terminalTheme
 		});
 		const nextFitAddon = new FitAddon();
 		nextTerminal.loadAddon(nextFitAddon);
 		nextTerminal.open(host);
 		terminal = nextTerminal;
 		fitAddon = nextFitAddon;
+		applyAppearance(nextTerminal);
 		const initialOutput = terminalStore.getSnapshot(sessionId)?.output;
 		if (initialOutput) nextTerminal.write(initialOutput);
 		const unsubscribe = terminalStore.subscribe(sessionId, (data) => nextTerminal.write(data));
@@ -137,25 +118,13 @@
 <div
 	class="terminal-instance"
 	class:active
+	style:background={terminalTheme.background}
 	onfocusin={() => shellStore.setFocusedPane('terminal')}
-	onmouseup={onMouseUp}
 	aria-hidden={!active}
 >
-	<div class="terminal-host" bind:this={host}></div>
-	{#if selection}
-		<button
-			type="button"
-			class="selection-context"
-			style:left="{selection.left}px"
-			style:top="{selection.top}px"
-			onclick={addSelectionToContext}
-		>
-			Add to context
-		</button>
-	{/if}
-	{#if selectionError}
-		<div class="selection-error" role="status">{selectionError}</div>
-	{/if}
+	<div class="terminal-host">
+		<div class="terminal-viewport" bind:this={host}></div>
+	</div>
 	{#if snapshot?.status === 'exited'}
 		<div class="terminal-exited" aria-live="polite">Terminal exited</div>
 	{/if}
@@ -169,7 +138,6 @@
 		min-width: 0;
 		min-height: 0;
 		overflow: hidden;
-		background: #171717;
 	}
 
 	.terminal-instance.active {
@@ -177,32 +145,29 @@
 	}
 
 	.terminal-host {
+		position: relative;
 		min-width: 0;
+		min-height: 0;
 		width: 100%;
 		height: 100%;
-		padding: 10px;
 		box-sizing: border-box;
 	}
 
-	.terminal-host :global(.xterm) {
+	.terminal-viewport {
+		position: absolute;
+		top: 10px;
+		/* Side insets protect the status line ends while the footer reaches the panel bottom. */
+		right: calc(var(--radius-window) + 6px);
+		bottom: 0;
+		left: calc(var(--radius-window) + 6px);
+		min-width: 0;
+		min-height: 0;
+	}
+
+	.terminal-viewport :global(.xterm) {
 		height: 100%;
 	}
 
-	.selection-context {
-		position: fixed;
-		z-index: 40;
-		border: none;
-		border-radius: 8px;
-		padding: 7px 10px;
-		background: var(--text-main);
-		color: white;
-		font-size: 12px;
-		font-weight: 650;
-		box-shadow: 0 8px 20px rgba(15, 23, 42, 0.2);
-		cursor: pointer;
-	}
-
-	.selection-error,
 	.terminal-exited {
 		position: absolute;
 		left: 12px;
@@ -212,9 +177,5 @@
 		background: rgba(15, 23, 42, 0.82);
 		color: white;
 		font-size: 12px;
-	}
-
-	.selection-error {
-		background: rgba(180, 35, 24, 0.92);
 	}
 </style>

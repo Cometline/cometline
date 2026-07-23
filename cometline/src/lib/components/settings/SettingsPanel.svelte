@@ -425,6 +425,7 @@
 						<SettingsAppearancePanel
 							bind:appearance={draft.appearance.heroComposer}
 							bind:caretTrail={draft.appearance.caretTrail}
+							bind:terminal={draft.appearance.terminal}
 						/>
 						<section class="settings-panel-frame">
 							<div class="settings-section">
@@ -667,9 +668,7 @@
 							bind:storage={draft.cometmind.storage}
 							onOpenAtLoginChange={panelController.setOpenAtLogin}
 							onConfirmCloseOnCmdWChange={panelController.setConfirmCloseOnCmdW}
-							onConfirmBeforeDeletingChatsChange={
-								panelController.setConfirmBeforeDeletingChats
-							}
+							onConfirmBeforeDeletingChatsChange={panelController.setConfirmBeforeDeletingChats}
 						/>
 						<section class="settings-panel-frame">
 							<div class="settings-panel-body">

@@ -5,7 +5,9 @@
 	import Tooltip from '$lib/components/Tooltip.svelte';
 	import { sessionStore } from '$lib/stores/session.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
+	import { settingsStore } from '$lib/stores/settings.svelte';
 	import { terminalStore } from '$lib/stores/terminal.svelte';
+	import { TERMINAL_THEME_PRESETS } from '$lib/terminal-appearance';
 
 	let terminateConfirmOpen = $state(false);
 	let starting = $state(false);
@@ -16,6 +18,9 @@
 		activeSession ? terminalStore.getSnapshot(activeSession.id) : null
 	);
 	const terminalIds = $derived(terminalStore.sessionIds);
+	const terminalTheme = $derived(
+		TERMINAL_THEME_PRESETS[settingsStore.settings.appearance.terminal.theme].colors
+	);
 
 	async function startTerminal() {
 		if (!activeSession || starting) return;
@@ -114,7 +119,7 @@
 				</button>
 			</div>
 		</header>
-		<div class="terminal-panel-content">
+		<div class="terminal-panel-content" style:background={terminalTheme.background}>
 			{#if !activeSession}
 				<div class="terminal-empty">Open a chat to start a terminal.</div>
 			{:else if !activeTerminal}
@@ -228,7 +233,6 @@
 		min-width: 0;
 		min-height: 0;
 		overflow: hidden;
-		background: #171717;
 	}
 	.terminal-empty {
 		display: grid;
