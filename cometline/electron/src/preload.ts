@@ -92,6 +92,7 @@ const electronAPI: ElectronAPI = {
 	onCloseWebPanel: (callback) => subscribeSignal('cometline:close-web-panel', callback),
 	onCloseInbox: (callback) => subscribeSignal('cometline:close-inbox', callback),
 	onRequestCloseWindow: (callback) => subscribeSignal('cometline:request-close-window', callback),
+	onRequestReload: (callback) => subscribeSignal('cometline:request-reload', callback),
 	onToggleWebPanel: (callback) => subscribeSignal('cometline:toggle-web-panel', callback),
 	onOpenWebPanel: (callback) => subscribeSignal('cometline:open-web-panel', callback),
 	onNavigateSession: (callback) =>

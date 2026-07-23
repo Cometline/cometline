@@ -14,6 +14,7 @@ interface ApplicationMenuTrayDependencies {
 	pathExists(filePath: string): boolean;
 	showMainWindow(): void;
 	showSettingsWindow(): Promise<void>;
+	requestReload(): void;
 }
 
 /** Owns the macOS tray and application menu while the runtime owns window visibility. */
@@ -27,7 +28,8 @@ export function createApplicationMenuTray(dependencies: ApplicationMenuTrayDepen
 		resolveTrayIcon,
 		pathExists,
 		showMainWindow,
-		showSettingsWindow
+		showSettingsWindow,
+		requestReload
 	} = dependencies;
 
 	function ensureTray() {
@@ -113,7 +115,14 @@ export function createApplicationMenuTray(dependencies: ApplicationMenuTrayDepen
 			{ role: 'selectAll' }
 		];
 		const viewSubmenu: MenuItemConstructorOptions[] = [
-			{ role: 'reload' },
+			{
+				label: 'Reload',
+				accelerator: 'CmdOrControl+R',
+				// Show the chord in the menu, but let before-input / renderer own the
+				// key so a single press cannot both open and immediately confirm.
+				registerAccelerator: false,
+				click: () => requestReload()
+			},
 			...(!app.isPackaged ? [{ role: 'toggleDevTools' as const }] : []),
 			{ type: 'separator' },
 			{ role: 'resetZoom' },

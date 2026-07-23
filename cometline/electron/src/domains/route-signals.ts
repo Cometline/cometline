@@ -13,6 +13,7 @@ export function createRouteSignals(context: ShellWindowContext) {
 		closeInbox: () => send('cometline:close-inbox'),
 		closeWebPanel: () => send('cometline:close-web-panel'),
 		requestCloseWindow: () => send('cometline:request-close-window'),
+		requestReload: () => send('cometline:request-reload'),
 		sendNavigateSession: (direction: 'prev' | 'next') =>
 			send('cometline:navigate-session', direction),
 		sendShortcutAction: (action: ShortcutAction) => send('cometline:shortcut-action', action)

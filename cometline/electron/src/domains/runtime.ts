@@ -292,7 +292,8 @@ export function initializeRuntime() {
 		resolveTrayIcon: personas.resolveTrayIcon,
 		pathExists: fs.existsSync,
 		showMainWindow: () => windows?.showMainWindow(),
-		showSettingsWindow: async () => windows?.showSettingsWindow()
+		showSettingsWindow: async () => windows?.showSettingsWindow(),
+		requestReload: () => routeSignals.requestReload()
 	});
 	const shortcuts = createShortcutCoordinator({
 		context: shellContext,

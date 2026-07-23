@@ -35,6 +35,7 @@ interface RouteSignals {
 	closeInbox(): void;
 	closeWebPanel(): void;
 	requestCloseWindow(): void;
+	requestReload(): void;
 	sendNavigateSession(direction: 'prev' | 'next'): void;
 	sendShortcutAction(action: ShortcutAction): void;
 }
@@ -179,6 +180,23 @@ export function createShortcutCoordinator(dependencies: ShortcutCoordinatorDepen
 		return true;
 	}
 
+	function isReloadShortcut(input: Input) {
+		if (input.type !== 'keyDown') return false;
+		if (input.alt || input.shift) return false;
+		if (input.key?.toLowerCase() !== 'r') return false;
+		// Cmd+R on macOS, Ctrl+R elsewhere — reject when both modifiers are held.
+		if (input.meta && !input.control) return true;
+		if (input.control && !input.meta) return true;
+		return false;
+	}
+
+	function handleReloadShortcut(event: Event, input: Input) {
+		if (!isReloadShortcut(input)) return false;
+		event.preventDefault();
+		routeSignals.requestReload();
+		return true;
+	}
+
 	function attachWindowShortcuts(
 		webContents: WebContents,
 		options: {
@@ -186,6 +204,7 @@ export function createShortcutCoordinator(dependencies: ShortcutCoordinatorDepen
 			includeSessionNavigation?: boolean;
 			includeSettingsShortcut?: boolean;
 			closesMainWindow?: boolean;
+			includeReloadShortcut?: boolean;
 		}
 	) {
 		webContents.on('before-input-event', (event, input) => {
@@ -197,6 +216,10 @@ export function createShortcutCoordinator(dependencies: ShortcutCoordinatorDepen
 					options.closesMainWindow
 				)
 			) {
+				return;
+			}
+
+			if (options.includeReloadShortcut && handleReloadShortcut(event, input)) {
 				return;
 			}
 
@@ -229,7 +252,8 @@ export function createShortcutCoordinator(dependencies: ShortcutCoordinatorDepen
 		attachWindowShortcuts(webContents, {
 			onCloseWindow: hideMainWindow,
 			includeSessionNavigation: true,
-			closesMainWindow: true
+			closesMainWindow: true,
+			includeReloadShortcut: true
 		});
 	}
 
@@ -246,6 +270,7 @@ export function createShortcutCoordinator(dependencies: ShortcutCoordinatorDepen
 
 	function handleWebPanelGuestShortcuts(event: Event, input: Input) {
 		if (handleDarwinCloseWindowShortcut(event, input, hideMainWindow, true)) return true;
+		if (handleReloadShortcut(event, input)) return true;
 		if (context.getShortcutCaptureActive()) return false;
 		const shortcuts = getShortcuts();
 		const forwardActions: ShortcutAction[] = [

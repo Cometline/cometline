@@ -12,7 +12,7 @@
 	import UpdateButton from './UpdateButton.svelte';
 	import MemoryToast from './MemoryToast.svelte';
 	import AppToast from './AppToast.svelte';
-	import CloseConfirmModal from './CloseConfirmModal.svelte';
+	import ConfirmActionModal from './ConfirmActionModal.svelte';
 	import WebPanel from './WebPanel.svelte';
 	import TerminalPanel from './TerminalPanel.svelte';
 	import Tooltip from './Tooltip.svelte';
@@ -47,6 +47,9 @@
 	);
 	let contentRowRef = $state<HTMLDivElement | null>(null);
 	let closeConfirmOpen = $state(false);
+	let reloadConfirmOpen = $state(false);
+	/** True only after the confirm dialog has settled, so a duplicated Cmd+R delivery cannot open+confirm in one press. */
+	let reloadConfirmArmed = $state(false);
 
 	let activeSessionId = $derived(sessionStore.current?.id ?? null);
 	let titlebarSessionTitle = $derived.by(() => {
@@ -75,6 +78,15 @@
 		);
 	}
 
+	function isReloadShortcut(event: KeyboardEvent) {
+		if (event.altKey || event.shiftKey) return false;
+		if (event.key.toLowerCase() !== 'r') return false;
+		// Cmd+R on macOS, Ctrl+R elsewhere — reject when both modifiers are held.
+		if (event.metaKey && !event.ctrlKey) return true;
+		if (event.ctrlKey && !event.metaKey) return true;
+		return false;
+	}
+
 	function hideMainWindow() {
 		closeConfirmOpen = false;
 		window.electronAPI?.confirmCloseWindow?.();
@@ -98,6 +110,25 @@
 			return;
 		}
 		closeConfirmOpen = true;
+	}
+
+	function confirmReload() {
+		reloadConfirmOpen = false;
+		reloadConfirmArmed = false;
+		window.location.reload();
+	}
+
+	function handleRequestReload() {
+		if (reloadConfirmOpen) {
+			if (!reloadConfirmArmed) return;
+			confirmReload();
+			return;
+		}
+		reloadConfirmOpen = true;
+		reloadConfirmArmed = false;
+		queueMicrotask(() => {
+			if (reloadConfirmOpen) reloadConfirmArmed = true;
+		});
 	}
 
 	async function alwaysCloseWithoutConfirm() {
@@ -202,9 +233,20 @@
 				closeConfirmOpen = false;
 				return;
 			}
+			if (reloadConfirmOpen && event.key === 'Escape') {
+				event.preventDefault();
+				reloadConfirmOpen = false;
+				reloadConfirmArmed = false;
+				return;
+			}
 			if (isCmdW(event)) {
 				event.preventDefault();
 				handleRequestCloseWindow();
+				return;
+			}
+			if (isReloadShortcut(event)) {
+				event.preventDefault();
+				handleRequestReload();
 				return;
 			}
 			if (
@@ -222,7 +264,8 @@
 				event.key === 'Escape' &&
 				!shellStore.settingsOpen &&
 				!inboxStore.drawerOpen &&
-				!closeConfirmOpen
+				!closeConfirmOpen &&
+				!reloadConfirmOpen
 			) {
 				event.preventDefault();
 				shellStore.closeWorkspacePanel();
@@ -330,6 +373,10 @@
 			handleRequestCloseWindow();
 		});
 
+		const unsubscribeRequestReload = window.electronAPI?.onRequestReload?.(() => {
+			handleRequestReload();
+		});
+
 		const unsubscribeToggleWebPanel = window.electronAPI?.onToggleWebPanel?.(() => {
 			if (shellStore.settingsOpen) return;
 			shellStore.toggleWebPanel();
@@ -397,6 +444,7 @@
 			unsubscribeCloseWebPanel?.();
 			unsubscribeCloseInbox?.();
 			unsubscribeRequestCloseWindow?.();
+			unsubscribeRequestReload?.();
 			unsubscribeToggleWebPanel?.();
 			unsubscribeOpenWebPanel?.();
 			unsubscribeShortcutAction?.();
@@ -659,11 +707,26 @@
 	<UpdateButton />
 	<MemoryToast />
 	<AppToast />
-	<CloseConfirmModal
+	<ConfirmActionModal
 		open={closeConfirmOpen}
+		title="Are you sure you want to close Cometline?"
+		description="The window will hide to the menu bar. You can reopen it anytime."
+		confirmLabel="Close"
+		secondaryLabel="Always close"
+		onSecondary={() => void alwaysCloseWithoutConfirm()}
 		onCancel={() => (closeConfirmOpen = false)}
-		onClose={hideMainWindow}
-		onAlwaysClose={() => void alwaysCloseWithoutConfirm()}
+		onConfirm={hideMainWindow}
+	/>
+	<ConfirmActionModal
+		open={reloadConfirmOpen}
+		title="Are you sure you want to refresh?"
+		description="Refreshing reloads the app and can interrupt the main panel and any open terminal sessions."
+		confirmLabel="Refresh"
+		onCancel={() => {
+			reloadConfirmOpen = false;
+			reloadConfirmArmed = false;
+		}}
+		onConfirm={confirmReload}
 	/>
 	{#if shellStore.introOpen}
 		<IntroAnimation />

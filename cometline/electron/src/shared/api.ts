@@ -106,6 +106,7 @@ export interface ElectronAPI {
 	onCloseWebPanel(callback: () => void): () => void;
 	onCloseInbox(callback: () => void): () => void;
 	onRequestCloseWindow(callback: () => void): () => void;
+	onRequestReload(callback: () => void): () => void;
 	onToggleWebPanel(callback: () => void): () => void;
 	onOpenWebPanel(callback: () => void): () => void;
 	onNavigateSession(callback: (direction: 'prev' | 'next') => void): () => void;

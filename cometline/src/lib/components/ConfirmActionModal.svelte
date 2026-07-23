@@ -4,16 +4,20 @@
 		title,
 		description,
 		confirmLabel,
+		secondaryLabel,
 		onCancel,
-		onConfirm
+		onConfirm,
+		onSecondary
 	}: {
 		open?: boolean;
 		title: string;
 		description: string;
 		confirmLabel: string;
+		secondaryLabel?: string;
 		onCancel: () => void;
 		onConfirm: () => void;
-		} = $props();
+		onSecondary?: () => void;
+	} = $props();
 
 	function openModal(dialog: HTMLDialogElement) {
 		dialog.showModal();
@@ -28,7 +32,18 @@
 	function cancelOnBackdrop(event: MouseEvent) {
 		if (event.target === event.currentTarget) onCancel();
 	}
+
+	function onKeydown(event: KeyboardEvent) {
+		if (!open) return;
+		if (event.key === 'Enter' && !event.metaKey && !event.ctrlKey && !event.altKey) {
+			event.preventDefault();
+			event.stopPropagation();
+			onConfirm();
+		}
+	}
 </script>
+
+<svelte:window onkeydown={onKeydown} />
 
 {#if open}
 	<dialog
@@ -43,10 +58,19 @@
 		<h2 id="confirm-modal-title">{title}</h2>
 		<p id="confirm-modal-description">{description}</p>
 		<div class="actions">
-			<button type="button" class="btn muted" onclick={onCancel}
-				>Cancel <span class="key-hint">esc</span></button
-			>
-			<button type="button" class="btn danger" onclick={onConfirm}>{confirmLabel}</button>
+			{#if secondaryLabel}
+				<button type="button" class="btn muted" onclick={() => onSecondary?.()}
+					>{secondaryLabel}</button
+				>
+			{/if}
+			<button type="button" class="btn muted" onclick={onCancel}>
+				Cancel
+				<span class="key-hint" aria-hidden="true">esc</span>
+			</button>
+			<button type="button" class="btn danger" onclick={onConfirm}>
+				{confirmLabel}
+				<span class="key-hint key-hint-light" aria-hidden="true">↵</span>
+			</button>
 		</div>
 	</dialog>
 {/if}
@@ -93,32 +117,57 @@
 	}
 	.actions {
 		display: flex;
+		align-items: center;
+		justify-content: stretch;
 		gap: 8px;
 		margin-top: 18px;
 	}
 	.btn {
 		flex: 1 1 0;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: 6px;
 		min-height: 34px;
+		padding: 0 12px;
 		border: none;
 		border-radius: 10px;
 		font-size: 13px;
 		font-weight: 600;
+		white-space: nowrap;
 		cursor: pointer;
 	}
 	.btn.muted {
 		background: rgba(15, 23, 42, 0.06);
 		color: var(--text-main);
 	}
+	.btn.muted:hover {
+		background: rgba(15, 23, 42, 0.1);
+	}
 	.btn.danger {
 		background: #e11d48;
 		color: #fff;
 	}
+	.btn.danger:hover {
+		background: #be123c;
+	}
 	.key-hint {
-		margin-left: 6px;
-		padding: 1px 4px;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-width: 1.4rem;
+		height: 1.15rem;
+		padding: 0 4px;
 		border: 1px solid rgba(15, 23, 42, 0.14);
 		border-radius: 5px;
-		color: var(--text-muted);
 		font-size: 10px;
+		font-weight: 600;
+		line-height: 1;
+		color: var(--text-muted);
+		text-transform: lowercase;
+	}
+	.key-hint-light {
+		border-color: rgba(255, 255, 255, 0.35);
+		color: rgba(255, 255, 255, 0.92);
 	}
 </style>
