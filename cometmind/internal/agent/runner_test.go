@@ -12,6 +12,7 @@ import (
 	"time"
 
 	cometsdk "github.com/cometline/comet-sdk"
+	"github.com/cometline/cometmind/internal/config"
 	"github.com/cometline/cometmind/internal/db"
 	"github.com/cometline/cometmind/internal/event"
 	"github.com/cometline/cometmind/internal/jobs"
@@ -736,7 +737,7 @@ func TestRunner_DoesNotCompactForHistoryOutsideActivePrompt(t *testing.T) {
 		Compactor: &ContextCompactor{Sessions: store},
 	}
 
-	_, runErr := runAndDrain(t, r, session.AgentTurn{ID: "s1", ModelID: "m"})
+	events, runErr := runAndDrain(t, r, session.AgentTurn{ID: "s1", ModelID: "m"})
 
 	if runErr != nil {
 		t.Fatalf("Run returned error: %v", runErr)
@@ -752,6 +753,171 @@ func TestRunner_DoesNotCompactForHistoryOutsideActivePrompt(t *testing.T) {
 	}
 	if strings.Contains(provider.requests[1].System, "Earlier conversation summary") {
 		t.Fatalf("second request unexpectedly included a summary:\n%s", provider.requests[1].System)
+	}
+	budgets := contextBudgetEvents(events)
+	if len(budgets) == 0 {
+		t.Fatal("expected at least one context_budget event")
+	}
+	for _, ev := range budgets {
+		if ev.BudgetCompacted {
+			t.Fatalf("unexpected compacted budget event: %+v", ev)
+		}
+		if ev.BudgetAvailable <= 0 || ev.BudgetContextWindow <= 0 {
+			t.Fatalf("invalid budget ceiling: available=%d window=%d", ev.BudgetAvailable, ev.BudgetContextWindow)
+		}
+	}
+}
+
+func contextBudgetEvents(events []event.Event) []event.Event {
+	out := make([]event.Event, 0)
+	for _, ev := range events {
+		if ev.Kind == event.KindContextBudget {
+			out = append(out, ev)
+		}
+	}
+	return out
+}
+
+func TestRunner_EmitsContextBudgetAndDropsAfterCompaction(t *testing.T) {
+	rows := make([]db.Message, 0, 12)
+	history := make([]cometsdk.Message, 0, 12)
+	big := strings.Repeat("x", 60_000) // ~15k tokens each; 10 turns >> 128k-2k available
+	for i := 0; i < 12; i++ {
+		id := fmt.Sprintf("u%d", i+1)
+		text := big + fmt.Sprintf(" turn-%d", i+1)
+		rows = append(rows, db.Message{ID: id, Role: "user", Content: text})
+		history = append(history, cometsdk.Message{
+			Role:    cometsdk.RoleUser,
+			Content: []cometsdk.Block{cometsdk.TextBlock{Text: text}},
+		})
+	}
+	store := &compactingFakeStore{fakeStore: fakeStore{history: history, rows: rows}}
+	provider := &sequentialFakeProvider{sequences: [][]cometsdk.Event{
+		// MaybeCompact summarize call
+		{
+			cometsdk.TextDeltaEvent{Text: "Goals: keep going.\nPending: reply."},
+			cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishStop},
+			cometsdk.DoneEvent{},
+		},
+		// Agent reply after compaction
+		{
+			cometsdk.TextDeltaEvent{Text: "ok"},
+			cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishStop},
+			cometsdk.DoneEvent{},
+		},
+	}}
+
+	compactor := &ContextCompactor{Sessions: store, Config: &config.Config{ContextWindowLimit: 128_000}}
+	r := &Runner{
+		Provider:  provider,
+		Sessions:  store,
+		Registry:  tools.NewRegistry(t.TempDir()),
+		Compactor: compactor,
+		MaxTokens: 2048,
+	}
+
+	events, runErr := runAndDrain(t, r, session.AgentTurn{ID: "s1", ModelID: "m"})
+	if runErr != nil {
+		t.Fatalf("Run returned error: %v", runErr)
+	}
+	if store.compactCalls != 1 {
+		t.Fatalf("UpdateContextSummary called %d times, want 1", store.compactCalls)
+	}
+	budgets := contextBudgetEvents(events)
+	if len(budgets) < 2 {
+		t.Fatalf("got %d context_budget events, want >= 2", len(budgets))
+	}
+	pre := budgets[0]
+	post := budgets[len(budgets)-1]
+	if pre.BudgetCompacted {
+		t.Fatal("first budget event should not be marked compacted")
+	}
+	if !post.BudgetCompacted {
+		t.Fatal("last budget event should be marked compacted")
+	}
+	if post.BudgetEstimated >= pre.BudgetEstimated {
+		t.Fatalf("post-compact estimated %d should be lower than pre %d", post.BudgetEstimated, pre.BudgetEstimated)
+	}
+}
+
+// compactingFakeStore trims BuildSDKMessages after compaction so the post-compact
+// budget estimate reflects the active prompt window.
+type compactingFakeStore struct {
+	fakeStore
+}
+
+func (f *compactingFakeStore) BuildSDKMessages(ctx context.Context, sessionID string) ([]cometsdk.Message, error) {
+	if f.compactedUntil == "" {
+		return f.fakeStore.BuildSDKMessages(ctx, sessionID)
+	}
+	start := 0
+	for i, row := range f.rows {
+		if row.ID == f.compactedUntil {
+			start = i + 1
+			break
+		}
+	}
+	if start >= len(f.history) {
+		return nil, nil
+	}
+	out := make([]cometsdk.Message, len(f.history[start:]))
+	copy(out, f.history[start:])
+	return out, nil
+}
+
+func (f *compactingFakeStore) UpdateContextSummary(ctx context.Context, sessionID, summary, untilMessageID string) error {
+	if err := f.fakeStore.UpdateContextSummary(ctx, sessionID, summary, untilMessageID); err != nil {
+		return err
+	}
+	// Align in-memory history with post-compact active window.
+	start := 0
+	for i, row := range f.rows {
+		if row.ID == untilMessageID {
+			start = i + 1
+			break
+		}
+	}
+	if start < len(f.history) {
+		trimmed := make([]cometsdk.Message, len(f.history[start:]))
+		copy(trimmed, f.history[start:])
+		f.history = trimmed
+		f.rows = append([]db.Message(nil), f.rows[start:]...)
+	} else {
+		f.history = nil
+		f.rows = nil
+	}
+	return nil
+}
+
+func TestRunner_EmitsContextBudget(t *testing.T) {
+	store := &fakeStore{history: []cometsdk.Message{{
+		Role:    cometsdk.RoleUser,
+		Content: []cometsdk.Block{cometsdk.TextBlock{Text: "hello"}},
+	}}}
+	provider := &fakeProvider{events: []cometsdk.Event{
+		cometsdk.TextDeltaEvent{Text: "hi"},
+		cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishStop},
+		cometsdk.DoneEvent{},
+	}}
+	r := &Runner{
+		Provider:  provider,
+		Sessions:  store,
+		Registry:  tools.NewRegistry(t.TempDir()),
+		Compactor: &ContextCompactor{Sessions: store},
+	}
+	events, runErr := runAndDrain(t, r, session.AgentTurn{ID: "s1", ModelID: "m"})
+	if runErr != nil {
+		t.Fatalf("Run returned error: %v", runErr)
+	}
+	budgets := contextBudgetEvents(events)
+	if len(budgets) != 1 {
+		t.Fatalf("got %d context_budget events, want 1", len(budgets))
+	}
+	if budgets[0].BudgetEstimated <= 0 {
+		t.Fatalf("estimated=%d, want > 0", budgets[0].BudgetEstimated)
+	}
+	if budgets[0].BudgetAvailable != 128_000-2048 {
+		t.Fatalf("available=%d, want %d", budgets[0].BudgetAvailable, 128_000-2048)
 	}
 }
 

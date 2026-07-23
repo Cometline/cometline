@@ -31,6 +31,48 @@ type ContextCompactor struct {
 	Config   *config.Config
 }
 
+// PromptBudget is the chars/4 estimate used to gate context compaction.
+type PromptBudget struct {
+	Estimated     int
+	Available     int
+	ContextWindow int
+}
+
+// EstimatePromptBudget computes the same budget numbers MaybeCompact uses.
+func (c *ContextCompactor) EstimatePromptBudget(
+	ctx context.Context,
+	sessionID string,
+	system string,
+	tools []cometsdk.Tool,
+	maxTokens int,
+) (PromptBudget, error) {
+	budget := PromptBudget{}
+	if c == nil {
+		return budget, nil
+	}
+	contextWindow := ResolveContextWindow(c.Config)
+	available := contextWindow - maxTokens
+	if available < 0 {
+		available = 0
+	}
+	budget.ContextWindow = contextWindow
+	budget.Available = available
+	if c.Sessions == nil || sessionID == "" {
+		return budget, nil
+	}
+	msgs, err := c.Sessions.BuildSDKMessages(ctx, sessionID)
+	if err != nil {
+		return budget, err
+	}
+	budget.Estimated = EstimatePromptTokens(PromptBudgetInput{
+		System:       system,
+		Messages:     msgs,
+		Tools:        tools,
+		OutputBudget: maxTokens,
+	})
+	return budget, nil
+}
+
 // MaybeCompact summarizes older history when the prompt budget is exceeded.
 // Failures are logged and leave prior summary state untouched.
 func (c *ContextCompactor) MaybeCompact(

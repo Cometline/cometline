@@ -149,11 +149,23 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 
 		baseSystem := r.buildSystemPrompt(sess.ContextSummary)
 		if r.Compactor != nil && sess.ID != "" {
+			tools := r.Registry.CometSDK()
+			emitBudget := func(compacted bool) {
+				budget, err := r.Compactor.EstimatePromptBudget(ctx, sess.ID, baseSystem, tools, r.MaxTokens)
+				if err != nil {
+					logging.L().Warn("context.budget.estimate_failed", "session", sess.ID, "error", err)
+					return
+				}
+				ch <- event.ContextBudget(budget.Estimated, budget.Available, budget.ContextWindow, compacted)
+			}
+			emitBudget(false)
+			beforeSummary := sess.ContextSummary
+			beforeUntil := sess.CompactedUntilMessageID
 			updated, err := r.Compactor.MaybeCompact(
 				ctx,
 				sess,
 				baseSystem,
-				r.Registry.CometSDK(),
+				tools,
 				r.Provider,
 				r.MaxTokens,
 				func(ev event.Event) { ch <- ev },
@@ -161,6 +173,9 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 			if err == nil {
 				sess = updated
 				baseSystem = r.buildSystemPrompt(sess.ContextSummary)
+				if sess.ContextSummary != beforeSummary || sess.CompactedUntilMessageID != beforeUntil {
+					emitBudget(true)
+				}
 			}
 		}
 
