@@ -16,7 +16,7 @@
 	import WebPanel from './WebPanel.svelte';
 	import TerminalPanel from './TerminalPanel.svelte';
 	import Tooltip from './Tooltip.svelte';
-	import { getSession } from '$lib/client/cometmind';
+	import { getSession, updateSession } from '$lib/client/cometmind';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { sessionStore } from '$lib/stores/session.svelte';
 	import { settingsStore } from '$lib/stores/settings.svelte';
@@ -35,7 +35,8 @@
 		widthToRatio
 	} from '$lib/layout/web-panel-width';
 	import { shouldUseWebPanelHistory } from '$lib/navigation/focus-nav';
-	import { matchesShortcut, type ShortcutAction } from '$lib/keyboard-shortcuts';
+	import { matchesShortcut, isReloadShortcut, type ShortcutAction } from '$lib/keyboard-shortcuts';
+	import type { Session } from '$lib/types';
 
 	const FALLBACK_SIDEBAR_DURATION = 360;
 
@@ -50,6 +51,8 @@
 	let reloadConfirmOpen = $state(false);
 	/** True only after the confirm dialog has settled, so a duplicated Cmd+R delivery cannot open+confirm in one press. */
 	let reloadConfirmArmed = $state(false);
+	let pendingRename = $state<Session | null>(null);
+	let renameTitle = $state('');
 
 	let activeSessionId = $derived(sessionStore.current?.id ?? null);
 	let titlebarSessionTitle = $derived.by(() => {
@@ -58,6 +61,27 @@
 		const title = session.title?.trim();
 		return title || 'Untitled';
 	});
+	let titlebarSessionTitleAttr = $derived(
+		titlebarSessionTitle ? `${titlebarSessionTitle} — Double-click to rename` : ''
+	);
+
+	function startRenameFromTitlebar() {
+		const session = sessionStore.current;
+		if (!session) return;
+		renameTitle = session.title || '';
+		pendingRename = session;
+	}
+
+	function cancelRename() {
+		pendingRename = null;
+	}
+
+	async function confirmRename() {
+		if (!pendingRename) return;
+		const updated = await updateSession(pendingRename.id, { title: renameTitle.trim() });
+		sessionStore.updateSession(updated);
+		pendingRename = null;
+	}
 
 	$effect(() => {
 		window.electronAPI?.setSessionNavigationSuspended?.(shellStore.settingsOpen);
@@ -76,15 +100,6 @@
 			!event.shiftKey &&
 			event.key.toLowerCase() === 'w'
 		);
-	}
-
-	function isReloadShortcut(event: KeyboardEvent) {
-		if (event.altKey || event.shiftKey) return false;
-		if (event.key.toLowerCase() !== 'r') return false;
-		// Cmd+R on macOS, Ctrl+R elsewhere — reject when both modifiers are held.
-		if (event.metaKey && !event.ctrlKey) return true;
-		if (event.ctrlKey && !event.metaKey) return true;
-		return false;
 	}
 
 	function hideMainWindow() {
@@ -132,11 +147,8 @@
 	}
 
 	async function alwaysCloseWithoutConfirm() {
-		try {
-			await settingsStore.saveConfirmCloseOnCmdW(false);
-		} catch {
-			/* still close even if preference save fails */
-		}
+		// Persist preference in the background — don't block hiding the window on IPC.
+		void settingsStore.saveConfirmCloseOnCmdW(false).catch(() => {});
 		hideMainWindow();
 	}
 
@@ -244,7 +256,17 @@
 				handleRequestCloseWindow();
 				return;
 			}
-			if (isReloadShortcut(event)) {
+			if (
+				isReloadShortcut({
+					key: event.key,
+					code: event.code,
+					meta: event.metaKey,
+					control: event.ctrlKey,
+					alt: event.altKey,
+					shift: event.shiftKey,
+					isComposing: event.isComposing
+				})
+			) {
 				event.preventDefault();
 				handleRequestReload();
 				return;
@@ -653,9 +675,15 @@
 						</button>
 					</Tooltip>
 					{#if titlebarSessionTitle}
-						<span class="shell-titlebar-title" title={titlebarSessionTitle}>
+						<button
+							type="button"
+							class="shell-titlebar-title"
+							title={titlebarSessionTitleAttr}
+							aria-label={`Rename session: ${titlebarSessionTitle}`}
+							ondblclick={startRenameFromTitlebar}
+						>
 							{titlebarSessionTitle}
-						</span>
+						</button>
 					{/if}
 				</header>
 			{/if}
@@ -728,6 +756,19 @@
 		}}
 		onConfirm={confirmReload}
 	/>
+	<ConfirmActionModal
+		open={Boolean(pendingRename)}
+		title="Rename session"
+		description="Choose a name for this chat."
+		confirmLabel="Save"
+		confirmTone="accent"
+		showInput
+		bind:inputValue={renameTitle}
+		inputPlaceholder="Untitled"
+		inputMaxLength={200}
+		onCancel={cancelRename}
+		onConfirm={() => void confirmRename()}
+	/>
 	{#if shellStore.introOpen}
 		<IntroAnimation />
 	{/if}
@@ -777,17 +818,23 @@
 		transform: translate(-50%, -50%);
 		min-width: 0;
 		max-width: min(36vw, 14rem);
+		margin: 0;
+		padding: 0;
+		border: none;
+		background: transparent;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
 		color: var(--text-muted);
+		font: inherit;
 		font-size: 12px;
 		font-weight: 600;
 		letter-spacing: 0.01em;
 		line-height: 1;
 		user-select: none;
 		text-align: center;
-		pointer-events: none;
+		cursor: default;
+		-webkit-app-region: no-drag;
 	}
 
 	@media (min-width: 900px) {

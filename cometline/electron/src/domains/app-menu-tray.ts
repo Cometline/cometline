@@ -116,11 +116,16 @@ export function createApplicationMenuTray(dependencies: ApplicationMenuTrayDepen
 		];
 		const viewSubmenu: MenuItemConstructorOptions[] = [
 			{
-				label: 'Reload',
-				accelerator: 'CmdOrControl+R',
-				// Show the chord in the menu, but let before-input / renderer own the
-				// key so a single press cannot both open and immediately confirm.
-				registerAccelerator: false,
+				// On macOS, `registerAccelerator: false` is ignored (NSMenuItem always
+				// registers key equivalents). Own ⌘R exclusively via before-input so a
+				// bare "R" / menu keyEquivalent can never open the refresh confirm.
+				label: process.platform === 'darwin' ? 'Reload\t⌘R' : 'Reload',
+				...(process.platform === 'darwin'
+					? {}
+					: {
+							accelerator: 'CmdOrControl+R',
+							registerAccelerator: false
+						}),
 				click: () => requestReload()
 			},
 			...(!app.isPackaged ? [{ role: 'toggleDevTools' as const }] : []),

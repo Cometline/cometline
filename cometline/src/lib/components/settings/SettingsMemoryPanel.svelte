@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { LoaderCircle, Trash2 } from '@lucide/svelte';
 	import SettingsToggle from './SettingsToggle.svelte';
-	import SettingsPersistenceHint from './SettingsPersistenceHint.svelte';
 	import {
 		compactMemory,
 		compactMemoryPreview,
@@ -663,8 +662,6 @@
 						aria-busy={searching}
 					/>
 				</div>
-
-				<SettingsPersistenceHint tier="instant" detail="Adding or deleting memories" />
 
 				<div class="add-row">
 					<div class="add-row-header">

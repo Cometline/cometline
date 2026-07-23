@@ -17,6 +17,7 @@
 		onSelect,
 		onDelete,
 		onPin,
+		onRename,
 		onContextMenu
 	}: {
 		session: Session;
@@ -30,6 +31,7 @@
 		onSelect: () => void;
 		onDelete: () => void;
 		onPin: () => void;
+		onRename?: () => void;
 		onContextMenu: (event: MouseEvent) => void;
 	} = $props();
 
@@ -42,6 +44,12 @@
 		event.preventDefault();
 		onContextMenu(event);
 	}
+
+	function handleDblClick(event: MouseEvent) {
+		if (!onRename) return;
+		event.preventDefault();
+		onRename();
+	}
 </script>
 
 <div
@@ -52,7 +60,7 @@
 	role="group"
 	oncontextmenu={handleContextMenu}
 >
-	<button class="session-row" onclick={onSelect}>
+	<button class="session-row" onclick={onSelect} ondblclick={handleDblClick}>
 		<span class="session-title-row">
 			<span
 				class="session-activity"

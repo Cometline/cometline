@@ -8,7 +8,6 @@
 	import type { SkillResource } from '$lib/types';
 	import { onMount } from 'svelte';
 	import SettingsMCPPanel from './SettingsMCPPanel.svelte';
-	import SettingsPersistenceHint from './SettingsPersistenceHint.svelte';
 
 	let {
 		cometmind = $bindable(),
@@ -658,11 +657,6 @@
 					bind:value={cometmind.jobs.maxRetryCooldownMinutes}
 				/>
 			</label>
-			<SettingsPersistenceHint tier="action" detail="Job notification settings" />
-			<SettingsPersistenceHint
-				tier="pending"
-				detail="Queue / lease / reconcile fields — Save reloads CometMind in place"
-			/>
 		</div>
 
 		<div class="settings-section">
@@ -698,10 +692,6 @@
 					disabled={!cometmind.autonomy.enabled}
 				/>
 			</label>
-			<SettingsPersistenceHint
-				tier="pending"
-				detail="Included in Save changes — reloads CometMind in place"
-			/>
 		</div>
 
 		<div class="settings-section">
@@ -727,10 +717,6 @@
 					disabled={!cometmind.scheduler.enabled}
 				/>
 			</label>
-			<SettingsPersistenceHint
-				tier="pending"
-				detail="Included in Save changes — reloads CometMind in place"
-			/>
 		</div>
 
 		<div class="settings-section">
@@ -752,7 +738,6 @@
 				<p class="gateway-status" class:running={gatewayRunning}>
 					Status: {gatewayRunning ? 'Running' : 'Stopped'}
 				</p>
-				<SettingsPersistenceHint tier="instant" detail="Run Discord gateway toggle" />
 			</div>
 			<label>
 				<span>Bot Token</span>
@@ -844,10 +829,6 @@
 				<input type="checkbox" bind:checked={cometmind.gateway.discord.requireMention} />
 				<span>Require @mention in server channels</span>
 			</label>
-			<SettingsPersistenceHint
-				tier="pending"
-				detail="Included in Save changes — restarts gateway process only (serve stays up)"
-			/>
 		</div>
 	</div>
 </section>

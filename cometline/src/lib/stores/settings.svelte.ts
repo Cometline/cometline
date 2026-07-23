@@ -313,11 +313,13 @@ function createSettingsStore() {
 	async function saveConfirmCloseOnCmdW(enabled: boolean) {
 		if (settings.app.confirmCloseOnCmdW === enabled) return;
 		error = '';
+		const normalized = normalizeSettings({
+			...settings,
+			app: { ...settings.app, confirmCloseOnCmdW: enabled }
+		});
+		// Apply immediately so Always close / Don't ask again feel instant.
+		apply(normalized);
 		try {
-			const normalized = normalizeSettings({
-				...settings,
-				app: { ...settings.app, confirmCloseOnCmdW: enabled }
-			});
 			if (window.electronAPI?.saveProviderSettings) {
 				const result = await window.electronAPI.saveProviderSettings(normalized, {
 					restartCometMind: false
@@ -326,7 +328,6 @@ function createSettingsStore() {
 				return;
 			}
 			writeLocalSettings(normalized);
-			apply(normalized);
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to save close preference';
 			throw err;
@@ -336,11 +337,13 @@ function createSettingsStore() {
 	async function saveConfirmBeforeDeletingChats(enabled: boolean) {
 		if (settings.app.confirmBeforeDeletingChats === enabled) return;
 		error = '';
+		const normalized = normalizeSettings({
+			...settings,
+			app: { ...settings.app, confirmBeforeDeletingChats: enabled }
+		});
+		// Apply immediately so Don't ask again feels instant.
+		apply(normalized);
 		try {
-			const normalized = normalizeSettings({
-				...settings,
-				app: { ...settings.app, confirmBeforeDeletingChats: enabled }
-			});
 			if (window.electronAPI?.saveProviderSettings) {
 				const result = await window.electronAPI.saveProviderSettings(normalized, {
 					restartCometMind: false
@@ -349,7 +352,6 @@ function createSettingsStore() {
 				return;
 			}
 			writeLocalSettings(normalized);
-			apply(normalized);
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to save delete confirmation preference';
 			throw err;

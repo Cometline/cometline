@@ -402,6 +402,34 @@ export function matchesShortcut(
 	return true;
 }
 
+/** Modifier/key snapshot shared by DOM KeyboardEvent and Electron Input. */
+export type ReloadShortcutInput = {
+	key?: string;
+	code?: string;
+	meta?: boolean;
+	control?: boolean;
+	alt?: boolean;
+	shift?: boolean;
+	isComposing?: boolean;
+};
+
+/**
+ * Cmd+R (macOS) / Ctrl+R (elsewhere). Requires exactly one of meta/control.
+ * Bare R must never match — used for app refresh confirm.
+ */
+export function isReloadShortcut(input: ReloadShortcutInput): boolean {
+	if (input.isComposing) return false;
+	if (input.alt === true || input.shift === true) return false;
+	const hasMeta = input.meta === true;
+	const hasControl = input.control === true;
+	// Require a primary modifier first so a bare "r" can never match.
+	if (hasMeta === hasControl) return false;
+	const code = input.code ?? '';
+	const key = String(input.key ?? '').toLowerCase();
+	if (code !== 'KeyR' && key !== 'r') return false;
+	return true;
+}
+
 export function captureShortcut(event: KeyboardEvent): ShortcutBinding | null {
 	if (MODIFIER_KEYS.has(event.key)) return null;
 

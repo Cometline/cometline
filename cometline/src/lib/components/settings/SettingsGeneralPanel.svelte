@@ -1,6 +1,5 @@
 <script lang="ts">
 	import SettingsToggle from './SettingsToggle.svelte';
-	import SettingsPersistenceHint from './SettingsPersistenceHint.svelte';
 	import { runStorageBackup } from '$lib/client/cometmind';
 	import type { CometMindStorageSettings } from '$lib/settings/schema';
 
@@ -153,14 +152,12 @@
 				disabled={!window.electronAPI?.setOpenAtLogin}
 				onchange={onOpenAtLoginChange}
 			/>
-			<SettingsPersistenceHint tier="instant" />
 			<SettingsToggle
 				label="Confirm before deleting chats"
 				description="Ask for confirmation before permanently deleting a chat."
 				bind:checked={confirmBeforeDeletingChats}
 				onchange={onConfirmBeforeDeletingChatsChange}
 			/>
-			<SettingsPersistenceHint tier="instant" />
 		</div>
 
 		<div class="settings-section">
@@ -174,7 +171,6 @@
 				bind:checked={confirmCloseOnCmdW}
 				onchange={onConfirmCloseOnCmdWChange}
 			/>
-			<SettingsPersistenceHint tier="instant" />
 		</div>
 
 		<div class="settings-section">
@@ -182,7 +178,6 @@
 				<h3>Mini window</h3>
 				<p>Control when the compact window starts a fresh rolling session.</p>
 			</div>
-			<SettingsPersistenceHint tier="pending" detail="Included in Save changes" />
 			<label class="field">
 				<span>Mini window reset timeout (minutes)</span>
 				<input
@@ -208,10 +203,6 @@
 				<h3>Storage & retention</h3>
 				<p>Control how long CometMind keeps archived sessions and memory before purging.</p>
 			</div>
-			<SettingsPersistenceHint
-				tier="pending"
-				detail="Included in Save changes — reloads CometMind in place"
-			/>
 			<p class="settings-field-hint">
 				Automatic cleanup runs on a CometMind schedule. Set a retention field to 0 to
 				disable that rule. Interval changes apply on Save without restarting the sidecar.
@@ -374,10 +365,6 @@
 					skills, OAuth tokens) to a folder on your computer.
 				</p>
 			</div>
-			<SettingsPersistenceHint
-				tier="pending"
-				detail="Backup folder and schedule are included in Save changes"
-			/>
 			<p class="settings-field-hint backup-warning">
 				Backups contain API keys and OAuth tokens. Store them in a safe location.
 			</p>

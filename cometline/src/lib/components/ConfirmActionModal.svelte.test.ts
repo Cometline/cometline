@@ -103,4 +103,28 @@ describe('ConfirmActionModal', () => {
 		expect(screen.getByRole('button', { name: 'Cancel' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Terminate terminal' })).toBeTruthy();
 	});
+
+	it('shows text input when showInput is set and confirms with Enter', async () => {
+		const onConfirm = vi.fn();
+		render(ConfirmActionModal, {
+			open: true,
+			title: 'Rename session',
+			description: 'Choose a name for this chat.',
+			confirmLabel: 'Save',
+			confirmTone: 'accent',
+			showInput: true,
+			inputValue: 'Draft title',
+			inputPlaceholder: 'Untitled',
+			onCancel: vi.fn(),
+			onConfirm
+		});
+
+		const input = screen.getByRole('textbox', { name: 'Rename session' });
+		expect(input).toBeTruthy();
+		expect(input).toHaveProperty('value', 'Draft title');
+
+		await fireEvent.keyDown(window, { key: 'Enter' });
+
+		expect(onConfirm).toHaveBeenCalledOnce();
+	});
 });

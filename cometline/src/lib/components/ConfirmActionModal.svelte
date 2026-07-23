@@ -5,6 +5,11 @@
 		description,
 		confirmLabel,
 		secondaryLabel,
+		confirmTone = 'danger',
+		showInput = false,
+		inputValue = $bindable(''),
+		inputPlaceholder,
+		inputMaxLength = 200,
 		onCancel,
 		onConfirm,
 		onSecondary
@@ -14,6 +19,11 @@
 		description: string;
 		confirmLabel: string;
 		secondaryLabel?: string;
+		confirmTone?: 'danger' | 'accent';
+		showInput?: boolean;
+		inputValue?: string;
+		inputPlaceholder?: string;
+		inputMaxLength?: number;
 		onCancel: () => void;
 		onConfirm: () => void;
 		onSecondary?: () => void;
@@ -22,6 +32,11 @@
 	function openModal(dialog: HTMLDialogElement) {
 		dialog.showModal();
 		return () => dialog.close();
+	}
+
+	function focusInput(input: HTMLInputElement) {
+		input.focus();
+		input.select();
 	}
 
 	function cancel(event: Event) {
@@ -57,6 +72,17 @@
 		<img class="app-icon" src="/project_avatar_96.png" alt="" width="56" height="56" />
 		<h2 id="confirm-modal-title">{title}</h2>
 		<p id="confirm-modal-description">{description}</p>
+		{#if showInput}
+			<input
+				{@attach focusInput}
+				class="confirm-input"
+				type="text"
+				bind:value={inputValue}
+				placeholder={inputPlaceholder}
+				maxlength={inputMaxLength}
+				aria-label={title}
+			/>
+		{/if}
 		<div class="actions">
 			{#if secondaryLabel}
 				<button type="button" class="btn muted" onclick={() => onSecondary?.()}
@@ -67,7 +93,7 @@
 				Cancel
 				<span class="key-hint" aria-hidden="true">esc</span>
 			</button>
-			<button type="button" class="btn danger" onclick={onConfirm}>
+			<button type="button" class="btn {confirmTone}" onclick={onConfirm}>
 				{confirmLabel}
 				<span class="key-hint key-hint-light" aria-hidden="true">↵</span>
 			</button>
@@ -115,6 +141,25 @@
 		font-size: 13px;
 		line-height: 1.45;
 	}
+	.confirm-input {
+		display: block;
+		width: 100%;
+		box-sizing: border-box;
+		margin: 14px 0 0;
+		padding: 9px 11px;
+		border: 1px solid var(--border-soft);
+		border-radius: 10px;
+		background: var(--panel-bg, #fff);
+		color: var(--text-main);
+		font: inherit;
+		font-size: 13px;
+		line-height: 1.35;
+	}
+	.confirm-input:focus {
+		outline: none;
+		border-color: var(--accent);
+		box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent);
+	}
 	.actions {
 		display: flex;
 		align-items: center;
@@ -150,6 +195,13 @@
 	}
 	.btn.danger:hover {
 		background: #be123c;
+	}
+	.btn.accent {
+		background: var(--accent);
+		color: #fff;
+	}
+	.btn.accent:hover {
+		filter: brightness(0.92);
 	}
 	.key-hint {
 		display: inline-flex;

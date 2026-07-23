@@ -24,9 +24,7 @@
 	import PinnedGroup from '$lib/components/sidebar/PinnedGroup.svelte';
 	import DiscordGroup from '$lib/components/sidebar/DiscordGroup.svelte';
 	import WorkspaceGroup from '$lib/components/sidebar/WorkspaceGroup.svelte';
-	import DeleteConfirmDialog from '$lib/components/sidebar/DeleteConfirmDialog.svelte';
 	import ConfirmActionModal from '$lib/components/ConfirmActionModal.svelte';
-	import RenameSessionDialog from '$lib/components/sidebar/RenameSessionDialog.svelte';
 	import SessionContextMenu from '$lib/components/sidebar/SessionContextMenu.svelte';
 	import Tooltip from '$lib/components/Tooltip.svelte';
 	import { terminalStore } from '$lib/stores/terminal.svelte';
@@ -46,12 +44,11 @@
 	});
 	let deletingID = $state<string | null>(null);
 	let pinningID = $state<string | null>(null);
-	let renamingID = $state<string | null>(null);
 	let contextMenu = $state<{ session: Session; x: number; y: number } | null>(null);
 	let pendingDelete = $state<Session | null>(null);
 	let terminalDeleteSession = $state<Session | null>(null);
 	let pendingRename = $state<Session | null>(null);
-	let rememberDeleteChoice = $state(false);
+	let renameTitle = $state('');
 	let searchQuery = $state('');
 	let searchInput = $state<HTMLInputElement | null>(null);
 
@@ -84,7 +81,6 @@
 		if (terminalStore.hasTerminal(session.id)) await terminalStore.remove(session.id);
 		if (settingsStore.settings.app.confirmBeforeDeletingChats) {
 			pendingDelete = session;
-			rememberDeleteChoice = false;
 			return;
 		}
 		await deleteSelectedSession(session);
@@ -100,12 +96,15 @@
 
 	async function confirmDelete() {
 		if (!pendingDelete) return;
-		if (rememberDeleteChoice) {
-			await settingsStore.saveConfirmBeforeDeletingChats(false);
-		}
 		const session = pendingDelete;
 		pendingDelete = null;
 		await deleteSelectedSession(session);
+	}
+
+	async function alwaysDeleteWithoutConfirm() {
+		// Persist preference in the background — don't block delete on settings IPC.
+		void settingsStore.saveConfirmBeforeDeletingChats(false).catch(() => {});
+		await confirmDelete();
 	}
 
 	async function deleteSelectedSession(session: Session) {
@@ -143,6 +142,7 @@
 	}
 
 	function startRenameSession(session: Session) {
+		renameTitle = session.title || '';
 		pendingRename = session;
 	}
 
@@ -150,16 +150,11 @@
 		pendingRename = null;
 	}
 
-	async function confirmRename(title: string) {
+	async function confirmRename() {
 		if (!pendingRename) return;
-		renamingID = pendingRename.id;
-		try {
-			const updated = await updateSession(pendingRename.id, { title });
-			sessionStore.updateSession(updated);
-			pendingRename = null;
-		} finally {
-			renamingID = null;
-		}
+		const updated = await updateSession(pendingRename.id, { title: renameTitle.trim() });
+		sessionStore.updateSession(updated);
+		pendingRename = null;
 	}
 
 	let currentSessionId = $derived(page.params.id ?? null);
@@ -211,7 +206,7 @@
 <aside
 	class="sidebar"
 	class:collapsed
-	class:modal-open={Boolean(pendingDelete || terminalDeleteSession)}
+	class:modal-open={Boolean(pendingDelete || terminalDeleteSession || pendingRename)}
 	aria-hidden={collapsed}
 	data-workspace-path={orderWorkspacePath}
 >
@@ -270,6 +265,7 @@
 						onSelectSession={selectSession}
 						onDeleteSession={removeSession}
 						onPinSession={togglePinSession}
+						onRenameSession={startRenameSession}
 						onSessionContextMenu={openSessionContextMenu}
 					/>
 				</div>
@@ -340,15 +336,16 @@
 		</div>
 	</div>
 
-	{#if pendingDelete}
-		<DeleteConfirmDialog
-			session={pendingDelete}
-			deleting={deletingID === pendingDelete.id}
-			bind:rememberDeleteChoice
-			onCancel={() => (pendingDelete = null)}
-			onConfirm={confirmDelete}
-		/>
-	{/if}
+	<ConfirmActionModal
+		open={Boolean(pendingDelete)}
+		title={`Delete "${pendingDelete?.title || 'Untitled'}"?`}
+		description="This cannot be undone."
+		confirmLabel="Delete"
+		secondaryLabel="Don't ask again"
+		onSecondary={() => void alwaysDeleteWithoutConfirm()}
+		onCancel={() => (pendingDelete = null)}
+		onConfirm={() => void confirmDelete()}
+	/>
 
 	<ConfirmActionModal
 		open={Boolean(terminalDeleteSession)}
@@ -359,14 +356,19 @@
 		onConfirm={() => void confirmTerminalDelete()}
 	/>
 
-	{#if pendingRename}
-		<RenameSessionDialog
-			session={pendingRename}
-			renaming={renamingID === pendingRename.id}
-			onCancel={cancelRename}
-			onConfirm={confirmRename}
-		/>
-	{/if}
+	<ConfirmActionModal
+		open={Boolean(pendingRename)}
+		title="Rename session"
+		description="Choose a name for this chat."
+		confirmLabel="Save"
+		confirmTone="accent"
+		showInput
+		bind:inputValue={renameTitle}
+		inputPlaceholder="Untitled"
+		inputMaxLength={200}
+		onCancel={cancelRename}
+		onConfirm={() => void confirmRename()}
+	/>
 
 	{#if contextMenu}
 		{@const menu = contextMenu}

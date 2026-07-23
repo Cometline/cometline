@@ -21,6 +21,7 @@
 		onSelectSession,
 		onDeleteSession,
 		onPinSession,
+		onRenameSession,
 		onSessionContextMenu
 	}: {
 		label: string;
@@ -36,6 +37,7 @@
 		onSelectSession: (session: Session) => void;
 		onDeleteSession: (session: Session) => void;
 		onPinSession: (session: Session) => void;
+		onRenameSession: (session: Session) => void;
 		onSessionContextMenu: (session: Session, event: MouseEvent) => void;
 	} = $props();
 
@@ -109,6 +111,7 @@
 							onSelect={() => onSelectSession(session)}
 							onDelete={() => onDeleteSession(session)}
 							onPin={() => onPinSession(session)}
+							onRename={() => onRenameSession(session)}
 							onContextMenu={(event) => onSessionContextMenu(session, event)}
 						/>
 					{/each}

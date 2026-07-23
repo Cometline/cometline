@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { captureShortcut, matchesShortcut, normalizeKeyboardShortcuts } from './keyboard-shortcuts';
+import {
+	captureShortcut,
+	isReloadShortcut,
+	matchesShortcut,
+	normalizeKeyboardShortcuts
+} from './keyboard-shortcuts';
 
 function keyEvent(init: {
 	key: string;
@@ -209,5 +214,29 @@ describe('keyboard-shortcuts', () => {
 			toggleWebPanel: { command: true, alt: true, key: '∫' }
 		});
 		expect(normalized.toggleWebPanel).toEqual({ command: true, alt: true, key: 'b' });
+	});
+});
+
+describe('isReloadShortcut', () => {
+	it('rejects bare R', () => {
+		expect(isReloadShortcut({ key: 'r', code: 'KeyR' })).toBe(false);
+		expect(isReloadShortcut({ key: 'R', code: 'KeyR' })).toBe(false);
+		expect(isReloadShortcut({ key: 'r', code: 'KeyR', meta: false, control: false })).toBe(
+			false
+		);
+	});
+
+	it('accepts Cmd+R or Ctrl+R only', () => {
+		expect(isReloadShortcut({ key: 'r', code: 'KeyR', meta: true })).toBe(true);
+		expect(isReloadShortcut({ key: 'r', code: 'KeyR', control: true })).toBe(true);
+		expect(isReloadShortcut({ key: 'r', code: 'KeyR', meta: true, control: true })).toBe(false);
+	});
+
+	it('rejects Shift/Alt/composing variants', () => {
+		expect(isReloadShortcut({ key: 'r', code: 'KeyR', meta: true, shift: true })).toBe(false);
+		expect(isReloadShortcut({ key: 'r', code: 'KeyR', meta: true, alt: true })).toBe(false);
+		expect(isReloadShortcut({ key: 'r', code: 'KeyR', meta: true, isComposing: true })).toBe(
+			false
+		);
 	});
 });

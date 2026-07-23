@@ -1,8 +1,9 @@
 import { app, globalShortcut, type Event, type Input, type WebContents } from 'electron';
-import type {
-	KeyboardShortcuts,
-	ShortcutAction,
-	ShortcutBinding
+import {
+	type KeyboardShortcuts,
+	type ShortcutAction,
+	type ShortcutBinding,
+	isReloadShortcut
 } from '../../../src/lib/keyboard-shortcuts.js';
 import type { ShellWindowContext } from './runtime-context.js';
 
@@ -180,18 +181,21 @@ export function createShortcutCoordinator(dependencies: ShortcutCoordinatorDepen
 		return true;
 	}
 
-	function isReloadShortcut(input: Input) {
-		if (input.type !== 'keyDown') return false;
-		if (input.alt || input.shift) return false;
-		if (input.key?.toLowerCase() !== 'r') return false;
-		// Cmd+R on macOS, Ctrl+R elsewhere — reject when both modifiers are held.
-		if (input.meta && !input.control) return true;
-		if (input.control && !input.meta) return true;
-		return false;
-	}
-
 	function handleReloadShortcut(event: Event, input: Input) {
-		if (!isReloadShortcut(input)) return false;
+		if (input.type !== 'keyDown') return false;
+		if (
+			!isReloadShortcut({
+				key: input.key,
+				code: input.code,
+				meta: input.meta,
+				control: input.control,
+				alt: input.alt,
+				shift: input.shift,
+				isComposing: input.isComposing
+			})
+		) {
+			return false;
+		}
 		event.preventDefault();
 		routeSignals.requestReload();
 		return true;
