@@ -71,9 +71,17 @@ export interface CaretTrailSettings {
 	speed: number;
 }
 
+export type TerminalThemeId = 'cometline-dark' | 'dracula' | 'gruvbox-dark' | 'solarized-dark';
+
+export interface TerminalAppearanceSettings {
+	fontSize: number;
+	theme: TerminalThemeId;
+}
+
 export interface AppearanceSettings {
 	heroComposer: HeroComposerAppearance;
 	caretTrail: CaretTrailSettings;
+	terminal: TerminalAppearanceSettings;
 }
 
 export type ShortcutAction =

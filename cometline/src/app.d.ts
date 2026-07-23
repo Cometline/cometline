@@ -42,9 +42,17 @@ declare global {
 		speed: number;
 	}
 
+	type TerminalThemeId = 'cometline-dark' | 'dracula' | 'gruvbox-dark' | 'solarized-dark';
+
+	interface TerminalAppearanceSettings {
+		fontSize: number;
+		theme: TerminalThemeId;
+	}
+
 	interface AppearanceSettings {
 		heroComposer: HeroComposerAppearance;
 		caretTrail: CaretTrailSettings;
+		terminal: TerminalAppearanceSettings;
 	}
 
 	type ShortcutAction =

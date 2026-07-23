@@ -25,6 +25,7 @@ import {
 } from '../personas';
 import { normalizeOllamaNativeBase } from '../ollama/url';
 import { WEB_PANEL_MAX_RATIO } from '../layout/web-panel-width';
+import { DEFAULT_TERMINAL_APPEARANCE, normalizeTerminalAppearance } from '../terminal-appearance';
 
 export const VALID_PROVIDER_METHODS: ProviderMethod[] = [
 	'openai-compatible',
@@ -983,7 +984,8 @@ function normalizeCaretTrailSettings(
 function defaultAppearance(): AppearanceSettings {
 	return {
 		heroComposer: { ...DEFAULT_HERO_COMPOSER_APPEARANCE },
-		caretTrail: defaultCaretTrailSettings()
+		caretTrail: defaultCaretTrailSettings(),
+		terminal: { ...DEFAULT_TERMINAL_APPEARANCE }
 	};
 }
 
@@ -1215,7 +1217,8 @@ export function normalizeSettings(
 		defaultProviderId,
 		appearance: {
 			heroComposer: normalizeHeroComposerAppearance(next.appearance?.heroComposer),
-			caretTrail: normalizeCaretTrailSettings(next.appearance?.caretTrail)
+			caretTrail: normalizeCaretTrailSettings(next.appearance?.caretTrail),
+			terminal: normalizeTerminalAppearance(next.appearance?.terminal)
 		},
 		shortcuts: normalizeKeyboardShortcuts(next.shortcuts),
 		app: {
@@ -1308,10 +1311,9 @@ export function runtimeSlice(settings: ProviderSettings): RuntimeSettingsSlice |
 	if (!active) return null;
 
 	const model =
-		(settings.defaultModelId &&
-		active.enabledModels.includes(settings.defaultModelId)
+		settings.defaultModelId && active.enabledModels.includes(settings.defaultModelId)
 			? settings.defaultModelId
-			: primaryModel(active));
+			: primaryModel(active);
 
 	return {
 		provider: active.id,
@@ -1387,6 +1389,10 @@ const providerSettingsSchema = z.object({
 			enabled: z.boolean(),
 			intensity: z.number().min(0).max(1),
 			speed: z.number().min(0).max(1)
+		}),
+		terminal: z.object({
+			fontSize: z.number().int().min(8).max(32),
+			theme: z.enum(['cometline-dark', 'dracula', 'gruvbox-dark', 'solarized-dark'])
 		})
 	}),
 	shortcuts: z.record(z.string(), z.unknown()),

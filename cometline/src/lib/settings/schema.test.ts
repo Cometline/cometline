@@ -115,6 +115,21 @@ describe('settings schema', () => {
 		expect(defaultSettings().app.webPanelRatio).toBe(0);
 	});
 
+	it('normalizes terminal appearance for settings created before terminal preferences', () => {
+		const settings = normalizeSettings({
+			...defaultSettings(),
+			appearance: {
+				...defaultSettings().appearance,
+				terminal: undefined as never
+			}
+		});
+
+		expect(settings.appearance.terminal).toMatchObject({
+			fontSize: 12,
+			theme: 'cometline-dark'
+		});
+	});
+
 	it('normalizes webPanelWidth: floors, clamps negatives, falls back on invalid', () => {
 		const base = defaultSettings();
 		expect(

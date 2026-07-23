@@ -33,7 +33,8 @@ export function cloneSettings(settings: ProviderSettings): ProviderSettings {
 					? { ...settings.appearance.heroComposer.customPreset }
 					: undefined
 			},
-			caretTrail: { ...settings.appearance.caretTrail }
+			caretTrail: { ...settings.appearance.caretTrail },
+			terminal: { ...settings.appearance.terminal }
 		},
 		shortcuts: cloneShortcuts(settings),
 		app: {
@@ -73,7 +74,8 @@ export function providerPayloadFromDraft(draft: ProviderSettings): ProviderSetti
 					? { ...draft.appearance.heroComposer.customPreset }
 					: undefined
 			},
-			caretTrail: { ...draft.appearance.caretTrail }
+			caretTrail: { ...draft.appearance.caretTrail },
+			terminal: { ...draft.appearance.terminal }
 		},
 		shortcuts: cloneShortcuts(draft),
 		app: { ...draft.app },

@@ -45,6 +45,20 @@ describe('pending-settings', () => {
 		expect(sectionPendingDirty('shortcuts', draft, base)).toBe(false);
 	});
 
+	it('detects pending terminal appearance edits in the Appearance section', () => {
+		const base = normalizeSettings(defaultSettings());
+		const draft = normalizeSettings({
+			...base,
+			appearance: {
+				...base.appearance,
+				terminal: { ...base.appearance.terminal, fontSize: 14 }
+			}
+		});
+
+		expect(settingsPendingDirty(draft, base)).toBe(true);
+		expect(sectionPendingDirty('appearance', draft, base)).toBe(true);
+	});
+
 	it('produces stable snapshots', () => {
 		const settings = normalizeSettings(defaultSettings());
 		expect(pendingSettingsSnapshot(settings)).toBe(pendingSettingsSnapshot(settings));
