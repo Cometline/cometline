@@ -25,7 +25,7 @@ cometmind
 cometline
   Desktop shell and UI.
   Owns Electron lifecycle, CometMind sidecar startup, SvelteKit routes,
-  chat/jobs/file rendering, memory/settings/MCP UI, web panel, transitions,
+  chat/jobs/file rendering, memory/settings/MCP UI, workspace panel, transitions,
   mini windows, auto-update, and desktop assets.
 ```
 
@@ -62,7 +62,7 @@ The rule: Cometline is not the brain. CometMind is the brain. Comet SDK is only 
 | Persistence           | `cometmind/internal/db`            | SQLite workspaces, sessions, messages, tool calls, memories, gateway mappings                                               |
 | Local API             | `cometmind/server`, `openapi.yaml` | Health, sessions, transcript, stream message, abort, files, skills, skill drafts, MCP, memory, jobs                         |
 | Desktop runtime       | `cometline/electron`               | Sidecar spawn, health polling, settings IPC, updater, tray, workspace picker                                                |
-| Renderer UI           | `cometline/src`                    | SvelteKit routes, sidebar, chat thread, composer, settings modal, web panel, animations                                     |
+| Renderer UI           | `cometline/src`                    | SvelteKit routes, sidebar, chat thread, composer, settings modal, workspace panel, animations                                     |
 | Secrets               | Electron JSON settings             | MVP-only. API keys in `~/.cometmind/cometline-settings.json`; move to OS keychain before wide distribution                  |
 | Tool permission gates | Not implemented                    | CometMind executes requested tools directly; harness permission behavior is controlled by each fixed CLI profile            |
 
@@ -141,7 +141,7 @@ Exposed as `window.electronAPI` by `electron/src/preload.ts`, with its contract 
 | `getUpdateState()` / `checkForUpdates()` / `installUpdate()` / `onUpdateState()`      | Auto-update                                    |
 | `openExternal(url)`                                                                   | Open http(s)/mailto in system browser          |
 | `setShortcutCaptureActive()` / `setSessionNavigationSuspended()`                      | Pause global shortcuts                         |
-| `setWebPanelOpen()` / `onCloseWebPanel()` / `onToggleWebPanel()` / `onOpenWebPanel()` | Web panel routing                              |
+| `setWorkspacePanelOpen()` / `onCloseWorkspacePanel()` / `onToggleWorkspacePanel()` / `onOpenWebSearch()` | Workspace panel routing                              |
 | `onNavigateSession()`                                                                 | Previous/next chat from main-process shortcuts |
 
 IPC is for OS/native capabilities only. Chat, session, memory, and skill data stay on REST/SSE.
@@ -253,7 +253,7 @@ Default system prompt: packaged `SOUL.md` path is stored in `cometmind.systemPro
 6. Send a first message in a new chat; `/` should create a session, navigate to `/session/[id]`, play the flight animation, then stream the assistant reply live.
 7. Attach an image via paste or drag-drop; the user bubble should show it and the model should receive it.
 8. Type `/` in the composer; slash-command menu should appear (including `/create-skill` and discovered skills).
-9. Click an http(s) link in an assistant message; it should open in the in-app web panel.
+9. Click an http(s) link in an assistant message; it should open in the in-app workspace panel.
 10. If the API key is missing, the chat should show one clean error card — not a raw JSON blob or dangling typing bubble.
 11. Press `Command+C` during streaming; the turn should abort.
 12. Hover a session row and delete. First deletion should show the in-app confirmation sheet; "Don't ask again" should skip future confirms.

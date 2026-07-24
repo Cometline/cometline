@@ -37,7 +37,7 @@ The rule: **Cometline is not the brain.** CometMind is the brain. Comet SDK is o
 
 - Rich assistant rendering: Shiki syntax highlighting, KaTeX math, GFM tables
 - URL embed chips with favicons in composer and messages
-- In-app **web panel** (⌘⌥B / ⌘O) for http(s) links; external mailto opens in the system browser
+- In-app **workspace panel** (⌘⌥B / ⌘O) for http(s) links; external mailto opens in the system browser
 
 ### Memory
 
@@ -116,8 +116,8 @@ Default bindings (rebindable in Settings → Shortcuts):
 | Insert newline       | ⇧Enter        |
 | Focus search         | ⌘F            |
 | Previous / next chat | ⌃⌘↑ / ⌃⌘↓     |
-| Toggle web panel     | ⌘⌥B           |
-| Open web panel       | ⌘O            |
+| Toggle workspace panel     | ⌘⌥B           |
+| Open workspace panel       | ⌘O            |
 | Open git changes     | ⌘⇧G           |
 
 ---
@@ -134,7 +134,7 @@ cometline/
 │   ├── routes/           SvelteKit pages (/ and /session/[id])
 │   └── lib/
 │       ├── client/       CometMind REST/SSE client
-│       ├── components/   AppShell, ChatView, Composer, Settings*, WebPanel, ...
+│       ├── components/   AppShell, ChatView, Composer, Settings*, WorkspacePanel, ...
 │       ├── jobs/         job prompts, notifications, and board helpers
 │       ├── stores/       chat, session, settings, model, shell, runtime
 │       └── reducers/     pure SSE → chat item reducer

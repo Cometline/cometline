@@ -119,4 +119,4 @@ Good small components to follow:
 | `.pane-focus-active`     | Focused pane highlight               |
 | `.no-drag`               | Electron window drag region override |
 
-Current route surfaces include chat, jobs, skill drafts, settings, mini routes, web panel, and file preview/editor. Prefer shared tokens and panel utilities across these surfaces so the app continues to feel like one desktop product.
+Current route surfaces include chat, jobs, skill drafts, settings, mini routes, workspace panel, and file preview/editor. Prefer shared tokens and panel utilities across these surfaces so the app continues to feel like one desktop product.

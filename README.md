@@ -19,12 +19,12 @@ Pick the companion personality that fits your workflow in Settings → About. Sw
 
 - **Persona switch** — Choose between companion personas (e.g. Minako or Souma) in Settings; each persona has its own avatar, tone, and SOUL system prompt
 - **Semantic memory** — Automatically retrieves and learns context across sessions; compact, search, and re-embed when you change embedding models
-- **LLM wiki** — Persistent Karpathy-style knowledge wiki at `~/.cometmind/wiki/` (`@runtime/wiki`), with backlinks, browse/edit in the web panel, and the built-in `/llm-wiki` skill
+- **LLM wiki** — Persistent Karpathy-style knowledge wiki at `~/.cometmind/wiki/` (`@runtime/wiki`), with backlinks, browse/edit in the workspace panel, and the built-in `/llm-wiki` skill
 - **Inbox** — Agents leave short notes via `leave_inbox_message` (bell icon); reply later to internalize as memory, or dismiss
 - **Jobs and scheduling** — Track work on a Kanban-style jobs board, claim/complete leases, and materialize one-shot or cron schedules (optional autonomous worker)
 - **In-process coding + harness delegation** — Native `edit_file` / `run_command` tools with diffs in chat, spawn parallel subagents, or hand off to OpenCode / Claude Code / Codex
 - **Session terminal** — Per-session terminal panel; select output and send it into chat as context
-- **Web panel** — Browse the web, workspace file tree, and wiki side-by-side; capture page/file/terminal snippets as composer context chips (`@` mentions)
+- **Workspace panel** — Browse the web, workspace file tree, and wiki side-by-side; capture page/file/terminal snippets as composer context chips (`@` mentions)
 - **Local Ollama** — Optional private chat and embedding models via a user-installed Ollama daemon (setup wizard, health checks, model pull)
 - **Workspace isolation** — Separate chat history, sessions, tools, and memories per project; file access stays sandboxed to the active workspace
 - **Agent Skills** — Reusable prompt templates via slash commands, drafts before promotion, and overlap detection when synthesizing new skills
@@ -79,7 +79,7 @@ A compounding personal knowledge base separate from atomic memory facts:
 
 - **Persistent mount** — `@runtime/wiki/` maps to `~/.cometmind/wiki/` (not age-purged)
 - **Built-in skill** — `/llm-wiki` for ingest, query, research, and lint (Karpathy LLM Wiki pattern)
-- **Browse in UI** — list, preview, edit, and follow `[[wikilinks]]` / backlinks in the web panel and composer `@` search
+- **Browse in UI** — list, preview, edit, and follow `[[wikilinks]]` / backlinks in the workspace panel and composer `@` search
 - **Agent file tools** — read/write wiki pages through the same workspace-scoped file APIs via the runtime mount
 
 ### Inbox
@@ -118,7 +118,7 @@ Every project is a first-class workspace with its own boundary:
 - **Context chips** — attach web page, file, directory, wiki, or terminal selections before send
 - **Mini window** — compact `/mini` routes with a session drawer for quick access across workspaces
 - **Session terminal** — integrated terminal per session; selection becomes chat context
-- **Web panel** — browser + workspace/wiki file tree with preview snippets and history
+- **Workspace panel** — browser + workspace/wiki file tree with preview snippets and history
 - **Navigate history** — forward/back through panel and chat navigation
 - **Keyboard shortcuts** — remappable bindings with live tooltips on chrome buttons
 
@@ -221,7 +221,7 @@ Settings → CometMind → Storage:
 ```
 ┌─────────────────────────────────────────────────────────┐
 │  cometline    Electron + SvelteKit desktop shell        │
-│               Chat UI, settings, web panel, terminal,   │
+│               Chat UI, settings, workspace panel, terminal,   │
 │               mini window, inbox, jobs, animations      │
 ├─────────────────────────────────────────────────────────┤
 │  cometmind    Go agent runtime                          │

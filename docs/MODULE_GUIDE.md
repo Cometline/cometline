@@ -144,7 +144,7 @@ It owns:
 - chat/session UI and transitions
 - slash-command and skill UX
 - jobs board, skill draft editor, workspace file preview/editor, settings route, mini routes
-- updater, tray, workspace picker, web panel, and shortcuts
+- updater, tray, workspace picker, workspace panel, and shortcuts
 
 It must not own:
 

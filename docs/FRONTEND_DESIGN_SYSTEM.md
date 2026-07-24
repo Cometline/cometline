@@ -147,7 +147,7 @@ Global layout tokens live in `app.css`.
 Important examples:
 
 - `--sidebar-width`
-- `--web-panel-width`
+- `--workspace-panel-width`
 - `--titlebar-height`
 - `--traffic-light-gutter`
 - `--chat-thread-width`
@@ -180,7 +180,7 @@ Examples of motion-heavy components:
 - `HeroComposerFrame.svelte`
 - `IntroAnimation.svelte`
 - `ThinkingIndicator.svelte`
-- `WebPanel.svelte`
+- `WorkspacePanel.svelte`
 - `FilePreview.svelte` / `FileEditor.svelte`
 - `JobsKanbanBoard.svelte`
 - `RichComposerInput.svelte`
@@ -300,7 +300,7 @@ Rule:
 
 ### 6. More routes share the same shell tokens
 
-Current route surfaces include chat, jobs, skill drafts, settings, mini routes, web panel, and file preview/editor. These should share app-level tokens for surfaces, gutters, focus rings, and panel widths rather than creating route-specific duplicates.
+Current route surfaces include chat, jobs, skill drafts, settings, mini routes, workspace panel, and file preview/editor. These should share app-level tokens for surfaces, gutters, focus rings, and panel widths rather than creating route-specific duplicates.
 
 ## Recommended Workflow Before Frontend Changes
 
