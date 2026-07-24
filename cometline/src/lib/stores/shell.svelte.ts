@@ -19,23 +19,28 @@ import {
 	type WorkspacePanelTreeSource
 } from '$lib/workspace/workspace-panel-prefs';
 import { dirKeysToExpandForPaths } from '$lib/workspace/file-tree';
+import {
+	closeWorkspacePanel as closeWorkspacePanelState,
+	openWorkspacePanelFile,
+	replacesActiveFile,
+	type ContentSurface,
+	type SurfaceContent,
+	type SurfaceContentKey,
+	type WorkspacePanelState,
+	type WorkspacePanelSurface
+} from '$lib/workspace/workspace-panel-state';
 import { isWikiUiPath, toWikiRelative } from '$lib/wiki/paths';
 
 export type WorkspacePanelMode = 'url' | 'file' | 'git-diff';
 /** File-tree sources that keep an expansion map (not Changes). */
 export type FileTreeExpandSource = 'wiki' | 'workspace';
 /** Surfaces that can own independent open content. */
-export type SurfaceContentKey = 'wiki' | 'workspace' | 'changes' | 'web-search';
-/**
- * Inner right-sidebar surface (under the web slot).
- * Content is owned by the active surface (no separate 'content' surface).
- */
-export type ContentSurface = SurfaceContentKey;
-
-export type SurfaceContent =
-	| { mode: 'file'; filePath: string }
-	| { mode: 'git-diff'; filePath: string }
-	| { mode: 'url'; url: string };
+export type {
+	ContentSurface,
+	SurfaceContent,
+	SurfaceContentKey,
+	WorkspacePanelSurface
+} from '$lib/workspace/workspace-panel-state';
 
 /** @deprecated Prefer SurfaceContent — kept for callers that still say SessionWorkspacePanel. */
 export type SessionWorkspacePanel =
@@ -44,7 +49,6 @@ export type SessionWorkspacePanel =
 	| { mode: 'git-diff'; filePath: string; visible: boolean };
 
 export type FocusedPane = 'chat' | 'web' | 'terminal';
-export type WorkspacePanelSurface = 'web' | 'terminal';
 
 /** A page selected for the next turn whose body has not been read yet. */
 export type PendingPageContext = {
@@ -141,6 +145,7 @@ function createShellStore() {
 	/** Suppresses history recording while applying back/forward navigation. */
 	let applyingPanelHistory = false;
 	let resolvePageContext: ((source: string) => Promise<WebContext | null>) | null = null;
+	let requestWorkspacePanelLeave: (() => boolean | Promise<boolean>) | null = null;
 	let focusedPane = $state<FocusedPane>('chat');
 	let addressBarFocusRequestId = $state(0);
 	let fileTreeFilterFocusRequestId = $state(0);
@@ -163,6 +168,39 @@ function createShellStore() {
 		const key = panelSessionKey();
 		if (!key) return 'web';
 		return workspacePanelSurfaceBySession[key] ?? 'web';
+	}
+
+	function panelStateFor(sessionId: string): WorkspacePanelState {
+		return {
+			visible: workspacePanelVisibleBySession[sessionId] === true,
+			surface: workspacePanelSurfaceBySession[sessionId] ?? 'web',
+			terminalVisible: terminalPanelsBySession[sessionId] === true,
+			contentSurface: contentSurfaceFor(sessionId),
+			content: contentBySessionSurface[sessionId] ?? {}
+		};
+	}
+
+	function applyPanelState(sessionId: string, state: WorkspacePanelState) {
+		workspacePanelVisibleBySession = {
+			...workspacePanelVisibleBySession,
+			[sessionId]: state.visible
+		};
+		terminalPanelsBySession = {
+			...terminalPanelsBySession,
+			[sessionId]: state.terminalVisible
+		};
+		workspacePanelSurfaceBySession = {
+			...workspacePanelSurfaceBySession,
+			[sessionId]: state.surface
+		};
+		contentSurfaceBySession = {
+			...contentSurfaceBySession,
+			[sessionId]: state.contentSurface
+		};
+		contentBySessionSurface = {
+			...contentBySessionSurface,
+			[sessionId]: state.content
+		};
 	}
 
 	function workspacePanelOpenForActiveSession() {
@@ -278,45 +316,8 @@ function createShellStore() {
 	}
 
 	/** Toolbar order used when Cmd+W walks remaining content dots. */
-	const SURFACE_CLOSE_ORDER: SurfaceContentKey[] = [
-		'wiki',
-		'workspace',
-		'web-search',
-		'changes'
-	];
-
-	/** Next surface (after `current`) that still owns open content, or null. */
-	function nextSurfaceWithContent(
-		sessionId: string,
-		current: SurfaceContentKey
-	): SurfaceContentKey | null {
-		const start = SURFACE_CLOSE_ORDER.indexOf(current);
-		if (start < 0) return null;
-		for (let i = 1; i < SURFACE_CLOSE_ORDER.length; i++) {
-			const candidate = SURFACE_CLOSE_ORDER[(start + i) % SURFACE_CLOSE_ORDER.length];
-			if (contentFor(sessionId, candidate)) return candidate;
-		}
-		return null;
-	}
-
-	function activateWebSurface(sessionId: string, surface: SurfaceContentKey) {
-		workspacePanelSurfaceBySession = {
-			...workspacePanelSurfaceBySession,
-			[sessionId]: 'web'
-		};
-		ensureWorkspacePanelVisible(sessionId);
-		setContentSurfaceForSession(sessionId, surface);
-		focusedPane = 'web';
-		syncWorkspacePanelOpen(true);
-	}
-
 	function ensureWorkspacePanelVisible(sessionId: string) {
 		workspacePanelVisibleBySession = { ...workspacePanelVisibleBySession, [sessionId]: true };
-	}
-
-	function softHideWorkspacePanel(sessionId: string) {
-		if (!(sessionId in workspacePanelVisibleBySession)) return;
-		workspacePanelVisibleBySession = { ...workspacePanelVisibleBySession, [sessionId]: false };
 	}
 
 	function hasWorkspacePanelSession(sessionId: string): boolean {
@@ -803,6 +804,12 @@ function createShellStore() {
 				if (resolvePageContext === resolver) resolvePageContext = null;
 			};
 		},
+		registerWorkspacePanelLeaveGuard(guard: () => boolean | Promise<boolean>) {
+			requestWorkspacePanelLeave = guard;
+			return () => {
+				if (requestWorkspacePanelLeave === guard) requestWorkspacePanelLeave = null;
+			};
+		},
 		async resolvePendingWebContextsForActive(): Promise<WebContext[]> {
 			const key = panelSessionKey();
 			const contexts = key ? [...(webContextsBySession[key] ?? [])] : [];
@@ -869,20 +876,25 @@ function createShellStore() {
 			focusedPane = 'web';
 			syncWorkspacePanelOpen(true);
 		},
-		openFilePreview(filePath: string, sessionId: string) {
+		async openFilePreview(filePath: string, sessionId: string) {
 			const owner = ownerSurfaceForFile(filePath);
+			const current = panelStateFor(sessionId);
+			const nextContent: SurfaceContent = { mode: 'file', filePath };
+			if (
+				replacesActiveFile(current, owner, nextContent) &&
+				requestWorkspacePanelLeave &&
+				!(await requestWorkspacePanelLeave())
+			) {
+				return false;
+			}
+
 			const relative = isWikiUiPath(filePath) ? toWikiRelative(filePath) : filePath;
 			expandFileTreeToRelativePath(sessionId, owner, relative);
-			workspacePanelSurfaceBySession = {
-				...workspacePanelSurfaceBySession,
-				[sessionId]: 'web'
-			};
-			ensureWorkspacePanelVisible(sessionId);
-			setContentSurfaceForSession(sessionId, owner);
-			setContentFor(sessionId, owner, { mode: 'file', filePath });
+			applyPanelState(sessionId, openWorkspacePanelFile(current, owner, filePath));
 			recordPanelHistory(sessionId, owner, { kind: 'file', path: filePath });
 			focusedPane = 'web';
 			syncWorkspacePanelOpen(true);
+			return true;
 		},
 		openGitDiff(filePath: string, sessionId: string) {
 			workspacePanelSurfaceBySession = {
@@ -1078,19 +1090,21 @@ function createShellStore() {
 				syncWorkspacePanelOpen(false);
 				return;
 			}
-			if (activeWorkspacePanelSurface() === 'terminal') {
+			const current = panelStateFor(sessionId);
+			const next = closeWorkspacePanelState(current);
+			if (current.surface === 'terminal') {
 				// Terminal soft-hide only — leave web surface content (dots) intact.
-				terminalPanelsBySession = { ...terminalPanelsBySession, [sessionId]: false };
+				applyPanelState(sessionId, next);
 				this.requestComposerFocus();
 				syncWorkspacePanelOpen(false);
 				return;
 			}
 
-			const surface = contentSurfaceFor(sessionId);
-			const content = contentFor(sessionId, surface);
+			const surface = current.contentSurface;
+			const content = current.content[surface] ?? null;
 			if (content) {
 				// 1) Dismiss open file/page on this surface → back to browse/search.
-				setContentFor(sessionId, surface, null);
+				applyPanelState(sessionId, next);
 				if (surface === 'wiki' || surface === 'workspace') {
 					recordPanelHistory(sessionId, surface, { kind: 'browse', source: surface });
 					this.requestFileTreeFilterFocus();
@@ -1105,14 +1119,15 @@ function createShellStore() {
 			}
 
 			// 2) Surface already at browse/search — jump to another surface that still has a content dot.
-			const next = nextSurfaceWithContent(sessionId, surface);
-			if (next) {
-				activateWebSurface(sessionId, next);
+			if (next.contentSurface !== surface) {
+				applyPanelState(sessionId, next);
+				focusedPane = 'web';
+				syncWorkspacePanelOpen(true);
 				return;
 			}
 
 			// 3) No remaining content dots — soft-hide sidebar (keep trees/history).
-			softHideWorkspacePanel(sessionId);
+			applyPanelState(sessionId, next);
 			this.requestComposerFocus();
 			syncWorkspacePanelOpen(false);
 		},
@@ -1166,8 +1181,8 @@ function createShellStore() {
 		/** Opens a workspace file in the panel for the active session. */
 		openFilePreviewForActive(filePath: string) {
 			const sessionId = panelSessionKey();
-			if (!sessionId) return;
-			this.openFilePreview(filePath, sessionId);
+			if (!sessionId) return Promise.resolve(false);
+			return this.openFilePreview(filePath, sessionId);
 		},
 		openGitDiffForActive(filePath: string) {
 			const sessionId = panelSessionKey();

@@ -183,6 +183,23 @@ describe('shellStore workspace panel focus behavior', () => {
 		shellStore.clearWorkspacePanelForSession('sess-1');
 	});
 
+	it('keeps the active file when its leave guard rejects navigation', async () => {
+		await shellStore.openFilePreviewForActive('src/app.ts');
+		const leaveGuard = vi.fn(async () => false);
+		const unregister = shellStore.registerWorkspacePanelLeaveGuard(leaveGuard);
+
+		await expect(shellStore.openFilePreviewForActive('src/main.ts')).resolves.toBe(false);
+		expect(leaveGuard).toHaveBeenCalledOnce();
+		expect(shellStore.workspacePanelFilePath).toBe('src/app.ts');
+		expect(shellStore.getSurfaceContent('workspace')).toEqual({
+			mode: 'file',
+			filePath: 'src/app.ts'
+		});
+
+		unregister();
+		shellStore.clearWorkspacePanelForSession('sess-1');
+	});
+
 	it('tracks browse → file history and restores browse on back', () => {
 		shellStore.openWorkspacePanelBrowse();
 		expect(shellStore.workspacePanelBrowseOpen).toBe(true);
