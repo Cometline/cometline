@@ -49,6 +49,7 @@
 			!(item.images?.length) &&
 			!(item.id === context.streamingAssistantId && context.sessionStreaming)
 	);
+
 </script>
 
 <div class="assistant-stack">
@@ -75,19 +76,21 @@
 		{/each}
 	{/if}
 	{#if item.images?.length}
-		<div class="bubble assistant-bubble assistant-images">
-			{#each item.images as image, imageIndex (`${item.id}-image-${image.id ?? imageIndex}`)}
-				{@const src = resolveImageSrc(image, context.sessionId)}
-				{@const alt = image.alt ?? image.name ?? 'Presented image'}
-				<button
-					type="button"
-					class="image-open"
-					aria-label={`View ${alt}`}
-					onclick={() => (lightbox = { src, alt })}
-				>
-					<img {src} {alt} />
-				</button>
-			{/each}
+		<div class="assistant-image-gallery" class:single-image={item.images.length === 1}>
+			<div class="assistant-images scrollbar-none">
+				{#each item.images as image, imageIndex (`${item.id}-image-${image.id ?? imageIndex}`)}
+					{@const src = resolveImageSrc(image, context.sessionId)}
+					{@const alt = image.alt ?? image.name ?? 'Presented image'}
+					<button
+						type="button"
+						class="bubble assistant-bubble image-open"
+						aria-label={`View ${alt}`}
+						onclick={() => (lightbox = { src, alt })}
+					>
+						<img {src} {alt} />
+					</button>
+				{/each}
+			</div>
 		</div>
 	{/if}
 	{#if item.text.trim()}
@@ -201,39 +204,62 @@
 		opacity: 1;
 	}
 
-	.bubble.assistant-images {
-		/* Shrink-wrap to the image’s used box — never stretch to the column. */
-		display: inline-flex;
-		flex-wrap: wrap;
-		gap: 8px;
-		width: max-content;
+	.assistant-image-gallery {
+		width: min(680px, 100%);
 		max-width: 100%;
-		padding: 0;
-		overflow: hidden;
-		white-space: normal;
-		line-height: 0;
 		align-self: flex-start;
+	}
+
+	.assistant-images {
+		display: flex;
+		gap: 8px;
+		width: 100%;
+		overflow-x: auto;
+		overflow-y: hidden;
+		scroll-snap-type: x mandatory;
+		scroll-behavior: smooth;
+	}
+
+	.assistant-image-gallery.single-image {
+		width: fit-content;
+	}
+
+	.single-image .assistant-images {
+		overflow: visible;
 	}
 
 	.image-open {
 		display: block;
-		width: max-content;
-		max-width: 100%;
+		flex: 0 0 min(280px, 78%);
+		width: 100%;
 		margin: 0;
 		padding: 0;
-		border: none;
-		background: transparent;
 		line-height: 0;
 		cursor: zoom-in;
-		border-radius: inherit;
+		overflow: hidden;
+		aspect-ratio: 4 / 3;
+		scroll-snap-align: start;
+	}
+
+	.single-image .image-open {
+		flex-basis: auto;
+		width: fit-content;
+		max-width: 100%;
+		aspect-ratio: auto;
 	}
 
 	.image-open img {
 		display: block;
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+
+	.single-image .image-open img {
 		width: auto;
 		height: auto;
 		/* Prefer cqi (assistant-stack width) over % — % fights fit-content and
-		 * Tailwind preflight’s img{max-width:100%} expands the bubble after load. */
+		 * Tailwind preflight's img{max-width:100%} expands the bubble after load. */
 		max-width: min(420px, 100cqi);
 		max-height: 360px;
 		object-fit: contain;
