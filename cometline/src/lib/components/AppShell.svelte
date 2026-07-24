@@ -171,6 +171,12 @@
 			case 'openGitPanel':
 				shellStore.openGitChangesPanel();
 				return;
+			case 'openWikiPanel':
+				shellStore.setWebPanelBrowseSource('wiki');
+				return;
+			case 'openWorkspacePanel':
+				shellStore.setWebPanelBrowseSource('workspace');
+				return;
 			case 'openFileSearch':
 				if (shellStore.settingsOpen) return;
 				fileSearchOpen = true;
@@ -313,6 +319,16 @@
 			if (matchesShortcut(event, shortcuts.openGitPanel)) {
 				event.preventDefault();
 				runShortcutAction('openGitPanel');
+				return;
+			}
+			if (matchesShortcut(event, shortcuts.openWikiPanel)) {
+				event.preventDefault();
+				runShortcutAction('openWikiPanel');
+				return;
+			}
+			if (matchesShortcut(event, shortcuts.openWorkspacePanel)) {
+				event.preventDefault();
+				runShortcutAction('openWorkspacePanel');
 				return;
 			}
 			if (matchesShortcut(event, shortcuts.openFileSearch)) {

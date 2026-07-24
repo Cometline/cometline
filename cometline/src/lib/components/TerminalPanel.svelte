@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Globe, Play, Power, SquareTerminal, X } from '@lucide/svelte';
+	import { Play, Power, Search, SquareTerminal, X } from '@lucide/svelte';
 	import ConfirmActionModal from '$lib/components/ConfirmActionModal.svelte';
 	import TerminalInstance from '$lib/components/TerminalInstance.svelte';
 	import Tooltip from '$lib/components/Tooltip.svelte';
@@ -55,14 +55,14 @@
 	>
 		<header class="terminal-panel-toolbar">
 			<div class="surface-switcher" role="group" aria-label="Workspace panel surface">
-				<Tooltip label="Web" action="openWebPanel">
+				<Tooltip label="Web search" action="openWebPanel">
 					<button
 						type="button"
 						class="icon-button"
-						onclick={() => shellStore.openWebPanelFromShortcut()}
-						aria-label="Open web panel"
+						onclick={() => shellStore.openWebSearchPanel()}
+						aria-label="Open web search"
 					>
-						<Globe size={16} />
+						<Search size={16} />
 					</button>
 				</Tooltip>
 				<Tooltip label="Terminal" action="openTerminal">

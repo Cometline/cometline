@@ -281,6 +281,8 @@ export function createShortcutCoordinator(dependencies: ShortcutCoordinatorDepen
 			'toggleSidebar',
 			'openWebPanel',
 			'openGitPanel',
+			'openWikiPanel',
+			'openWorkspacePanel',
 			'openFileSearch',
 			'openTerminal',
 			'toggleWebPanel',

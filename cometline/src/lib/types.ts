@@ -99,6 +99,8 @@ export type ShortcutAction =
 	| 'toggleWebPanel'
 	| 'openWebPanel'
 	| 'openGitPanel'
+	| 'openWikiPanel'
+	| 'openWorkspacePanel'
 	| 'openFileSearch'
 	| 'openTerminal'
 	| 'navigateBack'

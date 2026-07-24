@@ -391,6 +391,10 @@ function createShellStore() {
 		get gitChangesOpenRequestId() {
 			return gitChangesOpenRequestId;
 		},
+		/** Last ⌘O target while browsing: filter vs web address. */
+		get lastWebPanelFocusTarget(): 'filter' | 'address' {
+			return lastWebPanelFocusTarget;
+		},
 		get terminalFocusRequestId() {
 			return terminalFocusRequestId;
 		},
@@ -664,11 +668,27 @@ function createShellStore() {
 			if (!sessionId) return;
 			const panel = panelForActiveSession();
 			const onBrowse = Boolean(panel?.visible && panel.mode === 'url' && !panel.url);
-			if (onBrowse && browseSourceFor(sessionId) === source) return;
+			if (onBrowse && browseSourceFor(sessionId) === source) {
+				// Same tab, but still leave Terminal (or other surface) for the web panel.
+				workspacePanelSurfaceBySession = {
+					...workspacePanelSurfaceBySession,
+					[sessionId]: 'web'
+				};
+				focusedPane = 'web';
+				syncWorkspacePanelOpen(true);
+				this.requestFileTreeFilterFocus();
+				return;
+			}
 			if (onBrowse) {
 				setBrowseSourceForSession(sessionId, source);
 				recordPanelHistory(sessionId, { kind: 'browse', source });
+				workspacePanelSurfaceBySession = {
+					...workspacePanelSurfaceBySession,
+					[sessionId]: 'web'
+				};
 				focusedPane = 'web';
+				syncWorkspacePanelOpen(true);
+				this.requestFileTreeFilterFocus();
 				return;
 			}
 			// Opening or leaving file/url/diff into a specific browse tab.
@@ -755,24 +775,18 @@ function createShellStore() {
 			lastWebPanelFocusTarget = 'address';
 			addressBarFocusRequestId += 1;
 		},
-		openWebPanelFromShortcut() {
-			const panel = panelForActiveSession();
-			if (!panel) {
-				this.openWebPanelEmpty();
-				return;
-			}
-			const visible = this.ensureWebPanelVisible();
-			if (!visible) return;
-			const browse = visible.mode === 'url' && !visible.url;
-			if (browse) {
-				if (lastWebPanelFocusTarget === 'address') {
-					this.requestFileTreeFilterFocus();
-				} else {
-					this.requestAddressBarFocus();
-				}
-				return;
+		/** ⌘O: open the right sidebar on web search (address bar). */
+		openWebSearchPanel() {
+			const sessionId = panelSessionKey();
+			if (!sessionId) return;
+			if (!panelForActiveSession()) {
+				openBrowseSurface(sessionId, browseSourceFor(sessionId));
 			}
 			this.requestAddressBarFocus();
+		},
+		/** @deprecated Use openWebSearchPanel — kept as the ⌘O action id wiring. */
+		openWebPanelFromShortcut() {
+			this.openWebSearchPanel();
 		},
 		/** Open the web panel browse surface on the Git Changes tab (⌘⇧G). */
 		openGitChangesPanel() {

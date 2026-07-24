@@ -14,7 +14,7 @@ import (
 
 const (
 	DefaultLimit = 50
-	MaxLimit     = 500
+	MaxLimit     = 10000
 )
 
 var defaultSkippedDirs = map[string]bool{

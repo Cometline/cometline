@@ -28,7 +28,11 @@
 	let loadSeq = 0;
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
-	const source = $derived(settingsStore.settings.app.fileSearchSource);
+	const browseSource = $derived(shellStore.webPanelBrowseSource);
+	const source = $derived.by((): FileSearchSource => {
+		if (browseSource === 'wiki' || browseSource === 'workspace') return browseSource;
+		return settingsStore.settings.app.fileSearchSource;
+	});
 	const workspacePath = $derived(normalizeWorkspacePath(shellStore.workspacePath));
 	const workspaceAvailable = $derived(Boolean(workspacePath && workspacePath !== '/'));
 
@@ -61,6 +65,7 @@
 	function setSource(next: FileSearchSource) {
 		if (next === 'workspace' && !workspaceAvailable) return;
 		void settingsStore.saveFileSearchSource(next);
+		shellStore.setWebPanelBrowseSource(next);
 	}
 
 	function close() {
@@ -200,7 +205,7 @@
 			<input
 				{@attach focusInput}
 				class="file-search-input"
-				type="search"
+				type="text"
 				placeholder={source === 'wiki' ? 'Search wiki files…' : 'Search workspace files…'}
 				bind:value={query}
 				aria-label="Search files"

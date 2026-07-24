@@ -102,17 +102,43 @@ describe('shellStore web panel focus behavior', () => {
 		shellStore.clearWebPanelForSession('sess-1');
 	});
 
-	it('cycles ⌘O focus between filter and address while browsing', () => {
+	it('⌘O opens web search (address focus)', () => {
 		shellStore.openWebPanelEmpty();
-		const filterAfterOpen = shellStore.fileTreeFilterFocusRequestId;
-		const addressAfterOpen = shellStore.addressBarFocusRequestId;
+		expect(shellStore.lastWebPanelFocusTarget).toBe('filter');
 
 		shellStore.openWebPanelFromShortcut();
-		expect(shellStore.addressBarFocusRequestId).toBe(addressAfterOpen + 1);
-		expect(shellStore.fileTreeFilterFocusRequestId).toBe(filterAfterOpen);
+		expect(shellStore.lastWebPanelFocusTarget).toBe('address');
+		expect(shellStore.workspacePanelSurface).toBe('web');
 
-		shellStore.openWebPanelFromShortcut();
-		expect(shellStore.fileTreeFilterFocusRequestId).toBe(filterAfterOpen + 1);
+		shellStore.clearWebPanelForSession('sess-1');
+	});
+
+	it('openWebSearchPanel switches from terminal surface to web address', () => {
+		shellStore.openWebPanelEmpty();
+		shellStore.requestTerminalFocus();
+		expect(shellStore.workspacePanelSurface).toBe('terminal');
+
+		shellStore.openWebSearchPanel();
+		expect(shellStore.workspacePanelSurface).toBe('web');
+		expect(shellStore.lastWebPanelFocusTarget).toBe('address');
+
+		shellStore.clearWebPanelForSession('sess-1');
+	});
+
+	it('wiki/workspace shortcuts leave the terminal surface', () => {
+		shellStore.openWebPanelEmpty();
+		shellStore.requestTerminalFocus();
+		expect(shellStore.workspacePanelSurface).toBe('terminal');
+
+		shellStore.setWebPanelBrowseSource('wiki');
+		expect(shellStore.workspacePanelSurface).toBe('web');
+		expect(shellStore.webPanelBrowseSource).toBe('wiki');
+		expect(shellStore.lastWebPanelFocusTarget).toBe('filter');
+
+		shellStore.requestTerminalFocus();
+		shellStore.setWebPanelBrowseSource('workspace');
+		expect(shellStore.workspacePanelSurface).toBe('web');
+		expect(shellStore.webPanelBrowseSource).toBe('workspace');
 
 		shellStore.clearWebPanelForSession('sess-1');
 	});

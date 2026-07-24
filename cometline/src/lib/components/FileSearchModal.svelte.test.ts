@@ -5,11 +5,15 @@ import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 const {
 	openFilePreviewForActive,
 	saveFileSearchSource,
-	loadFileSearchOptions
+	setWebPanelBrowseSource,
+	loadFileSearchOptions,
+	browseSource
 } = vi.hoisted(() => ({
 	openFilePreviewForActive: vi.fn(),
 	saveFileSearchSource: vi.fn(async () => {}),
-	loadFileSearchOptions: vi.fn(async () => ['src/app.ts', 'src/lib/foo.ts'])
+	setWebPanelBrowseSource: vi.fn(),
+	loadFileSearchOptions: vi.fn(async () => ['src/app.ts', 'src/lib/foo.ts']),
+	browseSource: { value: 'changes' as 'wiki' | 'workspace' | 'changes' }
 }));
 
 vi.mock('$lib/stores/shell.svelte', () => ({
@@ -17,7 +21,11 @@ vi.mock('$lib/stores/shell.svelte', () => ({
 		get workspacePath() {
 			return '/repo';
 		},
-		openFilePreviewForActive
+		get webPanelBrowseSource() {
+			return browseSource.value;
+		},
+		openFilePreviewForActive,
+		setWebPanelBrowseSource
 	}
 }));
 
@@ -44,9 +52,11 @@ const showModal = vi.fn(function (this: HTMLDialogElement) {
 
 describe('FileSearchModal', () => {
 	beforeEach(() => {
+		browseSource.value = 'changes';
 		showModal.mockClear();
 		openFilePreviewForActive.mockClear();
 		saveFileSearchSource.mockClear();
+		setWebPanelBrowseSource.mockClear();
 		loadFileSearchOptions.mockClear();
 		loadFileSearchOptions.mockResolvedValue(['src/app.ts', 'src/lib/foo.ts']);
 		Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
@@ -88,10 +98,24 @@ describe('FileSearchModal', () => {
 		expect(onClose).toHaveBeenCalledOnce();
 	});
 
-	it('persists the wiki/workspace toggle preference', async () => {
+	it('persists the wiki/workspace toggle preference and syncs browse source', async () => {
 		render(FileSearchModal, { open: true, onClose: () => {} });
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Wiki' }));
 		expect(saveFileSearchSource).toHaveBeenCalledWith('wiki');
+		expect(setWebPanelBrowseSource).toHaveBeenCalledWith('wiki');
+	});
+
+	it('prefers panel browse source over settings fileSearchSource', async () => {
+		browseSource.value = 'wiki';
+		render(FileSearchModal, { open: true, onClose: () => {} });
+
+		await waitFor(() => {
+			expect(loadFileSearchOptions).toHaveBeenCalled();
+		});
+		const lastCall = loadFileSearchOptions.mock.calls.at(-1) as unknown as
+			| [string, ...unknown[]]
+			| undefined;
+		expect(lastCall?.[0]).toBe('wiki');
 	});
 });

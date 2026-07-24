@@ -70,6 +70,8 @@ declare global {
 		| 'toggleWebPanel'
 		| 'openWebPanel'
 		| 'openGitPanel'
+		| 'openWikiPanel'
+		| 'openWorkspacePanel'
 		| 'openFileSearch'
 		| 'openTerminal'
 		| 'navigateBack'

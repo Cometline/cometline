@@ -1,34 +1,38 @@
 <script lang="ts">
-	import { ChevronDown, ChevronRight, Folder, FolderOpen, Loader } from '@lucide/svelte';
 	import { tick } from 'svelte';
+	import { ChevronDown, ChevronRight, Folder, FolderOpen, Loader } from '@lucide/svelte';
 	import { listWikiFiles, listWorkspaceFiles } from '$lib/client/cometmind';
 	import FileTypeIcon from '$lib/components/FileTypeIcon.svelte';
 	import GitChangesBrowser from '$lib/components/GitChangesBrowser.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { toWikiUiPath } from '$lib/wiki/paths';
-	import { buildFileTree, dirKeysToExpandForPaths, type FileTreeNode } from '$lib/workspace/file-tree';
-	import { type WebPanelTreeSource } from '$lib/workspace/web-panel-prefs';
+	import {
+		buildFileTree,
+		dirKeysToExpandForPaths,
+		flattenVisibleFileTreeRows,
+		type FileTreeNode
+	} from '$lib/workspace/file-tree';
 	import { normalizeWorkspacePath } from '$lib/workspace/file-index';
 
-	const LIST_LIMIT = 500;
+	const LIST_LIMIT = 10000;
 
 	let {
 		workspacePath,
-		onSelectFile
+		onSelectFile,
+		filter = $bindable('')
 	}: {
 		workspacePath: string;
 		onSelectFile: (path: string) => void;
+		filter?: string;
 	} = $props();
 
-	let filter = $state('');
 	let loading = $state(false);
 	let error = $state<string | null>(null);
-	let truncated = $state(false);
 	let files = $state<string[]>([]);
 	let expanded = $state<Record<string, boolean>>({});
+	let selectedKey = $state<string | null>(null);
 	let loadSeq = 0;
-	let filterInputEl = $state<HTMLInputElement | null>(null);
-	let satisfiedFilterFocusRequestId = 0;
+	let browserEl = $state<HTMLDivElement | null>(null);
 
 	const source = $derived(shellStore.webPanelBrowseSource);
 	const normalizedWorkspace = $derived(normalizeWorkspacePath(workspacePath));
@@ -36,18 +40,19 @@
 		Boolean(normalizedWorkspace && normalizedWorkspace !== '/')
 	);
 	const tree = $derived(buildFileTree(files));
-	const showFileTree = $derived(source === 'wiki' || source === 'workspace');
-
-	function setSource(next: WebPanelTreeSource) {
-		if ((next === 'workspace' || next === 'changes') && !workspaceAvailable) return;
-		// Records panel history so ←/→ moves between Wiki / Workspace / Changes.
-		shellStore.setWebPanelBrowseSource(next);
-	}
+	const visibleRows = $derived(flattenVisibleFileTreeRows(tree, expanded));
 
 	function persistExpanded(next: Record<string, boolean>) {
 		if (source === 'wiki' || source === 'workspace') {
 			shellStore.setFileTreeExpanded(source, next);
 		}
+	}
+
+	function setDirExpanded(key: string, nextExpanded: boolean) {
+		if ((expanded[key] ?? false) === nextExpanded) return;
+		const next = { ...expanded, [key]: nextExpanded };
+		expanded = next;
+		persistExpanded(next);
 	}
 
 	function toggleDir(key: string) {
@@ -78,12 +83,95 @@
 		onSelectFile(relativePath);
 	}
 
+	async function scrollSelectedIntoView() {
+		const key = selectedKey;
+		if (!key || !browserEl) return;
+		await tick();
+		const el = browserEl.querySelector(`[data-tree-key="${CSS.escape(key)}"]`);
+		el?.scrollIntoView({ block: 'nearest' });
+	}
+
+	export function moveSelection(delta: number): boolean {
+		if (source === 'changes' || visibleRows.length === 0) return false;
+		const currentIndex = selectedKey
+			? visibleRows.findIndex((row) => row.key === selectedKey)
+			: -1;
+		let nextIndex: number;
+		if (currentIndex < 0) {
+			nextIndex = delta > 0 ? 0 : visibleRows.length - 1;
+		} else {
+			nextIndex = Math.max(0, Math.min(visibleRows.length - 1, currentIndex + delta));
+		}
+		selectedKey = visibleRows[nextIndex]!.key;
+		void scrollSelectedIntoView();
+		return true;
+	}
+
+	export function activateSelection(): boolean {
+		if (source === 'changes') return false;
+		const row = visibleRows.find((r) => r.key === selectedKey);
+		if (!row) return false;
+		if (row.kind === 'file') {
+			selectRelative(row.path);
+			return true;
+		}
+		toggleDir(row.key);
+		return true;
+	}
+
+	export function handleTreeKey(event: KeyboardEvent): boolean {
+		if (source === 'changes') return false;
+
+		switch (event.key) {
+			case 'ArrowDown': {
+				if (!moveSelection(1)) return false;
+				event.preventDefault();
+				return true;
+			}
+			case 'ArrowUp': {
+				if (!moveSelection(-1)) return false;
+				event.preventDefault();
+				return true;
+			}
+			case 'Enter': {
+				if (!activateSelection()) return false;
+				event.preventDefault();
+				return true;
+			}
+			case 'ArrowRight': {
+				const row = visibleRows.find((r) => r.key === selectedKey);
+				if (!row || row.kind !== 'dir' || isExpanded(row.key)) return false;
+				setDirExpanded(row.key, true);
+				event.preventDefault();
+				return true;
+			}
+			case 'ArrowLeft': {
+				const row = visibleRows.find((r) => r.key === selectedKey);
+				if (!row) return false;
+				if (row.kind === 'dir' && isExpanded(row.key)) {
+					setDirExpanded(row.key, false);
+					event.preventDefault();
+					return true;
+				}
+				const slash = row.key.lastIndexOf('/');
+				if (slash < 0) return false;
+				const parentKey = row.key.slice(0, slash);
+				if (!visibleRows.some((r) => r.key === parentKey)) return false;
+				selectedKey = parentKey;
+				void scrollSelectedIntoView();
+				event.preventDefault();
+				return true;
+			}
+			default:
+				return false;
+		}
+	}
+
 	async function loadFiles() {
 		const seq = ++loadSeq;
 		const activeSource = source;
 		if (activeSource === 'changes') {
 			files = [];
-			truncated = false;
 			loading = false;
 			error = null;
 			return;
@@ -94,7 +182,6 @@
 
 		if (activeSource === 'workspace' && !workspaceAvailable) {
 			files = [];
-			truncated = false;
 			// Keep expansion map in the store; local view is empty until a workspace exists.
 			expanded = {};
 			loading = false;
@@ -108,7 +195,6 @@
 					: await listWorkspaceFiles(normalizedWorkspace, query, LIST_LIMIT);
 			if (seq !== loadSeq) return;
 			files = result.files;
-			truncated = result.truncated;
 			if (query) {
 				// Filter mode: expand matches only (do not overwrite the stored map).
 				expanded = dirKeysToExpandForPaths(files);
@@ -121,7 +207,6 @@
 		} catch (err) {
 			if (seq !== loadSeq) return;
 			files = [];
-			truncated = false;
 			if (!query && (activeSource === 'wiki' || activeSource === 'workspace')) {
 				expanded = { ...shellStore.getFileTreeExpanded(activeSource) };
 			} else if (!query) {
@@ -133,44 +218,23 @@
 		}
 	}
 
-	function applyFilterFocus() {
-		const requestId = shellStore.fileTreeFilterFocusRequestId;
-		if (!requestId || requestId === satisfiedFilterFocusRequestId) return;
-		const el = filterInputEl;
-		if (!el) return;
-		satisfiedFilterFocusRequestId = requestId;
-		focusFilter();
-	}
-
-	export function focusFilter() {
-		const el = filterInputEl;
-		if (!el) return;
-		shellStore.setFocusedPane('web');
-		el.focus({ preventScroll: true });
-		el.select();
-	}
-
-	function trackFilterInput(node: HTMLInputElement) {
-		filterInputEl = node;
-		applyFilterFocus();
-		return {
-			destroy() {
-				if (filterInputEl === node) filterInputEl = null;
-			}
-		};
-	}
-
 	$effect(() => {
 		void [source, filter, normalizedWorkspace];
 		void loadFiles();
 	});
 
 	$effect(() => {
-		const requestId = shellStore.fileTreeFilterFocusRequestId;
-		if (!requestId) return;
-		void tick().then(applyFilterFocus);
+		const rows = visibleRows;
+		void filter;
+		void source;
+		if (source === 'changes' || rows.length === 0) {
+			selectedKey = null;
+			return;
+		}
+		if (!selectedKey || !rows.some((row) => row.key === selectedKey)) {
+			selectedKey = rows[0]!.key;
+		}
 	});
-
 </script>
 
 {#snippet treeNodes(nodes: FileTreeNode[], parentKey: string)}
@@ -178,30 +242,35 @@
 		{#each nodes as node (dirKey(parentKey, node.name))}
 			{@const key = dirKey(parentKey, node.name)}
 			{@const hasChildren = Boolean(node.children?.length)}
-			{@const expanded = hasChildren && isExpanded(key)}
+			{@const rowExpanded = hasChildren && isExpanded(key)}
 			<li
 				class="file-tree-item"
 				class:is-dir={hasChildren}
-				class:is-expanded={expanded}
+				class:is-expanded={rowExpanded}
 				role="treeitem"
-				aria-selected="false"
-				aria-expanded={hasChildren ? expanded : undefined}
+				aria-selected={selectedKey === key}
+				aria-expanded={hasChildren ? rowExpanded : undefined}
 			>
 				{#if hasChildren}
 					<button
 						type="button"
 						class="file-tree-row file-tree-dir"
-						onclick={() => toggleDir(key)}
+						class:selected={selectedKey === key}
+						data-tree-key={key}
+						onclick={() => {
+							selectedKey = key;
+							toggleDir(key);
+						}}
 					>
 						<span class="file-tree-chevron" aria-hidden="true">
-							{#if expanded}
+							{#if rowExpanded}
 								<ChevronDown size={13} stroke-width={2} />
 							{:else}
 								<ChevronRight size={13} stroke-width={2} />
 							{/if}
 						</span>
 						<span class="file-tree-icon file-tree-folder-icon" aria-hidden="true">
-							{#if expanded}
+							{#if rowExpanded}
 								<FolderOpen size={13} stroke-width={1.8} />
 							{:else}
 								<Folder size={13} stroke-width={1.8} />
@@ -209,7 +278,7 @@
 						</span>
 						<span class="file-tree-label">{node.name}</span>
 					</button>
-					{#if expanded && node.children}
+					{#if rowExpanded && node.children}
 						<div class="file-tree-children">
 							{@render treeNodes(node.children, key)}
 						</div>
@@ -218,7 +287,12 @@
 					<button
 						type="button"
 						class="file-tree-row file-tree-file"
-						onclick={() => selectRelative(node.path!)}
+						class:selected={selectedKey === key}
+						data-tree-key={key}
+						onclick={() => {
+							selectedKey = key;
+							selectRelative(node.path!);
+						}}
 						title={node.path}
 					>
 						<span class="file-tree-icon" aria-hidden="true">
@@ -232,50 +306,15 @@
 	</ul>
 {/snippet}
 
-<div class="file-tree-browser">
-	<div class="file-tree-header">
-		<div class="source-toggle" role="group" aria-label="File tree source">
-			<button
-				type="button"
-				class="source-toggle-btn"
-				class:active={source === 'wiki'}
-				onclick={() => setSource('wiki')}
-			>
-				Wiki
-			</button>
-			<button
-				type="button"
-				class="source-toggle-btn"
-				class:active={source === 'workspace'}
-				disabled={!workspaceAvailable}
-				title={workspaceAvailable ? 'Workspace files' : 'Select a workspace to browse files'}
-				onclick={() => setSource('workspace')}
-			>
-				Workspace
-			</button>
-			<button
-				type="button"
-				class="source-toggle-btn"
-				class:active={source === 'changes'}
-				disabled={!workspaceAvailable}
-				title={workspaceAvailable ? 'Git changes' : 'Select a workspace to see git changes'}
-				onclick={() => setSource('changes')}
-			>
-				Changes
-			</button>
-		</div>
-		{#if showFileTree}
-			<input
-				use:trackFilterInput
-				class="file-tree-filter"
-				type="search"
-				placeholder={source === 'wiki' ? 'Filter wiki files…' : 'Filter workspace files…'}
-				bind:value={filter}
-				aria-label="Filter files"
-			/>
-		{/if}
-	</div>
-
+<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+<div
+	class="file-tree-browser"
+	bind:this={browserEl}
+	tabindex="-1"
+	role="region"
+	aria-label="File tree"
+	onkeydown={(event) => handleTreeKey(event)}
+>
 	{#if source === 'changes'}
 		<div class="file-tree-changes">
 			<GitChangesBrowser workspacePath={normalizedWorkspace} />
@@ -296,11 +335,6 @@
 	{:else}
 		<div class="file-tree-scroll scrollbar-none">
 			{@render treeNodes(tree, '')}
-			{#if truncated}
-				<p class="file-tree-truncated">
-					Showing first {LIST_LIMIT} matches. Refine the filter to find more.
-				</p>
-			{/if}
 		</div>
 	{/if}
 </div>
@@ -312,6 +346,10 @@
 		height: 100%;
 		min-height: 0;
 		background: #fff;
+	}
+
+	.file-tree-browser:focus {
+		outline: none;
 	}
 
 	.file-tree-changes {
@@ -326,61 +364,6 @@
 	.file-tree-changes :global(.git-diff-view) {
 		flex: 1;
 		min-height: 0;
-	}
-
-	.file-tree-header {
-		display: flex;
-		flex-direction: column;
-		gap: 8px;
-		padding: 10px 12px;
-		border-bottom: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.08));
-	}
-
-	.source-toggle {
-		display: flex;
-		gap: 2px;
-		padding: 2px;
-		border-radius: 8px;
-		background: var(--surface-muted, rgba(0, 0, 0, 0.04));
-	}
-
-	.source-toggle-btn {
-		flex: 1;
-		border: none;
-		border-radius: 6px;
-		padding: 6px 10px;
-		background: transparent;
-		color: var(--text-muted);
-		font-size: 12px;
-		font-weight: 550;
-		cursor: pointer;
-	}
-
-	.source-toggle-btn:disabled {
-		opacity: 0.45;
-		cursor: not-allowed;
-	}
-
-	.source-toggle-btn.active {
-		background: var(--surface-elevated, #fff);
-		color: var(--text-primary, #111);
-		box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06);
-	}
-
-	.file-tree-filter {
-		width: 100%;
-		box-sizing: border-box;
-		border: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.1));
-		border-radius: 8px;
-		padding: 7px 10px;
-		font-size: 13px;
-		background: var(--surface-elevated, #fff);
-		color: var(--text-primary, #111);
-	}
-
-	.file-tree-filter:focus {
-		outline: none;
-		border-color: var(--accent, #3b82f6);
 	}
 
 	.file-tree-scroll {
@@ -437,6 +420,14 @@
 		);
 	}
 
+	.file-tree-row.selected {
+		background: color-mix(
+			in srgb,
+			var(--workspace-inactive-color, #9a9a9f) 18%,
+			transparent
+		);
+	}
+
 	.file-tree-row.file-tree-dir {
 		color: var(--text-primary, #111);
 		font-weight: 500;
@@ -477,13 +468,6 @@
 
 	.file-tree-state :global(.file-tree-spinner) {
 		animation: file-tree-spin 0.7s linear infinite;
-	}
-
-	.file-tree-truncated {
-		margin: 10px 6px 0;
-		padding: 0;
-		color: var(--text-muted);
-		font-size: 12px;
 	}
 
 	@keyframes file-tree-spin {

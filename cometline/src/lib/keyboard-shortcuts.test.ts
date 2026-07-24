@@ -172,6 +172,12 @@ describe('keyboard-shortcuts', () => {
 		expect(normalized.openGitPanel).toEqual({ command: true, shift: true, key: 'g' });
 	});
 
+	it('includes openWikiPanel and openWorkspacePanel default shortcuts', () => {
+		const normalized = normalizeKeyboardShortcuts({});
+		expect(normalized.openWikiPanel).toEqual({ command: true, key: 'k' });
+		expect(normalized.openWorkspacePanel).toEqual({ command: true, key: 'l' });
+	});
+
 	it('includes openTerminal default shortcut', () => {
 		const normalized = normalizeKeyboardShortcuts({});
 		expect(normalized.openTerminal).toEqual({ command: true, key: 'j' });

@@ -381,7 +381,7 @@
 
 		<input
 			class="git-filter"
-			type="search"
+			type="text"
 			placeholder="Filter changed files…"
 			bind:value={filter}
 			aria-label="Filter changed files"

@@ -13,6 +13,8 @@ export type ShortcutAction =
 	| 'toggleWebPanel'
 	| 'openWebPanel'
 	| 'openGitPanel'
+	| 'openWikiPanel'
+	| 'openWorkspacePanel'
 	| 'openFileSearch'
 	| 'openTerminal'
 	| 'navigateBack'
@@ -140,7 +142,7 @@ export const SHORTCUT_DEFINITIONS: KeyboardShortcutDefinition[] = [
 	},
 	{
 		id: 'openWebPanel',
-		label: 'Open web panel',
+		label: 'Open web search',
 		category: 'panels',
 		defaultBinding: { command: true, key: 'o' }
 	},
@@ -149,6 +151,18 @@ export const SHORTCUT_DEFINITIONS: KeyboardShortcutDefinition[] = [
 		label: 'Open git changes',
 		category: 'panels',
 		defaultBinding: { command: true, shift: true, key: 'g' }
+	},
+	{
+		id: 'openWikiPanel',
+		label: 'Open wiki files',
+		category: 'panels',
+		defaultBinding: { command: true, key: 'k' }
+	},
+	{
+		id: 'openWorkspacePanel',
+		label: 'Open workspace files',
+		category: 'panels',
+		defaultBinding: { command: true, key: 'l' }
 	},
 	{
 		id: 'openFileSearch',

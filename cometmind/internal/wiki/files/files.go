@@ -12,7 +12,7 @@ import (
 
 const (
 	DefaultLimit = 50
-	MaxLimit     = 500
+	MaxLimit     = 10000
 )
 
 // ListOptions controls wiki markdown file listing.

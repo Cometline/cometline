@@ -2,10 +2,14 @@
 	import {
 		ArrowLeft,
 		ArrowRight,
+		BookOpen,
 		FileText,
+		FolderTree,
+		GitBranch,
 		RotateCcw,
 		RotateCw,
 		Save,
+		Search,
 		SquareTerminal,
 		X
 	} from '@lucide/svelte';
@@ -19,6 +23,7 @@
 	import { isWebPanelUrl, normalizeUserUrl, openLink } from '$lib/open-link';
 	import { openExternalLink } from '$lib/external-link';
 	import { isWikiUiPath } from '$lib/wiki/paths';
+	import { normalizeWorkspacePath } from '$lib/workspace/file-index';
 
 	type WebviewElement = HTMLElement & {
 		src: string;
@@ -68,7 +73,14 @@
 	let contextMessage = $state('');
 	let pageCaptureRun = 0;
 	let cachedPageContext = $state<CachedPageContext | null>(null);
-	let fileTreeBrowser = $state<{ focusFilter: () => void } | null>(null);
+	let fileTreeFilter = $state('');
+	let fileTreeFilterInputEl = $state<HTMLInputElement | null>(null);
+	let satisfiedFilterFocusRequestId = 0;
+	let fileTreeBrowser = $state<{
+		moveSelection: (delta: number) => boolean;
+		activateSelection: () => boolean;
+		handleTreeKey: (event: KeyboardEvent) => boolean;
+	} | null>(null);
 
 	const panelOpen = $derived(shellStore.webPanelOpen);
 	const panelMode = $derived(shellStore.webPanelMode);
@@ -88,29 +100,37 @@
 	const showFileBrowser = $derived(
 		Boolean(shellStore.hasWebPanelForSession && shellStore.webPanelBrowseOpen)
 	);
+	const browseSource = $derived(shellStore.webPanelBrowseSource);
 	const terminalAvailable = $derived(Boolean(sessionStore.current));
+	const normalizedWorkspacePath = $derived(normalizeWorkspacePath(shellStore.workspacePath));
+	const workspaceAvailable = $derived(
+		Boolean(normalizedWorkspacePath && normalizedWorkspacePath !== '/')
+	);
+	const preferAddressWhileBrowsing = $derived(shellStore.lastWebPanelFocusTarget === 'address');
+	const wikiActive = $derived(
+		showFileBrowser && browseSource === 'wiki' && !preferAddressWhileBrowsing
+	);
+	const workspaceActive = $derived(
+		showFileBrowser && browseSource === 'workspace' && !preferAddressWhileBrowsing
+	);
+	const changesActive = $derived(
+		showFileBrowser && browseSource === 'changes' && !preferAddressWhileBrowsing
+	);
+	const webSearchActive = $derived(preferAddressWhileBrowsing || showWebview);
+	const showBrowseFilter = $derived(
+		showFileBrowser &&
+			(browseSource === 'wiki' || browseSource === 'workspace') &&
+			!preferAddressWhileBrowsing
+	);
+	const showChangesTitle = $derived(
+		showFileBrowser && browseSource === 'changes' && !preferAddressWhileBrowsing
+	);
 	const dirty = $derived(Boolean(editorState?.dirty));
 	const saving = $derived(Boolean(editorState?.saving));
-	const addressQuery = $derived(addressInput.trim());
-	const showAddressOptions = $derived(
-		panelMode === 'url' && addressEditing && Boolean(addressQuery)
-	);
 	const toolbarCanGoBack = $derived((showWebview && canGoBack) || shellStore.canPanelHistoryBack);
 	const toolbarCanGoForward = $derived(
 		(showWebview && canGoForward) || shellStore.canPanelHistoryForward
 	);
-	const webOptionVerb = $derived.by(() => {
-		const normalized = normalizeUserUrl(addressInput);
-		if (!normalized) return 'Search web';
-		try {
-			const parsed = new URL(normalized);
-			return parsed.hostname === 'www.google.com' && parsed.pathname === '/search'
-				? 'Search web'
-				: 'Open URL';
-		} catch {
-			return 'Search web';
-		}
-	});
 
 	function syncAddressFromNavigation() {
 		if (addressEditing) return;
@@ -306,10 +326,18 @@
 	}
 
 	function handlePanelKeydown(event: KeyboardEvent) {
+		if (!panelOpen || shellStore.focusedPane !== 'web') return;
 		if ((event.metaKey || event.ctrlKey) && (event.key === 's' || event.key === 'S')) {
 			if (panelMode !== 'file' || !editorState) return;
 			event.preventDefault();
 			void editorState.save();
+			return;
+		}
+		if ((event.metaKey || event.ctrlKey) && (event.key === 'r' || event.key === 'R')) {
+			if (!showWebview) return;
+			event.preventDefault();
+			event.stopPropagation();
+			onReload();
 		}
 	}
 
@@ -327,17 +355,33 @@
 		shellStore.requestAddressBarFocus();
 	}
 
-	function selectWebOption() {
+	function submitAddress() {
 		const normalized = normalizeUserUrl(addressInput);
 		if (!normalized) return;
 		addressEditing = false;
 		shellStore.navigateWebPanel(normalized);
 	}
 
+	function onFilterKeydown(event: KeyboardEvent) {
+		if (
+			event.key === 'ArrowUp' ||
+			event.key === 'ArrowDown' ||
+			event.key === 'Enter' ||
+			event.key === 'ArrowLeft' ||
+			event.key === 'ArrowRight'
+		) {
+			if (fileTreeBrowser?.handleTreeKey(event)) return;
+		}
+		if (event.key === 'Escape') {
+			event.preventDefault();
+			fileTreeFilterInputEl?.blur();
+		}
+	}
+
 	function onAddressKeydown(event: KeyboardEvent) {
 		if (event.key === 'Enter') {
 			event.preventDefault();
-			selectWebOption();
+			submitAddress();
 			return;
 		}
 		if (event.key === 'Escape') {
@@ -348,6 +392,10 @@
 		}
 	}
 
+	function onFilterFocus() {
+		shellStore.setFocusedPane('web');
+	}
+
 	function onAddressFocus() {
 		addressEditing = true;
 		shellStore.setFocusedPane('web');
@@ -356,10 +404,6 @@
 	function onAddressBlur() {
 		addressEditing = false;
 		syncAddressFromNavigation();
-	}
-
-	function keepAddressFocus(event: MouseEvent) {
-		event.preventDefault();
 	}
 
 	function onNewWindow(event: Event & { url?: string; preventDefault?: () => void }) {
@@ -463,6 +507,28 @@
 		};
 	}
 
+	function applyFileTreeFilterFocus(force = false) {
+		const requestId = shellStore.fileTreeFilterFocusRequestId;
+		if (!requestId || (!force && requestId === satisfiedFilterFocusRequestId)) return;
+		if (!shellStore.webPanelOpen || !showBrowseFilter) return;
+		const el = fileTreeFilterInputEl;
+		if (!el) return;
+		satisfiedFilterFocusRequestId = requestId;
+		shellStore.setFocusedPane('web');
+		el.focus({ preventScroll: true });
+		el.select();
+	}
+
+	function trackFileTreeFilterInput(node: HTMLInputElement) {
+		fileTreeFilterInputEl = node;
+		applyFileTreeFilterFocus();
+		return {
+			destroy() {
+				if (fileTreeFilterInputEl === node) fileTreeFilterInputEl = null;
+			}
+		};
+	}
+
 	$effect(() => {
 		const el = webviewEl;
 		if (!el) return;
@@ -491,8 +557,7 @@
 		const url = panelUrl;
 		if (url !== lastObservedPanelUrl) {
 			lastObservedPanelUrl = url;
-			// Programmatic navigation, such as clicking a link in an assistant
-			// response, must dismiss any stale address suggestions first.
+			// Programmatic navigation (e.g. clicking a link) should stop editing the address.
 			addressEditing = false;
 		}
 		if (!addressEditing) {
@@ -561,21 +626,14 @@
 
 	$effect(() => {
 		const requestId = shellStore.fileTreeFilterFocusRequestId;
-		if (!requestId || !panelOpen || !showFileBrowser || !fileTreeBrowser) return;
+		const open = panelOpen;
+		const filterVisible = showBrowseFilter;
+		if (!requestId || !open || !filterVisible) return;
 		void tick().then(() =>
-			requestAnimationFrame(() =>
-				requestAnimationFrame(() => {
-					if (
-						shellStore.fileTreeFilterFocusRequestId !== requestId ||
-						!shellStore.webPanelOpen ||
-						!showFileBrowser
-					)
-						return;
-					fileTreeBrowser?.focusFilter();
-				})
-			)
+			requestAnimationFrame(() => requestAnimationFrame(() => applyFileTreeFilterFocus(true)))
 		);
 	});
+
 </script>
 
 <svelte:window onkeydown={handlePanelKeydown} />
@@ -602,6 +660,66 @@
 						<SquareTerminal size={16} />
 					</button>
 				</Tooltip>
+				<Tooltip label="Wiki files" action="openWikiPanel">
+					<button
+						type="button"
+						class="icon-button"
+						class:active={wikiActive}
+						onclick={() => shellStore.setWebPanelBrowseSource('wiki')}
+						aria-label="Wiki files"
+					>
+						<BookOpen size={16} />
+					</button>
+				</Tooltip>
+				<Tooltip
+					label={workspaceAvailable
+						? 'Workspace files'
+						: 'Select a workspace to browse files'}
+					action={workspaceAvailable ? 'openWorkspacePanel' : undefined}
+				>
+					<button
+						type="button"
+						class="icon-button"
+						class:active={workspaceActive}
+						disabled={!workspaceAvailable}
+						onclick={() => shellStore.setWebPanelBrowseSource('workspace')}
+						aria-label={workspaceAvailable
+							? 'Workspace files'
+							: 'Select a workspace to browse files'}
+					>
+						<FolderTree size={16} />
+					</button>
+				</Tooltip>
+				<Tooltip label="Web search" action="openWebPanel">
+					<button
+						type="button"
+						class="icon-button"
+						class:active={webSearchActive}
+						onclick={() => shellStore.openWebSearchPanel()}
+						aria-label="Web search"
+					>
+						<Search size={16} />
+					</button>
+				</Tooltip>
+				<Tooltip
+					label={workspaceAvailable
+						? 'Git changes'
+						: 'Select a workspace to see git changes'}
+					action={workspaceAvailable ? 'openGitPanel' : undefined}
+				>
+					<button
+						type="button"
+						class="icon-button"
+						class:active={changesActive}
+						disabled={!workspaceAvailable}
+						onclick={() => shellStore.openGitChangesPanel()}
+						aria-label={workspaceAvailable
+							? 'Git changes'
+							: 'Select a workspace to see git changes'}
+					>
+						<GitBranch size={16} />
+					</button>
+				</Tooltip>
 				<Tooltip label="Back" action="navigateBack">
 					<button
 						type="button"
@@ -624,20 +742,20 @@
 						<ArrowRight size={16} />
 					</button>
 				</Tooltip>
-				{#if panelMode === 'url'}
+				{#if showWebview}
 					<button
 						type="button"
 						class="icon-button"
-						disabled={!showWebview}
 						onclick={onReload}
-						aria-label="Reload"
+						aria-label="Reload page"
+						title="Reload page"
 					>
 						<RotateCw size={16} class={loading ? 'spin' : ''} />
 					</button>
 					<button
 						type="button"
 						class="icon-button"
-						disabled={!showWebview || capturingContext}
+						disabled={capturingContext}
 						onclick={() => void capturePageContext({ announce: true })}
 						aria-label="Add page to chat context"
 						title="Add page to next message"
@@ -647,7 +765,24 @@
 				{/if}
 			</div>
 			<div class="url-field">
-				{#if panelMode === 'file' && displayedFilePath}
+				{#if showBrowseFilter}
+					<input
+						use:trackFileTreeFilterInput
+						class="address-input browse-filter-input"
+						type="text"
+						spellcheck="false"
+						autocomplete="off"
+						placeholder={browseSource === 'wiki'
+							? 'Filter wiki files…'
+							: 'Filter workspace files…'}
+						bind:value={fileTreeFilter}
+						onfocus={onFilterFocus}
+						onkeydown={onFilterKeydown}
+						aria-label="Filter files"
+					/>
+				{:else if showChangesTitle}
+					<span class="page-title">Changes</span>
+				{:else if panelMode === 'file' && displayedFilePath}
 					<span class="page-title">
 						{displayedFilePath.split(/[/\\]/).pop()}{#if dirty}<span
 								class="dirty-dot"
@@ -671,7 +806,6 @@
 						class="address-input"
 						type="text"
 						inputmode="search"
-						role="combobox"
 						spellcheck="false"
 						autocapitalize="off"
 						autocomplete="off"
@@ -681,29 +815,7 @@
 						onblur={onAddressBlur}
 						onkeydown={onAddressKeydown}
 						aria-label="Web panel address"
-						aria-expanded={showAddressOptions}
-						aria-controls="web-panel-address-options"
 					/>
-					{#if showAddressOptions}
-						<div
-							id="web-panel-address-options"
-							class="address-options"
-							role="listbox"
-							tabindex="-1"
-							onmousedown={keepAddressFocus}
-						>
-							<button
-								type="button"
-								class="address-option highlighted"
-								role="option"
-								aria-selected={true}
-								onclick={selectWebOption}
-							>
-								<span class="address-option-label">{webOptionVerb}</span>
-								<span class="address-option-detail">{addressQuery}</span>
-							</button>
-						</div>
-					{/if}
 				{/if}
 			</div>
 			{#if panelMode === 'file' && editorState}
@@ -764,6 +876,7 @@
 				<FileTreeBrowser
 					bind:this={fileTreeBrowser}
 					workspacePath={shellStore.workspacePath}
+					bind:filter={fileTreeFilter}
 					onSelectFile={(path) => shellStore.openFilePreviewForActive(path)}
 				/>
 			{/if}
@@ -811,8 +924,6 @@
 		align-items: center;
 		gap: 8px;
 		box-sizing: border-box;
-		/* min-height keeps chrome aligned with the main titlebar; do not clip
-		   overflow — the address/file search dropdown is position:absolute. */
 		min-height: var(--panel-header-height);
 		padding: 0 10px;
 		border-bottom: 1px solid var(--border-soft);
@@ -859,6 +970,10 @@
 		background: rgba(15, 23, 42, 0.06);
 	}
 
+	.icon-button.active {
+		background: rgba(15, 23, 42, 0.08);
+	}
+
 	.icon-button:disabled {
 		opacity: 0.35;
 		cursor: default;
@@ -899,6 +1014,11 @@
 		outline: none;
 	}
 
+	.browse-filter-input {
+		font-size: 12px;
+		color: var(--text-main);
+	}
+
 	.address-input:focus {
 		color: var(--text-main);
 	}
@@ -906,62 +1026,6 @@
 	.address-input::placeholder {
 		color: var(--text-muted);
 		opacity: 0.7;
-	}
-
-	.address-options {
-		position: absolute;
-		z-index: 5;
-		top: calc(100% + 8px);
-		left: 0;
-		right: 0;
-		display: flex;
-		flex-direction: column;
-		gap: 2px;
-		max-height: min(320px, calc(100vh - 120px));
-		overflow: auto;
-		padding: 6px;
-		border: 1px solid var(--border-soft);
-		border-radius: 12px;
-		background: rgba(255, 255, 255, 0.98);
-		box-shadow: 0 18px 48px rgba(15, 23, 42, 0.18);
-	}
-
-	.address-option {
-		display: grid;
-		grid-template-columns: minmax(72px, auto) minmax(0, 1fr);
-		align-items: center;
-		gap: 8px;
-		width: 100%;
-		min-width: 0;
-		padding: 7px 8px;
-		border: none;
-		border-radius: 8px;
-		background: transparent;
-		color: var(--text-main);
-		text-align: left;
-		cursor: pointer;
-	}
-
-	.address-option.highlighted,
-	.address-option:hover {
-		background: rgba(15, 23, 42, 0.06);
-	}
-
-	.address-option-label {
-		font-size: 10px;
-		font-weight: 700;
-		text-transform: uppercase;
-		letter-spacing: 0.04em;
-		color: var(--text-muted);
-		white-space: nowrap;
-	}
-
-	.address-option-detail {
-		min-width: 0;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-		font-size: 12px;
 	}
 
 	.file-path-display {

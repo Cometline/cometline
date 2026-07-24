@@ -2,6 +2,7 @@ package files
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -71,7 +72,7 @@ func TestListFiles(t *testing.T) {
 		// Create many files to ensure cap works.
 		dir := t.TempDir()
 		for i := 0; i < MaxLimit+10; i++ {
-			mustWrite(t, filepath.Join(dir, filepath.FromSlash(formatFile(i))), "x")
+			mustWrite(t, filepath.Join(dir, filepath.FromSlash(fmt.Sprintf("dir/f_%d.txt", i))), "x")
 		}
 		got, err := ListFiles(ctx, dir, ListOptions{Limit: MaxLimit + 100})
 		if err != nil {
