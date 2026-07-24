@@ -732,6 +732,7 @@ func (r *Runtime) toolRegistryWithJobMeta(workspacePath string, skillRegistry sk
 	sub := r.Config.EffectiveSubagentSettings()
 	return tools.NewRegistry(workspacePath, tools.RegistryOptions{
 		Sessions:           r.Sessions,
+		AssistantMedia:     r.Sessions,
 		ACP:                r.Config.ACPSettings(),
 		ACPMgr:             r.ACPManager(),
 		Skills:             &skillRegistry,
@@ -745,9 +746,11 @@ func (r *Runtime) toolRegistryWithJobMeta(workspacePath string, skillRegistry sk
 		SessionID:          sessionID,
 		JobPlatform:        platform,
 		JobSourceChannelID: sourceChannelID,
-		BrowserSearchURL:   os.Getenv("COMETLINE_BROWSER_SEARCH_URL"),
-		BrowserSearchToken: os.Getenv("COMETLINE_BROWSER_SEARCH_TOKEN"),
-		SettingsRuntime:    r,
+		BrowserSearchURL:     os.Getenv("COMETLINE_BROWSER_SEARCH_URL"),
+		BrowserSearchToken:   os.Getenv("COMETLINE_BROWSER_SEARCH_TOKEN"),
+		ScreenCaptureURL:     os.Getenv("COMETLINE_SCREEN_CAPTURE_URL"),
+		ScreenCaptureToken:   os.Getenv("COMETLINE_SCREEN_CAPTURE_TOKEN"),
+		SettingsRuntime:      r,
 		RunnerFactory: func(child session.Session, workspaceRoot string, maxSteps int, mode tools.SubagentMode) (tools.AgentLoopRunner, error) {
 			return r.SubagentRunnerFor(child, workspaceRoot, maxSteps, mode)
 		},

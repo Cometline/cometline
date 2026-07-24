@@ -86,6 +86,9 @@ Registered per workspace in `internal/tools/registry.go`:
 | `run_command` | Shell in workspace cwd (120s timeout, denylist for dangerous commands) |
 | `web_fetch` | HTTP(S) fetch with HTML→text; SSRF protection |
 | `web_search` | Public web search via DuckDuckGo, with Google bridge and protected web-fetch fallbacks |
+| `present_image` | Show a local image file inline in chat (and Discord when the gateway is active) |
+| `capture_screenshot` | Capture a screen or app window via Cometline’s Electron bridge and present it inline |
+| `list_capture_targets` | List screens and open windows for `capture_screenshot` |
 | `load_skill` | Load full `SKILL.md` for a discovered skill |
 | `read_skill_file` | Read auxiliary files inside a skill directory |
 | `write_skill` | Create or update a skill under `~/.cometmind/skills/{name}/` |
