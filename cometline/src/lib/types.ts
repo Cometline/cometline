@@ -154,6 +154,8 @@ export interface AppSettings {
 	confirmBeforeDeletingChats: boolean;
 	/** Default source for the ⌘P file search modal. */
 	fileSearchSource: 'wiki' | 'workspace';
+	/** User preference to enable screen / system-audio capture for presenting screenshots. */
+	screenCapturePreferred: boolean;
 }
 
 export interface ProviderSettings {
@@ -177,6 +179,7 @@ export type ChatItem =
 			id: string;
 			type: 'assistant';
 			text: string;
+			images?: ImageAttachment[];
 			pending?: boolean;
 			pendingStartedAt?: number;
 			activityPhase?: string;

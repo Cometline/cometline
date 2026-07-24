@@ -30,6 +30,9 @@ export interface ElectronAPI {
 	setDiscordGatewayEnabled(enabled: boolean): Promise<{ running: boolean; enabled: boolean }>;
 	getOpenAtLogin(): Promise<OpenAtLoginState>;
 	setOpenAtLogin(enabled: boolean): Promise<OpenAtLoginState>;
+	getScreenCaptureAccess(): Promise<ScreenCaptureAccessState>;
+	setScreenCapturePreferred(enabled: boolean): Promise<ScreenCaptureAccessState>;
+	openScreenCaptureSettings(): Promise<boolean>;
 	openSessionInMainWindow(sessionId: string): Promise<boolean>;
 	openSettingsWindow(): Promise<boolean>;
 	replayIntroInMainWindow(): Promise<boolean>;

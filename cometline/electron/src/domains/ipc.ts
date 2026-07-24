@@ -60,6 +60,9 @@ export interface IpcHandlers {
 	appendComposerHistory: Invoker;
 	getOpenAtLogin: Invoker;
 	setOpenAtLogin: Invoker;
+	getScreenCaptureAccess: Invoker;
+	setScreenCapturePreferred: Invoker;
+	openScreenCaptureSettings: Invoker;
 	openExternal: Invoker;
 	getAppVersion: Invoker;
 	getUpdateState: Invoker;
@@ -125,6 +128,9 @@ export function registerIpcHandlers(handlers: IpcHandlers) {
 	ipcMain.handle('cometline:append-composer-history', handlers.appendComposerHistory);
 	ipcMain.handle('cometline:get-open-at-login', handlers.getOpenAtLogin);
 	ipcMain.handle('cometline:set-open-at-login', handlers.setOpenAtLogin);
+	ipcMain.handle('cometline:get-screen-capture-access', handlers.getScreenCaptureAccess);
+	ipcMain.handle('cometline:set-screen-capture-preferred', handlers.setScreenCapturePreferred);
+	ipcMain.handle('cometline:open-screen-capture-settings', handlers.openScreenCaptureSettings);
 	ipcMain.handle('cometline:open-external', handlers.openExternal);
 	ipcMain.handle('cometline:get-app-version', handlers.getAppVersion);
 	ipcMain.handle('cometline:get-update-state', handlers.getUpdateState);

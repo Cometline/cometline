@@ -63,19 +63,28 @@
 		);
 	}
 
-	type Step = 'provider' | 'apikey' | 'model' | 'embedding' | 'connect';
-	const STEP_ORDER: Step[] = ['provider', 'apikey', 'model', 'embedding', 'connect'];
+	type Step = 'provider' | 'apikey' | 'model' | 'embedding' | 'permissions' | 'connect';
+	const STEP_ORDER: Step[] = [
+		'provider',
+		'apikey',
+		'model',
+		'embedding',
+		'connect',
+		'permissions'
+	];
 	const STEP_TITLES: Record<Step, string> = {
 		provider: 'Choose a provider',
 		apikey: 'Connect your account',
 		model: 'Pick a model',
 		embedding: 'Memory embeddings (optional)',
-		connect: 'Ready to go'
+		connect: 'Ready to go',
+		permissions: 'Screen capture (optional)'
 	};
 
 	let step = $state<Step>('provider');
 	let saving = $state(false);
 	let saveError = $state('');
+	let settingsSaved = $state(false);
 	let connecting = $state(false);
 	let manualModel = $state('');
 	let showApiKey = $state(false);
@@ -145,10 +154,36 @@
 		}
 		if (step === 'model')
 			return Boolean(selectedProvider) && selectedProvider.enabledModels.length > 0;
-		// Embedding step is always skippable.
-		if (step === 'embedding') return true;
+		// Embedding and permissions steps are always skippable.
+		if (step === 'embedding' || step === 'permissions') return true;
 		return true;
 	});
+
+	let screenCapturePreferred = $state(false);
+	let screenCaptureStatus = $state('unknown');
+	let screenCaptureBusy = $state(false);
+
+	async function refreshScreenCaptureAccess() {
+		const current = await window.electronAPI?.getScreenCaptureAccess?.();
+		if (!current) return;
+		screenCapturePreferred = Boolean(current.preferred);
+		screenCaptureStatus = current.status ?? 'unknown';
+	}
+
+	async function setWizardScreenCapture(enabled: boolean) {
+		screenCaptureBusy = true;
+		try {
+			const result = await window.electronAPI?.setScreenCapturePreferred?.(enabled);
+			if (result) {
+				screenCapturePreferred = Boolean(result.preferred);
+				screenCaptureStatus = result.status ?? 'unknown';
+			} else {
+				screenCapturePreferred = enabled;
+			}
+		} finally {
+			screenCaptureBusy = false;
+		}
+	}
 
 	// Embedding dropdown options derived from enabled providers.
 	let embeddingOptions = $derived(
@@ -181,6 +216,9 @@
 			if (nextStep === 'apikey' && selectedProvider?.method === 'codex') {
 				void refreshCodexAuthStatus();
 				void refreshXaiAuthStatus();
+			}
+			if (nextStep === 'permissions') {
+				void refreshScreenCaptureAccess();
 			}
 			if (nextStep === 'apikey' && selectedProvider?.method === 'xai') {
 				void refreshXaiAuthStatus();
@@ -447,24 +485,34 @@
 				memory: hasEmbedding ? (memoryPayload ?? undefined) : undefined
 			});
 			draft = JSON.parse(JSON.stringify(settingsStore.settings)) as ProviderSettings;
+			await settingsStore.markSetupComplete();
+			settingsSaved = true;
 			// Poll until the sidecar is healthy after restart.
 			connecting = true;
 			connectionState.reconnect();
 			const ready = await waitForReady(20);
 			connecting = false;
-			if (ready) {
-				await settingsStore.markSetupComplete();
-				shellStore.closeSetup();
-			} else {
+			if (!ready) {
 				saveError =
 					'CometMind is still starting up. Your settings were saved — try sending a message in a moment.';
 			}
+			step = 'permissions';
+			void refreshScreenCaptureAccess();
 		} catch (err) {
 			saveError = err instanceof Error ? err.message : 'Failed to save settings.';
 		} finally {
 			saving = false;
 			connecting = false;
 		}
+	}
+
+	function continueToPermissions() {
+		step = 'permissions';
+		void refreshScreenCaptureAccess();
+	}
+
+	function finishSetup() {
+		shellStore.closeSetup();
 	}
 
 	async function waitForReady(maxAttempts: number): Promise<boolean> {
@@ -833,7 +881,7 @@
 			{:else if step === 'connect'}
 				<p class="step-intro">
 					{selectedProvider?.name || 'Your provider'} is ready to go. Save your settings and
-					Cometline will connect.
+					Cometline will connect. Screen capture is optional and comes next.
 				</p>
 				<div class="review">
 					<div class="review-row">
@@ -881,6 +929,43 @@
 				{#if saveError}
 					<p class="wizard-error">{saveError}</p>
 				{/if}
+			{:else if step === 'permissions'}
+				<p class="step-intro">
+					Your provider settings are already saved. Cometline can capture your screen and
+					show screenshots in chat when Screen & System Audio Recording is allowed. You can
+					skip or finish now and enable this later in Settings → App — a restart after
+					granting System Settings will not lose your provider setup.
+				</p>
+				{#if saveError}
+					<p class="wizard-error">{saveError}</p>
+				{/if}
+				<label class="permission-toggle">
+					<input
+						type="checkbox"
+						checked={screenCapturePreferred}
+						disabled={screenCaptureBusy || !window.electronAPI?.setScreenCapturePreferred}
+						onchange={(e) => void setWizardScreenCapture(e.currentTarget.checked)}
+					/>
+					<span>
+						<strong>Enable screen capture</strong>
+						<small>
+							Status: {screenCaptureStatus}
+							{#if screenCaptureStatus === 'denied' || screenCaptureStatus === 'not-determined'}
+								— you may need to approve Cometline in System Settings.
+							{/if}
+						</small>
+					</span>
+				</label>
+				{#if window.electronAPI?.openScreenCaptureSettings}
+					<div class="inline-actions permission-actions">
+						<SettingsButton
+							variant="secondary"
+							onclick={() => void window.electronAPI?.openScreenCaptureSettings?.()}
+						>
+							Open System Settings…
+						</SettingsButton>
+					</div>
+				{/if}
 			{/if}
 		</div>
 
@@ -893,19 +978,28 @@
 						Back
 					</SettingsButton>
 				{/if}
-				{#if step !== 'connect'}
+				{#if step === 'connect'}
+					{#if settingsSaved}
+						<SettingsButton variant="primary" onclick={continueToPermissions}>
+							Continue
+							<ChevronRight size={14} />
+						</SettingsButton>
+					{:else}
+						<SettingsButton
+							variant="primary"
+							onclick={saveAndConnect}
+							disabled={saving || connecting}
+						>
+							{#if saving || connecting}<LoaderCircle size={14} class="spin" />{/if}
+							{connecting ? 'Connecting…' : saving ? 'Saving…' : 'Save & connect'}
+						</SettingsButton>
+					{/if}
+				{:else if step === 'permissions'}
+					<SettingsButton variant="primary" onclick={finishSetup}>Finish</SettingsButton>
+				{:else}
 					<SettingsButton variant="primary" onclick={next} disabled={!canAdvance}>
 						Next
 						<ChevronRight size={14} />
-					</SettingsButton>
-				{:else}
-					<SettingsButton
-						variant="primary"
-						onclick={saveAndConnect}
-						disabled={saving || connecting}
-					>
-						{#if saving || connecting}<LoaderCircle size={14} class="spin" />{/if}
-						{connecting ? 'Connecting…' : saving ? 'Saving…' : 'Save & connect'}
 					</SettingsButton>
 				{/if}
 			</div>
@@ -1222,6 +1316,31 @@
 		font-weight: 600;
 	}
 
+	.permission-toggle {
+		display: flex;
+		gap: 12px;
+		align-items: flex-start;
+		padding: 12px 14px;
+		border: 1px solid var(--border-soft);
+		border-radius: 11px;
+		font-size: 13px;
+	}
+
+	.permission-toggle input {
+		margin-top: 3px;
+	}
+
+	.permission-toggle span {
+		display: grid;
+		gap: 4px;
+	}
+
+	.permission-toggle small {
+		color: var(--text-muted);
+		font-size: 12px;
+		line-height: 1.45;
+	}
+
 	.wizard-error {
 		margin: 12px 0 0;
 		font-size: 12px;
@@ -1265,6 +1384,10 @@
 		display: flex;
 		gap: 10px;
 		flex-wrap: wrap;
+	}
+
+	.permission-actions {
+		margin-top: 12px;
 	}
 
 	.embedding-loading {

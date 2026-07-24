@@ -42,6 +42,7 @@ export function cloneSettings(settings: ProviderSettings): ProviderSettings {
 			hasSeenIntro: settings.app?.hasSeenIntro ?? false,
 			hasCompletedSetup: settings.app?.hasCompletedSetup ?? false,
 			hasDismissedSetupWizard: settings.app?.hasDismissedSetupWizard ?? false,
+			screenCapturePreferred: settings.app?.screenCapturePreferred ?? false,
 			personaId: settings.app?.personaId ?? 'minako',
 			personas: { custom: settings.app?.personas?.custom ?? [] },
 			miniWindowSessionId: settings.app?.miniWindowSessionId ?? '',

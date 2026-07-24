@@ -81,6 +81,7 @@ export function createSettingsPanelController(deps: {
 	let updateState = $state<UpdateState>({ status: 'idle' });
 	let checkingUpdates = $state(false);
 	let installingUpdate = $state(false);
+	let screenCaptureStatus = $state('unknown');
 	let workspacePruning = $state(false);
 	let workspacePruneMessage = $state('');
 	let appVersion = $state('');
@@ -127,6 +128,17 @@ export function createSettingsPanelController(deps: {
 					app: { ...deps.getDraft().app, openAtLogin: current.openAtLogin }
 				});
 			}
+		});
+		void api.getScreenCaptureAccess?.().then((current) => {
+			if (!current) return;
+			screenCaptureStatus = current.status ?? 'unknown';
+			deps.setDraft({
+				...deps.getDraft(),
+				app: {
+					...deps.getDraft().app,
+					screenCapturePreferred: Boolean(current.preferred)
+				}
+			});
 		});
 
 		const unsubscribe = api.onUpdateState?.((next) => {
@@ -294,6 +306,44 @@ export function createSettingsPanelController(deps: {
 		} else if (result.openAtLogin) {
 			deps.settingsController.status = 'Cometline will open at login.';
 		}
+	}
+
+	async function setScreenCapturePreferred(enabled: boolean) {
+		const draft = deps.getDraft();
+		deps.setDraft({ ...draft, app: { ...draft.app, screenCapturePreferred: enabled } });
+		const result = await window.electronAPI?.setScreenCapturePreferred?.(enabled);
+		if (!result) return;
+
+		screenCaptureStatus = result.status ?? 'unknown';
+		deps.setDraft({
+			...deps.getDraft(),
+			app: {
+				...deps.getDraft().app,
+				screenCapturePreferred: Boolean(result.preferred)
+			}
+		});
+
+		if (result.openedSettings) {
+			deps.settingsController.status =
+				result.message ??
+				'Opened System Settings → Screen & System Audio Recording. Enable Cometline there.';
+		} else if (!enabled) {
+			deps.settingsController.status = 'Screen capture preference turned off.';
+		} else if (result.status === 'granted') {
+			deps.settingsController.status = 'Screen capture is allowed.';
+		} else if (result.message) {
+			deps.settingsController.status = result.message;
+		}
+	}
+
+	async function openScreenCaptureSettings() {
+		const opened = await window.electronAPI?.openScreenCaptureSettings?.();
+		if (opened) {
+			deps.settingsController.status =
+				'Opened System Settings → Screen & System Audio Recording.';
+		}
+		const current = await window.electronAPI?.getScreenCaptureAccess?.();
+		if (current) screenCaptureStatus = current.status ?? screenCaptureStatus;
 	}
 
 	async function setConfirmCloseOnCmdW(enabled: boolean) {
@@ -755,6 +805,9 @@ export function createSettingsPanelController(deps: {
 		get canCheckUpdates() {
 			return canCheckUpdates;
 		},
+		get screenCaptureStatus() {
+			return screenCaptureStatus;
+		},
 		initElectron,
 		checkForUpdates,
 		installUpdate,
@@ -766,6 +819,8 @@ export function createSettingsPanelController(deps: {
 		updateSelected,
 		updateShortcut,
 		setOpenAtLogin,
+		setScreenCapturePreferred,
+		openScreenCaptureSettings,
 		setConfirmCloseOnCmdW,
 		setConfirmBeforeDeletingChats,
 		setFileSearchSource,

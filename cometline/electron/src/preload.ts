@@ -55,6 +55,10 @@ const electronAPI: ElectronAPI = {
 		ipcRenderer.invoke('cometline:set-discord-gateway-enabled', enabled),
 	getOpenAtLogin: () => ipcRenderer.invoke('cometline:get-open-at-login'),
 	setOpenAtLogin: (enabled) => ipcRenderer.invoke('cometline:set-open-at-login', enabled),
+	getScreenCaptureAccess: () => ipcRenderer.invoke('cometline:get-screen-capture-access'),
+	setScreenCapturePreferred: (enabled) =>
+		ipcRenderer.invoke('cometline:set-screen-capture-preferred', enabled),
+	openScreenCaptureSettings: () => ipcRenderer.invoke('cometline:open-screen-capture-settings'),
 	openSessionInMainWindow: (sessionId) =>
 		ipcRenderer.invoke('cometline:open-session-in-main-window', sessionId),
 	openSettingsWindow: () => ipcRenderer.invoke('cometline:open-settings-window'),

@@ -660,6 +660,8 @@
 					<div class="settings-panel-stack">
 						<SettingsGeneralPanel
 							bind:openAtLogin={draft.app.openAtLogin}
+							bind:screenCapturePreferred={draft.app.screenCapturePreferred}
+							screenCaptureStatus={panelController.screenCaptureStatus}
 							bind:confirmCloseOnCmdW={draft.app.confirmCloseOnCmdW}
 							bind:confirmBeforeDeletingChats={draft.app.confirmBeforeDeletingChats}
 							bind:fileSearchSource={draft.app.fileSearchSource}
@@ -668,6 +670,8 @@
 							}
 							bind:storage={draft.cometmind.storage}
 							onOpenAtLoginChange={panelController.setOpenAtLogin}
+							onScreenCapturePreferredChange={panelController.setScreenCapturePreferred}
+							onOpenScreenCaptureSettings={panelController.openScreenCaptureSettings}
 							onConfirmCloseOnCmdWChange={panelController.setConfirmCloseOnCmdW}
 							onConfirmBeforeDeletingChatsChange={panelController.setConfirmBeforeDeletingChats}
 							onFileSearchSourceChange={panelController.setFileSearchSource}

@@ -5,27 +5,52 @@
 
 	let {
 		openAtLogin = $bindable(false),
+		screenCapturePreferred = $bindable(false),
+		screenCaptureStatus = $bindable('unknown'),
 		confirmCloseOnCmdW = $bindable(true),
 		confirmBeforeDeletingChats = $bindable(true),
 		fileSearchSource = $bindable<FileSearchSource>('wiki'),
 		miniWindowInactivityTimeoutMinutes = $bindable(30),
 		storage = $bindable<CometMindStorageSettings>(),
 		onOpenAtLoginChange,
+		onScreenCapturePreferredChange,
+		onOpenScreenCaptureSettings,
 		onConfirmCloseOnCmdWChange,
 		onConfirmBeforeDeletingChatsChange,
 		onFileSearchSourceChange
 	}: {
 		openAtLogin: boolean;
+		screenCapturePreferred: boolean;
+		screenCaptureStatus: string;
 		confirmCloseOnCmdW: boolean;
 		confirmBeforeDeletingChats: boolean;
 		fileSearchSource: FileSearchSource;
 		miniWindowInactivityTimeoutMinutes: number;
 		storage: CometMindStorageSettings;
 		onOpenAtLoginChange?: (enabled: boolean) => void | Promise<void>;
+		onScreenCapturePreferredChange?: (enabled: boolean) => void | Promise<void>;
+		onOpenScreenCaptureSettings?: () => void | Promise<void>;
 		onConfirmCloseOnCmdWChange?: (enabled: boolean) => void | Promise<void>;
 		onConfirmBeforeDeletingChatsChange?: (enabled: boolean) => void | Promise<void>;
 		onFileSearchSourceChange?: (source: FileSearchSource) => void | Promise<void>;
 	} = $props();
+
+	const screenStatusLabel = $derived.by(() => {
+		switch (screenCaptureStatus) {
+			case 'granted':
+				return 'System permission: granted';
+			case 'denied':
+				return 'System permission: denied — open System Settings to allow Cometline';
+			case 'not-determined':
+				return 'System permission: not determined yet';
+			case 'restricted':
+				return 'System permission: restricted by system policy';
+			case 'unsupported':
+				return 'System permission: managed by the OS on this platform';
+			default:
+				return 'System permission: unknown';
+		}
+	});
 
 	let backupRunning = $state(false);
 	let backupMessage = $state('');
@@ -162,6 +187,34 @@
 				bind:checked={confirmBeforeDeletingChats}
 				onchange={onConfirmBeforeDeletingChatsChange}
 			/>
+		</div>
+
+		<div class="settings-section">
+			<div class="settings-section-heading">
+				<h3>Screen & system audio</h3>
+				<p>
+					Allow Cometline to capture the screen so the agent can take screenshots and show
+					them inline in chat. You can change this later; macOS may still ask for approval
+					in System Settings.
+				</p>
+			</div>
+			<SettingsToggle
+				label="Enable screen capture"
+				description="Prefers Screen & System Audio Recording so screenshots can appear inline in chat."
+				bind:checked={screenCapturePreferred}
+				disabled={!window.electronAPI?.setScreenCapturePreferred}
+				onchange={onScreenCapturePreferredChange}
+			/>
+			<p class="permission-status">{screenStatusLabel}</p>
+			{#if window.electronAPI?.openScreenCaptureSettings}
+				<button
+					type="button"
+					class="settings-secondary-btn"
+					onclick={() => void onOpenScreenCaptureSettings?.()}
+				>
+					Open System Settings…
+				</button>
+			{/if}
 		</div>
 
 		<div class="settings-section">
@@ -511,6 +564,29 @@
 		font-size: 12px;
 		line-height: 1.5;
 		color: var(--text-muted);
+	}
+
+	.permission-status {
+		margin: 0;
+		font-size: 12px;
+		line-height: 1.45;
+		color: var(--text-muted);
+	}
+
+	.settings-secondary-btn {
+		align-self: flex-start;
+		margin-top: 4px;
+		padding: 6px 10px;
+		border-radius: 8px;
+		border: 1px solid color-mix(in srgb, var(--text-muted) 28%, transparent);
+		background: transparent;
+		color: var(--text-main);
+		font-size: 12px;
+		cursor: pointer;
+	}
+
+	.settings-secondary-btn:hover {
+		background: color-mix(in srgb, var(--text-muted) 10%, transparent);
 	}
 
 	.backup-warning {

@@ -117,6 +117,7 @@ declare global {
 		confirmCloseOnCmdW: boolean;
 		confirmBeforeDeletingChats: boolean;
 		fileSearchSource: 'wiki' | 'workspace';
+		screenCapturePreferred: boolean;
 	}
 
 	interface MiniWindowState {
@@ -131,6 +132,13 @@ declare global {
 		needsApproval?: boolean;
 		openedSettings?: boolean;
 		isDev?: boolean;
+		message?: string;
+	}
+
+	interface ScreenCaptureAccessState {
+		preferred: boolean;
+		status: string;
+		openedSettings?: boolean;
 		message?: string;
 	}
 
@@ -413,6 +421,9 @@ declare global {
 		) => Promise<{ running: boolean; enabled: boolean }>;
 		getOpenAtLogin?: () => Promise<OpenAtLoginState>;
 		setOpenAtLogin?: (enabled: boolean) => Promise<OpenAtLoginState>;
+		getScreenCaptureAccess?: () => Promise<ScreenCaptureAccessState>;
+		setScreenCapturePreferred?: (enabled: boolean) => Promise<ScreenCaptureAccessState>;
+		openScreenCaptureSettings?: () => Promise<boolean>;
 		openSessionInMainWindow?: (sessionId: string) => Promise<boolean>;
 		openSettingsWindow?: () => Promise<boolean>;
 		replayIntroInMainWindow?: () => Promise<boolean>;
