@@ -13,6 +13,13 @@ import {
 import { stripInlinedFileBlocks } from '$lib/messages/strip-inlined-files';
 import { toWikiUiPath } from '$lib/wiki/paths';
 import { parseWikilinkInner, resolveWikilink } from '$lib/wiki/wikilinks';
+import {
+	hydrateWorkspaceMarkdownImages,
+	rewriteLocalResourcesInHtml,
+	type WorkspaceMarkdownResources
+} from './workspace-resources';
+
+export type { WorkspaceMarkdownResources };
 
 /** Wiki file list used while the current `renderMarkdown` call is in flight. */
 let activeWikiFiles: readonly string[] = [];
@@ -367,6 +374,7 @@ const SANITIZE_CONFIG = {
 		'data-external-link',
 		'data-embed-url',
 		'data-file-path',
+		'data-workspace-src',
 		'data-skill-name',
 		'data-code-copy',
 		'role',
@@ -394,6 +402,11 @@ const SANITIZE_CONFIG = {
 export type RenderMarkdownOptions = {
 	/** Wiki-root-relative `.md` paths used to resolve `[[wikilinks]]`. */
 	wikiFiles?: readonly string[];
+	/**
+	 * When previewing a workspace/wiki markdown file, resolve relative image and
+	 * link paths against that file and hydrate images via the content API.
+	 */
+	workspaceResources?: WorkspaceMarkdownResources;
 };
 
 export async function renderMarkdown(
@@ -406,9 +419,17 @@ export async function renderMarkdown(
 	activeWikiFiles = options?.wikiFiles ?? [];
 	try {
 		const healed = remend(source);
-		const rawHtml = await markedInstance.parse(healed);
+		let rawHtml = await markedInstance.parse(healed);
+		const resources = options?.workspaceResources;
+		if (resources) {
+			rawHtml = rewriteLocalResourcesInHtml(rawHtml, resources.filePath, resources.kind);
+		}
 		pruneCodeCache();
-		return DOMPurify.sanitize(rawHtml, SANITIZE_CONFIG);
+		let sanitized = DOMPurify.sanitize(rawHtml, SANITIZE_CONFIG);
+		if (resources) {
+			sanitized = await hydrateWorkspaceMarkdownImages(sanitized, resources.readFile);
+		}
+		return sanitized;
 	} finally {
 		activeRenderCodeKeys = null;
 		activeWikiFiles = [];

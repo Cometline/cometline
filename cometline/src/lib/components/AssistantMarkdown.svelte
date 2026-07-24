@@ -1,5 +1,9 @@
 <script lang="ts">
-	import { renderMarkdown, renderUserText } from '$lib/markdown/render';
+	import {
+		renderMarkdown,
+		renderUserText,
+		type WorkspaceMarkdownResources
+	} from '$lib/markdown/render';
 	import { openLink } from '$lib/open-link';
 	import { openWorkspaceFilePreview } from '$lib/workspace/open-file-preview';
 	import { getCachedWikiFiles, refreshWikiFileIndex } from '$lib/wiki/wiki-file-index';
@@ -8,12 +12,15 @@
 		source = '',
 		streaming = false,
 		mode = 'assistant',
-		wikiFiles = []
+		wikiFiles = [],
+		workspaceResources = null
 	}: {
 		source?: string;
 		streaming?: boolean;
 		mode?: 'assistant' | 'user';
 		wikiFiles?: readonly string[];
+		/** When set, relative images/links resolve against this workspace/wiki file. */
+		workspaceResources?: WorkspaceMarkdownResources | null;
 	} = $props();
 
 	let cachedWikiFiles = $state<string[]>(getCachedWikiFiles());
@@ -49,11 +56,18 @@
 
 	async function render(text: string) {
 		const files = effectiveWikiFiles;
-		const cacheKey = `${text}\u0000${files.join('\n')}`;
+		const resources = workspaceResources;
+		const resourceKey = resources
+			? `${resources.kind}\u0000${resources.workspacePath}\u0000${resources.filePath}`
+			: '';
+		const cacheKey = `${text}\u0000${files.join('\n')}\u0000${resourceKey}`;
 		if (rendered && renderedSource === cacheKey) return;
 		const version = ++renderVersion;
 		try {
-			const next = await renderMarkdown(text, { wikiFiles: files });
+			const next = await renderMarkdown(text, {
+				wikiFiles: files,
+				workspaceResources: resources ?? undefined
+			});
 			if (version !== renderVersion) return;
 			html = next;
 			rendered = true;
@@ -164,6 +178,7 @@
 		// Re-evaluate when streaming flips so the final non-throttled render lands.
 		void streaming;
 		void effectiveWikiFiles;
+		void workspaceResources;
 		scheduleRender(text);
 		return () => {
 			cancelScheduledRender();
@@ -422,10 +437,12 @@
 		font-size: 1.1em;
 	}
 
-	.markdown :global(a) {
+	.markdown :global(a),
+	.markdown :global(.md-workspace-link) {
 		color: var(--accent);
 		text-decoration: underline;
 		text-underline-offset: 2px;
+		cursor: pointer;
 	}
 
 	.markdown :global(blockquote) {

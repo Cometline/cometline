@@ -355,7 +355,20 @@
 					class="file-preview-markdown scrollbar-none"
 					onmouseup={onPreviewMouseUp}
 				>
-					<AssistantMarkdown source={draftContent} mode="assistant" {wikiFiles} />
+					<AssistantMarkdown
+						source={draftContent}
+						mode="assistant"
+						{wikiFiles}
+						workspaceResources={{
+							kind: isWikiFile ? 'wiki' : 'workspace',
+							workspacePath,
+							filePath: isWikiFile ? toWikiRelative(filePath) : filePath,
+							readFile: (relativePath) =>
+								isWikiFile
+									? readWikiFileContent(relativePath)
+									: readWorkspaceFileContent(workspacePath, relativePath)
+						}}
+					/>
 					{#if showBacklinks}
 						{@render backlinksSection()}
 					{/if}

@@ -126,6 +126,28 @@ describe('renderMarkdown', () => {
 		expect(html).not.toContain('javascript:');
 	});
 
+	it('hydrates workspace-relative images and rewrites local links', async () => {
+		const html = await renderMarkdown(
+			'![Minako](./static/preview.png)\n\n[guide](./docs/guide.md)\n\n<img src="./static/minako.png" alt="Minako" />',
+			{
+				workspaceResources: {
+					kind: 'workspace',
+					workspacePath: '/tmp/ws',
+					filePath: 'README.md',
+					readFile: async (path) => ({
+						kind: 'image',
+						data_url: `data:image/png;base64,${path}`
+					})
+				}
+			}
+		);
+		expect(html).toContain('src="data:image/png;base64,static/preview.png"');
+		expect(html).toContain('src="data:image/png;base64,static/minako.png"');
+		expect(html).toContain('data-file-path="docs/guide.md"');
+		expect(html).not.toContain('./static/');
+		expect(html).not.toContain('href="./docs');
+	});
+
 	it('renders inline code without a language', async () => {
 		const html = await renderMarkdown('use `npm install` here');
 		expect(html).toContain('<code>npm install</code>');
