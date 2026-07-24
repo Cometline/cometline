@@ -31,6 +31,13 @@
 
 	function openModal(dialog: HTMLDialogElement) {
 		dialog.showModal();
+		// Native dialog focuses the first tabbable control. Secondary actions render first
+		// in the action row, so move initial focus to the primary confirm button.
+		if (!showInput) {
+			queueMicrotask(() => {
+				dialog.querySelector<HTMLButtonElement>('[data-confirm-action]')?.focus();
+			});
+		}
 		return () => dialog.close();
 	}
 
@@ -93,7 +100,12 @@
 				Cancel
 				<span class="key-hint" aria-hidden="true">esc</span>
 			</button>
-			<button type="button" class="btn {confirmTone}" onclick={onConfirm}>
+			<button
+				type="button"
+				class="btn {confirmTone}"
+				data-confirm-action
+				onclick={onConfirm}
+			>
 				{confirmLabel}
 				<span class="key-hint key-hint-light" aria-hidden="true">↵</span>
 			</button>

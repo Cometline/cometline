@@ -96,6 +96,16 @@ describe('ConfirmActionModal', () => {
 		expect(onSecondary).toHaveBeenCalledOnce();
 	});
 
+	it('focuses the primary confirm button when a secondary action is present', async () => {
+		renderModal({ secondaryLabel: 'Always close', onSecondary: () => {} });
+
+		await vi.waitFor(() => {
+			expect(document.activeElement).toBe(
+				screen.getByRole('button', { name: 'Terminate terminal' })
+			);
+		});
+	});
+
 	it('hides secondary button when secondaryLabel is omitted', () => {
 		renderModal();
 
