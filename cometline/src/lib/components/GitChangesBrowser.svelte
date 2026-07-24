@@ -18,6 +18,7 @@
 		unstageWorkspaceGitPaths,
 		type WorkspaceGitStatus
 	} from '$lib/client/cometmind';
+	import FileTypeIcon from '$lib/components/FileTypeIcon.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { normalizeWorkspacePath } from '$lib/workspace/file-index';
 
@@ -224,6 +225,9 @@
 {#snippet fileRow(file: GitFile, section: 'staged' | 'changes')}
 	<li class="git-file-row" title={file.path}>
 		<button type="button" class="git-file-main" onclick={() => openDiff(file.path)}>
+			<span class="git-file-icon" aria-hidden="true">
+				<FileTypeIcon path={file.path} size={16} />
+			</span>
 			<span class="git-file-labels">
 				<span class="git-file-name">{fileName(file.path)}</span>
 				{#if fileDir(file.path)}
@@ -866,6 +870,15 @@
 		font: inherit;
 		text-align: left;
 		cursor: pointer;
+	}
+
+	.git-file-icon {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		flex: 0 0 16px;
+		width: 16px;
+		height: 16px;
 	}
 
 	.git-file-labels {

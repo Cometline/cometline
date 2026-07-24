@@ -1,7 +1,8 @@
 <script lang="ts">
-	import { ChevronDown, ChevronRight, File, Folder, FolderOpen, Loader } from '@lucide/svelte';
+	import { ChevronDown, ChevronRight, Folder, FolderOpen, Loader } from '@lucide/svelte';
 	import { tick } from 'svelte';
 	import { listWikiFiles, listWorkspaceFiles } from '$lib/client/cometmind';
+	import FileTypeIcon from '$lib/components/FileTypeIcon.svelte';
 	import GitChangesBrowser from '$lib/components/GitChangesBrowser.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { toWikiUiPath } from '$lib/wiki/paths';
@@ -187,7 +188,7 @@
 					>
 						<span class="file-tree-chevron file-tree-chevron-spacer" aria-hidden="true"></span>
 						<span class="file-tree-icon" aria-hidden="true">
-							<File size={14} />
+							<FileTypeIcon path={node.path} size={14} />
 						</span>
 						<span class="file-tree-label">{node.name}</span>
 					</button>
