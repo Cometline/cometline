@@ -18,11 +18,14 @@
 		unstageWorkspaceGitPaths,
 		type WorkspaceGitStatus
 	} from '$lib/client/cometmind';
+	import ConfirmActionModal from '$lib/components/ConfirmActionModal.svelte';
 	import FileTypeIcon from '$lib/components/FileTypeIcon.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { normalizeWorkspacePath } from '$lib/workspace/file-index';
+	import { hasUnstagedSide } from '$lib/workspace/git-file-state';
 
 	type GitFile = WorkspaceGitStatus['files'][number];
+	type DiscardConfirm = { kind: 'one'; path: string } | { kind: 'all' };
 
 	let {
 		workspacePath
@@ -42,6 +45,7 @@
 	let commitFlash = $state('');
 	let stagedOpen = $state(true);
 	let changesOpen = $state(true);
+	let discardConfirm = $state<DiscardConfirm | null>(null);
 
 	const normalizedWorkspace = $derived(normalizeWorkspacePath(workspacePath));
 	const workspaceAvailable = $derived(
@@ -51,18 +55,6 @@
 	const allFiles = $derived(status?.files ?? []);
 
 	const query = $derived(filter.trim().toLowerCase());
-
-	/** XY worktree side is non-space for unstaged tracked changes. */
-	function hasUnstagedSide(file: {
-		xy?: string;
-		untracked: boolean;
-		staged: boolean;
-	}): boolean {
-		if (file.untracked) return true;
-		const xy = file.xy ?? '';
-		if (xy.length < 2) return !file.staged;
-		return xy[1] !== ' ' && xy[1] !== '?';
-	}
 
 	function matchesFilter(file: GitFile): boolean {
 		if (!query) return true;
@@ -76,15 +68,21 @@
 
 	/** Working tree section (VS Code "Changes") — unstaged + untracked. */
 	const changeFiles = $derived(
-		allFiles.filter((f) => (f.untracked || hasUnstagedSide(f)) && matchesFilter(f))
+		allFiles.filter((f) => hasUnstagedSide(f) && matchesFilter(f))
 	);
 
 	const stagedCount = $derived(allFiles.filter((f) => f.staged).length);
-	const changesCount = $derived(
-		allFiles.filter((f) => f.untracked || hasUnstagedSide(f)).length
-	);
+	const changesCount = $derived(allFiles.filter((f) => hasUnstagedSide(f)).length);
 
 	const isClean = $derived(status?.is_repo === true && stagedCount === 0 && changesCount === 0);
+
+	const discardConfirmDescription = $derived(
+		discardConfirm?.kind === 'one'
+			? `Discard changes to “${discardConfirm.path}”? Tracked files restore to HEAD. Untracked files are deleted. This cannot be undone.`
+			: discardConfirm?.kind === 'all'
+				? `Discard all ${changeFiles.length} unstaged change${changeFiles.length === 1 ? '' : 's'}? Tracked files restore to HEAD. Untracked files are deleted. This cannot be undone.`
+				: 'Tracked files restore to HEAD. Untracked files are deleted. This cannot be undone.'
+	);
 
 	async function load() {
 		const seq = ++loadSeq;
@@ -186,12 +184,28 @@
 		return runMutation(() => unstageWorkspaceGitPaths(normalizedWorkspace, [path]));
 	}
 
-	function discardPath(path: string) {
-		const ok = window.confirm(
-			`Discard local changes to “${path}”?\n\nTracked files restore to HEAD. Untracked files are deleted.`
-		);
-		if (!ok) return;
-		return runMutation(() => discardWorkspaceGitPaths(normalizedWorkspace, [path]));
+	function requestDiscard(path: string) {
+		if (mutating) return;
+		discardConfirm = { kind: 'one', path };
+	}
+
+	function requestDiscardAll() {
+		if (mutating || changeFiles.length === 0) return;
+		discardConfirm = { kind: 'all' };
+	}
+
+	function confirmDiscard() {
+		const pending = discardConfirm;
+		discardConfirm = null;
+		if (!pending) return;
+		if (pending.kind === 'one') {
+			return runMutation(() =>
+				discardWorkspaceGitPaths(normalizedWorkspace, [pending.path])
+			);
+		}
+		const paths = changeFiles.map((f) => f.path);
+		if (!paths.length) return;
+		return runMutation(() => discardWorkspaceGitPaths(normalizedWorkspace, paths));
 	}
 
 	function stageAllChanges() {
@@ -253,7 +267,7 @@
 					title="Discard"
 					aria-label="Discard"
 					disabled={mutating}
-					onclick={() => void discardPath(file.path)}
+					onclick={() => requestDiscard(file.path)}
 				>
 					<RotateCcw size={13} />
 				</button>
@@ -458,6 +472,15 @@
 						{#if changeFiles.length > 0}
 							<button
 								type="button"
+								class="git-section-action danger"
+								title="Discard all"
+								disabled={mutating}
+								onclick={requestDiscardAll}
+							>
+								<RotateCcw size={13} />
+							</button>
+							<button
+								type="button"
 								class="git-section-action"
 								title="Stage all"
 								disabled={mutating}
@@ -483,6 +506,15 @@
 		</div>
 	{/if}
 </div>
+
+<ConfirmActionModal
+	open={Boolean(discardConfirm)}
+	title={discardConfirm?.kind === 'all' ? 'Discard all local changes?' : 'Discard local changes?'}
+	description={discardConfirmDescription}
+	confirmLabel={discardConfirm?.kind === 'all' ? 'Discard all' : 'Discard'}
+	onCancel={() => (discardConfirm = null)}
+	onConfirm={() => void confirmDiscard()}
+/>
 
 <style>
 	.git-changes {
@@ -809,6 +841,11 @@
 	.git-section-action:hover:not(:disabled) {
 		background: color-mix(in srgb, var(--workspace-inactive-color, #9a9a9f) 18%, transparent);
 		color: var(--text-primary, #111);
+	}
+
+	.git-section-action.danger:hover:not(:disabled) {
+		background: rgba(185, 28, 28, 0.1);
+		color: #b91c1c;
 	}
 
 	.git-section-staged .git-section-action:hover:not(:disabled) {

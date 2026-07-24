@@ -3,16 +3,23 @@
 	import {
 		discardWorkspaceGitPaths,
 		getWorkspaceGitDiff,
+		getWorkspaceGitStatus,
 		stageWorkspaceGitPaths,
 		unstageWorkspaceGitPaths,
 		type GitScope
 	} from '$lib/client/cometmind';
+	import ConfirmActionModal from '$lib/components/ConfirmActionModal.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import {
 		highlightGitDiffLines,
 		type HighlightedDiffLine
 	} from '$lib/workspace/git-diff-highlight';
 	import { parseGitDiffLines } from '$lib/workspace/git-diff-lines';
+	import {
+		canStageGitFile,
+		canUnstageGitFile,
+		type GitFileStageState
+	} from '$lib/workspace/git-file-state';
 	import { languageFromPath } from '$lib/workspace/file-preview';
 	import { buildFileSnippetContext } from '$lib/workspace/selection-snippet';
 
@@ -41,6 +48,8 @@
 	let copyFlash = $state(false);
 	let mutating = $state(false);
 	let actionError = $state<string | null>(null);
+	let discardConfirmOpen = $state(false);
+	let fileState = $state<GitFileStageState | null>(null);
 	let highlightedLines = $state<HighlightedDiffLine[]>([]);
 	let selectionPopup = $state<{
 		top: number;
@@ -50,6 +59,9 @@
 
 	const fileName = $derived(filePath.split(/[/\\]/).filter(Boolean).pop() || filePath);
 	const language = $derived(languageFromPath(filePath));
+	const canStage = $derived(canStageGitFile(fileState));
+	const canUnstage = $derived(canUnstageGitFile(fileState));
+	const canDiscard = $derived(canStage);
 
 	async function load() {
 		const seq = ++loadSeq;
@@ -60,16 +72,24 @@
 		empty = false;
 		truncated = false;
 		message = '';
+		fileState = null;
 		highlightedLines = [];
 		selectionPopup = null;
 		try {
-			const result = await getWorkspaceGitDiff(workspacePath, filePath, scope);
+			const [result, status] = await Promise.all([
+				getWorkspaceGitDiff(workspacePath, filePath, scope),
+				getWorkspaceGitStatus(workspacePath, 'all').catch(() => null)
+			]);
 			if (seq !== loadSeq) return;
 			binary = Boolean(result.binary);
 			empty = Boolean(result.empty);
 			truncated = Boolean(result.truncated);
 			message = result.message ?? '';
 			diffText = result.diff ?? '';
+			const match = status?.files?.find((f) => f.path === filePath);
+			fileState = match
+				? { staged: match.staged, untracked: match.untracked, xy: match.xy }
+				: null;
 			if (diffText.trim()) {
 				const parsed = parseGitDiffLines(diffText);
 				highlightedLines = await highlightGitDiffLines(parsed, languageFromPath(filePath));
@@ -132,18 +152,22 @@
 	}
 
 	function stageFile() {
+		if (!canStage) return;
 		return runMutation(() => stageWorkspaceGitPaths(workspacePath, [filePath]));
 	}
 
 	function unstageFile() {
+		if (!canUnstage) return;
 		return runMutation(() => unstageWorkspaceGitPaths(workspacePath, [filePath]));
 	}
 
-	function discardFile() {
-		const ok = window.confirm(
-			`Discard local changes to “${filePath}”?\n\nTracked files restore to HEAD. Untracked files are deleted.`
-		);
-		if (!ok) return;
+	function requestDiscard() {
+		if (!canDiscard || mutating) return;
+		discardConfirmOpen = true;
+	}
+
+	function confirmDiscard() {
+		discardConfirmOpen = false;
 		return runMutation(async () => {
 			await discardWorkspaceGitPaths(workspacePath, [filePath]);
 			onBack?.();
@@ -218,9 +242,9 @@
 			<button
 				type="button"
 				class="git-diff-action"
-				disabled={mutating}
+				disabled={mutating || !canStage}
 				onclick={() => void stageFile()}
-				title="Stage"
+				title={canStage ? 'Stage' : 'Already staged'}
 			>
 				<Plus size={14} />
 				<span>Stage</span>
@@ -228,9 +252,9 @@
 			<button
 				type="button"
 				class="git-diff-action"
-				disabled={mutating}
+				disabled={mutating || !canUnstage}
 				onclick={() => void unstageFile()}
-				title="Unstage"
+				title={canUnstage ? 'Unstage' : 'Nothing staged'}
 			>
 				<Minus size={14} />
 				<span>Unstage</span>
@@ -238,9 +262,9 @@
 			<button
 				type="button"
 				class="git-diff-action danger"
-				disabled={mutating}
-				onclick={() => void discardFile()}
-				title="Discard"
+				disabled={mutating || !canDiscard}
+				onclick={requestDiscard}
+				title={canDiscard ? 'Discard' : 'No working-tree changes to discard'}
 			>
 				<RotateCcw size={14} />
 				<span>Discard</span>
@@ -321,6 +345,15 @@
 		</button>
 	{/if}
 </div>
+
+<ConfirmActionModal
+	open={discardConfirmOpen}
+	title="Discard local changes?"
+	description={`Discard changes to “${filePath}”? Tracked files restore to HEAD. Untracked files are deleted. This cannot be undone.`}
+	confirmLabel="Discard"
+	onCancel={() => (discardConfirmOpen = false)}
+	onConfirm={() => void confirmDiscard()}
+/>
 
 <style>
 	.git-diff-view {
