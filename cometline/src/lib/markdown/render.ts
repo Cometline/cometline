@@ -27,6 +27,11 @@ function escapeHtml(value: string): string {
 		.replace(/'/g, '&#39;');
 }
 
+/** Wrap fenced `<pre>` with a copy button (styled/handled in AssistantMarkdown). */
+function wrapCodeBlock(preHtml: string): string {
+	return `<div class="md-code-block"><button type="button" class="md-code-copy" data-code-copy aria-label="Copy code"></button>${preHtml}</div>`;
+}
+
 /**
  * Highlights a fenced code block to HTML. Uses the shared Shiki highlighter when
  * a grammar is available, otherwise falls back to an escaped plaintext block.
@@ -38,13 +43,15 @@ async function highlightCodeBlock(text: string, lang: string | undefined): Promi
 		const highlighter = await getHighlighter();
 		const resolved = resolveLanguage(highlighter, lang);
 		if (resolved) {
-			return highlighter.codeToHtml(text, { lang: resolved, theme: CODE_THEME });
+			return wrapCodeBlock(highlighter.codeToHtml(text, { lang: resolved, theme: CODE_THEME }));
 		}
 	} catch {
 		// Fall through to the plaintext fallback below.
 	}
 	const langClass = lang ? ` class="language-${escapeHtml(lang)}"` : '';
-	return `<pre class="shiki shiki-plain"><code${langClass}>${escapeHtml(text)}</code></pre>`;
+	return wrapCodeBlock(
+		`<pre class="shiki shiki-plain"><code${langClass}>${escapeHtml(text)}</code></pre>`
+	);
 }
 
 /** Renders a LaTeX string to KaTeX HTML, falling back to escaped source on error. */
@@ -262,7 +269,7 @@ function createMarkedInstance(codeCache: CodeHtmlCache): Marked {
 				const key = `${lang ?? ''}\u0000${text}`;
 				return (
 					codeCache.get(key) ??
-					`<pre class="shiki shiki-plain"><code>${escapeHtml(text)}</code></pre>`
+					wrapCodeBlock(`<pre class="shiki shiki-plain"><code>${escapeHtml(text)}</code></pre>`)
 				);
 			}
 			// Raw/inline HTML is intentionally NOT escaped here: it is passed through
@@ -313,6 +320,7 @@ const SANITIZE_CONFIG = {
 		'b',
 		'blockquote',
 		'br',
+		'button',
 		'code',
 		'del',
 		'div',
@@ -360,6 +368,7 @@ const SANITIZE_CONFIG = {
 		'data-embed-url',
 		'data-file-path',
 		'data-skill-name',
+		'data-code-copy',
 		'role',
 		'tabindex',
 		'width',
@@ -368,7 +377,8 @@ const SANITIZE_CONFIG = {
 		'type',
 		'checked',
 		'disabled',
-		'aria-hidden'
+		'aria-hidden',
+		'aria-label'
 	],
 	FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'form'],
 	ALLOW_DATA_ATTR: false

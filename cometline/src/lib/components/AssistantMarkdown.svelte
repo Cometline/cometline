@@ -170,9 +170,32 @@
 		};
 	});
 
+	async function copyCodeBlock(button: HTMLElement) {
+		const text = button.closest('.md-code-block')?.querySelector('pre')?.textContent ?? '';
+		if (!text) return;
+		try {
+			await navigator.clipboard.writeText(text);
+		} catch {
+			return;
+		}
+		button.classList.add('is-copied');
+		button.setAttribute('aria-label', 'Copied');
+		setTimeout(() => {
+			button.classList.remove('is-copied');
+			button.setAttribute('aria-label', 'Copy code');
+		}, 1600);
+	}
+
 	function onClick(event: MouseEvent) {
 		const target = event.target;
 		if (!(target instanceof Element)) return;
+
+		const copyBtn = target.closest('[data-code-copy]');
+		if (copyBtn instanceof HTMLElement) {
+			event.preventDefault();
+			void copyCodeBlock(copyBtn);
+			return;
+		}
 
 		const fileChip = target.closest('[data-file-path]');
 		if (fileChip instanceof HTMLElement) {
@@ -475,7 +498,67 @@
 		font-size: 0.88em;
 	}
 
-	/* Fenced code blocks: Shiki emits <pre class="shiki"><code>…</code></pre>. */
+	/* Fenced code: wrapper + copy button from render.ts.
+	   Icons match Lucide Copy/Check used by message-action. */
+	.markdown :global(.md-code-block) {
+		position: relative;
+		margin: 0 0 0.6em;
+	}
+
+	.markdown :global(.md-code-copy) {
+		--md-copy-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='14' height='14' x='8' y='8' rx='2' ry='2'/%3E%3Cpath d='M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2'/%3E%3C/svg%3E");
+		--md-check-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
+		position: absolute;
+		top: 0.4em;
+		right: 0.4em;
+		z-index: 1;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 1.75rem;
+		height: 1.75rem;
+		padding: 0;
+		border: 1px solid transparent;
+		border-radius: 7px;
+		background: rgba(255, 255, 255, 0.92);
+		color: var(--text-soft);
+		cursor: pointer;
+		transition:
+			color var(--duration-fast, 120ms) var(--ease-smooth, ease),
+			background var(--duration-fast, 120ms) var(--ease-smooth, ease),
+			border-color var(--duration-fast, 120ms) var(--ease-smooth, ease);
+	}
+
+	.markdown :global(.md-code-copy::before) {
+		content: '';
+		display: block;
+		width: 13px;
+		height: 13px;
+		background-color: currentColor;
+		mask: var(--md-copy-icon) center / contain no-repeat;
+		-webkit-mask: var(--md-copy-icon) center / contain no-repeat;
+	}
+
+	.markdown :global(.md-code-copy:hover) {
+		color: var(--text-main);
+		border-color: var(--border-soft);
+		background: #ffffff;
+	}
+
+	.markdown :global(.md-code-copy:focus-visible) {
+		outline: 2px solid var(--accent);
+		outline-offset: 1px;
+	}
+
+	.markdown :global(.md-code-copy.is-copied) {
+		color: var(--status-success);
+	}
+
+	.markdown :global(.md-code-copy.is-copied::before) {
+		mask: var(--md-check-icon) center / contain no-repeat;
+		-webkit-mask: var(--md-check-icon) center / contain no-repeat;
+	}
+
 	.markdown :global(pre) {
 		margin: 0 0 0.6em;
 		padding: 0.7em 0.85em;
@@ -485,6 +568,11 @@
 		background: #ffffff;
 		font-size: 0.86em;
 		line-height: 1.5;
+	}
+
+	.markdown :global(.md-code-block > pre) {
+		margin: 0;
+		padding-right: 2.4em;
 	}
 
 	.markdown :global(pre.shiki) {

@@ -40,10 +40,27 @@ describe('renderMarkdown', () => {
 		expect(html).toContain('<span');
 	});
 
+	it('wraps fenced code blocks with a copy control', async () => {
+		const html = await renderMarkdown('```ts\nconst a: number = 1\n```');
+		expect(html).toContain('class="md-code-block"');
+		expect(html).toContain('data-code-copy');
+		expect(html).toContain('aria-label="Copy code"');
+		expect(html).toContain('type="button"');
+	});
+
 	it('falls back to escaped plaintext for unknown languages', async () => {
 		const html = await renderMarkdown('```unknownlang\n<b>x</b>\n```');
 		expect(html).toContain('<pre');
 		expect(html).toContain('&lt;b&gt;x&lt;/b&gt;');
+		expect(html).toContain('class="md-code-block"');
+		expect(html).toContain('data-code-copy');
+	});
+
+	it('does not put a copy control on inline code', async () => {
+		const html = await renderMarkdown('use `npm install` here');
+		expect(html).toContain('<code>npm install</code>');
+		expect(html).not.toContain('md-code-block');
+		expect(html).not.toContain('data-code-copy');
 	});
 
 	it('heals incomplete inline markdown (streaming)', async () => {
