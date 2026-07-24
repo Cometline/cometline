@@ -1,4 +1,4 @@
-export type WebPanelTreeSource = 'wiki' | 'workspace';
+export type WebPanelTreeSource = 'wiki' | 'workspace' | 'changes';
 export type MarkdownFileViewMode = 'preview' | 'source';
 
 const TREE_SOURCE_KEY = 'cometline.webPanelTreeSource';
@@ -7,7 +7,7 @@ const MD_VIEW_MODE_KEY = 'cometline.mdFileViewMode';
 export function readWebPanelTreeSource(): WebPanelTreeSource {
 	try {
 		const value = localStorage.getItem(TREE_SOURCE_KEY);
-		if (value === 'wiki' || value === 'workspace') return value;
+		if (value === 'wiki' || value === 'workspace' || value === 'changes') return value;
 	} catch {
 		// ignore
 	}

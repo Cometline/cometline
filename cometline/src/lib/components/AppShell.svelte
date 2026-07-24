@@ -166,6 +166,9 @@
 			case 'openWebPanel':
 				shellStore.openWebPanelFromShortcut();
 				return;
+			case 'openGitPanel':
+				shellStore.openGitChangesPanel();
+				return;
 			case 'openTerminal':
 				shellStore.requestTerminalFocus();
 				return;
@@ -311,6 +314,11 @@
 			if (matchesShortcut(event, shortcuts.openWebPanel)) {
 				event.preventDefault();
 				runShortcutAction('openWebPanel');
+				return;
+			}
+			if (matchesShortcut(event, shortcuts.openGitPanel)) {
+				event.preventDefault();
+				runShortcutAction('openGitPanel');
 				return;
 			}
 			if (matchesShortcut(event, shortcuts.openTerminal)) {

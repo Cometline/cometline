@@ -75,6 +75,103 @@ export type WorkspaceFileList = {
     truncated?: boolean;
 };
 
+export type WorkspaceGitFileStatus = {
+    /**
+     * Workspace-relative file path.
+     */
+    path: string;
+    /**
+     * High-level change kind (modified, added, deleted, renamed, untracked, conflict, …).
+     */
+    status: string;
+    staged: boolean;
+    untracked: boolean;
+    /**
+     * Raw porcelain XY status code.
+     */
+    xy?: string;
+};
+
+export type WorkspaceGitStatus = {
+    /**
+     * False when the workspace is not inside a git work tree or git is unavailable.
+     */
+    is_repo: boolean;
+    /**
+     * Current branch name or detached HEAD label.
+     */
+    branch?: string;
+    /**
+     * Tracking branch when configured.
+     */
+    upstream?: string;
+    files: Array<WorkspaceGitFileStatus>;
+    /**
+     * True when more changed files exist than the server returned.
+     */
+    truncated?: boolean;
+    /**
+     * Human-readable note when is_repo is false or listing is limited.
+     */
+    message?: string;
+};
+
+export type WorkspaceGitDiff = {
+    /**
+     * Workspace-relative file path.
+     */
+    path: string;
+    binary: boolean;
+    /**
+     * Unified diff body when available.
+     */
+    diff?: string;
+    truncated?: boolean;
+    /**
+     * True when there is no diff for the path in the selected scope.
+     */
+    empty?: boolean;
+    message?: string;
+};
+
+/**
+ * Provide either workspace_id or workspace_path.
+ */
+export type WorkspaceGitPathsRequest = {
+    workspace_id?: string;
+    workspace_path?: string;
+    /**
+     * Workspace-relative file paths.
+     */
+    paths: Array<string>;
+};
+
+/**
+ * Provide either workspace_id or workspace_path.
+ */
+export type WorkspaceGitCommitRequest = {
+    workspace_id?: string;
+    workspace_path?: string;
+    /**
+     * Commit message (staged changes only).
+     */
+    message: string;
+};
+
+export type WorkspaceGitMutationResult = {
+    ok: boolean;
+    message?: string;
+};
+
+export type WorkspaceGitCommitResult = {
+    ok: boolean;
+    /**
+     * Short commit SHA when available.
+     */
+    sha?: string;
+    message?: string;
+};
+
 export type WikiFileList = {
     /**
      * Wiki-root-relative wiki file paths (`.md` and `.html`).
@@ -1220,6 +1317,212 @@ export type PruneWorkspacesResponses = {
 };
 
 export type PruneWorkspacesResponse2 = PruneWorkspacesResponses[keyof PruneWorkspacesResponses];
+
+export type GetWorkspaceGitStatusData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Registered workspace identifier.
+         */
+        workspace_id?: string;
+        /**
+         * Absolute workspace path for an already-registered workspace.
+         */
+        workspace_path?: string;
+        /**
+         * working = unstaged + untracked (default);
+         * staged = index only;
+         * all = staged + unstaged + untracked.
+         *
+         */
+        scope?: 'working' | 'staged' | 'all';
+    };
+    url: '/api/v1/workspaces/git/status';
+};
+
+export type GetWorkspaceGitStatusErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type GetWorkspaceGitStatusError = GetWorkspaceGitStatusErrors[keyof GetWorkspaceGitStatusErrors];
+
+export type GetWorkspaceGitStatusResponses = {
+    /**
+     * Git status for the workspace
+     */
+    200: WorkspaceGitStatus;
+};
+
+export type GetWorkspaceGitStatusResponse = GetWorkspaceGitStatusResponses[keyof GetWorkspaceGitStatusResponses];
+
+export type GetWorkspaceGitDiffData = {
+    body?: never;
+    path?: never;
+    query: {
+        workspace_id?: string;
+        workspace_path?: string;
+        /**
+         * Workspace-relative file path.
+         */
+        path: string;
+        scope?: 'working' | 'staged' | 'all';
+    };
+    url: '/api/v1/workspaces/git/diff';
+};
+
+export type GetWorkspaceGitDiffErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type GetWorkspaceGitDiffError = GetWorkspaceGitDiffErrors[keyof GetWorkspaceGitDiffErrors];
+
+export type GetWorkspaceGitDiffResponses = {
+    /**
+     * Unified diff for the path
+     */
+    200: WorkspaceGitDiff;
+};
+
+export type GetWorkspaceGitDiffResponse = GetWorkspaceGitDiffResponses[keyof GetWorkspaceGitDiffResponses];
+
+export type StageWorkspaceGitPathsData = {
+    body: WorkspaceGitPathsRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/workspaces/git/stage';
+};
+
+export type StageWorkspaceGitPathsErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type StageWorkspaceGitPathsError = StageWorkspaceGitPathsErrors[keyof StageWorkspaceGitPathsErrors];
+
+export type StageWorkspaceGitPathsResponses = {
+    /**
+     * Paths staged
+     */
+    200: WorkspaceGitMutationResult;
+};
+
+export type StageWorkspaceGitPathsResponse = StageWorkspaceGitPathsResponses[keyof StageWorkspaceGitPathsResponses];
+
+export type UnstageWorkspaceGitPathsData = {
+    body: WorkspaceGitPathsRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/workspaces/git/unstage';
+};
+
+export type UnstageWorkspaceGitPathsErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type UnstageWorkspaceGitPathsError = UnstageWorkspaceGitPathsErrors[keyof UnstageWorkspaceGitPathsErrors];
+
+export type UnstageWorkspaceGitPathsResponses = {
+    /**
+     * Paths unstaged
+     */
+    200: WorkspaceGitMutationResult;
+};
+
+export type UnstageWorkspaceGitPathsResponse = UnstageWorkspaceGitPathsResponses[keyof UnstageWorkspaceGitPathsResponses];
+
+export type DiscardWorkspaceGitPathsData = {
+    body: WorkspaceGitPathsRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/workspaces/git/discard';
+};
+
+export type DiscardWorkspaceGitPathsErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type DiscardWorkspaceGitPathsError = DiscardWorkspaceGitPathsErrors[keyof DiscardWorkspaceGitPathsErrors];
+
+export type DiscardWorkspaceGitPathsResponses = {
+    /**
+     * Paths discarded
+     */
+    200: WorkspaceGitMutationResult;
+};
+
+export type DiscardWorkspaceGitPathsResponse = DiscardWorkspaceGitPathsResponses[keyof DiscardWorkspaceGitPathsResponses];
+
+export type CommitWorkspaceGitData = {
+    body: WorkspaceGitCommitRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/workspaces/git/commit';
+};
+
+export type CommitWorkspaceGitErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type CommitWorkspaceGitError = CommitWorkspaceGitErrors[keyof CommitWorkspaceGitErrors];
+
+export type CommitWorkspaceGitResponses = {
+    /**
+     * Commit created
+     */
+    200: WorkspaceGitCommitResult;
+};
+
+export type CommitWorkspaceGitResponse = CommitWorkspaceGitResponses[keyof CommitWorkspaceGitResponses];
 
 export type ListWorkspaceFilesData = {
     body?: never;

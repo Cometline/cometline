@@ -2,14 +2,11 @@
 	import { ChevronDown, ChevronRight, File, Folder, FolderOpen, Loader } from '@lucide/svelte';
 	import { tick } from 'svelte';
 	import { listWikiFiles, listWorkspaceFiles } from '$lib/client/cometmind';
+	import GitChangesBrowser from '$lib/components/GitChangesBrowser.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { toWikiUiPath } from '$lib/wiki/paths';
 	import { buildFileTree, dirKeysToExpandForPaths, type FileTreeNode } from '$lib/workspace/file-tree';
-	import {
-		readWebPanelTreeSource,
-		writeWebPanelTreeSource,
-		type WebPanelTreeSource
-	} from '$lib/workspace/web-panel-prefs';
+	import { type WebPanelTreeSource } from '$lib/workspace/web-panel-prefs';
 	import { normalizeWorkspacePath } from '$lib/workspace/file-index';
 
 	const LIST_LIMIT = 500;
@@ -22,7 +19,6 @@
 		onSelectFile: (path: string) => void;
 	} = $props();
 
-	let source = $state<WebPanelTreeSource>(readWebPanelTreeSource());
 	let filter = $state('');
 	let loading = $state(false);
 	let error = $state<string | null>(null);
@@ -33,16 +29,18 @@
 	let filterInputEl = $state<HTMLInputElement | null>(null);
 	let satisfiedFilterFocusRequestId = 0;
 
+	const source = $derived(shellStore.webPanelBrowseSource);
 	const normalizedWorkspace = $derived(normalizeWorkspacePath(workspacePath));
 	const workspaceAvailable = $derived(
 		Boolean(normalizedWorkspace && normalizedWorkspace !== '/')
 	);
 	const tree = $derived(buildFileTree(files));
+	const showFileTree = $derived(source === 'wiki' || source === 'workspace');
 
 	function setSource(next: WebPanelTreeSource) {
-		if (next === 'workspace' && !workspaceAvailable) return;
-		source = next;
-		writeWebPanelTreeSource(next);
+		if ((next === 'workspace' || next === 'changes') && !workspaceAvailable) return;
+		// Records panel history so ←/→ moves between Wiki / Workspace / Changes.
+		shellStore.setWebPanelBrowseSource(next);
 	}
 
 	function toggleDir(key: string) {
@@ -68,6 +66,13 @@
 	async function loadFiles() {
 		const seq = ++loadSeq;
 		const activeSource = source;
+		if (activeSource === 'changes') {
+			files = [];
+			truncated = false;
+			loading = false;
+			error = null;
+			return;
+		}
 		const query = filter.trim();
 		loading = true;
 		error = null;
@@ -137,6 +142,7 @@
 		if (!requestId) return;
 		void tick().then(applyFilterFocus);
 	});
+
 </script>
 
 {#snippet treeNodes(nodes: FileTreeNode[], parentKey: string)}
@@ -212,18 +218,34 @@
 			>
 				Workspace
 			</button>
+			<button
+				type="button"
+				class="source-toggle-btn"
+				class:active={source === 'changes'}
+				disabled={!workspaceAvailable}
+				title={workspaceAvailable ? 'Git changes' : 'Select a workspace to see git changes'}
+				onclick={() => setSource('changes')}
+			>
+				Changes
+			</button>
 		</div>
-		<input
-			use:trackFilterInput
-			class="file-tree-filter"
-			type="search"
-			placeholder={source === 'wiki' ? 'Filter wiki files…' : 'Filter workspace files…'}
-			bind:value={filter}
-			aria-label="Filter files"
-		/>
+		{#if showFileTree}
+			<input
+				use:trackFilterInput
+				class="file-tree-filter"
+				type="search"
+				placeholder={source === 'wiki' ? 'Filter wiki files…' : 'Filter workspace files…'}
+				bind:value={filter}
+				aria-label="Filter files"
+			/>
+		{/if}
 	</div>
 
-	{#if source === 'workspace' && !workspaceAvailable}
+	{#if source === 'changes'}
+		<div class="file-tree-changes">
+			<GitChangesBrowser workspacePath={normalizedWorkspace} />
+		</div>
+	{:else if source === 'workspace' && !workspaceAvailable}
 		<div class="file-tree-state">Select a workspace to browse its files.</div>
 	{:else if loading && files.length === 0}
 		<div class="file-tree-state">
@@ -255,6 +277,20 @@
 		height: 100%;
 		min-height: 0;
 		background: #fff;
+	}
+
+	.file-tree-changes {
+		flex: 1;
+		min-height: 0;
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+	}
+
+	.file-tree-changes :global(.git-changes),
+	.file-tree-changes :global(.git-diff-view) {
+		flex: 1;
+		min-height: 0;
 	}
 
 	.file-tree-header {

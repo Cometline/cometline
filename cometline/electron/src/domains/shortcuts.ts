@@ -280,6 +280,7 @@ export function createShortcutCoordinator(dependencies: ShortcutCoordinatorDepen
 		const forwardActions: ShortcutAction[] = [
 			'toggleSidebar',
 			'openWebPanel',
+			'openGitPanel',
 			'openTerminal',
 			'toggleWebPanel',
 			'navigateBack',

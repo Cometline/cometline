@@ -12,12 +12,18 @@ import {
 	type PanelHistoryEntry,
 	type PanelHistoryState
 } from '$lib/workspace/panel-history';
+import {
+	readWebPanelTreeSource,
+	writeWebPanelTreeSource,
+	type WebPanelTreeSource
+} from '$lib/workspace/web-panel-prefs';
 
-export type WebPanelMode = 'url' | 'file';
+export type WebPanelMode = 'url' | 'file' | 'git-diff';
 
 export type SessionWebPanel =
 	| { mode: 'url'; url: string; visible: boolean }
-	| { mode: 'file'; filePath: string; visible: boolean };
+	| { mode: 'file'; filePath: string; visible: boolean }
+	| { mode: 'git-diff'; filePath: string; visible: boolean };
 
 export type FocusedPane = 'chat' | 'web' | 'terminal';
 export type WorkspacePanelSurface = 'web' | 'terminal';
@@ -98,12 +104,15 @@ function createShellStore() {
 	let workspacePanelSurfaceBySession = $state<Record<string, WorkspacePanelSurface>>({});
 	let webContextsBySession = $state<Record<string, PendingWebContext[]>>({});
 	let panelHistoryBySession = $state<Record<string, PanelHistoryState>>({});
+	/** Per-session Wiki/Workspace/Changes tab for the browse surface. */
+	let browseSourceBySession = $state<Record<string, WebPanelTreeSource>>({});
 	/** Suppresses history recording while applying back/forward navigation. */
 	let applyingPanelHistory = false;
 	let resolvePageContext: ((source: string) => Promise<WebContext | null>) | null = null;
 	let focusedPane = $state<FocusedPane>('chat');
 	let addressBarFocusRequestId = $state(0);
 	let fileTreeFilterFocusRequestId = $state(0);
+	let gitChangesOpenRequestId = $state(0);
 	let terminalFocusRequestId = $state(0);
 	/** Last ⌘O focus target while the browse tree is visible. */
 	let lastWebPanelFocusTarget = $state<'filter' | 'address'>('filter');
@@ -170,9 +179,18 @@ function createShellStore() {
 		return panelHistoryBySession[sessionId] ?? createPanelHistoryState();
 	}
 
+	function browseSourceFor(sessionId: string): WebPanelTreeSource {
+		return browseSourceBySession[sessionId] ?? readWebPanelTreeSource();
+	}
+
+	function setBrowseSourceForSession(sessionId: string, source: WebPanelTreeSource) {
+		browseSourceBySession = { ...browseSourceBySession, [sessionId]: source };
+		writeWebPanelTreeSource(source);
+	}
+
 	function recordPanelHistory(sessionId: string, entry: PanelHistoryEntry) {
 		if (applyingPanelHistory) return;
-		const next = pushEntry(historyFor(sessionId), entry);
+		const next = pushEntry(historyFor(sessionId), entry, browseSourceFor(sessionId));
 		panelHistoryBySession = {
 			...panelHistoryBySession,
 			[sessionId]: next
@@ -187,6 +205,7 @@ function createShellStore() {
 				[sessionId]: 'web'
 			};
 			if (entry.kind === 'browse') {
+				setBrowseSourceForSession(sessionId, entry.source);
 				webPanelsBySession = {
 					...webPanelsBySession,
 					[sessionId]: { mode: 'url', url: '', visible: true }
@@ -195,6 +214,12 @@ function createShellStore() {
 				webPanelsBySession = {
 					...webPanelsBySession,
 					[sessionId]: { mode: 'file', filePath: entry.path, visible: true }
+				};
+			} else if (entry.kind === 'git-diff') {
+				setBrowseSourceForSession(sessionId, 'changes');
+				webPanelsBySession = {
+					...webPanelsBySession,
+					[sessionId]: { mode: 'git-diff', filePath: entry.path, visible: true }
 				};
 			} else {
 				webPanelsBySession = {
@@ -207,6 +232,21 @@ function createShellStore() {
 		} finally {
 			applyingPanelHistory = false;
 		}
+	}
+
+	function openBrowseSurface(sessionId: string, source: WebPanelTreeSource) {
+		setBrowseSourceForSession(sessionId, source);
+		workspacePanelSurfaceBySession = {
+			...workspacePanelSurfaceBySession,
+			[sessionId]: 'web'
+		};
+		webPanelsBySession = {
+			...webPanelsBySession,
+			[sessionId]: { mode: 'url', url: '', visible: true }
+		};
+		recordPanelHistory(sessionId, { kind: 'browse', source });
+		focusedPane = 'web';
+		syncWorkspacePanelOpen(true);
 	}
 
 	return {
@@ -273,6 +313,13 @@ function createShellStore() {
 			const panel = panelForActiveSession();
 			return panel?.mode === 'file' ? panel.filePath : null;
 		},
+		get webPanelGitDiffPath() {
+			const panel = panelForActiveSession();
+			return panel?.mode === 'git-diff' ? panel.filePath : null;
+		},
+		get webPanelBrowseSource(): WebPanelTreeSource {
+			return browseSourceFor(panelSessionKey());
+		},
 		get pendingWebContexts(): PendingWebContext[] {
 			return webContextsBySession[panelSessionKey()] ?? [];
 		},
@@ -293,6 +340,9 @@ function createShellStore() {
 		get fileTreeFilterFocusRequestId() {
 			return fileTreeFilterFocusRequestId;
 		},
+		get gitChangesOpenRequestId() {
+			return gitChangesOpenRequestId;
+		},
 		get terminalFocusRequestId() {
 			return terminalFocusRequestId;
 		},
@@ -309,6 +359,10 @@ function createShellStore() {
 		get webPanelBrowseOpen() {
 			const panel = panelForActiveSession();
 			return Boolean(panel?.visible && panel.mode === 'url' && !panel.url);
+		},
+		get webPanelGitDiffOpen() {
+			const panel = panelForActiveSession();
+			return Boolean(panel?.visible && panel.mode === 'git-diff');
 		},
 		/** Update persisted default; sync active when no session is open (home). */
 		setDefaultWorkspacePath(path: string) {
@@ -504,7 +558,10 @@ function createShellStore() {
 			if (url) {
 				recordPanelHistory(sessionId, { kind: 'url', url });
 			} else {
-				recordPanelHistory(sessionId, { kind: 'browse' });
+				recordPanelHistory(sessionId, {
+					kind: 'browse',
+					source: browseSourceFor(sessionId)
+				});
 			}
 			focusedPane = 'web';
 			syncWorkspacePanelOpen(true);
@@ -522,19 +579,39 @@ function createShellStore() {
 			focusedPane = 'web';
 			syncWorkspacePanelOpen(true);
 		},
-		openWebPanelEmpty() {
-			const sessionId = panelSessionKey();
+		openGitDiff(filePath: string, sessionId: string) {
+			setBrowseSourceForSession(sessionId, 'changes');
 			workspacePanelSurfaceBySession = {
 				...workspacePanelSurfaceBySession,
 				[sessionId]: 'web'
 			};
 			webPanelsBySession = {
 				...webPanelsBySession,
-				[sessionId]: { mode: 'url', url: '', visible: true }
+				[sessionId]: { mode: 'git-diff', filePath, visible: true }
 			};
-			recordPanelHistory(sessionId, { kind: 'browse' });
+			recordPanelHistory(sessionId, { kind: 'git-diff', path: filePath });
 			focusedPane = 'web';
 			syncWorkspacePanelOpen(true);
+		},
+		openWebPanelEmpty() {
+			const sessionId = panelSessionKey();
+			openBrowseSurface(sessionId, browseSourceFor(sessionId));
+			this.requestFileTreeFilterFocus();
+		},
+		/** Switch Wiki / Workspace / Changes and record panel history. */
+		setWebPanelBrowseSource(source: WebPanelTreeSource) {
+			const sessionId = panelSessionKey();
+			const panel = panelForActiveSession();
+			const onBrowse = Boolean(panel?.visible && panel.mode === 'url' && !panel.url);
+			if (onBrowse && browseSourceFor(sessionId) === source) return;
+			if (onBrowse) {
+				setBrowseSourceForSession(sessionId, source);
+				recordPanelHistory(sessionId, { kind: 'browse', source });
+				focusedPane = 'web';
+				return;
+			}
+			// Opening or leaving file/url/diff into a specific browse tab.
+			openBrowseSurface(sessionId, source);
 			this.requestFileTreeFilterFocus();
 		},
 		navigateWebPanel(url: string) {
@@ -550,7 +627,10 @@ function createShellStore() {
 			if (url) {
 				recordPanelHistory(sessionId, { kind: 'url', url });
 			} else {
-				recordPanelHistory(sessionId, { kind: 'browse' });
+				recordPanelHistory(sessionId, {
+					kind: 'browse',
+					source: browseSourceFor(sessionId)
+				});
 			}
 			focusedPane = 'web';
 			syncWorkspacePanelOpen(true);
@@ -628,6 +708,13 @@ function createShellStore() {
 				return;
 			}
 			this.requestAddressBarFocus();
+		},
+		/** Open the web panel browse surface on the Git Changes tab (⌘⇧G). */
+		openGitChangesPanel() {
+			this.setWebPanelBrowseSource('changes');
+			// Nudge FileTreeBrowser in case it was already mounted on another tab.
+			gitChangesOpenRequestId += 1;
+			this.requestFileTreeFilterFocus();
 		},
 		toggleWebPanel() {
 			const sessionId = panelSessionKey();
@@ -715,6 +802,9 @@ function createShellStore() {
 		 */
 		openFilePreviewForActive(filePath: string) {
 			this.openFilePreview(filePath, panelSessionKey());
+		},
+		openGitDiffForActive(filePath: string) {
+			this.openGitDiff(filePath, panelSessionKey());
 		},
 		/**
 		 * Opens a URL in the panel for the active session, falling back to the

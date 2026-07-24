@@ -98,6 +98,7 @@ export type ShortcutAction =
 	| 'nextSession'
 	| 'toggleWebPanel'
 	| 'openWebPanel'
+	| 'openGitPanel'
 	| 'openTerminal'
 	| 'navigateBack'
 	| 'navigateForward'

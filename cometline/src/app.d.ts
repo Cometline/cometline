@@ -69,6 +69,7 @@ declare global {
 		| 'nextSession'
 		| 'toggleWebPanel'
 		| 'openWebPanel'
+		| 'openGitPanel'
 		| 'openTerminal'
 		| 'navigateBack'
 		| 'navigateForward'

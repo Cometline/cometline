@@ -12,6 +12,7 @@
 	import { tick, untrack } from 'svelte';
 	import FilePreview from '$lib/components/FilePreview.svelte';
 	import FileTreeBrowser from '$lib/components/FileTreeBrowser.svelte';
+	import GitDiffView from '$lib/components/GitDiffView.svelte';
 	import Tooltip from '$lib/components/Tooltip.svelte';
 	import { sessionStore } from '$lib/stores/session.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
@@ -73,12 +74,16 @@
 	const panelMode = $derived(shellStore.webPanelMode);
 	const panelUrl = $derived(shellStore.webPanelUrl);
 	const panelFilePath = $derived(shellStore.webPanelFilePath);
+	const panelGitDiffPath = $derived(shellStore.webPanelGitDiffPath);
 	const panelSessionKey = $derived(shellStore.webPanelSessionKey);
 	const showWebview = $derived(
 		panelMode === 'url' && Boolean(shellStore.hasWebPanelForSession && panelUrl)
 	);
 	const showFilePreview = $derived(
 		panelMode === 'file' && Boolean(shellStore.hasWebPanelForSession && displayedFilePath)
+	);
+	const showGitDiff = $derived(
+		panelMode === 'git-diff' && Boolean(shellStore.hasWebPanelForSession && panelGitDiffPath)
 	);
 	const showFileBrowser = $derived(
 		Boolean(shellStore.hasWebPanelForSession && shellStore.webPanelBrowseOpen)
@@ -512,14 +517,6 @@
 		}
 	});
 
-	$effect(() => {
-		if (showFileBrowser) {
-			pageTitle = '';
-			canGoBack = false;
-			canGoForward = false;
-		}
-	});
-
 	// Guard leaving a dirty file behind an unsaved-change confirmation. The store
 	// path changes immediately, but FilePreview only reloads the locally-tracked
 	// displayedFilePath, so cancelling keeps the current (dirty) file open.
@@ -540,6 +537,14 @@
 		// untrack: setViewingFileContextForActive reads+writes pending contexts; if
 		// that read is tracked here, every write re-runs this effect forever.
 		untrack(() => captureFileContext(filePath));
+	});
+
+	$effect(() => {
+		if (showFileBrowser || showGitDiff) {
+			pageTitle = '';
+			canGoBack = false;
+			canGoForward = false;
+		}
 	});
 
 	$effect(() => {
@@ -654,6 +659,9 @@
 					<span class="file-path-display" title={displayedFilePath}
 						>{displayedFilePath}</span
 					>
+				{:else if panelMode === 'git-diff' && panelGitDiffPath}
+					<span class="page-title">Diff</span>
+					<span class="file-path-display" title={panelGitDiffPath}>{panelGitDiffPath}</span>
 				{:else}
 					{#if pageTitle}
 						<span class="page-title">{pageTitle}</span>
@@ -741,6 +749,13 @@
 					workspacePath={shellStore.workspacePath}
 					filePath={displayedFilePath}
 					onEditorState={(state) => (editorState = state)}
+				/>
+			{:else if showGitDiff && panelGitDiffPath}
+				<GitDiffView
+					workspacePath={shellStore.workspacePath}
+					filePath={panelGitDiffPath}
+					scope="all"
+					onBack={() => shellStore.panelHistoryBack()}
 				/>
 			{:else if showWebview}
 				<!-- Electron webview tag; inert in plain browser dev without Electron. -->

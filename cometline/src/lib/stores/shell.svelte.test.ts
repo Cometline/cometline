@@ -138,6 +138,50 @@ describe('shellStore web panel focus behavior', () => {
 
 		shellStore.clearWebPanelForSession('__draft__');
 	});
+
+	it('records history across browse sources, files, and git diffs', () => {
+		shellStore.setWebPanelBrowseSource('wiki');
+		expect(shellStore.webPanelBrowseOpen).toBe(true);
+		expect(shellStore.webPanelBrowseSource).toBe('wiki');
+
+		shellStore.setWebPanelBrowseSource('workspace');
+		expect(shellStore.webPanelBrowseSource).toBe('workspace');
+		expect(shellStore.canPanelHistoryBack).toBe(true);
+
+		shellStore.openFilePreviewForActive('src/app.ts');
+		expect(shellStore.webPanelMode).toBe('file');
+
+		shellStore.setWebPanelBrowseSource('changes');
+		expect(shellStore.webPanelBrowseOpen).toBe(true);
+		expect(shellStore.webPanelBrowseSource).toBe('changes');
+
+		shellStore.openGitDiffForActive('src/app.ts');
+		expect(shellStore.webPanelMode).toBe('git-diff');
+		expect(shellStore.webPanelGitDiffPath).toBe('src/app.ts');
+
+		// Back: changes browse
+		expect(shellStore.panelHistoryBack()).toBe(true);
+		expect(shellStore.webPanelBrowseOpen).toBe(true);
+		expect(shellStore.webPanelBrowseSource).toBe('changes');
+
+		// Back: file preview
+		expect(shellStore.panelHistoryBack()).toBe(true);
+		expect(shellStore.webPanelFilePath).toBe('src/app.ts');
+
+		// Back: workspace browse
+		expect(shellStore.panelHistoryBack()).toBe(true);
+		expect(shellStore.webPanelBrowseSource).toBe('workspace');
+
+		// Back: wiki browse
+		expect(shellStore.panelHistoryBack()).toBe(true);
+		expect(shellStore.webPanelBrowseSource).toBe('wiki');
+
+		// Forward to workspace again
+		expect(shellStore.panelHistoryForward()).toBe(true);
+		expect(shellStore.webPanelBrowseSource).toBe('workspace');
+
+		shellStore.clearWebPanelForSession('__draft__');
+	});
 });
 
 describe('shellStore terminal panel visibility', () => {

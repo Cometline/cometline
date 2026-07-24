@@ -118,6 +118,7 @@ Default bindings (rebindable in Settings → Shortcuts):
 | Previous / next chat | ⌃⌘↑ / ⌃⌘↓     |
 | Toggle web panel     | ⌘⌥B           |
 | Open web panel       | ⌘O            |
+| Open git changes     | ⌘⇧G           |
 
 ---
 
