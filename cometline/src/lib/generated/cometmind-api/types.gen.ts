@@ -319,16 +319,22 @@ export type WebPageContext = {
 
 export type ImageAttachment = {
     /**
-     * Client-only identifier for UI attachment lists; not sent to CometMind.
+     * Client attachment id, or a CometMind media-store id for assistant-presented images. When set without data, clients fetch bytes from the session media API.
+     *
      */
     id?: string;
     media_type: 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp';
     /**
-     * Raw base64 payload without a data URL prefix. Each decoded image must be at most 4 MB.
+     * Raw base64 payload without a data URL prefix. Required for user uploads. Optional for assistant media refs when id is a media-store id. Each decoded image must be at most 4 MB.
+     *
      */
-    data: string;
+    data?: string;
     name?: string;
     size?: number;
+    /**
+     * Optional accessible caption for assistant-presented images.
+     */
+    alt?: string;
 };
 
 export type Session = {
@@ -743,6 +749,20 @@ export type TurnRecoverEvent = {
     reasoning_chars: number;
 };
 
+export type AssistantImageEvent = {
+    type: 'assistant_image';
+    /**
+     * Media-store image id within the session.
+     */
+    id: string;
+    media_type: 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp';
+    alt?: string;
+    /**
+     * Optional data URL for immediate chat rendering without a second fetch.
+     */
+    data_url?: string;
+};
+
 export type StreamEvent = ({
     type?: 'text_delta';
 } & TextDeltaEvent) | ({
@@ -778,6 +798,8 @@ export type StreamEvent = ({
 } & TurnStatusEvent) | ({
     type?: 'turn_recover';
 } & TurnRecoverEvent) | ({
+    type?: 'assistant_image';
+} & AssistantImageEvent) | ({
     type?: 'error';
 } & ErrorEvent) | ({
     type?: 'done';
@@ -2144,6 +2166,41 @@ export type PostSessionMessageResponses = {
 };
 
 export type PostSessionMessageResponse = PostSessionMessageResponses[keyof PostSessionMessageResponses];
+
+export type GetSessionMediaData = {
+    body?: never;
+    path: {
+        /**
+         * Persisted CometMind session identifier.
+         */
+        id: string;
+        imageId: string;
+    };
+    query?: never;
+    url: '/api/v1/sessions/{id}/media/{imageId}';
+};
+
+export type GetSessionMediaErrors = {
+    /**
+     * Resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type GetSessionMediaError = GetSessionMediaErrors[keyof GetSessionMediaErrors];
+
+export type GetSessionMediaResponses = {
+    /**
+     * Image bytes
+     */
+    200: Blob | File;
+};
+
+export type GetSessionMediaResponse = GetSessionMediaResponses[keyof GetSessionMediaResponses];
 
 export type StreamRuntimeEventsData = {
     body?: never;

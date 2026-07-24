@@ -45,13 +45,14 @@ export function showAssistantPending(
 	>
 ) {
 	if (!ctx.sessionStreaming || item.id !== ctx.streamingAssistantId) return false;
-	if (item.text?.trim()) return false;
+	if (item.text?.trim() || (item.images?.length ?? 0) > 0) return false;
 	return !hasVisibleThinkingBlock(item.id, ctx.threadItems, ctx.thinkingForAssistant);
 }
 
 export function showAssistantRow(item: AssistantItem, ctx: ThreadVisibilityContext) {
 	return Boolean(
 		item.text ||
+		(item.images?.length ?? 0) > 0 ||
 		hasReasoning(item) ||
 		hasVisibleThinkingBlock(item.id, ctx.threadItems, ctx.thinkingForAssistant) ||
 		pinnedJobProposalsForAssistant(item.id, ctx.threadItems).length > 0 ||

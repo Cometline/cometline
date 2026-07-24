@@ -62,8 +62,12 @@ type webContextInput struct {
 }
 
 type messageImageInput struct {
+	ID        string `json:"id,omitempty"`
 	MediaType string `json:"media_type"`
-	Data      string `json:"data"`
+	Data      string `json:"data,omitempty"`
+	Alt       string `json:"alt,omitempty"`
+	Name      string `json:"name,omitempty"`
+	Size      int    `json:"size,omitempty"`
 }
 
 func (a *App) handlePostMessage(c *gin.Context) {

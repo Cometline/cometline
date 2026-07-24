@@ -141,7 +141,7 @@ export const SECTION_PERSISTENCE_HINTS: Record<
 	},
 	app: {
 		pending: 'Session storage, retention, and mini window timeout',
-		instant: 'Open at login',
+		instant: 'Open at login, screen capture preference',
 		action: 'Export, import, workspace, and updates'
 	}
 };

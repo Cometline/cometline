@@ -57,6 +57,15 @@ export function summarizeStreamEvent(event: StreamEvent) {
 			error: event.error
 		};
 	}
+	if (event.type === 'assistant_image') {
+		return {
+			type: event.type,
+			id: event.id,
+			mediaType: event.media_type,
+			alt: event.alt,
+			hasDataUrl: Boolean(event.data_url)
+		};
+	}
 	if (event.type === 'error') {
 		return { type: event.type, code: event.code, message: event.message };
 	}
@@ -73,6 +82,7 @@ export function summarizeChatItem(item: ChatItem) {
 			type: item.type,
 			textLength: item.text.length,
 			textPreview: preview(item.text),
+			imageCount: item.images?.length ?? 0,
 			pending: item.pending,
 			reasoningLength: reasoningTextLength(item),
 			reasoningPreview: preview(

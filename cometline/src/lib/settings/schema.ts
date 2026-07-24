@@ -1005,7 +1005,8 @@ function defaultAppSettings(): AppSettings {
 		workspacePanelRatio: 0,
 		confirmCloseOnCmdW: true,
 		confirmBeforeDeletingChats: true,
-		fileSearchSource: 'wiki'
+		fileSearchSource: 'wiki',
+		screenCapturePreferred: false
 	};
 }
 
@@ -1286,7 +1287,11 @@ export function normalizeSettings(
 					: defaultAppSettings().confirmBeforeDeletingChats,
 			fileSearchSource: normalizeFileSearchSource(
 				(next.app as { fileSearchSource?: unknown } | undefined)?.fileSearchSource
-			)
+			),
+			screenCapturePreferred:
+				typeof next.app?.screenCapturePreferred === 'boolean'
+					? next.app.screenCapturePreferred
+					: defaultAppSettings().screenCapturePreferred
 		},
 		cometmind
 	};
@@ -1452,7 +1457,8 @@ const providerSettingsSchema = z.object({
 		workspacePanelRatio: z.number().min(0).max(WORKSPACE_PANEL_MAX_RATIO),
 		confirmCloseOnCmdW: z.boolean(),
 		confirmBeforeDeletingChats: z.boolean(),
-		fileSearchSource: z.enum(['wiki', 'workspace'])
+		fileSearchSource: z.enum(['wiki', 'workspace']),
+		screenCapturePreferred: z.boolean()
 	}),
 	cometmind: z.object({
 		systemPromptPath: z.string(),

@@ -27,7 +27,7 @@ type TranscriptEntry struct {
 	Kind TranscriptKind
 
 	Text   string         // user / assistant / reasoning body
-	Images []ContentBlock // user image attachments (decoded from content envelope)
+	Images []ContentBlock // image attachments (user inline data or assistant media refs)
 
 	ToolName    string
 	ToolInput   string // JSON arguments
@@ -123,10 +123,22 @@ func (s *Service) LoadTranscript(ctx context.Context, sessionID string) ([]Trans
 			}
 			txt := strings.TrimSpace(m.Content)
 			if txt != "" {
-				out = append(out, TranscriptEntry{
-					Kind: TranscriptKindAssistant,
-					Text: txt,
-				})
+				entry := TranscriptEntry{Kind: TranscriptKindAssistant}
+				if blocks, err := DecodeMessageContent(m.Content); err == nil && strings.HasPrefix(m.Content, contentEnvelopePrefix) {
+					var images []ContentBlock
+					for _, block := range blocks {
+						if block.Type == "image" {
+							images = append(images, block)
+						}
+					}
+					entry.Text = PlainTextFromContent(blocks)
+					entry.Images = images
+				} else {
+					entry.Text = txt
+				}
+				if entry.Text != "" || len(entry.Images) > 0 {
+					out = append(out, entry)
+				}
 			}
 		case "system":
 			if text, ok := DecodeErrorMessageContent(m.Content); ok {

@@ -117,6 +117,10 @@
 			"gatekeeperAssess": false,
 			"entitlements": "buildResources/entitlements.mac.plist",
 			"entitlementsInherit": "buildResources/entitlements.mac.plist",
+			"extendInfo": {
+				"NSAudioCaptureUsageDescription": "Cometline may capture system audio when presenting screen recordings or screenshots in chat.",
+				"NSScreenCaptureDescription": "Cometline may capture your screen so the agent can present screenshots in chat."
+			},
 			"notarize": true,
 			"target": [
 				"dmg",

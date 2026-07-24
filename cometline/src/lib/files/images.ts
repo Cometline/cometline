@@ -69,6 +69,25 @@ export async function readImageAttachments(
 	return { accepted, rejected };
 }
 
-export function imageDataURL(image: Pick<ImageAttachment, 'media_type' | 'data'>): string {
-	return `data:${image.media_type};base64,${image.data}`;
+export function imageDataURL(
+	image: Pick<ImageAttachment, 'media_type' | 'data'> & { data_url?: string }
+): string {
+	if (image.data_url) return image.data_url;
+	if (image.data) return `data:${image.media_type};base64,${image.data}`;
+	return '';
+}
+
+/** URL for assistant media-store images loaded by id (no inline base64). */
+export function sessionMediaURL(sessionId: string, imageId: string): string {
+	return `http://127.0.0.1:7700/api/v1/sessions/${encodeURIComponent(sessionId)}/media/${encodeURIComponent(imageId)}`;
+}
+
+export function resolveImageSrc(
+	image: ImageAttachment & { data_url?: string },
+	sessionId?: string | null
+): string {
+	const inline = imageDataURL(image);
+	if (inline) return inline;
+	if (image.id && sessionId) return sessionMediaURL(sessionId, image.id);
+	return '';
 }

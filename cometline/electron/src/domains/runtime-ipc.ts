@@ -5,6 +5,11 @@ import type { createOllamaService } from '../services/ollama.js';
 import type { createAutoUpdater } from './auto-updater.js';
 import type { createCometMindLifecycle } from './cometmind-lifecycle.js';
 import { registerIpcHandlers, type IpcHandlers } from './ipc.js';
+import {
+	getScreenCaptureAccess,
+	openScreenCaptureSettings,
+	requestScreenCaptureAccess
+} from './media-permissions.js';
 import type { createPersonas } from './personas.js';
 import type { createProviderAuth } from './provider-auth.js';
 import type { ShellWindowContext } from './runtime-context.js';
@@ -306,6 +311,17 @@ export function registerRuntimeIpcHandlers(dependencies: RuntimeIpcDependencies)
 				message: result.message
 			};
 		},
+		getScreenCaptureAccess: () => {
+			const settings = dependencies.settings.readProviderSettings();
+			return getScreenCaptureAccess(Boolean(settings.app?.screenCapturePreferred));
+		},
+		setScreenCapturePreferred: async (_event: IpcMainInvokeEvent, preferred: unknown) => {
+			const settings = dependencies.settings.readProviderSettings();
+			settings.app = { ...settings.app, screenCapturePreferred: Boolean(preferred) };
+			const saved = dependencies.settings.writeProviderSettings(settings);
+			return requestScreenCaptureAccess(Boolean(saved.app?.screenCapturePreferred));
+		},
+		openScreenCaptureSettings: async () => openScreenCaptureSettings(),
 		openExternal: async (_event: IpcMainInvokeEvent, rawUrl: unknown) => {
 			if (!isExternallyOpenableUrl(rawUrl)) return false;
 			await dependencies.shell.openExternal(String(rawUrl));

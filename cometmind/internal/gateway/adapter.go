@@ -34,6 +34,15 @@ type OutboundMessage struct {
 	ChannelID string
 	ThreadID  string
 	Text      string
+	Images    []OutboundImage
+}
+
+// OutboundImage is a local image file to attach to a platform reply.
+type OutboundImage struct {
+	Path      string
+	Filename  string
+	MediaType string
+	Alt       string
 }
 
 // PlatformAdapter connects CometMind to one messaging surface.

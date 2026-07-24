@@ -51,9 +51,12 @@ type RegistryOptions struct {
 	SessionID          string
 	JobPlatform        string
 	JobSourceChannelID string
-	BrowserSearchURL   string
-	BrowserSearchToken string
-	SettingsRuntime    SettingsRuntime
+	BrowserSearchURL      string
+	BrowserSearchToken    string
+	ScreenCaptureURL      string
+	ScreenCaptureToken    string
+	SettingsRuntime       SettingsRuntime
+	AssistantMedia        session.AssistantMediaAppender
 }
 
 // SubagentToolConfig holds limits passed into subagent tools.

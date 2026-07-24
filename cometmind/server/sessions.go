@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/cometline/cometmind/internal/media"
 	"github.com/cometline/cometmind/internal/session"
 	"github.com/gin-gonic/gin"
 )
@@ -395,4 +396,18 @@ func (a *App) handleGetMessages(c *gin.Context) {
 		SessionID: sessID,
 		Items:     out,
 	})
+}
+
+func (a *App) handleGetSessionMedia(c *gin.Context) {
+	sessID := c.Param("id")
+	imageID := c.Param("imageId")
+	if _, _, ok := a.loadSessionWithWorkspace(c, sessID); !ok {
+		return
+	}
+	mediaType, data, err := media.Read(sessID, imageID)
+	if err != nil {
+		writeError(c, http.StatusNotFound, "not_found", "image not found")
+		return
+	}
+	c.Data(http.StatusOK, mediaType, data)
 }

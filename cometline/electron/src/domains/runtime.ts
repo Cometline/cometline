@@ -30,6 +30,7 @@ import { createProviderAuth } from './provider-auth.js';
 import { createRouteSignals } from './route-signals.js';
 import { registerRuntimeIpcHandlers } from './runtime-ipc.js';
 import type { ShellWindowContext } from './runtime-context.js';
+import { createScreenCaptureBridge } from './screen-capture.js';
 import { createSettingsDomain } from './settings.js';
 import { createShortcutCoordinator } from './shortcuts.js';
 import { createTerminalManager } from './terminal.js';
@@ -143,6 +144,9 @@ export function initializeRuntime() {
 		}
 	});
 	const browserSearch = createBrowserSearchBridge();
+	const screenCapture = createScreenCaptureBridge({
+		isPreferred: () => Boolean(settingsDomain.readProviderSettings().app?.screenCapturePreferred)
+	});
 	const terminals = createTerminalManager(() => windows?.getMainWindow() ?? null);
 
 	function broadcastProviderSettingsChanged(settings: ProviderSettings) {
@@ -226,7 +230,7 @@ export function initializeRuntime() {
 		};
 		if (active?.baseURL) env.COMETMIND_BASE_URL = active.baseURL;
 		if (active?.apiKey) env.COMETMIND_API_KEY = active.apiKey;
-		return { ...env, ...browserSearch.getEnvironment() };
+		return { ...env, ...browserSearch.getEnvironment(), ...screenCapture.getEnvironment() };
 	}
 
 	function getLogsDir() {
@@ -381,6 +385,11 @@ export function initializeRuntime() {
 		} catch (error) {
 			console.error('Browser search bridge failed to start:', error);
 		}
+		try {
+			await screenCapture.start();
+		} catch (error) {
+			console.error('Screen capture bridge failed to start:', error);
+		}
 		cometMind.start();
 		const windowReady = windows.createMainWindow();
 		cometMind.waitForHealth().then((healthy) => {
@@ -413,6 +422,7 @@ export function initializeRuntime() {
 		applicationMenuTray.destroyTray();
 		updater.stop();
 		await browserSearch.stop();
+		await screenCapture.stop();
 		terminals.terminateAll();
 		await cometMind.syncDiscordGateway({
 			cometmind: { gateway: { discord: { enabled: false } } }

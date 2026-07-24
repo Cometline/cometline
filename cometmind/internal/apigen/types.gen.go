@@ -10,6 +10,30 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Defines values for AssistantImageEventMediaType.
+const (
+	AssistantImageEventMediaTypeImagegif  AssistantImageEventMediaType = "image/gif"
+	AssistantImageEventMediaTypeImagejpeg AssistantImageEventMediaType = "image/jpeg"
+	AssistantImageEventMediaTypeImagepng  AssistantImageEventMediaType = "image/png"
+	AssistantImageEventMediaTypeImagewebp AssistantImageEventMediaType = "image/webp"
+)
+
+// Valid indicates whether the value is a known member of the AssistantImageEventMediaType enum.
+func (e AssistantImageEventMediaType) Valid() bool {
+	switch e {
+	case AssistantImageEventMediaTypeImagegif:
+		return true
+	case AssistantImageEventMediaTypeImagejpeg:
+		return true
+	case AssistantImageEventMediaTypeImagepng:
+		return true
+	case AssistantImageEventMediaTypeImagewebp:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CreateScheduledJobRequestCreatedBy.
 const (
 	CreateScheduledJobRequestCreatedByAgent CreateScheduledJobRequestCreatedBy = "agent"
@@ -51,22 +75,22 @@ func (e CreateScheduledJobRequestSourcePlatform) Valid() bool {
 
 // Defines values for ImageAttachmentMediaType.
 const (
-	Imagegif  ImageAttachmentMediaType = "image/gif"
-	Imagejpeg ImageAttachmentMediaType = "image/jpeg"
-	Imagepng  ImageAttachmentMediaType = "image/png"
-	Imagewebp ImageAttachmentMediaType = "image/webp"
+	ImageAttachmentMediaTypeImagegif  ImageAttachmentMediaType = "image/gif"
+	ImageAttachmentMediaTypeImagejpeg ImageAttachmentMediaType = "image/jpeg"
+	ImageAttachmentMediaTypeImagepng  ImageAttachmentMediaType = "image/png"
+	ImageAttachmentMediaTypeImagewebp ImageAttachmentMediaType = "image/webp"
 )
 
 // Valid indicates whether the value is a known member of the ImageAttachmentMediaType enum.
 func (e ImageAttachmentMediaType) Valid() bool {
 	switch e {
-	case Imagegif:
+	case ImageAttachmentMediaTypeImagegif:
 		return true
-	case Imagejpeg:
+	case ImageAttachmentMediaTypeImagejpeg:
 		return true
-	case Imagepng:
+	case ImageAttachmentMediaTypeImagepng:
 		return true
-	case Imagewebp:
+	case ImageAttachmentMediaTypeImagewebp:
 		return true
 	default:
 		return false
@@ -724,6 +748,22 @@ func (e GetWorkspaceGitStatusParamsScope) Valid() bool {
 	}
 }
 
+// AssistantImageEvent defines model for AssistantImageEvent.
+type AssistantImageEvent struct {
+	Alt *string `json:"alt,omitempty"`
+
+	// DataUrl Optional data URL for immediate chat rendering without a second fetch.
+	DataUrl *string `json:"data_url,omitempty"`
+
+	// Id Media-store image id within the session.
+	Id        string                       `json:"id"`
+	MediaType AssistantImageEventMediaType `json:"media_type"`
+	Type      string                       `json:"type"`
+}
+
+// AssistantImageEventMediaType defines model for AssistantImageEvent.MediaType.
+type AssistantImageEventMediaType string
+
 // ChangeSessionWorkspaceRequest defines model for ChangeSessionWorkspaceRequest.
 type ChangeSessionWorkspaceRequest struct {
 	// WorkspacePath Absolute filesystem path for the new workspace root.
@@ -850,10 +890,13 @@ type HealthResponse struct {
 
 // ImageAttachment defines model for ImageAttachment.
 type ImageAttachment struct {
-	// Data Raw base64 payload without a data URL prefix. Each decoded image must be at most 4 MB.
-	Data string `json:"data"`
+	// Alt Optional accessible caption for assistant-presented images.
+	Alt *string `json:"alt,omitempty"`
 
-	// Id Client-only identifier for UI attachment lists; not sent to CometMind.
+	// Data Raw base64 payload without a data URL prefix. Required for user uploads. Optional for assistant media refs when id is a media-store id. Each decoded image must be at most 4 MB.
+	Data *string `json:"data,omitempty"`
+
+	// Id Client attachment id, or a CometMind media-store id for assistant-presented images. When set without data, clients fetch bytes from the session media API.
 	Id        *string                  `json:"id,omitempty"`
 	MediaType ImageAttachmentMediaType `json:"media_type"`
 	Name      *string                  `json:"name,omitempty"`
@@ -2621,6 +2664,34 @@ func (t *StreamEvent) MergeTurnRecoverEvent(v TurnRecoverEvent) error {
 	return err
 }
 
+// AsAssistantImageEvent returns the union data inside the StreamEvent as a AssistantImageEvent
+func (t StreamEvent) AsAssistantImageEvent() (AssistantImageEvent, error) {
+	var body AssistantImageEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromAssistantImageEvent overwrites any union data inside the StreamEvent as the provided AssistantImageEvent
+func (t *StreamEvent) FromAssistantImageEvent(v AssistantImageEvent) error {
+	v.Type = "assistant_image"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeAssistantImageEvent performs a merge with any union data inside the StreamEvent, using the provided AssistantImageEvent
+func (t *StreamEvent) MergeAssistantImageEvent(v AssistantImageEvent) error {
+	v.Type = "assistant_image"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 // AsErrorEvent returns the union data inside the StreamEvent as a ErrorEvent
 func (t StreamEvent) AsErrorEvent() (ErrorEvent, error) {
 	var body ErrorEvent
@@ -2691,6 +2762,8 @@ func (t StreamEvent) ValueByDiscriminator() (interface{}, error) {
 		return nil, err
 	}
 	switch discriminator {
+	case "assistant_image":
+		return t.AsAssistantImageEvent()
 	case "context_budget":
 		return t.AsContextBudgetEvent()
 	case "done":

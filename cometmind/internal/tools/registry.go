@@ -58,6 +58,16 @@ func newRegistryWithSurface(workspaceRoot string, surface ToolSurface, opt Regis
 	if surface.Read {
 		add(WebFetch{})
 		add(WebSearch{Endpoint: opt.BrowserSearchURL, Token: opt.BrowserSearchToken})
+		add(PresentImage{Workspace: ws, Media: opt.AssistantMedia})
+		add(CaptureScreenshot{
+			Endpoint: opt.ScreenCaptureURL,
+			Token:    opt.ScreenCaptureToken,
+			Media:    opt.AssistantMedia,
+		})
+		add(ListCaptureTargets{
+			Endpoint: opt.ScreenCaptureURL,
+			Token:    opt.ScreenCaptureToken,
+		})
 	}
 	if surface.Skills && opt.Skills != nil {
 		add(LoadSkill{Skills: opt.Skills})

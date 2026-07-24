@@ -1,4 +1,4 @@
-import type { ChatItem, StreamEvent, SubagentProgressEntry } from '$lib/types';
+import type { ChatItem, ImageAttachment, StreamEvent, SubagentProgressEntry } from '$lib/types';
 import type { ContextBudgetSnapshot } from '$lib/context-window';
 import { isSubagentStepLimit } from '../conversation/subagent-display';
 import { turnStatusLabel } from '../conversation/turn-status';
@@ -71,7 +71,9 @@ function cleanErrorMessage(message: string) {
 
 function removeEmptyAssistant(items: ChatItem[], assistant: AssistantItem | null): ChatItem[] {
 	if (!assistant) return items;
-	if (assistant.text.trim() || hasReasoning(assistant)) return items;
+	if (assistant.text.trim() || hasReasoning(assistant) || (assistant.images?.length ?? 0) > 0) {
+		return items;
+	}
 	const start = items.findIndex((item) => item.id === assistant.id);
 	if (start >= 0) {
 		for (let i = start + 1; i < items.length; i++) {
@@ -409,6 +411,30 @@ function applyEvent(
 		publishAssistant({
 			...clearAssistantActivity(withReasoning),
 			text: host.text + separator + event.delta,
+			pending: false
+		});
+		return;
+	}
+
+	if (event.type === 'assistant_image') {
+		const host = ensureAssistantForText();
+		const nextImages = [...(host.images ?? [])];
+		if (!nextImages.some((img) => img.id === event.id)) {
+			const attachment: ImageAttachment = {
+				id: event.id,
+				media_type: event.media_type,
+				alt: event.alt
+			};
+			if (event.data_url) {
+				const comma = event.data_url.indexOf(',');
+				attachment.data =
+					comma >= 0 ? event.data_url.slice(comma + 1) : event.data_url;
+			}
+			nextImages.push(attachment);
+		}
+		publishAssistant({
+			...clearAssistantActivity(host),
+			images: nextImages,
 			pending: false
 		});
 		return;

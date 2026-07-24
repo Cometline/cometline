@@ -103,6 +103,33 @@ func ToolOutputDir() (string, error) {
 	return dir, nil
 }
 
+// MediaDir returns ~/.cometmind/media (created if missing).
+// Session image blobs live under MediaDir/{session_id}/.
+func MediaDir() (string, error) {
+	d, err := DataDir()
+	if err != nil {
+		return "", err
+	}
+	dir := filepath.Join(d, "media")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return "", err
+	}
+	return dir, nil
+}
+
+// SessionMediaDir returns ~/.cometmind/media/{sessionID} (created if missing).
+func SessionMediaDir(sessionID string) (string, error) {
+	root, err := MediaDir()
+	if err != nil {
+		return "", err
+	}
+	dir := filepath.Join(root, sessionID)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return "", err
+	}
+	return dir, nil
+}
+
 // AgentTmpDir returns ~/.cometmind/agent-tmp (created if missing).
 func AgentTmpDir() (string, error) {
 	d, err := DataDir()

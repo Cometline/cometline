@@ -14,6 +14,7 @@ import (
 	"github.com/cometline/cometmind/internal/event"
 	"github.com/cometline/cometmind/internal/jobs"
 	"github.com/cometline/cometmind/internal/logging"
+	"github.com/cometline/cometmind/internal/media"
 	"github.com/cometline/cometmind/internal/session"
 	"github.com/cometline/cometmind/internal/subagent"
 )
@@ -132,6 +133,7 @@ func (r *Router) HandleInbound(ctx context.Context, msg InboundMessage) error {
 
 	logging.L().Info("gateway.agent_turn.start", "platform", msg.Platform, "session", sess.ID, "workspace", runPath)
 	var reply strings.Builder
+	var outboundImages []OutboundImage
 	var jobProposal *JobProposalPayload
 	sourceChannelID := deliveryChannelID(msg)
 	err = r.Runner.RunTurn(runCtx, sess, runPath, msg, func(ev event.Event) {
@@ -148,6 +150,19 @@ func (r *Router) HandleInbound(ctx context.Context, msg InboundMessage) error {
 				reply.WriteString(ev.Message)
 				reply.WriteByte('\n')
 			}
+		case event.KindAssistantImage:
+			path, pathErr := media.AbsolutePath(sess.ID, ev.ImageID)
+			if pathErr != nil {
+				logging.L().Warn("gateway.assistant_image.path", "session", sess.ID, "image", ev.ImageID, "error", pathErr)
+				break
+			}
+			name := filepath.Base(path)
+			outboundImages = append(outboundImages, OutboundImage{
+				Path:      path,
+				Filename:  name,
+				MediaType: ev.MediaType,
+				Alt:       ev.Alt,
+			})
 		case event.KindToolResult:
 			if ev.Tool == "propose_job" && ev.ToolErr == "" {
 				if payload, ok := ParseJobProposalOutput(ev.Output); ok {
@@ -177,18 +192,19 @@ func (r *Router) HandleInbound(ctx context.Context, msg InboundMessage) error {
 		)
 	} else {
 		text = strings.TrimSpace(reply.String())
-		if text == "" {
+		if text == "" && len(outboundImages) == 0 {
 			text = "(no response)"
 		}
 	}
 	if r.onReply != nil {
-		logging.L().Info("gateway.reply", "platform", msg.Platform, "channel", msg.ChannelID, "bytes", len(text))
+		logging.L().Info("gateway.reply", "platform", msg.Platform, "channel", msg.ChannelID, "bytes", len(text), "images", len(outboundImages))
 		if err := r.onReply(ctx, OutboundMessage{
 			Platform:  msg.Platform,
 			UserID:    msg.UserID,
 			ChannelID: msg.ChannelID,
 			ThreadID:  msg.ThreadID,
 			Text:      text,
+			Images:    outboundImages,
 		}); err != nil {
 			return err
 		}

@@ -77,6 +77,7 @@ describe('settings schema', () => {
 		expect(settings.app.personaId).toBe('minako');
 		expect(settings.app.hasCompletedSetup).toBe(false);
 		expect(settings.app.hasDismissedSetupWizard).toBe(false);
+		expect(settings.app.screenCapturePreferred).toBe(false);
 		expect(settings.cometmind.systemPromptPath).toBe('');
 		expect(settings.cometmind.maxTokens).toBe(2048);
 		expect(settings.cometmind.contextWindowLimit).toBe(128_000);

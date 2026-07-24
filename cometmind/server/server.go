@@ -162,6 +162,7 @@ func New(deps Deps) (*gin.Engine, error) {
 	api.POST("/sessions/:id/forks", app.handleForkSession)
 	api.DELETE("/sessions/:id", app.handleDeleteSession)
 	api.GET("/sessions/:id/messages", app.handleGetMessages)
+	api.GET("/sessions/:id/media/:imageId", app.handleGetSessionMedia)
 	api.GET("/events", app.handleEvents)
 	api.POST("/sessions/:id/messages", app.handlePostMessage)
 	api.DELETE("/sessions/:id/messages", app.handleClearSession)
@@ -647,7 +648,17 @@ func transcriptItemFromModel(item session.TranscriptEntry) transcriptItem {
 	case session.TranscriptKindReasoning:
 		return transcriptItem{Type: "reasoning", Text: item.Text}
 	case session.TranscriptKindAssistant:
-		return transcriptItem{Type: "assistant", Text: item.Text}
+		out := transcriptItem{Type: "assistant", Text: item.Text}
+		for _, block := range item.Images {
+			img := messageImageInput{
+				ID:        block.ID,
+				MediaType: block.MediaType,
+				Data:      block.Data,
+				Alt:       block.Alt,
+			}
+			out.Images = append(out.Images, img)
+		}
+		return out
 	case session.TranscriptKindTool:
 		return transcriptItem{
 			Type:       "tool",

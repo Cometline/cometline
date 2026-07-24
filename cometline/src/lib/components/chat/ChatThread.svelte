@@ -81,7 +81,9 @@
 	let embeddedPinnedJobIds = $derived(pinnedJobProposalToolIds(threadItems));
 	let firstAssistantItem = $derived(
 		threadItems.find(
-			(item) => item.type === 'assistant' && (item.text.trim() || hasReasoning(item))
+			(item) =>
+				item.type === 'assistant' &&
+				(item.text.trim() || hasReasoning(item) || (item.images?.length ?? 0) > 0)
 		) as Extract<ChatItem, { type: 'assistant' }> | undefined
 	);
 	let firstAssistantId = $derived(firstAssistantItem?.id ?? null);

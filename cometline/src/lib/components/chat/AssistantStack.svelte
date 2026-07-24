@@ -15,6 +15,8 @@
 	import { timelineEntryKey } from '$lib/conversation/thread-view-helpers';
 	import type { AssistantStackContext } from '$lib/conversation/assistant-stack-props';
 	import type { ChatItem } from '$lib/stores/chat.svelte';
+	import { resolveImageSrc } from '$lib/files/images';
+	import ImageLightbox from '$lib/components/chat/ImageLightbox.svelte';
 
 	type AssistantItem = Extract<ChatItem, { type: 'assistant' }>;
 
@@ -27,6 +29,8 @@
 		context: AssistantStackContext;
 		showActivitySpinner: boolean;
 	} = $props();
+
+	let lightbox = $state<{ src: string; alt: string } | null>(null);
 
 	setReactiveChatTurnContext(() => context);
 
@@ -41,7 +45,9 @@
 	const cycling = $derived(item.id === context.streamingAssistantId && context.sessionStreaming);
 	const thinkingWait = $derived(assistantThinkingWait(item, context.now));
 	const showThinkingSpinner = $derived(
-		!item.text.trim() && !(item.id === context.streamingAssistantId && context.sessionStreaming)
+		!item.text.trim() &&
+			!(item.images?.length) &&
+			!(item.id === context.streamingAssistantId && context.sessionStreaming)
 	);
 </script>
 
@@ -67,6 +73,22 @@
 				{showThinkingSpinner}
 			/>
 		{/each}
+	{/if}
+	{#if item.images?.length}
+		<div class="bubble assistant-bubble assistant-images">
+			{#each item.images as image, imageIndex (`${item.id}-image-${image.id ?? imageIndex}`)}
+				{@const src = resolveImageSrc(image, context.sessionId)}
+				{@const alt = image.alt ?? image.name ?? 'Presented image'}
+				<button
+					type="button"
+					class="image-open"
+					aria-label={`View ${alt}`}
+					onclick={() => (lightbox = { src, alt })}
+				>
+					<img {src} {alt} />
+				</button>
+			{/each}
+		</div>
 	{/if}
 	{#if item.text.trim()}
 		<div class="bubble assistant-bubble">
@@ -117,6 +139,15 @@
 	{/if}
 </div>
 
+{#if lightbox}
+	<ImageLightbox
+		open
+		src={lightbox.src}
+		alt={lightbox.alt}
+		onClose={() => (lightbox = null)}
+	/>
+{/if}
+
 <style>
 	.assistant-stack {
 		display: flex;
@@ -128,6 +159,9 @@
 		flex: 0 1 auto;
 		align-items: flex-start;
 		--assistant-activity-width: 80%;
+		/* Definite inline size for image max-width: min(420px, 100cqi). */
+		container-type: inline-size;
+		container-name: assistant-stack;
 	}
 
 	.assistant-stack > :global(.memory-panel),
@@ -165,6 +199,44 @@
 	.assistant-stack:hover .message-actions,
 	.message-actions:focus-within {
 		opacity: 1;
+	}
+
+	.bubble.assistant-images {
+		/* Shrink-wrap to the image’s used box — never stretch to the column. */
+		display: inline-flex;
+		flex-wrap: wrap;
+		gap: 8px;
+		width: max-content;
+		max-width: 100%;
+		padding: 0;
+		overflow: hidden;
+		white-space: normal;
+		line-height: 0;
+		align-self: flex-start;
+	}
+
+	.image-open {
+		display: block;
+		width: max-content;
+		max-width: 100%;
+		margin: 0;
+		padding: 0;
+		border: none;
+		background: transparent;
+		line-height: 0;
+		cursor: zoom-in;
+		border-radius: inherit;
+	}
+
+	.image-open img {
+		display: block;
+		width: auto;
+		height: auto;
+		/* Prefer cqi (assistant-stack width) over % — % fights fit-content and
+		 * Tailwind preflight’s img{max-width:100%} expands the bubble after load. */
+		max-width: min(420px, 100cqi);
+		max-height: 360px;
+		object-fit: contain;
 	}
 
 	.message-action {
