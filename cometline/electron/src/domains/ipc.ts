@@ -8,7 +8,7 @@ export interface IpcHandlers {
 	restartCometMind: Listener;
 	shortcutCaptureActive: Listener;
 	sessionNavigationSuspended: Listener;
-	webPanelOpen: Listener;
+	workspacePanelOpen: Listener;
 	inboxOpen: Listener;
 	confirmCloseWindow: Listener;
 	setSidebarOpen: Listener;
@@ -73,7 +73,7 @@ export function registerIpcHandlers(handlers: IpcHandlers) {
 	ipcMain.on('cometmind:restart', handlers.restartCometMind);
 	ipcMain.on('cometline:shortcut-capture-active', handlers.shortcutCaptureActive);
 	ipcMain.on('cometline:session-navigation-suspended', handlers.sessionNavigationSuspended);
-	ipcMain.on('cometline:web-panel-open', handlers.webPanelOpen);
+	ipcMain.on('cometline:workspace-panel-open', handlers.workspacePanelOpen);
 	ipcMain.on('cometline:inbox-open', handlers.inboxOpen);
 	ipcMain.on('cometline:confirm-close-window', handlers.confirmCloseWindow);
 	ipcMain.on('cometline:set-sidebar-open', handlers.setSidebarOpen);

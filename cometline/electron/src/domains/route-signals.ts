@@ -11,7 +11,7 @@ export function createRouteSignals(context: ShellWindowContext) {
 
 	return {
 		closeInbox: () => send('cometline:close-inbox'),
-		closeWebPanel: () => send('cometline:close-web-panel'),
+		closeWorkspacePanel: () => send('cometline:close-workspace-panel'),
 		requestCloseWindow: () => send('cometline:request-close-window'),
 		requestReload: () => send('cometline:request-reload'),
 		sendNavigateSession: (direction: 'prev' | 'next') =>

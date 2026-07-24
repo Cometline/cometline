@@ -1,9 +1,9 @@
 import { openExternalLink } from '$lib/external-link';
 import { shellStore } from '$lib/stores/shell.svelte';
 
-export { isWebPanelUrl, normalizeUserUrl } from '$lib/web-panel-url';
+export { isHttpUrl, normalizeUserUrl } from '$lib/http-url';
 
-/** Opens http(s) links in the in-app web panel; mailto and dev fallback stay external. */
+/** Opens http(s) links in the in-app workspace panel; mailto and dev fallback stay external. */
 export function openLink(rawUrl: string): void {
 	if (!rawUrl) return;
 	try {
@@ -13,8 +13,8 @@ export function openLink(rawUrl: string): void {
 			return;
 		}
 		if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
-			if (window.electronAPI?.setWebPanelOpen) {
-				shellStore.openWebPanelForActive(String(rawUrl));
+			if (window.electronAPI?.setWorkspacePanelOpen) {
+				shellStore.openWorkspacePanelUrlForActive(String(rawUrl));
 				return;
 			}
 			openExternalLink(rawUrl);

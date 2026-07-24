@@ -34,7 +34,7 @@ const SHORTCUT_CODE_KEY_MAP: Record<string, string> = {
 
 interface RouteSignals {
 	closeInbox(): void;
-	closeWebPanel(): void;
+	closeWorkspacePanel(): void;
 	requestCloseWindow(): void;
 	requestReload(): void;
 	sendNavigateSession(direction: 'prev' | 'next'): void;
@@ -170,8 +170,8 @@ export function createShortcutCoordinator(dependencies: ShortcutCoordinatorDepen
 				routeSignals.closeInbox();
 				return true;
 			}
-			if (context.getWebPanelOpen()) {
-				routeSignals.closeWebPanel();
+			if (context.getWorkspacePanelOpen()) {
+				routeSignals.closeWorkspacePanel();
 				return true;
 			}
 			routeSignals.requestCloseWindow();
@@ -272,20 +272,20 @@ export function createShortcutCoordinator(dependencies: ShortcutCoordinatorDepen
 		attachWindowShortcuts(webContents, { onCloseWindow: hideSettingsWindow });
 	}
 
-	function handleWebPanelGuestShortcuts(event: Event, input: Input) {
+	function handleWorkspacePanelGuestShortcuts(event: Event, input: Input) {
 		if (handleDarwinCloseWindowShortcut(event, input, hideMainWindow, true)) return true;
 		if (handleReloadShortcut(event, input)) return true;
 		if (context.getShortcutCaptureActive()) return false;
 		const shortcuts = getShortcuts();
 		const forwardActions: ShortcutAction[] = [
 			'toggleSidebar',
-			'openWebPanel',
+			'openWebSearch',
 			'openGitPanel',
 			'openWikiPanel',
 			'openWorkspacePanel',
 			'openFileSearch',
 			'openTerminal',
-			'toggleWebPanel',
+			'toggleWorkspacePanel',
 			'navigateBack',
 			'navigateForward',
 			'openSettings',
@@ -320,7 +320,7 @@ export function createShortcutCoordinator(dependencies: ShortcutCoordinatorDepen
 
 	function attachWebviewPanelShortcuts(webContents: WebContents) {
 		webContents.on('before-input-event', (event, input) => {
-			handleWebPanelGuestShortcuts(event, input);
+			handleWorkspacePanelGuestShortcuts(event, input);
 		});
 	}
 

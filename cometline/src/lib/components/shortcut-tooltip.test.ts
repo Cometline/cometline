@@ -8,7 +8,7 @@ import type { KeyboardShortcuts } from '$lib/keyboard-shortcuts';
 
 const macShortcuts: KeyboardShortcuts = {
 	openTerminal: { command: true, key: 'j' },
-	openWebPanel: { command: true, key: 'o' },
+	openWebSearch: { command: true, key: 'o' },
 	sendMessage: { key: 'Enter' }
 };
 

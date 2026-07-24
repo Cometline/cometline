@@ -59,7 +59,7 @@
 		if (!open) return;
 		if (event.key === 'Escape') {
 			// Native <dialog> also fires `cancel`; stop app-level Escape handlers
-			// (e.g. AppShell closing the web panel) from running on the same key.
+			// (e.g. AppShell closing the workspace panel) from running on the same key.
 			event.preventDefault();
 			event.stopImmediatePropagation();
 			onCancel();

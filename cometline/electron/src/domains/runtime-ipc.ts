@@ -113,8 +113,8 @@ export function registerRuntimeIpcHandlers(dependencies: RuntimeIpcDependencies)
 			dependencies.context.setShortcutCaptureActive(Boolean(active)),
 		sessionNavigationSuspended: (_event: IpcMainEvent, suspended: unknown) =>
 			dependencies.context.setSessionNavigationSuspended(Boolean(suspended)),
-		webPanelOpen: (_event: IpcMainEvent, open: unknown) =>
-			dependencies.context.setWebPanelOpen(Boolean(open)),
+		workspacePanelOpen: (_event: IpcMainEvent, open: unknown) =>
+			dependencies.context.setWorkspacePanelOpen(Boolean(open)),
 		inboxOpen: (_event: IpcMainEvent, open: unknown) =>
 			dependencies.context.setInboxOpen(Boolean(open)),
 		confirmCloseWindow: () => dependencies.windows.hideMainWindow(),

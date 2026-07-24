@@ -24,7 +24,7 @@ import {
 	normalizePersonaId as resolveNormalizedPersonaId
 } from '../personas';
 import { normalizeOllamaNativeBase } from '../ollama/url';
-import { WEB_PANEL_MAX_RATIO } from '../layout/web-panel-width';
+import { WORKSPACE_PANEL_MAX_RATIO } from '../layout/workspace-panel-width';
 import { DEFAULT_TERMINAL_APPEARANCE, normalizeTerminalAppearance } from '../terminal-appearance';
 
 export const VALID_PROVIDER_METHODS: ProviderMethod[] = [
@@ -1000,9 +1000,9 @@ function defaultAppSettings(): AppSettings {
 		miniWindowSessionId: '',
 		miniWindowLastActiveAt: 0,
 		miniWindowInactivityTimeoutMinutes: 30,
-		webPanelWidth: 0,
-		/** 0 = unset (derive from webPanelWidth or use CSS default). */
-		webPanelRatio: 0,
+		workspacePanelWidth: 0,
+		/** 0 = unset (derive from workspacePanelWidth or use CSS default). */
+		workspacePanelRatio: 0,
 		confirmCloseOnCmdW: true,
 		confirmBeforeDeletingChats: true,
 		fileSearchSource: 'wiki'
@@ -1015,19 +1015,19 @@ export function normalizeFileSearchSource(value: unknown): FileSearchSource {
 	return value === 'workspace' ? 'workspace' : 'wiki';
 }
 
-function normalizeWebPanelWidth(value: unknown): number {
+function normalizeWorkspacePanelWidth(value: unknown): number {
 	if (typeof value !== 'number' || !Number.isFinite(value)) {
-		return defaultAppSettings().webPanelWidth;
+		return defaultAppSettings().workspacePanelWidth;
 	}
 	return Math.max(0, Math.floor(value));
 }
 
 /** Preferred content-row fraction. 0 = unset; otherwise capped to the legal max. */
-function normalizeWebPanelRatio(value: unknown): number {
+function normalizeWorkspacePanelRatio(value: unknown): number {
 	if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
-		return defaultAppSettings().webPanelRatio;
+		return defaultAppSettings().workspacePanelRatio;
 	}
-	return Math.min(WEB_PANEL_MAX_RATIO, value);
+	return Math.min(WORKSPACE_PANEL_MAX_RATIO, value);
 }
 
 /**
@@ -1254,9 +1254,27 @@ export function normalizeSettings(
 			miniWindowInactivityTimeoutMinutes: normalizeMiniWindowInactivityTimeoutMinutes(
 				next.app?.miniWindowInactivityTimeoutMinutes
 			),
-			webPanelWidth: normalizeWebPanelWidth(next.app?.webPanelWidth),
-			webPanelRatio: normalizeWebPanelRatio(
-				(next.app as { webPanelRatio?: unknown } | undefined)?.webPanelRatio
+			workspacePanelWidth: normalizeWorkspacePanelWidth(
+				(() => {
+					const rawApp = next.app as
+						| { workspacePanelWidth?: unknown; webPanelWidth?: unknown }
+						| undefined;
+					if (!rawApp) return undefined;
+					return 'workspacePanelWidth' in rawApp
+						? rawApp.workspacePanelWidth
+						: rawApp.webPanelWidth;
+				})()
+			),
+			workspacePanelRatio: normalizeWorkspacePanelRatio(
+				(() => {
+					const rawApp = next.app as
+						| { workspacePanelRatio?: unknown; webPanelRatio?: unknown }
+						| undefined;
+					if (!rawApp) return undefined;
+					return 'workspacePanelRatio' in rawApp
+						? rawApp.workspacePanelRatio
+						: rawApp.webPanelRatio;
+				})()
 			),
 			confirmCloseOnCmdW:
 				typeof next.app?.confirmCloseOnCmdW === 'boolean'
@@ -1430,8 +1448,8 @@ const providerSettingsSchema = z.object({
 			.int()
 			.min(1)
 			.max(24 * 60),
-		webPanelWidth: z.number().int().min(0),
-		webPanelRatio: z.number().min(0).max(WEB_PANEL_MAX_RATIO),
+		workspacePanelWidth: z.number().int().min(0),
+		workspacePanelRatio: z.number().min(0).max(WORKSPACE_PANEL_MAX_RATIO),
 		confirmCloseOnCmdW: z.boolean(),
 		confirmBeforeDeletingChats: z.boolean(),
 		fileSearchSource: z.enum(['wiki', 'workspace'])

@@ -1,7 +1,7 @@
-import type { WebPanelTreeSource } from './web-panel-prefs';
+import type { WorkspacePanelTreeSource } from './workspace-panel-prefs';
 
 export type PanelHistoryEntry =
-	| { kind: 'browse'; source: WebPanelTreeSource }
+	| { kind: 'browse'; source: WorkspacePanelTreeSource }
 	| { kind: 'file'; path: string }
 	| { kind: 'git-diff'; path: string }
 	| { kind: 'url'; url: string };
@@ -45,7 +45,7 @@ export function canGoForward(state: PanelHistoryState): boolean {
 export function pushEntry(
 	state: PanelHistoryState,
 	entry: PanelHistoryEntry,
-	seedSource: WebPanelTreeSource = 'wiki'
+	seedSource: WorkspacePanelTreeSource = 'wiki'
 ): PanelHistoryState {
 	const current = currentEntry(state);
 	if (current && entriesEqual(current, entry)) {

@@ -1,4 +1,4 @@
-export function isWebPanelUrl(rawUrl: string): boolean {
+export function isHttpUrl(rawUrl: string): boolean {
 	try {
 		const parsed = new URL(String(rawUrl));
 		return parsed.protocol === 'http:' || parsed.protocol === 'https:';
@@ -18,7 +18,7 @@ function looksLikeNavigableHost(hostname: string): boolean {
 	return hostname.includes('.');
 }
 
-/** Normalizes user-typed URLs for the web panel address bar. */
+/** Normalizes user-typed URLs for the workspace panel address bar. */
 export function normalizeUserUrl(input: string): string | null {
 	const trimmed = input.trim();
 	if (!trimmed) return null;

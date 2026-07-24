@@ -5,13 +5,13 @@ import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 const {
 	openFilePreviewForActive,
 	saveFileSearchSource,
-	setWebPanelBrowseSource,
+	setWorkspacePanelBrowseSource,
 	loadFileSearchOptions,
 	browseSource
 } = vi.hoisted(() => ({
 	openFilePreviewForActive: vi.fn(),
 	saveFileSearchSource: vi.fn(async () => {}),
-	setWebPanelBrowseSource: vi.fn(),
+	setWorkspacePanelBrowseSource: vi.fn(),
 	loadFileSearchOptions: vi.fn(async () => ['src/app.ts', 'src/lib/foo.ts']),
 	browseSource: { value: 'changes' as 'wiki' | 'workspace' | 'changes' }
 }));
@@ -21,11 +21,11 @@ vi.mock('$lib/stores/shell.svelte', () => ({
 		get workspacePath() {
 			return '/repo';
 		},
-		get webPanelBrowseSource() {
+		get workspacePanelBrowseSource() {
 			return browseSource.value;
 		},
 		openFilePreviewForActive,
-		setWebPanelBrowseSource
+		setWorkspacePanelBrowseSource
 	}
 }));
 
@@ -56,7 +56,7 @@ describe('FileSearchModal', () => {
 		showModal.mockClear();
 		openFilePreviewForActive.mockClear();
 		saveFileSearchSource.mockClear();
-		setWebPanelBrowseSource.mockClear();
+		setWorkspacePanelBrowseSource.mockClear();
 		loadFileSearchOptions.mockClear();
 		loadFileSearchOptions.mockResolvedValue(['src/app.ts', 'src/lib/foo.ts']);
 		Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
@@ -84,7 +84,7 @@ describe('FileSearchModal', () => {
 		}
 	});
 
-	it('loads results and opens the selected file in the web panel', async () => {
+	it('loads results and opens the selected file in the workspace panel', async () => {
 		const onClose = vi.fn(() => {});
 		render(FileSearchModal, { open: true, onClose });
 
@@ -119,7 +119,7 @@ describe('FileSearchModal', () => {
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Wiki' }));
 		expect(saveFileSearchSource).toHaveBeenCalledWith('wiki');
-		expect(setWebPanelBrowseSource).not.toHaveBeenCalled();
+		expect(setWorkspacePanelBrowseSource).not.toHaveBeenCalled();
 	});
 
 	it('uses settings fileSearchSource for the toggle (not panel browse source)', async () => {

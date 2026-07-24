@@ -44,7 +44,7 @@ async function syncSessionsAfterRetention(previous: Session[], next: Session[]) 
 	const activeWasRemoved = Boolean(activeId && removed.some((session) => session.id === activeId));
 
 	for (const session of removed) {
-		shellStore.clearWebPanelForSession(session.id);
+		shellStore.clearWorkspacePanelForSession(session.id);
 		sessionStore.removeSession(session.id);
 	}
 	sessionStore.setSessions(next);

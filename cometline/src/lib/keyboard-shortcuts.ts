@@ -10,8 +10,8 @@ export type ShortcutAction =
 	| 'focusSearch'
 	| 'previousSession'
 	| 'nextSession'
-	| 'toggleWebPanel'
-	| 'openWebPanel'
+	| 'toggleWorkspacePanel'
+	| 'openWebSearch'
 	| 'openGitPanel'
 	| 'openWikiPanel'
 	| 'openWorkspacePanel'
@@ -135,13 +135,13 @@ export const SHORTCUT_DEFINITIONS: KeyboardShortcutDefinition[] = [
 		defaultBinding: { command: true, key: 'b' }
 	},
 	{
-		id: 'toggleWebPanel',
-		label: 'Toggle web panel',
+		id: 'toggleWorkspacePanel',
+		label: 'Toggle workspace panel',
 		category: 'panels',
 		defaultBinding: { command: true, alt: true, key: 'b' }
 	},
 	{
-		id: 'openWebPanel',
+		id: 'openWebSearch',
 		label: 'Open web search',
 		category: 'panels',
 		defaultBinding: { command: true, key: 'o' }
@@ -323,7 +323,7 @@ function normalizeSessionNavBinding(
 	return binding;
 }
 
-function normalizeToggleWebPanelBinding(
+function normalizeToggleWorkspacePanelBinding(
 	binding: ShortcutBinding | undefined,
 	defaultBinding: ShortcutBinding
 ) {
@@ -373,9 +373,23 @@ export function normalizeKeyboardShortcuts(
 ): KeyboardShortcuts {
 	const defaults = defaultKeyboardShortcuts();
 	if (!saved || typeof saved !== 'object') return defaults;
+
+	// Migrate legacy action ids from persisted desktop settings.
+	const legacySaved = saved as KeyboardShortcuts & {
+		toggleWebPanel?: ShortcutBinding;
+		openWebPanel?: ShortcutBinding;
+	};
+	const migratedSaved: KeyboardShortcuts = { ...legacySaved };
+	if (legacySaved.toggleWebPanel && !legacySaved.toggleWorkspacePanel) {
+		migratedSaved.toggleWorkspacePanel = legacySaved.toggleWebPanel;
+	}
+	if (legacySaved.openWebPanel && !legacySaved.openWebSearch) {
+		migratedSaved.openWebSearch = legacySaved.openWebPanel;
+	}
+
 	const next: KeyboardShortcuts = { ...defaults };
 	for (const def of SHORTCUT_DEFINITIONS) {
-		const binding = saved[def.id];
+		const binding = migratedSaved[def.id];
 		if (binding && typeof binding === 'object' && typeof binding.key === 'string') {
 			const normalized: ShortcutBinding = {
 				key: binding.key,
@@ -385,16 +399,16 @@ export function normalizeKeyboardShortcuts(
 				...(typeof binding.alt === 'boolean' && { alt: binding.alt }),
 				...(typeof binding.shift === 'boolean' && { shift: binding.shift })
 			};
-			if (def.id === 'toggleWebPanel') {
-				next[def.id] = normalizeToggleWebPanelBinding(normalized, def.defaultBinding);
+			if (def.id === 'toggleWorkspacePanel') {
+				next[def.id] = normalizeToggleWorkspacePanelBinding(normalized, def.defaultBinding);
 				continue;
 			}
 			const sessionNav = normalizeSessionNavBinding(def.id, normalized, def.defaultBinding);
 			next[def.id] = normalizeComposerEnterBinding(def.id, sessionNav, def.defaultBinding);
 		} else {
 			const fallback =
-				def.id === 'toggleWebPanel'
-					? normalizeToggleWebPanelBinding(undefined, def.defaultBinding)
+				def.id === 'toggleWorkspacePanel'
+					? normalizeToggleWorkspacePanelBinding(undefined, def.defaultBinding)
 					: normalizeSessionNavBinding(def.id, undefined, def.defaultBinding);
 			next[def.id] = normalizeComposerEnterBinding(def.id, fallback, def.defaultBinding);
 		}

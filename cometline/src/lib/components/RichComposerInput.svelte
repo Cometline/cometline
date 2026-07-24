@@ -468,12 +468,12 @@ import { fly } from 'svelte/transition';
 		const chip = target.closest('.rce-chip');
 		if (!(chip instanceof HTMLElement)) return;
 		// A plain click on a file chip opens it in the side-panel editor.
-		// Directory chips open the WebPanel file browser.
+		// Directory chips open the WorkspacePanel file browser.
 		if (chip.dataset.filePath) {
 			e.preventDefault();
 			const path = chip.dataset.filePath;
 			if (chip.classList.contains('rce-dir-chip') || path.endsWith('/')) {
-				shellStore.openWebPanelEmpty();
+				shellStore.openWorkspacePanelBrowse();
 				return;
 			}
 			openWorkspaceFilePreview(path);

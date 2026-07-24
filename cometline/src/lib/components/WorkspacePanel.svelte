@@ -26,7 +26,7 @@
 	import { sessionStore } from '$lib/stores/session.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { terminalStore } from '$lib/stores/terminal.svelte';
-	import { isWebPanelUrl, normalizeUserUrl, openLink } from '$lib/open-link';
+	import { isHttpUrl, normalizeUserUrl, openLink } from '$lib/open-link';
 	import { openExternalLink } from '$lib/external-link';
 	import { isWikiUiPath } from '$lib/wiki/paths';
 	import { normalizeWorkspacePath } from '$lib/workspace/file-index';
@@ -95,12 +95,12 @@
 	const panelOpen = $derived(shellStore.workspacePanelOpen);
 	const onTerminalSurface = $derived(shellStore.workspacePanelSurface === 'terminal');
 	const onWebSurface = $derived(shellStore.workspacePanelSurface === 'web');
-	const panelMode = $derived(shellStore.webPanelMode);
-	const panelUrl = $derived(shellStore.webPanelUrl);
-	const panelFilePath = $derived(shellStore.webPanelFilePath);
-	const panelGitDiffPath = $derived(shellStore.webPanelGitDiffPath);
-	const panelSessionKey = $derived(shellStore.webPanelSessionKey);
-	const webSurface = $derived(shellStore.webPanelSurface);
+	const panelMode = $derived(shellStore.workspacePanelMode);
+	const panelUrl = $derived(shellStore.workspacePanelUrl);
+	const panelFilePath = $derived(shellStore.workspacePanelFilePath);
+	const panelGitDiffPath = $derived(shellStore.workspacePanelGitDiffPath);
+	const panelSessionKey = $derived(shellStore.workspacePanelSessionKey);
+	const webSurface = $derived(shellStore.contentSurface);
 
 	const wikiContent = $derived(shellStore.getSurfaceContent('wiki'));
 	const workspaceContent = $derived(shellStore.getSurfaceContent('workspace'));
@@ -161,7 +161,7 @@
 	const webSearchActive = $derived(onWebSurface && webSurface === 'web-search');
 	const showBrowseFilter = $derived(
 		onWebSurface &&
-			shellStore.webPanelBrowseOpen &&
+			shellStore.workspacePanelBrowseOpen &&
 			(webSurface === 'wiki' || webSurface === 'workspace')
 	);
 	const showChangesTitle = $derived(
@@ -265,7 +265,7 @@
 		shellStore.panelHistoryForward();
 	}
 
-	/** Used by AppShell shared ⌘[ / ⌘] routing when the web panel is focused. */
+	/** Used by AppShell shared ⌘[ / ⌘] routing when the workspace panel is focused. */
 	export function navigateBack() {
 		onBack();
 	}
@@ -341,8 +341,8 @@
 			const content = String(page?.content || '').trim();
 			if (
 				captureRun !== pageCaptureRun ||
-				shellStore.webPanelUrl !== capturedPanelUrl ||
-				shellStore.webPanelSessionKey !== capturedSessionKey
+				shellStore.workspacePanelUrl !== capturedPanelUrl ||
+				shellStore.workspacePanelSessionKey !== capturedSessionKey
 			)
 				return;
 			if (!url.startsWith('http://') && !url.startsWith('https://')) {
@@ -445,7 +445,7 @@
 		const normalized = normalizeUserUrl(addressInput);
 		if (!normalized) return;
 		addressEditing = false;
-		shellStore.navigateWebPanel(normalized);
+		shellStore.navigateWorkspacePanel(normalized);
 	}
 
 	function onFilterKeydown(event: KeyboardEvent) {
@@ -496,7 +496,7 @@
 		event.preventDefault?.();
 		const url = event.url;
 		if (!url) return;
-		if (isWebPanelUrl(url)) {
+		if (isHttpUrl(url)) {
 			openLink(url);
 			return;
 		}
@@ -572,7 +572,7 @@
 	function applyAddressFocus(force = false) {
 		const requestId = shellStore.addressBarFocusRequestId;
 		if (!requestId || (!force && requestId === satisfiedFocusRequestId)) return;
-		if (!shellStore.webPanelOpen) return;
+		if (!shellStore.workspacePanelOpen) return;
 		const el = addressInputEl;
 		if (!el) return;
 		satisfiedFocusRequestId = requestId;
@@ -596,7 +596,7 @@
 	function applyFileTreeFilterFocus(force = false) {
 		const requestId = shellStore.fileTreeFilterFocusRequestId;
 		if (!requestId || (!force && requestId === satisfiedFilterFocusRequestId)) return;
-		if (!shellStore.webPanelOpen || !showBrowseFilter) return;
+		if (!shellStore.workspacePanelOpen || !showBrowseFilter) return;
 		const el = fileTreeFilterInputEl;
 		if (!el) return;
 		satisfiedFilterFocusRequestId = requestId;
@@ -652,7 +652,7 @@
 	});
 
 	$effect(() => {
-		if (!shellStore.hasWebPanelForSession) {
+		if (!shellStore.hasWorkspacePanelForSession) {
 			cachedPageContext = null;
 			loading = false;
 			canGoBack = false;
@@ -732,15 +732,15 @@
 
 <svelte:window onkeydown={handlePanelKeydown} />
 
-<div class="web-panel" class:open={panelOpen} aria-hidden={!panelOpen}>
+<div class="workspace-panel" class:open={panelOpen} aria-hidden={!panelOpen}>
 	<div
-		class="web-panel-inner content-panel-surface"
+		class="workspace-panel-inner content-panel-surface"
 		class:pane-focus-active={(shellStore.focusedPane === 'web' ||
 			shellStore.focusedPane === 'terminal') &&
 			panelOpen}
 	>
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<header class="web-panel-toolbar" onmousedown={handlePanelMouseDown}>
+		<header class="workspace-panel-toolbar" onmousedown={handlePanelMouseDown}>
 			<div class="nav-actions">
 				<Tooltip
 					label={terminalAvailable ? 'Terminal' : 'Start a chat to use Terminal'}
@@ -762,7 +762,7 @@
 						type="button"
 						class="icon-button"
 						class:active={wikiActive}
-						onclick={() => shellStore.setWebPanelBrowseSource('wiki')}
+						onclick={() => shellStore.setWorkspacePanelBrowseSource('wiki')}
 						aria-label="Wiki files"
 					>
 						<BookOpen size={16} />
@@ -782,7 +782,7 @@
 						class="icon-button"
 						class:active={workspaceActive}
 						disabled={!workspaceAvailable}
-						onclick={() => shellStore.setWebPanelBrowseSource('workspace')}
+						onclick={() => shellStore.setWorkspacePanelBrowseSource('workspace')}
 						aria-label={workspaceAvailable
 							? 'Workspace files'
 							: 'Select a workspace to browse files'}
@@ -793,7 +793,7 @@
 						{/if}
 					</button>
 				</Tooltip>
-				<Tooltip label="Web search" action="openWebPanel">
+				<Tooltip label="Web search" action="openWebSearch">
 					<button
 						type="button"
 						class="icon-button"
@@ -931,7 +931,7 @@
 								onfocus={onAddressFocus}
 								onblur={onAddressBlur}
 								onkeydown={onAddressKeydown}
-								aria-label="Web panel address"
+								aria-label="Workspace panel address"
 							/>
 						</div>
 					</div>
@@ -998,7 +998,7 @@
 			</button>
 		</header>
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<div class="web-panel-content" onmousedown={handlePanelMouseDown}>
+		<div class="workspace-panel-content" onmousedown={handlePanelMouseDown}>
 			<div
 				class="panel-layer panel-layer-terminal"
 				class:active={terminalLayerActive}
@@ -1006,7 +1006,7 @@
 			>
 				<TerminalPanel bind:this={terminalPanelRef} active={terminalLayerActive} />
 			</div>
-			{#if shellStore.hasWebPanelForSession}
+			{#if shellStore.hasWorkspacePanelForSession}
 				<div
 					class="panel-layer"
 					class:active={wikiLayerActive}
@@ -1091,7 +1091,7 @@
 						aria-hidden={!showWebview}
 					>
 						<!-- Electron webview tag; inert in plain browser dev without Electron. -->
-						<webview bind:this={webviewEl} class="web-panel-view"></webview>
+						<webview bind:this={webviewEl} class="workspace-panel-view"></webview>
 					</div>
 				{/if}
 			{/if}
@@ -1109,7 +1109,7 @@
 />
 
 <style>
-	.web-panel {
+	.workspace-panel {
 		flex: 0 0 auto;
 		width: 0;
 		min-width: 0;
@@ -1120,16 +1120,16 @@
 		transition: width var(--duration-fast) var(--ease-smooth);
 	}
 
-	.web-panel.open {
-		width: var(--web-panel-slot-width);
+	.workspace-panel.open {
+		width: var(--workspace-panel-slot-width);
 		max-width: 100%;
 		min-width: 0;
 		flex-shrink: 1;
 		pointer-events: auto;
 	}
 
-	.web-panel-inner {
-		width: var(--web-panel-width);
+	.workspace-panel-inner {
+		width: var(--workspace-panel-width);
 		height: calc(100% - (2 * var(--content-panel-inset)));
 		display: flex;
 		flex-direction: column;
@@ -1143,7 +1143,7 @@
 			box-shadow var(--duration-fast) var(--ease-smooth);
 	}
 
-	.web-panel-toolbar {
+	.workspace-panel-toolbar {
 		display: flex;
 		align-items: center;
 		gap: 8px;
@@ -1302,7 +1302,7 @@
 		flex-shrink: 0;
 	}
 
-	.web-panel-content {
+	.workspace-panel-content {
 		flex: 1;
 		min-height: 0;
 		position: relative;
@@ -1349,7 +1349,7 @@
 		height: 100%;
 	}
 
-	.web-panel-view {
+	.workspace-panel-view {
 		display: inline-flex;
 		width: 100%;
 		height: 100%;
@@ -1357,21 +1357,21 @@
 	}
 
 	:global(.spin) {
-		animation: web-panel-spin 0.8s linear infinite;
+		animation: workspace-panel-spin 0.8s linear infinite;
 	}
 
-	@keyframes web-panel-spin {
+	@keyframes workspace-panel-spin {
 		to {
 			transform: rotate(360deg);
 		}
 	}
 
 	@media (prefers-reduced-motion: reduce) {
-		.web-panel {
+		.workspace-panel {
 			transition: none;
 		}
 
-		.web-panel-inner {
+		.workspace-panel-inner {
 			transition: none;
 		}
 
@@ -1381,7 +1381,7 @@
 	}
 
 	@media (max-width: 900px) {
-		.web-panel {
+		.workspace-panel {
 			position: fixed;
 			inset: 0;
 			z-index: 40;
@@ -1390,11 +1390,11 @@
 			pointer-events: none;
 		}
 
-		.web-panel.open {
+		.workspace-panel.open {
 			pointer-events: auto;
 		}
 
-		.web-panel-inner {
+		.workspace-panel-inner {
 			width: 100%;
 			height: 100%;
 			margin: 0;
@@ -1405,7 +1405,7 @@
 			transition: transform var(--duration-fast) var(--ease-smooth);
 		}
 
-		.web-panel.open .web-panel-inner {
+		.workspace-panel.open .workspace-panel-inner {
 			transform: translateX(0);
 		}
 	}
