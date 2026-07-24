@@ -69,10 +69,11 @@
 		onClose();
 	}
 
-	function selectPath(path: string) {
+	async function selectPath(path: string) {
 		const openPath = source === 'wiki' ? toWikiUiPath(path) : path;
-		shellStore.openFilePreviewForActive(openPath);
-		close();
+		// Older renderer mocks expose this action as void; only an explicit false
+		// means the editor's leave guard rejected the requested navigation.
+		if ((await shellStore.openFilePreviewForActive(openPath)) !== false) close();
 	}
 
 	async function scrollActiveIntoView() {
@@ -111,7 +112,7 @@
 			event.preventDefault();
 			event.stopPropagation();
 			const path = results[activeIndex];
-			if (path) selectPath(path);
+			if (path) void selectPath(path);
 		}
 	}
 
@@ -247,7 +248,7 @@
 								class:active={index === activeIndex}
 								data-result-index={index}
 								onmouseenter={() => (activeIndex = index)}
-								onclick={() => selectPath(path)}
+								onclick={() => void selectPath(path)}
 								title={path}
 							>
 								<span class="file-search-icon" aria-hidden="true">

@@ -17,12 +17,13 @@
 	} from '@lucide/svelte';
 	import { tick, untrack } from 'svelte';
 	import ConfirmActionModal from '$lib/components/ConfirmActionModal.svelte';
-	import FilePreview from '$lib/components/FilePreview.svelte';
 	import FileTreeBrowser from '$lib/components/FileTreeBrowser.svelte';
+	import WorkspaceFileSurface from '$lib/components/WorkspaceFileSurface.svelte';
 	import GitChangesBrowser from '$lib/components/GitChangesBrowser.svelte';
 	import GitDiffView from '$lib/components/GitDiffView.svelte';
 	import TerminalPanel from '$lib/components/TerminalPanel.svelte';
 	import Tooltip from '$lib/components/Tooltip.svelte';
+	import WorkspaceWebSurface from '$lib/components/WorkspaceWebSurface.svelte';
 	import { sessionStore } from '$lib/stores/session.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { terminalStore } from '$lib/stores/terminal.svelte';
@@ -31,53 +32,28 @@
 	import { isWikiUiPath } from '$lib/wiki/paths';
 	import { normalizeWorkspacePath } from '$lib/workspace/file-index';
 
-	type WebviewElement = HTMLElement & {
-		src: string;
-		goBack(): void;
-		goForward(): void;
-		reload(): void;
-		stop(): void;
-		canGoBack(): boolean;
-		canGoForward(): boolean;
-		getURL(): string;
-		getTitle(): string;
-		executeJavaScript<T = unknown>(code: string, userGesture?: boolean): Promise<T>;
-	};
-
-	type FileEditorState = {
+	let addressInputEl = $state<HTMLInputElement | null>(null);
+	let webCanGoBack = $state(false);
+	let webCanGoForward = $state(false);
+	let loading = $state(false);
+	let addressInput = $state('');
+	let webPageTitle = $state('');
+	let addressEditing = $state(false);
+	let lastObservedPanelUrl = $state<string | null>(null);
+	let editorState = $state<{
 		dirty: boolean;
 		saving: boolean;
 		saveError: string | null;
 		save: () => Promise<void>;
 		revert: () => void;
-	};
-
-	type CachedPageContext = {
-		sessionKey: string;
-		url: string;
-		title: string;
-		content: string;
-		capturedAt: number;
-	};
-
-	const PAGE_CONTEXT_CACHE_TTL_MS = 10_000;
-
-	let webviewEl = $state<WebviewElement | null>(null);
-	let addressInputEl = $state<HTMLInputElement | null>(null);
-	let canGoBack = $state(false);
-	let canGoForward = $state(false);
-	let loading = $state(false);
-	let addressInput = $state('');
-	let pageTitle = $state('');
-	let webviewSessionId = $state<string | null>(null);
-	let webviewLoadedUrl = $state<string | null>(null);
-	let addressEditing = $state(false);
-	let lastObservedPanelUrl = $state<string | null>(null);
-	let editorState = $state<FileEditorState | null>(null);
-	let displayedFilePath = $state<string | null>(null);
+	} | null>(null);
 	let capturingContext = $state(false);
-	let pageCaptureRun = 0;
-	let cachedPageContext = $state<CachedPageContext | null>(null);
+	let webSurfaceRef = $state<{
+		navigateBack: () => boolean;
+		navigateForward: () => boolean;
+		reload: () => void;
+		captureContext: (source?: string) => Promise<import('$lib/actions/start-chat').WebContext | null>;
+	} | null>(null);
 	let wikiFilter = $state('');
 	let workspaceFilter = $state('');
 	let fileTreeFilterInputEl = $state<HTMLInputElement | null>(null);
@@ -91,6 +67,8 @@
 	let workspaceTreeBrowser = $state<TreeBrowserHandle | null>(null);
 	let terminalPanelRef = $state<{ startTerminal: () => Promise<void> } | null>(null);
 	let terminateConfirmOpen = $state(false);
+	let discardChangesConfirmOpen = $state(false);
+	let resolveDiscardChanges: ((discard: boolean) => void) | null = null;
 
 	const panelOpen = $derived(shellStore.workspacePanelOpen);
 	const onTerminalSurface = $derived(shellStore.workspacePanelSurface === 'terminal');
@@ -118,6 +96,9 @@
 	const workspaceHasContentDot = $derived(Boolean(workspaceContent));
 	const changesHasContentDot = $derived(Boolean(changesContent));
 	const webSearchHasContentDot = $derived(Boolean(webSearchUrl));
+	const canGoBack = $derived(webSearchUrl ? webCanGoBack : false);
+	const canGoForward = $derived(webSearchUrl ? webCanGoForward : false);
+	const pageTitle = $derived(webSearchUrl ? webPageTitle : '');
 
 	const showWebview = $derived(Boolean(onWebSurface && webSurface === 'web-search' && webSearchUrl));
 	const showFilePreview = $derived(
@@ -136,10 +117,6 @@
 		onWebSurface && webSurface === 'workspace' && !workspaceContent
 	);
 	const changesLayerActive = $derived(onWebSurface && webSurface === 'changes' && !changesContent);
-	const wikiFileActive = $derived(onWebSurface && webSurface === 'wiki' && Boolean(wikiFilePath));
-	const workspaceFileActive = $derived(
-		onWebSurface && webSurface === 'workspace' && Boolean(workspaceFilePath)
-	);
 	const changesDiffActive = $derived(
 		onWebSurface && webSurface === 'changes' && Boolean(changesDiffPath)
 	);
@@ -223,45 +200,33 @@
 
 	function syncAddressFromNavigation() {
 		if (addressEditing) return;
-		const el = webviewEl;
-		if (el) {
-			try {
-				addressInput = el.getURL() || panelUrl || '';
-			} catch {
-				addressInput = panelUrl || '';
-			}
-			return;
-		}
 		addressInput = panelUrl || '';
 	}
 
-	function updateNavigationState() {
-		const el = webviewEl;
-		if (!el) return;
-		canGoBack = el.canGoBack();
-		canGoForward = el.canGoForward();
-		syncAddressFromNavigation();
-		try {
-			pageTitle = el.getTitle() || '';
-		} catch {
-			pageTitle = '';
+	function updateWebNavigation(state: {
+		url: string;
+		title: string;
+		canGoBack: boolean;
+		canGoForward: boolean;
+		loading: boolean;
+	}) {
+		webCanGoBack = state.canGoBack;
+		webCanGoForward = state.canGoForward;
+		loading = state.loading;
+		webPageTitle = state.title;
+		if (!addressEditing) addressInput = state.url || panelUrl || '';
+		if (state.url.startsWith('http://') || state.url.startsWith('https://')) {
+			shellStore.setPendingPageContextForActive({ title: state.title, source: state.url });
 		}
-		updatePendingPageMetadata();
 	}
 
 	function onBack() {
-		if (showWebview && webviewEl?.canGoBack()) {
-			webviewEl.goBack();
-			return;
-		}
+		if (showWebview && webSurfaceRef?.navigateBack()) return;
 		shellStore.panelHistoryBack();
 	}
 
 	function onForward() {
-		if (showWebview && webviewEl?.canGoForward()) {
-			webviewEl.goForward();
-			return;
-		}
+		if (showWebview && webSurfaceRef?.navigateForward()) return;
 		shellStore.panelHistoryForward();
 	}
 
@@ -275,119 +240,16 @@
 	}
 
 	function onReload() {
-		webviewEl?.reload();
-	}
-
-	function updatePendingPageMetadata() {
-		const el = webviewEl;
-		if (!el || panelMode !== 'url' || !panelUrl) return;
-		let url = panelUrl;
-		try {
-			url = String(el.getURL() || panelUrl).trim();
-		} catch {
-			// Use panel state while the webview is still exposing its first URL.
-		}
-		if (!url.startsWith('http://') && !url.startsWith('https://')) return;
-		shellStore.setPendingPageContextForActive({ title: pageTitle, source: url });
-	}
-
-	function addCachedPageContext(context: CachedPageContext) {
-		shellStore.addWebContextForActive({
-			kind: 'page',
-			title: context.title,
-			source: context.url,
-			content: context.content
-		});
+		webSurfaceRef?.reload();
 	}
 
 	async function capturePageContext() {
-		const el = webviewEl;
-		const capturedSessionKey = panelSessionKey;
-		if (!el || panelMode !== 'url' || !panelUrl || !capturedSessionKey || capturingContext) return;
-		const captureRun = ++pageCaptureRun;
-		const capturedPanelUrl = panelUrl;
-		let currentUrl = panelUrl;
-		try {
-			currentUrl = String(el.getURL() || panelUrl).trim();
-		} catch {
-			// A newly-mounted webview may not expose its URL yet; use panel state.
-		}
-		const cached = cachedPageContext;
-		if (
-			cached &&
-			cached.sessionKey === capturedSessionKey &&
-			cached.url === currentUrl &&
-			Date.now() - cached.capturedAt < PAGE_CONTEXT_CACHE_TTL_MS
-		) {
-			addCachedPageContext(cached);
-			return;
-		}
-
-		capturingContext = true;
-		try {
-			const page = await el.executeJavaScript<{
-				title?: string;
-				url?: string;
-				content?: string;
-			}>(
-				`(() => ({
-					title: document.title || '',
-					url: location.href || '',
-					content: (document.body?.innerText || '').replace(/\\n{3,}/g, '\\n\\n').trim().slice(0, 50000)
-				}))()`,
-				true
-			);
-			const url = String(page?.url || el.getURL() || panelUrl).trim();
-			const content = String(page?.content || '').trim();
-			if (
-				captureRun !== pageCaptureRun ||
-				shellStore.workspacePanelUrl !== capturedPanelUrl ||
-				shellStore.workspacePanelSessionKey !== capturedSessionKey
-			)
-				return;
-			if (!url.startsWith('http://') && !url.startsWith('https://')) {
-				throw new Error('Only http(s) pages can be added to chat context.');
-			}
-			if (!content) {
-				throw new Error('This page has no readable text content.');
-			}
-			const context = {
-				sessionKey: capturedSessionKey,
-				url,
-				title: String(page?.title || pageTitle || '').trim(),
-				content,
-				capturedAt: Date.now()
-			};
-			cachedPageContext = context;
-			addCachedPageContext(context);
-		} catch {
-			// Silent: page context is best-effort for send-time resolution.
-		} finally {
-			capturingContext = false;
-		}
+		const context = await webSurfaceRef?.captureContext();
+		if (context) shellStore.addWebContextForActive(context);
 	}
 
 	async function resolvePageContext(source: string) {
-		const el = webviewEl;
-		if (!el || panelMode !== 'url' || !panelUrl) return null;
-		let currentUrl = panelUrl;
-		try {
-			currentUrl = String(el.getURL() || panelUrl).trim();
-		} catch {
-			// A newly-mounted webview may not expose its URL yet; use panel state.
-		}
-		if (currentUrl !== source) return null;
-		await capturePageContext();
-		const cached = cachedPageContext;
-		if (cached?.sessionKey === panelSessionKey && cached.url === source) {
-			return {
-				kind: 'page' as const,
-				title: cached.title,
-				source: cached.url,
-				content: cached.content
-			};
-		}
-		return null;
+		return (await webSurfaceRef?.captureContext(source)) ?? null;
 	}
 
 	function captureFileContext(filePath: string) {
@@ -398,6 +260,20 @@
 
 	function onClose() {
 		shellStore.closeWorkspacePanel();
+	}
+
+	function requestLeaveEditor(): boolean | Promise<boolean> {
+		if (!dirty) return true;
+		discardChangesConfirmOpen = true;
+		return new Promise((resolve) => {
+			resolveDiscardChanges = resolve;
+		});
+	}
+
+	function resolveLeaveEditor(discard: boolean) {
+		discardChangesConfirmOpen = false;
+		resolveDiscardChanges?.(discard);
+		resolveDiscardChanges = null;
 	}
 
 	function onSaveClick() {
@@ -492,76 +368,12 @@
 		syncAddressFromNavigation();
 	}
 
-	function onNewWindow(event: Event & { url?: string; preventDefault?: () => void }) {
-		event.preventDefault?.();
-		const url = event.url;
-		if (!url) return;
+	function onNewWindow(url: string) {
 		if (isHttpUrl(url)) {
 			openLink(url);
 			return;
 		}
 		openExternalLink(url);
-	}
-
-	function attachWebview(el: WebviewElement) {
-		el.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups allow-forms');
-		const onNavigate = () => {
-			updateNavigationState();
-		};
-		const onInPageNavigate = () => {
-			// History API navigation has no document load to pair with a stop event.
-			loading = false;
-			updateNavigationState();
-		};
-		const onStartLoading = (event: Event & { isMainFrame?: boolean }) => {
-			if (event.isMainFrame === false) return;
-			loading = true;
-		};
-		const onStopLoading = () => {
-			loading = false;
-			updateNavigationState();
-		};
-		const onFrameFinishLoad = (event: Event & { isMainFrame?: boolean }) => {
-			if (event.isMainFrame === false) return;
-			loading = false;
-		};
-		const onFailLoad = () => {
-			loading = false;
-		};
-		const onTitleUpdated = (event: Event & { title?: string }) => {
-			pageTitle = event.title ?? '';
-			updatePendingPageMetadata();
-		};
-		const onFocus = () => {
-			shellStore.setFocusedPane('web');
-		};
-
-		el.addEventListener('did-navigate', onNavigate);
-		el.addEventListener('did-navigate-in-page', onInPageNavigate);
-		el.addEventListener('did-start-loading', onStartLoading);
-		el.addEventListener('did-stop-loading', onStopLoading);
-		el.addEventListener('did-frame-finish-load', onFrameFinishLoad);
-		el.addEventListener('did-fail-load', onFailLoad);
-		el.addEventListener('page-title-updated', onTitleUpdated);
-		el.addEventListener('new-window', onNewWindow);
-		el.addEventListener('focus', onFocus);
-
-		return () => {
-			el.removeEventListener('did-navigate', onNavigate);
-			el.removeEventListener('did-navigate-in-page', onInPageNavigate);
-			el.removeEventListener('did-start-loading', onStartLoading);
-			el.removeEventListener('did-stop-loading', onStopLoading);
-			el.removeEventListener('did-frame-finish-load', onFrameFinishLoad);
-			el.removeEventListener('did-fail-load', onFailLoad);
-			el.removeEventListener('page-title-updated', onTitleUpdated);
-			el.removeEventListener('new-window', onNewWindow);
-			el.removeEventListener('focus', onFocus);
-			try {
-				el.stop();
-			} catch {
-				// ignore teardown errors
-			}
-		};
 	}
 
 	// Tracks the focus request id we have already satisfied, so a remounting
@@ -615,29 +427,8 @@
 		};
 	}
 
-	$effect(() => {
-		const el = webviewEl;
-		if (!el) return;
-		return attachWebview(el);
-	});
-
 	$effect(() => shellStore.registerPageContextResolver(resolvePageContext));
-
-	$effect(() => {
-		const el = webviewEl;
-		const sessionKey = panelSessionKey;
-		const url = panelUrl;
-		const open = panelOpen;
-		if (!el || !open || !sessionKey || !url) return;
-		if (webviewSessionId !== sessionKey || webviewLoadedUrl !== url) {
-			el.src = url;
-			webviewSessionId = sessionKey;
-			webviewLoadedUrl = url;
-			if (!addressEditing) {
-				addressInput = url;
-			}
-		}
-	});
+	$effect(() => shellStore.registerWorkspacePanelLeaveGuard(requestLeaveEditor));
 
 	$effect(() => {
 		const url = panelUrl;
@@ -653,36 +444,12 @@
 
 	$effect(() => {
 		if (!shellStore.hasWorkspacePanelForSession) {
-			cachedPageContext = null;
 			loading = false;
-			canGoBack = false;
-			canGoForward = false;
-			pageTitle = '';
-			webviewLoadedUrl = null;
-			webviewSessionId = null;
-			displayedFilePath = null;
 			editorState = null;
 			if (!addressEditing) {
 				addressInput = '';
 			}
 		}
-	});
-
-	// Guard leaving a dirty file behind an unsaved-change confirmation. The store
-	// path changes immediately, but FilePreview only reloads the locally-tracked
-	// Confirm before replacing the active surface's open file while dirty.
-	// Cancelling keeps the current (dirty) file path in the store by refusing the swap —
-	// callers should only change content through shell APIs; this guards rapid path churn.
-	$effect(() => {
-		const nextFilePath = showFilePreview ? panelFilePath : null;
-		if (nextFilePath === displayedFilePath) return;
-		if (displayedFilePath !== null && nextFilePath !== displayedFilePath && dirty) {
-			if (!window.confirm('Discard unsaved changes?')) {
-				return;
-			}
-		}
-		displayedFilePath = nextFilePath;
-		if (!showFilePreview) editorState = null;
 	});
 
 	$effect(() => {
@@ -691,14 +458,6 @@
 		// untrack: setViewingFileContextForActive reads+writes pending contexts; if
 		// that read is tracked here, every write re-runs this effect forever.
 		untrack(() => captureFileContext(filePath));
-	});
-
-	$effect(() => {
-		if (webSurface === 'wiki' || webSurface === 'workspace' || webSurface === 'changes' || showGitDiff) {
-			pageTitle = '';
-			canGoBack = false;
-			canGoForward = false;
-		}
 	});
 
 	$effect(() => {
@@ -1017,7 +776,7 @@
 						source="wiki"
 						workspacePath={shellStore.workspacePath}
 						filter={wikiFilter}
-						onSelectFile={(path) => shellStore.openFilePreviewForActive(path)}
+						onSelectFile={(path) => void shellStore.openFilePreviewForActive(path)}
 					/>
 				</div>
 				<div
@@ -1030,7 +789,7 @@
 						source="workspace"
 						workspacePath={shellStore.workspacePath}
 						filter={workspaceFilter}
-						onSelectFile={(path) => shellStore.openFilePreviewForActive(path)}
+						onSelectFile={(path) => void shellStore.openFilePreviewForActive(path)}
 					/>
 				</div>
 				<div
@@ -1040,36 +799,14 @@
 				>
 					<GitChangesBrowser workspacePath={normalizedWorkspacePath} />
 				</div>
-				{#if wikiFilePath}
-					<div
-						class="panel-layer panel-layer-content"
-						class:active={wikiFileActive}
-						aria-hidden={!wikiFileActive}
-					>
-						<FilePreview
-							workspacePath={shellStore.workspacePath}
-							filePath={wikiFilePath}
-							onEditorState={(state) => {
-								if (wikiFileActive) editorState = state;
-							}}
-						/>
-					</div>
-				{/if}
-				{#if workspaceFilePath}
-					<div
-						class="panel-layer panel-layer-content"
-						class:active={workspaceFileActive}
-						aria-hidden={!workspaceFileActive}
-					>
-						<FilePreview
-							workspacePath={shellStore.workspacePath}
-							filePath={workspaceFilePath}
-							onEditorState={(state) => {
-								if (workspaceFileActive) editorState = state;
-							}}
-						/>
-					</div>
-				{/if}
+				<WorkspaceFileSurface
+					workspacePath={shellStore.workspacePath}
+					{wikiFilePath}
+					{workspaceFilePath}
+					activeSurface={webSurface}
+					active={onWebSurface}
+					onEditorState={(state) => (editorState = state)}
+				/>
 				{#if changesDiffPath}
 					<div
 						class="panel-layer panel-layer-content"
@@ -1090,8 +827,15 @@
 						class:active={showWebview}
 						aria-hidden={!showWebview}
 					>
-						<!-- Electron webview tag; inert in plain browser dev without Electron. -->
-						<webview bind:this={webviewEl} class="workspace-panel-view"></webview>
+						<WorkspaceWebSurface
+							bind:this={webSurfaceRef}
+							url={webSearchUrl}
+							sessionKey={panelSessionKey}
+							onNavigationState={updateWebNavigation}
+							onFocus={() => shellStore.setFocusedPane('web')}
+							onNewWindow={onNewWindow}
+							onCapturingChange={(value) => (capturingContext = value)}
+						/>
 					</div>
 				{/if}
 			{/if}
@@ -1106,6 +850,15 @@
 	confirmLabel="Terminate terminal"
 	onCancel={() => (terminateConfirmOpen = false)}
 	onConfirm={() => void confirmTerminateTerminal()}
+/>
+
+<ConfirmActionModal
+	open={discardChangesConfirmOpen}
+	title="Discard unsaved changes?"
+	description="Your edits to this file will be lost."
+	confirmLabel="Discard changes"
+	onCancel={() => resolveLeaveEditor(false)}
+	onConfirm={() => resolveLeaveEditor(true)}
 />
 
 <style>
@@ -1347,13 +1100,6 @@
 		flex: 1;
 		min-height: 0;
 		height: 100%;
-	}
-
-	.workspace-panel-view {
-		display: inline-flex;
-		width: 100%;
-		height: 100%;
-		border: none;
 	}
 
 	:global(.spin) {
