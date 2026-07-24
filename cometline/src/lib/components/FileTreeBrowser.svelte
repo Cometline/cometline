@@ -44,8 +44,16 @@
 		shellStore.setWebPanelBrowseSource(next);
 	}
 
+	function persistExpanded(next: Record<string, boolean>) {
+		if (source === 'wiki' || source === 'workspace') {
+			shellStore.setFileTreeExpanded(source, next);
+		}
+	}
+
 	function toggleDir(key: string) {
-		expanded = { ...expanded, [key]: !expanded[key] };
+		const next = { ...expanded, [key]: !expanded[key] };
+		expanded = next;
+		persistExpanded(next);
 	}
 
 	function dirKey(parentKey: string, name: string): string {
@@ -57,6 +65,12 @@
 	}
 
 	function selectRelative(relativePath: string) {
+		// Remember open folders + expand parents of the file we open.
+		if (source === 'wiki' || source === 'workspace') {
+			const next = { ...expanded, ...dirKeysToExpandForPaths([relativePath]) };
+			expanded = next;
+			persistExpanded(next);
+		}
 		if (source === 'wiki') {
 			onSelectFile(toWikiUiPath(relativePath));
 			return;
@@ -81,6 +95,7 @@
 		if (activeSource === 'workspace' && !workspaceAvailable) {
 			files = [];
 			truncated = false;
+			// Keep expansion map in the store; local view is empty until a workspace exists.
 			expanded = {};
 			loading = false;
 			return;
@@ -94,12 +109,24 @@
 			if (seq !== loadSeq) return;
 			files = result.files;
 			truncated = result.truncated;
-			expanded = query ? dirKeysToExpandForPaths(files) : {};
+			if (query) {
+				// Filter mode: expand matches only (do not overwrite the stored map).
+				expanded = dirKeysToExpandForPaths(files);
+			} else if (activeSource === 'wiki' || activeSource === 'workspace') {
+				// Restore folders the user had open (and any open-file parent expand).
+				expanded = { ...shellStore.getFileTreeExpanded(activeSource) };
+			} else {
+				expanded = {};
+			}
 		} catch (err) {
 			if (seq !== loadSeq) return;
 			files = [];
 			truncated = false;
-			if (!query) expanded = {};
+			if (!query && (activeSource === 'wiki' || activeSource === 'workspace')) {
+				expanded = { ...shellStore.getFileTreeExpanded(activeSource) };
+			} else if (!query) {
+				expanded = {};
+			}
 			error = err instanceof Error ? err.message : 'Failed to load files';
 		} finally {
 			if (seq === loadSeq) loading = false;
@@ -151,30 +178,38 @@
 		{#each nodes as node (dirKey(parentKey, node.name))}
 			{@const key = dirKey(parentKey, node.name)}
 			{@const hasChildren = Boolean(node.children?.length)}
-			<li class="file-tree-item" role="treeitem" aria-selected="false" aria-expanded={hasChildren ? isExpanded(key) : undefined}>
+			{@const expanded = hasChildren && isExpanded(key)}
+			<li
+				class="file-tree-item"
+				class:is-dir={hasChildren}
+				class:is-expanded={expanded}
+				role="treeitem"
+				aria-selected="false"
+				aria-expanded={hasChildren ? expanded : undefined}
+			>
 				{#if hasChildren}
 					<button
 						type="button"
-						class="file-tree-row"
+						class="file-tree-row file-tree-dir"
 						onclick={() => toggleDir(key)}
 					>
 						<span class="file-tree-chevron" aria-hidden="true">
-							{#if isExpanded(key)}
-								<ChevronDown size={14} />
+							{#if expanded}
+								<ChevronDown size={13} stroke-width={2} />
 							{:else}
-								<ChevronRight size={14} />
+								<ChevronRight size={13} stroke-width={2} />
 							{/if}
 						</span>
-						<span class="file-tree-icon" aria-hidden="true">
-							{#if isExpanded(key)}
-								<FolderOpen size={14} />
+						<span class="file-tree-icon file-tree-folder-icon" aria-hidden="true">
+							{#if expanded}
+								<FolderOpen size={13} stroke-width={1.8} />
 							{:else}
-								<Folder size={14} />
+								<Folder size={13} stroke-width={1.8} />
 							{/if}
 						</span>
 						<span class="file-tree-label">{node.name}</span>
 					</button>
-					{#if isExpanded(key) && node.children}
+					{#if expanded && node.children}
 						<div class="file-tree-children">
 							{@render treeNodes(node.children, key)}
 						</div>
@@ -186,7 +221,6 @@
 						onclick={() => selectRelative(node.path!)}
 						title={node.path}
 					>
-						<span class="file-tree-chevron file-tree-chevron-spacer" aria-hidden="true"></span>
 						<span class="file-tree-icon" aria-hidden="true">
 							<FileTypeIcon path={node.path} size={14} />
 						</span>
@@ -362,8 +396,22 @@
 		padding: 0;
 	}
 
+	.file-tree-item.is-dir {
+		/* Keep dir + nested children as one column; no group surface chrome. */
+		display: flex;
+		flex-direction: column;
+	}
+
+	/*
+	 * Nesting guide: VS Code / Cursor-style left border only, inactive group color.
+	 * Nested lists stack these so each depth gets its own vertical guide.
+	 */
 	.file-tree-children {
-		padding-left: 12px;
+		margin: 0;
+		padding: 0 0 0 6px;
+		border-left: 1px solid
+			color-mix(in srgb, var(--workspace-inactive-color, #9a9a9f) 42%, transparent);
+		margin-left: 8px; /* align under chevron/folder column */
 	}
 
 	.file-tree-row {
@@ -373,7 +421,7 @@
 		width: 100%;
 		border: none;
 		border-radius: 6px;
-		padding: 4px 6px;
+		padding: 3px 6px;
 		background: transparent;
 		color: var(--text-primary, #111);
 		font-size: 13px;
@@ -382,7 +430,16 @@
 	}
 
 	.file-tree-row:hover {
-		background: var(--surface-muted, rgba(0, 0, 0, 0.04));
+		background: color-mix(
+			in srgb,
+			var(--workspace-inactive-color, #9a9a9f) 12%,
+			transparent
+		);
+	}
+
+	.file-tree-row.file-tree-dir {
+		color: var(--text-primary, #111);
+		font-weight: 500;
 	}
 
 	.file-tree-chevron,
@@ -393,11 +450,7 @@
 		width: 16px;
 		height: 16px;
 		flex: 0 0 16px;
-		color: var(--text-muted);
-	}
-
-	.file-tree-chevron-spacer {
-		visibility: hidden;
+		color: var(--workspace-inactive-color, #9a9a9f);
 	}
 
 	.file-tree-label {

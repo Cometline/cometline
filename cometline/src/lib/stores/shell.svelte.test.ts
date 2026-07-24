@@ -139,6 +139,34 @@ describe('shellStore web panel focus behavior', () => {
 		shellStore.clearWebPanelForSession('__draft__');
 	});
 
+	it('keeps file-tree expansion when opening a nested file and going back', () => {
+		shellStore.setWebPanelBrowseSource('workspace');
+		shellStore.setFileTreeExpanded('workspace', { src: true, 'src/lib': true });
+
+		shellStore.openFilePreviewForActive('src/lib/components/WebPanel.svelte');
+		// Parents of the opened file are merged into expansion.
+		expect(shellStore.getFileTreeExpanded('workspace')).toMatchObject({
+			src: true,
+			'src/lib': true,
+			'src/lib/components': true
+		});
+
+		expect(shellStore.panelHistoryBack()).toBe(true);
+		expect(shellStore.webPanelBrowseOpen).toBe(true);
+		// Expansion still present after back (tree remount reads this map).
+		expect(shellStore.getFileTreeExpanded('workspace')['src/lib/components']).toBe(true);
+
+		shellStore.clearWebPanelForSession('__draft__');
+		expect(shellStore.getFileTreeExpanded('workspace')).toEqual({});
+	});
+
+	it('expands wiki tree parents using the relative path under @runtime/wiki/', () => {
+		shellStore.setWebPanelBrowseSource('wiki');
+		shellStore.openFilePreviewForActive('@runtime/wiki/topics/setup.md');
+		expect(shellStore.getFileTreeExpanded('wiki')).toEqual({ topics: true });
+		shellStore.clearWebPanelForSession('__draft__');
+	});
+
 	it('records history across browse sources, files, and git diffs', () => {
 		shellStore.setWebPanelBrowseSource('wiki');
 		expect(shellStore.webPanelBrowseOpen).toBe(true);

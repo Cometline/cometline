@@ -17,8 +17,12 @@ import {
 	writeWebPanelTreeSource,
 	type WebPanelTreeSource
 } from '$lib/workspace/web-panel-prefs';
+import { dirKeysToExpandForPaths } from '$lib/workspace/file-tree';
+import { isWikiUiPath, toWikiRelative } from '$lib/wiki/paths';
 
 export type WebPanelMode = 'url' | 'file' | 'git-diff';
+/** File-tree sources that keep an expansion map (not Changes). */
+export type FileTreeExpandSource = 'wiki' | 'workspace';
 
 export type SessionWebPanel =
 	| { mode: 'url'; url: string; visible: boolean }
@@ -106,6 +110,13 @@ function createShellStore() {
 	let panelHistoryBySession = $state<Record<string, PanelHistoryState>>({});
 	/** Per-session Wiki/Workspace/Changes tab for the browse surface. */
 	let browseSourceBySession = $state<Record<string, WebPanelTreeSource>>({});
+	/**
+	 * Expanded directory keys for Wiki/Workspace file trees, per session.
+	 * Survives open-file → back so the tree does not collapse.
+	 */
+	let fileTreeExpandedBySession = $state<
+		Record<string, Partial<Record<FileTreeExpandSource, Record<string, boolean>>>>
+	>({});
 	/** Suppresses history recording while applying back/forward navigation. */
 	let applyingPanelHistory = false;
 	let resolvePageContext: ((source: string) => Promise<WebContext | null>) | null = null;
@@ -186,6 +197,46 @@ function createShellStore() {
 	function setBrowseSourceForSession(sessionId: string, source: WebPanelTreeSource) {
 		browseSourceBySession = { ...browseSourceBySession, [sessionId]: source };
 		writeWebPanelTreeSource(source);
+	}
+
+	function fileTreeExpandedFor(
+		sessionId: string,
+		source: FileTreeExpandSource
+	): Record<string, boolean> {
+		return fileTreeExpandedBySession[sessionId]?.[source] ?? {};
+	}
+
+	function setFileTreeExpandedForSession(
+		sessionId: string,
+		source: FileTreeExpandSource,
+		expanded: Record<string, boolean>
+	) {
+		fileTreeExpandedBySession = {
+			...fileTreeExpandedBySession,
+			[sessionId]: {
+				...fileTreeExpandedBySession[sessionId],
+				[source]: { ...expanded }
+			}
+		};
+	}
+
+	/** Merge ancestor dirs for a relative path into the source expansion map. */
+	function expandFileTreeToRelativePath(
+		sessionId: string,
+		source: FileTreeExpandSource,
+		relativePath: string
+	) {
+		const parents = dirKeysToExpandForPaths([relativePath]);
+		if (Object.keys(parents).length === 0) return;
+		const prev = fileTreeExpandedFor(sessionId, source);
+		setFileTreeExpandedForSession(sessionId, source, { ...prev, ...parents });
+	}
+
+	function clearFileTreeExpandedForSession(sessionId: string) {
+		if (!(sessionId in fileTreeExpandedBySession)) return;
+		const next = { ...fileTreeExpandedBySession };
+		delete next[sessionId];
+		fileTreeExpandedBySession = next;
 	}
 
 	function recordPanelHistory(sessionId: string, entry: PanelHistoryEntry) {
@@ -567,6 +618,10 @@ function createShellStore() {
 			syncWorkspacePanelOpen(true);
 		},
 		openFilePreview(filePath: string, sessionId: string) {
+			// Keep parent folders open in the matching tree so Back restores the same place.
+			const expandSource: FileTreeExpandSource = isWikiUiPath(filePath) ? 'wiki' : 'workspace';
+			const relative = isWikiUiPath(filePath) ? toWikiRelative(filePath) : filePath;
+			expandFileTreeToRelativePath(sessionId, expandSource, relative);
 			workspacePanelSurfaceBySession = {
 				...workspacePanelSurfaceBySession,
 				[sessionId]: 'web'
@@ -791,10 +846,19 @@ function createShellStore() {
 			workspacePanelSurfaceBySession = nextSurfaces;
 			clearWebContextsForSession(sessionId);
 			clearPanelHistoryForSession(sessionId);
+			clearFileTreeExpandedForSession(sessionId);
 			if (activeSessionId() === sessionId) {
 				this.requestComposerFocus();
 				syncWorkspacePanelOpen(false);
 			}
+		},
+		/** Read expanded dir keys for Wiki or Workspace tree (session-scoped). */
+		getFileTreeExpanded(source: FileTreeExpandSource): Record<string, boolean> {
+			return fileTreeExpandedFor(panelSessionKey(), source);
+		},
+		/** Persist expanded dir keys (user toggles / open-to-path). */
+		setFileTreeExpanded(source: FileTreeExpandSource, expanded: Record<string, boolean>) {
+			setFileTreeExpandedForSession(panelSessionKey(), source, expanded);
 		},
 		/**
 		 * Opens a workspace file in the panel for the active session, falling back
