@@ -1,9 +1,11 @@
 package discord
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -272,8 +274,42 @@ func (a *Adapter) Stop(ctx context.Context) error {
 func (a *Adapter) Deliver(ctx context.Context, msg gateway.OutboundMessage) error {
 	_ = ctx
 	dest := deliveryChannelID(msg)
-	for _, chunk := range splitMessage(msg.Text, 1900) {
-		if _, err := a.Session.ChannelMessageSend(dest, chunk); err != nil {
+	files := make([]*discordgo.File, 0, len(msg.Images))
+	for i, img := range msg.Images {
+		if strings.TrimSpace(img.Path) == "" {
+			continue
+		}
+		data, err := os.ReadFile(img.Path)
+		if err != nil {
+			return err
+		}
+		name := strings.TrimSpace(img.Filename)
+		if name == "" {
+			name = filepath.Base(img.Path)
+		}
+		if name == "" || name == "." {
+			name = fmt.Sprintf("image-%d.png", i+1)
+		}
+		files = append(files, &discordgo.File{
+			Name:        name,
+			ContentType: img.MediaType,
+			Reader:      bytes.NewReader(data),
+		})
+	}
+
+	chunks := splitMessage(msg.Text, 1900)
+	if len(chunks) == 0 && len(files) > 0 {
+		chunks = []string{""}
+	}
+	for i, chunk := range chunks {
+		send := &discordgo.MessageSend{Content: chunk}
+		if i == 0 && len(files) > 0 {
+			send.Files = files
+		}
+		if send.Content == "" && len(send.Files) == 0 {
+			continue
+		}
+		if _, err := a.Session.ChannelMessageSendComplex(dest, send); err != nil {
 			return err
 		}
 	}
