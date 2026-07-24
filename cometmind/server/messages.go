@@ -24,6 +24,9 @@ const (
 	maxMessageImageBytes = 4 * 1024 * 1024
 	maxMessageFilePaths  = 32
 	maxMessageFileBytes  = 256 * 1024
+	// Workspace/wiki image preview (FilePreview + markdown embeds). Larger than
+	// chat attachments so README-style PNGs can render in the side panel.
+	maxWorkspaceImagePreviewBytes = 8 * 1024 * 1024
 	maxWebContextChars   = 50000
 	maxWebContextTotal   = 100000
 	runtimeWikiPrefix    = "@runtime/wiki/"

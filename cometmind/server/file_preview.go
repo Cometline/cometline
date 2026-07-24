@@ -49,12 +49,12 @@ func readWorkspaceFilePreview(workspacePath, relativePath string) (any, error) {
 	if info.IsDir() {
 		return nil, fmt.Errorf("not a file")
 	}
-	if info.Size() > maxMessageFileBytes {
-		return nil, fmt.Errorf("file exceeds %d KB preview limit", maxMessageFileBytes/1024)
-	}
 
 	ext := strings.ToLower(filepath.Ext(abs))
 	if mimeType, ok := workspaceFileImageMIME[ext]; ok {
+		if info.Size() > maxWorkspaceImagePreviewBytes {
+			return nil, fmt.Errorf("file exceeds %d KB preview limit", maxWorkspaceImagePreviewBytes/1024)
+		}
 		data, err := os.ReadFile(abs)
 		if err != nil {
 			return nil, fmt.Errorf("cannot read file")
@@ -64,6 +64,10 @@ func readWorkspaceFilePreview(workspacePath, relativePath string) (any, error) {
 			MimeType: mimeType,
 			DataURL:  fmt.Sprintf("data:%s;base64,%s", mimeType, base64.StdEncoding.EncodeToString(data)),
 		}, nil
+	}
+
+	if info.Size() > maxMessageFileBytes {
+		return nil, fmt.Errorf("file exceeds %d KB preview limit", maxMessageFileBytes/1024)
 	}
 
 	data, err := os.ReadFile(abs)
