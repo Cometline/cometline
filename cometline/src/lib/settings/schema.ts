@@ -1004,8 +1004,15 @@ function defaultAppSettings(): AppSettings {
 		/** 0 = unset (derive from webPanelWidth or use CSS default). */
 		webPanelRatio: 0,
 		confirmCloseOnCmdW: true,
-		confirmBeforeDeletingChats: true
+		confirmBeforeDeletingChats: true,
+		fileSearchSource: 'wiki'
 	};
+}
+
+export type FileSearchSource = AppSettings['fileSearchSource'];
+
+export function normalizeFileSearchSource(value: unknown): FileSearchSource {
+	return value === 'workspace' ? 'workspace' : 'wiki';
 }
 
 function normalizeWebPanelWidth(value: unknown): number {
@@ -1258,7 +1265,10 @@ export function normalizeSettings(
 			confirmBeforeDeletingChats:
 				typeof next.app?.confirmBeforeDeletingChats === 'boolean'
 					? next.app.confirmBeforeDeletingChats
-					: defaultAppSettings().confirmBeforeDeletingChats
+					: defaultAppSettings().confirmBeforeDeletingChats,
+			fileSearchSource: normalizeFileSearchSource(
+				(next.app as { fileSearchSource?: unknown } | undefined)?.fileSearchSource
+			)
 		},
 		cometmind
 	};
@@ -1423,7 +1433,8 @@ const providerSettingsSchema = z.object({
 		webPanelWidth: z.number().int().min(0),
 		webPanelRatio: z.number().min(0).max(WEB_PANEL_MAX_RATIO),
 		confirmCloseOnCmdW: z.boolean(),
-		confirmBeforeDeletingChats: z.boolean()
+		confirmBeforeDeletingChats: z.boolean(),
+		fileSearchSource: z.enum(['wiki', 'workspace'])
 	}),
 	cometmind: z.object({
 		systemPromptPath: z.string(),

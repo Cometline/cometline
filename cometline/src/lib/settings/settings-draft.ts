@@ -51,7 +51,8 @@ export function cloneSettings(settings: ProviderSettings): ProviderSettings {
 			webPanelWidth: settings.app?.webPanelWidth ?? 0,
 			webPanelRatio: settings.app?.webPanelRatio ?? 0,
 			confirmCloseOnCmdW: settings.app?.confirmCloseOnCmdW ?? true,
-			confirmBeforeDeletingChats: settings.app?.confirmBeforeDeletingChats ?? true
+			confirmBeforeDeletingChats: settings.app?.confirmBeforeDeletingChats ?? true,
+			fileSearchSource: settings.app?.fileSearchSource === 'workspace' ? 'workspace' : 'wiki'
 		},
 		cometmind: cloneCometMindSettings(normalizeCometMindSettings(settings.cometmind))
 	};

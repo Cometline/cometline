@@ -358,6 +358,30 @@ function createSettingsStore() {
 		}
 	}
 
+	async function saveFileSearchSource(source: 'wiki' | 'workspace') {
+		const next = source === 'workspace' ? 'workspace' : 'wiki';
+		if (settings.app.fileSearchSource === next) return;
+		error = '';
+		const normalized = normalizeSettings({
+			...settings,
+			app: { ...settings.app, fileSearchSource: next }
+		});
+		apply(normalized);
+		try {
+			if (window.electronAPI?.saveProviderSettings) {
+				const result = await window.electronAPI.saveProviderSettings(normalized, {
+					restartCometMind: false
+				});
+				apply(result.settings);
+				return;
+			}
+			writeLocalSettings(normalized);
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Failed to save file search preference';
+			throw err;
+		}
+	}
+
 	function setDefaultProvider(providerId: string) {
 		const provider = settings.providers.find((p) => p.id === providerId);
 		const modelId = provider?.enabledModels[0] ?? provider?.selectedModel ?? '';
@@ -455,6 +479,7 @@ function createSettingsStore() {
 		saveShortcuts,
 		saveConfirmCloseOnCmdW,
 		saveConfirmBeforeDeletingChats,
+		saveFileSearchSource,
 		saveWebPanelWidth,
 		saveWebPanelLayout,
 		setDefaultProvider,

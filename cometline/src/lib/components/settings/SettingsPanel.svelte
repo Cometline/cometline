@@ -662,6 +662,7 @@
 							bind:openAtLogin={draft.app.openAtLogin}
 							bind:confirmCloseOnCmdW={draft.app.confirmCloseOnCmdW}
 							bind:confirmBeforeDeletingChats={draft.app.confirmBeforeDeletingChats}
+							bind:fileSearchSource={draft.app.fileSearchSource}
 							bind:miniWindowInactivityTimeoutMinutes={
 								draft.app.miniWindowInactivityTimeoutMinutes
 							}
@@ -669,6 +670,7 @@
 							onOpenAtLoginChange={panelController.setOpenAtLogin}
 							onConfirmCloseOnCmdWChange={panelController.setConfirmCloseOnCmdW}
 							onConfirmBeforeDeletingChatsChange={panelController.setConfirmBeforeDeletingChats}
+							onFileSearchSourceChange={panelController.setFileSearchSource}
 						/>
 						<section class="settings-panel-frame">
 							<div class="settings-panel-body">

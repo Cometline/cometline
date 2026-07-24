@@ -115,6 +115,23 @@ describe('settings schema', () => {
 		expect(defaultSettings().app.webPanelRatio).toBe(0);
 	});
 
+	it('defaults fileSearchSource to wiki and normalizes invalid values', () => {
+		expect(defaultSettings().app.fileSearchSource).toBe('wiki');
+		const base = defaultSettings();
+		expect(
+			normalizeSettings({
+				...base,
+				app: { ...base.app, fileSearchSource: 'workspace' }
+			}).app.fileSearchSource
+		).toBe('workspace');
+		expect(
+			normalizeSettings({
+				...base,
+				app: { ...base.app, fileSearchSource: 'changes' as never }
+			}).app.fileSearchSource
+		).toBe('wiki');
+	});
+
 	it('normalizes terminal appearance for settings created before terminal preferences', () => {
 		const settings = normalizeSettings({
 			...defaultSettings(),

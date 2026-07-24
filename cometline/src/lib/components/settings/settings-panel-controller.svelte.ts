@@ -338,6 +338,29 @@ export function createSettingsPanelController(deps: {
 		}
 	}
 
+	async function setFileSearchSource(source: 'wiki' | 'workspace') {
+		const next = source === 'workspace' ? 'workspace' : 'wiki';
+		const draft = deps.getDraft();
+		deps.setDraft({ ...draft, app: { ...draft.app, fileSearchSource: next } });
+		try {
+			await settingsStore.saveFileSearchSource(next);
+			deps.settingsController.status =
+				next === 'wiki'
+					? 'File search defaults to wiki.'
+					: 'File search defaults to workspace.';
+		} catch (err) {
+			deps.setDraft({
+				...deps.getDraft(),
+				app: {
+					...deps.getDraft().app,
+					fileSearchSource: settingsStore.settings.app.fileSearchSource
+				}
+			});
+			deps.settingsController.status =
+				err instanceof Error ? err.message : 'Failed to save file search preference';
+		}
+	}
+
 	async function save() {
 		deps.settingsController.status = '';
 		deps.getCometmindPanel()?.syncFields?.();
@@ -745,6 +768,7 @@ export function createSettingsPanelController(deps: {
 		setOpenAtLogin,
 		setConfirmCloseOnCmdW,
 		setConfirmBeforeDeletingChats,
+		setFileSearchSource,
 		save,
 		persistDraftForRuntime,
 		setSelectedMethod,

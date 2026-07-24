@@ -13,6 +13,7 @@
 	import MemoryToast from './MemoryToast.svelte';
 	import AppToast from './AppToast.svelte';
 	import ConfirmActionModal from './ConfirmActionModal.svelte';
+	import FileSearchModal from './FileSearchModal.svelte';
 	import WebPanel from './WebPanel.svelte';
 	import TerminalPanel from './TerminalPanel.svelte';
 	import Tooltip from './Tooltip.svelte';
@@ -48,6 +49,7 @@
 	);
 	let contentRowRef = $state<HTMLDivElement | null>(null);
 	let closeConfirmOpen = $state(false);
+	let fileSearchOpen = $state(false);
 	let reloadConfirmOpen = $state(false);
 	/** True only after the confirm dialog has settled, so a duplicated Cmd+R delivery cannot open+confirm in one press. */
 	let reloadConfirmArmed = $state(false);
@@ -168,6 +170,10 @@
 				return;
 			case 'openGitPanel':
 				shellStore.openGitChangesPanel();
+				return;
+			case 'openFileSearch':
+				if (shellStore.settingsOpen) return;
+				fileSearchOpen = true;
 				return;
 			case 'openTerminal':
 				shellStore.requestTerminalFocus();
@@ -307,6 +313,11 @@
 			if (matchesShortcut(event, shortcuts.openGitPanel)) {
 				event.preventDefault();
 				runShortcutAction('openGitPanel');
+				return;
+			}
+			if (matchesShortcut(event, shortcuts.openFileSearch)) {
+				event.preventDefault();
+				runShortcutAction('openFileSearch');
 				return;
 			}
 			if (matchesShortcut(event, shortcuts.openTerminal)) {
@@ -765,6 +776,7 @@
 		onCancel={cancelRename}
 		onConfirm={() => void confirmRename()}
 	/>
+	<FileSearchModal open={fileSearchOpen} onClose={() => (fileSearchOpen = false)} />
 	{#if shellStore.introOpen}
 		<IntroAnimation />
 	{/if}

@@ -70,6 +70,7 @@ declare global {
 		| 'toggleWebPanel'
 		| 'openWebPanel'
 		| 'openGitPanel'
+		| 'openFileSearch'
 		| 'openTerminal'
 		| 'navigateBack'
 		| 'navigateForward'
@@ -113,6 +114,7 @@ declare global {
 		webPanelRatio: number;
 		confirmCloseOnCmdW: boolean;
 		confirmBeforeDeletingChats: boolean;
+		fileSearchSource: 'wiki' | 'workspace';
 	}
 
 	interface MiniWindowState {

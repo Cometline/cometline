@@ -99,6 +99,7 @@ export type ShortcutAction =
 	| 'toggleWebPanel'
 	| 'openWebPanel'
 	| 'openGitPanel'
+	| 'openFileSearch'
 	| 'openTerminal'
 	| 'navigateBack'
 	| 'navigateForward'
@@ -149,6 +150,8 @@ export interface AppSettings {
 	confirmCloseOnCmdW: boolean;
 	/** When true, deleting a chat requires confirmation. */
 	confirmBeforeDeletingChats: boolean;
+	/** Default source for the ⌘P file search modal. */
+	fileSearchSource: 'wiki' | 'workspace';
 }
 
 export interface ProviderSettings {

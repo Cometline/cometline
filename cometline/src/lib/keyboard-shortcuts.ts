@@ -13,6 +13,7 @@ export type ShortcutAction =
 	| 'toggleWebPanel'
 	| 'openWebPanel'
 	| 'openGitPanel'
+	| 'openFileSearch'
 	| 'openTerminal'
 	| 'navigateBack'
 	| 'navigateForward'
@@ -148,6 +149,12 @@ export const SHORTCUT_DEFINITIONS: KeyboardShortcutDefinition[] = [
 		label: 'Open git changes',
 		category: 'panels',
 		defaultBinding: { command: true, shift: true, key: 'g' }
+	},
+	{
+		id: 'openFileSearch',
+		label: 'Search files',
+		category: 'panels',
+		defaultBinding: { command: true, key: 'p' }
 	},
 	{
 		id: 'openTerminal',

@@ -200,6 +200,11 @@ describe('keyboard-shortcuts', () => {
 		expect(normalized.toggleMiniWindow).toEqual({ command: true, shift: true, key: 'l' });
 	});
 
+	it('includes openFileSearch default shortcut', () => {
+		const normalized = normalizeKeyboardShortcuts({});
+		expect(normalized.openFileSearch).toEqual({ command: true, key: 'p' });
+	});
+
 	it('defaults stop response to Ctrl+C while preserving a saved Cmd+C binding', () => {
 		expect(normalizeKeyboardShortcuts({}).stopResponse).toEqual({
 			ctrl: true,

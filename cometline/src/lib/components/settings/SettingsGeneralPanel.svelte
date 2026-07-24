@@ -1,26 +1,30 @@
 <script lang="ts">
 	import SettingsToggle from './SettingsToggle.svelte';
 	import { runStorageBackup } from '$lib/client/cometmind';
-	import type { CometMindStorageSettings } from '$lib/settings/schema';
+	import type { CometMindStorageSettings, FileSearchSource } from '$lib/settings/schema';
 
 	let {
 		openAtLogin = $bindable(false),
 		confirmCloseOnCmdW = $bindable(true),
 		confirmBeforeDeletingChats = $bindable(true),
+		fileSearchSource = $bindable<FileSearchSource>('wiki'),
 		miniWindowInactivityTimeoutMinutes = $bindable(30),
 		storage = $bindable<CometMindStorageSettings>(),
 		onOpenAtLoginChange,
 		onConfirmCloseOnCmdWChange,
-		onConfirmBeforeDeletingChatsChange
+		onConfirmBeforeDeletingChatsChange,
+		onFileSearchSourceChange
 	}: {
 		openAtLogin: boolean;
 		confirmCloseOnCmdW: boolean;
 		confirmBeforeDeletingChats: boolean;
+		fileSearchSource: FileSearchSource;
 		miniWindowInactivityTimeoutMinutes: number;
 		storage: CometMindStorageSettings;
 		onOpenAtLoginChange?: (enabled: boolean) => void | Promise<void>;
 		onConfirmCloseOnCmdWChange?: (enabled: boolean) => void | Promise<void>;
 		onConfirmBeforeDeletingChatsChange?: (enabled: boolean) => void | Promise<void>;
+		onFileSearchSourceChange?: (source: FileSearchSource) => void | Promise<void>;
 	} = $props();
 
 	let backupRunning = $state(false);
@@ -171,6 +175,37 @@
 				bind:checked={confirmCloseOnCmdW}
 				onchange={onConfirmCloseOnCmdWChange}
 			/>
+		</div>
+
+		<div class="settings-section">
+			<div class="settings-section-heading">
+				<h3>File search</h3>
+				<p>Default source for the ⌘P quick-open file search modal.</p>
+			</div>
+			<div class="source-toggle" role="group" aria-label="File search source">
+				<button
+					type="button"
+					class="source-toggle-btn"
+					class:active={fileSearchSource === 'wiki'}
+					onclick={() => {
+						fileSearchSource = 'wiki';
+						void onFileSearchSourceChange?.('wiki');
+					}}
+				>
+					Wiki
+				</button>
+				<button
+					type="button"
+					class="source-toggle-btn"
+					class:active={fileSearchSource === 'workspace'}
+					onclick={() => {
+						fileSearchSource = 'workspace';
+						void onFileSearchSourceChange?.('workspace');
+					}}
+				>
+					Workspace
+				</button>
+			</div>
 		</div>
 
 		<div class="settings-section">
@@ -509,5 +544,31 @@
 		margin: 0;
 		font-size: 12px;
 		color: var(--text-muted);
+	}
+
+	.source-toggle {
+		display: flex;
+		gap: 2px;
+		width: fit-content;
+		padding: 2px;
+		border-radius: 8px;
+		background: var(--surface-muted, rgba(0, 0, 0, 0.04));
+	}
+
+	.source-toggle-btn {
+		border: none;
+		border-radius: 6px;
+		padding: 6px 12px;
+		background: transparent;
+		color: var(--text-muted);
+		font-size: 12px;
+		font-weight: 550;
+		cursor: pointer;
+	}
+
+	.source-toggle-btn.active {
+		background: var(--surface-elevated, #fff);
+		color: var(--text-primary, #111);
+		box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06);
 	}
 </style>

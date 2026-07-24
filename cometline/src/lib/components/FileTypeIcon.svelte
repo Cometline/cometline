@@ -22,6 +22,8 @@
 		{alt}
 		width={size}
 		height={size}
+		style:width="{size}px"
+		style:height="{size}px"
 		draggable="false"
 	/>
 {:else}
@@ -33,8 +35,6 @@
 	.file-type-icon {
 		display: block;
 		flex: 0 0 auto;
-		width: auto;
-		height: auto;
 		object-fit: contain;
 		/* Material SVGs are already colored; keep crisp at 16px. */
 		image-rendering: auto;
