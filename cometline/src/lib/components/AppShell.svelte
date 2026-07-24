@@ -28,6 +28,7 @@
 	import { navigateAdjacentSession } from '$lib/actions/navigate-adjacent-session';
 	import { navigateSessionHistory, navigateToRecentSession } from '$lib/actions/navigate-session-history';
 	import { navigateToSession } from '$lib/actions/navigate-to-session';
+	import { sessionDisplayTitle } from '$lib/sessions/session-title';
 	import { narrowViewportQuery, subscribeNarrowViewport } from '$lib/layout/narrow-viewport';
 	import {
 		clampWebPanelWidth,
@@ -60,8 +61,7 @@
 	let titlebarSessionTitle = $derived.by(() => {
 		const session = sessionStore.current;
 		if (!session) return '';
-		const title = session.title?.trim();
-		return title || 'Untitled';
+		return sessionDisplayTitle(session.title);
 	});
 	let titlebarSessionTitleAttr = $derived(
 		titlebarSessionTitle ? `${titlebarSessionTitle} — Double-click to rename` : ''
@@ -771,7 +771,7 @@
 		confirmTone="accent"
 		showInput
 		bind:inputValue={renameTitle}
-		inputPlaceholder="Untitled"
+		inputPlaceholder="New Chat"
 		inputMaxLength={200}
 		onCancel={cancelRename}
 		onConfirm={() => void confirmRename()}

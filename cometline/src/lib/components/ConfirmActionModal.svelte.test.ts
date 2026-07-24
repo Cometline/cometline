@@ -124,7 +124,7 @@ describe('ConfirmActionModal', () => {
 			confirmTone: 'accent',
 			showInput: true,
 			inputValue: 'Draft title',
-			inputPlaceholder: 'Untitled',
+			inputPlaceholder: 'New Chat',
 			onCancel: () => {},
 			onConfirm
 		});

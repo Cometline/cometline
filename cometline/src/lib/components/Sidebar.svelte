@@ -8,7 +8,11 @@
 	import { deleteSession, updateSession } from '$lib/client/cometmind';
 	import { startNewChat } from '$lib/actions/new-chat';
 	import { navigateToSession } from '$lib/actions/navigate-to-session';
-	import { chatStore } from '$lib/stores/chat.svelte';
+	import { sessionDisplayTitle } from '$lib/sessions/session-title';
+	import {
+		activateAfterSessionDeleted,
+		sessionsSnapshot
+	} from '$lib/actions/activate-after-session-deleted';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { inboxStore } from '$lib/stores/inbox.svelte';
 	import { jobsIndicatorStore } from '$lib/stores/jobs-indicator.svelte';
@@ -110,13 +114,13 @@
 	async function deleteSelectedSession(session: Session) {
 		deletingID = session.id;
 		try {
+			const wasCurrent = sessionStore.current?.id === session.id;
+			const before = sessionsSnapshot();
 			await deleteSession(session.id);
 			shellStore.clearWebPanelForSession(session.id);
-			const wasCurrent = sessionStore.current?.id === session.id;
 			sessionStore.removeSession(session.id);
 			if (wasCurrent) {
-				chatStore.clear();
-				await goto('/');
+				await activateAfterSessionDeleted(session.id, before);
 			}
 		} finally {
 			deletingID = null;
@@ -164,7 +168,7 @@
 		const query = searchQuery.trim().toLowerCase();
 		if (!query) return sessionStore.sessions;
 		return sessionStore.sessions.filter((session) =>
-			(session.title || 'Untitled').toLowerCase().includes(query)
+			sessionDisplayTitle(session.title).toLowerCase().includes(query)
 		);
 	});
 	let sidebarLayout = $derived(
@@ -338,7 +342,7 @@
 
 	<ConfirmActionModal
 		open={Boolean(pendingDelete)}
-		title={`Delete "${pendingDelete?.title || 'Untitled'}"?`}
+		title={`Delete "${pendingDelete ? sessionDisplayTitle(pendingDelete.title) : ''}"?`}
 		description="This cannot be undone."
 		confirmLabel="Delete"
 		secondaryLabel="Don't ask again"
@@ -364,7 +368,7 @@
 		confirmTone="accent"
 		showInput
 		bind:inputValue={renameTitle}
-		inputPlaceholder="Untitled"
+		inputPlaceholder="New Chat"
 		inputMaxLength={200}
 		onCancel={cancelRename}
 		onConfirm={() => void confirmRename()}

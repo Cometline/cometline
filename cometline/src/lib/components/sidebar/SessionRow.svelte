@@ -2,6 +2,7 @@
 	import { Pin, PinOff, Trash2 } from '@lucide/svelte';
 	import type { Session } from '$lib/types';
 	import { workspaceLabel, gatewaySessionLabel } from '$lib/sessions/group-by-workspace';
+	import { sessionDisplayTitle } from '$lib/sessions/session-title';
 	import { chatStore } from '$lib/stores/chat.svelte';
 	import { terminalStore } from '$lib/stores/terminal.svelte';
 
@@ -79,7 +80,7 @@
 					title={terminalRunning ? 'Terminal running' : streaming ? 'Responding' : undefined}
 				>{#if terminalRunning}<span class="terminal-marker">t</span>{/if}</span>
 			</span>
-			<span class="session-title">{session.title || 'Untitled'}</span>
+			<span class="session-title">{sessionDisplayTitle(session.title)}</span>
 		</span>
 		{#if showGatewayLabel}
 			<span class="session-workspace session-gateway">{gatewaySessionLabel(session)}</span>
@@ -96,8 +97,8 @@
 					disabled={pinning}
 					onclick={onPin}
 					aria-label={session.pinned
-						? `Unpin ${session.title || 'Untitled'}`
-						: `Pin ${session.title || 'Untitled'}`}
+						? `Unpin ${sessionDisplayTitle(session.title)}`
+						: `Pin ${sessionDisplayTitle(session.title)}`}
 					title={session.pinned ? 'Unpin session' : 'Pin session'}
 				>
 					{#if session.pinned}
@@ -111,7 +112,7 @@
 				class="delete-session"
 				disabled={deleting}
 				onclick={onDelete}
-				aria-label={`Delete ${session.title || 'Untitled'}`}
+				aria-label={`Delete ${sessionDisplayTitle(session.title)}`}
 				title="Delete session"
 			>
 				<Trash2 size={13} stroke-width={1.9} />

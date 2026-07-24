@@ -21,7 +21,7 @@ const titleLLMTimeout = 20 * time.Second
 
 // maybeGenerateTitle sets the session title from its first user message. It runs
 // only when the session has no title yet (first turn). It first writes a fast
-// plain-text fallback so the sidebar never shows "Untitled", then asks the LLM
+// plain-text fallback so the sidebar never shows an empty title, then asks the LLM
 // for a concise title asynchronously and overwrites the fallback on success.
 //
 // LLM generation uses a detached context so a client disconnect during streaming

@@ -1,5 +1,4 @@
 import { browser } from '$app/environment';
-import { goto } from '$app/navigation';
 import {
 	CometMindApiError,
 	listAllSessions,
@@ -7,7 +6,7 @@ import {
 	type RunStorageRetentionResponse
 } from '$lib/client/cometmind';
 import type { CometMindStorageSettings } from '$lib/settings/schema';
-import { chatStore } from '$lib/stores/chat.svelte';
+import { activateAfterSessionDeleted } from '$lib/actions/activate-after-session-deleted';
 import { connectionState } from '$lib/stores/runtime.svelte';
 import { sessionStore } from '$lib/stores/session.svelte';
 import { shellStore } from '$lib/stores/shell.svelte';
@@ -41,7 +40,8 @@ export async function runStorageRetentionAndSyncSessions(): Promise<
 async function syncSessionsAfterRetention(previous: Session[], next: Session[]) {
 	const nextIDs = new Set(next.map((session) => session.id));
 	const removed = previous.filter((session) => !nextIDs.has(session.id));
-	const activeWasRemoved = removed.some((session) => session.id === sessionStore.current?.id);
+	const activeId = sessionStore.current?.id ?? null;
+	const activeWasRemoved = Boolean(activeId && removed.some((session) => session.id === activeId));
 
 	for (const session of removed) {
 		shellStore.clearWebPanelForSession(session.id);
@@ -49,11 +49,8 @@ async function syncSessionsAfterRetention(previous: Session[], next: Session[]) 
 	}
 	sessionStore.setSessions(next);
 
-	if (activeWasRemoved) {
-		chatStore.clear();
-		if (browser) {
-			await goto('/');
-		}
+	if (activeWasRemoved && activeId && browser) {
+		await activateAfterSessionDeleted(activeId, previous);
 	}
 }
 

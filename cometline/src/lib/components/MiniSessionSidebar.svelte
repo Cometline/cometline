@@ -3,10 +3,14 @@
 	import { flip } from 'svelte/animate';
 	import type { Session } from '$lib/types';
 	import { deleteSession, updateSession } from '$lib/client/cometmind';
-	import { createMiniWindowSession } from '$lib/mini-window-session';
-	import { chatStore } from '$lib/stores/chat.svelte';
+	import { createMiniWindowSession, navigateMiniToSession } from '$lib/mini-window-session';
+	import {
+		activateAfterSessionDeleted,
+		sessionsSnapshot
+	} from '$lib/actions/activate-after-session-deleted';
 	import { sessionStore } from '$lib/stores/session.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
+	import { sessionDisplayTitle } from '$lib/sessions/session-title';
 	import {
 		layoutSessionsForSidebar,
 		PINNED_GROUP_KEY,
@@ -38,7 +42,7 @@
 		const query = searchQuery.trim().toLowerCase();
 		if (!query) return sessionStore.sessions;
 		return sessionStore.sessions.filter((session) =>
-			(session.title || 'Untitled').toLowerCase().includes(query)
+			sessionDisplayTitle(session.title).toLowerCase().includes(query)
 		);
 	});
 	let sidebarLayout = $derived(
@@ -83,13 +87,16 @@
 		if (!window.confirm(`Delete ${session.title || 'this chat'}?`)) return;
 		deletingID = session.id;
 		try {
-			await deleteSession(session.id);
 			const wasCurrent = sessionStore.current?.id === session.id;
+			const before = sessionsSnapshot();
+			await deleteSession(session.id);
 			sessionStore.removeSession(session.id);
 			if (wasCurrent) {
-				chatStore.clear();
 				onClose();
-				await createMiniWindowSession();
+				await activateAfterSessionDeleted(session.id, before, {
+					navigate: (next) => navigateMiniToSession(next),
+					createEmpty: () => createMiniWindowSession()
+				});
 			}
 		} finally {
 			deletingID = null;
