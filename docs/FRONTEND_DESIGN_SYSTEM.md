@@ -231,6 +231,8 @@ Rule:
 - `JobCreateForm.svelte`
 - `FilePreview.svelte`
 - `FileEditor.svelte`
+- `WorkspaceFileSurface.svelte`
+- `WorkspaceWebSurface.svelte`
 
 Rule:
 

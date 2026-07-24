@@ -198,6 +198,8 @@ Cometline desktop must not:
 - `Command+B` / `Ctrl+B` collapses the sidebar (macOS traffic lights animate).
 - `Command+,` / `Ctrl+,` opens settings.
 - `Command+C` stops streaming when nothing is selected.
+- The workspace panel is per-session: Wiki, Workspace, Changes, Web, and Terminal retain independent content and history.
+- `Command+W` dismisses active panel content, advances to another open surface, then soft-hides the panel. Replacing a dirty file requires an in-app discard confirmation before navigation commits.
 - Narrow viewports (<900px) auto-collapse the sidebar.
 - `project_icon.png` / avatars for empty state and assistant bubble.
 - `app_icon.png` / `buildResources/icon.*` for the desktop app and tray.
@@ -254,11 +256,13 @@ Default system prompt: packaged `SOUL.md` path is stored in `cometmind.systemPro
 7. Attach an image via paste or drag-drop; the user bubble should show it and the model should receive it.
 8. Type `/` in the composer; slash-command menu should appear (including `/create-skill` and discovered skills).
 9. Click an http(s) link in an assistant message; it should open in the in-app workspace panel.
-10. If the API key is missing, the chat should show one clean error card — not a raw JSON blob or dangling typing bubble.
-11. Press `Command+C` during streaming; the turn should abort.
-12. Hover a session row and delete. First deletion should show the in-app confirmation sheet; "Don't ask again" should skip future confirms.
-13. Open Settings → Memory; verify list/search/compaction controls respond.
-14. Optional: enable Discord gateway in Settings → CometMind and confirm status updates.
+10. In the workspace panel, open a file, edit it, then select another file and cancel the discard confirmation; the original draft should remain active.
+11. Press `Command+W` from an open web page; the URL, page title, and navigation controls should clear before the panel switches or hides.
+12. If the API key is missing, the chat should show one clean error card — not a raw JSON blob or dangling typing bubble.
+13. Press `Command+C` during streaming; the turn should abort.
+14. Hover a session row and delete. First deletion should show the in-app confirmation sheet; "Don't ask again" should skip future confirms.
+15. Open Settings → Memory; verify list/search/compaction controls respond.
+16. Optional: enable Discord gateway in Settings → CometMind and confirm status updates.
 
 ## Root-Cause Notes
 

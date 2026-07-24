@@ -636,10 +636,25 @@ All stores are Svelte 5 `$state`-based singletons.
 | `session.svelte.ts` | Session list, selected session, pending first-message queue |
 | `settings.svelte.ts` | Provider settings, appearance, shortcuts, model fetch/save orchestration |
 | `model.svelte.ts` | Flattened provider/model picker options and selected model |
-| `shell.svelte.ts` | Sidebar/settings/composer/workspace/fullscreen shell state |
+| `shell.svelte.ts` | Sidebar/settings/composer/workspace/fullscreen state plus workspace-panel integration |
 | `runtime.svelte.ts` | Sidecar health polling and connection status |
 
 `chatStore.send` is the central streaming loop (`cometline/src/lib/stores/chat.svelte.ts:211-289`). It sets up an `AbortController`, optionally adds the user bubble, consumes `streamMessage`, applies every event through the pure reducer, and sends a final synthetic `done` in `finally`.
+
+## Workspace Panel
+
+The right-side workspace panel is session-scoped and preserves independent content for Wiki, Workspace files, Git changes, web search, and terminal surfaces. `shell.svelte.ts` remains the integration point for active-session lookup, focus, history, and Electron visibility signals; its close and file-selection transitions delegate to the pure `workspace-panel-state.ts` module.
+
+`WorkspacePanel.svelte` owns the shared toolbar, shortcuts, and panel-level confirmation flow. Surface-specific behavior stays in focused adapters:
+
+| Module | Responsibility |
+|---|---|
+| `workspace-panel-state.ts` | Pure Cmd+W, file-open, and destructive-navigation transitions |
+| `WorkspaceWebSurface.svelte` | Electron `<webview>` lifecycle, navigation state, and page-context capture |
+| `WorkspaceFileSurface.svelte` | Wiki/workspace editor layers and active editor state |
+| `TerminalPanel.svelte` | Per-session terminal lifecycle and focus/start behavior |
+
+File selection is transactional: a dirty active editor registers a leave guard. The shell does not commit a replacing file path until that guard approves, and `WorkspacePanel` presents the confirmation dialog. This prevents a cancelled change from reloading the editor or losing its draft.
 
 ## Renderer Data Types
 
@@ -716,6 +731,7 @@ Electron-builder includes the sidecar as an extra resource (`cometline/package.j
 | Stream event reducer must publish new item references | Svelte may not render live token updates |
 | First message route handoff uses pending-message queue | New-session first send races with transcript load/navigation |
 | Provider settings contain secrets and must remain `0600` | API keys become easier to leak |
+| Workspace-panel navigation commits only after its leave guard allows it | A cancelled file change can discard an unsaved editor draft |
 
 # Where To Start For Common Changes
 

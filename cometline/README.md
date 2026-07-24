@@ -37,7 +37,8 @@ The rule: **Cometline is not the brain.** CometMind is the brain. Comet SDK is o
 
 - Rich assistant rendering: Shiki syntax highlighting, KaTeX math, GFM tables
 - URL embed chips with favicons in composer and messages
-- In-app **workspace panel** (⌘⌥B / ⌘O) for http(s) links; external mailto opens in the system browser
+- In-app **workspace panel** (⌘⌥B / ⌘O) for web search, wiki/workspace files, Git changes, and the session terminal; external mailto opens in the system browser
+- Per-session panel history and surface tabs; Cmd+W dismisses the active item before hiding the panel, and dirty file navigation requires confirmation
 
 ### Memory
 
@@ -117,7 +118,10 @@ Default bindings (rebindable in Settings → Shortcuts):
 | Focus search         | ⌘F            |
 | Previous / next chat | ⌃⌘↑ / ⌃⌘↓     |
 | Toggle workspace panel     | ⌘⌥B           |
-| Open workspace panel       | ⌘O            |
+| Open web search            | ⌘O            |
+| Open wiki files            | ⌘K            |
+| Open workspace files       | ⌘L            |
+| Open terminal              | ⌘J            |
 | Open git changes     | ⌘⇧G           |
 
 ---
