@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('electron', () => ({
 	desktopCapturer: {
@@ -18,7 +18,19 @@ import {
 	requestScreenCaptureAccess
 } from './media-permissions';
 
+const platformDescriptor = Object.getOwnPropertyDescriptor(process, 'platform');
+
 describe('media-permissions', () => {
+	beforeEach(() => {
+		Object.defineProperty(process, 'platform', { ...platformDescriptor, value: 'darwin' });
+		vi.mocked(systemPreferences.getMediaAccessStatus).mockReset().mockReturnValue('not-determined');
+		vi.mocked(desktopCapturer.getSources).mockReset().mockResolvedValue([]);
+	});
+
+	afterEach(() => {
+		if (platformDescriptor) Object.defineProperty(process, 'platform', platformDescriptor);
+	});
+
 	it('reports preferred flag with OS status', () => {
 		vi.mocked(systemPreferences.getMediaAccessStatus).mockReturnValue('granted');
 		expect(getScreenCaptureAccess(true)).toEqual({
