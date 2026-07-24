@@ -140,6 +140,12 @@ func New(deps Deps) (*gin.Engine, error) {
 	api.GET("/workspaces/files", app.handleListWorkspaceFiles)
 	api.GET("/workspaces/files/content", app.handleReadWorkspaceFileContent)
 	api.PUT("/workspaces/files/content", app.handleWriteWorkspaceFileContent)
+	api.GET("/workspaces/git/status", app.handleWorkspaceGitStatus)
+	api.GET("/workspaces/git/diff", app.handleWorkspaceGitDiff)
+	api.POST("/workspaces/git/stage", app.handleWorkspaceGitStage)
+	api.POST("/workspaces/git/unstage", app.handleWorkspaceGitUnstage)
+	api.POST("/workspaces/git/discard", app.handleWorkspaceGitDiscard)
+	api.POST("/workspaces/git/commit", app.handleWorkspaceGitCommit)
 
 	// Wiki files (global LLM wiki at ~/.cometmind/wiki/)
 	api.GET("/wiki/files", app.handleListWikiFiles)

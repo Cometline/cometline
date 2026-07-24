@@ -682,6 +682,48 @@ func (e ListJobsParamsStatus) Valid() bool {
 	}
 }
 
+// Defines values for GetWorkspaceGitDiffParamsScope.
+const (
+	GetWorkspaceGitDiffParamsScopeAll     GetWorkspaceGitDiffParamsScope = "all"
+	GetWorkspaceGitDiffParamsScopeStaged  GetWorkspaceGitDiffParamsScope = "staged"
+	GetWorkspaceGitDiffParamsScopeWorking GetWorkspaceGitDiffParamsScope = "working"
+)
+
+// Valid indicates whether the value is a known member of the GetWorkspaceGitDiffParamsScope enum.
+func (e GetWorkspaceGitDiffParamsScope) Valid() bool {
+	switch e {
+	case GetWorkspaceGitDiffParamsScopeAll:
+		return true
+	case GetWorkspaceGitDiffParamsScopeStaged:
+		return true
+	case GetWorkspaceGitDiffParamsScopeWorking:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetWorkspaceGitStatusParamsScope.
+const (
+	GetWorkspaceGitStatusParamsScopeAll     GetWorkspaceGitStatusParamsScope = "all"
+	GetWorkspaceGitStatusParamsScopeStaged  GetWorkspaceGitStatusParamsScope = "staged"
+	GetWorkspaceGitStatusParamsScopeWorking GetWorkspaceGitStatusParamsScope = "working"
+)
+
+// Valid indicates whether the value is a known member of the GetWorkspaceGitStatusParamsScope enum.
+func (e GetWorkspaceGitStatusParamsScope) Valid() bool {
+	switch e {
+	case GetWorkspaceGitStatusParamsScopeAll:
+		return true
+	case GetWorkspaceGitStatusParamsScopeStaged:
+		return true
+	case GetWorkspaceGitStatusParamsScopeWorking:
+		return true
+	default:
+		return false
+	}
+}
+
 // ChangeSessionWorkspaceRequest defines model for ChangeSessionWorkspaceRequest.
 type ChangeSessionWorkspaceRequest struct {
 	// WorkspacePath Absolute filesystem path for the new workspace root.
@@ -1745,6 +1787,86 @@ type WorkspaceFileTextContent struct {
 // WorkspaceFileTextContentKind defines model for WorkspaceFileTextContent.Kind.
 type WorkspaceFileTextContentKind string
 
+// WorkspaceGitCommitRequest Provide either workspace_id or workspace_path.
+type WorkspaceGitCommitRequest struct {
+	// Message Commit message (staged changes only).
+	Message       string  `json:"message"`
+	WorkspaceId   *string `json:"workspace_id,omitempty"`
+	WorkspacePath *string `json:"workspace_path,omitempty"`
+}
+
+// WorkspaceGitCommitResult defines model for WorkspaceGitCommitResult.
+type WorkspaceGitCommitResult struct {
+	Message *string `json:"message,omitempty"`
+	Ok      bool    `json:"ok"`
+
+	// Sha Short commit SHA when available.
+	Sha *string `json:"sha,omitempty"`
+}
+
+// WorkspaceGitDiff defines model for WorkspaceGitDiff.
+type WorkspaceGitDiff struct {
+	Binary bool `json:"binary"`
+
+	// Diff Unified diff body when available.
+	Diff *string `json:"diff,omitempty"`
+
+	// Empty True when there is no diff for the path in the selected scope.
+	Empty   *bool   `json:"empty,omitempty"`
+	Message *string `json:"message,omitempty"`
+
+	// Path Workspace-relative file path.
+	Path      string `json:"path"`
+	Truncated *bool  `json:"truncated,omitempty"`
+}
+
+// WorkspaceGitFileStatus defines model for WorkspaceGitFileStatus.
+type WorkspaceGitFileStatus struct {
+	// Path Workspace-relative file path.
+	Path   string `json:"path"`
+	Staged bool   `json:"staged"`
+
+	// Status High-level change kind (modified, added, deleted, renamed, untracked, conflict, …).
+	Status    string `json:"status"`
+	Untracked bool   `json:"untracked"`
+
+	// Xy Raw porcelain XY status code.
+	Xy *string `json:"xy,omitempty"`
+}
+
+// WorkspaceGitMutationResult defines model for WorkspaceGitMutationResult.
+type WorkspaceGitMutationResult struct {
+	Message *string `json:"message,omitempty"`
+	Ok      bool    `json:"ok"`
+}
+
+// WorkspaceGitPathsRequest Provide either workspace_id or workspace_path.
+type WorkspaceGitPathsRequest struct {
+	// Paths Workspace-relative file paths.
+	Paths         []string `json:"paths"`
+	WorkspaceId   *string  `json:"workspace_id,omitempty"`
+	WorkspacePath *string  `json:"workspace_path,omitempty"`
+}
+
+// WorkspaceGitStatus defines model for WorkspaceGitStatus.
+type WorkspaceGitStatus struct {
+	// Branch Current branch name or detached HEAD label.
+	Branch *string                  `json:"branch,omitempty"`
+	Files  []WorkspaceGitFileStatus `json:"files"`
+
+	// IsRepo False when the workspace is not inside a git work tree or git is unavailable.
+	IsRepo bool `json:"is_repo"`
+
+	// Message Human-readable note when is_repo is false or listing is limited.
+	Message *string `json:"message,omitempty"`
+
+	// Truncated True when more changed files exist than the server returned.
+	Truncated *bool `json:"truncated,omitempty"`
+
+	// Upstream Tracking branch when configured.
+	Upstream *string `json:"upstream,omitempty"`
+}
+
 // WorkspaceListResponse defines model for WorkspaceListResponse.
 type WorkspaceListResponse struct {
 	Workspaces []Workspace `json:"workspaces"`
@@ -1900,6 +2022,36 @@ type ReadWorkspaceFileContentParams struct {
 	Path string `form:"path" json:"path"`
 }
 
+// GetWorkspaceGitDiffParams defines parameters for GetWorkspaceGitDiff.
+type GetWorkspaceGitDiffParams struct {
+	WorkspaceId   *string `form:"workspace_id,omitempty" json:"workspace_id,omitempty"`
+	WorkspacePath *string `form:"workspace_path,omitempty" json:"workspace_path,omitempty"`
+
+	// Path Workspace-relative file path.
+	Path  string                          `form:"path" json:"path"`
+	Scope *GetWorkspaceGitDiffParamsScope `form:"scope,omitempty" json:"scope,omitempty"`
+}
+
+// GetWorkspaceGitDiffParamsScope defines parameters for GetWorkspaceGitDiff.
+type GetWorkspaceGitDiffParamsScope string
+
+// GetWorkspaceGitStatusParams defines parameters for GetWorkspaceGitStatus.
+type GetWorkspaceGitStatusParams struct {
+	// WorkspaceId Registered workspace identifier.
+	WorkspaceId *string `form:"workspace_id,omitempty" json:"workspace_id,omitempty"`
+
+	// WorkspacePath Absolute workspace path for an already-registered workspace.
+	WorkspacePath *string `form:"workspace_path,omitempty" json:"workspace_path,omitempty"`
+
+	// Scope working = unstaged + untracked (default);
+	// staged = index only;
+	// all = staged + unstaged + untracked.
+	Scope *GetWorkspaceGitStatusParamsScope `form:"scope,omitempty" json:"scope,omitempty"`
+}
+
+// GetWorkspaceGitStatusParamsScope defines parameters for GetWorkspaceGitStatus.
+type GetWorkspaceGitStatusParamsScope string
+
 // ReplyInboxMessageJSONRequestBody defines body for ReplyInboxMessage for application/json ContentType.
 type ReplyInboxMessageJSONRequestBody = ReplyInboxMessageRequest
 
@@ -1980,6 +2132,18 @@ type CreateWorkspaceJSONRequestBody = CreateWorkspaceRequest
 
 // WriteWorkspaceFileContentJSONRequestBody defines body for WriteWorkspaceFileContent for application/json ContentType.
 type WriteWorkspaceFileContentJSONRequestBody = WriteWorkspaceFileRequest
+
+// CommitWorkspaceGitJSONRequestBody defines body for CommitWorkspaceGit for application/json ContentType.
+type CommitWorkspaceGitJSONRequestBody = WorkspaceGitCommitRequest
+
+// DiscardWorkspaceGitPathsJSONRequestBody defines body for DiscardWorkspaceGitPaths for application/json ContentType.
+type DiscardWorkspaceGitPathsJSONRequestBody = WorkspaceGitPathsRequest
+
+// StageWorkspaceGitPathsJSONRequestBody defines body for StageWorkspaceGitPaths for application/json ContentType.
+type StageWorkspaceGitPathsJSONRequestBody = WorkspaceGitPathsRequest
+
+// UnstageWorkspaceGitPathsJSONRequestBody defines body for UnstageWorkspaceGitPaths for application/json ContentType.
+type UnstageWorkspaceGitPathsJSONRequestBody = WorkspaceGitPathsRequest
 
 // AsTextDeltaEvent returns the union data inside the StreamEvent as a TextDeltaEvent
 func (t StreamEvent) AsTextDeltaEvent() (TextDeltaEvent, error) {

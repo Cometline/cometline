@@ -187,6 +187,199 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/v1/workspaces/git/status:
+    get:
+      tags: [Files]
+      summary: List git changes for a workspace
+      description: |
+        Returns changed files for the workspace when it is inside a git work tree.
+        Paths are workspace-relative. Read-only; does not stage or commit.
+      operationId: getWorkspaceGitStatus
+      parameters:
+        - name: workspace_id
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Registered workspace identifier.
+        - name: workspace_path
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Absolute workspace path for an already-registered workspace.
+        - name: scope
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [working, staged, all]
+            default: working
+          description: |
+            working = unstaged + untracked (default);
+            staged = index only;
+            all = staged + unstaged + untracked.
+      responses:
+        '200':
+          description: Git status for the workspace
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceGitStatus'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/workspaces/git/diff:
+    get:
+      tags: [Files]
+      summary: Get a unified git diff for one workspace file
+      description: |
+        Returns a unified diff for a single workspace-relative path.
+        Untracked text files are shown as a new-file diff. Binary and oversized
+        files are reported without a full body.
+      operationId: getWorkspaceGitDiff
+      parameters:
+        - name: workspace_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: workspace_path
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: path
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Workspace-relative file path.
+        - name: scope
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [working, staged, all]
+            default: working
+      responses:
+        '200':
+          description: Unified diff for the path
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceGitDiff'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/workspaces/git/stage:
+    post:
+      tags: [Files]
+      summary: Stage workspace files in git
+      description: Runs `git add` for the given workspace-relative paths.
+      operationId: stageWorkspaceGitPaths
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkspaceGitPathsRequest'
+      responses:
+        '200':
+          description: Paths staged
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceGitMutationResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/workspaces/git/unstage:
+    post:
+      tags: [Files]
+      summary: Unstage workspace files in git
+      description: Runs `git restore --staged` for the given workspace-relative paths.
+      operationId: unstageWorkspaceGitPaths
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkspaceGitPathsRequest'
+      responses:
+        '200':
+          description: Paths unstaged
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceGitMutationResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/workspaces/git/discard:
+    post:
+      tags: [Files]
+      summary: Discard local changes for workspace files
+      description: |
+        Restores tracked paths to HEAD (index + worktree) and deletes untracked files.
+        Untracked directories are rejected.
+      operationId: discardWorkspaceGitPaths
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkspaceGitPathsRequest'
+      responses:
+        '200':
+          description: Paths discarded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceGitMutationResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/workspaces/git/commit:
+    post:
+      tags: [Files]
+      summary: Commit staged changes in a workspace
+      description: |
+        Creates a git commit from the current index with the provided message.
+        Does not auto-stage; stage paths first.
+      operationId: commitWorkspaceGit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkspaceGitCommitRequest'
+      responses:
+        '200':
+          description: Commit created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceGitCommitResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /api/v1/workspaces/files:
     get:
       tags: [Files]
@@ -2325,6 +2518,127 @@ components:
         truncated:
           type: boolean
           description: True when more matching files exist than the limit returned. Narrow with the q query parameter to find files not in this page.
+
+    WorkspaceGitFileStatus:
+      type: object
+      additionalProperties: false
+      required: [path, status, staged, untracked]
+      properties:
+        path:
+          type: string
+          description: Workspace-relative file path.
+        status:
+          type: string
+          description: High-level change kind (modified, added, deleted, renamed, untracked, conflict, …).
+        staged:
+          type: boolean
+        untracked:
+          type: boolean
+        xy:
+          type: string
+          description: Raw porcelain XY status code.
+
+    WorkspaceGitStatus:
+      type: object
+      additionalProperties: false
+      required: [is_repo, files]
+      properties:
+        is_repo:
+          type: boolean
+          description: False when the workspace is not inside a git work tree or git is unavailable.
+        branch:
+          type: string
+          description: Current branch name or detached HEAD label.
+        upstream:
+          type: string
+          description: Tracking branch when configured.
+        files:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkspaceGitFileStatus'
+        truncated:
+          type: boolean
+          description: True when more changed files exist than the server returned.
+        message:
+          type: string
+          description: Human-readable note when is_repo is false or listing is limited.
+
+    WorkspaceGitDiff:
+      type: object
+      additionalProperties: false
+      required: [path, binary]
+      properties:
+        path:
+          type: string
+          description: Workspace-relative file path.
+        binary:
+          type: boolean
+        diff:
+          type: string
+          description: Unified diff body when available.
+        truncated:
+          type: boolean
+        empty:
+          type: boolean
+          description: True when there is no diff for the path in the selected scope.
+        message:
+          type: string
+
+    WorkspaceGitPathsRequest:
+      type: object
+      additionalProperties: false
+      required: [paths]
+      properties:
+        workspace_id:
+          type: string
+        workspace_path:
+          type: string
+        paths:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items:
+            type: string
+          description: Workspace-relative file paths.
+      description: Provide either workspace_id or workspace_path.
+
+    WorkspaceGitCommitRequest:
+      type: object
+      additionalProperties: false
+      required: [message]
+      properties:
+        workspace_id:
+          type: string
+        workspace_path:
+          type: string
+        message:
+          type: string
+          minLength: 1
+          description: Commit message (staged changes only).
+      description: Provide either workspace_id or workspace_path.
+
+    WorkspaceGitMutationResult:
+      type: object
+      additionalProperties: false
+      required: [ok]
+      properties:
+        ok:
+          type: boolean
+        message:
+          type: string
+
+    WorkspaceGitCommitResult:
+      type: object
+      additionalProperties: false
+      required: [ok]
+      properties:
+        ok:
+          type: boolean
+        sha:
+          type: string
+          description: Short commit SHA when available.
+        message:
+          type: string
 
     WikiFileList:
       type: object
