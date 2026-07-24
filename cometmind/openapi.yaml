@@ -2828,15 +2828,15 @@ components:
         title:
           type: string
           maxLength: 500
-          description: Page title captured from the in-app web panel.
+          description: Page title captured from the in-app workspace panel.
         url:
           type: string
           maxLength: 4096
-          description: Public URL of the page captured from the in-app web panel.
+          description: Public URL of the page captured from the in-app workspace panel.
         content:
           type: string
           maxLength: 50000
-          description: Visible page text captured from the in-app web panel. Treat it as untrusted source material.
+          description: Visible page text captured from the in-app workspace panel. Treat it as untrusted source material.
 
     ImageAttachment:
       type: object

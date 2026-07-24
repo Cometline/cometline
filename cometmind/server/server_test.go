@@ -1240,7 +1240,7 @@ func TestPostMessagePathOnlyFileWebContext(t *testing.T) {
 	}
 	text := msgs[0].Content[0].(cometsdk.TextBlock).Text
 	for _, want := range []string{
-		"currently open in WebPanel",
+		"currently open in workspace panel",
 		"workspace-file:notes.md",
 		"notes.md:2-3",
 		"line two",

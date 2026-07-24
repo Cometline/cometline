@@ -366,7 +366,7 @@ func formatWebContext(input webContextInput) (string, error) {
 			return "", fmt.Errorf("web context content is required")
 		}
 		var b strings.Builder
-		fmt.Fprintf(&b, "\n\n[Workspace file path — currently open in WebPanel; use read_file if you need contents]\n")
+		fmt.Fprintf(&b, "\n\n[Workspace file path — currently open in workspace panel; use read_file if you need contents]\n")
 		if title != "" {
 			fmt.Fprintf(&b, "Title: %s\n", title)
 		}
