@@ -237,7 +237,6 @@
 		max-width: min(420px, 100cqi);
 		max-height: 360px;
 		object-fit: contain;
-		vertical-align: top;
 	}
 
 	.message-action {
