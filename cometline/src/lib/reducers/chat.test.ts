@@ -24,6 +24,24 @@ describe('reduceChatState', () => {
 		expect(state.assistant?.text).toBe('Hello world');
 	});
 
+	it('attaches assistant_image events to the current assistant bubble', () => {
+		let state = initChatState();
+		state = reduceChatState(state, {
+			type: 'assistant_image',
+			id: 'img1',
+			media_type: 'image/png',
+			alt: 'shot',
+			data_url: 'data:image/png;base64,aaaa'
+		});
+		expect(state.items).toHaveLength(1);
+		const assistant = state.items[0];
+		expect(assistant.type).toBe('assistant');
+		if (assistant.type !== 'assistant') return;
+		expect(assistant.images).toEqual([
+			{ id: 'img1', media_type: 'image/png', alt: 'shot', data: 'aaaa' }
+		]);
+	});
+
 	it('reuses unchanged item references on streaming deltas', () => {
 		const user = {
 			id: 'user-1',

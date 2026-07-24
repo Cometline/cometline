@@ -272,6 +272,10 @@ export function itemsFromTranscript(transcriptItems: TranscriptItem[]): ChatItem
 		}
 		if (item.type === 'assistant') {
 			appendAssistantText(i, item.text ?? '');
+			if (item.images?.length) {
+				const host = ensureAssistant(i);
+				host.images = [...(host.images ?? []), ...item.images];
+			}
 			continue;
 		}
 		if (item.type === 'reasoning') {
@@ -318,7 +322,12 @@ function itemFromTranscript(item: TranscriptItem, index: number): ChatItem {
 			images: item.images
 		};
 	if (item.type === 'assistant')
-		return { id: `history-${index}`, type: 'assistant', text: item.text ?? '' };
+		return {
+			id: `history-${index}`,
+			type: 'assistant',
+			text: item.text ?? '',
+			images: item.images
+		};
 	if (item.type === 'system')
 		return { id: `history-${index}`, type: 'status', text: item.text ?? '' };
 	if (item.type === 'error')

@@ -520,7 +520,8 @@ function createChatStore() {
 		const tail = lastUser >= 0 ? sessionItems.slice(lastUser + 1) : sessionItems;
 		for (const item of tail) {
 			if (item.type === 'error' && item.text.trim()) return true;
-			if (item.type === 'assistant' && (item.text.trim() || hasReasoning(item))) return true;
+			if (item.type === 'assistant' && (item.text.trim() || hasReasoning(item) || (item.images?.length ?? 0) > 0))
+				return true;
 			if (item.type === 'tool' || item.type === 'subagent' || item.type === 'memory')
 				return true;
 		}

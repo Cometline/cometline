@@ -4,6 +4,7 @@
 	import AssistantMarkdown from '$lib/components/AssistantMarkdown.svelte';
 	import ThreadAvatar from '$lib/components/chat/ThreadAvatar.svelte';
 	import ThreadRow from '$lib/components/chat/ThreadRow.svelte';
+	import ImageLightbox from '$lib/components/chat/ImageLightbox.svelte';
 	import { imageDataURL } from '$lib/files/images';
 	import type { ChatItem } from '$lib/stores/chat.svelte';
 
@@ -31,6 +32,7 @@
 	let flightHidden = $derived(item.reveal === false);
 	/** Only bubbles that were staged hidden should fly in on reveal — not history rows. */
 	let stagedOnce = $state(false);
+	let lightbox = $state<{ src: string; alt: string } | null>(null);
 
 	$effect(() => {
 		if (item.reveal === false) stagedOnce = true;
@@ -43,7 +45,16 @@
 	{#if item.images?.length}
 		<div class="user-images" class:text-following={Boolean(item.text)}>
 			{#each item.images as image, imageIndex (`${item.id}-image-${image.id ?? imageIndex}`)}
-				<img src={imageDataURL(image)} alt={image.name ?? 'Attached image'} />
+				{@const src = imageDataURL(image)}
+				{@const alt = image.name ?? 'Attached image'}
+				<button
+					type="button"
+					class="image-open"
+					aria-label={`View ${alt}`}
+					onclick={() => (lightbox = { src, alt })}
+				>
+					<img {src} {alt} />
+				</button>
 			{/each}
 		</div>
 	{/if}
@@ -96,6 +107,15 @@
 	</div>
 </ThreadRow>
 
+{#if lightbox}
+	<ImageLightbox
+		open
+		src={lightbox.src}
+		alt={lightbox.alt}
+		onClose={() => (lightbox = null)}
+	/>
+{/if}
+
 <style>
 	.user-stack {
 		display: flex;
@@ -109,6 +129,15 @@
 	.flight-hidden {
 		opacity: 0;
 		pointer-events: none;
+	}
+
+	.image-open {
+		display: block;
+		width: 100%;
+		padding: 0;
+		border: none;
+		background: transparent;
+		cursor: zoom-in;
 	}
 
 	.message-actions {

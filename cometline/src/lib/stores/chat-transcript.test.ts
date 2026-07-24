@@ -12,6 +12,23 @@ describe('itemsFromTranscript', () => {
 		expect(items[1]).toMatchObject({ type: 'assistant', text: 'Hello' });
 	});
 
+	it('merges assistant image refs into the assistant bubble', () => {
+		const items = itemsFromTranscript([
+			{ type: 'user', text: 'show me' },
+			{
+				type: 'assistant',
+				images: [{ id: 'img1', media_type: 'image/png', alt: 'shot' }]
+			},
+			{ type: 'assistant', text: 'Here it is' }
+		]);
+		expect(items).toHaveLength(2);
+		expect(items[1]).toMatchObject({
+			type: 'assistant',
+			text: 'Here it is',
+			images: [{ id: 'img1', media_type: 'image/png', alt: 'shot' }]
+		});
+	});
+
 	it('keeps transcript errors attached to the assistant activity block', () => {
 		const items = itemsFromTranscript([
 			{ type: 'user', text: 'Run this' },
