@@ -29,6 +29,7 @@ const (
 	KindInboxMessageArchived      Kind = "inbox_message_archived"
 	KindTurnStatus                Kind = "turn_status"
 	KindTurnRecover               Kind = "turn_recover"
+	KindAssistantImage            Kind = "assistant_image"
 	KindError                     Kind = "error"
 	KindDone                      Kind = "done"
 )
@@ -121,6 +122,11 @@ type Event struct {
 	// turn_recover
 	TextChars      int
 	ReasoningChars int
+	// assistant_image
+	ImageID   string
+	MediaType string
+	Alt       string
+	DataURL   string
 	// error
 	Message string
 	Code    string
@@ -251,6 +257,14 @@ func (e Event) MarshalJSON() ([]byte, error) {
 			TextChars      int    `json:"text_chars"`
 			ReasoningChars int    `json:"reasoning_chars"`
 		}{t, e.TextChars, e.ReasoningChars})
+	case KindAssistantImage:
+		return json.Marshal(struct {
+			Type      string `json:"type"`
+			ID        string `json:"id"`
+			MediaType string `json:"media_type"`
+			Alt       string `json:"alt,omitempty"`
+			DataURL   string `json:"data_url,omitempty"`
+		}{t, e.ImageID, e.MediaType, e.Alt, e.DataURL})
 	case KindError:
 		return json.Marshal(struct {
 			Type    string `json:"type"`
@@ -380,6 +394,17 @@ func TurnStatus(phase TurnPhase, message string) Event {
 // attempt before the same logical assistant step is retried.
 func TurnRecover(textChars, reasoningChars int) Event {
 	return Event{Kind: KindTurnRecover, TextChars: textChars, ReasoningChars: reasoningChars}
+}
+
+// AssistantImage builds an assistant_image event for a presented screenshot or image.
+func AssistantImage(id, mediaType, alt, dataURL string) Event {
+	return Event{
+		Kind:      KindAssistantImage,
+		ImageID:   id,
+		MediaType: mediaType,
+		Alt:       alt,
+		DataURL:   dataURL,
+	}
 }
 
 // SubagentFinished builds a subagent_finished event.
