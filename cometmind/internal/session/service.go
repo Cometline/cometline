@@ -14,6 +14,7 @@ import (
 	cometsdk "github.com/cometline/comet-sdk"
 	"github.com/cometline/cometmind/internal/db"
 	"github.com/cometline/cometmind/internal/id"
+	"github.com/cometline/cometmind/internal/media"
 )
 
 const (
@@ -21,12 +22,16 @@ const (
 	errorMessagePrefix    = "cometmind:error:v1\n"
 )
 
-// ContentBlock is the persisted/API representation of user multimodal content.
+// ContentBlock is the persisted/API representation of multimodal content.
+// User images typically carry base64 Data. Assistant-presented images store
+// a media-store ID (no inline bytes) so blobs live under ~/.cometmind/media.
 type ContentBlock struct {
 	Type      string `json:"type"`
 	Text      string `json:"text,omitempty"`
 	MediaType string `json:"media_type,omitempty"`
 	Data      string `json:"data,omitempty"`
+	ID        string `json:"id,omitempty"`
+	Alt       string `json:"alt,omitempty"`
 }
 
 type contentEnvelope struct {
@@ -476,6 +481,7 @@ func (s *Service) DeleteSession(ctx context.Context, sessionID string) error {
 			return err
 		}
 	}
+	_ = media.DeleteSession(sessionID)
 	return s.q.DeleteSession(ctx, sessionID)
 }
 
@@ -499,6 +505,7 @@ func (s *Service) ClearSessionTranscript(ctx context.Context, sessionID string) 
 	if err := s.q.DeleteMessagesBySession(ctx, sessionID); err != nil {
 		return err
 	}
+	_ = media.DeleteSession(sessionID)
 	return s.q.ResetSessionTranscriptState(ctx, db.ResetSessionTranscriptStateParams{
 		Title:      "",
 		TokenUsage: "{}",
@@ -848,6 +855,53 @@ func (s *Service) AppendAssistantStep(ctx context.Context, sessionID string, tex
 	return messageFromDB(assistant), toolIDs, nil
 }
 
+// AppendAssistantMedia persists an assistant turn that presents images to the user.
+// Image blocks must reference media-store IDs (Data should be empty).
+func (s *Service) AppendAssistantMedia(ctx context.Context, sessionID string, images []ContentBlock) (Message, error) {
+	if len(images) == 0 {
+		return Message{}, fmt.Errorf("at least one image is required")
+	}
+	blocks := make([]ContentBlock, 0, len(images))
+	for _, img := range images {
+		if img.Type == "" {
+			img.Type = "image"
+		}
+		if img.Type != "image" {
+			return Message{}, fmt.Errorf("unexpected content block type %q", img.Type)
+		}
+		if strings.TrimSpace(img.ID) == "" {
+			return Message{}, fmt.Errorf("image id is required")
+		}
+		if strings.TrimSpace(img.MediaType) == "" {
+			return Message{}, fmt.Errorf("image media_type is required")
+		}
+		blocks = append(blocks, ContentBlock{
+			Type:      "image",
+			ID:        strings.TrimSpace(img.ID),
+			MediaType: strings.TrimSpace(img.MediaType),
+			Alt:       strings.TrimSpace(img.Alt),
+		})
+	}
+	content, err := marshalMessageContent(blocks, "")
+	if err != nil {
+		return Message{}, err
+	}
+	assistant, err := s.q.CreateMessage(ctx, db.CreateMessageParams{
+		ID:         id.New(),
+		SessionID:  sessionID,
+		Role:       "assistant",
+		Content:    content,
+		TokenCount: 0,
+	})
+	if err != nil {
+		return Message{}, err
+	}
+	if err := s.q.TouchSession(ctx, sessionID); err != nil {
+		return Message{}, err
+	}
+	return messageFromDB(assistant), nil
+}
+
 // SaveAssistantProviderState stores opaque provider continuation state outside
 // transcript rows so it can never be returned by transcript APIs.
 func (s *Service) SaveAssistantProviderState(ctx context.Context, messageID string, states []cometsdk.ProviderState) error {
@@ -1077,7 +1131,13 @@ func completedToolCallIDs(rows []db.Message) (map[string]struct{}, error) {
 func assistantBlocks(m db.Message, tcs []db.ToolCall, completedToolCalls map[string]struct{}) []cometsdk.Block {
 	var blocks []cometsdk.Block
 	if strings.TrimSpace(m.Content) != "" {
-		blocks = append(blocks, cometsdk.TextBlock{Text: m.Content})
+		text := m.Content
+		if decoded, err := DecodeMessageContent(m.Content); err == nil {
+			text = PlainTextFromContent(decoded)
+		}
+		if strings.TrimSpace(text) != "" {
+			blocks = append(blocks, cometsdk.TextBlock{Text: text})
+		}
 	}
 	for _, tc := range tcs {
 		if _, ok := completedToolCalls[tc.ID]; !ok {

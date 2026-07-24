@@ -62,6 +62,11 @@ type MessageAppender interface {
 	SetTitleIfEmpty(ctx context.Context, sessionID, title string) error
 }
 
+// AssistantMediaAppender persists assistant-presented images for chat UIs.
+type AssistantMediaAppender interface {
+	AppendAssistantMedia(ctx context.Context, sessionID string, images []ContentBlock) (Message, error)
+}
+
 // ChildSessionReader is the narrow seam used by subagent tools to create,
 // update, and read child sessions without depending on the full *Service.
 type ChildSessionReader interface {
@@ -105,7 +110,8 @@ var (
 	_ WorkspaceStore       = (*Service)(nil)
 	_ SessionStore         = (*Service)(nil)
 	_ TranscriptReader     = (*Service)(nil)
-	_ MessageAppender      = (*Service)(nil)
+	_ MessageAppender       = (*Service)(nil)
+	_ AssistantMediaAppender = (*Service)(nil)
 	_ ChildSessionReader   = (*Service)(nil)
 	_ CompactorStore       = (*Service)(nil)
 	_ MessageRowsReader    = (*Service)(nil)
