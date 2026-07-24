@@ -59,8 +59,10 @@ function createTerminalStore() {
 				notify(sessionId, data);
 			});
 			api.onTerminalExit?.((snapshot) => {
-				clearTerminal(snapshot.sessionId);
+				// Close the panel before clearing state so the TerminalPanel
+				// layer goes inactive and cannot auto-restart on the clear.
 				shellStore.closeTerminalPanelForSession(snapshot.sessionId);
+				clearTerminal(snapshot.sessionId);
 			});
 		},
 		async start(sessionId: string, workspacePath: string, cols = 80, rows = 24) {
