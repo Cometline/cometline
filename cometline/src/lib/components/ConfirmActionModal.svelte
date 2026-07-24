@@ -57,6 +57,14 @@
 
 	function onKeydown(event: KeyboardEvent) {
 		if (!open) return;
+		if (event.key === 'Escape') {
+			// Native <dialog> also fires `cancel`; stop app-level Escape handlers
+			// (e.g. AppShell closing the web panel) from running on the same key.
+			event.preventDefault();
+			event.stopImmediatePropagation();
+			onCancel();
+			return;
+		}
 		if (event.key === 'Enter' && !event.metaKey && !event.ctrlKey && !event.altKey) {
 			event.preventDefault();
 			event.stopPropagation();

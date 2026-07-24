@@ -284,18 +284,6 @@
 				// Let terminal applications own Escape, but keep app shortcuts available.
 				return;
 			}
-			if (
-				shellStore.workspacePanelOpen &&
-				event.key === 'Escape' &&
-				!shellStore.settingsOpen &&
-				!inboxStore.drawerOpen &&
-				!closeConfirmOpen &&
-				!reloadConfirmOpen
-			) {
-				event.preventDefault();
-				shellStore.closeWorkspacePanel();
-				return;
-			}
 			if (matchesShortcut(event, shortcuts.closeSettings) && shellStore.settingsOpen) {
 				event.preventDefault();
 				shellStore.closeSettings();
