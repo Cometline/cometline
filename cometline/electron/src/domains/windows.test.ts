@@ -133,6 +133,8 @@ describe('window lifecycle factory', () => {
 			visibleOnFullScreen: true,
 			skipTransformProcessType: true
 		});
+		// 'floating' stays under macOS IME candidates; 'pop-up-menu' overlaps them.
+		expect(mini.setAlwaysOnTop).toHaveBeenCalledWith(true, 'floating');
 		expect(settings.options.webPreferences?.webviewTag).toBe(false);
 		expect(settings.loadURL).toHaveBeenCalledWith('app://bundle/settings');
 	});

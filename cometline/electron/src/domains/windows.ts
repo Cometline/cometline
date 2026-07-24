@@ -165,7 +165,10 @@ export function createWindows(dependencies: WindowsDependencies) {
 			skipTransformProcessType: true
 		});
 		if (typeof window.setFullScreenable === 'function') window.setFullScreenable(false);
-		window.setAlwaysOnTop(true, 'pop-up-menu');
+		// Keep the panel above normal windows, but stay below macOS IME candidate
+		// popups. Higher levels like 'pop-up-menu' / 'screen-saver' cover the
+		// system candidate window (electron#29459).
+		window.setAlwaysOnTop(true, 'floating');
 		if (typeof window.setWindowButtonVisibility === 'function') {
 			window.setWindowButtonVisibility(false);
 		}
