@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import { Loader } from '@lucide/svelte';
 	import FileTypeIcon from '$lib/components/FileTypeIcon.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
@@ -25,14 +26,11 @@
 	let error = $state<string | null>(null);
 	let activeIndex = $state(0);
 	let inputEl = $state<HTMLInputElement | null>(null);
+	let resultsListEl = $state<HTMLUListElement | null>(null);
 	let loadSeq = 0;
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
-	const browseSource = $derived(shellStore.webPanelBrowseSource);
-	const source = $derived.by((): FileSearchSource => {
-		if (browseSource === 'wiki' || browseSource === 'workspace') return browseSource;
-		return settingsStore.settings.app.fileSearchSource;
-	});
+	const source = $derived(settingsStore.settings.app.fileSearchSource);
 	const workspacePath = $derived(normalizeWorkspacePath(shellStore.workspacePath));
 	const workspaceAvailable = $derived(Boolean(workspacePath && workspacePath !== '/'));
 
@@ -65,7 +63,6 @@
 	function setSource(next: FileSearchSource) {
 		if (next === 'workspace' && !workspaceAvailable) return;
 		void settingsStore.saveFileSearchSource(next);
-		shellStore.setWebPanelBrowseSource(next);
 	}
 
 	function close() {
@@ -78,9 +75,18 @@
 		close();
 	}
 
+	async function scrollActiveIntoView() {
+		const index = activeIndex;
+		if (!resultsListEl || results.length === 0) return;
+		await tick();
+		const el = resultsListEl.querySelector(`[data-result-index="${index}"]`);
+		el?.scrollIntoView({ block: 'nearest' });
+	}
+
 	function moveActive(delta: number) {
 		if (results.length === 0) return;
 		activeIndex = (activeIndex + delta + results.length) % results.length;
+		void scrollActiveIntoView();
 	}
 
 	function onKeydown(event: KeyboardEvent) {
@@ -227,13 +233,19 @@
 					{debouncedQuery.trim() ? 'No matching files.' : 'No files found.'}
 				</div>
 			{:else}
-				<ul class="file-search-list" role="listbox" aria-label="File results">
+				<ul
+					class="file-search-list"
+					role="listbox"
+					aria-label="File results"
+					bind:this={resultsListEl}
+				>
 					{#each results as path, index (path)}
 						<li role="option" aria-selected={index === activeIndex}>
 							<button
 								type="button"
 								class="file-search-row"
 								class:active={index === activeIndex}
+								data-result-index={index}
 								onmouseenter={() => (activeIndex = index)}
 								onclick={() => selectPath(path)}
 								title={path}
