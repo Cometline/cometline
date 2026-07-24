@@ -81,6 +81,34 @@ export function fileTreeDirKey(parentKey: string, name: string): string {
 	return parentKey ? `${parentKey}/${name}` : name;
 }
 
+/** Flat list of currently visible tree rows (respecting expansion). */
+export type FileTreeVisibleRow =
+	| { kind: 'dir'; key: string; name: string }
+	| { kind: 'file'; key: string; name: string; path: string };
+
+export function flattenVisibleFileTreeRows(
+	nodes: FileTreeNode[],
+	expanded: Record<string, boolean>,
+	parentKey = ''
+): FileTreeVisibleRow[] {
+	const rows: FileTreeVisibleRow[] = [];
+	for (const node of nodes) {
+		const key = fileTreeDirKey(parentKey, node.name);
+		const hasChildren = Boolean(node.children?.length);
+		if (hasChildren) {
+			rows.push({ kind: 'dir', key, name: node.name });
+			if (expanded[key] && node.children) {
+				rows.push(...flattenVisibleFileTreeRows(node.children, expanded, key));
+			}
+			continue;
+		}
+		if (node.path) {
+			rows.push({ kind: 'file', key, name: node.name, path: node.path });
+		}
+	}
+	return rows;
+}
+
 /** Ancestor directory keys that must be expanded to reveal the given file paths. */
 export function dirKeysToExpandForPaths(paths: readonly string[]): Record<string, boolean> {
 	const expanded: Record<string, boolean> = {};

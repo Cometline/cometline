@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { isWebPanelUrl, normalizeUserUrl } from './web-panel-url';
+import { isHttpUrl, normalizeUserUrl } from './http-url';
 
-describe('web-panel-url', () => {
+describe('http-url', () => {
 	it('accepts http and https URLs', () => {
-		expect(isWebPanelUrl('https://example.com')).toBe(true);
-		expect(isWebPanelUrl('http://localhost:5173')).toBe(true);
-		expect(isWebPanelUrl('mailto:test@example.com')).toBe(false);
+		expect(isHttpUrl('https://example.com')).toBe(true);
+		expect(isHttpUrl('http://localhost:5173')).toBe(true);
+		expect(isHttpUrl('mailto:test@example.com')).toBe(false);
 	});
 
 	it('normalizes user-typed URLs with https prefix', () => {

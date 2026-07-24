@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
 	readMarkdownFileViewMode,
-	readWebPanelTreeSource,
+	readWorkspacePanelTreeSource,
 	writeMarkdownFileViewMode,
-	writeWebPanelTreeSource
-} from './web-panel-prefs';
+	writeWorkspacePanelTreeSource
+} from './workspace-panel-prefs';
 
 function installLocalStorageMock() {
 	const store = new Map<string, string>();
@@ -23,7 +23,7 @@ function installLocalStorageMock() {
 	Object.defineProperty(globalThis, 'localStorage', { value: mock, configurable: true });
 }
 
-describe('web-panel-prefs', () => {
+describe('workspace-panel-prefs', () => {
 	beforeEach(() => {
 		installLocalStorageMock();
 	});
@@ -33,12 +33,17 @@ describe('web-panel-prefs', () => {
 	});
 
 	it('defaults tree source to wiki', () => {
-		expect(readWebPanelTreeSource()).toBe('wiki');
+		expect(readWorkspacePanelTreeSource()).toBe('wiki');
 	});
 
 	it('persists tree source', () => {
-		writeWebPanelTreeSource('workspace');
-		expect(readWebPanelTreeSource()).toBe('workspace');
+		writeWorkspacePanelTreeSource('workspace');
+		expect(readWorkspacePanelTreeSource()).toBe('workspace');
+	});
+
+	it('reads legacy tree source key', () => {
+		localStorage.setItem('cometline.webPanelTreeSource', 'changes');
+		expect(readWorkspacePanelTreeSource()).toBe('changes');
 	});
 
 	it('defaults markdown view mode to preview', () => {

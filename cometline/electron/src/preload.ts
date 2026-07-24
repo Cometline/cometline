@@ -86,15 +86,15 @@ const electronAPI: ElectronAPI = {
 		ipcRenderer.send('cometline:shortcut-capture-active', Boolean(active)),
 	setSessionNavigationSuspended: (suspended) =>
 		ipcRenderer.send('cometline:session-navigation-suspended', Boolean(suspended)),
-	setWebPanelOpen: (open) => ipcRenderer.send('cometline:web-panel-open', Boolean(open)),
+	setWorkspacePanelOpen: (open) => ipcRenderer.send('cometline:workspace-panel-open', Boolean(open)),
 	setInboxOpen: (open) => ipcRenderer.send('cometline:inbox-open', Boolean(open)),
 	confirmCloseWindow: () => ipcRenderer.send('cometline:confirm-close-window'),
-	onCloseWebPanel: (callback) => subscribeSignal('cometline:close-web-panel', callback),
+	onCloseWorkspacePanel: (callback) => subscribeSignal('cometline:close-workspace-panel', callback),
 	onCloseInbox: (callback) => subscribeSignal('cometline:close-inbox', callback),
 	onRequestCloseWindow: (callback) => subscribeSignal('cometline:request-close-window', callback),
 	onRequestReload: (callback) => subscribeSignal('cometline:request-reload', callback),
-	onToggleWebPanel: (callback) => subscribeSignal('cometline:toggle-web-panel', callback),
-	onOpenWebPanel: (callback) => subscribeSignal('cometline:open-web-panel', callback),
+	onToggleWorkspacePanel: (callback) => subscribeSignal('cometline:toggle-workspace-panel', callback),
+	onOpenWebSearch: (callback) => subscribeSignal('cometline:open-web-search', callback),
 	onNavigateSession: (callback) =>
 		subscribe('cometline:navigate-session', (direction) => {
 			if (direction === 'prev' || direction === 'next') callback(direction);

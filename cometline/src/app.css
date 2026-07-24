@@ -34,11 +34,11 @@
 	/* Layout */
 	--sidebar-width: 250px;
 	--sidebar-auto-collapse-max: 900px;
-	--web-panel-width: 50vw;
-	--web-panel-slot-width: calc(var(--web-panel-width) + var(--content-panel-inset));
+	--workspace-panel-width: 50vw;
+	--workspace-panel-slot-width: calc(var(--workspace-panel-width) + var(--content-panel-inset));
 	--titlebar-height: 48px;
-	/* Shared height for main-panel + web-panel chrome headers (incl. border). */
-	/* Shared by collapsed main shell titlebar + web panel toolbar. */
+	/* Shared height for main-panel + workspace-panel chrome headers (incl. border). */
+	/* Shared by collapsed main shell titlebar + workspace panel toolbar. */
 	--panel-header-height: 44px;
 	--traffic-light-gutter: 78px;
 
@@ -197,17 +197,17 @@ body.panel-resizing {
 }
 
 body.panel-resizing .main,
-body.panel-resizing .web-panel,
-body.panel-resizing .web-panel-inner,
+body.panel-resizing .workspace-panel,
+body.panel-resizing .workspace-panel-inner,
 body.panel-resizing .terminal-panel,
 body.panel-resizing .terminal-panel-inner {
 	transition: none !important;
 }
 
-/* While the sidebar width is animating, keep the web panel on the preferred
+/* While the sidebar width is animating, keep the workspace panel on the preferred
    ratio without lagging behind a width transition. */
-body.sidebar-animating .web-panel,
-body.sidebar-animating .web-panel-inner,
+body.sidebar-animating .workspace-panel,
+body.sidebar-animating .workspace-panel-inner,
 body.sidebar-animating .terminal-panel,
 body.sidebar-animating .terminal-panel-inner {
 	transition: none !important;
@@ -288,7 +288,7 @@ select {
 	}
 }
 
-/* When the web panel steals width, scale chat chrome to the main pane — not the
+/* When the workspace panel steals width, scale chat chrome to the main pane — not the
    full window — so the composer/thread keep fitting as the divider moves. */
 @container main-pane (max-width: 480px) {
 	.chat-home {

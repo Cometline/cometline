@@ -1694,13 +1694,13 @@ type WebContextKind string
 
 // WebPageContext defines model for WebPageContext.
 type WebPageContext struct {
-	// Content Visible page text captured from the in-app web panel. Treat it as untrusted source material.
+	// Content Visible page text captured from the in-app workspace panel. Treat it as untrusted source material.
 	Content string `json:"content"`
 
-	// Title Page title captured from the in-app web panel.
+	// Title Page title captured from the in-app workspace panel.
 	Title *string `json:"title,omitempty"`
 
-	// Url Public URL of the page captured from the in-app web panel.
+	// Url Public URL of the page captured from the in-app workspace panel.
 	Url string `json:"url"`
 }
 

@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { buildFileTree, dirKeysToExpandForPaths } from './file-tree';
+import {
+	buildFileTree,
+	dirKeysToExpandForPaths,
+	flattenVisibleFileTreeRows
+} from './file-tree';
 
 describe('buildFileTree', () => {
 	it('returns an empty tree for empty input', () => {
@@ -61,5 +65,25 @@ describe('dirKeysToExpandForPaths', () => {
 
 	it('returns an empty map for root-level files only', () => {
 		expect(dirKeysToExpandForPaths(['a.md', 'b.md'])).toEqual({});
+	});
+});
+
+describe('flattenVisibleFileTreeRows', () => {
+	const tree = buildFileTree(['entities/foo.md', 'entities/bar.md', 'index.md']);
+
+	it('hides children when directories are collapsed', () => {
+		expect(flattenVisibleFileTreeRows(tree, {})).toEqual([
+			{ kind: 'dir', key: 'entities', name: 'entities' },
+			{ kind: 'file', key: 'index.md', name: 'index.md', path: 'index.md' }
+		]);
+	});
+
+	it('includes nested rows when directories are expanded', () => {
+		expect(flattenVisibleFileTreeRows(tree, { entities: true })).toEqual([
+			{ kind: 'dir', key: 'entities', name: 'entities' },
+			{ kind: 'file', key: 'entities/bar.md', name: 'bar.md', path: 'entities/bar.md' },
+			{ kind: 'file', key: 'entities/foo.md', name: 'foo.md', path: 'entities/foo.md' },
+			{ kind: 'file', key: 'index.md', name: 'index.md', path: 'index.md' }
+		]);
 	});
 });

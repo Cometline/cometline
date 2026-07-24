@@ -21,9 +21,9 @@
 	import { startJobNotificationPoller } from '$lib/jobs/job-notifications';
 	import { startStorageRetentionSync } from '$lib/retention/storage-retention-sync';
 	import {
-		resolveWebPanelRatio,
+		resolveWorkspacePanelRatio,
 		widthFromRatio
-	} from '$lib/layout/web-panel-width';
+	} from '$lib/layout/workspace-panel-width';
 
 	let { children } = $props();
 
@@ -137,25 +137,25 @@
 		}
 	});
 
-	// Seed --web-panel-width once when persisted prefs first become available.
+	// Seed --workspace-panel-width once when persisted prefs first become available.
 	// After that, AppShell exclusively owns live updates against the content-row
 	// — a second writer keyed on window.innerWidth caused shrink-then-grow when
 	// opening the sidebar.
-	let didSeedWebPanelWidth = false;
+	let didSeedWorkspacePanelWidth = false;
 	$effect(() => {
 		const prefs = {
-			webPanelRatio: settingsStore.settings.app.webPanelRatio,
-			webPanelWidth: settingsStore.settings.app.webPanelWidth
+			workspacePanelRatio: settingsStore.settings.app.workspacePanelRatio,
+			workspacePanelWidth: settingsStore.settings.app.workspacePanelWidth
 		};
-		if (didSeedWebPanelWidth) return;
-		if (prefs.webPanelRatio <= 0 && prefs.webPanelWidth <= 0) return;
-		didSeedWebPanelWidth = true;
-		const ratio = resolveWebPanelRatio(prefs, window.innerWidth);
+		if (didSeedWorkspacePanelWidth) return;
+		if (prefs.workspacePanelRatio <= 0 && prefs.workspacePanelWidth <= 0) return;
+		didSeedWorkspacePanelWidth = true;
+		const ratio = resolveWorkspacePanelRatio(prefs, window.innerWidth);
 		const clamped = widthFromRatio(ratio, window.innerWidth, {
 			sidebarOpen: false,
 			fullscreen: false
 		});
-		document.documentElement.style.setProperty('--web-panel-width', `${clamped}px`);
+		document.documentElement.style.setProperty('--workspace-panel-width', `${clamped}px`);
 	});
 
 	$effect(() => {

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import { Loader } from '@lucide/svelte';
 	import FileTypeIcon from '$lib/components/FileTypeIcon.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
@@ -25,6 +26,7 @@
 	let error = $state<string | null>(null);
 	let activeIndex = $state(0);
 	let inputEl = $state<HTMLInputElement | null>(null);
+	let resultsListEl = $state<HTMLUListElement | null>(null);
 	let loadSeq = 0;
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -67,15 +69,25 @@
 		onClose();
 	}
 
-	function selectPath(path: string) {
+	async function selectPath(path: string) {
 		const openPath = source === 'wiki' ? toWikiUiPath(path) : path;
-		shellStore.openFilePreviewForActive(openPath);
-		close();
+		// Older renderer mocks expose this action as void; only an explicit false
+		// means the editor's leave guard rejected the requested navigation.
+		if ((await shellStore.openFilePreviewForActive(openPath)) !== false) close();
+	}
+
+	async function scrollActiveIntoView() {
+		const index = activeIndex;
+		if (!resultsListEl || results.length === 0) return;
+		await tick();
+		const el = resultsListEl.querySelector(`[data-result-index="${index}"]`);
+		el?.scrollIntoView({ block: 'nearest' });
 	}
 
 	function moveActive(delta: number) {
 		if (results.length === 0) return;
 		activeIndex = (activeIndex + delta + results.length) % results.length;
+		void scrollActiveIntoView();
 	}
 
 	function onKeydown(event: KeyboardEvent) {
@@ -100,7 +112,7 @@
 			event.preventDefault();
 			event.stopPropagation();
 			const path = results[activeIndex];
-			if (path) selectPath(path);
+			if (path) void selectPath(path);
 		}
 	}
 
@@ -200,7 +212,7 @@
 			<input
 				{@attach focusInput}
 				class="file-search-input"
-				type="search"
+				type="text"
 				placeholder={source === 'wiki' ? 'Search wiki files…' : 'Search workspace files…'}
 				bind:value={query}
 				aria-label="Search files"
@@ -222,15 +234,21 @@
 					{debouncedQuery.trim() ? 'No matching files.' : 'No files found.'}
 				</div>
 			{:else}
-				<ul class="file-search-list" role="listbox" aria-label="File results">
+				<ul
+					class="file-search-list"
+					role="listbox"
+					aria-label="File results"
+					bind:this={resultsListEl}
+				>
 					{#each results as path, index (path)}
 						<li role="option" aria-selected={index === activeIndex}>
 							<button
 								type="button"
 								class="file-search-row"
 								class:active={index === activeIndex}
+								data-result-index={index}
 								onmouseenter={() => (activeIndex = index)}
-								onclick={() => selectPath(path)}
+								onclick={() => void selectPath(path)}
 								title={path}
 							>
 								<span class="file-search-icon" aria-hidden="true">

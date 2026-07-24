@@ -61,11 +61,11 @@ describe('shellStore default vs active workspace', () => {
 	});
 });
 
-describe('shellStore web panel focus behavior', () => {
+describe('shellStore workspace panel focus behavior', () => {
 	beforeEach(() => {
 		vi.stubGlobal('window', { electronAPI: undefined });
 		getActiveSessionId.mockReturnValue('sess-1');
-		shellStore.clearWebPanelForSession('sess-1');
+		shellStore.clearWorkspacePanelForSession('sess-1');
 	});
 
 	afterEach(() => {
@@ -75,68 +75,204 @@ describe('shellStore web panel focus behavior', () => {
 	it('no-ops panel opens when no session is active', () => {
 		getActiveSessionId.mockReturnValue(null);
 		const before = shellStore.addressBarFocusRequestId;
-		shellStore.openWebPanelForActive('https://example.com');
+		shellStore.openWorkspacePanelUrlForActive('https://example.com');
 		shellStore.openFilePreviewForActive('README.md');
-		expect(shellStore.webPanelOpen).toBe(false);
+		expect(shellStore.workspacePanelOpen).toBe(false);
 		expect(shellStore.addressBarFocusRequestId).toBe(before);
-		expect(shellStore.webPanelSessionKey).toBeNull();
+		expect(shellStore.workspacePanelSessionKey).toBeNull();
 	});
 
 	it('does not focus the address bar when opening a URL from app content', () => {
 		const before = shellStore.addressBarFocusRequestId;
 
-		shellStore.openWebPanelForActive('https://example.com');
+		shellStore.openWorkspacePanelUrlForActive('https://example.com');
 
 		expect(shellStore.addressBarFocusRequestId).toBe(before);
-		shellStore.clearWebPanelForSession('sess-1');
+		shellStore.clearWorkspacePanelForSession('sess-1');
 	});
 
-	it('requests file-tree filter focus when opening an empty web panel', () => {
+	it('requests file-tree filter focus when opening an empty workspace panel', () => {
 		const addressBefore = shellStore.addressBarFocusRequestId;
 		const filterBefore = shellStore.fileTreeFilterFocusRequestId;
 
-		shellStore.openWebPanelEmpty();
+		shellStore.openWorkspacePanelBrowse();
 
 		expect(shellStore.fileTreeFilterFocusRequestId).toBe(filterBefore + 1);
 		expect(shellStore.addressBarFocusRequestId).toBe(addressBefore);
-		shellStore.clearWebPanelForSession('sess-1');
+		shellStore.clearWorkspacePanelForSession('sess-1');
 	});
 
-	it('cycles ⌘O focus between filter and address while browsing', () => {
-		shellStore.openWebPanelEmpty();
-		const filterAfterOpen = shellStore.fileTreeFilterFocusRequestId;
-		const addressAfterOpen = shellStore.addressBarFocusRequestId;
+	it('⌘O opens web search (address focus)', () => {
+		shellStore.openWorkspacePanelBrowse();
+		expect(shellStore.lastWorkspacePanelFocusTarget).toBe('filter');
 
-		shellStore.openWebPanelFromShortcut();
-		expect(shellStore.addressBarFocusRequestId).toBe(addressAfterOpen + 1);
-		expect(shellStore.fileTreeFilterFocusRequestId).toBe(filterAfterOpen);
+		shellStore.openWebSearchPanel();
+		expect(shellStore.lastWorkspacePanelFocusTarget).toBe('address');
+		expect(shellStore.workspacePanelSurface).toBe('web');
 
-		shellStore.openWebPanelFromShortcut();
-		expect(shellStore.fileTreeFilterFocusRequestId).toBe(filterAfterOpen + 1);
+		shellStore.clearWorkspacePanelForSession('sess-1');
+	});
 
-		shellStore.clearWebPanelForSession('sess-1');
+	it('openWebSearchPanel switches from terminal surface to web address', () => {
+		shellStore.openWorkspacePanelBrowse();
+		shellStore.requestTerminalFocus();
+		expect(shellStore.workspacePanelSurface).toBe('terminal');
+
+		shellStore.openWebSearchPanel();
+		expect(shellStore.workspacePanelSurface).toBe('web');
+		expect(shellStore.contentSurface).toBe('web-search');
+		expect(shellStore.lastWorkspacePanelFocusTarget).toBe('address');
+
+		shellStore.clearWorkspacePanelForSession('sess-1');
+	});
+
+	it('wiki/workspace shortcuts leave the terminal surface', () => {
+		shellStore.openWorkspacePanelBrowse();
+		shellStore.requestTerminalFocus();
+		expect(shellStore.workspacePanelSurface).toBe('terminal');
+
+		shellStore.setWorkspacePanelBrowseSource('wiki');
+		expect(shellStore.workspacePanelSurface).toBe('web');
+		expect(shellStore.workspacePanelBrowseSource).toBe('wiki');
+		expect(shellStore.lastWorkspacePanelFocusTarget).toBe('filter');
+
+		shellStore.requestTerminalFocus();
+		shellStore.setWorkspacePanelBrowseSource('workspace');
+		expect(shellStore.workspacePanelSurface).toBe('web');
+		expect(shellStore.workspacePanelBrowseSource).toBe('workspace');
+
+		shellStore.clearWorkspacePanelForSession('sess-1');
+	});
+
+	it('keeps independent content per surface and preserves per-source filters', () => {
+		shellStore.setWorkspacePanelBrowseSource('wiki');
+		shellStore.setFileTreeFilter('wiki', 'readme');
+		shellStore.setFileTreeFilter('workspace', 'main');
+
+		shellStore.openFilePreviewForActive('@runtime/wiki/index.md');
+		expect(shellStore.contentSurface).toBe('wiki');
+		expect(shellStore.workspacePanelMode).toBe('file');
+		expect(shellStore.getSurfaceContent('wiki')).toEqual({
+			mode: 'file',
+			filePath: '@runtime/wiki/index.md'
+		});
+
+		shellStore.openFilePreviewForActive('src/app.ts');
+		expect(shellStore.contentSurface).toBe('workspace');
+		expect(shellStore.getSurfaceContent('workspace')).toEqual({
+			mode: 'file',
+			filePath: 'src/app.ts'
+		});
+		// Wiki file remains owned by the wiki surface.
+		expect(shellStore.getSurfaceContent('wiki')).toEqual({
+			mode: 'file',
+			filePath: '@runtime/wiki/index.md'
+		});
+
+		shellStore.setWorkspacePanelBrowseSource('wiki');
+		expect(shellStore.contentSurface).toBe('wiki');
+		expect(shellStore.workspacePanelFilePath).toBe('@runtime/wiki/index.md');
+		expect(shellStore.getFileTreeFilter('wiki')).toBe('readme');
+		expect(shellStore.getFileTreeFilter('workspace')).toBe('main');
+
+		shellStore.setWorkspacePanelBrowseSource('workspace');
+		expect(shellStore.contentSurface).toBe('workspace');
+		expect(shellStore.workspacePanelFilePath).toBe('src/app.ts');
+		expect(shellStore.getFileTreeFilter('workspace')).toBe('main');
+
+		shellStore.clearWorkspacePanelForSession('sess-1');
+	});
+
+	it('keeps the active file when its leave guard rejects navigation', async () => {
+		await shellStore.openFilePreviewForActive('src/app.ts');
+		const leaveGuard = vi.fn(async () => false);
+		const unregister = shellStore.registerWorkspacePanelLeaveGuard(leaveGuard);
+
+		await expect(shellStore.openFilePreviewForActive('src/main.ts')).resolves.toBe(false);
+		expect(leaveGuard).toHaveBeenCalledOnce();
+		expect(shellStore.workspacePanelFilePath).toBe('src/app.ts');
+		expect(shellStore.getSurfaceContent('workspace')).toEqual({
+			mode: 'file',
+			filePath: 'src/app.ts'
+		});
+
+		unregister();
+		shellStore.clearWorkspacePanelForSession('sess-1');
 	});
 
 	it('tracks browse → file history and restores browse on back', () => {
-		shellStore.openWebPanelEmpty();
-		expect(shellStore.webPanelBrowseOpen).toBe(true);
+		shellStore.openWorkspacePanelBrowse();
+		expect(shellStore.workspacePanelBrowseOpen).toBe(true);
 
 		shellStore.openFilePreviewForActive('@runtime/wiki/index.md');
-		expect(shellStore.webPanelMode).toBe('file');
-		expect(shellStore.webPanelFilePath).toBe('@runtime/wiki/index.md');
+		expect(shellStore.workspacePanelMode).toBe('file');
+		expect(shellStore.workspacePanelFilePath).toBe('@runtime/wiki/index.md');
 		expect(shellStore.canPanelHistoryBack).toBe(true);
 
 		expect(shellStore.panelHistoryBack()).toBe(true);
-		expect(shellStore.webPanelBrowseOpen).toBe(true);
+		expect(shellStore.workspacePanelBrowseOpen).toBe(true);
 		expect(shellStore.canPanelHistoryForward).toBe(true);
 
 		expect(shellStore.panelHistoryForward()).toBe(true);
-		expect(shellStore.webPanelFilePath).toBe('@runtime/wiki/index.md');
+		expect(shellStore.workspacePanelFilePath).toBe('@runtime/wiki/index.md');
 
-		shellStore.closeWebPanel();
-		expect(shellStore.canPanelHistoryBack).toBe(false);
-		expect(shellStore.webPanelOpen).toBe(false);
-		shellStore.clearWebPanelForSession('sess-1');
+		// Layered Cmd+W: first dismisses content, second soft-hides.
+		shellStore.closeWorkspacePanel();
+		expect(shellStore.workspacePanelOpen).toBe(true);
+		expect(shellStore.workspacePanelBrowseOpen).toBe(true);
+		expect(shellStore.getSurfaceContent('wiki')).toBeNull();
+
+		shellStore.closeWorkspacePanel();
+		expect(shellStore.workspacePanelOpen).toBe(false);
+		shellStore.clearWorkspacePanelForSession('sess-1');
+	});
+
+	it('Cmd+W walks content dots one surface at a time before soft-hiding', () => {
+		shellStore.openFilePreviewForActive('@runtime/wiki/index.md');
+		shellStore.openFilePreviewForActive('src/app.ts');
+		shellStore.openWorkspacePanelUrlForActive('https://example.com');
+		expect(shellStore.contentSurface).toBe('web-search');
+		expect(shellStore.workspacePanelUrl).toBe('https://example.com');
+		expect(shellStore.getSurfaceContent('wiki')).not.toBeNull();
+		expect(shellStore.getSurfaceContent('workspace')).not.toBeNull();
+
+		// 1) Dismiss web page → stay on web search.
+		shellStore.closeWorkspacePanel();
+		expect(shellStore.workspacePanelOpen).toBe(true);
+		expect(shellStore.contentSurface).toBe('web-search');
+		expect(shellStore.getSurfaceContent('web-search')).toBeNull();
+		expect(shellStore.getSurfaceContent('wiki')).not.toBeNull();
+		expect(shellStore.getSurfaceContent('workspace')).not.toBeNull();
+
+		// 2) Leave empty web search → jump to next content dot (wiki).
+		shellStore.closeWorkspacePanel();
+		expect(shellStore.workspacePanelOpen).toBe(true);
+		expect(shellStore.contentSurface).toBe('wiki');
+		expect(shellStore.workspacePanelFilePath).toBe('@runtime/wiki/index.md');
+
+		// 3) Dismiss wiki file → wiki browse.
+		shellStore.closeWorkspacePanel();
+		expect(shellStore.contentSurface).toBe('wiki');
+		expect(shellStore.workspacePanelBrowseOpen).toBe(true);
+		expect(shellStore.getSurfaceContent('wiki')).toBeNull();
+
+		// 4) Leave wiki browse → jump to workspace content.
+		shellStore.closeWorkspacePanel();
+		expect(shellStore.contentSurface).toBe('workspace');
+		expect(shellStore.workspacePanelFilePath).toBe('src/app.ts');
+
+		// 5) Dismiss workspace file.
+		shellStore.closeWorkspacePanel();
+		expect(shellStore.workspacePanelBrowseOpen).toBe(true);
+		expect(shellStore.getSurfaceContent('workspace')).toBeNull();
+
+		// 6) No remaining dots → soft-hide; content stays cleared but trees retained.
+		shellStore.closeWorkspacePanel();
+		expect(shellStore.workspacePanelOpen).toBe(false);
+		expect(shellStore.getSurfaceContent('wiki')).toBeNull();
+		expect(shellStore.getSurfaceContent('workspace')).toBeNull();
+
+		shellStore.clearWorkspacePanelForSession('sess-1');
 	});
 
 	it('seeds browse under a direct file open so back returns to the tree', () => {
@@ -144,16 +280,16 @@ describe('shellStore web panel focus behavior', () => {
 		expect(shellStore.canPanelHistoryBack).toBe(true);
 
 		expect(shellStore.panelHistoryBack()).toBe(true);
-		expect(shellStore.webPanelBrowseOpen).toBe(true);
+		expect(shellStore.workspacePanelBrowseOpen).toBe(true);
 
-		shellStore.clearWebPanelForSession('sess-1');
+		shellStore.clearWorkspacePanelForSession('sess-1');
 	});
 
 	it('keeps file-tree expansion when opening a nested file and going back', () => {
-		shellStore.setWebPanelBrowseSource('workspace');
+		shellStore.setWorkspacePanelBrowseSource('workspace');
 		shellStore.setFileTreeExpanded('workspace', { src: true, 'src/lib': true });
 
-		shellStore.openFilePreviewForActive('src/lib/components/WebPanel.svelte');
+		shellStore.openFilePreviewForActive('src/lib/components/WorkspacePanel.svelte');
 		// Parents of the opened file are merged into expansion.
 		expect(shellStore.getFileTreeExpanded('workspace')).toMatchObject({
 			src: true,
@@ -162,63 +298,66 @@ describe('shellStore web panel focus behavior', () => {
 		});
 
 		expect(shellStore.panelHistoryBack()).toBe(true);
-		expect(shellStore.webPanelBrowseOpen).toBe(true);
+		expect(shellStore.workspacePanelBrowseOpen).toBe(true);
 		// Expansion still present after back (tree remount reads this map).
 		expect(shellStore.getFileTreeExpanded('workspace')['src/lib/components']).toBe(true);
 
-		shellStore.clearWebPanelForSession('sess-1');
+		shellStore.clearWorkspacePanelForSession('sess-1');
 		expect(shellStore.getFileTreeExpanded('workspace')).toEqual({});
 	});
 
 	it('expands wiki tree parents using the relative path under @runtime/wiki/', () => {
-		shellStore.setWebPanelBrowseSource('wiki');
+		shellStore.setWorkspacePanelBrowseSource('wiki');
 		shellStore.openFilePreviewForActive('@runtime/wiki/topics/setup.md');
 		expect(shellStore.getFileTreeExpanded('wiki')).toEqual({ topics: true });
-		shellStore.clearWebPanelForSession('sess-1');
+		shellStore.clearWorkspacePanelForSession('sess-1');
 	});
 
-	it('records history across browse sources, files, and git diffs', () => {
-		shellStore.setWebPanelBrowseSource('wiki');
-		expect(shellStore.webPanelBrowseOpen).toBe(true);
-		expect(shellStore.webPanelBrowseSource).toBe('wiki');
+	it('keeps per-surface history stacks independent', () => {
+		shellStore.setWorkspacePanelBrowseSource('wiki');
+		shellStore.openFilePreviewForActive('@runtime/wiki/index.md');
+		expect(shellStore.workspacePanelFilePath).toBe('@runtime/wiki/index.md');
 
-		shellStore.setWebPanelBrowseSource('workspace');
-		expect(shellStore.webPanelBrowseSource).toBe('workspace');
-		expect(shellStore.canPanelHistoryBack).toBe(true);
-
+		shellStore.setWorkspacePanelBrowseSource('workspace');
 		shellStore.openFilePreviewForActive('src/app.ts');
-		expect(shellStore.webPanelMode).toBe('file');
+		expect(shellStore.workspacePanelFilePath).toBe('src/app.ts');
 
-		shellStore.setWebPanelBrowseSource('changes');
-		expect(shellStore.webPanelBrowseOpen).toBe(true);
-		expect(shellStore.webPanelBrowseSource).toBe('changes');
+		// Back on workspace returns to workspace browse, not the wiki file.
+		expect(shellStore.panelHistoryBack()).toBe(true);
+		expect(shellStore.contentSurface).toBe('workspace');
+		expect(shellStore.workspacePanelBrowseOpen).toBe(true);
+		expect(shellStore.getSurfaceContent('wiki')).toEqual({
+			mode: 'file',
+			filePath: '@runtime/wiki/index.md'
+		});
 
+		shellStore.setWorkspacePanelBrowseSource('changes');
 		shellStore.openGitDiffForActive('src/app.ts');
-		expect(shellStore.webPanelMode).toBe('git-diff');
-		expect(shellStore.webPanelGitDiffPath).toBe('src/app.ts');
-
-		// Back: changes browse
+		expect(shellStore.workspacePanelMode).toBe('git-diff');
 		expect(shellStore.panelHistoryBack()).toBe(true);
-		expect(shellStore.webPanelBrowseOpen).toBe(true);
-		expect(shellStore.webPanelBrowseSource).toBe('changes');
+		expect(shellStore.workspacePanelBrowseSource).toBe('changes');
+		expect(shellStore.workspacePanelBrowseOpen).toBe(true);
 
-		// Back: file preview
-		expect(shellStore.panelHistoryBack()).toBe(true);
-		expect(shellStore.webPanelFilePath).toBe('src/app.ts');
+		shellStore.clearWorkspacePanelForSession('sess-1');
+	});
 
-		// Back: workspace browse
-		expect(shellStore.panelHistoryBack()).toBe(true);
-		expect(shellStore.webPanelBrowseSource).toBe('workspace');
+	it('soft-hides terminal on Cmd+W without clearing web surface content', () => {
+		shellStore.openFilePreviewForActive('src/app.ts');
+		expect(shellStore.openTerminalPanel()).toBe(true);
+		expect(shellStore.workspacePanelSurface).toBe('terminal');
 
-		// Back: wiki browse
-		expect(shellStore.panelHistoryBack()).toBe(true);
-		expect(shellStore.webPanelBrowseSource).toBe('wiki');
+		shellStore.closeWorkspacePanel();
+		expect(shellStore.terminalPanelOpen).toBe(false);
+		expect(shellStore.getSurfaceContent('workspace')).toEqual({
+			mode: 'file',
+			filePath: 'src/app.ts'
+		});
 
-		// Forward to workspace again
-		expect(shellStore.panelHistoryForward()).toBe(true);
-		expect(shellStore.webPanelBrowseSource).toBe('workspace');
+		shellStore.setWorkspacePanelBrowseSource('workspace');
+		expect(shellStore.workspacePanelOpen).toBe(true);
+		expect(shellStore.workspacePanelFilePath).toBe('src/app.ts');
 
-		shellStore.clearWebPanelForSession('sess-1');
+		shellStore.clearWorkspacePanelForSession('sess-1');
 	});
 });
 
@@ -226,7 +365,7 @@ describe('shellStore terminal panel visibility', () => {
 	beforeEach(() => {
 		vi.stubGlobal('window', { electronAPI: undefined });
 		getActiveSessionId.mockReturnValue('sess-1');
-		shellStore.clearWebPanelForSession('sess-1');
+		shellStore.clearWorkspacePanelForSession('sess-1');
 	});
 
 	afterEach(() => {
@@ -244,6 +383,14 @@ describe('shellStore terminal panel visibility', () => {
 		expect(shellStore.terminalPanelOpen).toBe(false);
 	});
 
+	it('requestTerminalFocus does not double-bump the focus request id', () => {
+		const focusBefore = shellStore.terminalFocusRequestId;
+		shellStore.requestTerminalFocus();
+		expect(shellStore.terminalPanelOpen).toBe(true);
+		expect(shellStore.terminalFocusRequestId).toBe(focusBefore + 1);
+		shellStore.clearWorkspacePanelForSession('sess-1');
+	});
+
 	it('closes the active terminal panel when its shell exits', () => {
 		shellStore.openTerminalPanel();
 
@@ -258,7 +405,7 @@ describe('shellStore lazy page context', () => {
 	beforeEach(() => {
 		vi.stubGlobal('window', { electronAPI: undefined });
 		getActiveSessionId.mockReturnValue('sess-1');
-		shellStore.clearWebPanelForSession('sess-1');
+		shellStore.clearWorkspacePanelForSession('sess-1');
 		shellStore.clearWebContextForActive();
 	});
 

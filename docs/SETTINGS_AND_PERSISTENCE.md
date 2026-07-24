@@ -71,7 +71,7 @@ Examples:
 - shortcuts
 - `app.openAtLogin`
 - Discord gateway enabled/run toggle
-- web panel width
+- workspace panel width
 - intro/setup completion flags
 
 ### 3. Action-based settings operations
@@ -276,7 +276,7 @@ CometMind restart is not required for:
 - shortcuts
 - open-at-login
 - Discord gateway enabled toggle (gateway process sync only)
-- web panel width
+- workspace panel width
 - intro/setup flags
 - MCP connection tests/reconnect/OAuth actions
 

@@ -47,10 +47,10 @@ Cometline is a three-layer system: a desktop chat UI, a local agent runtime, and
 **Owns:**
 - Chat UI rendering (streaming text, reasoning blocks, tool calls)
 - Settings management (providers, models, appearance, shortcuts)
-- Session navigation and workspace switching
+- Session navigation, workspace switching, and the per-session workspace panel
 - Multimodal input (images, file drops)
 - Native desktop features (tray icon, keyboard shortcuts, auto-update)
-- Jobs board, skill draft editor, settings route, mini-window routes, and workspace file preview/editor
+- Jobs board, skill draft editor, settings route, mini-window routes, and the multi-surface workspace panel (wiki, workspace files, Git changes, web, and terminal)
 
 **Must not own:**
 - Tool execution

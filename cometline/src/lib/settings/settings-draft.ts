@@ -48,8 +48,8 @@ export function cloneSettings(settings: ProviderSettings): ProviderSettings {
 			miniWindowLastActiveAt: settings.app?.miniWindowLastActiveAt ?? 0,
 			miniWindowInactivityTimeoutMinutes:
 				settings.app?.miniWindowInactivityTimeoutMinutes ?? 30,
-			webPanelWidth: settings.app?.webPanelWidth ?? 0,
-			webPanelRatio: settings.app?.webPanelRatio ?? 0,
+			workspacePanelWidth: settings.app?.workspacePanelWidth ?? 0,
+			workspacePanelRatio: settings.app?.workspacePanelRatio ?? 0,
 			confirmCloseOnCmdW: settings.app?.confirmCloseOnCmdW ?? true,
 			confirmBeforeDeletingChats: settings.app?.confirmBeforeDeletingChats ?? true,
 			fileSearchSource: settings.app?.fileSearchSource === 'workspace' ? 'workspace' : 'wiki'

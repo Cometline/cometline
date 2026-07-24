@@ -44,7 +44,7 @@ All stores are Svelte 5 `$state`-based singletons exported from `src/lib/stores/
 | `sessionStore` | `session.svelte.ts` | Session list, selection, pending first message |
 | `settingsStore` | `settings.svelte.ts` | Provider settings draft, save orchestration |
 | `modelStore` | `model.svelte.ts` | Flattened model picker options |
-| `shellStore` | `shell.svelte.ts` | Sidebar, settings modal, composer focus |
+| `shellStore` | `shell.svelte.ts` | Sidebar, settings modal, composer focus, session-scoped workspace-panel integration |
 | `runtimeStore` | `runtime.svelte.ts` | Sidecar health, connection status |
 | `memoryToasts` | `memory-toasts.svelte.ts` | Non-chat memory / compaction feedback from `/events` |
 
@@ -171,6 +171,12 @@ Svelte 5 reactivity requires **new object references** for live token rendering.
 | `RuntimeOverlay.svelte` | Blocks UI while sidecar connects |
 | `SubagentMessageRow.svelte` / `SubagentPanel.svelte` | Harness / general subagent progress |
 | `UpdateButton.svelte` | Auto-update affordance |
+
+### Workspace panel
+
+The panel has independent Wiki, Workspace, Changes, Web, and Terminal surfaces per session. The pure transition model is `workspace/workspace-panel-state.ts`; `shellStore` adapts it to reactive session maps, panel history, focus, and Electron visibility.
+
+`WorkspacePanel.svelte` is the toolbar and interaction host. It delegates webview lifecycle and page capture to `WorkspaceWebSurface.svelte`, and editor layers to `WorkspaceFileSurface.svelte`. Before selecting a different file, the shell awaits the active editor's leave guard so cancelling the confirmation leaves both the current path and draft unchanged.
 
 ### ChatView orchestration
 

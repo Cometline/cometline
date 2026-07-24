@@ -53,6 +53,18 @@ The renderer is no longer only the chat route. Current first-class routes are:
 
 Shared shell state lives in `shell.svelte.ts`; route-local state should stay in route components or feature controllers.
 
+## Workspace Panel Pattern
+
+The workspace panel is a session-scoped shell feature, not a route. Keep transition logic in `src/lib/workspace/workspace-panel-state.ts`; it is pure TypeScript and has direct unit tests. `shell.svelte.ts` adapts those transitions to active-session state, focus requests, history, and Electron IPC.
+
+Keep surface-specific DOM and lifecycle code out of `WorkspacePanel.svelte`:
+
+- `WorkspaceWebSurface.svelte` owns Electron `<webview>` events, navigation, and page capture.
+- `WorkspaceFileSurface.svelte` owns mounted wiki/workspace file editors and reports only the active editor state.
+- `TerminalPanel.svelte` owns terminal start/focus behavior.
+
+When an action can replace an open file, call `shellStore.openFilePreviewForActive()` and await its boolean result. A false result means the registered dirty-editor leave guard rejected navigation; callers must keep their own UI open rather than assuming the path changed.
+
 ## Error taxonomy
 
 | Level       | When                             | UI                                                  |

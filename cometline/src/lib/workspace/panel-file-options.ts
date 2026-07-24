@@ -1,6 +1,6 @@
 import {
-	loadWebPanelFileOptions
-} from '$lib/workspace/web-panel-input-options';
+	loadWorkspacePanelFileOptions
+} from '$lib/workspace/workspace-panel-input-options';
 import { normalizeWorkspacePath } from '$lib/workspace/file-index';
 
 const DEFAULT_LIMIT = 8;
@@ -16,5 +16,5 @@ export async function loadPanelFileOptions(
 	const normalizedWorkspace = normalizeWorkspacePath(workspacePath);
 	if (!normalizedWorkspace || normalizedWorkspace === '/') return [];
 
-	return loadWebPanelFileOptions(normalizedWorkspace, trimmed, limit);
+	return loadWorkspacePanelFileOptions(normalizedWorkspace, trimmed, limit);
 }

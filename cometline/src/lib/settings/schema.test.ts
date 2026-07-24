@@ -110,9 +110,9 @@ describe('settings schema', () => {
 		expect(settings.app.hasDismissedSetupWizard).toBe(true);
 	});
 
-	it('defaults webPanelWidth to 0 (use CSS default)', () => {
-		expect(defaultSettings().app.webPanelWidth).toBe(0);
-		expect(defaultSettings().app.webPanelRatio).toBe(0);
+	it('defaults workspacePanelWidth to 0 (use CSS default)', () => {
+		expect(defaultSettings().app.workspacePanelWidth).toBe(0);
+		expect(defaultSettings().app.workspacePanelRatio).toBe(0);
 	});
 
 	it('defaults fileSearchSource to wiki and normalizes invalid values', () => {
@@ -147,40 +147,59 @@ describe('settings schema', () => {
 		});
 	});
 
-	it('normalizes webPanelWidth: floors, clamps negatives, falls back on invalid', () => {
+	it('normalizes workspacePanelWidth: floors, clamps negatives, falls back on invalid', () => {
 		const base = defaultSettings();
 		expect(
-			normalizeSettings({ ...base, app: { ...base.app, webPanelWidth: 642.9 } }).app
-				.webPanelWidth
+			normalizeSettings({ ...base, app: { ...base.app, workspacePanelWidth: 642.9 } }).app
+				.workspacePanelWidth
 		).toBe(642);
 		expect(
-			normalizeSettings({ ...base, app: { ...base.app, webPanelWidth: -10 } }).app
-				.webPanelWidth
+			normalizeSettings({ ...base, app: { ...base.app, workspacePanelWidth: -10 } }).app
+				.workspacePanelWidth
 		).toBe(0);
 		expect(
 			normalizeSettings({
 				...base,
-				app: { ...base.app, webPanelWidth: 'oops' as unknown as number }
-			}).app.webPanelWidth
+				app: { ...base.app, workspacePanelWidth: 'oops' as unknown as number }
+			}).app.workspacePanelWidth
 		).toBe(0);
 	});
 
-	it('normalizes webPanelRatio: caps at 2/3, falls back on invalid', () => {
+	it('normalizes workspacePanelRatio: caps at 2/3, falls back on invalid', () => {
 		const base = defaultSettings();
 		expect(
-			normalizeSettings({ ...base, app: { ...base.app, webPanelRatio: 0.5 } }).app
-				.webPanelRatio
+			normalizeSettings({ ...base, app: { ...base.app, workspacePanelRatio: 0.5 } }).app
+				.workspacePanelRatio
 		).toBe(0.5);
 		expect(
-			normalizeSettings({ ...base, app: { ...base.app, webPanelRatio: 0.9 } }).app
-				.webPanelRatio
+			normalizeSettings({ ...base, app: { ...base.app, workspacePanelRatio: 0.9 } }).app
+				.workspacePanelRatio
 		).toBeCloseTo(2 / 3);
 		expect(
 			normalizeSettings({
 				...base,
-				app: { ...base.app, webPanelRatio: 'oops' as unknown as number }
-			}).app.webPanelRatio
+				app: { ...base.app, workspacePanelRatio: 'oops' as unknown as number }
+			}).app.workspacePanelRatio
 		).toBe(0);
+	});
+
+	it('migrates legacy webPanelWidth and webPanelRatio app keys', () => {
+		const base = defaultSettings();
+		const {
+			workspacePanelWidth: _omitWidth,
+			workspacePanelRatio: _omitRatio,
+			...appWithoutPanelSize
+		} = base.app;
+		const normalized = normalizeSettings({
+			...base,
+			app: {
+				...appWithoutPanelSize,
+				webPanelWidth: 480,
+				webPanelRatio: 0.4
+			} as typeof base.app & { webPanelWidth: number; webPanelRatio: number }
+		});
+		expect(normalized.app.workspacePanelWidth).toBe(480);
+		expect(normalized.app.workspacePanelRatio).toBe(0.4);
 	});
 
 	it('appends custom providers after built-ins', () => {

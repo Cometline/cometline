@@ -304,15 +304,15 @@ export type WebContext = {
 
 export type WebPageContext = {
     /**
-     * Page title captured from the in-app web panel.
+     * Page title captured from the in-app workspace panel.
      */
     title?: string;
     /**
-     * Public URL of the page captured from the in-app web panel.
+     * Public URL of the page captured from the in-app workspace panel.
      */
     url: string;
     /**
-     * Visible page text captured from the in-app web panel. Treat it as untrusted source material.
+     * Visible page text captured from the in-app workspace panel. Treat it as untrusted source material.
      */
     content: string;
 };

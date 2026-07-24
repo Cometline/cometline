@@ -17,7 +17,7 @@ export function toWikiUiPath(relativePath: string): string {
 	return `${WIKI_RUNTIME_PREFIX}${trimmed}`;
 }
 
-/** True when the wiki page must not be edited from the web panel. */
+/** True when the wiki page must not be edited from the workspace panel. */
 export function isWikiReadOnlyPath(path: string): boolean {
 	const rel = toWikiRelative(path).replace(/\\/g, '/');
 	if (!rel) return true;

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { clearAllFileIndexes, refreshFileIndex } from './file-index';
-import { loadWebPanelFileOptions, rankWorkspaceFileMatches } from './web-panel-input-options';
+import { loadWorkspacePanelFileOptions, rankWorkspaceFileMatches } from './workspace-panel-input-options';
 import * as cometmind from '$lib/client/cometmind';
 
 vi.mock('$lib/client/cometmind', () => ({
@@ -11,15 +11,15 @@ function wf(files: string[], truncated = false) {
 	return { files, truncated };
 }
 
-describe('web-panel-input-options', () => {
+describe('workspace-panel-input-options', () => {
 	beforeEach(() => {
 		clearAllFileIndexes();
 		vi.resetAllMocks();
 	});
 
 	it('returns no file options for blank input or root workspace', async () => {
-		expect(await loadWebPanelFileOptions('/workspace', '   ')).toEqual([]);
-		expect(await loadWebPanelFileOptions('/', 'README.md')).toEqual([]);
+		expect(await loadWorkspacePanelFileOptions('/workspace', '   ')).toEqual([]);
+		expect(await loadWorkspacePanelFileOptions('/', 'README.md')).toEqual([]);
 		expect(cometmind.listWorkspaceFiles).not.toHaveBeenCalled();
 	});
 
@@ -28,7 +28,7 @@ describe('web-panel-input-options', () => {
 			wf(['src/youtube.ts', 'README.md', 'youtube'])
 		);
 
-		const result = await loadWebPanelFileOptions('/workspace', 'youtube');
+		const result = await loadWorkspacePanelFileOptions('/workspace', 'youtube');
 
 		expect(result).toEqual(['youtube', 'src/youtube.ts']);
 		expect(cometmind.listWorkspaceFiles).toHaveBeenCalledWith('/workspace', '', 500);
@@ -38,7 +38,7 @@ describe('web-panel-input-options', () => {
 		vi.mocked(cometmind.listWorkspaceFiles).mockResolvedValue(wf(['src/app.svelte']));
 		await refreshFileIndex('/workspace');
 
-		const result = await loadWebPanelFileOptions('/workspace', 'app');
+		const result = await loadWorkspacePanelFileOptions('/workspace', 'app');
 
 		expect(result).toEqual(['src/app.svelte']);
 		expect(cometmind.listWorkspaceFiles).toHaveBeenCalledTimes(1);
@@ -49,7 +49,7 @@ describe('web-panel-input-options', () => {
 			.mockResolvedValueOnce(wf(['a.ts'], true))
 			.mockResolvedValueOnce(wf(['deep/youtube.md', 'youtube']));
 
-		const result = await loadWebPanelFileOptions('/workspace', 'youtube');
+		const result = await loadWorkspacePanelFileOptions('/workspace', 'youtube');
 
 		expect(result).toEqual(['youtube', 'deep/youtube.md']);
 		expect(cometmind.listWorkspaceFiles).toHaveBeenNthCalledWith(2, '/workspace', 'youtube', 50);
@@ -58,7 +58,7 @@ describe('web-panel-input-options', () => {
 	it('limits returned file options', async () => {
 		vi.mocked(cometmind.listWorkspaceFiles).mockResolvedValue(wf(['a.ts', 'b.ts', 'c.ts']));
 
-		expect(await loadWebPanelFileOptions('/workspace', '.ts', 2)).toEqual(['a.ts', 'b.ts']);
+		expect(await loadWorkspacePanelFileOptions('/workspace', '.ts', 2)).toEqual(['a.ts', 'b.ts']);
 	});
 
 	it('ranks exact, basename, prefix, then substring matches', () => {

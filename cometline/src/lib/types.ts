@@ -96,9 +96,11 @@ export type ShortcutAction =
 	| 'focusSearch'
 	| 'previousSession'
 	| 'nextSession'
-	| 'toggleWebPanel'
-	| 'openWebPanel'
+	| 'toggleWorkspacePanel'
+	| 'openWebSearch'
 	| 'openGitPanel'
+	| 'openWikiPanel'
+	| 'openWorkspacePanel'
 	| 'openFileSearch'
 	| 'openTerminal'
 	| 'navigateBack'
@@ -140,12 +142,12 @@ export interface AppSettings {
 	miniWindowLastActiveAt: number;
 	miniWindowInactivityTimeoutMinutes: number;
 	/** Web/file panel width in px. 0 means use the default (50vw). */
-	webPanelWidth: number;
+	workspacePanelWidth: number;
 	/**
 	 * Preferred web/file panel width as a fraction of the content row.
-	 * 0 means unset (derive from webPanelWidth or use the CSS default).
+	 * 0 means unset (derive from workspacePanelWidth or use the CSS default).
 	 */
-	webPanelRatio: number;
+	workspacePanelRatio: number;
 	/** When true, Cmd+W shows a Close confirmation before hiding the main window. */
 	confirmCloseOnCmdW: boolean;
 	/** When true, deleting a chat requires confirmation. */

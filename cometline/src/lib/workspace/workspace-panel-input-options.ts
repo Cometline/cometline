@@ -16,7 +16,7 @@ export function rankWorkspaceFileMatches(files: string[], query: string): string
 	return rankFilePaths(files, trimmed);
 }
 
-export async function loadWebPanelFileOptions(
+export async function loadWorkspacePanelFileOptions(
 	workspacePath: string,
 	query: string,
 	limit = DEFAULT_FILE_OPTION_LIMIT

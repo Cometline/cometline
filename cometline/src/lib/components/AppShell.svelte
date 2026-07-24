@@ -14,8 +14,7 @@
 	import AppToast from './AppToast.svelte';
 	import ConfirmActionModal from './ConfirmActionModal.svelte';
 	import FileSearchModal from './FileSearchModal.svelte';
-	import WebPanel from './WebPanel.svelte';
-	import TerminalPanel from './TerminalPanel.svelte';
+	import WorkspacePanel from './WorkspacePanel.svelte';
 	import Tooltip from './Tooltip.svelte';
 	import { getSession, updateSession } from '$lib/client/cometmind';
 	import { shellStore } from '$lib/stores/shell.svelte';
@@ -31,12 +30,12 @@
 	import { sessionDisplayTitle } from '$lib/sessions/session-title';
 	import { narrowViewportQuery, subscribeNarrowViewport } from '$lib/layout/narrow-viewport';
 	import {
-		clampWebPanelWidth,
-		resolveWebPanelRatio,
+		clampWorkspacePanelWidth,
+		resolveWorkspacePanelRatio,
 		widthFromRatio,
 		widthToRatio
-	} from '$lib/layout/web-panel-width';
-	import { shouldUseWebPanelHistory } from '$lib/navigation/focus-nav';
+	} from '$lib/layout/workspace-panel-width';
+	import { shouldUseWorkspacePanelHistory } from '$lib/navigation/focus-nav';
 	import { matchesShortcut, isReloadShortcut, type ShortcutAction } from '$lib/keyboard-shortcuts';
 	import type { Session } from '$lib/types';
 
@@ -45,7 +44,7 @@
 	let { children }: { children: import('svelte').Snippet } = $props();
 
 	let sidebarRef = $state<{ focusSearch: () => void } | null>(null);
-	let webPanelRef = $state<{ navigateBack: () => void; navigateForward: () => void } | null>(
+	let workspacePanelRef = $state<{ navigateBack: () => void; navigateForward: () => void } | null>(
 		null
 	);
 	let contentRowRef = $state<HTMLDivElement | null>(null);
@@ -156,20 +155,26 @@
 
 	// Single source of truth for what each global shortcut does, so it behaves
 	// identically whether the key arrives via DOM keydown (renderer focused) or
-	// via IPC forwarded from the webview guest (web panel focused).
+	// via IPC forwarded from the webview guest (workspace panel focused).
 	function runShortcutAction(action: ShortcutAction) {
 		switch (action) {
 			case 'toggleSidebar':
 				shellStore.toggleSidebar();
 				return;
-			case 'toggleWebPanel':
-				shellStore.toggleWebPanel();
+			case 'toggleWorkspacePanel':
+				shellStore.toggleWorkspacePanel();
 				return;
-			case 'openWebPanel':
-				shellStore.openWebPanelFromShortcut();
+			case 'openWebSearch':
+				shellStore.openWebSearchPanel();
 				return;
 			case 'openGitPanel':
 				shellStore.openGitChangesPanel();
+				return;
+			case 'openWikiPanel':
+				shellStore.setWorkspacePanelBrowseSource('wiki');
+				return;
+			case 'openWorkspacePanel':
+				shellStore.setWorkspacePanelBrowseSource('workspace');
 				return;
 			case 'openFileSearch':
 				if (shellStore.settingsOpen) return;
@@ -179,15 +184,15 @@
 				shellStore.requestTerminalFocus();
 				return;
 			case 'navigateBack':
-				if (shouldUseWebPanelHistory(shellStore.webPanelOpen)) {
-					webPanelRef?.navigateBack();
+				if (shouldUseWorkspacePanelHistory(shellStore.workspacePanelOpen)) {
+					workspacePanelRef?.navigateBack();
 				} else {
 					navigateSessionHistory('back');
 				}
 				return;
 			case 'navigateForward':
-				if (shouldUseWebPanelHistory(shellStore.webPanelOpen)) {
-					webPanelRef?.navigateForward();
+				if (shouldUseWorkspacePanelHistory(shellStore.workspacePanelOpen)) {
+					workspacePanelRef?.navigateForward();
 				} else {
 					navigateSessionHistory('forward');
 				}
@@ -300,19 +305,29 @@
 				runShortcutAction('toggleSidebar');
 				return;
 			}
-			if (matchesShortcut(event, shortcuts.toggleWebPanel)) {
+			if (matchesShortcut(event, shortcuts.toggleWorkspacePanel)) {
 				event.preventDefault();
-				runShortcutAction('toggleWebPanel');
+				runShortcutAction('toggleWorkspacePanel');
 				return;
 			}
-			if (matchesShortcut(event, shortcuts.openWebPanel)) {
+			if (matchesShortcut(event, shortcuts.openWebSearch)) {
 				event.preventDefault();
-				runShortcutAction('openWebPanel');
+				runShortcutAction('openWebSearch');
 				return;
 			}
 			if (matchesShortcut(event, shortcuts.openGitPanel)) {
 				event.preventDefault();
 				runShortcutAction('openGitPanel');
+				return;
+			}
+			if (matchesShortcut(event, shortcuts.openWikiPanel)) {
+				event.preventDefault();
+				runShortcutAction('openWikiPanel');
+				return;
+			}
+			if (matchesShortcut(event, shortcuts.openWorkspacePanel)) {
+				event.preventDefault();
+				runShortcutAction('openWorkspacePanel');
 				return;
 			}
 			if (matchesShortcut(event, shortcuts.openFileSearch)) {
@@ -390,7 +405,7 @@
 			navigateAdjacentSession(direction);
 		});
 
-		const unsubscribeCloseWebPanel = window.electronAPI?.onCloseWebPanel?.(() => {
+		const unsubscribeCloseWorkspacePanel = window.electronAPI?.onCloseWorkspacePanel?.(() => {
 			shellStore.closeWorkspacePanel();
 		});
 
@@ -406,17 +421,17 @@
 			handleRequestReload();
 		});
 
-		const unsubscribeToggleWebPanel = window.electronAPI?.onToggleWebPanel?.(() => {
+		const unsubscribeToggleWorkspacePanel = window.electronAPI?.onToggleWorkspacePanel?.(() => {
 			if (shellStore.settingsOpen) return;
-			shellStore.toggleWebPanel();
+			shellStore.toggleWorkspacePanel();
 		});
 
-		const unsubscribeOpenWebPanel = window.electronAPI?.onOpenWebPanel?.(() => {
+		const unsubscribeOpenWebSearch = window.electronAPI?.onOpenWebSearch?.(() => {
 			if (shellStore.settingsOpen) return;
-			shellStore.openWebPanelFromShortcut();
+			shellStore.openWebSearchPanel();
 		});
 
-		// Shortcuts forwarded from the webview guest (web panel focused). Run the
+		// Shortcuts forwarded from the webview guest (workspace panel focused). Run the
 		// same effects as the DOM keydown dispatcher above.
 		const unsubscribeShortcutAction = window.electronAPI?.onShortcutAction?.((action) => {
 			runShortcutAction(action);
@@ -447,7 +462,7 @@
 		document.addEventListener('fullscreenchange', onDomFullScreenChange);
 
 		// Keep the preferred ratio applied as the content row changes (window
-		// resize or sidebar open/close animation) so the web panel tracks
+		// resize or sidebar open/close animation) so the workspace panel tracks
 		// proportionally instead of locking to a stale absolute width.
 		function applyPreferredRatioToLayout() {
 			if (!shellStore.workspacePanelOpen || resizing) return;
@@ -470,12 +485,12 @@
 			unsubscribeNarrowViewport();
 			window.removeEventListener('keydown', onKeydown, true);
 			unsubscribeNavigate?.();
-			unsubscribeCloseWebPanel?.();
+			unsubscribeCloseWorkspacePanel?.();
 			unsubscribeCloseInbox?.();
 			unsubscribeRequestCloseWindow?.();
 			unsubscribeRequestReload?.();
-			unsubscribeToggleWebPanel?.();
-			unsubscribeOpenWebPanel?.();
+			unsubscribeToggleWorkspacePanel?.();
+			unsubscribeOpenWebSearch?.();
 			unsubscribeShortcutAction?.();
 			unsubscribeReplayIntro?.();
 			unsubscribeRunSetupWizard?.();
@@ -509,7 +524,7 @@
 		});
 	});
 
-	// Match web-panel ratio updates to the sidebar width animation so the
+	// Match workspace-panel ratio updates to the sidebar width animation so the
 	// panel tracks the content row without a lagged CSS width transition.
 	$effect(() => {
 		void shellStore.sidebarOpen;
@@ -556,41 +571,39 @@
 	}
 	function currentPanelWidth() {
 		const raw = getComputedStyle(document.documentElement)
-			.getPropertyValue('--web-panel-width')
+			.getPropertyValue('--workspace-panel-width')
 			.trim();
 		const px = Number.parseFloat(raw);
 		if (raw.endsWith('px') && Number.isFinite(px)) return px;
 		// Fallback for vw/default: measure the rendered panel inner element.
-		const inner = document.querySelector<HTMLElement>(
-			'.web-panel-inner, .terminal-panel-inner'
-		);
+		const inner = document.querySelector<HTMLElement>('.workspace-panel-inner');
 		if (inner) return inner.getBoundingClientRect().width;
 		return Math.round(window.innerWidth * 0.5);
 	}
 
 	function applyWidthFromPreferredRatio() {
 		const next = widthFromRatio(preferredRatio, contentRowWidth(), panelChrome());
-		document.documentElement.style.setProperty('--web-panel-width', `${next}px`);
+		document.documentElement.style.setProperty('--workspace-panel-width', `${next}px`);
 		return next;
 	}
 
 	function setPanelWidthPx(width: number) {
-		const display = clampWebPanelWidth(width, contentRowWidth(), panelChrome());
-		document.documentElement.style.setProperty('--web-panel-width', `${display}px`);
+		const display = clampWorkspacePanelWidth(width, contentRowWidth(), panelChrome());
+		document.documentElement.style.setProperty('--workspace-panel-width', `${display}px`);
 		return display;
 	}
 
 	// Keep preferredRatio in sync with persisted settings (not chrome changes).
 	$effect(() => {
 		const prefs = {
-			webPanelRatio: settingsStore.settings.app.webPanelRatio,
-			webPanelWidth: settingsStore.settings.app.webPanelWidth
+			workspacePanelRatio: settingsStore.settings.app.workspacePanelRatio,
+			workspacePanelWidth: settingsStore.settings.app.workspacePanelWidth
 		};
-		preferredRatio = resolveWebPanelRatio(prefs, contentRowWidth());
+		preferredRatio = resolveWorkspacePanelRatio(prefs, contentRowWidth());
 		// Migrate legacy absolute-only prefs to an explicit ratio once.
-		if (prefs.webPanelRatio <= 0 && prefs.webPanelWidth > 0) {
+		if (prefs.workspacePanelRatio <= 0 && prefs.workspacePanelWidth > 0) {
 			const width = widthFromRatio(preferredRatio, contentRowWidth(), panelChrome());
-			void settingsStore.saveWebPanelLayout(width, preferredRatio);
+			void settingsStore.saveWorkspacePanelLayout(width, preferredRatio);
 		}
 	});
 
@@ -635,7 +648,7 @@
 		document.body.classList.remove('panel-resizing');
 		const width = currentPanelWidth();
 		preferredRatio = widthToRatio(width, contentRowWidth());
-		void settingsStore.saveWebPanelLayout(width, preferredRatio);
+		void settingsStore.saveWorkspacePanelLayout(width, preferredRatio);
 	}
 
 	function onResizeKeydown(event: KeyboardEvent) {
@@ -647,7 +660,7 @@
 		event.preventDefault();
 		const width = setPanelWidthPx(next);
 		preferredRatio = widthToRatio(width, contentRowWidth());
-		void settingsStore.saveWebPanelLayout(width, preferredRatio);
+		void settingsStore.saveWorkspacePanelLayout(width, preferredRatio);
 	}
 </script>
 
@@ -705,7 +718,7 @@
 				class:resizing
 				role="separator"
 				aria-orientation="vertical"
-				aria-label="Resize web panel"
+				aria-label="Resize workspace panel"
 				tabindex="0"
 				onpointerdown={onResizePointerDown}
 				onpointermove={onResizePointerMove}
@@ -714,8 +727,7 @@
 				onkeydown={onResizeKeydown}
 			></div>
 		{/if}
-		<WebPanel bind:this={webPanelRef} />
-		<TerminalPanel />
+		<WorkspacePanel bind:this={workspacePanelRef} />
 	</div>
 	<SettingsModal />
 	<InboxDrawer
@@ -898,7 +910,7 @@
 		margin: var(--content-panel-inset);
 		margin-left: calc(-1 * var(--content-panel-overlap));
 		overflow: hidden;
-		/* Chat metrics respond to this pane's width when the web panel is open. */
+		/* Chat metrics respond to this pane's width when the workspace panel is open. */
 		container-type: inline-size;
 		container-name: main-pane;
 		transition:
@@ -912,7 +924,7 @@
 		margin: var(--content-panel-inset);
 	}
 
-	/* Keep a slim main strip for the collapsed titlebar when the web panel is wide. */
+	/* Keep a slim main strip for the collapsed titlebar when the workspace panel is wide. */
 	.app-shell.sidebar-collapsed:not(.is-fullscreen) .main {
 		min-width: 72px;
 	}

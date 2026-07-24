@@ -98,7 +98,7 @@ export function initializeRuntime() {
 	let relaunchForUpdate = false;
 	let shortcutCaptureActive = false;
 	let sessionNavigationSuspended = false;
-	let webPanelOpen = false;
+	let workspacePanelOpen = false;
 	let inboxOpen = false;
 	let windows: Windows | null = null;
 
@@ -124,9 +124,9 @@ export function initializeRuntime() {
 		setSessionNavigationSuspended: (suspended) => {
 			sessionNavigationSuspended = suspended;
 		},
-		getWebPanelOpen: () => webPanelOpen,
-		setWebPanelOpen: (open) => {
-			webPanelOpen = open;
+		getWorkspacePanelOpen: () => workspacePanelOpen,
+		setWorkspacePanelOpen: (open) => {
+			workspacePanelOpen = open;
 		},
 		getInboxOpen: () => inboxOpen,
 		setInboxOpen: (open) => {

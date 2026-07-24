@@ -5,11 +5,15 @@ import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 const {
 	openFilePreviewForActive,
 	saveFileSearchSource,
-	loadFileSearchOptions
+	setWorkspacePanelBrowseSource,
+	loadFileSearchOptions,
+	browseSource
 } = vi.hoisted(() => ({
 	openFilePreviewForActive: vi.fn(),
 	saveFileSearchSource: vi.fn(async () => {}),
-	loadFileSearchOptions: vi.fn(async () => ['src/app.ts', 'src/lib/foo.ts'])
+	setWorkspacePanelBrowseSource: vi.fn(),
+	loadFileSearchOptions: vi.fn(async () => ['src/app.ts', 'src/lib/foo.ts']),
+	browseSource: { value: 'changes' as 'wiki' | 'workspace' | 'changes' }
 }));
 
 vi.mock('$lib/stores/shell.svelte', () => ({
@@ -17,7 +21,11 @@ vi.mock('$lib/stores/shell.svelte', () => ({
 		get workspacePath() {
 			return '/repo';
 		},
-		openFilePreviewForActive
+		get workspacePanelBrowseSource() {
+			return browseSource.value;
+		},
+		openFilePreviewForActive,
+		setWorkspacePanelBrowseSource
 	}
 }));
 
@@ -44,9 +52,11 @@ const showModal = vi.fn(function (this: HTMLDialogElement) {
 
 describe('FileSearchModal', () => {
 	beforeEach(() => {
+		browseSource.value = 'changes';
 		showModal.mockClear();
 		openFilePreviewForActive.mockClear();
 		saveFileSearchSource.mockClear();
+		setWorkspacePanelBrowseSource.mockClear();
 		loadFileSearchOptions.mockClear();
 		loadFileSearchOptions.mockResolvedValue(['src/app.ts', 'src/lib/foo.ts']);
 		Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
@@ -74,7 +84,7 @@ describe('FileSearchModal', () => {
 		}
 	});
 
-	it('loads results and opens the selected file in the web panel', async () => {
+	it('loads results and opens the selected file in the workspace panel', async () => {
 		const onClose = vi.fn(() => {});
 		render(FileSearchModal, { open: true, onClose });
 
@@ -88,10 +98,42 @@ describe('FileSearchModal', () => {
 		expect(onClose).toHaveBeenCalledOnce();
 	});
 
-	it('persists the wiki/workspace toggle preference', async () => {
+	it('scrolls the active result into view on arrow navigation', async () => {
+		const scrollIntoView = vi.fn();
+		HTMLElement.prototype.scrollIntoView = scrollIntoView;
+
+		render(FileSearchModal, { open: true, onClose: () => {} });
+		await waitFor(() => {
+			expect(screen.getByRole('button', { name: /foo\.ts/ })).toBeTruthy();
+		});
+
+		await fireEvent.keyDown(window, { key: 'ArrowDown' });
+		await waitFor(() => {
+			expect(scrollIntoView).toHaveBeenCalled();
+		});
+		expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest' });
+	});
+
+	it('persists the wiki/workspace toggle preference to settings', async () => {
 		render(FileSearchModal, { open: true, onClose: () => {} });
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Wiki' }));
 		expect(saveFileSearchSource).toHaveBeenCalledWith('wiki');
+		expect(setWorkspacePanelBrowseSource).not.toHaveBeenCalled();
+	});
+
+	it('uses settings fileSearchSource for the toggle (not panel browse source)', async () => {
+		browseSource.value = 'wiki';
+		render(FileSearchModal, { open: true, onClose: () => {} });
+
+		await waitFor(() => {
+			expect(loadFileSearchOptions).toHaveBeenCalled();
+		});
+		const lastCall = loadFileSearchOptions.mock.calls.at(-1) as unknown as
+			| [string, ...unknown[]]
+			| undefined;
+		// settings mock defaults to workspace
+		expect(lastCall?.[0]).toBe('workspace');
+		expect(screen.getByRole('button', { name: 'Workspace' }).className).toContain('active');
 	});
 });

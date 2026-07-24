@@ -1,12 +1,14 @@
-export type WebPanelTreeSource = 'wiki' | 'workspace' | 'changes';
+export type WorkspacePanelTreeSource = 'wiki' | 'workspace' | 'changes';
 export type MarkdownFileViewMode = 'preview' | 'source';
 
-const TREE_SOURCE_KEY = 'cometline.webPanelTreeSource';
+const TREE_SOURCE_KEY = 'cometline.workspacePanelTreeSource';
+const LEGACY_TREE_SOURCE_KEY = 'cometline.webPanelTreeSource';
 const MD_VIEW_MODE_KEY = 'cometline.mdFileViewMode';
 
-export function readWebPanelTreeSource(): WebPanelTreeSource {
+export function readWorkspacePanelTreeSource(): WorkspacePanelTreeSource {
 	try {
-		const value = localStorage.getItem(TREE_SOURCE_KEY);
+		const value =
+			localStorage.getItem(TREE_SOURCE_KEY) ?? localStorage.getItem(LEGACY_TREE_SOURCE_KEY);
 		if (value === 'wiki' || value === 'workspace' || value === 'changes') return value;
 	} catch {
 		// ignore
@@ -14,9 +16,10 @@ export function readWebPanelTreeSource(): WebPanelTreeSource {
 	return 'wiki';
 }
 
-export function writeWebPanelTreeSource(source: WebPanelTreeSource): void {
+export function writeWorkspacePanelTreeSource(source: WorkspacePanelTreeSource): void {
 	try {
 		localStorage.setItem(TREE_SOURCE_KEY, source);
+		localStorage.removeItem(LEGACY_TREE_SOURCE_KEY);
 	} catch {
 		// ignore
 	}

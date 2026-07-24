@@ -117,7 +117,7 @@
 			const wasCurrent = sessionStore.current?.id === session.id;
 			const before = sessionsSnapshot();
 			await deleteSession(session.id);
-			shellStore.clearWebPanelForSession(session.id);
+			shellStore.clearWorkspacePanelForSession(session.id);
 			sessionStore.removeSession(session.id);
 			if (wasCurrent) {
 				await activateAfterSessionDeleted(session.id, before);

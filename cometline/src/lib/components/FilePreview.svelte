@@ -24,7 +24,7 @@
 		readMarkdownFileViewMode,
 		writeMarkdownFileViewMode,
 		type MarkdownFileViewMode
-	} from '$lib/workspace/web-panel-prefs';
+	} from '$lib/workspace/workspace-panel-prefs';
 	import { refreshWikiFileIndex } from '$lib/wiki/wiki-file-index';
 	import { isWikiReadOnlyPath, isWikiUiPath, toWikiRelative, toWikiUiPath } from '$lib/wiki/paths';
 	import { wikiStemFromPath } from '$lib/wiki/wikilinks';

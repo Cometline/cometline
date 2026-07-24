@@ -67,9 +67,11 @@ declare global {
 		| 'focusSearch'
 		| 'previousSession'
 		| 'nextSession'
-		| 'toggleWebPanel'
-		| 'openWebPanel'
+		| 'toggleWorkspacePanel'
+		| 'openWebSearch'
 		| 'openGitPanel'
+		| 'openWikiPanel'
+		| 'openWorkspacePanel'
 		| 'openFileSearch'
 		| 'openTerminal'
 		| 'navigateBack'
@@ -110,8 +112,8 @@ declare global {
 		miniWindowSessionId: string;
 		miniWindowLastActiveAt: number;
 		miniWindowInactivityTimeoutMinutes: number;
-		webPanelWidth: number;
-		webPanelRatio: number;
+		workspacePanelWidth: number;
+		workspacePanelRatio: number;
 		confirmCloseOnCmdW: boolean;
 		confirmBeforeDeletingChats: boolean;
 		fileSearchSource: 'wiki' | 'workspace';
@@ -512,15 +514,15 @@ declare global {
 		onUpdateState?: (callback: (state: UpdateState) => void) => () => void;
 		setShortcutCaptureActive?: (active: boolean) => void;
 		setSessionNavigationSuspended?: (suspended: boolean) => void;
-		setWebPanelOpen?: (open: boolean) => void;
+		setWorkspacePanelOpen?: (open: boolean) => void;
 		setInboxOpen?: (open: boolean) => void;
 		confirmCloseWindow?: () => void;
-		onCloseWebPanel?: (callback: () => void) => () => void;
+		onCloseWorkspacePanel?: (callback: () => void) => () => void;
 		onCloseInbox?: (callback: () => void) => () => void;
 		onRequestCloseWindow?: (callback: () => void) => () => void;
 		onRequestReload?: (callback: () => void) => () => void;
-		onToggleWebPanel?: (callback: () => void) => () => void;
-		onOpenWebPanel?: (callback: () => void) => () => void;
+		onToggleWorkspacePanel?: (callback: () => void) => () => void;
+		onOpenWebSearch?: (callback: () => void) => () => void;
 		onNavigateSession?: (callback: (direction: 'prev' | 'next') => void) => () => void;
 		onShortcutAction?: (
 			callback: (action: import('$lib/keyboard-shortcuts').ShortcutAction) => void

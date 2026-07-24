@@ -162,14 +162,20 @@ describe('keyboard-shortcuts', () => {
 		});
 	});
 
-	it('includes openWebPanel default shortcut', () => {
+	it('includes openWebSearch default shortcut', () => {
 		const normalized = normalizeKeyboardShortcuts({});
-		expect(normalized.openWebPanel).toEqual({ command: true, key: 'o' });
+		expect(normalized.openWebSearch).toEqual({ command: true, key: 'o' });
 	});
 
 	it('includes openGitPanel default shortcut', () => {
 		const normalized = normalizeKeyboardShortcuts({});
 		expect(normalized.openGitPanel).toEqual({ command: true, shift: true, key: 'g' });
+	});
+
+	it('includes openWikiPanel and openWorkspacePanel default shortcuts', () => {
+		const normalized = normalizeKeyboardShortcuts({});
+		expect(normalized.openWikiPanel).toEqual({ command: true, key: 'k' });
+		expect(normalized.openWorkspacePanel).toEqual({ command: true, key: 'l' });
 	});
 
 	it('includes openTerminal default shortcut', () => {
@@ -219,11 +225,20 @@ describe('keyboard-shortcuts', () => {
 		});
 	});
 
-	it('migrates macOS Option-produced toggle web panel binding', () => {
+	it('migrates macOS Option-produced toggle workspace panel binding', () => {
 		const normalized = normalizeKeyboardShortcuts({
-			toggleWebPanel: { command: true, alt: true, key: '∫' }
+			toggleWorkspacePanel: { command: true, alt: true, key: '∫' }
 		});
-		expect(normalized.toggleWebPanel).toEqual({ command: true, alt: true, key: 'b' });
+		expect(normalized.toggleWorkspacePanel).toEqual({ command: true, alt: true, key: 'b' });
+	});
+
+	it('migrates legacy toggleWebPanel and openWebPanel action ids', () => {
+		const normalized = normalizeKeyboardShortcuts({
+			toggleWebPanel: { command: true, alt: true, key: 'b' },
+			openWebPanel: { command: true, key: 'o' }
+		} as Parameters<typeof normalizeKeyboardShortcuts>[0]);
+		expect(normalized.toggleWorkspacePanel).toEqual({ command: true, alt: true, key: 'b' });
+		expect(normalized.openWebSearch).toEqual({ command: true, key: 'o' });
 	});
 });
 

@@ -255,15 +255,15 @@ function createSettingsStore() {
 		await save(next, { restartCometMind: false });
 	}
 
-	async function saveWebPanelLayout(width: number, ratio: number) {
+	async function saveWorkspacePanelLayout(width: number, ratio: number) {
 		const nextWidth = Math.max(0, Math.floor(width));
 		const normalized = normalizeSettings({
 			...settings,
-			app: { ...settings.app, webPanelWidth: nextWidth, webPanelRatio: ratio }
+			app: { ...settings.app, workspacePanelWidth: nextWidth, workspacePanelRatio: ratio }
 		});
 		if (
-			settings.app.webPanelWidth === normalized.app.webPanelWidth &&
-			settings.app.webPanelRatio === normalized.app.webPanelRatio
+			settings.app.workspacePanelWidth === normalized.app.workspacePanelWidth &&
+			settings.app.workspacePanelRatio === normalized.app.workspacePanelRatio
 		) {
 			return;
 		}
@@ -284,11 +284,11 @@ function createSettingsStore() {
 		}
 	}
 
-	/** @deprecated Prefer saveWebPanelLayout so the preferred ratio is persisted. */
-	async function saveWebPanelWidth(width: number) {
+	/** @deprecated Prefer saveWorkspacePanelLayout so the preferred ratio is persisted. */
+	async function saveWorkspacePanelWidth(width: number) {
 		const rowWidth = typeof window !== 'undefined' ? window.innerWidth : width * 2;
 		const ratio = rowWidth > 0 ? width / rowWidth : 0;
-		await saveWebPanelLayout(width, ratio);
+		await saveWorkspacePanelLayout(width, ratio);
 	}
 
 	async function saveShortcuts(shortcuts: ProviderSettings['shortcuts']) {
@@ -480,8 +480,8 @@ function createSettingsStore() {
 		saveConfirmCloseOnCmdW,
 		saveConfirmBeforeDeletingChats,
 		saveFileSearchSource,
-		saveWebPanelWidth,
-		saveWebPanelLayout,
+		saveWorkspacePanelWidth,
+		saveWorkspacePanelLayout,
 		setDefaultProvider,
 		updateProvider,
 		addProvider,

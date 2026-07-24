@@ -17,8 +17,8 @@ export interface ShellWindowContext extends RuntimeContext {
 	setShortcutCaptureActive(active: boolean): void;
 	getSessionNavigationSuspended(): boolean;
 	setSessionNavigationSuspended(suspended: boolean): void;
-	getWebPanelOpen(): boolean;
-	setWebPanelOpen(open: boolean): void;
+	getWorkspacePanelOpen(): boolean;
+	setWorkspacePanelOpen(open: boolean): void;
 	getInboxOpen(): boolean;
 	setInboxOpen(open: boolean): void;
 }
