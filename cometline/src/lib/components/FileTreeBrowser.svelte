@@ -3,8 +3,7 @@
 	import { ChevronDown, ChevronRight, Folder, FolderOpen, Loader } from '@lucide/svelte';
 	import { listWikiFiles, listWorkspaceFiles } from '$lib/client/cometmind';
 	import FileTypeIcon from '$lib/components/FileTypeIcon.svelte';
-	import GitChangesBrowser from '$lib/components/GitChangesBrowser.svelte';
-	import { shellStore } from '$lib/stores/shell.svelte';
+	import { shellStore, type FileTreeExpandSource } from '$lib/stores/shell.svelte';
 	import { toWikiUiPath } from '$lib/wiki/paths';
 	import {
 		buildFileTree,
@@ -19,10 +18,12 @@
 	let {
 		workspacePath,
 		onSelectFile,
+		source,
 		filter = $bindable('')
 	}: {
 		workspacePath: string;
 		onSelectFile: (path: string) => void;
+		source: FileTreeExpandSource;
 		filter?: string;
 	} = $props();
 
@@ -34,7 +35,6 @@
 	let loadSeq = 0;
 	let browserEl = $state<HTMLDivElement | null>(null);
 
-	const source = $derived(shellStore.webPanelBrowseSource);
 	const normalizedWorkspace = $derived(normalizeWorkspacePath(workspacePath));
 	const workspaceAvailable = $derived(
 		Boolean(normalizedWorkspace && normalizedWorkspace !== '/')
@@ -43,9 +43,7 @@
 	const visibleRows = $derived(flattenVisibleFileTreeRows(tree, expanded));
 
 	function persistExpanded(next: Record<string, boolean>) {
-		if (source === 'wiki' || source === 'workspace') {
-			shellStore.setFileTreeExpanded(source, next);
-		}
+		shellStore.setFileTreeExpanded(source, next);
 	}
 
 	function setDirExpanded(key: string, nextExpanded: boolean) {
@@ -71,11 +69,9 @@
 
 	function selectRelative(relativePath: string) {
 		// Remember open folders + expand parents of the file we open.
-		if (source === 'wiki' || source === 'workspace') {
-			const next = { ...expanded, ...dirKeysToExpandForPaths([relativePath]) };
-			expanded = next;
-			persistExpanded(next);
-		}
+		const next = { ...expanded, ...dirKeysToExpandForPaths([relativePath]) };
+		expanded = next;
+		persistExpanded(next);
 		if (source === 'wiki') {
 			onSelectFile(toWikiUiPath(relativePath));
 			return;
@@ -92,7 +88,7 @@
 	}
 
 	export function moveSelection(delta: number): boolean {
-		if (source === 'changes' || visibleRows.length === 0) return false;
+		if (visibleRows.length === 0) return false;
 		const currentIndex = selectedKey
 			? visibleRows.findIndex((row) => row.key === selectedKey)
 			: -1;
@@ -108,7 +104,6 @@
 	}
 
 	export function activateSelection(): boolean {
-		if (source === 'changes') return false;
 		const row = visibleRows.find((r) => r.key === selectedKey);
 		if (!row) return false;
 		if (row.kind === 'file') {
@@ -120,8 +115,6 @@
 	}
 
 	export function handleTreeKey(event: KeyboardEvent): boolean {
-		if (source === 'changes') return false;
-
 		switch (event.key) {
 			case 'ArrowDown': {
 				if (!moveSelection(1)) return false;
@@ -169,20 +162,12 @@
 
 	async function loadFiles() {
 		const seq = ++loadSeq;
-		const activeSource = source;
-		if (activeSource === 'changes') {
-			files = [];
-			loading = false;
-			error = null;
-			return;
-		}
 		const query = filter.trim();
 		loading = true;
 		error = null;
 
-		if (activeSource === 'workspace' && !workspaceAvailable) {
+		if (source === 'workspace' && !workspaceAvailable) {
 			files = [];
-			// Keep expansion map in the store; local view is empty until a workspace exists.
 			expanded = {};
 			loading = false;
 			return;
@@ -190,7 +175,7 @@
 
 		try {
 			const result =
-				activeSource === 'wiki'
+				source === 'wiki'
 					? await listWikiFiles(query, LIST_LIMIT)
 					: await listWorkspaceFiles(normalizedWorkspace, query, LIST_LIMIT);
 			if (seq !== loadSeq) return;
@@ -198,19 +183,14 @@
 			if (query) {
 				// Filter mode: expand matches only (do not overwrite the stored map).
 				expanded = dirKeysToExpandForPaths(files);
-			} else if (activeSource === 'wiki' || activeSource === 'workspace') {
-				// Restore folders the user had open (and any open-file parent expand).
-				expanded = { ...shellStore.getFileTreeExpanded(activeSource) };
 			} else {
-				expanded = {};
+				expanded = { ...shellStore.getFileTreeExpanded(source) };
 			}
 		} catch (err) {
 			if (seq !== loadSeq) return;
 			files = [];
-			if (!query && (activeSource === 'wiki' || activeSource === 'workspace')) {
-				expanded = { ...shellStore.getFileTreeExpanded(activeSource) };
-			} else if (!query) {
-				expanded = {};
+			if (!query) {
+				expanded = { ...shellStore.getFileTreeExpanded(source) };
 			}
 			error = err instanceof Error ? err.message : 'Failed to load files';
 		} finally {
@@ -219,15 +199,14 @@
 	}
 
 	$effect(() => {
-		void [source, filter, normalizedWorkspace];
+		void [filter, normalizedWorkspace];
 		void loadFiles();
 	});
 
 	$effect(() => {
 		const rows = visibleRows;
 		void filter;
-		void source;
-		if (source === 'changes' || rows.length === 0) {
+		if (rows.length === 0) {
 			selectedKey = null;
 			return;
 		}
@@ -312,14 +291,10 @@
 	bind:this={browserEl}
 	tabindex="-1"
 	role="region"
-	aria-label="File tree"
+	aria-label={source === 'wiki' ? 'Wiki file tree' : 'Workspace file tree'}
 	onkeydown={(event) => handleTreeKey(event)}
 >
-	{#if source === 'changes'}
-		<div class="file-tree-changes">
-			<GitChangesBrowser workspacePath={normalizedWorkspace} />
-		</div>
-	{:else if source === 'workspace' && !workspaceAvailable}
+	{#if source === 'workspace' && !workspaceAvailable}
 		<div class="file-tree-state">Select a workspace to browse its files.</div>
 	{:else if loading && files.length === 0}
 		<div class="file-tree-state">
@@ -350,20 +325,6 @@
 
 	.file-tree-browser:focus {
 		outline: none;
-	}
-
-	.file-tree-changes {
-		flex: 1;
-		min-height: 0;
-		display: flex;
-		flex-direction: column;
-		overflow: hidden;
-	}
-
-	.file-tree-changes :global(.git-changes),
-	.file-tree-changes :global(.git-diff-view) {
-		flex: 1;
-		min-height: 0;
 	}
 
 	.file-tree-scroll {

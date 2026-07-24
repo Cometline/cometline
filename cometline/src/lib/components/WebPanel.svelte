@@ -6,6 +6,8 @@
 		FileText,
 		FolderTree,
 		GitBranch,
+		Play,
+		Power,
 		RotateCcw,
 		RotateCw,
 		Save,
@@ -14,12 +16,16 @@
 		X
 	} from '@lucide/svelte';
 	import { tick, untrack } from 'svelte';
+	import ConfirmActionModal from '$lib/components/ConfirmActionModal.svelte';
 	import FilePreview from '$lib/components/FilePreview.svelte';
 	import FileTreeBrowser from '$lib/components/FileTreeBrowser.svelte';
+	import GitChangesBrowser from '$lib/components/GitChangesBrowser.svelte';
 	import GitDiffView from '$lib/components/GitDiffView.svelte';
+	import TerminalPanel from '$lib/components/TerminalPanel.svelte';
 	import Tooltip from '$lib/components/Tooltip.svelte';
 	import { sessionStore } from '$lib/stores/session.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
+	import { terminalStore } from '$lib/stores/terminal.svelte';
 	import { isWebPanelUrl, normalizeUserUrl, openLink } from '$lib/open-link';
 	import { openExternalLink } from '$lib/external-link';
 	import { isWikiUiPath } from '$lib/wiki/paths';
@@ -70,67 +76,150 @@
 	let editorState = $state<FileEditorState | null>(null);
 	let displayedFilePath = $state<string | null>(null);
 	let capturingContext = $state(false);
-	let contextMessage = $state('');
 	let pageCaptureRun = 0;
 	let cachedPageContext = $state<CachedPageContext | null>(null);
-	let fileTreeFilter = $state('');
+	let wikiFilter = $state('');
+	let workspaceFilter = $state('');
 	let fileTreeFilterInputEl = $state<HTMLInputElement | null>(null);
 	let satisfiedFilterFocusRequestId = 0;
-	let fileTreeBrowser = $state<{
+	type TreeBrowserHandle = {
 		moveSelection: (delta: number) => boolean;
 		activateSelection: () => boolean;
 		handleTreeKey: (event: KeyboardEvent) => boolean;
-	} | null>(null);
+	};
+	let wikiTreeBrowser = $state<TreeBrowserHandle | null>(null);
+	let workspaceTreeBrowser = $state<TreeBrowserHandle | null>(null);
+	let terminalPanelRef = $state<{ startTerminal: () => Promise<void> } | null>(null);
+	let terminateConfirmOpen = $state(false);
 
-	const panelOpen = $derived(shellStore.webPanelOpen);
+	const panelOpen = $derived(shellStore.workspacePanelOpen);
+	const onTerminalSurface = $derived(shellStore.workspacePanelSurface === 'terminal');
+	const onWebSurface = $derived(shellStore.workspacePanelSurface === 'web');
 	const panelMode = $derived(shellStore.webPanelMode);
 	const panelUrl = $derived(shellStore.webPanelUrl);
 	const panelFilePath = $derived(shellStore.webPanelFilePath);
 	const panelGitDiffPath = $derived(shellStore.webPanelGitDiffPath);
 	const panelSessionKey = $derived(shellStore.webPanelSessionKey);
-	const showWebview = $derived(
-		panelMode === 'url' && Boolean(shellStore.hasWebPanelForSession && panelUrl)
+	const webSurface = $derived(shellStore.webPanelSurface);
+
+	const wikiContent = $derived(shellStore.getSurfaceContent('wiki'));
+	const workspaceContent = $derived(shellStore.getSurfaceContent('workspace'));
+	const changesContent = $derived(shellStore.getSurfaceContent('changes'));
+	const webSearchContent = $derived(shellStore.getSurfaceContent('web-search'));
+	const wikiFilePath = $derived(wikiContent?.mode === 'file' ? wikiContent.filePath : null);
+	const workspaceFilePath = $derived(
+		workspaceContent?.mode === 'file' ? workspaceContent.filePath : null
 	);
+	const changesDiffPath = $derived(
+		changesContent?.mode === 'git-diff' ? changesContent.filePath : null
+	);
+	const webSearchUrl = $derived(webSearchContent?.mode === 'url' ? webSearchContent.url : null);
+	const wikiHasContentDot = $derived(Boolean(wikiContent));
+	const workspaceHasContentDot = $derived(Boolean(workspaceContent));
+	const changesHasContentDot = $derived(Boolean(changesContent));
+	const webSearchHasContentDot = $derived(Boolean(webSearchUrl));
+
+	const showWebview = $derived(Boolean(onWebSurface && webSurface === 'web-search' && webSearchUrl));
 	const showFilePreview = $derived(
-		panelMode === 'file' && Boolean(shellStore.hasWebPanelForSession && displayedFilePath)
+		Boolean(
+			onWebSurface &&
+				(webSurface === 'wiki' || webSurface === 'workspace') &&
+				panelMode === 'file' &&
+				panelFilePath
+		)
 	);
 	const showGitDiff = $derived(
-		panelMode === 'git-diff' && Boolean(shellStore.hasWebPanelForSession && panelGitDiffPath)
+		Boolean(onWebSurface && webSurface === 'changes' && panelMode === 'git-diff' && panelGitDiffPath)
 	);
-	const showFileBrowser = $derived(
-		Boolean(shellStore.hasWebPanelForSession && shellStore.webPanelBrowseOpen)
+	const wikiLayerActive = $derived(onWebSurface && webSurface === 'wiki' && !wikiContent);
+	const workspaceLayerActive = $derived(
+		onWebSurface && webSurface === 'workspace' && !workspaceContent
 	);
-	const browseSource = $derived(shellStore.webPanelBrowseSource);
+	const changesLayerActive = $derived(onWebSurface && webSurface === 'changes' && !changesContent);
+	const wikiFileActive = $derived(onWebSurface && webSurface === 'wiki' && Boolean(wikiFilePath));
+	const workspaceFileActive = $derived(
+		onWebSurface && webSurface === 'workspace' && Boolean(workspaceFilePath)
+	);
+	const changesDiffActive = $derived(
+		onWebSurface && webSurface === 'changes' && Boolean(changesDiffPath)
+	);
+	// Must track terminalPanelOpen (not just surface): soft-hide/exit leave
+	// surface as `terminal` while the slot is closed — otherwise the embedded
+	// TerminalPanel stays "active" and auto-restarts the PTY.
+	const terminalLayerActive = $derived(shellStore.terminalPanelOpen);
 	const terminalAvailable = $derived(Boolean(sessionStore.current));
+	const activeTerminal = $derived(
+		sessionStore.current ? terminalStore.getSnapshot(sessionStore.current.id) : null
+	);
 	const normalizedWorkspacePath = $derived(normalizeWorkspacePath(shellStore.workspacePath));
 	const workspaceAvailable = $derived(
 		Boolean(normalizedWorkspacePath && normalizedWorkspacePath !== '/')
 	);
-	const preferAddressWhileBrowsing = $derived(shellStore.lastWebPanelFocusTarget === 'address');
-	const wikiActive = $derived(
-		showFileBrowser && browseSource === 'wiki' && !preferAddressWhileBrowsing
-	);
-	const workspaceActive = $derived(
-		showFileBrowser && browseSource === 'workspace' && !preferAddressWhileBrowsing
-	);
-	const changesActive = $derived(
-		showFileBrowser && browseSource === 'changes' && !preferAddressWhileBrowsing
-	);
-	const webSearchActive = $derived(preferAddressWhileBrowsing || showWebview);
+	const wikiActive = $derived(onWebSurface && webSurface === 'wiki');
+	const workspaceActive = $derived(onWebSurface && webSurface === 'workspace');
+	const changesActive = $derived(onWebSurface && webSurface === 'changes');
+	const webSearchActive = $derived(onWebSurface && webSurface === 'web-search');
 	const showBrowseFilter = $derived(
-		showFileBrowser &&
-			(browseSource === 'wiki' || browseSource === 'workspace') &&
-			!preferAddressWhileBrowsing
+		onWebSurface &&
+			shellStore.webPanelBrowseOpen &&
+			(webSurface === 'wiki' || webSurface === 'workspace')
 	);
 	const showChangesTitle = $derived(
-		showFileBrowser && browseSource === 'changes' && !preferAddressWhileBrowsing
+		onWebSurface && webSurface === 'changes' && !changesContent
+	);
+	const showTerminalTitle = $derived(onTerminalSurface);
+	const showWebSearchField = $derived(
+		onWebSurface && webSurface === 'web-search' && !showFilePreview && !showGitDiff
+	);
+	const surfaceTitle = $derived.by(() => {
+		if (onTerminalSurface) {
+			return activeTerminal?.status === 'exited' ? 'Terminal exited' : 'Terminal';
+		}
+		if (webSurface === 'wiki') return 'Wiki';
+		if (webSurface === 'workspace') return 'Workspace';
+		if (webSurface === 'changes') return 'Changes';
+		if (webSurface === 'web-search') return 'Web';
+		return '';
+	});
+	const activeTreeBrowser = $derived(
+		webSurface === 'workspace' ? workspaceTreeBrowser : wikiTreeBrowser
 	);
 	const dirty = $derived(Boolean(editorState?.dirty));
 	const saving = $derived(Boolean(editorState?.saving));
-	const toolbarCanGoBack = $derived((showWebview && canGoBack) || shellStore.canPanelHistoryBack);
-	const toolbarCanGoForward = $derived(
-		(showWebview && canGoForward) || shellStore.canPanelHistoryForward
+	const toolbarCanGoBack = $derived(
+		onWebSurface && ((showWebview && canGoBack) || shellStore.canPanelHistoryBack)
 	);
+	const toolbarCanGoForward = $derived(
+		onWebSurface && ((showWebview && canGoForward) || shellStore.canPanelHistoryForward)
+	);
+
+	function syncFilterFromStore() {
+		wikiFilter = shellStore.getFileTreeFilter('wiki');
+		workspaceFilter = shellStore.getFileTreeFilter('workspace');
+	}
+
+	function setActiveBrowseFilter(value: string) {
+		if (webSurface === 'workspace') {
+			workspaceFilter = value;
+			shellStore.setFileTreeFilter('workspace', value);
+			return;
+		}
+		wikiFilter = value;
+		shellStore.setFileTreeFilter('wiki', value);
+	}
+
+	const activeBrowseFilter = $derived(
+		webSurface === 'workspace' ? workspaceFilter : wikiFilter
+	);
+
+	async function confirmTerminateTerminal() {
+		const session = sessionStore.current;
+		if (!session) return;
+		terminateConfirmOpen = false;
+		await terminalStore.terminate(session.id);
+	}
+
+
 
 	function syncAddressFromNavigation() {
 		if (addressEditing) return;
@@ -211,7 +300,7 @@
 		});
 	}
 
-	async function capturePageContext({ announce = false } = {}) {
+	async function capturePageContext() {
 		const el = webviewEl;
 		const capturedSessionKey = panelSessionKey;
 		if (!el || panelMode !== 'url' || !panelUrl || !capturedSessionKey || capturingContext) return;
@@ -231,12 +320,10 @@
 			Date.now() - cached.capturedAt < PAGE_CONTEXT_CACHE_TTL_MS
 		) {
 			addCachedPageContext(cached);
-			if (announce) contextMessage = 'Page context added to the next message.';
 			return;
 		}
 
 		capturingContext = true;
-		if (announce) contextMessage = '';
 		try {
 			const page = await el.executeJavaScript<{
 				title?: string;
@@ -273,12 +360,8 @@
 			};
 			cachedPageContext = context;
 			addCachedPageContext(context);
-			if (announce) contextMessage = 'Page context added to the next message.';
-		} catch (error) {
-			if (announce) {
-				contextMessage =
-					error instanceof Error ? error.message : 'Could not read this page.';
-			}
+		} catch {
+			// Silent: page context is best-effort for send-time resolution.
 		} finally {
 			capturingContext = false;
 		}
@@ -342,10 +425,13 @@
 	}
 
 	function handlePanelMouseDown(event: MouseEvent) {
+		if (onTerminalSurface) {
+			shellStore.setFocusedPane('terminal');
+			return;
+		}
 		shellStore.setFocusedPane('web');
+		if (webSurface === 'wiki' || webSurface === 'workspace' || webSurface === 'changes') return;
 		if (panelMode !== 'url' || event.button !== 0) return;
-		// Browse/file-tree interactions should keep focus in the tree/filter.
-		if (showFileBrowser) return;
 		const target = event.target;
 		if (!(target instanceof HTMLElement)) {
 			shellStore.requestAddressBarFocus();
@@ -370,7 +456,7 @@
 			event.key === 'ArrowLeft' ||
 			event.key === 'ArrowRight'
 		) {
-			if (fileTreeBrowser?.handleTreeKey(event)) return;
+			if (activeTreeBrowser?.handleTreeKey(event)) return;
 		}
 		if (event.key === 'Escape') {
 			event.preventDefault();
@@ -584,9 +670,11 @@
 
 	// Guard leaving a dirty file behind an unsaved-change confirmation. The store
 	// path changes immediately, but FilePreview only reloads the locally-tracked
-	// displayedFilePath, so cancelling keeps the current (dirty) file open.
+	// Confirm before replacing the active surface's open file while dirty.
+	// Cancelling keeps the current (dirty) file path in the store by refusing the swap —
+	// callers should only change content through shell APIs; this guards rapid path churn.
 	$effect(() => {
-		const nextFilePath = panelMode === 'file' ? panelFilePath : null;
+		const nextFilePath = showFilePreview ? panelFilePath : null;
 		if (nextFilePath === displayedFilePath) return;
 		if (displayedFilePath !== null && nextFilePath !== displayedFilePath && dirty) {
 			if (!window.confirm('Discard unsaved changes?')) {
@@ -594,10 +682,11 @@
 			}
 		}
 		displayedFilePath = nextFilePath;
+		if (!showFilePreview) editorState = null;
 	});
 
 	$effect(() => {
-		const filePath = panelMode === 'file' ? panelFilePath : null;
+		const filePath = showFilePreview ? panelFilePath : null;
 		if (!filePath) return;
 		// untrack: setViewingFileContextForActive reads+writes pending contexts; if
 		// that read is tracked here, every write re-runs this effect forever.
@@ -605,11 +694,16 @@
 	});
 
 	$effect(() => {
-		if (showFileBrowser || showGitDiff) {
+		if (webSurface === 'wiki' || webSurface === 'workspace' || webSurface === 'changes' || showGitDiff) {
 			pageTitle = '';
 			canGoBack = false;
 			canGoForward = false;
 		}
+	});
+
+	$effect(() => {
+		void panelSessionKey;
+		syncFilterFromStore();
 	});
 
 	$effect(() => {
@@ -641,21 +735,24 @@
 <div class="web-panel" class:open={panelOpen} aria-hidden={!panelOpen}>
 	<div
 		class="web-panel-inner content-panel-surface"
-		class:pane-focus-active={shellStore.focusedPane === 'web' && panelOpen}
+		class:pane-focus-active={(shellStore.focusedPane === 'web' ||
+			shellStore.focusedPane === 'terminal') &&
+			panelOpen}
 	>
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<header class="web-panel-toolbar" onmousedown={handlePanelMouseDown}>
 			<div class="nav-actions">
 				<Tooltip
-					label={terminalAvailable ? 'Open terminal' : 'Start a chat to use Terminal'}
+					label={terminalAvailable ? 'Terminal' : 'Start a chat to use Terminal'}
 					action={terminalAvailable ? 'openTerminal' : undefined}
 				>
 					<button
 						type="button"
 						class="icon-button"
+						class:active={onTerminalSurface}
 						disabled={!terminalAvailable}
 						onclick={() => shellStore.requestTerminalFocus()}
-						aria-label={terminalAvailable ? 'Open terminal' : 'Start a chat to use Terminal'}
+						aria-label={terminalAvailable ? 'Terminal' : 'Start a chat to use Terminal'}
 					>
 						<SquareTerminal size={16} />
 					</button>
@@ -669,6 +766,9 @@
 						aria-label="Wiki files"
 					>
 						<BookOpen size={16} />
+						{#if wikiHasContentDot}
+							<span class="surface-content-dot" aria-hidden="true"></span>
+						{/if}
 					</button>
 				</Tooltip>
 				<Tooltip
@@ -688,6 +788,9 @@
 							: 'Select a workspace to browse files'}
 					>
 						<FolderTree size={16} />
+						{#if workspaceHasContentDot}
+							<span class="surface-content-dot" aria-hidden="true"></span>
+						{/if}
 					</button>
 				</Tooltip>
 				<Tooltip label="Web search" action="openWebPanel">
@@ -699,6 +802,9 @@
 						aria-label="Web search"
 					>
 						<Search size={16} />
+						{#if webSearchHasContentDot}
+							<span class="surface-content-dot" aria-hidden="true"></span>
+						{/if}
 					</button>
 				</Tooltip>
 				<Tooltip
@@ -718,6 +824,9 @@
 							: 'Select a workspace to see git changes'}
 					>
 						<GitBranch size={16} />
+						{#if changesHasContentDot}
+							<span class="surface-content-dot" aria-hidden="true"></span>
+						{/if}
 					</button>
 				</Tooltip>
 				<Tooltip label="Back" action="navigateBack">
@@ -756,7 +865,7 @@
 						type="button"
 						class="icon-button"
 						disabled={capturingContext}
-						onclick={() => void capturePageContext({ announce: true })}
+						onclick={() => void capturePageContext()}
 						aria-label="Add page to chat context"
 						title="Add page to next message"
 					>
@@ -765,60 +874,97 @@
 				{/if}
 			</div>
 			<div class="url-field">
-				{#if showBrowseFilter}
-					<input
-						use:trackFileTreeFilterInput
-						class="address-input browse-filter-input"
-						type="text"
-						spellcheck="false"
-						autocomplete="off"
-						placeholder={browseSource === 'wiki'
-							? 'Filter wiki files…'
-							: 'Filter workspace files…'}
-						bind:value={fileTreeFilter}
-						onfocus={onFilterFocus}
-						onkeydown={onFilterKeydown}
-						aria-label="Filter files"
-					/>
-				{:else if showChangesTitle}
-					<span class="page-title">Changes</span>
-				{:else if panelMode === 'file' && displayedFilePath}
+				{#if showTerminalTitle}
+					<span class="page-title">{surfaceTitle}</span>
+				{:else if showFilePreview && panelFilePath}
 					<span class="page-title">
-						{displayedFilePath.split(/[/\\]/).pop()}{#if dirty}<span
+						{panelFilePath.split(/[/\\]/).pop()}{#if dirty}<span
 								class="dirty-dot"
 								aria-label="Unsaved changes"
 							>
 								•</span
 							>{/if}
 					</span>
-					<span class="file-path-display" title={displayedFilePath}
-						>{displayedFilePath}</span
-					>
-				{:else if panelMode === 'git-diff' && panelGitDiffPath}
+					<span class="file-path-display" title={panelFilePath}>{panelFilePath}</span>
+				{:else if showGitDiff && panelGitDiffPath}
 					<span class="page-title">Diff</span>
 					<span class="file-path-display" title={panelGitDiffPath}>{panelGitDiffPath}</span>
+				{:else if showChangesTitle}
+					<span class="page-title">{surfaceTitle}</span>
+				{:else if showBrowseFilter}
+					<div class="url-field-row">
+						<span class="page-title surface-title">{surfaceTitle}</span>
+						<input
+							use:trackFileTreeFilterInput
+							class="address-input browse-filter-input"
+							type="text"
+							spellcheck="false"
+							autocomplete="off"
+							placeholder={webSurface === 'wiki'
+								? 'Filter wiki files…'
+								: 'Filter workspace files…'}
+							value={activeBrowseFilter}
+							oninput={(event) =>
+								setActiveBrowseFilter((event.currentTarget as HTMLInputElement).value)}
+							onfocus={onFilterFocus}
+							onkeydown={onFilterKeydown}
+							aria-label="Filter files"
+						/>
+					</div>
+				{:else if showWebSearchField}
+					<div class="url-field-row">
+						<span class="page-title surface-title">{surfaceTitle}</span>
+						<div class="url-field-search">
+							{#if pageTitle}
+								<span class="page-title-sub">{pageTitle}</span>
+							{/if}
+							<input
+								use:trackAddressInput
+								class="address-input"
+								type="text"
+								inputmode="search"
+								spellcheck="false"
+								autocapitalize="off"
+								autocomplete="off"
+								placeholder="Search web or enter URL"
+								bind:value={addressInput}
+								onfocus={onAddressFocus}
+								onblur={onAddressBlur}
+								onkeydown={onAddressKeydown}
+								aria-label="Web panel address"
+							/>
+						</div>
+					</div>
 				{:else}
-					{#if pageTitle}
-						<span class="page-title">{pageTitle}</span>
-					{/if}
-					<input
-						use:trackAddressInput
-						class="address-input"
-						type="text"
-						inputmode="search"
-						spellcheck="false"
-						autocapitalize="off"
-						autocomplete="off"
-						placeholder="Search web or enter URL"
-						bind:value={addressInput}
-						onfocus={onAddressFocus}
-						onblur={onAddressBlur}
-						onkeydown={onAddressKeydown}
-						aria-label="Web panel address"
-					/>
+					<span class="page-title">{surfaceTitle}</span>
 				{/if}
 			</div>
-			{#if panelMode === 'file' && editorState}
+			{#if showTerminalTitle}
+				<div class="file-actions">
+					{#if activeTerminal?.status === 'running'}
+						<button
+							type="button"
+							class="icon-button"
+							onclick={() => (terminateConfirmOpen = true)}
+							aria-label="Terminate terminal"
+							title="Terminate terminal"
+						>
+							<Power size={16} />
+						</button>
+					{:else}
+						<button
+							type="button"
+							class="icon-button"
+							onclick={() => void terminalPanelRef?.startTerminal()}
+							disabled={!terminalAvailable}
+							aria-label="Start terminal"
+							title="Start terminal"
+						>
+							<Play size={16} />
+						</button>
+					{/if}
+				</div>
+			{:else if showFilePreview && editorState}
 				<div class="file-actions">
 					<button
 						type="button"
@@ -851,38 +997,116 @@
 				<X size={16} />
 			</button>
 		</header>
-		{#if contextMessage}
-			<div class="web-panel-context-status" role="status">{contextMessage}</div>
-		{/if}
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div class="web-panel-content" onmousedown={handlePanelMouseDown}>
-			{#if showFilePreview && displayedFilePath}
-				<FilePreview
-					workspacePath={shellStore.workspacePath}
-					filePath={displayedFilePath}
-					onEditorState={(state) => (editorState = state)}
-				/>
-			{:else if showGitDiff && panelGitDiffPath}
-				<GitDiffView
-					workspacePath={shellStore.workspacePath}
-					filePath={panelGitDiffPath}
-					scope="all"
-					onBack={() => shellStore.panelHistoryBack()}
-				/>
-			{:else if showWebview}
-				<!-- Electron webview tag; inert in plain browser dev without Electron. -->
-				<webview bind:this={webviewEl} class="web-panel-view"></webview>
-			{:else if showFileBrowser}
-				<FileTreeBrowser
-					bind:this={fileTreeBrowser}
-					workspacePath={shellStore.workspacePath}
-					bind:filter={fileTreeFilter}
-					onSelectFile={(path) => shellStore.openFilePreviewForActive(path)}
-				/>
+			<div
+				class="panel-layer panel-layer-terminal"
+				class:active={terminalLayerActive}
+				aria-hidden={!terminalLayerActive}
+			>
+				<TerminalPanel bind:this={terminalPanelRef} active={terminalLayerActive} />
+			</div>
+			{#if shellStore.hasWebPanelForSession}
+				<div
+					class="panel-layer"
+					class:active={wikiLayerActive}
+					aria-hidden={!wikiLayerActive}
+				>
+					<FileTreeBrowser
+						bind:this={wikiTreeBrowser}
+						source="wiki"
+						workspacePath={shellStore.workspacePath}
+						filter={wikiFilter}
+						onSelectFile={(path) => shellStore.openFilePreviewForActive(path)}
+					/>
+				</div>
+				<div
+					class="panel-layer"
+					class:active={workspaceLayerActive}
+					aria-hidden={!workspaceLayerActive}
+				>
+					<FileTreeBrowser
+						bind:this={workspaceTreeBrowser}
+						source="workspace"
+						workspacePath={shellStore.workspacePath}
+						filter={workspaceFilter}
+						onSelectFile={(path) => shellStore.openFilePreviewForActive(path)}
+					/>
+				</div>
+				<div
+					class="panel-layer"
+					class:active={changesLayerActive}
+					aria-hidden={!changesLayerActive}
+				>
+					<GitChangesBrowser workspacePath={normalizedWorkspacePath} />
+				</div>
+				{#if wikiFilePath}
+					<div
+						class="panel-layer panel-layer-content"
+						class:active={wikiFileActive}
+						aria-hidden={!wikiFileActive}
+					>
+						<FilePreview
+							workspacePath={shellStore.workspacePath}
+							filePath={wikiFilePath}
+							onEditorState={(state) => {
+								if (wikiFileActive) editorState = state;
+							}}
+						/>
+					</div>
+				{/if}
+				{#if workspaceFilePath}
+					<div
+						class="panel-layer panel-layer-content"
+						class:active={workspaceFileActive}
+						aria-hidden={!workspaceFileActive}
+					>
+						<FilePreview
+							workspacePath={shellStore.workspacePath}
+							filePath={workspaceFilePath}
+							onEditorState={(state) => {
+								if (workspaceFileActive) editorState = state;
+							}}
+						/>
+					</div>
+				{/if}
+				{#if changesDiffPath}
+					<div
+						class="panel-layer panel-layer-content"
+						class:active={changesDiffActive}
+						aria-hidden={!changesDiffActive}
+					>
+						<GitDiffView
+							workspacePath={shellStore.workspacePath}
+							filePath={changesDiffPath}
+							scope="all"
+							onBack={() => shellStore.panelHistoryBack()}
+						/>
+					</div>
+				{/if}
+				{#if webSearchUrl}
+					<div
+						class="panel-layer panel-layer-content"
+						class:active={showWebview}
+						aria-hidden={!showWebview}
+					>
+						<!-- Electron webview tag; inert in plain browser dev without Electron. -->
+						<webview bind:this={webviewEl} class="web-panel-view"></webview>
+					</div>
+				{/if}
 			{/if}
 		</div>
 	</div>
 </div>
+
+<ConfirmActionModal
+	open={terminateConfirmOpen}
+	title="Terminate terminal?"
+	description="This will stop the shell and every program started from it, including tmux, development servers, and SSH connections. This cannot be undone."
+	confirmLabel="Terminate terminal"
+	onCancel={() => (terminateConfirmOpen = false)}
+	onConfirm={() => void confirmTerminateTerminal()}
+/>
 
 <style>
 	.web-panel {
@@ -930,14 +1154,6 @@
 		background: rgba(250, 250, 249, 0.95);
 	}
 
-	.web-panel-context-status {
-		padding: 6px 12px;
-		border-bottom: 1px solid var(--border-soft);
-		background: rgba(239, 246, 255, 0.78);
-		color: #1d4ed8;
-		font-size: 11px;
-	}
-
 	.nav-actions {
 		display: flex;
 		align-items: center;
@@ -953,6 +1169,7 @@
 	}
 
 	.icon-button {
+		position: relative;
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
@@ -979,14 +1196,42 @@
 		cursor: default;
 	}
 
+	.surface-content-dot {
+		position: absolute;
+		top: 3px;
+		right: 3px;
+		width: 6px;
+		height: 6px;
+		border-radius: 999px;
+		background: var(--hero-composer-glow-color, #72c0ff);
+		box-shadow: 0 0 8px var(--hero-composer-glow-soft, rgba(114, 192, 255, 0.24));
+		pointer-events: none;
+	}
+
 	.url-field {
 		position: relative;
 		flex: 1;
 		min-width: 0;
 		display: flex;
 		flex-direction: column;
+		justify-content: center;
 		gap: 1px;
 		padding: 0 4px;
+	}
+
+	.url-field-row {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		min-width: 0;
+	}
+
+	.url-field-search {
+		flex: 1;
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 1px;
 	}
 
 	.page-title {
@@ -998,12 +1243,27 @@
 		white-space: nowrap;
 	}
 
+	.surface-title {
+		flex-shrink: 0;
+		max-width: 7.5rem;
+	}
+
+	.page-title-sub {
+		font-size: 11px;
+		font-weight: 500;
+		color: var(--text-muted);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
 	.dirty-dot {
 		color: var(--accent, #2563eb);
 		font-weight: 700;
 	}
 
 	.address-input {
+		flex: 1;
 		width: 100%;
 		min-width: 0;
 		border: none;
@@ -1047,6 +1307,46 @@
 		min-height: 0;
 		position: relative;
 		background: #fff;
+		overflow: hidden;
+	}
+
+	.panel-layer {
+		position: absolute;
+		inset: 0;
+		display: flex;
+		flex-direction: column;
+		min-height: 0;
+		background: #fff;
+		transform: translateX(100%);
+		opacity: 0;
+		pointer-events: none;
+		visibility: hidden;
+		transition:
+			transform 180ms var(--ease-smooth, ease),
+			opacity 180ms var(--ease-smooth, ease),
+			visibility 180ms;
+		z-index: 1;
+	}
+
+	.panel-layer.active {
+		transform: translateX(0);
+		opacity: 1;
+		pointer-events: auto;
+		visibility: visible;
+		z-index: 2;
+	}
+
+	.panel-layer-content.active,
+	.panel-layer-terminal.active {
+		z-index: 3;
+	}
+
+	.panel-layer :global(.file-tree-browser),
+	.panel-layer :global(.git-changes),
+	.panel-layer :global(.git-diff-view) {
+		flex: 1;
+		min-height: 0;
+		height: 100%;
 	}
 
 	.web-panel-view {
@@ -1072,6 +1372,10 @@
 		}
 
 		.web-panel-inner {
+			transition: none;
+		}
+
+		.panel-layer {
 			transition: none;
 		}
 	}

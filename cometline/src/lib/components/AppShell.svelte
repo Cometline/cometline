@@ -15,7 +15,6 @@
 	import ConfirmActionModal from './ConfirmActionModal.svelte';
 	import FileSearchModal from './FileSearchModal.svelte';
 	import WebPanel from './WebPanel.svelte';
-	import TerminalPanel from './TerminalPanel.svelte';
 	import Tooltip from './Tooltip.svelte';
 	import { getSession, updateSession } from '$lib/client/cometmind';
 	import { shellStore } from '$lib/stores/shell.svelte';
@@ -577,9 +576,7 @@
 		const px = Number.parseFloat(raw);
 		if (raw.endsWith('px') && Number.isFinite(px)) return px;
 		// Fallback for vw/default: measure the rendered panel inner element.
-		const inner = document.querySelector<HTMLElement>(
-			'.web-panel-inner, .terminal-panel-inner'
-		);
+		const inner = document.querySelector<HTMLElement>('.web-panel-inner');
 		if (inner) return inner.getBoundingClientRect().width;
 		return Math.round(window.innerWidth * 0.5);
 	}
@@ -731,7 +728,6 @@
 			></div>
 		{/if}
 		<WebPanel bind:this={webPanelRef} />
-		<TerminalPanel />
 	</div>
 	<SettingsModal />
 	<InboxDrawer
