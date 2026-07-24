@@ -85,6 +85,5 @@ export async function startJobInChat(job: JobResource): Promise<void> {
 		provider_id: selectedModel.providerId
 	});
 	sessionStore.appendSession(session);
-	shellStore.migrateDraftPanel(session.id);
 	await startJobInSession(job, session.id, (payload) => sendViaQueue(session.id, payload));
 }

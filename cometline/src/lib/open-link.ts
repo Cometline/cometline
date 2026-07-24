@@ -13,8 +13,6 @@ export function openLink(rawUrl: string): void {
 			return;
 		}
 		if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
-			// Works on the home route too: with no session yet the panel opens
-			// under a draft key and is migrated onto the real session on first send.
 			if (window.electronAPI?.setWebPanelOpen) {
 				shellStore.openWebPanelForActive(String(rawUrl));
 				return;

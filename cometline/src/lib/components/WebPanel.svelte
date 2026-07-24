@@ -193,10 +193,10 @@
 
 	async function capturePageContext({ announce = false } = {}) {
 		const el = webviewEl;
-		if (!el || panelMode !== 'url' || !panelUrl || capturingContext) return;
+		const capturedSessionKey = panelSessionKey;
+		if (!el || panelMode !== 'url' || !panelUrl || !capturedSessionKey || capturingContext) return;
 		const captureRun = ++pageCaptureRun;
 		const capturedPanelUrl = panelUrl;
-		const capturedSessionKey = panelSessionKey;
 		let currentUrl = panelUrl;
 		try {
 			currentUrl = String(el.getURL() || panelUrl).trim();
@@ -597,7 +597,7 @@
 						class="icon-button"
 						disabled={!terminalAvailable}
 						onclick={() => shellStore.requestTerminalFocus()}
-						aria-label={terminalAvailable ? 'Open terminal' : 'Terminal unavailable in draft'}
+						aria-label={terminalAvailable ? 'Open terminal' : 'Start a chat to use Terminal'}
 					>
 						<SquareTerminal size={16} />
 					</button>

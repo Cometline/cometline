@@ -75,13 +75,6 @@ function toWireWebContext(context: PendingWebContext): WebContext | null {
 	};
 }
 
-/**
- * Sentinel key for the web panel state of a not-yet-created session (the home
- * route / new chat). Lets the panel open before a session exists; on first send
- * the draft panel is migrated onto the real session id via `migrateDraftPanel`.
- */
-const DRAFT_SESSION_KEY = '__draft__';
-
 function createShellStore() {
 	let sidebarOpen = $state(true);
 	let settingsOpen = $state(false);
@@ -133,21 +126,26 @@ function createShellStore() {
 		return getActiveSessionId();
 	}
 
-	/** Resolves the storage key for the active session, or the draft sentinel. */
-	function panelSessionKey(): string {
-		return activeSessionId() ?? DRAFT_SESSION_KEY;
+	/** Active session id used to scope panel state; null when none is open. */
+	function panelSessionKey(): string | null {
+		return activeSessionId();
 	}
 
 	function panelForActiveSession(): SessionWebPanel | null {
-		return webPanelsBySession[panelSessionKey()] ?? null;
+		const key = panelSessionKey();
+		if (!key) return null;
+		return webPanelsBySession[key] ?? null;
 	}
 
 	function activeWorkspacePanelSurface(): WorkspacePanelSurface {
-		return workspacePanelSurfaceBySession[panelSessionKey()] ?? 'web';
+		const key = panelSessionKey();
+		if (!key) return 'web';
+		return workspacePanelSurfaceBySession[key] ?? 'web';
 	}
 
 	function workspacePanelOpenForActiveSession() {
 		const sessionId = panelSessionKey();
+		if (!sessionId) return false;
 		if (activeWorkspacePanelSurface() === 'terminal')
 			return terminalPanelsBySession[sessionId] === true;
 		return Boolean(webPanelsBySession[sessionId]?.visible);
@@ -348,9 +346,10 @@ function createShellStore() {
 			return activeWorkspacePanelSurface();
 		},
 		get terminalPanelOpen() {
+			const key = panelSessionKey();
+			if (!key) return false;
 			return (
-				activeWorkspacePanelSurface() === 'terminal' &&
-				terminalPanelsBySession[panelSessionKey()] === true
+				activeWorkspacePanelSurface() === 'terminal' && terminalPanelsBySession[key] === true
 			);
 		},
 		get webPanelMode(): WebPanelMode | null {
@@ -369,19 +368,17 @@ function createShellStore() {
 			return panel?.mode === 'git-diff' ? panel.filePath : null;
 		},
 		get webPanelBrowseSource(): WebPanelTreeSource {
-			return browseSourceFor(panelSessionKey());
+			const key = panelSessionKey();
+			return key ? browseSourceFor(key) : readWebPanelTreeSource();
 		},
 		get pendingWebContexts(): PendingWebContext[] {
-			return webContextsBySession[panelSessionKey()] ?? [];
+			const key = panelSessionKey();
+			return key ? (webContextsBySession[key] ?? []) : [];
 		},
 		get hasWebPanelForSession() {
 			return panelForActiveSession() !== null;
 		},
-		/**
-		 * Storage key for the active session's panel, or the draft sentinel when
-		 * no session exists yet. Used to scope webview load tracking so the panel
-		 * works on the home route before a session is created.
-		 */
+		/** Storage key for the active session's panel, or null when none is open. */
 		get webPanelSessionKey() {
 			return panelSessionKey();
 		},
@@ -401,10 +398,12 @@ function createShellStore() {
 			return composerFocusRequestId;
 		},
 		get canPanelHistoryBack() {
-			return historyCanGoBack(historyFor(panelSessionKey()));
+			const key = panelSessionKey();
+			return key ? historyCanGoBack(historyFor(key)) : false;
 		},
 		get canPanelHistoryForward() {
-			return historyCanGoForward(historyFor(panelSessionKey()));
+			const key = panelSessionKey();
+			return key ? historyCanGoForward(historyFor(key)) : false;
 		},
 		/** True when the active panel is the empty browse (file tree) state. */
 		get webPanelBrowseOpen() {
@@ -499,6 +498,7 @@ function createShellStore() {
 		},
 		addWebContextForActive(context: WebContext) {
 			const key = panelSessionKey();
+			if (!key) return;
 			const existing = webContextsBySession[key] ?? [];
 			let next = existing;
 			if (context.kind === 'page') {
@@ -517,6 +517,7 @@ function createShellStore() {
 		},
 		setViewingFileContextForActive(source: string, title: string) {
 			const key = panelSessionKey();
+			if (!key) return;
 			const current = webContextsBySession[key] ?? [];
 			const existingViewing = current.find(isViewingFileContext);
 			if (existingViewing?.source === source && (existingViewing.title ?? '') === title) {
@@ -537,6 +538,7 @@ function createShellStore() {
 		},
 		setPendingPageContextForActive(context: Omit<PendingPageContext, 'kind' | 'lazy'>) {
 			const key = panelSessionKey();
+			if (!key) return;
 			const existing = (webContextsBySession[key] ?? []).filter(
 				(item) => !isPendingPageContext(item)
 			);
@@ -555,7 +557,8 @@ function createShellStore() {
 			};
 		},
 		async resolvePendingWebContextsForActive(): Promise<WebContext[]> {
-			const contexts = [...(webContextsBySession[panelSessionKey()] ?? [])];
+			const key = panelSessionKey();
+			const contexts = key ? [...(webContextsBySession[key] ?? [])] : [];
 			const resolved = await Promise.all(
 				contexts.map(async (context) => {
 					if (isPendingPageContext(context)) {
@@ -568,6 +571,7 @@ function createShellStore() {
 		},
 		removeWebContextAt(index: number) {
 			const key = panelSessionKey();
+			if (!key) return;
 			const existing = webContextsBySession[key] ?? [];
 			if (index < 0 || index >= existing.length) return;
 			const next = existing.filter((_, i) => i !== index);
@@ -584,7 +588,7 @@ function createShellStore() {
 		},
 		clearWebContextForActive() {
 			const key = panelSessionKey();
-			if (!(key in webContextsBySession)) return;
+			if (!key || !(key in webContextsBySession)) return;
 			const next = { ...webContextsBySession };
 			delete next[key];
 			webContextsBySession = next;
@@ -650,12 +654,14 @@ function createShellStore() {
 		},
 		openWebPanelEmpty() {
 			const sessionId = panelSessionKey();
+			if (!sessionId) return;
 			openBrowseSurface(sessionId, browseSourceFor(sessionId));
 			this.requestFileTreeFilterFocus();
 		},
 		/** Switch Wiki / Workspace / Changes and record panel history. */
 		setWebPanelBrowseSource(source: WebPanelTreeSource) {
 			const sessionId = panelSessionKey();
+			if (!sessionId) return;
 			const panel = panelForActiveSession();
 			const onBrowse = Boolean(panel?.visible && panel.mode === 'url' && !panel.url);
 			if (onBrowse && browseSourceFor(sessionId) === source) return;
@@ -671,6 +677,7 @@ function createShellStore() {
 		},
 		navigateWebPanel(url: string) {
 			const sessionId = panelSessionKey();
+			if (!sessionId) return;
 			workspacePanelSurfaceBySession = {
 				...workspacePanelSurfaceBySession,
 				[sessionId]: 'web'
@@ -697,6 +704,7 @@ function createShellStore() {
 		},
 		panelHistoryBack() {
 			const sessionId = panelSessionKey();
+			if (!sessionId) return false;
 			const prev = historyFor(sessionId);
 			if (!historyCanGoBack(prev)) return false;
 			const next = historyGoBack(prev);
@@ -708,6 +716,7 @@ function createShellStore() {
 		},
 		panelHistoryForward() {
 			const sessionId = panelSessionKey();
+			if (!sessionId) return false;
 			const prev = historyFor(sessionId);
 			if (!historyCanGoForward(prev)) return false;
 			const next = historyGoForward(prev);
@@ -719,6 +728,7 @@ function createShellStore() {
 		},
 		ensureWebPanelVisible() {
 			const sessionId = panelSessionKey();
+			if (!sessionId) return null;
 			const panel = webPanelsBySession[sessionId];
 			if (!panel) return null;
 			workspacePanelSurfaceBySession = {
@@ -773,6 +783,7 @@ function createShellStore() {
 		},
 		toggleWebPanel() {
 			const sessionId = panelSessionKey();
+			if (!sessionId) return;
 			const panel = webPanelsBySession[sessionId];
 			if (!panel) return;
 			workspacePanelSurfaceBySession = {
@@ -811,6 +822,11 @@ function createShellStore() {
 		},
 		closeWorkspacePanel() {
 			const sessionId = panelSessionKey();
+			if (!sessionId) {
+				this.requestComposerFocus();
+				syncWorkspacePanelOpen(false);
+				return;
+			}
 			if (activeWorkspacePanelSurface() === 'terminal') {
 				terminalPanelsBySession = { ...terminalPanelsBySession, [sessionId]: false };
 			} else {
@@ -854,58 +870,31 @@ function createShellStore() {
 		},
 		/** Read expanded dir keys for Wiki or Workspace tree (session-scoped). */
 		getFileTreeExpanded(source: FileTreeExpandSource): Record<string, boolean> {
-			return fileTreeExpandedFor(panelSessionKey(), source);
+			const key = panelSessionKey();
+			return key ? fileTreeExpandedFor(key, source) : {};
 		},
 		/** Persist expanded dir keys (user toggles / open-to-path). */
 		setFileTreeExpanded(source: FileTreeExpandSource, expanded: Record<string, boolean>) {
-			setFileTreeExpandedForSession(panelSessionKey(), source, expanded);
+			const key = panelSessionKey();
+			if (!key) return;
+			setFileTreeExpandedForSession(key, source, expanded);
 		},
-		/**
-		 * Opens a workspace file in the panel for the active session, falling back
-		 * to the draft sentinel when no session exists yet (home / new chat).
-		 */
+		/** Opens a workspace file in the panel for the active session. */
 		openFilePreviewForActive(filePath: string) {
-			this.openFilePreview(filePath, panelSessionKey());
+			const sessionId = panelSessionKey();
+			if (!sessionId) return;
+			this.openFilePreview(filePath, sessionId);
 		},
 		openGitDiffForActive(filePath: string) {
-			this.openGitDiff(filePath, panelSessionKey());
+			const sessionId = panelSessionKey();
+			if (!sessionId) return;
+			this.openGitDiff(filePath, sessionId);
 		},
-		/**
-		 * Opens a URL in the panel for the active session, falling back to the
-		 * draft sentinel when no session exists yet (home / new chat).
-		 */
+		/** Opens a URL in the panel for the active session. */
 		openWebPanelForActive(url: string) {
-			this.openWebPanel(url, panelSessionKey());
-		},
-		/**
-		 * Moves any draft panel (opened before a session existed) onto the newly
-		 * created session id. Called on first send from the home route.
-		 */
-		migrateDraftPanel(sessionId: string) {
-			const draft = webPanelsBySession[DRAFT_SESSION_KEY];
-			if (!draft) return;
-			const next = { ...webPanelsBySession, [sessionId]: draft };
-			delete next[DRAFT_SESSION_KEY];
-			webPanelsBySession = next;
-			const draftHistory = panelHistoryBySession[DRAFT_SESSION_KEY];
-			if (draftHistory) {
-				const nextHistory = { ...panelHistoryBySession, [sessionId]: draftHistory };
-				delete nextHistory[DRAFT_SESSION_KEY];
-				panelHistoryBySession = nextHistory;
-			}
-		},
-		/** Discards a draft panel without migrating it. */
-		clearDraftPanel() {
-			if (!webPanelsBySession[DRAFT_SESSION_KEY]) return;
-			const next = { ...webPanelsBySession };
-			delete next[DRAFT_SESSION_KEY];
-			webPanelsBySession = next;
-			if (DRAFT_SESSION_KEY in webContextsBySession) {
-				const nextContexts = { ...webContextsBySession };
-				delete nextContexts[DRAFT_SESSION_KEY];
-				webContextsBySession = nextContexts;
-			}
-			clearPanelHistoryForSession(DRAFT_SESSION_KEY);
+			const sessionId = panelSessionKey();
+			if (!sessionId) return;
+			this.openWebPanel(url, sessionId);
 		}
 	};
 }

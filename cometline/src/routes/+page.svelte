@@ -1,85 +1,90 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation';
 	import EmptyChatState from '$lib/components/EmptyChatState.svelte';
 	import Composer from '$lib/components/composer/Composer.svelte';
 	import HeroComposerFrame from '$lib/components/HeroComposerFrame.svelte';
 	import { sessionStore } from '$lib/stores/session.svelte';
-	import { createSession } from '$lib/client/cometmind';
 	import { connectionState } from '$lib/stores/runtime.svelte';
 	import { modelStore } from '$lib/stores/model.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { chatStore } from '$lib/stores/chat.svelte';
 	import { openSettings } from '$lib/actions/open-settings';
+	import { bootstrapHomeSession } from '$lib/actions/bootstrap-home-session';
 	import { FolderOpen } from '@lucide/svelte';
-	import type { ChatTurnPayload } from '$lib/actions/start-chat';
 
-	let bootMessage = $derived(shellStore.bootMessage);
 	let composerRef = $state<{ focus: () => void } | null>(null);
 	let composerFocusRequestId = $derived(shellStore.composerFocusRequestId);
+	let bootMessage = $derived(shellStore.bootMessage);
+	let bootstrapError = $state<string | null>(null);
+	let bootstrapping = $state(false);
 
 	$effect(() => {
 		if (!composerFocusRequestId || shellStore.focusedPane !== 'chat') return;
 		composerRef?.focus();
 	});
 
-	// Entering the home route is a one-shot reset: no reactive inputs, so this
-	// is a lifecycle action, not a reactive effect.
 	onMount(() => {
 		sessionStore.selectSession(null);
 		chatStore.detachActiveSession();
-		shellStore.clearDraftPanel();
 		shellStore.centerComposer();
 		shellStore.resetActiveToDefault();
 		modelStore.selectDefault();
-	});
 
-	async function onSend(payload: ChatTurnPayload | string) {
-		const message = typeof payload === 'string' ? { text: payload } : payload;
-		const selectedModel = modelStore.selected;
-		if (!selectedModel) return;
-		const workspace = shellStore.workspacePath;
-		const session = await createSession({
-			workspace_path: workspace,
-			model_id: selectedModel.modelId,
-			provider_id: selectedModel.providerId
-		});
-		sessionStore.appendSession(session);
-		sessionStore.queuePendingMessage(
-			session.id,
-			message.text,
-			message.images,
-			message.filePaths,
-			message.displayText,
-			message.webContexts
-		);
-		shellStore.migrateDraftPanel(session.id);
-		await goto(`/session/${session.id}`);
-	}
+		let cancelled = false;
+		let attempted = false;
+
+		const tryBootstrap = () => {
+			if (cancelled || attempted || bootstrapping) return;
+			if (connectionState.status !== 'ready') return;
+			const workspace = shellStore.defaultWorkspacePath || shellStore.workspacePath;
+			if (!workspace || workspace === '/') return;
+
+			attempted = true;
+			bootstrapping = true;
+			bootstrapError = null;
+			void bootstrapHomeSession()
+				.then((started) => {
+					if (cancelled) return;
+					if (!started) {
+						attempted = false;
+						bootstrapping = false;
+					}
+				})
+				.catch((err) => {
+					if (cancelled) return;
+					bootstrapping = false;
+					bootstrapError = err instanceof Error ? err.message : 'Failed to start a new chat';
+				});
+		};
+
+		tryBootstrap();
+		const timer = setInterval(tryBootstrap, 150);
+		return () => {
+			cancelled = true;
+			clearInterval(timer);
+		};
+	});
 </script>
 
 <div class="chat-home hero-layout">
 	<div class="empty-region">
 		<EmptyChatState />
-		{#if bootMessage}
+		{#if bootMessage || bootstrapError}
 			<div class="boot-error-wrap">
-				<p class="boot-error">{bootMessage}</p>
-				<button class="set-workspace-button" onclick={openSettings}>
-					<FolderOpen size={14} />
-					Set workspace
-				</button>
+				<p class="boot-error">{bootstrapError || bootMessage}</p>
+				{#if bootMessage}
+					<button class="set-workspace-button" onclick={openSettings}>
+						<FolderOpen size={14} />
+						Set workspace
+					</button>
+				{/if}
 			</div>
 		{/if}
 	</div>
 
 	<div class="composer-wrapper centered">
 		<HeroComposerFrame>
-			<Composer
-				bind:this={composerRef}
-				{onSend}
-				disabled={connectionState.status !== 'ready'}
-				variant="hero"
-			/>
+			<Composer bind:this={composerRef} onSend={() => {}} disabled={true} variant="hero" />
 		</HeroComposerFrame>
 	</div>
 </div>
