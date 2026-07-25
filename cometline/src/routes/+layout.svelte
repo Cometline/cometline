@@ -64,12 +64,18 @@
 			void skillDraftsStore.refresh();
 		}, 30_000);
 		let stopStorageRetentionSync: (() => void) | null = null;
-		const stopJobNotifications = startJobNotificationPoller({
-			getSettings: () => settingsStore.settings.cometmind.jobs.notifications,
-			onNotify: (title, body) => {
-				window.electronAPI?.notifyJob?.({ title, body });
-			}
-		});
+		// Mini/settings are separate BrowserWindows that share this layout. Only the
+		// main window should poll — otherwise each alive window fires the same
+		// desktop notification when a job transitions.
+		const stopJobNotifications =
+			isMiniRoute || isSettingsRoute
+				? () => {}
+				: startJobNotificationPoller({
+						getSettings: () => settingsStore.settings.cometmind.jobs.notifications,
+						onNotify: (title, body) => {
+							window.electronAPI?.notifyJob?.({ title, body });
+						}
+					});
 		const unsubscribeSettingsChanged = window.electronAPI?.onProviderSettingsChanged?.(
 			(settings) => {
 				settingsStore.apply(settings);
