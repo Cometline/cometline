@@ -78,7 +78,7 @@ describe('createConversationController', () => {
 
 		await controller.enqueue('hello');
 
-		expect(stageSpy).toHaveBeenCalledWith('sess-1', 'hello', undefined);
+		expect(stageSpy).toHaveBeenCalledWith('sess-1', 'hello', undefined, undefined);
 		expect(onUserMessageFlight).toHaveBeenCalledWith(
 			'hello',
 			expect.objectContaining({ firstTurn: true, sessionId: 'sess-1' })
@@ -104,7 +104,7 @@ describe('createConversationController', () => {
 
 		await controller.enqueue('hello');
 
-		expect(stageSpy).toHaveBeenCalledWith('sess-1', 'hello', undefined);
+		expect(stageSpy).toHaveBeenCalledWith('sess-1', 'hello', undefined, undefined);
 		expect(revealSpy).toHaveBeenCalledWith('sess-1');
 		expect(send).toHaveBeenCalledWith('sess-1', { text: 'hello' }, { skipUser: true });
 		stageSpy.mockRestore();
@@ -129,7 +129,7 @@ describe('createConversationController', () => {
 			'hello',
 			expect.objectContaining({ firstTurn: true, sessionId: 'sess-1' })
 		);
-		expect(stageSpy).toHaveBeenCalledWith('sess-1', 'hello', undefined);
+		expect(stageSpy).toHaveBeenCalledWith('sess-1', 'hello', undefined, undefined);
 		expect(revealSpy).toHaveBeenCalledWith('sess-1');
 		expect(send).toHaveBeenCalledWith('sess-1', { text: 'hello' }, { skipUser: true });
 		stageSpy.mockRestore();
@@ -207,7 +207,7 @@ describe('createConversationController', () => {
 		await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(2));
 
 		expect(onUserMessageFlight).toHaveBeenCalledTimes(1);
-		expect(stageSpy).toHaveBeenCalledWith('sess-a', 'background hello', undefined);
+		expect(stageSpy).toHaveBeenCalledWith('sess-a', 'background hello', undefined, undefined);
 		expect(revealSpy).toHaveBeenCalledWith('sess-a');
 		expect(send).toHaveBeenCalledWith(
 			'sess-a',
@@ -445,7 +445,7 @@ describe('createConversationController', () => {
 
 		const turn = controller.enqueue('question A');
 		await vi.waitFor(() =>
-			expect(stageSpy).toHaveBeenCalledWith('sess-a', 'question A', undefined)
+			expect(stageSpy).toHaveBeenCalledWith('sess-a', 'question A', undefined, undefined)
 		);
 		await vi.waitFor(() => expect(onUserMessageFlight).toHaveBeenCalled());
 		expect(currentSessionId).toBe('sess-b');

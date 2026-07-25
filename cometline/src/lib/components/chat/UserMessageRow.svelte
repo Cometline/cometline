@@ -43,11 +43,6 @@
 </script>
 
 {#snippet bubbleBody()}
-	{#if item.contexts?.length}
-		<div class="user-contexts" class:text-following={Boolean(item.text) || Boolean(item.images?.length)}>
-			<MessageContextChips contexts={item.contexts} align="end" />
-		</div>
-	{/if}
 	{#if item.images?.length}
 		<div class="user-images" class:text-following={Boolean(item.text)}>
 			{#each item.images as image, imageIndex (`${item.id}-image-${image.id ?? imageIndex}`)}
@@ -72,6 +67,15 @@
 <ThreadRow variant="user" {continuationRow} data-user-item-id={item.id}>
 	<ThreadAvatar variant="gutter" {avatarSrc} {avatarSrcset} />
 	<div class="user-stack">
+		{#if item.contexts?.length}
+			<div
+				class="user-contexts"
+				class:flight-hidden={flightHidden}
+				class:text-following={Boolean(item.text) || Boolean(item.images?.length)}
+			>
+				<MessageContextChips contexts={item.contexts} align="end" />
+			</div>
+		{/if}
 		{#if flightHidden}
 			<!-- Staging placeholder for flight measure / layout; enter motion waits for reveal. -->
 			<div
@@ -114,12 +118,7 @@
 </ThreadRow>
 
 {#if lightbox}
-	<ImageLightbox
-		open
-		src={lightbox.src}
-		alt={lightbox.alt}
-		onClose={() => (lightbox = null)}
-	/>
+	<ImageLightbox open src={lightbox.src} alt={lightbox.alt} onClose={() => (lightbox = null)} />
 {/if}
 
 <style>

@@ -1,10 +1,7 @@
 <script lang="ts">
 	import { FileText, Globe, Terminal } from '@lucide/svelte';
 	import type { MessageContextRef } from '$lib/types';
-	import {
-		messageContextLabel,
-		openMessageContext
-	} from '$lib/chat/message-context';
+	import { messageContextLabel, openMessageContext } from '$lib/chat/message-context';
 
 	let {
 		contexts,
@@ -92,10 +89,13 @@
 
 <style>
 	.message-context-chips {
+		--context-chip-width: 180px;
+
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
 		gap: 6px;
+		width: 100%;
 	}
 
 	.message-context-chips.align-end {
@@ -111,7 +111,11 @@
 		display: flex;
 		align-items: center;
 		gap: 7px;
-		max-width: 100%;
+		flex: 0 0 var(--context-chip-width);
+		width: var(--context-chip-width);
+		min-width: var(--context-chip-width);
+		max-width: var(--context-chip-width);
+		box-sizing: border-box;
 		padding: 7px 9px;
 		border: 1px solid
 			color-mix(in srgb, var(--hero-composer-glow-color, #72c0ff) 20%, var(--border-soft));
@@ -146,7 +150,9 @@
 		display: inline-flex;
 		align-items: center;
 		gap: 7px;
+		flex: 1 1 auto;
 		min-width: 0;
+		max-width: 100%;
 		padding: 0;
 		border: 0;
 		background: transparent;
@@ -154,6 +160,7 @@
 		font: inherit;
 		cursor: pointer;
 		text-align: left;
+		overflow: hidden;
 	}
 
 	.message-context-clear {
@@ -197,5 +204,11 @@
 
 	.message-context-chip-remove:hover {
 		color: var(--text-main);
+	}
+
+	@media (max-width: 420px) {
+		.message-context-chips {
+			--context-chip-width: 150px;
+		}
 	}
 </style>
