@@ -1,5 +1,6 @@
 <script lang="ts">
 	import FilePreview from '$lib/components/FilePreview.svelte';
+	import type { FileRevealRange } from '$lib/workspace/workspace-panel-state';
 
 	type FileEditorState = {
 		dirty: boolean;
@@ -13,6 +14,8 @@
 		workspacePath,
 		wikiFilePath,
 		workspaceFilePath,
+		wikiRevealRange = null,
+		workspaceRevealRange = null,
 		activeSurface,
 		active,
 		onEditorState
@@ -20,6 +23,8 @@
 		workspacePath: string;
 		wikiFilePath: string | null;
 		workspaceFilePath: string | null;
+		wikiRevealRange?: FileRevealRange | null;
+		workspaceRevealRange?: FileRevealRange | null;
 		activeSurface: 'wiki' | 'workspace' | 'changes' | 'web-search';
 		active: boolean;
 		onEditorState: (state: FileEditorState | null) => void;
@@ -44,6 +49,7 @@
 			<FilePreview
 				{workspacePath}
 				filePath={wikiFilePath}
+				revealRange={wikiRevealRange}
 				onEditorState={(state) => (wikiEditorState = state)}
 			/>
 		</div>
@@ -53,6 +59,7 @@
 			<FilePreview
 				{workspacePath}
 				filePath={workspaceFilePath}
+				revealRange={workspaceRevealRange}
 				onEditorState={(state) => (workspaceEditorState = state)}
 			/>
 		</div>

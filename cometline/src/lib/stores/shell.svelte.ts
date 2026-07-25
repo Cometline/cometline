@@ -20,10 +20,12 @@ import {
 } from '$lib/workspace/workspace-panel-prefs';
 import { dirKeysToExpandForPaths } from '$lib/workspace/file-tree';
 import {
+	clearFileReveal,
 	closeWorkspacePanel as closeWorkspacePanelState,
 	openWorkspacePanelFile,
 	replacesActiveFile,
 	type ContentSurface,
+	type FileRevealRange,
 	type SurfaceContent,
 	type SurfaceContentKey,
 	type WorkspacePanelState,
@@ -876,10 +878,20 @@ function createShellStore() {
 			focusedPane = 'web';
 			syncWorkspacePanelOpen(true);
 		},
-		async openFilePreview(filePath: string, sessionId: string) {
+		async openFilePreview(
+			filePath: string,
+			sessionId: string,
+			reveal?: { startLine: number; endLine: number } | null
+		) {
 			const owner = ownerSurfaceForFile(filePath);
 			const current = panelStateFor(sessionId);
-			const nextContent: SurfaceContent = { mode: 'file', filePath };
+			const nextContent: SurfaceContent = {
+				mode: 'file',
+				filePath,
+				...(reveal
+					? { startLine: reveal.startLine, endLine: reveal.endLine }
+					: {})
+			};
 			if (
 				replacesActiveFile(current, owner, nextContent) &&
 				requestWorkspacePanelLeave &&
@@ -890,11 +902,19 @@ function createShellStore() {
 
 			const relative = isWikiUiPath(filePath) ? toWikiRelative(filePath) : filePath;
 			expandFileTreeToRelativePath(sessionId, owner, relative);
-			applyPanelState(sessionId, openWorkspacePanelFile(current, owner, filePath));
+			applyPanelState(sessionId, openWorkspacePanelFile(current, owner, filePath, reveal));
 			recordPanelHistory(sessionId, owner, { kind: 'file', path: filePath });
 			focusedPane = 'web';
 			syncWorkspacePanelOpen(true);
 			return true;
+		},
+		clearFileRevealForActive() {
+			const sessionId = panelSessionKey();
+			if (!sessionId) return;
+			const owner = contentSurfaceFor(sessionId);
+			if (owner !== 'wiki' && owner !== 'workspace') return;
+			const current = panelStateFor(sessionId);
+			applyPanelState(sessionId, clearFileReveal(current, owner));
 		},
 		openGitDiff(filePath: string, sessionId: string) {
 			workspacePanelSurfaceBySession = {
@@ -1179,10 +1199,10 @@ function createShellStore() {
 			setFileTreeFilterForSession(key, source, value);
 		},
 		/** Opens a workspace file in the panel for the active session. */
-		openFilePreviewForActive(filePath: string) {
+		openFilePreviewForActive(filePath: string, reveal?: FileRevealRange | null) {
 			const sessionId = panelSessionKey();
 			if (!sessionId) return Promise.resolve(false);
-			return this.openFilePreview(filePath, sessionId);
+			return this.openFilePreview(filePath, sessionId, reveal);
 		},
 		openGitDiffForActive(filePath: string) {
 			const sessionId = panelSessionKey();

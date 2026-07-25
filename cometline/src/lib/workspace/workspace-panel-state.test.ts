@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+	clearFileReveal,
 	closeWorkspacePanel,
 	createWorkspacePanelState,
 	openWorkspacePanelFile,
@@ -51,5 +52,23 @@ describe('workspace panel state', () => {
 		expect(replacesActiveFile(state, 'wiki', { mode: 'file', filePath: '@runtime/wiki/index.md' })).toBe(
 			true
 		);
+	});
+
+	it('stores and clears one-shot file reveal ranges', () => {
+		let state = openWorkspacePanelFile(
+			createWorkspacePanelState('workspace'),
+			'workspace',
+			'src/app.ts',
+			{ startLine: 2, endLine: 4 }
+		);
+		expect(state.content.workspace).toEqual({
+			mode: 'file',
+			filePath: 'src/app.ts',
+			startLine: 2,
+			endLine: 4
+		});
+
+		state = clearFileReveal(state, 'workspace');
+		expect(state.content.workspace).toEqual({ mode: 'file', filePath: 'src/app.ts' });
 	});
 });

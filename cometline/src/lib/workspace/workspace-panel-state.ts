@@ -2,8 +2,13 @@ export type WorkspacePanelSurface = 'web' | 'terminal';
 export type SurfaceContentKey = 'wiki' | 'workspace' | 'changes' | 'web-search';
 export type ContentSurface = SurfaceContentKey;
 
+export type FileRevealRange = {
+	startLine: number;
+	endLine: number;
+};
+
 export type SurfaceContent =
-	| { mode: 'file'; filePath: string }
+	| { mode: 'file'; filePath: string; startLine?: number; endLine?: number }
 	| { mode: 'git-diff'; filePath: string }
 	| { mode: 'url'; url: string };
 
@@ -37,14 +42,39 @@ export function createWorkspacePanelState(
 export function openWorkspacePanelFile(
 	state: WorkspacePanelState,
 	surface: Extract<SurfaceContentKey, 'wiki' | 'workspace'>,
-	filePath: string
+	filePath: string,
+	reveal?: FileRevealRange | null
 ): WorkspacePanelState {
+	const fileContent: Extract<SurfaceContent, { mode: 'file' }> = {
+		mode: 'file',
+		filePath,
+		...(reveal
+			? { startLine: reveal.startLine, endLine: reveal.endLine }
+			: {})
+	};
 	return {
 		...state,
 		visible: true,
 		surface: 'web',
 		contentSurface: surface,
-		content: { ...state.content, [surface]: { mode: 'file', filePath } }
+		content: { ...state.content, [surface]: fileContent }
+	};
+}
+
+/** Drop one-shot line reveal after the editor has scrolled to it. */
+export function clearFileReveal(
+	state: WorkspacePanelState,
+	surface: Extract<SurfaceContentKey, 'wiki' | 'workspace'>
+): WorkspacePanelState {
+	const content = state.content[surface];
+	if (content?.mode !== 'file') return state;
+	if (content.startLine == null && content.endLine == null) return state;
+	return {
+		...state,
+		content: {
+			...state.content,
+			[surface]: { mode: 'file', filePath: content.filePath }
+		}
 	};
 }
 

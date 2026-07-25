@@ -20,6 +20,7 @@
 		buildFileSnippetContext,
 		type SelectionLineRange
 	} from '$lib/workspace/selection-snippet';
+	import type { FileRevealRange } from '$lib/workspace/workspace-panel-state';
 	import {
 		readMarkdownFileViewMode,
 		writeMarkdownFileViewMode,
@@ -40,10 +41,12 @@
 	let {
 		workspacePath,
 		filePath,
+		revealRange = null,
 		onEditorState
 	}: {
 		workspacePath: string;
 		filePath: string;
+		revealRange?: FileRevealRange | null;
 		onEditorState?: (state: EditorState | null) => void;
 	} = $props();
 
@@ -266,6 +269,14 @@
 	});
 
 	$effect(() => {
+		// Jumping to a line range requires the source editor, not markdown preview.
+		if (revealRange && isMarkdown && viewMode === 'preview') {
+			viewMode = 'source';
+			writeMarkdownFileViewMode('source');
+		}
+	});
+
+	$effect(() => {
 		onEditorState?.(
 			previewKind === 'text' && !loading && !error && !readOnly
 				? {
@@ -381,6 +392,7 @@
 						value={draftContent}
 						{language}
 						readOnly={saving || readOnly}
+						{revealRange}
 						onChange={(value) => {
 							draftContent = value;
 							if (saveError) saveError = null;
@@ -388,6 +400,7 @@
 						onSave={() => {
 							void save();
 						}}
+						onRevealApplied={() => shellStore.clearFileRevealForActive()}
 					/>
 					{#if showBacklinks && !showMarkdownToggle}
 						{@render backlinksSection()}

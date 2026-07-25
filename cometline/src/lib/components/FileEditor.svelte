@@ -1,27 +1,33 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { basicSetup, EditorView } from 'codemirror';
-	import { Compartment, EditorState } from '@codemirror/state';
+	import { Compartment, EditorState, EditorSelection } from '@codemirror/state';
 	import { keymap } from '@codemirror/view';
 	import type { Extension } from '@codemirror/state';
 	import { codemirrorLanguageSupport } from '$lib/workspace/codemirror-language';
+	import type { FileRevealRange } from '$lib/workspace/workspace-panel-state';
 
 	let {
 		value,
 		language,
 		readOnly = false,
+		revealRange = null,
 		onChange,
-		onSave
+		onSave,
+		onRevealApplied
 	}: {
 		value: string;
 		language: string | null;
 		readOnly?: boolean;
+		revealRange?: FileRevealRange | null;
 		onChange?: (value: string) => void;
 		onSave?: () => void;
+		onRevealApplied?: () => void;
 	} = $props();
 
 	let host = $state<HTMLDivElement | null>(null);
 	let editorView = $state<EditorView | null>(null);
+	let lastAppliedRevealKey = $state<string | null>(null);
 
 	/** Selected text + 1-based line range, or null when empty. */
 	export function getSelectionRange(): {
@@ -145,6 +151,28 @@
 		view.dispatch({
 			changes: { from: 0, to: view.state.doc.length, insert: value }
 		});
+	});
+
+	$effect(() => {
+		const view = editorView;
+		const range = revealRange;
+		if (!view || !range) return;
+		const key = `${range.startLine}:${range.endLine}:${value.length}`;
+		if (lastAppliedRevealKey === key) return;
+
+		const doc = view.state.doc;
+		if (doc.lines < 1) return;
+		const startLine = Math.min(Math.max(1, range.startLine), doc.lines);
+		const endLine = Math.min(Math.max(startLine, range.endLine), doc.lines);
+		const from = doc.line(startLine).from;
+		const to = doc.line(endLine).to;
+
+		view.dispatch({
+			selection: EditorSelection.single(from, to),
+			effects: EditorView.scrollIntoView(from, { y: 'center' })
+		});
+		lastAppliedRevealKey = key;
+		onRevealApplied?.();
 	});
 </script>
 

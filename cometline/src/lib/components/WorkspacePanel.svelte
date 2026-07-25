@@ -88,6 +88,18 @@
 	const workspaceFilePath = $derived(
 		workspaceContent?.mode === 'file' ? workspaceContent.filePath : null
 	);
+	const wikiRevealRange = $derived(
+		wikiContent?.mode === 'file' && wikiContent.startLine != null && wikiContent.endLine != null
+			? { startLine: wikiContent.startLine, endLine: wikiContent.endLine }
+			: null
+	);
+	const workspaceRevealRange = $derived(
+		workspaceContent?.mode === 'file' &&
+			workspaceContent.startLine != null &&
+			workspaceContent.endLine != null
+			? { startLine: workspaceContent.startLine, endLine: workspaceContent.endLine }
+			: null
+	);
 	const changesDiffPath = $derived(
 		changesContent?.mode === 'git-diff' ? changesContent.filePath : null
 	);
@@ -803,6 +815,8 @@
 					workspacePath={shellStore.workspacePath}
 					{wikiFilePath}
 					{workspaceFilePath}
+					{wikiRevealRange}
+					{workspaceRevealRange}
 					activeSurface={webSurface}
 					active={onWebSurface}
 					onEditorState={(state) => (editorState = state)}
