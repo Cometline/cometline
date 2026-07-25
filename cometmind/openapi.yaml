@@ -3115,6 +3115,30 @@ components:
           items:
             $ref: '#/components/schemas/TranscriptItem'
 
+    MessageContextRef:
+      type: object
+      additionalProperties: false
+      required: [kind, source]
+      properties:
+        kind:
+          type: string
+          enum: [page, file, terminal]
+          description: Whether the source came from a web page, workspace file preview, or terminal selection.
+        title:
+          type: string
+          maxLength: 500
+          description: Short label for the UI chip.
+        source:
+          type: string
+          maxLength: 4096
+          description: |
+            Page URL or workspace-relative file identifier. File snippets may
+            include a `#Lstart-Lend` line anchor.
+        role:
+          type: string
+          enum: [viewing]
+          description: Path-only "currently viewing" file reference (no body attached).
+
     TranscriptItem:
       type: object
       required: [type]
@@ -3128,6 +3152,13 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ImageAttachment'
+        contexts:
+          type: array
+          description: |
+            Slim UI context chips for a user turn (kind/title/source only; no
+            content bodies). Present when the turn was sent with web_contexts.
+          items:
+            $ref: '#/components/schemas/MessageContextRef'
         tool_name:
           type: string
         tool_input:

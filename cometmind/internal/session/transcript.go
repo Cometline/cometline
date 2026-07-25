@@ -26,8 +26,9 @@ const (
 type TranscriptEntry struct {
 	Kind TranscriptKind
 
-	Text   string         // user / assistant / reasoning body
-	Images []ContentBlock // image attachments (user inline data or assistant media refs)
+	Text     string              // user / assistant / reasoning body
+	Images   []ContentBlock      // image attachments (user inline data or assistant media refs)
+	Contexts []MessageContextRef // user-turn UI context chips (no bodies)
 
 	ToolName    string
 	ToolInput   string // JSON arguments
@@ -86,9 +87,10 @@ func (s *Service) LoadTranscript(ctx context.Context, sessionID string) ([]Trans
 				}
 			}
 			out = append(out, TranscriptEntry{
-				Kind:   TranscriptKindUser,
-				Text:   DisplayTextFromStoredContent(m.Content),
-				Images: images,
+				Kind:     TranscriptKindUser,
+				Text:     DisplayTextFromStoredContent(m.Content),
+				Images:   images,
+				Contexts: ContextsFromStoredContent(m.Content),
 			})
 		case "assistant":
 			blocks, err := unmarshalReasoningContent(m.ReasoningContent)

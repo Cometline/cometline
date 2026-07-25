@@ -42,7 +42,7 @@ type SessionStore interface {
 	LookupGatewaySession(ctx context.Context, platform, userID, channelID, threadID string) (db.GatewaySession, error)
 
 	// Message and workspace helpers used by the gateway.
-	AppendUserMessageContent(ctx context.Context, sessionID string, blocks []ContentBlock, displayText string) (Message, error)
+	AppendUserMessageContent(ctx context.Context, sessionID string, blocks []ContentBlock, displayText string, contexts []MessageContextRef) (Message, error)
 	WorkspacePath(ctx context.Context, workspaceID string) (string, error)
 	ListWorkspaces(ctx context.Context) ([]Workspace, error)
 	EnsureWorkspace(ctx context.Context, absRoot string) (Workspace, error)
@@ -58,7 +58,7 @@ type TranscriptReader interface {
 // MessageAppender is the narrow seam used by the gateway to append
 // user content and set titles without depending on the full *Service.
 type MessageAppender interface {
-	AppendUserMessageContent(ctx context.Context, sessionID string, blocks []ContentBlock, displayText string) (Message, error)
+	AppendUserMessageContent(ctx context.Context, sessionID string, blocks []ContentBlock, displayText string, contexts []MessageContextRef) (Message, error)
 	SetTitleIfEmpty(ctx context.Context, sessionID, title string) error
 }
 

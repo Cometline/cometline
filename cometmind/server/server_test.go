@@ -1250,6 +1250,23 @@ func TestPostMessagePathOnlyFileWebContext(t *testing.T) {
 			t.Fatalf("path/snippet context missing %q: %q", want, text)
 		}
 	}
+
+	transcript, err := svc.LoadTranscript(ctx, sess.ID)
+	if err != nil {
+		t.Fatalf("LoadTranscript() error = %v", err)
+	}
+	if len(transcript) != 1 || transcript[0].Kind != session.TranscriptKindUser {
+		t.Fatalf("transcript = %+v, want one user entry", transcript)
+	}
+	if len(transcript[0].Contexts) != 2 {
+		t.Fatalf("contexts = %#v, want 2 UI refs", transcript[0].Contexts)
+	}
+	if transcript[0].Contexts[0].Role != "viewing" || transcript[0].Contexts[0].Source != "workspace-file:notes.md" {
+		t.Fatalf("first context = %#v", transcript[0].Contexts[0])
+	}
+	if transcript[0].Contexts[1].Source != "workspace-file:notes.md#L2-L3" {
+		t.Fatalf("second context = %#v", transcript[0].Contexts[1])
+	}
 }
 
 func TestPostMessageInlinesExplicitTerminalContext(t *testing.T) {

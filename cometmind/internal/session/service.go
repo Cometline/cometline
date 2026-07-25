@@ -34,9 +34,20 @@ type ContentBlock struct {
 	Alt       string `json:"alt,omitempty"`
 }
 
+// MessageContextRef is a slim UI reference for a web/file/terminal context
+// attached to a user turn. Content bodies are not stored here — they are
+// already inlined into the agent-facing text blocks.
+type MessageContextRef struct {
+	Kind   string `json:"kind"`
+	Title  string `json:"title,omitempty"`
+	Source string `json:"source"`
+	Role   string `json:"role,omitempty"` // "viewing" for path-only file refs
+}
+
 type contentEnvelope struct {
-	Blocks      []ContentBlock `json:"blocks"`
-	DisplayText string         `json:"display_text,omitempty"`
+	Blocks      []ContentBlock      `json:"blocks"`
+	DisplayText string              `json:"display_text,omitempty"`
+	Contexts    []MessageContextRef `json:"contexts,omitempty"`
 }
 
 type errorMessageEnvelope struct {
@@ -613,13 +624,14 @@ func (s *Service) UpdateSessionTitle(ctx context.Context, sessionID, title strin
 
 // AppendUserMessage persists a user turn.
 func (s *Service) AppendUserMessage(ctx context.Context, sessionID, text string) (Message, error) {
-	return s.AppendUserMessageContent(ctx, sessionID, []ContentBlock{{Type: "text", Text: text}}, "")
+	return s.AppendUserMessageContent(ctx, sessionID, []ContentBlock{{Type: "text", Text: text}}, "", nil)
 }
 
 // AppendUserMessageContent persists a user turn with text and optional image blocks.
 // When displayText is set, transcript UIs show it instead of the agent-facing text.
-func (s *Service) AppendUserMessageContent(ctx context.Context, sessionID string, blocks []ContentBlock, displayText string) (Message, error) {
-	content, err := marshalMessageContent(blocks, displayText)
+// Contexts are slim UI refs (no bodies) that survive transcript reload as chips.
+func (s *Service) AppendUserMessageContent(ctx context.Context, sessionID string, blocks []ContentBlock, displayText string, contexts []MessageContextRef) (Message, error) {
+	content, err := marshalMessageContent(blocks, displayText, contexts)
 	if err != nil {
 		return Message{}, err
 	}
@@ -636,20 +648,38 @@ func (s *Service) AppendUserMessageContent(ctx context.Context, sessionID string
 	return messageFromDB(msg), nil
 }
 
-func marshalMessageContent(blocks []ContentBlock, displayText string) (string, error) {
+func marshalMessageContent(blocks []ContentBlock, displayText string, contexts []MessageContextRef) (string, error) {
 	displayText = strings.TrimSpace(displayText)
-	if displayText == "" && len(blocks) == 1 && blocks[0].Type == "text" {
+	if displayText == "" && len(contexts) == 0 && len(blocks) == 1 && blocks[0].Type == "text" {
 		return blocks[0].Text, nil
 	}
 	env := contentEnvelope{Blocks: blocks}
 	if displayText != "" {
 		env.DisplayText = displayText
 	}
+	if len(contexts) > 0 {
+		env.Contexts = contexts
+	}
 	raw, err := json.Marshal(env)
 	if err != nil {
 		return "", err
 	}
 	return contentEnvelopePrefix + string(raw), nil
+}
+
+// ContextsFromStoredContent returns UI context refs persisted on a user message.
+func ContextsFromStoredContent(raw string) []MessageContextRef {
+	if !strings.HasPrefix(raw, contentEnvelopePrefix) {
+		return nil
+	}
+	var env contentEnvelope
+	if err := json.Unmarshal([]byte(strings.TrimPrefix(raw, contentEnvelopePrefix)), &env); err != nil {
+		return nil
+	}
+	if len(env.Contexts) == 0 {
+		return nil
+	}
+	return env.Contexts
 }
 
 // DecodeMessageContent returns content blocks from a persisted message. Plain
@@ -882,7 +912,7 @@ func (s *Service) AppendAssistantMedia(ctx context.Context, sessionID string, im
 			Alt:       strings.TrimSpace(img.Alt),
 		})
 	}
-	content, err := marshalMessageContent(blocks, "")
+	content, err := marshalMessageContent(blocks, "", nil)
 	if err != nil {
 		return Message{}, err
 	}

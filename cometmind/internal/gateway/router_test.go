@@ -253,7 +253,7 @@ func TestHandleClearSlashClearsMappedSessionTranscript(t *testing.T) {
 	if _, err := svc.UpsertGatewaySession(ctx, "discord", "user-1", "chan-1", "", sess.ID, ws.ID); err != nil {
 		t.Fatalf("UpsertGatewaySession() error = %v", err)
 	}
-	if _, err := svc.AppendUserMessageContent(ctx, sess.ID, []session.ContentBlock{{Type: "text", Text: "hello"}}, ""); err != nil {
+	if _, err := svc.AppendUserMessageContent(ctx, sess.ID, []session.ContentBlock{{Type: "text", Text: "hello"}}, "", nil); err != nil {
 		t.Fatalf("AppendUserMessageContent() error = %v", err)
 	}
 	if err := svc.SetTitleIfEmpty(ctx, sess.ID, "hello"); err != nil {

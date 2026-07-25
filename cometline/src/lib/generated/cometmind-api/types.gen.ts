@@ -475,10 +475,37 @@ export type TranscriptResponse = {
     items: Array<TranscriptItem>;
 };
 
+export type MessageContextRef = {
+    /**
+     * Whether the source came from a web page, workspace file preview, or terminal selection.
+     */
+    kind: 'page' | 'file' | 'terminal';
+    /**
+     * Short label for the UI chip.
+     */
+    title?: string;
+    /**
+     * Page URL or workspace-relative file identifier. File snippets may
+     * include a `#Lstart-Lend` line anchor.
+     *
+     */
+    source: string;
+    /**
+     * Path-only "currently viewing" file reference (no body attached).
+     */
+    role?: 'viewing';
+};
+
 export type TranscriptItem = {
     type: 'user' | 'reasoning' | 'assistant' | 'tool' | 'system' | 'memory' | 'error';
     text?: string;
     images?: Array<ImageAttachment>;
+    /**
+     * Slim UI context chips for a user turn (kind/title/source only; no
+     * content bodies). Present when the turn was sent with web_contexts.
+     *
+     */
+    contexts?: Array<MessageContextRef>;
     tool_name?: string;
     /**
      * Opaque JSON tool input.

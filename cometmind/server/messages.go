@@ -83,7 +83,7 @@ func (a *App) handlePostMessage(c *gin.Context) {
 		return
 	}
 
-	blocks, err := contentBlocksFromRequest(req, wsPath)
+	blocks, contexts, err := contentBlocksFromRequest(req, wsPath)
 	if err != nil {
 		writeError(c, http.StatusBadRequest, "bad_request", err.Error())
 		return
@@ -119,7 +119,7 @@ func (a *App) handlePostMessage(c *gin.Context) {
 		}
 	}
 
-	if _, err := a.sessions.AppendUserMessageContent(c.Request.Context(), sess.ID, blocks, strings.TrimSpace(req.DisplayText)); err != nil {
+	if _, err := a.sessions.AppendUserMessageContent(c.Request.Context(), sess.ID, blocks, strings.TrimSpace(req.DisplayText), contexts); err != nil {
 		writeError(c, http.StatusInternalServerError, "internal_error", err.Error())
 		return
 	}
@@ -223,12 +223,12 @@ func userFacingMessageError(raw string) string {
 	return raw
 }
 
-func contentBlocksFromRequest(req postMessageRequest, workspacePath string) ([]session.ContentBlock, error) {
+func contentBlocksFromRequest(req postMessageRequest, workspacePath string) ([]session.ContentBlock, []session.MessageContextRef, error) {
 	if len(req.Images) > maxMessageImages {
-		return nil, fmt.Errorf("at most %d images are allowed", maxMessageImages)
+		return nil, nil, fmt.Errorf("at most %d images are allowed", maxMessageImages)
 	}
 	if len(req.FilePaths) > maxMessageFilePaths {
-		return nil, fmt.Errorf("at most %d file paths are allowed", maxMessageFilePaths)
+		return nil, nil, fmt.Errorf("at most %d file paths are allowed", maxMessageFilePaths)
 	}
 
 	var fileAppend strings.Builder
@@ -291,16 +291,18 @@ func contentBlocksFromRequest(req postMessageRequest, workspacePath string) ([]s
 	}
 	webContexts = append(webContexts, req.WebContexts...)
 	totalWebContextChars := 0
+	uiContexts := make([]session.MessageContextRef, 0, len(webContexts))
 	for _, webContext := range webContexts {
 		totalWebContextChars += len([]rune(webContext.Content))
 		if totalWebContextChars > maxWebContextTotal {
-			return nil, fmt.Errorf("web contexts exceed %d characters in total", maxWebContextTotal)
+			return nil, nil, fmt.Errorf("web contexts exceed %d characters in total", maxWebContextTotal)
 		}
 		contextText, err := formatWebContext(webContext)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		text += contextText
+		uiContexts = append(uiContexts, messageContextRefFromInput(webContext))
 	}
 	if text != "" {
 		blocks = append(blocks, session.ContentBlock{Type: "text", Text: text})
@@ -308,22 +310,36 @@ func contentBlocksFromRequest(req postMessageRequest, workspacePath string) ([]s
 	for i, img := range req.Images {
 		mediaType := strings.ToLower(strings.TrimSpace(img.MediaType))
 		if !supportedImageMediaTypes[mediaType] {
-			return nil, fmt.Errorf("image %d has unsupported media_type", i+1)
+			return nil, nil, fmt.Errorf("image %d has unsupported media_type", i+1)
 		}
 		data := strings.TrimSpace(img.Data)
 		decoded, err := base64.StdEncoding.DecodeString(data)
 		if err != nil {
-			return nil, fmt.Errorf("image %d data must be valid base64", i+1)
+			return nil, nil, fmt.Errorf("image %d data must be valid base64", i+1)
 		}
 		if len(decoded) == 0 {
-			return nil, fmt.Errorf("image %d is empty", i+1)
+			return nil, nil, fmt.Errorf("image %d is empty", i+1)
 		}
 		if len(decoded) > maxMessageImageBytes {
-			return nil, fmt.Errorf("image %d is larger than %d MB", i+1, maxMessageImageBytes/(1024*1024))
+			return nil, nil, fmt.Errorf("image %d is larger than %d MB", i+1, maxMessageImageBytes/(1024*1024))
 		}
 		blocks = append(blocks, session.ContentBlock{Type: "image", MediaType: mediaType, Data: data})
 	}
-	return blocks, nil
+	return blocks, uiContexts, nil
+}
+
+func messageContextRefFromInput(input webContextInput) session.MessageContextRef {
+	kind := strings.ToLower(strings.TrimSpace(input.Kind))
+	source := strings.TrimSpace(input.Source)
+	ref := session.MessageContextRef{
+		Kind:   kind,
+		Title:  strings.TrimSpace(input.Title),
+		Source: source,
+	}
+	if kind == "file" && strings.TrimSpace(input.Content) == "" && !strings.Contains(source, "#L") {
+		ref.Role = "viewing"
+	}
+	return ref
 }
 
 func resolveMessageFilePath(workspacePath, rel string) (string, error) {

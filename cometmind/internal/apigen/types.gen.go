@@ -289,6 +289,42 @@ func (e MemoryReembedJobStatus) Valid() bool {
 	}
 }
 
+// Defines values for MessageContextRefKind.
+const (
+	MessageContextRefKindFile     MessageContextRefKind = "file"
+	MessageContextRefKindPage     MessageContextRefKind = "page"
+	MessageContextRefKindTerminal MessageContextRefKind = "terminal"
+)
+
+// Valid indicates whether the value is a known member of the MessageContextRefKind enum.
+func (e MessageContextRefKind) Valid() bool {
+	switch e {
+	case MessageContextRefKindFile:
+		return true
+	case MessageContextRefKindPage:
+		return true
+	case MessageContextRefKindTerminal:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MessageContextRefRole.
+const (
+	Viewing MessageContextRefRole = "viewing"
+)
+
+// Valid indicates whether the value is a known member of the MessageContextRefRole enum.
+func (e MessageContextRefRole) Valid() bool {
+	switch e {
+	case Viewing:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ModelCatalogLookupEntryInputModalities.
 const (
 	ModelCatalogLookupEntryInputModalitiesAudio ModelCatalogLookupEntryInputModalities = "audio"
@@ -585,19 +621,19 @@ func (e TurnStatusEventPhase) Valid() bool {
 
 // Defines values for WebContextKind.
 const (
-	File     WebContextKind = "file"
-	Page     WebContextKind = "page"
-	Terminal WebContextKind = "terminal"
+	WebContextKindFile     WebContextKind = "file"
+	WebContextKindPage     WebContextKind = "page"
+	WebContextKindTerminal WebContextKind = "terminal"
 )
 
 // Valid indicates whether the value is a known member of the WebContextKind enum.
 func (e WebContextKind) Valid() bool {
 	switch e {
-	case File:
+	case WebContextKindFile:
 		return true
-	case Page:
+	case WebContextKindPage:
 		return true
-	case Terminal:
+	case WebContextKindTerminal:
 		return true
 	default:
 		return false
@@ -1260,6 +1296,28 @@ type MemoryWire struct {
 	Similarity      float32 `json:"similarity"`
 }
 
+// MessageContextRef defines model for MessageContextRef.
+type MessageContextRef struct {
+	// Kind Whether the source came from a web page, workspace file preview, or terminal selection.
+	Kind MessageContextRefKind `json:"kind"`
+
+	// Role Path-only "currently viewing" file reference (no body attached).
+	Role *MessageContextRefRole `json:"role,omitempty"`
+
+	// Source Page URL or workspace-relative file identifier. File snippets may
+	// include a `#Lstart-Lend` line anchor.
+	Source string `json:"source"`
+
+	// Title Short label for the UI chip.
+	Title *string `json:"title,omitempty"`
+}
+
+// MessageContextRefKind Whether the source came from a web page, workspace file preview, or terminal selection.
+type MessageContextRefKind string
+
+// MessageContextRefRole Path-only "currently viewing" file reference (no body attached).
+type MessageContextRefRole string
+
 // ModelCatalogLookupEntry defines model for ModelCatalogLookupEntry.
 type ModelCatalogLookupEntry struct {
 	Context int `json:"context"`
@@ -1633,7 +1691,10 @@ type ToolResultEvent struct {
 
 // TranscriptItem defines model for TranscriptItem.
 type TranscriptItem struct {
-	Images *[]ImageAttachment `json:"images,omitempty"`
+	// Contexts Slim UI context chips for a user turn (kind/title/source only; no
+	// content bodies). Present when the turn was sent with web_contexts.
+	Contexts *[]MessageContextRef `json:"contexts,omitempty"`
+	Images   *[]ImageAttachment   `json:"images,omitempty"`
 
 	// Memories Injected memories surfaced for a memory transcript item.
 	Memories  *[]MemoryWire `json:"memories,omitempty"`

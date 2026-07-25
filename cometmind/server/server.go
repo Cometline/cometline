@@ -326,14 +326,22 @@ type listSessionsResponse struct {
 }
 
 type transcriptItem struct {
-	Type       string              `json:"type"`
-	Text       string              `json:"text,omitempty"`
-	Images     []messageImageInput `json:"images,omitempty"`
-	ToolName   string              `json:"tool_name,omitempty"`
-	ToolInput  any                 `json:"tool_input,omitempty"`
-	ToolOutput string              `json:"tool_output,omitempty"`
-	ToolError  bool                `json:"tool_error,omitempty"`
-	Memories   []transcriptMemory  `json:"memories,omitempty"`
+	Type       string                     `json:"type"`
+	Text       string                     `json:"text,omitempty"`
+	Images     []messageImageInput        `json:"images,omitempty"`
+	Contexts   []transcriptMessageContext `json:"contexts,omitempty"`
+	ToolName   string                     `json:"tool_name,omitempty"`
+	ToolInput  any                        `json:"tool_input,omitempty"`
+	ToolOutput string                     `json:"tool_output,omitempty"`
+	ToolError  bool                       `json:"tool_error,omitempty"`
+	Memories   []transcriptMemory         `json:"memories,omitempty"`
+}
+
+type transcriptMessageContext struct {
+	Kind   string `json:"kind"`
+	Title  string `json:"title,omitempty"`
+	Source string `json:"source"`
+	Role   string `json:"role,omitempty"`
 }
 
 type transcriptMemory struct {
@@ -643,6 +651,14 @@ func transcriptItemFromModel(item session.TranscriptEntry) transcriptItem {
 		out := transcriptItem{Type: "user", Text: item.Text}
 		for _, block := range item.Images {
 			out.Images = append(out.Images, messageImageInput{MediaType: block.MediaType, Data: block.Data})
+		}
+		for _, ctxRef := range item.Contexts {
+			out.Contexts = append(out.Contexts, transcriptMessageContext{
+				Kind:   ctxRef.Kind,
+				Title:  ctxRef.Title,
+				Source: ctxRef.Source,
+				Role:   ctxRef.Role,
+			})
 		}
 		return out
 	case session.TranscriptKindReasoning:

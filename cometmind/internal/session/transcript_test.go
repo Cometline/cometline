@@ -29,7 +29,7 @@ func TestMessageContentBlocksRoundTrip(t *testing.T) {
 		{Type: "image", MediaType: "image/png", Data: "aGVsbG8="},
 	}
 
-	raw, err := marshalMessageContent(blocks, "")
+	raw, err := marshalMessageContent(blocks, "", nil)
 	if err != nil {
 		t.Fatalf("marshalMessageContent() error = %v", err)
 	}
@@ -69,7 +69,7 @@ func TestDecodeMessageContentPlainText(t *testing.T) {
 }
 
 func TestDisplayTextFromStoredContent(t *testing.T) {
-	raw, err := marshalMessageContent([]ContentBlock{{Type: "text", Text: "agent prompt"}}, "/job Fix login")
+	raw, err := marshalMessageContent([]ContentBlock{{Type: "text", Text: "agent prompt"}}, "/job Fix login", nil)
 	if err != nil {
 		t.Fatalf("marshalMessageContent() error = %v", err)
 	}
@@ -78,6 +78,42 @@ func TestDisplayTextFromStoredContent(t *testing.T) {
 	}
 	if got := PlainTextFromContent([]ContentBlock{{Type: "text", Text: "agent prompt"}}); got != "agent prompt" {
 		t.Fatalf("PlainTextFromContent() = %q", got)
+	}
+}
+
+func TestContextsFromStoredContent(t *testing.T) {
+	t.Parallel()
+	contexts := []MessageContextRef{
+		{Kind: "file", Title: "notes.md", Source: "workspace-file:notes.md", Role: "viewing"},
+		{Kind: "file", Title: "notes.md:2-3", Source: "workspace-file:notes.md#L2-L3"},
+		{Kind: "page", Title: "Example", Source: "https://example.com"},
+	}
+	raw, err := marshalMessageContent(
+		[]ContentBlock{{Type: "text", Text: "agent prompt with contexts"}},
+		"look here",
+		contexts,
+	)
+	if err != nil {
+		t.Fatalf("marshalMessageContent() error = %v", err)
+	}
+	if got := DisplayTextFromStoredContent(raw); got != "look here" {
+		t.Fatalf("DisplayTextFromStoredContent() = %q", got)
+	}
+	got := ContextsFromStoredContent(raw)
+	if len(got) != 3 {
+		t.Fatalf("ContextsFromStoredContent() len = %d, want 3", len(got))
+	}
+	if got[0].Role != "viewing" || got[0].Source != "workspace-file:notes.md" {
+		t.Fatalf("first context = %#v", got[0])
+	}
+	if got[1].Source != "workspace-file:notes.md#L2-L3" {
+		t.Fatalf("second context = %#v", got[1])
+	}
+	if got[2].Kind != "page" || got[2].Source != "https://example.com" {
+		t.Fatalf("third context = %#v", got[2])
+	}
+	if ContextsFromStoredContent("plain text") != nil {
+		t.Fatalf("plain text should have no contexts")
 	}
 }
 
