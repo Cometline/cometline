@@ -73,7 +73,7 @@
 				class:flight-hidden={flightHidden}
 				class:text-following={Boolean(item.text) || Boolean(item.images?.length)}
 			>
-				<MessageContextChips contexts={item.contexts} align="end" />
+				<MessageContextChips contexts={item.contexts} align="end" userMessage />
 			</div>
 		{/if}
 		{#if flightHidden}

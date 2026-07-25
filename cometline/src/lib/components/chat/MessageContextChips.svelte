@@ -9,7 +9,8 @@
 		removable = false,
 		onRemove,
 		onClearAll,
-		align = 'start'
+		align = 'start',
+		userMessage = false
 	}: {
 		contexts: MessageContextRef[];
 		/** When true, chips navigate on click. */
@@ -19,6 +20,8 @@
 		onRemove?: (index: number) => void;
 		onClearAll?: () => void;
 		align?: 'start' | 'end';
+		/** Match the typography used by a rendered user message. */
+		userMessage?: boolean;
 	} = $props();
 
 	function iconFor(kind: MessageContextRef['kind']) {
@@ -32,6 +35,7 @@
 	<div
 		class="message-context-chips"
 		class:align-end={align === 'end'}
+		class:user-message={userMessage}
 		role="list"
 		aria-label="Chat context"
 	>
@@ -116,7 +120,7 @@
 		min-width: var(--context-chip-width);
 		max-width: var(--context-chip-width);
 		box-sizing: border-box;
-		padding: 7px 9px;
+		padding: 5px 7px;
 		border: 1px solid
 			color-mix(in srgb, var(--hero-composer-glow-color, #72c0ff) 20%, var(--border-soft));
 		border-radius: 9px;
@@ -128,6 +132,12 @@
 		color: var(--text-muted);
 		font-size: 12px;
 		box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.58);
+	}
+
+	.message-context-chips.user-message .message-context-chip,
+	.message-context-chips.user-message .message-context-chip.interactive {
+		font-size: 12px;
+		line-height: 1.55;
 	}
 
 	.message-context-chip.interactive {
@@ -209,6 +219,13 @@
 	@media (max-width: 420px) {
 		.message-context-chips {
 			--context-chip-width: 150px;
+		}
+	}
+
+	@media (min-width: 768px) {
+		.message-context-chips.user-message .message-context-chip,
+		.message-context-chips.user-message .message-context-chip.interactive {
+			font-size: 12px;
 		}
 	}
 </style>
