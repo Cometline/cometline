@@ -32,6 +32,7 @@ func (CaptureScreenshot) Spec() ToolSpec {
 	return ToolSpec{
 		Name: "capture_screenshot",
 		Description: "Capture the user's screen or an open app window via the Cometline desktop app and show it inline in chat. " +
+			"For any live screen or app-window screenshot, use this tool; do not create an image with run_command or write_file. " +
 			"Use list_capture_targets first when targeting a specific window. " +
 			"Pass source_id from that list, or window as a title substring (e.g. \"Chrome\", \"Cursor\"). " +
 			"Optional crop_x/crop_y/crop_width/crop_height crop the captured bitmap (pixels). " +

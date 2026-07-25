@@ -59,6 +59,7 @@ func newRegistryWithSurface(workspaceRoot string, surface ToolSurface, opt Regis
 		add(WebFetch{})
 		add(WebSearch{Endpoint: opt.BrowserSearchURL, Token: opt.BrowserSearchToken})
 		add(PresentImage{Workspace: ws, Media: opt.AssistantMedia})
+		add(PresentImageURL{Media: opt.AssistantMedia})
 		add(CaptureScreenshot{
 			Endpoint: opt.ScreenCaptureURL,
 			Token:    opt.ScreenCaptureToken,
