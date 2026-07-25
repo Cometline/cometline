@@ -1,8 +1,9 @@
-import type { ImageAttachment, TokenUsage } from '$lib/generated/cometmind-api';
+import type { ImageAttachment, MessageContextRef, TokenUsage } from '$lib/generated/cometmind-api';
 
 export type {
 	CreateSessionRequest,
 	ImageAttachment,
+	MessageContextRef,
 	PostMessageRequest,
 	Session,
 	SessionListResponse,
@@ -174,7 +175,14 @@ export type SubagentProgressEntry =
 	| { kind: 'status'; text: string };
 
 export type ChatItem =
-	| { id: string; type: 'user'; text: string; images?: ImageAttachment[]; reveal?: boolean }
+	| {
+			id: string;
+			type: 'user';
+			text: string;
+			images?: ImageAttachment[];
+			contexts?: MessageContextRef[];
+			reveal?: boolean;
+	  }
 	| {
 			id: string;
 			type: 'assistant';

@@ -319,7 +319,8 @@ function itemFromTranscript(item: TranscriptItem, index: number): ChatItem {
 			id: `history-${index}`,
 			type: 'user',
 			text: stripInlinedFileBlocks(item.text ?? ''),
-			images: item.images
+			images: item.images,
+			...(item.contexts?.length ? { contexts: item.contexts } : {})
 		};
 	if (item.type === 'assistant')
 		return {

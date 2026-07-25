@@ -12,6 +12,45 @@ describe('itemsFromTranscript', () => {
 		expect(items[1]).toMatchObject({ type: 'assistant', text: 'Hello' });
 	});
 
+	it('preserves user context chips from transcript rows', () => {
+		const items = itemsFromTranscript([
+			{
+				type: 'user',
+				text: 'look here',
+				contexts: [
+					{
+						kind: 'file',
+						title: 'notes.md',
+						source: 'workspace-file:notes.md',
+						role: 'viewing'
+					},
+					{
+						kind: 'file',
+						title: 'notes.md:2-3',
+						source: 'workspace-file:notes.md#L2-L3'
+					}
+				]
+			}
+		]);
+		expect(items[0]).toMatchObject({
+			type: 'user',
+			text: 'look here',
+			contexts: [
+				{
+					kind: 'file',
+					title: 'notes.md',
+					source: 'workspace-file:notes.md',
+					role: 'viewing'
+				},
+				{
+					kind: 'file',
+					title: 'notes.md:2-3',
+					source: 'workspace-file:notes.md#L2-L3'
+				}
+			]
+		});
+	});
+
 	it('merges assistant image refs into the assistant bubble', () => {
 		const items = itemsFromTranscript([
 			{ type: 'user', text: 'show me' },

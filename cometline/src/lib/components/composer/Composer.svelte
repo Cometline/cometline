@@ -4,7 +4,6 @@
 	import { FileText } from '@lucide/svelte';
 	import type { QueuedMessage } from '$lib/actions/chat-turn-queue';
 	import type { ChatTurnPayload, WebContext } from '$lib/actions/start-chat';
-	import type { PendingWebContext } from '$lib/stores/shell.svelte';
 	import { modelStore, type ModelOption } from '$lib/stores/model.svelte';
 	import { settingsStore } from '$lib/stores/settings.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
@@ -15,6 +14,8 @@
 	import ComposerSlashMenus from '$lib/components/composer/ComposerSlashMenus.svelte';
 	import ComposerMentionMenu from '$lib/components/composer/ComposerMentionMenu.svelte';
 	import ComposerToolbar from '$lib/components/composer/ComposerToolbar.svelte';
+	import MessageContextChips from '$lib/components/chat/MessageContextChips.svelte';
+	import { messageContextRefsFromPending } from '$lib/chat/message-context';
 	import { chatStore } from '$lib/stores/chat.svelte';
 	import { composerHistoryStore } from '$lib/stores/composer-history.svelte';
 	import { DEFAULT_CONTEXT_WINDOW_LIMIT, resolveContextWindowUsage } from '$lib/context-window';
@@ -206,6 +207,7 @@
 		mentions.hasWorkspace ? workspaceLabel(shellStore.workspacePath) : ''
 	);
 	const pendingWebContexts = $derived(shellStore.pendingWebContexts);
+	const pendingContextRefs = $derived(messageContextRefsFromPending(pendingWebContexts));
 
 	export function focus() {
 		void focusInput();
@@ -395,36 +397,6 @@
 	function removeQueued(id: string) {
 		onRemoveQueued?.(id);
 	}
-
-	function webContextLabel(context: PendingWebContext): string {
-		if (context.kind === 'file' && 'role' in context && context.role === 'viewing') {
-			const name = context.title?.trim() || fileNameFromSource(context.source);
-			return `Viewing ${name}`;
-		}
-		const title = context.title?.trim();
-		if (title) return title;
-		if (context.kind === 'terminal') return 'Terminal selection';
-		if (context.kind === 'file') return fileNameFromSource(context.source);
-		return pageNameFromSource(context.source);
-	}
-
-	function fileNameFromSource(source: string): string {
-		if (source.startsWith('@runtime/wiki/')) {
-			const path = source.slice('@runtime/wiki/'.length);
-			return path.split(/[/\\]/).filter(Boolean).pop() || path || 'Wiki';
-		}
-		const path = source.replace(/^workspace-file:/, '');
-		return path.split(/[/\\]/).filter(Boolean).pop() || path || 'File';
-	}
-
-	function pageNameFromSource(source: string): string {
-		try {
-			const url = new URL(source);
-			return url.hostname || source;
-		} catch {
-			return source || 'Page';
-		}
-	}
 </script>
 
 <div
@@ -460,31 +432,13 @@
 
 	<MessageQueuePanel {queuedCount} {queuedMessages} onRemove={removeQueued} />
 
-	{#if pendingWebContexts.length > 0}
-		<div class="web-context-chips" role="list" aria-label="Chat context">
-			{#each pendingWebContexts as context, index (context.source + ':' + index)}
-				<div class="web-context-chip" role="listitem">
-					<FileText size={14} />
-					<span title={webContextLabel(context)}>{webContextLabel(context)}</span>
-					<button
-						type="button"
-						onclick={() => shellStore.removeWebContextAt(index)}
-						aria-label="Remove {webContextLabel(context)}"
-					>
-						×
-					</button>
-				</div>
-			{/each}
-			{#if pendingWebContexts.length > 1}
-				<button
-					type="button"
-					class="web-context-clear"
-					onclick={() => shellStore.clearWebContextForActive()}
-				>
-					Clear all
-				</button>
-			{/if}
-		</div>
+	{#if pendingContextRefs.length > 0}
+		<MessageContextChips
+			contexts={pendingContextRefs}
+			removable
+			onRemove={(index) => shellStore.removeWebContextAt(index)}
+			onClearAll={() => shellStore.clearWebContextForActive()}
+		/>
 	{/if}
 
 	<RichComposerInput
@@ -598,75 +552,6 @@
 		font-size: 12px;
 		line-height: 1.35;
 		color: var(--text-muted);
-	}
-
-	.web-context-chips {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: 6px;
-	}
-
-	.web-context-chip {
-		display: flex;
-		align-items: center;
-		gap: 7px;
-		max-width: 100%;
-		padding: 7px 9px;
-		border: 1px solid
-			color-mix(in srgb, var(--hero-composer-glow-color, #72c0ff) 20%, var(--border-soft));
-		border-radius: 9px;
-		background: color-mix(
-			in srgb,
-			var(--hero-composer-glow-color, #72c0ff) 7%,
-			var(--panel-bg)
-		);
-		color: var(--text-muted);
-		font-size: 12px;
-		box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.58);
-	}
-
-	.web-context-clear {
-		border: 0;
-		background: transparent;
-		color: var(--text-soft);
-		font-size: 12px;
-		cursor: pointer;
-		padding: 4px 6px;
-	}
-
-	.web-context-clear:hover {
-		color: var(--text-main);
-	}
-
-	.web-context-chip :global(svg) {
-		flex-shrink: 0;
-		color: color-mix(
-			in srgb,
-			var(--hero-composer-glow-color, #72c0ff) 62%,
-			var(--accent, #0066cc)
-		);
-	}
-
-	.web-context-chip span {
-		min-width: 0;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-
-	.web-context-chip button {
-		margin-left: auto;
-		border: 0;
-		background: transparent;
-		color: var(--text-soft);
-		font-size: 18px;
-		line-height: 1;
-		cursor: pointer;
-	}
-
-	.web-context-chip button:hover {
-		color: var(--text-main);
 	}
 
 	.composer.hero {

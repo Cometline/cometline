@@ -2,6 +2,7 @@
 	import { fly } from 'svelte/transition';
 	import { Check, Copy } from '@lucide/svelte';
 	import AssistantMarkdown from '$lib/components/AssistantMarkdown.svelte';
+	import MessageContextChips from '$lib/components/chat/MessageContextChips.svelte';
 	import ThreadAvatar from '$lib/components/chat/ThreadAvatar.svelte';
 	import ThreadRow from '$lib/components/chat/ThreadRow.svelte';
 	import ImageLightbox from '$lib/components/chat/ImageLightbox.svelte';
@@ -42,6 +43,11 @@
 </script>
 
 {#snippet bubbleBody()}
+	{#if item.contexts?.length}
+		<div class="user-contexts" class:text-following={Boolean(item.text) || Boolean(item.images?.length)}>
+			<MessageContextChips contexts={item.contexts} align="end" />
+		</div>
+	{/if}
 	{#if item.images?.length}
 		<div class="user-images" class:text-following={Boolean(item.text)}>
 			{#each item.images as image, imageIndex (`${item.id}-image-${image.id ?? imageIndex}`)}
@@ -129,6 +135,14 @@
 	.flight-hidden {
 		opacity: 0;
 		pointer-events: none;
+	}
+
+	.user-contexts {
+		width: 100%;
+	}
+
+	.user-contexts.text-following {
+		margin-bottom: 8px;
 	}
 
 	.image-open {

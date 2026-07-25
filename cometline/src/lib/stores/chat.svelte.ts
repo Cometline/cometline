@@ -7,8 +7,9 @@ import {
 	listChildSessions,
 	streamMessage
 } from '$lib/client/cometmind';
-import type { ChatItem, ImageAttachment, Session, StreamEvent } from '$lib/types';
+import type { ChatItem, ImageAttachment, MessageContextRef, Session, StreamEvent } from '$lib/types';
 import type { ChatTurnPayload } from '$lib/actions/start-chat';
+import { messageContextRefsFromWebContexts } from '$lib/chat/message-context';
 import { reduceChatState } from '$lib/reducers/chat';
 import type { ContextBudgetSnapshot } from '$lib/context-window';
 import { anyReasoningPending, hasReasoning } from '$lib/conversation/reasoning';
@@ -380,11 +381,19 @@ function createChatStore() {
 		targetSessionID: string,
 		text: string,
 		images?: ImageAttachment[],
-		reveal = true
+		reveal = true,
+		contexts?: MessageContextRef[]
 	) {
 		const next = getCachedItems(targetSessionID).slice();
 		const id = localID('user');
-		next.push({ id, type: 'user', text, images, reveal });
+		next.push({
+			id,
+			type: 'user',
+			text,
+			images,
+			...(contexts?.length ? { contexts } : {}),
+			reveal
+		});
 		writeSessionItems(targetSessionID, next);
 		return id;
 	}
@@ -392,9 +401,10 @@ function createChatStore() {
 	function stageUserForSession(
 		targetSessionID: string,
 		text: string,
-		images?: ImageAttachment[]
+		images?: ImageAttachment[],
+		contexts?: MessageContextRef[]
 	) {
-		return addUserToSession(targetSessionID, text, images, false);
+		return addUserToSession(targetSessionID, text, images, false, contexts);
 	}
 
 	function revealStagedUserForSession(targetSessionID: string) {
@@ -596,7 +606,8 @@ function createChatStore() {
 			sessionErrors.delete(nextSessionID);
 		}
 
-		if (!opts?.skipUser) addUserToSession(nextSessionID, displayText, images);
+		const contexts = messageContextRefsFromWebContexts(payload.webContexts);
+		if (!opts?.skipUser) addUserToSession(nextSessionID, displayText, images, true, contexts);
 		markStreaming(nextSessionID, handle);
 
 		const ctx = handle.ctx;
