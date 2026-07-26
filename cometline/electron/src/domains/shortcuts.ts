@@ -290,6 +290,7 @@ export function createShortcutCoordinator(dependencies: ShortcutCoordinatorDepen
 			'navigateForward',
 			'openSettings',
 			'newChat',
+			'findInSession',
 			'focusSearch',
 			'openJobs',
 			'openSkillDrafts',

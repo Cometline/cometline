@@ -64,6 +64,7 @@ declare global {
 		| 'sendMessage'
 		| 'insertNewline'
 		| 'closeSettings'
+		| 'findInSession'
 		| 'focusSearch'
 		| 'previousSession'
 		| 'nextSession'

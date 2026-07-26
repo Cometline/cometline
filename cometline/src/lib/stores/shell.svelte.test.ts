@@ -399,6 +399,16 @@ describe('shellStore terminal panel visibility', () => {
 		expect(shellStore.terminalPanelOpen).toBe(false);
 		expect(shellStore.focusedPane).toBe('chat');
 	});
+
+	it('requests find in the active chat and focuses the chat pane', () => {
+		const requestBefore = shellStore.sessionFindRequestId;
+		shellStore.setFocusedPane('terminal');
+
+		shellStore.requestSessionFind();
+
+		expect(shellStore.sessionFindRequestId).toBe(requestBefore + 1);
+		expect(shellStore.focusedPane).toBe('chat');
+	});
 });
 
 describe('shellStore lazy page context', () => {

@@ -179,6 +179,7 @@
 		<div
 			use:selectableResponse
 			class="bubble assistant-bubble"
+			data-session-find-text
 			role="article"
 			aria-label="Assistant response"
 		>

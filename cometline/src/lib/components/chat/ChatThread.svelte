@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import { chatStore, type ChatItem } from '$lib/stores/chat.svelte';
 	import { settingsStore } from '$lib/stores/settings.svelte';
@@ -38,6 +39,9 @@
 	import type { JobResource } from '$lib/client/cometmind';
 	import { resolvePersona, personaAvatarSrcset as builtinAvatarSrcset } from '$lib/personas';
 	import { personaAvatarCache } from '$lib/personas/avatar-cache.svelte';
+	import SessionFindBar from '$lib/components/chat/SessionFindBar.svelte';
+	import { createSessionFindController } from '$lib/conversation/session-find.svelte';
+	import { shellStore } from '$lib/stores/shell.svelte';
 
 	const TRANSCRIPT_IN = { duration: 140 };
 
@@ -76,6 +80,10 @@
 	});
 
 	let scrollerEl = $state<HTMLDivElement | undefined>(undefined);
+	const sessionFind = createSessionFindController(() => scrollerEl ?? null);
+	let handledFindRequestId = shellStore.sessionFindRequestId;
+	let findSessionId: string | null = null;
+	let previousSearchableItemCount = 0;
 	let threadItems = $derived(isSessionSynced ? chatStore.items : snapshotItems);
 	let threadTurns = $derived(groupThreadItemsIntoTurns(threadItems));
 	let embeddedPinnedJobIds = $derived(pinnedJobProposalToolIds(threadItems));
@@ -136,6 +144,37 @@
 	$effect(() => {
 		scroll.setScroller(scrollerEl);
 	});
+
+	$effect(() => {
+		const requestId = shellStore.sessionFindRequestId;
+		if (requestId === handledFindRequestId) return;
+		handledFindRequestId = requestId;
+		if (isSessionSynced) sessionFind.openFind();
+	});
+
+	$effect(() => {
+		const nextSessionId = sessionId;
+		if (nextSessionId === findSessionId) return;
+		findSessionId = nextSessionId;
+		sessionFind.closeFind({ restoreFocus: false });
+	});
+
+	$effect(() => {
+		if (!sessionFind.open || !scrollerEl) return;
+		return sessionFind.observe();
+	});
+
+	$effect(() => {
+		const searchableItemCount = threadItems.filter(
+			(item) => (item.type === 'user' || item.type === 'assistant') && item.text.trim()
+		).length;
+		if (previousSearchableItemCount > 0 && searchableItemCount === 0) {
+			sessionFind.closeFind({ restoreFocus: false });
+		}
+		previousSearchableItemCount = searchableItemCount;
+	});
+
+	onDestroy(() => sessionFind.closeFind({ restoreFocus: false }));
 
 	let thinkingForAssistant = $derived(buildThinkingAttribution(threadItems));
 
@@ -363,6 +402,9 @@
 			{/if}
 		</div>
 	</div>
+	{#if sessionFind.open}
+		<SessionFindBar controller={sessionFind} />
+	{/if}
 	{#if scroll.showJumpToBottom}
 		<JumpToBottom onclick={scroll.jumpToBottom} />
 	{/if}
@@ -372,6 +414,16 @@
 	.thread-wrap {
 		position: absolute;
 		inset: 0;
+	}
+
+	:global(::highlight(session-find-match)) {
+		background: color-mix(in srgb, #facc15 48%, transparent);
+		color: inherit;
+	}
+
+	:global(::highlight(session-find-active)) {
+		background: color-mix(in srgb, #f59e0b 72%, transparent);
+		color: inherit;
 	}
 
 	.thread {

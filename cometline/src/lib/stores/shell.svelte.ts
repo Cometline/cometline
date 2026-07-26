@@ -156,6 +156,7 @@ function createShellStore() {
 	/** Last focus target while the web slot is open: filter vs web address. */
 	let lastWorkspacePanelFocusTarget = $state<'filter' | 'address'>('filter');
 	let composerFocusRequestId = $state(0);
+	let sessionFindRequestId = $state(0);
 
 	function activeSessionId(): string | null {
 		return getActiveSessionId();
@@ -635,6 +636,9 @@ function createShellStore() {
 		get composerFocusRequestId() {
 			return composerFocusRequestId;
 		},
+		get sessionFindRequestId() {
+			return sessionFindRequestId;
+		},
 		get canPanelHistoryBack() {
 			const key = panelSessionKey();
 			if (!key) return false;
@@ -864,6 +868,10 @@ function createShellStore() {
 		requestComposerFocus() {
 			focusedPane = 'chat';
 			composerFocusRequestId += 1;
+		},
+		requestSessionFind() {
+			focusedPane = 'chat';
+			sessionFindRequestId += 1;
 		},
 		onActiveSessionChange() {
 			focusedPane = 'chat';
