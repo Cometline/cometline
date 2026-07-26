@@ -305,7 +305,7 @@ export function createComposerSlashController(deps: {
 
 	async function selectWorkspaceOption(option: WorkspaceMenuOption) {
 		if (option.kind === 'browse') {
-			const picked = await window.electronAPI?.selectWorkspacePath?.();
+			const picked = await window.electronAPI?.browseWorkspacePath?.();
 			if (!picked) return;
 			await applyWorkspaceChange(picked);
 			return;

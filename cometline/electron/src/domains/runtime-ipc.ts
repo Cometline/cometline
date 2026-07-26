@@ -137,6 +137,7 @@ export function registerRuntimeIpcHandlers(dependencies: RuntimeIpcDependencies)
 		openSessionInMainWindow: (_event: IpcMainInvokeEvent, sessionId: unknown) =>
 			dependencies.windows.openSessionInMainWindow(sessionId),
 		selectWorkspacePath: () => dependencies.settings.selectWorkspacePath(),
+		browseWorkspacePath: () => dependencies.settings.browseWorkspacePath(),
 		selectBackupFolder: () => dependencies.selectBackupFolder(),
 		setWorkspacePath: (_event: IpcMainInvokeEvent, workspacePath: unknown) =>
 			dependencies.settings.writeStoredWorkspacePath(String(workspacePath || '')),
