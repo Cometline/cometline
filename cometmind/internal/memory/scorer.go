@@ -15,7 +15,7 @@ type ScoredMemory struct {
 
 // EffectiveWeight computes base_weight × decay × usage_boost.
 func EffectiveWeight(m Record, now time.Time, lc LifecycleSettings) float64 {
-	if m.Pinned {
+	if m.RetentionPolicy == RetentionProtected {
 		return m.BaseWeight
 	}
 	ref := m.CreatedAt

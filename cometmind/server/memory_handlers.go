@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"net/http"
 	"strconv"
 
@@ -12,33 +13,39 @@ import (
 )
 
 type memoryResource struct {
-	ID              string   `json:"id"`
-	Scope           string   `json:"scope"`
-	Kind            string   `json:"kind"`
-	Content         string   `json:"content"`
-	Source          string   `json:"source"`
-	BaseWeight      float64  `json:"base_weight"`
-	EffectiveWeight float64  `json:"effective_weight"`
-	AccessCount     int64    `json:"access_count"`
-	Pinned          bool     `json:"pinned"`
-	LastAccessedAt  *int64   `json:"last_accessed_at,omitempty"`
-	CreatedAt       int64    `json:"created_at"`
-	UpdatedAt       int64    `json:"updated_at"`
-	Similarity      *float64 `json:"similarity,omitempty"`
+	ID                string          `json:"id"`
+	Scope             string          `json:"scope"`
+	Kind              string          `json:"kind"`
+	Content           string          `json:"content"`
+	Source            string          `json:"source"`
+	BaseWeight        float64         `json:"base_weight"`
+	EffectiveWeight   float64         `json:"effective_weight"`
+	AccessCount       int64           `json:"access_count"`
+	ApplicationPolicy string          `json:"application_policy"`
+	RetentionPolicy   string          `json:"retention_policy"`
+	OriginType        string          `json:"origin_type,omitempty"`
+	OriginID          string          `json:"origin_id,omitempty"`
+	SummaryJSON       json.RawMessage `json:"summary_json"`
+	LastAccessedAt    *int64          `json:"last_accessed_at,omitempty"`
+	CreatedAt         int64           `json:"created_at"`
+	UpdatedAt         int64           `json:"updated_at"`
+	Similarity        *float64        `json:"similarity,omitempty"`
 }
 
 type createMemoryRequest struct {
-	Content    string  `json:"content"`
-	Kind       string  `json:"kind"`
-	Pinned     bool    `json:"pinned"`
-	BaseWeight float64 `json:"base_weight"`
+	Content           string  `json:"content"`
+	Kind              string  `json:"kind"`
+	ApplicationPolicy string  `json:"application_policy"`
+	RetentionPolicy   string  `json:"retention_policy"`
+	BaseWeight        float64 `json:"base_weight"`
 }
 
 type updateMemoryRequest struct {
-	Content    string   `json:"content"`
-	Kind       string   `json:"kind"`
-	Pinned     *bool    `json:"pinned"`
-	BaseWeight *float64 `json:"base_weight"`
+	Content           string   `json:"content"`
+	Kind              string   `json:"kind"`
+	ApplicationPolicy *string  `json:"application_policy"`
+	RetentionPolicy   *string  `json:"retention_policy"`
+	BaseWeight        *float64 `json:"base_weight"`
 }
 
 type searchMemoryRequest struct {
@@ -63,18 +70,22 @@ func scoredToResource(sm memory.ScoredMemory) memoryResource {
 		last = &ms
 	}
 	res := memoryResource{
-		ID:              sm.ID,
-		Scope:           sm.Scope,
-		Kind:            sm.Kind,
-		Content:         sm.Content,
-		Source:          sm.Source,
-		BaseWeight:      sm.BaseWeight,
-		EffectiveWeight: sm.EffectiveWeight,
-		AccessCount:     sm.AccessCount,
-		Pinned:          sm.Pinned,
-		LastAccessedAt:  last,
-		CreatedAt:       sm.CreatedAt.UnixMilli(),
-		UpdatedAt:       sm.UpdatedAt.UnixMilli(),
+		ID:                sm.ID,
+		Scope:             sm.Scope,
+		Kind:              sm.Kind,
+		Content:           sm.Content,
+		Source:            sm.Source,
+		BaseWeight:        sm.BaseWeight,
+		EffectiveWeight:   sm.EffectiveWeight,
+		AccessCount:       sm.AccessCount,
+		ApplicationPolicy: sm.ApplicationPolicy,
+		RetentionPolicy:   sm.RetentionPolicy,
+		OriginType:        sm.OriginType,
+		OriginID:          sm.OriginID,
+		SummaryJSON:       json.RawMessage(sm.SummaryJSON),
+		LastAccessedAt:    last,
+		CreatedAt:         sm.CreatedAt.UnixMilli(),
+		UpdatedAt:         sm.UpdatedAt.UnixMilli(),
 	}
 	if sm.Similarity > 0 {
 		s := sm.Similarity
@@ -114,7 +125,7 @@ func (a *App) handleCreateMemory(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	rec, err := a.memory.CreateManual(c.Request.Context(), req.Content, req.Kind, req.Pinned, req.BaseWeight)
+	rec, err := a.memory.CreateManual(c.Request.Context(), req.Content, req.Kind, req.ApplicationPolicy, req.RetentionPolicy, req.BaseWeight)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -132,7 +143,7 @@ func (a *App) handlePatchMemory(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	rec, err := a.memory.UpdateManual(c.Request.Context(), c.Param("id"), req.Content, req.Kind, req.Pinned, req.BaseWeight)
+	rec, err := a.memory.UpdateManual(c.Request.Context(), c.Param("id"), req.Content, req.Kind, req.ApplicationPolicy, req.RetentionPolicy, req.BaseWeight)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

@@ -2,6 +2,7 @@
 	import { fade, slide } from 'svelte/transition';
 	import { Brain, ChevronDown } from '@lucide/svelte';
 	import type { InjectedMemory } from '$lib/conversation/thinking-attribution';
+	import { bucketMemories, memoryKindLabel, resolveMemoryBucket } from '$lib/memory/buckets';
 
 	const FOLD_IN = { duration: 180 };
 	const CHIP_FADE = { duration: 400 };
@@ -12,7 +13,8 @@
 		onToggle,
 		nested = false,
 		contentOnly = false,
-		cycling = false
+		cycling = false,
+		cycleTick
 	}: {
 		memories: InjectedMemory[];
 		expanded: boolean;
@@ -20,37 +22,54 @@
 		nested?: boolean;
 		contentOnly?: boolean;
 		cycling?: boolean;
+		cycleTick?: number;
 	} = $props();
 
-	let cycleTick = $state(0);
+	let internalCycleTick = $state(0);
+	let activeCycleTick = $derived(cycleTick ?? internalCycleTick);
+	let sections = $derived(bucketMemories(memories));
 
 	$effect(() => {
-		if (!cycling) return;
-		const timer = setInterval(() => cycleTick++, 5000);
+		if (!cycling || cycleTick !== undefined) return;
+		const timer = setInterval(() => internalCycleTick++, 5000);
 		return () => clearInterval(timer);
 	});
 </script>
 
 {#snippet memoryBodyContent()}
 	{#if cycling && memories.length > 0}
-		{#key cycleTick}
-			{@const mem = memories[cycleTick % memories.length]}
+		{#key activeCycleTick}
+			{@const mem = memories[activeCycleTick % memories.length]}
+			{@const bucket = resolveMemoryBucket(mem)}
+			{@const section = sections.find((candidate) => candidate.bucket === bucket)}
 			<div class="memory-chip-cycling-wrap">
-				<div
-					class="memory-chip memory-chip-cycling"
-					in:fade={CHIP_FADE}
-					title={mem.content}
-				>
-					{mem.kind}: {mem.content}
+				<div class="memory-section memory-chip-cycling" in:fade={CHIP_FADE}>
+					<div class="memory-section-title">{section?.label}</div>
+					<div class="memory-chip" title={mem.content}>
+						{#if bucket === 'semantic'}
+							<span class="memory-kind">{memoryKindLabel(mem.kind)}</span>
+						{/if}
+						<span class="memory-content">{mem.content}</span>
+					</div>
 				</div>
 			</div>
 		{/key}
 	{:else}
-		<div class="memory-chips">
-			{#each memories as mem (mem.id)}
-				<span class="memory-chip" title={mem.content}>
-					{mem.kind}: {mem.content}
-				</span>
+		<div class="memory-sections">
+			{#each sections as section (section.bucket)}
+				<section class="memory-section" aria-label={section.label}>
+					<div class="memory-section-title">{section.label}</div>
+					<div class="memory-chips">
+						{#each section.memories as mem (mem.id)}
+							<div class="memory-chip" title={mem.content}>
+								{#if section.bucket === 'semantic'}
+									<span class="memory-kind">{memoryKindLabel(mem.kind)}</span>
+								{/if}
+								<span class="memory-content">{mem.content}</span>
+							</div>
+						{/each}
+					</div>
+				</section>
 			{/each}
 		</div>
 	{/if}
@@ -112,15 +131,35 @@
 		background: rgba(0, 102, 204, 0.04);
 	}
 
+	.memory-sections,
+	.memory-section,
 	.memory-chips {
 		display: flex;
 		min-width: 0;
 		flex-direction: column;
+	}
+
+	.memory-sections {
+		gap: 10px;
+	}
+
+	.memory-section,
+	.memory-chips {
 		gap: 6px;
 	}
 
+	.memory-section-title {
+		color: var(--text-muted);
+		font-size: 10px;
+		font-weight: 650;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+	}
+
 	.memory-chip {
-		display: block;
+		display: flex;
+		align-items: baseline;
+		gap: 7px;
 		width: 100%;
 		min-width: 0;
 		overflow: hidden;
@@ -132,6 +171,20 @@
 		color: var(--text-main);
 		font-size: 11px;
 		line-height: 1.45;
+	}
+
+	.memory-kind {
+		flex: 0 0 auto;
+		color: var(--accent);
+		font-size: 9px;
+		font-weight: 650;
+		text-transform: capitalize;
+	}
+
+	.memory-content {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 
 	.memory-chip-cycling-wrap {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { itemsFromTranscript } from './chat-transcript';
+import type { TranscriptItem } from '$lib/types';
 
 describe('itemsFromTranscript', () => {
 	it('maps user messages from transcript rows', () => {
@@ -78,5 +79,46 @@ describe('itemsFromTranscript', () => {
 		expect(items.map((item) => item.type)).toEqual(['user', 'assistant', 'tool', 'error']);
 		expect(items[1]).toMatchObject({ type: 'assistant', text: '' });
 		expect(items[3]).toMatchObject({ type: 'error', text: 'provider failed' });
+	});
+
+	it('preserves buckets and infers them for historical bucketless memories', () => {
+		const transcript = [
+			{
+				type: 'memory',
+				memories: [
+					{
+						id: 'pref',
+						content: 'Use concise replies',
+						kind: 'preference',
+						similarity: 1,
+						effective_weight: 1
+					},
+					{
+						id: 'task',
+						content: 'Finished migration',
+						kind: 'task_summary',
+						similarity: 1,
+						effective_weight: 1
+					},
+					{
+						id: 'semantic',
+						content: 'The app uses Svelte',
+						kind: 'project',
+						bucket: 'semantic',
+						similarity: 0.9,
+						effective_weight: 1
+					}
+				]
+			}
+		] as unknown as TranscriptItem[];
+
+		const memory = itemsFromTranscript(transcript).find((item) => item.type === 'memory');
+		expect(memory?.type).toBe('memory');
+		if (memory?.type !== 'memory') return;
+		expect(memory.memories.map((item) => item.bucket)).toEqual([
+			'preference',
+			'task_outcome',
+			'semantic'
+		]);
 	});
 });

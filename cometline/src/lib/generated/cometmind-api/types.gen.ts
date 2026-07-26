@@ -636,6 +636,7 @@ export type MemoryWire = {
     id: string;
     content: string;
     kind: string;
+    bucket: 'preference' | 'task_outcome' | 'semantic';
     similarity: number;
     effective_weight: number;
 };
@@ -841,7 +842,13 @@ export type MemoryResource = {
     base_weight: number;
     effective_weight: number;
     access_count: number;
-    pinned: boolean;
+    application_policy: 'always' | 'relevant';
+    retention_policy: 'protected' | 'decaying';
+    origin_type?: string;
+    origin_id?: string;
+    summary_json: {
+        [key: string]: unknown;
+    };
     /**
      * Unix epoch milliseconds.
      */
@@ -864,14 +871,16 @@ export type ListMemoriesResponse = {
 export type CreateMemoryRequest = {
     content: string;
     kind?: string;
-    pinned?: boolean;
+    application_policy?: 'always' | 'relevant';
+    retention_policy?: 'protected' | 'decaying';
     base_weight?: number;
 };
 
 export type UpdateMemoryRequest = {
     content?: string;
     kind?: string;
-    pinned?: boolean;
+    application_policy?: 'always' | 'relevant';
+    retention_policy?: 'protected' | 'decaying';
     base_weight?: number;
 };
 

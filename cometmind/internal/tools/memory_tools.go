@@ -21,14 +21,15 @@ const (
 )
 
 type memoryToolResource struct {
-	ID              string  `json:"id"`
-	Kind            string  `json:"kind"`
-	Content         string  `json:"content"`
-	BaseWeight      float64 `json:"base_weight"`
-	EffectiveWeight float64 `json:"effective_weight"`
-	Pinned          bool    `json:"pinned"`
-	AccessCount     int64   `json:"access_count"`
-	Similarity      float64 `json:"similarity,omitempty"`
+	ID                string  `json:"id"`
+	Kind              string  `json:"kind"`
+	Content           string  `json:"content"`
+	BaseWeight        float64 `json:"base_weight"`
+	EffectiveWeight   float64 `json:"effective_weight"`
+	ApplicationPolicy string  `json:"application_policy"`
+	RetentionPolicy   string  `json:"retention_policy"`
+	AccessCount       int64   `json:"access_count"`
+	Similarity        float64 `json:"similarity,omitempty"`
 }
 
 type memoryWritePublisher struct {
@@ -66,14 +67,15 @@ func logBackgroundWriteFailure(operation, id string, err error) {
 
 func memoryResourceFromScored(item memory.ScoredMemory) memoryToolResource {
 	return memoryToolResource{
-		ID:              item.ID,
-		Kind:            item.Kind,
-		Content:         item.Content,
-		BaseWeight:      item.BaseWeight,
-		EffectiveWeight: item.EffectiveWeight,
-		Pinned:          item.Pinned,
-		AccessCount:     item.AccessCount,
-		Similarity:      item.Similarity,
+		ID:                item.ID,
+		Kind:              item.Kind,
+		Content:           item.Content,
+		BaseWeight:        item.BaseWeight,
+		EffectiveWeight:   item.EffectiveWeight,
+		ApplicationPolicy: item.ApplicationPolicy,
+		RetentionPolicy:   item.RetentionPolicy,
+		AccessCount:       item.AccessCount,
+		Similarity:        item.Similarity,
 	}
 }
 
@@ -116,7 +118,7 @@ func (ListMemories) Spec() ToolSpec {
 			"properties":{
 				"limit":{"type":"integer","minimum":1,"maximum":100,"description":"Maximum memories to return. Defaults to 20."},
 				"kind":{"type":"string","description":"Optional memory kind filter, such as preference or fact."},
-				"pinned":{"type":"boolean","description":"Optional filter for pinned or unpinned memories."}
+				"retention_policy":{"type":"string","enum":["protected","decaying"],"description":"Optional retention policy filter."}
 			}
 		}`),
 	}
@@ -127,9 +129,9 @@ func (t ListMemories) Execute(ctx context.Context, input json.RawMessage) (Resul
 		return unavailable, nil
 	}
 	var in struct {
-		Limit  int    `json:"limit"`
-		Kind   string `json:"kind"`
-		Pinned *bool  `json:"pinned"`
+		Limit           int    `json:"limit"`
+		Kind            string `json:"kind"`
+		RetentionPolicy string `json:"retention_policy"`
 	}
 	if err := json.Unmarshal(input, &in); err != nil {
 		return Result{OK: false, Output: fmt.Sprintf("invalid input: %v", err)}, nil
@@ -145,7 +147,7 @@ func (t ListMemories) Execute(ctx context.Context, input json.RawMessage) (Resul
 		if kind != "" && !strings.EqualFold(item.Kind, kind) {
 			continue
 		}
-		if in.Pinned != nil && item.Pinned != *in.Pinned {
+		if in.RetentionPolicy != "" && item.RetentionPolicy != in.RetentionPolicy {
 			continue
 		}
 		result = append(result, memoryResourceFromScored(item))
@@ -204,10 +206,11 @@ func (t SearchMemories) Execute(ctx context.Context, input json.RawMessage) (Res
 }
 
 type createMemoryInput struct {
-	Content    string  `json:"content"`
-	Kind       string  `json:"kind"`
-	Pinned     bool    `json:"pinned"`
-	BaseWeight float64 `json:"base_weight"`
+	Content           string  `json:"content"`
+	Kind              string  `json:"kind"`
+	ApplicationPolicy string  `json:"application_policy"`
+	RetentionPolicy   string  `json:"retention_policy"`
+	BaseWeight        float64 `json:"base_weight"`
 }
 
 // CreateMemory accepts a new memory and persists it in the background so
@@ -225,8 +228,9 @@ func (CreateMemory) Spec() ToolSpec {
 			"type":"object",
 			"properties":{
 				"content":{"type":"string","description":"A concise fact, preference, or project detail to remember"},
-				"kind":{"type":"string","description":"Memory kind, such as preference, fact, project, or task_outcome"},
-				"pinned":{"type":"boolean","description":"Keep this memory from decaying"},
+				"kind":{"type":"string","enum":["preference","fact","project"],"description":"Memory kind. Task outcomes are created only by durable jobs."},
+				"application_policy":{"type":"string","enum":["always","relevant"],"description":"Always applies only to preferences; otherwise defaults to relevant"},
+				"retention_policy":{"type":"string","enum":["protected","decaying"],"description":"Protected memories do not decay"},
 				"base_weight":{"type":"number","minimum":0,"description":"Optional importance weight; defaults to 1"}
 			},
 			"required":["content"]
@@ -250,7 +254,7 @@ func (t CreateMemory) Execute(ctx context.Context, input json.RawMessage) (Resul
 	go func() {
 		writeCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), memoryWriteTimeout)
 		defer cancel()
-		rec, err := t.Memory.CreateManualWithID(writeCtx, id, in.Content, in.Kind, in.Pinned, in.BaseWeight)
+		rec, err := t.Memory.CreateManualWithID(writeCtx, id, in.Content, in.Kind, in.ApplicationPolicy, in.RetentionPolicy, in.BaseWeight)
 		if err != nil {
 			logBackgroundWriteFailure("create", id, err)
 			return
@@ -264,11 +268,12 @@ func (t CreateMemory) Execute(ctx context.Context, input json.RawMessage) (Resul
 }
 
 type updateMemoryInput struct {
-	ID         string   `json:"id"`
-	Content    string   `json:"content"`
-	Kind       string   `json:"kind"`
-	Pinned     *bool    `json:"pinned"`
-	BaseWeight *float64 `json:"base_weight"`
+	ID                string   `json:"id"`
+	Content           string   `json:"content"`
+	Kind              string   `json:"kind"`
+	ApplicationPolicy *string  `json:"application_policy"`
+	RetentionPolicy   *string  `json:"retention_policy"`
+	BaseWeight        *float64 `json:"base_weight"`
 }
 
 // UpdateMemory accepts a memory edit and applies it in the background. Content
@@ -288,7 +293,8 @@ func (UpdateMemory) Spec() ToolSpec {
 				"id":{"type":"string","description":"Memory id from list_memories or search_memories"},
 				"content":{"type":"string"},
 				"kind":{"type":"string"},
-				"pinned":{"type":"boolean"},
+				"application_policy":{"type":"string","enum":["always","relevant"]},
+				"retention_policy":{"type":"string","enum":["protected","decaying"]},
 				"base_weight":{"type":"number","minimum":0}
 			},
 			"required":["id"]
@@ -311,7 +317,7 @@ func (t UpdateMemory) Execute(ctx context.Context, input json.RawMessage) (Resul
 	go func() {
 		writeCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), memoryWriteTimeout)
 		defer cancel()
-		rec, err := t.Memory.UpdateManual(writeCtx, in.ID, in.Content, in.Kind, in.Pinned, in.BaseWeight)
+		rec, err := t.Memory.UpdateManual(writeCtx, in.ID, in.Content, in.Kind, in.ApplicationPolicy, in.RetentionPolicy, in.BaseWeight)
 		if err != nil {
 			logBackgroundWriteFailure("update", in.ID, err)
 			return

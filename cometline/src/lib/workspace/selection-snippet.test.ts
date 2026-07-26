@@ -1,8 +1,10 @@
+// @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
 import {
 	buildFileSnippetContext,
 	findSelectionInSource,
-	lineRangeFromOffsets
+	lineRangeFromOffsets,
+	sourceLineRangeFromDomRange
 } from './selection-snippet';
 
 describe('lineRangeFromOffsets', () => {
@@ -26,6 +28,46 @@ describe('findSelectionInSource', () => {
 	it('matches across normalized whitespace', () => {
 		const source = 'hello   world\nnext';
 		expect(findSelectionInSource(source, 'hello world')).toEqual({ start: 0, end: 13 });
+	});
+});
+
+describe('sourceLineRangeFromDomRange', () => {
+	it('reads a line from the nearest annotated rendered node', () => {
+		const root = document.createElement('div');
+		root.innerHTML =
+			'<p data-source-start-line="2" data-source-end-line="3"><strong data-source-start-line="3" data-source-end-line="3"><span data-source-start-line="3" data-source-end-line="3">bold</span></strong></p>';
+		const text = root.querySelector('span')?.firstChild;
+		expect(text).toBeTruthy();
+		const range = document.createRange();
+		range.setStart(text!, 0);
+		range.setEnd(text!, 4);
+		expect(sourceLineRangeFromDomRange(range, root)).toEqual({ startLine: 3, endLine: 3 });
+	});
+
+	it('combines annotations for a cross-node selection', () => {
+		const root = document.createElement('div');
+		root.innerHTML = [
+			'<span data-source-start-line="4" data-source-end-line="4">first</span>',
+			'<em data-source-start-line="6" data-source-end-line="6"><span data-source-start-line="6" data-source-end-line="6">last</span></em>'
+		].join(' ');
+		const first = root.querySelector('span')?.firstChild;
+		const last = root.querySelector('em span')?.firstChild;
+		expect(first).toBeTruthy();
+		expect(last).toBeTruthy();
+		const range = document.createRange();
+		range.setStart(first!, 1);
+		range.setEnd(last!, 3);
+		expect(sourceLineRangeFromDomRange(range, root)).toEqual({ startLine: 4, endLine: 6 });
+	});
+
+	it('returns null for unannotated content so source matching remains available', () => {
+		const root = document.createElement('div');
+		root.textContent = 'plain text';
+		const text = root.firstChild!;
+		const range = document.createRange();
+		range.setStart(text, 0);
+		range.setEnd(text, 5);
+		expect(sourceLineRangeFromDomRange(range, root)).toBeNull();
 	});
 });
 

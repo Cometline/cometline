@@ -48,6 +48,9 @@
 	let searchQuery = $state('');
 	let searching = $state(false);
 	let newContent = $state('');
+	let newKind = $state('fact');
+	let newApplicationPolicy = $state<'always' | 'relevant'>('relevant');
+	let newRetentionPolicy = $state<'protected' | 'decaying'>('decaying');
 	let memoryStatus = $state('');
 	let loading = $state(true);
 	let saving = $state(false);
@@ -70,6 +73,7 @@
 			auto_extract: next.auto_extract,
 			similarity_threshold: next.similarity_threshold,
 			max_retrieved: next.max_retrieved,
+			task_outcome_limit: next.task_outcome_limit,
 			lifecycle: next.lifecycle,
 			embedding: next.embedding
 		});
@@ -81,6 +85,9 @@
 
 	const persistedEmbedding = $derived(
 		settings ? mergeEmbeddingFields(settings.embedding, savedEmbedding) : undefined
+	);
+	const retentionLocked = $derived(
+		newKind === 'preference' && newApplicationPolicy === 'always'
 	);
 
 	const embeddingDropdownOptions = $derived(
@@ -382,8 +389,9 @@
 		try {
 			const rec = await createMemory({
 				content: newContent.trim(),
-				kind: 'fact',
-				pinned: false
+				kind: newKind,
+				application_policy: newKind === 'preference' ? newApplicationPolicy : 'relevant',
+				retention_policy: newRetentionPolicy
 			});
 			fullMemories = [rec, ...fullMemories];
 			if (!searchQuery.trim()) {
@@ -394,6 +402,20 @@
 		} catch (error) {
 			memoryStatus = error instanceof Error ? error.message : 'Failed to add memory';
 		}
+	}
+
+	function selectNewKind(kind: string) {
+		newKind = kind;
+		if (kind !== 'preference') {
+			newApplicationPolicy = 'relevant';
+		} else if (newApplicationPolicy === 'always') {
+			newRetentionPolicy = 'protected';
+		}
+	}
+
+	function selectNewApplicationPolicy(policy: 'always' | 'relevant') {
+		newApplicationPolicy = policy;
+		if (policy === 'always') newRetentionPolicy = 'protected';
 	}
 
 	async function removeMemory(id: string) {
@@ -456,6 +478,17 @@
 				</div>
 
 				<div class="settings-grid">
+					<div class="memory-composition-note">
+						<strong>What gets added to a prompt</strong>
+						<p>
+							Up to 3 user preferences, {settings.task_outcome_limit} relevant task
+							{settings.task_outcome_limit === 1 ? 'outcome' : 'outcomes'}, and
+							{settings.max_retrieved} semantic
+							{settings.max_retrieved === 1 ? 'memory' : 'memories'}. These groups share 5% of
+							the available context, capped at 4,096 tokens.
+						</p>
+					</div>
+
 					<div class="toggles">
 						<SettingsToggle
 							label="Auto retrieve"
@@ -483,7 +516,7 @@
 							/>
 						</label>
 						<label>
-							<span>Max retrieved ({settings.max_retrieved})</span>
+							<span>Semantic memories in prompt ({settings.max_retrieved})</span>
 							<input
 								type="range"
 								min="1"
@@ -500,8 +533,7 @@
 								bind:value={settings.task_outcome_limit}
 							/>
 							<p class="field-hint">
-								Recent completed-job outcomes injected separately from semantic
-								memory retrieval.
+								Semantically relevant task outcomes, up to {settings.task_outcome_limit}.
 							</p>
 						</label>
 						<label>
@@ -548,7 +580,9 @@
 										<option value="">Select embedding model…</option>
 										{#each embeddingDropdownOptions as option (embeddingOptionKey(option))}
 											<option value={embeddingOptionKey(option)}>
-												{option.method === 'ollama' ? 'Local · ' : ''}{option.providerName}
+												{option.method === 'ollama'
+													? 'Local · '
+													: ''}{option.providerName}
 												· {option.model}{option.orphan
 													? ' (enable in Providers)'
 													: ''}
@@ -561,21 +595,23 @@
 								type="button"
 								class="secondary reembed-button"
 								onclick={() => void forceReembed()}
-								disabled={
-									reembedding ||
+								disabled={reembedding ||
 									saving ||
 									loading ||
 									fullMemories.length === 0 ||
-									reembedJob?.status === 'running'
-								}
+									reembedJob?.status === 'running'}
 							>
-								{#if reembedding}<span class="spin"><LoaderCircle size={14} /></span>{/if}
+								{#if reembedding}<span class="spin"><LoaderCircle size={14} /></span
+									>{/if}
 								Re-embed
 							</button>
 						</div>
 						{#if reembedStatus || (reembedJob?.status && ['pending', 'running'].includes(reembedJob.status))}
 							<div class="reembed-status">
-								<p>{reembedStatus || `Re-embedding… ${reembedJob?.completed ?? 0}/${reembedJob?.total ?? 0}`}</p>
+								<p>
+									{reembedStatus ||
+										`Re-embedding… ${reembedJob?.completed ?? 0}/${reembedJob?.total ?? 0}`}
+								</p>
 								{#if reembedJob?.status === 'running'}
 									<button
 										type="button"
@@ -653,6 +689,63 @@
 					</div>
 				</div>
 
+				<div class="add-row">
+					<div class="add-row-header">
+						<span>Add memory</span>
+					</div>
+					<textarea
+						bind:value={newContent}
+						rows="3"
+						placeholder="Something the agent should remember…"
+						aria-label="Memory content"
+					></textarea>
+					<div class="add-memory-controls">
+						<label>
+							<span>Kind</span>
+							<select
+								value={newKind}
+								onchange={(event) => selectNewKind(event.currentTarget.value)}
+							>
+								<option value="fact">Fact</option>
+								<option value="project">Project</option>
+								<option value="preference">Preference</option>
+							</select>
+						</label>
+						{#if newKind === 'preference'}
+							<label>
+								<span>Application</span>
+								<select
+									value={newApplicationPolicy}
+									onchange={(event) =>
+										selectNewApplicationPolicy(
+											event.currentTarget.value as 'always' | 'relevant'
+										)}
+								>
+									<option value="relevant">When relevant</option>
+									<option value="always">Always</option>
+								</select>
+							</label>
+						{/if}
+						<label>
+							<span>Retention</span>
+							<select
+								bind:value={newRetentionPolicy}
+								disabled={retentionLocked}
+								aria-label="Retention"
+							>
+								<option value="decaying">Decaying</option>
+								<option value="protected">Protected</option>
+							</select>
+							{#if retentionLocked}
+								<small>Always-applied preferences are protected.</small>
+							{/if}
+						</label>
+						<div class="add-row-actions">
+							<button type="button" class="secondary" onclick={addMemory}>Add memory</button>
+						</div>
+					</div>
+				</div>
+
 				<div class="search-row">
 					<input
 						type="search"
@@ -663,24 +756,15 @@
 					/>
 				</div>
 
-				<div class="add-row">
-					<div class="add-row-header">
-						<span>Add memory</span>
-						<button type="button" class="secondary" onclick={addMemory}>Add</button>
-					</div>
-					<textarea
-						bind:value={newContent}
-						rows="3"
-						placeholder="Something the agent should remember…"
-						aria-label="Memory content"
-					></textarea>
-				</div>
-
 				<div class="memory-list scrollbar-none">
 					{#each memories as memory (memory.id)}
 						<article class="memory-card">
 							<div>
-								<strong>{memory.kind}</strong>
+								<div class="memory-card-heading">
+									<strong>{memory.kind.replaceAll('_', ' ')}</strong>
+									<span class="memory-badge">{memory.application_policy}</span>
+									<span class="memory-badge">{memory.retention_policy}</span>
+								</div>
 								<p>{memory.content}</p>
 								<small>
 									weight {memory.effective_weight.toFixed(2)} · accessed {memory.access_count}
@@ -753,6 +837,26 @@
 	.settings-grid {
 		display: grid;
 		gap: 14px;
+	}
+
+	.memory-composition-note {
+		display: grid;
+		gap: 3px;
+		padding: 10px 12px;
+		border: 1px solid var(--border-soft);
+		border-radius: 11px;
+		background: rgba(0, 102, 204, 0.04);
+		font-size: 12px;
+		line-height: 1.45;
+	}
+
+	.memory-composition-note strong {
+		color: var(--text-main);
+	}
+
+	.memory-composition-note p {
+		margin: 0;
+		color: var(--text-muted);
 	}
 
 	.toggles {
@@ -831,6 +935,12 @@
 		flex-wrap: wrap;
 	}
 
+	.search-row {
+		margin-top: 6px;
+		padding-top: 16px;
+		border-top: 1px solid var(--border-soft);
+	}
+
 	.memory-total {
 		display: flex;
 		flex: 0 0 auto;
@@ -886,8 +996,6 @@
 	.add-row-header {
 		display: flex;
 		align-items: center;
-		justify-content: space-between;
-		gap: 12px;
 	}
 
 	.add-row-header span {
@@ -899,6 +1007,40 @@
 	.add-row textarea {
 		width: 100%;
 		resize: vertical;
+	}
+
+	.add-memory-controls {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+		gap: 8px;
+	}
+
+	.add-row-actions {
+		display: flex;
+		grid-column: -2 / -1;
+		align-self: start;
+		justify-content: flex-end;
+		padding-top: 24px;
+	}
+
+	.memory-card-heading {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		flex-wrap: wrap;
+		text-transform: capitalize;
+	}
+
+	.memory-badge {
+		padding: 2px 6px;
+		border: 1px solid var(--border-soft);
+		border-radius: 999px;
+		background: color-mix(in srgb, var(--accent) 5%, transparent);
+		color: var(--text-muted);
+		font-size: 9px;
+		font-weight: 600;
+		line-height: 1.2;
+		text-transform: capitalize;
 	}
 
 	.memory-list {
@@ -941,7 +1083,8 @@
 
 	@media (max-width: 780px) {
 		.toggles,
-		.sliders {
+		.sliders,
+		.add-memory-controls {
 			grid-template-columns: 1fr;
 		}
 	}

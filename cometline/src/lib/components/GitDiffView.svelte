@@ -9,6 +9,7 @@
 		type GitScope
 	} from '$lib/client/cometmind';
 	import ConfirmActionModal from '$lib/components/ConfirmActionModal.svelte';
+	import { portal } from '$lib/components/portal';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import {
 		highlightGitDiffLines,
@@ -22,6 +23,10 @@
 	} from '$lib/workspace/git-file-state';
 	import { languageFromPath } from '$lib/workspace/file-preview';
 	import { buildFileSnippetContext } from '$lib/workspace/selection-snippet';
+	import {
+		firstSelectionClientRect,
+		selectionPopupPosition
+	} from '$lib/workspace/selection-popup';
 
 	let {
 		workspacePath,
@@ -195,10 +200,9 @@
 			clearSelectionPopup();
 			return;
 		}
-		const rect = sel.getRangeAt(0).getBoundingClientRect();
+		const rect = firstSelectionClientRect(sel.getRangeAt(0));
 		selectionPopup = {
-			top: rect.bottom + 8,
-			left: Math.min(Math.max(8, rect.left), window.innerWidth - 140),
+			...selectionPopupPosition(rect, window.innerWidth),
 			text
 		};
 	}
@@ -227,6 +231,15 @@
 	$effect(() => {
 		void [workspacePath, filePath, scope];
 		void load();
+	});
+
+	$effect(() => {
+		document.addEventListener('scroll', clearSelectionPopup, true);
+		window.addEventListener('resize', clearSelectionPopup);
+		return () => {
+			document.removeEventListener('scroll', clearSelectionPopup, true);
+			window.removeEventListener('resize', clearSelectionPopup);
+		};
 	});
 </script>
 
@@ -313,7 +326,9 @@
 	{:else if binary}
 		<div class="git-diff-state">{message || 'Binary file; diff not shown.'}</div>
 	{:else if empty}
-		<div class="git-diff-state">{message || 'No diff for this path in the selected scope.'}</div>
+		<div class="git-diff-state">
+			{message || 'No diff for this path in the selected scope.'}
+		</div>
 	{:else if !diffText.trim()}
 		<div class="git-diff-state">{message || 'No diff available.'}</div>
 	{:else}
@@ -334,6 +349,7 @@
 
 	{#if selectionPopup}
 		<button
+			use:portal
 			type="button"
 			class="selection-add-chat"
 			style:top="{selectionPopup.top}px"
@@ -565,7 +581,7 @@
 
 	.selection-add-chat {
 		position: fixed;
-		z-index: 40;
+		z-index: 10000;
 		padding: 6px 10px;
 		border: 1px solid var(--border-soft);
 		border-radius: 8px;

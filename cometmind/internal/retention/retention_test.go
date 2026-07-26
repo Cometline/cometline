@@ -88,9 +88,9 @@ func TestRunner_PurgesArchivedMemories(t *testing.T) {
 	oldMS := time.Now().Add(-100 * 24 * time.Hour).UnixMilli()
 	if _, err := conn.ExecContext(ctx, `
 		INSERT INTO memories (
-			id, scope, kind, content, embedding, source, base_weight, access_count, pinned,
+			id, scope, kind, content, embedding, source, base_weight, access_count,
 			archived, archived_reason, created_at, updated_at
-		) VALUES (?, 'global', 'fact', 'old archived fact', X'', 'manual', 1, 0, 0, 1, 'decayed', ?, ?)`,
+		) VALUES (?, 'global', 'fact', 'old archived fact', X'', 'manual', 1, 0, 1, 'decayed', ?, ?)`,
 		"mem1", oldMS, oldMS,
 	); err != nil {
 		t.Fatal(err)

@@ -1,9 +1,7 @@
-import type { ChatItem, Session, TranscriptItem } from '$lib/types';
+import type { ChatItem, MemoryWire, Session, TranscriptItem } from '$lib/types';
+import { inferMemoryBucket } from '$lib/memory/buckets';
 import { getReasoningSegments } from '$lib/conversation/reasoning';
-import {
-	isSubagentStepLimit,
-	resolveInProcessAgentName
-} from '$lib/conversation/subagent-display';
+import { isSubagentStepLimit, resolveInProcessAgentName } from '$lib/conversation/subagent-display';
 import { agentLabelForSessionKind } from '$lib/tools/diff-artifact';
 import { stripInlinedFileBlocks } from '$lib/messages/strip-inlined-files';
 
@@ -212,7 +210,9 @@ export function mergeSubagents(items: ChatItem[], children: Session[]): ChatItem
 				const fromKind = agentLabelForSessionKind(child.subagent_kind);
 				const agentName =
 					fromKind ||
-					(child.subagent_kind === 'acp' ? 'opencode' : resolveInProcessAgentName('research'));
+					(child.subagent_kind === 'acp'
+						? 'opencode'
+						: resolveInProcessAgentName('research'));
 				out.push(subagentFromChild(child, agentName));
 			}
 		}
@@ -348,6 +348,9 @@ function itemFromTranscript(item: TranscriptItem, index: number): ChatItem {
 				id: mem.id,
 				content: mem.content,
 				kind: mem.kind,
+				bucket:
+					(mem as MemoryWire & { bucket?: MemoryWire['bucket'] }).bucket ??
+					inferMemoryBucket(mem.kind),
 				similarity: mem.similarity,
 				effective_weight: mem.effective_weight
 			}))

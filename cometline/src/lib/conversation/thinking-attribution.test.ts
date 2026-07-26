@@ -22,6 +22,7 @@ describe('buildThinkingAttribution', () => {
 					{
 						id: 'mem-1',
 						kind: 'fact',
+						bucket: 'semantic',
 						content: 'alpha',
 						similarity: 1,
 						effective_weight: 1
@@ -37,6 +38,7 @@ describe('buildThinkingAttribution', () => {
 					{
 						id: 'mem-2',
 						kind: 'fact',
+						bucket: 'semantic',
 						content: 'beta',
 						similarity: 1,
 						effective_weight: 1
@@ -51,10 +53,24 @@ describe('buildThinkingAttribution', () => {
 		expect(memoryIdsInBuffer.has('m1')).toBe(true);
 		expect(memoryIdsInBuffer.has('m2')).toBe(true);
 		expect(map.get('a1')?.memories).toEqual([
-			{ id: 'mem-1', kind: 'fact', content: 'alpha', similarity: 1, effective_weight: 1 }
+			{
+				id: 'mem-1',
+				kind: 'fact',
+				bucket: 'semantic',
+				content: 'alpha',
+				similarity: 1,
+				effective_weight: 1
+			}
 		]);
 		expect(map.get('a2')?.memories).toEqual([
-			{ id: 'mem-2', kind: 'fact', content: 'beta', similarity: 1, effective_weight: 1 }
+			{
+				id: 'mem-2',
+				kind: 'fact',
+				bucket: 'semantic',
+				content: 'beta',
+				similarity: 1,
+				effective_weight: 1
+			}
 		]);
 	});
 
@@ -69,6 +85,7 @@ describe('buildThinkingAttribution', () => {
 					{
 						id: 'mem-1',
 						kind: 'fact',
+						bucket: 'semantic',
 						content: 'alpha',
 						similarity: 1,
 						effective_weight: 1
@@ -81,7 +98,14 @@ describe('buildThinkingAttribution', () => {
 
 		expect(memoryIdsInBuffer.has('m1')).toBe(true);
 		expect(map.get('a1')?.memories).toEqual([
-			{ id: 'mem-1', kind: 'fact', content: 'alpha', similarity: 1, effective_weight: 1 }
+			{
+				id: 'mem-1',
+				kind: 'fact',
+				bucket: 'semantic',
+				content: 'alpha',
+				similarity: 1,
+				effective_weight: 1
+			}
 		]);
 	});
 
@@ -95,6 +119,7 @@ describe('buildThinkingAttribution', () => {
 					{
 						id: 'mem-1',
 						kind: 'fact',
+						bucket: 'semantic',
 						content: 'alpha',
 						similarity: 1,
 						effective_weight: 1
@@ -110,7 +135,14 @@ describe('buildThinkingAttribution', () => {
 		expect(timeline.map((entry) => entry.kind)).toEqual(['memory']);
 		if (timeline[0].kind === 'memory') {
 			expect(timeline[0].memories).toEqual([
-				{ id: 'mem-1', kind: 'fact', content: 'alpha', similarity: 1, effective_weight: 1 }
+				{
+					id: 'mem-1',
+					kind: 'fact',
+					bucket: 'semantic',
+					content: 'alpha',
+					similarity: 1,
+					effective_weight: 1
+				}
 			]);
 		}
 	});
@@ -125,6 +157,7 @@ describe('buildThinkingAttribution', () => {
 					{
 						id: 'mem-1',
 						kind: 'fact',
+						bucket: 'semantic',
 						content: 'alpha',
 						similarity: 1,
 						effective_weight: 1
@@ -155,6 +188,7 @@ describe('buildThinkingAttribution', () => {
 					{
 						id: 'mem-1',
 						kind: 'fact',
+						bucket: 'semantic',
 						content: 'alpha',
 						similarity: 1,
 						effective_weight: 1
@@ -287,6 +321,7 @@ describe('buildThinkingAttribution', () => {
 					{
 						id: 'mem-1',
 						kind: 'fact',
+						bucket: 'semantic',
 						content: 'only turn one',
 						similarity: 1,
 						effective_weight: 1
@@ -505,6 +540,7 @@ describe('pinnedJobProposalsForAssistant', () => {
 						id: 'mem-1',
 						content: 'note',
 						kind: 'fact',
+						bucket: 'semantic',
 						similarity: 1,
 						effective_weight: 1
 					}

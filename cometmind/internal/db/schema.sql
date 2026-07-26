@@ -116,7 +116,13 @@ CREATE TABLE memories (
     source              TEXT NOT NULL,
     base_weight         REAL NOT NULL DEFAULT 1.0,
     access_count        INTEGER NOT NULL DEFAULT 0,
-    pinned              INTEGER NOT NULL DEFAULT 0,
+    application_policy  TEXT NOT NULL DEFAULT 'relevant'
+                        CHECK (application_policy IN ('always', 'relevant')),
+    retention_policy    TEXT NOT NULL DEFAULT 'decaying'
+                        CHECK (retention_policy IN ('protected', 'decaying')),
+    origin_type         TEXT NOT NULL DEFAULT '',
+    origin_id           TEXT NOT NULL DEFAULT '',
+    summary_json        TEXT NOT NULL DEFAULT '{}',
     source_session_id   TEXT,
     superseded_by       TEXT,
     archived            INTEGER NOT NULL DEFAULT 0,
@@ -138,6 +144,30 @@ CREATE INDEX idx_memories_preference_category ON memories (
 );
 
 CREATE INDEX idx_memories_kind_created ON memories (archived, kind, created_at DESC);
+
+CREATE INDEX idx_memories_retrieval_pool ON memories (
+    archived,
+    kind,
+    application_policy,
+    updated_at DESC
+);
+
+CREATE INDEX idx_memories_lineage ON memories (
+    archived,
+    origin_type,
+    origin_id,
+    kind,
+    created_at DESC
+);
+
+CREATE INDEX idx_memories_lifecycle ON memories (
+    archived,
+    retention_policy,
+    application_policy,
+    kind,
+    last_accessed_at,
+    created_at
+);
 
 CREATE TABLE memory_events (
     id          TEXT PRIMARY KEY,

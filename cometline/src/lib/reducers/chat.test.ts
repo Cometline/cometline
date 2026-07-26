@@ -127,7 +127,12 @@ describe('reduceChatState', () => {
 
 	it('updates a pending tool with its completed input', () => {
 		let state = initChatState();
-		state = reduceChatState(state, { type: 'tool_call', id: 'tc-1', tool: 'read_file', input: {} });
+		state = reduceChatState(state, {
+			type: 'tool_call',
+			id: 'tc-1',
+			tool: 'read_file',
+			input: {}
+		});
 		state = reduceChatState(state, {
 			type: 'tool_call',
 			id: 'tc-1',
@@ -180,6 +185,27 @@ describe('reduceChatState', () => {
 		});
 		expect(state.contextBudget?.estimated).toBe(8_000);
 		expect(state.contextBudget?.compacted).toBe(true);
+	});
+
+	it('preserves memory buckets from live injection events', () => {
+		const state = reduceChatState(initChatState(), {
+			type: 'memory_injected',
+			memories: [
+				{
+					id: 'pref-1',
+					content: 'Use concise replies',
+					kind: 'preference',
+					bucket: 'preference',
+					similarity: 1,
+					effective_weight: 1
+				}
+			]
+		});
+
+		expect(state.items[0]).toMatchObject({
+			type: 'memory',
+			memories: [{ id: 'pref-1', bucket: 'preference' }]
+		});
 	});
 
 	it('settles reasoning on step_finish', () => {
@@ -463,7 +489,9 @@ describe('reduceChatState', () => {
 		const card = state.items.find((item) => item.type === 'subagent');
 		expect(card?.type).toBe('subagent');
 		if (card?.type !== 'subagent') return;
-		expect(card.progress).toEqual([{ kind: 'tool', title: 'bash', status: 'running', calls: 2 }]);
+		expect(card.progress).toEqual([
+			{ kind: 'tool', title: 'bash', status: 'running', calls: 2 }
+		]);
 	});
 
 	it('stores general subagent status and tool progress as separate chips', () => {

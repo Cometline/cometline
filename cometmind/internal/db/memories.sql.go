@@ -81,7 +81,7 @@ func (q *Queries) DeleteMemoryEventsOlderThan(ctx context.Context, createdAt int
 }
 
 const getMemory = `-- name: GetMemory :one
-SELECT id, scope, kind, preference_category, content, embedding, embedding_model, source, base_weight, access_count, pinned, source_session_id, superseded_by, archived, archived_reason, last_accessed_at, created_at, updated_at
+SELECT id, scope, kind, preference_category, content, embedding, embedding_model, source, base_weight, access_count, application_policy, retention_policy, origin_type, origin_id, summary_json, source_session_id, superseded_by, archived, archived_reason, last_accessed_at, created_at, updated_at
 FROM memories
 WHERE id = ?
 `
@@ -100,7 +100,11 @@ func (q *Queries) GetMemory(ctx context.Context, id string) (Memory, error) {
 		&i.Source,
 		&i.BaseWeight,
 		&i.AccessCount,
-		&i.Pinned,
+		&i.ApplicationPolicy,
+		&i.RetentionPolicy,
+		&i.OriginType,
+		&i.OriginID,
+		&i.SummaryJson,
 		&i.SourceSessionID,
 		&i.SupersededBy,
 		&i.Archived,
@@ -124,7 +128,11 @@ INSERT INTO memories (
     source,
     base_weight,
     access_count,
-    pinned,
+    application_policy,
+    retention_policy,
+    origin_type,
+    origin_id,
+    summary_json,
     source_session_id,
     superseded_by,
     archived,
@@ -133,6 +141,10 @@ INSERT INTO memories (
     created_at,
     updated_at
 ) VALUES (
+    ?,
+    ?,
+    ?,
+    ?,
     ?,
     ?,
     ?,
@@ -165,7 +177,11 @@ type InsertMemoryParams struct {
 	Source             string         `json:"source"`
 	BaseWeight         float64        `json:"base_weight"`
 	AccessCount        int64          `json:"access_count"`
-	Pinned             int64          `json:"pinned"`
+	ApplicationPolicy  string         `json:"application_policy"`
+	RetentionPolicy    string         `json:"retention_policy"`
+	OriginType         string         `json:"origin_type"`
+	OriginID           string         `json:"origin_id"`
+	SummaryJson        string         `json:"summary_json"`
 	SourceSessionID    sql.NullString `json:"source_session_id"`
 	SupersededBy       sql.NullString `json:"superseded_by"`
 	Archived           int64          `json:"archived"`
@@ -187,7 +203,11 @@ func (q *Queries) InsertMemory(ctx context.Context, arg InsertMemoryParams) erro
 		arg.Source,
 		arg.BaseWeight,
 		arg.AccessCount,
-		arg.Pinned,
+		arg.ApplicationPolicy,
+		arg.RetentionPolicy,
+		arg.OriginType,
+		arg.OriginID,
+		arg.SummaryJson,
 		arg.SourceSessionID,
 		arg.SupersededBy,
 		arg.Archived,
@@ -224,7 +244,7 @@ func (q *Queries) InsertMemoryEvent(ctx context.Context, arg InsertMemoryEventPa
 }
 
 const listActiveMemories = `-- name: ListActiveMemories :many
-SELECT id, scope, kind, preference_category, content, embedding, embedding_model, source, base_weight, access_count, pinned, source_session_id, superseded_by, archived, archived_reason, last_accessed_at, created_at, updated_at
+SELECT id, scope, kind, preference_category, content, embedding, embedding_model, source, base_weight, access_count, application_policy, retention_policy, origin_type, origin_id, summary_json, source_session_id, superseded_by, archived, archived_reason, last_accessed_at, created_at, updated_at
 FROM memories
 WHERE archived = 0
 ORDER BY created_at DESC
@@ -250,7 +270,72 @@ func (q *Queries) ListActiveMemories(ctx context.Context) ([]Memory, error) {
 			&i.Source,
 			&i.BaseWeight,
 			&i.AccessCount,
-			&i.Pinned,
+			&i.ApplicationPolicy,
+			&i.RetentionPolicy,
+			&i.OriginType,
+			&i.OriginID,
+			&i.SummaryJson,
+			&i.SourceSessionID,
+			&i.SupersededBy,
+			&i.Archived,
+			&i.ArchivedReason,
+			&i.LastAccessedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listActiveMemoriesByKinds = `-- name: ListActiveMemoriesByKinds :many
+SELECT id, scope, kind, preference_category, content, embedding, embedding_model, source, base_weight, access_count, application_policy, retention_policy, origin_type, origin_id, summary_json, source_session_id, superseded_by, archived, archived_reason, last_accessed_at, created_at, updated_at
+FROM memories
+WHERE archived = 0
+  AND kind IN (?1, ?2)
+ORDER BY created_at DESC
+LIMIT ?3
+`
+
+type ListActiveMemoriesByKindsParams struct {
+	KindOne  string `json:"kind_one"`
+	KindTwo  string `json:"kind_two"`
+	RowLimit int64  `json:"row_limit"`
+}
+
+func (q *Queries) ListActiveMemoriesByKinds(ctx context.Context, arg ListActiveMemoriesByKindsParams) ([]Memory, error) {
+	rows, err := q.db.QueryContext(ctx, listActiveMemoriesByKinds, arg.KindOne, arg.KindTwo, arg.RowLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Memory{}
+	for rows.Next() {
+		var i Memory
+		if err := rows.Scan(
+			&i.ID,
+			&i.Scope,
+			&i.Kind,
+			&i.PreferenceCategory,
+			&i.Content,
+			&i.Embedding,
+			&i.EmbeddingModel,
+			&i.Source,
+			&i.BaseWeight,
+			&i.AccessCount,
+			&i.ApplicationPolicy,
+			&i.RetentionPolicy,
+			&i.OriginType,
+			&i.OriginID,
+			&i.SummaryJson,
 			&i.SourceSessionID,
 			&i.SupersededBy,
 			&i.Archived,
@@ -273,12 +358,13 @@ func (q *Queries) ListActiveMemories(ctx context.Context) ([]Memory, error) {
 }
 
 const listActivePreferencesByCategory = `-- name: ListActivePreferencesByCategory :many
-SELECT id, scope, kind, preference_category, content, embedding, embedding_model, source, base_weight, access_count, pinned, source_session_id, superseded_by, archived, archived_reason, last_accessed_at, created_at, updated_at
+SELECT id, scope, kind, preference_category, content, embedding, embedding_model, source, base_weight, access_count, application_policy, retention_policy, origin_type, origin_id, summary_json, source_session_id, superseded_by, archived, archived_reason, last_accessed_at, created_at, updated_at
 FROM memories
 WHERE archived = 0
   AND kind = 'preference'
-  AND preference_category = ?
-ORDER BY pinned DESC, updated_at DESC, base_weight DESC, access_count DESC
+  AND (preference_category = ? OR preference_category = '')
+ORDER BY application_policy = 'always' DESC, updated_at DESC, base_weight DESC, access_count DESC
+LIMIT 100
 `
 
 func (q *Queries) ListActivePreferencesByCategory(ctx context.Context, preferenceCategory string) ([]Memory, error) {
@@ -301,7 +387,11 @@ func (q *Queries) ListActivePreferencesByCategory(ctx context.Context, preferenc
 			&i.Source,
 			&i.BaseWeight,
 			&i.AccessCount,
-			&i.Pinned,
+			&i.ApplicationPolicy,
+			&i.RetentionPolicy,
+			&i.OriginType,
+			&i.OriginID,
+			&i.SummaryJson,
 			&i.SourceSessionID,
 			&i.SupersededBy,
 			&i.Archived,
@@ -354,11 +444,12 @@ func (q *Queries) ListArchivedMemoryIDsOlderThan(ctx context.Context, updatedAt 
 }
 
 const listBaselinePreferences = `-- name: ListBaselinePreferences :many
-SELECT id, scope, kind, preference_category, content, embedding, embedding_model, source, base_weight, access_count, pinned, source_session_id, superseded_by, archived, archived_reason, last_accessed_at, created_at, updated_at
+SELECT id, scope, kind, preference_category, content, embedding, embedding_model, source, base_weight, access_count, application_policy, retention_policy, origin_type, origin_id, summary_json, source_session_id, superseded_by, archived, archived_reason, last_accessed_at, created_at, updated_at
 FROM memories
 WHERE archived = 0
   AND kind = 'preference'
-ORDER BY pinned DESC, updated_at DESC, base_weight DESC, access_count DESC
+  AND application_policy = 'always'
+ORDER BY updated_at DESC, base_weight DESC, access_count DESC
 LIMIT ?
 `
 
@@ -382,7 +473,68 @@ func (q *Queries) ListBaselinePreferences(ctx context.Context, limit int64) ([]M
 			&i.Source,
 			&i.BaseWeight,
 			&i.AccessCount,
-			&i.Pinned,
+			&i.ApplicationPolicy,
+			&i.RetentionPolicy,
+			&i.OriginType,
+			&i.OriginID,
+			&i.SummaryJson,
+			&i.SourceSessionID,
+			&i.SupersededBy,
+			&i.Archived,
+			&i.ArchivedReason,
+			&i.LastAccessedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCompactionCandidates = `-- name: ListCompactionCandidates :many
+SELECT id, scope, kind, preference_category, content, embedding, embedding_model, source, base_weight, access_count, application_policy, retention_policy, origin_type, origin_id, summary_json, source_session_id, superseded_by, archived, archived_reason, last_accessed_at, created_at, updated_at
+FROM memories
+WHERE archived = 0
+  AND retention_policy = 'decaying'
+  AND application_policy = 'relevant'
+  AND kind NOT IN ('task_outcome', 'task_summary')
+ORDER BY COALESCE(last_accessed_at, created_at) ASC, base_weight ASC
+LIMIT ?
+`
+
+func (q *Queries) ListCompactionCandidates(ctx context.Context, limit int64) ([]Memory, error) {
+	rows, err := q.db.QueryContext(ctx, listCompactionCandidates, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Memory{}
+	for rows.Next() {
+		var i Memory
+		if err := rows.Scan(
+			&i.ID,
+			&i.Scope,
+			&i.Kind,
+			&i.PreferenceCategory,
+			&i.Content,
+			&i.Embedding,
+			&i.EmbeddingModel,
+			&i.Source,
+			&i.BaseWeight,
+			&i.AccessCount,
+			&i.ApplicationPolicy,
+			&i.RetentionPolicy,
+			&i.OriginType,
+			&i.OriginID,
+			&i.SummaryJson,
 			&i.SourceSessionID,
 			&i.SupersededBy,
 			&i.Archived,
@@ -441,7 +593,7 @@ func (q *Queries) ListMemoryEvents(ctx context.Context, limit int64) ([]MemoryEv
 }
 
 const listRecentMemoriesByKind = `-- name: ListRecentMemoriesByKind :many
-SELECT id, scope, kind, preference_category, content, embedding, embedding_model, source, base_weight, access_count, pinned, source_session_id, superseded_by, archived, archived_reason, last_accessed_at, created_at, updated_at
+SELECT id, scope, kind, preference_category, content, embedding, embedding_model, source, base_weight, access_count, application_policy, retention_policy, origin_type, origin_id, summary_json, source_session_id, superseded_by, archived, archived_reason, last_accessed_at, created_at, updated_at
 FROM memories
 WHERE archived = 0
   AND kind = ?
@@ -474,7 +626,74 @@ func (q *Queries) ListRecentMemoriesByKind(ctx context.Context, arg ListRecentMe
 			&i.Source,
 			&i.BaseWeight,
 			&i.AccessCount,
-			&i.Pinned,
+			&i.ApplicationPolicy,
+			&i.RetentionPolicy,
+			&i.OriginType,
+			&i.OriginID,
+			&i.SummaryJson,
+			&i.SourceSessionID,
+			&i.SupersededBy,
+			&i.Archived,
+			&i.ArchivedReason,
+			&i.LastAccessedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTaskMemoriesByLineage = `-- name: ListTaskMemoriesByLineage :many
+SELECT id, scope, kind, preference_category, content, embedding, embedding_model, source, base_weight, access_count, application_policy, retention_policy, origin_type, origin_id, summary_json, source_session_id, superseded_by, archived, archived_reason, last_accessed_at, created_at, updated_at
+FROM memories
+WHERE archived = 0
+  AND origin_type = ?
+  AND origin_id = ?
+  AND kind IN ('task_outcome', 'task_summary')
+ORDER BY kind = 'task_summary' DESC, created_at DESC
+LIMIT ?
+`
+
+type ListTaskMemoriesByLineageParams struct {
+	OriginType string `json:"origin_type"`
+	OriginID   string `json:"origin_id"`
+	Limit      int64  `json:"limit"`
+}
+
+func (q *Queries) ListTaskMemoriesByLineage(ctx context.Context, arg ListTaskMemoriesByLineageParams) ([]Memory, error) {
+	rows, err := q.db.QueryContext(ctx, listTaskMemoriesByLineage, arg.OriginType, arg.OriginID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Memory{}
+	for rows.Next() {
+		var i Memory
+		if err := rows.Scan(
+			&i.ID,
+			&i.Scope,
+			&i.Kind,
+			&i.PreferenceCategory,
+			&i.Content,
+			&i.Embedding,
+			&i.EmbeddingModel,
+			&i.Source,
+			&i.BaseWeight,
+			&i.AccessCount,
+			&i.ApplicationPolicy,
+			&i.RetentionPolicy,
+			&i.OriginType,
+			&i.OriginID,
+			&i.SummaryJson,
 			&i.SourceSessionID,
 			&i.SupersededBy,
 			&i.Archived,
@@ -525,7 +744,11 @@ SET
     embedding = ?,
     embedding_model = ?,
     base_weight = ?,
-    pinned = ?,
+    application_policy = ?,
+    retention_policy = ?,
+    origin_type = ?,
+    origin_id = ?,
+    summary_json = ?,
     last_accessed_at = ?,
     updated_at = ?
 WHERE id = ?
@@ -538,7 +761,11 @@ type UpdateMemoryParams struct {
 	Embedding          []byte         `json:"embedding"`
 	EmbeddingModel     sql.NullString `json:"embedding_model"`
 	BaseWeight         float64        `json:"base_weight"`
-	Pinned             int64          `json:"pinned"`
+	ApplicationPolicy  string         `json:"application_policy"`
+	RetentionPolicy    string         `json:"retention_policy"`
+	OriginType         string         `json:"origin_type"`
+	OriginID           string         `json:"origin_id"`
+	SummaryJson        string         `json:"summary_json"`
 	LastAccessedAt     sql.NullInt64  `json:"last_accessed_at"`
 	UpdatedAt          int64          `json:"updated_at"`
 	ID                 string         `json:"id"`
@@ -552,7 +779,11 @@ func (q *Queries) UpdateMemory(ctx context.Context, arg UpdateMemoryParams) erro
 		arg.Embedding,
 		arg.EmbeddingModel,
 		arg.BaseWeight,
-		arg.Pinned,
+		arg.ApplicationPolicy,
+		arg.RetentionPolicy,
+		arg.OriginType,
+		arg.OriginID,
+		arg.SummaryJson,
 		arg.LastAccessedAt,
 		arg.UpdatedAt,
 		arg.ID,
