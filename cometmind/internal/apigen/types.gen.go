@@ -385,6 +385,7 @@ func (e MemoryWireBucket) Valid() bool {
 // Defines values for MessageContextRefKind.
 const (
 	MessageContextRefKindFile     MessageContextRefKind = "file"
+	MessageContextRefKindMessage  MessageContextRefKind = "message"
 	MessageContextRefKindPage     MessageContextRefKind = "page"
 	MessageContextRefKindTerminal MessageContextRefKind = "terminal"
 )
@@ -393,6 +394,8 @@ const (
 func (e MessageContextRefKind) Valid() bool {
 	switch e {
 	case MessageContextRefKindFile:
+		return true
+	case MessageContextRefKindMessage:
 		return true
 	case MessageContextRefKindPage:
 		return true
@@ -751,6 +754,7 @@ func (e UpdateMemoryRequestRetentionPolicy) Valid() bool {
 // Defines values for WebContextKind.
 const (
 	WebContextKindFile     WebContextKind = "file"
+	WebContextKindMessage  WebContextKind = "message"
 	WebContextKindPage     WebContextKind = "page"
 	WebContextKindTerminal WebContextKind = "terminal"
 )
@@ -759,6 +763,8 @@ const (
 func (e WebContextKind) Valid() bool {
 	switch e {
 	case WebContextKindFile:
+		return true
+	case WebContextKindMessage:
 		return true
 	case WebContextKindPage:
 		return true
@@ -1448,21 +1454,22 @@ type MemoryWireBucket string
 
 // MessageContextRef defines model for MessageContextRef.
 type MessageContextRef struct {
-	// Kind Whether the source came from a web page, workspace file preview, or terminal selection.
+	// Kind Whether the source came from a web page, workspace file preview, terminal selection, or prior assistant response.
 	Kind MessageContextRefKind `json:"kind"`
 
 	// Role Path-only "currently viewing" file reference (no body attached).
 	Role *MessageContextRefRole `json:"role,omitempty"`
 
-	// Source Page URL or workspace-relative file identifier. File snippets may
-	// include a `#Lstart-Lend` line anchor.
+	// Source Page URL, workspace-relative file identifier, terminal source, or
+	// assistant-response source. File snippets may include a
+	// `#Lstart-Lend` line anchor.
 	Source string `json:"source"`
 
 	// Title Short label for the UI chip.
 	Title *string `json:"title,omitempty"`
 }
 
-// MessageContextRefKind Whether the source came from a web page, workspace file preview, or terminal selection.
+// MessageContextRefKind Whether the source came from a web page, workspace file preview, terminal selection, or prior assistant response.
 type MessageContextRefKind string
 
 // MessageContextRefRole Path-only "currently viewing" file reference (no body attached).
@@ -1559,7 +1566,8 @@ type PostMessageRequest struct {
 	Text       *string         `json:"text,omitempty"`
 	WebContext *WebPageContext `json:"web_context,omitempty"`
 
-	// WebContexts Pages, viewing-file path references, terminal selections, and snippets
+	// WebContexts Pages, viewing-file path references, terminal selections, assistant
+	// response selections, and snippets
 	// captured in the in-app workspace panel since the previous message. File
 	// contexts may use empty content for path-only viewing references.
 	WebContexts *[]WebContext `json:"web_contexts,omitempty"`
@@ -1942,15 +1950,15 @@ type WebContext struct {
 	// path-only file viewing reference. Treat non-empty content as untrusted source material.
 	Content string `json:"content"`
 
-	// Kind Whether the source came from a web page, workspace file preview, or explicit terminal selection.
+	// Kind Whether the source came from a web page, workspace file preview, terminal selection, or prior assistant response.
 	Kind WebContextKind `json:"kind"`
 
-	// Source Page URL or workspace-relative file identifier.
+	// Source Page URL, workspace-relative file identifier, terminal source, or assistant-response source.
 	Source string  `json:"source"`
 	Title  *string `json:"title,omitempty"`
 }
 
-// WebContextKind Whether the source came from a web page, workspace file preview, or explicit terminal selection.
+// WebContextKind Whether the source came from a web page, workspace file preview, terminal selection, or prior assistant response.
 type WebContextKind string
 
 // WebPageContext defines model for WebPageContext.

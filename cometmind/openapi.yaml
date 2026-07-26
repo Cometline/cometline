@@ -2832,7 +2832,8 @@ components:
         web_contexts:
           type: array
           description: |
-            Pages, viewing-file path references, terminal selections, and snippets
+            Pages, viewing-file path references, terminal selections, assistant
+            response selections, and snippets
             captured in the in-app workspace panel since the previous message. File
             contexts may use empty content for path-only viewing references.
           items:
@@ -2845,15 +2846,15 @@ components:
       properties:
         kind:
           type: string
-          enum: [page, file, terminal]
-          description: Whether the source came from a web page, workspace file preview, or explicit terminal selection.
+          enum: [page, file, terminal, message]
+          description: Whether the source came from a web page, workspace file preview, terminal selection, or prior assistant response.
         title:
           type: string
           maxLength: 500
         source:
           type: string
           maxLength: 4096
-          description: Page URL or workspace-relative file identifier.
+          description: Page URL, workspace-relative file identifier, terminal source, or assistant-response source.
         content:
           type: string
           maxLength: 50000
@@ -3122,8 +3123,8 @@ components:
       properties:
         kind:
           type: string
-          enum: [page, file, terminal]
-          description: Whether the source came from a web page, workspace file preview, or terminal selection.
+          enum: [page, file, terminal, message]
+          description: Whether the source came from a web page, workspace file preview, terminal selection, or prior assistant response.
         title:
           type: string
           maxLength: 500
@@ -3132,8 +3133,9 @@ components:
           type: string
           maxLength: 4096
           description: |
-            Page URL or workspace-relative file identifier. File snippets may
-            include a `#Lstart-Lend` line anchor.
+            Page URL, workspace-relative file identifier, terminal source, or
+            assistant-response source. File snippets may include a
+            `#Lstart-Lend` line anchor.
         role:
           type: string
           enum: [viewing]

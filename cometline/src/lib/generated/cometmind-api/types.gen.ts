@@ -276,7 +276,8 @@ export type PostMessageRequest = {
     file_paths?: Array<string>;
     web_context?: WebPageContext;
     /**
-     * Pages, viewing-file path references, terminal selections, and snippets
+     * Pages, viewing-file path references, terminal selections, assistant
+     * response selections, and snippets
      * captured in the in-app workspace panel since the previous message. File
      * contexts may use empty content for path-only viewing references.
      *
@@ -286,12 +287,12 @@ export type PostMessageRequest = {
 
 export type WebContext = {
     /**
-     * Whether the source came from a web page, workspace file preview, or explicit terminal selection.
+     * Whether the source came from a web page, workspace file preview, terminal selection, or prior assistant response.
      */
-    kind: 'page' | 'file' | 'terminal';
+    kind: 'page' | 'file' | 'terminal' | 'message';
     title?: string;
     /**
-     * Page URL or workspace-relative file identifier.
+     * Page URL, workspace-relative file identifier, terminal source, or assistant-response source.
      */
     source: string;
     /**
@@ -477,16 +478,17 @@ export type TranscriptResponse = {
 
 export type MessageContextRef = {
     /**
-     * Whether the source came from a web page, workspace file preview, or terminal selection.
+     * Whether the source came from a web page, workspace file preview, terminal selection, or prior assistant response.
      */
-    kind: 'page' | 'file' | 'terminal';
+    kind: 'page' | 'file' | 'terminal' | 'message';
     /**
      * Short label for the UI chip.
      */
     title?: string;
     /**
-     * Page URL or workspace-relative file identifier. File snippets may
-     * include a `#Lstart-Lend` line anchor.
+     * Page URL, workspace-relative file identifier, terminal source, or
+     * assistant-response source. File snippets may include a
+     * `#Lstart-Lend` line anchor.
      *
      */
     source: string;

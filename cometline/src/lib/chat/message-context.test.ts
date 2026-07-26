@@ -1,8 +1,11 @@
-import { describe, expect, it } from 'vitest';
+// @vitest-environment jsdom
+
+import { describe, expect, it, vi } from 'vitest';
 import {
 	messageContextLabel,
 	messageContextRefsFromPending,
 	messageContextRefsFromWebContexts,
+	openMessageContext,
 	parseFileContextSource
 } from './message-context';
 
@@ -85,5 +88,35 @@ describe('parseFileContextSource', () => {
 			path: 'foo.ts',
 			range: { startLine: 12, endLine: 12 }
 		});
+	});
+});
+
+describe('assistant response contexts', () => {
+	it('uses the selected-text title as the chip label', () => {
+		expect(
+			messageContextLabel({
+				kind: 'message',
+				title: 'A useful selected passage',
+				source: 'assistant-response://sess-1/2'
+			})
+		).toBe('A useful selected passage');
+	});
+
+	it('scrolls to and highlights the source response', () => {
+		const target = document.createElement('div');
+		target.dataset.assistantResponseSource = 'assistant-response://sess-1/2';
+		const scrollIntoView = vi.fn();
+		target.scrollIntoView = scrollIntoView;
+		document.body.appendChild(target);
+
+		openMessageContext({
+			kind: 'message',
+			title: 'Selected passage',
+			source: 'assistant-response://sess-1/2'
+		});
+
+		expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' });
+		expect(target).toHaveClass('response-context-highlight');
+		target.remove();
 	});
 });

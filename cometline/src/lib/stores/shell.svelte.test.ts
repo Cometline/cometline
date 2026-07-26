@@ -497,4 +497,27 @@ describe('shellStore lazy page context', () => {
 		]);
 		unregister();
 	});
+
+	it('deduplicates the same assistant selection but keeps distinct snippets', () => {
+		shellStore.addWebContextForActive({
+			kind: 'message',
+			title: 'First selected response',
+			source: 'assistant-response://sess-1/1',
+			content: 'First selected\nresponse'
+		});
+		shellStore.addWebContextForActive({
+			kind: 'message',
+			title: 'First selected response',
+			source: 'assistant-response://sess-1/1',
+			content: ' First  selected response '
+		});
+		shellStore.addWebContextForActive({
+			kind: 'message',
+			title: 'Different selection',
+			source: 'assistant-response://sess-1/1',
+			content: 'Different selection'
+		});
+
+		expect(shellStore.pendingWebContexts).toHaveLength(2);
+	});
 });

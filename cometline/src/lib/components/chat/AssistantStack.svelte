@@ -17,6 +17,16 @@
 	import type { ChatItem } from '$lib/stores/chat.svelte';
 	import { resolveImageSrc } from '$lib/files/images';
 	import ImageLightbox from '$lib/components/chat/ImageLightbox.svelte';
+	import { portal } from '$lib/components/portal';
+	import { shellStore } from '$lib/stores/shell.svelte';
+	import {
+		assistantResponseSource,
+		buildAssistantResponseContext
+	} from '$lib/conversation/assistant-response-context';
+	import {
+		firstSelectionClientRect,
+		selectionPopupPosition
+	} from '$lib/workspace/selection-popup';
 
 	type AssistantItem = Extract<ChatItem, { type: 'assistant' }>;
 
@@ -31,6 +41,7 @@
 	} = $props();
 
 	let lightbox = $state<{ src: string; alt: string } | null>(null);
+	let selectionPopup = $state<{ top: number; left: number; text: string } | null>(null);
 
 	setReactiveChatTurnContext(() => context);
 
@@ -49,10 +60,81 @@
 			!(item.images?.length) &&
 			!(item.id === context.streamingAssistantId && context.sessionStreaming)
 	);
+	const responseSource = $derived(
+		assistantResponseSource(context.sessionId, item.id, context.threadItems)
+	);
 
+	function clearSelectionPopup() {
+		selectionPopup = null;
+	}
+
+	function updateSelectionPopup(root: HTMLElement) {
+		if (item.id === context.streamingAssistantId) {
+			clearSelectionPopup();
+			return;
+		}
+		const selection = window.getSelection();
+		if (!selection || selection.isCollapsed || selection.rangeCount === 0) {
+			clearSelectionPopup();
+			return;
+		}
+		if (!root.contains(selection.anchorNode) || !root.contains(selection.focusNode)) {
+			clearSelectionPopup();
+			return;
+		}
+		const text = selection.toString().trim();
+		if (!text) {
+			clearSelectionPopup();
+			return;
+		}
+		selectionPopup = {
+			...selectionPopupPosition(
+				firstSelectionClientRect(selection.getRangeAt(0)),
+				window.innerWidth
+			),
+			text
+		};
+	}
+
+	function selectableResponse(node: HTMLElement) {
+		const update = () => updateSelectionPopup(node);
+		node.addEventListener('mouseup', update);
+		node.addEventListener('keyup', update);
+		return {
+			destroy() {
+				node.removeEventListener('mouseup', update);
+				node.removeEventListener('keyup', update);
+			}
+		};
+	}
+
+	function addSelectionToChat() {
+		if (!selectionPopup) return;
+		const contextRef = buildAssistantResponseContext({
+			sessionId: context.sessionId,
+			itemId: item.id,
+			items: context.threadItems,
+			selectedText: selectionPopup.text
+		});
+		if (contextRef) {
+			shellStore.addWebContextForActive(contextRef);
+			shellStore.requestComposerFocus();
+		}
+		clearSelectionPopup();
+		window.getSelection()?.removeAllRanges();
+	}
+
+	$effect(() => {
+		document.addEventListener('scroll', clearSelectionPopup, true);
+		window.addEventListener('resize', clearSelectionPopup);
+		return () => {
+			document.removeEventListener('scroll', clearSelectionPopup, true);
+			window.removeEventListener('resize', clearSelectionPopup);
+		};
+	});
 </script>
 
-<div class="assistant-stack">
+<div class="assistant-stack" data-assistant-response-source={responseSource ?? undefined}>
 	{#if grouped}
 		<AssistantActivityGroup
 			assistant={item}
@@ -94,7 +176,12 @@
 		</div>
 	{/if}
 	{#if item.text.trim()}
-		<div class="bubble assistant-bubble">
+		<div
+			use:selectableResponse
+			class="bubble assistant-bubble"
+			role="article"
+			aria-label="Assistant response"
+		>
 			<AssistantMarkdown
 				source={item.text}
 				streaming={item.id === context.streamingAssistantId}
@@ -142,6 +229,20 @@
 	{/if}
 </div>
 
+{#if selectionPopup}
+	<button
+		use:portal
+		type="button"
+		class="selection-add-chat"
+		style:top="{selectionPopup.top}px"
+		style:left="{selectionPopup.left}px"
+		onmousedown={(event) => event.preventDefault()}
+		onclick={addSelectionToChat}
+	>
+		Add to chat
+	</button>
+{/if}
+
 {#if lightbox}
 	<ImageLightbox
 		open
@@ -165,6 +266,40 @@
 		/* Definite inline size for image max-width: min(420px, 100cqi). */
 		container-type: inline-size;
 		container-name: assistant-stack;
+	}
+
+	.assistant-stack:global(.response-context-highlight) > .assistant-bubble {
+		animation: response-context-highlight 1600ms var(--ease-smooth);
+	}
+
+	@keyframes response-context-highlight {
+		0%,
+		100% {
+			box-shadow: none;
+		}
+		15%,
+		70% {
+			box-shadow: 0 0 0 3px
+				color-mix(in srgb, var(--hero-composer-glow-color, #72c0ff) 45%, transparent);
+		}
+	}
+
+	.selection-add-chat {
+		position: fixed;
+		z-index: 10000;
+		padding: 6px 10px;
+		border: 1px solid var(--border-soft);
+		border-radius: 8px;
+		background: #fff;
+		color: var(--text-main);
+		font-size: 12px;
+		font-weight: 600;
+		box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+		cursor: pointer;
+	}
+
+	.selection-add-chat:hover {
+		border-color: var(--text-soft);
 	}
 
 	.assistant-stack > :global(.memory-panel),

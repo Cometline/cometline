@@ -53,6 +53,7 @@ export function messageContextLabel(context: MessageContextRef): string {
 	const title = context.title?.trim();
 	if (title) return title;
 	if (context.kind === 'terminal') return 'Terminal selection';
+	if (context.kind === 'message') return 'Assistant response';
 	if (context.kind === 'file') return fileNameFromContextSource(context.source);
 	return pageNameFromContextSource(context.source);
 }
@@ -108,6 +109,19 @@ function parseLineAnchor(anchor: string): SelectionLineRange | null {
 
 /** Navigate from a context chip: file (+ optional lines), page URL, or terminal panel. */
 export function openMessageContext(context: MessageContextRef): void {
+	if (context.kind === 'message') {
+		const targets = Array.from(
+			document.querySelectorAll<HTMLElement>('[data-assistant-response-source]')
+		).filter((element) => element.dataset.assistantResponseSource === context.source);
+		const target = targets.find((element) => element.offsetParent !== null) ?? targets[0];
+		if (!target) return;
+		target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+		target.classList.remove('response-context-highlight');
+		void target.offsetWidth;
+		target.classList.add('response-context-highlight');
+		window.setTimeout(() => target.classList.remove('response-context-highlight'), 1600);
+		return;
+	}
 	if (context.kind === 'page') {
 		const url = context.source.trim();
 		if (url) shellStore.openWorkspacePanelUrlForActive(url);

@@ -750,16 +750,28 @@ function createShellStore() {
 			const key = panelSessionKey();
 			if (!key) return;
 			const existing = webContextsBySession[key] ?? [];
+			const nextContext: WebContext = {
+				...context,
+				content: context.content.trim().slice(0, 50000)
+			};
+			if (
+				nextContext.kind === 'message' &&
+				existing.some(
+					(item) =>
+						item.kind === 'message' &&
+						item.source === nextContext.source &&
+						item.content.replace(/\s+/g, ' ').trim() ===
+							nextContext.content.replace(/\s+/g, ' ').trim()
+				)
+			) {
+				return;
+			}
 			let next = existing;
 			if (context.kind === 'page') {
 				next = existing.filter(
 					(item) => !(isPendingPageContext(item) && item.source === context.source)
 				);
 			}
-			const nextContext: WebContext = {
-				...context,
-				content: context.content.trim().slice(0, 50000)
-			};
 			webContextsBySession = {
 				...webContextsBySession,
 				[key]: [...next, nextContext]
