@@ -18,6 +18,7 @@ const electronAPI: ElectronAPI = {
 	openExternal: (url) => ipcRenderer.invoke('cometline:open-external', url),
 	getWorkspacePath: () => ipcRenderer.invoke('cometline:get-workspace-path'),
 	selectWorkspacePath: () => ipcRenderer.invoke('cometline:select-workspace-path'),
+	browseWorkspacePath: () => ipcRenderer.invoke('cometline:browse-workspace-path'),
 	selectBackupFolder: () => ipcRenderer.invoke('cometline:select-backup-folder'),
 	setWorkspacePath: (workspacePath) =>
 		ipcRenderer.invoke('cometline:set-workspace-path', workspacePath),

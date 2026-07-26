@@ -51,7 +51,14 @@ function settingsWithProviders(providers: ProviderConfig[]): ProviderSettings {
 	return settings;
 }
 
-function createTestDomain(homeDirectory: string, environment: Record<string, string | undefined> = {}) {
+function createTestDomain(
+	homeDirectory: string,
+	environment: Record<string, string | undefined> = {},
+	showOpenDialog: () => Promise<{ canceled: boolean; filePaths: string[] }> = async () => ({
+		canceled: true,
+		filePaths: []
+	})
+) {
 	return createSettingsDomain({
 		fs,
 		path,
@@ -63,7 +70,7 @@ function createTestDomain(homeDirectory: string, environment: Record<string, str
 		resolveNextPersonaId: (settings, current) => settings.app?.personaId ?? current.app.personaId,
 		resolveSystemPromptPath: (personaId) => `/souls/${personaId}.md`,
 		getFocusedWindow: () => null,
-		showOpenDialog: async () => ({ canceled: true, filePaths: [] })
+		showOpenDialog
 	});
 }
 
@@ -190,6 +197,25 @@ describe('recent workspace paths', () => {
 });
 
 describe('settings domain factory', () => {
+	it('browses for a workspace without changing the stored default', async () => {
+		const homeDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'cometline-domain-'));
+		temporaryDirectories.push(homeDirectory);
+		const storedWorkspace = path.join(homeDirectory, 'stored-workspace');
+		const browsedWorkspace = path.join(homeDirectory, 'browsed-workspace');
+		fs.mkdirSync(storedWorkspace);
+		fs.mkdirSync(browsedWorkspace);
+		const domain = createTestDomain(homeDirectory, {}, async () => ({
+			canceled: false,
+			filePaths: [browsedWorkspace]
+		}));
+
+		domain.writeStoredWorkspacePath(storedWorkspace);
+
+		expect(await domain.browseWorkspacePath()).toBe(browsedWorkspace);
+		expect(domain.getWorkspacePath()).toBe(storedWorkspace);
+		expect(domain.listRecentWorkspacePaths()).toEqual([storedWorkspace]);
+	});
+
 	it('persists split settings, mini state, workspace store, and composer history without Electron lifecycle', () => {
 		const homeDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'cometline-domain-'));
 		temporaryDirectories.push(homeDirectory);

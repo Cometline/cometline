@@ -189,14 +189,23 @@ export function createSettingsDomain(dependencies: SettingsDomainDependencies) {
 		return readStoredWorkspacePath() || defaultWorkspacePath();
 	}
 
-	async function selectWorkspacePath() {
+	async function chooseWorkspacePath() {
 		const result = await dependencies.showOpenDialog(dependencies.getFocusedWindow(), {
 			properties: ['openDirectory', 'createDirectory'],
 			buttonLabel: 'Select workspace',
 			title: 'Choose a workspace folder'
 		});
 		if (result.canceled || result.filePaths.length === 0) return null;
-		return writeStoredWorkspacePath(result.filePaths[0]);
+		return path.resolve(result.filePaths[0]);
+	}
+
+	async function selectWorkspacePath() {
+		const selected = await chooseWorkspacePath();
+		return selected ? writeStoredWorkspacePath(selected) : null;
+	}
+
+	async function browseWorkspacePath() {
+		return chooseWorkspacePath();
 	}
 
 	function normalizeOptions(personaId = 'minako', settings: unknown = undefined) {
@@ -398,6 +407,7 @@ export function createSettingsDomain(dependencies: SettingsDomainDependencies) {
 		readProviderSettings,
 		readSavedProviderSettings,
 		removeRecentWorkspacePath,
+		browseWorkspacePath,
 		selectWorkspacePath,
 		writeMiniWindowState,
 		writeProviderSettings,

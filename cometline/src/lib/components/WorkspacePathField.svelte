@@ -58,7 +58,7 @@
 
 	async function browseFolder() {
 		if (disabled) return;
-		const picked = await window.electronAPI?.selectWorkspacePath?.();
+		const picked = await window.electronAPI?.browseWorkspacePath?.();
 		if (!picked) return;
 		value = picked;
 		panelOpen = false;

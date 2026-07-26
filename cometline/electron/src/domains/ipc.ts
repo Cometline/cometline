@@ -16,6 +16,7 @@ export interface IpcHandlers {
 	getWorkspacePath: Invoker;
 	openSessionInMainWindow: Invoker;
 	selectWorkspacePath: Invoker;
+	browseWorkspacePath: Invoker;
 	selectBackupFolder: Invoker;
 	setWorkspacePath: Invoker;
 	listRecentWorkspaces: Invoker;
@@ -84,6 +85,7 @@ export function registerIpcHandlers(handlers: IpcHandlers) {
 	ipcMain.handle('cometline:get-workspace-path', handlers.getWorkspacePath);
 	ipcMain.handle('cometline:open-session-in-main-window', handlers.openSessionInMainWindow);
 	ipcMain.handle('cometline:select-workspace-path', handlers.selectWorkspacePath);
+	ipcMain.handle('cometline:browse-workspace-path', handlers.browseWorkspacePath);
 	ipcMain.handle('cometline:select-backup-folder', handlers.selectBackupFolder);
 	ipcMain.handle('cometline:set-workspace-path', handlers.setWorkspacePath);
 	ipcMain.handle('cometline:list-recent-workspaces', handlers.listRecentWorkspaces);

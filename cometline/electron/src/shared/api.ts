@@ -78,6 +78,7 @@ export interface ElectronAPI {
 	onFullScreenChange(callback: (isFullScreen: boolean) => void): () => void;
 	getWorkspacePath(): Promise<string>;
 	selectWorkspacePath(): Promise<string | null>;
+	browseWorkspacePath(): Promise<string | null>;
 	selectBackupFolder(): Promise<SettingsFileResult>;
 	setWorkspacePath(workspacePath: string): Promise<string>;
 	listRecentWorkspaces(): Promise<string[]>;
