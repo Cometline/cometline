@@ -1,8 +1,14 @@
-import type { ImageAttachment, MessageContextRef, TokenUsage } from '$lib/generated/cometmind-api';
+import type {
+	ImageAttachment,
+	MemoryWire,
+	MessageContextRef,
+	TokenUsage
+} from '$lib/generated/cometmind-api';
 
 export type {
 	CreateSessionRequest,
 	ImageAttachment,
+	MemoryWire,
 	MessageContextRef,
 	PostMessageRequest,
 	Session,
@@ -217,13 +223,7 @@ export type ChatItem =
 	| {
 			id: string;
 			type: 'memory';
-			memories: {
-				id: string;
-				content: string;
-				kind: string;
-				similarity: number;
-				effective_weight: number;
-			}[];
+			memories: MemoryWire[];
 	  }
 	| { id: string; type: 'error'; text: string }
 	| {

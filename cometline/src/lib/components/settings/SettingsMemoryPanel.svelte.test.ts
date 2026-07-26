@@ -17,7 +17,12 @@ import type { ProviderConfig } from '$lib/types';
 import SettingsMemoryPanel from './SettingsMemoryPanel.svelte';
 import { createSettingsController } from './settings-controller.svelte';
 import { settingsStore } from '$lib/stores/settings.svelte';
-import { compactMemory, compactMemoryPreview, listMemories } from '$lib/client/cometmind';
+import {
+	compactMemory,
+	compactMemoryPreview,
+	createMemory,
+	listMemories
+} from '$lib/client/cometmind';
 
 vi.mock('$lib/client/cometmind', () => {
 	const base = {
@@ -125,6 +130,28 @@ describe('SettingsMemoryPanel embedding selection', () => {
 		expect(payload.embedding.model).toBe('text-embedding-3-large');
 	});
 
+	it('tracks task outcome limit changes in the dirty snapshot', async () => {
+		const { component, getByRole } = render(SettingsMemoryPanel, { props: { providers } });
+
+		await waitFor(() => expect(component.isBusy()).toBe(false));
+		expect(component.isDirty()).toBe(false);
+
+		await fireEvent.input(getByRole('slider', { name: /Task outcomes in prompt \(3\)/ }), {
+			target: { value: '4' }
+		});
+
+		expect(component.isDirty()).toBe(true);
+	});
+
+	it('explains the prompt memory composition using the configured limits', async () => {
+		const { getByText } = render(SettingsMemoryPanel, { props: { providers } });
+
+		await waitFor(() => expect(getByText('What gets added to a prompt')).toBeTruthy());
+		expect(
+			getByText(/Up to 3 user preferences, 3 relevant task outcomes, and 5 semantic memories/)
+		).toBeTruthy();
+	});
+
 	// This is the test that actually reproduces the production bug: the Save
 	// button's `disabled` is a `$derived` (`saveDisabled`) that reads the panel's
 	// `isDirty()` exactly like SettingsPanel.svelte does. A direct `isDirty()`
@@ -168,6 +195,59 @@ describe('SettingsMemoryPanel embedding selection', () => {
 	});
 });
 
+describe('SettingsMemoryPanel manual memories', () => {
+	it('sends preference policy and normalizes always for other kinds', async () => {
+		vi.mocked(createMemory).mockImplementation(async (request) => ({
+			id: `memory-${request.kind}`,
+			scope: 'global',
+			kind: request.kind ?? 'fact',
+			content: request.content,
+			source: 'manual',
+			base_weight: 1,
+			effective_weight: 1,
+			access_count: 0,
+			application_policy: request.application_policy ?? 'relevant',
+			retention_policy: request.retention_policy ?? 'decaying',
+			summary_json: {},
+			created_at: 1,
+			updated_at: 1
+		}));
+
+		const { getByLabelText, getByRole } = render(SettingsMemoryPanel, { props: { providers } });
+		await waitFor(() => expect(getByLabelText('Memory content')).toBeTruthy());
+
+		await fireEvent.change(getByLabelText('Kind'), { target: { value: 'preference' } });
+		await fireEvent.change(getByLabelText('Application'), { target: { value: 'always' } });
+		const retention = getByLabelText('Retention') as HTMLSelectElement;
+		expect(retention.value).toBe('protected');
+		expect(retention.disabled).toBe(true);
+		await fireEvent.input(getByLabelText('Memory content'), {
+			target: { value: 'Use concise replies' }
+		});
+		await fireEvent.click(getByRole('button', { name: 'Add memory' }));
+
+		expect(vi.mocked(createMemory)).toHaveBeenLastCalledWith({
+			content: 'Use concise replies',
+			kind: 'preference',
+			application_policy: 'always',
+			retention_policy: 'protected'
+		});
+
+		await fireEvent.change(getByLabelText('Kind'), { target: { value: 'fact' } });
+		await fireEvent.input(getByLabelText('Memory content'), {
+			target: { value: 'Cometline uses Svelte' }
+		});
+		await fireEvent.click(getByRole('button', { name: 'Add memory' }));
+
+		expect(vi.mocked(createMemory)).toHaveBeenLastCalledWith({
+			content: 'Cometline uses Svelte',
+			kind: 'fact',
+			application_policy: 'relevant',
+			retention_policy: 'protected'
+		});
+	});
+});
+
 describe('SettingsMemoryPanel compaction', () => {
 	it('shows the total count and keeps preview feedback in the compaction section', async () => {
 		vi.mocked(listMemories).mockResolvedValueOnce({
@@ -181,7 +261,9 @@ describe('SettingsMemoryPanel compaction', () => {
 					base_weight: 1,
 					effective_weight: 1,
 					access_count: 0,
-					pinned: false,
+					application_policy: 'relevant',
+					retention_policy: 'decaying',
+					summary_json: {},
 					created_at: 1,
 					updated_at: 1
 				},
@@ -194,7 +276,9 @@ describe('SettingsMemoryPanel compaction', () => {
 					base_weight: 1,
 					effective_weight: 1,
 					access_count: 0,
-					pinned: false,
+					application_policy: 'always',
+					retention_policy: 'protected',
+					summary_json: {},
 					created_at: 2,
 					updated_at: 2
 				}

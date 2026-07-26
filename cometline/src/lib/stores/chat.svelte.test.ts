@@ -506,6 +506,7 @@ describe('chatStore session switching', () => {
 							id: 'm1',
 							content: 'prefers zsh',
 							kind: 'semantic',
+							bucket: 'semantic',
 							similarity: 0.9,
 							effective_weight: 1
 						}
