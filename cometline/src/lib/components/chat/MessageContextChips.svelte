@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { FileText, Globe, Terminal } from '@lucide/svelte';
+	import { FileText, Globe, MessageSquareQuote, Terminal } from '@lucide/svelte';
 	import type { MessageContextRef } from '$lib/types';
 	import { messageContextLabel, openMessageContext } from '$lib/chat/message-context';
 
@@ -27,6 +27,7 @@
 	function iconFor(kind: MessageContextRef['kind']) {
 		if (kind === 'page') return Globe;
 		if (kind === 'terminal') return Terminal;
+		if (kind === 'message') return MessageSquareQuote;
 		return FileText;
 	}
 </script>

@@ -100,6 +100,7 @@ export type ShortcutAction =
 	| 'sendMessage'
 	| 'insertNewline'
 	| 'closeSettings'
+	| 'findInSession'
 	| 'focusSearch'
 	| 'previousSession'
 	| 'nextSession'

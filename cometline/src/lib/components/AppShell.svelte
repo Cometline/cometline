@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { slide } from 'svelte/transition';
 	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 	import { PanelLeft } from '@lucide/svelte';
 	import Sidebar from './Sidebar.svelte';
 	import RuntimeOverlay from './RuntimeOverlay.svelte';
@@ -62,6 +63,15 @@
 		if (!session) return '';
 		return sessionDisplayTitle(session.title);
 	});
+
+	function canFindInSession() {
+		return Boolean(
+			activeSessionId &&
+			page.url.pathname.startsWith('/session/') &&
+			!shellStore.settingsOpen &&
+			!inboxStore.drawerOpen
+		);
+	}
 	let titlebarSessionTitleAttr = $derived(
 		titlebarSessionTitle ? `${titlebarSessionTitle} — Double-click to rename` : ''
 	);
@@ -202,6 +212,10 @@
 				return;
 			case 'newChat':
 				startNewChat();
+				return;
+			case 'findInSession':
+				if (!canFindInSession()) return;
+				shellStore.requestSessionFind();
 				return;
 			case 'focusSearch':
 				shellStore.openSidebar();
@@ -358,6 +372,12 @@
 			if (matchesShortcut(event, shortcuts.newChat)) {
 				event.preventDefault();
 				runShortcutAction('newChat');
+				return;
+			}
+			if (matchesShortcut(event, shortcuts.findInSession)) {
+				if (!canFindInSession()) return;
+				event.preventDefault();
+				runShortcutAction('findInSession');
 				return;
 			}
 			if (matchesShortcut(event, shortcuts.focusSearch)) {

@@ -167,6 +167,21 @@ describe('keyboard-shortcuts', () => {
 		expect(normalized.openWebSearch).toEqual({ command: true, key: 'o' });
 	});
 
+	it('defaults current-chat find to Cmd+F and chat search to Cmd+Shift+F', () => {
+		const normalized = normalizeKeyboardShortcuts({});
+		expect(normalized.findInSession).toEqual({ command: true, key: 'f' });
+		expect(normalized.focusSearch).toEqual({ command: true, shift: true, key: 'f' });
+	});
+
+	it('migrates the old chat search default without replacing custom bindings', () => {
+		expect(
+			normalizeKeyboardShortcuts({ focusSearch: { command: true, key: 'f' } }).focusSearch
+		).toEqual({ command: true, shift: true, key: 'f' });
+		expect(
+			normalizeKeyboardShortcuts({ focusSearch: { command: true, key: 'g' } }).focusSearch
+		).toEqual({ command: true, key: 'g' });
+	});
+
 	it('includes openGitPanel default shortcut', () => {
 		const normalized = normalizeKeyboardShortcuts({});
 		expect(normalized.openGitPanel).toEqual({ command: true, shift: true, key: 'g' });

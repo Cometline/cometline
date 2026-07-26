@@ -216,7 +216,7 @@ func TestWorkspaceGitStatusAndDiff(t *testing.T) {
 		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
 	}
 	var status struct {
-		IsRepo bool `json:"is_repo"`
+		IsRepo bool   `json:"is_repo"`
 		Branch string `json:"branch"`
 		Files  []struct {
 			Path   string `json:"path"`
@@ -1308,6 +1308,71 @@ func TestPostMessageInlinesExplicitTerminalContext(t *testing.T) {
 		if !strings.Contains(text, want) {
 			t.Fatalf("terminal context missing %q: %q", want, text)
 		}
+	}
+}
+
+func TestPostMessageInlinesAssistantResponseContext(t *testing.T) {
+	t.Parallel()
+
+	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
+			ch <- event.Done()
+			return nil
+		}), nil
+	})
+	defer cleanup()
+
+	ctx := context.Background()
+	ws, err := svc.EnsureWorkspace(ctx, t.TempDir())
+	if err != nil {
+		t.Fatalf("EnsureWorkspace() error = %v", err)
+	}
+	sess, err := svc.NewSession(ctx, ws.ID, "test-model", "test-provider")
+	if err != nil {
+		t.Fatalf("NewSession() error = %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	body := `{"text":"Use this part","web_contexts":[{"kind":"message","title":"Selected answer","source":"assistant-response://session-1/2","content":"The selected assistant passage."}]}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/sessions/"+sess.ID+"/messages", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	engine.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d body=%s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+
+	msgs, err := svc.BuildSDKMessages(ctx, sess.ID)
+	if err != nil {
+		t.Fatalf("BuildSDKMessages() error = %v", err)
+	}
+	text := msgs[0].Content[0].(cometsdk.TextBlock).Text
+	for _, want := range []string{"Prior assistant response", "Selected answer", "assistant-response://session-1/2", "The selected assistant passage.", "ASSISTANT_RESPONSE"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("assistant response context missing %q: %q", want, text)
+		}
+	}
+
+	transcript, err := svc.LoadTranscript(ctx, sess.ID)
+	if err != nil {
+		t.Fatalf("LoadTranscript() error = %v", err)
+	}
+	if len(transcript) != 1 || len(transcript[0].Contexts) != 1 {
+		t.Fatalf("transcript contexts = %+v", transcript)
+	}
+	if transcript[0].Contexts[0].Kind != "message" || transcript[0].Contexts[0].Source != "assistant-response://session-1/2" {
+		t.Fatalf("assistant response ref = %#v", transcript[0].Contexts[0])
+	}
+}
+
+func TestFormatWebContextRejectsMalformedAssistantResponseSource(t *testing.T) {
+	t.Parallel()
+	_, err := formatWebContext(webContextInput{
+		Kind:    "message",
+		Source:  "assistant-response://session-only",
+		Content: "selection",
+	})
+	if err == nil || !strings.Contains(err.Error(), "identify an assistant response") {
+		t.Fatalf("formatWebContext() error = %v", err)
 	}
 }
 

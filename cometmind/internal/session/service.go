@@ -34,7 +34,7 @@ type ContentBlock struct {
 	Alt       string `json:"alt,omitempty"`
 }
 
-// MessageContextRef is a slim UI reference for a web/file/terminal context
+// MessageContextRef is a slim UI reference for a web/file/terminal/message context
 // attached to a user turn. Content bodies are not stored here — they are
 // already inlined into the agent-facing text blocks.
 type MessageContextRef struct {

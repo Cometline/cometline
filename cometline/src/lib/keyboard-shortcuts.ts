@@ -7,6 +7,7 @@ export type ShortcutAction =
 	| 'sendMessage'
 	| 'insertNewline'
 	| 'closeSettings'
+	| 'findInSession'
 	| 'focusSearch'
 	| 'previousSession'
 	| 'nextSession'
@@ -105,10 +106,16 @@ export const SHORTCUT_DEFINITIONS: KeyboardShortcutDefinition[] = [
 		defaultBinding: { command: true, shift: true, key: 'd' }
 	},
 	{
-		id: 'focusSearch',
-		label: 'Focus search chats',
+		id: 'findInSession',
+		label: 'Find in current chat',
 		category: 'chats',
 		defaultBinding: { command: true, key: 'f' }
+	},
+	{
+		id: 'focusSearch',
+		label: 'Search chats',
+		category: 'chats',
+		defaultBinding: { command: true, shift: true, key: 'f' }
 	},
 	{
 		id: 'sendMessage',
@@ -339,6 +346,21 @@ function normalizeToggleWorkspacePanelBinding(
 	return binding;
 }
 
+function normalizeFocusSearchBinding(
+	binding: ShortcutBinding | undefined,
+	defaultBinding: ShortcutBinding
+): ShortcutBinding {
+	if (!binding) return { ...defaultBinding };
+	const isOldDefault =
+		keyMatches(binding.key, 'f') &&
+		binding.command === true &&
+		binding.ctrl !== true &&
+		binding.meta !== true &&
+		binding.alt !== true &&
+		binding.shift !== true;
+	return isOldDefault ? { ...defaultBinding } : binding;
+}
+
 function isBareEnterBinding(binding: ShortcutBinding): boolean {
 	return (
 		keyMatches(binding.key, 'Enter') &&
@@ -403,13 +425,19 @@ export function normalizeKeyboardShortcuts(
 				next[def.id] = normalizeToggleWorkspacePanelBinding(normalized, def.defaultBinding);
 				continue;
 			}
+			if (def.id === 'focusSearch') {
+				next[def.id] = normalizeFocusSearchBinding(normalized, def.defaultBinding);
+				continue;
+			}
 			const sessionNav = normalizeSessionNavBinding(def.id, normalized, def.defaultBinding);
 			next[def.id] = normalizeComposerEnterBinding(def.id, sessionNav, def.defaultBinding);
 		} else {
 			const fallback =
 				def.id === 'toggleWorkspacePanel'
 					? normalizeToggleWorkspacePanelBinding(undefined, def.defaultBinding)
-					: normalizeSessionNavBinding(def.id, undefined, def.defaultBinding);
+					: def.id === 'focusSearch'
+						? normalizeFocusSearchBinding(undefined, def.defaultBinding)
+						: normalizeSessionNavBinding(def.id, undefined, def.defaultBinding);
 			next[def.id] = normalizeComposerEnterBinding(def.id, fallback, def.defaultBinding);
 		}
 	}

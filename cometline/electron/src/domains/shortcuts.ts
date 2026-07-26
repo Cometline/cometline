@@ -207,6 +207,7 @@ export function createShortcutCoordinator(dependencies: ShortcutCoordinatorDepen
 			onCloseWindow: () => void;
 			includeSessionNavigation?: boolean;
 			includeSettingsShortcut?: boolean;
+			includeCloseSettingsShortcut?: boolean;
 			closesMainWindow?: boolean;
 			includeReloadShortcut?: boolean;
 		}
@@ -228,6 +229,15 @@ export function createShortcutCoordinator(dependencies: ShortcutCoordinatorDepen
 			}
 
 			const shortcuts = getShortcuts();
+			if (
+				options.includeCloseSettingsShortcut &&
+				!context.getShortcutCaptureActive() &&
+				matchesInputShortcut(input, shortcuts.closeSettings)
+			) {
+				event.preventDefault();
+				options.onCloseWindow();
+				return;
+			}
 			if (
 				options.includeSettingsShortcut &&
 				matchesInputShortcut(input, shortcuts.openSettings)
@@ -269,7 +279,10 @@ export function createShortcutCoordinator(dependencies: ShortcutCoordinatorDepen
 	}
 
 	function attachSettingsWindowShortcuts(webContents: WebContents) {
-		attachWindowShortcuts(webContents, { onCloseWindow: hideSettingsWindow });
+		attachWindowShortcuts(webContents, {
+			onCloseWindow: hideSettingsWindow,
+			includeCloseSettingsShortcut: true
+		});
 	}
 
 	function handleWorkspacePanelGuestShortcuts(event: Event, input: Input) {
@@ -290,6 +303,7 @@ export function createShortcutCoordinator(dependencies: ShortcutCoordinatorDepen
 			'navigateForward',
 			'openSettings',
 			'newChat',
+			'findInSession',
 			'focusSearch',
 			'openJobs',
 			'openSkillDrafts',

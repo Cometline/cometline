@@ -5,6 +5,7 @@
 	import { matchesShortcut } from '$lib/keyboard-shortcuts';
 	import { miniShellStore } from '$lib/stores/mini-shell.svelte';
 	import { settingsStore } from '$lib/stores/settings.svelte';
+	import { shellStore } from '$lib/stores/shell.svelte';
 	import { createMiniWindowSession, navigateMiniToSession } from '$lib/mini-window-session';
 	import MiniSessionSidebar from '$lib/components/MiniSessionSidebar.svelte';
 	import type { Session } from '$lib/types';
@@ -44,6 +45,12 @@
 		if (matchesShortcut(event, settingsStore.settings.shortcuts.focusSearch)) {
 			event.preventDefault();
 			void focusSearch();
+			return;
+		}
+		if (matchesShortcut(event, settingsStore.settings.shortcuts.findInSession)) {
+			event.preventDefault();
+			miniShellStore.closeSidebar();
+			shellStore.requestSessionFind();
 			return;
 		}
 		if (matchesShortcut(event, settingsStore.settings.shortcuts.newChat)) {

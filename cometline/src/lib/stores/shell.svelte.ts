@@ -156,6 +156,7 @@ function createShellStore() {
 	/** Last focus target while the web slot is open: filter vs web address. */
 	let lastWorkspacePanelFocusTarget = $state<'filter' | 'address'>('filter');
 	let composerFocusRequestId = $state(0);
+	let sessionFindRequestId = $state(0);
 
 	function activeSessionId(): string | null {
 		return getActiveSessionId();
@@ -635,6 +636,9 @@ function createShellStore() {
 		get composerFocusRequestId() {
 			return composerFocusRequestId;
 		},
+		get sessionFindRequestId() {
+			return sessionFindRequestId;
+		},
 		get canPanelHistoryBack() {
 			const key = panelSessionKey();
 			if (!key) return false;
@@ -750,16 +754,28 @@ function createShellStore() {
 			const key = panelSessionKey();
 			if (!key) return;
 			const existing = webContextsBySession[key] ?? [];
+			const nextContext: WebContext = {
+				...context,
+				content: context.content.trim().slice(0, 50000)
+			};
+			if (
+				nextContext.kind === 'message' &&
+				existing.some(
+					(item) =>
+						item.kind === 'message' &&
+						item.source === nextContext.source &&
+						item.content.replace(/\s+/g, ' ').trim() ===
+							nextContext.content.replace(/\s+/g, ' ').trim()
+				)
+			) {
+				return;
+			}
 			let next = existing;
 			if (context.kind === 'page') {
 				next = existing.filter(
 					(item) => !(isPendingPageContext(item) && item.source === context.source)
 				);
 			}
-			const nextContext: WebContext = {
-				...context,
-				content: context.content.trim().slice(0, 50000)
-			};
 			webContextsBySession = {
 				...webContextsBySession,
 				[key]: [...next, nextContext]
@@ -852,6 +868,10 @@ function createShellStore() {
 		requestComposerFocus() {
 			focusedPane = 'chat';
 			composerFocusRequestId += 1;
+		},
+		requestSessionFind() {
+			focusedPane = 'chat';
+			sessionFindRequestId += 1;
 		},
 		onActiveSessionChange() {
 			focusedPane = 'chat';

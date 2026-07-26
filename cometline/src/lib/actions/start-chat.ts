@@ -11,7 +11,7 @@
 import type { ImageAttachment } from '$lib/types';
 
 export interface WebContext {
-	kind: 'page' | 'file' | 'terminal';
+	kind: 'page' | 'file' | 'terminal' | 'message';
 	title?: string;
 	source: string;
 	content: string;
