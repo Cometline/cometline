@@ -10,6 +10,60 @@ export type FileSnippetContext = {
 	content: string;
 };
 
+const SOURCE_LINE_SELECTOR = '[data-source-start-line][data-source-end-line]';
+
+function boundaryElement(container: Node, offset: number, isStart: boolean): Element | null {
+	if (container.nodeType === Node.TEXT_NODE) return container.parentElement;
+	if (!(container instanceof Element)) return null;
+	const childIndex = isStart ? offset : offset - 1;
+	const child = container.childNodes.item(
+		Math.max(0, Math.min(childIndex, container.childNodes.length - 1))
+	);
+	if (!child) return container;
+	if (child.nodeType === Node.TEXT_NODE) return child.parentElement;
+	return child instanceof Element ? child : container;
+}
+
+function sourceRangeForBoundary(
+	container: Node,
+	offset: number,
+	isStart: boolean,
+	root: Element
+): SelectionLineRange | null {
+	let element = boundaryElement(container, offset, isStart);
+	if (!element || !root.contains(element)) return null;
+	if (!element.matches(SOURCE_LINE_SELECTOR)) {
+		element = element.closest(SOURCE_LINE_SELECTOR);
+	}
+	if (!element || !root.contains(element)) return null;
+	const startLine = Number(element.getAttribute('data-source-start-line'));
+	const endLine = Number(element.getAttribute('data-source-end-line'));
+	if (
+		!Number.isInteger(startLine) ||
+		!Number.isInteger(endLine) ||
+		startLine < 1 ||
+		endLine < startLine
+	) {
+		return null;
+	}
+	return { startLine, endLine };
+}
+
+/** Derive source lines from rendered Markdown annotations without matching text. */
+export function sourceLineRangeFromDomRange(
+	range: Range,
+	root: Element
+): SelectionLineRange | null {
+	if (range.collapsed) return null;
+	const start = sourceRangeForBoundary(range.startContainer, range.startOffset, true, root);
+	const end = sourceRangeForBoundary(range.endContainer, range.endOffset, false, root);
+	if (!start || !end) return null;
+	return {
+		startLine: Math.min(start.startLine, end.startLine),
+		endLine: Math.max(start.endLine, end.endLine)
+	};
+}
+
 /** 1-based line numbers covering the character range [start, end) in `source`. */
 export function lineRangeFromOffsets(
 	source: string,

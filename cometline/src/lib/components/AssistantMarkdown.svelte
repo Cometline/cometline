@@ -13,7 +13,8 @@
 		streaming = false,
 		mode = 'assistant',
 		wikiFiles = [],
-		workspaceResources = null
+		workspaceResources = null,
+		annotateSourceLines = false
 	}: {
 		source?: string;
 		streaming?: boolean;
@@ -21,6 +22,8 @@
 		wikiFiles?: readonly string[];
 		/** When set, relative images/links resolve against this workspace/wiki file. */
 		workspaceResources?: WorkspaceMarkdownResources | null;
+		/** File-preview-only source line metadata for rendered selections. */
+		annotateSourceLines?: boolean;
 	} = $props();
 
 	let cachedWikiFiles = $state<string[]>(getCachedWikiFiles());
@@ -60,13 +63,15 @@
 		const resourceKey = resources
 			? `${resources.kind}\u0000${resources.workspacePath}\u0000${resources.filePath}`
 			: '';
-		const cacheKey = `${text}\u0000${files.join('\n')}\u0000${resourceKey}`;
+		const includeSourceLines = annotateSourceLines && !streaming && resources !== null;
+		const cacheKey = `${text}\u0000${files.join('\n')}\u0000${resourceKey}\u0000${includeSourceLines}`;
 		if (rendered && renderedSource === cacheKey) return;
 		const version = ++renderVersion;
 		try {
 			const next = await renderMarkdown(text, {
 				wikiFiles: files,
-				workspaceResources: resources ?? undefined
+				workspaceResources: resources ?? undefined,
+				annotateSourceLines: includeSourceLines
 			});
 			if (version !== renderVersion) return;
 			html = next;
@@ -179,6 +184,7 @@
 		void streaming;
 		void effectiveWikiFiles;
 		void workspaceResources;
+		void annotateSourceLines;
 		scheduleRender(text);
 		return () => {
 			cancelScheduledRender();

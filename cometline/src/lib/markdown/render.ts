@@ -1,4 +1,11 @@
-import { Marked, type Tokens, type TokenizerAndRendererExtension } from 'marked';
+import {
+	Marked,
+	type RendererObject,
+	type Token,
+	type Tokens,
+	type TokensList,
+	type TokenizerAndRendererExtension
+} from 'marked';
 import remend from 'remend';
 import DOMPurify from 'dompurify';
 import katex from 'katex';
@@ -35,8 +42,8 @@ function escapeHtml(value: string): string {
 }
 
 /** Wrap fenced `<pre>` with a copy button (styled/handled in AssistantMarkdown). */
-function wrapCodeBlock(preHtml: string): string {
-	return `<div class="md-code-block"><button type="button" class="md-code-copy" data-code-copy aria-label="Copy code"></button>${preHtml}</div>`;
+function wrapCodeBlock(preHtml: string, attributes = ''): string {
+	return `<div class="md-code-block"${attributes}><button type="button" class="md-code-copy" data-code-copy aria-label="Copy code"></button>${preHtml}</div>`;
 }
 
 /**
@@ -225,6 +232,104 @@ const wikilinkEmbedExtension: TokenizerAndRendererExtension = {
 /** Per-render cache of pre-highlighted code HTML, keyed by code token text. */
 type CodeHtmlCache = Map<string, string>;
 
+type SourceLineRange = {
+	startLine: number;
+	endLine: number;
+};
+
+const tokenSourceLines = new WeakMap<object, SourceLineRange>();
+
+function newlineCount(value: string): number {
+	return value.split('\n').length - 1;
+}
+
+function sourceRange(startLine: number, raw: string): SourceLineRange {
+	const trailingNewline = raw.endsWith('\n') ? 1 : 0;
+	return {
+		startLine,
+		endLine: Math.max(startLine, startLine + newlineCount(raw) - trailingNewline)
+	};
+}
+
+function annotateTokenSequence(tokens: Token[], raw: string, startLine: number): void {
+	let cursor = 0;
+	for (const token of tokens) {
+		const tokenRaw = token.raw ?? '';
+		let offset = raw.indexOf(tokenRaw, cursor);
+		if (offset < 0) offset = raw.indexOf(tokenRaw);
+		if (offset < 0) offset = cursor;
+		const tokenStartLine = startLine + newlineCount(raw.slice(0, offset));
+		tokenSourceLines.set(token, sourceRange(tokenStartLine, tokenRaw));
+
+		if ('items' in token && Array.isArray(token.items)) {
+			annotateTokenSequence(token.items, tokenRaw, tokenStartLine);
+		} else if ('header' in token && Array.isArray(token.header) && 'rows' in token) {
+			annotateTableTokens(token as Tokens.Table, tokenStartLine);
+		} else if ('tokens' in token && Array.isArray(token.tokens)) {
+			annotateTokenSequence(token.tokens, tokenRaw, tokenStartLine);
+		}
+		cursor = offset + tokenRaw.length;
+	}
+}
+
+function annotateTableRow(cells: Tokens.TableCell[], raw: string, startLine: number): void {
+	let cursor = 0;
+	for (const cell of cells) {
+		const firstRaw = cell.tokens[0]?.raw ?? cell.text;
+		let offset = raw.indexOf(firstRaw, cursor);
+		if (offset < 0) offset = raw.indexOf(firstRaw);
+		if (offset < 0) offset = cursor;
+		tokenSourceLines.set(cell, sourceRange(startLine, raw));
+		annotateTokenSequence(cell.tokens, raw.slice(offset), startLine);
+		cursor = offset + firstRaw.length;
+	}
+}
+
+function annotateTableTokens(table: Tokens.Table, startLine: number): void {
+	const lines = table.raw.split('\n');
+	annotateTableRow(table.header, lines[0] ?? '', startLine);
+	for (let index = 0; index < table.rows.length; index += 1) {
+		annotateTableRow(table.rows[index], lines[index + 2] ?? '', startLine + index + 2);
+	}
+}
+
+function annotateSourceLines(tokens: Token[] | TokensList): Token[] | TokensList {
+	annotateTokenSequence(tokens, tokens.map((token) => token.raw).join(''), 1);
+	return tokens;
+}
+
+function sourceLineAttributes(token: object): string {
+	const range = tokenSourceLines.get(token);
+	if (!range) return '';
+	return ` data-source-start-line="${range.startLine}" data-source-end-line="${range.endLine}"`;
+}
+
+function stripSourceLineAttributes(html: string): string {
+	return html.replace(
+		/\sdata-source-(?:start|end)-line(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+))?/gi,
+		''
+	);
+}
+
+function renderAnnotatedText(
+	this: { parser: { parseInline(tokens: Token[]): string } },
+	token: Tokens.Text | Tokens.Escape
+): string {
+	if ('tokens' in token && token.tokens) return this.parser.parseInline(token.tokens);
+	const range = tokenSourceLines.get(token);
+	if (!range || token.raw !== token.text || !token.raw.includes('\n')) {
+		const text = 'escaped' in token && token.escaped ? token.text : escapeHtml(token.text);
+		return `<span${sourceLineAttributes(token)}>${text}</span>`;
+	}
+	return token.text
+		.split('\n')
+		.map((line, index) => {
+			const lineNumber = range.startLine + index;
+			return `<span data-source-start-line="${lineNumber}" data-source-end-line="${lineNumber}">${escapeHtml(line)}</span>`;
+		})
+		.join('\n');
+}
+
 const CODE_CACHE_MAX = 128;
 let activeRenderCodeKeys: Set<string> | null = null;
 
@@ -247,12 +352,55 @@ function pruneCodeCache() {
  * `walkTokens` pass that populates `codeCache`; the synchronous `code` renderer
  * then reads the pre-rendered HTML out of that cache.
  */
-function createMarkedInstance(codeCache: CodeHtmlCache): Marked {
+function createMarkedInstance(codeCache: CodeHtmlCache, annotateSource = false): Marked {
 	const marked = new Marked({
 		async: true,
 		gfm: true,
 		breaks: false
 	});
+	const renderer: RendererObject = {
+		code(token: Tokens.Code) {
+			const key = `${token.lang ?? ''}\u0000${token.text}`;
+			const highlighted = codeCache.get(key);
+			if (highlighted) {
+				return annotateSource
+					? highlighted.replace(
+							'<div class="md-code-block"',
+							`<div class="md-code-block"${sourceLineAttributes(token)}`
+						)
+					: highlighted;
+			}
+			const preHtml = `<pre class="shiki shiki-plain"><code>${escapeHtml(token.text)}</code></pre>`;
+			return wrapCodeBlock(preHtml, annotateSource ? sourceLineAttributes(token) : '');
+		}
+	};
+	if (annotateSource) {
+		Object.assign(renderer, {
+			heading(this: { parser: { parseInline(tokens: Token[]): string } }, token: Tokens.Heading) {
+				return `<h${token.depth}${sourceLineAttributes(token)}>${this.parser.parseInline(token.tokens)}</h${token.depth}>\n`;
+			},
+			paragraph(this: { parser: { parseInline(tokens: Token[]): string } }, token: Tokens.Paragraph) {
+				return `<p${sourceLineAttributes(token)}>${this.parser.parseInline(token.tokens)}</p>\n`;
+			},
+			strong(this: { parser: { parseInline(tokens: Token[]): string } }, token: Tokens.Strong) {
+				return `<strong${sourceLineAttributes(token)}>${this.parser.parseInline(token.tokens)}</strong>`;
+			},
+			em(this: { parser: { parseInline(tokens: Token[]): string } }, token: Tokens.Em) {
+				return `<em${sourceLineAttributes(token)}>${this.parser.parseInline(token.tokens)}</em>`;
+			},
+			link(this: { parser: { parseInline(tokens: Token[]): string } }, token: Tokens.Link) {
+				const title = token.title ? ` title="${escapeHtml(token.title)}"` : '';
+				return `<a href="${escapeHtml(token.href)}"${title}${sourceLineAttributes(token)}>${this.parser.parseInline(token.tokens)}</a>`;
+			},
+			codespan(token: Tokens.Codespan) {
+				return `<code${sourceLineAttributes(token)}>${escapeHtml(token.text)}</code>`;
+			},
+			html(token: Tokens.HTML | Tokens.Tag) {
+				return stripSourceLineAttributes(token.text);
+			},
+			text: renderAnnotatedText
+		} satisfies RendererObject);
+	}
 
 	marked.use({
 		extensions: [
@@ -271,26 +419,19 @@ function createMarkedInstance(codeCache: CodeHtmlCache): Marked {
 				codeCache.set(key, await highlightCodeBlock(code.text, code.lang));
 			}
 		},
-		renderer: {
-			code({ text, lang }: Tokens.Code) {
-				const key = `${lang ?? ''}\u0000${text}`;
-				return (
-					codeCache.get(key) ??
-					wrapCodeBlock(`<pre class="shiki shiki-plain"><code>${escapeHtml(text)}</code></pre>`)
-				);
-			}
-			// Raw/inline HTML is intentionally NOT escaped here: it is passed through
-			// to DOMPurify, which strips everything except the safe-tag allowlist in
-			// SANITIZE_CONFIG. This lets benign tags like <u>/<kbd> render while
-			// still blocking <script>, event handlers, and unsafe URLs.
-		}
+		// Raw/inline HTML is passed through to DOMPurify's safe-tag allowlist.
+		renderer
 	});
+	if (annotateSource) {
+		marked.use({ hooks: { processAllTokens: annotateSourceLines } });
+	}
 
 	return marked;
 }
 
 const codeCache: CodeHtmlCache = new Map();
 const markedInstance = createMarkedInstance(codeCache);
+const sourceAnnotatedMarkedInstance = createMarkedInstance(codeCache, true);
 
 /** Safe URL schemes allowed on links in rendered markdown. */
 const SAFE_LINK_SCHEMES = /^(https?:|mailto:)/i;
@@ -392,6 +533,15 @@ const SANITIZE_CONFIG = {
 	ALLOW_DATA_ATTR: false
 };
 
+const SOURCE_SANITIZE_CONFIG = {
+	...SANITIZE_CONFIG,
+	ALLOWED_ATTR: [
+		...SANITIZE_CONFIG.ALLOWED_ATTR,
+		'data-source-start-line',
+		'data-source-end-line'
+	]
+};
+
 /**
  * Renders streaming markdown to sanitized HTML.
  *
@@ -407,6 +557,8 @@ export type RenderMarkdownOptions = {
 	 * link paths against that file and hydrate images via the content API.
 	 */
 	workspaceResources?: WorkspaceMarkdownResources;
+	/** Add source line metadata for rendered file-preview selections. */
+	annotateSourceLines?: boolean;
 };
 
 export async function renderMarkdown(
@@ -419,13 +571,17 @@ export async function renderMarkdown(
 	activeWikiFiles = options?.wikiFiles ?? [];
 	try {
 		const healed = remend(source);
-		let rawHtml = await markedInstance.parse(healed);
+		const parser = options?.annotateSourceLines ? sourceAnnotatedMarkedInstance : markedInstance;
+		let rawHtml = await parser.parse(healed);
 		const resources = options?.workspaceResources;
 		if (resources) {
 			rawHtml = rewriteLocalResourcesInHtml(rawHtml, resources.filePath, resources.kind);
 		}
 		pruneCodeCache();
-		let sanitized = DOMPurify.sanitize(rawHtml, SANITIZE_CONFIG);
+		const sanitizeConfig = options?.annotateSourceLines
+			? SOURCE_SANITIZE_CONFIG
+			: SANITIZE_CONFIG;
+		let sanitized = DOMPurify.sanitize(rawHtml, sanitizeConfig);
 		if (resources) {
 			sanitized = await hydrateWorkspaceMarkdownImages(sanitized, resources.readFile);
 		}

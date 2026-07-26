@@ -34,6 +34,7 @@
 		text: string;
 		startLine: number;
 		endLine: number;
+		clientRect: DOMRect;
 	} | null {
 		const view = editorView;
 		if (!view) return null;
@@ -43,7 +44,16 @@
 		if (!text.trim()) return null;
 		const startLine = view.state.doc.lineAt(from).number;
 		const endLine = view.state.doc.lineAt(to > from ? to - 1 : to).number;
-		return { text, startLine, endLine };
+		const coords = view.coordsAtPos(from);
+		const clientRect = coords
+			? new DOMRect(
+					coords.left,
+					coords.top,
+					coords.right - coords.left,
+					coords.bottom - coords.top
+				)
+			: (host?.getBoundingClientRect() ?? new DOMRect());
+		return { text, startLine, endLine, clientRect };
 	}
 	const languageCompartment = new Compartment();
 	const editableCompartment = new Compartment();

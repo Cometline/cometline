@@ -2,6 +2,7 @@
 	import { Loader } from '@lucide/svelte';
 	import AssistantMarkdown from '$lib/components/AssistantMarkdown.svelte';
 	import FileEditor from '$lib/components/FileEditor.svelte';
+	import { portal } from '$lib/components/portal';
 	import {
 		listWikiFileBacklinks,
 		readWikiFileContent,
@@ -18,8 +19,13 @@
 	} from '$lib/workspace/file-preview';
 	import {
 		buildFileSnippetContext,
+		sourceLineRangeFromDomRange,
 		type SelectionLineRange
 	} from '$lib/workspace/selection-snippet';
+	import {
+		firstSelectionClientRect,
+		selectionPopupPosition
+	} from '$lib/workspace/selection-popup';
 	import type { FileRevealRange } from '$lib/workspace/workspace-panel-state';
 	import {
 		readMarkdownFileViewMode,
@@ -27,7 +33,12 @@
 		type MarkdownFileViewMode
 	} from '$lib/workspace/workspace-panel-prefs';
 	import { refreshWikiFileIndex } from '$lib/wiki/wiki-file-index';
-	import { isWikiReadOnlyPath, isWikiUiPath, toWikiRelative, toWikiUiPath } from '$lib/wiki/paths';
+	import {
+		isWikiReadOnlyPath,
+		isWikiUiPath,
+		toWikiRelative,
+		toWikiUiPath
+	} from '$lib/wiki/paths';
 	import { wikiStemFromPath } from '$lib/wiki/wikilinks';
 
 	type EditorState = {
@@ -69,6 +80,7 @@
 			text: string;
 			startLine: number;
 			endLine: number;
+			clientRect: DOMRect;
 		} | null;
 	} | null>(null);
 	let selectionPopup = $state<{
@@ -86,9 +98,7 @@
 		showMarkdownToggle ? viewMode : ('source' satisfies MarkdownFileViewMode)
 	);
 	const isWikiFile = $derived(isWikiUiPath(filePath));
-	const showBacklinks = $derived(
-		isWikiFile && previewKind === 'text' && !loading && !error
-	);
+	const showBacklinks = $derived(isWikiFile && previewKind === 'text' && !loading && !error);
 
 	function setViewMode(mode: MarkdownFileViewMode) {
 		viewMode = mode;
@@ -110,8 +120,7 @@
 			return;
 		}
 		selectionPopup = {
-			top: clientRect.bottom + 8,
-			left: Math.min(Math.max(8, clientRect.left), window.innerWidth - 140),
+			...selectionPopupPosition(clientRect, window.innerWidth),
 			text,
 			lineRange
 		};
@@ -129,8 +138,13 @@
 			clearSelectionPopup();
 			return;
 		}
+		const range = sel.getRangeAt(0);
 		const text = sel.toString();
-		placeSelectionPopup(text, sel.getRangeAt(0).getBoundingClientRect(), null);
+		placeSelectionPopup(
+			text,
+			firstSelectionClientRect(range),
+			sourceLineRangeFromDomRange(range, root)
+		);
 	}
 
 	function onSourceMouseUp() {
@@ -139,12 +153,7 @@
 			clearSelectionPopup();
 			return;
 		}
-		const sel = window.getSelection();
-		const rect =
-			sel && sel.rangeCount > 0 && !sel.isCollapsed
-				? sel.getRangeAt(0).getBoundingClientRect()
-				: new DOMRect(24, 72, 0, 0);
-		placeSelectionPopup(selected.text, rect, {
+		placeSelectionPopup(selected.text, selected.clientRect, {
 			startLine: selected.startLine,
 			endLine: selected.endLine
 		});
@@ -295,6 +304,15 @@
 			onEditorState?.(null);
 		};
 	});
+
+	$effect(() => {
+		document.addEventListener('scroll', clearSelectionPopup, true);
+		window.addEventListener('resize', clearSelectionPopup);
+		return () => {
+			document.removeEventListener('scroll', clearSelectionPopup, true);
+			window.removeEventListener('resize', clearSelectionPopup);
+		};
+	});
 </script>
 
 {#snippet backlinksSection()}
@@ -362,13 +380,11 @@
 			{/if}
 			{#if effectiveViewMode === 'preview'}
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
-				<div
-					class="file-preview-markdown scrollbar-none"
-					onmouseup={onPreviewMouseUp}
-				>
+				<div class="file-preview-markdown scrollbar-none" onmouseup={onPreviewMouseUp}>
 					<AssistantMarkdown
 						source={draftContent}
 						mode="assistant"
+						annotateSourceLines
 						{wikiFiles}
 						workspaceResources={{
 							kind: isWikiFile ? 'wiki' : 'workspace',
@@ -412,6 +428,7 @@
 
 	{#if selectionPopup}
 		<button
+			use:portal
 			type="button"
 			class="selection-add-chat"
 			style:top="{selectionPopup.top}px"
@@ -435,7 +452,7 @@
 
 	.selection-add-chat {
 		position: fixed;
-		z-index: 40;
+		z-index: 10000;
 		padding: 6px 10px;
 		border: 1px solid var(--border-soft);
 		border-radius: 8px;

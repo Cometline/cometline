@@ -218,6 +218,59 @@ describe('renderMarkdown', () => {
 		expect(html).toContain('loading="lazy"');
 		expect(html).toContain('width="14"');
 	});
+
+	it('does not annotate normal chat markdown', async () => {
+		const html = await renderMarkdown(
+			'# Heading\n\n<span data-source-start-line="99" data-source-end-line="99">Paragraph</span>'
+		);
+		expect(html).not.toContain('data-source-start-line');
+		expect(html).not.toContain('data-source-end-line');
+	});
+
+	it('annotates file-preview headings, inline markup, links, and cross-line text', async () => {
+		const html = await renderMarkdown(
+			'# Heading\n\nfirst line\nsecond **bold** and [link](https://example.com)',
+			{ annotateSourceLines: true }
+		);
+		const root = document.createElement('div');
+		root.innerHTML = html;
+
+		expect(root.querySelector('h1')).toHaveAttribute('data-source-start-line', '1');
+		expect(root.querySelector('strong')).toHaveAttribute('data-source-start-line', '4');
+		expect(root.querySelector('a')).toHaveAttribute('data-source-start-line', '4');
+		const paragraphLines = [...root.querySelectorAll('p > span')].map((node) =>
+			node.getAttribute('data-source-start-line')
+		);
+		expect(paragraphLines).toContain('3');
+		expect(paragraphLines).toContain('4');
+	});
+
+	it('annotates list items, table rows, and fenced code with source lines', async () => {
+		const html = await renderMarkdown(
+			'- one\n- *two*\n\n| a | b |\n| - | - |\n| x | y |\n\n```ts\nconst value = 1;\n```',
+			{ annotateSourceLines: true }
+		);
+		const root = document.createElement('div');
+		root.innerHTML = html;
+
+		const listText = [...root.querySelectorAll('li span')];
+		expect(listText[0]).toHaveAttribute('data-source-start-line', '1');
+		expect(root.querySelector('li em')).toHaveAttribute('data-source-start-line', '2');
+		const tableText = [...root.querySelectorAll('td span')];
+		expect(tableText[0]).toHaveAttribute('data-source-start-line', '6');
+		expect(root.querySelector('.md-code-block')).toHaveAttribute('data-source-start-line', '8');
+		expect(root.querySelector('.md-code-block')).toHaveAttribute('data-source-end-line', '10');
+	});
+
+	it('keeps only explicitly allowlisted provenance data attributes', async () => {
+		const html = await renderMarkdown(
+			'<span data-untrusted="x" data-source-start-line="99" data-source-end-line="99">safe</span>',
+			{ annotateSourceLines: true }
+		);
+		expect(html).not.toContain('data-untrusted');
+		expect(html).toContain('data-source-start-line');
+		expect(html).not.toContain('data-source-start-line="99"');
+	});
 });
 
 describe('renderUserText', () => {
