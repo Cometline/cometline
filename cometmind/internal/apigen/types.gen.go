@@ -34,6 +34,42 @@ func (e AssistantImageEventMediaType) Valid() bool {
 	}
 }
 
+// Defines values for CreateMemoryRequestApplicationPolicy.
+const (
+	CreateMemoryRequestApplicationPolicyAlways   CreateMemoryRequestApplicationPolicy = "always"
+	CreateMemoryRequestApplicationPolicyRelevant CreateMemoryRequestApplicationPolicy = "relevant"
+)
+
+// Valid indicates whether the value is a known member of the CreateMemoryRequestApplicationPolicy enum.
+func (e CreateMemoryRequestApplicationPolicy) Valid() bool {
+	switch e {
+	case CreateMemoryRequestApplicationPolicyAlways:
+		return true
+	case CreateMemoryRequestApplicationPolicyRelevant:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CreateMemoryRequestRetentionPolicy.
+const (
+	CreateMemoryRequestRetentionPolicyDecaying  CreateMemoryRequestRetentionPolicy = "decaying"
+	CreateMemoryRequestRetentionPolicyProtected CreateMemoryRequestRetentionPolicy = "protected"
+)
+
+// Valid indicates whether the value is a known member of the CreateMemoryRequestRetentionPolicy enum.
+func (e CreateMemoryRequestRetentionPolicy) Valid() bool {
+	switch e {
+	case CreateMemoryRequestRetentionPolicyDecaying:
+		return true
+	case CreateMemoryRequestRetentionPolicyProtected:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CreateScheduledJobRequestCreatedBy.
 const (
 	CreateScheduledJobRequestCreatedByAgent CreateScheduledJobRequestCreatedBy = "agent"
@@ -283,6 +319,63 @@ func (e MemoryReembedJobStatus) Valid() bool {
 	case MemoryReembedJobStatusPending:
 		return true
 	case MemoryReembedJobStatusRunning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MemoryResourceApplicationPolicy.
+const (
+	MemoryResourceApplicationPolicyAlways   MemoryResourceApplicationPolicy = "always"
+	MemoryResourceApplicationPolicyRelevant MemoryResourceApplicationPolicy = "relevant"
+)
+
+// Valid indicates whether the value is a known member of the MemoryResourceApplicationPolicy enum.
+func (e MemoryResourceApplicationPolicy) Valid() bool {
+	switch e {
+	case MemoryResourceApplicationPolicyAlways:
+		return true
+	case MemoryResourceApplicationPolicyRelevant:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MemoryResourceRetentionPolicy.
+const (
+	MemoryResourceRetentionPolicyDecaying  MemoryResourceRetentionPolicy = "decaying"
+	MemoryResourceRetentionPolicyProtected MemoryResourceRetentionPolicy = "protected"
+)
+
+// Valid indicates whether the value is a known member of the MemoryResourceRetentionPolicy enum.
+func (e MemoryResourceRetentionPolicy) Valid() bool {
+	switch e {
+	case MemoryResourceRetentionPolicyDecaying:
+		return true
+	case MemoryResourceRetentionPolicyProtected:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MemoryWireBucket.
+const (
+	Preference  MemoryWireBucket = "preference"
+	Semantic    MemoryWireBucket = "semantic"
+	TaskOutcome MemoryWireBucket = "task_outcome"
+)
+
+// Valid indicates whether the value is a known member of the MemoryWireBucket enum.
+func (e MemoryWireBucket) Valid() bool {
+	switch e {
+	case Preference:
+		return true
+	case Semantic:
+		return true
+	case TaskOutcome:
 		return true
 	default:
 		return false
@@ -619,6 +712,42 @@ func (e TurnStatusEventPhase) Valid() bool {
 	}
 }
 
+// Defines values for UpdateMemoryRequestApplicationPolicy.
+const (
+	Always   UpdateMemoryRequestApplicationPolicy = "always"
+	Relevant UpdateMemoryRequestApplicationPolicy = "relevant"
+)
+
+// Valid indicates whether the value is a known member of the UpdateMemoryRequestApplicationPolicy enum.
+func (e UpdateMemoryRequestApplicationPolicy) Valid() bool {
+	switch e {
+	case Always:
+		return true
+	case Relevant:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for UpdateMemoryRequestRetentionPolicy.
+const (
+	Decaying  UpdateMemoryRequestRetentionPolicy = "decaying"
+	Protected UpdateMemoryRequestRetentionPolicy = "protected"
+)
+
+// Valid indicates whether the value is a known member of the UpdateMemoryRequestRetentionPolicy enum.
+func (e UpdateMemoryRequestRetentionPolicy) Valid() bool {
+	switch e {
+	case Decaying:
+		return true
+	case Protected:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for WebContextKind.
 const (
 	WebContextKindFile     WebContextKind = "file"
@@ -843,11 +972,18 @@ type CreateJobRequest struct {
 
 // CreateMemoryRequest defines model for CreateMemoryRequest.
 type CreateMemoryRequest struct {
-	BaseWeight *float32 `json:"base_weight,omitempty"`
-	Content    string   `json:"content"`
-	Kind       *string  `json:"kind,omitempty"`
-	Pinned     *bool    `json:"pinned,omitempty"`
+	ApplicationPolicy *CreateMemoryRequestApplicationPolicy `json:"application_policy,omitempty"`
+	BaseWeight        *float32                              `json:"base_weight,omitempty"`
+	Content           string                                `json:"content"`
+	Kind              *string                               `json:"kind,omitempty"`
+	RetentionPolicy   *CreateMemoryRequestRetentionPolicy   `json:"retention_policy,omitempty"`
 }
+
+// CreateMemoryRequestApplicationPolicy defines model for CreateMemoryRequest.ApplicationPolicy.
+type CreateMemoryRequestApplicationPolicy string
+
+// CreateMemoryRequestRetentionPolicy defines model for CreateMemoryRequest.RetentionPolicy.
+type CreateMemoryRequestRetentionPolicy string
 
 // CreateScheduledJobRequest defines model for CreateScheduledJobRequest.
 type CreateScheduledJobRequest struct {
@@ -1246,9 +1382,10 @@ type MemoryReembedRequest struct {
 
 // MemoryResource defines model for MemoryResource.
 type MemoryResource struct {
-	AccessCount int64   `json:"access_count"`
-	BaseWeight  float32 `json:"base_weight"`
-	Content     string  `json:"content"`
+	AccessCount       int64                           `json:"access_count"`
+	ApplicationPolicy MemoryResourceApplicationPolicy `json:"application_policy"`
+	BaseWeight        float32                         `json:"base_weight"`
+	Content           string                          `json:"content"`
 
 	// CreatedAt Unix epoch milliseconds.
 	CreatedAt       int64   `json:"created_at"`
@@ -1257,15 +1394,24 @@ type MemoryResource struct {
 	Kind            string  `json:"kind"`
 
 	// LastAccessedAt Unix epoch milliseconds.
-	LastAccessedAt *int64   `json:"last_accessed_at,omitempty"`
-	Pinned         bool     `json:"pinned"`
-	Scope          string   `json:"scope"`
-	Similarity     *float32 `json:"similarity,omitempty"`
-	Source         string   `json:"source"`
+	LastAccessedAt  *int64                        `json:"last_accessed_at,omitempty"`
+	OriginId        *string                       `json:"origin_id,omitempty"`
+	OriginType      *string                       `json:"origin_type,omitempty"`
+	RetentionPolicy MemoryResourceRetentionPolicy `json:"retention_policy"`
+	Scope           string                        `json:"scope"`
+	Similarity      *float32                      `json:"similarity,omitempty"`
+	Source          string                        `json:"source"`
+	SummaryJson     map[string]interface{}        `json:"summary_json"`
 
 	// UpdatedAt Unix epoch milliseconds.
 	UpdatedAt int64 `json:"updated_at"`
 }
+
+// MemoryResourceApplicationPolicy defines model for MemoryResource.ApplicationPolicy.
+type MemoryResourceApplicationPolicy string
+
+// MemoryResourceRetentionPolicy defines model for MemoryResource.RetentionPolicy.
+type MemoryResourceRetentionPolicy string
 
 // MemorySettings defines model for MemorySettings.
 type MemorySettings struct {
@@ -1289,12 +1435,16 @@ type MemoryUpdatedEvent struct {
 
 // MemoryWire defines model for MemoryWire.
 type MemoryWire struct {
-	Content         string  `json:"content"`
-	EffectiveWeight float32 `json:"effective_weight"`
-	Id              string  `json:"id"`
-	Kind            string  `json:"kind"`
-	Similarity      float32 `json:"similarity"`
+	Bucket          MemoryWireBucket `json:"bucket"`
+	Content         string           `json:"content"`
+	EffectiveWeight float32          `json:"effective_weight"`
+	Id              string           `json:"id"`
+	Kind            string           `json:"kind"`
+	Similarity      float32          `json:"similarity"`
 }
+
+// MemoryWireBucket defines model for MemoryWire.Bucket.
+type MemoryWireBucket string
 
 // MessageContextRef defines model for MessageContextRef.
 type MessageContextRef struct {
@@ -1743,11 +1893,18 @@ type UpdateJobRequest struct {
 
 // UpdateMemoryRequest defines model for UpdateMemoryRequest.
 type UpdateMemoryRequest struct {
-	BaseWeight *float32 `json:"base_weight,omitempty"`
-	Content    *string  `json:"content,omitempty"`
-	Kind       *string  `json:"kind,omitempty"`
-	Pinned     *bool    `json:"pinned,omitempty"`
+	ApplicationPolicy *UpdateMemoryRequestApplicationPolicy `json:"application_policy,omitempty"`
+	BaseWeight        *float32                              `json:"base_weight,omitempty"`
+	Content           *string                               `json:"content,omitempty"`
+	Kind              *string                               `json:"kind,omitempty"`
+	RetentionPolicy   *UpdateMemoryRequestRetentionPolicy   `json:"retention_policy,omitempty"`
 }
+
+// UpdateMemoryRequestApplicationPolicy defines model for UpdateMemoryRequest.ApplicationPolicy.
+type UpdateMemoryRequestApplicationPolicy string
+
+// UpdateMemoryRequestRetentionPolicy defines model for UpdateMemoryRequest.RetentionPolicy.
+type UpdateMemoryRequestRetentionPolicy string
 
 // UpdateScheduledJobRequest defines model for UpdateScheduledJobRequest.
 type UpdateScheduledJobRequest struct {

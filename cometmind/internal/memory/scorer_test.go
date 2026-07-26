@@ -5,18 +5,18 @@ import (
 	"time"
 )
 
-func TestEffectiveWeightPinnedSkipsDecay(t *testing.T) {
+func TestEffectiveWeightProtectedSkipsDecay(t *testing.T) {
 	now := time.Now()
 	old := now.Add(-90 * 24 * time.Hour)
 	rec := Record{
-		BaseWeight:     1.0,
-		Pinned:         true,
-		LastAccessedAt: &old,
-		CreatedAt:      old,
+		BaseWeight:      1.0,
+		RetentionPolicy: RetentionProtected,
+		LastAccessedAt:  &old,
+		CreatedAt:       old,
 	}
 	w := EffectiveWeight(rec, now, DefaultSettings().Lifecycle)
 	if w != 1.0 {
-		t.Fatalf("pinned weight = %v want 1.0", w)
+		t.Fatalf("protected weight = %v want 1.0", w)
 	}
 }
 

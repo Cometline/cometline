@@ -237,7 +237,12 @@ func (w *Worker) finalizeJob(ctx context.Context, job jobs.Job, sess session.Ses
 		}
 	}
 
-	w.recordOutcome(ctx, job, runErr)
+	final, err := w.Jobs.Get(ctx, job.ID)
+	if err != nil {
+		log.Printf("autonomy: reload final job %s before outcome: %v", job.ID, err)
+		return
+	}
+	w.recordOutcome(ctx, final, runErr)
 }
 
 // recordOutcome writes a task_outcome memory record summarizing the
@@ -246,17 +251,27 @@ func (w *Worker) recordOutcome(ctx context.Context, job jobs.Job, runErr error) 
 	if w.Memory == nil {
 		return
 	}
-	status := "completed or released by agent"
+	status := job.Status
+	var failures []string
 	if runErr != nil {
-		status = fmt.Sprintf("ended with error: %v", runErr)
+		failures = append(failures, runErr.Error())
 	}
-	var b strings.Builder
-	fmt.Fprintf(&b, "Autonomous job attempt for: %s\n", job.Description)
-	fmt.Fprintf(&b, "Outcome: %s\n", status)
-	if progress := strings.TrimSpace(job.Progress); progress != "" {
-		fmt.Fprintf(&b, "Progress notes: %s\n", progress)
+	if reason := strings.TrimSpace(job.LastFailureReason); reason != "" {
+		failures = append(failures, reason)
 	}
-	if _, err := w.Memory.CreateManual(ctx, b.String(), "task_outcome", false, 1.0); err != nil {
+	originType, originID := "job", job.ID
+	if job.ScheduledJobID != "" {
+		originType, originID = "scheduled_job", job.ScheduledJobID
+	}
+	openItems := []string(nil)
+	if job.Status != jobs.StatusDone {
+		openItems = append(openItems, strings.TrimSpace(job.Progress))
+	}
+	if _, err := w.Memory.RecordTaskOutcome(ctx, memory.TaskOutcomeInput{
+		OriginType: originType, OriginID: originID, Status: status,
+		Description: job.Description, Progress: job.Progress, Failures: failures,
+		OpenItems: openItems, LastCompletedAt: time.Now(),
+	}); err != nil {
 		log.Printf("autonomy: record task_outcome memory for job %s: %v", job.ID, err)
 	}
 }

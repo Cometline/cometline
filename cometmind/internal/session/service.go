@@ -64,12 +64,21 @@ type toolResultPayload struct {
 // InjectedMemory is a memory surfaced to the UI for a turn. It is persisted as
 // a JSON array in messages.injected_memories so the memory card survives a
 // session reload (previously these were only emitted live over SSE).
+type MemoryBucket string
+
+const (
+	MemoryBucketPreference  MemoryBucket = "preference"
+	MemoryBucketTaskOutcome MemoryBucket = "task_outcome"
+	MemoryBucketSemantic    MemoryBucket = "semantic"
+)
+
 type InjectedMemory struct {
-	ID              string  `json:"id"`
-	Content         string  `json:"content"`
-	Kind            string  `json:"kind"`
-	Similarity      float64 `json:"similarity"`
-	EffectiveWeight float64 `json:"effective_weight"`
+	ID              string       `json:"id"`
+	Content         string       `json:"content"`
+	Kind            string       `json:"kind"`
+	Bucket          MemoryBucket `json:"bucket"`
+	Similarity      float64      `json:"similarity"`
+	EffectiveWeight float64      `json:"effective_weight"`
 }
 
 // Service coordinates persistence for workspaces, sessions, messages, and tool calls.
@@ -809,6 +818,19 @@ func unmarshalInjectedMemories(raw string) []InjectedMemory {
 	var memories []InjectedMemory
 	if err := json.Unmarshal([]byte(raw), &memories); err != nil {
 		return nil
+	}
+	for i := range memories {
+		if memories[i].Bucket != "" {
+			continue
+		}
+		switch memories[i].Kind {
+		case "preference":
+			memories[i].Bucket = MemoryBucketPreference
+		case "task_outcome", "task_summary":
+			memories[i].Bucket = MemoryBucketTaskOutcome
+		default:
+			memories[i].Bucket = MemoryBucketSemantic
+		}
 	}
 	return memories
 }

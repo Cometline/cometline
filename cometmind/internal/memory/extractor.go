@@ -148,7 +148,9 @@ func (e *extractor) ingestProposal(ctx context.Context, sessionID string, pm pro
 	}
 	vec := vecs[0]
 
-	existing, sim, err := e.retriever.bestMatch(ctx, vec)
+	kind := normalizeKind(pm.Kind)
+	category := normalizePreferenceCategory(kind, pm.Content, pm.PreferenceCategory)
+	existing, sim, err := e.retriever.bestMatch(ctx, vec, kind, "global", category)
 	if err != nil {
 		return Change{}, err
 	}
@@ -182,6 +184,8 @@ func (e *extractor) create(ctx context.Context, sessionID string, pm proposedMem
 		EmbeddingModel:     e.retriever.embedder.Model(),
 		Source:             "auto",
 		BaseWeight:         pm.Confidence,
+		ApplicationPolicy:  ApplicationRelevant,
+		RetentionPolicy:    RetentionDecaying,
 		SourceSessionID:    sessionID,
 		LastAccessedAt:     &now,
 		CreatedAt:          now,
@@ -245,7 +249,7 @@ func messageText(m cometsdk.Message) string {
 
 func normalizeKind(kind string) string {
 	switch strings.ToLower(strings.TrimSpace(kind)) {
-	case "preference", "project", "task_outcome":
+	case "preference", "project", "task_outcome", "task_summary":
 		return strings.ToLower(kind)
 	default:
 		return "fact"

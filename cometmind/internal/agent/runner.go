@@ -41,9 +41,7 @@ type providerStateStore interface {
 
 type MemoryStore interface {
 	Enabled() bool
-	BaselinePreferences(ctx context.Context, limit int) ([]memory.ScoredMemory, error)
-	RecentTaskOutcomes(ctx context.Context, limit int) ([]memory.ScoredMemory, error)
-	RetrieveForTurn(ctx context.Context, query string) ([]memory.ScoredMemory, error)
+	RetrieveForTurn(ctx context.Context, query string, tokenAllowance int) (memory.PromptMemories, error)
 	ExtractAfterTurn(ctx context.Context, sessionID, model string, llmProvider cometsdk.Provider) ([]memory.Change, error)
 }
 
@@ -230,43 +228,34 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 				logging.L().Info("memory.retrieve.skipped", "session", turn.ID, "reason", decision.Reason, "score", decision.Score, "text_bytes", decision.TextBytes)
 			} else {
 				emitStatus(event.PhaseRetrievingMemories)
-				prefs, prefErr := r.Memory.BaselinePreferences(ctx, 3)
-				if prefErr != nil {
-					logging.L().Error("memory.preferences.failed", "session", turn.ID, "error", prefErr)
-				}
-				outcomes, outcomeErr := r.Memory.RecentTaskOutcomes(ctx, 0)
-				if outcomeErr != nil {
-					logging.L().Error("memory.task_outcomes.failed", "session", turn.ID, "error", outcomeErr)
-				}
 				query := memory.BuildRetrievalQuery(memory.RetrievalQueryInput{
 					Messages: msgs,
 				})
+				allowance := memoryTokenAllowance(sessionBudget, baseSystem, msgs, r.Registry.CometSDK())
 				retrieveCtx, cancel := context.WithTimeout(ctx, retrievalTimeout)
-				mems, memErr := r.Memory.RetrieveForTurn(retrieveCtx, query)
+				promptMemories, memErr := r.Memory.RetrieveForTurn(retrieveCtx, query, allowance)
 				cancel()
 				if memErr != nil {
 					if errors.Is(memErr, context.DeadlineExceeded) {
-						logging.L().Warn("memory.retrieve.timeout", "session", turn.ID, "budget_ms", retrievalTimeout.Milliseconds(), "using_preferences", len(prefs) > 0)
+						logging.L().Warn("memory.retrieve.timeout", "session", turn.ID, "budget_ms", retrievalTimeout.Milliseconds())
 					} else {
 						logging.L().Error("memory.retrieve.failed", "session", turn.ID, "error", memErr)
 						ch <- event.Errorf(memErr.Error(), "memory")
 					}
 				}
-				if len(prefs) > 0 || len(outcomes) > 0 || len(mems) > 0 {
-					logging.L().Info("memory.injected", "session", turn.ID, "preferences", len(prefs), "task_outcomes", len(outcomes), "relevant", len(mems))
-					memoryPromptSuffix = memory.FormatPromptMemories(memory.PromptMemories{Preferences: prefs, TaskOutcomes: outcomes, Relevant: mems})
+				if len(promptMemories.Records) > 0 {
+					logging.L().Info("memory.injected", "session", turn.ID, "preferences", promptMemories.Count(memory.BucketPreference), "task_outcomes", promptMemories.Count(memory.BucketTaskOutcome), "semantic", promptMemories.Count(memory.BucketSemantic), "token_allowance", allowance)
+					memoryPromptSuffix = memory.FormatPromptMemories(promptMemories)
 					system += memoryPromptSuffix
-					// Only relevant (semantic) memories are surfaced to the UI as a
-					// memory card. Preferences are injected into the prompt silently,
-					// so skip the wire event when there is nothing relevant to show.
-					if len(mems) > 0 {
-						wire := make([]event.MemoryWire, len(mems))
-						pendingMemories = make([]session.InjectedMemory, len(mems))
-						for i, m := range mems {
+					if len(promptMemories.Records) > 0 {
+						wire := make([]event.MemoryWire, len(promptMemories.Records))
+						pendingMemories = make([]session.InjectedMemory, len(promptMemories.Records))
+						for i, m := range promptMemories.Records {
 							wire[i] = event.MemoryWire{
 								ID:              m.ID,
 								Content:         m.Content,
 								Kind:            m.Kind,
+								Bucket:          event.MemoryBucket(m.Bucket),
 								Similarity:      m.Similarity,
 								EffectiveWeight: m.EffectiveWeight,
 							}
@@ -274,6 +263,7 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 								ID:              m.ID,
 								Content:         m.Content,
 								Kind:            m.Kind,
+								Bucket:          session.MemoryBucket(m.Bucket),
 								Similarity:      m.Similarity,
 								EffectiveWeight: m.EffectiveWeight,
 							}
@@ -634,6 +624,24 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 
 	ch <- event.Errorf("max steps exceeded", "max_steps")
 	return fmt.Errorf("max steps exceeded")
+}
+
+func memoryTokenAllowance(budget SessionBudget, system string, messages []cometsdk.Message, tools []cometsdk.Tool) int {
+	modelShare := budget.Available / 20
+	if modelShare > 4096 {
+		modelShare = 4096
+	}
+	if modelShare < 0 {
+		modelShare = 0
+	}
+	remaining := budget.Available - EstimatePromptTokens(PromptBudgetInput{System: system, Messages: messages, Tools: tools})
+	if remaining < modelShare {
+		modelShare = remaining
+	}
+	if modelShare < 0 {
+		return 0
+	}
+	return modelShare
 }
 
 func (r *Runner) hasActiveSubagents(parentSessionID string) bool {

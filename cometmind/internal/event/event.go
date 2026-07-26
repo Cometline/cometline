@@ -47,12 +47,21 @@ const (
 )
 
 // MemoryWire is the SSE payload for an injected memory.
+type MemoryBucket string
+
+const (
+	MemoryBucketPreference  MemoryBucket = "preference"
+	MemoryBucketTaskOutcome MemoryBucket = "task_outcome"
+	MemoryBucketSemantic    MemoryBucket = "semantic"
+)
+
 type MemoryWire struct {
-	ID              string  `json:"id"`
-	Content         string  `json:"content"`
-	Kind            string  `json:"kind"`
-	Similarity      float64 `json:"similarity"`
-	EffectiveWeight float64 `json:"effective_weight"`
+	ID              string       `json:"id"`
+	Content         string       `json:"content"`
+	Kind            string       `json:"kind"`
+	Bucket          MemoryBucket `json:"bucket"`
+	Similarity      float64      `json:"similarity"`
+	EffectiveWeight float64      `json:"effective_weight"`
 }
 
 // MemoryChangeWire is the SSE payload for an agent or extractor memory change.
@@ -113,8 +122,8 @@ type Event struct {
 	BudgetContextWindow int
 	BudgetCompacted     bool
 	// inbox_message_created / inbox_message_archived
-	InboxMessageID  string
-	InboxOpenCount  int64
+	InboxMessageID     string
+	InboxOpenCount     int64
 	InboxArchiveReason string
 	// turn_status
 	Phase         TurnPhase

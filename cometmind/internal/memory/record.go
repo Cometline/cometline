@@ -20,7 +20,11 @@ type Record struct {
 	Source             string
 	BaseWeight         float64
 	AccessCount        int64
-	Pinned             bool
+	ApplicationPolicy  string
+	RetentionPolicy    string
+	OriginType         string
+	OriginID           string
+	SummaryJSON        string
 	SourceSessionID    string
 	Archived           bool
 	ArchivedReason     string
@@ -44,7 +48,11 @@ func recordFromDB(row db.Memory) Record {
 		Source:             row.Source,
 		BaseWeight:         row.BaseWeight,
 		AccessCount:        row.AccessCount,
-		Pinned:             row.Pinned == 1,
+		ApplicationPolicy:  row.ApplicationPolicy,
+		RetentionPolicy:    row.RetentionPolicy,
+		OriginType:         row.OriginType,
+		OriginID:           row.OriginID,
+		SummaryJSON:        row.SummaryJson,
 		Archived:           row.Archived == 1,
 		CreatedAt:          time.UnixMilli(row.CreatedAt),
 		UpdatedAt:          time.UnixMilli(row.UpdatedAt),
@@ -63,6 +71,35 @@ func recordFromDB(row db.Memory) Record {
 		r.LastAccessedAt = &t
 	}
 	return r
+}
+
+const (
+	ApplicationAlways   = "always"
+	ApplicationRelevant = "relevant"
+	RetentionProtected  = "protected"
+	RetentionDecaying   = "decaying"
+)
+
+func normalizeApplicationPolicy(kind, policy string) string {
+	if policy == ApplicationAlways && normalizeKind(kind) == "preference" {
+		return ApplicationAlways
+	}
+	return ApplicationRelevant
+}
+
+func normalizeRetentionPolicy(policy string) string {
+	if policy == RetentionProtected {
+		return RetentionProtected
+	}
+	return RetentionDecaying
+}
+
+func applyPolicyInvariants(rec *Record) {
+	rec.ApplicationPolicy = normalizeApplicationPolicy(rec.Kind, rec.ApplicationPolicy)
+	rec.RetentionPolicy = normalizeRetentionPolicy(rec.RetentionPolicy)
+	if rec.ApplicationPolicy == ApplicationAlways {
+		rec.RetentionPolicy = RetentionProtected
+	}
 }
 
 func nullString(s string) sql.NullString {

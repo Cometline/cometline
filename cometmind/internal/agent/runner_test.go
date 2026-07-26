@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -203,10 +204,11 @@ type fakeMemory struct {
 	retrieveCalls  int
 	baselineCalls  int
 	outcomeCalls   int
-	extractCalls   int
+	extractCalls   atomic.Int32
 	waitForCancel  bool
 	preferences    []memory.ScoredMemory
 	outcomes       []memory.ScoredMemory
+	relevant       []memory.ScoredMemory
 	extractChanges []memory.Change
 }
 
@@ -222,17 +224,17 @@ func (m *fakeMemory) RecentTaskOutcomes(ctx context.Context, limit int) ([]memor
 	return m.outcomes, nil
 }
 
-func (m *fakeMemory) RetrieveForTurn(ctx context.Context, query string) ([]memory.ScoredMemory, error) {
+func (m *fakeMemory) RetrieveForTurn(ctx context.Context, query string, tokenAllowance int) (memory.PromptMemories, error) {
 	m.retrieveCalls++
 	if m.waitForCancel {
 		<-ctx.Done()
-		return nil, ctx.Err()
+		return memory.PromptMemories{}, ctx.Err()
 	}
-	return nil, nil
+	return memory.NewPromptMemories(m.preferences, m.outcomes, m.relevant), nil
 }
 
 func (m *fakeMemory) ExtractAfterTurn(ctx context.Context, sessionID, model string, llmProvider cometsdk.Provider) ([]memory.Change, error) {
-	m.extractCalls++
+	m.extractCalls.Add(1)
 	return m.extractChanges, nil
 }
 
@@ -418,11 +420,11 @@ func TestRunner_ExtractsMemoryInBackgroundAfterDone(t *testing.T) {
 	}
 
 	deadline := time.Now().Add(2 * time.Second)
-	for mem.extractCalls == 0 && time.Now().Before(deadline) {
+	for mem.extractCalls.Load() == 0 && time.Now().Before(deadline) {
 		time.Sleep(10 * time.Millisecond)
 	}
-	if mem.extractCalls != 1 {
-		t.Fatalf("ExtractAfterTurn called %d times, want 1", mem.extractCalls)
+	if mem.extractCalls.Load() != 1 {
+		t.Fatalf("ExtractAfterTurn called %d times, want 1", mem.extractCalls.Load())
 	}
 }
 
@@ -971,11 +973,11 @@ func TestRunner_RetrievesMemoryForSubstantiveTurn(t *testing.T) {
 	if mem.retrieveCalls != 1 {
 		t.Fatalf("RetrieveForTurn called %d times, want 1", mem.retrieveCalls)
 	}
-	if mem.baselineCalls != 1 {
-		t.Fatalf("BaselinePreferences called %d times, want 1", mem.baselineCalls)
+	if mem.baselineCalls != 0 {
+		t.Fatalf("BaselinePreferences called %d times, want 0", mem.baselineCalls)
 	}
-	if mem.outcomeCalls != 1 {
-		t.Fatalf("RecentTaskOutcomes called %d times, want 1", mem.outcomeCalls)
+	if mem.outcomeCalls != 0 {
+		t.Fatalf("RecentTaskOutcomes called %d times, want 0", mem.outcomeCalls)
 	}
 }
 
@@ -1006,11 +1008,11 @@ func TestRunner_MemoryRetrievalTimeoutDoesNotEmitError(t *testing.T) {
 	if mem.retrieveCalls != 1 {
 		t.Fatalf("RetrieveForTurn called %d times, want 1", mem.retrieveCalls)
 	}
-	if mem.baselineCalls != 1 {
-		t.Fatalf("BaselinePreferences called %d times, want 1", mem.baselineCalls)
+	if mem.baselineCalls != 0 {
+		t.Fatalf("BaselinePreferences called %d times, want 0", mem.baselineCalls)
 	}
-	if mem.outcomeCalls != 1 {
-		t.Fatalf("RecentTaskOutcomes called %d times, want 1", mem.outcomeCalls)
+	if mem.outcomeCalls != 0 {
+		t.Fatalf("RecentTaskOutcomes called %d times, want 0", mem.outcomeCalls)
 	}
 	for _, ev := range events {
 		if ev.Kind == event.KindError {
@@ -1048,8 +1050,8 @@ func TestRunner_InjectsPreferencesWhenSemanticRetrievalTimesOut(t *testing.T) {
 	if runErr != nil {
 		t.Fatalf("Run returned error: %v", runErr)
 	}
-	if mem.baselineCalls != 1 || mem.outcomeCalls != 1 || mem.retrieveCalls != 1 {
-		t.Fatalf("baseline=%d outcomes=%d retrieve=%d, want 1/1/1", mem.baselineCalls, mem.outcomeCalls, mem.retrieveCalls)
+	if mem.baselineCalls != 0 || mem.outcomeCalls != 0 || mem.retrieveCalls != 1 {
+		t.Fatalf("baseline=%d outcomes=%d retrieve=%d, want 0/0/1", mem.baselineCalls, mem.outcomeCalls, mem.retrieveCalls)
 	}
 }
 
@@ -1058,9 +1060,18 @@ func TestRunner_InjectsRecentTaskOutcomes(t *testing.T) {
 		Role:    cometsdk.RoleUser,
 		Content: []cometsdk.Block{cometsdk.TextBlock{Text: "what have you worked on recently?"}},
 	}}}
-	mem := &fakeMemory{outcomes: []memory.ScoredMemory{{Record: memory.Record{
-		ID: "task-1", Kind: "task_outcome", Content: "Completed the autonomous jobs retry policy.",
-	}}}}
+	mem := &fakeMemory{
+		preferences: []memory.ScoredMemory{{Record: memory.Record{
+			ID: "pref-1", Kind: "preference", Content: "User prefers concise answers.",
+		}}},
+		outcomes: []memory.ScoredMemory{{Record: memory.Record{
+			ID: "task-1", Kind: "task_outcome", Content: "Completed the autonomous jobs retry policy.",
+		}}},
+		relevant: []memory.ScoredMemory{
+			{Record: memory.Record{ID: "fact-1", Kind: "fact", Content: "The runtime uses SQLite."}},
+			{Record: memory.Record{ID: "pref-1", Kind: "preference", Content: "User prefers concise answers."}},
+		},
+	}
 	provider := &capturingSequentialFakeProvider{sequences: [][]cometsdk.Event{{
 		cometsdk.TextDeltaEvent{Text: "ok"},
 		cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishStop},
@@ -1068,20 +1079,33 @@ func TestRunner_InjectsRecentTaskOutcomes(t *testing.T) {
 	}}}
 
 	r := &Runner{Provider: provider, Sessions: store, Memory: mem, Registry: tools.NewRegistry(t.TempDir())}
-	_, runErr := runAndDrain(t, r, session.AgentTurn{ID: "s1", ModelID: "m"})
+	events, runErr := runAndDrain(t, r, session.AgentTurn{ID: "s1", ModelID: "m"})
 
 	if runErr != nil {
 		t.Fatalf("Run returned error: %v", runErr)
 	}
-	if mem.outcomeCalls != 1 {
-		t.Fatalf("RecentTaskOutcomes called %d times, want 1", mem.outcomeCalls)
+	if mem.outcomeCalls != 0 {
+		t.Fatalf("RecentTaskOutcomes called %d times, want 0", mem.outcomeCalls)
 	}
 	if len(provider.requests) != 1 {
 		t.Fatalf("captured %d requests, want 1", len(provider.requests))
 	}
 	system := provider.requests[0].System
-	if !strings.Contains(system, "## Recent task outcomes") || !strings.Contains(system, "Completed the autonomous jobs retry policy.") {
+	if !strings.Contains(system, "## Relevant task outcomes") || !strings.Contains(system, "Completed the autonomous jobs retry policy.") {
 		t.Fatalf("system prompt missing task outcome recall: %q", system)
+	}
+	var injected []event.MemoryWire
+	for _, ev := range events {
+		if ev.Kind == event.KindMemoryInjected {
+			injected = ev.Memories
+			break
+		}
+	}
+	if len(injected) != 3 {
+		t.Fatalf("memory event has %d items, want preference + outcome + fact", len(injected))
+	}
+	if injected[0].Kind != "preference" || injected[1].Kind != "task_outcome" || injected[2].Kind != "fact" {
+		t.Fatalf("memory event kinds = %q, %q, %q", injected[0].Kind, injected[1].Kind, injected[2].Kind)
 	}
 }
 
@@ -1688,4 +1712,3 @@ func TestRunner_OverflowDoesNotRetryTwice(t *testing.T) {
 		t.Fatalf("compactCalls=%d, want 1 (no second force compact)", store.compactCalls)
 	}
 }
-

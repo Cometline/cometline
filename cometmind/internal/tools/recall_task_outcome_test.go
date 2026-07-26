@@ -37,17 +37,19 @@ func insertMemoryForToolTest(t *testing.T, ctx context.Context, conn *sql.DB, id
 	t.Helper()
 	now := time.Now().UnixMilli()
 	if err := db.New(conn).InsertMemory(ctx, db.InsertMemoryParams{
-		ID:          id,
-		Scope:       "global",
-		Kind:        kind,
-		Content:     content,
-		Source:      "test",
-		BaseWeight:  1,
-		AccessCount: 0,
-		Pinned:      0,
-		Archived:    0,
-		CreatedAt:   now,
-		UpdatedAt:   now,
+		ID:                id,
+		Scope:             "global",
+		Kind:              kind,
+		Content:           content,
+		Source:            "test",
+		BaseWeight:        1,
+		AccessCount:       0,
+		ApplicationPolicy: memory.ApplicationRelevant,
+		RetentionPolicy:   memory.RetentionDecaying,
+		SummaryJson:       "{}",
+		Archived:          0,
+		CreatedAt:         now,
+		UpdatedAt:         now,
 	}); err != nil {
 		t.Fatal(err)
 	}

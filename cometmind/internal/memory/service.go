@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	cometsdk "github.com/cometline/comet-sdk"
@@ -15,15 +16,17 @@ import (
 
 // Service is the global memory facade.
 type Service struct {
-	settings              Settings
-	store                 *store
-	retriever             *retriever
-	extractor             *extractor
-	updater               *updater
-	compactor             *compactor
-	provider              cometsdk.Provider
-	onCompactionCompleted func(CompactionResult)
-	reembed               reembedState
+	settings                  Settings
+	store                     *store
+	retriever                 *retriever
+	extractor                 *extractor
+	updater                   *updater
+	compactor                 *compactor
+	provider                  cometsdk.Provider
+	onCompactionCompleted     func(CompactionResult)
+	reembed                   reembedState
+	outcomeMu                 sync.Mutex
+	rollUpTaskLineageOverride func(context.Context, string, string) error
 }
 
 // CompactionResult describes a completed manual or automatic compaction pass.
@@ -130,16 +133,16 @@ func (s *Service) notifyCompactionCompleted(result CompactionResult) {
 	}
 }
 
-// RetrieveForTurn returns scored memories for injection.
-func (s *Service) RetrieveForTurn(ctx context.Context, query string) ([]ScoredMemory, error) {
+// RetrieveForTurn returns the canonical, budgeted records for one prompt.
+func (s *Service) RetrieveForTurn(ctx context.Context, query string, tokenAllowance int) (PromptMemories, error) {
 	if !s.settings.Enabled || !s.settings.AutoRetrieve {
 		logging.L().Info("memory.retrieve.skipped", "enabled", s.settings.Enabled, "auto_retrieve", s.settings.AutoRetrieve)
-		return nil, nil
+		return PromptMemories{}, nil
 	}
-	mems, err := s.retriever.retrieve(ctx, query, s.settings.MaxRetrieved, s.settings.SimilarityThreshold)
+	mems, err := s.retriever.retrievePools(ctx, query, tokenAllowance)
 	if err != nil {
 		logging.L().Error("memory.retrieve.failed", "error", err)
-		return nil, err
+		return PromptMemories{}, err
 	}
 	return mems, nil
 }
@@ -225,28 +228,17 @@ func (s *Service) SearchTaskOutcomes(ctx context.Context, query string, limit in
 	if limit <= 0 {
 		limit = 5
 	}
-	results, err := s.Search(ctx, query, limit*2)
+	results, err := s.retriever.searchTaskMemories(ctx, query, limit)
 	if err != nil {
 		return nil, err
 	}
-	out := make([]ScoredMemory, 0, limit)
-	for _, item := range results {
-		if item.Kind != "task_outcome" {
-			continue
-		}
-		out = append(out, item)
-		_ = s.store.logEvent(ctx, item.ID, "task_outcome_recall", "search")
-		if len(out) >= limit {
-			break
-		}
-	}
-	logging.L().Info("memory.task_outcome_search.completed", "count", len(out), "limit", limit)
-	return out, nil
+	logging.L().Info("memory.task_outcome_search.completed", "count", len(results), "limit", limit)
+	return results, nil
 }
 
 func (s *Service) CompactPreferenceCategory(ctx context.Context, category string) error {
 	category = normalizePreferenceCategory("preference", "", category)
-	active, err := s.store.listActive(ctx)
+	active, err := s.store.listActivePreferencesByCategory(ctx, category)
 	if err != nil {
 		logging.L().Error("memory.preference_category.failed", "category", category, "error", err)
 		return err
@@ -270,8 +262,8 @@ func (s *Service) CompactPreferenceCategory(ctx context.Context, category string
 		recs = append(recs, rec)
 	}
 	sort.Slice(recs, func(i, j int) bool {
-		if recs[i].Pinned != recs[j].Pinned {
-			return recs[i].Pinned
+		if recs[i].ApplicationPolicy != recs[j].ApplicationPolicy {
+			return recs[i].ApplicationPolicy == ApplicationAlways
 		}
 		if !recs[i].UpdatedAt.Equal(recs[j].UpdatedAt) {
 			return recs[i].UpdatedAt.After(recs[j].UpdatedAt)
@@ -285,7 +277,7 @@ func (s *Service) CompactPreferenceCategory(ctx context.Context, category string
 	kept := 0
 	archived := 0
 	for _, rec := range recs {
-		if rec.Pinned {
+		if rec.RetentionPolicy == RetentionProtected || rec.ApplicationPolicy == ApplicationAlways {
 			continue
 		}
 		kept++
@@ -343,9 +335,15 @@ func (s *Service) RunLifecycle(ctx context.Context) error {
 		logging.L().Error("memory.lifecycle.failed", "error", err)
 		return err
 	}
+	before := count
 	lc := s.settings.Lifecycle
 	if err := s.compactor.forgetDecayed(ctx); err != nil {
 		logging.L().Error("memory.lifecycle.failed", "active_count", count, "error", err)
+		return err
+	}
+	count, err = s.store.countActive(ctx)
+	if err != nil {
+		logging.L().Error("memory.lifecycle.recount_failed", "error", err)
 		return err
 	}
 	if int(count) >= lc.MaxMemories {
@@ -359,7 +357,7 @@ func (s *Service) RunLifecycle(ctx context.Context) error {
 			logging.L().Error("memory.compact.result_count_failed", "trigger", "automatic", "error", err)
 			return err
 		}
-		s.notifyCompactionCompleted(CompactionResult{Before: count, After: after, Trigger: "automatic"})
+		s.notifyCompactionCompleted(CompactionResult{Before: before, After: after, Trigger: "automatic"})
 		logging.L().Info("memory.compact.completed", "active_count", count, "max_memories", lc.MaxMemories, "duration_ms", time.Since(started).Milliseconds())
 		return nil
 	}
@@ -433,19 +431,23 @@ func (s *Service) ListActive(ctx context.Context) ([]ScoredMemory, error) {
 }
 
 // CreateManual inserts a user-authored memory.
-func (s *Service) CreateManual(ctx context.Context, content, kind string, pinned bool, baseWeight float64) (Record, error) {
-	return s.CreateManualWithID(ctx, NewID(), content, kind, pinned, baseWeight)
+func (s *Service) CreateManual(ctx context.Context, content, kind, applicationPolicy, retentionPolicy string, baseWeight float64) (Record, error) {
+	return s.CreateManualWithID(ctx, NewID(), content, kind, applicationPolicy, retentionPolicy, baseWeight)
 }
 
 // CreateManualWithID inserts a user-authored memory with a caller-provided id.
 // It lets asynchronous callers return an accepted id before embedding finishes.
-func (s *Service) CreateManualWithID(ctx context.Context, id, content, kind string, pinned bool, baseWeight float64) (Record, error) {
+func (s *Service) CreateManualWithID(ctx context.Context, id, content, kind, applicationPolicy, retentionPolicy string, baseWeight float64) (Record, error) {
 	content = strings.TrimSpace(content)
 	if content == "" {
 		return Record{}, fmt.Errorf("content is required")
 	}
 	if strings.TrimSpace(id) == "" {
 		id = NewID()
+	}
+	normalizedKind := normalizeKind(kind)
+	if normalizedKind == "task_outcome" || normalizedKind == "task_summary" {
+		return Record{}, fmt.Errorf("task memories require a durable job origin")
 	}
 	vecs, err := s.retriever.embedder.Embed(ctx, content)
 	if err != nil {
@@ -461,32 +463,34 @@ func (s *Service) CreateManualWithID(ctx context.Context, id, content, kind stri
 	rec := Record{
 		ID:                 id,
 		Scope:              "global",
-		Kind:               normalizeKind(kind),
+		Kind:               normalizedKind,
 		PreferenceCategory: normalizePreferenceCategory(kind, content, ""),
 		Content:            content,
 		Embedding:          vecs[0],
 		EmbeddingModel:     s.retriever.embedder.Model(),
 		Source:             "manual",
 		BaseWeight:         baseWeight,
-		Pinned:             pinned,
+		ApplicationPolicy:  normalizeApplicationPolicy(kind, applicationPolicy),
+		RetentionPolicy:    normalizeRetentionPolicy(retentionPolicy),
 		LastAccessedAt:     &now,
 		CreatedAt:          now,
 		UpdatedAt:          now,
 	}
+	applyPolicyInvariants(&rec)
 	if err := s.store.insert(ctx, rec); err != nil {
-		logging.L().Error("memory.manual_create.failed", "kind", rec.Kind, "pinned", rec.Pinned, "error", err)
+		logging.L().Error("memory.manual_create.failed", "kind", rec.Kind, "application_policy", rec.ApplicationPolicy, "retention_policy", rec.RetentionPolicy, "error", err)
 		return Record{}, err
 	}
 	_ = s.store.logEvent(ctx, rec.ID, "create", "manual")
 	if rec.Kind == "preference" {
 		_ = s.CompactPreferenceCategory(ctx, rec.PreferenceCategory)
 	}
-	logging.L().Info("memory.manual_create.completed", "memory_id", rec.ID, "kind", rec.Kind, "pinned", rec.Pinned, "base_weight", rec.BaseWeight)
+	logging.L().Info("memory.manual_create.completed", "memory_id", rec.ID, "kind", rec.Kind, "application_policy", rec.ApplicationPolicy, "retention_policy", rec.RetentionPolicy, "base_weight", rec.BaseWeight)
 	return rec, nil
 }
 
 // UpdateManual edits a memory.
-func (s *Service) UpdateManual(ctx context.Context, id, content, kind string, pinned *bool, baseWeight *float64) (Record, error) {
+func (s *Service) UpdateManual(ctx context.Context, id, content, kind string, applicationPolicy, retentionPolicy *string, baseWeight *float64) (Record, error) {
 	rec, err := s.store.get(ctx, id)
 	if err != nil {
 		return Record{}, err
@@ -509,9 +513,13 @@ func (s *Service) UpdateManual(ctx context.Context, id, content, kind string, pi
 		rec.Kind = normalizeKind(kind)
 	}
 	rec.PreferenceCategory = normalizePreferenceCategory(rec.Kind, rec.Content, rec.PreferenceCategory)
-	if pinned != nil {
-		rec.Pinned = *pinned
+	if applicationPolicy != nil {
+		rec.ApplicationPolicy = normalizeApplicationPolicy(rec.Kind, *applicationPolicy)
 	}
+	if retentionPolicy != nil {
+		rec.RetentionPolicy = normalizeRetentionPolicy(*retentionPolicy)
+	}
+	applyPolicyInvariants(&rec)
 	if baseWeight != nil {
 		rec.BaseWeight = *baseWeight
 	}
@@ -524,7 +532,7 @@ func (s *Service) UpdateManual(ctx context.Context, id, content, kind string, pi
 	if rec.Kind == "preference" {
 		_ = s.CompactPreferenceCategory(ctx, rec.PreferenceCategory)
 	}
-	logging.L().Info("memory.manual_update.completed", "memory_id", rec.ID, "kind", rec.Kind, "pinned", rec.Pinned, "base_weight", rec.BaseWeight)
+	logging.L().Info("memory.manual_update.completed", "memory_id", rec.ID, "kind", rec.Kind, "application_policy", rec.ApplicationPolicy, "retention_policy", rec.RetentionPolicy, "base_weight", rec.BaseWeight)
 	return rec, nil
 }
 
@@ -553,55 +561,115 @@ func (s *Service) DeleteManual(ctx context.Context, id string) (Record, error) {
 	return rec, nil
 }
 
+type MemoryBucket string
+
+const (
+	BucketPreference  MemoryBucket = "preference"
+	BucketTaskOutcome MemoryBucket = "task_outcome"
+	BucketSemantic    MemoryBucket = "semantic"
+)
+
+type PromptMemory struct {
+	ScoredMemory
+	Bucket MemoryBucket
+}
+
 type PromptMemories struct {
-	Preferences  []ScoredMemory
-	TaskOutcomes []ScoredMemory
-	Relevant     []ScoredMemory
+	Records []PromptMemory
+}
+
+func NewPromptMemories(preferences, outcomes, semantic []ScoredMemory) PromptMemories {
+	records := make([]PromptMemory, 0, len(preferences)+len(outcomes)+len(semantic))
+	seen := make(map[string]struct{}, cap(records))
+	for _, group := range []struct {
+		bucket MemoryBucket
+		items  []ScoredMemory
+	}{{BucketPreference, preferences}, {BucketTaskOutcome, outcomes}, {BucketSemantic, semantic}} {
+		for _, item := range group.items {
+			if _, ok := seen[item.ID]; ok {
+				continue
+			}
+			seen[item.ID] = struct{}{}
+			records = append(records, PromptMemory{ScoredMemory: item, Bucket: group.bucket})
+		}
+	}
+	return PromptMemories{Records: records}
+}
+
+func (m PromptMemories) Count(bucket MemoryBucket) int {
+	count := 0
+	for _, item := range m.Records {
+		if item.Bucket == bucket {
+			count++
+		}
+	}
+	return count
+}
+
+func (m PromptMemories) WithinTokenAllowance(allowance int) PromptMemories {
+	if allowance <= 0 {
+		return PromptMemories{}
+	}
+	selected := make([]PromptMemory, 0, len(m.Records))
+	for _, item := range m.Records {
+		candidate := PromptMemories{Records: append(selected, item)}
+		if EstimatePromptMemoriesTokens(candidate) > allowance {
+			break
+		}
+		selected = append(selected, item)
+	}
+	return PromptMemories{Records: selected}
+}
+
+// EstimatePromptMemoriesTokens applies the conservative ceil(chars/4) rule to
+// the exact suffix sent to the model, including headings and list decoration.
+func EstimatePromptMemoriesTokens(mems PromptMemories) int {
+	runes := len([]rune(FormatPromptMemories(mems)))
+	if runes == 0 {
+		return 0
+	}
+	return (runes + 3) / 4
 }
 
 func FormatPromptMemories(mems PromptMemories) string {
-	if len(mems.Preferences) == 0 && len(mems.TaskOutcomes) == 0 && len(mems.Relevant) == 0 {
+	if len(mems.Records) == 0 {
 		return ""
 	}
 	var b strings.Builder
-	if len(mems.Preferences) > 0 {
+	if mems.Count(BucketPreference) > 0 {
 		b.WriteString("\n\n## User preferences\n")
-		for i, m := range mems.Preferences {
-			fmt.Fprintf(&b, "%d. %s\n", i+1, m.Content)
+		i := 0
+		for _, m := range mems.Records {
+			if m.Bucket == BucketPreference {
+				i++
+				fmt.Fprintf(&b, "%d. %s\n", i, m.Content)
+			}
 		}
 	}
-	if len(mems.TaskOutcomes) > 0 {
-		b.WriteString("\n\n## Recent task outcomes\n")
-		for i, m := range mems.TaskOutcomes {
-			fmt.Fprintf(&b, "%d. %s\n", i+1, m.Content)
+	if mems.Count(BucketTaskOutcome) > 0 {
+		b.WriteString("\n\n## Relevant task outcomes\n")
+		i := 0
+		for _, m := range mems.Records {
+			if m.Bucket == BucketTaskOutcome {
+				i++
+				fmt.Fprintf(&b, "%d. %s\n", i, m.Content)
+			}
 		}
 	}
-	relevant := dedupeRelevantMemories(mems.Preferences, mems.Relevant)
-	if len(relevant) > 0 {
-		b.WriteString("\n\n## Relevant memories\n")
+	if mems.Count(BucketSemantic) > 0 {
+		b.WriteString("\n\n## Semantic memories\n")
 	}
-	for i, m := range relevant {
-		fmt.Fprintf(&b, "%d. [%s] %s\n", i+1, m.Kind, m.Content)
+	i := 0
+	for _, m := range mems.Records {
+		if m.Bucket == BucketSemantic {
+			i++
+			fmt.Fprintf(&b, "%d. [%s] %s\n", i, m.Kind, m.Content)
+		}
 	}
 	return b.String()
 }
 
 // FormatForPrompt renders injected memories for the system prompt.
 func FormatForPrompt(mems []ScoredMemory) string {
-	return FormatPromptMemories(PromptMemories{Relevant: mems})
-}
-
-func dedupeRelevantMemories(preferences, relevant []ScoredMemory) []ScoredMemory {
-	seen := make(map[string]struct{}, len(preferences))
-	for _, m := range preferences {
-		seen[m.ID] = struct{}{}
-	}
-	out := make([]ScoredMemory, 0, len(relevant))
-	for _, m := range relevant {
-		if _, ok := seen[m.ID]; ok {
-			continue
-		}
-		out = append(out, m)
-	}
-	return out
+	return FormatPromptMemories(NewPromptMemories(nil, nil, mems))
 }

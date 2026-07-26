@@ -94,7 +94,11 @@ type Memory struct {
 	Source             string         `json:"source"`
 	BaseWeight         float64        `json:"base_weight"`
 	AccessCount        int64          `json:"access_count"`
-	Pinned             int64          `json:"pinned"`
+	ApplicationPolicy  string         `json:"application_policy"`
+	RetentionPolicy    string         `json:"retention_policy"`
+	OriginType         string         `json:"origin_type"`
+	OriginID           string         `json:"origin_id"`
+	SummaryJson        string         `json:"summary_json"`
 	SourceSessionID    sql.NullString `json:"source_session_id"`
 	SupersededBy       sql.NullString `json:"superseded_by"`
 	Archived           int64          `json:"archived"`
@@ -110,6 +114,22 @@ type MemoryEvent struct {
 	Action    string         `json:"action"`
 	Detail    string         `json:"detail"`
 	CreatedAt int64          `json:"created_at"`
+}
+
+type MemoryReembedJob struct {
+	ID         string `json:"id"`
+	Status     string `json:"status"`
+	FromModel  string `json:"from_model"`
+	ToProvider string `json:"to_provider"`
+	ToModel    string `json:"to_model"`
+	ToBaseUrl  string `json:"to_base_url"`
+	ToApiKey   string `json:"to_api_key"`
+	Total      int64  `json:"total"`
+	Completed  int64  `json:"completed"`
+	CursorID   string `json:"cursor_id"`
+	Error      string `json:"error"`
+	CreatedAt  int64  `json:"created_at"`
+	UpdatedAt  int64  `json:"updated_at"`
 }
 
 type Message struct {

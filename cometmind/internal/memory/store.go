@@ -35,6 +35,21 @@ func (s *store) countActive(ctx context.Context) (int64, error) {
 	return s.q.CountActiveMemories(ctx)
 }
 
+func (s *store) listCompactionCandidates(ctx context.Context, limit int) ([]Record, error) {
+	if limit <= 0 || limit > 200 {
+		limit = 200
+	}
+	rows, err := s.q.ListCompactionCandidates(ctx, int64(limit))
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Record, len(rows))
+	for i, row := range rows {
+		out[i] = recordFromDB(row)
+	}
+	return out, nil
+}
+
 func (s *store) get(ctx context.Context, id string) (Record, error) {
 	row, err := s.q.GetMemory(ctx, id)
 	if err != nil {
@@ -45,7 +60,23 @@ func (s *store) get(ctx context.Context, id string) (Record, error) {
 
 func (s *store) insert(ctx context.Context, rec Record) error {
 	now := time.Now().UnixMilli()
-	if err := s.q.InsertMemory(ctx, db.InsertMemoryParams{
+	rec = normalizeStoredRecord(rec)
+	if err := s.q.InsertMemory(ctx, insertMemoryParams(rec, now)); err != nil {
+		return err
+	}
+	return s.upsertFTS(ctx, rec.ID, rec.Content)
+}
+
+func normalizeStoredRecord(rec Record) Record {
+	applyPolicyInvariants(&rec)
+	if rec.SummaryJSON == "" {
+		rec.SummaryJSON = "{}"
+	}
+	return rec
+}
+
+func insertMemoryParams(rec Record, now int64) db.InsertMemoryParams {
+	return db.InsertMemoryParams{
 		ID:                 rec.ID,
 		Scope:              rec.Scope,
 		Kind:               rec.Kind,
@@ -56,7 +87,11 @@ func (s *store) insert(ctx context.Context, rec Record) error {
 		Source:             rec.Source,
 		BaseWeight:         rec.BaseWeight,
 		AccessCount:        rec.AccessCount,
-		Pinned:             boolToInt64(rec.Pinned),
+		ApplicationPolicy:  rec.ApplicationPolicy,
+		RetentionPolicy:    rec.RetentionPolicy,
+		OriginType:         rec.OriginType,
+		OriginID:           rec.OriginID,
+		SummaryJson:        rec.SummaryJSON,
 		SourceSessionID:    nullString(rec.SourceSessionID),
 		SupersededBy:       sql.NullString{},
 		Archived:           0,
@@ -64,13 +99,55 @@ func (s *store) insert(ctx context.Context, rec Record) error {
 		LastAccessedAt:     nullInt64MS(rec.LastAccessedAt),
 		CreatedAt:          now,
 		UpdatedAt:          now,
-	}); err != nil {
+	}
+}
+
+func (s *store) withTx(ctx context.Context, fn func(*sql.Tx, *db.Queries) error) error {
+	tx, err := s.conn.BeginTx(ctx, nil)
+	if err != nil {
 		return err
 	}
-	return s.upsertFTS(ctx, rec.ID, rec.Content)
+	defer tx.Rollback()
+	if err := fn(tx, db.New(tx)); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func (s *store) replaceWithMerged(ctx context.Context, merged Record, sources []Record, detail string) error {
+	merged = normalizeStoredRecord(merged)
+	now := time.Now().UnixMilli()
+	return s.withTx(ctx, func(tx *sql.Tx, q *db.Queries) error {
+		if err := q.InsertMemory(ctx, insertMemoryParams(merged, now)); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `INSERT INTO memories_fts (memory_id, content) VALUES (?, ?)`, merged.ID, merged.Content); err != nil {
+			return err
+		}
+		for _, source := range sources {
+			if err := q.ArchiveMemory(ctx, db.ArchiveMemoryParams{
+				ArchivedReason: nullString("compaction"), SupersededBy: nullString(merged.ID), UpdatedAt: now, ID: source.ID,
+			}); err != nil {
+				return err
+			}
+			if _, err := tx.ExecContext(ctx, `DELETE FROM memories_fts WHERE memory_id = ?`, source.ID); err != nil {
+				return err
+			}
+			if err := q.InsertMemoryEvent(ctx, db.InsertMemoryEventParams{
+				ID: ulid.Make().String(), MemoryID: nullString(source.ID), Action: "compact_merge", Detail: detail, CreatedAt: now,
+			}); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 func (s *store) update(ctx context.Context, rec Record) error {
+	applyPolicyInvariants(&rec)
+	if rec.SummaryJSON == "" {
+		rec.SummaryJSON = "{}"
+	}
 	if err := s.q.UpdateMemory(ctx, db.UpdateMemoryParams{
 		Kind:               rec.Kind,
 		PreferenceCategory: normalizePreferenceCategory(rec.Kind, rec.Content, rec.PreferenceCategory),
@@ -78,7 +155,11 @@ func (s *store) update(ctx context.Context, rec Record) error {
 		Embedding:          encodeEmbedding(rec.Embedding),
 		EmbeddingModel:     nullString(rec.EmbeddingModel),
 		BaseWeight:         rec.BaseWeight,
-		Pinned:             boolToInt64(rec.Pinned),
+		ApplicationPolicy:  rec.ApplicationPolicy,
+		RetentionPolicy:    rec.RetentionPolicy,
+		OriginType:         rec.OriginType,
+		OriginID:           rec.OriginID,
+		SummaryJson:        rec.SummaryJSON,
 		LastAccessedAt:     nullInt64MS(rec.LastAccessedAt),
 		UpdatedAt:          time.Now().UnixMilli(),
 		ID:                 rec.ID,
@@ -265,11 +346,4 @@ func (s *store) searchFTS(ctx context.Context, query string, limit int) ([]strin
 		ids = append(ids, id)
 	}
 	return ids, rows.Err()
-}
-
-func boolToInt64(v bool) int64 {
-	if v {
-		return 1
-	}
-	return 0
 }

@@ -10,7 +10,11 @@ INSERT INTO memories (
     source,
     base_weight,
     access_count,
-    pinned,
+    application_policy,
+    retention_policy,
+    origin_type,
+    origin_id,
+    summary_json,
     source_session_id,
     superseded_by,
     archived,
@@ -19,6 +23,10 @@ INSERT INTO memories (
     created_at,
     updated_at
 ) VALUES (
+    ?,
+    ?,
+    ?,
+    ?,
     ?,
     ?,
     ?,
@@ -48,7 +56,11 @@ SET
     embedding = ?,
     embedding_model = ?,
     base_weight = ?,
-    pinned = ?,
+    application_policy = ?,
+    retention_policy = ?,
+    origin_type = ?,
+    origin_id = ?,
+    summary_json = ?,
     last_accessed_at = ?,
     updated_at = ?
 WHERE id = ?;
@@ -86,7 +98,8 @@ SELECT *
 FROM memories
 WHERE archived = 0
   AND kind = 'preference'
-ORDER BY pinned DESC, updated_at DESC, base_weight DESC, access_count DESC
+  AND application_policy = 'always'
+ORDER BY updated_at DESC, base_weight DESC, access_count DESC
 LIMIT ?;
 
 -- name: ListRecentMemoriesByKind :many
@@ -102,13 +115,42 @@ SELECT *
 FROM memories
 WHERE archived = 0
   AND kind = 'preference'
-  AND preference_category = ?
-ORDER BY pinned DESC, updated_at DESC, base_weight DESC, access_count DESC;
+  AND (preference_category = ? OR preference_category = '')
+ORDER BY application_policy = 'always' DESC, updated_at DESC, base_weight DESC, access_count DESC
+LIMIT 100;
+
+-- name: ListActiveMemoriesByKinds :many
+SELECT *
+FROM memories
+WHERE archived = 0
+  AND kind IN (sqlc.arg(kind_one), sqlc.arg(kind_two))
+ORDER BY created_at DESC
+LIMIT sqlc.arg(row_limit);
+
+-- name: ListTaskMemoriesByLineage :many
+SELECT *
+FROM memories
+WHERE archived = 0
+  AND origin_type = ?
+  AND origin_id = ?
+  AND kind IN ('task_outcome', 'task_summary')
+ORDER BY kind = 'task_summary' DESC, created_at DESC
+LIMIT ?;
 
 -- name: CountActiveMemories :one
 SELECT COUNT(*)
 FROM memories
 WHERE archived = 0;
+
+-- name: ListCompactionCandidates :many
+SELECT *
+FROM memories
+WHERE archived = 0
+  AND retention_policy = 'decaying'
+  AND application_policy = 'relevant'
+  AND kind NOT IN ('task_outcome', 'task_summary')
+ORDER BY COALESCE(last_accessed_at, created_at) ASC, base_weight ASC
+LIMIT ?;
 
 -- name: DeleteMemory :exec
 DELETE FROM memories

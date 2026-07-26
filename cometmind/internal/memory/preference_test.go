@@ -48,7 +48,8 @@ func insertPreferenceTestRecord(t *testing.T, ctx context.Context, st *store, id
 		Embedding:          []float32{1, 0},
 		Source:             "manual",
 		BaseWeight:         1,
-		Pinned:             pinned,
+		ApplicationPolicy:  map[bool]string{true: ApplicationAlways, false: ApplicationRelevant}[pinned],
+		RetentionPolicy:    map[bool]string{true: RetentionProtected, false: RetentionDecaying}[pinned],
 		CreatedAt:          now,
 		UpdatedAt:          now,
 	}); err != nil {
@@ -62,7 +63,7 @@ func TestBaselinePreferencesReturnsOnlyPreferencesAndTouchesAccess(t *testing.T)
 	defer conn.Close()
 
 	insertPreferenceTestRecord(t, ctx, svc.store, "fact", "fact", "", "A fact", false)
-	insertPreferenceTestRecord(t, ctx, svc.store, "pref", "preference", "language", "User prefers Traditional Chinese replies.", false)
+	insertPreferenceTestRecord(t, ctx, svc.store, "pref", "preference", "language", "User prefers Traditional Chinese replies.", true)
 
 	got, err := svc.BaselinePreferences(ctx, 3)
 	if err != nil {
@@ -77,6 +78,33 @@ func TestBaselinePreferencesReturnsOnlyPreferencesAndTouchesAccess(t *testing.T)
 	}
 	if rec.AccessCount != 1 {
 		t.Fatalf("AccessCount = %d, want 1", rec.AccessCount)
+	}
+}
+
+func TestAlwaysPreferenceIsProtectedByDomainInvariant(t *testing.T) {
+	ctx, conn, svc := newPreferenceTestService(t)
+	defer conn.Close()
+
+	now := time.Now()
+	rec := Record{
+		ID: "always", Scope: "global", Kind: "preference", Content: "Always answer concisely.",
+		Embedding: []float32{1, 0}, Source: "manual", BaseWeight: 1,
+		ApplicationPolicy: ApplicationAlways, RetentionPolicy: RetentionDecaying,
+		CreatedAt: now, UpdatedAt: now,
+	}
+	applyPolicyInvariants(&rec)
+	if rec.RetentionPolicy != RetentionProtected {
+		t.Fatalf("retention policy = %q, want protected", rec.RetentionPolicy)
+	}
+	if err := svc.store.insert(ctx, rec); err != nil {
+		t.Fatal(err)
+	}
+	stored, err := svc.store.get(ctx, rec.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.RetentionPolicy != RetentionProtected {
+		t.Fatalf("stored retention policy = %q, want protected", stored.RetentionPolicy)
 	}
 }
 
@@ -104,7 +132,7 @@ func TestRecentTaskOutcomesReturnsRecentTaskOutcomesAndTouchesAccess(t *testing.
 	}
 }
 
-func TestCompactPreferenceCategoryArchivesOldNonPinnedBeyondCap(t *testing.T) {
+func TestCompactPreferenceCategoryArchivesOldDecayingBeyondCap(t *testing.T) {
 	ctx, conn, svc := newPreferenceTestService(t)
 	defer conn.Close()
 
@@ -152,7 +180,7 @@ func TestCompactPreferenceCategoryBackfillsLegacyEmptyCategory(t *testing.T) {
 	}
 }
 
-func TestCompactPreferenceCategoryDoesNotArchivePinnedPreferences(t *testing.T) {
+func TestCompactPreferenceCategoryDoesNotArchiveProtectedPreferences(t *testing.T) {
 	ctx, conn, svc := newPreferenceTestService(t)
 	defer conn.Close()
 
@@ -176,11 +204,9 @@ func TestFormatPromptMemoriesSeparatesPreferencesAndDedupesRelevant(t *testing.T
 	outcome := ScoredMemory{Record: Record{ID: "o", Kind: "task_outcome", Content: "Completed the retry policy."}}
 	relevant := ScoredMemory{Record: Record{ID: "r", Kind: "project", Content: "CometMind uses SQLite."}}
 	out := FormatPromptMemories(PromptMemories{
-		Preferences:  []ScoredMemory{pref},
-		TaskOutcomes: []ScoredMemory{outcome},
-		Relevant:     []ScoredMemory{pref, relevant},
+		Records: NewPromptMemories([]ScoredMemory{pref}, []ScoredMemory{outcome}, []ScoredMemory{pref, relevant}).Records,
 	})
-	if !strings.Contains(out, "## User preferences") || !strings.Contains(out, "## Recent task outcomes") || !strings.Contains(out, "## Relevant memories") {
+	if !strings.Contains(out, "## User preferences") || !strings.Contains(out, "## Relevant task outcomes") || !strings.Contains(out, "## Semantic memories") {
 		t.Fatalf("missing sections: %q", out)
 	}
 	if strings.Count(out, "User prefers Traditional Chinese replies.") != 1 {

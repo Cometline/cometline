@@ -3414,7 +3414,7 @@ components:
     MemoryWire:
       type: object
       additionalProperties: false
-      required: [id, content, kind, similarity, effective_weight]
+      required: [id, content, kind, bucket, similarity, effective_weight]
       properties:
         id:
           type: string
@@ -3422,6 +3422,9 @@ components:
           type: string
         kind:
           type: string
+        bucket:
+          type: string
+          enum: [preference, task_outcome, semantic]
         similarity:
           type: number
         effective_weight:
@@ -3793,7 +3796,9 @@ components:
         - base_weight
         - effective_weight
         - access_count
-        - pinned
+        - application_policy
+        - retention_policy
+        - summary_json
         - created_at
         - updated_at
       properties:
@@ -3814,8 +3819,19 @@ components:
         access_count:
           type: integer
           format: int64
-        pinned:
-          type: boolean
+        application_policy:
+          type: string
+          enum: [always, relevant]
+        retention_policy:
+          type: string
+          enum: [protected, decaying]
+        origin_type:
+          type: string
+        origin_id:
+          type: string
+        summary_json:
+          type: object
+          additionalProperties: true
         last_accessed_at:
           type: integer
           format: int64
@@ -3850,8 +3866,12 @@ components:
           type: string
         kind:
           type: string
-        pinned:
-          type: boolean
+        application_policy:
+          type: string
+          enum: [always, relevant]
+        retention_policy:
+          type: string
+          enum: [protected, decaying]
         base_weight:
           type: number
 
@@ -3863,8 +3883,12 @@ components:
           type: string
         kind:
           type: string
-        pinned:
-          type: boolean
+        application_policy:
+          type: string
+          enum: [always, relevant]
+        retention_policy:
+          type: string
+          enum: [protected, decaying]
         base_weight:
           type: number
 
