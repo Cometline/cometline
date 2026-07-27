@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Loader } from '@lucide/svelte';
+	import { untrack } from 'svelte';
 	import AssistantMarkdown from '$lib/components/AssistantMarkdown.svelte';
 	import FileEditor from '$lib/components/FileEditor.svelte';
 	import { portal } from '$lib/components/portal';
@@ -33,6 +34,10 @@
 		type MarkdownFileViewMode
 	} from '$lib/workspace/workspace-panel-prefs';
 	import { refreshWikiFileIndex } from '$lib/wiki/wiki-file-index';
+	import { workspaceFileChangeVersion } from '$lib/workspace/workspace-change.svelte';
+	import { createFileDiff } from '$lib/workspace/file-diff';
+	import { highlightGitDiffLines, type HighlightedDiffLine } from '$lib/workspace/git-diff-highlight';
+	import { parseGitDiffLines } from '$lib/workspace/git-diff-lines';
 	import {
 		isWikiReadOnlyPath,
 		isWikiUiPath,
@@ -89,6 +94,11 @@
 		text: string;
 		lineRange: SelectionLineRange | null;
 	} | null>(null);
+	let externalChangePending = $state(false);
+	let externalComparisonLines = $state<HighlightedDiffLine[] | null>(null);
+	let externalComparisonError = $state<string | null>(null);
+	let externalComparisonOpen = $state(false);
+	let lastObservedFileChangeVersion = 0;
 
 	const readOnly = $derived(isWikiUiPath(filePath) && isWikiReadOnlyPath(filePath));
 	const dirty = $derived(previewKind === 'text' && draftContent !== savedContent && !readOnly);
@@ -179,6 +189,59 @@
 		if (previewKind !== 'text') return;
 		draftContent = savedContent;
 		saveError = null;
+	}
+
+	function keepEditingAfterExternalChange() {
+		externalChangePending = false;
+		externalComparisonLines = null;
+		externalComparisonError = null;
+		externalComparisonOpen = false;
+	}
+
+	function reloadAfterExternalChange() {
+		keepEditingAfterExternalChange();
+		void loadPreview();
+	}
+
+	async function compareExternalChange() {
+		if (externalComparisonOpen) {
+			externalComparisonLines = null;
+			externalComparisonError = null;
+			externalComparisonOpen = false;
+			return;
+		}
+		const currentWorkspacePath = workspacePath;
+		const currentFilePath = filePath;
+		const currentDraftContent = draftContent;
+		externalComparisonError = null;
+		clearSelectionPopup();
+		try {
+			const result = isWikiUiPath(currentFilePath)
+				? await readWikiFileContent(toWikiRelative(currentFilePath))
+				: await readWorkspaceFileContent(currentWorkspacePath, currentFilePath);
+			if (workspacePath !== currentWorkspacePath || filePath !== currentFilePath) return;
+			if (result.kind !== 'text') {
+				externalComparisonError = 'The external version is not text.';
+				return;
+			}
+			const diff = createFileDiff(currentDraftContent, result.content);
+			const lines = await highlightGitDiffLines(
+				parseGitDiffLines(diff),
+				languageFromPath(currentFilePath) ?? languageFromExtension(result.extension)
+			);
+			if (
+				workspacePath !== currentWorkspacePath ||
+				filePath !== currentFilePath ||
+				draftContent !== currentDraftContent
+			)
+				return;
+			externalComparisonLines = lines;
+			externalComparisonOpen = true;
+		} catch (err) {
+			if (workspacePath !== currentWorkspacePath || filePath !== currentFilePath) return;
+			externalComparisonError =
+				err instanceof Error ? err.message : 'Failed to load the external file version';
+		}
 	}
 
 	async function save() {
@@ -274,6 +337,27 @@
 	$effect(() => {
 		// Track both inputs so the editor reloads when either changes.
 		void [workspacePath, filePath];
+		lastObservedFileChangeVersion = untrack(() =>
+			workspaceFileChangeVersion(workspacePath, filePath)
+		);
+		externalChangePending = false;
+		externalComparisonLines = null;
+		externalComparisonError = null;
+		externalComparisonOpen = false;
+		void loadPreview();
+	});
+
+	$effect(() => {
+		const changeVersion = workspaceFileChangeVersion(workspacePath, filePath);
+		if (changeVersion === lastObservedFileChangeVersion) return;
+		lastObservedFileChangeVersion = changeVersion;
+		if (dirty) {
+			externalChangePending = true;
+			externalComparisonLines = null;
+			externalComparisonError = null;
+			externalComparisonOpen = false;
+			return;
+		}
 		void loadPreview();
 	});
 
@@ -355,7 +439,29 @@
 		</div>
 	{:else if previewKind === 'text'}
 		<div class="file-preview-editor-wrap">
-			{#if showMarkdownToggle}
+			{#if externalComparisonOpen && externalComparisonLines !== null}
+				<div class="external-diff-full-page" aria-label="External file comparison">
+					<header class="external-diff-toolbar">
+						<span>External change diff</span>
+						<div class="external-change-actions">
+							<button type="button" onclick={reloadAfterExternalChange}>Reload</button>
+							<button type="button" onclick={keepEditingAfterExternalChange}>Keep editing</button>
+							<button type="button" onclick={() => void compareExternalChange()}>
+								Close diff
+							</button>
+						</div>
+					</header>
+					<div class="external-diff-body">
+						{#if externalComparisonLines.length === 0}
+							<p>No content differences found.</p>
+						{:else}
+							<!-- prettier-ignore -->
+							<pre class="external-diff" data-lang={language ?? ''}><code>{#each externalComparisonLines as line, i (i)}<span class="diff-line kind-{line.kind}">{#if line.prefix}<span class="diff-prefix">{line.prefix}</span>{/if}<span class="diff-code">{@html line.html}</span></span>{/each}</code></pre>
+						{/if}
+					</div>
+				</div>
+			{:else}
+				{#if showMarkdownToggle}
 				<div class="md-view-toggle" role="group" aria-label="Markdown view mode">
 					<button
 						type="button"
@@ -374,11 +480,24 @@
 						Source
 					</button>
 				</div>
-			{/if}
-			{#if saveError}
+				{/if}
+				{#if saveError}
 				<div class="file-preview-save-error">{saveError}</div>
-			{/if}
-			{#if effectiveViewMode === 'preview'}
+				{/if}
+				{#if externalChangePending}
+				<div class="external-change-notice" role="status">
+					<span>This file changed outside Cometline.</span>
+					<div class="external-change-actions">
+						<button type="button" onclick={reloadAfterExternalChange}>Reload</button>
+						<button type="button" onclick={keepEditingAfterExternalChange}>Keep editing</button>
+						<button type="button" onclick={() => void compareExternalChange()}>Compare</button>
+					</div>
+				</div>
+				{#if externalComparisonError}
+					<div class="file-preview-save-error">{externalComparisonError}</div>
+				{/if}
+				{/if}
+				{#if effectiveViewMode === 'preview'}
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
 				<div class="file-preview-markdown scrollbar-none" onmouseup={onPreviewMouseUp}>
 					<AssistantMarkdown
@@ -400,7 +519,7 @@
 						{@render backlinksSection()}
 					{/if}
 				</div>
-			{:else}
+				{:else}
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
 				<div class="file-preview-source-wrap" onmouseup={onSourceMouseUp}>
 					<FileEditor
@@ -422,6 +541,7 @@
 						{@render backlinksSection()}
 					{/if}
 				</div>
+				{/if}
 			{/if}
 		</div>
 	{/if}
@@ -630,6 +750,117 @@
 		background: rgba(180, 35, 24, 0.05);
 		color: var(--status-error);
 		font-size: 12px;
+	}
+
+	.external-change-notice {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+		padding: 8px 10px;
+		border-bottom: 1px solid var(--border-soft);
+		background: color-mix(in srgb, var(--status-warning, #a16207) 10%, #fff);
+		color: var(--text-main);
+		font-size: 12px;
+	}
+
+	.external-change-actions {
+		display: flex;
+		gap: 6px;
+	}
+
+	.external-change-actions button {
+		border: 1px solid var(--border-soft);
+		border-radius: 5px;
+		padding: 3px 6px;
+		background: #fff;
+		color: var(--text-main);
+		font: inherit;
+		cursor: pointer;
+	}
+
+	.external-change-actions button:hover {
+		border-color: var(--text-soft);
+	}
+
+	.external-diff-full-page {
+		display: flex;
+		flex: 1;
+		flex-direction: column;
+		min-height: 0;
+	}
+
+	.external-diff-toolbar {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+		padding: 6px 8px;
+		border-bottom: 1px solid var(--border-soft);
+		color: var(--text-main);
+		font-size: 12px;
+		font-weight: 600;
+	}
+
+	.external-diff-body {
+		flex: 1;
+		min-height: 0;
+		overflow: auto;
+		background: #fff;
+	}
+
+	.external-diff-body p {
+		margin: 0;
+		padding: 10px;
+		color: var(--text-muted);
+		font-size: 12px;
+	}
+
+	.external-diff {
+		margin: 0;
+		overflow: auto;
+		font: 11px/1.45 var(--font-mono, monospace);
+		white-space: pre;
+	}
+
+	.diff-line {
+		display: block;
+		padding: 0 8px;
+		white-space: pre;
+	}
+
+	.kind-meta,
+	.kind-hunk,
+	.kind-other,
+	.kind-ctx {
+		color: var(--text-muted);
+	}
+
+	.kind-add {
+		background: color-mix(in srgb, var(--status-success) 16%, transparent);
+	}
+
+	.kind-del {
+		background: color-mix(in srgb, var(--status-error) 14%, transparent);
+	}
+
+	.kind-add .diff-prefix {
+		color: var(--status-success);
+	}
+
+	.kind-del .diff-prefix {
+		color: var(--status-error);
+	}
+
+	@media (max-width: 640px) {
+		.external-change-notice {
+			align-items: flex-start;
+			flex-direction: column;
+		}
+		.external-diff-toolbar {
+			align-items: flex-start;
+			flex-direction: column;
+		}
 	}
 
 	@media (prefers-reduced-motion: reduce) {

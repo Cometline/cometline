@@ -22,6 +22,7 @@
 		type GitFileStageState
 	} from '$lib/workspace/git-file-state';
 	import { languageFromPath } from '$lib/workspace/file-preview';
+	import { workspaceChangeVersion } from '$lib/workspace/workspace-change.svelte';
 	import { buildFileSnippetContext } from '$lib/workspace/selection-snippet';
 	import {
 		firstSelectionClientRect,
@@ -229,7 +230,7 @@
 	}
 
 	$effect(() => {
-		void [workspacePath, filePath, scope];
+		void [workspacePath, filePath, scope, workspaceChangeVersion(workspacePath)];
 		void load();
 	});
 

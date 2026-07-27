@@ -24,6 +24,7 @@
 		resolveWorkspacePanelRatio,
 		widthFromRatio
 	} from '$lib/layout/workspace-panel-width';
+	import { applyWorkspaceChange, refreshWorkspace } from '$lib/workspace/workspace-change.svelte';
 
 	let { children } = $props();
 
@@ -88,6 +89,14 @@
 				personaAvatarCache.invalidate(personaId);
 			}
 		);
+		const unsubscribeWorkspaceChanged = window.electronAPI?.onWorkspaceChanged?.(
+			applyWorkspaceChange
+		);
+		const refreshOnFocus = () => {
+			if (isMiniRoute || isSettingsRoute) return;
+			refreshWorkspace(shellStore.workspacePath);
+		};
+		window.addEventListener('focus', refreshOnFocus);
 		void settingsStore.load().then(() => {
 			settingsLoaded = true;
 			stopStorageRetentionSync = startStorageRetentionSync(
@@ -115,6 +124,8 @@
 			stopStorageRetentionSync?.();
 			unsubscribeSettingsChanged?.();
 			unsubscribePersonaAvatar?.();
+			unsubscribeWorkspaceChanged?.();
+			window.removeEventListener('focus', refreshOnFocus);
 		};
 	});
 
@@ -177,6 +188,13 @@
 
 	let sessionsLoaded = false;
 	let lastEnsuredWorkspace = '';
+
+	$effect(() => {
+		const workspacePath = shellStore.workspacePath;
+		if (isMiniRoute || isSettingsRoute) return;
+		if (!workspacePath || workspacePath === '/') return;
+		void window.electronAPI?.watchWorkspace?.(workspacePath);
+	});
 
 	$effect(() => {
 		const workspacePath = shellStore.workspacePath;

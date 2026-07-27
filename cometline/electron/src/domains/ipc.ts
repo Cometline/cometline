@@ -19,6 +19,7 @@ export interface IpcHandlers {
 	browseWorkspacePath: Invoker;
 	selectBackupFolder: Invoker;
 	setWorkspacePath: Invoker;
+	watchWorkspace: Invoker;
 	listRecentWorkspaces: Invoker;
 	removeRecentWorkspacePath: Invoker;
 	filterExistingWorkspacePaths: Invoker;
@@ -88,6 +89,7 @@ export function registerIpcHandlers(handlers: IpcHandlers) {
 	ipcMain.handle('cometline:browse-workspace-path', handlers.browseWorkspacePath);
 	ipcMain.handle('cometline:select-backup-folder', handlers.selectBackupFolder);
 	ipcMain.handle('cometline:set-workspace-path', handlers.setWorkspacePath);
+	ipcMain.handle('cometline:watch-workspace', handlers.watchWorkspace);
 	ipcMain.handle('cometline:list-recent-workspaces', handlers.listRecentWorkspaces);
 	ipcMain.handle('cometline:remove-recent-workspace-path', handlers.removeRecentWorkspacePath);
 	ipcMain.handle('cometline:filter-existing-workspace-paths', handlers.filterExistingWorkspacePaths);

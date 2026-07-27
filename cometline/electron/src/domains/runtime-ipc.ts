@@ -19,6 +19,7 @@ import type { createTerminalManager, TerminalCreateInput } from './terminal.js';
 import type { createWindowChrome } from './window-chrome.js';
 import type { createWindows } from './windows.js';
 import { isExternallyOpenableUrl, readWorkspaceFileForPreview } from './workspace-preview.js';
+import type { createWorkspaceWatcher } from './workspace-watcher.js';
 
 type SettingsDomain = ReturnType<typeof createSettingsDomain>;
 type Windows = ReturnType<typeof createWindows>;
@@ -30,6 +31,7 @@ type CometMindLifecycle = ReturnType<typeof createCometMindLifecycle>;
 type AutoUpdater = ReturnType<typeof createAutoUpdater>;
 type Shortcuts = ReturnType<typeof createShortcutCoordinator>;
 type WindowChrome = ReturnType<typeof createWindowChrome>;
+type WorkspaceWatcher = ReturnType<typeof createWorkspaceWatcher>;
 
 interface NotificationService {
 	isSupported(): boolean;
@@ -54,6 +56,7 @@ export interface RuntimeIpcDependencies {
 	shortcuts: Pick<Shortcuts, 'refreshGlobalShortcuts'>;
 	applicationMenuTray: { configureApplicationMenu(): void };
 	windowChrome: Pick<WindowChrome, 'animateWindowButtons'>;
+	workspaceWatcher: WorkspaceWatcher;
 	broadcastProviderSettingsChanged(settings: ProviderSettings): void;
 }
 
@@ -141,6 +144,9 @@ export function registerRuntimeIpcHandlers(dependencies: RuntimeIpcDependencies)
 		selectBackupFolder: () => dependencies.selectBackupFolder(),
 		setWorkspacePath: (_event: IpcMainInvokeEvent, workspacePath: unknown) =>
 			dependencies.settings.writeStoredWorkspacePath(String(workspacePath || '')),
+		watchWorkspace: (_event: IpcMainInvokeEvent, workspacePath: unknown) => {
+			dependencies.workspaceWatcher.watch(String(workspacePath || ''));
+		},
 		listRecentWorkspaces: () => dependencies.settings.listRecentWorkspacePaths(),
 		removeRecentWorkspacePath: (_event: IpcMainInvokeEvent, workspacePath: unknown) =>
 			dependencies.settings.removeRecentWorkspacePath(String(workspacePath || '')),

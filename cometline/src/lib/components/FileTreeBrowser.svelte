@@ -12,6 +12,7 @@
 		type FileTreeNode
 	} from '$lib/workspace/file-tree';
 	import { normalizeWorkspacePath } from '$lib/workspace/file-index';
+	import { workspaceChangeVersion } from '$lib/workspace/workspace-change.svelte';
 
 	const LIST_LIMIT = 10000;
 
@@ -199,7 +200,7 @@
 	}
 
 	$effect(() => {
-		void [filter, normalizedWorkspace];
+		void [filter, normalizedWorkspace, workspaceChangeVersion(normalizedWorkspace)];
 		void loadFiles();
 	});
 
