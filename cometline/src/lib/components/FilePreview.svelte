@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Loader } from '@lucide/svelte';
+	import { untrack } from 'svelte';
 	import AssistantMarkdown from '$lib/components/AssistantMarkdown.svelte';
 	import FileEditor from '$lib/components/FileEditor.svelte';
 	import { portal } from '$lib/components/portal';
@@ -33,6 +34,7 @@
 		type MarkdownFileViewMode
 	} from '$lib/workspace/workspace-panel-prefs';
 	import { refreshWikiFileIndex } from '$lib/wiki/wiki-file-index';
+	import { workspaceFileChangeVersion } from '$lib/workspace/workspace-change.svelte';
 	import {
 		isWikiReadOnlyPath,
 		isWikiUiPath,
@@ -89,6 +91,10 @@
 		text: string;
 		lineRange: SelectionLineRange | null;
 	} | null>(null);
+	let externalChangePending = $state(false);
+	let externalComparisonContent = $state<string | null>(null);
+	let externalComparisonError = $state<string | null>(null);
+	let lastObservedFileChangeVersion = 0;
 
 	const readOnly = $derived(isWikiUiPath(filePath) && isWikiReadOnlyPath(filePath));
 	const dirty = $derived(previewKind === 'text' && draftContent !== savedContent && !readOnly);
@@ -179,6 +185,38 @@
 		if (previewKind !== 'text') return;
 		draftContent = savedContent;
 		saveError = null;
+	}
+
+	function keepEditingAfterExternalChange() {
+		externalChangePending = false;
+		externalComparisonContent = null;
+		externalComparisonError = null;
+	}
+
+	function reloadAfterExternalChange() {
+		keepEditingAfterExternalChange();
+		void loadPreview();
+	}
+
+	async function compareExternalChange() {
+		const currentWorkspacePath = workspacePath;
+		const currentFilePath = filePath;
+		externalComparisonError = null;
+		try {
+			const result = isWikiUiPath(currentFilePath)
+				? await readWikiFileContent(toWikiRelative(currentFilePath))
+				: await readWorkspaceFileContent(currentWorkspacePath, currentFilePath);
+			if (workspacePath !== currentWorkspacePath || filePath !== currentFilePath) return;
+			if (result.kind !== 'text') {
+				externalComparisonError = 'The external version is not text.';
+				return;
+			}
+			externalComparisonContent = result.content;
+		} catch (err) {
+			if (workspacePath !== currentWorkspacePath || filePath !== currentFilePath) return;
+			externalComparisonError =
+				err instanceof Error ? err.message : 'Failed to load the external file version';
+		}
 	}
 
 	async function save() {
@@ -274,6 +312,25 @@
 	$effect(() => {
 		// Track both inputs so the editor reloads when either changes.
 		void [workspacePath, filePath];
+		lastObservedFileChangeVersion = untrack(() =>
+			workspaceFileChangeVersion(workspacePath, filePath)
+		);
+		externalChangePending = false;
+		externalComparisonContent = null;
+		externalComparisonError = null;
+		void loadPreview();
+	});
+
+	$effect(() => {
+		const changeVersion = workspaceFileChangeVersion(workspacePath, filePath);
+		if (changeVersion === lastObservedFileChangeVersion) return;
+		lastObservedFileChangeVersion = changeVersion;
+		if (dirty) {
+			externalChangePending = true;
+			externalComparisonContent = null;
+			externalComparisonError = null;
+			return;
+		}
 		void loadPreview();
 	});
 
@@ -377,6 +434,30 @@
 			{/if}
 			{#if saveError}
 				<div class="file-preview-save-error">{saveError}</div>
+			{/if}
+			{#if externalChangePending}
+				<div class="external-change-notice" role="status">
+					<span>This file changed outside Cometline.</span>
+					<div class="external-change-actions">
+						<button type="button" onclick={reloadAfterExternalChange}>Reload</button>
+						<button type="button" onclick={keepEditingAfterExternalChange}>Keep editing</button>
+						<button type="button" onclick={() => void compareExternalChange()}>Compare</button>
+					</div>
+				</div>
+				{#if externalComparisonError}
+					<div class="file-preview-save-error">{externalComparisonError}</div>
+				{:else if externalComparisonContent !== null}
+					<div class="external-comparison" aria-label="External file comparison">
+						<section>
+							<h3>Current draft</h3>
+							<pre>{draftContent}</pre>
+						</section>
+						<section>
+							<h3>Disk version</h3>
+							<pre>{externalComparisonContent}</pre>
+						</section>
+					</div>
+				{/if}
 			{/if}
 			{#if effectiveViewMode === 'preview'}
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -630,6 +711,79 @@
 		background: rgba(180, 35, 24, 0.05);
 		color: var(--status-error);
 		font-size: 12px;
+	}
+
+	.external-change-notice {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+		padding: 8px 10px;
+		border-bottom: 1px solid var(--border-soft);
+		background: color-mix(in srgb, var(--status-warning, #a16207) 10%, #fff);
+		color: var(--text-main);
+		font-size: 12px;
+	}
+
+	.external-change-actions {
+		display: flex;
+		gap: 6px;
+	}
+
+	.external-change-actions button {
+		border: 1px solid var(--border-soft);
+		border-radius: 5px;
+		padding: 3px 6px;
+		background: #fff;
+		color: var(--text-main);
+		font: inherit;
+		cursor: pointer;
+	}
+
+	.external-change-actions button:hover {
+		border-color: var(--text-soft);
+	}
+
+	.external-comparison {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 1px;
+		max-height: 260px;
+		overflow: auto;
+		border-bottom: 1px solid var(--border-soft);
+		background: var(--border-soft);
+	}
+
+	.external-comparison section {
+		min-width: 0;
+		background: #fff;
+	}
+
+	.external-comparison h3 {
+		margin: 0;
+		padding: 6px 8px;
+		border-bottom: 1px solid var(--border-soft);
+		font-size: 11px;
+		font-weight: 600;
+	}
+
+	.external-comparison pre {
+		margin: 0;
+		padding: 8px;
+		overflow: auto;
+		font: 11px/1.45 var(--font-mono, monospace);
+		white-space: pre-wrap;
+	}
+
+	@media (max-width: 640px) {
+		.external-change-notice {
+			align-items: flex-start;
+			flex-direction: column;
+		}
+
+		.external-comparison {
+			grid-template-columns: 1fr;
+		}
 	}
 
 	@media (prefers-reduced-motion: reduce) {
