@@ -22,6 +22,7 @@ const electronAPI: ElectronAPI = {
 	selectBackupFolder: () => ipcRenderer.invoke('cometline:select-backup-folder'),
 	setWorkspacePath: (workspacePath) =>
 		ipcRenderer.invoke('cometline:set-workspace-path', workspacePath),
+	watchWorkspace: (workspacePath) => ipcRenderer.invoke('cometline:watch-workspace', workspacePath),
 	listRecentWorkspaces: () => ipcRenderer.invoke('cometline:list-recent-workspaces'),
 	removeRecentWorkspacePath: (workspacePath) =>
 		ipcRenderer.invoke('cometline:remove-recent-workspace-path', workspacePath),
@@ -82,6 +83,7 @@ const electronAPI: ElectronAPI = {
 		subscribe('cometline:fullscreen-changed', (isFullScreen) =>
 			callback(Boolean(isFullScreen))
 		),
+	onWorkspaceChanged: (callback) => subscribe('cometline:workspace-changed', callback),
 	getAppVersion: () => ipcRenderer.invoke('cometline:get-app-version'),
 	getUpdateState: () => ipcRenderer.invoke('cometline:get-update-state'),
 	checkForUpdates: () => ipcRenderer.invoke('cometline:check-for-updates'),

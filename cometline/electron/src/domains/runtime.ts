@@ -36,6 +36,7 @@ import { createShortcutCoordinator } from './shortcuts.js';
 import { createTerminalManager } from './terminal.js';
 import { createWindowChrome } from './window-chrome.js';
 import { createWindows } from './windows.js';
+import { createWorkspaceWatcher } from './workspace-watcher.js';
 
 // Keep production path resolution stable after compiling this source into electron/dist.
 const runtimeDirectory = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -148,6 +149,17 @@ export function initializeRuntime() {
 		isPreferred: () => Boolean(settingsDomain.readProviderSettings().app?.screenCapturePreferred)
 	});
 	const terminals = createTerminalManager(() => windows?.getMainWindow() ?? null);
+	const workspaceWatcher = createWorkspaceWatcher({
+		fs,
+		path,
+		onChange: (change) => {
+			for (const window of BrowserWindow.getAllWindows()) {
+				if (!window.isDestroyed()) window.webContents.send('cometline:workspace-changed', change);
+			}
+		},
+		setTimeout,
+		clearTimeout
+	});
 
 	function broadcastProviderSettingsChanged(settings: ProviderSettings) {
 		for (const window of BrowserWindow.getAllWindows()) {
@@ -359,6 +371,7 @@ export function initializeRuntime() {
 		shortcuts,
 		applicationMenuTray,
 		windowChrome,
+		workspaceWatcher,
 		broadcastProviderSettingsChanged
 	});
 
@@ -424,6 +437,7 @@ export function initializeRuntime() {
 		await browserSearch.stop();
 		await screenCapture.stop();
 		terminals.terminateAll();
+		workspaceWatcher.close();
 		await cometMind.syncDiscordGateway({
 			cometmind: { gateway: { discord: { enabled: false } } }
 		});
@@ -434,6 +448,7 @@ export function initializeRuntime() {
 	});
 	process.on('exit', () => {
 		terminals.terminateAll();
+		workspaceWatcher.close();
 		cometMind.terminateForExit();
 	});
 }

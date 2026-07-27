@@ -488,11 +488,15 @@ declare global {
 		setSidebarOpen?: (state: SidebarChromeState) => void;
 		getFullScreen?: () => Promise<boolean>;
 		onFullScreenChange?: (callback: (isFullScreen: boolean) => void) => () => void;
+		onWorkspaceChanged?: (
+			callback: (change: { workspacePath: string; paths: string[]; gitChanged: boolean }) => void
+		) => () => void;
 		getWorkspacePath?: () => Promise<string>;
 		selectWorkspacePath?: () => Promise<string | null>;
 		browseWorkspacePath?: () => Promise<string | null>;
 		selectBackupFolder?: () => Promise<SettingsFileResult>;
 		setWorkspacePath?: (workspacePath: string) => Promise<string>;
+		watchWorkspace?: (workspacePath: string) => Promise<void>;
 		listRecentWorkspaces?: () => Promise<string[]>;
 		removeRecentWorkspacePath?: (workspacePath: string) => Promise<{ removed: boolean }>;
 		filterExistingWorkspacePaths?: (paths: string[]) => Promise<string[]>;
