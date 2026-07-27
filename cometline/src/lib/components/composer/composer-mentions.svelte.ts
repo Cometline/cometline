@@ -14,6 +14,7 @@ import {
 	searchWorkspaceFiles,
 	type MentionPath
 } from '$lib/workspace/file-index';
+import { workspaceChangeVersion } from '$lib/workspace/workspace-change.svelte';
 import type { ComposerInputRef } from '$lib/components/composer/composer-input-ref';
 
 type IdleHandle =
@@ -110,6 +111,7 @@ export function createComposerMentionsController(deps: {
 	$effect(() => {
 		const workspacePath = activeWorkspacePath;
 		if (!workspacePath || workspacePath === '/') return;
+		void workspaceChangeVersion(workspacePath);
 		if (isFileIndexReady(workspacePath)) return;
 		const handle = scheduleIdle(() => {
 			if (

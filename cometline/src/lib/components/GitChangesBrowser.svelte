@@ -23,6 +23,7 @@
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { normalizeWorkspacePath } from '$lib/workspace/file-index';
 	import { hasUnstagedSide } from '$lib/workspace/git-file-state';
+	import { workspaceChangeVersion } from '$lib/workspace/workspace-change.svelte';
 
 	type GitFile = WorkspaceGitStatus['files'][number];
 	type DiscardConfirm = { kind: 'one'; path: string } | { kind: 'all' };
@@ -231,7 +232,7 @@
 	}
 
 	$effect(() => {
-		void normalizedWorkspace;
+		void [normalizedWorkspace, workspaceChangeVersion(normalizedWorkspace)];
 		void load();
 	});
 </script>
