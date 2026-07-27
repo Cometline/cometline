@@ -61,11 +61,6 @@ export function createApplicationMenuTray(dependencies: ApplicationMenuTrayDepen
 		);
 		tray.on('click', () => context.getTray()?.popUpContextMenu());
 
-		setTimeout(() => {
-			const currentTray = context.getTray();
-			if (currentTray) currentTray.setImage(trayImageSource);
-		}, 500);
-
 		if (!app.isPackaged) {
 			console.log('[tray] Menu bar icon ready', trayImageSource);
 			console.log(

@@ -390,6 +390,7 @@ export function initializeRuntime() {
 		settingsDomain.writeProviderSettings(settingsDomain.readProviderSettings());
 		cometMind.installCliShim();
 		const startupSettings = settingsDomain.readProviderSettings();
+		personas.applyPersona(startupSettings.app?.personaId, startupSettings);
 		windows.applyOpenAtLoginSetting(startupSettings.app?.openAtLogin);
 		applicationMenuTray.configureApplicationMenu();
 		shortcuts.refreshGlobalShortcuts();
@@ -415,7 +416,6 @@ export function initializeRuntime() {
 			}
 		});
 		await windowReady;
-		personas.applyPersona(startupSettings.app?.personaId, startupSettings);
 		updater.configure();
 		app.on('second-instance', () => windows?.showMainWindow());
 		app.on('activate', () => windows?.handleAppActivate());
