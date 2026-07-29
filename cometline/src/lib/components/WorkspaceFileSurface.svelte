@@ -78,20 +78,12 @@
 		flex-direction: column;
 		min-height: 0;
 		background: #fff;
-		transform: translateX(100%);
-		opacity: 0;
 		pointer-events: none;
 		visibility: hidden;
-		transition:
-			transform 180ms var(--ease-smooth, ease),
-			opacity 180ms var(--ease-smooth, ease),
-			visibility 180ms;
 		z-index: 1;
 	}
 
 	.panel-layer.active {
-		transform: translateX(0);
-		opacity: 1;
 		pointer-events: auto;
 		visibility: visible;
 		z-index: 3;
