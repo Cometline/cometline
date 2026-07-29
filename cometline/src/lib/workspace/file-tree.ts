@@ -2,6 +2,7 @@ export type FileTreeNode = {
 	name: string;
 	/** Present on file leaves; workspace- or wiki-relative path with `/` separators. */
 	path?: string;
+	/** Present for directories, including empty directories. */
 	children?: FileTreeNode[];
 };
 
@@ -20,8 +21,8 @@ function sortTree(nodes: FileTreeNode[]): void {
 }
 
 /**
- * Builds a nested directory tree from flat relative file paths.
- * Directory-only segments become nodes with `children`; files get `path`.
+ * Builds a nested directory tree from flat relative file and directory paths.
+ * Directories have trailing slashes; files get `path`.
  */
 export function buildFileTree(paths: string[]): FileTreeNode[] {
 	type MutableNode = {
@@ -33,7 +34,9 @@ export function buildFileTree(paths: string[]): FileTreeNode[] {
 	const root = new Map<string, MutableNode>();
 
 	for (const raw of paths) {
-		const normalized = raw.trim().replace(/\\/g, '/').replace(/^\/+/, '');
+		const input = raw.trim().replace(/\\/g, '/').replace(/^\/+/, '');
+		const isDir = input.endsWith('/');
+		const normalized = input.replace(/\/+$/, '');
 		if (!normalized) continue;
 		const parts = normalized.split('/').filter(Boolean);
 		if (parts.length === 0) continue;
@@ -48,7 +51,11 @@ export function buildFileTree(paths: string[]): FileTreeNode[] {
 				current.set(part, node);
 			}
 			if (isLeaf) {
-				node.path = normalized;
+				if (isDir) {
+					if (!node.children) node.children = new Map();
+				} else {
+					node.path = normalized;
+				}
 				continue;
 			}
 			if (!node.children) node.children = new Map();
@@ -59,7 +66,7 @@ export function buildFileTree(paths: string[]): FileTreeNode[] {
 	function toNodes(map: Map<string, MutableNode>): FileTreeNode[] {
 		const nodes: FileTreeNode[] = [];
 		for (const node of map.values()) {
-			if (node.children) {
+			if (node.children !== undefined) {
 				nodes.push({
 					name: node.name,
 					...(node.path ? { path: node.path } : {}),
@@ -94,8 +101,7 @@ export function flattenVisibleFileTreeRows(
 	const rows: FileTreeVisibleRow[] = [];
 	for (const node of nodes) {
 		const key = fileTreeDirKey(parentKey, node.name);
-		const hasChildren = Boolean(node.children?.length);
-		if (hasChildren) {
+		if (node.children !== undefined) {
 			rows.push({ kind: 'dir', key, name: node.name });
 			if (expanded[key] && node.children) {
 				rows.push(...flattenVisibleFileTreeRows(node.children, expanded, key));

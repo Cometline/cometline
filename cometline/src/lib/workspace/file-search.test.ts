@@ -53,25 +53,61 @@ describe('loadFileSearchOptions', () => {
 		vi.clearAllMocks();
 	});
 
-	it('loads ranked workspace files for an empty query', async () => {
+	it('loads only non-hidden workspace files before the user enters a query', async () => {
+		vi.mocked(refreshFileIndex).mockResolvedValueOnce({
+			files: ['.env', '.github/workflows/test.yml', 'README.md', 'src/', 'src/app.ts'],
+			loading: false,
+			loaded: true,
+			error: null,
+			loadedAt: Date.now(),
+			truncated: false
+		});
 		const files = await loadFileSearchOptions('workspace', '/repo', '', 10);
 		expect(refreshFileIndex).toHaveBeenCalledWith('/repo');
-		expect(files).toEqual(['README.md', 'src/app.ts', 'src/lib/foo.ts']);
+		expect(files).toEqual(['README.md', 'src/app.ts']);
 	});
 
-	it('loads wiki files from the wiki index for an empty query', async () => {
-		vi.mocked(refreshWikiFileIndex).mockResolvedValueOnce(['topics/a.md', 'index.md']);
+	it('loads only non-hidden wiki files before the user enters a query', async () => {
+		vi.mocked(refreshWikiFileIndex).mockResolvedValueOnce([
+			'.private.md',
+			'topics/',
+			'topics/overview.md',
+			'index.md'
+		]);
 		const files = await loadFileSearchOptions('wiki', '/repo', '', 10);
-		expect(files).toEqual(['index.md', 'topics/a.md']);
+		expect(files).toEqual(['index.md', 'topics/overview.md']);
 	});
 
 	it('queries listWikiFiles when filtering wiki results', async () => {
 		vi.mocked(listWikiFiles).mockResolvedValueOnce({
-			files: ['topics/setup.md', 'topics/setup-guide.md'],
+			files: ['topics/', 'topics/setup.md', 'topics/setup-guide.md'],
 			truncated: false
 		});
 		const files = await loadFileSearchOptions('wiki', '/repo', 'setup', 10);
 		expect(listWikiFiles).toHaveBeenCalled();
 		expect(files[0]).toBe('topics/setup.md');
+		expect(files).not.toContain('topics/');
+	});
+
+	it('returns hidden files when the query matches', async () => {
+		vi.mocked(listWikiFiles).mockResolvedValueOnce({
+			files: ['.private.md'],
+			truncated: false
+		});
+		const files = await loadFileSearchOptions('wiki', '/repo', 'private', 10);
+		expect(files).toEqual(['.private.md']);
+	});
+
+	it('omits directories from workspace search results', async () => {
+		vi.mocked(refreshFileIndex).mockResolvedValueOnce({
+			files: ['src/', 'src/app.ts'],
+			loading: false,
+			loaded: true,
+			error: null,
+			loadedAt: Date.now(),
+			truncated: false
+		});
+		const files = await loadFileSearchOptions('workspace', '/repo', 'src', 10);
+		expect(files).toEqual(['src/app.ts']);
 	});
 });

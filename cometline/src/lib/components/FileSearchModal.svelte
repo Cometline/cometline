@@ -231,7 +231,7 @@
 				<div class="file-search-state">Select a workspace to search its files.</div>
 			{:else if results.length === 0}
 				<div class="file-search-state">
-					{debouncedQuery.trim() ? 'No matching files.' : 'No files found.'}
+					{debouncedQuery.trim() ? 'No matching files.' : 'Start typing to search files.'}
 				</div>
 			{:else}
 				<ul

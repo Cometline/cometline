@@ -163,8 +163,11 @@ export function filterFileIndex(files: string[], query: string): string[] {
 /** Unique parent directories (with trailing `/`) derived from indexed file paths. */
 export function directoriesFromFileIndex(files: string[]): string[] {
 	const dirs = new Set<string>();
-	for (const file of files) {
-		const parts = file.split('/').filter(Boolean);
+	for (const entry of files) {
+		const normalized = entry.trim().replace(/\\/g, '/');
+		const isDirectory = normalized.endsWith('/');
+		if (isDirectory) dirs.add(normalized);
+		const parts = normalized.split('/').filter(Boolean);
 		if (parts.length < 2) continue;
 		let prefix = '';
 		for (let i = 0; i < parts.length - 1; i++) {
@@ -190,7 +193,8 @@ export function filterMentionPaths(
 ): MentionPath[] {
 	const q = query.trim().toLowerCase();
 	const dirs = directoriesFromFileIndex(files);
-	const fileHits = (q ? files.filter((path) => path.toLowerCase().includes(q)) : files).map(
+	const fileEntries = files.filter((path) => !path.endsWith('/'));
+	const fileHits = (q ? fileEntries.filter((path) => path.toLowerCase().includes(q)) : fileEntries).map(
 		(path): MentionPath => ({ path, kind: 'file' })
 	);
 	const dirHits = (q ? dirs.filter((path) => path.toLowerCase().includes(q)) : dirs).map(

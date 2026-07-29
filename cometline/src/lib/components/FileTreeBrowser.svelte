@@ -221,7 +221,7 @@
 	<ul class="file-tree-list" role="tree">
 		{#each nodes as node (dirKey(parentKey, node.name))}
 			{@const key = dirKey(parentKey, node.name)}
-			{@const hasChildren = Boolean(node.children?.length)}
+						{@const hasChildren = node.children !== undefined}
 			{@const rowExpanded = hasChildren && isExpanded(key)}
 			<li
 				class="file-tree-item"

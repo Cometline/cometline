@@ -204,10 +204,10 @@ export const commitWorkspaceGit = <ThrowOnError extends boolean = false>(options
 };
 
 /**
- * List files in a workspace
- * Returns workspace-relative file paths for the requested workspace.
- * Hidden files and directories, common build/output directories, and
- * entries matched by `.gitignore` at the workspace root are skipped.
+ * List files and directories in a workspace
+ * Returns all workspace-relative file and directory paths for the requested workspace.
+ * Directory paths end with `/`.
+ * `.git` and `node_modules` directories are skipped.
  *
  */
 export const listWorkspaceFiles = <ThrowOnError extends boolean = false>(options?: Options<ListWorkspaceFilesData, ThrowOnError>) => {
@@ -249,10 +249,9 @@ export const writeWorkspaceFileContent = <ThrowOnError extends boolean = false>(
 };
 
 /**
- * List markdown files in the LLM wiki
- * Returns wiki-root-relative `.md` and `.html` paths under `~/.cometmind/wiki/`.
- * Hidden files are skipped. HTML is included so raw ingest sources linked as
- * `[[….html]]` can be resolved in the desktop UI.
+ * List files and directories in the LLM wiki
+ * Returns all wiki-root-relative file and directory paths under `~/.cometmind/wiki/`.
+ * Directory paths end with `/`.
  *
  */
 export const listWikiFiles = <ThrowOnError extends boolean = false>(options?: Options<ListWikiFilesData, ThrowOnError>) => {

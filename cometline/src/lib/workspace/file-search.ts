@@ -14,6 +14,14 @@ export type { FileSearchSource };
 
 const DEFAULT_LIMIT = 50;
 
+function onlyFiles(paths: string[]): string[] {
+	return paths.filter((path) => !path.endsWith('/'));
+}
+
+function visibleFiles(paths: string[]): string[] {
+	return onlyFiles(paths).filter((path) => !path.split('/').some((part) => part.startsWith('.')));
+}
+
 function basename(path: string): string {
 	const slash = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
 	return slash >= 0 ? path.slice(slash + 1) : path;
@@ -58,20 +66,19 @@ export function rankFilePaths(files: string[], query: string): string[] {
 async function loadWikiOptions(query: string, limit: number): Promise<string[]> {
 	const trimmed = query.trim();
 	if (!trimmed) {
-		const files = await refreshWikiFileIndex();
-		return rankFilePaths(files, '').slice(0, limit);
+		return rankFilePaths(visibleFiles(await refreshWikiFileIndex()), '').slice(0, limit);
 	}
 
 	const cached = getCachedWikiFiles();
 	if (cached.length > 0) {
-		const local = filterFileIndex(cached, trimmed);
+		const local = onlyFiles(filterFileIndex(cached, trimmed));
 		if (local.length >= limit) {
 			return rankFilePaths(local, trimmed).slice(0, limit);
 		}
 	}
 
 	const { files } = await listWikiFiles(trimmed, Math.max(limit, 100));
-	return rankFilePaths(files ?? [], trimmed).slice(0, limit);
+	return rankFilePaths(onlyFiles(files ?? []), trimmed).slice(0, limit);
 }
 
 async function loadWorkspaceOptions(
@@ -87,16 +94,15 @@ async function loadWorkspaceOptions(
 	if (!isFileIndexFresh(path)) {
 		index = await refreshFileIndex(path);
 	}
-
 	if (!trimmed) {
-		return rankFilePaths(index?.files ?? [], '').slice(0, limit);
+		return rankFilePaths(visibleFiles(index?.files ?? []), '').slice(0, limit);
 	}
 
 	const matches = index?.truncated
 		? await searchWorkspaceFiles(path, trimmed)
 		: filterFileIndex(index?.files ?? [], trimmed);
 
-	return rankFilePaths(matches, trimmed).slice(0, limit);
+	return rankFilePaths(onlyFiles(matches), trimmed).slice(0, limit);
 }
 
 /** Load ranked file paths for the ⌘P file search modal. */

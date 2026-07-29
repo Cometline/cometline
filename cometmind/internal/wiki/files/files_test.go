@@ -16,6 +16,7 @@ func TestListMarkdownFiles(t *testing.T) {
 		"raw/2026-01-01-paper.html",
 		"notes.txt",
 		".hidden.md",
+		".private/draft.txt",
 	} {
 		full := filepath.Join(dir, filepath.FromSlash(p))
 		if err := os.MkdirAll(filepath.Dir(full), 0o700); err != nil {
@@ -30,8 +31,25 @@ func TestListMarkdownFiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(result.Files) != 4 {
-		t.Fatalf("files = %v want 4 wiki paths (.md + .html)", result.Files)
+	want := []string{
+		".hidden.md",
+		".private/",
+		".private/draft.txt",
+		"entities/",
+		"entities/foo.md",
+		"index.md",
+		"notes.txt",
+		"raw/",
+		"raw/2026-01-01-note.md",
+		"raw/2026-01-01-paper.html",
+	}
+	if len(result.Files) != len(want) {
+		t.Fatalf("files = %v want %v", result.Files, want)
+	}
+	for i, path := range want {
+		if result.Files[i] != path {
+			t.Fatalf("files = %v want %v", result.Files, want)
+		}
 	}
 }
 

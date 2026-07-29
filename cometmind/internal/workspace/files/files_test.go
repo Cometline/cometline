@@ -16,6 +16,7 @@ func TestListFiles(t *testing.T) {
 	mustWrite(t, filepath.Join(root, "internal", "helper.go"), "package internal")
 	mustWrite(t, filepath.Join(root, ".hidden", "secret.go"), "package hidden")
 	mustWrite(t, filepath.Join(root, "dist", "bundle.js"), "bundle")
+	mustWrite(t, filepath.Join(root, ".git", "config"), "config")
 	mustWrite(t, filepath.Join(root, "node_modules", "x", "index.js"), "x")
 	mustWrite(t, filepath.Join(root, "src", "app.svelte"), "<div/>")
 
@@ -26,7 +27,20 @@ func TestListFiles(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ListFiles error: %v", err)
 		}
-		want := []string{"README.md", "internal/helper.go", "main.go", "src/app.svelte"}
+		want := []string{
+			".hidden/",
+			".hidden/secret.go",
+			"README.md",
+			"dist/",
+			"dist/bundle.js",
+			"internal/",
+			"internal/helper.go",
+			"main.go",
+			"src/",
+			"src/app.svelte",
+			"vendor/",
+			"vendor/lib.go",
+		}
 		assertSlice(t, got.Files, want)
 		if got.Truncated {
 			t.Fatalf("did not expect truncation for %d files", len(want))
@@ -38,7 +52,12 @@ func TestListFiles(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ListFiles error: %v", err)
 		}
-		want := []string{"internal/helper.go", "main.go"}
+		want := []string{
+			".hidden/secret.go",
+			"internal/helper.go",
+			"main.go",
+			"vendor/lib.go",
+		}
 		assertSlice(t, got.Files, want)
 	})
 
@@ -99,7 +118,7 @@ func TestListFilesGitignore(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListFiles error: %v", err)
 	}
-	want := []string{"keep.go"}
+	want := []string{".gitignore", "build/", "build/out.js", "ignore.log", "keep.go"}
 	assertSlice(t, got.Files, want)
 }
 

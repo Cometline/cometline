@@ -1597,7 +1597,7 @@ export type ListWorkspaceFilesData = {
          */
         workspace_path?: string;
         /**
-         * Optional substring filter on the relative file path.
+         * Optional substring filter on the relative file or directory path.
          */
         q?: string;
         /**
@@ -1627,7 +1627,7 @@ export type ListWorkspaceFilesError = ListWorkspaceFilesErrors[keyof ListWorkspa
 
 export type ListWorkspaceFilesResponses = {
     /**
-     * Workspace file list
+     * Workspace file and directory list
      */
     200: WorkspaceFileList;
 };
@@ -1704,7 +1704,7 @@ export type ListWikiFilesData = {
     path?: never;
     query?: {
         /**
-         * Optional substring filter on the relative file path.
+         * Optional substring filter on the relative file or directory path.
          */
         q?: string;
         /**
@@ -1726,7 +1726,7 @@ export type ListWikiFilesError = ListWikiFilesErrors[keyof ListWikiFilesErrors];
 
 export type ListWikiFilesResponses = {
     /**
-     * Wiki file list
+     * Wiki file and directory list
      */
     200: WikiFileList;
 };

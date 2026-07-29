@@ -155,9 +155,23 @@ describe('file-index', () => {
 		]);
 	});
 
+	it('keeps explicitly indexed empty directories', () => {
+		expect(directoriesFromFileIndex(['empty/', 'src/lib/a.ts'])).toEqual([
+			'empty/',
+			'src/',
+			'src/lib/'
+		]);
+	});
+
 	it('filters mention paths with directories first', () => {
 		const hits = filterMentionPaths(['src/lib/a.ts', 'src/b.ts', 'README.md'], 'src');
 		expect(hits.filter((h) => h.kind === 'dir').map((h) => h.path)).toEqual(['src/', 'src/lib/']);
 		expect(hits.some((h) => h.kind === 'file' && h.path === 'src/lib/a.ts')).toBe(true);
+	});
+
+	it('does not surface directories as file mentions', () => {
+		const hits = filterMentionPaths(['empty/', 'src/app.ts'], '');
+		expect(hits).toContainEqual({ path: 'empty/', kind: 'dir' });
+		expect(hits).not.toContainEqual({ path: 'empty/', kind: 'file' });
 	});
 });

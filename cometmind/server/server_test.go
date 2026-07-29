@@ -302,7 +302,12 @@ func TestListWorkspaceFiles(t *testing.T) {
 
 	var got workspaceFileListResponse
 	decodeJSON(t, rec.Body.Bytes(), &got)
-	want := []string{"README.md", "main.go"}
+	want := []string{
+		".hidden/",
+		".hidden/secret.go",
+		"README.md",
+		"main.go",
+	}
 	if len(got.Files) != len(want) {
 		t.Fatalf("files = %v, want %v", got.Files, want)
 	}

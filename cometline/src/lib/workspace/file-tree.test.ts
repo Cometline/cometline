@@ -14,6 +14,13 @@ describe('buildFileTree', () => {
 		expect(buildFileTree(['index.md'])).toEqual([{ name: 'index.md', path: 'index.md' }]);
 	});
 
+	it('keeps empty directories', () => {
+		expect(buildFileTree(['empty/', 'src/'])).toEqual([
+			{ name: 'empty', children: [] },
+			{ name: 'src', children: [] }
+		]);
+	});
+
 	it('nests directories and files', () => {
 		expect(buildFileTree(['entities/foo.md', 'entities/bar.md', 'index.md'])).toEqual([
 			{
@@ -84,6 +91,13 @@ describe('flattenVisibleFileTreeRows', () => {
 			{ kind: 'file', key: 'entities/bar.md', name: 'bar.md', path: 'entities/bar.md' },
 			{ kind: 'file', key: 'entities/foo.md', name: 'foo.md', path: 'entities/foo.md' },
 			{ kind: 'file', key: 'index.md', name: 'index.md', path: 'index.md' }
+		]);
+	});
+
+	it('shows an empty directory as a directory row', () => {
+		const tree = buildFileTree(['empty/']);
+		expect(flattenVisibleFileTreeRows(tree, {})).toEqual([
+			{ kind: 'dir', key: 'empty', name: 'empty' }
 		]);
 	});
 });

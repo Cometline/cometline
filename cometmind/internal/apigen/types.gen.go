@@ -2242,7 +2242,7 @@ type ExportSkillParams struct {
 
 // ListWikiFilesParams defines parameters for ListWikiFiles.
 type ListWikiFilesParams struct {
-	// Q Optional substring filter on the relative file path.
+	// Q Optional substring filter on the relative file or directory path.
 	Q *string `form:"q,omitempty" json:"q,omitempty"`
 
 	// Limit Maximum number of results to return.
@@ -2275,7 +2275,7 @@ type ListWorkspaceFilesParams struct {
 	// WorkspacePath Absolute workspace path for an already-registered workspace.
 	WorkspacePath *string `form:"workspace_path,omitempty" json:"workspace_path,omitempty"`
 
-	// Q Optional substring filter on the relative file path.
+	// Q Optional substring filter on the relative file or directory path.
 	Q *string `form:"q,omitempty" json:"q,omitempty"`
 
 	// Limit Maximum number of results to return.

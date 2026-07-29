@@ -383,11 +383,11 @@ paths:
   /api/v1/workspaces/files:
     get:
       tags: [Files]
-      summary: List files in a workspace
+      summary: List files and directories in a workspace
       description: |
-        Returns workspace-relative file paths for the requested workspace.
-        Hidden files and directories, common build/output directories, and
-        entries matched by `.gitignore` at the workspace root are skipped.
+        Returns all workspace-relative file and directory paths for the requested workspace.
+        Directory paths end with `/`.
+        `.git` and `node_modules` directories are skipped.
       operationId: listWorkspaceFiles
       parameters:
         - name: workspace_id
@@ -407,7 +407,7 @@ paths:
           required: false
           schema:
             type: string
-          description: Optional substring filter on the relative file path.
+          description: Optional substring filter on the relative file or directory path.
         - name: limit
           in: query
           required: false
@@ -418,7 +418,7 @@ paths:
           description: Maximum number of results to return.
       responses:
         '200':
-          description: Workspace file list
+          description: Workspace file and directory list
           content:
             application/json:
               schema:
@@ -491,11 +491,10 @@ paths:
   /api/v1/wiki/files:
     get:
       tags: [Files]
-      summary: List markdown files in the LLM wiki
+      summary: List files and directories in the LLM wiki
       description: |
-        Returns wiki-root-relative `.md` and `.html` paths under `~/.cometmind/wiki/`.
-        Hidden files are skipped. HTML is included so raw ingest sources linked as
-        `[[….html]]` can be resolved in the desktop UI.
+        Returns all wiki-root-relative file and directory paths under `~/.cometmind/wiki/`.
+        Directory paths end with `/`.
       operationId: listWikiFiles
       parameters:
         - name: q
@@ -503,7 +502,7 @@ paths:
           required: false
           schema:
             type: string
-          description: Optional substring filter on the relative file path.
+          description: Optional substring filter on the relative file or directory path.
         - name: limit
           in: query
           required: false
@@ -514,7 +513,7 @@ paths:
           description: Maximum number of results to return.
       responses:
         '200':
-          description: Wiki file list
+          description: Wiki file and directory list
           content:
             application/json:
               schema:
