@@ -42,6 +42,31 @@ func (a *App) handleListWikiFiles(c *gin.Context) {
 	c.JSON(http.StatusOK, workspaceFileListResponse{Files: result.Files, Truncated: result.Truncated})
 }
 
+func (a *App) handleListWikiFileChildren(c *gin.Context) {
+	root, err := paths.WikiDir()
+	if err != nil {
+		writeError(c, http.StatusInternalServerError, "internal_error", err.Error())
+		return
+	}
+
+	limit := 0
+	if raw := strings.TrimSpace(c.Query("limit")); raw != "" {
+		if _, err := fmt.Sscanf(raw, "%d", &limit); err != nil {
+			writeError(c, http.StatusBadRequest, "bad_request", "limit must be an integer")
+			return
+		}
+	}
+
+	result, err := wikifiles.ListDirectory(c.Request.Context(), root, c.Query("directory"), wikifiles.ListOptions{
+		Limit: limit,
+	})
+	if err != nil {
+		writeError(c, http.StatusBadRequest, "bad_request", err.Error())
+		return
+	}
+	c.JSON(http.StatusOK, workspaceFileListResponse{Files: result.Files, Truncated: result.Truncated})
+}
+
 func (a *App) handleReadWikiFileContent(c *gin.Context) {
 	root, err := paths.WikiDir()
 	if err != nil {

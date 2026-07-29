@@ -430,6 +430,56 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/v1/workspaces/files/children:
+    get:
+      tags: [Files]
+      summary: List direct children of a workspace directory
+      description: |
+        Returns direct file and directory children of a workspace-relative directory.
+        Pass an empty directory for the workspace root. Directory paths end with `/`.
+        `.git` and `node_modules` directories are skipped.
+      operationId: listWorkspaceFileChildren
+      parameters:
+        - name: workspace_id
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Registered workspace identifier.
+        - name: workspace_path
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Absolute workspace path for an already-registered workspace.
+        - name: directory
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Workspace-relative directory path. Omit for the workspace root.
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+            maximum: 10000
+          description: Maximum number of direct children to return.
+      responses:
+        '200':
+          description: Direct workspace file and directory children
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceFileList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /api/v1/workspaces/files/content:
     get:
       tags: [Files]
@@ -518,6 +568,41 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/WikiFileList'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/wiki/files/children:
+    get:
+      tags: [Files]
+      summary: List direct children of an LLM wiki directory
+      description: |
+        Returns direct file and directory children of a wiki-root-relative directory.
+        Pass an empty directory for the wiki root. Directory paths end with `/`.
+      operationId: listWikiFileChildren
+      parameters:
+        - name: directory
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Wiki-root-relative directory path. Omit for the wiki root.
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+            maximum: 10000
+          description: Maximum number of direct children to return.
+      responses:
+        '200':
+          description: Direct wiki file and directory children
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WikiFileList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '500':
           $ref: '#/components/responses/InternalError'
 

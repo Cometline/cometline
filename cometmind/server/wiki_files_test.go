@@ -54,6 +54,42 @@ func TestListWikiFiles(t *testing.T) {
 	}
 }
 
+func TestListWikiFileChildren(t *testing.T) {
+	dataDir := t.TempDir()
+	t.Setenv("COMETMIND_DATA_DIR", dataDir)
+	wikiDir := filepath.Join(dataDir, "wiki")
+	mustWrite(t, filepath.Join(wikiDir, "index.md"), "# index")
+	mustWrite(t, filepath.Join(wikiDir, "entities", "foo.md"), "# foo")
+	mustWrite(t, filepath.Join(wikiDir, "entities", "nested", "bar.md"), "# bar")
+
+	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
+			ch <- event.Done()
+			return nil
+		}), nil
+	})
+	defer cleanup()
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/wiki/files/children?directory=entities", nil)
+	engine.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	var got workspaceFileListResponse
+	decodeJSON(t, rec.Body.Bytes(), &got)
+	want := []string{"entities/foo.md", "entities/nested/"}
+	if len(got.Files) != len(want) {
+		t.Fatalf("files = %v want %v", got.Files, want)
+	}
+	for i, path := range want {
+		if got.Files[i] != path {
+			t.Fatalf("files = %v want %v", got.Files, want)
+		}
+	}
+}
+
 func TestReadWikiFileContent(t *testing.T) {
 	dataDir := t.TempDir()
 	t.Setenv("COMETMIND_DATA_DIR", dataDir)

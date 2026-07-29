@@ -138,6 +138,7 @@ func New(deps Deps) (*gin.Engine, error) {
 	api.DELETE("/workspaces", app.handleDeleteWorkspace)
 	api.POST("/workspaces/prune-runs", app.handlePruneWorkspaces)
 	api.GET("/workspaces/files", app.handleListWorkspaceFiles)
+	api.GET("/workspaces/files/children", app.handleListWorkspaceFileChildren)
 	api.GET("/workspaces/files/content", app.handleReadWorkspaceFileContent)
 	api.PUT("/workspaces/files/content", app.handleWriteWorkspaceFileContent)
 	api.GET("/workspaces/git/status", app.handleWorkspaceGitStatus)
@@ -149,6 +150,7 @@ func New(deps Deps) (*gin.Engine, error) {
 
 	// Wiki files (global LLM wiki at ~/.cometmind/wiki/)
 	api.GET("/wiki/files", app.handleListWikiFiles)
+	api.GET("/wiki/files/children", app.handleListWikiFileChildren)
 	api.GET("/wiki/files/backlinks", app.handleListWikiFileBacklinks)
 	api.GET("/wiki/files/content", app.handleReadWikiFileContent)
 	api.PUT("/wiki/files/content", app.handleWriteWikiFileContent)

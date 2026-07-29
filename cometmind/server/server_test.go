@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -321,6 +322,49 @@ func TestListWorkspaceFiles(t *testing.T) {
 	_, err := svc.LookupWorkspaceByPath(context.Background(), workspacePath)
 	if err != nil {
 		t.Fatalf("LookupWorkspaceByPath() error = %v", err)
+	}
+}
+
+func TestListWorkspaceFileChildren(t *testing.T) {
+	t.Parallel()
+
+	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
+			ch <- event.Done()
+			return nil
+		}), nil
+	})
+	defer cleanup()
+
+	workspacePath := t.TempDir()
+	mustWrite(t, filepath.Join(workspacePath, "README.md"), "# readme")
+	mustWrite(t, filepath.Join(workspacePath, "src", "main.go"), "package main")
+	mustWrite(t, filepath.Join(workspacePath, "src", "internal", "helper.go"), "package internal")
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/workspaces/files/children?workspace_path="+workspacePath, nil)
+	engine.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("root status = %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	var root workspaceFileListResponse
+	decodeJSON(t, rec.Body.Bytes(), &root)
+	if want := []string{"README.md", "src/"}; !reflect.DeepEqual(root.Files, want) {
+		t.Fatalf("root files = %v want %v", root.Files, want)
+	}
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/api/v1/workspaces/files/children?workspace_path="+workspacePath+"&directory=src", nil)
+	engine.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("src status = %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	var src workspaceFileListResponse
+	decodeJSON(t, rec.Body.Bytes(), &src)
+	if want := []string{"src/internal/", "src/main.go"}; !reflect.DeepEqual(src.Files, want) {
+		t.Fatalf("src files = %v want %v", src.Files, want)
 	}
 }
 

@@ -2255,6 +2255,15 @@ type ListWikiFileBacklinksParams struct {
 	Path string `form:"path" json:"path"`
 }
 
+// ListWikiFileChildrenParams defines parameters for ListWikiFileChildren.
+type ListWikiFileChildrenParams struct {
+	// Directory Wiki-root-relative directory path. Omit for the wiki root.
+	Directory *string `form:"directory,omitempty" json:"directory,omitempty"`
+
+	// Limit Maximum number of direct children to return.
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
 // ReadWikiFileContentParams defines parameters for ReadWikiFileContent.
 type ReadWikiFileContentParams struct {
 	// Path Wiki-root-relative file path (e.g. `index.md`, `entities/foo.md`).
@@ -2279,6 +2288,21 @@ type ListWorkspaceFilesParams struct {
 	Q *string `form:"q,omitempty" json:"q,omitempty"`
 
 	// Limit Maximum number of results to return.
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// ListWorkspaceFileChildrenParams defines parameters for ListWorkspaceFileChildren.
+type ListWorkspaceFileChildrenParams struct {
+	// WorkspaceId Registered workspace identifier.
+	WorkspaceId *string `form:"workspace_id,omitempty" json:"workspace_id,omitempty"`
+
+	// WorkspacePath Absolute workspace path for an already-registered workspace.
+	WorkspacePath *string `form:"workspace_path,omitempty" json:"workspace_path,omitempty"`
+
+	// Directory Workspace-relative directory path. Omit for the workspace root.
+	Directory *string `form:"directory,omitempty" json:"directory,omitempty"`
+
+	// Limit Maximum number of direct children to return.
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 }
 

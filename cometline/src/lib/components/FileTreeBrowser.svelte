@@ -1,7 +1,12 @@
 <script lang="ts">
 	import { tick } from 'svelte';
 	import { ChevronDown, ChevronRight, Folder, FolderOpen, Loader } from '@lucide/svelte';
-	import { listWikiFiles, listWorkspaceFiles } from '$lib/client/cometmind';
+	import {
+		listWikiFileChildren,
+		listWikiFiles,
+		listWorkspaceFileChildren,
+		listWorkspaceFiles
+	} from '$lib/client/cometmind';
 	import FileTypeIcon from '$lib/components/FileTypeIcon.svelte';
 	import { shellStore, type FileTreeExpandSource } from '$lib/stores/shell.svelte';
 	import { toWikiUiPath } from '$lib/wiki/paths';
@@ -32,6 +37,8 @@
 	let error = $state<string | null>(null);
 	let files = $state<string[]>([]);
 	let expanded = $state<Record<string, boolean>>({});
+	let loadedDirectories = $state<Record<string, boolean>>({});
+	let loadingDirectories = $state<Record<string, boolean>>({});
 	let selectedKey = $state<string | null>(null);
 	let loadSeq = 0;
 	let browserEl = $state<HTMLDivElement | null>(null);
@@ -52,12 +59,14 @@
 		const next = { ...expanded, [key]: nextExpanded };
 		expanded = next;
 		persistExpanded(next);
+		if (nextExpanded && !filter.trim()) void loadDirectory(key, loadSeq);
 	}
 
 	function toggleDir(key: string) {
 		const next = { ...expanded, [key]: !expanded[key] };
 		expanded = next;
 		persistExpanded(next);
+		if (next[key] && !filter.trim()) void loadDirectory(key, loadSeq);
 	}
 
 	function dirKey(parentKey: string, name: string): string {
@@ -161,35 +170,71 @@
 		}
 	}
 
+	async function loadDirectory(directory: string, seq: number) {
+		if (loadedDirectories[directory] || loadingDirectories[directory]) return;
+		loadingDirectories = { ...loadingDirectories, [directory]: true };
+		try {
+			const result =
+				source === 'wiki'
+					? await listWikiFileChildren(directory, LIST_LIMIT)
+					: await listWorkspaceFileChildren(normalizedWorkspace, directory, LIST_LIMIT);
+			if (seq !== loadSeq) return;
+			files = [...new Set([...files, ...result.files])];
+			loadedDirectories = { ...loadedDirectories, [directory]: true };
+		} catch (err) {
+			if (seq === loadSeq && directory === '') {
+				error = err instanceof Error ? err.message : 'Failed to load files';
+			}
+		} finally {
+			if (seq === loadSeq) {
+				const { [directory]: _, ...remaining } = loadingDirectories;
+				loadingDirectories = remaining;
+			}
+		}
+	}
+
 	async function loadFiles() {
 		const seq = ++loadSeq;
 		const query = filter.trim();
 		loading = true;
 		error = null;
+		files = [];
+		loadedDirectories = {};
+		loadingDirectories = {};
 
 		if (source === 'workspace' && !workspaceAvailable) {
-			files = [];
 			expanded = {};
 			loading = false;
 			return;
 		}
 
 		try {
-			const result =
-				source === 'wiki'
-					? await listWikiFiles(query, LIST_LIMIT)
-					: await listWorkspaceFiles(normalizedWorkspace, query, LIST_LIMIT);
-			if (seq !== loadSeq) return;
-			files = result.files;
 			if (query) {
+				const result =
+					source === 'wiki'
+						? await listWikiFiles(query, LIST_LIMIT)
+						: await listWorkspaceFiles(normalizedWorkspace, query, LIST_LIMIT);
+				if (seq !== loadSeq) return;
+				files = result.files;
 				// Filter mode: expand matches only (do not overwrite the stored map).
 				expanded = dirKeysToExpandForPaths(files);
 			} else {
 				expanded = { ...shellStore.getFileTreeExpanded(source) };
+				await loadDirectory('', seq);
+				if (seq !== loadSeq) return;
+
+				const openDirectories = Object.keys(expanded)
+					.filter((directory) => expanded[directory])
+					.sort((a, b) => a.split('/').length - b.split('/').length);
+				for (const directory of openDirectories) {
+					await loadDirectory(directory, seq);
+					if (seq !== loadSeq) return;
+				}
 			}
 		} catch (err) {
 			if (seq !== loadSeq) return;
 			files = [];
+			loadedDirectories = {};
 			if (!query) {
 				expanded = { ...shellStore.getFileTreeExpanded(source) };
 			}
@@ -257,6 +302,9 @@
 							{/if}
 						</span>
 						<span class="file-tree-label">{node.name}</span>
+						{#if loadingDirectories[key]}
+							<Loader size={12} stroke-width={2} class="file-tree-spinner" />
+						{/if}
 					</button>
 					{#if rowExpanded && node.children}
 						<div class="file-tree-children">

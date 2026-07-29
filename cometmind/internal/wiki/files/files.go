@@ -29,6 +29,15 @@ func ListMarkdownFiles(ctx context.Context, root string, opts ListOptions) (Resu
 	return result, err
 }
 
+// ListDirectory returns direct children of a wiki-root-relative directory.
+func ListDirectory(ctx context.Context, root, directory string, opts ListOptions) (Result, error) {
+	result, err := filelist.ListDirectory(ctx, root, directory, opts)
+	if errors.Is(err, os.ErrNotExist) {
+		return Result{Files: []string{}}, nil
+	}
+	return result, err
+}
+
 // IsWriteProtected reports paths that must not be edited from the UI.
 func IsWriteProtected(rel string) bool {
 	rel = strings.TrimSpace(filepath.ToSlash(rel))

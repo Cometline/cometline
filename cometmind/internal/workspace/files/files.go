@@ -26,3 +26,9 @@ func ListFiles(ctx context.Context, root string, opts ListOptions) (Result, erro
 	opts.SkipDirectoryNames = defaultSkippedDirs
 	return filelist.List(ctx, root, opts)
 }
+
+// ListDirectory returns direct children of a workspace-relative directory.
+func ListDirectory(ctx context.Context, root, directory string, opts ListOptions) (Result, error) {
+	opts.SkipDirectoryNames = defaultSkippedDirs
+	return filelist.ListDirectory(ctx, root, directory, opts)
+}

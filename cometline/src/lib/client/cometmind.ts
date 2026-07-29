@@ -29,6 +29,7 @@ import {
 	deleteWorkspace as deleteWorkspaceApi,
 	pruneWorkspaces as pruneWorkspacesApi,
 	listWorkspaceFiles as listWorkspaceFilesApi,
+	listWorkspaceFileChildren as listWorkspaceFileChildrenApi,
 	getWorkspaceGitStatus as getWorkspaceGitStatusApi,
 	getWorkspaceGitDiff as getWorkspaceGitDiffApi,
 	stageWorkspaceGitPaths as stageWorkspaceGitPathsApi,
@@ -38,6 +39,7 @@ import {
 	readWorkspaceFileContent as readWorkspaceFileContentApi,
 	writeWorkspaceFileContent as writeWorkspaceFileContentApi,
 	listWikiFiles as listWikiFilesApi,
+	listWikiFileChildren as listWikiFileChildrenApi,
 	listWikiFileBacklinks as listWikiFileBacklinksApi,
 	readWikiFileContent as readWikiFileContentApi,
 	writeWikiFileContent as writeWikiFileContentApi,
@@ -311,6 +313,17 @@ export function listWorkspaceFiles(
 	}).then(({ data }) => ({ files: data.files ?? [], truncated: Boolean(data.truncated) }));
 }
 
+export function listWorkspaceFileChildren(
+	workspacePath: string,
+	directory = '',
+	limit = 50
+): Promise<WorkspaceFiles> {
+	return listWorkspaceFileChildrenApi({
+		query: { workspace_path: workspacePath, directory, limit },
+		throwOnError: true
+	}).then(({ data }) => ({ files: data.files ?? [], truncated: Boolean(data.truncated) }));
+}
+
 export type GitScope = 'working' | 'staged' | 'all';
 
 export type { WorkspaceGitStatus, WorkspaceGitDiff, WorkspaceGitMutationResult, WorkspaceGitCommitResult };
@@ -404,6 +417,13 @@ export async function writeWorkspaceFileContent(
 export function listWikiFiles(query = '', limit = 50): Promise<WorkspaceFiles> {
 	return listWikiFilesApi({
 		query: { q: query, limit },
+		throwOnError: true
+	}).then(({ data }) => ({ files: data.files ?? [], truncated: Boolean(data.truncated) }));
+}
+
+export function listWikiFileChildren(directory = '', limit = 50): Promise<WorkspaceFiles> {
+	return listWikiFileChildrenApi({
+		query: { directory, limit },
 		throwOnError: true
 	}).then(({ data }) => ({ files: data.files ?? [], truncated: Boolean(data.truncated) }));
 }

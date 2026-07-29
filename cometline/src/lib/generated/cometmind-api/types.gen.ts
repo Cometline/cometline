@@ -1634,6 +1634,56 @@ export type ListWorkspaceFilesResponses = {
 
 export type ListWorkspaceFilesResponse = ListWorkspaceFilesResponses[keyof ListWorkspaceFilesResponses];
 
+export type ListWorkspaceFileChildrenData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Registered workspace identifier.
+         */
+        workspace_id?: string;
+        /**
+         * Absolute workspace path for an already-registered workspace.
+         */
+        workspace_path?: string;
+        /**
+         * Workspace-relative directory path. Omit for the workspace root.
+         */
+        directory?: string;
+        /**
+         * Maximum number of direct children to return.
+         */
+        limit?: number;
+    };
+    url: '/api/v1/workspaces/files/children';
+};
+
+export type ListWorkspaceFileChildrenErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type ListWorkspaceFileChildrenError = ListWorkspaceFileChildrenErrors[keyof ListWorkspaceFileChildrenErrors];
+
+export type ListWorkspaceFileChildrenResponses = {
+    /**
+     * Direct workspace file and directory children
+     */
+    200: WorkspaceFileList;
+};
+
+export type ListWorkspaceFileChildrenResponse = ListWorkspaceFileChildrenResponses[keyof ListWorkspaceFileChildrenResponses];
+
 export type ReadWorkspaceFileContentData = {
     body?: never;
     path?: never;
@@ -1732,6 +1782,44 @@ export type ListWikiFilesResponses = {
 };
 
 export type ListWikiFilesResponse = ListWikiFilesResponses[keyof ListWikiFilesResponses];
+
+export type ListWikiFileChildrenData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Wiki-root-relative directory path. Omit for the wiki root.
+         */
+        directory?: string;
+        /**
+         * Maximum number of direct children to return.
+         */
+        limit?: number;
+    };
+    url: '/api/v1/wiki/files/children';
+};
+
+export type ListWikiFileChildrenErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type ListWikiFileChildrenError = ListWikiFileChildrenErrors[keyof ListWikiFileChildrenErrors];
+
+export type ListWikiFileChildrenResponses = {
+    /**
+     * Direct wiki file and directory children
+     */
+    200: WikiFileList;
+};
+
+export type ListWikiFileChildrenResponse = ListWikiFileChildrenResponses[keyof ListWikiFileChildrenResponses];
 
 export type ListWikiFileBacklinksData = {
     body?: never;

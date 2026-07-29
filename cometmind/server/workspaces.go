@@ -136,6 +136,30 @@ func (a *App) handleListWorkspaceFiles(c *gin.Context) {
 	c.JSON(http.StatusOK, workspaceFileListResponse{Files: result.Files, Truncated: result.Truncated})
 }
 
+func (a *App) handleListWorkspaceFileChildren(c *gin.Context) {
+	ws, ok := a.resolveCreateWorkspace(c, c.Query("workspace_id"), c.Query("workspace_path"))
+	if !ok {
+		return
+	}
+
+	limit := 0
+	if raw := strings.TrimSpace(c.Query("limit")); raw != "" {
+		if _, err := fmt.Sscanf(raw, "%d", &limit); err != nil {
+			writeError(c, http.StatusBadRequest, "bad_request", "limit must be an integer")
+			return
+		}
+	}
+
+	result, err := workspacefiles.ListDirectory(c.Request.Context(), ws.Path, c.Query("directory"), workspacefiles.ListOptions{
+		Limit: limit,
+	})
+	if err != nil {
+		writeError(c, http.StatusBadRequest, "bad_request", err.Error())
+		return
+	}
+	c.JSON(http.StatusOK, workspaceFileListResponse{Files: result.Files, Truncated: result.Truncated})
+}
+
 func (a *App) handleReadWorkspaceFileContent(c *gin.Context) {
 	ws, ok := a.resolveCreateWorkspace(c, c.Query("workspace_id"), c.Query("workspace_path"))
 	if !ok {
