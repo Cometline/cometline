@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { tick } from 'svelte';
+	import { tick, untrack } from 'svelte';
 	import { ChevronDown, ChevronRight, Folder, FolderOpen, Loader } from '@lucide/svelte';
 	import {
 		listWikiFileChildren,
@@ -246,7 +246,8 @@
 
 	$effect(() => {
 		void [filter, normalizedWorkspace, workspaceChangeVersion(normalizedWorkspace)];
-		void loadFiles();
+		// Loading mutates the lazy cache; do not make those mutations dependencies of this effect.
+		untrack(() => void loadFiles());
 	});
 
 	$effect(() => {
