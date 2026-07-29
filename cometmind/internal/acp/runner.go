@@ -38,6 +38,7 @@ type Config struct {
 	// (native tools are preferred).
 	Enabled bool
 	Harness Harness
+	// Timeout limits one harness run. Zero means no deadline.
 	Timeout time.Duration
 }
 
@@ -60,15 +61,11 @@ func DefaultConfig() Config {
 // select a harness without changing how CometMind invokes it.
 func DefaultHarnessConfig(harness Harness) Config {
 	harness = ParseHarness(string(harness))
-	return Config{Harness: harness, Timeout: 30 * time.Minute}
+	return Config{Harness: harness}
 }
 
 func (c Config) normalized() Config {
 	harness := ParseHarness(string(c.Harness))
-	defaults := DefaultHarnessConfig(harness)
-	if c.Timeout <= 0 {
-		c.Timeout = defaults.Timeout
-	}
 	c.Harness = harness
 	return c
 }

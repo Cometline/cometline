@@ -15,8 +15,8 @@ func TestACPSettingsSelectsConfiguredHarness(t *testing.T) {
 	if settings.Harness != acp.HarnessCodex {
 		t.Fatalf("harness = %q", settings.Harness)
 	}
-	if settings.Timeout.Minutes() != 30 {
-		t.Fatalf("timeout = %s, want fixed 30m", settings.Timeout)
+	if settings.Timeout != 0 {
+		t.Fatalf("timeout = %s, want no deadline", settings.Timeout)
 	}
 }
 

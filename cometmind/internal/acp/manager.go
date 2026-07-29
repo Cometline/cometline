@@ -54,7 +54,10 @@ func (m *SessionManager) UpdateConfig(cfg Config) {
 // Run executes a delegated task through the selected fixed CLI profile.
 func (m *SessionManager) Run(ctx context.Context, opts RunOptions) (TaskResult, error) {
 	cfg := m.configSnapshot().normalized()
-	runCtx, cancel := context.WithTimeout(ctx, cfg.Timeout)
+	runCtx, cancel := context.WithCancel(ctx)
+	if cfg.Timeout > 0 {
+		runCtx, cancel = context.WithTimeout(ctx, cfg.Timeout)
+	}
 	defer cancel()
 
 	promptText := opts.Task

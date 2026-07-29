@@ -186,3 +186,79 @@ func TestSessionManagerRunCLIFailureIncludesStderr(t *testing.T) {
 		t.Fatalf("result = %#v, err = %v", result, err)
 	}
 }
+
+func TestSessionManagerDefaultRunHasNoDeadline(t *testing.T) {
+	mgr := NewSessionManager(DefaultHarnessConfig(HarnessClaude))
+	var hasDeadline bool
+	mgr.CLIProcessStarter = func(
+		ctx context.Context,
+		cfg Config,
+		workspaceRoot string,
+		prompt string,
+	) (io.ReadCloser, io.ReadCloser, io.Closer, error) {
+		_, hasDeadline = ctx.Deadline()
+		return io.NopCloser(strings.NewReader(`{"type":"result","result":"done"}`)), io.NopCloser(strings.NewReader("")), &testCloser{}, nil
+	}
+
+	result, err := mgr.Run(context.Background(), RunOptions{WorkspaceRoot: t.TempDir(), Task: "run"})
+
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if hasDeadline {
+		t.Fatal("default run context has a deadline")
+	}
+	if result.Status != "completed" {
+		t.Fatalf("result = %#v", result)
+	}
+}
+
+func TestSessionManagerCancelStopsUnboundedRun(t *testing.T) {
+	stdout, writer := io.Pipe()
+	progressed := make(chan struct{})
+	mgr := NewSessionManager(DefaultHarnessConfig(HarnessOpenCode))
+	mgr.CLIProcessStarter = func(
+		ctx context.Context,
+		cfg Config,
+		workspaceRoot string,
+		prompt string,
+	) (io.ReadCloser, io.ReadCloser, io.Closer, error) {
+		return stdout, io.NopCloser(strings.NewReader("")), writer, nil
+	}
+
+	type outcome struct {
+		result TaskResult
+		err    error
+	}
+	done := make(chan outcome, 1)
+	go func() {
+		result, err := mgr.Run(context.Background(), RunOptions{
+			ChildSessionID: "child-1",
+			WorkspaceRoot:  t.TempDir(),
+			Task:           "run",
+			OnProgress: func(ProgressUpdate) {
+				close(progressed)
+			},
+		})
+		done <- outcome{result: result, err: err}
+	}()
+	go func() {
+		_, _ = io.WriteString(writer, `{"type":"text","part":{"type":"text","text":"working"}}`+"\n")
+	}()
+
+	<-progressed
+	if err := mgr.Cancel("child-1"); err != nil {
+		t.Fatalf("Cancel: %v", err)
+	}
+	select {
+	case got := <-done:
+		if !errors.Is(got.err, context.Canceled) {
+			t.Fatalf("Run error = %v, want context canceled", got.err)
+		}
+		if got.result.Status != "cancelled" {
+			t.Fatalf("result = %#v", got.result)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("unbounded run did not stop after cancellation")
+	}
+}
