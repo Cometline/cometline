@@ -88,14 +88,14 @@ type cometlineStorageBackupJSON struct {
 }
 
 type cometlineStorageJSON struct {
-	CleanupIntervalMinutes  int                      `json:"cleanupIntervalMinutes"`
-	RetentionDays           int                      `json:"retentionDays"`
-	MaxSessionsPerWorkspace int                      `json:"maxSessionsPerWorkspace"`
-	ArchivedMemoryPurgeDays int                      `json:"archivedMemoryPurgeDays"`
-	DeletedJobPurgeDays     int                      `json:"deletedJobPurgeDays"`
-	VacuumAfterPurge        bool                     `json:"vacuumAfterPurge"`
-	ToolOutputRetentionDays *int                     `json:"toolOutputRetentionDays"`
-	AgentTmpRetentionDays   *int                     `json:"agentTmpRetentionDays"`
+	CleanupIntervalMinutes  int                        `json:"cleanupIntervalMinutes"`
+	RetentionDays           int                        `json:"retentionDays"`
+	MaxSessionsPerWorkspace int                        `json:"maxSessionsPerWorkspace"`
+	ArchivedMemoryPurgeDays int                        `json:"archivedMemoryPurgeDays"`
+	DeletedJobPurgeDays     int                        `json:"deletedJobPurgeDays"`
+	VacuumAfterPurge        bool                       `json:"vacuumAfterPurge"`
+	ToolOutputRetentionDays *int                       `json:"toolOutputRetentionDays"`
+	AgentTmpRetentionDays   *int                       `json:"agentTmpRetentionDays"`
 	Backup                  cometlineStorageBackupJSON `json:"backup"`
 }
 
@@ -256,7 +256,7 @@ func adaptCometlineSettings(raw cometlineSettingsJSON) (*Config, error) {
 		TitleModel:         strings.TrimSpace(cm.TitleModelID),
 		MaxTokens:          cm.MaxTokens,
 		ContextWindowLimit: normalizeContextWindowLimit(cm.ContextWindowLimit),
-		MaxSteps:           50,
+		MaxSteps:           Defaults().MaxSteps,
 		SystemPromptPath:   strings.TrimSpace(cm.SystemPromptPath),
 		Providers:          providers,
 		ACP: ACPConfig{

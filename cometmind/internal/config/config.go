@@ -73,8 +73,8 @@ type GatewayConfig struct {
 // Config holds user-visible runtime settings loaded from ~/.cometmind/cometline-settings.json and environment.
 // Desktop-only UI state lives in cometline-desktop.json and is not loaded here.
 type Config struct {
-	Provider           string               `mapstructure:"provider"`
-	Model              string               `mapstructure:"model"`
+	Provider string `mapstructure:"provider"`
+	Model    string `mapstructure:"model"`
 	// DefaultProviderID / DefaultModelID are the global Default model pair.
 	// Provider/Model mirror them for legacy callers after settings adapt.
 	DefaultProviderID  string               `mapstructure:"default_provider_id"`
@@ -107,7 +107,7 @@ func Defaults() *Config {
 		Model:              "claude-sonnet-4-5",
 		MaxTokens:          2048,
 		ContextWindowLimit: 128_000,
-		MaxSteps:           50,
+		MaxSteps:           100,
 		Skills:             SkillsConfig{Enabled: true, IncludeOpenCode: true, IncludeClaude: true},
 		Memory:             defaultMemoryConfig(),
 		Storage:            defaultStorageConfig(),

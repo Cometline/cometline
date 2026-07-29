@@ -1,7 +1,11 @@
 package config
 
-// Steps below the main agent budget reserved for general subagents when unset.
-const GeneralSubagentStepsBelowMain = 10
+// GeneralSubagentStepBudgetNumerator and GeneralSubagentStepBudgetDenominator
+// reserve one fifth of the main budget for the parent when a child budget is unset.
+const (
+	GeneralSubagentStepBudgetNumerator   = 4
+	GeneralSubagentStepBudgetDenominator = 5
+)
 
 // SubagentSettings controls parallel subagent orchestration.
 type SubagentSettings struct {
@@ -21,7 +25,7 @@ func GeneralMaxStepsFromMain(mainMaxSteps int) int {
 	if mainMaxSteps <= 0 {
 		mainMaxSteps = Defaults().MaxSteps
 	}
-	steps := mainMaxSteps - GeneralSubagentStepsBelowMain
+	steps := mainMaxSteps * GeneralSubagentStepBudgetNumerator / GeneralSubagentStepBudgetDenominator
 	if steps < 1 {
 		return 1
 	}

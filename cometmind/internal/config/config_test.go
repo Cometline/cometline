@@ -400,8 +400,8 @@ func TestLoadBootsWithNoEnabledProviders(t *testing.T) {
 	if cfg.MaxTokens != 2048 {
 		t.Fatalf("MaxTokens = %d, want 2048", cfg.MaxTokens)
 	}
-	if cfg.MaxSteps != 50 {
-		t.Fatalf("MaxSteps = %d, want 50", cfg.MaxSteps)
+	if cfg.MaxSteps != 100 {
+		t.Fatalf("MaxSteps = %d, want 100", cfg.MaxSteps)
 	}
 }
 

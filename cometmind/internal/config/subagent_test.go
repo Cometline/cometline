@@ -7,10 +7,10 @@ func TestGeneralMaxStepsFromMain(t *testing.T) {
 		main int
 		want int
 	}{
-		{50, 40},
-		{25, 15},
-		{10, 1},
-		{0, 40},
+		{100, 80},
+		{25, 20},
+		{10, 8},
+		{0, 80},
 	}
 	for _, tc := range tests {
 		if got := GeneralMaxStepsFromMain(tc.main); got != tc.want {
@@ -22,8 +22,8 @@ func TestGeneralMaxStepsFromMain(t *testing.T) {
 func TestEffectiveSubagentSettingsDefaults(t *testing.T) {
 	cfg := &Config{}
 	got := cfg.EffectiveSubagentSettings()
-	if got.GeneralMaxSteps != 40 {
-		t.Fatalf("GeneralMaxSteps=%d want 40 (main default 50 - 10)", got.GeneralMaxSteps)
+	if got.GeneralMaxSteps != 80 {
+		t.Fatalf("GeneralMaxSteps=%d want 80 (80%% of main default 100)", got.GeneralMaxSteps)
 	}
 	if got.MaxConcurrentPerParent != 5 {
 		t.Fatalf("MaxConcurrentPerParent=%d want 5", got.MaxConcurrentPerParent)
@@ -33,8 +33,8 @@ func TestEffectiveSubagentSettingsDefaults(t *testing.T) {
 func TestEffectiveSubagentSettingsFollowsMainMaxSteps(t *testing.T) {
 	cfg := &Config{MaxSteps: 30}
 	got := cfg.EffectiveSubagentSettings()
-	if got.GeneralMaxSteps != 20 {
-		t.Fatalf("GeneralMaxSteps=%d want 20", got.GeneralMaxSteps)
+	if got.GeneralMaxSteps != 24 {
+		t.Fatalf("GeneralMaxSteps=%d want 24", got.GeneralMaxSteps)
 	}
 }
 

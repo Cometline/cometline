@@ -11,7 +11,7 @@ func defaultInboxConfig() InboxConfig {
 	return InboxConfig{
 		PollIntervalSeconds: 600, // 10 minutes
 		RetentionHours:      24,
-		MaxStepsPerRun:      8,
+		MaxStepsPerRun:      16,
 	}
 }
 
