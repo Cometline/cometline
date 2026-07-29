@@ -57,6 +57,18 @@ func TestContinueUserNudgeMessages_IncompleteToolSupersedesTextTruncation(t *tes
 	}
 }
 
+func TestFinalAnswerNudgeMessages_IsTrailingUserInstruction(t *testing.T) {
+	t.Parallel()
+	msgs := FinalAnswerNudgeMessages()
+	if len(msgs) != 1 || msgs[0].Role != cometsdk.RoleUser {
+		t.Fatalf("messages = %#v", msgs)
+	}
+	text, ok := msgs[0].Content[0].(cometsdk.TextBlock)
+	if !ok || !strings.Contains(text.Text, "Do not call tools") {
+		t.Fatalf("content = %#v", msgs[0].Content)
+	}
+}
+
 func TestFormatOutputBudgetPromptBlock_MentionsOneWriteFilePerStep(t *testing.T) {
 	t.Parallel()
 	got := FormatOutputBudgetPromptBlock(4096)

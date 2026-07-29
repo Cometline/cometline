@@ -58,6 +58,15 @@ func FormatCollectedSubagentResultsBlock(results string) string {
 	return "The runtime waited for your active subagents before allowing this turn to finish. Here are their collected results. Synthesize them into your final answer and do not ask the user whether they want you to wait.\n\n" + results
 }
 
+// FinalAnswerNudgeMessages requests a best-effort answer after the agent has
+// exhausted its work-step budget. It is intentionally not persisted.
+func FinalAnswerNudgeMessages() []cometsdk.Message {
+	return []cometsdk.Message{{
+		Role:    cometsdk.RoleUser,
+		Content: []cometsdk.Block{cometsdk.TextBlock{Text: "You have exhausted the work-step budget for this turn. Do not call tools. Give the user your best final answer based on the work and tool results already available."}},
+	}}
+}
+
 // ContinueUserNudgeMessages builds in-memory user turns for agent-loop
 // continuations. Claude 4.6+ rejects requests whose messages end with an
 // assistant role (prefill). These nudges keep continue steps ending on user

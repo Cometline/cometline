@@ -101,7 +101,7 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 	}
 
 	if r.MaxSteps <= 0 {
-		r.MaxSteps = 50
+		r.MaxSteps = 100
 	}
 	if r.MaxTokens <= 0 {
 		r.MaxTokens = 2048
@@ -142,14 +142,21 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 	sessionBudget := ResolveSessionBudget(r.Config, turn.ProviderID, turn.ModelID, r.MaxTokens)
 	effectiveMaxTokens := sessionBudget.EffectiveMaxTokens
 
-	for steps < r.MaxSteps {
+	// MaxSteps limits work rounds. If they are exhausted, make one final
+	// tool-free request so the user still receives a best-effort answer.
+	for steps <= r.MaxSteps {
+		finalizing := steps == r.MaxSteps
+		requestTools := r.Registry.CometSDK()
+		if finalizing {
+			requestTools = nil
+		}
 		if steps > 0 {
 			emitStatus(event.PhaseContinuing)
 		}
 
 		baseSystem := r.buildSystemPrompt(sess.ContextSummary, effectiveMaxTokens)
 		if r.Compactor != nil && sess.ID != "" {
-			tools := r.Registry.CometSDK()
+			tools := requestTools
 			emitBudget := func(compacted bool) {
 				budget, err := r.Compactor.EstimatePromptBudget(
 					ctx, sess.ID, baseSystem, tools, turn.ProviderID, turn.ModelID, r.MaxTokens,
@@ -204,6 +211,9 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 			subagentWaitNudge,
 			pendingSubagentResults,
 		)...)
+		if finalizing {
+			msgs = append(msgs, FinalAnswerNudgeMessages()...)
+		}
 		if !degradationsReported {
 			for _, d := range degradations {
 				logging.L().Info("history.normalized", "session", turn.ID, "kind", d.Kind, "count", d.Count)
@@ -276,7 +286,7 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 
 		emitStatus(event.PhaseContactingModel)
 		requestMsgs := DowngradeImagesForNonVision(msgs, sessionBudget.VisionKnown, sessionBudget.Vision)
-		req := BuildRequest(turn.ModelID, system, requestMsgs, r.Registry.CometSDK(), effectiveMaxTokens)
+		req := BuildRequest(turn.ModelID, system, requestMsgs, requestTools, effectiveMaxTokens)
 		if r.Compatibility != nil {
 			req.Compatibility = r.Compatibility.ResolveCapabilityPolicy(ctx, r.CompatibilityScope)
 		}
@@ -314,6 +324,10 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 					firstOutputLogged = true
 					ch <- event.ReasoningDelta(e.Text)
 				case cometsdk.ToolCallStartEvent:
+					if finalizing {
+						logging.L().Warn("agent.final_answer.unexpected_tool_call", "session", turn.ID, "tool_call_id", e.ID, "tool", e.Name)
+						continue
+					}
 					firstOutputLogged = true
 					if _, ok := startedToolIndex[e.ID]; !ok {
 						startedToolIndex[e.ID] = len(startedToolCalls)
@@ -327,6 +341,10 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 					}
 					ch <- event.ToolCall(e.ID, e.Name, nil)
 				case cometsdk.ToolCallDoneEvent:
+					if finalizing {
+						logging.L().Warn("agent.final_answer.unexpected_tool_call", "session", turn.ID, "tool_call_id", e.ID, "tool", e.Name)
+						continue
+					}
 					firstOutputLogged = true
 					completeToolCall = true
 					if idx, ok := startedToolIndex[e.ID]; ok {
@@ -363,7 +381,7 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 			if !overflowRecovered && isContextOverflowError(err) && !completeToolCall && r.Compactor != nil && sess.ID != "" {
 				overflowRecovered = true
 				logging.L().Warn("agent.step.overflow_recover", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", steps+1, "error", err)
-				tools := r.Registry.CometSDK()
+				tools := requestTools
 				beforeSummary := sess.ContextSummary
 				beforeUntil := sess.CompactedUntilMessageID
 				updated, compactErr := r.Compactor.MaybeCompact(
@@ -394,9 +412,12 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 							subagentWaitNudge,
 							pendingSubagentResults,
 						)...)
+						if finalizing {
+							rebuildMsgs = append(rebuildMsgs, FinalAnswerNudgeMessages()...)
+						}
 						msgs = rebuildMsgs
 						requestMsgs := DowngradeImagesForNonVision(msgs, sessionBudget.VisionKnown, sessionBudget.Vision)
-						req = BuildRequest(turn.ModelID, system, requestMsgs, r.Registry.CometSDK(), effectiveMaxTokens)
+						req = BuildRequest(turn.ModelID, system, requestMsgs, requestTools, effectiveMaxTokens)
 						if r.Compatibility != nil {
 							req.Compatibility = r.Compatibility.ResolveCapabilityPolicy(ctx, r.CompatibilityScope)
 						}
@@ -439,10 +460,18 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 		// is treated as empty so we do not persist invisible assistant bubbles.
 		text := strings.TrimSpace(assistantPlainText(result.Message))
 		reasoningBlocks := result.Message.ReasoningContent
-		incompleteToolCalls := incompleteStartedToolCalls(startedToolCalls, result.ToolCalls)
+		incompleteToolCalls := []cometsdk.ToolCallBlock(nil)
 		persistToolCalls := result.ToolCalls
-		if len(incompleteToolCalls) > 0 {
-			persistToolCalls = append(append([]cometsdk.ToolCallBlock{}, result.ToolCalls...), incompleteToolCalls...)
+		if finalizing {
+			if len(result.ToolCalls) > 0 || len(startedToolCalls) > 0 {
+				logging.L().Warn("agent.final_answer.unexpected_tool_call", "session", turn.ID, "tool_calls", len(result.ToolCalls))
+			}
+			persistToolCalls = nil
+		} else {
+			incompleteToolCalls = incompleteStartedToolCalls(startedToolCalls, result.ToolCalls)
+			if len(incompleteToolCalls) > 0 {
+				persistToolCalls = append(append([]cometsdk.ToolCallBlock{}, result.ToolCalls...), incompleteToolCalls...)
+			}
 		}
 		persistedToolIDs := map[string]string{}
 		if text != "" || len(reasoningBlocks) > 0 || len(result.Message.ProviderState) > 0 || len(persistToolCalls) > 0 {
@@ -465,6 +494,9 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 		// neither content nor tool calls.
 		// Memories are attached to the first persisted assistant message only.
 		pendingMemories = nil
+		if finalizing {
+			return completeTurn()
+		}
 
 		if len(incompleteToolCalls) > 0 {
 			if err := settleIncompleteToolCalls(ctx, r.Sessions, turn.ID, incompleteToolCalls, persistedToolIDs, ch); err != nil {
@@ -622,8 +654,7 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 		steps++
 	}
 
-	ch <- event.Errorf("max steps exceeded", "max_steps")
-	return fmt.Errorf("max steps exceeded")
+	return completeTurn()
 }
 
 func memoryTokenAllowance(budget SessionBudget, system string, messages []cometsdk.Message, tools []cometsdk.Tool) int {

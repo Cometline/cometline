@@ -347,6 +347,78 @@ func TestRunner_EmitsToolCallOnStartAndCompletion(t *testing.T) {
 	}
 }
 
+func TestRunner_ExhaustedWorkStepsRequestsToolFreeFinalAnswer(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "hello.txt"), []byte("world"), 0o644); err != nil {
+		t.Fatalf("write hello.txt: %v", err)
+	}
+	store := &fakeStore{}
+	provider := &capturingSequentialFakeProvider{sequences: [][]cometsdk.Event{
+		toolStep("tc-1", "read_file", `{"path":"hello.txt"}`),
+		{
+			cometsdk.TextDeltaEvent{Text: "The file contains world."},
+			cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishStop},
+			cometsdk.DoneEvent{},
+		},
+	}}
+	r := &Runner{
+		Provider: provider,
+		Sessions: store,
+		Registry: tools.NewRegistry(dir),
+		MaxSteps: 1,
+	}
+
+	events, runErr := runAndDrain(t, r, session.AgentTurn{ID: "s1", ModelID: "m"})
+
+	if runErr != nil {
+		t.Fatalf("Run returned error: %v", runErr)
+	}
+	if provider.calls != 2 {
+		t.Fatalf("Stream called %d times, want 2", provider.calls)
+	}
+	if len(provider.requests[1].Tools) != 0 {
+		t.Fatalf("final request tools = %#v, want none", provider.requests[1].Tools)
+	}
+	finalNudge := FinalAnswerNudgeMessages()[0].Content[0].(cometsdk.TextBlock).Text
+	if !requestContainsUserNudge(provider.requests[1], finalNudge) {
+		t.Fatalf("final request missing final-answer nudge:\n%#v", provider.requests[1].Messages)
+	}
+	if got := store.appendTexts[len(store.appendTexts)-1]; got != "The file contains world." {
+		t.Fatalf("final assistant text = %q", got)
+	}
+	for _, ev := range events {
+		if ev.Kind == event.KindError {
+			t.Fatalf("unexpected error event: %+v", ev)
+		}
+	}
+	if events[len(events)-1].Kind != event.KindDone {
+		t.Fatalf("final event = %+v, want done", events[len(events)-1])
+	}
+}
+
+func TestRunner_FinalStopDoesNotRequestExtraAnswer(t *testing.T) {
+	provider := &capturingSequentialFakeProvider{sequences: [][]cometsdk.Event{{
+		cometsdk.TextDeltaEvent{Text: "done"},
+		cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishStop},
+		cometsdk.DoneEvent{},
+	}}}
+	r := &Runner{
+		Provider: provider,
+		Sessions: &fakeStore{},
+		Registry: tools.NewRegistry(t.TempDir()),
+		MaxSteps: 1,
+	}
+
+	_, runErr := runAndDrain(t, r, session.AgentTurn{ID: "s1", ModelID: "m"})
+
+	if runErr != nil {
+		t.Fatalf("Run returned error: %v", runErr)
+	}
+	if provider.calls != 1 {
+		t.Fatalf("Stream called %d times, want 1", provider.calls)
+	}
+}
+
 func TestRunner_PersistsPartialResponseBeforeStreamError(t *testing.T) {
 	store := &fakeStore{}
 	provider := &fakeProvider{events: []cometsdk.Event{
