@@ -20,7 +20,7 @@ Cometline is a three-layer system: a desktop chat UI, a local agent runtime, and
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │  cometmind (Go runtime)                                         │
-│  - Agent loop (up to 50 steps)                                  │
+│  - Agent loop (up to 100 work steps + final answer)             │
 │  - SQLite persistence (sessions, messages, memories)            │
 │  - Built-in tools (file ops, commands, web fetch)               │
 │  - Coding-harness CLI delegation (OpenCode, Claude Code, Codex) │
@@ -337,7 +337,7 @@ CometMind uses SQLite (pure Go, no CGO) with sqlc for type-safe queries.
 provider = "anthropic"
 model = "claude-sonnet-4-5"
 max_tokens = 8192
-max_steps = 50
+max_steps = 100
 
 [acp]
 default_harness = "opencode" # opencode, claude, or codex

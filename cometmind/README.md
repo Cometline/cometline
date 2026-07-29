@@ -62,7 +62,8 @@ openapi.yaml         OpenAPI 3.1 spec for the local serve API
 
 ### Agent loop
 
-The runner iterates up to `max_steps` (default 50):
+The runner iterates up to `max_steps` work rounds (default 100), then makes one
+tool-free request for a best-effort final answer if the work budget was exhausted:
 
 1. **Retrieve memories** (when enabled) → inject into system prompt → emit `memory_injected` and `turn_status`.
 2. Compact the context window when needed, then rebuild the conversation from SQLite → call the provider via `llm.StreamMessage`.
@@ -398,7 +399,7 @@ provider = "anthropic"
 model = "claude-sonnet-4-5"
 base_url = ""
 max_tokens = 8192
-max_steps = 50
+max_steps = 100
 system_prompt_path = ""
 
 [[providers]]

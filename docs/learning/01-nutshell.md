@@ -62,7 +62,7 @@ CometMind server
   │ persist user message to SQLite
   │ acquire single-run lock (one stream per session)
   ▼
-Agent Runner (up to 50 steps)
+Agent Runner (up to 100 work steps + final answer)
   │ retrieve relevant memories and emit turn_status
   │ compact context if needed
   │ rebuild transcript + skills index → comet-sdk Request
