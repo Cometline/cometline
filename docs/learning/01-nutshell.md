@@ -47,6 +47,8 @@ cometline  →  cometmind  →  comet-sdk
 | **Skill drafts**        | Generated skills can be reviewed and promoted before becoming active            |
 | **Discord gateway**     | Same runtime as a Discord bot with per-thread sessions                          |
 | **Multi-provider**      | Switch models/providers per session from Settings                               |
+| **Context and media**   | Persist file/web/terminal context references and render assistant images safely |
+| **Live workspace panel** | Watch external file/Git changes and refresh previews without discarding drafts |
 
 ## One message, end to end
 

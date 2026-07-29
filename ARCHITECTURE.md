@@ -48,9 +48,9 @@ Cometline is a three-layer system: a desktop chat UI, a local agent runtime, and
 - Chat UI rendering (streaming text, reasoning blocks, tool calls)
 - Settings management (providers, models, appearance, shortcuts)
 - Session navigation, workspace switching, and the per-session workspace panel
-- Multimodal input (images, file drops)
-- Native desktop features (tray icon, keyboard shortcuts, auto-update)
-- Jobs board, skill draft editor, settings route, mini-window routes, and the multi-surface workspace panel (wiki, workspace files, Git changes, web, and terminal)
+- Multimodal input, persisted message-context chips, and assistant image rendering
+- Native desktop features (tray icon, keyboard shortcuts, auto-update, screen-capture permission/bridge, and workspace file watching)
+- Jobs board, skill draft editor, settings route, mini-window routes, and the multi-surface workspace panel (wiki, workspace files, Git changes and full diffs, web, and terminal)
 
 **Must not own:**
 - Tool execution
@@ -63,7 +63,8 @@ Cometline is a three-layer system: a desktop chat UI, a local agent runtime, and
 - `src/lib/components/ChatView.svelte` — conversation rendering
 - `src/lib/stores/` — reactive state (chat, session, model, settings)
 - `src/lib/client/cometmind.ts` — HTTP/SSE client for CometMind API
-- `electron/src/app.ts` — sidecar lifecycle, settings persistence, IPC
+- `electron/src/domains/runtime.ts` — Electron composition root; wires sidecar lifecycle, settings, IPC, windows, and native domains
+- `electron/src/domains/` — focused native integrations: screen capture, workspace watching, terminal, updater, personas, and window chrome
 
 ### cometmind (Agent Runtime)
 
@@ -221,23 +222,16 @@ Scheduled jobs are stored separately under `/api/v1/scheduled-jobs`. The schedul
 
 CometMind serves a REST/SSE API on `127.0.0.1:7700`. The OpenAPI spec is `cometmind/openapi.yaml`.
 
-**Core endpoints:**
-- `GET /api/v1/health` — liveness check
-- `POST /api/v1/sessions` — create workspace-scoped session
-- `GET /api/v1/sessions?workspace_path=...` — list sessions
-- `POST /api/v1/sessions/{id}/messages` — send message, receive SSE stream
-- `DELETE /api/v1/sessions/{id}/runs/current` — cancel in-flight run
-- `GET /api/v1/workspaces/files` — list previewable workspace files
-- `GET /api/v1/workspaces/files/content` / `PUT /api/v1/workspaces/files/content` — read/write small workspace files
-- `GET /api/v1/skill-drafts` and related draft endpoints — list, edit, promote, or reject skill drafts
-- `GET /api/v1/mcp/servers` — MCP server connection status
-- `GET /api/v1/mcp/tools` — registered MCP tools preview
-- `POST /api/v1/mcp/servers/{id}/connection-tests` — test MCP connection
-- `POST /api/v1/mcp/servers/{id}/reconnection-runs` — reconnect one MCP server
-- `POST /api/v1/mcp/servers/{id}/oauth-flows` — start interactive MCP OAuth login
-- `GET /api/v1/jobs` and `/api/v1/jobs/{id}` — jobs board and job detail APIs
-- `PUT /api/v1/jobs/{id}/lease`, `PATCH /api/v1/jobs/{id}/lease`, `DELETE /api/v1/jobs/{id}/lease`, `PUT /api/v1/jobs/{id}/completion` — job worker lifecycle
-- `GET /api/v1/scheduled-jobs` and `/api/v1/scheduled-jobs/{id}` — scheduled job management
+**Endpoint families** (the OpenAPI file is the complete contract):
+- **Runtime and models:** health, enabled models, and catalog lookups
+- **Workspaces:** registration/pruning; previewable file read/write; Git status, diff, stage, unstage, discard, and commit; global wiki files and backlinks
+- **Sessions:** create/list/update/delete, workspace changes and forks, transcripts, one active run, child sessions, and persisted assistant media at `/sessions/{id}/media/{imageId}`
+- **Streaming:** `POST /sessions/{id}/messages` returns the turn SSE stream; `GET /events` carries runtime-wide notifications
+- **Skills and MCP:** managed skills, drafts, sync runs; MCP server/tool inspection, connection tests, reconnection, and OAuth flows
+- **Memory and storage:** memory CRUD/search/settings, re-embedding, purge and compaction runs; retention and backup runs
+- **Jobs and inbox:** durable jobs, leases, retries, scheduled jobs, inbox messages, replies, and dismissals
+
+Use `cometmind/openapi.yaml` rather than this overview when implementing a client or changing a route.
 
 **Client:** `cometline/src/lib/client/cometmind.ts`
 
@@ -253,12 +247,12 @@ CometMind emits JSON SSE frames with a `type` discriminator:
 | `tool_call` | Model requested a tool |
 | `tool_result` | Tool execution completed |
 | `step_finish` | One model step ended |
-| `subagent_progress` | Coding-harness or general-subagent progress update |
-| `subagent_finished` | Coding-harness or general-subagent finished |
-| `memory_injected` | Retrieved memories were injected into the turn |
-| `memory_updated` | Post-turn memory extraction changed memory state |
-| `memory_compaction_completed` | A manual or automatic memory compaction run finished |
-| `turn_status` | Pre-output activity status such as retrieving memories or contacting the model |
+| `subagent_started`, `subagent_progress`, `subagent_finished` | Coding-harness or general-subagent lifecycle |
+| `memory_injected`, `memory_updated`, `memory_compaction_completed` | Retrieved, changed, or compacted memory state |
+| `context_budget` | Context-window budget telemetry for the active turn |
+| `inbox_message_created`, `inbox_message_archived` | Runtime-wide inbox lifecycle notification |
+| `assistant_image` | Persisted assistant media, rendered from the session-media endpoint |
+| `turn_status`, `turn_recover` | Pre-output activity status or resumed/recovered turn state |
 | `error` | Runtime/model/tool error |
 | `done` | Terminal stream event |
 
@@ -277,9 +271,14 @@ Electron main process exposes native capabilities to the renderer via preload:
 - `checkForUpdates` — auto-update
 - `getMcpOAuthStatus` / `startMcpOAuth` — native browser/loopback MCP OAuth flow
 - `notifyJob` — desktop notifications for job state changes
+- `onWorkspaceChanged` / `watchWorkspace` — debounced external workspace-change refreshes
+- screen-capture access and bridge methods — permission state, target listing, and local captures for runtime tools
 - `openMiniWindow` / mini route support — compact chat window lifecycle
 
-**Source:** `cometline/electron/src/app.ts`  
+**Composition root:** `cometline/electron/src/domains/runtime.ts`
+
+**IPC wiring:** `cometline/electron/src/domains/runtime-ipc.ts` and `ipc.ts`
+
 **Preload:** `cometline/electron/src/preload.ts`
 
 ## Extension Points

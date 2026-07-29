@@ -52,6 +52,10 @@ All stores are Svelte 5 `$state`-based singletons exported from `src/lib/stores/
 
 `ProviderSettings` includes `defaultModelId` / `defaultProviderId`. `modelStore.setProviders()` selects the default on startup; `modelStore.selectDefault()` resets when returning home. Configure under Settings → Providers → Model roles.
 
+### Persisted message context
+
+Composer context (workspace file selections and line ranges, web pages, terminal selections, and assistant-response references) is sent with the user turn as `MessageContextRef` metadata. The backend persists the references with the message, and `MessageContextChips.svelte` restores clickable chips from transcript reloads. Keep the reference lean: content belongs in the turn payload when needed; the transcript stores the stable source/label/role needed to reopen it.
+
 ### chatStore.send — the streaming loop
 
 ```text
@@ -176,7 +180,9 @@ Svelte 5 reactivity requires **new object references** for live token rendering.
 
 The panel has independent Wiki, Workspace, Changes, Web, and Terminal surfaces per session. The pure transition model is `workspace/workspace-panel-state.ts`; `shellStore` adapts it to reactive session maps, panel history, focus, and Electron visibility.
 
-`WorkspacePanel.svelte` is the toolbar and interaction host. It delegates webview lifecycle and page capture to `WorkspaceWebSurface.svelte`, and editor layers to `WorkspaceFileSurface.svelte`. Before selecting a different file, the shell awaits the active editor's leave guard so cancelling the confirmation leaves both the current path and draft unchanged.
+`WorkspacePanel.svelte` is the toolbar and interaction host. It delegates webview lifecycle and page capture to `WorkspaceWebSurface.svelte`, editor layers to `WorkspaceFileSurface.svelte`, Git selection/diff rendering to `GitChangesBrowser.svelte` / `GitDiffView.svelte`, and terminal lifecycle to `TerminalPanel.svelte`. Before selecting a different file, the shell awaits the active editor's leave guard so cancelling the confirmation leaves both the current path and draft unchanged.
+
+Electron watches the active workspace and emits coalesced file/Git changes through preload. The layout routes those signals to workspace refresh state; file previews can reload, retain a dirty draft, or open a full-page diff instead of silently losing an external change.
 
 ### ChatView orchestration
 

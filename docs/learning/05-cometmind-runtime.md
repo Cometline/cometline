@@ -88,6 +88,10 @@ Run(ctx, turn, emit):
 
 GitNexus `context Run -f runner.go` confirms outgoing calls to `StreamMessage`, all `event.*` emitters, `BuildRequest`, and `NormalizeHistoryForProvider`.
 
+### Completion and compatibility details
+
+A turn is more than a `done` event. The runtime persists assistant/tool output and token usage, keeps opaque provider continuation state only for the matching provider/model scope, and can persist assistant media separately from text. Post-turn memory extraction is asynchronous and globally bounded, so completion is not held hostage by a slow extraction. Provider/model capability failures also feed a compatibility policy, preventing the runtime from repeatedly requesting known-unsupported features.
+
 ### Related agent packages
 
 | File | Role |
@@ -109,6 +113,10 @@ GitNexus `context Run -f runner.go` confirms outgoing calls to `StreamMessage`, 
 | `tool_calls` | Tool-call shells + execution output |
 | `memories` | Semantic memory entries with embeddings |
 | `memory_events` | Memory audit events |
+| `memory_reembed_jobs` | Durable embedding migration/rebuild work |
+| `assistant_provider_states` | Opaque continuation state scoped to the provider/model that produced it |
+| `model_capability_negatives` | Learned compatibility exclusions for unsupported model capabilities |
+| `inbox_messages` | Durable user-facing notifications and reply state |
 | `gateway_sessions` | External chat thread/channel to session mappings |
 | `jobs` | Durable job queue with status, leases, retry/archive/delete metadata |
 | `scheduled_jobs` | One-shot and recurring schedule definitions |
@@ -119,7 +127,7 @@ Database path: `~/.cometmind/cometmind.db`
 ### Migrations
 
 - Tracked via `PRAGMA user_version` / `schemaVersion` in `internal/db/migrate.go`
-- Current **`schemaVersion` is 22** — schema changes for existing users need an incremental `alterStatements` entry, not only a `schema.sql` edit
+- Current **`schemaVersion` is 26** — verify `schemaVersion` in `migrate.go` before relying on this number; schema changes for existing users need an incremental `alterStatements` entry, not only a `schema.sql` edit
 - **Never** edit generated sqlc files — run `sqlc generate` after schema/query changes
 
 ### session.Service responsibilities

@@ -102,6 +102,9 @@ CometMind emits JSON frames with a `type` discriminator. Full catalog (OpenAPI `
 | `subagent_started` / `subagent_progress` / `subagent_finished` | Coding harness / general subagents                           |
 | `memory_injected` / `memory_updated`                           | Memory retrieval and extraction                              |
 | `memory_compaction_completed`                                  | Memory compaction finished (often via `/events`)             |
+| `context_budget`                                               | Context-window budget telemetry                              |
+| `inbox_message_created` / `inbox_message_archived`            | Runtime-wide inbox lifecycle notifications                   |
+| `assistant_image`                                              | Persisted assistant media, fetched from a session-media URL   |
 | `turn_status`                                                  | Pre-output status (retrieving memories, contacting model, …) |
 | `turn_recover`                                                 | Partial stream recovery after mid-turn failure               |
 | `error`                                                        | Failure                                                      |

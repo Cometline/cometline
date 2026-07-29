@@ -69,14 +69,23 @@ SSE events are JSON objects with a `type` discriminator. They appear in both Ope
 
 ### Full event catalog
 
-`text_delta`, `reasoning_start`, `reasoning_delta`, `tool_call`, `tool_result`, `step_finish`, `subagent_started`, `subagent_progress`, `subagent_finished`, `memory_injected`, `memory_updated`, `memory_compaction_completed`, `turn_status`, `turn_recover`, `error`, `done`
+**Turn rendering:** `text_delta`, `reasoning_start`, `reasoning_delta`, `tool_call`, `tool_result`, `step_finish`, `turn_status`, `turn_recover`, `error`, `done`
+
+**Delegation:** `subagent_started`, `subagent_progress`, `subagent_finished`
+
+**Context and memory:** `context_budget`, `memory_injected`, `memory_updated`, `memory_compaction_completed`
+
+**Runtime notifications:** `inbox_message_created`, `inbox_message_archived`
+
+**Media:** `assistant_image`
 
 ### Consumer matrix
 
 | Consumer                                                    | Events                                                |
 | ----------------------------------------------------------- | ----------------------------------------------------- |
-| Chat reducer (`reducers/chat.ts`)                           | Most session-turn events including `turn_recover`     |
-| Runtime SSE (`GET /api/v1/events` → layout / memory toasts) | Often `memory_updated`, `memory_compaction_completed` |
+| Chat reducer (`reducers/chat.ts`)                           | Session-turn rendering, including `turn_recover` and context budget |
+| Transcript UI (`MessageContextChips`, image bubble/lightbox) | Persisted message-context references and `assistant_image` media |
+| Runtime SSE (`GET /api/v1/events` → layout / memory toasts) | Background memory lifecycle and inbox-created/archived notifications |
 
 ### Go source of truth
 
@@ -125,7 +134,7 @@ cd cometmind && sqlc generate
 CometMind embeds `schema.sql` and tracks version in `internal/db/migrate.go`:
 
 ```go
-schemaVersion = 22  // current; bump with each user-facing migration
+schemaVersion = 26  // current at this documentation update; bump with each user-facing migration
 alterStatements = []string{ ... }  // v(N-1) → vN
 ```
 

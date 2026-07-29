@@ -59,10 +59,10 @@ The rule: Cometline is not the brain. CometMind is the brain. Comet SDK is only 
 | Coding-harness delegation | `cometmind/internal/acp`       | `delegate_coding_task` spawns the selected OpenCode, Claude Code, or Codex CLI profile; child sessions stream progress SSE |
 | Agent Skills          | `cometmind/internal/skills`        | Discovery, system-prompt index, load/read/write tools, Cometline slash commands                                             |
 | Discord gateway       | `cometmind/internal/gateway`       | Allowlisted bot with per-thread sessions; Cometline can start/stop subprocess                                               |
-| Persistence           | `cometmind/internal/db`            | SQLite workspaces, sessions, messages, tool calls, memories, gateway mappings                                               |
-| Local API             | `cometmind/server`, `openapi.yaml` | Health, sessions, transcript, stream message, abort, files, skills, skill drafts, MCP, memory, jobs                         |
-| Desktop runtime       | `cometline/electron`               | Sidecar spawn, health polling, settings IPC, updater, tray, workspace picker                                                |
-| Renderer UI           | `cometline/src`                    | SvelteKit routes, sidebar, chat thread, composer, settings modal, workspace panel, animations                                     |
+| Persistence           | `cometmind/internal/db`            | SQLite workspaces, sessions, messages/context references, tool calls, memories, inbox, provider state, media metadata, gateway mappings |
+| Local API             | `cometmind/internal/server`, `openapi.yaml` | REST/SSE contract for models, workspaces/Git/wiki, sessions/media, skills, MCP, memory, storage, jobs, and inbox |
+| Desktop runtime       | `cometline/electron/src/domains`   | Sidecar spawn, health polling, settings IPC, updater, tray, workspace picker/watcher, terminal, personas, and screen-capture bridge |
+| Renderer UI           | `cometline/src`                    | SvelteKit routes, sidebar, chat thread/context chips/image lightbox, composer, settings modal, workspace panel, and animations |
 | Secrets               | Electron JSON settings             | MVP-only. API keys in `~/.cometmind/cometline-settings.json`; move to OS keychain before wide distribution                  |
 | Tool permission gates | Not implemented                    | CometMind executes requested tools directly; harness permission behavior is controlled by each fixed CLI profile            |
 

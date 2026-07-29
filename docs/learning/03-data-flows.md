@@ -367,6 +367,21 @@ Sidecar is bundled as an `extraResource`, not inside the asar archive.
 
 ---
 
+## Flow 14: External workspace change → safe preview refresh
+
+```text
+Filesystem/Git change under active workspace
+  → Electron workspace watcher coalesces paths (300 ms)
+  → preload emits `workspace-changed`
+  → root layout updates workspace refresh state
+  → tree, Git, mentions, and preview surfaces re-fetch as appropriate
+  → a clean preview reloads; a dirty editor retains its draft and can show a full-page diff
+```
+
+The watcher deliberately skips noisy dependency/build directories and treats `.git` changes as a Git refresh signal. It is a UI-refresh hint, not a second file-sync engine.
+
+---
+
 ## What's next
 
 Now that you understand _how data moves_, dive into each module:

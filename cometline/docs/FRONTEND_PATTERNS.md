@@ -57,11 +57,12 @@ Shared shell state lives in `shell.svelte.ts`; route-local state should stay in 
 
 The workspace panel is a session-scoped shell feature, not a route. Keep transition logic in `src/lib/workspace/workspace-panel-state.ts`; it is pure TypeScript and has direct unit tests. `shell.svelte.ts` adapts those transitions to active-session state, focus requests, history, and Electron IPC.
 
-Keep surface-specific DOM and lifecycle code out of `WorkspacePanel.svelte`:
+`WorkspacePanel.svelte` owns shell-level surface/mode selection, toolbar state, and leave-guard coordination. Keep individual surface DOM and lifecycle code in its owner:
 
 - `WorkspaceWebSurface.svelte` owns Electron `<webview>` events, navigation, and page capture.
-- `WorkspaceFileSurface.svelte` owns mounted wiki/workspace file editors and reports only the active editor state.
-- `TerminalPanel.svelte` owns terminal start/focus behavior.
+- `WorkspaceFileSurface.svelte` composes file preview/editing and reports active editor state; `FilePreview.svelte` owns external-change resolution and full-page diff mode.
+- `GitChangesBrowser.svelte` owns change selection; `GitDiffView.svelte` renders the selected diff.
+- `TerminalPanel.svelte` owns terminal start/focus behavior and `TerminalInstance.svelte` owns terminal rendering.
 
 When an action can replace an open file, call `shellStore.openFilePreviewForActive()` and await its boolean result. A false result means the registered dirty-editor leave guard rejected navigation; callers must keep their own UI open rather than assuming the path changed.
 

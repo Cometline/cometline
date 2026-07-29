@@ -8,8 +8,10 @@ Primary source files:
 - `cometline/STYLING.md`
 - `cometline/docs/FRONTEND_PATTERNS.md`
 - `cometline/src/app.css`
-- `cometline/src/lib/components/jobs/`
-- `cometline/src/lib/components/settings/`
+- `cometline/src/lib/components/workspace/` and `WorkspacePanel.svelte`
+- `cometline/src/lib/components/TerminalPanel.svelte` / `TerminalInstance.svelte`
+- `cometline/src/lib/terminal-appearance.ts`
+- `cometline/src/lib/components/jobs/` and `settings/`
 
 ## Core Styling Model
 
@@ -56,7 +58,7 @@ From current project guidance:
 
 - prefer `var(--token)` over hardcoded values
 - do not use `@apply`
-- do not mix semantic classes and Tailwind utilities on the same element
+- let semantic classes own component styling; use Tailwind only for small, local layout/responsive adjustments when it does not obscure ownership
 - add a token before introducing a new repeated semantic color
 - keep styling colocated unless it is clearly a shared primitive
 
@@ -77,7 +79,7 @@ Cometline's v1 visual identity is:
 - accent glow instead of loud brand blocks
 - motion-heavy but generally reduced-motion aware
 
-This is not a dark-theme-ready system today.
+The application chrome is not globally dark-theme-ready today. The terminal is intentionally independent and can use its own dark appearance presets (Cometline Dark, Dracula, Gruvbox Dark, or Solarized Dark).
 
 ## Color System
 
@@ -102,9 +104,9 @@ Key files:
 - `cometline/src/lib/hero-composer-appearance.ts`
 - `cometline/src/routes/+layout.svelte`
 
-Current presets center on blue and rose variants and influence:
+Blue and Rose are built-in presets; a persisted custom preset lets the user choose the glow and focus-ring colors. They influence:
 
-- hero composer aura
+- hero composer aura and caret trail
 - pane focus ring/glow
 - user bubble accents
 - send/stop affordances
@@ -158,6 +160,10 @@ Important examples:
 Rule:
 
 - Prefer existing layout tokens before adding literal pixel values to components.
+
+### Responsive main-pane layout
+
+`AppShell.svelte` names the main content container `main-pane`; `app.css` uses container queries against that pane rather than only viewport media queries. Chat thread and composer metrics therefore respond to the space actually available beside the sidebar and workspace panel. Keep new chat-surface breakpoints in this model so an open workspace panel does not produce a cramped, viewport-sized layout.
 
 ## Motion System
 
@@ -222,21 +228,18 @@ Rule:
 - `ContextWindowRing.svelte`
 - `RichComposerInput.svelte`
 
-### Jobs and file surfaces
+### Jobs and workspace-panel surfaces
 
-- `JobsKanbanBoard.svelte`
-- `JobsKanbanColumn.svelte`
-- `JobCard.svelte`
-- `JobDetailDrawer.svelte`
-- `JobCreateForm.svelte`
-- `FilePreview.svelte`
-- `FileEditor.svelte`
-- `WorkspaceFileSurface.svelte`
-- `WorkspaceWebSurface.svelte`
+- Jobs: `JobsKanbanBoard.svelte`, `JobsKanbanColumn.svelte`, `JobCard.svelte`, `JobDetailDrawer.svelte`, `JobCreateForm.svelte`
+- Files: `FileTreeBrowser.svelte`, `FilePreview.svelte`, `FileEditor.svelte`, `WorkspaceFileSurface.svelte`
+- Git: `GitChangesBrowser.svelte` and `GitDiffView.svelte` (including full-page diffs)
+- Web and terminal: `WorkspaceWebSurface.svelte`, `TerminalPanel.svelte`, `TerminalInstance.svelte`
+
+`WorkspacePanel.svelte` orchestrates surface/mode switching. Each surface owns its own DOM lifecycle and local interaction styling. File previews also surface external changes and a full-page diff instead of silently overwriting an open editor.
 
 Rule:
 
-- Jobs and file-panel UI should reuse the existing light panel/card/pill vocabulary instead of introducing a separate productivity-app visual system.
+- Jobs and workspace-panel UI should reuse the existing light panel/card/pill vocabulary instead of introducing a separate productivity-app visual system. Terminal theming is the intentional exception.
 - Reuse these before inventing a new visual pattern in a nearby area.
 
 ## Current Consistency Gaps

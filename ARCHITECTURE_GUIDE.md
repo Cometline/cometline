@@ -65,7 +65,7 @@ The rule that explains most boundaries: `cometline` is the UI shell, `cometmind`
 
 ### CometMind Local API
 
-The authoritative local backend surface is under `/api/v1`, registered in `cometmind/server/server.go:64-73` and described by `cometmind/openapi.yaml`.
+The authoritative local backend surface is under `/api/v1`, registered by `cometmind/internal/server` and described completely by `cometmind/openapi.yaml`. The table is a contributor-oriented sample, not a route inventory: the current contract also covers model catalogues, workspace Git and wiki operations, session forks/media/children, global runtime events, managed skills, memory lifecycle, storage maintenance, and inbox messages.
 
 | Method | Path | Purpose |
 |---|---|---|
@@ -111,7 +111,10 @@ CometMind emits JSON SSE frames whose `type` field is the discriminator. The can
 | `memory_injected` | `memories` | Retrieved memories injected before model contact |
 | `memory_updated` | `changes` | Post-turn memory extraction changed records |
 | `memory_compaction_completed` | `before`, `after`, `trigger` | A manual or automatic memory compaction run finished |
-| `turn_status` | `phase`, `message?` | Runtime status before visible output streams |
+| `context_budget` | budget/usage fields | Context-window telemetry for the active turn |
+| `inbox_message_created`, `inbox_message_archived` | inbox message fields | Runtime-wide inbox lifecycle notification |
+| `assistant_image` | media identity and metadata | Persisted assistant image, fetched through the session-media endpoint |
+| `turn_status`, `turn_recover` | `phase`, `message?` | Runtime status before visible output or recovered turn state |
 | `error` | `type`, `message`, `code?` | Runtime/model/tool error |
 | `done` | `type` | Terminal stream event |
 
@@ -121,7 +124,7 @@ Changing this contract requires changes in `cometmind/internal/event`, `cometmin
 
 The only renderer-to-native bridge is `window.electronAPI`, exposed in
 `cometline/electron/src/preload.ts`, typed by `electron/src/shared/api.ts`, and handled in
-`cometline/electron/src/app.ts`.
+`cometline/electron/src/domains/runtime.ts`.
 
 | IPC Method | Purpose |
 |---|---|
@@ -157,12 +160,12 @@ Key references:
 
 | Step | Source |
 |---|---|
-| Port and health constants | `cometline/electron/src/app.ts` |
-| Resolve sidecar binary | `cometline/electron/src/app.ts` |
-| Ensure shared JSON settings file exists | `cometline/electron/src/app.ts` settings read/write helpers |
-| Spawn sidecar | `cometline/electron/src/app.ts` |
-| Health polling | `cometline/electron/src/app.ts` |
-| App ready sequence | `cometline/electron/src/app.ts` |
+| Port and health constants | `cometline/electron/src/domains/runtime.ts` |
+| Resolve sidecar binary | `cometline/electron/src/domains/runtime.ts` |
+| Ensure shared JSON settings file exists | `cometline/electron/src/domains/settings.ts` helpers |
+| Spawn sidecar | `cometline/electron/src/domains/runtime.ts` |
+| Health polling | `cometline/electron/src/domains/runtime.ts` |
+| App ready sequence | `cometline/electron/src/domains/runtime.ts` |
 | Renderer boot sequence | `cometline/src/routes/+layout.svelte:14-58` |
 
 ### Flow 2: First Message From The Home Screen
@@ -263,7 +266,7 @@ Key references:
 | Settings schema and normalization | `cometline/src/lib/settings/schema.ts` |
 | Pending-save snapshots | `cometline/src/lib/settings/pending-settings.ts` |
 | Renderer persistence helper | `cometline/src/lib/settings/persist.ts` |
-| Electron settings read/write and native side effects | `cometline/electron/src/app.ts` |
+| Electron settings read/write and native side effects | `cometline/electron/src/domains/runtime.ts` |
 | CometMind config load/reload | `cometmind/internal/config/`, `cometmind/internal/runtime/runtime.go` |
 
 ### Flow 6: Packaging
@@ -284,7 +287,7 @@ Key references:
 | `build:sidecar` | `cometline/package.json` |
 | Electron build scripts | `cometline/package.json` |
 | Sidecar extraResource | `cometline/package.json` |
-| App protocol handler | `cometline/electron/src/app.ts` |
+| App protocol handler | `cometline/electron/src/domains/runtime.ts` |
 
 # Module Guide: `comet-sdk`
 
@@ -588,33 +591,26 @@ SvelteKit renderer: cometline/src
   -> talks to native features only through optional electronAPI methods
 ```
 
-Security posture: `BrowserWindow` has `sandbox: true`, `contextIsolation: true`, `nodeIntegration: false`, and preload-only native access (`cometline/electron/src/app.ts`).
+Security posture: `BrowserWindow` has `sandbox: true`, `contextIsolation: true`, `nodeIntegration: false`, and preload-only native access. See `cometline/electron/src/domains/windows.ts` and `preload.ts`.
 
 ## Electron Main Process
 
-`electron/src/app.ts` owns:
+`electron/src/app.ts` is deliberately thin: it starts `initializeRuntime()`. `electron/src/domains/runtime.ts` is the composition root, with focused domains instead of one all-knowing main-process file.
 
 | Concern | Source |
 |---|---|
-| Default provider settings and model lists | `cometline/electron/src/app.ts` |
-| Custom `app://bundle` scheme registration | `cometline/electron/src/app.ts` |
-| Native traffic-light animation | `cometline/electron/src/app.ts` |
-| Sidecar binary resolution | `cometline/electron/src/app.ts` |
-| Settings/config paths | `cometline/electron/src/app.ts` |
-| Settings normalization and migration | `cometline/electron/src/app.ts` |
-| Settings read/write | `cometline/electron/src/app.ts` |
-| Generated CometMind config | `cometline/electron/src/app.ts` |
-| Provider env for sidecar | `cometline/electron/src/app.ts` |
-| Workspace selection and persistence | `cometline/electron/src/app.ts` |
-| Sidecar start/stop | `cometline/electron/src/app.ts` |
-| Auto-updater | `cometline/electron/src/app.ts` |
-| Packaged bundle serving | `cometline/electron/src/app.ts` |
-| Window creation and macOS hide-on-close | `cometline/electron/src/app.ts` |
-| Model discovery | `cometline/electron/src/app.ts` |
-| App lifecycle | `cometline/electron/src/app.ts` |
-| IPC handlers | `cometline/electron/src/app.ts` |
+| App lifecycle, sidecar assembly, and native-domain wiring | `electron/src/domains/runtime.ts` |
+| Sidecar binary resolution and start/stop | `electron/src/domains/cometmind-lifecycle.ts` |
+| Settings paths, normalization, persistence, workspace recents | `electron/src/domains/settings.ts` / `settings-domain.ts` |
+| IPC registration | `electron/src/domains/ipc.ts` / `runtime-ipc.ts` |
+| Windows, chrome, mini windows, macOS hide-on-close | `electron/src/domains/windows.ts` / `window-chrome.ts` |
+| Provider authentication/model discovery | `electron/src/domains/provider-auth.ts` / `services/ollama.ts` |
+| Packaged bundle protocol and updater | `electron/src/domains/app-protocol.ts` / `auto-updater.ts` |
+| Screen-capture bridge and permissions | `electron/src/domains/screen-capture.ts` / `media-permissions.ts` |
+| Debounced workspace filesystem watching | `electron/src/domains/workspace-watcher.ts` |
+| Native terminal and persona integrations | `electron/src/domains/terminal.ts` / `personas.ts` |
 
-The sidecar stop path waits for process exit before resolving so port 7700 and the SQLite WAL lock are released before a restart (`cometline/electron/src/app.ts`).
+The sidecar stop path waits for process exit before resolving so port 7700 and the SQLite WAL lock are released before a restart (`cometline/electron/src/domains/cometmind-lifecycle.ts`).
 
 ## Renderer Routes
 
@@ -701,7 +697,7 @@ Important reducer rules:
 
 ## Settings And Model Discovery
 
-Provider settings currently live in `~/.cometmind/cometline-settings.json`, and Electron writes a generated `~/.cometmind/config.toml` for CometMind. Both are written with `0600` permissions (`cometline/electron/src/app.ts`).
+Provider settings currently live in `~/.cometmind/cometline-settings.json`, and Electron writes a generated `~/.cometmind/config.toml` for CometMind. Both are written with `0600` permissions (`cometline/electron/src/domains/runtime.ts`).
 
 Model discovery is owned by Electron main, not the renderer:
 
@@ -742,9 +738,9 @@ Electron-builder includes the sidecar as an extra resource (`cometline/package.j
 | Change chat streaming UI | `cometline/src/lib/reducers/chat.ts`, `chat.svelte.ts`, `ChatThread.svelte` | CometMind event contract and reducer tests |
 | Change persistence schema | `cometmind/internal/db/schema.sql`, `migrate.go` | `sqlc generate`, session service, server transcript tests |
 | Add a REST endpoint | `cometmind/server/server.go`, `openapi.yaml` | Renderer client if UI needs it |
-| Change provider settings UX | `cometline/src/lib/stores/settings.svelte.ts`, `SettingsPanel.svelte`, `electron/src/app.ts` | Generated `config.toml`, sidecar restart behavior |
-| Change packaging/release | `cometline/package.json`, `.github/workflows`, `electron/src/app.ts` | Sidecar `extraResources`, update flow |
-| Improve secrets storage | `electron/src/app.ts` and future CometMind config endpoints | OS keychain design, renderer redaction |
+| Change provider settings UX | `cometline/src/lib/stores/settings.svelte.ts`, `SettingsPanel.svelte`, `electron/src/domains/settings.ts` | Generated `config.toml`, sidecar restart behavior |
+| Change packaging/release | `cometline/package.json`, `.github/workflows`, `electron/src/domains/runtime.ts` | Sidecar `extraResources`, update flow |
+| Improve secrets storage | `electron/src/domains/settings.ts` and future CometMind config endpoints | OS keychain design, renderer redaction |
 
 # Verification Commands
 

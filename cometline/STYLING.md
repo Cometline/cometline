@@ -55,7 +55,7 @@ Use for simple layout and spacing in HTML when it keeps markup readable:
 <div class="flex items-center gap-2">...</div>
 ```
 
-**Do not mix** semantic classes and Tailwind utilities on the same element. Pick one approach per element.
+Semantic classes should own component styling. Tailwind utilities are allowed for small, local layout or responsive adjustments when they do not obscure that ownership; do not use them to rebuild a component's visual system.
 
 ## When to use what
 

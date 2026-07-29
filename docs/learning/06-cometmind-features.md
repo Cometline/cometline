@@ -57,6 +57,10 @@ After turn:
 
 Settings: `cometmind.memory` in `cometline-settings.json`. Renderer helpers in `cometmind.ts` (`defaultMemorySettings`, `resolveMemorySettings`).
 
+### Current memory lifecycle
+
+Retrieved memories are classified for presentation (for example preference, semantic knowledge, and task outcome) and carry effective weighting rather than being a flat bag of facts. Extraction runs after the visible turn, is bounded across the runtime, and may update or compact records asynchronously. The chat reducer renders turn-scoped retrieval; layout-level runtime SSE handles background updates and compaction feedback.
+
 ---
 
 ## Agent Skills
@@ -288,6 +292,12 @@ When conversations grow long, CometMind can compact the **session transcript** t
 | Session helpers | `internal/session/compaction.go` |
 
 Triggered during the agent turn path when context exceeds configured budget thresholds (`turn_status` phase `compacting_context`).
+
+---
+
+## Assistant media and screen capture
+
+The runtime can emit an `assistant_image` SSE event after persisting image media. The renderer fetches it through `GET /api/v1/sessions/{id}/media/{imageId}` and displays it with a lightbox. For live captures, CometMind talks to the Electron-owned loopback capture bridge; Electron enforces OS screen-recording permission, enumerates capture targets, and bounds image size/cropping. The agent never receives arbitrary renderer or Node access just because a screenshot exists.
 
 ---
 

@@ -37,7 +37,7 @@ The Electron layer owns everything the **browser sandbox cannot**: process manag
 | `nodeIntegration`  | `false`                   | No `require()` in renderer |
 | Preload only       | `electron/src/preload.ts` | Controlled API surface     |
 
-Native access is **only** through `window.electronAPI`.
+Native access is **only** through `window.electronAPI`. `electron/src/app.ts` is only the entrypoint; `electron/src/domains/runtime.ts` composes the sidecar lifecycle, settings, IPC, windows, updater, terminal, personas, screen capture, and workspace watcher domains.
 
 ## Preload bridge
 
@@ -57,6 +57,8 @@ The renderer checks `window.electronAPI` before calling — this lets `pnpm run 
 | `getMcpOAuthStatus()` / `startMcpOAuth()`                                 | Native-browser MCP OAuth flow                        |
 | `readCursorMcpConfig()`                                                   | Import Cursor-style MCP config                       |
 | `notifyJob()`                                                             | Desktop notifications for job changes                |
+| `watchWorkspace()` / `onWorkspaceChanged()`                               | Debounced external file/Git changes refresh renderer surfaces |
+| Screen-capture access / preference methods                                | Read permission state and open OS settings           |
 | `setSidebarOpen(payload)`                                                 | macOS traffic-light animation                        |
 | `getFullScreen()` / `onFullScreenChange`                                  | Window state sync                                    |
 | `getAppVersion()`                                                         | Version string                                       |
