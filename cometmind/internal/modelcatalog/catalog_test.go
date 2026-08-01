@@ -559,3 +559,53 @@ func TestResolveProviderMetadataUnscopedAlwaysDefaults(t *testing.T) {
 		t.Fatalf("unscoped source = %q, want fallback", got.Source)
 	}
 }
+
+func TestResolveReasoningOptionsEffort(t *testing.T) {
+	loadProtocolFixture(t)
+
+	got := modelcatalog.ResolveReasoningOptions("opencode-go", "opencode-go", "gpt-5.6-luna")
+	if got.Source != modelcatalog.SourceCatalog {
+		t.Fatalf("source = %q, want catalog", got.Source)
+	}
+	want := []string{"none", "low", "medium", "high", "xhigh", "max"}
+	if len(got.Effort) != len(want) {
+		t.Fatalf("effort = %v, want %v", got.Effort, want)
+	}
+	for i := range want {
+		if got.Effort[i] != want[i] {
+			t.Fatalf("effort = %v, want %v", got.Effort, want)
+		}
+	}
+	if got.Toggle {
+		t.Fatal("luna must not advertise toggle")
+	}
+}
+
+func TestResolveReasoningOptionsToggleAndBudget(t *testing.T) {
+	loadProtocolFixture(t)
+
+	got := modelcatalog.ResolveReasoningOptions("opencode-go", "opencode-go", "qwen3.7-plus")
+	if got.Source != modelcatalog.SourceCatalog || !got.Toggle {
+		t.Fatalf("qwen3.7-plus = %+v, want catalog toggle", got)
+	}
+	if got.BudgetMax == nil || *got.BudgetMax != 262144 {
+		t.Fatalf("qwen3.7-plus budget max = %v, want 262144", got.BudgetMax)
+	}
+	if len(got.Effort) != 0 {
+		t.Fatalf("qwen3.7-plus effort = %v, want none", got.Effort)
+	}
+}
+
+func TestResolveReasoningOptionsMissAndUnscoped(t *testing.T) {
+	loadProtocolFixture(t)
+
+	miss := modelcatalog.ResolveReasoningOptions("opencode-go", "opencode-go", "not-a-real-model")
+	if miss.Source != modelcatalog.SourceFallback || len(miss.Effort) != 0 || miss.Toggle {
+		t.Fatalf("miss = %+v, want fallback", miss)
+	}
+
+	unscoped := modelcatalog.ResolveReasoningOptions("openai-compatible", "company-gateway", "gpt-5.6-luna")
+	if unscoped.Source != modelcatalog.SourceFallback || len(unscoped.Effort) != 0 {
+		t.Fatalf("unscoped = %+v, want fallback", unscoped)
+	}
+}

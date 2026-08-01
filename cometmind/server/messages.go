@@ -40,12 +40,13 @@ var supportedImageMediaTypes = map[string]bool{
 }
 
 type postMessageRequest struct {
-	Text        string               `json:"text"`
-	DisplayText string               `json:"display_text,omitempty"`
-	Images      []messageImageInput  `json:"images,omitempty"`
-	FilePaths   []string             `json:"file_paths,omitempty"`
-	WebContext  *webPageContextInput `json:"web_context,omitempty"`
-	WebContexts []webContextInput    `json:"web_contexts,omitempty"`
+	Text            string               `json:"text"`
+	DisplayText     string               `json:"display_text,omitempty"`
+	Images          []messageImageInput  `json:"images,omitempty"`
+	FilePaths       []string             `json:"file_paths,omitempty"`
+	WebContext      *webPageContextInput `json:"web_context,omitempty"`
+	WebContexts     []webContextInput    `json:"web_contexts,omitempty"`
+	ReasoningEffort string               `json:"reasoning_effort,omitempty"`
 }
 
 type webPageContextInput struct {
@@ -140,7 +141,9 @@ func (a *App) handlePostMessage(c *gin.Context) {
 
 	clientGone := false
 	errorPersisted := false
-	runErr := agent.RunHostedTurn(runCtx, runner, session.AgentTurnFromSession(sess), func(ev event.Event) {
+	turn := session.AgentTurnFromSession(sess)
+	turn.ReasoningEffort = strings.TrimSpace(req.ReasoningEffort)
+	runErr := agent.RunHostedTurn(runCtx, runner, turn, func(ev event.Event) {
 		if ev.Kind == event.KindError && strings.TrimSpace(ev.Message) != "" {
 			msg := userFacingMessageError(ev.Message)
 			ev.Message = msg

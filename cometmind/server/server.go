@@ -403,15 +403,16 @@ func (a *App) handleListModels(c *gin.Context) {
 	items := make([]apigen.ModelEntry, 0, len(models))
 	for _, m := range models {
 		items = append(items, apigen.ModelEntry{
-			ProviderId:      m.ProviderID,
-			ModelId:         m.ModelID,
-			Name:            m.Name,
-			Context:         m.Context,
-			Output:          m.Output,
-			LimitSource:     apigen.ModelEntryLimitSource(m.LimitSource),
-			Vision:          m.Vision,
-			VisionKnown:     m.VisionKnown,
-			InputModalities: toModelEntryInputModalities(m.InputModalities),
+			ProviderId:            m.ProviderID,
+			ModelId:               m.ModelID,
+			Name:                  m.Name,
+			Context:               m.Context,
+			Output:                m.Output,
+			LimitSource:           apigen.ModelEntryLimitSource(m.LimitSource),
+			Vision:                m.Vision,
+			VisionKnown:           m.VisionKnown,
+			InputModalities:       toModelEntryInputModalities(m.InputModalities),
+			ReasoningEffortOptions: optionalStringSlice(m.ReasoningEffortOptions),
 		})
 	}
 	c.JSON(http.StatusOK, apigen.ModelListResponse{Models: items})
@@ -443,13 +444,14 @@ func (a *App) handleLookupModelCatalog(c *gin.Context) {
 	items := make([]apigen.ModelCatalogLookupEntry, 0, len(looked))
 	for _, m := range looked {
 		items = append(items, apigen.ModelCatalogLookupEntry{
-			ModelId:         m.ModelID,
-			Context:         m.Context,
-			Output:          m.Output,
-			LimitSource:     apigen.ModelCatalogLookupEntryLimitSource(m.LimitSource),
-			Vision:          m.Vision,
-			VisionKnown:     m.VisionKnown,
-			InputModalities: toModelCatalogLookupInputModalities(m.InputModalities),
+			ModelId:               m.ModelID,
+			Context:               m.Context,
+			Output:                m.Output,
+			LimitSource:           apigen.ModelCatalogLookupEntryLimitSource(m.LimitSource),
+			Vision:                m.Vision,
+			VisionKnown:           m.VisionKnown,
+			InputModalities:       toModelCatalogLookupInputModalities(m.InputModalities),
+			ReasoningEffortOptions: optionalStringSlice(m.ReasoningEffortOptions),
 		})
 	}
 	c.JSON(http.StatusOK, apigen.ModelCatalogLookupResponse{Models: items})
@@ -750,4 +752,13 @@ func toModelCatalogLookupInputModalities(in []string) []apigen.ModelCatalogLooku
 		out = append(out, apigen.ModelCatalogLookupEntryInputModalities(m))
 	}
 	return out
+}
+
+// optionalStringSlice returns nil for an empty slice so optional response
+// fields are omitted from the wire instead of serialized as empty arrays.
+func optionalStringSlice(in []string) *[]string {
+	if len(in) == 0 {
+		return nil
+	}
+	return &in
 }

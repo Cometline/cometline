@@ -5,6 +5,9 @@ type AgentTurn struct {
 	ID         string
 	ModelID    string
 	ProviderID string
+	// ReasoningEffort is an optional per-turn reasoning effort override
+	// (e.g. "low", "medium", "high"). Empty means the runtime default.
+	ReasoningEffort string
 }
 
 // AgentTurnFromSession builds a turn handle from a loaded session row.

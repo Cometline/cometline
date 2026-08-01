@@ -2922,6 +2922,11 @@ components:
             contexts may use empty content for path-only viewing references.
           items:
             $ref: '#/components/schemas/WebContext'
+        reasoning_effort:
+          type: string
+          description: |
+            Optional per-turn reasoning effort override (e.g. low, medium, high)
+            for models that support it. Empty means the runtime default.
 
     WebContext:
       type: object
@@ -3125,6 +3130,11 @@ components:
           items:
             type: string
             enum: [text, image, video, audio, pdf]
+        reasoning_effort_options:
+          type: array
+          description: Allowed reasoning effort values (models.dev reasoning_options effort) when known; empty when the model or method is not catalogued.
+          items:
+            type: string
 
     ModelCatalogLookupRequest:
       type: object
@@ -3167,6 +3177,11 @@ components:
           items:
             type: string
             enum: [text, image, video, audio, pdf]
+        reasoning_effort_options:
+          type: array
+          description: Allowed reasoning effort values (models.dev reasoning_options effort) when known; empty when the model or method is not catalogued.
+          items:
+            type: string
 
     ModelCatalogLookupResponse:
       type: object
