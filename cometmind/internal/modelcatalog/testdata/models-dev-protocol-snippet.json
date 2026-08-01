@@ -1,0 +1,69 @@
+{
+  "opencode-go": {
+    "id": "opencode-go",
+    "api": "https://opencode.ai/zen/go/v1",
+    "npm": "@ai-sdk/openai-compatible",
+    "models": {
+      "gpt-5.6-luna": {
+        "id": "gpt-5.6-luna",
+        "modalities": {
+          "input": ["text", "image"],
+          "output": ["text"]
+        },
+        "limit": {
+          "context": 1050000,
+          "output": 8096
+        },
+        "provider": {
+          "npm": "@ai-sdk/openai"
+        }
+      },
+      "deepseek-v4-flash": {
+        "id": "deepseek-v4-flash",
+        "modalities": {
+          "input": ["text"],
+          "output": ["text"]
+        },
+        "limit": {
+          "context": 1000000,
+          "output": 384000
+        }
+      },
+      "qwen3.7-plus": {
+        "id": "qwen3.7-plus",
+        "modalities": {
+          "input": ["text", "image"],
+          "output": ["text"]
+        },
+        "limit": {
+          "context": 1000000,
+          "output": 65536
+        },
+        "provider": {
+          "npm": "@ai-sdk/anthropic"
+        }
+      }
+    }
+  },
+  "opencode": {
+    "id": "opencode",
+    "api": "https://opencode.ai/zen/v1",
+    "npm": "@ai-sdk/openai-compatible",
+    "models": {
+      "zen-only-model": {
+        "id": "zen-only-model",
+        "modalities": {
+          "input": ["text"],
+          "output": ["text"]
+        },
+        "limit": {
+          "context": 200000,
+          "output": 65536
+        },
+        "provider": {
+          "npm": "@ai-sdk/openai"
+        }
+      }
+    }
+  }
+}

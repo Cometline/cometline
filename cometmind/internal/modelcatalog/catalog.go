@@ -26,9 +26,18 @@ const (
 	SourceCatalog  = "catalog"
 	SourceFallback = "fallback"
 
+	// DefaultProtocolNPM is the AI SDK provider package assumed when models.dev
+	// carries no npm override. It mirrors OpenCode's own default and selects
+	// the OpenAI Chat Completions protocol.
+	DefaultProtocolNPM = "@ai-sdk/openai-compatible"
+	// NPMOpenAI selects the OpenAI Responses protocol.
+	NPMOpenAI = "@ai-sdk/openai"
+	// NPMAnthropic selects the Anthropic Messages protocol.
+	NPMAnthropic = "@ai-sdk/anthropic"
+
 	// diskCacheVersion bumps when the on-disk shape must be invalidated
 	// (e.g. older caches stored only limit fields and dropped modalities).
-	diskCacheVersion = 2
+	diskCacheVersion = 3
 )
 
 // Limits are the resolved context/output caps for one model.
@@ -52,15 +61,23 @@ type modelModalities struct {
 	Output []string `json:"output"`
 }
 
+type modelProviderMeta struct {
+	NPM string `json:"npm"`
+	API string `json:"api"`
+}
+
 type modelEntry struct {
-	ID         string          `json:"id"`
-	Attachment bool            `json:"attachment"`
-	Modalities modelModalities `json:"modalities"`
-	Limit      modelLimit      `json:"limit"`
+	ID         string            `json:"id"`
+	Attachment bool              `json:"attachment"`
+	Modalities modelModalities   `json:"modalities"`
+	Limit      modelLimit        `json:"limit"`
+	Provider   *modelProviderMeta `json:"provider"`
 }
 
 type providerEntry struct {
 	ID     string                `json:"id"`
+	API    string                `json:"api"`
+	NPM    string                `json:"npm"`
 	Models map[string]modelEntry `json:"models"`
 }
 
@@ -159,6 +176,71 @@ func limitsFromEntry(entry modelEntry) Limits {
 		VisionKnown:     true,
 		InputModalities: modalities,
 	}
+}
+
+// Protocol is the resolved wire protocol for one model: the AI SDK provider
+// package it speaks plus the API base URL the provider entry carries.
+type Protocol struct {
+	NPM    string
+	API    string
+	Source string
+}
+
+// ResolveProviderMetadata resolves the wire protocol (npm package + API URL)
+// for a model, mirroring OpenCode's precedence: model-level provider overrides
+// win over provider-level defaults, which win over the openai-compatible
+// default. It only applies to scoped catalog providers (opencode-go, opencode);
+// other methods always resolve to the default protocol so custom gateways are
+// never switched to the Responses protocol by accident.
+func ResolveProviderMetadata(method, providerID, modelID string) Protocol {
+	fallback := Protocol{NPM: DefaultProtocolNPM, Source: SourceFallback}
+	modelID = strings.TrimSpace(modelID)
+	if modelID == "" {
+		return fallback
+	}
+	key, scoped := catalogProviderKey(method, providerID)
+	if !scoped {
+		return fallback
+	}
+	cat, err := load()
+	if err != nil || cat == nil {
+		return fallback
+	}
+
+	candidates := modelIDCandidates(modelID)
+	if provider, ok := cat.Providers[key]; ok {
+		if entry, ok := findModelInProvider(provider, candidates); ok {
+			return protocolFromEntry(provider, entry)
+		}
+	}
+	// OpenCode Zen (`opencode`) and OpenCode Go (`opencode-go`) are sibling
+	// models.dev providers; try the sibling before falling back.
+	if alt := opencodeSiblingProvider(key); alt != "" {
+		if provider, ok := cat.Providers[alt]; ok {
+			if entry, ok := findModelInProvider(provider, candidates); ok {
+				return protocolFromEntry(provider, entry)
+			}
+		}
+	}
+	return fallback
+}
+
+func protocolFromEntry(provider providerEntry, entry modelEntry) Protocol {
+	protocol := Protocol{Source: SourceCatalog}
+	if entry.Provider != nil {
+		protocol.NPM = entry.Provider.NPM
+		protocol.API = entry.Provider.API
+	}
+	if protocol.NPM == "" {
+		protocol.NPM = provider.NPM
+	}
+	if protocol.NPM == "" {
+		protocol.NPM = DefaultProtocolNPM
+	}
+	if protocol.API == "" {
+		protocol.API = provider.API
+	}
+	return protocol
 }
 
 // modelIDCandidates expands a runtime model id into lookup variants.
@@ -562,6 +644,13 @@ func SetCachePathForTest(path string) {
 	mu.Lock()
 	defer mu.Unlock()
 	cachePathFn = func() (string, error) { return path, nil }
+}
+
+// ResetCachePathForTest restores the default disk cache path (tests only).
+func ResetCachePathForTest() {
+	mu.Lock()
+	defer mu.Unlock()
+	cachePathFn = modelsDevCachePath
 }
 
 // LoadFromJSONForTest installs a catalog parsed from JSON bytes (tests only).
