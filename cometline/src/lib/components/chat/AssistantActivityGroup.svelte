@@ -71,6 +71,7 @@
 	}
 
 	const CHILD_FADE = { duration: 500 };
+	const ACTIVITY_GROUP_SLIDE = { duration: 180 };
 	const CHILD_SLIDE_IN = { duration: 350, easing: cubicOut };
 	const CHILD_SLIDE_OUT = { duration: 280, easing: cubicOut };
 
@@ -132,7 +133,11 @@
 			<ChevronDown size={13} class={parentExpanded ? 'expanded' : ''} />
 		</button>
 		{#if parentExpanded}
-			<div id={bodyId} class="fold-body activity-group-body scrollbar-none">
+			<div
+				id={bodyId}
+				class="fold-body activity-group-body scrollbar-none"
+				transition:slide={ACTIVITY_GROUP_SLIDE}
+			>
 				{#if firstEntry.kind === 'memory'}
 					<MemoryCard
 						memories={firstEntry.memories}
