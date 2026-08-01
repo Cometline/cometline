@@ -94,15 +94,20 @@ func TestConvertRequest_ReasoningEffort(t *testing.T) {
 
 	var out anthropicRequest
 	require.NoError(t, json.Unmarshal(data, &out))
-	require.Equal(t, "high", out.Effort)
+	require.NotNil(t, out.OutputConfig)
+	require.Equal(t, "high", out.OutputConfig.Effort)
+	var raw map[string]any
+	require.NoError(t, json.Unmarshal(data, &raw))
+	require.NotContains(t, raw, "effort")
+	require.Equal(t, map[string]any{"effort": "high"}, raw["output_config"])
 
-	// Empty effort is omitted entirely.
+	// Empty effort omits output_config entirely.
 	data, err = toAnthropicRequest(&cometsdk.Request{
 		Model:    "claude-sonnet-4-5",
 		Messages: []cometsdk.Message{{Role: cometsdk.RoleUser, Content: []cometsdk.Block{cometsdk.TextBlock{Text: "Hi"}}}},
 	})
 	require.NoError(t, err)
-	require.NotContains(t, string(data), "effort")
+	require.NotContains(t, string(data), "output_config")
 }
 
 func TestConvertRequest_EmptyContentFiltered(t *testing.T) {

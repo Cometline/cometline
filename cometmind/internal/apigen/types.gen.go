@@ -1568,8 +1568,8 @@ type PostMessageRequest struct {
 	// Images Optional base64 image attachments. Supported media types are image/png, image/jpeg, image/gif, and image/webp.
 	Images *[]ImageAttachment `json:"images,omitempty"`
 
-	// ReasoningEffort Optional per-turn reasoning effort override (e.g. low, medium, high)
-	// for models that support it. Empty means the runtime default.
+	// ReasoningEffort Optional per-turn reasoning effort override using a value advertised
+	// by the selected model. Empty means the provider default.
 	ReasoningEffort *string `json:"reasoning_effort,omitempty"`
 
 	// Text User input text. Required when images is empty.

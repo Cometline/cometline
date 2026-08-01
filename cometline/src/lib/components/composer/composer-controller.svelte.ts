@@ -8,6 +8,7 @@ export function createComposerInputController(deps: {
 	getDisabled: () => boolean;
 	getHasSelectedModel: () => boolean;
 	getReasoningEffort: () => string;
+	getReasoningEffortOptions: () => string[];
 	clearDraft: () => void;
 }) {
 	function canSubmit() {
@@ -26,11 +27,15 @@ export function createComposerInputController(deps: {
 		const trimmed = deps.getValue().trim();
 		if (!canSubmit() || deps.getDisabled() || !deps.getHasSelectedModel()) return null;
 		const images = deps.getImages();
+		const effort = deps.getReasoningEffort();
+		const supportedEffort = deps.getReasoningEffortOptions().includes(effort)
+			? effort
+			: undefined;
 		return {
 			text: trimmed,
 			images: images.length > 0 ? images : undefined,
 			filePaths: filePaths.length > 0 ? filePaths : undefined,
-			reasoningEffort: deps.getReasoningEffort() || undefined
+			reasoningEffort: supportedEffort || undefined
 		};
 	}
 

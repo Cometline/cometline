@@ -13,13 +13,17 @@ import (
 // ─── Outgoing: SDK Request → Anthropic JSON ───────────────────────────────────
 
 type anthropicRequest struct {
-	Model           string             `json:"model"`
-	MaxTokens       int                `json:"max_tokens"`
-	System          string             `json:"system,omitempty"`
-	Messages        []anthropicMessage `json:"messages"`
-	Tools           []anthropicTool    `json:"tools,omitempty"`
-	Effort          string             `json:"effort,omitempty"`
-	Stream          bool               `json:"stream"`
+	Model        string                 `json:"model"`
+	MaxTokens    int                    `json:"max_tokens"`
+	System       string                 `json:"system,omitempty"`
+	Messages     []anthropicMessage     `json:"messages"`
+	Tools        []anthropicTool        `json:"tools,omitempty"`
+	OutputConfig *anthropicOutputConfig `json:"output_config,omitempty"`
+	Stream       bool                   `json:"stream"`
+}
+
+type anthropicOutputConfig struct {
+	Effort string `json:"effort,omitempty"`
 }
 
 type anthropicMessage struct {
@@ -83,8 +87,10 @@ func toAnthropicRequest(req *cometsdk.Request) ([]byte, error) {
 		MaxTokens: maxTokens,
 		System:    req.System,
 		Messages:  msgs,
-		Effort:    req.ReasoningEffort,
 		Stream:    true,
+	}
+	if req.ReasoningEffort != "" {
+		ar.OutputConfig = &anthropicOutputConfig{Effort: req.ReasoningEffort}
 	}
 
 	for _, t := range req.Tools {

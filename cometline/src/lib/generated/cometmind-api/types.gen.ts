@@ -284,8 +284,8 @@ export type PostMessageRequest = {
      */
     web_contexts?: Array<WebContext>;
     /**
-     * Optional per-turn reasoning effort override (e.g. low, medium, high)
-     * for models that support it. Empty means the runtime default.
+     * Optional per-turn reasoning effort override using a value advertised
+     * by the selected model. Empty means the provider default.
      *
      */
     reasoning_effort?: string;

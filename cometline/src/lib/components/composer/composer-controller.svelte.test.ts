@@ -9,6 +9,7 @@ function deps(overrides: Partial<Parameters<typeof createComposerInputController
 		getDisabled: () => false,
 		getHasSelectedModel: () => true,
 		getReasoningEffort: () => '',
+		getReasoningEffortOptions: () => [],
 		clearDraft: vi.fn(),
 		...overrides
 	};
@@ -35,12 +36,25 @@ describe('createComposerInputController', () => {
 
 	it('buildSubmitPayload attaches the reasoning effort when set', () => {
 		const controller = createComposerInputController(
-			deps({ getReasoningEffort: () => 'high' })
+			deps({
+				getReasoningEffort: () => 'high',
+				getReasoningEffortOptions: () => ['low', 'medium', 'high']
+			})
 		);
 		expect(controller.buildSubmitPayload([])).toEqual({
 			text: 'hello',
 			reasoningEffort: 'high'
 		});
+	});
+
+	it('buildSubmitPayload omits an effort unsupported by the selected model', () => {
+		const controller = createComposerInputController(
+			deps({
+				getReasoningEffort: () => 'high',
+				getReasoningEffortOptions: () => ['low', 'medium']
+			})
+		);
+		expect(controller.buildSubmitPayload([])).toEqual({ text: 'hello' });
 	});
 
 	it('submitDraft sends payload and clears draft', () => {

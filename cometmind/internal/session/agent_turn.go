@@ -6,7 +6,7 @@ type AgentTurn struct {
 	ModelID    string
 	ProviderID string
 	// ReasoningEffort is an optional per-turn reasoning effort override
-	// (e.g. "low", "medium", "high"). Empty means the runtime default.
+	// using a value advertised by the selected model. Empty means the provider default.
 	ReasoningEffort string
 }
 
