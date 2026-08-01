@@ -30,7 +30,8 @@ describe('modelStore.applyLimits', () => {
 				limitSource: 'catalog',
 				vision: false,
 				visionKnown: true,
-				inputModalities: ['text']
+				inputModalities: ['text'],
+				reasoningEffortOptions: []
 			},
 			{
 				providerId: 'openai',
@@ -40,7 +41,8 @@ describe('modelStore.applyLimits', () => {
 				limitSource: 'catalog',
 				vision: true,
 				visionKnown: true,
-				inputModalities: ['text', 'image']
+				inputModalities: ['text', 'image'],
+				reasoningEffortOptions: ['low', 'medium', 'high']
 			}
 		];
 		modelStore.applyLimits(entries);

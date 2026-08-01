@@ -116,6 +116,7 @@ export type ShortcutAction =
 	| 'openJobs'
 	| 'openSkillDrafts'
 	| 'openInbox'
+	| 'cycleReasoningEffort'
 	| 'recentSession';
 
 export interface ShortcutBinding {

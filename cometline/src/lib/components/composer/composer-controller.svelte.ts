@@ -7,6 +7,7 @@ export function createComposerInputController(deps: {
 	getImages: () => ImageAttachment[];
 	getDisabled: () => boolean;
 	getHasSelectedModel: () => boolean;
+	getReasoningEffort: () => string;
 	clearDraft: () => void;
 }) {
 	function canSubmit() {
@@ -28,7 +29,8 @@ export function createComposerInputController(deps: {
 		return {
 			text: trimmed,
 			images: images.length > 0 ? images : undefined,
-			filePaths: filePaths.length > 0 ? filePaths : undefined
+			filePaths: filePaths.length > 0 ? filePaths : undefined,
+			reasoningEffort: deps.getReasoningEffort() || undefined
 		};
 	}
 

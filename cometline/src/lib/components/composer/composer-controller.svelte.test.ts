@@ -1,57 +1,52 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createComposerInputController } from './composer-controller.svelte';
 
+function deps(overrides: Partial<Parameters<typeof createComposerInputController>[0]> = {}) {
+	return {
+		onSend: vi.fn(),
+		getValue: () => 'hello',
+		getImages: () => [],
+		getDisabled: () => false,
+		getHasSelectedModel: () => true,
+		getReasoningEffort: () => '',
+		clearDraft: vi.fn(),
+		...overrides
+	};
+}
+
 describe('createComposerInputController', () => {
 	it('canSubmit is true when text or images exist', () => {
-		const controller = createComposerInputController({
-			onSend: vi.fn(),
-			getValue: () => 'hello',
-			getImages: () => [],
-			getDisabled: () => false,
-			getHasSelectedModel: () => true,
-			clearDraft: vi.fn()
-		});
+		const controller = createComposerInputController(deps());
 		expect(controller.canSubmit()).toBe(true);
 	});
 
 	it('buildSubmitPayload returns null when disabled or no model', () => {
-		const controller = createComposerInputController({
-			onSend: vi.fn(),
-			getValue: () => 'hello',
-			getImages: () => [],
-			getDisabled: () => true,
-			getHasSelectedModel: () => true,
-			clearDraft: vi.fn()
-		});
+		const controller = createComposerInputController(deps({ getDisabled: () => true }));
 		expect(controller.buildSubmitPayload([])).toBeNull();
 	});
 
 	it('buildSubmitPayload includes text and file paths', () => {
-		const controller = createComposerInputController({
-			onSend: vi.fn(),
-			getValue: () => '  run tests  ',
-			getImages: () => [],
-			getDisabled: () => false,
-			getHasSelectedModel: () => true,
-			clearDraft: vi.fn()
-		});
+		const controller = createComposerInputController(deps({ getValue: () => '  run tests  ' }));
 		expect(controller.buildSubmitPayload(['/tmp/a.ts'])).toEqual({
 			text: 'run tests',
 			filePaths: ['/tmp/a.ts']
 		});
 	});
 
+	it('buildSubmitPayload attaches the reasoning effort when set', () => {
+		const controller = createComposerInputController(
+			deps({ getReasoningEffort: () => 'high' })
+		);
+		expect(controller.buildSubmitPayload([])).toEqual({
+			text: 'hello',
+			reasoningEffort: 'high'
+		});
+	});
+
 	it('submitDraft sends payload and clears draft', () => {
 		const onSend = vi.fn();
 		const clearDraft = vi.fn();
-		const controller = createComposerInputController({
-			onSend,
-			getValue: () => 'go',
-			getImages: () => [],
-			getDisabled: () => false,
-			getHasSelectedModel: () => true,
-			clearDraft
-		});
+		const controller = createComposerInputController(deps({ onSend, getValue: () => 'go', clearDraft }));
 		expect(controller.submitDraft([])).toBe(true);
 		expect(onSend).toHaveBeenCalledWith({ text: 'go' });
 		expect(clearDraft).toHaveBeenCalledOnce();

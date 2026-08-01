@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Folder, Send, Square } from '@lucide/svelte';
+	import { Brain, Folder, Send, Square } from '@lucide/svelte';
 	import ContextWindowRing from '$lib/components/composer/ContextWindowRing.svelte';
 	import ModelPicker from '$lib/components/composer/ModelPicker.svelte';
 	import Tooltip from '$lib/components/Tooltip.svelte';
@@ -15,6 +15,9 @@
 		canSubmit,
 		disabled,
 		onModelChange,
+		reasoningEffort,
+		reasoningEffortOptions,
+		onCycleReasoningEffort,
 		onOpenChangeWorkspace,
 		onStop,
 		onSubmit
@@ -27,17 +30,25 @@
 		canSubmit: boolean;
 		disabled: boolean;
 		onModelChange?: (option: ModelOption) => void | Promise<void>;
+		reasoningEffort: string;
+		reasoningEffortOptions: string[];
+		onCycleReasoningEffort: () => void;
 		onOpenChangeWorkspace: () => void;
 		onStop?: () => void;
 		onSubmit: () => void;
 	} = $props();
 
 	const sendLabel = $derived(streaming ? 'Queue follow-up' : 'Send');
+	const effortSupported = $derived(reasoningEffortOptions.length > 0);
+	const effortLabel = $derived(
+		reasoningEffort
+			? reasoningEffort.charAt(0).toUpperCase() + reasoningEffort.slice(1)
+			: 'Auto'
+	);
 </script>
 
 <div class="composer-footer">
 	<div class="composer-tools">
-		<ModelPicker {onModelChange} />
 		{#if hasWorkspace}
 			<button
 				type="button"
@@ -51,6 +62,28 @@
 				<span>{currentWorkspaceLabel}</span>
 			</button>
 		{/if}
+		<ModelPicker {onModelChange} />
+		<Tooltip
+			label={effortSupported
+				? `Reasoning effort: ${effortLabel}`
+				: 'Reasoning effort unavailable for this model'}
+			action="cycleReasoningEffort"
+			disabled={!effortSupported}
+		>
+			<button
+				type="button"
+				class="effort-button"
+				class:active={Boolean(reasoningEffort)}
+				disabled={!effortSupported}
+				onclick={onCycleReasoningEffort}
+				aria-label={effortSupported
+					? `Reasoning effort: ${effortLabel}. Cycle effort.`
+					: 'Reasoning effort unavailable for this model'}
+			>
+				<Brain size={15} stroke-width={1.8} />
+				<span class="effort-label">{effortLabel}</span>
+			</button>
+		</Tooltip>
 	</div>
 
 	<div class="composer-actions">
@@ -127,6 +160,44 @@
 	.composer-footer button:disabled {
 		opacity: 0.4;
 		cursor: not-allowed;
+	}
+
+	.effort-button {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		padding: 5px 6px;
+		line-height: 1;
+	}
+
+	.effort-button.active {
+		color: var(--text-muted);
+	}
+
+	.effort-button :global(svg) {
+		color: color-mix(
+			in srgb,
+			var(--hero-composer-glow-color, #72c0ff) 58%,
+			var(--accent, #0066cc)
+		);
+		transition:
+			color 160ms ease,
+			filter 160ms ease;
+	}
+
+	.effort-button.active :global(svg) {
+		color: var(--hero-composer-glow-color, #72c0ff);
+		filter: drop-shadow(0 0 5px var(--hero-composer-glow-ring, rgba(114, 192, 255, 0.2)));
+	}
+
+	.effort-label {
+		max-width: 5.5rem;
+		overflow: hidden;
+		font-size: 11px;
+		font-weight: 600;
+		line-height: 1;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 
 	.send-button {
