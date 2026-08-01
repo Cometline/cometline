@@ -2,136 +2,27 @@ package codex
 
 import (
 	"encoding/json"
-	"fmt"
-	"strings"
 
 	cometsdk "github.com/cometline/comet-sdk"
-	"github.com/cometline/comet-sdk/internal/providerbase"
+	"github.com/cometline/comet-sdk/internal/responsesproto"
 )
 
-type codexRequest struct {
-	Model           string          `json:"model"`
-	Input           []codexInput    `json:"input"`
-	Instructions    string          `json:"instructions,omitempty"`
-	Tools           []codexTool     `json:"tools,omitempty"`
-	Reasoning       *codexReasoning `json:"reasoning,omitempty"`
-	MaxOutputTokens int             `json:"max_output_tokens,omitempty"`
-	Temperature     *float64        `json:"temperature,omitempty"`
-	Store           bool            `json:"store"`
-	Stream          bool            `json:"stream"`
-}
-
-type codexReasoning struct {
-	Summary string `json:"summary,omitempty"`
-}
-
-type codexInput struct {
-	Type             string             `json:"type,omitempty"`
-	Role             string             `json:"role,omitempty"`
-	Content          []codexContentPart `json:"content,omitempty"`
-	Summary          []codexContentPart `json:"summary,omitempty"`
-	CallID           string             `json:"call_id,omitempty"`
-	Name             string             `json:"name,omitempty"`
-	Args             string             `json:"arguments,omitempty"`
-	Output           string             `json:"output,omitempty"`
-	EncryptedContent string             `json:"encrypted_content,omitempty"`
-}
-
-// MarshalJSON keeps encrypted reasoning items valid for the Codex Responses API.
-// A bare {type:reasoning, encrypted_content:...} is rejected with
-// Missing required parameter: 'input[N].summary', and omitempty would drop an
-// empty summary slice, so encrypted items always emit an explicit summary array.
-func (c codexInput) MarshalJSON() ([]byte, error) {
-	type wire struct {
-		Type             string             `json:"type,omitempty"`
-		Role             string             `json:"role,omitempty"`
-		Content          []codexContentPart `json:"content,omitempty"`
-		Summary          []codexContentPart `json:"summary,omitempty"`
-		CallID           string             `json:"call_id,omitempty"`
-		Name             string             `json:"name,omitempty"`
-		Args             string             `json:"arguments,omitempty"`
-		Output           string             `json:"output,omitempty"`
-		EncryptedContent string             `json:"encrypted_content,omitempty"`
-	}
-	if c.EncryptedContent == "" {
-		return json.Marshal(wire(c))
-	}
-	summary := c.Summary
-	if summary == nil {
-		summary = []codexContentPart{}
-	}
-	return json.Marshal(struct {
-		Type             string             `json:"type,omitempty"`
-		Role             string             `json:"role,omitempty"`
-		Content          []codexContentPart `json:"content,omitempty"`
-		Summary          []codexContentPart `json:"summary"`
-		CallID           string             `json:"call_id,omitempty"`
-		Name             string             `json:"name,omitempty"`
-		Args             string             `json:"arguments,omitempty"`
-		Output           string             `json:"output,omitempty"`
-		EncryptedContent string             `json:"encrypted_content,omitempty"`
-	}{
-		Type:             c.Type,
-		Role:             c.Role,
-		Content:          c.Content,
-		Summary:          summary,
-		CallID:           c.CallID,
-		Name:             c.Name,
-		Args:             c.Args,
-		Output:           c.Output,
-		EncryptedContent: c.EncryptedContent,
-	})
-}
-
-type codexContentPart struct {
-	Type     string `json:"type"`
-	Text     string `json:"text,omitempty"`
-	ImageURL string `json:"image_url,omitempty"`
-}
-
-type codexTool struct {
-	Type        string          `json:"type"`
-	Name        string          `json:"name"`
-	Description string          `json:"description,omitempty"`
-	Parameters  json.RawMessage `json:"parameters"`
-	Strict      bool            `json:"strict"`
-}
+// Wire aliases keep callers and tests on codex names while the protocol
+// implementation lives in responsesproto (shared with the API-key Responses
+// provider used by OpenCode Go).
+type codexRequest = responsesproto.Request
+type codexReasoning = responsesproto.Reasoning
+type codexInput = responsesproto.InputItem
+type codexContentPart = responsesproto.ContentPart
+type codexTool = responsesproto.Tool
 
 func toCodexRequest(req *cometsdk.Request, disableMaxOutputTokens, disableReasoningSummary, disableEncryptedReplay bool) ([]byte, error) {
-	input, err := convertMessages(req.Messages, req.Model, !disableEncryptedReplay)
-	if err != nil {
-		return nil, err
-	}
-	out := codexRequest{
-		Model:        req.Model,
-		Input:        input,
-		Instructions: req.System,
-		Store:        false,
-		Stream:       true,
-		Temperature:  req.Temperature,
-	}
-	if !disableReasoningSummary {
-		// Ask for a displayable summary when the Codex model supports it. The
-		// provider retries without this field if a model rejects it.
-		out.Reasoning = &codexReasoning{Summary: "auto"}
-	}
-	if req.MaxTokens > 0 && !disableMaxOutputTokens {
-		out.MaxOutputTokens = req.MaxTokens
-	}
-	for _, t := range req.Tools {
-		params := t.Parameters
-		if len(strings.TrimSpace(string(params))) == 0 {
-			params = json.RawMessage(`{"type":"object","properties":{}}`)
-		}
-		out.Tools = append(out.Tools, codexTool{
-			Type:        "function",
-			Name:        t.Name,
-			Description: t.Description,
-			Parameters:  params,
-			Strict:      false,
-		})
-	}
-	return providerbase.MarshalWithOptions(out, req.Options, providerID)
+	return responsesproto.BuildRequest(req, responsesproto.RequestOptions{
+		ProviderKey:            providerID,
+		DisableMaxOutputTokens:  disableMaxOutputTokens,
+		DisableReasoningSummary: disableReasoningSummary,
+		ReplayEncryptedState:    !disableEncryptedReplay,
+	})
 }
 
 func addResponsesLiteReasoningContext(data []byte) ([]byte, error) {
@@ -147,131 +38,4 @@ func addResponsesLiteReasoningContext(data []byte) ([]byte, error) {
 	payload["reasoning"] = reasoning
 	payload["parallel_tool_calls"] = false
 	return json.Marshal(payload)
-}
-
-func convertMessages(messages []cometsdk.Message, modelID string, replayEncryptedState bool) ([]codexInput, error) {
-	var out []codexInput
-	toolNames := make(map[string]string)
-	for _, m := range messages {
-		converted, err := convertMessage(m, toolNames, modelID, replayEncryptedState)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, converted...)
-	}
-	return out, nil
-}
-
-func convertMessage(m cometsdk.Message, toolNames map[string]string, modelID string, replayEncryptedState bool) ([]codexInput, error) {
-	switch m.Role {
-	case cometsdk.RoleUser:
-		parts, err := inputContentParts(m.Content)
-		if err != nil {
-			return nil, err
-		}
-		return []codexInput{{Role: "user", Content: parts}}, nil
-	case cometsdk.RoleAssistant:
-		var out []codexInput
-		reasoningSummary := reasoningSummaryParts(m.ReasoningContent)
-		var encrypted string
-		if replayEncryptedState {
-			for _, state := range m.ProviderState {
-				if state.ModelID == modelID && state.Data != "" {
-					// One assistant message stores at most one opaque state per model.
-					encrypted = state.Data
-				}
-			}
-		}
-		// Codex requires reasoning input items to carry summary. Merge opaque
-		// encrypted state with the displayable summary into a single item so we
-		// never emit encrypted_content without summary.
-		if encrypted != "" || len(reasoningSummary) > 0 {
-			out = append(out, codexInput{
-				Type:             "reasoning",
-				EncryptedContent: encrypted,
-				Summary:          reasoningSummary,
-			})
-		}
-		var textParts []codexContentPart
-		var toolCalls []codexInput
-		for _, b := range m.Content {
-			switch v := b.(type) {
-			case cometsdk.TextBlock:
-				textParts = append(textParts, codexContentPart{Type: "output_text", Text: v.Text})
-			case cometsdk.ToolCallBlock:
-				args := v.Input
-				if len(strings.TrimSpace(string(args))) == 0 {
-					args = json.RawMessage(`{}`)
-				}
-				toolNames[v.ID] = v.Name
-				toolCalls = append(toolCalls, codexInput{Type: "function_call", CallID: v.ID, Name: v.Name, Args: string(args)})
-			default:
-				return nil, fmt.Errorf("codex: unsupported block type %T in assistant message", b)
-			}
-		}
-		if len(textParts) > 0 {
-			out = append(out, codexInput{Role: "assistant", Content: textParts})
-		}
-		out = append(out, toolCalls...)
-		return out, nil
-	case cometsdk.RoleToolResult:
-		var out []codexInput
-		for _, b := range m.Content {
-			tr, ok := b.(cometsdk.ToolResultBlock)
-			if !ok {
-				return nil, fmt.Errorf("codex: RoleToolResult message contains non-ToolResultBlock")
-			}
-			out = append(out, codexInput{
-				Type:   "function_call_output",
-				CallID: tr.ToolCallID,
-				Name:   toolNames[tr.ToolCallID],
-				Output: codexToolResultOutput(tr.Content),
-			})
-		}
-		return out, nil
-	default:
-		return nil, fmt.Errorf("codex: unknown role %q", m.Role)
-	}
-}
-
-// codexToolResultOutput ensures function_call_output always carries the output
-// field Codex requires. Empty tool results (e.g. list_dir on an empty directory)
-// must not be omitted via omitempty or the API returns HTTP 400.
-func codexToolResultOutput(content string) string {
-	if content == "" {
-		return "(no output)"
-	}
-	return content
-}
-
-func reasoningSummaryParts(blocks []cometsdk.Block) []codexContentPart {
-	parts := make([]codexContentPart, 0, len(blocks))
-	for _, b := range blocks {
-		switch v := b.(type) {
-		case cometsdk.ReasoningBlock:
-			if text := strings.TrimSpace(v.Text); text != "" {
-				parts = append(parts, codexContentPart{Type: "summary_text", Text: text})
-			}
-		case cometsdk.TextBlock:
-			if text := strings.TrimSpace(v.Text); text != "" {
-				parts = append(parts, codexContentPart{Type: "summary_text", Text: text})
-			}
-		}
-	}
-	return parts
-}
-
-func inputContentParts(blocks []cometsdk.Block) ([]codexContentPart, error) {
-	parts := make([]codexContentPart, 0, len(blocks))
-	for _, b := range blocks {
-		switch v := b.(type) {
-		case cometsdk.TextBlock:
-			parts = append(parts, codexContentPart{Type: "input_text", Text: v.Text})
-		case cometsdk.ImageBlock:
-			parts = append(parts, codexContentPart{Type: "input_image", ImageURL: fmt.Sprintf("data:%s;base64,%s", v.MediaType, v.Data)})
-		default:
-			return nil, fmt.Errorf("codex: unsupported block type %T in user message", b)
-		}
-	}
-	return parts, nil
 }

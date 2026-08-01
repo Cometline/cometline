@@ -7,10 +7,10 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"strings"
 
 	cometsdk "github.com/cometline/comet-sdk"
 	"github.com/cometline/comet-sdk/internal/providerbase"
+	"github.com/cometline/comet-sdk/internal/responsesproto"
 	"github.com/cometline/comet-sdk/internal/retry"
 )
 
@@ -84,19 +84,19 @@ func (p *provider) Stream(ctx context.Context, req *cometsdk.Request) (<-chan co
 			go parseLoop(ctx, providerID, req.Model, !capabilityDisabled(req, cometsdk.CapabilityToolInputStream), httpResp.Body, ch, p.log, p.cfg.StreamIdleTimeout)
 			return ch, nil
 		}
-		if req.MaxTokens > 0 && !flags.disableMaxOutputTokens && isMaxOutputTokensUnsupportedError(err) {
+		if req.MaxTokens > 0 && !flags.disableMaxOutputTokens && responsesproto.IsMaxOutputTokensUnsupportedError(err) {
 			p.log.DebugContext(ctx, "stream.max_output_tokens_fallback", "error", err, "model", req.Model)
 			flags.disableMaxOutputTokens = true
 			markCapabilityUnsupported(req, cometsdk.CapabilityMaxOutputTokens)
 			continue
 		}
-		if !flags.disableReasoningSummary && isReasoningSummaryUnsupportedError(err) {
+		if !flags.disableReasoningSummary && responsesproto.IsReasoningSummaryUnsupportedError(err) {
 			p.log.DebugContext(ctx, "stream.reasoning_summary_fallback", "error", err, "model", req.Model)
 			flags.disableReasoningSummary = true
 			markCapabilityUnsupported(req, cometsdk.CapabilityReasoningSummary)
 			continue
 		}
-		if !flags.disableEncryptedReplay && isEncryptedReasoningReplayError(err) {
+		if !flags.disableEncryptedReplay && responsesproto.IsEncryptedReasoningReplayError(err) {
 			p.log.DebugContext(ctx, "stream.encrypted_reasoning_replay_fallback", "error", err, "model", req.Model)
 			flags.disableEncryptedReplay = true
 			markCapabilityUnsupported(req, cometsdk.CapabilityEncryptedReasoningReplay)
@@ -162,45 +162,6 @@ func (p *provider) doRequest(ctx context.Context, req *cometsdk.Request, flags s
 		return nil, providerbase.ClassifyHTTPError(providerID, resp, body)
 	}
 	return resp, nil
-}
-
-func isMaxOutputTokensUnsupportedError(err error) bool {
-	se, ok := err.(*cometsdk.ServerError)
-	if !ok {
-		return false
-	}
-	if se.StatusCode < 400 || se.StatusCode >= 500 {
-		return false
-	}
-	msg := strings.ToLower(se.Message)
-	return strings.Contains(msg, "max_output_tokens") &&
-		(strings.Contains(msg, "unsupported") || strings.Contains(msg, "unknown") || strings.Contains(msg, "invalid"))
-}
-
-func isReasoningSummaryUnsupportedError(err error) bool {
-	se, ok := err.(*cometsdk.ServerError)
-	if !ok || se.StatusCode < 400 || se.StatusCode >= 500 {
-		return false
-	}
-	msg := strings.ToLower(se.Message)
-	return strings.Contains(msg, "reasoning") &&
-		strings.Contains(msg, "summary") &&
-		(strings.Contains(msg, "unsupported") || strings.Contains(msg, "unknown") || strings.Contains(msg, "invalid"))
-}
-
-func isEncryptedReasoningReplayError(err error) bool {
-	se, ok := err.(*cometsdk.ServerError)
-	if !ok || se.StatusCode < 400 || se.StatusCode >= 500 {
-		return false
-	}
-	msg := strings.ToLower(se.Message)
-	if strings.Contains(msg, "encrypted_content") || strings.Contains(msg, "encrypted content") {
-		return true
-	}
-	// Codex rejects reasoning items that omit summary when encrypted state is replayed.
-	return strings.Contains(msg, "input[") &&
-		strings.Contains(msg, ".summary") &&
-		strings.Contains(msg, "missing")
 }
 
 func (p *provider) httpClient() *http.Client {
