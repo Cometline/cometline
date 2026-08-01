@@ -13,15 +13,16 @@ import (
 
 // ModelEntry is one selectable model from Cometline provider settings.
 type ModelEntry struct {
-	ProviderID      string   `json:"provider_id"`
-	ModelID         string   `json:"model_id"`
-	Name            string   `json:"name"`
-	Context         int      `json:"context"`
-	Output          int      `json:"output"`
-	LimitSource     string   `json:"limit_source"`
-	Vision          bool     `json:"vision"`
-	VisionKnown     bool     `json:"vision_known"`
-	InputModalities []string `json:"input_modalities"`
+	ProviderID            string   `json:"provider_id"`
+	ModelID               string   `json:"model_id"`
+	Name                  string   `json:"name"`
+	Context               int      `json:"context"`
+	Output                int      `json:"output"`
+	LimitSource           string   `json:"limit_source"`
+	Vision                bool     `json:"vision"`
+	VisionKnown           bool     `json:"vision_known"`
+	InputModalities       []string `json:"input_modalities"`
+	ReasoningEffortOptions []string `json:"reasoning_effort_options"`
 }
 
 // LabelForModel formats a model id for display (matches Cometline UI labeling).
@@ -76,15 +77,16 @@ func modelEntriesFromSettings(raw cometlineSettingsJSON) []ModelEntry {
 			seen[key] = struct{}{}
 			limits := modelcatalog.ResolveLimits(provider.Method, provider.ID, modelID)
 			out = append(out, ModelEntry{
-				ProviderID:      strings.TrimSpace(provider.ID),
-				ModelID:         modelID,
-				Name:            LabelForModel(modelID),
-				Context:         limits.Context,
-				Output:          limits.Output,
-				LimitSource:     limits.Source,
-				Vision:          limits.Vision,
-				VisionKnown:     limits.VisionKnown,
-				InputModalities: append([]string(nil), limits.InputModalities...),
+				ProviderID:            strings.TrimSpace(provider.ID),
+				ModelID:               modelID,
+				Name:                  LabelForModel(modelID),
+				Context:               limits.Context,
+				Output:                limits.Output,
+				LimitSource:           limits.Source,
+				Vision:                limits.Vision,
+				VisionKnown:           limits.VisionKnown,
+				InputModalities:       append([]string(nil), limits.InputModalities...),
+				ReasoningEffortOptions: modelcatalog.ResolveReasoningOptions(provider.Method, provider.ID, modelID).Effort,
 			})
 		}
 	}
@@ -191,13 +193,14 @@ func LookupModelCatalog(method, providerID string, modelIDs []string) []ModelCat
 		seen[modelID] = struct{}{}
 		limits := modelcatalog.ResolveLimits(method, providerID, modelID)
 		out = append(out, ModelCatalogLookupEntry{
-			ModelID:         modelID,
-			Context:         limits.Context,
-			Output:          limits.Output,
-			LimitSource:     limits.Source,
-			Vision:          limits.Vision,
-			VisionKnown:     limits.VisionKnown,
-			InputModalities: append([]string(nil), limits.InputModalities...),
+			ModelID:               modelID,
+			Context:               limits.Context,
+			Output:                limits.Output,
+			LimitSource:           limits.Source,
+			Vision:                limits.Vision,
+			VisionKnown:           limits.VisionKnown,
+			InputModalities:       append([]string(nil), limits.InputModalities...),
+			ReasoningEffortOptions: modelcatalog.ResolveReasoningOptions(method, providerID, modelID).Effort,
 		})
 	}
 	return out
@@ -205,11 +208,12 @@ func LookupModelCatalog(method, providerID string, modelIDs []string) []ModelCat
 
 // ModelCatalogLookupEntry is one resolved catalog row for fetch-time enrichment.
 type ModelCatalogLookupEntry struct {
-	ModelID         string   `json:"model_id"`
-	Context         int      `json:"context"`
-	Output          int      `json:"output"`
-	LimitSource     string   `json:"limit_source"`
-	Vision          bool     `json:"vision"`
-	VisionKnown     bool     `json:"vision_known"`
-	InputModalities []string `json:"input_modalities"`
+	ModelID               string   `json:"model_id"`
+	Context               int      `json:"context"`
+	Output                int      `json:"output"`
+	LimitSource           string   `json:"limit_source"`
+	Vision                bool     `json:"vision"`
+	VisionKnown           bool     `json:"vision_known"`
+	InputModalities       []string `json:"input_modalities"`
+	ReasoningEffortOptions []string `json:"reasoning_effort_options"`
 }

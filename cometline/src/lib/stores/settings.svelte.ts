@@ -35,6 +35,7 @@ function toLimitEntry(
 		vision: boolean;
 		vision_known: boolean;
 		input_modalities?: Array<'text' | 'image' | 'video' | 'audio' | 'pdf'>;
+		reasoning_effort_options?: Array<string>;
 	}
 ): ModelLimitEntry {
 	return {
@@ -45,7 +46,8 @@ function toLimitEntry(
 		limitSource: entry.limit_source,
 		vision: entry.vision,
 		visionKnown: entry.vision_known,
-		inputModalities: (entry.input_modalities ?? []) as InputModality[]
+		inputModalities: (entry.input_modalities ?? []) as InputModality[],
+		reasoningEffortOptions: entry.reasoning_effort_options ?? []
 	};
 }
 

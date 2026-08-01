@@ -1484,8 +1484,11 @@ type ModelCatalogLookupEntry struct {
 	LimitSource     ModelCatalogLookupEntryLimitSource       `json:"limit_source"`
 	ModelId         string                                   `json:"model_id"`
 	Output          int                                      `json:"output"`
-	Vision          bool                                     `json:"vision"`
-	VisionKnown     bool                                     `json:"vision_known"`
+
+	// ReasoningEffortOptions Allowed reasoning effort values (models.dev reasoning_options effort) when known; empty when the model or method is not catalogued.
+	ReasoningEffortOptions *[]string `json:"reasoning_effort_options,omitempty"`
+	Vision                 bool      `json:"vision"`
+	VisionKnown            bool      `json:"vision_known"`
 }
 
 // ModelCatalogLookupEntryInputModalities defines model for ModelCatalogLookupEntry.InputModalities.
@@ -1528,6 +1531,9 @@ type ModelEntry struct {
 	Output     int    `json:"output"`
 	ProviderId string `json:"provider_id"`
 
+	// ReasoningEffortOptions Allowed reasoning effort values (models.dev reasoning_options effort) when known; empty when the model or method is not catalogued.
+	ReasoningEffortOptions *[]string `json:"reasoning_effort_options,omitempty"`
+
 	// Vision True when modalities.input includes image (only meaningful when vision_known).
 	Vision bool `json:"vision"`
 
@@ -1561,6 +1567,10 @@ type PostMessageRequest struct {
 
 	// Images Optional base64 image attachments. Supported media types are image/png, image/jpeg, image/gif, and image/webp.
 	Images *[]ImageAttachment `json:"images,omitempty"`
+
+	// ReasoningEffort Optional per-turn reasoning effort override using a value advertised
+	// by the selected model. Empty means the provider default.
+	ReasoningEffort *string `json:"reasoning_effort,omitempty"`
 
 	// Text User input text. Required when images is empty.
 	Text       *string         `json:"text,omitempty"`

@@ -23,6 +23,7 @@ export type ShortcutAction =
 	| 'openJobs'
 	| 'openSkillDrafts'
 	| 'openInbox'
+	| 'cycleReasoningEffort'
 	| 'recentSession';
 
 export interface ShortcutBinding {
@@ -134,6 +135,12 @@ export const SHORTCUT_DEFINITIONS: KeyboardShortcutDefinition[] = [
 		label: 'Stop response',
 		category: 'composer',
 		defaultBinding: { ctrl: true, meta: false, key: 'c' }
+	},
+	{
+		id: 'cycleReasoningEffort',
+		label: 'Cycle reasoning effort',
+		category: 'composer',
+		defaultBinding: { ctrl: true, meta: false, key: 't' }
 	},
 	{
 		id: 'toggleSidebar',

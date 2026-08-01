@@ -19,6 +19,8 @@ export interface ModelOption {
 	vision?: boolean;
 	visionKnown?: boolean;
 	inputModalities?: InputModality[];
+	/** Allowed reasoning effort values when the catalog knows them. */
+	reasoningEffortOptions?: string[];
 }
 
 export type ModelLimitEntry = {
@@ -30,6 +32,7 @@ export type ModelLimitEntry = {
 	vision: boolean;
 	visionKnown: boolean;
 	inputModalities: InputModality[];
+	reasoningEffortOptions: string[];
 };
 
 function labelForModel(modelID: string) {
@@ -47,7 +50,8 @@ function limitFields(limit: ModelLimitEntry) {
 		limitSource: limit.limitSource,
 		vision: limit.vision,
 		visionKnown: limit.visionKnown,
-		inputModalities: limit.inputModalities
+		inputModalities: limit.inputModalities,
+		reasoningEffortOptions: limit.reasoningEffortOptions
 	};
 }
 
@@ -169,16 +173,19 @@ function createModelStore() {
 			const providerId = entry.providerId.trim();
 			const modelId = entry.modelId.trim();
 			if (!providerId || !modelId) continue;
-			next.set(`${providerId}\0${modelId}`, {
-				providerId,
-				modelId,
-				context: entry.context,
-				output: entry.output,
-				limitSource: entry.limitSource,
-				vision: entry.vision,
-				visionKnown: entry.visionKnown,
-				inputModalities: [...entry.inputModalities]
-			});
+		next.set(`${providerId}\0${modelId}`, {
+			providerId,
+			modelId,
+			context: entry.context,
+			output: entry.output,
+			limitSource: entry.limitSource,
+			vision: entry.vision,
+			visionKnown: entry.visionKnown,
+			inputModalities: [...entry.inputModalities],
+			reasoningEffortOptions: entry.reasoningEffortOptions
+				? [...entry.reasoningEffortOptions]
+				: []
+		});
 		}
 		limitsByKey = next;
 		options = options.map((option) => {

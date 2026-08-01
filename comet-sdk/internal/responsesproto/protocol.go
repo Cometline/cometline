@@ -45,9 +45,10 @@ type Request struct {
 	Include         []string    `json:"include,omitempty"`
 }
 
-// Reasoning requests displayable reasoning summaries.
+// Reasoning requests displayable reasoning summaries and optional effort.
 type Reasoning struct {
 	Summary string `json:"summary,omitempty"`
+	Effort  string `json:"effort,omitempty"`
 }
 
 // InputItem is one input entry: a role message, a reasoning item, a function
@@ -140,10 +141,15 @@ func BuildRequest(req *cometsdk.Request, opts RequestOptions) ([]byte, error) {
 		Stream:       true,
 		Temperature:  req.Temperature,
 	}
-	if !opts.DisableReasoningSummary {
+	if !opts.DisableReasoningSummary || req.ReasoningEffort != "" {
 		// Ask for a displayable summary when the model supports it. Providers
 		// retry without this field if a model rejects it.
-		out.Reasoning = &Reasoning{Summary: "auto"}
+		reasoning := &Reasoning{}
+		if !opts.DisableReasoningSummary {
+			reasoning.Summary = "auto"
+		}
+		reasoning.Effort = req.ReasoningEffort
+		out.Reasoning = reasoning
 	}
 	if req.MaxTokens > 0 && !opts.DisableMaxOutputTokens {
 		out.MaxOutputTokens = req.MaxTokens

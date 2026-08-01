@@ -283,6 +283,12 @@ export type PostMessageRequest = {
      *
      */
     web_contexts?: Array<WebContext>;
+    /**
+     * Optional per-turn reasoning effort override using a value advertised
+     * by the selected model. Empty means the provider default.
+     *
+     */
+    reasoning_effort?: string;
 };
 
 export type WebContext = {
@@ -436,6 +442,10 @@ export type ModelEntry = {
      * Normalized catalog input modalities (text, image, video, audio, pdf) when known.
      */
     input_modalities: Array<'text' | 'image' | 'video' | 'audio' | 'pdf'>;
+    /**
+     * Allowed reasoning effort values (models.dev reasoning_options effort) when known; empty when the model or method is not catalogued.
+     */
+    reasoning_effort_options?: Array<string>;
 };
 
 export type ModelCatalogLookupRequest = {
@@ -461,6 +471,10 @@ export type ModelCatalogLookupEntry = {
      * Normalized catalog input modalities (text, image, video, audio, pdf) when known.
      */
     input_modalities: Array<'text' | 'image' | 'video' | 'audio' | 'pdf'>;
+    /**
+     * Allowed reasoning effort values (models.dev reasoning_options effort) when known; empty when the model or method is not catalogued.
+     */
+    reasoning_effort_options?: Array<string>;
 };
 
 export type ModelCatalogLookupResponse = {

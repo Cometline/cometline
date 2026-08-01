@@ -14,6 +14,12 @@
           "context": 1050000,
           "output": 8096
         },
+        "reasoning_options": [
+          {
+            "type": "effort",
+            "values": ["none", "low", "medium", "high", "xhigh", "max"]
+          }
+        ],
         "provider": {
           "npm": "@ai-sdk/openai"
         }
@@ -27,7 +33,13 @@
         "limit": {
           "context": 1000000,
           "output": 384000
-        }
+        },
+        "reasoning_options": [
+          {
+            "type": "effort",
+            "values": ["high", "max"]
+          }
+        ]
       },
       "qwen3.7-plus": {
         "id": "qwen3.7-plus",
@@ -39,6 +51,15 @@
           "context": 1000000,
           "output": 65536
         },
+        "reasoning_options": [
+          {
+            "type": "toggle"
+          },
+          {
+            "type": "budget_tokens",
+            "max": 262144
+          }
+        ],
         "provider": {
           "npm": "@ai-sdk/anthropic"
         }

@@ -637,7 +637,8 @@ function createChatStore() {
 						data: image.data
 					})),
 					file_paths: payload.filePaths,
-					web_contexts: payload.webContexts
+					web_contexts: payload.webContexts,
+					reasoning_effort: payload.reasoningEffort
 				},
 				handle.abort.signal
 			)) {

@@ -28,6 +28,8 @@
 	import { createComposerSlashController } from '$lib/components/composer/composer-slash.svelte';
 	import { stepHistoryIndex } from '$lib/components/composer/composer-history';
 	import { nextAttachmentRemoval } from '$lib/components/composer/composer-attachment-keydown';
+	import { nextReasoningEffort } from '$lib/composer/reasoning-effort';
+	import { getReasoningEffort, setReasoningEffort } from '$lib/stores/reasoning-effort.svelte';
 
 	let {
 		onSend,
@@ -143,6 +145,8 @@
 		getImages: () => images,
 		getDisabled: () => disabled,
 		getHasSelectedModel: () => Boolean(modelStore.selected),
+		getReasoningEffort: () => getReasoningEffort(sessionId),
+		getReasoningEffortOptions: () => modelStore.selected?.reasoningEffortOptions ?? [],
 		clearDraft
 	});
 
@@ -181,7 +185,7 @@
 			images = next;
 		},
 		sendTurn: (payload) => inputController.sendTurn(payload),
-		onModelChange: (option) => onModelChange?.(option),
+		onModelChange: changeModel,
 		onWorkspaceChanged: () => onWorkspaceChanged?.(),
 		onTranscriptCleared: () => onTranscriptCleared?.(),
 		setDropMessage: (message) => attachments.setDropMessage(message),
@@ -336,6 +340,14 @@
 	}
 
 	function onKeydown(e: KeyboardEvent) {
+		if (
+			!e.isComposing &&
+			matchesShortcut(e, settingsStore.settings.shortcuts.cycleReasoningEffort)
+		) {
+			e.preventDefault();
+			cycleReasoningEffort();
+			return;
+		}
 		if (slash.handleMenuKeydown(e)) return;
 		if (mentions.handleMentionMenuKeydown(e)) return;
 		if (
@@ -396,6 +408,26 @@
 
 	function removeQueued(id: string) {
 		onRemoveQueued?.(id);
+	}
+
+	async function changeModel(option: ModelOption) {
+		const current = getReasoningEffort(sessionId);
+		if (current && !(option.reasoningEffortOptions ?? []).includes(current)) {
+			setReasoningEffort(sessionId, '');
+		}
+		await onModelChange?.(option);
+	}
+
+	function currentReasoningEffort() {
+		const current = getReasoningEffort(sessionId);
+		return (modelStore.selected?.reasoningEffortOptions ?? []).includes(current) ? current : '';
+	}
+
+	function cycleReasoningEffort() {
+		const supported = modelStore.selected?.reasoningEffortOptions ?? [];
+		if (supported.length === 0) return;
+		const next = nextReasoningEffort(currentReasoningEffort(), supported);
+		setReasoningEffort(sessionId, next);
 	}
 </script>
 
@@ -474,7 +506,10 @@
 		{streaming}
 		{canSubmit}
 		{disabled}
-		{onModelChange}
+		onModelChange={changeModel}
+		reasoningEffort={currentReasoningEffort()}
+		reasoningEffortOptions={modelStore.selected?.reasoningEffortOptions ?? []}
+		onCycleReasoningEffort={cycleReasoningEffort}
 		onOpenChangeWorkspace={slash.openChangeWorkspace}
 		{onStop}
 		onSubmit={() => void submit()}

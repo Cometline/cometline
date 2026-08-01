@@ -37,7 +37,7 @@ const (
 
 	// diskCacheVersion bumps when the on-disk shape must be invalidated
 	// (e.g. older caches stored only limit fields and dropped modalities).
-	diskCacheVersion = 3
+	diskCacheVersion = 4
 )
 
 // Limits are the resolved context/output caps for one model.
@@ -66,12 +66,20 @@ type modelProviderMeta struct {
 	API string `json:"api"`
 }
 
+type reasoningOption struct {
+	Type   string   `json:"type"`
+	Values []string `json:"values"`
+	Min    *int     `json:"min"`
+	Max    *int     `json:"max"`
+}
+
 type modelEntry struct {
-	ID         string            `json:"id"`
-	Attachment bool              `json:"attachment"`
-	Modalities modelModalities   `json:"modalities"`
-	Limit      modelLimit        `json:"limit"`
-	Provider   *modelProviderMeta `json:"provider"`
+	ID               string            `json:"id"`
+	Attachment       bool              `json:"attachment"`
+	Modalities       modelModalities   `json:"modalities"`
+	Limit            modelLimit        `json:"limit"`
+	Provider         *modelProviderMeta `json:"provider"`
+	ReasoningOptions []reasoningOption `json:"reasoning_options"`
 }
 
 type providerEntry struct {
@@ -241,6 +249,71 @@ func protocolFromEntry(provider providerEntry, entry modelEntry) Protocol {
 		protocol.API = provider.API
 	}
 	return protocol
+}
+
+// ReasoningOptions are the reasoning controls a model advertises via models.dev
+// reasoning_options. Source is SourceCatalog when resolved, SourceFallback when
+// the model is unknown or the method is unscoped.
+type ReasoningOptions struct {
+	// Effort lists the allowed reasoning effort values (e.g. none, low,
+	// medium, high, xhigh, max) for models with an "effort" option.
+	Effort []string
+	// Toggle is true for models that support reasoning on/off.
+	Toggle bool
+	// BudgetMin / BudgetMax bound thinking token budgets when advertised.
+	BudgetMin *int
+	BudgetMax *int
+	Source    string
+}
+
+// ResolveReasoningOptions looks up the reasoning controls for a model. Like
+// ResolveProviderMetadata it only applies to scoped catalog providers;
+// unscoped methods (custom gateways) resolve to an empty fallback.
+func ResolveReasoningOptions(method, providerID, modelID string) ReasoningOptions {
+	fallback := ReasoningOptions{Source: SourceFallback}
+	modelID = strings.TrimSpace(modelID)
+	if modelID == "" {
+		return fallback
+	}
+	key, scoped := catalogProviderKey(method, providerID)
+	if !scoped {
+		return fallback
+	}
+	cat, err := load()
+	if err != nil || cat == nil {
+		return fallback
+	}
+
+	candidates := modelIDCandidates(modelID)
+	if provider, ok := cat.Providers[key]; ok {
+		if entry, ok := findModelInProvider(provider, candidates); ok {
+			return reasoningOptionsFromEntry(entry)
+		}
+	}
+	if alt := opencodeSiblingProvider(key); alt != "" {
+		if provider, ok := cat.Providers[alt]; ok {
+			if entry, ok := findModelInProvider(provider, candidates); ok {
+				return reasoningOptionsFromEntry(entry)
+			}
+		}
+	}
+	return fallback
+}
+
+func reasoningOptionsFromEntry(entry modelEntry) ReasoningOptions {
+	out := ReasoningOptions{Source: SourceCatalog}
+	for _, option := range entry.ReasoningOptions {
+		switch option.Type {
+		case "effort":
+			out.Effort = append([]string(nil), option.Values...)
+		case "toggle":
+			out.Toggle = true
+		case "budget_tokens":
+			out.BudgetMin = option.Min
+			out.BudgetMax = option.Max
+		}
+	}
+	return out
 }
 
 // modelIDCandidates expands a runtime model id into lookup variants.

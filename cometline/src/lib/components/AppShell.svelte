@@ -369,6 +369,11 @@
 				runShortcutAction('openSettings');
 				return;
 			}
+			if (matchesShortcut(event, shortcuts.cycleReasoningEffort)) {
+				// Owned by the composer (cycles reasoning effort when the active
+				// model supports it); must not fall through to newChat.
+				return;
+			}
 			if (matchesShortcut(event, shortcuts.newChat)) {
 				event.preventDefault();
 				runShortcutAction('newChat');

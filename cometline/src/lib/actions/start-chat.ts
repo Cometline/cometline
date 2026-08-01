@@ -23,6 +23,8 @@ export interface ChatTurnPayload {
 	images?: ImageAttachment[];
 	filePaths?: string[];
 	webContexts?: WebContext[];
+	/** Per-turn reasoning effort override; empty means the provider default. */
+	reasoningEffort?: string;
 }
 
 export interface StartChatAdapter {

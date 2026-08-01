@@ -30,6 +30,30 @@ func TestConvertRequest_SystemPromptPrepended(t *testing.T) {
 	require.Equal(t, "user", out.Messages[1].Role)
 }
 
+func TestConvertRequest_ReasoningEffort(t *testing.T) {
+	req := &cometsdk.Request{
+		Model:           "gpt-5.5",
+		ReasoningEffort: "high",
+		Messages: []cometsdk.Message{
+			{Role: cometsdk.RoleUser, Content: []cometsdk.Block{cometsdk.TextBlock{Text: "Hello"}}},
+		},
+	}
+
+	data, err := toOpenAIRequest(req, false, true, false)
+	require.NoError(t, err)
+
+	var out map[string]any
+	require.NoError(t, json.Unmarshal(data, &out))
+	require.Equal(t, "high", out["reasoning_effort"])
+
+	// Empty effort is omitted entirely.
+	data, err = toOpenAIRequest(&cometsdk.Request{
+		Model:    "gpt-4o",
+		Messages: []cometsdk.Message{{Role: cometsdk.RoleUser, Content: []cometsdk.Block{cometsdk.TextBlock{Text: "Hi"}}}},
+	}, false, true, false)
+	require.NoError(t, err)
+	require.NotContains(t, string(data), "reasoning_effort")
+}
 func TestConvertRequest_ToolResultRole(t *testing.T) {
 	req := &cometsdk.Request{
 		Model: "gpt-4o",

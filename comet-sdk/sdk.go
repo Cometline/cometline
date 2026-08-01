@@ -49,6 +49,12 @@ type Request struct {
 	// Temperature controls randomness. nil means use the provider default.
 	Temperature *float64
 
+	// ReasoningEffort requests a specific reasoning effort level when the
+	// model supports it (e.g. "low", "medium", "high"). Empty means the
+	// provider default. Providers that do not support the value reject the
+	// request, so callers should only set values the model advertises.
+	ReasoningEffort string
+
 	// Options holds provider-specific overrides.
 	// Most callers leave this nil.
 	Options map[string]any

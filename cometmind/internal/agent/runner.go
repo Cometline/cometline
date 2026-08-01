@@ -287,6 +287,7 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 		emitStatus(event.PhaseContactingModel)
 		requestMsgs := DowngradeImagesForNonVision(msgs, sessionBudget.VisionKnown, sessionBudget.Vision)
 		req := BuildRequest(turn.ModelID, system, requestMsgs, requestTools, effectiveMaxTokens)
+		req.ReasoningEffort = r.reasoningEffortFor(turn)
 		if r.Compatibility != nil {
 			req.Compatibility = r.Compatibility.ResolveCapabilityPolicy(ctx, r.CompatibilityScope)
 		}
@@ -418,6 +419,7 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 						msgs = rebuildMsgs
 						requestMsgs := DowngradeImagesForNonVision(msgs, sessionBudget.VisionKnown, sessionBudget.Vision)
 						req = BuildRequest(turn.ModelID, system, requestMsgs, requestTools, effectiveMaxTokens)
+						req.ReasoningEffort = r.reasoningEffortFor(turn)
 						if r.Compatibility != nil {
 							req.Compatibility = r.Compatibility.ResolveCapabilityPolicy(ctx, r.CompatibilityScope)
 						}
@@ -754,6 +756,12 @@ func (r *Runner) extractMemoryAfterTurn(ctx context.Context, turn session.AgentT
 			ch <- event.MemoryUpdated(wire)
 		}
 	}
+}
+
+// reasoningEffortFor resolves the per-turn reasoning effort override. Empty
+// means the provider default; no runtime-wide default is applied.
+func (r *Runner) reasoningEffortFor(turn session.AgentTurn) string {
+	return strings.TrimSpace(turn.ReasoningEffort)
 }
 
 func (r *Runner) systemPrompt() string {

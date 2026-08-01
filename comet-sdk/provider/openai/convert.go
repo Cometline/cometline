@@ -17,6 +17,7 @@ type openAIRequest struct {
 	Tools               []openAITool    `json:"tools,omitempty"`
 	MaxTokens           int             `json:"max_tokens,omitempty"`
 	MaxCompletionTokens int             `json:"max_completion_tokens,omitempty"`
+	ReasoningEffort     string          `json:"reasoning_effort,omitempty"`
 	Stream              bool            `json:"stream"`
 	StreamOptions       *streamOptions  `json:"stream_options,omitempty"`
 	ReasoningSplit      *bool           `json:"reasoning_split,omitempty"`
@@ -96,6 +97,9 @@ func toOpenAIRequest(req *cometsdk.Request, disableImageContent bool, enableReas
 		} else {
 			or.MaxTokens = req.MaxTokens
 		}
+	}
+	if req.ReasoningEffort != "" {
+		or.ReasoningEffort = req.ReasoningEffort
 	}
 
 	for _, t := range req.Tools {
