@@ -78,7 +78,7 @@ func (a *App) generateTitleLLM(ctx context.Context, sess session.Session, messag
 		return "", fmt.Errorf("title generation requires a Default model or a pinned title model")
 	}
 
-	p, err := provider.NewFor(a.config, providerID)
+	p, err := provider.NewForModel(a.config, providerID, model)
 	if err != nil {
 		return "", err
 	}

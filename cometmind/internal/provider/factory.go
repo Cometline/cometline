@@ -7,8 +7,11 @@ import (
 	"github.com/cometline/comet-sdk/provider/anthropic"
 	"github.com/cometline/comet-sdk/provider/codex"
 	"github.com/cometline/comet-sdk/provider/openai"
+	"github.com/cometline/comet-sdk/provider/openairesponses"
 	"github.com/cometline/comet-sdk/provider/xai"
 	"github.com/cometline/cometmind/internal/config"
+	"github.com/cometline/cometmind/internal/logging"
+	"github.com/cometline/cometmind/internal/modelcatalog"
 )
 
 // providerConfigFor returns the resolved provider entry, method, and base URL
@@ -55,8 +58,8 @@ func sdkProviderID(method string) string {
 // SDKFamily resolves a Cometline provider id (or legacy method name) to the
 // comet-sdk provider family it maps to: one of config.ProviderAnthropic,
 // config.ProviderOpenAI, or config.ProviderCodex. It mirrors the resolution
-// New/NewFor perform so callers can reason about provider capabilities (e.g.
-// reasoning replay support) without constructing a provider.
+// New/NewForModel perform so callers can reason about provider capabilities
+// (e.g. reasoning replay support) without constructing a provider.
 func SDKFamily(cfg *config.Config, id string) string {
 	_, method, _ := providerConfigFor(cfg, id)
 	return sdkProviderID(method)
@@ -74,18 +77,34 @@ func CompatibilityEndpoint(cfg *config.Config, id string) string {
 
 // New returns a concrete SDK provider based on [config.Config.Provider].
 func New(cfg *config.Config) (cometsdk.Provider, error) {
-	return NewFor(cfg, cfg.Provider)
+	return NewForModel(cfg, cfg.Provider, cfg.Model)
 }
 
 // NewMemoryLLM returns the provider used for memory compaction and default
 // extraction/update LLM calls. It respects Memory.ExtractionProvider when set
 // so compaction does not send a pinned extraction model to the wrong backend.
 func NewMemoryLLM(cfg *config.Config) (cometsdk.Provider, error) {
-	return NewFor(cfg, cfg.MemoryLLMProviderID())
+	providerID, model := cfg.ExtractionLLM()
+	return NewForModel(cfg, providerID, model)
 }
 
-// NewFor returns a concrete SDK provider for a specific provider id.
+// NewFor returns a concrete SDK provider for a specific provider id using the
+// provider entry's primary model. Kept for callers that only know the provider
+// id; prefer NewForModel when the model is known.
 func NewFor(cfg *config.Config, id string) (cometsdk.Provider, error) {
+	entry, _, _ := providerConfigFor(cfg, id)
+	modelID := ""
+	if entry != nil {
+		modelID = entry.Model
+	}
+	return NewForModel(cfg, id, modelID)
+}
+
+// NewForModel returns a concrete SDK provider for a specific provider id and
+// model. Model-aware dispatch matters for opencode-go, whose models can speak
+// different wire protocols (Chat Completions, Anthropic Messages, or OpenAI
+// Responses) depending on their models.dev metadata.
+func NewForModel(cfg *config.Config, id, modelID string) (cometsdk.Provider, error) {
 	entry, method, baseURL := providerConfigFor(cfg, id)
 	// No provider is configured at all (fresh install / user cleared settings).
 	// Surface a clear, actionable error instead of a confusing "unknown
@@ -104,6 +123,11 @@ func NewFor(cfg *config.Config, id string) (cometsdk.Provider, error) {
 			key = "ollama"
 		}
 	}
+
+	if method == config.ProviderOpencodeGo {
+		return opencodeGoProvider(key, id, baseURL, modelID)
+	}
+
 	var opts []cometsdk.Option
 	if baseURL != "" {
 		opts = append(opts, cometsdk.WithBaseURL(baseURL))
@@ -119,5 +143,30 @@ func NewFor(cfg *config.Config, id string) (cometsdk.Provider, error) {
 		return xai.NewXAIProvider(key, opts...), nil
 	default:
 		return nil, fmt.Errorf("unknown provider method %q", method)
+	}
+}
+
+// opencodeGoProvider dispatches an OpenCode Go model to the SDK provider that
+// speaks its wire protocol. Protocol metadata comes from models.dev; when it
+// is unavailable the documented OpenCode Go default (Chat Completions) is used
+// so existing models keep working.
+func opencodeGoProvider(key, id, baseURL, modelID string) (cometsdk.Provider, error) {
+	protocol := modelcatalog.ResolveProviderMetadata(config.ProviderOpencodeGo, id, modelID)
+	logging.L().Debug("provider.opencode-go.protocol",
+		"provider_id", id, "model", modelID, "npm", protocol.NPM, "source", protocol.Source)
+	if baseURL == "" {
+		baseURL = protocol.API
+	}
+	var opts []cometsdk.Option
+	if baseURL != "" {
+		opts = append(opts, cometsdk.WithBaseURL(baseURL))
+	}
+	switch protocol.NPM {
+	case modelcatalog.NPMOpenAI:
+		return openairesponses.NewOpenAIResponsesProvider(key, id, opts...), nil
+	case modelcatalog.NPMAnthropic:
+		return anthropic.NewAnthropicProvider(key, opts...), nil
+	default:
+		return openai.NewOpenAIProvider(key, opts...), nil
 	}
 }

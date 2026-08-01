@@ -125,7 +125,7 @@ func New(ctx context.Context) (*Runtime, error) {
 	}
 	if cfg.Skills.SynthesisEnabled {
 		providerID, model := cfg.ResolveRoleLLM(cfg.Skills.SynthesisProviderID, cfg.Skills.SynthesisModel)
-		p, err := provider.NewFor(cfg, providerID)
+		p, err := provider.NewForModel(cfg, providerID, model)
 		if err != nil {
 			logging.L().Warn("skills.synthesis.provider.init_failed", "error", err)
 		} else {
@@ -612,8 +612,7 @@ func (r *Runtime) WorkspaceForCommand(ctx context.Context, explicitWorkspace str
 // overrides do not leak back into the global config.
 func (r *Runtime) ProviderForSession(sess session.Session) (cometsdk.Provider, error) {
 	cfg := *r.Config
-	cfg.Model = sess.ModelID
-	return provider.NewFor(&cfg, sess.ProviderID)
+	return provider.NewForModel(&cfg, sess.ProviderID, sess.ModelID)
 }
 
 // ACPManager returns the shared ACP session manager.
