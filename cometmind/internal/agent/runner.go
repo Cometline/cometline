@@ -737,7 +737,7 @@ func (r *Runner) extractMemoryAfterTurn(ctx context.Context, turn session.AgentT
 			logging.L().Warn("memory.extract.skipped_no_model", "session", turn.ID)
 			return
 		}
-		if p, err := provider.NewFor(r.Config, providerID); err == nil {
+		if p, err := provider.NewForModel(r.Config, providerID, model); err == nil {
 			llmProvider = p
 		} else {
 			logging.L().Warn("memory.extract.provider_failed", "session", turn.ID, "provider", providerID, "error", err)

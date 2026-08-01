@@ -5,11 +5,14 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	cometsdk "github.com/cometline/comet-sdk"
 	"github.com/cometline/cometmind/internal/config"
+	"github.com/cometline/cometmind/internal/modelcatalog"
 )
 
 func TestNewForFallsBackToLegacyMethod(t *testing.T) {
@@ -39,6 +42,8 @@ func TestNewForFallsBackToLegacyMethod(t *testing.T) {
 }
 
 func TestNewMemoryLLMUsesExtractionProvider(t *testing.T) {
+	loadProtocolFixture(t)
+
 	cfg := &config.Config{
 		Provider: config.ProviderCodex,
 		Providers: []config.ProviderEntry{
@@ -241,5 +246,166 @@ func TestNewOpenAIProviderUsesConfiguredBaseURL(t *testing.T) {
 	}
 	if gotAuth != "Bearer dummy-key" {
 		t.Fatalf("authorization header = %q, want %q", gotAuth, "Bearer dummy-key")
+	}
+}
+
+func loadProtocolFixture(t *testing.T) {
+	t.Helper()
+	modelcatalog.ResetCacheForTest()
+	data, err := os.ReadFile(filepath.Join("..", "modelcatalog", "testdata", "models-dev-protocol-snippet.json"))
+	if err != nil {
+		t.Fatalf("read protocol fixture: %v", err)
+	}
+	if err := modelcatalog.LoadFromJSONForTest(data); err != nil {
+		t.Fatalf("load protocol fixture: %v", err)
+	}
+	t.Cleanup(modelcatalog.ResetCacheForTest)
+}
+
+func protocolRoutingServer(t *testing.T) (*httptest.Server, *[]string) {
+	t.Helper()
+	var paths []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		paths = append(paths, r.URL.Path)
+		_, _ = io.ReadAll(r.Body)
+		w.Header().Set("Content-Type", "text/event-stream")
+		switch r.URL.Path {
+		case "/v1/responses":
+			_, _ = io.WriteString(w, "data: {\"type\":\"response.completed\",\"response\":{\"usage\":{}}}\n\n")
+		case "/v1/messages":
+			_, _ = io.WriteString(w, "event: message_delta\ndata: {\"delta\":{\"stop_reason\":\"end_turn\"}}\n\n")
+			_, _ = io.WriteString(w, "event: message_stop\ndata: {}\n\n")
+		default:
+			_, _ = io.WriteString(w, "data: {\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}\n\n")
+			_, _ = io.WriteString(w, "data: [DONE]\n\n")
+		}
+	}))
+	t.Cleanup(srv.Close)
+	return srv, &paths
+}
+
+func streamProviderRequest(t *testing.T, p cometsdk.Provider, modelID string) {
+	t.Helper()
+	ch, err := p.Stream(context.Background(), &cometsdk.Request{
+		Model:    modelID,
+		Messages: []cometsdk.Message{{Role: cometsdk.RoleUser, Content: []cometsdk.Block{cometsdk.TextBlock{Text: "hello"}}}},
+	})
+	if err != nil {
+		t.Fatalf("Stream() error = %v", err)
+	}
+	for range ch {
+	}
+}
+
+// TestNewForModelOpencodeGoRoutesByProtocol verifies model-level metadata
+// selects the right wire protocol: Responses for gpt-5.6-luna, Chat
+// Completions for the provider-default models, and Anthropic Messages for
+// qwen3.7-plus.
+func TestNewForModelOpencodeGoRoutesByProtocol(t *testing.T) {
+	loadProtocolFixture(t)
+	srv, paths := protocolRoutingServer(t)
+
+	cfg := &config.Config{
+		Providers: []config.ProviderEntry{{
+			ID:      "opencode-go",
+			Name:    "OpenCode Go",
+			Method:  config.ProviderOpencodeGo,
+			BaseURL: srv.URL,
+			APIKey:  "opencode-key",
+		}},
+	}
+
+	luna, err := NewForModel(cfg, "opencode-go", "gpt-5.6-luna")
+	if err != nil {
+		t.Fatalf("NewForModel(luna) error = %v", err)
+	}
+	streamProviderRequest(t, luna, "gpt-5.6-luna")
+
+	chat, err := NewForModel(cfg, "opencode-go", "deepseek-v4-flash")
+	if err != nil {
+		t.Fatalf("NewForModel(deepseek) error = %v", err)
+	}
+	streamProviderRequest(t, chat, "deepseek-v4-flash")
+
+	qwen, err := NewForModel(cfg, "opencode-go", "qwen3.7-plus")
+	if err != nil {
+		t.Fatalf("NewForModel(qwen) error = %v", err)
+	}
+	streamProviderRequest(t, qwen, "qwen3.7-plus")
+
+	requirePaths(t, *paths, []string{"/v1/responses", "/v1/chat/completions", "/v1/messages"})
+}
+
+// TestNewForOpencodeGoEntryModelRoutesResponses verifies the compatibility
+// NewFor entry point dispatches by the entry's primary model.
+func TestNewForOpencodeGoEntryModelRoutesResponses(t *testing.T) {
+	loadProtocolFixture(t)
+	srv, paths := protocolRoutingServer(t)
+
+	cfg := &config.Config{
+		Providers: []config.ProviderEntry{{
+			ID:      "opencode-go",
+			Name:    "OpenCode Go",
+			Method:  config.ProviderOpencodeGo,
+			BaseURL: srv.URL,
+			APIKey:  "opencode-key",
+			Model:   "gpt-5.6-luna",
+		}},
+	}
+
+	p, err := NewFor(cfg, "opencode-go")
+	if err != nil {
+		t.Fatalf("NewFor() error = %v", err)
+	}
+	streamProviderRequest(t, p, "gpt-5.6-luna")
+	requirePaths(t, *paths, []string{"/v1/responses"})
+}
+
+// TestNewForModelOpencodeGoFallbackWithoutCatalog verifies the approved
+// fallback: without models.dev metadata, opencode-go models use the documented
+// Chat Completions default so existing models keep working.
+func TestNewForModelOpencodeGoFallbackWithoutCatalog(t *testing.T) {
+	modelcatalog.ResetCacheForTest()
+	t.Cleanup(modelcatalog.ResetCacheForTest)
+	modelcatalog.SetCachePathForTest(filepath.Join(t.TempDir(), "models-dev.json"))
+	t.Cleanup(modelcatalog.ResetCachePathForTest)
+
+	// A dead fetch URL guarantees catalog load fails so resolution falls back.
+	dead := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "offline", http.StatusServiceUnavailable)
+	}))
+	defer dead.Close()
+	modelcatalog.SetFetchURLForTest(dead.URL)
+	t.Cleanup(func() { modelcatalog.SetFetchURLForTest(modelcatalog.APIURL) })
+
+	srv, paths := protocolRoutingServer(t)
+
+	cfg := &config.Config{
+		Providers: []config.ProviderEntry{{
+			ID:      "opencode-go",
+			Name:    "OpenCode Go",
+			Method:  config.ProviderOpencodeGo,
+			BaseURL: srv.URL,
+			APIKey:  "opencode-key",
+		}},
+	}
+
+	p, err := NewForModel(cfg, "opencode-go", "gpt-5.6-luna")
+	if err != nil {
+		t.Fatalf("NewForModel() error = %v", err)
+	}
+	streamProviderRequest(t, p, "gpt-5.6-luna")
+	requirePaths(t, *paths, []string{"/v1/chat/completions"})
+}
+
+func requirePaths(t *testing.T, got, want []string) {
+	t.Helper()
+	if len(got) != len(want) {
+		t.Fatalf("paths = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("paths = %v, want %v", got, want)
+		}
 	}
 }

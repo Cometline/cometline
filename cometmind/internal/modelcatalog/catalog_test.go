@@ -471,3 +471,91 @@ func TestReadDiskCacheRejectsLegacyWithoutModalities(t *testing.T) {
 		t.Fatalf("hits = %d, want 1 (legacy cache must be ignored)", hits)
 	}
 }
+
+func loadProtocolFixture(t *testing.T) {
+	t.Helper()
+	modelcatalog.ResetCacheForTest()
+	data, err := os.ReadFile(filepath.Join("testdata", "models-dev-protocol-snippet.json"))
+	if err != nil {
+		t.Fatalf("read protocol fixture: %v", err)
+	}
+	if err := modelcatalog.LoadFromJSONForTest(data); err != nil {
+		t.Fatalf("load protocol fixture: %v", err)
+	}
+	t.Cleanup(modelcatalog.ResetCacheForTest)
+}
+
+func TestResolveProviderMetadataModelOverrideWins(t *testing.T) {
+	loadProtocolFixture(t)
+
+	got := modelcatalog.ResolveProviderMetadata("opencode-go", "opencode-go", "gpt-5.6-luna")
+	if got.NPM != modelcatalog.NPMOpenAI {
+		t.Fatalf("luna npm = %q, want %q", got.NPM, modelcatalog.NPMOpenAI)
+	}
+	if got.API != "https://opencode.ai/zen/go/v1" {
+		t.Fatalf("luna api = %q, want provider-level api", got.API)
+	}
+	if got.Source != modelcatalog.SourceCatalog {
+		t.Fatalf("source = %q, want catalog", got.Source)
+	}
+}
+
+func TestResolveProviderMetadataProviderLevelFallback(t *testing.T) {
+	loadProtocolFixture(t)
+
+	got := modelcatalog.ResolveProviderMetadata("opencode-go", "opencode-go", "deepseek-v4-flash")
+	if got.NPM != modelcatalog.DefaultProtocolNPM {
+		t.Fatalf("deepseek npm = %q, want provider-level %q", got.NPM, modelcatalog.DefaultProtocolNPM)
+	}
+}
+
+func TestResolveProviderMetadataAnthropicProtocol(t *testing.T) {
+	loadProtocolFixture(t)
+
+	got := modelcatalog.ResolveProviderMetadata("opencode-go", "opencode-go", "qwen3.7-plus")
+	if got.NPM != modelcatalog.NPMAnthropic {
+		t.Fatalf("qwen3.7-plus npm = %q, want %q", got.NPM, modelcatalog.NPMAnthropic)
+	}
+}
+
+func TestResolveProviderMetadataSiblingFallback(t *testing.T) {
+	loadProtocolFixture(t)
+
+	got := modelcatalog.ResolveProviderMetadata("opencode-go", "opencode-go", "zen-only-model")
+	if got.NPM != modelcatalog.NPMOpenAI {
+		t.Fatalf("zen-only npm = %q, want %q via sibling bucket", got.NPM, modelcatalog.NPMOpenAI)
+	}
+	if got.API != "https://opencode.ai/zen/v1" {
+		t.Fatalf("zen-only api = %q, want opencode bucket api", got.API)
+	}
+}
+
+func TestResolveProviderMetadataMissFallsBackToDefault(t *testing.T) {
+	loadProtocolFixture(t)
+
+	got := modelcatalog.ResolveProviderMetadata("opencode-go", "opencode-go", "not-a-real-model")
+	if got.NPM != modelcatalog.DefaultProtocolNPM {
+		t.Fatalf("miss npm = %q, want default", got.NPM)
+	}
+	if got.Source != modelcatalog.SourceFallback {
+		t.Fatalf("miss source = %q, want fallback", got.Source)
+	}
+
+	empty := modelcatalog.ResolveProviderMetadata("opencode-go", "opencode-go", "  ")
+	if empty.Source != modelcatalog.SourceFallback {
+		t.Fatalf("empty source = %q, want fallback", empty.Source)
+	}
+}
+
+func TestResolveProviderMetadataUnscopedAlwaysDefaults(t *testing.T) {
+	loadProtocolFixture(t)
+
+	// Custom gateways must never be switched to Responses by catalog metadata.
+	got := modelcatalog.ResolveProviderMetadata("openai-compatible", "company-gateway", "gpt-5.6-luna")
+	if got.NPM != modelcatalog.DefaultProtocolNPM {
+		t.Fatalf("unscoped npm = %q, want default", got.NPM)
+	}
+	if got.Source != modelcatalog.SourceFallback {
+		t.Fatalf("unscoped source = %q, want fallback", got.Source)
+	}
+}

@@ -1,4 +1,8 @@
-package codex
+// Package openairesponses implements the cometsdk.Provider interface for the
+// OpenAI Responses API using a plain API key. It shares the wire protocol
+// implementation with the Codex provider but sends no Codex-specific auth,
+// headers, or Responses Lite behavior.
+package openairesponses
 
 import (
 	"bytes"
@@ -15,29 +19,15 @@ import (
 )
 
 const (
-	defaultBaseURL = "https://chatgpt.com/backend-api/codex"
-	providerID     = "codex"
-	// GPT-5.6 Luna is currently routed through Responses Lite by Codex CLI.
-	// Without this header, the Codex backend can report the model as missing
-	// even though it is present in the authenticated model catalog.
-	responsesLiteHeader = "x-openai-internal-codex-responses-lite"
+	defaultBaseURL = "https://api.openai.com/v1"
 )
 
-func addCodexResponseHeaders(header http.Header, token borrowedToken, responsesLite bool) {
-	if token.AccountID != "" {
-		header.Set("ChatGPT-Account-ID", token.AccountID)
-	}
-	if token.InstallationID != "" {
-		header.Set("x-codex-installation-id", token.InstallationID)
-	}
-	if responsesLite {
-		header.Set(responsesLiteHeader, "true")
-	}
-}
-
+// provider implements cometsdk.Provider for the Responses API.
 type provider struct {
-	cfg cometsdk.ProviderConfig
-	log *slog.Logger
+	apiKey string
+	id     string
+	cfg    cometsdk.ProviderConfig
+	log    *slog.Logger
 }
 
 type streamFlags struct {
@@ -56,19 +46,27 @@ func markCapabilityUnsupported(req *cometsdk.Request, feature cometsdk.Capabilit
 	}
 }
 
-// NewCodexProvider creates a Provider that reuses the local Codex CLI ChatGPT session.
-func NewCodexProvider(opts ...cometsdk.Option) cometsdk.Provider {
+// NewOpenAIResponsesProvider creates a Provider for the OpenAI Responses API
+// authenticated with a plain API key. id is the provider identifier used in
+// events and persisted provider state (e.g. "opencode-go").
+func NewOpenAIResponsesProvider(apiKey, id string, opts ...cometsdk.Option) cometsdk.Provider {
 	cfg := cometsdk.DefaultProviderConfig()
 	cfg.BaseURL = defaultBaseURL
 	for _, o := range opts {
 		o(&cfg)
 	}
 	cfg.BaseURL = cometsdk.NormaliseBaseURL(cfg.BaseURL)
-	return &provider{cfg: cfg, log: providerbase.Logger(cfg, providerID)}
+	return &provider{
+		apiKey: apiKey,
+		id:     id,
+		cfg:    cfg,
+		log:    providerbase.Logger(cfg, id),
+	}
 }
 
-func (p *provider) ID() string { return providerID }
+func (p *provider) ID() string { return p.id }
 
+// Stream sends req to the Responses API and returns a channel of events.
 func (p *provider) Stream(ctx context.Context, req *cometsdk.Request) (<-chan cometsdk.Event, error) {
 	p.log.DebugContext(ctx, "stream.start", "model", req.Model)
 	ch := make(chan cometsdk.Event, 32)
@@ -81,7 +79,7 @@ func (p *provider) Stream(ctx context.Context, req *cometsdk.Request) (<-chan co
 	for {
 		httpResp, err := p.streamWithRetry(ctx, req, flags)
 		if err == nil {
-			go parseLoop(ctx, providerID, req.Model, !capabilityDisabled(req, cometsdk.CapabilityToolInputStream), httpResp.Body, ch, p.log, p.cfg.StreamIdleTimeout)
+			go responsesproto.ParseLoop(ctx, p.id, req.Model, !capabilityDisabled(req, cometsdk.CapabilityToolInputStream), httpResp.Body, ch, p.log, p.cfg.StreamIdleTimeout)
 			return ch, nil
 		}
 		if req.MaxTokens > 0 && !flags.disableMaxOutputTokens && responsesproto.IsMaxOutputTokensUnsupportedError(err) {
@@ -128,38 +126,35 @@ func (p *provider) streamWithRetry(ctx context.Context, req *cometsdk.Request, f
 
 func (p *provider) doRequest(ctx context.Context, req *cometsdk.Request, flags streamFlags) (*http.Response, error) {
 	client := p.httpClient()
-	token, err := borrowCodexToken(ctx, client)
+	body, err := responsesproto.BuildRequest(req, responsesproto.RequestOptions{
+		ProviderKey:              "openai",
+		DisableMaxOutputTokens:   flags.disableMaxOutputTokens,
+		DisableReasoningSummary:  flags.disableReasoningSummary,
+		ReplayEncryptedState:     !flags.disableEncryptedReplay,
+		IncludeEncryptedReasoning: true,
+	})
 	if err != nil {
-		return nil, err
-	}
-	body, err := toCodexRequest(req, flags.disableMaxOutputTokens, flags.disableReasoningSummary, flags.disableEncryptedReplay)
-	if err != nil {
-		return nil, fmt.Errorf("codex: marshal request: %w", err)
-	}
-	if req.Model == "gpt-5.6-luna" {
-		body, err = addResponsesLiteReasoningContext(body)
-		if err != nil {
-			return nil, fmt.Errorf("codex: add responses-lite reasoning context: %w", err)
-		}
+		return nil, fmt.Errorf("openairesponses: marshal request: %w", err)
 	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, p.cfg.BaseURL+"/responses", bytes.NewReader(body))
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost,
+		providerbase.Endpoint(p.cfg.BaseURL, "/responses"), bytes.NewReader(body))
 	if err != nil {
-		return nil, fmt.Errorf("codex: build request: %w", err)
+		return nil, fmt.Errorf("openairesponses: build request: %w", err)
 	}
+
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Accept", "text/event-stream")
-	httpReq.Header.Set("Authorization", "Bearer "+token.AccessToken)
-	addCodexResponseHeaders(httpReq.Header, token, req.Model == "gpt-5.6-luna")
+	httpReq.Header.Set("Authorization", "Bearer "+p.apiKey)
 
 	resp, err := client.Do(httpReq)
 	if err != nil {
-		return nil, fmt.Errorf("codex: http: %w", err)
+		return nil, fmt.Errorf("openairesponses: http: %w", err)
 	}
 	if resp.StatusCode != http.StatusOK {
 		defer resp.Body.Close()
 		body, _ := io.ReadAll(resp.Body)
-		return nil, providerbase.ClassifyHTTPError(providerID, resp, body)
+		return nil, providerbase.ClassifyHTTPError(p.id, resp, body)
 	}
 	return resp, nil
 }
