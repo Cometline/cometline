@@ -121,6 +121,14 @@ constructor(config) → Provider
 - Subscription OAuth session from `~/.codex/auth.json` (or `$CODEX_HOME/auth.json`)
 - No API key in Cometline settings — Electron/Codex CLI owns sign-in
 
+### OpenAI Responses (`provider/openairesponses/`)
+
+- API-key Responses provider used by OpenCode Go models (`@ai-sdk/openai` metadata)
+- `store: false`, `include: ["reasoning.encrypted_content"]` for stateless encrypted reasoning replay
+- Same capability fallbacks as Codex (`max_output_tokens`, reasoning summary, encrypted replay)
+
+The wire protocol shared by Codex and OpenCode Go lives in `internal/responsesproto`: request conversion, SSE parser (`response.completed` / `response.incomplete` / `response.failed`), encrypted reasoning state capture, and error classification.
+
 ### xAI (`provider/xai/`)
 
 - Grok subscription / borrowed session auth

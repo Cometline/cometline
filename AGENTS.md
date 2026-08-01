@@ -161,6 +161,16 @@ Users can set a default model in Settings → Providers → Model roles. This mo
 - `modelStore.selectDefault()` resets to default when returning to home page
 - `+page.svelte` calls `selectDefault()` in `onMount`
 
+### Model-aware protocol dispatch
+
+`opencode-go` models can speak different wire protocols: OpenAI Chat Completions, Anthropic Messages, or OpenAI Responses. The provider factory selects the protocol per model from models.dev metadata (`provider.npm` / `provider.api`, model-level overrides provider-level), so e.g. `gpt-5.6-luna` routes to the Responses endpoint while DeepSeek models keep using Chat Completions.
+
+**Implementation:**
+- `modelcatalog.ResolveProviderMetadata()` resolves the `npm`/`api` pair (scoped to `opencode-go` / `opencode`; other methods always default so custom gateways are never switched to Responses)
+- `provider.NewForModel(cfg, id, modelID)` dispatches: `@ai-sdk/openai` → `openairesponses`, `@ai-sdk/anthropic` → Anthropic Messages, default (including offline catalog) → Chat Completions
+- `comet-sdk/internal/responsesproto` holds the Responses wire protocol shared by Codex and OpenCode Go
+- The models.dev disk cache version bumps when the parsed shape gains fields, so old snapshots without protocol metadata refetch
+
 ### Slash commands
 
 Built-in slash commands are defined in `cometline/src/lib/skills/slash-commands.ts`:
@@ -308,9 +318,10 @@ Cometline can improve itself using the same agent runtime:
 
 1. Implement `cometsdk.Provider` interface in `comet-sdk/provider/{name}/`
 2. Add a provider method constant in `cometmind/internal/config/config.go` and wire it into `cometmind/internal/provider/factory.go`
-3. Add provider defaults and validation in `cometline/src/lib/settings/schema.ts`
-4. Add provider UI behavior in `cometline/src/lib/components/settings/SettingsProvidersPanel.svelte` if the method needs custom fields
-5. Update `ProviderMethod` types in `cometline/src/lib/types.ts` and `cometline/src/app.d.ts`
+3. If models of the method can use different wire protocols (like `opencode-go`), keep their `npm`/`api` metadata in the models.dev catalog (`cometmind/internal/modelcatalog`) so `NewForModel` dispatches per model
+4. Add provider defaults and validation in `cometline/src/lib/settings/schema.ts`
+5. Add provider UI behavior in `cometline/src/lib/components/settings/SettingsProvidersPanel.svelte` if the method needs custom fields
+6. Update `ProviderMethod` types in `cometline/src/lib/types.ts` and `cometline/src/app.d.ts`
 
 ### Add a new built-in tool
 
@@ -366,7 +377,7 @@ Cometline can improve itself using the same agent runtime:
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **cometline-release** (13385 symbols, 37521 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **cometline-release** (13415 symbols, 37616 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 

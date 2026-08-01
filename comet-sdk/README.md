@@ -307,9 +307,11 @@ SDK-managed fields (`model`, `messages`, `stream`, `max_tokens`) cannot be overr
 
 ### ChatGPT Codex
 
-`provider/codex` talks to ChatGPT Codex's `/responses` endpoint and reuses the local Codex CLI login. Run `codex login` first so `~/.codex/auth.json` exists. The provider refreshes the borrowed access token when possible and does not use an API key.
+`provider/codex` talks to ChatGPT Codex's `/responses` endpoint and reuses the local Codex CLI login. Run `codex login` first so `~/.codex/auth.json` exists. The provider refreshes the borrowed access token when possible and does not use an API key. Streaming uses the HTTP/SSE transport.
 
-By default the provider streams over a WebSocket connection to the Responses API (`provider/codex/websocket.go`), falling back to the HTTP/SSE transport if the WebSocket dial or handshake fails.
+### OpenAI Responses
+
+`provider/openairesponses` talks to the OpenAI Responses API (`/responses`) with a plain API key. It is used for OpenCode Go models whose models.dev metadata selects the `@ai-sdk/openai` protocol (e.g. `gpt-5.6-luna`). The provider sends `store: false` and `include: ["reasoning.encrypted_content"]` so encrypted reasoning state can be replayed across stateless turns, and shares the wire protocol (request conversion, SSE parser, error classification) with Codex via `internal/responsesproto`.
 
 ### xAI Grok
 

@@ -526,7 +526,7 @@ The HTTP server is the primary app integration surface for Cometline. The import
 
 `config.Load` reads `~/.cometmind/config.toml`, creates a default config if missing, and overlays `COMETMIND_*` environment variables (`cometmind/internal/config/config.go:51-105`). Provider methods are defined in `cometmind/internal/config/config.go:14-19`.
 
-`internal/provider.NewFor` resolves a session provider ID to a configured provider entry or legacy provider method, resolves API key, applies base URL, maps `openai-compatible` and `opencode-go` to the SDK OpenAI provider, and constructs the concrete `cometsdk.Provider` (`cometmind/internal/provider/factory.go:18-73`).
+`internal/provider.NewForModel` resolves a session provider ID and model to a configured provider entry or legacy provider method, resolves API key, applies base URL, and constructs the concrete `cometsdk.Provider` (`cometmind/internal/provider/factory.go`). The factory is model-aware for `opencode-go`: its models can speak Chat Completions, Anthropic Messages, or OpenAI Responses depending on models.dev metadata, so `NewForModel` dispatches by the resolved protocol (`@ai-sdk/openai` → Responses, `@ai-sdk/anthropic` → Messages, default → Chat Completions). `NewFor` and `NewMemoryLLM` delegate with the entry or extraction model.
 
 ## Tools
 
@@ -547,7 +547,7 @@ File tools are workspace-scoped through `internal/tools/sandbox/pathcheck.go` as
 
 | Change | Where To Start |
 |---|---|
-| Add an LLM provider | `comet-sdk/provider/<new>` then `cometmind/internal/provider/factory.go` |
+| Add an LLM provider | `comet-sdk/provider/<new>` then `cometmind/internal/provider/factory.go`; per-model protocol (npm/api) overrides for a method land in `cometmind/internal/modelcatalog` metadata |
 | Add a built-in tool | New `internal/tools/*.go`, then register in `internal/tools/registry.go` |
 | Add an API endpoint | `cometmind/server/server.go`, `cometmind/openapi.yaml`, server tests |
 | Change DB schema | `internal/db/schema.sql`, `internal/db/migrate.go`, `sqlc generate`, session service updates |

@@ -30,7 +30,7 @@ Pick the companion personality that fits your workflow in Settings → About. Sw
 - **Agent Skills** — Reusable prompt templates via slash commands, drafts before promotion, and overlap detection when synthesizing new skills
 - **Discord bot** — Same agent runtime as a Discord bot with per-thread sessions, @mention gating, and skill invocation
 - **Native chat UI** — SvelteKit + Electron with streaming, reasoning blocks, mini-window + session drawer, keyboard shortcuts, and auto-update
-- **Multi-provider** — Anthropic, OpenAI, OpenAI-compatible, Ollama, OpenCode Go, ChatGPT Codex, and xAI Grok (subscription auth)
+- **Multi-provider** — Anthropic, OpenAI, OpenAI-compatible, Ollama, OpenCode Go, ChatGPT Codex, and xAI Grok (subscription auth); OpenCode Go models auto-route to Chat Completions, Anthropic Messages, or OpenAI Responses per model
 - **MCP client** — External Model Context Protocol servers over stdio, streamable HTTP, or SSE, including OAuth-protected remote servers
 - **Backup and retention** — Zip backups of `~/.cometmind`, plus retention for aged tool-output / agent-tmp files
 

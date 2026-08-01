@@ -234,12 +234,14 @@ Register new tools in `registry.go` `init()` or `NewRegistry`.
 
 ### Provider factory (`internal/provider/factory.go`)
 
-`NewFor(sessionProviderID)`:
+`NewForModel(providerID, modelID)`:
 - Resolve provider entry from settings
-- Map `openai-compatible` and `opencode-go` → SDK OpenAI provider
 - Resolve API key (settings → env → provider-specific vars) for key-based methods
 - Wire `codex` and `xai` subscription/session providers
 - Construct concrete `cometsdk.Provider`
+- For `opencode-go`, dispatch by the model's resolved protocol from models.dev metadata: `@ai-sdk/openai` → OpenAI Responses (`openairesponses` provider), `@ai-sdk/anthropic` → Anthropic Messages, default (including offline catalog) → Chat Completions
+
+`NewFor` (entry's primary model) and `NewMemoryLLM` (extraction model) delegate to `NewForModel`. The shared Responses wire protocol lives in `comet-sdk/internal/responsesproto` and is reused by both the Codex and OpenCode Go providers.
 
 ## Event layer
 
