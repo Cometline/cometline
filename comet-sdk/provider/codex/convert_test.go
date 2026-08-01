@@ -478,6 +478,35 @@ func TestStream_UsesSSE(t *testing.T) {
 	require.Contains(t, events, cometsdk.DoneEvent{})
 }
 
+func TestConvertRequest_ReasoningEffort(t *testing.T) {
+	req := &cometsdk.Request{
+		Model:           "gpt-5.6-luna",
+		ReasoningEffort: "high",
+		Messages: []cometsdk.Message{
+			{Role: cometsdk.RoleUser, Content: []cometsdk.Block{cometsdk.TextBlock{Text: "Hi"}}},
+		},
+	}
+
+	data, err := toCodexRequest(req, false, false, false)
+	require.NoError(t, err)
+
+	var raw map[string]any
+	require.NoError(t, json.Unmarshal(data, &raw))
+	reasoning, ok := raw["reasoning"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "high", reasoning["effort"])
+	require.Equal(t, "auto", reasoning["summary"])
+
+	// Empty effort keeps only the summary.
+	data, err = toCodexRequest(&cometsdk.Request{
+		Model:    "gpt-5.4",
+		Messages: []cometsdk.Message{{Role: cometsdk.RoleUser, Content: []cometsdk.Block{cometsdk.TextBlock{Text: "Hi"}}}},
+	}, false, false, false)
+	require.NoError(t, err)
+	require.NoError(t, json.Unmarshal(data, &raw))
+	require.Equal(t, map[string]any{"summary": "auto"}, raw["reasoning"])
+}
+
 func writeTestAuthFile(t *testing.T, path string) string {
 	t.Helper()
 	exp := time.Now().Add(time.Hour).Unix()

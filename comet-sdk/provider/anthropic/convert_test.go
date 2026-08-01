@@ -80,6 +80,31 @@ func TestConvertRequest_ToolCall(t *testing.T) {
 	require.JSONEq(t, `{"path":"main.go"}`, string(block.Input))
 }
 
+func TestConvertRequest_ReasoningEffort(t *testing.T) {
+	req := &cometsdk.Request{
+		Model:           "claude-sonnet-4-5",
+		ReasoningEffort: "high",
+		Messages: []cometsdk.Message{
+			{Role: cometsdk.RoleUser, Content: []cometsdk.Block{cometsdk.TextBlock{Text: "Hi"}}},
+		},
+	}
+
+	data, err := toAnthropicRequest(req)
+	require.NoError(t, err)
+
+	var out anthropicRequest
+	require.NoError(t, json.Unmarshal(data, &out))
+	require.Equal(t, "high", out.Effort)
+
+	// Empty effort is omitted entirely.
+	data, err = toAnthropicRequest(&cometsdk.Request{
+		Model:    "claude-sonnet-4-5",
+		Messages: []cometsdk.Message{{Role: cometsdk.RoleUser, Content: []cometsdk.Block{cometsdk.TextBlock{Text: "Hi"}}}},
+	})
+	require.NoError(t, err)
+	require.NotContains(t, string(data), "effort")
+}
+
 func TestConvertRequest_EmptyContentFiltered(t *testing.T) {
 	// Anthropic rejects messages with empty content arrays.
 	req := &cometsdk.Request{
