@@ -16,7 +16,8 @@ export async function startNewChat() {
 						text: pending.text,
 						images: pending.images,
 						filePaths: pending.filePaths,
-						webContexts: pending.webContexts
+						webContexts: pending.webContexts,
+						agentMode: pending.agentMode
 					},
 					{ skipUser: false }
 				)

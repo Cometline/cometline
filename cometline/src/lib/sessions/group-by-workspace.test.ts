@@ -25,6 +25,7 @@ function session(id: string, workspacePath: string, updatedAt: number, pinned = 
 			cache_write: 0
 		},
 		pinned,
+		agent_mode: 'auto',
 		created_at: updatedAt,
 		updated_at: updatedAt
 	};

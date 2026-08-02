@@ -1,4 +1,4 @@
-import type { ImageAttachment } from '$lib/types';
+import type { AgentMode, ImageAttachment } from '$lib/types';
 import type { ChatTurnPayload } from '$lib/actions/start-chat';
 
 export function createComposerInputController(deps: {
@@ -9,6 +9,7 @@ export function createComposerInputController(deps: {
 	getHasSelectedModel: () => boolean;
 	getReasoningEffort: () => string;
 	getReasoningEffortOptions: () => string[];
+	getAgentMode: () => AgentMode;
 	clearDraft: () => void;
 }) {
 	function canSubmit() {
@@ -17,10 +18,10 @@ export function createComposerInputController(deps: {
 
 	function sendTurn(payload: ChatTurnPayload | string) {
 		if (typeof payload === 'string') {
-			deps.onSend({ text: payload });
+			deps.onSend({ text: payload, agentMode: deps.getAgentMode() });
 			return;
 		}
-		deps.onSend(payload);
+		deps.onSend({ ...payload, agentMode: payload.agentMode ?? deps.getAgentMode() });
 	}
 
 	function buildSubmitPayload(filePaths: string[]): ChatTurnPayload | null {
@@ -35,7 +36,8 @@ export function createComposerInputController(deps: {
 			text: trimmed,
 			images: images.length > 0 ? images : undefined,
 			filePaths: filePaths.length > 0 ? filePaths : undefined,
-			reasoningEffort: supportedEffort || undefined
+			reasoningEffort: supportedEffort || undefined,
+			agentMode: deps.getAgentMode()
 		};
 	}
 

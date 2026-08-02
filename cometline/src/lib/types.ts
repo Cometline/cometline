@@ -6,6 +6,7 @@ import type {
 } from '$lib/generated/cometmind-api';
 
 export type {
+	AgentMode,
 	CreateSessionRequest,
 	ImageAttachment,
 	MemoryWire,

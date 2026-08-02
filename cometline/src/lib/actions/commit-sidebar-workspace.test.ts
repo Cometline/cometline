@@ -33,6 +33,7 @@ function session(overrides: Partial<Session> = {}): Session {
 			cache_write: 0
 		},
 		pinned: false,
+			agent_mode: 'auto',
 		created_at: 0,
 		updated_at: 0,
 		...overrides
