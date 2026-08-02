@@ -24,6 +24,24 @@ type SpawnGeneralAgent struct {
 }
 
 func (s SpawnGeneralAgent) Spec() ToolSpec {
+	if SurfaceForPlan(s.AgentMode) {
+		return ToolSpec{
+			Name: "spawn_general_agent",
+			Description: "Spawn a read-only in-process CometMind research subagent that runs in parallel. " +
+				"Returns immediately with a child_session_id; use wait_subagents to collect results.",
+			Parameters: json.RawMessage(`{
+				"type":"object",
+				"properties":{
+					"task":{"type":"string","description":"Task for the research subagent"},
+					"context":{"type":"string","description":"Optional extra constraints"},
+					"kind":{"type":"string","enum":["research"],"description":"research (read-only, default)"},
+					"model_id":{"type":"string","description":"Optional model override"},
+					"provider_id":{"type":"string","description":"Optional provider override"}
+				},
+				"required":["task"]
+			}`),
+		}
+	}
 	return ToolSpec{
 		Name: "spawn_general_agent",
 		Description: "Spawn an in-process CometMind subagent that runs in parallel. " +

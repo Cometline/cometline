@@ -23,6 +23,32 @@ func TestSpawnGeneralAgentPlanModeRejectsCoding(t *testing.T) {
 	}
 }
 
+func TestSpawnGeneralAgentPlanModeSpecOnlyAdvertisesResearch(t *testing.T) {
+	spec := (SpawnGeneralAgent{AgentMode: session.AgentModePlan}).Spec()
+	if strings.Contains(strings.ToLower(spec.Description), "coding") {
+		t.Fatalf("Plan description advertises coding: %q", spec.Description)
+	}
+	var schema struct {
+		Properties map[string]struct {
+			Enum []string `json:"enum"`
+		} `json:"properties"`
+	}
+	if err := json.Unmarshal(spec.Parameters, &schema); err != nil {
+		t.Fatalf("decode Plan schema: %v", err)
+	}
+	kind := schema.Properties["kind"]
+	if len(kind.Enum) != 1 || kind.Enum[0] != "research" {
+		t.Fatalf("Plan kind enum = %v, want [research]", kind.Enum)
+	}
+}
+
+func TestSpawnGeneralAgentAutoModeSpecAdvertisesCoding(t *testing.T) {
+	spec := (SpawnGeneralAgent{AgentMode: session.AgentModeAuto}).Spec()
+	if !strings.Contains(strings.ToLower(spec.Description), "kind=coding") {
+		t.Fatalf("Auto description does not advertise coding: %q", spec.Description)
+	}
+}
+
 func TestSpawnGeneralAgentPlanModeAllowsResearch(t *testing.T) {
 	tool := SpawnGeneralAgent{AgentMode: session.AgentModePlan}
 
