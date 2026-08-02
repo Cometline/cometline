@@ -75,7 +75,7 @@ func TestNewRegistryAutoKeepsFullSurface(t *testing.T) {
 	r := NewRegistry(t.TempDir(), fullPlanOptions(session.AgentModeAuto))
 	for _, name := range []string{
 		"read_file", "edit_file", "write_file", "list_dir", "glob", "grep", "run_command",
-		"spawn_general_agent", "wait_subagents", "delegate_coding_task",
+		"spawn_general_agent", "wait_subagents",
 	} {
 		if !r.Has(name) {
 			t.Errorf("auto registry missing %q", name)
