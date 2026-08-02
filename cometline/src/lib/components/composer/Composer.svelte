@@ -255,6 +255,7 @@
 			agentModeKnown = false;
 			return;
 		}
+		if (agentModePending) return;
 		const session = sessionStore.sessions.find((item) => item.id === id);
 		agentMode = session?.agent_mode === 'plan' ? 'plan' : 'auto';
 		agentModeKnown = true;
@@ -273,13 +274,13 @@
 		try {
 			const updated = await updateSession(id, { agent_mode: next });
 			sessionStore.upsertSession(updated);
+			modeAnnouncement = next === 'plan' ? 'Plan mode enabled' : 'Auto mode enabled';
 		} catch {
 			agentMode = previous;
 			modeAnnouncement = 'Failed to change mode';
 		} finally {
 			agentModePending = false;
 		}
-		modeAnnouncement = next === 'plan' ? 'Plan mode enabled' : 'Auto mode enabled';
 	}
 
 	function cycleAgentMode() {
