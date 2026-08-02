@@ -47,7 +47,7 @@ func TestMemorySettingsGetPut(t *testing.T) {
 	}
 
 	hub := event.NewHub()
-	engine, err := New(Deps{Config: cfg, Sessions: sessions, Memory: mem, Events: hub, NewRunner: func(session.Session, string) (Runner, error) {
+	engine, err := New(Deps{Config: cfg, Sessions: sessions, Memory: mem, Events: hub, NewRunner: func(session.Session, string, session.AgentMode) (Runner, error) {
 		return &noopRunner{}, nil
 	}, Runs: NewRunManager()})
 	if err != nil {

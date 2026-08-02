@@ -31,7 +31,9 @@ async function sendViaQueue(sessionId: string, payload: ChatTurnPayload): Promis
 		payload.text,
 		payload.images,
 		payload.filePaths,
-		payload.displayText
+		payload.displayText,
+		payload.webContexts,
+		payload.agentMode
 	);
 	await goto(sessionRouteFor(sessionId));
 }

@@ -48,7 +48,9 @@ export function createChatTurnQueue(
 			displayText: payload.displayText ?? '',
 			images: payload.images?.map((image) => image.data) ?? [],
 			filePaths: payload.filePaths ?? [],
-			webContexts: payload.webContexts ?? []
+			webContexts: payload.webContexts ?? [],
+			reasoningEffort: payload.reasoningEffort ?? '',
+			agentMode: payload.agentMode ?? ''
 		});
 	}
 
@@ -98,9 +100,18 @@ export function createChatTurnQueue(
 				await runTurnSafely(initialPayload);
 			}
 			while (queue.length > 0) {
-				const { text, displayText, images, filePaths, webContexts } = queue.shift()!;
+				const { text, displayText, images, filePaths, webContexts, reasoningEffort, agentMode } =
+					queue.shift()!;
 				notifyChange();
-				await runTurnSafely({ text, displayText, images, filePaths, webContexts });
+				await runTurnSafely({
+					text,
+					displayText,
+					images,
+					filePaths,
+					webContexts,
+					reasoningEffort,
+					agentMode
+				});
 			}
 		} finally {
 			activeTurnSignature = null;

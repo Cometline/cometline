@@ -17,6 +17,7 @@
 	import MessageContextChips from '$lib/components/chat/MessageContextChips.svelte';
 	import { messageContextRefsFromPending } from '$lib/chat/message-context';
 	import { chatStore } from '$lib/stores/chat.svelte';
+	import { sessionStore } from '$lib/stores/session.svelte';
 	import { composerHistoryStore } from '$lib/stores/composer-history.svelte';
 	import { DEFAULT_CONTEXT_WINDOW_LIMIT, resolveContextWindowUsage } from '$lib/context-window';
 	import { workspaceLabel } from '$lib/sessions/group-by-workspace';
@@ -30,6 +31,8 @@
 	import { nextAttachmentRemoval } from '$lib/components/composer/composer-attachment-keydown';
 	import { nextReasoningEffort } from '$lib/composer/reasoning-effort';
 	import { getReasoningEffort, setReasoningEffort } from '$lib/stores/reasoning-effort.svelte';
+	import { updateSession } from '$lib/client/cometmind';
+	import type { AgentMode } from '$lib/types';
 
 	let {
 		onSend,
@@ -74,6 +77,13 @@
 	let trackedSessionId = $state<string | null>(null);
 	let skippingEmptyStash = $state(false);
 	let lastNonEmptyDraft = $state('');
+	// Agent mode: sourced from the persisted session (source of truth). Auto is
+	// the default for every new session; Plan only appears after an explicit
+	// Tab/control action in this session's composer.
+	let agentMode = $state<AgentMode>('auto');
+	let agentModeKnown = $state(false);
+	let agentModePending = $state(false);
+	let modeAnnouncement = $state('');
 	const heroPlaceholders = [
 		'Type something. Anything.',
 		'Ask a question.',
@@ -147,6 +157,7 @@
 		getHasSelectedModel: () => Boolean(modelStore.selected),
 		getReasoningEffort: () => getReasoningEffort(sessionId),
 		getReasoningEffortOptions: () => modelStore.selected?.reasoningEffortOptions ?? [],
+		getAgentMode: () => agentMode,
 		clearDraft
 	});
 
@@ -235,6 +246,47 @@
 		applyComposerText('');
 	});
 
+	// Keep the composer mode in sync with the persisted session record. The
+	// backend session value is authoritative; no renderer-local preference map.
+	$effect(() => {
+		const id = sessionId;
+		if (!id) {
+			agentMode = 'auto';
+			agentModeKnown = false;
+			return;
+		}
+		if (agentModePending) return;
+		const session = sessionStore.sessions.find((item) => item.id === id);
+		agentMode = session?.agent_mode === 'plan' ? 'plan' : 'auto';
+		agentModeKnown = true;
+	});
+
+	async function setAgentMode(next: AgentMode) {
+		if (agentModePending || next === agentMode) return;
+		const id = sessionId;
+		const previous = agentMode;
+		agentMode = next;
+		if (!id) {
+			modeAnnouncement = next === 'plan' ? 'Plan mode enabled' : 'Auto mode enabled';
+			return;
+		}
+		agentModePending = true;
+		try {
+			const updated = await updateSession(id, { agent_mode: next });
+			sessionStore.upsertSession(updated);
+			modeAnnouncement = next === 'plan' ? 'Plan mode enabled' : 'Auto mode enabled';
+		} catch {
+			agentMode = previous;
+			modeAnnouncement = 'Failed to change mode';
+		} finally {
+			agentModePending = false;
+		}
+	}
+
+	function cycleAgentMode() {
+		void setAgentMode(agentMode === 'plan' ? 'auto' : 'plan');
+	}
+
 	$effect(() => {
 		if (!autofocus || shellStore.focusedPane !== 'chat') return;
 		void sessionId;
@@ -275,6 +327,7 @@
 		const action = slash.resolveSubmitAction(trimmed);
 		if (action.kind === 'handled') return;
 		if (!canSubmit || disabled || resolvingWebContext || !modelStore.selected) return;
+		if (agentModePending) return;
 		const filePaths = input?.getFilePaths() ?? [];
 		const contextsBeforeResolve = pendingWebContexts.length;
 		resolvingWebContext = contextsBeforeResolve > 0;
@@ -350,6 +403,20 @@
 		}
 		if (slash.handleMenuKeydown(e)) return;
 		if (mentions.handleMentionMenuKeydown(e)) return;
+		// Plain Tab toggles the agent mode only when no slash/mention menu owns
+		// the key. Shift+Tab and modified combinations keep native behavior.
+		if (
+			!e.isComposing &&
+			!e.metaKey &&
+			!e.ctrlKey &&
+			!e.altKey &&
+			e.key === 'Tab' &&
+			!e.shiftKey
+		) {
+			e.preventDefault();
+			cycleAgentMode();
+			return;
+		}
 		if (
 			!e.isComposing &&
 			!e.metaKey &&
@@ -433,15 +500,17 @@
 
 <div
 	class="composer"
+	class:hero={variant === 'hero'}
+	class:plan={agentMode === 'plan'}
+	class:dragging={attachments.dragActive}
 	role="group"
 	aria-label="Message composer"
-	class:hero={variant === 'hero'}
-	class:dragging={attachments.dragActive}
 	ondragenter={attachments.onDragEnter}
 	ondragover={attachments.onDragOver}
 	ondragleave={attachments.onDragLeave}
 	ondrop={attachments.onDrop}
 >
+	<div class="sr-only" role="status" aria-live="polite">{modeAnnouncement}</div>
 	{#if attachments.dragActive}
 		<div class="drop-overlay" aria-hidden="true">
 			<FileText size={18} stroke-width={1.8} />
@@ -510,6 +579,9 @@
 		reasoningEffort={currentReasoningEffort()}
 		reasoningEffortOptions={modelStore.selected?.reasoningEffortOptions ?? []}
 		onCycleReasoningEffort={cycleReasoningEffort}
+		agentMode={agentMode}
+		agentModeKnown={agentModeKnown}
+		onSwitchToAuto={() => void setAgentMode('auto')}
 		onOpenChangeWorkspace={slash.openChangeWorkspace}
 		{onStop}
 		onSubmit={() => void submit()}
@@ -542,6 +614,27 @@
 	.composer.dragging {
 		border-color: rgba(37, 99, 235, 0.26);
 		background: #f8fbff;
+		box-shadow:
+			var(--shadow-card),
+			0 0 0 4px rgba(37, 99, 235, 0.08);
+	}
+
+	.composer.plan {
+		border-color: var(--plan-border);
+		box-shadow:
+			var(--shadow-card),
+			0 0 0 3px var(--plan-ring);
+	}
+
+	.composer.plan.hero {
+		box-shadow:
+			0 18px 60px rgba(15, 23, 42, 0.12),
+			0 0 0 3px var(--plan-ring);
+	}
+
+	/* Drag feedback stays visible over plan styling. */
+	.composer.plan.dragging {
+		border-color: rgba(37, 99, 235, 0.26);
 		box-shadow:
 			var(--shadow-card),
 			0 0 0 4px rgba(37, 99, 235, 0.08);

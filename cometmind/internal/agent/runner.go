@@ -62,6 +62,7 @@ type Runner struct {
 	MaxTokens              int
 	MemoryRetrievalTimeout time.Duration
 	SystemPrompt           string
+	AgentMode              session.AgentMode
 	SkillIndex             string
 	JobIndex               string
 	SubagentOrchestrator   *subagent.Orchestrator
@@ -782,6 +783,9 @@ func (r *Runner) buildSystemPrompt(contextSummary string, maxTokens int) string 
 		parts = append(parts, block)
 	}
 	if block := FormatOutputBudgetPromptBlock(maxTokens); block != "" {
+		parts = append(parts, block)
+	}
+	if block := FormatAgentModePrompt(r.AgentMode); block != "" {
 		parts = append(parts, block)
 	}
 	if len(parts) == 0 {

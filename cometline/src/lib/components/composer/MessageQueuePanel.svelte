@@ -57,6 +57,9 @@
 					{#each queuedMessages as message, index (message.id)}
 						<li class="queue-preview-item">
 							<span class="queue-preview-index">{index + 1}</span>
+							{#if message.agentMode === 'plan'}
+								<span class="queue-mode" title="This queued message runs in Plan mode">plan</span>
+							{/if}
 							<p class="queue-preview-text">{message.text}</p>
 							<button
 								type="button"
@@ -172,6 +175,21 @@
 		font-weight: 700;
 		color: var(--text-soft);
 		padding-top: 2px;
+	}
+
+	.queue-mode {
+		flex: 0 0 auto;
+		padding: 2px 6px;
+		border: 1px solid var(--plan-chip-border, var(--plan-border));
+		border-radius: 999px;
+		background: var(--plan-chip-bg);
+		color: var(--plan-chip-text);
+		font-size: 9px;
+		font-weight: 700;
+		letter-spacing: 0.05em;
+		line-height: 1.2;
+		text-transform: uppercase;
+		margin-top: 1px;
 	}
 
 	.queue-preview-text {

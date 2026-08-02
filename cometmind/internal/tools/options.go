@@ -51,6 +51,10 @@ type RegistryOptions struct {
 	SessionID          string
 	JobPlatform        string
 	JobSourceChannelID string
+	// AgentMode selects the tool surface for parent-agent registries.
+	// Empty or auto keeps the full ParentSurface; plan applies the read-only
+	// PlanSurface with research-only subagent spawning.
+	AgentMode             session.AgentMode
 	BrowserSearchURL      string
 	BrowserSearchToken    string
 	ScreenCaptureURL      string

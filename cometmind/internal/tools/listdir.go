@@ -8,15 +8,19 @@ import (
 	"strings"
 )
 
-// ListDir lists non-hidden entries one level under a path relative to the workspace.
+// ListDir lists non-hidden entries one level under a path. Relative paths
+// resolve against the workspace; absolute paths list any readable directory.
 type ListDir struct{ Workspace Workspace }
+
+const listDirMaxEntries = 2000
 
 func (ListDir) Spec() ToolSpec {
 	return ToolSpec{
 		Name: "list_dir",
-		Description: "List files and directories at a path relative to the workspace root (non-recursive). " +
-			"Use @runtime to list managed shared mounts.",
-		Parameters: json.RawMessage(`{"type":"object","properties":{"path":{"type":"string","description":"Relative directory; use . for workspace root"}},"required":["path"]}`),
+		Description: "List files and directories at a path (non-recursive). " +
+			"Relative paths resolve against the workspace root; absolute paths list any readable directory. " +
+			"Hidden entries are skipped. Use @runtime to list managed shared mounts.",
+		Parameters: json.RawMessage(`{"type":"object","properties":{"path":{"type":"string","description":"Relative directory (use . for workspace root) or an absolute host directory"}},"required":["path"]}`),
 	}
 }
 
@@ -43,6 +47,7 @@ func (l ListDir) Execute(ctx context.Context, input json.RawMessage) (Result, er
 		return Result{OK: false, Output: err.Error()}, nil
 	}
 	var b strings.Builder
+	listed := 0
 	for _, e := range ents {
 		name := e.Name()
 		if strings.HasPrefix(name, ".") {
@@ -52,6 +57,11 @@ func (l ListDir) Execute(ctx context.Context, input json.RawMessage) (Result, er
 			fmt.Fprintf(&b, "%s/\n", name)
 		} else {
 			fmt.Fprintf(&b, "%s\n", name)
+		}
+		listed++
+		if listed >= listDirMaxEntries {
+			fmt.Fprintf(&b, "(listing truncated at %d entries)\n", listDirMaxEntries)
+			break
 		}
 	}
 	return Result{OK: true, Output: b.String()}, nil

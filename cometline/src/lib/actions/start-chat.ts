@@ -8,7 +8,7 @@
  * - The session is refreshed after every send so the title can update.
  */
 
-import type { ImageAttachment } from '$lib/types';
+import type { AgentMode, ImageAttachment } from '$lib/types';
 
 export interface WebContext {
 	kind: 'page' | 'file' | 'terminal' | 'message';
@@ -25,6 +25,8 @@ export interface ChatTurnPayload {
 	webContexts?: WebContext[];
 	/** Per-turn reasoning effort override; empty means the provider default. */
 	reasoningEffort?: string;
+	/** Per-turn agent mode override; omitted means the session's persisted mode. */
+	agentMode?: AgentMode;
 }
 
 export interface StartChatAdapter {

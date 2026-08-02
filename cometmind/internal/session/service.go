@@ -275,6 +275,7 @@ func (s *Service) ForkSession(ctx context.Context, sessionID, absPath string) (S
 		ProviderID:  src.ProviderID,
 		Status:      "active",
 		Origin:      "user",
+		AgentMode:   string(AgentModeAuto),
 	})
 	if err != nil {
 		return Session{}, err
@@ -439,6 +440,7 @@ func (s *Service) newSessionWithOrigin(ctx context.Context, workspaceID string, 
 		ProviderID:  providerID,
 		Status:      "active",
 		Origin:      origin,
+		AgentMode:   string(AgentModeAuto),
 	})
 	if err != nil {
 		return Session{}, err
@@ -615,6 +617,21 @@ func (s *Service) UpdateSessionPinned(ctx context.Context, sessionID string, pin
 		return Session{}, err
 	}
 	return s.GetSession(ctx, sessionID)
+}
+
+// UpdateSessionAgentMode persists the preferred agent mode for a session.
+func (s *Service) UpdateSessionAgentMode(ctx context.Context, sessionID string, mode AgentMode) (Session, error) {
+	if _, err := s.GetSession(ctx, sessionID); err != nil {
+		return Session{}, err
+	}
+	row, err := s.q.UpdateSessionAgentMode(ctx, db.UpdateSessionAgentModeParams{
+		AgentMode: string(mode),
+		ID:        sessionID,
+	})
+	if err != nil {
+		return Session{}, err
+	}
+	return sessionFromDB(row), nil
 }
 
 // UpdateSessionTitle persists a new display title for an existing session.
@@ -1228,6 +1245,7 @@ func (s *Service) NewChildSession(ctx context.Context, parent Session, purpose, 
 		DelegationStatus: DelegationPending.String(),
 		OutputSummary:    "",
 		SubagentKind:     subagentKind,
+		AgentMode:        parent.AgentMode,
 	})
 	if err != nil {
 		return Session{}, err

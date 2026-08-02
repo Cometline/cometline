@@ -16,12 +16,14 @@ const (
 	readFileDefaultLimit   = 2000
 	readFileMaxLineRunes   = 2000
 	readFileMaxOutputRunes = 50000
+	readFileMaxInputBytes  = 10 << 20
 )
 
 func (ReadFile) Spec() ToolSpec {
 	return ToolSpec{
 		Name: "read_file",
-		Description: "Read a text file relative to the workspace root. You may also read " +
+		Description: "Read a text file. Relative paths resolve against the workspace root; " +
+			"absolute paths read anywhere the CometMind process may access. You may also read " +
 			"@runtime/tool-output/..., @runtime/tmp/..., and @runtime/wiki/...; other ~/.cometmind files are private. " +
 			"Each line is prefixed with its 1-based line number as \"N: content\" " +
 			"(the \"N: \" prefix is not part of the file). " +
@@ -29,7 +31,7 @@ func (ReadFile) Spec() ToolSpec {
 		Parameters: json.RawMessage(`{
 			"type":"object",
 			"properties":{
-				"path":{"type":"string","description":"Relative path from workspace root"},
+				"path":{"type":"string","description":"Relative path from workspace root or an absolute host path"},
 				"offset":{"type":"integer","description":"1-based line number to start reading from (default 1)"},
 				"limit":{"type":"integer","description":"Maximum number of lines to return (default 2000)"}
 			},
@@ -54,6 +56,19 @@ func (r ReadFile) Execute(ctx context.Context, input json.RawMessage) (Result, e
 	p, err := r.Workspace.ResolveReadable(path)
 	if err != nil {
 		return Result{OK: false, Output: err.Error()}, nil
+	}
+	info, err := os.Stat(p)
+	if err != nil {
+		return Result{OK: false, Output: err.Error()}, nil
+	}
+	if !info.Mode().IsRegular() {
+		return Result{OK: false, Output: "path is not a regular file"}, nil
+	}
+	if info.Size() > readFileMaxInputBytes {
+		return Result{OK: false, Output: fmt.Sprintf(
+			"file is too large to read in full (%d bytes > %d byte limit); use a path-based alternative",
+			info.Size(), readFileMaxInputBytes,
+		)}, nil
 	}
 	b, err := os.ReadFile(p)
 	if err != nil {

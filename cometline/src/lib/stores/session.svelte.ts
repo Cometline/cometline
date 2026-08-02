@@ -1,5 +1,5 @@
 import { browser } from '$app/environment';
-import type { ImageAttachment, Session } from '$lib/types';
+import type { AgentMode, ImageAttachment, Session } from '$lib/types';
 import type { WebContext } from '$lib/actions/start-chat';
 import { publishWindowSync, subscribeWindowSync } from '$lib/window-sync';
 
@@ -10,6 +10,7 @@ export interface PendingMessage {
 	images?: ImageAttachment[];
 	filePaths?: string[];
 	webContexts?: WebContext[];
+	agentMode?: AgentMode;
 }
 
 function createSessionStore() {
@@ -79,14 +80,16 @@ function createSessionStore() {
 		images?: ImageAttachment[],
 		filePaths?: string[],
 		displayText?: string,
-		webContexts?: WebContext[]
+		webContexts?: WebContext[],
+		agentMode?: AgentMode
 	) {
 		pendingMessages = new Map(pendingMessages).set(sessionId, {
 			text,
 			images,
 			filePaths,
 			displayText,
-			webContexts
+			webContexts,
+			agentMode
 		});
 	}
 

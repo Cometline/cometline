@@ -23,6 +23,15 @@
 	--status-error-border: rgba(244, 63, 94, 0.18);
 	--overlay-scrim: rgba(251, 251, 250, 0.86);
 
+	/* Plan mode (read-only agent mode) — subtle yellow, not a warning/error tone */
+	--plan-border: #d8c876;
+	--plan-ring: rgba(216, 200, 118, 0.16);
+	--plan-chip-bg: rgba(216, 200, 118, 0.16);
+	--plan-chip-bg-strong: rgba(216, 200, 118, 0.28);
+	--plan-chip-text: #7a6a22;
+	--plan-chip-text-strong: #5f521a;
+	--plan-chip-border: rgba(216, 200, 118, 0.55);
+
 	/* Effects */
 	--shadow-card: 0 8px 28px rgba(15, 23, 42, 0.08);
 	--content-panel-inset: 6px;

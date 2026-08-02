@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import type { AgentMode } from '$lib/types';
 import { createComposerInputController } from './composer-controller.svelte';
 
 function deps(overrides: Partial<Parameters<typeof createComposerInputController>[0]> = {}) {
@@ -10,6 +11,7 @@ function deps(overrides: Partial<Parameters<typeof createComposerInputController
 		getHasSelectedModel: () => true,
 		getReasoningEffort: () => '',
 		getReasoningEffortOptions: () => [],
+		getAgentMode: (): AgentMode => 'auto',
 		clearDraft: vi.fn(),
 		...overrides
 	};
@@ -30,7 +32,8 @@ describe('createComposerInputController', () => {
 		const controller = createComposerInputController(deps({ getValue: () => '  run tests  ' }));
 		expect(controller.buildSubmitPayload(['/tmp/a.ts'])).toEqual({
 			text: 'run tests',
-			filePaths: ['/tmp/a.ts']
+			filePaths: ['/tmp/a.ts'],
+			agentMode: 'auto'
 		});
 	});
 
@@ -43,7 +46,8 @@ describe('createComposerInputController', () => {
 		);
 		expect(controller.buildSubmitPayload([])).toEqual({
 			text: 'hello',
-			reasoningEffort: 'high'
+			reasoningEffort: 'high',
+			agentMode: 'auto'
 		});
 	});
 
@@ -54,7 +58,12 @@ describe('createComposerInputController', () => {
 				getReasoningEffortOptions: () => ['low', 'medium']
 			})
 		);
-		expect(controller.buildSubmitPayload([])).toEqual({ text: 'hello' });
+		expect(controller.buildSubmitPayload([])).toEqual({ text: 'hello', agentMode: 'auto' });
+	});
+
+	it('buildSubmitPayload attaches plan mode when active', () => {
+		const controller = createComposerInputController(deps({ getAgentMode: () => 'plan' }));
+		expect(controller.buildSubmitPayload([])).toEqual({ text: 'hello', agentMode: 'plan' });
 	});
 
 	it('submitDraft sends payload and clears draft', () => {
@@ -62,7 +71,21 @@ describe('createComposerInputController', () => {
 		const clearDraft = vi.fn();
 		const controller = createComposerInputController(deps({ onSend, getValue: () => 'go', clearDraft }));
 		expect(controller.submitDraft([])).toBe(true);
-		expect(onSend).toHaveBeenCalledWith({ text: 'go' });
+		expect(onSend).toHaveBeenCalledWith({ text: 'go', agentMode: 'auto' });
 		expect(clearDraft).toHaveBeenCalledOnce();
+	});
+
+	it('sendTurn attaches the active agent mode to string payloads', () => {
+		const onSend = vi.fn();
+		const controller = createComposerInputController(deps({ onSend, getAgentMode: () => 'plan' }));
+		controller.sendTurn('go');
+		expect(onSend).toHaveBeenCalledWith({ text: 'go', agentMode: 'plan' });
+	});
+
+	it('sendTurn keeps an explicit payload agent mode over the composer state', () => {
+		const onSend = vi.fn();
+		const controller = createComposerInputController(deps({ onSend, getAgentMode: () => 'auto' }));
+		controller.sendTurn({ text: 'go', agentMode: 'plan' });
+		expect(onSend).toHaveBeenCalledWith({ text: 'go', agentMode: 'plan' });
 	});
 });

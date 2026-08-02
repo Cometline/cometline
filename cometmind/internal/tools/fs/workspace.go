@@ -36,11 +36,22 @@ func (w Workspace) Resolve(rel string) (string, error) {
 }
 
 // ResolveReadable resolves workspace paths plus explicitly exposed runtime
-// mounts. It does not expose ~/.cometmind as a general filesystem root.
+// mounts. Absolute paths resolve anywhere the CometMind process may read, and
+// relative paths follow symlinks outside the workspace: read tools
+// intentionally have host-wide read capability in every agent mode.
+// It does not expose ~/.cometmind as a general filesystem root.
 func (w Workspace) ResolveReadable(rel string) (string, error) {
 	mount, subpath, ok := runtimeMount(rel)
 	if !ok {
-		return w.Resolve(rel)
+		if filepath.IsAbs(rel) {
+			return filepath.Clean(rel), nil
+		}
+		joined := filepath.Clean(filepath.Join(filepath.Clean(w.Root), rel))
+		resolved, err := filepath.EvalSymlinks(joined)
+		if err != nil {
+			return "", err
+		}
+		return resolved, nil
 	}
 	if mount != runtimeToolOutputMount && mount != runtimeTmpMount && mount != runtimeWikiMount {
 		return "", fmt.Errorf("runtime mount is not readable: %s", mount)
@@ -69,10 +80,15 @@ func (w Workspace) ResolveWritable(rel string) (string, error) {
 	return sandbox.ResolveWorkspacePath(root, subpath)
 }
 
-// ResolveSearchRoot resolves a path that may be a readable runtime mount and
-// returns the display prefix needed to make search results usable by other tools.
+// ResolveSearchRoot resolves a path that may be a readable runtime mount or an
+// absolute external root and returns the display prefix needed to make search
+// results usable by other tools.
 func (w Workspace) ResolveSearchRoot(rel string) (root, displayPrefix string, err error) {
 	if !IsRuntimePath(rel) {
+		if filepath.IsAbs(rel) {
+			clean := filepath.Clean(rel)
+			return clean, clean, nil
+		}
 		root, err = w.Resolve(rel)
 		return root, "", err
 	}
@@ -80,11 +96,14 @@ func (w Workspace) ResolveSearchRoot(rel string) (root, displayPrefix string, er
 	return root, strings.TrimSuffix(filepath.ToSlash(strings.TrimSpace(rel)), "/"), err
 }
 
-// DisplayPath returns the path shown in tool results (workspace-relative or
-// the original @runtime alias when applicable).
+// DisplayPath returns the path shown in tool results (workspace-relative,
+// the original @runtime alias, or the full absolute path for external reads).
 func (w Workspace) DisplayPath(abs, inputRel string) string {
 	if IsRuntimePath(inputRel) {
 		return filepath.ToSlash(inputRel)
+	}
+	if filepath.IsAbs(inputRel) {
+		return filepath.ToSlash(filepath.Clean(inputRel))
 	}
 	rel := strings.TrimPrefix(strings.TrimPrefix(abs, w.Root), string(filepath.Separator))
 	return filepath.ToSlash(rel)

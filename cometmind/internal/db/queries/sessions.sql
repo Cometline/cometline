@@ -1,6 +1,6 @@
 -- name: CreateSession :one
-INSERT INTO sessions (id, workspace_id, title, model_id, provider_id, status, origin)
-VALUES (?, ?, ?, ?, ?, ?, ?)
+INSERT INTO sessions (id, workspace_id, title, model_id, provider_id, status, origin, agent_mode)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: CreateChildSession :one
@@ -15,9 +15,10 @@ INSERT INTO sessions (
     purpose,
     delegation_status,
     output_summary,
-    subagent_kind
+    subagent_kind,
+    agent_mode
 )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: ListChildSessions :many
@@ -177,6 +178,14 @@ SET
     pinned = ?,
     updated_at = unixepoch ('now', 'subsec') * 1000
 WHERE id = ?;
+
+-- name: UpdateSessionAgentMode :one
+UPDATE sessions
+SET
+    agent_mode = ?,
+    updated_at = unixepoch ('now', 'subsec') * 1000
+WHERE id = ?
+RETURNING *;
 
 -- name: UpdateSessionWorkspace :exec
 UPDATE sessions

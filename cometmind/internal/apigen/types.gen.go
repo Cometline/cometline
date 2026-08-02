@@ -10,6 +10,24 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Defines values for AgentMode.
+const (
+	Auto AgentMode = "auto"
+	Plan AgentMode = "plan"
+)
+
+// Valid indicates whether the value is a known member of the AgentMode enum.
+func (e AgentMode) Valid() bool {
+	switch e {
+	case Auto:
+		return true
+	case Plan:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AssistantImageEventMediaType.
 const (
 	AssistantImageEventMediaTypeImagegif  AssistantImageEventMediaType = "image/gif"
@@ -919,6 +937,12 @@ func (e GetWorkspaceGitStatusParamsScope) Valid() bool {
 	}
 }
 
+// AgentMode Agent capability surface for a session or turn. `auto` preserves the full
+// agent toolset; `plan` is a read-only planning mode that removes command,
+// file-write, and mutation tools while keeping host-wide reads, network
+// access, and read-only research delegation.
+type AgentMode string
+
 // AssistantImageEvent defines model for AssistantImageEvent.
 type AssistantImageEvent struct {
 	Alt *string `json:"alt,omitempty"`
@@ -1554,6 +1578,10 @@ type ModelListResponse struct {
 
 // PostMessageRequest defines model for PostMessageRequest.
 type PostMessageRequest struct {
+	// AgentMode Optional per-turn agent mode override. When omitted, the session's
+	// persisted mode is used. New sessions always start in `auto`.
+	AgentMode *AgentMode `json:"agent_mode,omitempty"`
+
 	// DisplayText Optional transcript label for the user bubble. When set, the UI shows this instead of text while the agent still receives text.
 	DisplayText *string `json:"display_text,omitempty"`
 
@@ -1675,6 +1703,9 @@ type SearchMemoryRequest struct {
 type Session struct {
 	// AcpSessionId External ACP session ID recorded for diagnostics.
 	AcpSessionId *string `json:"acp_session_id,omitempty"`
+
+	// AgentMode Active agent mode for the session. `auto` unless the user switched this session to `plan`.
+	AgentMode AgentMode `json:"agent_mode"`
 
 	// CreatedAt Unix epoch milliseconds.
 	CreatedAt        int64                    `json:"created_at"`
@@ -1939,7 +1970,9 @@ type UpdateScheduledJobRequest struct {
 
 // UpdateSessionRequest defines model for UpdateSessionRequest.
 type UpdateSessionRequest struct {
-	ModelId *string `json:"model_id,omitempty"`
+	// AgentMode Persist the preferred mode for this session. New sessions always start in `auto`.
+	AgentMode *AgentMode `json:"agent_mode,omitempty"`
+	ModelId   *string    `json:"model_id,omitempty"`
 
 	// Pinned Pin the session to the top of its workspace group in the sidebar.
 	Pinned     *bool   `json:"pinned,omitempty"`

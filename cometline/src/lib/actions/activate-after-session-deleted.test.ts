@@ -47,6 +47,7 @@ function session(id: string, workspacePath = '/ws'): Session {
 		origin: 'user',
 		token_usage: { input_tokens: 0, output_tokens: 0, cache_read: 0, cache_write: 0 },
 		pinned: false,
+			agent_mode: 'auto',
 		created_at: 0,
 		updated_at: id === 'b' ? 2 : 1
 	};

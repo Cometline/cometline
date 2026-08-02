@@ -218,7 +218,8 @@ export function createConversationController(
 					displayText: pending.displayText,
 					images: pending.images,
 					filePaths: pending.filePaths,
-					webContexts: pending.webContexts
+					webContexts: pending.webContexts,
+					agentMode: pending.agentMode
 				});
 				return;
 			}

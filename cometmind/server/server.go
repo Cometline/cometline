@@ -30,7 +30,7 @@ type Runner interface {
 	Run(context.Context, session.AgentTurn, chan<- event.Event) error
 }
 
-type RunnerFactory func(sess session.Session, workspacePath string) (Runner, error)
+type RunnerFactory func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error)
 
 type RetentionResult = retention.Result
 
@@ -310,6 +310,7 @@ type sessionResource struct {
 	ProviderID       string             `json:"provider_id"`
 	Status           string             `json:"status"`
 	TokenUsage       tokenUsageResource `json:"token_usage"`
+	AgentMode        string             `json:"agent_mode"`
 	ParentSessionID  string             `json:"parent_session_id,omitempty"`
 	Purpose          string             `json:"purpose,omitempty"`
 	DelegationStatus string             `json:"delegation_status,omitempty"`
@@ -608,6 +609,7 @@ func sessionResourceFromAPISession(w apigen.Session) sessionResource {
 			CacheRead:    w.TokenUsage.CacheRead,
 			CacheWrite:   w.TokenUsage.CacheWrite,
 		},
+		AgentMode: string(w.AgentMode),
 		Pinned:    w.Pinned,
 		CreatedAt: w.CreatedAt,
 		UpdatedAt: w.UpdatedAt,

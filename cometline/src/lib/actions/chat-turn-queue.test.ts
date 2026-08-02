@@ -222,4 +222,38 @@ describe('createChatTurnQueue', () => {
 			displayText: '/job Fix login'
 		});
 	});
+
+	it('keeps the agent mode captured at submission while draining', async () => {
+		let releaseFirst: (() => void) | undefined;
+		const firstGate = new Promise<void>((resolve) => {
+			releaseFirst = resolve;
+		});
+		const runTurn = vi.fn().mockImplementation(async (payload: ChatTurnPayload) => {
+			if (payload.text === 'first') await firstGate;
+		});
+		const queue = createChatTurnQueue(runTurn);
+
+		void queue.enqueue({ text: 'first', agentMode: 'auto' });
+		await vi.waitFor(() => expect(queue.processing).toBe(true));
+
+		// Queued in Plan, then the composer switches to Auto before the turn runs.
+		void queue.enqueue({ text: 'second', agentMode: 'plan' });
+		expect(queue.pendingMessages[0].agentMode).toBe('plan');
+
+		releaseFirst!();
+		await vi.waitFor(() => expect(queue.processing).toBe(false));
+		expect(runTurn).toHaveBeenCalledTimes(2);
+		expect(runTurn).toHaveBeenLastCalledWith({ text: 'second', agentMode: 'plan' });
+	});
+
+	it('deduplicates identical payloads but distinguishes different agent modes', async () => {
+		const runTurn = vi.fn().mockResolvedValue(undefined);
+		const queue = createChatTurnQueue(runTurn);
+
+		await queue.enqueue({ text: 'same' });
+		await expect(queue.enqueue({ text: 'same', agentMode: 'plan' })).resolves.toBe(true);
+		expect(runTurn).toHaveBeenCalledTimes(2);
+		expect(runTurn).toHaveBeenNthCalledWith(1, { text: 'same' });
+		expect(runTurn).toHaveBeenNthCalledWith(2, { text: 'same', agentMode: 'plan' });
+	});
 });

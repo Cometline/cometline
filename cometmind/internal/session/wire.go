@@ -26,6 +26,7 @@ func APISession(sess Session, workspacePath string) (apigen.Session, error) {
 		Status:        apigen.SessionStatus(sess.Status),
 		Origin:        apigen.SessionOrigin(sess.Origin),
 		TokenUsage:    usage,
+		AgentMode:     apigen.AgentMode(sess.AgentMode),
 		Pinned:        sess.Pinned,
 		CreatedAt:     sess.CreatedAt,
 		UpdatedAt:     sess.UpdatedAt,

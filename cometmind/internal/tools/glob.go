@@ -30,12 +30,13 @@ func (Glob) Spec() ToolSpec {
 		Name: "glob",
 		Description: "Find files by name pattern. Supports standard glob syntax " +
 			"including ** for recursive matching. Results sorted by modification time " +
-			"(newest first), capped at 100 files. Skips gitignored paths. The path may be @runtime/wiki.",
+			"(newest first), capped at 100 files. Skips gitignored paths. " +
+			"The path may be @runtime/wiki or an absolute host directory.",
 		Parameters: json.RawMessage(`{
 			"type": "object",
 			"properties": {
 				"pattern": {"type": "string", "description": "Glob pattern, e.g. **/*.ts, src/**/*.go, *.{json,yaml}"},
-				"path": {"type": "string", "description": "Optional relative subdirectory to scope the search (default workspace root)"}
+				"path": {"type": "string", "description": "Optional subdirectory to scope the search: workspace-relative or an absolute host directory (default workspace root)"}
 			},
 			"required": ["pattern"]
 		}`),
@@ -72,8 +73,11 @@ func (g Glob) Execute(ctx context.Context, input json.RawMessage) (Result, error
 		workspaceRoot = searchRoot
 	}
 
+	walkCtx, cancel := withSearchDeadline(ctx)
+	defer cancel()
+
 	var matches []globMatch
-	err = walkSearchableFiles(ctx, workspaceRoot, searchRoot, func(workspaceRel, absPath string) error {
+	err = walkSearchableFiles(walkCtx, workspaceRoot, searchRoot, func(workspaceRel, absPath string) error {
 		matched, err := doublestar.PathMatch(pattern, workspaceRel)
 		if err != nil || !matched {
 			return nil
@@ -88,12 +92,13 @@ func (g Glob) Execute(ctx context.Context, input json.RawMessage) (Result, error
 		}
 		return nil
 	})
-	if err != nil && !errors.Is(err, fs.SkipAll) {
+	budgetExhausted := errors.Is(err, errSearchBudget) || errors.Is(err, context.DeadlineExceeded)
+	if err != nil && !errors.Is(err, fs.SkipAll) && !budgetExhausted {
 		return Result{OK: false, Output: err.Error()}, nil
 	}
 
-	truncated := len(matches) > globMaxFiles || errors.Is(err, fs.SkipAll)
-	if truncated {
+	truncated := len(matches) > globMaxFiles || errors.Is(err, fs.SkipAll) || budgetExhausted
+	if truncated && len(matches) > globMaxFiles {
 		matches = matches[:globMaxFiles]
 	}
 	sort.Slice(matches, func(i, j int) bool {

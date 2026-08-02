@@ -18,9 +18,30 @@ type SpawnGeneralAgent struct {
 	Orchestrator   *subagent.Orchestrator
 	RunnerFactory  ChildRunnerFactory
 	SubagentConfig SubagentToolConfig
+	// AgentMode is the parent agent mode. Plan mode restricts children to
+	// read-only research so spawning cannot bypass Plan restrictions.
+	AgentMode session.AgentMode
 }
 
 func (s SpawnGeneralAgent) Spec() ToolSpec {
+	if SurfaceForPlan(s.AgentMode) {
+		return ToolSpec{
+			Name: "spawn_general_agent",
+			Description: "Spawn a read-only in-process CometMind research subagent that runs in parallel. " +
+				"Returns immediately with a child_session_id; use wait_subagents to collect results.",
+			Parameters: json.RawMessage(`{
+				"type":"object",
+				"properties":{
+					"task":{"type":"string","description":"Task for the research subagent"},
+					"context":{"type":"string","description":"Optional extra constraints"},
+					"kind":{"type":"string","enum":["research"],"description":"research (read-only, default)"},
+					"model_id":{"type":"string","description":"Optional model override"},
+					"provider_id":{"type":"string","description":"Optional provider override"}
+				},
+				"required":["task"]
+			}`),
+		}
+	}
 	return ToolSpec{
 		Name: "spawn_general_agent",
 		Description: "Spawn an in-process CometMind subagent that runs in parallel. " +
@@ -61,6 +82,9 @@ func (s SpawnGeneralAgent) Execute(ctx context.Context, input json.RawMessage) (
 	case "", "research", "general":
 		mode = SubagentModeResearch
 	case "coding", "code":
+		if SurfaceForPlan(s.AgentMode) {
+			return Result{OK: false, Output: "kind=coding is not allowed in Plan mode (research subagents only)"}, nil
+		}
 		mode = SubagentModeCoding
 	default:
 		return Result{OK: false, Output: "kind must be research or coding"}, nil

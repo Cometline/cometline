@@ -36,6 +36,8 @@ CREATE TABLE sessions (
     pending_question   TEXT NOT NULL DEFAULT '',
     subagent_kind      TEXT NOT NULL DEFAULT ''
                        CHECK (subagent_kind IN ('', 'general', 'acp')),
+    agent_mode         TEXT NOT NULL DEFAULT 'auto'
+                       CHECK (agent_mode IN ('auto', 'plan')),
     pinned             INTEGER NOT NULL DEFAULT 0,
     context_summary    TEXT NOT NULL DEFAULT '',
     compacted_until_message_id TEXT,

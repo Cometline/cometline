@@ -16,7 +16,19 @@ const (
 	globMaxFiles        = 100
 	grepMaxOutputChars  = 12000
 	grepTimeout         = 60 * time.Second
+	searchMaxVisited    = 250_000
+	searchWalkTimeout   = 90 * time.Second
 )
+
+// errSearchBudget stops a recursive search when the visited-entry budget is
+// exhausted so host-wide searches cannot traverse unbounded directory trees.
+var errSearchBudget = fmt.Errorf("search exceeded traversal budget")
+
+// withSearchDeadline bounds a host-wide search walk. External roots such as
+// /usr or /Library are intentionally readable but must not run forever.
+func withSearchDeadline(ctx context.Context) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(ctx, searchWalkTimeout)
+}
 
 var defaultSkippedDirs = map[string]bool{
 	"node_modules": true,
@@ -73,7 +85,8 @@ func shouldSkipFile(workspaceRel string, ignorer *gitignore.GitIgnore) bool {
 
 // walkSearchableFiles visits regular files under searchRoot, invoking fn with
 // workspace-relative paths (forward slashes). Hidden entries, common build
-// directories, and root .gitignore rules are skipped.
+// directories, and root .gitignore rules are skipped. The walk is bounded by
+// context cancellation and a visited-entry budget.
 func walkSearchableFiles(ctx context.Context, workspaceRoot, searchRoot string, fn func(workspaceRel, absPath string) error) error {
 	workspaceRoot = filepath.Clean(workspaceRoot)
 	searchRoot = filepath.Clean(searchRoot)
@@ -87,10 +100,15 @@ func walkSearchableFiles(ctx context.Context, workspaceRoot, searchRoot string, 
 	}
 
 	ignorer := loadGitignore(workspaceRoot)
+	visited := 0
 
 	return filepath.WalkDir(searchRoot, func(path string, d fs.DirEntry, walkErr error) error {
 		if ctx.Err() != nil {
 			return ctx.Err()
+		}
+		visited++
+		if visited > searchMaxVisited {
+			return errSearchBudget
 		}
 		if walkErr != nil {
 			return nil

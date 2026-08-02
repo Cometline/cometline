@@ -5,6 +5,7 @@
 	import Tooltip from '$lib/components/Tooltip.svelte';
 	import { modelStore, type ModelOption } from '$lib/stores/model.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
+	import type { AgentMode } from '$lib/types';
 
 	let {
 		hasWorkspace,
@@ -18,6 +19,9 @@
 		reasoningEffort,
 		reasoningEffortOptions,
 		onCycleReasoningEffort,
+		agentMode,
+		agentModeKnown,
+		onSwitchToAuto,
 		onOpenChangeWorkspace,
 		onStop,
 		onSubmit
@@ -33,6 +37,9 @@
 		reasoningEffort: string;
 		reasoningEffortOptions: string[];
 		onCycleReasoningEffort: () => void;
+		agentMode: AgentMode;
+		agentModeKnown: boolean;
+		onSwitchToAuto: () => void | Promise<void>;
 		onOpenChangeWorkspace: () => void;
 		onStop?: () => void;
 		onSubmit: () => void;
@@ -87,6 +94,18 @@
 	</div>
 
 	<div class="composer-actions">
+		{#if agentMode === 'plan' && agentModeKnown}
+			<Tooltip label="Plan mode: read-only. Press Tab to switch to Auto.">
+				<button
+					type="button"
+					class="plan-chip"
+					onclick={() => void onSwitchToAuto()}
+					aria-label="Plan mode: read-only. Click to switch to Auto."
+				>
+					plan
+				</button>
+			</Tooltip>
+		{/if}
 		{#if contextWindowUsage}
 			<ContextWindowRing
 				usedTokens={contextWindowUsage.used}
@@ -137,6 +156,30 @@
 	.composer-actions {
 		flex: 0 0 auto;
 		margin-left: auto;
+	}
+
+	.composer-footer .plan-chip {
+		display: inline-flex;
+		align-items: center;
+		padding: 3px 8px;
+		border: 1px solid var(--plan-chip-border, var(--plan-border));
+		border-radius: 999px;
+		background: var(--plan-chip-bg);
+		color: var(--plan-chip-text);
+		font-size: 10px;
+		font-weight: 700;
+		letter-spacing: 0.06em;
+		line-height: 1;
+		text-transform: uppercase;
+		cursor: pointer;
+		transition:
+			background 140ms ease,
+			color 140ms ease;
+	}
+
+	.composer-footer .plan-chip:hover:not(:disabled) {
+		background: var(--plan-chip-bg-strong, var(--plan-chip-bg));
+		color: var(--plan-chip-text-strong, var(--plan-chip-text));
 	}
 
 	.composer-footer button {
