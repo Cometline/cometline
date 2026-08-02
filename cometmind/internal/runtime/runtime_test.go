@@ -8,6 +8,7 @@ import (
 
 	"github.com/cometline/cometmind/internal/config"
 	"github.com/cometline/cometmind/internal/session"
+	"github.com/cometline/cometmind/internal/tools"
 )
 
 func TestRuntimeWiresServiceAndRunner(t *testing.T) {
@@ -50,6 +51,23 @@ func TestRuntimeWiresServiceAndRunner(t *testing.T) {
 	}
 	if runner == nil {
 		t.Fatal("RunnerFor() returned nil")
+	}
+	if runner.AgentMode != session.AgentModeAuto {
+		t.Fatalf("RunnerFor() AgentMode = %q, want auto", runner.AgentMode)
+	}
+	planRunner, err := rt.RunnerForMode(sess, ws.Path, session.AgentModePlan)
+	if err != nil {
+		t.Fatalf("RunnerForMode(plan) error = %v", err)
+	}
+	if planRunner.AgentMode != session.AgentModePlan {
+		t.Fatalf("RunnerForMode(plan) AgentMode = %q, want plan", planRunner.AgentMode)
+	}
+	subagentRunner, err := rt.SubagentRunnerFor(sess, ws.Path, 1, tools.SubagentModeResearch)
+	if err != nil {
+		t.Fatalf("SubagentRunnerFor() error = %v", err)
+	}
+	if subagentRunner.AgentMode != "" {
+		t.Fatalf("SubagentRunnerFor() AgentMode = %q, want empty", subagentRunner.AgentMode)
 	}
 }
 

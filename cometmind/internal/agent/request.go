@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	cometsdk "github.com/cometline/comet-sdk"
+	"github.com/cometline/cometmind/internal/session"
 )
 
 const (
@@ -27,19 +28,32 @@ func FormatOutputBudgetPromptBlock(maxTokens int) string {
 		return ""
 	}
 	return fmt.Sprintf(
-		"Each assistant step is capped at roughly %d output tokens. After tool results arrive, respond concisely—summarize findings and next steps instead of repeating large tool output or full file contents. When creating or overwriting multiple files, emit only one complete write_file (or a few small tools) per step so the full tool arguments fit under this cap—never start many large parallel write_file calls that may be truncated unfinished.",
+		"Each assistant step is capped at roughly %d output tokens. After tool results arrive, respond concisely; summarize findings and next steps instead of repeating large tool output or full file contents. Emit only one large tool call (or a few small tool calls) per step so the full arguments fit under this cap; never start many large parallel tool calls that may be truncated unfinished.",
 		maxTokens,
 	)
 }
 
+// FormatAgentModePrompt describes how the agent should use its mode-specific
+// tool surface. Tool registration remains the enforcement boundary.
+func FormatAgentModePrompt(mode session.AgentMode) string {
+	switch mode {
+	case session.AgentModeAuto:
+		return "Auto mode is active. Complete the user's request end to end using the tools available to you. When implementation is requested, inspect the relevant code, make the necessary changes, verify them, and report the result. Do not stop at a plan unless the user explicitly asks for planning only. For large file writes, emit one complete write_file call per step so its arguments fit within the output limit."
+	case session.AgentModePlan:
+		return "Plan mode is active. Research and design only; do not attempt to edit or write files, run commands, mutate settings, jobs, or memory, or delegate coding work. Use the available read, network, skill, and research-agent tools to understand the request. Return a concrete implementation plan with affected files, key decisions, risks, and verification steps. Do not claim that changes were made. These mode restrictions supersede generic implementation instructions."
+	default:
+		return ""
+	}
+}
+
 // FormatOutputTruncationContinueBlock nudges the model to finish after a truncated step.
 func FormatOutputTruncationContinueBlock() string {
-	return "Your previous assistant message in this turn was cut off at the output token limit. Stop long prose. Continue unfinished work with tools instead: emit one complete, smaller write_file (or another small tool call) that fits under the output cap. Do not repeat text already written. Do not start multiple large parallel write_file calls."
+	return "Your previous assistant message in this turn was cut off at the output token limit. Stop long prose. Continue unfinished work with exactly one complete, smaller tool call if needed, or finish with a concise response. Do not repeat text already written. Do not start multiple large parallel tool calls."
 }
 
 // FormatIncompleteToolTruncationContinueBlock nudges after tool-call args were truncated.
 func FormatIncompleteToolTruncationContinueBlock() string {
-	return "Your previous tool call(s) were cut off at the output token limit before they finished, so they were not executed. Retry with exactly one smaller, complete tool call (for example one write_file whose full content fits under the output cap). Do not repeat assistant text already written. Do not re-issue the truncated parallel batch."
+	return "Your previous tool call(s) were cut off at the output token limit before they finished, so they were not executed. Retry with exactly one smaller, complete tool call whose full arguments fit under the output cap. Do not repeat assistant text already written. Do not re-issue the truncated parallel batch."
 }
 
 // FormatWaitForSubagentsBlock reminds the model to join any in-flight

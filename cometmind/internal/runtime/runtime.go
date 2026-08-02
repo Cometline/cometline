@@ -695,6 +695,7 @@ func (r *Runtime) runnerFor(sess session.Session, workspacePath string, opts Run
 	}
 
 	var registry *tools.Registry
+	var agentMode session.AgentMode
 	if opts.Subagent {
 		mode := opts.SubagentMode
 		if mode == "" {
@@ -702,15 +703,15 @@ func (r *Runtime) runnerFor(sess session.Session, workspacePath string, opts Run
 		}
 		registry = tools.NewSubagentRegistry(workspacePath, &skillRegistry, mode)
 	} else {
-		mode := opts.AgentMode
-		if mode == "" {
+		agentMode = opts.AgentMode
+		if agentMode == "" {
 			var err error
-			mode, err = session.ParseAgentMode(sess.AgentMode)
+			agentMode, err = session.ParseAgentMode(sess.AgentMode)
 			if err != nil {
 				return nil, err
 			}
 		}
-		registry = r.toolRegistryWithJobMeta(workspacePath, skillRegistry, sess.ID, platform, opts.SourceChannelID, mode)
+		registry = r.toolRegistryWithJobMeta(workspacePath, skillRegistry, sess.ID, platform, opts.SourceChannelID, agentMode)
 	}
 
 	runner := &agent.Runner{
@@ -723,6 +724,7 @@ func (r *Runtime) runnerFor(sess session.Session, workspacePath string, opts Run
 		MaxSteps:             maxSteps,
 		MaxTokens:            r.Config.MaxTokens,
 		SystemPrompt:         r.SystemPrompt,
+		AgentMode:            agentMode,
 		SkillIndex:           skillRegistry.PromptIndex(),
 		SubagentOrchestrator: r.subagentOrchestratorForRunner(opts.Subagent),
 		MemorySem:            r.memorySem,
@@ -766,11 +768,11 @@ func (r *Runtime) toolRegistryWithJobMeta(workspacePath string, skillRegistry sk
 		JobPlatform:        platform,
 		JobSourceChannelID: sourceChannelID,
 		AgentMode:          mode,
-		BrowserSearchURL:     os.Getenv("COMETLINE_BROWSER_SEARCH_URL"),
-		BrowserSearchToken:   os.Getenv("COMETLINE_BROWSER_SEARCH_TOKEN"),
-		ScreenCaptureURL:     os.Getenv("COMETLINE_SCREEN_CAPTURE_URL"),
-		ScreenCaptureToken:   os.Getenv("COMETLINE_SCREEN_CAPTURE_TOKEN"),
-		SettingsRuntime:      r,
+		BrowserSearchURL:   os.Getenv("COMETLINE_BROWSER_SEARCH_URL"),
+		BrowserSearchToken: os.Getenv("COMETLINE_BROWSER_SEARCH_TOKEN"),
+		ScreenCaptureURL:   os.Getenv("COMETLINE_SCREEN_CAPTURE_URL"),
+		ScreenCaptureToken: os.Getenv("COMETLINE_SCREEN_CAPTURE_TOKEN"),
+		SettingsRuntime:    r,
 		RunnerFactory: func(child session.Session, workspaceRoot string, maxSteps int, mode tools.SubagentMode) (tools.AgentLoopRunner, error) {
 			return r.SubagentRunnerFor(child, workspaceRoot, maxSteps, mode)
 		},
