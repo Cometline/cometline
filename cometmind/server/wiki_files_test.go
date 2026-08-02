@@ -26,7 +26,7 @@ func TestListWikiFiles(t *testing.T) {
 	mustWrite(t, filepath.Join(wikiDir, "entities", "foo.md"), "# foo")
 	mustWrite(t, filepath.Join(wikiDir, "notes.txt"), "note")
 
-	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
 		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
 			ch <- event.Done()
 			return nil
@@ -62,7 +62,7 @@ func TestListWikiFileChildren(t *testing.T) {
 	mustWrite(t, filepath.Join(wikiDir, "entities", "foo.md"), "# foo")
 	mustWrite(t, filepath.Join(wikiDir, "entities", "nested", "bar.md"), "# bar")
 
-	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
 		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
 			ch <- event.Done()
 			return nil
@@ -96,7 +96,7 @@ func TestReadWikiFileContent(t *testing.T) {
 	wikiDir := filepath.Join(dataDir, "wiki")
 	mustWrite(t, filepath.Join(wikiDir, "index.md"), "# wiki")
 
-	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
 		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
 			ch <- event.Done()
 			return nil
@@ -127,7 +127,7 @@ func TestWriteWikiFileContent(t *testing.T) {
 	}
 	mustWrite(t, filepath.Join(wikiDir, "entities", "foo.md"), "old")
 
-	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
 		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
 			ch <- event.Done()
 			return nil
@@ -162,7 +162,7 @@ func TestWriteWikiFileContentRejectsRaw(t *testing.T) {
 	}
 	mustWrite(t, filepath.Join(wikiDir, "raw", "note.md"), "immutable")
 
-	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
 		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
 			ch <- event.Done()
 			return nil
@@ -185,7 +185,7 @@ func TestWriteWikiFileContentRejectsWikiSchema(t *testing.T) {
 	t.Setenv("COMETMIND_DATA_DIR", dataDir)
 	mustWrite(t, filepath.Join(dataDir, "wiki", "WIKI.md"), "schema")
 
-	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
 		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
 			ch <- event.Done()
 			return nil
@@ -208,7 +208,7 @@ func TestPostMessageInlinesWikiFilePaths(t *testing.T) {
 	t.Setenv("COMETMIND_DATA_DIR", dataDir)
 	mustWrite(t, filepath.Join(dataDir, "wiki", "index.md"), "# wiki index")
 
-	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
 		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
 			ch <- event.Done()
 			return nil
@@ -262,7 +262,7 @@ func TestListWikiFileBacklinks(t *testing.T) {
 	mustWrite(t, filepath.Join(wikiDir, "entities", "a.md"), "See [[b]]")
 	mustWrite(t, filepath.Join(wikiDir, "concepts", "b.md"), "target")
 
-	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
 		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
 			ch <- event.Done()
 			return nil

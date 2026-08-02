@@ -22,6 +22,7 @@ type patchSessionRequest struct {
 	ProviderID string  `json:"provider_id"`
 	Pinned     *bool   `json:"pinned"`
 	Title      *string `json:"title"`
+	AgentMode  *string `json:"agent_mode"`
 }
 
 type changeSessionWorkspaceRequest struct {
@@ -179,13 +180,24 @@ func (a *App) handlePatchSession(c *gin.Context) {
 	hasModel := strings.TrimSpace(req.ModelID) != "" || strings.TrimSpace(req.ProviderID) != ""
 	hasPinned := req.Pinned != nil
 	hasTitle := req.Title != nil
-	if !hasModel && !hasPinned && !hasTitle {
-		writeError(c, http.StatusBadRequest, "bad_request", "at least one of model_id/provider_id, pinned, or title is required")
+	hasAgentMode := req.AgentMode != nil
+	if !hasModel && !hasPinned && !hasTitle && !hasAgentMode {
+		writeError(c, http.StatusBadRequest, "bad_request", "at least one of model_id/provider_id, pinned, title, or agent_mode is required")
 		return
 	}
 	if hasModel && (strings.TrimSpace(req.ModelID) == "" || strings.TrimSpace(req.ProviderID) == "") {
 		writeError(c, http.StatusBadRequest, "bad_request", "model_id and provider_id must both be provided")
 		return
+	}
+
+	var agentMode session.AgentMode
+	if hasAgentMode {
+		mode, err := session.ParseAgentMode(*req.AgentMode)
+		if err != nil {
+			writeError(c, http.StatusBadRequest, "bad_request", err.Error())
+			return
+		}
+		agentMode = mode
 	}
 
 	sessID := c.Param("id")
@@ -223,6 +235,18 @@ func (a *App) handlePatchSession(c *gin.Context) {
 
 	if hasTitle {
 		sess, err = a.sessions.UpdateSessionTitle(c.Request.Context(), sessID, *req.Title)
+		if errors.Is(err, session.ErrSessionNotFound) {
+			writeError(c, http.StatusNotFound, "session_not_found", "session was not found")
+			return
+		}
+		if err != nil {
+			writeError(c, http.StatusBadRequest, "bad_request", err.Error())
+			return
+		}
+	}
+
+	if hasAgentMode {
+		sess, err = a.sessions.UpdateSessionAgentMode(c.Request.Context(), sessID, agentMode)
 		if errors.Is(err, session.ErrSessionNotFound) {
 			writeError(c, http.StatusNotFound, "session_not_found", "session was not found")
 			return

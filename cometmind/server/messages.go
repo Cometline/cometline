@@ -47,6 +47,7 @@ type postMessageRequest struct {
 	WebContext      *webPageContextInput `json:"web_context,omitempty"`
 	WebContexts     []webContextInput    `json:"web_contexts,omitempty"`
 	ReasoningEffort string               `json:"reasoning_effort,omitempty"`
+	AgentMode       string               `json:"agent_mode,omitempty"`
 }
 
 type webPageContextInput struct {
@@ -84,6 +85,21 @@ func (a *App) handlePostMessage(c *gin.Context) {
 		return
 	}
 
+	// The per-message mode is authoritative when supplied; otherwise the
+	// session's persisted preference applies. New sessions default to auto.
+	mode, err := session.ParseAgentMode(req.AgentMode)
+	if err != nil {
+		writeError(c, http.StatusBadRequest, "bad_request", err.Error())
+		return
+	}
+	if strings.TrimSpace(req.AgentMode) == "" {
+		mode, err = session.ParseAgentMode(sess.AgentMode)
+		if err != nil {
+			writeError(c, http.StatusBadRequest, "bad_request", err.Error())
+			return
+		}
+	}
+
 	blocks, contexts, err := contentBlocksFromRequest(req, wsPath)
 	if err != nil {
 		writeError(c, http.StatusBadRequest, "bad_request", err.Error())
@@ -93,10 +109,10 @@ func (a *App) handlePostMessage(c *gin.Context) {
 		writeError(c, http.StatusBadRequest, "bad_request", "text or image is required")
 		return
 	}
-	logging.L().Info("message.received", "session", sess.ID, "provider", sess.ProviderID, "model", sess.ModelID, "text_bytes", len(req.Text), "images", len(req.Images), "files", len(req.FilePaths))
+	logging.L().Info("message.received", "session", sess.ID, "provider", sess.ProviderID, "model", sess.ModelID, "text_bytes", len(req.Text), "images", len(req.Images), "files", len(req.FilePaths), "agent_mode", string(mode))
 	started := time.Now()
 
-	runner, err := a.newRunner(sess, wsPath)
+	runner, err := a.newRunner(sess, wsPath, mode)
 	if err != nil {
 		writeError(c, http.StatusInternalServerError, "runner_init_failed", err.Error())
 		return

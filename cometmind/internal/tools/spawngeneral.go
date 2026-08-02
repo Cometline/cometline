@@ -18,6 +18,9 @@ type SpawnGeneralAgent struct {
 	Orchestrator   *subagent.Orchestrator
 	RunnerFactory  ChildRunnerFactory
 	SubagentConfig SubagentToolConfig
+	// AgentMode is the parent agent mode. Plan mode restricts children to
+	// read-only research so spawning cannot bypass Plan restrictions.
+	AgentMode session.AgentMode
 }
 
 func (s SpawnGeneralAgent) Spec() ToolSpec {
@@ -61,6 +64,9 @@ func (s SpawnGeneralAgent) Execute(ctx context.Context, input json.RawMessage) (
 	case "", "research", "general":
 		mode = SubagentModeResearch
 	case "coding", "code":
+		if SurfaceForPlan(s.AgentMode) {
+			return Result{OK: false, Output: "kind=coding is not allowed in Plan mode (research subagents only)"}, nil
+		}
 		mode = SubagentModeCoding
 	default:
 		return Result{OK: false, Output: "kind must be research or coding"}, nil

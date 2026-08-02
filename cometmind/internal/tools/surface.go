@@ -1,5 +1,7 @@
 package tools
 
+import "github.com/cometline/cometmind/internal/session"
+
 // ToolSurface is the capability policy for a registry: which tool families
 // are exposed. Parent, research, and coding registries share this module so
 // mode is not duplicated as stringly agentName / registry lists.
@@ -35,6 +37,22 @@ func ResearchSurface() ToolSurface {
 // CodingSurface is in-process coding subagent tools (no spawn/delegate).
 func CodingSurface() ToolSurface {
 	return ToolSurface{Read: true, Edit: true, Run: true, Skills: true}
+}
+
+// PlanSurface is the read-only parent surface for Plan mode: host/workspace
+// reads, network reads, skill reads, and research-only subagent spawning.
+// It must never include command, file-write, or mutation tool groups.
+func PlanSurface() ToolSurface {
+	return ToolSurface{
+		Read:   true,
+		Skills: true,
+		Spawn:  true,
+	}
+}
+
+// SurfaceForPlan reports whether the mode is Plan (empty/auto is not).
+func SurfaceForPlan(mode session.AgentMode) bool {
+	return mode == session.AgentModePlan
 }
 
 // SurfaceForMode maps SubagentMode to a ToolSurface.

@@ -96,8 +96,8 @@ func runServe(_ *cobra.Command, _ []string) error {
 		ACPMgr:       rt.ACPManager(),
 		MCPMgr:       rt.MCPManager(),
 		SubagentOrch: rt.SubagentOrchestrator(),
-		NewRunner: func(sess session.Session, workspacePath string) (server.Runner, error) {
-			return rt.RunnerFor(sess, workspacePath)
+		NewRunner: func(sess session.Session, workspacePath string, mode session.AgentMode) (server.Runner, error) {
+			return rt.RunnerForMode(sess, workspacePath, mode)
 		},
 	})
 	if err != nil {

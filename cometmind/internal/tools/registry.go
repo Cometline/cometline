@@ -32,6 +32,11 @@ func NewSubagentRegistry(workspaceRoot string, skillReg *skills.Registry, mode S
 }
 
 func newRegistryWithSurface(workspaceRoot string, surface ToolSurface, opt RegistryOptions) *Registry {
+	// Plan mode overrides the default parent surface with the read-only
+	// allowlist. Auto (and empty) registries keep the caller-provided surface.
+	if SurfaceForPlan(opt.AgentMode) {
+		surface = PlanSurface()
+	}
 	ws := Workspace{Root: workspaceRoot}
 	r := &Registry{workspace: ws, byName: make(map[string]Tool)}
 	add := func(t Tool) {
@@ -97,6 +102,7 @@ func newRegistryWithSurface(workspaceRoot string, surface ToolSurface, opt Regis
 			Orchestrator:   opt.Orchestrator,
 			RunnerFactory:  opt.RunnerFactory,
 			SubagentConfig: opt.SubagentConfig,
+			AgentMode:      opt.AgentMode,
 		})
 		add(WaitSubagents{
 			Sessions:     opt.Sessions,

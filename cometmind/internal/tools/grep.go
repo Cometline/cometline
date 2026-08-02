@@ -34,12 +34,13 @@ func (Grep) Spec() ToolSpec {
 	return ToolSpec{
 		Name: "grep",
 		Description: "Search file contents for a pattern. Uses ripgrep syntax when available " +
-			"(not POSIX grep). Respects .gitignore. Results include line numbers. The path may be @runtime/wiki.",
+			"(not POSIX grep). Respects .gitignore. Results include line numbers. " +
+			"The path may be @runtime/wiki or an absolute host directory.",
 		Parameters: json.RawMessage(`{
 			"type": "object",
 			"properties": {
 				"pattern": {"type": "string", "description": "Search pattern (ripgrep regex syntax)"},
-				"path": {"type": "string", "description": "Optional relative subdirectory to scope the search (default workspace root)"},
+				"path": {"type": "string", "description": "Optional subdirectory to scope the search: workspace-relative or an absolute host directory (default workspace root)"},
 				"include": {"type": "string", "description": "Optional file glob filter, e.g. **/*.tsx"},
 				"literal_text": {"type": "boolean", "description": "Treat pattern as literal text, not regex"}
 			},
@@ -157,7 +158,9 @@ func grepNative(ctx context.Context, workspaceRoot, searchRoot, pattern, include
 	}
 
 	var lines []string
-	err := walkSearchableFiles(ctx, workspaceRoot, searchRoot, func(workspaceRel, absPath string) error {
+	walkCtx, cancel := withSearchDeadline(ctx)
+	defer cancel()
+	err := walkSearchableFiles(walkCtx, workspaceRoot, searchRoot, func(workspaceRel, absPath string) error {
 		if include != "" {
 			matched, err := doublestar.PathMatch(include, workspaceRel)
 			if err != nil || !matched {
@@ -174,8 +177,8 @@ func grepNative(ctx context.Context, workspaceRoot, searchRoot, pattern, include
 		scanner := bufio.NewScanner(f)
 		lineNum := 0
 		for scanner.Scan() {
-			if ctx.Err() != nil {
-				return ctx.Err()
+			if walkCtx.Err() != nil {
+				return walkCtx.Err()
 			}
 			lineNum++
 			line := scanner.Text()
@@ -190,7 +193,8 @@ func grepNative(ctx context.Context, workspaceRoot, searchRoot, pattern, include
 		}
 		return scanner.Err()
 	})
-	if err != nil && !errors.Is(err, fs.SkipAll) && ctx.Err() == nil {
+	budgetExhausted := errors.Is(err, errSearchBudget) || errors.Is(err, context.DeadlineExceeded)
+	if err != nil && !errors.Is(err, fs.SkipAll) && !budgetExhausted && walkCtx.Err() == nil {
 		return Result{OK: false, Output: err.Error()}, nil
 	}
 
@@ -198,7 +202,7 @@ func grepNative(ctx context.Context, workspaceRoot, searchRoot, pattern, include
 	truncated := false
 	if len([]rune(text)) > grepMaxOutputChars {
 		text, truncated = truncateOutput(text, grepMaxOutputChars)
-	} else if errors.Is(err, fs.SkipAll) {
+	} else if errors.Is(err, fs.SkipAll) || budgetExhausted {
 		truncated = true
 	}
 

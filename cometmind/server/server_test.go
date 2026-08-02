@@ -37,7 +37,7 @@ func (f fakeRunner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- e
 func TestCreateSessionAutoRegistersWorkspacePath(t *testing.T) {
 	t.Parallel()
 
-	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
 		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
 			ch <- event.Done()
 			return nil
@@ -77,7 +77,7 @@ func TestCreateSessionAutoRegistersWorkspacePath(t *testing.T) {
 func TestMissingSessionEndpointsReturnSessionNotFound(t *testing.T) {
 	t.Parallel()
 
-	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
 		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
 			ch <- event.Done()
 			return nil
@@ -134,7 +134,7 @@ func TestMissingSessionEndpointsReturnSessionNotFound(t *testing.T) {
 func TestCreateWorkspaceRegistersPath(t *testing.T) {
 	t.Parallel()
 
-	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
 		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
 			ch <- event.Done()
 			return nil
@@ -174,7 +174,7 @@ func TestCreateWorkspaceRegistersPath(t *testing.T) {
 func TestWorkspaceGitStatusAndDiff(t *testing.T) {
 	t.Parallel()
 
-	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
 		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
 			ch <- event.Done()
 			return nil
@@ -279,7 +279,7 @@ func runGit(t *testing.T, dir string, args ...string) {
 func TestListWorkspaceFiles(t *testing.T) {
 	t.Parallel()
 
-	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
 		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
 			ch <- event.Done()
 			return nil
@@ -328,7 +328,7 @@ func TestListWorkspaceFiles(t *testing.T) {
 func TestListWorkspaceFileChildren(t *testing.T) {
 	t.Parallel()
 
-	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
 		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
 			ch <- event.Done()
 			return nil
@@ -371,7 +371,7 @@ func TestListWorkspaceFileChildren(t *testing.T) {
 func TestReadWorkspaceFileContent(t *testing.T) {
 	t.Parallel()
 
-	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
 		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
 			ch <- event.Done()
 			return nil
@@ -400,7 +400,7 @@ func TestReadWorkspaceFileContent(t *testing.T) {
 func TestWriteWorkspaceFileContent(t *testing.T) {
 	t.Parallel()
 
-	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
 		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
 			ch <- event.Done()
 			return nil
@@ -447,7 +447,7 @@ func TestWriteWorkspaceFileContent(t *testing.T) {
 func TestWriteWorkspaceFileContentRejectsInvalidRequests(t *testing.T) {
 	t.Parallel()
 
-	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
 		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
 			ch <- event.Done()
 			return nil
@@ -499,7 +499,7 @@ func TestWriteWorkspaceFileContentRejectsInvalidRequests(t *testing.T) {
 func TestListWorkspaceFilesFiltersByQuery(t *testing.T) {
 	t.Parallel()
 
-	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
 		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
 			ch <- event.Done()
 			return nil
@@ -528,7 +528,7 @@ func TestListWorkspaceFilesFiltersByQuery(t *testing.T) {
 func TestListWorkspaceFilesMissingWorkspace(t *testing.T) {
 	t.Parallel()
 
-	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
 		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
 			ch <- event.Done()
 			return nil
@@ -570,7 +570,7 @@ func assertSlice(t *testing.T, got, want []string) {
 func TestListSessionsRequiresWorkspaceScope(t *testing.T) {
 	t.Parallel()
 
-	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
 		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
 			ch <- event.Done()
 			return nil
@@ -613,7 +613,7 @@ func TestListSessionsRequiresWorkspaceScope(t *testing.T) {
 func TestDeleteSessionRemovesSession(t *testing.T) {
 	t.Parallel()
 
-	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
 		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
 			ch <- event.Done()
 			return nil
@@ -660,7 +660,7 @@ func TestDeleteSessionRemovesSession(t *testing.T) {
 func TestClearSessionResetsTranscript(t *testing.T) {
 	t.Parallel()
 
-	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
 		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
 			ch <- event.Done()
 			return nil
@@ -710,7 +710,7 @@ func TestClearSessionResetsTranscript(t *testing.T) {
 func TestClearSessionRemovesChildSessions(t *testing.T) {
 	t.Parallel()
 
-	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
 		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
 			ch <- event.Done()
 			return nil
@@ -768,7 +768,7 @@ func TestPatchSessionUpdatesModel(t *testing.T) {
 	t.Parallel()
 
 	var gotTurn session.AgentTurn
-	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
 		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
 			gotTurn = turn
 			ch <- event.Done()
@@ -820,7 +820,7 @@ func TestPatchSessionUpdatesModel(t *testing.T) {
 func TestPatchSessionUpdatesPinned(t *testing.T) {
 	t.Parallel()
 
-	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
 		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
 			ch <- event.Done()
 			return nil
@@ -904,7 +904,7 @@ func TestPatchSessionUpdatesPinned(t *testing.T) {
 func TestPatchSessionUpdatesTitle(t *testing.T) {
 	t.Parallel()
 
-	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
 		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
 			ch <- event.Done()
 			return nil
@@ -944,7 +944,7 @@ func TestPatchSessionUpdatesTitle(t *testing.T) {
 func TestGetMessagesReturnsTranscriptItems(t *testing.T) {
 	t.Parallel()
 
-	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
 		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
 			ch <- event.Done()
 			return nil
@@ -1020,7 +1020,7 @@ func TestGetMessagesReturnsTranscriptItems(t *testing.T) {
 func TestPostMessageStreamsSSEAndPersistsUserTurn(t *testing.T) {
 	t.Parallel()
 
-	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
 		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
 			ch <- event.ReasoningStart()
 			ch <- event.TextDelta("hello")
@@ -1093,7 +1093,7 @@ func TestPostMessageStreamsSSEAndPersistsUserTurn(t *testing.T) {
 func TestPostMessageInlinesFilePaths(t *testing.T) {
 	t.Parallel()
 
-	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
 		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
 			ch <- event.Done()
 			return nil
@@ -1160,7 +1160,7 @@ func TestPostMessageInlinesFilePaths(t *testing.T) {
 func TestPostMessageInlinesWebContext(t *testing.T) {
 	t.Parallel()
 
-	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
 		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
 			ch <- event.Done()
 			return nil
@@ -1214,7 +1214,7 @@ func TestPostMessageInlinesWebContext(t *testing.T) {
 func TestPostMessageInlinesMultipleWebContexts(t *testing.T) {
 	t.Parallel()
 
-	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
 		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
 			ch <- event.Done()
 			return nil
@@ -1256,7 +1256,7 @@ func TestPostMessageInlinesMultipleWebContexts(t *testing.T) {
 func TestPostMessagePathOnlyFileWebContext(t *testing.T) {
 	t.Parallel()
 
-	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
 		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
 			ch <- event.Done()
 			return nil
@@ -1321,7 +1321,7 @@ func TestPostMessagePathOnlyFileWebContext(t *testing.T) {
 func TestPostMessageInlinesExplicitTerminalContext(t *testing.T) {
 	t.Parallel()
 
-	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
 		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
 			ch <- event.Done()
 			return nil
@@ -1363,7 +1363,7 @@ func TestPostMessageInlinesExplicitTerminalContext(t *testing.T) {
 func TestPostMessageInlinesAssistantResponseContext(t *testing.T) {
 	t.Parallel()
 
-	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
 		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
 			ch <- event.Done()
 			return nil
@@ -1428,7 +1428,7 @@ func TestFormatWebContextRejectsMalformedAssistantResponseSource(t *testing.T) {
 func TestLocalCORSAllowsCometlineRenderer(t *testing.T) {
 	t.Parallel()
 
-	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
 		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
 			ch <- event.Done()
 			return nil
@@ -1465,7 +1465,7 @@ func TestLocalCORSAllowsCometlineRenderer(t *testing.T) {
 func TestLocalCORSAllowsPackagedCometlineOrigin(t *testing.T) {
 	t.Parallel()
 
-	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
 		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
 			ch <- event.Done()
 			return nil
@@ -1502,7 +1502,7 @@ func TestLocalCORSAllowsPackagedCometlineOrigin(t *testing.T) {
 func TestLocalCORSAllowsMemorySettingsPut(t *testing.T) {
 	t.Parallel()
 
-	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
 		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
 			ch <- event.Done()
 			return nil
@@ -1529,7 +1529,7 @@ func TestAbortSessionCancelsRunningStream(t *testing.T) {
 
 	started := make(chan struct{})
 	cancelled := make(chan struct{})
-	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
 		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
 			close(started)
 			ch <- event.TextDelta("working")
@@ -1605,7 +1605,7 @@ func TestAbortSessionCancelsRunningStream(t *testing.T) {
 func TestPostMessageEmitsDoneAfterRunnerErrorEvent(t *testing.T) {
 	t.Parallel()
 
-	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
 		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
 			ch <- event.Errorf("provider disconnected", "llm")
 			return fmt.Errorf("provider disconnected")
@@ -1659,7 +1659,7 @@ func TestPostMessageKeepsAgentRunningAfterClientDisconnect(t *testing.T) {
 	release := make(chan struct{})
 	finished := make(chan struct{})
 	cancelled := make(chan struct{})
-	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
 		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
 			close(started)
 			select {
@@ -1738,7 +1738,7 @@ func TestSkillsDeleteAndExport(t *testing.T) {
 		t.Fatalf("WriteSkill() error = %v", err)
 	}
 
-	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
 		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
 			ch <- event.Done()
 			return nil
@@ -1787,7 +1787,7 @@ func TestSkillDraftHandlersPromoteAndReject(t *testing.T) {
 		t.Fatalf("WriteDraft() error = %v", err)
 	}
 
-	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
 		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
 			ch <- event.Done()
 			return nil
@@ -1879,7 +1879,7 @@ func TestSkillDraftHandlersPromoteAndReject(t *testing.T) {
 func TestListWorkspaces(t *testing.T) {
 	t.Parallel()
 
-	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
 		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
 			ch <- event.Done()
 			return nil
@@ -1926,7 +1926,7 @@ func TestListWorkspaces(t *testing.T) {
 func TestDeleteWorkspace(t *testing.T) {
 	t.Parallel()
 
-	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
 		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
 			ch <- event.Done()
 			return nil
@@ -1965,7 +1965,7 @@ func TestDeleteWorkspace(t *testing.T) {
 func TestDeleteWorkspaceWithSessions(t *testing.T) {
 	t.Parallel()
 
-	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
 		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
 			ch <- event.Done()
 			return nil
@@ -2001,7 +2001,7 @@ func TestDeleteWorkspaceWithSessions(t *testing.T) {
 func TestListWorkspacesOmitsMissingPath(t *testing.T) {
 	t.Parallel()
 
-	_, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+	_, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
 		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
 			ch <- event.Done()
 			return nil
@@ -2058,7 +2058,7 @@ func TestListWorkspacesOmitsMissingPath(t *testing.T) {
 func TestPruneWorkspacesEndpoint(t *testing.T) {
 	t.Parallel()
 
-	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
 		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
 			ch <- event.Done()
 			return nil
@@ -2096,7 +2096,7 @@ func TestPruneWorkspacesEndpoint(t *testing.T) {
 func TestChangeSessionWorkspace(t *testing.T) {
 	t.Parallel()
 
-	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
 		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
 			ch <- event.Done()
 			return nil
@@ -2161,7 +2161,7 @@ func TestChangeSessionWorkspace(t *testing.T) {
 func TestChangeSessionWorkspaceRejectsMissingDirectory(t *testing.T) {
 	t.Parallel()
 
-	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
 		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
 			ch <- event.Done()
 			return nil
@@ -2190,7 +2190,7 @@ func TestChangeSessionWorkspaceRejectsMissingDirectory(t *testing.T) {
 func TestForkSessionCopiesTranscript(t *testing.T) {
 	t.Parallel()
 
-	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
 		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
 			ch <- event.Done()
 			return nil
@@ -2267,7 +2267,7 @@ func TestForkSessionCopiesTranscript(t *testing.T) {
 func TestListAllSessionsAcrossWorkspaces(t *testing.T) {
 	t.Parallel()
 
-	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
 		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
 			ch <- event.Done()
 			return nil
@@ -2315,7 +2315,7 @@ func TestListAllSessionsAcrossWorkspaces(t *testing.T) {
 func TestListAllSessionsIncludesGatewayMetadata(t *testing.T) {
 	t.Parallel()
 
-	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
 		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
 			ch <- event.Done()
 			return nil
@@ -2365,7 +2365,7 @@ func TestListAllSessionsIncludesGatewayMetadata(t *testing.T) {
 func TestGetSessionIncludesGatewayMetadata(t *testing.T) {
 	t.Parallel()
 
-	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string) (Runner, error) {
+	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
 		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
 			ch <- event.Done()
 			return nil
@@ -2424,7 +2424,7 @@ func TestListModels(t *testing.T) {
 	}
 	t.Setenv("HOME", dir)
 
-	engine, _, cleanup := newTestEngine(t, func(session.Session, string) (Runner, error) {
+	engine, _, cleanup := newTestEngine(t, func(session.Session, string, session.AgentMode) (Runner, error) {
 		return fakeRunner(func(context.Context, session.AgentTurn, chan<- event.Event) error {
 			return nil
 		}), nil
@@ -2446,7 +2446,7 @@ func TestListModels(t *testing.T) {
 }
 
 func TestLookupModelCatalogEndpoint(t *testing.T) {
-	engine, _, cleanup := newTestEngine(t, func(session.Session, string) (Runner, error) {
+	engine, _, cleanup := newTestEngine(t, func(session.Session, string, session.AgentMode) (Runner, error) {
 		return fakeRunner(func(context.Context, session.AgentTurn, chan<- event.Event) error {
 			return nil
 		}), nil

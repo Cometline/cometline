@@ -28,7 +28,7 @@ func TestJobHandlersCreateListClaim(t *testing.T) {
 		Config:    config.Defaults(),
 		Sessions:  sessions,
 		Jobs:      jobSvc,
-		NewRunner: func(session.Session, string) (Runner, error) { return nil, nil },
+		NewRunner: func(session.Session, string, session.AgentMode) (Runner, error) { return nil, nil },
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -80,7 +80,7 @@ func TestJobHandlersArchiveCompletedJob(t *testing.T) {
 		Config:    config.Defaults(),
 		Sessions:  sessions,
 		Jobs:      jobSvc,
-		NewRunner: func(session.Session, string) (Runner, error) { return nil, nil },
+		NewRunner: func(session.Session, string, session.AgentMode) (Runner, error) { return nil, nil },
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -139,7 +139,7 @@ func TestJobHandlersRetryBlockedJob(t *testing.T) {
 		Config:    config.Defaults(),
 		Sessions:  sessions,
 		Jobs:      jobSvc,
-		NewRunner: func(session.Session, string) (Runner, error) { return nil, nil },
+		NewRunner: func(session.Session, string, session.AgentMode) (Runner, error) { return nil, nil },
 	})
 	if err != nil {
 		t.Fatal(err)

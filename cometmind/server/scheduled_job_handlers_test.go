@@ -31,7 +31,7 @@ func newScheduledJobTestServer(t *testing.T) *gin.Engine {
 		Sessions:  sessions,
 		Jobs:      jobs.NewService(sqlDB, nil, nil),
 		Scheduler: scheduler.NewService(sqlDB),
-		NewRunner: func(session.Session, string) (Runner, error) { return nil, nil },
+		NewRunner: func(session.Session, string, session.AgentMode) (Runner, error) { return nil, nil },
 	})
 	if err != nil {
 		t.Fatal(err)
