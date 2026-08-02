@@ -34,6 +34,7 @@ type Session struct {
 	ACPSessionID            string
 	PendingQuestion         string
 	SubagentKind            string
+	AgentMode               string
 	Gateway                 *SessionGateway
 	Pinned                  bool
 	ContextSummary          string
@@ -92,6 +93,7 @@ func sessionFromDB(s db.Session) Session {
 		ACPSessionID:            s.AcpSessionID,
 		PendingQuestion:         s.PendingQuestion,
 		SubagentKind:            s.SubagentKind,
+		AgentMode:               s.AgentMode,
 		Pinned:                  s.Pinned != 0,
 		ContextSummary:          s.ContextSummary,
 		CompactedUntilMessageID: compactedUntil,

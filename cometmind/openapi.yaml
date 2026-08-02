@@ -733,6 +733,7 @@ paths:
                   cache_read: 0
                   cache_write: 0
                 pinned: false
+                agent_mode: auto
                 created_at: 1746880000000
                 updated_at: 1746880000000
         '400':
@@ -794,6 +795,7 @@ paths:
                       cache_read: 0
                       cache_write: 0
                     pinned: false
+                    agent_mode: auto
                     created_at: 1746880000000
                     updated_at: 1746880200000
         '400':
@@ -2577,6 +2579,15 @@ components:
           description: Optional provider override; defaults to current config.
       description: Provide either `workspace_id` or `workspace_path`.
 
+    AgentMode:
+      type: string
+      enum: [auto, plan]
+      description: |
+        Agent capability surface for a session or turn. `auto` preserves the full
+        agent toolset; `plan` is a read-only planning mode that removes command,
+        file-write, and mutation tools while keeping host-wide reads, network
+        access, and read-only research delegation.
+
     UpdateSessionRequest:
       type: object
       additionalProperties: false
@@ -2591,6 +2602,9 @@ components:
         title:
           type: string
           description: Display name shown in the sidebar session list.
+        agent_mode:
+          $ref: '#/components/schemas/AgentMode'
+          description: Persist the preferred mode for this session. New sessions always start in `auto`.
 
     ChangeSessionWorkspaceRequest:
       type: object
@@ -2927,6 +2941,11 @@ components:
           description: |
             Optional per-turn reasoning effort override using a value advertised
             by the selected model. Empty means the provider default.
+        agent_mode:
+          $ref: '#/components/schemas/AgentMode'
+          description: |
+            Optional per-turn agent mode override. When omitted, the session's
+            persisted mode is used. New sessions always start in `auto`.
 
     WebContext:
       type: object
@@ -3009,6 +3028,7 @@ components:
         - status
         - origin
         - token_usage
+        - agent_mode
         - pinned
         - created_at
         - updated_at
@@ -3034,6 +3054,9 @@ components:
           description: Whether this session was created by a user action or an autonomous job run.
         token_usage:
           $ref: '#/components/schemas/TokenUsage'
+        agent_mode:
+          $ref: '#/components/schemas/AgentMode'
+          description: Active agent mode for the session. `auto` unless the user switched this session to `plan`.
         pinned:
           type: boolean
           description: Whether the session is pinned to the top of its workspace group.

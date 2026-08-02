@@ -462,6 +462,10 @@ var alterStatements = [][]string{
 			archived, retention_policy, application_policy, kind, last_accessed_at, created_at
 		)`,
 	},
+	// v26 -> v27: per-session agent mode (auto/plan) for composer mode switching.
+	{
+		"ALTER TABLE sessions ADD COLUMN agent_mode TEXT NOT NULL DEFAULT 'auto' CHECK (agent_mode IN ('auto', 'plan'))",
+	},
 }
 
 // execAlter runs one incremental DDL statement, tolerating idempotent failures
@@ -500,7 +504,7 @@ func splitStatements(sql string) []string {
 	return out
 }
 
-const schemaVersion = 26
+const schemaVersion = 27
 
 // EnsureSchema runs [Migrate] once per database file using PRAGMA user_version.
 // For existing databases, it applies incremental ALTER statements to upgrade

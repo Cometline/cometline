@@ -31,7 +31,7 @@ func TestRunner_DeletesStaleSessionAndGatewayMapping(t *testing.T) {
 	}
 	old := time.Now().Add(-100 * 24 * time.Hour).UnixMilli()
 	sess, err := q.CreateSession(ctx, db.CreateSessionParams{
-		ID: "sess-old", WorkspaceID: ws.ID, Title: "old", ModelID: "m", ProviderID: "p", Status: "active", Origin: "user",
+		ID: "sess-old", WorkspaceID: ws.ID, Title: "old", ModelID: "m", ProviderID: "p", Status: "active", Origin: "user", AgentMode: "auto",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -139,7 +139,7 @@ func TestRunner_MaxSessionsPerWorkspace(t *testing.T) {
 	now := time.Now().UnixMilli()
 	for i, id := range []string{"s1", "s2", "s3"} {
 		if _, err := q.CreateSession(ctx, db.CreateSessionParams{
-			ID: id, WorkspaceID: ws.ID, Title: id, ModelID: "m", ProviderID: "p", Status: "active", Origin: "user",
+			ID: id, WorkspaceID: ws.ID, Title: id, ModelID: "m", ProviderID: "p", Status: "active", Origin: "user", AgentMode: "auto",
 		}); err != nil {
 			t.Fatal(err)
 		}

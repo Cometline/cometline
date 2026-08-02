@@ -26,6 +26,15 @@ export type CreateSessionRequest = {
     provider_id?: string;
 };
 
+/**
+ * Agent capability surface for a session or turn. `auto` preserves the full
+ * agent toolset; `plan` is a read-only planning mode that removes command,
+ * file-write, and mutation tools while keeping host-wide reads, network
+ * access, and read-only research delegation.
+ *
+ */
+export type AgentMode = 'auto' | 'plan';
+
 export type UpdateSessionRequest = {
     model_id?: string;
     provider_id?: string;
@@ -37,6 +46,10 @@ export type UpdateSessionRequest = {
      * Display name shown in the sidebar session list.
      */
     title?: string;
+    /**
+     * Persist the preferred mode for this session. New sessions always start in `auto`.
+     */
+    agent_mode?: AgentMode;
 };
 
 export type ChangeSessionWorkspaceRequest = {
@@ -289,6 +302,12 @@ export type PostMessageRequest = {
      *
      */
     reasoning_effort?: string;
+    /**
+     * Optional per-turn agent mode override. When omitted, the session's
+     * persisted mode is used. New sessions always start in `auto`.
+     *
+     */
+    agent_mode?: AgentMode;
 };
 
 export type WebContext = {
@@ -357,6 +376,10 @@ export type Session = {
      */
     origin: 'user' | 'autonomy';
     token_usage: TokenUsage;
+    /**
+     * Active agent mode for the session. `auto` unless the user switched this session to `plan`.
+     */
+    agent_mode: AgentMode;
     /**
      * Whether the session is pinned to the top of its workspace group.
      */

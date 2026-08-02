@@ -185,6 +185,7 @@ type Session struct {
 	AcpSessionID            string         `json:"acp_session_id"`
 	PendingQuestion         string         `json:"pending_question"`
 	SubagentKind            string         `json:"subagent_kind"`
+	AgentMode               string         `json:"agent_mode"`
 	Pinned                  int64          `json:"pinned"`
 	ContextSummary          string         `json:"context_summary"`
 	CompactedUntilMessageID sql.NullString `json:"compacted_until_message_id"`

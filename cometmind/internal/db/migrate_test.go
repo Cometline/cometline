@@ -37,6 +37,28 @@ func TestEnsureSchemaV26MigratesMemoryPoliciesAndIsolatesLegacyOutcomes(t *testi
 			t.Fatal(err)
 		}
 	}
+	if _, err := conn.ExecContext(ctx, `CREATE TABLE sessions (
+		id TEXT PRIMARY KEY,
+		workspace_id TEXT NOT NULL,
+		title TEXT NOT NULL DEFAULT '',
+		model_id TEXT NOT NULL,
+		provider_id TEXT NOT NULL,
+		status TEXT NOT NULL DEFAULT 'active',
+		token_usage TEXT NOT NULL DEFAULT '{}',
+		parent_session_id TEXT,
+		purpose TEXT NOT NULL DEFAULT '',
+		delegation_status TEXT NOT NULL DEFAULT '',
+		output_summary TEXT NOT NULL DEFAULT '',
+		acp_session_id TEXT NOT NULL DEFAULT '',
+		pending_question TEXT NOT NULL DEFAULT '',
+		subagent_kind TEXT NOT NULL DEFAULT '',
+		pinned INTEGER NOT NULL DEFAULT 0,
+		context_summary TEXT NOT NULL DEFAULT '',
+		created_at INTEGER NOT NULL DEFAULT 0,
+		updated_at INTEGER NOT NULL DEFAULT 0
+	)`); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := conn.ExecContext(ctx, "PRAGMA user_version = 25"); err != nil {
 		t.Fatal(err)
 	}
