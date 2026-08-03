@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -95,18 +96,21 @@ func TestPersistingTokenSourcePersistsRotatedToken(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
 	const serverID = "rotating"
-	// Seed an initial token on disk.
-	initial := &oauth2.Token{AccessToken: "old", RefreshToken: "r", Expiry: time.Now().Add(time.Hour)}
+	tokenEndpoint := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"access_token":"new","refresh_token":"r2","token_type":"Bearer","expires_in":3600}`))
+	}))
+	defer tokenEndpoint.Close()
+	info := &oauthClientInfo{TokenEndpoint: tokenEndpoint.URL, ClientID: "client", AuthStyle: oauth2.AuthStyleInParams}
+	if err := saveOAuthClientInfo(serverID, info); err != nil {
+		t.Fatalf("saveOAuthClientInfo: %v", err)
+	}
+	initial := &oauth2.Token{AccessToken: "old", RefreshToken: "r", Expiry: time.Now().Add(-time.Hour)}
 	if err := SaveOAuthToken(serverID, initial); err != nil {
 		t.Fatalf("SaveOAuthToken: %v", err)
 	}
 
-	rotated := &oauth2.Token{AccessToken: "new", RefreshToken: "r2", Expiry: time.Now().Add(2 * time.Hour)}
-	ps := &persistingTokenSource{
-		serverID: serverID,
-		base:     oauth2.StaticTokenSource(rotated),
-		last:     initial,
-	}
+	ps := newPersistingTokenSource(serverID, initial)
 	tok, err := ps.Token()
 	if err != nil {
 		t.Fatalf("Token: %v", err)
@@ -121,6 +125,279 @@ func TestPersistingTokenSourcePersistsRotatedToken(t *testing.T) {
 	}
 	if loaded.AccessToken != "new" {
 		t.Errorf("persisted AccessToken = %q, want new", loaded.AccessToken)
+	}
+}
+
+func TestIndependentTokenSourcesCoordinateRotation(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	var refreshes atomic.Int32
+	tokenEndpoint := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseForm(); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if got := r.Form.Get("refresh_token"); got != "r1" {
+			http.Error(w, "unexpected refresh token", http.StatusBadRequest)
+			return
+		}
+		refreshes.Add(1)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"access_token":"a2","refresh_token":"r2","token_type":"Bearer","expires_in":3600}`))
+	}))
+	defer tokenEndpoint.Close()
+
+	const serverID = "cross-process-rotation"
+	info := &oauthClientInfo{TokenEndpoint: tokenEndpoint.URL, ClientID: "client", AuthStyle: oauth2.AuthStyleInParams}
+	if err := saveOAuthClientInfo(serverID, info); err != nil {
+		t.Fatalf("saveOAuthClientInfo: %v", err)
+	}
+	initial := &oauth2.Token{AccessToken: "a1", RefreshToken: "r1", Expiry: time.Now().Add(-time.Hour)}
+	if err := SaveOAuthToken(serverID, initial); err != nil {
+		t.Fatalf("SaveOAuthToken: %v", err)
+	}
+
+	first := newPersistingTokenSource(serverID, initial)
+	second := newPersistingTokenSource(serverID, initial)
+	start := make(chan struct{})
+	results := make(chan *oauth2.Token, 2)
+	errs := make(chan error, 2)
+	for _, source := range []*persistingTokenSource{first, second} {
+		go func(source *persistingTokenSource) {
+			<-start
+			tok, err := source.Token()
+			if err != nil {
+				errs <- err
+				return
+			}
+			results <- tok
+		}(source)
+	}
+	close(start)
+	for range 2 {
+		select {
+		case err := <-errs:
+			t.Fatal(err)
+		case tok := <-results:
+			if tok.AccessToken != "a2" || tok.RefreshToken != "r2" {
+				t.Fatalf("token = (%q, %q), want (a2, r2)", tok.AccessToken, tok.RefreshToken)
+			}
+		}
+	}
+	if got := refreshes.Load(); got != 1 {
+		t.Fatalf("refresh requests = %d, want 1", got)
+	}
+}
+
+func TestForceRefreshAdoptsNewInteractiveCredentials(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	var oldClientRefreshes atomic.Int32
+	oldEndpoint := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		oldClientRefreshes.Add(1)
+		http.Error(w, `{"error":"unauthorized_client"}`, http.StatusBadRequest)
+	}))
+	defer oldEndpoint.Close()
+
+	const serverID = "interactive-regrant"
+	oldInfo := &oauthClientInfo{TokenEndpoint: oldEndpoint.URL, ClientID: "old-client", AuthStyle: oauth2.AuthStyleInParams}
+	oldToken := &oauth2.Token{AccessToken: "old-access", RefreshToken: "old-refresh", Expiry: time.Now().Add(time.Hour)}
+	if err := saveOAuthClientInfo(serverID, oldInfo); err != nil {
+		t.Fatalf("save old client info: %v", err)
+	}
+	if err := SaveOAuthToken(serverID, oldToken); err != nil {
+		t.Fatalf("save old token: %v", err)
+	}
+	source := newPersistingTokenSource(serverID, oldToken)
+
+	newInfo := &oauthClientInfo{TokenEndpoint: "https://new.example/token", ClientID: "new-client", AuthStyle: oauth2.AuthStyleInParams}
+	newToken := &oauth2.Token{AccessToken: "new-access", RefreshToken: "new-refresh", Expiry: time.Now().Add(time.Hour)}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := withOAuthLock(ctx, serverID, func() error {
+		if err := saveOAuthClientInfo(serverID, newInfo); err != nil {
+			return err
+		}
+		return saveOAuthToken(serverID, newToken)
+	}); err != nil {
+		t.Fatalf("save new credentials: %v", err)
+	}
+
+	got, err := source.ForceRefresh(context.Background())
+	if err != nil {
+		t.Fatalf("ForceRefresh: %v", err)
+	}
+	if got.AccessToken != "new-access" || got.RefreshToken != "new-refresh" {
+		t.Fatalf("token = (%q, %q), want new interactive credentials", got.AccessToken, got.RefreshToken)
+	}
+	if got := oldClientRefreshes.Load(); got != 0 {
+		t.Fatalf("old client refresh requests = %d, want 0", got)
+	}
+}
+
+func TestForceRefreshHonorsCancellationWhileWaiting(t *testing.T) {
+	source := newPersistingTokenSource("cancel-wait", &oauth2.Token{AccessToken: "access"})
+	if err := source.acquire(context.Background()); err != nil {
+		t.Fatalf("acquire: %v", err)
+	}
+	defer source.release()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	started := time.Now()
+	_, err := source.ForceRefresh(ctx)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("ForceRefresh error = %v, want context.Canceled", err)
+	}
+	if elapsed := time.Since(started); elapsed > time.Second {
+		t.Fatalf("ForceRefresh took %v after cancellation", elapsed)
+	}
+}
+
+func TestSaveOAuthTokenReturnsAtomicWriteFailure(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	path, err := oauthTokenPath("write-failure")
+	if err != nil {
+		t.Fatalf("oauthTokenPath: %v", err)
+	}
+	if err := os.Mkdir(path, 0o700); err != nil {
+		t.Fatalf("Mkdir token path: %v", err)
+	}
+	err = SaveOAuthToken("write-failure", &oauth2.Token{AccessToken: "access"})
+	if err == nil {
+		t.Fatal("SaveOAuthToken succeeded despite an unusable destination")
+	}
+}
+
+func TestSaveOAuthCredentialsRestoresClientInfoOnTokenFailure(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	const serverID = "credential-rollback"
+	oldInfo := &oauthClientInfo{TokenEndpoint: "https://old.example/token", ClientID: "old-client"}
+	if err := saveOAuthClientInfo(serverID, oldInfo); err != nil {
+		t.Fatalf("save old client info: %v", err)
+	}
+	path, err := oauthTokenPath(serverID)
+	if err != nil {
+		t.Fatalf("oauthTokenPath: %v", err)
+	}
+	if err := os.Mkdir(path, 0o700); err != nil {
+		t.Fatalf("Mkdir token path: %v", err)
+	}
+
+	newInfo := &oauthClientInfo{TokenEndpoint: "https://new.example/token", ClientID: "new-client"}
+	err = saveOAuthCredentials(context.Background(), serverID, newInfo, &oauth2.Token{AccessToken: "new-access"})
+	if err == nil {
+		t.Fatal("saveOAuthCredentials succeeded despite an unusable token destination")
+	}
+	got, err := loadOAuthClientInfo(serverID)
+	if err != nil {
+		t.Fatalf("load restored client info: %v", err)
+	}
+	if got.ClientID != oldInfo.ClientID || got.TokenEndpoint != oldInfo.TokenEndpoint {
+		t.Fatalf("restored client info = (%q, %q), want old credentials", got.ClientID, got.TokenEndpoint)
+	}
+}
+
+func TestRefreshOAuthTokenRetriesLostResponse(t *testing.T) {
+	var attempts atomic.Int32
+	tokenEndpoint := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if attempts.Add(1) == 1 {
+			hijacker, ok := w.(http.Hijacker)
+			if !ok {
+				t.Error("response writer does not support hijacking")
+				return
+			}
+			conn, _, err := hijacker.Hijack()
+			if err != nil {
+				t.Errorf("Hijack: %v", err)
+				return
+			}
+			_ = conn.Close()
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"access_token":"a2","refresh_token":"r2","token_type":"Bearer","expires_in":3600}`))
+	}))
+	defer tokenEndpoint.Close()
+
+	cfg := &oauth2.Config{
+		ClientID: "client",
+		Endpoint: oauth2.Endpoint{TokenURL: tokenEndpoint.URL, AuthStyle: oauth2.AuthStyleInParams},
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	tok, err := refreshOAuthToken(ctx, cfg, &oauth2.Token{
+		AccessToken:  "a1",
+		RefreshToken: "r1",
+		Expiry:       time.Now().Add(-time.Hour),
+	}, true)
+	if err != nil {
+		t.Fatalf("refreshOAuthToken: %v", err)
+	}
+	if tok.AccessToken != "a2" || tok.RefreshToken != "r2" {
+		t.Fatalf("token = (%q, %q), want (a2, r2)", tok.AccessToken, tok.RefreshToken)
+	}
+	if got := attempts.Load(); got != 2 {
+		t.Fatalf("refresh attempts = %d, want 2", got)
+	}
+}
+
+func TestNonAtlassianRefreshDoesNotRetryLostResponse(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	var attempts atomic.Int32
+	tokenEndpoint := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		attempts.Add(1)
+		hijacker, ok := w.(http.Hijacker)
+		if !ok {
+			t.Error("response writer does not support hijacking")
+			return
+		}
+		conn, _, err := hijacker.Hijack()
+		if err != nil {
+			t.Errorf("Hijack: %v", err)
+			return
+		}
+		_ = conn.Close()
+	}))
+	defer tokenEndpoint.Close()
+
+	const serverID = "non-atlassian-no-retry"
+	if err := saveOAuthClientInfo(serverID, &oauthClientInfo{
+		TokenEndpoint: tokenEndpoint.URL,
+		ClientID:      "client",
+		AuthStyle:     oauth2.AuthStyleInParams,
+	}); err != nil {
+		t.Fatalf("saveOAuthClientInfo: %v", err)
+	}
+	initial := &oauth2.Token{AccessToken: "a1", RefreshToken: "r1", Expiry: time.Now().Add(-time.Hour)}
+	if err := SaveOAuthToken(serverID, initial); err != nil {
+		t.Fatalf("SaveOAuthToken: %v", err)
+	}
+	_, err := newPersistingTokenSource(serverID, initial).Token()
+	if err == nil {
+		t.Fatal("Token succeeded despite a lost token response")
+	}
+	if got := attempts.Load(); got != 1 {
+		t.Fatalf("refresh attempts = %d, want 1", got)
+	}
+}
+
+func TestIsAtlassianTokenEndpoint(t *testing.T) {
+	cases := map[string]bool{
+		"https://auth.atlassian.com/oauth/token":       true,
+		"HTTPS://AUTH.ATLASSIAN.COM/oauth/token":       true,
+		"https://auth.atlassian.com.evil.test/token":   false,
+		"http://auth.atlassian.com/oauth/token":        false,
+		"https://cf.mcp.atlassian.com/v1/token":        false,
+		"https://another-provider.example/oauth/token": false,
+	}
+	for endpoint, want := range cases {
+		if got := isAtlassianTokenEndpoint(endpoint); got != want {
+			t.Errorf("isAtlassianTokenEndpoint(%q) = %v, want %v", endpoint, got, want)
+		}
 	}
 }
 

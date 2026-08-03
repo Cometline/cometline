@@ -3,10 +3,12 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -196,13 +198,41 @@ func PerformInteractiveOAuth(ctx context.Context, opts OAuthFlowOptions, fetch A
 		Resource:              prm.Resource,
 		AuthStyle:             authStyle,
 	}
-	if err := saveOAuthClientInfo(opts.ServerID, info); err != nil {
-		return fmt.Errorf("persist oauth client info: %w", err)
+	if err := saveOAuthCredentials(ctx, opts.ServerID, info, tok); err != nil {
+		return err
 	}
-	if err := SaveOAuthToken(opts.ServerID, tok); err != nil {
-		return fmt.Errorf("persist oauth token: %w", err)
-	}
+	invalidateOAuthTokenSource(opts.ServerID)
 	return nil
+}
+
+func saveOAuthCredentials(ctx context.Context, serverID string, info *oauthClientInfo, tok *oauth2.Token) error {
+	return withOAuthLock(ctx, serverID, func() error {
+		clientPath, err := oauthClientInfoPath(serverID)
+		if err != nil {
+			return err
+		}
+		previousClient, readErr := os.ReadFile(clientPath)
+		if readErr != nil && !os.IsNotExist(readErr) {
+			return fmt.Errorf("read previous oauth client info: %w", readErr)
+		}
+		if err := saveOAuthClientInfo(serverID, info); err != nil {
+			return fmt.Errorf("persist oauth client info: %w", err)
+		}
+		if err := saveOAuthToken(serverID, tok); err != nil {
+			persistErr := fmt.Errorf("persist oauth token: %w", err)
+			var rollbackErr error
+			if readErr == nil {
+				rollbackErr = writePrivateFileAtomic(clientPath, previousClient)
+			} else if removeErr := os.Remove(clientPath); removeErr != nil && !os.IsNotExist(removeErr) {
+				rollbackErr = removeErr
+			}
+			if rollbackErr != nil {
+				return errors.Join(persistErr, fmt.Errorf("restore previous oauth client info: %w", rollbackErr))
+			}
+			return persistErr
+		}
+		return nil
+	})
 }
 
 // discoverAuthServerMetadata fetches authorization server metadata for an issuer

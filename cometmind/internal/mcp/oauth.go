@@ -5,20 +5,28 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/gofrs/flock"
 	"github.com/modelcontextprotocol/go-sdk/auth"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"golang.org/x/oauth2"
 )
 
 const oauthDirName = "mcp-oauth"
+
+const (
+	oauthOperationTimeout = 45 * time.Second
+	oauthLockRetryDelay   = 50 * time.Millisecond
+)
 
 // OAuthTokenDir returns ~/.cometmind/mcp-oauth (created if missing).
 func OAuthTokenDir() (string, error) {
@@ -67,7 +75,11 @@ func LoadOAuthToken(serverID string) (*oauth2.Token, error) {
 
 // SaveOAuthToken writes an OAuth token for one MCP server (mode 0600).
 func SaveOAuthToken(serverID string, tok *oauth2.Token) error {
-	if err := saveOAuthToken(serverID, tok); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), oauthOperationTimeout)
+	defer cancel()
+	if err := withOAuthLock(ctx, serverID, func() error {
+		return saveOAuthToken(serverID, tok)
+	}); err != nil {
 		return err
 	}
 	invalidateOAuthTokenSource(serverID)
@@ -86,7 +98,51 @@ func saveOAuthToken(serverID string, tok *oauth2.Token) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, 0o600)
+	return writePrivateFileAtomic(path, data)
+}
+
+func writePrivateFileAtomic(path string, data []byte) error {
+	tmp, err := os.CreateTemp(filepath.Dir(path), "."+filepath.Base(path)+".tmp-*")
+	if err != nil {
+		return err
+	}
+	tmpPath := tmp.Name()
+	defer tmp.Close()
+	defer os.Remove(tmpPath)
+	if err := tmp.Chmod(0o600); err != nil {
+		return err
+	}
+	if _, err := tmp.Write(data); err != nil {
+		return err
+	}
+	if err := tmp.Sync(); err != nil {
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tmpPath, path)
+}
+
+func withOAuthLock(ctx context.Context, serverID string, fn func() error) (retErr error) {
+	path, err := oauthTokenPath(serverID)
+	if err != nil {
+		return err
+	}
+	fileLock := flock.New(path+".lock", flock.SetPermissions(0o600))
+	locked, err := fileLock.TryLockContext(ctx, oauthLockRetryDelay)
+	if err != nil {
+		return fmt.Errorf("lock oauth credentials: %w", err)
+	}
+	if !locked {
+		return fmt.Errorf("lock oauth credentials: %w", ctx.Err())
+	}
+	defer func() {
+		if unlockErr := fileLock.Unlock(); retErr == nil && unlockErr != nil {
+			retErr = fmt.Errorf("unlock oauth credentials: %w", unlockErr)
+		}
+	}()
+	return fn()
 }
 
 func invalidateOAuthTokenSource(serverID string) {
@@ -122,16 +178,7 @@ func (h fileOAuthHandler) TokenSource(_ context.Context) (oauth2.TokenSource, er
 	// If we have persisted client info, build a refreshing source so expired
 	// access tokens are renewed via the stored refresh token + token endpoint.
 	if info, infoErr := loadOAuthClientInfo(serverID); infoErr == nil && info != nil {
-		cfg := &oauth2.Config{
-			ClientID:     info.ClientID,
-			ClientSecret: info.ClientSecret,
-			Endpoint: oauth2.Endpoint{
-				TokenURL:  info.TokenEndpoint,
-				AuthStyle: info.AuthStyle,
-			},
-			Scopes: info.Scopes,
-		}
-		source := newPersistingTokenSource(serverID, cfg, tok)
+		source := newPersistingTokenSource(serverID, tok)
 		actual, _ := oauthTokenSources.LoadOrStore(serverID, source)
 		return actual.(*persistingTokenSource), nil
 	}
@@ -147,7 +194,7 @@ func (h fileOAuthHandler) Authorize(ctx context.Context, _ *http.Request, resp *
 	// silent refresh; only if that fails do we surface an actionable error.
 	if ts, err := h.TokenSource(ctx); err == nil && ts != nil {
 		if refresher, ok := ts.(*persistingTokenSource); ok {
-			if _, refreshErr := refresher.ForceRefresh(); refreshErr == nil {
+			if _, refreshErr := refresher.ForceRefresh(ctx); refreshErr == nil {
 				// Refresh succeeded; returning nil triggers an immediate retry with
 				// the freshly persisted token.
 				return nil
@@ -158,67 +205,152 @@ func (h fileOAuthHandler) Authorize(ctx context.Context, _ *http.Request, resp *
 			return nil
 		}
 	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	return fmt.Errorf("MCP OAuth token for server %q is invalid or expired; re-run Connect with OAuth in Cometline Settings", h.serverID)
 }
 
 // persistingTokenSource wraps a refreshing oauth2.TokenSource and writes rotated
 // tokens back to disk so subsequent runtime connects reuse the refreshed token.
 type persistingTokenSource struct {
-	serverID string
-	cfg      *oauth2.Config
-	base     oauth2.TokenSource
-	mu       sync.Mutex
-	last     *oauth2.Token
+	serverID    string
+	refreshLock chan struct{}
+	last        *oauth2.Token
 }
 
-func newPersistingTokenSource(serverID string, cfg *oauth2.Config, tok *oauth2.Token) *persistingTokenSource {
-	return &persistingTokenSource{
-		serverID: serverID,
-		cfg:      cfg,
-		base:     cfg.TokenSource(oauthClientContext(), tok),
-		last:     tok,
+func newPersistingTokenSource(serverID string, tok *oauth2.Token) *persistingTokenSource {
+	source := &persistingTokenSource{
+		serverID:    serverID,
+		refreshLock: make(chan struct{}, 1),
+		last:        tok,
 	}
+	source.refreshLock <- struct{}{}
+	return source
 }
 
-func oauthClientContext() context.Context {
-	return context.WithValue(context.Background(), oauth2.HTTPClient, &http.Client{Timeout: 30 * time.Second})
+func oauthConfigFromClientInfo(info *oauthClientInfo) *oauth2.Config {
+	return &oauth2.Config{
+		ClientID:     info.ClientID,
+		ClientSecret: info.ClientSecret,
+		Endpoint: oauth2.Endpoint{
+			TokenURL:  info.TokenEndpoint,
+			AuthStyle: info.AuthStyle,
+		},
+		Scopes: info.Scopes,
+	}
 }
 
 func (p *persistingTokenSource) Token() (*oauth2.Token, error) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	tok, err := p.base.Token()
-	if err != nil {
+	if err := p.acquire(context.Background()); err != nil {
 		return nil, err
 	}
-	if p.last == nil || tokenChanged(tok, p.last) {
-		// Token rotated; persist it (best-effort, do not fail the request).
-		_ = saveOAuthToken(p.serverID, tok)
-		p.last = tok
+	defer p.release()
+	if p.last != nil && p.last.Valid() {
+		return p.last, nil
 	}
-	return tok, nil
+	return p.refreshLocked(context.Background(), false)
 }
 
-func (p *persistingTokenSource) ForceRefresh() (*oauth2.Token, error) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	seed, err := LoadOAuthToken(p.serverID)
-	if err != nil {
+func (p *persistingTokenSource) ForceRefresh(ctx context.Context) (*oauth2.Token, error) {
+	if err := p.acquire(ctx); err != nil {
 		return nil, err
 	}
-	if strings.TrimSpace(seed.RefreshToken) == "" {
-		return nil, fmt.Errorf("oauth token missing refresh_token")
+	defer p.release()
+	return p.refreshLocked(ctx, true)
+}
+
+func (p *persistingTokenSource) acquire(ctx context.Context) error {
+	if ctx == nil {
+		ctx = context.Background()
 	}
-	expired := *seed
-	expired.Expiry = time.Now().Add(-time.Hour)
-	p.base = p.cfg.TokenSource(oauthClientContext(), &expired)
-	tok, err := p.base.Token()
-	if err != nil {
-		return nil, err
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-p.refreshLock:
+		return nil
 	}
-	_ = saveOAuthToken(p.serverID, tok)
-	p.last = tok
-	return tok, nil
+}
+
+func (p *persistingTokenSource) release() {
+	p.refreshLock <- struct{}{}
+}
+
+func (p *persistingTokenSource) refreshLocked(parent context.Context, force bool) (*oauth2.Token, error) {
+	if parent == nil {
+		parent = context.Background()
+	}
+	ctx, cancel := context.WithTimeout(parent, oauthOperationTimeout)
+	defer cancel()
+	var result *oauth2.Token
+	err := withOAuthLock(ctx, p.serverID, func() error {
+		seed, err := LoadOAuthToken(p.serverID)
+		if err != nil {
+			return err
+		}
+		info, err := loadOAuthClientInfo(p.serverID)
+		if err != nil {
+			return err
+		}
+		cfg := oauthConfigFromClientInfo(info)
+
+		// Another process or a new interactive grant may already have replaced
+		// both credentials while this source was waiting for the lock.
+		if seed.Valid() && (tokenChanged(seed, p.last) || !force) {
+			p.last = seed
+			result = seed
+			return nil
+		}
+		if strings.TrimSpace(seed.RefreshToken) == "" {
+			return fmt.Errorf("oauth token missing refresh_token")
+		}
+		expired := *seed
+		expired.Expiry = time.Now().Add(-time.Hour)
+		tok, err := refreshOAuthToken(ctx, cfg, &expired, isAtlassianTokenEndpoint(info.TokenEndpoint))
+		if err != nil {
+			return err
+		}
+		if err := saveOAuthToken(p.serverID, tok); err != nil {
+			return fmt.Errorf("persist refreshed oauth token: %w", err)
+		}
+		p.last = tok
+		result = tok
+		return nil
+	})
+	return result, err
+}
+
+func refreshOAuthToken(ctx context.Context, cfg *oauth2.Config, seed *oauth2.Token, retryAmbiguous bool) (*oauth2.Token, error) {
+	var lastErr error
+	attempts := 1
+	if retryAmbiguous {
+		attempts = 2
+	}
+	for attempt := 0; attempt < attempts; attempt++ {
+		clientCtx := context.WithValue(ctx, oauth2.HTTPClient, &http.Client{Timeout: 20 * time.Second})
+		tok, err := cfg.TokenSource(clientCtx, seed).Token()
+		if err == nil {
+			return tok, nil
+		}
+		lastErr = err
+		var retrieveErr *oauth2.RetrieveError
+		if errors.As(err, &retrieveErr) || attempt == attempts-1 {
+			break
+		}
+		timer := time.NewTimer(250 * time.Millisecond)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return nil, ctx.Err()
+		case <-timer.C:
+		}
+	}
+	return nil, lastErr
+}
+
+func isAtlassianTokenEndpoint(rawURL string) bool {
+	u, err := url.Parse(rawURL)
+	return err == nil && strings.EqualFold(u.Scheme, "https") && strings.EqualFold(u.Hostname(), "auth.atlassian.com")
 }
 
 func tokenChanged(a, b *oauth2.Token) bool {
