@@ -9,7 +9,7 @@
 		type GitScope
 	} from '$lib/client/cometmind';
 	import ConfirmActionModal from '$lib/components/ConfirmActionModal.svelte';
-	import { portal } from '$lib/components/portal';
+	import SelectionAddToChat from '$lib/components/SelectionAddToChat.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import {
 		highlightGitDiffLines,
@@ -233,15 +233,6 @@
 		void [workspacePath, filePath, scope, workspaceChangeVersion(workspacePath)];
 		void load();
 	});
-
-	$effect(() => {
-		document.addEventListener('scroll', clearSelectionPopup, true);
-		window.addEventListener('resize', clearSelectionPopup);
-		return () => {
-			document.removeEventListener('scroll', clearSelectionPopup, true);
-			window.removeEventListener('resize', clearSelectionPopup);
-		};
-	});
 </script>
 
 <div class="git-diff-view">
@@ -349,17 +340,11 @@
 	{/if}
 
 	{#if selectionPopup}
-		<button
-			use:portal
-			type="button"
-			class="selection-add-chat"
-			style:top="{selectionPopup.top}px"
-			style:left="{selectionPopup.left}px"
-			onmousedown={(event) => event.preventDefault()}
-			onclick={addSelectionToChat}
-		>
-			Add to chat
-		</button>
+		<SelectionAddToChat
+			position={{ top: selectionPopup.top, left: selectionPopup.left }}
+			onAdd={addSelectionToChat}
+			onDismiss={clearSelectionPopup}
+		/>
 	{/if}
 </div>
 
@@ -578,23 +563,5 @@
 		padding: 8px 12px 12px;
 		font-size: 12px;
 		color: var(--text-muted);
-	}
-
-	.selection-add-chat {
-		position: fixed;
-		z-index: 10000;
-		padding: 6px 10px;
-		border: 1px solid var(--border-soft);
-		border-radius: 8px;
-		background: #fff;
-		color: var(--text-main);
-		font-size: 12px;
-		font-weight: 600;
-		box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
-		cursor: pointer;
-	}
-
-	.selection-add-chat:hover {
-		border-color: var(--text-soft);
 	}
 </style>
