@@ -3,12 +3,7 @@
 	import { slide } from 'svelte/transition';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import {
-		PanelLeftClose,
-		PanelLeftOpen,
-		PanelRightClose,
-		PanelRightOpen
-	} from '@lucide/svelte';
+	import { PanelLeftOpen, PanelRightOpen } from '@lucide/svelte';
 	import Sidebar from './Sidebar.svelte';
 	import RuntimeOverlay from './RuntimeOverlay.svelte';
 	import SettingsModal from './SettingsModal.svelte';
@@ -728,44 +723,31 @@
 				</header>
 			{/if}
 			<!-- Fixed corner chrome: independent of the sliding shell titlebar. -->
-			{#if !shellStore.fullscreen}
+			{#if !shellStore.fullscreen && !shellStore.sidebarOpen}
 				<div class="main-corner-actions main-corner-actions-start">
-					<Tooltip
-						label={shellStore.sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
-						action="toggleSidebar"
-					>
+					<Tooltip label="Show sidebar" action="toggleSidebar">
 						<button
 							type="button"
 							class="shell-titlebar-btn"
-							class:active={shellStore.sidebarOpen}
-							aria-label={shellStore.sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
-							aria-pressed={shellStore.sidebarOpen}
+							aria-label="Show sidebar"
 							onclick={() => shellStore.toggleSidebar()}
 						>
-							{#if shellStore.sidebarOpen}
-								<PanelLeftClose size={16} stroke-width={1.8} />
-							{:else}
-								<PanelLeftOpen size={16} stroke-width={1.8} />
-							{/if}
+							<PanelLeftOpen size={16} stroke-width={1.8} />
 						</button>
 					</Tooltip>
 				</div>
+			{/if}
+			{#if !shellStore.fullscreen && !shellStore.workspacePanelOpen}
 				<div class="main-corner-actions main-corner-actions-end">
-					<Tooltip label="Toggle workspace panel" action="toggleWorkspacePanel">
+					<Tooltip label="Show workspace panel" action="toggleWorkspacePanel">
 						<button
 							type="button"
 							class="shell-titlebar-btn"
-							class:active={shellStore.workspacePanelOpen}
-							aria-label="Toggle workspace panel"
-							aria-pressed={shellStore.workspacePanelOpen}
+							aria-label="Show workspace panel"
 							disabled={!activeSessionId}
 							onclick={() => shellStore.toggleWorkspacePanel()}
 						>
-							{#if shellStore.workspacePanelOpen}
-								<PanelRightClose size={16} stroke-width={1.8} />
-							{:else}
-								<PanelRightOpen size={16} stroke-width={1.8} />
-							{/if}
+							<PanelRightOpen size={16} stroke-width={1.8} />
 						</button>
 					</Tooltip>
 				</div>
@@ -956,11 +938,6 @@
 		background: rgba(0, 0, 0, 0.07);
 	}
 
-	.shell-titlebar-btn.active {
-		color: var(--text-main);
-		background: rgba(0, 0, 0, 0.05);
-	}
-
 	.shell-titlebar-btn:disabled {
 		opacity: 0.4;
 		cursor: default;
@@ -1050,7 +1027,7 @@
 		width: 4px;
 		height: 36px;
 		border-radius: 999px;
-		background: var(--border-subtle, rgba(148, 163, 184, 0.4));
+		/* background: var(--border-subtle, rgba(148, 163, 184, 0.4)); */
 		opacity: 0;
 		transition: opacity var(--duration-fast) var(--ease-smooth);
 	}

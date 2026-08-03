@@ -8,6 +8,7 @@
 		LoaderCircle,
 		LogIn,
 		RefreshCw,
+		Search,
 		Sparkles,
 		X
 	} from '@lucide/svelte';
@@ -86,7 +87,7 @@
 	let saveError = $state('');
 	let settingsSaved = $state(false);
 	let connecting = $state(false);
-	let manualModel = $state('');
+	let modelFilter = $state('');
 	let showApiKey = $state(false);
 
 	// Codex browser-session auth state (mirrors SettingsProvidersPanel).
@@ -125,35 +126,50 @@
 		JSON.parse(JSON.stringify(settingsStore.settings)) as ProviderSettings
 	);
 
-	let selectedProviderId = $state(
-		untrack(
-			() => draft.providers.find((p) => p.id === 'openai')?.id ?? draft.providers[0]?.id ?? ''
-		)
+	let selectedProviderIds = $state<string[]>(
+		untrack(() => {
+			const enabled = draft.providers
+				.filter((provider) => provider.enabled)
+				.map((provider) => provider.id);
+			if (enabled.length > 0) return enabled;
+			const initial =
+				draft.providers.find((provider) => provider.id === 'openai') ?? draft.providers[0];
+			return initial ? [initial.id] : [];
+		})
 	);
+	let defaultProviderId = $state(
+		untrack(() => {
+			if (selectedProviderIds.includes(draft.defaultProviderId))
+				return draft.defaultProviderId;
+			return selectedProviderIds[0] ?? '';
+		})
+	);
+	let activeProviderId = $state(untrack(() => defaultProviderId));
 
-	let selectedProvider = $derived(
-		draft.providers.find((p) => p.id === selectedProviderId) ?? draft.providers[0]
+	let selectedProvider = $derived(draft.providers.find((p) => p.id === activeProviderId));
+	let defaultProvider = $derived(
+		draft.providers.find((provider) => provider.id === defaultProviderId)
 	);
+	let selectedProviders = $derived(
+		draft.providers.filter((provider) => selectedProviderIds.includes(provider.id))
+	);
+	let filteredModels = $derived.by(() => {
+		const query = modelFilter.trim().toLowerCase();
+		if (!selectedProvider || !query) return selectedProvider?.models ?? [];
+		return selectedProvider.models.filter((model) => model.toLowerCase().includes(query));
+	});
 
 	let stepIndex = $derived(STEP_ORDER.indexOf(step));
 	let canAdvance = $derived.by(() => {
-		if (step === 'provider') return Boolean(selectedProvider);
+		if (step === 'provider') return selectedProviderIds.length > 0;
 		if (step === 'apikey') {
-			if (!selectedProvider) return false;
-			// Codex needs a signed-in browser session, not an API key.
-			if (selectedProvider.method === 'codex') {
-				return Boolean(codexAuthStatus?.authenticated);
-			}
-			if (selectedProvider.method === 'xai') {
-				return Boolean(xaiAuthStatus?.authenticated);
-			}
-			if (selectedProvider.method === 'ollama') {
-				return true;
-			}
-			return selectedProvider.apiKey.trim().length > 0;
+			return selectedProviders.length > 0 && selectedProviders.every(providerIsConnected);
 		}
 		if (step === 'model')
-			return Boolean(selectedProvider) && selectedProvider.enabledModels.length > 0;
+			return (
+				selectedProviders.length > 0 &&
+				selectedProviders.every((provider) => provider.enabledModels.length > 0)
+			);
 		// Embedding and permissions steps are always skippable.
 		if (step === 'embedding' || step === 'permissions') return true;
 		return true;
@@ -187,24 +203,59 @@
 
 	// Embedding dropdown options derived from enabled providers.
 	let embeddingOptions = $derived(
-		buildEmbeddingDropdownOptions(draft.providers, savedEmbedding, memorySettings?.embedding)
+		buildEmbeddingDropdownOptions(
+			draft.providers.map((provider) =>
+				selectedProviderIds.includes(provider.id)
+					? { ...provider, enabled: true }
+					: provider
+			),
+			savedEmbedding,
+			memorySettings?.embedding
+		)
+	);
+	let availableEmbeddingOptions = $derived(
+		embeddingOptions.filter(
+			(option) =>
+				(option.method !== 'ollama' || ollamaHealth?.ok) &&
+				embeddingOptionKey(option) !== `ollama:${PRIVATE_MEMORY.pullName}`
+		)
 	);
 
-	function patchSelected(patch: Partial<ProviderConfig>) {
-		if (!selectedProvider) return;
+	function patchProvider(id: string, patch: Partial<ProviderConfig>) {
 		draft = {
 			...draft,
 			providers: draft.providers.map((p) =>
-				p.id === selectedProvider.id ? cloneProvider({ ...p, ...patch }) : p
+				p.id === id ? cloneProvider({ ...p, ...patch }) : p
 			)
 		};
 	}
 
-	function selectProvider(id: string) {
-		selectedProviderId = id;
-		// Reset model state when switching providers.
-		manualModel = '';
-		patchSelected({ enabledModels: [], selectedModel: '' });
+	function toggleProvider(id: string) {
+		if (selectedProviderIds.includes(id)) {
+			selectedProviderIds = selectedProviderIds.filter((providerId) => providerId !== id);
+			if (activeProviderId === id) activeProviderId = selectedProviderIds[0] ?? '';
+			if (defaultProviderId === id) defaultProviderId = selectedProviderIds[0] ?? '';
+			return;
+		}
+		selectedProviderIds = [...selectedProviderIds, id];
+		if (!activeProviderId) activeProviderId = id;
+		if (!defaultProviderId) defaultProviderId = id;
+	}
+
+	function showProvider(id: string) {
+		activeProviderId = id;
+		modelFilter = '';
+	}
+
+	function setDefaultProvider(id: string) {
+		defaultProviderId = id;
+	}
+
+	function providerIsConnected(provider: ProviderConfig) {
+		if (provider.method === 'codex') return Boolean(codexAuthStatus?.authenticated);
+		if (provider.method === 'xai') return Boolean(xaiAuthStatus?.authenticated);
+		if (provider.method === 'ollama') return Boolean(ollamaHealth?.ok);
+		return provider.apiKey.trim().length > 0;
 	}
 
 	function next() {
@@ -213,19 +264,28 @@
 			const nextStep = STEP_ORDER[idx + 1];
 			step = nextStep;
 			// Auto-check Codex auth status when entering the apikey step for codex.
-			if (nextStep === 'apikey' && selectedProvider?.method === 'codex') {
+			if (
+				nextStep === 'apikey' &&
+				selectedProviders.some((provider) => provider.method === 'codex')
+			) {
 				void refreshCodexAuthStatus();
-				void refreshXaiAuthStatus();
 			}
 			if (nextStep === 'permissions') {
 				void refreshScreenCaptureAccess();
 			}
-			if (nextStep === 'apikey' && selectedProvider?.method === 'xai') {
+			if (nextStep === 'embedding') {
+				void loadMemorySettings();
+			}
+			if (
+				nextStep === 'apikey' &&
+				selectedProviders.some((provider) => provider.method === 'xai')
+			) {
 				void refreshXaiAuthStatus();
 			}
 			if (
 				(nextStep === 'apikey' || nextStep === 'embedding') &&
-				(selectedProvider?.method === 'ollama' || nextStep === 'embedding')
+				(selectedProviders.some((provider) => provider.method === 'ollama') ||
+					nextStep === 'embedding')
 			) {
 				void refreshOllamaHealth();
 			}
@@ -236,11 +296,14 @@
 		checkingOllama = true;
 		ollamaWizardError = '';
 		try {
+			const ollamaProvider = draft.providers.find((provider) => provider.method === 'ollama');
 			ollamaHealth = await checkOllamaHealth(
-				selectedProvider?.baseURL || OLLAMA_DEFAULT_NATIVE_BASE
+				ollamaProvider?.baseURL || OLLAMA_DEFAULT_NATIVE_BASE
 			);
-			if (ollamaHealth.ok && selectedProvider?.method === 'ollama') {
-				patchSelected({ baseURL: ollamaHealth.baseURL, enabled: true });
+			if (ollamaHealth.ok && ollamaProvider) {
+				patchProvider(ollamaProvider.id, { baseURL: ollamaHealth.baseURL });
+			} else if (!ollamaHealth.ok && selectedEmbeddingKey.startsWith('ollama:')) {
+				selectedEmbeddingKey = '';
 			}
 		} catch (err) {
 			ollamaWizardError = err instanceof Error ? err.message : String(err);
@@ -314,7 +377,7 @@
 		if (!selectedProvider || !canFetchModels(selectedProvider)) return;
 		try {
 			const updated = await settingsStore.fetchModelsFor(selectedProvider);
-			patchSelected({
+			patchProvider(selectedProvider.id, {
 				models: updated.models,
 				enabledModels: updated.enabledModels,
 				selectedModel: updated.selectedModel
@@ -326,17 +389,15 @@
 
 	function selectModel(model: string) {
 		if (!selectedProvider) return;
-		patchSelected({ enabledModels: [model], selectedModel: model });
-	}
-
-	function addManualModel() {
-		const model = manualModel.trim();
-		if (!model || !selectedProvider) return;
-		const models = selectedProvider.models.includes(model)
-			? selectedProvider.models
-			: [...selectedProvider.models, model];
-		patchSelected({ models, enabledModels: [model], selectedModel: model });
-		manualModel = '';
+		const enabledModels = selectedProvider.enabledModels.includes(model)
+			? selectedProvider.enabledModels.filter((enabledModel) => enabledModel !== model)
+			: [...selectedProvider.enabledModels, model];
+		patchProvider(selectedProvider.id, {
+			enabledModels,
+			selectedModel: enabledModels.includes(selectedProvider.selectedModel)
+				? selectedProvider.selectedModel
+				: (enabledModels[0] ?? '')
+		});
 	}
 
 	// --- Codex browser-session auth ---
@@ -411,6 +472,9 @@
 				mergeEmbeddingFields(s.embedding, savedEmbedding),
 				savedEmbedding
 			);
+			if (ollamaHealth && !ollamaHealth.ok && selectedEmbeddingKey.startsWith('ollama:')) {
+				selectedEmbeddingKey = '';
+			}
 		} catch (err) {
 			memoryError = err instanceof Error ? err.message : 'Failed to load memory settings';
 			memorySettings = defaultMemorySettings();
@@ -444,7 +508,7 @@
 				}
 			};
 		}
-		const option = embeddingOptions.find(
+		const option = availableEmbeddingOptions.find(
 			(opt) => embeddingOptionKey(opt) === selectedEmbeddingKey
 		);
 		if (!option) return memorySettings;
@@ -461,16 +525,16 @@
 	}
 
 	async function saveAndConnect() {
-		if (!selectedProvider) return;
-		// Enable the chosen provider and set it as Default.
+		if (!defaultProvider || selectedProviderIds.length === 0) return;
+		// The provider selection is authoritative for the completed setup.
 		const finalProviders = draft.providers.map((p) =>
-			p.id === selectedProvider.id ? cloneProvider({ ...p, enabled: true }) : p
+			cloneProvider({ ...p, enabled: selectedProviderIds.includes(p.id) })
 		);
 		const finalDraft: ProviderSettings = {
 			...draft,
 			providers: finalProviders,
-			defaultProviderId: selectedProvider.id,
-			defaultModelId: selectedProvider.enabledModels[0] ?? selectedProvider.selectedModel
+			defaultProviderId: defaultProvider.id,
+			defaultModelId: defaultProvider.selectedModel || defaultProvider.enabledModels[0] || ''
 		};
 
 		// Apply embedding selection (may be empty = skipped).
@@ -529,13 +593,6 @@
 		shellStore.closeSetup();
 	}
 
-	// Load memory settings when the embedding step is entered.
-	$effect(() => {
-		if (step === 'embedding') {
-			void loadMemorySettings();
-		}
-	});
-
 	function handleKeydown(event: KeyboardEvent) {
 		if (event.key === 'Escape') {
 			event.preventDefault();
@@ -567,26 +624,55 @@
 		<div class="step-body scrollbar-none">
 			{#if step === 'provider'}
 				<p class="step-intro">
-					Pick the LLM provider you'd like to use. You can add more later in Settings.
+					Choose one or more LLM providers. Your default provider is used for new chats,
+					and you can switch between every configured model later.
 				</p>
 				<div class="provider-list">
 					{#each draft.providers as provider (provider.id)}
-						<button
+						<div
 							class="provider-option"
-							class:selected={provider.id === selectedProviderId}
-							onclick={() => selectProvider(provider.id)}
+							class:selected={selectedProviderIds.includes(provider.id)}
+							class:is-default={provider.id === defaultProviderId}
 						>
-							<div class="provider-option-copy">
-								<strong>{provider.name || METHOD_LABELS[provider.method]}</strong>
-								<span>{provider.baseURL || 'Custom endpoint'}</span>
-							</div>
-							{#if provider.id === selectedProviderId}
-								<Check size={16} />
+							<button
+								class="provider-select"
+								aria-pressed={selectedProviderIds.includes(provider.id)}
+								onclick={() => toggleProvider(provider.id)}
+							>
+								<div class="provider-option-copy">
+									<strong
+										>{provider.name || METHOD_LABELS[provider.method]}</strong
+									>
+									<span>{provider.baseURL || 'Custom endpoint'}</span>
+								</div>
+								{#if selectedProviderIds.includes(provider.id)}
+									<Check size={16} />
+								{/if}
+							</button>
+							{#if selectedProviderIds.includes(provider.id)}
+								<button
+									class="default-provider"
+									class:active={provider.id === defaultProviderId}
+									onclick={() => setDefaultProvider(provider.id)}
+								>
+									{provider.id === defaultProviderId ? 'Default' : 'Make default'}
+								</button>
 							{/if}
-						</button>
+						</div>
 					{/each}
 				</div>
 			{:else if step === 'apikey'}
+				<div class="provider-tabs" aria-label="Selected providers">
+					{#each selectedProviders as provider (provider.id)}
+						<button
+							class:active={provider.id === activeProviderId}
+							onclick={() => showProvider(provider.id)}
+						>
+							{provider.name || METHOD_LABELS[provider.method]}
+							{#if providerIsConnected(provider)}<Check size={12} />{/if}
+						</button>
+					{/each}
+				</div>
 				{#if selectedProvider}
 					{#if selectedProvider.method === 'codex'}
 						<p class="step-intro">
@@ -669,7 +755,7 @@
 							needed, launch it once, then check that the local daemon is ready.
 						</p>
 						{#if ollamaHealth}
-							<p class="codex-status" class:ok={ollamaHealth.ok}>
+							<p class="codex-status" class:ok={ollamaHealth.ok} aria-live="polite">
 								{ollamaHealth.ok
 									? `Ollama is ready${ollamaHealth.version ? ` (v${ollamaHealth.version})` : ''}.`
 									: 'Ollama is not installed or not running.'}
@@ -690,10 +776,11 @@
 								onclick={() => void refreshOllamaHealth()}
 								disabled={checkingOllama}
 							>
-								{#if checkingOllama}<LoaderCircle size={14} class="spin" />{:else}<RefreshCw
+								{#if checkingOllama}<LoaderCircle
 										size={14}
-									/>{/if}
-								Check again
+										class="spin"
+									/>{:else}<RefreshCw size={14} />{/if}
+								{checkingOllama ? 'Checking…' : 'Check Ollama'}
 							</SettingsButton>
 						</div>
 					{:else}
@@ -711,7 +798,9 @@
 									placeholder="Paste your API key"
 									value={selectedProvider.apiKey}
 									oninput={(e) =>
-										patchSelected({ apiKey: e.currentTarget.value })}
+										patchProvider(selectedProvider.id, {
+											apiKey: e.currentTarget.value
+										})}
 								/>
 								<button
 									class="toggle-visibility"
@@ -728,16 +817,33 @@
 								type="text"
 								class="field-input"
 								value={selectedProvider.baseURL}
-								oninput={(e) => patchSelected({ baseURL: e.currentTarget.value })}
+								oninput={(e) =>
+									patchProvider(selectedProvider.id, {
+										baseURL: e.currentTarget.value
+									})}
 							/>
 						</label>
 					{/if}
 				{/if}
 			{:else if step === 'model'}
+				<div class="provider-tabs" aria-label="Selected providers">
+					{#each selectedProviders as provider (provider.id)}
+						<button
+							class:active={provider.id === activeProviderId}
+							onclick={() => showProvider(provider.id)}
+						>
+							{provider.name || METHOD_LABELS[provider.method]}
+							{#if provider.enabledModels.length > 0}<span class="selection-count"
+									>{provider.enabledModels.length}</span
+								>{/if}
+						</button>
+					{/each}
+				</div>
 				{#if selectedProvider}
 					<p class="step-intro">
-						Choose which model to use. Fetch the available list from the provider, or
-						type a model ID manually.
+						Choose one or more models for {selectedProvider.name ||
+							METHOD_LABELS[selectedProvider.method]}. The first selected model is
+						used by default for this provider.
 					</p>
 					<div class="fetch-row">
 						<button
@@ -758,8 +864,17 @@
 						{/if}
 					</div>
 					{#if selectedProvider.models.length > 0}
+						<label class="model-search">
+							<Search size={14} />
+							<span class="sr-only">Filter models</span>
+							<input
+								type="search"
+								placeholder="Filter models"
+								bind:value={modelFilter}
+							/>
+						</label>
 						<div class="model-list scrollbar-none">
-							{#each selectedProvider.models as model (model)}
+							{#each filteredModels as model (model)}
 								<button
 									class="model-option"
 									class:selected={selectedProvider.enabledModels.includes(model)}
@@ -770,31 +885,11 @@
 										<Check size={14} />
 									{/if}
 								</button>
+							{:else}
+								<p class="empty-models">No models match “{modelFilter}”.</p>
 							{/each}
 						</div>
 					{/if}
-					<div class="manual-model">
-						<input
-							type="text"
-							class="field-input"
-							placeholder="Or type a model ID (e.g. claude-sonnet-4-5)"
-							value={manualModel}
-							oninput={(e) => (manualModel = e.currentTarget.value)}
-							onkeydown={(e) => {
-								if (e.key === 'Enter') {
-									e.preventDefault();
-									addManualModel();
-								}
-							}}
-						/>
-						<button
-							class="manual-add"
-							onclick={addManualModel}
-							disabled={!manualModel.trim()}
-						>
-							Add
-						</button>
-					</div>
 				{/if}
 			{:else if step === 'embedding'}
 				<p class="step-intro">
@@ -810,13 +905,17 @@
 							Local embeddings on your Mac. Install/start Ollama if needed, then pull
 							this model.
 						</p>
-						{#if ollamaHealth}
-							<p class="codex-status" class:ok={ollamaHealth.ok}>
-								{ollamaHealth.ok
-									? 'Ollama is ready.'
-									: 'Ollama is not installed or not running.'}
-							</p>
-						{/if}
+						<div class="ollama-check-status" aria-live="polite">
+							{#if checkingOllama}
+								<p>Checking for Ollama…</p>
+							{:else if ollamaHealth}
+								<p class="codex-status" class:ok={ollamaHealth.ok}>
+									{ollamaHealth.ok
+										? 'Ollama is ready.'
+										: 'Ollama is not installed or not running.'}
+								</p>
+							{/if}
+						</div>
 						{#if ollamaWizardError}
 							<p class="wizard-error">{ollamaWizardError}</p>
 						{/if}
@@ -834,19 +933,28 @@
 								onclick={() => void refreshOllamaHealth()}
 								disabled={checkingOllama}
 							>
-								Check again
+								{#if checkingOllama}<LoaderCircle
+										size={14}
+										class="spin"
+									/>{:else}<RefreshCw size={14} />{/if}
+								{checkingOllama ? 'Checking…' : 'Check Ollama'}
 							</SettingsButton>
 						{/if}
-						<SettingsButton
-							variant="primary"
-							onclick={() => void recommendPrivateMemory()}
-							disabled={pullingPrivateMemory}
-						>
-							{#if pullingPrivateMemory}<LoaderCircle size={14} class="spin" />{/if}
-							{selectedEmbeddingKey === `ollama:${PRIVATE_MEMORY.pullName}`
-								? 'Selected'
-								: 'Use Private Memory'}
-						</SettingsButton>
+						{#if ollamaHealth?.ok}
+							<SettingsButton
+								variant="primary"
+								onclick={() => void recommendPrivateMemory()}
+								disabled={pullingPrivateMemory}
+							>
+								{#if pullingPrivateMemory}<LoaderCircle
+										size={14}
+										class="spin"
+									/>{/if}
+								{selectedEmbeddingKey === `ollama:${PRIVATE_MEMORY.pullName}`
+									? 'Selected'
+									: 'Use Private Memory'}
+							</SettingsButton>
+						{/if}
 					</div>
 				</div>
 				{#if memoryLoading}
@@ -867,10 +975,12 @@
 							onchange={(e) => selectEmbedding(e.currentTarget.value)}
 						>
 							<option value="">— Skip (configure later) —</option>
-							<option value={`ollama:${PRIVATE_MEMORY.pullName}`}
-								>Ollama Local · {PRIVATE_MEMORY.pullName} (recommended)</option
-							>
-							{#each embeddingOptions as opt (embeddingOptionKey(opt))}
+							{#if ollamaHealth?.ok}
+								<option value={`ollama:${PRIVATE_MEMORY.pullName}`}
+									>Ollama Local · {PRIVATE_MEMORY.pullName} (recommended)</option
+								>
+							{/if}
+							{#each availableEmbeddingOptions as opt (embeddingOptionKey(opt))}
 								<option value={embeddingOptionKey(opt)}
 									>{opt.providerName} · {opt.model}</option
 								>
@@ -880,37 +990,25 @@
 				{/if}
 			{:else if step === 'connect'}
 				<p class="step-intro">
-					{selectedProvider?.name || 'Your provider'} is ready to go. Save your settings and
-					Cometline will connect. Screen capture is optional and comes next.
+					Your providers are ready to go. Save your settings and Cometline will connect.
+					Screen capture is optional and comes next.
 				</p>
 				<div class="review">
 					<div class="review-row">
-						<span>Provider</span>
-						<strong
-							>{selectedProvider?.name ||
-								METHOD_LABELS[selectedProvider?.method ?? 'anthropic']}</strong
-						>
+						<span>Providers</span>
+						<strong>{selectedProviders.length} configured</strong>
 					</div>
 					<div class="review-row">
-						<span>Model</span>
-						<strong
-							>{(selectedProvider?.enabledModels[0] ??
-								selectedProvider?.selectedModel) ||
-								'—'}</strong
-						>
+						<span>Default</span>
+						<strong>{defaultProvider?.name || '—'}</strong>
 					</div>
 					<div class="review-row">
-						<span>API key</span>
+						<span>Models</span>
 						<strong
-							>{selectedProvider?.method === 'codex'
-								? codexAuthStatus?.authenticated
-									? 'ChatGPT session'
-									: 'Not signed in'
-								: selectedProvider?.method === 'ollama'
-									? 'Local'
-									: selectedProvider?.apiKey
-										? 'Set'
-										: 'Missing'}</strong
+							>{selectedProviders.reduce(
+								(total, provider) => total + provider.enabledModels.length,
+								0
+							)} selected</strong
 						>
 					</div>
 					<div class="review-row">
@@ -919,7 +1017,7 @@
 							>{selectedEmbeddingKey === `ollama:${PRIVATE_MEMORY.pullName}`
 								? `Local · ${PRIVATE_MEMORY.pullName}`
 								: selectedEmbeddingKey
-									? (embeddingOptions.find(
+									? (availableEmbeddingOptions.find(
 											(o) => embeddingOptionKey(o) === selectedEmbeddingKey
 										)?.model ?? '—')
 									: 'Skipped'}</strong
@@ -932,8 +1030,8 @@
 			{:else if step === 'permissions'}
 				<p class="step-intro">
 					Your provider settings are already saved. Cometline can capture your screen and
-					show screenshots in chat when Screen & System Audio Recording is allowed. You can
-					skip or finish now and enable this later in Settings → App — a restart after
+					show screenshots in chat when Screen & System Audio Recording is allowed. You
+					can skip or finish now and enable this later in Settings → App — a restart after
 					granting System Settings will not lose your provider setup.
 				</p>
 				{#if saveError}
@@ -943,7 +1041,8 @@
 					<input
 						type="checkbox"
 						checked={screenCapturePreferred}
-						disabled={screenCaptureBusy || !window.electronAPI?.setScreenCapturePreferred}
+						disabled={screenCaptureBusy ||
+							!window.electronAPI?.setScreenCapturePreferred}
 						onchange={(e) => void setWizardScreenCapture(e.currentTarget.checked)}
 					/>
 					<span>
@@ -1108,14 +1207,10 @@
 	.provider-option {
 		display: flex;
 		align-items: center;
-		justify-content: space-between;
-		gap: 12px;
-		padding: 12px 14px;
+		gap: 8px;
 		border: 1px solid var(--border-soft);
 		border-radius: 10px;
 		background: var(--panel-bg, #fff);
-		cursor: pointer;
-		text-align: left;
 		transition: border-color 0.15s ease;
 	}
 
@@ -1123,9 +1218,47 @@
 		border-color: rgba(0, 102, 204, 0.3);
 	}
 
-	.provider-option.selected {
+	.provider-option.is-default {
 		border-color: var(--accent);
 		box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.12);
+	}
+
+	.provider-select {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+		min-width: 0;
+		flex: 1;
+		padding: 12px 14px;
+		border: 0;
+		background: transparent;
+		color: inherit;
+		cursor: pointer;
+		text-align: left;
+	}
+
+	.provider-option.selected .provider-select {
+		color: var(--accent);
+	}
+
+	.default-provider {
+		flex-shrink: 0;
+		margin-right: 10px;
+		padding: 5px 8px;
+		border: 1px solid var(--border-soft);
+		border-radius: 7px;
+		background: transparent;
+		color: var(--text-muted);
+		font: inherit;
+		font-size: 10px;
+		cursor: pointer;
+	}
+
+	.default-provider.active {
+		border-color: transparent;
+		background: rgba(0, 102, 204, 0.09);
+		color: var(--accent);
 	}
 
 	.provider-option-copy {
@@ -1142,6 +1275,44 @@
 	.provider-option-copy span {
 		font-size: 11px;
 		color: var(--text-muted);
+	}
+
+	.provider-tabs {
+		display: flex;
+		gap: 6px;
+		margin-bottom: 16px;
+		overflow-x: auto;
+	}
+
+	.provider-tabs button {
+		display: flex;
+		align-items: center;
+		gap: 5px;
+		flex-shrink: 0;
+		padding: 6px 9px;
+		border: 1px solid var(--border-soft);
+		border-radius: 8px;
+		background: var(--panel-bg, #fff);
+		color: var(--text-muted);
+		font: inherit;
+		font-size: 11px;
+		cursor: pointer;
+	}
+
+	.provider-tabs button.active {
+		border-color: var(--accent);
+		color: var(--accent);
+	}
+
+	.selection-count {
+		display: grid;
+		place-items: center;
+		min-width: 16px;
+		height: 16px;
+		padding: 0 4px;
+		border-radius: 999px;
+		background: rgba(0, 102, 204, 0.1);
+		font-size: 9px;
 	}
 
 	.field {
@@ -1233,6 +1404,45 @@
 		color: var(--text-muted);
 	}
 
+	.model-search {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		margin-bottom: 10px;
+		padding: 8px 10px;
+		border: 1px solid var(--border-soft);
+		border-radius: 8px;
+		color: var(--text-muted);
+	}
+
+	.model-search:focus-within {
+		border-color: var(--accent);
+		box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.12);
+	}
+
+	.model-search input {
+		min-width: 0;
+		flex: 1;
+		border: 0;
+		outline: 0;
+		background: transparent;
+		color: var(--text-main);
+		font: inherit;
+		font-size: 12px;
+	}
+
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		margin: -1px;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+		border: 0;
+	}
+
 	.model-list {
 		display: grid;
 		gap: 6px;
@@ -1266,30 +1476,11 @@
 		box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.12);
 	}
 
-	.manual-model {
-		display: flex;
-		gap: 8px;
-	}
-
-	.manual-model .field-input {
-		flex: 1;
-	}
-
-	.manual-add {
-		border: 1px solid var(--border-soft);
-		border-radius: 8px;
-		background: var(--panel-bg, #fff);
-		color: var(--text-main);
-		font: inherit;
+	.empty-models {
+		margin: 10px 0;
+		color: var(--text-muted);
 		font-size: 12px;
-		font-weight: 600;
-		padding: 0 14px;
-		cursor: pointer;
-	}
-
-	.manual-add:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
+		text-align: center;
 	}
 
 	.review {
@@ -1355,6 +1546,12 @@
 
 	.codex-status.ok {
 		color: var(--status-success);
+	}
+
+	.ollama-check-status p {
+		margin: 0 0 10px;
+		font-size: 12px;
+		color: var(--text-muted);
 	}
 
 	.recommend-card {
