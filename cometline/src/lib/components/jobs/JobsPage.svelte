@@ -974,6 +974,8 @@
 		flex-direction: column;
 		height: 100%;
 		min-height: 0;
+		min-width: 0;
+		width: 100%;
 		padding: 20px 24px;
 		overflow: hidden;
 	}
@@ -985,6 +987,10 @@
 		gap: 16px;
 		flex-shrink: 0;
 		margin-bottom: 16px;
+	}
+
+	.jobs-header > div:first-child {
+		min-width: 0;
 	}
 
 	.jobs-header h1 {
@@ -1296,6 +1302,35 @@
 
 		.observer-header {
 			flex-direction: column;
+		}
+	}
+
+	@container main-pane (max-width: 760px) {
+		.jobs-page {
+			padding: 16px;
+		}
+
+		.jobs-header,
+		.observer-header,
+		.scheduled-header {
+			flex-direction: column;
+			align-items: flex-start;
+		}
+
+		.jobs-header-actions,
+		.scheduled-header-actions {
+			width: 100%;
+			justify-content: flex-start;
+		}
+
+		.scheduled-card {
+			flex-direction: column;
+		}
+
+		.scheduled-card-actions {
+			width: 100%;
+			flex-direction: row;
+			flex-wrap: wrap;
 		}
 	}
 

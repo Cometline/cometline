@@ -571,12 +571,19 @@
 
 	function titlebarSlideParams() {
 		return {
-			duration: sidebarTransitionDuration(),
+			// Utility pages hide the session titlebar on navigation. Remove it
+			// immediately instead of animating while the page layout changes.
+			duration: isUtilityPage ? 0 : sidebarTransitionDuration(),
 			axis: 'y' as const
 		};
 	}
 
-	const showShellTitlebar = $derived(!shellStore.sidebarOpen && !shellStore.fullscreen);
+	const isUtilityPage = $derived(
+		page.url.pathname === '/jobs' || page.url.pathname === '/skill-drafts'
+	);
+	const showShellTitlebar = $derived(
+		!shellStore.sidebarOpen && !shellStore.fullscreen && !isUtilityPage
+	);
 
 	// --- Web/file panel resize ---------------------------------------------
 	/** User's preferred share of the content row; survives temporary clamps. */
@@ -587,7 +594,9 @@
 
 	function panelChrome() {
 		return {
-			sidebarOpen: shellStore.sidebarOpen,
+			// Utility pages need the normal usable main width when the panel is open,
+			// even if the session sidebar is collapsed.
+			sidebarOpen: shellStore.sidebarOpen || isUtilityPage,
 			fullscreen: shellStore.fullscreen
 		};
 	}
@@ -693,12 +702,14 @@
 	class="app-shell"
 	class:sidebar-collapsed={!shellStore.sidebarOpen}
 	class:is-fullscreen={shellStore.fullscreen}
+	class:utility-page={isUtilityPage}
 >
 	<Sidebar bind:this={sidebarRef} collapsed={!shellStore.sidebarOpen} />
 	<div class="content-row" bind:this={contentRowRef}>
 		<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 		<main
 			class="main content-panel-surface max-[900px]:shadow-none"
+			class:utility-page={isUtilityPage}
 			class:pane-focus-active={shellStore.focusedPane === 'chat' &&
 				shellStore.workspacePanelOpen}
 			onmousedown={handleMainMouseDown}
@@ -723,7 +734,7 @@
 				</header>
 			{/if}
 			<!-- Fixed corner chrome: independent of the sliding shell titlebar. -->
-			{#if !shellStore.fullscreen && !shellStore.sidebarOpen}
+			{#if !shellStore.fullscreen && !shellStore.sidebarOpen && !isUtilityPage}
 				<div class="main-corner-actions main-corner-actions-start">
 					<Tooltip label="Show sidebar" action="toggleSidebar">
 						<button
@@ -737,7 +748,7 @@
 					</Tooltip>
 				</div>
 			{/if}
-			{#if !shellStore.fullscreen && !shellStore.workspacePanelOpen}
+			{#if !shellStore.fullscreen && !shellStore.workspacePanelOpen && !isUtilityPage}
 				<div class="main-corner-actions main-corner-actions-end">
 					<Tooltip label="Show workspace panel" action="toggleWorkspacePanel">
 						<button
@@ -1007,6 +1018,12 @@
 		min-width: 72px;
 	}
 
+	/* Utility pages have their own page header and do not render the session
+	   titlebar, while still keeping a usable main pane beside the workspace panel. */
+	.app-shell.utility-page:not(.is-fullscreen) .main {
+		min-width: 400px;
+	}
+
 	.panel-resizer {
 		flex: 0 0 auto;
 		width: 12px;
@@ -1064,6 +1081,10 @@
 			border-radius: 0;
 			background: transparent;
 			box-shadow: none;
+		}
+
+		.app-shell.utility-page .main {
+			min-width: 0;
 		}
 
 		.panel-resizer {

@@ -209,6 +209,8 @@
 		flex-direction: column;
 		height: 100%;
 		min-height: 0;
+		min-width: 0;
+		width: 100%;
 		padding: 20px 24px;
 		gap: 16px;
 		overflow: hidden;
@@ -219,6 +221,11 @@
 		justify-content: space-between;
 		gap: 16px;
 		align-items: flex-start;
+	}
+
+	.page-header > div,
+	.preview-header > div:first-child {
+		min-width: 0;
 	}
 
 	.page-header h1 {
@@ -362,6 +369,26 @@
 
 		.page-layout {
 			grid-template-columns: 1fr;
+		}
+	}
+
+	@container main-pane (max-width: 760px) {
+		.skill-drafts-page {
+			padding: 16px;
+		}
+
+		.page-header,
+		.preview-header {
+			flex-direction: column;
+		}
+
+		.page-layout {
+			grid-template-columns: minmax(0, 1fr);
+		}
+
+		.preview-actions {
+			width: 100%;
+			flex-wrap: wrap;
 		}
 	}
 </style>
