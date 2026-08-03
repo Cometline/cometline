@@ -83,5 +83,5 @@ func saveOAuthClientInfo(serverID string, info *oauthClientInfo) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, 0o600)
+	return writePrivateFileAtomic(path, data)
 }
