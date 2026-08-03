@@ -3,7 +3,12 @@
 	import { slide } from 'svelte/transition';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { PanelLeft } from '@lucide/svelte';
+	import {
+		PanelLeftClose,
+		PanelLeftOpen,
+		PanelRightClose,
+		PanelRightOpen
+	} from '@lucide/svelte';
 	import Sidebar from './Sidebar.svelte';
 	import RuntimeOverlay from './RuntimeOverlay.svelte';
 	import SettingsModal from './SettingsModal.svelte';
@@ -709,16 +714,6 @@
 					aria-label="Window title bar"
 					transition:slide={titlebarSlideParams()}
 				>
-					<Tooltip label="Show sidebar" action="toggleSidebar">
-						<button
-							type="button"
-							class="shell-titlebar-btn"
-							aria-label="Show sidebar"
-							onclick={() => shellStore.openSidebar()}
-						>
-							<PanelLeft size={16} stroke-width={1.8} />
-						</button>
-					</Tooltip>
 					{#if titlebarSessionTitle}
 						<button
 							type="button"
@@ -731,6 +726,49 @@
 						</button>
 					{/if}
 				</header>
+			{/if}
+			<!-- Fixed corner chrome: independent of the sliding shell titlebar. -->
+			{#if !shellStore.fullscreen}
+				<div class="main-corner-actions main-corner-actions-start">
+					<Tooltip
+						label={shellStore.sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
+						action="toggleSidebar"
+					>
+						<button
+							type="button"
+							class="shell-titlebar-btn"
+							class:active={shellStore.sidebarOpen}
+							aria-label={shellStore.sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
+							aria-pressed={shellStore.sidebarOpen}
+							onclick={() => shellStore.toggleSidebar()}
+						>
+							{#if shellStore.sidebarOpen}
+								<PanelLeftClose size={16} stroke-width={1.8} />
+							{:else}
+								<PanelLeftOpen size={16} stroke-width={1.8} />
+							{/if}
+						</button>
+					</Tooltip>
+				</div>
+				<div class="main-corner-actions main-corner-actions-end">
+					<Tooltip label="Toggle workspace panel" action="toggleWorkspacePanel">
+						<button
+							type="button"
+							class="shell-titlebar-btn"
+							class:active={shellStore.workspacePanelOpen}
+							aria-label="Toggle workspace panel"
+							aria-pressed={shellStore.workspacePanelOpen}
+							disabled={!activeSessionId}
+							onclick={() => shellStore.toggleWorkspacePanel()}
+						>
+							{#if shellStore.workspacePanelOpen}
+								<PanelRightClose size={16} stroke-width={1.8} />
+							{:else}
+								<PanelRightOpen size={16} stroke-width={1.8} />
+							{/if}
+						</button>
+					</Tooltip>
+				</div>
 			{/if}
 			{@render children()}
 			<RuntimeOverlay />
@@ -909,13 +947,51 @@
 		-webkit-app-region: no-drag;
 	}
 
-	.shell-titlebar-btn:hover {
+	.shell-titlebar-btn:hover:not(:disabled) {
 		background: rgba(0, 0, 0, 0.04);
 		color: var(--text-main);
 	}
 
-	.shell-titlebar-btn:active {
+	.shell-titlebar-btn:active:not(:disabled) {
 		background: rgba(0, 0, 0, 0.07);
+	}
+
+	.shell-titlebar-btn.active {
+		color: var(--text-main);
+		background: rgba(0, 0, 0, 0.05);
+	}
+
+	.shell-titlebar-btn:disabled {
+		opacity: 0.4;
+		cursor: default;
+	}
+
+	/*
+	 * Sidebar toggles stay fixed in the main pane corners so they do not
+	 * remount / slide with the shell titlebar transition.
+	 * Vertically centered against --panel-header-height (44px) with a 26px btn.
+	 */
+	.main-corner-actions {
+		position: absolute;
+		top: calc((var(--panel-header-height) - 26px) / 2);
+		z-index: 41;
+		display: flex;
+		align-items: center;
+		-webkit-app-region: no-drag;
+		pointer-events: none;
+	}
+
+	.main-corner-actions-start {
+		left: 12px;
+	}
+
+	.main-corner-actions-end {
+		right: 10px;
+	}
+
+	.main-corner-actions :global(.tooltip-wrap),
+	.main-corner-actions .shell-titlebar-btn {
+		pointer-events: auto;
 	}
 
 	.content-row {

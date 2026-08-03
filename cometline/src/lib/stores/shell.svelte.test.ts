@@ -359,6 +359,65 @@ describe('shellStore workspace panel focus behavior', () => {
 
 		shellStore.clearWorkspacePanelForSession('sess-1');
 	});
+
+	it('toggleWorkspacePanel opens workspace files on first use', () => {
+		expect(shellStore.workspacePanelOpen).toBe(false);
+		expect(shellStore.hasWorkspacePanelForSession).toBe(false);
+
+		shellStore.toggleWorkspacePanel();
+
+		expect(shellStore.workspacePanelOpen).toBe(true);
+		expect(shellStore.contentSurface).toBe('workspace');
+		expect(shellStore.workspacePanelBrowseOpen).toBe(true);
+		expect(shellStore.workspacePanelSurface).toBe('web');
+		expect(shellStore.lastWorkspacePanelFocusTarget).toBe('filter');
+
+		shellStore.clearWorkspacePanelForSession('sess-1');
+	});
+
+	it('toggleWorkspacePanel soft-hides and restores last surface without content loss', () => {
+		shellStore.openFilePreviewForActive('src/app.ts');
+		expect(shellStore.workspacePanelOpen).toBe(true);
+		expect(shellStore.workspacePanelFilePath).toBe('src/app.ts');
+
+		shellStore.toggleWorkspacePanel();
+		expect(shellStore.workspacePanelOpen).toBe(false);
+		expect(shellStore.getSurfaceContent('workspace')).toEqual({
+			mode: 'file',
+			filePath: 'src/app.ts'
+		});
+
+		shellStore.toggleWorkspacePanel();
+		expect(shellStore.workspacePanelOpen).toBe(true);
+		expect(shellStore.contentSurface).toBe('workspace');
+		expect(shellStore.workspacePanelFilePath).toBe('src/app.ts');
+
+		shellStore.clearWorkspacePanelForSession('sess-1');
+	});
+
+	it('toggleWorkspacePanel soft-hides a terminal-only panel', () => {
+		expect(shellStore.openTerminalPanel()).toBe(true);
+		expect(shellStore.workspacePanelOpen).toBe(true);
+		expect(shellStore.terminalPanelOpen).toBe(true);
+
+		shellStore.toggleWorkspacePanel();
+		expect(shellStore.workspacePanelOpen).toBe(false);
+		expect(shellStore.terminalPanelOpen).toBe(false);
+
+		// No prior web session state → first web open lands on workspace files.
+		shellStore.toggleWorkspacePanel();
+		expect(shellStore.workspacePanelOpen).toBe(true);
+		expect(shellStore.contentSurface).toBe('workspace');
+		expect(shellStore.workspacePanelBrowseOpen).toBe(true);
+
+		shellStore.clearWorkspacePanelForSession('sess-1');
+	});
+
+	it('toggleWorkspacePanel no-ops without an active session', () => {
+		getActiveSessionId.mockReturnValue(null);
+		shellStore.toggleWorkspacePanel();
+		expect(shellStore.workspacePanelOpen).toBe(false);
+	});
 });
 
 describe('shellStore terminal panel visibility', () => {
