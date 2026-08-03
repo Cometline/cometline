@@ -29,8 +29,8 @@ type streamOptions struct {
 
 type openAIMessage struct {
 	Role       string           `json:"role"`
-	Content    any              `json:"content"`                     // string | []openAIContentPart
-	Reasoning  any              `json:"reasoning_content,omitempty"` // string | []openAIContentPart
+	Content    any              `json:"content"` // string | []openAIContentPart
+	Reasoning  *json.RawMessage `json:"reasoning_content,omitempty"`
 	ToolCalls  []openAIToolCall `json:"tool_calls,omitempty"`
 	ToolCallID string           `json:"tool_call_id,omitempty"`
 	Name       string           `json:"name,omitempty"`
@@ -74,8 +74,9 @@ type openAIToolDef struct {
 // frequency_penalty, seed, etc. without requiring changes to this package.
 // SDK-managed fields (model, messages, stream, stream_options) take precedence
 // and cannot be overridden via Options.
-func toOpenAIRequest(req *cometsdk.Request, disableImageContent bool, enableReasoningSplit bool, useMaxCompletionTokens bool) ([]byte, error) {
-	msgs, err := convertMessages(req.System, req.Messages, disableImageContent)
+func toOpenAIRequest(req *cometsdk.Request, disableImageContent bool, enableReasoningSplit bool, useMaxCompletionTokens bool, preserveEmptyReasoningContent ...bool) ([]byte, error) {
+	preserveEmptyReasoning := len(preserveEmptyReasoningContent) > 0 && preserveEmptyReasoningContent[0]
+	msgs, err := convertMessages(req.System, req.Messages, disableImageContent, preserveEmptyReasoning)
 	if err != nil {
 		return nil, err
 	}
@@ -117,7 +118,7 @@ func toOpenAIRequest(req *cometsdk.Request, disableImageContent bool, enableReas
 }
 
 // convertMessages prepends a system message if provided, then converts all messages.
-func convertMessages(system string, msgs []cometsdk.Message, disableImageContent bool) ([]openAIMessage, error) {
+func convertMessages(system string, msgs []cometsdk.Message, disableImageContent bool, preserveEmptyReasoningContent bool) ([]openAIMessage, error) {
 	var out []openAIMessage
 
 	if system != "" {
@@ -125,7 +126,7 @@ func convertMessages(system string, msgs []cometsdk.Message, disableImageContent
 	}
 
 	for _, m := range msgs {
-		converted, err := convertMessage(m, disableImageContent)
+		converted, err := convertMessage(m, disableImageContent, preserveEmptyReasoningContent)
 		if err != nil {
 			return nil, err
 		}
@@ -136,7 +137,7 @@ func convertMessages(system string, msgs []cometsdk.Message, disableImageContent
 
 // convertMessage converts a single SDK message to one or more OpenAI messages.
 // Reasoning content is placed in the reasoning_content field of the same message.
-func convertMessage(m cometsdk.Message, disableImageContent bool) ([]openAIMessage, error) {
+func convertMessage(m cometsdk.Message, disableImageContent bool, preserveEmptyReasoningContent bool) ([]openAIMessage, error) {
 	switch m.Role {
 	case cometsdk.RoleUser:
 		parts, err := contentParts(m.Content, disableImageContent)
@@ -186,9 +187,22 @@ func convertMessage(m cometsdk.Message, disableImageContent bool) ([]openAIMessa
 		msg := openAIMessage{Role: "assistant"}
 
 		if len(reasoningParts) == 1 {
-			msg.Reasoning = reasoningParts[0].Text
+			raw, err := json.Marshal(reasoningParts[0].Text)
+			if err != nil {
+				return nil, fmt.Errorf("openai: marshal reasoning content: %w", err)
+			}
+			value := json.RawMessage(raw)
+			msg.Reasoning = &value
 		} else if len(reasoningParts) > 1 {
-			msg.Reasoning = reasoningParts
+			raw, err := json.Marshal(reasoningParts)
+			if err != nil {
+				return nil, fmt.Errorf("openai: marshal reasoning content: %w", err)
+			}
+			value := json.RawMessage(raw)
+			msg.Reasoning = &value
+		} else if preserveEmptyReasoningContent && m.Role == cometsdk.RoleAssistant {
+			raw := json.RawMessage(`""`)
+			msg.Reasoning = &raw
 		}
 
 		if len(textParts) == 1 {

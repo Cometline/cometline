@@ -329,6 +329,10 @@ type ProviderConfig struct {
 	// Logger receives structured debug-level traces of SSE events and retries.
 	// Defaults to slog.Default() if nil.
 	Logger *slog.Logger
+	// PreserveEmptyReasoningContent keeps reasoning_content present on every
+	// assistant message, including an empty string, for compatible thinking models
+	// that require the field to be replayed across tool-call continuations.
+	PreserveEmptyReasoningContent bool
 }
 
 // DefaultProviderConfig returns sensible defaults shared by all providers.
@@ -389,6 +393,14 @@ type Option func(*ProviderConfig)
 func WithBaseURL(url string) Option {
 	return func(c *ProviderConfig) {
 		c.BaseURL = url
+	}
+}
+
+// WithPreserveEmptyReasoningContent preserves an empty reasoning_content field
+// when serializing assistant history for OpenAI-compatible thinking models.
+func WithPreserveEmptyReasoningContent() Option {
+	return func(c *ProviderConfig) {
+		c.PreserveEmptyReasoningContent = true
 	}
 }
 

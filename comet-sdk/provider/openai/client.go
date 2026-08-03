@@ -140,7 +140,13 @@ func (p *provider) streamWithRetry(ctx context.Context, req *cometsdk.Request, f
 
 func (p *provider) doRequest(ctx context.Context, req *cometsdk.Request, flags streamFlags) (*http.Response, error) {
 	client := p.httpClient()
-	body, err := toOpenAIRequest(req, flags.disableImageContent, flags.enableReasoningSplit, flags.useMaxCompletionTokens)
+	body, err := toOpenAIRequest(
+		req,
+		flags.disableImageContent,
+		flags.enableReasoningSplit,
+		flags.useMaxCompletionTokens,
+		p.cfg.PreserveEmptyReasoningContent,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("openai: marshal request: %w", err)
 	}

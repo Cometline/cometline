@@ -233,6 +233,19 @@ func ResolveProviderMetadata(method, providerID, modelID string) Protocol {
 	return fallback
 }
 
+// RequiresEmptyReasoningContentReplay identifies the DeepSeek model family on
+// OpenCode's OpenAI-compatible endpoints. DeepSeek thinking tool-call chains
+// require reasoning_content to be replayed even when its value is an empty
+// string. This mirrors OpenCode's DeepSeek family fallback rather than naming
+// only known V4 releases.
+func RequiresEmptyReasoningContentReplay(method, providerID, modelID string) bool {
+	key, scoped := catalogProviderKey(method, providerID)
+	if !scoped || (key != "opencode-go" && key != "opencode") {
+		return false
+	}
+	return strings.Contains(strings.ToLower(strings.TrimSpace(modelID)), "deepseek")
+}
+
 func protocolFromEntry(provider providerEntry, entry modelEntry) Protocol {
 	protocol := Protocol{Source: SourceCatalog}
 	if entry.Provider != nil {

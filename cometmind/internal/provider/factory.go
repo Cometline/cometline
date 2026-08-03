@@ -161,6 +161,9 @@ func opencodeGoProvider(key, id, baseURL, modelID string) (cometsdk.Provider, er
 	if baseURL != "" {
 		opts = append(opts, cometsdk.WithBaseURL(baseURL))
 	}
+	if modelcatalog.RequiresEmptyReasoningContentReplay(config.ProviderOpencodeGo, id, modelID) {
+		opts = append(opts, cometsdk.WithPreserveEmptyReasoningContent())
+	}
 	switch protocol.NPM {
 	case modelcatalog.NPMOpenAI:
 		return openairesponses.NewOpenAIResponsesProvider(key, id, opts...), nil

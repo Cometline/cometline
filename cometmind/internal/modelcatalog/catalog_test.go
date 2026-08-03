@@ -509,6 +509,20 @@ func TestResolveProviderMetadataProviderLevelFallback(t *testing.T) {
 	}
 }
 
+func TestRequiresEmptyReasoningContentReplayForDeepSeekFamily(t *testing.T) {
+	for _, modelID := range []string{"deepseek-v4-flash", "deepseek-v4-pro", "deepseek-reasoner", "deepseek-r1"} {
+		if !modelcatalog.RequiresEmptyReasoningContentReplay("opencode-go", "opencode-go", modelID) {
+			t.Fatalf("%s should preserve empty reasoning_content", modelID)
+		}
+	}
+	if modelcatalog.RequiresEmptyReasoningContentReplay("opencode-go", "opencode-go", "gpt-5.6-luna") {
+		t.Fatal("gpt-5.6-luna should not preserve empty reasoning_content")
+	}
+	if modelcatalog.RequiresEmptyReasoningContentReplay("openai-compatible", "custom", "deepseek-v4-flash") {
+		t.Fatal("unscoped custom gateway should not enable the DeepSeek policy")
+	}
+}
+
 func TestResolveProviderMetadataAnthropicProtocol(t *testing.T) {
 	loadProtocolFixture(t)
 

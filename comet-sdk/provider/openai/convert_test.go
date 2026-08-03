@@ -210,6 +210,26 @@ func TestConvertRequest_AssistantReasoningOnlyUsesEmptyStringContent(t *testing.
 	require.Equal(t, "thinking", msg["reasoning_content"])
 }
 
+func TestConvertRequest_PreservesEmptyReasoningContentWhenConfigured(t *testing.T) {
+	req := &cometsdk.Request{
+		Model: "deepseek-reasoner",
+		Messages: []cometsdk.Message{{
+			Role: cometsdk.RoleAssistant,
+			Content: []cometsdk.Block{
+				cometsdk.ToolCallBlock{ID: "call_01", Name: "read_file", Input: json.RawMessage(`{"path":"README.md"}`)},
+			},
+		}},
+	}
+
+	data, err := toOpenAIRequest(req, false, false, false, true)
+	require.NoError(t, err)
+
+	var out map[string]any
+	require.NoError(t, json.Unmarshal(data, &out))
+	msg := out["messages"].([]any)[0].(map[string]any)
+	require.Equal(t, "", msg["reasoning_content"])
+}
+
 func TestConvertRequest_AssistantTextUsesStringContent(t *testing.T) {
 	req := &cometsdk.Request{
 		Model: "gpt-4o",
