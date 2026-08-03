@@ -1083,28 +1083,59 @@ function createShellStore() {
 			this.setWorkspacePanelBrowseSource('changes');
 			gitChangesOpenRequestId += 1;
 		},
+		/**
+		 * Toggle the right workspace panel.
+		 * - First open for a session → workspace file tree (⌘L-like).
+		 * - Soft-hidden session → re-show last surface/content.
+		 * - Currently open → soft-hide (no content-dot walk; use closeWorkspacePanel / ⌘W for that).
+		 */
 		toggleWorkspacePanel() {
 			const sessionId = panelSessionKey();
-			if (!sessionId || !hasWorkspacePanelSession(sessionId)) return;
-			workspacePanelSurfaceBySession = {
-				...workspacePanelSurfaceBySession,
-				[sessionId]: 'web'
-			};
-			const visible = workspacePanelVisibleBySession[sessionId] !== true;
-			workspacePanelVisibleBySession = { ...workspacePanelVisibleBySession, [sessionId]: visible };
-			focusedPane = visible ? 'web' : 'chat';
-			syncWorkspacePanelOpen(visible);
-			if (!visible) return;
-			const surface = contentSurfaceFor(sessionId);
-			const content = contentFor(sessionId, surface);
-			if (surface === 'web-search' || content?.mode === 'url') {
-				this.requestAddressBarFocus();
-			} else if (
-				(surface === 'wiki' || surface === 'workspace') &&
-				content === null
-			) {
-				this.requestFileTreeFilterFocus();
+			if (!sessionId) return;
+
+			// Soft-hide the open panel without dismissing open files/pages.
+			if (workspacePanelOpenForActiveSession()) {
+				if (activeWorkspacePanelSurface() === 'terminal') {
+					const nextTerminal = { ...terminalPanelsBySession };
+					delete nextTerminal[sessionId];
+					terminalPanelsBySession = nextTerminal;
+				}
+				if (hasWorkspacePanelSession(sessionId)) {
+					workspacePanelVisibleBySession = {
+						...workspacePanelVisibleBySession,
+						[sessionId]: false
+					};
+				}
+				focusedPane = 'chat';
+				this.requestComposerFocus();
+				syncWorkspacePanelOpen(false);
+				return;
 			}
+
+			// Re-show a previously soft-hidden panel with its last surface.
+			if (hasWorkspacePanelSession(sessionId)) {
+				workspacePanelSurfaceBySession = {
+					...workspacePanelSurfaceBySession,
+					[sessionId]: 'web'
+				};
+				ensureWorkspacePanelVisible(sessionId);
+				focusedPane = 'web';
+				syncWorkspacePanelOpen(true);
+				const surface = contentSurfaceFor(sessionId);
+				const content = contentFor(sessionId, surface);
+				if (surface === 'web-search' || content?.mode === 'url') {
+					this.requestAddressBarFocus();
+				} else if (
+					(surface === 'wiki' || surface === 'workspace') &&
+					content === null
+				) {
+					this.requestFileTreeFilterFocus();
+				}
+				return;
+			}
+
+			// First open for this session: coding-first workspace file tree.
+			this.setWorkspacePanelBrowseSource('workspace');
 		},
 		openTerminalPanel() {
 			const sessionId = activeSessionId();

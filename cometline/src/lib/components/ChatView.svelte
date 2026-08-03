@@ -25,7 +25,7 @@
 	import { startJobInSession } from '$lib/jobs/start-job-in-chat';
 	import type { JobResource } from '$lib/client/cometmind';
 	import { createChatViewController } from '$lib/conversation/chat-view-controller.svelte';
-	import { PanelLeft } from '@lucide/svelte';
+	import { PanelLeftClose, PanelLeftOpen } from '@lucide/svelte';
 	import { miniShellStore } from '$lib/stores/mini-shell.svelte';
 	import Tooltip from '$lib/components/Tooltip.svelte';
 
@@ -344,14 +344,22 @@
 	{#if compact}
 		<div class="mini-titlebar" aria-label="Mini window drag area">
 			<span>Mini Chat</span>
-			<Tooltip label="Show chats" action="toggleSidebar">
+			<Tooltip
+				label={miniShellStore.sidebarOpen ? 'Hide chats' : 'Show chats'}
+				action="toggleSidebar"
+			>
 				<button
 					class="mini-sidebar-toggle"
 					type="button"
-					aria-label="Show chats"
+					aria-label={miniShellStore.sidebarOpen ? 'Hide chats' : 'Show chats'}
+					aria-pressed={miniShellStore.sidebarOpen}
 					onclick={() => miniShellStore.toggleSidebar()}
 				>
-					<PanelLeft size={15} stroke-width={1.8} />
+					{#if miniShellStore.sidebarOpen}
+						<PanelLeftClose size={15} stroke-width={1.8} />
+					{:else}
+						<PanelLeftOpen size={15} stroke-width={1.8} />
+					{/if}
 				</button>
 			</Tooltip>
 			<button
