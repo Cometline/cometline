@@ -186,6 +186,11 @@
 		}
 	});
 
+	$effect(() => {
+		if (!settingsLoaded || connectionState.status !== 'ready') return;
+		void settingsStore.refreshModelLimits();
+	});
+
 	let sessionsLoaded = false;
 	let lastEnsuredWorkspace = '';
 

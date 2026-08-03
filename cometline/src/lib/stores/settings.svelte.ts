@@ -473,6 +473,7 @@ function createSettingsStore() {
 		},
 		apply,
 		load,
+		refreshModelLimits: () => refreshModelLimits(settings.providers),
 		fetchModelsFor,
 		save,
 		markIntroSeen,
