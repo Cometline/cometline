@@ -1509,7 +1509,7 @@ type ModelCatalogLookupEntry struct {
 	ModelId         string                                   `json:"model_id"`
 	Output          int                                      `json:"output"`
 
-	// ReasoningEffortOptions Allowed reasoning effort values (models.dev reasoning_options effort) when known; empty when the model or method is not catalogued.
+	// ReasoningEffortOptions Allowed reasoning effort values from models.dev when known; unidentified custom gateways use the conservative intersection of matching catalog entries.
 	ReasoningEffortOptions *[]string `json:"reasoning_effort_options,omitempty"`
 	Vision                 bool      `json:"vision"`
 	VisionKnown            bool      `json:"vision_known"`
@@ -1555,7 +1555,7 @@ type ModelEntry struct {
 	Output     int    `json:"output"`
 	ProviderId string `json:"provider_id"`
 
-	// ReasoningEffortOptions Allowed reasoning effort values (models.dev reasoning_options effort) when known; empty when the model or method is not catalogued.
+	// ReasoningEffortOptions Allowed reasoning effort values from models.dev when known; unidentified custom gateways use the conservative intersection of matching catalog entries.
 	ReasoningEffortOptions *[]string `json:"reasoning_effort_options,omitempty"`
 
 	// Vision True when modalities.input includes image (only meaningful when vision_known).

@@ -3155,7 +3155,7 @@ components:
             enum: [text, image, video, audio, pdf]
         reasoning_effort_options:
           type: array
-          description: Allowed reasoning effort values (models.dev reasoning_options effort) when known; empty when the model or method is not catalogued.
+          description: Allowed reasoning effort values from models.dev when known; unidentified custom gateways use the conservative intersection of matching catalog entries.
           items:
             type: string
 
@@ -3202,7 +3202,7 @@ components:
             enum: [text, image, video, audio, pdf]
         reasoning_effort_options:
           type: array
-          description: Allowed reasoning effort values (models.dev reasoning_options effort) when known; empty when the model or method is not catalogued.
+          description: Allowed reasoning effort values from models.dev when known; unidentified custom gateways use the conservative intersection of matching catalog entries.
           items:
             type: string
 

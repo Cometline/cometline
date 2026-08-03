@@ -466,7 +466,7 @@ export type ModelEntry = {
      */
     input_modalities: Array<'text' | 'image' | 'video' | 'audio' | 'pdf'>;
     /**
-     * Allowed reasoning effort values (models.dev reasoning_options effort) when known; empty when the model or method is not catalogued.
+     * Allowed reasoning effort values from models.dev when known; unidentified custom gateways use the conservative intersection of matching catalog entries.
      */
     reasoning_effort_options?: Array<string>;
 };
@@ -495,7 +495,7 @@ export type ModelCatalogLookupEntry = {
      */
     input_modalities: Array<'text' | 'image' | 'video' | 'audio' | 'pdf'>;
     /**
-     * Allowed reasoning effort values (models.dev reasoning_options effort) when known; empty when the model or method is not catalogued.
+     * Allowed reasoning effort values from models.dev when known; unidentified custom gateways use the conservative intersection of matching catalog entries.
      */
     reasoning_effort_options?: Array<string>;
 };

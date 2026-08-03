@@ -74,12 +74,12 @@ type reasoningOption struct {
 }
 
 type modelEntry struct {
-	ID               string            `json:"id"`
-	Attachment       bool              `json:"attachment"`
-	Modalities       modelModalities   `json:"modalities"`
-	Limit            modelLimit        `json:"limit"`
+	ID               string             `json:"id"`
+	Attachment       bool               `json:"attachment"`
+	Modalities       modelModalities    `json:"modalities"`
+	Limit            modelLimit         `json:"limit"`
 	Provider         *modelProviderMeta `json:"provider"`
-	ReasoningOptions []reasoningOption `json:"reasoning_options"`
+	ReasoningOptions []reasoningOption  `json:"reasoning_options"`
 }
 
 type providerEntry struct {
@@ -252,8 +252,8 @@ func protocolFromEntry(provider providerEntry, entry modelEntry) Protocol {
 }
 
 // ReasoningOptions are the reasoning controls a model advertises via models.dev
-// reasoning_options. Source is SourceCatalog when resolved, SourceFallback when
-// the model is unknown or the method is unscoped.
+// reasoning_options. Source is SourceCatalog when resolved and SourceFallback
+// when the model is unknown.
 type ReasoningOptions struct {
 	// Effort lists the allowed reasoning effort values (e.g. none, low,
 	// medium, high, xhigh, max) for models with an "effort" option.
@@ -266,9 +266,10 @@ type ReasoningOptions struct {
 	Source    string
 }
 
-// ResolveReasoningOptions looks up the reasoning controls for a model. Like
-// ResolveProviderMetadata it only applies to scoped catalog providers;
-// unscoped methods (custom gateways) resolve to an empty fallback.
+// ResolveReasoningOptions looks up the reasoning controls for a model. Scoped
+// providers use their exact catalog entry. Custom gateways first try a catalog
+// provider matching their settings id, then conservatively intersect effort
+// values advertised by matching models across the catalog.
 func ResolveReasoningOptions(method, providerID, modelID string) ReasoningOptions {
 	fallback := ReasoningOptions{Source: SourceFallback}
 	modelID = strings.TrimSpace(modelID)
@@ -276,26 +277,44 @@ func ResolveReasoningOptions(method, providerID, modelID string) ReasoningOption
 		return fallback
 	}
 	key, scoped := catalogProviderKey(method, providerID)
-	if !scoped {
-		return fallback
-	}
 	cat, err := load()
 	if err != nil || cat == nil {
 		return fallback
 	}
 
 	candidates := modelIDCandidates(modelID)
-	if provider, ok := cat.Providers[key]; ok {
-		if entry, ok := findModelInProvider(provider, candidates); ok {
-			return reasoningOptionsFromEntry(entry)
-		}
-	}
-	if alt := opencodeSiblingProvider(key); alt != "" {
-		if provider, ok := cat.Providers[alt]; ok {
+	if scoped {
+		if provider, ok := cat.Providers[key]; ok {
 			if entry, ok := findModelInProvider(provider, candidates); ok {
 				return reasoningOptionsFromEntry(entry)
 			}
 		}
+		if alt := opencodeSiblingProvider(key); alt != "" {
+			if provider, ok := cat.Providers[alt]; ok {
+				if entry, ok := findModelInProvider(provider, candidates); ok {
+					return reasoningOptionsFromEntry(entry)
+				}
+			}
+		}
+		return fallback
+	}
+
+	if pid := strings.ToLower(strings.TrimSpace(providerID)); pid != "" {
+		if provider, ok := cat.Providers[pid]; ok {
+			if entry, ok := findModelInProvider(provider, candidates); ok {
+				return reasoningOptionsFromEntry(entry)
+			}
+		}
+	}
+	if strings.EqualFold(strings.TrimSpace(method), "ollama") {
+		if provider, ok := cat.Providers["ollama"]; ok {
+			if entry, ok := findModelInProvider(provider, candidates); ok {
+				return reasoningOptionsFromEntry(entry)
+			}
+		}
+	}
+	if entries := findModelsAcrossCatalog(cat, candidates); len(entries) > 0 {
+		return commonReasoningEffort(entries)
 	}
 	return fallback
 }
@@ -312,6 +331,32 @@ func reasoningOptionsFromEntry(entry modelEntry) ReasoningOptions {
 			out.BudgetMin = option.Min
 			out.BudgetMax = option.Max
 		}
+	}
+	return out
+}
+
+func commonReasoningEffort(entries []modelEntry) ReasoningOptions {
+	out := ReasoningOptions{Source: SourceCatalog}
+	for _, entry := range entries {
+		effort := reasoningOptionsFromEntry(entry).Effort
+		if len(effort) == 0 {
+			continue
+		}
+		if out.Effort == nil {
+			out.Effort = append([]string(nil), effort...)
+			continue
+		}
+		allowed := make(map[string]struct{}, len(effort))
+		for _, value := range effort {
+			allowed[value] = struct{}{}
+		}
+		common := out.Effort[:0]
+		for _, value := range out.Effort {
+			if _, ok := allowed[value]; ok {
+				common = append(common, value)
+			}
+		}
+		out.Effort = common
 	}
 	return out
 }
@@ -458,6 +503,44 @@ func findModelAcrossCatalog(cat *Catalog, candidates []string) (modelEntry, bool
 	if cat == nil || len(candidates) == 0 {
 		return modelEntry{}, false
 	}
+	providerIDs := sortedCatalogProviderIDs(cat)
+	for _, candidate := range candidates {
+		for _, providerID := range providerIDs {
+			if entry, ok := findModelInProvider(cat.Providers[providerID], []string{candidate}); ok {
+				return entry, true
+			}
+		}
+	}
+	return modelEntry{}, false
+}
+
+func findModelsAcrossCatalog(cat *Catalog, candidates []string) []modelEntry {
+	if cat == nil || len(candidates) == 0 {
+		return nil
+	}
+	providerIDs := sortedCatalogProviderIDs(cat)
+	seen := make(map[string]struct{})
+	out := make([]modelEntry, 0)
+	for _, candidate := range candidates {
+		for _, providerID := range providerIDs {
+			if entry, ok := findModelInProvider(cat.Providers[providerID], []string{candidate}); ok {
+				identity := strings.ToLower(strings.TrimSpace(entry.ID))
+				if identity == "" {
+					identity = strings.ToLower(candidate)
+				}
+				key := providerID + "\x00" + identity
+				if _, ok := seen[key]; ok {
+					continue
+				}
+				seen[key] = struct{}{}
+				out = append(out, entry)
+			}
+		}
+	}
+	return out
+}
+
+func sortedCatalogProviderIDs(cat *Catalog) []string {
 	providerIDs := make([]string, 0, len(cat.Providers))
 	for id := range cat.Providers {
 		providerIDs = append(providerIDs, id)
@@ -467,14 +550,7 @@ func findModelAcrossCatalog(cat *Catalog, candidates []string) (modelEntry, bool
 			(catalogProviderPreferRank(providerIDs[i]) == catalogProviderPreferRank(providerIDs[j]) &&
 				providerIDs[i] < providerIDs[j])
 	})
-	for _, candidate := range candidates {
-		for _, providerID := range providerIDs {
-			if entry, ok := findModelInProvider(cat.Providers[providerID], []string{candidate}); ok {
-				return entry, true
-			}
-		}
-	}
-	return modelEntry{}, false
+	return providerIDs
 }
 
 func catalogProviderPreferRank(providerID string) int {

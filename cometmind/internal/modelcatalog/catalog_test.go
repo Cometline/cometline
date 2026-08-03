@@ -596,16 +596,121 @@ func TestResolveReasoningOptionsToggleAndBudget(t *testing.T) {
 	}
 }
 
-func TestResolveReasoningOptionsMissAndUnscoped(t *testing.T) {
+func TestResolveReasoningOptionsMiss(t *testing.T) {
 	loadProtocolFixture(t)
 
 	miss := modelcatalog.ResolveReasoningOptions("opencode-go", "opencode-go", "not-a-real-model")
 	if miss.Source != modelcatalog.SourceFallback || len(miss.Effort) != 0 || miss.Toggle {
 		t.Fatalf("miss = %+v, want fallback", miss)
 	}
+}
+
+func TestResolveReasoningOptionsCustomGatewayScansCatalog(t *testing.T) {
+	loadProtocolFixture(t)
 
 	unscoped := modelcatalog.ResolveReasoningOptions("openai-compatible", "company-gateway", "gpt-5.6-luna")
-	if unscoped.Source != modelcatalog.SourceFallback || len(unscoped.Effort) != 0 {
-		t.Fatalf("unscoped = %+v, want fallback", unscoped)
+	if unscoped.Source != modelcatalog.SourceCatalog {
+		t.Fatalf("source = %q, want catalog", unscoped.Source)
 	}
+	want := []string{"none", "low", "medium", "high", "xhigh", "max"}
+	if !sameStrings(unscoped.Effort, want) {
+		t.Fatalf("effort = %v, want %v", unscoped.Effort, want)
+	}
+}
+
+func TestResolveReasoningOptionsCustomGatewayUsesCommonEffort(t *testing.T) {
+	modelcatalog.ResetCacheForTest()
+	t.Cleanup(modelcatalog.ResetCacheForTest)
+	payload := []byte(`{
+		"openai": {
+			"id": "openai",
+			"models": {
+				"gpt-test": {
+					"id": "gpt-test",
+					"limit": {"context": 128000},
+					"reasoning_options": [{"type": "effort", "values": ["none", "low", "medium", "high", "xhigh"]}]
+				}
+			}
+		},
+		"gateway": {
+			"id": "gateway",
+			"models": {
+				"openai/gpt-test": {
+					"id": "openai/gpt-test",
+					"limit": {"context": 128000},
+					"reasoning_options": [{"type": "effort", "values": ["low", "medium", "high"]}]
+				}
+			}
+		},
+		"toggle-only": {
+			"id": "toggle-only",
+			"models": {
+				"gpt-test": {
+					"id": "gpt-test",
+					"limit": {"context": 128000},
+					"reasoning_options": [{"type": "toggle"}]
+				}
+			}
+		}
+	}`)
+	if err := modelcatalog.LoadFromJSONForTest(payload); err != nil {
+		t.Fatal(err)
+	}
+
+	got := modelcatalog.ResolveReasoningOptions("openai-compatible", "company-proxy", "openai/gpt-test")
+	want := []string{"low", "medium", "high"}
+	if got.Source != modelcatalog.SourceCatalog || !sameStrings(got.Effort, want) {
+		t.Fatalf("custom gateway = %+v, want effort %v", got, want)
+	}
+	if got.Toggle || got.BudgetMin != nil || got.BudgetMax != nil {
+		t.Fatalf("custom gateway must only infer effort: %+v", got)
+	}
+}
+
+func TestResolveReasoningOptionsCustomGatewayPrefersMatchingProviderID(t *testing.T) {
+	modelcatalog.ResetCacheForTest()
+	t.Cleanup(modelcatalog.ResetCacheForTest)
+	payload := []byte(`{
+		"openrouter": {
+			"id": "openrouter",
+			"models": {
+				"openai/gpt-test": {
+					"id": "openai/gpt-test",
+					"limit": {"context": 128000},
+					"reasoning_options": [{"type": "effort", "values": ["low", "high"]}]
+				}
+			}
+		},
+		"openai": {
+			"id": "openai",
+			"models": {
+				"gpt-test": {
+					"id": "gpt-test",
+					"limit": {"context": 128000},
+					"reasoning_options": [{"type": "effort", "values": ["low", "medium", "high"]}]
+				}
+			}
+		}
+	}`)
+	if err := modelcatalog.LoadFromJSONForTest(payload); err != nil {
+		t.Fatal(err)
+	}
+
+	got := modelcatalog.ResolveReasoningOptions("openai-compatible", "openrouter", "openai/gpt-test")
+	want := []string{"low", "high"}
+	if !sameStrings(got.Effort, want) {
+		t.Fatalf("effort = %v, want provider-specific %v", got.Effort, want)
+	}
+}
+
+func sameStrings(got, want []string) bool {
+	if len(got) != len(want) {
+		return false
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			return false
+		}
+	}
+	return true
 }
