@@ -3,7 +3,7 @@
 	import { untrack } from 'svelte';
 	import AssistantMarkdown from '$lib/components/AssistantMarkdown.svelte';
 	import FileEditor from '$lib/components/FileEditor.svelte';
-	import { portal } from '$lib/components/portal';
+	import SelectionAddToChat from '$lib/components/SelectionAddToChat.svelte';
 	import {
 		listWikiFileBacklinks,
 		readWikiFileContent,
@@ -389,14 +389,6 @@
 		};
 	});
 
-	$effect(() => {
-		document.addEventListener('scroll', clearSelectionPopup, true);
-		window.addEventListener('resize', clearSelectionPopup);
-		return () => {
-			document.removeEventListener('scroll', clearSelectionPopup, true);
-			window.removeEventListener('resize', clearSelectionPopup);
-		};
-	});
 </script>
 
 {#snippet backlinksSection()}
@@ -547,17 +539,11 @@
 	{/if}
 
 	{#if selectionPopup}
-		<button
-			use:portal
-			type="button"
-			class="selection-add-chat"
-			style:top="{selectionPopup.top}px"
-			style:left="{selectionPopup.left}px"
-			onmousedown={(event) => event.preventDefault()}
-			onclick={addSelectionToChat}
-		>
-			Add to chat
-		</button>
+		<SelectionAddToChat
+			position={{ top: selectionPopup.top, left: selectionPopup.left }}
+			onAdd={addSelectionToChat}
+			onDismiss={clearSelectionPopup}
+		/>
 	{/if}
 </div>
 
@@ -570,23 +556,6 @@
 		background: #fff;
 	}
 
-	.selection-add-chat {
-		position: fixed;
-		z-index: 10000;
-		padding: 6px 10px;
-		border: 1px solid var(--border-soft);
-		border-radius: 8px;
-		background: #fff;
-		color: var(--text-main);
-		font-size: 12px;
-		font-weight: 600;
-		box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
-		cursor: pointer;
-	}
-
-	.selection-add-chat:hover {
-		border-color: var(--text-soft);
-	}
 
 	.file-preview-state {
 		display: flex;

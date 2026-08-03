@@ -17,7 +17,7 @@
 	import type { ChatItem } from '$lib/stores/chat.svelte';
 	import { resolveImageSrc } from '$lib/files/images';
 	import ImageLightbox from '$lib/components/chat/ImageLightbox.svelte';
-	import { portal } from '$lib/components/portal';
+	import SelectionAddToChat from '$lib/components/SelectionAddToChat.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import {
 		assistantResponseSource,
@@ -57,7 +57,7 @@
 	const thinkingWait = $derived(assistantThinkingWait(item, context.now));
 	const showThinkingSpinner = $derived(
 		!item.text.trim() &&
-			!(item.images?.length) &&
+			!item.images?.length &&
 			!(item.id === context.streamingAssistantId && context.sessionStreaming)
 	);
 	const responseSource = $derived(
@@ -123,15 +123,6 @@
 		clearSelectionPopup();
 		window.getSelection()?.removeAllRanges();
 	}
-
-	$effect(() => {
-		document.addEventListener('scroll', clearSelectionPopup, true);
-		window.addEventListener('resize', clearSelectionPopup);
-		return () => {
-			document.removeEventListener('scroll', clearSelectionPopup, true);
-			window.removeEventListener('resize', clearSelectionPopup);
-		};
-	});
 </script>
 
 <div class="assistant-stack" data-assistant-response-source={responseSource ?? undefined}>
@@ -231,26 +222,15 @@
 </div>
 
 {#if selectionPopup}
-	<button
-		use:portal
-		type="button"
-		class="selection-add-chat"
-		style:top="{selectionPopup.top}px"
-		style:left="{selectionPopup.left}px"
-		onmousedown={(event) => event.preventDefault()}
-		onclick={addSelectionToChat}
-	>
-		Add to chat
-	</button>
+	<SelectionAddToChat
+		position={{ top: selectionPopup.top, left: selectionPopup.left }}
+		onAdd={addSelectionToChat}
+		onDismiss={clearSelectionPopup}
+	/>
 {/if}
 
 {#if lightbox}
-	<ImageLightbox
-		open
-		src={lightbox.src}
-		alt={lightbox.alt}
-		onClose={() => (lightbox = null)}
-	/>
+	<ImageLightbox open src={lightbox.src} alt={lightbox.alt} onClose={() => (lightbox = null)} />
 {/if}
 
 <style>
@@ -283,24 +263,6 @@
 			box-shadow: 0 0 0 3px
 				color-mix(in srgb, var(--hero-composer-glow-color, #72c0ff) 45%, transparent);
 		}
-	}
-
-	.selection-add-chat {
-		position: fixed;
-		z-index: 10000;
-		padding: 6px 10px;
-		border: 1px solid var(--border-soft);
-		border-radius: 8px;
-		background: #fff;
-		color: var(--text-main);
-		font-size: 12px;
-		font-weight: 600;
-		box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
-		cursor: pointer;
-	}
-
-	.selection-add-chat:hover {
-		border-color: var(--text-soft);
 	}
 
 	.assistant-stack > :global(.memory-panel),
