@@ -43,7 +43,8 @@
 	/* Layout */
 	--sidebar-width: 250px;
 	--sidebar-auto-collapse-max: 900px;
-	--workspace-panel-width: 50vw;
+	/* Registered so width can CSS-interpolate when the sidebar opens/closes. */
+	--workspace-panel-width: 640px;
 	--workspace-panel-slot-width: calc(var(--workspace-panel-width) + var(--content-panel-inset));
 	--titlebar-height: 48px;
 	/* Shared height for main-panel + workspace-panel chrome headers (incl. border). */
@@ -213,13 +214,19 @@ body.panel-resizing .terminal-panel-inner {
 	transition: none !important;
 }
 
-/* While the sidebar width is animating, keep the workspace panel on the preferred
-   ratio without lagging behind a width transition. */
+/* Interpolate panel width in lockstep with the sidebar (one JS write at start).
+   @property on --workspace-panel-width makes the custom property animatable. */
+@property --workspace-panel-width {
+	syntax: '<length>';
+	inherits: true;
+	initial-value: 640px;
+}
+
 body.sidebar-animating .workspace-panel,
 body.sidebar-animating .workspace-panel-inner,
 body.sidebar-animating .terminal-panel,
 body.sidebar-animating .terminal-panel-inner {
-	transition: none !important;
+	transition: width var(--duration-sidebar) var(--ease-smooth) !important;
 }
 
 .content-panel-surface {
@@ -297,53 +304,25 @@ select {
 	}
 }
 
-/* When the workspace panel steals width, scale chat chrome to the main pane — not the
-   full window — so the composer/thread keep fitting as the divider moves. */
+/* Keep chat geometry fluid while the workspace panel is being resized. The old
+   breakpoint bands changed bubble width and alignment abruptly at 480/768/1024px.
+   content-max tracks the real main-pane content box (minus gutters/avatar/gap) so
+   the thread fills the pane instead of leaving a dead band on the right. */
+.chat-home:not(.compact) {
+	--chat-avatar-size: clamp(2.25rem, calc(1.8rem + 1.5cqi), 3rem);
+	--chat-row-gap: clamp(0.625rem, calc(0.5rem + 0.75cqi), 1rem);
+	--chat-gutter: clamp(0.75rem, 3cqi, 2.5rem);
+	--chat-content-max: clamp(
+		20rem,
+		calc(100cqi - 2 * var(--chat-gutter) - var(--chat-avatar-size) - var(--chat-row-gap)),
+		46rem
+	);
+}
+
 @container main-pane (max-width: 480px) {
 	.chat-home {
-		--chat-avatar-size: 2.25rem;
-		--chat-row-gap: 0.625rem;
-		--chat-content-max: 20rem;
-		--chat-gutter: 0.75rem;
 		--composer-dock-bottom: 0.75rem;
 		--composer-dock-clearance: 13rem;
-	}
-}
-
-@container main-pane (min-width: 481px) and (max-width: 767px) {
-	.chat-home {
-		--chat-avatar-size: 2.25rem;
-		--chat-row-gap: 0.625rem;
-		--chat-content-max: 34rem;
-		--chat-gutter: 1rem;
-		--composer-dock-bottom: 0.75rem;
-		--composer-dock-clearance: 13rem;
-	}
-}
-
-@container main-pane (min-width: 768px) and (max-width: 1023px) {
-	.chat-home {
-		--chat-avatar-size: 2.5rem;
-		--chat-row-gap: 0.75rem;
-		--chat-content-max: 38rem;
-		--chat-gutter: 1.5rem;
-	}
-}
-
-@container main-pane (min-width: 1024px) and (max-width: 1279px) {
-	.chat-home {
-		--chat-avatar-size: 2.75rem;
-		--chat-row-gap: 1rem;
-		--chat-content-max: 42rem;
-		--chat-gutter: 2rem;
-	}
-}
-
-@container main-pane (min-width: 1280px) {
-	.chat-home {
-		--chat-avatar-size: 3rem;
-		--chat-content-max: 46rem;
-		--chat-gutter: 2.5rem;
 	}
 }
 

@@ -436,12 +436,11 @@
 	}
 
 	.thread-inner {
-		--chat-content-column: min(
-			var(--chat-content-max),
-			calc(100% - var(--chat-avatar-size) - var(--chat-row-gap))
-		);
+		/* Fill the row after the avatar; thread-inner width already caps the measure. */
+		--chat-content-column: calc(100% - var(--chat-avatar-size) - var(--chat-row-gap));
 		--chat-assistant-column: var(--chat-content-column);
-		width: min(var(--chat-thread-width), 100%);
+		width: 100%;
+		max-width: var(--chat-thread-width);
 		margin: 0 auto;
 		display: flex;
 		flex-direction: column;

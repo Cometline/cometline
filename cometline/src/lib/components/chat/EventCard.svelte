@@ -20,7 +20,6 @@
 	.event-card {
 		min-width: 0;
 		width: 100%;
-		max-width: var(--chat-content-column);
 		border: 1px solid var(--border-soft);
 		background: rgba(255, 255, 255, 0.68);
 		border-radius: 14px;

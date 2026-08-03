@@ -126,9 +126,9 @@
 		display: flex;
 		flex-direction: column;
 		align-items: flex-end;
-		flex: 1 1 auto;
+		/* Grow into the full row remainder so short bubbles sit on the right edge. */
+		flex: 1 1 0;
 		min-width: 0;
-		max-width: var(--chat-assistant-column);
 	}
 
 	.flight-hidden {

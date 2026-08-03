@@ -487,11 +487,16 @@
 		document.addEventListener('fullscreenchange', onDomFullScreenChange);
 
 		// Keep the preferred ratio applied as the content row changes (window
-		// resize or sidebar open/close animation) so the workspace panel tracks
-		// proportionally instead of locking to a stale absolute width.
+		// resize). Sidebar open/close writes the end width once and CSS-transitions
+		// it — continuous RO rewrites during the 360ms anim cause lag + thrash.
 		function applyPreferredRatioToLayout() {
-			if (!shellStore.workspacePanelOpen || resizing) return;
-			applyWidthFromPreferredRatio();
+			if (!shellStore.workspacePanelOpen || resizing || sidebarAnimating) return;
+			if (ratioFrame) return;
+			ratioFrame = requestAnimationFrame(() => {
+				ratioFrame = 0;
+				if (!shellStore.workspacePanelOpen || resizing || sidebarAnimating) return;
+				applyWidthFromPreferredRatio();
+			});
 		}
 
 		function onWindowResize() {
@@ -522,6 +527,8 @@
 			unsubscribeFullScreen?.();
 			document.removeEventListener('fullscreenchange', onDomFullScreenChange);
 			window.removeEventListener('resize', onWindowResize);
+			if (ratioFrame) cancelAnimationFrame(ratioFrame);
+			ratioFrame = 0;
 			resizeObserver?.disconnect();
 		};
 	});
@@ -549,18 +556,28 @@
 		});
 	});
 
-	// Match workspace-panel ratio updates to the sidebar width animation so the
-	// panel tracks the content row without a lagged CSS width transition.
+	// Sidebar open/close: one target width write + CSS transition (same duration).
+	// Avoids per-frame ResizeObserver ratio thrash while keeping the panel aligned.
 	$effect(() => {
 		void shellStore.sidebarOpen;
 		if (typeof document === 'undefined') return;
+		sidebarAnimating = true;
 		document.body.classList.add('sidebar-animating');
-		const timeout = window.setTimeout(
-			() => document.body.classList.remove('sidebar-animating'),
-			sidebarTransitionDuration()
-		);
+		const duration = sidebarTransitionDuration();
+		if (shellStore.workspacePanelOpen && !resizing) {
+			applyWidthForSidebarEndState(shellStore.sidebarOpen);
+		}
+		const timeout = window.setTimeout(() => {
+			sidebarAnimating = false;
+			document.body.classList.remove('sidebar-animating');
+			// Snap to the measured row once layout has settled.
+			if (shellStore.workspacePanelOpen && !resizing) {
+				applyWidthFromPreferredRatio();
+			}
+		}, duration);
 		return () => {
 			window.clearTimeout(timeout);
+			sidebarAnimating = false;
 			document.body.classList.remove('sidebar-animating');
 		};
 	});
@@ -589,6 +606,10 @@
 	/** User's preferred share of the content row; survives temporary clamps. */
 	let preferredRatio = $state(0.5);
 	let resizing = $state(false);
+	/** True while the left sidebar width transition is in flight. */
+	let sidebarAnimating = $state(false);
+	/** Coalesce ResizeObserver/window-resize ratio writes to one frame. */
+	let ratioFrame = 0;
 	let resizeStartX = 0;
 	let resizeStartWidth = 0;
 
@@ -602,6 +623,24 @@
 	}
 	function contentRowWidth() {
 		return contentRowRef?.clientWidth ?? window.innerWidth;
+	}
+	function sidebarWidthPx() {
+		const raw = getComputedStyle(document.documentElement)
+			.getPropertyValue('--sidebar-width')
+			.trim();
+		const px = Number.parseFloat(raw);
+		return Number.isFinite(px) ? px : 250;
+	}
+	/** Content-row width after the sidebar width transition settles. */
+	function contentRowWidthAfterSidebarToggle(open: boolean) {
+		const shellW =
+			contentRowRef?.parentElement?.clientWidth ??
+			document.querySelector<HTMLElement>('.app-shell')?.clientWidth ??
+			window.innerWidth;
+		// Narrow layout uses an overlay sidebar that does not consume row width.
+		const narrow = window.matchMedia('(max-width: 900px)').matches;
+		const side = !narrow && open ? sidebarWidthPx() : 0;
+		return Math.max(0, shellW - side);
 	}
 	function currentPanelWidth() {
 		const raw = getComputedStyle(document.documentElement)
@@ -617,6 +656,17 @@
 
 	function applyWidthFromPreferredRatio() {
 		const next = widthFromRatio(preferredRatio, contentRowWidth(), panelChrome());
+		document.documentElement.style.setProperty('--workspace-panel-width', `${next}px`);
+		return next;
+	}
+
+	function applyWidthForSidebarEndState(open: boolean) {
+		const endRow = contentRowWidthAfterSidebarToggle(open);
+		const chrome = {
+			sidebarOpen: open || isUtilityPage,
+			fullscreen: shellStore.fullscreen
+		};
+		const next = widthFromRatio(preferredRatio, endRow, chrome);
 		document.documentElement.style.setProperty('--workspace-panel-width', `${next}px`);
 		return next;
 	}
@@ -641,16 +691,15 @@
 		}
 	});
 
-	// Re-apply the preferred ratio when chrome changes. Opening the sidebar
-	// tightens the main-pane floor; closing it restores toward the ratio.
+	// Re-apply the preferred ratio when non-sidebar chrome changes. Sidebar open/
+	// close is owned by the sidebar-animating effect (end-state + CSS transition).
 	$effect(() => {
-		void shellStore.sidebarOpen;
 		void shellStore.fullscreen;
 		void shellStore.workspacePanelOpen;
 		void preferredRatio;
 		if (!shellStore.workspacePanelOpen) return;
 		queueMicrotask(() => {
-			if (!shellStore.workspacePanelOpen || resizing) return;
+			if (!shellStore.workspacePanelOpen || resizing || sidebarAnimating) return;
 			applyWidthFromPreferredRatio();
 		});
 	});

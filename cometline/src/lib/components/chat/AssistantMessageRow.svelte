@@ -56,8 +56,7 @@
 <style>
 	.assistant-column {
 		min-width: 0;
-		flex: 1;
-		max-width: var(--chat-assistant-column);
+		flex: 1 1 0;
 	}
 
 	.first-turn-destination-hidden {
