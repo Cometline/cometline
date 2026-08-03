@@ -16,6 +16,7 @@ import { anyReasoningPending, hasReasoning } from '$lib/conversation/reasoning';
 import { sessionStore } from '$lib/stores/session.svelte';
 import { chatDebug, summarizeChatItems, summarizeStreamEvent } from '../debug/chat';
 import { playResponseCompleteSound } from '$lib/sound/response-complete';
+import { settingsStore } from '$lib/stores/settings.svelte';
 import { publishWindowSync, subscribeWindowSync } from '$lib/window-sync';
 import { homeRouteFor } from '$lib/routes/session-route';
 
@@ -657,7 +658,9 @@ function createChatStore() {
 						applyEventToSession(nextSessionID, event, ctx);
 						unmarkStreaming(nextSessionID);
 						if (streamOutcome === 'success' && !sessionErrors.get(nextSessionID)) {
-							playResponseCompleteSound();
+							playResponseCompleteSound(
+								settingsStore.settings.appearance.responseCompleteSound
+							);
 						}
 					}
 					chatDebug('store:stream-event', {
@@ -718,7 +721,9 @@ function createChatStore() {
 					applyEventToSession(nextSessionID, { type: 'done' }, ctx);
 					unmarkStreaming(nextSessionID);
 					if (streamOutcome === 'success' && !sessionErrors.get(nextSessionID)) {
-						playResponseCompleteSound();
+						playResponseCompleteSound(
+							settingsStore.settings.appearance.responseCompleteSound
+						);
 					}
 				}
 				// Mini models / aborted streams can settle with no visible assistant

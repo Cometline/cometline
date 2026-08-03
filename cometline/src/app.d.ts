@@ -49,10 +49,18 @@ declare global {
 		theme: TerminalThemeId;
 	}
 
+	/** Chime when an agent response finishes successfully. */
+	interface ResponseCompleteSoundSettings {
+		enabled: boolean;
+		/** 0–1 linear gain applied to the HTMLAudioElement volume. */
+		volume: number;
+	}
+
 	interface AppearanceSettings {
 		heroComposer: HeroComposerAppearance;
 		caretTrail: CaretTrailSettings;
 		terminal: TerminalAppearanceSettings;
+		responseCompleteSound: ResponseCompleteSoundSettings;
 	}
 
 	type ShortcutAction =

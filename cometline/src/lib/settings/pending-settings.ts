@@ -23,7 +23,8 @@ export function pendingSettingsSnapshot(settings: ProviderSettings): string {
 		appearance: {
 			heroComposer: { ...settings.appearance.heroComposer },
 			caretTrail: { ...settings.appearance.caretTrail },
-			terminal: { ...settings.appearance.terminal }
+			terminal: { ...settings.appearance.terminal },
+			responseCompleteSound: { ...settings.appearance.responseCompleteSound }
 		},
 		app: {
 			personaId: settings.app?.personaId ?? 'minako',
@@ -77,7 +78,8 @@ function appearanceSectionSnapshot(settings: ProviderSettings): string {
 		appearance: {
 			heroComposer: { ...settings.appearance.heroComposer },
 			caretTrail: { ...settings.appearance.caretTrail },
-			terminal: { ...settings.appearance.terminal }
+			terminal: { ...settings.appearance.terminal },
+			responseCompleteSound: { ...settings.appearance.responseCompleteSound }
 		},
 		personaId: settings.app?.personaId ?? 'minako',
 		personas: settings.app?.personas?.custom ?? []
@@ -134,7 +136,7 @@ export const SECTION_PERSISTENCE_HINTS: Record<
 		action: 'Refresh skills, sync symlinks, MCP test'
 	},
 	appearance: {
-		pending: 'Hero composer, terminal appearance, caret trail, and persona'
+		pending: 'Hero composer, terminal, caret trail, response sound, and persona'
 	},
 	shortcuts: {
 		instant: 'Every shortcut binding'
