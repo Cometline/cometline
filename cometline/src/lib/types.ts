@@ -86,10 +86,18 @@ export interface TerminalAppearanceSettings {
 	theme: TerminalThemeId;
 }
 
+/** Chime when an agent response finishes successfully. */
+export interface ResponseCompleteSoundSettings {
+	enabled: boolean;
+	/** 0–1 linear gain applied to the HTMLAudioElement volume. */
+	volume: number;
+}
+
 export interface AppearanceSettings {
 	heroComposer: HeroComposerAppearance;
 	caretTrail: CaretTrailSettings;
 	terminal: TerminalAppearanceSettings;
+	responseCompleteSound: ResponseCompleteSoundSettings;
 }
 
 export type ShortcutAction =

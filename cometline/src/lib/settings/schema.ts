@@ -11,7 +11,8 @@ import type {
 	CaretTrailSettings,
 	ProviderConfig,
 	ProviderMethod,
-	ProviderSettings
+	ProviderSettings,
+	ResponseCompleteSoundSettings
 } from '../types';
 import {
 	DEFAULT_CONTEXT_WINDOW_LIMIT,
@@ -965,6 +966,10 @@ function defaultCaretTrailSettings(): CaretTrailSettings {
 	return { enabled: true, intensity: 0.72, speed: 0.68 };
 }
 
+export function defaultResponseCompleteSoundSettings(): ResponseCompleteSoundSettings {
+	return { enabled: true, volume: 0.7 };
+}
+
 function normalizeUnit(value: unknown, fallback: number): number {
 	if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
 	return Math.min(1, Math.max(0, value));
@@ -981,11 +986,22 @@ function normalizeCaretTrailSettings(
 	};
 }
 
+export function normalizeResponseCompleteSoundSettings(
+	settings: Partial<ResponseCompleteSoundSettings> | undefined
+): ResponseCompleteSoundSettings {
+	const defaults = defaultResponseCompleteSoundSettings();
+	return {
+		enabled: typeof settings?.enabled === 'boolean' ? settings.enabled : defaults.enabled,
+		volume: normalizeUnit(settings?.volume, defaults.volume)
+	};
+}
+
 function defaultAppearance(): AppearanceSettings {
 	return {
 		heroComposer: { ...DEFAULT_HERO_COMPOSER_APPEARANCE },
 		caretTrail: defaultCaretTrailSettings(),
-		terminal: { ...DEFAULT_TERMINAL_APPEARANCE }
+		terminal: { ...DEFAULT_TERMINAL_APPEARANCE },
+		responseCompleteSound: defaultResponseCompleteSoundSettings()
 	};
 }
 
@@ -1226,7 +1242,10 @@ export function normalizeSettings(
 		appearance: {
 			heroComposer: normalizeHeroComposerAppearance(next.appearance?.heroComposer),
 			caretTrail: normalizeCaretTrailSettings(next.appearance?.caretTrail),
-			terminal: normalizeTerminalAppearance(next.appearance?.terminal)
+			terminal: normalizeTerminalAppearance(next.appearance?.terminal),
+			responseCompleteSound: normalizeResponseCompleteSoundSettings(
+				next.appearance?.responseCompleteSound
+			)
 		},
 		shortcuts: normalizeKeyboardShortcuts(next.shortcuts),
 		app: {
@@ -1426,6 +1445,10 @@ const providerSettingsSchema = z.object({
 		terminal: z.object({
 			fontSize: z.number().int().min(8).max(32),
 			theme: z.enum(['cometline-dark', 'dracula', 'gruvbox-dark', 'solarized-dark'])
+		}),
+		responseCompleteSound: z.object({
+			enabled: z.boolean(),
+			volume: z.number().min(0).max(1)
 		})
 	}),
 	shortcuts: z.record(z.string(), z.unknown()),

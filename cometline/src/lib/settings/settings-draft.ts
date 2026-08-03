@@ -34,7 +34,8 @@ export function cloneSettings(settings: ProviderSettings): ProviderSettings {
 					: undefined
 			},
 			caretTrail: { ...settings.appearance.caretTrail },
-			terminal: { ...settings.appearance.terminal }
+			terminal: { ...settings.appearance.terminal },
+			responseCompleteSound: { ...settings.appearance.responseCompleteSound }
 		},
 		shortcuts: cloneShortcuts(settings),
 		app: {
@@ -77,7 +78,8 @@ export function providerPayloadFromDraft(draft: ProviderSettings): ProviderSetti
 					: undefined
 			},
 			caretTrail: { ...draft.appearance.caretTrail },
-			terminal: { ...draft.appearance.terminal }
+			terminal: { ...draft.appearance.terminal },
+			responseCompleteSound: { ...draft.appearance.responseCompleteSound }
 		},
 		shortcuts: cloneShortcuts(draft),
 		app: { ...draft.app },

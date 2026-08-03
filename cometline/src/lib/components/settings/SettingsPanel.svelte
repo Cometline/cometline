@@ -426,6 +426,7 @@
 							bind:appearance={draft.appearance.heroComposer}
 							bind:caretTrail={draft.appearance.caretTrail}
 							bind:terminal={draft.appearance.terminal}
+							bind:responseCompleteSound={draft.appearance.responseCompleteSound}
 						/>
 						<section class="settings-panel-frame">
 							<div class="settings-section">

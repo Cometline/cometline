@@ -2,6 +2,7 @@
 	import type {
 		CaretTrailSettings,
 		HeroComposerAppearance,
+		ResponseCompleteSoundSettings,
 		TerminalAppearanceSettings
 	} from '$lib/types';
 	import {
@@ -16,15 +17,19 @@
 		normalizeTerminalFontSize,
 		TERMINAL_THEME_PRESETS
 	} from '$lib/terminal-appearance';
+	import { defaultResponseCompleteSoundSettings } from '$lib/settings/schema';
+	import { playResponseCompleteSound } from '$lib/sound/response-complete';
 
 	let {
 		appearance = $bindable({ ...DEFAULT_HERO_COMPOSER_APPEARANCE }),
 		caretTrail = $bindable({ enabled: true, intensity: 0.72, speed: 0.68 }),
-		terminal = $bindable({ ...DEFAULT_TERMINAL_APPEARANCE })
+		terminal = $bindable({ ...DEFAULT_TERMINAL_APPEARANCE }),
+		responseCompleteSound = $bindable(defaultResponseCompleteSoundSettings())
 	}: {
 		appearance: HeroComposerAppearance;
 		caretTrail: CaretTrailSettings;
 		terminal: TerminalAppearanceSettings;
+		responseCompleteSound: ResponseCompleteSoundSettings;
 	} = $props();
 
 	let previewStyle = $derived(heroComposerCssVarStyle(appearance));
@@ -32,6 +37,7 @@
 	let hasCustomPreset = $derived(Boolean(appearance.customPreset));
 	let customControlsDisabled = $derived(activePreset !== 'custom');
 	let terminalTheme = $derived(TERMINAL_THEME_PRESETS[terminal.theme]);
+	let volumePercent = $derived(Math.round(responseCompleteSound.volume * 100));
 
 	function applyPreset(preset: (typeof HERO_COMPOSER_PRESETS)[number]) {
 		appearance = {
@@ -70,6 +76,7 @@
 		appearance = { ...DEFAULT_HERO_COMPOSER_APPEARANCE };
 		caretTrail = { enabled: true, intensity: 0.72, speed: 0.68 };
 		terminal = { ...DEFAULT_TERMINAL_APPEARANCE };
+		responseCompleteSound = defaultResponseCompleteSoundSettings();
 	}
 
 	function updateTerminal<K extends keyof TerminalAppearanceSettings>(
@@ -77,6 +84,13 @@
 		value: TerminalAppearanceSettings[K]
 	) {
 		terminal = { ...terminal, [key]: value };
+	}
+
+	function previewResponseSound() {
+		playResponseCompleteSound({
+			...responseCompleteSound,
+			force: true
+		});
 	}
 </script>
 
@@ -300,6 +314,62 @@
 				</label>
 			</div>
 		</div>
+
+		<div class="settings-section">
+			<div class="settings-section-heading">
+				<div>
+					<h3>Response complete sound</h3>
+					<p>Play a short chime when the agent finishes a successful reply.</p>
+				</div>
+				<button
+					class="switch"
+					class:on={responseCompleteSound.enabled}
+					role="switch"
+					aria-checked={responseCompleteSound.enabled}
+					aria-label="Toggle response complete sound"
+					type="button"
+					onclick={() =>
+						(responseCompleteSound = {
+							...responseCompleteSound,
+							enabled: !responseCompleteSound.enabled
+						})}
+				>
+					<span></span>
+				</button>
+			</div>
+
+			<div class="sound-settings-row">
+				<label class="sound-volume-field">
+					<span class="sound-volume-label">
+						<span>Volume</span>
+						<span class="sound-volume-value" aria-live="polite">{volumePercent}%</span>
+					</span>
+					<input
+						type="range"
+						min="0"
+						max="1"
+						step="0.01"
+						value={responseCompleteSound.volume}
+						disabled={!responseCompleteSound.enabled}
+						aria-label="Response complete sound volume"
+						aria-valuetext={`${volumePercent}%`}
+						oninput={(e) =>
+							(responseCompleteSound = {
+								...responseCompleteSound,
+								volume: Number(e.currentTarget.value)
+							})}
+					/>
+				</label>
+				<button
+					class="secondary preview-sound-button"
+					type="button"
+					disabled={responseCompleteSound.volume <= 0}
+					onclick={previewResponseSound}
+				>
+					Preview
+				</button>
+			</div>
+		</div>
 	</div>
 </section>
 
@@ -361,6 +431,35 @@
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 		gap: 14px;
+	}
+
+	.sound-settings-row {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		gap: 14px;
+		align-items: end;
+	}
+
+	.sound-volume-field {
+		min-width: 0;
+	}
+
+	.sound-volume-label {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: 12px;
+	}
+
+	.sound-volume-value {
+		font-variant-numeric: tabular-nums;
+		color: var(--text-main);
+	}
+
+	.preview-sound-button {
+		height: 38px;
+		padding: 0 14px;
+		white-space: nowrap;
 	}
 
 	.appearance-grid {
@@ -586,6 +685,14 @@
 
 		.slider-grid {
 			grid-template-columns: 1fr;
+		}
+
+		.sound-settings-row {
+			grid-template-columns: 1fr;
+		}
+
+		.preview-sound-button {
+			width: 100%;
 		}
 
 		.terminal-settings-grid,
