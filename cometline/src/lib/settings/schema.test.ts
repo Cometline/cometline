@@ -148,6 +148,36 @@ describe('settings schema', () => {
 		});
 	});
 
+	it('normalizes response complete sound for settings created before that preference', () => {
+		const settings = normalizeSettings({
+			...defaultSettings(),
+			appearance: {
+				...defaultSettings().appearance,
+				responseCompleteSound: undefined as never
+			}
+		});
+
+		expect(settings.appearance.responseCompleteSound).toEqual({
+			enabled: true,
+			volume: 0.7
+		});
+	});
+
+	it('clamps response complete sound volume to 0–1', () => {
+		const settings = normalizeSettings({
+			...defaultSettings(),
+			appearance: {
+				...defaultSettings().appearance,
+				responseCompleteSound: { enabled: false, volume: 1.8 }
+			}
+		});
+
+		expect(settings.appearance.responseCompleteSound).toEqual({
+			enabled: false,
+			volume: 1
+		});
+	});
+
 	it('normalizes workspacePanelWidth: floors, clamps negatives, falls back on invalid', () => {
 		const base = defaultSettings();
 		expect(

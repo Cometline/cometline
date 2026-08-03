@@ -59,6 +59,23 @@ describe('pending-settings', () => {
 		expect(sectionPendingDirty('appearance', draft, base)).toBe(true);
 	});
 
+	it('detects pending response complete sound edits in the Appearance section', () => {
+		const base = normalizeSettings(defaultSettings());
+		const draft = normalizeSettings({
+			...base,
+			appearance: {
+				...base.appearance,
+				responseCompleteSound: {
+					...base.appearance.responseCompleteSound,
+					volume: 0.25
+				}
+			}
+		});
+
+		expect(settingsPendingDirty(draft, base)).toBe(true);
+		expect(sectionPendingDirty('appearance', draft, base)).toBe(true);
+	});
+
 	it('produces stable snapshots', () => {
 		const settings = normalizeSettings(defaultSettings());
 		expect(pendingSettingsSnapshot(settings)).toBe(pendingSettingsSnapshot(settings));
