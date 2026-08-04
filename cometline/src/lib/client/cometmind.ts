@@ -293,8 +293,32 @@ export function runStorageRetention(): Promise<RunStorageRetentionResponse> {
 	return runStorageRetentionApi({ throwOnError: true }).then(({ data }) => data);
 }
 
-export function runStorageBackup(): Promise<RunStorageBackupResponse> {
-	return runStorageBackupApi({ throwOnError: true }).then(({ data }) => data);
+export function apiErrorMessage(error: unknown, fallback: string): string {
+	if (error instanceof Error && error.message) return error.message;
+	if (typeof error === 'string' && error.trim()) return error;
+	if (error && typeof error === 'object' && 'error' in error) {
+		const detail = error.error;
+		if (typeof detail === 'string' && detail.trim()) return detail;
+		if (
+			detail &&
+			typeof detail === 'object' &&
+			'message' in detail &&
+			typeof detail.message === 'string' &&
+			detail.message.trim()
+		) {
+			return detail.message;
+		}
+	}
+	return fallback;
+}
+
+export async function runStorageBackup(): Promise<RunStorageBackupResponse> {
+	try {
+		const { data } = await runStorageBackupApi({ throwOnError: true });
+		return data;
+	} catch (error) {
+		throw new Error(apiErrorMessage(error, 'Backup failed'));
+	}
 }
 
 export interface WorkspaceFiles {

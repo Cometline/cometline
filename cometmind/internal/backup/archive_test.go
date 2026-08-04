@@ -96,6 +96,51 @@ func TestRunCreatesZipAndRotatesOldBackups(t *testing.T) {
 	}
 }
 
+func TestRunSkipsDanglingSymlinks(t *testing.T) {
+	dataDir := t.TempDir()
+	destDir := t.TempDir()
+	t.Setenv("COMETMIND_DATA_DIR", dataDir)
+
+	if err := os.WriteFile(filepath.Join(dataDir, "settings.json"), []byte(`{"ok":true}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	linkPath := filepath.Join(dataDir, "missing-skill")
+	if err := os.Symlink(filepath.Join(t.TempDir(), "does-not-exist"), linkPath); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+
+	res, err := (&Archiver{}).Run(context.Background(), Config{DestinationDir: destDir})
+	if err != nil {
+		t.Fatalf("backup with dangling symlink: %v", err)
+	}
+
+	r, err := zip.OpenReader(res.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+
+	var names []string
+	for _, f := range r.File {
+		names = append(names, f.Name)
+	}
+	if !containsString(names, "settings.json") {
+		t.Fatalf("zip missing regular file: %v", names)
+	}
+	if containsString(names, "missing-skill") {
+		t.Fatalf("zip should skip dangling symlink: %v", names)
+	}
+}
+
+func containsString(items []string, target string) bool {
+	for _, item := range items {
+		if item == target {
+			return true
+		}
+	}
+	return false
+}
+
 func TestRunRejectsDestinationInsideDataDir(t *testing.T) {
 	dataDir := t.TempDir()
 	t.Setenv("COMETMIND_DATA_DIR", dataDir)

@@ -151,6 +151,17 @@ func writeArchive(dataDir, dbSnapshot string, out io.Writer) error {
 		if d.IsDir() {
 			return nil
 		}
+		// WalkDir uses lstat and can discover a symlink even when its target no
+		// longer exists. The archiver follows symlinks when adding files, so skip
+		// only dangling links instead of failing the entire backup.
+		if d.Type()&os.ModeSymlink != 0 {
+			if _, err := os.Stat(path); err != nil {
+				if errors.Is(err, os.ErrNotExist) {
+					return nil
+				}
+				return err
+			}
+		}
 		rel, err := filepath.Rel(dataDir, path)
 		if err != nil {
 			return err

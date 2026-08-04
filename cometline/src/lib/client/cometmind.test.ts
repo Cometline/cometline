@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { streamMessage, UnexpectedStreamEndError } from './cometmind';
+import { apiErrorMessage, streamMessage, UnexpectedStreamEndError } from './cometmind';
 
 function sseResponse(body: string): Response {
 	const encoder = new TextEncoder();
@@ -14,6 +14,27 @@ function sseResponse(body: string): Response {
 		headers: { 'Content-Type': 'text/event-stream' }
 	});
 }
+
+describe('apiErrorMessage', () => {
+	it('extracts a simple backend error response', () => {
+		expect(apiErrorMessage({ error: 'backup destination is unavailable' }, 'Backup failed')).toBe(
+			'backup destination is unavailable'
+		);
+	});
+
+	it('extracts a structured backend error response', () => {
+		expect(
+			apiErrorMessage(
+				{ error: { code: 'backup_failed', message: 'database snapshot failed' } },
+				'Backup failed'
+			)
+		).toBe('database snapshot failed');
+	});
+
+	it('uses the fallback for unknown values', () => {
+		expect(apiErrorMessage({ nope: true }, 'Backup failed')).toBe('Backup failed');
+	});
+});
 
 describe('streamMessage', () => {
 	afterEach(() => {
