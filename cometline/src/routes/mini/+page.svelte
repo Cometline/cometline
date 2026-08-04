@@ -1,14 +1,22 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
+	import { fade } from 'svelte/transition';
+	import ThinkingIndicator from '$lib/components/ThinkingIndicator.svelte';
+
+	const MIN_LOADING_MS = 320;
+	const LOADING_FADE_MS = 160;
 
 	let error = $state('');
 
 	onMount(() => {
+		const startedAt = performance.now();
 		void (async () => {
 			try {
 				const { ensureMiniWindowSession } = await import('$lib/mini-window-session');
 				const sessionId = await ensureMiniWindowSession();
+				const remaining = Math.max(0, MIN_LOADING_MS - (performance.now() - startedAt));
+				if (remaining > 0) await new Promise((resolve) => setTimeout(resolve, remaining));
 				await goto(`/mini/session/${sessionId}`, { replaceState: true });
 			} catch (err) {
 				error = err instanceof Error ? err.message : 'Failed to open mini chat';
@@ -17,35 +25,36 @@
 	});
 </script>
 
-<div class="mini-loading-shell">
-	<div class="mini-loading-card">
-		<p>{error || 'Opening mini chat...'}</p>
+{#if error}
+	<div class="mini-loading-error" role="alert">{error}</div>
+{:else}
+	<div class="mini-loading-overlay" transition:fade={{ duration: LOADING_FADE_MS }}>
+		<ThinkingIndicator size={28} label="Opening mini chat" />
 	</div>
-</div>
+{/if}
 
 <style>
-	.mini-loading-shell {
+	.mini-loading-overlay {
+		position: absolute;
+		inset: 0;
 		display: grid;
 		place-items: center;
-		min-height: 100vh;
 		padding: 24px;
-		background: var(--app-bg);
-		color: var(--text-main);
-		-webkit-app-region: drag;
+		z-index: 90;
+		background: color-mix(in srgb, var(--app-bg) 38%, transparent);
+		backdrop-filter: blur(10px);
+		-webkit-backdrop-filter: blur(10px);
+		-webkit-app-region: no-drag;
 	}
 
-	.mini-loading-card {
-		width: min(100%, 320px);
-		padding: 18px 20px;
-		border-radius: 16px;
-		background: color-mix(in srgb, var(--panel-bg) 90%, transparent);
-		border: 1px solid color-mix(in srgb, var(--border-soft) 72%, transparent);
-		box-shadow: 0 18px 48px rgba(0, 0, 0, 0.22);
-	}
-
-	p {
-		margin: 0;
-		font-size: 14px;
-		line-height: 1.5;
+	.mini-loading-error {
+		position: absolute;
+		inset: 0;
+		display: grid;
+		place-items: center;
+		padding: 24px;
+		color: var(--status-error);
+		text-align: center;
+		-webkit-app-region: no-drag;
 	}
 </style>

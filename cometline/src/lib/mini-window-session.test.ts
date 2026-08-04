@@ -10,7 +10,9 @@ const mocks = vi.hoisted(() => ({
 	setActiveWorkspacePath: vi.fn(),
 	setSidebarOrderWorkspacePath: vi.fn(),
 	setSidebarOrderDiscordActive: vi.fn(),
-	recordVisit: vi.fn()
+	recordVisit: vi.fn(),
+	requestNewSession: vi.fn(),
+	clearNewSessionRequest: vi.fn()
 }));
 
 vi.mock('$app/navigation', () => ({ goto: mocks.goto }));
@@ -36,6 +38,12 @@ vi.mock('$lib/stores/shell.svelte', () => ({
 }));
 vi.mock('$lib/stores/session-visit-history.svelte', () => ({
 	sessionVisitHistory: { recordVisit: mocks.recordVisit }
+}));
+vi.mock('$lib/stores/mini-shell.svelte', () => ({
+	miniShellStore: {
+		requestNewSession: mocks.requestNewSession,
+		clearNewSessionRequest: mocks.clearNewSessionRequest
+	}
 }));
 
 import {
@@ -91,13 +99,32 @@ describe('mini window sessions', () => {
 		expect(window.electronAPI?.saveMiniWindowState).toHaveBeenCalledWith({
 			sessionId: 'mini-session'
 		});
+		expect(mocks.requestNewSession).toHaveBeenCalledWith('mini-session');
 		expect(mocks.goto).toHaveBeenCalledWith('/mini/session/mini-session');
+	});
+
+	it('clears the matching loading request when navigation fails', async () => {
+		mocks.goto.mockRejectedValueOnce(new Error('navigation failed'));
+
+		await expect(createMiniWindowSession()).rejects.toThrow('navigation failed');
+
+		expect(mocks.clearNewSessionRequest).toHaveBeenCalledWith('mini-session');
 	});
 
 	it('reuses a preferred session from another workspace', async () => {
 		await expect(ensureMiniWindowSession('mini-session')).resolves.toBe('mini-session');
 
 		expect(mocks.listAllSessions).toHaveBeenCalledOnce();
+		expect(mocks.createNewSession).not.toHaveBeenCalled();
+	});
+
+	it('does not create a replacement for a missing preferred session', async () => {
+		mocks.listAllSessions.mockResolvedValue({ sessions: [] });
+
+		await expect(ensureMiniWindowSession('missing-session')).rejects.toThrow(
+			'This chat no longer exists.'
+		);
+
 		expect(mocks.createNewSession).not.toHaveBeenCalled();
 	});
 });

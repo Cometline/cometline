@@ -10,6 +10,8 @@
 	} from '$lib/actions/activate-after-session-deleted';
 	import { sessionStore } from '$lib/stores/session.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
+	import { settingsStore } from '$lib/stores/settings.svelte';
+	import { terminalStore } from '$lib/stores/terminal.svelte';
 	import { sessionDisplayTitle } from '$lib/sessions/session-title';
 	import {
 		layoutSessionsForSidebar,
@@ -19,6 +21,7 @@
 	} from '$lib/sessions/group-by-workspace';
 	import SidebarSearch from '$lib/components/sidebar/SidebarSearch.svelte';
 	import SessionRow from '$lib/components/sidebar/SessionRow.svelte';
+	import ConfirmActionModal from '$lib/components/ConfirmActionModal.svelte';
 	import Tooltip from '$lib/components/Tooltip.svelte';
 
 	const WORKSPACE_GROUP_FLIP = { duration: 240 };
@@ -38,6 +41,8 @@
 	let collapsedGroups = $state<Record<string, boolean>>({});
 	let deletingID = $state<string | null>(null);
 	let pinningID = $state<string | null>(null);
+	let pendingDelete = $state<Session | null>(null);
+	let terminalDeleteSession = $state<Session | null>(null);
 	let filteredSessions = $derived.by(() => {
 		const query = searchQuery.trim().toLowerCase();
 		if (!query) return sessionStore.sessions;
@@ -84,12 +89,45 @@
 	}
 
 	async function removeSession(session: Session) {
-		if (!window.confirm(`Delete ${session.title || 'this chat'}?`)) return;
+		if (terminalStore.isRunning(session.id)) {
+			terminalDeleteSession = session;
+			return;
+		}
+		if (terminalStore.hasTerminal(session.id)) await terminalStore.remove(session.id);
+		if (settingsStore.settings.app.confirmBeforeDeletingChats) {
+			pendingDelete = session;
+			return;
+		}
+		await deleteSelectedSession(session);
+	}
+
+	async function confirmTerminalDelete() {
+		const session = terminalDeleteSession;
+		if (!session) return;
+		terminalDeleteSession = null;
+		await terminalStore.remove(session.id);
+		await deleteSelectedSession(session);
+	}
+
+	async function confirmDelete() {
+		if (!pendingDelete) return;
+		const session = pendingDelete;
+		pendingDelete = null;
+		await deleteSelectedSession(session);
+	}
+
+	async function alwaysDeleteWithoutConfirm() {
+		void settingsStore.saveConfirmBeforeDeletingChats(false).catch(() => {});
+		await confirmDelete();
+	}
+
+	async function deleteSelectedSession(session: Session) {
 		deletingID = session.id;
 		try {
 			const wasCurrent = sessionStore.current?.id === session.id;
 			const before = sessionsSnapshot();
 			await deleteSession(session.id);
+			shellStore.clearWorkspacePanelForSession(session.id);
 			sessionStore.removeSession(session.id);
 			if (wasCurrent) {
 				onClose();
@@ -160,6 +198,26 @@
 			<p class="session-empty">{searchQuery.trim() ? 'No chats match your search' : 'No chats yet'}</p>
 		{/if}
 	</div>
+
+	<ConfirmActionModal
+		open={Boolean(pendingDelete)}
+		title={`Delete "${pendingDelete ? sessionDisplayTitle(pendingDelete.title) : ''}"?`}
+		description="This cannot be undone."
+		confirmLabel="Delete"
+		secondaryLabel="Don't ask again"
+		onSecondary={() => void alwaysDeleteWithoutConfirm()}
+		onCancel={() => (pendingDelete = null)}
+		onConfirm={() => void confirmDelete()}
+	/>
+
+	<ConfirmActionModal
+		open={Boolean(terminalDeleteSession)}
+		title="Delete chat?"
+		description="This will terminate this chat's terminal and every program started from it. This cannot be undone."
+		confirmLabel="Delete chat"
+		onCancel={() => (terminalDeleteSession = null)}
+		onConfirm={() => void confirmTerminalDelete()}
+	/>
 </aside>
 
 <style>
