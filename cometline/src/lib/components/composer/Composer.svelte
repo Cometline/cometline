@@ -46,8 +46,7 @@
 		streaming = false,
 		queuedCount = 0,
 		queuedMessages = [],
-		variant = 'dock',
-		autofocus = true
+		variant = 'dock'
 	}: {
 		onSend: (payload: ChatTurnPayload | string) => void;
 		onStop?: () => void;
@@ -61,7 +60,6 @@
 		queuedCount?: number;
 		queuedMessages?: QueuedMessage[];
 		variant?: 'hero' | 'dock';
-		autofocus?: boolean;
 	} = $props();
 
 	let value = $state('');
@@ -286,12 +284,6 @@
 	function cycleAgentMode() {
 		void setAgentMode(agentMode === 'plan' ? 'auto' : 'plan');
 	}
-
-	$effect(() => {
-		if (!autofocus || shellStore.focusedPane !== 'chat') return;
-		void sessionId;
-		void focusInput();
-	});
 
 	$effect(() => {
 		if (historyIndex !== null && historyAppliedText !== null && value !== historyAppliedText) {

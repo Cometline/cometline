@@ -35,5 +35,6 @@ export function navigateToSession(session: Session, options: NavigateToSessionOp
 		sessionVisitHistory.recordVisit(session.id);
 	}
 
+	shellStore.requestComposerFocus(session.id);
 	void goto(`/session/${session.id}`);
 }

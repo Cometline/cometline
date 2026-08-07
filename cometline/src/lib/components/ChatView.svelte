@@ -157,7 +157,7 @@
 
 	let composerVariant = $derived(chatView.composerVariant);
 	let heroLayout = $derived(chatView.heroLayout);
-	let composerFocusRequestId = $derived(shellStore.composerFocusRequestId);
+	let composerFocusRequest = $derived(shellStore.composerFocusRequest);
 
 	function startFlight() {
 		flightAbortController?.abort();
@@ -223,6 +223,11 @@
 		if (activationRun !== run || sessionId !== id) return;
 		conversation.onMount();
 		if (shellStore.focusedPane !== 'chat') return;
+		if (composerFocusRequest.sessionId !== id) {
+			shellStore.requestComposerFocus(id);
+		}
+		// The request effect can run before this session finishes binding. Retry
+		// after activation so a main-window route switch always reaches its composer.
 		composerRef?.focus();
 	}
 
@@ -245,7 +250,12 @@
 	});
 
 	$effect(() => {
-		if (!composerFocusRequestId || shellStore.focusedPane !== 'chat') return;
+		if (
+			!composerFocusRequest.id ||
+			composerFocusRequest.sessionId !== sessionId ||
+			shellStore.focusedPane !== 'chat'
+		)
+			return;
 		composerRef?.focus();
 	});
 
@@ -296,7 +306,7 @@
 	function onWindowFocus() {
 		if (!compact) return;
 		if (shellStore.focusedPane !== 'chat') return;
-		composerRef?.focus();
+		shellStore.requestComposerFocus(sessionId);
 	}
 
 	function revertModelSelection() {

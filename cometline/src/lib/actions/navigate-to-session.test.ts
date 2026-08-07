@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
 	setActiveWorkspacePath: vi.fn(),
 	setSidebarOrderWorkspacePath: vi.fn(),
 	setSidebarOrderDiscordActive: vi.fn(),
+	requestComposerFocus: vi.fn(),
 	recordVisit: vi.fn()
 }));
 
@@ -23,7 +24,8 @@ vi.mock('$lib/stores/shell.svelte', () => ({
 		workspacePath: '/ws-a',
 		setActiveWorkspacePath: mocks.setActiveWorkspacePath,
 		setSidebarOrderWorkspacePath: mocks.setSidebarOrderWorkspacePath,
-		setSidebarOrderDiscordActive: mocks.setSidebarOrderDiscordActive
+		setSidebarOrderDiscordActive: mocks.setSidebarOrderDiscordActive,
+		requestComposerFocus: mocks.requestComposerFocus
 	}
 }));
 vi.mock('$lib/stores/session-visit-history.svelte', () => ({
@@ -93,6 +95,15 @@ describe('navigateToSession sidebar order', () => {
 		expect(mocks.setActiveWorkspacePath).toHaveBeenCalledWith('/ws-b');
 		expect(electronSetWorkspacePath).not.toHaveBeenCalled();
 		expect(mocks.goto).toHaveBeenCalledWith('/session/sess-1');
+	});
+
+	it('requests composer focus for the destination before navigation', () => {
+		navigateToSession(session());
+
+		expect(mocks.requestComposerFocus).toHaveBeenCalledWith('sess-1');
+		expect(mocks.requestComposerFocus.mock.invocationCallOrder[0]).toBeLessThan(
+			mocks.goto.mock.invocationCallOrder[0]
+		);
 	});
 
 	it('does not persist workspace to Electron when switching sessions', () => {

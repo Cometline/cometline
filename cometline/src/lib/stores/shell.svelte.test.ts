@@ -61,6 +61,31 @@ describe('shellStore default vs active workspace', () => {
 	});
 });
 
+describe('shellStore composer focus requests', () => {
+	beforeEach(() => {
+		getActiveSessionId.mockReturnValue('active-session');
+	});
+
+	it('targets the requested session and activates the chat pane', () => {
+		const before = shellStore.composerFocusRequest.id;
+		shellStore.setFocusedPane('web');
+
+		shellStore.requestComposerFocus('target-session');
+
+		expect(shellStore.composerFocusRequest).toEqual({
+			id: before + 1,
+			sessionId: 'target-session'
+		});
+		expect(shellStore.focusedPane).toBe('chat');
+	});
+
+	it('defaults the target to the active session', () => {
+		shellStore.requestComposerFocus();
+
+		expect(shellStore.composerFocusRequest.sessionId).toBe('active-session');
+	});
+});
+
 describe('shellStore workspace panel focus behavior', () => {
 	beforeEach(() => {
 		vi.stubGlobal('window', { electronAPI: undefined });

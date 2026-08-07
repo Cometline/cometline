@@ -52,6 +52,11 @@ export type SessionWorkspacePanel =
 
 export type FocusedPane = 'chat' | 'web' | 'terminal';
 
+export type ComposerFocusRequest = {
+	id: number;
+	sessionId: string | null;
+};
+
 /** A page selected for the next turn whose body has not been read yet. */
 export type PendingPageContext = {
 	kind: 'page';
@@ -155,7 +160,7 @@ function createShellStore() {
 	let terminalFocusRequestId = $state(0);
 	/** Last focus target while the web slot is open: filter vs web address. */
 	let lastWorkspacePanelFocusTarget = $state<'filter' | 'address'>('filter');
-	let composerFocusRequestId = $state(0);
+	let composerFocusRequest = $state<ComposerFocusRequest>({ id: 0, sessionId: null });
 	let sessionFindRequestId = $state(0);
 
 	function activeSessionId(): string | null {
@@ -633,8 +638,8 @@ function createShellStore() {
 		get terminalFocusRequestId() {
 			return terminalFocusRequestId;
 		},
-		get composerFocusRequestId() {
-			return composerFocusRequestId;
+		get composerFocusRequest() {
+			return composerFocusRequest;
 		},
 		get sessionFindRequestId() {
 			return sessionFindRequestId;
@@ -865,9 +870,9 @@ function createShellStore() {
 			delete next[key];
 			webContextsBySession = next;
 		},
-		requestComposerFocus() {
+		requestComposerFocus(sessionId = activeSessionId()) {
 			focusedPane = 'chat';
-			composerFocusRequestId += 1;
+			composerFocusRequest = { id: composerFocusRequest.id + 1, sessionId };
 		},
 		requestSessionFind() {
 			focusedPane = 'chat';

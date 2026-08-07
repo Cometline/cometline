@@ -13,13 +13,18 @@
 	import { FolderOpen } from '@lucide/svelte';
 
 	let composerRef = $state<{ focus: () => void } | null>(null);
-	let composerFocusRequestId = $derived(shellStore.composerFocusRequestId);
+	let composerFocusRequest = $derived(shellStore.composerFocusRequest);
 	let bootMessage = $derived(shellStore.bootMessage);
 	let bootstrapError = $state<string | null>(null);
 	let bootstrapping = $state(false);
 
 	$effect(() => {
-		if (!composerFocusRequestId || shellStore.focusedPane !== 'chat') return;
+		if (
+			!composerFocusRequest.id ||
+			composerFocusRequest.sessionId !== null ||
+			shellStore.focusedPane !== 'chat'
+		)
+			return;
 		composerRef?.focus();
 	});
 

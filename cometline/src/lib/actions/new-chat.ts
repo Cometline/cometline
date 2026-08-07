@@ -1,6 +1,7 @@
 import { goto } from '$app/navigation';
 import { chatStore } from '$lib/stores/chat.svelte';
 import { sessionStore } from '$lib/stores/session.svelte';
+import { shellStore } from '$lib/stores/shell.svelte';
 import { createNewSession } from '$lib/actions/create-new-session';
 
 /** Create and open a persisted session, same as the sidebar New Chat controls. */
@@ -28,5 +29,6 @@ export async function startNewChat() {
 	// the current turn queue can keep draining without the old view staying active.
 	chatStore.detachActiveSession();
 	const session = await createNewSession();
+	shellStore.requestComposerFocus(session.id);
 	await goto(`/session/${session.id}`);
 }
