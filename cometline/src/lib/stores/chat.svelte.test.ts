@@ -25,6 +25,7 @@ vi.mock('$lib/actions/create-new-session', () => ({ createNewSession }));
 import { getSessionMessages, listChildSessions, streamMessage } from '$lib/client/cometmind';
 import { chatStore, revealRemoteUserItems } from './chat.svelte';
 import { sessionStore } from './session.svelte';
+import { unreadSessionOutputStore } from './unread-session-output.svelte';
 import { startNewChat } from '$lib/actions/new-chat';
 
 async function flushAnimationFrames() {
@@ -175,6 +176,34 @@ describe('chatStore session switching', () => {
 
 		releaseA!();
 		await vi.waitFor(() => expect(chatStore.isStreamingFor('sess-a')).toBe(false));
+	});
+
+	it('marks background stream output unread until its session is opened', async () => {
+		let releaseA: (() => void) | undefined;
+		const aGate = new Promise<void>((resolve) => {
+			releaseA = resolve;
+		});
+
+		vi.mocked(streamMessage).mockImplementation(async function* (sessionId) {
+			if (sessionId === 'sess-a') {
+				await aGate;
+				yield { type: 'text_delta', delta: 'background answer' };
+				yield { type: 'done' };
+			}
+		});
+
+		chatStore.bindSession('sess-a');
+		const sendA = chatStore.send('sess-a', 'question A');
+		await vi.waitFor(() => expect(chatStore.isStreamingFor('sess-a')).toBe(true));
+
+		chatStore.bindSession('sess-b');
+		releaseA!();
+		await sendA;
+
+		expect(unreadSessionOutputStore.isUnread('sess-a')).toBe(true);
+
+		chatStore.bindSession('sess-a');
+		expect(unreadSessionOutputStore.isUnread('sess-a')).toBe(false);
 	});
 
 	it('allows concurrent sends in different sessions', async () => {

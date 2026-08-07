@@ -19,6 +19,7 @@ import { playResponseCompleteSound } from '$lib/sound/response-complete';
 import { settingsStore } from '$lib/stores/settings.svelte';
 import { publishWindowSync, subscribeWindowSync } from '$lib/window-sync';
 import { homeRouteFor } from '$lib/routes/session-route';
+import { unreadSessionOutputStore } from '$lib/stores/unread-session-output.svelte';
 
 import { itemsFromTranscript, localID, mergeSubagents } from '$lib/stores/chat-transcript';
 import {
@@ -252,7 +253,10 @@ function createChatStore() {
 	}
 
 	function bindSession(nextSessionID: string) {
-		if (sessionID === nextSessionID) return;
+		if (sessionID === nextSessionID) {
+			unreadSessionOutputStore.markRead(nextSessionID);
+			return;
+		}
 
 		if (sessionID) {
 			const handle = streamHandles.get(sessionID);
@@ -270,6 +274,7 @@ function createChatStore() {
 		error = sessionErrors.get(nextSessionID) ?? '';
 		contextBudget = sessionContextBudgets.get(nextSessionID) ?? null;
 		isLoading = false;
+		unreadSessionOutputStore.markRead(nextSessionID);
 	}
 
 	async function loadTranscript(nextSessionID: string) {
@@ -473,6 +478,9 @@ function createChatStore() {
 			contextBudget = reduced.contextBudget;
 		}
 		writeSessionItems(targetSessionID, reduced.items);
+		if (event.type !== 'done' && sessionID !== targetSessionID) {
+			unreadSessionOutputStore.markUnread(targetSessionID);
+		}
 	}
 
 	function flushBatchForSession(targetSessionID: string, ctx: StreamCtx, handle: SessionStream) {
@@ -798,6 +806,12 @@ function createChatStore() {
 			}
 			if (message.type === 'chat-streaming') {
 				setRemoteStreamingState(message.sessionId, message.streaming);
+				return;
+			}
+			if (message.type === 'session-output-unread' && message.unread && sessionID === message.sessionId) {
+				// Another window generated output while this window is already showing
+				// the session, so keep the shared marker cleared.
+				unreadSessionOutputStore.markRead(message.sessionId);
 			}
 		});
 	}
