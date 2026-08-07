@@ -79,6 +79,7 @@ export async function navigateMiniToSession(session: Session) {
 	shellStore.setSidebarOrderDiscordActive(isDiscordSession(session));
 	sessionVisitHistory.recordVisit(session.id);
 	await window.electronAPI?.saveMiniWindowState?.({ sessionId: session.id });
+	shellStore.requestComposerFocus(session.id);
 	await goto(`/mini/session/${session.id}`);
 }
 
@@ -86,6 +87,7 @@ export async function navigateMiniToSession(session: Session) {
 export async function createMiniWindowSession() {
 	const session = await createNewSession();
 	await window.electronAPI?.saveMiniWindowState?.({ sessionId: session.id });
+	shellStore.requestComposerFocus(session.id);
 	await goto(`/mini/session/${session.id}`);
 	return session;
 }

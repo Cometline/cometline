@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
 	setActiveWorkspacePath: vi.fn(),
 	setSidebarOrderWorkspacePath: vi.fn(),
 	setSidebarOrderDiscordActive: vi.fn(),
+	requestComposerFocus: vi.fn(),
 	recordVisit: vi.fn()
 }));
 
@@ -31,7 +32,8 @@ vi.mock('$lib/stores/shell.svelte', () => ({
 		workspacePath: '/current-workspace',
 		setActiveWorkspacePath: mocks.setActiveWorkspacePath,
 		setSidebarOrderWorkspacePath: mocks.setSidebarOrderWorkspacePath,
-		setSidebarOrderDiscordActive: mocks.setSidebarOrderDiscordActive
+		setSidebarOrderDiscordActive: mocks.setSidebarOrderDiscordActive,
+		requestComposerFocus: mocks.requestComposerFocus
 	}
 }));
 vi.mock('$lib/stores/session-visit-history.svelte', () => ({
@@ -82,6 +84,10 @@ describe('mini window sessions', () => {
 			sessionId: 'mini-session'
 		});
 		expect(mocks.goto).toHaveBeenCalledWith('/mini/session/mini-session');
+		expect(mocks.requestComposerFocus).toHaveBeenCalledWith('mini-session');
+		expect(mocks.requestComposerFocus.mock.invocationCallOrder[0]).toBeLessThan(
+			mocks.goto.mock.invocationCallOrder[0]
+		);
 	});
 
 	it('creates a default-model session and opens it in the mini route', async () => {
@@ -92,6 +98,10 @@ describe('mini window sessions', () => {
 			sessionId: 'mini-session'
 		});
 		expect(mocks.goto).toHaveBeenCalledWith('/mini/session/mini-session');
+		expect(mocks.requestComposerFocus).toHaveBeenCalledWith('mini-session');
+		expect(mocks.requestComposerFocus.mock.invocationCallOrder[0]).toBeLessThan(
+			mocks.goto.mock.invocationCallOrder[0]
+		);
 	});
 
 	it('reuses a preferred session from another workspace', async () => {
