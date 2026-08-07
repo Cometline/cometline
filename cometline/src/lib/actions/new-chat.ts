@@ -29,6 +29,6 @@ export async function startNewChat() {
 	// the current turn queue can keep draining without the old view staying active.
 	chatStore.detachActiveSession();
 	const session = await createNewSession();
-	shellStore.requestComposerFocus(session.id);
 	await goto(`/session/${session.id}`);
+	shellStore.requestComposerFocus(session.id);
 }

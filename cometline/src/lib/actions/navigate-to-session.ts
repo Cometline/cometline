@@ -14,7 +14,7 @@ export interface NavigateToSessionOptions {
 }
 
 /** Activate a session; composer follows the session workspace immediately. */
-export function navigateToSession(session: Session, options: NavigateToSessionOptions = {}) {
+export async function navigateToSession(session: Session, options: NavigateToSessionOptions = {}) {
 	const commitSidebarOrder = options.commitSidebarOrder ?? !session.pinned;
 
 	sessionStore.selectSession(session);
@@ -35,6 +35,6 @@ export function navigateToSession(session: Session, options: NavigateToSessionOp
 		sessionVisitHistory.recordVisit(session.id);
 	}
 
+	await goto(`/session/${session.id}`);
 	shellStore.requestComposerFocus(session.id);
-	void goto(`/session/${session.id}`);
 }

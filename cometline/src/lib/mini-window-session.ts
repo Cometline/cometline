@@ -83,8 +83,8 @@ export async function navigateMiniToSession(session: Session) {
 	shellStore.setSidebarOrderDiscordActive(isDiscordSession(session));
 	sessionVisitHistory.recordVisit(session.id);
 	await window.electronAPI?.saveMiniWindowState?.({ sessionId: session.id });
-	shellStore.requestComposerFocus(session.id);
 	await goto(`/mini/session/${session.id}`);
+	shellStore.requestComposerFocus(session.id);
 }
 
 /** Create and open a persisted mini-window session using the configured default model. */
@@ -95,8 +95,8 @@ export async function createMiniWindowSession() {
 		createdSessionId = session.id;
 		await window.electronAPI?.saveMiniWindowState?.({ sessionId: session.id });
 		miniShellStore.requestNewSession(session.id);
-		shellStore.requestComposerFocus(session.id);
 		await goto(`/mini/session/${session.id}`);
+		shellStore.requestComposerFocus(session.id);
 		return session;
 	} catch (error) {
 		miniShellStore.clearNewSessionRequest(createdSessionId);

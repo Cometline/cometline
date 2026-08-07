@@ -92,6 +92,10 @@ describe('mini window sessions', () => {
 			sessionId: 'mini-session'
 		});
 		expect(mocks.goto).toHaveBeenCalledWith('/mini/session/mini-session');
+		expect(mocks.requestComposerFocus).toHaveBeenCalledWith('mini-session');
+		expect(mocks.goto.mock.invocationCallOrder[0]).toBeLessThan(
+			mocks.requestComposerFocus.mock.invocationCallOrder[0]
+		);
 	});
 
 	it('creates a default-model session and opens it in the mini route', async () => {
@@ -104,8 +108,8 @@ describe('mini window sessions', () => {
 		expect(mocks.requestNewSession).toHaveBeenCalledWith('mini-session');
 		expect(mocks.requestComposerFocus).toHaveBeenCalledWith('mini-session');
 		expect(mocks.goto).toHaveBeenCalledWith('/mini/session/mini-session');
-		expect(mocks.requestComposerFocus.mock.invocationCallOrder[0]).toBeLessThan(
-			mocks.goto.mock.invocationCallOrder[0]
+		expect(mocks.goto.mock.invocationCallOrder[0]).toBeLessThan(
+			mocks.requestComposerFocus.mock.invocationCallOrder[0]
 		);
 	});
 
