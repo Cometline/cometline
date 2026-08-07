@@ -2,6 +2,7 @@ import { goto } from '$app/navigation';
 import { createSession, listAllSessions } from '$lib/client/cometmind';
 import { createNewSession } from '$lib/actions/create-new-session';
 import { modelStore } from '$lib/stores/model.svelte';
+import { miniShellStore } from '$lib/stores/mini-shell.svelte';
 import { sessionStore } from '$lib/stores/session.svelte';
 import { settingsStore } from '$lib/stores/settings.svelte';
 import { shellStore } from '$lib/stores/shell.svelte';
@@ -53,6 +54,9 @@ export async function ensureMiniWindowSession(preferredSessionId = '') {
 			}
 			return session.id;
 		}
+		if (preferredSessionId) {
+			throw new Error('This chat no longer exists.');
+		}
 	}
 
 	const selected = await resolveSelectedModel();
@@ -85,9 +89,16 @@ export async function navigateMiniToSession(session: Session) {
 
 /** Create and open a persisted mini-window session using the configured default model. */
 export async function createMiniWindowSession() {
-	const session = await createNewSession();
-	await window.electronAPI?.saveMiniWindowState?.({ sessionId: session.id });
-	shellStore.requestComposerFocus(session.id);
-	await goto(`/mini/session/${session.id}`);
-	return session;
+	let createdSessionId = '';
+	try {
+		const session = await createNewSession();
+		createdSessionId = session.id;
+		await window.electronAPI?.saveMiniWindowState?.({ sessionId: session.id });
+		miniShellStore.requestNewSession(session.id);
+		await goto(`/mini/session/${session.id}`);
+		return session;
+	} catch (error) {
+		miniShellStore.clearNewSessionRequest(createdSessionId);
+		throw error;
+	}
 }
