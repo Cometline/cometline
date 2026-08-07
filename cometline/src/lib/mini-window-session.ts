@@ -95,6 +95,7 @@ export async function createMiniWindowSession() {
 		createdSessionId = session.id;
 		await window.electronAPI?.saveMiniWindowState?.({ sessionId: session.id });
 		miniShellStore.requestNewSession(session.id);
+		shellStore.requestComposerFocus(session.id);
 		await goto(`/mini/session/${session.id}`);
 		return session;
 	} catch (error) {

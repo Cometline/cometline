@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
 	setActiveWorkspacePath: vi.fn(),
 	setSidebarOrderWorkspacePath: vi.fn(),
 	setSidebarOrderDiscordActive: vi.fn(),
+	requestComposerFocus: vi.fn(),
 	recordVisit: vi.fn(),
 	requestNewSession: vi.fn(),
 	clearNewSessionRequest: vi.fn()
@@ -34,6 +35,7 @@ vi.mock('$lib/stores/shell.svelte', () => ({
 		setActiveWorkspacePath: mocks.setActiveWorkspacePath,
 		setSidebarOrderWorkspacePath: mocks.setSidebarOrderWorkspacePath,
 		setSidebarOrderDiscordActive: mocks.setSidebarOrderDiscordActive,
+		requestComposerFocus: mocks.requestComposerFocus,
 	}
 }));
 vi.mock('$lib/stores/session-visit-history.svelte', () => ({
@@ -100,7 +102,11 @@ describe('mini window sessions', () => {
 			sessionId: 'mini-session'
 		});
 		expect(mocks.requestNewSession).toHaveBeenCalledWith('mini-session');
+		expect(mocks.requestComposerFocus).toHaveBeenCalledWith('mini-session');
 		expect(mocks.goto).toHaveBeenCalledWith('/mini/session/mini-session');
+		expect(mocks.requestComposerFocus.mock.invocationCallOrder[0]).toBeLessThan(
+			mocks.goto.mock.invocationCallOrder[0]
+		);
 	});
 
 	it('clears the matching loading request when navigation fails', async () => {
