@@ -32,14 +32,14 @@ describe('startNewChat', () => {
 		mocks.createNewSession.mockResolvedValue({ id: 'new-session' });
 	});
 
-	it('targets the new session composer before navigating', async () => {
+	it('targets the new session composer after navigating', async () => {
 		await startNewChat();
 
 		expect(mocks.detachActiveSession).toHaveBeenCalledOnce();
 		expect(mocks.requestComposerFocus).toHaveBeenCalledWith('new-session');
 		expect(mocks.goto).toHaveBeenCalledWith('/session/new-session');
-		expect(mocks.requestComposerFocus.mock.invocationCallOrder[0]).toBeLessThan(
-			mocks.goto.mock.invocationCallOrder[0]
+		expect(mocks.goto.mock.invocationCallOrder[0]).toBeLessThan(
+			mocks.requestComposerFocus.mock.invocationCallOrder[0]
 		);
 	});
 });

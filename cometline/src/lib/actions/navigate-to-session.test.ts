@@ -66,29 +66,29 @@ describe('navigateToSession sidebar order', () => {
 		vi.stubGlobal('window', { electronAPI: { setWorkspacePath: electronSetWorkspacePath } });
 	});
 
-	it('commits sidebar order for unpinned sessions by default', () => {
-		navigateToSession(session());
+	it('commits sidebar order for unpinned sessions by default', async () => {
+		await navigateToSession(session());
 
 		expect(mocks.setSidebarOrderWorkspacePath).toHaveBeenCalledWith('/ws-b');
 		expect(mocks.setSidebarOrderDiscordActive).toHaveBeenCalledWith(false);
 	});
 
-	it('does not commit sidebar order for pinned sessions by default', () => {
-		navigateToSession(session({ pinned: true }));
+	it('does not commit sidebar order for pinned sessions by default', async () => {
+		await navigateToSession(session({ pinned: true }));
 
 		expect(mocks.setSidebarOrderWorkspacePath).not.toHaveBeenCalled();
 		expect(mocks.setSidebarOrderDiscordActive).not.toHaveBeenCalled();
 	});
 
-	it('allows explicit commitSidebarOrder override for pinned sessions', () => {
-		navigateToSession(session({ pinned: true }), { commitSidebarOrder: true });
+	it('allows explicit commitSidebarOrder override for pinned sessions', async () => {
+		await navigateToSession(session({ pinned: true }), { commitSidebarOrder: true });
 
 		expect(mocks.setSidebarOrderWorkspacePath).toHaveBeenCalledWith('/ws-b');
 		expect(mocks.setSidebarOrderDiscordActive).toHaveBeenCalledWith(false);
 	});
 
-	it('still opens the session and updates active workspace when pinned', () => {
-		navigateToSession(session({ pinned: true }));
+	it('still opens the session and updates active workspace when pinned', async () => {
+		await navigateToSession(session({ pinned: true }));
 
 		expect(mocks.selectSession).toHaveBeenCalled();
 		expect(mocks.selectFromSession).toHaveBeenCalled();
@@ -97,29 +97,29 @@ describe('navigateToSession sidebar order', () => {
 		expect(mocks.goto).toHaveBeenCalledWith('/session/sess-1');
 	});
 
-	it('requests composer focus for the destination before navigation', () => {
-		navigateToSession(session());
+	it('requests composer focus for the destination after navigation', async () => {
+		await navigateToSession(session());
 
 		expect(mocks.requestComposerFocus).toHaveBeenCalledWith('sess-1');
-		expect(mocks.requestComposerFocus.mock.invocationCallOrder[0]).toBeLessThan(
-			mocks.goto.mock.invocationCallOrder[0]
+		expect(mocks.goto.mock.invocationCallOrder[0]).toBeLessThan(
+			mocks.requestComposerFocus.mock.invocationCallOrder[0]
 		);
 	});
 
-	it('does not persist workspace to Electron when switching sessions', () => {
-		navigateToSession(session());
+	it('does not persist workspace to Electron when switching sessions', async () => {
+		await navigateToSession(session());
 
 		expect(mocks.setActiveWorkspacePath).toHaveBeenCalledWith('/ws-b');
 		expect(electronSetWorkspacePath).not.toHaveBeenCalled();
 	});
 
-	it('records a visit for normal navigation', () => {
-		navigateToSession(session());
+	it('records a visit for normal navigation', async () => {
+		await navigateToSession(session());
 		expect(mocks.recordVisit).toHaveBeenCalledWith('sess-1');
 	});
 
-	it('skips visit recording when navigating from history', () => {
-		navigateToSession(session(), { fromHistory: true });
+	it('skips visit recording when navigating from history', async () => {
+		await navigateToSession(session(), { fromHistory: true });
 		expect(mocks.recordVisit).not.toHaveBeenCalled();
 	});
 });
