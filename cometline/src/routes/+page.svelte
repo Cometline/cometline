@@ -41,6 +41,7 @@
 		const tryBootstrap = () => {
 			if (cancelled || attempted || bootstrapping) return;
 			if (connectionState.status !== 'ready') return;
+			if (!sessionStore.loaded) return;
 			const workspace = shellStore.defaultWorkspacePath || shellStore.workspacePath;
 			if (!workspace || workspace === '/') return;
 

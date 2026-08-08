@@ -16,6 +16,7 @@ export interface PendingMessage {
 
 function createSessionStore() {
 	let sessions = $state<Session[]>([]);
+	let loaded = $state(false);
 	let current = $state<Session | null>(null);
 	let pendingMessages = $state.raw(new Map<string, Omit<PendingMessage, 'sessionId'>>());
 
@@ -44,6 +45,7 @@ function createSessionStore() {
 
 	function setSessions(list: Session[]) {
 		sessions = list;
+		loaded = true;
 		unreadSessionOutputStore.prune(list.map((session) => session.id));
 		if (current && !list.some((session) => session.id === current?.id)) {
 			current = null;
@@ -124,6 +126,9 @@ function createSessionStore() {
 	return {
 		get sessions() {
 			return sessions;
+		},
+		get loaded() {
+			return loaded;
 		},
 		get current() {
 			return current;

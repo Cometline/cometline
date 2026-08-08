@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
 	setSidebarOrderWorkspacePath: vi.fn(),
 	setSidebarOrderDiscordActive: vi.fn(),
 	requestComposerFocus: vi.fn(),
+	markActive: vi.fn(),
 	recordVisit: vi.fn()
 }));
 
@@ -29,7 +30,7 @@ vi.mock('$lib/stores/shell.svelte', () => ({
 	}
 }));
 vi.mock('$lib/stores/session-visit-history.svelte', () => ({
-	sessionVisitHistory: { recordVisit: mocks.recordVisit }
+	sessionVisitHistory: { markActive: mocks.markActive, recordVisit: mocks.recordVisit }
 }));
 
 import { navigateToSession } from './navigate-to-session';
@@ -121,5 +122,6 @@ describe('navigateToSession sidebar order', () => {
 	it('skips visit recording when navigating from history', async () => {
 		await navigateToSession(session(), { fromHistory: true });
 		expect(mocks.recordVisit).not.toHaveBeenCalled();
+		expect(mocks.markActive).toHaveBeenCalledWith('sess-1');
 	});
 });

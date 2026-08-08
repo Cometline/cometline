@@ -33,6 +33,9 @@ export async function navigateToSession(session: Session, options: NavigateToSes
 
 	if (!options.fromHistory) {
 		sessionVisitHistory.recordVisit(session.id);
+	} else {
+		// Keep the back/forward stack intact while restoring this session on relaunch.
+		sessionVisitHistory.markActive(session.id);
 	}
 
 	await goto(`/session/${session.id}`);
