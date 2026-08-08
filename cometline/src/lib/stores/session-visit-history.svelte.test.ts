@@ -1,9 +1,30 @@
-import { beforeEach, describe, expect, it } from 'vitest';
-import { sessionVisitHistory } from './session-visit-history.svelte';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+	LAST_VISITED_SESSION_STORAGE_KEY,
+	sessionVisitHistory
+} from './session-visit-history.svelte';
 
 describe('sessionVisitHistory', () => {
+	let stored: Record<string, string>;
+
 	beforeEach(() => {
+		stored = {};
+		vi.stubGlobal('window', {
+			localStorage: {
+				getItem: (key: string) => stored[key] ?? null,
+				setItem: (key: string, value: string) => {
+					stored[key] = value;
+				},
+				removeItem: (key: string) => {
+					delete stored[key];
+				}
+			}
+		});
 		sessionVisitHistory.reset();
+	});
+
+	afterEach(() => {
+		vi.unstubAllGlobals();
 	});
 
 	it('records visits and truncates the forward stack', () => {
@@ -61,5 +82,31 @@ describe('sessionVisitHistory', () => {
 		expect(sessionVisitHistory.mostRecent(exists)).toBe('a');
 		expect(sessionVisitHistory.stack).toEqual(['a', 'gone']);
 		expect(sessionVisitHistory.index).toBe(1);
+	});
+
+	it('restores the last visit from browser storage after a restart', () => {
+		sessionVisitHistory.recordVisit('persisted');
+		expect(stored[LAST_VISITED_SESSION_STORAGE_KEY]).toBe('persisted');
+
+		sessionVisitHistory.reset();
+		expect(sessionVisitHistory.mostRecent((id) => id === 'persisted')).toBe('persisted');
+	});
+
+	it('persists history navigation without changing the visit stack', () => {
+		sessionVisitHistory.recordVisit('a');
+		sessionVisitHistory.recordVisit('b');
+		expect(sessionVisitHistory.goBack(() => true)).toBe('a');
+
+		sessionVisitHistory.markActive('a');
+		expect(sessionVisitHistory.stack).toEqual(['a', 'b']);
+		expect(sessionVisitHistory.index).toBe(0);
+		expect(stored[LAST_VISITED_SESSION_STORAGE_KEY]).toBe('a');
+	});
+
+	it('clears a stale persisted visit', () => {
+		stored[LAST_VISITED_SESSION_STORAGE_KEY] = 'gone';
+
+		expect(sessionVisitHistory.mostRecent(() => false)).toBeNull();
+		expect(stored[LAST_VISITED_SESSION_STORAGE_KEY]).toBeUndefined();
 	});
 });
