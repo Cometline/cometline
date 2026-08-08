@@ -42,7 +42,7 @@ INSERT INTO sessions (
     agent_mode
 )
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, workspace_id, title, model_id, provider_id, status, origin, token_usage, parent_session_id, purpose, delegation_status, output_summary, acp_session_id, pending_question, subagent_kind, agent_mode, pinned, context_summary, compacted_until_message_id, context_summary_updated_at, created_at, updated_at
+RETURNING id, workspace_id, title, model_id, provider_id, status, origin, is_disposable, token_usage, parent_session_id, purpose, delegation_status, output_summary, acp_session_id, pending_question, subagent_kind, agent_mode, pinned, context_summary, compacted_until_message_id, context_summary_updated_at, created_at, updated_at
 `
 
 type CreateChildSessionParams struct {
@@ -84,6 +84,7 @@ func (q *Queries) CreateChildSession(ctx context.Context, arg CreateChildSession
 		&i.ProviderID,
 		&i.Status,
 		&i.Origin,
+		&i.IsDisposable,
 		&i.TokenUsage,
 		&i.ParentSessionID,
 		&i.Purpose,
@@ -106,7 +107,7 @@ func (q *Queries) CreateChildSession(ctx context.Context, arg CreateChildSession
 const createSession = `-- name: CreateSession :one
 INSERT INTO sessions (id, workspace_id, title, model_id, provider_id, status, origin, agent_mode)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, workspace_id, title, model_id, provider_id, status, origin, token_usage, parent_session_id, purpose, delegation_status, output_summary, acp_session_id, pending_question, subagent_kind, agent_mode, pinned, context_summary, compacted_until_message_id, context_summary_updated_at, created_at, updated_at
+RETURNING id, workspace_id, title, model_id, provider_id, status, origin, is_disposable, token_usage, parent_session_id, purpose, delegation_status, output_summary, acp_session_id, pending_question, subagent_kind, agent_mode, pinned, context_summary, compacted_until_message_id, context_summary_updated_at, created_at, updated_at
 `
 
 type CreateSessionParams struct {
@@ -140,6 +141,7 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (S
 		&i.ProviderID,
 		&i.Status,
 		&i.Origin,
+		&i.IsDisposable,
 		&i.TokenUsage,
 		&i.ParentSessionID,
 		&i.Purpose,
@@ -170,7 +172,7 @@ func (q *Queries) DeleteSession(ctx context.Context, id string) error {
 }
 
 const getActiveChildForParent = `-- name: GetActiveChildForParent :one
-SELECT id, workspace_id, title, model_id, provider_id, status, origin, token_usage, parent_session_id, purpose, delegation_status, output_summary, acp_session_id, pending_question, subagent_kind, agent_mode, pinned, context_summary, compacted_until_message_id, context_summary_updated_at, created_at, updated_at
+SELECT id, workspace_id, title, model_id, provider_id, status, origin, is_disposable, token_usage, parent_session_id, purpose, delegation_status, output_summary, acp_session_id, pending_question, subagent_kind, agent_mode, pinned, context_summary, compacted_until_message_id, context_summary_updated_at, created_at, updated_at
 FROM sessions
 WHERE
     parent_session_id = ?
@@ -190,6 +192,7 @@ func (q *Queries) GetActiveChildForParent(ctx context.Context, parentSessionID s
 		&i.ProviderID,
 		&i.Status,
 		&i.Origin,
+		&i.IsDisposable,
 		&i.TokenUsage,
 		&i.ParentSessionID,
 		&i.Purpose,
@@ -211,7 +214,7 @@ func (q *Queries) GetActiveChildForParent(ctx context.Context, parentSessionID s
 
 const getSession = `-- name: GetSession :one
 SELECT
-    s.id, s.workspace_id, s.title, s.model_id, s.provider_id, s.status, s.origin, s.token_usage, s.parent_session_id, s.purpose, s.delegation_status, s.output_summary, s.acp_session_id, s.pending_question, s.subagent_kind, s.agent_mode, s.pinned, s.context_summary, s.compacted_until_message_id, s.context_summary_updated_at, s.created_at, s.updated_at,
+    s.id, s.workspace_id, s.title, s.model_id, s.provider_id, s.status, s.origin, s.is_disposable, s.token_usage, s.parent_session_id, s.purpose, s.delegation_status, s.output_summary, s.acp_session_id, s.pending_question, s.subagent_kind, s.agent_mode, s.pinned, s.context_summary, s.compacted_until_message_id, s.context_summary_updated_at, s.created_at, s.updated_at,
     COALESCE(g.platform, '') AS gateway_platform,
     COALESCE(g.platform_channel_id, '') AS gateway_channel_id,
     COALESCE(g.thread_id, '') AS gateway_thread_id
@@ -240,6 +243,7 @@ func (q *Queries) GetSession(ctx context.Context, id string) (GetSessionRow, err
 		&i.Session.ProviderID,
 		&i.Session.Status,
 		&i.Session.Origin,
+		&i.Session.IsDisposable,
 		&i.Session.TokenUsage,
 		&i.Session.ParentSessionID,
 		&i.Session.Purpose,
@@ -264,7 +268,7 @@ func (q *Queries) GetSession(ctx context.Context, id string) (GetSessionRow, err
 
 const listAllSessions = `-- name: ListAllSessions :many
 SELECT
-    s.id, s.workspace_id, s.title, s.model_id, s.provider_id, s.status, s.origin, s.token_usage, s.parent_session_id, s.purpose, s.delegation_status, s.output_summary, s.acp_session_id, s.pending_question, s.subagent_kind, s.agent_mode, s.pinned, s.context_summary, s.compacted_until_message_id, s.context_summary_updated_at, s.created_at, s.updated_at,
+    s.id, s.workspace_id, s.title, s.model_id, s.provider_id, s.status, s.origin, s.is_disposable, s.token_usage, s.parent_session_id, s.purpose, s.delegation_status, s.output_summary, s.acp_session_id, s.pending_question, s.subagent_kind, s.agent_mode, s.pinned, s.context_summary, s.compacted_until_message_id, s.context_summary_updated_at, s.created_at, s.updated_at,
     COALESCE(g.platform, '') AS gateway_platform,
     COALESCE(g.platform_channel_id, '') AS gateway_channel_id,
     COALESCE(g.thread_id, '') AS gateway_thread_id
@@ -300,6 +304,7 @@ func (q *Queries) ListAllSessions(ctx context.Context) ([]ListAllSessionsRow, er
 			&i.Session.ProviderID,
 			&i.Session.Status,
 			&i.Session.Origin,
+			&i.Session.IsDisposable,
 			&i.Session.TokenUsage,
 			&i.Session.ParentSessionID,
 			&i.Session.Purpose,
@@ -333,7 +338,7 @@ func (q *Queries) ListAllSessions(ctx context.Context) ([]ListAllSessionsRow, er
 }
 
 const listChildSessions = `-- name: ListChildSessions :many
-SELECT id, workspace_id, title, model_id, provider_id, status, origin, token_usage, parent_session_id, purpose, delegation_status, output_summary, acp_session_id, pending_question, subagent_kind, agent_mode, pinned, context_summary, compacted_until_message_id, context_summary_updated_at, created_at, updated_at
+SELECT id, workspace_id, title, model_id, provider_id, status, origin, is_disposable, token_usage, parent_session_id, purpose, delegation_status, output_summary, acp_session_id, pending_question, subagent_kind, agent_mode, pinned, context_summary, compacted_until_message_id, context_summary_updated_at, created_at, updated_at
 FROM sessions
 WHERE parent_session_id = ?
 ORDER BY created_at ASC
@@ -356,6 +361,7 @@ func (q *Queries) ListChildSessions(ctx context.Context, parentSessionID sql.Nul
 			&i.ProviderID,
 			&i.Status,
 			&i.Origin,
+			&i.IsDisposable,
 			&i.TokenUsage,
 			&i.ParentSessionID,
 			&i.Purpose,
@@ -386,7 +392,7 @@ func (q *Queries) ListChildSessions(ctx context.Context, parentSessionID sql.Nul
 }
 
 const listSessionsByWorkspace = `-- name: ListSessionsByWorkspace :many
-SELECT id, workspace_id, title, model_id, provider_id, status, origin, token_usage, parent_session_id, purpose, delegation_status, output_summary, acp_session_id, pending_question, subagent_kind, agent_mode, pinned, context_summary, compacted_until_message_id, context_summary_updated_at, created_at, updated_at
+SELECT id, workspace_id, title, model_id, provider_id, status, origin, is_disposable, token_usage, parent_session_id, purpose, delegation_status, output_summary, acp_session_id, pending_question, subagent_kind, agent_mode, pinned, context_summary, compacted_until_message_id, context_summary_updated_at, created_at, updated_at
 FROM sessions
 WHERE workspace_id = ?
 ORDER BY pinned DESC, updated_at DESC
@@ -409,6 +415,7 @@ func (q *Queries) ListSessionsByWorkspace(ctx context.Context, workspaceID strin
 			&i.ProviderID,
 			&i.Status,
 			&i.Origin,
+			&i.IsDisposable,
 			&i.TokenUsage,
 			&i.ParentSessionID,
 			&i.Purpose,
@@ -554,6 +561,56 @@ func (q *Queries) ListStaleSessionIDs(ctx context.Context, arg ListStaleSessionI
 	return items, nil
 }
 
+const listUnusedUserSessionIDs = `-- name: ListUnusedUserSessionIDs :many
+SELECT s.id
+FROM sessions s
+WHERE s.origin = 'user'
+  AND s.parent_session_id IS NULL
+  AND s.is_disposable = 1
+  AND NOT EXISTS (
+      SELECT 1
+      FROM messages m
+      WHERE m.session_id = s.id
+  )
+ORDER BY s.created_at ASC
+`
+
+// A session is unused only if it is still disposable and has no messages.
+// This deliberately preserves sessions that were configured or later cleared.
+func (q *Queries) ListUnusedUserSessionIDs(ctx context.Context) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listUnusedUserSessionIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const markSessionNonDisposable = `-- name: MarkSessionNonDisposable :exec
+UPDATE sessions
+SET is_disposable = 0
+WHERE id = ?
+`
+
+func (q *Queries) MarkSessionNonDisposable(ctx context.Context, id string) error {
+	_, err := q.db.ExecContext(ctx, markSessionNonDisposable, id)
+	return err
+}
+
 const resetSessionTranscriptState = `-- name: ResetSessionTranscriptState :exec
 UPDATE sessions
 SET
@@ -581,6 +638,7 @@ const setTitleIfEmpty = `-- name: SetTitleIfEmpty :exec
 UPDATE sessions
 SET
     title = ?,
+    is_disposable = 0,
     updated_at = unixepoch ('now', 'subsec') * 1000
 WHERE id = ?
   AND trim(title) = ''
@@ -632,9 +690,10 @@ const updateSessionAgentMode = `-- name: UpdateSessionAgentMode :one
 UPDATE sessions
 SET
     agent_mode = ?,
+    is_disposable = 0,
     updated_at = unixepoch ('now', 'subsec') * 1000
 WHERE id = ?
-RETURNING id, workspace_id, title, model_id, provider_id, status, origin, token_usage, parent_session_id, purpose, delegation_status, output_summary, acp_session_id, pending_question, subagent_kind, agent_mode, pinned, context_summary, compacted_until_message_id, context_summary_updated_at, created_at, updated_at
+RETURNING id, workspace_id, title, model_id, provider_id, status, origin, is_disposable, token_usage, parent_session_id, purpose, delegation_status, output_summary, acp_session_id, pending_question, subagent_kind, agent_mode, pinned, context_summary, compacted_until_message_id, context_summary_updated_at, created_at, updated_at
 `
 
 type UpdateSessionAgentModeParams struct {
@@ -653,6 +712,7 @@ func (q *Queries) UpdateSessionAgentMode(ctx context.Context, arg UpdateSessionA
 		&i.ProviderID,
 		&i.Status,
 		&i.Origin,
+		&i.IsDisposable,
 		&i.TokenUsage,
 		&i.ParentSessionID,
 		&i.Purpose,
@@ -751,6 +811,7 @@ UPDATE sessions
 SET
     model_id = ?,
     provider_id = ?,
+    is_disposable = 0,
     updated_at = unixepoch ('now', 'subsec') * 1000
 WHERE id = ?
 `
@@ -770,6 +831,7 @@ const updateSessionPinned = `-- name: UpdateSessionPinned :exec
 UPDATE sessions
 SET
     pinned = ?,
+    is_disposable = 0,
     updated_at = unixepoch ('now', 'subsec') * 1000
 WHERE id = ?
 `
@@ -806,6 +868,7 @@ const updateSessionTitle = `-- name: UpdateSessionTitle :exec
 UPDATE sessions
 SET
     title = ?,
+    is_disposable = 0,
     updated_at = unixepoch ('now', 'subsec') * 1000
 WHERE id = ?
 `
@@ -842,6 +905,7 @@ const updateSessionWorkspace = `-- name: UpdateSessionWorkspace :exec
 UPDATE sessions
 SET
     workspace_id = ?,
+    is_disposable = 0,
     updated_at = unixepoch ('now', 'subsec') * 1000
 WHERE id = ?
 `

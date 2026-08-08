@@ -15,6 +15,7 @@ CREATE TABLE sessions (
                        CHECK (status IN ('active', 'archived')),
     origin             TEXT NOT NULL DEFAULT 'user'
                        CHECK (origin IN ('user', 'autonomy', 'inbox')),
+    is_disposable      INTEGER NOT NULL DEFAULT 1,
     token_usage        TEXT NOT NULL DEFAULT '{}',
     parent_session_id  TEXT REFERENCES sessions (id) ON DELETE SET NULL,
     purpose            TEXT NOT NULL DEFAULT '',

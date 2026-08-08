@@ -76,6 +76,26 @@ LIMIT 1;
 DELETE FROM sessions
 WHERE id = ?;
 
+-- name: MarkSessionNonDisposable :exec
+UPDATE sessions
+SET is_disposable = 0
+WHERE id = ?;
+
+-- name: ListUnusedUserSessionIDs :many
+-- A session is unused only if it is still disposable and has no messages.
+-- This deliberately preserves sessions that were configured or later cleared.
+SELECT s.id
+FROM sessions s
+WHERE s.origin = 'user'
+  AND s.parent_session_id IS NULL
+  AND s.is_disposable = 1
+  AND NOT EXISTS (
+      SELECT 1
+      FROM messages m
+      WHERE m.session_id = s.id
+  )
+ORDER BY s.created_at ASC;
+
 -- name: ListSessionsByWorkspaceAsc :many
 SELECT id, updated_at, delegation_status, parent_session_id
 FROM sessions
@@ -143,6 +163,7 @@ ORDER BY s.pinned DESC, s.updated_at DESC;
 UPDATE sessions
 SET
     title = ?,
+    is_disposable = 0,
     updated_at = unixepoch ('now', 'subsec') * 1000
 WHERE id = ?;
 
@@ -153,6 +174,7 @@ WHERE id = ?;
 UPDATE sessions
 SET
     title = ?,
+    is_disposable = 0,
     updated_at = unixepoch ('now', 'subsec') * 1000
 WHERE id = ?
   AND trim(title) = '';
@@ -169,6 +191,7 @@ UPDATE sessions
 SET
     model_id = ?,
     provider_id = ?,
+    is_disposable = 0,
     updated_at = unixepoch ('now', 'subsec') * 1000
 WHERE id = ?;
 
@@ -176,6 +199,7 @@ WHERE id = ?;
 UPDATE sessions
 SET
     pinned = ?,
+    is_disposable = 0,
     updated_at = unixepoch ('now', 'subsec') * 1000
 WHERE id = ?;
 
@@ -183,6 +207,7 @@ WHERE id = ?;
 UPDATE sessions
 SET
     agent_mode = ?,
+    is_disposable = 0,
     updated_at = unixepoch ('now', 'subsec') * 1000
 WHERE id = ?
 RETURNING *;
@@ -191,6 +216,7 @@ RETURNING *;
 UPDATE sessions
 SET
     workspace_id = ?,
+    is_disposable = 0,
     updated_at = unixepoch ('now', 'subsec') * 1000
 WHERE id = ?;
 

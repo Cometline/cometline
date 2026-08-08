@@ -62,6 +62,14 @@ func runServe(_ *cobra.Command, _ []string) error {
 		return rt.Reload(reloadCtx)
 	})
 
+	// Remove unused New Chat rows before serving requests so the initial session
+	// list cannot include a conversation that was never started.
+	if pruned, err := rt.Sessions.PruneUnusedUserSessions(ctx); err != nil {
+		logging.L().Warn("session.unused_prune_failed", "error", err)
+	} else if pruned > 0 {
+		logging.L().Info("session.unused_pruned", "count", pruned)
+	}
+
 	// Prune workspaces whose filesystem path no longer exists. This stats every
 	// workspace path (slow on network mounts), so run it in the background to
 	// keep it off the startup critical path.
