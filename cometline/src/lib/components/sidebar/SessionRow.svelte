@@ -5,6 +5,7 @@
 	import { sessionDisplayTitle } from '$lib/sessions/session-title';
 	import { chatStore } from '$lib/stores/chat.svelte';
 	import { terminalStore } from '$lib/stores/terminal.svelte';
+	import { unreadSessionOutputStore } from '$lib/stores/unread-session-output.svelte';
 
 	let {
 		session,
@@ -40,6 +41,24 @@
 		chatStore.isStreamingFor(session.id) || chatStore.hasInFlightTurn(session.id)
 	);
 	let terminalRunning = $derived(terminalStore.isRunning(session.id));
+	let unread = $derived(unreadSessionOutputStore.isUnread(session.id));
+	let activityLabel = $derived(
+		terminalRunning
+			? streaming
+				? unread
+					? 'Terminal running, responding with unread output'
+					: 'Terminal running and responding'
+				: unread
+					? 'Terminal running with unread output'
+					: 'Terminal running'
+			: streaming
+				? unread
+					? 'Responding with unread output'
+					: 'Responding'
+				: unread
+					? 'Unread output'
+					: undefined
+	);
 
 	function handleContextMenu(event: MouseEvent) {
 		event.preventDefault();
@@ -65,19 +84,14 @@
 		<span class="session-title-row">
 			<span
 				class="session-activity"
-				aria-label={terminalRunning
-					? streaming
-						? 'Terminal running and responding'
-						: 'Terminal running'
-					: streaming
-						? 'Responding'
-						: undefined}
+				aria-label={activityLabel}
 			>
 				<span
 					class:active={streaming}
 					class:terminal={terminalRunning}
+					class:unread
 					class="session-streaming"
-					title={terminalRunning ? 'Terminal running' : streaming ? 'Responding' : undefined}
+					title={activityLabel}
 				>{#if terminalRunning}<span class="terminal-marker">t</span>{/if}</span>
 			</span>
 			<span class="session-title">{sessionDisplayTitle(session.title)}</span>
@@ -216,6 +230,25 @@
 		animation: session-streaming-pulse 1.2s ease-in-out infinite;
 	}
 
+	.session-streaming.unread {
+		background: var(--session-unread-color);
+		opacity: 1;
+	}
+
+	.session-streaming.active.unread {
+		animation: none;
+		position: relative;
+	}
+
+	.session-streaming.active.unread::after {
+		content: '';
+		position: absolute;
+		inset: -3px;
+		border: 1px solid var(--session-unread-color);
+		border-radius: inherit;
+		animation: session-unread-ring 1.2s ease-in-out infinite;
+	}
+
 	.session-streaming.terminal {
 		display: inline-grid;
 		place-items: center;
@@ -231,6 +264,18 @@
 		100% {
 			opacity: 0.35;
 			transform: scale(0.85);
+		}
+		50% {
+			opacity: 1;
+			transform: scale(1);
+		}
+	}
+
+	@keyframes session-unread-ring {
+		0%,
+		100% {
+			opacity: 0.25;
+			transform: scale(0.82);
 		}
 		50% {
 			opacity: 1;

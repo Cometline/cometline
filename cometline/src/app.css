@@ -126,6 +126,7 @@
 
 	/* Sidebar session rows — tints derive from --session-group-color (set by parent group) */
 	--session-group-color: var(--workspace-group-color);
+	--session-unread-color: #d97706;
 	--session-row-bg-hover: color-mix(in srgb, var(--session-group-color) 11%, transparent);
 	--session-row-bg-streaming: color-mix(in srgb, var(--session-group-color) 9%, transparent);
 	--session-row-bg-active: color-mix(in srgb, var(--session-group-color) 26%, transparent);

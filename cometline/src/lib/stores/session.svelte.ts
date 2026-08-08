@@ -2,6 +2,7 @@ import { browser } from '$app/environment';
 import type { AgentMode, ImageAttachment, Session } from '$lib/types';
 import type { WebContext } from '$lib/actions/start-chat';
 import { publishWindowSync, subscribeWindowSync } from '$lib/window-sync';
+import { unreadSessionOutputStore } from '$lib/stores/unread-session-output.svelte';
 
 export interface PendingMessage {
 	sessionId: string;
@@ -43,6 +44,7 @@ function createSessionStore() {
 
 	function setSessions(list: Session[]) {
 		sessions = list;
+		unreadSessionOutputStore.prune(list.map((session) => session.id));
 		if (current && !list.some((session) => session.id === current?.id)) {
 			current = null;
 		}
@@ -59,6 +61,7 @@ function createSessionStore() {
 	function removeSession(id: string, options: { broadcast?: boolean } = {}) {
 		const { broadcast = true } = options;
 		sessions = sessions.filter((item) => item.id !== id);
+		unreadSessionOutputStore.remove(id, broadcast);
 		if (current?.id === id) current = null;
 		if (broadcast) {
 			publishWindowSync({ type: 'session-remove', sessionId: id });

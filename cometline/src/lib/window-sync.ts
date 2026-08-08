@@ -5,7 +5,8 @@ type SyncPayload =
 	| { type: 'session-upsert'; session: Session }
 	| { type: 'session-remove'; sessionId: string }
 	| { type: 'chat-items'; sessionId: string; items: ChatItem[] }
-	| { type: 'chat-streaming'; sessionId: string; streaming: boolean };
+	| { type: 'chat-streaming'; sessionId: string; streaming: boolean }
+	| { type: 'session-output-unread'; sessionId: string; unread: boolean };
 
 type SyncMessage = SyncPayload & { source: string };
 
