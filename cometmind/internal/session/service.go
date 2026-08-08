@@ -299,7 +299,7 @@ func (s *Service) ForkSession(ctx context.Context, sessionID, absPath string) (S
 			}
 			content = remapped
 		}
-		newMsg, err := s.q.CreateMessage(ctx, db.CreateMessageParams{
+		newMsg, err := s.createMessage(ctx, db.CreateMessageParams{
 			ID:               id.New(),
 			SessionID:        forked.ID,
 			Role:             msg.Role,
@@ -366,7 +366,7 @@ func remapToolResultContent(content string, idMap map[string]string) (string, er
 
 // AppendSystemMessage persists a system notice in the transcript.
 func (s *Service) AppendSystemMessage(ctx context.Context, sessionID, text string) (Message, error) {
-	msg, err := s.q.CreateMessage(ctx, db.CreateMessageParams{
+	msg, err := s.createMessage(ctx, db.CreateMessageParams{
 		ID:         id.New(),
 		SessionID:  sessionID,
 		Role:       "system",
@@ -380,6 +380,13 @@ func (s *Service) AppendSystemMessage(ctx context.Context, sessionID, text strin
 		return Message{}, err
 	}
 	return messageFromDB(msg), nil
+}
+
+func (s *Service) createMessage(ctx context.Context, params db.CreateMessageParams) (db.Message, error) {
+	if err := s.q.MarkSessionNonDisposable(ctx, params.SessionID); err != nil {
+		return db.Message{}, err
+	}
+	return s.q.CreateMessage(ctx, params)
 }
 
 // AppendErrorMessage persists a turn-level error notice for transcript replay.
@@ -505,6 +512,21 @@ func (s *Service) DeleteSession(ctx context.Context, sessionID string) error {
 	}
 	_ = media.DeleteSession(sessionID)
 	return s.q.DeleteSession(ctx, sessionID)
+}
+
+// PruneUnusedUserSessions removes top-level user sessions that were created
+// but never changed or given a transcript. Cleared conversations are retained.
+func (s *Service) PruneUnusedUserSessions(ctx context.Context) (int, error) {
+	ids, err := s.q.ListUnusedUserSessionIDs(ctx)
+	if err != nil {
+		return 0, err
+	}
+	for _, id := range ids {
+		if err := s.DeleteSession(ctx, id); err != nil {
+			return 0, err
+		}
+	}
+	return len(ids), nil
 }
 
 // ClearSessionTranscript deletes all transcript rows for a session and resets
@@ -661,7 +683,7 @@ func (s *Service) AppendUserMessageContent(ctx context.Context, sessionID string
 	if err != nil {
 		return Message{}, err
 	}
-	msg, err := s.q.CreateMessage(ctx, db.CreateMessageParams{
+	msg, err := s.createMessage(ctx, db.CreateMessageParams{
 		ID:         id.New(),
 		SessionID:  sessionID,
 		Role:       "user",
@@ -886,7 +908,7 @@ func (s *Service) AppendAssistantStep(ctx context.Context, sessionID string, tex
 	if err != nil {
 		return Message{}, nil, fmt.Errorf("marshal injected memories: %w", err)
 	}
-	assistant, err := s.q.CreateMessage(ctx, db.CreateMessageParams{
+	assistant, err := s.createMessage(ctx, db.CreateMessageParams{
 		ID:               id.New(),
 		SessionID:        sessionID,
 		Role:             "assistant",
@@ -955,7 +977,7 @@ func (s *Service) AppendAssistantMedia(ctx context.Context, sessionID string, im
 	if err != nil {
 		return Message{}, err
 	}
-	assistant, err := s.q.CreateMessage(ctx, db.CreateMessageParams{
+	assistant, err := s.createMessage(ctx, db.CreateMessageParams{
 		ID:         id.New(),
 		SessionID:  sessionID,
 		Role:       "assistant",
@@ -1020,7 +1042,7 @@ func (s *Service) AppendToolResultMessage(ctx context.Context, sessionID, toolCa
 	if err != nil {
 		return Message{}, err
 	}
-	msg, err := s.q.CreateMessage(ctx, db.CreateMessageParams{
+	msg, err := s.createMessage(ctx, db.CreateMessageParams{
 		ID:         id.New(),
 		SessionID:  sessionID,
 		Role:       "tool_result",

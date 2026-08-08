@@ -466,6 +466,13 @@ var alterStatements = [][]string{
 	{
 		"ALTER TABLE sessions ADD COLUMN agent_mode TEXT NOT NULL DEFAULT 'auto' CHECK (agent_mode IN ('auto', 'plan'))",
 	},
+	// v27 -> v28: preserve sessions whose transcript was cleared or configured,
+	// while allowing startup cleanup to remove never-used new chats. Existing
+	// sessions are conservatively marked as non-disposable.
+	{
+		"ALTER TABLE sessions ADD COLUMN is_disposable INTEGER NOT NULL DEFAULT 1",
+		"UPDATE sessions SET is_disposable = 0",
+	},
 }
 
 // execAlter runs one incremental DDL statement, tolerating idempotent failures
@@ -504,7 +511,7 @@ func splitStatements(sql string) []string {
 	return out
 }
 
-const schemaVersion = 27
+const schemaVersion = 28
 
 // EnsureSchema runs [Migrate] once per database file using PRAGMA user_version.
 // For existing databases, it applies incremental ALTER statements to upgrade

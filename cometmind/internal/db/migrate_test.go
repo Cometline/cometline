@@ -175,3 +175,32 @@ func TestEnsureSchemaUpgradesContextSummaryColumns(t *testing.T) {
 		}
 	}
 }
+
+func TestEnsureSchemaPreservesExistingSessionsForDisposableSessionCleanup(t *testing.T) {
+	ctx := context.Background()
+	conn, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "migrate-v27.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = conn.Close() })
+	if _, err := conn.ExecContext(ctx, `CREATE TABLE sessions (id TEXT PRIMARY KEY)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := conn.ExecContext(ctx, `INSERT INTO sessions (id) VALUES ('existing')`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := conn.ExecContext(ctx, "PRAGMA user_version = 27"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := EnsureSchema(ctx, conn); err != nil {
+		t.Fatal(err)
+	}
+	var isDisposable int
+	if err := conn.QueryRowContext(ctx, `SELECT is_disposable FROM sessions WHERE id = 'existing'`).Scan(&isDisposable); err != nil {
+		t.Fatal(err)
+	}
+	if isDisposable != 0 {
+		t.Fatalf("is_disposable = %d, want 0", isDisposable)
+	}
+}

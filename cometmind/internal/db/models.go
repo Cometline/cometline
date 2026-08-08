@@ -177,6 +177,7 @@ type Session struct {
 	ProviderID              string         `json:"provider_id"`
 	Status                  string         `json:"status"`
 	Origin                  string         `json:"origin"`
+	IsDisposable            int64          `json:"is_disposable"`
 	TokenUsage              string         `json:"token_usage"`
 	ParentSessionID         sql.NullString `json:"parent_session_id"`
 	Purpose                 string         `json:"purpose"`
