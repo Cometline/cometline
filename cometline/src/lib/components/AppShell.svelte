@@ -1079,9 +1079,13 @@
 
 	.workspace-panel-loading {
 		display: grid;
+		flex: 0 1 auto;
 		width: var(--workspace-panel-slot-width);
-		min-width: var(--workspace-panel-slot-width);
+		max-width: 100%;
+		min-width: 0;
+		height: 100%;
 		place-items: center;
+		box-sizing: border-box;
 		border-left: 1px solid var(--border-soft);
 		background: var(--panel-bg);
 		color: var(--text-muted);
