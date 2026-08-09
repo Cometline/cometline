@@ -39,7 +39,12 @@
 	}
 </script>
 
-<div class="fold-panel thinking-panel" class:nested class:content-only={contentOnly}>
+<div
+	class="fold-panel thinking-panel"
+	class:nested
+	class:content-only={contentOnly}
+	class:expanded={expanded && !toggleDisabled}
+>
 	{#if !contentOnly}
 		<button
 			type="button"
@@ -71,11 +76,21 @@
 	/* Base .fold-panel / .fold-toggle / .fold-body styles live in
 	   src/lib/styles/fold-panel.css. Only component-specific overrides here. */
 	.fold-panel.nested {
-		align-self: stretch;
+		align-self: flex-start;
+		width: fit-content;
+		max-width: 100%;
+		min-width: 0;
 	}
 
 	.fold-panel.nested .fold-toggle {
+		align-self: flex-start;
+		width: auto;
+		max-width: 100%;
+	}
+
+	.fold-panel.nested.expanded {
 		align-self: stretch;
+		width: 100%;
 	}
 
 	.thinking-body {
