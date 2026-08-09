@@ -267,8 +267,7 @@
 	.assistant-stack > :global(.memory-panel),
 	.assistant-stack > :global(.tool-fold-panel),
 	.assistant-stack > :global(.thinking-panel),
-	.assistant-stack > :global(.subagent-panel),
-	.assistant-stack :global(.activity-group > .fold-body) {
+	.assistant-stack > :global(.subagent-panel) {
 		align-self: flex-start;
 		width: var(--assistant-activity-width);
 		max-width: 100%;
@@ -282,9 +281,19 @@
 	}
 
 	.assistant-stack :global(.activity-group) {
-		align-self: stretch;
-		width: 100%;
+		align-self: flex-start;
+		width: 60%;
+		max-width: 100%;
 		min-width: 0;
+		box-sizing: border-box;
+	}
+
+	.assistant-stack :global(.activity-group > .fold-body) {
+		align-self: flex-start;
+		width: calc(100% - 20px);
+		max-width: calc(100% - 20px);
+		min-width: 0;
+		box-sizing: border-box;
 	}
 
 	.message-actions {

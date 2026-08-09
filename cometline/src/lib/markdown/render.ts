@@ -30,6 +30,20 @@ export type { WorkspaceMarkdownResources };
 
 /** Wiki file list used while the current `renderMarkdown` call is in flight. */
 let activeWikiFiles: readonly string[] = [];
+let katexCssPromise: Promise<void> | null = null;
+
+function ensureKatexCss(): Promise<void> {
+	if (typeof document === 'undefined') return Promise.resolve();
+	if (!katexCssPromise) {
+		katexCssPromise = import('katex/dist/katex.min.css')
+			.then(() => undefined)
+			.catch((error) => {
+				katexCssPromise = null;
+				console.error('KaTeX CSS failed to load', error);
+			});
+	}
+	return katexCssPromise;
+}
 
 /** Escapes text for safe inclusion in HTML. */
 function escapeHtml(value: string): string {
@@ -57,7 +71,9 @@ async function highlightCodeBlock(text: string, lang: string | undefined): Promi
 		const highlighter = await getHighlighter();
 		const resolved = resolveLanguage(highlighter, lang);
 		if (resolved) {
-			return wrapCodeBlock(highlighter.codeToHtml(text, { lang: resolved, theme: CODE_THEME }));
+			return wrapCodeBlock(
+				highlighter.codeToHtml(text, { lang: resolved, theme: CODE_THEME })
+			);
 		}
 	} catch {
 		// Fall through to the plaintext fallback below.
@@ -376,13 +392,22 @@ function createMarkedInstance(codeCache: CodeHtmlCache, annotateSource = false):
 	};
 	if (annotateSource) {
 		Object.assign(renderer, {
-			heading(this: { parser: { parseInline(tokens: Token[]): string } }, token: Tokens.Heading) {
+			heading(
+				this: { parser: { parseInline(tokens: Token[]): string } },
+				token: Tokens.Heading
+			) {
 				return `<h${token.depth}${sourceLineAttributes(token)}>${this.parser.parseInline(token.tokens)}</h${token.depth}>\n`;
 			},
-			paragraph(this: { parser: { parseInline(tokens: Token[]): string } }, token: Tokens.Paragraph) {
+			paragraph(
+				this: { parser: { parseInline(tokens: Token[]): string } },
+				token: Tokens.Paragraph
+			) {
 				return `<p${sourceLineAttributes(token)}>${this.parser.parseInline(token.tokens)}</p>\n`;
 			},
-			strong(this: { parser: { parseInline(tokens: Token[]): string } }, token: Tokens.Strong) {
+			strong(
+				this: { parser: { parseInline(tokens: Token[]): string } },
+				token: Tokens.Strong
+			) {
 				return `<strong${sourceLineAttributes(token)}>${this.parser.parseInline(token.tokens)}</strong>`;
 			},
 			em(this: { parser: { parseInline(tokens: Token[]): string } }, token: Tokens.Em) {
@@ -571,8 +596,11 @@ export async function renderMarkdown(
 	activeWikiFiles = options?.wikiFiles ?? [];
 	try {
 		const healed = remend(source);
-		const parser = options?.annotateSourceLines ? sourceAnnotatedMarkedInstance : markedInstance;
+		const parser = options?.annotateSourceLines
+			? sourceAnnotatedMarkedInstance
+			: markedInstance;
 		let rawHtml = await parser.parse(healed);
+		if (rawHtml.includes('class="katex')) await ensureKatexCss();
 		const resources = options?.workspaceResources;
 		if (resources) {
 			rawHtml = rewriteLocalResourcesInHtml(rawHtml, resources.filePath, resources.kind);

@@ -218,6 +218,12 @@
 		padding: 0;
 	}
 
+	.activity-group-body :global(.fold-panel.nested > .fold-body) {
+		align-self: flex-start;
+		width: 100%;
+		box-sizing: border-box;
+	}
+
 	.timeline-child {
 		display: flex;
 		flex-direction: column;

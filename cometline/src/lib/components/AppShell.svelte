@@ -7,15 +7,12 @@
 	import Sidebar from './Sidebar.svelte';
 	import RuntimeOverlay from './RuntimeOverlay.svelte';
 	import SettingsModal from './SettingsModal.svelte';
-	import InboxDrawer from './inbox/InboxDrawer.svelte';
-	import IntroAnimation from './IntroAnimation.svelte';
 	import SetupWizard from './onboarding/SetupWizard.svelte';
 	import UpdateButton from './UpdateButton.svelte';
 	import MemoryToast from './MemoryToast.svelte';
 	import AppToast from './AppToast.svelte';
 	import ConfirmActionModal from './ConfirmActionModal.svelte';
 	import FileSearchModal from './FileSearchModal.svelte';
-	import WorkspacePanel from './WorkspacePanel.svelte';
 	import Tooltip from './Tooltip.svelte';
 	import { getSession, updateSession } from '$lib/client/cometmind';
 	import { shellStore } from '$lib/stores/shell.svelte';
@@ -26,7 +23,10 @@
 	import { startNewChat } from '$lib/actions/new-chat';
 	import { openSettings } from '$lib/actions/open-settings';
 	import { navigateAdjacentSession } from '$lib/actions/navigate-adjacent-session';
-	import { navigateSessionHistory, navigateToRecentSession } from '$lib/actions/navigate-session-history';
+	import {
+		navigateSessionHistory,
+		navigateToRecentSession
+	} from '$lib/actions/navigate-session-history';
 	import { navigateToSession } from '$lib/actions/navigate-to-session';
 	import { sessionDisplayTitle } from '$lib/sessions/session-title';
 	import { narrowViewportQuery, subscribeNarrowViewport } from '$lib/layout/narrow-viewport';
@@ -37,7 +37,11 @@
 		widthToRatio
 	} from '$lib/layout/workspace-panel-width';
 	import { shouldUseWorkspacePanelHistory } from '$lib/navigation/focus-nav';
-	import { matchesShortcut, isReloadShortcut, type ShortcutAction } from '$lib/keyboard-shortcuts';
+	import {
+		matchesShortcut,
+		isReloadShortcut,
+		type ShortcutAction
+	} from '$lib/keyboard-shortcuts';
 	import type { Session } from '$lib/types';
 
 	const FALLBACK_SIDEBAR_DURATION = 360;
@@ -45,9 +49,21 @@
 	let { children }: { children: import('svelte').Snippet } = $props();
 
 	let sidebarRef = $state<{ focusSearch: () => void } | null>(null);
-	let workspacePanelRef = $state<{ navigateBack: () => void; navigateForward: () => void } | null>(
-		null
-	);
+	let workspacePanelRef = $state<{
+		navigateBack: () => void;
+		navigateForward: () => void;
+	} | null>(null);
+	type WorkspacePanelModuleComponent = typeof import('./WorkspacePanel.svelte').default;
+	let WorkspacePanelComponent = $state<WorkspacePanelModuleComponent | null>(null);
+	let workspacePanelLoadPromise: Promise<WorkspacePanelModuleComponent | null> | null = null;
+	let workspacePanelLoadFailed = $state(false);
+	type IntroAnimationComponent = typeof import('./IntroAnimation.svelte').default;
+	let IntroAnimation = $state<IntroAnimationComponent | null>(null);
+	let introAnimationLoadPromise: Promise<IntroAnimationComponent | null> | null = null;
+	type InboxDrawerComponent = typeof import('./inbox/InboxDrawer.svelte').default;
+	let InboxDrawer = $state<InboxDrawerComponent | null>(null);
+	let inboxDrawerLoadPromise: Promise<InboxDrawerComponent | null> | null = null;
+	let inboxDrawerLoadFailed = $state(false);
 	let contentRowRef = $state<HTMLDivElement | null>(null);
 	let closeConfirmOpen = $state(false);
 	let fileSearchOpen = $state(false);
@@ -56,6 +72,62 @@
 	let reloadConfirmArmed = $state(false);
 	let pendingRename = $state<Session | null>(null);
 	let renameTitle = $state('');
+
+	function loadWorkspacePanel() {
+		if (WorkspacePanelComponent) return Promise.resolve(WorkspacePanelComponent);
+		if (!workspacePanelLoadPromise) {
+			workspacePanelLoadFailed = false;
+			workspacePanelLoadPromise = import('./WorkspacePanel.svelte')
+				.then((module) => {
+					WorkspacePanelComponent = module.default;
+					return module.default;
+				})
+				.catch((error) => {
+					workspacePanelLoadPromise = null;
+					workspacePanelLoadFailed = true;
+					console.error('Workspace panel failed to load', error);
+					return null;
+				});
+		}
+		return workspacePanelLoadPromise;
+	}
+
+	function loadIntroAnimation() {
+		if (IntroAnimation) return Promise.resolve(IntroAnimation);
+		if (!introAnimationLoadPromise) {
+			introAnimationLoadPromise = import('./IntroAnimation.svelte')
+				.then((module) => {
+					IntroAnimation = module.default;
+					return module.default;
+				})
+				.catch((error) => {
+					introAnimationLoadPromise = null;
+					console.error('Intro animation failed to load', error);
+					shellStore.closeIntro();
+					return null;
+				});
+		}
+		return introAnimationLoadPromise;
+	}
+
+	function loadInboxDrawer() {
+		if (InboxDrawer) return Promise.resolve(InboxDrawer);
+		if (!inboxDrawerLoadPromise) {
+			inboxDrawerLoadFailed = false;
+			inboxDrawerLoadPromise = import('./inbox/InboxDrawer.svelte')
+				.then((module) => {
+					InboxDrawer = module.default;
+					return module.default;
+				})
+				.catch((error) => {
+					inboxDrawerLoadPromise = null;
+					inboxDrawerLoadFailed = true;
+					console.error('Inbox drawer failed to load', error);
+					return null;
+				});
+		}
+		return inboxDrawerLoadPromise;
+	}
 
 	let activeSessionId = $derived(sessionStore.current?.id ?? null);
 	let titlebarSessionTitle = $derived.by(() => {
@@ -194,14 +266,24 @@
 				shellStore.requestTerminalFocus();
 				return;
 			case 'navigateBack':
-				if (shouldUseWorkspacePanelHistory(shellStore.workspacePanelOpen)) {
+				if (
+					shouldUseWorkspacePanelHistory(
+						shellStore.workspacePanelOpen,
+						!!workspacePanelRef
+					)
+				) {
 					workspacePanelRef?.navigateBack();
 				} else {
 					navigateSessionHistory('back');
 				}
 				return;
 			case 'navigateForward':
-				if (shouldUseWorkspacePanelHistory(shellStore.workspacePanelOpen)) {
+				if (
+					shouldUseWorkspacePanelHistory(
+						shellStore.workspacePanelOpen,
+						!!workspacePanelRef
+					)
+				) {
 					workspacePanelRef?.navigateForward();
 				} else {
 					navigateSessionHistory('forward');
@@ -253,7 +335,25 @@
 
 	onMount(() => {
 		let resizeObserver: ResizeObserver | null = null;
+		let panelPreloadHandle: number | ReturnType<typeof setTimeout> | null = null;
+		let panelPreloadUsesIdleCallback = false;
 		void terminalStore.initialize();
+
+		if ('requestIdleCallback' in window) {
+			panelPreloadUsesIdleCallback = true;
+			panelPreloadHandle = window.requestIdleCallback(
+				() => {
+					void loadWorkspacePanel();
+					void loadInboxDrawer();
+				},
+				{ timeout: 1500 }
+			);
+		} else {
+			panelPreloadHandle = setTimeout(() => {
+				void loadWorkspacePanel();
+				void loadInboxDrawer();
+			}, 300);
+		}
 
 		if (narrowViewportQuery().matches) {
 			shellStore.closeSidebar();
@@ -527,10 +627,30 @@
 			unsubscribeFullScreen?.();
 			document.removeEventListener('fullscreenchange', onDomFullScreenChange);
 			window.removeEventListener('resize', onWindowResize);
+			if (panelPreloadHandle !== null) {
+				if (panelPreloadUsesIdleCallback)
+					window.cancelIdleCallback(panelPreloadHandle as number);
+				else clearTimeout(panelPreloadHandle);
+			}
 			if (ratioFrame) cancelAnimationFrame(ratioFrame);
 			ratioFrame = 0;
 			resizeObserver?.disconnect();
 		};
+	});
+
+	$effect(() => {
+		if (!shellStore.workspacePanelOpen || WorkspacePanelComponent) return;
+		void loadWorkspacePanel();
+	});
+
+	$effect(() => {
+		if (!shellStore.introOpen || IntroAnimation) return;
+		void loadIntroAnimation();
+	});
+
+	$effect(() => {
+		if (!inboxStore.drawerOpen || InboxDrawer) return;
+		void loadInboxDrawer();
 	});
 
 	function parseDuration(value: string) {
@@ -832,30 +952,71 @@
 				onkeydown={onResizeKeydown}
 			></div>
 		{/if}
-		<WorkspacePanel bind:this={workspacePanelRef} />
+		{#if WorkspacePanelComponent}
+			<WorkspacePanelComponent bind:this={workspacePanelRef} />
+		{:else if shellStore.workspacePanelOpen}
+			<aside
+				class="workspace-panel-loading"
+				aria-label="Loading workspace panel"
+				aria-busy="true"
+			>
+				{#if workspacePanelLoadFailed}
+					<button type="button" onclick={() => void loadWorkspacePanel()}
+						>Retry workspace panel</button
+					>
+				{:else}
+					<span>Loading workspace…</span>
+				{/if}
+			</aside>
+		{/if}
 	</div>
 	<SettingsModal />
-	<InboxDrawer
-		open={inboxStore.drawerOpen}
-		messages={inboxStore.messages}
-		busyId={inboxStore.busyId}
-		error={inboxStore.error}
-		onClose={() => inboxStore.closeDrawer()}
-		onReply={(id, content) => inboxStore.reply(id, content)}
-		onDismiss={(id) => inboxStore.dismiss(id)}
-		onOpenJob={(jobId) => {
-			inboxStore.closeDrawer();
-			void goto(`/jobs?job=${encodeURIComponent(jobId)}`);
-		}}
-		onOpenSession={(sessionId) => {
-			inboxStore.closeDrawer();
-			void getSession(sessionId)
-				.then((session) => navigateToSession(session))
-				.catch(() => {
-					/* session may already be purged */
-				});
-		}}
-	/>
+	{#if InboxDrawer}
+		<InboxDrawer
+			open={inboxStore.drawerOpen}
+			messages={inboxStore.messages}
+			busyId={inboxStore.busyId}
+			error={inboxStore.error}
+			onClose={() => inboxStore.closeDrawer()}
+			onReply={(id, content) => inboxStore.reply(id, content)}
+			onDismiss={(id) => inboxStore.dismiss(id)}
+			onOpenJob={(jobId) => {
+				inboxStore.closeDrawer();
+				void goto(`/jobs?job=${encodeURIComponent(jobId)}`);
+			}}
+			onOpenSession={(sessionId) => {
+				inboxStore.closeDrawer();
+				void getSession(sessionId)
+					.then((session) => navigateToSession(session))
+					.catch(() => {
+						/* session may already be purged */
+					});
+			}}
+		/>
+	{:else if inboxStore.drawerOpen}
+		<div class="inbox-loading-layer" role="dialog" aria-modal="true" aria-label="Inbox">
+			<button
+				type="button"
+				class="inbox-loading-scrim"
+				aria-label="Close inbox"
+				onclick={() => inboxStore.closeDrawer()}
+			></button>
+			<div class="inbox-loading-card" aria-busy={!inboxDrawerLoadFailed}>
+				{#if inboxDrawerLoadFailed}
+					<p>Inbox failed to load.</p>
+					<div class="inbox-loading-actions">
+						<button type="button" onclick={() => inboxStore.closeDrawer()}>Close</button
+						>
+						<button type="button" class="primary" onclick={() => void loadInboxDrawer()}
+							>Retry</button
+						>
+					</div>
+				{:else}
+					<p>Loading inbox…</p>
+				{/if}
+			</div>
+		</div>
+	{/if}
 	<UpdateButton />
 	<MemoryToast />
 	<AppToast />
@@ -895,7 +1056,11 @@
 	/>
 	<FileSearchModal open={fileSearchOpen} onClose={() => (fileSearchOpen = false)} />
 	{#if shellStore.introOpen}
-		<IntroAnimation />
+		{#if IntroAnimation}
+			<IntroAnimation />
+		{:else}
+			<div class="intro-loading" aria-label="Loading introduction"></div>
+		{/if}
 	{/if}
 	{#if shellStore.setupOpen}
 		<SetupWizard />
@@ -910,6 +1075,92 @@
 		height: 100vh;
 		background: var(--shell-canvas-bg);
 		box-sizing: border-box;
+	}
+
+	.workspace-panel-loading {
+		display: grid;
+		flex: 0 1 auto;
+		width: var(--workspace-panel-slot-width);
+		max-width: 100%;
+		min-width: 0;
+		height: 100%;
+		place-items: center;
+		box-sizing: border-box;
+		border-left: 1px solid var(--border-soft);
+		background: var(--panel-bg);
+		color: var(--text-muted);
+		font-size: 13px;
+	}
+
+	.workspace-panel-loading button {
+		border: 0;
+		background: transparent;
+		color: var(--accent);
+		font: inherit;
+		cursor: pointer;
+	}
+
+	.intro-loading {
+		position: fixed;
+		inset: 0;
+		z-index: 90;
+		background: var(--intro-bg, #fafafa);
+	}
+
+	.inbox-loading-layer {
+		position: fixed;
+		inset: 0;
+		z-index: 75;
+		display: grid;
+		place-items: center;
+		padding: 24px;
+	}
+
+	.inbox-loading-scrim {
+		position: fixed;
+		inset: 0;
+		border: 0;
+		background: rgba(17, 24, 39, 0.28);
+		backdrop-filter: blur(10px);
+	}
+
+	.inbox-loading-card {
+		position: relative;
+		display: grid;
+		min-width: 260px;
+		gap: 16px;
+		place-items: center;
+		padding: 28px;
+		border: 1px solid var(--border-soft);
+		border-radius: 18px;
+		background: var(--panel-bg);
+		box-shadow: 0 22px 70px rgba(15, 23, 42, 0.18);
+		color: var(--text-muted);
+	}
+
+	.inbox-loading-card p {
+		margin: 0;
+	}
+
+	.inbox-loading-actions {
+		display: flex;
+		gap: 8px;
+	}
+
+	.inbox-loading-actions button {
+		padding: 7px 12px;
+		border: 1px solid var(--border-soft);
+		border-radius: 8px;
+		background: var(--panel-bg);
+		color: var(--text-main);
+		font: inherit;
+		cursor: pointer;
+	}
+
+	.inbox-loading-actions button.primary {
+		border-color: var(--accent);
+		background: var(--accent);
+		color: #ffffff;
 	}
 
 	.app-shell.sidebar-collapsed {

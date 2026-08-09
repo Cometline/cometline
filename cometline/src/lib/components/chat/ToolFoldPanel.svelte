@@ -118,6 +118,7 @@
 	class:error={!!item.error}
 	class:nested
 	class:content-only={contentOnly}
+	class:expanded={expanded && !toggleDisabled}
 >
 	{#if !contentOnly}
 		<button
@@ -174,13 +175,24 @@
 	/* Base .fold-panel / .fold-toggle / .fold-body styles live in
 	   src/lib/styles/fold-panel.css. Only component-specific overrides here. */
 	.fold-panel.nested {
-		align-self: stretch;
+		align-self: flex-start;
+		width: fit-content;
+		max-width: 100%;
+		min-width: 0;
 	}
 
 	.fold-panel.nested .fold-toggle {
-		align-self: stretch;
+		align-self: flex-start;
+		width: auto;
+		max-width: 100%;
 	}
 
+	.fold-panel.nested.expanded {
+		align-self: stretch;
+		width: 100%;
+	}
+
+	.fold-panel.nested .tool-output-body,
 	.fold-panel.content-only .tool-output-body {
 		margin-top: 0;
 	}
