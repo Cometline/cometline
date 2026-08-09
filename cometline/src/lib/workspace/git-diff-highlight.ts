@@ -1,4 +1,4 @@
-import type { BundledLanguage, SpecialLanguage, ThemedToken } from 'shiki';
+import type { ThemedToken } from 'shiki/core';
 import { CODE_THEME, getHighlighter, resolveLanguage } from '$lib/markdown/highlight';
 import type { DiffLineKind } from '$lib/tools/diff-artifact';
 import type { GitDiffLine } from './git-diff-lines';
@@ -85,10 +85,7 @@ export async function highlightGitDiffLines(
 
 	try {
 		const highlighter = await getHighlighter();
-		const resolved = resolveLanguage(highlighter, language ?? undefined) as
-			| BundledLanguage
-			| SpecialLanguage
-			| null;
+		const resolved = resolveLanguage(highlighter, language ?? undefined);
 		if (resolved) {
 			if (oldBodies.length > 0) {
 				oldTokenLines = highlighter.codeToTokens(oldBodies.join('\n'), {
