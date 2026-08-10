@@ -463,6 +463,9 @@
 		display: flex;
 		flex-direction: column;
 		gap: 14px;
+		/* Keep offscreen turns out of layout work while pane-width transitions run. */
+		content-visibility: auto;
+		contain-intrinsic-block-size: auto 500px;
 		/* Keep min-height growth from sticky-anchoring the bubble (esp. mini). */
 		overflow-anchor: none;
 	}
