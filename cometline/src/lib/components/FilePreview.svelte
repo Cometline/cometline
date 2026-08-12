@@ -3,6 +3,7 @@
 	import { untrack } from 'svelte';
 	import AssistantMarkdown from '$lib/components/AssistantMarkdown.svelte';
 	import FileEditor from '$lib/components/FileEditor.svelte';
+	import PdfPreview from '$lib/components/PdfPreview.svelte';
 	import SelectionAddToChat from '$lib/components/SelectionAddToChat.svelte';
 	import {
 		listWikiFileBacklinks,
@@ -15,6 +16,7 @@
 	import { openWorkspaceFilePreview } from '$lib/workspace/open-file-preview';
 	import {
 		isMarkdownPath,
+		isPdfPath,
 		languageFromExtension,
 		languageFromPath
 	} from '$lib/workspace/file-preview';
@@ -36,7 +38,10 @@
 	import { refreshWikiFileIndex } from '$lib/wiki/wiki-file-index';
 	import { workspaceFileChangeVersion } from '$lib/workspace/workspace-change.svelte';
 	import { createFileDiff } from '$lib/workspace/file-diff';
-	import { highlightGitDiffLines, type HighlightedDiffLine } from '$lib/workspace/git-diff-highlight';
+	import {
+		highlightGitDiffLines,
+		type HighlightedDiffLine
+	} from '$lib/workspace/git-diff-highlight';
 	import { parseGitDiffLines } from '$lib/workspace/git-diff-lines';
 	import {
 		isWikiReadOnlyPath,
@@ -72,7 +77,7 @@
 	let savedContent = $state('');
 	let draftContent = $state('');
 	let language = $state<string | null>(null);
-	let previewKind = $state<'text' | 'image' | null>(null);
+	let previewKind = $state<'text' | 'image' | 'pdf' | null>(null);
 	let saving = $state(false);
 	let saveError = $state<string | null>(null);
 	let loadVersion = 0;
@@ -99,10 +104,12 @@
 	let externalComparisonError = $state<string | null>(null);
 	let externalComparisonOpen = $state(false);
 	let lastObservedFileChangeVersion = 0;
+	let pdfReloadVersion = $state(0);
 
 	const readOnly = $derived(isWikiUiPath(filePath) && isWikiReadOnlyPath(filePath));
 	const dirty = $derived(previewKind === 'text' && draftContent !== savedContent && !readOnly);
 	const isMarkdown = $derived(isMarkdownPath(filePath));
+	const isPdf = $derived(isPdfPath(filePath));
 	const showMarkdownToggle = $derived(previewKind === 'text' && isMarkdown);
 	const effectiveViewMode = $derived(
 		showMarkdownToggle ? viewMode : ('source' satisfies MarkdownFileViewMode)
@@ -306,6 +313,10 @@
 		selectionPopup = null;
 
 		try {
+			if (isPdf) {
+				previewKind = 'pdf';
+				return;
+			}
 			const wikiIndexPromise = refreshWikiFileIndex(true);
 			const result = isWikiUiPath(filePath)
 				? await readWikiFileContent(toWikiRelative(filePath))
@@ -351,6 +362,10 @@
 		const changeVersion = workspaceFileChangeVersion(workspacePath, filePath);
 		if (changeVersion === lastObservedFileChangeVersion) return;
 		lastObservedFileChangeVersion = changeVersion;
+		if (isPdf) {
+			pdfReloadVersion += 1;
+			return;
+		}
 		if (dirty) {
 			externalChangePending = true;
 			externalComparisonLines = null;
@@ -388,7 +403,6 @@
 			onEditorState?.(null);
 		};
 	});
-
 </script>
 
 {#snippet backlinksSection()}
@@ -429,6 +443,8 @@
 		<div class="file-preview-image-wrap">
 			<img src={imageDataUrl} alt={filePath} class="file-preview-image" />
 		</div>
+	{:else if previewKind === 'pdf'}
+		<PdfPreview {workspacePath} {filePath} wiki={isWikiFile} reloadVersion={pdfReloadVersion} />
 	{:else if previewKind === 'text'}
 		<div class="file-preview-editor-wrap">
 			{#if externalComparisonOpen && externalComparisonLines !== null}
@@ -436,8 +452,11 @@
 					<header class="external-diff-toolbar">
 						<span>External change diff</span>
 						<div class="external-change-actions">
-							<button type="button" onclick={reloadAfterExternalChange}>Reload</button>
-							<button type="button" onclick={keepEditingAfterExternalChange}>Keep editing</button>
+							<button type="button" onclick={reloadAfterExternalChange}>Reload</button
+							>
+							<button type="button" onclick={keepEditingAfterExternalChange}
+								>Keep editing</button
+							>
 							<button type="button" onclick={() => void compareExternalChange()}>
 								Close diff
 							</button>
@@ -454,85 +473,90 @@
 				</div>
 			{:else}
 				{#if showMarkdownToggle}
-				<div class="md-view-toggle" role="group" aria-label="Markdown view mode">
-					<button
-						type="button"
-						class="md-view-toggle-btn"
-						class:active={effectiveViewMode === 'preview'}
-						onclick={() => setViewMode('preview')}
-					>
-						Preview
-					</button>
-					<button
-						type="button"
-						class="md-view-toggle-btn"
-						class:active={effectiveViewMode === 'source'}
-						onclick={() => setViewMode('source')}
-					>
-						Source
-					</button>
-				</div>
+					<div class="md-view-toggle" role="group" aria-label="Markdown view mode">
+						<button
+							type="button"
+							class="md-view-toggle-btn"
+							class:active={effectiveViewMode === 'preview'}
+							onclick={() => setViewMode('preview')}
+						>
+							Preview
+						</button>
+						<button
+							type="button"
+							class="md-view-toggle-btn"
+							class:active={effectiveViewMode === 'source'}
+							onclick={() => setViewMode('source')}
+						>
+							Source
+						</button>
+					</div>
 				{/if}
 				{#if saveError}
-				<div class="file-preview-save-error">{saveError}</div>
+					<div class="file-preview-save-error">{saveError}</div>
 				{/if}
 				{#if externalChangePending}
-				<div class="external-change-notice" role="status">
-					<span>This file changed outside Cometline.</span>
-					<div class="external-change-actions">
-						<button type="button" onclick={reloadAfterExternalChange}>Reload</button>
-						<button type="button" onclick={keepEditingAfterExternalChange}>Keep editing</button>
-						<button type="button" onclick={() => void compareExternalChange()}>Compare</button>
+					<div class="external-change-notice" role="status">
+						<span>This file changed outside Cometline.</span>
+						<div class="external-change-actions">
+							<button type="button" onclick={reloadAfterExternalChange}>Reload</button
+							>
+							<button type="button" onclick={keepEditingAfterExternalChange}
+								>Keep editing</button
+							>
+							<button type="button" onclick={() => void compareExternalChange()}
+								>Compare</button
+							>
+						</div>
 					</div>
-				</div>
-				{#if externalComparisonError}
-					<div class="file-preview-save-error">{externalComparisonError}</div>
-				{/if}
+					{#if externalComparisonError}
+						<div class="file-preview-save-error">{externalComparisonError}</div>
+					{/if}
 				{/if}
 				{#if effectiveViewMode === 'preview'}
-				<!-- svelte-ignore a11y_no_static_element_interactions -->
-				<div class="file-preview-markdown scrollbar-none" onmouseup={onPreviewMouseUp}>
-					<AssistantMarkdown
-						source={draftContent}
-						mode="assistant"
-						annotateSourceLines
-						{wikiFiles}
-						workspaceResources={{
-							kind: isWikiFile ? 'wiki' : 'workspace',
-							workspacePath,
-							filePath: isWikiFile ? toWikiRelative(filePath) : filePath,
-							readFile: (relativePath) =>
-								isWikiFile
-									? readWikiFileContent(relativePath)
-									: readWorkspaceFileContent(workspacePath, relativePath)
-						}}
-					/>
-					{#if showBacklinks}
-						{@render backlinksSection()}
-					{/if}
-				</div>
+					<!-- svelte-ignore a11y_no_static_element_interactions -->
+					<div class="file-preview-markdown scrollbar-none" onmouseup={onPreviewMouseUp}>
+						<AssistantMarkdown
+							source={draftContent}
+							mode="assistant"
+							annotateSourceLines
+							{wikiFiles}
+							workspaceResources={{
+								kind: isWikiFile ? 'wiki' : 'workspace',
+								workspacePath,
+								filePath: isWikiFile ? toWikiRelative(filePath) : filePath,
+								readFile: (relativePath) =>
+									isWikiFile
+										? readWikiFileContent(relativePath)
+										: readWorkspaceFileContent(workspacePath, relativePath)
+							}}
+						/>
+						{#if showBacklinks}
+							{@render backlinksSection()}
+						{/if}
+					</div>
 				{:else}
-				<!-- svelte-ignore a11y_no_static_element_interactions -->
-				<div class="file-preview-source-wrap" onmouseup={onSourceMouseUp}>
-					<FileEditor
-						bind:this={fileEditor}
-						value={draftContent}
-						{language}
-						readOnly={saving || readOnly}
-						{revealRange}
-						onChange={(value) => {
-							draftContent = value;
-							if (saveError) saveError = null;
-						}}
-						onSave={() => {
-							void save();
-						}}
-						onRevealApplied={() => shellStore.clearFileRevealForActive()}
-					/>
-					{#if showBacklinks && !showMarkdownToggle}
-						{@render backlinksSection()}
-					{/if}
-				</div>
+					<!-- svelte-ignore a11y_no_static_element_interactions -->
+					<div class="file-preview-source-wrap" onmouseup={onSourceMouseUp}>
+						<FileEditor
+							bind:this={fileEditor}
+							value={draftContent}
+							{language}
+							readOnly={saving || readOnly}
+							{revealRange}
+							onChange={(value) => {
+								draftContent = value;
+								if (saveError) saveError = null;
+							}}
+							onSave={() => {
+								void save();
+							}}
+							onRevealApplied={() => shellStore.clearFileRevealForActive()}
+						/>
+						{#if showBacklinks && !showMarkdownToggle}
+							{@render backlinksSection()}
+						{/if}
+					</div>
 				{/if}
 			{/if}
 		</div>
@@ -555,7 +579,6 @@
 		overflow: auto;
 		background: #fff;
 	}
-
 
 	.file-preview-state {
 		display: flex;

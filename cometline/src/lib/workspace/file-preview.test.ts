@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { extensionFromPath, isImagePath, isMarkdownPath, languageFromPath } from './file-preview';
+import {
+	extensionFromPath,
+	isImagePath,
+	isMarkdownPath,
+	isPdfPath,
+	languageFromPath
+} from './file-preview';
 
 describe('file-preview helpers', () => {
 	it('detects language from extension', () => {
@@ -11,6 +17,13 @@ describe('file-preview helpers', () => {
 		expect(isMarkdownPath('docs/guide.md')).toBe(true);
 		expect(isImagePath('static/logo.png')).toBe(true);
 		expect(isImagePath('src/main.go')).toBe(false);
+	});
+
+	it('detects PDF paths case-insensitively', () => {
+		expect(isPdfPath('docs/report.pdf')).toBe(true);
+		expect(isPdfPath('docs/REPORT.PDF')).toBe(true);
+		expect(isPdfPath('docs/report.pdf.txt')).toBe(false);
+		expect(isPdfPath('report')).toBe(false);
 	});
 
 	it('extracts extension from nested paths', () => {

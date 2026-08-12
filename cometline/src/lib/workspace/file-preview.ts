@@ -53,3 +53,7 @@ export function isMarkdownPath(filePath: string): boolean {
 export function isImagePath(filePath: string): boolean {
 	return IMAGE_EXTENSIONS.has(extensionFromPath(filePath));
 }
+
+export function isPdfPath(filePath: string): boolean {
+	return extensionFromPath(filePath) === '.pdf';
+}
