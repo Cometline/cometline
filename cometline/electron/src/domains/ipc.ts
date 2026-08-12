@@ -25,6 +25,8 @@ export interface IpcHandlers {
 	filterExistingWorkspacePaths: Invoker;
 	pruneWorkspaceStore: Invoker;
 	readWorkspaceFile: Invoker;
+	createPdfPreview: Invoker;
+	revokePdfPreview: Invoker;
 	terminalList: Invoker;
 	terminalCreate: Invoker;
 	terminalWrite: Invoker;
@@ -92,9 +94,14 @@ export function registerIpcHandlers(handlers: IpcHandlers) {
 	ipcMain.handle('cometline:watch-workspace', handlers.watchWorkspace);
 	ipcMain.handle('cometline:list-recent-workspaces', handlers.listRecentWorkspaces);
 	ipcMain.handle('cometline:remove-recent-workspace-path', handlers.removeRecentWorkspacePath);
-	ipcMain.handle('cometline:filter-existing-workspace-paths', handlers.filterExistingWorkspacePaths);
+	ipcMain.handle(
+		'cometline:filter-existing-workspace-paths',
+		handlers.filterExistingWorkspacePaths
+	);
 	ipcMain.handle('cometline:prune-workspace-store', handlers.pruneWorkspaceStore);
 	ipcMain.handle('cometline:read-workspace-file', handlers.readWorkspaceFile);
+	ipcMain.handle('cometline:create-pdf-preview', handlers.createPdfPreview);
+	ipcMain.handle('cometline:revoke-pdf-preview', handlers.revokePdfPreview);
 	ipcMain.handle('cometline:terminal-list', handlers.terminalList);
 	ipcMain.handle('cometline:terminal-create', handlers.terminalCreate);
 	ipcMain.handle('cometline:terminal-write', handlers.terminalWrite);
