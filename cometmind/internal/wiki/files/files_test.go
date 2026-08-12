@@ -7,13 +7,15 @@ import (
 	"testing"
 )
 
-func TestListMarkdownFiles(t *testing.T) {
+func TestListDocumentFiles(t *testing.T) {
 	dir := t.TempDir()
 	for _, p := range []string{
 		"index.md",
 		"entities/foo.md",
 		"raw/2026-01-01-note.md",
 		"raw/2026-01-01-paper.html",
+		"paper.pdf",
+		"draft.markdown",
 		"notes.txt",
 		".hidden.md",
 		".private/draft.txt",
@@ -27,18 +29,18 @@ func TestListMarkdownFiles(t *testing.T) {
 		}
 	}
 
-	result, err := ListMarkdownFiles(context.Background(), dir, ListOptions{Limit: 50})
+	result, err := ListDocumentFiles(context.Background(), dir, ListOptions{Limit: 50})
 	if err != nil {
 		t.Fatal(err)
 	}
 	want := []string{
 		".hidden.md",
 		".private/",
-		".private/draft.txt",
+		"draft.markdown",
 		"entities/",
 		"entities/foo.md",
 		"index.md",
-		"notes.txt",
+		"paper.pdf",
 		"raw/",
 		"raw/2026-01-01-note.md",
 		"raw/2026-01-01-paper.html",
@@ -53,8 +55,34 @@ func TestListMarkdownFiles(t *testing.T) {
 	}
 }
 
-func TestListMarkdownFilesMissingDir(t *testing.T) {
-	result, err := ListMarkdownFiles(context.Background(), filepath.Join(t.TempDir(), "missing"), ListOptions{})
+func TestListDirectoryFiltersWikiDocuments(t *testing.T) {
+	dir := t.TempDir()
+	for _, name := range []string{"guide.md", "paper.PDF", "page.html", "notes.txt", "assets/image.png"} {
+		full := filepath.Join(dir, filepath.FromSlash(name))
+		if err := os.MkdirAll(filepath.Dir(full), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(full, []byte("x"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	result, err := ListDirectory(context.Background(), dir, "", ListOptions{Limit: 50})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"assets/", "guide.md", "page.html", "paper.PDF"}
+	if len(result.Files) != len(want) {
+		t.Fatalf("files = %v want %v", result.Files, want)
+	}
+	for i := range want {
+		if result.Files[i] != want[i] {
+			t.Fatalf("files = %v want %v", result.Files, want)
+		}
+	}
+}
+
+func TestListDocumentFilesMissingDir(t *testing.T) {
+	result, err := ListDocumentFiles(context.Background(), filepath.Join(t.TempDir(), "missing"), ListOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}

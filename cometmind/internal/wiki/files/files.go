@@ -19,9 +19,19 @@ type ListOptions = filelist.Options
 
 type Result = filelist.Result
 
-// ListMarkdownFiles returns wiki-root-relative file and directory paths, sorted.
+func includeWikiDocument(relativePath string) bool {
+	switch strings.ToLower(filepath.Ext(relativePath)) {
+	case ".md", ".markdown", ".html", ".htm", ".pdf":
+		return true
+	default:
+		return false
+	}
+}
+
+// ListDocumentFiles returns wiki document files and directories, sorted.
 // Directories have a trailing slash so clients can distinguish them from files.
-func ListMarkdownFiles(ctx context.Context, root string, opts ListOptions) (Result, error) {
+func ListDocumentFiles(ctx context.Context, root string, opts ListOptions) (Result, error) {
+	opts.IncludeFile = includeWikiDocument
 	result, err := filelist.List(ctx, root, opts)
 	if errors.Is(err, os.ErrNotExist) {
 		return Result{Files: []string{}}, nil
@@ -31,6 +41,7 @@ func ListMarkdownFiles(ctx context.Context, root string, opts ListOptions) (Resu
 
 // ListDirectory returns direct children of a wiki-root-relative directory.
 func ListDirectory(ctx context.Context, root, directory string, opts ListOptions) (Result, error) {
+	opts.IncludeFile = includeWikiDocument
 	result, err := filelist.ListDirectory(ctx, root, directory, opts)
 	if errors.Is(err, os.ErrNotExist) {
 		return Result{Files: []string{}}, nil
