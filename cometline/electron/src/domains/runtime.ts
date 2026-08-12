@@ -26,6 +26,11 @@ import { createAutoUpdater } from './auto-updater.js';
 import { createBrowserSearchBridge } from './browser-search.js';
 import { createCometMindLifecycle } from './cometmind-lifecycle.js';
 import { createPersonas } from './personas.js';
+import {
+	PDF_PREVIEW_SCHEME,
+	createPdfPreviewRegistry,
+	registerPdfPreviewProtocol
+} from './pdf-preview.js';
 import { createProviderAuth } from './provider-auth.js';
 import { createRouteSignals } from './route-signals.js';
 import { registerRuntimeIpcHandlers } from './runtime-ipc.js';
@@ -84,6 +89,15 @@ export function initializeRuntime() {
 				supportFetchAPI: true,
 				stream: true,
 				codeCache: true
+			}
+		},
+		{
+			scheme: PDF_PREVIEW_SCHEME,
+			privileges: {
+				standard: true,
+				secure: true,
+				supportFetchAPI: true,
+				stream: true
 			}
 		}
 	]);
@@ -146,7 +160,8 @@ export function initializeRuntime() {
 	});
 	const browserSearch = createBrowserSearchBridge();
 	const screenCapture = createScreenCaptureBridge({
-		isPreferred: () => Boolean(settingsDomain.readProviderSettings().app?.screenCapturePreferred)
+		isPreferred: () =>
+			Boolean(settingsDomain.readProviderSettings().app?.screenCapturePreferred)
 	});
 	const terminals = createTerminalManager(() => windows?.getMainWindow() ?? null);
 	const workspaceWatcher = createWorkspaceWatcher({
@@ -154,7 +169,8 @@ export function initializeRuntime() {
 		path,
 		onChange: (change) => {
 			for (const window of BrowserWindow.getAllWindows()) {
-				if (!window.isDestroyed()) window.webContents.send('cometline:workspace-changed', change);
+				if (!window.isDestroyed())
+					window.webContents.send('cometline:workspace-changed', change);
 			}
 		},
 		setTimeout,
@@ -341,6 +357,11 @@ export function initializeRuntime() {
 		windowChrome,
 		writeMiniWindowState: settingsDomain.writeMiniWindowState
 	});
+	const pdfPreview = createPdfPreviewRegistry({
+		fs,
+		path,
+		wikiRoot: path.join(os.homedir(), '.cometmind', 'wiki')
+	});
 	const updater = createAutoUpdater({
 		context: shellContext,
 		beforeInstall: async () => {
@@ -358,6 +379,7 @@ export function initializeRuntime() {
 		Notification: ElectronNotification,
 		shell,
 		workspacePreview: { fs, path },
+		pdfPreview,
 		selectBackupFolder,
 		context: shellContext,
 		windows,
@@ -376,6 +398,7 @@ export function initializeRuntime() {
 	});
 
 	app.whenReady().then(async () => {
+		registerPdfPreviewProtocol({ protocol, net, fs, path, registry: pdfPreview });
 		if (app.isPackaged) {
 			registerAppProtocol({
 				bundleDirectory: path.join(runtimeDirectory, '..', 'build'),

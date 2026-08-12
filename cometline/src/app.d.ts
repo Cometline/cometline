@@ -363,6 +363,11 @@ declare global {
 		| { ok: true; kind: 'image'; mimeType: string; dataUrl: string }
 		| { ok: false; error: string };
 
+	type PdfPreviewRequest =
+		| { scope: 'workspace'; workspacePath: string; relativePath: string }
+		| { scope: 'wiki'; relativePath: string };
+	type PdfPreviewResult = { ok: true; token: string; url: string } | { ok: false; error: string };
+
 	type ReadPersonaSoulResult = { ok: true; content: string } | { ok: false; error: string };
 
 	type ReadPersonaAvatarResult = { ok: true; dataUrl: string } | { ok: false; error: string };
@@ -497,7 +502,11 @@ declare global {
 		getFullScreen?: () => Promise<boolean>;
 		onFullScreenChange?: (callback: (isFullScreen: boolean) => void) => () => void;
 		onWorkspaceChanged?: (
-			callback: (change: { workspacePath: string; paths: string[]; gitChanged: boolean }) => void
+			callback: (change: {
+				workspacePath: string;
+				paths: string[];
+				gitChanged: boolean;
+			}) => void
 		) => () => void;
 		getWorkspacePath?: () => Promise<string>;
 		selectWorkspacePath?: () => Promise<string | null>;
@@ -513,6 +522,8 @@ declare global {
 			workspacePath: string,
 			relativePath: string
 		) => Promise<ReadWorkspaceFileResult>;
+		createPdfPreview?: (request: PdfPreviewRequest) => Promise<PdfPreviewResult>;
+		revokePdfPreview?: (token: string) => Promise<void>;
 		listTerminals?: () => Promise<TerminalSnapshot[]>;
 		createTerminal?: (payload: {
 			sessionId: string;

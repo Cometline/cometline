@@ -22,7 +22,8 @@ const electronAPI: ElectronAPI = {
 	selectBackupFolder: () => ipcRenderer.invoke('cometline:select-backup-folder'),
 	setWorkspacePath: (workspacePath) =>
 		ipcRenderer.invoke('cometline:set-workspace-path', workspacePath),
-	watchWorkspace: (workspacePath) => ipcRenderer.invoke('cometline:watch-workspace', workspacePath),
+	watchWorkspace: (workspacePath) =>
+		ipcRenderer.invoke('cometline:watch-workspace', workspacePath),
 	listRecentWorkspaces: () => ipcRenderer.invoke('cometline:list-recent-workspaces'),
 	removeRecentWorkspacePath: (workspacePath) =>
 		ipcRenderer.invoke('cometline:remove-recent-workspace-path', workspacePath),
@@ -31,6 +32,8 @@ const electronAPI: ElectronAPI = {
 	pruneWorkspaceStore: () => ipcRenderer.invoke('cometline:prune-workspace-store'),
 	readWorkspaceFile: (workspacePath, relativePath) =>
 		ipcRenderer.invoke('cometline:read-workspace-file', workspacePath, relativePath),
+	createPdfPreview: (request) => ipcRenderer.invoke('cometline:create-pdf-preview', request),
+	revokePdfPreview: (token) => ipcRenderer.invoke('cometline:revoke-pdf-preview', token),
 	listTerminals: () => ipcRenderer.invoke('cometline:terminal-list'),
 	createTerminal: (payload) => ipcRenderer.invoke('cometline:terminal-create', payload),
 	writeTerminal: (payload) => ipcRenderer.invoke('cometline:terminal-write', payload),
@@ -93,14 +96,17 @@ const electronAPI: ElectronAPI = {
 		ipcRenderer.send('cometline:shortcut-capture-active', Boolean(active)),
 	setSessionNavigationSuspended: (suspended) =>
 		ipcRenderer.send('cometline:session-navigation-suspended', Boolean(suspended)),
-	setWorkspacePanelOpen: (open) => ipcRenderer.send('cometline:workspace-panel-open', Boolean(open)),
+	setWorkspacePanelOpen: (open) =>
+		ipcRenderer.send('cometline:workspace-panel-open', Boolean(open)),
 	setInboxOpen: (open) => ipcRenderer.send('cometline:inbox-open', Boolean(open)),
 	confirmCloseWindow: () => ipcRenderer.send('cometline:confirm-close-window'),
-	onCloseWorkspacePanel: (callback) => subscribeSignal('cometline:close-workspace-panel', callback),
+	onCloseWorkspacePanel: (callback) =>
+		subscribeSignal('cometline:close-workspace-panel', callback),
 	onCloseInbox: (callback) => subscribeSignal('cometline:close-inbox', callback),
 	onRequestCloseWindow: (callback) => subscribeSignal('cometline:request-close-window', callback),
 	onRequestReload: (callback) => subscribeSignal('cometline:request-reload', callback),
-	onToggleWorkspacePanel: (callback) => subscribeSignal('cometline:toggle-workspace-panel', callback),
+	onToggleWorkspacePanel: (callback) =>
+		subscribeSignal('cometline:toggle-workspace-panel', callback),
 	onOpenWebSearch: (callback) => subscribeSignal('cometline:open-web-search', callback),
 	onNavigateSession: (callback) =>
 		subscribe('cometline:navigate-session', (direction) => {

@@ -20,6 +20,7 @@ type Options struct {
 	Query              string
 	Limit              int
 	SkipDirectoryNames map[string]bool
+	IncludeFile        func(relativePath string) bool
 }
 
 // Result is the outcome of an entry listing.
@@ -84,6 +85,8 @@ func List(ctx context.Context, root string, opts Options) (Result, error) {
 			if isDir {
 				directories = append(directories, filepath.Join(dir, entry.Name()))
 				rel += "/"
+			} else if opts.IncludeFile != nil && !opts.IncludeFile(rel) {
+				continue
 			}
 			if query != "" && !strings.Contains(strings.ToLower(rel), query) {
 				continue
@@ -178,6 +181,8 @@ func ListDirectory(ctx context.Context, root, directory string, opts Options) (R
 		}
 		if isDir {
 			path += "/"
+		} else if opts.IncludeFile != nil && !opts.IncludeFile(path) {
+			continue
 		}
 		if query != "" && !strings.Contains(strings.ToLower(path), query) {
 			continue

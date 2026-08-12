@@ -91,6 +91,8 @@ export interface ElectronAPI {
 		workspacePath: string,
 		relativePath: string
 	): Promise<ReadWorkspaceFileResult>;
+	createPdfPreview(request: PdfPreviewRequest): Promise<PdfPreviewResult>;
+	revokePdfPreview(token: string): Promise<void>;
 	listTerminals(): Promise<TerminalSnapshot[]>;
 	createTerminal(payload: TerminalCreatePayload): Promise<TerminalSnapshot>;
 	writeTerminal(payload: { sessionId: string; data: string }): Promise<boolean>;

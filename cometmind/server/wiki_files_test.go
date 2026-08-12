@@ -25,6 +25,7 @@ func TestListWikiFiles(t *testing.T) {
 	mustWrite(t, filepath.Join(wikiDir, "index.md"), "# index")
 	mustWrite(t, filepath.Join(wikiDir, "entities", "foo.md"), "# foo")
 	mustWrite(t, filepath.Join(wikiDir, "notes.txt"), "note")
+	mustWrite(t, filepath.Join(wikiDir, "paper.pdf"), "%PDF")
 
 	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
 		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
@@ -43,7 +44,7 @@ func TestListWikiFiles(t *testing.T) {
 
 	var got workspaceFileListResponse
 	decodeJSON(t, rec.Body.Bytes(), &got)
-	want := []string{"entities/", "entities/foo.md", "index.md", "notes.txt"}
+	want := []string{"entities/", "entities/foo.md", "index.md", "paper.pdf"}
 	if len(got.Files) != len(want) {
 		t.Fatalf("files = %v want %v", got.Files, want)
 	}

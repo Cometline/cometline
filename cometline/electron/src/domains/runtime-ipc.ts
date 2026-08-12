@@ -11,6 +11,7 @@ import {
 	requestScreenCaptureAccess
 } from './media-permissions.js';
 import type { createPersonas } from './personas.js';
+import type { createPdfPreviewRegistry } from './pdf-preview.js';
 import type { createProviderAuth } from './provider-auth.js';
 import type { ShellWindowContext } from './runtime-context.js';
 import type { createSettingsDomain } from './settings.js';
@@ -32,6 +33,7 @@ type AutoUpdater = ReturnType<typeof createAutoUpdater>;
 type Shortcuts = ReturnType<typeof createShortcutCoordinator>;
 type WindowChrome = ReturnType<typeof createWindowChrome>;
 type WorkspaceWatcher = ReturnType<typeof createWorkspaceWatcher>;
+type PdfPreviewRegistry = ReturnType<typeof createPdfPreviewRegistry>;
 
 interface NotificationService {
 	isSupported(): boolean;
@@ -43,6 +45,7 @@ export interface RuntimeIpcDependencies {
 	Notification: NotificationService;
 	shell: Pick<Shell, 'openExternal'>;
 	workspacePreview: Parameters<typeof readWorkspaceFileForPreview>[0];
+	pdfPreview: PdfPreviewRegistry;
 	selectBackupFolder(): Promise<{ canceled: boolean; path?: string }>;
 	context: ShellWindowContext;
 	windows: Windows;
@@ -159,6 +162,11 @@ export function registerRuntimeIpcHandlers(dependencies: RuntimeIpcDependencies)
 			relativePath: unknown
 		) =>
 			readWorkspaceFileForPreview(dependencies.workspacePreview, workspacePath, relativePath),
+		createPdfPreview: (_event: IpcMainInvokeEvent, request: unknown) =>
+			dependencies.pdfPreview.create(request),
+		revokePdfPreview: (_event: IpcMainInvokeEvent, token: unknown) => {
+			dependencies.pdfPreview.revoke(token);
+		},
 		terminalList: (event: IpcMainInvokeEvent) =>
 			dependencies.terminals.isMainWindowSender(event) ? dependencies.terminals.list() : [],
 		terminalCreate: (event: IpcMainInvokeEvent, payload: unknown = {}) => {

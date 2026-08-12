@@ -31,7 +31,7 @@ func (a *App) handleListWikiFiles(c *gin.Context) {
 		}
 	}
 
-	result, err := wikifiles.ListMarkdownFiles(c.Request.Context(), root, wikifiles.ListOptions{
+	result, err := wikifiles.ListDocumentFiles(c.Request.Context(), root, wikifiles.ListOptions{
 		Query: strings.TrimSpace(c.Query("q")),
 		Limit: limit,
 	})
