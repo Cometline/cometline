@@ -317,6 +317,26 @@ describe('settings schema', () => {
 		expect(settings.storage).not.toHaveProperty('deletedJobPurgeDays');
 	});
 
+	it('prefers the operational legacy purge value over the persisted jobs default', () => {
+		for (const legacyDays of [0, 14]) {
+			const settings = normalizeCometMindSettings({
+				storage: { deletedJobPurgeDays: legacyDays } as never,
+				jobs: { deletedPurgeDays: 30 } as never
+			});
+			expect(settings.jobs.deletedPurgeDays).toBe(legacyDays);
+		}
+	});
+
+	it('preserves an explicit non-default jobs purge value over the legacy value', () => {
+		for (const deletedPurgeDays of [0, 7]) {
+			const settings = normalizeCometMindSettings({
+				storage: { deletedJobPurgeDays: 14 } as never,
+				jobs: { deletedPurgeDays } as never
+			});
+			expect(settings.jobs.deletedPurgeDays).toBe(deletedPurgeDays);
+		}
+	});
+
 	it('migrates legacy single-provider format', () => {
 		const migrated = migrateSingleProvider({
 			provider: 'openai',

@@ -633,6 +633,16 @@ export function normalizeCometMindSettings(
 	const jobsDefaults = defaults.jobs;
 	const jobsNotifications: Partial<CometMindJobsNotificationSettings> =
 		jobsInput.notifications ?? {};
+	const canonicalDeletedJobPurgeDays = normalizeNonNegativeInt(
+		jobsInput.deletedPurgeDays,
+		jobsDefaults.deletedPurgeDays
+	);
+	const deletedJobPurgeDays =
+		legacyDeletedJobPurgeDays !== undefined &&
+		(jobsInput.deletedPurgeDays === undefined ||
+			canonicalDeletedJobPurgeDays === jobsDefaults.deletedPurgeDays)
+			? normalizeNonNegativeInt(legacyDeletedJobPurgeDays, jobsDefaults.deletedPurgeDays)
+			: canonicalDeletedJobPurgeDays;
 	const autonomyInput: Partial<CometMindAutonomousJobsSettings> = input?.autonomy ?? {};
 	const autonomyDefaults = defaults.autonomy;
 	const schedulerInput: Partial<CometMindSchedulerSettings> = input?.scheduler ?? {};
@@ -832,10 +842,7 @@ export function normalizeCometMindSettings(
 						: jobsDefaults.notifications.onBlocked
 			},
 			leaseMinutes: normalizePositiveInt(jobsInput.leaseMinutes, jobsDefaults.leaseMinutes),
-			deletedPurgeDays: normalizeNonNegativeInt(
-				jobsInput.deletedPurgeDays ?? legacyDeletedJobPurgeDays,
-				jobsDefaults.deletedPurgeDays
-			),
+			deletedPurgeDays: deletedJobPurgeDays,
 			doneArchiveDays: normalizeNonNegativeInt(
 				jobsInput.doneArchiveDays,
 				jobsDefaults.doneArchiveDays

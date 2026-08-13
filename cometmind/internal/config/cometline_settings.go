@@ -245,11 +245,12 @@ func adaptCometlineSettings(raw cometlineSettingsJSON) (*Config, error) {
 
 	cm := raw.Cometmind
 	memDef := defaultMemoryConfig()
-	deletedPurgeDays := DefaultJobSettings().DeletedPurgeDays
-	if cm.Jobs.DeletedPurgeDays != nil {
-		deletedPurgeDays = *cm.Jobs.DeletedPurgeDays
-	} else if cm.Storage.DeletedJobPurgeDays != nil {
+	defaultDeletedPurgeDays := DefaultJobSettings().DeletedPurgeDays
+	deletedPurgeDays := defaultDeletedPurgeDays
+	if cm.Storage.DeletedJobPurgeDays != nil && (cm.Jobs.DeletedPurgeDays == nil || *cm.Jobs.DeletedPurgeDays == defaultDeletedPurgeDays) {
 		deletedPurgeDays = *cm.Storage.DeletedJobPurgeDays
+	} else if cm.Jobs.DeletedPurgeDays != nil {
+		deletedPurgeDays = *cm.Jobs.DeletedPurgeDays
 	}
 	cfg := &Config{
 		Provider:           defaultProviderID,
