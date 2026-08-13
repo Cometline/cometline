@@ -48,27 +48,30 @@ const memoryExtractionConcurrency = 3
 
 // Runtime is the composition root shared by the CLI and server.
 type Runtime struct {
-	Config         *config.Config
-	DB             *sql.DB
-	Sessions       *session.Service
-	Memory         *memory.Service
-	Compatibility  *modelcompat.Resolver
-	Events         *event.Hub
-	Jobs           *jobs.Service
-	Inbox          *inbox.Service
-	Scheduler      *scheduler.Service
-	jobSettings    jobs.Settings
-	jobSettingsMu  sync.RWMutex
-	SystemPrompt   string
-	acpMgr         *acp.SessionManager
-	mcpMgr         *mcppkg.Manager
-	subagentOrch   *subagent.Orchestrator
-	memorySem      chan struct{} // bounds concurrent memory-extraction goroutines
-	isRunning      func(sessionID string) bool
-	retentionMu    sync.Mutex
-	reloadMu       sync.Mutex
-	autonomyWorker *autonomy.Worker
-	inboxWorker    *inboxworker.Worker
+	Config           *config.Config
+	DB               *sql.DB
+	Sessions         *session.Service
+	Memory           *memory.Service
+	Compatibility    *modelcompat.Resolver
+	Events           *event.Hub
+	Jobs             *jobs.Service
+	Inbox            *inbox.Service
+	Scheduler        *scheduler.Service
+	jobSettings      jobs.Settings
+	jobSettingsMu    sync.RWMutex
+	SystemPrompt     string
+	acpMgr           *acp.SessionManager
+	mcpMgr           *mcppkg.Manager
+	subagentOrch     *subagent.Orchestrator
+	memorySem        chan struct{} // bounds concurrent memory-extraction goroutines
+	isRunning        func(sessionID string) bool
+	retentionMu      sync.Mutex
+	reloadMu         sync.Mutex
+	jobsChanged      chan struct{}
+	retentionChanged chan struct{}
+	backupChanged    chan struct{}
+	autonomyWorker   *autonomy.Worker
+	inboxWorker      *inboxworker.Worker
 }
 
 // New builds a Runtime from the environment and filesystem.
@@ -93,14 +96,17 @@ func New(ctx context.Context) (*Runtime, error) {
 
 	sessions := session.New(sqlDB)
 	r := &Runtime{
-		Config:        cfg,
-		DB:            sqlDB,
-		Sessions:      sessions,
-		Events:        event.NewHub(),
-		SystemPrompt:  systemPrompt,
-		memorySem:     make(chan struct{}, memoryExtractionConcurrency),
-		jobSettings:   cfg.JobsSettings(),
-		Compatibility: modelcompat.New(db.New(sqlDB)),
+		Config:           cfg,
+		DB:               sqlDB,
+		Sessions:         sessions,
+		Events:           event.NewHub(),
+		SystemPrompt:     systemPrompt,
+		memorySem:        make(chan struct{}, memoryExtractionConcurrency),
+		jobSettings:      cfg.JobsSettings(),
+		jobsChanged:      make(chan struct{}, 1),
+		retentionChanged: make(chan struct{}, 1),
+		backupChanged:    make(chan struct{}, 1),
+		Compatibility:    modelcompat.New(db.New(sqlDB)),
 	}
 	notifier := jobs.NewNotifier(r.jobSettingsSnapshot)
 	r.Jobs = jobs.NewService(sqlDB, r.jobSettingsSnapshot, notifier)
@@ -179,20 +185,21 @@ func (r *Runtime) StartScheduler(ctx context.Context) {
 	}()
 }
 
-func runRetention(ctx context.Context, db *sql.DB, sessions *session.Service, mem *memory.Service, jobSvc *jobs.Service, inboxSvc *inbox.Service, cfg config.StorageConfig, inboxCfg config.InboxConfig, isRunning func(string) bool) (retention.Result, error) {
+func runRetention(ctx context.Context, db *sql.DB, sessions *session.Service, mem *memory.Service, jobSvc *jobs.Service, inboxSvc *inbox.Service, cfg config.StorageConfig, inboxCfg config.InboxConfig, jobPurgeDays int, isRunning func(string) bool) (retention.Result, error) {
 	var out retention.Result
-	needDB := cfg.RetentionEnabled() || cfg.MemoryPurgeEnabled() || cfg.JobPurgeEnabled() || inboxSvc != nil
+	needDB := cfg.RetentionEnabled() || cfg.MemoryPurgeEnabled() || jobPurgeDays > 0 || inboxSvc != nil
 	if needDB {
 		rr := &retention.Runner{
-			DB:          db,
-			Sessions:    sessions,
-			Memory:      mem,
-			Jobs:        jobSvc,
-			Inbox:       inboxSvc,
-			Config:      cfg,
-			InboxCfg:    inboxCfg,
-			IsRunning:   isRunning,
-			VacuumAsync: true,
+			DB:           db,
+			Sessions:     sessions,
+			Memory:       mem,
+			Jobs:         jobSvc,
+			Inbox:        inboxSvc,
+			Config:       cfg,
+			InboxCfg:     inboxCfg,
+			JobPurgeDays: jobPurgeDays,
+			IsRunning:    isRunning,
+			VacuumAsync:  true,
 		}
 		var err error
 		out, err = rr.Run(ctx)
@@ -221,7 +228,7 @@ func (r *Runtime) RunRetention(ctx context.Context) (retention.Result, error) {
 	}
 	r.retentionMu.Lock()
 	defer r.retentionMu.Unlock()
-	result, err := runRetention(ctx, r.DB, r.Sessions, r.Memory, r.Jobs, r.Inbox, r.Config.EffectiveStorageConfig(), r.Config.EffectiveInboxSettings(), r.isRunning)
+	result, err := runRetention(ctx, r.DB, r.Sessions, r.Memory, r.Jobs, r.Inbox, r.Config.EffectiveStorageConfig(), r.Config.EffectiveInboxSettings(), r.jobSettingsSnapshot().DeletedPurgeDays, r.isRunning)
 	if err != nil {
 		return result, err
 	}
@@ -248,7 +255,7 @@ func (r *Runtime) SetSessionRunningChecker(fn func(sessionID string) bool) {
 	r.isRunning = fn
 }
 
-// StartJobsMaintenance runs periodic orphan reconcile and optional purge.
+// StartJobsMaintenance runs periodic orphan reconcile and job lifecycle maintenance.
 // The reconcile interval is re-read each cycle so Reload can change it live.
 func (r *Runtime) StartJobsMaintenance(ctx context.Context) {
 	if r == nil || r.Jobs == nil {
@@ -263,6 +270,8 @@ func (r *Runtime) StartJobsMaintenance(ctx context.Context) {
 			select {
 			case <-ctx.Done():
 				return
+			case <-r.jobsChanged:
+				continue
 			case <-time.After(interval):
 			}
 			if _, err := r.Jobs.Reconcile(ctx, r.isRunning); err != nil {
@@ -274,12 +283,6 @@ func (r *Runtime) StartJobsMaintenance(ctx context.Context) {
 			} else {
 				for _, job := range stale {
 					logging.L().Warn("jobs.stale_ongoing", "job_id", job.ID, "assigned_session_id", job.AssignedSessionID, "updated_at", job.UpdatedAt)
-				}
-			}
-			cfg := r.Config.EffectiveStorageConfig()
-			if cfg.JobPurgeEnabled() {
-				if _, err := r.Jobs.PurgeDeleted(ctx, cfg.DeletedJobPurgeDays); err != nil {
-					logging.L().Warn("jobs.purge.failed", "error", err)
 				}
 			}
 			if _, err := r.Jobs.ArchiveDone(ctx, settings.DoneArchiveDays); err != nil {
@@ -301,21 +304,25 @@ func (r *Runtime) StartRetentionMaintenance(ctx context.Context) {
 	go func() {
 		for {
 			cfg := r.Config.EffectiveStorageConfig()
-			enabled := cfg.RetentionEnabled() || cfg.MemoryPurgeEnabled() || cfg.JobPurgeEnabled() || cfg.RuntimeFilesEnabled()
+			enabled := cfg.RetentionEnabled() || cfg.MemoryPurgeEnabled() || r.jobSettingsSnapshot().DeletedPurgeDays > 0 || cfg.RuntimeFilesEnabled()
 			interval := time.Duration(cfg.CleanupIntervalMinutes) * time.Minute
 			if interval <= 0 {
 				interval = time.Hour
 			}
 			if !enabled {
-				interval = 2 * time.Minute
+				select {
+				case <-ctx.Done():
+					return
+				case <-r.retentionChanged:
+					continue
+				}
 			}
 			select {
 			case <-ctx.Done():
 				return
-			case <-time.After(interval):
-			}
-			if !enabled {
+			case <-r.retentionChanged:
 				continue
+			case <-time.After(interval):
 			}
 			result, err := r.RunRetention(ctx)
 			if err != nil {
@@ -368,15 +375,19 @@ func (r *Runtime) StartBackupMaintenance(ctx context.Context) {
 				interval = 24 * time.Hour
 			}
 			if !enabled {
-				interval = 2 * time.Minute
+				select {
+				case <-ctx.Done():
+					return
+				case <-r.backupChanged:
+					continue
+				}
 			}
 			select {
 			case <-ctx.Done():
 				return
-			case <-time.After(interval):
-			}
-			if !enabled {
+			case <-r.backupChanged:
 				continue
+			case <-time.After(interval):
 			}
 			result, err := r.RunBackup(ctx)
 			if err != nil {
@@ -399,10 +410,16 @@ func (r *Runtime) StartAutonomousJobWorker(ctx context.Context, guard autonomy.R
 		return
 	}
 	w := &autonomy.Worker{
-		Jobs:              r.Jobs,
-		Sessions:          r.Sessions,
-		Memory:            r.Memory,
-		NewRunner:         r.RunnerFor,
+		Jobs:     r.Jobs,
+		Sessions: r.Sessions,
+		Memory:   r.Memory,
+		NewRunner: func(sess session.Session, workspacePath string, maxSteps int) (*agent.Runner, error) {
+			mode, err := session.ParseAgentMode(sess.AgentMode)
+			if err != nil {
+				return nil, err
+			}
+			return r.runnerFor(sess, workspacePath, RunnerOptions{MaxSteps: maxSteps, AgentMode: mode})
+		},
 		Guard:             guard,
 		Config:            r.Config.EffectiveAutonomousJobsSettings(),
 		DefaultModelID:    r.autonomyModelID(),
@@ -491,6 +508,8 @@ func (r *Runtime) SetJobSettings(s jobs.Settings) {
 	r.jobSettingsMu.Lock()
 	r.jobSettings = s
 	r.jobSettingsMu.Unlock()
+	signal(r.jobsChanged)
+	signal(r.retentionChanged)
 }
 
 func (r *Runtime) Close() error {
@@ -528,6 +547,8 @@ func (r *Runtime) Reload(ctx context.Context) error {
 	if err := r.reloadMemory(cfg); err != nil {
 		return err
 	}
+	*r.Config = *cfg
+	r.SystemPrompt = systemPrompt
 	r.SetJobSettings(cfg.JobsSettings())
 	if r.autonomyWorker != nil {
 		r.autonomyWorker.UpdateConfig(
@@ -543,10 +564,20 @@ func (r *Runtime) Reload(ctx context.Context) error {
 			r.autonomyProviderIDFrom(cfg),
 		)
 	}
-	*r.Config = *cfg
-	r.SystemPrompt = systemPrompt
+	signal(r.retentionChanged)
+	signal(r.backupChanged)
 	logging.L().Info("runtime.reloaded")
 	return nil
+}
+
+func signal(ch chan struct{}) {
+	if ch == nil {
+		return
+	}
+	select {
+	case ch <- struct{}{}:
+	default:
+	}
 }
 
 func (r *Runtime) reloadMemory(cfg *config.Config) error {

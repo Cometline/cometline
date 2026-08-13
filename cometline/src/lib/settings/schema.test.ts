@@ -309,6 +309,14 @@ describe('settings schema', () => {
 		expect(settings.cometmind.storage.archivedMemoryPurgeDays).toBe(90);
 	});
 
+	it('migrates deleted job purge from storage to jobs', () => {
+		const settings = normalizeCometMindSettings({
+			storage: { deletedJobPurgeDays: 14 } as never
+		});
+		expect(settings.jobs.deletedPurgeDays).toBe(14);
+		expect(settings.storage).not.toHaveProperty('deletedJobPurgeDays');
+	});
+
 	it('migrates legacy single-provider format', () => {
 		const migrated = migrateSingleProvider({
 			provider: 'openai',

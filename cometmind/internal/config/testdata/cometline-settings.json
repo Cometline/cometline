@@ -48,8 +48,7 @@
       "enabled": true,
       "roots": [],
       "includeOpenCode": true,
-      "includeClaude": true,
-      "mirrorToCometMind": true
+      "includeClaude": true
     },
     "memory": {
       "embedding": {

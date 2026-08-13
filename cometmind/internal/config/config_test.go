@@ -220,6 +220,38 @@ func TestAdaptCometlineSettingsMatchesRuntimeSlice(t *testing.T) {
 	}
 }
 
+func TestAdaptCometlineSettingsMigratesDeletedJobPurgeDays(t *testing.T) {
+	legacyDays := 14
+	cfg, err := adaptCometlineSettings(cometlineSettingsJSON{
+		Cometmind: cometlineCometmindJSON{
+			Storage: cometlineStorageJSON{DeletedJobPurgeDays: &legacyDays},
+		},
+	})
+	if err != nil {
+		t.Fatalf("adaptCometlineSettings() error = %v", err)
+	}
+	if got := cfg.JobsSettings().DeletedPurgeDays; got != legacyDays {
+		t.Fatalf("Jobs.DeletedPurgeDays = %d, want %d", got, legacyDays)
+	}
+	if cfg.Storage.DeletedJobPurgeDays != 0 {
+		t.Fatalf("Storage.DeletedJobPurgeDays = %d, want migrated value cleared", cfg.Storage.DeletedJobPurgeDays)
+	}
+
+	disabled := 0
+	cfg, err = adaptCometlineSettings(cometlineSettingsJSON{
+		Cometmind: cometlineCometmindJSON{
+			Storage: cometlineStorageJSON{DeletedJobPurgeDays: &legacyDays},
+			Jobs:    cometlineJobsJSON{DeletedPurgeDays: &disabled},
+		},
+	})
+	if err != nil {
+		t.Fatalf("adaptCometlineSettings() error = %v", err)
+	}
+	if got := cfg.JobsSettings().DeletedPurgeDays; got != 0 {
+		t.Fatalf("Jobs.DeletedPurgeDays = %d, want explicit disable", got)
+	}
+}
+
 func TestAdaptCometlineSettingsContextWindowLimit(t *testing.T) {
 	cfg, err := adaptCometlineSettings(cometlineSettingsJSON{
 		Providers: []cometlineProviderJSON{{

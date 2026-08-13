@@ -131,13 +131,13 @@ func newWorker(t *testing.T, fx workerFixture, provider cometsdk.Provider, cfg c
 	return &Worker{
 		Jobs:     fx.jobs,
 		Sessions: fx.sessions,
-		NewRunner: func(sess session.Session, workspacePath string) (*agent.Runner, error) {
+		NewRunner: func(sess session.Session, workspacePath string, maxSteps int) (*agent.Runner, error) {
 			return &agent.Runner{
 				Provider:  provider,
 				Sessions:  fx.sessions,
 				Registry:  tools.NewRegistry(t.TempDir()),
 				Jobs:      fx.jobs,
-				MaxSteps:  cfg.MaxStepsPerRun,
+				MaxSteps:  maxSteps,
 				MaxTokens: 1024,
 			}, nil
 		},
@@ -181,6 +181,33 @@ func TestWorkerRunDisabledReturnsWithoutPolling(t *testing.T) {
 	}
 }
 
+func TestWorkerRunWakesWhenEnabled(t *testing.T) {
+	fx := newWorkerFixture(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	if _, err := fx.jobs.Create(ctx, jobs.CreateInput{Description: "wake up", WorkspacePath: fx.root}); err != nil {
+		t.Fatal(err)
+	}
+	provider := newBlockingProvider()
+	w := newWorker(t, fx, provider, config.AutonomousJobsConfig{Enabled: false})
+
+	go w.Run(ctx)
+	time.Sleep(20 * time.Millisecond)
+	w.UpdateConfig(config.AutonomousJobsConfig{
+		Enabled:             true,
+		MaxConcurrent:       1,
+		PollIntervalSeconds: 1,
+		MaxStepsPerRun:      2,
+	}, "test-model", "test-provider")
+
+	select {
+	case <-provider.started:
+	case <-time.After(1500 * time.Millisecond):
+		t.Fatal("worker did not wake after being enabled")
+	}
+	close(provider.release)
+}
+
 func TestWorkerRunJobReleasesWhenAgentDoesNotCompleteJob(t *testing.T) {
 	fx := newWorkerFixture(t)
 	ctx := context.Background()
@@ -196,8 +223,17 @@ func TestWorkerRunJobReleasesWhenAgentDoesNotCompleteJob(t *testing.T) {
 		PollIntervalSeconds: 1,
 		MaxStepsPerRun:      10,
 	})
+	var runnerMaxSteps int
+	newRunner := w.NewRunner
+	w.NewRunner = func(sess session.Session, workspacePath string, maxSteps int) (*agent.Runner, error) {
+		runnerMaxSteps = maxSteps
+		return newRunner(sess, workspacePath, maxSteps)
+	}
 
 	w.runJob(ctx, job)
+	if runnerMaxSteps != 10 {
+		t.Fatalf("runner MaxSteps = %d, want 10", runnerMaxSteps)
+	}
 
 	got, err := fx.jobs.Get(ctx, job.ID)
 	if err != nil {

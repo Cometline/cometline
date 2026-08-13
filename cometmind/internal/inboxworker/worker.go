@@ -41,6 +41,7 @@ type Worker struct {
 	Config            config.InboxConfig
 	DefaultModelID    string
 	DefaultProviderID string
+	configChanged     chan struct{}
 }
 
 // Run starts the poll loop and blocks until ctx is canceled.
@@ -48,6 +49,8 @@ func (w *Worker) Run(ctx context.Context) {
 	if w == nil || w.Inbox == nil {
 		return
 	}
+	configChanged := w.reloadChannel()
+	drain(configChanged)
 	for {
 		cfg := w.configSnapshot()
 		interval := time.Duration(cfg.PollIntervalSeconds) * time.Second
@@ -57,6 +60,8 @@ func (w *Worker) Run(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
+		case <-configChanged:
+			continue
 		case <-time.After(interval):
 			w.pollOnce(ctx)
 		}
@@ -69,13 +74,42 @@ func (w *Worker) UpdateConfig(cfg config.InboxConfig, defaultModelID, defaultPro
 		return
 	}
 	w.mu.Lock()
-	defer w.mu.Unlock()
 	w.Config = cfg
 	if strings.TrimSpace(defaultModelID) != "" {
 		w.DefaultModelID = defaultModelID
 	}
 	if strings.TrimSpace(defaultProviderID) != "" {
 		w.DefaultProviderID = defaultProviderID
+	}
+	configChanged := w.ensureReloadChannelLocked()
+	w.mu.Unlock()
+	signal(configChanged)
+}
+
+func (w *Worker) reloadChannel() <-chan struct{} {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.ensureReloadChannelLocked()
+}
+
+func (w *Worker) ensureReloadChannelLocked() chan struct{} {
+	if w.configChanged == nil {
+		w.configChanged = make(chan struct{}, 1)
+	}
+	return w.configChanged
+}
+
+func signal(ch chan struct{}) {
+	select {
+	case ch <- struct{}{}:
+	default:
+	}
+}
+
+func drain(ch <-chan struct{}) {
+	select {
+	case <-ch:
+	default:
 	}
 }
 

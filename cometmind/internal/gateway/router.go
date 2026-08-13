@@ -123,7 +123,7 @@ func (r *Router) HandleInbound(ctx context.Context, msg InboundMessage) error {
 		return err
 	}
 
-	stopHeartbeat := startJobHeartbeatDuringTurn(runCtx, r.Jobs, sess.ID)
+	stopHeartbeat := jobs.StartHeartbeatDuringTurn(runCtx, r.Jobs, sess.ID)
 	defer stopHeartbeat()
 
 	if r.Typing != nil {

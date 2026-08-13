@@ -19,10 +19,6 @@ import (
 	"github.com/cometline/cometmind/internal/session"
 )
 
-// jobHeartbeatInterval mirrors internal/gateway/job_heartbeat.go's interval.
-// Duplicated locally because that helper is package-private to gateway.
-const jobHeartbeatInterval = 5 * time.Minute
-
 // RunGuard registers a session as "currently running an agent turn" so the
 // rest of the system (job reconciliation, the HTTP API's own run tracking)
 // knows not to treat it as orphaned or let a second turn start concurrently.
@@ -39,8 +35,8 @@ type RunGuard interface {
 }
 
 // RunnerFactory builds an *agent.Runner for a session bound to a workspace
-// path. This matches (*runtime.Runtime).RunnerFor's signature.
-type RunnerFactory func(sess session.Session, workspacePath string) (*agent.Runner, error)
+// path and the autonomy worker's configured step budget.
+type RunnerFactory func(sess session.Session, workspacePath string, maxSteps int) (*agent.Runner, error)
 
 // Worker polls the job queue and autonomously claims + executes ready jobs.
 type Worker struct {
@@ -59,7 +55,8 @@ type Worker struct {
 	DefaultModelID    string
 	DefaultProviderID string
 
-	sem chan struct{}
+	sem           chan struct{}
+	configChanged chan struct{}
 }
 
 // Run starts the poll loop and blocks until ctx is canceled.
@@ -68,13 +65,15 @@ func (w *Worker) Run(ctx context.Context) {
 	if w == nil {
 		return
 	}
+	configChanged := w.reloadChannel()
+	drain(configChanged)
 	for {
 		cfg := w.configSnapshot()
 		if !cfg.Enabled {
 			select {
 			case <-ctx.Done():
 				return
-			case <-time.After(2 * time.Second):
+			case <-configChanged:
 				continue
 			}
 		}
@@ -86,6 +85,8 @@ func (w *Worker) Run(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
+		case <-configChanged:
+			continue
 		case <-time.After(interval):
 			w.pollOnce(ctx)
 		}
@@ -98,7 +99,6 @@ func (w *Worker) UpdateConfig(cfg config.AutonomousJobsConfig, defaultModelID, d
 		return
 	}
 	w.mu.Lock()
-	defer w.mu.Unlock()
 	w.Config = cfg
 	if strings.TrimSpace(defaultModelID) != "" {
 		w.DefaultModelID = defaultModelID
@@ -113,6 +113,36 @@ func (w *Worker) UpdateConfig(cfg config.AutonomousJobsConfig, defaultModelID, d
 	}
 	if w.sem == nil || cap(w.sem) != max {
 		w.sem = make(chan struct{}, max)
+	}
+	configChanged := w.ensureReloadChannelLocked()
+	w.mu.Unlock()
+	signal(configChanged)
+}
+
+func (w *Worker) reloadChannel() <-chan struct{} {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.ensureReloadChannelLocked()
+}
+
+func (w *Worker) ensureReloadChannelLocked() chan struct{} {
+	if w.configChanged == nil {
+		w.configChanged = make(chan struct{}, 1)
+	}
+	return w.configChanged
+}
+
+func signal(ch chan struct{}) {
+	select {
+	case ch <- struct{}{}:
+	default:
+	}
+}
+
+func drain(ch <-chan struct{}) {
+	select {
+	case <-ch:
+	default:
 	}
 }
 
@@ -196,14 +226,14 @@ func (w *Worker) runJob(ctx context.Context, job jobs.Job) {
 		return
 	}
 
-	runner, err := w.NewRunner(sess, ws.Path)
+	runner, err := w.NewRunner(sess, ws.Path, w.configSnapshot().MaxStepsPerRun)
 	if err != nil {
 		log.Printf("autonomy: build runner for job %s: %v", claimed.ID, err)
 		_, _ = w.Jobs.ReleaseWithClass(runCtx, claimed.ID, sess.ID, "worker: failed to build runner", jobs.FailureWorkerError)
 		return
 	}
 
-	stopHeartbeat := startJobHeartbeatDuringTurn(runCtx, w.Jobs, sess.ID)
+	stopHeartbeat := jobs.StartHeartbeatDuringTurn(runCtx, w.Jobs, sess.ID)
 	defer stopHeartbeat()
 
 	runErr := agent.RunHostedTurn(runCtx, runner, session.AgentTurnFromSession(sess), func(_ event.Event) {
@@ -274,41 +304,4 @@ func (w *Worker) recordOutcome(ctx context.Context, job jobs.Job, runErr error) 
 	}); err != nil {
 		log.Printf("autonomy: record task_outcome memory for job %s: %v", job.ID, err)
 	}
-}
-
-// heartbeatJobOnce and startJobHeartbeatDuringTurn duplicate
-// internal/gateway/job_heartbeat.go's unexported helpers so the lease stays
-// alive during a long autonomous run.
-func heartbeatJobOnce(ctx context.Context, svc *jobs.Service, sessionID string) {
-	if svc == nil || sessionID == "" {
-		return
-	}
-	job, ok, err := svc.JobForSession(ctx, sessionID)
-	if err != nil || !ok {
-		return
-	}
-	_ = svc.Heartbeat(ctx, job.ID, sessionID)
-}
-
-func startJobHeartbeatDuringTurn(ctx context.Context, svc *jobs.Service, sessionID string) func() {
-	heartbeatJobOnce(ctx, svc, sessionID)
-	if svc == nil || sessionID == "" {
-		return func() {}
-	}
-	stop := make(chan struct{})
-	go func() {
-		ticker := time.NewTicker(jobHeartbeatInterval)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-stop:
-				return
-			case <-ticker.C:
-				heartbeatJobOnce(ctx, svc, sessionID)
-			}
-		}
-	}()
-	return func() { close(stop) }
 }
