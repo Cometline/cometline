@@ -93,13 +93,6 @@ func NewManager(cfg Config) *Manager {
 	}
 }
 
-// Config returns the manager settings snapshot.
-func (m *Manager) Config() Config {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	return m.cfg
-}
-
 // Start connects all enabled servers in parallel.
 func (m *Manager) Start(ctx context.Context) {
 	m.mu.Lock()
@@ -458,33 +451,4 @@ func (m *Manager) Reconnect(ctx context.Context, serverID string) error {
 		return nil
 	}
 	return m.connectOne(ctx, serverID)
-}
-
-// Enabled reports whether MCP is globally enabled.
-func (m *Manager) Enabled() bool {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	return m.cfg.Enabled
-}
-
-// WaitForStartup blocks until all enabled servers finish connecting or timeout.
-func (m *Manager) WaitForStartup(timeout time.Duration) {
-	deadline := time.Now().Add(timeout)
-	for time.Now().Before(deadline) {
-		m.mu.RLock()
-		pending := 0
-		for _, entry := range m.servers {
-			if !entry.cfg.Enabled || !m.cfg.Enabled {
-				continue
-			}
-			if entry.status == StatusDisconnected {
-				pending++
-			}
-		}
-		m.mu.RUnlock()
-		if pending == 0 {
-			return
-		}
-		time.Sleep(50 * time.Millisecond)
-	}
 }

@@ -54,7 +54,7 @@ func TestPreviewAndStartReembedWithNoMemoriesAppliesImmediately(t *testing.T) {
 	if job.Status != ReembedCompleted {
 		t.Fatalf("status = %s, want completed", job.Status)
 	}
-	if svc.Settings().Embedding.Model != "qwen3-embedding:0.6b" {
-		t.Fatalf("settings model = %q", svc.Settings().Embedding.Model)
+	if svc.settings.Embedding.Model != "qwen3-embedding:0.6b" {
+		t.Fatalf("settings model = %q", svc.settings.Embedding.Model)
 	}
 }

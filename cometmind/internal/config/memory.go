@@ -84,7 +84,7 @@ func (c *Config) MemorySettings() memory.Settings {
 		SimilarityThreshold: mc.SimilarityThreshold,
 		ExtractionProvider:  mc.ExtractionProvider,
 		ExtractionModel:     mc.ExtractionModel,
-		DefaultModel: firstNonEmpty(strings.TrimSpace(c.DefaultModelID), strings.TrimSpace(c.Model)),
+		DefaultModel:        firstNonEmpty(strings.TrimSpace(c.DefaultModelID), strings.TrimSpace(c.Model)),
 		Lifecycle: memory.LifecycleSettings{
 			DecayHalfLifeDays:     mc.Lifecycle.DecayHalfLifeDays,
 			ForgetThreshold:       mc.Lifecycle.ForgetThreshold,
@@ -292,10 +292,6 @@ func (c *Config) EffectiveMemoryConfig() MemoryConfig {
 	}
 }
 
-func (c *Config) memoryConfigured() bool {
-	return c.memoryBehaviorConfigured() || c.memoryEmbeddingConfigured()
-}
-
 // ExtractionLLM returns the provider/model pair for memory extraction and
 // compaction. Pinned extraction overrides Default; session is never used.
 func (c *Config) ExtractionLLM() (string, string) {
@@ -303,17 +299,4 @@ func (c *Config) ExtractionLLM() (string, string) {
 		return "", ""
 	}
 	return c.ResolveRoleLLM(c.Memory.ExtractionProvider, c.Memory.ExtractionModel)
-}
-
-// ExtractionLLMForSession is kept for callers that historically passed the
-// session pair. Session values are ignored; resolution is pin else Default.
-func (c *Config) ExtractionLLMForSession(_, _ string) (string, string) {
-	return c.ExtractionLLM()
-}
-
-// MemoryLLMProviderID returns the provider used for memory compaction and the
-// memory service's default LLM (extraction pin else Default).
-func (c *Config) MemoryLLMProviderID() string {
-	providerID, _ := c.ExtractionLLM()
-	return providerID
 }

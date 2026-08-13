@@ -11,6 +11,3 @@ const RuntimePrefix = fs.RuntimePrefix
 
 // MountDocs documents runtime mounts for coding policy prompts.
 func MountDocs() string { return fs.MountDocs() }
-
-// IsRuntimePath reports whether rel uses the @runtime alias.
-func IsRuntimePath(rel string) bool { return fs.IsRuntimePath(rel) }
