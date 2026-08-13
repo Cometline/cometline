@@ -96,10 +96,11 @@ func NewManager(cfg Config) *Manager {
 // Start connects all enabled servers in parallel.
 func (m *Manager) Start(ctx context.Context) {
 	m.mu.Lock()
-	m.servers = make(map[string]*managedServer, len(m.cfg.Servers))
-	for _, srv := range m.cfg.Servers {
+	cfg := m.cfg
+	m.servers = make(map[string]*managedServer, len(cfg.Servers))
+	for _, srv := range cfg.Servers {
 		entry := &managedServer{cfg: srv}
-		if !m.cfg.Enabled || !srv.Enabled {
+		if !cfg.Enabled || !srv.Enabled {
 			entry.status = StatusDisabled
 		} else {
 			entry.status = StatusDisconnected
@@ -108,12 +109,12 @@ func (m *Manager) Start(ctx context.Context) {
 	}
 	m.mu.Unlock()
 
-	if !m.cfg.Enabled {
+	if !cfg.Enabled {
 		return
 	}
 
 	var wg sync.WaitGroup
-	for _, srv := range m.cfg.Servers {
+	for _, srv := range cfg.Servers {
 		if !srv.Enabled {
 			continue
 		}

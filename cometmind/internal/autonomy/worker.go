@@ -77,17 +77,29 @@ func (w *Worker) Run(ctx context.Context) {
 				continue
 			}
 		}
-		w.ensureSemaphore()
 		interval := time.Duration(cfg.PollIntervalSeconds) * time.Second
 		if interval <= 0 {
 			interval = 30 * time.Second
 		}
+		timer := time.NewTimer(interval)
 		select {
 		case <-ctx.Done():
+			if !timer.Stop() {
+				select {
+				case <-timer.C:
+				default:
+				}
+			}
 			return
 		case <-configChanged:
+			if !timer.Stop() {
+				select {
+				case <-timer.C:
+				default:
+				}
+			}
 			continue
-		case <-time.After(interval):
+		case <-timer.C:
 			w.pollOnce(ctx)
 		}
 	}
@@ -105,14 +117,6 @@ func (w *Worker) UpdateConfig(cfg config.AutonomousJobsConfig, defaultModelID, d
 	}
 	if strings.TrimSpace(defaultProviderID) != "" {
 		w.DefaultProviderID = defaultProviderID
-	}
-	// Force semaphore rebuild if concurrency changed.
-	max := cfg.MaxConcurrent
-	if max <= 0 {
-		max = 1
-	}
-	if w.sem == nil || cap(w.sem) != max {
-		w.sem = make(chan struct{}, max)
 	}
 	configChanged := w.ensureReloadChannelLocked()
 	w.mu.Unlock()
@@ -155,7 +159,6 @@ func (w *Worker) configSnapshot() config.AutonomousJobsConfig {
 // pollOnce lists ready jobs and attempts to claim+run as many as the
 // concurrency cap allows without blocking the poll loop itself.
 func (w *Worker) pollOnce(ctx context.Context) {
-	w.ensureSemaphore()
 	ready, err := w.Jobs.ListReady(ctx)
 	if err != nil {
 		log.Printf("autonomy: list ready jobs: %v", err)
@@ -163,30 +166,38 @@ func (w *Worker) pollOnce(ctx context.Context) {
 	}
 	for _, job := range ready {
 		job := job
-		select {
-		case w.sem <- struct{}{}:
-		default:
+		release, ok := w.tryAcquire()
+		if !ok {
 			// At capacity; stop attempting more claims this tick.
 			return
 		}
 		go func() {
-			defer func() { <-w.sem }()
+			defer release()
 			w.runJob(ctx, job)
 		}()
 	}
 }
 
-func (w *Worker) ensureSemaphore() {
+func (w *Worker) tryAcquire() (func(), bool) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	if w.sem != nil {
-		return
-	}
 	max := w.Config.MaxConcurrent
 	if max <= 0 {
 		max = 1
 	}
-	w.sem = make(chan struct{}, max)
+	if w.sem == nil || (cap(w.sem) != max && len(w.sem) == 0) {
+		w.sem = make(chan struct{}, max)
+	}
+	sem := w.sem
+	if len(sem) >= max {
+		return nil, false
+	}
+	select {
+	case sem <- struct{}{}:
+		return func() { <-sem }, true
+	default:
+		return nil, false
+	}
 }
 
 // runJob claims, executes, and finalizes a single job end to end.

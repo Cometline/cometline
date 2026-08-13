@@ -263,16 +263,14 @@ func (r *Runtime) StartJobsMaintenance(ctx context.Context) {
 	}
 	go func() {
 		for {
-			interval := time.Duration(r.jobSettingsSnapshot().ReconcileIntervalS) * time.Second
-			if interval <= 0 {
-				interval = jobs.DefaultReconcileInterval
-			}
-			select {
-			case <-ctx.Done():
+			if !waitForMaintenance(ctx, r.jobsChanged, func() (bool, time.Duration) {
+				interval := time.Duration(r.jobSettingsSnapshot().ReconcileIntervalS) * time.Second
+				if interval <= 0 {
+					interval = jobs.DefaultReconcileInterval
+				}
+				return true, interval
+			}) {
 				return
-			case <-r.jobsChanged:
-				continue
-			case <-time.After(interval):
 			}
 			if _, err := r.Jobs.Reconcile(ctx, r.isRunning); err != nil {
 				logging.L().Warn("jobs.reconcile.failed", "error", err)
@@ -295,6 +293,49 @@ func (r *Runtime) StartJobsMaintenance(ctx context.Context) {
 	}()
 }
 
+func waitForMaintenance(ctx context.Context, changed <-chan struct{}, snapshot func() (bool, time.Duration)) bool {
+	var cycleStarted time.Time
+	for {
+		enabled, interval := snapshot()
+		if !enabled {
+			cycleStarted = time.Time{}
+			select {
+			case <-ctx.Done():
+				return false
+			case <-changed:
+				continue
+			}
+		}
+		if cycleStarted.IsZero() {
+			cycleStarted = time.Now()
+		}
+		remaining := time.Until(cycleStarted.Add(interval))
+		if remaining <= 0 {
+			return true
+		}
+		timer := time.NewTimer(remaining)
+		select {
+		case <-ctx.Done():
+			if !timer.Stop() {
+				select {
+				case <-timer.C:
+				default:
+				}
+			}
+			return false
+		case <-changed:
+			if !timer.Stop() {
+				select {
+				case <-timer.C:
+				default:
+				}
+			}
+		case <-timer.C:
+			return true
+		}
+	}
+}
+
 // StartRetentionMaintenance runs full storage retention on the configured interval.
 // Interval and enablement are re-read each cycle so Reload can change them live.
 func (r *Runtime) StartRetentionMaintenance(ctx context.Context) {
@@ -303,26 +344,16 @@ func (r *Runtime) StartRetentionMaintenance(ctx context.Context) {
 	}
 	go func() {
 		for {
-			cfg := r.Config.EffectiveStorageConfig()
-			enabled := cfg.RetentionEnabled() || cfg.MemoryPurgeEnabled() || r.jobSettingsSnapshot().DeletedPurgeDays > 0 || cfg.RuntimeFilesEnabled()
-			interval := time.Duration(cfg.CleanupIntervalMinutes) * time.Minute
-			if interval <= 0 {
-				interval = time.Hour
-			}
-			if !enabled {
-				select {
-				case <-ctx.Done():
-					return
-				case <-r.retentionChanged:
-					continue
+			if !waitForMaintenance(ctx, r.retentionChanged, func() (bool, time.Duration) {
+				cfg := r.Config.EffectiveStorageConfig()
+				enabled := cfg.RetentionEnabled() || cfg.MemoryPurgeEnabled() || r.jobSettingsSnapshot().DeletedPurgeDays > 0 || cfg.RuntimeFilesEnabled()
+				interval := time.Duration(cfg.CleanupIntervalMinutes) * time.Minute
+				if interval <= 0 {
+					interval = time.Hour
 				}
-			}
-			select {
-			case <-ctx.Done():
+				return enabled, interval
+			}) {
 				return
-			case <-r.retentionChanged:
-				continue
-			case <-time.After(interval):
 			}
 			result, err := r.RunRetention(ctx)
 			if err != nil {
@@ -368,26 +399,15 @@ func (r *Runtime) StartBackupMaintenance(ctx context.Context) {
 	}
 	go func() {
 		for {
-			cfg := r.Config.EffectiveStorageConfig()
-			enabled := cfg.BackupEnabled()
-			interval := time.Duration(cfg.Backup.IntervalHours) * time.Hour
-			if interval <= 0 {
-				interval = 24 * time.Hour
-			}
-			if !enabled {
-				select {
-				case <-ctx.Done():
-					return
-				case <-r.backupChanged:
-					continue
+			if !waitForMaintenance(ctx, r.backupChanged, func() (bool, time.Duration) {
+				cfg := r.Config.EffectiveStorageConfig()
+				interval := time.Duration(cfg.Backup.IntervalHours) * time.Hour
+				if interval <= 0 {
+					interval = 24 * time.Hour
 				}
-			}
-			select {
-			case <-ctx.Done():
+				return cfg.BackupEnabled(), interval
+			}) {
 				return
-			case <-r.backupChanged:
-				continue
-			case <-time.After(interval):
 			}
 			result, err := r.RunBackup(ctx)
 			if err != nil {

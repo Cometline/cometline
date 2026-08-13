@@ -57,12 +57,25 @@ func (w *Worker) Run(ctx context.Context) {
 		if interval <= 0 {
 			interval = 10 * time.Minute
 		}
+		timer := time.NewTimer(interval)
 		select {
 		case <-ctx.Done():
+			if !timer.Stop() {
+				select {
+				case <-timer.C:
+				default:
+				}
+			}
 			return
 		case <-configChanged:
+			if !timer.Stop() {
+				select {
+				case <-timer.C:
+				default:
+				}
+			}
 			continue
-		case <-time.After(interval):
+		case <-timer.C:
 			w.pollOnce(ctx)
 		}
 	}

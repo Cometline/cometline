@@ -332,3 +332,37 @@ func TestWorkerPollOnceHonorsMaxConcurrent(t *testing.T) {
 		}
 	}
 }
+
+func TestWorkerSemaphoreReleaseSurvivesConcurrencyReload(t *testing.T) {
+	w := &Worker{Config: config.AutonomousJobsConfig{MaxConcurrent: 1}}
+	release, ok := w.tryAcquire()
+	if !ok {
+		t.Fatal("first semaphore acquisition failed")
+	}
+	w.UpdateConfig(config.AutonomousJobsConfig{MaxConcurrent: 2}, "", "")
+
+	released := make(chan struct{})
+	go func() {
+		release()
+		close(released)
+	}()
+	select {
+	case <-released:
+	case <-time.After(time.Second):
+		t.Fatal("semaphore release blocked after concurrency reload")
+	}
+
+	first, ok := w.tryAcquire()
+	if !ok {
+		t.Fatal("first acquisition at new concurrency failed")
+	}
+	defer first()
+	second, ok := w.tryAcquire()
+	if !ok {
+		t.Fatal("second acquisition at new concurrency failed")
+	}
+	defer second()
+	if _, ok := w.tryAcquire(); ok {
+		t.Fatal("acquisition exceeded reloaded concurrency")
+	}
+}
