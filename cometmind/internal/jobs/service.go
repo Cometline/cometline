@@ -713,7 +713,7 @@ func (s *Service) ReleaseForSession(ctx context.Context, sessionID, reason strin
 // jobs that are still being worked, causing them to bounce back to todo and
 // be re-claimed in a loop even though the agent eventually completes them.
 // The lease (kept alive by periodic heartbeats while the job is actively
-// worked, see internal/gateway/job_heartbeat.go and internal/autonomy/worker.go)
+// worked, see internal/jobs/heartbeat.go and internal/autonomy/worker.go)
 // is the single source of truth for liveness.
 func (s *Service) Reconcile(ctx context.Context, isRunning func(sessionID string) bool) (int, error) {
 	rows, err := s.q.ListOngoingJobs(ctx)
