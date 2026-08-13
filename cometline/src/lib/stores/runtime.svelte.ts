@@ -54,22 +54,6 @@ function createConnectionState() {
 		status = 'connecting';
 		message = '';
 		failedAttempts = 0;
-		void pollUntilReady();
-	}
-
-	async function pollUntilReady(maxAttempts = CONNECTING_GRACE_ATTEMPTS) {
-		for (let attempt = 0; attempt < maxAttempts; attempt++) {
-			await check();
-			if (status === 'ready') return;
-			// check() may escalate to error after the grace budget; stop early.
-			if (status === 'error') return;
-			await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
-		}
-		// Defensive: if every attempt failed without escalating (shouldn't happen), surface error.
-		if (status !== 'ready') {
-			status = 'error';
-			if (!message) message = 'Cannot reach CometMind';
-		}
 	}
 
 	function startPolling() {
