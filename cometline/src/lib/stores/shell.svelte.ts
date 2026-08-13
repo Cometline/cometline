@@ -44,12 +44,6 @@ export type {
 	WorkspacePanelSurface
 } from '$lib/workspace/workspace-panel-state';
 
-/** @deprecated Prefer SurfaceContent — kept for callers that still say SessionWorkspacePanel. */
-export type SessionWorkspacePanel =
-	| { mode: 'url'; url: string; visible: boolean }
-	| { mode: 'file'; filePath: string; visible: boolean }
-	| { mode: 'git-diff'; filePath: string; visible: boolean };
-
 export type FocusedPane = 'chat' | 'web' | 'terminal';
 
 export type ComposerFocusRequest = {

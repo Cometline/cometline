@@ -28,9 +28,6 @@ export type DiffArtifact = {
 	lines: ParsedDiffLine[];
 };
 
-/** @deprecated Use DiffArtifact */
-export type ParsedEditDiff = DiffArtifact;
-
 /** Display agentName for a persisted subagent_kind. */
 export function agentLabelForSessionKind(kind: string | undefined | null): string {
 	switch (kind) {

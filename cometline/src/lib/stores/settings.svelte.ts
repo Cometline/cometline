@@ -286,13 +286,6 @@ function createSettingsStore() {
 		}
 	}
 
-	/** @deprecated Prefer saveWorkspacePanelLayout so the preferred ratio is persisted. */
-	async function saveWorkspacePanelWidth(width: number) {
-		const rowWidth = typeof window !== 'undefined' ? window.innerWidth : width * 2;
-		const ratio = rowWidth > 0 ? width / rowWidth : 0;
-		await saveWorkspacePanelLayout(width, ratio);
-	}
-
 	async function saveShortcuts(shortcuts: ProviderSettings['shortcuts']) {
 		error = '';
 		try {
@@ -483,7 +476,6 @@ function createSettingsStore() {
 		saveConfirmCloseOnCmdW,
 		saveConfirmBeforeDeletingChats,
 		saveFileSearchSource,
-		saveWorkspacePanelWidth,
 		saveWorkspacePanelLayout,
 		setDefaultProvider,
 		updateProvider,

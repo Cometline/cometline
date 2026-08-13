@@ -4,11 +4,10 @@ import {
 	looksLikeDiffArtifact,
 	type DiffArtifact,
 	type DiffLineKind,
-	type ParsedDiffLine,
-	type ParsedEditDiff
+	type ParsedDiffLine
 } from './diff-artifact';
 
-export type { DiffArtifact, DiffLineKind, ParsedDiffLine, ParsedEditDiff };
+export type { DiffArtifact, DiffLineKind, ParsedDiffLine };
 export { DIFF_BEGIN_MARKER, DIFF_END_MARKER, looksLikeDiffArtifact };
 
 /** Extract DiffArtifact from edit_file tool output (Format projection). */
