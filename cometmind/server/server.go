@@ -129,7 +129,6 @@ func New(deps Deps) (*gin.Engine, error) {
 	api.GET("/health", app.handleHealth)
 
 	// Models
-	api.GET("/models", app.handleListModels)
 	api.POST("/models/catalog-lookups", app.handleLookupModelCatalog)
 
 	// Workspaces
@@ -160,7 +159,6 @@ func New(deps Deps) (*gin.Engine, error) {
 	api.GET("/sessions", app.handleListSessions)
 	api.GET("/sessions/:id", app.handleGetSession)
 	api.PATCH("/sessions/:id", app.handlePatchSession)
-	api.PATCH("/sessions/:id/workspace", app.handleChangeSessionWorkspace)
 	api.POST("/sessions/:id/forks", app.handleForkSession)
 	api.DELETE("/sessions/:id", app.handleDeleteSession)
 	api.GET("/sessions/:id/messages", app.handleGetMessages)
@@ -176,7 +174,6 @@ func New(deps Deps) (*gin.Engine, error) {
 	api.POST("/skills/sync-runs", app.handleSyncSkills)
 	api.GET("/skills/:name/archive", app.handleExportSkill)
 	api.DELETE("/skills/:name", app.handleDeleteSkill)
-	api.GET("/skills/:name", app.handleGetSkill)
 	api.GET("/skill-drafts", app.handleListSkillDrafts)
 	api.GET("/skill-drafts/:name", app.handleGetSkillDraft)
 	api.PUT("/skill-drafts/:name", app.handleUpdateSkillDraft)
@@ -193,7 +190,6 @@ func New(deps Deps) (*gin.Engine, error) {
 	// Memories
 	api.GET("/memories", app.handleListMemories)
 	api.POST("/memories", app.handleCreateMemory)
-	api.PATCH("/memories/:id", app.handlePatchMemory)
 	api.DELETE("/memories/:id", app.handleDeleteMemory)
 	api.POST("/memories/searches", app.handleSearchMemories)
 
@@ -239,7 +235,6 @@ func New(deps Deps) (*gin.Engine, error) {
 	// Inbox
 	api.GET("/inbox/messages", app.handleListInboxMessages)
 	api.GET("/inbox/summary", app.handleGetInboxSummary)
-	api.GET("/inbox/messages/:id", app.handleGetInboxMessage)
 	api.POST("/inbox/messages/:id/replies", app.handleReplyInboxMessage)
 	api.POST("/inbox/messages/:id/dismissals", app.handleDismissInboxMessage)
 
@@ -380,11 +375,6 @@ type listSkillsResponse struct {
 	Errors []string        `json:"errors,omitempty"`
 }
 
-type skillDetailResponse struct {
-	Skill   skillResource `json:"skill"`
-	Content string        `json:"content"`
-}
-
 type syncSkillsResponse struct {
 	Created []string `json:"created"`
 	Skipped []string `json:"skipped"`
@@ -393,30 +383,6 @@ type syncSkillsResponse struct {
 
 func (a *App) handleHealth(c *gin.Context) {
 	c.JSON(http.StatusOK, healthResponse{Status: "ok"})
-}
-
-func (a *App) handleListModels(c *gin.Context) {
-	models, err := config.ListConfiguredModels()
-	if err != nil {
-		writeError(c, http.StatusInternalServerError, "internal_error", err.Error())
-		return
-	}
-	items := make([]apigen.ModelEntry, 0, len(models))
-	for _, m := range models {
-		items = append(items, apigen.ModelEntry{
-			ProviderId:            m.ProviderID,
-			ModelId:               m.ModelID,
-			Name:                  m.Name,
-			Context:               m.Context,
-			Output:                m.Output,
-			LimitSource:           apigen.ModelEntryLimitSource(m.LimitSource),
-			Vision:                m.Vision,
-			VisionKnown:           m.VisionKnown,
-			InputModalities:       toModelEntryInputModalities(m.InputModalities),
-			ReasoningEffortOptions: optionalStringSlice(m.ReasoningEffortOptions),
-		})
-	}
-	c.JSON(http.StatusOK, apigen.ModelListResponse{Models: items})
 }
 
 func (a *App) handleLookupModelCatalog(c *gin.Context) {
@@ -445,13 +411,13 @@ func (a *App) handleLookupModelCatalog(c *gin.Context) {
 	items := make([]apigen.ModelCatalogLookupEntry, 0, len(looked))
 	for _, m := range looked {
 		items = append(items, apigen.ModelCatalogLookupEntry{
-			ModelId:               m.ModelID,
-			Context:               m.Context,
-			Output:                m.Output,
-			LimitSource:           apigen.ModelCatalogLookupEntryLimitSource(m.LimitSource),
-			Vision:                m.Vision,
-			VisionKnown:           m.VisionKnown,
-			InputModalities:       toModelCatalogLookupInputModalities(m.InputModalities),
+			ModelId:                m.ModelID,
+			Context:                m.Context,
+			Output:                 m.Output,
+			LimitSource:            apigen.ModelCatalogLookupEntryLimitSource(m.LimitSource),
+			Vision:                 m.Vision,
+			VisionKnown:            m.VisionKnown,
+			InputModalities:        toModelCatalogLookupInputModalities(m.InputModalities),
 			ReasoningEffortOptions: optionalStringSlice(m.ReasoningEffortOptions),
 		})
 	}
@@ -465,16 +431,6 @@ func (a *App) handleListSkills(c *gin.Context) {
 		items = append(items, skillResourceFromModel(skill))
 	}
 	c.JSON(http.StatusOK, listSkillsResponse{Skills: items, Errors: reg.Errors})
-}
-
-func (a *App) handleGetSkill(c *gin.Context) {
-	reg := a.skillsForRequest(c)
-	skill, content, err := reg.SkillMarkdown(c.Param("name"))
-	if err != nil {
-		writeError(c, http.StatusNotFound, "skill_not_found", err.Error())
-		return
-	}
-	c.JSON(http.StatusOK, skillDetailResponse{Skill: skillResourceFromModel(skill), Content: content})
 }
 
 func (a *App) handleSyncSkills(c *gin.Context) {
@@ -738,14 +694,6 @@ func writeError(c *gin.Context, status int, code, message string) {
 			Message: message,
 		},
 	})
-}
-
-func toModelEntryInputModalities(in []string) []apigen.ModelEntryInputModalities {
-	out := make([]apigen.ModelEntryInputModalities, 0, len(in))
-	for _, m := range in {
-		out = append(out, apigen.ModelEntryInputModalities(m))
-	}
-	return out
 }
 
 func toModelCatalogLookupInputModalities(in []string) []apigen.ModelCatalogLookupEntryInputModalities {

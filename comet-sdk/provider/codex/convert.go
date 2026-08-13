@@ -7,18 +7,9 @@ import (
 	"github.com/cometline/comet-sdk/internal/responsesproto"
 )
 
-// Wire aliases keep callers and tests on codex names while the protocol
-// implementation lives in responsesproto (shared with the API-key Responses
-// provider used by OpenCode Go).
-type codexRequest = responsesproto.Request
-type codexReasoning = responsesproto.Reasoning
-type codexInput = responsesproto.InputItem
-type codexContentPart = responsesproto.ContentPart
-type codexTool = responsesproto.Tool
-
 func toCodexRequest(req *cometsdk.Request, disableMaxOutputTokens, disableReasoningSummary, disableEncryptedReplay bool) ([]byte, error) {
 	return responsesproto.BuildRequest(req, responsesproto.RequestOptions{
-		ProviderKey:            providerID,
+		ProviderKey:             providerID,
 		DisableMaxOutputTokens:  disableMaxOutputTokens,
 		DisableReasoningSummary: disableReasoningSummary,
 		ReplayEncryptedState:    !disableEncryptedReplay,

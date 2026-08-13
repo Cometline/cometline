@@ -8,12 +8,6 @@ import {
 	hasReasoning,
 	type ReasoningSegment
 } from '../conversation/reasoning';
-import {
-	chatDebug,
-	summarizeChatItem,
-	summarizeChatItems,
-	summarizeStreamEvent
-} from '../debug/chat';
 
 export interface ChatState {
 	items: ChatItem[];
@@ -254,34 +248,15 @@ function applyEvent(
 	}
 
 	function ensureAssistantForText() {
-		if (assistant.current) {
-			chatDebug('reducer:assistant-host', {
-				choice: 'current',
-				event: summarizeStreamEvent(event),
-				assistant: summarizeChatItem(assistant.current)
-			});
-			return assistant.current;
-		}
+		if (assistant.current) return assistant.current;
 		const last = items[items.length - 1];
 		if (last?.type === 'assistant' && !last.text.trim() && hasReasoning(last)) {
 			assistant.current = last;
-			chatDebug('reducer:assistant-host', {
-				choice: 'reuse-last-reasoning-only',
-				event: summarizeStreamEvent(event),
-				assistant: summarizeChatItem(last),
-				items: summarizeChatItems(items)
-			});
 			return last;
 		}
 		const id = localID('assistant', draft.nextId++).id;
 		const next: AssistantItem = { id, type: 'assistant', text: '' };
 		pushAssistant(next);
-		chatDebug('reducer:assistant-host', {
-			choice: 'new',
-			event: summarizeStreamEvent(event),
-			assistant: summarizeChatItem(next),
-			items: summarizeChatItems(items)
-		});
 		return next;
 	}
 

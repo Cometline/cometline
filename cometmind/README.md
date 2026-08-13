@@ -238,7 +238,6 @@ Localhost-only HTTP + SSE, versioned under `/api/v1` (default `http://127.0.0.1:
 | `GET /api/v1/sessions` | List sessions for one workspace |
 | `GET /api/v1/sessions/{id}` | Fetch a session |
 | `PATCH /api/v1/sessions/{id}` | Update model/provider for later turns |
-| `PATCH /api/v1/sessions/{id}/workspace` | Move an existing session to another workspace |
 | `POST /api/v1/sessions/{id}/forks` | Copy a session into another workspace |
 | `DELETE /api/v1/sessions/{id}` | Delete session and cascade messages |
 | `GET /api/v1/sessions/{id}/messages` | Transcript (user/reasoning/assistant/tool) |
@@ -262,7 +261,6 @@ Localhost-only HTTP + SSE, versioned under `/api/v1` (default `http://127.0.0.1:
 | Method & Path | Purpose |
 |---|---|
 | `GET /api/v1/skills` | List discovered skills |
-| `GET /api/v1/skills/{name}` | Read one skill's `SKILL.md` |
 | `POST /api/v1/skills/sync-runs` | Symlink discovered skills into `~/.cometmind/skills` |
 | `DELETE /api/v1/skills/{name}` | Delete a managed skill |
 | `GET /api/v1/skills/{name}/archive` | Download skill as zip |
@@ -278,7 +276,6 @@ Localhost-only HTTP + SSE, versioned under `/api/v1` (default `http://127.0.0.1:
 |---|---|
 | `GET /api/v1/memories` | List active memories |
 | `POST /api/v1/memories` | Create a memory manually |
-| `PATCH /api/v1/memories/{id}` | Update a memory |
 | `DELETE /api/v1/memories/{id}` | Delete a memory |
 | `POST /api/v1/memories/searches` | Semantic search |
 | `GET /api/v1/memories/settings` | Read memory configuration |

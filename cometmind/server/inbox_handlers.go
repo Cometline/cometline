@@ -82,23 +82,6 @@ func (a *App) handleGetInboxSummary(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"open_count": n})
 }
 
-func (a *App) handleGetInboxMessage(c *gin.Context) {
-	if a.inbox == nil {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "inbox unavailable"})
-		return
-	}
-	msg, err := a.inbox.Get(c.Request.Context(), c.Param("id"))
-	if err != nil {
-		if errors.Is(err, inbox.ErrNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"code": "inbox_not_found", "message": "inbox message not found"}})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	c.JSON(http.StatusOK, inboxToResource(msg))
-}
-
 func (a *App) handleReplyInboxMessage(c *gin.Context) {
 	if a.inbox == nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "inbox unavailable"})

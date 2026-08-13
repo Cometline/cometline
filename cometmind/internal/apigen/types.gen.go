@@ -468,61 +468,16 @@ func (e ModelCatalogLookupEntryInputModalities) Valid() bool {
 
 // Defines values for ModelCatalogLookupEntryLimitSource.
 const (
-	ModelCatalogLookupEntryLimitSourceCatalog  ModelCatalogLookupEntryLimitSource = "catalog"
-	ModelCatalogLookupEntryLimitSourceFallback ModelCatalogLookupEntryLimitSource = "fallback"
+	Catalog  ModelCatalogLookupEntryLimitSource = "catalog"
+	Fallback ModelCatalogLookupEntryLimitSource = "fallback"
 )
 
 // Valid indicates whether the value is a known member of the ModelCatalogLookupEntryLimitSource enum.
 func (e ModelCatalogLookupEntryLimitSource) Valid() bool {
 	switch e {
-	case ModelCatalogLookupEntryLimitSourceCatalog:
+	case Catalog:
 		return true
-	case ModelCatalogLookupEntryLimitSourceFallback:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for ModelEntryInputModalities.
-const (
-	ModelEntryInputModalitiesAudio ModelEntryInputModalities = "audio"
-	ModelEntryInputModalitiesImage ModelEntryInputModalities = "image"
-	ModelEntryInputModalitiesPdf   ModelEntryInputModalities = "pdf"
-	ModelEntryInputModalitiesText  ModelEntryInputModalities = "text"
-	ModelEntryInputModalitiesVideo ModelEntryInputModalities = "video"
-)
-
-// Valid indicates whether the value is a known member of the ModelEntryInputModalities enum.
-func (e ModelEntryInputModalities) Valid() bool {
-	switch e {
-	case ModelEntryInputModalitiesAudio:
-		return true
-	case ModelEntryInputModalitiesImage:
-		return true
-	case ModelEntryInputModalitiesPdf:
-		return true
-	case ModelEntryInputModalitiesText:
-		return true
-	case ModelEntryInputModalitiesVideo:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for ModelEntryLimitSource.
-const (
-	ModelEntryLimitSourceCatalog  ModelEntryLimitSource = "catalog"
-	ModelEntryLimitSourceFallback ModelEntryLimitSource = "fallback"
-)
-
-// Valid indicates whether the value is a known member of the ModelEntryLimitSource enum.
-func (e ModelEntryLimitSource) Valid() bool {
-	switch e {
-	case ModelEntryLimitSourceCatalog:
-		return true
-	case ModelEntryLimitSourceFallback:
+	case Fallback:
 		return true
 	default:
 		return false
@@ -733,42 +688,6 @@ func (e TurnStatusEventPhase) Valid() bool {
 	}
 }
 
-// Defines values for UpdateMemoryRequestApplicationPolicy.
-const (
-	Always   UpdateMemoryRequestApplicationPolicy = "always"
-	Relevant UpdateMemoryRequestApplicationPolicy = "relevant"
-)
-
-// Valid indicates whether the value is a known member of the UpdateMemoryRequestApplicationPolicy enum.
-func (e UpdateMemoryRequestApplicationPolicy) Valid() bool {
-	switch e {
-	case Always:
-		return true
-	case Relevant:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for UpdateMemoryRequestRetentionPolicy.
-const (
-	Decaying  UpdateMemoryRequestRetentionPolicy = "decaying"
-	Protected UpdateMemoryRequestRetentionPolicy = "protected"
-)
-
-// Valid indicates whether the value is a known member of the UpdateMemoryRequestRetentionPolicy enum.
-func (e UpdateMemoryRequestRetentionPolicy) Valid() bool {
-	switch e {
-	case Decaying:
-		return true
-	case Protected:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for WebContextKind.
 const (
 	WebContextKindFile     WebContextKind = "file"
@@ -825,13 +744,13 @@ func (e WikiFileTextContentKind) Valid() bool {
 
 // Defines values for WorkspaceFileImageContentKind.
 const (
-	WorkspaceFileImageContentKindImage WorkspaceFileImageContentKind = "image"
+	Image WorkspaceFileImageContentKind = "image"
 )
 
 // Valid indicates whether the value is a known member of the WorkspaceFileImageContentKind enum.
 func (e WorkspaceFileImageContentKind) Valid() bool {
 	switch e {
-	case WorkspaceFileImageContentKindImage:
+	case Image:
 		return true
 	default:
 		return false
@@ -958,12 +877,6 @@ type AssistantImageEvent struct {
 
 // AssistantImageEventMediaType defines model for AssistantImageEvent.MediaType.
 type AssistantImageEventMediaType string
-
-// ChangeSessionWorkspaceRequest defines model for ChangeSessionWorkspaceRequest.
-type ChangeSessionWorkspaceRequest struct {
-	// WorkspacePath Absolute filesystem path for the new workspace root.
-	WorkspacePath string `json:"workspace_path"`
-}
 
 // CompactMemoryPreviewResponse defines model for CompactMemoryPreviewResponse.
 type CompactMemoryPreviewResponse struct {
@@ -1536,46 +1449,6 @@ type ModelCatalogLookupResponse struct {
 	Models []ModelCatalogLookupEntry `json:"models"`
 }
 
-// ModelEntry defines model for ModelEntry.
-type ModelEntry struct {
-	// Context Resolved context window tokens (models.dev or fallback).
-	Context int `json:"context"`
-
-	// InputModalities Normalized catalog input modalities (text, image, video, audio, pdf) when known.
-	InputModalities []ModelEntryInputModalities `json:"input_modalities"`
-
-	// LimitSource Whether context/output came from models.dev or the silent fallback.
-	LimitSource ModelEntryLimitSource `json:"limit_source"`
-	ModelId     string                `json:"model_id"`
-
-	// Name Human-readable label derived from the model id.
-	Name string `json:"name"`
-
-	// Output Catalog max output tokens when known; 0 when unset.
-	Output     int    `json:"output"`
-	ProviderId string `json:"provider_id"`
-
-	// ReasoningEffortOptions Allowed reasoning effort values from models.dev when known; unidentified custom gateways use the conservative intersection of matching catalog entries.
-	ReasoningEffortOptions *[]string `json:"reasoning_effort_options,omitempty"`
-
-	// Vision True when modalities.input includes image (only meaningful when vision_known).
-	Vision bool `json:"vision"`
-
-	// VisionKnown False on silent fallback; callers must not proactive-strip images.
-	VisionKnown bool `json:"vision_known"`
-}
-
-// ModelEntryInputModalities defines model for ModelEntry.InputModalities.
-type ModelEntryInputModalities string
-
-// ModelEntryLimitSource Whether context/output came from models.dev or the silent fallback.
-type ModelEntryLimitSource string
-
-// ModelListResponse defines model for ModelListResponse.
-type ModelListResponse struct {
-	Models []ModelEntry `json:"models"`
-}
-
 // PostMessageRequest defines model for PostMessageRequest.
 type PostMessageRequest struct {
 	// AgentMode Optional per-turn agent mode override. When omitted, the session's
@@ -1789,12 +1662,6 @@ type Skill struct {
 	Source      string `json:"source"`
 }
 
-// SkillDetailResponse defines model for SkillDetailResponse.
-type SkillDetailResponse struct {
-	Content string `json:"content"`
-	Skill   Skill  `json:"skill"`
-}
-
 // SkillDraft defines model for SkillDraft.
 type SkillDraft struct {
 	CreatedAt   int64  `json:"created_at"`
@@ -1939,21 +1806,6 @@ type UpdateJobRequest struct {
 	Description      string  `json:"description"`
 	WorkspacePath    *string `json:"workspace_path,omitempty"`
 }
-
-// UpdateMemoryRequest defines model for UpdateMemoryRequest.
-type UpdateMemoryRequest struct {
-	ApplicationPolicy *UpdateMemoryRequestApplicationPolicy `json:"application_policy,omitempty"`
-	BaseWeight        *float32                              `json:"base_weight,omitempty"`
-	Content           *string                               `json:"content,omitempty"`
-	Kind              *string                               `json:"kind,omitempty"`
-	RetentionPolicy   *UpdateMemoryRequestRetentionPolicy   `json:"retention_policy,omitempty"`
-}
-
-// UpdateMemoryRequestApplicationPolicy defines model for UpdateMemoryRequest.ApplicationPolicy.
-type UpdateMemoryRequestApplicationPolicy string
-
-// UpdateMemoryRequestRetentionPolicy defines model for UpdateMemoryRequest.RetentionPolicy.
-type UpdateMemoryRequestRetentionPolicy string
 
 // UpdateScheduledJobRequest defines model for UpdateScheduledJobRequest.
 type UpdateScheduledJobRequest struct {
@@ -2273,11 +2125,6 @@ type DeleteSkillParams struct {
 	WorkspacePath *string `form:"workspace_path,omitempty" json:"workspace_path,omitempty"`
 }
 
-// GetSkillParams defines parameters for GetSkill.
-type GetSkillParams struct {
-	WorkspacePath *string `form:"workspace_path,omitempty" json:"workspace_path,omitempty"`
-}
-
 // ExportSkillParams defines parameters for ExportSkill.
 type ExportSkillParams struct {
 	WorkspacePath *string `form:"workspace_path,omitempty" json:"workspace_path,omitempty"`
@@ -2430,9 +2277,6 @@ type SearchMemoriesJSONRequestBody = SearchMemoryRequest
 // PutMemorySettingsJSONRequestBody defines body for PutMemorySettings for application/json ContentType.
 type PutMemorySettingsJSONRequestBody = MemorySettings
 
-// PatchMemoryJSONRequestBody defines body for PatchMemory for application/json ContentType.
-type PatchMemoryJSONRequestBody = UpdateMemoryRequest
-
 // LookupModelCatalogJSONRequestBody defines body for LookupModelCatalog for application/json ContentType.
 type LookupModelCatalogJSONRequestBody = ModelCatalogLookupRequest
 
@@ -2453,9 +2297,6 @@ type ForkSessionJSONRequestBody = ForkSessionRequest
 
 // PostSessionMessageJSONRequestBody defines body for PostSessionMessage for application/json ContentType.
 type PostSessionMessageJSONRequestBody = PostMessageRequest
-
-// ChangeSessionWorkspaceJSONRequestBody defines body for ChangeSessionWorkspace for application/json ContentType.
-type ChangeSessionWorkspaceJSONRequestBody = ChangeSessionWorkspaceRequest
 
 // UpdateSkillDraftJSONRequestBody defines body for UpdateSkillDraft for application/json ContentType.
 type UpdateSkillDraftJSONRequestBody = UpdateSkillDraftRequest

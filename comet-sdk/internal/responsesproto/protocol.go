@@ -27,8 +27,6 @@ type RequestOptions struct {
 	// IncludeEncryptedReasoning requests encrypted reasoning state in
 	// responses so stateless multi-turn reasoning (store: false) works.
 	IncludeEncryptedReasoning bool
-	// Store persists the response server-side when true.
-	Store bool
 }
 
 // Request is the OpenAI Responses request body.
@@ -137,7 +135,7 @@ func BuildRequest(req *cometsdk.Request, opts RequestOptions) ([]byte, error) {
 		Model:        req.Model,
 		Input:        input,
 		Instructions: req.System,
-		Store:        opts.Store,
+		Store:        false,
 		Stream:       true,
 		Temperature:  req.Temperature,
 	}

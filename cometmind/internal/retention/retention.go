@@ -16,26 +16,27 @@ import (
 
 // Result summarizes one retention pass.
 type Result struct {
-	SessionsDeleted     int
-	SubagentsDeleted    int
-	MemoriesPurged      int
-	MemoryEventsPurged  int
-	JobsPurged          int
-	InboxPurged         int
-	ToolOutputDeleted   int
-	AgentTmpDeleted     int
-	Vacuumed            bool
+	SessionsDeleted    int
+	SubagentsDeleted   int
+	MemoriesPurged     int
+	MemoryEventsPurged int
+	JobsPurged         int
+	InboxPurged        int
+	ToolOutputDeleted  int
+	AgentTmpDeleted    int
+	Vacuumed           bool
 }
 
-// Runner performs session retention and memory purge.
+// Runner performs database retention, including canonical job cleanup settings.
 type Runner struct {
-	DB       *sql.DB
-	Sessions *session.Service
-	Memory   *memory.Service
-	Jobs     *jobs.Service
-	Inbox    *inbox.Service
-	Config   config.StorageConfig
-	InboxCfg config.InboxConfig
+	DB           *sql.DB
+	Sessions     *session.Service
+	Memory       *memory.Service
+	Jobs         *jobs.Service
+	Inbox        *inbox.Service
+	Config       config.StorageConfig
+	InboxCfg     config.InboxConfig
+	JobPurgeDays int
 	// IsRunning, when set, skips sessions with an in-flight agent turn.
 	IsRunning func(sessionID string) bool
 	// VacuumAsync runs the post-purge VACUUM in a background goroutine instead
@@ -69,8 +70,8 @@ func (r *Runner) Run(ctx context.Context) (Result, error) {
 		out.MemoryEventsPurged = events
 	}
 
-	if r.Jobs != nil && cfg.JobPurgeEnabled() {
-		n, err := r.Jobs.PurgeDeleted(ctx, cfg.DeletedJobPurgeDays)
+	if r.Jobs != nil && r.JobPurgeDays > 0 {
+		n, err := r.Jobs.PurgeDeleted(ctx, r.JobPurgeDays)
 		if err != nil {
 			return out, err
 		}

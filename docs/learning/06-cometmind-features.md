@@ -94,11 +94,11 @@ Reusable prompt templates stored as `SKILL.md` files with YAML frontmatter (`nam
 |-----------|------|
 | Registry | `internal/skills/skills.go` — `Find`, `SkillMarkdown` |
 | Tools | `load_skill`, `read_skill_file`, `write_skill`, draft skill tools in tools registry |
-| API | `GET /api/v1/skills/{name}` etc. |
+| API | Skill listing, deletion, export, sync, and draft review routes |
 | Drafts | `internal/skills/drafts.go`, `/api/v1/skill-drafts/*` |
 | Frontend filter | `slash-commands.ts` with relevance scoring |
 
-GitNexus: `HandleGetSkill` → `Registry.Find` → `SkillMarkdown`.
+Skill content is loaded by agent tools and `cometmind skills show`; HTTP routes manage listing, export, deletion, sync, and drafts.
 
 Generated skills can be written as drafts under `~/.cometmind/skill-drafts/`, reviewed in Cometline's `/skill-drafts` route, then promoted into `~/.cometmind/skills/{name}/SKILL.md`.
 

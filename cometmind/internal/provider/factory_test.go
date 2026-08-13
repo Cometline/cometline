@@ -68,7 +68,8 @@ func TestNewMemoryLLMUsesExtractionProvider(t *testing.T) {
 	if p == nil {
 		t.Fatal("NewMemoryLLM() returned nil")
 	}
-	if family := SDKFamily(cfg, cfg.MemoryLLMProviderID()); family != config.ProviderOpenAI {
+	providerID, _ := cfg.ExtractionLLM()
+	if family := SDKFamily(cfg, providerID); family != config.ProviderOpenAI {
 		t.Fatalf("memory LLM family = %q, want openai (opencode-go), not active codex", family)
 	}
 }

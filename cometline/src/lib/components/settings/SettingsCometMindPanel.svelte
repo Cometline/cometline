@@ -343,7 +343,7 @@
 				</select>
 				<p class="settings-field-hint">
 					Controls what CometMind writes to <code>~/.cometmind/logs/cometline.log</code> and
-					<code>cometline-gateway.log</code>. Applied on Save via in-place reload.
+					<code>cometline-gateway.log</code>. Applied on Save by restarting CometMind.
 				</p>
 			</label>
 		</div>
@@ -592,10 +592,11 @@
 				<span>Deleted job purge (days)</span>
 				<input
 					type="number"
-					min="1"
+					min="0"
 					step="1"
 					bind:value={cometmind.jobs.deletedPurgeDays}
 				/>
+				<p class="settings-field-hint">Set to 0 to keep soft-deleted jobs.</p>
 			</label>
 			<label>
 				<span>Auto-archive completed jobs (days)</span>

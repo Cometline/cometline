@@ -40,14 +40,6 @@ type createMemoryRequest struct {
 	BaseWeight        float64 `json:"base_weight"`
 }
 
-type updateMemoryRequest struct {
-	Content           string   `json:"content"`
-	Kind              string   `json:"kind"`
-	ApplicationPolicy *string  `json:"application_policy"`
-	RetentionPolicy   *string  `json:"retention_policy"`
-	BaseWeight        *float64 `json:"base_weight"`
-}
-
 type searchMemoryRequest struct {
 	Query string `json:"query"`
 	Limit int    `json:"limit"`
@@ -131,24 +123,6 @@ func (a *App) handleCreateMemory(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusCreated, recordToResource(rec, rec.BaseWeight))
-}
-
-func (a *App) handlePatchMemory(c *gin.Context) {
-	if a.memory == nil {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "memory disabled"})
-		return
-	}
-	var req updateMemoryRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-	rec, err := a.memory.UpdateManual(c.Request.Context(), c.Param("id"), req.Content, req.Kind, req.ApplicationPolicy, req.RetentionPolicy, req.BaseWeight)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-	c.JSON(http.StatusOK, recordToResource(rec, rec.BaseWeight))
 }
 
 func (a *App) handleDeleteMemory(c *gin.Context) {

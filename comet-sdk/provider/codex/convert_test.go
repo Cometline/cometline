@@ -15,6 +15,7 @@ import (
 	"time"
 
 	cometsdk "github.com/cometline/comet-sdk"
+	"github.com/cometline/comet-sdk/internal/responsesproto"
 	"github.com/stretchr/testify/require"
 )
 
@@ -51,7 +52,7 @@ func TestConvertRequest_ResponsesShape(t *testing.T) {
 	require.NoError(t, json.Unmarshal(data, &raw))
 	require.NotContains(t, raw.Input[0], "output")
 
-	var out codexRequest
+	var out responsesproto.Request
 	require.NoError(t, json.Unmarshal(data, &out))
 	require.Equal(t, "gpt-5.4", out.Model)
 	require.Equal(t, "Be helpful.", out.Instructions)
@@ -104,7 +105,7 @@ func TestConvertRequest_EmptyToolResultOutput(t *testing.T) {
 	require.Contains(t, string(data), `"output":"(no output)"`)
 	require.Contains(t, string(data), `"output":"wiki/\n"`)
 
-	var out codexRequest
+	var out responsesproto.Request
 	require.NoError(t, json.Unmarshal(data, &out))
 	require.Equal(t, "function_call_output", out.Input[3].Type)
 	require.Equal(t, "wiki/\n", out.Input[3].Output)
@@ -114,72 +115,72 @@ func TestConvertRequest_EmptyToolResultOutput(t *testing.T) {
 }
 
 func TestConvertEvent_TextToolAndCompleted(t *testing.T) {
-	state := &codexStreamState{}
+	state := &responsesproto.StreamState{}
 
-	events, err := toSDKEvents("", `{"type":"response.output_text.delta","delta":"hello"}`, state)
+	events, err := responsesproto.ToSDKEvents(providerID, "", `{"type":"response.output_text.delta","delta":"hello"}`, state)
 	require.NoError(t, err)
 	require.Equal(t, cometsdk.TextDeltaEvent{Text: "hello"}, events[0])
 
-	events, err = toSDKEvents("", `{"type":"response.output_item.done","item":{"type":"function_call","call_id":"call_1","name":"read_file","arguments":{"path":"main.go"}}}`, state)
+	events, err = responsesproto.ToSDKEvents(providerID, "", `{"type":"response.output_item.done","item":{"type":"function_call","call_id":"call_1","name":"read_file","arguments":{"path":"main.go"}}}`, state)
 	require.NoError(t, err)
 	require.Len(t, events, 3)
 	require.Equal(t, cometsdk.ToolCallStartEvent{ID: "call_1", Name: "read_file"}, events[0])
 	require.Equal(t, cometsdk.ToolCallDeltaEvent{ID: "call_1", Delta: `{"path":"main.go"}`}, events[1])
 	require.Equal(t, cometsdk.ToolCallDoneEvent{ID: "call_1", Name: "read_file", Input: json.RawMessage(`{"path":"main.go"}`)}, events[2])
 
-	events, err = toSDKEvents("", `{"type":"response.completed","response":{"usage":{"input_tokens":7,"output_tokens":3}}}`, state)
+	events, err = responsesproto.ToSDKEvents(providerID, "", `{"type":"response.completed","response":{"usage":{"input_tokens":7,"output_tokens":3}}}`, state)
 	require.NoError(t, err)
 	require.Equal(t, cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishToolUse, Usage: cometsdk.TokenUsage{InputTokens: 7, OutputTokens: 3}}, events[0])
 	require.Equal(t, cometsdk.DoneEvent{}, events[1])
 }
 
 func TestConvertEvent_SSEEventTypeFallback(t *testing.T) {
-	state := &codexStreamState{}
+	state := &responsesproto.StreamState{}
 
-	events, err := toSDKEvents("response.output_text.delta", `{"delta":"hello"}`, state)
+	events, err := responsesproto.ToSDKEvents(providerID, "response.output_text.delta", `{"delta":"hello"}`, state)
 	require.NoError(t, err)
 	require.Equal(t, []cometsdk.Event{cometsdk.TextDeltaEvent{Text: "hello"}}, events)
 
-	events, err = toSDKEvents("response.function_call_arguments.done", `{"call_id":"call_1","name":"read_file","arguments":{"path":"main.go"}}`, state)
+	events, err = responsesproto.ToSDKEvents(providerID, "response.function_call_arguments.done", `{"call_id":"call_1","name":"read_file","arguments":{"path":"main.go"}}`, state)
 	require.NoError(t, err)
 	require.Len(t, events, 3)
 	require.Equal(t, cometsdk.ToolCallDoneEvent{ID: "call_1", Name: "read_file", Input: json.RawMessage(`{"path":"main.go"}`)}, events[2])
 }
 
 func TestConvertEvent_NormalizesStringWrappedToolArguments(t *testing.T) {
-	state := &codexStreamState{}
+	state := &responsesproto.StreamState{}
 
-	events, err := toSDKEvents("response.function_call_arguments.done", `{"call_id":"call_1","name":"list_dir","arguments":"{\"path\":\".\"}"}`, state)
+	events, err := responsesproto.ToSDKEvents(providerID, "response.function_call_arguments.done", `{"call_id":"call_1","name":"list_dir","arguments":"{\"path\":\".\"}"}`, state)
 	require.NoError(t, err)
 	require.Len(t, events, 3)
 	require.Equal(t, cometsdk.ToolCallDoneEvent{ID: "call_1", Name: "list_dir", Input: json.RawMessage(`{"path":"."}`)}, events[2])
 }
 
 func TestConvertEvent_AssemblesToolArgumentDeltas(t *testing.T) {
-	state := &codexStreamState{}
+	state := &responsesproto.StreamState{}
 
-	events, err := toSDKEvents("response.output_item.added", `{"item":{"type":"function_call","id":"fc_1","call_id":"call_1","name":"list_dir"}}`, state)
+	events, err := responsesproto.ToSDKEvents(providerID, "response.output_item.added", `{"item":{"type":"function_call","id":"fc_1","call_id":"call_1","name":"list_dir"}}`, state)
 	require.NoError(t, err)
 	require.Equal(t, []cometsdk.Event{cometsdk.ToolCallStartEvent{ID: "call_1", Name: "list_dir"}}, events)
 
-	events, err = toSDKEvents("response.function_call_arguments.delta", `{"item_id":"fc_1","delta":"{\"path\":"}`, state)
+	events, err = responsesproto.ToSDKEvents(providerID, "response.function_call_arguments.delta", `{"item_id":"fc_1","delta":"{\"path\":"}`, state)
 	require.NoError(t, err)
 	require.Empty(t, events)
 
-	events, err = toSDKEvents("response.function_call_arguments.delta", `{"item_id":"fc_1","delta":"\".\"}"}`, state)
+	events, err = responsesproto.ToSDKEvents(providerID, "response.function_call_arguments.delta", `{"item_id":"fc_1","delta":"\".\"}"}`, state)
 	require.NoError(t, err)
 	require.Empty(t, events)
 
-	events, err = toSDKEvents("response.function_call_arguments.done", `{"item_id":"fc_1"}`, state)
+	events, err = responsesproto.ToSDKEvents(providerID, "response.function_call_arguments.done", `{"item_id":"fc_1"}`, state)
 	require.NoError(t, err)
 	require.Len(t, events, 2)
 	require.Equal(t, cometsdk.ToolCallDoneEvent{ID: "call_1", Name: "list_dir", Input: json.RawMessage(`{"path":"."}`)}, events[1])
 }
 
 func TestConvertEvent_UsesCompletedReasoningSummaryWhenDeltasAreUnavailable(t *testing.T) {
-	state := &codexStreamState{}
+	state := &responsesproto.StreamState{}
 
-	events, err := toSDKEvents("response.output_item.done", `{"item":{"type":"reasoning","summary":[{"type":"summary_text","text":"Inspecting the request."}]}}`, state)
+	events, err := responsesproto.ToSDKEvents(providerID, "response.output_item.done", `{"item":{"type":"reasoning","summary":[{"type":"summary_text","text":"Inspecting the request."}]}}`, state)
 	require.NoError(t, err)
 	require.Equal(t, []cometsdk.Event{
 		cometsdk.ReasoningStartEvent{},
@@ -188,7 +189,7 @@ func TestConvertEvent_UsesCompletedReasoningSummaryWhenDeltasAreUnavailable(t *t
 }
 
 func TestConvertEvent_CapturesEncryptedReasoningState(t *testing.T) {
-	events, err := toSDKEvents("response.output_item.done", `{"item":{"type":"reasoning","encrypted_content":"opaque-state"}}`, &codexStreamState{})
+	events, err := responsesproto.ToSDKEvents(providerID, "response.output_item.done", `{"item":{"type":"reasoning","encrypted_content":"opaque-state"}}`, &responsesproto.StreamState{})
 	require.NoError(t, err)
 	require.Equal(t, []cometsdk.Event{cometsdk.ProviderStateEvent{State: cometsdk.ProviderState{
 		ProviderID: providerID,
@@ -197,7 +198,7 @@ func TestConvertEvent_CapturesEncryptedReasoningState(t *testing.T) {
 }
 
 func TestRedactEncryptedReasoning(t *testing.T) {
-	redacted := redactEncryptedReasoning(`{"item":{"encrypted_content":"opaque-state","summary":[{"encrypted_content":"nested"}]}}`)
+	redacted := responsesproto.RedactEncryptedReasoning(`{"item":{"encrypted_content":"opaque-state","summary":[{"encrypted_content":"nested"}]}}`)
 	require.NotContains(t, redacted, "opaque-state")
 	require.NotContains(t, redacted, "nested")
 	require.Contains(t, redacted, "[redacted]")

@@ -3,7 +3,6 @@ import {
 	compactMemory as compactMemoryApi,
 	compactMemoryPreview as compactMemoryPreviewApi,
 	clearSession as clearSessionApi,
-	changeSessionWorkspace as changeSessionWorkspaceApi,
 	createMemory as createMemoryApi,
 	createSession as createSessionApi,
 	createWorkspace as createWorkspaceApi,
@@ -19,7 +18,6 @@ import {
 	listChildSessions as listChildSessionsApi,
 	listSkillDrafts as listSkillDraftsApi,
 	listMemories as listMemoriesApi,
-	listModels as listModelsApi,
 	lookupModelCatalog as lookupModelCatalogApi,
 	listSessions as listSessionsApi,
 	listSkills as listSkillsApi,
@@ -53,7 +51,6 @@ import {
 	startMcpOAuth as startMcpOAuthApi,
 	searchMemories as searchMemoriesApi,
 	syncSkills as syncSkillsApi,
-	testMcpServer as testMcpServerApi,
 	listJobs as listJobsApi,
 	createJob as createJobApi,
 	getJob as getJobApi,
@@ -63,15 +60,11 @@ import {
 	listJobEvents as listJobEventsApi,
 	releaseJob as releaseJobApi,
 	completeJob as completeJobApi,
-	heartbeatJob as heartbeatJobApi,
 	archiveJob as archiveJobApi,
 	unarchiveJob as unarchiveJobApi,
 	unblockJob as unblockJobApi,
-	getJobSettings as getJobSettingsApi,
-	putJobSettings as putJobSettingsApi,
 	listScheduledJobs as listScheduledJobsApi,
 	createScheduledJob as createScheduledJobApi,
-	getScheduledJob as getScheduledJobApi,
 	updateScheduledJob as updateScheduledJobApi,
 	deleteScheduledJob as deleteScheduledJobApi,
 	listInboxMessages as listInboxMessagesApi,
@@ -87,7 +80,6 @@ import type {
 	ListMemoriesResponse,
 	ListSkillsResponse,
 	McpServerStatus,
-	McpTestResult,
 	McpToolInfo,
 	MemoryResource,
 	SkillDraft,
@@ -111,7 +103,6 @@ import type {
 	JobResource,
 	ListJobsResponse,
 	JobEventResource,
-	JobSettings,
 	CreateJobRequest,
 	UpdateJobRequest,
 	ScheduledJobResource,
@@ -134,7 +125,6 @@ export type {
 	MemoryCompactionResult,
 	CreateMemoryRequest,
 	McpServerStatus,
-	McpTestResult,
 	McpToolInfo,
 	MemoryResource,
 	RunStorageRetentionResponse,
@@ -146,7 +136,6 @@ export type {
 	SkillDraftDetailResponse,
 	JobResource,
 	JobEventResource,
-	JobSettings,
 	CreateJobRequest,
 	UpdateJobRequest,
 	ScheduledJobResource,
@@ -473,14 +462,6 @@ export async function writeWikiFileContent(path: string, content: string): Promi
 	});
 }
 
-export function changeSessionWorkspace(sessionId: string, workspacePath: string): Promise<Session> {
-	return changeSessionWorkspaceApi({
-		path: { id: sessionId },
-		body: { workspace_path: workspacePath },
-		throwOnError: true
-	}).then(({ data }) => data);
-}
-
 export function forkSession(sessionId: string, workspacePath: string): Promise<Session> {
 	return forkSessionApi({
 		path: { id: sessionId },
@@ -544,14 +525,6 @@ export async function listMcpTools(): Promise<McpToolInfo[]> {
 	return data.tools ?? [];
 }
 
-export async function testMcpServer(serverId: string): Promise<McpTestResult> {
-	const { data } = await testMcpServerApi({
-		path: { id: serverId },
-		throwOnError: true
-	});
-	return data;
-}
-
 export async function reconnectMcpServer(serverId: string): Promise<void> {
 	await reconnectMcpServerApi({
 		path: { id: serverId },
@@ -599,34 +572,11 @@ export function createSession(req: CreateSessionRequest): Promise<Session> {
 	}).then(({ data }) => data);
 }
 
-export function listSessions(workspacePath: string): Promise<SessionListResponse> {
-	return listSessionsApi({
-		query: { workspace_path: workspacePath },
-		throwOnError: true
-	}).then(({ data }) => data);
-}
-
 export function listAllSessions(): Promise<SessionListResponse> {
 	return listSessionsApi({
 		query: { all: true },
 		throwOnError: true
 	}).then(({ data }) => data);
-}
-
-export function listModels(): Promise<
-	Array<{
-		provider_id: string;
-		model_id: string;
-		name: string;
-		context: number;
-		output: number;
-		limit_source: 'catalog' | 'fallback';
-		vision: boolean;
-		vision_known: boolean;
-		input_modalities: Array<'text' | 'image' | 'video' | 'audio' | 'pdf'>;
-	}>
-> {
-	return listModelsApi({ throwOnError: true }).then(({ data }) => data.models ?? []);
 }
 
 export function lookupModelCatalog(input: {
@@ -854,15 +804,6 @@ async function* streamSse(
 	}
 }
 
-export async function sendMessage(id: string, req: PostMessageRequest | string): Promise<void> {
-	const body = typeof req === 'string' ? { text: req } : req;
-	for await (const event of streamMessage(id, body)) {
-		if (event.type === 'error') {
-			throw new Error(event.message);
-		}
-	}
-}
-
 export function listMemories(): Promise<ListMemoriesResponse> {
 	return listMemoriesApi({ throwOnError: true }).then(({ data }) => data);
 }
@@ -1030,28 +971,6 @@ export function cancelMemoryReembed(): Promise<MemoryReembedJob> {
 	});
 }
 
-export interface PurgeArchivedMemoryResponse {
-	status: string;
-	memories_purged: number;
-	memory_events_purged: number;
-}
-
-export async function purgeArchivedMemory(
-	olderThanDays: number
-): Promise<PurgeArchivedMemoryResponse> {
-	const res = await fetch(`${BASE_URL}/api/v1/memories/purge-runs`, {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ older_than_days: olderThanDays })
-	});
-	if (!res.ok) {
-		const text = await res.text();
-		const parsed = parseErrorBody(text || res.statusText);
-		throw new CometMindApiError(res.status, parsed.code, parsed.message);
-	}
-	return res.json();
-}
-
 export function compactMemory(): Promise<MemoryCompactionResult> {
 	return compactMemoryApi({ throwOnError: true }).then(({ data }) => data);
 }
@@ -1127,24 +1046,8 @@ export function completeJob(
 	}).then(({ data }) => data);
 }
 
-export function heartbeatJob(id: string, sessionId: string): Promise<void> {
-	return heartbeatJobApi({
-		path: { id },
-		body: { session_id: sessionId },
-		throwOnError: true
-	}).then(() => undefined);
-}
-
 export function listJobEvents(id: string): Promise<{ events: JobEventResource[] }> {
 	return listJobEventsApi({ path: { id }, throwOnError: true }).then(({ data }) => data);
-}
-
-export function getJobSettings(): Promise<JobSettings> {
-	return getJobSettingsApi({ throwOnError: true }).then(({ data }) => data);
-}
-
-export function putJobSettings(settings: JobSettings): Promise<JobSettings> {
-	return putJobSettingsApi({ body: settings, throwOnError: true }).then(({ data }) => data);
 }
 
 export function buildJobExecutionPrompt(job: JobExecutionPromptInput): string {
@@ -1157,10 +1060,6 @@ export function listScheduledJobs(): Promise<ListScheduledJobsResponse> {
 
 export function createScheduledJob(body: CreateScheduledJobRequest): Promise<ScheduledJobResource> {
 	return createScheduledJobApi({ body, throwOnError: true }).then(({ data }) => data);
-}
-
-export function getScheduledJob(id: string): Promise<ScheduledJobResource> {
-	return getScheduledJobApi({ path: { id }, throwOnError: true }).then(({ data }) => data);
 }
 
 export function updateScheduledJob(

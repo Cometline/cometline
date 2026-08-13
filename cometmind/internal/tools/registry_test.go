@@ -52,8 +52,8 @@ func TestNewRegistryCapturesWorkspaceAndExposesSpecs(t *testing.T) {
 	}
 
 	r := NewRegistry(root)
-	if got := r.Workspace().Root; got != root {
-		t.Errorf("Workspace().Root = %q, want %q", got, root)
+	if got := r.workspace.Root; got != root {
+		t.Errorf("workspace.Root = %q, want %q", got, root)
 	}
 
 	specs := r.CometSDK()

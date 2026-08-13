@@ -74,12 +74,13 @@ func Collect(ctx context.Context, p cometsdk.Provider, req *cometsdk.Request) (*
 // Separated from Collect for testability.
 func collectFromChannel(ctx context.Context, ch <-chan cometsdk.Event) (*CollectedResponse, error) {
 	var (
-		textBuf      []byte
-		reasoningBuf []byte
-		toolCalls    []cometsdk.ToolCallBlock
-		finish       string
-		usage        cometsdk.TokenUsage
-		streamErr    error
+		textBuf       []byte
+		reasoningBuf  []byte
+		toolCalls     []cometsdk.ToolCallBlock
+		providerState []cometsdk.ProviderState
+		finish        string
+		usage         cometsdk.TokenUsage
+		streamErr     error
 	)
 
 	for {
@@ -95,7 +96,7 @@ func collectFromChannel(ctx context.Context, ch <-chan cometsdk.Event) (*Collect
 		case ev, ok := <-ch:
 			if !ok {
 				// Channel closed without DoneEvent — unusual but handle gracefully.
-				return buildResponse(textBuf, reasoningBuf, toolCalls, finish, usage), nil
+				return buildResponse(textBuf, reasoningBuf, toolCalls, providerState, finish, usage), nil
 			}
 
 			switch e := ev.(type) {
@@ -127,6 +128,9 @@ func collectFromChannel(ctx context.Context, ch <-chan cometsdk.Event) (*Collect
 			case cometsdk.ReasoningContentEvent:
 				reasoningBuf = append(reasoningBuf, e.Text...)
 
+			case cometsdk.ProviderStateEvent:
+				providerState = append(providerState, e.State)
+
 			case cometsdk.ErrorEvent:
 				streamErr = e.Err
 
@@ -134,7 +138,7 @@ func collectFromChannel(ctx context.Context, ch <-chan cometsdk.Event) (*Collect
 				if streamErr != nil {
 					return nil, streamErr
 				}
-				return buildResponse(textBuf, reasoningBuf, toolCalls, finish, usage), nil
+				return buildResponse(textBuf, reasoningBuf, toolCalls, providerState, finish, usage), nil
 			}
 		}
 	}
@@ -145,6 +149,7 @@ func buildResponse(
 	textBuf []byte,
 	reasoningBuf []byte,
 	toolCalls []cometsdk.ToolCallBlock,
+	providerState []cometsdk.ProviderState,
 	finish string,
 	usage cometsdk.TokenUsage,
 ) *CollectedResponse {
@@ -175,6 +180,7 @@ func buildResponse(
 			Role:             cometsdk.RoleAssistant,
 			Content:          blocks,
 			ReasoningContent: reasoningBlocks,
+			ProviderState:    providerState,
 		},
 		ToolCalls:    toolCalls,
 		FinishReason: finish,

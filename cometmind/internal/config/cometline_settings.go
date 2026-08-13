@@ -31,7 +31,6 @@ type cometlineSkillsJSON struct {
 	Roots               []string `json:"roots"`
 	IncludeOpenCode     bool     `json:"includeOpenCode"`
 	IncludeClaude       bool     `json:"includeClaude"`
-	MirrorToCometMind   bool     `json:"mirrorToCometMind"`
 	SynthesisEnabled    bool     `json:"synthesisEnabled"`
 	SynthesisProviderID string   `json:"synthesisProviderId"`
 	SynthesisModel      string   `json:"synthesisModel"`
@@ -92,7 +91,7 @@ type cometlineStorageJSON struct {
 	RetentionDays           int                        `json:"retentionDays"`
 	MaxSessionsPerWorkspace int                        `json:"maxSessionsPerWorkspace"`
 	ArchivedMemoryPurgeDays int                        `json:"archivedMemoryPurgeDays"`
-	DeletedJobPurgeDays     int                        `json:"deletedJobPurgeDays"`
+	DeletedJobPurgeDays     *int                       `json:"deletedJobPurgeDays"`
 	VacuumAfterPurge        bool                       `json:"vacuumAfterPurge"`
 	ToolOutputRetentionDays *int                       `json:"toolOutputRetentionDays"`
 	AgentTmpRetentionDays   *int                       `json:"agentTmpRetentionDays"`
@@ -136,7 +135,7 @@ type cometlineJobsNotificationsJSON struct {
 type cometlineJobsJSON struct {
 	Notifications            cometlineJobsNotificationsJSON `json:"notifications"`
 	LeaseMinutes             int                            `json:"leaseMinutes"`
-	DeletedPurgeDays         int                            `json:"deletedPurgeDays"`
+	DeletedPurgeDays         *int                           `json:"deletedPurgeDays"`
 	DoneArchiveDays          int                            `json:"doneArchiveDays"`
 	ArchivedPurgeDays        int                            `json:"archivedPurgeDays"`
 	StaleReviewMinutes       int                            `json:"staleReviewMinutes"`
@@ -246,6 +245,13 @@ func adaptCometlineSettings(raw cometlineSettingsJSON) (*Config, error) {
 
 	cm := raw.Cometmind
 	memDef := defaultMemoryConfig()
+	defaultDeletedPurgeDays := DefaultJobSettings().DeletedPurgeDays
+	deletedPurgeDays := defaultDeletedPurgeDays
+	if cm.Storage.DeletedJobPurgeDays != nil && (cm.Jobs.DeletedPurgeDays == nil || *cm.Jobs.DeletedPurgeDays == defaultDeletedPurgeDays) {
+		deletedPurgeDays = *cm.Storage.DeletedJobPurgeDays
+	} else if cm.Jobs.DeletedPurgeDays != nil {
+		deletedPurgeDays = *cm.Jobs.DeletedPurgeDays
+	}
 	cfg := &Config{
 		Provider:           defaultProviderID,
 		Model:              defaultModelID,
@@ -269,7 +275,6 @@ func adaptCometlineSettings(raw cometlineSettingsJSON) (*Config, error) {
 			Roots:               append([]string(nil), cm.Skills.Roots...),
 			IncludeOpenCode:     cm.Skills.IncludeOpenCode,
 			IncludeClaude:       cm.Skills.IncludeClaude,
-			MirrorToCometMind:   cm.Skills.MirrorToCometMind,
 			SynthesisEnabled:    cm.Skills.SynthesisEnabled,
 			SynthesisProviderID: strings.TrimSpace(cm.Skills.SynthesisProviderID),
 			SynthesisModel:      strings.TrimSpace(cm.Skills.SynthesisModel),
@@ -310,7 +315,7 @@ func adaptCometlineSettings(raw cometlineSettingsJSON) (*Config, error) {
 				OnBlocked:   cm.Jobs.Notifications.OnBlocked,
 			},
 			LeaseMinutes:             cm.Jobs.LeaseMinutes,
-			DeletedPurgeDays:         cm.Jobs.DeletedPurgeDays,
+			DeletedPurgeDays:         deletedPurgeDays,
 			DoneArchiveDays:          cm.Jobs.DoneArchiveDays,
 			ArchivedPurgeDays:        cm.Jobs.ArchivedPurgeDays,
 			StaleReviewMinutes:       cm.Jobs.StaleReviewMinutes,
@@ -455,7 +460,6 @@ func adaptStorageConfig(cm cometlineStorageJSON) StorageConfig {
 		RetentionDays:           cm.RetentionDays,
 		MaxSessionsPerWorkspace: cm.MaxSessionsPerWorkspace,
 		ArchivedMemoryPurgeDays: cm.ArchivedMemoryPurgeDays,
-		DeletedJobPurgeDays:     cm.DeletedJobPurgeDays,
 		VacuumAfterPurge:        cm.VacuumAfterPurge,
 	}
 	// Omitted keys (pre-upgrade JSON) get defaults when other storage rules
@@ -464,7 +468,6 @@ func adaptStorageConfig(cm cometlineStorageJSON) StorageConfig {
 		s.CleanupIntervalMinutes != 0 ||
 		s.MaxSessionsPerWorkspace != 0 ||
 		s.ArchivedMemoryPurgeDays != 0 ||
-		s.DeletedJobPurgeDays != 0 ||
 		s.VacuumAfterPurge
 	if cm.ToolOutputRetentionDays != nil {
 		s.ToolOutputRetentionDays = *cm.ToolOutputRetentionDays

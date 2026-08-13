@@ -1,7 +1,6 @@
 package config
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -46,7 +45,6 @@ type SkillsConfig struct {
 	Roots               []string `mapstructure:"roots"`
 	IncludeOpenCode     bool     `mapstructure:"include_opencode"`
 	IncludeClaude       bool     `mapstructure:"include_claude"`
-	MirrorToCometMind   bool     `mapstructure:"mirror_to_cometmind"`
 	SynthesisEnabled    bool     `mapstructure:"synthesis_enabled"`
 	SynthesisProviderID string   `mapstructure:"synthesis_provider_id"`
 	SynthesisModel      string   `mapstructure:"synthesis_model"`
@@ -211,6 +209,14 @@ func loadLegacyTomlConfig(cfgPath string, def *Config) (*Config, error) {
 	if c.MaxSteps == 0 {
 		c.MaxSteps = def.MaxSteps
 	}
+	if !v.IsSet("jobs.deleted_purge_days") {
+		if v.IsSet("storage.deleted_job_purge_days") {
+			c.Jobs.DeletedPurgeDays = c.Storage.DeletedJobPurgeDays
+		} else {
+			c.Jobs.DeletedPurgeDays = def.Jobs.DeletedPurgeDays
+		}
+	}
+	c.Storage.DeletedJobPurgeDays = 0
 	if c.SystemPromptPath == "" {
 		c.SystemPromptPath = def.SystemPromptPath
 	}
@@ -293,10 +299,4 @@ func (c *Config) FindProvider(id string) *ProviderEntry {
 		}
 	}
 	return nil
-}
-
-func writeDefaultFile(path string, def *Config) error {
-	_ = path
-	_ = def
-	return errors.New("writeDefaultFile is deprecated; use cometline-settings.json")
 }

@@ -190,10 +190,3 @@ func firstNonEmpty(value, fallback string) string {
 	}
 	return fallback
 }
-
-func firstNonZero(value, fallback int64) int64 {
-	if value != 0 {
-		return value
-	}
-	return fallback
-}

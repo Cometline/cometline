@@ -2093,100 +2093,6 @@ func TestPruneWorkspacesEndpoint(t *testing.T) {
 	}
 }
 
-func TestChangeSessionWorkspace(t *testing.T) {
-	t.Parallel()
-
-	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
-		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
-			ch <- event.Done()
-			return nil
-		}), nil
-	})
-	defer cleanup()
-
-	ctx := context.Background()
-	ws1 := t.TempDir()
-	ws2 := t.TempDir()
-
-	createRec := httptest.NewRecorder()
-	createReq := httptest.NewRequest(http.MethodPost, "/api/v1/sessions", bytes.NewBufferString(`{"workspace_path":`+mustJSON(ws1)+`}`))
-	createReq.Header.Set("Content-Type", "application/json")
-	engine.ServeHTTP(createRec, createReq)
-	if createRec.Code != http.StatusCreated {
-		t.Fatalf("create session status = %d, want %d body=%s", createRec.Code, http.StatusCreated, createRec.Body.String())
-	}
-
-	var created sessionResource
-	decodeJSON(t, createRec.Body.Bytes(), &created)
-
-	patchRec := httptest.NewRecorder()
-	patchReq := httptest.NewRequest(http.MethodPatch, "/api/v1/sessions/"+created.ID+"/workspace", bytes.NewBufferString(`{"workspace_path":`+mustJSON(ws2)+`}`))
-	patchReq.Header.Set("Content-Type", "application/json")
-	engine.ServeHTTP(patchRec, patchReq)
-	if patchRec.Code != http.StatusOK {
-		t.Fatalf("change workspace status = %d, want %d body=%s", patchRec.Code, http.StatusOK, patchRec.Body.String())
-	}
-
-	var updated sessionResource
-	decodeJSON(t, patchRec.Body.Bytes(), &updated)
-	if updated.WorkspacePath != filepath.Clean(ws2) {
-		t.Fatalf("workspace_path = %q, want %q", updated.WorkspacePath, filepath.Clean(ws2))
-	}
-
-	sess, err := svc.GetSession(ctx, created.ID)
-	if err != nil {
-		t.Fatalf("GetSession() error = %v", err)
-	}
-	path, err := svc.WorkspacePath(ctx, sess.WorkspaceID)
-	if err != nil {
-		t.Fatalf("WorkspacePath() error = %v", err)
-	}
-	if path != filepath.Clean(ws2) {
-		t.Fatalf("persisted workspace path = %q, want %q", path, filepath.Clean(ws2))
-	}
-
-	msgRec := httptest.NewRecorder()
-	msgReq := httptest.NewRequest(http.MethodGet, "/api/v1/sessions/"+created.ID+"/messages", nil)
-	engine.ServeHTTP(msgRec, msgReq)
-	if msgRec.Code != http.StatusOK {
-		t.Fatalf("messages status = %d, want %d body=%s", msgRec.Code, http.StatusOK, msgRec.Body.String())
-	}
-	var transcript transcriptResponse
-	decodeJSON(t, msgRec.Body.Bytes(), &transcript)
-	if len(transcript.Items) != 1 || transcript.Items[0].Type != "system" {
-		t.Fatalf("transcript items = %+v, want one system notice", transcript.Items)
-	}
-}
-
-func TestChangeSessionWorkspaceRejectsMissingDirectory(t *testing.T) {
-	t.Parallel()
-
-	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
-		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
-			ch <- event.Done()
-			return nil
-		}), nil
-	})
-	defer cleanup()
-
-	ws1 := t.TempDir()
-	createRec := httptest.NewRecorder()
-	createReq := httptest.NewRequest(http.MethodPost, "/api/v1/sessions", bytes.NewBufferString(`{"workspace_path":`+mustJSON(ws1)+`}`))
-	createReq.Header.Set("Content-Type", "application/json")
-	engine.ServeHTTP(createRec, createReq)
-	var created sessionResource
-	decodeJSON(t, createRec.Body.Bytes(), &created)
-
-	patchRec := httptest.NewRecorder()
-	missing := filepath.Join(t.TempDir(), "missing-workspace")
-	patchReq := httptest.NewRequest(http.MethodPatch, "/api/v1/sessions/"+created.ID+"/workspace", bytes.NewBufferString(`{"workspace_path":`+mustJSON(missing)+`}`))
-	patchReq.Header.Set("Content-Type", "application/json")
-	engine.ServeHTTP(patchRec, patchReq)
-	if patchRec.Code != http.StatusBadRequest {
-		t.Fatalf("change workspace status = %d, want %d body=%s", patchRec.Code, http.StatusBadRequest, patchRec.Body.String())
-	}
-}
-
 func TestForkSessionCopiesTranscript(t *testing.T) {
 	t.Parallel()
 
@@ -2409,42 +2315,6 @@ func TestGetSessionIncludesGatewayMetadata(t *testing.T) {
 	}
 }
 
-func TestListModels(t *testing.T) {
-	dir := t.TempDir()
-	settingsDir := filepath.Join(dir, ".cometmind")
-	if err := os.MkdirAll(settingsDir, 0o700); err != nil {
-		t.Fatalf("MkdirAll() error = %v", err)
-	}
-	data, err := os.ReadFile("../internal/config/testdata/cometline-settings.json")
-	if err != nil {
-		t.Fatalf("ReadFile() error = %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(settingsDir, "cometline-settings.json"), data, 0o600); err != nil {
-		t.Fatalf("WriteFile() error = %v", err)
-	}
-	t.Setenv("HOME", dir)
-
-	engine, _, cleanup := newTestEngine(t, func(session.Session, string, session.AgentMode) (Runner, error) {
-		return fakeRunner(func(context.Context, session.AgentTurn, chan<- event.Event) error {
-			return nil
-		}), nil
-	})
-	defer cleanup()
-
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/models", nil)
-	engine.ServeHTTP(rec, req)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, want %d body=%s", rec.Code, http.StatusOK, rec.Body.String())
-	}
-
-	var got apigen.ModelListResponse
-	decodeJSON(t, rec.Body.Bytes(), &got)
-	if len(got.Models) != 2 {
-		t.Fatalf("models len = %d, want 2", len(got.Models))
-	}
-}
-
 func TestLookupModelCatalogEndpoint(t *testing.T) {
 	engine, _, cleanup := newTestEngine(t, func(session.Session, string, session.AgentMode) (Runner, error) {
 		return fakeRunner(func(context.Context, session.AgentTurn, chan<- event.Event) error {
@@ -2472,8 +2342,36 @@ func TestLookupModelCatalogEndpoint(t *testing.T) {
 	if got.Models[0].VisionKnown {
 		t.Fatal("openai-compatible must not claim vision_known")
 	}
-	if got.Models[0].LimitSource != apigen.ModelCatalogLookupEntryLimitSourceFallback {
+	if got.Models[0].LimitSource != apigen.Fallback {
 		t.Fatalf("limit_source = %q", got.Models[0].LimitSource)
+	}
+}
+
+func TestRemovedUnusedEndpointsReturnNotFound(t *testing.T) {
+	engine, _, cleanup := newTestEngine(t, func(session.Session, string, session.AgentMode) (Runner, error) {
+		return fakeRunner(func(context.Context, session.AgentTurn, chan<- event.Event) error {
+			return nil
+		}), nil
+	})
+	defer cleanup()
+
+	for _, tc := range []struct {
+		method string
+		path   string
+	}{
+		{method: http.MethodGet, path: "/api/v1/models"},
+		{method: http.MethodPatch, path: "/api/v1/sessions/session-id/workspace"},
+		{method: http.MethodGet, path: "/api/v1/skills/skill-name"},
+		{method: http.MethodPatch, path: "/api/v1/memories/memory-id"},
+		{method: http.MethodGet, path: "/api/v1/inbox/messages/message-id"},
+	} {
+		t.Run(tc.method+" "+tc.path, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			engine.ServeHTTP(rec, httptest.NewRequest(tc.method, tc.path, nil))
+			if rec.Code != http.StatusNotFound {
+				t.Fatalf("status = %d, want %d body=%s", rec.Code, http.StatusNotFound, rec.Body.String())
+			}
+		})
 	}
 }
 

@@ -11,7 +11,6 @@ import (
 
 	"github.com/cometline/cometmind/internal/event"
 	"github.com/cometline/cometmind/internal/session"
-	"github.com/gin-gonic/gin"
 )
 
 // capturingRunnerFactory records the agent mode each runner was built with.
@@ -180,5 +179,3 @@ func TestPostMessageRejectsInvalidAgentMode(t *testing.T) {
 		t.Fatalf("body = %s, want invalid agent mode error", rec.Body.String())
 	}
 }
-
-var _ = gin.Mode // keep gin import for future assertions

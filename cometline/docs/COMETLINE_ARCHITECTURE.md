@@ -87,11 +87,11 @@ Sessions and chat:
 
 Skills and memory:
 
-- `GET /api/v1/skills`, `GET /api/v1/skills/{name}`, `POST /api/v1/skills/sync-runs`
+- `GET /api/v1/skills`, `POST /api/v1/skills/sync-runs`
 - `DELETE /api/v1/skills/{name}`, `GET /api/v1/skills/{name}/export`
 - `GET /api/v1/skill-drafts`, `GET /api/v1/skill-drafts/{name}`, `PUT /api/v1/skill-drafts/{name}`
 - `POST /api/v1/skill-drafts/{name}/promote`, `DELETE /api/v1/skill-drafts/{name}`
-- `GET /api/v1/memories`, `POST /api/v1/memories`, `PATCH /api/v1/memories/{id}`, `DELETE /api/v1/memories/{id}`
+- `GET /api/v1/memories`, `POST /api/v1/memories`, `DELETE /api/v1/memories/{id}`
 - `POST /api/v1/memories/searches`
 - `GET /api/v1/memories/settings`, `PUT /api/v1/memories/settings`
 - `POST /api/v1/memories/compaction-runs`, `GET /api/v1/memories/compaction-preview`
@@ -357,7 +357,7 @@ Cometline currently fetches `<baseURL>/models` via Electron IPC. Longer term, Co
 - `GET /api/v1/config`
 - `PATCH /api/v1/config`
 - `GET /api/v1/providers`
-- `GET /api/v1/models`
+- `POST /api/v1/models/catalog-lookups`
 - `POST /api/v1/providers/test`
 
 ### 4. Cross-Platform Desktop

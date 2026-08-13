@@ -93,6 +93,10 @@
 
 	onMount(() => {
 		void composerHistoryStore.ensureLoaded();
+	});
+
+	$effect(() => {
+		if (variant !== 'hero') return;
 		const rotation = window.setInterval(() => {
 			heroPlaceholderIndex = (heroPlaceholderIndex + 1) % heroPlaceholders.length;
 		}, 10000);

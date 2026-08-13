@@ -4,12 +4,76 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/cometline/cometmind/internal/config"
 	"github.com/cometline/cometmind/internal/session"
 	"github.com/cometline/cometmind/internal/tools"
 )
+
+func TestWaitForMaintenancePreservesDeadlineAcrossReload(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	changed := make(chan struct{}, 1)
+	const interval = 200 * time.Millisecond
+	started := time.Now()
+	done := make(chan bool, 1)
+	go func() {
+		done <- waitForMaintenance(ctx, changed, func() (bool, time.Duration) {
+			return true, interval
+		})
+	}()
+
+	time.Sleep(150 * time.Millisecond)
+	changed <- struct{}{}
+	select {
+	case due := <-done:
+		if !due {
+			t.Fatal("waitForMaintenance() canceled, want due")
+		}
+		if elapsed := time.Since(started); elapsed >= 300*time.Millisecond {
+			t.Fatalf("reload reset maintenance deadline; elapsed = %v", elapsed)
+		}
+	case <-time.After(300 * time.Millisecond):
+		t.Fatal("maintenance deadline was postponed by reload")
+	}
+}
+
+func TestWaitForMaintenanceStartsDeadlineWhenEnabled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	changed := make(chan struct{}, 1)
+	var mu sync.RWMutex
+	enabled := false
+	done := make(chan bool, 1)
+	go func() {
+		done <- waitForMaintenance(ctx, changed, func() (bool, time.Duration) {
+			mu.RLock()
+			defer mu.RUnlock()
+			return enabled, 80 * time.Millisecond
+		})
+	}()
+
+	time.Sleep(30 * time.Millisecond)
+	mu.Lock()
+	enabled = true
+	mu.Unlock()
+	enabledAt := time.Now()
+	changed <- struct{}{}
+	select {
+	case due := <-done:
+		if !due {
+			t.Fatal("waitForMaintenance() canceled, want due")
+		}
+		if elapsed := time.Since(enabledAt); elapsed < 60*time.Millisecond {
+			t.Fatalf("maintenance ran before its enabled interval; elapsed = %v", elapsed)
+		}
+	case <-time.After(250 * time.Millisecond):
+		t.Fatal("enabled maintenance did not become due")
+	}
+}
 
 func TestRuntimeWiresServiceAndRunner(t *testing.T) {
 	ctx := context.Background()

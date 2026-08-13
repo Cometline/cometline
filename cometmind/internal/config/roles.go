@@ -26,8 +26,3 @@ func (c *Config) ResolveRoleLLM(pinProvider, pinModel string) (providerID, model
 	}
 	return defProvider, defModel
 }
-
-// DefaultLLM returns the Default model pair used for new sessions and unpinned roles.
-func (c *Config) DefaultLLM() (providerID, modelID string) {
-	return c.ResolveRoleLLM("", "")
-}

@@ -220,6 +220,51 @@ func TestAdaptCometlineSettingsMatchesRuntimeSlice(t *testing.T) {
 	}
 }
 
+func TestAdaptCometlineSettingsMigratesDeletedJobPurgeDays(t *testing.T) {
+	legacyDays := 14
+	cfg, err := adaptCometlineSettings(cometlineSettingsJSON{
+		Cometmind: cometlineCometmindJSON{
+			Storage: cometlineStorageJSON{DeletedJobPurgeDays: &legacyDays},
+		},
+	})
+	if err != nil {
+		t.Fatalf("adaptCometlineSettings() error = %v", err)
+	}
+	if got := cfg.JobsSettings().DeletedPurgeDays; got != legacyDays {
+		t.Fatalf("Jobs.DeletedPurgeDays = %d, want %d", got, legacyDays)
+	}
+	if cfg.Storage.DeletedJobPurgeDays != 0 {
+		t.Fatalf("Storage.DeletedJobPurgeDays = %d, want migrated value cleared", cfg.Storage.DeletedJobPurgeDays)
+	}
+
+	for _, tc := range []struct {
+		name       string
+		jobsDays   int
+		legacyDays int
+		want       int
+	}{
+		{name: "persisted default yields to disabled legacy setting", jobsDays: 30, legacyDays: 0, want: 0},
+		{name: "persisted default yields to custom legacy setting", jobsDays: 30, legacyDays: 14, want: 14},
+		{name: "explicit canonical disable wins", jobsDays: 0, legacyDays: 14, want: 0},
+		{name: "explicit canonical value wins", jobsDays: 7, legacyDays: 14, want: 7},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg, err := adaptCometlineSettings(cometlineSettingsJSON{
+				Cometmind: cometlineCometmindJSON{
+					Storage: cometlineStorageJSON{DeletedJobPurgeDays: &tc.legacyDays},
+					Jobs:    cometlineJobsJSON{DeletedPurgeDays: &tc.jobsDays},
+				},
+			})
+			if err != nil {
+				t.Fatalf("adaptCometlineSettings() error = %v", err)
+			}
+			if got := cfg.JobsSettings().DeletedPurgeDays; got != tc.want {
+				t.Fatalf("Jobs.DeletedPurgeDays = %d, want %d", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestAdaptCometlineSettingsContextWindowLimit(t *testing.T) {
 	cfg, err := adaptCometlineSettings(cometlineSettingsJSON{
 		Providers: []cometlineProviderJSON{{

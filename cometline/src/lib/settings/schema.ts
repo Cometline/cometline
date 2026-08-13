@@ -85,7 +85,6 @@ export interface CometMindSkillsSettings {
 	roots: string[];
 	includeOpenCode: boolean;
 	includeClaude: boolean;
-	mirrorToCometMind: boolean;
 	synthesisEnabled: boolean;
 	synthesisProviderId: string;
 	synthesisModel: string;
@@ -130,7 +129,6 @@ export interface CometMindStorageSettings {
 	retentionDays: number;
 	maxSessionsPerWorkspace: number;
 	archivedMemoryPurgeDays: number;
-	deletedJobPurgeDays: number;
 	vacuumAfterPurge: boolean;
 	/** Delete ~/.cometmind/tool-output files older than N days. 0 disables. */
 	toolOutputRetentionDays: number;
@@ -540,7 +538,6 @@ export function defaultCometMindStorageSettings(): CometMindStorageSettings {
 		retentionDays: 90,
 		maxSessionsPerWorkspace: 0,
 		archivedMemoryPurgeDays: 90,
-		deletedJobPurgeDays: 30,
 		vacuumAfterPurge: true,
 		toolOutputRetentionDays: 7,
 		agentTmpRetentionDays: 3,
@@ -565,7 +562,6 @@ export function defaultCometMindSettings(workspacePath = ''): CometMindSettings 
 			roots: [],
 			includeOpenCode: true,
 			includeClaude: true,
-			mirrorToCometMind: true,
 			synthesisEnabled: false,
 			synthesisProviderId: '',
 			synthesisModel: ''
@@ -628,12 +624,25 @@ export function normalizeCometMindSettings(
 	const memoryLifecycle: Partial<CometMindMemorySettings['lifecycle']> = memory.lifecycle ?? {};
 	const embedding: Partial<CometMindMemorySettings['embedding']> = memory.embedding ?? {};
 	const storage: Partial<CometMindStorageSettings> = input?.storage ?? {};
+	const legacyDeletedJobPurgeDays = (
+		input?.storage as (Partial<CometMindStorageSettings> & { deletedJobPurgeDays?: unknown }) | undefined
+	)?.deletedJobPurgeDays;
 	const discord: Partial<CometMindDiscordGatewaySettings> = input?.gateway?.discord ?? {};
 	const mcp = normalizeCometMindMCPSettings(input?.mcp);
 	const jobsInput: Partial<CometMindJobsSettings> = input?.jobs ?? {};
 	const jobsDefaults = defaults.jobs;
 	const jobsNotifications: Partial<CometMindJobsNotificationSettings> =
 		jobsInput.notifications ?? {};
+	const canonicalDeletedJobPurgeDays = normalizeNonNegativeInt(
+		jobsInput.deletedPurgeDays,
+		jobsDefaults.deletedPurgeDays
+	);
+	const deletedJobPurgeDays =
+		legacyDeletedJobPurgeDays !== undefined &&
+		(jobsInput.deletedPurgeDays === undefined ||
+			canonicalDeletedJobPurgeDays === jobsDefaults.deletedPurgeDays)
+			? normalizeNonNegativeInt(legacyDeletedJobPurgeDays, jobsDefaults.deletedPurgeDays)
+			: canonicalDeletedJobPurgeDays;
 	const autonomyInput: Partial<CometMindAutonomousJobsSettings> = input?.autonomy ?? {};
 	const autonomyDefaults = defaults.autonomy;
 	const schedulerInput: Partial<CometMindSchedulerSettings> = input?.scheduler ?? {};
@@ -663,7 +672,6 @@ export function normalizeCometMindSettings(
 			roots: [],
 			includeOpenCode: true,
 			includeClaude: true,
-			mirrorToCometMind: true,
 			synthesisEnabled:
 				typeof skills.synthesisEnabled === 'boolean'
 					? skills.synthesisEnabled
@@ -755,10 +763,6 @@ export function normalizeCometMindSettings(
 				storage.archivedMemoryPurgeDays,
 				defaults.storage.archivedMemoryPurgeDays
 			),
-			deletedJobPurgeDays: normalizeNonNegativeInt(
-				storage.deletedJobPurgeDays,
-				defaults.storage.deletedJobPurgeDays
-			),
 			vacuumAfterPurge:
 				typeof storage.vacuumAfterPurge === 'boolean'
 					? storage.vacuumAfterPurge
@@ -838,10 +842,7 @@ export function normalizeCometMindSettings(
 						: jobsDefaults.notifications.onBlocked
 			},
 			leaseMinutes: normalizePositiveInt(jobsInput.leaseMinutes, jobsDefaults.leaseMinutes),
-			deletedPurgeDays: normalizeNonNegativeInt(
-				jobsInput.deletedPurgeDays,
-				jobsDefaults.deletedPurgeDays
-			),
+			deletedPurgeDays: deletedJobPurgeDays,
 			doneArchiveDays: normalizeNonNegativeInt(
 				jobsInput.doneArchiveDays,
 				jobsDefaults.doneArchiveDays
@@ -1499,7 +1500,6 @@ const providerSettingsSchema = z.object({
 			roots: z.array(z.string()),
 			includeOpenCode: z.boolean(),
 			includeClaude: z.boolean(),
-			mirrorToCometMind: z.boolean(),
 			synthesisEnabled: z.boolean(),
 			synthesisProviderId: z.string(),
 			synthesisModel: z.string()
@@ -1535,7 +1535,6 @@ const providerSettingsSchema = z.object({
 			retentionDays: z.number().int().min(0),
 			maxSessionsPerWorkspace: z.number().int().min(0),
 			archivedMemoryPurgeDays: z.number().int().min(0),
-			deletedJobPurgeDays: z.number().int().min(0),
 			vacuumAfterPurge: z.boolean(),
 			toolOutputRetentionDays: z.number().int().min(0),
 			agentTmpRetentionDays: z.number().int().min(0),

@@ -1,5 +1,4 @@
 import { desktopCapturer, shell, systemPreferences } from 'electron';
-import os from 'node:os';
 
 const MACOS_SCREEN_RECORDING_SETTINGS_URL =
 	'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture';
@@ -108,14 +107,4 @@ export async function openScreenCaptureSettings(): Promise<boolean> {
 		console.error('Failed to open Screen Recording settings:', error);
 		return false;
 	}
-}
-
-export function screenCaptureSupported(): boolean {
-	return isDarwin() || process.platform === 'win32';
-}
-
-/** Exported for tests. */
-export function macosMajorVersion(): number {
-	if (!isDarwin()) return 0;
-	return Number(os.release().split('.')[0]) || 0;
 }

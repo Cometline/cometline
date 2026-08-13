@@ -25,10 +25,6 @@ type patchSessionRequest struct {
 	AgentMode  *string `json:"agent_mode"`
 }
 
-type changeSessionWorkspaceRequest struct {
-	WorkspacePath string `json:"workspace_path"`
-}
-
 type forkSessionRequest struct {
 	WorkspacePath string `json:"workspace_path"`
 }
@@ -272,51 +268,6 @@ func (a *App) handlePatchSession(c *gin.Context) {
 	c.JSON(http.StatusOK, res)
 }
 
-func (a *App) handleChangeSessionWorkspace(c *gin.Context) {
-	var req changeSessionWorkspaceRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		writeError(c, http.StatusBadRequest, "bad_request", "invalid JSON body")
-		return
-	}
-
-	clean, ok := cleanWorkspacePath(c, req.WorkspacePath)
-	if !ok {
-		return
-	}
-	if !validateWorkspaceDirectory(c, clean) {
-		return
-	}
-
-	sessID := c.Param("id")
-	sess, err := a.sessions.ChangeSessionWorkspace(c.Request.Context(), sessID, clean)
-	if errors.Is(err, session.ErrSessionNotFound) {
-		writeError(c, http.StatusNotFound, "session_not_found", "session was not found")
-		return
-	}
-	if errors.Is(err, session.ErrActiveDelegation) {
-		writeError(c, http.StatusBadRequest, "active_delegation", err.Error())
-		return
-	}
-	if err != nil {
-		writeError(c, http.StatusBadRequest, "bad_request", err.Error())
-		return
-	}
-
-	wsPath, err := a.sessions.WorkspacePath(c.Request.Context(), sess.WorkspaceID)
-	if err != nil {
-		writeError(c, http.StatusInternalServerError, "internal_error", err.Error())
-		return
-	}
-
-	res, err := sessionResourceFromModel(sess, wsPath)
-	if err != nil {
-		writeError(c, http.StatusInternalServerError, "internal_error", err.Error())
-		return
-	}
-
-	c.JSON(http.StatusOK, res)
-}
-
 func (a *App) handleForkSession(c *gin.Context) {
 	var req forkSessionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -384,11 +335,11 @@ func (a *App) handleClearSession(c *gin.Context) {
 	}
 	if children, err := a.sessions.ListChildSessions(c.Request.Context(), sessID); err == nil && a.acpMgr != nil {
 		for _, child := range children {
-		if child.DelegationStatus != session.DelegationRunning {
-			continue
-		}
-		_ = a.acpMgr.Cancel(child.ID)
-		_ = a.sessions.UpdateDelegationState(c.Request.Context(), child.ID, session.DelegationCancelled, "", "")
+			if child.DelegationStatus != session.DelegationRunning {
+				continue
+			}
+			_ = a.acpMgr.Cancel(child.ID)
+			_ = a.sessions.UpdateDelegationState(c.Request.Context(), child.ID, session.DelegationCancelled, "", "")
 
 		}
 	}

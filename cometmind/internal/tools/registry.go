@@ -151,9 +151,6 @@ func newRegistryWithSurface(workspaceRoot string, surface ToolSurface, opt Regis
 	return r
 }
 
-// Workspace returns the sandbox the registry's tools operate in.
-func (r *Registry) Workspace() Workspace { return r.workspace }
-
 // CometSDK returns tool schemas for the LLM request.
 func (r *Registry) CometSDK() []cometsdk.Tool {
 	out := make([]cometsdk.Tool, 0, len(r.order))

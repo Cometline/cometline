@@ -97,13 +97,7 @@ func (c *Config) JobsSettings() JobSettings {
 	if s.LeaseMinutes <= 0 {
 		s.LeaseMinutes = def.LeaseMinutes
 	}
-	if s.DeletedPurgeDays <= 0 && j.DeletedPurgeDays != 0 {
-		s.DeletedPurgeDays = def.DeletedPurgeDays
-	}
-	if s.DeletedPurgeDays == 0 && c.Storage.DeletedJobPurgeDays > 0 {
-		s.DeletedPurgeDays = c.Storage.DeletedJobPurgeDays
-	}
-	if s.DeletedPurgeDays <= 0 {
+	if s.DeletedPurgeDays < 0 {
 		s.DeletedPurgeDays = def.DeletedPurgeDays
 	}
 	if s.DoneArchiveDays <= 0 {

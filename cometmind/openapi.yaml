@@ -37,43 +37,6 @@ paths:
               example:
                 status: ok
 
-  /api/v1/models:
-    get:
-      tags: [Models]
-      summary: List configured models
-      description: |
-        Returns enabled models across all enabled providers from Cometline settings.
-      operationId: listModels
-      responses:
-        '200':
-          description: Configured models
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ModelListResponse'
-              example:
-                models:
-                  - provider_id: anthropic
-                    model_id: claude-opus-4-5
-                    name: CLAUDE-OPUS-4-5
-                    context: 200000
-                    output: 32000
-                    limit_source: catalog
-                    vision: true
-                    vision_known: true
-                    input_modalities: [text, image, pdf]
-                  - provider_id: anthropic
-                    model_id: claude-sonnet-4-5
-                    name: CLAUDE-SONNET-4-5
-                    context: 200000
-                    output: 64000
-                    limit_source: catalog
-                    vision: true
-                    vision_known: true
-                    input_modalities: [text, image, pdf]
-        '500':
-          $ref: '#/components/responses/InternalError'
-
   /api/v1/models/catalog-lookups:
     post:
       tags: [Models]
@@ -868,36 +831,6 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/sessions/{id}/workspace:
-    patch:
-      tags: [Sessions]
-      summary: Change session workspace
-      description: |
-        Reassigns an existing session to a different workspace root while preserving
-        transcript history. Writes a system notice into the transcript.
-      operationId: changeSessionWorkspace
-      parameters:
-        - $ref: '#/components/parameters/SessionId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ChangeSessionWorkspaceRequest'
-      responses:
-        '200':
-          description: Updated session resource
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Session'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-
   /api/v1/sessions/{id}/forks:
     post:
       tags: [Sessions]
@@ -1195,32 +1128,6 @@ paths:
           $ref: '#/components/responses/InternalError'
 
   /api/v1/skills/{name}:
-    get:
-      tags: [Skills]
-      summary: Read one Agent Skill
-      operationId: getSkill
-      parameters:
-        - name: name
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: workspace_path
-          in: query
-          required: false
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Skill detail
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SkillDetailResponse'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
     delete:
       tags: [Skills]
       summary: Delete a managed Agent Skill from ~/.cometmind/skills
@@ -1584,39 +1491,6 @@ paths:
           $ref: '#/components/responses/InternalError'
 
   /api/v1/memories/{id}:
-    patch:
-      tags: [Memory]
-      summary: Update a memory
-      operationId: patchMemory
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UpdateMemoryRequest'
-      responses:
-        '200':
-          description: Updated
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MemoryResource'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '503':
-          description: Memory subsystem disabled
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SimpleErrorResponse'
-        '500':
-          $ref: '#/components/responses/InternalError'
     delete:
       tags: [Memory]
       summary: Delete a memory
@@ -2408,29 +2282,6 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/inbox/messages/{id}:
-    get:
-      tags: [Inbox]
-      summary: Get an inbox message
-      operationId: getInboxMessage
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Inbox message
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/InboxMessageResource'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-
   /api/v1/inbox/messages/{id}/replies:
     post:
       tags: [Inbox]
@@ -2605,15 +2456,6 @@ components:
         agent_mode:
           $ref: '#/components/schemas/AgentMode'
           description: Persist the preferred mode for this session. New sessions always start in `auto`.
-
-    ChangeSessionWorkspaceRequest:
-      type: object
-      additionalProperties: false
-      required: [workspace_path]
-      properties:
-        workspace_path:
-          type: string
-          description: Absolute filesystem path for the new workspace root.
 
     ForkSessionRequest:
       type: object
@@ -3119,46 +2961,6 @@ components:
           items:
             $ref: '#/components/schemas/Session'
 
-    ModelEntry:
-      type: object
-      additionalProperties: false
-      required: [provider_id, model_id, name, context, output, limit_source, vision, vision_known, input_modalities]
-      properties:
-        provider_id:
-          type: string
-        model_id:
-          type: string
-        name:
-          type: string
-          description: Human-readable label derived from the model id.
-        context:
-          type: integer
-          description: Resolved context window tokens (models.dev or fallback).
-        output:
-          type: integer
-          description: Catalog max output tokens when known; 0 when unset.
-        limit_source:
-          type: string
-          enum: [catalog, fallback]
-          description: Whether context/output came from models.dev or the silent fallback.
-        vision:
-          type: boolean
-          description: True when modalities.input includes image (only meaningful when vision_known).
-        vision_known:
-          type: boolean
-          description: False on silent fallback; callers must not proactive-strip images.
-        input_modalities:
-          type: array
-          description: Normalized catalog input modalities (text, image, video, audio, pdf) when known.
-          items:
-            type: string
-            enum: [text, image, video, audio, pdf]
-        reasoning_effort_options:
-          type: array
-          description: Allowed reasoning effort values from models.dev when known; unidentified custom gateways use the conservative intersection of matching catalog entries.
-          items:
-            type: string
-
     ModelCatalogLookupRequest:
       type: object
       additionalProperties: false
@@ -3215,16 +3017,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ModelCatalogLookupEntry'
-
-    ModelListResponse:
-      type: object
-      additionalProperties: false
-      required: [models]
-      properties:
-        models:
-          type: array
-          items:
-            $ref: '#/components/schemas/ModelEntry'
 
     TranscriptResponse:
       type: object
@@ -3354,16 +3146,6 @@ components:
           type: array
           items:
             type: string
-
-    SkillDetailResponse:
-      type: object
-      additionalProperties: false
-      required: [skill, content]
-      properties:
-        skill:
-          $ref: '#/components/schemas/Skill'
-        content:
-          type: string
 
     SkillDraft:
       type: object
@@ -3985,23 +3767,6 @@ components:
       type: object
       additionalProperties: false
       required: [content]
-      properties:
-        content:
-          type: string
-        kind:
-          type: string
-        application_policy:
-          type: string
-          enum: [always, relevant]
-        retention_policy:
-          type: string
-          enum: [protected, decaying]
-        base_weight:
-          type: number
-
-    UpdateMemoryRequest:
-      type: object
-      additionalProperties: false
       properties:
         content:
           type: string

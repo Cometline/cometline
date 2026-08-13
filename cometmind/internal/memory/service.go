@@ -118,8 +118,6 @@ func embeddingSettingsEqual(a, b EmbeddingSettings) bool {
 	return a.Provider == b.Provider && a.Model == b.Model && a.BaseURL == b.BaseURL && a.APIKey == b.APIKey
 }
 
-func (s *Service) Settings() Settings { return s.settings }
-
 func (s *Service) Enabled() bool { return s.settings.Enabled }
 
 // SetCompactionCompletedNotifier registers the runtime notification bridge.

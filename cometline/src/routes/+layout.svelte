@@ -20,10 +20,7 @@
 	import { skillDraftsStore } from '$lib/stores/skill-drafts.svelte';
 	import { startJobNotificationPoller } from '$lib/jobs/job-notifications';
 	import { startStorageRetentionSync } from '$lib/retention/storage-retention-sync';
-	import {
-		resolveWorkspacePanelRatio,
-		widthFromRatio
-	} from '$lib/layout/workspace-panel-width';
+	import { resolveWorkspacePanelRatio, widthFromRatio } from '$lib/layout/workspace-panel-width';
 	import { applyWorkspaceChange, refreshWorkspace } from '$lib/workspace/workspace-change.svelte';
 
 	let { children } = $props();
@@ -60,10 +57,13 @@
 			}
 		});
 		void inboxStore.refreshSummary();
-		void skillDraftsStore.refresh();
-		const skillDraftsTimer = setInterval(() => {
+		let skillDraftsTimer: ReturnType<typeof setInterval> | null = null;
+		if (!isMiniRoute && !isSettingsRoute) {
 			void skillDraftsStore.refresh();
-		}, 30_000);
+			skillDraftsTimer = setInterval(() => {
+				void skillDraftsStore.refresh();
+			}, 30_000);
+		}
 		let stopStorageRetentionSync: (() => void) | null = null;
 		// Mini/settings are separate BrowserWindows that share this layout. Only the
 		// main window should poll — otherwise each alive window fires the same
@@ -89,9 +89,8 @@
 				personaAvatarCache.invalidate(personaId);
 			}
 		);
-		const unsubscribeWorkspaceChanged = window.electronAPI?.onWorkspaceChanged?.(
-			applyWorkspaceChange
-		);
+		const unsubscribeWorkspaceChanged =
+			window.electronAPI?.onWorkspaceChanged?.(applyWorkspaceChange);
 		const refreshOnFocus = () => {
 			if (isMiniRoute || isSettingsRoute) return;
 			refreshWorkspace(shellStore.workspacePath);
@@ -120,7 +119,7 @@
 			connectionState.stopPolling();
 			stopRuntimeEvents();
 			stopJobNotifications();
-			clearInterval(skillDraftsTimer);
+			if (skillDraftsTimer) clearInterval(skillDraftsTimer);
 			stopStorageRetentionSync?.();
 			unsubscribeSettingsChanged?.();
 			unsubscribePersonaAvatar?.();

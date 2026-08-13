@@ -10,7 +10,7 @@ export const DEFAULT_CONTEXT_WINDOW_LIMIT = 128_000;
 export const COMPACTION_OUTPUT_BUFFER = 20_000;
 const TOOL_RESULT_PROMPT_RUNE_LIMIT = 4000;
 
-/** @deprecated Prefer model.context from /api/v1/models. */
+/** @deprecated Prefer the model catalog's per-model context value. */
 export function normalizeContextWindowLimit(value: unknown): ContextWindowLimit {
 	return Number(value) === 256_000 ? 256_000 : 128_000;
 }
