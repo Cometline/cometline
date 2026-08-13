@@ -52,13 +52,6 @@ export type UpdateSessionRequest = {
     agent_mode?: AgentMode;
 };
 
-export type ChangeSessionWorkspaceRequest = {
-    /**
-     * Absolute filesystem path for the new workspace root.
-     */
-    workspace_path: string;
-};
-
 export type ForkSessionRequest = {
     /**
      * Absolute filesystem path for the forked session's workspace root.
@@ -434,43 +427,6 @@ export type SessionListResponse = {
     sessions: Array<Session>;
 };
 
-export type ModelEntry = {
-    provider_id: string;
-    model_id: string;
-    /**
-     * Human-readable label derived from the model id.
-     */
-    name: string;
-    /**
-     * Resolved context window tokens (models.dev or fallback).
-     */
-    context: number;
-    /**
-     * Catalog max output tokens when known; 0 when unset.
-     */
-    output: number;
-    /**
-     * Whether context/output came from models.dev or the silent fallback.
-     */
-    limit_source: 'catalog' | 'fallback';
-    /**
-     * True when modalities.input includes image (only meaningful when vision_known).
-     */
-    vision: boolean;
-    /**
-     * False on silent fallback; callers must not proactive-strip images.
-     */
-    vision_known: boolean;
-    /**
-     * Normalized catalog input modalities (text, image, video, audio, pdf) when known.
-     */
-    input_modalities: Array<'text' | 'image' | 'video' | 'audio' | 'pdf'>;
-    /**
-     * Allowed reasoning effort values from models.dev when known; unidentified custom gateways use the conservative intersection of matching catalog entries.
-     */
-    reasoning_effort_options?: Array<string>;
-};
-
 export type ModelCatalogLookupRequest = {
     /**
      * Provider method (anthropic, openai, codex, opencode-go, …).
@@ -502,10 +458,6 @@ export type ModelCatalogLookupEntry = {
 
 export type ModelCatalogLookupResponse = {
     models: Array<ModelCatalogLookupEntry>;
-};
-
-export type ModelListResponse = {
-    models: Array<ModelEntry>;
 };
 
 export type TranscriptResponse = {
@@ -583,11 +535,6 @@ export type Skill = {
 export type ListSkillsResponse = {
     skills: Array<Skill>;
     errors?: Array<string>;
-};
-
-export type SkillDetailResponse = {
-    skill: Skill;
-    content: string;
 };
 
 export type SkillDraft = {
@@ -915,14 +862,6 @@ export type CreateMemoryRequest = {
     base_weight?: number;
 };
 
-export type UpdateMemoryRequest = {
-    content?: string;
-    kind?: string;
-    application_policy?: 'always' | 'relevant';
-    retention_policy?: 'protected' | 'decaying';
-    base_weight?: number;
-};
-
 export type SearchMemoryRequest = {
     query: string;
     limit?: number;
@@ -1243,31 +1182,6 @@ export type GetHealthResponses = {
 };
 
 export type GetHealthResponse = GetHealthResponses[keyof GetHealthResponses];
-
-export type ListModelsData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/api/v1/models';
-};
-
-export type ListModelsErrors = {
-    /**
-     * Unexpected server error
-     */
-    500: ErrorResponse;
-};
-
-export type ListModelsError = ListModelsErrors[keyof ListModelsErrors];
-
-export type ListModelsResponses = {
-    /**
-     * Configured models
-     */
-    200: ModelListResponse;
-};
-
-export type ListModelsResponse = ListModelsResponses[keyof ListModelsResponses];
 
 export type LookupModelCatalogData = {
     body: ModelCatalogLookupRequest;
@@ -2140,44 +2054,6 @@ export type PatchSessionResponses = {
 
 export type PatchSessionResponse = PatchSessionResponses[keyof PatchSessionResponses];
 
-export type ChangeSessionWorkspaceData = {
-    body: ChangeSessionWorkspaceRequest;
-    path: {
-        /**
-         * Persisted CometMind session identifier.
-         */
-        id: string;
-    };
-    query?: never;
-    url: '/api/v1/sessions/{id}/workspace';
-};
-
-export type ChangeSessionWorkspaceErrors = {
-    /**
-     * Invalid request
-     */
-    400: ErrorResponse;
-    /**
-     * Resource not found
-     */
-    404: ErrorResponse;
-    /**
-     * Unexpected server error
-     */
-    500: ErrorResponse;
-};
-
-export type ChangeSessionWorkspaceError = ChangeSessionWorkspaceErrors[keyof ChangeSessionWorkspaceErrors];
-
-export type ChangeSessionWorkspaceResponses = {
-    /**
-     * Updated session resource
-     */
-    200: Session;
-};
-
-export type ChangeSessionWorkspaceResponse = ChangeSessionWorkspaceResponses[keyof ChangeSessionWorkspaceResponses];
-
 export type ForkSessionData = {
     body: ForkSessionRequest;
     path: {
@@ -2555,39 +2431,6 @@ export type DeleteSkillResponses = {
 };
 
 export type DeleteSkillResponse = DeleteSkillResponses[keyof DeleteSkillResponses];
-
-export type GetSkillData = {
-    body?: never;
-    path: {
-        name: string;
-    };
-    query?: {
-        workspace_path?: string;
-    };
-    url: '/api/v1/skills/{name}';
-};
-
-export type GetSkillErrors = {
-    /**
-     * Resource not found
-     */
-    404: ErrorResponse;
-    /**
-     * Unexpected server error
-     */
-    500: ErrorResponse;
-};
-
-export type GetSkillError = GetSkillErrors[keyof GetSkillErrors];
-
-export type GetSkillResponses = {
-    /**
-     * Skill detail
-     */
-    200: SkillDetailResponse;
-};
-
-export type GetSkillResponse = GetSkillResponses[keyof GetSkillResponses];
 
 export type ExportSkillData = {
     body?: never;
@@ -3059,41 +2902,6 @@ export type DeleteMemoryResponses = {
 };
 
 export type DeleteMemoryResponse = DeleteMemoryResponses[keyof DeleteMemoryResponses];
-
-export type PatchMemoryData = {
-    body: UpdateMemoryRequest;
-    path: {
-        id: string;
-    };
-    query?: never;
-    url: '/api/v1/memories/{id}';
-};
-
-export type PatchMemoryErrors = {
-    /**
-     * Invalid request
-     */
-    400: ErrorResponse;
-    /**
-     * Unexpected server error
-     */
-    500: ErrorResponse;
-    /**
-     * Memory subsystem disabled
-     */
-    503: SimpleErrorResponse;
-};
-
-export type PatchMemoryError = PatchMemoryErrors[keyof PatchMemoryErrors];
-
-export type PatchMemoryResponses = {
-    /**
-     * Updated
-     */
-    200: MemoryResource;
-};
-
-export type PatchMemoryResponse = PatchMemoryResponses[keyof PatchMemoryResponses];
 
 export type GetMemorySettingsData = {
     body?: never;
@@ -4114,37 +3922,6 @@ export type GetInboxSummaryResponses = {
 };
 
 export type GetInboxSummaryResponse = GetInboxSummaryResponses[keyof GetInboxSummaryResponses];
-
-export type GetInboxMessageData = {
-    body?: never;
-    path: {
-        id: string;
-    };
-    query?: never;
-    url: '/api/v1/inbox/messages/{id}';
-};
-
-export type GetInboxMessageErrors = {
-    /**
-     * Resource not found
-     */
-    404: ErrorResponse;
-    /**
-     * Unexpected server error
-     */
-    500: ErrorResponse;
-};
-
-export type GetInboxMessageError = GetInboxMessageErrors[keyof GetInboxMessageErrors];
-
-export type GetInboxMessageResponses = {
-    /**
-     * Inbox message
-     */
-    200: InboxMessageResource;
-};
-
-export type GetInboxMessageResponse = GetInboxMessageResponses[keyof GetInboxMessageResponses];
 
 export type ReplyInboxMessageData = {
     body: ReplyInboxMessageRequest;
