@@ -83,6 +83,43 @@ func TestCollect_TextOnly(t *testing.T) {
 	assert.Equal(t, "Hello, world!", tb.Text)
 }
 
+func TestCollect_PreservesProviderState(t *testing.T) {
+	state := cometsdk.ProviderState{
+		ProviderID: "openai",
+		ModelID:    "test-model",
+		Data:       `{"encrypted_content":"state-1"}`,
+	}
+	p := &mockProvider{
+		id: "test",
+		events: []cometsdk.Event{
+			cometsdk.ProviderStateEvent{State: state},
+			cometsdk.DoneEvent{},
+		},
+	}
+
+	resp, err := llm.Collect(context.Background(), p, simpleTextRequest())
+	require.NoError(t, err)
+	require.Len(t, resp.Message.ProviderState, 1)
+	assert.Equal(t, state, resp.Message.ProviderState[0])
+}
+
+func TestCollect_PreservesProviderStateWhenChannelClosesWithoutDone(t *testing.T) {
+	state := cometsdk.ProviderState{
+		ProviderID: "openai",
+		ModelID:    "test-model",
+		Data:       `{"encrypted_content":"state-1"}`,
+	}
+	p := &mockProvider{
+		id:     "test",
+		events: []cometsdk.Event{cometsdk.ProviderStateEvent{State: state}},
+	}
+
+	resp, err := llm.Collect(context.Background(), p, simpleTextRequest())
+	require.NoError(t, err)
+	require.Len(t, resp.Message.ProviderState, 1)
+	assert.Equal(t, state, resp.Message.ProviderState[0])
+}
+
 func TestCollect_ToolCallOnly(t *testing.T) {
 	toolInput := json.RawMessage(`{"city":"Taipei"}`)
 
