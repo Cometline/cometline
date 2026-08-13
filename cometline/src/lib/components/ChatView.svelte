@@ -276,7 +276,9 @@
 	$effect(() => {
 		const id = sessionId;
 		const current = sessionStore.current;
-		if (!id || current?.id !== id) return;
+		// User-origin turns already update through SSE/window sync. Only autonomous
+		// sessions need polling for transcript writes made by the background worker.
+		if (!id || current?.id !== id || current.origin !== 'autonomy') return;
 		const interval = window.setInterval(() => {
 			if (chatStore.isStreamingFor(id) || chatStore.hasInFlightTurn(id)) return;
 			void chatStore.refreshTranscript(id);
