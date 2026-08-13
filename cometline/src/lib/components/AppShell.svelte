@@ -573,9 +573,6 @@
 		});
 
 		function updateFullScreen(isFullScreen: boolean) {
-			if (import.meta.env.DEV) {
-				console.log('[AppShell] fullscreen state:', isFullScreen);
-			}
 			shellStore.setFullscreen(isFullScreen);
 		}
 		void window.electronAPI?.getFullScreen?.().then(updateFullScreen);

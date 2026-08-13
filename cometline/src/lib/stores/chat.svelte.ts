@@ -14,7 +14,6 @@ import { reduceChatState } from '$lib/reducers/chat';
 import type { ContextBudgetSnapshot } from '$lib/context-window';
 import { anyReasoningPending, hasReasoning } from '$lib/conversation/reasoning';
 import { sessionStore } from '$lib/stores/session.svelte';
-import { chatDebug, summarizeChatItems, summarizeStreamEvent } from '../debug/chat';
 import { playResponseCompleteSound } from '$lib/sound/response-complete';
 import { settingsStore } from '$lib/stores/settings.svelte';
 import { publishWindowSync, subscribeWindowSync } from '$lib/window-sync';
@@ -318,11 +317,6 @@ function createChatStore() {
 				writeSessionItems(nextSessionID, loaded);
 				sessionErrors.delete(nextSessionID);
 				if (sessionID === nextSessionID) error = '';
-				chatDebug('store:load-transcript', {
-					sessionID: nextSessionID,
-					rawItems: transcript.items,
-					items: summarizeChatItems(getCachedItems(nextSessionID))
-				});
 			} catch (err) {
 				if (isSessionNotFoundError(err)) {
 					discardMissingSession(nextSessionID);
@@ -365,11 +359,6 @@ function createChatStore() {
 			writeSessionItems(nextSessionID, loaded);
 			sessionErrors.delete(nextSessionID);
 			if (sessionID === nextSessionID) error = '';
-			chatDebug('store:refresh-transcript', {
-				sessionID: nextSessionID,
-				rawItems: transcript.items,
-				items: summarizeChatItems(getCachedItems(nextSessionID))
-			});
 		} catch (err) {
 			if (isSessionNotFoundError(err)) {
 				discardMissingSession(nextSessionID);
@@ -591,11 +580,6 @@ function createChatStore() {
 		const displayText = payload.displayText ?? text;
 		const images = payload.images;
 		if (isStreamingFor(nextSessionID)) {
-			chatDebug('store:send-blocked', {
-				sessionID: nextSessionID,
-				reason: 'session-already-streaming',
-				textLength: text.length
-			});
 			throw new Error('Session is already streaming');
 		}
 
@@ -632,7 +616,6 @@ function createChatStore() {
 		preItems.push(preAssistant);
 		writeSessionItems(nextSessionID, preItems);
 		ctx.assistant.current = preAssistant;
-		let eventIndex = 0;
 		let streamDone = false;
 		let streamOutcome: 'success' | 'abort' | 'error' = 'success';
 		try {
@@ -657,8 +640,6 @@ function createChatStore() {
 					handle.abort.abort();
 					return;
 				}
-				eventIndex += 1;
-				const before = summarizeChatItems(getCachedItems(nextSessionID));
 				if (event.type === 'done') {
 					if (!streamDone) {
 						streamDone = true;
@@ -671,29 +652,9 @@ function createChatStore() {
 							);
 						}
 					}
-					chatDebug('store:stream-event', {
-						sessionID: nextSessionID,
-						run: handle.run,
-						eventIndex,
-						event: summarizeStreamEvent(event),
-						before,
-						after: summarizeChatItems(getCachedItems(nextSessionID)),
-						assistantID: ctx.assistant.current?.id ?? null,
-						reasoning: ctx.reasoning.current
-					});
 					break;
 				}
 				applyStreamEventForSession(nextSessionID, event, ctx, handle);
-				chatDebug('store:stream-event', {
-					sessionID: nextSessionID,
-					run: handle.run,
-					eventIndex,
-					event: summarizeStreamEvent(event),
-					before,
-					after: summarizeChatItems(getCachedItems(nextSessionID)),
-					assistantID: ctx.assistant.current?.id ?? null,
-					reasoning: ctx.reasoning.current
-				});
 			}
 		} catch (err) {
 			const current = streamHandles.get(nextSessionID);
@@ -703,7 +664,6 @@ function createChatStore() {
 			}
 			if (isAbortError(err)) {
 				streamOutcome = 'abort';
-				chatDebug('store:send-aborted', { sessionID: nextSessionID, run: handle.run });
 				return;
 			}
 			if (isSessionNotFoundError(err)) {
@@ -724,7 +684,6 @@ function createChatStore() {
 		} finally {
 			if (streamHandles.get(nextSessionID) === handle) {
 				flushBatchForSession(nextSessionID, ctx, handle);
-				const beforeDone = summarizeChatItems(getCachedItems(nextSessionID));
 				if (!streamDone) {
 					applyEventToSession(nextSessionID, { type: 'done' }, ctx);
 					unmarkStreaming(nextSessionID);
@@ -737,15 +696,6 @@ function createChatStore() {
 				// Mini models / aborted streams can settle with no visible assistant
 				// content. Never leave a blank first-turn avatar with no feedback.
 				ensureVisibleTurnFeedback(nextSessionID, ctx, streamOutcome);
-				chatDebug('store:send-finish', {
-					sessionID: nextSessionID,
-					run: handle.run,
-					beforeDone,
-					afterDone: summarizeChatItems(getCachedItems(nextSessionID)),
-					assistantID: ctx.assistant.current?.id ?? null,
-					reasoning: ctx.reasoning.current,
-					error: sessionErrors.get(nextSessionID) ?? ''
-				});
 			}
 		}
 	}
@@ -756,15 +706,11 @@ function createChatStore() {
 		const handle = streamHandles.get(id);
 		if (!handle && !isStreamingFor(id)) return;
 
-		chatDebug('store:cancel-start', { sessionID: id });
 		handle?.abort.abort();
 		try {
 			await abortSession(id);
-		} catch (err) {
-			chatDebug('store:cancel-abort-failed', {
-				sessionID: id,
-				error: err instanceof Error ? err.message : String(err)
-			});
+		} catch {
+			return;
 		}
 	}
 

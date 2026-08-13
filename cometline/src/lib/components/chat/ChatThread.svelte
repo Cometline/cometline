@@ -3,7 +3,6 @@
 	import { fade } from 'svelte/transition';
 	import { chatStore, type ChatItem } from '$lib/stores/chat.svelte';
 	import { settingsStore } from '$lib/stores/settings.svelte';
-	import { chatDebug, chatDebugEnabled, summarizeChatItem } from '$lib/debug/chat';
 	import {
 		toolFoldLabel as formatToolFoldLabel,
 		usageText
@@ -249,34 +248,6 @@
 		awaitingFirstAssistant || scroll.isInitialTranscriptPaint ? { duration: 0 } : TRANSCRIPT_IN
 	);
 
-	let renderDebugSnapshot = $derived.by(() => ({
-		awaitingFirstAssistant,
-		firstTurnFlightDone,
-		firstTurnHandoffPending,
-		isStreaming: sessionStreaming,
-		firstUserId,
-		firstAssistantId,
-		firstAssistantRowId,
-		firstAssistantItem: firstAssistantItem ? summarizeChatItem(firstAssistantItem) : null,
-		firstAssistantVisible: firstAssistantItem ? showAssistantRow(firstAssistantItem) : false,
-		items: threadItems.map((item, index) => {
-			if (item.type !== 'assistant') return { index, ...summarizeChatItem(item) };
-			return {
-				index,
-				...summarizeChatItem(item),
-				showAssistantRow: showAssistantRow(item),
-				isFirstAssistant: item.id === firstAssistantId,
-				renderedInFirstTurnSlot: awaitingFirstAssistant && item.id === firstAssistantId,
-				excludedFromNormalList: awaitingFirstAssistant && item.id === firstAssistantId,
-				showAssistantPending: isAssistantRowVisible(item, visibilityContext)
-			};
-		})
-	}));
-
-	$inspect(renderDebugSnapshot).with((type, snapshot) => {
-		if (!chatDebugEnabled()) return;
-		chatDebug('thread:$inspect', { type, ...snapshot });
-	});
 </script>
 
 <div class="thread-wrap">
