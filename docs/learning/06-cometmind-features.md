@@ -275,7 +275,7 @@ When enabled, `internal/autonomy` polls for ready jobs and runs them through bou
 | Autonomous worker | `internal/autonomy/` |
 | API | `/api/v1/jobs`, `/api/v1/scheduled-jobs` |
 | Desktop UI | `cometline/src/lib/components/jobs/`, `/jobs` route |
-| Retention | `internal/retention/retention.go` — `Runner.Run` prunes old data |
+| Retention | `internal/retention/retention.go` — `Runner.Run` prunes old data; `serve` and Discord gateway start periodic maintenance |
 | Progress hook | `internal/agent/job_progress_hook.go` — emits progress during agent runs |
 
 Settings: `cometmind.jobs`, `cometmind.autonomy`, `cometmind.scheduler`, and `cometmind.storage`. Jobs reconcile interval, autonomy, and most related knobs apply via in-place `Runtime.Reload` — no full sidecar restart.

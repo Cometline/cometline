@@ -81,7 +81,7 @@ func (p *provider) Stream(ctx context.Context, req *cometsdk.Request) (<-chan co
 	for {
 		httpResp, err := p.streamWithRetry(ctx, req, flags)
 		if err == nil {
-			go parseLoop(ctx, providerID, req.Model, !capabilityDisabled(req, cometsdk.CapabilityToolInputStream), httpResp.Body, ch, p.log, p.cfg.StreamIdleTimeout)
+			go responsesproto.ParseLoop(ctx, providerID, req.Model, !capabilityDisabled(req, cometsdk.CapabilityToolInputStream), httpResp.Body, ch, p.log, p.cfg.StreamIdleTimeout)
 			return ch, nil
 		}
 		if req.MaxTokens > 0 && !flags.disableMaxOutputTokens && responsesproto.IsMaxOutputTokensUnsupportedError(err) {

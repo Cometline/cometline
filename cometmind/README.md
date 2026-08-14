@@ -163,7 +163,7 @@ Jobs are durable work items with status `todo`, `ongoing`, `done`, or `blocked`.
 
 ### Storage & retention
 
-Session and archived-memory cleanup runs once when CometMind starts (sidecar restart after saving General settings in Cometline). Configure under `cometmind.storage` in `cometline-settings.json` (or legacy `[storage]` in `config.toml` / `COMETMIND_STORAGE_*` env overrides):
+Session, memory, deleted-job, inbox, and runtime-file cleanup runs once when CometMind starts and then on the configured retention interval. Both `serve` and standalone Discord gateway processes start this maintenance loop. Configure it under `cometmind.storage` in `cometline-settings.json` (or legacy `[storage]` in `config.toml` / `COMETMIND_STORAGE_*` env overrides):
 
 | Field | Default | Meaning |
 |---|---|---|

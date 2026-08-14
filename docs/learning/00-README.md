@@ -2,7 +2,7 @@
 
 A progressive reading path through the Cometline monorepo. Start at the top and work downward — each doc assumes you have read the ones above it.
 
-These guides are built from the **GitNexus knowledge graph** for `cometline-release` (10,327 symbols, 28,474 relationships, 300 execution flows) plus the canonical architecture docs (`ARCHITECTURE.md`, `ARCHITECTURE_GUIDE.md`).
+These guides are built from the **GitNexus knowledge graph** for `cometline-release` plus the canonical architecture docs (`ARCHITECTURE.md`, `ARCHITECTURE_GUIDE.md`). Use GitNexus status for current index counts rather than copying time-sensitive numbers into documentation.
 
 ## Who this is for
 

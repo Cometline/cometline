@@ -77,6 +77,7 @@ func runGateway(_ *cobra.Command, _ []string) error {
 	turns := gateway.NewTurnRunTracker()
 	rt.SetSessionRunningChecker(turns.Running)
 	rt.StartJobsMaintenance(ctx)
+	rt.StartRetentionMaintenance(ctx)
 
 	router := &gateway.Router{
 		Sessions:     rt.Sessions,

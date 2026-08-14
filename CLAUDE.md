@@ -103,7 +103,7 @@ After changing schema or queries:
 cd cometmind && sqlc generate
 ```
 
-**Migration note:** CometMind embeds `schema.sql` and tracks migrations with `schemaVersion` + `alterStatements` in `internal/db/migrate.go` (current `schemaVersion` is 22). Schema changes for existing users need an incremental migration there, not just a schema edit.
+**Migration note:** CometMind embeds `schema.sql` and tracks migrations with `schemaVersion` + `alterStatements` in `internal/db/migrate.go`. Read the constant there for the current version; schema changes for existing users need an incremental migration, not just a schema edit.
 
 ### SSE event types
 

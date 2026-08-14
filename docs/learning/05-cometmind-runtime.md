@@ -127,7 +127,7 @@ Database path: `~/.cometmind/cometmind.db`
 ### Migrations
 
 - Tracked via `PRAGMA user_version` / `schemaVersion` in `internal/db/migrate.go`
-- Current **`schemaVersion` is 26** — verify `schemaVersion` in `migrate.go` before relying on this number; schema changes for existing users need an incremental `alterStatements` entry, not only a `schema.sql` edit
+- Read `schemaVersion` in `migrate.go` for the current version; schema changes for existing users need an incremental `alterStatements` entry, not only a `schema.sql` edit
 - **Never** edit generated sqlc files — run `sqlc generate` after schema/query changes
 
 ### session.Service responsibilities
