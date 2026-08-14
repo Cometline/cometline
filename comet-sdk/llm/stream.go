@@ -199,29 +199,11 @@ func (ms *MessageStream) setPartialResult(textBuf, reasoningBuf []byte, toolCall
 }
 
 func buildMessageResult(textBuf, reasoningBuf []byte, toolCalls []cometsdk.ToolCallBlock, providerState []cometsdk.ProviderState, finish string, usage cometsdk.TokenUsage) *GenerateMessageResult {
-	var blocks []cometsdk.Block
-
 	text := string(textBuf)
-	if len(text) > 0 {
-		blocks = append(blocks, cometsdk.TextBlock{Text: text})
-	}
-	for _, tc := range toolCalls {
-		blocks = append(blocks, tc)
-	}
-
-	var reasoningBlocks []cometsdk.Block
 	reasoning := string(reasoningBuf)
-	if len(reasoning) > 0 {
-		reasoningBlocks = append(reasoningBlocks, cometsdk.ReasoningBlock{Text: reasoning})
-	}
 
 	return &GenerateMessageResult{
-		Message: cometsdk.Message{
-			Role:             cometsdk.RoleAssistant,
-			Content:          blocks,
-			ReasoningContent: reasoningBlocks,
-			ProviderState:    providerState,
-		},
+		Message:      buildAssistantMessage(text, reasoning, toolCalls, providerState),
 		ToolCalls:    toolCalls,
 		FinishReason: finish,
 		Usage:        usage,

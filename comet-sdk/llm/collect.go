@@ -153,38 +153,16 @@ func buildResponse(
 	finish string,
 	usage cometsdk.TokenUsage,
 ) *CollectedResponse {
-	var blocks []cometsdk.Block
-
-	// Add text block if there is any text content.
 	text := string(textBuf)
-	if len(text) > 0 {
-		blocks = append(blocks, cometsdk.TextBlock{Text: text})
-	}
-
-	// Add tool call blocks in order.
-	for _, tc := range toolCalls {
-		blocks = append(blocks, tc)
-	}
-
-	// Add reasoning blocks if there is any reasoning content.
-	var reasoningBlocks []cometsdk.Block
 	reasoning := string(reasoningBuf)
-	if len(reasoning) > 0 {
-		reasoningBlocks = append(reasoningBlocks, cometsdk.ReasoningBlock{Text: reasoning})
-	}
 
 	return &CollectedResponse{
 		Text:          text,
 		ReasoningText: reasoning,
-		Message: cometsdk.Message{
-			Role:             cometsdk.RoleAssistant,
-			Content:          blocks,
-			ReasoningContent: reasoningBlocks,
-			ProviderState:    providerState,
-		},
-		ToolCalls:    toolCalls,
-		FinishReason: finish,
-		Usage:        usage,
+		Message:       buildAssistantMessage(text, reasoning, toolCalls, providerState),
+		ToolCalls:     toolCalls,
+		FinishReason:  finish,
+		Usage:         usage,
 	}
 }
 
