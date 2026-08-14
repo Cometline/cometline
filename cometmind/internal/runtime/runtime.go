@@ -38,6 +38,7 @@ import (
 	"github.com/cometline/cometmind/internal/store"
 	"github.com/cometline/cometmind/internal/subagent"
 	"github.com/cometline/cometmind/internal/tools"
+	"github.com/cometline/cometmind/internal/wakeup"
 )
 
 // memoryExtractionConcurrency is the maximum number of extractMemoryAfterTurn
@@ -528,8 +529,8 @@ func (r *Runtime) SetJobSettings(s jobs.Settings) {
 	r.jobSettingsMu.Lock()
 	r.jobSettings = s
 	r.jobSettingsMu.Unlock()
-	signal(r.jobsChanged)
-	signal(r.retentionChanged)
+	wakeup.Signal(r.jobsChanged)
+	wakeup.Signal(r.retentionChanged)
 }
 
 func (r *Runtime) Close() error {
@@ -584,20 +585,10 @@ func (r *Runtime) Reload(ctx context.Context) error {
 			r.autonomyProviderIDFrom(cfg),
 		)
 	}
-	signal(r.retentionChanged)
-	signal(r.backupChanged)
+	wakeup.Signal(r.retentionChanged)
+	wakeup.Signal(r.backupChanged)
 	logging.L().Info("runtime.reloaded")
 	return nil
-}
-
-func signal(ch chan struct{}) {
-	if ch == nil {
-		return
-	}
-	select {
-	case ch <- struct{}{}:
-	default:
-	}
 }
 
 func (r *Runtime) reloadMemory(cfg *config.Config) error {

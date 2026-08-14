@@ -17,6 +17,7 @@ import (
 	"github.com/cometline/cometmind/internal/memory"
 	"github.com/cometline/cometmind/internal/session"
 	"github.com/cometline/cometmind/internal/tools"
+	"github.com/cometline/cometmind/internal/wakeup"
 )
 
 // RunGuard registers a session as currently running an agent turn.
@@ -50,7 +51,7 @@ func (w *Worker) Run(ctx context.Context) {
 		return
 	}
 	configChanged := w.reloadChannel()
-	drain(configChanged)
+	wakeup.Drain(configChanged)
 	for {
 		cfg := w.configSnapshot()
 		interval := time.Duration(cfg.PollIntervalSeconds) * time.Second
@@ -96,7 +97,7 @@ func (w *Worker) UpdateConfig(cfg config.InboxConfig, defaultModelID, defaultPro
 	}
 	configChanged := w.ensureReloadChannelLocked()
 	w.mu.Unlock()
-	signal(configChanged)
+	wakeup.Signal(configChanged)
 }
 
 func (w *Worker) reloadChannel() <-chan struct{} {
@@ -110,20 +111,6 @@ func (w *Worker) ensureReloadChannelLocked() chan struct{} {
 		w.configChanged = make(chan struct{}, 1)
 	}
 	return w.configChanged
-}
-
-func signal(ch chan struct{}) {
-	select {
-	case ch <- struct{}{}:
-	default:
-	}
-}
-
-func drain(ch <-chan struct{}) {
-	select {
-	case <-ch:
-	default:
-	}
 }
 
 func (w *Worker) configSnapshot() config.InboxConfig {
