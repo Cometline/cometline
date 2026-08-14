@@ -114,7 +114,7 @@ Break any link in that chain and something fundamental stops working — live to
 
 | Layer                 | File                                                  | Role                                                 |
 | --------------------- | ----------------------------------------------------- | ---------------------------------------------------- |
-| UI input              | `cometline/src/lib/components/Composer.svelte`        | Message composer                                     |
+| UI input              | `cometline/src/lib/components/composer/Composer.svelte` | Message composer                                   |
 | UI render             | `cometline/src/lib/components/ChatView.svelte`        | Per-session chat orchestration                       |
 | SSE client            | `cometline/src/lib/client/cometmind.ts`               | HTTP/SSE to CometMind                                |
 | SSE reducer           | `cometline/src/lib/reducers/chat.ts`                  | Stream events → UI state                             |

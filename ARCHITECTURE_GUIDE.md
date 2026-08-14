@@ -65,7 +65,7 @@ The rule that explains most boundaries: `cometline` is the UI shell, `cometmind`
 
 ### CometMind Local API
 
-The authoritative local backend surface is under `/api/v1`, registered by `cometmind/internal/server` and described completely by `cometmind/openapi.yaml`. The table is a contributor-oriented sample, not a route inventory: the current contract also covers model catalogues, workspace Git and wiki operations, session forks/media/children, global runtime events, managed skills, memory lifecycle, storage maintenance, and inbox messages.
+The authoritative local backend surface is under `/api/v1`, registered by `cometmind/server` and described completely by `cometmind/openapi.yaml`. The table is a contributor-oriented sample, not a route inventory: the current contract also covers model catalogues, workspace Git and wiki operations, session forks/media/children, global runtime events, managed skills, memory lifecycle, storage maintenance, and inbox messages.
 
 | Method | Path | Purpose |
 |---|---|---|
@@ -91,11 +91,11 @@ The authoritative local backend surface is under `/api/v1`, registered by `comet
 | `PUT` | `/api/v1/jobs/{id}/completion` | Mark a job complete |
 | `GET` / `POST` | `/api/v1/scheduled-jobs` | List or create deferred/recurring jobs |
 
-The renderer client for these endpoints is `cometline/src/lib/client/cometmind.ts:12-119`.
+The renderer client for these endpoints is `cometline/src/lib/client/cometmind.ts`.
 
 ### SSE Event Contract
 
-CometMind emits JSON SSE frames whose `type` field is the discriminator. The canonical Go event type is `cometmind/internal/event/event.go:9-146`; the renderer TypeScript union is `cometline/src/lib/types.ts:108-116`.
+CometMind emits JSON SSE frames whose `type` field is the discriminator. The canonical Go event type is in `cometmind/internal/event/event.go`; the renderer TypeScript union is in `cometline/src/lib/types.ts`.
 
 | Event | Key Fields | Meaning |
 |---|---|---|
@@ -134,7 +134,7 @@ The only renderer-to-native bridge is `window.electronAPI`, exposed in
 | `setWorkspacePath(path)` | Persist chosen workspace path |
 | `getProviderSettings()` | Read settings plus env overrides |
 | `fetchProviderModels(config)` | Query provider model list from Electron main |
-| `saveProviderSettings(settings)` | Persist settings, write CometMind config, restart sidecar |
+| `saveProviderSettings(settings)` | Persist split JSON settings and apply reload/restart behavior classified by the Electron runtime |
 | `setSidebarOpen(payload)` | Animate native macOS traffic light position |
 | `getFullScreen()` / `onFullScreenChange(cb)` | Sync fullscreen state |
 | `getAppVersion()` | Read app version |
@@ -166,7 +166,7 @@ Key references:
 | Spawn sidecar | `cometline/electron/src/domains/runtime.ts` |
 | Health polling | `cometline/electron/src/domains/runtime.ts` |
 | App ready sequence | `cometline/electron/src/domains/runtime.ts` |
-| Renderer boot sequence | `cometline/src/routes/+layout.svelte:14-58` |
+| Renderer boot sequence | `cometline/src/routes/+layout.svelte` |
 
 ### Flow 2: First Message From The Home Screen
 
@@ -186,13 +186,13 @@ Key references:
 
 | Step | Source |
 |---|---|
-| Home route create session and queue message | `cometline/src/routes/+page.svelte:29-40` |
-| Route keys `ChatView` by session ID | `cometline/src/routes/session/[id]/+page.svelte:9-18` |
-| ChatView consumes pending message | `cometline/src/lib/components/ChatView.svelte:92-109` |
-| Turn queue and startChat adapter | `cometline/src/lib/components/ChatView.svelte:65-90` |
-| Streaming client | `cometline/src/lib/client/cometmind.ts:68-111` |
-| Chat store streaming loop | `cometline/src/lib/stores/chat.svelte.ts:211-289` |
-| Pure reducer | `cometline/src/lib/reducers/chat.ts:340-352` |
+| Home route create session and queue message | `cometline/src/routes/+page.svelte` |
+| Route binds `ChatView` to the session ID | `cometline/src/routes/session/[id]/+page.svelte` |
+| ChatView consumes pending messages and adapts the turn queue | `cometline/src/lib/components/ChatView.svelte` |
+| Session-scoped queue policy | `cometline/src/lib/conversation/conversation-controller.ts` |
+| Streaming client | `cometline/src/lib/client/cometmind.ts` |
+| Chat store streaming loop | `cometline/src/lib/stores/chat.svelte.ts` (`send`) |
+| Pure reducer | `cometline/src/lib/reducers/chat.ts` |
 
 ### Flow 3: CometMind HTTP Turn Execution
 
@@ -211,11 +211,8 @@ Key references:
 
 | Step | Source |
 |---|---|
-| Route registration | `cometmind/server/server.go:64-73` |
-| Message handler | `cometmind/server/server.go:321-390` |
-| Single-run acquisition | `cometmind/server/server.go:344-349` |
-| User persistence and title | `cometmind/server/server.go:351-362` |
-| SSE loop | `cometmind/server/server.go:375-389` |
+| Route registration | `cometmind/server/server.go` |
+| Message handler, single-run acquisition, persistence, and SSE loop | `cometmind/server/messages.go` (`handlePostMessage`) |
 
 ### Flow 4: Agent Step And Tool Loop
 
@@ -239,12 +236,11 @@ Key references:
 
 | Step | Source |
 |---|---|
-| Runner and `TurnStore` seam | `cometmind/internal/agent/runner.go:16-37` |
-| Main loop | `cometmind/internal/agent/runner.go:41-145` |
-| SDK message reconstruction | `cometmind/internal/session/service.go:315-389` |
-| Assistant/tool persistence | `cometmind/internal/session/service.go:208-250` |
-| Tool result persistence | `cometmind/internal/session/service.go:266-300` |
-| Built-in tool registry | `cometmind/internal/tools/registry.go:17-59` |
+| Runner and `TurnStore` seam | `cometmind/internal/agent/runner.go` |
+| Main loop | `cometmind/internal/agent/runner.go` (`Run`) |
+| SDK message reconstruction and persistence | `cometmind/internal/session/service.go` |
+| Transcript reconstruction | `cometmind/internal/session/transcript.go` |
+| Built-in tool registry and surfaces | `cometmind/internal/tools/registry.go`, `surface.go` |
 
 ### Flow 5: Settings Save And Runtime Apply
 
@@ -310,6 +306,7 @@ comet-sdk/
 +-- provider/xai/                  xAI Grok adapter (OAuth subscription auth, OpenAI-compatible wire)
 `-- internal/
     +-- providerbase/              HTTP error classification, endpoint/options helpers
+    +-- responsesproto/            Responses request conversion and stream parsing shared by Codex/OpenCode Go
     +-- retry/                     exponential retry loop
     `-- sse/                       SSE scanner
 ```
@@ -327,7 +324,7 @@ sdk.go public types
 
 ## Public API
 
-The main interface is `cometsdk.Provider` in `comet-sdk/sdk.go:15-26`:
+The main interface is `cometsdk.Provider` in `comet-sdk/sdk.go`:
 
 ```go
 type Provider interface {
@@ -340,15 +337,15 @@ The core nouns are:
 
 | Type | Source | Role |
 |---|---|---|
-| `Request` | `comet-sdk/sdk.go:30-55` | Provider-neutral prompt, messages, tools, system prompt, max tokens, temperature, provider options |
-| `Message` | `comet-sdk/sdk.go:59-64` | One conversation turn with content and reasoning blocks |
-| `Block` variants | `comet-sdk/sdk.go:75-112` | Text, reasoning, tool call, and tool result payloads |
-| `Tool` | `comet-sdk/sdk.go:116-122` | JSON-schema tool definition sent to providers |
-| `Event` variants | `comet-sdk/sdk.go:126-228` | Stream event vocabulary used by collectors and CometMind |
-| `TokenUsage` | `comet-sdk/sdk.go:232-238` | Per-step token accounting |
-| `ProviderConfig` and options | `comet-sdk/sdk.go:242-344` | Base URL, HTTP client, timeout, retry count, auth mode, logger |
+| `Request` | `comet-sdk/sdk.go` | Provider-neutral prompt, messages, tools, system prompt, max tokens, temperature, provider options |
+| `Message` | `comet-sdk/sdk.go` | One conversation turn with content, reasoning, and provider-state blocks |
+| `Block` variants | `comet-sdk/sdk.go` | Text, reasoning, tool call, and tool result payloads |
+| `Tool` | `comet-sdk/sdk.go` | JSON-schema tool definition sent to providers |
+| `Event` variants | `comet-sdk/sdk.go` | Stream event vocabulary used by collectors and CometMind |
+| `TokenUsage` | `comet-sdk/sdk.go` | Per-step token accounting |
+| `ProviderConfig` and options | `comet-sdk/sdk.go` | Base URL, HTTP client, timeout, retry count, auth mode, logger |
 
-Finish reasons are normalized by `NormalizeFinishReason` in `comet-sdk/sdk.go:164-195`, so agent code only branches on `stop`, `tool_use`, `max_tokens`, or `error`.
+Finish reasons are normalized by `NormalizeFinishReason` in `comet-sdk/sdk.go`, so agent code only branches on `stop`, `tool_use`, `max_tokens`, or `error`.
 
 ## `llm` Convenience Layer
 
@@ -362,9 +359,9 @@ The `llm` package is a thin helper layer over `Provider.Stream`.
 | `QuickText` | One-prompt shortcut |
 | `StreamMessage` | Streams events to the caller while assembling a final `GenerateMessageResult` |
 
-`StreamMessage` is the API CometMind uses. It starts provider streaming immediately, forwards all substantive events, suppresses `ErrorEvent`/`DoneEvent` from the public event channel, and returns final errors/results through `Result()` (`comet-sdk/llm/stream.go:47-109`).
+`StreamMessage` is the API CometMind uses. It starts provider streaming immediately, forwards all substantive events, suppresses `ErrorEvent`/`DoneEvent` from the public event channel, and returns final errors/results through `Result()` in `comet-sdk/llm/stream.go`.
 
-Important invariant: callers must drain `Events()` before calling `Result()` (`comet-sdk/llm/stream.go:37-40`, `comet-sdk/llm/stream.go:98-100`). CometMind follows this pattern in `cometmind/internal/agent/runner.go:64-79`.
+Important invariant: callers must drain `Events()` before calling `Result()`. CometMind follows this pattern in `cometmind/internal/agent/runner.go`.
 
 ## Provider Implementations
 
@@ -397,7 +394,7 @@ caller
   -> caller calls Result()
 ```
 
-`MessageStream.run` accumulates visible text, reasoning text, tool call blocks, finish reason, and usage (`comet-sdk/llm/stream.go:111-186`), then constructs a final assistant message (`comet-sdk/llm/stream.go:189-216`).
+`MessageStream.run` accumulates visible text, reasoning text, tool call blocks, provider state, finish reason, and usage. `buildAssistantMessage` in `comet-sdk/llm/message.go` is the shared assembly path used by both streaming and collected responses.
 
 ## Extension Seams
 
@@ -449,27 +446,28 @@ cometmind/
     +-- agent/                    multi-step LLM/tool runner
     +-- session/                  domain service over sqlc DB queries
     +-- db/                       schema, migrations, generated sqlc files
-    +-- config/                   TOML/env config and API key resolution
+    +-- config/                   JSON settings, legacy TOML migration, env overrides, API key resolution
     +-- provider/                 CometMind config -> comet-sdk provider factory
     +-- tools/                    built-in tool interface, registry, implementations
     +-- tools/sandbox/            workspace path escape prevention
     +-- event/                    runtime event union and JSON wire format
     +-- store/                    SQLite open/pragmas/schema bootstrap
     +-- paths/                    data dir, DB path, config path, workspace resolution
+    +-- wakeup/                   coalesced background-worker config signals
     `-- id/                       ULID generation
 ```
 
 ## Runtime Composition
 
-`internal/runtime` is the shared composition root. `runtime.New` loads config, opens SQLite, applies schema/migrations, and constructs the session service (`cometmind/internal/runtime/runtime.go:30-52`). `RunnerFor` wires a session-specific SDK provider, session service, and workspace-scoped tool registry into an `agent.Runner` (`cometmind/internal/runtime/runtime.go:78-92`).
+`internal/runtime` is the shared composition root. `runtime.New` loads config, opens SQLite, applies schema/migrations, and constructs shared services. `RunnerFor` wires a session-specific SDK provider, session service, and workspace-scoped tool registry into an `agent.Runner`.
 
 This keeps CLI and HTTP server thin. Each surface asks runtime for services rather than duplicating setup logic.
 
 ## Agent Runner
 
-`agent.Runner` is the load-bearing brain. It depends on a narrow `TurnStore` interface instead of concrete SQLite code (`cometmind/internal/agent/runner.go:16-26`), which makes the loop testable.
+`agent.Runner` is the load-bearing brain. It depends on a narrow `TurnStore` interface instead of concrete SQLite code in `cometmind/internal/agent/runner.go`, which makes the loop testable.
 
-The loop in `Run` (`cometmind/internal/agent/runner.go:41-145`) performs these steps:
+The loop in `Run` performs these steps:
 
 1. Rebuild conversation history from SQLite as `[]cometsdk.Message`.
 2. Build a provider-neutral SDK request with current tools.
@@ -481,11 +479,11 @@ The loop in `Run` (`cometmind/internal/agent/runner.go:41-145`) performs these s
 8. Persist tool results and append tool result messages.
 9. Continue until stop or `MaxSteps`.
 
-The runner always emits a terminal `done` event through `defer` (`cometmind/internal/agent/runner.go:41-44`).
+The runner always emits a terminal `done` event through `defer`.
 
 ## Session And Data Model
 
-The SQLite schema is in `cometmind/internal/db/schema.sql:1-51`.
+The SQLite schema is in `cometmind/internal/db/schema.sql`.
 
 | Table | Purpose |
 |---|---|
@@ -494,27 +492,27 @@ The SQLite schema is in `cometmind/internal/db/schema.sql:1-51`.
 | `messages` | User, assistant, tool result, and optional system rows |
 | `tool_calls` | Tool-call shells plus execution output/duration/exit code |
 
-`session.Service` is the domain layer over generated sqlc queries. It owns workspace registration, session lifecycle, message appends, assistant step persistence, tool result persistence, token usage writes, SDK-history reconstruction, and UI transcript reconstruction (`cometmind/internal/session/service.go:24-389`, `cometmind/internal/session/transcript.go:33-104`).
+`session.Service` is the domain layer over generated sqlc queries. It owns workspace registration, session lifecycle, message appends, assistant step persistence, tool result persistence, token usage writes, SDK-history reconstruction, and UI transcript reconstruction across `service.go` and `transcript.go`.
 
 Important persisted formats:
 
 | Field | Format | Source |
 |---|---|---|
-| `messages.reasoning_content` | JSON array of reasoning block payloads | `cometmind/internal/session/service.go:169-206` |
-| `messages.content` for `tool_result` | JSON object `{tool_call_id, content, is_error}` | `cometmind/internal/session/service.go:17-22`, `cometmind/internal/session/service.go:266-290` |
-| `sessions.token_usage` | JSON-encoded `cometsdk.TokenUsage` snapshot | `cometmind/internal/session/service.go:303-313` |
+| `messages.reasoning_content` | JSON array of reasoning block payloads | `cometmind/internal/session/service.go` |
+| `messages.content` for `tool_result` | JSON object `{tool_call_id, content, is_error}` | `cometmind/internal/session/service.go` |
+| `sessions.token_usage` | JSON-encoded `cometsdk.TokenUsage` snapshot | `cometmind/internal/session/service.go` |
 
-Schema migrations are managed with `PRAGMA user_version`; current `schemaVersion` is 22, applied incrementally via `alterStatements` in `cometmind/internal/db/migrate.go`. Generated sqlc files under `internal/db` must not be hand-edited.
+Schema migrations are managed with `PRAGMA user_version` and applied incrementally via `alterStatements` in `cometmind/internal/db/migrate.go`. Read `schemaVersion` in that file for the current version. Generated sqlc files under `internal/db` must not be hand-edited.
 
 ## HTTP/SSE Server
 
-The server is a Gin app built by `server.New` (`cometmind/server/server.go:39-76`). It takes explicit dependencies in `server.Deps`, including a runner factory and optional `RunManager`.
+The server is a Gin app built by `server.New` in `cometmind/server/server.go`. It takes explicit dependencies in `server.Deps`, including a runner factory and optional `RunManager`.
 
-`handlePostMessage` is the critical endpoint (`cometmind/server/server.go:321-390`). It validates input, loads the session and workspace, builds a runner, acquires the per-session run lock, persists the user message, sets SSE headers, runs the agent in a goroutine, writes every event with `writeSSE`, and flushes.
+`handlePostMessage` is the critical endpoint in `cometmind/server/messages.go`. It validates input, loads the session and workspace, builds a runner, acquires the per-session run lock, persists the user message, sets SSE headers, runs the agent in a goroutine, writes every event with `writeSSE`, and flushes.
 
 `RunManager` enforces one active run per session. This prevents overlapping writes and interleaved streams for the same conversation.
 
-Local CORS allows Vite dev origins, localhost, packaged `app://`, `file://`, empty origin, and `null` (`cometmind/server/server.go:78-105`).
+Local CORS allows Vite dev origins, localhost, packaged `app://`, `file://`, empty origin, and `null`; see `localCORS` in `cometmind/server/server.go`.
 
 ## CLI And Server Surfaces
 
@@ -524,22 +522,22 @@ The HTTP server is the primary app integration surface for Cometline. The import
 
 ## Config And Provider Factory
 
-`config.Load` reads `~/.cometmind/config.toml`, creates a default config if missing, and overlays `COMETMIND_*` environment variables (`cometmind/internal/config/config.go:51-105`). Provider methods are defined in `cometmind/internal/config/config.go:14-19`.
+`config.Load` prefers `~/.cometmind/cometline-settings.json`, falls back to legacy `config.toml` only when JSON is missing, and then overlays `COMETMIND_*` environment variables. Provider methods and adaptation live under `cometmind/internal/config`.
 
 `internal/provider.NewForModel` resolves a session provider ID and model to a configured provider entry or legacy provider method, resolves API key, applies base URL, and constructs the concrete `cometsdk.Provider` (`cometmind/internal/provider/factory.go`). The factory is model-aware for `opencode-go`: its models can speak Chat Completions, Anthropic Messages, or OpenAI Responses depending on models.dev metadata, so `NewForModel` dispatches by the resolved protocol (`@ai-sdk/openai` → Responses, `@ai-sdk/anthropic` → Messages, default → Chat Completions). `NewFor` and `NewMemoryLLM` delegate with the entry or extraction model.
 
 ## Tools
 
-The tool registry is built per workspace (`cometmind/internal/tools/registry.go:17-33`). It exposes tool specs to the LLM through `CometSDK()` and dispatches tool execution by name through `Execute()` (`cometmind/internal/tools/registry.go:38-59`).
+The tool registry is built per workspace in `cometmind/internal/tools/registry.go`. Capability surfaces in `surface.go` decide which registered tools each agent type can use; the registry exposes specs to the LLM and dispatches execution by name.
 
-Current built-ins:
+Current tool families:
 
-| Tool | Purpose |
+| Family | Examples |
 |---|---|
-| `read_file` | Read a text file under the workspace |
-| `write_file` | Write a file under the workspace |
-| `list_dir` | List a directory under the workspace |
-| `run_command` | Execute a shell command in the workspace with guardrails |
+| Files, shell, and web | `read_file`, `edit_file`, `write_file`, `list_dir`, `glob`, `grep`, `run_command`, web tools |
+| Skills and subagents | Skill read/write/draft tools, general subagents, optional coding-harness delegation |
+| Jobs, schedules, memory, and settings | Durable work and runtime-management tools selected by capability surface |
+| MCP | Provider-safe `mcp_{serverId}_{toolName}` bindings from connected servers |
 
 File tools are workspace-scoped through `internal/tools/sandbox/pathcheck.go` as described in `AGENTS.md`. When adding tools, preserve workspace isolation and think about permission gates; CometMind currently executes tool calls directly.
 
@@ -620,7 +618,7 @@ The sidecar stop path waits for process exit before resolving so port 7700 and t
 | `/session/[id]` | `cometline/src/routes/session/[id]/+page.svelte` | Active chat route, keyed by session ID |
 | Root layout | `cometline/src/routes/+layout.svelte` | Starts health polling, loads settings, initializes workspace, loads session list |
 
-The session route keys `ChatView` by `sessionId` so SvelteKit route reuse does not keep stale per-session state (`cometline/src/routes/session/[id]/+page.svelte:9-18`).
+The session route binds `ChatView` to `sessionId`; `ChatView` and its controllers explicitly rebind session-scoped state when SvelteKit reuses the route component.
 
 ## Renderer Stores
 
@@ -635,7 +633,7 @@ All stores are Svelte 5 `$state`-based singletons.
 | `shell.svelte.ts` | Sidebar/settings/composer/workspace/fullscreen state plus workspace-panel integration |
 | `runtime.svelte.ts` | Sidecar health polling and connection status |
 
-`chatStore.send` is the central streaming loop (`cometline/src/lib/stores/chat.svelte.ts:211-289`). It sets up an `AbortController`, optionally adds the user bubble, consumes `streamMessage`, applies every event through the pure reducer, and sends a final synthetic `done` in `finally`.
+`chatStore.send` in `cometline/src/lib/stores/chat.svelte.ts` is the central streaming loop. It sets up an `AbortController`, optionally adds the user bubble, consumes `streamMessage`, applies every event through the pure reducer, and sends a final synthetic `done` in `finally`.
 
 ## Workspace Panel
 
@@ -658,27 +656,27 @@ The frontend contract types are in `cometline/src/lib/types.ts`.
 
 | Type | Source | Mirrors |
 |---|---|---|
-| `Session` | `cometline/src/lib/types.ts:1-12` | CometMind session resource |
-| `ProviderConfig` | `cometline/src/lib/types.ts:37-49` | Electron settings provider entry |
-| `ProviderSettings` | `cometline/src/lib/types.ts:80-85` | `cometline-settings.json` shape |
-| `TranscriptItem` | `cometline/src/lib/types.ts:96-106` | `GET /sessions/{id}/messages` items |
-| `StreamEvent` | `cometline/src/lib/types.ts:108-116` | CometMind SSE frames |
-| `ChatItem` | `cometline/src/lib/types.ts:118-140` | Renderer-only row model |
+| `Session` | `cometline/src/lib/types.ts` | CometMind session resource |
+| `ProviderConfig` | `cometline/src/lib/types.ts` | Electron settings provider entry |
+| `ProviderSettings` | `cometline/src/lib/types.ts` | Merged Settings UI shape |
+| `TranscriptItem` | `cometline/src/lib/types.ts` | `GET /sessions/{id}/messages` items |
+| `StreamEvent` | `cometline/src/lib/types.ts` | CometMind SSE frames |
+| `ChatItem` | `cometline/src/lib/types.ts` | Renderer-only row model |
 
 ## SSE Parsing And Reduction
 
-`streamMessage` posts to CometMind and yields parsed `StreamEvent` objects (`cometline/src/lib/client/cometmind.ts:68-111`). The chat reducer then transforms stream events into immutable UI state (`cometline/src/lib/reducers/chat.ts:105-287`, `cometline/src/lib/reducers/chat.ts:340-352`).
+`streamMessage` in `cometline/src/lib/client/cometmind.ts` posts to CometMind and yields parsed `StreamEvent` objects. The chat reducer in `cometline/src/lib/reducers/chat.ts` then transforms stream events into immutable UI state.
 
 Important reducer rules:
 
 | Rule | Source |
 |---|---|
-| API-key/auth errors become user-readable settings hints | `cometline/src/lib/reducers/chat.ts:27-45` |
-| Empty assistant placeholders are removed | `cometline/src/lib/reducers/chat.ts:47-51`, `cometline/src/lib/reducers/chat.ts:280-286` |
-| Reasoning attaches to the assistant bubble | `cometline/src/lib/reducers/chat.ts:53-69`, `cometline/src/lib/reducers/chat.ts:196-223` |
-| Tool call/result rows are matched by tool ID | `cometline/src/lib/reducers/chat.ts:226-260` |
-| `step_finish` settles pending state without clearing current assistant | `cometline/src/lib/reducers/chat.ts:262-268` |
-| Reducer inputs are cloned, not mutated | `cometline/src/lib/reducers/chat.ts:320-352` |
+| API-key/auth errors become user-readable settings hints | Error mapping helpers in `reducers/chat.ts` |
+| Empty assistant placeholders are removed | Assistant cleanup helpers in `reducers/chat.ts` |
+| Reasoning attaches to the assistant bubble | Reasoning event cases in `applyEvent` |
+| Tool call/result rows are matched by tool ID | Tool event cases in `applyEvent` |
+| `step_finish` settles pending state without clearing current assistant | `step_finish` case in `applyEvent` |
+| Reducer inputs are cloned, not mutated | `reduceChatState` / `reduceChatStateDelta` |
 
 ## Chat UI Components
 
@@ -693,11 +691,11 @@ Important reducer rules:
 | `RuntimeOverlay.svelte` | Blocks UI while sidecar is connecting |
 | `UpdateButton.svelte` | Floating update status/install affordance |
 
-`ChatView` is the orchestration hotspot. It binds the session before render, loads transcript unless a pending first message exists, serializes submissions through `createChatTurnQueue`, starts animations through `startChat`, and calls `chatStore.cancel` on stop (`cometline/src/lib/components/ChatView.svelte:28-160`).
+`ChatView` is the orchestration hotspot. It binds the session before render, delegates session-scoped queue policy to `conversation-controller.ts`, adapts first-turn presentation, and calls `chatStore.cancel` on stop.
 
 ## Settings And Model Discovery
 
-Provider settings currently live in `~/.cometmind/cometline-settings.json`, and Electron writes a generated `~/.cometmind/config.toml` for CometMind. Both are written with `0600` permissions (`cometline/electron/src/domains/runtime.ts`).
+Provider and CometMind runtime settings live in `~/.cometmind/cometline-settings.json`; appearance, shortcuts, app, and persona state live in `~/.cometmind/cometline-desktop.json`. Electron merges them for the UI and splits them on save. Both files are written with `0600` permissions. `config.toml` is a legacy fallback only.
 
 Model discovery is owned by Electron main, not the renderer:
 
@@ -738,7 +736,7 @@ Electron-builder includes the sidecar as an extra resource (`cometline/package.j
 | Change chat streaming UI | `cometline/src/lib/reducers/chat.ts`, `chat.svelte.ts`, `ChatThread.svelte` | CometMind event contract and reducer tests |
 | Change persistence schema | `cometmind/internal/db/schema.sql`, `migrate.go` | `sqlc generate`, session service, server transcript tests |
 | Add a REST endpoint | `cometmind/server/server.go`, `openapi.yaml` | Renderer client if UI needs it |
-| Change provider settings UX | `cometline/src/lib/stores/settings.svelte.ts`, `SettingsPanel.svelte`, `electron/src/domains/settings.ts` | Generated `config.toml`, sidecar restart behavior |
+| Change provider settings UX | `cometline/src/lib/stores/settings.svelte.ts`, settings panels, `electron/src/domains/settings.ts` | JSON split/merge and runtime reload/restart classification |
 | Change packaging/release | `cometline/package.json`, `.github/workflows`, `electron/src/domains/runtime.ts` | Sidecar `extraResources`, update flow |
 | Improve secrets storage | `electron/src/domains/settings.ts` and future CometMind config endpoints | OS keychain design, renderer redaction |
 

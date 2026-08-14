@@ -59,7 +59,7 @@ Cometline is a three-layer system: a desktop chat UI, a local agent runtime, and
 - Agent loop logic
 
 **Key files:**
-- `src/lib/components/Composer.svelte` — message input with model picker
+- `src/lib/components/composer/Composer.svelte` — message input with model picker
 - `src/lib/components/ChatView.svelte` — conversation rendering
 - `src/lib/stores/` — reactive state (chat, session, model, settings)
 - `src/lib/client/cometmind.ts` — HTTP/SSE client for CometMind API
@@ -86,7 +86,7 @@ Cometline is a three-layer system: a desktop chat UI, a local agent runtime, and
 
 **Key files:**
 - `internal/agent/runner.go` — multi-step agent loop
-- `internal/server/server.go` — HTTP/SSE API registration
+- `server/server.go` — HTTP/SSE API registration
 - `internal/event/event.go` — SSE event types and emission
 - `internal/tools/registry.go` — built-in tool registration
 - `internal/db/` — SQLite schema and queries (sqlc-generated)
@@ -293,10 +293,10 @@ Electron main process exposes native capabilities to the renderer via preload:
 
 ### Adding a new tool
 
-1. Define tool in `cometmind/internal/tools/registry.go`
-2. Implement `Tool` interface (Name, Description, Execute)
-3. Register in `init()` function
-4. Tool is automatically available to the agent loop
+1. Implement `Tool` (`Spec`, `Execute`) in a focused file under `cometmind/internal/tools/`
+2. Register it for the appropriate capability surface in `registry.go` / `surface.go`
+3. Add schema, execution, and workspace-sandbox tests
+4. The selected surfaces expose it automatically through the agent loop
 
 ### Adding a new SSE event type
 
@@ -332,25 +332,14 @@ CometMind uses SQLite (pure Go, no CGO) with sqlc for type-safe queries.
 
 ## Configuration
 
-**CometMind config:** `~/.cometmind/config.toml`
-```toml
-provider = "anthropic"
-model = "claude-sonnet-4-5"
-max_tokens = 8192
-max_steps = 100
+**Runtime settings:** `~/.cometmind/cometline-settings.json`
+- Stores provider configuration and the `cometmind` runtime section
+- Read directly by CometMind; legacy `config.toml` is used only when JSON is missing
+- Most runtime changes apply through `Runtime.Reload`; process bind changes such as host/port restart the sidecar
 
-[acp]
-default_harness = "opencode" # opencode, claude, or codex
-
-[gateway.discord]
-enabled = false
-bot_token_env = "DISCORD_BOT_TOKEN"
-```
-
-**Desktop settings:** `~/.cometmind/cometline-settings.json`
-- Managed via Settings UI in Cometline
-- Stores provider configs, active provider, appearance, shortcuts
-- Synced to CometMind on save (triggers sidecar restart if needed)
+**Desktop settings:** `~/.cometmind/cometline-desktop.json`
+- Stores appearance, shortcuts, app, and persona state
+- Electron merges runtime and desktop settings for the Settings UI, then splits them on save
 
 ## Further Reading
 

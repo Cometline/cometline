@@ -134,7 +134,7 @@ cd cometmind && sqlc generate
 CometMind embeds `schema.sql` and tracks version in `internal/db/migrate.go`:
 
 ```go
-schemaVersion = 26  // current at this documentation update; bump with each user-facing migration
+schemaVersion = ... // read the current value in migrate.go; bump with each user-facing migration
 alterStatements = []string{ ... }  // v(N-1) → vN
 ```
 
