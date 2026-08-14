@@ -8,10 +8,52 @@ import (
 
 	"github.com/cometline/cometmind/internal/config"
 	"github.com/cometline/cometmind/internal/db"
+	"github.com/cometline/cometmind/internal/jobs"
 	"github.com/cometline/cometmind/internal/memory"
 	"github.com/cometline/cometmind/internal/session"
 	_ "modernc.org/sqlite"
 )
+
+func TestRunner_PurgesDeletedJobs(t *testing.T) {
+	ctx := context.Background()
+	conn, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	if err := db.EnsureSchema(ctx, conn); err != nil {
+		t.Fatal(err)
+	}
+
+	jobSvc := jobs.NewService(conn, nil, nil)
+	job, err := jobSvc.Create(ctx, jobs.CreateInput{Description: "purge me"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := jobSvc.SoftDelete(ctx, job.ID); err != nil {
+		t.Fatal(err)
+	}
+	old := time.Now().Add(-48 * time.Hour).UnixMilli()
+	if _, err := conn.ExecContext(ctx, `UPDATE jobs SET deleted_at = ? WHERE id = ?`, old, job.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := (&Runner{
+		DB:           conn,
+		Sessions:     session.New(conn),
+		Jobs:         jobSvc,
+		JobPurgeDays: 1,
+	}).Run(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.JobsPurged != 1 {
+		t.Fatalf("jobs_purged = %d, want 1", got.JobsPurged)
+	}
+	if _, err := jobSvc.Get(ctx, job.ID); err != jobs.ErrNotFound {
+		t.Fatalf("Get() error = %v, want ErrNotFound", err)
+	}
+}
 
 func TestRunner_DeletesStaleSessionAndGatewayMapping(t *testing.T) {
 	ctx := context.Background()
