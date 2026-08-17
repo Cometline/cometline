@@ -915,8 +915,9 @@
 		align-items: center;
 		gap: 8px;
 		box-sizing: border-box;
-		min-height: var(--panel-header-height);
+		height: var(--panel-header-height);
 		padding: 0 10px;
+		overflow: hidden;
 		border-bottom: 1px solid var(--border-soft);
 		background: rgba(250, 250, 249, 0.95);
 	}

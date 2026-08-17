@@ -46,9 +46,12 @@
 	--workspace-panel-width: 640px;
 	--workspace-panel-slot-width: calc(var(--workspace-panel-width) + var(--content-panel-inset));
 	--titlebar-height: 48px;
-	/* Shared height for main-panel + workspace-panel chrome headers (incl. border). */
-	/* Shared by collapsed main shell titlebar + workspace panel toolbar. */
-	--panel-header-height: 44px;
+	/* In-card chrome (main titlebar + workspace toolbar). Centers against
+	   the 48px sidebar titlebar after the card inset and border. */
+	--panel-header-height: calc(
+		var(--titlebar-height) - 2 *
+			(var(--content-panel-inset) + var(--content-panel-border-width))
+	);
 	--traffic-light-gutter: 78px;
 
 	/* Chat column tracks avatar + gap + message width; composer is slightly wider. */

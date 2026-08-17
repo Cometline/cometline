@@ -111,14 +111,11 @@
 
 <div class="skill-drafts-page settings-ui">
 	<header class="page-header">
-		<div>
-			<h1>Skill Drafts</h1>
-			<p>
-				Review and edit reusable skills drafted from <code>/create-skill</code> or completed
-				jobs. Drafts stay inactive until you promote them into
-				<code>~/.cometmind/skills</code>.
-			</p>
-		</div>
+		<p>
+			Review and edit reusable skills drafted from <code>/create-skill</code> or completed
+			jobs. Drafts stay inactive until you promote them into
+			<code>~/.cometmind/skills</code>.
+		</p>
 		<button class="secondary" type="button" onclick={() => void refreshDrafts({ keepSelection: true })}>
 			{busy ? 'Loading...' : 'Refresh drafts'}
 		</button>
@@ -223,16 +220,17 @@
 		align-items: flex-start;
 	}
 
-	.page-header > div,
-	.preview-header > div:first-child {
+	.page-header > p {
 		min-width: 0;
+		margin: 0;
+		padding-left: 14px;
+		font-size: 12px;
+		line-height: 1.5;
+		color: var(--text-muted);
 	}
 
-	.page-header h1 {
-		margin: 0 0 4px;
-		font-size: 20px;
-		font-weight: 650;
-		color: var(--text-main);
+	.preview-header > div:first-child {
+		min-width: 0;
 	}
 
 	.section-header h2,
@@ -242,7 +240,6 @@
 		color: var(--text-main);
 	}
 
-	.page-header p,
 	.preview-header p,
 	.empty-state p,
 	.page-status,

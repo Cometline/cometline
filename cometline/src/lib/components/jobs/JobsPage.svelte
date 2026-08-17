@@ -585,10 +585,7 @@
 
 <div class="jobs-page settings-ui">
 	<header class="jobs-header">
-		<div>
-			<h1>Jobs</h1>
-			<p>Global work queue shared across sessions.</p>
-		</div>
+		<p>Global work queue shared across sessions.</p>
 		<div class="jobs-header-actions">
 			{#if view === 'active'}
 				<div class="status-filters" role="group" aria-label="Filter by status">
@@ -989,19 +986,10 @@
 		margin-bottom: 16px;
 	}
 
-	.jobs-header > div:first-child {
+	.jobs-header > p {
 		min-width: 0;
-	}
-
-	.jobs-header h1 {
-		margin: 0 0 4px;
-		font-size: 20px;
-		font-weight: 650;
-		color: var(--text-main);
-	}
-
-	.jobs-header p {
 		margin: 0;
+		padding-left: 14px;
 		font-size: 12px;
 		color: var(--text-muted);
 	}
