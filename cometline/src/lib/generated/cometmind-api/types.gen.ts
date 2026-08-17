@@ -336,22 +336,47 @@ export type WebPageContext = {
     content: string;
 };
 
+/**
+ * A user-uploaded still image. Videos are not accepted on this schema.
+ */
 export type ImageAttachment = {
     /**
-     * Client attachment id, or a CometMind media-store id for assistant-presented images. When set without data, clients fetch bytes from the session media API.
-     *
+     * Client attachment id for a composer upload.
      */
     id?: string;
     media_type: 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp';
     /**
-     * Raw base64 payload without a data URL prefix. Required for user uploads. Optional for assistant media refs when id is a media-store id. Each decoded image must be at most 4 MB.
+     * Raw base64 payload without a data URL prefix. Required for user uploads. Each decoded user image must be at most 4 MB.
      *
      */
     data?: string;
     name?: string;
     size?: number;
     /**
-     * Optional accessible caption for assistant-presented images.
+     * Optional accessible caption.
+     */
+    alt?: string;
+};
+
+/**
+ * Assistant-presented still or video, typically a media-store id without inline bytes. User transcript rows may also reuse this shape for images.
+ *
+ */
+export type MediaAttachment = {
+    /**
+     * CometMind media-store id. When set without data, clients fetch bytes from the session media API.
+     *
+     */
+    id?: string;
+    media_type: 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp' | 'video/mp4' | 'video/webm';
+    /**
+     * Optional inline payload. Prefer id + session media fetch.
+     */
+    data?: string;
+    name?: string;
+    size?: number;
+    /**
+     * Optional accessible caption for assistant-presented media.
      */
     alt?: string;
 };
@@ -490,7 +515,11 @@ export type MessageContextRef = {
 export type TranscriptItem = {
     type: 'user' | 'reasoning' | 'assistant' | 'tool' | 'system' | 'memory' | 'error';
     text?: string;
-    images?: Array<ImageAttachment>;
+    /**
+     * Still images or videos on this transcript row. User turns are images only; assistant turns may include generated or presented video.
+     *
+     */
+    media?: Array<MediaAttachment>;
     /**
      * Slim UI context chips for a user turn (kind/title/source only; no
      * content bodies). Present when the turn was sent with web_contexts.
@@ -777,6 +806,16 @@ export type AssistantImageEvent = {
     data_url?: string;
 };
 
+export type AssistantVideoEvent = {
+    type: 'assistant_video';
+    /**
+     * Media-store video id within the session.
+     */
+    id: string;
+    media_type: 'video/mp4' | 'video/webm';
+    alt?: string;
+};
+
 export type StreamEvent = ({
     type?: 'text_delta';
 } & TextDeltaEvent) | ({
@@ -814,6 +853,8 @@ export type StreamEvent = ({
 } & TurnRecoverEvent) | ({
     type?: 'assistant_image';
 } & AssistantImageEvent) | ({
+    type?: 'assistant_video';
+} & AssistantVideoEvent) | ({
     type?: 'error';
 } & ErrorEvent) | ({
     type?: 'done';
@@ -1160,6 +1201,36 @@ export type ErrorResponse = {
         code: string;
         message: string;
     };
+};
+
+export type MediaResource = {
+    id: string;
+    session_id: string;
+    workspace_id: string;
+    kind: 'image' | 'video';
+    media_type: string;
+    alt?: string;
+    prompt?: string;
+    model?: string;
+    provider_id?: string;
+    source: 'generated' | 'presented' | 'captured' | 'imported' | 'user';
+    source_media_id?: string;
+    status: 'ready' | 'deleted';
+    byte_size: number;
+    duration_ms?: number;
+    created_at: number;
+    url: string;
+};
+
+export type MediaListResponse = {
+    items: Array<MediaResource>;
+};
+
+export type ImportMediaRequest = {
+    /**
+     * Destination session that receives a copied file.
+     */
+    session_id: string;
 };
 
 /**
@@ -2213,10 +2284,10 @@ export type GetSessionMediaData = {
          * Persisted CometMind session identifier.
          */
         id: string;
-        imageId: string;
+        mediaId: string;
     };
     query?: never;
-    url: '/api/v1/sessions/{id}/media/{imageId}';
+    url: '/api/v1/sessions/{id}/media/{mediaId}';
 };
 
 export type GetSessionMediaErrors = {
@@ -2234,12 +2305,119 @@ export type GetSessionMediaError = GetSessionMediaErrors[keyof GetSessionMediaEr
 
 export type GetSessionMediaResponses = {
     /**
-     * Image bytes
+     * Media bytes
      */
     200: Blob | File;
+    /**
+     * Partial media bytes for a range request
+     */
+    206: unknown;
 };
 
 export type GetSessionMediaResponse = GetSessionMediaResponses[keyof GetSessionMediaResponses];
+
+export type ListMediaData = {
+    body?: never;
+    path?: never;
+    query?: {
+        workspace_id?: string;
+        session_id?: string;
+        kind?: 'image' | 'video';
+    };
+    url: '/api/v1/media';
+};
+
+export type ListMediaErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type ListMediaError = ListMediaErrors[keyof ListMediaErrors];
+
+export type ListMediaResponses = {
+    /**
+     * Ready media items, newest first
+     */
+    200: MediaListResponse;
+};
+
+export type ListMediaResponse = ListMediaResponses[keyof ListMediaResponses];
+
+export type ImportMediaData = {
+    body: ImportMediaRequest;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/media/{id}/imports';
+};
+
+export type ImportMediaErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * State conflict
+     */
+    409: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type ImportMediaError = ImportMediaErrors[keyof ImportMediaErrors];
+
+export type ImportMediaResponses = {
+    /**
+     * Copied media item
+     */
+    201: MediaResource;
+};
+
+export type ImportMediaResponse = ImportMediaResponses[keyof ImportMediaResponses];
+
+export type DeleteMediaData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/media/{id}';
+};
+
+export type DeleteMediaErrors = {
+    /**
+     * Resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type DeleteMediaError = DeleteMediaErrors[keyof DeleteMediaErrors];
+
+export type DeleteMediaResponses = {
+    /**
+     * Tombstoned media item
+     */
+    200: MediaResource;
+};
+
+export type DeleteMediaResponse = DeleteMediaResponses[keyof DeleteMediaResponses];
 
 export type StreamRuntimeEventsData = {
     body?: never;

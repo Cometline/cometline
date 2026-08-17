@@ -52,6 +52,24 @@ func (e AssistantImageEventMediaType) Valid() bool {
 	}
 }
 
+// Defines values for AssistantVideoEventMediaType.
+const (
+	AssistantVideoEventMediaTypeVideomp4  AssistantVideoEventMediaType = "video/mp4"
+	AssistantVideoEventMediaTypeVideowebm AssistantVideoEventMediaType = "video/webm"
+)
+
+// Valid indicates whether the value is a known member of the AssistantVideoEventMediaType enum.
+func (e AssistantVideoEventMediaType) Valid() bool {
+	switch e {
+	case AssistantVideoEventMediaTypeVideomp4:
+		return true
+	case AssistantVideoEventMediaTypeVideowebm:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CreateMemoryRequestApplicationPolicy.
 const (
 	CreateMemoryRequestApplicationPolicyAlways   CreateMemoryRequestApplicationPolicy = "always"
@@ -250,6 +268,99 @@ func (e McpServerStatusStatus) Valid() bool {
 	case McpServerStatusStatusError:
 		return true
 	case McpServerStatusStatusReloading:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MediaAttachmentMediaType.
+const (
+	MediaAttachmentMediaTypeImagegif  MediaAttachmentMediaType = "image/gif"
+	MediaAttachmentMediaTypeImagejpeg MediaAttachmentMediaType = "image/jpeg"
+	MediaAttachmentMediaTypeImagepng  MediaAttachmentMediaType = "image/png"
+	MediaAttachmentMediaTypeImagewebp MediaAttachmentMediaType = "image/webp"
+	MediaAttachmentMediaTypeVideomp4  MediaAttachmentMediaType = "video/mp4"
+	MediaAttachmentMediaTypeVideowebm MediaAttachmentMediaType = "video/webm"
+)
+
+// Valid indicates whether the value is a known member of the MediaAttachmentMediaType enum.
+func (e MediaAttachmentMediaType) Valid() bool {
+	switch e {
+	case MediaAttachmentMediaTypeImagegif:
+		return true
+	case MediaAttachmentMediaTypeImagejpeg:
+		return true
+	case MediaAttachmentMediaTypeImagepng:
+		return true
+	case MediaAttachmentMediaTypeImagewebp:
+		return true
+	case MediaAttachmentMediaTypeVideomp4:
+		return true
+	case MediaAttachmentMediaTypeVideowebm:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MediaResourceKind.
+const (
+	MediaResourceKindImage MediaResourceKind = "image"
+	MediaResourceKindVideo MediaResourceKind = "video"
+)
+
+// Valid indicates whether the value is a known member of the MediaResourceKind enum.
+func (e MediaResourceKind) Valid() bool {
+	switch e {
+	case MediaResourceKindImage:
+		return true
+	case MediaResourceKindVideo:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MediaResourceSource.
+const (
+	MediaResourceSourceCaptured  MediaResourceSource = "captured"
+	MediaResourceSourceGenerated MediaResourceSource = "generated"
+	MediaResourceSourceImported  MediaResourceSource = "imported"
+	MediaResourceSourcePresented MediaResourceSource = "presented"
+	MediaResourceSourceUser      MediaResourceSource = "user"
+)
+
+// Valid indicates whether the value is a known member of the MediaResourceSource enum.
+func (e MediaResourceSource) Valid() bool {
+	switch e {
+	case MediaResourceSourceCaptured:
+		return true
+	case MediaResourceSourceGenerated:
+		return true
+	case MediaResourceSourceImported:
+		return true
+	case MediaResourceSourcePresented:
+		return true
+	case MediaResourceSourceUser:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MediaResourceStatus.
+const (
+	Deleted MediaResourceStatus = "deleted"
+	Ready   MediaResourceStatus = "ready"
+)
+
+// Valid indicates whether the value is a known member of the MediaResourceStatus enum.
+func (e MediaResourceStatus) Valid() bool {
+	switch e {
+	case Deleted:
+		return true
+	case Ready:
 		return true
 	default:
 		return false
@@ -567,16 +678,16 @@ func (e SessionGatewayPlatform) Valid() bool {
 
 // Defines values for SessionOrigin.
 const (
-	Autonomy SessionOrigin = "autonomy"
-	User     SessionOrigin = "user"
+	SessionOriginAutonomy SessionOrigin = "autonomy"
+	SessionOriginUser     SessionOrigin = "user"
 )
 
 // Valid indicates whether the value is a known member of the SessionOrigin enum.
 func (e SessionOrigin) Valid() bool {
 	switch e {
-	case Autonomy:
+	case SessionOriginAutonomy:
 		return true
-	case User:
+	case SessionOriginUser:
 		return true
 	default:
 		return false
@@ -744,13 +855,13 @@ func (e WikiFileTextContentKind) Valid() bool {
 
 // Defines values for WorkspaceFileImageContentKind.
 const (
-	Image WorkspaceFileImageContentKind = "image"
+	WorkspaceFileImageContentKindImage WorkspaceFileImageContentKind = "image"
 )
 
 // Valid indicates whether the value is a known member of the WorkspaceFileImageContentKind enum.
 func (e WorkspaceFileImageContentKind) Valid() bool {
 	switch e {
-	case Image:
+	case WorkspaceFileImageContentKindImage:
 		return true
 	default:
 		return false
@@ -808,6 +919,24 @@ func (e ListJobsParamsStatus) Valid() bool {
 	case ListJobsParamsStatusOngoing:
 		return true
 	case ListJobsParamsStatusTodo:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListMediaParamsKind.
+const (
+	Image ListMediaParamsKind = "image"
+	Video ListMediaParamsKind = "video"
+)
+
+// Valid indicates whether the value is a known member of the ListMediaParamsKind enum.
+func (e ListMediaParamsKind) Valid() bool {
+	switch e {
+	case Image:
+		return true
+	case Video:
 		return true
 	default:
 		return false
@@ -877,6 +1006,19 @@ type AssistantImageEvent struct {
 
 // AssistantImageEventMediaType defines model for AssistantImageEvent.MediaType.
 type AssistantImageEventMediaType string
+
+// AssistantVideoEvent defines model for AssistantVideoEvent.
+type AssistantVideoEvent struct {
+	Alt *string `json:"alt,omitempty"`
+
+	// Id Media-store video id within the session.
+	Id        string                       `json:"id"`
+	MediaType AssistantVideoEventMediaType `json:"media_type"`
+	Type      string                       `json:"type"`
+}
+
+// AssistantVideoEventMediaType defines model for AssistantVideoEvent.MediaType.
+type AssistantVideoEventMediaType string
 
 // CompactMemoryPreviewResponse defines model for CompactMemoryPreviewResponse.
 type CompactMemoryPreviewResponse struct {
@@ -1003,15 +1145,15 @@ type HealthResponse struct {
 	Status string `json:"status"`
 }
 
-// ImageAttachment defines model for ImageAttachment.
+// ImageAttachment A user-uploaded still image. Videos are not accepted on this schema.
 type ImageAttachment struct {
-	// Alt Optional accessible caption for assistant-presented images.
+	// Alt Optional accessible caption.
 	Alt *string `json:"alt,omitempty"`
 
-	// Data Raw base64 payload without a data URL prefix. Required for user uploads. Optional for assistant media refs when id is a media-store id. Each decoded image must be at most 4 MB.
+	// Data Raw base64 payload without a data URL prefix. Required for user uploads. Each decoded user image must be at most 4 MB.
 	Data *string `json:"data,omitempty"`
 
-	// Id Client attachment id, or a CometMind media-store id for assistant-presented images. When set without data, clients fetch bytes from the session media API.
+	// Id Client attachment id for a composer upload.
 	Id        *string                  `json:"id,omitempty"`
 	MediaType ImageAttachmentMediaType `json:"media_type"`
 	Name      *string                  `json:"name,omitempty"`
@@ -1020,6 +1162,12 @@ type ImageAttachment struct {
 
 // ImageAttachmentMediaType defines model for ImageAttachment.MediaType.
 type ImageAttachmentMediaType string
+
+// ImportMediaRequest defines model for ImportMediaRequest.
+type ImportMediaRequest struct {
+	// SessionId Destination session that receives a copied file.
+	SessionId string `json:"session_id"`
+}
 
 // InboxMessageArchivedEvent defines model for InboxMessageArchivedEvent.
 type InboxMessageArchivedEvent struct {
@@ -1227,6 +1375,58 @@ type McpToolInfo struct {
 	ServerName   string `json:"server_name"`
 	ToolName     string `json:"tool_name"`
 }
+
+// MediaAttachment Assistant-presented still or video, typically a media-store id without inline bytes. User transcript rows may also reuse this shape for images.
+type MediaAttachment struct {
+	// Alt Optional accessible caption for assistant-presented media.
+	Alt *string `json:"alt,omitempty"`
+
+	// Data Optional inline payload. Prefer id + session media fetch.
+	Data *string `json:"data,omitempty"`
+
+	// Id CometMind media-store id. When set without data, clients fetch bytes from the session media API.
+	Id        *string                  `json:"id,omitempty"`
+	MediaType MediaAttachmentMediaType `json:"media_type"`
+	Name      *string                  `json:"name,omitempty"`
+	Size      *int                     `json:"size,omitempty"`
+}
+
+// MediaAttachmentMediaType defines model for MediaAttachment.MediaType.
+type MediaAttachmentMediaType string
+
+// MediaListResponse defines model for MediaListResponse.
+type MediaListResponse struct {
+	Items []MediaResource `json:"items"`
+}
+
+// MediaResource defines model for MediaResource.
+type MediaResource struct {
+	Alt           *string             `json:"alt,omitempty"`
+	ByteSize      int64               `json:"byte_size"`
+	CreatedAt     int64               `json:"created_at"`
+	DurationMs    *int64              `json:"duration_ms,omitempty"`
+	Id            string              `json:"id"`
+	Kind          MediaResourceKind   `json:"kind"`
+	MediaType     string              `json:"media_type"`
+	Model         *string             `json:"model,omitempty"`
+	Prompt        *string             `json:"prompt,omitempty"`
+	ProviderId    *string             `json:"provider_id,omitempty"`
+	SessionId     string              `json:"session_id"`
+	Source        MediaResourceSource `json:"source"`
+	SourceMediaId *string             `json:"source_media_id,omitempty"`
+	Status        MediaResourceStatus `json:"status"`
+	Url           string              `json:"url"`
+	WorkspaceId   string              `json:"workspace_id"`
+}
+
+// MediaResourceKind defines model for MediaResource.Kind.
+type MediaResourceKind string
+
+// MediaResourceSource defines model for MediaResource.Source.
+type MediaResourceSource string
+
+// MediaResourceStatus defines model for MediaResource.Status.
+type MediaResourceStatus string
 
 // MemoryChangeWire defines model for MemoryChangeWire.
 type MemoryChangeWire struct {
@@ -1760,7 +1960,9 @@ type TranscriptItem struct {
 	// Contexts Slim UI context chips for a user turn (kind/title/source only; no
 	// content bodies). Present when the turn was sent with web_contexts.
 	Contexts *[]MessageContextRef `json:"contexts,omitempty"`
-	Images   *[]ImageAttachment   `json:"images,omitempty"`
+
+	// Media Still images or videos on this transcript row. User turns are images only; assistant turns may include generated or presented video.
+	Media *[]MediaAttachment `json:"media,omitempty"`
 
 	// Memories Injected memories surfaced for a memory transcript item.
 	Memories  *[]MemoryWire `json:"memories,omitempty"`
@@ -2097,6 +2299,16 @@ type ListJobsParams struct {
 // ListJobsParamsStatus defines parameters for ListJobs.
 type ListJobsParamsStatus string
 
+// ListMediaParams defines parameters for ListMedia.
+type ListMediaParams struct {
+	WorkspaceId *string              `form:"workspace_id,omitempty" json:"workspace_id,omitempty"`
+	SessionId   *string              `form:"session_id,omitempty" json:"session_id,omitempty"`
+	Kind        *ListMediaParamsKind `form:"kind,omitempty" json:"kind,omitempty"`
+}
+
+// ListMediaParamsKind defines parameters for ListMedia.
+type ListMediaParamsKind string
+
 // ListSessionsParams defines parameters for ListSessions.
 type ListSessionsParams struct {
 	// WorkspaceId Registered workspace identifier.
@@ -2258,6 +2470,9 @@ type HeartbeatJobJSONRequestBody = JobSessionRequest
 
 // ClaimJobJSONRequestBody defines body for ClaimJob for application/json ContentType.
 type ClaimJobJSONRequestBody = JobSessionRequest
+
+// ImportMediaJSONRequestBody defines body for ImportMedia for application/json ContentType.
+type ImportMediaJSONRequestBody = ImportMediaRequest
 
 // CreateMemoryJSONRequestBody defines body for CreateMemory for application/json ContentType.
 type CreateMemoryJSONRequestBody = CreateMemoryRequest
@@ -2826,6 +3041,34 @@ func (t *StreamEvent) MergeAssistantImageEvent(v AssistantImageEvent) error {
 	return err
 }
 
+// AsAssistantVideoEvent returns the union data inside the StreamEvent as a AssistantVideoEvent
+func (t StreamEvent) AsAssistantVideoEvent() (AssistantVideoEvent, error) {
+	var body AssistantVideoEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromAssistantVideoEvent overwrites any union data inside the StreamEvent as the provided AssistantVideoEvent
+func (t *StreamEvent) FromAssistantVideoEvent(v AssistantVideoEvent) error {
+	v.Type = "assistant_video"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeAssistantVideoEvent performs a merge with any union data inside the StreamEvent, using the provided AssistantVideoEvent
+func (t *StreamEvent) MergeAssistantVideoEvent(v AssistantVideoEvent) error {
+	v.Type = "assistant_video"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 // AsErrorEvent returns the union data inside the StreamEvent as a ErrorEvent
 func (t StreamEvent) AsErrorEvent() (ErrorEvent, error) {
 	var body ErrorEvent
@@ -2898,6 +3141,8 @@ func (t StreamEvent) ValueByDiscriminator() (interface{}, error) {
 	switch discriminator {
 	case "assistant_image":
 		return t.AsAssistantImageEvent()
+	case "assistant_video":
+		return t.AsAssistantVideoEvent()
 	case "context_budget":
 		return t.AsContextBudgetEvent()
 	case "done":

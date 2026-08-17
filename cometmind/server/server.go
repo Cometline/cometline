@@ -162,7 +162,10 @@ func New(deps Deps) (*gin.Engine, error) {
 	api.POST("/sessions/:id/forks", app.handleForkSession)
 	api.DELETE("/sessions/:id", app.handleDeleteSession)
 	api.GET("/sessions/:id/messages", app.handleGetMessages)
-	api.GET("/sessions/:id/media/:imageId", app.handleGetSessionMedia)
+	api.GET("/sessions/:id/media/:mediaId", app.handleGetSessionMedia)
+	api.GET("/media", app.handleListMedia)
+	api.POST("/media/:id/imports", app.handleImportMedia)
+	api.DELETE("/media/:id", app.handleDeleteMedia)
 	api.GET("/events", app.handleEvents)
 	api.POST("/sessions/:id/messages", app.handlePostMessage)
 	api.DELETE("/sessions/:id/messages", app.handleClearSession)
@@ -326,7 +329,7 @@ type listSessionsResponse struct {
 type transcriptItem struct {
 	Type       string                     `json:"type"`
 	Text       string                     `json:"text,omitempty"`
-	Images     []messageImageInput        `json:"images,omitempty"`
+	Media      []messageImageInput        `json:"media,omitempty"`
 	Contexts   []transcriptMessageContext `json:"contexts,omitempty"`
 	ToolName   string                     `json:"tool_name,omitempty"`
 	ToolInput  any                        `json:"tool_input,omitempty"`
@@ -612,7 +615,7 @@ func transcriptItemFromModel(item session.TranscriptEntry) transcriptItem {
 	case session.TranscriptKindUser:
 		out := transcriptItem{Type: "user", Text: item.Text}
 		for _, block := range item.Images {
-			out.Images = append(out.Images, messageImageInput{MediaType: block.MediaType, Data: block.Data})
+			out.Media = append(out.Media, messageImageInput{MediaType: block.MediaType, Data: block.Data})
 		}
 		for _, ctxRef := range item.Contexts {
 			out.Contexts = append(out.Contexts, transcriptMessageContext{
@@ -634,7 +637,7 @@ func transcriptItemFromModel(item session.TranscriptEntry) transcriptItem {
 				Data:      block.Data,
 				Alt:       block.Alt,
 			}
-			out.Images = append(out.Images, img)
+			out.Media = append(out.Media, img)
 		}
 		return out
 	case session.TranscriptKindTool:
