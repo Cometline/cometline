@@ -195,6 +195,24 @@ type Session struct {
 	UpdatedAt               int64          `json:"updated_at"`
 }
 
+type SessionMedia struct {
+	ID            string        `json:"id"`
+	SessionID     string        `json:"session_id"`
+	WorkspaceID   string        `json:"workspace_id"`
+	Kind          string        `json:"kind"`
+	MediaType     string        `json:"media_type"`
+	Alt           string        `json:"alt"`
+	Prompt        string        `json:"prompt"`
+	Model         string        `json:"model"`
+	ProviderID    string        `json:"provider_id"`
+	Source        string        `json:"source"`
+	SourceMediaID string        `json:"source_media_id"`
+	Status        string        `json:"status"`
+	ByteSize      int64         `json:"byte_size"`
+	DurationMs    sql.NullInt64 `json:"duration_ms"`
+	CreatedAt     int64         `json:"created_at"`
+}
+
 type ToolCall struct {
 	ID         string        `json:"id"`
 	MessageID  string        `json:"message_id"`
