@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { flip } from 'svelte/animate';
-	import { Settings, Briefcase, Sparkles, Bell } from '@lucide/svelte';
+	import { Settings, Briefcase, Sparkles, Bell, Images } from '@lucide/svelte';
 	import type { Session } from '$lib/types';
 	import { sessionStore } from '$lib/stores/session.svelte';
 	import { deleteSession, updateSession } from '$lib/client/cometmind';
@@ -324,6 +324,16 @@
 					onclick={() => goto('/skill-drafts')}
 				>
 					<Sparkles size={16} stroke-width={1.8} />
+				</button>
+			</Tooltip>
+			<Tooltip label="Gallery" action="openGallery">
+				<button
+					aria-label="Gallery"
+					class="nav-badge"
+					class:active={page.url.pathname === '/gallery'}
+					onclick={() => goto('/gallery')}
+				>
+					<Images size={16} stroke-width={1.8} />
 				</button>
 			</Tooltip>
 			<Tooltip label="Inbox" action="openInbox">
