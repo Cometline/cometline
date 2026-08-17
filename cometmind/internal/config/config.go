@@ -96,6 +96,7 @@ type Config struct {
 	Autonomy           AutonomousJobsConfig `mapstructure:"autonomy"`
 	Scheduler          SchedulerConfig      `mapstructure:"scheduler"`
 	Inbox              InboxConfig          `mapstructure:"inbox"`
+	Generation         GenerationConfig     `mapstructure:"generation"`
 }
 
 // Defaults returns baseline values when the config file is missing keys.
@@ -113,6 +114,7 @@ func Defaults() *Config {
 		Autonomy:           defaultAutonomousJobsConfig(),
 		Scheduler:          defaultSchedulerConfig(),
 		Inbox:              defaultInboxConfig(),
+		Generation:         defaultGenerationConfig(),
 	}
 }
 

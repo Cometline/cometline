@@ -159,6 +159,16 @@ type cometlineSchedulerJSON struct {
 	PollIntervalSeconds int  `json:"pollIntervalSeconds"`
 }
 
+type cometlineGenerationModelJSON struct {
+	ProviderID string `json:"providerId"`
+	Model      string `json:"model"`
+}
+
+type cometlineGenerationJSON struct {
+	Image cometlineGenerationModelJSON `json:"image"`
+	Video cometlineGenerationModelJSON `json:"video"`
+}
+
 type cometlineCometmindJSON struct {
 	SystemPromptPath   string               `json:"systemPromptPath"`
 	MaxTokens          int                  `json:"maxTokens"`
@@ -172,10 +182,11 @@ type cometlineCometmindJSON struct {
 	Gateway            struct {
 		Discord cometlineDiscordJSON `json:"discord"`
 	} `json:"gateway"`
-	MCP       cometlineMCPJSON       `json:"mcp"`
-	Jobs      cometlineJobsJSON      `json:"jobs"`
-	Autonomy  cometlineAutonomyJSON  `json:"autonomy"`
-	Scheduler cometlineSchedulerJSON `json:"scheduler"`
+	MCP        cometlineMCPJSON        `json:"mcp"`
+	Jobs       cometlineJobsJSON       `json:"jobs"`
+	Autonomy   cometlineAutonomyJSON   `json:"autonomy"`
+	Scheduler  cometlineSchedulerJSON  `json:"scheduler"`
+	Generation cometlineGenerationJSON `json:"generation"`
 }
 
 type cometlineSettingsJSON struct {
@@ -335,6 +346,16 @@ func adaptCometlineSettings(raw cometlineSettingsJSON) (*Config, error) {
 		Scheduler: SchedulerConfig{
 			Enabled:             cm.Scheduler.Enabled,
 			PollIntervalSeconds: cm.Scheduler.PollIntervalSeconds,
+		},
+		Generation: GenerationConfig{
+			Image: GenerationModelConfig{
+				ProviderID: strings.TrimSpace(cm.Generation.Image.ProviderID),
+				Model:      strings.TrimSpace(cm.Generation.Image.Model),
+			},
+			Video: GenerationModelConfig{
+				ProviderID: strings.TrimSpace(cm.Generation.Video.ProviderID),
+				Model:      strings.TrimSpace(cm.Generation.Video.Model),
+			},
 		},
 		Gateway: GatewayConfig{
 			Discord: DiscordGatewayConfig{
