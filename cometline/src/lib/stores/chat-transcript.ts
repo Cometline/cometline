@@ -1,4 +1,4 @@
-import type { ChatItem, MemoryWire, Session, TranscriptItem } from '$lib/types';
+import type { ChatItem, ImageAttachment, MemoryWire, Session, TranscriptItem } from '$lib/types';
 import { inferMemoryBucket } from '$lib/memory/buckets';
 import { getReasoningSegments } from '$lib/conversation/reasoning';
 import { isSubagentStepLimit, resolveInProcessAgentName } from '$lib/conversation/subagent-display';
@@ -272,9 +272,9 @@ export function itemsFromTranscript(transcriptItems: TranscriptItem[]): ChatItem
 		}
 		if (item.type === 'assistant') {
 			appendAssistantText(i, item.text ?? '');
-			if (item.images?.length) {
+			if (item.media?.length) {
 				const host = ensureAssistant(i);
-				host.images = [...(host.images ?? []), ...item.images];
+				host.images = [...(host.images ?? []), ...item.media];
 			}
 			continue;
 		}
@@ -319,7 +319,7 @@ function itemFromTranscript(item: TranscriptItem, index: number): ChatItem {
 			id: `history-${index}`,
 			type: 'user',
 			text: stripInlinedFileBlocks(item.text ?? ''),
-			images: item.images,
+			images: item.media as ImageAttachment[] | undefined,
 			...(item.contexts?.length ? { contexts: item.contexts } : {})
 		};
 	if (item.type === 'assistant')
@@ -327,7 +327,7 @@ function itemFromTranscript(item: TranscriptItem, index: number): ChatItem {
 			id: `history-${index}`,
 			type: 'assistant',
 			text: item.text ?? '',
-			images: item.images
+			images: item.media
 		};
 	if (item.type === 'system')
 		return { id: `history-${index}`, type: 'status', text: item.text ?? '' };

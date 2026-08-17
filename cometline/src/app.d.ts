@@ -87,6 +87,7 @@ declare global {
 		| 'navigateForward'
 		| 'openJobs'
 		| 'openSkillDrafts'
+		| 'openGallery'
 		| 'openInbox'
 		| 'recentSession';
 
@@ -274,6 +275,16 @@ declare global {
 		pollIntervalSeconds: number;
 	}
 
+	interface CometMindGenerationModelSettings {
+		providerId: string;
+		model: string;
+	}
+
+	interface CometMindGenerationSettings {
+		image: CometMindGenerationModelSettings;
+		video: CometMindGenerationModelSettings;
+	}
+
 	type MCPTransport = 'stdio' | 'http' | 'sse';
 
 	interface MCPOAuthSettings {
@@ -320,6 +331,7 @@ declare global {
 		jobs: CometMindJobsSettings;
 		autonomy: CometMindAutonomousJobsSettings;
 		scheduler: CometMindSchedulerSettings;
+		generation: CometMindGenerationSettings;
 	}
 
 	interface SidebarChromeState {

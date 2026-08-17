@@ -42,6 +42,20 @@ describe('reduceChatState', () => {
 		]);
 	});
 
+	it('attaches assistant_video events to the current assistant bubble', () => {
+		let state = initChatState();
+		state = reduceChatState(state, {
+			type: 'assistant_video',
+			id: 'vid1',
+			media_type: 'video/mp4',
+			alt: 'clip'
+		});
+		const assistant = state.items[0];
+		expect(assistant.type).toBe('assistant');
+		if (assistant.type !== 'assistant') return;
+		expect(assistant.images).toEqual([{ id: 'vid1', media_type: 'video/mp4', alt: 'clip' }]);
+	});
+
 	it('reuses unchanged item references on streaming deltas', () => {
 		const user = {
 			id: 'user-1',

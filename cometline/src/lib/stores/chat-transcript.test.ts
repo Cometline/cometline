@@ -57,7 +57,7 @@ describe('itemsFromTranscript', () => {
 			{ type: 'user', text: 'show me' },
 			{
 				type: 'assistant',
-				images: [{ id: 'img1', media_type: 'image/png', alt: 'shot' }]
+				media: [{ id: 'img1', media_type: 'image/png', alt: 'shot' }]
 			},
 			{ type: 'assistant', text: 'Here it is' }
 		]);
@@ -66,6 +66,22 @@ describe('itemsFromTranscript', () => {
 			type: 'assistant',
 			text: 'Here it is',
 			images: [{ id: 'img1', media_type: 'image/png', alt: 'shot' }]
+		});
+	});
+
+	it('merges assistant video refs into the assistant bubble', () => {
+		const items = itemsFromTranscript([
+			{ type: 'user', text: 'clip' },
+			{
+				type: 'assistant',
+				media: [{ id: 'vid1', media_type: 'video/mp4', alt: 'clip' }]
+			},
+			{ type: 'assistant', text: 'Here it is' }
+		]);
+		expect(items[1]).toMatchObject({
+			type: 'assistant',
+			text: 'Here it is',
+			images: [{ id: 'vid1', media_type: 'video/mp4', alt: 'clip' }]
 		});
 	});
 

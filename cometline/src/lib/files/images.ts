@@ -1,4 +1,4 @@
-import type { ImageAttachment } from '$lib/types';
+import type { ImageAttachment, MediaAttachment } from '$lib/types';
 
 export const MAX_IMAGE_ATTACHMENTS = 6;
 export const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
@@ -70,24 +70,47 @@ export async function readImageAttachments(
 }
 
 export function imageDataURL(
-	image: Pick<ImageAttachment, 'media_type' | 'data'> & { data_url?: string }
+	image: Pick<MediaAttachment, 'media_type' | 'data'> & { data_url?: string }
 ): string {
 	if (image.data_url) return image.data_url;
 	if (image.data) return `data:${image.media_type};base64,${image.data}`;
 	return '';
 }
 
-/** URL for assistant media-store images loaded by id (no inline base64). */
-export function sessionMediaURL(sessionId: string, imageId: string): string {
-	return `http://127.0.0.1:7700/api/v1/sessions/${encodeURIComponent(sessionId)}/media/${encodeURIComponent(imageId)}`;
+/** URL for assistant media-store files loaded by id (no inline base64). */
+export function sessionMediaURL(sessionId: string, mediaId: string): string {
+	return `http://127.0.0.1:7700/api/v1/sessions/${encodeURIComponent(sessionId)}/media/${encodeURIComponent(mediaId)}`;
+}
+
+export async function copyImageToClipboard(src: string, mediaType = 'image/png'): Promise<void> {
+	if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined') {
+		throw new Error('Clipboard copy is not available here. Use Download instead.');
+	}
+	if (mediaType.startsWith('video/')) {
+		throw new Error('Video cannot be copied to the clipboard. Use Download instead.');
+	}
+	const response = await fetch(src);
+	if (!response.ok) {
+		throw new Error('Could not copy this file.');
+	}
+	const source = await response.blob();
+	const type = mediaType || source.type || 'image/png';
+	const blob = type === source.type ? source : new Blob([await source.arrayBuffer()], { type });
+	await navigator.clipboard.write([new ClipboardItem({ [blob.type || 'image/png']: blob })]);
 }
 
 export function resolveImageSrc(
-	image: ImageAttachment & { data_url?: string },
+	image: MediaAttachment & { data_url?: string; media_type?: string },
 	sessionId?: string | null
 ): string {
 	const inline = imageDataURL(image);
 	if (inline) return inline;
 	if (image.id && sessionId) return sessionMediaURL(sessionId, image.id);
 	return '';
+}
+
+export function isVideoAttachment(
+	image: Pick<MediaAttachment, 'media_type'> | { media_type?: string }
+): image is MediaAttachment & { media_type: 'video/mp4' | 'video/webm' } {
+	return String(image.media_type ?? '').startsWith('video/');
 }
