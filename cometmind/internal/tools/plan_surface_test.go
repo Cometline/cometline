@@ -63,6 +63,7 @@ func TestNewRegistryPlanSurfaceIsReadOnlyAllowlist(t *testing.T) {
 		"recall_task_outcome", "list_memories", "create_memory", "update_memory", "delete_memory",
 		"leave_inbox_message",
 		"list_mcp_servers", "reconnect_mcp_server",
+		"generate_image", "generate_video",
 	}
 	for _, name := range excluded {
 		if r.Has(name) {
