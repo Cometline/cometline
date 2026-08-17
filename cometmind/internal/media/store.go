@@ -1,9 +1,11 @@
-// Package media stores assistant-presented image blobs under ~/.cometmind/media.
+// Package media stores assistant-presented image and video blobs under ~/.cometmind/media.
 package media
 
 import (
 	"encoding/base64"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,14 +14,29 @@ import (
 	"github.com/cometline/cometmind/internal/paths"
 )
 
-const maxImageBytes = 4 << 20 // 4 MiB, matches user ImageAttachment limit
+const (
+	// MaxPresentedImageBytes matches the user ImageAttachment limit.
+	MaxPresentedImageBytes = 4 << 20
+	// MaxGeneratedImageBytes is the on-disk cap for model-generated stills.
+	MaxGeneratedImageBytes = 20 << 20
+	// MaxVideoBytes is the on-disk cap for generated or imported video.
+	MaxVideoBytes = 80 << 20
+
+	KindImage = "image"
+	KindVideo = "video"
+)
+
+// ErrNotFound is returned when a media id has no file in the session directory.
+var ErrNotFound = errors.New("media not found")
 
 // Ref is a persisted media reference (message metadata; bytes live on disk).
 type Ref struct {
 	ID        string
+	Kind      string
 	MediaType string
 	Alt       string
 	Path      string // absolute filesystem path
+	ByteSize  int64
 }
 
 var mediaTypeExt = map[string]string{
@@ -27,6 +44,8 @@ var mediaTypeExt = map[string]string{
 	"image/jpeg": ".jpg",
 	"image/gif":  ".gif",
 	"image/webp": ".webp",
+	"video/mp4":  ".mp4",
+	"video/webm": ".webm",
 }
 
 var extMediaType = map[string]string{
@@ -35,9 +54,24 @@ var extMediaType = map[string]string{
 	".jpeg": "image/jpeg",
 	".gif":  "image/gif",
 	".webp": "image/webp",
+	".mp4":  "video/mp4",
+	".webm": "video/webm",
 }
 
-// DetectMediaType maps a file extension or sniff of common image magic bytes.
+// KindForMediaType maps a MIME type onto the session_media kind.
+func KindForMediaType(mediaType string) (string, error) {
+	mediaType = strings.ToLower(strings.TrimSpace(mediaType))
+	switch {
+	case strings.HasPrefix(mediaType, "image/"):
+		return KindImage, nil
+	case strings.HasPrefix(mediaType, "video/"):
+		return KindVideo, nil
+	default:
+		return "", fmt.Errorf("unsupported media type %q", mediaType)
+	}
+}
+
+// DetectMediaType maps a file extension or sniff of common media magic bytes.
 func DetectMediaType(path string, data []byte) (string, error) {
 	ext := strings.ToLower(filepath.Ext(path))
 	if mt, ok := extMediaType[ext]; ok {
@@ -53,13 +87,22 @@ func DetectMediaType(path string, data []byte) (string, error) {
 			return "image/gif", nil
 		case len(data) >= 12 && string(data[0:4]) == "RIFF" && string(data[8:12]) == "WEBP":
 			return "image/webp", nil
+		case len(data) >= 12 && string(data[4:8]) == "ftyp":
+			return "video/mp4", nil
+		case len(data) >= 4 && string(data[0:4]) == "\x1aE\xdf\xa3":
+			return "video/webm", nil
 		}
 	}
-	return "", fmt.Errorf("unsupported image type (use png, jpeg, gif, or webp)")
+	return "", fmt.Errorf("unsupported media type (use png, jpeg, gif, webp, mp4, or webm)")
 }
 
-// RegisterBytes writes image bytes into the session media directory.
+// RegisterBytes writes presented image bytes into the session media directory.
 func RegisterBytes(sessionID, mediaType, alt string, data []byte) (Ref, error) {
+	return RegisterBytesLimited(sessionID, mediaType, alt, data, MaxPresentedImageBytes)
+}
+
+// RegisterBytesLimited writes media bytes with an explicit size cap.
+func RegisterBytesLimited(sessionID, mediaType, alt string, data []byte, maxBytes int) (Ref, error) {
 	sessionID = strings.TrimSpace(sessionID)
 	if sessionID == "" {
 		return Ref{}, fmt.Errorf("session id is required")
@@ -69,31 +112,45 @@ func RegisterBytes(sessionID, mediaType, alt string, data []byte) (Ref, error) {
 	if !ok {
 		return Ref{}, fmt.Errorf("unsupported media type %q", mediaType)
 	}
-	if len(data) == 0 {
-		return Ref{}, fmt.Errorf("image is empty")
+	kind, err := KindForMediaType(mediaType)
+	if err != nil {
+		return Ref{}, err
 	}
-	if len(data) > maxImageBytes {
-		return Ref{}, fmt.Errorf("image is larger than %d MB", maxImageBytes/(1<<20))
+	if len(data) == 0 {
+		return Ref{}, fmt.Errorf("%s is empty", kind)
+	}
+	if maxBytes <= 0 {
+		maxBytes = MaxPresentedImageBytes
+	}
+	if len(data) > maxBytes {
+		return Ref{}, fmt.Errorf("%s is larger than %d MB", kind, maxBytes/(1<<20))
 	}
 	dir, err := paths.SessionMediaDir(sessionID)
 	if err != nil {
 		return Ref{}, err
 	}
-	imageID := strings.ToLower(id.New())
-	path := filepath.Join(dir, imageID+ext)
+	mediaID := strings.ToLower(id.New())
+	path := filepath.Join(dir, mediaID+ext)
 	if err := os.WriteFile(path, data, 0o600); err != nil {
 		return Ref{}, err
 	}
 	return Ref{
-		ID:        imageID,
+		ID:        mediaID,
+		Kind:      kind,
 		MediaType: mediaType,
 		Alt:       strings.TrimSpace(alt),
 		Path:      path,
+		ByteSize:  int64(len(data)),
 	}, nil
 }
 
-// RegisterFile reads a local image file and registers it for the session.
+// RegisterFile reads a local media file and registers it for the session.
 func RegisterFile(sessionID, absPath, alt string) (Ref, error) {
+	return RegisterFileLimited(sessionID, absPath, alt, MaxPresentedImageBytes)
+}
+
+// RegisterFileLimited reads a local media file with an explicit size cap.
+func RegisterFileLimited(sessionID, absPath, alt string, maxBytes int) (Ref, error) {
 	absPath = filepath.Clean(strings.TrimSpace(absPath))
 	if absPath == "" {
 		return Ref{}, fmt.Errorf("path is required")
@@ -106,81 +163,208 @@ func RegisterFile(sessionID, absPath, alt string) (Ref, error) {
 	if err != nil {
 		return Ref{}, err
 	}
-	return RegisterBytes(sessionID, mediaType, alt, data)
+	return RegisterBytesLimited(sessionID, mediaType, alt, data, maxBytes)
 }
 
-// Read loads a registered image by session and image id.
-func Read(sessionID, imageID string) (mediaType string, data []byte, err error) {
-	sessionID = strings.TrimSpace(sessionID)
-	imageID = strings.TrimSpace(imageID)
-	if sessionID == "" || imageID == "" {
-		return "", nil, fmt.Errorf("session id and image id are required")
+// CopyFile duplicates an existing file into a new session media id.
+func CopyFile(sessionID, absPath, mediaType, alt string) (Ref, error) {
+	absPath = filepath.Clean(strings.TrimSpace(absPath))
+	if absPath == "" {
+		return Ref{}, fmt.Errorf("path is required")
 	}
-	if strings.Contains(imageID, "/") || strings.Contains(imageID, "\\") || strings.Contains(imageID, "..") {
-		return "", nil, fmt.Errorf("invalid image id")
+	info, err := os.Stat(absPath)
+	if err != nil {
+		return Ref{}, err
+	}
+	if !info.Mode().IsRegular() {
+		return Ref{}, fmt.Errorf("media source is not a file")
+	}
+	if info.Size() > MaxVideoBytes {
+		return Ref{}, fmt.Errorf("media is larger than %d MB", MaxVideoBytes/(1<<20))
+	}
+	sessionID = strings.TrimSpace(sessionID)
+	if sessionID == "" {
+		return Ref{}, fmt.Errorf("session id is required")
+	}
+	mediaType = strings.ToLower(strings.TrimSpace(mediaType))
+	if mediaType == "" {
+		data, readErr := os.ReadFile(absPath)
+		if readErr != nil {
+			return Ref{}, readErr
+		}
+		detected, detectErr := DetectMediaType(absPath, data)
+		if detectErr != nil {
+			return Ref{}, detectErr
+		}
+		mediaType = detected
+	}
+	ext, ok := mediaTypeExt[mediaType]
+	if !ok {
+		return Ref{}, fmt.Errorf("unsupported media type %q", mediaType)
+	}
+	kind, err := KindForMediaType(mediaType)
+	if err != nil {
+		return Ref{}, err
 	}
 	dir, err := paths.SessionMediaDir(sessionID)
 	if err != nil {
-		return "", nil, err
+		return Ref{}, err
 	}
-	entries, err := os.ReadDir(dir)
+	src, err := os.Open(absPath)
 	if err != nil {
-		return "", nil, err
+		return Ref{}, err
 	}
-	prefix := imageID + "."
-	for _, e := range entries {
-		if e.IsDir() {
-			continue
-		}
-		name := e.Name()
-		if name != imageID && !strings.HasPrefix(name, prefix) {
-			continue
-		}
-		path := filepath.Join(dir, name)
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return "", nil, err
-		}
-		mt, err := DetectMediaType(path, data)
-		if err != nil {
-			return "", nil, err
-		}
-		return mt, data, nil
+	defer src.Close()
+
+	mediaID := strings.ToLower(id.New())
+	path := filepath.Join(dir, mediaID+ext)
+	dst, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	if err != nil {
+		return Ref{}, err
 	}
-	return "", nil, fmt.Errorf("image not found")
+	copied, copyErr := io.Copy(dst, src)
+	closeErr := dst.Close()
+	if copyErr != nil {
+		_ = os.Remove(path)
+		return Ref{}, copyErr
+	}
+	if closeErr != nil {
+		_ = os.Remove(path)
+		return Ref{}, closeErr
+	}
+	return Ref{
+		ID:        mediaID,
+		Kind:      kind,
+		MediaType: mediaType,
+		Alt:       strings.TrimSpace(alt),
+		Path:      path,
+		ByteSize:  copied,
+	}, nil
 }
 
-// AbsolutePath returns the on-disk path for a registered image, if present.
-func AbsolutePath(sessionID, imageID string) (string, error) {
-	sessionID = strings.TrimSpace(sessionID)
-	imageID = strings.TrimSpace(imageID)
-	if sessionID == "" || imageID == "" {
-		return "", fmt.Errorf("session id and image id are required")
-	}
-	dir, err := paths.SessionMediaDir(sessionID)
+// Read loads a registered media file by session and media id.
+func Read(sessionID, mediaID string) (mediaType string, data []byte, err error) {
+	file, mediaType, err := Open(sessionID, mediaID)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
-	entries, err := os.ReadDir(dir)
+	defer file.Close()
+	data, err = io.ReadAll(file)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
-	prefix := imageID + "."
-	for _, e := range entries {
-		if e.IsDir() {
-			continue
+	return mediaType, data, nil
+}
+
+// Open returns a readable file handle for a registered media id.
+// The caller must close the file.
+func Open(sessionID, mediaID string) (*os.File, string, error) {
+	path, mediaType, err := locate(sessionID, mediaID)
+	if err != nil {
+		return nil, "", err
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, "", err
+	}
+	if mediaType == "" {
+		head := make([]byte, 16)
+		n, readErr := file.Read(head)
+		if readErr != nil && !errors.Is(readErr, io.EOF) {
+			_ = file.Close()
+			return nil, "", readErr
 		}
-		name := e.Name()
-		if name == imageID || strings.HasPrefix(name, prefix) {
-			return filepath.Join(dir, name), nil
+		if detected, detectErr := DetectMediaType(path, head[:n]); detectErr == nil {
+			mediaType = detected
+		}
+		if _, seekErr := file.Seek(0, io.SeekStart); seekErr != nil {
+			_ = file.Close()
+			return nil, "", seekErr
 		}
 	}
-	return "", fmt.Errorf("image not found")
+	return file, mediaType, nil
+}
+
+// AbsolutePath returns the on-disk path for a registered media file, if present.
+func AbsolutePath(sessionID, mediaID string) (string, error) {
+	path, _, err := locate(sessionID, mediaID)
+	return path, err
+}
+
+// DeleteFile removes one registered media file. Missing files are not an error.
+func DeleteFile(sessionID, mediaID string) error {
+	path, _, err := locate(sessionID, mediaID)
+	if errors.Is(err, ErrNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	return nil
 }
 
 // DataURL builds a data: URL for an in-memory image payload.
 func DataURL(mediaType string, data []byte) string {
 	return "data:" + mediaType + ";base64," + base64.StdEncoding.EncodeToString(data)
+}
+
+// FileInfo is one on-disk media file for a session.
+type FileInfo struct {
+	ID        string
+	MediaType string
+	Path      string
+	ByteSize  int64
+}
+
+// ListSessionFiles lists registered media files for a session without creating
+// the directory when it does not exist.
+func ListSessionFiles(sessionID string) ([]FileInfo, error) {
+	sessionID = strings.TrimSpace(sessionID)
+	if sessionID == "" {
+		return nil, fmt.Errorf("session id is required")
+	}
+	root, err := paths.MediaDir()
+	if err != nil {
+		return nil, err
+	}
+	dir := filepath.Join(root, sessionID)
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	out := make([]FileInfo, 0, len(entries))
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		ext := strings.ToLower(filepath.Ext(name))
+		mediaType, ok := extMediaType[ext]
+		if !ok {
+			continue
+		}
+		id := strings.TrimSuffix(name, ext)
+		if id == "" || strings.Contains(id, ".") {
+			continue
+		}
+		info, err := entry.Info()
+		if err != nil {
+			continue
+		}
+		out = append(out, FileInfo{
+			ID:        id,
+			MediaType: mediaType,
+			Path:      filepath.Join(dir, name),
+			ByteSize:  info.Size(),
+		})
+	}
+	return out, nil
 }
 
 // DeleteSession removes all media files for a session.
@@ -194,4 +378,39 @@ func DeleteSession(sessionID string) error {
 		return err
 	}
 	return os.RemoveAll(filepath.Join(root, sessionID))
+}
+
+func locate(sessionID, mediaID string) (path string, mediaType string, err error) {
+	sessionID = strings.TrimSpace(sessionID)
+	mediaID = strings.TrimSpace(mediaID)
+	if sessionID == "" || mediaID == "" {
+		return "", "", fmt.Errorf("session id and media id are required")
+	}
+	if strings.Contains(mediaID, "/") || strings.Contains(mediaID, "\\") || strings.Contains(mediaID, "..") {
+		return "", "", fmt.Errorf("invalid media id")
+	}
+	dir, err := paths.SessionMediaDir(sessionID)
+	if err != nil {
+		return "", "", err
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return "", "", ErrNotFound
+		}
+		return "", "", err
+	}
+	prefix := mediaID + "."
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		if name != mediaID && !strings.HasPrefix(name, prefix) {
+			continue
+		}
+		path := filepath.Join(dir, name)
+		return path, extMediaType[strings.ToLower(filepath.Ext(name))], nil
+	}
+	return "", "", ErrNotFound
 }
