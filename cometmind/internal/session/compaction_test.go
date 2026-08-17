@@ -1,6 +1,7 @@
 package session
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/cometline/cometmind/internal/db"
@@ -45,5 +46,24 @@ func TestFilterMessagesAfterCompacted(t *testing.T) {
 	got := FilterMessagesAfterCompacted(rows, "m1")
 	if len(got) != 2 || got[0].ID != "m2" {
 		t.Fatalf("filtered = %+v", got)
+	}
+}
+
+func TestFormatTranscriptForSummaryMentionsImages(t *testing.T) {
+	t.Parallel()
+	raw, err := marshalMessageContent([]ContentBlock{
+		{Type: "text", Text: "align the icon"},
+		{Type: "image", MediaType: "image/png", Data: "aGVsbG8="},
+		{Type: "image", MediaType: "image/png", Data: "aGVsbG8="},
+	}, "", nil)
+	if err != nil {
+		t.Fatalf("marshalMessageContent() error = %v", err)
+	}
+	got := FormatTranscriptForSummary([]db.Message{{ID: "u1", Role: "user", Content: raw}})
+	if !strings.Contains(got, "align the icon") {
+		t.Fatalf("summary missing caption: %q", got)
+	}
+	if !strings.Contains(got, "[user attached 2 image(s)]") {
+		t.Fatalf("summary missing image note: %q", got)
 	}
 }
