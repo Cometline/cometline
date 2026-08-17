@@ -68,11 +68,12 @@ func EstimateRowsTokens(rows []db.Message, callsByMessage map[string][]db.ToolCa
 	for _, row := range rows {
 		switch row.Role {
 		case "user":
-			text, err := plainTextFromStoredContent(row.Content)
+			blocks, err := DecodeMessageContent(row.Content)
 			if err != nil {
-				text = row.Content
+				total += EstimateTokens(row.Content)
+				break
 			}
-			total += EstimateTokens(text)
+			total += EstimateContentBlocksTokens(blocks)
 		case "assistant":
 			total += EstimateTokens(row.Content)
 			for _, tc := range callsByMessage[row.ID] {

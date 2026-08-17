@@ -6,6 +6,7 @@ import (
 	"unicode/utf8"
 
 	cometsdk "github.com/cometline/comet-sdk"
+	"github.com/cometline/cometmind/internal/session"
 )
 
 const (
@@ -39,6 +40,12 @@ func EstimateMessageTokens(msg cometsdk.Message) int {
 			total += EstimateTokens(string(b.Input))
 		case cometsdk.ToolResultBlock:
 			total += EstimateTokens(b.Content)
+		case cometsdk.ImageBlock:
+			total += session.EstimateImageTokens(b.MediaType, b.Data)
+		case *cometsdk.ImageBlock:
+			if b != nil {
+				total += session.EstimateImageTokens(b.MediaType, b.Data)
+			}
 		default:
 			if raw, err := json.Marshal(block); err == nil {
 				total += EstimateTokens(string(raw))

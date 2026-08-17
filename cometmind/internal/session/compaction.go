@@ -68,11 +68,7 @@ func FormatTranscriptForSummary(rows []db.Message) string {
 	for _, row := range rows {
 		switch row.Role {
 		case "user":
-			text, err := plainTextFromStoredContent(row.Content)
-			if err != nil {
-				text = row.Content
-			}
-			fmt.Fprintf(&b, "User: %s\n", strings.TrimSpace(text))
+			fmt.Fprintf(&b, "User: %s\n", formatUserContentForSummary(row.Content))
 		case "assistant":
 			if strings.TrimSpace(row.Content) != "" {
 				fmt.Fprintf(&b, "Assistant: %s\n", strings.TrimSpace(row.Content))
@@ -91,6 +87,22 @@ func FormatTranscriptForSummary(rows []db.Message) string {
 		}
 	}
 	return strings.TrimSpace(b.String())
+}
+
+func formatUserContentForSummary(content string) string {
+	blocks, err := DecodeMessageContent(content)
+	if err != nil {
+		return strings.TrimSpace(content)
+	}
+	text := strings.TrimSpace(PlainTextFromContent(blocks))
+	if n := countImageBlocks(blocks); n > 0 {
+		note := fmt.Sprintf("[user attached %d image(s)]", n)
+		if text == "" {
+			return note
+		}
+		return text + " " + note
+	}
+	return text
 }
 
 func plainTextFromStoredContent(content string) (string, error) {
