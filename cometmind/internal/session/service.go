@@ -240,6 +240,10 @@ func (s *Service) ChangeSessionWorkspace(ctx context.Context, sessionID, absPath
 		WorkspaceID:        ws.ID,
 		CometmindSessionID: sessionID,
 	})
+	_ = s.q.UpdateSessionMediaWorkspace(ctx, db.UpdateSessionMediaWorkspaceParams{
+		WorkspaceID: ws.ID,
+		SessionID:   sessionID,
+	})
 
 	note := fmt.Sprintf(
 		"Workspace changed from %s to %s. File tools now operate under this directory.",
@@ -329,6 +333,9 @@ func (s *Service) ForkSession(ctx context.Context, sessionID, absPath string) (S
 				return Session{}, err
 			}
 		}
+	}
+	if err := s.copySessionMedia(ctx, src, forked.ID, ws.ID); err != nil {
+		return Session{}, err
 	}
 
 	oldPath, err := s.WorkspacePath(ctx, src.WorkspaceID)
@@ -510,6 +517,7 @@ func (s *Service) DeleteSession(ctx context.Context, sessionID string) error {
 			return err
 		}
 	}
+	_ = s.q.DeleteSessionMediaBySession(ctx, sessionID)
 	_ = media.DeleteSession(sessionID)
 	return s.q.DeleteSession(ctx, sessionID)
 }
@@ -549,6 +557,7 @@ func (s *Service) ClearSessionTranscript(ctx context.Context, sessionID string) 
 	if err := s.q.DeleteMessagesBySession(ctx, sessionID); err != nil {
 		return err
 	}
+	_ = s.q.DeleteSessionMediaBySession(ctx, sessionID)
 	_ = media.DeleteSession(sessionID)
 	return s.q.ResetSessionTranscriptState(ctx, db.ResetSessionTranscriptStateParams{
 		Title:      "",
@@ -946,35 +955,70 @@ func (s *Service) AppendAssistantStep(ctx context.Context, sessionID string, tex
 	return messageFromDB(assistant), toolIDs, nil
 }
 
-// AppendAssistantMedia persists an assistant turn that presents images to the user.
-// Image blocks must reference media-store IDs (Data should be empty).
+// MediaRecord is one cataloged session media item.
+type MediaRecord struct {
+	ID            string
+	SessionID     string
+	WorkspaceID   string
+	Kind          string
+	MediaType     string
+	Alt           string
+	Prompt        string
+	Model         string
+	ProviderID    string
+	Source        string
+	SourceMediaID string
+	Status        string
+	ByteSize      int64
+	DurationMs    *int64
+	CreatedAt     int64
+}
+
+// MediaMeta is optional catalog metadata recorded with an assistant media block.
+type MediaMeta struct {
+	Source        string
+	Prompt        string
+	Model         string
+	ProviderID    string
+	SourceMediaID string
+	ByteSize      int64
+	DurationMs    *int64
+}
+
+// AppendAssistantMedia persists an assistant turn that presents media to the user.
+// Image and video blocks must reference media-store IDs (Data should be empty).
 func (s *Service) AppendAssistantMedia(ctx context.Context, sessionID string, images []ContentBlock) (Message, error) {
-	if len(images) == 0 {
-		return Message{}, fmt.Errorf("at least one image is required")
+	return s.AppendAssistantMediaWithMeta(ctx, sessionID, images, MediaMeta{Source: "presented"})
+}
+
+// AppendAssistantMediaWithMeta persists assistant media and upserts catalog rows.
+func (s *Service) AppendAssistantMediaWithMeta(ctx context.Context, sessionID string, items []ContentBlock, meta MediaMeta) (Message, error) {
+	if len(items) == 0 {
+		return Message{}, fmt.Errorf("at least one media item is required")
 	}
-	blocks := make([]ContentBlock, 0, len(images))
-	for _, img := range images {
-		if img.Type == "" {
-			img.Type = "image"
+	sess, err := s.GetSession(ctx, sessionID)
+	if err != nil {
+		return Message{}, err
+	}
+	blocks := make([]ContentBlock, 0, len(items))
+	createdIDs := make([]string, 0, len(items))
+	for _, item := range items {
+		block, err := normalizeAssistantMediaBlock(item)
+		if err != nil {
+			return Message{}, err
 		}
-		if img.Type != "image" {
-			return Message{}, fmt.Errorf("unexpected content block type %q", img.Type)
+		created, err := s.ensureSessionMedia(ctx, sess, block, meta)
+		if err != nil {
+			return Message{}, err
 		}
-		if strings.TrimSpace(img.ID) == "" {
-			return Message{}, fmt.Errorf("image id is required")
+		if created {
+			createdIDs = append(createdIDs, block.ID)
 		}
-		if strings.TrimSpace(img.MediaType) == "" {
-			return Message{}, fmt.Errorf("image media_type is required")
-		}
-		blocks = append(blocks, ContentBlock{
-			Type:      "image",
-			ID:        strings.TrimSpace(img.ID),
-			MediaType: strings.TrimSpace(img.MediaType),
-			Alt:       strings.TrimSpace(img.Alt),
-		})
+		blocks = append(blocks, block)
 	}
 	content, err := marshalMessageContent(blocks, "", nil)
 	if err != nil {
+		s.rollbackCreatedSessionMedia(ctx, createdIDs)
 		return Message{}, err
 	}
 	assistant, err := s.createMessage(ctx, db.CreateMessageParams{
@@ -985,12 +1029,565 @@ func (s *Service) AppendAssistantMedia(ctx context.Context, sessionID string, im
 		TokenCount: 0,
 	})
 	if err != nil {
+		s.rollbackCreatedSessionMedia(ctx, createdIDs)
 		return Message{}, err
 	}
 	if err := s.q.TouchSession(ctx, sessionID); err != nil {
 		return Message{}, err
 	}
 	return messageFromDB(assistant), nil
+}
+
+func normalizeAssistantMediaBlock(item ContentBlock) (ContentBlock, error) {
+	kind := strings.TrimSpace(item.Type)
+	if kind == "" {
+		kind = media.KindImage
+	}
+	if kind != media.KindImage && kind != media.KindVideo {
+		return ContentBlock{}, fmt.Errorf("unexpected content block type %q", kind)
+	}
+	if strings.TrimSpace(item.ID) == "" {
+		return ContentBlock{}, fmt.Errorf("%s id is required", kind)
+	}
+	if strings.TrimSpace(item.MediaType) == "" {
+		return ContentBlock{}, fmt.Errorf("%s media_type is required", kind)
+	}
+	return ContentBlock{
+		Type:      kind,
+		ID:        strings.TrimSpace(item.ID),
+		MediaType: strings.TrimSpace(item.MediaType),
+		Alt:       strings.TrimSpace(item.Alt),
+	}, nil
+}
+
+// ReadySessionImage loads a ready still that belongs to sessionID.
+func (s *Service) ReadySessionImage(ctx context.Context, sessionID, mediaID string) (ReadyImage, error) {
+	row, err := s.q.GetReadySessionMedia(ctx, db.GetReadySessionMediaParams{
+		ID:        strings.TrimSpace(mediaID),
+		SessionID: strings.TrimSpace(sessionID),
+	})
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ReadyImage{}, fmt.Errorf("image %s is not available in this session", mediaID)
+		}
+		return ReadyImage{}, err
+	}
+	if row.Kind != media.KindImage {
+		return ReadyImage{}, fmt.Errorf("media %s is not an image", mediaID)
+	}
+	mediaType, data, err := media.Read(sessionID, row.ID)
+	if err != nil {
+		return ReadyImage{}, err
+	}
+	if mediaType == "" {
+		mediaType = row.MediaType
+	}
+	return ReadyImage{ID: row.ID, MediaType: mediaType, Data: data}, nil
+}
+
+// MediaListFilter selects ready gallery items.
+type MediaListFilter struct {
+	WorkspaceID string
+	SessionID   string
+	Kind        string
+}
+
+// ListMedia returns ready catalog items newest first.
+func (s *Service) ListMedia(ctx context.Context, filter MediaListFilter) ([]MediaRecord, error) {
+	kind := strings.TrimSpace(filter.Kind)
+	if kind != "" && kind != media.KindImage && kind != media.KindVideo {
+		return nil, fmt.Errorf("kind must be image or video")
+	}
+	if err := s.backfillLegacyMedia(ctx, filter); err != nil {
+		return nil, err
+	}
+	rows, err := s.q.ListSessionMedia(ctx, db.ListSessionMediaParams{
+		WorkspaceID: nullableText(filter.WorkspaceID),
+		SessionID:   nullableText(filter.SessionID),
+		Kind:        nullableText(kind),
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]MediaRecord, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, mediaRecordFromDB(row))
+	}
+	if strings.TrimSpace(filter.SessionID) == "" {
+		out = dedupeGalleryMedia(out)
+	}
+	return out, nil
+}
+
+func (s *Service) backfillLegacyMedia(ctx context.Context, filter MediaListFilter) error {
+	sessionIDs := make([]string, 0, 8)
+	if id := strings.TrimSpace(filter.SessionID); id != "" {
+		sessionIDs = append(sessionIDs, id)
+	} else if workspaceID := strings.TrimSpace(filter.WorkspaceID); workspaceID != "" {
+		rows, err := s.q.ListSessionsByWorkspace(ctx, workspaceID)
+		if err != nil {
+			return err
+		}
+		for _, row := range rows {
+			sessionIDs = append(sessionIDs, row.ID)
+		}
+	} else {
+		ids, err := s.q.ListAllSessionIDs(ctx)
+		if err != nil {
+			return err
+		}
+		sessionIDs = append(sessionIDs, ids...)
+	}
+	for _, sessionID := range sessionIDs {
+		if err := s.backfillSessionMedia(ctx, sessionID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Service) backfillSessionMedia(ctx context.Context, sessionID string) error {
+	files, err := media.ListSessionFiles(sessionID)
+	if err != nil {
+		return err
+	}
+	if len(files) == 0 {
+		return nil
+	}
+	known := map[string]struct{}{}
+	rows, err := s.q.ListSessionMediaBySession(ctx, sessionID)
+	if err != nil {
+		return err
+	}
+	for _, row := range rows {
+		known[row.ID] = struct{}{}
+	}
+	needsBackfill := false
+	for _, file := range files {
+		if _, ok := known[file.ID]; !ok {
+			needsBackfill = true
+			break
+		}
+	}
+	if !needsBackfill {
+		return nil
+	}
+
+	sess, err := s.GetSession(ctx, sessionID)
+	if err != nil {
+		return err
+	}
+	hints, err := s.generatedMediaHints(ctx, sessionID)
+	if err != nil {
+		return err
+	}
+	messages, err := s.q.ListMessagesBySession(ctx, sessionID)
+	if err != nil {
+		return err
+	}
+	for _, msg := range messages {
+		if !strings.HasPrefix(msg.Content, contentEnvelopePrefix) {
+			continue
+		}
+		blocks, decodeErr := DecodeMessageContent(msg.Content)
+		if decodeErr != nil {
+			continue
+		}
+		for _, block := range blocks {
+			if block.Type != media.KindImage && block.Type != media.KindVideo {
+				continue
+			}
+			id := strings.TrimSpace(block.ID)
+			if id == "" {
+				continue
+			}
+			if _, ok := known[id]; ok {
+				continue
+			}
+			if _, pathErr := media.AbsolutePath(sessionID, id); pathErr != nil {
+				continue
+			}
+			if _, err := s.ensureSessionMedia(ctx, sess, ContentBlock{
+				Type:      block.Type,
+				ID:        id,
+				MediaType: block.MediaType,
+				Alt:       block.Alt,
+			}, mediaMetaForLegacy(id, hints, 0)); err != nil {
+				return err
+			}
+			known[id] = struct{}{}
+		}
+	}
+
+	for _, file := range files {
+		if _, ok := known[file.ID]; ok {
+			continue
+		}
+		kind, kindErr := media.KindForMediaType(file.MediaType)
+		if kindErr != nil {
+			continue
+		}
+		if _, err := s.ensureSessionMedia(ctx, sess, ContentBlock{
+			Type:      kind,
+			ID:        file.ID,
+			MediaType: file.MediaType,
+		}, mediaMetaForLegacy(file.ID, hints, file.ByteSize)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Service) generatedMediaHints(ctx context.Context, sessionID string) (map[string]MediaMeta, error) {
+	calls, err := s.q.ListToolCallsBySession(ctx, sessionID)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]MediaMeta, len(calls))
+	for _, call := range calls {
+		if call.ToolName != "generate_image" && call.ToolName != "generate_video" {
+			continue
+		}
+		id := parseGeneratedMediaID(call.Result)
+		if id == "" {
+			continue
+		}
+		out[id] = MediaMeta{
+			Source: "generated",
+			Prompt: parseToolPrompt(call.Arguments),
+		}
+	}
+	return out, nil
+}
+
+func mediaMetaForLegacy(id string, hints map[string]MediaMeta, byteSize int64) MediaMeta {
+	meta := MediaMeta{Source: "presented", ByteSize: byteSize}
+	if hint, ok := hints[id]; ok {
+		meta.Source = hint.Source
+		meta.Prompt = hint.Prompt
+	}
+	return meta
+}
+
+func parseGeneratedMediaID(result string) string {
+	const marker = " id="
+	idx := strings.Index(result, marker)
+	if idx < 0 {
+		return ""
+	}
+	rest := strings.TrimSpace(result[idx+len(marker):])
+	id, _, _ := strings.Cut(rest, " ")
+	return strings.TrimSpace(id)
+}
+
+func parseToolPrompt(arguments string) string {
+	var in struct {
+		Prompt string `json:"prompt"`
+	}
+	if err := json.Unmarshal([]byte(arguments), &in); err != nil {
+		return ""
+	}
+	return strings.TrimSpace(in.Prompt)
+}
+
+func dedupeGalleryMedia(items []MediaRecord) []MediaRecord {
+	ids := make(map[string]struct{}, len(items))
+	for _, item := range items {
+		ids[item.ID] = struct{}{}
+	}
+	out := make([]MediaRecord, 0, len(items))
+	for _, item := range items {
+		if item.SourceMediaID != "" {
+			if _, ok := ids[item.SourceMediaID]; ok {
+				continue
+			}
+		}
+		out = append(out, item)
+	}
+	return out
+}
+
+// GetMedia returns one catalog row, including tombstones.
+func (s *Service) GetMedia(ctx context.Context, mediaID string) (MediaRecord, error) {
+	row, err := s.q.GetSessionMedia(ctx, strings.TrimSpace(mediaID))
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return MediaRecord{}, fmt.Errorf("media not found")
+		}
+		return MediaRecord{}, err
+	}
+	return mediaRecordFromDB(row), nil
+}
+
+// ImportMedia copies a ready item into destSessionID as a new file and catalog row.
+func (s *Service) ImportMedia(ctx context.Context, destSessionID, mediaID string) (MediaRecord, error) {
+	dest, err := s.GetSession(ctx, destSessionID)
+	if err != nil {
+		return MediaRecord{}, err
+	}
+	src, err := s.q.GetSessionMedia(ctx, strings.TrimSpace(mediaID))
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return MediaRecord{}, fmt.Errorf("media not found")
+		}
+		return MediaRecord{}, err
+	}
+	if src.Status != "ready" {
+		return MediaRecord{}, fmt.Errorf("media %s is not available", mediaID)
+	}
+	srcPath, err := media.AbsolutePath(src.SessionID, src.ID)
+	if err != nil {
+		return MediaRecord{}, err
+	}
+	copied, err := media.CopyFile(dest.ID, srcPath, src.MediaType, src.Alt)
+	if err != nil {
+		return MediaRecord{}, err
+	}
+	row, err := s.q.CreateSessionMedia(ctx, db.CreateSessionMediaParams{
+		ID:            copied.ID,
+		SessionID:     dest.ID,
+		WorkspaceID:   dest.WorkspaceID,
+		Kind:          src.Kind,
+		MediaType:     src.MediaType,
+		Alt:           src.Alt,
+		Prompt:        src.Prompt,
+		Model:         src.Model,
+		ProviderID:    src.ProviderID,
+		Source:        "imported",
+		SourceMediaID: src.ID,
+		Status:        "ready",
+		ByteSize:      copied.ByteSize,
+		DurationMs:    src.DurationMs,
+	})
+	if err != nil {
+		_ = media.DeleteFile(dest.ID, copied.ID)
+		return MediaRecord{}, err
+	}
+	record := mediaRecordFromDB(row)
+	if _, err := s.AppendAssistantMediaWithMeta(ctx, dest.ID, []ContentBlock{{
+		Type:      record.Kind,
+		ID:        record.ID,
+		MediaType: record.MediaType,
+		Alt:       record.Alt,
+	}}, MediaMeta{
+		Source:        "imported",
+		Prompt:        record.Prompt,
+		Model:         record.Model,
+		ProviderID:    record.ProviderID,
+		SourceMediaID: record.SourceMediaID,
+		ByteSize:      record.ByteSize,
+		DurationMs:    record.DurationMs,
+	}); err != nil {
+		_ = media.DeleteFile(dest.ID, copied.ID)
+		_ = s.deleteImportedCatalog(ctx, record.ID)
+		return MediaRecord{}, err
+	}
+	return record, nil
+}
+
+func (s *Service) deleteImportedCatalog(ctx context.Context, mediaID string) error {
+	_, err := s.q.MarkSessionMediaDeleted(ctx, mediaID)
+	return err
+}
+
+// DeleteMedia hard-deletes the file and leaves a tombstone catalog row.
+func (s *Service) DeleteMedia(ctx context.Context, mediaID string) (MediaRecord, error) {
+	row, err := s.q.GetSessionMedia(ctx, strings.TrimSpace(mediaID))
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return MediaRecord{}, fmt.Errorf("media not found")
+		}
+		return MediaRecord{}, err
+	}
+	if row.Status == "deleted" {
+		return mediaRecordFromDB(row), nil
+	}
+	if err := media.DeleteFile(row.SessionID, row.ID); err != nil {
+		return MediaRecord{}, err
+	}
+	updated, err := s.q.MarkSessionMediaDeleted(ctx, row.ID)
+	if err != nil {
+		return MediaRecord{}, err
+	}
+	return mediaRecordFromDB(updated), nil
+}
+
+func mediaRecordFromDB(row db.SessionMedia) MediaRecord {
+	var duration *int64
+	if row.DurationMs.Valid {
+		value := row.DurationMs.Int64
+		duration = &value
+	}
+	return MediaRecord{
+		ID:            row.ID,
+		SessionID:     row.SessionID,
+		WorkspaceID:   row.WorkspaceID,
+		Kind:          row.Kind,
+		MediaType:     row.MediaType,
+		Alt:           row.Alt,
+		Prompt:        row.Prompt,
+		Model:         row.Model,
+		ProviderID:    row.ProviderID,
+		Source:        row.Source,
+		SourceMediaID: row.SourceMediaID,
+		Status:        row.Status,
+		ByteSize:      row.ByteSize,
+		DurationMs:    duration,
+		CreatedAt:     row.CreatedAt,
+	}
+}
+
+func nullableText(value string) any {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return nil
+	}
+	return value
+}
+
+func (s *Service) rollbackCreatedSessionMedia(ctx context.Context, ids []string) {
+	for _, id := range ids {
+		_, _ = s.q.MarkSessionMediaDeleted(ctx, id)
+	}
+}
+
+func (s *Service) ensureSessionMedia(ctx context.Context, sess Session, block ContentBlock, meta MediaMeta) (bool, error) {
+	existing, err := s.q.GetSessionMedia(ctx, block.ID)
+	if err == nil {
+		if existing.SessionID != sess.ID {
+			return false, fmt.Errorf("media %s belongs to another session", block.ID)
+		}
+		return false, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return false, err
+	}
+	source := strings.TrimSpace(meta.Source)
+	if source == "" {
+		source = "presented"
+	}
+	var duration sql.NullInt64
+	if meta.DurationMs != nil {
+		duration = sql.NullInt64{Int64: *meta.DurationMs, Valid: true}
+	}
+	_, err = s.q.CreateSessionMedia(ctx, db.CreateSessionMediaParams{
+		ID:            block.ID,
+		SessionID:     sess.ID,
+		WorkspaceID:   sess.WorkspaceID,
+		Kind:          block.Type,
+		MediaType:     block.MediaType,
+		Alt:           block.Alt,
+		Prompt:        strings.TrimSpace(meta.Prompt),
+		Model:         strings.TrimSpace(meta.Model),
+		ProviderID:    strings.TrimSpace(meta.ProviderID),
+		Source:        source,
+		SourceMediaID: strings.TrimSpace(meta.SourceMediaID),
+		Status:        "ready",
+		ByteSize:      meta.ByteSize,
+		DurationMs:    duration,
+	})
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func (s *Service) copySessionMedia(ctx context.Context, src Session, destSessionID, destWorkspaceID string) error {
+	rows, err := s.q.ListSessionMediaBySession(ctx, src.ID)
+	if err != nil {
+		return err
+	}
+	idMap := make(map[string]string, len(rows))
+	for _, row := range rows {
+		srcPath, pathErr := media.AbsolutePath(src.ID, row.ID)
+		if pathErr != nil {
+			if errors.Is(pathErr, media.ErrNotFound) {
+				continue
+			}
+			return pathErr
+		}
+		copied, copyErr := media.CopyFile(destSessionID, srcPath, row.MediaType, row.Alt)
+		if copyErr != nil {
+			return copyErr
+		}
+		idMap[row.ID] = copied.ID
+		if _, err := s.q.CreateSessionMedia(ctx, db.CreateSessionMediaParams{
+			ID:            copied.ID,
+			SessionID:     destSessionID,
+			WorkspaceID:   destWorkspaceID,
+			Kind:          row.Kind,
+			MediaType:     row.MediaType,
+			Alt:           row.Alt,
+			Prompt:        row.Prompt,
+			Model:         row.Model,
+			ProviderID:    row.ProviderID,
+			Source:        row.Source,
+			SourceMediaID: row.ID,
+			Status:        "ready",
+			ByteSize:      copied.ByteSize,
+			DurationMs:    row.DurationMs,
+		}); err != nil {
+			return err
+		}
+	}
+	if len(idMap) == 0 {
+		return nil
+	}
+	msgs, err := s.q.ListMessagesBySession(ctx, destSessionID)
+	if err != nil {
+		return err
+	}
+	for _, msg := range msgs {
+		if !strings.HasPrefix(msg.Content, contentEnvelopePrefix) {
+			continue
+		}
+		rewritten, changed, rewriteErr := remapMessageMediaIDs(msg.Content, idMap)
+		if rewriteErr != nil {
+			return rewriteErr
+		}
+		if !changed {
+			continue
+		}
+		if err := s.q.UpdateMessageContent(ctx, db.UpdateMessageContentParams{
+			ID:      msg.ID,
+			Content: rewritten,
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func remapMessageMediaIDs(raw string, idMap map[string]string) (string, bool, error) {
+	blocks, err := DecodeMessageContent(raw)
+	if err != nil {
+		return "", false, err
+	}
+	changed := false
+	for i, block := range blocks {
+		if block.Type != media.KindImage && block.Type != media.KindVideo {
+			continue
+		}
+		if next, ok := idMap[block.ID]; ok {
+			blocks[i].ID = next
+			changed = true
+		}
+	}
+	if !changed {
+		return raw, false, nil
+	}
+	display := ""
+	if strings.HasPrefix(raw, contentEnvelopePrefix) {
+		var env contentEnvelope
+		if err := json.Unmarshal([]byte(strings.TrimPrefix(raw, contentEnvelopePrefix)), &env); err == nil {
+			display = env.DisplayText
+		}
+	}
+	out, err := marshalMessageContent(blocks, display, ContextsFromStoredContent(raw))
+	if err != nil {
+		return "", false, err
+	}
+	return out, true, nil
 }
 
 // SaveAssistantProviderState stores opaque provider continuation state outside

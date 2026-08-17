@@ -70,7 +70,10 @@ import {
 	listInboxMessages as listInboxMessagesApi,
 	getInboxSummary as getInboxSummaryApi,
 	replyInboxMessage as replyInboxMessageApi,
-	dismissInboxMessage as dismissInboxMessageApi
+	dismissInboxMessage as dismissInboxMessageApi,
+	listMedia as listMediaApi,
+	importMedia as importMediaApi,
+	deleteMedia as deleteMediaApi
 } from '$lib/generated/cometmind-api';
 import type {
 	CompactMemoryPreviewResponse,
@@ -111,7 +114,9 @@ import type {
 	UpdateScheduledJobRequest,
 	InboxMessageResource,
 	ListInboxMessagesResponse,
-	InboxSummaryResponse
+	InboxSummaryResponse,
+	MediaResource,
+	MediaListResponse
 } from '$lib/generated/cometmind-api';
 import { client } from '$lib/generated/cometmind-api/client.gen';
 import { createSSEParser } from '$lib/sse/parser';
@@ -144,7 +149,8 @@ export type {
 	UpdateScheduledJobRequest,
 	InboxMessageResource,
 	ListInboxMessagesResponse,
-	InboxSummaryResponse
+	InboxSummaryResponse,
+	MediaResource
 } from '$lib/generated/cometmind-api';
 
 export type MemoryLifecycleSettings = {
@@ -1095,4 +1101,24 @@ export function replyInboxMessage(id: string, content: string): Promise<InboxMes
 
 export function dismissInboxMessage(id: string): Promise<InboxMessageResource> {
 	return dismissInboxMessageApi({ path: { id }, throwOnError: true }).then(({ data }) => data);
+}
+
+export function listMedia(query: {
+	workspace_id?: string;
+	session_id?: string;
+	kind?: 'image' | 'video';
+} = {}): Promise<MediaListResponse> {
+	return listMediaApi({ query, throwOnError: true }).then(({ data }) => data);
+}
+
+export function importMedia(id: string, sessionId: string): Promise<MediaResource> {
+	return importMediaApi({
+		path: { id },
+		body: { session_id: sessionId },
+		throwOnError: true
+	}).then(({ data }) => data);
+}
+
+export function deleteMedia(id: string): Promise<MediaResource> {
+	return deleteMediaApi({ path: { id }, throwOnError: true }).then(({ data }) => data);
 }

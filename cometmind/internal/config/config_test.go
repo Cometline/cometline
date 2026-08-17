@@ -11,7 +11,9 @@ func TestLoadCreatesDefaultCometlineSettingsJSON(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("COMETMIND_PROVIDER", "")
+	t.Setenv("COMETMIND_MODEL", "")
 	t.Setenv("COMETMIND_BASE_URL", "")
+	t.Setenv("COMETMIND_MAX_TOKENS", "")
 
 	cfg, err := Load()
 	if err != nil {
@@ -85,6 +87,9 @@ func TestLoadReadsSystemPromptPathEnvironmentOverride(t *testing.T) {
 func TestLoadReadsCometlineSettingsJSON(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("COMETMIND_PROVIDER", "")
+	t.Setenv("COMETMIND_MODEL", "")
+	t.Setenv("COMETMIND_MAX_TOKENS", "")
 
 	configDir := filepath.Join(home, ".cometmind")
 	if err := os.MkdirAll(configDir, 0o700); err != nil {
@@ -415,6 +420,9 @@ func TestAdaptCometlineSettingsMemoryBehavior(t *testing.T) {
 func TestLoadBootsWithNoEnabledProviders(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("COMETMIND_PROVIDER", "")
+	t.Setenv("COMETMIND_MODEL", "")
+	t.Setenv("COMETMIND_MAX_TOKENS", "")
 
 	configDir := filepath.Join(home, ".cometmind")
 	if err := os.MkdirAll(configDir, 0o700); err != nil {

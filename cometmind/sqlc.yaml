@@ -10,3 +10,5 @@ sql:
         sql_package: "database/sql"
         emit_json_tags: true
         emit_empty_slices: true
+        rename:
+          session_medium: SessionMedia

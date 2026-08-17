@@ -204,3 +204,52 @@ func TestEnsureSchemaPreservesExistingSessionsForDisposableSessionCleanup(t *tes
 		t.Fatalf("is_disposable = %d, want 0", isDisposable)
 	}
 }
+
+func TestEnsureSchemaCreatesSessionMediaTable(t *testing.T) {
+	ctx := context.Background()
+	conn, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "migrate-v29.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = conn.Close() })
+	if _, err := conn.ExecContext(ctx, `CREATE TABLE workspaces (id TEXT PRIMARY KEY)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := conn.ExecContext(ctx, `CREATE TABLE sessions (id TEXT PRIMARY KEY)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := conn.ExecContext(ctx, "PRAGMA user_version = 28"); err != nil {
+		t.Fatal(err)
+	}
+	if err := EnsureSchema(ctx, conn); err != nil {
+		t.Fatal(err)
+	}
+	var version int
+	if err := conn.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil {
+		t.Fatal(err)
+	}
+	if version != schemaVersion {
+		t.Fatalf("user_version = %d, want %d", version, schemaVersion)
+	}
+	rows, err := conn.QueryContext(ctx, "PRAGMA table_info(session_media)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	columns := map[string]bool{}
+	for rows.Next() {
+		var cid int
+		var name, ctype string
+		var notnull, pk int
+		var dflt sql.NullString
+		if err := rows.Scan(&cid, &name, &ctype, &notnull, &dflt, &pk); err != nil {
+			t.Fatal(err)
+		}
+		columns[name] = true
+	}
+	for _, col := range []string{"id", "session_id", "workspace_id", "kind", "status", "source"} {
+		if !columns[col] {
+			t.Fatalf("session_media missing column %q after migration", col)
+		}
+	}
+}

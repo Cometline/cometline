@@ -18,3 +18,8 @@ LIMIT 1;
 -- name: DeleteMessagesBySession :exec
 DELETE FROM messages
 WHERE session_id = ?;
+
+-- name: UpdateMessageContent :exec
+UPDATE messages
+SET content = ?
+WHERE id = ?;

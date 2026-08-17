@@ -375,14 +375,23 @@ func (a *App) handleGetMessages(c *gin.Context) {
 
 func (a *App) handleGetSessionMedia(c *gin.Context) {
 	sessID := c.Param("id")
-	imageID := c.Param("imageId")
+	mediaID := c.Param("mediaId")
 	if _, _, ok := a.loadSessionWithWorkspace(c, sessID); !ok {
 		return
 	}
-	mediaType, data, err := media.Read(sessID, imageID)
+	file, mediaType, err := media.Open(sessID, mediaID)
 	if err != nil {
-		writeError(c, http.StatusNotFound, "not_found", "image not found")
+		writeError(c, http.StatusNotFound, "not_found", "media not found")
 		return
 	}
-	c.Data(http.StatusOK, mediaType, data)
+	defer file.Close()
+	info, err := file.Stat()
+	if err != nil {
+		writeError(c, http.StatusInternalServerError, "internal_error", err.Error())
+		return
+	}
+	if mediaType != "" {
+		c.Header("Content-Type", mediaType)
+	}
+	http.ServeContent(c.Writer, c.Request, info.Name(), info.ModTime(), file)
 }

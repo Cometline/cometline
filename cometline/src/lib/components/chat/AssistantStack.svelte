@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import { Check, Copy } from '@lucide/svelte';
 	import AssistantMarkdown from '$lib/components/AssistantMarkdown.svelte';
 	import AssistantThinkingWait from '$lib/components/chat/AssistantThinkingWait.svelte';
@@ -15,7 +16,7 @@
 	import { timelineEntryKey } from '$lib/conversation/thread-view-helpers';
 	import type { AssistantStackContext } from '$lib/conversation/assistant-stack-props';
 	import type { ChatItem } from '$lib/stores/chat.svelte';
-	import { resolveImageSrc } from '$lib/files/images';
+	import { copyImageToClipboard, isVideoAttachment, resolveImageSrc } from '$lib/files/images';
 	import ImageLightbox from '$lib/components/chat/ImageLightbox.svelte';
 	import SelectionAddToChat from '$lib/components/SelectionAddToChat.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
@@ -42,6 +43,8 @@
 
 	let lightbox = $state<{ src: string; alt: string } | null>(null);
 	let selectionPopup = $state<{ top: number; left: number; text: string } | null>(null);
+	let copiedImageKey = $state<string | null>(null);
+	let copyResetTimer: ReturnType<typeof setTimeout> | null = null;
 
 	setReactiveChatTurnContext(() => context);
 
@@ -108,6 +111,24 @@
 		};
 	}
 
+	async function copyImage(key: string, src: string, mediaType?: string) {
+		try {
+			await copyImageToClipboard(src, mediaType || 'image/png');
+			copiedImageKey = key;
+			if (copyResetTimer) clearTimeout(copyResetTimer);
+			copyResetTimer = setTimeout(() => {
+				copiedImageKey = null;
+				copyResetTimer = null;
+			}, 1600);
+		} catch {
+			copiedImageKey = null;
+		}
+	}
+
+	onDestroy(() => {
+		if (copyResetTimer) clearTimeout(copyResetTimer);
+	});
+
 	function addSelectionToChat() {
 		if (!selectionPopup) return;
 		const contextRef = buildAssistantResponseContext({
@@ -154,14 +175,66 @@
 				{#each item.images as image, imageIndex (`${item.id}-image-${image.id ?? imageIndex}`)}
 					{@const src = resolveImageSrc(image, context.sessionId)}
 					{@const alt = image.alt ?? image.name ?? 'Presented image'}
-					<button
-						type="button"
-						class="bubble assistant-bubble image-open"
-						aria-label={`View ${alt}`}
-						onclick={() => (lightbox = { src, alt })}
-					>
-						<img {src} {alt} />
-					</button>
+					{#if isVideoAttachment(image)}
+						<div class="assistant-video-wrap">
+							<video
+								class="assistant-video"
+								{src}
+								controls
+								playsinline
+								preload="metadata"
+								onerror={(event) => {
+									const host = event.currentTarget.parentElement;
+									if (host) host.dataset.missing = 'true';
+								}}
+							>
+								<track kind="captions" />
+							</video>
+							<p class="media-missing">This media was deleted.</p>
+						</div>
+					{:else}
+						<div class="image-card">
+							<button
+								type="button"
+								class="bubble assistant-bubble image-open"
+								aria-label={`View ${alt}`}
+								onclick={() => (lightbox = { src, alt })}
+							>
+								<img
+									{src}
+									{alt}
+									onerror={(event) => {
+										const host = event.currentTarget.closest('.assistant-images');
+										const card = event.currentTarget.closest('.image-card');
+										if (card instanceof HTMLElement) card.dataset.missing = 'true';
+										if (host instanceof HTMLElement) host.dataset.hasMissing = 'true';
+									}}
+								/>
+								<span class="media-missing">This media was deleted.</span>
+							</button>
+							<button
+								type="button"
+								class="image-copy"
+								class:copied={copiedImageKey === `${item.id}-${image.id ?? imageIndex}`}
+								title="Copy image"
+								aria-label={`Copy ${alt}`}
+								onclick={() =>
+									void copyImage(
+										`${item.id}-${image.id ?? imageIndex}`,
+										src,
+										image.media_type
+									)}
+							>
+								{#if copiedImageKey === `${item.id}-${image.id ?? imageIndex}`}
+									<Check size={13} />
+									<span>Copied</span>
+								{:else}
+									<Copy size={13} />
+									<span>Copy</span>
+								{/if}
+							</button>
+						</div>
+					{/if}
 				{/each}
 			</div>
 		</div>
@@ -334,9 +407,21 @@
 		overflow: visible;
 	}
 
+	.image-card {
+		position: relative;
+		flex: 0 0 min(280px, 78%);
+		width: 100%;
+		scroll-snap-align: start;
+	}
+
+	.single-image .image-card {
+		flex-basis: auto;
+		width: fit-content;
+		max-width: 100%;
+	}
+
 	.image-open {
 		display: block;
-		flex: 0 0 min(280px, 78%);
 		width: 100%;
 		margin: 0;
 		padding: 0;
@@ -344,14 +429,41 @@
 		cursor: zoom-in;
 		overflow: hidden;
 		aspect-ratio: 4 / 3;
-		scroll-snap-align: start;
 	}
 
 	.single-image .image-open {
-		flex-basis: auto;
 		width: fit-content;
 		max-width: 100%;
 		aspect-ratio: auto;
+	}
+
+	.image-copy {
+		position: absolute;
+		top: 8px;
+		right: 8px;
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		padding: 4px 8px;
+		border: 1px solid transparent;
+		border-radius: 7px;
+		background: rgba(255, 255, 255, 0.92);
+		color: var(--text-soft);
+		font-size: 11px;
+		font-weight: 600;
+		line-height: 1;
+		cursor: pointer;
+		opacity: 0;
+		transition: opacity var(--duration-fast) var(--ease-smooth);
+	}
+
+	.image-card:hover .image-copy,
+	.image-copy:focus-visible {
+		opacity: 1;
+	}
+
+	.image-copy.copied {
+		color: var(--status-success);
 	}
 
 	.image-open img {
@@ -369,6 +481,39 @@
 		max-width: min(420px, 100cqi);
 		max-height: 360px;
 		object-fit: contain;
+	}
+
+	.assistant-video {
+		display: block;
+		width: min(420px, 100%);
+		max-height: 360px;
+		border-radius: 12px;
+		background: #000;
+	}
+
+	.media-missing {
+		display: none;
+		margin: 0;
+		padding: 18px 14px;
+		border-radius: 12px;
+		background: color-mix(in srgb, var(--border-soft) 55%, transparent);
+		color: var(--text-muted);
+		font-size: 12px;
+	}
+
+	:global(.assistant-images [data-missing='true']) img,
+	:global(.assistant-images [data-missing='true']) video,
+	:global(.image-card[data-missing='true']) img {
+		display: none;
+	}
+
+	:global(.assistant-images [data-missing='true']) .media-missing,
+	:global(.image-card[data-missing='true']) .media-missing {
+		display: block;
+	}
+
+	:global(.image-card[data-missing='true']) .image-copy {
+		display: none;
 	}
 
 	.message-action {

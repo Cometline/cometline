@@ -1,5 +1,6 @@
 import type {
 	ImageAttachment,
+	MediaAttachment,
 	MemoryWire,
 	MessageContextRef,
 	TokenUsage
@@ -9,6 +10,7 @@ export type {
 	AgentMode,
 	CreateSessionRequest,
 	ImageAttachment,
+	MediaAttachment,
 	MemoryWire,
 	MessageContextRef,
 	PostMessageRequest,
@@ -124,6 +126,7 @@ export type ShortcutAction =
 	| 'navigateForward'
 	| 'openJobs'
 	| 'openSkillDrafts'
+	| 'openGallery'
 	| 'openInbox'
 	| 'cycleReasoningEffort'
 	| 'recentSession';
@@ -204,7 +207,7 @@ export type ChatItem =
 			id: string;
 			type: 'assistant';
 			text: string;
-			images?: ImageAttachment[];
+			images?: MediaAttachment[];
 			pending?: boolean;
 			pendingStartedAt?: number;
 			activityPhase?: string;

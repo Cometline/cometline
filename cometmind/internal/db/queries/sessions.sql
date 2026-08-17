@@ -120,6 +120,11 @@ FROM sessions
 WHERE workspace_id = ?
 ORDER BY pinned DESC, updated_at DESC;
 
+-- name: ListAllSessionIDs :many
+SELECT id
+FROM sessions
+ORDER BY created_at ASC;
+
 -- name: UpdateSessionSubagentKind :exec
 UPDATE sessions
 SET

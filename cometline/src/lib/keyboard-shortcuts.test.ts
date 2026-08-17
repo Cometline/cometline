@@ -204,11 +204,33 @@ describe('keyboard-shortcuts', () => {
 		expect(normalized.navigateForward).toEqual({ command: true, key: ']' });
 	});
 
-	it('includes jobs, skill drafts, and inbox panel shortcuts', () => {
+	it('includes jobs, skill drafts, gallery, and inbox panel shortcuts', () => {
 		const normalized = normalizeKeyboardShortcuts({});
 		expect(normalized.openJobs).toEqual({ command: true, key: '1' });
 		expect(normalized.openSkillDrafts).toEqual({ command: true, key: '2' });
-		expect(normalized.openInbox).toEqual({ command: true, key: '3' });
+		expect(normalized.openGallery).toEqual({ command: true, key: '3' });
+		expect(normalized.openInbox).toEqual({ command: true, key: '4' });
+	});
+
+	it('migrates the old inbox/gallery defaults without replacing custom bindings', () => {
+		expect(
+			normalizeKeyboardShortcuts({
+				openInbox: { command: true, key: '3' },
+				openGallery: { command: true, key: '4' }
+			})
+		).toMatchObject({
+			openGallery: { command: true, key: '3' },
+			openInbox: { command: true, key: '4' }
+		});
+		expect(
+			normalizeKeyboardShortcuts({
+				openInbox: { command: true, key: 'i' },
+				openGallery: { command: true, key: 'g' }
+			})
+		).toMatchObject({
+			openInbox: { command: true, key: 'i' },
+			openGallery: { command: true, key: 'g' }
+		});
 	});
 
 	it('includes return to recent chat default shortcut', () => {

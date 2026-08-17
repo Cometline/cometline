@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 
 	cometsdk "github.com/cometline/comet-sdk"
+	"github.com/cometline/cometmind/internal/generation"
 	"github.com/cometline/cometmind/internal/skills"
 )
 
@@ -138,6 +139,27 @@ func newRegistryWithSurface(workspaceRoot string, surface ToolSurface, opt Regis
 		add(listSettingsTool{})
 		add(getSettingsTool{})
 		add(patchSettingsTool{Runtime: opt.SettingsRuntime})
+	}
+	if surface.Generate {
+		add(GenerateImage{
+			Media: opt.AssistantMedia,
+			Resolver: func() generation.Binding {
+				if opt.GenerationResolver == nil {
+					return generation.Binding{}
+				}
+				return opt.GenerationResolver(generation.KindImage)
+			},
+		})
+		add(GenerateVideo{
+			Media:    opt.ReadyMedia,
+			Appender: opt.AssistantMedia,
+			Resolver: func() generation.Binding {
+				if opt.GenerationResolver == nil {
+					return generation.Binding{}
+				}
+				return opt.GenerationResolver(generation.KindVideo)
+			},
+		})
 	}
 	if surface.Inbox && opt.Inbox != nil {
 		RegisterInboxLeaveTool(r, InboxDeps{

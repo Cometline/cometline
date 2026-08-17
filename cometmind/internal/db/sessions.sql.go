@@ -266,6 +266,35 @@ func (q *Queries) GetSession(ctx context.Context, id string) (GetSessionRow, err
 	return i, err
 }
 
+const listAllSessionIDs = `-- name: ListAllSessionIDs :many
+SELECT id
+FROM sessions
+ORDER BY created_at ASC
+`
+
+func (q *Queries) ListAllSessionIDs(ctx context.Context) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listAllSessionIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listAllSessions = `-- name: ListAllSessions :many
 SELECT
     s.id, s.workspace_id, s.title, s.model_id, s.provider_id, s.status, s.origin, s.is_disposable, s.token_usage, s.parent_session_id, s.purpose, s.delegation_status, s.output_summary, s.acp_session_id, s.pending_question, s.subagent_kind, s.agent_mode, s.pinned, s.context_summary, s.compacted_until_message_id, s.context_summary_updated_at, s.created_at, s.updated_at,

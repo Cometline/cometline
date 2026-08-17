@@ -120,3 +120,19 @@ func (q *Queries) ListMessagesBySession(ctx context.Context, sessionID string) (
 	}
 	return items, nil
 }
+
+const updateMessageContent = `-- name: UpdateMessageContent :exec
+UPDATE messages
+SET content = ?
+WHERE id = ?
+`
+
+type UpdateMessageContentParams struct {
+	Content string `json:"content"`
+	ID      string `json:"id"`
+}
+
+func (q *Queries) UpdateMessageContent(ctx context.Context, arg UpdateMessageContentParams) error {
+	_, err := q.db.ExecContext(ctx, updateMessageContent, arg.Content, arg.ID)
+	return err
+}

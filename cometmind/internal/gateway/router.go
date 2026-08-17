@@ -163,6 +163,15 @@ func (r *Router) HandleInbound(ctx context.Context, msg InboundMessage) error {
 				MediaType: ev.MediaType,
 				Alt:       ev.Alt,
 			})
+		case event.KindAssistantVideo:
+			note := "Generated a video. Open this session or Gallery in Cometline to watch it."
+			if strings.TrimSpace(ev.Alt) != "" {
+				note = "Generated a video (" + strings.TrimSpace(ev.Alt) + "). Open this session or Gallery in Cometline to watch it."
+			}
+			if reply.Len() > 0 {
+				reply.WriteByte('\n')
+			}
+			reply.WriteString(note)
 		case event.KindToolResult:
 			if ev.Tool == "propose_job" && ev.ToolErr == "" {
 				if payload, ok := ParseJobProposalOutput(ev.Output); ok {

@@ -185,7 +185,7 @@
 					<span class="title-mark" aria-hidden="true">
 						<Bell size={16} stroke-width={1.8} />
 					</span>
-					<div>
+					<div class="title-copy">
 						<h2>Inbox</h2>
 						{#if messages.length > 0}
 							<p>
@@ -354,7 +354,7 @@
 
 	.inbox-header {
 		display: flex;
-		align-items: flex-start;
+		align-items: center;
 		justify-content: space-between;
 		gap: 12px;
 		padding: 16px 18px 14px;
@@ -364,8 +364,16 @@
 
 	.inbox-title {
 		display: flex;
-		align-items: flex-start;
+		align-items: center;
 		gap: 10px;
+		min-width: 0;
+	}
+
+	.title-copy {
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		min-height: 32px;
 		min-width: 0;
 	}
 

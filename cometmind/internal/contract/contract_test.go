@@ -54,6 +54,7 @@ func TestStreamEventMarshalJSONMatchesOpenAPI(t *testing.T) {
 		{name: "turn_status", ev: event.TurnStatus(event.PhaseCompactingContext, "")},
 		{name: "turn_recover", ev: event.TurnRecover(12, 7)},
 		{name: "assistant_image", ev: event.AssistantImage("img_01", "image/png", "screenshot", "data:image/png;base64,aaaa")},
+		{name: "assistant_video", ev: event.AssistantVideo("vid_01", "video/mp4", "clip")},
 		{name: "error", ev: event.Errorf("boom", "llm")},
 		{name: "done", ev: event.Done()},
 	}

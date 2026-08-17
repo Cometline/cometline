@@ -5,6 +5,7 @@ import (
 
 	"github.com/cometline/cometmind/internal/acp"
 	"github.com/cometline/cometmind/internal/event"
+	"github.com/cometline/cometmind/internal/generation"
 	"github.com/cometline/cometmind/internal/inbox"
 	"github.com/cometline/cometmind/internal/jobs"
 	mcppkg "github.com/cometline/cometmind/internal/mcp"
@@ -54,13 +55,15 @@ type RegistryOptions struct {
 	// AgentMode selects the tool surface for parent-agent registries.
 	// Empty or auto keeps the full ParentSurface; plan applies the read-only
 	// PlanSurface with research-only subagent spawning.
-	AgentMode             session.AgentMode
-	BrowserSearchURL      string
-	BrowserSearchToken    string
-	ScreenCaptureURL      string
-	ScreenCaptureToken    string
-	SettingsRuntime       SettingsRuntime
-	AssistantMedia        session.AssistantMediaAppender
+	AgentMode          session.AgentMode
+	BrowserSearchURL   string
+	BrowserSearchToken string
+	ScreenCaptureURL   string
+	ScreenCaptureToken string
+	SettingsRuntime    SettingsRuntime
+	AssistantMedia     session.AssistantMediaAppender
+	ReadyMedia         session.ReadyMediaReader
+	GenerationResolver func(kind string) generation.Binding
 }
 
 // SubagentToolConfig holds limits passed into subagent tools.

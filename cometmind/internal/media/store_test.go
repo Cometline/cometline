@@ -1,6 +1,8 @@
 package media_test
 
 import (
+	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -43,10 +45,54 @@ func TestRegisterReadDelete(t *testing.T) {
 		t.Fatalf("media type = %q", ref2.MediaType)
 	}
 
+	file, mt, err := media.Open("sess1", ref.ID)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	opened, err := io.ReadAll(file)
+	_ = file.Close()
+	if err != nil || mt != "image/png" || string(opened) != string(png) {
+		t.Fatalf("Open got mt=%q len=%d err=%v", mt, len(opened), err)
+	}
+
 	if err := media.DeleteSession("sess1"); err != nil {
 		t.Fatalf("DeleteSession: %v", err)
 	}
 	if _, _, err := media.Read("sess1", ref.ID); err == nil {
 		t.Fatal("expected missing after delete")
+	}
+}
+
+func TestRegisterVideoAndCopyFile(t *testing.T) {
+	t.Setenv("COMETMIND_DATA_DIR", t.TempDir())
+
+	mp4 := []byte("ftypisom" + "xxxxxxxx")
+	copy(mp4, []byte{0x00, 0x00, 0x00, 0x18, 'f', 't', 'y', 'p'})
+	ref, err := media.RegisterBytesLimited("sess-video", "video/mp4", "clip", mp4, media.MaxVideoBytes)
+	if err != nil {
+		t.Fatalf("RegisterBytesLimited: %v", err)
+	}
+	if ref.Kind != media.KindVideo {
+		t.Fatalf("kind = %q", ref.Kind)
+	}
+	copied, err := media.CopyFile("sess-copy", ref.Path, ref.MediaType, ref.Alt)
+	if err != nil {
+		t.Fatalf("CopyFile: %v", err)
+	}
+	if copied.ID == ref.ID {
+		t.Fatal("copied media reused the same id")
+	}
+	mt, data, err := media.Read("sess-copy", copied.ID)
+	if err != nil {
+		t.Fatalf("Read copied: %v", err)
+	}
+	if mt != "video/mp4" || string(data) != string(mp4) {
+		t.Fatalf("copied media mt=%q len=%d", mt, len(data))
+	}
+	if err := media.DeleteFile("sess-video", ref.ID); err != nil {
+		t.Fatalf("DeleteFile: %v", err)
+	}
+	if _, _, err := media.Read("sess-video", ref.ID); !errors.Is(err, media.ErrNotFound) {
+		t.Fatalf("Read after delete = %v", err)
 	}
 }

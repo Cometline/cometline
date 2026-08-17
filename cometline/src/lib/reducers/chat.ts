@@ -1,4 +1,4 @@
-import type { ChatItem, ImageAttachment, StreamEvent, SubagentProgressEntry } from '$lib/types';
+import type { ChatItem, MediaAttachment, StreamEvent, SubagentProgressEntry } from '$lib/types';
 import type { ContextBudgetSnapshot } from '$lib/context-window';
 import { isSubagentStepLimit } from '../conversation/subagent-display';
 import { turnStatusLabel } from '../conversation/turn-status';
@@ -391,16 +391,16 @@ function applyEvent(
 		return;
 	}
 
-	if (event.type === 'assistant_image') {
+	if (event.type === 'assistant_image' || event.type === 'assistant_video') {
 		const host = ensureAssistantForText();
 		const nextImages = [...(host.images ?? [])];
 		if (!nextImages.some((img) => img.id === event.id)) {
-			const attachment: ImageAttachment = {
+			const attachment: MediaAttachment = {
 				id: event.id,
 				media_type: event.media_type,
 				alt: event.alt
 			};
-			if (event.data_url) {
+			if ('data_url' in event && event.data_url) {
 				const comma = event.data_url.indexOf(',');
 				attachment.data =
 					comma >= 0 ? event.data_url.slice(comma + 1) : event.data_url;

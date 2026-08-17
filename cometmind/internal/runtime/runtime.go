@@ -22,6 +22,7 @@ import (
 	"github.com/cometline/cometmind/internal/config"
 	"github.com/cometline/cometmind/internal/db"
 	"github.com/cometline/cometmind/internal/event"
+	"github.com/cometline/cometmind/internal/generation"
 	"github.com/cometline/cometmind/internal/inbox"
 	"github.com/cometline/cometmind/internal/inboxworker"
 	"github.com/cometline/cometmind/internal/jobs"
@@ -794,8 +795,15 @@ func (r *Runtime) subagentOrchestratorForRunner(isSubagent bool) *subagent.Orche
 func (r *Runtime) toolRegistryWithJobMeta(workspacePath string, skillRegistry skills.Registry, sessionID, platform, sourceChannelID string, mode session.AgentMode) *tools.Registry {
 	sub := r.Config.EffectiveSubagentSettings()
 	return tools.NewRegistry(workspacePath, tools.RegistryOptions{
-		Sessions:           r.Sessions,
-		AssistantMedia:     r.Sessions,
+		Sessions:       r.Sessions,
+		AssistantMedia: r.Sessions,
+		ReadyMedia:     r.Sessions,
+		GenerationResolver: func(kind string) generation.Binding {
+			if r.Config == nil {
+				return generation.Binding{}
+			}
+			return r.Config.GenerationBinding(kind)
+		},
 		ACP:                r.Config.ACPSettings(),
 		ACPMgr:             r.ACPManager(),
 		Skills:             &skillRegistry,

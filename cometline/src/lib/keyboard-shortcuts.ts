@@ -22,6 +22,7 @@ export type ShortcutAction =
 	| 'navigateForward'
 	| 'openJobs'
 	| 'openSkillDrafts'
+	| 'openGallery'
 	| 'openInbox'
 	| 'cycleReasoningEffort'
 	| 'recentSession';
@@ -215,10 +216,16 @@ export const SHORTCUT_DEFINITIONS: KeyboardShortcutDefinition[] = [
 		defaultBinding: { command: true, key: '2' }
 	},
 	{
+		id: 'openGallery',
+		label: 'Open gallery',
+		category: 'panels',
+		defaultBinding: { command: true, key: '3' }
+	},
+	{
 		id: 'openInbox',
 		label: 'Open inbox',
 		category: 'panels',
-		defaultBinding: { command: true, key: '3' }
+		defaultBinding: { command: true, key: '4' }
 	},
 	{
 		id: 'openSettings',
@@ -368,6 +375,36 @@ function normalizeFocusSearchBinding(
 	return isOldDefault ? { ...defaultBinding } : binding;
 }
 
+function isCommandDigitBinding(binding: ShortcutBinding, digit: string): boolean {
+	return (
+		keyMatches(binding.key, digit) &&
+		binding.command === true &&
+		binding.ctrl !== true &&
+		binding.meta !== true &&
+		binding.alt !== true &&
+		binding.shift !== true
+	);
+}
+
+function normalizeInboxGalleryBinding(
+	action: ShortcutAction,
+	binding: ShortcutBinding | undefined,
+	defaultBinding: ShortcutBinding
+): ShortcutBinding {
+	if (action !== 'openInbox' && action !== 'openGallery') {
+		return binding ?? defaultBinding;
+	}
+	if (!binding) return { ...defaultBinding };
+	// Previous defaults: inbox ⌘3, gallery ⌘4.
+	if (action === 'openInbox' && isCommandDigitBinding(binding, '3')) {
+		return { ...defaultBinding };
+	}
+	if (action === 'openGallery' && isCommandDigitBinding(binding, '4')) {
+		return { ...defaultBinding };
+	}
+	return binding;
+}
+
 function isBareEnterBinding(binding: ShortcutBinding): boolean {
 	return (
 		keyMatches(binding.key, 'Enter') &&
@@ -434,6 +471,10 @@ export function normalizeKeyboardShortcuts(
 			}
 			if (def.id === 'focusSearch') {
 				next[def.id] = normalizeFocusSearchBinding(normalized, def.defaultBinding);
+				continue;
+			}
+			if (def.id === 'openInbox' || def.id === 'openGallery') {
+				next[def.id] = normalizeInboxGalleryBinding(def.id, normalized, def.defaultBinding);
 				continue;
 			}
 			const sessionNav = normalizeSessionNavBinding(def.id, normalized, def.defaultBinding);

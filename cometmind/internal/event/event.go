@@ -30,6 +30,7 @@ const (
 	KindTurnStatus                Kind = "turn_status"
 	KindTurnRecover               Kind = "turn_recover"
 	KindAssistantImage            Kind = "assistant_image"
+	KindAssistantVideo            Kind = "assistant_video"
 	KindError                     Kind = "error"
 	KindDone                      Kind = "done"
 )
@@ -266,7 +267,7 @@ func (e Event) MarshalJSON() ([]byte, error) {
 			TextChars      int    `json:"text_chars"`
 			ReasoningChars int    `json:"reasoning_chars"`
 		}{t, e.TextChars, e.ReasoningChars})
-	case KindAssistantImage:
+	case KindAssistantImage, KindAssistantVideo:
 		return json.Marshal(struct {
 			Type      string `json:"type"`
 			ID        string `json:"id"`
@@ -413,6 +414,16 @@ func AssistantImage(id, mediaType, alt, dataURL string) Event {
 		MediaType: mediaType,
 		Alt:       alt,
 		DataURL:   dataURL,
+	}
+}
+
+// AssistantVideo builds an assistant_video event. Bytes are fetched from the media API.
+func AssistantVideo(id, mediaType, alt string) Event {
+	return Event{
+		Kind:      KindAssistantVideo,
+		ImageID:   id,
+		MediaType: mediaType,
+		Alt:       alt,
 	}
 }
 

@@ -200,6 +200,16 @@ export interface CometMindSchedulerSettings {
 	pollIntervalSeconds: number;
 }
 
+export interface CometMindGenerationModelSettings {
+	providerId: string;
+	model: string;
+}
+
+export interface CometMindGenerationSettings {
+	image: CometMindGenerationModelSettings;
+	video: CometMindGenerationModelSettings;
+}
+
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 const LOG_LEVELS: LogLevel[] = ['debug', 'info', 'warn', 'error'];
@@ -232,6 +242,7 @@ export interface CometMindSettings {
 	jobs: CometMindJobsSettings;
 	autonomy: CometMindAutonomousJobsSettings;
 	scheduler: CometMindSchedulerSettings;
+	generation: CometMindGenerationSettings;
 }
 
 export interface RuntimeProviderEntry {
@@ -609,7 +620,11 @@ export function defaultCometMindSettings(workspacePath = ''): CometMindSettings 
 		mcp: defaultCometMindMCPSettings(),
 		jobs: defaultCometMindJobsSettings(),
 		autonomy: defaultCometMindAutonomousJobsSettings(),
-		scheduler: defaultCometMindSchedulerSettings()
+		scheduler: defaultCometMindSchedulerSettings(),
+		generation: {
+			image: { providerId: 'xai', model: 'grok-imagine-image-2.0' },
+			video: { providerId: 'xai', model: 'grok-imagine-video-1.5' }
+		}
 	};
 }
 
@@ -646,6 +661,7 @@ export function normalizeCometMindSettings(
 	const autonomyInput: Partial<CometMindAutonomousJobsSettings> = input?.autonomy ?? {};
 	const autonomyDefaults = defaults.autonomy;
 	const schedulerInput: Partial<CometMindSchedulerSettings> = input?.scheduler ?? {};
+	const generationInput: Partial<CometMindGenerationSettings> = input?.generation ?? {};
 	const normalizeHarness = (value: unknown): CodingHarness => {
 		const raw = String(value ?? '').trim();
 		return raw === 'claude' || raw === 'codex' || raw === 'opencode'
@@ -901,6 +917,22 @@ export function normalizeCometMindSettings(
 				schedulerInput.pollIntervalSeconds,
 				defaults.scheduler.pollIntervalSeconds
 			)
+		},
+		generation: {
+			image: {
+				providerId: String(
+					generationInput.image?.providerId ?? defaults.generation.image.providerId
+				).trim() || defaults.generation.image.providerId,
+				model: String(generationInput.image?.model ?? defaults.generation.image.model).trim() ||
+					defaults.generation.image.model
+			},
+			video: {
+				providerId: String(
+					generationInput.video?.providerId ?? defaults.generation.video.providerId
+				).trim() || defaults.generation.video.providerId,
+				model: String(generationInput.video?.model ?? defaults.generation.video.model).trim() ||
+					defaults.generation.video.model
+			}
 		}
 	};
 }
@@ -959,7 +991,11 @@ export function cloneCometMindSettings(settings: CometMindSettings): CometMindSe
 			notifications: { ...settings.jobs.notifications }
 		},
 		autonomy: { ...settings.autonomy },
-		scheduler: { ...settings.scheduler }
+		scheduler: { ...settings.scheduler },
+		generation: {
+			image: { ...settings.generation.image },
+			video: { ...settings.generation.video }
+		}
 	};
 }
 
@@ -1612,6 +1648,16 @@ const providerSettingsSchema = z.object({
 		scheduler: z.object({
 			enabled: z.boolean(),
 			pollIntervalSeconds: z.number().int().positive()
+		}),
+		generation: z.object({
+			image: z.object({
+				providerId: z.string(),
+				model: z.string()
+			}),
+			video: z.object({
+				providerId: z.string(),
+				model: z.string()
+			})
 		})
 	})
 });

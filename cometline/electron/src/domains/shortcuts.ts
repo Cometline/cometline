@@ -307,6 +307,7 @@ export function createShortcutCoordinator(dependencies: ShortcutCoordinatorDepen
 			'focusSearch',
 			'openJobs',
 			'openSkillDrafts',
+			'openGallery',
 			'openInbox',
 			'recentSession'
 		];

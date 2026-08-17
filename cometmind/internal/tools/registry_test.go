@@ -57,13 +57,14 @@ func TestNewRegistryCapturesWorkspaceAndExposesSpecs(t *testing.T) {
 	}
 
 	specs := r.CometSDK()
-	if len(specs) != 16 {
-		t.Fatalf("CometSDK() returned %d specs, want 16", len(specs))
+	if len(specs) != 18 {
+		t.Fatalf("CometSDK() returned %d specs, want 18", len(specs))
 	}
 	wantNames := []string{
 		"read_file", "edit_file", "write_file", "list_dir", "glob", "grep", "run_command",
 		"web_fetch", "web_search", "present_image", "present_image_url", "capture_screenshot", "list_capture_targets",
 		"list_settings", "get_settings", "patch_settings",
+		"generate_image", "generate_video",
 	}
 	for i, name := range wantNames {
 		if specs[i].Name != name {

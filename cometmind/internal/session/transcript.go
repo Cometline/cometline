@@ -27,7 +27,7 @@ type TranscriptEntry struct {
 	Kind TranscriptKind
 
 	Text     string              // user / assistant / reasoning body
-	Images   []ContentBlock      // image attachments (user inline data or assistant media refs)
+	Images   []ContentBlock      // image or video attachments (user inline data or assistant media refs)
 	Contexts []MessageContextRef // user-turn UI context chips (no bodies)
 
 	ToolName    string
@@ -82,7 +82,7 @@ func (s *Service) LoadTranscript(ctx context.Context, sessionID string) ([]Trans
 			}
 			var images []ContentBlock
 			for _, block := range blocks {
-				if block.Type == "image" {
+				if block.Type == "image" || block.Type == "video" {
 					images = append(images, block)
 				}
 			}
@@ -129,7 +129,7 @@ func (s *Service) LoadTranscript(ctx context.Context, sessionID string) ([]Trans
 				if blocks, err := DecodeMessageContent(m.Content); err == nil && strings.HasPrefix(m.Content, contentEnvelopePrefix) {
 					var images []ContentBlock
 					for _, block := range blocks {
-						if block.Type == "image" {
+						if block.Type == "image" || block.Type == "video" {
 							images = append(images, block)
 						}
 					}
