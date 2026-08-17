@@ -1,9 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { slide } from 'svelte/transition';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { PanelLeftOpen, PanelRightOpen } from '@lucide/svelte';
+	import { PanelLeftClose, PanelLeftOpen, PanelRightOpen } from '@lucide/svelte';
 	import Sidebar from './Sidebar.svelte';
 	import RuntimeOverlay from './RuntimeOverlay.svelte';
 	import SettingsModal from './SettingsModal.svelte';
@@ -703,21 +702,16 @@
 		shellStore.setFocusedPane('chat');
 	}
 
-	function titlebarSlideParams() {
-		return {
-			// Utility pages hide the session titlebar on navigation. Remove it
-			// immediately instead of animating while the page layout changes.
-			duration: isUtilityPage ? 0 : sidebarTransitionDuration(),
-			axis: 'y' as const
-		};
-	}
-
 	const isUtilityPage = $derived(
 		page.url.pathname === '/jobs' || page.url.pathname === '/skill-drafts'
 	);
-	const showShellTitlebar = $derived(
-		!shellStore.sidebarOpen && !shellStore.fullscreen && !isUtilityPage
-	);
+	const showShellTitlebar = $derived(!shellStore.fullscreen);
+	const titlebarLabel = $derived.by(() => {
+		if (page.url.pathname === '/jobs') return 'Jobs';
+		if (page.url.pathname === '/skill-drafts') return 'Skill Drafts';
+		return titlebarSessionTitle;
+	});
+	const titlebarRenamable = $derived(Boolean(titlebarSessionTitle && !isUtilityPage));
 
 	// --- Web/file panel resize ---------------------------------------------
 	/** User's preferred share of the content row; survives temporary clamps. */
@@ -881,53 +875,58 @@
 			onmousedown={handleMainMouseDown}
 		>
 			{#if showShellTitlebar}
-				<header
-					class="shell-titlebar"
-					aria-label="Window title bar"
-					transition:slide={titlebarSlideParams()}
-				>
-					{#if titlebarSessionTitle}
-						<button
-							type="button"
-							class="shell-titlebar-title"
-							title={titlebarSessionTitleAttr}
-							aria-label={`Rename session: ${titlebarSessionTitle}`}
-							ondblclick={startRenameFromTitlebar}
+				<header class="shell-titlebar" aria-label="Window title bar">
+					<div class="shell-titlebar-start">
+						<Tooltip
+							label={shellStore.sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
+							action="toggleSidebar"
 						>
-							{titlebarSessionTitle}
-						</button>
+							<button
+								type="button"
+								class="shell-titlebar-btn"
+								aria-label={shellStore.sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
+								aria-pressed={shellStore.sidebarOpen}
+								onclick={() => shellStore.toggleSidebar()}
+							>
+								{#if shellStore.sidebarOpen}
+									<PanelLeftClose size={16} stroke-width={1.8} />
+								{:else}
+									<PanelLeftOpen size={16} stroke-width={1.8} />
+								{/if}
+							</button>
+						</Tooltip>
+					</div>
+					{#if titlebarLabel}
+						{#if titlebarRenamable}
+							<button
+								type="button"
+								class="shell-titlebar-title"
+								title={titlebarSessionTitleAttr}
+								aria-label={`Rename session: ${titlebarLabel}`}
+								ondblclick={startRenameFromTitlebar}
+							>
+								{titlebarLabel}
+							</button>
+						{:else}
+							<span class="shell-titlebar-title">{titlebarLabel}</span>
+						{/if}
+					{/if}
+					{#if !shellStore.workspacePanelOpen && !isUtilityPage}
+						<div class="shell-titlebar-end">
+							<Tooltip label="Show workspace panel" action="toggleWorkspacePanel">
+								<button
+									type="button"
+									class="shell-titlebar-btn"
+									aria-label="Show workspace panel"
+									disabled={!activeSessionId}
+									onclick={() => shellStore.toggleWorkspacePanel()}
+								>
+									<PanelRightOpen size={16} stroke-width={1.8} />
+								</button>
+							</Tooltip>
+						</div>
 					{/if}
 				</header>
-			{/if}
-			<!-- Fixed corner chrome: independent of the sliding shell titlebar. -->
-			{#if !shellStore.fullscreen && !shellStore.sidebarOpen && !isUtilityPage}
-				<div class="main-corner-actions main-corner-actions-start">
-					<Tooltip label="Show sidebar" action="toggleSidebar">
-						<button
-							type="button"
-							class="shell-titlebar-btn"
-							aria-label="Show sidebar"
-							onclick={() => shellStore.toggleSidebar()}
-						>
-							<PanelLeftOpen size={16} stroke-width={1.8} />
-						</button>
-					</Tooltip>
-				</div>
-			{/if}
-			{#if !shellStore.fullscreen && !shellStore.workspacePanelOpen && !isUtilityPage}
-				<div class="main-corner-actions main-corner-actions-end">
-					<Tooltip label="Show workspace panel" action="toggleWorkspacePanel">
-						<button
-							type="button"
-							class="shell-titlebar-btn"
-							aria-label="Show workspace panel"
-							disabled={!activeSessionId}
-							onclick={() => shellStore.toggleWorkspacePanel()}
-						>
-							<PanelRightOpen size={16} stroke-width={1.8} />
-						</button>
-					</Tooltip>
-				</div>
 			{/if}
 			{@render children()}
 			<RuntimeOverlay />
@@ -1168,8 +1167,6 @@
 		--traffic-light-gutter: 0px;
 	}
 
-	/* Internal chrome of the main card. Traffic lights are hidden while the
-	   sidebar is collapsed, so no gutter reserved for native window buttons. */
 	.shell-titlebar {
 		position: relative;
 		flex-shrink: 0;
@@ -1182,6 +1179,19 @@
 		border-bottom: 1px solid color-mix(in srgb, var(--border-soft) 80%, transparent);
 		background: transparent;
 		-webkit-app-region: drag;
+	}
+
+	.shell-titlebar-start,
+	.shell-titlebar-end {
+		position: relative;
+		z-index: 1;
+		display: flex;
+		align-items: center;
+		-webkit-app-region: no-drag;
+	}
+
+	.shell-titlebar-end {
+		margin-left: auto;
 	}
 
 	.shell-titlebar-title {
@@ -1249,34 +1259,6 @@
 	.shell-titlebar-btn:disabled {
 		opacity: 0.4;
 		cursor: default;
-	}
-
-	/*
-	 * Sidebar toggles stay fixed in the main pane corners so they do not
-	 * remount / slide with the shell titlebar transition.
-	 * Vertically centered against --panel-header-height (44px) with a 26px btn.
-	 */
-	.main-corner-actions {
-		position: absolute;
-		top: calc((var(--panel-header-height) - 26px) / 2);
-		z-index: 41;
-		display: flex;
-		align-items: center;
-		-webkit-app-region: no-drag;
-		pointer-events: none;
-	}
-
-	.main-corner-actions-start {
-		left: 12px;
-	}
-
-	.main-corner-actions-end {
-		right: 10px;
-	}
-
-	.main-corner-actions :global(.tooltip-wrap),
-	.main-corner-actions .shell-titlebar-btn {
-		pointer-events: auto;
 	}
 
 	.content-row {
