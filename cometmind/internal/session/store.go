@@ -67,6 +67,24 @@ type AssistantMediaAppender interface {
 	AppendAssistantMedia(ctx context.Context, sessionID string, images []ContentBlock) (Message, error)
 }
 
+// AssistantMediaMetaAppender persists assistant media with catalog metadata.
+type AssistantMediaMetaAppender interface {
+	AssistantMediaAppender
+	AppendAssistantMediaWithMeta(ctx context.Context, sessionID string, items []ContentBlock, meta MediaMeta) (Message, error)
+}
+
+// ReadyImage is a session-local still that can be reused as a video first frame.
+type ReadyImage struct {
+	ID        string
+	MediaType string
+	Data      []byte
+}
+
+// ReadyMediaReader loads a ready image that belongs to the current session.
+type ReadyMediaReader interface {
+	ReadySessionImage(ctx context.Context, sessionID, mediaID string) (ReadyImage, error)
+}
+
 // ChildSessionReader is the narrow seam used by subagent tools to create,
 // update, and read child sessions without depending on the full *Service.
 type ChildSessionReader interface {
@@ -107,14 +125,14 @@ type CompactorStore interface {
 
 // Compile-time assertions that *Service satisfies the narrow seams.
 var (
-	_ WorkspaceStore       = (*Service)(nil)
-	_ SessionStore         = (*Service)(nil)
-	_ TranscriptReader     = (*Service)(nil)
-	_ MessageAppender       = (*Service)(nil)
+	_ WorkspaceStore         = (*Service)(nil)
+	_ SessionStore           = (*Service)(nil)
+	_ TranscriptReader       = (*Service)(nil)
+	_ MessageAppender        = (*Service)(nil)
 	_ AssistantMediaAppender = (*Service)(nil)
-	_ ChildSessionReader   = (*Service)(nil)
-	_ CompactorStore       = (*Service)(nil)
-	_ MessageRowsReader    = (*Service)(nil)
-	_ SDKMessagesAllReader = (*Service)(nil)
-	_ ToolCallsReader      = (*Service)(nil)
+	_ ChildSessionReader     = (*Service)(nil)
+	_ CompactorStore         = (*Service)(nil)
+	_ MessageRowsReader      = (*Service)(nil)
+	_ SDKMessagesAllReader   = (*Service)(nil)
+	_ ToolCallsReader        = (*Service)(nil)
 )
