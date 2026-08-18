@@ -68,6 +68,7 @@ export interface IpcHandlers {
 	setScreenCapturePreferred: Invoker;
 	openScreenCaptureSettings: Invoker;
 	openExternal: Invoker;
+	copyMediaFile: Invoker;
 	getAppVersion: Invoker;
 	getUpdateState: Invoker;
 	checkForUpdates: Invoker;
@@ -143,6 +144,7 @@ export function registerIpcHandlers(handlers: IpcHandlers) {
 	ipcMain.handle('cometline:set-screen-capture-preferred', handlers.setScreenCapturePreferred);
 	ipcMain.handle('cometline:open-screen-capture-settings', handlers.openScreenCaptureSettings);
 	ipcMain.handle('cometline:open-external', handlers.openExternal);
+	ipcMain.handle('cometline:copy-media-file', handlers.copyMediaFile);
 	ipcMain.handle('cometline:get-app-version', handlers.getAppVersion);
 	ipcMain.handle('cometline:get-update-state', handlers.getUpdateState);
 	ipcMain.handle('cometline:check-for-updates', handlers.checkForUpdates);

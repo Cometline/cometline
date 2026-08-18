@@ -123,6 +123,15 @@ export async function copyImageToClipboard(src: string, mediaType = 'image/png')
 	await navigator.clipboard.write([new ClipboardItem({ 'image/png': clipboardBlob })]);
 }
 
+export async function copyMediaFileToClipboard(sessionId: string, mediaId: string): Promise<void> {
+	const api = typeof window !== 'undefined' ? window.electronAPI : undefined;
+	if (!api?.copyMediaFile) {
+		throw new Error('Video file copy is not available here. Use Download instead.');
+	}
+	const result = await api.copyMediaFile(sessionId, mediaId);
+	if (!result.ok) throw new Error(result.error);
+}
+
 export function resolveImageSrc(
 	image: MediaAttachment & { data_url?: string; media_type?: string },
 	sessionId?: string | null

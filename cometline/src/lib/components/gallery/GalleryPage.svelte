@@ -4,7 +4,11 @@
 	import { deleteMedia, listMedia, type MediaResource } from '$lib/client/cometmind';
 	import ConfirmActionModal from '$lib/components/ConfirmActionModal.svelte';
 	import ImageLightbox from '$lib/components/chat/ImageLightbox.svelte';
-	import { copyImageToClipboard, sessionMediaURL } from '$lib/files/images';
+	import {
+		copyImageToClipboard,
+		copyMediaFileToClipboard,
+		sessionMediaURL
+	} from '$lib/files/images';
 
 	let items = $state<MediaResource[]>([]);
 	let loading = $state(false);
@@ -49,10 +53,13 @@
 	}
 
 	async function copyToClipboard(item: MediaResource) {
-		if (item.kind === 'video') return;
 		status = '';
 		try {
-			await copyImageToClipboard(mediaSrc(item), item.media_type || 'image/png');
+			if (item.kind === 'video') {
+				await copyMediaFileToClipboard(item.session_id, item.id);
+			} else {
+				await copyImageToClipboard(mediaSrc(item), item.media_type || 'image/png');
+			}
 			copiedId = item.id;
 			if (copyResetTimer) clearTimeout(copyResetTimer);
 			copyResetTimer = setTimeout(() => {
@@ -181,10 +188,7 @@
 						<button
 							type="button"
 							class:copied={copiedId === item.id}
-							disabled={item.kind === 'video'}
-							title={item.kind === 'video'
-								? 'Video cannot be copied to the clipboard'
-								: 'Copy image'}
+							title={item.kind === 'video' ? 'Copy video file' : 'Copy image'}
 							onclick={() => void copyToClipboard(item)}
 						>
 							{#if copiedId === item.id}
@@ -364,11 +368,6 @@
 		font-size: 11px;
 		padding: 5px 8px;
 		cursor: pointer;
-	}
-
-	.gallery-actions button:disabled {
-		opacity: 0.45;
-		cursor: not-allowed;
 	}
 
 	.gallery-actions button.copied {

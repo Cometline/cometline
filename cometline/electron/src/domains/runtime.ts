@@ -25,6 +25,7 @@ import { APP_SCHEME, registerAppProtocol } from './app-protocol.js';
 import { createAutoUpdater } from './auto-updater.js';
 import { createBrowserSearchBridge } from './browser-search.js';
 import { createCometMindLifecycle } from './cometmind-lifecycle.js';
+import { createMediaClipboard } from './media-clipboard.js';
 import { createPersonas } from './personas.js';
 import {
 	PDF_PREVIEW_SCHEME,
@@ -362,6 +363,12 @@ export function initializeRuntime() {
 		path,
 		wikiRoot: path.join(os.homedir(), '.cometmind', 'wiki')
 	});
+	const mediaClipboard = createMediaClipboard({
+		fs,
+		path,
+		homedir: os.homedir,
+		platform: process.platform
+	});
 	const updater = createAutoUpdater({
 		context: shellContext,
 		beforeInstall: async () => {
@@ -380,6 +387,7 @@ export function initializeRuntime() {
 		shell,
 		workspacePreview: { fs, path },
 		pdfPreview,
+		mediaClipboard,
 		selectBackupFolder,
 		context: shellContext,
 		windows,

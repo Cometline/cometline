@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { copyImageToClipboard } from './images';
+import { copyImageToClipboard, copyMediaFileToClipboard } from './images';
 
 class ClipboardItemMock {
 	constructor(readonly data: Record<string, Blob>) {}
@@ -52,5 +52,28 @@ describe('copyImageToClipboard', () => {
 		expect(canvas).toMatchObject({ width: 8, height: 6 });
 		expect(drawImage).toHaveBeenCalledOnce();
 		expect(close).toHaveBeenCalledOnce();
+	});
+});
+
+describe('copyMediaFileToClipboard', () => {
+	it('delegates file copy to the Electron bridge', async () => {
+		const copyMediaFile = vi.fn().mockResolvedValue({ ok: true });
+		vi.stubGlobal('window', { electronAPI: { copyMediaFile } });
+
+		await copyMediaFileToClipboard('session-1', 'video-1');
+
+		expect(copyMediaFile).toHaveBeenCalledWith('session-1', 'video-1');
+	});
+
+	it('surfaces native clipboard errors', async () => {
+		vi.stubGlobal('window', {
+			electronAPI: {
+				copyMediaFile: vi.fn().mockResolvedValue({ ok: false, error: 'Video file was not found.' })
+			}
+		});
+
+		await expect(copyMediaFileToClipboard('session-1', 'missing')).rejects.toThrow(
+			'Video file was not found.'
+		);
 	});
 });

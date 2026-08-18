@@ -5,6 +5,7 @@ import type { createOllamaService } from '../services/ollama.js';
 import type { createAutoUpdater } from './auto-updater.js';
 import type { createCometMindLifecycle } from './cometmind-lifecycle.js';
 import { registerIpcHandlers, type IpcHandlers } from './ipc.js';
+import type { createMediaClipboard } from './media-clipboard.js';
 import {
 	getScreenCaptureAccess,
 	openScreenCaptureSettings,
@@ -34,6 +35,7 @@ type Shortcuts = ReturnType<typeof createShortcutCoordinator>;
 type WindowChrome = ReturnType<typeof createWindowChrome>;
 type WorkspaceWatcher = ReturnType<typeof createWorkspaceWatcher>;
 type PdfPreviewRegistry = ReturnType<typeof createPdfPreviewRegistry>;
+type MediaClipboard = ReturnType<typeof createMediaClipboard>;
 
 interface NotificationService {
 	isSupported(): boolean;
@@ -46,6 +48,7 @@ export interface RuntimeIpcDependencies {
 	shell: Pick<Shell, 'openExternal'>;
 	workspacePreview: Parameters<typeof readWorkspaceFileForPreview>[0];
 	pdfPreview: PdfPreviewRegistry;
+	mediaClipboard: MediaClipboard;
 	selectBackupFolder(): Promise<{ canceled: boolean; path?: string }>;
 	context: ShellWindowContext;
 	windows: Windows;
@@ -342,6 +345,8 @@ export function registerRuntimeIpcHandlers(dependencies: RuntimeIpcDependencies)
 			await dependencies.shell.openExternal(String(rawUrl));
 			return true;
 		},
+		copyMediaFile: (_event: IpcMainInvokeEvent, sessionId: unknown, mediaId: unknown) =>
+			dependencies.mediaClipboard.copyMediaFile(sessionId, mediaId),
 		getAppVersion: () => dependencies.app.getVersion(),
 		getUpdateState: () => dependencies.updater.getState(),
 		checkForUpdates: () => dependencies.updater.check(),

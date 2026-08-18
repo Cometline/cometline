@@ -16,7 +16,12 @@
 	import { timelineEntryKey } from '$lib/conversation/thread-view-helpers';
 	import type { AssistantStackContext } from '$lib/conversation/assistant-stack-props';
 	import type { ChatItem } from '$lib/stores/chat.svelte';
-	import { copyImageToClipboard, isVideoAttachment, resolveImageSrc } from '$lib/files/images';
+	import {
+		copyImageToClipboard,
+		copyMediaFileToClipboard,
+		isVideoAttachment,
+		resolveImageSrc
+	} from '$lib/files/images';
 	import ImageLightbox from '$lib/components/chat/ImageLightbox.svelte';
 	import SelectionAddToChat from '$lib/components/SelectionAddToChat.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
@@ -111,9 +116,9 @@
 		};
 	}
 
-	async function copyImage(key: string, src: string, mediaType?: string) {
+	async function copyMedia(key: string, copy: () => Promise<void>) {
 		try {
-			await copyImageToClipboard(src, mediaType || 'image/png');
+			await copy();
 			copiedImageKey = key;
 			if (copyResetTimer) clearTimeout(copyResetTimer);
 			copyResetTimer = setTimeout(() => {
@@ -175,6 +180,7 @@
 				{#each item.images as image, imageIndex (`${item.id}-image-${image.id ?? imageIndex}`)}
 					{@const src = resolveImageSrc(image, context.sessionId)}
 					{@const alt = image.alt ?? image.name ?? 'Presented image'}
+					{@const mediaId = image.id}
 					{#if isVideoAttachment(image)}
 						<div class="assistant-video-wrap">
 							<video
@@ -191,6 +197,27 @@
 								<track kind="captions" />
 							</video>
 							<p class="media-missing">This media was deleted.</p>
+							{#if mediaId && context.sessionId}
+								<button
+									type="button"
+									class="image-copy"
+									class:copied={copiedImageKey === `${item.id}-${image.id ?? imageIndex}`}
+									title="Copy video file"
+									aria-label={`Copy ${alt}`}
+									onclick={() =>
+										void copyMedia(`${item.id}-${image.id ?? imageIndex}`, () =>
+											copyMediaFileToClipboard(context.sessionId, mediaId)
+										)}
+								>
+									{#if copiedImageKey === `${item.id}-${image.id ?? imageIndex}`}
+										<Check size={13} />
+										<span>Copied</span>
+									{:else}
+										<Copy size={13} />
+										<span>Copy</span>
+									{/if}
+								</button>
+							{/if}
 						</div>
 					{:else}
 						<div class="image-card">
@@ -219,10 +246,8 @@
 								title="Copy image"
 								aria-label={`Copy ${alt}`}
 								onclick={() =>
-									void copyImage(
-										`${item.id}-${image.id ?? imageIndex}`,
-										src,
-										image.media_type
+									void copyMedia(`${item.id}-${image.id ?? imageIndex}`, () =>
+										copyImageToClipboard(src, image.media_type || 'image/png')
 									)}
 							>
 								{#if copiedImageKey === `${item.id}-${image.id ?? imageIndex}`}
@@ -414,6 +439,12 @@
 		scroll-snap-align: start;
 	}
 
+	.assistant-video-wrap {
+		position: relative;
+		flex: 0 0 auto;
+		scroll-snap-align: start;
+	}
+
 	.single-image .image-card {
 		flex-basis: auto;
 		width: fit-content;
@@ -458,6 +489,7 @@
 	}
 
 	.image-card:hover .image-copy,
+	.assistant-video-wrap:hover .image-copy,
 	.image-copy:focus-visible {
 		opacity: 1;
 	}
@@ -513,6 +545,10 @@
 	}
 
 	:global(.image-card[data-missing='true']) .image-copy {
+		display: none;
+	}
+
+	:global(.assistant-video-wrap[data-missing='true']) .image-copy {
 		display: none;
 	}
 

@@ -16,6 +16,8 @@ const subscribeSignal = (channel: string, callback: () => void) => {
 const electronAPI: ElectronAPI = {
 	restartCometMind: () => ipcRenderer.send('cometmind:restart'),
 	openExternal: (url) => ipcRenderer.invoke('cometline:open-external', url),
+	copyMediaFile: (sessionId, mediaId) =>
+		ipcRenderer.invoke('cometline:copy-media-file', sessionId, mediaId),
 	getWorkspacePath: () => ipcRenderer.invoke('cometline:get-workspace-path'),
 	selectWorkspacePath: () => ipcRenderer.invoke('cometline:select-workspace-path'),
 	browseWorkspacePath: () => ipcRenderer.invoke('cometline:browse-workspace-path'),

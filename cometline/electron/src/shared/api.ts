@@ -3,6 +3,7 @@ import type { ShortcutAction } from '$lib/keyboard-shortcuts';
 export interface ElectronAPI {
 	restartCometMind(): void;
 	openExternal(url: string): Promise<boolean>;
+	copyMediaFile(sessionId: string, mediaId: string): Promise<CopyMediaFileResult>;
 	getProviderSettings(): Promise<ProviderSettings>;
 	getCodexAuthStatus(): Promise<{
 		authenticated: boolean;
@@ -142,6 +143,8 @@ export interface ElectronAPI {
 	readPersonaAvatar(id: string): Promise<ReadPersonaAvatarResult>;
 	readBuiltinSoul(personaId: string): Promise<ReadPersonaSoulResult>;
 }
+
+export type CopyMediaFileResult = { ok: true } | { ok: false; error: string };
 
 export interface OllamaPullProgress {
 	model: string;
