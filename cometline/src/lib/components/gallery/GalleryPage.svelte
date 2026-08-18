@@ -119,8 +119,7 @@
 <div class="gallery-page settings-ui">
 	<header class="gallery-header">
 		<p>
-			Every generated, presented, and captured still or clip, newest first. Forked copies of
-			the same image stay out of this list.
+			Every generated, presented, and captured still or clip, newest first.
 		</p>
 	</header>
 
