@@ -111,19 +111,20 @@
 
 <div class="skill-drafts-page settings-ui">
 	<header class="page-header">
-		<p>
-			Review and edit reusable skills drafted from <code>/create-skill</code> or completed
-			jobs. Drafts stay inactive until you promote them into
-			<code>~/.cometmind/skills</code>.
-		</p>
+		<div class="page-copy">
+			<p>
+				Review and edit reusable skills drafted from <code>/create-skill</code> or completed
+				jobs. Drafts stay inactive until you promote them into
+				<code>~/.cometmind/skills</code>.
+			</p>
+			{#if status}
+				<p class="page-status">{status}</p>
+			{/if}
+		</div>
 		<button class="secondary" type="button" onclick={() => void refreshDrafts({ keepSelection: true })}>
 			{busy ? 'Loading...' : 'Refresh drafts'}
 		</button>
 	</header>
-
-	{#if status}
-		<p class="page-status">{status}</p>
-	{/if}
 
 	{#if drafts.length === 0}
 		<section class="empty-state settings-panel-frame">
@@ -204,23 +205,38 @@
 	.skill-drafts-page {
 		display: flex;
 		flex-direction: column;
+		box-sizing: border-box;
 		height: 100%;
 		min-height: 0;
 		min-width: 0;
 		width: 100%;
+		max-width: 100%;
 		padding: 20px 24px;
 		gap: 16px;
 		overflow: hidden;
 	}
 
+	.page-header,
+	.page-layout,
+	.empty-state {
+		width: 100%;
+		min-width: 0;
+	}
+
 	.page-header {
 		display: flex;
+		flex-wrap: wrap;
 		justify-content: space-between;
-		gap: 16px;
+		gap: 12px 16px;
 		align-items: flex-start;
 	}
 
-	.page-header > p {
+	.page-copy {
+		min-width: 0;
+		flex: 1;
+	}
+
+	.page-header p {
 		min-width: 0;
 		margin: 0;
 		padding-left: 14px;
@@ -242,7 +258,6 @@
 
 	.preview-header p,
 	.empty-state p,
-	.page-status,
 	.page-muted {
 		margin: 6px 0 0;
 		font-size: 12px;
@@ -251,13 +266,7 @@
 	}
 
 	.page-status {
-		margin: 0;
-	}
-
-	.empty-state,
-	.draft-list,
-	.draft-preview {
-		padding: 14px;
+		margin-top: 6px;
 	}
 
 	.page-layout {
