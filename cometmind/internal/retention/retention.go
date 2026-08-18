@@ -12,6 +12,7 @@ import (
 	"github.com/cometline/cometmind/internal/logging"
 	"github.com/cometline/cometmind/internal/memory"
 	"github.com/cometline/cometmind/internal/session"
+	"github.com/cometline/cometmind/internal/usage"
 )
 
 // Result summarizes one retention pass.
@@ -22,6 +23,7 @@ type Result struct {
 	MemoryEventsPurged int
 	JobsPurged         int
 	InboxPurged        int
+	UsageEventsPurged  int
 	ToolOutputDeleted  int
 	AgentTmpDeleted    int
 	Vacuumed           bool
@@ -34,6 +36,7 @@ type Runner struct {
 	Memory       *memory.Service
 	Jobs         *jobs.Service
 	Inbox        *inbox.Service
+	Usage        *usage.Service
 	Config       config.StorageConfig
 	InboxCfg     config.InboxConfig
 	JobPurgeDays int
@@ -86,7 +89,15 @@ func (r *Runner) Run(ctx context.Context) (Result, error) {
 		out.InboxPurged = int(n)
 	}
 
-	if cfg.VacuumAfterPurge && (out.SessionsDeleted > 0 || out.SubagentsDeleted > 0 || out.MemoriesPurged > 0 || out.JobsPurged > 0 || out.InboxPurged > 0) {
+	if r.Usage != nil {
+		n, err := r.Usage.PurgeOlderThan(ctx, usage.RetentionDays)
+		if err != nil {
+			return out, err
+		}
+		out.UsageEventsPurged = n
+	}
+
+	if cfg.VacuumAfterPurge && (out.SessionsDeleted > 0 || out.SubagentsDeleted > 0 || out.MemoriesPurged > 0 || out.JobsPurged > 0 || out.InboxPurged > 0 || out.UsageEventsPurged > 0) {
 		if r.VacuumAsync {
 			// VACUUM takes an exclusive lock and rewrites the whole file, so it
 			// can be slow on large databases. On startup we run it in the
@@ -105,7 +116,7 @@ func (r *Runner) Run(ctx context.Context) (Result, error) {
 		}
 	}
 
-	if out.SessionsDeleted > 0 || out.SubagentsDeleted > 0 || out.MemoriesPurged > 0 || out.JobsPurged > 0 || out.InboxPurged > 0 {
+	if out.SessionsDeleted > 0 || out.SubagentsDeleted > 0 || out.MemoriesPurged > 0 || out.JobsPurged > 0 || out.InboxPurged > 0 || out.UsageEventsPurged > 0 {
 		logging.L().Info("retention.complete",
 			"sessions_deleted", out.SessionsDeleted,
 			"subagents_deleted", out.SubagentsDeleted,
@@ -113,6 +124,7 @@ func (r *Runner) Run(ctx context.Context) (Result, error) {
 			"memory_events_purged", out.MemoryEventsPurged,
 			"jobs_purged", out.JobsPurged,
 			"inbox_purged", out.InboxPurged,
+			"usage_events_purged", out.UsageEventsPurged,
 			"vacuumed", out.Vacuumed,
 		)
 	}
