@@ -32,6 +32,7 @@ The rule: **Cometline is not the brain.** CometMind is the brain. Comet SDK is o
 - Drop text files as fenced code blocks in the composer
 - Slash commands: `/change`, `/create-skill`, `/model`, plus dynamic `/skill-name` menu from CometMind skills
 - Skill drafts page for reviewing, editing, promoting, or rejecting generated skills
+- Gallery page (`/gallery`) for generated and presented media; copy, download, delete; warning if the original session is gone
 
 ### Markdown & links
 
@@ -135,7 +136,7 @@ cometline/
 │   ├── src/app.ts        main-process runtime implementation
 │   └── src/preload.ts    sandboxed contextBridge source -> CJS preload bundle
 ├── src/
-│   ├── routes/           SvelteKit pages (/ and /session/[id])
+│   ├── routes/           SvelteKit pages (/, /session/[id], /gallery, /jobs, …)
 │   └── lib/
 │       ├── client/       CometMind REST/SSE client
 │       ├── components/   AppShell, ChatView, Composer, Settings*, WorkspacePanel, ...

@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { copyImageToClipboard, copyMediaFileToClipboard } from './images';
+import { copyImageToClipboard, copyMediaFileToClipboard, mediaContentURL } from './images';
+
+describe('mediaContentURL', () => {
+	it('builds a session-independent content URL', () => {
+		expect(mediaContentURL('abc/def')).toBe('http://127.0.0.1:7700/api/v1/media/abc%2Fdef/content');
+	});
+});
 
 class ClipboardItemMock {
 	constructor(readonly data: Record<string, Blob>) {}

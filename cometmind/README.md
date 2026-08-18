@@ -172,7 +172,7 @@ Session, memory, deleted-job, inbox, and runtime-file cleanup runs once when Com
 | `archivedMemoryPurgeDays` | 90 | Hard-delete archived memories older than N days; `0` disables |
 | `vacuumAfterPurge` | `true` | Run SQLite `VACUUM` after deletions to reclaim disk |
 
-Deleting a session also removes its Discord channel mapping (`gateway_sessions`); the next message in that channel starts a fresh session.
+Deleting a session also removes its Discord channel mapping (`gateway_sessions`); the next message in that channel starts a fresh session. Gallery media is not deleted with the session, transcript clear, or an empty workspace — remove it from the Gallery page.
 
 ### Agent Skills
 
@@ -239,12 +239,22 @@ Localhost-only HTTP + SSE, versioned under `/api/v1` (default `http://127.0.0.1:
 | `GET /api/v1/sessions/{id}` | Fetch a session |
 | `PATCH /api/v1/sessions/{id}` | Update model/provider for later turns |
 | `POST /api/v1/sessions/{id}/forks` | Copy a session into another workspace |
-| `DELETE /api/v1/sessions/{id}` | Delete session and cascade messages |
+| `DELETE /api/v1/sessions/{id}` | Delete session and cascade messages; gallery media stays |
 | `GET /api/v1/sessions/{id}/messages` | Transcript (user/reasoning/assistant/tool) |
 | `POST /api/v1/sessions/{id}/messages` | Send text + up to 6 images (4 MiB each) → SSE |
-| `DELETE /api/v1/sessions/{id}/messages` | Clear transcript |
+| `DELETE /api/v1/sessions/{id}/messages` | Clear transcript; gallery media stays |
+| `GET /api/v1/sessions/{id}/media/{mediaId}` | Fetch assistant media while the session exists |
 | `GET /api/v1/sessions/{id}/children` | Delegated child sessions |
 | `DELETE /api/v1/sessions/{id}/runs/current` | Abort in-flight run (202, or 409 if none) |
+
+### Media
+
+| Method & Path | Purpose |
+|---|---|
+| `GET /api/v1/media` | List ready gallery items |
+| `GET /api/v1/media/{id}/content` | Fetch bytes after the session is gone |
+| `POST /api/v1/media/{id}/imports` | Copy an item into another session |
+| `DELETE /api/v1/media/{id}` | Tombstone the catalog row and delete the file |
 
 ### MCP
 
@@ -425,7 +435,7 @@ When Cometline is running, Settings writes `~/.cometmind/cometline-settings.json
 
 ## Database
 
-SQLite schema (version 22) includes:
+SQLite schema (see `schemaVersion` in `internal/db/migrate.go`) includes:
 
 | Table | Purpose |
 |---|---|
@@ -433,6 +443,7 @@ SQLite schema (version 22) includes:
 | `sessions` | Conversations with model/provider, token usage, delegation fields |
 | `messages` | User, assistant, tool result, and system rows (multimodal content) |
 | `tool_calls` | Tool-call shells plus execution output and timing |
+| `session_media` | Gallery catalog; session/workspace FKs SET NULL on delete |
 | `gateway_sessions` | Maps external chat surfaces to CometMind sessions |
 | `memories` | Semantic memories with embeddings and lifecycle metadata |
 | `memory_events` | Audit log for memory changes |

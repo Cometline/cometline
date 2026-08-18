@@ -46,6 +46,7 @@ The renderer is no longer only the chat route. Current first-class routes are:
 | --- | --- |
 | `/` | New chat hero composer |
 | `/session/[id]` | Full chat thread |
+| `/gallery` | Generated and presented media library |
 | `/jobs` | Jobs board and job detail drawer |
 | `/skill-drafts` | Skill draft review and promotion |
 | `/settings` | Direct settings route outside `AppShell` |
@@ -80,7 +81,7 @@ Fatal errors use `role="alert"`. Recoverable errors use `role="alert"` on a dism
 ## Styling
 
 - Colors and spacing: `var(--*)` tokens in [`app.css`](../src/app.css)
-- Semantic status colors: `--status-success`, `--status-error`
+- Semantic status colors: `--status-success`, `--status-warning`, `--status-error`
 - No hardcoded hex in components — add a token if a new semantic color is needed
 - Shared chat row chrome: [`ThreadRow.svelte`](../src/lib/components/chat/ThreadRow.svelte)
 - Jobs/file/settings panels should reuse global panel/card tokens rather than introducing route-local color systems

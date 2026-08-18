@@ -2,6 +2,7 @@
 INSERT INTO session_media (
     id,
     session_id,
+    storage_session_id,
     workspace_id,
     kind,
     media_type,
@@ -15,7 +16,7 @@ INSERT INTO session_media (
     byte_size,
     duration_ms
 )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: GetSessionMedia :one
@@ -63,10 +64,6 @@ SET status = 'deleted'
 WHERE id = ?
   AND status = 'ready'
 RETURNING *;
-
--- name: DeleteSessionMediaBySession :exec
-DELETE FROM session_media
-WHERE session_id = ?;
 
 -- name: UpdateSessionMediaWorkspace :exec
 UPDATE session_media

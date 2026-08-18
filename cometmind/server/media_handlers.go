@@ -6,27 +6,30 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/cometline/cometmind/internal/media"
 	"github.com/cometline/cometmind/internal/session"
 	"github.com/gin-gonic/gin"
 )
 
 type sessionMediaResource struct {
-	ID            string `json:"id"`
-	SessionID     string `json:"session_id"`
-	WorkspaceID   string `json:"workspace_id"`
-	Kind          string `json:"kind"`
-	MediaType     string `json:"media_type"`
-	Alt           string `json:"alt,omitempty"`
-	Prompt        string `json:"prompt,omitempty"`
-	Model         string `json:"model,omitempty"`
-	ProviderID    string `json:"provider_id,omitempty"`
-	Source        string `json:"source"`
-	SourceMediaID string `json:"source_media_id,omitempty"`
-	Status        string `json:"status"`
-	ByteSize      int64  `json:"byte_size"`
-	DurationMs    *int64 `json:"duration_ms,omitempty"`
-	CreatedAt     int64  `json:"created_at"`
-	URL           string `json:"url"`
+	ID               string `json:"id"`
+	SessionID        string `json:"session_id,omitempty"`
+	StorageSessionID string `json:"storage_session_id"`
+	WorkspaceID      string `json:"workspace_id,omitempty"`
+	Kind             string `json:"kind"`
+	MediaType        string `json:"media_type"`
+	Alt              string `json:"alt,omitempty"`
+	Prompt           string `json:"prompt,omitempty"`
+	Model            string `json:"model,omitempty"`
+	ProviderID       string `json:"provider_id,omitempty"`
+	Source           string `json:"source"`
+	SourceMediaID    string `json:"source_media_id,omitempty"`
+	Status           string `json:"status"`
+	SessionDeleted   bool   `json:"session_deleted"`
+	ByteSize         int64  `json:"byte_size"`
+	DurationMs       *int64 `json:"duration_ms,omitempty"`
+	CreatedAt        int64  `json:"created_at"`
+	URL              string `json:"url"`
 }
 
 type importMediaRequest struct {
@@ -35,22 +38,24 @@ type importMediaRequest struct {
 
 func mediaToResource(item session.MediaRecord) sessionMediaResource {
 	return sessionMediaResource{
-		ID:            item.ID,
-		SessionID:     item.SessionID,
-		WorkspaceID:   item.WorkspaceID,
-		Kind:          item.Kind,
-		MediaType:     item.MediaType,
-		Alt:           item.Alt,
-		Prompt:        item.Prompt,
-		Model:         item.Model,
-		ProviderID:    item.ProviderID,
-		Source:        item.Source,
-		SourceMediaID: item.SourceMediaID,
-		Status:        item.Status,
-		ByteSize:      item.ByteSize,
-		DurationMs:    item.DurationMs,
-		CreatedAt:     item.CreatedAt,
-		URL:           "/api/v1/sessions/" + url.PathEscape(item.SessionID) + "/media/" + url.PathEscape(item.ID),
+		ID:               item.ID,
+		SessionID:        item.SessionID,
+		StorageSessionID: item.StorageSessionID,
+		WorkspaceID:      item.WorkspaceID,
+		Kind:             item.Kind,
+		MediaType:        item.MediaType,
+		Alt:              item.Alt,
+		Prompt:           item.Prompt,
+		Model:            item.Model,
+		ProviderID:       item.ProviderID,
+		Source:           item.Source,
+		SourceMediaID:    item.SourceMediaID,
+		Status:           item.Status,
+		SessionDeleted:   item.SessionID == "",
+		ByteSize:         item.ByteSize,
+		DurationMs:       item.DurationMs,
+		CreatedAt:        item.CreatedAt,
+		URL:              "/api/v1/media/" + url.PathEscape(item.ID) + "/content",
 	}
 }
 
@@ -96,6 +101,37 @@ func (a *App) handleDeleteMedia(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, mediaToResource(item))
+}
+
+func (a *App) handleGetMediaContent(c *gin.Context) {
+	item, err := a.sessions.GetMedia(c.Request.Context(), c.Param("id"))
+	if err != nil {
+		writeMediaError(c, err)
+		return
+	}
+	if item.Status != "ready" {
+		writeError(c, http.StatusNotFound, "not_found", "media not found")
+		return
+	}
+	writeMediaContent(c, item.StorageSessionID, item.ID)
+}
+
+func writeMediaContent(c *gin.Context, storageSessionID, mediaID string) {
+	file, mediaType, err := media.Open(storageSessionID, mediaID)
+	if err != nil {
+		writeError(c, http.StatusNotFound, "not_found", "media not found")
+		return
+	}
+	defer file.Close()
+	info, err := file.Stat()
+	if err != nil {
+		writeError(c, http.StatusInternalServerError, "internal_error", err.Error())
+		return
+	}
+	if mediaType != "" {
+		c.Header("Content-Type", mediaType)
+	}
+	http.ServeContent(c.Writer, c.Request, info.Name(), info.ModTime(), file)
 }
 
 func writeMediaError(c *gin.Context, err error) {

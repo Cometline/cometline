@@ -26,6 +26,7 @@ Patterns reference: `cometline/docs/FRONTEND_PATTERNS.md`
 |-------|------|------|
 | `/` | `routes/+page.svelte` | Bootstrap the most recent session or create an empty persisted session |
 | `/session/[id]` | `routes/session/[id]/+page.svelte` | Active chat; one retained `ChatView` rebinds between sessions |
+| `/gallery` | `routes/gallery/+page.svelte` | Generated/presented media; copy, download, delete; warning if the session is gone |
 | `/jobs` | `routes/jobs/+page.svelte` | Jobs board and detail drawer |
 | `/skill-drafts` | `routes/skill-drafts/+page.svelte` | Draft skill review/promotion |
 | `/settings` | `routes/settings/+page.svelte` | Direct settings route outside normal shell |

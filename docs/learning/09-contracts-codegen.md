@@ -138,7 +138,7 @@ schemaVersion = ... // read the current value in migrate.go; bump with each user
 alterStatements = []string{ ... }  // v(N-1) → vN
 ```
 
-**Existing users need incremental migrations**, not just a schema.sql edit.
+**Existing users need incremental migrations**, not just a schema.sql edit. Each version checkpoints `user_version`. Table rebuilds that `DROP TABLE` run in one transaction.
 
 ### Checklist for schema changes
 

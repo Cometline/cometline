@@ -1205,8 +1205,10 @@ export type ErrorResponse = {
 
 export type MediaResource = {
     id: string;
-    session_id: string;
-    workspace_id: string;
+    session_id?: string;
+    storage_session_id: string;
+    session_deleted: boolean;
+    workspace_id?: string;
     kind: 'image' | 'video';
     media_type: string;
     alt?: string;
@@ -2348,6 +2350,41 @@ export type ListMediaResponses = {
 };
 
 export type ListMediaResponse = ListMediaResponses[keyof ListMediaResponses];
+
+export type GetMediaContentData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/media/{id}/content';
+};
+
+export type GetMediaContentErrors = {
+    /**
+     * Resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type GetMediaContentError = GetMediaContentErrors[keyof GetMediaContentErrors];
+
+export type GetMediaContentResponses = {
+    /**
+     * Media bytes
+     */
+    200: Blob | File;
+    /**
+     * Partial media bytes for a range request
+     */
+    206: unknown;
+};
+
+export type GetMediaContentResponse = GetMediaContentResponses[keyof GetMediaContentResponses];
 
 export type ImportMediaData = {
     body: ImportMediaRequest;

@@ -82,6 +82,11 @@ export function sessionMediaURL(sessionId: string, mediaId: string): string {
 	return `http://127.0.0.1:7700/api/v1/sessions/${encodeURIComponent(sessionId)}/media/${encodeURIComponent(mediaId)}`;
 }
 
+/** URL for cataloged gallery media that still works after the session is deleted. */
+export function mediaContentURL(mediaId: string): string {
+	return `http://127.0.0.1:7700/api/v1/media/${encodeURIComponent(mediaId)}/content`;
+}
+
 async function imageBlobAsPng(source: Blob): Promise<Blob> {
 	if (source.type === 'image/png') return source;
 

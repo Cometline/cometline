@@ -123,6 +123,7 @@ Recent example: `memory_compaction_completed` was added this way to report manua
 - **Settings:** `~/.cometmind/cometline-settings.json` (runtime; agent tools + CometMind). Desktop UI state: `~/.cometmind/cometline-desktop.json` (Electron only).
 - **Legacy config:** `~/.cometmind/config.toml` (read only when JSON settings are missing)
 - **Database:** `~/.cometmind/cometmind.db` (SQLite, pure Go via `modernc.org/sqlite`)
+- **Media:** `~/.cometmind/media/{storage_session_id}/` — gallery files stay after session or workspace delete; users remove them on the Gallery page
 - **API:** `http://127.0.0.1:7700` (localhost only)
 - **OpenAPI spec:** `cometmind/openapi.yaml`
 
@@ -377,7 +378,7 @@ Cometline can improve itself using the same agent runtime:
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **cometline-release** (13650 symbols, 38598 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **cometline** (14235 symbols, 40861 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 
@@ -401,10 +402,10 @@ This project is indexed by GitNexus as **cometline-release** (13650 symbols, 385
 
 | Resource | Use for |
 |----------|---------|
-| `gitnexus://repo/cometline-release/context` | Codebase overview, check index freshness |
-| `gitnexus://repo/cometline-release/clusters` | All functional areas |
-| `gitnexus://repo/cometline-release/processes` | All execution flows |
-| `gitnexus://repo/cometline-release/process/{name}` | Step-by-step execution trace |
+| `gitnexus://repo/cometline/context` | Codebase overview, check index freshness |
+| `gitnexus://repo/cometline/clusters` | All functional areas |
+| `gitnexus://repo/cometline/processes` | All execution flows |
+| `gitnexus://repo/cometline/process/{name}` | Step-by-step execution trace |
 
 ## CLI
 

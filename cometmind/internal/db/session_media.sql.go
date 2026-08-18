@@ -14,6 +14,7 @@ const createSessionMedia = `-- name: CreateSessionMedia :one
 INSERT INTO session_media (
     id,
     session_id,
+    storage_session_id,
     workspace_id,
     kind,
     media_type,
@@ -27,31 +28,33 @@ INSERT INTO session_media (
     byte_size,
     duration_ms
 )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, session_id, workspace_id, kind, media_type, alt, prompt, model, provider_id, source, source_media_id, status, byte_size, duration_ms, created_at
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING id, session_id, storage_session_id, workspace_id, kind, media_type, alt, prompt, model, provider_id, source, source_media_id, status, byte_size, duration_ms, created_at
 `
 
 type CreateSessionMediaParams struct {
-	ID            string        `json:"id"`
-	SessionID     string        `json:"session_id"`
-	WorkspaceID   string        `json:"workspace_id"`
-	Kind          string        `json:"kind"`
-	MediaType     string        `json:"media_type"`
-	Alt           string        `json:"alt"`
-	Prompt        string        `json:"prompt"`
-	Model         string        `json:"model"`
-	ProviderID    string        `json:"provider_id"`
-	Source        string        `json:"source"`
-	SourceMediaID string        `json:"source_media_id"`
-	Status        string        `json:"status"`
-	ByteSize      int64         `json:"byte_size"`
-	DurationMs    sql.NullInt64 `json:"duration_ms"`
+	ID               string         `json:"id"`
+	SessionID        sql.NullString `json:"session_id"`
+	StorageSessionID string         `json:"storage_session_id"`
+	WorkspaceID      sql.NullString `json:"workspace_id"`
+	Kind             string         `json:"kind"`
+	MediaType        string         `json:"media_type"`
+	Alt              string         `json:"alt"`
+	Prompt           string         `json:"prompt"`
+	Model            string         `json:"model"`
+	ProviderID       string         `json:"provider_id"`
+	Source           string         `json:"source"`
+	SourceMediaID    string         `json:"source_media_id"`
+	Status           string         `json:"status"`
+	ByteSize         int64          `json:"byte_size"`
+	DurationMs       sql.NullInt64  `json:"duration_ms"`
 }
 
 func (q *Queries) CreateSessionMedia(ctx context.Context, arg CreateSessionMediaParams) (SessionMedia, error) {
 	row := q.db.QueryRowContext(ctx, createSessionMedia,
 		arg.ID,
 		arg.SessionID,
+		arg.StorageSessionID,
 		arg.WorkspaceID,
 		arg.Kind,
 		arg.MediaType,
@@ -69,6 +72,7 @@ func (q *Queries) CreateSessionMedia(ctx context.Context, arg CreateSessionMedia
 	err := row.Scan(
 		&i.ID,
 		&i.SessionID,
+		&i.StorageSessionID,
 		&i.WorkspaceID,
 		&i.Kind,
 		&i.MediaType,
@@ -86,18 +90,8 @@ func (q *Queries) CreateSessionMedia(ctx context.Context, arg CreateSessionMedia
 	return i, err
 }
 
-const deleteSessionMediaBySession = `-- name: DeleteSessionMediaBySession :exec
-DELETE FROM session_media
-WHERE session_id = ?
-`
-
-func (q *Queries) DeleteSessionMediaBySession(ctx context.Context, sessionID string) error {
-	_, err := q.db.ExecContext(ctx, deleteSessionMediaBySession, sessionID)
-	return err
-}
-
 const getReadySessionMedia = `-- name: GetReadySessionMedia :one
-SELECT id, session_id, workspace_id, kind, media_type, alt, prompt, model, provider_id, source, source_media_id, status, byte_size, duration_ms, created_at
+SELECT id, session_id, storage_session_id, workspace_id, kind, media_type, alt, prompt, model, provider_id, source, source_media_id, status, byte_size, duration_ms, created_at
 FROM session_media
 WHERE id = ?
   AND session_id = ?
@@ -106,8 +100,8 @@ LIMIT 1
 `
 
 type GetReadySessionMediaParams struct {
-	ID        string `json:"id"`
-	SessionID string `json:"session_id"`
+	ID        string         `json:"id"`
+	SessionID sql.NullString `json:"session_id"`
 }
 
 func (q *Queries) GetReadySessionMedia(ctx context.Context, arg GetReadySessionMediaParams) (SessionMedia, error) {
@@ -116,6 +110,7 @@ func (q *Queries) GetReadySessionMedia(ctx context.Context, arg GetReadySessionM
 	err := row.Scan(
 		&i.ID,
 		&i.SessionID,
+		&i.StorageSessionID,
 		&i.WorkspaceID,
 		&i.Kind,
 		&i.MediaType,
@@ -134,7 +129,7 @@ func (q *Queries) GetReadySessionMedia(ctx context.Context, arg GetReadySessionM
 }
 
 const getSessionMedia = `-- name: GetSessionMedia :one
-SELECT id, session_id, workspace_id, kind, media_type, alt, prompt, model, provider_id, source, source_media_id, status, byte_size, duration_ms, created_at
+SELECT id, session_id, storage_session_id, workspace_id, kind, media_type, alt, prompt, model, provider_id, source, source_media_id, status, byte_size, duration_ms, created_at
 FROM session_media
 WHERE id = ?
 LIMIT 1
@@ -146,6 +141,7 @@ func (q *Queries) GetSessionMedia(ctx context.Context, id string) (SessionMedia,
 	err := row.Scan(
 		&i.ID,
 		&i.SessionID,
+		&i.StorageSessionID,
 		&i.WorkspaceID,
 		&i.Kind,
 		&i.MediaType,
@@ -164,7 +160,7 @@ func (q *Queries) GetSessionMedia(ctx context.Context, id string) (SessionMedia,
 }
 
 const listSessionMedia = `-- name: ListSessionMedia :many
-SELECT id, session_id, workspace_id, kind, media_type, alt, prompt, model, provider_id, source, source_media_id, status, byte_size, duration_ms, created_at
+SELECT id, session_id, storage_session_id, workspace_id, kind, media_type, alt, prompt, model, provider_id, source, source_media_id, status, byte_size, duration_ms, created_at
 FROM session_media
 WHERE status = 'ready'
   AND (
@@ -200,6 +196,7 @@ func (q *Queries) ListSessionMedia(ctx context.Context, arg ListSessionMediaPara
 		if err := rows.Scan(
 			&i.ID,
 			&i.SessionID,
+			&i.StorageSessionID,
 			&i.WorkspaceID,
 			&i.Kind,
 			&i.MediaType,
@@ -228,14 +225,14 @@ func (q *Queries) ListSessionMedia(ctx context.Context, arg ListSessionMediaPara
 }
 
 const listSessionMediaBySession = `-- name: ListSessionMediaBySession :many
-SELECT id, session_id, workspace_id, kind, media_type, alt, prompt, model, provider_id, source, source_media_id, status, byte_size, duration_ms, created_at
+SELECT id, session_id, storage_session_id, workspace_id, kind, media_type, alt, prompt, model, provider_id, source, source_media_id, status, byte_size, duration_ms, created_at
 FROM session_media
 WHERE session_id = ?
   AND status = 'ready'
 ORDER BY created_at ASC
 `
 
-func (q *Queries) ListSessionMediaBySession(ctx context.Context, sessionID string) ([]SessionMedia, error) {
+func (q *Queries) ListSessionMediaBySession(ctx context.Context, sessionID sql.NullString) ([]SessionMedia, error) {
 	rows, err := q.db.QueryContext(ctx, listSessionMediaBySession, sessionID)
 	if err != nil {
 		return nil, err
@@ -247,6 +244,7 @@ func (q *Queries) ListSessionMediaBySession(ctx context.Context, sessionID strin
 		if err := rows.Scan(
 			&i.ID,
 			&i.SessionID,
+			&i.StorageSessionID,
 			&i.WorkspaceID,
 			&i.Kind,
 			&i.MediaType,
@@ -279,7 +277,7 @@ UPDATE session_media
 SET status = 'deleted'
 WHERE id = ?
   AND status = 'ready'
-RETURNING id, session_id, workspace_id, kind, media_type, alt, prompt, model, provider_id, source, source_media_id, status, byte_size, duration_ms, created_at
+RETURNING id, session_id, storage_session_id, workspace_id, kind, media_type, alt, prompt, model, provider_id, source, source_media_id, status, byte_size, duration_ms, created_at
 `
 
 func (q *Queries) MarkSessionMediaDeleted(ctx context.Context, id string) (SessionMedia, error) {
@@ -288,6 +286,7 @@ func (q *Queries) MarkSessionMediaDeleted(ctx context.Context, id string) (Sessi
 	err := row.Scan(
 		&i.ID,
 		&i.SessionID,
+		&i.StorageSessionID,
 		&i.WorkspaceID,
 		&i.Kind,
 		&i.MediaType,
@@ -312,8 +311,8 @@ WHERE session_id = ?
 `
 
 type UpdateSessionMediaWorkspaceParams struct {
-	WorkspaceID string `json:"workspace_id"`
-	SessionID   string `json:"session_id"`
+	WorkspaceID sql.NullString `json:"workspace_id"`
+	SessionID   sql.NullString `json:"session_id"`
 }
 
 func (q *Queries) UpdateSessionMediaWorkspace(ctx context.Context, arg UpdateSessionMediaWorkspaceParams) error {

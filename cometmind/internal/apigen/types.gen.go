@@ -1401,22 +1401,24 @@ type MediaListResponse struct {
 
 // MediaResource defines model for MediaResource.
 type MediaResource struct {
-	Alt           *string             `json:"alt,omitempty"`
-	ByteSize      int64               `json:"byte_size"`
-	CreatedAt     int64               `json:"created_at"`
-	DurationMs    *int64              `json:"duration_ms,omitempty"`
-	Id            string              `json:"id"`
-	Kind          MediaResourceKind   `json:"kind"`
-	MediaType     string              `json:"media_type"`
-	Model         *string             `json:"model,omitempty"`
-	Prompt        *string             `json:"prompt,omitempty"`
-	ProviderId    *string             `json:"provider_id,omitempty"`
-	SessionId     string              `json:"session_id"`
-	Source        MediaResourceSource `json:"source"`
-	SourceMediaId *string             `json:"source_media_id,omitempty"`
-	Status        MediaResourceStatus `json:"status"`
-	Url           string              `json:"url"`
-	WorkspaceId   string              `json:"workspace_id"`
+	Alt              *string             `json:"alt,omitempty"`
+	ByteSize         int64               `json:"byte_size"`
+	CreatedAt        int64               `json:"created_at"`
+	DurationMs       *int64              `json:"duration_ms,omitempty"`
+	Id               string              `json:"id"`
+	Kind             MediaResourceKind   `json:"kind"`
+	MediaType        string              `json:"media_type"`
+	Model            *string             `json:"model,omitempty"`
+	Prompt           *string             `json:"prompt,omitempty"`
+	ProviderId       *string             `json:"provider_id,omitempty"`
+	SessionDeleted   bool                `json:"session_deleted"`
+	SessionId        *string             `json:"session_id,omitempty"`
+	Source           MediaResourceSource `json:"source"`
+	SourceMediaId    *string             `json:"source_media_id,omitempty"`
+	Status           MediaResourceStatus `json:"status"`
+	StorageSessionId string              `json:"storage_session_id"`
+	Url              string              `json:"url"`
+	WorkspaceId      *string             `json:"workspace_id,omitempty"`
 }
 
 // MediaResourceKind defines model for MediaResource.Kind.
