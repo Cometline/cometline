@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/cometline/cometmind/internal/media"
 	"github.com/cometline/cometmind/internal/session"
 	"github.com/gin-gonic/gin"
 )
@@ -379,19 +378,5 @@ func (a *App) handleGetSessionMedia(c *gin.Context) {
 	if _, _, ok := a.loadSessionWithWorkspace(c, sessID); !ok {
 		return
 	}
-	file, mediaType, err := media.Open(sessID, mediaID)
-	if err != nil {
-		writeError(c, http.StatusNotFound, "not_found", "media not found")
-		return
-	}
-	defer file.Close()
-	info, err := file.Stat()
-	if err != nil {
-		writeError(c, http.StatusInternalServerError, "internal_error", err.Error())
-		return
-	}
-	if mediaType != "" {
-		c.Header("Content-Type", mediaType)
-	}
-	http.ServeContent(c.Writer, c.Request, info.Name(), info.ModTime(), file)
+	writeMediaContent(c, sessID, mediaID)
 }

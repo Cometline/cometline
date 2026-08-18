@@ -164,6 +164,7 @@ func New(deps Deps) (*gin.Engine, error) {
 	api.GET("/sessions/:id/messages", app.handleGetMessages)
 	api.GET("/sessions/:id/media/:mediaId", app.handleGetSessionMedia)
 	api.GET("/media", app.handleListMedia)
+	api.GET("/media/:id/content", app.handleGetMediaContent)
 	api.POST("/media/:id/imports", app.handleImportMedia)
 	api.DELETE("/media/:id", app.handleDeleteMedia)
 	api.GET("/events", app.handleEvents)

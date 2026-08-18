@@ -1057,6 +1057,56 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/v1/media/{id}/content:
+    get:
+      tags: [Media]
+      summary: Fetch a gallery media blob
+      description: |
+        Returns raw image or video bytes for a cataloged media id.
+        Works after the owning session is deleted, as long as the file
+        is still ready. Supports HTTP range requests so large videos can stream.
+      operationId: getMediaContent
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Media bytes
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/gif:
+              schema:
+                type: string
+                format: binary
+            image/webp:
+              schema:
+                type: string
+                format: binary
+            video/mp4:
+              schema:
+                type: string
+                format: binary
+            video/webm:
+              schema:
+                type: string
+                format: binary
+        '206':
+          description: Partial media bytes for a range request
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /api/v1/media/{id}/imports:
     post:
       tags: [Media]
@@ -4581,12 +4631,12 @@ components:
       additionalProperties: false
       required:
         - id
-        - session_id
-        - workspace_id
+        - storage_session_id
         - kind
         - media_type
         - source
         - status
+        - session_deleted
         - byte_size
         - created_at
         - url
@@ -4595,6 +4645,10 @@ components:
           type: string
         session_id:
           type: string
+        storage_session_id:
+          type: string
+        session_deleted:
+          type: boolean
         workspace_id:
           type: string
         kind:
