@@ -261,6 +261,7 @@ func (s *Service) runReembed(ctx context.Context, job ReembedJob, target Embeddi
 		s.failReembed(ctx, &job, err)
 		return
 	}
+	embedder = wrapEmbedder(embedder, s.usage, target)
 
 	rows, err := s.store.listActive(ctx)
 	if err != nil {

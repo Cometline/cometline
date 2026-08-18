@@ -18,12 +18,12 @@ var jsonFenceRE = regexp.MustCompile("(?s)```(?:json)?\\s*([\\s\\S]*?)```")
 // When req.Options is nil it is initialized. OpenAI providers receive
 // response_format json_object via Options["openai"]. Anthropic receives
 // a JSON-only instruction appended to the system prompt.
-func GenerateJSON(ctx context.Context, p cometsdk.Provider, req *cometsdk.Request, out any) error {
+func GenerateJSON(ctx context.Context, p cometsdk.Provider, req *cometsdk.Request, out any) (cometsdk.TokenUsage, error) {
 	if out == nil {
-		return fmt.Errorf("GenerateJSON: out must be non-nil")
+		return cometsdk.TokenUsage{}, fmt.Errorf("GenerateJSON: out must be non-nil")
 	}
 	if req == nil {
-		return fmt.Errorf("GenerateJSON: req is required")
+		return cometsdk.TokenUsage{}, fmt.Errorf("GenerateJSON: req is required")
 	}
 
 	req = cloneRequest(req)
@@ -31,17 +31,17 @@ func GenerateJSON(ctx context.Context, p cometsdk.Provider, req *cometsdk.Reques
 
 	result, err := GenerateText(ctx, p, req)
 	if err != nil {
-		return err
+		return cometsdk.TokenUsage{}, err
 	}
 
 	raw, err := extractJSON(result.Text)
 	if err != nil {
-		return fmt.Errorf("GenerateJSON: parse response: %w", err)
+		return result.Usage, fmt.Errorf("GenerateJSON: parse response: %w", err)
 	}
 	if err := json.Unmarshal(raw, out); err != nil {
-		return fmt.Errorf("GenerateJSON: unmarshal: %w", err)
+		return result.Usage, fmt.Errorf("GenerateJSON: unmarshal: %w", err)
 	}
-	return nil
+	return result.Usage, nil
 }
 
 func cloneRequest(req *cometsdk.Request) *cometsdk.Request {

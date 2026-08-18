@@ -12,6 +12,7 @@ import (
 	cometsdk "github.com/cometline/comet-sdk"
 	"github.com/cometline/cometmind/internal/logging"
 	"github.com/cometline/cometmind/internal/session"
+	"github.com/cometline/cometmind/internal/usage"
 )
 
 // Service is the global memory facade.
@@ -23,6 +24,7 @@ type Service struct {
 	updater                   *updater
 	compactor                 *compactor
 	provider                  cometsdk.Provider
+	usage                     usage.Recorder
 	onCompactionCompleted     func(CompactionResult)
 	reembed                   reembedState
 	outcomeMu                 sync.Mutex
@@ -97,9 +99,7 @@ func (s *Service) UpdateSettings(settings Settings) error {
 	if err != nil {
 		return err
 	}
-	s.retriever.embedder = embedder
-	s.updater.embedder = embedder
-	s.compactor.embedder = embedder
+	s.applyEmbedder(embedder)
 	return nil
 }
 
@@ -112,6 +112,25 @@ func (s *Service) SetProvider(p cometsdk.Provider) {
 	s.extractor.provider = p
 	s.updater.provider = p
 	s.compactor.provider = p
+}
+
+// SetUsageRecorder records memory LLM and embedding spend on the usage ledger.
+func (s *Service) SetUsageRecorder(r usage.Recorder) {
+	if s == nil {
+		return
+	}
+	s.usage = r
+	s.extractor.usage = r
+	s.updater.usage = r
+	s.compactor.usage = r
+	s.applyEmbedder(s.retriever.embedder)
+}
+
+func (s *Service) applyEmbedder(embedder Embedder) {
+	wrapped := wrapEmbedder(embedder, s.usage, s.settings.Embedding)
+	s.retriever.embedder = wrapped
+	s.updater.embedder = wrapped
+	s.compactor.embedder = wrapped
 }
 
 func embeddingSettingsEqual(a, b EmbeddingSettings) bool {
@@ -132,7 +151,8 @@ func (s *Service) notifyCompactionCompleted(result CompactionResult) {
 }
 
 // RetrieveForTurn returns the canonical, budgeted records for one prompt.
-func (s *Service) RetrieveForTurn(ctx context.Context, query string, tokenAllowance int) (PromptMemories, error) {
+func (s *Service) RetrieveForTurn(ctx context.Context, sessionID, query string, tokenAllowance int) (PromptMemories, error) {
+	ctx = usage.WithScope(ctx, workspaceForSession(ctx, s.extractor.sessions, sessionID), sessionID)
 	if !s.settings.Enabled || !s.settings.AutoRetrieve {
 		logging.L().Info("memory.retrieve.skipped", "enabled", s.settings.Enabled, "auto_retrieve", s.settings.AutoRetrieve)
 		return PromptMemories{}, nil
@@ -302,7 +322,8 @@ func (s *Service) ExtractAfterTurn(ctx context.Context, sessionID, model string,
 		return nil, nil
 	}
 	started := time.Now()
-	changes, err := s.extractor.extractAfterTurn(ctx, sessionID, model, llmProvider)
+	extractCtx := usage.WithScope(ctx, workspaceForSession(ctx, s.extractor.sessions, sessionID), sessionID)
+	changes, err := s.extractor.extractAfterTurn(extractCtx, sessionID, model, llmProvider)
 	if err != nil {
 		logging.L().Error("memory.extract.failed", "session", sessionID, "duration_ms", time.Since(started).Milliseconds(), "error", err)
 		return changes, err
@@ -310,11 +331,11 @@ func (s *Service) ExtractAfterTurn(ctx context.Context, sessionID, model string,
 	logging.L().Info("memory.extract.completed", "session", sessionID, "changes", len(changes), "duration_ms", time.Since(started).Milliseconds())
 	for _, change := range changes {
 		if change.Kind == "preference" {
-			_ = s.CompactPreferenceCategory(ctx, change.PreferenceCategory)
+			_ = s.CompactPreferenceCategory(extractCtx, change.PreferenceCategory)
 		}
 	}
 	if s.settings.Lifecycle.CompactionOnExtract {
-		if err := s.RunLifecycle(ctx); err != nil {
+		if err := s.RunLifecycle(extractCtx); err != nil {
 			return changes, err
 		}
 	}

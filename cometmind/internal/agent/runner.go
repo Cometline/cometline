@@ -29,7 +29,7 @@ const memoryRetrievalTimeout = 3 * time.Second
 // of a live SQLite database. *session.Service satisfies it.
 type TurnStore interface {
 	BuildSDKMessages(ctx context.Context, sessionID string) ([]cometsdk.Message, error)
-	SaveTokenUsage(ctx context.Context, sessionID string, u cometsdk.TokenUsage) error
+	SaveTokenUsage(ctx context.Context, sessionID string, u cometsdk.TokenUsage, providerID, modelID string) error
 	AppendAssistantStep(ctx context.Context, sessionID, text string, reasoningBlocks []cometsdk.Block, toolCalls []cometsdk.ToolCallBlock, injectedMemories []session.InjectedMemory) (session.Message, map[string]string, error)
 	UpdateToolCallResult(ctx context.Context, toolCallID, result string, durMs int64, exit *int64) error
 	AppendToolResultMessage(ctx context.Context, sessionID, toolCallID, output string, isErr bool) (session.Message, error)
@@ -41,7 +41,7 @@ type providerStateStore interface {
 
 type MemoryStore interface {
 	Enabled() bool
-	RetrieveForTurn(ctx context.Context, query string, tokenAllowance int) (memory.PromptMemories, error)
+	RetrieveForTurn(ctx context.Context, sessionID, query string, tokenAllowance int) (memory.PromptMemories, error)
 	ExtractAfterTurn(ctx context.Context, sessionID, model string, llmProvider cometsdk.Provider) ([]memory.Change, error)
 }
 
@@ -244,7 +244,7 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 				})
 				allowance := memoryTokenAllowance(sessionBudget, baseSystem, msgs, r.Registry.CometSDK())
 				retrieveCtx, cancel := context.WithTimeout(ctx, retrievalTimeout)
-				promptMemories, memErr := r.Memory.RetrieveForTurn(retrieveCtx, query, allowance)
+				promptMemories, memErr := r.Memory.RetrieveForTurn(retrieveCtx, turn.ID, query, allowance)
 				cancel()
 				if memErr != nil {
 					if errors.Is(memErr, context.DeadlineExceeded) {
@@ -454,7 +454,7 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 		}
 		logging.L().Info("agent.step.finish", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", steps+1, "finish_reason", string(result.FinishReason), "tool_calls", len(result.ToolCalls), "input_tokens", result.Usage.InputTokens, "output_tokens", result.Usage.OutputTokens, "recovery_attempt", recoveryAttempt)
 
-		if err := r.Sessions.SaveTokenUsage(ctx, turn.ID, result.Usage); err != nil {
+		if err := r.Sessions.SaveTokenUsage(ctx, turn.ID, result.Usage, turn.ProviderID, turn.ModelID); err != nil {
 			ch <- event.Errorf(err.Error(), "db")
 			return err
 		}

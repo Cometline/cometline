@@ -11,6 +11,7 @@ import (
 	"github.com/cometline/comet-sdk/llm"
 	"github.com/cometline/cometmind/internal/logging"
 	"github.com/cometline/cometmind/internal/session"
+	"github.com/cometline/cometmind/internal/usage"
 	"github.com/oklog/ulid/v2"
 )
 
@@ -40,6 +41,7 @@ type extractor struct {
 	sessions  session.TranscriptReader
 	provider  cometsdk.Provider
 	settings  Settings
+	usage     usage.Recorder
 }
 
 func (e *extractor) extractAfterTurn(ctx context.Context, sessionID, model string, llmProvider cometsdk.Provider) ([]Change, error) {
@@ -115,7 +117,9 @@ Conversation:
 		}},
 		MaxTokens: extractionMaxTokens,
 	}
-	if err := llm.GenerateJSON(ctx, llmProvider, req, &result); err != nil {
+	tok, err := llm.GenerateJSON(ctx, llmProvider, req, &result)
+	recordUsage(ctx, e.usage, llmProvider, useModel, usage.KindMemoryExtract, sessionID, tok)
+	if err != nil {
 		logging.L().Warn("memory.extract.llm_failed", "session", sessionID, "model", useModel, "error", err)
 		return nil, nil
 	}

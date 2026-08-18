@@ -17,6 +17,7 @@ import (
 	"github.com/cometline/cometmind/internal/jobs"
 	"github.com/cometline/cometmind/internal/memory"
 	"github.com/cometline/cometmind/internal/session"
+	"github.com/cometline/cometmind/internal/usage"
 	"github.com/cometline/cometmind/internal/wakeup"
 )
 
@@ -295,11 +296,26 @@ func (w *Worker) recordOutcome(ctx context.Context, job jobs.Job, runErr error) 
 	if job.Status != jobs.StatusDone {
 		openItems = append(openItems, strings.TrimSpace(job.Progress))
 	}
-	if _, err := w.Memory.RecordTaskOutcome(ctx, memory.TaskOutcomeInput{
+	if _, err := w.Memory.RecordTaskOutcome(w.scopeUsage(ctx, job), memory.TaskOutcomeInput{
 		OriginType: originType, OriginID: originID, Status: status,
 		Description: job.Description, Progress: job.Progress, Failures: failures,
 		OpenItems: openItems, LastCompletedAt: time.Now(),
 	}); err != nil {
 		log.Printf("autonomy: record task_outcome memory for job %s: %v", job.ID, err)
 	}
+}
+
+func (w *Worker) scopeUsage(ctx context.Context, job jobs.Job) context.Context {
+	if w == nil || w.Sessions == nil {
+		return ctx
+	}
+	path := strings.TrimSpace(job.WorkspacePath)
+	if path == "" {
+		return ctx
+	}
+	ws, err := w.Sessions.LookupWorkspaceByPath(ctx, path)
+	if err != nil {
+		return ctx
+	}
+	return usage.WithScope(ctx, ws.ID, strings.TrimSpace(job.AssignedSessionID))
 }
