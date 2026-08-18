@@ -49,7 +49,7 @@ declare global {
 		theme: TerminalThemeId;
 	}
 
-	/** Chime when an agent response finishes successfully. */
+	/** Chime when an agent run completes, is stopped, or fails. */
 	interface ResponseCompleteSoundSettings {
 		enabled: boolean;
 		/** 0–1 linear gain applied to the HTMLAudioElement volume. */
@@ -403,7 +403,6 @@ declare global {
 	interface Window {
 		electronAPI?: ElectronAPI;
 	}
-
 }
 
 export {};

@@ -42,8 +42,16 @@
 	);
 	let terminalRunning = $derived(terminalStore.isRunning(session.id));
 	let unread = $derived(unreadSessionOutputStore.isUnread(session.id));
-	let activityLabel = $derived(
-		terminalRunning
+	let failed = $derived(chatStore.hasRunError(session.id));
+	let activityLabel = $derived.by(() => {
+		if (failed) {
+			if (terminalRunning && unread)
+				return 'Agent run failed, terminal running with unread output';
+			if (terminalRunning) return 'Agent run failed, terminal running';
+			if (unread) return 'Agent run failed with unread output';
+			return 'Agent run failed';
+		}
+		return terminalRunning
 			? streaming
 				? unread
 					? 'Terminal running, responding with unread output'
@@ -57,8 +65,8 @@
 					: 'Responding'
 				: unread
 					? 'Unread output'
-					: undefined
-	);
+					: undefined;
+	});
 
 	function handleContextMenu(event: MouseEvent) {
 		event.preventDefault();
@@ -82,17 +90,17 @@
 >
 	<button class="session-row" onclick={onSelect} ondblclick={handleDblClick}>
 		<span class="session-title-row">
-			<span
-				class="session-activity"
-				aria-label={activityLabel}
-			>
+			<span class="session-activity" aria-label={activityLabel}>
 				<span
 					class:active={streaming}
-					class:terminal={terminalRunning}
-					class:unread
+					class:error={failed}
+					class:terminal={terminalRunning && !failed}
+					class:unread={unread && !failed}
 					class="session-streaming"
 					title={activityLabel}
-				>{#if terminalRunning}<span class="terminal-marker">t</span>{/if}</span>
+					>{#if terminalRunning && !failed}<span class="terminal-marker">t</span
+						>{/if}</span
+				>
 			</span>
 			<span class="session-title">{sessionDisplayTitle(session.title)}</span>
 		</span>
@@ -247,6 +255,12 @@
 		border: 1px solid var(--session-unread-color);
 		border-radius: inherit;
 		animation: session-unread-ring 1.2s ease-in-out infinite;
+	}
+
+	.session-streaming.error {
+		background: var(--status-error);
+		opacity: 1;
+		animation: none;
 	}
 
 	.session-streaming.terminal {

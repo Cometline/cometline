@@ -318,15 +318,15 @@
 		<div class="settings-section">
 			<div class="settings-section-heading">
 				<div>
-					<h3>Response complete sound</h3>
-					<p>Play a short chime when the agent finishes a successful reply.</p>
+					<h3>Agent run sound</h3>
+					<p>Play a short chime when an agent run completes, is stopped, or fails.</p>
 				</div>
 				<button
 					class="switch"
 					class:on={responseCompleteSound.enabled}
 					role="switch"
 					aria-checked={responseCompleteSound.enabled}
-					aria-label="Toggle response complete sound"
+					aria-label="Toggle agent run sound"
 					type="button"
 					onclick={() =>
 						(responseCompleteSound = {
@@ -351,7 +351,7 @@
 						step="0.01"
 						value={responseCompleteSound.volume}
 						disabled={!responseCompleteSound.enabled}
-						aria-label="Response complete sound volume"
+						aria-label="Agent run sound volume"
 						aria-valuetext={`${volumePercent}%`}
 						oninput={(e) =>
 							(responseCompleteSound = {

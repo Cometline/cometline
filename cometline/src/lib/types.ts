@@ -88,7 +88,7 @@ export interface TerminalAppearanceSettings {
 	theme: TerminalThemeId;
 }
 
-/** Chime when an agent response finishes successfully. */
+/** Chime when an agent run completes, is stopped, or fails. */
 export interface ResponseCompleteSoundSettings {
 	enabled: boolean;
 	/** 0–1 linear gain applied to the HTMLAudioElement volume. */

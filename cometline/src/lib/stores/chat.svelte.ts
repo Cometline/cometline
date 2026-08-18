@@ -7,14 +7,20 @@ import {
 	listChildSessions,
 	streamMessage
 } from '$lib/client/cometmind';
-import type { ChatItem, ImageAttachment, MessageContextRef, Session, StreamEvent } from '$lib/types';
+import type {
+	ChatItem,
+	ImageAttachment,
+	MessageContextRef,
+	Session,
+	StreamEvent
+} from '$lib/types';
 import type { ChatTurnPayload } from '$lib/actions/start-chat';
 import { messageContextRefsFromWebContexts } from '$lib/chat/message-context';
 import { reduceChatState } from '$lib/reducers/chat';
 import type { ContextBudgetSnapshot } from '$lib/context-window';
 import { anyReasoningPending, hasReasoning } from '$lib/conversation/reasoning';
 import { sessionStore } from '$lib/stores/session.svelte';
-import { playResponseCompleteSound } from '$lib/sound/response-complete';
+import { playErrorSound, playResponseCompleteSound } from '$lib/sound/response-complete';
 import { settingsStore } from '$lib/stores/settings.svelte';
 import { publishWindowSync, subscribeWindowSync } from '$lib/window-sync';
 import { homeRouteFor } from '$lib/routes/session-route';
@@ -55,6 +61,7 @@ function createChatStore() {
 	const localStreamingSessionIds = new Set<string>();
 	const remoteStreamingSessionIds = new Set<string>();
 	let streamingSessionIds = $state.raw<Set<string>>(new Set());
+	let failedRunSessionIds = $state.raw<Set<string>>(new Set());
 	let contextBudget = $state.raw<ContextBudgetSnapshot | null>(null);
 
 	const BATCHABLE_EVENTS = BATCHABLE_STREAM_EVENTS;
@@ -79,6 +86,25 @@ function createChatStore() {
 		streamingSessionIds = new Set([...localStreamingSessionIds, ...remoteStreamingSessionIds]);
 	}
 
+	function setRunError(targetSessionID: string, failed: boolean, broadcast = true) {
+		const next = new Set(failedRunSessionIds);
+		if (failed) {
+			next.add(targetSessionID);
+		} else {
+			next.delete(targetSessionID);
+		}
+		if (
+			next.size === failedRunSessionIds.size &&
+			next.has(targetSessionID) === failedRunSessionIds.has(targetSessionID)
+		) {
+			return;
+		}
+		failedRunSessionIds = next;
+		if (broadcast) {
+			publishWindowSync({ type: 'chat-run-error', sessionId: targetSessionID, failed });
+		}
+	}
+
 	function writeSessionItems(
 		targetSessionID: string,
 		nextItems: ChatItem[],
@@ -100,6 +126,7 @@ function createChatStore() {
 		unmarkStreaming(targetSessionID);
 		sessionCache.delete(targetSessionID);
 		sessionErrors.delete(targetSessionID);
+		setRunError(targetSessionID, false);
 		sessionContextBudgets.delete(targetSessionID);
 		sessionStore.discardSession(targetSessionID);
 		if (sessionID === targetSessionID) {
@@ -142,6 +169,10 @@ function createChatStore() {
 		return streamingSessionIds.has(targetSessionID);
 	}
 
+	function hasRunError(targetSessionID: string) {
+		return failedRunSessionIds.has(targetSessionID);
+	}
+
 	function hasInFlightTurn(targetSessionID: string) {
 		if (isStreamingFor(targetSessionID)) return true;
 		if (streamHandles.has(targetSessionID)) return true;
@@ -181,6 +212,7 @@ function createChatStore() {
 		abortAllStreams();
 		sessionCache.clear();
 		sessionErrors.clear();
+		failedRunSessionIds = new Set();
 		sessionContextBudgets.clear();
 		sessionID = null;
 		items = [];
@@ -197,6 +229,7 @@ function createChatStore() {
 		loadPromise = null;
 		loadPromiseSession = null;
 		sessionErrors.delete(targetSessionID);
+		setRunError(targetSessionID, false);
 		sessionContextBudgets.delete(targetSessionID);
 		writeSessionItems(targetSessionID, []);
 		if (sessionID === targetSessionID) {
@@ -528,7 +561,10 @@ function createChatStore() {
 		const tail = lastUser >= 0 ? sessionItems.slice(lastUser + 1) : sessionItems;
 		for (const item of tail) {
 			if (item.type === 'error' && item.text.trim()) return true;
-			if (item.type === 'assistant' && (item.text.trim() || hasReasoning(item) || (item.images?.length ?? 0) > 0))
+			if (
+				item.type === 'assistant' &&
+				(item.text.trim() || hasReasoning(item) || (item.images?.length ?? 0) > 0)
+			)
 				return true;
 			if (item.type === 'tool' || item.type === 'subagent' || item.type === 'memory')
 				return true;
@@ -570,6 +606,17 @@ function createChatStore() {
 		);
 	}
 
+	function settleRunFeedback(targetSessionID: string, outcome: 'success' | 'abort' | 'error') {
+		const failed = outcome === 'error' || Boolean(sessionErrors.get(targetSessionID));
+		setRunError(targetSessionID, failed);
+		const soundSettings = settingsStore.settings.appearance.responseCompleteSound;
+		if (failed) {
+			playErrorSound(soundSettings);
+		} else {
+			playResponseCompleteSound(soundSettings);
+		}
+	}
+
 	async function send(
 		nextSessionID: string,
 		payloadOrText: ChatTurnPayload | string,
@@ -594,9 +641,10 @@ function createChatStore() {
 			}
 		};
 
+		sessionErrors.delete(nextSessionID);
+		setRunError(nextSessionID, false);
 		if (sessionID === nextSessionID) {
 			error = '';
-			sessionErrors.delete(nextSessionID);
 		}
 
 		const contexts = messageContextRefsFromWebContexts(payload.webContexts);
@@ -646,14 +694,11 @@ function createChatStore() {
 						flushBatchForSession(nextSessionID, ctx, handle);
 						applyEventToSession(nextSessionID, event, ctx);
 						unmarkStreaming(nextSessionID);
-						if (streamOutcome === 'success' && !sessionErrors.get(nextSessionID)) {
-							playResponseCompleteSound(
-								settingsStore.settings.appearance.responseCompleteSound
-							);
-						}
+						settleRunFeedback(nextSessionID, streamOutcome);
 					}
 					break;
 				}
+				if (event.type === 'error') streamOutcome = 'error';
 				applyStreamEventForSession(nextSessionID, event, ctx, handle);
 			}
 		} catch (err) {
@@ -687,11 +732,7 @@ function createChatStore() {
 				if (!streamDone) {
 					applyEventToSession(nextSessionID, { type: 'done' }, ctx);
 					unmarkStreaming(nextSessionID);
-					if (streamOutcome === 'success' && !sessionErrors.get(nextSessionID)) {
-						playResponseCompleteSound(
-							settingsStore.settings.appearance.responseCompleteSound
-						);
-					}
+					settleRunFeedback(nextSessionID, streamOutcome);
 				}
 				// Mini models / aborted streams can settle with no visible assistant
 				// content. Never leave a blank first-turn avatar with no feedback.
@@ -754,7 +795,15 @@ function createChatStore() {
 				setRemoteStreamingState(message.sessionId, message.streaming);
 				return;
 			}
-			if (message.type === 'session-output-unread' && message.unread && sessionID === message.sessionId) {
+			if (message.type === 'chat-run-error') {
+				setRunError(message.sessionId, message.failed, false);
+				return;
+			}
+			if (
+				message.type === 'session-output-unread' &&
+				message.unread &&
+				sessionID === message.sessionId
+			) {
 				// Another window generated output while this window is already showing
 				// the session, so keep the shared marker cleared.
 				unreadSessionOutputStore.markRead(message.sessionId);
@@ -782,6 +831,7 @@ function createChatStore() {
 			return contextBudget;
 		},
 		isStreamingFor,
+		hasRunError,
 		hasInFlightTurn,
 		isAwaitingFirstAssistant,
 		getCachedItemCount,

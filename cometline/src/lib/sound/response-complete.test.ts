@@ -3,19 +3,26 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const play = vi.fn(() => Promise.resolve());
-const audioInstances: Array<{ volume: number; currentTime: number; play: typeof play }> = [];
+const audioInstances: Array<{
+	src?: string;
+	volume: number;
+	currentTime: number;
+	play: typeof play;
+}> = [];
 
 class MockAudio {
+	src?: string;
 	volume = 1;
 	currentTime = 0;
 	play = play;
 
-	constructor(_src?: string) {
+	constructor(src?: string) {
+		this.src = src;
 		audioInstances.push(this);
 	}
 }
 
-describe('playResponseCompleteSound', () => {
+describe('agent run sounds', () => {
 	beforeEach(() => {
 		audioInstances.length = 0;
 		play.mockClear();
@@ -32,6 +39,18 @@ describe('playResponseCompleteSound', () => {
 		playResponseCompleteSound({ enabled: true, volume: 0.4 });
 
 		expect(audioInstances).toHaveLength(1);
+		expect(audioInstances[0]?.src).toBe('/sound/response_complete.mp3');
+		expect(audioInstances[0]?.volume).toBe(0.4);
+		expect(audioInstances[0]?.currentTime).toBe(0);
+		expect(play).toHaveBeenCalledTimes(1);
+	});
+
+	it('plays the error sound at the same configured volume', async () => {
+		const { playErrorSound } = await import('./response-complete');
+		playErrorSound({ enabled: true, volume: 0.4 });
+
+		expect(audioInstances).toHaveLength(1);
+		expect(audioInstances[0]?.src).toBe('/sound/error.mp3');
 		expect(audioInstances[0]?.volume).toBe(0.4);
 		expect(audioInstances[0]?.currentTime).toBe(0);
 		expect(play).toHaveBeenCalledTimes(1);

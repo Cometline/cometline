@@ -2,21 +2,17 @@ import { browser } from '$app/environment';
 import type { ResponseCompleteSoundSettings } from '$lib/types';
 
 const RESPONSE_COMPLETE_SOUND_URL = '/sound/response_complete.mp3';
+const ERROR_SOUND_URL = '/sound/error.mp3';
 
-let audio: HTMLAudioElement | null = null;
+const audioByURL = new Map<string, HTMLAudioElement>();
 
 function clampVolume(volume: number): number {
 	if (!Number.isFinite(volume)) return 0;
 	return Math.min(1, Math.max(0, volume));
 }
 
-/**
- * Play the response-complete chime.
- * @param options.enabled when false, no-op. Defaults to true when omitted.
- * @param options.volume 0–1 gain (HTMLAudioElement.volume). Defaults to 1 when omitted.
- * @param options.force when true, ignore `enabled` (used by settings preview).
- */
-export function playResponseCompleteSound(
+function playSound(
+	url: string,
 	options?: Partial<ResponseCompleteSoundSettings> & { force?: boolean }
 ) {
 	if (!browser) return;
@@ -28,11 +24,27 @@ export function playResponseCompleteSound(
 	if (volume <= 0) return;
 
 	try {
-		audio ??= new Audio(RESPONSE_COMPLETE_SOUND_URL);
+		let audio = audioByURL.get(url);
+		if (!audio) {
+			audio = new Audio(url);
+			audioByURL.set(url, audio);
+		}
 		audio.volume = volume;
 		audio.currentTime = 0;
 		void audio.play().catch(() => {});
 	} catch {
 		// Ignore playback failures (autoplay policy, missing file, etc.).
 	}
+}
+
+/** Play the successful or cancelled agent-run chime. */
+export function playResponseCompleteSound(
+	options?: Partial<ResponseCompleteSoundSettings> & { force?: boolean }
+) {
+	playSound(RESPONSE_COMPLETE_SOUND_URL, options);
+}
+
+/** Play the failed agent-run chime. */
+export function playErrorSound(options?: Partial<ResponseCompleteSoundSettings>) {
+	playSound(ERROR_SOUND_URL, options);
 }

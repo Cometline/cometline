@@ -9,6 +9,10 @@ import {
 
 const { goto } = vi.hoisted(() => ({ goto: vi.fn() }));
 const { createNewSession } = vi.hoisted(() => ({ createNewSession: vi.fn() }));
+const { playErrorSound, playResponseCompleteSound } = vi.hoisted(() => ({
+	playErrorSound: vi.fn(),
+	playResponseCompleteSound: vi.fn()
+}));
 
 vi.mock('$app/environment', () => ({ browser: true }));
 vi.mock('$app/navigation', () => ({ goto }));
@@ -21,8 +25,14 @@ vi.mock('$lib/client/cometmind', () => ({
 	abortSession: vi.fn()
 }));
 vi.mock('$lib/actions/create-new-session', () => ({ createNewSession }));
+vi.mock('$lib/sound/response-complete', () => ({ playErrorSound, playResponseCompleteSound }));
 
-import { getSessionMessages, listChildSessions, streamMessage } from '$lib/client/cometmind';
+import {
+	abortSession,
+	getSessionMessages,
+	listChildSessions,
+	streamMessage
+} from '$lib/client/cometmind';
 import { chatStore, revealRemoteUserItems } from './chat.svelte';
 import { sessionStore } from './session.svelte';
 import { unreadSessionOutputStore } from './unread-session-output.svelte';
@@ -353,6 +363,9 @@ describe('chatStore session switching', () => {
 		expect(errorItem).toBeDefined();
 		if (errorItem?.type !== 'error') return;
 		expect(errorItem.text).toContain('API key is invalid or missing');
+		expect(chatStore.hasRunError('sess-a')).toBe(true);
+		expect(playErrorSound).toHaveBeenCalledTimes(1);
+		expect(playResponseCompleteSound).not.toHaveBeenCalled();
 		const assistantHost = chatStore.items.find(
 			(item) => item.type === 'assistant' && !item.text.trim()
 		);
@@ -374,6 +387,61 @@ describe('chatStore session switching', () => {
 		expect(errorItem).toBeDefined();
 		if (errorItem?.type !== 'error') return;
 		expect(errorItem.text).toContain('API key is invalid or missing');
+		expect(chatStore.hasRunError('sess-a')).toBe(true);
+		expect(playErrorSound).toHaveBeenCalledTimes(1);
+		expect(playResponseCompleteSound).not.toHaveBeenCalled();
+	});
+
+	it('plays the run sound when the user cancels without marking the session failed', async () => {
+		vi.mocked(streamMessage).mockImplementation(async function* (_sessionId, _payload, signal) {
+			if (!signal) throw new Error('Expected an abort signal');
+			yield { type: 'text_delta', delta: 'working' };
+			await new Promise<void>((_resolve, reject) => {
+				if (signal.aborted) {
+					reject(new DOMException('Aborted', 'AbortError'));
+					return;
+				}
+				signal.addEventListener(
+					'abort',
+					() => reject(new DOMException('Aborted', 'AbortError')),
+					{ once: true }
+				);
+			});
+		});
+
+		chatStore.bindSession('sess-a');
+		const send = chatStore.send('sess-a', 'hi');
+		await vi.waitFor(() => expect(chatStore.isStreamingFor('sess-a')).toBe(true));
+
+		await chatStore.cancel('sess-a');
+		await send;
+
+		expect(abortSession).toHaveBeenCalledWith('sess-a');
+		expect(chatStore.hasRunError('sess-a')).toBe(false);
+		expect(playResponseCompleteSound).toHaveBeenCalledTimes(1);
+		expect(playErrorSound).not.toHaveBeenCalled();
+	});
+
+	it('clears the failed marker after a successful retry', async () => {
+		vi.mocked(streamMessage)
+			.mockImplementationOnce(async function* () {
+				yield { type: 'error', message: 'provider failed' };
+				yield { type: 'done' };
+			})
+			.mockImplementationOnce(async function* () {
+				yield { type: 'text_delta', delta: 'recovered' };
+				yield { type: 'done' };
+			});
+
+		chatStore.bindSession('sess-a');
+		await chatStore.send('sess-a', 'first');
+		expect(chatStore.hasRunError('sess-a')).toBe(true);
+
+		await chatStore.send('sess-a', 'retry');
+
+		expect(chatStore.hasRunError('sess-a')).toBe(false);
+		expect(playErrorSound).toHaveBeenCalledTimes(1);
+		expect(playResponseCompleteSound).toHaveBeenCalledTimes(1);
 	});
 
 	it('stageUserForSession writes to target session when active session differs', () => {

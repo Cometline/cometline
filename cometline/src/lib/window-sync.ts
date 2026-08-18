@@ -6,6 +6,7 @@ type SyncPayload =
 	| { type: 'session-remove'; sessionId: string }
 	| { type: 'chat-items'; sessionId: string; items: ChatItem[] }
 	| { type: 'chat-streaming'; sessionId: string; streaming: boolean }
+	| { type: 'chat-run-error'; sessionId: string; failed: boolean }
 	| { type: 'session-output-unread'; sessionId: string; unread: boolean };
 
 type SyncMessage = SyncPayload & { source: string };
