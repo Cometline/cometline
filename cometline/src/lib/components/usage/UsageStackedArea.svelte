@@ -1,6 +1,14 @@
 <script lang="ts">
 	import { formatTokens } from '$lib/usage/format';
-	import { nearestPointIndex, stackedAreaPaths, xLabels, yLabels, type SeriesPoint } from '$lib/usage/chart';
+	import {
+		nearestPointIndex,
+		PAD_LEFT,
+		PAD_RIGHT,
+		stackedAreaPaths,
+		xLabels,
+		yLabels,
+		type SeriesPoint
+	} from '$lib/usage/chart';
 
 	let {
 		points = [],
@@ -81,14 +89,14 @@
 >
 	<svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" aria-hidden="true">
 		{#each ys as tick (tick.y)}
-			<line class="grid" x1="36" x2={width - 8} y1={tick.y} y2={tick.y} />
+			<line class="grid" x1={PAD_LEFT} x2={width - PAD_RIGHT} y1={tick.y} y2={tick.y} />
 			<text class="axis" x="4" y={tick.y + 3}>{formatTokens(tick.label)}</text>
 		{/each}
 		{#each paths as path, index (path.key)}
 			<path class={`area series-${index % 6}`} d={path.d} />
 		{/each}
 		{#each xs as tick (tick.label + tick.x)}
-			<text class="axis x" x={tick.x} y={height - 6}>{tick.label}</text>
+			<text class={['axis', 'x', tick.anchor]} x={tick.x} y={height - 6}>{tick.label}</text>
 		{/each}
 	</svg>
 	<div class="sr-only" aria-live="polite">{summaryLabel}</div>
@@ -158,6 +166,14 @@
 
 	.axis.x {
 		text-anchor: middle;
+	}
+
+	.axis.x.start {
+		text-anchor: start;
+	}
+
+	.axis.x.end {
+		text-anchor: end;
 	}
 
 	.area {

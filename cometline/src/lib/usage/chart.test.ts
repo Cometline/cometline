@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { nearestPointIndex, stackedAreaPaths } from './chart';
+import { nearestPointIndex, PAD_RIGHT, stackedAreaPaths, xLabels } from './chart';
 
 describe('usage chart', () => {
 	it('builds a closed stacked path per series', () => {
@@ -25,5 +25,21 @@ describe('usage chart', () => {
 		];
 		expect(nearestPointIndex(points, 400, 36)).toBe(0);
 		expect(nearestPointIndex(points, 400, 400)).toBe(2);
+	});
+
+	it('keeps the last x-axis label inside the plot and end-anchored', () => {
+		const labels = xLabels(
+			[
+				{ date: '2026-07-20', cumulative: { a: 0 } },
+				{ date: '2026-08-04', cumulative: { a: 0 } },
+				{ date: '2026-08-18', cumulative: { a: 1 } }
+			],
+			400
+		);
+		expect(labels[0]).toMatchObject({ label: '07-20', anchor: 'start' });
+		const last = labels.at(-1);
+		expect(last).toMatchObject({ label: '08-18', anchor: 'end' });
+		expect(last?.x).toBe(400 - PAD_RIGHT);
+		expect(last?.x).toBeLessThan(400);
 	});
 });
