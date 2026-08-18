@@ -499,6 +499,186 @@ var alterStatements = [][]string{
 		"CREATE INDEX IF NOT EXISTS idx_session_media_session ON session_media (session_id, status, created_at DESC)",
 		"CREATE INDEX IF NOT EXISTS idx_session_media_kind ON session_media (kind, status, created_at DESC)",
 	},
+	// v29 -> v30: keep gallery media after the owning session is deleted.
+	{
+		"PRAGMA foreign_keys = OFF",
+		"DROP TABLE IF EXISTS session_media_new",
+		`CREATE TABLE session_media_new (
+			id TEXT PRIMARY KEY,
+			session_id TEXT REFERENCES sessions (id) ON DELETE SET NULL,
+			storage_session_id TEXT NOT NULL,
+			workspace_id TEXT NOT NULL REFERENCES workspaces (id) ON DELETE CASCADE,
+			kind TEXT NOT NULL CHECK (kind IN ('image', 'video')),
+			media_type TEXT NOT NULL,
+			alt TEXT NOT NULL DEFAULT '',
+			prompt TEXT NOT NULL DEFAULT '',
+			model TEXT NOT NULL DEFAULT '',
+			provider_id TEXT NOT NULL DEFAULT '',
+			source TEXT NOT NULL DEFAULT 'generated' CHECK (
+				source IN (
+					'generated',
+					'presented',
+					'captured',
+					'imported',
+					'user'
+				)
+			),
+			source_media_id TEXT NOT NULL DEFAULT '',
+			status TEXT NOT NULL DEFAULT 'ready' CHECK (status IN ('ready', 'deleted')),
+			byte_size INTEGER NOT NULL DEFAULT 0,
+			duration_ms INTEGER,
+			created_at INTEGER NOT NULL DEFAULT (unixepoch ('now', 'subsec') * 1000)
+		)`,
+		`INSERT INTO session_media_new (
+			id, session_id, storage_session_id, workspace_id, kind, media_type, alt,
+			prompt, model, provider_id, source, source_media_id, status, byte_size,
+			duration_ms, created_at
+		)
+		SELECT
+			id, session_id, session_id, workspace_id, kind, media_type, alt,
+			prompt, model, provider_id, source, source_media_id, status, byte_size,
+			duration_ms, created_at
+		FROM session_media`,
+		"DROP TABLE session_media",
+		"ALTER TABLE session_media_new RENAME TO session_media",
+		"CREATE INDEX IF NOT EXISTS idx_session_media_gallery ON session_media (status, created_at DESC)",
+		"CREATE INDEX IF NOT EXISTS idx_session_media_workspace ON session_media (workspace_id, status, created_at DESC)",
+		"CREATE INDEX IF NOT EXISTS idx_session_media_session ON session_media (session_id, status, created_at DESC)",
+		"CREATE INDEX IF NOT EXISTS idx_session_media_kind ON session_media (kind, status, created_at DESC)",
+		"PRAGMA foreign_keys = ON",
+	},
+	// v30 -> v31: keep gallery media after the owning workspace is deleted.
+	{
+		"PRAGMA foreign_keys = OFF",
+		"DROP TABLE IF EXISTS session_media_new",
+		`CREATE TABLE session_media_new (
+			id TEXT PRIMARY KEY,
+			session_id TEXT REFERENCES sessions (id) ON DELETE SET NULL,
+			storage_session_id TEXT NOT NULL,
+			workspace_id TEXT REFERENCES workspaces (id) ON DELETE SET NULL,
+			kind TEXT NOT NULL CHECK (kind IN ('image', 'video')),
+			media_type TEXT NOT NULL,
+			alt TEXT NOT NULL DEFAULT '',
+			prompt TEXT NOT NULL DEFAULT '',
+			model TEXT NOT NULL DEFAULT '',
+			provider_id TEXT NOT NULL DEFAULT '',
+			source TEXT NOT NULL DEFAULT 'generated' CHECK (
+				source IN (
+					'generated',
+					'presented',
+					'captured',
+					'imported',
+					'user'
+				)
+			),
+			source_media_id TEXT NOT NULL DEFAULT '',
+			status TEXT NOT NULL DEFAULT 'ready' CHECK (status IN ('ready', 'deleted')),
+			byte_size INTEGER NOT NULL DEFAULT 0,
+			duration_ms INTEGER,
+			created_at INTEGER NOT NULL DEFAULT (unixepoch ('now', 'subsec') * 1000)
+		)`,
+		`INSERT INTO session_media_new (
+			id, session_id, storage_session_id, workspace_id, kind, media_type, alt,
+			prompt, model, provider_id, source, source_media_id, status, byte_size,
+			duration_ms, created_at
+		)
+		SELECT
+			id, session_id, storage_session_id, workspace_id, kind, media_type, alt,
+			prompt, model, provider_id, source, source_media_id, status, byte_size,
+			duration_ms, created_at
+		FROM session_media`,
+		"DROP TABLE session_media",
+		"ALTER TABLE session_media_new RENAME TO session_media",
+		"CREATE INDEX IF NOT EXISTS idx_session_media_gallery ON session_media (status, created_at DESC)",
+		"CREATE INDEX IF NOT EXISTS idx_session_media_workspace ON session_media (workspace_id, status, created_at DESC)",
+		"CREATE INDEX IF NOT EXISTS idx_session_media_session ON session_media (session_id, status, created_at DESC)",
+		"CREATE INDEX IF NOT EXISTS idx_session_media_kind ON session_media (kind, status, created_at DESC)",
+		"PRAGMA foreign_keys = ON",
+	},
+}
+
+func isForeignKeysPragma(stmt string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(stmt))
+	normalized = strings.TrimSuffix(normalized, ";")
+	return strings.HasPrefix(normalized, "pragma foreign_keys")
+}
+
+func isTableRebuild(stmts []string) bool {
+	for _, stmt := range stmts {
+		if strings.Contains(strings.ToUpper(stmt), "DROP TABLE") {
+			return true
+		}
+	}
+	return false
+}
+
+func setUserVersion(ctx context.Context, exec interface {
+	ExecContext(context.Context, string, ...any) (sql.Result, error)
+}, version int) error {
+	_, err := exec.ExecContext(ctx, fmt.Sprintf("PRAGMA user_version = %d", version))
+	return err
+}
+
+func applyAlterVersion(ctx context.Context, conn *sql.DB, fromVersion int, stmts []string) error {
+	next := fromVersion + 1
+	if isTableRebuild(stmts) {
+		return applyRebuildVersion(ctx, conn, fromVersion, stmts)
+	}
+	for _, stmt := range stmts {
+		if err := execAlter(ctx, conn, stmt); err != nil {
+			return fmt.Errorf("migrate v%d->v%d exec: %w\nstatement: %s", fromVersion, next, err, stmt)
+		}
+	}
+	if err := setUserVersion(ctx, conn, next); err != nil {
+		return fmt.Errorf("migrate v%d->v%d set user_version: %w", fromVersion, next, err)
+	}
+	return nil
+}
+
+func applyRebuildVersion(ctx context.Context, conn *sql.DB, fromVersion int, stmts []string) error {
+	next := fromVersion + 1
+	var body []string
+	flush := func(version int) error {
+		if len(body) == 0 {
+			if version == 0 {
+				return nil
+			}
+			return setUserVersion(ctx, conn, version)
+		}
+		tx, err := conn.BeginTx(ctx, nil)
+		if err != nil {
+			return fmt.Errorf("migrate v%d->v%d begin: %w", fromVersion, next, err)
+		}
+		defer func() { _ = tx.Rollback() }()
+		for _, stmt := range body {
+			if _, err := tx.ExecContext(ctx, stmt); err != nil {
+				return fmt.Errorf("migrate v%d->v%d exec: %w\nstatement: %s", fromVersion, next, err, stmt)
+			}
+		}
+		if version > 0 {
+			if err := setUserVersion(ctx, tx, version); err != nil {
+				return fmt.Errorf("migrate v%d->v%d set user_version: %w", fromVersion, next, err)
+			}
+		}
+		if err := tx.Commit(); err != nil {
+			return fmt.Errorf("migrate v%d->v%d commit: %w", fromVersion, next, err)
+		}
+		body = nil
+		return nil
+	}
+	for _, stmt := range stmts {
+		if isForeignKeysPragma(stmt) {
+			if err := flush(0); err != nil {
+				return err
+			}
+			if err := execAlter(ctx, conn, stmt); err != nil {
+				return fmt.Errorf("migrate v%d->v%d exec: %w\nstatement: %s", fromVersion, next, err, stmt)
+			}
+			continue
+		}
+		body = append(body, stmt)
+	}
+	return flush(next)
 }
 
 // execAlter runs one incremental DDL statement, tolerating idempotent failures
@@ -537,7 +717,7 @@ func splitStatements(sql string) []string {
 	return out
 }
 
-const schemaVersion = 29
+const schemaVersion = 31
 
 // EnsureSchema runs [Migrate] once per database file using PRAGMA user_version.
 // For existing databases, it applies incremental ALTER statements to upgrade
@@ -556,17 +736,19 @@ func EnsureSchema(ctx context.Context, conn *sql.DB) error {
 		// ALTER steps should only run for non-fresh databases.
 		v = schemaVersion
 	}
-	// Apply incremental upgrades.
+	// Apply incremental upgrades. Each version checkpoints user_version so a
+	// crash cannot replay a completed rebuild. Table rebuilds run in one
+	// transaction so DROP + RENAME cannot leave a half-migrated catalog.
 	for i := v; i < schemaVersion && i < len(alterStatements)+1; i++ {
-		stmts := alterStatements[i-1]
-		for _, stmt := range stmts {
-			if err := execAlter(ctx, conn, stmt); err != nil {
-				return fmt.Errorf("migrate v%d->v%d exec: %w\nstatement: %s", i, i+1, err, stmt)
-			}
+		if err := applyAlterVersion(ctx, conn, i, alterStatements[i-1]); err != nil {
+			return err
 		}
 	}
-	if _, err := conn.ExecContext(ctx, fmt.Sprintf("PRAGMA user_version = %d", schemaVersion)); err != nil {
+	if err := setUserVersion(ctx, conn, schemaVersion); err != nil {
 		return fmt.Errorf("set user_version: %w", err)
+	}
+	if _, err := conn.ExecContext(ctx, "PRAGMA foreign_keys = ON"); err != nil {
+		return fmt.Errorf("pragma foreign_keys: %w", err)
 	}
 	return nil
 }

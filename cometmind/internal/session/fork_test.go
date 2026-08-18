@@ -156,7 +156,7 @@ func TestAppendAssistantMediaCatalogsAndForkCopiesFiles(t *testing.T) {
 		t.Fatalf("AppendAssistantMedia() error = %v", err)
 	}
 
-	catalog, err := q.ListSessionMediaBySession(ctx, src.ID)
+	catalog, err := q.ListSessionMediaBySession(ctx, nullSessionID(src.ID))
 	if err != nil {
 		t.Fatalf("ListSessionMediaBySession() error = %v", err)
 	}
@@ -168,7 +168,7 @@ func TestAppendAssistantMediaCatalogsAndForkCopiesFiles(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ForkSession() error = %v", err)
 	}
-	copied, err := q.ListSessionMediaBySession(ctx, forked.ID)
+	copied, err := q.ListSessionMediaBySession(ctx, nullSessionID(forked.ID))
 	if err != nil {
 		t.Fatalf("ListSessionMediaBySession(fork) error = %v", err)
 	}
@@ -303,7 +303,7 @@ func TestListMediaBackfillsLegacyDiskFiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	listed, err := q.ListSessionMediaBySession(ctx, sess.ID)
+	listed, err := q.ListSessionMediaBySession(ctx, nullSessionID(sess.ID))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -355,5 +355,100 @@ func TestListMediaBackfillsGeneratedSourceFromToolResult(t *testing.T) {
 	}
 	if len(got) != 1 || got[0].ID != ref.ID || got[0].Source != "generated" || got[0].Prompt != "a lighthouse" {
 		t.Fatalf("backfill = %#v", got)
+	}
+}
+
+func TestDeleteSessionKeepsGalleryMedia(t *testing.T) {
+	t.Setenv("COMETMIND_DATA_DIR", t.TempDir())
+	ctx := context.Background()
+	svc, _ := newForkTestService(t)
+	ws, err := svc.EnsureWorkspace(ctx, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	sess, err := svc.NewSession(ctx, ws.ID, "model", "provider")
+	if err != nil {
+		t.Fatal(err)
+	}
+	png := []byte{0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d}
+	ref, err := media.RegisterBytes(sess.ID, "image/png", "shot", png)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.AppendAssistantMedia(ctx, sess.ID, []ContentBlock{{
+		Type: "image", ID: ref.ID, MediaType: ref.MediaType, Alt: ref.Alt,
+	}}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := svc.DeleteSession(ctx, sess.ID); err != nil {
+		t.Fatalf("DeleteSession: %v", err)
+	}
+
+	listed, err := svc.ListMedia(ctx, MediaListFilter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(listed) != 1 || listed[0].ID != ref.ID {
+		t.Fatalf("gallery after session delete = %#v", listed)
+	}
+	if listed[0].SessionID != "" || listed[0].StorageSessionID != sess.ID {
+		t.Fatalf("detached media = %#v", listed[0])
+	}
+	if _, data, err := media.Read(sess.ID, ref.ID); err != nil || string(data) != string(png) {
+		t.Fatalf("file should survive session delete: %v", err)
+	}
+
+	if err := svc.DeleteWorkspaceByPath(ctx, ws.Path); err != nil {
+		t.Fatalf("DeleteWorkspaceByPath: %v", err)
+	}
+	listed, err = svc.ListMedia(ctx, MediaListFilter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(listed) != 1 || listed[0].ID != ref.ID || listed[0].WorkspaceID != "" {
+		t.Fatalf("gallery after workspace delete = %#v", listed)
+	}
+	if _, data, err := media.Read(sess.ID, ref.ID); err != nil || string(data) != string(png) {
+		t.Fatalf("file should survive workspace delete: %v", err)
+	}
+}
+
+func TestClearSessionTranscriptKeepsGalleryMedia(t *testing.T) {
+	t.Setenv("COMETMIND_DATA_DIR", t.TempDir())
+	ctx := context.Background()
+	svc, _ := newForkTestService(t)
+	ws, err := svc.EnsureWorkspace(ctx, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	sess, err := svc.NewSession(ctx, ws.ID, "model", "provider")
+	if err != nil {
+		t.Fatal(err)
+	}
+	png := []byte{0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d}
+	ref, err := media.RegisterBytes(sess.ID, "image/png", "shot", png)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.AppendAssistantMedia(ctx, sess.ID, []ContentBlock{{
+		Type: "image", ID: ref.ID, MediaType: ref.MediaType, Alt: ref.Alt,
+	}}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := svc.ClearSessionTranscript(ctx, sess.ID); err != nil {
+		t.Fatalf("ClearSessionTranscript: %v", err)
+	}
+
+	listed, err := svc.ListMedia(ctx, MediaListFilter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(listed) != 1 || listed[0].ID != ref.ID || listed[0].SessionID != sess.ID {
+		t.Fatalf("gallery after clear = %#v", listed)
+	}
+	if _, data, err := media.Read(sess.ID, ref.ID); err != nil || string(data) != string(png) {
+		t.Fatalf("file should survive transcript clear: %v", err)
 	}
 }

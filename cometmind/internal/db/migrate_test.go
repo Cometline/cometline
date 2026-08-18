@@ -247,9 +247,115 @@ func TestEnsureSchemaCreatesSessionMediaTable(t *testing.T) {
 		}
 		columns[name] = true
 	}
-	for _, col := range []string{"id", "session_id", "workspace_id", "kind", "status", "source"} {
+	for _, col := range []string{"id", "session_id", "storage_session_id", "workspace_id", "kind", "status", "source"} {
 		if !columns[col] {
 			t.Fatalf("session_media missing column %q after migration", col)
 		}
+	}
+}
+
+func TestEnsureSchemaCopiesStorageSessionID(t *testing.T) {
+	ctx := context.Background()
+	conn, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "migrate-v30.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = conn.Close() })
+	if _, err := conn.ExecContext(ctx, `CREATE TABLE workspaces (id TEXT PRIMARY KEY)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := conn.ExecContext(ctx, `CREATE TABLE sessions (id TEXT PRIMARY KEY)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := conn.ExecContext(ctx, `INSERT INTO workspaces (id) VALUES ('ws1')`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := conn.ExecContext(ctx, `INSERT INTO sessions (id) VALUES ('sess1')`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := conn.ExecContext(ctx, `CREATE TABLE session_media (
+		id TEXT PRIMARY KEY,
+		session_id TEXT NOT NULL REFERENCES sessions (id) ON DELETE CASCADE,
+		workspace_id TEXT NOT NULL REFERENCES workspaces (id) ON DELETE CASCADE,
+		kind TEXT NOT NULL,
+		media_type TEXT NOT NULL,
+		alt TEXT NOT NULL DEFAULT '',
+		prompt TEXT NOT NULL DEFAULT '',
+		model TEXT NOT NULL DEFAULT '',
+		provider_id TEXT NOT NULL DEFAULT '',
+		source TEXT NOT NULL DEFAULT 'generated',
+		source_media_id TEXT NOT NULL DEFAULT '',
+		status TEXT NOT NULL DEFAULT 'ready',
+		byte_size INTEGER NOT NULL DEFAULT 0,
+		duration_ms INTEGER,
+		created_at INTEGER NOT NULL DEFAULT 1
+	)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := conn.ExecContext(ctx, `INSERT INTO session_media (
+		id, session_id, workspace_id, kind, media_type
+	) VALUES ('media1', 'sess1', 'ws1', 'image', 'image/png')`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := conn.ExecContext(ctx, "PRAGMA user_version = 29"); err != nil {
+		t.Fatal(err)
+	}
+	if err := EnsureSchema(ctx, conn); err != nil {
+		t.Fatal(err)
+	}
+	var sessionID, storageSessionID string
+	if err := conn.QueryRowContext(ctx, `SELECT session_id, storage_session_id FROM session_media WHERE id = 'media1'`).Scan(&sessionID, &storageSessionID); err != nil {
+		t.Fatal(err)
+	}
+	if sessionID != "sess1" || storageSessionID != "sess1" {
+		t.Fatalf("session_id=%q storage_session_id=%q", sessionID, storageSessionID)
+	}
+}
+
+func TestRebuildVersionRollsBackWhenAStatementFails(t *testing.T) {
+	ctx := context.Background()
+	conn, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "migrate-rebuild.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = conn.Close() })
+	if _, err := conn.ExecContext(ctx, `CREATE TABLE session_media (
+		id TEXT PRIMARY KEY,
+		session_id TEXT NOT NULL,
+		kind TEXT NOT NULL
+	)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := conn.ExecContext(ctx, `INSERT INTO session_media (id, session_id, kind) VALUES ('media1', 'sess1', 'image')`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := conn.ExecContext(ctx, "PRAGMA user_version = 29"); err != nil {
+		t.Fatal(err)
+	}
+
+	err = applyAlterVersion(ctx, conn, 29, []string{
+		"PRAGMA foreign_keys = OFF",
+		"DROP TABLE IF EXISTS session_media_new",
+		"CREATE TABLE session_media_new (id TEXT PRIMARY KEY, session_id TEXT NOT NULL, kind TEXT NOT NULL)",
+		"INSERT INTO session_media_new (id, session_id, kind) SELECT id, session_id, kind FROM session_media",
+		"DROP TABLE session_media",
+		"SELECT RAISE(ABORT, 'boom')",
+		"ALTER TABLE session_media_new RENAME TO session_media",
+		"PRAGMA foreign_keys = ON",
+	})
+	if err == nil {
+		t.Fatal("expected rebuild failure")
+	}
+
+	var id string
+	if scanErr := conn.QueryRowContext(ctx, `SELECT id FROM session_media WHERE id = 'media1'`).Scan(&id); scanErr != nil {
+		t.Fatalf("original table should survive a failed rebuild: %v", scanErr)
+	}
+	var version int
+	if err := conn.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil {
+		t.Fatal(err)
+	}
+	if version != 29 {
+		t.Fatalf("user_version = %d, want 29", version)
 	}
 }

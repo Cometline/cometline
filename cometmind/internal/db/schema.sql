@@ -333,9 +333,10 @@ CREATE TABLE memory_reembed_jobs (
 );
 
 CREATE TABLE session_media (
-    id              TEXT PRIMARY KEY,
-    session_id      TEXT NOT NULL REFERENCES sessions (id) ON DELETE CASCADE,
-    workspace_id    TEXT NOT NULL REFERENCES workspaces (id) ON DELETE CASCADE,
+    id                 TEXT PRIMARY KEY,
+    session_id         TEXT REFERENCES sessions (id) ON DELETE SET NULL,
+    storage_session_id TEXT NOT NULL,
+    workspace_id       TEXT REFERENCES workspaces (id) ON DELETE SET NULL,
     kind            TEXT NOT NULL
                     CHECK (kind IN ('image', 'video')),
     media_type      TEXT NOT NULL,
