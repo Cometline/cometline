@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Check, Clipboard, Download, Images, Trash2 } from '@lucide/svelte';
+	import { Check, Clipboard, Download, Images, Trash2, TriangleAlert } from '@lucide/svelte';
 	import { onDestroy, onMount } from 'svelte';
 	import { deleteMedia, listMedia, type MediaResource } from '$lib/client/cometmind';
 	import ConfirmActionModal from '$lib/components/ConfirmActionModal.svelte';
@@ -7,7 +7,7 @@
 	import {
 		copyImageToClipboard,
 		copyMediaFileToClipboard,
-		sessionMediaURL
+		mediaContentURL
 	} from '$lib/files/images';
 
 	let items = $state<MediaResource[]>([]);
@@ -20,7 +20,14 @@
 	let lightbox = $state<{ src: string; alt: string } | null>(null);
 
 	function mediaSrc(item: MediaResource) {
-		return sessionMediaURL(item.session_id, item.id);
+		return mediaContentURL(item.id);
+	}
+
+	function deleteDescription(item: MediaResource | null) {
+		if (item?.session_deleted) {
+			return 'The file is removed from disk.';
+		}
+		return 'The file is removed from disk. The original chat keeps a deleted placeholder. Copies in other sessions stay.';
 	}
 
 	function downloadName(item: MediaResource) {
@@ -56,7 +63,7 @@
 		status = '';
 		try {
 			if (item.kind === 'video') {
-				await copyMediaFileToClipboard(item.session_id, item.id);
+				await copyMediaFileToClipboard(item.storage_session_id, item.id);
 			} else {
 				await copyImageToClipboard(mediaSrc(item), item.media_type || 'image/png');
 			}
@@ -79,7 +86,9 @@
 		status = '';
 		try {
 			await deleteMedia(target.id);
-			status = 'Deleted from disk. The original chat will show a removed placeholder.';
+			status = target.session_deleted
+				? 'Deleted from disk.'
+				: 'Deleted from disk. The original chat will show a removed placeholder.';
 			await refresh();
 		} catch (err) {
 			status = err instanceof Error ? err.message : 'Failed to delete media';
@@ -158,6 +167,11 @@
 								<track kind="captions" />
 							</video>
 							<p class="media-missing">This media was deleted.</p>
+							{#if item.session_deleted}
+								<span class="gallery-detached" title="Original session was deleted">
+									<TriangleAlert size={14} />
+								</span>
+							{/if}
 						</div>
 					{:else}
 						<button
@@ -178,6 +192,11 @@
 								}}
 							/>
 							<span class="media-missing">This media was deleted.</span>
+							{#if item.session_deleted}
+								<span class="gallery-detached" title="Original session was deleted">
+									<TriangleAlert size={14} />
+								</span>
+							{/if}
 						</button>
 					{/if}
 					<div class="gallery-meta">
@@ -216,7 +235,7 @@
 <ConfirmActionModal
 	open={Boolean(pendingDelete)}
 	title="Delete this media?"
-	description="The file is removed from disk. The original chat keeps a deleted placeholder. Copies in other sessions stay."
+	description={deleteDescription(pendingDelete)}
 	confirmLabel="Delete"
 	onConfirm={() => void confirmDelete()}
 	onCancel={() => (pendingDelete = null)}
@@ -313,6 +332,7 @@
 
 	.gallery-thumb,
 	.gallery-video-wrap {
+		position: relative;
 		width: 100%;
 		aspect-ratio: 4 / 3;
 		border: 0;
@@ -321,6 +341,20 @@
 		overflow: hidden;
 		background: #111;
 		cursor: zoom-in;
+	}
+
+	.gallery-detached {
+		position: absolute;
+		top: 8px;
+		right: 8px;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 26px;
+		height: 26px;
+		border-radius: 999px;
+		background: color-mix(in srgb, var(--status-warning) 22%, var(--panel-bg));
+		color: var(--status-warning);
 	}
 
 	.gallery-video-wrap {
