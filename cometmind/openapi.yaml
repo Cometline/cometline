@@ -22,6 +22,7 @@ tags:
   - name: Memory
   - name: Storage
   - name: Inbox
+  - name: Usage
 paths:
   /api/v1/health:
     get:
@@ -2464,6 +2465,123 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/v1/usage/summary:
+    get:
+      tags: [Usage]
+      summary: Usage totals and breakdowns for the spend dashboard
+      operationId: getUsageSummary
+      parameters:
+        - name: from
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - name: to
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - name: workspace_id
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Usage summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsageSummaryResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/usage/series:
+    get:
+      tags: [Usage]
+      summary: Daily cumulative usage series for the stacked area chart
+      operationId: getUsageSeries
+      parameters:
+        - name: from
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - name: to
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - name: workspace_id
+          in: query
+          schema:
+            type: string
+        - name: group_by
+          in: query
+          schema:
+            type: string
+            enum: [model, kind]
+            default: model
+        - name: tz_offset_min
+          in: query
+          description: Minutes east of UTC used to bucket series days
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Daily series
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsageSeriesResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/usage/events:
+    get:
+      tags: [Usage]
+      summary: Paginated usage event log
+      operationId: listUsageEvents
+      parameters:
+        - name: from
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - name: to
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - name: workspace_id
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Usage events
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsageEventsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /api/v1/inbox/messages/{id}/dismissals:
     post:
       tags: [Inbox]
@@ -4702,3 +4820,152 @@ components:
         session_id:
           type: string
           description: Destination session that receives a copied file.
+
+    UsageTotals:
+      type: object
+      additionalProperties: false
+      required: [tokens, priced_tokens, unpriced_tokens, estimated_usd]
+      properties:
+        tokens:
+          type: integer
+        priced_tokens:
+          type: integer
+        unpriced_tokens:
+          type: integer
+        estimated_usd:
+          type: number
+
+    UsageBucket:
+      type: object
+      additionalProperties: false
+      required: [key, tokens, estimated_usd, priced]
+      properties:
+        key:
+          type: string
+        provider_id:
+          type: string
+        model_id:
+          type: string
+        call_kind:
+          type: string
+        input_tokens:
+          type: integer
+        output_tokens:
+          type: integer
+        cache_read:
+          type: integer
+        cache_write:
+          type: integer
+        tokens:
+          type: integer
+        estimated_usd:
+          type: number
+        priced:
+          type: boolean
+        unpriced_tokens:
+          type: integer
+
+    UsageSummaryResponse:
+      type: object
+      additionalProperties: false
+      required: [from, to, totals, by_model, by_kind]
+      properties:
+        from:
+          type: integer
+          format: int64
+        to:
+          type: integer
+          format: int64
+        totals:
+          $ref: '#/components/schemas/UsageTotals'
+        by_model:
+          type: array
+          items:
+            $ref: '#/components/schemas/UsageBucket'
+        by_kind:
+          type: array
+          items:
+            $ref: '#/components/schemas/UsageBucket'
+
+    UsageSeriesPoint:
+      type: object
+      additionalProperties: false
+      required: [date, day_tokens, cumulative]
+      properties:
+        date:
+          type: string
+        day_tokens:
+          type: object
+          additionalProperties:
+            type: integer
+        cumulative:
+          type: object
+          additionalProperties:
+            type: integer
+
+    UsageSeriesResponse:
+      type: object
+      additionalProperties: false
+      required: [group_by, keys, points]
+      properties:
+        group_by:
+          type: string
+          enum: [model, kind]
+        keys:
+          type: array
+          items:
+            type: string
+        points:
+          type: array
+          items:
+            $ref: '#/components/schemas/UsageSeriesPoint'
+
+    UsageEventResource:
+      type: object
+      additionalProperties: false
+      required: [id, created_at, provider_id, model_id, call_kind, input_tokens, output_tokens, cache_read, cache_write, estimated_usd, priced]
+      properties:
+        id:
+          type: string
+        created_at:
+          type: integer
+          format: int64
+        workspace_id:
+          type: string
+        session_id:
+          type: string
+        provider_id:
+          type: string
+        model_id:
+          type: string
+        call_kind:
+          type: string
+        input_tokens:
+          type: integer
+        output_tokens:
+          type: integer
+        cache_read:
+          type: integer
+        cache_write:
+          type: integer
+        estimated_usd:
+          type: number
+        priced:
+          type: boolean
+
+    UsageEventsResponse:
+      type: object
+      additionalProperties: false
+      required: [items, total, limit, offset]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/UsageEventResource'
+        total:
+          type: integer
+          format: int64
+        limit:
+          type: integer
+        offset:
+          type: integer

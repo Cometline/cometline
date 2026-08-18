@@ -23,6 +23,7 @@ import (
 	"github.com/cometline/cometmind/internal/session"
 	skillpkg "github.com/cometline/cometmind/internal/skills"
 	"github.com/cometline/cometmind/internal/subagent"
+	"github.com/cometline/cometmind/internal/usage"
 	"github.com/gin-gonic/gin"
 )
 
@@ -43,6 +44,7 @@ type Deps struct {
 	Events         *event.Hub
 	Jobs           *jobs.Service
 	Inbox          *inbox.Service
+	Usage          *usage.Service
 	Scheduler      *scheduler.Service
 	RunRetention   RetentionRunner
 	RunBackup      BackupRunner
@@ -64,6 +66,7 @@ type App struct {
 	events         *event.Hub
 	jobs           *jobs.Service
 	inbox          *inbox.Service
+	usage          *usage.Service
 	scheduler      *scheduler.Service
 	runRetention   RetentionRunner
 	runBackup      BackupRunner
@@ -101,6 +104,7 @@ func New(deps Deps) (*gin.Engine, error) {
 		events:         deps.Events,
 		jobs:           deps.Jobs,
 		inbox:          deps.Inbox,
+		usage:          deps.Usage,
 		scheduler:      deps.Scheduler,
 		runRetention:   deps.RunRetention,
 		runBackup:      deps.RunBackup,
@@ -239,6 +243,9 @@ func New(deps Deps) (*gin.Engine, error) {
 	// Inbox
 	api.GET("/inbox/messages", app.handleListInboxMessages)
 	api.GET("/inbox/summary", app.handleGetInboxSummary)
+	api.GET("/usage/summary", app.handleGetUsageSummary)
+	api.GET("/usage/series", app.handleGetUsageSeries)
+	api.GET("/usage/events", app.handleListUsageEvents)
 	api.POST("/inbox/messages/:id/replies", app.handleReplyInboxMessage)
 	api.POST("/inbox/messages/:id/dismissals", app.handleDismissInboxMessage)
 
