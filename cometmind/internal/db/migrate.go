@@ -535,7 +535,7 @@ var alterStatements = [][]string{
 			duration_ms, created_at
 		)
 		SELECT
-			id, session_id, session_id, workspace_id, kind, media_type, alt,
+			id, session_id, COALESCE(session_id, id), workspace_id, kind, media_type, alt,
 			prompt, model, provider_id, source, source_media_id, status, byte_size,
 			duration_ms, created_at
 		FROM session_media`,
@@ -621,6 +621,18 @@ func setUserVersion(ctx context.Context, exec interface {
 
 func applyAlterVersion(ctx context.Context, conn *sql.DB, fromVersion int, stmts []string) error {
 	next := fromVersion + 1
+	// A crash after the v30 rebuild but before user_version is checkpointed
+	// leaves a v30-shaped table at v29. Replaying the copy would clobber
+	// storage_session_id with a now-NULL session_id.
+	if fromVersion == 29 {
+		hasStorage, err := columnExists(ctx, conn, "session_media", "storage_session_id")
+		if err != nil {
+			return fmt.Errorf("migrate v%d->v%d inspect: %w", fromVersion, next, err)
+		}
+		if hasStorage {
+			return setUserVersion(ctx, conn, next)
+		}
+	}
 	if isTableRebuild(stmts) {
 		return applyRebuildVersion(ctx, conn, fromVersion, stmts)
 	}
@@ -666,9 +678,13 @@ func applyRebuildVersion(ctx context.Context, conn *sql.DB, fromVersion int, stm
 		body = nil
 		return nil
 	}
-	for _, stmt := range stmts {
+	for i, stmt := range stmts {
 		if isForeignKeysPragma(stmt) {
-			if err := flush(0); err != nil {
+			version := 0
+			if len(body) > 0 && i == len(stmts)-1 {
+				version = next
+			}
+			if err := flush(version); err != nil {
 				return err
 			}
 			if err := execAlter(ctx, conn, stmt); err != nil {
@@ -679,6 +695,26 @@ func applyRebuildVersion(ctx context.Context, conn *sql.DB, fromVersion int, stm
 		body = append(body, stmt)
 	}
 	return flush(next)
+}
+
+func columnExists(ctx context.Context, conn *sql.DB, table, column string) (bool, error) {
+	rows, err := conn.QueryContext(ctx, fmt.Sprintf("PRAGMA table_info(%s)", table))
+	if err != nil {
+		return false, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var cid, notNull, primaryKey int
+		var name, columnType string
+		var defaultValue any
+		if err := rows.Scan(&cid, &name, &columnType, &notNull, &defaultValue, &primaryKey); err != nil {
+			return false, err
+		}
+		if name == column {
+			return true, nil
+		}
+	}
+	return false, rows.Err()
 }
 
 // execAlter runs one incremental DDL statement, tolerating idempotent failures

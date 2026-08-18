@@ -312,6 +312,122 @@ func TestEnsureSchemaCopiesStorageSessionID(t *testing.T) {
 	}
 }
 
+func TestEnsureSchemaV30ReplaysAfterPartialRebuildWithNullSessionID(t *testing.T) {
+	ctx := context.Background()
+	conn, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "migrate-v30-replay.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = conn.Close() })
+	for _, stmt := range []string{
+		`CREATE TABLE workspaces (id TEXT PRIMARY KEY)`,
+		`CREATE TABLE sessions (id TEXT PRIMARY KEY)`,
+		`INSERT INTO workspaces (id) VALUES ('ws1')`,
+		`INSERT INTO sessions (id) VALUES ('sess1')`,
+		`CREATE TABLE session_media (
+			id TEXT PRIMARY KEY,
+			session_id TEXT REFERENCES sessions (id) ON DELETE SET NULL,
+			storage_session_id TEXT NOT NULL,
+			workspace_id TEXT NOT NULL REFERENCES workspaces (id) ON DELETE CASCADE,
+			kind TEXT NOT NULL,
+			media_type TEXT NOT NULL,
+			alt TEXT NOT NULL DEFAULT '',
+			prompt TEXT NOT NULL DEFAULT '',
+			model TEXT NOT NULL DEFAULT '',
+			provider_id TEXT NOT NULL DEFAULT '',
+			source TEXT NOT NULL DEFAULT 'generated',
+			source_media_id TEXT NOT NULL DEFAULT '',
+			status TEXT NOT NULL DEFAULT 'ready',
+			byte_size INTEGER NOT NULL DEFAULT 0,
+			duration_ms INTEGER,
+			created_at INTEGER NOT NULL DEFAULT 1
+		)`,
+		`INSERT INTO session_media (id, session_id, storage_session_id, workspace_id, kind, media_type)
+			VALUES ('media-live', 'sess1', 'sess1', 'ws1', 'image', 'image/png')`,
+		`INSERT INTO session_media (id, session_id, storage_session_id, workspace_id, kind, media_type, status)
+			VALUES ('media-orphan', NULL, 'stored-sess', 'ws1', 'image', 'image/png', 'deleted')`,
+		`PRAGMA user_version = 29`,
+	} {
+		if _, err := conn.ExecContext(ctx, stmt); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := EnsureSchema(ctx, conn); err != nil {
+		t.Fatalf("EnsureSchema() error = %v", err)
+	}
+
+	var version int
+	if err := conn.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil {
+		t.Fatal(err)
+	}
+	if version != schemaVersion {
+		t.Fatalf("user_version = %d, want %d", version, schemaVersion)
+	}
+
+	var sessionID sql.NullString
+	var storageSessionID string
+	if err := conn.QueryRowContext(ctx, `SELECT session_id, storage_session_id FROM session_media WHERE id = 'media-orphan'`).Scan(&sessionID, &storageSessionID); err != nil {
+		t.Fatal(err)
+	}
+	if sessionID.Valid {
+		t.Fatalf("session_id = %q, want NULL", sessionID.String)
+	}
+	if storageSessionID != "stored-sess" {
+		t.Fatalf("storage_session_id = %q, want stored-sess", storageSessionID)
+	}
+}
+
+func TestEnsureSchemaV30CopiesNullSessionIDToMediaID(t *testing.T) {
+	ctx := context.Background()
+	conn, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "migrate-v30-null.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = conn.Close() })
+	for _, stmt := range []string{
+		`CREATE TABLE workspaces (id TEXT PRIMARY KEY)`,
+		`CREATE TABLE sessions (id TEXT PRIMARY KEY)`,
+		`INSERT INTO workspaces (id) VALUES ('ws1')`,
+		`CREATE TABLE session_media (
+			id TEXT PRIMARY KEY,
+			session_id TEXT,
+			workspace_id TEXT NOT NULL,
+			kind TEXT NOT NULL,
+			media_type TEXT NOT NULL,
+			alt TEXT NOT NULL DEFAULT '',
+			prompt TEXT NOT NULL DEFAULT '',
+			model TEXT NOT NULL DEFAULT '',
+			provider_id TEXT NOT NULL DEFAULT '',
+			source TEXT NOT NULL DEFAULT 'generated',
+			source_media_id TEXT NOT NULL DEFAULT '',
+			status TEXT NOT NULL DEFAULT 'ready',
+			byte_size INTEGER NOT NULL DEFAULT 0,
+			duration_ms INTEGER,
+			created_at INTEGER NOT NULL DEFAULT 1
+		)`,
+		`INSERT INTO session_media (id, session_id, workspace_id, kind, media_type)
+			VALUES ('media-orphan', NULL, 'ws1', 'image', 'image/png')`,
+		`PRAGMA user_version = 29`,
+	} {
+		if _, err := conn.ExecContext(ctx, stmt); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := EnsureSchema(ctx, conn); err != nil {
+		t.Fatalf("EnsureSchema() error = %v", err)
+	}
+
+	var storageSessionID string
+	if err := conn.QueryRowContext(ctx, `SELECT storage_session_id FROM session_media WHERE id = 'media-orphan'`).Scan(&storageSessionID); err != nil {
+		t.Fatal(err)
+	}
+	if storageSessionID != "media-orphan" {
+		t.Fatalf("storage_session_id = %q, want media-orphan", storageSessionID)
+	}
+}
+
 func TestRebuildVersionRollsBackWhenAStatementFails(t *testing.T) {
 	ctx := context.Background()
 	conn, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "migrate-rebuild.db"))
