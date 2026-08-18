@@ -325,6 +325,11 @@
 				inboxStore.closeDrawer();
 				void goto('/gallery');
 				return;
+			case 'openUsage':
+				if (shellStore.settingsOpen) shellStore.closeSettings();
+				inboxStore.closeDrawer();
+				void goto('/usage');
+				return;
 			case 'openInbox':
 				if (shellStore.settingsOpen) shellStore.closeSettings();
 				inboxStore.toggleDrawer();
@@ -507,6 +512,11 @@
 			if (matchesShortcut(event, shortcuts.openGallery)) {
 				event.preventDefault();
 				runShortcutAction('openGallery');
+				return;
+			}
+			if (matchesShortcut(event, shortcuts.openUsage)) {
+				event.preventDefault();
+				runShortcutAction('openUsage');
 				return;
 			}
 			if (matchesShortcut(event, shortcuts.openInbox)) {
@@ -715,13 +725,15 @@
 	const isUtilityPage = $derived(
 		page.url.pathname === '/jobs' ||
 			page.url.pathname === '/skill-drafts' ||
-			page.url.pathname === '/gallery'
+			page.url.pathname === '/gallery' ||
+			page.url.pathname === '/usage'
 	);
 	const showShellTitlebar = $derived(!shellStore.fullscreen);
 	const titlebarLabel = $derived.by(() => {
 		if (page.url.pathname === '/jobs') return 'Jobs';
 		if (page.url.pathname === '/skill-drafts') return 'Skill Drafts';
 		if (page.url.pathname === '/gallery') return 'Gallery';
+		if (page.url.pathname === '/usage') return 'Usage';
 		return titlebarSessionTitle;
 	});
 	const titlebarRenamable = $derived(Boolean(titlebarSessionTitle && !isUtilityPage));

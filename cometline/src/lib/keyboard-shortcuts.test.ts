@@ -204,12 +204,13 @@ describe('keyboard-shortcuts', () => {
 		expect(normalized.navigateForward).toEqual({ command: true, key: ']' });
 	});
 
-	it('includes jobs, skill drafts, gallery, and inbox panel shortcuts', () => {
+	it('includes jobs, skill drafts, gallery, usage, and inbox panel shortcuts', () => {
 		const normalized = normalizeKeyboardShortcuts({});
 		expect(normalized.openJobs).toEqual({ command: true, key: '1' });
 		expect(normalized.openSkillDrafts).toEqual({ command: true, key: '2' });
 		expect(normalized.openGallery).toEqual({ command: true, key: '3' });
-		expect(normalized.openInbox).toEqual({ command: true, key: '4' });
+		expect(normalized.openUsage).toEqual({ command: true, key: '4' });
+		expect(normalized.openInbox).toEqual({ command: true, key: '5' });
 	});
 
 	it('migrates the old inbox/gallery defaults without replacing custom bindings', () => {
@@ -220,7 +221,16 @@ describe('keyboard-shortcuts', () => {
 			})
 		).toMatchObject({
 			openGallery: { command: true, key: '3' },
-			openInbox: { command: true, key: '4' }
+			openUsage: { command: true, key: '4' },
+			openInbox: { command: true, key: '5' }
+		});
+		expect(
+			normalizeKeyboardShortcuts({
+				openInbox: { command: true, key: '4' }
+			})
+		).toMatchObject({
+			openUsage: { command: true, key: '4' },
+			openInbox: { command: true, key: '5' }
 		});
 		expect(
 			normalizeKeyboardShortcuts({
@@ -230,6 +240,15 @@ describe('keyboard-shortcuts', () => {
 		).toMatchObject({
 			openInbox: { command: true, key: 'i' },
 			openGallery: { command: true, key: 'g' }
+		});
+		expect(
+			normalizeKeyboardShortcuts({
+				openUsage: { command: true, key: '4' },
+				openInbox: { command: true, key: '4' }
+			})
+		).toMatchObject({
+			openUsage: { command: true, key: '4' },
+			openInbox: { command: true, key: '4' }
 		});
 	});
 
