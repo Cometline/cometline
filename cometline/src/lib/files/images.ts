@@ -82,6 +82,29 @@ export function sessionMediaURL(sessionId: string, mediaId: string): string {
 	return `http://127.0.0.1:7700/api/v1/sessions/${encodeURIComponent(sessionId)}/media/${encodeURIComponent(mediaId)}`;
 }
 
+async function imageBlobAsPng(source: Blob): Promise<Blob> {
+	if (source.type === 'image/png') return source;
+
+	const bitmap = await createImageBitmap(source);
+	try {
+		const canvas = document.createElement('canvas');
+		canvas.width = bitmap.width;
+		canvas.height = bitmap.height;
+		const context = canvas.getContext('2d');
+		if (!context) throw new Error('Could not prepare this image for copying.');
+		context.drawImage(bitmap, 0, 0);
+
+		return await new Promise<Blob>((resolve, reject) => {
+			canvas.toBlob((blob) => {
+				if (blob) resolve(blob);
+				else reject(new Error('Could not prepare this image for copying.'));
+			}, 'image/png');
+		});
+	} finally {
+		bitmap.close();
+	}
+}
+
 export async function copyImageToClipboard(src: string, mediaType = 'image/png'): Promise<void> {
 	if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined') {
 		throw new Error('Clipboard copy is not available here. Use Download instead.');
@@ -96,7 +119,8 @@ export async function copyImageToClipboard(src: string, mediaType = 'image/png')
 	const source = await response.blob();
 	const type = mediaType || source.type || 'image/png';
 	const blob = type === source.type ? source : new Blob([await source.arrayBuffer()], { type });
-	await navigator.clipboard.write([new ClipboardItem({ [blob.type || 'image/png']: blob })]);
+	const clipboardBlob = await imageBlobAsPng(blob);
+	await navigator.clipboard.write([new ClipboardItem({ 'image/png': clipboardBlob })]);
 }
 
 export function resolveImageSrc(
