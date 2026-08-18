@@ -297,7 +297,11 @@ Triggered during the agent turn path when context exceeds configured budget thre
 
 ## Assistant media and screen capture
 
-The runtime can emit an `assistant_image` SSE event after persisting image media. The renderer fetches it through `GET /api/v1/sessions/{id}/media/{imageId}` and displays it with a lightbox. For live captures, CometMind talks to the Electron-owned loopback capture bridge; Electron enforces OS screen-recording permission, enumerates capture targets, and bounds image size/cropping. The agent never receives arbitrary renderer or Node access just because a screenshot exists.
+The runtime can emit an `assistant_image` SSE event after persisting image media. Chat fetches bytes through `GET /api/v1/sessions/{id}/media/{mediaId}` while the session exists. The gallery at `/gallery` lists ready catalog rows via `GET /api/v1/media` and loads bytes from `GET /api/v1/media/{id}/content`.
+
+Deleting a session, clearing a transcript, retention, or deleting an empty workspace does **not** remove gallery files. Those paths null `session_id` / `workspace_id` and leave `~/.cometmind/media/{storage_session_id}/` in place. The gallery shows a warning when the original session is gone. Only `DELETE /api/v1/media/{id}` tombstones a row and deletes the file.
+
+For live captures, CometMind talks to the Electron-owned loopback capture bridge; Electron enforces OS screen-recording permission, enumerates capture targets, and bounds image size/cropping. The agent never receives arbitrary renderer or Node access just because a screenshot exists.
 
 ---
 

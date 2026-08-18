@@ -225,7 +225,8 @@ CometMind serves a REST/SSE API on `127.0.0.1:7700`. The OpenAPI spec is `cometm
 **Endpoint families** (the OpenAPI file is the complete contract):
 - **Runtime and models:** health, enabled models, and catalog lookups
 - **Workspaces:** registration/pruning; previewable file read/write; Git status, diff, stage, unstage, discard, and commit; global wiki files and backlinks
-- **Sessions:** create/list/update/delete, workspace changes and forks, transcripts, one active run, child sessions, and persisted assistant media at `/sessions/{id}/media/{imageId}`
+- **Sessions:** create/list/update/delete, workspace changes and forks, transcripts, one active run, child sessions, and live-session media at `/sessions/{id}/media/{mediaId}`
+- **Media:** gallery list/import/delete at `/media`; blob bytes at `/media/{id}/content` (works after the owning session is deleted)
 - **Streaming:** `POST /sessions/{id}/messages` returns the turn SSE stream; `GET /events` carries runtime-wide notifications
 - **Skills and MCP:** managed skills, drafts, sync runs; MCP server/tool inspection, connection tests, reconnection, and OAuth flows
 - **Memory and storage:** memory CRUD/search/settings, re-embedding, purge and compaction runs; retention and backup runs
@@ -251,7 +252,7 @@ CometMind emits JSON SSE frames with a `type` discriminator:
 | `memory_injected`, `memory_updated`, `memory_compaction_completed` | Retrieved, changed, or compacted memory state |
 | `context_budget` | Context-window budget telemetry for the active turn |
 | `inbox_message_created`, `inbox_message_archived` | Runtime-wide inbox lifecycle notification |
-| `assistant_image` | Persisted assistant media, rendered from the session-media endpoint |
+| `assistant_image` | Persisted assistant media; chat fetches the session-media URL while the session lives |
 | `turn_status`, `turn_recover` | Pre-output activity status or resumed/recovered turn state |
 | `error` | Runtime/model/tool error |
 | `done` | Terminal stream event |

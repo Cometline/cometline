@@ -298,6 +298,7 @@ Also persisted:
 
 - `~/.cometmind/cometline-workspace.json` - selected workspace path
 - `~/.cometmind/cometmind.db` - runtime SQLite database
+- `~/.cometmind/media/{storage_session_id}/` - gallery blobs; survive session/workspace delete until removed in Gallery
 - `~/.cometmind/logs/cometline.log` - CometMind sidecar log (10MB rotate → `.log.1`)
 - `~/.cometmind/logs/cometline-gateway.log` - Discord gateway log (same rotation)
 - `~/.cometmind/tool-output/` - spilled tool output (`@runtime/tool-output`); age-purged by retention (default 7 days)

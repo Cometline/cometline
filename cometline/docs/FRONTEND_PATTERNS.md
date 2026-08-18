@@ -46,6 +46,7 @@ The renderer is no longer only the chat route. Current first-class routes are:
 | --- | --- |
 | `/` | New chat hero composer |
 | `/session/[id]` | Full chat thread |
+| `/gallery` | Generated and presented media library |
 | `/jobs` | Jobs board and job detail drawer |
 | `/skill-drafts` | Skill draft review and promotion |
 | `/settings` | Direct settings route outside `AppShell` |
