@@ -86,9 +86,6 @@
 		status = '';
 		try {
 			await deleteMedia(target.id);
-			status = target.session_deleted
-				? 'Deleted from disk.'
-				: 'Deleted from disk. The original chat will show a removed placeholder.';
 			await refresh();
 		} catch (err) {
 			status = err instanceof Error ? err.message : 'Failed to delete media';
@@ -130,14 +127,13 @@
 		<p>
 			Every generated, presented, and captured still or clip, newest first.
 		</p>
+		{#if status}
+			<p class="gallery-status">{status}</p>
+		{/if}
+		{#if error}
+			<p class="gallery-error">{error}</p>
+		{/if}
 	</header>
-
-	{#if status}
-		<p class="gallery-status">{status}</p>
-	{/if}
-	{#if error}
-		<p class="gallery-error">{error}</p>
-	{/if}
 	{#if loading}
 		<section class="gallery-empty settings-panel-frame" aria-busy="true">
 			<p>Loading…</p>
@@ -249,35 +245,36 @@
 	.gallery-page {
 		display: flex;
 		flex-direction: column;
+		box-sizing: border-box;
 		height: 100%;
 		min-height: 0;
 		min-width: 0;
 		width: 100%;
+		max-width: 100%;
 		padding: 20px 24px;
 		gap: 16px;
 		overflow: hidden;
 	}
 
+	.gallery-header,
+	.gallery-grid,
+	.gallery-empty {
+		width: 100%;
+		min-width: 0;
+	}
+
 	.gallery-header {
+		display: grid;
+		gap: 6px;
 		flex-shrink: 0;
 	}
 
-	.gallery-header p {
+	.gallery-header > p {
 		margin: 0;
 		padding-left: 14px;
-		max-width: 640px;
 		color: var(--text-muted);
 		font-size: 12px;
 		line-height: 1.5;
-	}
-
-	.gallery-status,
-	.gallery-error {
-		margin: 0;
-		flex-shrink: 0;
-		font-size: 12px;
-		line-height: 1.5;
-		color: var(--text-muted);
 	}
 
 	.gallery-error {
@@ -429,5 +426,11 @@
 	:global(.gallery-thumb[data-missing='true']) .media-missing,
 	:global(.gallery-video-wrap[data-missing='true']) .media-missing {
 		display: block;
+	}
+
+	@container main-pane (max-width: 760px) {
+		.gallery-page {
+			padding: 16px;
+		}
 	}
 </style>

@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	cometsdk "github.com/cometline/comet-sdk"
 )
 
 // Embedder turns text into a dense vector.
@@ -43,16 +45,21 @@ func NewOpenAIEmbedder(baseURL, apiKey, model string) Embedder {
 func (e *openAIEmbedder) Model() string { return e.model }
 
 func (e *openAIEmbedder) Embed(ctx context.Context, texts ...string) ([][]float32, error) {
+	vecs, _, err := e.embedUsage(ctx, texts...)
+	return vecs, err
+}
+
+func (e *openAIEmbedder) embedUsage(ctx context.Context, texts ...string) ([][]float32, cometsdk.TokenUsage, error) {
 	body, err := json.Marshal(map[string]any{
 		"model": e.model,
 		"input": texts,
 	})
 	if err != nil {
-		return nil, err
+		return nil, cometsdk.TokenUsage{}, err
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, e.baseURL+"/embeddings", bytes.NewReader(body))
 	if err != nil {
-		return nil, err
+		return nil, cometsdk.TokenUsage{}, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	if e.apiKey != "" {
@@ -60,29 +67,40 @@ func (e *openAIEmbedder) Embed(ctx context.Context, texts ...string) ([][]float3
 	}
 	resp, err := e.client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, cometsdk.TokenUsage{}, err
 	}
 	defer resp.Body.Close()
 	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, cometsdk.TokenUsage{}, err
 	}
 	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("embeddings API: %s: %s", resp.Status, strings.TrimSpace(string(raw)))
+		return nil, cometsdk.TokenUsage{}, fmt.Errorf("embeddings API: %s: %s", resp.Status, strings.TrimSpace(string(raw)))
 	}
 	var parsed struct {
 		Data []struct {
 			Embedding []float32 `json:"embedding"`
 		} `json:"data"`
+		Usage struct {
+			PromptTokens int `json:"prompt_tokens"`
+			TotalTokens  int `json:"total_tokens"`
+		} `json:"usage"`
 	}
 	if err := json.Unmarshal(raw, &parsed); err != nil {
-		return nil, err
+		return nil, cometsdk.TokenUsage{}, err
 	}
 	out := make([][]float32, len(parsed.Data))
 	for i, d := range parsed.Data {
 		out[i] = d.Embedding
 	}
-	return out, nil
+	tokens := parsed.Usage.PromptTokens
+	if tokens == 0 {
+		tokens = parsed.Usage.TotalTokens
+	}
+	if tokens == 0 {
+		return out, estimateEmbeddingUsage(texts), nil
+	}
+	return out, cometsdk.TokenUsage{InputTokens: tokens}, nil
 }
 
 type ollamaEmbedder struct {
@@ -112,6 +130,11 @@ func NewOllamaEmbedder(baseURL, model string) Embedder {
 func (e *ollamaEmbedder) Model() string { return e.model }
 
 func (e *ollamaEmbedder) Embed(ctx context.Context, texts ...string) ([][]float32, error) {
+	vecs, _, err := e.embedUsage(ctx, texts...)
+	return vecs, err
+}
+
+func (e *ollamaEmbedder) embedUsage(ctx context.Context, texts ...string) ([][]float32, cometsdk.TokenUsage, error) {
 	out := make([][]float32, len(texts))
 	for i, text := range texts {
 		body, err := json.Marshal(map[string]string{
@@ -119,34 +142,34 @@ func (e *ollamaEmbedder) Embed(ctx context.Context, texts ...string) ([][]float3
 			"prompt": text,
 		})
 		if err != nil {
-			return nil, err
+			return nil, cometsdk.TokenUsage{}, err
 		}
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, e.baseURL+"/api/embeddings", bytes.NewReader(body))
 		if err != nil {
-			return nil, err
+			return nil, cometsdk.TokenUsage{}, err
 		}
 		req.Header.Set("Content-Type", "application/json")
 		resp, err := e.client.Do(req)
 		if err != nil {
-			return nil, err
+			return nil, cometsdk.TokenUsage{}, err
 		}
 		raw, err := io.ReadAll(resp.Body)
 		resp.Body.Close()
 		if err != nil {
-			return nil, err
+			return nil, cometsdk.TokenUsage{}, err
 		}
 		if resp.StatusCode >= 400 {
-			return nil, fmt.Errorf("ollama embeddings: %s: %s", resp.Status, strings.TrimSpace(string(raw)))
+			return nil, cometsdk.TokenUsage{}, fmt.Errorf("ollama embeddings: %s: %s", resp.Status, strings.TrimSpace(string(raw)))
 		}
 		var parsed struct {
 			Embedding []float32 `json:"embedding"`
 		}
 		if err := json.Unmarshal(raw, &parsed); err != nil {
-			return nil, err
+			return nil, cometsdk.TokenUsage{}, err
 		}
 		out[i] = parsed.Embedding
 	}
-	return out, nil
+	return out, estimateEmbeddingUsage(texts), nil
 }
 
 func isOpenAICompatibleEmbeddingProvider(provider string) bool {

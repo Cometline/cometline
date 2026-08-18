@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { flip } from 'svelte/animate';
-	import { Settings, Briefcase, Sparkles, Bell, Images } from '@lucide/svelte';
+	import { Settings, Briefcase, Sparkles, Bell, Images, CircleDollarSign } from '@lucide/svelte';
 	import type { Session } from '$lib/types';
 	import { sessionStore } from '$lib/stores/session.svelte';
 	import { deleteSession, updateSession } from '$lib/client/cometmind';
@@ -334,6 +334,16 @@
 					onclick={() => goto('/gallery')}
 				>
 					<Images size={16} stroke-width={1.8} />
+				</button>
+			</Tooltip>
+			<Tooltip label="Usage" action="openUsage">
+				<button
+					aria-label="Usage"
+					class="nav-badge"
+					class:active={page.url.pathname === '/usage'}
+					onclick={() => goto('/usage')}
+				>
+					<CircleDollarSign size={16} stroke-width={1.8} />
 				</button>
 			</Tooltip>
 			<Tooltip label="Inbox" action="openInbox">

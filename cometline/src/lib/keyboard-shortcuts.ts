@@ -23,6 +23,7 @@ export type ShortcutAction =
 	| 'openJobs'
 	| 'openSkillDrafts'
 	| 'openGallery'
+	| 'openUsage'
 	| 'openInbox'
 	| 'cycleReasoningEffort'
 	| 'recentSession';
@@ -222,10 +223,16 @@ export const SHORTCUT_DEFINITIONS: KeyboardShortcutDefinition[] = [
 		defaultBinding: { command: true, key: '3' }
 	},
 	{
+		id: 'openUsage',
+		label: 'Open usage',
+		category: 'panels',
+		defaultBinding: { command: true, key: '4' }
+	},
+	{
 		id: 'openInbox',
 		label: 'Open inbox',
 		category: 'panels',
-		defaultBinding: { command: true, key: '4' }
+		defaultBinding: { command: true, key: '5' }
 	},
 	{
 		id: 'openSettings',
@@ -389,17 +396,19 @@ function isCommandDigitBinding(binding: ShortcutBinding, digit: string): boolean
 function normalizeInboxGalleryBinding(
 	action: ShortcutAction,
 	binding: ShortcutBinding | undefined,
-	defaultBinding: ShortcutBinding
+	defaultBinding: ShortcutBinding,
+	savedHasOpenUsage: boolean
 ): ShortcutBinding {
 	if (action !== 'openInbox' && action !== 'openGallery') {
 		return binding ?? defaultBinding;
 	}
 	if (!binding) return { ...defaultBinding };
-	// Previous defaults: inbox ⌘3, gallery ⌘4.
-	if (action === 'openInbox' && isCommandDigitBinding(binding, '3')) {
+	// One-shot upgrade from inbox ⌘3/⌘4 and gallery ⌘4. Once openUsage exists
+	// in saved settings, later user remaps (including back to ⌘4) are kept.
+	if (!savedHasOpenUsage && action === 'openInbox' && (isCommandDigitBinding(binding, '3') || isCommandDigitBinding(binding, '4'))) {
 		return { ...defaultBinding };
 	}
-	if (action === 'openGallery' && isCommandDigitBinding(binding, '4')) {
+	if (!savedHasOpenUsage && action === 'openGallery' && isCommandDigitBinding(binding, '4')) {
 		return { ...defaultBinding };
 	}
 	return binding;
@@ -453,6 +462,11 @@ export function normalizeKeyboardShortcuts(
 		migratedSaved.openWebSearch = legacySaved.openWebPanel;
 	}
 
+	const savedHasOpenUsage =
+		migratedSaved.openUsage != null &&
+		typeof migratedSaved.openUsage === 'object' &&
+		typeof migratedSaved.openUsage.key === 'string';
+
 	const next: KeyboardShortcuts = { ...defaults };
 	for (const def of SHORTCUT_DEFINITIONS) {
 		const binding = migratedSaved[def.id];
@@ -474,7 +488,7 @@ export function normalizeKeyboardShortcuts(
 				continue;
 			}
 			if (def.id === 'openInbox' || def.id === 'openGallery') {
-				next[def.id] = normalizeInboxGalleryBinding(def.id, normalized, def.defaultBinding);
+				next[def.id] = normalizeInboxGalleryBinding(def.id, normalized, def.defaultBinding, savedHasOpenUsage);
 				continue;
 			}
 			const sessionNav = normalizeSessionNavBinding(def.id, normalized, def.defaultBinding);

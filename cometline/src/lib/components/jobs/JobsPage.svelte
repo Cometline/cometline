@@ -969,24 +969,30 @@
 	.jobs-page {
 		display: flex;
 		flex-direction: column;
+		box-sizing: border-box;
 		height: 100%;
 		min-height: 0;
 		min-width: 0;
 		width: 100%;
+		max-width: 100%;
 		padding: 20px 24px;
 		overflow: hidden;
 	}
 
 	.jobs-header {
 		display: flex;
+		flex-wrap: wrap;
 		align-items: flex-start;
 		justify-content: space-between;
-		gap: 16px;
+		gap: 12px 16px;
+		width: 100%;
+		min-width: 0;
 		flex-shrink: 0;
 		margin-bottom: 16px;
 	}
 
 	.jobs-header > p {
+		flex: 1;
 		min-width: 0;
 		margin: 0;
 		padding-left: 14px;
@@ -1068,6 +1074,8 @@
 	.jobs-content {
 		flex: 1;
 		min-height: 0;
+		min-width: 0;
+		width: 100%;
 		display: flex;
 		flex-direction: column;
 		gap: 12px;
@@ -1083,6 +1091,7 @@
 
 	.jobs-error {
 		margin: 0 0 12px;
+		padding-left: 14px;
 		font-size: 12px;
 		color: var(--status-error);
 	}

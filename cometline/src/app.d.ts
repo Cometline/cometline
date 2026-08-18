@@ -88,6 +88,7 @@ declare global {
 		| 'openJobs'
 		| 'openSkillDrafts'
 		| 'openGallery'
+		| 'openUsage'
 		| 'openInbox'
 		| 'recentSession';
 

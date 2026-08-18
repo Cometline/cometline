@@ -8,6 +8,7 @@ import (
 
 	cometsdk "github.com/cometline/comet-sdk"
 	"github.com/cometline/comet-sdk/llm"
+	"github.com/cometline/cometmind/internal/usage"
 	"github.com/oklog/ulid/v2"
 )
 
@@ -21,13 +22,14 @@ type updater struct {
 	embedder Embedder
 	provider cometsdk.Provider
 	settings Settings
+	usage    usage.Recorder
 }
 
 func (u *updater) handleSimilar(ctx context.Context, existing Record, pm proposedMemory, vec []float32, sessionID string, llmProvider cometsdk.Provider, useModel string) (Change, error) {
 	if llmProvider == nil {
 		llmProvider = u.provider
 	}
-	decision, err := u.decide(ctx, existing, pm, llmProvider, useModel)
+	decision, err := u.decide(ctx, existing, pm, llmProvider, useModel, sessionID)
 	if err != nil {
 		return Change{}, err
 	}
@@ -41,7 +43,7 @@ func (u *updater) handleSimilar(ctx context.Context, existing Record, pm propose
 	}
 }
 
-func (u *updater) decide(ctx context.Context, existing Record, pm proposedMemory, llmProvider cometsdk.Provider, useModel string) (updateDecision, error) {
+func (u *updater) decide(ctx context.Context, existing Record, pm proposedMemory, llmProvider cometsdk.Provider, useModel, sessionID string) (updateDecision, error) {
 	prompt := fmt.Sprintf(`Existing memory:
 %s
 
@@ -61,7 +63,9 @@ Return JSON: {"action":"update|supersede|skip","content":"merged or replacement 
 		}},
 		MaxTokens: 1024,
 	}
-	if err := llm.GenerateJSON(ctx, llmProvider, req, &out); err != nil {
+	tok, err := llm.GenerateJSON(ctx, llmProvider, req, &out)
+	recordUsage(ctx, u.usage, llmProvider, useModel, usage.KindMemoryUpdate, sessionID, tok)
+	if err != nil {
 		return updateDecision{}, err
 	}
 	if out.Action == "" {

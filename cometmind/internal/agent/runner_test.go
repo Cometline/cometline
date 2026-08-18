@@ -32,6 +32,8 @@ type fakeStore struct {
 	contextSummary    string
 	compactedUntil    string
 	usageSaved        int
+	lastUsageProvider string
+	lastUsageModel    string
 	appendCalls       int
 	appendTexts       []string
 	appendReasoning   [][]cometsdk.Block
@@ -57,8 +59,10 @@ func (f *fakeStore) BuildSDKMessagesAll(ctx context.Context, sessionID string) (
 	return f.BuildSDKMessages(ctx, sessionID)
 }
 
-func (f *fakeStore) SaveTokenUsage(ctx context.Context, sessionID string, u cometsdk.TokenUsage) error {
+func (f *fakeStore) SaveTokenUsage(ctx context.Context, sessionID string, u cometsdk.TokenUsage, providerID, modelID string) error {
 	f.usageSaved++
+	f.lastUsageProvider = providerID
+	f.lastUsageModel = modelID
 	return nil
 }
 
@@ -224,7 +228,7 @@ func (m *fakeMemory) RecentTaskOutcomes(ctx context.Context, limit int) ([]memor
 	return m.outcomes, nil
 }
 
-func (m *fakeMemory) RetrieveForTurn(ctx context.Context, query string, tokenAllowance int) (memory.PromptMemories, error) {
+func (m *fakeMemory) RetrieveForTurn(ctx context.Context, sessionID, query string, tokenAllowance int) (memory.PromptMemories, error) {
 	m.retrieveCalls++
 	if m.waitForCancel {
 		<-ctx.Done()
@@ -283,6 +287,9 @@ func TestRunner_TextOnlyTurnPersistsAndStops(t *testing.T) {
 	}
 	if store.usageSaved != 1 {
 		t.Errorf("SaveTokenUsage called %d times, want 1", store.usageSaved)
+	}
+	if store.lastUsageModel != "m" {
+		t.Errorf("SaveTokenUsage model = %q, want m", store.lastUsageModel)
 	}
 	if store.appendCalls != 1 {
 		t.Errorf("AppendAssistantStep called %d times, want 1", store.appendCalls)

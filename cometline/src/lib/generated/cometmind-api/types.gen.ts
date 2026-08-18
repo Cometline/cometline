@@ -1235,6 +1235,75 @@ export type ImportMediaRequest = {
     session_id: string;
 };
 
+export type UsageTotals = {
+    tokens: number;
+    priced_tokens: number;
+    unpriced_tokens: number;
+    estimated_usd: number;
+};
+
+export type UsageBucket = {
+    key: string;
+    provider_id?: string;
+    model_id?: string;
+    call_kind?: string;
+    input_tokens?: number;
+    output_tokens?: number;
+    cache_read?: number;
+    cache_write?: number;
+    tokens: number;
+    estimated_usd: number;
+    priced: boolean;
+    unpriced_tokens?: number;
+};
+
+export type UsageSummaryResponse = {
+    from: number;
+    to: number;
+    totals: UsageTotals;
+    by_model: Array<UsageBucket>;
+    by_kind: Array<UsageBucket>;
+};
+
+export type UsageSeriesPoint = {
+    date: string;
+    day_tokens: {
+        [key: string]: number;
+    };
+    cumulative: {
+        [key: string]: number;
+    };
+};
+
+export type UsageSeriesResponse = {
+    group_by: 'model' | 'kind';
+    keys: Array<string>;
+    points: Array<UsageSeriesPoint>;
+};
+
+export type UsageEventResource = {
+    id: string;
+    created_at: number;
+    workspace_id?: string;
+    session_id?: string;
+    provider_id: string;
+    model_id: string;
+    call_kind: string;
+    input_tokens: number;
+    output_tokens: number;
+    cache_read: number;
+    cache_write: number;
+    estimated_usd: number;
+    priced: boolean;
+};
+
+export type UsageEventsResponse = {
+    items: Array<UsageEventResource>;
+    total: number;
+    limit: number;
+    offset: number;
+};
+
 /**
  * Persisted CometMind session identifier.
  */
@@ -4176,6 +4245,112 @@ export type ReplyInboxMessageResponses = {
 };
 
 export type ReplyInboxMessageResponse = ReplyInboxMessageResponses[keyof ReplyInboxMessageResponses];
+
+export type GetUsageSummaryData = {
+    body?: never;
+    path?: never;
+    query?: {
+        from?: number;
+        to?: number;
+        workspace_id?: string;
+    };
+    url: '/api/v1/usage/summary';
+};
+
+export type GetUsageSummaryErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type GetUsageSummaryError = GetUsageSummaryErrors[keyof GetUsageSummaryErrors];
+
+export type GetUsageSummaryResponses = {
+    /**
+     * Usage summary
+     */
+    200: UsageSummaryResponse;
+};
+
+export type GetUsageSummaryResponse = GetUsageSummaryResponses[keyof GetUsageSummaryResponses];
+
+export type GetUsageSeriesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        from?: number;
+        to?: number;
+        workspace_id?: string;
+        group_by?: 'model' | 'kind';
+        /**
+         * Minutes east of UTC used to bucket series days
+         */
+        tz_offset_min?: number;
+    };
+    url: '/api/v1/usage/series';
+};
+
+export type GetUsageSeriesErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type GetUsageSeriesError = GetUsageSeriesErrors[keyof GetUsageSeriesErrors];
+
+export type GetUsageSeriesResponses = {
+    /**
+     * Daily series
+     */
+    200: UsageSeriesResponse;
+};
+
+export type GetUsageSeriesResponse = GetUsageSeriesResponses[keyof GetUsageSeriesResponses];
+
+export type ListUsageEventsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        from?: number;
+        to?: number;
+        workspace_id?: string;
+        limit?: number;
+        offset?: number;
+    };
+    url: '/api/v1/usage/events';
+};
+
+export type ListUsageEventsErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type ListUsageEventsError = ListUsageEventsErrors[keyof ListUsageEventsErrors];
+
+export type ListUsageEventsResponses = {
+    /**
+     * Usage events
+     */
+    200: UsageEventsResponse;
+};
+
+export type ListUsageEventsResponse = ListUsageEventsResponses[keyof ListUsageEventsResponses];
 
 export type DismissInboxMessageData = {
     body?: never;

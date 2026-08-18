@@ -10,6 +10,7 @@ import (
 
 	cometsdk "github.com/cometline/comet-sdk"
 	"github.com/cometline/comet-sdk/llm"
+	"github.com/cometline/cometmind/internal/usage"
 	"github.com/oklog/ulid/v2"
 )
 
@@ -25,6 +26,7 @@ type compactor struct {
 	embedder Embedder
 	provider cometsdk.Provider
 	settings Settings
+	usage    usage.Recorder
 	mu       sync.Mutex
 }
 
@@ -283,7 +285,9 @@ Memories:
 		}},
 		MaxTokens: 1024,
 	}
-	if err := llm.GenerateJSON(ctx, c.provider, req, &out); err != nil {
+	tok, err := llm.GenerateJSON(ctx, c.provider, req, &out)
+	recordUsage(ctx, c.usage, c.provider, model, usage.KindMemoryCompaction, "", tok)
+	if err != nil {
 		return err
 	}
 	content := strings.TrimSpace(out.Content)

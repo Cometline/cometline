@@ -20,6 +20,9 @@ const (
 	DefaultContext = 128_000
 	// CacheTTL controls how long a disk/memory catalog snapshot stays fresh.
 	CacheTTL = 60 * time.Minute
+	// RefreshBackoff is how long a failed remote refresh keeps serving the
+	// stale in-memory catalog instead of retrying models.dev.
+	RefreshBackoff = 5 * time.Minute
 	// APIURL is the models.dev public catalog endpoint.
 	APIURL = "https://models.dev/api.json"
 
@@ -37,7 +40,7 @@ const (
 
 	// diskCacheVersion bumps when the on-disk shape must be invalidated
 	// (e.g. older caches stored only limit fields and dropped modalities).
-	diskCacheVersion = 4
+	diskCacheVersion = 5
 )
 
 // Limits are the resolved context/output caps for one model.
@@ -73,11 +76,29 @@ type reasoningOption struct {
 	Max    *int     `json:"max"`
 }
 
+type modelCost struct {
+	Input      float64 `json:"input"`
+	Output     float64 `json:"output"`
+	CacheRead  float64 `json:"cache_read"`
+	CacheWrite float64 `json:"cache_write"`
+}
+
+// Cost is models.dev USD per 1M tokens. Found is false when the catalog
+// has no cost object for the model.
+type Cost struct {
+	Input      float64
+	Output     float64
+	CacheRead  float64
+	CacheWrite float64
+	Found      bool
+}
+
 type modelEntry struct {
 	ID               string             `json:"id"`
 	Attachment       bool               `json:"attachment"`
 	Modalities       modelModalities    `json:"modalities"`
 	Limit            modelLimit         `json:"limit"`
+	Cost             *modelCost         `json:"cost"`
 	Provider         *modelProviderMeta `json:"provider"`
 	ReasoningOptions []reasoningOption  `json:"reasoning_options"`
 }
@@ -101,12 +122,13 @@ type diskCacheEnvelope struct {
 }
 
 var (
-	mu          sync.Mutex
-	cached      *Catalog
-	httpClient  = &http.Client{Timeout: 20 * time.Second}
-	fetchURL    = APIURL
-	nowFn       = time.Now
-	cachePathFn = modelsDevCachePath
+	mu              sync.Mutex
+	cached          *Catalog
+	refreshFailedAt time.Time
+	httpClient      = &http.Client{Timeout: 20 * time.Second}
+	fetchURL        = APIURL
+	nowFn           = time.Now
+	cachePathFn     = modelsDevCachePath
 )
 
 func modelsDevCachePath() (string, error) {
@@ -172,6 +194,78 @@ func ResolveLimits(method, providerID, modelID string) Limits {
 		return limitsFromEntry(entry)
 	}
 	return fallback
+}
+
+// ResolveCost looks up models.dev per-1M-token rates. providerID is the
+// settings / usage-event provider id; the catalog is scanned by model id
+// when that key is not a models.dev bucket.
+func ResolveCost(providerID, modelID string) (Cost, bool) {
+	modelID = strings.TrimSpace(modelID)
+	if modelID == "" {
+		return Cost{}, false
+	}
+	cat, err := load()
+	if err != nil || cat == nil {
+		return Cost{}, false
+	}
+	candidates := modelIDCandidates(modelID)
+	if pid := strings.ToLower(strings.TrimSpace(providerID)); pid != "" {
+		if provider, ok := cat.Providers[pid]; ok {
+			if entry, ok := findCatalogEntry(provider, candidates); ok {
+				return costFromEntry(entry)
+			}
+		}
+	}
+	if entry, ok := findCatalogEntryAcross(cat, candidates); ok {
+		return costFromEntry(entry)
+	}
+	return Cost{}, false
+}
+
+func costFromEntry(entry modelEntry) (Cost, bool) {
+	if entry.Cost == nil {
+		return Cost{}, false
+	}
+	return Cost{
+		Input:      entry.Cost.Input,
+		Output:     entry.Cost.Output,
+		CacheRead:  entry.Cost.CacheRead,
+		CacheWrite: entry.Cost.CacheWrite,
+		Found:      true,
+	}, true
+}
+
+func findCatalogEntry(provider providerEntry, candidates []string) (modelEntry, bool) {
+	if len(provider.Models) == 0 || len(candidates) == 0 {
+		return modelEntry{}, false
+	}
+	for _, candidate := range candidates {
+		if entry, ok := provider.Models[candidate]; ok {
+			return entry, true
+		}
+	}
+	for _, candidate := range candidates {
+		for id, entry := range provider.Models {
+			if modelIdentityMatch(id, entry, candidate) {
+				return entry, true
+			}
+		}
+	}
+	return modelEntry{}, false
+}
+
+func findCatalogEntryAcross(cat *Catalog, candidates []string) (modelEntry, bool) {
+	if cat == nil || len(candidates) == 0 {
+		return modelEntry{}, false
+	}
+	for _, candidate := range candidates {
+		for _, providerID := range sortedCatalogProviderIDs(cat) {
+			if entry, ok := findCatalogEntry(cat.Providers[providerID], []string{candidate}); ok {
+				return entry, true
+			}
+		}
+	}
+	return modelEntry{}, false
 }
 
 func limitsFromEntry(entry modelEntry) Limits {
@@ -663,17 +757,23 @@ func load() (*Catalog, error) {
 	if cached != nil && nowFn().Sub(cached.FetchedAt) < CacheTTL {
 		return cached, nil
 	}
+	if cached != nil && !refreshFailedAt.IsZero() && nowFn().Sub(refreshFailedAt) < RefreshBackoff {
+		return cached, nil
+	}
 	if cat, ok := readDiskCache(); ok {
 		cached = cat
+		refreshFailedAt = time.Time{}
 		return cat, nil
 	}
 	cat, err := fetchRemote()
 	if err != nil {
+		refreshFailedAt = nowFn()
 		if cached != nil {
 			return cached, nil
 		}
 		return nil, err
 	}
+	refreshFailedAt = time.Time{}
 	cached = cat
 	_ = writeDiskCache(cat)
 	return cat, nil
@@ -792,6 +892,18 @@ func ResetCacheForTest() {
 	mu.Lock()
 	defer mu.Unlock()
 	cached = nil
+	refreshFailedAt = time.Time{}
+}
+
+// SetNowForTest overrides the catalog clock (tests only). Pass nil to restore.
+func SetNowForTest(fn func() time.Time) {
+	mu.Lock()
+	defer mu.Unlock()
+	if fn == nil {
+		nowFn = time.Now
+		return
+	}
+	nowFn = fn
 }
 
 // SetFetchURLForTest overrides the remote URL (tests only).

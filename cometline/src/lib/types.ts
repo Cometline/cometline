@@ -127,6 +127,7 @@ export type ShortcutAction =
 	| 'openJobs'
 	| 'openSkillDrafts'
 	| 'openGallery'
+	| 'openUsage'
 	| 'openInbox'
 	| 'cycleReasoningEffort'
 	| 'recentSession';

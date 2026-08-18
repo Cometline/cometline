@@ -73,7 +73,10 @@ import {
 	dismissInboxMessage as dismissInboxMessageApi,
 	listMedia as listMediaApi,
 	importMedia as importMediaApi,
-	deleteMedia as deleteMediaApi
+	deleteMedia as deleteMediaApi,
+	getUsageSummary as getUsageSummaryApi,
+	getUsageSeries as getUsageSeriesApi,
+	listUsageEvents as listUsageEventsApi
 } from '$lib/generated/cometmind-api';
 import type {
 	CompactMemoryPreviewResponse,
@@ -116,7 +119,10 @@ import type {
 	ListInboxMessagesResponse,
 	InboxSummaryResponse,
 	MediaResource,
-	MediaListResponse
+	MediaListResponse,
+	UsageSummaryResponse,
+	UsageSeriesResponse,
+	UsageEventsResponse
 } from '$lib/generated/cometmind-api';
 import { client } from '$lib/generated/cometmind-api/client.gen';
 import { createSSEParser } from '$lib/sse/parser';
@@ -150,7 +156,11 @@ export type {
 	InboxMessageResource,
 	ListInboxMessagesResponse,
 	InboxSummaryResponse,
-	MediaResource
+	MediaResource,
+	UsageEventsResponse,
+	UsageSeriesResponse,
+	UsageSummaryResponse,
+	Workspace
 } from '$lib/generated/cometmind-api';
 
 export type MemoryLifecycleSettings = {
@@ -1121,4 +1131,32 @@ export function importMedia(id: string, sessionId: string): Promise<MediaResourc
 
 export function deleteMedia(id: string): Promise<MediaResource> {
 	return deleteMediaApi({ path: { id }, throwOnError: true }).then(({ data }) => data);
+}
+
+export function getUsageSummary(query: {
+	from?: number;
+	to?: number;
+	workspace_id?: string;
+} = {}): Promise<UsageSummaryResponse> {
+	return getUsageSummaryApi({ query, throwOnError: true }).then(({ data }) => data);
+}
+
+export function getUsageSeries(query: {
+	from?: number;
+	to?: number;
+	workspace_id?: string;
+	group_by?: 'model' | 'kind';
+	tz_offset_min?: number;
+} = {}): Promise<UsageSeriesResponse> {
+	return getUsageSeriesApi({ query, throwOnError: true }).then(({ data }) => data);
+}
+
+export function listUsageEvents(query: {
+	from?: number;
+	to?: number;
+	workspace_id?: string;
+	limit?: number;
+	offset?: number;
+} = {}): Promise<UsageEventsResponse> {
+	return listUsageEventsApi({ query, throwOnError: true }).then(({ data }) => data);
 }

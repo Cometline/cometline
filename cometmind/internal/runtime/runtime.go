@@ -39,6 +39,7 @@ import (
 	"github.com/cometline/cometmind/internal/store"
 	"github.com/cometline/cometmind/internal/subagent"
 	"github.com/cometline/cometmind/internal/tools"
+	"github.com/cometline/cometmind/internal/usage"
 	"github.com/cometline/cometmind/internal/wakeup"
 )
 
@@ -53,6 +54,7 @@ type Runtime struct {
 	Config           *config.Config
 	DB               *sql.DB
 	Sessions         *session.Service
+	Usage            *usage.Service
 	Memory           *memory.Service
 	Compatibility    *modelcompat.Resolver
 	Events           *event.Hub
@@ -97,10 +99,13 @@ func New(ctx context.Context) (*Runtime, error) {
 	}
 
 	sessions := session.New(sqlDB)
+	usageSvc := usage.NewService(sqlDB)
+	sessions.SetUsageRecorder(usageSvc)
 	r := &Runtime{
 		Config:           cfg,
 		DB:               sqlDB,
 		Sessions:         sessions,
+		Usage:            usageSvc,
 		Events:           event.NewHub(),
 		SystemPrompt:     systemPrompt,
 		memorySem:        make(chan struct{}, memoryExtractionConcurrency),
@@ -127,6 +132,7 @@ func New(ctx context.Context) (*Runtime, error) {
 					"error", err,
 					"effect", "memory subsystem disabled; agent will run without retrieval/extraction")
 			} else {
+				mem.SetUsageRecorder(usageSvc)
 				r.Memory = mem
 			}
 		}
@@ -137,7 +143,7 @@ func New(ctx context.Context) (*Runtime, error) {
 		if err != nil {
 			logging.L().Warn("skills.synthesis.provider.init_failed", "error", err)
 		} else {
-			notifier.Register(&skillSynthesisNotifier{provider: p, model: model, memory: r.Memory})
+			notifier.Register(&skillSynthesisNotifier{provider: p, model: model, memory: r.Memory, usage: usageSvc, sessions: sessions})
 		}
 	}
 	if _, err := r.RunRetention(ctx); err != nil {
@@ -187,9 +193,9 @@ func (r *Runtime) StartScheduler(ctx context.Context) {
 	}()
 }
 
-func runRetention(ctx context.Context, db *sql.DB, sessions *session.Service, mem *memory.Service, jobSvc *jobs.Service, inboxSvc *inbox.Service, cfg config.StorageConfig, inboxCfg config.InboxConfig, jobPurgeDays int, isRunning func(string) bool) (retention.Result, error) {
+func runRetention(ctx context.Context, db *sql.DB, sessions *session.Service, mem *memory.Service, jobSvc *jobs.Service, inboxSvc *inbox.Service, usageSvc *usage.Service, cfg config.StorageConfig, inboxCfg config.InboxConfig, jobPurgeDays int, isRunning func(string) bool) (retention.Result, error) {
 	var out retention.Result
-	needDB := cfg.RetentionEnabled() || cfg.MemoryPurgeEnabled() || jobPurgeDays > 0 || inboxSvc != nil
+	needDB := cfg.RetentionEnabled() || cfg.MemoryPurgeEnabled() || jobPurgeDays > 0 || inboxSvc != nil || usageSvc != nil
 	if needDB {
 		rr := &retention.Runner{
 			DB:           db,
@@ -197,6 +203,7 @@ func runRetention(ctx context.Context, db *sql.DB, sessions *session.Service, me
 			Memory:       mem,
 			Jobs:         jobSvc,
 			Inbox:        inboxSvc,
+			Usage:        usageSvc,
 			Config:       cfg,
 			InboxCfg:     inboxCfg,
 			JobPurgeDays: jobPurgeDays,
@@ -230,7 +237,7 @@ func (r *Runtime) RunRetention(ctx context.Context) (retention.Result, error) {
 	}
 	r.retentionMu.Lock()
 	defer r.retentionMu.Unlock()
-	result, err := runRetention(ctx, r.DB, r.Sessions, r.Memory, r.Jobs, r.Inbox, r.Config.EffectiveStorageConfig(), r.Config.EffectiveInboxSettings(), r.jobSettingsSnapshot().DeletedPurgeDays, r.isRunning)
+	result, err := runRetention(ctx, r.DB, r.Sessions, r.Memory, r.Jobs, r.Inbox, r.Usage, r.Config.EffectiveStorageConfig(), r.Config.EffectiveInboxSettings(), r.jobSettingsSnapshot().DeletedPurgeDays, r.isRunning)
 	if err != nil {
 		return result, err
 	}
@@ -348,7 +355,7 @@ func (r *Runtime) StartRetentionMaintenance(ctx context.Context) {
 		for {
 			if !waitForMaintenance(ctx, r.retentionChanged, func() (bool, time.Duration) {
 				cfg := r.Config.EffectiveStorageConfig()
-				enabled := cfg.RetentionEnabled() || cfg.MemoryPurgeEnabled() || r.jobSettingsSnapshot().DeletedPurgeDays > 0 || cfg.RuntimeFilesEnabled()
+				enabled := cfg.RetentionEnabled() || cfg.MemoryPurgeEnabled() || r.jobSettingsSnapshot().DeletedPurgeDays > 0 || cfg.RuntimeFilesEnabled() || r.Usage != nil
 				interval := time.Duration(cfg.CleanupIntervalMinutes) * time.Minute
 				if interval <= 0 {
 					interval = time.Hour
@@ -362,7 +369,7 @@ func (r *Runtime) StartRetentionMaintenance(ctx context.Context) {
 				logging.L().Warn("retention.failed", "error", err)
 				continue
 			}
-			if result.SessionsDeleted > 0 || result.SubagentsDeleted > 0 || result.MemoriesPurged > 0 || result.MemoryEventsPurged > 0 || result.JobsPurged > 0 || result.InboxPurged > 0 || result.ToolOutputDeleted > 0 || result.AgentTmpDeleted > 0 {
+			if result.SessionsDeleted > 0 || result.SubagentsDeleted > 0 || result.MemoriesPurged > 0 || result.MemoryEventsPurged > 0 || result.JobsPurged > 0 || result.InboxPurged > 0 || result.UsageEventsPurged > 0 || result.ToolOutputDeleted > 0 || result.AgentTmpDeleted > 0 {
 				logging.L().Info("retention.completed",
 					"sessions_deleted", result.SessionsDeleted,
 					"subagents_deleted", result.SubagentsDeleted,
@@ -370,6 +377,7 @@ func (r *Runtime) StartRetentionMaintenance(ctx context.Context) {
 					"memory_events_purged", result.MemoryEventsPurged,
 					"jobs_purged", result.JobsPurged,
 					"inbox_purged", result.InboxPurged,
+					"usage_events_purged", result.UsageEventsPurged,
 					"tool_output_deleted", result.ToolOutputDeleted,
 					"agent_tmp_deleted", result.AgentTmpDeleted,
 					"vacuumed", result.Vacuumed,
@@ -611,6 +619,7 @@ func (r *Runtime) reloadMemory(cfg *config.Config) error {
 		if err != nil {
 			return fmt.Errorf("create memory on reload: %w", err)
 		}
+		mem.SetUsageRecorder(r.Usage)
 		r.Memory = mem
 		if r.autonomyWorker != nil {
 			r.autonomyWorker.Memory = mem

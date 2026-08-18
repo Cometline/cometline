@@ -11,6 +11,7 @@ import (
 	"github.com/cometline/cometmind/internal/jobs"
 	"github.com/cometline/cometmind/internal/memory"
 	"github.com/cometline/cometmind/internal/session"
+	"github.com/cometline/cometmind/internal/usage"
 	_ "modernc.org/sqlite"
 )
 
@@ -207,5 +208,35 @@ func TestRunner_MaxSessionsPerWorkspace(t *testing.T) {
 	}
 	if _, err := q.GetSession(ctx, "s1"); err == nil {
 		t.Fatal("expected oldest session deleted")
+	}
+}
+
+func TestRunner_PurgesUsageOlderThanOneYear(t *testing.T) {
+	ctx := context.Background()
+	conn, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	if err := db.EnsureSchema(ctx, conn); err != nil {
+		t.Fatal(err)
+	}
+	old := time.Now().AddDate(-2, 0, 0).UnixMilli()
+	if _, err := conn.ExecContext(ctx, `
+		INSERT INTO usage_events (id, created_at, provider_id, model_id, call_kind, input_tokens, output_tokens, cache_read, cache_write)
+		VALUES ('old', ?, 'openai', 'gpt-4o', 'agent_step', 10, 0, 0, 0)`, old); err != nil {
+		t.Fatal(err)
+	}
+	got, err := (&Runner{
+		DB:       conn,
+		Sessions: session.New(conn),
+		Usage:    usage.NewService(conn),
+		Config:   config.StorageConfig{VacuumAfterPurge: false},
+	}).Run(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.UsageEventsPurged != 1 {
+		t.Fatalf("usage_events_purged=%d want 1", got.UsageEventsPurged)
 	}
 }

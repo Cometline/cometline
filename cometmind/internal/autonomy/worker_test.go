@@ -16,6 +16,7 @@ import (
 	"github.com/cometline/cometmind/internal/session"
 	"github.com/cometline/cometmind/internal/store"
 	"github.com/cometline/cometmind/internal/tools"
+	"github.com/cometline/cometmind/internal/usage"
 )
 
 type testRunGuard struct {
@@ -364,5 +365,20 @@ func TestWorkerSemaphoreReleaseSurvivesConcurrencyReload(t *testing.T) {
 	defer second()
 	if _, ok := w.tryAcquire(); ok {
 		t.Fatal("acquisition exceeded reloaded concurrency")
+	}
+}
+
+func TestScopeUsageUsesJobWorkspace(t *testing.T) {
+	fx := newWorkerFixture(t)
+	ctx := context.Background()
+	ws, err := fx.sessions.EnsureWorkspace(ctx, fx.root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := newWorker(t, fx, &staticProvider{}, config.AutonomousJobsConfig{})
+	scoped := w.scopeUsage(ctx, jobs.Job{WorkspacePath: fx.root, AssignedSessionID: "sess-job"})
+	got := usage.ScopeFrom(scoped)
+	if got.WorkspaceID != ws.ID || got.SessionID != "sess-job" {
+		t.Fatalf("scope=%+v, want workspace %s session sess-job", got, ws.ID)
 	}
 }

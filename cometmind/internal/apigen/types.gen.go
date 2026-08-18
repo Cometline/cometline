@@ -799,6 +799,24 @@ func (e TurnStatusEventPhase) Valid() bool {
 	}
 }
 
+// Defines values for UsageSeriesResponseGroupBy.
+const (
+	UsageSeriesResponseGroupByKind  UsageSeriesResponseGroupBy = "kind"
+	UsageSeriesResponseGroupByModel UsageSeriesResponseGroupBy = "model"
+)
+
+// Valid indicates whether the value is a known member of the UsageSeriesResponseGroupBy enum.
+func (e UsageSeriesResponseGroupBy) Valid() bool {
+	switch e {
+	case UsageSeriesResponseGroupByKind:
+		return true
+	case UsageSeriesResponseGroupByModel:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for WebContextKind.
 const (
 	WebContextKindFile     WebContextKind = "file"
@@ -937,6 +955,24 @@ func (e ListMediaParamsKind) Valid() bool {
 	case Image:
 		return true
 	case Video:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetUsageSeriesParamsGroupBy.
+const (
+	GetUsageSeriesParamsGroupByKind  GetUsageSeriesParamsGroupBy = "kind"
+	GetUsageSeriesParamsGroupByModel GetUsageSeriesParamsGroupBy = "model"
+)
+
+// Valid indicates whether the value is a known member of the GetUsageSeriesParamsGroupBy enum.
+func (e GetUsageSeriesParamsGroupBy) Valid() bool {
+	switch e {
+	case GetUsageSeriesParamsGroupByKind:
+		return true
+	case GetUsageSeriesParamsGroupByModel:
 		return true
 	default:
 		return false
@@ -2043,6 +2079,81 @@ type UpdateSkillDraftRequest struct {
 	Content string `json:"content"`
 }
 
+// UsageBucket defines model for UsageBucket.
+type UsageBucket struct {
+	CacheRead      *int    `json:"cache_read,omitempty"`
+	CacheWrite     *int    `json:"cache_write,omitempty"`
+	CallKind       *string `json:"call_kind,omitempty"`
+	EstimatedUsd   float32 `json:"estimated_usd"`
+	InputTokens    *int    `json:"input_tokens,omitempty"`
+	Key            string  `json:"key"`
+	ModelId        *string `json:"model_id,omitempty"`
+	OutputTokens   *int    `json:"output_tokens,omitempty"`
+	Priced         bool    `json:"priced"`
+	ProviderId     *string `json:"provider_id,omitempty"`
+	Tokens         int     `json:"tokens"`
+	UnpricedTokens *int    `json:"unpriced_tokens,omitempty"`
+}
+
+// UsageEventResource defines model for UsageEventResource.
+type UsageEventResource struct {
+	CacheRead    int     `json:"cache_read"`
+	CacheWrite   int     `json:"cache_write"`
+	CallKind     string  `json:"call_kind"`
+	CreatedAt    int64   `json:"created_at"`
+	EstimatedUsd float32 `json:"estimated_usd"`
+	Id           string  `json:"id"`
+	InputTokens  int     `json:"input_tokens"`
+	ModelId      string  `json:"model_id"`
+	OutputTokens int     `json:"output_tokens"`
+	Priced       bool    `json:"priced"`
+	ProviderId   string  `json:"provider_id"`
+	SessionId    *string `json:"session_id,omitempty"`
+	WorkspaceId  *string `json:"workspace_id,omitempty"`
+}
+
+// UsageEventsResponse defines model for UsageEventsResponse.
+type UsageEventsResponse struct {
+	Items  []UsageEventResource `json:"items"`
+	Limit  int                  `json:"limit"`
+	Offset int                  `json:"offset"`
+	Total  int64                `json:"total"`
+}
+
+// UsageSeriesPoint defines model for UsageSeriesPoint.
+type UsageSeriesPoint struct {
+	Cumulative map[string]int `json:"cumulative"`
+	Date       string         `json:"date"`
+	DayTokens  map[string]int `json:"day_tokens"`
+}
+
+// UsageSeriesResponse defines model for UsageSeriesResponse.
+type UsageSeriesResponse struct {
+	GroupBy UsageSeriesResponseGroupBy `json:"group_by"`
+	Keys    []string                   `json:"keys"`
+	Points  []UsageSeriesPoint         `json:"points"`
+}
+
+// UsageSeriesResponseGroupBy defines model for UsageSeriesResponse.GroupBy.
+type UsageSeriesResponseGroupBy string
+
+// UsageSummaryResponse defines model for UsageSummaryResponse.
+type UsageSummaryResponse struct {
+	ByKind  []UsageBucket `json:"by_kind"`
+	ByModel []UsageBucket `json:"by_model"`
+	From    int64         `json:"from"`
+	To      int64         `json:"to"`
+	Totals  UsageTotals   `json:"totals"`
+}
+
+// UsageTotals defines model for UsageTotals.
+type UsageTotals struct {
+	EstimatedUsd   float32 `json:"estimated_usd"`
+	PricedTokens   int     `json:"priced_tokens"`
+	Tokens         int     `json:"tokens"`
+	UnpricedTokens int     `json:"unpriced_tokens"`
+}
+
 // WebContext defines model for WebContext.
 type WebContext struct {
 	// Content Visible page text, explicit selection snippet, or empty string for a
@@ -2342,6 +2453,36 @@ type DeleteSkillParams struct {
 // ExportSkillParams defines parameters for ExportSkill.
 type ExportSkillParams struct {
 	WorkspacePath *string `form:"workspace_path,omitempty" json:"workspace_path,omitempty"`
+}
+
+// ListUsageEventsParams defines parameters for ListUsageEvents.
+type ListUsageEventsParams struct {
+	From        *int64  `form:"from,omitempty" json:"from,omitempty"`
+	To          *int64  `form:"to,omitempty" json:"to,omitempty"`
+	WorkspaceId *string `form:"workspace_id,omitempty" json:"workspace_id,omitempty"`
+	Limit       *int    `form:"limit,omitempty" json:"limit,omitempty"`
+	Offset      *int    `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// GetUsageSeriesParams defines parameters for GetUsageSeries.
+type GetUsageSeriesParams struct {
+	From        *int64                       `form:"from,omitempty" json:"from,omitempty"`
+	To          *int64                       `form:"to,omitempty" json:"to,omitempty"`
+	WorkspaceId *string                      `form:"workspace_id,omitempty" json:"workspace_id,omitempty"`
+	GroupBy     *GetUsageSeriesParamsGroupBy `form:"group_by,omitempty" json:"group_by,omitempty"`
+
+	// TzOffsetMin Minutes east of UTC used to bucket series days
+	TzOffsetMin *int `form:"tz_offset_min,omitempty" json:"tz_offset_min,omitempty"`
+}
+
+// GetUsageSeriesParamsGroupBy defines parameters for GetUsageSeries.
+type GetUsageSeriesParamsGroupBy string
+
+// GetUsageSummaryParams defines parameters for GetUsageSummary.
+type GetUsageSummaryParams struct {
+	From        *int64  `form:"from,omitempty" json:"from,omitempty"`
+	To          *int64  `form:"to,omitempty" json:"to,omitempty"`
+	WorkspaceId *string `form:"workspace_id,omitempty" json:"workspace_id,omitempty"`
 }
 
 // ListWikiFilesParams defines parameters for ListWikiFiles.

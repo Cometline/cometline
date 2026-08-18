@@ -595,6 +595,30 @@ var alterStatements = [][]string{
 		"CREATE INDEX IF NOT EXISTS idx_session_media_kind ON session_media (kind, status, created_at DESC)",
 		"PRAGMA foreign_keys = ON",
 	},
+	// v31 -> v32: usage ledger for the spend dashboard
+	{
+		`CREATE TABLE IF NOT EXISTS usage_events (
+			id TEXT PRIMARY KEY,
+			created_at INTEGER NOT NULL DEFAULT (unixepoch ('now', 'subsec') * 1000),
+			workspace_id TEXT REFERENCES workspaces (id) ON DELETE SET NULL,
+			session_id TEXT REFERENCES sessions (id) ON DELETE SET NULL,
+			provider_id TEXT NOT NULL,
+			model_id TEXT NOT NULL,
+			call_kind TEXT NOT NULL,
+			input_tokens INTEGER NOT NULL DEFAULT 0,
+			output_tokens INTEGER NOT NULL DEFAULT 0,
+			cache_read INTEGER NOT NULL DEFAULT 0,
+			cache_write INTEGER NOT NULL DEFAULT 0
+		)`,
+		"CREATE INDEX IF NOT EXISTS idx_usage_events_created ON usage_events (created_at DESC)",
+		"CREATE INDEX IF NOT EXISTS idx_usage_events_model ON usage_events (provider_id, model_id)",
+		"CREATE INDEX IF NOT EXISTS idx_usage_events_workspace ON usage_events (workspace_id, created_at DESC)",
+		"CREATE INDEX IF NOT EXISTS idx_usage_events_kind ON usage_events (call_kind, created_at DESC)",
+	},
+	// v32 -> v33: session fallback for workspace usage filters
+	{
+		"CREATE INDEX IF NOT EXISTS idx_usage_events_session ON usage_events (session_id)",
+	},
 }
 
 func isForeignKeysPragma(stmt string) bool {
@@ -753,7 +777,7 @@ func splitStatements(sql string) []string {
 	return out
 }
 
-const schemaVersion = 31
+const schemaVersion = 33
 
 // EnsureSchema runs [Migrate] once per database file using PRAGMA user_version.
 // For existing databases, it applies incremental ALTER statements to upgrade

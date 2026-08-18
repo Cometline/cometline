@@ -9,6 +9,7 @@ import (
 	"github.com/cometline/comet-sdk/llm"
 	"github.com/cometline/cometmind/internal/logging"
 	"github.com/cometline/cometmind/internal/memory"
+	"github.com/cometline/cometmind/internal/usage"
 )
 
 const synthesisMaxTokens = 2500
@@ -31,6 +32,11 @@ type SynthesisJob struct {
 
 // ProposeSkillFromJob asks an LLM whether a completed job should become a reusable skill draft.
 func ProposeSkillFromJob(ctx context.Context, p cometsdk.Provider, model string, job SynthesisJob, outcomes []memory.ScoredMemory) error {
+	return ProposeSkillFromJobRecorded(ctx, p, model, job, outcomes, nil, "")
+}
+
+// ProposeSkillFromJobRecorded is ProposeSkillFromJob plus optional spend recording.
+func ProposeSkillFromJobRecorded(ctx context.Context, p cometsdk.Provider, model string, job SynthesisJob, outcomes []memory.ScoredMemory, rec usage.Recorder, workspaceID string) error {
 	if p == nil {
 		return fmt.Errorf("provider is required")
 	}
@@ -41,7 +47,7 @@ func ProposeSkillFromJob(ctx context.Context, p cometsdk.Provider, model string,
 
 	prompt := buildSynthesisPrompt(job, outcomes)
 
-	out, err := generateSynthesisResult(ctx, p, model, job, prompt)
+	out, err := generateSynthesisResult(ctx, p, model, job, prompt, rec, workspaceID)
 	if err != nil {
 		return err
 	}
@@ -72,7 +78,7 @@ func ProposeSkillFromJob(ctx context.Context, p cometsdk.Provider, model string,
 	return nil
 }
 
-func generateSynthesisResult(ctx context.Context, p cometsdk.Provider, model string, job SynthesisJob, prompt string) (synthesisResult, error) {
+func generateSynthesisResult(ctx context.Context, p cometsdk.Provider, model string, job SynthesisJob, prompt string, rec usage.Recorder, workspaceID string) (synthesisResult, error) {
 	var out synthesisResult
 	zero := 0.0
 	req := &cometsdk.Request{
@@ -85,7 +91,8 @@ func generateSynthesisResult(ctx context.Context, p cometsdk.Provider, model str
 		MaxTokens:   synthesisMaxTokens,
 		Temperature: &zero,
 	}
-	if err := llm.GenerateJSON(ctx, p, req, &out); err != nil {
+	if tok, err := llm.GenerateJSON(ctx, p, req, &out); err != nil {
+		recordSkillUsage(ctx, rec, p, model, workspaceID, tok)
 		if !shouldRetrySynthesisJSON(err) {
 			return synthesisResult{}, err
 		}
@@ -102,11 +109,35 @@ If this job is not reusable, set "should_propose" to false and leave "name" and 
 			MaxTokens:   synthesisMaxTokens,
 			Temperature: &zero,
 		}
-		if retryErr := llm.GenerateJSON(ctx, p, retryReq, &out); retryErr != nil {
+		retryTok, retryErr := llm.GenerateJSON(ctx, p, retryReq, &out)
+		recordSkillUsage(ctx, rec, p, model, workspaceID, retryTok)
+		if retryErr != nil {
 			return synthesisResult{}, retryErr
 		}
+		return out, nil
+	} else {
+		recordSkillUsage(ctx, rec, p, model, workspaceID, tok)
 	}
 	return out, nil
+}
+
+func recordSkillUsage(ctx context.Context, rec usage.Recorder, p cometsdk.Provider, model, workspaceID string, u cometsdk.TokenUsage) {
+	if rec == nil {
+		return
+	}
+	providerID := ""
+	if p != nil {
+		providerID = p.ID()
+	}
+	if err := rec.Record(ctx, usage.Event{
+		WorkspaceID: workspaceID,
+		ProviderID:  providerID,
+		ModelID:     model,
+		CallKind:    usage.KindSkillSynthesis,
+		Usage:       u,
+	}); err != nil {
+		logging.L().Warn("usage.record_failed", "kind", usage.KindSkillSynthesis, "model", model, "error", err)
+	}
 }
 
 func shouldRetrySynthesisJSON(err error) bool {

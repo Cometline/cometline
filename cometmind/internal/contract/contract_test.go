@@ -120,3 +120,53 @@ func TestMemoryConfigMatchesOpenAPIMemorySettings(t *testing.T) {
 		t.Fatalf("schema.VisitJSON() error = %v\npayload: %s", err, raw)
 	}
 }
+
+func TestUsageSchemasMatchOpenAPI(t *testing.T) {
+	t.Parallel()
+
+	doc, err := contract.OpenAPI()
+	if err != nil {
+		t.Fatalf("OpenAPI() error = %v", err)
+	}
+	for _, name := range []string{
+		"UsageTotals",
+		"UsageBucket",
+		"UsageSummaryResponse",
+		"UsageSeriesPoint",
+		"UsageSeriesResponse",
+		"UsageEventResource",
+		"UsageEventsResponse",
+	} {
+		schemaRef := doc.Components.Schemas[name]
+		if schemaRef == nil || schemaRef.Value == nil {
+			t.Fatalf("%s schema missing from openapi.yaml", name)
+		}
+	}
+
+	summaryRef := doc.Components.Schemas["UsageSummaryResponse"]
+	payload := map[string]any{
+		"from": 1,
+		"to":   2,
+		"totals": map[string]any{
+			"tokens":          10,
+			"priced_tokens":   8,
+			"unpriced_tokens": 2,
+			"estimated_usd":   0.12,
+		},
+		"by_model": []any{},
+		"by_kind":  []any{},
+	}
+	if err := summaryRef.Value.VisitJSON(payload); err != nil {
+		t.Fatalf("UsageSummaryResponse.VisitJSON() error = %v", err)
+	}
+
+	if doc.Paths.Find("/api/v1/usage/summary") == nil {
+		t.Fatal("GET /api/v1/usage/summary missing from openapi.yaml")
+	}
+	if doc.Paths.Find("/api/v1/usage/series") == nil {
+		t.Fatal("GET /api/v1/usage/series missing from openapi.yaml")
+	}
+	if doc.Paths.Find("/api/v1/usage/events") == nil {
+		t.Fatal("GET /api/v1/usage/events missing from openapi.yaml")
+	}
+}

@@ -10,7 +10,9 @@ import (
 	"github.com/cometline/cometmind/internal/jobs"
 	"github.com/cometline/cometmind/internal/logging"
 	"github.com/cometline/cometmind/internal/memory"
+	"github.com/cometline/cometmind/internal/session"
 	"github.com/cometline/cometmind/internal/skills"
+	"github.com/cometline/cometmind/internal/usage"
 )
 
 const skillSynthesisTimeout = 90 * time.Second
@@ -19,6 +21,8 @@ type skillSynthesisNotifier struct {
 	provider cometsdk.Provider
 	model    string
 	memory   *memory.Service
+	usage    usage.Recorder
+	sessions *session.Service
 	sem      chan struct{}
 	once     sync.Once
 }
@@ -65,7 +69,13 @@ func (n *skillSynthesisNotifier) OnJobEvent(ctx context.Context, job jobs.Job, a
 			Progress:         job.Progress,
 			WorkspacePath:    job.WorkspacePath,
 		}
-		if err := skills.ProposeSkillFromJob(synthCtx, n.provider, n.model, input, outcomes); err != nil {
+		workspaceID := ""
+		if n.sessions != nil && strings.TrimSpace(input.WorkspacePath) != "" {
+			if ws, lookupErr := n.sessions.LookupWorkspaceByPath(synthCtx, input.WorkspacePath); lookupErr == nil {
+				workspaceID = ws.ID
+			}
+		}
+		if err := skills.ProposeSkillFromJobRecorded(synthCtx, n.provider, n.model, input, outcomes, n.usage, workspaceID); err != nil {
 			logging.L().Warn("skills.synthesis.failed", "job_id", job.ID, "error", err)
 		}
 	}()
