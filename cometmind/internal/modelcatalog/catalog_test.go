@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/cometline/cometmind/internal/modelcatalog"
 )
@@ -424,6 +425,46 @@ func TestResolveLimitsFetchesAndCaches(t *testing.T) {
 	}
 }
 
+func TestResolveCostStaleCacheDoesNotRefetchOnFailure(t *testing.T) {
+	modelcatalog.ResetCacheForTest()
+	dir := t.TempDir()
+	modelcatalog.SetCachePathForTest(filepath.Join(dir, "models-dev.json"))
+	now := time.Date(2026, 8, 18, 12, 0, 0, 0, time.UTC)
+	modelcatalog.SetNowForTest(func() time.Time { return now })
+	t.Cleanup(func() {
+		modelcatalog.SetNowForTest(nil)
+		modelcatalog.SetFetchURLForTest(modelcatalog.APIURL)
+		modelcatalog.ResetCacheForTest()
+	})
+
+	data, err := os.ReadFile(filepath.Join("testdata", "models-dev-snippet.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := modelcatalog.LoadFromJSONForTest(data); err != nil {
+		t.Fatal(err)
+	}
+
+	hits := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		http.Error(w, "unavailable", http.StatusBadGateway)
+	}))
+	t.Cleanup(srv.Close)
+	modelcatalog.SetFetchURLForTest(srv.URL)
+
+	now = now.Add(modelcatalog.CacheTTL + time.Minute)
+	if _, ok := modelcatalog.ResolveCost("anthropic", "claude-opus-4-1"); !ok {
+		t.Fatal("expected stale catalog cost after failed refresh")
+	}
+	if _, ok := modelcatalog.ResolveCost("anthropic", "claude-opus-4-1"); !ok {
+		t.Fatal("expected stale catalog cost on second lookup")
+	}
+	if hits != 1 {
+		t.Fatalf("remote fetches=%d, want 1", hits)
+	}
+}
+
 func TestReadDiskCacheRejectsLegacyWithoutModalities(t *testing.T) {
 	modelcatalog.ResetCacheForTest()
 	dir := t.TempDir()
@@ -714,6 +755,21 @@ func TestResolveReasoningOptionsCustomGatewayPrefersMatchingProviderID(t *testin
 	want := []string{"low", "high"}
 	if !sameStrings(got.Effort, want) {
 		t.Fatalf("effort = %v, want provider-specific %v", got.Effort, want)
+	}
+}
+
+func TestResolveCostFromCatalog(t *testing.T) {
+	loadFixture(t)
+
+	cost, ok := modelcatalog.ResolveCost("anthropic", "claude-opus-4-1")
+	if !ok {
+		t.Fatal("expected catalog cost")
+	}
+	if cost.Input != 15 || cost.Output != 75 || cost.CacheRead != 1.5 || cost.CacheWrite != 18.75 {
+		t.Fatalf("cost = %+v", cost)
+	}
+	if _, ok := modelcatalog.ResolveCost("anthropic", "missing-model"); ok {
+		t.Fatal("missing model should be unpriced")
 	}
 }
 
