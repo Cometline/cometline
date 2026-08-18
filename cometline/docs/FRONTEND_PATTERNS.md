@@ -80,7 +80,7 @@ Fatal errors use `role="alert"`. Recoverable errors use `role="alert"` on a dism
 ## Styling
 
 - Colors and spacing: `var(--*)` tokens in [`app.css`](../src/app.css)
-- Semantic status colors: `--status-success`, `--status-error`
+- Semantic status colors: `--status-success`, `--status-warning`, `--status-error`
 - No hardcoded hex in components — add a token if a new semantic color is needed
 - Shared chat row chrome: [`ThreadRow.svelte`](../src/lib/components/chat/ThreadRow.svelte)
 - Jobs/file/settings panels should reuse global panel/card tokens rather than introducing route-local color systems

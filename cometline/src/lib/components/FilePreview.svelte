@@ -751,7 +751,7 @@
 		gap: 12px;
 		padding: 8px 10px;
 		border-bottom: 1px solid var(--border-soft);
-		background: color-mix(in srgb, var(--status-warning, #a16207) 10%, #fff);
+		background: color-mix(in srgb, var(--status-warning) 10%, #fff);
 		color: var(--text-main);
 		font-size: 12px;
 	}

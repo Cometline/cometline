@@ -16,6 +16,7 @@
 	--border-soft: #e5e7eb;
 	--accent: #0066cc;
 	--status-success: #15803d;
+	--status-warning: #a16207;
 	--status-error: #b42318;
 	--status-error-strong: #b42318;
 	--status-error-bg: rgba(255, 245, 245, 0.82);
@@ -152,6 +153,7 @@
 	--color-border-soft: var(--border-soft);
 	--color-accent: var(--accent);
 	--color-status-success: var(--status-success);
+	--color-status-warning: var(--status-warning);
 	--color-status-error: var(--status-error);
 	--color-pane-focus-border: var(--pane-focus-border);
 	--color-intro-bg: var(--intro-bg);
