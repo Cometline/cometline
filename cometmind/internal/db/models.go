@@ -225,6 +225,20 @@ type ToolCall struct {
 	CreatedAt  int64         `json:"created_at"`
 }
 
+type UsageEvent struct {
+	ID           string         `json:"id"`
+	CreatedAt    int64          `json:"created_at"`
+	WorkspaceID  sql.NullString `json:"workspace_id"`
+	SessionID    sql.NullString `json:"session_id"`
+	ProviderID   string         `json:"provider_id"`
+	ModelID      string         `json:"model_id"`
+	CallKind     string         `json:"call_kind"`
+	InputTokens  int64          `json:"input_tokens"`
+	OutputTokens int64          `json:"output_tokens"`
+	CacheRead    int64          `json:"cache_read"`
+	CacheWrite   int64          `json:"cache_write"`
+}
+
 type Workspace struct {
 	ID        string `json:"id"`
 	Name      string `json:"name"`
