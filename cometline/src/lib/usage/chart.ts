@@ -16,10 +16,39 @@ export type XLabel = {
 	anchor: AxisAnchor;
 };
 
+function seriesHsl(index: number, total: number): { h: number; s: number; l: number } {
+	const count = Math.max(1, Math.trunc(total) || 1);
+	return {
+		h: (12 + (index * 360) / count) % 360,
+		s: 36,
+		l: index % 2 === 0 ? 39 : 57
+	};
+}
+
+function hsl({ h, s, l }: { h: number; s: number; l: number }): string {
+	return `hsl(${h} ${s}% ${l}%)`;
+}
+
+export function seriesColor(index: number, total: number): string {
+	return hsl(seriesHsl(index, total));
+}
+
+export function seriesStroke(index: number, total: number): string {
+	const tone = seriesHsl(index, total);
+	return hsl({ ...tone, l: Math.max(22, tone.l - 14) });
+}
+
 export const PAD_LEFT = 36;
 export const PAD_RIGHT = 20;
 const PAD_TOP = 12;
 const PAD_BOTTOM = 24;
+
+export function singleDayBarBounds(width: number): { x0: number; x1: number } {
+	const innerW = Math.max(1, width - PAD_LEFT - PAD_RIGHT);
+	const barW = Math.min(72, Math.max(36, innerW * 0.16));
+	const cx = PAD_LEFT + innerW / 2;
+	return { x0: cx - barW / 2, x1: cx + barW / 2 };
+}
 
 function xAt(index: number, count: number, width: number): number {
 	const innerW = Math.max(1, width - PAD_LEFT - PAD_RIGHT);
@@ -53,14 +82,23 @@ export function stackedAreaPaths(
 	return keys.map((key, seriesIndex) => {
 		const tops: Array<{ x: number; y: number }> = [];
 		const bottoms: Array<{ x: number; y: number }> = [];
-		for (let i = 0; i < points.length; i += 1) {
+		const count = points.length;
+		for (let i = 0; i < count; i += 1) {
 			let below = 0;
 			for (let j = 0; j < seriesIndex; j += 1) {
 				below += points[i]?.cumulative[keys[j] ?? ''] ?? 0;
 			}
 			const value = points[i]?.cumulative[key] ?? 0;
-			tops.push({ x: xAt(i, points.length, width), y: yAt(below + value) });
-			bottoms.push({ x: xAt(i, points.length, width), y: yAt(below) });
+			const yTop = yAt(below + value);
+			const yBottom = yAt(below);
+			if (count === 1) {
+				const { x0, x1 } = singleDayBarBounds(width);
+				tops.push({ x: x0, y: yTop }, { x: x1, y: yTop });
+				bottoms.push({ x: x0, y: yBottom }, { x: x1, y: yBottom });
+				continue;
+			}
+			tops.push({ x: xAt(i, count, width), y: yTop });
+			bottoms.push({ x: xAt(i, count, width), y: yBottom });
 		}
 		const d = [
 			`M ${tops[0]?.x ?? 0} ${tops[0]?.y ?? 0}`,

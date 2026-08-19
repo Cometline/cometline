@@ -4,6 +4,8 @@
 		nearestPointIndex,
 		PAD_LEFT,
 		PAD_RIGHT,
+		seriesColor,
+		seriesStroke,
 		stackedAreaPaths,
 		xLabels,
 		yLabels,
@@ -12,10 +14,12 @@
 
 	let {
 		points = [],
-		keys = []
+		keys = [],
+		costs = {}
 	}: {
 		points?: SeriesPoint[];
 		keys?: string[];
+		costs?: Record<string, string>;
 	} = $props();
 
 	const height = 220;
@@ -26,9 +30,17 @@
 	const xs = $derived(xLabels(points, width));
 	const ys = $derived(yLabels(points, keys, height));
 	const hover = $derived(hoverIndex >= 0 ? points[hoverIndex] : undefined);
+	const showRangeCost = $derived(points.length === 1);
+
 	const summaryLabel = $derived(
 		hover
-			? `${hover.date}: ${keys.map((key) => `${key} ${formatTokens(hover.cumulative[key] ?? 0)}`).join(', ')}`
+			? `${hover.date}: ${keys
+					.map((key) => {
+						const tokens = formatTokens(hover.cumulative[key] ?? 0);
+						const cost = showRangeCost && costs[key] ? ` ${costs[key]}` : '';
+						return `${key} ${tokens}${cost}`;
+					})
+					.join(', ')}`
 			: 'Cumulative token usage. Use arrow keys to inspect each day.'
 	);
 
@@ -93,7 +105,12 @@
 			<text class="axis" x="4" y={tick.y + 3}>{formatTokens(tick.label)}</text>
 		{/each}
 		{#each paths as path, index (path.key)}
-			<path class={`area series-${index % 6}`} d={path.d} />
+			<path
+				class="area"
+				style:fill={seriesColor(index, keys.length)}
+				style:stroke={seriesStroke(index, keys.length)}
+				d={path.d}
+			/>
 		{/each}
 		{#each xs as tick (tick.label + tick.x)}
 			<text class={['axis', 'x', tick.anchor]} x={tick.x} y={height - 6}>{tick.label}</text>
@@ -104,8 +121,12 @@
 		<div class="hover">
 			<strong>{hover.date}</strong>
 			{#each keys as key, index (key)}
-				<span class={`swatch series-${index % 6}`}></span>
-				<span>{key}: {formatTokens(hover.cumulative[key] ?? 0)}</span>
+				<span class="swatch" style:background={seriesColor(index, keys.length)}></span>
+				<span>
+					{key}: {formatTokens(hover.cumulative[key] ?? 0)}{showRangeCost && costs[key]
+						? ` · ${costs[key]}`
+						: ''}
+				</span>
 			{/each}
 		</div>
 	{/if}
@@ -177,45 +198,8 @@
 	}
 
 	.area {
-		opacity: 0.72;
-	}
-
-	.area.series-0 {
-		fill: var(--status-success);
-	}
-	.area.series-1 {
-		fill: var(--intro-blue);
-	}
-	.area.series-2 {
-		fill: var(--accent);
-	}
-	.area.series-3 {
-		fill: var(--status-warning);
-	}
-	.area.series-4 {
-		fill: var(--text-soft);
-	}
-	.area.series-5 {
-		fill: var(--status-error);
-	}
-
-	.swatch.series-0 {
-		background: var(--status-success);
-	}
-	.swatch.series-1 {
-		background: var(--intro-blue);
-	}
-	.swatch.series-2 {
-		background: var(--accent);
-	}
-	.swatch.series-3 {
-		background: var(--status-warning);
-	}
-	.swatch.series-4 {
-		background: var(--text-soft);
-	}
-	.swatch.series-5 {
-		background: var(--status-error);
+		opacity: 0.88;
+		stroke-width: 1;
 	}
 
 	.hover {
