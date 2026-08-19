@@ -50,6 +50,10 @@ function rankFile(path: string, query: string): number {
 	return 8;
 }
 
+export function rankMatchingFiles(files: string[], query: string, limit: number): string[] {
+	return rankFilePaths(onlyFiles(filterFileIndex(files, query)), query).slice(0, limit);
+}
+
 /** Rank paths for quick-open: exact / basename / prefix beats substring. */
 export function rankFilePaths(files: string[], query: string): string[] {
 	const trimmed = query.trim();

@@ -1,22 +1,30 @@
 <script lang="ts">
 	import { tick, untrack } from 'svelte';
 	import { ChevronDown, ChevronRight, Folder, FolderOpen, Loader } from '@lucide/svelte';
-	import {
-		listWikiFileChildren,
-		listWikiFiles,
-		listWorkspaceFileChildren,
-		listWorkspaceFiles
-	} from '$lib/client/cometmind';
+	import { listWikiFileChildren, listWorkspaceFileChildren } from '$lib/client/cometmind';
 	import FileTypeIcon from '$lib/components/FileTypeIcon.svelte';
 	import { shellStore, type FileTreeExpandSource } from '$lib/stores/shell.svelte';
 	import { toWikiUiPath } from '$lib/wiki/paths';
+	import { getCachedWikiFiles, refreshWikiFileIndex } from '$lib/wiki/wiki-file-index';
+	import { rankMatchingFiles } from '$lib/workspace/file-search';
+	import {
+		getFileIndex,
+		isFileIndexTruncated,
+		normalizeWorkspacePath,
+		refreshFileIndex,
+		searchWorkspaceFiles
+	} from '$lib/workspace/file-index';
 	import {
 		buildFileTree,
 		dirKeysToExpandForPaths,
 		flattenVisibleFileTreeRows,
 		type FileTreeNode
 	} from '$lib/workspace/file-tree';
-	import { normalizeWorkspacePath } from '$lib/workspace/file-index';
+	import {
+		FILE_TREE_SEARCH_LIMIT,
+		FILE_TREE_SEARCH_ROW_HEIGHT,
+		virtualWindow
+	} from '$lib/workspace/virtual-list';
 	import { workspaceChangeVersion } from '$lib/workspace/workspace-change.svelte';
 
 	const LIST_LIMIT = 10000;
@@ -42,13 +50,46 @@
 	let selectedKey = $state<string | null>(null);
 	let loadSeq = 0;
 	let browserEl = $state<HTMLDivElement | null>(null);
+	let searchResults = $state<string[]>([]);
+	let searchScrollEl = $state<HTMLDivElement | null>(null);
+	let searchScrollTop = $state(0);
+	let searchViewportHeight = $state(320);
 
 	const normalizedWorkspace = $derived(normalizeWorkspacePath(workspacePath));
 	const workspaceAvailable = $derived(
 		Boolean(normalizedWorkspace && normalizedWorkspace !== '/')
 	);
+	const searching = $derived(Boolean(filter.trim()));
 	const tree = $derived(buildFileTree(files));
-	const visibleRows = $derived(flattenVisibleFileTreeRows(tree, expanded));
+	const visibleRows = $derived(
+		searching
+			? searchResults.map((path) => ({
+					kind: 'file' as const,
+					key: path,
+					name: fileName(path),
+					path
+				}))
+			: flattenVisibleFileTreeRows(tree, expanded)
+	);
+	const searchWindow = $derived(
+		virtualWindow(
+			searchResults.length,
+			searchScrollTop,
+			searchViewportHeight,
+			FILE_TREE_SEARCH_ROW_HEIGHT
+		)
+	);
+	const visibleSearchResults = $derived(searchResults.slice(searchWindow.start, searchWindow.end));
+
+	function fileName(path: string): string {
+		return path.split(/[/\\]/).filter(Boolean).pop() || path;
+	}
+
+	function fileDir(path: string): string {
+		const parts = path.split(/[/\\]/).filter(Boolean);
+		if (parts.length <= 1) return '';
+		return parts.slice(0, -1).join('/');
+	}
 
 	function persistExpanded(next: Record<string, boolean>) {
 		shellStore.setFileTreeExpanded(source, next);
@@ -89,9 +130,25 @@
 		onSelectFile(relativePath);
 	}
 
+	function scrollSearchIndexIntoView(index: number) {
+		if (!searchScrollEl) return;
+		const top = index * FILE_TREE_SEARCH_ROW_HEIGHT;
+		const bottom = top + FILE_TREE_SEARCH_ROW_HEIGHT;
+		const viewTop = searchScrollEl.scrollTop;
+		const viewBottom = viewTop + searchScrollEl.clientHeight;
+		if (top < viewTop) searchScrollEl.scrollTop = top;
+		else if (bottom > viewBottom) searchScrollEl.scrollTop = bottom - searchScrollEl.clientHeight;
+	}
+
 	async function scrollSelectedIntoView() {
 		const key = selectedKey;
-		if (!key || !browserEl) return;
+		if (!key) return;
+		if (searching) {
+			const index = searchResults.indexOf(key);
+			if (index >= 0) scrollSearchIndexIntoView(index);
+			return;
+		}
+		if (!browserEl) return;
 		await tick();
 		const el = browserEl.querySelector(`[data-tree-key="${CSS.escape(key)}"]`);
 		el?.scrollIntoView({ block: 'nearest' });
@@ -193,12 +250,54 @@
 		}
 	}
 
+	async function loadSearch(seq: number) {
+		const query = filter.trim();
+		error = null;
+		if (source === 'workspace' && !workspaceAvailable) {
+			searchResults = [];
+			loading = false;
+			return;
+		}
+		try {
+			if (source === 'wiki') {
+				let wikiFiles = getCachedWikiFiles();
+				if (wikiFiles.length === 0) {
+					loading = true;
+					wikiFiles = await refreshWikiFileIndex();
+					if (seq !== loadSeq) return;
+				}
+				searchResults = rankMatchingFiles(wikiFiles, query, FILE_TREE_SEARCH_LIMIT);
+				return;
+			}
+
+			let index = getFileIndex(normalizedWorkspace);
+			if (!index?.loaded) {
+				loading = true;
+				index = await refreshFileIndex(normalizedWorkspace);
+				if (seq !== loadSeq) return;
+			}
+			let matches = rankMatchingFiles(index.files, query, FILE_TREE_SEARCH_LIMIT);
+			if (isFileIndexTruncated(normalizedWorkspace)) {
+				const extra = await searchWorkspaceFiles(normalizedWorkspace, query);
+				if (seq !== loadSeq) return;
+				matches = rankMatchingFiles([...index.files, ...extra], query, FILE_TREE_SEARCH_LIMIT);
+			}
+			searchResults = matches;
+		} catch (err) {
+			if (seq !== loadSeq) return;
+			searchResults = [];
+			error = err instanceof Error ? err.message : 'Failed to search files';
+		} finally {
+			if (seq === loadSeq) loading = false;
+		}
+	}
+
 	async function loadFiles() {
 		const seq = ++loadSeq;
-		const query = filter.trim();
 		loading = true;
 		error = null;
 		files = [];
+		searchResults = [];
 		loadedDirectories = {};
 		loadingDirectories = {};
 
@@ -209,35 +308,22 @@
 		}
 
 		try {
-			if (query) {
-				const result =
-					source === 'wiki'
-						? await listWikiFiles(query, LIST_LIMIT)
-						: await listWorkspaceFiles(normalizedWorkspace, query, LIST_LIMIT);
-				if (seq !== loadSeq) return;
-				files = result.files;
-				// Filter mode: expand matches only (do not overwrite the stored map).
-				expanded = dirKeysToExpandForPaths(files);
-			} else {
-				expanded = { ...shellStore.getFileTreeExpanded(source) };
-				await loadDirectory('', seq);
-				if (seq !== loadSeq) return;
+			expanded = { ...shellStore.getFileTreeExpanded(source) };
+			await loadDirectory('', seq);
+			if (seq !== loadSeq) return;
 
-				const openDirectories = Object.keys(expanded)
-					.filter((directory) => expanded[directory])
-					.sort((a, b) => a.split('/').length - b.split('/').length);
-				for (const directory of openDirectories) {
-					await loadDirectory(directory, seq);
-					if (seq !== loadSeq) return;
-				}
+			const openDirectories = Object.keys(expanded)
+				.filter((directory) => expanded[directory])
+				.sort((a, b) => a.split('/').length - b.split('/').length);
+			for (const directory of openDirectories) {
+				await loadDirectory(directory, seq);
+				if (seq !== loadSeq) return;
 			}
 		} catch (err) {
 			if (seq !== loadSeq) return;
 			files = [];
 			loadedDirectories = {};
-			if (!query) {
-				expanded = { ...shellStore.getFileTreeExpanded(source) };
-			}
+			expanded = { ...shellStore.getFileTreeExpanded(source) };
 			error = err instanceof Error ? err.message : 'Failed to load files';
 		} finally {
 			if (seq === loadSeq) loading = false;
@@ -245,9 +331,32 @@
 	}
 
 	$effect(() => {
-		void [filter, normalizedWorkspace, workspaceChangeVersion(normalizedWorkspace)];
+		if (source === 'workspace' && workspaceAvailable) {
+			void [normalizedWorkspace, workspaceChangeVersion(normalizedWorkspace)];
+			untrack(() => void refreshFileIndex(normalizedWorkspace));
+		} else if (source === 'wiki') {
+			untrack(() => void refreshWikiFileIndex());
+		}
+	});
+
+	$effect(() => {
+		void [filter, normalizedWorkspace, workspaceChangeVersion(normalizedWorkspace), source];
 		// Loading mutates the lazy cache; do not make those mutations dependencies of this effect.
-		untrack(() => void loadFiles());
+		untrack(() => {
+			if (filter.trim()) void loadSearch(++loadSeq);
+			else void loadFiles();
+		});
+	});
+
+	function onSearchScroll(event: Event) {
+		const el = event.currentTarget as HTMLDivElement;
+		searchScrollTop = el.scrollTop;
+		searchViewportHeight = el.clientHeight;
+	}
+
+	$effect(() => {
+		if (!searchScrollEl) return;
+		searchViewportHeight = searchScrollEl.clientHeight || 320;
 	});
 
 	$effect(() => {
@@ -346,16 +455,57 @@
 >
 	{#if source === 'workspace' && !workspaceAvailable}
 		<div class="file-tree-state">Select a workspace to browse its files.</div>
-	{:else if loading && files.length === 0}
+	{:else if searching && loading && searchResults.length === 0}
+		<div class="file-tree-state">
+			<Loader size={16} stroke-width={2} class="file-tree-spinner" />
+			<span>Loading files…</span>
+		</div>
+	{:else if !searching && loading && files.length === 0}
 		<div class="file-tree-state">
 			<Loader size={16} stroke-width={2} class="file-tree-spinner" />
 			<span>Loading files…</span>
 		</div>
 	{:else if error}
 		<div class="file-tree-state file-tree-error">{error}</div>
-	{:else if tree.length === 0}
-		<div class="file-tree-state">
-			{filter.trim() ? 'No matching files.' : 'No files found.'}
+	{:else if searching && searchResults.length === 0}
+		<div class="file-tree-state">No matching files.</div>
+	{:else if !searching && tree.length === 0}
+		<div class="file-tree-state">No files found.</div>
+	{:else if searching}
+		<div
+			class="file-tree-scroll scrollbar-none"
+			bind:this={searchScrollEl}
+			onscroll={onSearchScroll}
+		>
+			<div class="file-search-virtual" style:height="{searchWindow.height}px">
+				<div class="file-search-virtual-inner" style:transform="translateY({searchWindow.offset}px)">
+					{#each visibleSearchResults as path, offset (path)}
+						{@const index = searchWindow.start + offset}
+						<button
+							type="button"
+							class="file-tree-row file-tree-file file-search-row"
+							class:selected={selectedKey === path}
+							data-tree-key={path}
+							data-result-index={index}
+							onclick={() => {
+								selectedKey = path;
+								selectRelative(path);
+							}}
+							title={path}
+						>
+							<span class="file-tree-icon" aria-hidden="true">
+								<FileTypeIcon {path} size={14} />
+							</span>
+							<span class="file-search-labels">
+								<span class="file-search-name">{fileName(path)}</span>
+								{#if fileDir(path)}
+									<span class="file-search-dir">{fileDir(path)}</span>
+								{/if}
+							</span>
+						</button>
+					{/each}
+				</div>
+			</div>
 		</div>
 	{:else}
 		<div class="file-tree-scroll scrollbar-none">
@@ -459,6 +609,53 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+	}
+
+	.file-search-virtual {
+		position: relative;
+		width: 100%;
+	}
+
+	.file-search-virtual-inner {
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+	}
+
+	.file-search-row {
+		box-sizing: border-box;
+		height: 22px;
+		min-width: 0;
+		overflow: hidden;
+	}
+
+	.file-search-labels {
+		display: flex;
+		align-items: baseline;
+		gap: 8px;
+		min-width: 0;
+		flex: 1 1 auto;
+	}
+
+	.file-search-name {
+		flex: 0 1 auto;
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		font-weight: 550;
+	}
+
+	.file-search-dir {
+		flex: 1 1 auto;
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		color: var(--text-muted);
+		font-size: 12px;
+		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 	}
 
 	.file-tree-state {

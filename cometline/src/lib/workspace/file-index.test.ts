@@ -7,6 +7,7 @@ import {
 	getFileIndex,
 	isFileIndexFresh,
 	isFileIndexReady,
+	INDEX_LIMIT,
 	isFileIndexTruncated,
 	refreshFileIndex,
 	searchWorkspaceFiles
@@ -44,6 +45,9 @@ describe('file-index', () => {
 		expect(result.truncated).toBe(false);
 		expect(isFileIndexReady('/workspace')).toBe(true);
 		expect(cometmind.listWorkspaceFiles).toHaveBeenCalledTimes(1);
+		expect(cometmind.listWorkspaceFiles).toHaveBeenCalledWith('/workspace', '', INDEX_LIMIT, {
+			index: true
+		});
 
 		const cached = await refreshFileIndex('/workspace');
 		expect(cached.files).toEqual(['a.go', 'b.md']);
@@ -130,7 +134,9 @@ describe('file-index', () => {
 		vi.mocked(cometmind.listWorkspaceFiles).mockResolvedValue(wf(['deep/nested/match.go']));
 		const result = await searchWorkspaceFiles('/workspace', 'match');
 		expect(result).toEqual(['deep/nested/match.go']);
-		expect(cometmind.listWorkspaceFiles).toHaveBeenCalledWith('/workspace', 'match', 50);
+		expect(cometmind.listWorkspaceFiles).toHaveBeenCalledWith('/workspace', 'match', 50, {
+			index: true
+		});
 	});
 
 	it('normalizes workspace paths for cache keys', async () => {
@@ -167,6 +173,21 @@ describe('file-index', () => {
 		const hits = filterMentionPaths(['src/lib/a.ts', 'src/b.ts', 'README.md'], 'src');
 		expect(hits.filter((h) => h.kind === 'dir').map((h) => h.path)).toEqual(['src/', 'src/lib/']);
 		expect(hits.some((h) => h.kind === 'file' && h.path === 'src/lib/a.ts')).toBe(true);
+	});
+
+	it('evicts the oldest workspace index after three cached workspaces', async () => {
+		vi.mocked(cometmind.listWorkspaceFiles).mockImplementation(async (_path, _q, _limit, _opts) =>
+			wf([`${_path}.go`])
+		);
+		await refreshFileIndex('/a');
+		await refreshFileIndex('/b');
+		await refreshFileIndex('/c');
+		await refreshFileIndex('/d');
+
+		expect(getFileIndex('/a')).toBeNull();
+		expect(getFileIndex('/d')?.files).toEqual(['/d.go']);
+		expect(getFileIndex('/b')).not.toBeNull();
+		expect(getFileIndex('/c')).not.toBeNull();
 	});
 
 	it('does not surface directories as file mentions', () => {

@@ -32,7 +32,7 @@ vi.mock('$lib/workspace/file-index', () => ({
 import { listWikiFiles } from '$lib/client/cometmind';
 import { refreshWikiFileIndex } from '$lib/wiki/wiki-file-index';
 import { refreshFileIndex } from '$lib/workspace/file-index';
-import { loadFileSearchOptions, rankFilePaths } from './file-search';
+import { loadFileSearchOptions, rankFilePaths, rankMatchingFiles } from './file-search';
 
 describe('rankFilePaths', () => {
 	it('ranks basename prefix matches above path substring matches', () => {
@@ -45,6 +45,14 @@ describe('rankFilePaths', () => {
 
 	it('sorts alphabetically when the query is empty', () => {
 		expect(rankFilePaths(['b.ts', 'a.ts'], '')).toEqual(['a.ts', 'b.ts']);
+	});
+});
+
+describe('rankMatchingFiles', () => {
+	it('omits directories and caps the result list', () => {
+		expect(
+			rankMatchingFiles(['src/', 'src/app.ts', 'src/foo.ts', 'README.md'], 'src', 1)
+		).toEqual(['src/app.ts']);
 	});
 });
 

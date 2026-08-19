@@ -1,6 +1,6 @@
 import { listWikiFiles } from '$lib/client/cometmind';
 
-const INDEX_LIMIT = 500;
+const INDEX_LIMIT = 10_000;
 const TTL_MS = 30_000;
 
 type WikiFileIndex = {
