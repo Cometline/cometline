@@ -525,6 +525,34 @@ func TestListWorkspaceFilesFiltersByQuery(t *testing.T) {
 	assertSlice(t, got.Files, want)
 }
 
+func TestListWorkspaceFilesIndexSkipsIgnoredPaths(t *testing.T) {
+	t.Parallel()
+
+	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
+		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
+			ch <- event.Done()
+			return nil
+		}), nil
+	})
+	defer cleanup()
+
+	workspacePath := t.TempDir()
+	mustWrite(t, filepath.Join(workspacePath, "keep.go"), "package main")
+	mustWrite(t, filepath.Join(workspacePath, "dist", "bundle.js"), "bundle")
+	mustWrite(t, filepath.Join(workspacePath, ".gitignore"), "dist/\n")
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/workspaces/files?index=true&workspace_path="+workspacePath, nil)
+	engine.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	var got workspaceFileListResponse
+	decodeJSON(t, rec.Body.Bytes(), &got)
+	assertSlice(t, got.Files, []string{".gitignore", "keep.go"})
+}
+
 func TestListWorkspaceFilesMissingWorkspace(t *testing.T) {
 	t.Parallel()
 

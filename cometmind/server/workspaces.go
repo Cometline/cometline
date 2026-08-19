@@ -111,6 +111,15 @@ func (a *App) handlePruneWorkspaces(c *gin.Context) {
 	c.JSON(http.StatusOK, pruneWorkspacesResponse{Pruned: pruned})
 }
 
+func parseBoolQuery(raw string) bool {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "1", "true", "yes":
+		return true
+	default:
+		return false
+	}
+}
+
 func (a *App) handleListWorkspaceFiles(c *gin.Context) {
 	ws, ok := a.resolveCreateWorkspace(c, c.Query("workspace_id"), c.Query("workspace_path"))
 	if !ok {
@@ -128,6 +137,7 @@ func (a *App) handleListWorkspaceFiles(c *gin.Context) {
 	result, err := workspacefiles.ListFiles(c.Request.Context(), ws.Path, workspacefiles.ListOptions{
 		Query: strings.TrimSpace(c.Query("q")),
 		Limit: limit,
+		Index: parseBoolQuery(c.Query("index")),
 	})
 	if err != nil {
 		writeError(c, http.StatusInternalServerError, "internal_error", err.Error())

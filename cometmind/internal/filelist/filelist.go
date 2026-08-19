@@ -11,16 +11,38 @@ import (
 )
 
 const (
-	DefaultLimit = 50
-	MaxLimit     = 10000
+	DefaultLimit  = 50
+	MaxLimit      = 10000
+	IndexMaxLimit = 50000
 )
 
 // Options controls a relative filesystem entry listing.
 type Options struct {
-	Query              string
-	Limit              int
+	Query string
+	Limit int
+	// Index raises the result cap to IndexMaxLimit and is reserved for
+	// search-index walks. Browse listing stays on MaxLimit.
+	Index              bool
 	SkipDirectoryNames map[string]bool
-	IncludeFile        func(relativePath string) bool
+	// SkipPath, when set, skips a relative path (directories include a trailing /).
+	// Skipped directories are not descended into.
+	SkipPath    func(relativePath string, isDir bool) bool
+	IncludeFile func(relativePath string) bool
+}
+
+func resolveLimit(opts Options) int {
+	limit := opts.Limit
+	if limit <= 0 {
+		limit = DefaultLimit
+	}
+	max := MaxLimit
+	if opts.Index {
+		max = IndexMaxLimit
+	}
+	if limit > max {
+		return max
+	}
+	return limit
 }
 
 // Result is the outcome of an entry listing.
@@ -43,13 +65,7 @@ func List(ctx context.Context, root string, opts Options) (Result, error) {
 		return Result{}, fmt.Errorf("path is not a directory: %s", root)
 	}
 
-	limit := opts.Limit
-	if limit <= 0 {
-		limit = DefaultLimit
-	}
-	if limit > MaxLimit {
-		limit = MaxLimit
-	}
+	limit := resolveLimit(opts)
 
 	query := strings.ToLower(strings.TrimSpace(opts.Query))
 	var results []string
@@ -83,8 +99,13 @@ func List(ctx context.Context, root string, opts Options) (Result, error) {
 			}
 			rel = filepath.ToSlash(rel)
 			if isDir {
-				directories = append(directories, filepath.Join(dir, entry.Name()))
 				rel += "/"
+				if opts.SkipPath != nil && opts.SkipPath(rel, true) {
+					continue
+				}
+				directories = append(directories, filepath.Join(dir, entry.Name()))
+			} else if opts.SkipPath != nil && opts.SkipPath(rel, false) {
+				continue
 			} else if opts.IncludeFile != nil && !opts.IncludeFile(rel) {
 				continue
 			}
@@ -151,13 +172,7 @@ func ListDirectory(ctx context.Context, root, directory string, opts Options) (R
 		return Result{}, fmt.Errorf("not a directory")
 	}
 
-	limit := opts.Limit
-	if limit <= 0 {
-		limit = DefaultLimit
-	}
-	if limit > MaxLimit {
-		limit = MaxLimit
-	}
+	limit := resolveLimit(opts)
 	query := strings.ToLower(strings.TrimSpace(opts.Query))
 	entries, err := os.ReadDir(resolvedTarget)
 	if err != nil {
@@ -181,7 +196,11 @@ func ListDirectory(ctx context.Context, root, directory string, opts Options) (R
 		}
 		if isDir {
 			path += "/"
-		} else if opts.IncludeFile != nil && !opts.IncludeFile(path) {
+		}
+		if opts.SkipPath != nil && opts.SkipPath(path, isDir) {
+			continue
+		}
+		if !isDir && opts.IncludeFile != nil && !opts.IncludeFile(path) {
 			continue
 		}
 		if query != "" && !strings.Contains(strings.ToLower(path), query) {

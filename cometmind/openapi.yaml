@@ -353,6 +353,8 @@ paths:
         Returns all workspace-relative file and directory paths for the requested workspace.
         Directory paths end with `/`.
         `.git` and `node_modules` directories are skipped.
+        When `index=true`, common build directories and root `.gitignore` rules are
+        also skipped and `limit` may be raised up to 50000 for a search index.
       operationId: listWorkspaceFiles
       parameters:
         - name: workspace_id
@@ -379,8 +381,17 @@ paths:
           schema:
             type: integer
             default: 50
-            maximum: 500
+            maximum: 50000
           description: Maximum number of results to return.
+        - name: index
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+          description: |
+            When true, build a search index listing (skip gitignored and build paths,
+            allow a higher limit). Browse listings should omit this flag.
       responses:
         '200':
           description: Workspace file and directory list

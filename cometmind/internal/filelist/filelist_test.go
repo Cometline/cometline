@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -72,6 +73,43 @@ func TestListDirectoryReturnsOnlyDirectChildren(t *testing.T) {
 	}
 	if want := []string{"src/app.ts", "src/lib/"}; !reflect.DeepEqual(srcEntries.Files, want) {
 		t.Fatalf("src files = %v, want %v", srcEntries.Files, want)
+	}
+}
+
+func TestResolveLimit(t *testing.T) {
+	if got := resolveLimit(Options{Limit: IndexMaxLimit + 1, Index: true}); got != IndexMaxLimit {
+		t.Fatalf("index cap = %d, want %d", got, IndexMaxLimit)
+	}
+	if got := resolveLimit(Options{Limit: MaxLimit + 1}); got != MaxLimit {
+		t.Fatalf("browse cap = %d, want %d", got, MaxLimit)
+	}
+	if got := resolveLimit(Options{}); got != DefaultLimit {
+		t.Fatalf("default = %d, want %d", got, DefaultLimit)
+	}
+}
+
+func TestSkipPathOmitsDirectoryAndDescendants(t *testing.T) {
+	root := t.TempDir()
+	for _, path := range []string{"keep.txt", "skip/secret.txt"} {
+		fullPath := filepath.Join(root, filepath.FromSlash(path))
+		if err := os.MkdirAll(filepath.Dir(fullPath), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(fullPath, []byte("x"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	result, err := List(context.Background(), root, Options{
+		SkipPath: func(relativePath string, isDir bool) bool {
+			return relativePath == "skip/" || strings.HasPrefix(relativePath, "skip/")
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"keep.txt"}; !reflect.DeepEqual(result.Files, want) {
+		t.Fatalf("files = %v, want %v", result.Files, want)
 	}
 }
 

@@ -106,6 +106,26 @@ func TestListFiles(t *testing.T) {
 	})
 }
 
+func TestListFilesIndexSkipsGitignoreAndBuildDirs(t *testing.T) {
+	root := t.TempDir()
+	mustWrite(t, filepath.Join(root, "keep.go"), "package main")
+	mustWrite(t, filepath.Join(root, "ignore.log"), "log")
+	mustWrite(t, filepath.Join(root, "build", "out.js"), "out")
+	mustWrite(t, filepath.Join(root, "dist", "bundle.js"), "bundle")
+	mustWrite(t, filepath.Join(root, ".hidden", "secret.go"), "package hidden")
+	mustWrite(t, filepath.Join(root, ".gitignore"), "*.log\nbuild/\n")
+
+	got, err := ListFiles(context.Background(), root, ListOptions{Index: true})
+	if err != nil {
+		t.Fatalf("ListFiles index error: %v", err)
+	}
+	want := []string{".gitignore", "keep.go"}
+	assertSlice(t, got.Files, want)
+	if got.Truncated {
+		t.Fatal("did not expect truncation")
+	}
+}
+
 func TestListFilesGitignore(t *testing.T) {
 	root := t.TempDir()
 	mustWrite(t, filepath.Join(root, "keep.go"), "package main")

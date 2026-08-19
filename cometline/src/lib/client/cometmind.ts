@@ -334,10 +334,16 @@ export interface WorkspaceFiles {
 export function listWorkspaceFiles(
 	workspacePath: string,
 	query = '',
-	limit = 50
+	limit = 50,
+	options?: { index?: boolean }
 ): Promise<WorkspaceFiles> {
 	return listWorkspaceFilesApi({
-		query: { workspace_path: workspacePath, q: query, limit },
+		query: {
+			workspace_path: workspacePath,
+			q: query,
+			limit,
+			...(options?.index ? { index: true } : {})
+		},
 		throwOnError: true
 	}).then(({ data }) => ({ files: data.files ?? [], truncated: Boolean(data.truncated) }));
 }

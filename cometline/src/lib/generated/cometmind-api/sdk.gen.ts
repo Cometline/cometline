@@ -196,6 +196,8 @@ export const commitWorkspaceGit = <ThrowOnError extends boolean = false>(options
  * Returns all workspace-relative file and directory paths for the requested workspace.
  * Directory paths end with `/`.
  * `.git` and `node_modules` directories are skipped.
+ * When `index=true`, common build directories and root `.gitignore` rules are
+ * also skipped and `limit` may be raised up to 50000 for a search index.
  *
  */
 export const listWorkspaceFiles = <ThrowOnError extends boolean = false>(options?: Options<ListWorkspaceFilesData, ThrowOnError>) => {
