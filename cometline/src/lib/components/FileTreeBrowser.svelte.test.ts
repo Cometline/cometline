@@ -119,4 +119,48 @@ describe('FileTreeBrowser', () => {
 		expect(listWorkspaceFileChildren).not.toHaveBeenCalled();
 		expect(screen.queryByRole('button', { name: 'src' })).toBeNull();
 	});
+
+	it('filters wiki files from the wiki index without a query list', async () => {
+		getCachedWikiFiles.mockReturnValue(['topics/setup.md', 'topics/overview.md']);
+
+		render(FileTreeBrowser, {
+			workspacePath: '',
+			onSelectFile: () => {},
+			source: 'wiki',
+			filter: 'setup'
+		});
+
+		await waitFor(() => {
+			expect(screen.getByRole('button', { name: /setup\.md/ })).toBeTruthy();
+		});
+		expect(screen.queryByRole('button', { name: /overview\.md/ })).toBeNull();
+		expect(listWikiFileChildren).not.toHaveBeenCalled();
+	});
+
+	it('merges server search hits when the workspace index is truncated', async () => {
+		getFileIndex.mockReturnValue({
+			files: ['src/app.ts'],
+			loading: false,
+			loaded: true,
+			error: null,
+			loadedAt: Date.now(),
+			truncated: true
+		});
+		isFileIndexTruncated.mockReturnValue(true);
+		searchWorkspaceFiles.mockResolvedValue(['pkg/beyond-cap.ts']);
+
+		render(FileTreeBrowser, {
+			workspacePath: '/repo',
+			onSelectFile: () => {},
+			source: 'workspace',
+			filter: 'ts'
+		});
+
+		await waitFor(() => {
+			expect(screen.getByRole('button', { name: /app\.ts/ })).toBeTruthy();
+			expect(screen.getByRole('button', { name: /beyond-cap\.ts/ })).toBeTruthy();
+		});
+		expect(searchWorkspaceFiles).toHaveBeenCalledWith('/repo', 'ts');
+		expect(listWorkspaceFiles).not.toHaveBeenCalled();
+	});
 });

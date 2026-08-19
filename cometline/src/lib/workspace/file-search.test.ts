@@ -5,7 +5,6 @@ vi.mock('$lib/client/cometmind', () => ({
 }));
 
 vi.mock('$lib/wiki/wiki-file-index', () => ({
-	getCachedWikiFiles: vi.fn(() => []),
 	refreshWikiFileIndex: vi.fn(async () => [])
 }));
 
@@ -31,7 +30,7 @@ vi.mock('$lib/workspace/file-index', () => ({
 
 import { listWikiFiles } from '$lib/client/cometmind';
 import { refreshWikiFileIndex } from '$lib/wiki/wiki-file-index';
-import { refreshFileIndex } from '$lib/workspace/file-index';
+import { refreshFileIndex, searchWorkspaceFiles } from '$lib/workspace/file-index';
 import { loadFileSearchOptions, rankFilePaths, rankMatchingFiles } from './file-search';
 
 describe('rankFilePaths', () => {
@@ -86,24 +85,38 @@ describe('loadFileSearchOptions', () => {
 		expect(files).toEqual(['index.md', 'topics/overview.md']);
 	});
 
-	it('queries listWikiFiles when filtering wiki results', async () => {
-		vi.mocked(listWikiFiles).mockResolvedValueOnce({
-			files: ['topics/', 'topics/setup.md', 'topics/setup-guide.md'],
-			truncated: false
-		});
+	it('filters wiki results from the wiki file index without a query list', async () => {
+		vi.mocked(refreshWikiFileIndex).mockResolvedValueOnce([
+			'topics/',
+			'topics/setup.md',
+			'topics/setup-guide.md'
+		]);
 		const files = await loadFileSearchOptions('wiki', '/repo', 'setup', 10);
-		expect(listWikiFiles).toHaveBeenCalled();
+		expect(listWikiFiles).not.toHaveBeenCalled();
 		expect(files[0]).toBe('topics/setup.md');
 		expect(files).not.toContain('topics/');
 	});
 
 	it('returns hidden files when the query matches', async () => {
-		vi.mocked(listWikiFiles).mockResolvedValueOnce({
-			files: ['.private.md'],
-			truncated: false
-		});
+		vi.mocked(refreshWikiFileIndex).mockResolvedValueOnce(['.private.md']);
 		const files = await loadFileSearchOptions('wiki', '/repo', 'private', 10);
+		expect(listWikiFiles).not.toHaveBeenCalled();
 		expect(files).toEqual(['.private.md']);
+	});
+
+	it('merges local index hits with server search when the workspace index is truncated', async () => {
+		vi.mocked(refreshFileIndex).mockResolvedValueOnce({
+			files: ['src/app.ts', 'src/z-local.ts'],
+			loading: false,
+			loaded: true,
+			error: null,
+			loadedAt: Date.now(),
+			truncated: true
+		});
+		vi.mocked(searchWorkspaceFiles).mockResolvedValueOnce(['pkg/beyond-cap.ts']);
+		const files = await loadFileSearchOptions('workspace', '/repo', 'ts', 10);
+		expect(searchWorkspaceFiles).toHaveBeenCalledWith('/repo', 'ts');
+		expect(files).toEqual(['pkg/beyond-cap.ts', 'src/app.ts', 'src/z-local.ts']);
 	});
 
 	it('omits directories from workspace search results', async () => {
