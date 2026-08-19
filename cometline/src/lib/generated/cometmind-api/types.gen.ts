@@ -1697,6 +1697,12 @@ export type ListWorkspaceFilesData = {
          * Maximum number of results to return.
          */
         limit?: number;
+        /**
+         * When true, build a search index listing (skip gitignored and build paths,
+         * allow a higher limit). Browse listings should omit this flag.
+         *
+         */
+        index?: boolean;
     };
     url: '/api/v1/workspaces/files';
 };

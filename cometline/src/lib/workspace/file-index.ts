@@ -11,13 +11,27 @@ export interface FileIndexEntry {
 	truncated: boolean;
 }
 
-/** Page size for the warm cache used by the @-mention picker. */
-const INDEX_LIMIT = 500;
+/** Page size for the warm search index (gitignore / build dirs skipped). */
+export const INDEX_LIMIT = 50_000;
 /** Page size for an on-demand server-side search in a truncated workspace. */
 const SEARCH_LIMIT = 50;
+const MAX_CACHED_INDEXES = 3;
 
 const cache = new Map<string, FileIndexEntry>();
 const inFlight = new Map<string, Promise<void>>();
+let lruKeys: string[] = [];
+
+function touchIndex(workspacePath: string) {
+	const key = normalizeWorkspacePath(workspacePath);
+	if (!key) return;
+	lruKeys = [key, ...lruKeys.filter((entry) => entry !== key)];
+	while (lruKeys.length > MAX_CACHED_INDEXES) {
+		const evict = lruKeys.pop();
+		if (!evict || evict === key) continue;
+		cache.delete(evict);
+		inFlight.delete(evict);
+	}
+}
 
 /** How long a loaded index is considered fresh before a background refresh. */
 export const FILE_INDEX_TTL_MS = 30_000;
@@ -30,7 +44,10 @@ export function normalizeWorkspacePath(workspacePath: string): string {
 }
 
 export function getFileIndex(workspacePath: string): FileIndexEntry | null {
-	return cache.get(normalizeWorkspacePath(workspacePath)) ?? null;
+	const key = normalizeWorkspacePath(workspacePath);
+	const entry = cache.get(key) ?? null;
+	if (entry) touchIndex(key);
+	return entry;
 }
 
 export function isFileIndexReady(workspacePath: string): boolean {
@@ -49,11 +66,13 @@ export function clearFileIndex(workspacePath: string): void {
 	const key = normalizeWorkspacePath(workspacePath);
 	cache.delete(key);
 	inFlight.delete(key);
+	lruKeys = lruKeys.filter((entry) => entry !== key);
 }
 
 export function clearAllFileIndexes(): void {
 	cache.clear();
 	inFlight.clear();
+	lruKeys = [];
 }
 
 export async function refreshFileIndex(workspacePath: string): Promise<FileIndexEntry> {
@@ -109,7 +128,10 @@ export async function refreshFileIndex(workspacePath: string): Promise<FileIndex
 
 async function load(workspacePath: string): Promise<void> {
 	try {
-		const { files, truncated } = await listWorkspaceFiles(workspacePath, '', INDEX_LIMIT);
+		const { files, truncated } = await listWorkspaceFiles(workspacePath, '', INDEX_LIMIT, {
+			index: true
+		});
+		touchIndex(workspacePath);
 		cache.set(workspacePath, {
 			files: files ?? [],
 			loading: false,
@@ -150,7 +172,9 @@ export async function searchWorkspaceFiles(
 ): Promise<string[]> {
 	workspacePath = normalizeWorkspacePath(workspacePath);
 	if (!workspacePath || !query.trim()) return [];
-	const { files } = await listWorkspaceFiles(workspacePath, query.trim(), SEARCH_LIMIT);
+	const { files } = await listWorkspaceFiles(workspacePath, query.trim(), SEARCH_LIMIT, {
+		index: true
+	});
 	return files ?? [];
 }
 

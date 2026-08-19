@@ -1,6 +1,5 @@
-import { listWikiFiles } from '$lib/client/cometmind';
 import type { FileSearchSource } from '$lib/settings/schema';
-import { getCachedWikiFiles, refreshWikiFileIndex } from '$lib/wiki/wiki-file-index';
+import { refreshWikiFileIndex } from '$lib/wiki/wiki-file-index';
 import {
 	filterFileIndex,
 	getFileIndex,
@@ -50,6 +49,13 @@ function rankFile(path: string, query: string): number {
 	return 8;
 }
 
+export function rankMatchingFiles(files: string[], query: string, limit: number): string[] {
+	return rankFilePaths(onlyFiles(filterFileIndex([...new Set(files)], query)), query).slice(
+		0,
+		limit
+	);
+}
+
 /** Rank paths for quick-open: exact / basename / prefix beats substring. */
 export function rankFilePaths(files: string[], query: string): string[] {
 	const trimmed = query.trim();
@@ -64,21 +70,12 @@ export function rankFilePaths(files: string[], query: string): string[] {
 }
 
 async function loadWikiOptions(query: string, limit: number): Promise<string[]> {
+	const files = await refreshWikiFileIndex();
 	const trimmed = query.trim();
 	if (!trimmed) {
-		return rankFilePaths(visibleFiles(await refreshWikiFileIndex()), '').slice(0, limit);
+		return rankFilePaths(visibleFiles(files), '').slice(0, limit);
 	}
-
-	const cached = getCachedWikiFiles();
-	if (cached.length > 0) {
-		const local = onlyFiles(filterFileIndex(cached, trimmed));
-		if (local.length >= limit) {
-			return rankFilePaths(local, trimmed).slice(0, limit);
-		}
-	}
-
-	const { files } = await listWikiFiles(trimmed, Math.max(limit, 100));
-	return rankFilePaths(onlyFiles(files ?? []), trimmed).slice(0, limit);
+	return rankMatchingFiles(files, trimmed, limit);
 }
 
 async function loadWorkspaceOptions(
@@ -94,15 +91,17 @@ async function loadWorkspaceOptions(
 	if (!isFileIndexFresh(path)) {
 		index = await refreshFileIndex(path);
 	}
+	const files = index?.files ?? [];
 	if (!trimmed) {
-		return rankFilePaths(visibleFiles(index?.files ?? []), '').slice(0, limit);
+		return rankFilePaths(visibleFiles(files), '').slice(0, limit);
 	}
 
-	const matches = index?.truncated
-		? await searchWorkspaceFiles(path, trimmed)
-		: filterFileIndex(index?.files ?? [], trimmed);
-
-	return rankFilePaths(onlyFiles(matches), trimmed).slice(0, limit);
+	let matches = rankMatchingFiles(files, trimmed, limit);
+	if (index?.truncated) {
+		const extra = await searchWorkspaceFiles(path, trimmed);
+		matches = rankMatchingFiles([...files, ...extra], trimmed, limit);
+	}
+	return matches;
 }
 
 /** Load ranked file paths for the ⌘P file search modal. */

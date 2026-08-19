@@ -31,7 +31,9 @@ describe('workspace-panel-input-options', () => {
 		const result = await loadWorkspacePanelFileOptions('/workspace', 'youtube');
 
 		expect(result).toEqual(['youtube', 'src/youtube.ts']);
-		expect(cometmind.listWorkspaceFiles).toHaveBeenCalledWith('/workspace', '', 500);
+		expect(cometmind.listWorkspaceFiles).toHaveBeenCalledWith('/workspace', '', 50000, {
+			index: true
+		});
 	});
 
 	it('uses cached fresh index without another refresh', async () => {
@@ -52,7 +54,9 @@ describe('workspace-panel-input-options', () => {
 		const result = await loadWorkspacePanelFileOptions('/workspace', 'youtube');
 
 		expect(result).toEqual(['youtube', 'deep/youtube.md']);
-		expect(cometmind.listWorkspaceFiles).toHaveBeenNthCalledWith(2, '/workspace', 'youtube', 50);
+		expect(cometmind.listWorkspaceFiles).toHaveBeenNthCalledWith(2, '/workspace', 'youtube', 50, {
+			index: true
+		});
 	});
 
 	it('limits returned file options', async () => {

@@ -2534,6 +2534,10 @@ type ListWorkspaceFilesParams struct {
 
 	// Limit Maximum number of results to return.
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Index When true, build a search index listing (skip gitignored and build paths,
+	// allow a higher limit). Browse listings should omit this flag.
+	Index *bool `form:"index,omitempty" json:"index,omitempty"`
 }
 
 // ListWorkspaceFileChildrenParams defines parameters for ListWorkspaceFileChildren.
