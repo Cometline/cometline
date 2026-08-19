@@ -125,6 +125,33 @@ func TestStream_ToolCall(t *testing.T) {
 
 	require.NotNil(t, stepFinish)
 	require.Equal(t, "tool_use", stepFinish.FinishReason)
+	require.Equal(t, 20, stepFinish.Usage.InputTokens)
+	require.Equal(t, 15, stepFinish.Usage.OutputTokens)
+}
+
+func TestStream_UsageFromMessageStartWhenDeltaOmitsInput(t *testing.T) {
+	srv := serveFixture(t, "fixtures/text_usage_start_only.sse")
+	defer srv.Close()
+
+	p := newTestProvider(t, srv)
+	ch, err := p.Stream(context.Background(), &cometsdk.Request{
+		Model:    "claude-sonnet-4-5",
+		Messages: []cometsdk.Message{{Role: cometsdk.RoleUser, Content: []cometsdk.Block{cometsdk.TextBlock{Text: "Hi"}}}},
+	})
+	require.NoError(t, err)
+
+	var stepFinish *cometsdk.StepFinishEvent
+	for _, e := range collectEvents(t, ch) {
+		if ev, ok := e.(cometsdk.StepFinishEvent); ok {
+			stepFinish = &ev
+		}
+	}
+	require.NotNil(t, stepFinish)
+	require.Equal(t, "stop", stepFinish.FinishReason)
+	require.Equal(t, 25, stepFinish.Usage.InputTokens)
+	require.Equal(t, 15, stepFinish.Usage.OutputTokens)
+	require.Equal(t, 8, stepFinish.Usage.CacheRead)
+	require.Equal(t, 3, stepFinish.Usage.CacheWrite)
 }
 
 func TestStream_ContextCancelled(t *testing.T) {

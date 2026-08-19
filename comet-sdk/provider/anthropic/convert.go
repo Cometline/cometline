@@ -232,7 +232,7 @@ type anthropicSSEEvent struct {
 		Name string `json:"name"`
 	} `json:"content_block"`
 
-	// content_block_delta
+	// content_block_delta / message_delta
 	Delta *struct {
 		Type        string `json:"type"`
 		Text        string `json:"text"`
@@ -241,13 +241,50 @@ type anthropicSSEEvent struct {
 		Reasoning   string `json:"reasoning"`
 	} `json:"delta"`
 
+	// message_start
+	Message *struct {
+		Usage *anthropicUsage `json:"usage"`
+	} `json:"message"`
+
 	// message_delta
-	Usage *struct {
-		InputTokens              int `json:"input_tokens"`
-		OutputTokens             int `json:"output_tokens"`
-		CacheReadInputTokens     int `json:"cache_read_input_tokens"`
-		CacheCreationInputTokens int `json:"cache_creation_input_tokens"`
-	} `json:"usage"`
+	Usage *anthropicUsage `json:"usage"`
+}
+
+type anthropicUsage struct {
+	InputTokens              int `json:"input_tokens"`
+	OutputTokens             int `json:"output_tokens"`
+	CacheReadInputTokens     int `json:"cache_read_input_tokens"`
+	CacheCreationInputTokens int `json:"cache_creation_input_tokens"`
+}
+
+func tokenUsageFrom(u *anthropicUsage) cometsdk.TokenUsage {
+	if u == nil {
+		return cometsdk.TokenUsage{}
+	}
+	return cometsdk.TokenUsage{
+		InputTokens:  u.InputTokens,
+		OutputTokens: u.OutputTokens,
+		CacheRead:    u.CacheReadInputTokens,
+		CacheWrite:   u.CacheCreationInputTokens,
+	}
+}
+
+// mergeUsage overlays incoming onto base. Official Anthropic streams put
+// input/cache counts on message_start and only output_tokens on message_delta.
+func mergeUsage(base, incoming cometsdk.TokenUsage) cometsdk.TokenUsage {
+	if incoming.InputTokens > 0 {
+		base.InputTokens = incoming.InputTokens
+	}
+	if incoming.OutputTokens > 0 {
+		base.OutputTokens = incoming.OutputTokens
+	}
+	if incoming.CacheRead > 0 {
+		base.CacheRead = incoming.CacheRead
+	}
+	if incoming.CacheWrite > 0 {
+		base.CacheWrite = incoming.CacheWrite
+	}
+	return base
 }
 
 // streamState tracks in-progress tool calls so we can emit ToolCallDoneEvent.
@@ -255,7 +292,9 @@ type streamState struct {
 	// toolCallBuffers maps content block index → accumulated input JSON.
 	toolCallBuffers map[int]*strings.Builder
 	// toolCallMeta maps content block index → (id, name).
-	toolCallMeta map[int][2]string
+	toolCallMeta  map[int][2]string
+	pendingUsage  cometsdk.TokenUsage
+	emittedFinish bool
 }
 
 func newStreamState() *streamState {
@@ -337,31 +376,41 @@ func toSDKEvents(eventType, data string, state *streamState) ([]cometsdk.Event, 
 			Input: json.RawMessage(buf.String()),
 		}}, nil
 
+	case "message_start":
+		var ev anthropicSSEEvent
+		if err := json.Unmarshal([]byte(data), &ev); err != nil {
+			return nil, fmt.Errorf("anthropic: parse message_start: %w", err)
+		}
+		if ev.Message != nil {
+			state.pendingUsage = mergeUsage(state.pendingUsage, tokenUsageFrom(ev.Message.Usage))
+		}
+		return nil, nil
+
 	case "message_delta":
 		var ev anthropicSSEEvent
 		if err := json.Unmarshal([]byte(data), &ev); err != nil {
 			return nil, fmt.Errorf("anthropic: parse message_delta: %w", err)
 		}
-		usage := cometsdk.TokenUsage{}
-		if ev.Usage != nil {
-			usage.InputTokens = ev.Usage.InputTokens
-			usage.OutputTokens = ev.Usage.OutputTokens
-			usage.CacheRead = ev.Usage.CacheReadInputTokens
-			usage.CacheWrite = ev.Usage.CacheCreationInputTokens
-		}
+		state.pendingUsage = mergeUsage(state.pendingUsage, tokenUsageFrom(ev.Usage))
 		reason := ""
 		if ev.Delta != nil {
 			reason = ev.Delta.StopReason
 		}
+		state.emittedFinish = true
 		return []cometsdk.Event{cometsdk.StepFinishEvent{
 			FinishReason: cometsdk.NormalizeFinishReason(reason),
-			Usage:        usage,
+			Usage:        state.pendingUsage,
 		}}, nil
 
 	case "message_stop":
-		return []cometsdk.Event{cometsdk.DoneEvent{}}, nil
+		var events []cometsdk.Event
+		if !state.emittedFinish {
+			events = append(events, cometsdk.StepFinishEvent{Usage: state.pendingUsage})
+			state.emittedFinish = true
+		}
+		return append(events, cometsdk.DoneEvent{}), nil
 
-	// Ignore ping, message_start, and any unknown event types.
+	// Ignore ping and any unknown event types.
 	default:
 		return nil, nil
 	}
