@@ -24,8 +24,8 @@ const {
 	refreshFileIndex: vi.fn(),
 	searchWorkspaceFiles: vi.fn(),
 	isFileIndexTruncated: vi.fn(() => false),
-	getCachedWikiFiles: vi.fn(() => []),
-	refreshWikiFileIndex: vi.fn(async () => [])
+	getCachedWikiFiles: vi.fn((): string[] => []),
+	refreshWikiFileIndex: vi.fn(async (): Promise<string[]> => [])
 }));
 
 vi.mock('$lib/client/cometmind', () => ({
