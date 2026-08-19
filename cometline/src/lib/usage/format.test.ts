@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { clampUsageRange, formatKind, formatRangeLabel, formatTokens, formatUSD, rangeForPreset } from './format';
+import {
+	clampUsageRange,
+	formatKind,
+	formatRangeLabel,
+	formatTokens,
+	formatUSD,
+	legendRowsForSeries,
+	rangeForPreset,
+	seriesKeyForBucket
+} from './format';
 
 describe('usage format', () => {
 	it('formats token counts', () => {
@@ -20,10 +29,60 @@ describe('usage format', () => {
 		expect(formatKind('embedding')).toBe('Embedding');
 	});
 
+	it('builds today as the current local day', () => {
+		const now = new Date(2026, 7, 19, 11, 8, 37);
+		const range = rangeForPreset('today', now);
+		expect(range.from).toBe(new Date(2026, 7, 19).getTime());
+		expect(range.to).toBe(now.getTime() + 1);
+		expect(formatRangeLabel(range.from, range.to)).toBe(
+			new Date(2026, 7, 19).toLocaleDateString(undefined, {
+				month: 'short',
+				day: 'numeric',
+				year: 'numeric'
+			})
+		);
+	});
+
 	it('builds last-month as the previous calendar month', () => {
 		const range = rangeForPreset('month', new Date(2026, 7, 18));
 		expect(new Date(range.from).getMonth()).toBe(6);
 		expect(new Date(range.to).getMonth()).toBe(7);
+	});
+
+	it('maps summary buckets onto series keys with estimated spend', () => {
+		expect(
+			seriesKeyForBucket(
+				{ key: 'gpt-5.6-luna', provider_id: 'codex', model_id: 'gpt-5.6-luna', tokens: 1, estimated_usd: 0.12, priced: true },
+				'model'
+			)
+		).toBe('codex/gpt-5.6-luna');
+		expect(
+			legendRowsForSeries(
+				['codex/gpt-5.6-luna', 'xai/grok-4.6'],
+				[
+					{
+						key: 'gpt-5.6-luna',
+						provider_id: 'codex',
+						model_id: 'gpt-5.6-luna',
+						tokens: 8800,
+						estimated_usd: 0.12,
+						priced: true
+					},
+					{
+						key: 'grok-4.6',
+						provider_id: 'xai',
+						model_id: 'grok-4.6',
+						tokens: 528800,
+						estimated_usd: 0,
+						priced: false
+					}
+				],
+				'model'
+			)
+		).toEqual([
+			{ key: 'codex/gpt-5.6-luna', label: 'codex/gpt-5.6-luna', tokens: 8800, cost: '$0.12' },
+			{ key: 'xai/grok-4.6', label: 'xai/grok-4.6', tokens: 528800, cost: '—' }
+		]);
 	});
 
 	it('clamps custom ranges to one year', () => {

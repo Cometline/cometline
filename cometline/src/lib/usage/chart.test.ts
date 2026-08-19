@@ -1,7 +1,23 @@
 import { describe, expect, it } from 'vitest';
-import { nearestPointIndex, PAD_RIGHT, stackedAreaPaths, xLabels } from './chart';
+import {
+	nearestPointIndex,
+	PAD_RIGHT,
+	seriesColor,
+	singleDayBarBounds,
+	stackedAreaPaths,
+	xLabels
+} from './chart';
 
 describe('usage chart', () => {
+	it('keeps adjacent series distinguishable by hue and lightness', () => {
+		const colors = Array.from({ length: 8 }, (_, index) => seriesColor(index, 8));
+		expect(new Set(colors).size).toBe(8);
+		const lights = colors.map((color) => Number(color.match(/% (\d+)%/)?.[1]));
+		for (let i = 1; i < lights.length; i += 1) {
+			expect(Math.abs((lights[i] ?? 0) - (lights[i - 1] ?? 0))).toBeGreaterThanOrEqual(10);
+		}
+	});
+
 	it('builds a closed stacked path per series', () => {
 		const paths = stackedAreaPaths(
 			[
@@ -15,6 +31,21 @@ describe('usage chart', () => {
 		expect(paths).toHaveLength(2);
 		expect(paths[0]?.d.startsWith('M ')).toBe(true);
 		expect(paths[0]?.d.endsWith('Z')).toBe(true);
+	});
+
+	it('gives a single day a centered stacked bar', () => {
+		const width = 400;
+		const paths = stackedAreaPaths(
+			[{ date: '2026-08-19', cumulative: { a: 10, b: 5 } }],
+			['a', 'b'],
+			width,
+			160
+		);
+		const { x0, x1 } = singleDayBarBounds(width);
+		expect(paths).toHaveLength(2);
+		const xs = [...(paths[0]?.d.matchAll(/(?:M|L) ([\d.]+)/g) ?? [])].map((match) => Number(match[1]));
+		expect(new Set(xs)).toEqual(new Set([x0, x1]));
+		expect(x1 - x0).toBeLessThan(width / 2);
 	});
 
 	it('snaps hover x to the nearest day', () => {

@@ -248,6 +248,44 @@ func TestConvertEvent_StepFinish(t *testing.T) {
 	require.Equal(t, 1, sf.Usage.CacheWrite)
 }
 
+func TestConvertEvent_UsageMergesMessageStartAndDelta(t *testing.T) {
+	state := newStreamState()
+	_, err := toSDKEvents("message_start",
+		`{"type":"message_start","message":{"usage":{"input_tokens":25,"cache_read_input_tokens":8,"cache_creation_input_tokens":3,"output_tokens":1}}}`,
+		state)
+	require.NoError(t, err)
+
+	events, err := toSDKEvents("message_delta",
+		`{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":15}}`,
+		state)
+	require.NoError(t, err)
+	require.Len(t, events, 1)
+
+	sf, ok := events[0].(cometsdk.StepFinishEvent)
+	require.True(t, ok)
+	require.Equal(t, 25, sf.Usage.InputTokens)
+	require.Equal(t, 15, sf.Usage.OutputTokens)
+	require.Equal(t, 8, sf.Usage.CacheRead)
+	require.Equal(t, 3, sf.Usage.CacheWrite)
+}
+
+func TestConvertEvent_UsageOnMessageStopWithoutDelta(t *testing.T) {
+	state := newStreamState()
+	_, err := toSDKEvents("message_start",
+		`{"type":"message_start","message":{"usage":{"input_tokens":9,"output_tokens":0}}}`,
+		state)
+	require.NoError(t, err)
+
+	events, err := toSDKEvents("message_stop", `{"type":"message_stop"}`, state)
+	require.NoError(t, err)
+	require.Len(t, events, 2)
+	sf, ok := events[0].(cometsdk.StepFinishEvent)
+	require.True(t, ok)
+	require.Equal(t, 9, sf.Usage.InputTokens)
+	_, ok = events[1].(cometsdk.DoneEvent)
+	require.True(t, ok)
+}
+
 // ─── Options passthrough tests ────────────────────────────────────────────────
 
 func TestConvertRequest_OptionsPassthrough(t *testing.T) {

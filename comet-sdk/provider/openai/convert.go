@@ -305,10 +305,46 @@ type openAIDelta struct {
 			} `json:"tool_calls"`
 		} `json:"delta"`
 	} `json:"choices"`
-	Usage *struct {
-		PromptTokens     int `json:"prompt_tokens"`
-		CompletionTokens int `json:"completion_tokens"`
-	} `json:"usage"`
+	Usage *openAIUsage `json:"usage"`
+}
+
+type openAIUsage struct {
+	PromptTokens        int `json:"prompt_tokens"`
+	CompletionTokens    int `json:"completion_tokens"`
+	PromptTokensDetails *struct {
+		CachedTokens        int `json:"cached_tokens"`
+		CacheWriteTokens    int `json:"cache_write_tokens"`
+		CacheCreationTokens int `json:"cache_creation_tokens"`
+	} `json:"prompt_tokens_details"`
+}
+
+func tokenUsageFrom(u *openAIUsage) cometsdk.TokenUsage {
+	if u == nil {
+		return cometsdk.TokenUsage{}
+	}
+	usage := cometsdk.TokenUsage{
+		InputTokens:  u.PromptTokens,
+		OutputTokens: u.CompletionTokens,
+	}
+	if d := u.PromptTokensDetails; d != nil {
+		usage.CacheRead = d.CachedTokens
+		if d.CacheWriteTokens > 0 {
+			usage.CacheWrite = d.CacheWriteTokens
+		} else {
+			usage.CacheWrite = d.CacheCreationTokens
+		}
+	}
+	return usage
+}
+
+func applyUsage(state *streamState, u *openAIUsage) {
+	if u == nil {
+		return
+	}
+	state.pendingUsage = tokenUsageFrom(u)
+	if state.pendingFinish != nil {
+		state.pendingFinish.Usage = state.pendingUsage
+	}
 }
 
 // inProgressReasoning tracks reasoning content being streamed.
@@ -369,17 +405,9 @@ func toSDKEvents(data string, state *streamState) ([]cometsdk.Event, error) {
 		return nil, fmt.Errorf("openai: parse delta: %w", err)
 	}
 
-	if len(delta.Choices) == 0 && delta.Usage != nil {
-		state.pendingUsage = cometsdk.TokenUsage{
-			InputTokens:  delta.Usage.PromptTokens,
-			OutputTokens: delta.Usage.CompletionTokens,
-		}
-		if state.pendingFinish != nil {
-			state.pendingFinish.Usage = state.pendingUsage
-		}
-		return nil, nil
-	}
-
+	// Official OpenAI usage chunks use choices:[]; some gateways (TrendAI)
+	// send usage on a later chunk that still has a non-empty empty-delta choice.
+	applyUsage(state, delta.Usage)
 	if len(delta.Choices) == 0 {
 		return nil, nil
 	}
@@ -467,6 +495,7 @@ func toSDKEvents(data string, state *streamState) ([]cometsdk.Event, error) {
 		}
 		state.pendingFinish = &cometsdk.StepFinishEvent{
 			FinishReason: cometsdk.NormalizeFinishReason(choice.FinishReason),
+			Usage:        state.pendingUsage,
 		}
 	}
 

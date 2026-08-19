@@ -12,6 +12,7 @@
 		type Workspace
 	} from '$lib/client/cometmind';
 	import UsageStackedArea from '$lib/components/usage/UsageStackedArea.svelte';
+	import { seriesColor } from '$lib/usage/chart';
 	import { truncateWorkspacePath } from '$lib/jobs/group-jobs';
 	import {
 		formatEventTime,
@@ -19,6 +20,7 @@
 		formatRangeLabel,
 		formatTokens,
 		formatUSD,
+		legendRowsForSeries,
 		rangeForPreset,
 		type RangePreset
 	} from '$lib/usage/format';
@@ -45,6 +47,15 @@
 		to: range.to,
 		...(workspaceId ? { workspace_id: workspaceId } : {})
 	});
+
+	const legendRows = $derived(
+		legendRowsForSeries(
+			series?.keys ?? [],
+			groupBy === 'kind' ? (summary?.by_kind ?? []) : (summary?.by_model ?? []),
+			groupBy
+		)
+	);
+	const legendCosts = $derived(Object.fromEntries(legendRows.map((row) => [row.key, row.cost])));
 
 	async function refresh(nextOffset = 0) {
 		const seq = ++refreshSeq;
@@ -128,6 +139,7 @@
 	<p class="usage-desc">Usage is kept for one year. Older events are removed automatically.</p>
 	<header class="usage-toolbar">
 		<div class="chips" role="group" aria-label="Date range">
+			<button type="button" class:active={preset === 'today'} onclick={() => applyPreset('today')}>Today</button>
 			<button type="button" class:active={preset === '7d'} onclick={() => applyPreset('7d')}>Last 7 days</button>
 			<button type="button" class:active={preset === '30d'} onclick={() => applyPreset('30d')}>Last 30 days</button>
 			<button type="button" class:active={preset === 'month'} onclick={() => applyPreset('month')}>Last month</button>
@@ -192,13 +204,22 @@
 					</select>
 				</label>
 			</div>
-			<UsageStackedArea points={series?.points ?? []} keys={series?.keys ?? []} />
+			<UsageStackedArea points={series?.points ?? []} keys={series?.keys ?? []} costs={legendCosts} />
 			<div class="legend">
-				{#each series?.keys ?? [] as key, index (key)}
-					<span>
-						<i class={`swatch series-${index % 6}`}></i>
-						{groupBy === 'kind' ? formatKind(key) : key}
-					</span>
+				<div class="legend-head">
+					<span>{groupBy === 'kind' ? 'Kind' : 'Model'}</span>
+					<span>Tokens</span>
+					<span>Cost</span>
+				</div>
+				{#each legendRows as row, index (row.key)}
+					<div class="legend-row">
+						<span class="legend-name">
+							<i class="swatch" style:background={seriesColor(index, legendRows.length)}></i>
+							{row.label}
+						</span>
+						<span class="legend-meta">{formatTokens(row.tokens)}</span>
+						<span class="legend-meta">{row.cost}</span>
+					</div>
 				{/each}
 			</div>
 		</section>
@@ -454,11 +475,37 @@
 	}
 
 	.legend {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 10px 16px;
+		display: grid;
+		gap: 6px 16px;
 		color: var(--text-muted);
 		font-size: 12px;
+	}
+
+	.legend-head,
+	.legend-row {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) 4.5rem 4.5rem;
+		gap: 12px;
+		align-items: center;
+	}
+
+	.legend-head {
+		color: var(--text-muted);
+		font-weight: 550;
+	}
+
+	.legend-head span:not(:first-child),
+	.legend-meta {
+		text-align: right;
+		font-variant-numeric: tabular-nums;
+	}
+
+	.legend-name {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		color: var(--text-main);
 	}
 
 	.swatch {
@@ -467,25 +514,6 @@
 		height: 8px;
 		margin-right: 6px;
 		border-radius: 99px;
-	}
-
-	.series-0 {
-		background: var(--status-success);
-	}
-	.series-1 {
-		background: var(--intro-blue);
-	}
-	.series-2 {
-		background: var(--accent);
-	}
-	.series-3 {
-		background: var(--status-warning);
-	}
-	.series-4 {
-		background: var(--text-soft);
-	}
-	.series-5 {
-		background: var(--status-error);
 	}
 
 	.table-wrap {
