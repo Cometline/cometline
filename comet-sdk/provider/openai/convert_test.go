@@ -596,3 +596,72 @@ func TestConvertEvent_ThinkTags(t *testing.T) {
 	require.Equal(t, []string{"plan"}, reasoning)
 	require.Equal(t, []string{"answer"}, texts)
 }
+
+func stepFinishFromChunks(t *testing.T, chunks ...string) cometsdk.StepFinishEvent {
+	t.Helper()
+	state := newStreamState()
+	var finish *cometsdk.StepFinishEvent
+	for _, chunk := range chunks {
+		events, err := toSDKEvents(chunk, state)
+		require.NoError(t, err)
+		for _, e := range events {
+			if ev, ok := e.(cometsdk.StepFinishEvent); ok {
+				finish = &ev
+			}
+		}
+	}
+	require.NotNil(t, finish)
+	return *finish
+}
+
+func TestConvertEvent_UsageAfterFinishWithNonEmptyChoices(t *testing.T) {
+	finish := stepFinishFromChunks(t,
+		`{"choices":[{"index":0,"delta":{"content":"hi"}}]}`,
+		`{"choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}`,
+		`{"choices":[{"index":0,"delta":{}}],"usage":{"prompt_tokens":11,"completion_tokens":5}}`,
+		`[DONE]`,
+	)
+	require.Equal(t, "stop", finish.FinishReason)
+	require.Equal(t, 11, finish.Usage.InputTokens)
+	require.Equal(t, 5, finish.Usage.OutputTokens)
+}
+
+func TestConvertEvent_UsageOnEmptyChoices(t *testing.T) {
+	finish := stepFinishFromChunks(t,
+		`{"choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}`,
+		`{"choices":[],"usage":{"prompt_tokens":10,"completion_tokens":5}}`,
+		`[DONE]`,
+	)
+	require.Equal(t, 10, finish.Usage.InputTokens)
+	require.Equal(t, 5, finish.Usage.OutputTokens)
+}
+
+func TestConvertEvent_UsageOnSameChunkAsFinish(t *testing.T) {
+	finish := stepFinishFromChunks(t,
+		`{"choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":8,"completion_tokens":3}}`,
+		`[DONE]`,
+	)
+	require.Equal(t, 8, finish.Usage.InputTokens)
+	require.Equal(t, 3, finish.Usage.OutputTokens)
+}
+
+func TestConvertEvent_UsageCacheDetails(t *testing.T) {
+	finish := stepFinishFromChunks(t,
+		`{"choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}`,
+		`{"choices":[{"index":0,"delta":{}}],"usage":{"prompt_tokens":20,"completion_tokens":4,"prompt_tokens_details":{"cached_tokens":8,"cache_write_tokens":3,"cache_creation_tokens":1}}}`,
+		`[DONE]`,
+	)
+	require.Equal(t, 20, finish.Usage.InputTokens)
+	require.Equal(t, 4, finish.Usage.OutputTokens)
+	require.Equal(t, 8, finish.Usage.CacheRead)
+	require.Equal(t, 3, finish.Usage.CacheWrite)
+}
+
+func TestConvertEvent_UsageCacheCreationFallback(t *testing.T) {
+	finish := stepFinishFromChunks(t,
+		`{"choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}`,
+		`{"choices":[],"usage":{"prompt_tokens":9,"completion_tokens":1,"prompt_tokens_details":{"cached_tokens":0,"cache_creation_tokens":4}}}`,
+		`[DONE]`,
+	)
+	require.Equal(t, 4, finish.Usage.CacheWrite)
+}

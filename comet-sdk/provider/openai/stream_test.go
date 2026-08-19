@@ -129,6 +129,44 @@ func TestStream_MultipleToolCalls(t *testing.T) {
 	require.True(t, names["list_dir"])
 }
 
+func streamStepFinish(t *testing.T, fixturePath string) cometsdk.StepFinishEvent {
+	t.Helper()
+	srv := serveFixture(t, fixturePath)
+	t.Cleanup(srv.Close)
+
+	p := newTestProvider(t, srv)
+	ch, err := p.Stream(context.Background(), &cometsdk.Request{
+		Model:    "gpt-5.6-luna",
+		Messages: []cometsdk.Message{{Role: cometsdk.RoleUser, Content: []cometsdk.Block{cometsdk.TextBlock{Text: "Hi"}}}},
+	})
+	require.NoError(t, err)
+
+	var stepFinish *cometsdk.StepFinishEvent
+	for _, e := range collectEvents(t, ch) {
+		if ev, ok := e.(cometsdk.StepFinishEvent); ok {
+			stepFinish = &ev
+		}
+	}
+	require.NotNil(t, stepFinish)
+	return *stepFinish
+}
+
+func TestStream_UsageWithNonEmptyChoices(t *testing.T) {
+	finish := streamStepFinish(t, "fixtures/text_usage_nonempty_choices.sse")
+	require.Equal(t, "stop", finish.FinishReason)
+	require.Equal(t, 11, finish.Usage.InputTokens)
+	require.Equal(t, 5, finish.Usage.OutputTokens)
+	require.Equal(t, 2, finish.Usage.CacheRead)
+	require.Equal(t, 1, finish.Usage.CacheWrite)
+}
+
+func TestStream_ToolCallsUsageWithNonEmptyChoices(t *testing.T) {
+	finish := streamStepFinish(t, "fixtures/tool_calls_usage_nonempty_choices.sse")
+	require.Equal(t, "tool_use", finish.FinishReason)
+	require.Equal(t, 121, finish.Usage.InputTokens)
+	require.Equal(t, 14, finish.Usage.OutputTokens)
+}
+
 func TestStream_ContextCancelled(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")
