@@ -37,9 +37,7 @@
 		onContextMenu: (event: MouseEvent) => void;
 	} = $props();
 
-	let streaming = $derived(
-		chatStore.isStreamingFor(session.id) || chatStore.hasInFlightTurn(session.id)
-	);
+	let streaming = $derived(chatStore.isStreamingFor(session.id));
 	let terminalRunning = $derived(terminalStore.isRunning(session.id));
 	let unread = $derived(unreadSessionOutputStore.isUnread(session.id));
 	let failed = $derived(chatStore.hasRunError(session.id));
@@ -95,7 +93,7 @@
 					class:active={streaming}
 					class:error={failed}
 					class:terminal={terminalRunning && !failed}
-					class:unread={unread && !failed}
+					class:unread={unread && !failed && !streaming}
 					class="session-streaming"
 					title={activityLabel}
 					>{#if terminalRunning && !failed}<span class="terminal-marker">t</span
@@ -243,20 +241,6 @@
 		opacity: 1;
 	}
 
-	.session-streaming.active.unread {
-		animation: none;
-		position: relative;
-	}
-
-	.session-streaming.active.unread::after {
-		content: '';
-		position: absolute;
-		inset: -3px;
-		border: 1px solid var(--session-unread-color);
-		border-radius: inherit;
-		animation: session-unread-ring 1.2s ease-in-out infinite;
-	}
-
 	.session-streaming.error {
 		background: var(--status-error);
 		opacity: 1;
@@ -278,18 +262,6 @@
 		100% {
 			opacity: 0.35;
 			transform: scale(0.85);
-		}
-		50% {
-			opacity: 1;
-			transform: scale(1);
-		}
-	}
-
-	@keyframes session-unread-ring {
-		0%,
-		100% {
-			opacity: 0.25;
-			transform: scale(0.82);
 		}
 		50% {
 			opacity: 1;
