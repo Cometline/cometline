@@ -88,7 +88,8 @@ Sessions and chat:
 Skills and memory:
 
 - `GET /api/v1/skills`, `POST /api/v1/skills/sync-runs`
-- `DELETE /api/v1/skills/{name}`, `GET /api/v1/skills/{name}/export`
+- `GET /api/v1/skills/{name}`, `PUT /api/v1/skills/{name}`
+- `DELETE /api/v1/skills/{name}`, `GET /api/v1/skills/{name}/archive`
 - `GET /api/v1/skill-drafts`, `GET /api/v1/skill-drafts/{name}`, `PUT /api/v1/skill-drafts/{name}`
 - `POST /api/v1/skill-drafts/{name}/promote`, `DELETE /api/v1/skill-drafts/{name}`
 - `GET /api/v1/memories`, `POST /api/v1/memories`, `DELETE /api/v1/memories/{id}`
@@ -172,7 +173,7 @@ Cometline desktop must not:
 - `/` — new-session landing with centered project icon and hero composer.
 - `/session/[id]` — active thread; consumes pending first messages from the home route.
 - `/jobs` — jobs board and detail drawer.
-- `/skill-drafts` — draft skill review/editor surface.
+- `/skills` — browse/edit discovered skills and review pending drafts. `/skill-drafts` redirects to `/skills?tab=drafts`.
 - `/settings` — direct settings route outside the normal shell.
 - `/mini` and `/mini/session/[id]` — compact mini-window chat routes.
 

@@ -49,7 +49,7 @@ The renderer is no longer only the chat route. Current first-class routes are:
 | `/gallery` | Generated and presented media library |
 | `/usage` | Token usage and estimated spend dashboard |
 | `/jobs` | Jobs board and job detail drawer |
-| `/skill-drafts` | Skill draft review and promotion |
+| `/skills` | Skill browse/edit and draft review |
 | `/settings` | Direct settings route outside `AppShell` |
 | `/mini` and `/mini/session/[id]` | Compact mini-window chat |
 
