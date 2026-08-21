@@ -29,7 +29,11 @@ func MirrorRoot() (string, error) {
 
 // SkillCapabilities reports export/delete/edit rules for a discovered skill.
 func SkillCapabilities(skill Skill) (Capabilities, error) {
-	caps := Capabilities{CanExport: true, CanEdit: skillCanEdit(skill)}
+	caps := Capabilities{
+		CanExport: true,
+		CanEdit:   skillCanEdit(skill),
+		CanDelete: skillCanDelete(skill),
+	}
 	mirror, err := MirrorRoot()
 	if err != nil {
 		return caps, err
@@ -41,18 +45,12 @@ func SkillCapabilities(skill Skill) (Capabilities, error) {
 			if pathInfo, statErr := os.Lstat(skill.Path); statErr == nil && pathInfo.Mode()&os.ModeSymlink != 0 {
 				caps.IsSymlink = true
 			}
-			caps.CanDelete = false
 			return caps, nil
 		}
 		return caps, err
 	}
 	if info.Mode()&os.ModeSymlink != 0 {
 		caps.IsSymlink = true
-		caps.CanDelete = false
-		return caps, nil
-	}
-	if info.IsDir() {
-		caps.CanDelete = true
 	}
 	return caps, nil
 }
@@ -107,21 +105,32 @@ func ExportSkill(skill Skill) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// DeleteManagedSkill removes a non-symlink skill directory under ~/.cometmind/skills.
+// DeleteManagedSkill removes a deletable skill directory and any mirror symlink.
 func DeleteManagedSkill(skill Skill) error {
 	caps, err := SkillCapabilities(skill)
 	if err != nil {
 		return err
 	}
 	if !caps.CanDelete {
-		return fmt.Errorf("skill %q cannot be deleted (external or symlink)", skill.Name)
+		return fmt.Errorf("skill %q cannot be deleted", skill.Name)
+	}
+	if strings.TrimSpace(skill.Path) == "" {
+		return fmt.Errorf("skill %q has no path", skill.Name)
 	}
 	mirror, err := MirrorRoot()
 	if err != nil {
 		return err
 	}
-	target := filepath.Join(mirror, skill.Name)
-	if err := os.RemoveAll(target); err != nil {
+	mirrorEntry := filepath.Join(mirror, skill.Name)
+	info, lstatErr := os.Lstat(mirrorEntry)
+	removeMirrorLink := lstatErr == nil && info.Mode()&os.ModeSymlink != 0
+	if err := os.RemoveAll(skill.Path); err != nil {
+		return err
+	}
+	if !removeMirrorLink {
+		return nil
+	}
+	if err := os.Remove(mirrorEntry); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
 	return nil
@@ -191,6 +200,39 @@ func skillCanEdit(skill Skill) bool {
 		return true
 	}
 	return !pathUnderRoot(skill.Path, root)
+}
+
+func skillCanDelete(skill Skill) bool {
+	if skill.Internal || strings.TrimSpace(skill.Path) == "" {
+		return false
+	}
+	if root, err := BuiltinRoot(); err == nil && root != "" && pathUnderRoot(skill.Path, root) {
+		return false
+	}
+	for _, root := range deletableSkillRoots() {
+		if pathUnderRoot(skill.Path, root) {
+			return true
+		}
+	}
+	return false
+}
+
+func deletableSkillRoots() []string {
+	candidates := []string{
+		"~/.cometmind/skills",
+		"~/.agents/skills",
+		"~/.config/opencode/skills",
+		"~/.claude/skills",
+	}
+	roots := make([]string, 0, len(candidates))
+	for _, candidate := range candidates {
+		expanded, err := expandPath(candidate)
+		if err != nil || expanded == "" {
+			continue
+		}
+		roots = append(roots, expanded)
+	}
+	return roots
 }
 
 func pathUnderRoot(path, root string) bool {

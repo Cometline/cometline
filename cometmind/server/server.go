@@ -507,7 +507,7 @@ func (a *App) handleDeleteSkill(c *gin.Context) {
 		return
 	}
 	if !caps.CanDelete {
-		writeError(c, http.StatusForbidden, "delete_forbidden", "external or symlink skills cannot be deleted")
+		writeError(c, http.StatusForbidden, "delete_forbidden", "workspace and bundled skills cannot be deleted")
 		return
 	}
 	if err := skillpkg.DeleteManagedSkill(skill); err != nil {
