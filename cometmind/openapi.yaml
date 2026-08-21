@@ -1289,6 +1289,72 @@ paths:
           $ref: '#/components/responses/InternalError'
 
   /api/v1/skills/{name}:
+    get:
+      tags: [Skills]
+      summary: Read one discovered Agent Skill and its SKILL.md
+      operationId: getSkill
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: workspace_path
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Skill detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SkillDetailResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    put:
+      tags: [Skills]
+      summary: Update one discovered Agent Skill SKILL.md in place
+      operationId: updateSkill
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: workspace_path
+          in: query
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSkillRequest'
+      responses:
+        '200':
+          description: Updated skill detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SkillDetailResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Skill cannot be updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
     delete:
       tags: [Skills]
       summary: Delete a managed Agent Skill from ~/.cometmind/skills
@@ -3425,7 +3491,7 @@ components:
     Skill:
       type: object
       additionalProperties: false
-      required: [name, description, path, source, internal, is_symlink, can_delete, can_export]
+      required: [name, description, path, source, internal, is_symlink, can_delete, can_export, can_edit]
       properties:
         name:
           type: string
@@ -3443,6 +3509,26 @@ components:
           type: boolean
         can_export:
           type: boolean
+        can_edit:
+          type: boolean
+
+    SkillDetailResponse:
+      type: object
+      additionalProperties: false
+      required: [skill, content]
+      properties:
+        skill:
+          $ref: '#/components/schemas/Skill'
+        content:
+          type: string
+
+    UpdateSkillRequest:
+      type: object
+      additionalProperties: false
+      required: [content]
+      properties:
+        content:
+          type: string
 
     ListSkillsResponse:
       type: object

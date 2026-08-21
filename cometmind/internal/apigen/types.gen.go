@@ -1918,6 +1918,7 @@ type SimpleErrorResponse struct {
 // Skill defines model for Skill.
 type Skill struct {
 	CanDelete   bool   `json:"can_delete"`
+	CanEdit     bool   `json:"can_edit"`
 	CanExport   bool   `json:"can_export"`
 	Description string `json:"description"`
 	Internal    bool   `json:"internal"`
@@ -1925,6 +1926,12 @@ type Skill struct {
 	Name        string `json:"name"`
 	Path        string `json:"path"`
 	Source      string `json:"source"`
+}
+
+// SkillDetailResponse defines model for SkillDetailResponse.
+type SkillDetailResponse struct {
+	Content string `json:"content"`
+	Skill   Skill  `json:"skill"`
 }
 
 // SkillDraft defines model for SkillDraft.
@@ -2103,6 +2110,11 @@ type UpdateSessionRequest struct {
 
 // UpdateSkillDraftRequest defines model for UpdateSkillDraftRequest.
 type UpdateSkillDraftRequest struct {
+	Content string `json:"content"`
+}
+
+// UpdateSkillRequest defines model for UpdateSkillRequest.
+type UpdateSkillRequest struct {
 	Content string `json:"content"`
 }
 
@@ -2477,6 +2489,16 @@ type DeleteSkillParams struct {
 	WorkspacePath *string `form:"workspace_path,omitempty" json:"workspace_path,omitempty"`
 }
 
+// GetSkillParams defines parameters for GetSkill.
+type GetSkillParams struct {
+	WorkspacePath *string `form:"workspace_path,omitempty" json:"workspace_path,omitempty"`
+}
+
+// UpdateSkillParams defines parameters for UpdateSkill.
+type UpdateSkillParams struct {
+	WorkspacePath *string `form:"workspace_path,omitempty" json:"workspace_path,omitempty"`
+}
+
 // ExportSkillParams defines parameters for ExportSkill.
 type ExportSkillParams struct {
 	WorkspacePath *string `form:"workspace_path,omitempty" json:"workspace_path,omitempty"`
@@ -2689,6 +2711,9 @@ type PostSessionMessageJSONRequestBody = PostMessageRequest
 
 // UpdateSkillDraftJSONRequestBody defines body for UpdateSkillDraft for application/json ContentType.
 type UpdateSkillDraftJSONRequestBody = UpdateSkillDraftRequest
+
+// UpdateSkillJSONRequestBody defines body for UpdateSkill for application/json ContentType.
+type UpdateSkillJSONRequestBody = UpdateSkillRequest
 
 // WriteWikiFileContentJSONRequestBody defines body for WriteWikiFileContent for application/json ContentType.
 type WriteWikiFileContentJSONRequestBody = WriteWikiFileRequest

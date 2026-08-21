@@ -181,6 +181,8 @@ func New(deps Deps) (*gin.Engine, error) {
 	api.GET("/skills", app.handleListSkills)
 	api.POST("/skills/sync-runs", app.handleSyncSkills)
 	api.GET("/skills/:name/archive", app.handleExportSkill)
+	api.GET("/skills/:name", app.handleGetSkill)
+	api.PUT("/skills/:name", app.handleUpdateSkill)
 	api.DELETE("/skills/:name", app.handleDeleteSkill)
 	api.GET("/skill-drafts", app.handleListSkillDrafts)
 	api.GET("/skill-drafts/:name", app.handleGetSkillDraft)
@@ -379,6 +381,16 @@ type skillResource struct {
 	IsSymlink   bool   `json:"is_symlink"`
 	CanDelete   bool   `json:"can_delete"`
 	CanExport   bool   `json:"can_export"`
+	CanEdit     bool   `json:"can_edit"`
+}
+
+type skillDetailResponse struct {
+	Skill   skillResource `json:"skill"`
+	Content string        `json:"content"`
+}
+
+type updateSkillRequest struct {
+	Content string `json:"content"`
 }
 
 type listSkillsResponse struct {
@@ -505,6 +517,64 @@ func (a *App) handleDeleteSkill(c *gin.Context) {
 	c.JSON(http.StatusOK, statusResponse{Status: "deleted"})
 }
 
+func (a *App) handleGetSkill(c *gin.Context) {
+	reg := a.skillsForRequest(c)
+	name := strings.TrimSpace(c.Param("name"))
+	skill, content, err := reg.SkillMarkdown(name)
+	if err != nil {
+		writeDiscoveredSkillError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, skillDetailResponse{Skill: skillResourceFromModel(skill), Content: content})
+}
+
+func (a *App) handleUpdateSkill(c *gin.Context) {
+	reg := a.skillsForRequest(c)
+	name := strings.TrimSpace(c.Param("name"))
+	skill, ok := reg.Find(name)
+	if !ok {
+		writeError(c, http.StatusNotFound, "skill_not_found", "unknown skill: "+name)
+		return
+	}
+	var req updateSkillRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		writeError(c, http.StatusBadRequest, "bad_request", "invalid JSON body")
+		return
+	}
+	if err := skillpkg.UpdateDiscoveredSkill(skill, req.Content); err != nil {
+		writeDiscoveredSkillError(c, err)
+		return
+	}
+	updated, err := skillpkg.ReadSkill(skill.Path)
+	if err != nil {
+		writeDiscoveredSkillError(c, err)
+		return
+	}
+	_, content, err := reg.SkillMarkdown(name)
+	if err != nil {
+		writeDiscoveredSkillError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, skillDetailResponse{Skill: skillResourceFromModel(updated), Content: content})
+}
+
+func writeDiscoveredSkillError(c *gin.Context, err error) {
+	if errors.Is(err, skillpkg.ErrSkillNotEditable) {
+		writeError(c, http.StatusForbidden, "edit_forbidden", err.Error())
+		return
+	}
+	msg := err.Error()
+	if strings.Contains(msg, "unknown skill") {
+		writeError(c, http.StatusNotFound, "skill_not_found", msg)
+		return
+	}
+	if strings.Contains(msg, "invalid") || strings.Contains(msg, "must match") || strings.Contains(msg, "required") {
+		writeError(c, http.StatusConflict, "skill_conflict", msg)
+		return
+	}
+	writeError(c, http.StatusInternalServerError, "skill_error", msg)
+}
+
 func (a *App) skillsForRequest(c *gin.Context) skillpkg.Registry {
 	workspacePath := strings.TrimSpace(c.Query("workspace_path"))
 	if workspacePath == "" && strings.TrimSpace(c.Query("workspace_id")) != "" {
@@ -526,6 +596,7 @@ func skillResourceFromModel(skill skillpkg.Skill) skillResource {
 		IsSymlink:   caps.IsSymlink,
 		CanDelete:   caps.CanDelete,
 		CanExport:   caps.CanExport,
+		CanEdit:     caps.CanEdit,
 	}
 }
 
