@@ -14,16 +14,6 @@ export interface ElectronAPI {
 	startCodexLogin(): Promise<{ started: boolean; message: string }>;
 	getXaiAuthStatus(): Promise<{ authenticated: boolean; authPath: string; error?: string }>;
 	startXaiLogin(): Promise<{ started: boolean; message: string }>;
-	getMcpOAuthStatus(serverId: string): Promise<{
-		authenticated: boolean;
-		authPath: string;
-		expiry?: string;
-		error?: string;
-	}>;
-	startMcpOAuth(payload: {
-		serverId: string;
-		oauth: { clientId: string; scopes?: string[]; authorizationUrl: string; tokenUrl: string };
-	}): Promise<{ started: boolean; message: string }>;
 	readCursorMcpConfig(): Promise<
 		{ ok: true; path: string; config: unknown } | { ok: false; error: string }
 	>;

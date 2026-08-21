@@ -212,10 +212,6 @@ export function registerRuntimeIpcHandlers(dependencies: RuntimeIpcDependencies)
 		startCodexLogin: () => dependencies.providerAuth.startCodexLogin(),
 		getXaiAuthStatus: () => dependencies.providerAuth.getXaiAuthStatus(),
 		startXaiLogin: () => dependencies.providerAuth.startXaiLogin(),
-		getMcpOAuthStatus: (_event: IpcMainInvokeEvent, serverId: unknown) =>
-			dependencies.providerAuth.getMcpOAuthStatus(serverId),
-		startMcpOAuth: (_event: IpcMainInvokeEvent, payload: unknown) =>
-			dependencies.providerAuth.startMcpOAuth(record(payload)),
 		readCursorMcpConfig: () => dependencies.providerAuth.readCursorMcpConfig(),
 		fetchProviderModels: (_event: IpcMainInvokeEvent, config: unknown) =>
 			dependencies.providerAuth.fetchProviderModels(providerModelConfig(config)),

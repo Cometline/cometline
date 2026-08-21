@@ -12,7 +12,8 @@ vi.mock('$lib/client/cometmind', () => ({
 	listMcpServers: () => Promise.resolve([]),
 	listMcpTools: () => Promise.resolve([]),
 	reconnectMcpServer: vi.fn(),
-	startMcpOAuth: vi.fn()
+	startMcpOAuth: vi.fn(),
+	testMcpServer: vi.fn()
 }));
 
 vi.mock('$lib/stores/shell.svelte', () => ({

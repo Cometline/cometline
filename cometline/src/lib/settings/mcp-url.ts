@@ -82,11 +82,54 @@ export interface NormalizedConnection {
  *
  * `Authorization` and non-credential headers are always left untouched.
  */
+
+type HostAdapter = {
+	match: (host: string) => boolean;
+	rewrite: (url: URL) => URL;
+};
+
+function rewriteAtlassianMcpUrl(parsed: URL): URL {
+	const next = new URL(parsed.toString());
+	const path = next.pathname.replace(/\/$/, '');
+	if (path === '' || path === '/v1/mcp' || path === '/v1/sse' || path === '/sse') {
+		next.pathname = '/v1/mcp/authv2';
+	}
+	return next;
+}
+
+const hostAdapters: HostAdapter[] = [
+	{
+		match: (host) => host === 'mcp.atlassian.com' || host.endsWith('.mcp.atlassian.com'),
+		rewrite: rewriteAtlassianMcpUrl
+	}
+];
+
+/**
+ * Host-specific URL rewrites for known remote MCP servers. Unknown hosts are
+ * returned unchanged. Keep this table small; the Go sidecar applies the same
+ * rules at connect time.
+ */
+export function rewriteKnownHostUrl(raw: string): string {
+	const trimmed = (raw ?? '').trim();
+	if (!trimmed) return trimmed;
+	let parsed: URL;
+	try {
+		parsed = new URL(trimmed);
+	} catch {
+		return trimmed;
+	}
+	const host = parsed.hostname.toLowerCase();
+	for (const adapter of hostAdapters) {
+		if (adapter.match(host)) return adapter.rewrite(parsed).toString();
+	}
+	return trimmed;
+}
+
 export function normalizeHttpConnection(
 	url: string,
 	headers: Record<string, string> | undefined
 ): NormalizedConnection {
-	const trimmedUrl = (url ?? '').trim();
+	const trimmedUrl = rewriteKnownHostUrl(url ?? '');
 	const entries = Object.entries(headers ?? {});
 	if (!trimmedUrl || entries.length === 0) {
 		return { url: trimmedUrl, headers: { ...(headers ?? {}) }, movedToQuery: [] };

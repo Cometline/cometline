@@ -3,17 +3,26 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, waitFor } from '@testing-library/svelte';
 import { flushSync } from 'svelte';
 import Harness from './SettingsMCPPanel.harness.svelte';
-import { listMcpServers, startMcpOAuth } from '$lib/client/cometmind';
+import { listMcpServers, startMcpOAuth, testMcpServer } from '$lib/client/cometmind';
 import type { CometMindMCPSettings } from '$lib/cometmind-settings';
 import { defaultSettings } from '$lib/settings/schema';
 import { settingsStore } from '$lib/stores/settings.svelte';
 import type { ProviderSettings } from '$lib/types';
 
 vi.mock('$lib/client/cometmind', () => ({
+	apiErrorMessage: (error: unknown, fallback: string) => {
+		if (error instanceof Error) return error.message;
+		if (error && typeof error === 'object' && 'error_hint' in error) {
+			const hint = error.error_hint;
+			if (typeof hint === 'string') return hint;
+		}
+		return fallback;
+	},
 	listMcpServers: vi.fn(() => Promise.resolve([])),
 	listMcpTools: () => Promise.resolve([]),
 	reconnectMcpServer: vi.fn(),
-	startMcpOAuth: vi.fn()
+	startMcpOAuth: vi.fn(),
+	testMcpServer: vi.fn()
 }));
 
 afterEach(() => {
@@ -163,6 +172,7 @@ describe('SettingsMCPPanel add server', () => {
 		});
 		vi.mocked(startMcpOAuth).mockImplementation(async () => {
 			calls.push('oauth');
+			return { ok: true, connected: true };
 		});
 		const { container } = render(Harness, {
 			props: { onPersistBeforeRuntimeAction: persist }
@@ -178,6 +188,56 @@ describe('SettingsMCPPanel add server', () => {
 		expect(persist.mock.calls[0]?.[0]?.mcp.enabled).toBe(true);
 		expect(persist.mock.calls[0]?.[0]?.mcp.servers[0]?.url).toBe('https://mcp.example.com/mcp');
 		expect(calls).toEqual(['save', 'oauth']);
+	});
+
+	it('shows a Test button that does not disable Refresh status', async () => {
+		const { container } = render(Harness);
+		await configureHttpServer(container);
+		const testButton = [...container.querySelectorAll('button')].find(
+			(button) => button.textContent?.trim() === 'Test'
+		);
+		expect(testButton).toBeTruthy();
+		expect(testButton!.disabled).toBe(false);
+		const refresh = await waitForRefreshButton(container);
+		expect(refresh.disabled).toBe(false);
+	});
+
+	it('shows tools discovered by a successful connection test', async () => {
+		vi.mocked(testMcpServer).mockResolvedValue({
+			ok: true,
+			tool_count: 2,
+			tools: ['search', 'create']
+		});
+		const { container } = render(Harness);
+		await configureHttpServer(container);
+		const testButton = [...container.querySelectorAll('button')].find(
+			(button) => button.textContent?.trim() === 'Test'
+		);
+		expect(testButton).toBeTruthy();
+		await fireEvent.click(testButton!);
+
+		await waitFor(() => {
+			expect(container.textContent).toContain('Test ok · 2 tools');
+			expect(container.textContent).toContain('search');
+			expect(container.textContent).toContain('create');
+		});
+	});
+
+	it('shows an actionable hint from a non-Error test rejection', async () => {
+		vi.mocked(testMcpServer).mockRejectedValue({
+			error: 'connect: context deadline exceeded',
+			error_hint: 'The handshake timed out. Click Reconnect.'
+		});
+		const { container } = render(Harness);
+		await configureHttpServer(container);
+		const testButton = [...container.querySelectorAll('button')].find(
+			(button) => button.textContent?.trim() === 'Test'
+		);
+		await fireEvent.click(testButton!);
+
+		await waitFor(() => {
+			expect(container.textContent).toContain('The handshake timed out. Click Reconnect.');
+		});
 	});
 
 	it('does not start OAuth when pre-save fails', async () => {
@@ -341,6 +401,57 @@ describe('SettingsMCPPanel refresh status resync (fix for stuck toggle)', () => 
 			expect(container.querySelector('.status-badge.connected')).toBeTruthy();
 			expect(container.textContent).toContain('connected');
 		}, { timeout: 3_000 });
+		expect(listMcpServers).toHaveBeenCalledTimes(2);
+	});
+
+	it('auto-refreshes while connecting until the server reaches a terminal state', async () => {
+		seedPersistedMcp({
+			enabled: true,
+			servers: [
+				{
+					id: 'server-1',
+					name: 'MCP Server 1',
+					enabled: true,
+					transport: 'http',
+					command: '',
+					args: [],
+					env: {},
+					url: 'https://mcp.example.com/mcp',
+					headers: {}
+				}
+			]
+		});
+		vi.mocked(listMcpServers)
+			.mockResolvedValueOnce([
+				{
+					id: 'server-1',
+					name: 'MCP Server 1',
+					enabled: true,
+					transport: 'http',
+					status: 'connecting',
+					tool_count: 0
+				}
+			])
+			.mockResolvedValue([
+				{
+					id: 'server-1',
+					name: 'MCP Server 1',
+					enabled: true,
+					transport: 'http',
+					status: 'connected',
+					tool_count: 1
+				}
+			]);
+
+		const { container } = render(Harness);
+		await waitFor(() => expect(container.textContent).toContain('Connecting'));
+		await waitFor(
+			() => {
+				expect(container.querySelector('.status-badge.connected')).toBeTruthy();
+				expect(container.textContent).toContain('connected');
+			},
+			{ timeout: 3_000 }
+		);
 		expect(listMcpServers).toHaveBeenCalledTimes(2);
 	});
 });
