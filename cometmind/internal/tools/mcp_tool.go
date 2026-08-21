@@ -22,7 +22,7 @@ type mcpTool struct {
 	toolName    string
 	description string
 	parameters  json.RawMessage
-	session     *mcp.ClientSession
+	mgr         *mcppkg.Manager
 }
 
 func mcpToolsFromManager(mgr *mcppkg.Manager) []Tool {
@@ -37,7 +37,7 @@ func mcpToolsFromManager(mgr *mcppkg.Manager) []Tool {
 			toolName:    binding.Tool.Name,
 			description: binding.Tool.Description,
 			parameters:  binding.Tool.Parameters,
-			session:     binding.Session,
+			mgr:         mgr,
 		})
 	}
 	return out
@@ -60,7 +60,7 @@ func (t mcpTool) Spec() ToolSpec {
 }
 
 func (t mcpTool) Execute(ctx context.Context, input json.RawMessage) (Result, error) {
-	if t.session == nil {
+	if t.mgr == nil {
 		return Result{OK: false, Output: "MCP session not connected"}, nil
 	}
 	var args map[string]any
@@ -71,10 +71,7 @@ func (t mcpTool) Execute(ctx context.Context, input json.RawMessage) (Result, er
 	}
 	callCtx, cancel := context.WithTimeout(ctx, mcpCallToolTimeout)
 	defer cancel()
-	res, err := t.session.CallTool(callCtx, &mcp.CallToolParams{
-		Name:      t.toolName,
-		Arguments: args,
-	})
+	res, err := t.mgr.CallTool(callCtx, t.serverID, t.toolName, args)
 	if err != nil {
 		return Result{OK: false, Output: err.Error()}, nil
 	}

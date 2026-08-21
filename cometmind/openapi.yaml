@@ -1548,7 +1548,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/McpReconnectResponse'
         '502':
-          $ref: '#/components/responses/InternalError'
+          description: Reconnect failed with a classified lifecycle error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/McpReconnectResponse'
         '503':
           $ref: '#/components/responses/InternalError'
         '500':
@@ -3533,13 +3537,20 @@ components:
           type: string
         status:
           type: string
-          enum: [disabled, connected, error, disconnected, reloading]
+          enum: [disabled, connecting, connected, error, disconnected, reloading]
         tool_count:
           type: integer
         last_error:
           type: string
+        error_code:
+          type: string
+          description: Classified connect failure (needs_auth, handshake_timeout, command_not_found, …).
+        error_hint:
+          type: string
+          description: Short next-step message for Settings UI and agents.
         oauth_connected:
           type: boolean
+          description: True when a token file exists for this server, independent of handshake status.
 
     ListMcpServersResponse:
       type: object
@@ -3592,6 +3603,13 @@ components:
             type: string
         error:
           type: string
+          description: Raw connection error for diagnostics.
+        error_code:
+          type: string
+          description: Classified failure such as needs_auth, handshake_timeout, command_not_found, or bad_url.
+        error_hint:
+          type: string
+          description: Short next-step message for Settings UI.
 
     McpReconnectResponse:
       type: object
@@ -3600,6 +3618,17 @@ components:
       properties:
         ok:
           type: boolean
+        connected:
+          type: boolean
+          description: True when the MCP handshake succeeded after OAuth. False means the token was saved but the session is not up yet.
+        error:
+          type: string
+        error_code:
+          type: string
+          description: Classified handshake failure after a successful OAuth grant (handshake_timeout, unauthorized, …).
+        error_hint:
+          type: string
+          description: Short next-step message for Settings UI.
 
     CreateWorkspaceRequest:
       type: object

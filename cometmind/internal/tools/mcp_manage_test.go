@@ -65,10 +65,13 @@ func TestListMCPServersToolFormatsStatusAndError(t *testing.T) {
 	if !res.OK {
 		t.Fatalf("Execute() OK = false, want true")
 	}
-	for _, want := range []string{"Broken", "broken", "stdio transport", "status=error", "tools=0", "last_error="} {
+	for _, want := range []string{"Broken", "broken", "stdio transport", "status=error", "tools=0"} {
 		if !strings.Contains(res.Output, want) {
 			t.Errorf("Execute() output = %q, missing %q", res.Output, want)
 		}
+	}
+	if !strings.Contains(res.Output, "hint=") && !strings.Contains(res.Output, "last_error=") {
+		t.Errorf("Execute() output = %q, missing hint= or last_error=", res.Output)
 	}
 }
 

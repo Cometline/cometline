@@ -25,6 +25,7 @@ func TestOAuthClientInfoRoundTrip(t *testing.T) {
 		ClientSecret:          "secret-456",
 		Scopes:                []string{"read", "write"},
 		Resource:              "https://mcp.example.com/v1/mcp",
+		ServerURL:             "https://mcp.example.com/v1/mcp",
 		AuthStyle:             oauth2.AuthStyleInParams,
 	}
 	if err := saveOAuthClientInfo(serverID, info); err != nil {
@@ -45,6 +46,9 @@ func TestOAuthClientInfoRoundTrip(t *testing.T) {
 	}
 	if got.Resource != info.Resource {
 		t.Errorf("Resource = %q, want %q", got.Resource, info.Resource)
+	}
+	if got.ServerURL != info.ServerURL {
+		t.Errorf("ServerURL = %q, want %q", got.ServerURL, info.ServerURL)
 	}
 	if len(got.Scopes) != 2 || got.Scopes[0] != "read" || got.Scopes[1] != "write" {
 		t.Errorf("Scopes = %v, want [read write]", got.Scopes)
@@ -693,14 +697,108 @@ func TestOAuthHandlerForWiresWithoutConfigBlock(t *testing.T) {
 
 	const serverID = "server-3"
 	// No token yet: handler must be nil.
-	if h := oauthHandlerFor(serverID, nil); h != nil {
+	cfg := ServerConfig{ID: serverID, URL: "https://mcp.example.com/mcp"}
+	if h := oauthHandlerFor(cfg); h != nil {
 		t.Fatalf("expected nil handler before token saved, got %#v", h)
 	}
 	// Save a token (no oauth config block at all).
 	if err := SaveOAuthToken(serverID, &oauth2.Token{AccessToken: "tok", TokenType: "Bearer"}); err != nil {
 		t.Fatalf("SaveOAuthToken: %v", err)
 	}
-	if h := oauthHandlerFor(serverID, nil); h == nil {
-		t.Fatal("expected non-nil handler once token exists, even without oauth config block")
+	if h := oauthHandlerFor(cfg); h != nil {
+		t.Fatal("expected nil handler when the token has no verifiable resource binding")
+	}
+}
+
+func TestOAuthTokenStaleForURL(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	const serverID = "jira"
+	if oauthTokenStaleForURL(serverID, "https://mcp.example.com/mcp") {
+		t.Fatal("missing client info must not be stale")
+	}
+	if err := SaveOAuthToken(serverID, &oauth2.Token{AccessToken: "tok"}); err != nil {
+		t.Fatalf("SaveOAuthToken: %v", err)
+	}
+	if !oauthTokenStaleForURL(serverID, "https://mcp.example.com/mcp") {
+		t.Fatal("saved token without resource metadata must be stale")
+	}
+	if err := saveOAuthClientInfo(serverID, &oauthClientInfo{
+		TokenEndpoint: "https://auth.example.com/token",
+		ClientID:      "client",
+		ServerURL:     "https://mcp.atlassian.com/v1/mcp/authv2",
+	}); err != nil {
+		t.Fatalf("saveOAuthClientInfo: %v", err)
+	}
+	if oauthTokenStaleForURL(serverID, "https://mcp.atlassian.com/v1/mcp") {
+		t.Fatal("Atlassian host-adapter rewrite of the same resource must not be stale")
+	}
+	if !oauthTokenStaleForURL(serverID, "https://mcp.github.com/mcp") {
+		t.Fatal("different host must be stale")
+	}
+}
+
+func TestSSEHeaderTransportRefreshesExpiredToken(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	const serverID = "sse-refresh"
+	oauthTokenSources.Delete(serverID)
+	t.Cleanup(func() { oauthTokenSources.Delete(serverID) })
+
+	tokenEndpoint := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"access_token":"fresh","refresh_token":"r2","token_type":"Bearer","expires_in":3600}`))
+	}))
+	defer tokenEndpoint.Close()
+	resource := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("Authorization"); got != "Bearer fresh" {
+			t.Errorf("Authorization = %q, want Bearer fresh", got)
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer resource.Close()
+
+	if err := saveOAuthClientInfo(serverID, &oauthClientInfo{
+		TokenEndpoint: tokenEndpoint.URL,
+		ClientID:      "client",
+		ServerURL:     resource.URL,
+		AuthStyle:     oauth2.AuthStyleInParams,
+	}); err != nil {
+		t.Fatalf("saveOAuthClientInfo: %v", err)
+	}
+	if err := SaveOAuthToken(serverID, &oauth2.Token{
+		AccessToken:  "expired",
+		RefreshToken: "r1",
+		TokenType:    "Bearer",
+		Expiry:       time.Now().Add(-time.Hour),
+	}); err != nil {
+		t.Fatalf("SaveOAuthToken: %v", err)
+	}
+
+	client := &http.Client{Transport: &headerTransport{
+		base:        http.DefaultTransport,
+		serverID:    serverID,
+		injectOAuth: true,
+	}}
+	resp, err := client.Get(resource.URL)
+	if err != nil {
+		t.Fatalf("GET resource: %v", err)
+	}
+	resp.Body.Close()
+}
+
+func TestOAuthHandlerForNilWhenResourceStale(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	const serverID = "jira"
+	if err := SaveOAuthToken(serverID, &oauth2.Token{AccessToken: "tok"}); err != nil {
+		t.Fatalf("SaveOAuthToken: %v", err)
+	}
+	if err := saveOAuthClientInfo(serverID, &oauthClientInfo{
+		TokenEndpoint: "https://auth.example.com/token",
+		ClientID:      "client",
+		ServerURL:     "https://mcp.atlassian.com/v1/mcp/authv2",
+	}); err != nil {
+		t.Fatalf("saveOAuthClientInfo: %v", err)
+	}
+	if h := oauthHandlerFor(ServerConfig{ID: serverID, URL: "https://mcp.github.com/mcp"}); h != nil {
+		t.Fatal("expected nil handler when the saved grant is for a different URL")
 	}
 }

@@ -36,7 +36,15 @@ func (t listMCPServersTool) Execute(ctx context.Context, _ json.RawMessage) (Res
 	for _, s := range servers {
 		fmt.Fprintf(&b, "- %s (%s) [%s transport] status=%s tools=%d",
 			s.Name, s.ID, s.Transport, s.Status, s.ToolCount)
-		if s.LastError != "" {
+		if s.OAuthConnected {
+			b.WriteString(" oauth=signed_in")
+		}
+		if s.ErrorCode != "" {
+			fmt.Fprintf(&b, " error_code=%s", s.ErrorCode)
+		}
+		if s.ErrorHint != "" {
+			fmt.Fprintf(&b, " hint=%q", s.ErrorHint)
+		} else if s.LastError != "" {
 			fmt.Fprintf(&b, " last_error=%q", s.LastError)
 		}
 		b.WriteString("\n")

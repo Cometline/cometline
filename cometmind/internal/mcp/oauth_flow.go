@@ -196,6 +196,7 @@ func PerformInteractiveOAuth(ctx context.Context, opts OAuthFlowOptions, fetch A
 		ClientSecret:          clientSecret,
 		Scopes:                scopes,
 		Resource:              prm.Resource,
+		ServerURL:             strings.TrimSpace(opts.ServerURL),
 		AuthStyle:             authStyle,
 	}
 	if err := saveOAuthCredentials(ctx, opts.ServerID, info, tok); err != nil {

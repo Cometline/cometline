@@ -8,52 +8,44 @@ import (
 )
 
 // TestListServersReportsReloadingOverlay verifies that while a Reload is in
-// flight (m.reloading == true), ListServers surfaces StatusReloading for
-// enabled servers instead of the per-entry status Close() left behind
-// (StatusDisconnected), so a UI polling status mid-reload does not read a
-// transient reconnect as "got disabled".
+// flight, ListServers only overlays StatusDisconnected as Reloading. connecting,
+// connected, and error stay visible so one slow handshake cannot mask neighbors.
 func TestListServersReportsReloadingOverlay(t *testing.T) {
 	mgr := NewManager(Config{
 		Enabled: true,
 		Servers: []ServerConfig{
-			{ID: "a", Name: "A", Enabled: true, Transport: TransportStdio, Command: "false"},
-			{ID: "b", Name: "B", Enabled: false, Transport: TransportStdio, Command: "false"},
+			{ID: "disc", Name: "Disc", Enabled: true, Transport: TransportStdio, Command: "false"},
+			{ID: "err", Name: "Err", Enabled: true, Transport: TransportStdio, Command: "false"},
+			{ID: "wait", Name: "Wait", Enabled: true, Transport: TransportStdio, Command: "false"},
+			{ID: "ok", Name: "OK", Enabled: true, Transport: TransportStdio, Command: "false"},
+			{ID: "off", Name: "Off", Enabled: false, Transport: TransportStdio, Command: "false"},
 		},
 	})
 	mgr.Start(context.Background())
 
-	// Sanity: without an in-flight reload, the enabled-but-unreachable server
-	// reports its real status, and the disabled one reports disabled.
-	before := statusByID(mgr.ListServers())
-	if before["a"] != StatusError {
-		t.Fatalf("before reload: status[a] = %q, want %q", before["a"], StatusError)
-	}
-	if before["b"] != StatusDisabled {
-		t.Fatalf("before reload: status[b] = %q, want %q", before["b"], StatusDisabled)
-	}
-
 	mgr.mu.Lock()
 	mgr.reloading = true
+	mgr.servers["disc"].status = StatusDisconnected
+	mgr.servers["err"].status = StatusError
+	mgr.servers["wait"].status = StatusConnecting
+	mgr.servers["ok"].status = StatusConnected
 	mgr.mu.Unlock()
 
 	during := statusByID(mgr.ListServers())
-	if during["a"] != StatusReloading {
-		t.Fatalf("during reload: status[a] = %q, want %q", during["a"], StatusReloading)
+	if during["disc"] != StatusReloading {
+		t.Fatalf("disconnected during reload = %q, want %q", during["disc"], StatusReloading)
 	}
-	// A globally-disabled-or-server-disabled entry always reports Disabled,
-	// reload overlay or not — "reloading" only makes sense for servers that
-	// are actually trying to reconnect.
-	if during["b"] != StatusDisabled {
-		t.Fatalf("during reload: status[b] = %q, want %q", during["b"], StatusDisabled)
+	if during["err"] != StatusError {
+		t.Fatalf("error during reload = %q, want %q", during["err"], StatusError)
 	}
-
-	mgr.mu.Lock()
-	mgr.reloading = false
-	mgr.mu.Unlock()
-
-	after := statusByID(mgr.ListServers())
-	if after["a"] != StatusError {
-		t.Fatalf("after reload: status[a] = %q, want %q", after["a"], StatusError)
+	if during["wait"] != StatusConnecting {
+		t.Fatalf("connecting during reload = %q, want %q", during["wait"], StatusConnecting)
+	}
+	if during["ok"] != StatusConnected {
+		t.Fatalf("connected during reload = %q, want %q", during["ok"], StatusConnected)
+	}
+	if during["off"] != StatusDisabled {
+		t.Fatalf("disabled during reload = %q, want %q", during["off"], StatusDisabled)
 	}
 }
 

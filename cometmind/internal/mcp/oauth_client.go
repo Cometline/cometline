@@ -33,6 +33,9 @@ type oauthClientInfo struct {
 	Scopes []string `json:"scopes,omitempty"`
 	// Resource is the RFC 8707 resource indicator (the canonical MCP server URI).
 	Resource string `json:"resource,omitempty"`
+	// ServerURL is the MCP endpoint the token was issued for (settings URL after
+	// host-adapter rewrite). A later URL change treats the token as stale.
+	ServerURL string `json:"serverUrl,omitempty"`
 	// AuthStyle records how client credentials are sent to the token endpoint.
 	// 0 = auto-detect, 1 = in-params (client_secret_post), 2 = in-header (client_secret_basic).
 	AuthStyle oauth2.AuthStyle `json:"authStyle,omitempty"`
@@ -84,4 +87,22 @@ func saveOAuthClientInfo(serverID string, info *oauthClientInfo) error {
 		return err
 	}
 	return writePrivateFileAtomic(path, data)
+}
+
+// oauthTokenStaleForURL reports whether a saved OAuth grant cannot be verified
+// as belonging to serverURL. Missing legacy metadata fails closed so a token is
+// never forwarded to a newly configured endpoint without a resource binding.
+func oauthTokenStaleForURL(serverID, serverURL string) bool {
+	if !OAuthConnected(serverID) {
+		return false
+	}
+	info, err := loadOAuthClientInfo(serverID)
+	if err != nil || info == nil {
+		return true
+	}
+	bound := strings.TrimSpace(info.ServerURL)
+	if bound == "" {
+		return true
+	}
+	return NormalizeServerURL(bound) != NormalizeServerURL(serverURL)
 }

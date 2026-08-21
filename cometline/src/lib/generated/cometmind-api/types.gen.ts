@@ -598,9 +598,20 @@ export type McpServerStatus = {
     name: string;
     enabled: boolean;
     transport: string;
-    status: 'disabled' | 'connected' | 'error' | 'disconnected' | 'reloading';
+    status: 'disabled' | 'connecting' | 'connected' | 'error' | 'disconnected' | 'reloading';
     tool_count: number;
     last_error?: string;
+    /**
+     * Classified connect failure (needs_auth, handshake_timeout, command_not_found, …).
+     */
+    error_code?: string;
+    /**
+     * Short next-step message for Settings UI and agents.
+     */
+    error_hint?: string;
+    /**
+     * True when a token file exists for this server, independent of handshake status.
+     */
     oauth_connected?: boolean;
 };
 
@@ -624,11 +635,35 @@ export type McpTestResult = {
     ok: boolean;
     tool_count: number;
     tools?: Array<string>;
+    /**
+     * Raw connection error for diagnostics.
+     */
     error?: string;
+    /**
+     * Classified failure such as needs_auth, handshake_timeout, command_not_found, or bad_url.
+     */
+    error_code?: string;
+    /**
+     * Short next-step message for Settings UI.
+     */
+    error_hint?: string;
 };
 
 export type McpReconnectResponse = {
     ok: boolean;
+    /**
+     * True when the MCP handshake succeeded after OAuth. False means the token was saved but the session is not up yet.
+     */
+    connected?: boolean;
+    error?: string;
+    /**
+     * Classified handshake failure after a successful OAuth grant (handshake_timeout, unauthorized, …).
+     */
+    error_code?: string;
+    /**
+     * Short next-step message for Settings UI.
+     */
+    error_hint?: string;
 };
 
 export type CreateWorkspaceRequest = {
@@ -3016,9 +3051,9 @@ export type ReconnectMcpServerErrors = {
      */
     500: ErrorResponse;
     /**
-     * Unexpected server error
+     * Reconnect failed with a classified lifecycle error
      */
-    502: ErrorResponse;
+    502: McpReconnectResponse;
     /**
      * Unexpected server error
      */
