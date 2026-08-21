@@ -273,6 +273,8 @@ Localhost-only HTTP + SSE, versioned under `/api/v1` (default `http://127.0.0.1:
 | Method & Path | Purpose |
 |---|---|
 | `GET /api/v1/skills` | List discovered skills |
+| `GET /api/v1/skills/{name}` | Read one discovered skill and its SKILL.md |
+| `PUT /api/v1/skills/{name}` | Update one discovered skill SKILL.md in place |
 | `POST /api/v1/skills/sync-runs` | Symlink discovered skills into `~/.cometmind/skills` |
 | `DELETE /api/v1/skills/{name}` | Delete a managed skill |
 | `GET /api/v1/skills/{name}/archive` | Download skill as zip |

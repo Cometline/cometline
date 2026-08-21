@@ -11,11 +11,15 @@ import (
 	"strings"
 )
 
+// ErrSkillNotEditable is returned when SKILL.md cannot be updated in place.
+var ErrSkillNotEditable = errors.New("skill cannot be edited")
+
 // Capabilities describes what UI/API operations are allowed for one skill.
 type Capabilities struct {
 	IsSymlink bool
 	CanDelete bool
 	CanExport bool
+	CanEdit   bool
 }
 
 // MirrorRoot returns ~/.cometmind/skills.
@@ -23,9 +27,13 @@ func MirrorRoot() (string, error) {
 	return expandPath("~/.cometmind/skills")
 }
 
-// SkillCapabilities reports export/delete rules for a discovered skill.
+// SkillCapabilities reports export/delete/edit rules for a discovered skill.
 func SkillCapabilities(skill Skill) (Capabilities, error) {
-	caps := Capabilities{CanExport: true}
+	caps := Capabilities{
+		CanExport: true,
+		CanEdit:   skillCanEdit(skill),
+		CanDelete: skillCanDelete(skill),
+	}
 	mirror, err := MirrorRoot()
 	if err != nil {
 		return caps, err
@@ -37,18 +45,12 @@ func SkillCapabilities(skill Skill) (Capabilities, error) {
 			if pathInfo, statErr := os.Lstat(skill.Path); statErr == nil && pathInfo.Mode()&os.ModeSymlink != 0 {
 				caps.IsSymlink = true
 			}
-			caps.CanDelete = false
 			return caps, nil
 		}
 		return caps, err
 	}
 	if info.Mode()&os.ModeSymlink != 0 {
 		caps.IsSymlink = true
-		caps.CanDelete = false
-		return caps, nil
-	}
-	if info.IsDir() {
-		caps.CanDelete = true
 	}
 	return caps, nil
 }
@@ -103,21 +105,32 @@ func ExportSkill(skill Skill) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// DeleteManagedSkill removes a non-symlink skill directory under ~/.cometmind/skills.
+// DeleteManagedSkill removes a deletable skill directory and any mirror symlink.
 func DeleteManagedSkill(skill Skill) error {
 	caps, err := SkillCapabilities(skill)
 	if err != nil {
 		return err
 	}
 	if !caps.CanDelete {
-		return fmt.Errorf("skill %q cannot be deleted (external or symlink)", skill.Name)
+		return fmt.Errorf("skill %q cannot be deleted", skill.Name)
+	}
+	if strings.TrimSpace(skill.Path) == "" {
+		return fmt.Errorf("skill %q has no path", skill.Name)
 	}
 	mirror, err := MirrorRoot()
 	if err != nil {
 		return err
 	}
-	target := filepath.Join(mirror, skill.Name)
-	if err := os.RemoveAll(target); err != nil {
+	mirrorEntry := filepath.Join(mirror, skill.Name)
+	info, lstatErr := os.Lstat(mirrorEntry)
+	removeMirrorLink := lstatErr == nil && info.Mode()&os.ModeSymlink != 0
+	if err := os.RemoveAll(skill.Path); err != nil {
+		return err
+	}
+	if !removeMirrorLink {
+		return nil
+	}
+	if err := os.Remove(mirrorEntry); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
 	return nil
@@ -176,4 +189,92 @@ func WriteSkill(name, content string, overwrite bool) error {
 		return err
 	}
 	return os.WriteFile(skillPath, []byte(content), 0o644)
+}
+
+func skillCanEdit(skill Skill) bool {
+	if skill.Internal {
+		return false
+	}
+	root, err := BuiltinRoot()
+	if err != nil || root == "" {
+		return true
+	}
+	return !pathUnderRoot(skill.Path, root)
+}
+
+func skillCanDelete(skill Skill) bool {
+	if skill.Internal || strings.TrimSpace(skill.Path) == "" {
+		return false
+	}
+	if root, err := BuiltinRoot(); err == nil && root != "" && pathUnderRoot(skill.Path, root) {
+		return false
+	}
+	for _, root := range deletableSkillRoots() {
+		if pathUnderRoot(skill.Path, root) {
+			return true
+		}
+	}
+	return false
+}
+
+func deletableSkillRoots() []string {
+	candidates := []string{
+		"~/.cometmind/skills",
+		"~/.agents/skills",
+		"~/.config/opencode/skills",
+		"~/.claude/skills",
+	}
+	roots := make([]string, 0, len(candidates))
+	for _, candidate := range candidates {
+		expanded, err := expandPath(candidate)
+		if err != nil || expanded == "" {
+			continue
+		}
+		roots = append(roots, expanded)
+	}
+	return roots
+}
+
+func pathUnderRoot(path, root string) bool {
+	cleanPath := filepath.Clean(path)
+	cleanRoot := filepath.Clean(root)
+	if resolved, err := filepath.EvalSymlinks(cleanPath); err == nil {
+		cleanPath = resolved
+	}
+	if resolved, err := filepath.EvalSymlinks(cleanRoot); err == nil {
+		cleanRoot = resolved
+	}
+	if cleanPath == cleanRoot {
+		return true
+	}
+	return strings.HasPrefix(cleanPath, cleanRoot+string(os.PathSeparator))
+}
+
+// UpdateDiscoveredSkill writes SKILL.md at the skill's resolved path.
+func UpdateDiscoveredSkill(skill Skill, content string) error {
+	caps, err := SkillCapabilities(skill)
+	if err != nil {
+		return err
+	}
+	if !caps.CanEdit {
+		return fmt.Errorf("%w: %s", ErrSkillNotEditable, skill.Name)
+	}
+	content = strings.TrimSpace(content)
+	if content == "" {
+		return fmt.Errorf("skill content is required")
+	}
+	fm, _, err := parseFrontmatter(content)
+	if err != nil {
+		return fmt.Errorf("invalid SKILL.md: %w", err)
+	}
+	if strings.TrimSpace(fm.Name) == "" || strings.TrimSpace(fm.Description) == "" {
+		return fmt.Errorf("SKILL.md frontmatter must include name and description")
+	}
+	if strings.TrimSpace(fm.Name) != skill.Name {
+		return fmt.Errorf("frontmatter name %q must match skill name %q", fm.Name, skill.Name)
+	}
+	if strings.TrimSpace(skill.Path) == "" {
+		return fmt.Errorf("skill %q has no path", skill.Name)
+	}
+	return os.WriteFile(filepath.Join(skill.Path, "SKILL.md"), []byte(content), 0o644)
 }

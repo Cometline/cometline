@@ -14,7 +14,7 @@ export const BUILTIN_SLASH_COMMANDS: BuiltinSlashCommand[] = [
 	},
 	{
 		name: 'create-skill',
-		description: 'Draft a new Agent Skill for review in Skill Drafts'
+		description: 'Draft a new Agent Skill for review on the Skills page'
 	},
 	{
 		name: 'model',
@@ -37,7 +37,7 @@ export function expandCreateSkillCommand(userText: string): string {
 		'3. Follow Agent Skills conventions: clear trigger scenarios, step-by-step workflow, examples, and constraints.\n' +
 		'4. Skill names use lowercase letters, numbers, and hyphens only.\n' +
 		'5. If there is not enough reusable signal yet, explain that instead of forcing a draft.\n' +
-		'6. After writing, summarize the draft name, what it does, and that it can be edited or promoted from Skill Drafts.';
+		'6. After writing, summarize the draft name, what it does, and that it can be edited or promoted from the Skills page Drafts tab.';
 	if (rest) {
 		prompt += '\n\nUser request:\n' + rest;
 	}

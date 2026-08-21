@@ -559,6 +559,16 @@ export type Skill = {
     is_symlink: boolean;
     can_delete: boolean;
     can_export: boolean;
+    can_edit: boolean;
+};
+
+export type SkillDetailResponse = {
+    skill: Skill;
+    content: string;
+};
+
+export type UpdateSkillRequest = {
+    content: string;
 };
 
 export type ListSkillsResponse = {
@@ -2756,6 +2766,80 @@ export type DeleteSkillResponses = {
 };
 
 export type DeleteSkillResponse = DeleteSkillResponses[keyof DeleteSkillResponses];
+
+export type GetSkillData = {
+    body?: never;
+    path: {
+        name: string;
+    };
+    query?: {
+        workspace_path?: string;
+    };
+    url: '/api/v1/skills/{name}';
+};
+
+export type GetSkillErrors = {
+    /**
+     * Resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type GetSkillError = GetSkillErrors[keyof GetSkillErrors];
+
+export type GetSkillResponses = {
+    /**
+     * Skill detail
+     */
+    200: SkillDetailResponse;
+};
+
+export type GetSkillResponse = GetSkillResponses[keyof GetSkillResponses];
+
+export type UpdateSkillData = {
+    body: UpdateSkillRequest;
+    path: {
+        name: string;
+    };
+    query?: {
+        workspace_path?: string;
+    };
+    url: '/api/v1/skills/{name}';
+};
+
+export type UpdateSkillErrors = {
+    /**
+     * Operation is not allowed for this resource
+     */
+    403: ErrorResponse;
+    /**
+     * Resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * Skill cannot be updated
+     */
+    409: ErrorResponse;
+    /**
+     * Unexpected server error
+     */
+    500: ErrorResponse;
+};
+
+export type UpdateSkillError = UpdateSkillErrors[keyof UpdateSkillErrors];
+
+export type UpdateSkillResponses = {
+    /**
+     * Updated skill detail
+     */
+    200: SkillDetailResponse;
+};
+
+export type UpdateSkillResponse = UpdateSkillResponses[keyof UpdateSkillResponses];
 
 export type ExportSkillData = {
     body?: never;

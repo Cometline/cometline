@@ -1806,6 +1806,69 @@ func TestSkillsDeleteAndExport(t *testing.T) {
 	}
 }
 
+func TestSkillsGetAndUpdate(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	content := "---\nname: api-skill\ndescription: api test skill\n---\n\n# API\n"
+	if err := skills.WriteSkill("api-skill", content, false); err != nil {
+		t.Fatalf("WriteSkill() error = %v", err)
+	}
+
+	engine, _, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
+		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
+			ch <- event.Done()
+			return nil
+		}), nil
+	})
+	defer cleanup()
+
+	missingRec := httptest.NewRecorder()
+	engine.ServeHTTP(missingRec, httptest.NewRequest(http.MethodGet, "/api/v1/skills/missing-skill", nil))
+	if missingRec.Code != http.StatusNotFound {
+		t.Fatalf("missing status = %d, want %d body=%s", missingRec.Code, http.StatusNotFound, missingRec.Body.String())
+	}
+
+	getRec := httptest.NewRecorder()
+	engine.ServeHTTP(getRec, httptest.NewRequest(http.MethodGet, "/api/v1/skills/api-skill", nil))
+	if getRec.Code != http.StatusOK {
+		t.Fatalf("get status = %d, want %d body=%s", getRec.Code, http.StatusOK, getRec.Body.String())
+	}
+	var detail skillDetailResponse
+	decodeJSON(t, getRec.Body.Bytes(), &detail)
+	if detail.Skill.Name != "api-skill" || !detail.Skill.CanEdit || !strings.Contains(detail.Content, "api test skill") {
+		t.Fatalf("get detail = %+v", detail)
+	}
+
+	updateRec := httptest.NewRecorder()
+	updateReq := httptest.NewRequest(http.MethodPut, "/api/v1/skills/api-skill", bytes.NewBufferString(`{"content":"---\nname: api-skill\ndescription: edited api skill\n---\n\n# API\n\nUpdated body\n"}`))
+	updateReq.Header.Set("Content-Type", "application/json")
+	engine.ServeHTTP(updateRec, updateReq)
+	if updateRec.Code != http.StatusOK {
+		t.Fatalf("update status = %d, want %d body=%s", updateRec.Code, http.StatusOK, updateRec.Body.String())
+	}
+	decodeJSON(t, updateRec.Body.Bytes(), &detail)
+	if detail.Skill.Description != "edited api skill" || !strings.Contains(detail.Content, "Updated body") {
+		t.Fatalf("updated skill = %+v", detail)
+	}
+
+	mismatchRec := httptest.NewRecorder()
+	mismatchReq := httptest.NewRequest(http.MethodPut, "/api/v1/skills/api-skill", bytes.NewBufferString(`{"content":"---\nname: other\ndescription: wrong\n---\n\n# No\n"}`))
+	mismatchReq.Header.Set("Content-Type", "application/json")
+	engine.ServeHTTP(mismatchRec, mismatchReq)
+	if mismatchRec.Code != http.StatusConflict {
+		t.Fatalf("mismatch status = %d, want %d body=%s", mismatchRec.Code, http.StatusConflict, mismatchRec.Body.String())
+	}
+
+	builtinRec := httptest.NewRecorder()
+	builtinReq := httptest.NewRequest(http.MethodPut, "/api/v1/skills/llm-wiki", bytes.NewBufferString(`{"content":"---\nname: llm-wiki\ndescription: edited builtin\n---\n\n# No\n"}`))
+	builtinReq.Header.Set("Content-Type", "application/json")
+	engine.ServeHTTP(builtinRec, builtinReq)
+	if builtinRec.Code != http.StatusForbidden {
+		t.Fatalf("builtin status = %d, want %d body=%s", builtinRec.Code, http.StatusForbidden, builtinRec.Body.String())
+	}
+}
+
 func TestSkillDraftHandlersPromoteAndReject(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
@@ -2389,7 +2452,6 @@ func TestRemovedUnusedEndpointsReturnNotFound(t *testing.T) {
 	}{
 		{method: http.MethodGet, path: "/api/v1/models"},
 		{method: http.MethodPatch, path: "/api/v1/sessions/session-id/workspace"},
-		{method: http.MethodGet, path: "/api/v1/skills/skill-name"},
 		{method: http.MethodPatch, path: "/api/v1/memories/memory-id"},
 		{method: http.MethodGet, path: "/api/v1/inbox/messages/message-id"},
 	} {

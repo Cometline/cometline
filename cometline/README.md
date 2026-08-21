@@ -31,7 +31,7 @@ The rule: **Cometline is not the brain.** CometMind is the brain. Comet SDK is o
 - Multimodal input: paste/drop up to 6 images (PNG/JPEG/GIF/WebP)
 - Drop text files as fenced code blocks in the composer
 - Slash commands: `/change`, `/create-skill`, `/model`, plus dynamic `/skill-name` menu from CometMind skills
-- Skill drafts page for reviewing, editing, promoting, or rejecting generated skills
+- Skills page for browsing and editing discovered skills, plus reviewing, promoting, or rejecting generated drafts
 - Gallery page (`/gallery`) for generated and presented media; copy, download, delete; warning if the original session is gone
 
 ### Markdown & links

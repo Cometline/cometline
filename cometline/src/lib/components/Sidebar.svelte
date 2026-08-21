@@ -315,13 +315,13 @@
 					<Briefcase size={16} stroke-width={1.8} />
 				</button>
 			</Tooltip>
-			<Tooltip label="Skill Drafts" action="openSkillDrafts">
+			<Tooltip label="Skills" action="openSkillDrafts">
 				<button
-					aria-label="Skill Drafts"
+					aria-label="Skills"
 					class="nav-badge"
 					class:has-badge={skillDraftsStore.hasDrafts}
-					class:active={page.url.pathname === '/skill-drafts'}
-					onclick={() => goto('/skill-drafts')}
+					class:active={page.url.pathname === '/skills' || page.url.pathname === '/skill-drafts'}
+					onclick={() => goto('/skills')}
 				>
 					<Sparkles size={16} stroke-width={1.8} />
 				</button>
