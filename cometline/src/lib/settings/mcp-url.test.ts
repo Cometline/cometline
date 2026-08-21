@@ -4,7 +4,8 @@ import {
 	appendQueryParam,
 	looksLikeApiKeyHeader,
 	normalizeHttpConnection,
-	normalizeServerConnection
+	normalizeServerConnection,
+	rewriteKnownHostUrl
 } from './mcp-url';
 
 describe('looksLikeApiKeyHeader', () => {
@@ -158,5 +159,42 @@ describe('normalizeServerConnection', () => {
 			headers: {}
 		};
 		expect(normalizeServerConnection(clean)).toBe(clean);
+	});
+
+	it('rewrites a known Atlassian MCP URL even without headers', () => {
+		const atlassian: MCPServerConfig = {
+			...base,
+			name: 'Atlassian',
+			url: 'https://mcp.atlassian.com/v1/mcp',
+			headers: {}
+		};
+		const result = normalizeServerConnection(atlassian);
+		expect(result.url).toBe('https://mcp.atlassian.com/v1/mcp/authv2');
+	});
+});
+
+describe('rewriteKnownHostUrl', () => {
+	it('maps legacy Atlassian paths onto authv2', () => {
+		expect(rewriteKnownHostUrl('https://mcp.atlassian.com/v1/mcp')).toBe(
+			'https://mcp.atlassian.com/v1/mcp/authv2'
+		);
+		expect(rewriteKnownHostUrl('https://mcp.atlassian.com/v1/sse')).toBe(
+			'https://mcp.atlassian.com/v1/mcp/authv2'
+		);
+		expect(rewriteKnownHostUrl('https://mcp.atlassian.com/v1/mcp/authv2')).toBe(
+			'https://mcp.atlassian.com/v1/mcp/authv2'
+		);
+	});
+
+	it('preserves query parameters and fragments while rewriting Atlassian paths', () => {
+		expect(
+			rewriteKnownHostUrl('https://mcp.atlassian.com/v1/mcp?tenant=acme#tools')
+		).toBe('https://mcp.atlassian.com/v1/mcp/authv2?tenant=acme#tools');
+	});
+
+	it('leaves unknown hosts alone', () => {
+		expect(rewriteKnownHostUrl('https://mcp.example.com/v1/mcp')).toBe(
+			'https://mcp.example.com/v1/mcp'
+		);
 	});
 });

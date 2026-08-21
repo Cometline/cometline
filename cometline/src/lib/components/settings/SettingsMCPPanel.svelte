@@ -10,10 +10,12 @@
 	import { mergeImportedMcpServers, parseCursorMcpJson } from '$lib/settings/cursor-mcp-import';
 	import { normalizeServerConnection } from '$lib/settings/mcp-url';
 	import {
+		apiErrorMessage,
 		listMcpServers,
 		listMcpTools,
 		reconnectMcpServer,
 		startMcpOAuth,
+		testMcpServer,
 		type McpServerStatus,
 		type McpToolInfo
 	} from '$lib/client/cometmind';
@@ -50,9 +52,9 @@
 	let serverStatuses = $state<McpServerStatus[]>([]);
 	let toolPreview = $state<McpToolInfo[]>([]);
 	let mcpBusy = $state(false);
+	let rowBusy = $state<Record<string, 'reconnect' | 'oauth' | 'test'>>({});
 	let autoRefreshInFlight = $state(false);
 	let mcpStatus = $state('');
-	let oauthStatus = $state<Record<string, boolean>>({});
 	let envTexts = $state<Record<string, string>>({});
 	let headerTexts = $state<Record<string, string>>({});
 	let argsTexts = $state<Record<string, string>>({});
@@ -101,8 +103,10 @@
 	});
 
 	$effect(() => {
-		const hasReloadingServer = serverStatuses.some((server) => server.status === 'reloading');
-		if (!hasReloadingServer || mcpBusy || autoRefreshInFlight) return;
+		const hasPendingServer = serverStatuses.some(
+			(server) => server.status === 'reloading' || server.status === 'connecting'
+		);
+		if (!hasPendingServer || mcpBusy || autoRefreshInFlight) return;
 
 		const timeoutId = setTimeout(() => {
 			void refreshMcpRuntime({ silent: true });
@@ -307,16 +311,48 @@
 		if (!mcp.enabled) return 'Off';
 		if (!server.enabled) return 'Disabled';
 		if (!status) return 'Unknown';
+		if (
+			status.status === 'error' &&
+			(status.error_code === 'needs_auth' ||
+				status.error_code === 'auth_expired' ||
+				status.error_code === 'unauthorized')
+		)
+			return 'Needs sign-in';
+		if (status.status === 'connecting') return 'Connecting';
 		return status.status;
 	}
 
 	function statusClass(status: McpServerStatus | undefined, server: MCPServerConfig): string {
 		const value = statusLabel(status, server);
 		if (value === 'connected') return 'connected';
+		if (value === 'Needs sign-in') return 'pending';
 		if (value === 'error' || value === 'disconnected') return 'error';
-		if (value === 'reloading') return 'pending';
+		if (value === 'reloading' || value === 'Connecting' || value === 'connecting') return 'pending';
 		if (value === 'Disabled' || value === 'Off') return 'idle';
 		return 'idle';
+	}
+
+	function displayError(status: McpServerStatus | undefined, expanded = false): string {
+		if (!status) return '';
+		const hint = status.error_hint ?? '';
+		const raw = status.last_error ?? '';
+		if (!expanded) return hint || raw;
+		if (hint && raw && hint !== raw) return `${hint}\n${raw}`;
+		return hint || raw;
+	}
+
+	function setRowBusy(serverId: string, op: 'reconnect' | 'oauth' | 'test' | null) {
+		if (op) {
+			rowBusy = { ...rowBusy, [serverId]: op };
+			return;
+		}
+		const next = { ...rowBusy };
+		delete next[serverId];
+		rowBusy = next;
+	}
+
+	function isRowBusy(serverId: string): boolean {
+		return Boolean(rowBusy[serverId]);
 	}
 
 	function connectionSummary(server: MCPServerConfig): string {
@@ -393,13 +429,6 @@
 			serverStatuses = servers ?? [];
 			toolPreview = tools ?? [];
 			rememberDiscoveredTools();
-			const oauthEntries = await Promise.all(
-				mcp.servers.map(async (server) => {
-					const status = await window.electronAPI?.getMcpOAuthStatus?.(server.id);
-					return [server.id, Boolean(status?.authenticated)] as const;
-				})
-			);
-			oauthStatus = Object.fromEntries(oauthEntries);
 			if (servers?.some((server) => server.status === 'reloading')) {
 				mcpStatus = MCP_RELOADING_STATUS_MESSAGE;
 			} else if (mcpStatus === MCP_RELOADING_STATUS_MESSAGE) {
@@ -417,16 +446,46 @@
 	}
 
 	async function onReconnectServer(serverId: string) {
-		mcpBusy = true;
+		setRowBusy(serverId, 'reconnect');
 		mcpStatus = '';
 		try {
 			await reconnectMcpServer(serverId);
 			mcpStatus = `Reconnected. Save settings if you changed configuration.`;
-			await refreshMcpRuntime();
+			await refreshMcpRuntime({ silent: true });
 		} catch (err) {
-			mcpStatus = err instanceof Error ? err.message : 'Reconnect failed';
+			mcpStatus = apiErrorMessage(err, 'Reconnect failed');
 		} finally {
-			mcpBusy = false;
+			setRowBusy(serverId, null);
+		}
+	}
+
+	async function onTestServer(serverId: string) {
+		setRowBusy(serverId, 'test');
+		mcpStatus = '';
+		try {
+			const result = await testMcpServer(serverId);
+			if (result.ok) {
+				const byName = new Map(
+					(knownToolsByServer[serverId] ?? []).map((tool) => [tool.name, tool.description])
+				);
+				for (const name of result.tools ?? []) {
+					const clean = name.trim();
+					if (clean && !byName.has(clean)) byName.set(clean, '');
+				}
+				knownToolsByServer = {
+					...knownToolsByServer,
+					[serverId]: [...byName.entries()]
+						.map(([name, description]) => ({ name, description }))
+						.sort((a, b) => a.name.localeCompare(b.name))
+				};
+				mcpStatus = `Test ok · ${result.tool_count} tool${result.tool_count === 1 ? '' : 's'}.`;
+			} else {
+				mcpStatus = result.error_hint || result.error || 'Test failed';
+			}
+		} catch (err) {
+			mcpStatus = apiErrorMessage(err, 'Test failed');
+		} finally {
+			setRowBusy(serverId, null);
 		}
 	}
 
@@ -435,7 +494,7 @@
 			mcpStatus = 'Set the server URL before connecting with OAuth.';
 			return;
 		}
-		mcpBusy = true;
+		setRowBusy(server.id, 'oauth');
 		mcpStatus = 'Saving settings before OAuth connect…';
 		try {
 			syncServerLists(server.id);
@@ -445,14 +504,20 @@
 			// CometMind drives the entire OAuth flow: metadata discovery, dynamic
 			// client registration, browser authorization (loopback capture), token
 			// exchange, and reconnect. No manual client ID / URLs required.
-			await startMcpOAuth(server.id);
-			mcpStatus = 'Connected with OAuth.';
-			oauthStatus = { ...oauthStatus, [server.id]: true };
-			await refreshMcpRuntime();
+			const result = await startMcpOAuth(server.id);
+			if (result?.connected === false) {
+				mcpStatus =
+					result.error_hint ||
+					result.error ||
+					'Signed in, but the MCP handshake did not finish. Click Reconnect.';
+			} else {
+				mcpStatus = 'Connected with OAuth.';
+			}
+			await refreshMcpRuntime({ silent: true });
 		} catch (err) {
-			mcpStatus = err instanceof Error ? err.message : 'OAuth connect failed';
+			mcpStatus = apiErrorMessage(err, 'OAuth connect failed');
 		} finally {
-			mcpBusy = false;
+			setRowBusy(server.id, null);
 		}
 	}
 
@@ -622,8 +687,8 @@
 						</div>
 					</div>
 
-					{#if status?.last_error && !expanded}
-						<p class="row-error">{status.last_error}</p>
+					{#if displayError(status) && !expanded}
+						<p class="row-error">{displayError(status)}</p>
 					{/if}
 
 					{#if expanded}
@@ -691,7 +756,7 @@
 							{:else}
 								<SettingsField
 									label="Server URL"
-									note="Paste the full URL. If the server authenticates with a key in the URL (e.g. ?API_KEY=…), keep it here — not in a header."
+									note="Paste the full MCP URL. Known hosts (e.g. Atlassian) are rewritten to the current endpoint on blur. API keys that belong in the query string stay here, not in a header."
 								>
 									<input
 										type="text"
@@ -699,26 +764,35 @@
 										oninput={(e) =>
 											updateServer(server.id, { url: e.currentTarget.value })}
 										onblur={() => normalizeConnection(server.id)}
-										placeholder="https://example.com/mcp?API_KEY=…"
+										placeholder="https://example.com/mcp"
 										spellcheck="false"
 									/>
 								</SettingsField>
 							{/if}
 
-							{#if statusLabel(status, server) === 'error' || statusLabel(status, server) === 'disconnected'}
+							{#if server.enabled && mcp.enabled}
 								<div class="editor-actions">
 									<SettingsButton
 										variant="secondary"
-										disabled={mcpBusy}
+										disabled={isRowBusy(server.id)}
+										onclick={() => onTestServer(server.id)}
+									>
+										{rowBusy[server.id] === 'test' ? 'Testing…' : 'Test'}
+									</SettingsButton>
+									<SettingsButton
+										variant="secondary"
+										disabled={isRowBusy(server.id)}
 										onclick={() => onReconnectServer(server.id)}
 									>
-										Reconnect
+										{rowBusy[server.id] === 'reconnect'
+											? 'Reconnecting…'
+											: 'Reconnect'}
 									</SettingsButton>
 								</div>
 							{/if}
 
-							{#if status?.last_error}
-								<p class="settings-field-hint error">{status.last_error}</p>
+							{#if displayError(status, true)}
+								<p class="settings-field-hint error">{displayError(status, true)}</p>
 							{/if}
 
 							{#if server.transport === 'stdio'}
@@ -779,16 +853,20 @@
 									<div class="oauth-actions">
 										<SettingsButton
 											variant="secondary"
-											disabled={mcpBusy}
+											disabled={isRowBusy(server.id)}
 											onclick={() => onConnectOAuth(server)}
 										>
-											Connect with OAuth
+											{rowBusy[server.id] === 'oauth'
+												? 'Connecting…'
+												: 'Connect with OAuth'}
 										</SettingsButton>
-										<span class="oauth-status">
-											{oauthStatus[server.id]
-												? 'OAuth token saved'
-												: 'Not connected'}
-										</span>
+									<span class="oauth-status">
+										{status?.oauth_connected
+											? status?.status === 'connected'
+												? 'Signed in · connected'
+												: 'Signed in'
+											: 'Not signed in'}
+									</span>
 									</div>
 								</div>
 							{/if}

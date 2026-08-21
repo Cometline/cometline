@@ -129,7 +129,7 @@ Exposed via `cometline/electron/src/preload.ts`, typed in `electron/src/shared/a
 | `getWorkspacePath` / `setWorkspacePath`        | Workspace management                   |
 | `restartCometMind`                             | Full sidecar restart (rare)            |
 | `checkForUpdates` / `installUpdate`            | Auto-update                            |
-| `getMcpOAuthStatus` / `startMcpOAuth`          | Native MCP OAuth browser/callback flow |
+| MCP OAuth                                      | CometMind `POST /api/v1/mcp/servers/{id}/oauth-flows` |
 | `readCursorMcpConfig`                          | Import Cursor-style MCP config         |
 | `notifyJob`                                    | Desktop notifications for job changes  |
 

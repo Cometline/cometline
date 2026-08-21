@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/cometline/cometmind/internal/logging"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // ServerStatus is the runtime connection state for one MCP server.
@@ -14,6 +15,7 @@ type ServerStatus string
 
 const (
 	StatusDisabled     ServerStatus = "disabled"
+	StatusConnecting   ServerStatus = "connecting"
 	StatusConnected    ServerStatus = "connected"
 	StatusError        ServerStatus = "error"
 	StatusDisconnected ServerStatus = "disconnected"
@@ -28,14 +30,16 @@ const (
 
 // ServerRuntimeStatus is exposed via the management API.
 type ServerRuntimeStatus struct {
-	ID             string       `json:"id"`
-	Name           string       `json:"name"`
-	Enabled        bool         `json:"enabled"`
-	Transport      string       `json:"transport"`
-	Status         ServerStatus `json:"status"`
-	ToolCount      int          `json:"tool_count"`
-	LastError      string       `json:"last_error,omitempty"`
-	OAuthConnected bool         `json:"oauth_connected,omitempty"`
+	ID             string           `json:"id"`
+	Name           string           `json:"name"`
+	Enabled        bool             `json:"enabled"`
+	Transport      string           `json:"transport"`
+	Status         ServerStatus     `json:"status"`
+	ToolCount      int              `json:"tool_count"`
+	LastError      string           `json:"last_error,omitempty"`
+	ErrorCode      ConnectErrorCode `json:"error_code,omitempty"`
+	ErrorHint      string           `json:"error_hint,omitempty"`
+	OAuthConnected bool             `json:"oauth_connected,omitempty"`
 }
 
 // ToolInfo describes one registered MCP tool.
@@ -49,10 +53,12 @@ type ToolInfo struct {
 
 // TestResult is returned by ephemeral connect tests.
 type TestResult struct {
-	OK        bool     `json:"ok"`
-	ToolCount int      `json:"tool_count"`
-	Tools     []string `json:"tools,omitempty"`
-	Error     string   `json:"error,omitempty"`
+	OK        bool             `json:"ok"`
+	ToolCount int              `json:"tool_count"`
+	Tools     []string         `json:"tools,omitempty"`
+	Error     string           `json:"error,omitempty"`
+	ErrorCode ConnectErrorCode `json:"error_code,omitempty"`
+	ErrorHint string           `json:"error_hint,omitempty"`
 }
 
 // Manager owns MCP client sessions and discovered tools.
@@ -74,6 +80,8 @@ type managedServer struct {
 	conn      *connectedServer
 	status    ServerStatus
 	lastError string
+	errorCode ConnectErrorCode
+	errorHint string
 	// generation identifies the current connection "episode" for this
 	// server. It is bumped by connectOne every time it (re)connects — success
 	// or failure — and by Close for every entry it tears down. A
@@ -93,8 +101,10 @@ func NewManager(cfg Config) *Manager {
 	}
 }
 
-// Start connects all enabled servers in parallel.
-func (m *Manager) Start(ctx context.Context) {
+// Start connects all enabled servers in parallel. The argument is kept for
+// call-site compatibility; each server uses its own budget on Background so a
+// cancelled or short parent deadline cannot fail its neighbors.
+func (m *Manager) Start(_ context.Context) {
 	m.mu.Lock()
 	cfg := m.cfg
 	m.servers = make(map[string]*managedServer, len(cfg.Servers))
@@ -121,12 +131,36 @@ func (m *Manager) Start(ctx context.Context) {
 		wg.Add(1)
 		go func(id string) {
 			defer wg.Done()
-			if err := m.connectOne(ctx, id); err != nil {
+			// Detach from the caller deadline so one slow neighbor cannot
+			// inherit a shared parent timeout. Each server has its own budget.
+			if err := m.connectOneWithBudget(context.Background(), id); err != nil {
 				logging.L().Error("mcp.connect_failed", "server", id, "error", err)
 			}
 		}(srv.ID)
 	}
 	wg.Wait()
+}
+
+// connectOneWithBudget runs connectOne under a per-server timeout so a slow
+// remote handshake cannot starve its neighbors by sharing one parent deadline.
+func (m *Manager) connectOneWithBudget(parent context.Context, serverID string) error {
+	if parent == nil {
+		parent = context.Background()
+	}
+	m.mu.RLock()
+	entry, ok := m.servers[serverID]
+	var cfg ServerConfig
+	if ok {
+		cfg = entry.cfg
+	}
+	m.mu.RUnlock()
+	if !ok {
+		return nil
+	}
+	timeout := connectTimeoutFor(cfg) + listToolsTimeoutFor(cfg) + 2*time.Second
+	ctx, cancel := context.WithTimeout(parent, timeout)
+	defer cancel()
+	return m.connectOne(ctx, serverID)
 }
 
 func (m *Manager) connectOne(ctx context.Context, serverID string) error {
@@ -137,8 +171,9 @@ func (m *Manager) connectOne(ctx context.Context, serverID string) error {
 		return nil
 	}
 	cfg := entry.cfg
+	var oldSession *mcp.ClientSession
 	if entry.conn != nil && entry.conn.session != nil {
-		_ = entry.conn.session.Close()
+		oldSession = entry.conn.session
 		entry.conn = nil
 	}
 	// Bump generation before the (slow, unlocked) connectServer call so that
@@ -147,7 +182,14 @@ func (m *Manager) connectOne(ctx context.Context, serverID string) error {
 	// closure as an intentional supersession rather than an unexpected death.
 	entry.generation++
 	gen := entry.generation
+	entry.status = StatusConnecting
+	entry.lastError = ""
+	entry.errorCode = ""
+	entry.errorHint = ""
 	m.mu.Unlock()
+	if oldSession != nil {
+		_ = oldSession.Close()
+	}
 
 	conn, err := connectServer(ctx, cfg)
 
@@ -164,15 +206,20 @@ func (m *Manager) connectOne(ctx context.Context, serverID string) error {
 		return nil
 	}
 	if err != nil {
+		classified := classifyConnectErrorFor(serverID, err)
 		entry.conn = nil
 		entry.status = StatusError
-		entry.lastError = err.Error()
+		entry.lastError = classified.Error()
+		entry.errorCode = classified.Code
+		entry.errorHint = classified.Hint
 		m.mu.Unlock()
-		return err
+		return classified
 	}
 	entry.conn = conn
 	entry.status = StatusConnected
 	entry.lastError = ""
+	entry.errorCode = ""
+	entry.errorHint = ""
 	m.mu.Unlock()
 
 	go m.monitorConnection(serverID, gen, conn)
@@ -209,9 +256,14 @@ func (m *Manager) monitorConnection(serverID string, gen uint64, conn *connected
 	entry.conn = nil
 	entry.status = StatusError
 	if waitErr != nil {
-		entry.lastError = waitErr.Error()
+		classified := classifyConnectErrorFor(serverID, waitErr)
+		entry.lastError = classified.Error()
+		entry.errorCode = classified.Code
+		entry.errorHint = classified.Hint
 	} else {
 		entry.lastError = "MCP session closed unexpectedly"
+		entry.errorCode = CodeTransportTimeout
+		entry.errorHint = "The MCP server stopped responding. Click Reconnect."
 	}
 	m.mu.Unlock()
 
@@ -235,16 +287,18 @@ func (m *Manager) autoReconnect(serverID string) {
 		reloading := m.reloading
 		alreadyConnected := ok && entry.status == StatusConnected
 		enabled := ok && m.cfg.Enabled && entry.cfg.Enabled
+		skipRetry := ok && skipAutoReconnect(entry.errorCode)
 		m.mu.RUnlock()
-		if !ok || reloading || !enabled || alreadyConnected {
+		if !ok || reloading || !enabled || alreadyConnected || skipRetry {
 			return
 		}
 
-		connectCtx, cancel := context.WithTimeout(context.Background(), defaultConnectTimeout)
-		err := m.connectOne(connectCtx, serverID)
-		cancel()
+		err := m.connectOneWithBudget(context.Background(), serverID)
 		if err == nil {
 			logging.L().Info("mcp.auto_reconnect_succeeded", "server", serverID, "attempt", attempt+1)
+			return
+		}
+		if skipAutoReconnect(errorCodeOf(err)) {
 			return
 		}
 		logging.L().Warn("mcp.auto_reconnect_failed", "server", serverID, "attempt", attempt+1, "error", err)
@@ -254,7 +308,7 @@ func (m *Manager) autoReconnect(serverID string) {
 // Close disconnects all MCP sessions.
 func (m *Manager) Close() error {
 	m.mu.Lock()
-	defer m.mu.Unlock()
+	sessions := make([]*mcp.ClientSession, 0, len(m.servers))
 	for _, entry := range m.servers {
 		// Bump generation first so any monitorConnection goroutine watching
 		// this session sees a mismatch when session.Close() below unblocks
@@ -264,11 +318,22 @@ func (m *Manager) Close() error {
 		// autoReconnect loop against a manager that is shutting down.
 		entry.generation++
 		if entry.conn != nil && entry.conn.session != nil {
-			_ = entry.conn.session.Close()
+			sessions = append(sessions, entry.conn.session)
 			entry.conn = nil
 		}
 		entry.status = StatusDisconnected
 	}
+	m.mu.Unlock()
+
+	var wg sync.WaitGroup
+	for _, session := range sessions {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_ = session.Close()
+		}()
+	}
+	wg.Wait()
 	return nil
 }
 
@@ -311,8 +376,6 @@ func (m *Manager) Reload(ctx context.Context, cfg Config) error {
 			m.reloading = false
 			m.mu.Unlock()
 		}()
-		connectCtx, cancel := context.WithTimeout(context.Background(), defaultConnectTimeout)
-		defer cancel()
 		var wg sync.WaitGroup
 		for _, srv := range cfg.Servers {
 			if !cfg.Enabled || !srv.Enabled {
@@ -321,7 +384,7 @@ func (m *Manager) Reload(ctx context.Context, cfg Config) error {
 			wg.Add(1)
 			go func(id string) {
 				defer wg.Done()
-				if err := m.connectOne(connectCtx, id); err != nil {
+				if err := m.connectOneWithBudget(context.Background(), id); err != nil {
 					logging.L().Error("mcp.connect_failed", "server", id, "error", err)
 				}
 			}(srv.ID)
@@ -344,7 +407,6 @@ func (m *Manager) ToolBindings() []ToolBinding {
 			out = append(out, ToolBinding{
 				ServerID: entry.cfg.ID,
 				Tool:     tool,
-				Session:  entry.conn.session,
 			})
 		}
 	}
@@ -361,7 +423,9 @@ func (m *Manager) ListServers() []ServerRuntimeStatus {
 		lastError := entry.lastError
 		if !m.cfg.Enabled || !entry.cfg.Enabled {
 			status = StatusDisabled
-		} else if m.reloading {
+		} else if m.reloading && status == StatusDisconnected {
+			// Only the Close→connect gap is "reloading". connecting/connected/error
+			// must stay visible so one slow handshake cannot mask its neighbors.
 			status = StatusReloading
 		}
 		toolCount := 0
@@ -376,7 +440,9 @@ func (m *Manager) ListServers() []ServerRuntimeStatus {
 			Status:         status,
 			ToolCount:      toolCount,
 			LastError:      lastError,
-			OAuthConnected: entry.cfg.OAuth != nil && OAuthConnected(entry.cfg.ID),
+			ErrorCode:      entry.errorCode,
+			ErrorHint:      entry.errorHint,
+			OAuthConnected: OAuthConnected(entry.cfg.ID),
 		})
 	}
 	return out
@@ -405,22 +471,38 @@ func (m *Manager) ListToolInfos() []ToolInfo {
 }
 
 // TestServer attempts a one-off connect + list tools without persisting.
-func (m *Manager) TestServer(ctx context.Context, serverID string) TestResult {
+func (m *Manager) TestServer(_ context.Context, serverID string) TestResult {
 	m.mu.RLock()
 	reloading := m.reloading
 	entry, ok := m.servers[serverID]
 	m.mu.RUnlock()
 	if reloading {
-		return TestResult{Error: "MCP is reloading; try again in a moment"}
+		return TestResult{
+			Error:     "MCP is reloading; try again in a moment",
+			ErrorCode: CodeProtocol,
+			ErrorHint: "MCP is reloading. Try Test again in a moment.",
+		}
 	}
 	if !ok {
-		return TestResult{Error: "unknown server: " + serverID}
+		return TestResult{
+			Error:     "unknown server: " + serverID,
+			ErrorCode: CodeProtocol,
+			ErrorHint: "Save this MCP server before testing it.",
+		}
 	}
 	testCfg := entry.cfg
 	testCfg.Enabled = true
-	conn, err := connectServer(ctx, testCfg)
+	timeout := connectTimeoutFor(testCfg) + listToolsTimeoutFor(testCfg) + 2*time.Second
+	testCtx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	conn, err := connectServer(testCtx, testCfg)
 	if err != nil {
-		return TestResult{Error: err.Error()}
+		classified := classifyConnectErrorFor(serverID, err)
+		return TestResult{
+			Error:     classified.Error(),
+			ErrorCode: classified.Code,
+			ErrorHint: classified.Hint,
+		}
 	}
 	defer conn.session.Close()
 	names := make([]string, 0, len(conn.tools))
@@ -434,22 +516,40 @@ func (m *Manager) TestServer(ctx context.Context, serverID string) TestResult {
 // full Reload is in flight: Reload's Start() rebuilds the servers map from
 // scratch, so a Reconnect racing that rebuild could write a stale connection
 // into an entry Start() is about to discard or has already superseded.
-func (m *Manager) Reconnect(ctx context.Context, serverID string) error {
-	m.mu.RLock()
-	reloading := m.reloading
-	entry, ok := m.servers[serverID]
-	m.mu.RUnlock()
-	if reloading {
+func (m *Manager) Reconnect(_ context.Context, serverID string) error {
+	m.mu.Lock()
+	if m.reloading {
+		m.mu.Unlock()
 		return fmt.Errorf("MCP is reloading; try again in a moment")
 	}
+	entry, ok := m.servers[serverID]
 	if !ok {
+		m.mu.Unlock()
 		return nil
 	}
 	if !m.cfg.Enabled || !entry.cfg.Enabled {
-		m.mu.Lock()
 		entry.status = StatusDisabled
 		m.mu.Unlock()
 		return nil
 	}
-	return m.connectOne(ctx, serverID)
+	m.mu.Unlock()
+	// Detach from the inbound HTTP request: a cancelled browser tab must not
+	// abort a 45s remote handshake the user just asked for.
+	return m.connectOneWithBudget(context.Background(), serverID)
+}
+
+// CallTool invokes a live MCP tool by server id. It always looks up the
+// current session so a reconnect between turns is visible to the next call.
+func (m *Manager) CallTool(ctx context.Context, serverID, toolName string, args map[string]any) (*mcp.CallToolResult, error) {
+	m.mu.RLock()
+	entry, ok := m.servers[serverID]
+	var session *mcp.ClientSession
+	if ok && entry.conn != nil {
+		session = entry.conn.session
+	}
+	m.mu.RUnlock()
+	if session == nil {
+		return nil, fmt.Errorf("MCP server %q is not connected", serverID)
+	}
+	return session.CallTool(ctx, &mcp.CallToolParams{Name: toolName, Arguments: args})
 }

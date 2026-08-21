@@ -46,6 +46,7 @@ import {
 	runStorageRetention as runStorageRetentionApi,
 	runStorageBackup as runStorageBackupApi,
 	reconnectMcpServer as reconnectMcpServerApi,
+	testMcpServer as testMcpServerApi,
 	rejectSkillDraft as rejectSkillDraftApi,
 	promoteSkillDraft as promoteSkillDraftApi,
 	startMcpOAuth as startMcpOAuthApi,
@@ -85,7 +86,9 @@ import type {
 	CreateSessionRequest,
 	ListMemoriesResponse,
 	ListSkillsResponse,
+	McpReconnectResponse,
 	McpServerStatus,
+	McpTestResult,
 	McpToolInfo,
 	MemoryResource,
 	SkillDraft,
@@ -301,6 +304,10 @@ export function runStorageRetention(): Promise<RunStorageRetentionResponse> {
 export function apiErrorMessage(error: unknown, fallback: string): string {
 	if (error instanceof Error && error.message) return error.message;
 	if (typeof error === 'string' && error.trim()) return error;
+	if (error && typeof error === 'object' && 'error_hint' in error) {
+		const hint = error.error_hint;
+		if (typeof hint === 'string' && hint.trim()) return hint;
+	}
 	if (error && typeof error === 'object' && 'error' in error) {
 		const detail = error.error;
 		if (typeof detail === 'string' && detail.trim()) return detail;
@@ -548,21 +555,42 @@ export async function listMcpTools(): Promise<McpToolInfo[]> {
 }
 
 export async function reconnectMcpServer(serverId: string): Promise<void> {
-	await reconnectMcpServerApi({
+	try {
+		await reconnectMcpServerApi({
+			path: { id: serverId },
+			throwOnError: true
+		});
+	} catch (error) {
+		throw new Error(apiErrorMessage(error, 'Reconnect failed'));
+	}
+}
+
+export async function testMcpServer(serverId: string): Promise<McpTestResult> {
+	const { data, error } = await testMcpServerApi({
 		path: { id: serverId },
-		throwOnError: true
+		throwOnError: false
 	});
+	if (data) return data;
+	if (error && typeof error === 'object' && 'ok' in error && 'tool_count' in error) {
+		return error as McpTestResult;
+	}
+	throw new Error(apiErrorMessage(error, 'Test failed'));
 }
 
 // startMcpOAuth runs the full interactive OAuth flow (discovery, dynamic client
 // registration, browser authorization, token exchange) in the CometMind runtime
 // and reconnects the server on success. This is a long-running call: it resolves
 // only after the user completes the browser round-trip.
-export async function startMcpOAuth(serverId: string): Promise<void> {
-	await startMcpOAuthApi({
-		path: { id: serverId },
-		throwOnError: true
-	});
+export async function startMcpOAuth(serverId: string): Promise<McpReconnectResponse> {
+	try {
+		const { data } = await startMcpOAuthApi({
+			path: { id: serverId },
+			throwOnError: true
+		});
+		return data ?? { ok: true, connected: true };
+	} catch (error) {
+		throw new Error(apiErrorMessage(error, 'OAuth connect failed'));
+	}
 }
 
 export async function deleteSkill(name: string, workspacePath = ''): Promise<void> {

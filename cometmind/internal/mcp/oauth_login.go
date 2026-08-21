@@ -69,7 +69,7 @@ func (m *Manager) StartOAuth(ctx context.Context, serverID string) error {
 
 	opts := OAuthFlowOptions{
 		ServerID:       cfg.ID,
-		ServerURL:      cfg.URL,
+		ServerURL:      NormalizeServerURL(cfg.URL),
 		RedirectURL:    RedirectURL(),
 		ClientName:     "Cometline",
 		ManualClientID: manualClientID,
@@ -81,12 +81,54 @@ func (m *Manager) StartOAuth(ctx context.Context, serverID string) error {
 		return err
 	}
 
-	// Reconnect so the freshly stored token is used right away. Best-effort:
-	// surface reconnect failures but the token is already persisted.
-	if err := m.Reconnect(ctx, serverID); err != nil {
-		return fmt.Errorf("oauth succeeded but reconnect failed: %w", err)
+	// Token is already on disk. Handshake is a separate step: a cancelled
+	// browser-tab request or a slow Cloudflare MCP must not look like OAuth
+	// itself failed. Reconnect uses its own budget.
+	if err := m.Reconnect(context.Background(), serverID); err != nil {
+		return &OAuthReconnectError{Err: err}
 	}
 	return nil
+}
+
+// OAuthReconnectError means the user signed in and the token was saved, but
+// the following MCP handshake failed. Callers should treat auth as successful.
+type OAuthReconnectError struct {
+	Err error
+}
+
+func (e *OAuthReconnectError) Error() string {
+	if e == nil || e.Err == nil {
+		return "Signed in, but the MCP handshake failed. Click Reconnect."
+	}
+	classified := classifyConnectError(e.Err)
+	if classified != nil && classified.Hint != "" {
+		if classified.Code == CodeHandshakeTimeout || classified.Code == CodeTransportTimeout {
+			return classified.Hint
+		}
+		return "Signed in. " + classified.Hint
+	}
+	return fmt.Sprintf("Signed in, but reconnect failed: %v", e.Err)
+}
+
+func (e *OAuthReconnectError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.Err
+}
+
+func (e *OAuthReconnectError) Code() ConnectErrorCode {
+	if e == nil {
+		return ""
+	}
+	return errorCodeOf(e.Err)
+}
+
+func (e *OAuthReconnectError) Hint() string {
+	if e == nil {
+		return ""
+	}
+	return errorHintOf(e.Err)
 }
 
 // loopbackFetcher starts a one-shot HTTP listener on the loopback callback port,

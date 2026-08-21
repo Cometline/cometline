@@ -15,8 +15,6 @@ const XAI_DEVICE_AUTHORIZATION_URL = 'https://auth.x.ai/oauth2/device/code';
 const XAI_DEVICE_CODE_GRANT_TYPE = 'urn:ietf:params:oauth:grant-type:device_code';
 const XAI_AUTH_TIMEOUT_MS = 5 * 60 * 1000;
 const XAI_AUTH_SCOPE = 'openid profile email offline_access grok-cli:access api:access';
-const MCP_OAUTH_CALLBACK_PORT = 1456;
-const MCP_OAUTH_CALLBACK_PATH = '/mcp/oauth/callback';
 
 type FileSystem = Pick<
 	typeof import('node:fs'),
@@ -33,13 +31,6 @@ type AuthStatus = {
 	error?: string;
 	accountID?: string;
 	expiry?: string | number;
-};
-
-type OAuthSettings = {
-	clientId?: string;
-	authorizationUrl?: string;
-	tokenUrl?: string;
-	scopes?: unknown;
 };
 
 type TokenRecord = Record<string, unknown> & {
@@ -562,80 +553,11 @@ export function createProviderAuth(dependencies: ProviderAuthDependencies) {
 		return { started: true, message: 'Signed in with Grok subscription. You can fetch xAI models now.' };
 	}
 
-	function mcpOAuthTokenPath(serverId: unknown) {
-		return path.join(platform.homedir(), '.cometmind', 'mcp-oauth', `${String(serverId || '').trim()}.json`);
-	}
-
-	function mcpOAuthRedirectURI() {
-		return `http://localhost:${MCP_OAUTH_CALLBACK_PORT}${MCP_OAUTH_CALLBACK_PATH}`;
-	}
-
-	function getMcpOAuthStatus(serverId: unknown): AuthStatus {
-		const authPath = mcpOAuthTokenPath(serverId);
-		try {
-			if (!fs.existsSync(authPath)) return { authenticated: false, authPath };
-			const raw = JSON.parse(fs.readFileSync(authPath, 'utf8')) as TokenRecord;
-			return { authenticated: Boolean(raw.access_token), authPath, expiry: (raw.expiry || raw.expires_at) as string | number | undefined };
-		} catch (err) {
-			return { authenticated: false, authPath, error: err instanceof Error ? err.message : String(err) };
-		}
-	}
-
 	function readCursorMcpConfig() {
 		const filePath = path.join(platform.homedir(), '.cursor', 'mcp.json');
 		if (!fs.existsSync(filePath)) return { ok: false, error: 'Cursor MCP config not found at ~/.cursor/mcp.json' };
 		try { return { ok: true, path: filePath, config: JSON.parse(fs.readFileSync(filePath, 'utf8')) }; }
 		catch (err) { return { ok: false, error: err instanceof Error ? err.message : 'Failed to read Cursor MCP config' }; }
-	}
-
-	function writeMcpOAuthToken(serverId: string, tokens: TokenRecord) {
-		const authPath = mcpOAuthTokenPath(serverId);
-		fs.mkdirSync(path.dirname(authPath), { recursive: true, mode: 0o700 });
-		fs.writeFileSync(authPath, JSON.stringify(tokens, null, 2), { mode: 0o600 });
-	}
-
-	async function exchangeMcpOAuthCode(oauth: OAuthSettings, code: string, codeVerifier: string) {
-		const body = new URLSearchParams({
-			grant_type: 'authorization_code', client_id: String(oauth.clientId || '').trim(), code,
-			redirect_uri: mcpOAuthRedirectURI(), code_verifier: codeVerifier
-		});
-		const response = await fetch(String(oauth.tokenUrl || '').trim(), {
-			method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' }, body
-		});
-		const payload = (await response.json().catch(() => ({}))) as TokenRecord;
-		if (!response.ok || payload.error) throw new Error(`MCP OAuth failed: ${payload.error_description || payload.error || response.statusText}`);
-		if (!payload.access_token) throw new Error('MCP OAuth did not return an access token');
-		if (payload.expires_in && !payload.expiry) payload.expiry = new Date(Date.now() + Number(payload.expires_in) * 1000).toISOString();
-		return payload;
-	}
-
-	function mcpAuthorizeURL(oauth: OAuthSettings, state: string, codeChallenge: string) {
-		const params = new URLSearchParams({
-			response_type: 'code', client_id: String(oauth.clientId || '').trim(), redirect_uri: mcpOAuthRedirectURI(),
-			state, code_challenge: codeChallenge, code_challenge_method: 'S256'
-		});
-		const scopes = Array.isArray(oauth.scopes) ? oauth.scopes.map((scope) => String(scope).trim()).filter(Boolean) : [];
-		if (scopes.length > 0) params.set('scope', scopes.join(' '));
-		const base = String(oauth.authorizationUrl || '').trim();
-		return `${base}${base.includes('?') ? '&' : '?'}${params.toString()}`;
-	}
-
-	async function startMcpOAuth(payload: { serverId?: unknown; oauth?: OAuthSettings }) {
-		const id = String(payload?.serverId || '').trim();
-		const oauth = payload?.oauth;
-		if (!id) throw new Error('MCP server id is required');
-		if (!oauth?.clientId || !oauth.authorizationUrl || !oauth.tokenUrl) throw new Error('OAuth client ID, authorization URL, and token URL are required');
-		const state = base64URLEncode(crypto.randomBytes(32));
-		const codeVerifier = codexCodeVerifier();
-		const code = await waitForOAuthCode({
-			port: MCP_OAUTH_CALLBACK_PORT, callbackPath: MCP_OAUTH_CALLBACK_PATH, redirectURI: mcpOAuthRedirectURI(),
-			state, authorizeURL: mcpAuthorizeURL(oauth, state, codexCodeChallenge(codeVerifier)),
-			timeoutMessage: 'Timed out waiting for MCP OAuth to complete.', failureHeading: 'MCP OAuth failed',
-			successHTML: '<h1>MCP connected</h1><p>You can return to Cometline.</p>',
-			browserError: 'Failed to open MCP OAuth in your browser'
-		});
-		writeMcpOAuthToken(id, await exchangeMcpOAuthCode(oauth, code, codeVerifier));
-		return { started: true, message: `Saved MCP OAuth token for ${id}. Reconnect the server to apply.` };
 	}
 
 	function normalizeModelFetchResult(rawModels: unknown[], pickModel: (item: Record<string, unknown>) => unknown = (item) => item.id) {
@@ -697,8 +619,6 @@ export function createProviderAuth(dependencies: ProviderAuthDependencies) {
 		startCodexLogin,
 		getXaiAuthStatus,
 		startXaiLogin,
-		getMcpOAuthStatus,
-		startMcpOAuth,
 		readCursorMcpConfig
 	};
 }

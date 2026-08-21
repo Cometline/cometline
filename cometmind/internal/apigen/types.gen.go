@@ -250,6 +250,7 @@ func (e JobResourceStatus) Valid() bool {
 // Defines values for McpServerStatusStatus.
 const (
 	McpServerStatusStatusConnected    McpServerStatusStatus = "connected"
+	McpServerStatusStatusConnecting   McpServerStatusStatus = "connecting"
 	McpServerStatusStatusDisabled     McpServerStatusStatus = "disabled"
 	McpServerStatusStatusDisconnected McpServerStatusStatus = "disconnected"
 	McpServerStatusStatusError        McpServerStatusStatus = "error"
@@ -260,6 +261,8 @@ const (
 func (e McpServerStatusStatus) Valid() bool {
 	switch e {
 	case McpServerStatusStatusConnected:
+		return true
+	case McpServerStatusStatusConnecting:
 		return true
 	case McpServerStatusStatusDisabled:
 		return true
@@ -1377,15 +1380,32 @@ type ListSkillsResponse struct {
 
 // McpReconnectResponse defines model for McpReconnectResponse.
 type McpReconnectResponse struct {
-	Ok bool `json:"ok"`
+	// Connected True when the MCP handshake succeeded after OAuth. False means the token was saved but the session is not up yet.
+	Connected *bool   `json:"connected,omitempty"`
+	Error     *string `json:"error,omitempty"`
+
+	// ErrorCode Classified handshake failure after a successful OAuth grant (handshake_timeout, unauthorized, …).
+	ErrorCode *string `json:"error_code,omitempty"`
+
+	// ErrorHint Short next-step message for Settings UI.
+	ErrorHint *string `json:"error_hint,omitempty"`
+	Ok        bool    `json:"ok"`
 }
 
 // McpServerStatus defines model for McpServerStatus.
 type McpServerStatus struct {
-	Enabled        bool                  `json:"enabled"`
-	Id             string                `json:"id"`
-	LastError      *string               `json:"last_error,omitempty"`
-	Name           string                `json:"name"`
+	Enabled bool `json:"enabled"`
+
+	// ErrorCode Classified connect failure (needs_auth, handshake_timeout, command_not_found, …).
+	ErrorCode *string `json:"error_code,omitempty"`
+
+	// ErrorHint Short next-step message for Settings UI and agents.
+	ErrorHint *string `json:"error_hint,omitempty"`
+	Id        string  `json:"id"`
+	LastError *string `json:"last_error,omitempty"`
+	Name      string  `json:"name"`
+
+	// OauthConnected True when a token file exists for this server, independent of handshake status.
 	OauthConnected *bool                 `json:"oauth_connected,omitempty"`
 	Status         McpServerStatusStatus `json:"status"`
 	ToolCount      int                   `json:"tool_count"`
@@ -1397,7 +1417,14 @@ type McpServerStatusStatus string
 
 // McpTestResult defines model for McpTestResult.
 type McpTestResult struct {
-	Error     *string   `json:"error,omitempty"`
+	// Error Raw connection error for diagnostics.
+	Error *string `json:"error,omitempty"`
+
+	// ErrorCode Classified failure such as needs_auth, handshake_timeout, command_not_found, or bad_url.
+	ErrorCode *string `json:"error_code,omitempty"`
+
+	// ErrorHint Short next-step message for Settings UI.
+	ErrorHint *string   `json:"error_hint,omitempty"`
 	Ok        bool      `json:"ok"`
 	ToolCount int       `json:"tool_count"`
 	Tools     *[]string `json:"tools,omitempty"`

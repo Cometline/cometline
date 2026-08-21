@@ -270,7 +270,7 @@ Electron main process exposes native capabilities to the renderer via preload:
 - `setWorkspacePath` / `listRecentWorkspaces` — workspace management
 - `setOpenAtLogin` — macOS login item
 - `checkForUpdates` — auto-update
-- `getMcpOAuthStatus` / `startMcpOAuth` — native browser/loopback MCP OAuth flow
+- MCP OAuth is owned by CometMind (`POST /api/v1/mcp/servers/{id}/oauth-flows`), not Electron IPC
 - `notifyJob` — desktop notifications for job state changes
 - `onWorkspaceChanged` / `watchWorkspace` — debounced external workspace-change refreshes
 - screen-capture access and bridge methods — permission state, target listing, and local captures for runtime tools

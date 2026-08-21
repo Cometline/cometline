@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os/exec"
 	"strings"
 	"time"
@@ -12,7 +13,17 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-const defaultConnectTimeout = 10 * time.Second
+const (
+	// defaultConnectTimeout is the fallback used when a caller does not supply
+	// its own deadline (stdio handshake). Remote HTTP/SSE servers use the
+	// longer handshakeTimeoutHTTP instead — a single 10s budget is enough to
+	// spawn a local subprocess but not to finish initialize +
+	// notifications/initialized against a Cloudflare-fronted MCP.
+	defaultConnectTimeout = 15 * time.Second
+	handshakeTimeoutHTTP  = 45 * time.Second
+	listToolsTimeoutStdio = 10 * time.Second
+	listToolsTimeoutHTTP  = 20 * time.Second
+)
 
 // defaultKeepAlive enables the go-sdk's built-in ping/keepalive loop
 // (mcp.ClientOptions.KeepAlive) for every MCP session, regardless of
@@ -42,31 +53,60 @@ type connectedServer struct {
 	tools   []DiscoveredTool
 }
 
+func connectTimeoutFor(cfg ServerConfig) time.Duration {
+	switch cfg.Transport {
+	case TransportHTTP, TransportSSE:
+		return handshakeTimeoutHTTP
+	default:
+		return defaultConnectTimeout
+	}
+}
+
+func listToolsTimeoutFor(cfg ServerConfig) time.Duration {
+	switch cfg.Transport {
+	case TransportHTTP, TransportSSE:
+		return listToolsTimeoutHTTP
+	default:
+		return listToolsTimeoutStdio
+	}
+}
+
 func connectServer(ctx context.Context, cfg ServerConfig) (*connectedServer, error) {
 	if !cfg.Enabled {
 		return nil, fmt.Errorf("server %q is disabled", cfg.ID)
 	}
+	if cfg.Transport == TransportHTTP || cfg.Transport == TransportSSE {
+		cfg.URL = NormalizeServerURL(cfg.URL)
+		if oauthTokenStaleForURL(cfg.ID, cfg.URL) {
+			return nil, newConnectError(CodeAuthExpired,
+				"The saved sign-in is for a different MCP URL. Click Connect with OAuth and sign in again.",
+				fmt.Errorf("oauth token resource mismatch for server %q", cfg.ID))
+		}
+	}
 	transport, err := buildTransport(cfg)
 	if err != nil {
-		return nil, err
+		return nil, classifyConnectErrorFor(cfg.ID, err)
 	}
 
-	connectCtx, cancel := context.WithTimeout(ctx, defaultConnectTimeout)
-	defer cancel()
-
+	// Handshake and list-tools get independent budgets so a slow initialize
+	// cannot steal the deadline from notifications/initialized + tools/list.
+	connectCtx, cancel := context.WithTimeout(ctx, connectTimeoutFor(cfg))
 	client := mcp.NewClient(clientImpl, &mcp.ClientOptions{
 		Capabilities: &mcp.ClientCapabilities{},
 		KeepAlive:    defaultKeepAlive,
 	})
 	session, err := client.Connect(connectCtx, transport, nil)
+	cancel()
 	if err != nil {
-		return nil, fmt.Errorf("connect: %w", err)
+		return nil, classifyConnectErrorFor(cfg.ID, fmt.Errorf("connect: %w", err))
 	}
 
-	tools, err := listTools(connectCtx, session, cfg)
+	listCtx, listCancel := context.WithTimeout(ctx, listToolsTimeoutFor(cfg))
+	tools, err := listTools(listCtx, session, cfg)
+	listCancel()
 	if err != nil {
 		_ = session.Close()
-		return nil, err
+		return nil, classifyConnectErrorFor(cfg.ID, err)
 	}
 
 	return &connectedServer{cfg: cfg, session: session, tools: tools}, nil
@@ -96,20 +136,34 @@ func buildTransport(cfg ServerConfig) (mcp.Transport, error) {
 		}
 		return &mcp.CommandTransport{Command: cmd}, nil
 	case TransportHTTP:
-		url := strings.TrimSpace(cfg.URL)
-		if url == "" {
-			return nil, fmt.Errorf("http server %q: url is required", cfg.ID)
+		if err := validateRemoteURL(cfg.ID, cfg.URL); err != nil {
+			return nil, err
 		}
 		return streamableTransport(cfg), nil
 	case TransportSSE:
-		url := strings.TrimSpace(cfg.URL)
-		if url == "" {
-			return nil, fmt.Errorf("sse server %q: url is required", cfg.ID)
+		if err := validateRemoteURL(cfg.ID, cfg.URL); err != nil {
+			return nil, err
 		}
 		return sseTransport(cfg), nil
 	default:
 		return nil, fmt.Errorf("server %q: unsupported transport %q", cfg.ID, cfg.Transport)
 	}
+}
+
+func validateRemoteURL(serverID, rawURL string) error {
+	normalized := NormalizeServerURL(rawURL)
+	u, err := url.Parse(normalized)
+	if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") {
+		if err == nil {
+			err = fmt.Errorf("expected an absolute http(s) URL")
+		}
+		return newConnectError(
+			CodeBadURL,
+			"Enter a complete MCP URL beginning with http:// or https://.",
+			fmt.Errorf("remote server %q has invalid URL %q: %w", serverID, strings.TrimSpace(rawURL), err),
+		)
+	}
+	return nil
 }
 
 func envPairs(env map[string]string) []string {
@@ -188,20 +242,22 @@ func connectServerWithTransport(ctx context.Context, cfg ServerConfig, transport
 	if strings.TrimSpace(cfg.ID) == "" {
 		cfg.ID = "test"
 	}
-	connectCtx, cancel := context.WithTimeout(ctx, defaultConnectTimeout)
-	defer cancel()
-
+	connectCtx, cancel := context.WithTimeout(ctx, connectTimeoutFor(cfg))
 	client := mcp.NewClient(clientImpl, &mcp.ClientOptions{
 		Capabilities: &mcp.ClientCapabilities{},
+		KeepAlive:    defaultKeepAlive,
 	})
 	session, err := client.Connect(connectCtx, transport, nil)
+	cancel()
 	if err != nil {
-		return nil, fmt.Errorf("connect: %w", err)
+		return nil, classifyConnectErrorFor(cfg.ID, fmt.Errorf("connect: %w", err))
 	}
-	tools, err := listTools(connectCtx, session, cfg)
+	listCtx, listCancel := context.WithTimeout(ctx, listToolsTimeoutFor(cfg))
+	tools, err := listTools(listCtx, session, cfg)
+	listCancel()
 	if err != nil {
 		_ = session.Close()
-		return nil, err
+		return nil, classifyConnectErrorFor(cfg.ID, err)
 	}
 	return &connectedServer{cfg: cfg, session: session, tools: tools}, nil
 }

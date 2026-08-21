@@ -31,6 +31,15 @@ describe('apiErrorMessage', () => {
 		).toBe('database snapshot failed');
 	});
 
+	it('prefers an actionable lifecycle hint over the raw error', () => {
+		expect(
+			apiErrorMessage(
+				{ error: 'connect: context deadline exceeded', error_hint: 'Click Reconnect.' },
+				'Reconnect failed'
+			)
+		).toBe('Click Reconnect.');
+	});
+
 	it('uses the fallback for unknown values', () => {
 		expect(apiErrorMessage({ nope: true }, 'Backup failed')).toBe('Backup failed');
 	});

@@ -43,8 +43,6 @@ export interface IpcHandlers {
 	startCodexLogin: Invoker;
 	getXaiAuthStatus: Invoker;
 	startXaiLogin: Invoker;
-	getMcpOAuthStatus: Invoker;
-	startMcpOAuth: Invoker;
 	readCursorMcpConfig: Invoker;
 	fetchProviderModels: Invoker;
 	ollamaHealth: Invoker;
@@ -119,8 +117,6 @@ export function registerIpcHandlers(handlers: IpcHandlers) {
 	ipcMain.handle('cometline:start-codex-login', handlers.startCodexLogin);
 	ipcMain.handle('cometline:get-xai-auth-status', handlers.getXaiAuthStatus);
 	ipcMain.handle('cometline:start-xai-login', handlers.startXaiLogin);
-	ipcMain.handle('cometline:get-mcp-oauth-status', handlers.getMcpOAuthStatus);
-	ipcMain.handle('cometline:start-mcp-oauth', handlers.startMcpOAuth);
 	ipcMain.handle('cometline:read-cursor-mcp-config', handlers.readCursorMcpConfig);
 	ipcMain.handle('cometline:fetch-provider-models', handlers.fetchProviderModels);
 	ipcMain.handle('cometline:ollama-health', handlers.ollamaHealth);

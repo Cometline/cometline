@@ -151,6 +151,8 @@ Supported transports:
 
 Remote OAuth servers are handled by CometMind itself: Protected Resource Metadata discovery, Authorization Server Metadata discovery, Dynamic Client Registration, Authorization Code + PKCE, a loopback callback listener, token persistence, and headless refresh. Access/refresh tokens live in `~/.cometmind/mcp-oauth/{serverId}.json`; registered client metadata lives in `{serverId}.client.json`.
 
+Each server has its own handshake/list-tools budget (stdio 15s/10s, HTTP/SSE 45s/20s). Auth success is not session success: `POST /api/v1/mcp/servers/{id}/oauth-flows` returns 200 once the token is stored (`ok: true, connected: false, error_code, error_hint` if the handshake failed). `oauth_connected` is token-file only. Changing the server URL treats a saved grant as stale. Tool calls go through `Manager.CallTool` so a reconnect is visible on the next turn.
+
 ### Jobs, scheduler, and autonomy
 
 Jobs are durable work items with status `todo`, `ongoing`, `done`, or `blocked`. They can be created by users, agents, Discord, or scheduled job materialization.
