@@ -486,6 +486,7 @@
 		height: 100vh;
 		min-height: 100vh;
 		--mini-titlebar-height: 46px;
+		--user-message-collapsed-height: min(15rem, 36dvh);
 		background:
 			radial-gradient(
 				circle at top,
