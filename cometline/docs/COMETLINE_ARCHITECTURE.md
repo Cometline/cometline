@@ -173,7 +173,7 @@ Cometline desktop must not:
 - `/` — new-session landing with centered project icon and hero composer.
 - `/session/[id]` — active thread; consumes pending first messages from the home route.
 - `/jobs` — jobs board and detail drawer.
-- `/skills` — browse/edit discovered skills and review pending drafts. `/skill-drafts` redirects to `/skills?tab=drafts`.
+- `/skills` — review pending drafts by default, or browse/edit discovered skills via `?tab=skills`. `/skill-drafts` redirects to `/skills`.
 - `/settings` — direct settings route outside the normal shell.
 - `/mini` and `/mini/session/[id]` — compact mini-window chat routes.
 

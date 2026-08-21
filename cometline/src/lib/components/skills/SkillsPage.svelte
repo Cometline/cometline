@@ -3,6 +3,7 @@
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
 	import {
+		deleteSkill,
 		getSkill,
 		getSkillDraft,
 		listSkillDrafts,
@@ -15,6 +16,7 @@
 		type SkillDraft,
 		type SkillDraftDetailResponse
 	} from '$lib/client/cometmind';
+	import ConfirmActionModal from '$lib/components/ConfirmActionModal.svelte';
 	import { skillDraftsStore } from '$lib/stores/skill-drafts.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import type { SkillResource } from '$lib/types';
@@ -34,13 +36,15 @@
 	let busy = $state(false);
 	let contentBusy = $state(false);
 	let saveBusy = $state(false);
+	let deletePending = $state<SkillResource | null>(null);
 	let status = $state('');
 	let selectedDraftId = $derived(selectedDraft?.draft.name ?? '');
 	let draftDirty = $derived(selectedDraft !== null && draftContent !== selectedDraft.content);
 	let selectedSkillId = $derived(selectedSkill?.skill.name ?? '');
 	let skillDirty = $derived(selectedSkill !== null && skillContent !== selectedSkill.content);
 	let canEditSkill = $derived(selectedSkill?.skill.can_edit ?? false);
-	let tab = $derived<SkillsTab>(page.url.searchParams.get('tab') === 'drafts' ? 'drafts' : 'skills');
+	let canDeleteSkill = $derived(selectedSkill?.skill.can_delete ?? false);
+	let tab = $derived<SkillsTab>(page.url.searchParams.get('tab') === 'skills' ? 'skills' : 'drafts');
 	let filteredSkills = $derived.by(() => {
 		const q = skillSearch.trim().toLowerCase();
 		if (!q) return skills;
@@ -62,7 +66,7 @@
 
 	function setTab(next: SkillsTab) {
 		const params = new URLSearchParams(page.url.searchParams);
-		if (next === 'drafts') params.set('tab', 'drafts');
+		if (next === 'skills') params.set('tab', 'skills');
 		else params.delete('tab');
 		const search = params.toString();
 		void goto(`/skills${search ? `?${search}` : ''}`, {
@@ -145,6 +149,7 @@
 
 	async function openSkill(name: string) {
 		selectedSkillName = name;
+		deletePending = null;
 		contentBusy = true;
 		try {
 			selectedSkill = await getSkill(name, shellStore.workspacePath);
@@ -203,6 +208,28 @@
 		}
 	}
 
+	async function confirmDeleteSkill() {
+		const skill = deletePending;
+		if (!skill) return;
+		busy = true;
+		status = '';
+		try {
+			await deleteSkill(skill.name, shellStore.workspacePath);
+			deletePending = null;
+			status = `Deleted skill ${skill.name}.`;
+			if (selectedSkillName === skill.name) {
+				selectedSkill = null;
+				selectedSkillName = '';
+				skillContent = '';
+			}
+			await refreshSkills({ keepSelection: true });
+		} catch (err) {
+			status = err instanceof Error ? err.message : 'Failed to delete skill';
+		} finally {
+			busy = false;
+		}
+	}
+
 	async function rejectDraft(name: string) {
 		busy = true;
 		status = '';
@@ -230,7 +257,8 @@
 			{:else}
 				<p>
 					Browse and edit Agent Skills Cometline can use. Changes write to the skill's
-					<code>SKILL.md</code> in place. Bundled skills are read-only.
+					<code>SKILL.md</code> in place. Delete removes managed skills and global originals
+					under <code>~/.agents</code>, OpenCode, or Claude. Workspace and bundled skills stay.
 				</p>
 			{/if}
 			{#if status}
@@ -242,15 +270,6 @@
 				<button
 					type="button"
 					class="view-btn"
-					class:active={tab === 'skills'}
-					aria-pressed={tab === 'skills'}
-					onclick={() => setTab('skills')}
-				>
-					Skills
-				</button>
-				<button
-					type="button"
-					class="view-btn"
 					class:active={tab === 'drafts'}
 					aria-pressed={tab === 'drafts'}
 					onclick={() => setTab('drafts')}
@@ -259,6 +278,15 @@
 					{#if skillDraftsStore.hasDrafts}
 						<span>{skillDraftsStore.count}</span>
 					{/if}
+				</button>
+				<button
+					type="button"
+					class="view-btn"
+					class:active={tab === 'skills'}
+					aria-pressed={tab === 'skills'}
+					onclick={() => setTab('skills')}
+				>
+					Skills
 				</button>
 			</div>
 			<button class="secondary" type="button" onclick={() => void refreshCurrent({ keepSelection: true })}>
@@ -425,6 +453,17 @@
 							>
 								{saveBusy ? 'Saving...' : 'Save'}
 							</button>
+							{#if canDeleteSkill}
+								<button
+									type="button"
+									class="secondary danger"
+									disabled={busy || saveBusy}
+									title={`Delete ${selectedSkill.skill.path}`}
+									onclick={() => (deletePending = selectedSkill.skill)}
+								>
+									Delete
+								</button>
+							{/if}
 						</div>
 					</header>
 					<textarea
@@ -440,6 +479,17 @@
 		</div>
 	{/if}
 </div>
+
+<ConfirmActionModal
+	open={Boolean(deletePending)}
+	title={`Delete "${deletePending?.name ?? ''}"?`}
+	description={deletePending
+		? `This removes the original files at ${deletePending.path}. This cannot be undone.`
+		: ''}
+	confirmLabel="Delete"
+	onConfirm={() => void confirmDeleteSkill()}
+	onCancel={() => (deletePending = null)}
+/>
 
 <style>
 	.skills-page {

@@ -7,6 +7,7 @@
 	import { listSkills, syncSkills, deleteSkill, exportSkill } from '$lib/client/cometmind';
 	import type { SkillResource } from '$lib/types';
 	import { onMount } from 'svelte';
+	import ConfirmActionModal from '$lib/components/ConfirmActionModal.svelte';
 	import SettingsMCPPanel from './SettingsMCPPanel.svelte';
 
 	let {
@@ -97,7 +98,7 @@
 	let skillErrors = $state<string[]>([]);
 	let skillsBusy = $state(false);
 	let skillsStatus = $state('');
-	let deletePending = $state<string | null>(null);
+	let deletePending = $state<SkillResource | null>(null);
 	let gatewayRunning = $state(false);
 	let gatewayBusy = $state(false);
 	let mcpPanel: SettingsMCPPanel | undefined = $state();
@@ -213,21 +214,19 @@
 		}
 	}
 
-	function requestDeleteSkill(name: string) {
-		deletePending = name;
+	function requestDeleteSkill(skill: SkillResource) {
+		deletePending = skill;
 	}
 
-	function cancelDeleteSkill() {
-		deletePending = null;
-	}
-
-	async function confirmDeleteSkill(name: string) {
+	async function confirmDeleteSkill() {
+		const skill = deletePending;
+		if (!skill) return;
 		skillsBusy = true;
 		skillsStatus = '';
 		try {
-			await deleteSkill(name, shellStore.workspacePath);
+			await deleteSkill(skill.name, shellStore.workspacePath);
 			deletePending = null;
-			skillsStatus = `Deleted skill ${name}.`;
+			skillsStatus = `Deleted skill ${skill.name}.`;
 			await refreshSkills();
 		} catch (err) {
 			skillsStatus = err instanceof Error ? err.message : 'Failed to delete skill';
@@ -539,46 +538,26 @@
 								<p>{skill.description}</p>
 							</div>
 							<div class="skill-row-actions">
-								{#if deletePending === skill.name && skill.can_delete}
-									<span class="skill-delete-prompt">Delete {skill.name}?</span>
-									<button
-										class="secondary danger"
-										type="button"
-										disabled={skillsBusy}
-										onclick={() => confirmDeleteSkill(skill.name)}
-									>
-										Confirm
-									</button>
+								{#if skill.can_export}
 									<button
 										class="secondary"
 										type="button"
 										disabled={skillsBusy}
-										onclick={cancelDeleteSkill}
+										onclick={() => onExportSkill(skill.name)}
 									>
-										Cancel
+										Export
 									</button>
-								{:else}
-									{#if skill.can_export}
-										<button
-											class="secondary"
-											type="button"
-											disabled={skillsBusy}
-											onclick={() => onExportSkill(skill.name)}
-										>
-											Export
-										</button>
-									{/if}
-									{#if skill.can_delete}
-										<button
-											class="secondary danger"
-											type="button"
-											disabled={skillsBusy}
-											title="Delete from ~/.cometmind/skills"
-											onclick={() => requestDeleteSkill(skill.name)}
-										>
-											Delete
-										</button>
-									{/if}
+								{/if}
+								{#if skill.can_delete}
+									<button
+										class="secondary danger"
+										type="button"
+										disabled={skillsBusy}
+										title={`Delete ${skill.path}`}
+										onclick={() => requestDeleteSkill(skill)}
+									>
+										Delete
+									</button>
 								{/if}
 							</div>
 						</div>
@@ -893,6 +872,17 @@
 	</div>
 </section>
 
+<ConfirmActionModal
+	open={Boolean(deletePending)}
+	title={`Delete "${deletePending?.name ?? ''}"?`}
+	description={deletePending
+		? `This removes the original files at ${deletePending.path}. This cannot be undone.`
+		: ''}
+	confirmLabel="Delete"
+	onConfirm={() => void confirmDeleteSkill()}
+	onCancel={() => (deletePending = null)}
+/>
+
 <style>
 	.gateway-runtime {
 		display: flex;
@@ -1054,11 +1044,6 @@
 
 	.skills-empty {
 		padding: 10px 11px;
-	}
-
-	.skill-delete-prompt {
-		font-size: 12px;
-		color: var(--text-muted);
 	}
 
 	.skill-row .secondary.danger {
