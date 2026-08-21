@@ -206,8 +206,8 @@ func TestCapabilitiesManagedDirectory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !caps.CanExport || !caps.CanDelete || caps.IsSymlink {
-		t.Fatalf("caps = %+v, want export+delete without symlink", caps)
+	if !caps.CanExport || !caps.CanDelete || !caps.CanEdit || caps.IsSymlink {
+		t.Fatalf("caps = %+v, want export+delete+edit without symlink", caps)
 	}
 }
 
@@ -235,8 +235,130 @@ func TestCapabilitiesSymlinkMirrorNotDeletable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !caps.CanExport || caps.CanDelete || !caps.IsSymlink {
-		t.Fatalf("caps = %+v, want export only with symlink", caps)
+	if !caps.CanExport || caps.CanDelete || !caps.CanEdit || !caps.IsSymlink {
+		t.Fatalf("caps = %+v, want export+edit with symlink", caps)
+	}
+}
+
+func TestCapabilitiesBuiltinNotEditable(t *testing.T) {
+	isolatedSkillsHome(t)
+	reg := Discover("", Config{Enabled: true})
+	skill, ok := reg.Find("llm-wiki")
+	if !ok {
+		t.Fatalf("llm-wiki not found; errors=%v", reg.Errors)
+	}
+	caps, err := SkillCapabilities(skill)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if caps.CanEdit || caps.CanDelete {
+		t.Fatalf("caps = %+v, want builtin skill read-only", caps)
+	}
+}
+
+func TestCapabilitiesGlobalAgentsDeletable(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	agents := filepath.Join(home, ".agents", "skills")
+	writeSkill(t, agents, "alpha", "global skill")
+	mirror, err := MirrorRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(mirror, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(agents, "alpha"), filepath.Join(mirror, "alpha")); err != nil {
+		t.Fatal(err)
+	}
+	reg := Discover("", Config{Enabled: true})
+	skill, ok := reg.Find("alpha")
+	if !ok {
+		t.Fatal("alpha not found")
+	}
+	caps, err := SkillCapabilities(skill)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !caps.CanExport || !caps.CanDelete || !caps.CanEdit || !caps.IsSymlink {
+		t.Fatalf("caps = %+v, want export+delete+edit with symlink", caps)
+	}
+}
+
+func TestCapabilitiesWorkspaceNotDeletable(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	workspace := t.TempDir()
+	writeSkill(t, filepath.Join(workspace, ".agents", "skills"), "alpha", "workspace skill")
+	reg := Discover(workspace, Config{Enabled: true})
+	skill, ok := reg.Find("alpha")
+	if !ok {
+		t.Fatal("alpha not found")
+	}
+	caps, err := SkillCapabilities(skill)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if caps.CanDelete {
+		t.Fatalf("caps = %+v, want workspace skill not deletable", caps)
+	}
+	if err := DeleteManagedSkill(skill); err == nil {
+		t.Fatal("DeleteManagedSkill() succeeded for workspace skill")
+	}
+	if _, err := os.Stat(filepath.Join(workspace, ".agents", "skills", "alpha", "SKILL.md")); err != nil {
+		t.Fatalf("workspace skill should remain: %v", err)
+	}
+}
+
+func TestUpdateDiscoveredSkillWritesSource(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	external := t.TempDir()
+	writeSkill(t, external, "alpha", "external skill")
+	skill, err := ReadSkill(filepath.Join(external, "alpha"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	updated := "---\nname: alpha\ndescription: edited external skill\n---\n\n# Alpha\n\nUpdated\n"
+	if err := UpdateDiscoveredSkill(skill, updated); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(external, "alpha", "SKILL.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), "Updated") {
+		t.Fatalf("source not updated: %q", raw)
+	}
+}
+
+func TestUpdateDiscoveredSkillRejectsBuiltin(t *testing.T) {
+	isolatedSkillsHome(t)
+	reg := Discover("", Config{Enabled: true})
+	skill, ok := reg.Find("llm-wiki")
+	if !ok {
+		t.Fatalf("llm-wiki not found; errors=%v", reg.Errors)
+	}
+	err := UpdateDiscoveredSkill(skill, "---\nname: llm-wiki\ndescription: edited\n---\n\n# No\n")
+	if !errors.Is(err, ErrSkillNotEditable) {
+		t.Fatalf("UpdateDiscoveredSkill() error = %v, want ErrSkillNotEditable", err)
+	}
+}
+
+func TestUpdateDiscoveredSkillRejectsNameMismatch(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	if err := WriteSkill("alpha", "---\nname: alpha\ndescription: managed\n---\n\n# Alpha\n", false); err != nil {
+		t.Fatal(err)
+	}
+	reg := Discover("", Config{Enabled: true})
+	skill, ok := reg.Find("alpha")
+	if !ok {
+		t.Fatal("alpha not found")
+	}
+	err := UpdateDiscoveredSkill(skill, "---\nname: beta\ndescription: wrong name\n---\n\n# Beta\n")
+	if err == nil || !strings.Contains(err.Error(), "must match") {
+		t.Fatalf("UpdateDiscoveredSkill() error = %v, want name mismatch", err)
 	}
 }
 
@@ -265,6 +387,49 @@ func TestWriteSkillAndDeleteManagedSkill(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(mirror, "new-skill")); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("skill dir still exists: %v", err)
+	}
+}
+
+func TestDeleteManagedSkillRemovesGlobalSourceAndMirror(t *testing.T) {
+	cases := []struct {
+		name string
+		rel  string
+	}{
+		{name: "agents", rel: filepath.Join(".agents", "skills")},
+		{name: "opencode", rel: filepath.Join(".config", "opencode", "skills")},
+		{name: "claude", rel: filepath.Join(".claude", "skills")},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			home := t.TempDir()
+			t.Setenv("HOME", home)
+			root := filepath.Join(home, tc.rel)
+			writeSkill(t, root, "alpha", "global skill")
+			mirror, err := MirrorRoot()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.MkdirAll(mirror, 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink(filepath.Join(root, "alpha"), filepath.Join(mirror, "alpha")); err != nil {
+				t.Fatal(err)
+			}
+			reg := Discover("", Config{Enabled: true, IncludeOpenCode: true, IncludeClaude: true})
+			skill, ok := reg.Find("alpha")
+			if !ok {
+				t.Fatal("alpha not found")
+			}
+			if err := DeleteManagedSkill(skill); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := os.Stat(filepath.Join(root, "alpha")); !errors.Is(err, os.ErrNotExist) {
+				t.Fatalf("global skill still exists: %v", err)
+			}
+			if _, err := os.Lstat(filepath.Join(mirror, "alpha")); !errors.Is(err, os.ErrNotExist) {
+				t.Fatalf("mirror symlink still exists: %v", err)
+			}
+		})
 	}
 }
 

@@ -212,7 +212,7 @@ export const SHORTCUT_DEFINITIONS: KeyboardShortcutDefinition[] = [
 	},
 	{
 		id: 'openSkillDrafts',
-		label: 'Open skill drafts',
+		label: 'Open skills',
 		category: 'panels',
 		defaultBinding: { command: true, key: '2' }
 	},

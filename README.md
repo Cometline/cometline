@@ -195,7 +195,7 @@ Skills are reusable prompt templates — built-in slash commands plus custom ski
 
 Built-in composer commands include `/change`, `/create-skill`, `/model`, `/job`, `/list-jobs`, and `/clear`.
 
-Skills can be drafted before promotion. Drafts live in `~/.cometmind/skill-drafts/` and are managed through CometMind's skill draft APIs plus the Cometline `/skill-drafts` route. When synthesizing a new skill, CometMind detects overlap against managed live skills and drafts (similar name/description) so you can refine or reuse instead of duplicating.
+Skills can be drafted before promotion. Drafts live in `~/.cometmind/skill-drafts/` and are managed through CometMind's skill draft APIs plus the Cometline `/skills` route (Drafts tab). When synthesizing a new skill, CometMind detects overlap against managed live skills and drafts (similar name/description) so you can refine or reuse instead of duplicating.
 
 ### MCP Tools
 

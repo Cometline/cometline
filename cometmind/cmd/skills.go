@@ -84,7 +84,7 @@ var skillsSyncCmd = &cobra.Command{
 
 var skillsDeleteCmd = &cobra.Command{
 	Use:   "delete <name>",
-	Short: "Delete a managed skill from ~/.cometmind/skills",
+	Short: "Delete a managed or global skill directory",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(_ *cobra.Command, args []string) error {
 		ctx := context.Background()
