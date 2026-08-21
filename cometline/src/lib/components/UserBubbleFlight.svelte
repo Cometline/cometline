@@ -6,6 +6,7 @@
 	} from '$lib/first-turn-flight';
 	import { imageDataURL } from '$lib/files/images';
 	import AssistantMarkdown from '$lib/components/AssistantMarkdown.svelte';
+	import UserMessageViewport from '$lib/components/chat/UserMessageViewport.svelte';
 	import type { ImageAttachment } from '$lib/types';
 
 	interface RunOptions {
@@ -100,16 +101,18 @@
 
 {#if showUserFlight}
 	<div class="flight-particle bubble user-bubble" style={userFlightStyle}>
-		{#if userFlightImages?.length}
-			<div class="user-images" class:text-following={Boolean(userFlightText)}>
-				{#each userFlightImages as image, index (`${image.id ?? index}`)}
-					<img src={imageDataURL(image)} alt={image.name ?? 'Attached image'} />
-				{/each}
-			</div>
-		{/if}
-		{#if userFlightText.trim()}
-			<AssistantMarkdown source={userFlightText.trim()} mode="user" />
-		{/if}
+		<UserMessageViewport interactive={false}>
+			{#if userFlightImages?.length}
+				<div class="user-images" class:text-following={Boolean(userFlightText)}>
+					{#each userFlightImages as image, index (`${image.id ?? index}`)}
+						<img src={imageDataURL(image)} alt={image.name ?? 'Attached image'} />
+					{/each}
+				</div>
+			{/if}
+			{#if userFlightText.trim()}
+				<AssistantMarkdown source={userFlightText.trim()} mode="user" />
+			{/if}
+		</UserMessageViewport>
 	</div>
 {/if}
 

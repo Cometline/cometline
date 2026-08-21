@@ -6,6 +6,7 @@
 	import ThreadAvatar from '$lib/components/chat/ThreadAvatar.svelte';
 	import ThreadRow from '$lib/components/chat/ThreadRow.svelte';
 	import ImageLightbox from '$lib/components/chat/ImageLightbox.svelte';
+	import UserMessageViewport from '$lib/components/chat/UserMessageViewport.svelte';
 	import { imageDataURL } from '$lib/files/images';
 	import type { ChatItem } from '$lib/stores/chat.svelte';
 
@@ -43,25 +44,27 @@
 </script>
 
 {#snippet bubbleBody()}
-	{#if item.images?.length}
-		<div class="user-images" class:text-following={Boolean(item.text)}>
-			{#each item.images as image, imageIndex (`${item.id}-image-${image.id ?? imageIndex}`)}
-				{@const src = imageDataURL(image)}
-				{@const alt = image.name ?? 'Attached image'}
-				<button
-					type="button"
-					class="image-open"
-					aria-label={`View ${alt}`}
-					onclick={() => (lightbox = { src, alt })}
-				>
-					<img {src} {alt} />
-				</button>
-			{/each}
-		</div>
-	{/if}
-	{#if item.text?.trim()}
-		<AssistantMarkdown source={item.text.trim()} mode="user" />
-	{/if}
+	<UserMessageViewport contentId={`user-message-content-${item.id}`}>
+		{#if item.images?.length}
+			<div class="user-images" class:text-following={Boolean(item.text)}>
+				{#each item.images as image, imageIndex (`${item.id}-image-${image.id ?? imageIndex}`)}
+					{@const src = imageDataURL(image)}
+					{@const alt = image.name ?? 'Attached image'}
+					<button
+						type="button"
+						class="image-open"
+						aria-label={`View ${alt}`}
+						onclick={() => (lightbox = { src, alt })}
+					>
+						<img {src} {alt} />
+					</button>
+				{/each}
+			</div>
+		{/if}
+		{#if item.text?.trim()}
+			<AssistantMarkdown source={item.text.trim()} mode="user" />
+		{/if}
+	</UserMessageViewport>
 {/snippet}
 
 <ThreadRow variant="user" {continuationRow} data-user-item-id={item.id}>

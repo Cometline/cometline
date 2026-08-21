@@ -77,6 +77,7 @@
 	--thread-turn-bottom-clearance: 96px;
 	/* Set on .thread at runtime from viewport height; used by active turn scroll-margin. */
 	--thread-user-pin-offset-followup: 0px;
+	--user-message-collapsed-height: min(18rem, 42dvh);
 
 	/* Motion */
 	--ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);

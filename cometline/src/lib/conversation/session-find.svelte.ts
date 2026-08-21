@@ -1,3 +1,4 @@
+import { tick } from 'svelte';
 import {
 	findSessionTextMatches,
 	SESSION_FIND_ACTIVE_HIGHLIGHT,
@@ -18,9 +19,7 @@ function highlightRegistry(): HighlightRegistry | null {
 }
 
 function highlightConstructor(): HighlightConstructor | null {
-	return (
-		(globalThis as unknown as { Highlight?: HighlightConstructor }).Highlight ?? null
-	);
+	return (globalThis as unknown as { Highlight?: HighlightConstructor }).Highlight ?? null;
 }
 
 export function createSessionFindController(getRoot: () => HTMLElement | null) {
@@ -50,11 +49,19 @@ export function createSessionFindController(getRoot: () => HTMLElement | null) {
 		if (active) registry.set(SESSION_FIND_ACTIVE_HIGHLIGHT, new Highlight(active.range));
 	}
 
-	function scrollActiveIntoView() {
+	async function scrollActiveIntoView() {
 		const active = matches[activeIndex];
 		if (!active) return;
 		const scroller = getRoot();
 		if (!scroller) return;
+		const expandButton = active.root.querySelector<HTMLButtonElement>(
+			'[data-user-message-expand][aria-expanded="false"]'
+		);
+		if (expandButton) {
+			expandButton.click();
+			await tick();
+			if (matches[activeIndex] !== active) return;
+		}
 		const rangeRect = active.range.getBoundingClientRect?.();
 		const scrollerRect = scroller.getBoundingClientRect();
 		if (rangeRect && (rangeRect.width > 0 || rangeRect.height > 0)) {
@@ -74,7 +81,7 @@ export function createSessionFindController(getRoot: () => HTMLElement | null) {
 		else if (!options.preserveIndex || activeIndex < 0) activeIndex = 0;
 		else activeIndex = Math.min(activeIndex, matches.length - 1);
 		paintHighlights();
-		if (options.scroll && activeIndex >= 0) scrollActiveIntoView();
+		if (options.scroll && activeIndex >= 0) void scrollActiveIntoView();
 	}
 
 	function openFind() {
@@ -103,7 +110,7 @@ export function createSessionFindController(getRoot: () => HTMLElement | null) {
 		if (matches.length === 0) return;
 		activeIndex = (activeIndex + direction + matches.length) % matches.length;
 		paintHighlights();
-		scrollActiveIntoView();
+		void scrollActiveIntoView();
 	}
 
 	function observe() {

@@ -79,4 +79,30 @@ describe('createSessionFindController', () => {
 		disconnect();
 		cleanup();
 	});
+
+	it('expands a collapsed user message before scrolling to its active match', async () => {
+		root.innerHTML = `
+			<div data-session-find-text>
+				<div data-user-message-viewport>hidden match</div>
+				<button data-user-message-expand aria-expanded="false">Expand</button>
+			</div>
+		`;
+		const expand = root.querySelector<HTMLButtonElement>('[data-user-message-expand]')!;
+		const message = root.querySelector<HTMLElement>('[data-session-find-text]')!;
+		const order: string[] = [];
+		vi.spyOn(expand, 'click').mockImplementation(() => order.push('expand'));
+		vi.mocked(HTMLElement.prototype.scrollIntoView).mockImplementation(function () {
+			if (this === message) order.push('scroll');
+		});
+		let controller!: ReturnType<typeof createSessionFindController>;
+		const cleanup = $effect.root(() => {
+			controller = createSessionFindController(() => root);
+		});
+
+		controller.openFind();
+		controller.setQuery('hidden');
+		await vi.waitFor(() => expect(order).toEqual(['expand', 'scroll']));
+
+		cleanup();
+	});
 });
