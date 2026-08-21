@@ -206,8 +206,8 @@ func TestCapabilitiesManagedDirectory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !caps.CanExport || !caps.CanDelete || caps.IsSymlink {
-		t.Fatalf("caps = %+v, want export+delete without symlink", caps)
+	if !caps.CanExport || !caps.CanDelete || !caps.CanEdit || caps.IsSymlink {
+		t.Fatalf("caps = %+v, want export+delete+edit without symlink", caps)
 	}
 }
 
@@ -235,8 +235,76 @@ func TestCapabilitiesSymlinkMirrorNotDeletable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !caps.CanExport || caps.CanDelete || !caps.IsSymlink {
-		t.Fatalf("caps = %+v, want export only with symlink", caps)
+	if !caps.CanExport || caps.CanDelete || !caps.CanEdit || !caps.IsSymlink {
+		t.Fatalf("caps = %+v, want export+edit with symlink", caps)
+	}
+}
+
+func TestCapabilitiesBuiltinNotEditable(t *testing.T) {
+	isolatedSkillsHome(t)
+	reg := Discover("", Config{Enabled: true})
+	skill, ok := reg.Find("llm-wiki")
+	if !ok {
+		t.Fatalf("llm-wiki not found; errors=%v", reg.Errors)
+	}
+	caps, err := SkillCapabilities(skill)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if caps.CanEdit {
+		t.Fatalf("caps = %+v, want builtin skill read-only", caps)
+	}
+}
+
+func TestUpdateDiscoveredSkillWritesSource(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	external := t.TempDir()
+	writeSkill(t, external, "alpha", "external skill")
+	skill, err := ReadSkill(filepath.Join(external, "alpha"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	updated := "---\nname: alpha\ndescription: edited external skill\n---\n\n# Alpha\n\nUpdated\n"
+	if err := UpdateDiscoveredSkill(skill, updated); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(external, "alpha", "SKILL.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), "Updated") {
+		t.Fatalf("source not updated: %q", raw)
+	}
+}
+
+func TestUpdateDiscoveredSkillRejectsBuiltin(t *testing.T) {
+	isolatedSkillsHome(t)
+	reg := Discover("", Config{Enabled: true})
+	skill, ok := reg.Find("llm-wiki")
+	if !ok {
+		t.Fatalf("llm-wiki not found; errors=%v", reg.Errors)
+	}
+	err := UpdateDiscoveredSkill(skill, "---\nname: llm-wiki\ndescription: edited\n---\n\n# No\n")
+	if !errors.Is(err, ErrSkillNotEditable) {
+		t.Fatalf("UpdateDiscoveredSkill() error = %v, want ErrSkillNotEditable", err)
+	}
+}
+
+func TestUpdateDiscoveredSkillRejectsNameMismatch(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	if err := WriteSkill("alpha", "---\nname: alpha\ndescription: managed\n---\n\n# Alpha\n", false); err != nil {
+		t.Fatal(err)
+	}
+	reg := Discover("", Config{Enabled: true})
+	skill, ok := reg.Find("alpha")
+	if !ok {
+		t.Fatal("alpha not found")
+	}
+	err := UpdateDiscoveredSkill(skill, "---\nname: beta\ndescription: wrong name\n---\n\n# Beta\n")
+	if err == nil || !strings.Contains(err.Error(), "must match") {
+		t.Fatalf("UpdateDiscoveredSkill() error = %v, want name mismatch", err)
 	}
 }
 
