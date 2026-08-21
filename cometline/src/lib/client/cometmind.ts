@@ -10,7 +10,9 @@ import {
 	deleteMemory as deleteMemoryApi,
 	deleteSession as deleteSessionApi,
 	deleteSkill as deleteSkillApi,
+	getSkill as getSkillApi,
 	getSkillDraft as getSkillDraftApi,
+	updateSkill as updateSkillApi,
 	updateSkillDraft as updateSkillDraftApi,
 	getMemorySettings as getMemorySettingsApi,
 	getSession as getSessionApi,
@@ -91,6 +93,7 @@ import type {
 	McpTestResult,
 	McpToolInfo,
 	MemoryResource,
+	SkillDetailResponse,
 	SkillDraft,
 	SkillDraftDetailResponse,
 	MemorySettings as MemorySettingsWire,
@@ -146,6 +149,7 @@ export type {
 } from '$lib/generated/cometmind-api';
 
 export type {
+	SkillDetailResponse,
 	SkillDraft,
 	SkillDraftDetailResponse,
 	JobResource,
@@ -509,6 +513,27 @@ export async function clearSession(sessionId: string): Promise<void> {
 export function listSkills(workspacePath = ''): Promise<ListSkillsResponse> {
 	return listSkillsApi({
 		query: skillQuery(workspacePath),
+		throwOnError: true
+	}).then(({ data }) => data);
+}
+
+export function getSkill(name: string, workspacePath = ''): Promise<SkillDetailResponse> {
+	return getSkillApi({
+		path: { name },
+		query: skillQuery(workspacePath),
+		throwOnError: true
+	}).then(({ data }) => data);
+}
+
+export function updateSkill(
+	name: string,
+	content: string,
+	workspacePath = ''
+): Promise<SkillDetailResponse> {
+	return updateSkillApi({
+		path: { name },
+		query: skillQuery(workspacePath),
+		body: { content },
 		throwOnError: true
 	}).then(({ data }) => data);
 }

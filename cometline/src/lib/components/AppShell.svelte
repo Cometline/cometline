@@ -318,7 +318,7 @@
 			case 'openSkillDrafts':
 				if (shellStore.settingsOpen) shellStore.closeSettings();
 				inboxStore.closeDrawer();
-				void goto('/skill-drafts');
+				void goto('/skills');
 				return;
 			case 'openGallery':
 				if (shellStore.settingsOpen) shellStore.closeSettings();
@@ -724,6 +724,7 @@
 
 	const isUtilityPage = $derived(
 		page.url.pathname === '/jobs' ||
+			page.url.pathname === '/skills' ||
 			page.url.pathname === '/skill-drafts' ||
 			page.url.pathname === '/gallery' ||
 			page.url.pathname === '/usage'
@@ -731,7 +732,7 @@
 	const showShellTitlebar = $derived(!shellStore.fullscreen);
 	const titlebarLabel = $derived.by(() => {
 		if (page.url.pathname === '/jobs') return 'Jobs';
-		if (page.url.pathname === '/skill-drafts') return 'Skill Drafts';
+		if (page.url.pathname === '/skills' || page.url.pathname === '/skill-drafts') return 'Skills';
 		if (page.url.pathname === '/gallery') return 'Gallery';
 		if (page.url.pathname === '/usage') return 'Usage';
 		return titlebarSessionTitle;
