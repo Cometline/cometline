@@ -37,14 +37,18 @@
 	let contentBusy = $state(false);
 	let saveBusy = $state(false);
 	let deletePending = $state<SkillResource | null>(null);
+	let pendingSkillName = $state('');
 	let status = $state('');
+	let skillRequestId = 0;
 	let selectedDraftId = $derived(selectedDraft?.draft.name ?? '');
 	let draftDirty = $derived(selectedDraft !== null && draftContent !== selectedDraft.content);
 	let selectedSkillId = $derived(selectedSkill?.skill.name ?? '');
 	let skillDirty = $derived(selectedSkill !== null && skillContent !== selectedSkill.content);
 	let canEditSkill = $derived(selectedSkill?.skill.can_edit ?? false);
 	let canDeleteSkill = $derived(selectedSkill?.skill.can_delete ?? false);
-	let tab = $derived<SkillsTab>(page.url.searchParams.get('tab') === 'skills' ? 'skills' : 'drafts');
+	let tab = $derived<SkillsTab>(
+		page.url.searchParams.get('tab') === 'skills' ? 'skills' : 'drafts'
+	);
 	let filteredSkills = $derived.by(() => {
 		const q = skillSearch.trim().toLowerCase();
 		if (!q) return skills;
@@ -116,7 +120,8 @@
 				options.keepSelection && selectedSkillName
 					? skills.find((skill) => skill.name === selectedSkillName)?.name
 					: '';
-			await openSkill(preferred || skills[0].name);
+			if (preferred && skillDirty) return;
+			await openSkill(preferred || skills[0].name, { force: true });
 		} catch (err) {
 			status = err instanceof Error ? err.message : 'Failed to load skills';
 		} finally {
@@ -147,20 +152,39 @@
 		}
 	}
 
-	async function openSkill(name: string) {
+	async function openSkill(name: string, options: { force?: boolean } = {}) {
+		if (!options.force && name === selectedSkillName && selectedSkill) return;
+		if (!options.force && skillDirty) {
+			pendingSkillName = name;
+			return;
+		}
+		const requestId = ++skillRequestId;
 		selectedSkillName = name;
 		deletePending = null;
 		contentBusy = true;
 		try {
-			selectedSkill = await getSkill(name, shellStore.workspacePath);
-			skillContent = selectedSkill.content;
+			const detail = await getSkill(name, shellStore.workspacePath);
+			if (requestId !== skillRequestId || selectedSkillName !== name) return;
+			selectedSkill = detail;
+			skillContent = detail.content;
 		} catch (err) {
+			if (requestId !== skillRequestId || selectedSkillName !== name) return;
 			selectedSkill = null;
 			skillContent = '';
 			status = err instanceof Error ? err.message : 'Failed to load skill';
 		} finally {
-			contentBusy = false;
+			if (requestId === skillRequestId) contentBusy = false;
 		}
+	}
+
+	function discardSkillChanges() {
+		const name = pendingSkillName;
+		pendingSkillName = '';
+		if (name) void openSkill(name, { force: true });
+	}
+
+	function requestDeleteSelectedSkill() {
+		if (selectedSkill) deletePending = selectedSkill.skill;
 	}
 
 	async function saveDraft(name: string) {
@@ -181,9 +205,13 @@
 	async function saveSkill(name: string) {
 		saveBusy = true;
 		status = '';
+		const submittedContent = skillContent;
 		try {
-			selectedSkill = await updateSkill(name, skillContent, shellStore.workspacePath);
-			skillContent = selectedSkill.content;
+			const updated = await updateSkill(name, submittedContent, shellStore.workspacePath);
+			if (selectedSkillName === name) {
+				selectedSkill = updated;
+				if (skillContent === submittedContent) skillContent = updated.content;
+			}
 			status = `Saved skill ${name}.`;
 			await refreshSkills({ keepSelection: true });
 		} catch (err) {
@@ -250,15 +278,16 @@
 		<div class="page-copy">
 			{#if tab === 'drafts'}
 				<p>
-					Review and edit reusable skills drafted from <code>/create-skill</code> or completed
-					jobs. Drafts stay inactive until you promote them into
+					Review and edit reusable skills drafted from <code>/create-skill</code> or
+					completed jobs. Drafts stay inactive until you promote them into
 					<code>~/.cometmind/skills</code>.
 				</p>
 			{:else}
 				<p>
 					Browse and edit Agent Skills Cometline can use. Changes write to the skill's
-					<code>SKILL.md</code> in place. Delete removes managed skills and global originals
-					under <code>~/.agents</code>, OpenCode, or Claude. Workspace and bundled skills stay.
+					<code>SKILL.md</code> in place. Delete removes managed skills and global
+					originals under <code>~/.agents</code>, OpenCode, or Claude. Workspace and
+					bundled skills stay.
 				</p>
 			{/if}
 			{#if status}
@@ -289,7 +318,11 @@
 					Skills
 				</button>
 			</div>
-			<button class="secondary" type="button" onclick={() => void refreshCurrent({ keepSelection: true })}>
+			<button
+				class="secondary"
+				type="button"
+				onclick={() => void refreshCurrent({ keepSelection: true })}
+			>
 				{busy ? 'Loading...' : tab === 'drafts' ? 'Refresh drafts' : 'Refresh skills'}
 			</button>
 		</div>
@@ -362,7 +395,8 @@
 								</button>
 							</div>
 						</header>
-						<textarea class="item-markdown" bind:value={draftContent} spellcheck="false"></textarea>
+						<textarea class="item-markdown" bind:value={draftContent} spellcheck="false"
+						></textarea>
 					{:else}
 						<p class="page-muted">Select a draft to preview it.</p>
 					{/if}
@@ -459,7 +493,7 @@
 									class="secondary danger"
 									disabled={busy || saveBusy}
 									title={`Delete ${selectedSkill.skill.path}`}
-									onclick={() => (deletePending = selectedSkill.skill)}
+									onclick={requestDeleteSelectedSkill}
 								>
 									Delete
 								</button>
@@ -479,6 +513,15 @@
 		</div>
 	{/if}
 </div>
+
+<ConfirmActionModal
+	open={Boolean(pendingSkillName)}
+	title="Discard unsaved changes?"
+	description={`Switching to ${pendingSkillName || 'another skill'} will discard your unsaved changes.`}
+	confirmLabel="Discard"
+	onConfirm={discardSkillChanges}
+	onCancel={() => (pendingSkillName = '')}
+/>
 
 <ConfirmActionModal
 	open={Boolean(deletePending)}
