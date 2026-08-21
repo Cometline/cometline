@@ -54,7 +54,7 @@ The renderer checks `window.electronAPI` before calling — this lets `pnpm run 
 | `getProviderSettings()` / `saveProviderSettings(settings)`                | Merge/split settings read/write + apply side effects |
 | `fetchProviderModels(config)`                                             | Model list for API-key providers                     |
 | Codex / xAI auth helpers                                                  | Subscription session sign-in / auth path discovery   |
-| `getMcpOAuthStatus()` / `startMcpOAuth()`                                 | Native-browser MCP OAuth flow                        |
+| MCP OAuth                                                                 | CometMind HTTP OAuth flow, not Electron IPC          |
 | `readCursorMcpConfig()`                                                   | Import Cursor-style MCP config                       |
 | `notifyJob()`                                                             | Desktop notifications for job changes                |
 | `watchWorkspace()` / `onWorkspaceChanged()`                               | Debounced external file/Git changes refresh renderer surfaces |

@@ -131,7 +131,7 @@ Exposed as `window.electronAPI` by `electron/src/preload.ts`, with its contract 
 | `getProviderSettings()` / `saveProviderSettings()`                                    | Read/write full settings blob                  |
 | `fetchProviderModels(config)`                                                         | Query provider model list from main process    |
 | `getDiscordGatewayStatus()` / `setDiscordGatewayEnabled()`                            | Discord bot subprocess                         |
-| `getMcpOAuthStatus()` / `startMcpOAuth()`                                             | Native MCP OAuth browser + callback flow       |
+| MCP OAuth                                                                             | CometMind `POST /api/v1/mcp/servers/{id}/oauth-flows` (not Electron IPC) |
 | `readCursorMcpConfig()`                                                               | Import Cursor-style MCP config                 |
 | `notifyJob()`                                                                         | Desktop notification for job events            |
 | `getOpenAtLogin()` / `setOpenAtLogin()`                                               | macOS login item                               |
