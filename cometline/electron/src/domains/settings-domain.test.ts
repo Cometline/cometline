@@ -226,6 +226,9 @@ describe('settings domain factory', () => {
 		settings.app.miniWindowSessionId = 'persisted-mini-session';
 		domain.writeProviderSettings(settings);
 		expect(domain.readMiniWindowState().sessionId).toBe('persisted-mini-session');
+		domain.touchMiniWindowActivity();
+		expect(domain.readMiniWindowState().lastActiveAt).toBe(1_700_000_000_000);
+		expect(domain.flushMiniWindowActivity().lastActiveAt).toBe(1_700_000_000_000);
 		expect(domain.writeStoredWorkspacePath(workspace)).toBe(workspace);
 		expect(domain.listRecentWorkspacePaths()).toEqual([workspace]);
 		expect(domain.appendComposerHistoryEntry({ display: 'run tests', project: workspace })).toMatchObject({

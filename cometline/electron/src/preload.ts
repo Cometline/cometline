@@ -69,6 +69,8 @@ const electronAPI: ElectronAPI = {
 	openSettingsWindow: () => ipcRenderer.invoke('cometline:open-settings-window'),
 	replayIntroInMainWindow: () => ipcRenderer.invoke('cometline:replay-intro'),
 	runSetupWizardInMainWindow: () => ipcRenderer.invoke('cometline:run-setup-wizard'),
+	onMiniWindowActivated: (callback) =>
+		subscribeSignal('cometline:activate-mini-window', callback),
 	getMiniWindowState: () => ipcRenderer.invoke('cometline:get-mini-window-state'),
 	saveMiniWindowState: (state) => ipcRenderer.invoke('cometline:save-mini-window-state', state),
 	fetchProviderModels: (config) => ipcRenderer.invoke('cometline:fetch-provider-models', config),

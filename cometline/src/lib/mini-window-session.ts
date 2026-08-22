@@ -43,6 +43,15 @@ export async function ensureMiniWindowSession(preferredSessionId = '') {
 	const workspacePath = (await window.electronAPI?.getWorkspacePath?.()) ?? '/';
 
 	if (sessionId && shouldReuseSession) {
+		const cached = sessionStore.loaded
+			? sessionStore.sessions.find((item) => item.id === sessionId)
+			: undefined;
+		if (cached) {
+			if (cached.id !== state.sessionId) {
+				await window.electronAPI?.saveMiniWindowState?.({ sessionId: cached.id });
+			}
+			return cached.id;
+		}
 		// Mini sessions may be pinned or belong to another workspace. The route ID
 		// is authoritative, so do not filter it through Electron's default workspace.
 		const sessions = await listAllSessions();
@@ -70,6 +79,31 @@ export async function ensureMiniWindowSession(preferredSessionId = '') {
 	return session.id;
 }
 
+let activateInFlight: Promise<string> | null = null;
+
+/** Resolve and open the mini session once; later shortcut shows reuse this work. */
+function documentIsVisible() {
+	return typeof document !== 'undefined' && document.visibilityState === 'visible';
+}
+
+export async function activateMiniWindow() {
+	if (activateInFlight) return activateInFlight;
+	if (documentIsVisible()) miniShellStore.startOpening();
+	activateInFlight = (async () => {
+		try {
+			const sessionId = await ensureMiniWindowSession();
+			await goto(`/mini/session/${sessionId}`, { replaceState: true });
+			return sessionId;
+		} catch (error) {
+			miniShellStore.resetOpening();
+			throw error;
+		} finally {
+			activateInFlight = null;
+		}
+	})();
+	return activateInFlight;
+}
+
 /** Select a session without leaving the mini-window route namespace. */
 export async function navigateMiniToSession(session: Session) {
 	sessionStore.selectSession(session);
@@ -90,6 +124,7 @@ export async function navigateMiniToSession(session: Session) {
 /** Create and open a persisted mini-window session using the configured default model. */
 export async function createMiniWindowSession() {
 	let createdSessionId = '';
+	miniShellStore.startOpening();
 	try {
 		const session = await createNewSession();
 		createdSessionId = session.id;
@@ -100,6 +135,7 @@ export async function createMiniWindowSession() {
 		return session;
 	} catch (error) {
 		miniShellStore.clearNewSessionRequest(createdSessionId);
+		miniShellStore.resetOpening();
 		throw error;
 	}
 }
