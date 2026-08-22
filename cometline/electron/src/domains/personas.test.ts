@@ -25,10 +25,10 @@ describe('persona input validation', () => {
 		expect(decodePersonaAvatarDataUrl('data:image/png;base64,not valid')).toBeNull();
 	});
 
-	it('rejects avatars larger than the 2 MB limit', () => {
-		const payload = Buffer.alloc(2 * 1024 * 1024 + 1).toString('base64');
+	it('rejects avatars larger than the 20 MB limit', () => {
+		const payload = Buffer.alloc(20 * 1024 * 1024 + 1).toString('base64');
 		expect(() => decodePersonaAvatarDataUrl(`data:image/png;base64,${payload}`)).toThrow(
-			'Avatar image exceeds 2 MB limit'
+			'Avatar image exceeds 20 MB limit'
 		);
 	});
 

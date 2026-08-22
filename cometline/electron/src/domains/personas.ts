@@ -22,7 +22,7 @@ const PERSONA_IMAGE_MIME_BY_EXT: Record<string, string> = {
 	'.jpeg': 'image/jpeg',
 	'.webp': 'image/webp'
 };
-const PERSONA_AVATAR_MAX_BYTES = 2 * 1024 * 1024;
+const PERSONA_AVATAR_MAX_BYTES = 20 * 1024 * 1024;
 const PERSONA_APP_ICON_SIZE = 1024;
 const PERSONA_APP_ICON_RADIUS = 224;
 const PERSONA_APP_ICON_ARTWORK_SCALE = 0.8125;
@@ -70,7 +70,7 @@ export function decodePersonaAvatarDataUrl(dataUrl: unknown) {
 	const ext = match[1] === 'image/jpeg' ? '.jpg' : match[1] === 'image/webp' ? '.webp' : '.png';
 	const buffer = Buffer.from(match[2], 'base64');
 	if (buffer.length > PERSONA_AVATAR_MAX_BYTES) {
-		throw new Error('Avatar image exceeds 2 MB limit');
+		throw new Error('Avatar image exceeds 20 MB limit');
 	}
 	return { ext, buffer };
 }
@@ -454,7 +454,7 @@ export function createPersonas(dependencies: PersonaDependencies) {
 		}
 		if (!stat.isFile()) return { ok: false, error: 'Avatar image is not a file' };
 		if (stat.size > PERSONA_AVATAR_MAX_BYTES) {
-			return { ok: false, error: 'Avatar image exceeds 2 MB limit' };
+			return { ok: false, error: 'Avatar image exceeds 20 MB limit' };
 		}
 		const ext = path.extname(avatarPath).toLowerCase();
 		const mimeType = PERSONA_IMAGE_MIME_BY_EXT[ext];
