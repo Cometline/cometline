@@ -710,6 +710,7 @@ paths:
                   cache_write: 0
                 pinned: false
                 agent_mode: auto
+                running: false
                 created_at: 1746880000000
                 updated_at: 1746880000000
         '400':
@@ -772,6 +773,7 @@ paths:
                       cache_write: 0
                     pinned: false
                     agent_mode: auto
+                    running: false
                     created_at: 1746880000000
                     updated_at: 1746880200000
         '400':
@@ -985,6 +987,56 @@ paths:
                   message: session sess_01JABCDEF already running
         '500':
           $ref: '#/components/responses/InternalError'
+
+  /api/v1/sessions/{id}/events:
+    get:
+      tags: [Sessions]
+      summary: Replay and follow the current session run
+      description: Replays the active turn snapshot, then streams subsequent events until done.
+      operationId: streamSessionEvents
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200':
+          description: Replay followed by live SSE events
+          content:
+            text/event-stream:
+              schema:
+                $ref: '#/components/schemas/StreamEvent'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Session is not currently running
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      tags: [Sessions]
+      summary: Ingest one gateway-owned session event
+      description: Internal localhost bridge used by a separate gateway process.
+      operationId: ingestSessionEvent
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IngestSessionEventRequest'
+      responses:
+        '204':
+          description: Event accepted
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Run token is no longer current
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/v1/sessions/{id}/media/{mediaId}:
     get:
@@ -3246,6 +3298,7 @@ components:
         - token_usage
         - agent_mode
         - pinned
+        - running
         - created_at
         - updated_at
       properties:
@@ -3276,6 +3329,9 @@ components:
         pinned:
           type: boolean
           description: Whether the session is pinned to the top of its workspace group.
+        running:
+          type: boolean
+          description: Whether this session currently owns the cross-process run lease.
         created_at:
           type: integer
           format: int64
@@ -4083,6 +4139,46 @@ components:
         alt:
           type: string
 
+    RunLifecycleEvent:
+      type: object
+      additionalProperties: false
+      required: [type, session_id]
+      properties:
+        type:
+          type: string
+          enum: [run_started, run_finished]
+        session_id:
+          type: string
+
+    SessionClearedEvent:
+      type: object
+      additionalProperties: false
+      required: [type, session_id]
+      properties:
+        type:
+          type: string
+          const: session_cleared
+        session_id:
+          type: string
+
+    IngestSessionEventRequest:
+      type: object
+      additionalProperties: false
+      required: [run_id]
+      properties:
+        run_id:
+          type: string
+        sequence:
+          type: integer
+          format: uint64
+          minimum: 1
+        start:
+          type: boolean
+        finish:
+          type: boolean
+        event:
+          $ref: '#/components/schemas/StreamEvent'
+
     StreamEvent:
       oneOf:
         - $ref: '#/components/schemas/TextDeltaEvent'
@@ -4100,6 +4196,8 @@ components:
         - $ref: '#/components/schemas/ContextBudgetEvent'
         - $ref: '#/components/schemas/InboxMessageCreatedEvent'
         - $ref: '#/components/schemas/InboxMessageArchivedEvent'
+        - $ref: '#/components/schemas/RunLifecycleEvent'
+        - $ref: '#/components/schemas/SessionClearedEvent'
         - $ref: '#/components/schemas/TurnStatusEvent'
         - $ref: '#/components/schemas/TurnRecoverEvent'
         - $ref: '#/components/schemas/AssistantImageEvent'
@@ -4124,6 +4222,9 @@ components:
           context_budget: '#/components/schemas/ContextBudgetEvent'
           inbox_message_created: '#/components/schemas/InboxMessageCreatedEvent'
           inbox_message_archived: '#/components/schemas/InboxMessageArchivedEvent'
+          run_started: '#/components/schemas/RunLifecycleEvent'
+          run_finished: '#/components/schemas/RunLifecycleEvent'
+          session_cleared: '#/components/schemas/SessionClearedEvent'
           turn_status: '#/components/schemas/TurnStatusEvent'
           turn_recover: '#/components/schemas/TurnRecoverEvent'
           assistant_image: '#/components/schemas/AssistantImageEvent'

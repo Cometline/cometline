@@ -5,7 +5,8 @@ import {
 	getSessionMessages,
 	isSessionNotFoundError,
 	listChildSessions,
-	streamMessage
+	streamMessage,
+	streamSessionEvents
 } from '$lib/client/cometmind';
 import type {
 	ChatItem,
@@ -68,6 +69,10 @@ function createChatStore() {
 
 	function isAbortError(err: unknown) {
 		return err instanceof DOMException && err.name === 'AbortError';
+	}
+
+	function isRunConflict(err: unknown) {
+		return Boolean(err && typeof err === 'object' && 'status' in err && err.status === 409);
 	}
 
 	function cachedItemCount(targetSessionID: string) {
@@ -620,7 +625,7 @@ function createChatStore() {
 	async function send(
 		nextSessionID: string,
 		payloadOrText: ChatTurnPayload | string,
-		opts?: { skipUser?: boolean }
+		opts?: { skipUser?: boolean; onConflict?: () => void }
 	) {
 		const payload = typeof payloadOrText === 'string' ? { text: payloadOrText } : payloadOrText;
 		const text = payload.text;
@@ -716,6 +721,15 @@ function createChatStore() {
 				discardMissingSession(nextSessionID);
 				return;
 			}
+			if (isRunConflict(err)) {
+				opts?.onConflict?.();
+				flushBatchForSession(nextSessionID, ctx, handle);
+				applyEventToSession(nextSessionID, { type: 'done' }, ctx);
+				unmarkStreaming(nextSessionID);
+				await refreshTranscript(nextSessionID);
+				await resumeRun(nextSessionID);
+				return;
+			}
 			streamOutcome = 'error';
 			applyStreamEventForSession(
 				nextSessionID,
@@ -741,11 +755,114 @@ function createChatStore() {
 		}
 	}
 
+	async function resumeRun(targetSessionID: string) {
+		if (streamHandles.has(targetSessionID)) return;
+
+		const handle: SessionStream = {
+			run: ++globalStreamRun,
+			abort: new AbortController(),
+			pendingBatchEvents: [],
+			batchFrame: 0,
+			ctx: {
+				assistant: { current: null },
+				reasoning: { current: null }
+			}
+		};
+		const cached = getCachedItems(targetSessionID);
+		const lastUserIndex = cached.findLastIndex((item) => item.type === 'user');
+		const currentTurnAssistant = cached.findLast(
+			(item, index): item is AssistantItem =>
+				item.type === 'assistant' && index > lastUserIndex
+		);
+		if (currentTurnAssistant) {
+			handle.ctx.assistant.current = currentTurnAssistant;
+		} else {
+			const assistant: AssistantItem = {
+				id: localID('assistant'),
+				type: 'assistant',
+				text: '',
+				pending: true,
+				pendingStartedAt: Date.now()
+			};
+			writeSessionItems(targetSessionID, [...cached, assistant]);
+			handle.ctx.assistant.current = assistant;
+		}
+
+		sessionErrors.delete(targetSessionID);
+		setRunError(targetSessionID, false);
+		markStreaming(targetSessionID, handle);
+		sessionStore.setRunning(targetSessionID, true);
+		let streamDone = false;
+		let streamOutcome: 'success' | 'abort' | 'error' = 'success';
+		let refreshAfterConflict = false;
+		try {
+			for await (const event of streamSessionEvents(targetSessionID, handle.abort.signal)) {
+				const current = streamHandles.get(targetSessionID);
+				if (!current || current.run !== handle.run) {
+					handle.abort.abort();
+					return;
+				}
+				if (event.type === 'done') {
+					streamDone = true;
+					flushBatchForSession(targetSessionID, handle.ctx, handle);
+					applyEventToSession(targetSessionID, event, handle.ctx);
+					unmarkStreaming(targetSessionID);
+					sessionStore.setRunning(targetSessionID, false);
+					settleRunFeedback(targetSessionID, streamOutcome);
+					break;
+				}
+				if (event.type === 'error') streamOutcome = 'error';
+				applyStreamEventForSession(targetSessionID, event, handle.ctx, handle);
+			}
+		} catch (err) {
+			const current = streamHandles.get(targetSessionID);
+			if (!current || current.run !== handle.run) return;
+			if (isAbortError(err)) {
+				streamOutcome = 'abort';
+				return;
+			}
+			if (isRunConflict(err)) {
+				refreshAfterConflict = true;
+				return;
+			}
+			if (isSessionNotFoundError(err)) {
+				discardMissingSession(targetSessionID);
+				return;
+			}
+			streamOutcome = 'error';
+			applyStreamEventForSession(
+				targetSessionID,
+				{
+					type: 'error',
+					message: err instanceof Error ? err.message : 'Failed to resume response'
+				},
+				handle.ctx,
+				handle
+			);
+		} finally {
+			if (streamHandles.get(targetSessionID) === handle) {
+				flushBatchForSession(targetSessionID, handle.ctx, handle);
+				if (!streamDone) {
+					applyEventToSession(targetSessionID, { type: 'done' }, handle.ctx);
+					unmarkStreaming(targetSessionID);
+					sessionStore.setRunning(targetSessionID, false);
+					if (!refreshAfterConflict) {
+						settleRunFeedback(targetSessionID, streamOutcome);
+						ensureVisibleTurnFeedback(targetSessionID, handle.ctx, streamOutcome);
+					}
+				}
+			}
+			if (refreshAfterConflict) await refreshTranscript(targetSessionID);
+		}
+	}
+
 	async function cancel(targetSessionID?: string) {
 		const id = targetSessionID ?? sessionID;
 		if (!id) return;
 		const handle = streamHandles.get(id);
-		if (!handle && !isStreamingFor(id)) return;
+		const running =
+			sessionStore.sessions.find((session) => session.id === id)?.running ?? false;
+		if (!handle && !isStreamingFor(id) && !running) return;
 
 		handle?.abort.abort();
 		try {
@@ -841,6 +958,7 @@ function createChatStore() {
 		bindSession,
 		loadTranscript,
 		refreshTranscript,
+		resumeRun,
 		stageUserForSession,
 		revealStagedUserForSession,
 		stageUser,

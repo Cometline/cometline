@@ -9,6 +9,7 @@ import (
 
 	cometsdk "github.com/cometline/comet-sdk"
 	"github.com/cometline/cometmind/internal/config"
+	"github.com/cometline/cometmind/internal/runstate"
 	"github.com/cometline/cometmind/internal/session"
 	"github.com/cometline/cometmind/internal/store"
 	"github.com/cometline/cometmind/internal/usage"
@@ -37,6 +38,7 @@ func TestUsageHandlersSummarySeriesAndEvents(t *testing.T) {
 		Config:    config.Defaults(),
 		Sessions:  sessions,
 		Usage:     usageSvc,
+		Runs:      NewRunManager(runstate.New(sqlDB)),
 		NewRunner: func(session.Session, string, session.AgentMode) (Runner, error) { return nil, nil },
 	})
 	if err != nil {

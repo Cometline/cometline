@@ -89,6 +89,28 @@ describe('createChatTurnQueue', () => {
 		expect(queue.processing).toBe(false);
 	});
 
+	it('holds submitted turns behind an external activation barrier', async () => {
+		let releaseBarrier: (() => void) | undefined;
+		const barrier = new Promise<void>((resolve) => {
+			releaseBarrier = resolve;
+		});
+		const runTurn = vi.fn().mockResolvedValue(undefined);
+		const queue = createChatTurnQueue(runTurn);
+
+		queue.blockUntil(barrier);
+		const accepted = await queue.enqueue('after resume');
+
+		expect(accepted).toBe(true);
+		expect(queue.processing).toBe(true);
+		expect(queue.pendingMessages.map((item) => item.text)).toEqual(['after resume']);
+		expect(runTurn).not.toHaveBeenCalled();
+
+		releaseBarrier!();
+		await vi.waitFor(() => expect(queue.processing).toBe(false));
+
+		expect(runTurn).toHaveBeenCalledWith({ text: 'after resume' });
+	});
+
 	it('keeps draining queued messages after the active turn fails', async () => {
 		const order: string[] = [];
 		let rejectFirst: ((error: Error) => void) | undefined;
@@ -104,7 +126,9 @@ describe('createChatTurnQueue', () => {
 
 		const first = queue.enqueue('first');
 		const second = queue.enqueue('second');
-		await vi.waitFor(() => expect(queue.pendingMessages.map((item) => item.text)).toEqual(['second']));
+		await vi.waitFor(() =>
+			expect(queue.pendingMessages.map((item) => item.text)).toEqual(['second'])
+		);
 
 		rejectFirst!(new Error('provider failed'));
 		await Promise.all([first, second]);

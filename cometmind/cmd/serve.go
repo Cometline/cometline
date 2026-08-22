@@ -9,9 +9,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/cometline/cometmind/internal/event"
 	"github.com/cometline/cometmind/internal/jobs"
 	"github.com/cometline/cometmind/internal/logging"
 	"github.com/cometline/cometmind/internal/processctl"
+	"github.com/cometline/cometmind/internal/runstate"
 	"github.com/cometline/cometmind/internal/runtime"
 	"github.com/cometline/cometmind/internal/session"
 	"github.com/cometline/cometmind/server"
@@ -81,7 +83,9 @@ func runServe(_ *cobra.Command, _ []string) error {
 		}
 	}()
 
-	runs := server.NewRunManager()
+	runState := runstate.New(rt.DB)
+	runs := server.NewRunManager(runState)
+	sessionEvents := event.NewSessionHub()
 	engine, err := server.New(server.Deps{
 		Config:    rt.Config,
 		Sessions:  rt.Sessions,
@@ -100,11 +104,12 @@ func runServe(_ *cobra.Command, _ []string) error {
 		SetJobSettings: func(s jobs.Settings) {
 			rt.SetJobSettings(s)
 		},
-		Runs:         runs,
-		RunContext:   ctx,
-		ACPMgr:       rt.ACPManager(),
-		MCPMgr:       rt.MCPManager(),
-		SubagentOrch: rt.SubagentOrchestrator(),
+		Runs:          runs,
+		SessionEvents: sessionEvents,
+		RunContext:    ctx,
+		ACPMgr:        rt.ACPManager(),
+		MCPMgr:        rt.MCPManager(),
+		SubagentOrch:  rt.SubagentOrchestrator(),
 		NewRunner: func(sess session.Session, workspacePath string, mode session.AgentMode) (server.Runner, error) {
 			return rt.RunnerForMode(sess, workspacePath, mode)
 		},
@@ -118,7 +123,19 @@ func runServe(_ *cobra.Command, _ []string) error {
 	rt.StartRetentionMaintenance(ctx)
 	rt.StartBackupMaintenance(ctx)
 	rt.StartScheduler(ctx)
-	rt.StartAutonomousJobWorker(ctx, runs)
+	rt.StartAutonomousJobWorker(ctx, runs, func(sessionID string, running bool) {
+		runID, _, ok := runs.Current(context.Background(), sessionID)
+		if running && ok {
+			sessionEvents.Start(sessionID, runID)
+			rt.Events.Publish(event.RunStarted(sessionID))
+			return
+		}
+	}, func(sessionID string, ev event.Event) {
+		runID, _, ok := runs.Current(context.Background(), sessionID)
+		if ok {
+			sessionEvents.Publish(sessionID, runID, ev)
+		}
+	})
 	rt.StartInboxWorker(ctx, runs)
 
 	httpServer := &http.Server{

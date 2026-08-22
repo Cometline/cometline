@@ -14,6 +14,7 @@ import (
 	"github.com/cometline/cometmind/internal/jobs"
 	"github.com/cometline/cometmind/internal/logging"
 	"github.com/cometline/cometmind/internal/processctl"
+	"github.com/cometline/cometmind/internal/runstate"
 	"github.com/cometline/cometmind/internal/runtime"
 	"github.com/cometline/cometmind/internal/session"
 	"github.com/spf13/cobra"
@@ -22,6 +23,7 @@ import (
 var (
 	gatewayPlatform    string
 	gatewayWatchParent bool
+	gatewayServeURL    string
 )
 
 var gatewayCmd = &cobra.Command{
@@ -38,6 +40,7 @@ var gatewayRunCmd = &cobra.Command{
 func init() {
 	gatewayRunCmd.Flags().StringVar(&gatewayPlatform, "platform", "discord", "Platform adapter to start")
 	gatewayRunCmd.Flags().BoolVar(&gatewayWatchParent, "watch-parent", false, "Shut down automatically when the launching parent process exits (for Electron sidecar use)")
+	gatewayRunCmd.Flags().StringVar(&gatewayServeURL, "serve-url", gateway.DefaultServeURL, "CometMind serve base URL for event forwarding")
 	gatewayCmd.AddCommand(gatewayRunCmd)
 	rootCmd.AddCommand(gatewayCmd)
 }
@@ -74,7 +77,8 @@ func runGateway(_ *cobra.Command, _ []string) error {
 		return rt.Reload(reloadCtx)
 	})
 
-	turns := gateway.NewTurnRunTracker()
+	runState := runstate.New(rt.DB)
+	turns := gateway.NewTurnRunTracker(runState)
 	rt.SetSessionRunningChecker(turns.Running)
 	rt.StartJobsMaintenance(ctx)
 	rt.StartRetentionMaintenance(ctx)
@@ -84,6 +88,7 @@ func runGateway(_ *cobra.Command, _ []string) error {
 		Config:       rt.Config,
 		Jobs:         rt.Jobs,
 		Turns:        turns,
+		Events:       &gateway.EventBridge{BaseURL: strings.TrimRight(gatewayServeURL, "/")},
 		Subagents:    rt.SubagentOrchestrator(),
 		JobProposals: gateway.NewJobProposalStore(),
 		Runner: gateway.AgentRunner{

@@ -22,6 +22,7 @@ import (
 	"github.com/cometline/cometmind/internal/config"
 	"github.com/cometline/cometmind/internal/contract"
 	"github.com/cometline/cometmind/internal/event"
+	"github.com/cometline/cometmind/internal/runstate"
 	"github.com/cometline/cometmind/internal/session"
 	"github.com/cometline/cometmind/internal/skills"
 	"github.com/cometline/cometmind/internal/store"
@@ -2491,7 +2492,7 @@ func newTestEngine(t *testing.T, newRunner RunnerFactory) (*gin.Engine, *session
 		},
 		Sessions:  svc,
 		NewRunner: newRunner,
-		Runs:      NewRunManager(),
+		Runs:      NewRunManager(runstate.New(sqlDB)),
 	})
 	if err != nil {
 		t.Fatalf("New() error = %v", err)

@@ -16,6 +16,7 @@ function session(overrides: Partial<Session> = {}): Session {
 		token_usage: { input_tokens: 0, output_tokens: 0, cache_read: 0, cache_write: 0 },
 		pinned: false,
 		agent_mode: 'auto',
+		running: false,
 		created_at: 0,
 		updated_at: 100,
 		...overrides
@@ -46,6 +47,18 @@ describe('sessionStore metadata patches', () => {
 			token_usage: { input_tokens: 4, output_tokens: 0, cache_read: 0, cache_write: 0 },
 			updated_at: 100
 		});
+	});
+
+	it('updates running state in both list and current session', async () => {
+		const { sessionStore } = await import('./session.svelte');
+		const active = session();
+		sessionStore.setSessions([active]);
+		sessionStore.selectSession(active);
+
+		sessionStore.setRunning('sess-1', true);
+
+		expect(sessionStore.sessions[0].running).toBe(true);
+		expect(sessionStore.current?.running).toBe(true);
 	});
 
 	it('lets an explicit session write replace agent mode', async () => {

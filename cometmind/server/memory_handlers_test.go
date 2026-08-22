@@ -14,6 +14,7 @@ import (
 	"github.com/cometline/cometmind/internal/config"
 	"github.com/cometline/cometmind/internal/event"
 	"github.com/cometline/cometmind/internal/memory"
+	"github.com/cometline/cometmind/internal/runstate"
 	"github.com/cometline/cometmind/internal/session"
 	"github.com/cometline/cometmind/internal/store"
 	"github.com/gin-gonic/gin"
@@ -49,7 +50,7 @@ func TestMemorySettingsGetPut(t *testing.T) {
 	hub := event.NewHub()
 	engine, err := New(Deps{Config: cfg, Sessions: sessions, Memory: mem, Events: hub, NewRunner: func(session.Session, string, session.AgentMode) (Runner, error) {
 		return &noopRunner{}, nil
-	}, Runs: NewRunManager()})
+	}, Runs: NewRunManager(runstate.New(sqlDB))})
 	if err != nil {
 		t.Fatal(err)
 	}

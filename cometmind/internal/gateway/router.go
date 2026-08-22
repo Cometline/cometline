@@ -34,6 +34,7 @@ type Router struct {
 	Runner             Runner
 	Typing             TypingIndicator
 	Turns              *TurnRunTracker
+	Events             *EventBridge
 	Subagents          *subagent.Orchestrator
 	StopWaitTimeout    time.Duration
 	JobProposals       *JobProposalStore
@@ -112,7 +113,13 @@ func (r *Router) HandleInbound(ctx context.Context, msg InboundMessage) error {
 		if err != nil {
 			return err
 		}
-		defer finishTurn()
+	}
+	if finishTurn != nil {
+		defer func() {
+			if finishTurn != nil {
+				finishTurn()
+			}
+		}()
 	}
 
 	blocks := contentBlocksFromInbound(msg)
@@ -121,6 +128,12 @@ func (r *Router) HandleInbound(ctx context.Context, msg InboundMessage) error {
 	}
 	if err := r.Sessions.SetTitleIfEmpty(ctx, sess.ID, titleFromInbound(msg)); err != nil {
 		return err
+	}
+	var eventForwarder *EventForwarder
+	if r.Events != nil && r.Turns != nil {
+		eventForwarder = r.Events.Start(ctx, sess.ID, r.Turns.RunID(sess.ID), finishTurn)
+		finishTurn = nil
+		defer eventForwarder.Close()
 	}
 
 	stopHeartbeat := jobs.StartHeartbeatDuringTurn(runCtx, r.Jobs, sess.ID)
@@ -137,6 +150,7 @@ func (r *Router) HandleInbound(ctx context.Context, msg InboundMessage) error {
 	var jobProposal *JobProposalPayload
 	sourceChannelID := deliveryChannelID(msg)
 	err = r.Runner.RunTurn(runCtx, sess, runPath, msg, func(ev event.Event) {
+		eventForwarder.Forward(ev)
 		switch ev.Kind {
 		case event.KindTextDelta:
 			reply.WriteString(ev.Delta)
@@ -374,8 +388,14 @@ func (r *Router) HandleClearSlash(ctx context.Context, msg InboundMessage) (stri
 	if r.Turns != nil && r.Turns.Running(mapped.CometmindSessionID) {
 		return "", fmt.Errorf("session is running")
 	}
-	if err := r.Sessions.ClearSessionTranscript(ctx, mapped.CometmindSessionID); err != nil {
-		return "", err
+	if r.Events != nil {
+		if err := r.Events.ClearSession(ctx, mapped.CometmindSessionID); err != nil {
+			return "", err
+		}
+	} else {
+		if err := r.Sessions.ClearSessionTranscript(ctx, mapped.CometmindSessionID); err != nil {
+			return "", err
+		}
 	}
 	return "Cleared this CometMind conversation transcript.", nil
 }

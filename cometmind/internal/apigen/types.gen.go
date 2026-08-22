@@ -598,6 +598,24 @@ func (e ModelCatalogLookupEntryLimitSource) Valid() bool {
 	}
 }
 
+// Defines values for RunLifecycleEventType.
+const (
+	RunFinished RunLifecycleEventType = "run_finished"
+	RunStarted  RunLifecycleEventType = "run_started"
+)
+
+// Valid indicates whether the value is a known member of the RunLifecycleEventType enum.
+func (e RunLifecycleEventType) Valid() bool {
+	switch e {
+	case RunFinished:
+		return true
+	case RunStarted:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ScheduledJobResourceCreatedBy.
 const (
 	ScheduledJobResourceCreatedByAgent ScheduledJobResourceCreatedBy = "agent"
@@ -1256,6 +1274,15 @@ type InboxSummaryResponse struct {
 	OpenCount int64 `json:"open_count"`
 }
 
+// IngestSessionEventRequest defines model for IngestSessionEventRequest.
+type IngestSessionEventRequest struct {
+	Event    *StreamEvent `json:"event,omitempty"`
+	Finish   *bool        `json:"finish,omitempty"`
+	RunId    string       `json:"run_id"`
+	Sequence *uint64      `json:"sequence,omitempty"`
+	Start    *bool        `json:"start,omitempty"`
+}
+
 // JobCompleteRequest defines model for JobCompleteRequest.
 type JobCompleteRequest struct {
 	Progress  *string `json:"progress,omitempty"`
@@ -1783,6 +1810,15 @@ type ReplyInboxMessageRequest struct {
 	Content string `json:"content"`
 }
 
+// RunLifecycleEvent defines model for RunLifecycleEvent.
+type RunLifecycleEvent struct {
+	SessionId string                `json:"session_id"`
+	Type      RunLifecycleEventType `json:"type"`
+}
+
+// RunLifecycleEventType defines model for RunLifecycleEvent.Type.
+type RunLifecycleEventType string
+
 // RunStorageBackupResponse defines model for RunStorageBackupResponse.
 type RunStorageBackupResponse struct {
 	FilesZipped int    `json:"files_zipped"`
@@ -1876,7 +1912,10 @@ type Session struct {
 	ProviderId string `json:"provider_id"`
 
 	// Purpose Delegation task purpose for child sessions.
-	Purpose *string       `json:"purpose,omitempty"`
+	Purpose *string `json:"purpose,omitempty"`
+
+	// Running Whether this session currently owns the cross-process run lease.
+	Running bool          `json:"running"`
 	Status  SessionStatus `json:"status"`
 
 	// SubagentKind Kind of delegated subagent for child sessions (general=research, coding=in-process editor, acp=external harness).
@@ -1904,6 +1943,12 @@ type SessionStatus string
 
 // SessionSubagentKind Kind of delegated subagent for child sessions (general=research, coding=in-process editor, acp=external harness).
 type SessionSubagentKind string
+
+// SessionClearedEvent defines model for SessionClearedEvent.
+type SessionClearedEvent struct {
+	SessionId string `json:"session_id"`
+	Type      string `json:"type"`
+}
 
 // SessionListResponse defines model for SessionListResponse.
 type SessionListResponse struct {
@@ -2703,6 +2748,9 @@ type CreateSessionJSONRequestBody = CreateSessionRequest
 // PatchSessionJSONRequestBody defines body for PatchSession for application/json ContentType.
 type PatchSessionJSONRequestBody = UpdateSessionRequest
 
+// IngestSessionEventJSONRequestBody defines body for IngestSessionEvent for application/json ContentType.
+type IngestSessionEventJSONRequestBody = IngestSessionEventRequest
+
 // ForkSessionJSONRequestBody defines body for ForkSession for application/json ContentType.
 type ForkSessionJSONRequestBody = ForkSessionRequest
 
@@ -2745,7 +2793,6 @@ func (t StreamEvent) AsTextDeltaEvent() (TextDeltaEvent, error) {
 
 // FromTextDeltaEvent overwrites any union data inside the StreamEvent as the provided TextDeltaEvent
 func (t *StreamEvent) FromTextDeltaEvent(v TextDeltaEvent) error {
-	v.Type = "text_delta"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -2753,7 +2800,6 @@ func (t *StreamEvent) FromTextDeltaEvent(v TextDeltaEvent) error {
 
 // MergeTextDeltaEvent performs a merge with any union data inside the StreamEvent, using the provided TextDeltaEvent
 func (t *StreamEvent) MergeTextDeltaEvent(v TextDeltaEvent) error {
-	v.Type = "text_delta"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -2773,7 +2819,6 @@ func (t StreamEvent) AsReasoningStartEvent() (ReasoningStartEvent, error) {
 
 // FromReasoningStartEvent overwrites any union data inside the StreamEvent as the provided ReasoningStartEvent
 func (t *StreamEvent) FromReasoningStartEvent(v ReasoningStartEvent) error {
-	v.Type = "reasoning_start"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -2781,7 +2826,6 @@ func (t *StreamEvent) FromReasoningStartEvent(v ReasoningStartEvent) error {
 
 // MergeReasoningStartEvent performs a merge with any union data inside the StreamEvent, using the provided ReasoningStartEvent
 func (t *StreamEvent) MergeReasoningStartEvent(v ReasoningStartEvent) error {
-	v.Type = "reasoning_start"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -2801,7 +2845,6 @@ func (t StreamEvent) AsReasoningDeltaEvent() (ReasoningDeltaEvent, error) {
 
 // FromReasoningDeltaEvent overwrites any union data inside the StreamEvent as the provided ReasoningDeltaEvent
 func (t *StreamEvent) FromReasoningDeltaEvent(v ReasoningDeltaEvent) error {
-	v.Type = "reasoning_delta"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -2809,7 +2852,6 @@ func (t *StreamEvent) FromReasoningDeltaEvent(v ReasoningDeltaEvent) error {
 
 // MergeReasoningDeltaEvent performs a merge with any union data inside the StreamEvent, using the provided ReasoningDeltaEvent
 func (t *StreamEvent) MergeReasoningDeltaEvent(v ReasoningDeltaEvent) error {
-	v.Type = "reasoning_delta"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -2829,7 +2871,6 @@ func (t StreamEvent) AsToolCallEvent() (ToolCallEvent, error) {
 
 // FromToolCallEvent overwrites any union data inside the StreamEvent as the provided ToolCallEvent
 func (t *StreamEvent) FromToolCallEvent(v ToolCallEvent) error {
-	v.Type = "tool_call"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -2837,7 +2878,6 @@ func (t *StreamEvent) FromToolCallEvent(v ToolCallEvent) error {
 
 // MergeToolCallEvent performs a merge with any union data inside the StreamEvent, using the provided ToolCallEvent
 func (t *StreamEvent) MergeToolCallEvent(v ToolCallEvent) error {
-	v.Type = "tool_call"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -2857,7 +2897,6 @@ func (t StreamEvent) AsToolResultEvent() (ToolResultEvent, error) {
 
 // FromToolResultEvent overwrites any union data inside the StreamEvent as the provided ToolResultEvent
 func (t *StreamEvent) FromToolResultEvent(v ToolResultEvent) error {
-	v.Type = "tool_result"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -2865,7 +2904,6 @@ func (t *StreamEvent) FromToolResultEvent(v ToolResultEvent) error {
 
 // MergeToolResultEvent performs a merge with any union data inside the StreamEvent, using the provided ToolResultEvent
 func (t *StreamEvent) MergeToolResultEvent(v ToolResultEvent) error {
-	v.Type = "tool_result"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -2885,7 +2923,6 @@ func (t StreamEvent) AsStepFinishEvent() (StepFinishEvent, error) {
 
 // FromStepFinishEvent overwrites any union data inside the StreamEvent as the provided StepFinishEvent
 func (t *StreamEvent) FromStepFinishEvent(v StepFinishEvent) error {
-	v.Type = "step_finish"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -2893,7 +2930,6 @@ func (t *StreamEvent) FromStepFinishEvent(v StepFinishEvent) error {
 
 // MergeStepFinishEvent performs a merge with any union data inside the StreamEvent, using the provided StepFinishEvent
 func (t *StreamEvent) MergeStepFinishEvent(v StepFinishEvent) error {
-	v.Type = "step_finish"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -2913,7 +2949,6 @@ func (t StreamEvent) AsSubagentStartedEvent() (SubagentStartedEvent, error) {
 
 // FromSubagentStartedEvent overwrites any union data inside the StreamEvent as the provided SubagentStartedEvent
 func (t *StreamEvent) FromSubagentStartedEvent(v SubagentStartedEvent) error {
-	v.Type = "subagent_started"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -2921,7 +2956,6 @@ func (t *StreamEvent) FromSubagentStartedEvent(v SubagentStartedEvent) error {
 
 // MergeSubagentStartedEvent performs a merge with any union data inside the StreamEvent, using the provided SubagentStartedEvent
 func (t *StreamEvent) MergeSubagentStartedEvent(v SubagentStartedEvent) error {
-	v.Type = "subagent_started"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -2941,7 +2975,6 @@ func (t StreamEvent) AsSubagentProgressEvent() (SubagentProgressEvent, error) {
 
 // FromSubagentProgressEvent overwrites any union data inside the StreamEvent as the provided SubagentProgressEvent
 func (t *StreamEvent) FromSubagentProgressEvent(v SubagentProgressEvent) error {
-	v.Type = "subagent_progress"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -2949,7 +2982,6 @@ func (t *StreamEvent) FromSubagentProgressEvent(v SubagentProgressEvent) error {
 
 // MergeSubagentProgressEvent performs a merge with any union data inside the StreamEvent, using the provided SubagentProgressEvent
 func (t *StreamEvent) MergeSubagentProgressEvent(v SubagentProgressEvent) error {
-	v.Type = "subagent_progress"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -2969,7 +3001,6 @@ func (t StreamEvent) AsSubagentFinishedEvent() (SubagentFinishedEvent, error) {
 
 // FromSubagentFinishedEvent overwrites any union data inside the StreamEvent as the provided SubagentFinishedEvent
 func (t *StreamEvent) FromSubagentFinishedEvent(v SubagentFinishedEvent) error {
-	v.Type = "subagent_finished"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -2977,7 +3008,6 @@ func (t *StreamEvent) FromSubagentFinishedEvent(v SubagentFinishedEvent) error {
 
 // MergeSubagentFinishedEvent performs a merge with any union data inside the StreamEvent, using the provided SubagentFinishedEvent
 func (t *StreamEvent) MergeSubagentFinishedEvent(v SubagentFinishedEvent) error {
-	v.Type = "subagent_finished"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -2997,7 +3027,6 @@ func (t StreamEvent) AsMemoryInjectedEvent() (MemoryInjectedEvent, error) {
 
 // FromMemoryInjectedEvent overwrites any union data inside the StreamEvent as the provided MemoryInjectedEvent
 func (t *StreamEvent) FromMemoryInjectedEvent(v MemoryInjectedEvent) error {
-	v.Type = "memory_injected"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -3005,7 +3034,6 @@ func (t *StreamEvent) FromMemoryInjectedEvent(v MemoryInjectedEvent) error {
 
 // MergeMemoryInjectedEvent performs a merge with any union data inside the StreamEvent, using the provided MemoryInjectedEvent
 func (t *StreamEvent) MergeMemoryInjectedEvent(v MemoryInjectedEvent) error {
-	v.Type = "memory_injected"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -3025,7 +3053,6 @@ func (t StreamEvent) AsMemoryUpdatedEvent() (MemoryUpdatedEvent, error) {
 
 // FromMemoryUpdatedEvent overwrites any union data inside the StreamEvent as the provided MemoryUpdatedEvent
 func (t *StreamEvent) FromMemoryUpdatedEvent(v MemoryUpdatedEvent) error {
-	v.Type = "memory_updated"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -3033,7 +3060,6 @@ func (t *StreamEvent) FromMemoryUpdatedEvent(v MemoryUpdatedEvent) error {
 
 // MergeMemoryUpdatedEvent performs a merge with any union data inside the StreamEvent, using the provided MemoryUpdatedEvent
 func (t *StreamEvent) MergeMemoryUpdatedEvent(v MemoryUpdatedEvent) error {
-	v.Type = "memory_updated"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -3053,7 +3079,6 @@ func (t StreamEvent) AsMemoryCompactionCompletedEvent() (MemoryCompactionComplet
 
 // FromMemoryCompactionCompletedEvent overwrites any union data inside the StreamEvent as the provided MemoryCompactionCompletedEvent
 func (t *StreamEvent) FromMemoryCompactionCompletedEvent(v MemoryCompactionCompletedEvent) error {
-	v.Type = "memory_compaction_completed"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -3061,7 +3086,6 @@ func (t *StreamEvent) FromMemoryCompactionCompletedEvent(v MemoryCompactionCompl
 
 // MergeMemoryCompactionCompletedEvent performs a merge with any union data inside the StreamEvent, using the provided MemoryCompactionCompletedEvent
 func (t *StreamEvent) MergeMemoryCompactionCompletedEvent(v MemoryCompactionCompletedEvent) error {
-	v.Type = "memory_compaction_completed"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -3081,7 +3105,6 @@ func (t StreamEvent) AsContextBudgetEvent() (ContextBudgetEvent, error) {
 
 // FromContextBudgetEvent overwrites any union data inside the StreamEvent as the provided ContextBudgetEvent
 func (t *StreamEvent) FromContextBudgetEvent(v ContextBudgetEvent) error {
-	v.Type = "context_budget"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -3089,7 +3112,6 @@ func (t *StreamEvent) FromContextBudgetEvent(v ContextBudgetEvent) error {
 
 // MergeContextBudgetEvent performs a merge with any union data inside the StreamEvent, using the provided ContextBudgetEvent
 func (t *StreamEvent) MergeContextBudgetEvent(v ContextBudgetEvent) error {
-	v.Type = "context_budget"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -3109,7 +3131,6 @@ func (t StreamEvent) AsInboxMessageCreatedEvent() (InboxMessageCreatedEvent, err
 
 // FromInboxMessageCreatedEvent overwrites any union data inside the StreamEvent as the provided InboxMessageCreatedEvent
 func (t *StreamEvent) FromInboxMessageCreatedEvent(v InboxMessageCreatedEvent) error {
-	v.Type = "inbox_message_created"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -3117,7 +3138,6 @@ func (t *StreamEvent) FromInboxMessageCreatedEvent(v InboxMessageCreatedEvent) e
 
 // MergeInboxMessageCreatedEvent performs a merge with any union data inside the StreamEvent, using the provided InboxMessageCreatedEvent
 func (t *StreamEvent) MergeInboxMessageCreatedEvent(v InboxMessageCreatedEvent) error {
-	v.Type = "inbox_message_created"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -3137,7 +3157,6 @@ func (t StreamEvent) AsInboxMessageArchivedEvent() (InboxMessageArchivedEvent, e
 
 // FromInboxMessageArchivedEvent overwrites any union data inside the StreamEvent as the provided InboxMessageArchivedEvent
 func (t *StreamEvent) FromInboxMessageArchivedEvent(v InboxMessageArchivedEvent) error {
-	v.Type = "inbox_message_archived"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -3145,7 +3164,58 @@ func (t *StreamEvent) FromInboxMessageArchivedEvent(v InboxMessageArchivedEvent)
 
 // MergeInboxMessageArchivedEvent performs a merge with any union data inside the StreamEvent, using the provided InboxMessageArchivedEvent
 func (t *StreamEvent) MergeInboxMessageArchivedEvent(v InboxMessageArchivedEvent) error {
-	v.Type = "inbox_message_archived"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsRunLifecycleEvent returns the union data inside the StreamEvent as a RunLifecycleEvent
+func (t StreamEvent) AsRunLifecycleEvent() (RunLifecycleEvent, error) {
+	var body RunLifecycleEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromRunLifecycleEvent overwrites any union data inside the StreamEvent as the provided RunLifecycleEvent
+func (t *StreamEvent) FromRunLifecycleEvent(v RunLifecycleEvent) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeRunLifecycleEvent performs a merge with any union data inside the StreamEvent, using the provided RunLifecycleEvent
+func (t *StreamEvent) MergeRunLifecycleEvent(v RunLifecycleEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsSessionClearedEvent returns the union data inside the StreamEvent as a SessionClearedEvent
+func (t StreamEvent) AsSessionClearedEvent() (SessionClearedEvent, error) {
+	var body SessionClearedEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromSessionClearedEvent overwrites any union data inside the StreamEvent as the provided SessionClearedEvent
+func (t *StreamEvent) FromSessionClearedEvent(v SessionClearedEvent) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeSessionClearedEvent performs a merge with any union data inside the StreamEvent, using the provided SessionClearedEvent
+func (t *StreamEvent) MergeSessionClearedEvent(v SessionClearedEvent) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -3165,7 +3235,6 @@ func (t StreamEvent) AsTurnStatusEvent() (TurnStatusEvent, error) {
 
 // FromTurnStatusEvent overwrites any union data inside the StreamEvent as the provided TurnStatusEvent
 func (t *StreamEvent) FromTurnStatusEvent(v TurnStatusEvent) error {
-	v.Type = "turn_status"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -3173,7 +3242,6 @@ func (t *StreamEvent) FromTurnStatusEvent(v TurnStatusEvent) error {
 
 // MergeTurnStatusEvent performs a merge with any union data inside the StreamEvent, using the provided TurnStatusEvent
 func (t *StreamEvent) MergeTurnStatusEvent(v TurnStatusEvent) error {
-	v.Type = "turn_status"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -3193,7 +3261,6 @@ func (t StreamEvent) AsTurnRecoverEvent() (TurnRecoverEvent, error) {
 
 // FromTurnRecoverEvent overwrites any union data inside the StreamEvent as the provided TurnRecoverEvent
 func (t *StreamEvent) FromTurnRecoverEvent(v TurnRecoverEvent) error {
-	v.Type = "turn_recover"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -3201,7 +3268,6 @@ func (t *StreamEvent) FromTurnRecoverEvent(v TurnRecoverEvent) error {
 
 // MergeTurnRecoverEvent performs a merge with any union data inside the StreamEvent, using the provided TurnRecoverEvent
 func (t *StreamEvent) MergeTurnRecoverEvent(v TurnRecoverEvent) error {
-	v.Type = "turn_recover"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -3221,7 +3287,6 @@ func (t StreamEvent) AsAssistantImageEvent() (AssistantImageEvent, error) {
 
 // FromAssistantImageEvent overwrites any union data inside the StreamEvent as the provided AssistantImageEvent
 func (t *StreamEvent) FromAssistantImageEvent(v AssistantImageEvent) error {
-	v.Type = "assistant_image"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -3229,7 +3294,6 @@ func (t *StreamEvent) FromAssistantImageEvent(v AssistantImageEvent) error {
 
 // MergeAssistantImageEvent performs a merge with any union data inside the StreamEvent, using the provided AssistantImageEvent
 func (t *StreamEvent) MergeAssistantImageEvent(v AssistantImageEvent) error {
-	v.Type = "assistant_image"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -3249,7 +3313,6 @@ func (t StreamEvent) AsAssistantVideoEvent() (AssistantVideoEvent, error) {
 
 // FromAssistantVideoEvent overwrites any union data inside the StreamEvent as the provided AssistantVideoEvent
 func (t *StreamEvent) FromAssistantVideoEvent(v AssistantVideoEvent) error {
-	v.Type = "assistant_video"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -3257,7 +3320,6 @@ func (t *StreamEvent) FromAssistantVideoEvent(v AssistantVideoEvent) error {
 
 // MergeAssistantVideoEvent performs a merge with any union data inside the StreamEvent, using the provided AssistantVideoEvent
 func (t *StreamEvent) MergeAssistantVideoEvent(v AssistantVideoEvent) error {
-	v.Type = "assistant_video"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -3277,7 +3339,6 @@ func (t StreamEvent) AsErrorEvent() (ErrorEvent, error) {
 
 // FromErrorEvent overwrites any union data inside the StreamEvent as the provided ErrorEvent
 func (t *StreamEvent) FromErrorEvent(v ErrorEvent) error {
-	v.Type = "error"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -3285,7 +3346,6 @@ func (t *StreamEvent) FromErrorEvent(v ErrorEvent) error {
 
 // MergeErrorEvent performs a merge with any union data inside the StreamEvent, using the provided ErrorEvent
 func (t *StreamEvent) MergeErrorEvent(v ErrorEvent) error {
-	v.Type = "error"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -3305,7 +3365,6 @@ func (t StreamEvent) AsDoneEvent() (DoneEvent, error) {
 
 // FromDoneEvent overwrites any union data inside the StreamEvent as the provided DoneEvent
 func (t *StreamEvent) FromDoneEvent(v DoneEvent) error {
-	v.Type = "done"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -3313,7 +3372,6 @@ func (t *StreamEvent) FromDoneEvent(v DoneEvent) error {
 
 // MergeDoneEvent performs a merge with any union data inside the StreamEvent, using the provided DoneEvent
 func (t *StreamEvent) MergeDoneEvent(v DoneEvent) error {
-	v.Type = "done"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -3362,6 +3420,12 @@ func (t StreamEvent) ValueByDiscriminator() (interface{}, error) {
 		return t.AsReasoningDeltaEvent()
 	case "reasoning_start":
 		return t.AsReasoningStartEvent()
+	case "run_finished":
+		return t.AsRunLifecycleEvent()
+	case "run_started":
+		return t.AsRunLifecycleEvent()
+	case "session_cleared":
+		return t.AsSessionClearedEvent()
 	case "step_finish":
 		return t.AsStepFinishEvent()
 	case "subagent_finished":

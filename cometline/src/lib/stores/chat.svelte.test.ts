@@ -22,6 +22,7 @@ vi.mock('$lib/client/cometmind', () => ({
 	isSessionNotFoundError: vi.fn((err) => err?.code === 'session_not_found'),
 	listChildSessions: vi.fn(),
 	streamMessage: vi.fn(),
+	streamSessionEvents: vi.fn(),
 	abortSession: vi.fn()
 }));
 vi.mock('$lib/actions/create-new-session', () => ({ createNewSession }));
@@ -31,7 +32,8 @@ import {
 	abortSession,
 	getSessionMessages,
 	listChildSessions,
-	streamMessage
+	streamMessage,
+	streamSessionEvents
 } from '$lib/client/cometmind';
 import { chatStore, revealRemoteUserItems } from './chat.svelte';
 import { sessionStore } from './session.svelte';
@@ -104,6 +106,7 @@ describe('chatStore session switching', () => {
 				token_usage: { input_tokens: 0, output_tokens: 0, cache_read: 0, cache_write: 0 },
 				pinned: false,
 				agent_mode: 'auto',
+				running: false,
 				created_at: 0,
 				updated_at: 0
 			}
@@ -302,6 +305,7 @@ describe('chatStore session switching', () => {
 			token_usage: { input_tokens: 0, output_tokens: 0, cache_read: 0, cache_write: 0 },
 			pinned: false,
 			agent_mode: 'auto',
+			running: false,
 			created_at: 0,
 			updated_at: 0
 		});
@@ -422,6 +426,31 @@ describe('chatStore session switching', () => {
 		expect(playErrorSound).not.toHaveBeenCalled();
 	});
 
+	it('aborts a discovered running session before its local stream attaches', async () => {
+		sessionStore.setSessions([
+			{
+				id: 'sess-a',
+				workspace_id: 'workspace-1',
+				workspace_path: '/tmp/workspace',
+				title: 'Running elsewhere',
+				model_id: 'model',
+				provider_id: 'provider',
+				status: 'active',
+				origin: 'user',
+				token_usage: { input_tokens: 0, output_tokens: 0, cache_read: 0, cache_write: 0 },
+				pinned: false,
+				agent_mode: 'auto',
+				running: true,
+				created_at: 0,
+				updated_at: 0
+			}
+		]);
+
+		await chatStore.cancel('sess-a');
+
+		expect(abortSession).toHaveBeenCalledWith('sess-a');
+	});
+
 	it('clears the failed marker after a successful retry', async () => {
 		vi.mocked(streamMessage)
 			.mockImplementationOnce(async function* () {
@@ -479,6 +508,90 @@ describe('chatStore session switching', () => {
 		expect(vi.mocked(streamMessage)).toHaveBeenCalledTimes(1);
 
 		releaseA!();
+	});
+
+	it('replays and follows an already-running session', async () => {
+		vi.mocked(getSessionMessages).mockResolvedValue(
+			mockTranscript('sess-a', 'remote question')
+		);
+		vi.mocked(streamSessionEvents).mockImplementation(async function* () {
+			yield { type: 'text_delta', delta: 'replayed answer' };
+			yield { type: 'done' };
+		});
+
+		chatStore.bindSession('sess-a');
+		await chatStore.loadTranscript('sess-a');
+		await chatStore.resumeRun('sess-a');
+
+		expect(streamSessionEvents).toHaveBeenCalledWith('sess-a', expect.any(AbortSignal));
+		expect(chatStore.items).toEqual([
+			expect.objectContaining({ type: 'user', text: 'remote question' }),
+			expect.objectContaining({ type: 'assistant', text: 'replayed answer', pending: false })
+		]);
+		expect(chatStore.isStreamingFor('sess-a')).toBe(false);
+	});
+
+	it('continues the current assistant after a persisted step on resume', async () => {
+		vi.mocked(getSessionMessages).mockResolvedValue({
+			session_id: 'sess-a',
+			items: [
+				{ type: 'user', text: 'remote question' },
+				{ type: 'assistant', text: 'persisted answer' },
+				{ type: 'tool', tool_name: 'read', tool_input: {}, tool_output: 'done' }
+			]
+		});
+		vi.mocked(streamSessionEvents).mockImplementation(async function* () {
+			yield { type: 'text_delta', delta: ' continued' };
+			yield { type: 'done' };
+		});
+
+		chatStore.bindSession('sess-a');
+		await chatStore.loadTranscript('sess-a');
+		await chatStore.resumeRun('sess-a');
+
+		const assistants = chatStore.items.filter((item) => item.type === 'assistant');
+		expect(assistants).toHaveLength(1);
+		expect(assistants[0]).toMatchObject({
+			text: 'persisted answer continued',
+			pending: false
+		});
+		expect(
+			chatStore.items.some((item) => item.type === 'tool' && item.toolName === 'read')
+		).toBe(true);
+	});
+
+	it('switches a conflicting send to the current run stream', async () => {
+		const onConflict = vi.fn();
+		let releaseResume: (() => void) | undefined;
+		const resumeGate = new Promise<void>((resolve) => {
+			releaseResume = resolve;
+		});
+		vi.mocked(streamMessage).mockImplementation(async function* () {
+			throw { status: 409 };
+			yield { type: 'done' };
+		});
+		vi.mocked(getSessionMessages).mockResolvedValue(
+			mockTranscript('sess-a', 'existing question')
+		);
+		vi.mocked(streamSessionEvents).mockImplementation(async function* () {
+			await resumeGate;
+			yield { type: 'text_delta', delta: 'existing answer' };
+			yield { type: 'done' };
+		});
+
+		chatStore.bindSession('sess-a');
+		const send = chatStore.send('sess-a', 'conflicting question', { onConflict });
+
+		await vi.waitFor(() => expect(onConflict).toHaveBeenCalledOnce());
+		expect(chatStore.isStreamingFor('sess-a')).toBe(true);
+		releaseResume!();
+		await send;
+
+		expect(streamSessionEvents).toHaveBeenCalledWith('sess-a', expect.any(AbortSignal));
+		expect(chatStore.items).toEqual([
+			expect.objectContaining({ type: 'user', text: 'existing question' }),
+			expect.objectContaining({ type: 'assistant', text: 'existing answer' })
+		]);
 	});
 
 	it('does not clobber in-flight cache when loadTranscript returns user-only server data', async () => {
@@ -720,6 +833,7 @@ describe('chatStore clear and subagents', () => {
 					},
 					pinned: false,
 					agent_mode: 'auto',
+					running: false,
 					parent_session_id: 'sess-a',
 					purpose: 'refactor auth',
 					delegation_status: 'completed',

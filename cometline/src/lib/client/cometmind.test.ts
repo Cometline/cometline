@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { apiErrorMessage, streamMessage, UnexpectedStreamEndError } from './cometmind';
+import {
+	apiErrorMessage,
+	startRuntimeEventStream,
+	streamMessage,
+	streamSessionEvents,
+	UnexpectedStreamEndError
+} from './cometmind';
 
 function sseResponse(body: string): Response {
 	const encoder = new TextEncoder();
@@ -42,6 +48,32 @@ describe('apiErrorMessage', () => {
 
 	it('uses the fallback for unknown values', () => {
 		expect(apiErrorMessage({ nope: true }, 'Backup failed')).toBe('Backup failed');
+	});
+});
+
+describe('startRuntimeEventStream', () => {
+	afterEach(() => {
+		vi.unstubAllGlobals();
+	});
+
+	it('reconciles persisted state before reconnecting the runtime stream', async () => {
+		const order: string[] = [];
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockImplementation(async () => {
+				order.push('connect');
+				throw new Error('offline');
+			})
+		);
+		const reconcile = vi.fn().mockImplementation(async () => {
+			order.push('reconcile');
+		});
+
+		const stop = startRuntimeEventStream(vi.fn(), reconcile);
+		await vi.waitFor(() => expect(reconcile).toHaveBeenCalledOnce());
+		stop();
+
+		expect(order.slice(0, 2)).toEqual(['reconcile', 'connect']);
 	});
 });
 
@@ -88,5 +120,33 @@ describe('streamMessage', () => {
 		}
 
 		expect(events).toEqual(['text_delta', 'done']);
+	});
+});
+
+describe('streamSessionEvents', () => {
+	afterEach(() => {
+		vi.unstubAllGlobals();
+	});
+
+	it('uses GET and yields replay through the terminal event', async () => {
+		const fetchMock = vi.fn().mockResolvedValue(
+			sseResponse(
+				'data: {"type":"text_delta","delta":"replayed"}\n\n' +
+					'data: {"type":"done"}\n\n'
+			)
+		);
+		vi.stubGlobal('fetch', fetchMock);
+
+		const events = [];
+		for await (const event of streamSessionEvents('session/1')) events.push(event);
+
+		expect(fetchMock).toHaveBeenCalledWith(
+			'http://127.0.0.1:7700/api/v1/sessions/session%2F1/events',
+			expect.objectContaining({ method: 'GET', cache: 'no-store' })
+		);
+		expect(events).toEqual([
+			{ type: 'text_delta', delta: 'replayed' },
+			{ type: 'done' }
+		]);
 	});
 });

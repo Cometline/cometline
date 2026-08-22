@@ -27,6 +27,8 @@
 	import { createChatViewController } from '$lib/conversation/chat-view-controller.svelte';
 	import { PanelLeftClose, PanelLeftOpen } from '@lucide/svelte';
 	import { miniShellStore } from '$lib/stores/mini-shell.svelte';
+	import { composerHistoryStore } from '$lib/stores/composer-history.svelte';
+	import type { PendingUnsentDraft } from '$lib/components/composer/composer-history';
 	import Tooltip from '$lib/components/Tooltip.svelte';
 
 	const THREAD_IN = { duration: 140 };
@@ -46,6 +48,7 @@
 		onAwaitingFirstAssistantChange: (value) => {
 			awaitingFirstAssistant = value;
 		},
+		onTurnRejected: restoreRejectedTurn,
 		flight: {
 			onUserMessageFlight: (payloadOrText, { firstTurn, stageUser, revealStagedUser }) => {
 				const payload =
@@ -158,6 +161,10 @@
 	let composerVariant = $derived(chatView.composerVariant);
 	let heroLayout = $derived(chatView.heroLayout);
 	let composerFocusRequest = $derived(shellStore.composerFocusRequest);
+	let sessionRunActive = $derived(
+		chatStore.isStreamingFor(sessionId) ||
+			(sessionStore.sessions.find((session) => session.id === sessionId)?.running ?? false)
+	);
 
 	function startFlight() {
 		flightAbortController?.abort();
@@ -216,11 +223,25 @@
 	let activatedSessionId = $state<string | null>(null);
 	let activationRun = 0;
 
-	let composerRef = $state<{ focus: () => void } | null>(null);
+	let composerRef = $state<{
+		focus: () => void;
+		restoreDraft: (draft: PendingUnsentDraft) => boolean;
+	} | null>(null);
+
+	function restoreRejectedTurn(rejectedSessionId: string, payload: ChatTurnPayload) {
+		const draft: PendingUnsentDraft = {
+			text: payload.displayText ?? payload.text,
+			images: payload.images
+		};
+		composerHistoryStore.stashUnsent(rejectedSessionId, draft);
+		if (rejectedSessionId === sessionId) composerRef?.restoreDraft(draft);
+	}
 
 	async function activateSession(id: string, run: number) {
 		await tick();
 		if (activationRun !== run || sessionId !== id) return;
+		const pendingDraft = composerHistoryStore.getPending(id);
+		if (pendingDraft) composerRef?.restoreDraft(pendingDraft);
 		conversation.onMount();
 		if (shellStore.focusedPane !== 'chat') return;
 		if (composerFocusRequest.sessionId !== id) {
@@ -296,7 +317,7 @@
 
 	function onWindowKeydown(e: KeyboardEvent) {
 		if (!matchesShortcut(e, settingsStore.settings.shortcuts.stopResponse)) return;
-		if (!chatStore.isStreamingFor(sessionId)) return;
+		if (!sessionRunActive) return;
 		const target = e.target;
 		if (target instanceof HTMLTextAreaElement || target instanceof HTMLInputElement) {
 			if (target.selectionStart !== target.selectionEnd) return;
@@ -463,7 +484,7 @@
 				}}
 				{sessionId}
 				disabled={!chatView.canSend}
-				streaming={chatStore.isStreamingFor(sessionId)}
+				streaming={sessionRunActive}
 				{queuedCount}
 				{queuedMessages}
 				variant={composerVariant}

@@ -9,6 +9,7 @@ import {
 import { chatStore } from '$lib/stores/chat.svelte';
 import { sessionStore } from '$lib/stores/session.svelte';
 import { shellStore } from '$lib/stores/shell.svelte';
+import { getSession } from '$lib/client/cometmind';
 
 type FlightPayload = Parameters<ConversationFlightAdapter['onUserMessageFlight']>[0];
 type FlightContext = Parameters<ConversationFlightAdapter['onUserMessageFlight']>[1];
@@ -19,9 +20,27 @@ vi.mock('$lib/client/cometmind', () => ({
 
 describe('createConversationController', () => {
 	beforeEach(() => {
+		vi.clearAllMocks();
 		chatStore.clear();
+		sessionStore.setSessions([]);
 		resetConversationTurnQueuesForTests();
 		shellStore.centerComposer();
+		vi.mocked(getSession).mockResolvedValue({
+			id: 'sess-1',
+			workspace_id: 'ws-1',
+			workspace_path: '/ws',
+			title: 'Updated',
+			model_id: 'model',
+			provider_id: 'provider',
+			status: 'active',
+			origin: 'user',
+			token_usage: { input_tokens: 0, output_tokens: 0, cache_read: 0, cache_write: 0 },
+			pinned: false,
+			agent_mode: 'auto',
+			running: false,
+			created_at: 0,
+			updated_at: 0
+		});
 	});
 
 	function createDeps(overrides?: {
@@ -39,6 +58,7 @@ describe('createConversationController', () => {
 			NonNullable<ConversationControllerDeps['onAwaitingFirstAssistantChange']>
 		>;
 		onQueueChange?: Mock<NonNullable<ConversationControllerDeps['onQueueChange']>>;
+		onTurnRejected?: Mock<NonNullable<ConversationControllerDeps['onTurnRejected']>>;
 	}) {
 		const send = overrides?.send ?? vi.fn().mockResolvedValue(undefined);
 		const refreshSession = overrides?.refreshSession ?? vi.fn().mockResolvedValue(undefined);
@@ -52,7 +72,8 @@ describe('createConversationController', () => {
 			refreshSession,
 			flight: overrides?.flight,
 			onQueueChange: overrides?.onQueueChange,
-			onAwaitingFirstAssistantChange: overrides?.onAwaitingFirstAssistantChange
+			onAwaitingFirstAssistantChange: overrides?.onAwaitingFirstAssistantChange,
+			onTurnRejected: overrides?.onTurnRejected
 		});
 
 		return {
@@ -400,19 +421,73 @@ describe('createConversationController', () => {
 
 		controller.onMount();
 
-		expect(loadSpy).toHaveBeenCalledWith('sess-1');
+		await vi.waitFor(() => expect(loadSpy).toHaveBeenCalledWith('sess-1'));
 		loadSpy.mockRestore();
 	});
 
 	it('skips transcript load on mount when session has in-flight turn', async () => {
 		const loadSpy = vi.spyOn(chatStore, 'loadTranscript').mockResolvedValue(undefined);
-		vi.spyOn(chatStore, 'hasInFlightTurn').mockReturnValue(true);
+		const inFlightSpy = vi.spyOn(chatStore, 'hasInFlightTurn').mockReturnValue(true);
 		const { controller } = createDeps();
 
 		controller.onMount();
 
+		await vi.waitFor(() => expect(getSession).toHaveBeenCalledWith('sess-1'));
+		await Promise.resolve();
 		expect(loadSpy).not.toHaveBeenCalled();
 		loadSpy.mockRestore();
+		inFlightSpy.mockRestore();
+	});
+
+	it('loads the transcript then resumes a discovered active run', async () => {
+		vi.mocked(getSession).mockResolvedValueOnce({
+			...(await getSession('sess-1')),
+			running: true
+		});
+		vi.mocked(getSession).mockClear();
+		const order: string[] = [];
+		const loadSpy = vi.spyOn(chatStore, 'loadTranscript').mockImplementation(async () => {
+			order.push('transcript');
+		});
+		const resumeSpy = vi.spyOn(chatStore, 'resumeRun').mockImplementation(async () => {
+			order.push('resume');
+		});
+		const { controller } = createDeps();
+
+		controller.onMount();
+
+		await vi.waitFor(() => expect(resumeSpy).toHaveBeenCalledWith('sess-1'));
+		expect(order).toEqual(['transcript', 'resume']);
+		loadSpy.mockRestore();
+		resumeSpy.mockRestore();
+	});
+
+	it('holds follow-ups until a discovered active run finishes replaying', async () => {
+		vi.mocked(getSession).mockResolvedValueOnce({
+			...(await getSession('sess-1')),
+			running: true
+		});
+		vi.mocked(getSession).mockClear();
+		let releaseResume: (() => void) | undefined;
+		const resumeGate = new Promise<void>((resolve) => {
+			releaseResume = resolve;
+		});
+		const loadSpy = vi.spyOn(chatStore, 'loadTranscript').mockResolvedValue(undefined);
+		const resumeSpy = vi.spyOn(chatStore, 'resumeRun').mockImplementation(() => resumeGate);
+		const { controller, send } = createDeps({ hasVisibleConversation: true });
+
+		controller.onMount();
+		await vi.waitFor(() => expect(resumeSpy).toHaveBeenCalledWith('sess-1'));
+		await controller.enqueue('after resume');
+
+		expect(controller.pendingCount).toBe(1);
+		expect(send).not.toHaveBeenCalled();
+
+		releaseResume!();
+		await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+		expect(send).toHaveBeenCalledWith('sess-1', { text: 'after resume' }, { skipUser: false });
+		loadSpy.mockRestore();
+		resumeSpy.mockRestore();
 	});
 
 	it('uses the enqueued session callbacks if getSessionId changes during active first-turn flight', async () => {
@@ -538,6 +613,23 @@ describe('createConversationController', () => {
 		expect(refreshSession).not.toHaveBeenCalled();
 	});
 
+	it('returns a conflicting turn to its session while the existing run resumes', async () => {
+		const onTurnRejected = vi.fn();
+		const send = vi.fn().mockImplementation(async (_sessionId, _payload, opts) => {
+			opts?.onConflict?.();
+		});
+		const payload = {
+			text: 'expanded prompt',
+			displayText: '/skill original',
+			images: [{ media_type: 'image/png' as const, data: 'abc' }]
+		};
+		const { controller } = createDeps({ send, onTurnRejected });
+
+		await controller.enqueue(payload);
+
+		expect(onTurnRejected).toHaveBeenCalledWith('sess-1', payload);
+	});
+
 	it('does not keep processing true while refreshSession is in flight', async () => {
 		let releaseRefresh: (() => void) | undefined;
 		const refreshGate = new Promise<void>((resolve) => {
@@ -563,8 +655,8 @@ describe('refreshConversationSession', () => {
 		await refreshConversationSession('sess-1');
 		expect(patchSpy).toHaveBeenCalledWith('sess-1', {
 			title: 'Updated',
-			token_usage: undefined,
-			updated_at: undefined
+			token_usage: { input_tokens: 0, output_tokens: 0, cache_read: 0, cache_write: 0 },
+			updated_at: 0
 		});
 		patchSpy.mockRestore();
 	});

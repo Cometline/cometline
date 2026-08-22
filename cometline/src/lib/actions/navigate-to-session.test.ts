@@ -53,6 +53,7 @@ function session(overrides: Partial<Session> = {}): Session {
 		},
 		pinned: false,
 			agent_mode: 'auto',
+		running: false,
 		created_at: 0,
 		updated_at: 0,
 		...overrides
