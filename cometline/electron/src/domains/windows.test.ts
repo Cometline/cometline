@@ -207,6 +207,7 @@ describe('window lifecycle factory', () => {
 			fullscreenable: false,
 			width: 480,
 			height: 668,
+			paintWhenInitiallyHidden: true,
 			webPreferences: {
 				backgroundThrottling: false
 			}
