@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 	import { onMount } from 'svelte';
 	import { miniShellStore } from '$lib/stores/mini-shell.svelte';
 
@@ -18,7 +19,15 @@
 	}
 
 	onMount(() => {
-		void openMiniWindow();
+		if (page.url.searchParams.get('prewarm') !== '1') {
+			void openMiniWindow();
+			return;
+		}
+
+		miniShellStore.prepareOpening();
+		return window.electronAPI?.onMiniWindowActivated?.(() => {
+			void openMiniWindow();
+		});
 	});
 </script>
 

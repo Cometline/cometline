@@ -50,6 +50,8 @@ const runtimeDirectory = path.resolve(path.dirname(fileURLToPath(import.meta.url
 type Windows = ReturnType<typeof createWindows>;
 type CometMindLifecycle = ReturnType<typeof createCometMindLifecycle>;
 
+const MINI_WINDOW_PREWARM_DELAY_MS = 1000;
+
 let initialized = false;
 
 function resolveCometMindBinary() {
@@ -117,6 +119,7 @@ export function initializeRuntime() {
 	let sessionNavigationSuspended = false;
 	let workspacePanelOpen = false;
 	let inboxOpen = false;
+	let miniWindowPrewarmTimer: ReturnType<typeof setTimeout> | null = null;
 	let windows: Windows | null = null;
 
 	const shellContext: ShellWindowContext = {
@@ -437,7 +440,8 @@ export function initializeRuntime() {
 		}
 		cometMind.start();
 		const windowReady = windows.createMainWindow();
-		cometMind.waitForHealth().then((healthy) => {
+		const healthReady = cometMind.waitForHealth();
+		healthReady.then((healthy) => {
 			if (!healthy) {
 				console.error('CometMind failed to become healthy');
 				return;
@@ -446,6 +450,20 @@ export function initializeRuntime() {
 				void cometMind.syncDiscordGateway(startupSettings);
 			}
 		});
+		void Promise.all([windowReady, healthReady])
+			.then(([, healthy]) => {
+				if (!healthy || stoppingForQuit || stoppedForQuit) return;
+				miniWindowPrewarmTimer = setTimeout(() => {
+					miniWindowPrewarmTimer = null;
+					if (stoppingForQuit || stoppedForQuit) return;
+					void windows?.prepareMiniWindow().catch((error) => {
+						console.error('Mini window failed to prewarm:', error);
+					});
+				}, MINI_WINDOW_PREWARM_DELAY_MS);
+			})
+			.catch((error) => {
+				console.error('Mini window prewarm could not be scheduled:', error);
+			});
 		await windowReady;
 		updater.configure();
 		app.on('second-instance', () => windows?.showMainWindow());
@@ -463,6 +481,10 @@ export function initializeRuntime() {
 		}
 		event.preventDefault();
 		stoppingForQuit = true;
+		if (miniWindowPrewarmTimer) {
+			clearTimeout(miniWindowPrewarmTimer);
+			miniWindowPrewarmTimer = null;
+		}
 		applicationMenuTray.destroyTray();
 		updater.stop();
 		await browserSearch.stop();

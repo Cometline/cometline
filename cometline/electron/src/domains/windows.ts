@@ -14,7 +14,11 @@ import type os from 'node:os';
 import type path from 'node:path';
 
 import { APP_ORIGIN } from './app-protocol.js';
-import { mainWindowMinWidthForWorkArea, miniWindowOriginForWorkArea, miniWindowSizeForWorkArea } from './window-bounds.js';
+import {
+	mainWindowMinWidthForWorkArea,
+	miniWindowOriginForWorkArea,
+	miniWindowSizeForWorkArea
+} from './window-bounds.js';
 import { isExternallyOpenableUrl } from './workspace-preview.js';
 
 const MACOS_LOGIN_ITEMS_SETTINGS_URL =
@@ -103,6 +107,7 @@ export function createWindows(dependencies: WindowsDependencies) {
 	} = dependencies;
 	let mainWindow: BrowserWindow | null = null;
 	let miniWindow: BrowserWindow | null = null;
+	let miniWindowReady: Promise<BrowserWindow> | null = null;
 	let settingsWindow: BrowserWindow | null = null;
 	let ignoreActivateUntil = 0;
 
@@ -150,7 +155,11 @@ export function createWindows(dependencies: WindowsDependencies) {
 			display.workArea.height,
 			MINI_WINDOW_SCREEN_MARGIN
 		);
-		const origin = miniWindowOriginForWorkArea(display.workArea, size, MINI_WINDOW_SCREEN_MARGIN);
+		const origin = miniWindowOriginForWorkArea(
+			display.workArea,
+			size,
+			MINI_WINDOW_SCREEN_MARGIN
+		);
 		window.setBounds({ ...origin, ...size }, false);
 	}
 
@@ -303,13 +312,6 @@ export function createWindows(dependencies: WindowsDependencies) {
 		attachExternalNavigationGuards(window);
 		shortcuts.attachMiniWindowShortcuts(window.webContents);
 		layoutMiniWindowOnCursorDisplay();
-		await loadAppRoute(window, '/mini');
-		window.once('ready-to-show', () => {
-			layoutMiniWindowOnCursorDisplay();
-			applyMiniWindowPresentation();
-			miniWindow?.show();
-			miniWindow?.focus();
-		});
 		window.on('hide', () => {
 			writeMiniWindowState({ lastActiveAt: Date.now() });
 		});
@@ -322,7 +324,23 @@ export function createWindows(dependencies: WindowsDependencies) {
 		window.on('closed', () => {
 			if (miniWindow === window) miniWindow = null;
 		});
-		return window;
+		try {
+			await loadAppRoute(window, '/mini?prewarm=1');
+			return window;
+		} catch (error) {
+			if (miniWindow === window) miniWindow = null;
+			window.destroy();
+			throw error;
+		}
+	}
+
+	async function prepareMiniWindow() {
+		if (miniWindowReady) return miniWindowReady;
+		if (windowCanShow(miniWindow)) return miniWindow;
+		miniWindowReady = createMiniWindow().finally(() => {
+			miniWindowReady = null;
+		});
+		return miniWindowReady;
 	}
 
 	async function createSettingsWindow() {
@@ -381,15 +399,13 @@ export function createWindows(dependencies: WindowsDependencies) {
 	}
 
 	async function showMiniWindow() {
-		const window = miniWindow;
-		if (!windowCanShow(window)) {
-			await createMiniWindow();
-			return;
-		}
+		const window = await prepareMiniWindow();
+		if (!windowCanShow(window)) return;
 		if (window.isMinimized()) window.restore();
 		layoutMiniWindowOnCursorDisplay();
 		applyMiniWindowPresentation();
 		window.show();
+		window.webContents.send('cometline:activate-mini-window');
 		window.focus();
 	}
 
@@ -541,6 +557,7 @@ export function createWindows(dependencies: WindowsDependencies) {
 		hideMiniWindow,
 		hideSettingsWindow,
 		openSessionInMainWindow,
+		prepareMiniWindow,
 		readLoginItemState,
 		showMainWindow,
 		showSettingsWindow,
