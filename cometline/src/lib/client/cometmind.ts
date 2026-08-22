@@ -736,6 +736,19 @@ export async function* streamMessage(
 	yield* streamSse(`/api/v1/sessions/${id}/messages`, req, signal);
 }
 
+export async function* streamSessionEvents(
+	id: string,
+	signal?: AbortSignal
+): AsyncGenerator<StreamEvent, void, unknown> {
+	const res = await fetch(`${BASE_URL}/api/v1/sessions/${encodeURIComponent(id)}/events`, {
+		method: 'GET',
+		headers: { Accept: 'text/event-stream' },
+		cache: 'no-store',
+		signal
+	});
+	yield* readTurnStream(res, signal);
+}
+
 /** Stream events that can outlive a request-scoped message stream. */
 export async function* streamRuntimeEvents(
 	signal?: AbortSignal
@@ -810,7 +823,13 @@ async function* streamSse(
 		body: JSON.stringify(body),
 		signal
 	});
+	yield* readTurnStream(res, signal);
+}
 
+async function* readTurnStream(
+	res: Response,
+	signal?: AbortSignal
+): AsyncGenerator<StreamEvent, void, unknown> {
 	if (!res.ok || !res.body) {
 		const text = await res.text();
 		const parsed = parseErrorBody(text || res.statusText);

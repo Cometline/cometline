@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { apiErrorMessage, streamMessage, UnexpectedStreamEndError } from './cometmind';
+import {
+	apiErrorMessage,
+	streamMessage,
+	streamSessionEvents,
+	UnexpectedStreamEndError
+} from './cometmind';
 
 function sseResponse(body: string): Response {
 	const encoder = new TextEncoder();
@@ -88,5 +93,33 @@ describe('streamMessage', () => {
 		}
 
 		expect(events).toEqual(['text_delta', 'done']);
+	});
+});
+
+describe('streamSessionEvents', () => {
+	afterEach(() => {
+		vi.unstubAllGlobals();
+	});
+
+	it('uses GET and yields replay through the terminal event', async () => {
+		const fetchMock = vi.fn().mockResolvedValue(
+			sseResponse(
+				'data: {"type":"text_delta","delta":"replayed"}\n\n' +
+					'data: {"type":"done"}\n\n'
+			)
+		);
+		vi.stubGlobal('fetch', fetchMock);
+
+		const events = [];
+		for await (const event of streamSessionEvents('session/1')) events.push(event);
+
+		expect(fetchMock).toHaveBeenCalledWith(
+			'http://127.0.0.1:7700/api/v1/sessions/session%2F1/events',
+			expect.objectContaining({ method: 'GET', cache: 'no-store' })
+		);
+		expect(events).toEqual([
+			{ type: 'text_delta', delta: 'replayed' },
+			{ type: 'done' }
+		]);
 	});
 });

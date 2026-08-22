@@ -13,6 +13,7 @@ function deps(overrides: Partial<Parameters<typeof createComposerInputController
 		getReasoningEffortOptions: () => [],
 		getAgentMode: (): AgentMode => 'auto',
 		clearDraft: vi.fn(),
+		applyDraft: vi.fn(),
 		...overrides
 	};
 }
@@ -87,5 +88,26 @@ describe('createComposerInputController', () => {
 		const controller = createComposerInputController(deps({ onSend, getAgentMode: () => 'auto' }));
 		controller.sendTurn({ text: 'go', agentMode: 'plan' });
 		expect(onSend).toHaveBeenCalledWith({ text: 'go', agentMode: 'plan' });
+	});
+
+	it('restores a rejected turn into an empty draft', () => {
+		const applyDraft = vi.fn();
+		const controller = createComposerInputController(
+			deps({ getValue: () => '', applyDraft })
+		);
+		const draft = { text: 'try again', images: [{ media_type: 'image/png' as const, data: 'abc' }] };
+
+		expect(controller.restoreDraft(draft)).toBe(true);
+		expect(applyDraft).toHaveBeenCalledWith(draft);
+	});
+
+	it('does not overwrite a newer draft with a rejected turn', () => {
+		const applyDraft = vi.fn();
+		const controller = createComposerInputController(
+			deps({ getValue: () => 'new draft', applyDraft })
+		);
+
+		expect(controller.restoreDraft({ text: 'rejected' })).toBe(false);
+		expect(applyDraft).not.toHaveBeenCalled();
 	});
 });

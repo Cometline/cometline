@@ -49,6 +49,18 @@ describe('sessionStore metadata patches', () => {
 		});
 	});
 
+	it('updates running state in both list and current session', async () => {
+		const { sessionStore } = await import('./session.svelte');
+		const active = session();
+		sessionStore.setSessions([active]);
+		sessionStore.selectSession(active);
+
+		sessionStore.setRunning('sess-1', true);
+
+		expect(sessionStore.sessions[0].running).toBe(true);
+		expect(sessionStore.current?.running).toBe(true);
+	});
+
 	it('lets an explicit session write replace agent mode', async () => {
 		const { sessionStore } = await import('./session.svelte');
 		sessionStore.setSessions([session({ agent_mode: 'plan' })]);

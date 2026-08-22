@@ -1,5 +1,6 @@
 import type { AgentMode, ImageAttachment } from '$lib/types';
 import type { ChatTurnPayload } from '$lib/actions/start-chat';
+import type { PendingUnsentDraft } from '$lib/components/composer/composer-history';
 
 export function createComposerInputController(deps: {
 	onSend: (payload: ChatTurnPayload | string) => void;
@@ -11,6 +12,7 @@ export function createComposerInputController(deps: {
 	getReasoningEffortOptions: () => string[];
 	getAgentMode: () => AgentMode;
 	clearDraft: () => void;
+	applyDraft: (draft: PendingUnsentDraft) => void;
 }) {
 	function canSubmit() {
 		return Boolean(deps.getValue().trim() || deps.getImages().length > 0);
@@ -49,10 +51,17 @@ export function createComposerInputController(deps: {
 		return true;
 	}
 
+	function restoreDraft(draft: PendingUnsentDraft) {
+		if (deps.getValue().trim() || deps.getImages().length > 0) return false;
+		deps.applyDraft(draft);
+		return true;
+	}
+
 	return {
 		canSubmit,
 		sendTurn,
 		buildSubmitPayload,
-		submitDraft
+		submitDraft,
+		restoreDraft
 	};
 }

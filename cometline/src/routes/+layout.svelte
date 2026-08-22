@@ -55,6 +55,12 @@
 			if (event.type === 'inbox_message_archived') {
 				inboxStore.applyArchived(event.id, event.open_count);
 			}
+			if (event.type === 'run_started') {
+				sessionStore.setRunning(event.session_id, true);
+			}
+			if (event.type === 'run_finished') {
+				sessionStore.setRunning(event.session_id, false);
+			}
 		});
 		void inboxStore.refreshSummary();
 		let skillDraftsTimer: ReturnType<typeof setInterval> | null = null;

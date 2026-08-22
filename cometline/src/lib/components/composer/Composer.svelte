@@ -28,6 +28,7 @@
 	import { createComposerMentionsController } from '$lib/components/composer/composer-mentions.svelte';
 	import { createComposerSlashController } from '$lib/components/composer/composer-slash.svelte';
 	import { stepHistoryIndex } from '$lib/components/composer/composer-history';
+	import type { PendingUnsentDraft } from '$lib/components/composer/composer-history';
 	import { nextAttachmentRemoval } from '$lib/components/composer/composer-attachment-keydown';
 	import { nextReasoningEffort } from '$lib/composer/reasoning-effort';
 	import { getReasoningEffort, setReasoningEffort } from '$lib/stores/reasoning-effort.svelte';
@@ -171,7 +172,8 @@
 		getReasoningEffort: () => getReasoningEffort(sessionId),
 		getReasoningEffortOptions: () => modelStore.selected?.reasoningEffortOptions ?? [],
 		getAgentMode: () => agentMode,
-		clearDraft
+		clearDraft,
+		applyDraft: (draft) => applyComposerText(draft.text, draft.images ?? [])
 	});
 
 	const attachments = createComposerAttachmentsController({
@@ -240,6 +242,14 @@
 
 	export function focus() {
 		void focusInput();
+	}
+
+	export function restoreDraft(draft: PendingUnsentDraft) {
+		if (!inputController.restoreDraft(draft)) return false;
+		resetHistoryBrowse();
+		lastNonEmptyDraft = draft.text;
+		void focusInput({ position: 'end' });
+		return true;
 	}
 
 	$effect(() => {

@@ -291,10 +291,22 @@ export function createCometMindLifecycle(deps: CometMindLifecycleDeps): CometMin
 			return;
 		}
 		const logStream = createRotatingLogWriter(deps.getGatewayLogPath());
-		const child = spawn(binary, ['gateway', 'run', '--platform', 'discord', '--watch-parent'], {
-			stdio: ['ignore', 'pipe', 'pipe'],
-			env: environment()
-		});
+		const child = spawn(
+			binary,
+			[
+				'gateway',
+				'run',
+				'--platform',
+				'discord',
+				'--serve-url',
+				`http://127.0.0.1:${COMETMIND_PORT}`,
+				'--watch-parent'
+			],
+			{
+				stdio: ['ignore', 'pipe', 'pipe'],
+				env: environment()
+			}
+		);
 		gatewayProcess = child;
 		child.stdout?.on('data', (data: Buffer) => logStream.write(data));
 		child.stderr?.on('data', (data: Buffer) => logStream.write(data));

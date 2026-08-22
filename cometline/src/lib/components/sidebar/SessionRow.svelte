@@ -37,7 +37,7 @@
 		onContextMenu: (event: MouseEvent) => void;
 	} = $props();
 
-	let streaming = $derived(chatStore.isStreamingFor(session.id));
+	let streaming = $derived(session.running || chatStore.isStreamingFor(session.id));
 	let terminalRunning = $derived(terminalStore.isRunning(session.id));
 	let unread = $derived(unreadSessionOutputStore.isUnread(session.id));
 	let failed = $derived(chatStore.hasRunError(session.id));

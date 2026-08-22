@@ -44,12 +44,13 @@ export interface ConversationControllerDeps {
 	send: (
 		sessionId: string,
 		payload: ChatTurnPayload | string,
-		opts?: { skipUser?: boolean }
+		opts?: { skipUser?: boolean; onConflict?: () => void }
 	) => Promise<void>;
 	refreshSession: (sessionId: string) => Promise<void>;
 	flight?: ConversationFlightAdapter;
 	onQueueChange?: () => void;
 	onAwaitingFirstAssistantChange?: (value: boolean) => void;
+	onTurnRejected?: (sessionId: string, payload: ChatTurnPayload) => void;
 }
 
 export interface ConversationController {
@@ -94,9 +95,13 @@ async function runTurn(
 	let sendPromise: Promise<void> | undefined;
 	const startSend = () => {
 		if (!sendPromise) {
-			sendPromise = deps.send(turnSessionId, payloadOrText, {
+			const opts: { skipUser?: boolean; onConflict?: () => void } = {
 				skipUser: usesFlight ? true : firstTurn
-			});
+			};
+			if (deps.onTurnRejected) {
+				opts.onConflict = () => deps.onTurnRejected?.(turnSessionId, payload);
+			}
+			sendPromise = deps.send(turnSessionId, payloadOrText, opts);
 			void sendPromise.catch(() => undefined);
 		}
 		return sendPromise;
@@ -223,9 +228,21 @@ export function createConversationController(
 				});
 				return;
 			}
-			if (!this.shouldSkipTranscriptLoad()) {
-				void chatStore.loadTranscript(sessionId);
-			}
+			void (async () => {
+				let running =
+					sessionStore.sessions.find((session) => session.id === sessionId)?.running ?? false;
+				try {
+					const latest = await getSession(sessionId);
+					running = latest.running;
+					sessionStore.updateSession(latest);
+				} catch {
+					// Transcript loading retains the existing not-found and retry behavior.
+				}
+				if (!this.shouldSkipTranscriptLoad()) {
+					await chatStore.loadTranscript(sessionId);
+				}
+				if (running) await chatStore.resumeRun(sessionId);
+			})();
 		},
 
 		syncComposerPhase(opts) {

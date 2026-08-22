@@ -68,6 +68,12 @@ function createSessionStore() {
 		writeSession(applySessionMetadata(existing, patch), { prepend: true });
 	}
 
+	function setRunning(sessionId: string, running: boolean) {
+		const existing = sessions.find((item) => item.id === sessionId);
+		if (!existing || existing.running === running) return;
+		writeSession({ ...existing, running });
+	}
+
 	function appendSession(session: Session) {
 		upsertSession(session, { selectCurrent: true, prepend: true });
 	}
@@ -155,6 +161,7 @@ function createSessionStore() {
 		appendSession,
 		updateSession,
 		patchSessionMetadata,
+		setRunning,
 		removeSession,
 		discardSession,
 		queuePendingMessage,
