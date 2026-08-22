@@ -308,6 +308,8 @@ export function createWindows(dependencies: WindowsDependencies) {
 				: {}),
 			...(appIcon ? { icon: appIcon } : {}),
 			show: false,
+			// Hidden prewarm still paints so the first shortcut can reveal a ready view.
+			paintWhenInitiallyHidden: true,
 			webPreferences: {
 				preload: path.join(runtimeDirectory, 'dist', 'preload.cjs'),
 				contextIsolation: true,
@@ -318,7 +320,6 @@ export function createWindows(dependencies: WindowsDependencies) {
 				// Keep the hidden prewarmed renderer warm so shortcut toggles
 				// do not pay Chromium's background-throttle wake-up hitch.
 				backgroundThrottling: false,
-				paintWhenInitiallyHidden: true,
 				devTools: !app.isPackaged
 			}
 		});
