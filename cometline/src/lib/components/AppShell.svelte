@@ -1226,7 +1226,7 @@
 		top: 50%;
 		transform: translate(-50%, -50%);
 		min-width: 0;
-		max-width: min(36vw, 14rem);
+		max-width: min(calc(100% - 88px), 14rem);
 		margin: 0;
 		padding: 0;
 		border: none;
@@ -1248,13 +1248,13 @@
 
 	@media (min-width: 900px) {
 		.shell-titlebar-title {
-			max-width: min(42vw, 22rem);
+			max-width: min(calc(100% - 88px), 22rem);
 		}
 	}
 
 	@media (min-width: 1280px) {
 		.shell-titlebar-title {
-			max-width: min(48vw, 32rem);
+			max-width: min(calc(100% - 88px), 32rem);
 		}
 	}
 
