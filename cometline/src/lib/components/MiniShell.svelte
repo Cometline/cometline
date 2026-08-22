@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { tick } from 'svelte';
+	import { onMount, tick } from 'svelte';
+	import { page } from '$app/state';
 	import { cubicOut } from 'svelte/easing';
 	import { fly, fade } from 'svelte/transition';
 	import ThinkingIndicator from '$lib/components/ThinkingIndicator.svelte';
@@ -14,6 +15,17 @@
 	let { children } = $props();
 	let creatingSession = $state(false);
 	let sidebarRef = $state<{ focusSearch: () => void } | null>(null);
+
+	onMount(() => {
+		const revealOverlayIfStillBooting = () => {
+			if (document.visibilityState !== 'visible') return;
+			if (page.url.pathname === '/mini' || page.url.pathname === '/mini/') {
+				miniShellStore.ensureOpening();
+			}
+		};
+		document.addEventListener('visibilitychange', revealOverlayIfStillBooting);
+		return () => document.removeEventListener('visibilitychange', revealOverlayIfStillBooting);
+	});
 
 	async function createSession() {
 		if (creatingSession) return;

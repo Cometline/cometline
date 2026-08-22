@@ -7,7 +7,7 @@ describe('mini shell opening transition', () => {
 		miniShellStore.resetOpening();
 	});
 
-	it('keeps the initial overlay visible until the opening has lasted 320ms', async () => {
+	it('keeps a visible overlay until the opening has lasted 320ms', async () => {
 		const opening = miniShellStore.startOpening();
 		const finishing = miniShellStore.finishOpening(opening);
 
@@ -19,17 +19,17 @@ describe('mini shell opening transition', () => {
 		expect(miniShellStore.opening).toBe(false);
 	});
 
-	it('starts the minimum visible time when a prepared window is activated', async () => {
-		miniShellStore.prepareOpening();
-		await vi.advanceTimersByTimeAsync(5000);
-
-		const opening = miniShellStore.startOpening();
-		const finishing = miniShellStore.finishOpening(opening);
-		await vi.advanceTimersByTimeAsync(319);
-		expect(miniShellStore.opening).toBe(true);
-		await vi.advanceTimersByTimeAsync(1);
-		await finishing;
-		expect(miniShellStore.opening).toBe(false);
+	it('does not delay finish when the overlay was never shown', async () => {
+		vi.stubGlobal('document', { visibilityState: 'hidden' });
+		try {
+			const opening = miniShellStore.startOpening();
+			expect(miniShellStore.opening).toBe(false);
+			const finishing = miniShellStore.finishOpening(opening);
+			await finishing;
+			expect(miniShellStore.opening).toBe(false);
+		} finally {
+			vi.unstubAllGlobals();
+		}
 	});
 
 	it('does not let a stale opening completion hide a newer overlay', async () => {

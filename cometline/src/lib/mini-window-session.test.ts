@@ -13,7 +13,9 @@ const mocks = vi.hoisted(() => ({
 	requestComposerFocus: vi.fn(),
 	recordVisit: vi.fn(),
 	requestNewSession: vi.fn(),
-	clearNewSessionRequest: vi.fn()
+	clearNewSessionRequest: vi.fn(),
+	startOpening: vi.fn(),
+	resetOpening: vi.fn()
 }));
 
 vi.mock('$app/navigation', () => ({ goto: mocks.goto }));
@@ -26,7 +28,13 @@ vi.mock('$lib/stores/model.svelte', () => ({
 	modelStore: { options: [], selected: null, selectDefault: vi.fn(), selectFromSession: mocks.selectFromSession }
 }));
 vi.mock('$lib/stores/session.svelte', () => ({
-	sessionStore: { selectSession: mocks.selectSession, upsertSession: vi.fn(), appendSession: vi.fn() }
+	sessionStore: {
+		selectSession: mocks.selectSession,
+		upsertSession: vi.fn(),
+		appendSession: vi.fn(),
+		sessions: [] as Session[],
+		loaded: false
+	}
 }));
 vi.mock('$lib/stores/settings.svelte', () => ({ settingsStore: { load: vi.fn() } }));
 vi.mock('$lib/stores/shell.svelte', () => ({
@@ -44,11 +52,15 @@ vi.mock('$lib/stores/session-visit-history.svelte', () => ({
 vi.mock('$lib/stores/mini-shell.svelte', () => ({
 	miniShellStore: {
 		requestNewSession: mocks.requestNewSession,
-		clearNewSessionRequest: mocks.clearNewSessionRequest
+		clearNewSessionRequest: mocks.clearNewSessionRequest,
+		startOpening: mocks.startOpening,
+		resetOpening: mocks.resetOpening
 	}
 }));
 
+import { sessionStore } from '$lib/stores/session.svelte';
 import {
+	activateMiniWindow,
 	createMiniWindowSession,
 	ensureMiniWindowSession,
 	navigateMiniToSession
@@ -73,6 +85,8 @@ const session: Session = {
 describe('mini window sessions', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		sessionStore.loaded = false;
+		sessionStore.sessions = [];
 		mocks.createNewSession.mockResolvedValue(session);
 		mocks.listAllSessions.mockResolvedValue({ sessions: [session] });
 		vi.stubGlobal('window', {
@@ -101,6 +115,10 @@ describe('mini window sessions', () => {
 	it('creates a default-model session and opens it in the mini route', async () => {
 		await expect(createMiniWindowSession()).resolves.toEqual(session);
 
+		expect(mocks.startOpening).toHaveBeenCalledOnce();
+		expect(mocks.startOpening.mock.invocationCallOrder[0]).toBeLessThan(
+			mocks.createNewSession.mock.invocationCallOrder[0]
+		);
 		expect(mocks.createNewSession).toHaveBeenCalledOnce();
 		expect(window.electronAPI?.saveMiniWindowState).toHaveBeenCalledWith({
 			sessionId: 'mini-session'
@@ -119,6 +137,7 @@ describe('mini window sessions', () => {
 		await expect(createMiniWindowSession()).rejects.toThrow('navigation failed');
 
 		expect(mocks.clearNewSessionRequest).toHaveBeenCalledWith('mini-session');
+		expect(mocks.resetOpening).toHaveBeenCalledOnce();
 	});
 
 	it('reuses a preferred session from another workspace', async () => {
@@ -136,5 +155,56 @@ describe('mini window sessions', () => {
 		);
 
 		expect(mocks.createNewSession).not.toHaveBeenCalled();
+	});
+
+	it('reuses a loaded session without listing from the API', async () => {
+		sessionStore.loaded = true;
+		sessionStore.sessions = [session];
+		vi.stubGlobal('window', {
+			electronAPI: {
+				getMiniWindowState: vi.fn().mockResolvedValue({
+					sessionId: 'mini-session',
+					lastActiveAt: Date.now(),
+					inactivityTimeoutMinutes: 30
+				}),
+				saveMiniWindowState: vi.fn().mockResolvedValue(undefined)
+			}
+		});
+
+		await expect(ensureMiniWindowSession()).resolves.toBe('mini-session');
+		expect(mocks.listAllSessions).not.toHaveBeenCalled();
+	});
+
+	it('shares one in-flight activation across repeated shortcut shows', async () => {
+		let resolveList: ((value: { sessions: Session[] }) => void) | undefined;
+		mocks.listAllSessions.mockReturnValue(
+			new Promise<{ sessions: Session[] }>((resolve) => {
+				resolveList = resolve;
+			})
+		);
+		vi.stubGlobal('window', {
+			electronAPI: {
+				getMiniWindowState: vi.fn().mockResolvedValue({
+					sessionId: 'mini-session',
+					lastActiveAt: Date.now(),
+					inactivityTimeoutMinutes: 30
+				}),
+				getWorkspacePath: vi.fn().mockResolvedValue('/'),
+				saveMiniWindowState: vi.fn().mockResolvedValue(undefined)
+			}
+		});
+
+		const first = activateMiniWindow();
+		const second = activateMiniWindow();
+		resolveList?.({ sessions: [session] });
+
+		await expect(Promise.all([first, second])).resolves.toEqual([
+			'mini-session',
+			'mini-session'
+		]);
+		expect(mocks.goto).toHaveBeenCalledOnce();
+		expect(mocks.goto).toHaveBeenCalledWith('/mini/session/mini-session', {
+			replaceState: true
+		});
 	});
 });

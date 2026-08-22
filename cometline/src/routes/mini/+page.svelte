@@ -1,30 +1,19 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import { page } from '$app/state';
 	import { onMount } from 'svelte';
-	import { miniShellStore } from '$lib/stores/mini-shell.svelte';
 
 	let error = $state('');
 
 	async function openMiniWindow() {
-		miniShellStore.startOpening();
 		try {
-			const { ensureMiniWindowSession } = await import('$lib/mini-window-session');
-			const sessionId = await ensureMiniWindowSession();
-			await goto(`/mini/session/${sessionId}`, { replaceState: true });
+			const { activateMiniWindow } = await import('$lib/mini-window-session');
+			await activateMiniWindow();
 		} catch (err) {
-			miniShellStore.resetOpening();
 			error = err instanceof Error ? err.message : 'Failed to open mini chat';
 		}
 	}
 
 	onMount(() => {
-		if (page.url.searchParams.get('prewarm') !== '1') {
-			void openMiniWindow();
-			return;
-		}
-
-		miniShellStore.prepareOpening();
+		void openMiniWindow();
 		return window.electronAPI?.onMiniWindowActivated?.(() => {
 			void openMiniWindow();
 		});

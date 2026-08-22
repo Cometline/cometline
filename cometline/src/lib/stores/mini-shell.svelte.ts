@@ -1,5 +1,9 @@
 const MINI_OPENING_MIN_VISIBLE_MS = 320;
 
+function documentIsVisible() {
+	return typeof document === 'undefined' || document.visibilityState === 'visible';
+}
+
 function createMiniShellStore() {
 	let sidebarOpen = $state(false);
 	let opening = $state(false);
@@ -9,8 +13,13 @@ function createMiniShellStore() {
 
 	function startOpening() {
 		openingRun += 1;
-		openingStartedAt = performance.now();
-		opening = true;
+		if (documentIsVisible()) {
+			openingStartedAt = performance.now();
+			opening = true;
+		} else {
+			openingStartedAt = null;
+			opening = false;
+		}
 		return openingRun;
 	}
 
@@ -23,10 +32,6 @@ function createMiniShellStore() {
 		},
 		get openingRun() {
 			return openingRun;
-		},
-		prepareOpening() {
-			opening = true;
-			openingStartedAt = null;
 		},
 		startOpening,
 		ensureOpening() {
