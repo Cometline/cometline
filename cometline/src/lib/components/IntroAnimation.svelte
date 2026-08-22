@@ -271,8 +271,9 @@
 				const scale = Math.max(W / fieldImage.naturalWidth, H / fieldImage.naturalHeight);
 				const dw = fieldImage.naturalWidth * scale;
 				const dh = fieldImage.naturalHeight * scale;
-				const dx = (W - dw) / 2 + dw * 0.06;
-				const dy = (H - dh) / 2 - dh * 0.04;
+				// Bias toward the comet, but clamp so the print still covers the sheet.
+				const dx = Math.min(0, Math.max(W - dw, (W - dw) / 2 + dw * 0.06));
+				const dy = Math.min(0, Math.max(H - dh, (H - dh) / 2 - dh * 0.04));
 				ctx.save();
 				ctx.globalAlpha = fieldAlpha;
 				ctx.drawImage(fieldImage, dx, dy, dw, dh);
