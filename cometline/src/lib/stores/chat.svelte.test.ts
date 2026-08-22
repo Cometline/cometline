@@ -594,6 +594,28 @@ describe('chatStore session switching', () => {
 		]);
 	});
 
+	it('returns explicit session-running conflicts for queue retry without restoring a draft', async () => {
+		const onConflict = vi.fn();
+		vi.mocked(streamMessage).mockImplementation(async function* () {
+			throw { status: 409, code: 'session_running' };
+			yield { type: 'done' };
+		});
+		vi.mocked(getSessionMessages).mockResolvedValue(
+			mockTranscript('sess-a', 'existing question')
+		);
+		vi.mocked(streamSessionEvents).mockImplementation(async function* () {
+			yield { type: 'text_delta', delta: 'existing answer' };
+			yield { type: 'done' };
+		});
+
+		chatStore.bindSession('sess-a');
+		const outcome = await chatStore.send('sess-a', 'queued question', { onConflict });
+
+		expect(outcome).toBe('session_running');
+		expect(onConflict).not.toHaveBeenCalled();
+		expect(chatStore.isStreamingFor('sess-a')).toBe(false);
+	});
+
 	it('does not clobber in-flight cache when loadTranscript returns user-only server data', async () => {
 		let releaseA: (() => void) | undefined;
 		const aGate = new Promise<void>((resolve) => {

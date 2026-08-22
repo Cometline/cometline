@@ -45,7 +45,7 @@ export interface ConversationControllerDeps {
 		sessionId: string,
 		payload: ChatTurnPayload | string,
 		opts?: { skipUser?: boolean; onConflict?: () => void }
-	) => Promise<void>;
+	) => Promise<void | 'session_running'>;
 	refreshSession: (sessionId: string) => Promise<void>;
 	flight?: ConversationFlightAdapter;
 	onQueueChange?: () => void;
@@ -93,15 +93,24 @@ async function runTurn(
 	let stagedUserId: string | undefined;
 	let flightPromise: Promise<void> | undefined;
 	let sendPromise: Promise<void> | undefined;
+	let sendAttempts = 0;
 	const startSend = () => {
 		if (!sendPromise) {
-			const opts: { skipUser?: boolean; onConflict?: () => void } = {
-				skipUser: usesFlight ? true : firstTurn
-			};
-			if (deps.onTurnRejected) {
-				opts.onConflict = () => deps.onTurnRejected?.(turnSessionId, payload);
-			}
-			sendPromise = deps.send(turnSessionId, payloadOrText, opts);
+			sendPromise = (async () => {
+				// session_running rejects before persistence. Once send has followed that
+				// run to completion, retry the same payload and restage its user row.
+				while (true) {
+					const opts: { skipUser?: boolean; onConflict?: () => void } = {
+						skipUser: sendAttempts === 0 ? (usesFlight ? true : firstTurn) : false
+					};
+					if (deps.onTurnRejected) {
+						opts.onConflict = () => deps.onTurnRejected?.(turnSessionId, payload);
+					}
+					sendAttempts += 1;
+					const outcome = await deps.send(turnSessionId, payloadOrText, opts);
+					if (outcome !== 'session_running') return;
+				}
+			})();
 			void sendPromise.catch(() => undefined);
 		}
 		return sendPromise;
