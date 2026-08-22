@@ -435,7 +435,12 @@ func (r *Runtime) StartBackupMaintenance(ctx context.Context) {
 
 // StartAutonomousJobWorker starts the background worker that claims and
 // executes ready jobs without a human opening a chat session first.
-func (r *Runtime) StartAutonomousJobWorker(ctx context.Context, guard autonomy.RunGuard) {
+func (r *Runtime) StartAutonomousJobWorker(
+	ctx context.Context,
+	guard autonomy.RunGuard,
+	onRunState func(sessionID string, running bool),
+	onEvent func(sessionID string, ev event.Event),
+) {
 	if r == nil || r.Jobs == nil || r.Sessions == nil {
 		return
 	}
@@ -451,6 +456,8 @@ func (r *Runtime) StartAutonomousJobWorker(ctx context.Context, guard autonomy.R
 			return r.runnerFor(sess, workspacePath, RunnerOptions{MaxSteps: maxSteps, AgentMode: mode})
 		},
 		Guard:             guard,
+		OnRunState:        onRunState,
+		OnEvent:           onEvent,
 		Config:            r.Config.EffectiveAutonomousJobsSettings(),
 		DefaultModelID:    r.autonomyModelID(),
 		DefaultProviderID: r.autonomyProviderID(),

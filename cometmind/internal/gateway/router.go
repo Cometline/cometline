@@ -34,6 +34,7 @@ type Router struct {
 	Runner             Runner
 	Typing             TypingIndicator
 	Turns              *TurnRunTracker
+	Events             *EventBridge
 	Subagents          *subagent.Orchestrator
 	StopWaitTimeout    time.Duration
 	JobProposals       *JobProposalStore
@@ -112,6 +113,13 @@ func (r *Router) HandleInbound(ctx context.Context, msg InboundMessage) error {
 		if err != nil {
 			return err
 		}
+	}
+	var eventForwarder *EventForwarder
+	if r.Events != nil && r.Turns != nil {
+		eventForwarder = r.Events.Start(ctx, sess.ID, r.Turns.RunID(sess.ID), finishTurn)
+		finishTurn = nil
+		defer eventForwarder.Close()
+	} else if finishTurn != nil {
 		defer finishTurn()
 	}
 
@@ -137,6 +145,7 @@ func (r *Router) HandleInbound(ctx context.Context, msg InboundMessage) error {
 	var jobProposal *JobProposalPayload
 	sourceChannelID := deliveryChannelID(msg)
 	err = r.Runner.RunTurn(runCtx, sess, runPath, msg, func(ev event.Event) {
+		eventForwarder.Forward(ev)
 		switch ev.Kind {
 		case event.KindTextDelta:
 			reply.WriteString(ev.Delta)

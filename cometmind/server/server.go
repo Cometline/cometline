@@ -51,6 +51,7 @@ type Deps struct {
 	SetJobSettings func(jobs.Settings)
 	NewRunner      RunnerFactory
 	Runs           *RunManager
+	SessionEvents  *event.SessionHub
 	// RunContext owns agent lifetimes independently from individual SSE
 	// requests. A renderer disconnect must not cancel the model/tool loop.
 	RunContext   context.Context
@@ -73,6 +74,7 @@ type App struct {
 	setJobSettings func(jobs.Settings)
 	newRunner      RunnerFactory
 	runs           *RunManager
+	sessionEvents  *event.SessionHub
 	runContext     context.Context
 	acpMgr         *acp.SessionManager
 	mcpMgr         *mcppkg.Manager
@@ -90,8 +92,17 @@ func New(deps Deps) (*gin.Engine, error) {
 		return nil, fmt.Errorf("runner factory is required")
 	}
 	if deps.Runs == nil {
-		deps.Runs = NewRunManager()
+		return nil, fmt.Errorf("run manager is required")
 	}
+	if deps.SessionEvents == nil {
+		deps.SessionEvents = event.NewSessionHub()
+	}
+	deps.Runs.SetOnFinished(func(sessionID, runID string) {
+		deps.SessionEvents.Finish(sessionID, runID)
+		if deps.Events != nil {
+			deps.Events.Publish(event.RunFinished(sessionID))
+		}
+	})
 	runContext := deps.RunContext
 	if runContext == nil {
 		runContext = context.Background()
@@ -111,6 +122,7 @@ func New(deps Deps) (*gin.Engine, error) {
 		setJobSettings: deps.SetJobSettings,
 		newRunner:      deps.NewRunner,
 		runs:           deps.Runs,
+		sessionEvents:  deps.SessionEvents,
 		runContext:     runContext,
 		acpMgr:         deps.ACPMgr,
 		mcpMgr:         deps.MCPMgr,
@@ -166,6 +178,8 @@ func New(deps Deps) (*gin.Engine, error) {
 	api.POST("/sessions/:id/forks", app.handleForkSession)
 	api.DELETE("/sessions/:id", app.handleDeleteSession)
 	api.GET("/sessions/:id/messages", app.handleGetMessages)
+	api.GET("/sessions/:id/events", app.handleSessionEvents)
+	api.POST("/sessions/:id/events", app.handleIngestSessionEvent)
 	api.GET("/sessions/:id/media/:mediaId", app.handleGetSessionMedia)
 	api.GET("/media", app.handleListMedia)
 	api.GET("/media/:id/content", app.handleGetMediaContent)
@@ -327,6 +341,7 @@ type sessionResource struct {
 	PendingQuestion  string             `json:"pending_question,omitempty"`
 	SubagentKind     string             `json:"subagent_kind,omitempty"`
 	Gateway          *gatewayResource   `json:"gateway,omitempty"`
+	Running          bool               `json:"running"`
 	Pinned           bool               `json:"pinned"`
 	CreatedAt        int64              `json:"created_at"`
 	UpdatedAt        int64              `json:"updated_at"`

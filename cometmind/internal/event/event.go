@@ -2,6 +2,7 @@ package event
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	cometsdk "github.com/cometline/comet-sdk"
@@ -27,6 +28,8 @@ const (
 	KindContextBudget             Kind = "context_budget"
 	KindInboxMessageCreated       Kind = "inbox_message_created"
 	KindInboxMessageArchived      Kind = "inbox_message_archived"
+	KindRunStarted                Kind = "run_started"
+	KindRunFinished               Kind = "run_finished"
 	KindTurnStatus                Kind = "turn_status"
 	KindTurnRecover               Kind = "turn_recover"
 	KindAssistantImage            Kind = "assistant_image"
@@ -126,6 +129,8 @@ type Event struct {
 	InboxMessageID     string
 	InboxOpenCount     int64
 	InboxArchiveReason string
+	// run_started / run_finished
+	SessionID string
 	// turn_status
 	Phase         TurnPhase
 	StatusMessage string
@@ -251,6 +256,11 @@ func (e Event) MarshalJSON() ([]byte, error) {
 			OpenCount     int64  `json:"open_count"`
 			ArchiveReason string `json:"archive_reason"`
 		}{t, e.InboxMessageID, e.InboxOpenCount, e.InboxArchiveReason})
+	case KindRunStarted, KindRunFinished:
+		return json.Marshal(struct {
+			Type      string `json:"type"`
+			SessionID string `json:"session_id"`
+		}{t, e.SessionID})
 	case KindTurnStatus:
 		out := struct {
 			Type    string `json:"type"`
@@ -286,6 +296,97 @@ func (e Event) MarshalJSON() ([]byte, error) {
 			Type string `json:"type"`
 		}{t})
 	}
+}
+
+// UnmarshalJSON decodes the same discriminated wire shape emitted by MarshalJSON.
+// It is used by the localhost gateway-to-serve event bridge.
+func (e *Event) UnmarshalJSON(data []byte) error {
+	var wire struct {
+		Type             string             `json:"type"`
+		Delta            string             `json:"delta"`
+		Text             string             `json:"text"`
+		ID               string             `json:"id"`
+		Tool             string             `json:"tool"`
+		Input            json.RawMessage    `json:"input"`
+		Output           string             `json:"output"`
+		Error            string             `json:"error"`
+		Usage            Usage              `json:"usage"`
+		ChildSessionID   string             `json:"child_session_id"`
+		Purpose          string             `json:"purpose"`
+		AgentName        string             `json:"agent_name"`
+		ProgressKind     string             `json:"progress_kind"`
+		ProgressText     string             `json:"progress_text"`
+		DelegationStatus string             `json:"delegation_status"`
+		Summary          string             `json:"summary"`
+		Memories         []MemoryWire       `json:"memories"`
+		Changes          []MemoryChangeWire `json:"changes"`
+		Before           int64              `json:"before"`
+		After            int64              `json:"after"`
+		Trigger          string             `json:"trigger"`
+		Estimated        int                `json:"estimated"`
+		Available        int                `json:"available"`
+		ContextWindow    int                `json:"context_window"`
+		Compacted        bool               `json:"compacted"`
+		OpenCount        int64              `json:"open_count"`
+		ArchiveReason    string             `json:"archive_reason"`
+		SessionID        string             `json:"session_id"`
+		Phase            TurnPhase          `json:"phase"`
+		Message          string             `json:"message"`
+		TextChars        int                `json:"text_chars"`
+		ReasoningChars   int                `json:"reasoning_chars"`
+		MediaType        string             `json:"media_type"`
+		Alt              string             `json:"alt"`
+		DataURL          string             `json:"data_url"`
+		Code             string             `json:"code"`
+	}
+	if err := json.Unmarshal(data, &wire); err != nil {
+		return err
+	}
+	if strings.TrimSpace(wire.Type) == "" {
+		return fmt.Errorf("event type is required")
+	}
+	*e = Event{
+		Kind:                Kind(wire.Type),
+		Delta:               wire.Delta,
+		Text:                wire.Text,
+		ID:                  wire.ID,
+		Tool:                wire.Tool,
+		Input:               append([]byte(nil), wire.Input...),
+		Output:              wire.Output,
+		ToolErr:             wire.Error,
+		Usage:               wire.Usage,
+		ChildSessionID:      wire.ChildSessionID,
+		Purpose:             wire.Purpose,
+		AgentName:           wire.AgentName,
+		ProgressKind:        wire.ProgressKind,
+		ProgressText:        wire.ProgressText,
+		DelegationStatus:    wire.DelegationStatus,
+		Summary:             wire.Summary,
+		Memories:            wire.Memories,
+		MemoryChanges:       wire.Changes,
+		MemoryCountBefore:   wire.Before,
+		MemoryCountAfter:    wire.After,
+		CompactionTrigger:   wire.Trigger,
+		BudgetEstimated:     wire.Estimated,
+		BudgetAvailable:     wire.Available,
+		BudgetContextWindow: wire.ContextWindow,
+		BudgetCompacted:     wire.Compacted,
+		InboxMessageID:      wire.ID,
+		InboxOpenCount:      wire.OpenCount,
+		InboxArchiveReason:  wire.ArchiveReason,
+		SessionID:           wire.SessionID,
+		Phase:               wire.Phase,
+		StatusMessage:       wire.Message,
+		TextChars:           wire.TextChars,
+		ReasoningChars:      wire.ReasoningChars,
+		ImageID:             wire.ID,
+		MediaType:           wire.MediaType,
+		Alt:                 wire.Alt,
+		DataURL:             wire.DataURL,
+		Message:             wire.Message,
+		Code:                wire.Code,
+	}
+	return nil
 }
 
 // TextDelta builds a text_delta event.
@@ -393,6 +494,14 @@ func InboxMessageArchived(id string, openCount int64, archiveReason string) Even
 		InboxOpenCount:     openCount,
 		InboxArchiveReason: archiveReason,
 	}
+}
+
+func RunStarted(sessionID string) Event {
+	return Event{Kind: KindRunStarted, SessionID: sessionID}
+}
+
+func RunFinished(sessionID string) Event {
+	return Event{Kind: KindRunFinished, SessionID: sessionID}
 }
 
 // TurnStatus builds a turn_status event for pre-stream activity feedback.

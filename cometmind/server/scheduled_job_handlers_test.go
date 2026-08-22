@@ -11,6 +11,7 @@ import (
 
 	"github.com/cometline/cometmind/internal/config"
 	"github.com/cometline/cometmind/internal/jobs"
+	"github.com/cometline/cometmind/internal/runstate"
 	"github.com/cometline/cometmind/internal/scheduler"
 	"github.com/cometline/cometmind/internal/session"
 	"github.com/cometline/cometmind/internal/store"
@@ -31,6 +32,7 @@ func newScheduledJobTestServer(t *testing.T) *gin.Engine {
 		Sessions:  sessions,
 		Jobs:      jobs.NewService(sqlDB, nil, nil),
 		Scheduler: scheduler.NewService(sqlDB),
+		Runs:      NewRunManager(runstate.New(sqlDB)),
 		NewRunner: func(session.Session, string, session.AgentMode) (Runner, error) { return nil, nil },
 	})
 	if err != nil {

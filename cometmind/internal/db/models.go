@@ -214,6 +214,14 @@ type SessionMedia struct {
 	CreatedAt        int64          `json:"created_at"`
 }
 
+type SessionRun struct {
+	SessionID      string `json:"session_id"`
+	RunID          string `json:"run_id"`
+	Owner          string `json:"owner"`
+	AbortRequested int64  `json:"abort_requested"`
+	UpdatedAt      int64  `json:"updated_at"`
+}
+
 type ToolCall struct {
 	ID         string        `json:"id"`
 	MessageID  string        `json:"message_id"`

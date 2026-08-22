@@ -42,11 +42,13 @@ type RunnerFactory func(sess session.Session, workspacePath string, maxSteps int
 
 // Worker polls the job queue and autonomously claims + executes ready jobs.
 type Worker struct {
-	Jobs      *jobs.Service
-	Sessions  *session.Service
-	Memory    *memory.Service // optional; nil disables the task_outcome memory write
-	NewRunner RunnerFactory
-	Guard     RunGuard
+	Jobs       *jobs.Service
+	Sessions   *session.Service
+	Memory     *memory.Service // optional; nil disables the task_outcome memory write
+	NewRunner  RunnerFactory
+	Guard      RunGuard
+	OnRunState func(sessionID string, running bool)
+	OnEvent    func(sessionID string, ev event.Event)
 
 	mu     sync.RWMutex
 	Config config.AutonomousJobsConfig
@@ -209,7 +211,15 @@ func (w *Worker) runJob(ctx context.Context, job jobs.Job) {
 		log.Printf("autonomy: run guard rejected session %s for job %s: %v", sess.ID, job.ID, err)
 		return
 	}
-	defer finish()
+	if w.OnRunState != nil {
+		w.OnRunState(sess.ID, true)
+	}
+	defer func() {
+		if w.OnRunState != nil {
+			w.OnRunState(sess.ID, false)
+		}
+		finish()
+	}()
 
 	claimed, err := w.Jobs.Claim(runCtx, job.ID, sess.ID)
 	if err != nil {
@@ -235,9 +245,10 @@ func (w *Worker) runJob(ctx context.Context, job jobs.Job) {
 	stopHeartbeat := jobs.StartHeartbeatDuringTurn(runCtx, w.Jobs, sess.ID)
 	defer stopHeartbeat()
 
-	runErr := agent.RunHostedTurn(runCtx, runner, session.AgentTurnFromSession(sess), func(_ event.Event) {
-		// Autonomous runs have no SSE subscriber; drain and discard.
-		// (Phase 1 non-goal: no SSE forwarding for autonomous turns.)
+	runErr := agent.RunHostedTurn(runCtx, runner, session.AgentTurnFromSession(sess), func(ev event.Event) {
+		if w.OnEvent != nil {
+			w.OnEvent(sess.ID, ev)
+		}
 	})
 
 	w.finalizeJob(ctx, claimed, sess, runErr)

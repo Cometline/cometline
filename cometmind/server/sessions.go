@@ -60,6 +60,7 @@ func (a *App) handleCreateSession(c *gin.Context) {
 		writeError(c, http.StatusInternalServerError, "internal_error", err.Error())
 		return
 	}
+	res.Running = a.runs.Running(sess.ID)
 
 	c.JSON(http.StatusCreated, res)
 }
@@ -88,6 +89,7 @@ func (a *App) handleListSessions(c *gin.Context) {
 			writeError(c, http.StatusInternalServerError, "internal_error", err.Error())
 			return
 		}
+		res.Running = a.runs.Running(sess.ID)
 		items = append(items, res)
 	}
 
@@ -119,6 +121,7 @@ func (a *App) listAllSessions(c *gin.Context) {
 			writeError(c, http.StatusInternalServerError, "internal_error", err.Error())
 			return
 		}
+		res.Running = a.runs.Running(sess.ID)
 		items = append(items, res)
 	}
 
@@ -136,6 +139,7 @@ func (a *App) handleGetSession(c *gin.Context) {
 		writeError(c, http.StatusInternalServerError, "internal_error", err.Error())
 		return
 	}
+	res.Running = a.runs.Running(sess.ID)
 
 	c.JSON(http.StatusOK, res)
 }
@@ -160,6 +164,7 @@ func (a *App) handleListChildSessions(c *gin.Context) {
 			writeError(c, http.StatusInternalServerError, "internal_error", err.Error())
 			return
 		}
+		res.Running = a.runs.Running(child.ID)
 		items = append(items, res)
 	}
 	c.JSON(http.StatusOK, listSessionsResponse{Sessions: items})
@@ -263,6 +268,7 @@ func (a *App) handlePatchSession(c *gin.Context) {
 		writeError(c, http.StatusInternalServerError, "internal_error", err.Error())
 		return
 	}
+	res.Running = a.runs.Running(sess.ID)
 
 	c.JSON(http.StatusOK, res)
 }
@@ -304,6 +310,7 @@ func (a *App) handleForkSession(c *gin.Context) {
 		writeError(c, http.StatusInternalServerError, "internal_error", err.Error())
 		return
 	}
+	res.Running = a.runs.Running(forked.ID)
 
 	c.JSON(http.StatusCreated, res)
 }

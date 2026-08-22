@@ -403,6 +403,10 @@ export type Session = {
      */
     pinned: boolean;
     /**
+     * Whether this session currently owns the cross-process run lease.
+     */
+    running: boolean;
+    /**
      * Unix epoch milliseconds.
      */
     created_at: number;
@@ -861,6 +865,19 @@ export type AssistantVideoEvent = {
     alt?: string;
 };
 
+export type RunLifecycleEvent = {
+    type: 'run_started' | 'run_finished';
+    session_id: string;
+};
+
+export type IngestSessionEventRequest = {
+    run_id: string;
+    sequence?: number;
+    start?: boolean;
+    finish?: boolean;
+    event?: StreamEvent;
+};
+
 export type StreamEvent = ({
     type?: 'text_delta';
 } & TextDeltaEvent) | ({
@@ -892,6 +909,8 @@ export type StreamEvent = ({
 } & InboxMessageCreatedEvent) | ({
     type?: 'inbox_message_archived';
 } & InboxMessageArchivedEvent) | ({
+    type?: 'run_started' | 'run_finished';
+} & RunLifecycleEvent) | ({
     type?: 'turn_status';
 } & TurnStatusEvent) | ({
     type?: 'turn_recover';
@@ -2398,6 +2417,78 @@ export type PostSessionMessageResponses = {
 };
 
 export type PostSessionMessageResponse = PostSessionMessageResponses[keyof PostSessionMessageResponses];
+
+export type StreamSessionEventsData = {
+    body?: never;
+    path: {
+        /**
+         * Persisted CometMind session identifier.
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/sessions/{id}/events';
+};
+
+export type StreamSessionEventsErrors = {
+    /**
+     * Resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * Session is not currently running
+     */
+    409: ErrorResponse;
+};
+
+export type StreamSessionEventsError = StreamSessionEventsErrors[keyof StreamSessionEventsErrors];
+
+export type StreamSessionEventsResponses = {
+    /**
+     * Replay followed by live SSE events
+     */
+    200: StreamEvent;
+};
+
+export type StreamSessionEventsResponse = StreamSessionEventsResponses[keyof StreamSessionEventsResponses];
+
+export type IngestSessionEventData = {
+    body: IngestSessionEventRequest;
+    path: {
+        /**
+         * Persisted CometMind session identifier.
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/sessions/{id}/events';
+};
+
+export type IngestSessionEventErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * Run token is no longer current
+     */
+    409: ErrorResponse;
+};
+
+export type IngestSessionEventError = IngestSessionEventErrors[keyof IngestSessionEventErrors];
+
+export type IngestSessionEventResponses = {
+    /**
+     * Event accepted
+     */
+    204: void;
+};
+
+export type IngestSessionEventResponse = IngestSessionEventResponses[keyof IngestSessionEventResponses];
 
 export type GetSessionMediaData = {
     body?: never;

@@ -126,9 +126,17 @@ func (a *App) handlePostMessage(c *gin.Context) {
 		writeError(c, http.StatusConflict, "session_running", err.Error())
 		return
 	}
-	defer func() {
+	runID, _, running := a.runs.Current(c.Request.Context(), sess.ID)
+	if !running {
 		finish()
-	}()
+		writeError(c, http.StatusInternalServerError, "run_state_failed", "failed to read the active session run")
+		return
+	}
+	a.sessionEvents.Start(sess.ID, runID)
+	if a.events != nil {
+		a.events.Publish(event.RunStarted(sess.ID))
+	}
+	defer finish()
 
 	if a.jobs != nil {
 		if job, ok, _ := a.jobs.JobForSession(c.Request.Context(), sess.ID); ok {
@@ -160,6 +168,9 @@ func (a *App) handlePostMessage(c *gin.Context) {
 	turn := session.AgentTurnFromSession(sess)
 	turn.ReasoningEffort = strings.TrimSpace(req.ReasoningEffort)
 	runErr := agent.RunHostedTurn(runCtx, runner, turn, func(ev event.Event) {
+		if ev.Kind == event.KindDone {
+			return
+		}
 		if ev.Kind == event.KindError && strings.TrimSpace(ev.Message) != "" {
 			msg := userFacingMessageError(ev.Message)
 			ev.Message = msg
@@ -173,6 +184,7 @@ func (a *App) handlePostMessage(c *gin.Context) {
 				persistCancel()
 			}
 		}
+		a.sessionEvents.Publish(sess.ID, runID, ev)
 		if !clientGone {
 			if err := writeSSE(c.Writer, ev); err != nil {
 				clientGone = true
@@ -198,21 +210,27 @@ func (a *App) handlePostMessage(c *gin.Context) {
 				logging.L().Warn("message.error_persist_failed", "session", sess.ID, "error", perr)
 			}
 			persistCancel()
+			errEvent := event.Errorf(msg, "llm")
+			a.sessionEvents.Publish(sess.ID, runID, errEvent)
 			if !clientGone {
-				_ = writeSSE(c.Writer, event.Errorf(msg, "llm"))
+				_ = writeSSE(c.Writer, errEvent)
 				flusher.Flush()
 			}
 		}
-		// The runner may already have emitted the error event. Always terminate
-		// the SSE contract explicitly so clients can distinguish a failed run
-		// from an unexpectedly broken connection.
-		if !clientGone {
-			_ = writeSSE(c.Writer, event.Done())
-			flusher.Flush()
-		}
+		publishDone(c, a.sessionEvents, sess.ID, runID, flusher, clientGone)
 		return
 	}
+	publishDone(c, a.sessionEvents, sess.ID, runID, flusher, clientGone)
 	logging.L().Info("message.completed", "session", sess.ID, "duration_ms", time.Since(started).Milliseconds())
+}
+
+func publishDone(c *gin.Context, hub *event.SessionHub, sessionID, runID string, flusher http.Flusher, clientGone bool) {
+	doneEvent := event.Done()
+	hub.Publish(sessionID, runID, doneEvent)
+	if !clientGone {
+		_ = writeSSE(c.Writer, doneEvent)
+		flusher.Flush()
+	}
 }
 
 // messagePersistenceContext gives each persistence operation its own timeout.

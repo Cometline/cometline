@@ -10,6 +10,7 @@ import (
 
 	"github.com/cometline/cometmind/internal/config"
 	"github.com/cometline/cometmind/internal/jobs"
+	"github.com/cometline/cometmind/internal/runstate"
 	"github.com/cometline/cometmind/internal/session"
 	"github.com/cometline/cometmind/internal/store"
 )
@@ -28,6 +29,7 @@ func TestJobHandlersCreateListClaim(t *testing.T) {
 		Config:    config.Defaults(),
 		Sessions:  sessions,
 		Jobs:      jobSvc,
+		Runs:      NewRunManager(runstate.New(sqlDB)),
 		NewRunner: func(session.Session, string, session.AgentMode) (Runner, error) { return nil, nil },
 	})
 	if err != nil {
@@ -80,6 +82,7 @@ func TestJobHandlersArchiveCompletedJob(t *testing.T) {
 		Config:    config.Defaults(),
 		Sessions:  sessions,
 		Jobs:      jobSvc,
+		Runs:      NewRunManager(runstate.New(sqlDB)),
 		NewRunner: func(session.Session, string, session.AgentMode) (Runner, error) { return nil, nil },
 	})
 	if err != nil {
@@ -139,6 +142,7 @@ func TestJobHandlersRetryBlockedJob(t *testing.T) {
 		Config:    config.Defaults(),
 		Sessions:  sessions,
 		Jobs:      jobSvc,
+		Runs:      NewRunManager(runstate.New(sqlDB)),
 		NewRunner: func(session.Session, string, session.AgentMode) (Runner, error) { return nil, nil },
 	})
 	if err != nil {

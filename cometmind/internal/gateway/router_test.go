@@ -9,6 +9,7 @@ import (
 
 	"github.com/cometline/cometmind/internal/config"
 	"github.com/cometline/cometmind/internal/event"
+	"github.com/cometline/cometmind/internal/runstate"
 	"github.com/cometline/cometmind/internal/session"
 	"github.com/cometline/cometmind/internal/store"
 	"github.com/cometline/cometmind/internal/subagent"
@@ -348,7 +349,7 @@ func TestHandleClearSlashRejectsRunningSession(t *testing.T) {
 		t.Fatalf("EnsureWorkspace() error = %v", err)
 	}
 
-	turns := NewTurnRunTracker()
+	turns := NewTurnRunTracker(runstate.New(sqlDB))
 	r := &Router{
 		Sessions: svc,
 		Turns:    turns,
@@ -547,8 +548,8 @@ func TestHandleStopSlashWaitsForTurnAndSubagentCleanup(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	svc, ws, sess := newMappedGatewaySession(t, "thread-1")
-	turns := NewTurnRunTracker()
+	svc, ws, sess, state := newMappedGatewaySession(t, "thread-1")
+	turns := NewTurnRunTracker(state)
 	orch := subagent.NewOrchestrator(5)
 	runner := &cancelAwareRunner{
 		started:  make(chan struct{}),
@@ -660,8 +661,8 @@ func TestHandleStopSlashTimeoutAndRepeatedStop(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	svc, ws, sess := newMappedGatewaySession(t, "")
-	turns := NewTurnRunTracker()
+	svc, ws, sess, state := newMappedGatewaySession(t, "")
+	turns := NewTurnRunTracker(state)
 	_, finish, err := turns.Start(ctx, sess.ID)
 	if err != nil {
 		t.Fatalf("Start() error = %v", err)
@@ -707,7 +708,7 @@ func TestHandleStopSlashWithoutMappedSession(t *testing.T) {
 	if err != nil {
 		t.Fatalf("EnsureWorkspace() error = %v", err)
 	}
-	r := &Router{Sessions: svc, Config: gatewayTestConfig(ws.Path), Turns: NewTurnRunTracker()}
+	r := &Router{Sessions: svc, Config: gatewayTestConfig(ws.Path), Turns: NewTurnRunTracker(runstate.New(sqlDB))}
 	text, err := r.HandleStopSlash(ctx, InboundMessage{
 		Platform: "discord", UserID: "user-1", ChannelID: "chan-1", Mentioned: true,
 	})
@@ -732,7 +733,7 @@ func TestHandleInboundTurnRecoverDropsPartialText(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	svc, ws, _ := newMappedGatewaySession(t, "")
+	svc, ws, _, _ := newMappedGatewaySession(t, "")
 	var replyText string
 	r := &Router{
 		Sessions: svc,
@@ -762,7 +763,7 @@ func TestHandleInboundDedupesPlatformMessageID(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	svc, ws, sess := newMappedGatewaySession(t, "")
+	svc, ws, sess, _ := newMappedGatewaySession(t, "")
 	seen := newSeenPlatformMessages()
 	var replies int
 	r := &Router{
@@ -819,7 +820,7 @@ func TestTruncateUTF16Suffix(t *testing.T) {
 	}
 }
 
-func newMappedGatewaySession(t *testing.T, threadID string) (*session.Service, session.Workspace, session.Session) {
+func newMappedGatewaySession(t *testing.T, threadID string) (*session.Service, session.Workspace, session.Session, *runstate.Service) {
 	t.Helper()
 	ctx := context.Background()
 	dbPath := filepath.Join(t.TempDir(), "cometmind.db")
@@ -840,7 +841,7 @@ func newMappedGatewaySession(t *testing.T, threadID string) (*session.Service, s
 	if _, err := svc.UpsertGatewaySession(ctx, "discord", "user-1", "chan-1", threadID, sess.ID, ws.ID); err != nil {
 		t.Fatalf("UpsertGatewaySession() error = %v", err)
 	}
-	return svc, ws, sess
+	return svc, ws, sess, runstate.New(sqlDB)
 }
 
 func gatewayTestConfig(workspacePath string) *config.Config {

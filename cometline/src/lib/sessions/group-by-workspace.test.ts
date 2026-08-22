@@ -26,6 +26,7 @@ function session(id: string, workspacePath: string, updatedAt: number, pinned = 
 		},
 		pinned,
 		agent_mode: 'auto',
+		running: false,
 		created_at: updatedAt,
 		updated_at: updatedAt
 	};

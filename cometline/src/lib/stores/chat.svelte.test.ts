@@ -104,6 +104,7 @@ describe('chatStore session switching', () => {
 				token_usage: { input_tokens: 0, output_tokens: 0, cache_read: 0, cache_write: 0 },
 				pinned: false,
 				agent_mode: 'auto',
+				running: false,
 				created_at: 0,
 				updated_at: 0
 			}
@@ -302,6 +303,7 @@ describe('chatStore session switching', () => {
 			token_usage: { input_tokens: 0, output_tokens: 0, cache_read: 0, cache_write: 0 },
 			pinned: false,
 			agent_mode: 'auto',
+			running: false,
 			created_at: 0,
 			updated_at: 0
 		});
@@ -720,6 +722,7 @@ describe('chatStore clear and subagents', () => {
 					},
 					pinned: false,
 					agent_mode: 'auto',
+					running: false,
 					parent_session_id: 'sess-a',
 					purpose: 'refactor auth',
 					delegation_status: 'completed',

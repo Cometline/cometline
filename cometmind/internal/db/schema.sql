@@ -84,6 +84,16 @@ CREATE INDEX idx_tool_calls_message ON tool_calls (message_id);
 
 CREATE INDEX idx_sessions_parent ON sessions (parent_session_id);
 
+CREATE TABLE session_runs (
+    session_id       TEXT PRIMARY KEY REFERENCES sessions (id) ON DELETE CASCADE,
+    run_id           TEXT NOT NULL UNIQUE,
+    owner            TEXT NOT NULL CHECK (owner IN ('http', 'gateway')),
+    abort_requested  INTEGER NOT NULL DEFAULT 0,
+    updated_at       INTEGER NOT NULL DEFAULT (unixepoch ('now', 'subsec') * 1000)
+);
+
+CREATE INDEX idx_session_runs_updated ON session_runs (updated_at);
+
 CREATE TABLE gateway_sessions (
     id                   TEXT PRIMARY KEY,
     platform             TEXT NOT NULL,

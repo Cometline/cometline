@@ -2,19 +2,43 @@ package gateway
 
 import (
 	"context"
+	"path/filepath"
 	"testing"
+
+	"github.com/cometline/cometmind/internal/runstate"
+	"github.com/cometline/cometmind/internal/session"
+	"github.com/cometline/cometmind/internal/store"
 )
+
+func newRunTrackerTest(t *testing.T) (*TurnRunTracker, string) {
+	t.Helper()
+	database, err := store.OpenSQLite(context.Background(), filepath.Join(t.TempDir(), "runs.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = database.Close() })
+	sessions := session.New(database)
+	workspace, err := sessions.EnsureWorkspace(context.Background(), t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	sess, err := sessions.NewSession(context.Background(), workspace.ID, "model", "provider")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return NewTurnRunTracker(runstate.New(database)), sess.ID
+}
 
 func TestTurnRunTrackerStopCancelsActiveTurn(t *testing.T) {
 	t.Parallel()
 
-	tracker := NewTurnRunTracker()
-	ctx, finish, err := tracker.Start(context.Background(), "session-1")
+	tracker, sessionID := newRunTrackerTest(t)
+	ctx, finish, err := tracker.Start(context.Background(), sessionID)
 	if err != nil {
 		t.Fatalf("Start() error = %v", err)
 	}
 
-	done, ok := tracker.Stop("session-1")
+	done, ok := tracker.Stop(sessionID)
 	if !ok {
 		t.Fatal("Stop() = false, want true")
 	}
@@ -28,7 +52,7 @@ func TestTurnRunTrackerStopCancelsActiveTurn(t *testing.T) {
 		t.Fatal("turn reported cleanup complete before finish")
 	default:
 	}
-	if _, _, err := tracker.Start(context.Background(), "session-1"); err == nil {
+	if _, _, err := tracker.Start(context.Background(), sessionID); err == nil {
 		t.Fatal("Start() succeeded before the prior turn finished cleanup")
 	}
 	finish()
@@ -37,7 +61,7 @@ func TestTurnRunTrackerStopCancelsActiveTurn(t *testing.T) {
 	default:
 		t.Fatal("finish() did not report cleanup complete")
 	}
-	if _, ok := tracker.Stop("session-1"); ok {
+	if _, ok := tracker.Stop(sessionID); ok {
 		t.Fatal("second Stop() = true, want false")
 	}
 }
@@ -45,7 +69,8 @@ func TestTurnRunTrackerStopCancelsActiveTurn(t *testing.T) {
 func TestTurnRunTrackerStopMissingTurn(t *testing.T) {
 	t.Parallel()
 
-	if _, ok := NewTurnRunTracker().Stop("missing"); ok {
+	tracker, _ := newRunTrackerTest(t)
+	if _, ok := tracker.Stop("missing"); ok {
 		t.Fatal("Stop() = true for missing session")
 	}
 }
