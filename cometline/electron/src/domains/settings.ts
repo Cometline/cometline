@@ -300,17 +300,47 @@ export function createSettingsDomain(dependencies: SettingsDomainDependencies) {
 		return next;
 	}
 
+	let liveMiniWindowLastActiveAt = 0;
+
 	function readMiniWindowState(): MiniWindowState {
-		return miniWindowStateFromSettings(readProviderSettings());
+		const state = miniWindowStateFromSettings(readProviderSettings());
+		return {
+			...state,
+			lastActiveAt: Math.max(state.lastActiveAt, liveMiniWindowLastActiveAt)
+		};
+	}
+
+	function touchMiniWindowActivity() {
+		liveMiniWindowLastActiveAt = Math.max(liveMiniWindowLastActiveAt, dependencies.now());
 	}
 
 	function writeMiniWindowState(partial: {
 		sessionId?: unknown;
 		lastActiveAt?: unknown;
 	}): MiniWindowState {
+		if (Number.isFinite(partial?.lastActiveAt)) {
+			liveMiniWindowLastActiveAt = Math.max(
+				liveMiniWindowLastActiveAt,
+				Math.floor(Number(partial.lastActiveAt))
+			);
+		}
 		return miniWindowStateFromSettings(
-			writeProviderSettings(withMiniWindowState(readProviderSettings(), partial))
+			writeProviderSettings(
+				withMiniWindowState(readProviderSettings(), {
+					...partial,
+					lastActiveAt: Number.isFinite(partial?.lastActiveAt)
+						? partial.lastActiveAt
+						: liveMiniWindowLastActiveAt > 0
+							? liveMiniWindowLastActiveAt
+							: undefined
+				})
+			)
 		);
+	}
+
+	function flushMiniWindowActivity() {
+		if (liveMiniWindowLastActiveAt <= 0) return readMiniWindowState();
+		return writeMiniWindowState({ lastActiveAt: liveMiniWindowLastActiveAt });
 	}
 
 	function parseComposerHistoryEntry(value: unknown): ComposerHistoryEntry | null {
@@ -403,12 +433,14 @@ export function createSettingsDomain(dependencies: SettingsDomainDependencies) {
 		listRecentWorkspacePaths,
 		loadComposerHistoryEntries,
 		pruneWorkspaceStore,
+		flushMiniWindowActivity,
 		readMiniWindowState,
 		readProviderSettings,
 		readSavedProviderSettings,
 		removeRecentWorkspacePath,
 		browseWorkspacePath,
 		selectWorkspacePath,
+		touchMiniWindowActivity,
 		writeMiniWindowState,
 		writeProviderSettings,
 		writeStoredWorkspacePath

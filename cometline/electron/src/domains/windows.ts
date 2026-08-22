@@ -77,7 +77,7 @@ interface WindowsDependencies {
 	shouldKeepWindowsAlive(): boolean;
 	shortcuts: Shortcuts;
 	windowChrome: WindowChrome;
-	writeMiniWindowState(state: { lastActiveAt: number }): unknown;
+	touchMiniWindowActivity(): void;
 }
 
 function windowCanShow(window: BrowserWindow | null): window is BrowserWindow {
@@ -103,13 +103,14 @@ export function createWindows(dependencies: WindowsDependencies) {
 		shouldKeepWindowsAlive,
 		shortcuts,
 		windowChrome,
-		writeMiniWindowState
+		touchMiniWindowActivity
 	} = dependencies;
 	let mainWindow: BrowserWindow | null = null;
 	let miniWindow: BrowserWindow | null = null;
 	let miniWindowReady: Promise<BrowserWindow> | null = null;
 	let settingsWindow: BrowserWindow | null = null;
 	let ignoreActivateUntil = 0;
+	let miniNeedsActivation = true;
 
 	function loadAppRoute(window: BrowserWindow, route = '/') {
 		const requestedRoute = String(route || '/');
@@ -160,7 +161,17 @@ export function createWindows(dependencies: WindowsDependencies) {
 			size,
 			MINI_WINDOW_SCREEN_MARGIN
 		);
-		window.setBounds({ ...origin, ...size }, false);
+		const next = { ...origin, ...size };
+		const current = window.getBounds();
+		if (
+			current.x === next.x &&
+			current.y === next.y &&
+			current.width === next.width &&
+			current.height === next.height
+		) {
+			return;
+		}
+		window.setBounds(next, false);
 	}
 
 	function suppressSpuriousActivate() {
@@ -205,7 +216,7 @@ export function createWindows(dependencies: WindowsDependencies) {
 	function hideMiniWindow() {
 		const window = miniWindow;
 		if (!windowCanShow(window)) return;
-		writeMiniWindowState({ lastActiveAt: Date.now() });
+		touchMiniWindowActivity();
 		suppressSpuriousActivate();
 		window.hide();
 	}
@@ -304,17 +315,19 @@ export function createWindows(dependencies: WindowsDependencies) {
 				sandbox: true,
 				allowRunningInsecureContent: false,
 				webviewTag: true,
+				// Keep the hidden prewarmed renderer warm so shortcut toggles
+				// do not pay Chromium's background-throttle wake-up hitch.
+				backgroundThrottling: false,
+				paintWhenInitiallyHidden: true,
 				devTools: !app.isPackaged
 			}
 		});
 		miniWindow = window;
+		miniNeedsActivation = true;
 		applyMiniWindowPresentation(window);
 		attachExternalNavigationGuards(window);
 		shortcuts.attachMiniWindowShortcuts(window.webContents);
 		layoutMiniWindowOnCursorDisplay();
-		window.on('hide', () => {
-			writeMiniWindowState({ lastActiveAt: Date.now() });
-		});
 		window.on('close', (event) => {
 			if (shouldKeepWindowsAlive()) {
 				event.preventDefault();
@@ -322,7 +335,10 @@ export function createWindows(dependencies: WindowsDependencies) {
 			}
 		});
 		window.on('closed', () => {
-			if (miniWindow === window) miniWindow = null;
+			if (miniWindow === window) {
+				miniWindow = null;
+				miniNeedsActivation = true;
+			}
 		});
 		try {
 			await loadAppRoute(window, '/mini?prewarm=1');
@@ -398,15 +414,28 @@ export function createWindows(dependencies: WindowsDependencies) {
 		getTray()?.setToolTip('Cometline');
 	}
 
-	async function showMiniWindow() {
-		const window = await prepareMiniWindow();
-		if (!windowCanShow(window)) return;
+	function revealMiniWindow(window: BrowserWindow) {
 		if (window.isMinimized()) window.restore();
 		layoutMiniWindowOnCursorDisplay();
-		applyMiniWindowPresentation();
-		window.show();
-		window.webContents.send('cometline:activate-mini-window');
+		// showInactive avoids the app-activation hitch that window.show()
+		// pays on macOS; focus() then puts keystrokes in the composer.
+		if (typeof window.showInactive === 'function') window.showInactive();
+		else window.show();
+		if (miniNeedsActivation) {
+			window.webContents.send('cometline:activate-mini-window');
+			miniNeedsActivation = false;
+		}
 		window.focus();
+	}
+
+	async function showMiniWindow() {
+		if (windowCanShow(miniWindow)) {
+			revealMiniWindow(miniWindow);
+			return;
+		}
+		const window = await prepareMiniWindow();
+		if (!windowCanShow(window)) return;
+		revealMiniWindow(window);
 	}
 
 	async function showSettingsWindow() {
@@ -463,15 +492,12 @@ export function createWindows(dependencies: WindowsDependencies) {
 
 	async function toggleMiniWindow() {
 		const window = miniWindow;
-		if (!windowCanShow(window) || !window.isVisible()) {
-			await showMiniWindow();
+		if (windowCanShow(window) && window.isVisible()) {
+			if (window.isFocused()) hideMiniWindow();
+			else window.focus();
 			return;
 		}
-		if (window.isFocused()) {
-			hideMiniWindow();
-			return;
-		}
-		window.focus();
+		await showMiniWindow();
 	}
 
 	function isMacOS13OrLater() {

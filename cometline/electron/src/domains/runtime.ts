@@ -50,7 +50,7 @@ const runtimeDirectory = path.resolve(path.dirname(fileURLToPath(import.meta.url
 type Windows = ReturnType<typeof createWindows>;
 type CometMindLifecycle = ReturnType<typeof createCometMindLifecycle>;
 
-const MINI_WINDOW_PREWARM_DELAY_MS = 1000;
+const MINI_WINDOW_PREWARM_DELAY_MS = 300;
 
 let initialized = false;
 
@@ -359,7 +359,7 @@ export function initializeRuntime() {
 		shouldKeepWindowsAlive: () => !stoppingForQuit && !stoppedForQuit,
 		shortcuts,
 		windowChrome,
-		writeMiniWindowState: settingsDomain.writeMiniWindowState
+		touchMiniWindowActivity: settingsDomain.touchMiniWindowActivity
 	});
 	const pdfPreview = createPdfPreviewRegistry({
 		fs,
@@ -450,9 +450,9 @@ export function initializeRuntime() {
 				void cometMind.syncDiscordGateway(startupSettings);
 			}
 		});
-		void Promise.all([windowReady, healthReady])
-			.then(([, healthy]) => {
-				if (!healthy || stoppingForQuit || stoppedForQuit) return;
+		void windowReady
+			.then(() => {
+				if (stoppingForQuit || stoppedForQuit) return;
 				miniWindowPrewarmTimer = setTimeout(() => {
 					miniWindowPrewarmTimer = null;
 					if (stoppingForQuit || stoppedForQuit) return;
@@ -481,6 +481,7 @@ export function initializeRuntime() {
 		}
 		event.preventDefault();
 		stoppingForQuit = true;
+		settingsDomain.flushMiniWindowActivity();
 		if (miniWindowPrewarmTimer) {
 			clearTimeout(miniWindowPrewarmTimer);
 			miniWindowPrewarmTimer = null;

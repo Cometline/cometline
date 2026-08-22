@@ -24,14 +24,27 @@ class FakeWindow {
 		setWindowOpenHandler: vi.fn(),
 		send: vi.fn()
 	};
+	visible = false;
+	focused = false;
 	readonly destroy = vi.fn();
-	readonly focus = vi.fn();
-	readonly hide = vi.fn();
+	readonly focus = vi.fn(() => {
+		this.focused = true;
+	});
+	readonly hide = vi.fn(() => {
+		this.visible = false;
+		this.focused = false;
+	});
 	readonly isDestroyed = vi.fn(() => false);
-	readonly isFocused = vi.fn(() => false);
+	readonly isFocused = vi.fn(() => this.focused);
 	readonly isFullScreen = vi.fn(() => false);
 	readonly isMinimized = vi.fn(() => false);
-	readonly isVisible = vi.fn(() => false);
+	readonly isVisible = vi.fn(() => this.visible);
+	readonly show = vi.fn(() => {
+		this.visible = true;
+	});
+	readonly showInactive = vi.fn(() => {
+		this.visible = true;
+	});
 	readonly loadURL = vi.fn((url: string) => FakeWindow.loadURLImplementation(url));
 	readonly once = vi.fn((event: string, handler: EventHandler) =>
 		this.handlers.set(`once:${event}`, handler)
@@ -47,7 +60,6 @@ class FakeWindow {
 	readonly setBounds = vi.fn();
 	readonly setVisibleOnAllWorkspaces = vi.fn();
 	readonly setWindowButtonVisibility = vi.fn();
-	readonly show = vi.fn();
 
 	constructor(readonly options: BrowserWindowConstructorOptions) {
 		FakeWindow.instances.push(this);
@@ -63,7 +75,7 @@ function createController(options: { packaged?: boolean; platform?: NodeJS.Platf
 	FakeWindow.loadURLImplementation = async () => undefined;
 	const openExternal = vi.fn(async () => undefined);
 	const setLoginItemSettings = vi.fn();
-	const writeMiniWindowState = vi.fn();
+	const touchMiniWindowActivity = vi.fn();
 	const getLoginItemSettings = vi.fn(() => ({ openAtLogin: true, status: 'not-registered' }));
 	const controller = createWindows({
 		app: {
@@ -104,37 +116,37 @@ function createController(options: { packaged?: boolean; platform?: NodeJS.Platf
 			sendFullScreenState: vi.fn(),
 			setWindowButtonPosition: vi.fn()
 		},
-		writeMiniWindowState
+		touchMiniWindowActivity
 	});
 	return {
 		controller,
 		getLoginItemSettings,
 		openExternal,
 		setLoginItemSettings,
-		writeMiniWindowState
+		touchMiniWindowActivity
 	};
 }
 
 describe('window lifecycle factory', () => {
 	it('prewarms the mini renderer without showing it, then activates the same window', async () => {
-		const { controller, writeMiniWindowState } = createController();
+		const { controller, touchMiniWindowActivity } = createController();
 
 		await controller.prepareMiniWindow();
 		const [mini] = FakeWindow.instances;
 		expect(mini.loadURL).toHaveBeenCalledWith('app://bundle/mini?prewarm=1');
-		expect(mini.show).not.toHaveBeenCalled();
+		expect(mini.showInactive).not.toHaveBeenCalled();
 		expect(mini.focus).not.toHaveBeenCalled();
 		expect(mini.webContents.send).not.toHaveBeenCalledWith('cometline:activate-mini-window');
-		expect(writeMiniWindowState).not.toHaveBeenCalled();
+		expect(touchMiniWindowActivity).not.toHaveBeenCalled();
 
 		await controller.toggleMiniWindow();
 		expect(FakeWindow.instances).toHaveLength(1);
 		expect(mini.webContents.send).toHaveBeenCalledWith('cometline:activate-mini-window');
-		expect(mini.show).toHaveBeenCalledOnce();
+		expect(mini.showInactive).toHaveBeenCalledOnce();
 		expect(mini.focus).toHaveBeenCalledOnce();
 	});
 
-	it('waits for an in-flight prewarm before showing the mini window', async () => {
+	it('reuses one in-flight prewarm and can reveal the window before load finishes', async () => {
 		const { controller } = createController();
 		let finishLoading: (() => void) | undefined;
 		FakeWindow.loadURLImplementation = () =>
@@ -143,15 +155,15 @@ describe('window lifecycle factory', () => {
 			});
 
 		const preparing = controller.prepareMiniWindow();
-		const toggling = controller.toggleMiniWindow();
 		await Promise.resolve();
-		const [mini] = FakeWindow.instances;
-		expect(mini.show).not.toHaveBeenCalled();
+		expect(FakeWindow.instances).toHaveLength(1);
+
+		const toggling = controller.toggleMiniWindow();
+		expect(FakeWindow.instances[0].showInactive).toHaveBeenCalledOnce();
 
 		finishLoading?.();
 		await Promise.all([preparing, toggling]);
 		expect(FakeWindow.instances).toHaveLength(1);
-		expect(mini.show).toHaveBeenCalledOnce();
 	});
 
 	it('discards a failed prewarm so the next attempt can recover', async () => {
@@ -194,7 +206,10 @@ describe('window lifecycle factory', () => {
 			type: 'panel',
 			fullscreenable: false,
 			width: 480,
-			height: 668
+			height: 668,
+			webPreferences: {
+				backgroundThrottling: false
+			}
 		});
 		expect(mini.setVisibleOnAllWorkspaces).toHaveBeenCalledWith(true, {
 			visibleOnFullScreen: true,
@@ -204,6 +219,26 @@ describe('window lifecycle factory', () => {
 		expect(mini.setAlwaysOnTop).toHaveBeenCalledWith(true, 'floating');
 		expect(settings.options.webPreferences?.webviewTag).toBe(false);
 		expect(settings.loadURL).toHaveBeenCalledWith('app://bundle/settings');
+	});
+
+	it('toggles a ready mini window with show/hide only', async () => {
+		const { controller, touchMiniWindowActivity } = createController();
+		await controller.prepareMiniWindow();
+		const [mini] = FakeWindow.instances;
+
+		await controller.toggleMiniWindow();
+		expect(mini.showInactive).toHaveBeenCalledOnce();
+		expect(mini.webContents.send).toHaveBeenCalledOnce();
+		expect(mini.setVisibleOnAllWorkspaces).toHaveBeenCalledOnce();
+
+		await controller.toggleMiniWindow();
+		expect(mini.hide).toHaveBeenCalledOnce();
+		expect(touchMiniWindowActivity).toHaveBeenCalledOnce();
+
+		await controller.toggleMiniWindow();
+		expect(mini.showInactive).toHaveBeenCalledTimes(2);
+		expect(mini.webContents.send).toHaveBeenCalledOnce();
+		expect(mini.setVisibleOnAllWorkspaces).toHaveBeenCalledOnce();
 	});
 
 	it('uses the macOS main-app login item and opens System Settings for approval', () => {
