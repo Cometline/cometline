@@ -577,6 +577,8 @@
 		/>
 	{/if}
 
+	<ImageAttachments {images} onRemove={attachments.removeImage} />
+
 	<RichComposerInput
 		bind:this={input}
 		bind:value
@@ -593,8 +595,6 @@
 		onfiles={(files) => void attachments.addImageFiles(files)}
 		onmentionquery={mentions.onMentionQuery}
 	/>
-
-	<ImageAttachments {images} onRemove={attachments.removeImage} />
 
 	{#if images.length > 0 && modelStore.selected?.visionKnown && modelStore.selected?.vision === false}
 		<p class="vision-capability-hint" role="status">
