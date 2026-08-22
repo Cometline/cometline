@@ -126,9 +126,17 @@ func (a *App) handlePostMessage(c *gin.Context) {
 		writeError(c, http.StatusConflict, "session_running", err.Error())
 		return
 	}
+	runFinished := false
+	finishRun := func() {
+		if runFinished {
+			return
+		}
+		runFinished = true
+		finish()
+	}
 	runID, _, running := a.runs.Current(c.Request.Context(), sess.ID)
 	if !running {
-		finish()
+		finishRun()
 		writeError(c, http.StatusInternalServerError, "run_state_failed", "failed to read the active session run")
 		return
 	}
@@ -136,7 +144,7 @@ func (a *App) handlePostMessage(c *gin.Context) {
 	if a.events != nil {
 		a.events.Publish(event.RunStarted(sess.ID))
 	}
-	defer finish()
+	defer finishRun()
 
 	if a.jobs != nil {
 		if job, ok, _ := a.jobs.JobForSession(c.Request.Context(), sess.ID); ok {
@@ -217,9 +225,11 @@ func (a *App) handlePostMessage(c *gin.Context) {
 				flusher.Flush()
 			}
 		}
+		finishRun()
 		publishDone(c, a.sessionEvents, sess.ID, runID, flusher, clientGone)
 		return
 	}
+	finishRun()
 	publishDone(c, a.sessionEvents, sess.ID, runID, flusher, clientGone)
 	logging.L().Info("message.completed", "session", sess.ID, "duration_ms", time.Since(started).Milliseconds())
 }

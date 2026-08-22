@@ -35,6 +35,18 @@ func (f fakeRunner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- e
 	return f(ctx, turn, ch)
 }
 
+type flushObserverRecorder struct {
+	*httptest.ResponseRecorder
+	onFlush func(body string)
+}
+
+func (r *flushObserverRecorder) Flush() {
+	r.ResponseRecorder.Flush()
+	if r.onFlush != nil {
+		r.onFlush(r.Body.String())
+	}
+}
+
 func TestCreateSessionAutoRegistersWorkspacePath(t *testing.T) {
 	t.Parallel()
 
@@ -1116,6 +1128,78 @@ func TestPostMessageStreamsSSEAndPersistsUserTurn(t *testing.T) {
 	}
 	if updated.Title != "hello from api" {
 		t.Fatalf("session title = %q, want %q", updated.Title, "hello from api")
+	}
+}
+
+func TestPostMessageReleasesRunBeforeDoneIsFlushed(t *testing.T) {
+	t.Parallel()
+
+	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
+		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
+			ch <- event.TextDelta("complete")
+			ch <- event.Done()
+			return nil
+		}), nil
+	})
+	defer cleanup()
+
+	ctx := context.Background()
+	workspace, err := svc.EnsureWorkspace(ctx, t.TempDir())
+	if err != nil {
+		t.Fatalf("EnsureWorkspace() error = %v", err)
+	}
+	sess, err := svc.NewSession(ctx, workspace.ID, "test-model", "test-provider")
+	if err != nil {
+		t.Fatalf("NewSession() error = %v", err)
+	}
+
+	var observedDone bool
+	var runningAtDone bool
+	var observationErr error
+	rec := &flushObserverRecorder{
+		ResponseRecorder: httptest.NewRecorder(),
+		onFlush: func(body string) {
+			if observedDone || !strings.Contains(body, `"type":"done"`) {
+				return
+			}
+			observedDone = true
+			sessionRec := httptest.NewRecorder()
+			engine.ServeHTTP(
+				sessionRec,
+				httptest.NewRequest(http.MethodGet, "/api/v1/sessions/"+sess.ID, nil),
+			)
+			if sessionRec.Code != http.StatusOK {
+				observationErr = fmt.Errorf("session status = %d body=%s", sessionRec.Code, sessionRec.Body.String())
+				return
+			}
+			var resource sessionResource
+			if err := json.Unmarshal(sessionRec.Body.Bytes(), &resource); err != nil {
+				observationErr = fmt.Errorf("decode session: %w", err)
+				return
+			}
+			runningAtDone = resource.Running
+		},
+	}
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/sessions/"+sess.ID+"/messages",
+		bytes.NewBufferString(`{"text":"hello"}`),
+	)
+	req.Header.Set("Content-Type", "application/json")
+
+	engine.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d body=%s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	if observationErr != nil {
+		t.Fatal(observationErr)
+	}
+	if !observedDone {
+		t.Fatalf("stream body missing done event:\n%s", rec.Body.String())
+	}
+	if runningAtDone {
+		t.Fatal("session was still running when done was flushed")
 	}
 }
 
