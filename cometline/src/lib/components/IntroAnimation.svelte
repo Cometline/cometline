@@ -10,10 +10,10 @@
 
 	// ──────────────────────────────────────────────────────────────────────────
 	// Cometline first-run intro.
-	// Aesthetic: elegant + vintage (warm cream/gold title card, film grain,
-	// vignette, hairline double-rule frame) over heavy-tech motion (a warp
-	// starfield and a comet that streaks in and ignites the wordmark, ringed by
-	// the user's configured hero-glow color).
+	// Aesthetic: warm ivory paper, cobalt editorial print, film grain, vignette,
+	// and a hairline double-rule frame. A printed comet field sits as a faint
+	// wash behind the title card; a single ink stroke then streaks in and
+	// ignites the wordmark, ringed by the user's configured hero-glow color.
 	//
 	// The sequence is timeline-driven via requestAnimationFrame so every beat is
 	// eased; text reveals layer on top with CSS. Honors prefers-reduced-motion,
@@ -22,7 +22,7 @@
 
 	// Beat timing (ms) — the spine of the cinematic.
 	const T = {
-		spaceIn: 700, // deep-space + grain fade in
+		spaceIn: 700, // paper sheet + printed field fade in
 		comet: 1500, // comet streaks toward center and ignites
 		ring: 2300, // orbital ring forms around the mark
 		wordmark: 2300, // "Cometline" resolves
@@ -163,6 +163,8 @@
 		let vignetteGradient: CanvasGradient | null = null;
 		let grainOffsetX = 0;
 		let grainOffsetY = 0;
+		let fieldImage: HTMLImageElement | null = null;
+		let fieldReady = false;
 
 		function rebuildStaticCanvasState() {
 			const cx = W / 2;
@@ -195,6 +197,14 @@
 		};
 		resize();
 		window.addEventListener('resize', resize);
+
+		const field = new Image();
+		field.decoding = 'async';
+		field.onload = () => {
+			fieldImage = field;
+			fieldReady = true;
+		};
+		field.src = '/intro/visual-comet.jpg';
 
 		// Palette: user's hero-glow preset on warm paper.
 		const glowHex = readCssVar('--hero-composer-glow-color', heroGlowColor);
@@ -253,6 +263,29 @@
 			// 1. Warm paper sheet — soft top-down gradient like the icon ground.
 			ctx.fillStyle = sheetGradient ?? bg;
 			ctx.fillRect(0, 0, W, H);
+
+			// Printed comet field from the landing-page editorial set.
+			// Keep it faint so the title card stays on paper, not a poster.
+			if (fieldReady && fieldImage && fieldImage.naturalWidth > 0) {
+				const fieldAlpha = (0.22 + 0.16 * easeOut(ringForm)) * sheetFade;
+				const scale = Math.max(W / fieldImage.naturalWidth, H / fieldImage.naturalHeight);
+				const dw = fieldImage.naturalWidth * scale;
+				const dh = fieldImage.naturalHeight * scale;
+				// Bias toward the comet, but clamp so the print still covers the sheet.
+				const dx = Math.min(0, Math.max(W - dw, (W - dw) / 2 + dw * 0.06));
+				const dy = Math.min(0, Math.max(H - dh, (H - dh) / 2 - dh * 0.04));
+				ctx.save();
+				ctx.globalAlpha = fieldAlpha;
+				ctx.drawImage(fieldImage, dx, dy, dw, dh);
+				ctx.restore();
+
+				const veil = ctx.createRadialGradient(cx, cy, H * 0.16, cx, cy, Math.max(W, H) * 0.62);
+				veil.addColorStop(0, `rgba(250,250,250,${0.42 * sheetFade})`);
+				veil.addColorStop(0.55, `rgba(250,250,250,${0.12 * sheetFade})`);
+				veil.addColorStop(1, 'rgba(250,250,250,0)');
+				ctx.fillStyle = veil;
+				ctx.fillRect(0, 0, W, H);
+			}
 
 			// Gentle blue ink wash that breathes in behind the mark.
 			const washA = (0.05 + 0.1 * easeOut(ringForm)) * sheetFade;
