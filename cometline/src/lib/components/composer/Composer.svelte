@@ -33,6 +33,17 @@
 	import { getReasoningEffort, setReasoningEffort } from '$lib/stores/reasoning-effort.svelte';
 	import { updateSession } from '$lib/client/cometmind';
 	import type { AgentMode } from '$lib/types';
+	import { normalizeAgentMode } from '$lib/sessions/session-metadata';
+	import {
+		agentModeAnnouncement,
+		beginAgentModeRequest,
+		completeAgentModeRequest,
+		createInitialAgentModeState,
+		nextAgentMode,
+		sameAgentModeSwitchState,
+		bindAgentModeForSession,
+		type AgentModeSwitchState
+	} from '$lib/components/composer/agent-mode-switch';
 
 	let {
 		onSend,
@@ -75,13 +86,13 @@
 	let trackedSessionId = $state<string | null>(null);
 	let skippingEmptyStash = $state(false);
 	let lastNonEmptyDraft = $state('');
-	// Agent mode: sourced from the persisted session (source of truth). Auto is
-	// the default for every new session; Plan only appears after an explicit
-	// Tab/control action in this session's composer.
-	let agentMode = $state<AgentMode>('auto');
-	let agentModeKnown = $state(false);
-	let agentModePending = $state(false);
+	// Agent mode: persisted on the session, with a local switch machine so Tab
+	// can queue the latest request and stale store snapshots cannot snap back.
+	let agentModeState = $state<AgentModeSwitchState>(createInitialAgentModeState());
+	let boundAgentModeFromStore = $state(false);
 	let modeAnnouncement = $state('');
+	const agentMode = $derived(agentModeState.mode);
+	const agentModeKnown = $derived(agentModeState.known);
 	const heroPlaceholders = [
 		'Type something. Anything.',
 		'Ask a question.',
@@ -209,7 +220,8 @@
 	const canSubmit = $derived(inputController.canSubmit());
 	const contextWindowUsage = $derived.by(() => {
 		const items = sessionId && chatStore.sessionID === sessionId ? chatStore.items : [];
-		const budget = sessionId && chatStore.sessionID === sessionId ? chatStore.contextBudget : null;
+		const budget =
+			sessionId && chatStore.sessionID === sessionId ? chatStore.contextBudget : null;
 		const selected = modelStore.selected;
 		return resolveContextWindowUsage({
 			budget,
@@ -243,50 +255,70 @@
 			composerHistoryStore.stashUnsent(prev, { text: value, images });
 		}
 		trackedSessionId = nextSessionId;
+		boundAgentModeFromStore = false;
 		resetHistoryBrowse();
 		lastNonEmptyDraft = '';
 		applyComposerText('');
 	});
 
-	// Keep the composer mode in sync with the persisted session record. The
-	// backend session value is authoritative; no renderer-local preference map.
+	function applyAgentModeState(next: AgentModeSwitchState) {
+		if (sameAgentModeSwitchState(agentModeState, next)) return;
+		agentModeState = next;
+	}
+
+	// Bind persisted mode when entering a session, or when that session first
+	// appears in the store. Later store writes do not own the chip.
 	$effect(() => {
 		const id = sessionId;
-		if (!id) {
-			agentMode = 'auto';
-			agentModeKnown = false;
+		const session = id ? sessionStore.sessions.find((item) => item.id === id) : undefined;
+		if (id && !session) {
+			boundAgentModeFromStore = false;
 			return;
 		}
-		if (agentModePending) return;
-		const session = sessionStore.sessions.find((item) => item.id === id);
-		agentMode = session?.agent_mode === 'plan' ? 'plan' : 'auto';
-		agentModeKnown = true;
+		if (boundAgentModeFromStore) return;
+		applyAgentModeState(bindAgentModeForSession(session, id));
+		boundAgentModeFromStore = Boolean(id);
 	});
 
-	async function setAgentMode(next: AgentMode) {
-		if (agentModePending || next === agentMode) return;
-		const id = sessionId;
-		const previous = agentMode;
-		agentMode = next;
-		if (!id) {
-			modeAnnouncement = next === 'plan' ? 'Plan mode enabled' : 'Auto mode enabled';
-			return;
-		}
-		agentModePending = true;
+	async function persistAgentMode(id: string, next: AgentMode) {
 		try {
 			const updated = await updateSession(id, { agent_mode: next });
-			sessionStore.upsertSession(updated);
-			modeAnnouncement = next === 'plan' ? 'Plan mode enabled' : 'Auto mode enabled';
+			sessionStore.updateSession(updated);
+			if (sessionId !== id) return;
+			const settled = completeAgentModeRequest(agentModeState, next, {
+				ok: true,
+				mode: normalizeAgentMode(updated.agent_mode)
+			});
+			applyAgentModeState(settled.state);
+			modeAnnouncement = agentModeAnnouncement(agentModeState.mode);
+			if (settled.shouldPersist) {
+				void persistAgentMode(id, settled.shouldPersist);
+			}
 		} catch {
-			agentMode = previous;
+			if (sessionId !== id) return;
+			const settled = completeAgentModeRequest(agentModeState, next, { ok: false });
+			applyAgentModeState(settled.state);
+			if (settled.shouldPersist) {
+				modeAnnouncement = agentModeAnnouncement(agentModeState.mode);
+				void persistAgentMode(id, settled.shouldPersist);
+				return;
+			}
 			modeAnnouncement = 'Failed to change mode';
-		} finally {
-			agentModePending = false;
 		}
 	}
 
+	function setAgentMode(next: AgentMode) {
+		const started = beginAgentModeRequest(agentModeState, next);
+		if (started.state === agentModeState && !started.shouldPersist) return;
+		applyAgentModeState(started.state);
+		modeAnnouncement = agentModeAnnouncement(started.state.mode);
+		const id = sessionId;
+		if (!id || !started.shouldPersist) return;
+		void persistAgentMode(id, next);
+	}
+
 	function cycleAgentMode() {
-		void setAgentMode(agentMode === 'plan' ? 'auto' : 'plan');
+		setAgentMode(nextAgentMode(agentModeState.mode));
 	}
 
 	$effect(() => {
@@ -323,7 +355,6 @@
 		const action = slash.resolveSubmitAction(trimmed);
 		if (action.kind === 'handled') return;
 		if (!canSubmit || disabled || resolvingWebContext || !modelStore.selected) return;
-		if (agentModePending) return;
 		const filePaths = input?.getFilePaths() ?? [];
 		const contextsBeforeResolve = pendingWebContexts.length;
 		resolvingWebContext = contextsBeforeResolve > 0;
@@ -382,9 +413,7 @@
 		historyAppliedText = text;
 		const pending = composerHistoryStore.getPending(sessionId);
 		const recallImages =
-			pending?.text.trim() === text.trim() && pending.images?.length
-				? pending.images
-				: [];
+			pending?.text.trim() === text.trim() && pending.images?.length ? pending.images : [];
 		applyComposerText(text, recallImages);
 	}
 
@@ -575,9 +604,9 @@
 		reasoningEffort={currentReasoningEffort()}
 		reasoningEffortOptions={modelStore.selected?.reasoningEffortOptions ?? []}
 		onCycleReasoningEffort={cycleReasoningEffort}
-		agentMode={agentMode}
-		agentModeKnown={agentModeKnown}
-		onSwitchToAuto={() => void setAgentMode('auto')}
+		{agentMode}
+		{agentModeKnown}
+		onSwitchToAuto={() => setAgentMode('auto')}
 		onOpenChangeWorkspace={slash.openChangeWorkspace}
 		{onStop}
 		onSubmit={() => void submit()}

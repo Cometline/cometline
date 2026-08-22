@@ -558,10 +558,14 @@ describe('createConversationController', () => {
 });
 
 describe('refreshConversationSession', () => {
-	it('updates session store on success', async () => {
-		const updateSpy = vi.spyOn(sessionStore, 'updateSession');
+	it('patches title metadata without replacing the session', async () => {
+		const patchSpy = vi.spyOn(sessionStore, 'patchSessionMetadata');
 		await refreshConversationSession('sess-1');
-		expect(updateSpy).toHaveBeenCalledWith({ id: 'sess-1', title: 'Updated' });
-		updateSpy.mockRestore();
+		expect(patchSpy).toHaveBeenCalledWith('sess-1', {
+			title: 'Updated',
+			token_usage: undefined,
+			updated_at: undefined
+		});
+		patchSpy.mockRestore();
 	});
 });
