@@ -114,13 +114,12 @@ func (r *Router) HandleInbound(ctx context.Context, msg InboundMessage) error {
 			return err
 		}
 	}
-	var eventForwarder *EventForwarder
-	if r.Events != nil && r.Turns != nil {
-		eventForwarder = r.Events.Start(ctx, sess.ID, r.Turns.RunID(sess.ID), finishTurn)
-		finishTurn = nil
-		defer eventForwarder.Close()
-	} else if finishTurn != nil {
-		defer finishTurn()
+	if finishTurn != nil {
+		defer func() {
+			if finishTurn != nil {
+				finishTurn()
+			}
+		}()
 	}
 
 	blocks := contentBlocksFromInbound(msg)
@@ -129,6 +128,12 @@ func (r *Router) HandleInbound(ctx context.Context, msg InboundMessage) error {
 	}
 	if err := r.Sessions.SetTitleIfEmpty(ctx, sess.ID, titleFromInbound(msg)); err != nil {
 		return err
+	}
+	var eventForwarder *EventForwarder
+	if r.Events != nil && r.Turns != nil {
+		eventForwarder = r.Events.Start(ctx, sess.ID, r.Turns.RunID(sess.ID), finishTurn)
+		finishTurn = nil
+		defer eventForwarder.Close()
 	}
 
 	stopHeartbeat := jobs.StartHeartbeatDuringTurn(runCtx, r.Jobs, sess.ID)

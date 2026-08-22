@@ -47,8 +47,10 @@
 		connectionState.startPolling();
 		const stopRuntimeEvents = startRuntimeEventStream((event) => {
 			void applySessionRuntimeEvent(event, {
+				getActiveSessionId: () => chatStore.sessionID,
 				setRunning: sessionStore.setRunning,
 				refreshTranscript: chatStore.refreshTranscript,
+				resumeRun: chatStore.resumeRun,
 				refreshSession: getSession,
 				updateSession: sessionStore.updateSession
 			});

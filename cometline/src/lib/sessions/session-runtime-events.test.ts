@@ -23,8 +23,10 @@ function session(id: string): Session {
 
 function deps(): SessionRuntimeEventDeps {
 	return {
+		getActiveSessionId: vi.fn().mockReturnValue(null),
 		setRunning: vi.fn(),
 		refreshTranscript: vi.fn().mockResolvedValue(undefined),
+		resumeRun: vi.fn().mockResolvedValue(undefined),
 		refreshSession: vi.fn().mockResolvedValue(session('session-1')),
 		updateSession: vi.fn()
 	};
@@ -39,6 +41,42 @@ describe('applySessionRuntimeEvent', () => {
 
 		expect(target.setRunning).toHaveBeenNthCalledWith(1, 'session-1', true);
 		expect(target.setRunning).toHaveBeenNthCalledWith(2, 'session-1', false);
+	});
+
+	it('reloads and follows a run started outside the open session view', async () => {
+		const order: string[] = [];
+		const target = deps();
+		vi.mocked(target.getActiveSessionId).mockReturnValue('session-1');
+		vi.mocked(target.refreshTranscript).mockImplementation(async () => {
+			order.push('refresh');
+		});
+		vi.mocked(target.resumeRun).mockImplementation(async () => {
+			order.push('resume');
+		});
+
+		await applySessionRuntimeEvent({ type: 'run_started', session_id: 'session-1' }, target);
+
+		expect(order).toEqual(['refresh', 'resume']);
+	});
+
+	it('does not follow a run for a session that is not open', async () => {
+		const target = deps();
+		vi.mocked(target.getActiveSessionId).mockReturnValue('session-2');
+
+		await applySessionRuntimeEvent({ type: 'run_started', session_id: 'session-1' }, target);
+
+		expect(target.refreshTranscript).not.toHaveBeenCalled();
+		expect(target.resumeRun).not.toHaveBeenCalled();
+	});
+
+	it('reloads an open transcript when an external run finishes before attachment', async () => {
+		const target = deps();
+		vi.mocked(target.getActiveSessionId).mockReturnValue('session-1');
+
+		await applySessionRuntimeEvent({ type: 'run_finished', session_id: 'session-1' }, target);
+
+		expect(target.refreshTranscript).toHaveBeenCalledWith('session-1');
+		expect(target.resumeRun).not.toHaveBeenCalled();
 	});
 
 	it('reloads transcript and metadata after another process clears a session', async () => {
