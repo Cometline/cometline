@@ -263,7 +263,12 @@ export function createConversationController(
 /** Refresh session metadata after a turn (title, etc.). */
 export async function refreshConversationSession(sessionId: string): Promise<void> {
 	const apply = async () => {
-		sessionStore.updateSession(await getSession(sessionId));
+		const latest = await getSession(sessionId);
+		sessionStore.patchSessionMetadata(sessionId, {
+			title: latest.title,
+			token_usage: latest.token_usage,
+			updated_at: latest.updated_at
+		});
 	};
 	try {
 		await apply();

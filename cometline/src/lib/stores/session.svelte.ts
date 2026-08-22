@@ -3,6 +3,7 @@ import type { AgentMode, ImageAttachment, Session } from '$lib/types';
 import type { WebContext } from '$lib/actions/start-chat';
 import { publishWindowSync, subscribeWindowSync } from '$lib/window-sync';
 import { unreadSessionOutputStore } from '$lib/stores/unread-session-output.svelte';
+import { applySessionMetadata, type SessionMetadataPatch } from '$lib/sessions/session-metadata';
 
 export interface PendingMessage {
 	sessionId: string;
@@ -20,7 +21,7 @@ function createSessionStore() {
 	let current = $state<Session | null>(null);
 	let pendingMessages = $state.raw(new Map<string, Omit<PendingMessage, 'sessionId'>>());
 
-	function upsertSession(
+	function writeSession(
 		session: Session,
 		options: { selectCurrent?: boolean; prepend?: boolean; broadcast?: boolean } = {}
 	) {
@@ -39,6 +40,13 @@ function createSessionStore() {
 		}
 	}
 
+	function upsertSession(
+		session: Session,
+		options: { selectCurrent?: boolean; prepend?: boolean; broadcast?: boolean } = {}
+	) {
+		writeSession(session, options);
+	}
+
 	function selectSession(session: Session | null) {
 		current = session;
 	}
@@ -49,7 +57,15 @@ function createSessionStore() {
 		unreadSessionOutputStore.prune(list.map((session) => session.id));
 		if (current && !list.some((session) => session.id === current?.id)) {
 			current = null;
+		} else if (current) {
+			current = list.find((session) => session.id === current?.id) ?? current;
 		}
+	}
+
+	function patchSessionMetadata(sessionId: string, patch: SessionMetadataPatch) {
+		const existing = sessions.find((item) => item.id === sessionId);
+		if (!existing) return;
+		writeSession(applySessionMetadata(existing, patch), { prepend: true });
 	}
 
 	function appendSession(session: Session) {
@@ -138,6 +154,7 @@ function createSessionStore() {
 		upsertSession,
 		appendSession,
 		updateSession,
+		patchSessionMetadata,
 		removeSession,
 		discardSession,
 		queuePendingMessage,
