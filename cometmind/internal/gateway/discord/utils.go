@@ -14,7 +14,7 @@ import (
 
 const (
 	maxMessageImages     = 6
-	maxMessageImageBytes = 4 * 1024 * 1024
+	maxMessageImageBytes = 10 * 1024 * 1024
 )
 
 var supportedImageMediaTypes = map[string]bool{

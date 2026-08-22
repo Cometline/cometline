@@ -16,7 +16,7 @@ import (
 
 const (
 	// MaxPresentedImageBytes matches the user ImageAttachment limit.
-	MaxPresentedImageBytes = 4 << 20
+	MaxPresentedImageBytes = 10 << 20
 	// MaxGeneratedImageBytes is the on-disk cap for model-generated stills.
 	MaxGeneratedImageBytes = 20 << 20
 	// MaxVideoBytes is the on-disk cap for generated or imported video.

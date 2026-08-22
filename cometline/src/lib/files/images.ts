@@ -1,7 +1,7 @@
 import type { ImageAttachment, MediaAttachment } from '$lib/types';
 
 export const MAX_IMAGE_ATTACHMENTS = 6;
-export const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
+export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 
 const SUPPORTED_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp']);
 

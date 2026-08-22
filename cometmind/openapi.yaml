@@ -3247,7 +3247,7 @@ components:
           contentEncoding: base64
           description: >
             Raw base64 payload without a data URL prefix. Required for user uploads.
-            Each decoded user image must be at most 4 MB.
+            Each decoded user image must be at most 10 MB.
         name:
           type: string
         size:

@@ -346,7 +346,7 @@ export type ImageAttachment = {
     id?: string;
     media_type: 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp';
     /**
-     * Raw base64 payload without a data URL prefix. Required for user uploads. Each decoded user image must be at most 4 MB.
+     * Raw base64 payload without a data URL prefix. Required for user uploads. Each decoded user image must be at most 10 MB.
      *
      */
     data?: string;

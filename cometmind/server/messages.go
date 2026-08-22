@@ -21,12 +21,12 @@ import (
 
 const (
 	maxMessageImages     = 6
-	maxMessageImageBytes = 4 * 1024 * 1024
+	maxMessageImageBytes = 10 * 1024 * 1024
 	maxMessageFilePaths  = 32
 	maxMessageFileBytes  = 256 * 1024
-	// Workspace/wiki image preview (FilePreview + markdown embeds). Larger than
-	// chat attachments so README-style PNGs can render in the side panel.
-	maxWorkspaceImagePreviewBytes = 8 * 1024 * 1024
+	// Workspace/wiki image preview (FilePreview + markdown embeds). Same cap as
+	// chat attachments so a file that can be sent can also be opened in the panel.
+	maxWorkspaceImagePreviewBytes = maxMessageImageBytes
 	maxWebContextChars            = 50000
 	maxWebContextTotal            = 100000
 	runtimeWikiPrefix             = "@runtime/wiki/"

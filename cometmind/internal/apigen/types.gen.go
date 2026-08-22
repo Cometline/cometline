@@ -1207,7 +1207,7 @@ type ImageAttachment struct {
 	// Alt Optional accessible caption.
 	Alt *string `json:"alt,omitempty"`
 
-	// Data Raw base64 payload without a data URL prefix. Required for user uploads. Each decoded user image must be at most 4 MB.
+	// Data Raw base64 payload without a data URL prefix. Required for user uploads. Each decoded user image must be at most 10 MB.
 	Data *string `json:"data,omitempty"`
 
 	// Id Client attachment id for a composer upload.

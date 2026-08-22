@@ -17,7 +17,7 @@ import (
 
 const (
 	presentImageURLTimeout  = 30 * time.Second
-	presentImageURLMaxBytes = 4 << 20
+	presentImageURLMaxBytes = 10 << 20
 )
 
 // PresentImageURL downloads a public raster image directly into session media.

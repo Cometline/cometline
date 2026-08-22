@@ -48,7 +48,7 @@ func TestReadWorkspaceFilePreviewAllowsImageAboveTextLimit(t *testing.T) {
 
 	workspacePath := t.TempDir()
 	path := filepath.Join(workspacePath, "mid.png")
-	// Between text (256 KiB) and image (8 MiB) limits.
+	// Between text (256 KiB) and image (chat-aligned) limits.
 	data := make([]byte, maxMessageFileBytes+1024)
 	data[0], data[1], data[2], data[3] = 0x89, 0x50, 0x4e, 0x47
 	if err := os.WriteFile(path, data, 0o644); err != nil {

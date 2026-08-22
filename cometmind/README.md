@@ -243,7 +243,7 @@ Localhost-only HTTP + SSE, versioned under `/api/v1` (default `http://127.0.0.1:
 | `POST /api/v1/sessions/{id}/forks` | Copy a session into another workspace |
 | `DELETE /api/v1/sessions/{id}` | Delete session and cascade messages; gallery media stays |
 | `GET /api/v1/sessions/{id}/messages` | Transcript (user/reasoning/assistant/tool) |
-| `POST /api/v1/sessions/{id}/messages` | Send text + up to 6 images (4 MiB each) → SSE |
+| `POST /api/v1/sessions/{id}/messages` | Send text + up to 6 images (10 MiB each) → SSE |
 | `DELETE /api/v1/sessions/{id}/messages` | Clear transcript; gallery media stays |
 | `GET /api/v1/sessions/{id}/media/{mediaId}` | Fetch assistant media while the session exists |
 | `GET /api/v1/sessions/{id}/children` | Delegated child sessions |
