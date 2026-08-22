@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Session } from '$lib/types';
-import { applySessionRuntimeEvent, type SessionRuntimeEventDeps } from './session-runtime-events';
+import {
+	applySessionRuntimeEvent,
+	reconcileActiveSession,
+	type SessionRuntimeEventDeps
+} from './session-runtime-events';
 
 function session(id: string): Session {
 	return {
@@ -90,5 +94,35 @@ describe('applySessionRuntimeEvent', () => {
 		expect(target.refreshTranscript).toHaveBeenCalledWith('session-1');
 		expect(target.refreshSession).toHaveBeenCalledWith('session-1');
 		expect(target.updateSession).toHaveBeenCalledWith(session('session-1'));
+	});
+});
+
+describe('reconcileActiveSession', () => {
+	it('refreshes persisted state and follows a running active session', async () => {
+		const target = deps();
+		vi.mocked(target.getActiveSessionId).mockReturnValue('session-1');
+		vi.mocked(target.refreshSession).mockResolvedValue({
+			...session('session-1'),
+			running: true
+		});
+
+		await reconcileActiveSession(target);
+
+		expect(target.refreshSession).toHaveBeenCalledWith('session-1');
+		expect(target.updateSession).toHaveBeenCalledWith(
+			expect.objectContaining({ id: 'session-1', running: true })
+		);
+		expect(target.refreshTranscript).toHaveBeenCalledWith('session-1');
+		expect(target.resumeRun).toHaveBeenCalledWith('session-1');
+	});
+
+	it('does nothing when no session is open', async () => {
+		const target = deps();
+
+		await reconcileActiveSession(target);
+
+		expect(target.refreshSession).not.toHaveBeenCalled();
+		expect(target.refreshTranscript).not.toHaveBeenCalled();
+		expect(target.resumeRun).not.toHaveBeenCalled();
 	});
 });

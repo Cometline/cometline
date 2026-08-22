@@ -96,9 +96,18 @@ func TestEventBridgeRetriesAndPreservesReplayOrder(t *testing.T) {
 
 func TestEventBridgeStopsRetryingPermanentRunMismatch(t *testing.T) {
 	var attempts atomic.Int64
+	var mu sync.Mutex
+	var packets []bridgePacket
 	flushed := make(chan struct{})
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		attempts.Add(1)
+		var packet bridgePacket
+		if err := json.NewDecoder(r.Body).Decode(&packet); err != nil {
+			t.Errorf("Decode() error = %v", err)
+		}
+		mu.Lock()
+		packets = append(packets, packet)
+		mu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusConflict)
 		_, _ = w.Write([]byte(`{"error":{"code":"session_run_mismatch","message":"stale run"}}`))
@@ -119,7 +128,68 @@ func TestEventBridgeStopsRetryingPermanentRunMismatch(t *testing.T) {
 		t.Fatal("bridge did not release the stale run")
 	}
 	time.Sleep(600 * time.Millisecond)
-	if got := attempts.Load(); got != 1 {
-		t.Fatalf("attempts = %d, want 1", got)
+	if got := attempts.Load(); got != 2 {
+		t.Fatalf("attempts = %d, want start and finish", got)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if len(packets) != 2 || !packets[0].Start || !packets[1].Finish {
+		t.Fatalf("packets = %#v, want start then finish", packets)
+	}
+}
+
+func TestEventBridgeWaitsForCloseBeforeFinishingAfterPermanentFailure(t *testing.T) {
+	eventRejected := make(chan struct{})
+	finishReceived := make(chan struct{})
+	flushed := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var packet bridgePacket
+		if err := json.NewDecoder(r.Body).Decode(&packet); err != nil {
+			t.Errorf("Decode() error = %v", err)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		switch {
+		case packet.Start:
+			w.WriteHeader(http.StatusNoContent)
+		case packet.Event != nil:
+			close(eventRejected)
+			w.WriteHeader(http.StatusConflict)
+		case packet.Finish:
+			close(finishReceived)
+			w.WriteHeader(http.StatusNoContent)
+		}
+	}))
+	defer server.Close()
+
+	forwarder := (&EventBridge{BaseURL: server.URL, Client: server.Client()}).Start(
+		context.Background(),
+		"session-1",
+		"run-1",
+		func() { close(flushed) },
+	)
+	forwarder.Forward(event.TextDelta("partial"))
+
+	select {
+	case <-eventRejected:
+	case <-time.After(time.Second):
+		t.Fatal("bridge did not encounter the permanent event failure")
+	}
+	select {
+	case <-flushed:
+		t.Fatal("bridge released the run before the runner closed")
+	default:
+	}
+
+	forwarder.Close()
+	select {
+	case <-finishReceived:
+	case <-time.After(time.Second):
+		t.Fatal("bridge did not send finish after the runner closed")
+	}
+	select {
+	case <-flushed:
+	case <-time.After(time.Second):
+		t.Fatal("bridge did not release the run after finish")
 	}
 }

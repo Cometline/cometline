@@ -24,7 +24,10 @@
 	import { resolveWorkspacePanelRatio, widthFromRatio } from '$lib/layout/workspace-panel-width';
 	import { applyWorkspaceChange, refreshWorkspace } from '$lib/workspace/workspace-change.svelte';
 	import { chatStore } from '$lib/stores/chat.svelte';
-	import { applySessionRuntimeEvent } from '$lib/sessions/session-runtime-events';
+	import {
+		applySessionRuntimeEvent,
+		reconcileActiveSession
+	} from '$lib/sessions/session-runtime-events';
 
 	let { children } = $props();
 
@@ -45,15 +48,16 @@
 
 	onMount(() => {
 		connectionState.startPolling();
+		const runtimeEventDeps = {
+			getActiveSessionId: () => chatStore.sessionID,
+			setRunning: sessionStore.setRunning,
+			refreshTranscript: chatStore.refreshTranscript,
+			resumeRun: chatStore.resumeRun,
+			refreshSession: getSession,
+			updateSession: sessionStore.updateSession
+		};
 		const stopRuntimeEvents = startRuntimeEventStream((event) => {
-			void applySessionRuntimeEvent(event, {
-				getActiveSessionId: () => chatStore.sessionID,
-				setRunning: sessionStore.setRunning,
-				refreshTranscript: chatStore.refreshTranscript,
-				resumeRun: chatStore.resumeRun,
-				refreshSession: getSession,
-				updateSession: sessionStore.updateSession
-			});
+			void applySessionRuntimeEvent(event, runtimeEventDeps);
 			if (event.type === 'memory_updated') {
 				memoryToastStore.add(event.changes);
 			}
@@ -66,7 +70,7 @@
 			if (event.type === 'inbox_message_archived') {
 				inboxStore.applyArchived(event.id, event.open_count);
 			}
-		});
+		}, () => reconcileActiveSession(runtimeEventDeps));
 		void inboxStore.refreshSummary();
 		let skillDraftsTimer: ReturnType<typeof setInterval> | null = null;
 		if (!isMiniRoute && !isSettingsRoute) {

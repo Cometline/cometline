@@ -146,6 +146,22 @@ func TestSessionHubFinishTerminatesSubscriberWithoutPublishedDone(t *testing.T) 
 	}
 }
 
+func TestSessionHubRejectsSubscriptionAfterRunFinishes(t *testing.T) {
+	hub := NewSessionHub()
+	hub.Start("session-1", "run-1")
+	if !hub.Finish("session-1", "run-1") {
+		t.Fatal("Finish() = false")
+	}
+
+	sub, ok := hub.Subscribe("session-1", "run-1")
+	if ok || sub != nil {
+		t.Fatalf("Subscribe() = %#v, %v; want nil, false", sub, ok)
+	}
+	if hub.Current("session-1", "run-1") {
+		t.Fatal("finished run was recreated as current")
+	}
+}
+
 func TestSessionHubProducerStartAfterEarlySubscriberIsNew(t *testing.T) {
 	hub := NewSessionHub()
 	sub, ok := hub.Subscribe("session-1", "run-1")

@@ -321,6 +321,11 @@ func (s *SessionSubscription) Close() {
 func (h *SessionHub) Subscribe(sessionID, runID string) (*SessionSubscription, bool) {
 	subscriber := newSessionSubscriber()
 	h.mu.Lock()
+	if _, finished := h.finished[finishedRunKey(sessionID, runID)]; finished {
+		h.mu.Unlock()
+		subscriber.close()
+		return nil, false
+	}
 	stream := h.streams[sessionID]
 	var stale []*sessionSubscriber
 	if stream == nil {

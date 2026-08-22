@@ -102,6 +102,28 @@ func TestSessionEventsRejectsSessionWithoutActiveRun(t *testing.T) {
 	}
 }
 
+func TestSessionEventsRejectsFinishedRunInsteadOfOpeningEmptyStream(t *testing.T) {
+	s := newSessionEventTestServer(t)
+	lease, err := s.state.Acquire(context.Background(), s.sess.ID, runstate.OwnerGateway)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer lease.Finish()
+	s.hub.Start(s.sess.ID, lease.RunID())
+	if !s.hub.Finish(s.sess.ID, lease.RunID()) {
+		t.Fatal("Finish() = false")
+	}
+
+	recorder := httptest.NewRecorder()
+	s.engine.ServeHTTP(
+		recorder,
+		httptest.NewRequest(http.MethodGet, "/api/v1/sessions/"+s.sess.ID+"/events", nil),
+	)
+	if recorder.Code != http.StatusConflict {
+		t.Fatalf("status = %d, want 409 body=%s", recorder.Code, recorder.Body.String())
+	}
+}
+
 func TestClearSessionPublishesRuntimeEvent(t *testing.T) {
 	s := newSessionEventTestServer(t)
 	if _, err := s.svc.AppendUserMessage(context.Background(), s.sess.ID, "clear me"); err != nil {

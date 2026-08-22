@@ -131,8 +131,29 @@ func (f *EventForwarder) run() {
 			f.onFlushed()
 		}
 	}()
+	discardUntilFinish := false
 	for {
 		f.mu.Lock()
+		if discardUntilFinish {
+			finishIndex := -1
+			for i, queued := range f.queue {
+				if queued.Finish {
+					finishIndex = i
+					break
+				}
+			}
+			if finishIndex >= 0 {
+				f.queue = f.queue[finishIndex:]
+			} else {
+				closed := f.closed
+				f.mu.Unlock()
+				if closed {
+					return
+				}
+				<-f.wake
+				continue
+			}
+		}
 		if len(f.queue) == 0 {
 			closed := f.closed
 			f.mu.Unlock()
@@ -153,7 +174,14 @@ func (f *EventForwarder) run() {
 			continue
 		}
 		if err == nil && !retryableBridgeStatus(status) {
-			return
+			f.mu.Lock()
+			f.queue = f.queue[1:]
+			f.mu.Unlock()
+			if packet.Finish {
+				return
+			}
+			discardUntilFinish = true
+			continue
 		}
 		time.Sleep(500 * time.Millisecond)
 	}

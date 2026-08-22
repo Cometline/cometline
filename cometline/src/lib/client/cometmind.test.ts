@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	apiErrorMessage,
+	startRuntimeEventStream,
 	streamMessage,
 	streamSessionEvents,
 	UnexpectedStreamEndError
@@ -47,6 +48,32 @@ describe('apiErrorMessage', () => {
 
 	it('uses the fallback for unknown values', () => {
 		expect(apiErrorMessage({ nope: true }, 'Backup failed')).toBe('Backup failed');
+	});
+});
+
+describe('startRuntimeEventStream', () => {
+	afterEach(() => {
+		vi.unstubAllGlobals();
+	});
+
+	it('reconciles persisted state before reconnecting the runtime stream', async () => {
+		const order: string[] = [];
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockImplementation(async () => {
+				order.push('connect');
+				throw new Error('offline');
+			})
+		);
+		const reconcile = vi.fn().mockImplementation(async () => {
+			order.push('reconcile');
+		});
+
+		const stop = startRuntimeEventStream(vi.fn(), reconcile);
+		await vi.waitFor(() => expect(reconcile).toHaveBeenCalledOnce());
+		stop();
+
+		expect(order.slice(0, 2)).toEqual(['reconcile', 'connect']);
 	});
 });
 

@@ -37,3 +37,17 @@ export async function applySessionRuntimeEvent(
 	if (latest.status === 'fulfilled') deps.updateSession(latest.value);
 	return true;
 }
+
+export async function reconcileActiveSession(deps: SessionRuntimeEventDeps): Promise<boolean> {
+	const sessionId = deps.getActiveSessionId();
+	if (!sessionId) return false;
+
+	const latest = await deps.refreshSession(sessionId);
+	if (deps.getActiveSessionId() !== sessionId) return false;
+	deps.updateSession(latest);
+	await deps.refreshTranscript(sessionId);
+	if (latest.running) {
+		void deps.resumeRun(sessionId).catch(() => undefined);
+	}
+	return true;
+}

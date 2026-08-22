@@ -784,12 +784,21 @@ export async function* streamRuntimeEvents(
 }
 
 /** Keep a background event subscription alive until the caller stops it. */
-export function startRuntimeEventStream(onEvent: (event: StreamEvent) => void): () => void {
+export function startRuntimeEventStream(
+	onEvent: (event: StreamEvent) => void,
+	onReconnect?: () => unknown | Promise<unknown>
+): () => void {
 	const controller = new AbortController();
 	let stopped = false;
 
 	const run = async () => {
 		while (!stopped) {
+			try {
+				await onReconnect?.();
+			} catch {
+				// The event stream reconnect remains useful even if reconciliation fails.
+			}
+			if (stopped) return;
 			try {
 				for await (const event of streamRuntimeEvents(controller.signal)) {
 					if (stopped) return;
