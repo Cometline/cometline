@@ -94,11 +94,10 @@
 	--hero-composer-impact-scale: 1.01;
 
 	/* Intro sequence (first-run cinematic)
-	   Palette echoes tomlord.io (One Light paper) + the project icon
-	   (cream/parchment, cross-hatched blue sky, blue armor) and the
-	   hero glow blue. Light, editorial, vintage-print — not deep space. */
-	--intro-bg: #fafafa;
-	--intro-bg-deep: #eef1f6;
+	   Same paper as the marketing site: warm ivory, cobalt editorial ink,
+	   vintage print. Not deep space. */
+	--intro-bg: #f6f4ef;
+	--intro-bg-deep: #edeae3;
 	--intro-ink: #383a42; /* One Light ink */
 	--intro-ink-soft: rgba(56, 58, 66, 0.55);
 	--intro-blue: #4078f2; /* tomlord.io accent blue */
