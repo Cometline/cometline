@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { X } from '@lucide/svelte';
+	import ImageLightbox from '$lib/components/chat/ImageLightbox.svelte';
 	import { imageDataURL } from '$lib/files/images';
 	import type { ImageAttachment } from '$lib/types';
 
@@ -10,13 +11,24 @@
 		images: ImageAttachment[];
 		onRemove: (id: string) => void;
 	} = $props();
+
+	let lightbox = $state<{ src: string; alt: string } | null>(null);
 </script>
 
 {#if images.length > 0}
 	<div class="image-attachments" aria-label="Attached images">
 		{#each images as image (image.id)}
+			{@const src = imageDataURL(image)}
+			{@const alt = image.name ?? 'Attached image'}
 			<div class="image-attachment">
-				<img src={imageDataURL(image)} alt={image.name ?? 'Attached image'} />
+				<button
+					type="button"
+					class="image-open"
+					aria-label={`View ${alt}`}
+					onclick={() => (lightbox = { src, alt })}
+				>
+					<img {src} {alt} />
+				</button>
 				<button
 					type="button"
 					class="image-remove"
@@ -28,6 +40,10 @@
 			</div>
 		{/each}
 	</div>
+{/if}
+
+{#if lightbox}
+	<ImageLightbox open src={lightbox.src} alt={lightbox.alt} onClose={() => (lightbox = null)} />
 {/if}
 
 <style>
@@ -48,7 +64,22 @@
 		overflow: hidden;
 	}
 
-	.image-attachment img {
+	.image-open {
+		display: block;
+		width: 100%;
+		height: 100%;
+		padding: 0;
+		border: none;
+		background: transparent;
+		cursor: zoom-in;
+	}
+
+	.image-open:focus-visible {
+		outline: 2px solid color-mix(in srgb, var(--accent) 70%, white);
+		outline-offset: -2px;
+	}
+
+	.image-open img {
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
