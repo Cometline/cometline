@@ -18,7 +18,7 @@ export const HERO_COMPOSER_PRESET_ROSE: HeroComposerAppearance = {
 /** Soft Arc-style blue — default hero glow. */
 export const HERO_COMPOSER_PRESET_BLUE: HeroComposerAppearance = {
 	presetId: 'blue',
-	glowColor: '#72c0ff',
+	glowColor: '#64b6f4',
 	ringColor: '#4a9de8'
 };
 

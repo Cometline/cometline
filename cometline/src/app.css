@@ -108,15 +108,15 @@
 	--duration-intro-exit: 0.9s;
 
 	/* Hero composer aura (default blue; overridden by settings) */
-	--hero-composer-glow-color: #72c0ff;
-	--hero-composer-glow-strong: rgba(114, 192, 255, 0.52);
-	--hero-composer-glow-soft: rgba(114, 192, 255, 0.24);
-	--hero-composer-glow-ring: rgba(114, 192, 255, 0.14);
+	--hero-composer-glow-color: #64b6f4;
+	--hero-composer-glow-strong: rgba(100, 182, 244, 0.52);
+	--hero-composer-glow-soft: rgba(100, 182, 244, 0.24);
+	--hero-composer-glow-ring: rgba(100, 182, 244, 0.14);
 	--hero-composer-ring: rgba(74, 157, 232, 0.24);
 	--pane-focus-border: rgba(74, 157, 232, 0.42);
-	--pane-focus-glow: rgba(114, 192, 255, 0.06);
-	--user-bubble-bg: color-mix(in srgb, #72c0ff 70%, #1f2933);
-	--user-bubble-shadow: rgba(114, 192, 255, 0.22);
+	--pane-focus-glow: rgba(100, 182, 244, 0.06);
+	--user-bubble-bg: color-mix(in srgb, #64b6f4 70%, #1f2933);
+	--user-bubble-shadow: rgba(100, 182, 244, 0.22);
 
 	/* Sidebar pinned group — warm amber, distinct from active workspace glow */
 	--pinned-group-color: #b45309;
