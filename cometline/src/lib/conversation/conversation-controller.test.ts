@@ -630,6 +630,57 @@ describe('createConversationController', () => {
 		expect(onTurnRejected).toHaveBeenCalledWith('sess-1', payload);
 	});
 
+	it('retries the complete turn after an explicit session-running conflict', async () => {
+		const onTurnRejected = vi.fn();
+		const send = vi
+			.fn()
+			.mockResolvedValueOnce('session_running')
+			.mockResolvedValueOnce(undefined);
+		const payload = {
+			text: 'expanded prompt',
+			displayText: '/skill original',
+			images: [{ media_type: 'image/png' as const, data: 'abc' }],
+			filePaths: ['README.md'],
+			webContexts: [
+				{
+					kind: 'page' as const,
+					title: 'Reference',
+					source: 'https://example.com',
+					content: 'context'
+				}
+			],
+			reasoningEffort: 'high',
+			agentMode: 'plan' as const
+		};
+		const onUserMessageFlight = vi.fn().mockImplementation((_payload, ctx: FlightContext) => {
+			ctx.stageUser(payload.displayText, payload.images);
+			ctx.revealStagedUser();
+		});
+		const { controller } = createDeps({
+			send,
+			onTurnRejected,
+			hasVisibleConversation: true,
+			flight: { onUserMessageFlight }
+		});
+
+		await controller.enqueue(payload);
+
+		expect(send).toHaveBeenCalledTimes(2);
+		expect(send).toHaveBeenNthCalledWith(
+			1,
+			'sess-1',
+			payload,
+			expect.objectContaining({ skipUser: true })
+		);
+		expect(send).toHaveBeenNthCalledWith(
+			2,
+			'sess-1',
+			payload,
+			expect.objectContaining({ skipUser: false })
+		);
+		expect(onTurnRejected).not.toHaveBeenCalled();
+	});
+
 	it('does not keep processing true while refreshSession is in flight', async () => {
 		let releaseRefresh: (() => void) | undefined;
 		const refreshGate = new Promise<void>((resolve) => {

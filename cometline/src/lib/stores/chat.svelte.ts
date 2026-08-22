@@ -75,6 +75,17 @@ function createChatStore() {
 		return Boolean(err && typeof err === 'object' && 'status' in err && err.status === 409);
 	}
 
+	function isSessionRunningConflict(err: unknown) {
+		return Boolean(
+			err &&
+				typeof err === 'object' &&
+				'status' in err &&
+				err.status === 409 &&
+				'code' in err &&
+				err.code === 'session_running'
+		);
+	}
+
 	function cachedItemCount(targetSessionID: string) {
 		return sessionCache.get(targetSessionID)?.length ?? 0;
 	}
@@ -626,7 +637,7 @@ function createChatStore() {
 		nextSessionID: string,
 		payloadOrText: ChatTurnPayload | string,
 		opts?: { skipUser?: boolean; onConflict?: () => void }
-	) {
+	): Promise<void | 'session_running'> {
 		const payload = typeof payloadOrText === 'string' ? { text: payloadOrText } : payloadOrText;
 		const text = payload.text;
 		const displayText = payload.displayText ?? text;
@@ -722,13 +733,14 @@ function createChatStore() {
 				return;
 			}
 			if (isRunConflict(err)) {
-				opts?.onConflict?.();
+				const sessionRunning = isSessionRunningConflict(err);
+				if (!sessionRunning) opts?.onConflict?.();
 				flushBatchForSession(nextSessionID, ctx, handle);
 				applyEventToSession(nextSessionID, { type: 'done' }, ctx);
 				unmarkStreaming(nextSessionID);
 				await refreshTranscript(nextSessionID);
 				await resumeRun(nextSessionID);
-				return;
+				return sessionRunning ? 'session_running' : undefined;
 			}
 			streamOutcome = 'error';
 			applyStreamEventForSession(
