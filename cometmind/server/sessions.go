@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/cometline/cometmind/internal/event"
 	"github.com/cometline/cometmind/internal/session"
 	"github.com/gin-gonic/gin"
 )
@@ -352,6 +353,9 @@ func (a *App) handleClearSession(c *gin.Context) {
 	if err := a.sessions.ClearSessionTranscript(c.Request.Context(), sessID); err != nil {
 		writeError(c, http.StatusInternalServerError, "internal_error", err.Error())
 		return
+	}
+	if a.events != nil {
+		a.events.Publish(event.SessionCleared(sessID))
 	}
 	c.Status(http.StatusNoContent)
 }

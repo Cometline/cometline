@@ -11,6 +11,7 @@ export interface QueuedMessage extends ChatTurnPayload {
 
 export interface ChatTurnQueue {
 	enqueue(payload: ChatTurnPayload | string): Promise<boolean>;
+	blockUntil(task: Promise<unknown>): void;
 	remove(id: string): boolean;
 	clear(): void;
 	setOnChange(onChange?: () => void): void;
@@ -87,7 +88,10 @@ export function createChatTurnQueue(
 		}
 	}
 
-	async function runLoop(initialPayload?: ChatTurnPayload): Promise<boolean> {
+	async function runLoop(
+		initialPayload?: ChatTurnPayload,
+		barrier?: Promise<unknown>
+	): Promise<boolean> {
 		if (processing) {
 			if (initialPayload !== undefined) return queueTurn(initialPayload);
 			return false;
@@ -96,12 +100,27 @@ export function createChatTurnQueue(
 		processing = true;
 		notifyChange();
 		try {
+			if (barrier) {
+				try {
+					await barrier;
+				} catch {
+					// Activation failures are rendered by their owner. The queue should
+					// still release any user turns that arrived while it was checking.
+				}
+			}
 			if (initialPayload !== undefined) {
 				await runTurnSafely(initialPayload);
 			}
 			while (queue.length > 0) {
-				const { text, displayText, images, filePaths, webContexts, reasoningEffort, agentMode } =
-					queue.shift()!;
+				const {
+					text,
+					displayText,
+					images,
+					filePaths,
+					webContexts,
+					reasoningEffort,
+					agentMode
+				} = queue.shift()!;
 				notifyChange();
 				await runTurnSafely({
 					text,
@@ -135,6 +154,13 @@ export function createChatTurnQueue(
 			const normalized = normalizePayload(payload);
 			if (processing) return Promise.resolve(queueTurn(normalized));
 			return runLoop(normalized);
+		},
+		blockUntil(task: Promise<unknown>) {
+			if (processing) {
+				void task.catch(() => undefined);
+				return;
+			}
+			void runLoop(undefined, task);
 		},
 		remove(id: string) {
 			const index = queue.findIndex((item) => item.id === id);

@@ -30,6 +30,7 @@ const (
 	KindInboxMessageArchived      Kind = "inbox_message_archived"
 	KindRunStarted                Kind = "run_started"
 	KindRunFinished               Kind = "run_finished"
+	KindSessionCleared            Kind = "session_cleared"
 	KindTurnStatus                Kind = "turn_status"
 	KindTurnRecover               Kind = "turn_recover"
 	KindAssistantImage            Kind = "assistant_image"
@@ -256,7 +257,7 @@ func (e Event) MarshalJSON() ([]byte, error) {
 			OpenCount     int64  `json:"open_count"`
 			ArchiveReason string `json:"archive_reason"`
 		}{t, e.InboxMessageID, e.InboxOpenCount, e.InboxArchiveReason})
-	case KindRunStarted, KindRunFinished:
+	case KindRunStarted, KindRunFinished, KindSessionCleared:
 		return json.Marshal(struct {
 			Type      string `json:"type"`
 			SessionID string `json:"session_id"`
@@ -502,6 +503,10 @@ func RunStarted(sessionID string) Event {
 
 func RunFinished(sessionID string) Event {
 	return Event{Kind: KindRunFinished, SessionID: sessionID}
+}
+
+func SessionCleared(sessionID string) Event {
+	return Event{Kind: KindSessionCleared, SessionID: sessionID}
 }
 
 // TurnStatus builds a turn_status event for pre-stream activity feedback.

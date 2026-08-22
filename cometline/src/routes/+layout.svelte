@@ -12,6 +12,7 @@
 	import { heroComposerCssVars } from '$lib/hero-composer-appearance';
 	import {
 		ensureWorkspace,
+		getSession,
 		listAllSessions,
 		startRuntimeEventStream
 	} from '$lib/client/cometmind';
@@ -22,6 +23,8 @@
 	import { startStorageRetentionSync } from '$lib/retention/storage-retention-sync';
 	import { resolveWorkspacePanelRatio, widthFromRatio } from '$lib/layout/workspace-panel-width';
 	import { applyWorkspaceChange, refreshWorkspace } from '$lib/workspace/workspace-change.svelte';
+	import { chatStore } from '$lib/stores/chat.svelte';
+	import { applySessionRuntimeEvent } from '$lib/sessions/session-runtime-events';
 
 	let { children } = $props();
 
@@ -43,6 +46,12 @@
 	onMount(() => {
 		connectionState.startPolling();
 		const stopRuntimeEvents = startRuntimeEventStream((event) => {
+			void applySessionRuntimeEvent(event, {
+				setRunning: sessionStore.setRunning,
+				refreshTranscript: chatStore.refreshTranscript,
+				refreshSession: getSession,
+				updateSession: sessionStore.updateSession
+			});
 			if (event.type === 'memory_updated') {
 				memoryToastStore.add(event.changes);
 			}
@@ -54,12 +63,6 @@
 			}
 			if (event.type === 'inbox_message_archived') {
 				inboxStore.applyArchived(event.id, event.open_count);
-			}
-			if (event.type === 'run_started') {
-				sessionStore.setRunning(event.session_id, true);
-			}
-			if (event.type === 'run_finished') {
-				sessionStore.setRunning(event.session_id, false);
 			}
 		});
 		void inboxStore.refreshSummary();

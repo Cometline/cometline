@@ -383,8 +383,14 @@ func (r *Router) HandleClearSlash(ctx context.Context, msg InboundMessage) (stri
 	if r.Turns != nil && r.Turns.Running(mapped.CometmindSessionID) {
 		return "", fmt.Errorf("session is running")
 	}
-	if err := r.Sessions.ClearSessionTranscript(ctx, mapped.CometmindSessionID); err != nil {
-		return "", err
+	if r.Events != nil {
+		if err := r.Events.ClearSession(ctx, mapped.CometmindSessionID); err != nil {
+			return "", err
+		}
+	} else {
+		if err := r.Sessions.ClearSessionTranscript(ctx, mapped.CometmindSessionID); err != nil {
+			return "", err
+		}
 	}
 	return "Cleared this CometMind conversation transcript.", nil
 }

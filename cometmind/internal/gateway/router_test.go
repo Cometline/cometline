@@ -2,6 +2,8 @@ package gateway
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -260,6 +262,20 @@ func TestHandleClearSlashClearsMappedSessionTranscript(t *testing.T) {
 	if err := svc.SetTitleIfEmpty(ctx, sess.ID, "hello"); err != nil {
 		t.Fatalf("SetTitleIfEmpty() error = %v", err)
 	}
+	clearRequests := make(chan string, 1)
+	serve := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if req.Method != http.MethodDelete {
+			t.Errorf("method = %s, want DELETE", req.Method)
+		}
+		clearRequests <- req.URL.Path
+		if err := svc.ClearSessionTranscript(req.Context(), sess.ID); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer serve.Close()
+	r.Events = &EventBridge{BaseURL: serve.URL, Client: serve.Client()}
 
 	msg, err := r.HandleClearSlash(ctx, InboundMessage{
 		Platform:  "discord",
@@ -272,6 +288,9 @@ func TestHandleClearSlashClearsMappedSessionTranscript(t *testing.T) {
 	}
 	if msg != "Cleared this CometMind conversation transcript." {
 		t.Fatalf("confirmation = %q", msg)
+	}
+	if path := <-clearRequests; path != "/api/v1/sessions/"+sess.ID+"/messages" {
+		t.Fatalf("clear path = %q", path)
 	}
 
 	transcript, err := svc.LoadTranscript(ctx, sess.ID)

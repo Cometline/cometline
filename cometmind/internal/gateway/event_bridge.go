@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"sync"
 	"time"
 
@@ -54,6 +55,40 @@ func (b *EventBridge) Start(ctx context.Context, sessionID, runID string, onFlus
 	go f.run()
 	f.signal()
 	return f
+}
+
+func (b *EventBridge) ClearSession(ctx context.Context, sessionID string) error {
+	if b == nil {
+		return fmt.Errorf("event bridge is required")
+	}
+	baseURL := b.BaseURL
+	if baseURL == "" {
+		baseURL = DefaultServeURL
+	}
+	requestCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(
+		requestCtx,
+		http.MethodDelete,
+		fmt.Sprintf("%s/api/v1/sessions/%s/messages", baseURL, url.PathEscape(sessionID)),
+		nil,
+	)
+	if err != nil {
+		return err
+	}
+	client := b.Client
+	if client == nil {
+		client = http.DefaultClient
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("clear session: HTTP %d", resp.StatusCode)
+	}
+	return nil
 }
 
 func (f *EventForwarder) Forward(ev event.Event) {
@@ -117,8 +152,18 @@ func (f *EventForwarder) run() {
 			f.mu.Unlock()
 			continue
 		}
+		if err == nil && !retryableBridgeStatus(status) {
+			return
+		}
 		time.Sleep(500 * time.Millisecond)
 	}
+}
+
+func retryableBridgeStatus(status int) bool {
+	return status == http.StatusRequestTimeout ||
+		status == http.StatusTooEarly ||
+		status == http.StatusTooManyRequests ||
+		status >= http.StatusInternalServerError
 }
 
 func (f *EventForwarder) send(packet bridgePacket) (int, error) {

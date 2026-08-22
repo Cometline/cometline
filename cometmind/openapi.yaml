@@ -4150,6 +4150,17 @@ components:
         session_id:
           type: string
 
+    SessionClearedEvent:
+      type: object
+      additionalProperties: false
+      required: [type, session_id]
+      properties:
+        type:
+          type: string
+          const: session_cleared
+        session_id:
+          type: string
+
     IngestSessionEventRequest:
       type: object
       additionalProperties: false
@@ -4186,6 +4197,7 @@ components:
         - $ref: '#/components/schemas/InboxMessageCreatedEvent'
         - $ref: '#/components/schemas/InboxMessageArchivedEvent'
         - $ref: '#/components/schemas/RunLifecycleEvent'
+        - $ref: '#/components/schemas/SessionClearedEvent'
         - $ref: '#/components/schemas/TurnStatusEvent'
         - $ref: '#/components/schemas/TurnRecoverEvent'
         - $ref: '#/components/schemas/AssistantImageEvent'
@@ -4212,6 +4224,7 @@ components:
           inbox_message_archived: '#/components/schemas/InboxMessageArchivedEvent'
           run_started: '#/components/schemas/RunLifecycleEvent'
           run_finished: '#/components/schemas/RunLifecycleEvent'
+          session_cleared: '#/components/schemas/SessionClearedEvent'
           turn_status: '#/components/schemas/TurnStatusEvent'
           turn_recover: '#/components/schemas/TurnRecoverEvent'
           assistant_image: '#/components/schemas/AssistantImageEvent'

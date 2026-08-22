@@ -23,7 +23,7 @@ func TestEventBridgeRetriesAndPreservesReplayOrder(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		firstAttemptOnce.Do(func() { close(firstAttempt) })
 		if !ready.Load() {
-			http.Error(w, "not ready", http.StatusConflict)
+			http.Error(w, "not ready", http.StatusServiceUnavailable)
 			return
 		}
 		var packet bridgePacket
@@ -91,5 +91,35 @@ func TestEventBridgeRetriesAndPreservesReplayOrder(t *testing.T) {
 	}
 	if !packets[3].Finish || packets[3].RunID != "run-1" {
 		t.Fatalf("fourth packet = %#v", packets[3])
+	}
+}
+
+func TestEventBridgeStopsRetryingPermanentRunMismatch(t *testing.T) {
+	var attempts atomic.Int64
+	flushed := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		attempts.Add(1)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusConflict)
+		_, _ = w.Write([]byte(`{"error":{"code":"session_run_mismatch","message":"stale run"}}`))
+	}))
+	defer server.Close()
+
+	forwarder := (&EventBridge{BaseURL: server.URL, Client: server.Client()}).Start(
+		context.Background(),
+		"session-1",
+		"stale-run",
+		func() { close(flushed) },
+	)
+	forwarder.Close()
+
+	select {
+	case <-flushed:
+	case <-time.After(time.Second):
+		t.Fatal("bridge did not release the stale run")
+	}
+	time.Sleep(600 * time.Millisecond)
+	if got := attempts.Load(); got != 1 {
+		t.Fatalf("attempts = %d, want 1", got)
 	}
 }

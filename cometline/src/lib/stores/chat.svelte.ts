@@ -860,7 +860,9 @@ function createChatStore() {
 		const id = targetSessionID ?? sessionID;
 		if (!id) return;
 		const handle = streamHandles.get(id);
-		if (!handle && !isStreamingFor(id)) return;
+		const running =
+			sessionStore.sessions.find((session) => session.id === id)?.running ?? false;
+		if (!handle && !isStreamingFor(id) && !running) return;
 
 		handle?.abort.abort();
 		try {

@@ -870,6 +870,11 @@ export type RunLifecycleEvent = {
     session_id: string;
 };
 
+export type SessionClearedEvent = {
+    type: 'session_cleared';
+    session_id: string;
+};
+
 export type IngestSessionEventRequest = {
     run_id: string;
     sequence?: number;
@@ -911,6 +916,8 @@ export type StreamEvent = ({
 } & InboxMessageArchivedEvent) | ({
     type?: 'run_started' | 'run_finished';
 } & RunLifecycleEvent) | ({
+    type?: 'session_cleared';
+} & SessionClearedEvent) | ({
     type?: 'turn_status';
 } & TurnStatusEvent) | ({
     type?: 'turn_recover';

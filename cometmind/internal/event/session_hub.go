@@ -88,6 +88,23 @@ func (s *sessionSubscriber) close() {
 	})
 }
 
+func (s *sessionSubscriber) finish(ev *Event) {
+	s.mu.Lock()
+	if s.closed {
+		s.mu.Unlock()
+		return
+	}
+	if ev != nil {
+		s.queue = append(s.queue, *ev)
+	}
+	s.closed = true
+	s.mu.Unlock()
+	select {
+	case s.wake <- struct{}{}:
+	default:
+	}
+}
+
 // SessionHub keeps a replayable, lossless event stream for each active session run.
 type SessionHub struct {
 	mu       sync.Mutex
@@ -147,10 +164,20 @@ func (h *SessionHub) Finish(sessionID, runID string) bool {
 		return false
 	}
 	h.mu.Lock()
-	defer h.mu.Unlock()
 	stream := h.streams[sessionID]
 	if stream == nil || stream.runID != runID {
+		h.mu.Unlock()
 		return false
+	}
+	var terminal *Event
+	if len(stream.replay) == 0 || stream.replay[len(stream.replay)-1].Kind != KindDone {
+		done := Done()
+		appendReplay(stream, done)
+		terminal = &done
+	}
+	subscribers := make([]*sessionSubscriber, 0, len(stream.subscribers))
+	for subscriber := range stream.subscribers {
+		subscribers = append(subscribers, subscriber)
 	}
 	delete(h.streams, sessionID)
 	if len(h.finished) >= maxFinishedRuns {
@@ -160,6 +187,10 @@ func (h *SessionHub) Finish(sessionID, runID string) bool {
 		}
 	}
 	h.finished[finishedRunKey(sessionID, runID)] = struct{}{}
+	h.mu.Unlock()
+	for _, subscriber := range subscribers {
+		subscriber.finish(terminal)
+	}
 	return true
 }
 
@@ -291,6 +322,7 @@ func (h *SessionHub) Subscribe(sessionID, runID string) (*SessionSubscription, b
 	subscriber := newSessionSubscriber()
 	h.mu.Lock()
 	stream := h.streams[sessionID]
+	var stale []*sessionSubscriber
 	if stream == nil {
 		stream = &sessionStream{
 			runID:       runID,
@@ -298,13 +330,21 @@ func (h *SessionHub) Subscribe(sessionID, runID string) (*SessionSubscription, b
 		}
 		h.streams[sessionID] = stream
 	} else if stream.runID != runID {
-		h.mu.Unlock()
-		subscriber.close()
-		return nil, false
+		for oldSubscriber := range stream.subscribers {
+			stale = append(stale, oldSubscriber)
+		}
+		stream = &sessionStream{
+			runID:       runID,
+			subscribers: make(map[*sessionSubscriber]struct{}),
+		}
+		h.streams[sessionID] = stream
 	}
 	replay := append([]Event(nil), stream.replay...)
 	stream.subscribers[subscriber] = struct{}{}
 	h.mu.Unlock()
+	for _, oldSubscriber := range stale {
+		oldSubscriber.close()
+	}
 	return &SessionSubscription{
 		Replay: replay,
 		Events: subscriber.events,

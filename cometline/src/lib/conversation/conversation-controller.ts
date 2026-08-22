@@ -216,9 +216,10 @@ export function createConversationController(
 
 		onMount() {
 			const sessionId = deps.getSessionId();
+			const queue = ensureQueue(sessionId, deps, deps.getHasVisibleConversation);
 			const pending = sessionStore.takePendingMessage(sessionId);
 			if (pending) {
-				void ensureQueue(sessionId, deps, deps.getHasVisibleConversation).enqueue({
+				void queue.enqueue({
 					text: pending.text,
 					displayText: pending.displayText,
 					images: pending.images,
@@ -228,9 +229,10 @@ export function createConversationController(
 				});
 				return;
 			}
-			void (async () => {
+			const activation = (async () => {
 				let running =
-					sessionStore.sessions.find((session) => session.id === sessionId)?.running ?? false;
+					sessionStore.sessions.find((session) => session.id === sessionId)?.running ??
+					false;
 				try {
 					const latest = await getSession(sessionId);
 					running = latest.running;
@@ -243,6 +245,7 @@ export function createConversationController(
 				}
 				if (running) await chatStore.resumeRun(sessionId);
 			})();
+			queue.blockUntil(activation);
 		},
 
 		syncComposerPhase(opts) {

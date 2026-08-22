@@ -1944,6 +1944,12 @@ type SessionStatus string
 // SessionSubagentKind Kind of delegated subagent for child sessions (general=research, coding=in-process editor, acp=external harness).
 type SessionSubagentKind string
 
+// SessionClearedEvent defines model for SessionClearedEvent.
+type SessionClearedEvent struct {
+	SessionId string `json:"session_id"`
+	Type      string `json:"type"`
+}
+
 // SessionListResponse defines model for SessionListResponse.
 type SessionListResponse struct {
 	Sessions []Session `json:"sessions"`
@@ -3194,6 +3200,32 @@ func (t *StreamEvent) MergeRunLifecycleEvent(v RunLifecycleEvent) error {
 	return err
 }
 
+// AsSessionClearedEvent returns the union data inside the StreamEvent as a SessionClearedEvent
+func (t StreamEvent) AsSessionClearedEvent() (SessionClearedEvent, error) {
+	var body SessionClearedEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromSessionClearedEvent overwrites any union data inside the StreamEvent as the provided SessionClearedEvent
+func (t *StreamEvent) FromSessionClearedEvent(v SessionClearedEvent) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeSessionClearedEvent performs a merge with any union data inside the StreamEvent, using the provided SessionClearedEvent
+func (t *StreamEvent) MergeSessionClearedEvent(v SessionClearedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 // AsTurnStatusEvent returns the union data inside the StreamEvent as a TurnStatusEvent
 func (t StreamEvent) AsTurnStatusEvent() (TurnStatusEvent, error) {
 	var body TurnStatusEvent
@@ -3392,6 +3424,8 @@ func (t StreamEvent) ValueByDiscriminator() (interface{}, error) {
 		return t.AsRunLifecycleEvent()
 	case "run_started":
 		return t.AsRunLifecycleEvent()
+	case "session_cleared":
+		return t.AsSessionClearedEvent()
 	case "step_finish":
 		return t.AsStepFinishEvent()
 	case "subagent_finished":

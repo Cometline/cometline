@@ -462,6 +462,34 @@ describe('createConversationController', () => {
 		resumeSpy.mockRestore();
 	});
 
+	it('holds follow-ups until a discovered active run finishes replaying', async () => {
+		vi.mocked(getSession).mockResolvedValueOnce({
+			...(await getSession('sess-1')),
+			running: true
+		});
+		vi.mocked(getSession).mockClear();
+		let releaseResume: (() => void) | undefined;
+		const resumeGate = new Promise<void>((resolve) => {
+			releaseResume = resolve;
+		});
+		const loadSpy = vi.spyOn(chatStore, 'loadTranscript').mockResolvedValue(undefined);
+		const resumeSpy = vi.spyOn(chatStore, 'resumeRun').mockImplementation(() => resumeGate);
+		const { controller, send } = createDeps({ hasVisibleConversation: true });
+
+		controller.onMount();
+		await vi.waitFor(() => expect(resumeSpy).toHaveBeenCalledWith('sess-1'));
+		await controller.enqueue('after resume');
+
+		expect(controller.pendingCount).toBe(1);
+		expect(send).not.toHaveBeenCalled();
+
+		releaseResume!();
+		await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+		expect(send).toHaveBeenCalledWith('sess-1', { text: 'after resume' }, { skipUser: false });
+		loadSpy.mockRestore();
+		resumeSpy.mockRestore();
+	});
+
 	it('uses the enqueued session callbacks if getSessionId changes during active first-turn flight', async () => {
 		let currentSessionId = 'sess-a';
 		let releaseFlight: (() => void) | undefined;

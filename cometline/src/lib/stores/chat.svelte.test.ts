@@ -426,6 +426,31 @@ describe('chatStore session switching', () => {
 		expect(playErrorSound).not.toHaveBeenCalled();
 	});
 
+	it('aborts a discovered running session before its local stream attaches', async () => {
+		sessionStore.setSessions([
+			{
+				id: 'sess-a',
+				workspace_id: 'workspace-1',
+				workspace_path: '/tmp/workspace',
+				title: 'Running elsewhere',
+				model_id: 'model',
+				provider_id: 'provider',
+				status: 'active',
+				origin: 'user',
+				token_usage: { input_tokens: 0, output_tokens: 0, cache_read: 0, cache_write: 0 },
+				pinned: false,
+				agent_mode: 'auto',
+				running: true,
+				created_at: 0,
+				updated_at: 0
+			}
+		]);
+
+		await chatStore.cancel('sess-a');
+
+		expect(abortSession).toHaveBeenCalledWith('sess-a');
+	});
+
 	it('clears the failed marker after a successful retry', async () => {
 		vi.mocked(streamMessage)
 			.mockImplementationOnce(async function* () {
@@ -486,7 +511,9 @@ describe('chatStore session switching', () => {
 	});
 
 	it('replays and follows an already-running session', async () => {
-		vi.mocked(getSessionMessages).mockResolvedValue(mockTranscript('sess-a', 'remote question'));
+		vi.mocked(getSessionMessages).mockResolvedValue(
+			mockTranscript('sess-a', 'remote question')
+		);
 		vi.mocked(streamSessionEvents).mockImplementation(async function* () {
 			yield { type: 'text_delta', delta: 'replayed answer' };
 			yield { type: 'done' };
@@ -528,9 +555,9 @@ describe('chatStore session switching', () => {
 			text: 'persisted answer continued',
 			pending: false
 		});
-		expect(chatStore.items.some((item) => item.type === 'tool' && item.toolName === 'read')).toBe(
-			true
-		);
+		expect(
+			chatStore.items.some((item) => item.type === 'tool' && item.toolName === 'read')
+		).toBe(true);
 	});
 
 	it('switches a conflicting send to the current run stream', async () => {
@@ -543,7 +570,9 @@ describe('chatStore session switching', () => {
 			throw { status: 409 };
 			yield { type: 'done' };
 		});
-		vi.mocked(getSessionMessages).mockResolvedValue(mockTranscript('sess-a', 'existing question'));
+		vi.mocked(getSessionMessages).mockResolvedValue(
+			mockTranscript('sess-a', 'existing question')
+		);
 		vi.mocked(streamSessionEvents).mockImplementation(async function* () {
 			await resumeGate;
 			yield { type: 'text_delta', delta: 'existing answer' };

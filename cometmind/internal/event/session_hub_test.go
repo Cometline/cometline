@@ -87,6 +87,65 @@ func TestSessionHubReplacingRunClosesOldSubscription(t *testing.T) {
 	}
 }
 
+func TestSessionHubAuthoritativeSubscriptionReplacesStaleRun(t *testing.T) {
+	hub := NewSessionHub()
+	hub.Start("session-1", "stale-run")
+	stale, ok := hub.Subscribe("session-1", "stale-run")
+	if !ok {
+		t.Fatal("stale Subscribe() = false")
+	}
+
+	current, ok := hub.Subscribe("session-1", "current-run")
+	if !ok {
+		t.Fatal("current Subscribe() = false")
+	}
+	defer current.Close()
+	if !hub.Current("session-1", "current-run") {
+		t.Fatal("authoritative subscription did not replace stale run")
+	}
+	select {
+	case _, open := <-stale.Events:
+		if open {
+			t.Fatal("stale subscription remained open")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("stale subscription was not closed")
+	}
+	if !hub.Start("session-1", "current-run") {
+		t.Fatal("producer Start() after authoritative subscription = false")
+	}
+}
+
+func TestSessionHubFinishTerminatesSubscriberWithoutPublishedDone(t *testing.T) {
+	hub := NewSessionHub()
+	hub.Start("session-1", "run-1")
+	sub, ok := hub.Subscribe("session-1", "run-1")
+	if !ok {
+		t.Fatal("Subscribe() = false")
+	}
+	defer sub.Close()
+
+	if !hub.Finish("session-1", "run-1") {
+		t.Fatal("Finish() = false")
+	}
+	select {
+	case got, open := <-sub.Events:
+		if !open || got.Kind != KindDone {
+			t.Fatalf("terminal event = %#v, open=%v; want done", got, open)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("subscriber did not receive synthesized done")
+	}
+	select {
+	case _, open := <-sub.Events:
+		if open {
+			t.Fatal("subscription remained open after done")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("subscription was not closed after done")
+	}
+}
+
 func TestSessionHubProducerStartAfterEarlySubscriberIsNew(t *testing.T) {
 	hub := NewSessionHub()
 	sub, ok := hub.Subscribe("session-1", "run-1")

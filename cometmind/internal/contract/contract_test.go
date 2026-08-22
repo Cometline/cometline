@@ -53,6 +53,7 @@ func TestStreamEventMarshalJSONMatchesOpenAPI(t *testing.T) {
 		{name: "inbox_message_archived", ev: event.InboxMessageArchived("inbox-1", 1, "replied")},
 		{name: "run_started", ev: event.RunStarted("session-1")},
 		{name: "run_finished", ev: event.RunFinished("session-1")},
+		{name: "session_cleared", ev: event.SessionCleared("session-1")},
 		{name: "turn_status", ev: event.TurnStatus(event.PhaseCompactingContext, "")},
 		{name: "turn_recover", ev: event.TurnRecover(12, 7)},
 		{name: "assistant_image", ev: event.AssistantImage("img_01", "image/png", "screenshot", "data:image/png;base64,aaaa")},

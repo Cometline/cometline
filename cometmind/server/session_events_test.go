@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	cometsdk "github.com/cometline/comet-sdk"
 	"github.com/cometline/cometmind/internal/config"
 	"github.com/cometline/cometmind/internal/event"
 	"github.com/cometline/cometmind/internal/runstate"
@@ -24,6 +25,7 @@ type sessionEventTestServer struct {
 	state  *runstate.Service
 	hub    *event.SessionHub
 	events *event.Hub
+	svc    *session.Service
 	sess   session.Session
 }
 
@@ -61,7 +63,14 @@ func newSessionEventTestServer(t *testing.T) *sessionEventTestServer {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return &sessionEventTestServer{engine: engine, state: state, hub: hub, events: events, sess: sess}
+	return &sessionEventTestServer{
+		engine: engine,
+		state:  state,
+		hub:    hub,
+		events: events,
+		svc:    sessions,
+		sess:   sess,
+	}
 }
 
 func (s *sessionEventTestServer) ingest(t *testing.T, body any) *httptest.ResponseRecorder {
@@ -90,6 +99,55 @@ func TestSessionEventsRejectsSessionWithoutActiveRun(t *testing.T) {
 	)
 	if recorder.Code != http.StatusConflict {
 		t.Fatalf("status = %d, want 409 body=%s", recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestClearSessionPublishesRuntimeEvent(t *testing.T) {
+	s := newSessionEventTestServer(t)
+	if _, err := s.svc.AppendUserMessage(context.Background(), s.sess.ID, "clear me"); err != nil {
+		t.Fatal(err)
+	}
+	sub := s.events.Subscribe()
+	defer sub.Close()
+
+	recorder := httptest.NewRecorder()
+	s.engine.ServeHTTP(
+		recorder,
+		httptest.NewRequest(http.MethodDelete, "/api/v1/sessions/"+s.sess.ID+"/messages", nil),
+	)
+	if recorder.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want 204 body=%s", recorder.Code, recorder.Body.String())
+	}
+	select {
+	case got := <-sub.Events:
+		if got.Kind != event.KindSessionCleared || got.SessionID != s.sess.ID {
+			t.Fatalf("runtime event = %#v", got)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("missing session_cleared runtime event")
+	}
+}
+
+func TestAbortSessionRequestsCancellationForGatewayOwnedRun(t *testing.T) {
+	s := newSessionEventTestServer(t)
+	lease, err := s.state.Acquire(context.Background(), s.sess.ID, runstate.OwnerGateway)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer lease.Finish()
+
+	recorder := httptest.NewRecorder()
+	s.engine.ServeHTTP(
+		recorder,
+		httptest.NewRequest(http.MethodDelete, "/api/v1/sessions/"+s.sess.ID+"/runs/current", nil),
+	)
+	if recorder.Code != http.StatusAccepted {
+		t.Fatalf("status = %d, want 202 body=%s", recorder.Code, recorder.Body.String())
+	}
+	select {
+	case <-lease.Context().Done():
+	case <-time.After(2 * time.Second):
+		t.Fatal("gateway lease did not observe the HTTP abort request")
 	}
 }
 
@@ -247,5 +305,107 @@ func TestSessionEventsReplaysAndTailsActiveRun(t *testing.T) {
 	body := recorder.Body.String()
 	if !strings.Contains(body, `"delta":"replay"`) || !strings.Contains(body, `"type":"done"`) {
 		t.Fatalf("SSE body = %s", body)
+	}
+}
+
+func TestSessionEventsReloadsPersistedToolStepThenReplaysCurrentStep(t *testing.T) {
+	s := newSessionEventTestServer(t)
+	ctx := context.Background()
+	if _, err := s.svc.AppendUserMessage(ctx, s.sess.ID, "inspect main.go"); err != nil {
+		t.Fatalf("AppendUserMessage() error = %v", err)
+	}
+	toolCall := cometsdk.ToolCallBlock{
+		ID:    "provider-tool-1",
+		Name:  "read_file",
+		Input: json.RawMessage(`{"path":"main.go"}`),
+	}
+	_, toolIDs, err := s.svc.AppendAssistantStep(
+		ctx,
+		s.sess.ID,
+		"persisted answer",
+		nil,
+		[]cometsdk.ToolCallBlock{toolCall},
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("AppendAssistantStep() error = %v", err)
+	}
+	persistedToolID := toolIDs[toolCall.ID]
+	if err := s.svc.UpdateToolCallResult(ctx, persistedToolID, "package main", 5, nil); err != nil {
+		t.Fatalf("UpdateToolCallResult() error = %v", err)
+	}
+	if _, err := s.svc.AppendToolResultMessage(ctx, s.sess.ID, persistedToolID, "package main", false); err != nil {
+		t.Fatalf("AppendToolResultMessage() error = %v", err)
+	}
+
+	transcript := httptest.NewRecorder()
+	s.engine.ServeHTTP(
+		transcript,
+		httptest.NewRequest(http.MethodGet, "/api/v1/sessions/"+s.sess.ID+"/messages", nil),
+	)
+	if transcript.Code != http.StatusOK {
+		t.Fatalf("transcript status = %d body=%s", transcript.Code, transcript.Body.String())
+	}
+	if body := transcript.Body.String(); !strings.Contains(body, `"type":"tool"`) || !strings.Contains(body, "persisted answer") {
+		t.Fatalf("transcript omitted persisted tool step: %s", body)
+	}
+
+	lease, err := s.state.Acquire(ctx, s.sess.ID, runstate.OwnerGateway)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer lease.Finish()
+	packets := []map[string]any{
+		{"run_id": lease.RunID(), "start": true},
+		{
+			"run_id": lease.RunID(), "sequence": 1,
+			"event": map[string]any{"type": "text_delta", "delta": "persisted answer"},
+		},
+		{
+			"run_id": lease.RunID(), "sequence": 2,
+			"event": map[string]any{"type": "step_finish", "usage": map[string]any{}},
+		},
+		{
+			"run_id": lease.RunID(), "sequence": 3,
+			"event": map[string]any{"type": "turn_status", "phase": "continuing"},
+		},
+		{
+			"run_id": lease.RunID(), "sequence": 4,
+			"event": map[string]any{"type": "text_delta", "delta": "current answer"},
+		},
+	}
+	for _, packet := range packets {
+		if rec := s.ingest(t, packet); rec.Code != http.StatusNoContent {
+			t.Fatalf("ingest status = %d body=%s", rec.Code, rec.Body.String())
+		}
+	}
+
+	eventsRecorder := httptest.NewRecorder()
+	streamDone := make(chan struct{})
+	go func() {
+		defer close(streamDone)
+		s.engine.ServeHTTP(
+			eventsRecorder,
+			httptest.NewRequest(http.MethodGet, "/api/v1/sessions/"+s.sess.ID+"/events", nil),
+		)
+	}()
+	time.Sleep(20 * time.Millisecond)
+	if rec := s.ingest(t, map[string]any{
+		"run_id": lease.RunID(), "sequence": 5,
+		"event": map[string]any{"type": "done"},
+	}); rec.Code != http.StatusNoContent {
+		t.Fatalf("done status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	select {
+	case <-streamDone:
+	case <-time.After(time.Second):
+		t.Fatal("reloaded event stream did not terminate")
+	}
+	eventsBody := eventsRecorder.Body.String()
+	if !strings.Contains(eventsBody, "current answer") || !strings.Contains(eventsBody, `"type":"done"`) {
+		t.Fatalf("event stream omitted current replay: %s", eventsBody)
+	}
+	if strings.Contains(eventsBody, "persisted answer") || strings.Contains(eventsBody, `"type":"step_finish"`) {
+		t.Fatalf("event stream replayed persisted step: %s", eventsBody)
 	}
 }
