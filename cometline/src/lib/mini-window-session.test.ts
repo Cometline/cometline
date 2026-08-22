@@ -15,7 +15,11 @@ const mocks = vi.hoisted(() => ({
 	requestNewSession: vi.fn(),
 	clearNewSessionRequest: vi.fn(),
 	startOpening: vi.fn(),
-	resetOpening: vi.fn()
+	resetOpening: vi.fn(),
+	sessionState: {
+		sessions: [] as Session[],
+		loaded: false
+	}
 }));
 
 vi.mock('$app/navigation', () => ({ goto: mocks.goto }));
@@ -32,8 +36,12 @@ vi.mock('$lib/stores/session.svelte', () => ({
 		selectSession: mocks.selectSession,
 		upsertSession: vi.fn(),
 		appendSession: vi.fn(),
-		sessions: [] as Session[],
-		loaded: false
+		get sessions() {
+			return mocks.sessionState.sessions;
+		},
+		get loaded() {
+			return mocks.sessionState.loaded;
+		}
 	}
 }));
 vi.mock('$lib/stores/settings.svelte', () => ({ settingsStore: { load: vi.fn() } }));
@@ -58,7 +66,6 @@ vi.mock('$lib/stores/mini-shell.svelte', () => ({
 	}
 }));
 
-import { sessionStore } from '$lib/stores/session.svelte';
 import {
 	activateMiniWindow,
 	createMiniWindowSession,
@@ -85,8 +92,8 @@ const session: Session = {
 describe('mini window sessions', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		sessionStore.loaded = false;
-		sessionStore.sessions = [];
+		mocks.sessionState.loaded = false;
+		mocks.sessionState.sessions = [];
 		mocks.createNewSession.mockResolvedValue(session);
 		mocks.listAllSessions.mockResolvedValue({ sessions: [session] });
 		vi.stubGlobal('window', {
@@ -158,8 +165,8 @@ describe('mini window sessions', () => {
 	});
 
 	it('reuses a loaded session without listing from the API', async () => {
-		sessionStore.loaded = true;
-		sessionStore.sessions = [session];
+		mocks.sessionState.loaded = true;
+		mocks.sessionState.sessions = [session];
 		vi.stubGlobal('window', {
 			electronAPI: {
 				getMiniWindowState: vi.fn().mockResolvedValue({
