@@ -177,11 +177,11 @@
 
 	.terminal-viewport {
 		position: absolute;
-		top: 10px;
-		/* Side insets protect the status line ends while the footer reaches the panel bottom. */
-		right: calc(var(--radius-window) + 6px);
+		top: 5px;
+		right: 0;
+		/* Keep the final row above the panel's rounded bottom corners. */
 		bottom: 0;
-		left: calc(var(--radius-window) + 6px);
+		left: 5px;
 		min-width: 0;
 		min-height: 0;
 	}

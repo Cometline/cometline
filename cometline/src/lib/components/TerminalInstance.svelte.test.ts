@@ -113,6 +113,15 @@ describe('TerminalInstance', () => {
 		);
 	});
 
+	it('preserves scrollback without reserving a visible scrollbar gutter', async () => {
+		render(TerminalInstance, { props: { sessionId: 'session-1', active: true } });
+		await tick();
+
+		expect(terminalConstructor).toHaveBeenCalledWith(
+			expect.objectContaining({ overviewRuler: { width: 1 }, scrollback: 10_000 })
+		);
+	});
+
 	it('initializes xterm with the saved terminal appearance', async () => {
 		render(TerminalInstance, { props: { sessionId: 'session-1', active: true } });
 		await tick();
