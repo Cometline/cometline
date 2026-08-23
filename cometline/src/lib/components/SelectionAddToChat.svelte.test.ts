@@ -21,6 +21,30 @@ describe('SelectionAddToChat', () => {
 		expect(onDismiss).toHaveBeenCalledOnce();
 	});
 
+	it('clears the old DOM range before dismissing outside the popup', async () => {
+		const { onDismiss } = renderPopup();
+		const selectionHost = document.createElement('p');
+		selectionHost.textContent = 'Selected response';
+		document.body.append(selectionHost);
+		const selection = window.getSelection();
+		const range = document.createRange();
+		range.selectNodeContents(selectionHost);
+		selection?.removeAllRanges();
+		selection?.addRange(range);
+
+		try {
+			expect(selection?.toString()).toBe('Selected response');
+
+			await fireEvent.pointerDown(document.body);
+
+			expect(selection?.rangeCount).toBe(0);
+			expect(onDismiss).toHaveBeenCalledOnce();
+		} finally {
+			selection?.removeAllRanges();
+			selectionHost.remove();
+		}
+	});
+
 	it('keeps the popup open through its own pointer down and adds context on click', async () => {
 		const { onAdd, onDismiss } = renderPopup();
 		const button = screen.getByRole('button', { name: 'Add to chat' });

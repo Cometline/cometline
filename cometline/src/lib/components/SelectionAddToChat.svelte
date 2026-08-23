@@ -16,6 +16,7 @@
 
 	function handlePointerDown(event: PointerEvent) {
 		if (button?.contains(event.target as Node)) return;
+		window.getSelection()?.removeAllRanges();
 		onDismiss();
 	}
 
