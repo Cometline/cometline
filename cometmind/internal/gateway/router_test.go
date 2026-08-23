@@ -698,17 +698,19 @@ func TestHandleStopSlashTimeoutAndRepeatedStop(t *testing.T) {
 	if err != nil || text != "Stop requested, but the turn is still cleaning up." {
 		t.Fatalf("first HandleStopSlash() = (%q, %v), want cleanup timeout", text, err)
 	}
-	go func() {
-		time.Sleep(5 * time.Millisecond)
-		finish()
-	}()
-	text, err = r.HandleStopSlash(ctx, msg)
-	if err != nil || text != "Stopped the active turn." {
-		t.Fatalf("second HandleStopSlash() = (%q, %v), want success", text, err)
+	done, ok := turns.Stop(sess.ID)
+	if !ok {
+		t.Fatal("repeated Stop() = false, want active cleanup")
+	}
+	finish()
+	select {
+	case <-done:
+	default:
+		t.Fatal("repeated Stop() did not observe completed cleanup")
 	}
 	text, err = r.HandleStopSlash(ctx, msg)
 	if err != nil || text != "There is no active turn to stop." {
-		t.Fatalf("third HandleStopSlash() = (%q, %v), want no active turn", text, err)
+		t.Fatalf("second HandleStopSlash() = (%q, %v), want no active turn", text, err)
 	}
 }
 
