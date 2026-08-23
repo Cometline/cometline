@@ -12,8 +12,7 @@
 		RotateCw,
 		Save,
 		Search,
-		SquareTerminal,
-		X
+		SquareTerminal
 	} from '@lucide/svelte';
 	import { tick, untrack } from 'svelte';
 	import ConfirmActionModal from '$lib/components/ConfirmActionModal.svelte';
@@ -268,10 +267,6 @@
 		const title = filePath.split(/[/\\]/).pop() || filePath;
 		const source = isWikiUiPath(filePath) ? filePath : `workspace-file:${filePath}`;
 		shellStore.setViewingFileContextForActive(source, title);
-	}
-
-	function onClose() {
-		shellStore.closeWorkspacePanel();
 	}
 
 	function requestLeaveEditor(): boolean | Promise<boolean> {
@@ -759,14 +754,6 @@
 					</button>
 				</div>
 			{/if}
-			<button
-				type="button"
-				class="icon-button close-button"
-				onclick={onClose}
-				aria-label="Close panel"
-			>
-				<X size={16} />
-			</button>
 		</header>
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div class="workspace-panel-content" onmousedown={handlePanelMouseDown}>
@@ -1064,10 +1051,6 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
-	}
-
-	.close-button {
-		flex-shrink: 0;
 	}
 
 	.workspace-panel-content {

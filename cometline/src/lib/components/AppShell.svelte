@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { PanelLeftClose, PanelLeftOpen, PanelRightOpen } from '@lucide/svelte';
+	import { PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen } from '@lucide/svelte';
 	import Sidebar from './Sidebar.svelte';
 	import RuntimeOverlay from './RuntimeOverlay.svelte';
 	import SettingsModal from './SettingsModal.svelte';
@@ -937,17 +937,29 @@
 							<span class="shell-titlebar-title">{titlebarLabel}</span>
 						{/if}
 					{/if}
-					{#if !shellStore.workspacePanelOpen && !isUtilityPage}
+					{#if !isUtilityPage}
 						<div class="shell-titlebar-end">
-							<Tooltip label="Show workspace panel" action="toggleWorkspacePanel">
+							<Tooltip
+								label={shellStore.workspacePanelOpen
+									? 'Hide workspace panel'
+									: 'Show workspace panel'}
+								action="toggleWorkspacePanel"
+							>
 								<button
 									type="button"
 									class="shell-titlebar-btn"
-									aria-label="Show workspace panel"
+									aria-label={shellStore.workspacePanelOpen
+										? 'Hide workspace panel'
+										: 'Show workspace panel'}
+									aria-pressed={shellStore.workspacePanelOpen}
 									disabled={!activeSessionId}
 									onclick={() => shellStore.toggleWorkspacePanel()}
 								>
-									<PanelRightOpen size={16} stroke-width={1.8} />
+									{#if shellStore.workspacePanelOpen}
+										<PanelRightClose size={16} stroke-width={1.8} />
+									{:else}
+										<PanelRightOpen size={16} stroke-width={1.8} />
+									{/if}
 								</button>
 							</Tooltip>
 						</div>
@@ -1201,7 +1213,7 @@
 		display: flex;
 		align-items: center;
 		box-sizing: border-box;
-		padding: 0 10px 0 12px;
+		padding: 0 10px;
 		border-bottom: 1px solid color-mix(in srgb, var(--border-soft) 80%, transparent);
 		background: transparent;
 		-webkit-app-region: drag;
