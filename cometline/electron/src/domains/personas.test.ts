@@ -74,13 +74,13 @@ describe('product icons stay persona-independent', () => {
 				getAppPath: () => '/app',
 				isPackaged: true,
 				dock
-			},
+			} as never,
 			resourcesPath: '/resources',
 			nativeImage: {
 				createFromPath: vi.fn((candidate: string) =>
 					candidate.endsWith('/icon.png') ? productIcon : { isEmpty: () => true }
 				)
-			},
+			} as never,
 			runtimeDirectory: '/runtime',
 			getMainWindow: () => null,
 			getMiniWindow: () => null,
