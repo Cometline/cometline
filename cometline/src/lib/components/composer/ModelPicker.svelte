@@ -115,7 +115,9 @@
 							<span class="model-option-copy">
 								<strong>
 									<span class="model-option-label">
-										{option.label}
+										<span class="model-option-name" title={option.label}
+											>{option.label}</span
+										>
 										<ModelCapabilityIcons
 											modalities={option.inputModalities}
 											known={option.visionKnown}
@@ -271,9 +273,11 @@
 
 	.model-option-copy {
 		display: flex;
+		flex: 1 1 auto;
 		flex-direction: column;
 		gap: 2px;
 		min-width: 0;
+		overflow: hidden;
 	}
 
 	.model-option-copy strong {
@@ -281,6 +285,8 @@
 		align-items: center;
 		flex-wrap: wrap;
 		gap: 4px;
+		min-width: 0;
+		max-width: 100%;
 		font-size: 12px;
 		font-weight: 600;
 		color: var(--text-main);
@@ -291,6 +297,15 @@
 		align-items: center;
 		gap: 5px;
 		min-width: 0;
+		max-width: 100%;
+		overflow: hidden;
+	}
+
+	.model-option-name {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 
 	.model-context-hint {
@@ -311,5 +326,16 @@
 		padding: 10px 8px;
 		font-size: 12px;
 		color: var(--text-muted);
+	}
+
+	@media (max-width: 600px) {
+		.model-picker {
+			position: static;
+		}
+
+		.model-menu {
+			left: 0;
+			width: min(320px, 100%);
+		}
 	}
 </style>
