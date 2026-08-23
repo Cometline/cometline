@@ -4,32 +4,39 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render } from '@testing-library/svelte';
 import { tick } from 'svelte';
 
-const { fitAddonConstructor, settingsStore, terminalConstructor, shellStore, terminalStore } =
-	vi.hoisted(() => ({
-		fitAddonConstructor: vi.fn(),
-		settingsStore: {
-			settings: {
-				appearance: {
-					terminal: {
-						fontSize: 14,
-						theme: 'cometline-dark'
-					}
+const {
+	fitAddonConstructor,
+	fontLoad,
+	settingsStore,
+	terminalConstructor,
+	shellStore,
+	terminalStore
+} = vi.hoisted(() => ({
+	fitAddonConstructor: vi.fn(),
+	fontLoad: vi.fn(),
+	settingsStore: {
+		settings: {
+			appearance: {
+				terminal: {
+					fontSize: 14,
+					theme: 'cometline-dark'
 				}
 			}
-		},
-		terminalConstructor: vi.fn(),
-		shellStore: {
-			setFocusedPane: vi.fn(),
-			addWebContextForActive: vi.fn(),
-			requestComposerFocus: vi.fn()
-		},
-		terminalStore: {
-			getSnapshot: vi.fn(() => null),
-			subscribe: vi.fn(() => () => {}),
-			resize: vi.fn(),
-			write: vi.fn()
 		}
-	}));
+	},
+	terminalConstructor: vi.fn(),
+	shellStore: {
+		setFocusedPane: vi.fn(),
+		addWebContextForActive: vi.fn(),
+		requestComposerFocus: vi.fn()
+	},
+	terminalStore: {
+		getSnapshot: vi.fn(() => null),
+		subscribe: vi.fn(() => () => {}),
+		resize: vi.fn(),
+		write: vi.fn()
+	}
+}));
 
 vi.mock('@xterm/xterm', () => ({
 	Terminal: class {
@@ -54,6 +61,12 @@ import TerminalInstance from './TerminalInstance.svelte';
 
 describe('TerminalInstance', () => {
 	beforeEach(() => {
+		fontLoad.mockReset();
+		fontLoad.mockResolvedValue([]);
+		Object.defineProperty(document, 'fonts', {
+			configurable: true,
+			value: { load: fontLoad }
+		});
 		fitAddonConstructor.mockReset();
 		fitAddonConstructor.mockReturnValue({ fit: vi.fn() });
 		terminalConstructor.mockReset();
@@ -106,7 +119,7 @@ describe('TerminalInstance', () => {
 
 		expect(terminalConstructor).toHaveBeenCalledWith(
 			expect.objectContaining({
-				fontFamily: expect.stringContaining('MesloLGS NF'),
+				fontFamily: expect.stringContaining('JetBrainsMono Nerd Font Mono'),
 				fontSize: 14,
 				theme: expect.objectContaining({ background: '#171717' })
 			})
@@ -136,10 +149,42 @@ describe('TerminalInstance', () => {
 		await tick();
 
 		expect(instance?.options).toMatchObject({
-			fontFamily: expect.stringContaining('MesloLGS NF'),
+			fontFamily: expect.stringContaining('JetBrainsMono Nerd Font Mono'),
 			fontSize: 14,
 			theme: expect.objectContaining({ background: '#171717' })
 		});
+	});
+
+	it('waits for the bundled font before opening xterm', async () => {
+		let resolveFont: ((faces: FontFace[]) => void) | undefined;
+		fontLoad.mockReturnValue(
+			new Promise<FontFace[]>((resolve) => {
+				resolveFont = resolve;
+			})
+		);
+		const open = vi.fn();
+		terminalConstructor.mockImplementation(() => ({
+			cols: 80,
+			rows: 24,
+			options: {},
+			loadAddon: vi.fn(),
+			open,
+			write: vi.fn(),
+			onData: vi.fn(() => ({ dispose: vi.fn() })),
+			focus: vi.fn(),
+			getSelection: vi.fn(() => ''),
+			clearSelection: vi.fn(),
+			dispose: vi.fn()
+		}));
+
+		render(TerminalInstance, { props: { sessionId: 'session-1', active: true } });
+		await tick();
+
+		expect(fontLoad).toHaveBeenCalledWith('14px "JetBrainsMono Nerd Font Mono"');
+		expect(open).not.toHaveBeenCalled();
+
+		resolveFont?.([]);
+		await vi.waitFor(() => expect(open).toHaveBeenCalledOnce());
 	});
 
 	it('opens xterm in a viewport inset from the rounded panel corners', async () => {
