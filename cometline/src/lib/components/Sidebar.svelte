@@ -415,7 +415,7 @@
 		flex-shrink: 0;
 		display: flex;
 		flex-direction: column;
-		background: transparent;
+		background: var(--sidebar-bg);
 		border-right: none;
 		padding: 0;
 		overflow: hidden;
