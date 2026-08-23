@@ -92,6 +92,7 @@
 			fontFamily: DEFAULT_TERMINAL_FONT_FAMILY,
 			fontSize: terminalAppearance.fontSize,
 			macOptionClickForcesSelection: true,
+			overviewRuler: { width: 1 },
 			scrollback: 10_000,
 			theme: terminalTheme
 		});
