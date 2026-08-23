@@ -171,8 +171,8 @@ let productIconOutput = Output(
 	path: "static/app_icon.png",
 	size: 1024,
 	radius: 224,
-	artworkScale: 1.0,
-	clipToRoundedRect: false
+	artworkScale: 0.8125,
+	clipToRoundedRect: true
 )
 
 let variants: [Variant] = [
@@ -182,7 +182,7 @@ let variants: [Variant] = [
 		masterOutput: nil,
 		outputs: [
 			productIconOutput,
-			Output(path: "buildResources/icon.png", size: 1024, radius: 224, artworkScale: 1.0, clipToRoundedRect: false)
+			Output(path: "buildResources/icon.png", size: 1024, radius: 224, artworkScale: 0.8125, clipToRoundedRect: true)
 		],
 		generateIcns: true
 	),
