@@ -15,6 +15,7 @@
 		"prebuild:sidecar": "pnpm run build:electron-main && pnpm run generate:api",
 		"build:sidecar": "mkdir -p ../cometmind/dist && cd ../cometmind && go build -o dist/cometmind .",
 		"generate:icons": "swift scripts/generate-project-icons.swift",
+		"generate:icons:app": "swift scripts/generate-project-icons.swift app",
 		"generate:icons:man": "swift scripts/generate-project-icons.swift man",
 		"build:electron-main": "node scripts/build-electron.mjs",
 		"build": "pnpm run build:electron-main && vite build",
@@ -168,18 +169,6 @@
 			{
 				"from": "buildResources/trayTemplate.png",
 				"to": "trayTemplate.png"
-			},
-			{
-				"from": "static/app_icon_man.png",
-				"to": "app_icon_man.png"
-			},
-			{
-				"from": "buildResources/trayIcon_man.png",
-				"to": "trayIcon_man.png"
-			},
-			{
-				"from": "buildResources/trayIcon_man@2x.png",
-				"to": "trayIcon_man@2x.png"
 			}
 		]
 	}

@@ -55,7 +55,7 @@ Examples:
 - default model roles
 - most `cometmind` runtime config
 - appearance settings like hero glow and caret trail
-- app icon variant
+- persona selection
 - mini window inactivity timeout
 - storage and retention settings
 - memory retrieval, lifecycle, and embedding settings

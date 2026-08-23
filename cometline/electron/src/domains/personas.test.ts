@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
+	createPersonas,
 	decodePersonaAvatarDataUrl,
 	nextCustomPersonaId,
 	normalizePersonaSlug
@@ -37,5 +38,65 @@ describe('persona input validation', () => {
 			nextCustomPersonaId('', 'My Persona', [{ id: 'my-persona' }], () => 1234)
 		).toBe('my-persona-2');
 		expect(nextCustomPersonaId('preferred', 'My Persona', [{ id: 'preferred' }])).toBe('preferred');
+	});
+});
+
+describe('product icons stay persona-independent', () => {
+	it('always applies the product Dock and tray icons', () => {
+		const productIcon = { isEmpty: () => false };
+		const trayIcon = { isEmpty: () => false };
+		const dock = { setIcon: vi.fn() };
+		const tray = { setImage: vi.fn() };
+		const personas = createPersonas({
+			fs: {
+				existsSync: (candidate: string) =>
+					candidate.endsWith('/icon.png') || candidate.endsWith('/trayIcon.png'),
+				mkdirSync: vi.fn(),
+				readFileSync: vi.fn(),
+				statSync: vi.fn(),
+				writeFileSync: vi.fn(),
+				promises: {}
+			} as never,
+			path: {
+				dirname: (value: string) => value,
+				extname: (value: string) => {
+					const index = value.lastIndexOf('.');
+					return index >= 0 ? value.slice(index) : '';
+				},
+				join: (...parts: string[]) => parts.join('/'),
+				resolve: (...parts: string[]) => parts.join('/'),
+				sep: '/'
+			},
+			homedir: () => '/home',
+			environment: {},
+			platform: 'darwin',
+			app: {
+				getAppPath: () => '/app',
+				isPackaged: true,
+				dock
+			} as never,
+			resourcesPath: '/resources',
+			nativeImage: {
+				createFromPath: vi.fn((candidate: string) =>
+					candidate.endsWith('/icon.png') ? productIcon : { isEmpty: () => true }
+				)
+			} as never,
+			runtimeDirectory: '/runtime',
+			getMainWindow: () => null,
+			getMiniWindow: () => null,
+			getTray: () => tray as never,
+			getSettings: () => ({ app: { personaId: 'souma' } }) as never,
+			writeSettings: vi.fn(),
+			reloadCometMind: vi.fn(),
+			broadcastProviderSettingsChanged: vi.fn(),
+			broadcastPersonaAvatarChanged: vi.fn()
+		});
+
+		expect(personas.getAppIconImage()).toBe(productIcon);
+		expect(personas.resolveTrayResourcePath('trayIcon.png')).toBe('/resources/trayIcon.png');
+		personas.applyProductIcon();
+		expect(dock.setIcon).toHaveBeenCalledWith(productIcon);
+		expect(tray.setImage).toHaveBeenCalledWith('/resources/trayIcon.png');
+		expect(trayIcon.isEmpty()).toBe(false);
 	});
 });

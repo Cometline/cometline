@@ -64,9 +64,8 @@ interface WindowsDependencies {
 	app: Pick<App, 'dock' | 'getLoginItemSettings' | 'isPackaged' | 'setLoginItemSettings'>;
 	BrowserWindow: BrowserWindowFactory;
 	ensureTray(): boolean;
-	getAppIconImage(personaId: string): NativeImage | null;
+	getAppIconImage(): NativeImage | null;
 	getAllWindows(): BrowserWindow[];
-	getPersonaId(): string;
 	getTray(): Tray | null;
 	os: Pick<typeof os, 'release'>;
 	path: Pick<typeof path, 'join'>;
@@ -92,7 +91,6 @@ export function createWindows(dependencies: WindowsDependencies) {
 		ensureTray,
 		getAppIconImage,
 		getAllWindows,
-		getPersonaId,
 		getTray,
 		os,
 		path,
@@ -229,7 +227,7 @@ export function createWindows(dependencies: WindowsDependencies) {
 	}
 
 	async function createMainWindow() {
-		const appIcon = getAppIconImage(getPersonaId());
+		const appIcon = getAppIconImage();
 		const window = new BrowserWindow({
 			width: 1200,
 			height: 800,
@@ -286,7 +284,7 @@ export function createWindows(dependencies: WindowsDependencies) {
 	}
 
 	async function createMiniWindow() {
-		const appIcon = getAppIconImage(getPersonaId());
+		const appIcon = getAppIconImage();
 		const display = displayAtCursor();
 		const miniSize = miniWindowSizeForWorkArea(
 			display.workArea.width,
@@ -361,7 +359,7 @@ export function createWindows(dependencies: WindowsDependencies) {
 	}
 
 	async function createSettingsWindow() {
-		const appIcon = getAppIconImage(getPersonaId());
+		const appIcon = getAppIconImage();
 		const window = new BrowserWindow({
 			width: SETTINGS_WINDOW_WIDTH,
 			height: SETTINGS_WINDOW_HEIGHT,

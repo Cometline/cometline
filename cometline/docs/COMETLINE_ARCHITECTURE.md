@@ -202,8 +202,8 @@ Cometline desktop must not:
 - The workspace panel is per-session: Wiki, Workspace, Changes, Web, and Terminal retain independent content and history.
 - `Command+W` dismisses active panel content, advances to another open surface, then soft-hides the panel. Replacing a dirty file requires an in-app discard confirmation before navigation commits.
 - Narrow viewports (<900px) auto-collapse the sidebar.
-- `project_icon.png` / avatars for empty state and assistant bubble.
-- `app_icon.png` / `buildResources/icon.*` for the desktop app and tray.
+- `project_icon.png` / avatars for empty state and assistant bubble. Persona switches change these chat avatars only.
+- `app_icon.png` / `buildResources/icon.*` for the desktop app and tray. These stay on the product mark and do not follow the active persona.
 
 ## Developer Commands
 

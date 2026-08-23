@@ -253,7 +253,7 @@ Settings modal save
   -> renderer sends full settings blob over IPC
   -> Electron normalizes settings and native side effects
   -> writes ~/.cometmind/cometline-settings.json
-  -> refreshes shortcuts, app icon, login item, Discord gateway, and settings-change broadcasts
+  -> refreshes shortcuts, login item, Discord gateway, and settings-change broadcasts
   -> CometMind either reloads safe settings in place or restarts for process/runtime-required changes
   -> renderer reconnects or continues polling depending on apply mode
 ```

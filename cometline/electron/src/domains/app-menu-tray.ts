@@ -7,10 +7,8 @@ import type { ShellWindowContext } from './runtime-context.js';
 interface ApplicationMenuTrayDependencies {
 	context: ShellWindowContext;
 	readShortcuts(): KeyboardShortcuts;
-	getPersonaId(): string;
-	builtinPersonaToIconVariant(personaId: string): 'default' | 'man';
 	resolveTrayResourcePath(filename: string): string;
-	resolveTrayIcon(variant: 'default' | 'man'): NativeImage | null;
+	resolveTrayIcon(): NativeImage | null;
 	pathExists(filePath: string): boolean;
 	showMainWindow(): void;
 	showSettingsWindow(): Promise<void>;
@@ -22,8 +20,6 @@ export function createApplicationMenuTray(dependencies: ApplicationMenuTrayDepen
 	const {
 		context,
 		readShortcuts,
-		getPersonaId,
-		builtinPersonaToIconVariant,
 		resolveTrayResourcePath,
 		resolveTrayIcon,
 		pathExists,
@@ -36,11 +32,8 @@ export function createApplicationMenuTray(dependencies: ApplicationMenuTrayDepen
 		if (process.platform !== 'darwin') return false;
 		if (context.getTray()) return true;
 
-		const variant = builtinPersonaToIconVariant(getPersonaId());
-		const trayIconPath = resolveTrayResourcePath(
-			variant === 'man' ? 'trayIcon_man.png' : 'trayIcon.png'
-		);
-		const icon = resolveTrayIcon(variant);
+		const trayIconPath = resolveTrayResourcePath('trayIcon.png');
+		const icon = resolveTrayIcon();
 		if (!icon || icon.isEmpty()) {
 			console.warn('[tray] Failed to create menu bar icon');
 			return false;
