@@ -211,6 +211,7 @@
 	class="sidebar"
 	class:collapsed
 	class:modal-open={Boolean(pendingDelete || terminalDeleteSession || pendingRename)}
+	class:context-menu-open={Boolean(contextMenu)}
 	aria-hidden={collapsed}
 	data-workspace-path={orderWorkspacePath}
 >
@@ -424,6 +425,11 @@
 	}
 
 	.sidebar.modal-open {
+		overflow: visible;
+	}
+
+	.sidebar.context-menu-open {
+		z-index: 2;
 		overflow: visible;
 	}
 
