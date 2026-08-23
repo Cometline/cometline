@@ -8,7 +8,7 @@ Cometline is a local-first AI companion with a native desktop chat UI and a powe
 
 ## Personas
 
-Pick the companion personality that fits your workflow in Settings → About. Switching personas updates the chat avatar, app icon, and the SOUL system prompt CometMind uses.
+Pick the companion personality that fits your workflow in Settings → About. Switching personas updates the chat avatar and the SOUL system prompt CometMind uses. The Dock and menu bar icons stay on the product mark.
 
 | Persona | Avatar | Description |
 | --- | :---: | --- |

@@ -434,8 +434,7 @@
 									<div>
 										<h3>Persona</h3>
 										<p>
-											Chat avatar, intro animation, Dock, menu bar, and SOUL
-											system prompt
+											Chat avatar, intro animation, and SOUL system prompt
 										</p>
 									</div>
 									<SettingsButton onclick={openPersonaEditorForCreate}

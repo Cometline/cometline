@@ -239,8 +239,6 @@ export function registerRuntimeIpcHandlers(dependencies: RuntimeIpcDependencies)
 			const saved = dependencies.settings.writeProviderSettings(
 				record(settings) as Partial<ProviderSettings>
 			);
-			const personaIdChanged =
-				(previous.app?.personaId ?? 'minako') !== (saved.app?.personaId ?? 'minako');
 			let action = runtimeAction(options);
 			if (
 				action === 'none' &&
@@ -269,7 +267,6 @@ export function registerRuntimeIpcHandlers(dependencies: RuntimeIpcDependencies)
 			}
 			await dependencies.cometMind.syncDiscordGateway(saved);
 			dependencies.windows.applyOpenAtLoginSetting(saved.app?.openAtLogin);
-			if (personaIdChanged) dependencies.personas.applyPersona(saved.app?.personaId, saved);
 			dependencies.broadcastProviderSettingsChanged(saved);
 			return { settings: saved, reload };
 		},

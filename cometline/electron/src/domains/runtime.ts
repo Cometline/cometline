@@ -322,8 +322,6 @@ export function initializeRuntime() {
 		context: shellContext,
 		readShortcuts: () =>
 			settingsDomain.readProviderSettings().shortcuts ?? defaultSettings().shortcuts,
-		getPersonaId: personas.getPersonaId,
-		builtinPersonaToIconVariant: personas.builtinPersonaToIconVariant,
 		resolveTrayResourcePath: personas.resolveTrayResourcePath,
 		resolveTrayIcon: personas.resolveTrayIcon,
 		pathExists: fs.existsSync,
@@ -348,7 +346,6 @@ export function initializeRuntime() {
 		ensureTray: applicationMenuTray.ensureTray,
 		getAppIconImage: personas.getAppIconImage,
 		getAllWindows: BrowserWindow.getAllWindows,
-		getPersonaId: personas.getPersonaId,
 		getTray: () => tray,
 		os,
 		path,
@@ -424,7 +421,7 @@ export function initializeRuntime() {
 		settingsDomain.writeProviderSettings(settingsDomain.readProviderSettings());
 		cometMind.installCliShim();
 		const startupSettings = settingsDomain.readProviderSettings();
-		personas.applyPersona(startupSettings.app?.personaId, startupSettings);
+		personas.applyProductIcon();
 		windows.applyOpenAtLoginSetting(startupSettings.app?.openAtLogin);
 		applicationMenuTray.configureApplicationMenu();
 		shortcuts.refreshGlobalShortcuts();

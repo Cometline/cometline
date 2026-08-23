@@ -93,7 +93,6 @@ function createController(options: { packaged?: boolean; platform?: NodeJS.Platf
 		ensureTray: vi.fn(() => true),
 		getAppIconImage: vi.fn(() => null),
 		getAllWindows: () => FakeWindow.instances as unknown as BrowserWindow[],
-		getPersonaId: vi.fn(() => 'minako'),
 		getTray: () => ({ setToolTip: vi.fn() }) as unknown as Tray,
 		os: { release: () => '22.0.0' },
 		path,

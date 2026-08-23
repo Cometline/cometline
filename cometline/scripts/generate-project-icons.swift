@@ -167,34 +167,40 @@ let avatarOutputs = [
 	Output(path: "static/project_avatar_384.png", size: 384, radius: 192, artworkScale: 1.0, clipToRoundedRect: true)
 ]
 
-let dockOutput = Output(
+let productIconOutput = Output(
 	path: "static/app_icon.png",
 	size: 1024,
 	radius: 224,
-	artworkScale: 0.8125,
-	clipToRoundedRect: true
+	artworkScale: 1.0,
+	clipToRoundedRect: false
 )
 
 let variants: [Variant] = [
 	Variant(
-		label: "default",
-		sourceCandidates: ["../project_icon.png", "static/project_icon.png"],
+		label: "app",
+		sourceCandidates: ["../../cometline-app-icon.jpg", "../cometline-app-icon.jpg", "static/app_icon.png"],
 		masterOutput: nil,
-		outputs: avatarOutputs + [
-			dockOutput,
-			Output(path: "buildResources/icon.png", size: 1024, radius: 224, artworkScale: 0.8125, clipToRoundedRect: true)
+		outputs: [
+			productIconOutput,
+			Output(path: "buildResources/icon.png", size: 1024, radius: 224, artworkScale: 1.0, clipToRoundedRect: false)
 		],
 		generateIcns: true
 	),
 	Variant(
+		label: "default",
+		sourceCandidates: ["../project_icon.png", "static/project_icon.png"],
+		masterOutput: nil,
+		outputs: avatarOutputs,
+		generateIcns: false
+	),
+	Variant(
 		label: "man",
-		sourceCandidates: ["static/app_icon_man.png", "static/project_icon_man.png"],
+		sourceCandidates: ["static/project_icon_man.png"],
 		masterOutput: "static/project_icon_man.png",
 		outputs: [
 			Output(path: "static/project_avatar_man_96.png", size: 96, radius: 48, artworkScale: 1.0, clipToRoundedRect: true),
 			Output(path: "static/project_avatar_man_192.png", size: 192, radius: 96, artworkScale: 1.0, clipToRoundedRect: true),
-			Output(path: "static/project_avatar_man_384.png", size: 384, radius: 192, artworkScale: 1.0, clipToRoundedRect: true),
-			Output(path: "static/app_icon_man.png", size: 1024, radius: 224, artworkScale: 0.8125, clipToRoundedRect: true)
+			Output(path: "static/project_avatar_man_384.png", size: 384, radius: 192, artworkScale: 1.0, clipToRoundedRect: true)
 		],
 		generateIcns: false
 	)
@@ -265,11 +271,11 @@ for variant in selectedVariants {
 		generateIcns(from: "buildResources/icon.png")
 	}
 
-	if variant.label == "man" {
-		generateTrayIcons(from: "static/app_icon_man.png", baseName: "trayIcon_man")
+	if variant.label == "app" {
+		generateTrayIcons(from: "buildResources/icon.png", baseName: "trayIcon")
 	}
 
-	print("Generated \(variant.label) project avatar and app icon assets from \(sourcePath).")
+	print("Generated \(variant.label) assets from \(sourcePath).")
 }
 
 func generateTrayIcons(from dockIconPath: String, baseName: String) {

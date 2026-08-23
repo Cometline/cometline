@@ -10,10 +10,7 @@ type PersonaPath = Pick<
 	typeof import('node:path'),
 	'dirname' | 'extname' | 'join' | 'resolve' | 'sep'
 >;
-type NativeImageService = Pick<
-	typeof import('electron').nativeImage,
-	'createFromBitmap' | 'createFromPath'
->;
+type NativeImageService = Pick<typeof import('electron').nativeImage, 'createFromPath'>;
 
 const BUILTIN_PERSONA_IDS = new Set(['minako', 'souma']);
 const PERSONA_IMAGE_MIME_BY_EXT: Record<string, string> = {
@@ -23,9 +20,6 @@ const PERSONA_IMAGE_MIME_BY_EXT: Record<string, string> = {
 	'.webp': 'image/webp'
 };
 const PERSONA_AVATAR_MAX_BYTES = 20 * 1024 * 1024;
-const PERSONA_APP_ICON_SIZE = 1024;
-const PERSONA_APP_ICON_RADIUS = 224;
-const PERSONA_APP_ICON_ARTWORK_SCALE = 0.8125;
 
 export type ReadPersonaSoulResult = { ok: true; content: string } | { ok: false; error: string };
 export type ReadPersonaAvatarResult = { ok: true; dataUrl: string } | { ok: false; error: string };
@@ -91,17 +85,13 @@ export function nextCustomPersonaId(
 	return `${base}-${now()}`;
 }
 
-/** Owns persona persistence, validation, native icon generation, and application. */
+/** Owns persona persistence, validation, and product-icon application. */
 export function createPersonas(dependencies: PersonaDependencies) {
 	const { app, fs, nativeImage, path } = dependencies;
 	const now = dependencies.now ?? Date.now;
 
 	function migratePersonaIdFromIconVariant(iconVariant: unknown) {
 		return iconVariant === 'man' ? 'souma' : 'minako';
-	}
-
-	function builtinPersonaToIconVariant(personaId: unknown) {
-		return personaId === 'souma' ? 'man' : 'default';
 	}
 
 	function isBuiltinPersonaId(personaId: unknown) {
@@ -195,10 +185,6 @@ export function createPersonas(dependencies: PersonaDependencies) {
 		return resolveBuiltinSoulPath(personaId);
 	}
 
-	function getPersonaId() {
-		return readSavedPersonaId(dependencies.getSettings());
-	}
-
 	function resolveTrayResourcePath(filename: string) {
 		if (app.isPackaged) return path.join(dependencies.resourcesPath, filename);
 		return path.join(app.getAppPath(), 'buildResources', filename);
@@ -221,19 +207,15 @@ export function createPersonas(dependencies: PersonaDependencies) {
 		return image;
 	}
 
-	function resolveTrayIconCandidates(variant = 'default') {
-		const trayIcon = variant === 'man' ? 'trayIcon_man.png' : 'trayIcon.png';
+	function resolveTrayIconCandidates() {
 		if (dependencies.platform === 'darwin') {
-			const candidates = [trayIcon];
-			if (variant === 'man') candidates.push('trayIcon.png');
-			candidates.push('trayTemplate.png');
-			return candidates;
+			return ['trayIcon.png', 'trayTemplate.png'];
 		}
-		return [trayIcon, 'icon.png'];
+		return ['trayIcon.png', 'icon.png'];
 	}
 
-	function resolveTrayIcon(variant = 'default') {
-		const candidates = resolveTrayIconCandidates(variant);
+	function resolveTrayIcon() {
+		const candidates = resolveTrayIconCandidates();
 		for (const filename of candidates) {
 			const resourcePath = resolveTrayResourcePath(filename);
 			if (!fs.existsSync(resourcePath)) continue;
@@ -257,159 +239,37 @@ export function createPersonas(dependencies: PersonaDependencies) {
 		return null;
 	}
 
-	function customPersonaAppIconPath(personaId: unknown) {
-		const directory = getPersonaDir(personaId);
-		return directory ? path.join(directory, 'app_icon.png') : '';
-	}
-
-	function resolveAppIconPaths(personaId: unknown = 'minako', settings: unknown = undefined) {
-		const customPersona = findCustomPersona(settings ?? dependencies.getSettings(), personaId);
-		if (customPersona) {
-			const appIconPath = customPersonaAppIconPath(customPersona.id);
-			return appIconPath ? [appIconPath] : [];
-		}
-		const variant = builtinPersonaToIconVariant(personaId);
-		if (variant === 'man') {
-			if (app.isPackaged) return [path.join(dependencies.resourcesPath, 'app_icon_man.png')];
-			return [
-				path.join(app.getAppPath(), 'static', 'app_icon_man.png'),
-				path.join(dependencies.runtimeDirectory, '..', 'static', 'app_icon_man.png')
-			];
-		}
+	function resolveAppIconPaths() {
 		if (app.isPackaged) return [path.join(dependencies.resourcesPath, 'icon.png')];
 		return [
 			path.join(app.getAppPath(), 'static', 'app_icon.png'),
 			path.join(dependencies.runtimeDirectory, '..', 'static', 'app_icon.png'),
+			path.join(app.getAppPath(), 'buildResources', 'icon.png'),
 			path.join(dependencies.runtimeDirectory, '..', 'buildResources', 'icon.png')
 		];
 	}
 
-	function getAppIconPath(personaId: unknown = getPersonaId(), settings: unknown = undefined) {
-		return resolveAppIconPaths(personaId, settings).find((candidate) => fs.existsSync(candidate));
+	function getAppIconPath() {
+		return resolveAppIconPaths().find((candidate) => fs.existsSync(candidate));
 	}
 
-	function roundedRectCoverage(x: number, y: number, width: number, height: number, radius: number) {
-		const px = x + 0.5;
-		const py = y + 0.5;
-		if (px >= radius && px <= width - radius) return 1;
-		if (py >= radius && py <= height - radius) return 1;
-		const cx = px < radius ? radius : width - radius;
-		const cy = py < radius ? radius : height - radius;
-		const dist = Math.hypot(px - cx, py - cy);
-		if (dist <= radius - 0.5) return 1;
-		if (dist >= radius + 0.5) return 0;
-		return radius + 0.5 - dist;
-	}
-
-	function createCustomPersonaAppIcon(customPersona: Pick<CustomPersona, 'avatarPath'>) {
-		if (!customPersona.avatarPath || !fs.existsSync(customPersona.avatarPath)) return null;
-		const ext = path.extname(customPersona.avatarPath).toLowerCase();
-		if (!PERSONA_IMAGE_MIME_BY_EXT[ext]) return null;
-		let source = nativeImage.createFromPath(path.resolve(customPersona.avatarPath));
-		if (source.isEmpty()) return null;
-		const srcSize = source.getSize();
-		if (srcSize.width !== srcSize.height) {
-			const side = Math.min(srcSize.width, srcSize.height);
-			source = source.crop({
-				x: Math.round((srcSize.width - side) / 2),
-				y: Math.round((srcSize.height - side) / 2),
-				width: side,
-				height: side
-			});
-		}
-		const size = PERSONA_APP_ICON_SIZE;
-		const artwork = Math.round(size * PERSONA_APP_ICON_ARTWORK_SCALE);
-		const inset = Math.round((size - artwork) / 2);
-		const radius = Math.round(PERSONA_APP_ICON_RADIUS * PERSONA_APP_ICON_ARTWORK_SCALE);
-		const scaled = source.resize({ width: artwork, height: artwork, quality: 'best' });
-		const sourceBitmap = Buffer.from(scaled.toBitmap());
-		if (sourceBitmap.length < artwork * artwork * 4) return null;
-		const canvas = Buffer.alloc(size * size * 4);
-		for (let y = 0; y < artwork; y++) {
-			for (let x = 0; x < artwork; x++) {
-				const coverage = roundedRectCoverage(x, y, artwork, artwork, radius);
-				if (coverage <= 0) continue;
-				const sourceOffset = (y * artwork + x) * 4;
-				const alpha = sourceBitmap[sourceOffset + 3] / 255;
-				const destinationOffset = ((y + inset) * size + (x + inset)) * 4;
-				canvas[destinationOffset] = Math.round(sourceBitmap[sourceOffset] * alpha + 255 * (1 - alpha));
-				canvas[destinationOffset + 1] = Math.round(sourceBitmap[sourceOffset + 1] * alpha + 255 * (1 - alpha));
-				canvas[destinationOffset + 2] = Math.round(sourceBitmap[sourceOffset + 2] * alpha + 255 * (1 - alpha));
-				canvas[destinationOffset + 3] = Math.round(255 * coverage);
-			}
-		}
-		const image = nativeImage.createFromBitmap(canvas, { width: size, height: size });
-		return image.isEmpty() ? null : image;
-	}
-
-	function generatePersonaAppIconPng(avatarPath: string, outputPath: string) {
-		if (!avatarPath || !fs.existsSync(avatarPath) || !outputPath) return false;
-		const image = createCustomPersonaAppIcon({ avatarPath });
-		if (!image) return false;
-		try {
-			fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-			fs.writeFileSync(outputPath, image.toPNG());
-			return true;
-		} catch {
-			return false;
-		}
-	}
-
-	function ensureCustomPersonaAppIcon(customPersona: CustomPersona) {
-		if (!customPersona.avatarPath || !fs.existsSync(customPersona.avatarPath)) return null;
-		const iconPath = customPersonaAppIconPath(customPersona.id);
-		if (!iconPath) return createCustomPersonaAppIcon(customPersona);
-		let avatarMtime = 0;
-		let iconMtime = 0;
-		try {
-			avatarMtime = fs.statSync(customPersona.avatarPath).mtimeMs;
-			if (fs.existsSync(iconPath)) iconMtime = fs.statSync(iconPath).mtimeMs;
-		} catch {
-			return createCustomPersonaAppIcon(customPersona);
-		}
-		if (!fs.existsSync(iconPath) || iconMtime < avatarMtime) {
-			generatePersonaAppIconPng(customPersona.avatarPath, iconPath);
-		}
-		if (fs.existsSync(iconPath)) {
-			const cached = nativeImage.createFromPath(iconPath);
-			if (!cached.isEmpty()) return cached;
-		}
-		return createCustomPersonaAppIcon(customPersona);
-	}
-
-	function getAppIconImage(personaId: unknown = getPersonaId(), settings: unknown = undefined) {
-		const resolvedSettings = settings ?? dependencies.getSettings();
-		const customPersona = findCustomPersona(resolvedSettings, personaId);
-		if (customPersona) {
-			const customIcon = ensureCustomPersonaAppIcon(customPersona);
-			if (customIcon) return customIcon;
-		}
-		const iconPath = getAppIconPath(personaId, resolvedSettings);
+	function getAppIconImage() {
+		const iconPath = getAppIconPath();
 		if (!iconPath) return null;
 		const image = nativeImage.createFromPath(iconPath);
 		return image.isEmpty() ? null : image;
 	}
 
-	function resolveTrayImageSource(personaId: unknown = getPersonaId(), settings: unknown = undefined) {
-		const customPersona = findCustomPersona(settings ?? dependencies.getSettings(), personaId);
-		if (customPersona?.avatarPath && fs.existsSync(customPersona.avatarPath)) {
-			const image = ensureCustomPersonaAppIcon(customPersona);
-			if (image && !image.isEmpty()) return image.resize({ width: 18, height: 18, quality: 'best' });
-		}
-		const variant = builtinPersonaToIconVariant(personaId);
-		const trayIconPath = resolveTrayResourcePath(
-			variant === 'man' ? 'trayIcon_man.png' : 'trayIcon.png'
-		);
+	function resolveTrayImageSource() {
+		const trayIconPath = resolveTrayResourcePath('trayIcon.png');
 		if (fs.existsSync(trayIconPath)) return trayIconPath;
-		const fallbackTrayPath = resolveTrayResourcePath('trayIcon.png');
-		if (fs.existsSync(fallbackTrayPath)) return fallbackTrayPath;
-		return resolveTrayIcon(variant);
+		return resolveTrayIcon();
 	}
 
-	function applyPersona(personaId: unknown = getPersonaId(), settings: unknown = undefined) {
-		const image = getAppIconImage(personaId, settings);
+	function applyProductIcon() {
+		const image = getAppIconImage();
 		if (!image) {
-			console.warn('[icon] No app icon found for persona', personaId);
+			console.warn('[icon] No product app icon found');
 			return;
 		}
 		if (dependencies.platform === 'darwin') app.dock?.setIcon(image);
@@ -419,7 +279,7 @@ export function createPersonas(dependencies: PersonaDependencies) {
 		if (miniWindow && !miniWindow.isDestroyed()) miniWindow.setIcon(image);
 		const tray = dependencies.getTray();
 		if (!tray) return;
-		const trayImageSource = resolveTrayImageSource(personaId, settings);
+		const trayImageSource = resolveTrayImageSource();
 		if (typeof trayImageSource === 'string') {
 			tray.setImage(trayImageSource);
 			return;
@@ -508,9 +368,7 @@ export function createPersonas(dependencies: PersonaDependencies) {
 			personas: { custom: nextCustomPersonas }
 		};
 		const saved = dependencies.writeSettings(settings);
-		generatePersonaAppIconPng(persona.avatarPath, customPersonaAppIconPath(persona.id));
 		await dependencies.reloadCometMind();
-		applyPersona(saved.app?.personaId, saved);
 		dependencies.broadcastProviderSettingsChanged(saved);
 		if (payload.avatarDataUrl) dependencies.broadcastPersonaAvatarChanged(persona.id);
 		return { ok: true, persona };
@@ -532,18 +390,15 @@ export function createPersonas(dependencies: PersonaDependencies) {
 		const personaDir = getPersonaDir(cleanId);
 		if (personaDir) await fs.promises.rm(personaDir, { recursive: true, force: true });
 		await dependencies.reloadCometMind();
-		applyPersona(saved.app?.personaId, saved);
 		dependencies.broadcastProviderSettingsChanged(saved);
 		return { ok: true };
 	}
 
 	return {
-		applyPersona,
-		builtinPersonaToIconVariant,
+		applyProductIcon,
 		customPersonasFromSettings,
 		deleteCustomPersona,
 		getAppIconImage,
-		getPersonaId,
 		readPersonaAvatar,
 		readPersonaSoul,
 		readSavedPersonaId,
