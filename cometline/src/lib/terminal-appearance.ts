@@ -5,8 +5,8 @@ export const DEFAULT_TERMINAL_APPEARANCE: TerminalAppearanceSettings = {
 	theme: 'cometline-dark'
 };
 
-export const DEFAULT_TERMINAL_FONT_FAMILY =
-	'"MesloLGS NF", "Meslo LG S", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace';
+export const BUNDLED_TERMINAL_FONT_NAME = 'JetBrainsMono Nerd Font Mono';
+export const DEFAULT_TERMINAL_FONT_FAMILY = '"JetBrainsMono Nerd Font Mono", monospace';
 
 export interface TerminalColorTheme {
 	background: string;

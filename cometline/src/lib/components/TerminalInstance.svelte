@@ -6,7 +6,11 @@
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { settingsStore } from '$lib/stores/settings.svelte';
 	import { terminalStore } from '$lib/stores/terminal.svelte';
-	import { DEFAULT_TERMINAL_FONT_FAMILY, TERMINAL_THEME_PRESETS } from '$lib/terminal-appearance';
+	import {
+		BUNDLED_TERMINAL_FONT_NAME,
+		DEFAULT_TERMINAL_FONT_FAMILY,
+		TERMINAL_THEME_PRESETS
+	} from '$lib/terminal-appearance';
 
 	let {
 		sessionId,
@@ -77,6 +81,10 @@
 
 	onMount(() => {
 		if (!host) return;
+		let disposed = false;
+		let unsubscribe = () => {};
+		let inputDisposable: { dispose(): void } | null = null;
+		let observer: ResizeObserver | null = null;
 		const nextTerminal = new Terminal({
 			allowProposedApi: false,
 			convertEol: false,
@@ -84,29 +92,44 @@
 			fontFamily: DEFAULT_TERMINAL_FONT_FAMILY,
 			fontSize: terminalAppearance.fontSize,
 			macOptionClickForcesSelection: true,
+			overviewRuler: { width: 1 },
 			scrollback: 10_000,
 			theme: terminalTheme
 		});
 		const nextFitAddon = new FitAddon();
 		nextTerminal.loadAddon(nextFitAddon);
-		nextTerminal.open(host);
-		terminal = nextTerminal;
-		fitAddon = nextFitAddon;
-		applyAppearance(nextTerminal);
-		const initialOutput = terminalStore.getSnapshot(sessionId)?.output;
-		if (initialOutput) nextTerminal.write(initialOutput);
-		const unsubscribe = terminalStore.subscribe(sessionId, (data) => nextTerminal.write(data));
-		const inputDisposable = nextTerminal.onData(
-			(data) => void terminalStore.write(sessionId, data)
-		);
-		const observer = new ResizeObserver(scheduleFit);
-		observer.observe(host);
-		scheduleFit();
+
+		void (async () => {
+			try {
+				await document.fonts?.load(
+					`${terminalAppearance.fontSize}px "${BUNDLED_TERMINAL_FONT_NAME}"`
+				);
+			} catch {
+				// Keep the terminal usable if Chromium cannot load the bundled font.
+			}
+			if (disposed || !host) return;
+
+			nextTerminal.open(host);
+			terminal = nextTerminal;
+			fitAddon = nextFitAddon;
+			applyAppearance(nextTerminal);
+			const initialOutput = terminalStore.getSnapshot(sessionId)?.output;
+			if (initialOutput) nextTerminal.write(initialOutput);
+			unsubscribe = terminalStore.subscribe(sessionId, (data) => nextTerminal.write(data));
+			inputDisposable = nextTerminal.onData(
+				(data) => void terminalStore.write(sessionId, data)
+			);
+			observer = new ResizeObserver(scheduleFit);
+			observer.observe(host);
+			scheduleFit();
+		})();
+
 		return () => {
-			observer.disconnect();
+			disposed = true;
+			observer?.disconnect();
 			if (fitFrame !== null) cancelAnimationFrame(fitFrame);
 			unsubscribe();
-			inputDisposable.dispose();
+			inputDisposable?.dispose();
 			nextTerminal.dispose();
 			terminal = null;
 			fitAddon = null;
@@ -155,11 +178,11 @@
 
 	.terminal-viewport {
 		position: absolute;
-		top: 10px;
-		/* Side insets protect the status line ends while the footer reaches the panel bottom. */
-		right: calc(var(--radius-window) + 6px);
+		top: 5px;
+		right: 0;
+		/* Keep the final row above the panel's rounded bottom corners. */
 		bottom: 0;
-		left: calc(var(--radius-window) + 6px);
+		left: 5px;
 		min-width: 0;
 		min-height: 0;
 	}
