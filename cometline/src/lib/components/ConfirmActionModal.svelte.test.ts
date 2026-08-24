@@ -71,6 +71,13 @@ describe('ConfirmActionModal', () => {
 		expect(screen.getByRole('dialog')).toHaveProperty('open', true);
 	});
 
+	it('uses the product app icon instead of a persona avatar', () => {
+		const { container } = renderModal();
+		const icon = container.querySelector('img.app-icon');
+
+		expect(icon).toHaveAttribute('src', '/app_icon.png');
+	});
+
 	it('cancels when the native dialog is dismissed', async () => {
 		const { onCancel } = renderModal();
 

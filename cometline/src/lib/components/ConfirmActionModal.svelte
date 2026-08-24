@@ -84,7 +84,7 @@
 		aria-labelledby="confirm-modal-title"
 		aria-describedby="confirm-modal-description"
 	>
-		<img class="app-icon" src="/project_avatar_96.png" alt="" width="56" height="56" />
+		<img class="app-icon" src="/app_icon.png" alt="" width="56" height="56" />
 		<h2 id="confirm-modal-title">{title}</h2>
 		<p id="confirm-modal-description">{description}</p>
 		{#if showInput}
