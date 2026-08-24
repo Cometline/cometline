@@ -211,6 +211,7 @@ type SessionMedia struct {
 	Status           string         `json:"status"`
 	ByteSize         int64          `json:"byte_size"`
 	DurationMs       sql.NullInt64  `json:"duration_ms"`
+	DetachedAt       int64          `json:"detached_at"`
 	CreatedAt        int64          `json:"created_at"`
 }
 

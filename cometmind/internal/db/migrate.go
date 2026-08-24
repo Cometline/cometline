@@ -630,6 +630,11 @@ var alterStatements = [][]string{
 		)`,
 		"CREATE INDEX IF NOT EXISTS idx_session_runs_updated ON session_runs (updated_at)",
 	},
+	// v34 -> v35: track when Gallery media first becomes detached from a session.
+	{
+		"ALTER TABLE session_media ADD COLUMN detached_at INTEGER NOT NULL DEFAULT 0",
+		"CREATE INDEX IF NOT EXISTS idx_session_media_detached ON session_media (session_id, status, detached_at)",
+	},
 }
 
 func isForeignKeysPragma(stmt string) bool {
@@ -788,7 +793,7 @@ func splitStatements(sql string) []string {
 	return out
 }
 
-const schemaVersion = 34
+const schemaVersion = 35
 
 // EnsureSchema runs [Migrate] once per database file using PRAGMA user_version.
 // For existing databases, it applies incremental ALTER statements to upgrade

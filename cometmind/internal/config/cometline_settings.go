@@ -87,15 +87,16 @@ type cometlineStorageBackupJSON struct {
 }
 
 type cometlineStorageJSON struct {
-	CleanupIntervalMinutes  int                        `json:"cleanupIntervalMinutes"`
-	RetentionDays           int                        `json:"retentionDays"`
-	MaxSessionsPerWorkspace int                        `json:"maxSessionsPerWorkspace"`
-	ArchivedMemoryPurgeDays int                        `json:"archivedMemoryPurgeDays"`
-	DeletedJobPurgeDays     *int                       `json:"deletedJobPurgeDays"`
-	VacuumAfterPurge        bool                       `json:"vacuumAfterPurge"`
-	ToolOutputRetentionDays *int                       `json:"toolOutputRetentionDays"`
-	AgentTmpRetentionDays   *int                       `json:"agentTmpRetentionDays"`
-	Backup                  cometlineStorageBackupJSON `json:"backup"`
+	CleanupIntervalMinutes     int                        `json:"cleanupIntervalMinutes"`
+	RetentionDays              int                        `json:"retentionDays"`
+	DetachedMediaRetentionDays *int                       `json:"detachedMediaRetentionDays"`
+	MaxSessionsPerWorkspace    int                        `json:"maxSessionsPerWorkspace"`
+	ArchivedMemoryPurgeDays    int                        `json:"archivedMemoryPurgeDays"`
+	DeletedJobPurgeDays        *int                       `json:"deletedJobPurgeDays"`
+	VacuumAfterPurge           bool                       `json:"vacuumAfterPurge"`
+	ToolOutputRetentionDays    *int                       `json:"toolOutputRetentionDays"`
+	AgentTmpRetentionDays      *int                       `json:"agentTmpRetentionDays"`
+	Backup                     cometlineStorageBackupJSON `json:"backup"`
 }
 
 type cometlineMCPOAuthJSON struct {
@@ -494,6 +495,11 @@ func adaptStorageConfig(cm cometlineStorageJSON) StorageConfig {
 		s.ToolOutputRetentionDays = *cm.ToolOutputRetentionDays
 	} else if hasOther {
 		s.ToolOutputRetentionDays = def.ToolOutputRetentionDays
+	}
+	if cm.DetachedMediaRetentionDays != nil {
+		s.DetachedMediaRetentionDays = *cm.DetachedMediaRetentionDays
+	} else if hasOther {
+		s.DetachedMediaRetentionDays = def.DetachedMediaRetentionDays
 	}
 	if cm.AgentTmpRetentionDays != nil {
 		s.AgentTmpRetentionDays = *cm.AgentTmpRetentionDays

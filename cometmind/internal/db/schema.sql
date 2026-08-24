@@ -369,6 +369,7 @@ CREATE TABLE session_media (
                     CHECK (status IN ('ready', 'deleted')),
     byte_size       INTEGER NOT NULL DEFAULT 0,
     duration_ms     INTEGER,
+    detached_at     INTEGER NOT NULL DEFAULT 0,
     created_at      INTEGER NOT NULL DEFAULT (unixepoch ('now', 'subsec') * 1000)
 );
 
@@ -379,6 +380,8 @@ CREATE INDEX idx_session_media_workspace ON session_media (workspace_id, status,
 CREATE INDEX idx_session_media_session ON session_media (session_id, status, created_at DESC);
 
 CREATE INDEX idx_session_media_kind ON session_media (kind, status, created_at DESC);
+
+CREATE INDEX idx_session_media_detached ON session_media (session_id, status, detached_at);
 
 CREATE TABLE usage_events (
     id            TEXT PRIMARY KEY,
