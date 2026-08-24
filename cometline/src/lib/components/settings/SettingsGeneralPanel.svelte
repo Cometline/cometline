@@ -9,6 +9,7 @@
 		screenCaptureStatus = $bindable('unknown'),
 		confirmCloseOnCmdW = $bindable(true),
 		confirmBeforeDeletingChats = $bindable(true),
+		confirmBeforeDeletingMedia = $bindable(true),
 		fileSearchSource = $bindable<FileSearchSource>('wiki'),
 		miniWindowInactivityTimeoutMinutes = $bindable(30),
 		storage = $bindable<CometMindStorageSettings>(),
@@ -17,6 +18,7 @@
 		onOpenScreenCaptureSettings,
 		onConfirmCloseOnCmdWChange,
 		onConfirmBeforeDeletingChatsChange,
+		onConfirmBeforeDeletingMediaChange,
 		onFileSearchSourceChange
 	}: {
 		openAtLogin: boolean;
@@ -24,6 +26,7 @@
 		screenCaptureStatus: string;
 		confirmCloseOnCmdW: boolean;
 		confirmBeforeDeletingChats: boolean;
+		confirmBeforeDeletingMedia: boolean;
 		fileSearchSource: FileSearchSource;
 		miniWindowInactivityTimeoutMinutes: number;
 		storage: CometMindStorageSettings;
@@ -32,6 +35,7 @@
 		onOpenScreenCaptureSettings?: () => void | Promise<void>;
 		onConfirmCloseOnCmdWChange?: (enabled: boolean) => void | Promise<void>;
 		onConfirmBeforeDeletingChatsChange?: (enabled: boolean) => void | Promise<void>;
+		onConfirmBeforeDeletingMediaChange?: (enabled: boolean) => void | Promise<void>;
 		onFileSearchSourceChange?: (source: FileSearchSource) => void | Promise<void>;
 	} = $props();
 
@@ -55,9 +59,7 @@
 	let backupRunning = $state(false);
 	let backupMessage = $state('');
 
-	const backupFolderPickerAvailable = $derived(
-		Boolean(window.electronAPI?.selectBackupFolder)
-	);
+	const backupFolderPickerAvailable = $derived(Boolean(window.electronAPI?.selectBackupFolder));
 
 	function onMiniWindowTimeoutInput(event: Event) {
 		const value = Number((event.currentTarget as HTMLInputElement).value);
@@ -81,6 +83,13 @@
 		const value = Number((event.currentTarget as HTMLInputElement).value);
 		patchStorage({
 			retentionDays: Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0
+		});
+	}
+
+	function onDetachedMediaRetentionInput(event: Event) {
+		const value = Number((event.currentTarget as HTMLInputElement).value);
+		patchStorage({
+			detachedMediaRetentionDays: Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0
 		});
 	}
 
@@ -179,6 +188,12 @@
 				description="Ask for confirmation before permanently deleting a chat."
 				bind:checked={confirmBeforeDeletingChats}
 				onchange={onConfirmBeforeDeletingChatsChange}
+			/>
+			<SettingsToggle
+				label="Confirm before deleting Gallery media"
+				description="Ask for confirmation before permanently deleting an image or video from Gallery."
+				bind:checked={confirmBeforeDeletingMedia}
+				onchange={onConfirmBeforeDeletingMediaChange}
 			/>
 		</div>
 
@@ -329,6 +344,27 @@
 			</label>
 
 			<label class="field">
+				<span>Media after chat deletion (days)</span>
+				<input
+					type="number"
+					min="0"
+					step="1"
+					value={storage.detachedMediaRetentionDays}
+					oninput={onDetachedMediaRetentionInput}
+				/>
+				<small>
+					{#if storage.detachedMediaRetentionDays === 0}
+						Disabled — Gallery media stays after its chat is deleted.
+					{:else}
+						Delete Gallery media {storage.detachedMediaRetentionDays} day{storage.detachedMediaRetentionDays ===
+						1
+							? ''
+							: 's'} after its chat is deleted.
+					{/if}
+				</small>
+			</label>
+
+			<label class="field">
 				<span>Max sessions per workspace</span>
 				<input
 					type="number"
@@ -376,8 +412,8 @@
 				/>
 				<small>
 					{#if storage.toolOutputRetentionDays === 0}
-						Disabled — spilled tool output under <code>~/.cometmind/tool-output/</code> stays on
-						disk.
+						Disabled — spilled tool output under <code>~/.cometmind/tool-output/</code> stays
+						on disk.
 					{:else}
 						Delete <code>tool-output/</code> files older than {storage.toolOutputRetentionDays}
 						days.
@@ -398,7 +434,8 @@
 					{#if storage.agentTmpRetentionDays === 0}
 						Disabled — <code>~/.cometmind/agent-tmp/</code> files stay on disk.
 					{:else}
-						Delete <code>agent-tmp/</code> files older than {storage.agentTmpRetentionDays} days.
+						Delete <code>agent-tmp/</code> files older than {storage.agentTmpRetentionDays}
+						days.
 					{/if}
 				</small>
 			</label>
@@ -424,8 +461,8 @@
 			<div class="settings-section-heading">
 				<h3>Data backup</h3>
 				<p>
-					Zip the entire <code>~/.cometmind/</code> directory (wiki, database, settings,
-					skills, OAuth tokens) to a folder on your computer.
+					Zip the entire <code>~/.cometmind/</code> directory (wiki, database, settings, skills,
+					OAuth tokens) to a folder on your computer.
 				</p>
 			</div>
 			<p class="settings-field-hint backup-warning">
@@ -436,8 +473,7 @@
 				label="Enable automatic backup"
 				description="Periodically zip ~/.cometmind to the backup folder below."
 				checked={storage.backup.enabled}
-				onchange={(enabled) =>
-					patchStorage({ backup: { ...storage.backup, enabled } })}
+				onchange={(enabled) => patchStorage({ backup: { ...storage.backup, enabled } })}
 			/>
 
 			<label class="field backup-folder-field">
@@ -501,7 +537,12 @@
 			</label>
 
 			<div class="settings-row-actions">
-				<button class="secondary" type="button" disabled={backupRunning} onclick={backupNow}>
+				<button
+					class="secondary"
+					type="button"
+					disabled={backupRunning}
+					onclick={backupNow}
+				>
 					{backupRunning ? 'Backing up…' : 'Backup now'}
 				</button>
 			</div>

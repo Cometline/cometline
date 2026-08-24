@@ -174,6 +174,8 @@ export interface AppSettings {
 	confirmCloseOnCmdW: boolean;
 	/** When true, deleting a chat requires confirmation. */
 	confirmBeforeDeletingChats: boolean;
+	/** When true, deleting Gallery media requires confirmation. */
+	confirmBeforeDeletingMedia: boolean;
 	/** Default source for the ⌘P file search modal. */
 	fileSearchSource: 'wiki' | 'workspace';
 	/** User preference to enable screen / system-audio capture for presenting screenshots. */

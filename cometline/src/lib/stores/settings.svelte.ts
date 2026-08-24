@@ -348,7 +348,33 @@ function createSettingsStore() {
 			}
 			writeLocalSettings(normalized);
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to save delete confirmation preference';
+			error =
+				err instanceof Error
+					? err.message
+					: 'Failed to save delete confirmation preference';
+			throw err;
+		}
+	}
+
+	async function saveConfirmBeforeDeletingMedia(enabled: boolean) {
+		if (settings.app.confirmBeforeDeletingMedia === enabled) return;
+		error = '';
+		const normalized = normalizeSettings({
+			...settings,
+			app: { ...settings.app, confirmBeforeDeletingMedia: enabled }
+		});
+		apply(normalized);
+		try {
+			if (window.electronAPI?.saveProviderSettings) {
+				const result = await window.electronAPI.saveProviderSettings(normalized, {
+					restartCometMind: false
+				});
+				apply(result.settings);
+				return;
+			}
+			writeLocalSettings(normalized);
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Failed to save media delete preference';
 			throw err;
 		}
 	}
@@ -425,8 +451,7 @@ function createSettingsStore() {
 				nextProviders.find((p) => p.enabled && p.enabledModels.length > 0) ??
 				nextProviders[0];
 			nextDefaultProviderId = fallback?.id ?? '';
-			nextDefaultModelId =
-				fallback?.enabledModels[0] ?? fallback?.selectedModel ?? '';
+			nextDefaultModelId = fallback?.enabledModels[0] ?? fallback?.selectedModel ?? '';
 		}
 		settings = {
 			...settings,
@@ -475,6 +500,7 @@ function createSettingsStore() {
 		saveShortcuts,
 		saveConfirmCloseOnCmdW,
 		saveConfirmBeforeDeletingChats,
+		saveConfirmBeforeDeletingMedia,
 		saveFileSearchSource,
 		saveWorkspacePanelLayout,
 		setDefaultProvider,

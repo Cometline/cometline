@@ -433,9 +433,7 @@
 								<div class="settings-section-heading">
 									<div>
 										<h3>Persona</h3>
-										<p>
-											Chat avatar, intro animation, and SOUL system prompt
-										</p>
+										<p>Chat avatar, intro animation, and SOUL system prompt</p>
 									</div>
 									<SettingsButton onclick={openPersonaEditorForCreate}
 										>New persona</SettingsButton
@@ -664,6 +662,7 @@
 							screenCaptureStatus={panelController.screenCaptureStatus}
 							bind:confirmCloseOnCmdW={draft.app.confirmCloseOnCmdW}
 							bind:confirmBeforeDeletingChats={draft.app.confirmBeforeDeletingChats}
+							bind:confirmBeforeDeletingMedia={draft.app.confirmBeforeDeletingMedia}
 							bind:fileSearchSource={draft.app.fileSearchSource}
 							bind:miniWindowInactivityTimeoutMinutes={
 								draft.app.miniWindowInactivityTimeoutMinutes
@@ -674,6 +673,7 @@
 							onOpenScreenCaptureSettings={panelController.openScreenCaptureSettings}
 							onConfirmCloseOnCmdWChange={panelController.setConfirmCloseOnCmdW}
 							onConfirmBeforeDeletingChatsChange={panelController.setConfirmBeforeDeletingChats}
+							onConfirmBeforeDeletingMediaChange={panelController.setConfirmBeforeDeletingMedia}
 							onFileSearchSourceChange={panelController.setFileSearchSource}
 						/>
 						<section class="settings-panel-frame">

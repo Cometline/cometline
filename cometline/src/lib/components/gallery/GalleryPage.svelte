@@ -4,6 +4,7 @@
 	import { deleteMedia, listMedia, type MediaResource } from '$lib/client/cometmind';
 	import ConfirmActionModal from '$lib/components/ConfirmActionModal.svelte';
 	import ImageLightbox from '$lib/components/chat/ImageLightbox.svelte';
+	import { settingsStore } from '$lib/stores/settings.svelte';
 	import {
 		copyImageToClipboard,
 		copyMediaFileToClipboard,
@@ -32,17 +33,18 @@
 
 	function downloadName(item: MediaResource) {
 		const type = item.media_type || '';
-		const ext = type.includes('jpeg') || type.includes('jpg')
-			? 'jpg'
-			: type.includes('gif')
-				? 'gif'
-				: type.includes('webp')
-					? 'webp'
-					: type.includes('webm')
-						? 'webm'
-						: item.kind === 'video'
-							? 'mp4'
-							: 'png';
+		const ext =
+			type.includes('jpeg') || type.includes('jpg')
+				? 'jpg'
+				: type.includes('gif')
+					? 'gif'
+					: type.includes('webp')
+						? 'webp'
+						: type.includes('webm')
+							? 'webm'
+							: item.kind === 'video'
+								? 'mp4'
+								: 'png';
 		return `${item.alt || item.kind}-${item.id.slice(0, 8)}.${ext}`;
 	}
 
@@ -92,6 +94,20 @@
 		}
 	}
 
+	function requestDelete(item: MediaResource) {
+		if (settingsStore.settings.app.confirmBeforeDeletingMedia) {
+			pendingDelete = item;
+			return;
+		}
+		pendingDelete = item;
+		void confirmDelete();
+	}
+
+	async function deleteWithoutFutureConfirmation() {
+		void settingsStore.saveConfirmBeforeDeletingMedia(false).catch(() => {});
+		await confirmDelete();
+	}
+
 	async function downloadItem(item: MediaResource) {
 		let url = '';
 		try {
@@ -124,9 +140,7 @@
 
 <div class="gallery-page settings-ui">
 	<header class="gallery-header">
-		<p>
-			Every generated, presented, and captured still or clip, newest first.
-		</p>
+		<p>Every generated, presented, and captured still or clip, newest first.</p>
 		{#if status}
 			<p class="gallery-status">{status}</p>
 		{/if}
@@ -217,7 +231,7 @@
 							<Download size={14} />
 							Download
 						</button>
-						<button type="button" class="danger" onclick={() => (pendingDelete = item)}>
+						<button type="button" class="danger" onclick={() => requestDelete(item)}>
 							<Trash2 size={14} />
 							Delete
 						</button>
@@ -233,7 +247,9 @@
 	title="Delete this media?"
 	description={deleteDescription(pendingDelete)}
 	confirmLabel="Delete"
+	secondaryLabel="Don't ask again"
 	onConfirm={() => void confirmDelete()}
+	onSecondary={() => void deleteWithoutFutureConfirmation()}
 	onCancel={() => (pendingDelete = null)}
 />
 
