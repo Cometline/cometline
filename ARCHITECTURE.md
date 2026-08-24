@@ -226,7 +226,7 @@ CometMind serves a REST/SSE API on `127.0.0.1:7700`. The OpenAPI spec is `cometm
 - **Runtime and models:** health, enabled models, and catalog lookups
 - **Workspaces:** registration/pruning; previewable file read/write; Git status, diff, stage, unstage, discard, and commit; global wiki files and backlinks
 - **Sessions:** create/list/update/delete, workspace changes and forks, transcripts, one active run, child sessions, and live-session media at `/sessions/{id}/media/{mediaId}`
-- **Media:** gallery list/import/delete at `/media`; blob bytes at `/media/{id}/content` (works after the owning session is deleted)
+- **Media:** gallery list/import/delete at `/media`; blob bytes at `/media/{id}/content` work after the owning session is deleted until detached-media retention expires
 - **Streaming:** `POST /sessions/{id}/messages` returns the turn SSE stream; `GET /events` carries runtime-wide notifications
 - **Skills and MCP:** managed skills, drafts, sync runs; MCP server/tool inspection, connection tests, reconnection, and OAuth flows
 - **Memory and storage:** memory CRUD/search/settings, re-embedding, purge and compaction runs; retention and backup runs

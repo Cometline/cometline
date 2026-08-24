@@ -127,6 +127,7 @@ declare global {
 		workspacePanelRatio: number;
 		confirmCloseOnCmdW: boolean;
 		confirmBeforeDeletingChats: boolean;
+		confirmBeforeDeletingMedia: boolean;
 		fileSearchSource: 'wiki' | 'workspace';
 		screenCapturePreferred: boolean;
 	}
@@ -233,6 +234,7 @@ declare global {
 	interface CometMindStorageSettings {
 		cleanupIntervalMinutes: number;
 		retentionDays: number;
+		detachedMediaRetentionDays: number;
 		maxSessionsPerWorkspace: number;
 		archivedMemoryPurgeDays: number;
 		vacuumAfterPurge: boolean;

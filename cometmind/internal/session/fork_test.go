@@ -6,6 +6,7 @@ import (
 	"errors"
 	"path/filepath"
 	"testing"
+	"time"
 
 	cometsdk "github.com/cometline/comet-sdk"
 	"github.com/cometline/cometmind/internal/db"
@@ -361,7 +362,7 @@ func TestListMediaBackfillsGeneratedSourceFromToolResult(t *testing.T) {
 func TestDeleteSessionKeepsGalleryMedia(t *testing.T) {
 	t.Setenv("COMETMIND_DATA_DIR", t.TempDir())
 	ctx := context.Background()
-	svc, _ := newForkTestService(t)
+	svc, q := newForkTestService(t)
 	ws, err := svc.EnsureWorkspace(ctx, t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -383,6 +384,20 @@ func TestDeleteSessionKeepsGalleryMedia(t *testing.T) {
 
 	if err := svc.DeleteSession(ctx, sess.ID); err != nil {
 		t.Fatalf("DeleteSession: %v", err)
+	}
+	deleted, err := svc.PurgeDetachedMedia(ctx, 30)
+	if err != nil {
+		t.Fatalf("PurgeDetachedMedia: %v", err)
+	}
+	if deleted != 0 {
+		t.Fatalf("first purge deleted %d media, want grace period", deleted)
+	}
+	detachedRow, err := q.GetSessionMedia(ctx, ref.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if detachedRow.DetachedAt <= 0 {
+		t.Fatalf("detached_at=%d want initialized timestamp", detachedRow.DetachedAt)
 	}
 
 	listed, err := svc.ListMedia(ctx, MediaListFilter{})
@@ -450,5 +465,67 @@ func TestClearSessionTranscriptKeepsGalleryMedia(t *testing.T) {
 	}
 	if _, data, err := media.Read(sess.ID, ref.ID); err != nil || string(data) != string(png) {
 		t.Fatalf("file should survive transcript clear: %v", err)
+	}
+}
+
+func TestPurgeDetachedMediaDeletesExpiredFilesAndKeepsAttachedMedia(t *testing.T) {
+	t.Setenv("COMETMIND_DATA_DIR", t.TempDir())
+	ctx := context.Background()
+	svc, q := newForkTestService(t)
+	ws, err := svc.EnsureWorkspace(ctx, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	detachedSession, err := svc.NewSession(ctx, ws.ID, "model", "provider")
+	if err != nil {
+		t.Fatal(err)
+	}
+	attachedSession, err := svc.NewSession(ctx, ws.ID, "model", "provider")
+	if err != nil {
+		t.Fatal(err)
+	}
+	png := []byte{0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a}
+	detachedRef, err := media.RegisterBytes(detachedSession.ID, "image/png", "detached", png)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.AppendAssistantMedia(ctx, detachedSession.ID, []ContentBlock{{
+		Type: "image", ID: detachedRef.ID, MediaType: detachedRef.MediaType, Alt: detachedRef.Alt,
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	attachedRef, err := media.RegisterBytes(attachedSession.ID, "image/png", "attached", png)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.AppendAssistantMedia(ctx, attachedSession.ID, []ContentBlock{{
+		Type: "image", ID: attachedRef.ID, MediaType: attachedRef.MediaType, Alt: attachedRef.Alt,
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.DeleteSession(ctx, detachedSession.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	old := time.Now().Add(-31 * 24 * time.Hour).UnixMilli()
+	if err := q.InitializeDetachedSessionMedia(ctx, old); err != nil {
+		t.Fatal(err)
+	}
+	deleted, err := svc.PurgeDetachedMedia(ctx, 30)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if deleted != 1 {
+		t.Fatalf("expired purge deleted %d media, want 1", deleted)
+	}
+	if _, _, err := media.Read(detachedSession.ID, detachedRef.ID); !errors.Is(err, media.ErrNotFound) {
+		t.Fatalf("detached file still exists: %v", err)
+	}
+	attachedRow, err := q.GetSessionMedia(ctx, attachedRef.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if attachedRow.Status != "ready" || attachedRow.DetachedAt != 0 {
+		t.Fatalf("attached row changed: %#v", attachedRow)
 	}
 }

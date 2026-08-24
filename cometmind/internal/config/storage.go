@@ -16,6 +16,8 @@ type StorageConfig struct {
 	CleanupIntervalMinutes int `json:"cleanup_interval_minutes" mapstructure:"cleanup_interval_minutes"`
 	// RetentionDays deletes sessions with no activity for this many days. 0 disables.
 	RetentionDays int `json:"retention_days" mapstructure:"retention_days"`
+	// DetachedMediaRetentionDays deletes media after its owning session is deleted. 0 disables.
+	DetachedMediaRetentionDays int `json:"detached_media_retention_days" mapstructure:"detached_media_retention_days"`
 	// MaxSessionsPerWorkspace keeps only the N most recently updated sessions per workspace. 0 disables.
 	MaxSessionsPerWorkspace int `json:"max_sessions_per_workspace" mapstructure:"max_sessions_per_workspace"`
 	// ArchivedMemoryPurgeDays hard-deletes archived memories older than this many days. 0 disables.
@@ -44,15 +46,16 @@ func defaultStorageBackupConfig() StorageBackupConfig {
 
 func defaultStorageConfig() StorageConfig {
 	return StorageConfig{
-		CleanupIntervalMinutes:  60,
-		RetentionDays:           90,
-		MaxSessionsPerWorkspace: 0,
-		ArchivedMemoryPurgeDays: 90,
-		VacuumAfterPurge:        true,
-		SubagentRetentionDays:   7,
-		ToolOutputRetentionDays: 7,
-		AgentTmpRetentionDays:   3,
-		Backup:                  defaultStorageBackupConfig(),
+		CleanupIntervalMinutes:     60,
+		RetentionDays:              90,
+		DetachedMediaRetentionDays: 30,
+		MaxSessionsPerWorkspace:    0,
+		ArchivedMemoryPurgeDays:    90,
+		VacuumAfterPurge:           true,
+		SubagentRetentionDays:      7,
+		ToolOutputRetentionDays:    7,
+		AgentTmpRetentionDays:      3,
+		Backup:                     defaultStorageBackupConfig(),
 	}
 }
 
@@ -64,6 +67,11 @@ func (s StorageConfig) BackupEnabled() bool {
 // RetentionEnabled reports whether any session retention rule is active.
 func (s StorageConfig) RetentionEnabled() bool {
 	return s.RetentionDays > 0 || s.MaxSessionsPerWorkspace > 0 || s.SubagentRetentionDays > 0
+}
+
+// DetachedMediaRetentionEnabled reports whether orphaned Gallery media should expire.
+func (s StorageConfig) DetachedMediaRetentionEnabled() bool {
+	return s.DetachedMediaRetentionDays > 0
 }
 
 // MemoryPurgeEnabled reports whether archived memory purge is active.
@@ -98,6 +106,7 @@ func (c *Config) EffectiveStorageConfig() StorageConfig {
 func (c *Config) storageConfigured() bool {
 	s := c.Storage
 	return s.RetentionDays != 0 ||
+		s.DetachedMediaRetentionDays != 0 ||
 		s.CleanupIntervalMinutes != 0 ||
 		s.MaxSessionsPerWorkspace != 0 ||
 		s.ArchivedMemoryPurgeDays != 0 ||

@@ -123,7 +123,7 @@ Recent example: `memory_compaction_completed` was added this way to report manua
 - **Settings:** `~/.cometmind/cometline-settings.json` (runtime; agent tools + CometMind). Desktop UI state: `~/.cometmind/cometline-desktop.json` (Electron only).
 - **Legacy config:** `~/.cometmind/config.toml` (read only when JSON settings are missing)
 - **Database:** `~/.cometmind/cometmind.db` (SQLite, pure Go via `modernc.org/sqlite`)
-- **Media:** `~/.cometmind/media/{storage_session_id}/` — gallery files stay after session or workspace delete; users remove them on the Gallery page
+- **Media:** `~/.cometmind/media/{storage_session_id}/` — gallery files stay after session or workspace delete, then follow the configurable detached-media retention period; users can also remove them on the Gallery page
 - **API:** `http://127.0.0.1:7700` (localhost only)
 - **OpenAPI spec:** `cometmind/openapi.yaml`
 

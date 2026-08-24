@@ -127,6 +127,8 @@ export interface CometMindStorageBackupSettings {
 export interface CometMindStorageSettings {
 	cleanupIntervalMinutes: number;
 	retentionDays: number;
+	/** Delete Gallery media after its owning session has been gone for N days. 0 disables. */
+	detachedMediaRetentionDays: number;
 	maxSessionsPerWorkspace: number;
 	archivedMemoryPurgeDays: number;
 	vacuumAfterPurge: boolean;
@@ -547,6 +549,7 @@ export function defaultCometMindStorageSettings(): CometMindStorageSettings {
 	return {
 		cleanupIntervalMinutes: 60,
 		retentionDays: 90,
+		detachedMediaRetentionDays: 30,
 		maxSessionsPerWorkspace: 0,
 		archivedMemoryPurgeDays: 90,
 		vacuumAfterPurge: true,
@@ -640,7 +643,9 @@ export function normalizeCometMindSettings(
 	const embedding: Partial<CometMindMemorySettings['embedding']> = memory.embedding ?? {};
 	const storage: Partial<CometMindStorageSettings> = input?.storage ?? {};
 	const legacyDeletedJobPurgeDays = (
-		input?.storage as (Partial<CometMindStorageSettings> & { deletedJobPurgeDays?: unknown }) | undefined
+		input?.storage as
+			| (Partial<CometMindStorageSettings> & { deletedJobPurgeDays?: unknown })
+			| undefined
 	)?.deletedJobPurgeDays;
 	const discord: Partial<CometMindDiscordGatewaySettings> = input?.gateway?.discord ?? {};
 	const mcp = normalizeCometMindMCPSettings(input?.mcp);
@@ -770,6 +775,10 @@ export function normalizeCometMindSettings(
 			retentionDays: normalizeNonNegativeInt(
 				storage.retentionDays,
 				defaults.storage.retentionDays
+			),
+			detachedMediaRetentionDays: normalizeNonNegativeInt(
+				storage.detachedMediaRetentionDays,
+				defaults.storage.detachedMediaRetentionDays
 			),
 			maxSessionsPerWorkspace: normalizeNonNegativeInt(
 				storage.maxSessionsPerWorkspace,
@@ -920,18 +929,24 @@ export function normalizeCometMindSettings(
 		},
 		generation: {
 			image: {
-				providerId: String(
-					generationInput.image?.providerId ?? defaults.generation.image.providerId
-				).trim() || defaults.generation.image.providerId,
-				model: String(generationInput.image?.model ?? defaults.generation.image.model).trim() ||
-					defaults.generation.image.model
+				providerId:
+					String(
+						generationInput.image?.providerId ?? defaults.generation.image.providerId
+					).trim() || defaults.generation.image.providerId,
+				model:
+					String(
+						generationInput.image?.model ?? defaults.generation.image.model
+					).trim() || defaults.generation.image.model
 			},
 			video: {
-				providerId: String(
-					generationInput.video?.providerId ?? defaults.generation.video.providerId
-				).trim() || defaults.generation.video.providerId,
-				model: String(generationInput.video?.model ?? defaults.generation.video.model).trim() ||
-					defaults.generation.video.model
+				providerId:
+					String(
+						generationInput.video?.providerId ?? defaults.generation.video.providerId
+					).trim() || defaults.generation.video.providerId,
+				model:
+					String(
+						generationInput.video?.model ?? defaults.generation.video.model
+					).trim() || defaults.generation.video.model
 			}
 		}
 	};
@@ -1058,6 +1073,7 @@ function defaultAppSettings(): AppSettings {
 		workspacePanelRatio: 0,
 		confirmCloseOnCmdW: true,
 		confirmBeforeDeletingChats: true,
+		confirmBeforeDeletingMedia: true,
 		fileSearchSource: 'wiki',
 		screenCapturePreferred: false
 	};
@@ -1341,6 +1357,10 @@ export function normalizeSettings(
 				typeof next.app?.confirmBeforeDeletingChats === 'boolean'
 					? next.app.confirmBeforeDeletingChats
 					: defaultAppSettings().confirmBeforeDeletingChats,
+			confirmBeforeDeletingMedia:
+				typeof next.app?.confirmBeforeDeletingMedia === 'boolean'
+					? next.app.confirmBeforeDeletingMedia
+					: defaultAppSettings().confirmBeforeDeletingMedia,
 			fileSearchSource: normalizeFileSearchSource(
 				(next.app as { fileSearchSource?: unknown } | undefined)?.fileSearchSource
 			),
@@ -1517,6 +1537,7 @@ const providerSettingsSchema = z.object({
 		workspacePanelRatio: z.number().min(0).max(WORKSPACE_PANEL_MAX_RATIO),
 		confirmCloseOnCmdW: z.boolean(),
 		confirmBeforeDeletingChats: z.boolean(),
+		confirmBeforeDeletingMedia: z.boolean(),
 		fileSearchSource: z.enum(['wiki', 'workspace']),
 		screenCapturePreferred: z.boolean()
 	}),
@@ -1569,6 +1590,7 @@ const providerSettingsSchema = z.object({
 		storage: z.object({
 			cleanupIntervalMinutes: z.number().int().min(0),
 			retentionDays: z.number().int().min(0),
+			detachedMediaRetentionDays: z.number().int().min(0),
 			maxSessionsPerWorkspace: z.number().int().min(0),
 			archivedMemoryPurgeDays: z.number().int().min(0),
 			vacuumAfterPurge: z.boolean(),

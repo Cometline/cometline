@@ -78,13 +78,23 @@ describe('settings schema', () => {
 		expect(settings.app.hasCompletedSetup).toBe(false);
 		expect(settings.app.hasDismissedSetupWizard).toBe(false);
 		expect(settings.app.screenCapturePreferred).toBe(false);
+		expect(settings.app.confirmBeforeDeletingMedia).toBe(true);
 		expect(settings.cometmind.systemPromptPath).toBe('');
 		expect(settings.cometmind.maxTokens).toBe(2048);
 		expect(settings.cometmind.contextWindowLimit).toBe(128_000);
 		expect(settings.cometmind.storage.retentionDays).toBe(90);
+		expect(settings.cometmind.storage.detachedMediaRetentionDays).toBe(30);
 		expect(settings.cometmind.storage.maxSessionsPerWorkspace).toBe(0);
 		expect(settings.cometmind.acp.enabled).toBe(false);
 		expect(settings.cometmind.acp.defaultHarness).toBe('opencode');
+	});
+
+	it('defaults missing Gallery delete confirmation settings to enabled', () => {
+		const base = defaultSettings();
+		const { confirmBeforeDeletingMedia: _omitted, ...legacyApp } = base.app;
+		const settings = normalizeSettings({ ...base, app: legacyApp as typeof base.app });
+
+		expect(settings.app.confirmBeforeDeletingMedia).toBe(true);
 	});
 
 	it('normalizes legacy ACP settings with the new harness defaults', () => {
@@ -307,6 +317,17 @@ describe('settings schema', () => {
 		});
 		expect(settings.cometmind.storage.retentionDays).toBe(0);
 		expect(settings.cometmind.storage.archivedMemoryPurgeDays).toBe(90);
+	});
+
+	it('defaults detached Gallery media retention and allows disabling it', () => {
+		expect(
+			normalizeCometMindSettings({ storage: {} as never }).storage.detachedMediaRetentionDays
+		).toBe(30);
+		expect(
+			normalizeCometMindSettings({
+				storage: { detachedMediaRetentionDays: 0 } as never
+			}).storage.detachedMediaRetentionDays
+		).toBe(0);
 	});
 
 	it('migrates deleted job purge from storage to jobs', () => {

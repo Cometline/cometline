@@ -494,7 +494,7 @@ The SQLite schema is in `cometmind/internal/db/schema.sql`.
 | `sessions` | Workspace-scoped conversations with model/provider IDs and token usage JSON |
 | `messages` | User, assistant, tool result, and optional system rows |
 | `tool_calls` | Tool-call shells plus execution output/duration/exit code |
-| `session_media` | Gallery catalog; `session_id` / `workspace_id` SET NULL on owner delete; files live under `~/.cometmind/media/{storage_session_id}/` until `DELETE /media/{id}` |
+| `session_media` | Gallery catalog; `session_id` / `workspace_id` SET NULL on owner delete; files live under `~/.cometmind/media/{storage_session_id}/` until manual deletion or detached-media retention expires |
 
 `session.Service` is the domain layer over generated sqlc queries. It owns workspace registration, session lifecycle, message appends, assistant step persistence, tool result persistence, token usage writes, SDK-history reconstruction, and UI transcript reconstruction across `service.go` and `transcript.go`.
 

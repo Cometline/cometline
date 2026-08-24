@@ -9,6 +9,7 @@ import (
 	"github.com/cometline/cometmind/internal/config"
 	"github.com/cometline/cometmind/internal/db"
 	"github.com/cometline/cometmind/internal/jobs"
+	"github.com/cometline/cometmind/internal/media"
 	"github.com/cometline/cometmind/internal/memory"
 	"github.com/cometline/cometmind/internal/session"
 	"github.com/cometline/cometmind/internal/usage"
@@ -160,6 +161,66 @@ func TestRunner_PurgesArchivedMemories(t *testing.T) {
 	}
 	if got.MemoriesPurged != 1 {
 		t.Fatalf("memories_purged=%d want 1", got.MemoriesPurged)
+	}
+}
+
+func TestRunner_PurgesExpiredDetachedMedia(t *testing.T) {
+	t.Setenv("COMETMIND_DATA_DIR", t.TempDir())
+	ctx := context.Background()
+	conn, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	if err := db.EnsureSchema(ctx, conn); err != nil {
+		t.Fatal(err)
+	}
+
+	sessions := session.New(conn)
+	ws, err := sessions.EnsureWorkspace(ctx, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	sess, err := sessions.NewSession(ctx, ws.ID, "model", "provider")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ref, err := media.RegisterBytes(sess.ID, "image/png", "expired", []byte("png"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := sessions.AppendAssistantMedia(ctx, sess.ID, []session.ContentBlock{{
+		Type: "image", ID: ref.ID, MediaType: ref.MediaType, Alt: ref.Alt,
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := sessions.DeleteSession(ctx, sess.ID); err != nil {
+		t.Fatal(err)
+	}
+	old := time.Now().Add(-31 * 24 * time.Hour).UnixMilli()
+	if err := db.New(conn).InitializeDetachedSessionMedia(ctx, old); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := (&Runner{
+		DB:       conn,
+		Sessions: sessions,
+		Config: config.StorageConfig{
+			DetachedMediaRetentionDays: 30,
+		},
+	}).Run(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.MediaDeleted != 1 {
+		t.Fatalf("media_deleted=%d want 1", result.MediaDeleted)
+	}
+	item, err := sessions.GetMedia(ctx, ref.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if item.Status != "deleted" {
+		t.Fatalf("status=%q want deleted", item.Status)
 	}
 }
 

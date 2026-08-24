@@ -195,7 +195,7 @@ func (r *Runtime) StartScheduler(ctx context.Context) {
 
 func runRetention(ctx context.Context, db *sql.DB, sessions *session.Service, mem *memory.Service, jobSvc *jobs.Service, inboxSvc *inbox.Service, usageSvc *usage.Service, cfg config.StorageConfig, inboxCfg config.InboxConfig, jobPurgeDays int, isRunning func(string) bool) (retention.Result, error) {
 	var out retention.Result
-	needDB := cfg.RetentionEnabled() || cfg.MemoryPurgeEnabled() || jobPurgeDays > 0 || inboxSvc != nil || usageSvc != nil
+	needDB := cfg.RetentionEnabled() || cfg.DetachedMediaRetentionEnabled() || cfg.MemoryPurgeEnabled() || jobPurgeDays > 0 || inboxSvc != nil || usageSvc != nil
 	if needDB {
 		rr := &retention.Runner{
 			DB:           db,
@@ -355,7 +355,7 @@ func (r *Runtime) StartRetentionMaintenance(ctx context.Context) {
 		for {
 			if !waitForMaintenance(ctx, r.retentionChanged, func() (bool, time.Duration) {
 				cfg := r.Config.EffectiveStorageConfig()
-				enabled := cfg.RetentionEnabled() || cfg.MemoryPurgeEnabled() || r.jobSettingsSnapshot().DeletedPurgeDays > 0 || cfg.RuntimeFilesEnabled() || r.Usage != nil
+				enabled := cfg.RetentionEnabled() || cfg.DetachedMediaRetentionEnabled() || cfg.MemoryPurgeEnabled() || r.jobSettingsSnapshot().DeletedPurgeDays > 0 || cfg.RuntimeFilesEnabled() || r.Usage != nil
 				interval := time.Duration(cfg.CleanupIntervalMinutes) * time.Minute
 				if interval <= 0 {
 					interval = time.Hour
@@ -369,10 +369,11 @@ func (r *Runtime) StartRetentionMaintenance(ctx context.Context) {
 				logging.L().Warn("retention.failed", "error", err)
 				continue
 			}
-			if result.SessionsDeleted > 0 || result.SubagentsDeleted > 0 || result.MemoriesPurged > 0 || result.MemoryEventsPurged > 0 || result.JobsPurged > 0 || result.InboxPurged > 0 || result.UsageEventsPurged > 0 || result.ToolOutputDeleted > 0 || result.AgentTmpDeleted > 0 {
+			if result.SessionsDeleted > 0 || result.SubagentsDeleted > 0 || result.MediaDeleted > 0 || result.MemoriesPurged > 0 || result.MemoryEventsPurged > 0 || result.JobsPurged > 0 || result.InboxPurged > 0 || result.UsageEventsPurged > 0 || result.ToolOutputDeleted > 0 || result.AgentTmpDeleted > 0 {
 				logging.L().Info("retention.completed",
 					"sessions_deleted", result.SessionsDeleted,
 					"subagents_deleted", result.SubagentsDeleted,
+					"media_deleted", result.MediaDeleted,
 					"memories_purged", result.MemoriesPurged,
 					"memory_events_purged", result.MemoryEventsPurged,
 					"jobs_purged", result.JobsPurged,

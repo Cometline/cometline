@@ -29,7 +29,7 @@ INSERT INTO session_media (
     duration_ms
 )
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, session_id, storage_session_id, workspace_id, kind, media_type, alt, prompt, model, provider_id, source, source_media_id, status, byte_size, duration_ms, created_at
+RETURNING id, session_id, storage_session_id, workspace_id, kind, media_type, alt, prompt, model, provider_id, source, source_media_id, status, byte_size, duration_ms, detached_at, created_at
 `
 
 type CreateSessionMediaParams struct {
@@ -85,13 +85,14 @@ func (q *Queries) CreateSessionMedia(ctx context.Context, arg CreateSessionMedia
 		&i.Status,
 		&i.ByteSize,
 		&i.DurationMs,
+		&i.DetachedAt,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const getReadySessionMedia = `-- name: GetReadySessionMedia :one
-SELECT id, session_id, storage_session_id, workspace_id, kind, media_type, alt, prompt, model, provider_id, source, source_media_id, status, byte_size, duration_ms, created_at
+SELECT id, session_id, storage_session_id, workspace_id, kind, media_type, alt, prompt, model, provider_id, source, source_media_id, status, byte_size, duration_ms, detached_at, created_at
 FROM session_media
 WHERE id = ?
   AND session_id = ?
@@ -123,13 +124,14 @@ func (q *Queries) GetReadySessionMedia(ctx context.Context, arg GetReadySessionM
 		&i.Status,
 		&i.ByteSize,
 		&i.DurationMs,
+		&i.DetachedAt,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const getSessionMedia = `-- name: GetSessionMedia :one
-SELECT id, session_id, storage_session_id, workspace_id, kind, media_type, alt, prompt, model, provider_id, source, source_media_id, status, byte_size, duration_ms, created_at
+SELECT id, session_id, storage_session_id, workspace_id, kind, media_type, alt, prompt, model, provider_id, source, source_media_id, status, byte_size, duration_ms, detached_at, created_at
 FROM session_media
 WHERE id = ?
 LIMIT 1
@@ -154,13 +156,60 @@ func (q *Queries) GetSessionMedia(ctx context.Context, id string) (SessionMedia,
 		&i.Status,
 		&i.ByteSize,
 		&i.DurationMs,
+		&i.DetachedAt,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
+const initializeDetachedSessionMedia = `-- name: InitializeDetachedSessionMedia :exec
+UPDATE session_media
+SET detached_at = ?
+WHERE session_id IS NULL
+  AND status = 'ready'
+  AND detached_at = 0
+`
+
+func (q *Queries) InitializeDetachedSessionMedia(ctx context.Context, detachedAt int64) error {
+	_, err := q.db.ExecContext(ctx, initializeDetachedSessionMedia, detachedAt)
+	return err
+}
+
+const listExpiredDetachedSessionMediaIDs = `-- name: ListExpiredDetachedSessionMediaIDs :many
+SELECT id
+FROM session_media
+WHERE session_id IS NULL
+  AND status = 'ready'
+  AND detached_at > 0
+  AND detached_at <= ?
+ORDER BY detached_at ASC
+`
+
+func (q *Queries) ListExpiredDetachedSessionMediaIDs(ctx context.Context, detachedAt int64) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listExpiredDetachedSessionMediaIDs, detachedAt)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSessionMedia = `-- name: ListSessionMedia :many
-SELECT id, session_id, storage_session_id, workspace_id, kind, media_type, alt, prompt, model, provider_id, source, source_media_id, status, byte_size, duration_ms, created_at
+SELECT id, session_id, storage_session_id, workspace_id, kind, media_type, alt, prompt, model, provider_id, source, source_media_id, status, byte_size, duration_ms, detached_at, created_at
 FROM session_media
 WHERE status = 'ready'
   AND (
@@ -209,6 +258,7 @@ func (q *Queries) ListSessionMedia(ctx context.Context, arg ListSessionMediaPara
 			&i.Status,
 			&i.ByteSize,
 			&i.DurationMs,
+			&i.DetachedAt,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -225,7 +275,7 @@ func (q *Queries) ListSessionMedia(ctx context.Context, arg ListSessionMediaPara
 }
 
 const listSessionMediaBySession = `-- name: ListSessionMediaBySession :many
-SELECT id, session_id, storage_session_id, workspace_id, kind, media_type, alt, prompt, model, provider_id, source, source_media_id, status, byte_size, duration_ms, created_at
+SELECT id, session_id, storage_session_id, workspace_id, kind, media_type, alt, prompt, model, provider_id, source, source_media_id, status, byte_size, duration_ms, detached_at, created_at
 FROM session_media
 WHERE session_id = ?
   AND status = 'ready'
@@ -257,6 +307,7 @@ func (q *Queries) ListSessionMediaBySession(ctx context.Context, sessionID sql.N
 			&i.Status,
 			&i.ByteSize,
 			&i.DurationMs,
+			&i.DetachedAt,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -277,7 +328,7 @@ UPDATE session_media
 SET status = 'deleted'
 WHERE id = ?
   AND status = 'ready'
-RETURNING id, session_id, storage_session_id, workspace_id, kind, media_type, alt, prompt, model, provider_id, source, source_media_id, status, byte_size, duration_ms, created_at
+RETURNING id, session_id, storage_session_id, workspace_id, kind, media_type, alt, prompt, model, provider_id, source, source_media_id, status, byte_size, duration_ms, detached_at, created_at
 `
 
 func (q *Queries) MarkSessionMediaDeleted(ctx context.Context, id string) (SessionMedia, error) {
@@ -299,6 +350,7 @@ func (q *Queries) MarkSessionMediaDeleted(ctx context.Context, id string) (Sessi
 		&i.Status,
 		&i.ByteSize,
 		&i.DurationMs,
+		&i.DetachedAt,
 		&i.CreatedAt,
 	)
 	return i, err

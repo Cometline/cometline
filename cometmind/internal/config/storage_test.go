@@ -8,6 +8,9 @@ func TestEffectiveStorageConfig_DefaultsWhenUnset(t *testing.T) {
 	if got.RetentionDays != 90 {
 		t.Fatalf("retention_days=%d want 90", got.RetentionDays)
 	}
+	if got.DetachedMediaRetentionDays != 30 {
+		t.Fatalf("detached_media_retention_days=%d want 30", got.DetachedMediaRetentionDays)
+	}
 	if got.CleanupIntervalMinutes != 60 {
 		t.Fatalf("cleanup_interval_minutes=%d want 60", got.CleanupIntervalMinutes)
 	}
@@ -81,6 +84,9 @@ func TestAdaptStorageConfig_OmittedRuntimeKeysGetDefaults(t *testing.T) {
 	if got.ToolOutputRetentionDays != 7 {
 		t.Fatalf("tool_output_retention_days=%d want 7", got.ToolOutputRetentionDays)
 	}
+	if got.DetachedMediaRetentionDays != 30 {
+		t.Fatalf("detached_media_retention_days=%d want 30", got.DetachedMediaRetentionDays)
+	}
 	if got.AgentTmpRetentionDays != 3 {
 		t.Fatalf("agent_tmp_retention_days=%d want 3", got.AgentTmpRetentionDays)
 	}
@@ -89,15 +95,19 @@ func TestAdaptStorageConfig_OmittedRuntimeKeysGetDefaults(t *testing.T) {
 func TestAdaptStorageConfig_ExplicitZeroDisables(t *testing.T) {
 	zero := 0
 	got := adaptStorageConfig(cometlineStorageJSON{
-		RetentionDays:           90,
-		VacuumAfterPurge:        true,
-		ToolOutputRetentionDays: &zero,
-		AgentTmpRetentionDays:   &zero,
+		RetentionDays:              90,
+		VacuumAfterPurge:           true,
+		ToolOutputRetentionDays:    &zero,
+		AgentTmpRetentionDays:      &zero,
+		DetachedMediaRetentionDays: &zero,
 	})
 	if got.ToolOutputRetentionDays != 0 {
 		t.Fatalf("tool_output_retention_days=%d want 0", got.ToolOutputRetentionDays)
 	}
 	if got.AgentTmpRetentionDays != 0 {
 		t.Fatalf("agent_tmp_retention_days=%d want 0", got.AgentTmpRetentionDays)
+	}
+	if got.DetachedMediaRetentionDays != 0 {
+		t.Fatalf("detached_media_retention_days=%d want 0", got.DetachedMediaRetentionDays)
 	}
 }

@@ -19,6 +19,7 @@ import (
 type Result struct {
 	SessionsDeleted    int
 	SubagentsDeleted   int
+	MediaDeleted       int
 	MemoriesPurged     int
 	MemoryEventsPurged int
 	JobsPurged         int
@@ -64,6 +65,14 @@ func (r *Runner) Run(ctx context.Context) (Result, error) {
 		out.SubagentsDeleted = sub
 	}
 
+	if cfg.DetachedMediaRetentionEnabled() {
+		n, err := r.Sessions.PurgeDetachedMedia(ctx, cfg.DetachedMediaRetentionDays)
+		if err != nil {
+			return out, err
+		}
+		out.MediaDeleted = n
+	}
+
 	if r.Memory != nil && cfg.MemoryPurgeEnabled() {
 		memories, events, err := r.Memory.PurgeArchived(ctx, cfg.ArchivedMemoryPurgeDays)
 		if err != nil {
@@ -97,7 +106,7 @@ func (r *Runner) Run(ctx context.Context) (Result, error) {
 		out.UsageEventsPurged = n
 	}
 
-	if cfg.VacuumAfterPurge && (out.SessionsDeleted > 0 || out.SubagentsDeleted > 0 || out.MemoriesPurged > 0 || out.JobsPurged > 0 || out.InboxPurged > 0 || out.UsageEventsPurged > 0) {
+	if cfg.VacuumAfterPurge && (out.SessionsDeleted > 0 || out.SubagentsDeleted > 0 || out.MediaDeleted > 0 || out.MemoriesPurged > 0 || out.JobsPurged > 0 || out.InboxPurged > 0 || out.UsageEventsPurged > 0) {
 		if r.VacuumAsync {
 			// VACUUM takes an exclusive lock and rewrites the whole file, so it
 			// can be slow on large databases. On startup we run it in the
@@ -116,10 +125,11 @@ func (r *Runner) Run(ctx context.Context) (Result, error) {
 		}
 	}
 
-	if out.SessionsDeleted > 0 || out.SubagentsDeleted > 0 || out.MemoriesPurged > 0 || out.JobsPurged > 0 || out.InboxPurged > 0 || out.UsageEventsPurged > 0 {
+	if out.SessionsDeleted > 0 || out.SubagentsDeleted > 0 || out.MediaDeleted > 0 || out.MemoriesPurged > 0 || out.JobsPurged > 0 || out.InboxPurged > 0 || out.UsageEventsPurged > 0 {
 		logging.L().Info("retention.complete",
 			"sessions_deleted", out.SessionsDeleted,
 			"subagents_deleted", out.SubagentsDeleted,
+			"media_deleted", out.MediaDeleted,
 			"memories_purged", out.MemoriesPurged,
 			"memory_events_purged", out.MemoryEventsPurged,
 			"jobs_purged", out.JobsPurged,

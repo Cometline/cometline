@@ -69,3 +69,19 @@ RETURNING *;
 UPDATE session_media
 SET workspace_id = ?
 WHERE session_id = ?;
+
+-- name: InitializeDetachedSessionMedia :exec
+UPDATE session_media
+SET detached_at = ?
+WHERE session_id IS NULL
+  AND status = 'ready'
+  AND detached_at = 0;
+
+-- name: ListExpiredDetachedSessionMediaIDs :many
+SELECT id
+FROM session_media
+WHERE session_id IS NULL
+  AND status = 'ready'
+  AND detached_at > 0
+  AND detached_at <= ?
+ORDER BY detached_at ASC;

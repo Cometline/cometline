@@ -1422,6 +1422,30 @@ func (s *Service) DeleteMedia(ctx context.Context, mediaID string) (MediaRecord,
 	return mediaRecordFromDB(updated), nil
 }
 
+// PurgeDetachedMedia deletes files whose owning session has been gone past the retention window.
+func (s *Service) PurgeDetachedMedia(ctx context.Context, retentionDays int) (int, error) {
+	if retentionDays <= 0 {
+		return 0, nil
+	}
+	now := time.Now()
+	if err := s.q.InitializeDetachedSessionMedia(ctx, now.UnixMilli()); err != nil {
+		return 0, err
+	}
+	cutoff := now.Add(-time.Duration(retentionDays) * 24 * time.Hour).UnixMilli()
+	ids, err := s.q.ListExpiredDetachedSessionMediaIDs(ctx, cutoff)
+	if err != nil {
+		return 0, err
+	}
+	deleted := 0
+	for _, mediaID := range ids {
+		if _, err := s.DeleteMedia(ctx, mediaID); err != nil {
+			return deleted, err
+		}
+		deleted++
+	}
+	return deleted, nil
+}
+
 func mediaRecordFromDB(row db.SessionMedia) MediaRecord {
 	var duration *int64
 	if row.DurationMs.Valid {

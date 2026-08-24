@@ -475,3 +475,43 @@ func TestRebuildVersionRollsBackWhenAStatementFails(t *testing.T) {
 		t.Fatalf("user_version = %d, want 29", version)
 	}
 }
+
+func TestEnsureSchemaV35AddsDetachedMediaTimestamp(t *testing.T) {
+	ctx := context.Background()
+	conn, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "migrate-v34.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = conn.Close() })
+	if _, err := conn.ExecContext(ctx, `CREATE TABLE session_media (
+		id TEXT PRIMARY KEY,
+		session_id TEXT,
+		status TEXT NOT NULL DEFAULT 'ready'
+	)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := conn.ExecContext(ctx, `INSERT INTO session_media (id, session_id) VALUES ('media-1', NULL)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := conn.ExecContext(ctx, `PRAGMA user_version = 34`); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := EnsureSchema(ctx, conn); err != nil {
+		t.Fatal(err)
+	}
+	var detachedAt int64
+	if err := conn.QueryRowContext(ctx, `SELECT detached_at FROM session_media WHERE id = 'media-1'`).Scan(&detachedAt); err != nil {
+		t.Fatal(err)
+	}
+	if detachedAt != 0 {
+		t.Fatalf("detached_at=%d want 0", detachedAt)
+	}
+	var version int
+	if err := conn.QueryRowContext(ctx, `PRAGMA user_version`).Scan(&version); err != nil {
+		t.Fatal(err)
+	}
+	if version != schemaVersion {
+		t.Fatalf("user_version=%d want %d", version, schemaVersion)
+	}
+}

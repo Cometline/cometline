@@ -380,11 +380,36 @@ export function createSettingsPanelController(deps: {
 				...deps.getDraft(),
 				app: {
 					...deps.getDraft().app,
-					confirmBeforeDeletingChats: settingsStore.settings.app.confirmBeforeDeletingChats
+					confirmBeforeDeletingChats:
+						settingsStore.settings.app.confirmBeforeDeletingChats
 				}
 			});
 			deps.settingsController.status =
-				err instanceof Error ? err.message : 'Failed to save delete confirmation preference';
+				err instanceof Error
+					? err.message
+					: 'Failed to save delete confirmation preference';
+		}
+	}
+
+	async function setConfirmBeforeDeletingMedia(enabled: boolean) {
+		const draft = deps.getDraft();
+		deps.setDraft({ ...draft, app: { ...draft.app, confirmBeforeDeletingMedia: enabled } });
+		try {
+			await settingsStore.saveConfirmBeforeDeletingMedia(enabled);
+			deps.settingsController.status = enabled
+				? 'Will ask for confirmation before deleting Gallery media.'
+				: 'Gallery media will delete without confirmation.';
+		} catch (err) {
+			deps.setDraft({
+				...deps.getDraft(),
+				app: {
+					...deps.getDraft().app,
+					confirmBeforeDeletingMedia:
+						settingsStore.settings.app.confirmBeforeDeletingMedia
+				}
+			});
+			deps.settingsController.status =
+				err instanceof Error ? err.message : 'Failed to save media delete preference';
 		}
 	}
 
@@ -823,6 +848,7 @@ export function createSettingsPanelController(deps: {
 		openScreenCaptureSettings,
 		setConfirmCloseOnCmdW,
 		setConfirmBeforeDeletingChats,
+		setConfirmBeforeDeletingMedia,
 		setFileSearchSource,
 		save,
 		persistDraftForRuntime,
