@@ -144,9 +144,11 @@
 		display: block;
 		width: 56px;
 		height: 56px;
-		margin: 0 0 14px;
-		border-radius: 14px;
-		object-fit: cover;
+		max-width: none;
+		margin: 0 0 18px;
+		border-radius: 0;
+		filter: drop-shadow(0 3px 4px rgba(15, 23, 42, 0.1))
+			drop-shadow(0 12px 20px rgba(15, 23, 42, 0.16));
 	}
 	h2 {
 		margin: 0;
