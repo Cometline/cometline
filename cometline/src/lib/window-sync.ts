@@ -53,3 +53,12 @@ export function subscribeWindowSync(listener: (message: SyncMessage) => void) {
 	listeners.add(listener);
 	return () => listeners.delete(listener);
 }
+
+/** Deliver a payload as if it came from another renderer. Tests only. */
+export function deliverWindowSyncFromPeer(message: SyncPayload) {
+	const syncMessage = cloneForWindowSync({ source: 'peer-window', ...message });
+	if (!syncMessage) return;
+	for (const listener of listeners) {
+		listener(syncMessage);
+	}
+}

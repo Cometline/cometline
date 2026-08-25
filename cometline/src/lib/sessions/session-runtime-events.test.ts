@@ -32,7 +32,8 @@ function deps(): SessionRuntimeEventDeps {
 		refreshTranscript: vi.fn().mockResolvedValue(undefined),
 		resumeRun: vi.fn().mockResolvedValue(undefined),
 		refreshSession: vi.fn().mockResolvedValue(session('session-1')),
-		updateSession: vi.fn()
+		updateSession: vi.fn(),
+		isStreamingFor: vi.fn().mockReturnValue(false)
 	};
 }
 
@@ -61,6 +62,18 @@ describe('applySessionRuntimeEvent', () => {
 		await applySessionRuntimeEvent({ type: 'run_started', session_id: 'session-1' }, target);
 
 		expect(order).toEqual(['refresh', 'resume']);
+	});
+
+	it('does not attach when this window already has a live stream', async () => {
+		const target = deps();
+		vi.mocked(target.getActiveSessionId).mockReturnValue('session-1');
+		vi.mocked(target.isStreamingFor!).mockReturnValue(true);
+
+		await applySessionRuntimeEvent({ type: 'run_started', session_id: 'session-1' }, target);
+
+		expect(target.setRunning).toHaveBeenCalledWith('session-1', true);
+		expect(target.refreshTranscript).not.toHaveBeenCalled();
+		expect(target.resumeRun).not.toHaveBeenCalled();
 	});
 
 	it('does not follow a run for a session that is not open', async () => {
@@ -114,6 +127,21 @@ describe('reconcileActiveSession', () => {
 		);
 		expect(target.refreshTranscript).toHaveBeenCalledWith('session-1');
 		expect(target.resumeRun).toHaveBeenCalledWith('session-1');
+	});
+
+	it('does not attach a second stream when the session is already live', async () => {
+		const target = deps();
+		vi.mocked(target.getActiveSessionId).mockReturnValue('session-1');
+		vi.mocked(target.refreshSession).mockResolvedValue({
+			...session('session-1'),
+			running: true
+		});
+		vi.mocked(target.isStreamingFor!).mockReturnValue(true);
+
+		await reconcileActiveSession(target);
+
+		expect(target.refreshTranscript).not.toHaveBeenCalled();
+		expect(target.resumeRun).not.toHaveBeenCalled();
 	});
 
 	it('does nothing when no session is open', async () => {
