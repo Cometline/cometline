@@ -511,6 +511,31 @@ describe('chatStore session switching', () => {
 		releaseA!();
 	});
 
+	it('applies streamed text immediately without waiting for animation frames', async () => {
+		vi.stubGlobal('requestAnimationFrame', () => 1);
+		let release: (() => void) | undefined;
+		const gate = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		vi.mocked(streamMessage).mockImplementation(async function* () {
+			yield { type: 'text_delta', delta: 'hello ' };
+			await gate;
+			yield { type: 'done' };
+		});
+
+		chatStore.bindSession('sess-a');
+		void chatStore.send('sess-a', 'prompt');
+		await vi.waitFor(() => {
+			expect(
+				chatStore.items.some(
+					(item) => item.type === 'assistant' && item.text.includes('hello')
+				)
+			).toBe(true);
+		});
+
+		release!();
+	});
+
 	it('does not replace a local live stream with a peer window snapshot', async () => {
 		let release: (() => void) | undefined;
 		const gate = new Promise<void>((resolve) => {

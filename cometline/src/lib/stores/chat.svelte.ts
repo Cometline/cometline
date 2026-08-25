@@ -28,11 +28,7 @@ import { homeRouteFor } from '$lib/routes/session-route';
 import { unreadSessionOutputStore } from '$lib/stores/unread-session-output.svelte';
 
 import { itemsFromTranscript, localID, mergeSubagents } from '$lib/stores/chat-transcript';
-import {
-	BATCHABLE_STREAM_EVENTS,
-	type SessionStream,
-	type StreamCtx
-} from '$lib/stores/chat-stream-types';
+import { type SessionStream, type StreamCtx } from '$lib/stores/chat-stream-types';
 
 export type { ChatItem } from '$lib/types';
 
@@ -65,7 +61,9 @@ function createChatStore() {
 	let failedRunSessionIds = $state.raw<Set<string>>(new Set());
 	let contextBudget = $state.raw<ContextBudgetSnapshot | null>(null);
 
-	const BATCHABLE_EVENTS = BATCHABLE_STREAM_EVENTS;
+	const CHAT_ITEMS_BROADCAST_MS = 64;
+	const pendingChatItemsBroadcast = new Map<string, ChatItem[]>();
+	const chatItemsBroadcastTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 	function isAbortError(err: unknown) {
 		return err instanceof DOMException && err.name === 'AbortError';
@@ -121,6 +119,30 @@ function createChatStore() {
 		}
 	}
 
+	function flushChatItemsBroadcast(targetSessionID: string) {
+		const timer = chatItemsBroadcastTimers.get(targetSessionID);
+		if (timer) {
+			clearTimeout(timer);
+			chatItemsBroadcastTimers.delete(targetSessionID);
+		}
+		const nextItems = pendingChatItemsBroadcast.get(targetSessionID);
+		if (!nextItems) return;
+		pendingChatItemsBroadcast.delete(targetSessionID);
+		publishWindowSync({ type: 'chat-items', sessionId: targetSessionID, items: nextItems });
+	}
+
+	function scheduleChatItemsBroadcast(targetSessionID: string, nextItems: ChatItem[]) {
+		pendingChatItemsBroadcast.set(targetSessionID, nextItems);
+		if (chatItemsBroadcastTimers.has(targetSessionID)) return;
+		chatItemsBroadcastTimers.set(
+			targetSessionID,
+			setTimeout(() => {
+				chatItemsBroadcastTimers.delete(targetSessionID);
+				flushChatItemsBroadcast(targetSessionID);
+			}, CHAT_ITEMS_BROADCAST_MS)
+		);
+	}
+
 	function writeSessionItems(
 		targetSessionID: string,
 		nextItems: ChatItem[],
@@ -131,9 +153,7 @@ function createChatStore() {
 		if (sessionID === targetSessionID) {
 			items = nextItems;
 		}
-		if (broadcast) {
-			publishWindowSync({ type: 'chat-items', sessionId: targetSessionID, items: nextItems });
-		}
+		if (broadcast) scheduleChatItemsBroadcast(targetSessionID, nextItems);
 	}
 
 	function discardMissingSession(targetSessionID: string) {
@@ -169,7 +189,12 @@ function createChatStore() {
 		if (localStreamingSessionIds.delete(targetSessionID)) {
 			refreshStreamingState();
 		}
+		flushChatItemsBroadcast(targetSessionID);
 		publishWindowSync({ type: 'chat-streaming', sessionId: targetSessionID, streaming: false });
+	}
+
+	function hasLocalStream(targetSessionID: string) {
+		return streamHandles.has(targetSessionID);
 	}
 
 	function setRemoteStreamingState(targetSessionID: string, streaming: boolean) {
@@ -257,10 +282,6 @@ function createChatStore() {
 
 	function detachActiveSession() {
 		if (sessionID) {
-			const handle = streamHandles.get(sessionID);
-			if (handle) {
-				flushBatchForSession(sessionID, handle.ctx, handle);
-			}
 			sessionCache.set(sessionID, getCachedItems(sessionID));
 		}
 		loadRun += 1;
@@ -307,10 +328,6 @@ function createChatStore() {
 		}
 
 		if (sessionID) {
-			const handle = streamHandles.get(sessionID);
-			if (handle) {
-				flushBatchForSession(sessionID, handle.ctx, handle);
-			}
 			sessionCache.set(sessionID, getCachedItems(sessionID));
 		}
 
@@ -334,10 +351,6 @@ function createChatStore() {
 		const switchingSession = sessionID !== nextSessionID;
 		if (switchingSession) {
 			if (sessionID) {
-				const handle = streamHandles.get(sessionID);
-				if (handle) {
-					flushBatchForSession(sessionID, handle.ctx, handle);
-				}
 				sessionCache.set(sessionID, getCachedItems(sessionID));
 			}
 			sessionID = nextSessionID;
@@ -521,47 +534,6 @@ function createChatStore() {
 		}
 	}
 
-	function flushBatchForSession(targetSessionID: string, ctx: StreamCtx, handle: SessionStream) {
-		if (handle.pendingBatchEvents.length === 0) return;
-		const batch = handle.pendingBatchEvents;
-		handle.pendingBatchEvents = [];
-		for (const event of batch) {
-			applyEventToSession(targetSessionID, event, ctx);
-		}
-	}
-
-	function scheduleBatchForSession(
-		targetSessionID: string,
-		event: StreamEvent,
-		ctx: StreamCtx,
-		handle: SessionStream
-	) {
-		handle.pendingBatchEvents.push(event);
-		if (handle.batchFrame) return;
-		handle.batchFrame = requestAnimationFrame(() => {
-			handle.batchFrame = 0;
-			const current = streamHandles.get(targetSessionID);
-			if (!current || current.run !== handle.run) return;
-			flushBatchForSession(targetSessionID, ctx, handle);
-		});
-	}
-
-	function applyStreamEventForSession(
-		targetSessionID: string,
-		event: StreamEvent,
-		ctx: StreamCtx,
-		handle: SessionStream
-	) {
-		if (BATCHABLE_EVENTS.has(event.type)) {
-			scheduleBatchForSession(targetSessionID, event, ctx, handle);
-			return;
-		}
-		if (handle.pendingBatchEvents.length > 0) {
-			flushBatchForSession(targetSessionID, ctx, handle);
-		}
-		applyEventToSession(targetSessionID, event, ctx);
-	}
-
 	/** True when the latest user turn left something the user can read. */
 	function turnHasVisibleContent(
 		sessionItems: ChatItem[],
@@ -649,8 +621,6 @@ function createChatStore() {
 		const handle: SessionStream = {
 			run: ++globalStreamRun,
 			abort: new AbortController(),
-			pendingBatchEvents: [],
-			batchFrame: 0,
 			ctx: {
 				assistant: { current: null },
 				reasoning: { current: null }
@@ -707,7 +677,6 @@ function createChatStore() {
 				if (event.type === 'done') {
 					if (!streamDone) {
 						streamDone = true;
-						flushBatchForSession(nextSessionID, ctx, handle);
 						applyEventToSession(nextSessionID, event, ctx);
 						unmarkStreaming(nextSessionID);
 						settleRunFeedback(nextSessionID, streamOutcome);
@@ -715,7 +684,7 @@ function createChatStore() {
 					break;
 				}
 				if (event.type === 'error') streamOutcome = 'error';
-				applyStreamEventForSession(nextSessionID, event, ctx, handle);
+				applyEventToSession(nextSessionID, event, ctx);
 			}
 		} catch (err) {
 			const current = streamHandles.get(nextSessionID);
@@ -735,7 +704,6 @@ function createChatStore() {
 			if (isRunConflict(err)) {
 				const sessionRunning = isSessionRunningConflict(err);
 				if (!sessionRunning) opts?.onConflict?.();
-				flushBatchForSession(nextSessionID, ctx, handle);
 				applyEventToSession(nextSessionID, { type: 'done' }, ctx);
 				unmarkStreaming(nextSessionID);
 				await refreshTranscript(nextSessionID);
@@ -743,18 +711,16 @@ function createChatStore() {
 				return sessionRunning ? 'session_running' : undefined;
 			}
 			streamOutcome = 'error';
-			applyStreamEventForSession(
+			applyEventToSession(
 				nextSessionID,
 				{
 					type: 'error',
 					message: err instanceof Error ? err.message : 'Failed to send message'
 				},
-				ctx,
-				handle
+				ctx
 			);
 		} finally {
 			if (streamHandles.get(nextSessionID) === handle) {
-				flushBatchForSession(nextSessionID, ctx, handle);
 				if (!streamDone) {
 					applyEventToSession(nextSessionID, { type: 'done' }, ctx);
 					unmarkStreaming(nextSessionID);
@@ -773,8 +739,6 @@ function createChatStore() {
 		const handle: SessionStream = {
 			run: ++globalStreamRun,
 			abort: new AbortController(),
-			pendingBatchEvents: [],
-			batchFrame: 0,
 			ctx: {
 				assistant: { current: null },
 				reasoning: { current: null }
@@ -816,7 +780,6 @@ function createChatStore() {
 				}
 				if (event.type === 'done') {
 					streamDone = true;
-					flushBatchForSession(targetSessionID, handle.ctx, handle);
 					applyEventToSession(targetSessionID, event, handle.ctx);
 					unmarkStreaming(targetSessionID);
 					sessionStore.setRunning(targetSessionID, false);
@@ -824,7 +787,7 @@ function createChatStore() {
 					break;
 				}
 				if (event.type === 'error') streamOutcome = 'error';
-				applyStreamEventForSession(targetSessionID, event, handle.ctx, handle);
+				applyEventToSession(targetSessionID, event, handle.ctx);
 			}
 		} catch (err) {
 			const current = streamHandles.get(targetSessionID);
@@ -842,18 +805,16 @@ function createChatStore() {
 				return;
 			}
 			streamOutcome = 'error';
-			applyStreamEventForSession(
+			applyEventToSession(
 				targetSessionID,
 				{
 					type: 'error',
 					message: err instanceof Error ? err.message : 'Failed to resume response'
 				},
-				handle.ctx,
-				handle
+				handle.ctx
 			);
 		} finally {
 			if (streamHandles.get(targetSessionID) === handle) {
-				flushBatchForSession(targetSessionID, handle.ctx, handle);
 				if (!streamDone) {
 					applyEventToSession(targetSessionID, { type: 'done' }, handle.ctx);
 					unmarkStreaming(targetSessionID);
@@ -961,6 +922,7 @@ function createChatStore() {
 			return contextBudget;
 		},
 		isStreamingFor,
+		hasLocalStream,
 		hasRunError,
 		hasInFlightTurn,
 		isAwaitingFirstAssistant,

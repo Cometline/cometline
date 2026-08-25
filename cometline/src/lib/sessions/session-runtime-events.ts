@@ -8,6 +8,7 @@ export interface SessionRuntimeEventDeps {
 	refreshSession: (sessionId: string) => Promise<Session>;
 	updateSession: (session: Session) => void;
 	isStreamingFor?: (sessionId: string) => boolean;
+	hasLocalStream?: (sessionId: string) => boolean;
 }
 
 export async function applySessionRuntimeEvent(
@@ -17,7 +18,11 @@ export async function applySessionRuntimeEvent(
 	if (event.type === 'run_started') {
 		deps.setRunning(event.session_id, true);
 		if (deps.getActiveSessionId() !== event.session_id) return true;
-		if (deps.isStreamingFor?.(event.session_id)) return true;
+		if (
+			deps.hasLocalStream?.(event.session_id) ||
+			deps.isStreamingFor?.(event.session_id)
+		)
+			return true;
 		await deps.refreshTranscript(event.session_id);
 		await deps.resumeRun(event.session_id);
 		return true;
@@ -25,7 +30,7 @@ export async function applySessionRuntimeEvent(
 	if (event.type === 'run_finished') {
 		deps.setRunning(event.session_id, false);
 		if (deps.getActiveSessionId() !== event.session_id) return true;
-		if (deps.isStreamingFor?.(event.session_id)) return true;
+		if (deps.hasLocalStream?.(event.session_id)) return true;
 		await deps.refreshTranscript(event.session_id);
 		return true;
 	}
@@ -46,7 +51,7 @@ export async function reconcileActiveSession(deps: SessionRuntimeEventDeps): Pro
 	const latest = await deps.refreshSession(sessionId);
 	if (deps.getActiveSessionId() !== sessionId) return false;
 	deps.updateSession(latest);
-	if (deps.isStreamingFor?.(sessionId)) return true;
+	if (deps.hasLocalStream?.(sessionId) || deps.isStreamingFor?.(sessionId)) return true;
 	await deps.refreshTranscript(sessionId);
 	if (latest.running) {
 		void deps.resumeRun(sessionId).catch(() => undefined);
