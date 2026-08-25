@@ -33,7 +33,8 @@ function deps(): SessionRuntimeEventDeps {
 		resumeRun: vi.fn().mockResolvedValue(undefined),
 		refreshSession: vi.fn().mockResolvedValue(session('session-1')),
 		updateSession: vi.fn(),
-		isStreamingFor: vi.fn().mockReturnValue(false)
+		isStreamingFor: vi.fn().mockReturnValue(false),
+		hasLocalStream: vi.fn().mockReturnValue(false)
 	};
 }
 
@@ -94,6 +95,27 @@ describe('applySessionRuntimeEvent', () => {
 
 		expect(target.refreshTranscript).toHaveBeenCalledWith('session-1');
 		expect(target.resumeRun).not.toHaveBeenCalled();
+	});
+
+	it('still reloads when only a peer window is streaming', async () => {
+		const target = deps();
+		vi.mocked(target.getActiveSessionId).mockReturnValue('session-1');
+		vi.mocked(target.isStreamingFor!).mockReturnValue(true);
+		vi.mocked(target.hasLocalStream!).mockReturnValue(false);
+
+		await applySessionRuntimeEvent({ type: 'run_finished', session_id: 'session-1' }, target);
+
+		expect(target.refreshTranscript).toHaveBeenCalledWith('session-1');
+	});
+
+	it('does not reload while this window still owns the live reduce', async () => {
+		const target = deps();
+		vi.mocked(target.getActiveSessionId).mockReturnValue('session-1');
+		vi.mocked(target.hasLocalStream!).mockReturnValue(true);
+
+		await applySessionRuntimeEvent({ type: 'run_finished', session_id: 'session-1' }, target);
+
+		expect(target.refreshTranscript).not.toHaveBeenCalled();
 	});
 
 	it('reloads transcript and metadata after another process clears a session', async () => {

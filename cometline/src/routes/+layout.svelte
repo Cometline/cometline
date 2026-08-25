@@ -55,7 +55,8 @@
 			resumeRun: chatStore.resumeRun,
 			refreshSession: getSession,
 			updateSession: sessionStore.updateSession,
-			isStreamingFor: chatStore.isStreamingFor
+			isStreamingFor: chatStore.isStreamingFor,
+			hasLocalStream: chatStore.hasLocalStream
 		};
 		const stopRuntimeEvents = startRuntimeEventStream((event) => {
 			void applySessionRuntimeEvent(event, runtimeEventDeps);
