@@ -1,8 +1,22 @@
-import { BrowserWindow, type IpcMainInvokeEvent } from 'electron';
+import { app, BrowserWindow, type IpcMainInvokeEvent } from 'electron';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import pty, { type IPty } from 'node-pty';
+
+import {
+	clearAllTerminalEnv,
+	integrationScriptPath,
+	prepareEnvDir,
+	removeTerminalEnvDir,
+	SESSION_ID_RE,
+	shellIntegrationRoot,
+	shellKind,
+	spawnArgs,
+	writeBashRc,
+	writeZshDotDir,
+	zshDotDir
+} from './terminal-env.js';
 
 const BUFFER_MAX_CHARS = 2_000_000;
 const MIN_COLS = 2;
@@ -38,6 +52,7 @@ export interface TerminalCreateInput {
 
 export function createTerminalManager(getMainWindow: () => BrowserWindow | null) {
 	const sessions = new Map<string, TerminalEntry>();
+	clearAllTerminalEnv();
 
 	const dimensions = (input: Pick<TerminalCreateInput, 'cols' | 'rows'> = {}) => {
 		const cols = Number.isInteger(input.cols) ? (input.cols ?? 80) : 80;
@@ -70,7 +85,7 @@ export function createTerminalManager(getMainWindow: () => BrowserWindow | null)
 	const requireInput = (event: IpcMainInvokeEvent, sessionId: unknown) => {
 		if (!isMainWindowSender(event))
 			throw new Error('Terminal access is only available in the main window');
-		if (typeof sessionId !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(sessionId)) {
+		if (typeof sessionId !== 'string' || !SESSION_ID_RE.test(sessionId)) {
 			throw new Error('Invalid terminal session id');
 		}
 	};
@@ -93,10 +108,48 @@ export function createTerminalManager(getMainWindow: () => BrowserWindow | null)
 		return '/bin/zsh';
 	};
 
+	const integrationRoot = () =>
+		shellIntegrationRoot(app.isPackaged, process.resourcesPath, app.getAppPath());
+
+	const spawnEnv = (
+		kind: ReturnType<typeof shellKind>,
+		envDir: string,
+		zshWrapperReady: boolean
+	) => {
+		const env: NodeJS.ProcessEnv = {
+			...process.env,
+			TERM: 'xterm-256color',
+			TERM_PROGRAM: 'Cometline',
+			COMETLINE_ENV_DIR: envDir
+		};
+		if (kind !== 'zsh' || !zshWrapperReady) return env;
+		const zdot = zshDotDir(envDir);
+		env.COMETLINE_ZDOTDIR = zdot;
+		env.COMETLINE_USER_ZDOTDIR = process.env.ZDOTDIR || os.homedir();
+		env.ZDOTDIR = zdot;
+		return env;
+	};
+
 	const appendOutput = (entry: TerminalEntry, data: string) => {
 		entry.output += data;
 		if (entry.output.length > BUFFER_MAX_CHARS)
 			entry.output = entry.output.slice(-BUFFER_MAX_CHARS);
+	};
+
+	const prepareEnvCapture = (sessionId: string, shellPath: string) => {
+		const envDir = prepareEnvDir(sessionId);
+		const kind = shellKind(shellPath);
+		const script = integrationScriptPath(integrationRoot(), shellPath);
+		const scriptReady = Boolean(script && fs.existsSync(script));
+		let bashRc: string | null = null;
+		let zshWrapperReady = false;
+		if (kind === 'zsh' && scriptReady) {
+			writeZshDotDir(envDir, script);
+			zshWrapperReady = true;
+		} else if (kind === 'bash' && scriptReady) {
+			bashRc = writeBashRc(envDir, script);
+		}
+		return { envDir, kind, bashRc, zshWrapperReady };
 	};
 
 	const create = (sessionId: string, workspacePath: string, input: TerminalCreateInput) => {
@@ -115,12 +168,13 @@ export function createTerminalManager(getMainWindow: () => BrowserWindow | null)
 
 		const size = dimensions(input);
 		const shellPath = shell();
-		const processHandle = pty.spawn(shellPath, ['-l'], {
+		const capture = prepareEnvCapture(sessionId, shellPath);
+		const processHandle = pty.spawn(shellPath, spawnArgs(capture.kind, capture.bashRc), {
 			name: 'xterm-256color',
 			cols: size.cols,
 			rows: size.rows,
 			cwd: workspacePath,
-			env: { ...process.env, TERM: 'xterm-256color', TERM_PROGRAM: 'Cometline' }
+			env: spawnEnv(capture.kind, capture.envDir, capture.zshWrapperReady)
 		});
 		const entry: TerminalEntry = {
 			sessionId,
@@ -140,6 +194,7 @@ export function createTerminalManager(getMainWindow: () => BrowserWindow | null)
 			entry.status = 'exited';
 			entry.exitCode = exitCode;
 			entry.process = null;
+			removeTerminalEnvDir(sessionId);
 			send('cometline:terminal-exit', snapshot(entry));
 			sessions.delete(sessionId);
 		});
@@ -156,6 +211,7 @@ export function createTerminalManager(getMainWindow: () => BrowserWindow | null)
 				console.warn(`Failed to terminate terminal for session ${sessionId}:`, error);
 			}
 		}
+		removeTerminalEnvDir(sessionId);
 		if (remove) sessions.delete(sessionId);
 		return true;
 	};
@@ -169,6 +225,7 @@ export function createTerminalManager(getMainWindow: () => BrowserWindow | null)
 		terminate,
 		terminateAll: () => {
 			for (const sessionId of sessions.keys()) terminate(sessionId, true);
+			clearAllTerminalEnv();
 		},
 		write: (sessionId: string, data: string) => {
 			const entry = sessions.get(sessionId);
