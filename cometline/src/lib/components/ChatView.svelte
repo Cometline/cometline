@@ -25,6 +25,7 @@
 	import { startJobInSession } from '$lib/jobs/start-job-in-chat';
 	import type { JobResource } from '$lib/client/cometmind';
 	import { createChatViewController } from '$lib/conversation/chat-view-controller.svelte';
+	import { shouldApplyComposerFocus } from '$lib/conversation/composer-focus';
 	import { PanelLeftClose, PanelLeftOpen } from '@lucide/svelte';
 	import { miniShellStore } from '$lib/stores/mini-shell.svelte';
 	import { composerHistoryStore } from '$lib/stores/composer-history.svelte';
@@ -161,6 +162,7 @@
 	let composerVariant = $derived(chatView.composerVariant);
 	let heroLayout = $derived(chatView.heroLayout);
 	let composerFocusRequest = $derived(shellStore.composerFocusRequest);
+	let lastAppliedComposerFocusId = $state(0);
 	let sessionRunActive = $derived(
 		chatStore.isStreamingFor(sessionId) ||
 			(sessionStore.sessions.find((session) => session.id === sessionId)?.running ?? false)
@@ -272,11 +274,16 @@
 
 	$effect(() => {
 		if (
-			!composerFocusRequest.id ||
-			composerFocusRequest.sessionId !== sessionId ||
-			shellStore.focusedPane !== 'chat'
+			!shouldApplyComposerFocus({
+				requestId: composerFocusRequest.id,
+				requestSessionId: composerFocusRequest.sessionId,
+				sessionId,
+				focusedPane: shellStore.focusedPane,
+				lastAppliedRequestId: lastAppliedComposerFocusId
+			})
 		)
 			return;
+		lastAppliedComposerFocusId = composerFocusRequest.id;
 		composerRef?.focus();
 	});
 

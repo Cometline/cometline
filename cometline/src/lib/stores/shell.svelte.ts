@@ -873,7 +873,16 @@ function createShellStore() {
 			sessionFindRequestId += 1;
 		},
 		onActiveSessionChange() {
-			focusedPane = 'chat';
+			const sessionId = activeSessionId();
+			if (
+				sessionId &&
+				workspacePanelSurfaceBySession[sessionId] === 'terminal' &&
+				terminalPanelsBySession[sessionId]
+			) {
+				focusedPane = 'terminal';
+			} else {
+				focusedPane = 'chat';
+			}
 			syncWorkspacePanelOpenForActiveSession();
 		},
 		openWorkspacePanelUrl(url: string, sessionId: string) {
