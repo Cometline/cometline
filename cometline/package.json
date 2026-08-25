@@ -169,6 +169,10 @@
 			{
 				"from": "buildResources/trayTemplate.png",
 				"to": "trayTemplate.png"
+			},
+			{
+				"from": "electron/resources/shell-integration",
+				"to": "shell-integration"
 			}
 		]
 	}

@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/bmatcuk/doublestar/v4"
+	"github.com/cometline/cometmind/internal/paths"
 	"github.com/cometline/cometmind/internal/process"
 )
 
@@ -100,6 +101,7 @@ func grepRipgrep(ctx context.Context, workspaceRoot, searchRel, pattern, include
 	if include != "" {
 		args = append(args, "--glob", include)
 	}
+	args = append(args, "--glob", "!terminal-env/**")
 	args = append(args, pattern)
 
 	rgTarget := "."
@@ -261,6 +263,13 @@ func filterGrepOutput(workspaceRoot, text string) string {
 			continue
 		}
 		if grepPathHasSkippedDir(path) {
+			continue
+		}
+		abs := path
+		if !filepath.IsAbs(abs) {
+			abs = filepath.Join(workspaceRoot, abs)
+		}
+		if paths.IsTerminalEnvPath(abs) {
 			continue
 		}
 		filtered = append(filtered, line)

@@ -6,16 +6,19 @@ import (
 	"io"
 	"strings"
 	"sync"
+
+	"github.com/cometline/cometmind/internal/process"
 )
 
 // RunOptions configures one delegated coding-harness run.
 type RunOptions struct {
-	ChildSessionID string
-	WorkspaceRoot  string
-	Task           string
-	Context        string
-	VerifyCommand  string
-	OnProgress     func(ProgressUpdate)
+	ChildSessionID  string
+	ParentSessionID string
+	WorkspaceRoot   string
+	Task            string
+	Context         string
+	VerifyCommand   string
+	OnProgress      func(ProgressUpdate)
 }
 
 // SessionManager keeps active CLI processes keyed by child session ID.
@@ -58,6 +61,7 @@ func (m *SessionManager) Run(ctx context.Context, opts RunOptions) (TaskResult, 
 	if cfg.Timeout > 0 {
 		runCtx, cancel = context.WithTimeout(ctx, cfg.Timeout)
 	}
+	runCtx = process.WithSessionID(runCtx, opts.ParentSessionID)
 	defer cancel()
 
 	promptText := opts.Task

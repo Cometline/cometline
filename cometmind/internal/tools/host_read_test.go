@@ -105,6 +105,54 @@ func TestReadFileWorkspaceSymlinkToExternal(t *testing.T) {
 	}
 }
 
+func TestListDirHidesTerminalEnv(t *testing.T) {
+	data := t.TempDir()
+	t.Setenv("COMETMIND_DATA_DIR", data)
+	if err := os.MkdirAll(filepath.Join(data, "terminal-env", "sess"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(data, "visible.txt"), []byte("ok"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	tool := ListDir{Workspace: Workspace{Root: t.TempDir()}}
+	res, err := tool.Execute(context.Background(), json.RawMessage(`{"path":`+quoteJSON(t, data)+`}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.OK || !strings.Contains(res.Output, "visible.txt") {
+		t.Fatalf("list result = %+v", res)
+	}
+	if strings.Contains(res.Output, "terminal-env") {
+		t.Fatalf("terminal-env leaked: %s", res.Output)
+	}
+}
+
+func TestGlobSkipsTerminalEnv(t *testing.T) {
+	data := t.TempDir()
+	t.Setenv("COMETMIND_DATA_DIR", data)
+	envFile := filepath.Join(data, "terminal-env", "sess", "environ")
+	if err := os.MkdirAll(filepath.Dir(envFile), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(envFile, []byte("SECRET=1"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(data, "ok.txt"), []byte("ok"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	tool := Glob{Workspace: Workspace{Root: t.TempDir()}}
+	res, err := tool.Execute(context.Background(), json.RawMessage(`{"pattern":"**/*","path":`+quoteJSON(t, data)+`}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.OK || !strings.Contains(res.Output, "ok.txt") {
+		t.Fatalf("glob result = %+v", res)
+	}
+	if strings.Contains(res.Output, "terminal-env") || strings.Contains(res.Output, "environ") {
+		t.Fatalf("terminal-env leaked: %s", res.Output)
+	}
+}
+
 func TestListDirAbsoluteExternalPath(t *testing.T) {
 	root, external := hostReadFixture(t)
 	tool := ListDir{Workspace: Workspace{Root: root}}

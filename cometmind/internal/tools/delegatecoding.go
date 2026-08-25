@@ -88,11 +88,12 @@ func (d DelegateCodingTask) Execute(ctx context.Context, input json.RawMessage) 
 	}
 
 	runOpts := acp.RunOptions{
-		ChildSessionID: child.ID,
-		WorkspaceRoot:  d.Workspace.Root,
-		Task:           task,
-		Context:        in.Context,
-		VerifyCommand:  in.VerifyCommand,
+		ChildSessionID:  child.ID,
+		ParentSessionID: parentID,
+		WorkspaceRoot:   d.Workspace.Root,
+		Task:            task,
+		Context:         in.Context,
+		VerifyCommand:   in.VerifyCommand,
 		OnProgress: func(u acp.ProgressUpdate) {
 			if emit == nil {
 				return

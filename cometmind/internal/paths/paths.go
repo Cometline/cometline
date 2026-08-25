@@ -188,6 +188,28 @@ func ProcessMetaPath(mode string) (string, error) {
 	return filepath.Join(d, mode+".json"), nil
 }
 
+// TerminalEnvRoot returns ~/.cometmind/terminal-env (not created).
+func TerminalEnvRoot() (string, error) {
+	d, err := DataDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(d, "terminal-env"), nil
+}
+
+// TerminalEnvFile returns ~/.cometmind/terminal-env/{sessionID}/environ.
+// The session id must be a path-safe identifier; the file is not created.
+func TerminalEnvFile(sessionID string) (string, error) {
+	if !ValidSessionID(sessionID) {
+		return "", ErrInvalidSessionID
+	}
+	root, err := TerminalEnvRoot()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(root, sessionID, "environ"), nil
+}
+
 // ProcessReloadResultPath returns the path a long-lived process writes its most
 // recent settings-reload outcome to, so a short-lived CLI invocation (e.g.
 // `cometmind settings reload`) can confirm the reload actually completed

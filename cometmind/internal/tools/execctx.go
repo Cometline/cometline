@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/cometline/cometmind/internal/event"
+	"github.com/cometline/cometmind/internal/process"
 )
 
 type execCtxKey int
@@ -19,7 +20,8 @@ type ProgressFn func(event.Event)
 
 // WithToolSession attaches the active CometMind session id to the tool context.
 func WithToolSession(ctx context.Context, sessionID string) context.Context {
-	return context.WithValue(ctx, execKeySession, sessionID)
+	ctx = context.WithValue(ctx, execKeySession, sessionID)
+	return process.WithSessionID(ctx, sessionID)
 }
 
 // ToolSessionFrom returns the active session id when present.

@@ -44,11 +44,18 @@ func (w Workspace) ResolveReadable(rel string) (string, error) {
 	mount, subpath, ok := runtimeMount(rel)
 	if !ok {
 		if filepath.IsAbs(rel) {
-			return filepath.Clean(rel), nil
+			clean := filepath.Clean(rel)
+			if err := rejectPrivateRuntimePath(clean); err != nil {
+				return "", err
+			}
+			return clean, nil
 		}
 		joined := filepath.Clean(filepath.Join(filepath.Clean(w.Root), rel))
 		resolved, err := filepath.EvalSymlinks(joined)
 		if err != nil {
+			return "", err
+		}
+		if err := rejectPrivateRuntimePath(resolved); err != nil {
 			return "", err
 		}
 		return resolved, nil
@@ -87,6 +94,9 @@ func (w Workspace) ResolveSearchRoot(rel string) (root, displayPrefix string, er
 	if !IsRuntimePath(rel) {
 		if filepath.IsAbs(rel) {
 			clean := filepath.Clean(rel)
+			if err := rejectPrivateRuntimePath(clean); err != nil {
+				return "", "", err
+			}
 			return clean, clean, nil
 		}
 		root, err = w.Resolve(rel)
@@ -133,6 +143,13 @@ func MountDocs() string {
 func IsRuntimePath(rel string) bool {
 	_, _, ok := runtimeMount(rel)
 	return ok
+}
+
+func rejectPrivateRuntimePath(abs string) error {
+	if paths.IsTerminalEnvPath(abs) {
+		return fmt.Errorf("path is private")
+	}
+	return nil
 }
 
 func runtimeMount(rel string) (mount, subpath string, ok bool) {
