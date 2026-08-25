@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cometline/cometmind/internal/paths"
 	"github.com/cometline/cometmind/internal/process"
 )
 
@@ -59,6 +60,9 @@ func (r RunCommand) Execute(ctx context.Context, input json.RawMessage) (Result,
 	if err := denylistCheck(command); err != nil {
 		return Result{OK: false, Output: err.Error()}, nil
 	}
+	if paths.CommandMentionsTerminalEnv(command) {
+		return Result{OK: false, Output: "path is private"}, nil
+	}
 	if _, err := r.Workspace.Resolve("."); err != nil {
 		return Result{}, err
 	}
@@ -86,10 +90,11 @@ func (r RunCommand) Execute(ctx context.Context, input json.RawMessage) (Result,
 
 	cmd := exec.CommandContext(cmdCtx, "sh", "-c", command) //nolint:gosec
 	cmd.Dir = root
-	cmd.Env = process.Env()
+	env := process.EnvForSession(process.SessionIDFrom(ctx))
+	cmd.Env = env
 
 	out, err := cmd.CombinedOutput()
-	text := boundToolOutput(string(out))
+	text := boundToolOutput(process.RedactSecretValues(string(out), env))
 
 	var exit *int
 	if err != nil {

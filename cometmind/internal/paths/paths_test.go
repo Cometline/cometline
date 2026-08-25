@@ -1,6 +1,7 @@
 package paths
 
 import (
+	"errors"
 	"path/filepath"
 	"testing"
 )
@@ -49,6 +50,54 @@ func TestProcessPathsUseDataDir(t *testing.T) {
 	}
 	if desktopPath != filepath.Join(override, "cometline-desktop.json") {
 		t.Fatalf("desktop path = %q", desktopPath)
+	}
+}
+
+func TestTerminalEnvFileUsesDataDir(t *testing.T) {
+	override := filepath.Join(t.TempDir(), "state")
+	t.Setenv("COMETMIND_DATA_DIR", override)
+
+	got, err := TerminalEnvFile("sess_abc")
+	if err != nil {
+		t.Fatalf("TerminalEnvFile() error = %v", err)
+	}
+	if got != filepath.Join(override, "terminal-env", "sess_abc", "environ") {
+		t.Fatalf("TerminalEnvFile() = %q", got)
+	}
+}
+
+func TestTerminalEnvFileRejectsUnsafeID(t *testing.T) {
+	if _, err := TerminalEnvFile("../etc"); !errors.Is(err, ErrInvalidSessionID) {
+		t.Fatalf("err = %v, want ErrInvalidSessionID", err)
+	}
+}
+
+func TestIsTerminalEnvPath(t *testing.T) {
+	override := filepath.Join(t.TempDir(), "state")
+	t.Setenv("COMETMIND_DATA_DIR", override)
+	file := filepath.Join(override, "terminal-env", "sess_abc", "environ")
+	if !IsTerminalEnvPath(file) {
+		t.Fatal("expected env file to be private")
+	}
+	if !IsTerminalEnvPath(filepath.Join(override, "terminal-env")) {
+		t.Fatal("expected env root to be private")
+	}
+	if IsTerminalEnvPath(filepath.Join(override, "tool-output", "x.txt")) {
+		t.Fatal("tool-output should not be treated as terminal-env")
+	}
+}
+
+func TestCommandMentionsTerminalEnv(t *testing.T) {
+	override := filepath.Join(t.TempDir(), "state")
+	t.Setenv("COMETMIND_DATA_DIR", override)
+	if !CommandMentionsTerminalEnv("cat " + filepath.Join(override, "terminal-env", "sess", "environ")) {
+		t.Fatal("expected absolute snapshot path to be detected")
+	}
+	if !CommandMentionsTerminalEnv("cat ~/.cometmind/terminal-env/sess/environ") {
+		t.Fatal("expected home-relative snapshot path to be detected")
+	}
+	if CommandMentionsTerminalEnv("echo hello") {
+		t.Fatal("plain command should not match")
 	}
 }
 

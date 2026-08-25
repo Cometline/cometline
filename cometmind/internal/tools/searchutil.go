@@ -10,14 +10,16 @@ import (
 	"time"
 
 	gitignore "github.com/sabhiram/go-gitignore"
+
+	"github.com/cometline/cometmind/internal/paths"
 )
 
 const (
-	globMaxFiles        = 100
-	grepMaxOutputChars  = 12000
-	grepTimeout         = 60 * time.Second
-	searchMaxVisited    = 250_000
-	searchWalkTimeout   = 90 * time.Second
+	globMaxFiles       = 100
+	grepMaxOutputChars = 12000
+	grepTimeout        = 60 * time.Second
+	searchMaxVisited   = 250_000
+	searchWalkTimeout  = 90 * time.Second
 )
 
 // errSearchBudget stops a recursive search when the visited-entry budget is
@@ -125,6 +127,13 @@ func walkSearchableFiles(ctx context.Context, workspaceRoot, searchRoot string, 
 
 		name := d.Name()
 		if strings.HasPrefix(name, ".") {
+			if d.IsDir() {
+				return fs.SkipDir
+			}
+			return nil
+		}
+
+		if paths.IsTerminalEnvPath(path) {
 			if d.IsDir() {
 				return fs.SkipDir
 			}

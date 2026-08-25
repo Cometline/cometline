@@ -133,9 +133,10 @@ func (c *cmdWaitCloser) Close() error {
 func runVerifyCommand(ctx context.Context, workspaceRoot, command string) (string, error) {
 	cmd := exec.CommandContext(ctx, "sh", "-c", command) //nolint:gosec // delegated verify step
 	cmd.Dir = workspaceRoot
-	cmd.Env = process.Env()
+	env := process.EnvForSession(process.SessionIDFrom(ctx))
+	cmd.Env = env
 	out, err := cmd.CombinedOutput()
-	text := string(out)
+	text := process.RedactSecretValues(string(out), env)
 	if err != nil {
 		return text, err
 	}

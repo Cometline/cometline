@@ -5,7 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
+
+	"github.com/cometline/cometmind/internal/paths"
 )
 
 // ListDir lists non-hidden entries one level under a path. Relative paths
@@ -51,6 +54,9 @@ func (l ListDir) Execute(ctx context.Context, input json.RawMessage) (Result, er
 	for _, e := range ents {
 		name := e.Name()
 		if strings.HasPrefix(name, ".") {
+			continue
+		}
+		if paths.IsTerminalEnvPath(filepath.Join(p, name)) {
 			continue
 		}
 		if e.IsDir() {

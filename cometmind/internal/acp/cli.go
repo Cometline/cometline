@@ -40,7 +40,7 @@ func defaultCLIProcessStarter(
 
 	cmd := exec.CommandContext(ctx, command, args...)
 	cmd.Dir = workspaceRoot
-	cmd.Env = process.Env()
+	cmd.Env = process.EnvForSession(process.SessionIDFrom(ctx))
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return nil, nil, nil, err
