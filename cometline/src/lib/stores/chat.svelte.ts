@@ -664,8 +664,8 @@ function createChatStore() {
 		}
 
 		const contexts = messageContextRefsFromWebContexts(payload.webContexts);
-		if (!opts?.skipUser) addUserToSession(nextSessionID, displayText, images, true, contexts);
 		markStreaming(nextSessionID, handle);
+		if (!opts?.skipUser) addUserToSession(nextSessionID, displayText, images, true, contexts);
 
 		const ctx = handle.ctx;
 		const preId = localID('assistant');
@@ -913,6 +913,7 @@ function createChatStore() {
 	if (browser) {
 		subscribeWindowSync((message) => {
 			if (message.type === 'chat-items') {
+				if (streamHandles.has(message.sessionId)) return;
 				// Flight visibility belongs to the sending renderer. Other windows have
 				// no matching particle, so render their copy immediately.
 				writeSessionItems(message.sessionId, revealRemoteUserItems(message.items), {

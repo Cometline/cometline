@@ -475,6 +475,17 @@ describe('shellStore terminal panel visibility', () => {
 		shellStore.clearWorkspacePanelForSession('sess-1');
 	});
 
+	it('keeps the terminal pane focused across active-session churn', () => {
+		shellStore.openTerminalPanel();
+		expect(shellStore.focusedPane).toBe('terminal');
+
+		shellStore.onActiveSessionChange();
+
+		expect(shellStore.focusedPane).toBe('terminal');
+		expect(shellStore.terminalPanelOpen).toBe(true);
+		shellStore.clearWorkspacePanelForSession('sess-1');
+	});
+
 	it('closes the active terminal panel when its shell exits', () => {
 		shellStore.openTerminalPanel();
 

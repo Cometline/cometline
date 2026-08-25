@@ -39,6 +39,7 @@ import { chatStore, revealRemoteUserItems } from './chat.svelte';
 import { sessionStore } from './session.svelte';
 import { unreadSessionOutputStore } from './unread-session-output.svelte';
 import { startNewChat } from '$lib/actions/new-chat';
+import { deliverWindowSyncFromPeer } from '$lib/window-sync';
 
 async function flushAnimationFrames() {
 	await new Promise<void>((resolve) => {
@@ -508,6 +509,68 @@ describe('chatStore session switching', () => {
 		expect(vi.mocked(streamMessage)).toHaveBeenCalledTimes(1);
 
 		releaseA!();
+	});
+
+	it('does not replace a local live stream with a peer window snapshot', async () => {
+		let release: (() => void) | undefined;
+		const gate = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		vi.mocked(streamMessage).mockImplementation(async function* () {
+			yield { type: 'text_delta', delta: 'hello ' };
+			await gate;
+			yield { type: 'text_delta', delta: 'world' };
+			yield { type: 'done' };
+		});
+
+		chatStore.bindSession('sess-a');
+		void chatStore.send('sess-a', 'prompt');
+		await waitForStore(() =>
+			chatStore.items.some(
+				(item) => item.type === 'assistant' && item.text.includes('hello')
+			)
+		);
+
+		const live = chatStore.items.find((item) => item.type === 'assistant');
+		expect(live?.id).toBeTruthy();
+
+		deliverWindowSyncFromPeer({
+			type: 'chat-items',
+			sessionId: 'sess-a',
+			items: [
+				{ id: 'history-0', type: 'user', text: 'prompt' },
+				{
+					id: 'history-assistant-1',
+					type: 'assistant',
+					text: 'hel',
+					pending: true
+				}
+			]
+		});
+
+		const after = chatStore.items.find((item) => item.type === 'assistant');
+		expect(after?.id).toBe(live?.id);
+		expect(after?.text).toContain('hello');
+
+		release!();
+	});
+
+	it('applies peer window snapshots when this window is not streaming', () => {
+		chatStore.bindSession('sess-a');
+		deliverWindowSyncFromPeer({
+			type: 'chat-items',
+			sessionId: 'sess-a',
+			items: [{ id: 'peer-user', type: 'user', text: 'from peer', reveal: false }]
+		});
+
+		expect(chatStore.items).toEqual([
+			expect.objectContaining({
+				id: 'peer-user',
+				type: 'user',
+				text: 'from peer',
+				reveal: true
+			})
+		]);
 	});
 
 	it('replays and follows an already-running session', async () => {
