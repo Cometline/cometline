@@ -136,6 +136,7 @@
 <style>
 	.composer-footer {
 		position: relative;
+		container-type: inline-size;
 		display: flex;
 		align-items: center;
 		gap: 8px;

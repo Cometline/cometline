@@ -328,7 +328,7 @@
 		color: var(--text-muted);
 	}
 
-	@media (max-width: 600px) {
+	@container (max-width: 600px) {
 		.model-picker {
 			position: static;
 		}
