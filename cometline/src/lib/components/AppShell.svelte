@@ -1251,7 +1251,7 @@
 		font-size: 12px;
 		font-weight: 600;
 		letter-spacing: 0.01em;
-		line-height: 1;
+		line-height: 1.25;
 		user-select: none;
 		text-align: center;
 		cursor: default;
