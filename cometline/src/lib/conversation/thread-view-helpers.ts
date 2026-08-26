@@ -17,6 +17,7 @@ export function startsSpeakerRun(
 	for (let i = index - 1; i >= 0; i--) {
 		const previousSpeaker = speakerFor(items[i]);
 		if (!previousSpeaker) continue;
+		if (speaker === 'user' && previousSpeaker === 'user') return true;
 		return previousSpeaker !== speaker;
 	}
 	return true;
