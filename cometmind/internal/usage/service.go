@@ -54,6 +54,7 @@ type Recorded struct {
 	OutputTokens int
 	CacheRead    int
 	CacheWrite   int
+	BilledInput  int
 	EstimatedUSD float64
 	Priced       bool
 }
@@ -68,6 +69,7 @@ type Bucket struct {
 	OutputTokens int
 	CacheRead    int
 	CacheWrite   int
+	BilledInput  int
 	Tokens       int
 	EstimatedUSD float64
 	Priced       bool
@@ -77,6 +79,8 @@ type Bucket struct {
 // Totals is the dashboard KPI set.
 type Totals struct {
 	Tokens         int
+	BilledInput    int
+	CacheRead      int
 	PricedTokens   int
 	UnpricedTokens int
 	EstimatedUSD   float64
@@ -233,7 +237,8 @@ func recordedFromRow(row db.UsageEvent, prices costCache) Recorded {
 	if prices == nil {
 		prices = newCostCache()
 	}
-	usd, priced := prices.price(row.ProviderID, row.ModelID, in, out, cacheRead, cacheWrite)
+	billed := NormalizeUsage(row.ProviderID, in, out, cacheRead, cacheWrite)
+	usd, priced := prices.price(row.ProviderID, row.ModelID, billed.Input, billed.Output, billed.CacheRead, billed.CacheWrite)
 	return Recorded{
 		ID:           row.ID,
 		CreatedAt:    row.CreatedAt,
@@ -246,9 +251,14 @@ func recordedFromRow(row db.UsageEvent, prices costCache) Recorded {
 		OutputTokens: out,
 		CacheRead:    cacheRead,
 		CacheWrite:   cacheWrite,
+		BilledInput:  billed.Input,
 		EstimatedUSD: usd,
 		Priced:       priced,
 	}
+}
+
+func (r Recorded) Billed() BilledUsage {
+	return NormalizeUsage(r.ProviderID, r.InputTokens, r.OutputTokens, r.CacheRead, r.CacheWrite)
 }
 
 func addTokens(b *Bucket, rec Recorded) {
@@ -256,7 +266,8 @@ func addTokens(b *Bucket, rec Recorded) {
 	b.OutputTokens += rec.OutputTokens
 	b.CacheRead += rec.CacheRead
 	b.CacheWrite += rec.CacheWrite
-	tokens := rec.InputTokens + rec.OutputTokens + rec.CacheRead + rec.CacheWrite
+	b.BilledInput += rec.BilledInput
+	tokens := rec.Billed().Tokens()
 	b.Tokens += tokens
 	if rec.Priced {
 		b.EstimatedUSD += rec.EstimatedUSD
@@ -282,8 +293,10 @@ func accumulate(rows []db.UsageEvent) (Totals, []Bucket, []Bucket) {
 	var totals Totals
 	for _, row := range rows {
 		rec := recordedFromRow(row, prices)
-		tokens := rec.InputTokens + rec.OutputTokens + rec.CacheRead + rec.CacheWrite
+		tokens := rec.Billed().Tokens()
 		totals.Tokens += tokens
+		totals.BilledInput += rec.BilledInput
+		totals.CacheRead += rec.CacheRead
 		if rec.Priced {
 			totals.PricedTokens += tokens
 			totals.EstimatedUSD += rec.EstimatedUSD
@@ -419,7 +432,7 @@ func (s *Service) Series(ctx context.Context, from, to int64, workspaceID, group
 		if dayTotals[day] == nil {
 			dayTotals[day] = map[string]int{}
 		}
-		dayTotals[day][key] += rec.InputTokens + rec.OutputTokens + rec.CacheRead + rec.CacheWrite
+		dayTotals[day][key] += rec.Billed().Tokens()
 	}
 	keys := make([]string, 0, len(keySet))
 	for k := range keySet {

@@ -52,10 +52,28 @@ export type UsageSeriesBucket = {
 	provider_id?: string;
 	model_id?: string;
 	call_kind?: string;
+	input_tokens?: number;
+	output_tokens?: number;
+	cache_read?: number;
+	cache_write?: number;
+	billed_input?: number;
 	tokens: number;
 	estimated_usd: number;
 	priced: boolean;
 };
+
+export function cacheHitRate(freshInput: number, cacheRead: number): number | null {
+	const read = Math.max(0, cacheRead);
+	if (read <= 0) return null;
+	const denom = Math.max(0, freshInput) + read;
+	if (denom <= 0) return null;
+	return read / denom;
+}
+
+export function formatCacheHit(rate: number | null): string {
+	if (rate == null) return '—';
+	return `${Math.round(rate * 100)}%`;
+}
 
 export const MAX_RANGE_DAYS = 366;
 
@@ -131,6 +149,7 @@ export type UsageLegendRow = {
 	key: string;
 	label: string;
 	tokens: number;
+	cache: string;
 	cost: string;
 };
 
@@ -142,10 +161,12 @@ export function legendRowsForSeries(
 	const indexed = indexSeriesBuckets(buckets, groupBy);
 	return keys.map((key) => {
 		const bucket = indexed[key];
+		const cacheRead = bucket?.cache_read ?? 0;
 		return {
 			key,
 			label: groupBy === 'kind' ? formatKind(key) : key,
 			tokens: bucket?.tokens ?? 0,
+			cache: cacheRead > 0 ? formatTokens(cacheRead) : '—',
 			cost: formatBucketCost(bucket)
 		};
 	});

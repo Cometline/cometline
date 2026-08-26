@@ -97,6 +97,7 @@ func (a *App) handleListUsageEvents(c *gin.Context) {
 			"output_tokens": item.OutputTokens,
 			"cache_read":    item.CacheRead,
 			"cache_write":   item.CacheWrite,
+			"billed_input":  item.BilledInput,
 			"estimated_usd": item.EstimatedUSD,
 			"priced":        item.Priced,
 		})
@@ -153,6 +154,8 @@ func parseUsageTZOffset(c *gin.Context) (offsetMin int, ok bool) {
 func usageTotalsJSON(t usage.Totals) gin.H {
 	return gin.H{
 		"tokens":          t.Tokens,
+		"billed_input":    t.BilledInput,
+		"cache_read":      t.CacheRead,
 		"priced_tokens":   t.PricedTokens,
 		"unpriced_tokens": t.UnpricedTokens,
 		"estimated_usd":   t.EstimatedUSD,
@@ -171,6 +174,7 @@ func usageBucketsJSON(items []usage.Bucket) []gin.H {
 			"output_tokens":   item.OutputTokens,
 			"cache_read":      item.CacheRead,
 			"cache_write":     item.CacheWrite,
+			"billed_input":    item.BilledInput,
 			"tokens":          item.Tokens,
 			"estimated_usd":   item.EstimatedUSD,
 			"priced":          item.Priced,

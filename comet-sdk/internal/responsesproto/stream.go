@@ -40,15 +40,9 @@ type streamEvent struct {
 	Name      string          `json:"name"`
 	Arguments json.RawMessage `json:"arguments"`
 	Item      outputItem      `json:"item"`
-	Usage     *struct {
-		InputTokens  int `json:"input_tokens"`
-		OutputTokens int `json:"output_tokens"`
-	} `json:"usage"`
-	Response *struct {
-		Usage *struct {
-			InputTokens  int `json:"input_tokens"`
-			OutputTokens int `json:"output_tokens"`
-		} `json:"usage"`
+	Usage     *responseUsage  `json:"usage"`
+	Response  *struct {
+		Usage             *responseUsage `json:"usage"`
 		IncompleteDetails *struct {
 			Reason string `json:"reason"`
 		} `json:"incomplete_details"`
@@ -58,14 +52,43 @@ type streamEvent struct {
 	} `json:"error"`
 }
 
+type responseUsage struct {
+	InputTokens        int `json:"input_tokens"`
+	OutputTokens       int `json:"output_tokens"`
+	InputTokensDetails *struct {
+		CachedTokens        int `json:"cached_tokens"`
+		CacheWriteTokens    int `json:"cache_write_tokens"`
+		CacheCreationTokens int `json:"cache_creation_tokens"`
+	} `json:"input_tokens_details"`
+}
+
+func tokenUsageFrom(u *responseUsage) cometsdk.TokenUsage {
+	if u == nil {
+		return cometsdk.TokenUsage{}
+	}
+	usage := cometsdk.TokenUsage{
+		InputTokens:  u.InputTokens,
+		OutputTokens: u.OutputTokens,
+	}
+	if d := u.InputTokensDetails; d != nil {
+		usage.CacheRead = d.CachedTokens
+		if d.CacheWriteTokens > 0 {
+			usage.CacheWrite = d.CacheWriteTokens
+		} else {
+			usage.CacheWrite = d.CacheCreationTokens
+		}
+	}
+	return usage
+}
+
 type outputItem struct {
-	Type             string        `json:"type"`
-	CallID           string        `json:"call_id"`
-	ID               string        `json:"id"`
-	Name             string        `json:"name"`
+	Type             string          `json:"type"`
+	CallID           string          `json:"call_id"`
+	ID               string          `json:"id"`
+	Name             string          `json:"name"`
 	Arguments        json.RawMessage `json:"arguments"`
-	Summary          []ContentPart `json:"summary"`
-	EncryptedContent string        `json:"encrypted_content"`
+	Summary          []ContentPart   `json:"summary"`
+	EncryptedContent string          `json:"encrypted_content"`
 }
 
 // ParseLoop reads SSE events from body and dispatches typed cometsdk.Events
@@ -223,11 +246,9 @@ func ToSDKEvents(providerID, eventType, data string, state *StreamState) ([]come
 	case "response.completed", "response.incomplete":
 		usage := cometsdk.TokenUsage{}
 		if ev.Usage != nil {
-			usage.InputTokens = ev.Usage.InputTokens
-			usage.OutputTokens = ev.Usage.OutputTokens
+			usage = tokenUsageFrom(ev.Usage)
 		} else if ev.Response != nil && ev.Response.Usage != nil {
-			usage.InputTokens = ev.Response.Usage.InputTokens
-			usage.OutputTokens = ev.Response.Usage.OutputTokens
+			usage = tokenUsageFrom(ev.Response.Usage)
 		}
 		finish := cometsdk.FinishStop
 		if state.sawTool {
