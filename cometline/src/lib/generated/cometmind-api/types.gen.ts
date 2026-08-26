@@ -1308,6 +1308,11 @@ export type ImportMediaRequest = {
 
 export type UsageTotals = {
     tokens: number;
+    /**
+     * Fresh input tokens after cache is split out of inclusive provider totals
+     */
+    billed_input: number;
+    cache_read: number;
     priced_tokens: number;
     unpriced_tokens: number;
     estimated_usd: number;
@@ -1322,6 +1327,10 @@ export type UsageBucket = {
     output_tokens?: number;
     cache_read?: number;
     cache_write?: number;
+    /**
+     * Fresh input tokens after cache is split out of inclusive provider totals
+     */
+    billed_input?: number;
     tokens: number;
     estimated_usd: number;
     priced: boolean;
@@ -1364,6 +1373,10 @@ export type UsageEventResource = {
     output_tokens: number;
     cache_read: number;
     cache_write: number;
+    /**
+     * Fresh input tokens after cache is split out of inclusive provider totals
+     */
+    billed_input: number;
     estimated_usd: number;
     priced: boolean;
 };

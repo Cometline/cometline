@@ -209,6 +209,56 @@ func TestUsageClampRangeAndPurgeOlderThan(t *testing.T) {
 	}
 }
 
+func TestUsageInclusiveCacheDoesNotDoubleCount(t *testing.T) {
+	ctx := context.Background()
+	sqlDB, err := store.OpenSQLite(ctx, ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = sqlDB.Close() })
+	svc := usage.NewService(sqlDB)
+	now := time.Now()
+	from := now.Add(-time.Hour).UnixMilli()
+	to := now.Add(time.Hour).UnixMilli()
+	if err := svc.Record(ctx, usage.Event{
+		ProviderID: "openai",
+		ModelID:    "gpt-4o",
+		CallKind:   usage.KindAgentStep,
+		Usage:      cometsdk.TokenUsage{InputTokens: 1000, OutputTokens: 50, CacheRead: 200},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	summary, err := svc.Summary(ctx, from, to, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if summary.Totals.Tokens != 1050 {
+		t.Fatalf("tokens=%d want 1050 (fresh 800 + cache 200 + out 50)", summary.Totals.Tokens)
+	}
+	if summary.Totals.BilledInput != 800 {
+		t.Fatalf("billed_input=%d want 800", summary.Totals.BilledInput)
+	}
+	if summary.Totals.CacheRead != 200 {
+		t.Fatalf("cache_read=%d want 200", summary.Totals.CacheRead)
+	}
+	if summary.ByModel[0].CacheRead != 200 {
+		t.Fatalf("cache_read=%d", summary.ByModel[0].CacheRead)
+	}
+	if summary.ByModel[0].BilledInput != 800 {
+		t.Fatalf("model billed_input=%d", summary.ByModel[0].BilledInput)
+	}
+	page, err := svc.List(ctx, from, to, "", 10, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if page.Items[0].InputTokens != 1000 || page.Items[0].CacheRead != 200 {
+		t.Fatalf("raw row=%+v", page.Items[0])
+	}
+	if page.Items[0].BilledInput != 800 {
+		t.Fatalf("billed input=%d", page.Items[0].BilledInput)
+	}
+}
+
 func TestUsageRecordSkipsAllZeroTokens(t *testing.T) {
 	ctx := context.Background()
 	sqlDB, err := store.OpenSQLite(ctx, ":memory:")

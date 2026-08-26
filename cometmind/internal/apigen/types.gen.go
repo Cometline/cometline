@@ -2165,6 +2165,8 @@ type UpdateSkillRequest struct {
 
 // UsageBucket defines model for UsageBucket.
 type UsageBucket struct {
+	// BilledInput Fresh input tokens after cache is split out of inclusive provider totals
+	BilledInput    *int    `json:"billed_input,omitempty"`
 	CacheRead      *int    `json:"cache_read,omitempty"`
 	CacheWrite     *int    `json:"cache_write,omitempty"`
 	CallKind       *string `json:"call_kind,omitempty"`
@@ -2181,6 +2183,8 @@ type UsageBucket struct {
 
 // UsageEventResource defines model for UsageEventResource.
 type UsageEventResource struct {
+	// BilledInput Fresh input tokens after cache is split out of inclusive provider totals
+	BilledInput  int     `json:"billed_input"`
 	CacheRead    int     `json:"cache_read"`
 	CacheWrite   int     `json:"cache_write"`
 	CallKind     string  `json:"call_kind"`
@@ -2232,6 +2236,9 @@ type UsageSummaryResponse struct {
 
 // UsageTotals defines model for UsageTotals.
 type UsageTotals struct {
+	// BilledInput Fresh input tokens after cache is split out of inclusive provider totals
+	BilledInput    int     `json:"billed_input"`
+	CacheRead      int     `json:"cache_read"`
 	EstimatedUsd   float32 `json:"estimated_usd"`
 	PricedTokens   int     `json:"priced_tokens"`
 	Tokens         int     `json:"tokens"`

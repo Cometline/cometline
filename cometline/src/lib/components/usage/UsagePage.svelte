@@ -15,6 +15,8 @@
 	import { seriesColor } from '$lib/usage/chart';
 	import { truncateWorkspacePath } from '$lib/jobs/group-jobs';
 	import {
+		cacheHitRate,
+		formatCacheHit,
 		formatEventTime,
 		formatKind,
 		formatRangeLabel,
@@ -56,6 +58,9 @@
 		)
 	);
 	const legendCosts = $derived(Object.fromEntries(legendRows.map((row) => [row.key, row.cost])));
+	const cacheReadTotal = $derived(summary?.totals.cache_read ?? 0);
+	const billedInputTotal = $derived(summary?.totals.billed_input ?? 0);
+	const cacheHit = $derived(formatCacheHit(cacheHitRate(billedInputTotal, cacheReadTotal)));
 
 	async function refresh(nextOffset = 0) {
 		const seq = ++refreshSeq;
@@ -101,12 +106,15 @@
 			);
 			if (!items.length) return;
 			const rows = [
-				['Date', 'Kind', 'Model', 'Tokens', 'Cost'],
+				['Date', 'Kind', 'Model', 'Input', 'Cache read', 'Cache write', 'Output', 'Cost'],
 				...items.map((item) => [
 					new Date(item.created_at).toISOString(),
 					item.call_kind,
 					item.model_id,
-					String(item.input_tokens + item.output_tokens + item.cache_read + item.cache_write),
+					String(item.input_tokens),
+					String(item.cache_read),
+					String(item.cache_write),
+					String(item.output_tokens),
 					item.priced ? item.estimated_usd.toFixed(6) : ''
 				])
 			];
@@ -136,7 +144,10 @@
 </script>
 
 <div class="usage-page settings-ui">
-	<p class="usage-desc">Usage is kept for one year. Older events are removed automatically.</p>
+	<p class="usage-desc">
+		Usage is kept for one year. Estimated cost uses public API rates. Cached input is billed at the
+		cache rate when the provider reports it.
+	</p>
 	<header class="usage-toolbar">
 		<div class="chips" role="group" aria-label="Date range">
 			<button type="button" class:active={preset === 'today'} onclick={() => applyPreset('today')}>Today</button>
@@ -185,6 +196,10 @@
 				<span>Estimated</span>
 			</article>
 			<article>
+				<strong>{cacheReadTotal > 0 ? `${formatTokens(cacheReadTotal)} · ${cacheHit}` : '—'}</strong>
+				<span>Cache read</span>
+			</article>
+			<article>
 				<strong>{formatTokens(summary.totals.unpriced_tokens)}</strong>
 				<span>Unpriced</span>
 			</article>
@@ -209,6 +224,7 @@
 				<div class="legend-head">
 					<span>{groupBy === 'kind' ? 'Kind' : 'Model'}</span>
 					<span>Tokens</span>
+					<span>Cache</span>
 					<span>Cost</span>
 				</div>
 				{#each legendRows as row, index (row.key)}
@@ -218,6 +234,7 @@
 							{row.label}
 						</span>
 						<span class="legend-meta">{formatTokens(row.tokens)}</span>
+						<span class="legend-meta">{row.cache}</span>
 						<span class="legend-meta">{row.cost}</span>
 					</div>
 				{/each}
@@ -236,7 +253,9 @@
 							<th>Date</th>
 							<th>Kind</th>
 							<th>Model</th>
-							<th>Tokens</th>
+							<th>Input</th>
+							<th>Cache</th>
+							<th>Output</th>
 							<th>Cost</th>
 						</tr>
 					</thead>
@@ -246,7 +265,9 @@
 								<td>{formatEventTime(item.created_at)}</td>
 								<td>{formatKind(item.call_kind)}</td>
 								<td>{item.model_id}</td>
-								<td>{formatTokens(item.input_tokens + item.output_tokens + item.cache_read + item.cache_write)}</td>
+								<td>{formatTokens(item.billed_input)}</td>
+								<td>{item.cache_read > 0 ? formatTokens(item.cache_read) : '—'}</td>
+								<td>{formatTokens(item.output_tokens)}</td>
 								<td>{item.priced ? formatUSD(item.estimated_usd) : '—'}</td>
 							</tr>
 						{/each}
@@ -424,7 +445,7 @@
 
 	.kpis {
 		display: grid;
-		grid-template-columns: repeat(3, minmax(0, 1fr));
+		grid-template-columns: repeat(4, minmax(0, 1fr));
 		gap: 12px;
 	}
 
@@ -484,7 +505,7 @@
 	.legend-head,
 	.legend-row {
 		display: grid;
-		grid-template-columns: minmax(0, 1fr) 4.5rem 4.5rem;
+		grid-template-columns: minmax(0, 1fr) 4.5rem 4.5rem 4.5rem;
 		gap: 12px;
 		align-items: center;
 	}
@@ -567,6 +588,7 @@
 		}
 
 		.kpis {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
 			gap: 8px;
 		}
 

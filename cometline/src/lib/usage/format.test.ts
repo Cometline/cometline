@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+	cacheHitRate,
 	clampUsageRange,
+	formatCacheHit,
 	formatKind,
 	formatRangeLabel,
 	formatTokens,
@@ -80,9 +82,20 @@ describe('usage format', () => {
 				'model'
 			)
 		).toEqual([
-			{ key: 'codex/gpt-5.6-luna', label: 'codex/gpt-5.6-luna', tokens: 8800, cost: '$0.12' },
-			{ key: 'xai/grok-4.6', label: 'xai/grok-4.6', tokens: 528800, cost: '—' }
+			{
+				key: 'codex/gpt-5.6-luna',
+				label: 'codex/gpt-5.6-luna',
+				tokens: 8800,
+				cache: '—',
+				cost: '$0.12'
+			},
+			{ key: 'xai/grok-4.6', label: 'xai/grok-4.6', tokens: 528800, cache: '—', cost: '—' }
 		]);
+	});
+
+	it('formats cache hit rate and hides zero as unknown', () => {
+		expect(formatCacheHit(cacheHitRate(800, 200))).toBe('20%');
+		expect(formatCacheHit(cacheHitRate(1000, 0))).toBe('—');
 	});
 
 	it('clamps custom ranges to one year', () => {

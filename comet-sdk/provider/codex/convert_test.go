@@ -134,6 +134,30 @@ func TestConvertEvent_TextToolAndCompleted(t *testing.T) {
 	require.Equal(t, cometsdk.DoneEvent{}, events[1])
 }
 
+func TestConvertEvent_CompletedUsageIncludesCachedTokens(t *testing.T) {
+	state := &responsesproto.StreamState{}
+	events, err := responsesproto.ToSDKEvents(providerID, "", `{
+		"type":"response.completed",
+		"response":{
+			"usage":{
+				"input_tokens":125,
+				"output_tokens":48,
+				"input_tokens_details":{"cached_tokens":98,"cache_write_tokens":4}
+			}
+		}
+	}`, state)
+	require.NoError(t, err)
+	require.Equal(t, cometsdk.StepFinishEvent{
+		FinishReason: cometsdk.FinishStop,
+		Usage: cometsdk.TokenUsage{
+			InputTokens:  125,
+			OutputTokens: 48,
+			CacheRead:    98,
+			CacheWrite:   4,
+		},
+	}, events[0])
+}
+
 func TestConvertEvent_SSEEventTypeFallback(t *testing.T) {
 	state := &responsesproto.StreamState{}
 

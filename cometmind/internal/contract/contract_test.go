@@ -152,6 +152,8 @@ func TestUsageSchemasMatchOpenAPI(t *testing.T) {
 		"to":   2,
 		"totals": map[string]any{
 			"tokens":          10,
+			"billed_input":    6,
+			"cache_read":      2,
 			"priced_tokens":   8,
 			"unpriced_tokens": 2,
 			"estimated_usd":   0.12,
