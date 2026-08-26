@@ -212,7 +212,7 @@
 		align-items: center;
 		gap: 4px;
 		padding: 5px 6px;
-		line-height: 1;
+		line-height: 1.25;
 	}
 
 	.effort-button.active {
@@ -240,7 +240,7 @@
 		overflow: hidden;
 		font-size: 11px;
 		font-weight: 600;
-		line-height: 1;
+		line-height: 1.25;
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
