@@ -32,6 +32,14 @@ describe('startsSpeakerRun', () => {
 	it('returns true when the speaker changes', () => {
 		expect(startsSpeakerRun(items, 1, 'assistant')).toBe(true);
 	});
+
+	it('starts a new run when two user messages are adjacent', () => {
+		const afterCancel: ChatItem[] = [
+			{ id: 'u1', type: 'user', text: 'first' },
+			{ id: 'u2', type: 'user', text: 'second' }
+		];
+		expect(startsSpeakerRun(afterCancel, 1, 'user')).toBe(true);
+	});
 });
 
 describe('timelineEntryKey', () => {
