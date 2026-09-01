@@ -26,12 +26,15 @@ func TestClassifyStreamFailure(t *testing.T) {
 		want streamFailureCategory
 	}{
 		{"timeout", timeoutError{}, streamFailureRecoverable},
+		{"deadline exceeded", context.DeadlineExceeded, streamFailureRecoverable},
 		{"unexpected eof", io.ErrUnexpectedEOF, streamFailureRecoverable},
 		{"connection reset", syscall.ECONNRESET, streamFailureRecoverable},
 		{"cancelled", context.Canceled, streamFailureCancelled},
 		{"auth", &cometsdk.AuthError{ProviderID: "x", StatusCode: 401}, streamFailureAuth},
 		{"http 400", &cometsdk.ServerError{ProviderID: "x", StatusCode: 400}, streamFailureHTTP4xx},
-		{"rate limit", &cometsdk.RateLimitError{ProviderID: "x"}, streamFailureHTTP4xx},
+		{"rate limit", &cometsdk.RateLimitError{ProviderID: "x"}, streamFailureRecoverable},
+		{"gateway timeout", &cometsdk.ServerError{ProviderID: "x", StatusCode: 504, Message: "Gateway Timeout"}, streamFailureRecoverable},
+		{"timeout text", errors.New("upstream timeout"), streamFailureRecoverable},
 		{"other", errors.New("bad response"), streamFailureOther},
 	}
 	for _, tc := range cases {

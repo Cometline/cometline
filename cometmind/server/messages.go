@@ -264,8 +264,8 @@ func userFacingMessageError(raw string) string {
 		strings.Contains(lower, "context cancelled") {
 		return "Response interrupted. Send the message again to continue."
 	}
-	if strings.Contains(lower, "deadline exceeded") {
-		return "The model timed out before finishing. Send the message again to continue."
+	if strings.Contains(lower, "deadline exceeded") || strings.Contains(lower, "timeout") {
+		return "The model timed out before finishing. Send another message to continue from here."
 	}
 	return raw
 }

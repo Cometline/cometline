@@ -1532,7 +1532,7 @@ func TestUserFacingAgentError(t *testing.T) {
 	if got := userFacingAgentError(fmt.Errorf("openai: context canceled")); !strings.Contains(got, "interrupted") {
 		t.Fatalf("wrapped canceled = %q", got)
 	}
-	if got := userFacingAgentError(context.DeadlineExceeded); !strings.Contains(got, "timed out") {
+	if got := userFacingAgentError(context.DeadlineExceeded); got != timeoutContinueHint {
 		t.Fatalf("deadline = %q", got)
 	}
 	if got := userFacingAgentError(fmt.Errorf("provider exploded")); got != "provider exploded" {
@@ -1553,7 +1553,7 @@ func TestRunner_RecoversPartialStreamOnceWithoutPersistingFirstAttempt(t *testin
 		},
 	}}
 	store := &fakeStore{}
-	r := &Runner{Provider: provider, Sessions: store, Registry: tools.NewRegistry(t.TempDir())}
+	r := &Runner{Provider: provider, Sessions: store, Registry: tools.NewRegistry(t.TempDir()), StreamRecoveryBackoff: time.Millisecond}
 
 	events, err := runAndDrain(t, r, session.AgentTurn{ID: "s-recover", ModelID: "m"})
 	if err != nil {
@@ -1576,29 +1576,27 @@ func TestRunner_RecoversPartialStreamOnceWithoutPersistingFirstAttempt(t *testin
 	}
 }
 
-func TestRunner_StopsAfterSecondRecoverableStreamFailureAndPersistsPartial(t *testing.T) {
+func TestRunner_StopsAfterMaxRecoverableStreamFailuresAndPersistsPartial(t *testing.T) {
+	eof := cometsdk.ErrorEvent{Err: &cometsdk.StreamError{ProviderID: "fake", Cause: io.ErrUnexpectedEOF}}
 	provider := &sequentialFakeProvider{sequences: [][]cometsdk.Event{
-		{
-			cometsdk.TextDeltaEvent{Text: "first"},
-			cometsdk.ErrorEvent{Err: &cometsdk.StreamError{ProviderID: "fake", Cause: io.ErrUnexpectedEOF}},
-		},
-		{
-			cometsdk.TextDeltaEvent{Text: "second"},
-			cometsdk.ErrorEvent{Err: &cometsdk.StreamError{ProviderID: "fake", Cause: io.ErrUnexpectedEOF}},
-		},
+		{cometsdk.TextDeltaEvent{Text: "first"}, eof},
+		{cometsdk.TextDeltaEvent{Text: "second"}, eof},
+		{cometsdk.TextDeltaEvent{Text: "third"}, eof},
+		{cometsdk.TextDeltaEvent{Text: "fourth"}, eof},
 	}}
 	store := &fakeStore{}
-	r := &Runner{Provider: provider, Sessions: store, Registry: tools.NewRegistry(t.TempDir())}
+	r := &Runner{Provider: provider, Sessions: store, Registry: tools.NewRegistry(t.TempDir()), StreamRecoveryBackoff: time.Millisecond}
 
 	_, err := runAndDrain(t, r, session.AgentTurn{ID: "s-double-fail", ModelID: "m"})
 	if err == nil {
 		t.Fatal("Run returned nil error")
 	}
-	if provider.calls != 2 {
-		t.Fatalf("Stream called %d times, want 2", provider.calls)
+	wantCalls := maxStreamRecoveryAttempts + 1
+	if provider.calls != wantCalls {
+		t.Fatalf("Stream called %d times, want %d", provider.calls, wantCalls)
 	}
-	if store.appendCalls != 1 || store.appendTexts[0] != "second" {
-		t.Fatalf("partial persistence = calls=%d texts=%q, want second attempt only", store.appendCalls, store.appendTexts)
+	if store.appendCalls != 1 || store.appendTexts[0] != "fourth" {
+		t.Fatalf("partial persistence = calls=%d texts=%q, want last attempt only", store.appendCalls, store.appendTexts)
 	}
 }
 
@@ -1607,7 +1605,7 @@ func TestRunner_DoesNotRecoverAfterCompleteToolCall(t *testing.T) {
 		cometsdk.ToolCallDoneEvent{ID: "tc-1", Name: "list_dir", Input: json.RawMessage(`{"path":"."}`)},
 		cometsdk.ErrorEvent{Err: &cometsdk.StreamError{ProviderID: "fake", Cause: io.ErrUnexpectedEOF}},
 	}}}
-	r := &Runner{Provider: provider, Sessions: &fakeStore{}, Registry: tools.NewRegistry(t.TempDir())}
+	r := &Runner{Provider: provider, Sessions: &fakeStore{}, Registry: tools.NewRegistry(t.TempDir()), StreamRecoveryBackoff: time.Millisecond}
 
 	_, err := runAndDrain(t, r, session.AgentTurn{ID: "s-tool-fail", ModelID: "m"})
 	if err == nil {
@@ -1615,6 +1613,73 @@ func TestRunner_DoesNotRecoverAfterCompleteToolCall(t *testing.T) {
 	}
 	if provider.calls != 1 {
 		t.Fatalf("Stream called %d times, want 1 after complete tool call", provider.calls)
+	}
+}
+
+func TestRunner_RecoversGatewayTimeoutAfterTools(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "hello.txt"), []byte("world"), 0o644); err != nil {
+		t.Fatalf("write hello.txt: %v", err)
+	}
+	gatewayTimeout := cometsdk.ErrorEvent{Err: &cometsdk.ServerError{ProviderID: "fake", StatusCode: 504, Message: "Gateway Timeout"}}
+	provider := &sequentialFakeProvider{sequences: [][]cometsdk.Event{
+		toolStep("tc1", "read_file", `{"path":"hello.txt"}`),
+		{gatewayTimeout},
+		{
+			cometsdk.TextDeltaEvent{Text: "continuing after timeout"},
+			cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishStop},
+			cometsdk.DoneEvent{},
+		},
+	}}
+	store := &fakeStore{}
+	r := &Runner{
+		Provider:              provider,
+		Sessions:              store,
+		Registry:              tools.NewRegistry(dir),
+		StreamRecoveryBackoff: time.Millisecond,
+		MaxSteps:              4,
+	}
+
+	events, err := runAndDrain(t, r, session.AgentTurn{ID: "s-gateway", ModelID: "m"})
+	if err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	if provider.calls != 3 {
+		t.Fatalf("Stream called %d times, want 3 (tools, failed follow-up, recovered follow-up)", provider.calls)
+	}
+	if store.toolResults != 1 {
+		t.Fatalf("toolResults = %d, want 1", store.toolResults)
+	}
+	var recoverCount, errorCount int
+	for _, ev := range events {
+		if ev.Kind == event.KindTurnRecover {
+			recoverCount++
+		}
+		if ev.Kind == event.KindError {
+			errorCount++
+		}
+	}
+	if recoverCount != 1 {
+		t.Fatalf("turn_recover events = %d, want 1", recoverCount)
+	}
+	if errorCount != 0 {
+		t.Fatalf("error events = %d, want 0 while recovery succeeds", errorCount)
+	}
+}
+
+func TestRecoveryDelayDoublesAndCaps(t *testing.T) {
+	t.Parallel()
+	if got := recoveryDelay(2*time.Second, 1); got != 2*time.Second {
+		t.Fatalf("attempt 1 = %s, want 2s", got)
+	}
+	if got := recoveryDelay(2*time.Second, 2); got != 4*time.Second {
+		t.Fatalf("attempt 2 = %s, want 4s", got)
+	}
+	if got := recoveryDelay(2*time.Second, 3); got != 8*time.Second {
+		t.Fatalf("attempt 3 = %s, want 8s", got)
+	}
+	if got := recoveryDelay(2*time.Second, 4); got != 8*time.Second {
+		t.Fatalf("attempt 4 = %s, want cap 8s", got)
 	}
 }
 

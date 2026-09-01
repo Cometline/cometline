@@ -21,7 +21,13 @@ import (
 	"github.com/cometline/cometmind/internal/tools"
 )
 
-const memoryRetrievalTimeout = 3 * time.Second
+const (
+	memoryRetrievalTimeout       = 3 * time.Second
+	maxStreamRecoveryAttempts    = 3
+	defaultStreamRecoveryBackoff = 2 * time.Second
+	maxStreamRecoveryBackoff     = 8 * time.Second
+	timeoutContinueHint          = "The model timed out before finishing. Send another message to continue from here."
+)
 
 // TurnStore is the narrow persistence seam the agent loop drives. It is the
 // subset of session.Service the Runner actually needs, declared here on the
@@ -61,11 +67,14 @@ type Runner struct {
 	MaxSteps               int
 	MaxTokens              int
 	MemoryRetrievalTimeout time.Duration
-	SystemPrompt           string
-	AgentMode              session.AgentMode
-	SkillIndex             string
-	JobIndex               string
-	SubagentOrchestrator   *subagent.Orchestrator
+	// StreamRecoveryBackoff is the first wait between recoverable model-stream
+	// retries. Later attempts double it up to eight seconds. Zero uses 2s.
+	StreamRecoveryBackoff time.Duration
+	SystemPrompt          string
+	AgentMode             session.AgentMode
+	SkillIndex            string
+	JobIndex              string
+	SubagentOrchestrator  *subagent.Orchestrator
 
 	// MemorySem is an optional semaphore that bounds the number of
 	// extractMemoryAfterTurn calls that may run concurrently across all
@@ -440,11 +449,25 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 					logging.L().Warn("agent.step.overflow_compact_failed", "session", turn.ID, "error", compactErr)
 				}
 			}
-			if recoveryAttempt == 0 && recoverableStreamFailure(err) && !completeToolCall {
+			if ctx.Err() == nil && recoveryAttempt < maxStreamRecoveryAttempts && recoverableStreamFailure(err) && !completeToolCall {
 				textChars, reasoningChars := partialRenderLengths(result)
 				recoveryAttempt++
-				logging.L().Warn("agent.step.recover", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", steps+1, "failure_category", failureCategory, "recovery_attempt", recoveryAttempt, "text_chars", textChars, "reasoning_chars", reasoningChars)
+				delay := recoveryDelay(r.StreamRecoveryBackoff, recoveryAttempt)
+				if ra := retryAfterDelay(err); ra > delay {
+					delay = ra
+				}
+				logging.L().Warn("agent.step.recover", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", steps+1, "failure_category", failureCategory, "recovery_attempt", recoveryAttempt, "delay_ms", delay.Milliseconds(), "text_chars", textChars, "reasoning_chars", reasoningChars)
 				ch <- event.TurnRecover(textChars, reasoningChars)
+				if waitErr := waitForRecovery(ctx, delay); waitErr != nil {
+					persistPartialStep(ctx, r.Sessions, turn.ID, turn.ProviderID, result, pendingMemories)
+					if errors.Is(waitErr, context.Canceled) && errors.Is(ctx.Err(), context.Canceled) {
+						logging.L().Info("agent.step.stopped", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", steps+1, "duration_ms", time.Since(streamStarted).Milliseconds())
+						return nil
+					}
+					logging.L().Error("agent.step.failed", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", steps+1, "events", eventCount, "first_event", firstEventLogged, "first_output", firstOutputLogged, "complete_tool_call", completeToolCall, "failure_category", failureCategory, "recovery_attempt", recoveryAttempt, "duration_ms", time.Since(streamStarted).Milliseconds(), "error", waitErr)
+					ch <- event.Errorf(userFacingAgentError(waitErr), "llm")
+					return waitErr
+				}
 				continue
 			}
 			persistPartialStep(ctx, r.Sessions, turn.ID, turn.ProviderID, result, pendingMemories)
@@ -953,7 +976,7 @@ func userFacingAgentError(err error) string {
 	}
 	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 		if errors.Is(err, context.DeadlineExceeded) {
-			return "The model timed out before finishing. Send the message again to continue."
+			return timeoutContinueHint
 		}
 		return "Response interrupted. Send the message again to continue."
 	}
@@ -967,9 +990,45 @@ func userFacingAgentError(err error) string {
 		return "Response interrupted. Send the message again to continue."
 	}
 	if strings.Contains(lower, "deadline exceeded") || strings.Contains(lower, "timeout") {
-		return "The model timed out before finishing. Send the message again to continue."
+		return timeoutContinueHint
 	}
 	return msg
+}
+
+func recoveryDelay(base time.Duration, attempt int) time.Duration {
+	if base <= 0 {
+		base = defaultStreamRecoveryBackoff
+	}
+	if attempt < 1 {
+		attempt = 1
+	}
+	delay := base * time.Duration(1<<uint(attempt-1))
+	if delay > maxStreamRecoveryBackoff {
+		return maxStreamRecoveryBackoff
+	}
+	return delay
+}
+
+func retryAfterDelay(err error) time.Duration {
+	var rateLimit *cometsdk.RateLimitError
+	if errors.As(err, &rateLimit) {
+		return rateLimit.RetryAfterDelay
+	}
+	return 0
+}
+
+func waitForRecovery(ctx context.Context, delay time.Duration) error {
+	if delay <= 0 {
+		return ctx.Err()
+	}
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }
 
 // backgroundProgressEmitter is used for tool callbacks that may outlive the
