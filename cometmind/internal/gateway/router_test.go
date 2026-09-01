@@ -304,8 +304,8 @@ func TestHandleClearSlashClearsMappedSessionTranscript(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetSession() error = %v", err)
 	}
-	if updated.Title != "" {
-		t.Fatalf("title = %q, want empty", updated.Title)
+	if updated.Title != "hello" {
+		t.Fatalf("title = %q, want %q", updated.Title, "hello")
 	}
 	if updated.TokenUsage != "{}" {
 		t.Fatalf("token_usage = %q, want {}", updated.TokenUsage)

@@ -242,7 +242,6 @@ WHERE id = ?;
 -- name: ResetSessionTranscriptState :exec
 UPDATE sessions
 SET
-    title = ?,
     token_usage = ?,
     context_summary = '',
     compacted_until_message_id = NULL,

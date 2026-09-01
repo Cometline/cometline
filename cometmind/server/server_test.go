@@ -721,6 +721,9 @@ func TestClearSessionResetsTranscript(t *testing.T) {
 	if _, err := svc.AppendUserMessage(ctx, sess.ID, "hello"); err != nil {
 		t.Fatalf("AppendUserMessage() error = %v", err)
 	}
+	if err := svc.SetTitleIfEmpty(ctx, sess.ID, "keep this title"); err != nil {
+		t.Fatalf("SetTitleIfEmpty() error = %v", err)
+	}
 	if err := svc.UpdateContextSummary(ctx, sess.ID, "old summary", "ignored"); err != nil {
 		t.Fatalf("UpdateContextSummary() error = %v", err)
 	}
@@ -743,8 +746,11 @@ func TestClearSessionResetsTranscript(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetSession() error = %v", err)
 	}
-	if got.ContextSummary != "" || got.CompactedUntilMessageID != "" || got.Title != "" {
+	if got.ContextSummary != "" || got.CompactedUntilMessageID != "" {
 		t.Fatalf("session state after clear = %+v", got)
+	}
+	if got.Title != "keep this title" {
+		t.Fatalf("session title after clear = %q, want %q", got.Title, "keep this title")
 	}
 }
 

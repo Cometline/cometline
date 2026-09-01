@@ -643,7 +643,6 @@ func (q *Queries) MarkSessionNonDisposable(ctx context.Context, id string) error
 const resetSessionTranscriptState = `-- name: ResetSessionTranscriptState :exec
 UPDATE sessions
 SET
-    title = ?,
     token_usage = ?,
     context_summary = '',
     compacted_until_message_id = NULL,
@@ -653,13 +652,12 @@ WHERE id = ?
 `
 
 type ResetSessionTranscriptStateParams struct {
-	Title      string `json:"title"`
 	TokenUsage string `json:"token_usage"`
 	ID         string `json:"id"`
 }
 
 func (q *Queries) ResetSessionTranscriptState(ctx context.Context, arg ResetSessionTranscriptStateParams) error {
-	_, err := q.db.ExecContext(ctx, resetSessionTranscriptState, arg.Title, arg.TokenUsage, arg.ID)
+	_, err := q.db.ExecContext(ctx, resetSessionTranscriptState, arg.TokenUsage, arg.ID)
 	return err
 }
 
