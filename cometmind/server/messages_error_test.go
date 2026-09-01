@@ -17,6 +17,9 @@ func TestUserFacingMessageError(t *testing.T) {
 	if got := userFacingMessageError("something else"); got != "something else" {
 		t.Fatalf("passthrough = %q", got)
 	}
+	if got := userFacingMessageError("net/http: timeout awaiting response headers"); got != "The model timed out before finishing. Send another message to continue from here." {
+		t.Fatalf("timeout = %q", got)
+	}
 }
 
 func TestMessagePersistenceContextStartsFreshAfterRequestDeadline(t *testing.T) {
