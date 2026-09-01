@@ -81,7 +81,7 @@ Reusable prompt templates stored as `SKILL.md` files with YAML frontmatter (`nam
 - Chat: `/{skill-name}` in the composer
 - Built-in slash commands (in `cometline/src/lib/skills/slash-commands.ts`):
   - `/change` — fork session into another workspace
-  - `/clear` — clear transcript and start fresh
+  - `/clear` — clear transcript and start fresh (keeps the session title)
   - `/create-skill` — draft a skill for review
   - `/model` — switch model for the current session
   - `/job` — claim a ready job

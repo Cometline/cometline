@@ -548,7 +548,7 @@ func (s *Service) PruneUnusedUserSessions(ctx context.Context) (int, error) {
 }
 
 // ClearSessionTranscript deletes all transcript rows for a session and resets
-// compaction, token usage, and title while preserving the session identity.
+// compaction and token usage while preserving the session identity and title.
 // Delegated child sessions are removed as well so subagent UI does not reappear
 // on transcript reload.
 func (s *Service) ClearSessionTranscript(ctx context.Context, sessionID string) error {
@@ -568,7 +568,6 @@ func (s *Service) ClearSessionTranscript(ctx context.Context, sessionID string) 
 		return err
 	}
 	return s.q.ResetSessionTranscriptState(ctx, db.ResetSessionTranscriptStateParams{
-		Title:      "",
 		TokenUsage: "{}",
 		ID:         sessionID,
 	})

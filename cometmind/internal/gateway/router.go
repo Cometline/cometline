@@ -369,7 +369,7 @@ func (r *Router) ChangeWorkspace(ctx context.Context, msg InboundMessage, worksp
 }
 
 // HandleClearSlash clears the transcript for the session mapped to the current
-// platform channel or thread while preserving the session identity.
+// platform channel or thread while preserving the session identity and title.
 func (r *Router) HandleClearSlash(ctx context.Context, msg InboundMessage) (string, error) {
 	if r == nil || r.Sessions == nil {
 		return "", fmt.Errorf("gateway router is not configured")

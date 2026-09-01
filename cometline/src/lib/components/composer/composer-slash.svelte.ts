@@ -338,10 +338,6 @@ export function createComposerSlashController(deps: {
 			chatStore.resetTranscript(sessionId);
 			shellStore.centerComposer();
 			deps.onTranscriptCleared?.();
-			const current = sessionStore.current;
-			if (current?.id === sessionId) {
-				sessionStore.updateSession({ ...current, title: '' });
-			}
 			deps.getInput()?.clear();
 			deps.setValue('');
 			deps.setImages([]);
