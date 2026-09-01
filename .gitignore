@@ -11,3 +11,5 @@ docs/*
 !docs/postmortems/**
 !docs/learning/
 .claude/*
+
+.worktrees/
