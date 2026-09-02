@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Loader } from '@lucide/svelte';
-	import { untrack } from 'svelte';
+	import { tick, untrack } from 'svelte';
 	import AssistantMarkdown from '$lib/components/AssistantMarkdown.svelte';
 	import FileEditor from '$lib/components/FileEditor.svelte';
 	import PdfPreview from '$lib/components/PdfPreview.svelte';
@@ -18,7 +18,8 @@
 		isMarkdownPath,
 		isPdfPath,
 		languageFromExtension,
-		languageFromPath
+		languageFromPath,
+		shouldSkipTextPreviewReload
 	} from '$lib/workspace/file-preview';
 	import {
 		buildFileSnippetContext,
@@ -105,6 +106,7 @@
 	let externalComparisonOpen = $state(false);
 	let lastObservedFileChangeVersion = 0;
 	let pdfReloadVersion = $state(0);
+	let markdownScrollEl = $state<HTMLDivElement | null>(null);
 
 	const readOnly = $derived(isWikiUiPath(filePath) && isWikiReadOnlyPath(filePath));
 	const dirty = $derived(previewKind === 'text' && draftContent !== savedContent && !readOnly);
@@ -298,19 +300,22 @@
 		}
 	}
 
-	async function loadPreview() {
+	async function loadPreview(opts?: { keepView?: boolean }) {
 		const version = ++loadVersion;
-		loading = true;
-		error = null;
-		imageDataUrl = '';
-		savedContent = '';
-		draftContent = '';
-		language = null;
-		previewKind = null;
-		saving = false;
-		saveError = null;
-		backlinks = [];
-		selectionPopup = null;
+		const keepView = Boolean(opts?.keepView) && previewKind !== null && !error;
+		if (!keepView) {
+			loading = true;
+			error = null;
+			imageDataUrl = '';
+			savedContent = '';
+			draftContent = '';
+			language = null;
+			previewKind = null;
+			saving = false;
+			saveError = null;
+			backlinks = [];
+			selectionPopup = null;
+		}
 
 		try {
 			if (isPdf) {
@@ -327,16 +332,27 @@
 			if (version !== loadVersion) return;
 
 			if (result.kind === 'image') {
+				if (keepView && previewKind === 'image' && imageDataUrl === result.data_url) return;
 				previewKind = 'image';
 				imageDataUrl = result.data_url;
 				return;
 			}
 
+			if (shouldSkipTextPreviewReload(keepView, previewKind, savedContent, result.content)) {
+				return;
+			}
+
+			const markdownScrollTop = markdownScrollEl?.scrollTop ?? null;
 			savedContent = result.content;
 			draftContent = result.content;
 			language = languageFromPath(filePath) ?? languageFromExtension(result.extension);
 			previewKind = 'text';
 			void loadBacklinks(filePath);
+			if (markdownScrollTop !== null) {
+				await tick();
+				if (version !== loadVersion) return;
+				if (markdownScrollEl) markdownScrollEl.scrollTop = markdownScrollTop;
+			}
 		} catch (err) {
 			if (version !== loadVersion) return;
 			error = err instanceof Error ? err.message : 'Failed to load file';
@@ -373,7 +389,7 @@
 			externalComparisonOpen = false;
 			return;
 		}
-		void loadPreview();
+		void loadPreview({ keepView: true });
 	});
 
 	$effect(() => {
@@ -515,7 +531,11 @@
 				{/if}
 				{#if effectiveViewMode === 'preview'}
 					<!-- svelte-ignore a11y_no_static_element_interactions -->
-					<div class="file-preview-markdown scrollbar-none" onmouseup={onPreviewMouseUp}>
+					<div
+						bind:this={markdownScrollEl}
+						class="file-preview-markdown scrollbar-none"
+						onmouseup={onPreviewMouseUp}
+					>
 						<AssistantMarkdown
 							source={draftContent}
 							mode="assistant"
