@@ -1107,7 +1107,7 @@
 		display: flex;
 		width: 100vw;
 		height: 100vh;
-		background: var(--shell-canvas-bg);
+		background: var(--sidebar-bg);
 		box-sizing: border-box;
 	}
 
