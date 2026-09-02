@@ -4,7 +4,8 @@ import {
 	isImagePath,
 	isMarkdownPath,
 	isPdfPath,
-	languageFromPath
+	languageFromPath,
+	shouldSkipTextPreviewReload
 } from './file-preview';
 
 describe('file-preview helpers', () => {
@@ -28,5 +29,12 @@ describe('file-preview helpers', () => {
 
 	it('extracts extension from nested paths', () => {
 		expect(extensionFromPath('src/components/App.svelte')).toBe('.svelte');
+	});
+
+	it('skips a keep-view reload when on-disk text matches the open buffer', () => {
+		expect(shouldSkipTextPreviewReload(true, 'text', 'same', 'same')).toBe(true);
+		expect(shouldSkipTextPreviewReload(true, 'text', 'old', 'new')).toBe(false);
+		expect(shouldSkipTextPreviewReload(false, 'text', 'same', 'same')).toBe(false);
+		expect(shouldSkipTextPreviewReload(true, 'image', 'same', 'same')).toBe(false);
 	});
 });

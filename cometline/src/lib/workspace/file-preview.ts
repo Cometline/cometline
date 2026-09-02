@@ -57,3 +57,13 @@ export function isImagePath(filePath: string): boolean {
 export function isPdfPath(filePath: string): boolean {
 	return extensionFromPath(filePath) === '.pdf';
 }
+
+/** Skip a watch/focus reload when the on-disk text matches the open buffer. */
+export function shouldSkipTextPreviewReload(
+	keepView: boolean,
+	previewKind: 'text' | 'image' | 'pdf' | null,
+	savedContent: string,
+	incomingContent: string
+): boolean {
+	return keepView && previewKind === 'text' && savedContent === incomingContent;
+}

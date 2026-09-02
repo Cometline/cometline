@@ -6,6 +6,7 @@
 	import type { Extension } from '@codemirror/state';
 	import { codemirrorLanguageSupport } from '$lib/workspace/codemirror-language';
 	import type { FileRevealRange } from '$lib/workspace/workspace-panel-state';
+	import { replaceEditorDocument } from '$lib/workspace/replace-editor-document';
 
 	let {
 		value,
@@ -156,11 +157,7 @@
 	$effect(() => {
 		const view = editorView;
 		if (!view) return;
-		const current = view.state.doc.toString();
-		if (current === value) return;
-		view.dispatch({
-			changes: { from: 0, to: view.state.doc.length, insert: value }
-		});
+		replaceEditorDocument(view, value);
 	});
 
 	$effect(() => {
