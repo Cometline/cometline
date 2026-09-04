@@ -18,6 +18,7 @@ type openAIRequest struct {
 	MaxTokens           int             `json:"max_tokens,omitempty"`
 	MaxCompletionTokens int             `json:"max_completion_tokens,omitempty"`
 	ReasoningEffort     string          `json:"reasoning_effort,omitempty"`
+	ServiceTier         string          `json:"service_tier,omitempty"`
 	Stream              bool            `json:"stream"`
 	StreamOptions       *streamOptions  `json:"stream_options,omitempty"`
 	ReasoningSplit      *bool           `json:"reasoning_split,omitempty"`
@@ -82,7 +83,7 @@ func toOpenAIRequest(req *cometsdk.Request, disableImageContent bool, enableReas
 	}
 
 	or := openAIRequest{
-		Model:         req.Model,
+		Model:         wireModelID(req.Model),
 		Messages:      msgs,
 		Stream:        true,
 		StreamOptions: &streamOptions{IncludeUsage: true},
@@ -102,6 +103,9 @@ func toOpenAIRequest(req *cometsdk.Request, disableImageContent bool, enableReas
 	if req.ReasoningEffort != "" {
 		or.ReasoningEffort = req.ReasoningEffort
 	}
+	if strings.EqualFold(strings.TrimSpace(req.Model), grok46FastAlias) {
+		or.ServiceTier = "priority"
+	}
 
 	for _, t := range req.Tools {
 		or.Tools = append(or.Tools, openAITool{
@@ -115,6 +119,18 @@ func toOpenAIRequest(req *cometsdk.Request, disableImageContent bool, enableReas
 	}
 
 	return providerbase.MarshalWithOptions(or, req.Options, "openai")
+}
+
+// grok46FastAlias is a Cometline-only settings/picker id. xAI has no
+// grok-4.6-fast model; selecting it still calls grok-4.6 with priority
+// processing.
+const grok46FastAlias = "grok-4.6-fast"
+
+func wireModelID(model string) string {
+	if strings.EqualFold(strings.TrimSpace(model), grok46FastAlias) {
+		return "grok-4.6"
+	}
+	return model
 }
 
 // convertMessages prepends a system message if provided, then converts all messages.

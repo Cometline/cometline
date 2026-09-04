@@ -84,4 +84,20 @@ describe('provider auth domain', () => {
 		expect(JSON.parse(fs.readFileSync(authPath, 'utf8')).tokens.access_token).toBe('fresh');
 		expect(fs.existsSync(`${authPath}.lock`)).toBe(false);
 	});
+
+	it('synthesizes grok-4.6-fast next to grok-4.6 for xAI subscription catalogs', async () => {
+		const home = fs.mkdtempSync(path.join(os.tmpdir(), 'cometline-provider-auth-'));
+		temporaryDirectories.push(home);
+		const authDirectory = path.join(home, '.cometmind', 'xai');
+		fs.mkdirSync(authDirectory, { recursive: true });
+		fs.writeFileSync(path.join(authDirectory, 'auth.json'), JSON.stringify({
+			auth_mode: 'subscription',
+			tokens: { access_token: 'fresh', refresh_token: 'refresh', expires_at: Date.now() + 10 * 60 * 1000 }
+		}));
+		const request = vi.fn(async () => new Response(JSON.stringify({ data: [{ id: 'grok-4.6' }, { id: 'grok-4.5' }] })));
+		const domain = createDomain(home, request as unknown as typeof fetch);
+		await expect(domain.fetchProviderModels({ method: 'xai', baseURL: '', apiKey: '' })).resolves.toEqual({
+			models: ['grok-4.5', 'grok-4.6', 'grok-4.6-fast']
+		});
+	});
 });

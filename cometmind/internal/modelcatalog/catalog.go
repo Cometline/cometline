@@ -487,6 +487,9 @@ func modelIDCandidates(modelID string) []string {
 		out = append(out, id)
 	}
 	add(modelID)
+	if strings.EqualFold(modelID, "grok-4.6-fast") {
+		add("grok-4.6")
+	}
 	if i := strings.LastIndex(modelID, ":"); i > 0 {
 		add(modelID[:i])
 	}

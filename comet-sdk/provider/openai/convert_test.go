@@ -54,6 +54,33 @@ func TestConvertRequest_ReasoningEffort(t *testing.T) {
 	require.NoError(t, err)
 	require.NotContains(t, string(data), "reasoning_effort")
 }
+
+func TestConvertRequest_Grok46FastUsesPriorityServiceTier(t *testing.T) {
+	req := &cometsdk.Request{
+		Model: "grok-4.6-fast",
+		Messages: []cometsdk.Message{
+			{Role: cometsdk.RoleUser, Content: []cometsdk.Block{cometsdk.TextBlock{Text: "Hello"}}},
+		},
+	}
+
+	data, err := toOpenAIRequest(req, false, false, false)
+	require.NoError(t, err)
+
+	var out map[string]any
+	require.NoError(t, json.Unmarshal(data, &out))
+	require.Equal(t, "grok-4.6", out["model"])
+	require.Equal(t, "priority", out["service_tier"])
+}
+
+func TestConvertRequest_OmitsServiceTierByDefault(t *testing.T) {
+	data, err := toOpenAIRequest(&cometsdk.Request{
+		Model:    "grok-4.6",
+		Messages: []cometsdk.Message{{Role: cometsdk.RoleUser, Content: []cometsdk.Block{cometsdk.TextBlock{Text: "Hi"}}}},
+	}, false, false, false)
+	require.NoError(t, err)
+	require.NotContains(t, string(data), "service_tier")
+}
+
 func TestConvertRequest_ToolResultRole(t *testing.T) {
 	req := &cometsdk.Request{
 		Model: "gpt-4o",

@@ -571,6 +571,14 @@ export function createProviderAuth(dependencies: ProviderAuthDependencies) {
 		return { models: Array.from(new Set(models)).sort() };
 	}
 
+	// xAI has no grok-4.6-fast slug. Cometline synthesizes it next to grok-4.6
+	// so Settings can enable priority processing as a separate model option.
+	function withXaiFastAliases(models: string[]) {
+		const ids = new Set(models);
+		if (ids.has('grok-4.6')) ids.add('grok-4.6-fast');
+		return { models: Array.from(ids).sort() };
+	}
+
 	async function fetchCodexModels(baseURL: string) {
 		const auth = await borrowCodexAuth();
 		const headers: Record<string, string> = { Authorization: `Bearer ${auth.accessToken}`, Accept: 'application/json' };
@@ -587,10 +595,11 @@ export function createProviderAuth(dependencies: ProviderAuthDependencies) {
 
 	async function fetchXaiModels(baseURL: string) {
 		const auth = await borrowXaiAuth();
-		return readModels(
+		const result = await readModels(
 			await fetchModelsFromURL(normalizeModelsBaseURL(baseURL || XAI_BASE_URL), { Authorization: `Bearer ${auth.accessToken}`, Accept: 'application/json', 'User-Agent': 'cometline' }),
 			'No models returned by xAI'
 		);
+		return withXaiFastAliases(result.models);
 	}
 
 	async function fetchOpenCodeGoModels(baseURL: string) {
