@@ -69,11 +69,12 @@
 		onClose();
 	}
 
-	async function selectPath(path: string) {
+	async function selectPath(path: string, options: { keepOpen?: boolean } = {}) {
 		const openPath = source === 'wiki' ? toWikiUiPath(path) : path;
 		// Older renderer mocks expose this action as void; only an explicit false
 		// means the editor's leave guard rejected the requested navigation.
-		if ((await shellStore.openFilePreviewForActive(openPath)) !== false) close();
+		if ((await shellStore.openFilePreviewForActive(openPath)) === false) return;
+		if (!options.keepOpen) close();
 	}
 
 	async function scrollActiveIntoView() {
@@ -113,6 +114,14 @@
 			event.stopPropagation();
 			const path = results[activeIndex];
 			if (path) void selectPath(path);
+			return;
+		}
+		if (event.key === 'ArrowRight') {
+			event.preventDefault();
+			event.stopPropagation();
+			const path = results[activeIndex];
+			// Preview/open in a tab without dismissing the picker (multi-open).
+			if (path) void selectPath(path, { keepOpen: true });
 		}
 	}
 
@@ -267,7 +276,7 @@
 			{/if}
 
 			<p class="file-search-hint">
-				↑↓ to navigate · Enter to open · Esc to close
+				↑↓ navigate · Enter open · → open keep search · Esc close
 			</p>
 		</div>
 	</dialog>

@@ -122,6 +122,21 @@ describe('FileSearchModal', () => {
 		expect(setWorkspacePanelBrowseSource).not.toHaveBeenCalled();
 	});
 
+	it('ArrowRight opens a file without closing the search modal', async () => {
+		const onClose = vi.fn(() => {});
+		openFilePreviewForActive.mockResolvedValue(true);
+		render(FileSearchModal, { open: true, onClose });
+		await waitFor(() => {
+			expect(screen.getByRole('button', { name: /app\.ts/ })).toBeTruthy();
+		});
+
+		await fireEvent.keyDown(window, { key: 'ArrowRight' });
+		await waitFor(() => {
+			expect(openFilePreviewForActive).toHaveBeenCalledWith('src/app.ts');
+		});
+		expect(onClose).not.toHaveBeenCalled();
+	});
+
 	it('uses settings fileSearchSource for the toggle (not panel browse source)', async () => {
 		browseSource.value = 'wiki';
 		render(FileSearchModal, { open: true, onClose: () => {} });
