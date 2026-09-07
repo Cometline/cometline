@@ -404,15 +404,15 @@ pnpm run storybook   # Isolated component development
 
 Reducer tests are high value — they don't need Electron or CometMind running. See `reducers/chat.test.ts` if present.
 
-## Common frontend bugs (from postmortems)
+## Common frontend bugs
 
-| Symptom | Root cause | Doc |
-|---------|------------|-----|
-| Streaming doesn't update live | Reducer mutates in place | [`streaming-ui-not-live-updating.md`](../../cometline/docs/postmortem/streaming-ui-not-live-updating.md) |
-| Session switch loses stream | In-flight response discarded | [`session-switch-in-flight-response-lost-and-rerender.md`](../../cometline/docs/postmortem/session-switch-in-flight-response-lost-and-rerender.md) |
-| First turn invisible | Transcript load races navigation | [`first-turn-transcript-invisible.md`](../../cometline/docs/postmortem/first-turn-transcript-invisible.md) |
-| Tool call ID mismatch on fork | Fork doesn't remap IDs | [`forked-session-tool-call-id-mismatch.md`](../../cometline/docs/postmortem/forked-session-tool-call-id-mismatch.md) |
-| Memory settings save disabled | Impure dirty-state derivation | [`memory-subsystem-bugs.md`](../../cometline/docs/postmortem/memory-subsystem-bugs.md) |
+| Symptom | Root cause |
+|---------|------------|
+| Streaming doesn't update live | Reducer mutates in place |
+| Session switch loses stream | In-flight response discarded |
+| First turn invisible | Transcript load races navigation |
+| Tool call ID mismatch on fork | Fork doesn't remap IDs |
+| Memory settings save disabled | Impure dirty-state derivation |
 
 ## What's next
 

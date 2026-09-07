@@ -267,7 +267,7 @@ Default system prompt: packaged `SOUL.md` path is stored in `cometmind.systemPro
 
 ## Root-Cause Notes
 
-Detailed postmortems live in [`docs/postmortem/`](postmortem/README.md). Summary of the highest-impact fixes:
+Summary of the highest-impact fixes:
 
 ### Renderer Could Not Reach CometMind From Vite
 
