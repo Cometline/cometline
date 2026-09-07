@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import type { WebContext } from '$lib/actions/start-chat';
 
 	type WebviewElement = HTMLElement & {
@@ -35,15 +36,13 @@
 		sessionKey,
 		onNavigationState,
 		onFocus,
-		onNewWindow,
-		onCapturingChange
+		onNewWindow
 	}: {
 		url: string | null;
 		sessionKey: string | null;
 		onNavigationState: (state: NavigationState) => void;
 		onFocus: () => void;
 		onNewWindow: (url: string) => void;
-		onCapturingChange: (capturing: boolean) => void;
 	} = $props();
 
 	const PAGE_CONTEXT_CACHE_TTL_MS = 10_000;
@@ -51,11 +50,16 @@
 	let webviewEl = $state<WebviewElement | null>(null);
 	let loadedUrl: string | null = null;
 	let loadedSessionKey: string | null = null;
-	let loading = $state(false);
-	let title = $state('');
 	let cachedContext = $state<CachedPageContext | null>(null);
 	let captureRun = 0;
-	let capturing = false;
+	export const pageState = $state({
+		url: '',
+		title: '',
+		canGoBack: false,
+		canGoForward: false,
+		loading: false,
+		capturing: false
+	});
 
 	function currentUrl() {
 		const fallback = url ?? '';
@@ -70,21 +74,22 @@
 		const el = webviewEl;
 		if (!el) return;
 		try {
-			title = el.getTitle() || '';
+			pageState.title = el.getTitle() || '';
 		} catch {
-			title = '';
+			pageState.title = '';
 		}
-		onNavigationState({
+		Object.assign(pageState, {
 			url: currentUrl(),
-			title,
 			canGoBack: el.canGoBack(),
-			canGoForward: el.canGoForward(),
-			loading
+			canGoForward: el.canGoForward()
 		});
+		// Loading events can still report the old document after a new src was requested.
+		if (pageState.url === loadedUrl) onNavigationState(pageState);
 	}
 
 	function attachWebview(el: WebviewElement) {
 		el.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups allow-forms');
+		const handleFocus = () => onFocus();
 		const rememberGuestLocation = () => {
 			loadedUrl = currentUrl();
 			loadedSessionKey = sessionKey;
@@ -94,30 +99,30 @@
 			publishNavigationState();
 		};
 		const onInPageNavigate = () => {
-			loading = false;
+			pageState.loading = false;
 			rememberGuestLocation();
 			publishNavigationState();
 		};
 		const onStartLoading = (event: Event & { isMainFrame?: boolean }) => {
 			if (event.isMainFrame === false) return;
-			loading = true;
+			pageState.loading = true;
 			publishNavigationState();
 		};
 		const onStopLoading = () => {
-			loading = false;
+			pageState.loading = false;
 			publishNavigationState();
 		};
 		const onFrameFinishLoad = (event: Event & { isMainFrame?: boolean }) => {
 			if (event.isMainFrame === false) return;
-			loading = false;
+			pageState.loading = false;
 			publishNavigationState();
 		};
 		const onFailLoad = () => {
-			loading = false;
+			pageState.loading = false;
 			publishNavigationState();
 		};
 		const onTitleUpdated = (event: Event & { title?: string }) => {
-			title = event.title ?? '';
+			pageState.title = event.title ?? '';
 			publishNavigationState();
 		};
 		const handleNewWindow = (event: Event & { url?: string; preventDefault?: () => void }) => {
@@ -133,9 +138,10 @@
 		el.addEventListener('did-fail-load', onFailLoad);
 		el.addEventListener('page-title-updated', onTitleUpdated);
 		el.addEventListener('new-window', handleNewWindow);
-		el.addEventListener('focus', onFocus);
+		el.addEventListener('focus', handleFocus);
 
 		return () => {
+			captureRun += 1;
 			el.removeEventListener('did-navigate', onNavigate);
 			el.removeEventListener('did-navigate-in-page', onInPageNavigate);
 			el.removeEventListener('did-start-loading', onStartLoading);
@@ -144,7 +150,7 @@
 			el.removeEventListener('did-fail-load', onFailLoad);
 			el.removeEventListener('page-title-updated', onTitleUpdated);
 			el.removeEventListener('new-window', handleNewWindow);
-			el.removeEventListener('focus', onFocus);
+			el.removeEventListener('focus', handleFocus);
 			try {
 				el.stop();
 			} catch {
@@ -178,7 +184,7 @@
 		const el = webviewEl;
 		const capturedSessionKey = sessionKey;
 		const expectedUrl = source ?? currentUrl();
-		if (!el || !capturedSessionKey || !expectedUrl || capturing) return null;
+		if (!el || !capturedSessionKey || !expectedUrl || pageState.capturing) return null;
 		if (source && currentUrl() !== expectedUrl) return null;
 
 		const cached = cachedContext;
@@ -192,8 +198,7 @@
 		}
 
 		const run = ++captureRun;
-		capturing = true;
-		onCapturingChange(true);
+		pageState.capturing = true;
 		try {
 			const page = await el.executeJavaScript<{
 				title?: string;
@@ -213,22 +218,25 @@
 			if (!content) return null;
 			const context = {
 				kind: 'page' as const,
-				title: String(page?.title || title).trim(),
+				title: String(page?.title || pageState.title).trim(),
 				source: pageUrl,
 				content
 			};
 			cachedContext = { sessionKey: capturedSessionKey, url: pageUrl, ...context, capturedAt: Date.now() };
 			return context;
+		} catch (error) {
+			if (run !== captureRun) return null;
+			throw error;
 		} finally {
-			capturing = false;
-			onCapturingChange(false);
+			pageState.capturing = false;
 		}
 	}
 
 	$effect(() => {
 		const el = webviewEl;
 		if (!el) return;
-		return attachWebview(el);
+		// Callback updates must not tear down a live guest's event subscriptions.
+		return untrack(() => attachWebview(el));
 	});
 
 	$effect(() => {

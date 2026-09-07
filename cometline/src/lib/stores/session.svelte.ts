@@ -20,6 +20,7 @@ function createSessionStore() {
 	let loaded = $state(false);
 	let current = $state<Session | null>(null);
 	let pendingMessages = $state.raw(new Map<string, Omit<PendingMessage, 'sessionId'>>());
+	const removalListeners = new Set<(sessionId: string) => void>();
 
 	function writeSession(
 		session: Session,
@@ -84,6 +85,7 @@ function createSessionStore() {
 
 	function removeSession(id: string, options: { broadcast?: boolean } = {}) {
 		const { broadcast = true } = options;
+		for (const listener of removalListeners) listener(id);
 		sessions = sessions.filter((item) => item.id !== id);
 		unreadSessionOutputStore.remove(id, broadcast);
 		if (current?.id === id) current = null;
@@ -154,6 +156,10 @@ function createSessionStore() {
 		},
 		get current() {
 			return current;
+		},
+		onSessionRemoved(listener: (sessionId: string) => void) {
+			removalListeners.add(listener);
+			return () => removalListeners.delete(listener);
 		},
 		selectSession,
 		setSessions,

@@ -12,7 +12,7 @@ import {
 	openWorkspacePanelFile,
 	openWorkspacePanelUrl,
 	replacesActiveFile,
-	syncActiveUrlTab,
+	syncUrlTab,
 	urlTabChipLabel,
 	urlTabMetaFor,
 	urlTabsFor
@@ -170,7 +170,7 @@ describe('workspace panel state', () => {
 		state = openWorkspacePanelUrl(state, 'https://example.com');
 		const [, exampleTab] = urlTabsFor(state);
 		state = activateWorkspacePanelUrlTab(state, searchTab);
-		state = syncActiveUrlTab(state, 'https://www.youtube.com/', 'YouTube');
+		state = syncUrlTab(state, searchTab, 'https://www.youtube.com/', 'YouTube');
 		expect(urlTabsFor(state)).toEqual([searchTab, exampleTab]);
 		expect(state.content['web-search']).toMatchObject({
 			mode: 'url',
@@ -184,7 +184,7 @@ describe('workspace panel state', () => {
 		});
 		expect(urlTabChipLabel(urlTabMetaFor(state, searchTab))).toBe('YouTube');
 
-		state = syncActiveUrlTab(state, 'https://www.youtube.com/watch?v=1');
+		state = syncUrlTab(state, searchTab, 'https://www.youtube.com/watch?v=1');
 		expect(urlTabsFor(state)).toEqual([searchTab, exampleTab]);
 		expect(urlTabChipLabel(urlTabMetaFor(state, searchTab))).toBe('YouTube');
 	});
@@ -203,6 +203,27 @@ describe('workspace panel state', () => {
 			tabId: tabB,
 			title: ''
 		});
+	});
+
+	it('updates a background URL tab without changing active content or visibility', () => {
+		let state = openWorkspacePanelUrl(createWorkspacePanelState('web-search'), 'https://a.example');
+		const [tabA] = urlTabsFor(state);
+		state = openWorkspacePanelUrl(state, 'https://b.example');
+		state = { ...state, visible: false, surface: 'terminal', contentSurface: 'workspace' };
+		const content = state.content;
+		const next = syncUrlTab(state, tabA, 'https://a.example/next', 'Next');
+		expect(next.content).toBe(content);
+		expect(next.visible).toBe(false);
+		expect(next.surface).toBe('terminal');
+		expect(next.contentSurface).toBe('workspace');
+		expect(next.urlTabMeta[tabA]).toEqual({ url: 'https://a.example/next', title: 'Next' });
+	});
+
+	it('ignores late guest events for closed tabs', () => {
+		let state = openWorkspacePanelUrl(createWorkspacePanelState('web-search'), 'https://a.example');
+		const [tabA] = urlTabsFor(state);
+		state = closeWorkspacePanelUrlTab(state, tabA);
+		expect(syncUrlTab(state, tabA, 'https://a.example/late', 'Late')).toBe(state);
 	});
 
 	it('stores and clears one-shot file reveal ranges', () => {

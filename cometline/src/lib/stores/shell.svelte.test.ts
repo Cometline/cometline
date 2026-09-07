@@ -123,7 +123,7 @@ describe('shellStore workspace panel focus behavior', () => {
 		const [, exampleTab] = shellStore.workspacePanelUrlTabs;
 		shellStore.activateUrlTabForActive(searchTab);
 
-		shellStore.syncWorkspacePanelUrlFromGuest('https://www.youtube.com/', 'YouTube');
+		shellStore.syncWorkspacePanelUrlFromGuest('sess-1', searchTab, 'https://www.youtube.com/', 'YouTube');
 
 		expect(shellStore.workspacePanelUrlTabs).toEqual([searchTab, exampleTab]);
 		expect(shellStore.workspacePanelUrl).toBe('https://www.youtube.com/');

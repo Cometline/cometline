@@ -15,6 +15,7 @@
 		SquareTerminal
 	} from '@lucide/svelte';
 	import { tick, untrack } from 'svelte';
+	import { SvelteMap } from 'svelte/reactivity';
 	import ConfirmActionModal from '$lib/components/ConfirmActionModal.svelte';
 	import FileTreeBrowser from '$lib/components/FileTreeBrowser.svelte';
 	import PanelTabStrip from '$lib/components/PanelTabStrip.svelte';
@@ -40,11 +41,7 @@
 	import { isBlankTabUrl, urlTabChipLabel } from '$lib/workspace/workspace-panel-state';
 
 	let addressInputEl = $state<HTMLInputElement | null>(null);
-	let webCanGoBack = $state(false);
-	let webCanGoForward = $state(false);
-	let loading = $state(false);
 	let addressInput = $state('');
-	let webPageTitle = $state('');
 	let addressEditing = $state(false);
 	let lastObservedPanelUrl = $state<string | null>(null);
 	let editorState = $state<{
@@ -55,14 +52,7 @@
 		revert: () => void;
 	} | null>(null);
 	let dirtyByPath = $state<Record<string, boolean>>({});
-	let capturingContext = $state(false);
-	let webSurfaceRef = $state<{
-		navigateBack: () => boolean;
-		navigateForward: () => boolean;
-		reload: () => void;
-		focus: () => void;
-		captureContext: (source?: string) => Promise<import('$lib/actions/start-chat').WebContext | null>;
-	} | null>(null);
+	const webSurfaces = new SvelteMap<string, ReturnType<typeof WorkspaceWebSurface>>();
 	let panelFocusEl = $state<HTMLDivElement | null>(null);
 	let searchCaretWrap = $state<HTMLDivElement | null>(null);
 	let searchCaretEl = $state<HTMLSpanElement | null>(null);
@@ -95,6 +85,7 @@
 	const panelFilePath = $derived(shellStore.workspacePanelFilePath);
 	const panelFileTabs = $derived(shellStore.workspacePanelFileTabs);
 	const panelUrlTabs = $derived(shellStore.workspacePanelUrlTabs);
+	const webTabs = $derived(shellStore.workspaceWebTabs);
 	const wikiFileTabs = $derived(shellStore.wikiPanelFileTabs);
 	const workspaceSurfaceFileTabs = $derived(shellStore.workspaceSurfaceFileTabs);
 	const panelGitDiffPath = $derived(shellStore.workspacePanelGitDiffPath);
@@ -129,9 +120,15 @@
 	const workspaceHasContentDot = $derived(Boolean(workspaceContent));
 	const changesHasContentDot = $derived(Boolean(changesContent));
 	const webSearchHasContentDot = $derived(Boolean(webSearchUrl));
-	const canGoBack = $derived(webSearchUrl ? webCanGoBack : false);
-	const canGoForward = $derived(webSearchUrl ? webCanGoForward : false);
-	const pageTitle = $derived(webSearchUrl ? webPageTitle : '');
+	const activeWebTabKey = $derived(
+		panelSessionKey && panelUrlTabId ? `${panelSessionKey}:${panelUrlTabId}` : null
+	);
+	const webSurfaceRef = $derived(activeWebTabKey ? webSurfaces.get(activeWebTabKey) : undefined);
+	const canGoBack = $derived(webSurfaceRef?.pageState?.canGoBack ?? false);
+	const canGoForward = $derived(webSurfaceRef?.pageState?.canGoForward ?? false);
+	const pageTitle = $derived(panelUrlTabMeta[panelUrlTabId ?? '']?.title ?? '');
+	const loading = $derived(webSurfaceRef?.pageState?.loading ?? false);
+	const capturingContext = $derived(webSurfaceRef?.pageState?.capturing ?? false);
 
 	function displayAddress(url: string | null | undefined): string {
 		if (!url || isBlankTabUrl(url)) return '';
@@ -196,8 +193,6 @@
 	const showCenteredWebSearch = $derived(showWebSearchField && !showWebview);
 	const showAddressOverlay = $derived(showWebSearchField && showWebview && addressEditing);
 	const showContentSearch = $derived(showCenteredWebSearch || showAddressOverlay);
-	const activeUrlTabIndex = $derived(panelUrlTabs.indexOf(panelUrlTabId ?? ''));
-	const urlTabKey = $derived(`${panelSessionKey ?? ''}:url-tab:${activeUrlTabIndex}`);
 	const searchCaretTrail = $derived(settingsStore.settings.appearance.caretTrail);
 	const searchCaretColor = $derived(settingsStore.settings.appearance.heroComposer.glowColor);
 	const searchCaretTrailEnabled = $derived(searchCaretTrail.enabled);
@@ -254,26 +249,6 @@
 		addressInput = displayAddress(panelUrl);
 	}
 
-	function updateWebNavigation(state: {
-		url: string;
-		title: string;
-		canGoBack: boolean;
-		canGoForward: boolean;
-		loading: boolean;
-	}) {
-		webCanGoBack = state.canGoBack;
-		webCanGoForward = state.canGoForward;
-		loading = state.loading;
-		webPageTitle = state.title;
-		if (!addressEditing) addressInput = displayAddress(state.url || panelUrl);
-		if (state.url.startsWith('http://') || state.url.startsWith('https://')) {
-			shellStore.setPendingPageContextForActive({ title: state.title, source: state.url });
-			if (state.url !== webSearchUrl || state.title) {
-				shellStore.syncWorkspacePanelUrlFromGuest(state.url, state.title);
-			}
-		}
-	}
-
 	function onBack() {
 		if (showWebview && webSurfaceRef?.navigateBack()) return;
 		shellStore.panelHistoryBack();
@@ -298,12 +273,19 @@
 	}
 
 	async function capturePageContext() {
-		const context = await webSurfaceRef?.captureContext();
-		if (context) shellStore.addWebContextForActive(context);
+		const key = activeWebTabKey;
+		const sessionId = panelSessionKey;
+		const surface = webSurfaceRef;
+		const context = await surface?.captureContext();
+		if (context && sessionId === panelSessionKey && key && webSurfaces.get(key) === surface) {
+			shellStore.addWebContextForActive(context);
+		}
 	}
 
 	async function resolvePageContext(source: string) {
-		return (await webSurfaceRef?.captureContext(source)) ?? null;
+		const matches = webTabs.filter((tab) => tab.sessionId === panelSessionKey && tab.url === source);
+		const tab = matches.find((tab) => tab.key === activeWebTabKey) ?? matches[0];
+		return tab ? ((await webSurfaces.get(tab.key)?.captureContext(source)) ?? null) : null;
 	}
 
 	function captureFileContext(filePath: string) {
@@ -553,6 +535,13 @@
 	$effect(() => shellStore.registerWorkspacePanelLeaveGuard(requestLeaveEditor));
 
 	$effect(() => {
+		// Only the visible page contributes automatic context; background guests stay passive.
+		if (!panelOpen || !showWebview || !webSearchUrl || !isHttpUrl(webSearchUrl)) return;
+		const context = { source: webSearchUrl, title: pageTitle };
+		untrack(() => shellStore.setPendingPageContextForActive(context));
+	});
+
+	$effect(() => {
 		const url = panelUrl;
 		if (url !== lastObservedPanelUrl) {
 			lastObservedPanelUrl = url;
@@ -566,7 +555,6 @@
 
 	$effect(() => {
 		if (!shellStore.hasWorkspacePanelForSession) {
-			loading = false;
 			editorState = null;
 			if (!addressEditing) {
 				addressInput = '';
@@ -614,7 +602,7 @@
 		void panelFilePath;
 		void panelFileTabs.length;
 		void panelUrlTabs.length;
-		void activeUrlTabIndex;
+		void activeWebTabKey;
 		void showWebview;
 		void showFilePreview;
 		if (!panelOpen) return;
@@ -973,27 +961,33 @@
 						/>
 					</div>
 				{/if}
-				{#if webSearchUrl}
-					<div
-						class="panel-layer panel-layer-content"
-						class:active={showWebview}
-						inert={!showWebview}
-						aria-hidden={!showWebview}
-					>
-						{#key urlTabKey}
-							<WorkspaceWebSurface
-								bind:this={webSurfaceRef}
-								url={webSearchUrl}
-								sessionKey={urlTabKey}
-								onNavigationState={updateWebNavigation}
-								onFocus={() => shellStore.setFocusedPane('web')}
-								onNewWindow={onNewWindow}
-								onCapturingChange={(value) => (capturingContext = value)}
-							/>
-						{/key}
-					</div>
-				{/if}
 			{/if}
+			{#each webTabs as tab (tab.key)}
+				{@const active = panelOpen && showWebview && tab.key === activeWebTabKey}
+				<div
+					class="panel-layer panel-layer-content"
+					class:active
+					inert={!active}
+					aria-hidden={!active}
+				>
+					<WorkspaceWebSurface
+						bind:this={() => webSurfaces.get(tab.key), (surface) => {
+							if (surface) webSurfaces.set(tab.key, surface);
+							else webSurfaces.delete(tab.key);
+						}}
+						url={tab.url}
+						sessionKey={tab.key}
+						onNavigationState={(state) =>
+							shellStore.syncWorkspacePanelUrlFromGuest(tab.sessionId, tab.id, state.url, state.title)}
+						onFocus={() => {
+							if (active) shellStore.setFocusedPane('web');
+						}}
+						onNewWindow={(url) => {
+							if (active) onNewWindow(url);
+						}}
+					/>
+				</div>
+			{/each}
 			{#if showWebSearchField}
 				<div
 					class="web-search-stage"

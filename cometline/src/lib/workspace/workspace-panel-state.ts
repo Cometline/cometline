@@ -432,39 +432,32 @@ export function navigateWorkspacePanelUrl(
 	};
 }
 
-/**
- * Guest (webview) navigated in place. Keep the same tab slot and allow
- * duplicate URLs — do not merge with another tab the way address-bar replace does.
- */
-export function syncActiveUrlTab(
+/** Guest navigation updates its owning tab without activating it or reopening the panel. */
+export function syncUrlTab(
 	state: WorkspacePanelState,
+	id: string,
 	url: string,
 	title = ''
 ): WorkspacePanelState {
+	if (!urlTabsFor(state).includes(id)) return state;
 	const content = state.content['web-search'];
-	if (content?.mode !== 'url') return state;
-	const id = content.tabId ?? content.url;
-	if (!id) return state;
+	const active = activeTabId(content) === id;
 	const prev = urlTabMetaFor(state, id);
 	const nextTitle = isDisplayTabTitle(title, url)
 		? title.trim()
 		: prev.title;
-	if (prev.url === url && prev.title === nextTitle && content.url === url && content.tabId === id) {
+	if (prev.url === url && prev.title === nextTitle) {
 		return state;
 	}
 	return {
 		...state,
-		visible: true,
-		surface: 'web',
-		contentSurface: 'web-search',
 		urlTabMeta: {
 			...state.urlTabMeta,
 			[id]: { url, title: nextTitle }
 		},
-		content: {
-			...state.content,
-			'web-search': { mode: 'url', url, tabId: id, title: nextTitle }
-		}
+		content: active
+			? { ...state.content, 'web-search': { mode: 'url', url, tabId: id, title: nextTitle } }
+			: state.content
 	};
 }
 
