@@ -1,4 +1,5 @@
 import { getActiveSessionId } from '$lib/active-session';
+import { sessionStore } from '$lib/stores/session.svelte';
 import { readHasSeenIntroSync } from '$lib/stores/settings.svelte';
 import type { WebContext } from '$lib/actions/start-chat';
 import {
@@ -28,7 +29,7 @@ import {
 	closeWorkspacePanelUrlTab,
 	fileTabsFor,
 	navigateWorkspacePanelUrl,
-	syncActiveUrlTab,
+	syncUrlTab,
 	openWorkspacePanelFile,
 	openWorkspacePanelUrl as openWorkspacePanelUrlState,
 	urlTabsFor,
@@ -674,6 +675,17 @@ function createShellStore() {
 			if (!key) return [] as string[];
 			return urlTabsFor(panelStateFor(key));
 		},
+		/** Live web guests follow tab ownership, not the currently selected session/surface. */
+		get workspaceWebTabs() {
+			return Object.entries(tabsBySession).flatMap(([sessionId, tabs]) =>
+				(tabs['web-search'] ?? []).map((id) => ({
+					key: `${sessionId}:${id}`,
+					sessionId,
+					id,
+					...(urlTabMetaBySession[sessionId]?.[id] ?? { url: id, title: '' })
+				}))
+			);
+		},
 		get workspacePanelGitDiffPath() {
 			const key = panelSessionKey();
 			if (!key) return null;
@@ -1065,13 +1077,11 @@ function createShellStore() {
 				focusedPane = 'web';
 			}
 		},
-		syncWorkspacePanelUrlFromGuest(url: string, title = '') {
-			const sessionId = panelSessionKey();
-			if (!sessionId) return;
+		syncWorkspacePanelUrlFromGuest(sessionId: string, tabId: string, url: string, title = '') {
 			const next = url.trim();
 			if (!next.startsWith('http://') && !next.startsWith('https://')) return;
 			const current = panelStateFor(sessionId);
-			const nextState = syncActiveUrlTab(current, next, title);
+			const nextState = syncUrlTab(current, tabId, next, title);
 			if (nextState === current) return;
 			applyPanelState(sessionId, nextState);
 		},
@@ -1430,3 +1440,9 @@ function createShellStore() {
 }
 
 export const shellStore = createShellStore();
+
+sessionStore.onSessionRemoved((sessionId) => {
+	if (shellStore.workspaceWebTabs.some((tab) => tab.sessionId === sessionId)) {
+		shellStore.clearWorkspacePanelForSession(sessionId);
+	}
+});
