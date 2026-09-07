@@ -280,7 +280,7 @@
 	// to `oninput` (not just change/blur) so editing one of these fields enables
 	// the Save button immediately — without it the first Save click can land
 	// while the button is still disabled. `syncFields()` keeps it as a save-time
-	// backstop. See docs/postmortem/settings-save-disabled-state-mutation-in-derived.md.
+	// backstop.
 	function syncListsFromText() {
 		cometmind = {
 			...cometmind,

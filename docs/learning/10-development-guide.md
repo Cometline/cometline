@@ -289,5 +289,4 @@ OPENAI_API_KEY=...
 - [../../ARCHITECTURE_GUIDE.md](../../ARCHITECTURE_GUIDE.md) — line-level contributor map
 - [../MODULE_GUIDE.md](../MODULE_GUIDE.md) — ownership checklists
 - [../SETTINGS_AND_PERSISTENCE.md](../SETTINGS_AND_PERSISTENCE.md) — settings split and reload rules
-- [cometline/docs/postmortem/](../../cometline/docs/postmortem/) — incident writeups
 - [cometmind/openapi.yaml](../../cometmind/openapi.yaml) — API spec

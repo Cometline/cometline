@@ -544,7 +544,6 @@
 	// Safe to call per keystroke: the inputs bind to the text maps, not to this
 	// parsed output, and it does not change the server-id set so the
 	// syncTextFieldsFromSettings() $effect won't clobber in-flight edits.
-	// See docs/postmortem/settings-save-disabled-state-mutation-in-derived.md.
 	function syncServerLists(serverId: string) {
 		updateServer(serverId, {
 			args: (argsTexts[serverId] ?? '')
