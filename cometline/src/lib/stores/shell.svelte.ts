@@ -23,6 +23,7 @@ import {
 	activateWorkspacePanelFileTab,
 	clearFileReveal,
 	closeWorkspacePanel as closeWorkspacePanelState,
+	closeWorkspacePanelFileTab,
 	fileTabsFor,
 	openWorkspacePanelFile,
 	replacesActiveFile,
@@ -624,7 +625,7 @@ function createShellStore() {
 			if (!key) return [] as string[];
 			return fileTabsFor(panelStateFor(key), 'wiki');
 		},
-		get codingPanelFileTabs() {
+		get workspaceSurfaceFileTabs() {
 			const key = panelSessionKey();
 			if (!key) return [] as string[];
 			return fileTabsFor(panelStateFor(key), 'workspace');
@@ -1317,6 +1318,23 @@ function createShellStore() {
 			applyPanelState(sessionId, activateWorkspacePanelFileTab(current, surface, filePath));
 			focusedPane = 'web';
 			syncWorkspacePanelOpen(true);
+		},
+		closeFileTabForActive(filePath: string) {
+			const sessionId = panelSessionKey();
+			if (!sessionId) return;
+			const current = panelStateFor(sessionId);
+			const surface = current.contentSurface;
+			if (surface !== 'wiki' && surface !== 'workspace') return;
+			const next = closeWorkspacePanelFileTab(current, surface, filePath);
+			const stillFile = next.content[surface]?.mode === 'file';
+			applyPanelState(sessionId, next);
+			if (stillFile) {
+				focusedPane = 'web';
+				syncWorkspacePanelOpen(true);
+				return;
+			}
+			recordPanelHistory(sessionId, surface, { kind: 'browse', source: surface });
+			this.requestFileTreeFilterFocus();
 		},
 		openGitDiffForActive(filePath: string) {
 			const sessionId = panelSessionKey();

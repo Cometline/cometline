@@ -20,7 +20,8 @@
 		workspaceRevealRange = null,
 		activeSurface,
 		active,
-		onEditorState
+		onEditorState,
+		onDirtyByPath
 	}: {
 		workspacePath: string;
 		wikiTabs?: string[];
@@ -32,6 +33,7 @@
 		activeSurface: 'wiki' | 'workspace' | 'changes' | 'web-search';
 		active: boolean;
 		onEditorState: (state: FileEditorState | null) => void;
+		onDirtyByPath?: (dirtyByPath: Record<string, boolean>) => void;
 	} = $props();
 
 	const wikiPaths = $derived(
@@ -52,7 +54,19 @@
 				: null
 	);
 
+	const dirtyByPath = $derived.by(() => {
+		const next: Record<string, boolean> = {};
+		for (const path of wikiPaths) {
+			next[path] = Boolean(wikiEditorStateByPath[path]?.dirty);
+		}
+		for (const path of workspacePaths) {
+			next[path] = Boolean(workspaceEditorStateByPath[path]?.dirty);
+		}
+		return next;
+	});
+
 	$effect(() => onEditorState(activeEditorState));
+	$effect(() => onDirtyByPath?.(dirtyByPath));
 </script>
 
 <div class="file-surfaces">

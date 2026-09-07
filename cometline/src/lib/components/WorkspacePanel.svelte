@@ -47,6 +47,7 @@
 		save: () => Promise<void>;
 		revert: () => void;
 	} | null>(null);
+	let dirtyByPath = $state<Record<string, boolean>>({});
 	let capturingContext = $state(false);
 	let webSurfaceRef = $state<{
 		navigateBack: () => boolean;
@@ -78,7 +79,7 @@
 	const panelFilePath = $derived(shellStore.workspacePanelFilePath);
 	const panelFileTabs = $derived(shellStore.workspacePanelFileTabs);
 	const wikiFileTabs = $derived(shellStore.wikiPanelFileTabs);
-	const codingFileTabs = $derived(shellStore.codingPanelFileTabs);
+	const codingFileTabs = $derived(shellStore.workspaceSurfaceFileTabs);
 	const panelGitDiffPath = $derived(shellStore.workspacePanelGitDiffPath);
 	const panelSessionKey = $derived(shellStore.workspacePanelSessionKey);
 	const webSurface = $derived(shellStore.contentSurface);
@@ -279,6 +280,23 @@
 		return new Promise((resolve) => {
 			resolveDiscardChanges = resolve;
 		});
+	}
+
+	function requestLeaveTab(filePath: string): boolean | Promise<boolean> {
+		if (!dirtyByPath[filePath]) return true;
+		discardChangesConfirmOpen = true;
+		return new Promise((resolve) => {
+			resolveDiscardChanges = resolve;
+		});
+	}
+
+	async function closeFileTab(filePath: string): Promise<void> {
+		if (!(await requestLeaveTab(filePath))) return;
+		if (filePath === panelFilePath) {
+			shellStore.closeWorkspacePanel();
+			return;
+		}
+		shellStore.closeFileTabForActive(filePath);
 	}
 
 	function resolveLeaveEditor(discard: boolean) {
@@ -651,6 +669,7 @@
 						{#each panelFileTabs as tabPath (tabPath)}
 							{@const active = tabPath === panelFilePath}
 							{@const label = tabPath.split(/[/\\]/).pop() || tabPath}
+							{@const tabDirty = Boolean(dirtyByPath[tabPath])}
 							<div class="file-tab" class:active role="presentation">
 								<button
 									type="button"
@@ -661,19 +680,17 @@
 									onclick={() => shellStore.activateFileTabForActive(tabPath)}
 								>
 									<span class="file-tab-label">{label}</span>
-									{#if active && dirty}<span class="dirty-dot" aria-label="Unsaved changes">•</span>{/if}
+									{#if tabDirty}<span class="dirty-dot" aria-label="Unsaved changes">•</span>{/if}
 								</button>
-								{#if active}
-									<button
-										type="button"
-										class="file-tab-close"
-										aria-label={`Close ${label}`}
-										title="Close (Cmd/Ctrl+W)"
-										onclick={() => shellStore.closeWorkspacePanel()}
-									>
-										<X size={12} />
-									</button>
-								{/if}
+								<button
+									type="button"
+									class="file-tab-close"
+									aria-label={`Close ${label}`}
+									title={active ? 'Close (Cmd/Ctrl+W)' : 'Close'}
+									onclick={() => void closeFileTab(tabPath)}
+								>
+									<X size={12} />
+								</button>
 							</div>
 						{/each}
 					</div>
@@ -834,6 +851,7 @@
 					activeSurface={webSurface}
 					active={onWebSurface}
 					onEditorState={(state) => (editorState = state)}
+					onDirtyByPath={(next) => (dirtyByPath = next)}
 				/>
 				{#if changesDiffPath}
 					<div
@@ -1102,6 +1120,16 @@
 		background: transparent;
 		color: var(--text-muted);
 		cursor: pointer;
+	}
+
+
+	.file-tab:not(.active) .file-tab-close {
+		opacity: 0;
+	}
+
+	.file-tab:not(.active):hover .file-tab-close,
+	.file-tab:not(.active):focus-within .file-tab-close {
+		opacity: 1;
 	}
 
 	.file-tab-close:hover {

@@ -129,6 +129,38 @@ export function nextSurfaceWithContent(
 	return null;
 }
 
+export function closeWorkspacePanelFileTab(
+	state: WorkspacePanelState,
+	surface: FileSurfaceKey,
+	filePath: string
+): WorkspacePanelState {
+	const tabs = fileTabsFor(state, surface);
+	if (!tabs.includes(filePath)) return state;
+
+	const active = state.content[surface];
+	const activePath = active?.mode === 'file' ? active.filePath : null;
+	if (activePath === filePath) {
+		// Closing the active tab — reuse Cmd+W step while focused on this surface.
+		if (state.contentSurface !== surface) {
+			state = { ...state, contentSurface: surface, surface: 'web', visible: true };
+		}
+		return closeWorkspacePanel(state);
+	}
+
+	const nextTabs = tabs.filter((path) => path !== filePath);
+	if (nextTabs.length === 0) {
+		const content = { ...state.content };
+		delete content[surface];
+		const fileTabs = { ...state.fileTabs };
+		delete fileTabs[surface];
+		return { ...state, content, fileTabs };
+	}
+	return {
+		...state,
+		fileTabs: { ...state.fileTabs, [surface]: nextTabs }
+	};
+}
+
 /**
  * Applies one Cmd+W step without touching focus, history, or persistence.
  * The shell store owns those effects; this module owns the panel transition.

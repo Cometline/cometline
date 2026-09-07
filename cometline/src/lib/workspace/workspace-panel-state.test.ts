@@ -3,6 +3,7 @@ import {
 	activateWorkspacePanelFileTab,
 	clearFileReveal,
 	closeWorkspacePanel,
+	closeWorkspacePanelFileTab,
 	createWorkspacePanelState,
 	fileTabsFor,
 	openWorkspacePanelFile,
@@ -116,3 +117,18 @@ describe('workspace panel state', () => {
 		expect(state.content.workspace).toEqual({ mode: 'file', filePath: 'src/app.ts' });
 	});
 });
+
+	it('closes an inactive tab without changing the active file', () => {
+		let state = openWorkspacePanelFile(
+			createWorkspacePanelState('workspace'),
+			'workspace',
+			'src/a.ts'
+		);
+		state = openWorkspacePanelFile(state, 'workspace', 'src/b.ts');
+		state = openWorkspacePanelFile(state, 'workspace', 'src/c.ts');
+		// active = c; close inactive a
+		state = closeWorkspacePanelFileTab(state, 'workspace', 'src/a.ts');
+		expect(fileTabsFor(state, 'workspace')).toEqual(['src/b.ts', 'src/c.ts']);
+		expect(state.content.workspace).toEqual({ mode: 'file', filePath: 'src/c.ts' });
+	});
+
