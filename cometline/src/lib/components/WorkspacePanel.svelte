@@ -79,7 +79,7 @@
 	const panelFilePath = $derived(shellStore.workspacePanelFilePath);
 	const panelFileTabs = $derived(shellStore.workspacePanelFileTabs);
 	const wikiFileTabs = $derived(shellStore.wikiPanelFileTabs);
-	const codingFileTabs = $derived(shellStore.workspaceSurfaceFileTabs);
+	const workspaceSurfaceFileTabs = $derived(shellStore.workspaceSurfaceFileTabs);
 	const panelGitDiffPath = $derived(shellStore.workspacePanelGitDiffPath);
 	const panelSessionKey = $derived(shellStore.workspacePanelSessionKey);
 	const webSurface = $derived(shellStore.contentSurface);
@@ -843,7 +843,7 @@
 				<WorkspaceFileSurface
 					workspacePath={shellStore.workspacePath}
 					wikiTabs={wikiFileTabs}
-					workspaceTabs={codingFileTabs}
+					workspaceTabs={workspaceSurfaceFileTabs}
 					{wikiFilePath}
 					{workspaceFilePath}
 					{wikiRevealRange}
