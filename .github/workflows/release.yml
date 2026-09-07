@@ -20,7 +20,7 @@ concurrency:
 
 jobs:
   release-macos:
-    runs-on: macos-latest
+    runs-on: macos-15
     environment: cometline-release
     steps:
       - name: Checkout
