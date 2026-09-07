@@ -78,6 +78,7 @@
 	const panelUrl = $derived(shellStore.workspacePanelUrl);
 	const panelFilePath = $derived(shellStore.workspacePanelFilePath);
 	const panelFileTabs = $derived(shellStore.workspacePanelFileTabs);
+	const panelUrlTabs = $derived(shellStore.workspacePanelUrlTabs);
 	const wikiFileTabs = $derived(shellStore.wikiPanelFileTabs);
 	const workspaceSurfaceFileTabs = $derived(shellStore.workspaceSurfaceFileTabs);
 	const panelGitDiffPath = $derived(shellStore.workspacePanelGitDiffPath);
@@ -720,10 +721,42 @@
 						/>
 					</div>
 				{:else if showWebSearchField}
+					{#if panelUrlTabs.length > 0}
+						<div class="file-tabs url-tabs" role="tablist" aria-label="Open pages">
+							{#each panelUrlTabs as tabUrl (tabUrl)}
+								{@const active = tabUrl === webSearchUrl}
+								{@const label = tabUrl.replace(/^https?:\/\//, '').split('/')[0] || tabUrl}
+								<div class="file-tab" class:active role="presentation">
+									<button
+										type="button"
+										class="file-tab-button"
+										role="tab"
+										aria-selected={active}
+										title={tabUrl}
+										onclick={() => shellStore.activateUrlTabForActive(tabUrl)}
+									>
+										<span class="file-tab-label">{active && pageTitle ? pageTitle : label}</span>
+									</button>
+									<button
+										type="button"
+										class="file-tab-close"
+										aria-label={`Close ${label}`}
+										title={active ? 'Close (Cmd/Ctrl+W)' : 'Close'}
+										onclick={() => {
+										if (tabUrl === webSearchUrl) shellStore.closeWorkspacePanel();
+										else shellStore.closeUrlTabForActive(tabUrl);
+									}}
+									>
+										<X size={12} />
+									</button>
+								</div>
+							{/each}
+						</div>
+					{/if}
 					<div class="url-field-row">
 						<span class="page-title surface-title">{surfaceTitle}</span>
 						<div class="url-field-search">
-							{#if pageTitle}
+							{#if pageTitle && panelUrlTabs.length === 0}
 								<span class="page-title-sub">{pageTitle}</span>
 							{/if}
 							<input
@@ -882,15 +915,17 @@
 						class:active={showWebview}
 						aria-hidden={!showWebview}
 					>
-						<WorkspaceWebSurface
-							bind:this={webSurfaceRef}
-							url={webSearchUrl}
-							sessionKey={panelSessionKey}
-							onNavigationState={updateWebNavigation}
-							onFocus={() => shellStore.setFocusedPane('web')}
-							onNewWindow={onNewWindow}
-							onCapturingChange={(value) => (capturingContext = value)}
-						/>
+						{#key webSearchUrl}
+							<WorkspaceWebSurface
+								bind:this={webSurfaceRef}
+								url={webSearchUrl}
+								sessionKey={`${panelSessionKey ?? ''}:${webSearchUrl}`}
+								onNavigationState={updateWebNavigation}
+								onFocus={() => shellStore.setFocusedPane('web')}
+								onNewWindow={onNewWindow}
+								onCapturingChange={(value) => (capturingContext = value)}
+							/>
+						{/key}
 					</div>
 				{/if}
 			{/if}
@@ -1066,6 +1101,10 @@
 		white-space: nowrap;
 	}
 
+
+	.url-field:has(.url-tabs) {
+		gap: 6px;
+	}
 
 	.file-tabs {
 		display: flex;
