@@ -1138,19 +1138,20 @@ function createShellStore() {
 			lastWorkspacePanelFocusTarget = 'address';
 			addressBarFocusRequestId += 1;
 		},
-		/** ⌘O: open the right sidebar on web search (address bar). */
+		/** ⌘O: new web tab (Chrome-like) and focus the address bar. */
 		openWebSearchPanel() {
 			const sessionId = panelSessionKey();
 			if (!sessionId) return;
-			if (!hasWorkspacePanelSession(sessionId)) {
-				ensureWorkspacePanelVisible(sessionId);
-			}
 			workspacePanelSurfaceBySession = {
 				...workspacePanelSurfaceBySession,
 				[sessionId]: 'web'
 			};
 			ensureWorkspacePanelVisible(sessionId);
-			setContentSurfaceForSession(sessionId, 'web-search');
+			const current = panelStateFor(sessionId);
+			// Unique blank so repeated ⌘O stacks new tabs (about:blank alone would activate).
+			const blankUrl = `about:blank#${Date.now().toString(36)}`;
+			applyPanelState(sessionId, openWorkspacePanelUrlState(current, blankUrl));
+			recordPanelHistory(sessionId, 'web-search', { kind: 'url', url: blankUrl });
 			focusedPane = 'web';
 			syncWorkspacePanelOpen(true);
 			this.requestAddressBarFocus();

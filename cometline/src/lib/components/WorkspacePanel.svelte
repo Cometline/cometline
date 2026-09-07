@@ -7,6 +7,7 @@
 		FolderTree,
 		GitBranch,
 		Play,
+		Plus,
 		Power,
 		RotateCcw,
 		RotateCw,
@@ -27,7 +28,7 @@
 	import { sessionStore } from '$lib/stores/session.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { terminalStore } from '$lib/stores/terminal.svelte';
-	import { isHttpUrl, normalizeUserUrl, openLink } from '$lib/open-link';
+	import { isHttpUrl, normalizeUserUrl } from '$lib/open-link';
 	import { openExternalLink } from '$lib/external-link';
 	import { isWikiUiPath } from '$lib/wiki/paths';
 	import { normalizeWorkspacePath } from '$lib/workspace/file-index';
@@ -215,9 +216,24 @@
 
 
 
+	function isBlankTabUrl(url: string | null | undefined): boolean {
+		return Boolean(url && (url === 'about:blank' || url.startsWith('about:blank#')));
+	}
+
+	function displayAddress(url: string | null | undefined): string {
+		if (!url || isBlankTabUrl(url)) return '';
+		return url;
+	}
+
+	function tabLabelForUrl(url: string, title: string): string {
+		if (!url || isBlankTabUrl(url)) return 'New Tab';
+		if (title && title !== url && !title.startsWith('http')) return title;
+		return url.replace(/^https?:\/\//, '').split('/')[0] || url;
+	}
+
 	function syncAddressFromNavigation() {
 		if (addressEditing) return;
-		addressInput = panelUrl || '';
+		addressInput = displayAddress(panelUrl);
 	}
 
 	function updateWebNavigation(state: {
@@ -231,7 +247,7 @@
 		webCanGoForward = state.canGoForward;
 		loading = state.loading;
 		webPageTitle = state.title;
-		if (!addressEditing) addressInput = state.url || panelUrl || '';
+		if (!addressEditing) addressInput = displayAddress(state.url || panelUrl);
 		if (state.url.startsWith('http://') || state.url.startsWith('https://')) {
 			shellStore.setPendingPageContextForActive({ title: state.title, source: state.url });
 		}
@@ -400,10 +416,14 @@
 
 	function onNewWindow(url: string) {
 		if (isHttpUrl(url)) {
-			openLink(url);
+			void shellStore.openWorkspacePanelUrlForActive(url);
 			return;
 		}
 		openExternalLink(url);
+	}
+
+	function openNewWebTab() {
+		shellStore.openWebSearchPanel();
 	}
 
 	// Tracks the focus request id we have already satisfied, so a remounting
@@ -721,21 +741,21 @@
 						/>
 					</div>
 				{:else if showWebSearchField}
-					{#if panelUrlTabs.length > 0}
+					<div class="chrome-web-chrome">
 						<div class="file-tabs url-tabs" role="tablist" aria-label="Open pages">
 							{#each panelUrlTabs as tabUrl (tabUrl)}
 								{@const active = tabUrl === webSearchUrl}
-								{@const label = tabUrl.replace(/^https?:\/\//, '').split('/')[0] || tabUrl}
+								{@const label = tabLabelForUrl(tabUrl, active ? pageTitle : '')}
 								<div class="file-tab" class:active role="presentation">
 									<button
 										type="button"
 										class="file-tab-button"
 										role="tab"
 										aria-selected={active}
-										title={tabUrl}
+										title={isBlankTabUrl(tabUrl) ? 'New Tab' : tabUrl}
 										onclick={() => shellStore.activateUrlTabForActive(tabUrl)}
 									>
-										<span class="file-tab-label">{active && pageTitle ? pageTitle : label}</span>
+										<span class="file-tab-label">{label}</span>
 									</button>
 									<button
 										type="button"
@@ -751,14 +771,17 @@
 									</button>
 								</div>
 							{/each}
+							<button
+								type="button"
+								class="new-tab-button"
+								onclick={openNewWebTab}
+								aria-label="New tab (Cmd/Ctrl+O)"
+								title="New tab (Cmd/Ctrl+O)"
+							>
+								<Plus size={14} />
+							</button>
 						</div>
-					{/if}
-					<div class="url-field-row">
-						<span class="page-title surface-title">{surfaceTitle}</span>
-						<div class="url-field-search">
-							{#if pageTitle && panelUrlTabs.length === 0}
-								<span class="page-title-sub">{pageTitle}</span>
-							{/if}
+						<div class="url-field-row chrome-address-row">
 							<input
 								use:trackAddressInput
 								class="address-input"
@@ -767,12 +790,12 @@
 								spellcheck="false"
 								autocapitalize="off"
 								autocomplete="off"
-								placeholder="Search web or enter URL"
+								placeholder="Search Google or type a URL"
 								bind:value={addressInput}
 								onfocus={onAddressFocus}
 								onblur={onAddressBlur}
 								onkeydown={onAddressKeydown}
-								aria-label="Workspace panel address"
+								aria-label="Address bar"
 							/>
 						</div>
 					</div>
@@ -1102,9 +1125,47 @@
 	}
 
 
-	.url-field:has(.url-tabs) {
+	.url-field:has(.url-tabs),
+	.url-field:has(.chrome-web-chrome) {
 		gap: 6px;
 	}
+
+	.chrome-web-chrome {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+		min-width: 0;
+		flex: 1;
+	}
+
+	.chrome-address-row {
+		width: 100%;
+	}
+
+	.chrome-address-row .address-input {
+		width: 100%;
+	}
+
+	.new-tab-button {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		flex-shrink: 0;
+		width: 24px;
+		height: 24px;
+		border: 1px dashed color-mix(in srgb, var(--hero-composer-glow-color) 28%, var(--border-soft));
+		border-radius: 6px;
+		background: transparent;
+		color: var(--text-muted);
+		cursor: pointer;
+	}
+
+	.new-tab-button:hover {
+		color: var(--text-main);
+		border-color: color-mix(in srgb, var(--hero-composer-glow-color) 54%, var(--border-soft));
+		background: color-mix(in srgb, var(--hero-composer-glow-color) 10%, transparent);
+	}
+
 
 	.file-tabs {
 		display: flex;
