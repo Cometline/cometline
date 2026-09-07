@@ -28,13 +28,13 @@ import {
 	closeWorkspacePanelUrlTab,
 	fileTabsFor,
 	navigateWorkspacePanelUrl,
+	syncActiveUrlTab,
 	openWorkspacePanelFile,
 	openWorkspacePanelUrl as openWorkspacePanelUrlState,
 	urlTabsFor,
 	replacesActiveFile,
 	type ContentSurface,
 	type FileRevealRange,
-	type FileSurfaceKey,
 	type SurfaceContent,
 	type SurfaceContentKey,
 	type TabSurfaceKey,
@@ -134,6 +134,9 @@ function createShellStore() {
 	let tabsBySession = $state<
 		Record<string, Partial<Record<TabSurfaceKey, string[]>>>
 	>({});
+	let urlTabMetaBySession = $state<
+		Record<string, WorkspacePanelState['urlTabMeta']>
+	>({});
 	let terminalPanelsBySession = $state<Record<string, boolean>>({});
 	let workspacePanelSurfaceBySession = $state<Record<string, WorkspacePanelSurface>>({});
 	/** Active inner surface while the outer slot is `web`. */
@@ -192,7 +195,8 @@ function createShellStore() {
 			terminalVisible: terminalPanelsBySession[sessionId] === true,
 			contentSurface: contentSurfaceFor(sessionId),
 			content: contentBySessionSurface[sessionId] ?? {},
-			tabs: tabsBySession[sessionId] ?? {}
+			tabs: tabsBySession[sessionId] ?? {},
+			urlTabMeta: urlTabMetaBySession[sessionId] ?? {}
 		};
 	}
 
@@ -220,6 +224,10 @@ function createShellStore() {
 		tabsBySession = {
 			...tabsBySession,
 			[sessionId]: state.tabs
+		};
+		urlTabMetaBySession = {
+			...urlTabMetaBySession,
+			[sessionId]: state.urlTabMeta
 		};
 	}
 
@@ -322,6 +330,11 @@ function createShellStore() {
 				delete tabs[surface];
 				tabsBySession = { ...tabsBySession, [sessionId]: tabs };
 			}
+			if (surface === 'web-search') {
+				const nextMeta = { ...urlTabMetaBySession };
+				delete nextMeta[sessionId];
+				urlTabMetaBySession = nextMeta;
+			}
 			return;
 		}
 		contentBySessionSurface = {
@@ -342,6 +355,11 @@ function createShellStore() {
 			const nextTabs = { ...tabsBySession };
 			delete nextTabs[sessionId];
 			tabsBySession = nextTabs;
+		}
+		if (sessionId in urlTabMetaBySession) {
+			const nextMeta = { ...urlTabMetaBySession };
+			delete nextMeta[sessionId];
+			urlTabMetaBySession = nextMeta;
 		}
 	}
 
@@ -615,6 +633,17 @@ function createShellStore() {
 			if (!key) return null;
 			const content = activeSurfaceContent(key);
 			return content?.mode === 'url' ? content.url : null;
+		},
+		get workspacePanelUrlTabId() {
+			const key = panelSessionKey();
+			if (!key) return null;
+			const content = activeSurfaceContent(key);
+			return content?.mode === 'url' ? (content.tabId ?? content.url) : null;
+		},
+		get workspacePanelUrlTabMeta() {
+			const key = panelSessionKey();
+			if (!key) return {} as WorkspacePanelState['urlTabMeta'];
+			return panelStateFor(key).urlTabMeta;
 		},
 		get workspacePanelFilePath() {
 			const key = panelSessionKey();
@@ -977,7 +1006,7 @@ function createShellStore() {
 					: {})
 			};
 			if (
-				replacesActiveFile(current, owner, nextContent) &&
+				replacesActiveFile(current, nextContent) &&
 				requestWorkspacePanelLeave &&
 				!(await requestWorkspacePanelLeave())
 			) {
@@ -1035,6 +1064,16 @@ function createShellStore() {
 				lastWorkspacePanelFocusTarget = 'filter';
 				focusedPane = 'web';
 			}
+		},
+		syncWorkspacePanelUrlFromGuest(url: string, title = '') {
+			const sessionId = panelSessionKey();
+			if (!sessionId) return;
+			const next = url.trim();
+			if (!next.startsWith('http://') && !next.startsWith('https://')) return;
+			const current = panelStateFor(sessionId);
+			const nextState = syncActiveUrlTab(current, next, title);
+			if (nextState === current) return;
+			applyPanelState(sessionId, nextState);
 		},
 		navigateWorkspacePanel(url: string) {
 			const sessionId = panelSessionKey();

@@ -116,6 +116,79 @@ describe('shellStore workspace panel focus behavior', () => {
 		shellStore.clearWorkspacePanelForSession('sess-1');
 	});
 
+	it('keeps the same url tab when the guest navigates in place', () => {
+		shellStore.openWorkspacePanelUrlForActive('https://www.google.com/search?q=youtube');
+		const [searchTab] = shellStore.workspacePanelUrlTabs;
+		shellStore.openWorkspacePanelUrlForActive('https://example.com');
+		const [, exampleTab] = shellStore.workspacePanelUrlTabs;
+		shellStore.activateUrlTabForActive(searchTab);
+
+		shellStore.syncWorkspacePanelUrlFromGuest('https://www.youtube.com/', 'YouTube');
+
+		expect(shellStore.workspacePanelUrlTabs).toEqual([searchTab, exampleTab]);
+		expect(shellStore.workspacePanelUrl).toBe('https://www.youtube.com/');
+		expect(shellStore.workspacePanelUrlTabId).toBe(searchTab);
+		expect(shellStore.workspacePanelUrlTabMeta[searchTab]).toEqual({
+			url: 'https://www.youtube.com/',
+			title: 'YouTube'
+		});
+		shellStore.clearWorkspacePanelForSession('sess-1');
+	});
+
+	it('does not move the chat ring when attaching a viewing file context', () => {
+		shellStore.setFocusedPane('web');
+		const before = shellStore.composerFocusRequest.id;
+
+		shellStore.setViewingFileContextForActive('workspace-file:a.md', 'a.md');
+
+		expect(shellStore.focusedPane).toBe('web');
+		expect(shellStore.composerFocusRequest.id).toBe(before);
+		shellStore.clearWorkspacePanelForSession('sess-1');
+	});
+
+	it('keeps the web pane when closing one of several file tabs', async () => {
+		await shellStore.openFilePreviewForActive('src/a.ts');
+		await shellStore.openFilePreviewForActive('src/b.ts');
+		await shellStore.openFilePreviewForActive('src/c.ts');
+		shellStore.setFocusedPane('web');
+		const before = shellStore.composerFocusRequest.id;
+
+		shellStore.closeFileTabForActive('src/a.ts');
+		expect(shellStore.focusedPane).toBe('web');
+		expect(shellStore.composerFocusRequest.id).toBe(before);
+		expect(shellStore.workspacePanelFileTabs).toEqual(['src/b.ts', 'src/c.ts']);
+
+		shellStore.closeWorkspacePanel();
+		expect(shellStore.focusedPane).toBe('web');
+		expect(shellStore.composerFocusRequest.id).toBe(before);
+		expect(shellStore.workspacePanelFilePath).toBe('src/b.ts');
+		shellStore.clearWorkspacePanelForSession('sess-1');
+	});
+
+	it('keeps the web pane when closing one of several url tabs', () => {
+		shellStore.openWorkspacePanelUrlForActive('https://a.example');
+		const [tabA] = shellStore.workspacePanelUrlTabs;
+		shellStore.openWorkspacePanelUrlForActive('https://b.example');
+		const [, tabB] = shellStore.workspacePanelUrlTabs;
+		shellStore.openWorkspacePanelUrlForActive('https://c.example');
+		shellStore.setFocusedPane('web');
+		const before = shellStore.composerFocusRequest.id;
+
+		shellStore.closeUrlTabForActive(tabA);
+		expect(shellStore.focusedPane).toBe('web');
+		expect(shellStore.composerFocusRequest.id).toBe(before);
+		expect(shellStore.workspacePanelUrlTabs).toEqual(
+			expect.arrayContaining([tabB])
+		);
+		expect(shellStore.workspacePanelUrlTabs).not.toContain(tabA);
+
+		shellStore.closeWorkspacePanel();
+		expect(shellStore.focusedPane).toBe('web');
+		expect(shellStore.composerFocusRequest.id).toBe(before);
+		expect(shellStore.workspacePanelUrl).toBe('https://b.example');
+		shellStore.clearWorkspacePanelForSession('sess-1');
+	});
+
 	it('requests file-tree filter focus when opening an empty workspace panel', () => {
 		const addressBefore = shellStore.addressBarFocusRequestId;
 		const filterBefore = shellStore.fileTreeFilterFocusRequestId;
@@ -208,17 +281,18 @@ describe('shellStore workspace panel focus behavior', () => {
 		shellStore.clearWorkspacePanelForSession('sess-1');
 	});
 
-	it('keeps the active file when its leave guard rejects navigation', async () => {
+	it('opens another file tab without asking the leave guard', async () => {
 		await shellStore.openFilePreviewForActive('src/app.ts');
 		const leaveGuard = vi.fn(async () => false);
 		const unregister = shellStore.registerWorkspacePanelLeaveGuard(leaveGuard);
 
-		await expect(shellStore.openFilePreviewForActive('src/main.ts')).resolves.toBe(false);
-		expect(leaveGuard).toHaveBeenCalledOnce();
-		expect(shellStore.workspacePanelFilePath).toBe('src/app.ts');
+		await expect(shellStore.openFilePreviewForActive('src/main.ts')).resolves.toBe(true);
+		expect(leaveGuard).not.toHaveBeenCalled();
+		expect(shellStore.workspacePanelFilePath).toBe('src/main.ts');
+		expect(shellStore.workspacePanelFileTabs).toEqual(['src/app.ts', 'src/main.ts']);
 		expect(shellStore.getSurfaceContent('workspace')).toEqual({
 			mode: 'file',
-			filePath: 'src/app.ts'
+			filePath: 'src/main.ts'
 		});
 
 		unregister();

@@ -85,9 +85,17 @@
 
 	function attachWebview(el: WebviewElement) {
 		el.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups allow-forms');
-		const onNavigate = () => publishNavigationState();
+		const rememberGuestLocation = () => {
+			loadedUrl = currentUrl();
+			loadedSessionKey = sessionKey;
+		};
+		const onNavigate = () => {
+			rememberGuestLocation();
+			publishNavigationState();
+		};
 		const onInPageNavigate = () => {
 			loading = false;
+			rememberGuestLocation();
 			publishNavigationState();
 		};
 		const onStartLoading = (event: Event & { isMainFrame?: boolean }) => {
@@ -159,6 +167,11 @@
 
 	export function reload() {
 		webviewEl?.reload();
+	}
+
+	export function focus() {
+		webviewEl?.focus();
+		onFocus();
 	}
 
 	export async function captureContext(source?: string): Promise<WebContext | null> {

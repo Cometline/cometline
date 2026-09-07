@@ -24,13 +24,20 @@
 	import TerminalPanel from '$lib/components/TerminalPanel.svelte';
 	import Tooltip from '$lib/components/Tooltip.svelte';
 	import WorkspaceWebSurface from '$lib/components/WorkspaceWebSurface.svelte';
+	import { customCaret } from '$lib/dom/custom-caret';
 	import { sessionStore } from '$lib/stores/session.svelte';
+	import { settingsStore } from '$lib/stores/settings.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { terminalStore } from '$lib/stores/terminal.svelte';
 	import { isHttpUrl, normalizeUserUrl } from '$lib/open-link';
 	import { openExternalLink } from '$lib/external-link';
 	import { isWikiUiPath } from '$lib/wiki/paths';
 	import { normalizeWorkspacePath } from '$lib/workspace/file-index';
+	import {
+		isWorkspaceOwnedPane,
+		resolveWorkspaceFocusTarget
+	} from '$lib/workspace/workspace-pane-focus';
+	import { isBlankTabUrl, urlTabChipLabel } from '$lib/workspace/workspace-panel-state';
 
 	let addressInputEl = $state<HTMLInputElement | null>(null);
 	let webCanGoBack = $state(false);
@@ -53,8 +60,15 @@
 		navigateBack: () => boolean;
 		navigateForward: () => boolean;
 		reload: () => void;
+		focus: () => void;
 		captureContext: (source?: string) => Promise<import('$lib/actions/start-chat').WebContext | null>;
 	} | null>(null);
+	let panelFocusEl = $state<HTMLDivElement | null>(null);
+	let searchCaretWrap = $state<HTMLDivElement | null>(null);
+	let searchCaretEl = $state<HTMLSpanElement | null>(null);
+	let searchTrailPoly = $state<SVGPolygonElement | null>(null);
+	let searchCaretFocused = $state(false);
+	let searchCaretReady = $state(false);
 	let wikiFilter = $state('');
 	let workspaceFilter = $state('');
 	let fileTreeFilterInputEl = $state<HTMLInputElement | null>(null);
@@ -76,6 +90,8 @@
 	const onWebSurface = $derived(shellStore.workspacePanelSurface === 'web');
 	const panelMode = $derived(shellStore.workspacePanelMode);
 	const panelUrl = $derived(shellStore.workspacePanelUrl);
+	const panelUrlTabId = $derived(shellStore.workspacePanelUrlTabId);
+	const panelUrlTabMeta = $derived(shellStore.workspacePanelUrlTabMeta);
 	const panelFilePath = $derived(shellStore.workspacePanelFilePath);
 	const panelFileTabs = $derived(shellStore.workspacePanelFileTabs);
 	const panelUrlTabs = $derived(shellStore.workspacePanelUrlTabs);
@@ -117,7 +133,19 @@
 	const canGoForward = $derived(webSearchUrl ? webCanGoForward : false);
 	const pageTitle = $derived(webSearchUrl ? webPageTitle : '');
 
-	const showWebview = $derived(Boolean(onWebSurface && webSurface === 'web-search' && webSearchUrl));
+	function displayAddress(url: string | null | undefined): string {
+		if (!url || isBlankTabUrl(url)) return '';
+		return url;
+	}
+
+	function urlTabLabel(id: string, active: boolean): string {
+		const meta = panelUrlTabMeta[id] ?? { url: id, title: '' };
+		return urlTabChipLabel(meta, active ? pageTitle : '');
+	}
+
+	const showWebview = $derived(
+		Boolean(onWebSurface && webSurface === 'web-search' && webSearchUrl && !isBlankTabUrl(webSearchUrl))
+	);
 	const showFilePreview = $derived(
 		Boolean(
 			onWebSurface &&
@@ -165,6 +193,14 @@
 	const showWebSearchField = $derived(
 		onWebSurface && webSurface === 'web-search' && !showFilePreview && !showGitDiff
 	);
+	const showCenteredWebSearch = $derived(showWebSearchField && !showWebview);
+	const showAddressOverlay = $derived(showWebSearchField && showWebview && addressEditing);
+	const showContentSearch = $derived(showCenteredWebSearch || showAddressOverlay);
+	const activeUrlTabIndex = $derived(panelUrlTabs.indexOf(panelUrlTabId ?? ''));
+	const urlTabKey = $derived(`${panelSessionKey ?? ''}:url-tab:${activeUrlTabIndex}`);
+	const searchCaretTrail = $derived(settingsStore.settings.appearance.caretTrail);
+	const searchCaretColor = $derived(settingsStore.settings.appearance.heroComposer.glowColor);
+	const searchCaretTrailEnabled = $derived(searchCaretTrail.enabled);
 	const surfaceTitle = $derived.by(() => {
 		if (onTerminalSurface) {
 			return activeTerminal?.status === 'exited' ? 'Terminal exited' : 'Terminal';
@@ -213,23 +249,6 @@
 		await terminalStore.terminate(session.id);
 	}
 
-
-
-	function isBlankTabUrl(url: string | null | undefined): boolean {
-		return Boolean(url && (url === 'about:blank' || url.startsWith('about:blank#')));
-	}
-
-	function displayAddress(url: string | null | undefined): string {
-		if (!url || isBlankTabUrl(url)) return '';
-		return url;
-	}
-
-	function tabLabelForUrl(url: string, title: string): string {
-		if (!url || isBlankTabUrl(url)) return 'New Tab';
-		if (title && title !== url && !title.startsWith('http')) return title;
-		return url.replace(/^https?:\/\//, '').split('/')[0] || url;
-	}
-
 	function syncAddressFromNavigation() {
 		if (addressEditing) return;
 		addressInput = displayAddress(panelUrl);
@@ -249,6 +268,9 @@
 		if (!addressEditing) addressInput = displayAddress(state.url || panelUrl);
 		if (state.url.startsWith('http://') || state.url.startsWith('https://')) {
 			shellStore.setPendingPageContextForActive({ title: state.title, source: state.url });
+			if (state.url !== webSearchUrl || state.title) {
+				shellStore.syncWorkspacePanelUrlFromGuest(state.url, state.title);
+			}
 		}
 	}
 
@@ -310,9 +332,21 @@
 		if (!(await requestLeaveTab(filePath))) return;
 		if (filePath === panelFilePath) {
 			shellStore.closeWorkspacePanel();
-			return;
+		} else {
+			shellStore.closeFileTabForActive(filePath);
 		}
-		shellStore.closeFileTabForActive(filePath);
+		if (shellStore.focusedPane === 'web' && panelOpen) {
+			await tick();
+			applyOwnedFocus();
+		}
+	}
+
+	function closeUrlTab(id: string) {
+		if (id === panelUrlTabId) shellStore.closeWorkspacePanel();
+		else shellStore.closeUrlTabForActive(id);
+		if (shellStore.focusedPane === 'web' && panelOpen) {
+			void tick().then(() => applyOwnedFocus());
+		}
 	}
 
 	function resolveLeaveEditor(discard: boolean) {
@@ -421,8 +455,47 @@
 		openExternalLink(url);
 	}
 
+	function keepPaneFocus(event: MouseEvent) {
+		event.preventDefault();
+	}
+
 	function openNewWebTab() {
 		shellStore.openWebSearchPanel();
+	}
+
+	async function openTreeFile(path: string) {
+		shellStore.setFocusedPane('web');
+		const opened = await shellStore.openFilePreviewForActive(path);
+		if (opened === false) return;
+		await tick();
+		applyOwnedFocus();
+	}
+
+	function switchBrowseSource(source: 'wiki' | 'workspace') {
+		shellStore.setWorkspacePanelBrowseSource(source);
+		void tick().then(() => applyOwnedFocus());
+	}
+
+	function applyOwnedFocus() {
+		if (!panelOpen || !isWorkspaceOwnedPane(shellStore.focusedPane)) return;
+		const target = resolveWorkspaceFocusTarget({
+			focusedPane: shellStore.focusedPane,
+			showContentSearch,
+			addressEditing,
+			isBlankTab: isBlankTabUrl(webSearchUrl),
+			showWebview,
+			showBrowseFilter,
+			hasFilePreview: showFilePreview
+		});
+		if (target === 'address' && addressInputEl) {
+			addressInputEl.focus({ preventScroll: true });
+			return;
+		}
+		if (target === 'filter' && fileTreeFilterInputEl) {
+			fileTreeFilterInputEl.focus({ preventScroll: true });
+			return;
+		}
+		panelFocusEl?.focus({ preventScroll: true });
 	}
 
 	// Tracks the focus request id we have already satisfied, so a remounting
@@ -536,16 +609,31 @@
 		);
 	});
 
+	$effect(() => {
+		void webSurface;
+		void panelFilePath;
+		void panelFileTabs.length;
+		void panelUrlTabs.length;
+		void activeUrlTabIndex;
+		void showWebview;
+		void showFilePreview;
+		if (!panelOpen) return;
+		if (!isWorkspaceOwnedPane(untrack(() => shellStore.focusedPane))) return;
+		void tick().then(() => applyOwnedFocus());
+	});
+
 </script>
 
 <svelte:window onkeydown={handlePanelKeydown} />
 
 <div class="workspace-panel" class:open={panelOpen} aria-hidden={!panelOpen}>
 	<div
+		bind:this={panelFocusEl}
 		class="workspace-panel-inner content-panel-surface"
 		class:pane-focus-active={(shellStore.focusedPane === 'web' ||
 			shellStore.focusedPane === 'terminal') &&
 			panelOpen}
+		tabindex="-1"
 	>
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<header class="workspace-panel-toolbar" onmousedown={handlePanelMouseDown}>
@@ -559,6 +647,7 @@
 						class="icon-button"
 						class:active={onTerminalSurface}
 						disabled={!terminalAvailable}
+						onmousedown={keepPaneFocus}
 						onclick={() => shellStore.requestTerminalFocus()}
 						aria-label={terminalAvailable ? 'Terminal' : 'Start a chat to use Terminal'}
 					>
@@ -570,7 +659,8 @@
 						type="button"
 						class="icon-button"
 						class:active={wikiActive}
-						onclick={() => shellStore.setWorkspacePanelBrowseSource('wiki')}
+						onmousedown={keepPaneFocus}
+						onclick={() => switchBrowseSource('wiki')}
 						aria-label="Wiki files"
 					>
 						<BookOpen size={16} />
@@ -590,7 +680,8 @@
 						class="icon-button"
 						class:active={workspaceActive}
 						disabled={!workspaceAvailable}
-						onclick={() => shellStore.setWorkspacePanelBrowseSource('workspace')}
+						onmousedown={keepPaneFocus}
+						onclick={() => switchBrowseSource('workspace')}
 						aria-label={workspaceAvailable
 							? 'Workspace files'
 							: 'Select a workspace to browse files'}
@@ -606,7 +697,11 @@
 						type="button"
 						class="icon-button"
 						class:active={webSearchActive}
-						onclick={() => shellStore.openWebSearchPanel()}
+						onmousedown={keepPaneFocus}
+						onclick={() => {
+							shellStore.openWebSearchPanel();
+							void tick().then(() => applyOwnedFocus());
+						}}
 						aria-label="Web search"
 					>
 						<Search size={16} />
@@ -626,6 +721,7 @@
 						class="icon-button"
 						class:active={changesActive}
 						disabled={!workspaceAvailable}
+						onmousedown={keepPaneFocus}
 						onclick={() => shellStore.openGitChangesPanel()}
 						aria-label={workspaceAvailable
 							? 'Git changes'
@@ -691,7 +787,10 @@
 						ariaLabel="Open files"
 						dirtyById={dirtyByPath}
 						labelFor={(id) => id.split(/[/\\]/).pop() || id}
-						onActivate={(id) => shellStore.activateFileTabForActive(id)}
+						onActivate={(id) => {
+							shellStore.activateFileTabForActive(id);
+							applyOwnedFocus();
+						}}
 						onClose={(id) => void closeFileTab(id)}
 					/>
 				{:else if showGitDiff && panelGitDiffPath}
@@ -720,38 +819,22 @@
 						/>
 					</div>
 				{:else if showWebSearchField}
-					<div class="chrome-web-chrome">
-						<PanelTabStrip
-							tabs={panelUrlTabs}
-							activeId={webSearchUrl}
-							ariaLabel="Open pages"
-							labelFor={(id, active) => tabLabelForUrl(id, active ? pageTitle : '')}
-							titleFor={(id) => (isBlankTabUrl(id) ? 'New Tab' : id)}
-							onActivate={(id) => shellStore.activateUrlTabForActive(id)}
-							onClose={(id) => {
-								if (id === webSearchUrl) shellStore.closeWorkspacePanel();
-								else shellStore.closeUrlTabForActive(id);
-							}}
-							onNewTab={openNewWebTab}
-						/>
-						<div class="url-field-row chrome-address-row">
-							<input
-								use:trackAddressInput
-								class="address-input"
-								type="text"
-								inputmode="search"
-								spellcheck="false"
-								autocapitalize="off"
-								autocomplete="off"
-								placeholder="Search Google or type a URL"
-								bind:value={addressInput}
-								onfocus={onAddressFocus}
-								onblur={onAddressBlur}
-								onkeydown={onAddressKeydown}
-								aria-label="Address bar"
-							/>
-						</div>
-					</div>
+					<PanelTabStrip
+						tabs={panelUrlTabs}
+						activeId={panelUrlTabId}
+						ariaLabel="Open pages"
+						labelFor={urlTabLabel}
+						titleFor={(id) => {
+							const url = panelUrlTabMeta[id]?.url ?? id;
+							return isBlankTabUrl(url) ? 'New Tab' : url;
+						}}
+						onActivate={(id) => {
+							shellStore.activateUrlTabForActive(id);
+							applyOwnedFocus();
+						}}
+						onClose={closeUrlTab}
+						onNewTab={openNewWebTab}
+					/>
 				{:else}
 					<span class="page-title">{surfaceTitle}</span>
 				{/if}
@@ -811,6 +894,7 @@
 			<div
 				class="panel-layer panel-layer-terminal"
 				class:active={terminalLayerActive}
+				inert={!terminalLayerActive}
 				aria-hidden={!terminalLayerActive}
 			>
 				<TerminalPanel bind:this={terminalPanelRef} active={terminalLayerActive} />
@@ -819,6 +903,7 @@
 				<div
 					class="panel-layer"
 					class:active={wikiLayerActive}
+					inert={!wikiLayerActive}
 					aria-hidden={!wikiLayerActive}
 				>
 					<FileTreeBrowser
@@ -826,12 +911,13 @@
 						source="wiki"
 						workspacePath={shellStore.workspacePath}
 						filter={wikiFilter}
-						onSelectFile={(path) => void shellStore.openFilePreviewForActive(path)}
+						onSelectFile={(path) => void openTreeFile(path)}
 					/>
 				</div>
 				<div
 					class="panel-layer"
 					class:active={workspaceLayerActive}
+					inert={!workspaceLayerActive}
 					aria-hidden={!workspaceLayerActive}
 				>
 					<FileTreeBrowser
@@ -839,12 +925,13 @@
 						source="workspace"
 						workspacePath={shellStore.workspacePath}
 						filter={workspaceFilter}
-						onSelectFile={(path) => void shellStore.openFilePreviewForActive(path)}
+						onSelectFile={(path) => void openTreeFile(path)}
 					/>
 				</div>
 				<div
 					class="panel-layer"
 					class:active={changesLayerActive}
+					inert={!changesLayerActive}
 					aria-hidden={!changesLayerActive}
 				>
 					<GitChangesBrowser workspacePath={normalizedWorkspacePath} />
@@ -875,6 +962,7 @@
 					<div
 						class="panel-layer panel-layer-content"
 						class:active={changesDiffActive}
+						inert={!changesDiffActive}
 						aria-hidden={!changesDiffActive}
 					>
 						<GitDiffView
@@ -889,13 +977,14 @@
 					<div
 						class="panel-layer panel-layer-content"
 						class:active={showWebview}
+						inert={!showWebview}
 						aria-hidden={!showWebview}
 					>
-						{#key webSearchUrl}
+						{#key urlTabKey}
 							<WorkspaceWebSurface
 								bind:this={webSurfaceRef}
 								url={webSearchUrl}
-								sessionKey={`${panelSessionKey ?? ''}:${webSearchUrl}`}
+								sessionKey={urlTabKey}
 								onNavigationState={updateWebNavigation}
 								onFocus={() => shellStore.setFocusedPane('web')}
 								onNewWindow={onNewWindow}
@@ -904,6 +993,57 @@
 						{/key}
 					</div>
 				{/if}
+			{/if}
+			{#if showWebSearchField}
+				<div
+					class="web-search-stage"
+					class:centered={showCenteredWebSearch}
+					class:overlay={showAddressOverlay}
+					class:visible={showContentSearch}
+				>
+					<div bind:this={searchCaretWrap} class="web-search-box">
+						<img class="web-search-icon" src="/app_icon.png" alt="" width="20" height="20" />
+						{#if searchCaretTrailEnabled}
+							<div
+								class="web-search-caret-layer"
+								class:visible={searchCaretFocused && searchCaretReady}
+								aria-hidden="true"
+							>
+								<svg class="web-search-trail" focusable="false">
+									<polygon bind:this={searchTrailPoly}></polygon>
+								</svg>
+								<span bind:this={searchCaretEl} class="web-search-caret"></span>
+							</div>
+						{/if}
+						<input
+							use:customCaret={{
+								wrap: searchCaretWrap,
+								caret: searchCaretEl,
+								trail: searchTrailPoly,
+								caretTrail: searchCaretTrail,
+								color: searchCaretColor,
+								onStateChange: (state) => {
+									searchCaretFocused = state.focused;
+									searchCaretReady = state.ready;
+								}
+							}}
+							use:trackAddressInput
+							class="address-input web-search-input"
+							class:trail-enabled={searchCaretTrailEnabled}
+							type="text"
+							inputmode="search"
+							spellcheck="false"
+							autocapitalize="off"
+							autocomplete="off"
+							placeholder="Search Google or type a URL"
+							bind:value={addressInput}
+							onfocus={onAddressFocus}
+							onblur={onAddressBlur}
+							onkeydown={onAddressKeydown}
+							aria-label="Address bar"
+						/>
+					</div>
+				</div>
 			{/if}
 		</div>
 	</div>
@@ -960,6 +1100,10 @@
 			width var(--duration-fast) var(--ease-smooth),
 			border-color var(--duration-fast) var(--ease-smooth),
 			box-shadow var(--duration-fast) var(--ease-smooth);
+	}
+
+	.workspace-panel-inner:focus {
+		outline: none;
 	}
 
 	.workspace-panel-toolbar {
@@ -1046,14 +1190,6 @@
 		min-width: 0;
 	}
 
-	.url-field-search {
-		flex: 1;
-		min-width: 0;
-		display: flex;
-		flex-direction: column;
-		gap: 1px;
-	}
-
 	.page-title {
 		font-size: 12px;
 		font-weight: 600;
@@ -1066,36 +1202,6 @@
 	.surface-title {
 		flex-shrink: 0;
 		max-width: 7.5rem;
-	}
-
-	.page-title-sub {
-		font-size: 11px;
-		font-weight: 500;
-		color: var(--text-muted);
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-
-
-	.url-field:has(.chrome-web-chrome) {
-		gap: 6px;
-	}
-
-	.chrome-web-chrome {
-		display: flex;
-		flex-direction: column;
-		gap: 6px;
-		min-width: 0;
-		flex: 1;
-	}
-
-	.chrome-address-row {
-		width: 100%;
-	}
-
-	.chrome-address-row .address-input {
-		width: 100%;
 	}
 
 	.address-input {
@@ -1124,6 +1230,10 @@
 		opacity: 0.7;
 	}
 
+	.address-input.trail-enabled {
+		caret-color: transparent;
+	}
+
 	.file-path-display {
 		width: 100%;
 		min-width: 0;
@@ -1140,6 +1250,135 @@
 		position: relative;
 		background: #fff;
 		overflow: hidden;
+	}
+
+	.web-search-stage {
+		position: absolute;
+		z-index: 4;
+		display: flex;
+		justify-content: center;
+		pointer-events: none;
+		visibility: hidden;
+	}
+
+	.web-search-stage.visible {
+		visibility: visible;
+		pointer-events: auto;
+	}
+
+	.web-search-stage.centered {
+		inset: 0;
+		align-items: center;
+	}
+
+	.web-search-stage.overlay {
+		top: 16px;
+		left: 16px;
+		right: 16px;
+		align-items: flex-start;
+	}
+
+	.web-search-box {
+		position: relative;
+		width: min(32rem, calc(100% - 48px));
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		padding: 12px 16px;
+		border-radius: 12px;
+		border: 1px solid var(--border-soft);
+		background: var(--panel-bg);
+		box-shadow: var(--shadow-card);
+		box-sizing: border-box;
+	}
+
+	.web-search-stage.overlay .web-search-box {
+		padding: 8px 12px;
+		border-radius: 8px;
+	}
+
+	.web-search-input {
+		font-size: 14px;
+		color: var(--text-main);
+	}
+
+	.web-search-icon {
+		flex-shrink: 0;
+		width: 20px;
+		height: 20px;
+		border-radius: 5px;
+		object-fit: cover;
+	}
+
+	.web-search-stage.centered .web-search-icon {
+		width: 22px;
+		height: 22px;
+	}
+
+	.web-search-caret-layer {
+		position: absolute;
+		inset: 0;
+		pointer-events: none;
+		z-index: 2;
+		overflow: hidden;
+		opacity: 0;
+		transition: opacity 0.08s ease;
+	}
+
+	.web-search-caret-layer.visible {
+		opacity: 1;
+	}
+
+	.web-search-trail {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		overflow: visible;
+	}
+
+	.web-search-trail polygon {
+		fill: var(--rce-caret-color);
+		stroke: none;
+		opacity: 0;
+		filter: drop-shadow(0 0 6px var(--rce-caret-color));
+	}
+
+	@keyframes web-search-caret-blink {
+		0%,
+		100% {
+			opacity: 1;
+		}
+		50% {
+			opacity: 0.75;
+		}
+	}
+
+	.web-search-caret {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 2px;
+		height: 1.2em;
+		border-radius: 999px;
+		background: var(--rce-caret-color);
+		box-shadow: 0 0 9px var(--rce-caret-color);
+		will-change: transform;
+		animation: web-search-caret-blink 1.1s ease-in-out infinite;
+	}
+
+	:global(.web-search-caret.moving) {
+		animation: none;
+	}
+
+	.web-search-caret::after {
+		content: '';
+		position: absolute;
+		inset: -5px -4px;
+		border-radius: 999px;
+		background: var(--rce-caret-color);
+		opacity: 0.14;
+		filter: blur(5px);
 	}
 
 	.panel-layer {

@@ -13,7 +13,12 @@ export type FileRevealRange = {
 export type SurfaceContent =
 	| { mode: 'file'; filePath: string; startLine?: number; endLine?: number }
 	| { mode: 'git-diff'; filePath: string }
-	| { mode: 'url'; url: string };
+	| { mode: 'url'; url: string; tabId?: string; title?: string };
+
+export type UrlTabMeta = {
+	url: string;
+	title: string;
+};
 
 export type WorkspacePanelState = {
 	visible: boolean;
@@ -23,10 +28,12 @@ export type WorkspacePanelState = {
 	content: Partial<Record<SurfaceContentKey, SurfaceContent>>;
 	/**
 	 * Ordered tab ids per tabbed surface.
-	 * wiki/workspace ids are file paths; web-search ids are URLs.
-	 * Active id is content[surface].filePath or content[surface].url.
+	 * wiki/workspace ids are file paths; web-search ids are stable slot ids.
+	 * Active file id is content[surface].filePath; active url id is content.tabId.
 	 */
 	tabs: Partial<Record<TabSurfaceKey, string[]>>;
+	/** Location + remembered chip title, keyed by web-search tab id. */
+	urlTabMeta: Record<string, UrlTabMeta>;
 };
 
 export const SURFACE_CLOSE_ORDER: SurfaceContentKey[] = [
@@ -45,8 +52,39 @@ export function createWorkspacePanelState(
 		terminalVisible: false,
 		contentSurface,
 		content: {},
-		tabs: {}
+		tabs: {},
+		urlTabMeta: {}
 	};
+}
+
+let urlTabSeq = 0;
+
+export function createUrlTabId(): string {
+	urlTabSeq += 1;
+	return `url-tab-${urlTabSeq}`;
+}
+
+export function isBlankTabUrl(url: string | null | undefined): boolean {
+	return Boolean(url && (url === 'about:blank' || url.startsWith('about:blank#')));
+}
+
+export function isDisplayTabTitle(title: string, url: string): boolean {
+	const trimmed = title.trim();
+	if (!trimmed) return false;
+	if (trimmed === url) return false;
+	if (/^https?:\/\//i.test(trimmed)) return false;
+	return true;
+}
+
+export function urlTabMetaFor(state: WorkspacePanelState, id: string): UrlTabMeta {
+	return (state.urlTabMeta ?? {})[id] ?? { url: id, title: '' };
+}
+
+export function urlTabChipLabel(meta: UrlTabMeta, liveTitle = ''): string {
+	if (!meta.url || isBlankTabUrl(meta.url)) return 'New Tab';
+	const title = isDisplayTabTitle(liveTitle, meta.url) ? liveTitle.trim() : meta.title.trim();
+	if (isDisplayTabTitle(title, meta.url)) return title;
+	return meta.url.replace(/^https?:\/\//, '').split('/')[0] || meta.url;
 }
 
 export function isTabSurface(surface: ContentSurface): surface is TabSurfaceKey {
@@ -57,7 +95,7 @@ export function activeTabId(
 	content: SurfaceContent | undefined
 ): string | null {
 	if (content?.mode === 'file') return content.filePath;
-	if (content?.mode === 'url') return content.url;
+	if (content?.mode === 'url') return content.tabId ?? content.url;
 	return null;
 }
 
@@ -69,16 +107,33 @@ export function tabsFor(state: WorkspacePanelState, surface: TabSurfaceKey): str
 }
 
 function contentForTab(
+	state: WorkspacePanelState,
 	surface: TabSurfaceKey,
 	id: string,
 	reveal?: FileRevealRange | null
 ): SurfaceContent {
-	if (surface === 'web-search') return { mode: 'url', url: id };
+	if (surface === 'web-search') {
+		const meta = urlTabMetaFor(state, id);
+		return { mode: 'url', url: meta.url, tabId: id, title: meta.title };
+	}
 	return {
 		mode: 'file',
 		filePath: id,
 		...(reveal ? { startLine: reveal.startLine, endLine: reveal.endLine } : {})
 	};
+}
+
+function pruneUrlTabMeta(
+	state: WorkspacePanelState,
+	remainingIds: string[]
+): Record<string, UrlTabMeta> {
+	if (remainingIds.length === 0) return {};
+	const next: Record<string, UrlTabMeta> = {};
+	for (const id of remainingIds) {
+		const meta = state.urlTabMeta?.[id];
+		if (meta) next[id] = meta;
+	}
+	return next;
 }
 
 function withTabs(
@@ -89,7 +144,39 @@ function withTabs(
 	const nextTabs = { ...state.tabs };
 	if (tabs.length === 0) delete nextTabs[surface];
 	else nextTabs[surface] = tabs;
-	return { ...state, tabs: nextTabs };
+	const next: WorkspacePanelState = { ...state, tabs: nextTabs };
+	if (surface === 'web-search') {
+		next.urlTabMeta = pruneUrlTabMeta(next, tabs);
+	}
+	return next;
+}
+
+function findUrlTabIdByUrl(state: WorkspacePanelState, url: string): string | undefined {
+	for (const id of tabsFor(state, 'web-search')) {
+		if (urlTabMetaFor(state, id).url === url) return id;
+	}
+	return undefined;
+}
+
+export function resolveUrlTabId(state: WorkspacePanelState, idOrUrl: string): string | null {
+	const tabs = tabsFor(state, 'web-search');
+	if (tabs.includes(idOrUrl)) return idOrUrl;
+	return findUrlTabIdByUrl(state, idOrUrl) ?? null;
+}
+
+function rememberUrlTab(
+	state: WorkspacePanelState,
+	id: string,
+	url: string,
+	title: string
+): WorkspacePanelState {
+	return {
+		...state,
+		urlTabMeta: {
+			...state.urlTabMeta,
+			[id]: { url, title }
+		}
+	};
 }
 
 /** Add or activate a tab on a tabbed surface. */
@@ -107,7 +194,7 @@ export function openPanelTab(
 			visible: true,
 			surface: 'web',
 			contentSurface: surface,
-			content: { ...state.content, [surface]: contentForTab(surface, id, reveal) }
+			content: { ...state.content, [surface]: contentForTab(state, surface, id, reveal) }
 		},
 		surface,
 		nextTabs
@@ -127,7 +214,7 @@ export function activatePanelTab(
 			visible: true,
 			surface: 'web',
 			contentSurface: surface,
-			content: { ...state.content, [surface]: contentForTab(surface, id) }
+			content: { ...state.content, [surface]: contentForTab(state, surface, id) }
 		},
 		surface,
 		tabs
@@ -155,7 +242,7 @@ export function replaceActivePanelTab(
 			visible: true,
 			surface: 'web',
 			contentSurface: surface,
-			content: { ...state.content, [surface]: contentForTab(surface, id) }
+			content: { ...state.content, [surface]: contentForTab(state, surface, id) }
 		},
 		surface,
 		finalTabs
@@ -193,7 +280,7 @@ function closeActiveTabStep(
 		return withTabs(
 			{
 				...state,
-				content: { ...state.content, [surface]: contentForTab(surface, nextId) }
+				content: { ...state.content, [surface]: contentForTab(state, surface, nextId) }
 			},
 			surface,
 			nextTabs
@@ -270,13 +357,12 @@ export function closeWorkspacePanel(state: WorkspacePanelState): WorkspacePanelS
  */
 export function replacesActiveFile(
 	state: WorkspacePanelState,
-	nextSurface: ContentSurface,
 	nextContent: SurfaceContent | null
 ): boolean {
 	if (nextContent?.mode === 'file') return false;
 	const active = state.content[state.contentSurface];
 	if (active?.mode !== 'file') return false;
-	return nextSurface !== state.contentSurface || nextContent?.mode !== 'file';
+	return true;
 }
 
 // --- Compatibility wrappers (call sites / readability) ---
@@ -318,26 +404,84 @@ export function openWorkspacePanelUrl(
 	state: WorkspacePanelState,
 	url: string
 ): WorkspacePanelState {
-	return openPanelTab(state, 'web-search', url);
+	const existing = findUrlTabIdByUrl(state, url);
+	if (existing) return activatePanelTab(state, 'web-search', existing);
+	const id = createUrlTabId();
+	return openPanelTab(rememberUrlTab(state, id, url, ''), 'web-search', id);
 }
 
 export function navigateWorkspacePanelUrl(
 	state: WorkspacePanelState,
 	url: string
 ): WorkspacePanelState {
-	return replaceActivePanelTab(state, 'web-search', url);
+	const active = activeTabId(state.content['web-search']);
+	if (!active) return openWorkspacePanelUrl(state, url);
+	return {
+		...state,
+		visible: true,
+		surface: 'web',
+		contentSurface: 'web-search',
+		urlTabMeta: {
+			...state.urlTabMeta,
+			[active]: { url, title: '' }
+		},
+		content: {
+			...state.content,
+			'web-search': { mode: 'url', url, tabId: active, title: '' }
+		}
+	};
+}
+
+/**
+ * Guest (webview) navigated in place. Keep the same tab slot and allow
+ * duplicate URLs — do not merge with another tab the way address-bar replace does.
+ */
+export function syncActiveUrlTab(
+	state: WorkspacePanelState,
+	url: string,
+	title = ''
+): WorkspacePanelState {
+	const content = state.content['web-search'];
+	if (content?.mode !== 'url') return state;
+	const id = content.tabId ?? content.url;
+	if (!id) return state;
+	const prev = urlTabMetaFor(state, id);
+	const nextTitle = isDisplayTabTitle(title, url)
+		? title.trim()
+		: prev.title;
+	if (prev.url === url && prev.title === nextTitle && content.url === url && content.tabId === id) {
+		return state;
+	}
+	return {
+		...state,
+		visible: true,
+		surface: 'web',
+		contentSurface: 'web-search',
+		urlTabMeta: {
+			...state.urlTabMeta,
+			[id]: { url, title: nextTitle }
+		},
+		content: {
+			...state.content,
+			'web-search': { mode: 'url', url, tabId: id, title: nextTitle }
+		}
+	};
 }
 
 export function activateWorkspacePanelUrlTab(
 	state: WorkspacePanelState,
-	url: string
+	idOrUrl: string
 ): WorkspacePanelState {
-	return activatePanelTab(state, 'web-search', url);
+	const id = resolveUrlTabId(state, idOrUrl);
+	if (!id) return state;
+	return activatePanelTab(state, 'web-search', id);
 }
 
 export function closeWorkspacePanelUrlTab(
 	state: WorkspacePanelState,
-	url: string
+	idOrUrl: string
 ): WorkspacePanelState {
-	return closePanelTab(state, 'web-search', url);
+	const id = resolveUrlTabId(state, idOrUrl);
+	if (!id) return state;
+	return closePanelTab(state, 'web-search', id);
 }
