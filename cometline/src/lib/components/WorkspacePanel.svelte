@@ -1125,15 +1125,14 @@
 		border: 1px solid color-mix(in srgb, var(--hero-composer-glow-color) 22%, var(--border-soft));
 		border-radius: 6px;
 		background: color-mix(in srgb, var(--hero-composer-glow-color) 6%, transparent);
-		box-shadow: 0 0 0 1px var(--hero-composer-glow-ring);
+		box-shadow: none;
 	}
 
 	.file-tab.active {
 		border-color: color-mix(in srgb, var(--hero-composer-glow-color) 54%, var(--border-soft));
 		background: color-mix(in srgb, var(--hero-composer-glow-color) 18%, var(--panel-bg));
-		box-shadow:
-			0 0 0 1px var(--pane-focus-border),
-			0 0 10px var(--hero-composer-glow-soft);
+		/* Even glow only — no extra 1px ring (that fought the border). */
+		box-shadow: 0 0 8px var(--hero-composer-glow-soft);
 	}
 
 	.file-tab-button {
