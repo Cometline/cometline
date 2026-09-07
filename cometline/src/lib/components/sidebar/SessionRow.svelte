@@ -6,6 +6,8 @@
 	import { chatStore } from '$lib/stores/chat.svelte';
 	import { terminalStore } from '$lib/stores/terminal.svelte';
 	import { unreadSessionOutputStore } from '$lib/stores/unread-session-output.svelte';
+	import { webTabActivity } from '$lib/workspace/web-tab-activity.svelte';
+	import SessionAudioBadge from './SessionAudioBadge.svelte';
 
 	let {
 		session,
@@ -38,6 +40,13 @@
 	} = $props();
 
 	let streaming = $derived(session.running || chatStore.isStreamingFor(session.id));
+	const audioTabs = $derived(
+		[...webTabActivity.values()].filter(
+			(tab) =>
+				tab.sessionId === session.id &&
+				(tab.surface.pageState?.audible || tab.surface.pageState?.muted)
+		)
+	);
 	let terminalRunning = $derived(terminalStore.isRunning(session.id));
 	let unread = $derived(unreadSessionOutputStore.isUnread(session.id));
 	let failed = $derived(chatStore.hasRunError(session.id));
@@ -83,22 +92,25 @@
 	class:selected
 	class:streaming={streaming && !selected}
 	class:has-actions={showActions}
+	class:has-audio={audioTabs.length > 0}
 	role="group"
 	oncontextmenu={handleContextMenu}
 >
 	<button class="session-row" onclick={onSelect} ondblclick={handleDblClick}>
 		<span class="session-title-row">
 			<span class="session-activity" aria-label={activityLabel}>
-				<span
-					class:active={streaming}
-					class:error={failed}
-					class:terminal={terminalRunning && !failed}
-					class:unread={unread && !failed && !streaming}
-					class="session-streaming"
-					title={activityLabel}
-					>{#if terminalRunning && !failed}<span class="terminal-marker">t</span
-						>{/if}</span
-				>
+				{#if audioTabs.length === 0}
+					<span
+						class:active={streaming}
+						class:error={failed}
+						class:terminal={terminalRunning && !failed}
+						class:unread={unread && !failed && !streaming}
+						class="session-streaming"
+						title={activityLabel}
+						>{#if terminalRunning && !failed}<span class="terminal-marker">t</span
+							>{/if}</span
+					>
+				{/if}
 			</span>
 			<span class="session-title">{sessionDisplayTitle(session.title)}</span>
 		</span>
@@ -108,6 +120,9 @@
 			<span class="session-workspace">{workspaceLabel(session.workspace_path)}</span>
 		{/if}
 	</button>
+	{#if audioTabs.length > 0}
+		<div class="session-audio"><SessionAudioBadge {session} tabs={audioTabs} /></div>
+	{/if}
 	{#if showActions}
 		<div class="session-actions">
 			{#if showPin}
@@ -191,6 +206,17 @@
 
 	.session-row-wrap.has-actions .session-row {
 		padding-right: 58px;
+	}
+	/* Share the first title line's indicator slot, not the hover-action area. */
+	.session-audio {
+		position: absolute;
+		left: 8px;
+		top: 6px;
+		width: 10px;
+		height: calc(13px * 1.35);
+		display: flex;
+		align-items: center;
+		justify-content: center;
 	}
 
 	.session-row-wrap.selected .session-title {
@@ -332,5 +358,10 @@
 	.pin-session:disabled,
 	.delete-session:disabled {
 		opacity: 0.35;
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.session-streaming.active {
+			animation: none;
+		}
 	}
 </style>
