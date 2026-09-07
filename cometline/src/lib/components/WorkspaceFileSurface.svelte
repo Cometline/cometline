@@ -12,15 +12,20 @@
 
 	let {
 		workspacePath,
+		wikiTabs = [],
+		workspaceTabs = [],
 		wikiFilePath,
 		workspaceFilePath,
 		wikiRevealRange = null,
 		workspaceRevealRange = null,
 		activeSurface,
 		active,
-		onEditorState
+		onEditorState,
+		onDirtyByPath
 	}: {
 		workspacePath: string;
+		wikiTabs?: string[];
+		workspaceTabs?: string[];
 		wikiFilePath: string | null;
 		workspaceFilePath: string | null;
 		wikiRevealRange?: FileRevealRange | null;
@@ -28,42 +33,97 @@
 		activeSurface: 'wiki' | 'workspace' | 'changes' | 'web-search';
 		active: boolean;
 		onEditorState: (state: FileEditorState | null) => void;
+		onDirtyByPath?: (dirtyByPath: Record<string, boolean>) => void;
 	} = $props();
 
-	let wikiEditorState = $state<FileEditorState | null>(null);
-	let workspaceEditorState = $state<FileEditorState | null>(null);
+	const wikiPaths = $derived(
+		wikiTabs.length > 0 ? wikiTabs : wikiFilePath ? [wikiFilePath] : []
+	);
+	const workspacePaths = $derived(
+		workspaceTabs.length > 0 ? workspaceTabs : workspaceFilePath ? [workspaceFilePath] : []
+	);
+
+	let wikiEditorStateByPath = $state<Record<string, FileEditorState | null>>({});
+	let workspaceEditorStateByPath = $state<Record<string, FileEditorState | null>>({});
+	let lastDirtyPayload = '';
+
+	function editorStateEquals(a: FileEditorState | null, b: FileEditorState | null): boolean {
+		if (a === b) return true;
+		if (!a || !b) return false;
+		return (
+			a.dirty === b.dirty &&
+			a.saving === b.saving &&
+			a.saveError === b.saveError &&
+			a.save === b.save &&
+			a.revert === b.revert
+		);
+	}
+
+	function setWikiEditorState(path: string, state: FileEditorState | null) {
+		if (editorStateEquals(wikiEditorStateByPath[path] ?? null, state)) return;
+		wikiEditorStateByPath = { ...wikiEditorStateByPath, [path]: state };
+	}
+
+	function setWorkspaceEditorState(path: string, state: FileEditorState | null) {
+		if (editorStateEquals(workspaceEditorStateByPath[path] ?? null, state)) return;
+		workspaceEditorStateByPath = { ...workspaceEditorStateByPath, [path]: state };
+	}
+
 	const activeEditorState = $derived(
-		active && activeSurface === 'wiki'
-			? wikiEditorState
-			: active && activeSurface === 'workspace'
-				? workspaceEditorState
+		active && activeSurface === 'wiki' && wikiFilePath
+			? (wikiEditorStateByPath[wikiFilePath] ?? null)
+			: active && activeSurface === 'workspace' && workspaceFilePath
+				? (workspaceEditorStateByPath[workspaceFilePath] ?? null)
 				: null
 	);
 
+	const dirtyByPath = $derived.by(() => {
+		const next: Record<string, boolean> = {};
+		for (const path of wikiPaths) {
+			next[path] = Boolean(wikiEditorStateByPath[path]?.dirty);
+		}
+		for (const path of workspacePaths) {
+			next[path] = Boolean(workspaceEditorStateByPath[path]?.dirty);
+		}
+		return next;
+	});
+
 	$effect(() => onEditorState(activeEditorState));
+	$effect(() => {
+		const payload = JSON.stringify(dirtyByPath);
+		if (payload === lastDirtyPayload) return;
+		lastDirtyPayload = payload;
+		onDirtyByPath?.(dirtyByPath);
+	});
 </script>
 
 <div class="file-surfaces">
-	{#if wikiFilePath}
-		<div class="panel-layer panel-layer-content" class:active={active && activeSurface === 'wiki'}>
+	{#each wikiPaths as path (path)}
+		<div
+			class="panel-layer panel-layer-content"
+			class:active={active && activeSurface === 'wiki' && wikiFilePath === path}
+		>
 			<FilePreview
 				{workspacePath}
-				filePath={wikiFilePath}
-				revealRange={wikiRevealRange}
-				onEditorState={(state) => (wikiEditorState = state)}
+				filePath={path}
+				revealRange={wikiFilePath === path ? wikiRevealRange : null}
+				onEditorState={(state) => setWikiEditorState(path, state)}
 			/>
 		</div>
-	{/if}
-	{#if workspaceFilePath}
-		<div class="panel-layer panel-layer-content" class:active={active && activeSurface === 'workspace'}>
+	{/each}
+	{#each workspacePaths as path (path)}
+		<div
+			class="panel-layer panel-layer-content"
+			class:active={active && activeSurface === 'workspace' && workspaceFilePath === path}
+		>
 			<FilePreview
 				{workspacePath}
-				filePath={workspaceFilePath}
-				revealRange={workspaceRevealRange}
-				onEditorState={(state) => (workspaceEditorState = state)}
+				filePath={path}
+				revealRange={workspaceFilePath === path ? workspaceRevealRange : null}
+				onEditorState={(state) => setWorkspaceEditorState(path, state)}
 			/>
 		</div>
-	{/if}
+	{/each}
 </div>
 
 <style>

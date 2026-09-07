@@ -17,6 +17,7 @@
 	import { tick, untrack } from 'svelte';
 	import ConfirmActionModal from '$lib/components/ConfirmActionModal.svelte';
 	import FileTreeBrowser from '$lib/components/FileTreeBrowser.svelte';
+	import PanelTabStrip from '$lib/components/PanelTabStrip.svelte';
 	import WorkspaceFileSurface from '$lib/components/WorkspaceFileSurface.svelte';
 	import GitChangesBrowser from '$lib/components/GitChangesBrowser.svelte';
 	import GitDiffView from '$lib/components/GitDiffView.svelte';
@@ -26,7 +27,7 @@
 	import { sessionStore } from '$lib/stores/session.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { terminalStore } from '$lib/stores/terminal.svelte';
-	import { isHttpUrl, normalizeUserUrl, openLink } from '$lib/open-link';
+	import { isHttpUrl, normalizeUserUrl } from '$lib/open-link';
 	import { openExternalLink } from '$lib/external-link';
 	import { isWikiUiPath } from '$lib/wiki/paths';
 	import { normalizeWorkspacePath } from '$lib/workspace/file-index';
@@ -46,6 +47,7 @@
 		save: () => Promise<void>;
 		revert: () => void;
 	} | null>(null);
+	let dirtyByPath = $state<Record<string, boolean>>({});
 	let capturingContext = $state(false);
 	let webSurfaceRef = $state<{
 		navigateBack: () => boolean;
@@ -75,6 +77,10 @@
 	const panelMode = $derived(shellStore.workspacePanelMode);
 	const panelUrl = $derived(shellStore.workspacePanelUrl);
 	const panelFilePath = $derived(shellStore.workspacePanelFilePath);
+	const panelFileTabs = $derived(shellStore.workspacePanelFileTabs);
+	const panelUrlTabs = $derived(shellStore.workspacePanelUrlTabs);
+	const wikiFileTabs = $derived(shellStore.wikiPanelFileTabs);
+	const workspaceSurfaceFileTabs = $derived(shellStore.workspaceSurfaceFileTabs);
 	const panelGitDiffPath = $derived(shellStore.workspacePanelGitDiffPath);
 	const panelSessionKey = $derived(shellStore.workspacePanelSessionKey);
 	const webSurface = $derived(shellStore.contentSurface);
@@ -209,9 +215,24 @@
 
 
 
+	function isBlankTabUrl(url: string | null | undefined): boolean {
+		return Boolean(url && (url === 'about:blank' || url.startsWith('about:blank#')));
+	}
+
+	function displayAddress(url: string | null | undefined): string {
+		if (!url || isBlankTabUrl(url)) return '';
+		return url;
+	}
+
+	function tabLabelForUrl(url: string, title: string): string {
+		if (!url || isBlankTabUrl(url)) return 'New Tab';
+		if (title && title !== url && !title.startsWith('http')) return title;
+		return url.replace(/^https?:\/\//, '').split('/')[0] || url;
+	}
+
 	function syncAddressFromNavigation() {
 		if (addressEditing) return;
-		addressInput = panelUrl || '';
+		addressInput = displayAddress(panelUrl);
 	}
 
 	function updateWebNavigation(state: {
@@ -225,7 +246,7 @@
 		webCanGoForward = state.canGoForward;
 		loading = state.loading;
 		webPageTitle = state.title;
-		if (!addressEditing) addressInput = state.url || panelUrl || '';
+		if (!addressEditing) addressInput = displayAddress(state.url || panelUrl);
 		if (state.url.startsWith('http://') || state.url.startsWith('https://')) {
 			shellStore.setPendingPageContextForActive({ title: state.title, source: state.url });
 		}
@@ -275,6 +296,23 @@
 		return new Promise((resolve) => {
 			resolveDiscardChanges = resolve;
 		});
+	}
+
+	function requestLeaveTab(filePath: string): boolean | Promise<boolean> {
+		if (!dirtyByPath[filePath]) return true;
+		discardChangesConfirmOpen = true;
+		return new Promise((resolve) => {
+			resolveDiscardChanges = resolve;
+		});
+	}
+
+	async function closeFileTab(filePath: string): Promise<void> {
+		if (!(await requestLeaveTab(filePath))) return;
+		if (filePath === panelFilePath) {
+			shellStore.closeWorkspacePanel();
+			return;
+		}
+		shellStore.closeFileTabForActive(filePath);
 	}
 
 	function resolveLeaveEditor(discard: boolean) {
@@ -377,10 +415,14 @@
 
 	function onNewWindow(url: string) {
 		if (isHttpUrl(url)) {
-			openLink(url);
+			void shellStore.openWorkspacePanelUrlForActive(url);
 			return;
 		}
 		openExternalLink(url);
+	}
+
+	function openNewWebTab() {
+		shellStore.openWebSearchPanel();
 	}
 
 	// Tracks the focus request id we have already satisfied, so a remounting
@@ -643,15 +685,15 @@
 				{#if showTerminalTitle}
 					<span class="page-title">{surfaceTitle}</span>
 				{:else if showFilePreview && panelFilePath}
-					<span class="page-title">
-						{panelFilePath.split(/[/\\]/).pop()}{#if dirty}<span
-								class="dirty-dot"
-								aria-label="Unsaved changes"
-							>
-								•</span
-							>{/if}
-					</span>
-					<span class="file-path-display" title={panelFilePath}>{panelFilePath}</span>
+					<PanelTabStrip
+						tabs={panelFileTabs}
+						activeId={panelFilePath}
+						ariaLabel="Open files"
+						dirtyById={dirtyByPath}
+						labelFor={(id) => id.split(/[/\\]/).pop() || id}
+						onActivate={(id) => shellStore.activateFileTabForActive(id)}
+						onClose={(id) => void closeFileTab(id)}
+					/>
 				{:else if showGitDiff && panelGitDiffPath}
 					<span class="page-title">Diff</span>
 					<span class="file-path-display" title={panelGitDiffPath}>{panelGitDiffPath}</span>
@@ -678,12 +720,21 @@
 						/>
 					</div>
 				{:else if showWebSearchField}
-					<div class="url-field-row">
-						<span class="page-title surface-title">{surfaceTitle}</span>
-						<div class="url-field-search">
-							{#if pageTitle}
-								<span class="page-title-sub">{pageTitle}</span>
-							{/if}
+					<div class="chrome-web-chrome">
+						<PanelTabStrip
+							tabs={panelUrlTabs}
+							activeId={webSearchUrl}
+							ariaLabel="Open pages"
+							labelFor={(id, active) => tabLabelForUrl(id, active ? pageTitle : '')}
+							titleFor={(id) => (isBlankTabUrl(id) ? 'New Tab' : id)}
+							onActivate={(id) => shellStore.activateUrlTabForActive(id)}
+							onClose={(id) => {
+								if (id === webSearchUrl) shellStore.closeWorkspacePanel();
+								else shellStore.closeUrlTabForActive(id);
+							}}
+							onNewTab={openNewWebTab}
+						/>
+						<div class="url-field-row chrome-address-row">
 							<input
 								use:trackAddressInput
 								class="address-input"
@@ -692,12 +743,12 @@
 								spellcheck="false"
 								autocapitalize="off"
 								autocomplete="off"
-								placeholder="Search web or enter URL"
+								placeholder="Search Google or type a URL"
 								bind:value={addressInput}
 								onfocus={onAddressFocus}
 								onblur={onAddressBlur}
 								onkeydown={onAddressKeydown}
-								aria-label="Workspace panel address"
+								aria-label="Address bar"
 							/>
 						</div>
 					</div>
@@ -800,6 +851,8 @@
 				</div>
 				<WorkspaceFileSurface
 					workspacePath={shellStore.workspacePath}
+					wikiTabs={wikiFileTabs}
+					workspaceTabs={workspaceSurfaceFileTabs}
 					{wikiFilePath}
 					{workspaceFilePath}
 					{wikiRevealRange}
@@ -807,6 +860,16 @@
 					activeSurface={webSurface}
 					active={onWebSurface}
 					onEditorState={(state) => (editorState = state)}
+					onDirtyByPath={(next) => {
+						const prev = dirtyByPath;
+						const keys = new Set([...Object.keys(prev), ...Object.keys(next)]);
+						for (const key of keys) {
+							if (Boolean(prev[key]) !== Boolean(next[key])) {
+								dirtyByPath = next;
+								return;
+							}
+						}
+					}}
 				/>
 				{#if changesDiffPath}
 					<div
@@ -828,15 +891,17 @@
 						class:active={showWebview}
 						aria-hidden={!showWebview}
 					>
-						<WorkspaceWebSurface
-							bind:this={webSurfaceRef}
-							url={webSearchUrl}
-							sessionKey={panelSessionKey}
-							onNavigationState={updateWebNavigation}
-							onFocus={() => shellStore.setFocusedPane('web')}
-							onNewWindow={onNewWindow}
-							onCapturingChange={(value) => (capturingContext = value)}
-						/>
+						{#key webSearchUrl}
+							<WorkspaceWebSurface
+								bind:this={webSurfaceRef}
+								url={webSearchUrl}
+								sessionKey={`${panelSessionKey ?? ''}:${webSearchUrl}`}
+								onNavigationState={updateWebNavigation}
+								onFocus={() => shellStore.setFocusedPane('web')}
+								onNewWindow={onNewWindow}
+								onCapturingChange={(value) => (capturingContext = value)}
+							/>
+						{/key}
 					</div>
 				{/if}
 			{/if}
@@ -1012,9 +1077,25 @@
 		white-space: nowrap;
 	}
 
-	.dirty-dot {
-		color: var(--accent, #2563eb);
-		font-weight: 700;
+
+	.url-field:has(.chrome-web-chrome) {
+		gap: 6px;
+	}
+
+	.chrome-web-chrome {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+		min-width: 0;
+		flex: 1;
+	}
+
+	.chrome-address-row {
+		width: 100%;
+	}
+
+	.chrome-address-row .address-input {
+		width: 100%;
 	}
 
 	.address-input {

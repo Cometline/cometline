@@ -158,7 +158,7 @@ export const SHORTCUT_DEFINITIONS: KeyboardShortcutDefinition[] = [
 	},
 	{
 		id: 'openWebSearch',
-		label: 'Open web search',
+		label: 'New web tab',
 		category: 'panels',
 		defaultBinding: { command: true, key: 'o' }
 	},
