@@ -21,6 +21,8 @@ export type WorkspacePanelState = {
 	content: Partial<Record<SurfaceContentKey, SurfaceContent>>;
 	/** Open file tabs per wiki/workspace surface; active tab is content[surface].filePath. */
 	fileTabs: Partial<Record<FileSurfaceKey, string[]>>;
+	/** Open URL tabs for web-search; active tab is content['web-search'].url. */
+	urlTabs: string[];
 };
 
 export const SURFACE_CLOSE_ORDER: SurfaceContentKey[] = [
@@ -39,7 +41,8 @@ export function createWorkspacePanelState(
 		terminalVisible: false,
 		contentSurface,
 		content: {},
-		fileTabs: {}
+		fileTabs: {},
+		urlTabs: []
 	};
 }
 
@@ -129,6 +132,94 @@ export function nextSurfaceWithContent(
 	return null;
 }
 
+
+export function urlTabsFor(state: WorkspacePanelState): string[] {
+	if (state.urlTabs.length > 0) return state.urlTabs;
+	const content = state.content['web-search'];
+	if (content?.mode === 'url' && content.url) return [content.url];
+	return [];
+}
+
+export function openWorkspacePanelUrl(
+	state: WorkspacePanelState,
+	url: string
+): WorkspacePanelState {
+	const tabs = urlTabsFor(state);
+	const nextTabs = tabs.includes(url) ? tabs : [...tabs, url];
+	return {
+		...state,
+		visible: true,
+		surface: 'web',
+		contentSurface: 'web-search',
+		content: { ...state.content, 'web-search': { mode: 'url', url } },
+		urlTabs: nextTabs
+	};
+}
+
+/** Address-bar navigate: replace the active URL tab in place, or open if none. */
+export function navigateWorkspacePanelUrl(
+	state: WorkspacePanelState,
+	url: string
+): WorkspacePanelState {
+	const content = state.content['web-search'];
+	const activeUrl = content?.mode === 'url' ? content.url : null;
+	if (!activeUrl) return openWorkspacePanelUrl(state, url);
+	const tabs = urlTabsFor(state);
+	const nextTabs = tabs.map((tab) => (tab === activeUrl ? url : tab));
+	// Deduplicate if navigation lands on an already-open tab.
+	const deduped: string[] = [];
+	for (const tab of nextTabs) {
+		if (!deduped.includes(tab)) deduped.push(tab);
+	}
+	return {
+		...state,
+		visible: true,
+		surface: 'web',
+		contentSurface: 'web-search',
+		content: { ...state.content, 'web-search': { mode: 'url', url } },
+		urlTabs: deduped.includes(url) ? deduped : [...deduped, url]
+	};
+}
+
+export function activateWorkspacePanelUrlTab(
+	state: WorkspacePanelState,
+	url: string
+): WorkspacePanelState {
+	const tabs = urlTabsFor(state);
+	if (!tabs.includes(url)) return state;
+	return {
+		...state,
+		visible: true,
+		surface: 'web',
+		contentSurface: 'web-search',
+		content: { ...state.content, 'web-search': { mode: 'url', url } },
+		urlTabs: tabs
+	};
+}
+
+export function closeWorkspacePanelUrlTab(
+	state: WorkspacePanelState,
+	url: string
+): WorkspacePanelState {
+	const tabs = urlTabsFor(state);
+	if (!tabs.includes(url)) return state;
+	const content = state.content['web-search'];
+	const activeUrl = content?.mode === 'url' ? content.url : null;
+	if (activeUrl === url) {
+		if (state.contentSurface !== 'web-search') {
+			state = { ...state, contentSurface: 'web-search', surface: 'web', visible: true };
+		}
+		return closeWorkspacePanel(state);
+	}
+	const nextTabs = tabs.filter((tab) => tab !== url);
+	if (nextTabs.length === 0) {
+		const nextContent = { ...state.content };
+		delete nextContent['web-search'];
+		return { ...state, content: nextContent, urlTabs: [] };
+	}
+	return { ...state, urlTabs: nextTabs };
+}
+
 export function closeWorkspacePanelFileTab(
 	state: WorkspacePanelState,
 	surface: FileSurfaceKey,
@@ -199,6 +290,27 @@ export function closeWorkspacePanel(state: WorkspacePanelState): WorkspacePanelS
 		const fileTabs = { ...state.fileTabs };
 		delete fileTabs[surface];
 		return { ...state, content, fileTabs };
+	}
+
+	if (activeContent?.mode === 'url' && surface === 'web-search') {
+		const tabs = urlTabsFor(state);
+		const activeUrl = activeContent.url;
+		const idx = tabs.indexOf(activeUrl);
+		if (tabs.length > 1) {
+			const nextTabs = tabs.filter((tab) => tab !== activeUrl);
+			const nextUrl = nextTabs[Math.min(Math.max(idx, 0), nextTabs.length - 1)];
+			return {
+				...state,
+				content: {
+					...state.content,
+					'web-search': { mode: 'url', url: nextUrl }
+				},
+				urlTabs: nextTabs
+			};
+		}
+		const content = { ...state.content };
+		delete content[surface];
+		return { ...state, content, urlTabs: [] };
 	}
 
 	if (activeContent) {
