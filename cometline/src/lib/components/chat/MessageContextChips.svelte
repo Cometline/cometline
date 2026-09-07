@@ -30,6 +30,10 @@
 		if (kind === 'message') return MessageSquareQuote;
 		return FileText;
 	}
+
+	function keepPaneFocus(event: MouseEvent) {
+		event.preventDefault();
+	}
 </script>
 
 {#if contexts.length > 0}
@@ -49,6 +53,7 @@
 						type="button"
 						class="message-context-chip interactive"
 						title={label}
+						onmousedown={keepPaneFocus}
 						onclick={() => openMessageContext(context)}
 					>
 						<Icon size={14} />
@@ -61,6 +66,7 @@
 								type="button"
 								class="message-context-chip-open"
 								title={label}
+								onmousedown={keepPaneFocus}
 								onclick={() => openMessageContext(context)}
 							>
 								<Icon size={14} />
@@ -74,6 +80,7 @@
 							<button
 								type="button"
 								class="message-context-chip-remove"
+								onmousedown={keepPaneFocus}
 								onclick={() => onRemove(index)}
 								aria-label="Remove {label}"
 							>
@@ -85,7 +92,12 @@
 			</div>
 		{/each}
 		{#if removable && contexts.length > 1 && onClearAll}
-			<button type="button" class="message-context-clear" onclick={onClearAll}>
+			<button
+				type="button"
+				class="message-context-clear"
+				onmousedown={keepPaneFocus}
+				onclick={onClearAll}
+			>
 				Clear all
 			</button>
 		{/if}
