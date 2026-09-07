@@ -1070,7 +1070,7 @@
 	.file-tabs {
 		display: flex;
 		align-items: stretch;
-		gap: 2px;
+		gap: 6px;
 		min-width: 0;
 		flex: 1;
 		overflow-x: auto;
@@ -1083,12 +1083,18 @@
 		min-width: 0;
 		max-width: 10rem;
 		flex: 0 1 auto;
+		border: 1px solid color-mix(in srgb, var(--hero-composer-glow-color) 22%, var(--border-soft));
 		border-radius: 6px;
-		background: transparent;
+		background: color-mix(in srgb, var(--hero-composer-glow-color) 6%, transparent);
+		box-shadow: 0 0 0 1px var(--hero-composer-glow-ring);
 	}
 
 	.file-tab.active {
-		background: color-mix(in srgb, var(--text-main) 8%, transparent);
+		border-color: color-mix(in srgb, var(--hero-composer-glow-color) 54%, var(--border-soft));
+		background: color-mix(in srgb, var(--hero-composer-glow-color) 18%, var(--panel-bg));
+		box-shadow:
+			0 0 0 1px var(--pane-focus-border),
+			0 0 10px var(--hero-composer-glow-soft);
 	}
 
 	.file-tab-button {
