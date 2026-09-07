@@ -20,12 +20,15 @@ import {
 } from '$lib/workspace/workspace-panel-prefs';
 import { dirKeysToExpandForPaths } from '$lib/workspace/file-tree';
 import {
+	activateWorkspacePanelFileTab,
 	clearFileReveal,
 	closeWorkspacePanel as closeWorkspacePanelState,
+	fileTabsFor,
 	openWorkspacePanelFile,
 	replacesActiveFile,
 	type ContentSurface,
 	type FileRevealRange,
+	type FileSurfaceKey,
 	type SurfaceContent,
 	type SurfaceContentKey,
 	type WorkspacePanelState,
@@ -121,6 +124,9 @@ function createShellStore() {
 	let contentBySessionSurface = $state<
 		Record<string, Partial<Record<SurfaceContentKey, SurfaceContent>>>
 	>({});
+	let fileTabsBySession = $state<
+		Record<string, Partial<Record<FileSurfaceKey, string[]>>>
+	>({});
 	let terminalPanelsBySession = $state<Record<string, boolean>>({});
 	let workspacePanelSurfaceBySession = $state<Record<string, WorkspacePanelSurface>>({});
 	/** Active inner surface while the outer slot is `web`. */
@@ -178,7 +184,8 @@ function createShellStore() {
 			surface: workspacePanelSurfaceBySession[sessionId] ?? 'web',
 			terminalVisible: terminalPanelsBySession[sessionId] === true,
 			contentSurface: contentSurfaceFor(sessionId),
-			content: contentBySessionSurface[sessionId] ?? {}
+			content: contentBySessionSurface[sessionId] ?? {},
+			fileTabs: fileTabsBySession[sessionId] ?? {}
 		};
 	}
 
@@ -202,6 +209,10 @@ function createShellStore() {
 		contentBySessionSurface = {
 			...contentBySessionSurface,
 			[sessionId]: state.content
+		};
+		fileTabsBySession = {
+			...fileTabsBySession,
+			[sessionId]: state.fileTabs
 		};
 	}
 
@@ -299,6 +310,11 @@ function createShellStore() {
 				...contentBySessionSurface,
 				[sessionId]: nextSurface
 			};
+			if (surface === 'wiki' || surface === 'workspace') {
+				const tabs = { ...(fileTabsBySession[sessionId] ?? {}) };
+				delete tabs[surface];
+				fileTabsBySession = { ...fileTabsBySession, [sessionId]: tabs };
+			}
 			return;
 		}
 		contentBySessionSurface = {
@@ -315,7 +331,13 @@ function createShellStore() {
 		const next = { ...contentBySessionSurface };
 		delete next[sessionId];
 		contentBySessionSurface = next;
+		if (sessionId in fileTabsBySession) {
+			const nextTabs = { ...fileTabsBySession };
+			delete nextTabs[sessionId];
+			fileTabsBySession = nextTabs;
+		}
 	}
+
 
 	/** Toolbar order used when Cmd+W walks remaining content dots. */
 	function ensureWorkspacePanelVisible(sessionId: string) {
@@ -588,6 +610,24 @@ function createShellStore() {
 			if (!key) return null;
 			const content = activeSurfaceContent(key);
 			return content?.mode === 'file' ? content.filePath : null;
+		},
+		get workspacePanelFileTabs() {
+			const key = panelSessionKey();
+			if (!key) return [] as string[];
+			const state = panelStateFor(key);
+			const surface = state.contentSurface;
+			if (surface !== 'wiki' && surface !== 'workspace') return [] as string[];
+			return fileTabsFor(state, surface);
+		},
+		get wikiPanelFileTabs() {
+			const key = panelSessionKey();
+			if (!key) return [] as string[];
+			return fileTabsFor(panelStateFor(key), 'wiki');
+		},
+		get codingPanelFileTabs() {
+			const key = panelSessionKey();
+			if (!key) return [] as string[];
+			return fileTabsFor(panelStateFor(key), 'workspace');
 		},
 		get workspacePanelGitDiffPath() {
 			const key = panelSessionKey();
@@ -1182,8 +1222,13 @@ function createShellStore() {
 			const surface = current.contentSurface;
 			const content = current.content[surface] ?? null;
 			if (content) {
-				// 1) Dismiss open file/page on this surface → back to browse/search.
+				// 1) Close active file tab, or dismiss page → browse/search when last tab gone.
 				applyPanelState(sessionId, next);
+				const stillFile = next.content[surface]?.mode === 'file';
+				if (stillFile) {
+					focusedPane = 'web';
+					return;
+				}
 				if (surface === 'wiki' || surface === 'workspace') {
 					recordPanelHistory(sessionId, surface, { kind: 'browse', source: surface });
 					this.requestFileTreeFilterFocus();
@@ -1262,6 +1307,16 @@ function createShellStore() {
 			const sessionId = panelSessionKey();
 			if (!sessionId) return Promise.resolve(false);
 			return this.openFilePreview(filePath, sessionId, reveal);
+		},
+		activateFileTabForActive(filePath: string) {
+			const sessionId = panelSessionKey();
+			if (!sessionId) return;
+			const current = panelStateFor(sessionId);
+			const surface = current.contentSurface;
+			if (surface !== 'wiki' && surface !== 'workspace') return;
+			applyPanelState(sessionId, activateWorkspacePanelFileTab(current, surface, filePath));
+			focusedPane = 'web';
+			syncWorkspacePanelOpen(true);
 		},
 		openGitDiffForActive(filePath: string) {
 			const sessionId = panelSessionKey();
