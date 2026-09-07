@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	activateWorkspacePanelFileTab,
+	activateWorkspacePanelUrlTab,
 	clearFileReveal,
 	closeWorkspacePanel,
 	closeWorkspacePanelFileTab,
@@ -11,6 +12,9 @@ import {
 	openWorkspacePanelFile,
 	openWorkspacePanelUrl,
 	replacesActiveFile,
+	syncActiveUrlTab,
+	urlTabChipLabel,
+	urlTabMetaFor,
 	urlTabsFor
 } from './workspace-panel-state';
 
@@ -106,39 +110,99 @@ describe('workspace panel state', () => {
 			'src/app.ts'
 		);
 
-		expect(replacesActiveFile(state, 'workspace', { mode: 'file', filePath: 'src/app.ts' })).toBe(
-			false
-		);
+		expect(replacesActiveFile(state, { mode: 'file', filePath: 'src/app.ts' })).toBe(false);
+		expect(replacesActiveFile(state, { mode: 'file', filePath: 'src/other.ts' })).toBe(false);
 		expect(
-			replacesActiveFile(state, 'workspace', { mode: 'file', filePath: 'src/other.ts' })
+			replacesActiveFile(state, { mode: 'file', filePath: '@runtime/wiki/index.md' })
 		).toBe(false);
-		expect(replacesActiveFile(state, 'wiki', { mode: 'file', filePath: '@runtime/wiki/index.md' })).toBe(
-			false
+	});
+
+	it('treats non-file navigation as destructive while a file is active', () => {
+		const state = openWorkspacePanelFile(
+			createWorkspacePanelState('workspace'),
+			'workspace',
+			'src/app.ts'
 		);
+
+		expect(replacesActiveFile(state, { mode: 'url', url: 'https://example.com' })).toBe(true);
+		expect(replacesActiveFile(state, { mode: 'git-diff', filePath: 'src/app.ts' })).toBe(true);
+		expect(replacesActiveFile(state, null)).toBe(true);
 	});
 
 	it('adds and activates url tabs; Cmd+W closes active url tab first', () => {
 		let state = openWorkspacePanelUrl(createWorkspacePanelState('web-search'), 'https://a.example');
+		const [tabA] = urlTabsFor(state);
 		state = openWorkspacePanelUrl(state, 'https://b.example');
-		expect(urlTabsFor(state)).toEqual(['https://a.example', 'https://b.example']);
-		expect(state.content['web-search']).toEqual({ mode: 'url', url: 'https://b.example' });
+		const [stillA, tabB] = urlTabsFor(state);
+		expect(stillA).toBe(tabA);
+		expect(tabB).not.toBe(tabA);
+		expect(state.content['web-search']).toMatchObject({
+			mode: 'url',
+			url: 'https://b.example',
+			tabId: tabB
+		});
 
 		state = closeWorkspacePanel(state);
-		expect(urlTabsFor(state)).toEqual(['https://a.example']);
-		expect(state.content['web-search']).toEqual({ mode: 'url', url: 'https://a.example' });
+		expect(urlTabsFor(state)).toEqual([tabA]);
+		expect(state.content['web-search']).toMatchObject({
+			mode: 'url',
+			url: 'https://a.example',
+			tabId: tabA
+		});
 
 		state = openWorkspacePanelUrl(state, 'https://b.example');
-		state = closeWorkspacePanelUrlTab(state, 'https://a.example');
-		expect(urlTabsFor(state)).toEqual(['https://b.example']);
-		expect(state.content['web-search']).toEqual({ mode: 'url', url: 'https://b.example' });
+		const [, reopenedB] = urlTabsFor(state);
+		state = closeWorkspacePanelUrlTab(state, tabA);
+		expect(urlTabsFor(state)).toEqual([reopenedB]);
+		expect(state.content['web-search']).toMatchObject({
+			mode: 'url',
+			url: 'https://b.example',
+			tabId: reopenedB
+		});
 	});
 
-	it('address-bar navigate replaces the active url tab', () => {
+	it('guest navigation keeps the tab id and remembers the page title', () => {
+		let state = openWorkspacePanelUrl(
+			createWorkspacePanelState('web-search'),
+			'https://google.com/search?q=youtube'
+		);
+		const [searchTab] = urlTabsFor(state);
+		state = openWorkspacePanelUrl(state, 'https://example.com');
+		const [, exampleTab] = urlTabsFor(state);
+		state = activateWorkspacePanelUrlTab(state, searchTab);
+		state = syncActiveUrlTab(state, 'https://www.youtube.com/', 'YouTube');
+		expect(urlTabsFor(state)).toEqual([searchTab, exampleTab]);
+		expect(state.content['web-search']).toMatchObject({
+			mode: 'url',
+			url: 'https://www.youtube.com/',
+			tabId: searchTab,
+			title: 'YouTube'
+		});
+		expect(urlTabMetaFor(state, searchTab)).toEqual({
+			url: 'https://www.youtube.com/',
+			title: 'YouTube'
+		});
+		expect(urlTabChipLabel(urlTabMetaFor(state, searchTab))).toBe('YouTube');
+
+		state = syncActiveUrlTab(state, 'https://www.youtube.com/watch?v=1');
+		expect(urlTabsFor(state)).toEqual([searchTab, exampleTab]);
+		expect(urlTabChipLabel(urlTabMetaFor(state, searchTab))).toBe('YouTube');
+	});
+
+	it('address-bar navigate keeps the tab id and clears the remembered title', () => {
 		let state = openWorkspacePanelUrl(createWorkspacePanelState('web-search'), 'https://a.example');
+		const [tabA] = urlTabsFor(state);
 		state = openWorkspacePanelUrl(state, 'https://b.example');
+		const [stillA, tabB] = urlTabsFor(state);
+		expect(stillA).toBe(tabA);
 		state = navigateWorkspacePanelUrl(state, 'https://c.example');
-		expect(urlTabsFor(state)).toEqual(['https://a.example', 'https://c.example']);
-		expect(state.content['web-search']).toEqual({ mode: 'url', url: 'https://c.example' });
+		expect(urlTabsFor(state)).toEqual([tabA, tabB]);
+		expect(state.content['web-search']).toMatchObject({
+			mode: 'url',
+			url: 'https://c.example',
+			tabId: tabB,
+			title: ''
+		});
 	});
 
 	it('stores and clears one-shot file reveal ranges', () => {

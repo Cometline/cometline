@@ -102,6 +102,8 @@
 		<div
 			class="panel-layer panel-layer-content"
 			class:active={active && activeSurface === 'wiki' && wikiFilePath === path}
+			inert={!(active && activeSurface === 'wiki' && wikiFilePath === path)}
+			aria-hidden={!(active && activeSurface === 'wiki' && wikiFilePath === path)}
 		>
 			<FilePreview
 				{workspacePath}
@@ -115,6 +117,8 @@
 		<div
 			class="panel-layer panel-layer-content"
 			class:active={active && activeSurface === 'workspace' && workspaceFilePath === path}
+			inert={!(active && activeSurface === 'workspace' && workspaceFilePath === path)}
+			aria-hidden={!(active && activeSurface === 'workspace' && workspaceFilePath === path)}
 		>
 			<FilePreview
 				{workspacePath}

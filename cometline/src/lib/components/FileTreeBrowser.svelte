@@ -118,6 +118,10 @@
 		return expanded[key] ?? false;
 	}
 
+	function keepPaneFocus(event: MouseEvent) {
+		event.preventDefault();
+	}
+
 	function selectRelative(relativePath: string) {
 		// Remember open folders + expand parents of the file we open.
 		const next = { ...expanded, ...dirKeysToExpandForPaths([relativePath]) };
@@ -392,6 +396,7 @@
 						class="file-tree-row file-tree-dir"
 						class:selected={selectedKey === key}
 						data-tree-key={key}
+						onmousedown={keepPaneFocus}
 						onclick={() => {
 							selectedKey = key;
 							toggleDir(key);
@@ -427,6 +432,7 @@
 						class="file-tree-row file-tree-file"
 						class:selected={selectedKey === key}
 						data-tree-key={key}
+						onmousedown={keepPaneFocus}
 						onclick={() => {
 							selectedKey = key;
 							selectRelative(node.path!);
@@ -487,6 +493,7 @@
 							class:selected={selectedKey === path}
 							data-tree-key={path}
 							data-result-index={index}
+							onmousedown={keepPaneFocus}
 							onclick={() => {
 								selectedKey = path;
 								selectRelative(path);

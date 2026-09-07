@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen } from '@lucide/svelte';
@@ -36,6 +36,7 @@
 		widthToRatio
 	} from '$lib/layout/workspace-panel-width';
 	import { shouldUseWorkspacePanelHistory } from '$lib/navigation/focus-nav';
+	import { shouldClaimChatPaneFromMainPointer } from '$lib/workspace/workspace-pane-focus';
 	import {
 		matchesShortcut,
 		isReloadShortcut,
@@ -171,7 +172,8 @@
 
 	$effect(() => {
 		void activeSessionId;
-		shellStore.onActiveSessionChange();
+		// Panel mutations must not rerun the session-change focus reset.
+		untrack(() => shellStore.onActiveSessionChange());
 	});
 
 	function isCmdW(event: KeyboardEvent) {
@@ -718,7 +720,8 @@
 		};
 	});
 
-	function handleMainMouseDown() {
+	function handleMainMouseDown(event: MouseEvent) {
+		if (!shouldClaimChatPaneFromMainPointer(event.target)) return;
 		shellStore.setFocusedPane('chat');
 	}
 

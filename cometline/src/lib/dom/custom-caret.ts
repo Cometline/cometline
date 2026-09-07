@@ -1,7 +1,7 @@
 import type { Action } from 'svelte/action';
 
 import type { CaretTrailSettings } from '$lib/types';
-import { viewportDeltaToLocal } from '$lib/dom/caret-geometry';
+import { readTextFieldCaretLocal, viewportDeltaToLocal } from '$lib/dom/caret-geometry';
 import {
 	clampUnit,
 	easeOutCirc,
@@ -50,7 +50,11 @@ function lerp(a: number, b: number, t: number): number {
 	return a + (b - a) * t;
 }
 
-export const customCaret: Action<HTMLDivElement, CustomCaretParams> = (node, initialParams) => {
+function isTextField(node: HTMLElement): node is HTMLInputElement | HTMLTextAreaElement {
+	return node instanceof HTMLInputElement || node instanceof HTMLTextAreaElement;
+}
+
+export const customCaret: Action<HTMLElement, CustomCaretParams> = (node, initialParams) => {
 	let params = initialParams;
 	let wrap = params.wrap ?? node.parentElement;
 	let caret = params.caret ?? null;
@@ -138,6 +142,9 @@ export const customCaret: Action<HTMLDivElement, CustomCaretParams> = (node, ini
 
 	function readCaretRect(): { x: number; y: number; h: number } | null {
 		if (!wrap) return null;
+		if (isTextField(node)) {
+			return readTextFieldCaretLocal(wrap, node);
+		}
 		const selection = window.getSelection();
 		if (!selection || selection.rangeCount === 0 || selection.focusNode == null) return null;
 		const focusNode = selection.focusNode;
@@ -331,6 +338,13 @@ export const customCaret: Action<HTMLDivElement, CustomCaretParams> = (node, ini
 	const onMeasureEvent = () => scheduleCaretMeasure();
 	const onResetEvent = () => resetCaretTrail();
 
+	function syncFocusedFromDocument() {
+		if (document.activeElement !== node) return;
+		focused = true;
+		notifyState();
+		scheduleCaretMeasure();
+	}
+
 	node.addEventListener('focus', onFocus);
 	node.addEventListener('blur', onBlur);
 	node.addEventListener('input', onInput);
@@ -339,17 +353,30 @@ export const customCaret: Action<HTMLDivElement, CustomCaretParams> = (node, ini
 	node.addEventListener('scroll', onScroll, { passive: true });
 	node.addEventListener(MEASURE_EVENT, onMeasureEvent as EventListener);
 	node.addEventListener(RESET_EVENT, onResetEvent as EventListener);
+	if (isTextField(node)) {
+		node.addEventListener('keyup', onSelectionChange);
+		node.addEventListener('click', onSelectionChange);
+		node.addEventListener('select', onSelectionChange);
+	}
 	document.addEventListener('selectionchange', onSelectionChange);
 	window.addEventListener('resize', onResize);
+	const resizeObserver =
+		typeof ResizeObserver === 'undefined'
+			? null
+			: new ResizeObserver(() => scheduleCaretMeasure());
+	resizeObserver?.observe(node);
 	syncPresentation();
 	notifyState();
+	syncFocusedFromDocument();
 
 	return {
 		update(next) {
 			syncRefs(next);
 			syncPresentation();
+			syncFocusedFromDocument();
 		},
 		destroy() {
+			resizeObserver?.disconnect();
 			if (wrap) wrap.style.removeProperty('--rce-caret-color');
 			node.classList.remove('trail-enabled');
 			resetCaretTrail();
@@ -361,6 +388,11 @@ export const customCaret: Action<HTMLDivElement, CustomCaretParams> = (node, ini
 			node.removeEventListener('scroll', onScroll);
 			node.removeEventListener(MEASURE_EVENT, onMeasureEvent as EventListener);
 			node.removeEventListener(RESET_EVENT, onResetEvent as EventListener);
+			if (isTextField(node)) {
+				node.removeEventListener('keyup', onSelectionChange);
+				node.removeEventListener('click', onSelectionChange);
+				node.removeEventListener('select', onSelectionChange);
+			}
 			document.removeEventListener('selectionchange', onSelectionChange);
 			window.removeEventListener('resize', onResize);
 		}

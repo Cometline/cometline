@@ -22,41 +22,50 @@
 		onClose: (id: string) => void;
 		onNewTab?: () => void;
 	} = $props();
+
+	function keepPaneFocus(event: MouseEvent) {
+		event.preventDefault();
+	}
 </script>
 
-<div class="panel-tabs" role="tablist" aria-label={ariaLabel}>
-	{#each tabs as tabId (tabId)}
-		{@const active = tabId === activeId}
-		{@const label = labelFor(tabId, active)}
-		{@const title = titleFor?.(tabId) ?? tabId}
-		{@const dirty = Boolean(dirtyById[tabId])}
-		<div class="panel-tab" class:active role="presentation">
-			<button
-				type="button"
-				class="panel-tab-button"
-				role="tab"
-				aria-selected={active}
-				{title}
-				onclick={() => onActivate(tabId)}
-			>
-				<span class="panel-tab-label">{label}</span>
-				{#if dirty}<span class="dirty-dot" aria-label="Unsaved changes">•</span>{/if}
-			</button>
-			<button
-				type="button"
-				class="panel-tab-close"
-				aria-label={`Close ${label}`}
-				title={active ? 'Close (Cmd/Ctrl+W)' : 'Close'}
-				onclick={() => onClose(tabId)}
-			>
-				<X size={12} />
-			</button>
-		</div>
-	{/each}
+<div class="panel-tabs">
+	<div class="panel-tab-list" role="tablist" aria-label={ariaLabel}>
+		{#each tabs as tabId (tabId)}
+			{@const active = tabId === activeId}
+			{@const label = labelFor(tabId, active)}
+			{@const title = titleFor?.(tabId) ?? tabId}
+			{@const dirty = Boolean(dirtyById[tabId])}
+			<div class="panel-tab" class:active role="presentation">
+				<button
+					type="button"
+					class="panel-tab-button"
+					role="tab"
+					aria-selected={active}
+					{title}
+					onmousedown={keepPaneFocus}
+					onclick={() => onActivate(tabId)}
+				>
+					<span class="panel-tab-label">{label}</span>
+					{#if dirty}<span class="dirty-dot" aria-label="Unsaved changes">•</span>{/if}
+				</button>
+				<button
+					type="button"
+					class="panel-tab-close"
+					aria-label={`Close ${label}`}
+					title={active ? 'Close (Cmd/Ctrl+W)' : 'Close'}
+					onmousedown={keepPaneFocus}
+					onclick={() => onClose(tabId)}
+				>
+					<X size={12} />
+				</button>
+			</div>
+		{/each}
+	</div>
 	{#if onNewTab}
 		<button
 			type="button"
 			class="new-tab-button"
+			onmousedown={keepPaneFocus}
 			onclick={onNewTab}
 			aria-label="New tab"
 			title="New tab"
@@ -69,10 +78,19 @@
 <style>
 	.panel-tabs {
 		display: flex;
-		align-items: stretch;
+		align-items: center;
 		gap: 6px;
 		min-width: 0;
 		flex: 1;
+		overflow: hidden;
+	}
+
+	.panel-tab-list {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		min-width: 0;
+		flex: 1 1 auto;
 		overflow-x: auto;
 		overflow-y: hidden;
 	}
@@ -80,9 +98,11 @@
 	.panel-tab {
 		display: flex;
 		align-items: center;
-		min-width: 0;
+		box-sizing: border-box;
+		height: 26px;
+		min-width: 3rem;
 		max-width: 10rem;
-		flex: 0 1 auto;
+		flex: 1 1 auto;
 		border: 1px solid color-mix(in srgb, var(--hero-composer-glow-color) 22%, var(--border-soft));
 		border-radius: 6px;
 		background: color-mix(in srgb, var(--hero-composer-glow-color) 6%, transparent);
@@ -127,6 +147,7 @@
 		flex-shrink: 0;
 		width: 18px;
 		height: 18px;
+		margin-left: auto;
 		margin-right: 4px;
 		border: 0;
 		border-radius: 4px;
@@ -158,9 +179,11 @@
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
+		align-self: center;
+		box-sizing: border-box;
 		flex-shrink: 0;
-		width: 24px;
-		height: 24px;
+		width: 26px;
+		height: 26px;
 		border: 1px dashed color-mix(in srgb, var(--hero-composer-glow-color) 28%, var(--border-soft));
 		border-radius: 6px;
 		background: transparent;
