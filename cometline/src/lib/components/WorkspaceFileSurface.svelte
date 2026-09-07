@@ -45,6 +45,29 @@
 
 	let wikiEditorStateByPath = $state<Record<string, FileEditorState | null>>({});
 	let workspaceEditorStateByPath = $state<Record<string, FileEditorState | null>>({});
+	let lastDirtyPayload = '';
+
+	function editorStateEquals(a: FileEditorState | null, b: FileEditorState | null): boolean {
+		if (a === b) return true;
+		if (!a || !b) return false;
+		return (
+			a.dirty === b.dirty &&
+			a.saving === b.saving &&
+			a.saveError === b.saveError &&
+			a.save === b.save &&
+			a.revert === b.revert
+		);
+	}
+
+	function setWikiEditorState(path: string, state: FileEditorState | null) {
+		if (editorStateEquals(wikiEditorStateByPath[path] ?? null, state)) return;
+		wikiEditorStateByPath = { ...wikiEditorStateByPath, [path]: state };
+	}
+
+	function setWorkspaceEditorState(path: string, state: FileEditorState | null) {
+		if (editorStateEquals(workspaceEditorStateByPath[path] ?? null, state)) return;
+		workspaceEditorStateByPath = { ...workspaceEditorStateByPath, [path]: state };
+	}
 
 	const activeEditorState = $derived(
 		active && activeSurface === 'wiki' && wikiFilePath
@@ -66,7 +89,12 @@
 	});
 
 	$effect(() => onEditorState(activeEditorState));
-	$effect(() => onDirtyByPath?.(dirtyByPath));
+	$effect(() => {
+		const payload = JSON.stringify(dirtyByPath);
+		if (payload === lastDirtyPayload) return;
+		lastDirtyPayload = payload;
+		onDirtyByPath?.(dirtyByPath);
+	});
 </script>
 
 <div class="file-surfaces">
@@ -79,9 +107,7 @@
 				{workspacePath}
 				filePath={path}
 				revealRange={wikiFilePath === path ? wikiRevealRange : null}
-				onEditorState={(state) => {
-					wikiEditorStateByPath = { ...wikiEditorStateByPath, [path]: state };
-				}}
+				onEditorState={(state) => setWikiEditorState(path, state)}
 			/>
 		</div>
 	{/each}
@@ -94,9 +120,7 @@
 				{workspacePath}
 				filePath={path}
 				revealRange={workspaceFilePath === path ? workspaceRevealRange : null}
-				onEditorState={(state) => {
-					workspaceEditorStateByPath = { ...workspaceEditorStateByPath, [path]: state };
-				}}
+				onEditorState={(state) => setWorkspaceEditorState(path, state)}
 			/>
 		</div>
 	{/each}

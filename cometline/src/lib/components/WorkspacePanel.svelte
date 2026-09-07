@@ -851,7 +851,16 @@
 					activeSurface={webSurface}
 					active={onWebSurface}
 					onEditorState={(state) => (editorState = state)}
-					onDirtyByPath={(next) => (dirtyByPath = next)}
+					onDirtyByPath={(next) => {
+						const prev = dirtyByPath;
+						const keys = new Set([...Object.keys(prev), ...Object.keys(next)]);
+						for (const key of keys) {
+							if (Boolean(prev[key]) !== Boolean(next[key])) {
+								dirtyByPath = next;
+								return;
+							}
+						}
+					}}
 				/>
 				{#if changesDiffPath}
 					<div
