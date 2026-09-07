@@ -15,7 +15,7 @@
 		SquareTerminal
 	} from '@lucide/svelte';
 	import { tick, untrack } from 'svelte';
-	import { SvelteMap } from 'svelte/reactivity';
+	import { webTabActivity } from '$lib/workspace/web-tab-activity.svelte';
 	import ConfirmActionModal from '$lib/components/ConfirmActionModal.svelte';
 	import FileTreeBrowser from '$lib/components/FileTreeBrowser.svelte';
 	import PanelTabStrip from '$lib/components/PanelTabStrip.svelte';
@@ -52,7 +52,6 @@
 		revert: () => void;
 	} | null>(null);
 	let dirtyByPath = $state<Record<string, boolean>>({});
-	const webSurfaces = new SvelteMap<string, ReturnType<typeof WorkspaceWebSurface>>();
 	let panelFocusEl = $state<HTMLDivElement | null>(null);
 	let searchCaretWrap = $state<HTMLDivElement | null>(null);
 	let searchCaretEl = $state<HTMLSpanElement | null>(null);
@@ -123,7 +122,7 @@
 	const activeWebTabKey = $derived(
 		panelSessionKey && panelUrlTabId ? `${panelSessionKey}:${panelUrlTabId}` : null
 	);
-	const webSurfaceRef = $derived(activeWebTabKey ? webSurfaces.get(activeWebTabKey) : undefined);
+	const webSurfaceRef = $derived(activeWebTabKey ? webTabActivity.get(activeWebTabKey)?.surface : undefined);
 	const canGoBack = $derived(webSurfaceRef?.pageState?.canGoBack ?? false);
 	const canGoForward = $derived(webSurfaceRef?.pageState?.canGoForward ?? false);
 	const pageTitle = $derived(panelUrlTabMeta[panelUrlTabId ?? '']?.title ?? '');
@@ -277,7 +276,7 @@
 		const sessionId = panelSessionKey;
 		const surface = webSurfaceRef;
 		const context = await surface?.captureContext();
-		if (context && sessionId === panelSessionKey && key && webSurfaces.get(key) === surface) {
+		if (context && sessionId === panelSessionKey && key && webTabActivity.get(key)?.surface === surface) {
 			shellStore.addWebContextForActive(context);
 		}
 	}
@@ -285,7 +284,7 @@
 	async function resolvePageContext(source: string) {
 		const matches = webTabs.filter((tab) => tab.sessionId === panelSessionKey && tab.url === source);
 		const tab = matches.find((tab) => tab.key === activeWebTabKey) ?? matches[0];
-		return tab ? ((await webSurfaces.get(tab.key)?.captureContext(source)) ?? null) : null;
+		return tab ? ((await webTabActivity.get(tab.key)?.surface.captureContext(source)) ?? null) : null;
 	}
 
 	function captureFileContext(filePath: string) {
@@ -756,7 +755,7 @@
 					<button
 						type="button"
 						class="icon-button"
-						disabled={capturingContext}
+						disabled={capturingContext || !webSurfaceRef?.pageState?.ready}
 						onclick={() => void capturePageContext()}
 						aria-label="Add page to chat context"
 						title="Add page to next message"
@@ -811,6 +810,8 @@
 						tabs={panelUrlTabs}
 						activeId={panelUrlTabId}
 						ariaLabel="Open pages"
+						webStatusFor={(id) => webTabActivity.get(`${panelSessionKey}:${id}`)?.surface.pageState}
+						onToggleMute={(id) => webTabActivity.get(`${panelSessionKey}:${id}`)?.surface.toggleAudioMuted()}
 						labelFor={urlTabLabel}
 						titleFor={(id) => {
 							const url = panelUrlTabMeta[id]?.url ?? id;
@@ -971,9 +972,9 @@
 					aria-hidden={!active}
 				>
 					<WorkspaceWebSurface
-						bind:this={() => webSurfaces.get(tab.key), (surface) => {
-							if (surface) webSurfaces.set(tab.key, surface);
-							else webSurfaces.delete(tab.key);
+						bind:this={() => webTabActivity.get(tab.key)?.surface, (surface) => {
+							if (surface) webTabActivity.set(tab.key, { sessionId: tab.sessionId, tabId: tab.id, surface });
+							else webTabActivity.delete(tab.key);
 						}}
 						url={tab.url}
 						sessionKey={tab.key}

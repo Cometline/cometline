@@ -16,6 +16,7 @@ import WorkspacePanel from './WorkspacePanel.svelte';
 import { shellStore } from '$lib/stores/shell.svelte';
 import { sessionStore } from '$lib/stores/session.svelte';
 import { deliverWindowSyncFromPeer } from '$lib/window-sync';
+import { webTabActivity } from '$lib/workspace/web-tab-activity.svelte';
 
 const session: Session = {
 	id: 'web-lifecycle',
@@ -42,6 +43,7 @@ function attachGuest(container: HTMLElement, url: string) {
 	expect(el).toBeDefined();
 	let requestedUrl = el.src;
 	const srcWrites = vi.fn();
+	let muted = false;
 	Object.defineProperty(el, 'src', {
 		configurable: true,
 		get: () => requestedUrl,
@@ -59,6 +61,12 @@ function attachGuest(container: HTMLElement, url: string) {
 		canGoForward: vi.fn(() => false),
 		getURL: vi.fn(() => url),
 		getTitle: vi.fn(() => ''),
+		isLoadingMainFrame: vi.fn(() => true),
+		isCurrentlyAudible: vi.fn(() => false),
+		isAudioMuted: vi.fn(() => muted),
+		setAudioMuted: vi.fn((value: boolean) => {
+			muted = value;
+		}),
 		executeJavaScript: vi.fn(async () => ({
 			url,
 			title: 'Captured page',
@@ -66,6 +74,7 @@ function attachGuest(container: HTMLElement, url: string) {
 		}))
 	};
 	Object.assign(el, native);
+	el.dispatchEvent(new Event('dom-ready'));
 	return {
 		el,
 		...native,
@@ -74,6 +83,7 @@ function attachGuest(container: HTMLElement, url: string) {
 			native.getURL.mockReturnValue(nextUrl);
 			native.getTitle.mockReturnValue(title);
 			el.dispatchEvent(new Event('did-navigate'));
+			el.dispatchEvent(new Event('did-stop-loading'));
 			await tick();
 		}
 	};
@@ -92,6 +102,7 @@ describe('WorkspacePanel web tab lifetimes', () => {
 		shellStore.clearWorkspacePanelForSession(session.id);
 		shellStore.clearWorkspacePanelForSession('other-session');
 		sessionStore.selectSession(null);
+		vi.useRealTimers();
 	});
 
 	it('retains each guest across tab switches and only destroys the closed tab', async () => {
@@ -348,4 +359,154 @@ describe('WorkspacePanel web tab lifetimes', () => {
 			expect(shellStore.workspaceWebTabs).toEqual([]);
 		}
 	);
+
+	it('shows only audible media and mutes a background tab without changing selection or focus', async () => {
+		shellStore.openWorkspacePanelUrlForActive('https://music.example');
+		const { container, queryByRole, getByRole } = render(WorkspacePanel);
+		await tick();
+		const music = attachGuest(container, 'https://music.example');
+		await music.navigate('https://music.example', 'Music');
+		music.el.dispatchEvent(new Event('media-started-playing'));
+		await tick();
+		expect(queryByRole('button', { name: 'Mute Music' })).toBeNull();
+
+		music.isCurrentlyAudible.mockReturnValue(true);
+		music.el.dispatchEvent(new Event('media-started-playing'));
+		shellStore.openWorkspacePanelUrlForActive('https://foreground.example');
+		await tick();
+		const foreground = attachGuest(container, 'https://foreground.example');
+		await foreground.navigate('https://foreground.example', 'Foreground');
+		shellStore.setFocusedPane('chat');
+		const focusRequest = shellStore.composerFocusRequest.id;
+		const mute = getByRole('button', { name: 'Mute Music' });
+		await fireEvent.mouseDown(mute);
+		await fireEvent.click(mute);
+		expect(music.setAudioMuted).toHaveBeenCalledWith(true);
+		expect(foreground.setAudioMuted).not.toHaveBeenCalled();
+		expect(shellStore.workspacePanelUrl).toBe('https://foreground.example');
+		expect(shellStore.focusedPane).toBe('chat');
+		expect(shellStore.composerFocusRequest.id).toBe(focusRequest);
+		expect(getByRole('button', { name: 'Unmute Music' })).toHaveAttribute(
+			'aria-pressed',
+			'true'
+		);
+		await fireEvent.click(getByRole('button', { name: 'Unmute Music' }));
+		expect(music.setAudioMuted).toHaveBeenLastCalledWith(false);
+		expect(getByRole('button', { name: 'Mute Music' })).toHaveAttribute(
+			'aria-pressed',
+			'false'
+		);
+	});
+
+	it('detects Web Audio without media events and stops polling after the tab closes', async () => {
+		vi.useFakeTimers();
+		shellStore.openWorkspacePanelUrlForActive('https://audio.example');
+		const [tabId] = shellStore.workspacePanelUrlTabs;
+		const { container, queryByRole, getByRole } = render(WorkspacePanel);
+		await tick();
+		const guest = attachGuest(container, 'https://audio.example');
+		await guest.navigate('https://audio.example', 'Audio');
+		guest.isCurrentlyAudible.mockReturnValue(true);
+		await vi.advanceTimersByTimeAsync(750);
+		expect(getByRole('button', { name: 'Mute Audio' })).toBeTruthy();
+		guest.isCurrentlyAudible.mockReturnValue(false);
+		guest.el.dispatchEvent(new Event('media-paused'));
+		await tick();
+		expect(queryByRole('button', { name: 'Mute Audio' })).toBeNull();
+		shellStore.closeUrlTabForActive(tabId);
+		await tick();
+		const checks = guest.isCurrentlyAudible.mock.calls.length;
+		await vi.advanceTimersByTimeAsync(1500);
+		expect(guest.isCurrentlyAudible).toHaveBeenCalledTimes(checks);
+		expect(webTabActivity.size).toBe(0);
+	});
+
+	it('delays the main-frame spinner and keeps audio visible independently', async () => {
+		vi.useFakeTimers();
+		shellStore.openWorkspacePanelUrlForActive('https://example.com');
+		const { container, getByRole } = render(WorkspacePanel);
+		await tick();
+		const guest = attachGuest(container, 'https://example.com');
+		await guest.navigate('https://example.com', 'Example');
+		guest.isLoadingMainFrame.mockReturnValue(false);
+		guest.el.dispatchEvent(new Event('did-start-loading'));
+		await vi.advanceTimersByTimeAsync(200);
+		expect(getByRole('tab', { name: 'Example' })).not.toHaveAttribute('aria-describedby');
+		guest.isCurrentlyAudible.mockReturnValue(true);
+		guest.el.dispatchEvent(new Event('media-started-playing'));
+		guest.el.dispatchEvent(
+			Object.assign(new Event('did-start-navigation'), {
+				isMainFrame: true,
+				isInPlace: false
+			})
+		);
+		await vi.advanceTimersByTimeAsync(149);
+		expect(getByRole('tab', { name: 'Example' })).not.toHaveAttribute('aria-describedby');
+		await vi.advanceTimersByTimeAsync(1);
+		expect(getByRole('tab', { name: 'Example' })).toHaveAccessibleDescription('Loading page');
+		expect(getByRole('button', { name: 'Mute Example' })).toBeTruthy();
+		guest.el.dispatchEvent(new Event('did-stop-loading'));
+		await tick();
+		expect(getByRole('tab', { name: 'Example' })).not.toHaveAttribute('aria-describedby');
+	});
+
+	it('ignores subframe failures and aborted navigation, but exposes real page failures', async () => {
+		shellStore.openWorkspacePanelUrlForActive('https://example.com');
+		const { container, getByRole } = render(WorkspacePanel);
+		await tick();
+		const guest = attachGuest(container, 'https://example.com');
+		await guest.navigate('https://example.com', 'Example');
+		for (const details of [
+			{ isMainFrame: false, errorCode: -105 },
+			{ isMainFrame: true, errorCode: -3 }
+		]) {
+			guest.el.dispatchEvent(Object.assign(new Event('did-fail-load'), details));
+		}
+		await tick();
+		expect(getByRole('tab', { name: 'Example' })).not.toHaveAttribute('aria-describedby');
+		guest.el.dispatchEvent(
+			Object.assign(new Event('did-fail-load'), {
+				isMainFrame: true,
+				errorCode: -105,
+				errorDescription: 'Name not resolved'
+			})
+		);
+		await tick();
+		expect(getByRole('tab', { name: 'Example' })).toHaveAccessibleDescription(
+			'Name not resolved'
+		);
+		guest.el.dispatchEvent(
+			Object.assign(new Event('did-start-navigation'), {
+				isMainFrame: true,
+				isInPlace: false
+			})
+		);
+		await tick();
+		expect(getByRole('tab', { name: 'Example' })).not.toHaveAttribute('aria-describedby');
+	});
+
+	it('clears audio activity and polling when a guest process exits', async () => {
+		vi.useFakeTimers();
+		shellStore.openWorkspacePanelUrlForActive('https://music.example');
+		const { container, getByRole, queryByRole } = render(WorkspacePanel);
+		await tick();
+		const guest = attachGuest(container, 'https://music.example');
+		await guest.navigate('https://music.example', 'Music');
+		guest.isCurrentlyAudible.mockReturnValue(true);
+		guest.el.dispatchEvent(new Event('media-started-playing'));
+		await tick();
+		expect(getByRole('button', { name: 'Mute Music' })).toBeTruthy();
+		guest.el.dispatchEvent(new Event('render-process-gone'));
+		await tick();
+		expect(queryByRole('button', { name: 'Mute Music' })).toBeNull();
+		expect(getByRole('tab', { name: 'Music' })).toHaveAccessibleDescription(
+			'Page stopped unexpectedly. Reload to try again.'
+		);
+		expect(getByRole('button', { name: 'Add page to chat context' })).toBeDisabled();
+		const checks = guest.isCurrentlyAudible.mock.calls.length;
+		await vi.advanceTimersByTimeAsync(1500);
+		expect(guest.isCurrentlyAudible).toHaveBeenCalledTimes(checks);
+		await fireEvent.click(getByRole('button', { name: 'Reload page' }));
+		expect(guest.reload).toHaveBeenCalledOnce();
+	});
 });
