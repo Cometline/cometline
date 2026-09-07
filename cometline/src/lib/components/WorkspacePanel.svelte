@@ -7,18 +7,17 @@
 		FolderTree,
 		GitBranch,
 		Play,
-		Plus,
 		Power,
 		RotateCcw,
 		RotateCw,
 		Save,
 		Search,
-		SquareTerminal,
-		X
+		SquareTerminal
 	} from '@lucide/svelte';
 	import { tick, untrack } from 'svelte';
 	import ConfirmActionModal from '$lib/components/ConfirmActionModal.svelte';
 	import FileTreeBrowser from '$lib/components/FileTreeBrowser.svelte';
+	import PanelTabStrip from '$lib/components/PanelTabStrip.svelte';
 	import WorkspaceFileSurface from '$lib/components/WorkspaceFileSurface.svelte';
 	import GitChangesBrowser from '$lib/components/GitChangesBrowser.svelte';
 	import GitDiffView from '$lib/components/GitDiffView.svelte';
@@ -686,35 +685,15 @@
 				{#if showTerminalTitle}
 					<span class="page-title">{surfaceTitle}</span>
 				{:else if showFilePreview && panelFilePath}
-					<div class="file-tabs" role="tablist" aria-label="Open files">
-						{#each panelFileTabs as tabPath (tabPath)}
-							{@const active = tabPath === panelFilePath}
-							{@const label = tabPath.split(/[/\\]/).pop() || tabPath}
-							{@const tabDirty = Boolean(dirtyByPath[tabPath])}
-							<div class="file-tab" class:active role="presentation">
-								<button
-									type="button"
-									class="file-tab-button"
-									role="tab"
-									aria-selected={active}
-									title={tabPath}
-									onclick={() => shellStore.activateFileTabForActive(tabPath)}
-								>
-									<span class="file-tab-label">{label}</span>
-									{#if tabDirty}<span class="dirty-dot" aria-label="Unsaved changes">•</span>{/if}
-								</button>
-								<button
-									type="button"
-									class="file-tab-close"
-									aria-label={`Close ${label}`}
-									title={active ? 'Close (Cmd/Ctrl+W)' : 'Close'}
-									onclick={() => void closeFileTab(tabPath)}
-								>
-									<X size={12} />
-								</button>
-							</div>
-						{/each}
-					</div>
+					<PanelTabStrip
+						tabs={panelFileTabs}
+						activeId={panelFilePath}
+						ariaLabel="Open files"
+						dirtyById={dirtyByPath}
+						labelFor={(id) => id.split(/[/\\]/).pop() || id}
+						onActivate={(id) => shellStore.activateFileTabForActive(id)}
+						onClose={(id) => void closeFileTab(id)}
+					/>
 				{:else if showGitDiff && panelGitDiffPath}
 					<span class="page-title">Diff</span>
 					<span class="file-path-display" title={panelGitDiffPath}>{panelGitDiffPath}</span>
@@ -742,45 +721,19 @@
 					</div>
 				{:else if showWebSearchField}
 					<div class="chrome-web-chrome">
-						<div class="file-tabs url-tabs" role="tablist" aria-label="Open pages">
-							{#each panelUrlTabs as tabUrl (tabUrl)}
-								{@const active = tabUrl === webSearchUrl}
-								{@const label = tabLabelForUrl(tabUrl, active ? pageTitle : '')}
-								<div class="file-tab" class:active role="presentation">
-									<button
-										type="button"
-										class="file-tab-button"
-										role="tab"
-										aria-selected={active}
-										title={isBlankTabUrl(tabUrl) ? 'New Tab' : tabUrl}
-										onclick={() => shellStore.activateUrlTabForActive(tabUrl)}
-									>
-										<span class="file-tab-label">{label}</span>
-									</button>
-									<button
-										type="button"
-										class="file-tab-close"
-										aria-label={`Close ${label}`}
-										title={active ? 'Close (Cmd/Ctrl+W)' : 'Close'}
-										onclick={() => {
-										if (tabUrl === webSearchUrl) shellStore.closeWorkspacePanel();
-										else shellStore.closeUrlTabForActive(tabUrl);
-									}}
-									>
-										<X size={12} />
-									</button>
-								</div>
-							{/each}
-							<button
-								type="button"
-								class="new-tab-button"
-								onclick={openNewWebTab}
-								aria-label="New tab (Cmd/Ctrl+O)"
-								title="New tab (Cmd/Ctrl+O)"
-							>
-								<Plus size={14} />
-							</button>
-						</div>
+						<PanelTabStrip
+							tabs={panelUrlTabs}
+							activeId={webSearchUrl}
+							ariaLabel="Open pages"
+							labelFor={(id, active) => tabLabelForUrl(id, active ? pageTitle : '')}
+							titleFor={(id) => (isBlankTabUrl(id) ? 'New Tab' : id)}
+							onActivate={(id) => shellStore.activateUrlTabForActive(id)}
+							onClose={(id) => {
+								if (id === webSearchUrl) shellStore.closeWorkspacePanel();
+								else shellStore.closeUrlTabForActive(id);
+							}}
+							onNewTab={openNewWebTab}
+						/>
 						<div class="url-field-row chrome-address-row">
 							<input
 								use:trackAddressInput
@@ -1125,7 +1078,6 @@
 	}
 
 
-	.url-field:has(.url-tabs),
 	.url-field:has(.chrome-web-chrome) {
 		gap: 6px;
 	}
@@ -1144,116 +1096,6 @@
 
 	.chrome-address-row .address-input {
 		width: 100%;
-	}
-
-	.new-tab-button {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		flex-shrink: 0;
-		width: 24px;
-		height: 24px;
-		border: 1px dashed color-mix(in srgb, var(--hero-composer-glow-color) 28%, var(--border-soft));
-		border-radius: 6px;
-		background: transparent;
-		color: var(--text-muted);
-		cursor: pointer;
-	}
-
-	.new-tab-button:hover {
-		color: var(--text-main);
-		border-color: color-mix(in srgb, var(--hero-composer-glow-color) 54%, var(--border-soft));
-		background: color-mix(in srgb, var(--hero-composer-glow-color) 10%, transparent);
-	}
-
-
-	.file-tabs {
-		display: flex;
-		align-items: stretch;
-		gap: 6px;
-		min-width: 0;
-		flex: 1;
-		overflow-x: auto;
-		overflow-y: hidden;
-	}
-
-	.file-tab {
-		display: flex;
-		align-items: center;
-		min-width: 0;
-		max-width: 10rem;
-		flex: 0 1 auto;
-		border: 1px solid color-mix(in srgb, var(--hero-composer-glow-color) 22%, var(--border-soft));
-		border-radius: 6px;
-		background: color-mix(in srgb, var(--hero-composer-glow-color) 6%, transparent);
-		box-shadow: none;
-	}
-
-	.file-tab.active {
-		border-color: color-mix(in srgb, var(--hero-composer-glow-color) 54%, var(--border-soft));
-		background: color-mix(in srgb, var(--hero-composer-glow-color) 18%, var(--panel-bg));
-		/* Even glow only — no extra 1px ring (that fought the border). */
-		box-shadow: 0 0 8px var(--hero-composer-glow-soft);
-	}
-
-	.file-tab-button {
-		display: inline-flex;
-		align-items: center;
-		gap: 2px;
-		min-width: 0;
-		flex: 1;
-		border: 0;
-		background: transparent;
-		color: var(--text-muted);
-		font-size: 12px;
-		font-weight: 600;
-		padding: 4px 6px;
-		cursor: pointer;
-	}
-
-	.file-tab.active .file-tab-button {
-		color: var(--text-main);
-	}
-
-	.file-tab-label {
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-
-	.file-tab-close {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		flex-shrink: 0;
-		width: 18px;
-		height: 18px;
-		margin-right: 4px;
-		border: 0;
-		border-radius: 4px;
-		background: transparent;
-		color: var(--text-muted);
-		cursor: pointer;
-	}
-
-
-	.file-tab:not(.active) .file-tab-close {
-		opacity: 0;
-	}
-
-	.file-tab:not(.active):hover .file-tab-close,
-	.file-tab:not(.active):focus-within .file-tab-close {
-		opacity: 1;
-	}
-
-	.file-tab-close:hover {
-		background: color-mix(in srgb, var(--text-main) 12%, transparent);
-		color: var(--text-main);
-	}
-
-	.dirty-dot {
-		color: var(--accent, #2563eb);
-		font-weight: 700;
 	}
 
 	.address-input {
