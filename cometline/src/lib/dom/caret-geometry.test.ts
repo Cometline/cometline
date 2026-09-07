@@ -1,7 +1,12 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it } from 'vitest';
-import { viewportDeltaToLocal } from './caret-geometry';
+import {
+	readTextFieldCaretClientRect,
+	readTextFieldCaretLocal,
+	textFieldCaretLineHeight,
+	viewportDeltaToLocal
+} from './caret-geometry';
 
 function mockWrap(opts: { offsetWidth: number; offsetHeight: number; wrapRect: DOMRect }) {
 	const wrap = document.createElement('div');
@@ -55,5 +60,84 @@ describe('viewportDeltaToLocal', () => {
 		expect(result.x).toBeCloseTo(40);
 		expect(result.y).toBeCloseTo(10);
 		expect(result.h).toBeCloseTo(18);
+	});
+});
+
+describe('readTextFieldCaretClientRect', () => {
+	it('returns null when the field is not laid out', () => {
+		const field = document.createElement('input');
+		field.getBoundingClientRect = () => new DOMRect(0, 0, 0, 0);
+		expect(readTextFieldCaretClientRect(field)).toBeNull();
+	});
+
+	it('measures at the selection end and removes the mirror', () => {
+		const field = document.createElement('input');
+		field.value = 'hello';
+		field.selectionStart = 5;
+		field.selectionEnd = 5;
+		field.getBoundingClientRect = () => new DOMRect(20, 40, 200, 24);
+		document.body.append(field);
+
+		const originalRect = HTMLElement.prototype.getBoundingClientRect;
+		HTMLElement.prototype.getBoundingClientRect = function () {
+			if (this instanceof HTMLSpanElement && this.textContent === '\u200b') {
+				return new DOMRect(88, 44, 0, 16);
+			}
+			return originalRect.call(this);
+		};
+
+		try {
+			const rect = readTextFieldCaretClientRect(field);
+			expect(rect?.left).toBe(88);
+			expect(rect?.top).toBe(44);
+			expect(document.body.querySelector('[aria-hidden="true"]')).toBeNull();
+		} finally {
+			HTMLElement.prototype.getBoundingClientRect = originalRect;
+			field.remove();
+		}
+	});
+});
+
+describe('readTextFieldCaretLocal', () => {
+	it('converts the mirrored caret into wrap-local coordinates', () => {
+		const wrap = mockWrap({
+			offsetWidth: 320,
+			offsetHeight: 48,
+			wrapRect: new DOMRect(10, 20, 320, 48)
+		});
+		const field = document.createElement('input');
+		field.value = 'hi';
+		field.selectionEnd = 2;
+		field.getBoundingClientRect = () => new DOMRect(40, 28, 240, 24);
+		Object.defineProperty(field, 'clientHeight', { value: 20 });
+		wrap.append(field);
+		document.body.append(wrap);
+
+		const originalRect = HTMLElement.prototype.getBoundingClientRect;
+		HTMLElement.prototype.getBoundingClientRect = function () {
+			if (this instanceof HTMLSpanElement && this.textContent === '\u200b') {
+				return new DOMRect(70, 32, 0, 18);
+			}
+			if (this === wrap) return new DOMRect(10, 20, 320, 48);
+			return originalRect.call(this);
+		};
+
+		try {
+			const result = readTextFieldCaretLocal(wrap, field);
+			expect(result?.x).toBeCloseTo(60);
+			expect(result?.y).toBeCloseTo(12);
+			expect(result?.h).toBeCloseTo(18);
+		} finally {
+			HTMLElement.prototype.getBoundingClientRect = originalRect;
+			wrap.remove();
+		}
+	});
+});
+
+describe('textFieldCaretLineHeight', () => {
+	it('falls back to the field height when line-height is normal', () => {
+		const field = document.createElement('input');
+		Object.defineProperty(field, 'clientHeight', { value: 19 });
+		expect(textFieldCaretLineHeight(field)).toBe(19);
 	});
 });
