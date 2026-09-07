@@ -12,7 +12,8 @@
 		RotateCw,
 		Save,
 		Search,
-		SquareTerminal
+		SquareTerminal,
+		X
 	} from '@lucide/svelte';
 	import { tick, untrack } from 'svelte';
 	import ConfirmActionModal from '$lib/components/ConfirmActionModal.svelte';
@@ -75,6 +76,9 @@
 	const panelMode = $derived(shellStore.workspacePanelMode);
 	const panelUrl = $derived(shellStore.workspacePanelUrl);
 	const panelFilePath = $derived(shellStore.workspacePanelFilePath);
+	const panelFileTabs = $derived(shellStore.workspacePanelFileTabs);
+	const wikiFileTabs = $derived(shellStore.wikiPanelFileTabs);
+	const codingFileTabs = $derived(shellStore.codingPanelFileTabs);
 	const panelGitDiffPath = $derived(shellStore.workspacePanelGitDiffPath);
 	const panelSessionKey = $derived(shellStore.workspacePanelSessionKey);
 	const webSurface = $derived(shellStore.contentSurface);
@@ -643,15 +647,36 @@
 				{#if showTerminalTitle}
 					<span class="page-title">{surfaceTitle}</span>
 				{:else if showFilePreview && panelFilePath}
-					<span class="page-title">
-						{panelFilePath.split(/[/\\]/).pop()}{#if dirty}<span
-								class="dirty-dot"
-								aria-label="Unsaved changes"
-							>
-								•</span
-							>{/if}
-					</span>
-					<span class="file-path-display" title={panelFilePath}>{panelFilePath}</span>
+					<div class="file-tabs" role="tablist" aria-label="Open files">
+						{#each panelFileTabs as tabPath (tabPath)}
+							{@const active = tabPath === panelFilePath}
+							{@const label = tabPath.split(/[/\\]/).pop() || tabPath}
+							<div class="file-tab" class:active role="presentation">
+								<button
+									type="button"
+									class="file-tab-button"
+									role="tab"
+									aria-selected={active}
+									title={tabPath}
+									onclick={() => shellStore.activateFileTabForActive(tabPath)}
+								>
+									<span class="file-tab-label">{label}</span>
+									{#if active && dirty}<span class="dirty-dot" aria-label="Unsaved changes">•</span>{/if}
+								</button>
+								{#if active}
+									<button
+										type="button"
+										class="file-tab-close"
+										aria-label={`Close ${label}`}
+										title="Close (Cmd/Ctrl+W)"
+										onclick={() => shellStore.closeWorkspacePanel()}
+									>
+										<X size={12} />
+									</button>
+								{/if}
+							</div>
+						{/each}
+					</div>
 				{:else if showGitDiff && panelGitDiffPath}
 					<span class="page-title">Diff</span>
 					<span class="file-path-display" title={panelGitDiffPath}>{panelGitDiffPath}</span>
@@ -800,6 +825,8 @@
 				</div>
 				<WorkspaceFileSurface
 					workspacePath={shellStore.workspacePath}
+					wikiTabs={wikiFileTabs}
+					workspaceTabs={codingFileTabs}
 					{wikiFilePath}
 					{workspaceFilePath}
 					{wikiRevealRange}
@@ -1010,6 +1037,76 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+	}
+
+
+	.file-tabs {
+		display: flex;
+		align-items: stretch;
+		gap: 2px;
+		min-width: 0;
+		flex: 1;
+		overflow-x: auto;
+		overflow-y: hidden;
+	}
+
+	.file-tab {
+		display: flex;
+		align-items: center;
+		min-width: 0;
+		max-width: 10rem;
+		flex: 0 1 auto;
+		border-radius: 6px;
+		background: transparent;
+	}
+
+	.file-tab.active {
+		background: color-mix(in srgb, var(--text-main) 8%, transparent);
+	}
+
+	.file-tab-button {
+		display: inline-flex;
+		align-items: center;
+		gap: 2px;
+		min-width: 0;
+		flex: 1;
+		border: 0;
+		background: transparent;
+		color: var(--text-muted);
+		font-size: 12px;
+		font-weight: 600;
+		padding: 4px 6px;
+		cursor: pointer;
+	}
+
+	.file-tab.active .file-tab-button {
+		color: var(--text-main);
+	}
+
+	.file-tab-label {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.file-tab-close {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		flex-shrink: 0;
+		width: 18px;
+		height: 18px;
+		margin-right: 4px;
+		border: 0;
+		border-radius: 4px;
+		background: transparent;
+		color: var(--text-muted);
+		cursor: pointer;
+	}
+
+	.file-tab-close:hover {
+		background: color-mix(in srgb, var(--text-main) 12%, transparent);
+		color: var(--text-main);
 	}
 
 	.dirty-dot {

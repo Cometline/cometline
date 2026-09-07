@@ -12,6 +12,8 @@
 
 	let {
 		workspacePath,
+		wikiTabs = [],
+		workspaceTabs = [],
 		wikiFilePath,
 		workspaceFilePath,
 		wikiRevealRange = null,
@@ -21,6 +23,8 @@
 		onEditorState
 	}: {
 		workspacePath: string;
+		wikiTabs?: string[];
+		workspaceTabs?: string[];
 		wikiFilePath: string | null;
 		workspaceFilePath: string | null;
 		wikiRevealRange?: FileRevealRange | null;
@@ -30,13 +34,21 @@
 		onEditorState: (state: FileEditorState | null) => void;
 	} = $props();
 
-	let wikiEditorState = $state<FileEditorState | null>(null);
-	let workspaceEditorState = $state<FileEditorState | null>(null);
+	const wikiPaths = $derived(
+		wikiTabs.length > 0 ? wikiTabs : wikiFilePath ? [wikiFilePath] : []
+	);
+	const workspacePaths = $derived(
+		workspaceTabs.length > 0 ? workspaceTabs : workspaceFilePath ? [workspaceFilePath] : []
+	);
+
+	let wikiEditorStateByPath = $state<Record<string, FileEditorState | null>>({});
+	let workspaceEditorStateByPath = $state<Record<string, FileEditorState | null>>({});
+
 	const activeEditorState = $derived(
-		active && activeSurface === 'wiki'
-			? wikiEditorState
-			: active && activeSurface === 'workspace'
-				? workspaceEditorState
+		active && activeSurface === 'wiki' && wikiFilePath
+			? (wikiEditorStateByPath[wikiFilePath] ?? null)
+			: active && activeSurface === 'workspace' && workspaceFilePath
+				? (workspaceEditorStateByPath[workspaceFilePath] ?? null)
 				: null
 	);
 
@@ -44,26 +56,36 @@
 </script>
 
 <div class="file-surfaces">
-	{#if wikiFilePath}
-		<div class="panel-layer panel-layer-content" class:active={active && activeSurface === 'wiki'}>
+	{#each wikiPaths as path (path)}
+		<div
+			class="panel-layer panel-layer-content"
+			class:active={active && activeSurface === 'wiki' && wikiFilePath === path}
+		>
 			<FilePreview
 				{workspacePath}
-				filePath={wikiFilePath}
-				revealRange={wikiRevealRange}
-				onEditorState={(state) => (wikiEditorState = state)}
+				filePath={path}
+				revealRange={wikiFilePath === path ? wikiRevealRange : null}
+				onEditorState={(state) => {
+					wikiEditorStateByPath = { ...wikiEditorStateByPath, [path]: state };
+				}}
 			/>
 		</div>
-	{/if}
-	{#if workspaceFilePath}
-		<div class="panel-layer panel-layer-content" class:active={active && activeSurface === 'workspace'}>
+	{/each}
+	{#each workspacePaths as path (path)}
+		<div
+			class="panel-layer panel-layer-content"
+			class:active={active && activeSurface === 'workspace' && workspaceFilePath === path}
+		>
 			<FilePreview
 				{workspacePath}
-				filePath={workspaceFilePath}
-				revealRange={workspaceRevealRange}
-				onEditorState={(state) => (workspaceEditorState = state)}
+				filePath={path}
+				revealRange={workspaceFilePath === path ? workspaceRevealRange : null}
+				onEditorState={(state) => {
+					workspaceEditorStateByPath = { ...workspaceEditorStateByPath, [path]: state };
+				}}
 			/>
 		</div>
-	{/if}
+	{/each}
 </div>
 
 <style>
