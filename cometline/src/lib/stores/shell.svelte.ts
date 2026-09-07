@@ -37,6 +37,7 @@ import {
 	type FileSurfaceKey,
 	type SurfaceContent,
 	type SurfaceContentKey,
+	type TabSurfaceKey,
 	type WorkspacePanelState,
 	type WorkspacePanelSurface
 } from '$lib/workspace/workspace-panel-state';
@@ -130,10 +131,9 @@ function createShellStore() {
 	let contentBySessionSurface = $state<
 		Record<string, Partial<Record<SurfaceContentKey, SurfaceContent>>>
 	>({});
-	let fileTabsBySession = $state<
-		Record<string, Partial<Record<FileSurfaceKey, string[]>>>
+	let tabsBySession = $state<
+		Record<string, Partial<Record<TabSurfaceKey, string[]>>>
 	>({});
-	let urlTabsBySession = $state<Record<string, string[]>>({});
 	let terminalPanelsBySession = $state<Record<string, boolean>>({});
 	let workspacePanelSurfaceBySession = $state<Record<string, WorkspacePanelSurface>>({});
 	/** Active inner surface while the outer slot is `web`. */
@@ -192,8 +192,7 @@ function createShellStore() {
 			terminalVisible: terminalPanelsBySession[sessionId] === true,
 			contentSurface: contentSurfaceFor(sessionId),
 			content: contentBySessionSurface[sessionId] ?? {},
-			fileTabs: fileTabsBySession[sessionId] ?? {},
-			urlTabs: urlTabsBySession[sessionId] ?? []
+			tabs: tabsBySession[sessionId] ?? {}
 		};
 	}
 
@@ -218,13 +217,9 @@ function createShellStore() {
 			...contentBySessionSurface,
 			[sessionId]: state.content
 		};
-		fileTabsBySession = {
-			...fileTabsBySession,
-			[sessionId]: state.fileTabs
-		};
-		urlTabsBySession = {
-			...urlTabsBySession,
-			[sessionId]: state.urlTabs
+		tabsBySession = {
+			...tabsBySession,
+			[sessionId]: state.tabs
 		};
 	}
 
@@ -322,13 +317,10 @@ function createShellStore() {
 				...contentBySessionSurface,
 				[sessionId]: nextSurface
 			};
-			if (surface === 'wiki' || surface === 'workspace') {
-				const tabs = { ...(fileTabsBySession[sessionId] ?? {}) };
+			if (surface === 'wiki' || surface === 'workspace' || surface === 'web-search') {
+				const tabs = { ...(tabsBySession[sessionId] ?? {}) };
 				delete tabs[surface];
-				fileTabsBySession = { ...fileTabsBySession, [sessionId]: tabs };
-			}
-			if (surface === 'web-search') {
-				urlTabsBySession = { ...urlTabsBySession, [sessionId]: [] };
+				tabsBySession = { ...tabsBySession, [sessionId]: tabs };
 			}
 			return;
 		}
@@ -346,15 +338,10 @@ function createShellStore() {
 		const next = { ...contentBySessionSurface };
 		delete next[sessionId];
 		contentBySessionSurface = next;
-		if (sessionId in fileTabsBySession) {
-			const nextTabs = { ...fileTabsBySession };
+		if (sessionId in tabsBySession) {
+			const nextTabs = { ...tabsBySession };
 			delete nextTabs[sessionId];
-			fileTabsBySession = nextTabs;
-		}
-		if (sessionId in urlTabsBySession) {
-			const nextUrls = { ...urlTabsBySession };
-			delete nextUrls[sessionId];
-			urlTabsBySession = nextUrls;
+			tabsBySession = nextTabs;
 		}
 	}
 
