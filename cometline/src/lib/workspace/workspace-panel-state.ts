@@ -1,6 +1,7 @@
 export type WorkspacePanelSurface = 'web' | 'terminal';
 export type SurfaceContentKey = 'wiki' | 'workspace' | 'changes' | 'web-search';
 export type ContentSurface = SurfaceContentKey;
+export type FileSurfaceKey = Extract<SurfaceContentKey, 'wiki' | 'workspace'>;
 
 export type FileRevealRange = {
 	startLine: number;
@@ -18,6 +19,8 @@ export type WorkspacePanelState = {
 	terminalVisible: boolean;
 	contentSurface: ContentSurface;
 	content: Partial<Record<SurfaceContentKey, SurfaceContent>>;
+	/** Open file tabs per wiki/workspace surface; active tab is content[surface].filePath. */
+	fileTabs: Partial<Record<FileSurfaceKey, string[]>>;
 };
 
 export const SURFACE_CLOSE_ORDER: SurfaceContentKey[] = [
@@ -35,13 +38,25 @@ export function createWorkspacePanelState(
 		surface: 'web',
 		terminalVisible: false,
 		contentSurface,
-		content: {}
+		content: {},
+		fileTabs: {}
 	};
+}
+
+export function fileTabsFor(
+	state: WorkspacePanelState,
+	surface: FileSurfaceKey
+): string[] {
+	const listed = state.fileTabs[surface];
+	if (listed && listed.length > 0) return listed;
+	const content = state.content[surface];
+	if (content?.mode === 'file') return [content.filePath];
+	return [];
 }
 
 export function openWorkspacePanelFile(
 	state: WorkspacePanelState,
-	surface: Extract<SurfaceContentKey, 'wiki' | 'workspace'>,
+	surface: FileSurfaceKey,
 	filePath: string,
 	reveal?: FileRevealRange | null
 ): WorkspacePanelState {
@@ -52,19 +67,42 @@ export function openWorkspacePanelFile(
 			? { startLine: reveal.startLine, endLine: reveal.endLine }
 			: {})
 	};
+	const tabs = fileTabsFor(state, surface);
+	const nextTabs = tabs.includes(filePath) ? tabs : [...tabs, filePath];
 	return {
 		...state,
 		visible: true,
 		surface: 'web',
 		contentSurface: surface,
-		content: { ...state.content, [surface]: fileContent }
+		content: { ...state.content, [surface]: fileContent },
+		fileTabs: { ...state.fileTabs, [surface]: nextTabs }
+	};
+}
+
+export function activateWorkspacePanelFileTab(
+	state: WorkspacePanelState,
+	surface: FileSurfaceKey,
+	filePath: string
+): WorkspacePanelState {
+	const tabs = fileTabsFor(state, surface);
+	if (!tabs.includes(filePath)) return state;
+	return {
+		...state,
+		visible: true,
+		surface: 'web',
+		contentSurface: surface,
+		content: {
+			...state.content,
+			[surface]: { mode: 'file', filePath }
+		},
+		fileTabs: { ...state.fileTabs, [surface]: tabs }
 	};
 }
 
 /** Drop one-shot line reveal after the editor has scrolled to it. */
 export function clearFileReveal(
 	state: WorkspacePanelState,
-	surface: Extract<SurfaceContentKey, 'wiki' | 'workspace'>
+	surface: FileSurfaceKey
 ): WorkspacePanelState {
 	const content = state.content[surface];
 	if (content?.mode !== 'file') return state;
@@ -94,16 +132,46 @@ export function nextSurfaceWithContent(
 /**
  * Applies one Cmd+W step without touching focus, history, or persistence.
  * The shell store owns those effects; this module owns the panel transition.
+ *
+ * For file surfaces: close the active tab first; only when the last tab is gone
+ * clear surface content (then existing walk-dots / hide cascade applies).
  */
 export function closeWorkspacePanel(state: WorkspacePanelState): WorkspacePanelState {
 	if (state.surface === 'terminal') {
 		return { ...state, terminalVisible: false };
 	}
 
-	const activeContent = state.content[state.contentSurface];
+	const surface = state.contentSurface;
+	const activeContent = state.content[surface];
+	if (
+		activeContent?.mode === 'file' &&
+		(surface === 'wiki' || surface === 'workspace')
+	) {
+		const tabs = fileTabsFor(state, surface);
+		const activePath = activeContent.filePath;
+		const idx = tabs.indexOf(activePath);
+		if (tabs.length > 1) {
+			const nextTabs = tabs.filter((path) => path !== activePath);
+			const nextPath = nextTabs[Math.min(Math.max(idx, 0), nextTabs.length - 1)];
+			return {
+				...state,
+				content: {
+					...state.content,
+					[surface]: { mode: 'file', filePath: nextPath }
+				},
+				fileTabs: { ...state.fileTabs, [surface]: nextTabs }
+			};
+		}
+		const content = { ...state.content };
+		delete content[surface];
+		const fileTabs = { ...state.fileTabs };
+		delete fileTabs[surface];
+		return { ...state, content, fileTabs };
+	}
+
 	if (activeContent) {
 		const content = { ...state.content };
-		delete content[state.contentSurface];
+		delete content[surface];
 		return { ...state, content };
 	}
 
@@ -115,16 +183,17 @@ export function closeWorkspacePanel(state: WorkspacePanelState): WorkspacePanelS
 	return { ...state, visible: false };
 }
 
+/**
+ * True when navigation would destroy the active file buffer.
+ * Multi-tab keep-alive: opening/activating another file never destroys a tab.
+ */
 export function replacesActiveFile(
 	state: WorkspacePanelState,
 	nextSurface: ContentSurface,
 	nextContent: SurfaceContent | null
 ): boolean {
+	if (nextContent?.mode === 'file') return false;
 	const active = state.content[state.contentSurface];
 	if (active?.mode !== 'file') return false;
-	return (
-		nextSurface !== state.contentSurface ||
-		nextContent?.mode !== 'file' ||
-		nextContent.filePath !== active.filePath
-	);
+	return nextSurface !== state.contentSurface || nextContent?.mode !== 'file';
 }

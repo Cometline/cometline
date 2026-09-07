@@ -1,13 +1,54 @@
 import { describe, expect, it } from 'vitest';
 import {
+	activateWorkspacePanelFileTab,
 	clearFileReveal,
 	closeWorkspacePanel,
 	createWorkspacePanelState,
+	fileTabsFor,
 	openWorkspacePanelFile,
 	replacesActiveFile
 } from './workspace-panel-state';
 
 describe('workspace panel state', () => {
+	it('adds and activates file tabs instead of replacing', () => {
+		let state = openWorkspacePanelFile(
+			createWorkspacePanelState('workspace'),
+			'workspace',
+			'src/a.ts'
+		);
+		state = openWorkspacePanelFile(state, 'workspace', 'src/b.ts');
+
+		expect(fileTabsFor(state, 'workspace')).toEqual(['src/a.ts', 'src/b.ts']);
+		expect(state.content.workspace).toEqual({ mode: 'file', filePath: 'src/b.ts' });
+
+		state = activateWorkspacePanelFileTab(state, 'workspace', 'src/a.ts');
+		expect(state.content.workspace).toEqual({ mode: 'file', filePath: 'src/a.ts' });
+		expect(fileTabsFor(state, 'workspace')).toEqual(['src/a.ts', 'src/b.ts']);
+	});
+
+	it('closes the active tab before clearing the surface', () => {
+		let state = openWorkspacePanelFile(
+			createWorkspacePanelState('workspace'),
+			'workspace',
+			'src/a.ts'
+		);
+		state = openWorkspacePanelFile(state, 'workspace', 'src/b.ts');
+		state = openWorkspacePanelFile(state, 'workspace', 'src/c.ts');
+		// active = c
+		state = closeWorkspacePanel(state);
+		expect(fileTabsFor(state, 'workspace')).toEqual(['src/a.ts', 'src/b.ts']);
+		expect(state.content.workspace).toEqual({ mode: 'file', filePath: 'src/b.ts' });
+
+		state = activateWorkspacePanelFileTab(state, 'workspace', 'src/a.ts');
+		state = closeWorkspacePanel(state);
+		expect(fileTabsFor(state, 'workspace')).toEqual(['src/b.ts']);
+		expect(state.content.workspace).toEqual({ mode: 'file', filePath: 'src/b.ts' });
+
+		state = closeWorkspacePanel(state);
+		expect(state.content.workspace).toBeUndefined();
+		expect(fileTabsFor(state, 'workspace')).toEqual([]);
+	});
+
 	it('walks remaining content before hiding the panel', () => {
 		let state = openWorkspacePanelFile(
 			createWorkspacePanelState('wiki'),
@@ -39,7 +80,7 @@ describe('workspace panel state', () => {
 		expect(state.content.workspace).toEqual({ mode: 'file', filePath: 'src/app.ts' });
 	});
 
-	it('identifies only file-replacing navigation as destructive', () => {
+	it('does not treat file tab open/activate as destructive', () => {
 		const state = openWorkspacePanelFile(
 			createWorkspacePanelState('workspace'),
 			'workspace',
@@ -49,8 +90,11 @@ describe('workspace panel state', () => {
 		expect(replacesActiveFile(state, 'workspace', { mode: 'file', filePath: 'src/app.ts' })).toBe(
 			false
 		);
+		expect(
+			replacesActiveFile(state, 'workspace', { mode: 'file', filePath: 'src/other.ts' })
+		).toBe(false);
 		expect(replacesActiveFile(state, 'wiki', { mode: 'file', filePath: '@runtime/wiki/index.md' })).toBe(
-			true
+			false
 		);
 	});
 
