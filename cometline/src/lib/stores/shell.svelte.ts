@@ -133,6 +133,7 @@ function createShellStore() {
 	let fileTabsBySession = $state<
 		Record<string, Partial<Record<FileSurfaceKey, string[]>>>
 	>({});
+	let urlTabsBySession = $state<Record<string, string[]>>({});
 	let terminalPanelsBySession = $state<Record<string, boolean>>({});
 	let workspacePanelSurfaceBySession = $state<Record<string, WorkspacePanelSurface>>({});
 	/** Active inner surface while the outer slot is `web`. */
