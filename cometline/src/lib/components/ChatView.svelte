@@ -137,9 +137,8 @@
 			// loads would otherwise dock the composer and skip FirstTurnFlight.
 			return chatStore.items.length > 0;
 		}
-		// Store is still bound to a previous session (mid-switch). Before our
-		// first sync, assume visible when we do not yet know the target is empty
-		// so we don't flash EmptyChatState while switching to a full transcript.
+		// Mid-switch: no user/assistant yet stays hero (fork status notes ignored).
+		if (!chatStore.hasCachedConversationTurns(sessionId)) return false;
 		if (!snapshotSynced) return true;
 		return snapshotItems.length > 0;
 	});
@@ -203,7 +202,9 @@
 	// destination avatar/thinking indicator appear before the overlay arrives.
 	// Soft swaps (/change fork, sidebar click) keep ChatView mounted — this must
 	// be remount-equivalent so composer phase + flight flags are not stuck until Cmd+R.
-	$effect(() => {
+	// Use $effect.pre so stale awaiting/firstTurn flags clear BEFORE syncComposerPhase
+	// can dock on the previous session's mid-switch visibility.
+	$effect.pre(() => {
 		void sessionId;
 		untrack(() => {
 			flightAbortController?.abort();
@@ -212,12 +213,13 @@
 			userBubbleFlight?.dismissParticle();
 			firstTurnActive = false;
 			firstTurnHandoffPending = false;
-			const cachedCount = chatStore.getCachedItemCount(sessionId);
+			const hasTurns = chatStore.hasCachedConversationTurns(sessionId);
 			awaitingFirstAssistant = chatStore.isAwaitingFirstAssistant(sessionId);
-			// Empty session: explicitly false. Do NOT use `!awaitingFirstAssistant`
+			// No user/assistant yet: explicitly false. Do NOT use `!awaitingFirstAssistant`
 			// (true when idle) which wrongly marks flight done after soft swaps.
-			firstTurnFlightDone = cachedCount > 0;
-			if (cachedCount === 0 && !awaitingFirstAssistant) {
+			// Fork system notes are status-only and must not mark flight done.
+			firstTurnFlightDone = hasTurns;
+			if (!hasTurns && !awaitingFirstAssistant) {
 				snapshotItems = [];
 				snapshotSynced = true;
 				shellStore.centerComposer();
