@@ -45,6 +45,7 @@ describe('createConversationController', () => {
 
 	function createDeps(overrides?: {
 		sessionId?: string;
+		/** @deprecated Ignored — firstTurn uses cache emptiness. Kept for call-site clarity in tests. */
 		hasVisibleConversation?: boolean;
 		send?: Mock<ConversationControllerDeps['send']>;
 		refreshSession?: Mock<ConversationControllerDeps['refreshSession']>;
@@ -62,12 +63,11 @@ describe('createConversationController', () => {
 	}) {
 		const send = overrides?.send ?? vi.fn().mockResolvedValue(undefined);
 		const refreshSession = overrides?.refreshSession ?? vi.fn().mockResolvedValue(undefined);
-		let hasVisible = overrides?.hasVisibleConversation ?? false;
 		const sessionId = overrides?.sessionId ?? 'sess-1';
+		void overrides?.hasVisibleConversation;
 
 		const controller = createConversationController({
 			getSessionId: () => sessionId,
-			getHasVisibleConversation: () => hasVisible,
 			send,
 			refreshSession,
 			flight: overrides?.flight,
@@ -79,10 +79,7 @@ describe('createConversationController', () => {
 		return {
 			controller,
 			send,
-			refreshSession,
-			setHasVisible: (value: boolean) => {
-				hasVisible = value;
-			}
+			refreshSession
 		};
 	}
 
@@ -211,7 +208,6 @@ describe('createConversationController', () => {
 		chatStore.bindSession('sess-a');
 		const controller = createConversationController({
 			getSessionId: () => currentSessionId,
-			getHasVisibleConversation: () => false,
 			send,
 			refreshSession: vi.fn().mockResolvedValue(undefined),
 			flight: { onUserMessageFlight }
@@ -241,6 +237,8 @@ describe('createConversationController', () => {
 
 	it('skips user item on subsequent turns when flight is enabled', async () => {
 		chatStore.bindSession('sess-1');
+		chatStore.stageUserForSession('sess-1', 'prior', undefined);
+		chatStore.revealStagedUserForSession('sess-1');
 		const onUserMessageFlight = vi.fn().mockResolvedValue(undefined);
 		const revealSpy = vi.spyOn(chatStore, 'revealStagedUserForSession');
 		const { controller, send } = createDeps({
@@ -259,6 +257,8 @@ describe('createConversationController', () => {
 
 	it('starts active follow-up send before the short-fade reveal resolves', async () => {
 		chatStore.bindSession('sess-1');
+		chatStore.stageUserForSession('sess-1', 'prior', undefined);
+		chatStore.revealStagedUserForSession('sess-1');
 		const onUserMessageFlight = vi.fn().mockResolvedValue(undefined);
 		const revealSpy = vi.spyOn(chatStore, 'revealStagedUserForSession');
 		const { controller, send } = createDeps({
@@ -280,6 +280,9 @@ describe('createConversationController', () => {
 	});
 
 	it('does not skip user on subsequent turns without flight', async () => {
+		chatStore.bindSession('sess-1');
+		chatStore.stageUserForSession('sess-1', 'prior', undefined);
+		chatStore.revealStagedUserForSession('sess-1');
 		const { controller, send } = createDeps({ hasVisibleConversation: true });
 
 		await controller.enqueue('hello again');
@@ -288,6 +291,9 @@ describe('createConversationController', () => {
 	});
 
 	it('passes file paths through to send', async () => {
+		chatStore.bindSession('sess-1');
+		chatStore.stageUserForSession('sess-1', 'prior', undefined);
+		chatStore.revealStagedUserForSession('sess-1');
 		const { controller, send } = createDeps({ hasVisibleConversation: true });
 		const images = [{ media_type: 'image/png' as const, data: 'abc', id: '1' }];
 
@@ -474,6 +480,9 @@ describe('createConversationController', () => {
 		});
 		const loadSpy = vi.spyOn(chatStore, 'loadTranscript').mockResolvedValue(undefined);
 		const resumeSpy = vi.spyOn(chatStore, 'resumeRun').mockImplementation(() => resumeGate);
+		chatStore.bindSession('sess-1');
+		chatStore.stageUserForSession('sess-1', 'prior', undefined);
+		chatStore.revealStagedUserForSession('sess-1');
 		const { controller, send } = createDeps({ hasVisibleConversation: true });
 
 		controller.onMount();
@@ -512,7 +521,6 @@ describe('createConversationController', () => {
 
 		const controller = createConversationController({
 			getSessionId: () => currentSessionId,
-			getHasVisibleConversation: () => false,
 			send,
 			refreshSession: vi.fn().mockResolvedValue(undefined),
 			flight: { onUserMessageFlight }
@@ -546,7 +554,19 @@ describe('createConversationController', () => {
 				const text = typeof payload === 'string' ? payload : payload.text;
 				if (text === 'msg-a-1') await gateA;
 			});
-		const flight = { onUserMessageFlight: vi.fn().mockResolvedValue(undefined) };
+		const flight = {
+			onUserMessageFlight: vi.fn().mockImplementation((payload, ctx: FlightContext) => {
+				const text = typeof payload === 'string' ? payload : payload.text;
+				ctx.stageUser(text, undefined);
+				ctx.revealStagedUser();
+			})
+		};
+		chatStore.bindSession('sess-a');
+		chatStore.stageUserForSession('sess-a', 'prior-a', undefined);
+		chatStore.revealStagedUserForSession('sess-a');
+		chatStore.bindSession('sess-b');
+		chatStore.stageUserForSession('sess-b', 'prior-b', undefined);
+		chatStore.revealStagedUserForSession('sess-b');
 
 		const ctrlA = createDeps({
 			sessionId: 'sess-a',
@@ -593,15 +613,98 @@ describe('createConversationController', () => {
 		sessionStore.takePendingMessage('sess-1');
 	});
 
-	it('bindSession docks composer when already docked or loading', () => {
+	it('bindSession docks composer when session has cached content', () => {
+		chatStore.bindSession('sess-1');
+		chatStore.stageUserForSession('sess-1', 'prior', undefined);
+		chatStore.revealStagedUserForSession('sess-1');
 		const dockSpy = vi.spyOn(shellStore, 'dockComposer');
+		const { controller } = createDeps();
+
+		shellStore.centerComposer();
+		controller.bindSession();
+
+		expect(dockSpy).toHaveBeenCalled();
+		dockSpy.mockRestore();
+	});
+
+	it('bindSession centers composer for empty session even if previously docked', () => {
+		const centerSpy = vi.spyOn(shellStore, 'centerComposer');
 		const { controller } = createDeps();
 
 		shellStore.dockComposer();
 		controller.bindSession();
 
-		expect(dockSpy).toHaveBeenCalled();
-		dockSpy.mockRestore();
+		expect(centerSpy).toHaveBeenCalled();
+		expect(shellStore.composerPhase).toBe('centered');
+		centerSpy.mockRestore();
+	});
+
+	it('runs FirstTurnFlight when hasVisibleConversation is true only due to loading and cache is empty', async () => {
+		chatStore.bindSession('sess-1');
+		const onUserMessageFlight = vi.fn().mockImplementation((_, ctx: FlightContext) => {
+			ctx.stageUser('hello', undefined);
+		});
+		const { controller, send } = createDeps({
+			// Simulate ChatView loading state making hasVisibleConversation true.
+			hasVisibleConversation: true,
+			flight: { onUserMessageFlight }
+		});
+		expect(chatStore.getCachedItemCount('sess-1')).toBe(0);
+
+		await controller.enqueue('hello');
+
+		expect(onUserMessageFlight).toHaveBeenCalledWith(
+			'hello',
+			expect.objectContaining({ firstTurn: true, sessionId: 'sess-1' })
+		);
+		expect(send).toHaveBeenCalledWith('sess-1', { text: 'hello' }, { skipUser: true });
+	});
+
+	it('keeps first enqueue as firstTurn after bind with composer already docked and empty cache', async () => {
+		shellStore.dockComposer();
+		const onUserMessageFlight = vi.fn().mockImplementation((_, ctx: FlightContext) => {
+			ctx.stageUser('first', undefined);
+		});
+		const { controller } = createDeps({
+			hasVisibleConversation: true,
+			flight: { onUserMessageFlight }
+		});
+
+		controller.bindSession();
+		expect(shellStore.composerPhase).toBe('centered');
+		expect(chatStore.getCachedItemCount('sess-1')).toBe(0);
+
+		await controller.enqueue('first');
+
+		expect(onUserMessageFlight).toHaveBeenCalledWith(
+			'first',
+			expect.objectContaining({ firstTurn: true, sessionId: 'sess-1' })
+		);
+	});
+
+	it('does not treat the second send as firstTurn', async () => {
+		chatStore.bindSession('sess-1');
+		const onUserMessageFlight = vi.fn().mockImplementation((payload, ctx: FlightContext) => {
+			const text = typeof payload === 'string' ? payload : payload.text;
+			ctx.stageUser(text, undefined);
+			ctx.revealStagedUser();
+		});
+		const { controller } = createDeps({
+			flight: { onUserMessageFlight }
+		});
+
+		await controller.enqueue('first');
+		await controller.enqueue('second');
+
+		expect(onUserMessageFlight).toHaveBeenCalledTimes(1);
+		expect(onUserMessageFlight).toHaveBeenCalledWith(
+			'first',
+			expect.objectContaining({ firstTurn: true })
+		);
+		expect(onUserMessageFlight).not.toHaveBeenCalledWith(
+			'second',
+			expect.anything()
+		);
 	});
 
 	it('does not refresh when send rejects and keeps the queue drainable', async () => {
