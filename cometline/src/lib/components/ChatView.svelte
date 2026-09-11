@@ -132,16 +132,16 @@
 
 	let hasVisibleConversation = $derived.by(() => {
 		if (firstTurnActive || awaitingFirstAssistant) return true;
-		// User/assistant only. Fork system notes are `status` — counting them as
-		// visible unmounts EmptyChatState (avatar) while the composer stays
-		// centered → blank half-hero after /change.
+		const hasTurns = (list: ChatItem[]) =>
+			list.some((item) => item.type === 'user' || item.type === 'assistant');
+		// Read reactive `items`, not sessionCache (plain Map). Status-only fork
+		// notes still do not count, so EmptyChatState / avatar stay up.
 		if (chatStore.sessionID === sessionId) {
-			return chatStore.hasCachedConversationTurns(sessionId);
+			return hasTurns(chatStore.items);
 		}
-		// Mid-switch: no user/assistant yet stays hero (fork status notes ignored).
 		if (!chatStore.hasCachedConversationTurns(sessionId)) return false;
 		if (!snapshotSynced) return true;
-		return snapshotItems.some((item) => item.type === 'user' || item.type === 'assistant');
+		return hasTurns(snapshotItems);
 	});
 	let composerSnap = $derived(chatStore.sessionID === sessionId && chatStore.isLoading);
 
