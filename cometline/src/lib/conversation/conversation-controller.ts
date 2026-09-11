@@ -82,9 +82,9 @@ async function runTurn(
 	const userDisplay = payload.displayText ?? payload.text;
 	const usesFlight = Boolean(deps.flight?.onUserMessageFlight);
 	const isViewing = deps.getSessionId() === turnSessionId;
-	// Content emptiness — not hasVisibleConversation(). Loading makes the latter
-	// true on an empty fork/soft swap and would skip FirstTurnFlight.
-	const firstTurn = chatStore.getCachedItemCount(turnSessionId) === 0;
+	// No user/assistant yet — not hasVisibleConversation() / raw item count.
+	// Fork AppendSystemMessage becomes a status row and must not skip FirstTurnFlight.
+	const firstTurn = !chatStore.hasCachedConversationTurns(turnSessionId);
 	const flightPayload = payload.images?.length ? payload : userDisplay;
 	const contexts = messageContextRefsFromWebContexts(payload.webContexts);
 	let stagedUserId: string | undefined;
@@ -211,7 +211,7 @@ export function createConversationController(
 			// content/in-flight dock. Do not dock solely because isLoading — that
 			// leaves the composer stuck docked after /change → empty fork.
 			if (
-				chatStore.getCachedItemCount(sessionId) > 0 ||
+				chatStore.hasCachedConversationTurns(sessionId) ||
 				chatStore.hasInFlightTurn(sessionId)
 			) {
 				shellStore.dockComposer();
@@ -268,10 +268,10 @@ export function createConversationController(
 			if (firstTurnActive) return;
 
 			const sessionId = deps.getSessionId();
-			const empty = chatStore.getCachedItemCount(sessionId) === 0;
-			// Soft /change into an empty fork: mid-switch visibility flags must not
-			// dock after we just centered — emptiness wins until real content or
-			// first-turn prepare docks intentionally.
+			const empty = !chatStore.hasCachedConversationTurns(sessionId);
+			// Soft /change into an empty fork (status-only system note counts as empty):
+			// mid-switch visibility flags must not dock after we just centered —
+			// emptiness wins until real user/assistant content or first-turn prepare.
 			if (empty && !awaitingFirstAssistant) {
 				shellStore.centerComposer();
 				return;

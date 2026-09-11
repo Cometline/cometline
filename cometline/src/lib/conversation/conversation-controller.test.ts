@@ -9,13 +9,15 @@ import {
 import { chatStore } from '$lib/stores/chat.svelte';
 import { sessionStore } from '$lib/stores/session.svelte';
 import { shellStore } from '$lib/stores/shell.svelte';
-import { getSession } from '$lib/client/cometmind';
+import { getSession, getSessionMessages } from '$lib/client/cometmind';
 
 type FlightPayload = Parameters<ConversationFlightAdapter['onUserMessageFlight']>[0];
 type FlightContext = Parameters<ConversationFlightAdapter['onUserMessageFlight']>[1];
 
 vi.mock('$lib/client/cometmind', () => ({
-	getSession: vi.fn().mockResolvedValue({ id: 'sess-1', title: 'Updated' })
+	getSession: vi.fn().mockResolvedValue({ id: 'sess-1', title: 'Updated' }),
+	getSessionMessages: vi.fn().mockResolvedValue({ items: [] }),
+	listChildSessions: vi.fn().mockResolvedValue({ sessions: [] })
 }));
 
 describe('createConversationController', () => {
@@ -25,6 +27,7 @@ describe('createConversationController', () => {
 		sessionStore.setSessions([]);
 		resetConversationTurnQueuesForTests();
 		shellStore.centerComposer();
+		vi.mocked(getSessionMessages).mockResolvedValue({ items: [] });
 		vi.mocked(getSession).mockResolvedValue({
 			id: 'sess-1',
 			workspace_id: 'ws-1',
@@ -653,6 +656,45 @@ describe('createConversationController', () => {
 
 		expect(shellStore.composerPhase).toBe('centered');
 		expect(chatStore.getCachedItemCount('sess-1')).toBe(0);
+	});
+
+	it('treats fork status-only transcript as firstTurn and keeps composer centered', async () => {
+		vi.mocked(getSessionMessages).mockResolvedValue({
+			items: [
+				{
+					type: 'system',
+					text: 'Forked from a session in /old. File tools now operate under /new.'
+				}
+			]
+		});
+		chatStore.bindSession('sess-1');
+		await chatStore.loadTranscript('sess-1');
+		expect(chatStore.getCachedItemCount('sess-1')).toBe(1);
+		expect(chatStore.hasCachedConversationTurns('sess-1')).toBe(false);
+
+		const onUserMessageFlight = vi.fn().mockImplementation((_, ctx: FlightContext) => {
+			ctx.stageUser('hello', undefined);
+		});
+		const { controller, send } = createDeps({
+			hasVisibleConversation: true,
+			flight: { onUserMessageFlight }
+		});
+		controller.bindSession();
+		expect(shellStore.composerPhase).toBe('centered');
+
+		controller.syncComposerPhase({
+			hasVisibleConversation: true,
+			firstTurnActive: false,
+			awaitingFirstAssistant: false
+		});
+		expect(shellStore.composerPhase).toBe('centered');
+
+		await controller.enqueue('hello');
+		expect(onUserMessageFlight).toHaveBeenCalledWith(
+			'hello',
+			expect.objectContaining({ firstTurn: true, sessionId: 'sess-1' })
+		);
+		expect(send).toHaveBeenCalledWith('sess-1', { text: 'hello' }, { skipUser: true });
 	});
 
 	it('runs FirstTurnFlight when hasVisibleConversation is true only due to loading and cache is empty', async () => {

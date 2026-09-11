@@ -137,9 +137,8 @@
 			// loads would otherwise dock the composer and skip FirstTurnFlight.
 			return chatStore.items.length > 0;
 		}
-		// Mid-switch: known-empty targets stay hero. Only treat as visible when
-		// cache says the destination has content (or we have a synced snapshot).
-		if (chatStore.getCachedItemCount(sessionId) === 0) return false;
+		// Mid-switch: no user/assistant yet stays hero (fork status notes ignored).
+		if (!chatStore.hasCachedConversationTurns(sessionId)) return false;
 		if (!snapshotSynced) return true;
 		return snapshotItems.length > 0;
 	});
@@ -214,12 +213,13 @@
 			userBubbleFlight?.dismissParticle();
 			firstTurnActive = false;
 			firstTurnHandoffPending = false;
-			const cachedCount = chatStore.getCachedItemCount(sessionId);
+			const hasTurns = chatStore.hasCachedConversationTurns(sessionId);
 			awaitingFirstAssistant = chatStore.isAwaitingFirstAssistant(sessionId);
-			// Empty session: explicitly false. Do NOT use `!awaitingFirstAssistant`
+			// No user/assistant yet: explicitly false. Do NOT use `!awaitingFirstAssistant`
 			// (true when idle) which wrongly marks flight done after soft swaps.
-			firstTurnFlightDone = cachedCount > 0;
-			if (cachedCount === 0 && !awaitingFirstAssistant) {
+			// Fork system notes are status-only and must not mark flight done.
+			firstTurnFlightDone = hasTurns;
+			if (!hasTurns && !awaitingFirstAssistant) {
 				snapshotItems = [];
 				snapshotSynced = true;
 				shellStore.centerComposer();

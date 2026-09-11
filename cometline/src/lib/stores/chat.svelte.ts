@@ -92,6 +92,14 @@ function createChatStore() {
 		return cachedItemCount(targetSessionID);
 	}
 
+	/** User/assistant turns only — fork system notes map to `status` and must not
+	 *  count as a real conversation for first-turn / composer dock. */
+	function hasCachedConversationTurns(targetSessionID: string) {
+		return getCachedItems(targetSessionID).some(
+			(item) => item.type === 'user' || item.type === 'assistant'
+		);
+	}
+
 	function getCachedItems(targetSessionID: string) {
 		return sessionCache.get(targetSessionID) ?? [];
 	}
@@ -927,6 +935,7 @@ function createChatStore() {
 		hasInFlightTurn,
 		isAwaitingFirstAssistant,
 		getCachedItemCount,
+		hasCachedConversationTurns,
 		clear,
 		resetTranscript,
 		detachActiveSession,
