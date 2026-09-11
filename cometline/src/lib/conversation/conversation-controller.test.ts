@@ -16,7 +16,7 @@ type FlightContext = Parameters<ConversationFlightAdapter['onUserMessageFlight']
 
 vi.mock('$lib/client/cometmind', () => ({
 	getSession: vi.fn().mockResolvedValue({ id: 'sess-1', title: 'Updated' }),
-	getSessionMessages: vi.fn().mockResolvedValue({ items: [] }),
+	getSessionMessages: vi.fn().mockResolvedValue({ session_id: 'sess-1', items: [] }),
 	listChildSessions: vi.fn().mockResolvedValue({ sessions: [] })
 }));
 
@@ -27,7 +27,7 @@ describe('createConversationController', () => {
 		sessionStore.setSessions([]);
 		resetConversationTurnQueuesForTests();
 		shellStore.centerComposer();
-		vi.mocked(getSessionMessages).mockResolvedValue({ items: [] });
+		vi.mocked(getSessionMessages).mockResolvedValue({ session_id: 'sess-1', items: [] });
 		vi.mocked(getSession).mockResolvedValue({
 			id: 'sess-1',
 			workspace_id: 'ws-1',
@@ -660,6 +660,7 @@ describe('createConversationController', () => {
 
 	it('treats fork status-only transcript as firstTurn and keeps composer centered', async () => {
 		vi.mocked(getSessionMessages).mockResolvedValue({
+			session_id: 'sess-1',
 			items: [
 				{
 					type: 'system',
