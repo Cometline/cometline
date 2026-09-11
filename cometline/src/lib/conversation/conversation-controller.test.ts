@@ -639,6 +639,22 @@ describe('createConversationController', () => {
 		centerSpy.mockRestore();
 	});
 
+	it('syncComposerPhase keeps empty session centered even when hasVisibleConversation is true', () => {
+		chatStore.bindSession('sess-1');
+		const { controller } = createDeps({ hasVisibleConversation: true });
+		controller.bindSession();
+		shellStore.centerComposer();
+
+		controller.syncComposerPhase({
+			hasVisibleConversation: true,
+			firstTurnActive: false,
+			awaitingFirstAssistant: false
+		});
+
+		expect(shellStore.composerPhase).toBe('centered');
+		expect(chatStore.getCachedItemCount('sess-1')).toBe(0);
+	});
+
 	it('runs FirstTurnFlight when hasVisibleConversation is true only due to loading and cache is empty', async () => {
 		chatStore.bindSession('sess-1');
 		const onUserMessageFlight = vi.fn().mockImplementation((_, ctx: FlightContext) => {

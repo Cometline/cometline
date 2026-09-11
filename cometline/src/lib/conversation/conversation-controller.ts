@@ -267,6 +267,16 @@ export function createConversationController(
 			if (chatStore.sessionID !== deps.getSessionId()) return;
 			if (firstTurnActive) return;
 
+			const sessionId = deps.getSessionId();
+			const empty = chatStore.getCachedItemCount(sessionId) === 0;
+			// Soft /change into an empty fork: mid-switch visibility flags must not
+			// dock after we just centered — emptiness wins until real content or
+			// first-turn prepare docks intentionally.
+			if (empty && !awaitingFirstAssistant) {
+				shellStore.centerComposer();
+				return;
+			}
+
 			if (hasVisibleConversation) {
 				shellStore.dockComposer();
 			} else if (!awaitingFirstAssistant) {

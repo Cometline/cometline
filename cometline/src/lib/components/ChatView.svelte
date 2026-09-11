@@ -137,9 +137,9 @@
 			// loads would otherwise dock the composer and skip FirstTurnFlight.
 			return chatStore.items.length > 0;
 		}
-		// Store is still bound to a previous session (mid-switch). Before our
-		// first sync, assume visible when we do not yet know the target is empty
-		// so we don't flash EmptyChatState while switching to a full transcript.
+		// Mid-switch: known-empty targets stay hero. Only treat as visible when
+		// cache says the destination has content (or we have a synced snapshot).
+		if (chatStore.getCachedItemCount(sessionId) === 0) return false;
 		if (!snapshotSynced) return true;
 		return snapshotItems.length > 0;
 	});
@@ -203,7 +203,9 @@
 	// destination avatar/thinking indicator appear before the overlay arrives.
 	// Soft swaps (/change fork, sidebar click) keep ChatView mounted — this must
 	// be remount-equivalent so composer phase + flight flags are not stuck until Cmd+R.
-	$effect(() => {
+	// Use $effect.pre so stale awaiting/firstTurn flags clear BEFORE syncComposerPhase
+	// can dock on the previous session's mid-switch visibility.
+	$effect.pre(() => {
 		void sessionId;
 		untrack(() => {
 			flightAbortController?.abort();
