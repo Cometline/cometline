@@ -40,7 +40,6 @@ export interface ConversationFlightAdapter {
 
 export interface ConversationControllerDeps {
 	getSessionId: () => string;
-	getHasVisibleConversation: () => boolean;
 	send: (
 		sessionId: string,
 		payload: ChatTurnPayload | string,
@@ -77,17 +76,15 @@ const turnQueues = new Map<string, ChatTurnQueue>();
 async function runTurn(
 	deps: ConversationControllerDeps,
 	turnSessionId: string,
-	payloadOrText: ChatTurnPayload | string,
-	getHasVisibleConversation: () => boolean
+	payloadOrText: ChatTurnPayload | string
 ): Promise<void> {
 	const payload = typeof payloadOrText === 'string' ? { text: payloadOrText } : payloadOrText;
 	const userDisplay = payload.displayText ?? payload.text;
 	const usesFlight = Boolean(deps.flight?.onUserMessageFlight);
 	const isViewing = deps.getSessionId() === turnSessionId;
-	const firstTurn =
-		usesFlight && !isViewing
-			? chatStore.getCachedItemCount(turnSessionId) === 0
-			: !getHasVisibleConversation();
+	// Content emptiness — not hasVisibleConversation(). Loading makes the latter
+	// true on an empty fork/soft swap and would skip FirstTurnFlight.
+	const firstTurn = chatStore.getCachedItemCount(turnSessionId) === 0;
 	const flightPayload = payload.images?.length ? payload : userDisplay;
 	const contexts = messageContextRefsFromWebContexts(payload.webContexts);
 	let stagedUserId: string | undefined;
@@ -168,14 +165,13 @@ async function runTurn(
 
 function ensureQueue(
 	sessionId: string,
-	deps: ConversationControllerDeps,
-	getHasVisibleConversation: () => boolean
+	deps: ConversationControllerDeps
 ): ChatTurnQueue {
 	let queue = turnQueues.get(sessionId);
 	if (!queue) {
 		const queueForSessionId = sessionId;
 		queue = createChatTurnQueue(async (payload) => {
-			await runTurn(deps, queueForSessionId, payload, getHasVisibleConversation);
+			await runTurn(deps, queueForSessionId, payload);
 		}, deps.onQueueChange);
 		turnQueues.set(sessionId, queue);
 	} else {
@@ -190,7 +186,7 @@ export function createConversationController(
 	deps: ConversationControllerDeps
 ): ConversationController {
 	function queueForCurrentSession(): ChatTurnQueue {
-		return ensureQueue(deps.getSessionId(), deps, deps.getHasVisibleConversation);
+		return ensureQueue(deps.getSessionId(), deps);
 	}
 
 	return {
@@ -209,9 +205,18 @@ export function createConversationController(
 		},
 
 		bindSession() {
-			chatStore.bindSession(deps.getSessionId());
-			if (shellStore.composerPhase === 'docked' || chatStore.isLoading) {
+			const sessionId = deps.getSessionId();
+			chatStore.bindSession(sessionId);
+			// Remount-equivalent: empty sessions center (hero), sessions with
+			// content/in-flight dock. Do not dock solely because isLoading — that
+			// leaves the composer stuck docked after /change → empty fork.
+			if (
+				chatStore.getCachedItemCount(sessionId) > 0 ||
+				chatStore.hasInFlightTurn(sessionId)
+			) {
 				shellStore.dockComposer();
+			} else {
+				shellStore.centerComposer();
 			}
 		},
 
@@ -225,7 +230,7 @@ export function createConversationController(
 
 		onMount() {
 			const sessionId = deps.getSessionId();
-			const queue = ensureQueue(sessionId, deps, deps.getHasVisibleConversation);
+			const queue = ensureQueue(sessionId, deps);
 			const pending = sessionStore.takePendingMessage(sessionId);
 			if (pending) {
 				void queue.enqueue({
@@ -264,15 +269,15 @@ export function createConversationController(
 
 			if (hasVisibleConversation) {
 				shellStore.dockComposer();
-			} else if (!chatStore.isLoading && !awaitingFirstAssistant) {
+			} else if (!awaitingFirstAssistant) {
+				// Keep hero/EmptyChatState while an empty transcript loads — do not
+				// wait for !isLoading (that used to leave a docked composer stuck).
 				shellStore.centerComposer();
 			}
 		},
 
 		enqueue(payload: ChatTurnPayload | string) {
-			return ensureQueue(deps.getSessionId(), deps, deps.getHasVisibleConversation).enqueue(
-				payload
-			);
+			return ensureQueue(deps.getSessionId(), deps).enqueue(payload);
 		},
 
 		removeQueued(id: string) {

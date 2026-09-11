@@ -367,6 +367,9 @@ export function createComposerSlashController(deps: {
 			deps.setValue('');
 			workspaceHighlight = 0;
 			if (forkedId) {
+				// Remount-equivalent before soft navigate: empty fork must start
+				// centered so first-turn flight + follow-up transitions work.
+				shellStore.centerComposer();
 				deps.setDropMessage(`Forked session into ${clean}`);
 				await goto(sessionRouteFor(forkedId));
 			} else {

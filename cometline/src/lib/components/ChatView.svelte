@@ -42,7 +42,6 @@
 
 	const conversation = createConversationController({
 		getSessionId: () => sessionId,
-		getHasVisibleConversation: () => hasVisibleConversation,
 		send: (sid, payload, opts) => chatStore.send(sid, payload, opts),
 		refreshSession: (sid) => refreshConversationSession(sid),
 		onQueueChange: syncQueueState,
@@ -120,29 +119,29 @@
 	let queuedMessages = $state<QueuedMessage[]>([]);
 
 	let snapshotItems = $state.raw<ChatItem[]>([]);
-	// Default to "loading" until the store binds this session so a freshly
-	// mounted ChatView (e.g. switching sessions while a previous transcript is
-	// still in flight) shows the loading state instead of flashing the empty
-	// state and then getting stuck without messages.
-	let snapshotLoading = $state(true);
+	// snapshotSynced gates mid-switch visibility. Empty soft-swaps set it true
+	// immediately with empty items so hero/EmptyChatState stays up; content
+	// sessions keep it false until the store binds to avoid flashing empty.
 	let snapshotSynced = $state(false);
 
 	$effect(() => {
 		if (chatStore.sessionID !== sessionId) return;
 		snapshotItems = chatStore.items;
-		snapshotLoading = chatStore.isLoading;
 		snapshotSynced = true;
 	});
 
 	let hasVisibleConversation = $derived.by(() => {
 		if (firstTurnActive || awaitingFirstAssistant) return true;
 		if (chatStore.sessionID === sessionId) {
-			return chatStore.items.length > 0 || chatStore.isLoading;
+			// Real content only — do not treat isLoading as visible. Empty fork
+			// loads would otherwise dock the composer and skip FirstTurnFlight.
+			return chatStore.items.length > 0;
 		}
 		// Store is still bound to a previous session (mid-switch). Before our
-		// first sync, assume loading so we don't flash the empty state.
+		// first sync, assume visible when we do not yet know the target is empty
+		// so we don't flash EmptyChatState while switching to a full transcript.
 		if (!snapshotSynced) return true;
-		return snapshotItems.length > 0 || snapshotLoading;
+		return snapshotItems.length > 0;
 	});
 	let composerSnap = $derived(chatStore.sessionID === sessionId && chatStore.isLoading);
 
@@ -202,6 +201,8 @@
 	// adding the pending assistant row during a first-turn flight re-runs this
 	// effect, which would reset firstTurnHandoffPending mid-flight and let the
 	// destination avatar/thinking indicator appear before the overlay arrives.
+	// Soft swaps (/change fork, sidebar click) keep ChatView mounted — this must
+	// be remount-equivalent so composer phase + flight flags are not stuck until Cmd+R.
 	$effect(() => {
 		void sessionId;
 		untrack(() => {
@@ -211,13 +212,18 @@
 			userBubbleFlight?.dismissParticle();
 			firstTurnActive = false;
 			firstTurnHandoffPending = false;
-			snapshotSynced = false;
-			snapshotLoading = true;
+			const cachedCount = chatStore.getCachedItemCount(sessionId);
 			awaitingFirstAssistant = chatStore.isAwaitingFirstAssistant(sessionId);
-			// Returning to a session with cached transcript should show avatars
-			// immediately; only a live empty-state first-turn flight hides them.
-			firstTurnFlightDone =
-				chatStore.getCachedItemCount(sessionId) > 0 || !awaitingFirstAssistant;
+			// Empty session: explicitly false. Do NOT use `!awaitingFirstAssistant`
+			// (true when idle) which wrongly marks flight done after soft swaps.
+			firstTurnFlightDone = cachedCount > 0;
+			if (cachedCount === 0 && !awaitingFirstAssistant) {
+				snapshotItems = [];
+				snapshotSynced = true;
+				shellStore.centerComposer();
+			} else {
+				snapshotSynced = false;
+			}
 			syncQueueState();
 		});
 	});
