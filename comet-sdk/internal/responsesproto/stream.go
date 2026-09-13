@@ -316,10 +316,7 @@ func toolCallDoneEvents(callID, itemID, name string, args json.RawMessage, state
 		name = tool.name
 	}
 
-	normalizedArgs, err := normalizeToolArguments(args, tool.args.String())
-	if err != nil {
-		return nil, err
-	}
+	normalizedArgs := normalizeToolArguments(args, tool.args.String())
 
 	tool.done = true
 	state.sawTool = true
@@ -357,15 +354,19 @@ func reasoningSummaryText(summary []ContentPart) string {
 	return text.String()
 }
 
-// normalizeToolArguments produces a complete, valid JSON object for a tool
-// call, merging the completed arguments with deltas accumulated so far.
-func normalizeToolArguments(args json.RawMessage, fallback string) (json.RawMessage, error) {
+// normalizeToolArguments produces complete, valid JSON for a tool call,
+// merging the completed arguments with deltas accumulated so far.
+//
+// Invalid JSON (truncated objects, free-form custom-tool text) is preserved
+// as a JSON string instead of aborting the stream. The agent loop can then
+// return a tool error and let the model retry, matching Codex CLI behavior.
+func normalizeToolArguments(args json.RawMessage, fallback string) json.RawMessage {
 	raw := strings.TrimSpace(string(args))
 	if raw == "" {
 		raw = strings.TrimSpace(fallback)
 	}
 	if raw == "" {
-		return json.RawMessage(`{}`), nil
+		return json.RawMessage(`{}`)
 	}
 
 	// Providers can report function-call arguments as a JSON string containing
@@ -375,11 +376,15 @@ func normalizeToolArguments(args json.RawMessage, fallback string) (json.RawMess
 	if err := json.Unmarshal([]byte(raw), &encoded); err == nil {
 		raw = strings.TrimSpace(encoded)
 		if raw == "" {
-			return json.RawMessage(`{}`), nil
+			return json.RawMessage(`{}`)
 		}
 	}
-	if !json.Valid([]byte(raw)) {
-		return nil, fmt.Errorf("responses: invalid tool arguments JSON")
+	if json.Valid([]byte(raw)) {
+		return json.RawMessage(raw)
 	}
-	return json.RawMessage(raw), nil
+	wrapped, err := json.Marshal(raw)
+	if err != nil {
+		return json.RawMessage(`{}`)
+	}
+	return wrapped
 }
