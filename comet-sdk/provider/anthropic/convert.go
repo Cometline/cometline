@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 
 	cometsdk "github.com/cometline/comet-sdk"
@@ -41,7 +42,16 @@ type anthropicBlock struct {
 	ToolUseID string          `json:"tool_use_id,omitempty"`
 	Content   string          `json:"content,omitempty"`
 	IsError   bool            `json:"is_error,omitempty"`
-	Reasoning string          `json:"reasoning,omitempty"`
+	Thinking  string          `json:"thinking,omitempty"`
+	Signature string          `json:"signature,omitempty"`
+	Data      string          `json:"data,omitempty"`
+}
+
+// thinkingReplayState is the opaque ProviderState.Data payload used to echo
+// Anthropic thinking / redacted_thinking blocks on later turns. Reasoning
+// plaintext never lives here — that stays in Message.ReasoningContent for UI.
+type thinkingReplayState struct {
+	Blocks []anthropicBlock `json:"blocks"`
 }
 
 type anthropicImage struct {
@@ -76,7 +86,7 @@ func toAnthropicRequest(req *cometsdk.Request) ([]byte, error) {
 		maxTokens = 4096 // Anthropic requires max_tokens; use a safe default.
 	}
 
-	msgs, err := convertMessages(req.Messages)
+	msgs, err := convertMessages(req.Messages, req.Model)
 	if err != nil {
 		return nil, err
 	}
@@ -105,10 +115,10 @@ func toAnthropicRequest(req *cometsdk.Request) ([]byte, error) {
 }
 
 // convertMessages converts SDK messages to Anthropic message structs.
-func convertMessages(msgs []cometsdk.Message) ([]anthropicMessage, error) {
+func convertMessages(msgs []cometsdk.Message, modelID string) ([]anthropicMessage, error) {
 	out := make([]anthropicMessage, 0, len(msgs))
 	for _, m := range msgs {
-		role, blocks, err := convertMessage(m)
+		role, blocks, err := convertMessage(m, modelID)
 		if err != nil {
 			return nil, err
 		}
@@ -117,19 +127,16 @@ func convertMessages(msgs []cometsdk.Message) ([]anthropicMessage, error) {
 	return out, nil
 }
 
-func convertMessage(m cometsdk.Message) (string, []anthropicBlock, error) {
+func convertMessage(m cometsdk.Message, modelID string) (string, []anthropicBlock, error) {
 	switch m.Role {
 	case cometsdk.RoleUser:
 		blocks, err := convertBlocks(m.Content)
 		return "user", blocks, err
 
 	case cometsdk.RoleAssistant:
-		var allBlocks []anthropicBlock
-		reasoningBlocks, err := convertBlocks(m.ReasoningContent)
-		if err != nil {
-			return "", nil, err
-		}
-		allBlocks = append(allBlocks, reasoningBlocks...)
+		// Plaintext CoT is display-only. Anthropic only accepts thinking blocks
+		// that carry the original signature, which we replay from ProviderState.
+		allBlocks := replayThinkingBlocks(m.ProviderState, modelID)
 		contentBlocks, err := convertBlocks(m.Content)
 		if err != nil {
 			return "", nil, err
@@ -177,7 +184,9 @@ func convertBlocks(blocks []cometsdk.Block) ([]anthropicBlock, error) {
 			})
 
 		case cometsdk.ReasoningBlock:
-			out = append(out, anthropicBlock{Type: "reasoning", Reasoning: v.Text})
+			// Display-only CoT. Never emit type:"reasoning" (illegal) and never
+			// invent a thinking block without Anthropic's signature.
+			continue
 
 		case cometsdk.ToolCallBlock:
 			input := v.Input
@@ -218,6 +227,73 @@ func filterEmptyContent(msgs []anthropicMessage) []anthropicMessage {
 	return out
 }
 
+func replayThinkingBlocks(states []cometsdk.ProviderState, modelID string) []anthropicBlock {
+	if modelID == "" {
+		return nil
+	}
+	var out []anthropicBlock
+	for _, state := range states {
+		if state.ProviderID != "" && state.ProviderID != providerID {
+			continue
+		}
+		if state.ModelID != "" && state.ModelID != modelID {
+			continue
+		}
+		if state.Data == "" {
+			continue
+		}
+		var payload thinkingReplayState
+		if err := json.Unmarshal([]byte(state.Data), &payload); err != nil {
+			continue
+		}
+		for _, block := range payload.Blocks {
+			if replayableThinkingBlock(block) {
+				out = append(out, block)
+			}
+		}
+	}
+	return out
+}
+
+func replayableThinkingBlock(block anthropicBlock) bool {
+	switch block.Type {
+	case "thinking":
+		return block.Signature != ""
+	case "redacted_thinking":
+		return block.Data != ""
+	default:
+		return false
+	}
+}
+
+func marshalThinkingReplayState(blocks []anthropicBlock) string {
+	replay := make([]anthropicBlock, 0, len(blocks))
+	for _, block := range blocks {
+		if replayableThinkingBlock(block) {
+			replay = append(replay, block)
+		}
+	}
+	if len(replay) == 0 {
+		return ""
+	}
+	raw, err := json.Marshal(thinkingReplayState{Blocks: replay})
+	if err != nil {
+		return ""
+	}
+	return string(raw)
+}
+
+func thinkingReplayEvent(blocks []anthropicBlock) []cometsdk.Event {
+	data := marshalThinkingReplayState(blocks)
+	if data == "" {
+		return nil
+	}
+	return []cometsdk.Event{cometsdk.ProviderStateEvent{State: cometsdk.ProviderState{
+		ProviderID: providerID,
+		Data:       data,
+	}}}
+}
+
 // ─── Incoming: Anthropic SSE → SDK Events ────────────────────────────────────
 
 // anthropicSSEEvent is the top-level JSON structure of Anthropic SSE data payloads.
@@ -227,9 +303,12 @@ type anthropicSSEEvent struct {
 
 	// content_block_start
 	ContentBlock *struct {
-		Type string `json:"type"`
-		ID   string `json:"id"`
-		Name string `json:"name"`
+		Type      string `json:"type"`
+		ID        string `json:"id"`
+		Name      string `json:"name"`
+		Thinking  string `json:"thinking"`
+		Signature string `json:"signature"`
+		Data      string `json:"data"`
 	} `json:"content_block"`
 
 	// content_block_delta / message_delta
@@ -238,7 +317,8 @@ type anthropicSSEEvent struct {
 		Text        string `json:"text"`
 		PartialJSON string `json:"partial_json"`
 		StopReason  string `json:"stop_reason"`
-		Reasoning   string `json:"reasoning"`
+		Thinking    string `json:"thinking"`
+		Signature   string `json:"signature"`
 	} `json:"delta"`
 
 	// message_start
@@ -287,21 +367,42 @@ func mergeUsage(base, incoming cometsdk.TokenUsage) cometsdk.TokenUsage {
 	return base
 }
 
-// streamState tracks in-progress tool calls so we can emit ToolCallDoneEvent.
+// streamState tracks in-progress tool calls and thinking blocks.
 type streamState struct {
 	// toolCallBuffers maps content block index → accumulated input JSON.
 	toolCallBuffers map[int]*strings.Builder
 	// toolCallMeta maps content block index → (id, name).
-	toolCallMeta  map[int][2]string
-	pendingUsage  cometsdk.TokenUsage
-	emittedFinish bool
+	toolCallMeta map[int][2]string
+	// thinkingBlocks maps content block index → accumulated thinking / redacted_thinking.
+	thinkingBlocks map[int]*anthropicBlock
+	pendingUsage   cometsdk.TokenUsage
+	emittedFinish  bool
 }
 
 func newStreamState() *streamState {
 	return &streamState{
 		toolCallBuffers: make(map[int]*strings.Builder),
 		toolCallMeta:    make(map[int][2]string),
+		thinkingBlocks:  make(map[int]*anthropicBlock),
 	}
+}
+
+func (s *streamState) completedThinkingBlocks() []anthropicBlock {
+	if len(s.thinkingBlocks) == 0 {
+		return nil
+	}
+	indexes := make([]int, 0, len(s.thinkingBlocks))
+	for idx := range s.thinkingBlocks {
+		indexes = append(indexes, idx)
+	}
+	sort.Ints(indexes)
+	out := make([]anthropicBlock, 0, len(indexes))
+	for _, idx := range indexes {
+		if block := s.thinkingBlocks[idx]; block != nil {
+			out = append(out, *block)
+		}
+	}
+	return out
 }
 
 // toSDKEvents converts a raw Anthropic SSE event (by type name + JSON data)
@@ -324,8 +425,20 @@ func toSDKEvents(eventType, data string, state *streamState) ([]cometsdk.Event, 
 				Name: ev.ContentBlock.Name,
 			}}, nil
 		}
-		if ev.ContentBlock.Type == "reasoning" {
+		if ev.ContentBlock.Type == "thinking" {
+			state.thinkingBlocks[ev.Index] = &anthropicBlock{
+				Type:      "thinking",
+				Thinking:  ev.ContentBlock.Thinking,
+				Signature: ev.ContentBlock.Signature,
+			}
 			return []cometsdk.Event{cometsdk.ReasoningStartEvent{}}, nil
+		}
+		if ev.ContentBlock.Type == "redacted_thinking" {
+			state.thinkingBlocks[ev.Index] = &anthropicBlock{
+				Type: "redacted_thinking",
+				Data: ev.ContentBlock.Data,
+			}
+			return nil, nil
 		}
 		return nil, nil
 
@@ -353,8 +466,20 @@ func toSDKEvents(eventType, data string, state *streamState) ([]cometsdk.Event, 
 				Delta: ev.Delta.PartialJSON,
 			}}, nil
 
-		case "reasoning_delta":
-			return []cometsdk.Event{cometsdk.ReasoningContentEvent{Text: ev.Delta.Reasoning}}, nil
+		case "thinking_delta":
+			if block, ok := state.thinkingBlocks[ev.Index]; ok && block.Type == "thinking" {
+				block.Thinking += ev.Delta.Thinking
+			}
+			if ev.Delta.Thinking == "" {
+				return nil, nil
+			}
+			return []cometsdk.Event{cometsdk.ReasoningContentEvent{Text: ev.Delta.Thinking}}, nil
+
+		case "signature_delta":
+			if block, ok := state.thinkingBlocks[ev.Index]; ok && block.Type == "thinking" {
+				block.Signature += ev.Delta.Signature
+			}
+			return nil, nil
 		}
 		return nil, nil
 
@@ -363,18 +488,17 @@ func toSDKEvents(eventType, data string, state *streamState) ([]cometsdk.Event, 
 		if err := json.Unmarshal([]byte(data), &ev); err != nil {
 			return nil, fmt.Errorf("anthropic: parse content_block_stop: %w", err)
 		}
-		buf, ok := state.toolCallBuffers[ev.Index]
-		if !ok {
-			return nil, nil
+		if buf, ok := state.toolCallBuffers[ev.Index]; ok {
+			meta := state.toolCallMeta[ev.Index]
+			delete(state.toolCallBuffers, ev.Index)
+			delete(state.toolCallMeta, ev.Index)
+			return []cometsdk.Event{cometsdk.ToolCallDoneEvent{
+				ID:    meta[0],
+				Name:  meta[1],
+				Input: json.RawMessage(buf.String()),
+			}}, nil
 		}
-		meta := state.toolCallMeta[ev.Index]
-		delete(state.toolCallBuffers, ev.Index)
-		delete(state.toolCallMeta, ev.Index)
-		return []cometsdk.Event{cometsdk.ToolCallDoneEvent{
-			ID:    meta[0],
-			Name:  meta[1],
-			Input: json.RawMessage(buf.String()),
-		}}, nil
+		return nil, nil
 
 	case "message_start":
 		var ev anthropicSSEEvent
@@ -404,6 +528,7 @@ func toSDKEvents(eventType, data string, state *streamState) ([]cometsdk.Event, 
 
 	case "message_stop":
 		var events []cometsdk.Event
+		events = append(events, thinkingReplayEvent(state.completedThinkingBlocks())...)
 		if !state.emittedFinish {
 			events = append(events, cometsdk.StepFinishEvent{Usage: state.pendingUsage})
 			state.emittedFinish = true

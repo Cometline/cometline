@@ -154,6 +154,42 @@ func TestStream_UsageFromMessageStartWhenDeltaOmitsInput(t *testing.T) {
 	require.Equal(t, 3, stepFinish.Usage.CacheWrite)
 }
 
+func TestStream_ThinkingReplayState(t *testing.T) {
+	srv := serveFixture(t, "fixtures/thinking.sse")
+	defer srv.Close()
+
+	p := newTestProvider(t, srv)
+	ch, err := p.Stream(context.Background(), &cometsdk.Request{
+		Model:    "claude-sonnet-4-5",
+		Messages: []cometsdk.Message{{Role: cometsdk.RoleUser, Content: []cometsdk.Block{cometsdk.TextBlock{Text: "Hi"}}}},
+	})
+	require.NoError(t, err)
+
+	var reasoning []string
+	var started bool
+	var providerState *cometsdk.ProviderStateEvent
+	var texts []string
+	for _, e := range collectEvents(t, ch) {
+		switch ev := e.(type) {
+		case cometsdk.ReasoningStartEvent:
+			started = true
+		case cometsdk.ReasoningContentEvent:
+			reasoning = append(reasoning, ev.Text)
+		case cometsdk.ProviderStateEvent:
+			providerState = &ev
+		case cometsdk.TextDeltaEvent:
+			texts = append(texts, ev.Text)
+		}
+	}
+
+	require.True(t, started)
+	require.Equal(t, []string{"Need a plan."}, reasoning)
+	require.Equal(t, []string{"Hello"}, texts)
+	require.NotNil(t, providerState)
+	require.Equal(t, "anthropic", providerState.State.ProviderID)
+	require.JSONEq(t, `{"blocks":[{"type":"thinking","thinking":"Need a plan.","signature":"sig-abc"}]}`, providerState.State.Data)
+}
+
 func TestStream_ContextCancelled(t *testing.T) {
 	// Server that streams slowly, one byte at a time.
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
