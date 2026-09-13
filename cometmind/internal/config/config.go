@@ -104,7 +104,7 @@ func Defaults() *Config {
 	return &Config{
 		Provider:           ProviderAnthropic,
 		Model:              "claude-sonnet-4-5",
-		MaxTokens:          2048,
+		MaxTokens:          4096,
 		ContextWindowLimit: 128_000,
 		MaxSteps:           100,
 		Skills:             SkillsConfig{Enabled: true, IncludeOpenCode: true, IncludeClaude: true},

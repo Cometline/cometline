@@ -118,7 +118,7 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 		r.MaxSteps = 100
 	}
 	if r.MaxTokens <= 0 {
-		r.MaxTokens = 2048
+		r.MaxTokens = 4096
 	}
 	retrievalTimeout := r.MemoryRetrievalTimeout
 	if retrievalTimeout <= 0 {

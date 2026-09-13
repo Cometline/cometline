@@ -138,7 +138,7 @@ export type ModelLimitHints = {
 
 /** effectiveMaxTokens = min(userMaxTokens, catalogOutput) when catalogOutput > 0 */
 export function effectiveMaxTokens(userMaxTokens?: number | null, catalogOutput?: number | null): number {
-	const user = Number.isFinite(userMaxTokens) && (userMaxTokens as number) > 0 ? Math.floor(userMaxTokens as number) : 2048;
+	const user = Number.isFinite(userMaxTokens) && (userMaxTokens as number) > 0 ? Math.floor(userMaxTokens as number) : 4096;
 	const output = Number.isFinite(catalogOutput) && (catalogOutput as number) > 0 ? Math.floor(catalogOutput as number) : 0;
 	if (output > 0 && output < user) return output;
 	return user;

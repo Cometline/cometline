@@ -38,7 +38,7 @@ describe('context-window', () => {
 		expect(effectiveMaxTokens(8192, 4096)).toBe(4096);
 		expect(effectiveMaxTokens(2048, 128_000)).toBe(2048);
 		expect(effectiveMaxTokens(4096, 0)).toBe(4096);
-		expect(effectiveMaxTokens(null, null)).toBe(2048);
+		expect(effectiveMaxTokens(null, null)).toBe(4096);
 	});
 
 	it('uses max(effective, 20k) reserve for available budget', () => {

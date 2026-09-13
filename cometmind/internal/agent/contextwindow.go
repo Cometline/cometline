@@ -79,7 +79,7 @@ func ResolveSessionBudget(cfg *config.Config, providerID, modelID string, userMa
 // EffectiveMaxTokens caps the user max-tokens setting by catalog output when known.
 func EffectiveMaxTokens(userMaxTokens, catalogOutput int) int {
 	if userMaxTokens <= 0 {
-		userMaxTokens = 2048
+		userMaxTokens = 4096
 	}
 	if catalogOutput > 0 && catalogOutput < userMaxTokens {
 		return catalogOutput
