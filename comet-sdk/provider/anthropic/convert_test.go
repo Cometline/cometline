@@ -185,6 +185,139 @@ func TestConvertRequest_ToolCallIDSanitised(t *testing.T) {
 	require.Equal(t, "call_with_dots", out.Messages[0].Content[0].ToolUseID)
 }
 
+func TestConvertRequest_DropsUnsignedReasoningBlocks(t *testing.T) {
+	req := &cometsdk.Request{
+		Model: "claude-sonnet-4-5",
+		Messages: []cometsdk.Message{
+			{
+				Role:             cometsdk.RoleAssistant,
+				Content:          []cometsdk.Block{cometsdk.TextBlock{Text: "Done."}},
+				ReasoningContent: []cometsdk.Block{cometsdk.ReasoningBlock{Text: "foreign CoT"}},
+			},
+		},
+	}
+
+	data, err := toAnthropicRequest(req)
+	require.NoError(t, err)
+	require.NotContains(t, string(data), `"type":"reasoning"`)
+	require.NotContains(t, string(data), `"type":"thinking"`)
+
+	var out anthropicRequest
+	require.NoError(t, json.Unmarshal(data, &out))
+	require.Len(t, out.Messages, 1)
+	require.Len(t, out.Messages[0].Content, 1)
+	require.Equal(t, "text", out.Messages[0].Content[0].Type)
+	require.Equal(t, "Done.", out.Messages[0].Content[0].Text)
+}
+
+func TestConvertRequest_ReplaysMatchingThinkingState(t *testing.T) {
+	req := &cometsdk.Request{
+		Model: "claude-sonnet-4-5",
+		Messages: []cometsdk.Message{
+			{
+				Role:             cometsdk.RoleAssistant,
+				Content:          []cometsdk.Block{cometsdk.TextBlock{Text: "42"}},
+				ReasoningContent: []cometsdk.Block{cometsdk.ReasoningBlock{Text: "let me think"}},
+				ProviderState: []cometsdk.ProviderState{{
+					ProviderID: "anthropic",
+					ModelID:    "claude-sonnet-4-5",
+					Data:       `{"blocks":[{"type":"thinking","thinking":"let me think","signature":"sig-1"},{"type":"redacted_thinking","data":"opaque"}]}`,
+				}},
+			},
+		},
+	}
+
+	data, err := toAnthropicRequest(req)
+	require.NoError(t, err)
+
+	var out anthropicRequest
+	require.NoError(t, json.Unmarshal(data, &out))
+	require.Len(t, out.Messages[0].Content, 3)
+	require.Equal(t, "thinking", out.Messages[0].Content[0].Type)
+	require.Equal(t, "let me think", out.Messages[0].Content[0].Thinking)
+	require.Equal(t, "sig-1", out.Messages[0].Content[0].Signature)
+	require.Equal(t, "redacted_thinking", out.Messages[0].Content[1].Type)
+	require.Equal(t, "opaque", out.Messages[0].Content[1].Data)
+	require.Equal(t, "text", out.Messages[0].Content[2].Type)
+}
+
+func TestConvertRequest_IgnoresForeignOrMismatchedThinkingState(t *testing.T) {
+	req := &cometsdk.Request{
+		Model: "claude-sonnet-4-5",
+		Messages: []cometsdk.Message{
+			{
+				Role:    cometsdk.RoleAssistant,
+				Content: []cometsdk.Block{cometsdk.TextBlock{Text: "ok"}},
+				ProviderState: []cometsdk.ProviderState{
+					{ProviderID: "openai", ModelID: "claude-sonnet-4-5", Data: `{"blocks":[{"type":"thinking","thinking":"nope","signature":"x"}]}`},
+					{ProviderID: "anthropic", ModelID: "claude-opus-4-1", Data: `{"blocks":[{"type":"thinking","thinking":"other model","signature":"y"}]}`},
+					{ProviderID: "anthropic", ModelID: "claude-sonnet-4-5", Data: `{"blocks":[{"type":"thinking","thinking":"unsigned"}]}`},
+				},
+			},
+		},
+	}
+
+	data, err := toAnthropicRequest(req)
+	require.NoError(t, err)
+	require.NotContains(t, string(data), `"type":"thinking"`)
+
+	var out anthropicRequest
+	require.NoError(t, json.Unmarshal(data, &out))
+	require.Len(t, out.Messages[0].Content, 1)
+	require.Equal(t, "text", out.Messages[0].Content[0].Type)
+}
+
+func TestConvertEvent_ThinkingAndSignature(t *testing.T) {
+	state := newStreamState()
+	events, err := toSDKEvents("content_block_start",
+		`{"type":"content_block_start","index":0,"content_block":{"type":"thinking","thinking":""}}`,
+		state)
+	require.NoError(t, err)
+	require.Len(t, events, 1)
+	_, ok := events[0].(cometsdk.ReasoningStartEvent)
+	require.True(t, ok)
+
+	events, err = toSDKEvents("content_block_delta",
+		`{"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"plan"}}`,
+		state)
+	require.NoError(t, err)
+	require.Len(t, events, 1)
+	delta, ok := events[0].(cometsdk.ReasoningContentEvent)
+	require.True(t, ok)
+	require.Equal(t, "plan", delta.Text)
+
+	events, err = toSDKEvents("content_block_delta",
+		`{"type":"content_block_delta","index":0,"delta":{"type":"signature_delta","signature":"sig-1"}}`,
+		state)
+	require.NoError(t, err)
+	require.Empty(t, events)
+
+	events, err = toSDKEvents("message_stop", `{"type":"message_stop"}`, state)
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, len(events), 2)
+	ps, ok := events[0].(cometsdk.ProviderStateEvent)
+	require.True(t, ok)
+	require.Equal(t, "anthropic", ps.State.ProviderID)
+	require.JSONEq(t, `{"blocks":[{"type":"thinking","thinking":"plan","signature":"sig-1"}]}`, ps.State.Data)
+	_, ok = events[len(events)-1].(cometsdk.DoneEvent)
+	require.True(t, ok)
+}
+
+func TestConvertEvent_RedactedThinkingReplay(t *testing.T) {
+	state := newStreamState()
+	events, err := toSDKEvents("content_block_start",
+		`{"type":"content_block_start","index":0,"content_block":{"type":"redacted_thinking","data":"opaque"}}`,
+		state)
+	require.NoError(t, err)
+	require.Empty(t, events)
+
+	events, err = toSDKEvents("message_stop", `{"type":"message_stop"}`, state)
+	require.NoError(t, err)
+	ps, ok := events[0].(cometsdk.ProviderStateEvent)
+	require.True(t, ok)
+	require.JSONEq(t, `{"blocks":[{"type":"redacted_thinking","data":"opaque"}]}`, ps.State.Data)
+}
+
 // ─── Event conversion tests ───────────────────────────────────────────────────
 
 func TestConvertEvent_TextDelta(t *testing.T) {
