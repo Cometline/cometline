@@ -27,6 +27,10 @@ const (
 	defaultStreamRecoveryBackoff = 2 * time.Second
 	maxStreamRecoveryBackoff     = 8 * time.Second
 	timeoutContinueHint          = "The model timed out before finishing. Send another message to continue from here."
+	// After this many consecutive schema/JSON argument failures in one turn,
+	// remaining tool calls in the current step are skipped so a broken model
+	// cannot burn the step budget retrying the same bad payload.
+	maxConsecutiveInvalidToolInputs = 2
 )
 
 // TurnStore is the narrow persistence seam the agent loop drives. It is the
@@ -124,6 +128,7 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 	steps := 0
 	outputTruncationContinuations := 0
 	incompleteToolTruncationContinuations := 0
+	invalidToolInputStreak := 0
 	truncationContinue := false
 	incompleteToolTruncationContinue := false
 	jobProgressNudge := false
@@ -619,6 +624,7 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 		}
 
 		emitStatus(event.PhaseRunningTools)
+		schemaCircuitOpen := false
 		for i, tc := range result.ToolCalls {
 			persistedID := persistedToolIDs[tc.ID]
 			if persistedID == "" {
@@ -634,9 +640,16 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 			}
 			start := time.Now()
 			logging.L().Info("tool.call.start", "session", turn.ID, "tool", tc.Name, "tool_call_id", tc.ID, "input_bytes", len(tc.Input))
-			toolCtx := tools.WithToolSession(ctx, turn.ID)
-			toolCtx = tools.WithProgress(toolCtx, backgroundProgressEmitter(ch))
-			res, execErr := r.Registry.Execute(toolCtx, tc.Name, tc.Input)
+			var res tools.Result
+			var execErr error
+			if schemaCircuitOpen {
+				res = tools.Result{OK: false, Output: skippedInvalidToolInputResult(tc.Name)}
+				logging.L().Warn("tool.call.schema_circuit_open", "session", turn.ID, "tool", tc.Name, "tool_call_id", tc.ID, "streak", invalidToolInputStreak)
+			} else {
+				toolCtx := tools.WithToolSession(ctx, turn.ID)
+				toolCtx = tools.WithProgress(toolCtx, backgroundProgressEmitter(ch))
+				res, execErr = r.Registry.Execute(toolCtx, tc.Name, tc.Input)
+			}
 			dur := time.Since(start).Milliseconds()
 			logging.L().Info("tool.call.finish", "session", turn.ID, "tool", tc.Name, "tool_call_id", tc.ID, "ok", res.OK && execErr == nil, "duration_ms", dur, "output_bytes", len(res.Output))
 
@@ -645,6 +658,16 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 			if execErr != nil {
 				isErr = true
 				out = fmt.Sprintf("%s\n(execute error: %v)", out, execErr)
+			}
+			if !schemaCircuitOpen {
+				if tools.IsInvalidToolInput(res, execErr) {
+					invalidToolInputStreak++
+					if invalidToolInputStreak >= maxConsecutiveInvalidToolInputs {
+						schemaCircuitOpen = true
+					}
+				} else {
+					invalidToolInputStreak = 0
+				}
 			}
 
 			exit := int64PtrFromIntPtr(res.ExitCode)
@@ -827,6 +850,13 @@ func int64PtrFromIntPtr(v *int) *int64 {
 
 const cancelledToolResult = "Tool execution cancelled before completion."
 const truncatedIncompleteToolResult = "Tool call was cut off at the output token limit before it finished. It was not executed."
+
+func skippedInvalidToolInputResult(name string) string {
+	return fmt.Sprintf(
+		"Skipped %s: too many consecutive invalid tool argument payloads in this turn. Do not retry with similar arguments. Emit one smaller, complete JSON object, or continue without this tool.",
+		name,
+	)
+}
 
 func incompleteStartedToolCalls(started, completed []cometsdk.ToolCallBlock) []cometsdk.ToolCallBlock {
 	if len(started) == 0 {

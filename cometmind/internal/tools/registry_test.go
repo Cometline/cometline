@@ -2,8 +2,10 @@ package tools
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/cometline/cometmind/internal/acp"
@@ -81,6 +83,34 @@ func TestNewRegistryCapturesWorkspaceAndExposesSpecs(t *testing.T) {
 	}
 	if res.Output != "1: world" {
 		t.Errorf("read_file output = %q, want %q", res.Output, "1: world")
+	}
+}
+
+func TestRegistryExecuteTurnsInvalidJSONIntoRecoverableResult(t *testing.T) {
+	r := NewRegistry(t.TempDir())
+	res, err := r.Execute(context.Background(), "read_file", json.RawMessage(`{"path":"/foo`))
+	if err != nil {
+		t.Fatalf("Execute error = %v, want recoverable result", err)
+	}
+	if res.OK {
+		t.Fatal("expected invalid JSON to fail the tool, not succeed")
+	}
+	if !IsInvalidToolInput(res, nil) {
+		t.Fatalf("result = %+v, want invalid tool arguments", res)
+	}
+	if !strings.Contains(res.Output, "read_file") || !strings.Contains(res.Output, `{"path":"/foo`) {
+		t.Fatalf("result missing tool name or raw input: %q", res.Output)
+	}
+}
+
+func TestRegistryExecuteTurnsStringArgumentsIntoRecoverableResult(t *testing.T) {
+	r := NewRegistry(t.TempDir())
+	res, err := r.Execute(context.Background(), "list_dir", json.RawMessage(`"please list files"`))
+	if err != nil {
+		t.Fatalf("Execute error = %v, want recoverable result", err)
+	}
+	if res.OK || !IsInvalidToolInput(res, nil) {
+		t.Fatalf("result = %+v, want invalid tool arguments", res)
 	}
 }
 
