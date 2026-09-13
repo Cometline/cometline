@@ -28,8 +28,8 @@ const (
 	maxStreamRecoveryBackoff     = 8 * time.Second
 	timeoutContinueHint          = "The model timed out before finishing. Send another message to continue from here."
 	// After this many consecutive schema/JSON argument failures in one turn,
-	// remaining tool calls in the current step are skipped so a broken model
-	// cannot burn the step budget retrying the same bad payload.
+	// remaining incomplete JSON calls in the current step are skipped.
+	// Calls that already have a complete JSON object still run.
 	maxConsecutiveInvalidToolInputs = 2
 )
 
@@ -642,7 +642,8 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 			logging.L().Info("tool.call.start", "session", turn.ID, "tool", tc.Name, "tool_call_id", tc.ID, "input_bytes", len(tc.Input))
 			var res tools.Result
 			var execErr error
-			if schemaCircuitOpen {
+			skipInvalidInput := schemaCircuitOpen && !tools.IsCompleteJSONObject(tc.Input)
+			if skipInvalidInput {
 				res = tools.Result{OK: false, Output: skippedInvalidToolInputResult(tc.Name)}
 				logging.L().Warn("tool.call.schema_circuit_open", "session", turn.ID, "tool", tc.Name, "tool_call_id", tc.ID, "streak", invalidToolInputStreak)
 			} else {
@@ -659,8 +660,8 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 				isErr = true
 				out = fmt.Sprintf("%s\n(execute error: %v)", out, execErr)
 			}
-			if !schemaCircuitOpen {
-				if tools.IsInvalidToolInput(res, execErr) {
+			if !skipInvalidInput {
+				if !res.OK && tools.IsInvalidToolInput(res, execErr) {
 					invalidToolInputStreak++
 					if invalidToolInputStreak >= maxConsecutiveInvalidToolInputs {
 						schemaCircuitOpen = true

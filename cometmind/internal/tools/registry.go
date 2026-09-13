@@ -194,7 +194,7 @@ func (r *Registry) Execute(ctx context.Context, name string, input json.RawMessa
 		return Result{OK: false, Output: "unknown tool: " + name}, nil
 	}
 	res, err := t.Execute(ctx, input)
-	if IsInvalidToolInput(res, err) {
+	if isJSONSchemaError(err) {
 		return InvalidToolInputResult(name, input, err), nil
 	}
 	return res, err

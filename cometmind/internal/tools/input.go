@@ -49,7 +49,7 @@ func isJSONSchemaError(err error) bool {
 // InvalidToolInputResult turns malformed model arguments into a recoverable
 // tool error so the agent loop can send them back instead of aborting.
 func InvalidToolInputResult(name string, input json.RawMessage, err error) Result {
-	return Result{OK: false, Output: formatInvalidToolInput(name, input, err)}
+	return Result{OK: false, InvalidInput: true, Output: formatInvalidToolInput(name, input, err)}
 }
 
 func formatInvalidToolInput(name string, input json.RawMessage, err error) string {
@@ -81,9 +81,22 @@ func previewToolInput(input json.RawMessage) string {
 
 // IsInvalidToolInput reports schema/JSON argument failures, including wrapped
 // Execute errors and the recoverable Result produced by the registry.
+// Tool output is never scanned: a successful read_file/grep whose content
+// mentions the marker must not look like a schema failure.
 func IsInvalidToolInput(res Result, err error) bool {
-	if isJSONSchemaError(err) {
+	if res.InvalidInput {
 		return true
 	}
-	return strings.Contains(res.Output, invalidToolArgumentsMarker)
+	return isJSONSchemaError(err)
+}
+
+// IsCompleteJSONObject reports whether input is a finished JSON object.
+// Truncated payloads and JSON strings are not complete objects.
+func IsCompleteJSONObject(input json.RawMessage) bool {
+	s := strings.TrimSpace(string(input))
+	if s == "" || s[0] != '{' {
+		return false
+	}
+	var obj map[string]json.RawMessage
+	return json.Unmarshal([]byte(s), &obj) == nil
 }
