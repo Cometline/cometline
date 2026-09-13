@@ -38,7 +38,7 @@ func FormatOutputBudgetPromptBlock(maxTokens int) string {
 func FormatAgentModePrompt(mode session.AgentMode) string {
 	switch mode {
 	case session.AgentModeAuto:
-		return "Auto mode is active. Complete the user's request end to end using the tools available to you. When implementation is requested, inspect the relevant code, make the necessary changes, verify them, and report the result. Do not stop at a plan unless the user explicitly asks for planning only. For large file writes, emit one complete write_file call per step so its arguments fit within the output limit."
+		return "Auto mode is active. Complete the user's request end to end using the tools available to you. When implementation is requested, inspect the relevant code, make the necessary changes, verify them, and report the result. Do not stop at a plan unless the user explicitly asks for planning only. For large file writes, emit one complete write_file call per step so its arguments fit within the output limit; continue remaining sections in later steps with append=true."
 	case session.AgentModePlan:
 		return "Plan mode is active. Research and design only; do not attempt to edit or write files, run commands, mutate settings, jobs, or memory, or delegate coding work. Use the available read, network, skill, and research-agent tools to understand the request. Return a concrete implementation plan with affected files, key decisions, risks, and verification steps. Do not claim that changes were made. These mode restrictions supersede generic implementation instructions."
 	default:

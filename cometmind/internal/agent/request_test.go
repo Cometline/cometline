@@ -113,7 +113,7 @@ func TestFormatAgentModePrompt(t *testing.T) {
 		{
 			name:    "auto",
 			mode:    session.AgentModeAuto,
-			want:    []string{"Auto mode is active", "end to end", "write_file"},
+			want:    []string{"Auto mode is active", "end to end", "write_file", "append=true"},
 			notWant: []string{"Research and design only"},
 		},
 		{

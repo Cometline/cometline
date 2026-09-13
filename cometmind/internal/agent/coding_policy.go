@@ -12,6 +12,7 @@ func CodingPolicyPrompt() string {
 - @runtime paths are aliases understood only by file-tool path parameters; never use them in run_command. Shell commands run in the workspace root.
 - Use capture_screenshot for live screens or app windows, and present_image_url for public web images. Do not use run_command or write_file to create screenshot or downloaded-image files in the workspace.
 - Prefer edit_file (search/replace) over write_file for existing files. Use write_file only to create new files or intentionally replace an entire file.
+- For long documents, write one short complete chunk per step, then append later sections with write_file append=true. Do not put an entire long markdown/report/job-description into one write_file call.
 - Prefer small, verified steps. After substantive edits, run the project's tests or lint when you can discover how (README, Makefile, go test, pnpm, etc.).
 - Do not commit unless the user explicitly asks.
 - Summarize important changes clearly.`
