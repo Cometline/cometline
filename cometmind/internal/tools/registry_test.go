@@ -95,7 +95,7 @@ func TestRegistryExecuteTurnsInvalidJSONIntoRecoverableResult(t *testing.T) {
 	if res.OK {
 		t.Fatal("expected invalid JSON to fail the tool, not succeed")
 	}
-	if !IsInvalidToolInput(res, nil) {
+	if !res.InvalidInput || !IsInvalidToolInput(res, nil) {
 		t.Fatalf("result = %+v, want invalid tool arguments", res)
 	}
 	if !strings.Contains(res.Output, "read_file") || !strings.Contains(res.Output, `{"path":"/foo`) {
@@ -109,8 +109,30 @@ func TestRegistryExecuteTurnsStringArgumentsIntoRecoverableResult(t *testing.T) 
 	if err != nil {
 		t.Fatalf("Execute error = %v, want recoverable result", err)
 	}
-	if res.OK || !IsInvalidToolInput(res, nil) {
+	if res.OK || !res.InvalidInput || !IsInvalidToolInput(res, nil) {
 		t.Fatalf("result = %+v, want invalid tool arguments", res)
+	}
+}
+
+func TestRegistryExecuteDoesNotTreatFileContentAsInvalidInput(t *testing.T) {
+	dir := t.TempDir()
+	body := "the log said invalid tool arguments for write_file\n"
+	if err := os.WriteFile(filepath.Join(dir, "note.md"), []byte(body), 0o644); err != nil {
+		t.Fatalf("write note.md: %v", err)
+	}
+	r := NewRegistry(dir)
+	res, err := r.Execute(context.Background(), "read_file", json.RawMessage(`{"path":"note.md"}`))
+	if err != nil {
+		t.Fatalf("Execute error = %v", err)
+	}
+	if !res.OK {
+		t.Fatalf("read_file failed: %s", res.Output)
+	}
+	if res.InvalidInput || IsInvalidToolInput(res, nil) {
+		t.Fatalf("file content mentioning the marker must stay a normal result: %+v", res)
+	}
+	if !strings.Contains(res.Output, invalidToolArgumentsMarker) {
+		t.Fatalf("expected file content in output, got %q", res.Output)
 	}
 }
 

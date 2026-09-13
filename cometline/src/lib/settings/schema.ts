@@ -562,7 +562,7 @@ export function defaultCometMindStorageSettings(): CometMindStorageSettings {
 export function defaultCometMindSettings(workspacePath = ''): CometMindSettings {
 	return {
 		systemPromptPath: '',
-		maxTokens: 2048,
+		maxTokens: 4096,
 		logLevel: 'error',
 		contextWindowLimit: DEFAULT_CONTEXT_WINDOW_LIMIT,
 		titleProviderId: '',

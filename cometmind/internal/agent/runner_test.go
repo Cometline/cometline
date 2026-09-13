@@ -1611,6 +1611,7 @@ func TestRunner_InvalidToolArgumentsStayRecoverableAndOpenCircuit(t *testing.T) 
 			cometsdk.ToolCallDoneEvent{ID: "tc-1", Name: "read_file", Input: json.RawMessage(`{"path":"/foo`)},
 			cometsdk.ToolCallDoneEvent{ID: "tc-2", Name: "list_dir", Input: json.RawMessage(`"please list files"`)},
 			cometsdk.ToolCallDoneEvent{ID: "tc-3", Name: "read_file", Input: json.RawMessage(`{"path":"hello.txt"}`)},
+			cometsdk.ToolCallDoneEvent{ID: "tc-4", Name: "list_dir", Input: json.RawMessage(`{"path":".`)},
 			cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishToolUse},
 			cometsdk.DoneEvent{},
 		},
@@ -1630,8 +1631,8 @@ func TestRunner_InvalidToolArgumentsStayRecoverableAndOpenCircuit(t *testing.T) 
 	if err != nil {
 		t.Fatalf("Run returned error: %v", err)
 	}
-	if store.toolResults != 3 {
-		t.Fatalf("tool results = %d, want 3", store.toolResults)
+	if store.toolResults != 4 {
+		t.Fatalf("tool results = %d, want 4", store.toolResults)
 	}
 	if provider.calls != 2 {
 		t.Fatalf("Stream called %d times, want 2 so the model can retry", provider.calls)
@@ -1645,8 +1646,8 @@ func TestRunner_InvalidToolArgumentsStayRecoverableAndOpenCircuit(t *testing.T) 
 			t.Fatalf("unexpected error event: %+v", ev)
 		}
 	}
-	if len(results) != 3 {
-		t.Fatalf("tool result events = %d, want 3", len(results))
+	if len(results) != 4 {
+		t.Fatalf("tool result events = %d, want 4", len(results))
 	}
 	if !strings.Contains(results[0].ToolErr, "invalid tool arguments") {
 		t.Fatalf("first result = %+v, want invalid arguments", results[0])
@@ -1654,8 +1655,70 @@ func TestRunner_InvalidToolArgumentsStayRecoverableAndOpenCircuit(t *testing.T) 
 	if !strings.Contains(results[1].ToolErr, "invalid tool arguments") {
 		t.Fatalf("second result = %+v, want invalid arguments", results[1])
 	}
-	if !strings.Contains(results[2].ToolErr, "Skipped read_file") {
-		t.Fatalf("third result = %+v, want circuit skip", results[2])
+	if results[2].ToolErr != "" || !strings.Contains(results[2].Output, "world") {
+		t.Fatalf("third result = %+v, want valid read_file to still run", results[2])
+	}
+	if !strings.Contains(results[3].ToolErr, "Skipped list_dir") {
+		t.Fatalf("fourth result = %+v, want circuit skip of truncated JSON", results[3])
+	}
+}
+
+func TestRunner_FileContentContainingMarkerDoesNotOpenCircuit(t *testing.T) {
+	dir := t.TempDir()
+	marker := "invalid tool arguments for write_file: unexpected end of JSON input"
+	if err := os.WriteFile(filepath.Join(dir, "a.txt"), []byte(marker), 0o644); err != nil {
+		t.Fatalf("write a.txt: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "b.txt"), []byte(marker), 0o644); err != nil {
+		t.Fatalf("write b.txt: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "hello.txt"), []byte("world"), 0o644); err != nil {
+		t.Fatalf("write hello.txt: %v", err)
+	}
+	store := &fakeStore{}
+	provider := &capturingSequentialFakeProvider{sequences: [][]cometsdk.Event{
+		{
+			cometsdk.ToolCallDoneEvent{ID: "tc-1", Name: "read_file", Input: json.RawMessage(`{"path":"a.txt"}`)},
+			cometsdk.ToolCallDoneEvent{ID: "tc-2", Name: "read_file", Input: json.RawMessage(`{"path":"b.txt"}`)},
+			cometsdk.ToolCallDoneEvent{ID: "tc-3", Name: "read_file", Input: json.RawMessage(`{"path":"hello.txt"}`)},
+			cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishToolUse},
+			cometsdk.DoneEvent{},
+		},
+		{
+			cometsdk.TextDeltaEvent{Text: "done"},
+			cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishStop},
+			cometsdk.DoneEvent{},
+		},
+	}}
+	r := &Runner{
+		Provider: provider,
+		Sessions: store,
+		Registry: tools.NewRegistry(dir),
+	}
+
+	events, err := runAndDrain(t, r, session.AgentTurn{ID: "s-marker", ModelID: "m"})
+	if err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	var results []event.Event
+	for _, ev := range events {
+		if ev.Kind == event.KindToolResult {
+			results = append(results, ev)
+		}
+		if ev.Kind == event.KindError {
+			t.Fatalf("unexpected error event: %+v", ev)
+		}
+	}
+	if len(results) != 3 {
+		t.Fatalf("tool result events = %d, want 3", len(results))
+	}
+	for i, ev := range results {
+		if ev.ToolErr != "" {
+			t.Fatalf("result[%d] = %+v, want successful read_file not circuit skip", i, ev)
+		}
+	}
+	if !strings.Contains(results[2].Output, "world") {
+		t.Fatalf("third result = %+v, want hello.txt contents", results[2])
 	}
 }
 

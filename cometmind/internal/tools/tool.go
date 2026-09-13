@@ -7,9 +7,10 @@ import (
 
 // Result is the structured outcome of a local tool execution.
 type Result struct {
-	OK       bool
-	Output   string
-	ExitCode *int
+	OK           bool
+	Output       string
+	ExitCode     *int
+	InvalidInput bool
 }
 
 // ToolSpec is the static metadata exposed to the LLM for a tool.
