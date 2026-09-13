@@ -385,7 +385,7 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 			// retain any visible partial output, close with done, and do not add an
 			// error transcript row or SSE error card.
 			if errors.Is(err, context.Canceled) && errors.Is(ctx.Err(), context.Canceled) {
-				persistPartialStep(ctx, r.Sessions, turn.ID, turn.ProviderID, result, pendingMemories)
+				persistPartialStep(ctx, r.Sessions, turn.ID, turn.ProviderID, turn.ModelID, result, pendingMemories)
 				logging.L().Info("agent.step.stopped", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", steps+1, "duration_ms", time.Since(streamStarted).Milliseconds())
 				return nil
 			}
@@ -459,7 +459,7 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 				logging.L().Warn("agent.step.recover", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", steps+1, "failure_category", failureCategory, "recovery_attempt", recoveryAttempt, "delay_ms", delay.Milliseconds(), "text_chars", textChars, "reasoning_chars", reasoningChars)
 				ch <- event.TurnRecover(textChars, reasoningChars)
 				if waitErr := waitForRecovery(ctx, delay); waitErr != nil {
-					persistPartialStep(ctx, r.Sessions, turn.ID, turn.ProviderID, result, pendingMemories)
+					persistPartialStep(ctx, r.Sessions, turn.ID, turn.ProviderID, turn.ModelID, result, pendingMemories)
 					if errors.Is(waitErr, context.Canceled) && errors.Is(ctx.Err(), context.Canceled) {
 						logging.L().Info("agent.step.stopped", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", steps+1, "duration_ms", time.Since(streamStarted).Milliseconds())
 						return nil
@@ -470,7 +470,7 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 				}
 				continue
 			}
-			persistPartialStep(ctx, r.Sessions, turn.ID, turn.ProviderID, result, pendingMemories)
+			persistPartialStep(ctx, r.Sessions, turn.ID, turn.ProviderID, turn.ModelID, result, pendingMemories)
 			logging.L().Error("agent.step.failed", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", steps+1, "events", eventCount, "first_event", firstEventLogged, "first_output", firstOutputLogged, "complete_tool_call", completeToolCall, "failure_category", failureCategory, "recovery_attempt", recoveryAttempt, "duration_ms", time.Since(streamStarted).Milliseconds(), "error", err)
 			ch <- event.Errorf(userFacingAgentError(err), "llm")
 			return err
@@ -508,7 +508,7 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 			}
 			persistedToolIDs = toolIDs
 			if states, ok := r.Sessions.(providerStateStore); ok {
-				if err := states.SaveAssistantProviderState(ctx, assistant.ID, scopeProviderState(result.Message.ProviderState, turn.ProviderID)); err != nil {
+				if err := states.SaveAssistantProviderState(ctx, assistant.ID, scopeProviderState(result.Message.ProviderState, turn.ProviderID, turn.ModelID)); err != nil {
 					ch <- event.Errorf(err.Error(), "db")
 					return err
 				}
@@ -934,7 +934,7 @@ func partialRenderLengths(result *llm.GenerateMessageResult) (textChars, reasoni
 	return textChars, reasoningChars
 }
 
-func persistPartialStep(ctx context.Context, store TurnStore, sessionID, providerID string, result *llm.GenerateMessageResult, memories []session.InjectedMemory) {
+func persistPartialStep(ctx context.Context, store TurnStore, sessionID, providerID, modelID string, result *llm.GenerateMessageResult, memories []session.InjectedMemory) {
 	if result == nil {
 		return
 	}
@@ -950,19 +950,22 @@ func persistPartialStep(ctx context.Context, store TurnStore, sessionID, provide
 		return
 	}
 	if states, ok := store.(providerStateStore); ok {
-		if err := states.SaveAssistantProviderState(persistCtx, assistant.ID, scopeProviderState(result.Message.ProviderState, providerID)); err != nil {
+		if err := states.SaveAssistantProviderState(persistCtx, assistant.ID, scopeProviderState(result.Message.ProviderState, providerID, modelID)); err != nil {
 			logging.L().Warn("agent.partial_provider_state_persist_failed", "session", sessionID, "error", err)
 		}
 	}
 }
 
-func scopeProviderState(states []cometsdk.ProviderState, providerID string) []cometsdk.ProviderState {
+func scopeProviderState(states []cometsdk.ProviderState, providerID, modelID string) []cometsdk.ProviderState {
 	if len(states) == 0 {
 		return nil
 	}
 	result := append([]cometsdk.ProviderState(nil), states...)
 	for i := range result {
 		result[i].ProviderID = providerID
+		if result[i].ModelID == "" {
+			result[i].ModelID = modelID
+		}
 	}
 	return result
 }
