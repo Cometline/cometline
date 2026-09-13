@@ -193,7 +193,11 @@ func (r *Registry) Execute(ctx context.Context, name string, input json.RawMessa
 	if !ok {
 		return Result{OK: false, Output: "unknown tool: " + name}, nil
 	}
-	return t.Execute(ctx, input)
+	res, err := t.Execute(ctx, input)
+	if IsInvalidToolInput(res, err) {
+		return InvalidToolInputResult(name, input, err), nil
+	}
+	return res, err
 }
 
 // Has reports whether a tool is registered.

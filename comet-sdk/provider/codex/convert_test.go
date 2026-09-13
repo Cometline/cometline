@@ -180,6 +180,54 @@ func TestConvertEvent_NormalizesStringWrappedToolArguments(t *testing.T) {
 	require.Equal(t, cometsdk.ToolCallDoneEvent{ID: "call_1", Name: "list_dir", Input: json.RawMessage(`{"path":"."}`)}, events[2])
 }
 
+func TestConvertEvent_WrapsInvalidToolArgumentsInsteadOfAborting(t *testing.T) {
+	state := &responsesproto.StreamState{}
+
+	events, err := responsesproto.ToSDKEvents(providerID, "response.function_call_arguments.done", `{"call_id":"call_1","name":"read_file","arguments":"{\"path\":\"/foo"}`, state)
+	require.NoError(t, err)
+	require.Len(t, events, 3)
+	require.Equal(t, cometsdk.ToolCallDoneEvent{
+		ID:    "call_1",
+		Name:  "read_file",
+		Input: json.RawMessage(`"{\"path\":\"/foo"`),
+	}, events[2])
+	require.True(t, json.Valid(events[2].(cometsdk.ToolCallDoneEvent).Input))
+}
+
+func TestConvertEvent_WrapsFreeFormToolArguments(t *testing.T) {
+	state := &responsesproto.StreamState{}
+
+	events, err := responsesproto.ToSDKEvents(providerID, "response.output_item.done", `{"item":{"type":"function_call","call_id":"call_1","name":"custom","arguments":"please list files"}}`, state)
+	require.NoError(t, err)
+	require.Len(t, events, 3)
+	require.Equal(t, cometsdk.ToolCallDoneEvent{
+		ID:    "call_1",
+		Name:  "custom",
+		Input: json.RawMessage(`"please list files"`),
+	}, events[2])
+}
+
+func TestConvertEvent_WrapsTruncatedToolArgumentDeltas(t *testing.T) {
+	state := &responsesproto.StreamState{}
+
+	events, err := responsesproto.ToSDKEvents(providerID, "response.output_item.added", `{"item":{"type":"function_call","id":"fc_1","call_id":"call_1","name":"write_file"}}`, state)
+	require.NoError(t, err)
+	require.Equal(t, []cometsdk.Event{cometsdk.ToolCallStartEvent{ID: "call_1", Name: "write_file"}}, events)
+
+	events, err = responsesproto.ToSDKEvents(providerID, "response.function_call_arguments.delta", `{"item_id":"fc_1","delta":"{\"path\":\"main.go\",\"content\":\"packag"}`, state)
+	require.NoError(t, err)
+	require.Empty(t, events)
+
+	events, err = responsesproto.ToSDKEvents(providerID, "response.function_call_arguments.done", `{"item_id":"fc_1"}`, state)
+	require.NoError(t, err)
+	require.Len(t, events, 2)
+	input := events[1].(cometsdk.ToolCallDoneEvent).Input
+	require.True(t, json.Valid(input))
+	var raw string
+	require.NoError(t, json.Unmarshal(input, &raw))
+	require.Equal(t, `{"path":"main.go","content":"packag`, raw)
+}
+
 func TestConvertEvent_AssemblesToolArgumentDeltas(t *testing.T) {
 	state := &responsesproto.StreamState{}
 

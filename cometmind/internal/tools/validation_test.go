@@ -20,6 +20,51 @@ func TestWriteFileRejectsMissingContent(t *testing.T) {
 	}
 }
 
+func TestWriteFileAppendsWithoutOverwriting(t *testing.T) {
+	root := t.TempDir()
+	tool := WriteFile{Workspace: Workspace{Root: root}}
+	first, err := tool.Execute(context.Background(), json.RawMessage(`{"path":"note.md","content":"# Title\n"}`))
+	if err != nil {
+		t.Fatalf("first write: %v", err)
+	}
+	if !first.OK {
+		t.Fatalf("first write = %+v", first)
+	}
+	second, err := tool.Execute(context.Background(), json.RawMessage(`{"path":"note.md","content":"body\n","append":true}`))
+	if err != nil {
+		t.Fatalf("append: %v", err)
+	}
+	if !second.OK || !strings.Contains(second.Output, "appended") {
+		t.Fatalf("append result = %+v, want appended", second)
+	}
+	got, err := os.ReadFile(filepath.Join(root, "note.md"))
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if string(got) != "# Title\nbody\n" {
+		t.Fatalf("file = %q, want title plus body", got)
+	}
+}
+
+func TestWriteFileAppendCreatesMissingFile(t *testing.T) {
+	root := t.TempDir()
+	tool := WriteFile{Workspace: Workspace{Root: root}}
+	res, err := tool.Execute(context.Background(), json.RawMessage(`{"path":"fresh.md","content":"hello","append":true}`))
+	if err != nil {
+		t.Fatalf("append create: %v", err)
+	}
+	if !res.OK {
+		t.Fatalf("result = %+v", res)
+	}
+	got, err := os.ReadFile(filepath.Join(root, "fresh.md"))
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if string(got) != "hello" {
+		t.Fatalf("file = %q, want hello", got)
+	}
+}
+
 func TestWriteFileAllowsExplicitEmptyContent(t *testing.T) {
 	root := t.TempDir()
 	tool := WriteFile{Workspace: Workspace{Root: root}}
