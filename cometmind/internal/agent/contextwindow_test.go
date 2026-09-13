@@ -34,8 +34,8 @@ func TestEffectiveMaxTokens(t *testing.T) {
 	if got := EffectiveMaxTokens(4096, 0); got != 4096 {
 		t.Fatalf("unset catalog = %d, want 4096", got)
 	}
-	if got := EffectiveMaxTokens(0, 0); got != 2048 {
-		t.Fatalf("default user = %d, want 2048", got)
+	if got := EffectiveMaxTokens(0, 0); got != 8192 {
+		t.Fatalf("default user = %d, want 8192", got)
 	}
 }
 

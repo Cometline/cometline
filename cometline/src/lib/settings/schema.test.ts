@@ -80,7 +80,7 @@ describe('settings schema', () => {
 		expect(settings.app.screenCapturePreferred).toBe(false);
 		expect(settings.app.confirmBeforeDeletingMedia).toBe(true);
 		expect(settings.cometmind.systemPromptPath).toBe('');
-		expect(settings.cometmind.maxTokens).toBe(2048);
+		expect(settings.cometmind.maxTokens).toBe(8192);
 		expect(settings.cometmind.contextWindowLimit).toBe(128_000);
 		expect(settings.cometmind.storage.retentionDays).toBe(90);
 		expect(settings.cometmind.storage.detachedMediaRetentionDays).toBe(30);
@@ -430,7 +430,7 @@ describe('settings schema', () => {
 		const slice = runtimeSlice(settings);
 		expect(slice?.provider).toBe('openai');
 		expect(slice?.model).toBe('gpt-4o');
-		expect(slice?.maxTokens).toBe(2048);
+		expect(slice?.maxTokens).toBe(8192);
 		expect(slice?.systemPromptPath).toBe('/tmp/SOUL.md');
 		expect(slice?.providers).toHaveLength(1);
 	});

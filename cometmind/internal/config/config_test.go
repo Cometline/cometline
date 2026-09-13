@@ -26,8 +26,8 @@ func TestLoadCreatesDefaultCometlineSettingsJSON(t *testing.T) {
 	if cfg.BaseURL != "" {
 		t.Fatalf("BaseURL = %q, want empty", cfg.BaseURL)
 	}
-	if cfg.MaxTokens != 2048 {
-		t.Fatalf("MaxTokens = %d, want 2048", cfg.MaxTokens)
+	if cfg.MaxTokens != 8192 {
+		t.Fatalf("MaxTokens = %d, want 8192", cfg.MaxTokens)
 	}
 
 	path := filepath.Join(home, ".cometmind", "cometline-settings.json")
@@ -128,7 +128,7 @@ func TestLoadReadsCometlineSettingsJSON(t *testing.T) {
 		t.Fatalf("SystemPromptPath = %q, want /tmp/SOUL.md", cfg.SystemPromptPath)
 	}
 	if cfg.MaxTokens != 2048 {
-		t.Fatalf("MaxTokens = %d, want 2048", cfg.MaxTokens)
+		t.Fatalf("MaxTokens = %d, want 2048 from testdata fixture", cfg.MaxTokens)
 	}
 	if cfg.Storage.RetentionDays != 90 {
 		t.Fatalf("Storage.RetentionDays = %d, want 90", cfg.Storage.RetentionDays)
@@ -450,8 +450,8 @@ func TestLoadBootsWithNoEnabledProviders(t *testing.T) {
 		t.Fatalf("Model = %q, want empty (no provider configured)", cfg.Model)
 	}
 	// Non-provider defaults should still be applied so the sidecar is usable.
-	if cfg.MaxTokens != 2048 {
-		t.Fatalf("MaxTokens = %d, want 2048", cfg.MaxTokens)
+	if cfg.MaxTokens != 8192 {
+		t.Fatalf("MaxTokens = %d, want 8192", cfg.MaxTokens)
 	}
 	if cfg.MaxSteps != 100 {
 		t.Fatalf("MaxSteps = %d, want 100", cfg.MaxSteps)
