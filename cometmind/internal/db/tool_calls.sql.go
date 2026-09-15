@@ -21,7 +21,7 @@ INSERT INTO tool_calls (
     exit_code
 )
 VALUES (?, ?, ?, ?, ?, ?, ?)
-RETURNING id, message_id, tool_name, arguments, result, duration_ms, exit_code, created_at
+RETURNING id, message_id, tool_name, arguments, result, duration_ms, exit_code, compacted_at, created_at
 `
 
 type CreateToolCallParams struct {
@@ -53,13 +53,14 @@ func (q *Queries) CreateToolCall(ctx context.Context, arg CreateToolCallParams) 
 		&i.Result,
 		&i.DurationMs,
 		&i.ExitCode,
+		&i.CompactedAt,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const listToolCallsByMessage = `-- name: ListToolCallsByMessage :many
-SELECT id, message_id, tool_name, arguments, result, duration_ms, exit_code, created_at
+SELECT id, message_id, tool_name, arguments, result, duration_ms, exit_code, compacted_at, created_at
 FROM tool_calls
 WHERE message_id = ?
 ORDER BY created_at ASC
@@ -82,6 +83,7 @@ func (q *Queries) ListToolCallsByMessage(ctx context.Context, messageID string) 
 			&i.Result,
 			&i.DurationMs,
 			&i.ExitCode,
+			&i.CompactedAt,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -98,7 +100,7 @@ func (q *Queries) ListToolCallsByMessage(ctx context.Context, messageID string) 
 }
 
 const listToolCallsBySession = `-- name: ListToolCallsBySession :many
-SELECT tc.id, tc.message_id, tc.tool_name, tc.arguments, tc.result, tc.duration_ms, tc.exit_code, tc.created_at
+SELECT tc.id, tc.message_id, tc.tool_name, tc.arguments, tc.result, tc.duration_ms, tc.exit_code, tc.compacted_at, tc.created_at
 FROM tool_calls tc
 JOIN messages m ON m.id = tc.message_id
 WHERE m.session_id = ?
@@ -122,6 +124,7 @@ func (q *Queries) ListToolCallsBySession(ctx context.Context, sessionID string) 
 			&i.Result,
 			&i.DurationMs,
 			&i.ExitCode,
+			&i.CompactedAt,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -135,6 +138,22 @@ func (q *Queries) ListToolCallsBySession(ctx context.Context, sessionID string) 
 		return nil, err
 	}
 	return items, nil
+}
+
+const markToolCallCompacted = `-- name: MarkToolCallCompacted :exec
+UPDATE tool_calls
+SET compacted_at = ?
+WHERE id = ?
+`
+
+type MarkToolCallCompactedParams struct {
+	CompactedAt sql.NullInt64 `json:"compacted_at"`
+	ID          string        `json:"id"`
+}
+
+func (q *Queries) MarkToolCallCompacted(ctx context.Context, arg MarkToolCallCompactedParams) error {
+	_, err := q.db.ExecContext(ctx, markToolCallCompacted, arg.CompactedAt, arg.ID)
+	return err
 }
 
 const updateToolCallResult = `-- name: UpdateToolCallResult :exec

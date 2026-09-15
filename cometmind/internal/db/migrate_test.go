@@ -515,3 +515,55 @@ func TestEnsureSchemaV35AddsDetachedMediaTimestamp(t *testing.T) {
 		t.Fatalf("user_version=%d want %d", version, schemaVersion)
 	}
 }
+
+func TestEnsureSchemaV36AddsToolCallCompactedAt(t *testing.T) {
+	ctx := context.Background()
+	conn, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "migrate-v35.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = conn.Close() })
+	if _, err := conn.ExecContext(ctx, `CREATE TABLE tool_calls (
+		id TEXT PRIMARY KEY,
+		message_id TEXT NOT NULL,
+		tool_name TEXT NOT NULL,
+		arguments TEXT NOT NULL DEFAULT '{}',
+		result TEXT NOT NULL DEFAULT '',
+		duration_ms INTEGER NOT NULL DEFAULT 0,
+		exit_code INTEGER,
+		created_at INTEGER NOT NULL DEFAULT 0
+	)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := conn.ExecContext(ctx, `PRAGMA user_version = 35`); err != nil {
+		t.Fatal(err)
+	}
+	if err := EnsureSchema(ctx, conn); err != nil {
+		t.Fatal(err)
+	}
+	columns := map[string]bool{}
+	rows, err := conn.QueryContext(ctx, `PRAGMA table_info(tool_calls)`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var cid, notNull, pk int
+		var name, ctype string
+		var dflt sql.NullString
+		if err := rows.Scan(&cid, &name, &ctype, &notNull, &dflt, &pk); err != nil {
+			t.Fatal(err)
+		}
+		columns[name] = true
+	}
+	if !columns["compacted_at"] {
+		t.Fatal("missing compacted_at column")
+	}
+	var version int
+	if err := conn.QueryRowContext(ctx, `PRAGMA user_version`).Scan(&version); err != nil {
+		t.Fatal(err)
+	}
+	if version != schemaVersion {
+		t.Fatalf("user_version=%d want %d", version, schemaVersion)
+	}
+}

@@ -30,16 +30,42 @@ func RecentWindowStartForBudget(
 	for {
 		slice := rows[recentStart:]
 		tokens := EstimateRowsTokens(slice, callsByMessage)
+		if tokens <= maxRecentTokens {
+			return recentStart
+		}
 		userTurns := countUserTurns(slice)
-		if tokens <= maxRecentTokens || userTurns <= MinRecentUserTurns {
-			return recentStart
+		if userTurns > MinRecentUserTurns {
+			next := nextUserMessageIndex(rows, recentStart+1)
+			if next < len(rows) && next > recentStart {
+				recentStart = next
+				continue
+			}
 		}
-		next := nextUserMessageIndex(rows, recentStart+1)
-		if next >= len(rows) || next <= recentStart {
-			return recentStart
-		}
-		recentStart = next
+		return splitTurnStart(rows, recentStart, callsByMessage, maxRecentTokens)
 	}
+}
+
+// splitTurnStart walks into a single oversized turn and returns the earliest
+// assistant/user index whose tail fits budget. It never starts on a tool_result
+// so providers do not see an orphan tool output.
+func splitTurnStart(rows []db.Message, turnStart int, callsByMessage map[string][]db.ToolCall, budget int) int {
+	if turnStart < 0 || turnStart >= len(rows) {
+		return 0
+	}
+	for start := turnStart + 1; start < len(rows); start++ {
+		if rows[start].Role == "tool_result" {
+			continue
+		}
+		if EstimateRowsTokens(rows[start:], callsByMessage) <= budget {
+			return start
+		}
+	}
+	for i := len(rows) - 1; i > turnStart; i-- {
+		if rows[i].Role != "tool_result" {
+			return i
+		}
+	}
+	return turnStart
 }
 
 func countUserTurns(rows []db.Message) int {
@@ -90,7 +116,7 @@ func EstimateRowsTokens(rows []db.Message, callsByMessage map[string][]db.ToolCa
 		case "tool_result":
 			var p toolResultPayload
 			if err := json.Unmarshal([]byte(row.Content), &p); err == nil {
-				total += EstimateTokens(TruncateToolResultForPrompt(p.Content, MaxToolResultPromptRunes))
+				total += EstimateTokens(ToolResultPromptContent(p.Content, toolCallIsCompacted(callsByMessage, p.ToolCallID)))
 			}
 		}
 	}

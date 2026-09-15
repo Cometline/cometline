@@ -31,3 +31,8 @@ FROM tool_calls tc
 JOIN messages m ON m.id = tc.message_id
 WHERE m.session_id = ?
 ORDER BY tc.created_at ASC;
+
+-- name: MarkToolCallCompacted :exec
+UPDATE tool_calls
+SET compacted_at = ?
+WHERE id = ?;

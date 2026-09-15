@@ -69,6 +69,7 @@ CREATE TABLE tool_calls (
     result      TEXT NOT NULL DEFAULT '',
     duration_ms INTEGER NOT NULL DEFAULT 0,
     exit_code   INTEGER,
+    compacted_at INTEGER,
     created_at  INTEGER NOT NULL DEFAULT (unixepoch ('now', 'subsec') * 1000)
 );
 

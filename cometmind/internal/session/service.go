@@ -1716,6 +1716,20 @@ func (s *Service) UpdateToolCallResult(ctx context.Context, toolCallID, result s
 	})
 }
 
+// MarkToolCallsCompacted records that tool outputs should be stubbed in prompts.
+func (s *Service) MarkToolCallsCompacted(ctx context.Context, ids []string, compactedAt int64) error {
+	ts := sql.NullInt64{Int64: compactedAt, Valid: true}
+	for _, id := range ids {
+		if err := s.q.MarkToolCallCompacted(ctx, db.MarkToolCallCompactedParams{
+			CompactedAt: ts,
+			ID:          id,
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // SaveTokenUsage accumulates session token totals and appends a ledger row.
 // Ledger failures are logged and never fail the caller: the model has already
 // been billed and the assistant step still needs to persist. providerID/modelID
@@ -1831,8 +1845,12 @@ func (s *Service) buildSDKMessagesFromRows(ctx context.Context, sessionID, provi
 		return nil, err
 	}
 	callsByMessage := make(map[string][]db.ToolCall, len(allCalls))
+	compactedIDs := make(map[string]struct{})
 	for _, tc := range allCalls {
 		callsByMessage[tc.MessageID] = append(callsByMessage[tc.MessageID], tc)
+		if tc.CompactedAt.Valid {
+			compactedIDs[tc.ID] = struct{}{}
+		}
 	}
 	states, err := s.q.ListAssistantProviderStatesBySession(ctx, sessionID)
 	if err != nil {
@@ -1878,12 +1896,13 @@ func (s *Service) buildSDKMessagesFromRows(ctx context.Context, sessionID, provi
 			if err := json.Unmarshal([]byte(m.Content), &p); err != nil {
 				return nil, fmt.Errorf("decode tool_result %s: %w", m.ID, err)
 			}
+			_, compacted := compactedIDs[p.ToolCallID]
 			out = append(out, cometsdk.Message{
 				Role: cometsdk.RoleToolResult,
 				Content: []cometsdk.Block{
 					cometsdk.ToolResultBlock{
 						ToolCallID: p.ToolCallID,
-						Content:    TruncateToolResultForPrompt(p.Content, MaxToolResultPromptRunes),
+						Content:    ToolResultPromptContent(p.Content, compacted),
 						IsError:    p.IsError,
 					},
 				},

@@ -224,14 +224,15 @@ type SessionRun struct {
 }
 
 type ToolCall struct {
-	ID         string        `json:"id"`
-	MessageID  string        `json:"message_id"`
-	ToolName   string        `json:"tool_name"`
-	Arguments  string        `json:"arguments"`
-	Result     string        `json:"result"`
-	DurationMs int64         `json:"duration_ms"`
-	ExitCode   sql.NullInt64 `json:"exit_code"`
-	CreatedAt  int64         `json:"created_at"`
+	ID          string        `json:"id"`
+	MessageID   string        `json:"message_id"`
+	ToolName    string        `json:"tool_name"`
+	Arguments   string        `json:"arguments"`
+	Result      string        `json:"result"`
+	DurationMs  int64         `json:"duration_ms"`
+	ExitCode    sql.NullInt64 `json:"exit_code"`
+	CompactedAt sql.NullInt64 `json:"compacted_at"`
+	CreatedAt   int64         `json:"created_at"`
 }
 
 type UsageEvent struct {
