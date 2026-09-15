@@ -165,6 +165,10 @@ func (f *fakeStore) ListToolCallsForSession(ctx context.Context, sessionID strin
 	return nil, nil
 }
 
+func (f *fakeStore) MarkToolCallsCompacted(ctx context.Context, ids []string, compactedAt int64) error {
+	return nil
+}
+
 // fakeProvider streams a fixed sequence of SDK events for one Stream call.
 type fakeProvider struct {
 	events []cometsdk.Event

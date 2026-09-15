@@ -38,6 +38,45 @@ func TestRecentWindowStartForBudget_shrinksHugeTurn(t *testing.T) {
 	}
 }
 
+func TestRecentWindowStartForBudget_splitsHugeCurrentTurn(t *testing.T) {
+	t.Parallel()
+	payload, err := json.Marshal(toolResultPayload{ToolCallID: "x", Content: strings.Repeat("x", 800)})
+	if err != nil {
+		t.Fatalf("marshal payload: %v", err)
+	}
+	rows := []db.Message{
+		{ID: "u1", Role: "user", Content: "read the card"},
+		{ID: "a1", Role: "assistant", Content: "step 1"},
+		{ID: "t1", Role: "tool_result", Content: string(payload)},
+		{ID: "a2", Role: "assistant", Content: "step 2"},
+		{ID: "t2", Role: "tool_result", Content: string(payload)},
+		{ID: "a3", Role: "assistant", Content: "step 3"},
+		{ID: "t3", Role: "tool_result", Content: string(payload)},
+		{ID: "a4", Role: "assistant", Content: "step 4"},
+		{ID: "t4", Role: "tool_result", Content: string(payload)},
+		{ID: "a5", Role: "assistant", Content: "step 5"},
+		{ID: "t5", Role: "tool_result", Content: string(payload)},
+	}
+	calls := map[string][]db.ToolCall{
+		"a1": {{ID: "tc1", MessageID: "a1", ToolName: "read_file", Arguments: `{"path":"a"}`}},
+		"a2": {{ID: "tc2", MessageID: "a2", ToolName: "read_file", Arguments: `{"path":"a"}`}},
+		"a3": {{ID: "tc3", MessageID: "a3", ToolName: "read_file", Arguments: `{"path":"a"}`}},
+		"a4": {{ID: "tc4", MessageID: "a4", ToolName: "read_file", Arguments: `{"path":"a"}`}},
+		"a5": {{ID: "tc5", MessageID: "a5", ToolName: "read_file", Arguments: `{"path":"a"}`}},
+	}
+
+	got := RecentWindowStartForBudget(rows, calls, 10, 4_000, 2048)
+	if got == 0 {
+		t.Fatal("expected intra-turn split, got start=0")
+	}
+	if rows[got].Role == "tool_result" {
+		t.Fatalf("recent start landed on tool_result %q", rows[got].ID)
+	}
+	if rows[got].ID != "a2" {
+		t.Fatalf("recent start = %d (%q), want a2", got, rows[got].ID)
+	}
+}
+
 func TestEstimateRowsTokensCountsImagesAsVisionTokens(t *testing.T) {
 	t.Parallel()
 	raw, err := marshalMessageContent([]ContentBlock{

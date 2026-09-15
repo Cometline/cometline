@@ -167,6 +167,30 @@ func (c *ContextCompactor) MaybeCompact(
 	return sess, nil
 }
 
+// Prune stubs old tool outputs in future model prompts without deleting UI copies.
+func (c *ContextCompactor) Prune(ctx context.Context, sessionID string) error {
+	if c == nil || c.Sessions == nil || sessionID == "" {
+		return nil
+	}
+	rows, err := c.Sessions.ListMessageRows(ctx, sessionID)
+	if err != nil {
+		return err
+	}
+	allCalls, err := c.Sessions.ListToolCallsForSession(ctx, sessionID)
+	if err != nil {
+		return err
+	}
+	ids := session.SelectToolCallsToPrune(rows, session.GroupToolCallsByMessage(allCalls))
+	if len(ids) == 0 {
+		return nil
+	}
+	if err := c.Sessions.MarkToolCallsCompacted(ctx, ids, time.Now().UTC().UnixMilli()); err != nil {
+		return err
+	}
+	logging.L().Info("context.prune.done", "session", sessionID, "count", len(ids))
+	return nil
+}
+
 func (c *ContextCompactor) summarize(
 	ctx context.Context,
 	provider cometsdk.Provider,

@@ -121,6 +121,7 @@ type CompactorStore interface {
 	TranscriptReader
 	ToolCallsReader
 	UpdateContextSummary(ctx context.Context, sessionID, summary, untilMessageID string) error
+	MarkToolCallsCompacted(ctx context.Context, ids []string, compactedAt int64) error
 }
 
 // Compile-time assertions that *Service satisfies the narrow seams.
