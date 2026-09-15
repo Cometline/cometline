@@ -1258,10 +1258,64 @@ func toolStep(toolID, name, input string) []cometsdk.Event {
 	}
 }
 
+func TestRunner_BlocksRepeatedIdenticalToolCalls(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "hello.txt"), []byte("world"), 0o644); err != nil {
+		t.Fatalf("write hello.txt: %v", err)
+	}
+	store := &fakeStore{}
+	provider := &capturingSequentialFakeProvider{sequences: [][]cometsdk.Event{
+		toolStep("tc1", "read_file", `{"path":"hello.txt"}`),
+		toolStep("tc2", "read_file", `{"path":"hello.txt"}`),
+		toolStep("tc3", "read_file", `{"path":"hello.txt"}`),
+		{
+			cometsdk.TextDeltaEvent{Text: "stopped repeating"},
+			cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishStop},
+			cometsdk.DoneEvent{},
+		},
+	}}
+	events, runErr := runAndDrain(t, &Runner{
+		Provider: provider,
+		Sessions: store,
+		Registry: tools.NewRegistry(dir),
+		MaxSteps: 10,
+	}, session.AgentTurn{ID: "s-doom", ModelID: "m"})
+	if runErr != nil {
+		t.Fatalf("Run returned error: %v", runErr)
+	}
+	if provider.calls != 4 {
+		t.Fatalf("Stream called %d times, want 4 (3 tool steps + halt)", provider.calls)
+	}
+	if len(provider.requests[3].Tools) != 0 {
+		t.Fatalf("halt request tools = %#v, want none", provider.requests[3].Tools)
+	}
+	if !requestContainsUserNudge(provider.requests[3], FormatDoomLoopStopBlock()) {
+		t.Fatalf("halt request missing doom-loop nudge:\n%#v", provider.requests[3].Messages)
+	}
+	var blocked int
+	for _, ev := range events {
+		if ev.Kind == event.KindToolResult && strings.Contains(ev.ToolErr, "doom loop") {
+			blocked++
+		}
+	}
+	if blocked != 1 {
+		t.Fatalf("blocked tool results = %d, want 1", blocked)
+	}
+	if store.toolResults != 3 {
+		t.Fatalf("tool results persisted = %d, want 3", store.toolResults)
+	}
+}
+
 func TestRunner_JobProgressNudgeInjectedAfterTools(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "hello.txt"), []byte("world"), 0o644); err != nil {
 		t.Fatalf("write hello.txt: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "hello2.txt"), []byte("world2"), 0o644); err != nil {
+		t.Fatalf("write hello2.txt: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "hello3.txt"), []byte("world3"), 0o644); err != nil {
+		t.Fatalf("write hello3.txt: %v", err)
 	}
 
 	// After the progress nudge step, the job completion gate refuses two more
@@ -1273,8 +1327,8 @@ func TestRunner_JobProgressNudgeInjectedAfterTools(t *testing.T) {
 	}
 	provider := &capturingSequentialFakeProvider{sequences: [][]cometsdk.Event{
 		toolStep("tc1", "read_file", `{"path":"hello.txt"}`),
-		toolStep("tc2", "read_file", `{"path":"hello.txt"}`),
-		toolStep("tc3", "read_file", `{"path":"hello.txt"}`),
+		toolStep("tc2", "read_file", `{"path":"hello2.txt"}`),
+		toolStep("tc3", "read_file", `{"path":"hello3.txt"}`),
 		textStop,
 		textStop,
 		textStop,

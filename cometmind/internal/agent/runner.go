@@ -107,6 +107,11 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 	defer sendDone()
 
 	completeTurn := func() error {
+		if r.Compactor != nil && turn.ID != "" {
+			if err := r.Compactor.Prune(ctx, turn.ID); err != nil {
+				logging.L().Warn("context.prune.failed", "session", turn.ID, "error", err)
+			}
+		}
 		sendDone()
 		// Extraction runs in the background so the SSE stream can close on done
 		// and the next queued message can start without waiting on the extractor.
@@ -136,6 +141,7 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 	jobTracker := newJobProgressTracker(ctx, r.Jobs, turn.ID)
 	subagentWaitNudge := false
 	pendingSubagentResults := ""
+	doomLoopHalt := false
 	// Injected memories belong to the first assistant message of the turn. They
 	// are captured when retrieved (step 0) and attached to the first
 	// AppendAssistantStep call so they persist and rebuild on reload.
@@ -160,7 +166,7 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 	// MaxSteps limits work rounds. If they are exhausted, make one final
 	// tool-free request so the user still receives a best-effort answer.
 	for steps <= r.MaxSteps {
-		finalizing := steps == r.MaxSteps
+		finalizing := steps == r.MaxSteps || doomLoopHalt
 		requestTools := r.Registry.CometSDK()
 		if finalizing {
 			requestTools = nil
@@ -215,6 +221,7 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 		// Normalize replay history and report any lossy degradations once per turn.
 		normalized, degradations := NormalizeHistory(msgs)
 		msgs = normalized
+		recentTools := toolFingerprintsSinceLastUser(normalized)
 		// Continue nudges are in-memory user turns so providers that reject
 		// trailing assistant prefills (Claude 4.6+) still accept the request.
 		msgs = append(msgs, ContinueUserNudgeMessages(
@@ -226,7 +233,9 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 			subagentWaitNudge,
 			pendingSubagentResults,
 		)...)
-		if finalizing {
+		if doomLoopHalt {
+			msgs = append(msgs, DoomLoopStopMessages()...)
+		} else if finalizing {
 			msgs = append(msgs, FinalAnswerNudgeMessages()...)
 		}
 		if !degradationsReported {
@@ -625,6 +634,7 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 
 		emitStatus(event.PhaseRunningTools)
 		schemaCircuitOpen := false
+		doomLoopHit := false
 		for i, tc := range result.ToolCalls {
 			persistedID := persistedToolIDs[tc.ID]
 			if persistedID == "" {
@@ -642,8 +652,13 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 			logging.L().Info("tool.call.start", "session", turn.ID, "tool", tc.Name, "tool_call_id", tc.ID, "input_bytes", len(tc.Input))
 			var res tools.Result
 			var execErr error
+			recentTools = append(recentTools, FingerprintTool(tc.Name, tc.Input))
 			skipInvalidInput := schemaCircuitOpen && !tools.IsCompleteJSONObject(tc.Input)
-			if skipInvalidInput {
+			if IsDoomLoop(recentTools, DoomLoopThreshold) {
+				res = tools.Result{OK: false, Output: doomLoopToolResult(tc.Name)}
+				doomLoopHit = true
+				logging.L().Warn("agent.doom_loop.blocked", "session", turn.ID, "tool", tc.Name, "tool_call_id", tc.ID)
+			} else if skipInvalidInput {
 				res = tools.Result{OK: false, Output: skippedInvalidToolInputResult(tc.Name)}
 				logging.L().Warn("tool.call.schema_circuit_open", "session", turn.ID, "tool", tc.Name, "tool_call_id", tc.ID, "streak", invalidToolInputStreak)
 			} else {
@@ -693,6 +708,9 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 				}
 				return nil
 			}
+		}
+		if doomLoopHit {
+			doomLoopHalt = true
 		}
 		if r.hasActiveSubagents(turn.ID) {
 			subagentWaitNudge = true

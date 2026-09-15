@@ -81,6 +81,23 @@ func FinalAnswerNudgeMessages() []cometsdk.Message {
 	}}
 }
 
+// FormatDoomLoopStopBlock asks for a tool-free answer after identical tool calls
+// were blocked.
+func FormatDoomLoopStopBlock() string {
+	return fmt.Sprintf(
+		"The same tool was called %d times with identical arguments, so that loop was stopped. Do not call tools. Give the user your best answer from the results you already have.",
+		DoomLoopThreshold,
+	)
+}
+
+// DoomLoopStopMessages is the in-memory user turn used after a doom loop halt.
+func DoomLoopStopMessages() []cometsdk.Message {
+	return []cometsdk.Message{{
+		Role:    cometsdk.RoleUser,
+		Content: []cometsdk.Block{cometsdk.TextBlock{Text: FormatDoomLoopStopBlock()}},
+	}}
+}
+
 // ContinueUserNudgeMessages builds in-memory user turns for agent-loop
 // continuations. Claude 4.6+ rejects requests whose messages end with an
 // assistant role (prefill). These nudges keep continue steps ending on user
