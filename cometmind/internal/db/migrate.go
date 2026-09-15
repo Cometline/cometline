@@ -635,6 +635,10 @@ var alterStatements = [][]string{
 		"ALTER TABLE session_media ADD COLUMN detached_at INTEGER NOT NULL DEFAULT 0",
 		"CREATE INDEX IF NOT EXISTS idx_session_media_detached ON session_media (session_id, status, detached_at)",
 	},
+	// v35 -> v36: mark old tool outputs as pruned from the model prompt.
+	{
+		"ALTER TABLE tool_calls ADD COLUMN compacted_at INTEGER",
+	},
 }
 
 func isForeignKeysPragma(stmt string) bool {
@@ -765,7 +769,7 @@ func execAlter(ctx context.Context, conn *sql.DB, stmt string) error {
 		return nil
 	}
 	msg := strings.ToLower(err.Error())
-	if strings.Contains(msg, "duplicate column name") || strings.Contains(msg, "already exists") || strings.Contains(msg, "no such column") {
+	if strings.Contains(msg, "duplicate column name") || strings.Contains(msg, "already exists") || strings.Contains(msg, "no such column") || strings.Contains(msg, "no such table") {
 		return nil
 	}
 	return err
@@ -793,7 +797,7 @@ func splitStatements(sql string) []string {
 	return out
 }
 
-const schemaVersion = 35
+const schemaVersion = 36
 
 // EnsureSchema runs [Migrate] once per database file using PRAGMA user_version.
 // For existing databases, it applies incremental ALTER statements to upgrade
