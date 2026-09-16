@@ -116,8 +116,8 @@ describe('reduceChatState', () => {
 			tool: 'read_file',
 			input: { path: 'README.md' }
 		});
-		expect(state.items).toHaveLength(1);
-		const tool = state.items[0];
+		expect(state.items.map((item) => item.type)).toEqual(['assistant', 'tool']);
+		const tool = state.items[1];
 		expect(tool.type).toBe('tool');
 		if (tool.type !== 'tool') return;
 		expect(tool.toolId).toBe('tc-1');
@@ -130,13 +130,26 @@ describe('reduceChatState', () => {
 			tool: 'read_file',
 			output: 'ok'
 		});
-		const updated = state.items[0];
+		const updated = state.items[1];
 		expect(updated.type).toBe('tool');
 		if (updated.type !== 'tool') return;
 		expect(updated.output).toBe('ok');
 		expect(updated.pending).toBe(false);
 		expect(updated.startedAt).toBeTypeOf('number');
 		expect(updated.durationMs).toBeTypeOf('number');
+	});
+
+	it('creates an assistant before the first tool_call for attribution order', () => {
+		let state = initChatState();
+		state = reduceChatState(state, {
+			type: 'tool_call',
+			id: 'tc-1',
+			tool: 'read_file',
+			input: { path: 'README.md' }
+		});
+		expect(state.items[0]).toMatchObject({ type: 'assistant', text: '' });
+		expect(state.items[1]).toMatchObject({ type: 'tool', toolId: 'tc-1', pending: true });
+		expect(state.assistant?.id).toBe(state.items[0].id);
 	});
 
 	it('updates a pending tool with its completed input', () => {
@@ -154,8 +167,8 @@ describe('reduceChatState', () => {
 			input: { path: 'README.md' }
 		});
 
-		expect(state.items).toHaveLength(1);
-		expect(state.items[0]).toMatchObject({
+		expect(state.items.map((item) => item.type)).toEqual(['assistant', 'tool']);
+		expect(state.items[1]).toMatchObject({
 			type: 'tool',
 			toolId: 'tc-1',
 			input: { path: 'README.md' },
@@ -216,7 +229,8 @@ describe('reduceChatState', () => {
 			]
 		});
 
-		expect(state.items[0]).toMatchObject({
+		expect(state.items.map((item) => item.type)).toEqual(['assistant', 'memory']);
+		expect(state.items[1]).toMatchObject({
 			type: 'memory',
 			memories: [{ id: 'pref-1', bucket: 'preference' }]
 		});
@@ -324,9 +338,10 @@ describe('reduceChatState', () => {
 			input: { path: 'README.md' }
 		});
 		state = reduceChatState(state, { type: 'done' });
-		const tool = state.items[0];
-		expect(tool.type).toBe('tool');
-		if (tool.type !== 'tool') return;
+		expect(state.items.map((item) => item.type)).toEqual(['assistant', 'tool']);
+		const tool = state.items.find((item) => item.type === 'tool');
+		expect(tool?.type).toBe('tool');
+		if (tool?.type !== 'tool') return;
 		expect(tool.pending).toBe(false);
 		expect(tool.durationMs).toBeTypeOf('number');
 		expect(tool.error).toBe('Interrupted before the tool call finished.');

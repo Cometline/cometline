@@ -29,6 +29,31 @@ export function hasVisibleThinkingBlock(
 	return buildAssistantTimeline(itemId, threadItems, thinkingForAssistant).length > 0;
 }
 
+export function qualifiesAsFirstAssistantItem(
+	item: AssistantItem,
+	threadItems: readonly ChatItem[],
+	thinkingForAssistant: ThinkingAttribution
+) {
+	return Boolean(
+		item.text?.trim() ||
+			(item.images?.length ?? 0) > 0 ||
+			hasReasoning(item) ||
+			hasVisibleThinkingBlock(item.id, threadItems, thinkingForAssistant)
+	);
+}
+
+/** First assistant that already has visible content or attributed activity (tools/memory). */
+export function selectFirstAssistantItem(
+	threadItems: readonly ChatItem[],
+	thinkingForAssistant: ThinkingAttribution
+): AssistantItem | undefined {
+	return threadItems.find(
+		(item): item is AssistantItem =>
+			item.type === 'assistant' &&
+			qualifiesAsFirstAssistantItem(item, threadItems, thinkingForAssistant)
+	);
+}
+
 export function showAssistantActivitySpinner(
 	item: AssistantItem,
 	streamingAssistantId: string | null,
