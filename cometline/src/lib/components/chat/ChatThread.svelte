@@ -24,6 +24,7 @@
 	import {
 		firstAssistantInNormalList as shouldShowAssistantInNormalList,
 		hideAssistantAvatarForFirstTurn,
+		selectFirstAssistantItem,
 		showAssistantActivitySpinner,
 		showAssistantRow as isAssistantRowVisible,
 		showFirstTurnAvatarSlot,
@@ -33,7 +34,6 @@
 	import { createThreadScroll } from '$lib/conversation/thread-scroll.svelte';
 	import { createThreadClocks } from '$lib/conversation/thread-clocks.svelte';
 	import { groupThreadItemsIntoTurns } from '$lib/conversation/thread-turns';
-	import { hasReasoning } from '$lib/conversation/reasoning';
 	import type { ChatTurnPayload } from '$lib/actions/start-chat';
 	import type { JobResource } from '$lib/client/cometmind';
 	import { resolvePersona, personaAvatarSrcset as builtinAvatarSrcset } from '$lib/personas';
@@ -86,13 +86,10 @@
 	let threadItems = $derived(isSessionSynced ? chatStore.items : snapshotItems);
 	let threadTurns = $derived(groupThreadItemsIntoTurns(threadItems));
 	let embeddedPinnedJobIds = $derived(pinnedJobProposalToolIds(threadItems));
-	let firstAssistantItem = $derived(
-		threadItems.find(
-			(item) =>
-				item.type === 'assistant' &&
-				(item.text.trim() || hasReasoning(item) || (item.images?.length ?? 0) > 0)
-		) as Extract<ChatItem, { type: 'assistant' }> | undefined
-	);
+	let thinkingForAssistant = $derived(buildThinkingAttribution(threadItems));
+	// Prefer attributed tools/memory (hasVisibleThinkingBlock) so first-turn activity
+	// pills mount live without waiting for text/reasoning — half-UI spinner otherwise.
+	let firstAssistantItem = $derived(selectFirstAssistantItem(threadItems, thinkingForAssistant));
 	let firstAssistantId = $derived(firstAssistantItem?.id ?? null);
 	let firstAssistantRowId = $derived(
 		threadItems.find((item) => item.type === 'assistant')?.id ?? null
@@ -174,8 +171,6 @@
 	});
 
 	onDestroy(() => sessionFind.closeFind({ restoreFocus: false }));
-
-	let thinkingForAssistant = $derived(buildThinkingAttribution(threadItems));
 
 	function isToolInBuffer(item: Extract<ChatItem, { type: 'tool' }>) {
 		return thinkingForAssistant.toolIdsInBuffer.has(item.id);
