@@ -424,6 +424,10 @@ function applyEvent(
 			items[index] = { ...existing, toolName: event.tool, input: event.input };
 			return;
 		}
+		// Mirror itemsFromTranscript.ensureAssistant: own the tool under an assistant
+		// so thinking-attribution groups it. Reasoning-less providers often emit
+		// tool_call first; without this the FirstTurn slot stays on a spinner.
+		ensureAssistantForText();
 		// Settle the current assistant so reasoning is no longer pending, but keep
 		// assistant.current alive so the next text_delta appends to the same turn
 		// instead of creating a fresh assistant row (which would lose its avatar).
@@ -537,6 +541,9 @@ function applyEvent(
 	}
 
 	if (event.type === 'memory_injected') {
+		// Same as tool_call: ensure an owning assistant exists first so memory is
+		// attributed into the activity timeline instead of a standalone card.
+		ensureAssistantForText();
 		const id = localID('memory', draft.nextId++).id;
 		items.push({
 			id,
