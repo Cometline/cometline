@@ -15,8 +15,8 @@ func TestDefaultProviderConfigMaxRetries(t *testing.T) {
 }
 
 func TestDefaultProviderConfigStreamIdleTimeout(t *testing.T) {
-	if got := DefaultProviderConfig().StreamIdleTimeout; got != 10*time.Minute {
-		t.Fatalf("StreamIdleTimeout = %s, want %s", got, 10*time.Minute)
+	if got := DefaultProviderConfig().StreamIdleTimeout; got != 30*time.Minute {
+		t.Fatalf("StreamIdleTimeout = %s, want %s", got, 30*time.Minute)
 	}
 }
 
@@ -29,8 +29,8 @@ func TestStreamingHTTPClientUsesHeaderDeadlineWithoutBodyDeadline(t *testing.T) 
 	if !ok {
 		t.Fatalf("Transport = %T, want *http.Transport", client.Transport)
 	}
-	if transport.ResponseHeaderTimeout != 30*time.Second {
-		t.Fatalf("ResponseHeaderTimeout = %s, want %s", transport.ResponseHeaderTimeout, 30*time.Second)
+	if transport.ResponseHeaderTimeout != 5*time.Minute {
+		t.Fatalf("ResponseHeaderTimeout = %s, want %s", transport.ResponseHeaderTimeout, 5*time.Minute)
 	}
 }
 
