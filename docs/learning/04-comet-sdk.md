@@ -27,6 +27,8 @@ Every provider returns either:
 | Type | Role |
 |------|------|
 | `Request` | Messages, tools, system prompt, max tokens, temperature, provider options |
+
+`Request.MaxTokens` is the size limit for one model step. CometMind sets it to `min(current model output limit, 32,000)` before it calls the provider. The SDK does not choose that number. `0` means "use the provider default" only when the caller leaves it empty.
 | `Message` | One turn: role + content blocks + optional reasoning |
 | `Block` variants | `TextBlock`, `ReasoningBlock`, `ToolCallBlock`, `ToolResultBlock` |
 | `Tool` | JSON-schema tool definition for the model |

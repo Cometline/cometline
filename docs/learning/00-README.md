@@ -1,6 +1,8 @@
 # Cometline Learning Guide
 
-A progressive reading path through the Cometline monorepo. Start at the top and work downward — each doc assumes you have read the ones above it.
+A reading path through the Cometline monorepo. Start at the top and read downward. Each doc assumes you have read the ones above it.
+
+These guides use plain English, about B2 level. Sentences are short. We explain a new word the first time we use it. Code names stay in English.
 
 These guides are built from the **GitNexus knowledge graph** for `cometline-release` plus the canonical architecture docs (`ARCHITECTURE.md`, `ARCHITECTURE_GUIDE.md`). Use GitNexus status for current index counts rather than copying time-sensitive numbers into documentation.
 
@@ -19,6 +21,7 @@ These guides are built from the **GitNexus knowledge graph** for `cometline-rele
 | 3 | [03-data-flows.md](./03-data-flows.md) | ~25 min | Startup, first message, agent loop, settings save/reload, MCP, jobs, packaging |
 | 4 | [04-comet-sdk.md](./04-comet-sdk.md) | ~30 min | Provider interface, streaming, retries, tool-call assembly |
 | 5 | [05-cometmind-runtime.md](./05-cometmind-runtime.md) | ~35 min | Agent runner, sessions, SQLite, HTTP/SSE server |
+| 5a | [05a-output-limit.md](./05a-output-limit.md) | ~15 min | Step output limit, thinking, and context reserve |
 | 6 | [06-cometmind-features.md](./06-cometmind-features.md) | ~30 min | Memory, MCP, coding harness, Discord, skills, jobs |
 | 7 | [07-cometline-desktop.md](./07-cometline-desktop.md) | ~25 min | Electron main, sidecar lifecycle, IPC, settings persistence |
 | 8 | [08-cometline-frontend.md](./08-cometline-frontend.md) | ~30 min | SvelteKit routes, stores, SSE reducer, chat/jobs/settings UI |
@@ -33,6 +36,7 @@ These guides are built from the **GitNexus knowledge graph** for `cometline-rele
 |------------|------------|
 | Understand the whole system in 10 minutes | [01-nutshell.md](./01-nutshell.md) |
 | Trace what happens when I send a chat message | [03-data-flows.md](./03-data-flows.md) → Flow 2 & 3 |
+| Understand the reply size limit | [05a-output-limit.md](./05a-output-limit.md) |
 | Add a new LLM provider | [04-comet-sdk.md](./04-comet-sdk.md) → [10-development-guide.md](./10-development-guide.md) |
 | Add a built-in tool | [05-cometmind-runtime.md](./05-cometmind-runtime.md) → Tools section |
 | Fix streaming UI bugs | [08-cometline-frontend.md](./08-cometline-frontend.md) |

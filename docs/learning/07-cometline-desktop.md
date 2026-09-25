@@ -141,7 +141,7 @@ Key sections:
 | File     | Section                                               | Contents                                                                         |
 | -------- | ----------------------------------------------------- | -------------------------------------------------------------------------------- |
 | settings | `providers[]`, `defaultModelId` / `defaultProviderId` | Provider configs and default model roles                                         |
-| settings | `cometmind`                                           | maxTokens, ACP/harness, MCP, memory, jobs, autonomy, scheduler, storage, gateway |
+| settings | `cometmind`                                           | ACP/harness, MCP, memory, jobs, autonomy, scheduler, storage, gateway. `maxTokens` may still be in the file, but the agent does not use it as the reply limit. |
 | desktop  | `appearance`                                          | Hero glow, caret trail, …                                                        |
 | desktop  | `shortcuts`                                           | Keyboard bindings                                                                |
 | desktop  | `app`                                                 | openAtLogin, intro completion, persona, …                                        |

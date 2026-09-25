@@ -304,7 +304,6 @@ Cometline and CometMind share settings in `~/.cometmind/cometline-settings.json`
   "defaultProviderId": "openai",
   "defaultModelId": "gpt-4o",
   "cometmind": {
-    "maxTokens": 2048,
     "acp": { "enabled": false, "default_harness": "opencode" },
     "storage": {
       "retentionDays": 90,
@@ -315,6 +314,8 @@ Cometline and CometMind share settings in `~/.cometmind/cometline-settings.json`
 ```
 
 Manage this file through the Settings UI unless you are intentionally hand-editing local configuration. Default model roles (chat, title, memory) are set under Settings → Providers → Model roles.
+
+Each agent step uses the smaller of the current model's output limit and 32,000 tokens. A stored `cometmind.maxTokens` value is not that limit.
 
 ## License
 

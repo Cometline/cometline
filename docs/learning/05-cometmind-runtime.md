@@ -69,6 +69,7 @@ Run(ctx, turn, emit):
     memories ← memory.RetrieveForTurn(...)
     messages/context ← compact if needed
     req ← BuildRequest(system+memories+skills, tools, messages)
+    req.MaxTokens ← min(this model's output limit, 32,000)
 
     stream ← llm.StreamMessage(provider, req)
     for event := range stream.Events():
@@ -78,7 +79,8 @@ Run(ctx, turn, emit):
     store.AppendAssistantStep(result)
     store.SaveTokenUsage(result.Usage)
 
-    if no tool calls or stop or max_tokens: break
+    if no tool calls or stop: break
+    if max_tokens: continue a few times, then break
 
     for each tool call:
       output ← registry.Execute(tool, input)
@@ -99,7 +101,9 @@ A turn is more than a `done` event. The runtime persists assistant/tool output a
 | `request.go` | `BuildRequest` — assembles comet-sdk Request |
 | `normalize.go` | Provider-specific history cleanup |
 | `job_progress_hook.go` | Background job progress during runs |
-| `contextwindow.go`, `compaction.go`, `budget.go` | Context budget and compaction |
+| `contextwindow.go`, `compaction.go`, `budget.go` | Step output limit, context reserve, and compaction |
+
+The step output limit is explained in plain English in [05a-output-limit.md](./05a-output-limit.md). `cometmind.maxTokens` in the settings file is not that limit.
 
 ## Session service and data model
 

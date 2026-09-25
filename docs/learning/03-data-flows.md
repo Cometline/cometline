@@ -131,12 +131,14 @@ Run(ctx, userTurn, eventCh)
     3. Retrieve memories → emit turn_status + inject into system prompt
     4. Compact context if needed
     5. BuildRequest(tools, system, messages, skills index)
+       step limit = min(this model's output limit, 32,000)
     5. StreamMessage(provider, request)
        → drain Events(), translate each to CometMind event
        → forward turn_status, text_delta, reasoning_*, tool_call, step_finish
     6. Persist assistant text, reasoning blocks, tool-call shells
     7. Save token usage
-    8. if finish_reason == stop || max_tokens || no tool calls → break
+    8. if finish_reason == stop or there are no tool calls → stop
+       if finish_reason == max_tokens → continue a few times, then stop
     9. For each tool call:
          → registry.Execute(name, input)
          → persist tool result message
@@ -154,7 +156,9 @@ Run(ctx, userTurn, eventCh)
 - `BuildRequest`, `NormalizeHistoryForProvider` — request assembly
 - `TurnStore` methods — persistence (via interface, not concrete DB)
 
-**Finish reasons** are normalized in comet-sdk (`stop`, `tool_use`, `max_tokens`, `error`) so the runner never branches on provider-specific strings.
+**Finish reasons** are normalized in comet-sdk (`stop`, `tool_use`, `max_tokens`, `error`). The runner does not look at provider-specific strings.
+
+`max_tokens` means the step hit the output limit. The limit is the smaller of the current model's output limit and 32,000 tokens. See [05a-output-limit.md](./05a-output-limit.md). Thinking tokens and answer tokens share that limit on current models.
 
 ---
 
