@@ -66,6 +66,7 @@ Agent Runner (up to 100 work steps + final answer)
   │ retrieve relevant memories and emit turn_status
   │ compact context if needed
   │ rebuild transcript + skills index → comet-sdk Request
+  │ step output limit = min(this model's output limit, 32,000)
   │ StreamMessage → provider API
   │ translate SDK events → CometMind SSE events
   │ if tool_call → execute tool → persist result → loop

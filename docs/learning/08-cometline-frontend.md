@@ -245,7 +245,9 @@ Main and mini windows synchronize session metadata, transcript snapshots, stream
 
 ### Thread rendering tradeoffs
 
-`ChatThread` groups rows into turns, attributes reasoning/tool/memory/subagent activity to assistant stacks, hides rows absorbed by those stacks, and keys both turn and item loops. Scroll work is scheduled with animation frames and DOM settling rather than performed synchronously on every token.
+`ChatThread` groups rows into turns. It attaches reasoning, tools, memory, and subagents to the assistant stack. Rows that already sit inside that stack are hidden. Scroll work waits for the next animation frame. It does not run on every token.
+
+If several reasoning pieces arrive in a row, `coalesceReasoningEntries` joins them into one Thinking block. A truncated continuation should not show as a stack of Thinking buttons.
 
 The thread is **not virtualized**. Current performance depends on batching, conditional row visibility, stable keys, and selective reactivity. If very long transcripts become a bottleneck, windowing must preserve find-in-session, scroll anchoring, first-turn flight, expandable activity state, and active-stream behavior; it cannot be added as a generic list optimization.
 

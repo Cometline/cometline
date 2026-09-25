@@ -223,12 +223,14 @@ Key references:
 agent.Run
   -> load SDK messages from SQLite
   -> build cometsdk.Request with tools and system prompt
+  -> set MaxTokens to min(current model output limit, 32000)
   -> llm.StreamMessage(provider, request)
   -> forward SDK stream events as CometMind events
   -> collect final assistant message/result
   -> save token usage
   -> persist assistant text, reasoning, and tool-call shells
-  -> if stop/max_tokens/no tools: finish
+  -> if stop or no tools: finish
+  -> if max_tokens: continue a few times, then finish
   -> execute each tool in workspace registry
   -> persist tool result message
   -> emit tool_result
@@ -477,7 +479,7 @@ The loop in `Run` performs these steps:
 3. Call `llm.StreamMessage`.
 4. Translate SDK events into CometMind-native events.
 5. Persist token usage and assistant content/reasoning/tool-call shells.
-6. Stop on `stop`, `max_tokens`, or no tool calls.
+6. Stop on `stop` or no tool calls. On `max_tokens`, continue a few times, then stop. The step `MaxTokens` value is `min(current model output limit, 32000)`.
 7. Execute each requested tool through the workspace registry.
 8. Persist tool results and append tool result messages.
 9. Continue until stop or `MaxSteps`.

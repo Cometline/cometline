@@ -284,7 +284,9 @@ Settings: `cometmind.jobs`, `cometmind.autonomy`, `cometmind.scheduler`, and `co
 
 ## Context compaction
 
-When conversations grow long, CometMind can compact the **session transcript** to stay within model limits (separate from **memory** compaction above).
+When a chat gets long, CometMind can shorten the old part of the transcript. This is **context compaction**. It is not the same as memory compaction above.
+
+The app first reserves space for the reply. The reserve is the larger of the step output limit and 20,000 tokens. The step output limit is `min(current model output limit, 32,000)`. The rest of the context window can hold the prompt. If the prompt is still too big, compaction runs.
 
 | Component | File |
 |-----------|------|

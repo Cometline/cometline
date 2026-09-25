@@ -70,7 +70,7 @@ tool-free request for a best-effort final answer if the work budget was exhauste
 3. Stream SDK events → translate to CometMind `event.Event` and push to the caller.
 4. Persist token usage and the assistant step (reasoning + tool-call shells).
 5. If there are tool calls: execute each via `Registry.Execute`, record duration/exit, persist the tool result, and emit `tool_result`.
-6. Stop when `finish_reason` is `stop`/`max_tokens`, or when there are no tool calls.
+6. Stop when `finish_reason` is `stop`, or when there are no tool calls. A `max_tokens` finish can continue a few times, then stops. The step limit is `min(current model output limit, 32,000)`, not a stored `max_tokens` setting.
 7. **Extract memories** after the turn (when enabled) → emit `memory_updated`.
 
 ### Built-in tools
@@ -409,7 +409,8 @@ Legacy `config.toml` (still read for migration):
 provider = "anthropic"
 model = "claude-sonnet-4-5"
 base_url = ""
-max_tokens = 8192
+# Legacy only. The agent ignores this and uses min(model output, 32000).
+max_tokens = 0
 max_steps = 100
 system_prompt_path = ""
 
