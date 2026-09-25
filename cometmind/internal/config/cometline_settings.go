@@ -394,9 +394,9 @@ func adaptCometlineSettings(raw cometlineSettingsJSON) (*Config, error) {
 	if cfg.DefaultModelID == "" {
 		cfg.DefaultModelID = cfg.Model
 	}
-	if cfg.MaxTokens == 0 {
-		cfg.MaxTokens = def.MaxTokens
-	}
+	// 0 and >=100 mean "use the active model's output limit". Absolute legacy
+	// values such as 4096 are not a percent of any model, so drop them.
+	cfg.MaxTokens = normalizeOutputCapPercent(cfg.MaxTokens)
 	if cfg.MaxSteps == 0 {
 		cfg.MaxSteps = def.MaxSteps
 	}

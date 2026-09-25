@@ -26,8 +26,8 @@ func TestLoadCreatesDefaultCometlineSettingsJSON(t *testing.T) {
 	if cfg.BaseURL != "" {
 		t.Fatalf("BaseURL = %q, want empty", cfg.BaseURL)
 	}
-	if cfg.MaxTokens != 4096 {
-		t.Fatalf("MaxTokens = %d, want 4096", cfg.MaxTokens)
+	if cfg.MaxTokens != 0 {
+		t.Fatalf("MaxTokens = %d, want 0 (no user cap)", cfg.MaxTokens)
 	}
 
 	path := filepath.Join(home, ".cometmind", "cometline-settings.json")
@@ -127,8 +127,8 @@ func TestLoadReadsCometlineSettingsJSON(t *testing.T) {
 	if cfg.SystemPromptPath != "/tmp/SOUL.md" {
 		t.Fatalf("SystemPromptPath = %q, want /tmp/SOUL.md", cfg.SystemPromptPath)
 	}
-	if cfg.MaxTokens != 2048 {
-		t.Fatalf("MaxTokens = %d, want 2048 from testdata fixture", cfg.MaxTokens)
+	if cfg.MaxTokens != 0 {
+		t.Fatalf("MaxTokens = %d, want 0 (legacy absolute 2048 is not a model percent)", cfg.MaxTokens)
 	}
 	if cfg.Storage.RetentionDays != 90 {
 		t.Fatalf("Storage.RetentionDays = %d, want 90", cfg.Storage.RetentionDays)
@@ -267,6 +267,38 @@ func TestAdaptCometlineSettingsMigratesDeletedJobPurgeDays(t *testing.T) {
 				t.Fatalf("Jobs.DeletedPurgeDays = %d, want %d", got, tc.want)
 			}
 		})
+	}
+}
+
+func TestAdaptCometlineSettingsMigratesLegacyMaxTokensDefault(t *testing.T) {
+	cfg, err := adaptCometlineSettings(cometlineSettingsJSON{
+		Cometmind: cometlineCometmindJSON{MaxTokens: 4096},
+	})
+	if err != nil {
+		t.Fatalf("adaptCometlineSettings() error = %v", err)
+	}
+	if cfg.MaxTokens != 0 {
+		t.Fatalf("MaxTokens = %d, want 0 after legacy 4096 migration", cfg.MaxTokens)
+	}
+
+	legacy, err := adaptCometlineSettings(cometlineSettingsJSON{
+		Cometmind: cometlineCometmindJSON{MaxTokens: 2048},
+	})
+	if err != nil {
+		t.Fatalf("adaptCometlineSettings() error = %v", err)
+	}
+	if legacy.MaxTokens != 0 {
+		t.Fatalf("MaxTokens = %d, want 0 (legacy absolute is not a percent of the active model)", legacy.MaxTokens)
+	}
+
+	kept, err := adaptCometlineSettings(cometlineSettingsJSON{
+		Cometmind: cometlineCometmindJSON{MaxTokens: 50},
+	})
+	if err != nil {
+		t.Fatalf("adaptCometlineSettings() error = %v", err)
+	}
+	if kept.MaxTokens != 50 {
+		t.Fatalf("MaxTokens = %d, want 50%% of the active model", kept.MaxTokens)
 	}
 }
 
@@ -450,8 +482,8 @@ func TestLoadBootsWithNoEnabledProviders(t *testing.T) {
 		t.Fatalf("Model = %q, want empty (no provider configured)", cfg.Model)
 	}
 	// Non-provider defaults should still be applied so the sidecar is usable.
-	if cfg.MaxTokens != 4096 {
-		t.Fatalf("MaxTokens = %d, want 4096", cfg.MaxTokens)
+	if cfg.MaxTokens != 0 {
+		t.Fatalf("MaxTokens = %d, want 0 (no user cap)", cfg.MaxTokens)
 	}
 	if cfg.MaxSteps != 100 {
 		t.Fatalf("MaxSteps = %d, want 100", cfg.MaxSteps)

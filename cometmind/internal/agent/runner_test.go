@@ -593,23 +593,15 @@ func TestRunner_MaxTokensWithoutToolsContinuesThenStops(t *testing.T) {
 
 func TestRunner_MaxTokensWithoutToolsStopsAfterContinuationCap(t *testing.T) {
 	store := &fakeStore{}
-	provider := &sequentialFakeProvider{sequences: [][]cometsdk.Event{
-		{
-			cometsdk.TextDeltaEvent{Text: "a"},
+	sequences := make([][]cometsdk.Event, 0, maxOutputTruncationContinuations+1)
+	for i := 0; i < maxOutputTruncationContinuations+1; i++ {
+		sequences = append(sequences, []cometsdk.Event{
+			cometsdk.TextDeltaEvent{Text: "x"},
 			cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishMaxTokens},
 			cometsdk.DoneEvent{},
-		},
-		{
-			cometsdk.TextDeltaEvent{Text: "b"},
-			cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishMaxTokens},
-			cometsdk.DoneEvent{},
-		},
-		{
-			cometsdk.TextDeltaEvent{Text: "c"},
-			cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishMaxTokens},
-			cometsdk.DoneEvent{},
-		},
-	}}
+		})
+	}
+	provider := &sequentialFakeProvider{sequences: sequences}
 
 	r := &Runner{
 		Provider: provider,
@@ -622,12 +614,13 @@ func TestRunner_MaxTokensWithoutToolsStopsAfterContinuationCap(t *testing.T) {
 	if runErr != nil {
 		t.Fatalf("Run returned error: %v", runErr)
 	}
-	// Initial truncated step + 2 continuation attempts, then stop.
-	if provider.calls != 3 {
-		t.Fatalf("Stream called %d times, want 3", provider.calls)
+	// Initial truncated step + safety-ceiling continuations, then stop.
+	want := maxOutputTruncationContinuations + 1
+	if provider.calls != want {
+		t.Fatalf("Stream called %d times, want %d", provider.calls, want)
 	}
-	if store.appendCalls != 3 {
-		t.Fatalf("AppendAssistantStep called %d times, want 3", store.appendCalls)
+	if store.appendCalls != want {
+		t.Fatalf("AppendAssistantStep called %d times, want %d", store.appendCalls, want)
 	}
 }
 
@@ -696,23 +689,15 @@ func TestRunner_IncompleteToolTruncationContinuesWithNudgeThenSucceeds(t *testin
 
 func TestRunner_IncompleteToolTruncationStopsAfterCap(t *testing.T) {
 	store := &fakeStore{}
-	provider := &sequentialFakeProvider{sequences: [][]cometsdk.Event{
-		{
-			cometsdk.ToolCallStartEvent{ID: "tc-1", Name: "write_file"},
+	sequences := make([][]cometsdk.Event, 0, maxIncompleteToolTruncationContinuations+1)
+	for i := 0; i < maxIncompleteToolTruncationContinuations+1; i++ {
+		sequences = append(sequences, []cometsdk.Event{
+			cometsdk.ToolCallStartEvent{ID: fmt.Sprintf("tc-%d", i+1), Name: "write_file"},
 			cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishMaxTokens},
 			cometsdk.DoneEvent{},
-		},
-		{
-			cometsdk.ToolCallStartEvent{ID: "tc-2", Name: "write_file"},
-			cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishMaxTokens},
-			cometsdk.DoneEvent{},
-		},
-		{
-			cometsdk.ToolCallStartEvent{ID: "tc-3", Name: "write_file"},
-			cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishMaxTokens},
-			cometsdk.DoneEvent{},
-		},
-	}}
+		})
+	}
+	provider := &sequentialFakeProvider{sequences: sequences}
 
 	r := &Runner{
 		Provider: provider,
@@ -724,12 +709,14 @@ func TestRunner_IncompleteToolTruncationStopsAfterCap(t *testing.T) {
 	if runErr != nil {
 		t.Fatalf("Run returned error: %v", runErr)
 	}
-	// Initial incomplete + 2 dedicated continues, then stop.
-	if provider.calls != 3 {
-		t.Fatalf("Stream called %d times, want 3", provider.calls)
+	// Initial incomplete call plus dedicated continues, then stop. Do not fall
+	// through into prose continuation or the same truncated tool call loops.
+	want := maxIncompleteToolTruncationContinuations + 1
+	if provider.calls != want {
+		t.Fatalf("Stream called %d times, want %d", provider.calls, want)
 	}
-	if store.toolResults != 3 {
-		t.Fatalf("toolResults = %d, want 3 cancelled stubs", store.toolResults)
+	if store.toolResults != want {
+		t.Fatalf("toolResults = %d, want %d cancelled stubs", store.toolResults, want)
 	}
 }
 
@@ -1001,8 +988,8 @@ func TestRunner_EmitsContextBudget(t *testing.T) {
 	if budgets[0].BudgetEstimated <= 0 {
 		t.Fatalf("estimated=%d, want > 0", budgets[0].BudgetEstimated)
 	}
-	if budgets[0].BudgetAvailable != 128_000-CompactionOutputBuffer {
-		t.Fatalf("available=%d, want %d", budgets[0].BudgetAvailable, 128_000-CompactionOutputBuffer)
+	if budgets[0].BudgetAvailable != 128_000-OutputTokenMax {
+		t.Fatalf("available=%d, want %d", budgets[0].BudgetAvailable, 128_000-OutputTokenMax)
 	}
 }
 

@@ -12,6 +12,12 @@ const (
 	contextWindowLimit256K    = 256_000
 	// CompactionOutputBuffer is the minimum reserved output budget (OpenCode-style).
 	CompactionOutputBuffer = 20_000
+	// OutputTokenMax is OpenCode's per-step output ceiling.
+	// Requests use min(current model output, OutputTokenMax). Unknown catalogs
+	// fall back to this ceiling instead of a model's theoretical maximum.
+	OutputTokenMax = 32_000
+	// DefaultOutputTokenCap is the unknown-catalog fallback. Same value as OutputTokenMax.
+	DefaultOutputTokenCap = OutputTokenMax
 )
 
 // SessionBudget is the model-aware compaction / request budget for one turn.
@@ -41,10 +47,13 @@ func ResolveContextWindow(cfg *config.Config) int {
 // ResolveSessionBudget computes per-model context window, effective max tokens,
 // reserve, and available prompt budget.
 //
-//	effectiveMaxTokens = min(userMaxTokens, catalogOutput) when catalogOutput > 0
+//	effectiveMaxTokens = min(this model's catalog output, 32_000)
 //	reserve            = max(effectiveMaxTokens, 20_000)
 //	available          = context - reserve
-func ResolveSessionBudget(cfg *config.Config, providerID, modelID string, userMaxTokens int) SessionBudget {
+//
+// The last argument is ignored. Output ceiling follows the model on this
+// turn, capped like OpenCode, not a stored percent or absolute token count.
+func ResolveSessionBudget(cfg *config.Config, providerID, modelID string, _ int) SessionBudget {
 	method := ""
 	if cfg != nil {
 		if p := cfg.FindProvider(providerID); p != nil {
@@ -61,7 +70,7 @@ func ResolveSessionBudget(cfg *config.Config, providerID, modelID string, userMa
 		contextWindow = defaultContextWindowLimit
 	}
 
-	effective := EffectiveMaxTokens(userMaxTokens, limits.Output)
+	effective := EffectiveMaxTokens(limits.Output)
 	reserve, available := ComputeReserveAndAvailable(contextWindow, effective)
 
 	return SessionBudget{
@@ -76,15 +85,16 @@ func ResolveSessionBudget(cfg *config.Config, providerID, modelID string, userMa
 	}
 }
 
-// EffectiveMaxTokens caps the user max-tokens setting by catalog output when known.
-func EffectiveMaxTokens(userMaxTokens, catalogOutput int) int {
-	if userMaxTokens <= 0 {
-		userMaxTokens = 4096
+// EffectiveMaxTokens is min(catalog output, OutputTokenMax).
+// A missing catalog uses OutputTokenMax, matching OpenCode's maxOutputTokens.
+func EffectiveMaxTokens(catalogOutput int) int {
+	if catalogOutput <= 0 {
+		return OutputTokenMax
 	}
-	if catalogOutput > 0 && catalogOutput < userMaxTokens {
-		return catalogOutput
+	if catalogOutput > OutputTokenMax {
+		return OutputTokenMax
 	}
-	return userMaxTokens
+	return catalogOutput
 }
 
 // ComputeReserveAndAvailable returns reserve=max(effective, 20k) and available=context-reserve.

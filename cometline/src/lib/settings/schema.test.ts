@@ -45,7 +45,7 @@ describe('settings schema', () => {
 		expect(runtimeSlice(settings)).toMatchObject({
 			provider: 'local-llm',
 			model: 'qwen2.5',
-			maxTokens: 2048,
+			maxTokens: 0,
 			systemPromptPath: '/tmp/SOUL.md'
 		});
 	});
@@ -80,7 +80,7 @@ describe('settings schema', () => {
 		expect(settings.app.screenCapturePreferred).toBe(false);
 		expect(settings.app.confirmBeforeDeletingMedia).toBe(true);
 		expect(settings.cometmind.systemPromptPath).toBe('');
-		expect(settings.cometmind.maxTokens).toBe(4096);
+		expect(settings.cometmind.maxTokens).toBe(0);
 		expect(settings.cometmind.contextWindowLimit).toBe(128_000);
 		expect(settings.cometmind.storage.retentionDays).toBe(90);
 		expect(settings.cometmind.storage.detachedMediaRetentionDays).toBe(30);
@@ -430,7 +430,7 @@ describe('settings schema', () => {
 		const slice = runtimeSlice(settings);
 		expect(slice?.provider).toBe('openai');
 		expect(slice?.model).toBe('gpt-4o');
-		expect(slice?.maxTokens).toBe(4096);
+		expect(slice?.maxTokens).toBe(0);
 		expect(slice?.systemPromptPath).toBe('/tmp/SOUL.md');
 		expect(slice?.providers).toHaveLength(1);
 	});
@@ -494,7 +494,19 @@ describe('settings schema', () => {
 		expect(() => validateSettings(settings)).toThrow();
 	});
 
-	it('persists custom CometMind max tokens into runtime slice', () => {
+	it('migrates legacy absolute maxTokens to the active-model limit', () => {
+		const settings = normalizeSettings({
+			...defaultSettings(),
+			cometmind: {
+				...defaultSettings().cometmind,
+				maxTokens: 4096
+			}
+		});
+
+		expect(settings.cometmind.maxTokens).toBe(0);
+	});
+
+	it('persists an output-cap percent into the runtime slice', () => {
 		const settings = normalizeSettings({
 			...defaultSettings(),
 			providers: defaultSettings().providers.map((p) =>
@@ -511,12 +523,12 @@ describe('settings schema', () => {
 			defaultModelId: 'gpt-4o',
 			cometmind: {
 				...defaultSettings().cometmind,
-				maxTokens: 3072
+				maxTokens: 50
 			}
 		});
 
-		expect(settings.cometmind.maxTokens).toBe(3072);
-		expect(runtimeSlice(settings)?.maxTokens).toBe(3072);
+		expect(settings.cometmind.maxTokens).toBe(50);
+		expect(runtimeSlice(settings)?.maxTokens).toBe(50);
 	});
 
 	it('preserves CometMind runtime settings through normalization and validation', () => {
