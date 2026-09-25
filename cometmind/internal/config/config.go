@@ -75,11 +75,13 @@ type Config struct {
 	Model    string `mapstructure:"model"`
 	// DefaultProviderID / DefaultModelID are the global Default model pair.
 	// Provider/Model mirror them for legacy callers after settings adapt.
-	DefaultProviderID  string               `mapstructure:"default_provider_id"`
-	DefaultModelID     string               `mapstructure:"default_model_id"`
-	BaseURL            string               `mapstructure:"base_url"`
-	TitleProvider      string               `mapstructure:"title_provider"`
-	TitleModel         string               `mapstructure:"title_model"`
+	DefaultProviderID string `mapstructure:"default_provider_id"`
+	DefaultModelID    string `mapstructure:"default_model_id"`
+	BaseURL           string `mapstructure:"base_url"`
+	TitleProvider     string `mapstructure:"title_provider"`
+	TitleModel        string `mapstructure:"title_model"`
+	// MaxTokens is a legacy settings field. The request ceiling is
+	// min(current model output, 32k) and does not read this value.
 	MaxTokens          int                  `mapstructure:"max_tokens"`
 	ContextWindowLimit int                  `mapstructure:"context_window_limit"`
 	MaxSteps           int                  `mapstructure:"max_steps"`
@@ -104,7 +106,7 @@ func Defaults() *Config {
 	return &Config{
 		Provider:           ProviderAnthropic,
 		Model:              "claude-sonnet-4-5",
-		MaxTokens:          4096,
+		MaxTokens:          0,
 		ContextWindowLimit: 128_000,
 		MaxSteps:           100,
 		Skills:             SkillsConfig{Enabled: true, IncludeOpenCode: true, IncludeClaude: true},
@@ -116,6 +118,15 @@ func Defaults() *Config {
 		Inbox:              defaultInboxConfig(),
 		Generation:         defaultGenerationConfig(),
 	}
+}
+
+// normalizeOutputCapPercent keeps 1–99 as a share of the active model's output
+// limit. 0, 100, and legacy absolute token counts all mean "model limit".
+func normalizeOutputCapPercent(value int) int {
+	if value <= 0 || value >= 100 {
+		return 0
+	}
+	return value
 }
 
 // Load reads ~/.cometmind/cometline-settings.json (with legacy config.toml migration), merges env, and unmarshals.
@@ -205,9 +216,7 @@ func loadLegacyTomlConfig(cfgPath string, def *Config) (*Config, error) {
 	if c.Model == "" {
 		c.Model = def.Model
 	}
-	if c.MaxTokens == 0 {
-		c.MaxTokens = def.MaxTokens
-	}
+	c.MaxTokens = normalizeOutputCapPercent(c.MaxTokens)
 	if c.MaxSteps == 0 {
 		c.MaxSteps = def.MaxSteps
 	}
@@ -252,11 +261,9 @@ func applyEnvOverrides(c *Config, def *Config) {
 	if v.IsSet("max_tokens") {
 		c.MaxTokens = v.GetInt("max_tokens")
 	}
+	c.MaxTokens = normalizeOutputCapPercent(c.MaxTokens)
 	if v.IsSet("max_steps") {
 		c.MaxSteps = v.GetInt("max_steps")
-	}
-	if c.MaxTokens == 0 {
-		c.MaxTokens = def.MaxTokens
 	}
 	if c.MaxSteps == 0 {
 		c.MaxSteps = def.MaxSteps

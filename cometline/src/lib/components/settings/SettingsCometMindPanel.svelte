@@ -4,6 +4,7 @@
 	import { formatIdList, parseIdList, type CometMindSettings } from '$lib/cometmind-settings';
 	import type { ProviderConfig } from '$lib/types';
 	import { shellStore } from '$lib/stores/shell.svelte';
+
 	import { listSkills, syncSkills, deleteSkill, exportSkill } from '$lib/client/cometmind';
 	import type { SkillResource } from '$lib/types';
 	import { onMount } from 'svelte';
@@ -318,20 +319,6 @@
 					<code>~/.cometmind/cometline-settings.json</code>.
 				</p>
 			</div>
-			<label>
-				<span>Max output tokens</span>
-				<input
-					type="number"
-					bind:value={cometmind.maxTokens}
-					min="1"
-					step="1"
-					placeholder="2048"
-				/>
-				<p class="settings-field-hint">
-					Caps the model's generated response length. Lower values reduce worst-case
-					latency and cost.
-				</p>
-			</label>
 			<label>
 				<span>Log level</span>
 				<select bind:value={cometmind.logLevel}>

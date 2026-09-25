@@ -34,16 +34,16 @@ describe('context-window', () => {
 		expect(formatContextWindow(1_000_000)).toBe('1M');
 	});
 
-	it('caps effective max tokens by catalog output', () => {
-		expect(effectiveMaxTokens(8192, 4096)).toBe(4096);
-		expect(effectiveMaxTokens(2048, 128_000)).toBe(2048);
-		expect(effectiveMaxTokens(4096, 0)).toBe(4096);
-		expect(effectiveMaxTokens(null, null)).toBe(4096);
+	it('caps output at min(model output, 32k)', () => {
+		expect(effectiveMaxTokens(0, 8_192)).toBe(8_192);
+		expect(effectiveMaxTokens(0, 128_000)).toBe(32_000);
+		expect(effectiveMaxTokens(4096, 128_000)).toBe(32_000);
+		expect(effectiveMaxTokens(null, null)).toBe(32_000);
 	});
 
 	it('uses max(effective, 20k) reserve for available budget', () => {
-		expect(resolveContextAvailableBudget(128_000, 2048)).toBe(128_000 - COMPACTION_OUTPUT_BUFFER);
-		expect(resolveContextAvailableBudget(200_000, 64_000, 32_000)).toBe(200_000 - 32_000);
+		expect(resolveContextAvailableBudget(128_000, 2048, 8_192)).toBe(128_000 - COMPACTION_OUTPUT_BUFFER);
+		expect(resolveContextAvailableBudget(200_000, 0, 64_000)).toBe(200_000 - 32_000);
 	});
 
 	it('estimates tokens from text with chars/4 heuristic', () => {
@@ -102,12 +102,12 @@ describe('context-window', () => {
 			items: [{ id: '1', type: 'user', text: 'abcd' }],
 			draftText: '',
 			contextWindowLimit: 200_000,
-			maxTokens: 8192,
-			modelOutput: 32_000
+			maxTokens: 0,
+			modelOutput: 64_000
 		});
 		expect(usage.source).toBe('fallback');
 		expect(usage.used).toBe(1);
-		expect(usage.limit).toBe(200_000 - COMPACTION_OUTPUT_BUFFER);
+		expect(usage.limit).toBe(200_000 - 32_000);
 	});
 
 	it('does not expose a required contextWindowLimit UI path for fallback', () => {
@@ -117,6 +117,6 @@ describe('context-window', () => {
 			draftText: '',
 			maxTokens: 2048
 		});
-		expect(usage.limit).toBe(DEFAULT_CONTEXT_WINDOW_LIMIT - COMPACTION_OUTPUT_BUFFER);
+		expect(usage.limit).toBe(DEFAULT_CONTEXT_WINDOW_LIMIT - 32_000);
 	});
 });

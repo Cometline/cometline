@@ -216,6 +216,13 @@ export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 const LOG_LEVELS: LogLevel[] = ['debug', 'info', 'warn', 'error'];
 
+/** 1–99 stays a percent. 0, 100, and legacy absolute token counts mean model limit. */
+export function normalizeOutputCapPercent(value: unknown): number {
+	const n = Number(value);
+	if (!Number.isFinite(n) || n <= 0 || n >= 100) return 0;
+	return Math.floor(n);
+}
+
 function normalizeLogLevel(value: unknown): LogLevel {
 	const raw = String(value ?? '')
 		.trim()
@@ -228,6 +235,10 @@ function normalizeLogLevel(value: unknown): LogLevel {
 
 export interface CometMindSettings {
 	systemPromptPath: string;
+	/**
+	 * Legacy field. The request ceiling is min(current model output, 32k) and
+	 * does not read this value.
+	 */
 	maxTokens: number;
 	logLevel: LogLevel;
 	contextWindowLimit: ContextWindowLimit;
@@ -562,7 +573,7 @@ export function defaultCometMindStorageSettings(): CometMindStorageSettings {
 export function defaultCometMindSettings(workspacePath = ''): CometMindSettings {
 	return {
 		systemPromptPath: '',
-		maxTokens: 4096,
+		maxTokens: 0,
 		logLevel: 'error',
 		contextWindowLimit: DEFAULT_CONTEXT_WINDOW_LIMIT,
 		titleProviderId: '',
@@ -677,7 +688,7 @@ export function normalizeCometMindSettings(
 
 	return {
 		systemPromptPath: String(input?.systemPromptPath ?? defaults.systemPromptPath).trim(),
-		maxTokens: normalizePositiveInt(input?.maxTokens, defaults.maxTokens),
+		maxTokens: normalizeOutputCapPercent(input?.maxTokens),
 		logLevel: normalizeLogLevel(input?.logLevel ?? defaults.logLevel),
 		contextWindowLimit: normalizeContextWindowLimit(
 			input?.contextWindowLimit ?? defaults.contextWindowLimit
@@ -1543,7 +1554,7 @@ const providerSettingsSchema = z.object({
 	}),
 	cometmind: z.object({
 		systemPromptPath: z.string(),
-		maxTokens: z.number().int().positive(),
+		maxTokens: z.number().int().min(0),
 		logLevel: z.enum(['debug', 'info', 'warn', 'error']),
 		contextWindowLimit: z.union([z.literal(128_000), z.literal(256_000)]),
 		titleProviderId: z.string(),

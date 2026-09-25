@@ -5,6 +5,7 @@ import {
 	defaultActivityGroupExpanded,
 	defaultThinkingExpanded,
 	isTimelineEntryToggleDisabled,
+	coalesceReasoningEntries,
 	pinnedJobProposalToolIds,
 	pinnedJobProposalsForAssistant,
 	shouldGroupAssistantTimeline
@@ -613,6 +614,19 @@ describe('defaultActivityGroupExpanded', () => {
 		expect(defaultActivityGroupExpanded(emptyAssistant, 'a1', true)).toBe(false);
 		// Settled with no final text: expand so tool/reasoning output is visible.
 		expect(defaultActivityGroupExpanded(emptyAssistant, null, false)).toBe(true);
+	});
+});
+
+describe('coalesceReasoningEntries', () => {
+	it('joins truncated continuation thoughts into one block', () => {
+		const merged = coalesceReasoningEntries([
+			{ kind: 'reasoning', segmentIndex: 0, text: 'first' },
+			{ kind: 'reasoning', segmentIndex: 1, text: 'second', pending: true },
+			{ kind: 'reasoning', segmentIndex: 2, text: 'third' }
+		]);
+		expect(merged).toEqual([
+			{ kind: 'reasoning', segmentIndex: 0, text: 'first\n\nsecond\n\nthird', pending: true }
+		]);
 	});
 });
 

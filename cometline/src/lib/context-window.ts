@@ -136,12 +136,23 @@ export type ModelLimitHints = {
 	output?: number | null;
 };
 
-/** effectiveMaxTokens = min(userMaxTokens, catalogOutput) when catalogOutput > 0 */
-export function effectiveMaxTokens(userMaxTokens?: number | null, catalogOutput?: number | null): number {
-	const user = Number.isFinite(userMaxTokens) && (userMaxTokens as number) > 0 ? Math.floor(userMaxTokens as number) : 4096;
-	const output = Number.isFinite(catalogOutput) && (catalogOutput as number) > 0 ? Math.floor(catalogOutput as number) : 0;
-	if (output > 0 && output < user) return output;
-	return user;
+/** OpenCode ceiling. Matches agent.OutputTokenMax. */
+export const OUTPUT_TOKEN_MAX = 32_000;
+
+/** Unknown-catalog fallback. Same value as OUTPUT_TOKEN_MAX. */
+export const DEFAULT_OUTPUT_TOKEN_CAP = OUTPUT_TOKEN_MAX;
+
+/**
+ * min(catalog output, 32k). A missing catalog uses 32k.
+ * The first argument is ignored; the ceiling follows the model on this turn.
+ */
+export function effectiveMaxTokens(_userMaxTokens?: number | null, catalogOutput?: number | null): number {
+	const output =
+		Number.isFinite(catalogOutput) && (catalogOutput as number) > 0
+			? Math.floor(catalogOutput as number)
+			: 0;
+	if (output <= 0) return OUTPUT_TOKEN_MAX;
+	return Math.min(output, OUTPUT_TOKEN_MAX);
 }
 
 /**

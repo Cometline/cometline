@@ -122,9 +122,8 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 	if r.MaxSteps <= 0 {
 		r.MaxSteps = 100
 	}
-	if r.MaxTokens <= 0 {
-		r.MaxTokens = 4096
-	}
+	// Output ceiling is min(turn model output, 32k), computed in
+	// ResolveSessionBudget. r.MaxTokens is not a request cap.
 	retrievalTimeout := r.MemoryRetrievalTimeout
 	if retrievalTimeout <= 0 {
 		retrievalTimeout = memoryRetrievalTimeout
@@ -571,7 +570,7 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 		}
 		if len(result.ToolCalls) == 0 {
 			if result.FinishReason == cometsdk.FinishMaxTokens && len(incompleteToolCalls) > 0 {
-				if incompleteToolTruncationContinuations < maxIncompleteToolTruncationContinuations {
+				if incompleteToolTruncationContinuations < maxIncompleteToolTruncationContinuations && steps < r.MaxSteps {
 					incompleteToolTruncationContinuations++
 					incompleteToolTruncationContinue = true
 					logging.L().Info(
@@ -580,7 +579,7 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 						"step", steps+1,
 						"continuation", incompleteToolTruncationContinuations,
 						"incomplete_tools", len(incompleteToolCalls),
-						"max_tokens", r.MaxTokens,
+						"max_tokens", effectiveMaxTokens,
 					)
 					steps++
 					continue
@@ -590,12 +589,13 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 					"session", turn.ID,
 					"step", steps+1,
 					"incomplete_tools", len(incompleteToolCalls),
-					"max_tokens", r.MaxTokens,
+					"max_tokens", effectiveMaxTokens,
 				)
 				return completeTurn()
 			}
 			if result.FinishReason == cometsdk.FinishMaxTokens &&
-				outputTruncationContinuations < maxOutputTruncationContinuations {
+				outputTruncationContinuations < maxOutputTruncationContinuations &&
+				steps < r.MaxSteps {
 				outputTruncationContinuations++
 				truncationContinue = true
 				logging.L().Info(
@@ -603,7 +603,7 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 					"session", turn.ID,
 					"step", steps+1,
 					"continuation", outputTruncationContinuations,
-					"max_tokens", r.MaxTokens,
+					"max_tokens", effectiveMaxTokens,
 				)
 				steps++
 				continue

@@ -25,17 +25,14 @@ func TestResolveContextWindow(t *testing.T) {
 }
 
 func TestEffectiveMaxTokens(t *testing.T) {
-	if got := EffectiveMaxTokens(8192, 4096); got != 4096 {
-		t.Fatalf("cap = %d, want 4096", got)
+	if got := EffectiveMaxTokens(8_192); got != 8_192 {
+		t.Fatalf("small model = %d, want 8192", got)
 	}
-	if got := EffectiveMaxTokens(2048, 128_000); got != 2048 {
-		t.Fatalf("user below catalog = %d, want 2048", got)
+	if got := EffectiveMaxTokens(128_000); got != OutputTokenMax {
+		t.Fatalf("large model = %d, want %d", got, OutputTokenMax)
 	}
-	if got := EffectiveMaxTokens(4096, 0); got != 4096 {
-		t.Fatalf("unset catalog = %d, want 4096", got)
-	}
-	if got := EffectiveMaxTokens(0, 0); got != 4096 {
-		t.Fatalf("default user = %d, want 4096", got)
+	if got := EffectiveMaxTokens(0); got != OutputTokenMax {
+		t.Fatalf("unknown catalog = %d, want %d", got, OutputTokenMax)
 	}
 }
 
@@ -81,29 +78,21 @@ func TestResolveSessionBudgetUsesCatalog(t *testing.T) {
 			Method: config.ProviderAnthropic,
 		}},
 	}
-	got := ResolveSessionBudget(cfg, "anthropic", "claude-opus-4-1", 8192)
+	got := ResolveSessionBudget(cfg, "anthropic", "claude-opus-4-1", 0)
 	if got.LimitSource != modelcatalog.SourceCatalog {
 		t.Fatalf("source = %q, want catalog", got.LimitSource)
 	}
 	if got.Context != 200_000 {
 		t.Fatalf("context = %d, want 200000", got.Context)
 	}
-	if got.EffectiveMaxTokens != 8192 {
-		t.Fatalf("effective = %d, want 8192 (below catalog output 32k)", got.EffectiveMaxTokens)
+	if got.EffectiveMaxTokens != OutputTokenMax {
+		t.Fatalf("effective = %d, want %d (min of catalog output and ceiling)", got.EffectiveMaxTokens, OutputTokenMax)
 	}
-	if got.Reserve != CompactionOutputBuffer {
-		t.Fatalf("reserve = %d, want %d", got.Reserve, CompactionOutputBuffer)
+	if got.Reserve != OutputTokenMax {
+		t.Fatalf("reserve = %d, want %d", got.Reserve, OutputTokenMax)
 	}
-	if got.Available != 200_000-CompactionOutputBuffer {
+	if got.Available != 200_000-OutputTokenMax {
 		t.Fatalf("available = %d", got.Available)
-	}
-
-	capped := ResolveSessionBudget(cfg, "anthropic", "claude-opus-4-1", 64_000)
-	if capped.EffectiveMaxTokens != 32_000 {
-		t.Fatalf("effective capped = %d, want 32000", capped.EffectiveMaxTokens)
-	}
-	if capped.Reserve != 32_000 {
-		t.Fatalf("reserve = %d, want 32000", capped.Reserve)
 	}
 }
 
@@ -117,14 +106,17 @@ func TestResolveSessionBudgetFallbackCustom(t *testing.T) {
 			Method: config.ProviderOpenAICompat,
 		}},
 	}
-	got := ResolveSessionBudget(cfg, "local", "llama3", 2048)
+	got := ResolveSessionBudget(cfg, "local", "llama3", 0)
 	if got.LimitSource != modelcatalog.SourceFallback {
 		t.Fatalf("source = %q, want fallback", got.LimitSource)
 	}
 	if got.Context != defaultContextWindowLimit {
 		t.Fatalf("context = %d, want %d", got.Context, defaultContextWindowLimit)
 	}
-	if got.Available != defaultContextWindowLimit-CompactionOutputBuffer {
+	if got.EffectiveMaxTokens != OutputTokenMax {
+		t.Fatalf("effective = %d, want %d", got.EffectiveMaxTokens, OutputTokenMax)
+	}
+	if got.Available != defaultContextWindowLimit-OutputTokenMax {
 		t.Fatalf("available = %d", got.Available)
 	}
 }

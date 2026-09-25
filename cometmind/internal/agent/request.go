@@ -9,12 +9,14 @@ import (
 )
 
 const (
-	// maxOutputTruncationContinuations caps how many extra model steps we take
-	// when a step hits the output token limit without tool calls.
-	maxOutputTruncationContinuations = 2
-	// maxIncompleteToolTruncationContinuations caps retries after tool-call
-	// arguments were cut off mid-stream (started but never completed).
-	maxIncompleteToolTruncationContinuations = 2
+	// maxOutputTruncationContinuations is a safety ceiling for extra model
+	// steps after a step hits the output token limit without tool calls.
+	// Normal turns stop earlier via MaxSteps.
+	maxOutputTruncationContinuations = 8
+	// maxIncompleteToolTruncationContinuations is a safety ceiling for retries
+	// after tool-call arguments were cut off mid-stream. The discarded calls
+	// are not executed; the model is asked for one smaller complete call.
+	maxIncompleteToolTruncationContinuations = 4
 )
 
 // DefaultSystemPrompt is persona + coding policy (shared mount docs via CodingPolicyPrompt).
