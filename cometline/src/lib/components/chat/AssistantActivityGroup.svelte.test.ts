@@ -33,4 +33,22 @@ describe('AssistantActivityGroup', () => {
 			container.querySelector('.activity-group-toggle')?.getAttribute('aria-expanded')
 		).toBe('true');
 	});
+
+	it('shows one thinking body instead of a stack of Thinking toggles', async () => {
+		const { container } = render(AssistantActivityGroupHarness, {
+			props: {
+				timeline: [
+					{ kind: 'reasoning', segmentIndex: 0, text: 'first thought' },
+					{ kind: 'reasoning', segmentIndex: 1, text: 'second thought' },
+					{ kind: 'reasoning', segmentIndex: 2, text: 'third thought' }
+				],
+				parentExpanded: true
+			}
+		});
+
+		expect(container.querySelectorAll('.activity-group-toggle')).toHaveLength(1);
+		expect(container.querySelectorAll('.thinking-toggle')).toHaveLength(0);
+		expect(container.textContent).toContain('first thought');
+		expect(container.textContent).toContain('third thought');
+	});
 });

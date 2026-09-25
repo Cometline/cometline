@@ -257,6 +257,26 @@ export function buildAssistantTimeline(
 	return timeline;
 }
 
+/** Join back-to-back reasoning segments so a truncated continuation is one thought, not a stack of Thinking rows. */
+export function coalesceReasoningEntries(entries: readonly TimelineEntry[]): TimelineEntry[] {
+	const out: TimelineEntry[] = [];
+	for (const entry of entries) {
+		const prev = out[out.length - 1];
+		if (entry.kind === 'reasoning' && prev?.kind === 'reasoning') {
+			const text = [prev.text.trim(), entry.text.trim()].filter(Boolean).join('\n\n');
+			out[out.length - 1] = {
+				kind: 'reasoning',
+				segmentIndex: prev.segmentIndex,
+				text,
+				pending: prev.pending === true || entry.pending === true
+			};
+			continue;
+		}
+		out.push(entry);
+	}
+	return out;
+}
+
 /** Nested activity-group rows stay closed until a segment/tool/subagent settles. */
 export function isTimelineEntryToggleDisabled(entry: TimelineEntry): boolean {
 	if (entry.kind === 'reasoning') return entry.pending === true;

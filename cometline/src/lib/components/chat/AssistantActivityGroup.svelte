@@ -12,10 +12,15 @@
 	} from '@lucide/svelte';
 	import ThinkingSpinner from '$lib/components/ThinkingSpinner.svelte';
 	import MemoryCard from '$lib/components/chat/MemoryCard.svelte';
+	import ThinkingBlock from '$lib/components/chat/ThinkingBlock.svelte';
 	import TimelineEntryRow from '$lib/components/chat/TimelineEntryRow.svelte';
 	import { getChatTurnContext } from '$lib/conversation/chat-turn-context';
 	import type { ChatItem } from '$lib/stores/chat.svelte';
-	import type { TimelineEntry, InjectedMemory } from '$lib/conversation/thinking-attribution';
+	import {
+		coalesceReasoningEntries,
+		type TimelineEntry,
+		type InjectedMemory
+	} from '$lib/conversation/thinking-attribution';
 	import { subagentProgressLabel } from '$lib/conversation/subagent-display';
 
 	let {
@@ -42,9 +47,10 @@
 
 	const ctx = $derived(getChatTurnContext());
 	const bodyId = $derived(`activity-group-body-${assistantId}`);
+	const displayTimeline = $derived(coalesceReasoningEntries(timeline));
 
-	let firstEntry = $derived(timeline[0]);
-	let childEntries = $derived(timeline.slice(1));
+	let firstEntry = $derived(displayTimeline[0]);
+	let childEntries = $derived(displayTimeline.slice(1));
 
 	let slidingWindow = $derived(maxVisibleReasoning > 0 && parentExpanded);
 	let visibleChildren = $derived(
@@ -147,6 +153,16 @@
 						onToggle={() => {}}
 						{cycling}
 					/>
+				{:else if firstEntry.kind === 'reasoning'}
+					<ThinkingBlock
+						text={firstEntry.text}
+						pending={firstEntry.pending}
+						expanded={true}
+						contentOnly={true}
+						showSpinner={showThinkingSpinner && thinkingActive(firstEntry.pending)}
+						nested={true}
+						onToggle={() => {}}
+					/>
 				{:else}
 					<TimelineEntryRow
 						entry={firstEntry}
@@ -165,14 +181,26 @@
 							animate: slidingWindow
 						}}
 					>
-						<TimelineEntryRow
-							{entry}
-							{assistant}
-							{assistantId}
-							nested={true}
-							{showThinkingSpinner}
-							{cycling}
-						/>
+						{#if entry.kind === 'reasoning'}
+							<ThinkingBlock
+								text={entry.text}
+								pending={entry.pending}
+								expanded={true}
+								contentOnly={true}
+								showSpinner={showThinkingSpinner && thinkingActive(entry.pending)}
+								nested={true}
+								onToggle={() => {}}
+							/>
+						{:else}
+							<TimelineEntryRow
+								{entry}
+								{assistant}
+								{assistantId}
+								nested={true}
+								{showThinkingSpinner}
+								{cycling}
+							/>
+						{/if}
 					</div>
 				{/each}
 				{#if hiddenCount > 0}
