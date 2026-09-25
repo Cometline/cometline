@@ -5,25 +5,41 @@
 
 ## Purpose
 
-`cometmind` is the **local agent runtime and source of truth**. It owns reasoning orchestration, session/job persistence, workspace scoping, tool execution, memory, MCP, and the localhost API the desktop app consumes.
+`cometmind` is the local agent runtime. A **runtime** is the program that runs the agent. Other parts of the app trust the data it stores.
+
+It owns these parts:
+
+- coordinating reasoning, one step at a time
+- saving sessions and jobs
+- keeping each workspace separate
+- running tools
+- memory
+- MCP
+- the localhost API that the desktop app calls
+
+A **workspace** is one project folder. **MCP** means Model Context Protocol. It connects outside tool servers. An **API** is the HTTP interface other programs call. **Localhost** means the API listens only on this computer.
 
 ## Entry points
 
+Each row is one **surface**. A surface is one way to enter the same runtime.
+
 | Surface | Command / file | Role |
 |---------|----------------|------|
-| HTTP API | `cometmind serve` → `server/server.go` | Primary Cometline integration |
-| CLI chat | `cometmind chat "message"` | Terminal testing |
-| CLI init | `cometmind init` | Create config + DB + register workspace |
+| HTTP API | `cometmind serve` → `server/server.go` | Main path for Cometline |
+| CLI chat | `cometmind chat "message"` | Test from the terminal |
+| CLI init | `cometmind init` | Create config, the database, and register a workspace |
 | Discord | `cometmind gateway run --platform discord` | Messaging gateway |
-| Settings/process | `cometmind settings reload`, `cometmind process ...` | Long-running process control |
-| Models | `cometmind model list/set` | Inspect or update enabled/default models |
+| Settings/process | `cometmind settings reload`, `cometmind process ...` | Control a long-running process |
+| Models | `cometmind model list/set` | Inspect or update enabled and default models |
 | Library | `internal/runtime`, `internal/agent` | Shared by all surfaces |
 
-All surfaces use the same `agent.Runner` and `session.Service` — no duplicate agent implementations.
+A **gateway** receives messages from another app, such as Discord. The **CLI** is the set of terminal commands.
+
+All surfaces use the same `agent.Runner` and `session.Service`. There is no second agent implementation.
 
 ## Runtime composition
 
-`runtime.New()` in `internal/runtime/runtime.go` is the composition root:
+`runtime.New()` in `internal/runtime/runtime.go` builds the runtime. This function is the **composition root**. That is the place where the parts are created and connected.
 
 ```text
 runtime.New()
@@ -37,11 +53,15 @@ runtime.New()
   → retention, jobs maintenance, scheduler, autonomy workers where enabled
 ```
 
-`RunnerFor(session)` wires a session-specific provider, session service, and workspace-scoped tool registry into an `agent.Runner`.
+**JSON** and **TOML** are settings file formats. TOML is the older one. **Legacy** means that older format. **SQLite** is the local database. **Pragmas** are SQLite settings applied when the file opens. A **migration** updates a database that already exists. **Retention** is the rule for deleting old data. **Autonomy** means a worker can start jobs with no new user message.
+
+`RunnerFor(session)` builds an `agent.Runner` for one session. It connects a provider, the session service, and a tool registry. The registry is limited to that workspace.
+
+A **provider** is the code that talks to one model service. A **registry** is the list of tools the agent may call.
 
 ## Agent Runner
 
-`agent.Runner` in `internal/agent/runner.go` is the load-bearing brain.
+`agent.Runner` in `internal/agent/runner.go` runs each chat turn. A **turn** is one user message plus the work to answer it. A **step** is one model call inside that turn.
 
 ### Dependencies (via interfaces)
 
@@ -54,7 +74,7 @@ type TurnStore interface {
 }
 ```
 
-The runner depends on `TurnStore`, not concrete SQLite — making the loop testable.
+The runner depends on `TurnStore`, not on SQLite itself. An **interface** is a list of methods. Tests can pass a fake store. That makes the loop easier to test.
 
 ### Run loop (simplified)
 
@@ -88,81 +108,102 @@ Run(ctx, turn, emit):
       emit(tool_result)
 ```
 
-GitNexus `context Run -f runner.go` confirms outgoing calls to `StreamMessage`, all `event.*` emitters, `BuildRequest`, and `NormalizeHistoryForProvider`.
+A **token** is a small piece of text that the model counts. `MaxTokens` is the output limit for one step.
+
+GitNexus is the code index for this repository. `context Run -f runner.go` shows outgoing calls to `StreamMessage`, all `event.*` emitters, `BuildRequest`, and `NormalizeHistoryForProvider`.
 
 ### Completion and compatibility details
 
-A turn is more than a `done` event. The runtime persists assistant/tool output and token usage, keeps opaque provider continuation state only for the matching provider/model scope, and can persist assistant media separately from text. Post-turn memory extraction is asynchronous and globally bounded, so completion is not held hostage by a slow extraction. Provider/model capability failures also feed a compatibility policy, preventing the runtime from repeatedly requesting known-unsupported features.
+A turn is more than a `done` event. The runtime saves assistant text, tool output, and token usage.
+
+It also keeps provider continuation state. That state is **opaque**. Opaque means CometMind stores it but does not read inside it. The state stays with the provider and model that made it. A different provider or model does not reuse it.
+
+The runtime can save assistant media separately from text. **Media** here means images and similar files.
+
+After the turn, memory extraction runs in the background. This work is **asynchronous**. The chat does not wait for it. It is also **globally bounded**. The runtime limits how many extractions can run at once. A slow extraction does not delay the end of the turn.
+
+If a provider or model rejects a feature, the runtime records that failure. A **compatibility policy** uses those records. The runtime then stops requesting features that this provider or model does not support.
 
 ### Related agent packages
 
 | File | Role |
 |------|------|
-| `request.go` | `BuildRequest` — assembles comet-sdk Request |
-| `normalize.go` | Provider-specific history cleanup |
-| `job_progress_hook.go` | Background job progress during runs |
+| `request.go` | `BuildRequest` assembles the comet-sdk Request |
+| `normalize.go` | Cleans history for the current provider |
+| `job_progress_hook.go` | Reports background job progress during runs |
 | `contextwindow.go`, `compaction.go`, `budget.go` | Step output limit, context reserve, and compaction |
 
-The step output limit is explained in plain English in [05a-output-limit.md](./05a-output-limit.md). `cometmind.maxTokens` in the settings file is not that limit.
+The **context reserve** is space kept for the reply. The step output limit is explained in plain English in [05a-output-limit.md](./05a-output-limit.md). Each step sets `MaxTokens` to `min(this model's output limit, 32,000)`. `cometmind.maxTokens` in the settings file is not that limit.
 
 ## Session service and data model
 
 ### SQLite schema (`internal/db/schema.sql`)
 
+A **schema** is the list of tables and columns. An **embedding** is a list of numbers that stands for text. Search uses it to find similar memories. An **audit** row records what changed. A **lease** is a time-limited claim that one worker owns a job. **Durable** means the data stays after the process exits. **Semantic** memory stores facts by meaning, not only by exact words.
+
 | Table | Purpose |
 |-------|---------|
 | `workspaces` | Registered absolute workspace paths |
-| `sessions` | Conversations: model, provider, token usage JSON |
-| `messages` | User, assistant, tool_result, system rows |
-| `tool_calls` | Tool-call shells + execution output |
-| `memories` | Semantic memory entries with embeddings |
+| `sessions` | Conversations: model, provider, and token usage JSON |
+| `messages` | User, assistant, tool_result, and system rows |
+| `tool_calls` | Tool-call records plus execution output |
+| `memories` | Semantic memory rows with embeddings |
 | `memory_events` | Memory audit events |
-| `memory_reembed_jobs` | Durable embedding migration/rebuild work |
-| `assistant_provider_states` | Opaque continuation state scoped to the provider/model that produced it |
-| `model_capability_negatives` | Learned compatibility exclusions for unsupported model capabilities |
-| `inbox_messages` | Durable user-facing notifications and reply state |
-| `gateway_sessions` | External chat thread/channel to session mappings |
-| `jobs` | Durable job queue with status, leases, retry/archive/delete metadata |
+| `memory_reembed_jobs` | Durable work to migrate or rebuild embeddings |
+| `assistant_provider_states` | Opaque continuation state for the provider and model that made it |
+| `model_capability_negatives` | Saved exclusions for model features that failed |
+| `inbox_messages` | Durable notices for the user, plus reply state |
+| `gateway_sessions` | Maps an outside chat thread or channel to a session |
+| `jobs` | Durable job queue: status, leases, retry, archive, and delete data |
 | `scheduled_jobs` | One-shot and recurring schedule definitions |
-| `job_events` | Audit log for job lifecycle changes |
+| `job_events` | Audit log for job status changes |
+
+**One-shot** means the schedule runs once. **Recurring** means it repeats.
 
 Database path: `~/.cometmind/cometmind.db`
 
 ### Migrations
 
-- Tracked via `PRAGMA user_version` / `schemaVersion` in `internal/db/migrate.go`
-- Read `schemaVersion` in `migrate.go` for the current version; schema changes for existing users need an incremental `alterStatements` entry, not only a `schema.sql` edit
-- **Never** edit generated sqlc files — run `sqlc generate` after schema/query changes
+- Tracked with `PRAGMA user_version` and `schemaVersion` in `internal/db/migrate.go`.
+- Read `schemaVersion` in `migrate.go` for the current version.
+- For existing users, add an incremental `alterStatements` entry. A `schema.sql` edit alone is not enough.
+- Never edit generated sqlc files. After a schema or query change, run `sqlc generate`.
+
+**Incremental** means the change updates the old database in small steps. **sqlc** generates Go code from SQL. Do not edit that generated code by hand.
 
 ### session.Service responsibilities
 
 | Operation | Method area |
 |-----------|-------------|
 | Register workspace | `EnsureWorkspace` |
-| Create/list/delete sessions | CRUD methods |
+| Create, list, or delete sessions | CRUD methods |
 | Append user message | `AppendUserMessageContent` |
-| Persist assistant step | `AppendAssistantStep` |
-| Persist tool results | `AppendToolResult` |
+| Save assistant step | `AppendAssistantStep` |
+| Save tool results | `AppendToolResult` |
 | Rebuild SDK history | `buildSDKMessagesFromRows` |
 | UI transcript | `LoadTranscript` in `transcript.go` |
 | Token usage snapshot | JSON in `sessions.token_usage` |
 
+**CRUD** means create, read, update, and delete. A **transcript** is the chat text shown in the UI. A **snapshot** is the saved totals at one moment.
+
 ### Persisted formats
+
+**Persisted** means saved in the database.
 
 | Field | Format |
 |-------|--------|
 | `messages.reasoning_content` | JSON array of reasoning blocks |
 | `messages.content` (tool_result) | JSON `{tool_call_id, content, is_error}` |
 | `sessions.token_usage` | JSON `cometsdk.TokenUsage` |
-| `sessions.context_summary` | Compacted conversation summary |
+| `sessions.context_summary` | Short summary after context compaction |
 
 ## HTTP/SSE server
 
-Gin app in `server/server.go`, built via `server.New(deps)`.
+The HTTP server is a Gin app in `server/server.go`. It is built with `server.New(deps)`. **Gin** is the Go HTTP library. **SSE** means Server-Sent Events. The server pushes events to the client on one open connection.
 
 ### Critical handler: POST message
 
-Implemented in `server/messages.go` as `handlePostMessage` (registered from `server/server.go`):
+`handlePostMessage` lives in `server/messages.go`. It is registered from `server/server.go`.
 
 ```text
 handlePostMessage:
@@ -179,29 +220,31 @@ handlePostMessage:
 
 ### RunManager
 
-`server/run_manager.go` enforces **one in-flight run per session**. Prevents interleaved tool results and corrupted transcripts when the user rapid-fires messages.
+`server/run_manager.go` allows one in-flight run per session. **In-flight** means the run has started and has not finished. This stops tool results from mixing. It also protects the transcript if the user sends many messages quickly. Mixed results would damage the transcript.
 
-Cancel via `DELETE /api/v1/sessions/{id}/runs/current` → `RunManager.Cancel`.
+Cancel with `DELETE /api/v1/sessions/{id}/runs/current`. That calls `RunManager.Cancel`.
 
 ### CORS
 
-Allows Vite dev origins, localhost, `app://`, `file://`, and empty origin for packaged app.
+**CORS** is a browser rule. It decides which sites may call the API. CometMind allows Vite dev origins, localhost, `app://`, `file://`, and an empty origin. **Vite** is the frontend dev server. An **origin** is the site address the browser checks. The empty origin is for the packaged app.
 
 ## Tools
 
 ### Tool surfaces (`internal/tools/surface.go`)
 
-Capability policy, not separate registries of hand-picked names:
+A tool **surface** is a capability policy. It is not a separate registry of chosen tool names. A **capability** is a kind of action the agent may take.
 
 | Surface | Used by | Capabilities |
 |---------|---------|--------------|
-| `ParentSurface` | Main agent | Full: read/edit/run, skills+drafts, spawn, jobs, memory, MCP, settings; `delegate_coding_task` only if ACP enabled |
-| `ResearchSurface` | In-process general subagent | Read + skills |
-| `CodingSurface` | In-process coding subagent | Read + edit + run + skills (no MCP / spawn / settings) |
+| `ParentSurface` | Main agent | Full: read, edit, run, skills and drafts, spawn, jobs, memory, MCP, settings. `delegate_coding_task` only if ACP is enabled |
+| `ResearchSurface` | In-process general subagent | Read and skills |
+| `CodingSurface` | In-process coding subagent | Read, edit, run, and skills. No MCP, spawn, or settings |
+
+**ACP** is the coding-harness feature. A **subagent** is a smaller agent started by the main agent. **In-process** means it runs inside CometMind, not as a separate program. A **harness** is an outside coding program.
 
 ### Registry (`internal/tools/registry.go`)
 
-Built per workspace root via `newRegistryWithSurface`:
+Each workspace root gets a registry from `newRegistryWithSurface`.
 
 | Family | Tools |
 |--------|-------|
@@ -213,9 +256,11 @@ Built per workspace root via `newRegistryWithSurface`:
 | Memory | `recall_task_outcome`, `list_memories`, `search_memories`, `create_memory`, `update_memory`, `delete_memory` |
 | Settings | `list_settings`, `get_settings`, `patch_settings` (parent only; reject desktop keys) |
 
+**FS** means the file system. The **shell** runs terminal commands.
+
 ### Sandbox
 
-`internal/tools/sandbox/pathcheck.go` prevents path escape outside workspace root. Every file tool goes through this check.
+A **sandbox** limits where tools may act. `internal/tools/sandbox/pathcheck.go` blocks a path escape. A **path escape** is a file path that leaves the workspace root. Every file tool uses this check.
 
 ### Tool interface
 
@@ -226,51 +271,65 @@ type Tool interface {
 }
 ```
 
-Register new tools in `registry.go` `init()` or `NewRegistry`.
+Register new tools in `registry.go`, in `init()` or `NewRegistry`.
 
 ## Config and provider factory
 
 ### Config loading (`internal/config/config.go`)
 
-1. Read `~/.cometmind/cometline-settings.json` (preferred)
-2. Fall back to `~/.cometmind/config.toml` if JSON missing
-3. Overlay `COMETMIND_*` environment variables
+1. Read `~/.cometmind/cometline-settings.json` first.
+2. If that JSON file is missing, read `~/.cometmind/config.toml`.
+3. Then apply `COMETMIND_*` environment variables over the file values.
+
+An **environment variable** is a value set outside the program. These variables replace matching values from the file.
 
 ### Provider factory (`internal/provider/factory.go`)
 
-`NewForModel(providerID, modelID)`:
-- Resolve provider entry from settings
-- Resolve API key (settings → env → provider-specific vars) for key-based methods
-- Wire `codex` and `xai` subscription/session providers
-- Construct concrete `cometsdk.Provider`
-- For `opencode-go`, dispatch by the model's resolved protocol from models.dev metadata: `@ai-sdk/openai` → OpenAI Responses (`openairesponses` provider), `@ai-sdk/anthropic` → Anthropic Messages, default (including offline catalog) → Chat Completions
+`NewForModel(providerID, modelID)` does this:
 
-`NewFor` (entry's primary model) and `NewMemoryLLM` (extraction model) delegate to `NewForModel`. The shared Responses wire protocol lives in `comet-sdk/internal/responsesproto` and is reused by both the Codex and OpenCode Go providers.
+- Find the provider entry in settings.
+- For key-based methods, find the API key. The order is settings, then the environment, then provider-specific variables.
+- Connect the `codex` and `xai` subscription or session providers.
+- Build the concrete `cometsdk.Provider`.
+
+**Concrete** means the real provider type, not only an interface.
+
+For `opencode-go`, the factory chooses the wire protocol from models.dev metadata. A **wire protocol** is the exact HTTP message format. **Metadata** here is the model record from models.dev.
+
+- `@ai-sdk/openai` uses OpenAI Responses. That provider is `openairesponses`.
+- `@ai-sdk/anthropic` uses Anthropic Messages.
+- The default uses Chat Completions. This includes the offline catalog.
+
+`NewFor` uses the entry's primary model. `NewMemoryLLM` uses the extraction model. Both call `NewForModel`.
+
+The shared Responses wire protocol lives in `comet-sdk/internal/responsesproto`. Codex and OpenCode Go both use it.
 
 ## Event layer
 
-`internal/event/event.go` defines the CometMind-native event union and JSON wire format. The runner translates comet-sdk events into these before the server writes SSE frames.
+`internal/event/event.go` defines CometMind event types and their JSON format. This set is an **event union**. One JSON object is one of those event types. The runner translates comet-sdk events into these events. Then the server writes SSE frames. An SSE **frame** is one event message on that connection.
 
-Runtime-only events (no direct SDK equivalent) include:
+Some events exist only in the runtime. They have no matching SDK event:
 
 - `turn_status`, `turn_recover`
 - `memory_injected`, `memory_updated`, `memory_compaction_completed`
 - `subagent_started`, `subagent_progress`, `subagent_finished`
 
-This is a **second translation layer** — intentional separation so the OpenAPI contract can diverge slightly from SDK internals.
+This is a second translation layer. The split is intentional. The OpenAPI contract can differ a little from SDK internals. **OpenAPI** is the written description of the HTTP API.
 
 ## CLI commands
 
 | Command | Use |
 |---------|-----|
-| `go run . init --workspace /path` | Bootstrap config + DB |
-| `go run . serve --port 7700` | Start API (what Electron spawns) |
-| `go run . chat "hello"` | Quick terminal test |
+| `go run . init --workspace /path` | Create config and the database |
+| `go run . serve --port 7700` | Start the API. This is what Electron starts. |
+| `go run . chat "hello"` | Quick test in the terminal |
 | `go run . session list` | List sessions |
-| `go run . gateway run --platform discord` | Start Discord bot |
+| `go run . gateway run --platform discord` | Start the Discord bot |
 | `go run . settings reload` | Ask running processes to reload safe settings in place |
-| `go run . process status\|stop\|restart` | Inspect/control long-running CometMind processes |
+| `go run . process status\|stop\|restart` | Inspect or control long-running CometMind processes |
 | `go run . model list\|set` | Inspect or change model defaults in settings |
+
+**In place** means the running process reloads settings. It does not exit and start again.
 
 ## Testing
 
@@ -280,22 +339,24 @@ go test ./...                    # All tests
 go test -run TestPostMessage ./server  # Specific handler test
 ```
 
-Server tests use `httptest` + temporary SQLite databases.
+Server tests use `httptest` and a temporary SQLite database.
 
 ## Invariants checklist
 
-Before changing CometMind, verify:
+An **invariant** is a rule that must stay true.
 
-- [ ] Sessions remain workspace-scoped
-- [ ] One run per session enforced
-- [ ] `done` always emitted
-- [ ] Tool calls persisted before results
-- [ ] `turn_status`/`done` events keep UI progress and termination coherent
-- [ ] Workspace sandbox intact
+Before you change CometMind, check these:
+
+- [ ] Sessions stay workspace-scoped. Each session belongs to one workspace.
+- [ ] One run per session is enforced
+- [ ] `done` is always sent
+- [ ] Tool calls are saved before their results
+- [ ] `turn_status` and `done` keep UI progress and the end of the turn consistent
+- [ ] The workspace sandbox still blocks path escape
 - [ ] Schema changes have migrations
-- [ ] OpenAPI updated if API changes
-- [ ] Jobs changes update job events, leases, settings, and retention behavior together
+- [ ] OpenAPI is updated if the API changes
+- [ ] Job changes update job events, leases, settings, and retention together
 
 ## What's next
 
-[06-cometmind-features.md](./06-cometmind-features.md) covers memory, MCP, coding-harness delegation, Discord, skills, and background jobs built on this runtime.
+[06-cometmind-features.md](./06-cometmind-features.md) covers memory, MCP, coding-harness delegation, Discord, skills, and background jobs. Those features are built on this runtime.
