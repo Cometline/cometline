@@ -1,14 +1,16 @@
-# 10 — Development Guide
+# 10 - Development Guide
 
 > **Prerequisite:** [09-contracts-codegen.md](./09-contracts-codegen.md)  
-> **You made it.** This is the practical reference for day-to-day work.
+> This is the practical reference for daily work.
 
 ## Prerequisites
 
 - macOS 13+ (primary target)
 - Go 1.25+
 - Node.js + pnpm
-- Optional: `sqlc`, `golangci-lint` for extended workflows
+- Optional: `sqlc` and `golangci-lint`, for workflows beyond the basic commands
+
+The primary target is the main system this app is built for. A workflow here is a set of commands for one kind of task.
 
 ## First-time setup
 
@@ -19,9 +21,13 @@ make install    # pnpm install in cometline/
 make dev        # build sidecar + launch Electron dev app
 ```
 
+A sidecar is the CometMind process that runs next to the desktop app.
+
 ## Command reference
 
 ### Root Makefile
+
+Codegen means code generation. Freshness means the generated files still match their sources.
 
 | Command          | What it does                                  |
 | ---------------- | --------------------------------------------- |
@@ -34,6 +40,8 @@ make dev        # build sidecar + launch Electron dev app
 | `make port`      | Show process listening on `127.0.0.1:7700`    |
 | `make clean-log` | Remove `~/.cometmind/logs/cometline*.log`     |
 
+A renderer is the part of the app that draws the UI. OpenAPI is a file format that describes an HTTP API.
+
 ### comet-sdk
 
 ```bash
@@ -43,6 +51,8 @@ make test-live         # Live provider tests (needs API keys)
 make build             # Verify compilation
 make lint              # golangci-lint
 ```
+
+CI-safe means the tests do not call a live provider. CI is the automated check that runs on a proposed change. Live tests call a real API and need API keys.
 
 ### cometmind
 
@@ -86,100 +96,116 @@ node .gitnexus/run.cjs context "SymbolName" -f path/to/file.go
 node .gitnexus/run.cjs impact "SymbolName"    # before editing
 ```
 
-Re-index after major changes: `node .gitnexus/run.cjs analyze`
+Run the impact command before you edit a symbol. It shows what else uses that name. A symbol is a named function, type, or method.
+
+Re-index after large changes with `node .gitnexus/run.cjs analyze`.
 
 ---
 
 ## Extension recipes
 
+A recipe is a short step list for one kind of change.
+
 ### Add a new LLM provider
 
-1. `comet-sdk/provider/<name>/` — implement `Provider` interface
-2. Add fixtures + `stream_test.go`
-3. `cometmind/internal/provider/factory.go` — wire provider ID
-4. `cometmind/internal/config/config.go` — method constant if needed
-5. `cometline/src/lib/settings/schema.ts` — validation
-6. `cometline/src/lib/types.ts` — `ProviderMethod` type
-7. `SettingsProvidersPanel.svelte` — UI fields if non-standard
-8. `electron/src/domains/provider-auth.ts` — model discovery and/or Codex/xAI auth if subscription-based
-9. `cd comet-sdk && make test && cd ../cometmind && go test ./...`
+1. In `comet-sdk/provider/<name>/`, implement the `Provider` interface.
+2. Add fixtures and `stream_test.go`. A fixture is a saved sample used by a test.
+3. In `cometmind/internal/provider/factory.go`, connect the provider ID.
+4. In `cometmind/internal/config/config.go`, add a method constant if one is needed.
+5. In `cometline/src/lib/settings/schema.ts`, add validation.
+6. In `cometline/src/lib/types.ts`, add the `ProviderMethod` type.
+7. In `SettingsProvidersPanel.svelte`, add UI fields if the provider is not standard.
+8. In `electron/src/domains/provider-auth.ts`, add model discovery, Codex or xAI auth, or both, if the provider is subscription-based.
+9. Run `cd comet-sdk && make test && cd ../cometmind && go test ./...`.
+
+An LLM is a large language model. Subscription-based means the provider uses a sign-in session, not an API key.
 
 ### Enable coding-harness delegation
 
-1. Settings → CometMind → **Coding task delegation** → enable + pick `default_harness` (`opencode` / `claude` / `codex`)
-2. Ensure the harness CLI is on `PATH`
-3. Do **not** edit command/args in settings — fixed in `cometmind/internal/acp/runner.go`
-4. Agent uses `delegate_coding_task` when registered
+1. Open Settings, then CometMind, then **Coding task delegation**. Enable it, and pick `default_harness` (`opencode`, `claude`, or `codex`).
+2. Make sure the harness CLI is on `PATH`. `PATH` is the list of folders the shell searches for programs.
+3. Do not edit the command or the args in settings. They are fixed in `cometmind/internal/acp/runner.go`.
+4. The agent uses `delegate_coding_task` when that tool is registered.
+
+A harness is an external coding program. Delegation means the agent hands that coding task to the harness.
 
 ### Add a built-in tool
 
-1. Create `cometmind/internal/tools/<name>.go`
-2. Implement `Tool` interface (`Spec()`, `Execute()`)
-3. Register in `registry.go` via the appropriate `ToolSurface` flags in `surface.go`
-4. Add unit tests for schema + execution
-5. Consider workspace sandbox (`sandbox/pathcheck.go`)
-6. `go test ./internal/tools/...`
+1. Create `cometmind/internal/tools/<name>.go`.
+2. Implement the `Tool` interface with `Spec()` and `Execute()`.
+3. Register it in `registry.go` with the right `ToolSurface` flags in `surface.go`.
+4. Add unit tests for the schema and for execution.
+5. Consider the workspace sandbox in `sandbox/pathcheck.go`. A sandbox limits which files a tool may use.
+6. Run `go test ./internal/tools/...`.
 
 ### Add a REST endpoint
 
-1. `cometmind/openapi.yaml`
-2. `cometmind/server/server.go` — handler + route
-3. `make generate`
-4. `cometline/src/lib/client/cometmind.ts` — client function
-5. Server test in `server/*_test.go`
+1. Edit `cometmind/openapi.yaml`.
+2. In `cometmind/server/server.go`, add the handler and the route.
+3. Run `make generate`.
+4. In `cometline/src/lib/client/cometmind.ts`, add the client function.
+5. Add a server test in `server/*_test.go`.
+
+REST is a request-and-response web API. An endpoint is one API path.
 
 ### Add an SSE event type
 
-1. `openapi.yaml` — `StreamEvent` schema
-2. `internal/event/event.go` — struct + emitter
-3. `make generate`
-4. `cometline/src/lib/types.ts` — union member
-5. `reducers/chat.ts` — case handler **and/or** runtime toast/layout consumer
-6. UI component if new visual needed
-7. `internal/contract/contract_test.go`
+1. In `openapi.yaml`, extend the `StreamEvent` schema.
+2. In `internal/event/event.go`, add the struct and the emitter.
+3. Run `make generate`.
+4. In `cometline/src/lib/types.ts`, add the union member.
+5. Add a case in `reducers/chat.ts`, in the runtime toast or layout consumer, or in both.
+6. Add a UI component if a new visual is needed.
+7. Update `internal/contract/contract_test.go`.
+
+SSE means Server-Sent Events: a live stream of events from the server. An emitter is a function that sends one event. A union member is one shape inside a type that can be several shapes.
 
 ### Change database schema
 
-1. `internal/db/schema.sql`
-2. `internal/db/migrate.go` — incremental migration
-3. `internal/db/queries/*.sql`
-4. `sqlc generate`
-5. `internal/session/service.go` — domain updates
-6. `go test ./internal/session/... ./server/...`
+1. Edit `internal/db/schema.sql`.
+2. In `internal/db/migrate.go`, add an incremental migration. Incremental means one small step from the old version to the new one.
+3. Edit `internal/db/queries/*.sql`.
+4. Run `sqlc generate`.
+5. In `internal/session/service.go`, update the domain logic.
+6. Run `go test ./internal/session/... ./server/...`.
 
 ### Add an Agent Skill
 
-1. Create `~/.cometmind/skills/<name>/SKILL.md`
-2. YAML frontmatter: `name`, `description`
-3. Markdown body with workflow and examples
-4. Invoke with `/<name>` in composer
+1. Create `~/.cometmind/skills/<name>/SKILL.md`.
+2. Add YAML frontmatter with `name` and `description`. Frontmatter is the YAML block at the top of the file.
+3. Write a Markdown body with the workflow and examples.
+4. Invoke it with `/<name>` in the composer.
 
 ### Add a settings field
 
-1. `settings/schema.ts` — type + normalization
-2. Decide desktop vs runtime: desktop keys go in `cometline-desktop.json` (`appearance` / `shortcuts` / `app`)
-3. Settings panel module under `components/settings/` — UI control
-4. `electron/src/domains/settings.ts` and `settings-domain.ts` — save/load split path if needed
-5. `cometmind/internal/config/` + `settingsapply` — runtime consumption / classify
-6. Decide: pending-save vs instant-save vs action-based
-7. See [../SETTINGS_AND_PERSISTENCE.md](../SETTINGS_AND_PERSISTENCE.md)
+1. In `settings/schema.ts`, add the type and the normalization. Normalize means rewrite the value into the expected form.
+2. Decide whether the key is desktop or runtime. Desktop keys go in `cometline-desktop.json`, under `appearance`, `shortcuts`, or `app`.
+3. Add a UI control in a settings panel under `components/settings/`.
+4. Update `electron/src/domains/settings.ts` and `settings-domain.ts` if the save or load split must change.
+5. Update `cometmind/internal/config/` and `settingsapply` so the runtime can read the field and classify the change. Classify means choose reload, gateway recycle, or full restart.
+6. Choose pending-save, instant-save, or action-based.
+7. See [../SETTINGS_AND_PERSISTENCE.md](../SETTINGS_AND_PERSISTENCE.md).
 
 ### Change jobs or scheduled jobs
 
-1. `cometmind/internal/jobs/` or `cometmind/internal/scheduler/`
-2. `cometmind/internal/db/schema.sql` / queries / migrations if persistence changes
-3. `cometmind/openapi.yaml` and `make generate` if API shape changes
-4. `cometline/src/lib/client/cometmind.ts`
-5. `cometline/src/lib/components/jobs/` and `cometline/src/lib/jobs/`
-6. Verify leases, events, retention, and notifications still make sense
+1. Edit `cometmind/internal/jobs/` or `cometmind/internal/scheduler/`.
+2. If saved data changes, update `cometmind/internal/db/schema.sql`, the queries, and the migrations.
+3. If the API shape changes, update `cometmind/openapi.yaml` and run `make generate`.
+4. Update `cometline/src/lib/client/cometmind.ts`.
+5. Update `cometline/src/lib/components/jobs/` and `cometline/src/lib/jobs/`.
+6. Check that leases, events, retention, and notifications are still correct.
+
+A lease is a time-limited claim on a job. Retention means how long finished data is kept.
 
 ### Change MCP behavior
 
-1. `cometmind/internal/mcp/`
-2. `cometmind/internal/tools/registry.go` if tool exposure changes
-3. `cometmind/openapi.yaml` and generated clients for management API changes
-4. `cometline/src/lib/components/settings/SettingsMCPPanel.svelte`
-5. `cometline/electron/src/domains/provider-auth.ts`, `runtime-ipc.ts`, `preload.ts`, and `shared/api.ts` for OAuth or import IPC
+1. Edit `cometmind/internal/mcp/`.
+2. If tool exposure changes, update `cometmind/internal/tools/registry.go`.
+3. For management API changes, update `cometmind/openapi.yaml` and the generated clients.
+4. Update `cometline/src/lib/components/settings/SettingsMCPPanel.svelte`.
+5. For OAuth or import IPC, update `cometline/electron/src/domains/provider-auth.ts`, `runtime-ipc.ts`, `preload.ts`, and `shared/api.ts`.
+
+MCP is a protocol for external tools. OAuth is a standard login flow. IPC means messages between Electron processes.
 
 ---
 
@@ -189,7 +215,9 @@ Re-index after major changes: `node .gitnexus/run.cjs analyze`
 make check    # full gate from repo root
 ```
 
-Minimum per-module:
+A PR is a pull request: a proposed set of changes. A gate here means the full set of checks.
+
+Minimum per module:
 
 ```bash
 cd comet-sdk && go test ./...
@@ -209,6 +237,8 @@ make dev
 # Run a tool (e.g. list_dir)
 ```
 
+A smoke test is a short manual check that the main path still works.
+
 ---
 
 ## Commit conventions
@@ -221,7 +251,7 @@ fix(cometmind): prevent tool execution path escape
 refactor(comet-sdk): extract retry logic into helper
 ```
 
-Scopes: `cometline`, `cometmind`, `comet-sdk`, or cross-cutting `docs`, `ci`.
+Scopes are `cometline`, `cometmind`, `comet-sdk`, or the cross-cutting scopes `docs` and `ci`. Cross-cutting means the change is not limited to one module.
 
 ---
 
@@ -240,6 +270,8 @@ Scopes: `cometline`, `cometmind`, `comet-sdk`, or cross-cutting `docs`, `ci`.
 | `~/.cometmind/skills/`                    | Global skills                           |
 | `~/.cometmind/skill-drafts/`              | Draft skills                            |
 
+An MCP token is a saved login value for an MCP server. Spilled tool output is tool output saved in this folder. A draft skill is a skill that is not final yet.
+
 Environment overrides:
 
 ```bash
@@ -251,20 +283,24 @@ OPENAI_API_KEY=...
 # Codex / xAI use local subscription sessions, not these keys
 ```
 
+A subscription session is stored on this machine. It is not one of these API keys.
+
 ---
 
 ## Troubleshooting
 
 | Problem                 | Check                                                                       |
 | ----------------------- | --------------------------------------------------------------------------- |
-| Sidecar won't start     | `~/.cometmind/logs/cometline.log`, `make port`                              |
-| Settings not persisting | JSON valid? `jq . ~/.cometmind/cometline-settings.json`                     |
-| Streaming frozen        | Reducer immutability; check browser console                                 |
-| Go test fails           | Running from correct module dir?                                            |
-| Codegen drift           | `make generate` then `make check`                                           |
-| Stale GitNexus          | `node .gitnexus/run.cjs analyze`                                            |
-| MCP OAuth broken        | Check `~/.cometmind/mcp-oauth/` files and Settings → CometMind → MCP status |
-| Job stuck ongoing       | Check job lease expiry, `job_events`, and autonomous worker settings        |
+| Sidecar will not start  | `~/.cometmind/logs/cometline.log`, `make port`                              |
+| Settings are not saved  | Is the JSON valid? Run `jq . ~/.cometmind/cometline-settings.json`          |
+| Streaming has stopped updating | Reducer immutability; check the browser console                       |
+| A Go test fails         | Are you in the correct module directory?                                    |
+| Generated files no longer match | Run `make generate`, then `make check`                               |
+| The GitNexus index is old | `node .gitnexus/run.cjs analyze`                                          |
+| MCP OAuth is broken     | Check `~/.cometmind/mcp-oauth/` and Settings → CometMind → MCP status       |
+| A job stays ongoing     | Check job lease expiry, `job_events`, and autonomous worker settings        |
+
+Immutability means the reducer must not edit the old array in place. Ongoing means the job is still marked as running. Autonomous means the worker can continue without a new user message.
 
 ---
 
@@ -272,21 +308,23 @@ OPENAI_API_KEY=...
 
 | #   | Doc               | You learned                                          |
 | --- | ----------------- | ---------------------------------------------------- |
-| 01  | Nutshell          | What Cometline is, one-message journey               |
-| 02  | Architecture      | Boundaries, contracts, invariants                    |
-| 03  | Data flows        | Startup, agent loop, settings, packaging             |
-| 04  | comet-sdk         | Provider interface, streaming, retries               |
-| 05  | cometmind runtime | Runner, sessions, server, tools                      |
-| 06  | Features          | Memory, MCP, coding harness, Discord, skills, jobs   |
-| 07  | Desktop           | Electron, sidecar, IPC, settings split, native OAuth |
-| 08  | Frontend          | Routes, stores, reducer, components                  |
-| 09  | Contracts         | OpenAPI, sqlc, codegen workflow                      |
-| 10  | Development       | Commands, recipes, verification                      |
+| 01  | Nutshell          | What Cometline is, and the path of one message       |
+| 02  | Architecture      | Boundaries, contracts, and invariants                |
+| 03  | Data flows        | Startup, the agent loop, settings, and packaging     |
+| 04  | comet-sdk         | The provider interface, streaming, and retries       |
+| 05  | cometmind runtime | Runner, sessions, server, and tools                  |
+| 06  | Features          | Memory, MCP, the coding harness, Discord, skills, and jobs |
+| 07  | Desktop           | Electron, the sidecar, IPC, the settings split, and native OAuth |
+| 08  | Frontend          | Routes, stores, the reducer, and components          |
+| 09  | Contracts         | OpenAPI, sqlc, and the codegen workflow              |
+| 10  | Development       | Commands, recipes, and verification                  |
+
+An invariant is a rule that must stay true. Streaming means the reply arrives in small pieces while the model is still writing.
 
 ## Further reading
 
-- [../../AGENTS.md](../../AGENTS.md) — agent/dev automation rules
-- [../../ARCHITECTURE_GUIDE.md](../../ARCHITECTURE_GUIDE.md) — line-level contributor map
-- [../MODULE_GUIDE.md](../MODULE_GUIDE.md) — ownership checklists
-- [../SETTINGS_AND_PERSISTENCE.md](../SETTINGS_AND_PERSISTENCE.md) — settings split and reload rules
-- [cometmind/openapi.yaml](../../cometmind/openapi.yaml) — API spec
+- [../../AGENTS.md](../../AGENTS.md): rules for agents and for development automation
+- [../../ARCHITECTURE_GUIDE.md](../../ARCHITECTURE_GUIDE.md): a contributor map that points at specific lines
+- [../MODULE_GUIDE.md](../MODULE_GUIDE.md): ownership checklists
+- [../SETTINGS_AND_PERSISTENCE.md](../SETTINGS_AND_PERSISTENCE.md): the settings split and reload rules
+- [cometmind/openapi.yaml](../../cometmind/openapi.yaml): the API spec

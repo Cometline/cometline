@@ -1,7 +1,5 @@
 # Output limit
 
-This page uses plain English (about B2). Sentences are short. A new word is explained the first time it appears.
-
 Read this after [05-cometmind-runtime.md](./05-cometmind-runtime.md).
 
 ## The problem

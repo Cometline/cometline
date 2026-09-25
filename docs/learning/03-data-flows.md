@@ -1,9 +1,11 @@
-# 03 — Data Flows
+# 03 - Data Flows
 
 > **Prerequisite:** [02-architecture.md](./02-architecture.md)  
 > **Next:** [04-comet-sdk.md](./04-comet-sdk.md)
 
-This doc traces the major execution flows GitNexus indexes. Each flow lists the steps, key symbols, and source files.
+Prerequisite means read that page first.
+
+This page follows the main execution flows that GitNexus indexes. An **execution flow** is the ordered steps for one job. GitNexus is the code index for this project. Each flow lists the steps, the key symbols, and the source files. A **symbol** is a function or type name in the code.
 
 ---
 
@@ -29,6 +31,8 @@ sequenceDiagram
     R->>R: Start retention sync + job notification poller
 ```
 
+In the diagram, spawn means start a process. A **sidecar** is a helper process. The desktop app starts it and stops it. The **renderer** is the window that shows the UI. **IPC** is a message between that window and the Electron main process. A **poller** repeats a check on a timer.
+
 | Step                   | Source                                                                        |
 | ---------------------- | ----------------------------------------------------------------------------- |
 | Port/health constants  | `cometline/electron/src/domains/cometmind-lifecycle.ts`                       |
@@ -38,13 +42,13 @@ sequenceDiagram
 | Renderer boot          | `cometline/src/routes/+layout.svelte`                                         |
 | Runtime health store   | `cometline/src/lib/stores/runtime.svelte.ts`                                  |
 
-**Invariant:** Sidecar stop waits for process exit before restart so port 7700 and the SQLite WAL lock are released.
+**Invariant:** An **invariant** is a rule that must stay true. Sidecar stop waits for process exit before a restart. That wait releases port 7700. It also releases the SQLite WAL lock. **WAL** means write-ahead log. SQLite holds that lock while the database is open.
 
 ---
 
 ## Flow 2: First message from home screen
 
-Creating a new session and sending the first message.
+Creating a new session and sending the first message. The **hero composer** is the message box on the home screen.
 
 ```text
 User submits hero composer (+page.svelte)
@@ -69,13 +73,15 @@ User submits hero composer (+page.svelte)
 | SSE client                  | `cometline/src/lib/client/cometmind.ts`          |
 | Reducer                     | `cometline/src/lib/reducers/chat.ts`             |
 
-**Why the pending-message queue exists:** Without it, navigation to `/session/{id}` races with transcript load — the first user bubble can disappear or duplicate.
+**Why the pending-message queue exists:** Without it, opening `/session/{id}` overlaps transcript load. A **transcript** is the saved chat text. The first user bubble can then disappear. It can also appear twice. A **bubble** is one message box on the screen.
+
+**SSE** means server-sent events. The server pushes those events over one open HTTP response. A **reducer** turns the events into UI state.
 
 ---
 
 ## Flow 3: CometMind HTTP turn execution
 
-What the server does when it receives `POST /api/v1/sessions/{id}/messages`.
+What the server does when it receives `POST /api/v1/sessions/{id}/messages`. A **turn** is one user message plus the work to answer it.
 
 ```mermaid
 sequenceDiagram
@@ -106,20 +112,22 @@ sequenceDiagram
     H->>RM: Release run slot
 ```
 
+A **goroutine** is a Go task that runs in the background. **Flush** means send each event at once, not later. In the diagram, opt means that step is optional. A **run slot** allows one active turn for that session.
+
 | Step               | Source                                                |
 | ------------------ | ----------------------------------------------------- |
 | Route registration | `cometmind/server/server.go`                          |
-| Message handler    | `cometmind/server/messages.go` — `handlePostMessage`  |
+| Message handler    | `cometmind/server/messages.go`: `handlePostMessage`   |
 | Single-run lock    | `cometmind/server/run_manager.go`                     |
 | Runner factory     | `cometmind/internal/runtime/runtime.go` → `RunnerFor` |
 
-GitNexus process `proc_78_appendusermessageand` traces user message persistence through `Service.AppendUserMessageContent` in `session/service.go`.
+GitNexus process `proc_78_appendusermessageand` follows user message persistence. **Persistence** means the app saves the data. The path goes through `Service.AppendUserMessageContent` in `session/service.go`.
 
 ---
 
 ## Flow 4: Agent step and tool loop
 
-The core brain — `Runner.Run` in `cometmind/internal/agent/runner.go`.
+This is the main loop of the agent. The function is `Runner.Run` in `cometmind/internal/agent/runner.go`.
 
 ```text
 Run(ctx, userTurn, eventCh)
@@ -149,22 +157,28 @@ Run(ctx, userTurn, eventCh)
   Post-turn: extract memories (async)
 ```
 
+In that loop, compact context means shorten older chat if needed. Async means memory extraction after the turn runs in the background.
+
 **Outgoing calls from `Runner.Run` (GitNexus):**
 
-- `llm.StreamMessage` — provider streaming
-- `event.TextDelta`, `ReasoningStart`, `ReasoningDelta`, `ToolCall`, `ToolResult`, `StepFinish` — SSE emission
-- `BuildRequest`, `NormalizeHistoryForProvider` — request assembly
-- `TurnStore` methods — persistence (via interface, not concrete DB)
+**Outgoing** means these calls leave `Runner.Run`.
 
-**Finish reasons** are normalized in comet-sdk (`stop`, `tool_use`, `max_tokens`, `error`). The runner does not look at provider-specific strings.
+- `llm.StreamMessage`: provider streaming
+- `event.TextDelta`, `ReasoningStart`, `ReasoningDelta`, `ToolCall`, `ToolResult`, `StepFinish`: SSE emission
+- `BuildRequest`, `NormalizeHistoryForProvider`: request assembly
+- `TurnStore` methods: persistence through an interface, not the concrete database
 
-`max_tokens` means the step hit the output limit. The limit is the smaller of the current model's output limit and 32,000 tokens. See [05a-output-limit.md](./05a-output-limit.md). Thinking tokens and answer tokens share that limit on current models.
+**Concrete** means the real database type, not only the interface. An **interface** is a list of methods, not the real database. SSE emission means those calls send server-sent events.
+
+**Finish reasons** are normalized in comet-sdk (`stop`, `tool_use`, `max_tokens`, `error`). **Normalized** means every provider uses those same words. The runner does not look at provider-specific strings.
+
+`max_tokens` means the step reached the output limit. The limit is the smaller of the current model's output limit and 32,000 tokens. A **token** is a small piece of text that the model counts. On `max_tokens`, the runner can continue a few times, then stop. See [05a-output-limit.md](./05a-output-limit.md). Thinking tokens and answer tokens share that limit on current models. Thinking tokens are the model's reasoning. Answer tokens are the reply text.
 
 ---
 
 ## Flow 5: SDK streaming pipeline
 
-How `StreamMessage` bridges provider wire format to agent events.
+How `StreamMessage` turns provider wire format into agent events. **Wire format** is the raw data shape from the provider.
 
 ```text
 Runner.Run
@@ -184,13 +198,13 @@ Runner.Run
 | SSE scanner       | `comet-sdk/internal/sse/scanner.go`                |
 | Retry             | `comet-sdk/internal/retry/retry.go`                |
 
-**Critical invariant:** Callers must drain `Events()` before `Result()` — otherwise deadlock.
+**Critical invariant:** Callers must drain `Events()` before `Result()`. **Drain** means read every event until the channel closes. If you do not, the call deadlocks. A **deadlock** means both sides wait, and neither one finishes.
 
 ---
 
 ## Flow 6: Renderer SSE → UI state
 
-How stream events become chat bubbles.
+How stream events become chat bubbles. In the flow below, immutable means the old list is not changed.
 
 ```text
 chatStore.send()
@@ -203,7 +217,7 @@ chatStore.send()
   → ChatThread renders rows
 ```
 
-Key symbols (line numbers drift — search by name):
+Key symbols (line numbers change, so search by name):
 
 - `applyEventToSession` in `chat.svelte.ts`
 - `reduceChatState` / `reduceChatStateDelta` in `reducers/chat.ts`
@@ -219,7 +233,9 @@ Key symbols (line numbers drift — search by name):
 | `step_finish` settles pending without clearing assistant | Multi-step continuity                          |
 | `turn_recover` restores partial stream state             | Survives mid-turn failures                     |
 
-Session chat SSE is separate from the **runtime event stream** (`GET /api/v1/events`) used for memory toasts / compaction feedback — see Flow 7b.
+A **reference** is the object the UI holds. Svelte 5 updates the screen when that object is new. **Actionable** means the user can act on the message. **Continuity** means the assistant text stays across steps. **Survives** means the partial text is kept after a failure in the middle of the turn.
+
+Session chat SSE is separate from the **runtime event stream** (`GET /api/v1/events`). That stream is used for memory toasts and compaction feedback. A **toast** is a short notice on screen. **Compaction** means making stored memory shorter. See Flow 7b.
 
 ---
 
@@ -241,9 +257,13 @@ SettingsPanel Save
   → renderer reconnects only when a full restart was requested
 ```
 
-Almost all runtime settings (providers, memory, MCP, ACP/harness, storage cleanup, jobs reconcile, autonomy) use **in-place reload**. Gateway token/env recycles the gateway process only. Full sidecar restart remains for process bind changes such as host/port. See [../SETTINGS_AND_PERSISTENCE.md](../SETTINGS_AND_PERSISTENCE.md).
+Almost all runtime settings use **in-place reload**. **In place** means the running process loads the new settings and does not exit. This covers providers, memory, MCP, ACP/harness, storage cleanup, jobs reconcile, and autonomy.
 
-GitNexus processes `proc_53_save` through `proc_55_save` trace settings normalization via `normalizeCometMindSettings` in `settings/schema.ts`.
+A **harness** is an outside coding program. Flow 10 names OpenCode, Claude, and Codex. **Reconcile** means check saved jobs and bring their records back into agreement. **Autonomy** means jobs can start with no new user message.
+
+A gateway token or env change recycles the gateway process only. **Recycle** means stop that one process and start it again. A full sidecar restart remains for process bind changes, such as host or port. **Bind** means the address and port the server listens on. See [../SETTINGS_AND_PERSISTENCE.md](../SETTINGS_AND_PERSISTENCE.md).
+
+GitNexus processes `proc_53_save` through `proc_55_save` follow settings normalization. **Normalization** means the app rewrites settings into one standard shape. The function is `normalizeCometMindSettings` in `settings/schema.ts`.
 
 ---
 
@@ -256,11 +276,13 @@ GitNexus processes `proc_53_save` through `proc_55_save` trace settings normaliz
   → memory-toasts.svelte.ts shows non-chat UI feedback
 ```
 
-Chat-turn SSE (`POST …/messages`) still carries `memory_injected` / `memory_updated` for in-transcript cues; compaction completion is often surfaced through this runtime stream rather than chat rows.
+Chat-turn SSE (`POST …/messages`) still carries `memory_injected` and `memory_updated`. Those events are cues inside the transcript. A **cue** is a small signal in the chat. Compaction completion is often shown on this runtime stream, not in chat rows.
 
 ---
 
 ## Flow 8: Semantic memory
+
+**Semantic** memory stores facts by meaning, not only by exact words.
 
 ```text
 Before turn:
@@ -273,9 +295,11 @@ After turn:
   → persist new memory entries with embeddings
 ```
 
-GitNexus process `proc_198_search` traces `Service.Search` → `retriever.search` → `retriever.retrieve` in `internal/memory/`.
+An **embedding** is a list of numbers that stands for text. **Top-k** means the best matches, up to a count of k.
 
-Memories are **workspace-scoped**. Manage them in Settings → Memory.
+GitNexus process `proc_198_search` follows `Service.Search` → `retriever.search` → `retriever.retrieve` in `internal/memory/`.
+
+Memories are **workspace-scoped**. That means each workspace has its own memories. A **workspace** is one project folder. Manage them in Settings → Memory.
 
 ---
 
@@ -297,7 +321,9 @@ OAuth remote servers:
     → headless refresh at connect time
 ```
 
-GitNexus traces `StartOAuth` through `oauth_flow.go` and `oauth_login.go`; runtime connect via `connectServer` in `mcp/client.go`.
+**Headless** refresh means the saved token is refreshed with no browser window. **OAuth** is a sign-in flow that can save that token.
+
+GitNexus follows `StartOAuth` through `oauth_flow.go` and `oauth_login.go`. Runtime connect uses `connectServer` in `mcp/client.go`.
 
 ---
 
@@ -313,7 +339,7 @@ Model calls delegate_coding_task tool (only if acp.enabled + harness binary avai
   → result returns to agent loop as tool_result
 ```
 
-Configure in Settings → CometMind → **Coding task delegation** (`default_harness` only; CLI args are not user-editable). Tool: `cometmind/internal/tools/delegatecoding.go`. Runner: `cometmind/internal/acp/runner.go`.
+Configure this in Settings → CometMind → **Coding task delegation**. Only `default_harness` is a user setting. CLI args are not user-editable. Tool: `cometmind/internal/tools/delegatecoding.go`. Runner: `cometmind/internal/acp/runner.go`.
 
 ---
 
@@ -333,7 +359,9 @@ Scheduled job:
   → normal job lease/completion path handles execution
 ```
 
-Cometline renders `/jobs` and polls for optional desktop notifications. Discord can propose jobs and send job updates through the gateway.
+A **lease** means one worker owns the job for a limited time. A **heartbeat** is a regular signal that the work is still running.
+
+Cometline renders `/jobs`. It also polls for optional desktop notifications. **Poll** means ask the server again on a timer. Discord can propose jobs. It can also send job updates through the gateway.
 
 ---
 
@@ -347,7 +375,7 @@ Discord message arrives
   → stream response back to Discord channel/thread
 ```
 
-Per-thread sessions map to CometMind sessions. Start with:
+Sessions are per thread. Each thread session maps to one CometMind session. Start with:
 
 ```bash
 cometmind gateway run --platform discord
@@ -367,7 +395,7 @@ make package
   → production app serves via app://bundle protocol
 ```
 
-Sidecar is bundled as an `extraResource`, not inside the asar archive.
+The sidecar is bundled as an `extraResource`. It is not inside the asar archive. **asar** is Electron's app archive. `extraResource` means the file is placed next to that archive.
 
 ---
 
@@ -382,13 +410,17 @@ Filesystem/Git change under active workspace
   → a clean preview reloads; a dirty editor retains its draft and can show a full-page diff
 ```
 
-The watcher deliberately skips noisy dependency/build directories and treats `.git` changes as a Git refresh signal. It is a UI-refresh hint, not a second file-sync engine.
+**Coalesce** means group many path changes into one event. The wait in the flow is 300 ms.
+
+The watcher skips dependency and build directories on purpose. Those directories change too often. It treats `.git` changes as a Git refresh signal. This is a hint to refresh the UI. It is not a second file-sync system.
 
 ---
 
 ## What's next
 
-Now that you understand _how data moves_, dive into each module:
+You now know how data moves. Read each module next.
 
-- [04-comet-sdk.md](./04-comet-sdk.md) — LLM adapter layer
-- [05-cometmind-runtime.md](./05-cometmind-runtime.md) — agent brain and persistence
+**LLM** means large language model. An **adapter** changes one data format into another.
+
+- [04-comet-sdk.md](./04-comet-sdk.md): LLM adapter layer
+- [05-cometmind-runtime.md](./05-cometmind-runtime.md): agent runtime and persistence
