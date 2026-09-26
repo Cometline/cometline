@@ -34,7 +34,7 @@ describe('AssistantActivityGroup', () => {
 		).toBe('true');
 	});
 
-	it('shows one thinking body instead of a stack of Thinking toggles', async () => {
+	it('shows one collapsed Thinking block for consecutive segments', async () => {
 		const { container } = render(AssistantActivityGroupHarness, {
 			props: {
 				timeline: [
@@ -46,9 +46,11 @@ describe('AssistantActivityGroup', () => {
 			}
 		});
 
+		const thinking = container.querySelector('.thinking-toggle');
 		expect(container.querySelectorAll('.activity-group-toggle')).toHaveLength(1);
-		expect(container.querySelectorAll('.thinking-toggle')).toHaveLength(0);
-		expect(container.textContent).toContain('first thought');
-		expect(container.textContent).toContain('third thought');
+		expect(container.querySelectorAll('.thinking-toggle')).toHaveLength(1);
+		expect(thinking?.getAttribute('aria-expanded')).toBe('false');
+		expect(container.textContent).not.toContain('first thought');
+		expect(container.textContent).not.toContain('third thought');
 	});
 });
