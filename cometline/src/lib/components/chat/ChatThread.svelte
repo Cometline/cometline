@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
+	import { onDestroy, untrack } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import { chatStore, type ChatItem } from '$lib/stores/chat.svelte';
 	import { settingsStore } from '$lib/stores/settings.svelte';
@@ -34,6 +34,14 @@
 	import { createThreadScroll } from '$lib/conversation/thread-scroll.svelte';
 	import { createThreadClocks } from '$lib/conversation/thread-clocks.svelte';
 	import { groupThreadItemsIntoTurns } from '$lib/conversation/thread-turns';
+	import {
+		THREAD_TURN_GAP,
+		computeVirtualWindow,
+		prefixOffsets,
+		resolveTurnSizes,
+		scrollDeltaForSizeChange,
+		virtualTurnEntriesWithForced
+	} from '$lib/conversation/thread-virtualizer';
 	import type { ChatTurnPayload } from '$lib/actions/start-chat';
 	import type { JobResource } from '$lib/client/cometmind';
 	import { resolvePersona, personaAvatarSrcset as builtinAvatarSrcset } from '$lib/personas';
@@ -79,12 +87,15 @@
 	});
 
 	let scrollerEl = $state<HTMLDivElement | undefined>(undefined);
-	const sessionFind = createSessionFindController(() => scrollerEl ?? null);
 	let handledFindRequestId = shellStore.sessionFindRequestId;
 	let findSessionId: string | null = null;
 	let previousSearchableItemCount = 0;
 	let threadItems = $derived(isSessionSynced ? chatStore.items : snapshotItems);
 	let threadTurns = $derived(groupThreadItemsIntoTurns(threadItems));
+	const sessionFind = createSessionFindController({
+		getRoot: () => scrollerEl ?? null,
+		getTurns: () => threadTurns
+	});
 	let embeddedPinnedJobIds = $derived(pinnedJobProposalToolIds(threadItems));
 	let thinkingForAssistant = $derived(buildThinkingAttribution(threadItems));
 	// Prefer attributed tools/memory (hasVisibleThinkingBlock) so first-turn activity
@@ -243,13 +254,148 @@
 		awaitingFirstAssistant || scroll.isInitialTranscriptPaint ? { duration: 0 } : TRANSCRIPT_IN
 	);
 
+	// Variable-height turn virtualization (OpenCode-style): mount viewport + overscan
+	// only so offscreen turns never run AssistantMarkdown / Shiki.
+	let virtualScrollTop = $state(0);
+	let measuredTurnHeights = $state.raw<Record<string, number>>({});
+	let measureSessionId: string | null = null;
+
+	$effect(() => {
+		const next = sessionId;
+		if (next === measureSessionId) return;
+		measureSessionId = next;
+		measuredTurnHeights = {};
+		virtualScrollTop = 0;
+	});
+
+	$effect(() => {
+		virtualScrollTop = scrollerEl?.scrollTop ?? 0;
+	});
+
+	// Hydration / stick-to-bottom sets scrollTop in rAF; keep the virtual window
+	// aligned even if a programmatic assignment does not emit `scroll`.
+	$effect(() => {
+		if (!scroll.isInitialTranscriptPaint || !scrollerEl) return;
+		let frame = 0;
+		const sync = () => {
+			virtualScrollTop = scrollerEl?.scrollTop ?? 0;
+			frame = requestAnimationFrame(sync);
+		};
+		frame = requestAnimationFrame(sync);
+		return () => cancelAnimationFrame(frame);
+	});
+
+	let turnSizes = $derived(
+		resolveTurnSizes(threadTurns, measuredTurnHeights, {
+			activePinnedUserId: scroll.activePinnedUserId,
+			activeTurnMinHeight: scroll.activeTurnMinHeight
+		})
+	);
+
+	let virtualWindow = $derived(
+		computeVirtualWindow(
+			turnSizes,
+			virtualScrollTop,
+			scroll.viewportHeight || scrollerEl?.clientHeight || 0
+		)
+	);
+
+	let forcedTurnIndices = $derived.by(() => {
+		const pinnedIndex = scroll.activePinnedUserId
+			? threadTurns.findIndex((turn) => turn.id === scroll.activePinnedUserId)
+			: -1;
+		const latestIndex = lastUserId
+			? threadTurns.findIndex((turn) => turn.id === lastUserId)
+			: -1;
+		// Active find hit only — never span the full transcript for find.
+		const findIndex = sessionFind.open ? sessionFind.activeTurnIndex : -1;
+		return [pinnedIndex, latestIndex, findIndex];
+	});
+
+	let visibleTurns = $derived(
+		virtualTurnEntriesWithForced(threadTurns, turnSizes, virtualWindow, forcedTurnIndices)
+	);
+
+	// Jump the virtual scroller to the active find turn so it enters the window /
+	// forced-mount set without remounting the whole transcript.
+	$effect(() => {
+		if (!sessionFind.open) return;
+		const turnIndex = sessionFind.activeTurnIndex;
+		void sessionFind.query;
+		void sessionFind.activeIndex;
+		if (turnIndex < 0 || !scrollerEl) return;
+		const sizes = untrack(() => turnSizes);
+		const offsets = prefixOffsets(sizes);
+		const top = offsets[turnIndex] ?? 0;
+		const nextTop = Math.max(0, top - scrollerEl.clientHeight * 0.25);
+		scrollerEl.scrollTo({ top: nextTop, behavior: 'auto' });
+		virtualScrollTop = scrollerEl.scrollTop;
+	});
+
+	function onThreadScroll() {
+		virtualScrollTop = scrollerEl?.scrollTop ?? 0;
+		scroll.onScroll();
+	}
+
+	function onTurnMeasured(turnId: string, height: number) {
+		const next = Math.ceil(height);
+		if (next <= 0) return;
+		const prev = measuredTurnHeights[turnId];
+		if (prev === next) return;
+		const index = threadTurns.findIndex((turn) => turn.id === turnId);
+		let itemOffset = 0;
+		if (index > 0) {
+			for (let i = 0; i < index; i++) {
+				itemOffset += (turnSizes[i] ?? 0) + THREAD_TURN_GAP;
+			}
+		}
+		const delta = scrollDeltaForSizeChange(
+			itemOffset,
+			scrollerEl?.scrollTop ?? virtualScrollTop,
+			prev ?? turnSizes[index] ?? next,
+			next
+		);
+		measuredTurnHeights = { ...measuredTurnHeights, [turnId]: next };
+		if (delta !== 0 && scrollerEl) {
+			scrollerEl.scrollTop += delta;
+			virtualScrollTop = scrollerEl.scrollTop;
+		}
+	}
+
+	function measureTurnHeight(
+		node: HTMLElement,
+		params: { id: string; onMeasure: (id: string, height: number) => void }
+	) {
+		const notify = () => params.onMeasure(params.id, node.offsetHeight);
+		notify();
+		if (typeof ResizeObserver === 'undefined') {
+			return {
+				update(next: { id: string; onMeasure: (id: string, height: number) => void }) {
+					params = next;
+					notify();
+				}
+			};
+		}
+		const observer = new ResizeObserver(() => notify());
+		observer.observe(node);
+		return {
+			update(next: { id: string; onMeasure: (id: string, height: number) => void }) {
+				params = next;
+				notify();
+			},
+			destroy() {
+				observer.disconnect();
+			}
+		};
+	}
+
 </script>
 
 <div class="thread-wrap">
 	<div
 		class="thread scrollbar-none"
 		bind:this={scrollerEl}
-		onscroll={scroll.onScroll}
+		onscroll={onThreadScroll}
 		style:--thread-user-pin-offset-followup="{scroll.userPinScrollMargin}px"
 		role="log"
 		aria-label="Conversation"
@@ -277,14 +423,20 @@
 						/>
 					{/if}
 
-					{#each threadTurns as turn (turn.id)}
+					{#if threadTurns.length > 0}
+						<div class="thread-virtual" style:height="{virtualWindow.totalHeight}px">
+					{#each visibleTurns as entry (entry.item.id)}
+						{@const turn = entry.item}
 						{@const isActiveTurn = scroll.activePinnedUserId === turn.id}
 						<div
 							class="thread-turn"
 							class:thread-turn-active={isActiveTurn}
+							data-turn-id={turn.id}
+							style:top="{entry.offset}px"
 							style:min-height={isActiveTurn
 								? `${scroll.activeTurnMinHeight}px`
 								: undefined}
+							use:measureTurnHeight={{ id: turn.id, onMeasure: onTurnMeasured }}
 						>
 							<UserMessageRow
 								item={turn.user}
@@ -364,6 +516,8 @@
 							{/if}
 						</div>
 					{/each}
+						</div>
+					{/if}
 				</div>
 			{/if}
 		</div>
@@ -417,7 +571,13 @@
 		display: flex;
 		flex-direction: column;
 		gap: 14px;
+		width: 100%;
 		transition: opacity var(--duration-session-switch) var(--ease-smooth);
+	}
+
+	.thread-virtual {
+		position: relative;
+		width: 100%;
 	}
 
 	.thread-messages.hydrating {
@@ -426,12 +586,12 @@
 	}
 
 	.thread-turn {
+		position: absolute;
+		left: 0;
+		right: 0;
 		display: flex;
 		flex-direction: column;
 		gap: 14px;
-		/* Keep offscreen turns out of layout work while pane-width transitions run. */
-		content-visibility: auto;
-		contain-intrinsic-block-size: auto 500px;
 		/* Keep min-height growth from sticky-anchoring the bubble (esp. mini). */
 		overflow-anchor: none;
 	}

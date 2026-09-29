@@ -11,6 +11,8 @@ function fakeController(): SessionFindController {
 		query: 'needle',
 		matchCount: 3,
 		activeIndex: 1,
+		activeTurnIndex: 2,
+		activeItemId: 'a2',
 		focusRequestId: 1,
 		openFind: vi.fn(),
 		closeFind: vi.fn(),
