@@ -2,7 +2,7 @@ import { tick, untrack } from 'svelte';
 import type { ChatItem } from '$lib/stores/chat.svelte';
 import { activeTurnMinHeight } from './thread-turns';
 import { buildScrollKey, followUpPinScrollMargin, shouldShowJumpToBottom } from './thread-scroll';
-import { scrollTopAfterPrepend } from './thread-virtualizer';
+import { THREAD_HYDRATION_FAILSAFE_MS, scrollTopAfterPrepend } from './thread-virtualizer';
 
 const LOAD_OLDER_TOP_PX = 320;
 
@@ -40,6 +40,11 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 	let activePinnedUserId = $state<string | null>(null);
 	/** Covers the post-load tick + scrollTop correction window (store flag clears earlier). */
 	let loadOlderInFlight = false;
+	/**
+	 * Wall-clock escape from opacity:0. Lives outside the settle $effect so
+	 * threadItems / sync churn cannot cancel and re-arm it (#157 miss).
+	 */
+	let hydrationFailsafeTimer: ReturnType<typeof setTimeout> | 0 = 0;
 
 	const scrollKey = $derived(buildScrollKey(deps.getThreadItems(), deps.getSessionStreaming()));
 	const turnMinHeight = $derived.by(() =>
@@ -167,6 +172,50 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 		});
 	}
 
+	function clearHydrationFailsafe() {
+		if (hydrationFailsafeTimer) {
+			clearTimeout(hydrationFailsafeTimer);
+			hydrationFailsafeTimer = 0;
+		}
+	}
+
+	/** Reveal the thread: clear opacity:0 / pointer-events:none. */
+	function finishHydrationPaint() {
+		clearHydrationFailsafe();
+		if (scroller) {
+			scroller.scrollTop = scroller.scrollHeight;
+			notifyScrollTop();
+		}
+		isInitialTranscriptPaint = false;
+		updateJumpToBottom();
+	}
+
+	/**
+	 * Arm (or keep) the wall-clock failsafe. Idempotent while already armed so
+	 * settle-effect restarts from item churn cannot reset the deadline.
+	 */
+	function armHydrationFailsafe() {
+		if (hydrationFailsafeTimer) return;
+		hydrationFailsafeTimer = setTimeout(() => {
+			hydrationFailsafeTimer = 0;
+			if (!isInitialTranscriptPaint) return;
+			finishHydrationPaint();
+		}, THREAD_HYDRATION_FAILSAFE_MS);
+	}
+
+	function beginHydrationPaint() {
+		isInitialTranscriptPaint = true;
+		// Idempotent arm: sync/loading flaps must not reset the wall-clock deadline.
+		armHydrationFailsafe();
+	}
+
+	/** New session (or remount): reset the failsafe deadline for this hydration episode. */
+	function beginHydrationPaintFresh() {
+		clearHydrationFailsafe();
+		isInitialTranscriptPaint = true;
+		armHydrationFailsafe();
+	}
+
 	$effect(() => {
 		const sessionId = deps.getSessionId();
 		if (sessionId === lastSessionId) return;
@@ -174,7 +223,7 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 		untrack(() => {
 			sessionHadTranscript = deps.sessionHasCachedTranscript(sessionId);
 			lastScrolledUserId = deps.getLastUserId();
-			isInitialTranscriptPaint = true;
+			beginHydrationPaintFresh();
 			activePinnedUserId = null;
 			showJumpToBottom = false;
 		});
@@ -186,11 +235,11 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 		const isLoading = deps.getIsLoading();
 
 		if (!isSessionSynced) {
-			isInitialTranscriptPaint = true;
+			beginHydrationPaint();
 			return;
 		}
 		if (isLoading && threadItems.length === 0) {
-			isInitialTranscriptPaint = true;
+			beginHydrationPaint();
 			return;
 		}
 		if (threadItems.length === 0) {
@@ -199,6 +248,7 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 			// distinction matters when /clear empties the current session without
 			// changing its id: keeping the hydration flag set would hide the next
 			// user flight and assistant handoff behind the transcript paint state.
+			clearHydrationFailsafe();
 			isInitialTranscriptPaint = false;
 			lastScrolledUserId = null;
 			activePinnedUserId = null;
@@ -211,6 +261,7 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 			// Mark the session as live-ready once so later follow-up pins are not
 			// wiped on every streaming effect re-run (common in the mini window).
 			sessionHadTranscript = true;
+			clearHydrationFailsafe();
 			isInitialTranscriptPaint = false;
 			lastScrolledUserId = null;
 			activePinnedUserId = null;
@@ -220,6 +271,10 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 
 		if (!isInitialTranscriptPaint) return;
 
+		// Ensure failsafe is armed even if we entered hydrating via a path that
+		// did not call beginHydrationPaint (e.g. initial controller mount).
+		armHydrationFailsafe();
+
 		let cancelled = false;
 		let settleFrame = 0;
 		let lastHeight = 0;
@@ -228,12 +283,12 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 
 		const finishHydration = () => {
 			if (cancelled) return;
-			if (scroller) {
-				scroller.scrollTop = scroller.scrollHeight;
-				notifyScrollTop();
+			cancelled = true;
+			if (settleFrame) {
+				cancelAnimationFrame(settleFrame);
+				settleFrame = 0;
 			}
-			isInitialTranscriptPaint = false;
-			updateJumpToBottom();
+			finishHydrationPaint();
 		};
 
 		const settle = () => {
@@ -264,6 +319,9 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 		});
 
 		return () => {
+			// Cancel rAF settle only — do NOT clear the wall-clock failsafe.
+			// threadItems / sync churn re-enters this effect; resetting the
+			// failsafe was why #157 still hung opacity:0 on soft-swap/open.
 			cancelled = true;
 			if (settleFrame) cancelAnimationFrame(settleFrame);
 		};

@@ -4,15 +4,21 @@ import { groupThreadItemsIntoTurns } from './thread-turns';
 import {
 	THREAD_TURN_GAP,
 	THREAD_TURN_ESTIMATE_MIN,
+	THREAD_TURN_ESTIMATE_MAX,
+	THREAD_MEGA_ASSISTANT_CHARS,
 	computeVirtualWindow,
 	estimateTurnHeight,
+	isOversizedAssistantText,
 	prefixOffsets,
 	resolveTurnSizes,
 	scrollDeltaForSizeChange,
+	shouldSkipMegaMarkdownDuringHydration,
 	totalHeightFromSizes,
+	turnHasOversizedAssistant,
 	virtualTurnEntries,
 	virtualTurnEntriesWithForced,
-	scrollTopAfterPrepend
+	scrollTopAfterPrepend,
+	visualColumnCount
 } from './thread-virtualizer';
 
 function turnsFrom(items: ChatItem[]) {
@@ -189,5 +195,58 @@ describe('scrollTopAfterPrepend', () => {
 	it('does not move when height did not grow', () => {
 		expect(scrollTopAfterPrepend(120, 1000, 1000)).toBe(120);
 		expect(scrollTopAfterPrepend(120, 1000, 900)).toBe(120);
+	});
+});
+
+describe('mega-turn estimates and hydration-only skip', () => {
+	it('counts CJK characters as wider columns', () => {
+		expect(visualColumnCount('hi')).toBe(2);
+		expect(visualColumnCount('你好')).toBe(4);
+		expect(visualColumnCount('a你b')).toBe(4);
+	});
+
+	it('grows mega estimates past the old 2400 soft ceiling', () => {
+		const mega = '中'.repeat(8_000);
+		const [turn] = turnsFrom([
+			{ id: 'u1', type: 'user', text: 'hi' },
+			{ id: 'a1', type: 'assistant', text: mega }
+		]);
+		const height = estimateTurnHeight(turn);
+		expect(height).toBeGreaterThan(2400);
+		expect(height).toBeLessThanOrEqual(THREAD_TURN_ESTIMATE_MAX);
+		expect(isOversizedAssistantText(mega)).toBe(true);
+		expect(turnHasOversizedAssistant(turn)).toBe(true);
+	});
+
+	it('does not treat short assistant text as mega', () => {
+		expect(isOversizedAssistantText('hi')).toBe(false);
+		expect(isOversizedAssistantText('x'.repeat(THREAD_MEGA_ASSISTANT_CHARS - 1))).toBe(false);
+		expect(isOversizedAssistantText('x'.repeat(THREAD_MEGA_ASSISTANT_CHARS))).toBe(true);
+	});
+
+	it('skips mega Shiki only while hydrating — never scroll-gated after clear', () => {
+		const mega = 'x'.repeat(THREAD_MEGA_ASSISTANT_CHARS);
+		const turns = turnsFrom([
+			{ id: 'u1', type: 'user', text: 'ask' },
+			{ id: 'a1', type: 'assistant', text: mega },
+			{ id: 'u2', type: 'user', text: 'hi' }
+		]);
+		expect(turns).toHaveLength(2);
+		// During hydration: skip mega (including mega-above-hi and mega-as-last).
+		expect(shouldSkipMegaMarkdownDuringHydration(turns[0], true)).toBe(true);
+		expect(shouldSkipMegaMarkdownDuringHydration(turns[1], true)).toBe(false);
+		// After hydration: always run full markdown — no scroll gate.
+		expect(shouldSkipMegaMarkdownDuringHydration(turns[0], false)).toBe(false);
+		expect(shouldSkipMegaMarkdownDuringHydration(turns[1], false)).toBe(false);
+	});
+
+	it('skips mega-as-last while hydrating, then allows full markdown after clear', () => {
+		const mega = 'x'.repeat(THREAD_MEGA_ASSISTANT_CHARS);
+		const turns = turnsFrom([
+			{ id: 'u1', type: 'user', text: 'ask' },
+			{ id: 'a1', type: 'assistant', text: mega }
+		]);
+		expect(shouldSkipMegaMarkdownDuringHydration(turns[0], true)).toBe(true);
+		expect(shouldSkipMegaMarkdownDuringHydration(turns[0], false)).toBe(false);
 	});
 });
