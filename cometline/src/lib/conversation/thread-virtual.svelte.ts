@@ -5,9 +5,16 @@ import {
 	prefixOffsets,
 	resolveTurnSizes,
 	scrollDeltaForSizeChange,
+	shouldDeferTurnMarkdown,
 	virtualTurnEntriesWithForced
 } from './thread-virtualizer';
 import type { ThreadTurn } from './thread-turns';
+import type { VirtualTurnEntry } from './thread-virtualizer';
+
+export interface VisibleTurnEntry extends VirtualTurnEntry<ThreadTurn> {
+	/** Mega turns outside the strict viewport (or while hydrating) skip Shiki. */
+	deferMarkdown: boolean;
+}
 
 export interface ThreadVirtualDeps {
 	getSessionId: () => string;
@@ -59,9 +66,31 @@ export function createThreadVirtual(deps: ThreadVirtualDeps) {
 		return [pinnedIndex, latestIndex, findIndex];
 	});
 
-	const visibleTurns = $derived(
-		virtualTurnEntriesWithForced(deps.getThreadTurns(), turnSizes, virtualWindow, forcedTurnIndices)
-	);
+	const visibleTurns = $derived.by((): VisibleTurnEntry[] => {
+		const turns = deps.getThreadTurns();
+		const sizes = turnSizes;
+		const scrollTop = virtualScrollTop;
+		const viewportHeight =
+			deps.getViewportHeight() || deps.getScroller()?.clientHeight || 0;
+		const hydrating = deps.getIsInitialTranscriptPaint();
+		const lastUserId = deps.getLastUserId();
+		const latestTurnIndex = lastUserId
+			? turns.findIndex((turn) => turn.id === lastUserId)
+			: -1;
+		const entries = virtualTurnEntriesWithForced(turns, sizes, virtualWindow, forcedTurnIndices);
+		return entries.map((entry) => ({
+			...entry,
+			deferMarkdown: shouldDeferTurnMarkdown(
+				entry.item,
+				entry.index,
+				sizes,
+				scrollTop,
+				viewportHeight,
+				hydrating,
+				{ latestTurnIndex }
+			)
+		}));
+	});
 
 	function setScrollTop(top: number) {
 		virtualScrollTop = top;
