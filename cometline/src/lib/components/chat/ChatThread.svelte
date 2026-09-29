@@ -299,32 +299,34 @@
 								: undefined}
 							use:virtual.measureTurnHeight={{ id: turn.id, onMeasure: virtual.onTurnMeasured }}
 						>
-							<UserMessageRow
-								item={turn.user}
-								{avatarSrc}
-								{avatarSrcset}
-								continuationRow={!startsSpeakerRun(
-									threadItems,
-									turn.userIndex,
-									'user'
-								)}
-								copiedId={clocks.copiedId}
-								onCopyMessage={clocks.copyMessage}
-								flyOnReveal={turn.user.id !== firstUserId}
-							/>
-							{#if showFirstTurnAvatarSlot(visibilityContext) && turn.user.id === firstUserId}
-								<FirstTurnAssistantSlot
+							{#if turn.user}
+								<UserMessageRow
+									item={turn.user}
 									{avatarSrc}
 									{avatarSrcset}
-									{firstTurnHandoffPending}
-									{firstAssistantItem}
-									{sessionStreaming}
-									{stackContext}
-									{showAssistantRow}
-									{showActivitySpinner}
-									flightPlaceholder={!firstAssistantId}
-									ariaHidden={!firstAssistantId}
+									continuationRow={!startsSpeakerRun(
+										threadItems,
+										turn.userIndex,
+										'user'
+									)}
+									copiedId={clocks.copiedId}
+									onCopyMessage={clocks.copyMessage}
+									flyOnReveal={turn.user.id !== firstUserId}
 								/>
+								{#if showFirstTurnAvatarSlot(visibilityContext) && turn.user.id === firstUserId}
+									<FirstTurnAssistantSlot
+										{avatarSrc}
+										{avatarSrcset}
+										{firstTurnHandoffPending}
+										{firstAssistantItem}
+										{sessionStreaming}
+										{stackContext}
+										{showAssistantRow}
+										{showActivitySpinner}
+										flightPlaceholder={!firstAssistantId}
+										ariaHidden={!firstAssistantId}
+									/>
+								{/if}
 							{/if}
 							{#each turn.items as { item, index } (item.id)}
 								{#if item.type === 'assistant' && showAssistantRow(item) && shouldShowAssistantInNormalList(item, visibilityContext)}

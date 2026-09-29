@@ -191,4 +191,103 @@ describe('createThreadScroll maybeLoadOlderHistory', () => {
 		expect(loadOlderTranscript).not.toHaveBeenCalled();
 		cleanup();
 	});
+
+	it('auto-anchors leading orphans after hydration via loadOlder (not scroll-gated)', async () => {
+		let hasMore = true;
+		let currentItems: ChatItem[] = [];
+		const loadOlderTranscript = vi.fn(async () => {
+			currentItems = [
+				{ id: 'u-mega', type: 'user', text: 'do the mega thing' },
+				...currentItems
+			];
+			hasMore = false;
+			return 1;
+		});
+
+		let scroll!: ReturnType<typeof createThreadScroll>;
+		const cleanup = $effect.root(() => {
+			scroll = createThreadScroll({
+				getSessionId: () => 'sess-orphan',
+				getIsSessionSynced: () => true,
+				getThreadItems: () => currentItems,
+				getSessionStreaming: () => false,
+				getLastUserId: () =>
+					currentItems.findLast((item) => item.type === 'user')?.id ?? null,
+				getUserMessageCount: () =>
+					currentItems.reduce((count, item) => (item.type === 'user' ? count + 1 : count), 0),
+				getIsLoading: () => false,
+				sessionHasCachedTranscript: () => false,
+				getHasMoreHistory: () => hasMore,
+				getIsLoadingOlder: () => false,
+				loadOlderTranscript
+			});
+		});
+
+		// Empty synced transcript → paint complete (live-ready).
+		await flush();
+		expect(scroll.isInitialTranscriptPaint).toBe(false);
+
+		// Mid-turn first page: mega body present, anchoring user behind has_more.
+		currentItems = [
+			{ id: 'a-mega', type: 'assistant', text: 'MEGA_BODY_content' },
+			{ id: 't1', type: 'tool', toolName: 'bash', input: {}, output: 'ok' },
+			{ id: 'u-hi', type: 'user', text: 'hi' },
+			{ id: 'a-hello', type: 'assistant', text: 'hello' }
+		];
+		await flush();
+
+		// Explicit kick (mirrors post-hydration); scrollTop can be far from top.
+		const scroller = document.createElement('div');
+		Object.defineProperty(scroller, 'scrollTop', {
+			configurable: true,
+			writable: true,
+			value: 900
+		});
+		Object.defineProperty(scroller, 'scrollHeight', {
+			configurable: true,
+			get: () => 1200
+		});
+		Object.defineProperty(scroller, 'clientHeight', {
+			configurable: true,
+			get: () => 600
+		});
+		scroll.setScroller(scroller);
+		await flush();
+
+		await scroll.maybeAutoAnchorLeadingOrphans();
+
+		expect(loadOlderTranscript).toHaveBeenCalledWith('sess-orphan');
+		expect(currentItems[0]).toMatchObject({ id: 'u-mega', type: 'user' });
+		expect(hasMore).toBe(false);
+		cleanup();
+	});
+
+	it('does not auto-anchor when the transcript already starts with a user', async () => {
+		const loadOlderTranscript = vi.fn(async () => 1);
+		let currentItems: ChatItem[] = [];
+
+		let scroll!: ReturnType<typeof createThreadScroll>;
+		const cleanup = $effect.root(() => {
+			scroll = createThreadScroll({
+				getSessionId: () => 'sess-1',
+				getIsSessionSynced: () => true,
+				getThreadItems: () => currentItems,
+				getSessionStreaming: () => false,
+				getLastUserId: () => null,
+				getUserMessageCount: () => 0,
+				getIsLoading: () => false,
+				sessionHasCachedTranscript: () => false,
+				getHasMoreHistory: () => true,
+				getIsLoadingOlder: () => false,
+				loadOlderTranscript
+			});
+		});
+
+		await flush();
+		currentItems = items;
+		await flush();
+		await scroll.maybeAutoAnchorLeadingOrphans();
+		expect(loadOlderTranscript).not.toHaveBeenCalled();
+		cleanup();
+	});
 });

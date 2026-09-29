@@ -91,8 +91,8 @@ func (s *Service) LoadTranscriptPage(ctx context.Context, sessionID string, limi
 
 	fetch := int64(limit) + 1 // one extra to detect HasMore
 	var (
-		descRows []db.Message
-		err      error
+		descRows        []db.Message
+		err             error
 		beforeCreatedAt int64
 		beforeID        string
 	)
@@ -128,6 +128,13 @@ func (s *Service) LoadTranscriptPage(ctx context.Context, sessionID string, limi
 
 	// descRows are newest-first; reverse to chronological ASC for the UI.
 	rows := reverseMessages(descRows)
+
+	// Turn-boundary snap: if the window starts mid-turn (leading assistant/system),
+	// walk back to the anchoring user so the client does not drop orphan body.
+	rows, hasMore, err = s.snapTranscriptPageToTurnBoundary(ctx, sessionID, rows, hasMore)
+	if err != nil {
+		return TranscriptPage{}, err
+	}
 
 	messageIDs := make([]string, 0, len(rows))
 	for _, m := range rows {
@@ -208,8 +215,99 @@ func decodeTranscriptCursor(raw string) (createdAt int64, id string, err error) 
 	return createdAt, id, nil
 }
 
+// snapTranscriptMaxExtra caps how far we walk back for an anchoring user.
+const snapTranscriptMaxExtra = MaxTranscriptPageLimit
 
+// snapTranscriptPageToTurnBoundary extends a chronological page backward so it
+// does not start mid-turn. When rows[0] is not a user and older history exists,
+// prepend messages through the anchoring user. hasMore/next_before stay honest
+// relative to the expanded window (caller recomputes NextBefore from rows[0]).
+func (s *Service) snapTranscriptPageToTurnBoundary(
+	ctx context.Context,
+	sessionID string,
+	rows []db.Message,
+	hasMore bool,
+) ([]db.Message, bool, error) {
+	if len(rows) == 0 || rows[0].Role == "user" || !hasMore {
+		return rows, hasMore, nil
+	}
 
+	var (
+		prefix     []db.Message // chronological older messages to prepend
+		collected  []db.Message // newest-first walk buffer toward the user
+		overfetch  = int64(32)
+		extraCount = 0
+		cursorAt   = rows[0].CreatedAt
+		cursorID   = rows[0].ID
+		stillMore  = true
+	)
+
+	for extraCount < snapTranscriptMaxExtra && stillMore {
+		batch, err := s.q.ListTranscriptMessagesBefore(ctx, db.ListTranscriptMessagesBeforeParams{
+			SessionID:       sessionID,
+			BeforeCreatedAt: cursorAt,
+			BeforeID:        cursorID,
+			RowLimit:        overfetch,
+		})
+		if err != nil {
+			return nil, false, err
+		}
+		if len(batch) == 0 {
+			stillMore = false
+			break
+		}
+
+		foundUser := false
+		for i, m := range batch {
+			collected = append(collected, m)
+			extraCount++
+			if m.Role == "user" {
+				foundUser = true
+				// Honest has_more relative to the anchoring user (new page oldest).
+				if i+1 < len(batch) {
+					stillMore = true
+				} else if int64(len(batch)) < overfetch {
+					stillMore = false
+				} else {
+					probe, probeErr := s.q.ListTranscriptMessagesBefore(ctx, db.ListTranscriptMessagesBeforeParams{
+						SessionID:       sessionID,
+						BeforeCreatedAt: m.CreatedAt,
+						BeforeID:        m.ID,
+						RowLimit:        1,
+					})
+					if probeErr != nil {
+						return nil, false, probeErr
+					}
+					stillMore = len(probe) > 0
+				}
+				break
+			}
+			if extraCount >= snapTranscriptMaxExtra {
+				break
+			}
+		}
+
+		if foundUser {
+			break
+		}
+		if int64(len(batch)) < overfetch {
+			stillMore = false
+			break
+		}
+		oldest := batch[len(batch)-1]
+		cursorAt = oldest.CreatedAt
+		cursorID = oldest.ID
+	}
+
+	if len(collected) == 0 {
+		return rows, hasMore, nil
+	}
+	prefix = reverseMessages(collected)
+	out := make([]db.Message, 0, len(prefix)+len(rows))
+	out = append(out, prefix...)
+	out = append(out, rows...)
+	return out, stillMore, nil
+}
 
 func reverseMessages(in []db.Message) []db.Message {
 	out := make([]db.Message, len(in))

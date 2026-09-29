@@ -106,12 +106,12 @@ function estimateItemHeight(item: ChatItem): number {
 
 /** Estimate a turn's laid-out height before the row is measured. Prefers slight overestimate. */
 export function estimateTurnHeight(turn: ThreadTurn): number {
-	let height = estimateItemHeight(turn.user);
+	let height = turn.user ? estimateItemHeight(turn.user) : 0;
 	for (const entry of turn.items) {
 		height += estimateItemHeight(entry.item);
 	}
 	// Inter-row gaps inside a turn (user + follow-ups share the turn's flex gap).
-	const rowCount = 1 + turn.items.length;
+	const rowCount = (turn.user ? 1 : 0) + turn.items.length;
 	if (rowCount > 1) height += (rowCount - 1) * THREAD_TURN_GAP;
 	return Math.min(
 		THREAD_TURN_ESTIMATE_MAX,

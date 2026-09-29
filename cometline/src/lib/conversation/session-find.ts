@@ -137,7 +137,9 @@ export function findSessionItemMatches(
 
 	for (let turnIndex = 0; turnIndex < turns.length; turnIndex++) {
 		const turn = turns[turnIndex];
-		const items: ChatItem[] = [turn.user, ...turn.items.map((entry) => entry.item)];
+		const items: ChatItem[] = turn.user
+			? [turn.user, ...turn.items.map((entry) => entry.item)]
+			: turn.items.map((entry) => entry.item);
 		for (const item of items) {
 			const raw = searchableItemText(item);
 			if (raw === null) continue;
