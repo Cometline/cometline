@@ -47,13 +47,12 @@ func (c *ContextCompactor) EstimatePromptBudget(
 	system string,
 	tools []cometsdk.Tool,
 	providerID, modelID string,
-	userMaxTokens int,
 ) (PromptBudget, error) {
 	budget := PromptBudget{}
 	if c == nil {
 		return budget, nil
 	}
-	sb := ResolveSessionBudget(c.Config, providerID, modelID, userMaxTokens)
+	sb := ResolveSessionBudget(c.Config, providerID, modelID)
 	budget.ContextWindow = sb.Context
 	budget.Available = sb.Available
 	budget.Reserve = sb.Reserve
@@ -85,7 +84,6 @@ func (c *ContextCompactor) MaybeCompact(
 	tools []cometsdk.Tool,
 	provider cometsdk.Provider,
 	providerID, modelID string,
-	userMaxTokens int,
 	force bool,
 	status func(event.Event),
 ) (session.Session, error) {
@@ -93,7 +91,7 @@ func (c *ContextCompactor) MaybeCompact(
 		return sess, nil
 	}
 
-	sb := ResolveSessionBudget(c.Config, providerID, modelID, userMaxTokens)
+	sb := ResolveSessionBudget(c.Config, providerID, modelID)
 	rows, err := c.Sessions.ListMessageRows(ctx, sess.ID)
 	if err != nil {
 		return sess, err

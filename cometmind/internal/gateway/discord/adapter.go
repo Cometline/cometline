@@ -71,7 +71,7 @@ func resolveBotToken(cfg config.DiscordGatewayConfig) (string, error) {
 	token := strings.TrimSpace(os.Getenv(env))
 	if token == "" {
 		return "", fmt.Errorf(
-			"discord bot token is not configured (set bot_token in config.toml or export %q)",
+			"discord bot token is not configured (set bot_token in cometline-settings.json or export %q)",
 			env,
 		)
 	}

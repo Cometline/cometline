@@ -156,16 +156,6 @@ function createModelStore() {
 		syncSelected();
 	}
 
-	function updateProviderModels(provider: ProviderConfig) {
-		const withoutProvider = options.filter((option) => option.providerId !== provider.id);
-		options = [...withoutProvider, ...optionsFromProvider(provider, limitsByKey)];
-		if (!selected || !options.some((option) => option.id === selected?.id)) {
-			selected = options[0] ?? null;
-		} else {
-			syncSelected();
-		}
-	}
-
 	/** Merge catalog limits (fetch-time or reload); does not wipe other keys. */
 	function applyLimits(entries: ModelLimitEntry[]) {
 		const next = new Map(limitsByKey);
@@ -212,7 +202,6 @@ function createModelStore() {
 		selectByProviderModel,
 		selectFromSession,
 		setProviders,
-		updateProviderModels,
 		applyLimits,
 		limitFor
 	};

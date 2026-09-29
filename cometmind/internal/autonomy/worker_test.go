@@ -138,8 +138,7 @@ func newWorker(t *testing.T, fx workerFixture, provider cometsdk.Provider, cfg c
 				Sessions:  fx.sessions,
 				Registry:  tools.NewRegistry(t.TempDir()),
 				Jobs:      fx.jobs,
-				MaxSteps:  maxSteps,
-				MaxTokens: 1024,
+				MaxSteps: maxSteps,
 			}, nil
 		},
 		Guard:             newTestRunGuard(),

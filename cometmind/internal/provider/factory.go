@@ -35,8 +35,7 @@ func providerConfigFor(cfg *config.Config, id string) (*config.ProviderEntry, st
 		return nil, id, cfg.BaseURL
 	}
 
-	// Fall back to the active provider.
-	return nil, cfg.Provider, cfg.BaseURL
+	return nil, cfg.DefaultProviderID, cfg.BaseURL
 }
 
 // sdkProviderID maps a Cometline provider method to the comet-sdk provider.
@@ -75,29 +74,12 @@ func CompatibilityEndpoint(cfg *config.Config, id string) string {
 	return cometsdk.NormaliseBaseURL(baseURL)
 }
 
-// New returns a concrete SDK provider based on [config.Config.Provider].
-func New(cfg *config.Config) (cometsdk.Provider, error) {
-	return NewForModel(cfg, cfg.Provider, cfg.Model)
-}
-
 // NewMemoryLLM returns the provider used for memory compaction and default
 // extraction/update LLM calls. It respects Memory.ExtractionProvider when set
 // so compaction does not send a pinned extraction model to the wrong backend.
 func NewMemoryLLM(cfg *config.Config) (cometsdk.Provider, error) {
 	providerID, model := cfg.ExtractionLLM()
 	return NewForModel(cfg, providerID, model)
-}
-
-// NewFor returns a concrete SDK provider for a specific provider id using the
-// provider entry's primary model. Kept for callers that only know the provider
-// id; prefer NewForModel when the model is known.
-func NewFor(cfg *config.Config, id string) (cometsdk.Provider, error) {
-	entry, _, _ := providerConfigFor(cfg, id)
-	modelID := ""
-	if entry != nil {
-		modelID = entry.Model
-	}
-	return NewForModel(cfg, id, modelID)
 }
 
 // NewForModel returns a concrete SDK provider for a specific provider id and

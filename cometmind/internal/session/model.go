@@ -31,8 +31,6 @@ type Session struct {
 	Purpose                 string
 	DelegationStatus        DelegationStatus
 	OutputSummary           string
-	ACPSessionID            string
-	PendingQuestion         string
 	SubagentKind            string
 	AgentMode               string
 	Gateway                 *SessionGateway
@@ -90,8 +88,6 @@ func sessionFromDB(s db.Session) Session {
 		Purpose:                 s.Purpose,
 		DelegationStatus:        DelegationStatus(s.DelegationStatus),
 		OutputSummary:           s.OutputSummary,
-		ACPSessionID:            s.AcpSessionID,
-		PendingQuestion:         s.PendingQuestion,
 		SubagentKind:            s.SubagentKind,
 		AgentMode:               s.AgentMode,
 		Pinned:                  s.Pinned != 0,

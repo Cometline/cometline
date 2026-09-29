@@ -325,153 +325,17 @@ export function defaultKeyboardShortcuts(): KeyboardShortcuts {
 	) as KeyboardShortcuts;
 }
 
-const SESSION_NAV_ACTIONS = new Set<ShortcutAction>(['previousSession', 'nextSession']);
-
-function isLegacySessionNavBinding(binding: ShortcutBinding): boolean {
-	// Migrate mistaken bare ⌘+arrow bindings from an older format.
-	if (binding.command) {
-		return binding.alt !== true && binding.shift !== true && binding.ctrl !== true;
-	}
-	// Migrate ⌃+arrow bindings that omitted ⌘ on Mac.
-	return Boolean(binding.ctrl && binding.meta === false);
-}
-
-function normalizeSessionNavBinding(
-	action: ShortcutAction,
-	binding: ShortcutBinding | undefined,
-	defaultBinding: ShortcutBinding
-): ShortcutBinding {
-	if (!SESSION_NAV_ACTIONS.has(action)) {
-		return binding ?? defaultBinding;
-	}
-	if (!binding) return { ...defaultBinding };
-	if (isLegacySessionNavBinding(binding)) {
-		return { ...defaultBinding };
-	}
-	return binding;
-}
-
-function normalizeToggleWorkspacePanelBinding(
-	binding: ShortcutBinding | undefined,
-	defaultBinding: ShortcutBinding
-) {
-	if (!binding) return { ...defaultBinding };
-	// macOS Option+B produces "∫" as event.key; older captures could persist it.
-	if (binding.key === '∫' && binding.command && binding.alt === true) {
-		return { ...defaultBinding };
-	}
-	// Migrate saved bindings that collide with toggleSidebar (⌘B) or legacy ⌘⇧B.
-	if (binding.key === 'b' && binding.command && binding.alt !== true) {
-		return { ...defaultBinding };
-	}
-	return binding;
-}
-
-function normalizeFocusSearchBinding(
-	binding: ShortcutBinding | undefined,
-	defaultBinding: ShortcutBinding
-): ShortcutBinding {
-	if (!binding) return { ...defaultBinding };
-	const isOldDefault =
-		keyMatches(binding.key, 'f') &&
-		binding.command === true &&
-		binding.ctrl !== true &&
-		binding.meta !== true &&
-		binding.alt !== true &&
-		binding.shift !== true;
-	return isOldDefault ? { ...defaultBinding } : binding;
-}
-
-function isCommandDigitBinding(binding: ShortcutBinding, digit: string): boolean {
-	return (
-		keyMatches(binding.key, digit) &&
-		binding.command === true &&
-		binding.ctrl !== true &&
-		binding.meta !== true &&
-		binding.alt !== true &&
-		binding.shift !== true
-	);
-}
-
-function normalizeInboxGalleryBinding(
-	action: ShortcutAction,
-	binding: ShortcutBinding | undefined,
-	defaultBinding: ShortcutBinding,
-	savedHasOpenUsage: boolean
-): ShortcutBinding {
-	if (action !== 'openInbox' && action !== 'openGallery') {
-		return binding ?? defaultBinding;
-	}
-	if (!binding) return { ...defaultBinding };
-	// One-shot upgrade from inbox ⌘3/⌘4 and gallery ⌘4. Once openUsage exists
-	// in saved settings, later user remaps (including back to ⌘4) are kept.
-	if (!savedHasOpenUsage && action === 'openInbox' && (isCommandDigitBinding(binding, '3') || isCommandDigitBinding(binding, '4'))) {
-		return { ...defaultBinding };
-	}
-	if (!savedHasOpenUsage && action === 'openGallery' && isCommandDigitBinding(binding, '4')) {
-		return { ...defaultBinding };
-	}
-	return binding;
-}
-
-function isBareEnterBinding(binding: ShortcutBinding): boolean {
-	return (
-		keyMatches(binding.key, 'Enter') &&
-		binding.command !== true &&
-		binding.ctrl !== true &&
-		binding.meta !== true &&
-		binding.alt !== true
-	);
-}
-
-function normalizeComposerEnterBinding(
-	action: ShortcutAction,
-	binding: ShortcutBinding | undefined,
-	defaultBinding: ShortcutBinding
-): ShortcutBinding {
-	if (action !== 'sendMessage' && action !== 'insertNewline') {
-		return binding ?? defaultBinding;
-	}
-	if (!binding) return { ...defaultBinding };
-	// Legacy send used bare Enter and matched Shift+Enter too.
-	if (action === 'sendMessage' && isBareEnterBinding(binding) && binding.shift === undefined) {
-		return { ...defaultBinding };
-	}
-	if (action === 'insertNewline' && binding.shift === undefined && isBareEnterBinding(binding)) {
-		return { ...defaultBinding };
-	}
-	return binding;
-}
-
 export function normalizeKeyboardShortcuts(
 	saved: KeyboardShortcuts | undefined
 ): KeyboardShortcuts {
 	const defaults = defaultKeyboardShortcuts();
 	if (!saved || typeof saved !== 'object') return defaults;
 
-	// Migrate legacy action ids from persisted desktop settings.
-	const legacySaved = saved as KeyboardShortcuts & {
-		toggleWebPanel?: ShortcutBinding;
-		openWebPanel?: ShortcutBinding;
-	};
-	const migratedSaved: KeyboardShortcuts = { ...legacySaved };
-	if (legacySaved.toggleWebPanel && !legacySaved.toggleWorkspacePanel) {
-		migratedSaved.toggleWorkspacePanel = legacySaved.toggleWebPanel;
-	}
-	if (legacySaved.openWebPanel && !legacySaved.openWebSearch) {
-		migratedSaved.openWebSearch = legacySaved.openWebPanel;
-	}
-
-	const savedHasOpenUsage =
-		migratedSaved.openUsage != null &&
-		typeof migratedSaved.openUsage === 'object' &&
-		typeof migratedSaved.openUsage.key === 'string';
-
 	const next: KeyboardShortcuts = { ...defaults };
 	for (const def of SHORTCUT_DEFINITIONS) {
-		const binding = migratedSaved[def.id];
+		const binding = saved[def.id];
 		if (binding && typeof binding === 'object' && typeof binding.key === 'string') {
-			const normalized: ShortcutBinding = {
+			next[def.id] = {
 				key: binding.key,
 				...(typeof binding.command === 'boolean' && { command: binding.command }),
 				...(typeof binding.ctrl === 'boolean' && { ctrl: binding.ctrl }),
@@ -479,28 +343,6 @@ export function normalizeKeyboardShortcuts(
 				...(typeof binding.alt === 'boolean' && { alt: binding.alt }),
 				...(typeof binding.shift === 'boolean' && { shift: binding.shift })
 			};
-			if (def.id === 'toggleWorkspacePanel') {
-				next[def.id] = normalizeToggleWorkspacePanelBinding(normalized, def.defaultBinding);
-				continue;
-			}
-			if (def.id === 'focusSearch') {
-				next[def.id] = normalizeFocusSearchBinding(normalized, def.defaultBinding);
-				continue;
-			}
-			if (def.id === 'openInbox' || def.id === 'openGallery') {
-				next[def.id] = normalizeInboxGalleryBinding(def.id, normalized, def.defaultBinding, savedHasOpenUsage);
-				continue;
-			}
-			const sessionNav = normalizeSessionNavBinding(def.id, normalized, def.defaultBinding);
-			next[def.id] = normalizeComposerEnterBinding(def.id, sessionNav, def.defaultBinding);
-		} else {
-			const fallback =
-				def.id === 'toggleWorkspacePanel'
-					? normalizeToggleWorkspacePanelBinding(undefined, def.defaultBinding)
-					: def.id === 'focusSearch'
-						? normalizeFocusSearchBinding(undefined, def.defaultBinding)
-						: normalizeSessionNavBinding(def.id, undefined, def.defaultBinding);
-			next[def.id] = normalizeComposerEnterBinding(def.id, fallback, def.defaultBinding);
 		}
 	}
 	return next;
@@ -529,8 +371,6 @@ export function matchesShortcut(
 	if (binding.meta !== undefined && binding.meta !== event.metaKey) return false;
 	if (binding.alt !== undefined && binding.alt !== event.altKey) return false;
 	if (binding.shift !== undefined && binding.shift !== event.shiftKey) return false;
-	// Bare Enter bindings (legacy saves) must not swallow Shift+Enter.
-	if (isBareEnterBinding(binding) && binding.shift === undefined && event.shiftKey) return false;
 	return true;
 }
 

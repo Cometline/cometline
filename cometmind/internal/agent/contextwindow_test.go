@@ -9,21 +9,6 @@ import (
 	"github.com/cometline/cometmind/internal/modelcatalog"
 )
 
-func TestResolveContextWindow(t *testing.T) {
-	if got := ResolveContextWindow(nil); got != defaultContextWindowLimit {
-		t.Fatalf("nil config = %d, want %d", got, defaultContextWindowLimit)
-	}
-	if got := ResolveContextWindow(&config.Config{}); got != defaultContextWindowLimit {
-		t.Fatalf("empty config = %d, want %d", got, defaultContextWindowLimit)
-	}
-	if got := ResolveContextWindow(&config.Config{ContextWindowLimit: contextWindowLimit256K}); got != contextWindowLimit256K {
-		t.Fatalf("256k config = %d, want %d", got, contextWindowLimit256K)
-	}
-	if got := ResolveContextWindow(&config.Config{ContextWindowLimit: 999_999}); got != defaultContextWindowLimit {
-		t.Fatalf("invalid config = %d, want %d", got, defaultContextWindowLimit)
-	}
-}
-
 func TestEffectiveMaxTokens(t *testing.T) {
 	if got := EffectiveMaxTokens(8_192); got != 8_192 {
 		t.Fatalf("small model = %d, want 8192", got)
@@ -72,13 +57,12 @@ func TestResolveSessionBudgetUsesCatalog(t *testing.T) {
 	t.Cleanup(modelcatalog.ResetCacheForTest)
 
 	cfg := &config.Config{
-		MaxTokens: 8192,
 		Providers: []config.ProviderEntry{{
 			ID:     "anthropic",
 			Method: config.ProviderAnthropic,
 		}},
 	}
-	got := ResolveSessionBudget(cfg, "anthropic", "claude-opus-4-1", 0)
+	got := ResolveSessionBudget(cfg, "anthropic", "claude-opus-4-1")
 	if got.LimitSource != modelcatalog.SourceCatalog {
 		t.Fatalf("source = %q, want catalog", got.LimitSource)
 	}
@@ -106,7 +90,7 @@ func TestResolveSessionBudgetFallbackCustom(t *testing.T) {
 			Method: config.ProviderOpenAICompat,
 		}},
 	}
-	got := ResolveSessionBudget(cfg, "local", "llama3", 0)
+	got := ResolveSessionBudget(cfg, "local", "llama3")
 	if got.LimitSource != modelcatalog.SourceFallback {
 		t.Fatalf("source = %q, want fallback", got.LimitSource)
 	}

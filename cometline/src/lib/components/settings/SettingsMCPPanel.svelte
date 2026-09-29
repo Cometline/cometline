@@ -45,8 +45,7 @@
 			value: 'http',
 			label: 'Remote URL (HTTP)',
 			hint: 'Connect to a hosted MCP server over HTTP.'
-		},
-		{ value: 'sse', label: 'Remote URL (SSE)', hint: 'Legacy server-sent events transport.' }
+		}
 	];
 
 	let serverStatuses = $state<McpServerStatus[]>([]);

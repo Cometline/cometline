@@ -11,15 +11,14 @@ type TransportKind string
 const (
 	TransportStdio TransportKind = "stdio"
 	TransportHTTP  TransportKind = "http"
-	TransportSSE   TransportKind = "sse"
 )
 
 // OAuthConfig holds OAuth client metadata (tokens live outside settings).
 type OAuthConfig struct {
-	ClientID          string
-	Scopes            []string
-	AuthorizationURL  string
-	TokenURL          string
+	ClientID         string
+	Scopes           []string
+	AuthorizationURL string
+	TokenURL         string
 }
 
 // ServerConfig is one configured MCP server entry.

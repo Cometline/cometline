@@ -145,11 +145,7 @@ func (f *fakeStore) AppendUserMessage(ctx context.Context, sessionID, text strin
 	return session.Message{}, nil
 }
 
-func (f *fakeStore) UpdateDelegationState(ctx context.Context, sessionID string, status session.DelegationStatus, summary, pendingQuestion string) error {
-	return nil
-}
-
-func (f *fakeStore) UpdateACPSessionID(ctx context.Context, sessionID, acpSessionID string) error {
+func (f *fakeStore) UpdateDelegationState(ctx context.Context, sessionID string, status session.DelegationStatus, summary string) error {
 	return nil
 }
 
@@ -549,10 +545,9 @@ func TestRunner_MaxTokensWithoutToolsContinuesThenStops(t *testing.T) {
 	}}
 
 	r := &Runner{
-		Provider:  provider,
-		Sessions:  store,
-		Registry:  tools.NewRegistry(t.TempDir()),
-		MaxTokens: 4096,
+		Provider: provider,
+		Sessions: store,
+		Registry: tools.NewRegistry(t.TempDir()),
 	}
 
 	events, runErr := runAndDrain(t, r, session.AgentTurn{ID: "s1", ModelID: "m"})
@@ -650,10 +645,9 @@ func TestRunner_IncompleteToolTruncationContinuesWithNudgeThenSucceeds(t *testin
 	}}
 
 	r := &Runner{
-		Provider:  provider,
-		Sessions:  store,
-		Registry:  tools.NewRegistry(dir),
-		MaxTokens: 4096,
+		Provider: provider,
+		Sessions: store,
+		Registry: tools.NewRegistry(dir),
 	}
 
 	events, runErr := runAndDrain(t, r, session.AgentTurn{ID: "s1", ModelID: "m"})
@@ -879,13 +873,12 @@ func TestRunner_EmitsContextBudgetAndDropsAfterCompaction(t *testing.T) {
 		},
 	}}
 
-	compactor := &ContextCompactor{Sessions: store, Config: &config.Config{ContextWindowLimit: 128_000}}
+	compactor := &ContextCompactor{Sessions: store, Config: &config.Config{}}
 	r := &Runner{
 		Provider:  provider,
 		Sessions:  store,
 		Registry:  tools.NewRegistry(t.TempDir()),
 		Compactor: compactor,
-		MaxTokens: 2048,
 	}
 
 	events, runErr := runAndDrain(t, r, session.AgentTurn{ID: "s1", ModelID: "m"})
@@ -1949,7 +1942,6 @@ func TestRunner_OverflowCompactsAndRetriesOnce(t *testing.T) {
 		Sessions:  store,
 		Registry:  tools.NewRegistry(t.TempDir()),
 		Compactor: &ContextCompactor{Sessions: store},
-		MaxTokens: 2048,
 	}
 	events, err := runAndDrain(t, r, session.AgentTurn{ID: "s-overflow", ModelID: "m", ProviderID: "fake"})
 	if err != nil {
@@ -2010,7 +2002,6 @@ func TestRunner_OverflowDoesNotRetryTwice(t *testing.T) {
 		Sessions:  store,
 		Registry:  tools.NewRegistry(t.TempDir()),
 		Compactor: &ContextCompactor{Sessions: store},
-		MaxTokens: 2048,
 	}
 	_, err := runAndDrain(t, r, session.AgentTurn{ID: "s-overflow-2", ModelID: "m", ProviderID: "fake"})
 	if err == nil {

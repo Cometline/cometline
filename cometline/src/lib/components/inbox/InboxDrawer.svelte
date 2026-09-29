@@ -2,10 +2,10 @@
 	import { Bell, X } from '@lucide/svelte';
 	import { fade, scale } from 'svelte/transition';
 	import AssistantMarkdown from '$lib/components/AssistantMarkdown.svelte';
+	import InboxLinkStatus from '$lib/components/inbox/InboxLinkStatus.svelte';
 	import type { InboxMessageResource } from '$lib/client/cometmind';
 	import {
 		jobLinkKey,
-		resolveInboxLinkAvailability,
 		sessionLinkKey,
 		type LinkAvailabilityMap
 	} from '$lib/inbox/link-availability';
@@ -77,26 +77,7 @@
 
 	const showDetailLinks = $derived(showJobLink || showSessionLink);
 
-	$effect(() => {
-		if (!open) {
-			linkAvailability = {};
-			return;
-		}
 
-		const currentMessages = messages;
-		const controller = new AbortController();
-
-		void resolveInboxLinkAvailability(currentMessages, {
-			signal: controller.signal
-		}).then((result) => {
-			if (controller.signal.aborted) return;
-			linkAvailability = result;
-		});
-
-		return () => {
-			controller.abort();
-		};
-	});
 
 	function formatRelativeTime(ms: number): string {
 		const delta = Date.now() - ms;
@@ -170,6 +151,7 @@
 <svelte:window onkeydown={handleWindowKeydown} />
 
 {#if open}
+	<InboxLinkStatus {messages} onAvailability={(next) => (linkAvailability = next)} />
 	<div class="inbox-layer" transition:fade={{ duration: 120 }}>
 		<button type="button" class="inbox-scrim" aria-label="Close inbox" onclick={onClose}></button>
 		<div

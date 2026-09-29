@@ -15,12 +15,20 @@ import (
 	"github.com/cometline/cometmind/internal/modelcatalog"
 )
 
+func newFor(cfg *config.Config, id string) (cometsdk.Provider, error) {
+	modelID := ""
+	if entry := cfg.FindProvider(id); entry != nil {
+		modelID = entry.Model
+	}
+	return NewForModel(cfg, id, modelID)
+}
+
 func TestNewForFallsBackToLegacyMethod(t *testing.T) {
 	t.Setenv("ANTHROPIC_API_KEY", "anthropic-key")
 
 	cfg := &config.Config{
-		Provider: config.ProviderOpenAI,
-		BaseURL:  "http://example.com/v1",
+		DefaultProviderID: config.ProviderOpenAI,
+		BaseURL:           "http://example.com/v1",
 		Providers: []config.ProviderEntry{{
 			ID:      "my-openai",
 			Method:  config.ProviderOpenAI,
@@ -32,12 +40,12 @@ func TestNewForFallsBackToLegacyMethod(t *testing.T) {
 	// A legacy session stored "anthropic" as the provider id. There is no
 	// matching provider entry, so the factory should treat it as the method and
 	// resolve the Anthropic API key.
-	p, err := NewFor(cfg, config.ProviderAnthropic)
+	p, err := newFor(cfg, config.ProviderAnthropic)
 	if err != nil {
-		t.Fatalf("NewFor() error = %v", err)
+		t.Fatalf("newFor() error = %v", err)
 	}
 	if p == nil {
-		t.Fatal("NewFor() returned nil")
+		t.Fatal("newFor() returned nil")
 	}
 }
 
@@ -45,7 +53,7 @@ func TestNewMemoryLLMUsesExtractionProvider(t *testing.T) {
 	loadProtocolFixture(t)
 
 	cfg := &config.Config{
-		Provider: config.ProviderCodex,
+		DefaultProviderID: config.ProviderCodex,
 		Providers: []config.ProviderEntry{
 			{ID: "codex", Method: config.ProviderCodex},
 			{
@@ -78,7 +86,7 @@ func TestNewForUsesMultiProviderEntry(t *testing.T) {
 	t.Setenv("OPENAI_API_KEY", "entry-key")
 
 	cfg := &config.Config{
-		Provider: config.ProviderAnthropic,
+		DefaultProviderID: config.ProviderAnthropic,
 		Providers: []config.ProviderEntry{{
 			ID:      "local-llm",
 			Name:    "Local LLM",
@@ -89,18 +97,18 @@ func TestNewForUsesMultiProviderEntry(t *testing.T) {
 		}},
 	}
 
-	p, err := NewFor(cfg, "local-llm")
+	p, err := newFor(cfg, "local-llm")
 	if err != nil {
-		t.Fatalf("NewFor() error = %v", err)
+		t.Fatalf("newFor() error = %v", err)
 	}
 	if p == nil {
-		t.Fatal("NewFor() returned nil")
+		t.Fatal("newFor() returned nil")
 	}
 }
 
 func TestNewForCodexDoesNotRequireAPIKey(t *testing.T) {
 	cfg := &config.Config{
-		Provider: config.ProviderCodex,
+		DefaultProviderID: config.ProviderCodex,
 		Providers: []config.ProviderEntry{{
 			ID:      "codex",
 			Name:    "ChatGPT Codex",
@@ -110,12 +118,12 @@ func TestNewForCodexDoesNotRequireAPIKey(t *testing.T) {
 		}},
 	}
 
-	p, err := NewFor(cfg, "codex")
+	p, err := newFor(cfg, "codex")
 	if err != nil {
-		t.Fatalf("NewFor() error = %v", err)
+		t.Fatalf("newFor() error = %v", err)
 	}
 	if p == nil {
-		t.Fatal("NewFor() returned nil")
+		t.Fatal("newFor() returned nil")
 	}
 	if p.ID() != config.ProviderCodex {
 		t.Fatalf("provider ID = %q, want %q", p.ID(), config.ProviderCodex)
@@ -123,18 +131,18 @@ func TestNewForCodexDoesNotRequireAPIKey(t *testing.T) {
 }
 
 func TestNewForFallsBackToLegacyCodexMethod(t *testing.T) {
-	p, err := NewFor(&config.Config{Provider: config.ProviderOpenAI}, config.ProviderCodex)
+	p, err := newFor(&config.Config{DefaultProviderID: config.ProviderOpenAI}, config.ProviderCodex)
 	if err != nil {
-		t.Fatalf("NewFor() error = %v", err)
+		t.Fatalf("newFor() error = %v", err)
 	}
 	if p == nil {
-		t.Fatal("NewFor() returned nil")
+		t.Fatal("newFor() returned nil")
 	}
 }
 
 func TestNewForOllamaUsesOpenAIFamilyWithoutAPIKey(t *testing.T) {
 	cfg := &config.Config{
-		Provider: config.ProviderOllama,
+		DefaultProviderID: config.ProviderOllama,
 		Providers: []config.ProviderEntry{{
 			ID:      "ollama",
 			Name:    "Ollama Local",
@@ -144,12 +152,12 @@ func TestNewForOllamaUsesOpenAIFamilyWithoutAPIKey(t *testing.T) {
 		}},
 	}
 
-	p, err := NewFor(cfg, "ollama")
+	p, err := newFor(cfg, "ollama")
 	if err != nil {
-		t.Fatalf("NewFor() error = %v", err)
+		t.Fatalf("newFor() error = %v", err)
 	}
 	if p == nil {
-		t.Fatal("NewFor() returned nil")
+		t.Fatal("newFor() returned nil")
 	}
 	if got := SDKFamily(cfg, "ollama"); got != config.ProviderOpenAI {
 		t.Fatalf("SDKFamily = %q, want %q", got, config.ProviderOpenAI)
@@ -161,7 +169,7 @@ func TestNewForOllamaUsesOpenAIFamilyWithoutAPIKey(t *testing.T) {
 
 func TestNewForXAIUsesSubscriptionProviderWithoutAPIKey(t *testing.T) {
 	cfg := &config.Config{
-		Provider: config.ProviderXAI,
+		DefaultProviderID: config.ProviderXAI,
 		Providers: []config.ProviderEntry{{
 			ID:      "xai",
 			Name:    "xAI Grok Subscription",
@@ -170,12 +178,12 @@ func TestNewForXAIUsesSubscriptionProviderWithoutAPIKey(t *testing.T) {
 		}},
 	}
 
-	p, err := NewFor(cfg, config.ProviderXAI)
+	p, err := newFor(cfg, config.ProviderXAI)
 	if err != nil {
-		t.Fatalf("NewFor() error = %v", err)
+		t.Fatalf("newFor() error = %v", err)
 	}
 	if p == nil {
-		t.Fatal("NewFor() returned nil")
+		t.Fatal("newFor() returned nil")
 	}
 	if p.ID() != config.ProviderXAI {
 		t.Fatalf("provider ID = %q, want %q", p.ID(), config.ProviderXAI)
@@ -188,12 +196,12 @@ func TestNewForXAIUsesSubscriptionProviderWithoutAPIKey(t *testing.T) {
 func TestNewForNoProviderConfigured(t *testing.T) {
 	cfg := &config.Config{} // no providers, empty active provider
 
-	_, err := NewFor(cfg, "")
+	_, err := newFor(cfg, "")
 	if err == nil {
-		t.Fatal("NewFor() error = nil, want error for empty provider config")
+		t.Fatal("newFor() error = nil, want error for empty provider config")
 	}
 	if !strings.Contains(err.Error(), "no provider configured") {
-		t.Fatalf("NewFor() error = %q, want it to mention 'no provider configured'", err.Error())
+		t.Fatalf("newFor() error = %q, want it to mention 'no provider configured'", err.Error())
 	}
 }
 
@@ -218,11 +226,11 @@ func TestNewOpenAIProviderUsesConfiguredBaseURL(t *testing.T) {
 
 	t.Setenv("COMETMIND_API_KEY", "dummy-key")
 
-	p, err := New(&config.Config{
-		Provider: config.ProviderOpenAI,
-		Model:    "test-model",
-		BaseURL:  srv.URL,
-	})
+	p, err := NewForModel(&config.Config{
+		DefaultProviderID: config.ProviderOpenAI,
+		DefaultModelID:    "test-model",
+		BaseURL:           srv.URL,
+	}, config.ProviderOpenAI, "test-model")
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}
@@ -354,9 +362,9 @@ func TestNewForOpencodeGoEntryModelRoutesResponses(t *testing.T) {
 		}},
 	}
 
-	p, err := NewFor(cfg, "opencode-go")
+	p, err := newFor(cfg, "opencode-go")
 	if err != nil {
-		t.Fatalf("NewFor() error = %v", err)
+		t.Fatalf("newFor() error = %v", err)
 	}
 	streamProviderRequest(t, p, "gpt-5.6-luna")
 	requirePaths(t, *paths, []string{"/v1/responses"})

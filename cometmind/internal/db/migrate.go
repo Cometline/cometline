@@ -639,6 +639,11 @@ var alterStatements = [][]string{
 	{
 		"ALTER TABLE tool_calls ADD COLUMN compacted_at INTEGER",
 	},
+	// v36 -> v37: drop unused child-session columns.
+	{
+		"ALTER TABLE sessions DROP COLUMN acp_session_id",
+		"ALTER TABLE sessions DROP COLUMN pending_question",
+	},
 }
 
 func isForeignKeysPragma(stmt string) bool {
@@ -797,7 +802,7 @@ func splitStatements(sql string) []string {
 	return out
 }
 
-const schemaVersion = 36
+const schemaVersion = 37
 
 // EnsureSchema runs [Migrate] once per database file using PRAGMA user_version.
 // For existing databases, it applies incremental ALTER statements to upgrade

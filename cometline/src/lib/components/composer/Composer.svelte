@@ -229,8 +229,7 @@
 			budget,
 			items,
 			draftText: value,
-			contextWindowLimit: selected?.context ?? DEFAULT_CONTEXT_WINDOW_LIMIT,
-			maxTokens: settingsStore.settings.cometmind.maxTokens,
+			contextWindow: selected?.context ?? DEFAULT_CONTEXT_WINDOW_LIMIT,
 			modelOutput: selected?.output ?? null
 		});
 	});

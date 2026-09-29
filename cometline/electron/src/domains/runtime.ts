@@ -257,7 +257,6 @@ export function initializeRuntime() {
 			...process.env,
 			COMETMIND_PROVIDER: active?.id ?? '',
 			COMETMIND_MODEL: model,
-			COMETMIND_MAX_TOKENS: String(settings.cometmind?.maxTokens ?? 0),
 			COMETMIND_LOG_LEVEL: settings.cometmind?.logLevel ?? 'error'
 		};
 		if (active?.baseURL) env.COMETMIND_BASE_URL = active.baseURL;

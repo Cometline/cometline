@@ -16,17 +16,16 @@ func TestAdaptCometlineSettingsPrefersDefaultOverActive(t *testing.T) {
 				APIKey:        "k",
 			},
 		},
-		ActiveProviderID:  "codex",
 		DefaultProviderID: "opencode-go",
 		DefaultModelID:    "deepseek-v4-flash",
 	})
 	if err != nil {
 		t.Fatalf("adaptCometlineSettings() error = %v", err)
 	}
-	if cfg.Provider != "opencode-go" || cfg.DefaultProviderID != "opencode-go" {
-		t.Fatalf("provider = %q/%q, want opencode-go", cfg.Provider, cfg.DefaultProviderID)
+	if cfg.DefaultProviderID != "opencode-go" {
+		t.Fatalf("provider = %q, want opencode-go", cfg.DefaultProviderID)
 	}
-	if cfg.Model != "deepseek-v4-flash" || cfg.DefaultModelID != "deepseek-v4-flash" {
-		t.Fatalf("model = %q/%q, want deepseek-v4-flash", cfg.Model, cfg.DefaultModelID)
+	if cfg.DefaultModelID != "deepseek-v4-flash" {
+		t.Fatalf("model = %q, want deepseek-v4-flash", cfg.DefaultModelID)
 	}
 }

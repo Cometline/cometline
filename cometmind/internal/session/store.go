@@ -35,7 +35,7 @@ type SessionStore interface {
 	UpdateSessionPinned(ctx context.Context, sessionID string, pinned bool) (Session, error)
 	UpdateSessionTitle(ctx context.Context, sessionID, title string) (Session, error)
 	SetTitleIfEmpty(ctx context.Context, sessionID, title string) error
-	UpdateDelegationState(ctx context.Context, sessionID string, status DelegationStatus, summary, pendingQuestion string) error
+	UpdateDelegationState(ctx context.Context, sessionID string, status DelegationStatus, summary string) error
 
 	// Gateway session binding.
 	UpsertGatewaySession(ctx context.Context, platform, userID, channelID, threadID, sessionID, workspaceID string) (db.GatewaySession, error)
@@ -92,8 +92,7 @@ type ChildSessionReader interface {
 	NewChildSession(ctx context.Context, parent Session, purpose, subagentKind string) (Session, error)
 	UpdateSessionModel(ctx context.Context, sessionID, modelID, providerID string) (Session, error)
 	AppendUserMessage(ctx context.Context, sessionID, text string) (Message, error)
-	UpdateDelegationState(ctx context.Context, sessionID string, status DelegationStatus, summary, pendingQuestion string) error
-	UpdateACPSessionID(ctx context.Context, sessionID, acpSessionID string) error
+	UpdateDelegationState(ctx context.Context, sessionID string, status DelegationStatus, summary string) error
 	CompactChildSession(ctx context.Context, childID string) error
 	LastAssistantText(ctx context.Context, sessionID string) (string, error)
 	ListToolCallsForSession(ctx context.Context, sessionID string) ([]db.ToolCall, error)

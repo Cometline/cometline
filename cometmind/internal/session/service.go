@@ -2019,30 +2019,12 @@ func (s *Service) ListChildSessions(ctx context.Context, parentSessionID string)
 	return sessionsFromDB(rows), nil
 }
 
-// UpdateDelegation persists delegation status and summary for a child session.
-func (s *Service) UpdateDelegation(ctx context.Context, sessionID string, status DelegationStatus, summary string) error {
+// UpdateDelegationState persists delegation status and summary for a child session.
+func (s *Service) UpdateDelegationState(ctx context.Context, sessionID string, status DelegationStatus, summary string) error {
 	return s.q.UpdateSessionDelegation(ctx, db.UpdateSessionDelegationParams{
 		DelegationStatus: status.String(),
 		OutputSummary:    summary,
 		ID:               sessionID,
-	})
-}
-
-// UpdateDelegationState persists delegation status, summary, and pending question.
-func (s *Service) UpdateDelegationState(ctx context.Context, sessionID string, status DelegationStatus, summary, pendingQuestion string) error {
-	return s.q.UpdateSessionDelegationState(ctx, db.UpdateSessionDelegationStateParams{
-		DelegationStatus: status.String(),
-		OutputSummary:    summary,
-		PendingQuestion:  pendingQuestion,
-		ID:               sessionID,
-	})
-}
-
-// UpdateACPSessionID stores the external ACP session identifier for a child session.
-func (s *Service) UpdateACPSessionID(ctx context.Context, sessionID, acpSessionID string) error {
-	return s.q.UpdateSessionACP(ctx, db.UpdateSessionACPParams{
-		AcpSessionID: acpSessionID,
-		ID:           sessionID,
 	})
 }
 

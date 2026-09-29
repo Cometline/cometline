@@ -15,12 +15,6 @@ import type {
 	ResponseCompleteSoundSettings
 } from '../types';
 import {
-	DEFAULT_CONTEXT_WINDOW_LIMIT,
-	normalizeContextWindowLimit,
-	type ContextWindowLimit
-} from '../context-window';
-import {
-	migratePersonaIdFromIconVariant,
 	normalizeCustomPersonas as normalizeCustomPersonaList,
 	normalizePersonaId as resolveNormalizedPersonaId
 } from '../personas';
@@ -139,7 +133,7 @@ export interface CometMindStorageSettings {
 	backup: CometMindStorageBackupSettings;
 }
 
-export type MCPTransport = 'stdio' | 'http' | 'sse';
+export type MCPTransport = 'stdio' | 'http';
 
 export interface MCPOAuthSettings {
 	clientId?: string;
@@ -217,12 +211,6 @@ export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 const LOG_LEVELS: LogLevel[] = ['debug', 'info', 'warn', 'error'];
 
 /** 1–99 stays a percent. 0, 100, and legacy absolute token counts mean model limit. */
-export function normalizeOutputCapPercent(value: unknown): number {
-	const n = Number(value);
-	if (!Number.isFinite(n) || n <= 0 || n >= 100) return 0;
-	return Math.floor(n);
-}
-
 function normalizeLogLevel(value: unknown): LogLevel {
 	const raw = String(value ?? '')
 		.trim()
@@ -235,13 +223,7 @@ function normalizeLogLevel(value: unknown): LogLevel {
 
 export interface CometMindSettings {
 	systemPromptPath: string;
-	/**
-	 * Legacy field. The request ceiling is min(current model output, 32k) and
-	 * does not read this value.
-	 */
-	maxTokens: number;
 	logLevel: LogLevel;
-	contextWindowLimit: ContextWindowLimit;
 	titleProviderId: string;
 	titleModelId: string;
 	acp: CometMindACPSettings;
@@ -256,30 +238,6 @@ export interface CometMindSettings {
 	autonomy: CometMindAutonomousJobsSettings;
 	scheduler: CometMindSchedulerSettings;
 	generation: CometMindGenerationSettings;
-}
-
-export interface RuntimeProviderEntry {
-	id: string;
-	name: string;
-	method: string;
-	baseURL: string;
-	apiKey: string;
-	model: string;
-}
-
-export interface RuntimeSettingsSlice {
-	provider: string;
-	model: string;
-	baseURL: string;
-	maxTokens: number;
-	maxSteps: number;
-	systemPromptPath: string;
-	providers: RuntimeProviderEntry[];
-	acp: CometMindACPSettings;
-	skills: CometMindSkillsSettings;
-	memory: CometMindMemorySettings;
-	gateway: CometMindSettings['gateway'];
-	mcp: CometMindMCPSettings;
 }
 
 const DEFAULT_PROVIDERS: ProviderConfig[] = [
@@ -376,24 +334,6 @@ export function isFixedBuiltinProvider(id: string): boolean {
 	return FIXED_BUILTIN_PROVIDER_IDS.has(id);
 }
 
-function looksLikeDiscordBotToken(value: string): boolean {
-	const parts = value.split('.');
-	if (parts.length !== 3) return false;
-	return parts[0].length >= 18 && parts[1].length >= 4 && parts[2].length >= 20;
-}
-
-function migrateDiscordTokenFields(discord: Partial<CometMindDiscordGatewaySettings>) {
-	const defaults = defaultCometMindSettings().gateway.discord;
-	let botToken = String(discord.botToken ?? '').trim();
-	let botTokenEnv =
-		String(discord.botTokenEnv ?? defaults.botTokenEnv).trim() || defaults.botTokenEnv;
-	if (!botToken && looksLikeDiscordBotToken(botTokenEnv)) {
-		botToken = botTokenEnv;
-		botTokenEnv = defaults.botTokenEnv;
-	}
-	return { botToken, botTokenEnv };
-}
-
 function cleanStringList(values: unknown): string[] {
 	if (!Array.isArray(values)) return [];
 	return values.map((v) => String(v).trim()).filter(Boolean);
@@ -440,11 +380,15 @@ function slugifyMCPId(name: string, existing: Set<string>): string {
 	return candidate;
 }
 
-const VALID_MCP_TRANSPORTS: MCPTransport[] = ['stdio', 'http', 'sse'];
+const VALID_MCP_TRANSPORTS: MCPTransport[] = ['stdio', 'http'];
 
 function normalizeMCPTransport(value: unknown, fallback: MCPTransport): MCPTransport {
-	const raw = String(value ?? '').trim() as MCPTransport;
-	return VALID_MCP_TRANSPORTS.includes(raw) ? raw : fallback;
+	const raw = String(value ?? '')
+		.trim()
+		.toLowerCase();
+	if (raw === 'sse' || raw === 'http') return 'http';
+	if (raw === 'stdio') return 'stdio';
+	return VALID_MCP_TRANSPORTS.includes(raw as MCPTransport) ? (raw as MCPTransport) : fallback;
 }
 
 function normalizeMCPOAuth(
@@ -573,9 +517,7 @@ export function defaultCometMindStorageSettings(): CometMindStorageSettings {
 export function defaultCometMindSettings(workspacePath = ''): CometMindSettings {
 	return {
 		systemPromptPath: '',
-		maxTokens: 0,
 		logLevel: 'error',
-		contextWindowLimit: DEFAULT_CONTEXT_WINDOW_LIMIT,
 		titleProviderId: '',
 		titleModelId: '',
 		acp: {
@@ -653,27 +595,16 @@ export function normalizeCometMindSettings(
 	const memoryLifecycle: Partial<CometMindMemorySettings['lifecycle']> = memory.lifecycle ?? {};
 	const embedding: Partial<CometMindMemorySettings['embedding']> = memory.embedding ?? {};
 	const storage: Partial<CometMindStorageSettings> = input?.storage ?? {};
-	const legacyDeletedJobPurgeDays = (
-		input?.storage as
-			| (Partial<CometMindStorageSettings> & { deletedJobPurgeDays?: unknown })
-			| undefined
-	)?.deletedJobPurgeDays;
 	const discord: Partial<CometMindDiscordGatewaySettings> = input?.gateway?.discord ?? {};
 	const mcp = normalizeCometMindMCPSettings(input?.mcp);
 	const jobsInput: Partial<CometMindJobsSettings> = input?.jobs ?? {};
 	const jobsDefaults = defaults.jobs;
 	const jobsNotifications: Partial<CometMindJobsNotificationSettings> =
 		jobsInput.notifications ?? {};
-	const canonicalDeletedJobPurgeDays = normalizeNonNegativeInt(
+	const deletedJobPurgeDays = normalizeNonNegativeInt(
 		jobsInput.deletedPurgeDays,
 		jobsDefaults.deletedPurgeDays
 	);
-	const deletedJobPurgeDays =
-		legacyDeletedJobPurgeDays !== undefined &&
-		(jobsInput.deletedPurgeDays === undefined ||
-			canonicalDeletedJobPurgeDays === jobsDefaults.deletedPurgeDays)
-			? normalizeNonNegativeInt(legacyDeletedJobPurgeDays, jobsDefaults.deletedPurgeDays)
-			: canonicalDeletedJobPurgeDays;
 	const autonomyInput: Partial<CometMindAutonomousJobsSettings> = input?.autonomy ?? {};
 	const autonomyDefaults = defaults.autonomy;
 	const schedulerInput: Partial<CometMindSchedulerSettings> = input?.scheduler ?? {};
@@ -684,15 +615,14 @@ export function normalizeCometMindSettings(
 			? raw
 			: defaults.acp.defaultHarness;
 	};
-	const { botToken, botTokenEnv } = migrateDiscordTokenFields(discord);
+	const defaultsDiscord = defaults.gateway.discord;
+	const botToken = String(discord.botToken ?? '').trim();
+	const botTokenEnv =
+		String(discord.botTokenEnv ?? defaultsDiscord.botTokenEnv).trim() || defaultsDiscord.botTokenEnv;
 
 	return {
 		systemPromptPath: String(input?.systemPromptPath ?? defaults.systemPromptPath).trim(),
-		maxTokens: normalizeOutputCapPercent(input?.maxTokens),
 		logLevel: normalizeLogLevel(input?.logLevel ?? defaults.logLevel),
-		contextWindowLimit: normalizeContextWindowLimit(
-			input?.contextWindowLimit ?? defaults.contextWindowLimit
-		),
 		titleProviderId: String(input?.titleProviderId ?? defaults.titleProviderId).trim(),
 		titleModelId: String(input?.titleModelId ?? defaults.titleModelId).trim(),
 		acp: {
@@ -966,9 +896,7 @@ export function normalizeCometMindSettings(
 export function cloneCometMindSettings(settings: CometMindSettings): CometMindSettings {
 	return {
 		systemPromptPath: settings.systemPromptPath,
-		maxTokens: settings.maxTokens,
 		logLevel: settings.logLevel,
-		contextWindowLimit: settings.contextWindowLimit,
 		titleProviderId: settings.titleProviderId,
 		titleModelId: settings.titleModelId,
 		acp: {
@@ -1111,18 +1039,10 @@ function normalizeWorkspacePanelRatio(value: unknown): number {
 	return Math.min(WORKSPACE_PANEL_MAX_RATIO, value);
 }
 
-/**
- * Normalizes `app.personaId`, migrating from the legacy `app.iconVariant`
- * field (`'default' | 'man'`) when `personaId` is absent. `customPersonas`
- * must already be normalized so a custom persona id is recognized as valid.
- */
 function normalizeAppPersonaId(rawApp: unknown, customPersonas: CustomPersona[]): string {
-	const app = (rawApp ?? {}) as { personaId?: unknown; iconVariant?: unknown };
+	const app = (rawApp ?? {}) as { personaId?: unknown };
 	if (typeof app.personaId === 'string' && app.personaId.trim()) {
 		return resolveNormalizedPersonaId(app.personaId, customPersonas);
-	}
-	if (app.iconVariant !== undefined) {
-		return migratePersonaIdFromIconVariant(app.iconVariant);
 	}
 	return 'minako';
 }
@@ -1166,12 +1086,9 @@ export function normalizeProvider(
 			: (fallback?.method ?? 'openai-compatible');
 	const rawModels = Array.isArray(provider.models) ? provider.models : (fallback?.models ?? []);
 	const modelList = rawModels.map((model) => String(model || '').trim()).filter(Boolean);
-	const legacySelected = String(provider.selectedModel || fallback?.selectedModel || '').trim();
 	const rawEnabledModels = Array.isArray(provider.enabledModels)
 		? provider.enabledModels
-		: legacySelected
-			? [legacySelected]
-			: [];
+		: (fallback?.enabledModels ?? []);
 	const enabledModels = rawEnabledModels
 		.map((model) => String(model || '').trim())
 		.filter((model) => model && modelList.includes(model));
@@ -1224,42 +1141,7 @@ export function newProvider(id: string): ProviderConfig {
 	};
 }
 
-export function migrateSingleProvider(
-	saved: Record<string, unknown> | null | undefined
-): Partial<ProviderSettings> | null {
-	if (!saved || typeof saved !== 'object' || Array.isArray(saved.providers)) return null;
-	const id = String(saved.provider || 'openai').trim();
-	return {
-		providers: [
-			{
-				id,
-				name:
-					id === 'opencode-go' ? 'OpenCode Go' : id.charAt(0).toUpperCase() + id.slice(1),
-				method:
-					id === 'openai' && String(saved.baseURL || '').includes('opencode.ai')
-						? 'opencode-go'
-						: id === 'openai'
-							? 'openai-compatible'
-							: (id as ProviderMethod),
-				enabled: true,
-				baseURL: String(saved.baseURL || '').trim(),
-				apiKey: String(saved.apiKey || '').trim(),
-				selectedModel: String(saved.selectedModel || '').trim(),
-				models: Array.isArray(saved.models)
-					? saved.models.map((m) => String(m || '').trim()).filter(Boolean)
-					: [],
-				enabledModels: saved.selectedModel ? [String(saved.selectedModel).trim()] : []
-			}
-		],
-		defaultProviderId: id,
-		defaultModelId: String(saved.selectedModel || '').trim()
-	};
-}
-
-/** Legacy settings files may still carry activeProviderId; read-only for migration. */
-export type SettingsNormalizeInput = Partial<ProviderSettings> & {
-	activeProviderId?: string;
-};
+export type SettingsNormalizeInput = Partial<ProviderSettings>;
 
 export function defaultSettings(): ProviderSettings {
 	const providers = DEFAULT_PROVIDERS.map(cloneProvider);
@@ -1288,8 +1170,7 @@ export function normalizeSettings(
 	const { defaultProviderId, defaultModelId } = resolveDefaultModelPair(
 		providers,
 		next.defaultProviderId,
-		next.defaultModelId,
-		next.activeProviderId
+		next.defaultModelId
 	);
 	const cometmind = normalizeCometMindSettings(
 		next.cometmind,
@@ -1338,28 +1219,8 @@ export function normalizeSettings(
 			miniWindowInactivityTimeoutMinutes: normalizeMiniWindowInactivityTimeoutMinutes(
 				next.app?.miniWindowInactivityTimeoutMinutes
 			),
-			workspacePanelWidth: normalizeWorkspacePanelWidth(
-				(() => {
-					const rawApp = next.app as
-						| { workspacePanelWidth?: unknown; webPanelWidth?: unknown }
-						| undefined;
-					if (!rawApp) return undefined;
-					return 'workspacePanelWidth' in rawApp
-						? rawApp.workspacePanelWidth
-						: rawApp.webPanelWidth;
-				})()
-			),
-			workspacePanelRatio: normalizeWorkspacePanelRatio(
-				(() => {
-					const rawApp = next.app as
-						| { workspacePanelRatio?: unknown; webPanelRatio?: unknown }
-						| undefined;
-					if (!rawApp) return undefined;
-					return 'workspacePanelRatio' in rawApp
-						? rawApp.workspacePanelRatio
-						: rawApp.webPanelRatio;
-				})()
-			),
+			workspacePanelWidth: normalizeWorkspacePanelWidth(next.app?.workspacePanelWidth),
+			workspacePanelRatio: normalizeWorkspacePanelRatio(next.app?.workspacePanelRatio),
 			confirmCloseOnCmdW:
 				typeof next.app?.confirmCloseOnCmdW === 'boolean'
 					? next.app.confirmCloseOnCmdW
@@ -1384,12 +1245,10 @@ export function normalizeSettings(
 	};
 }
 
-/** Resolve Default model pair; migrate from legacy activeProviderId when Default is empty. */
 export function resolveDefaultModelPair(
 	providers: ProviderConfig[],
 	preferredDefaultProviderId?: string,
-	preferredDefaultModelId?: string,
-	legacyActiveProviderId?: string
+	preferredDefaultModelId?: string
 ): { defaultProviderId: string; defaultModelId: string } {
 	const runtime = providers.filter((p) => p.enabled && p.enabledModels.length > 0);
 	const byId = new Map(runtime.map((p) => [p.id, p]));
@@ -1403,9 +1262,7 @@ export function resolveDefaultModelPair(
 			defaultModelId = primaryModel(provider);
 		}
 	} else {
-		const legacyActive = String(legacyActiveProviderId ?? '').trim();
-		const migrated =
-			(legacyActive && byId.get(legacyActive)) || runtime[0] || providers[0] || null;
+		const migrated = runtime[0] || providers[0] || null;
 		defaultProviderId = migrated?.id ?? '';
 		defaultModelId = migrated ? primaryModel(migrated) : '';
 	}
@@ -1418,55 +1275,6 @@ export function resolveDefaultModelPair(
 
 function primaryModel(provider: ProviderConfig): string {
 	return provider.enabledModels[0] || provider.selectedModel || provider.models[0] || '';
-}
-
-export function runtimeProviders(settings: ProviderSettings): ProviderConfig[] {
-	return settings.providers.filter((p) => p.enabled && p.enabledModels.length > 0);
-}
-
-export function runtimeSlice(settings: ProviderSettings): RuntimeSettingsSlice | null {
-	const providers = runtimeProviders(settings);
-	const active =
-		providers.find((p) => p.id === settings.defaultProviderId) ?? providers[0] ?? null;
-	if (!active) return null;
-
-	const model =
-		settings.defaultModelId && active.enabledModels.includes(settings.defaultModelId)
-			? settings.defaultModelId
-			: primaryModel(active);
-
-	return {
-		provider: active.id,
-		model,
-		baseURL: active.baseURL,
-		maxTokens: settings.cometmind.maxTokens,
-		maxSteps: 50,
-		systemPromptPath: settings.cometmind.systemPromptPath,
-		providers: providers.map((p) => ({
-			id: p.id,
-			name: p.name,
-			method: p.method,
-			baseURL: p.baseURL,
-			apiKey: p.apiKey,
-			model: primaryModel(p)
-		})),
-		acp: { ...settings.cometmind.acp },
-		skills: { ...settings.cometmind.skills, roots: [...settings.cometmind.skills.roots] },
-		memory: {
-			enabled: settings.cometmind.memory.enabled,
-			autoExtract: settings.cometmind.memory.autoExtract,
-			autoRetrieve: settings.cometmind.memory.autoRetrieve,
-			maxRetrieved: settings.cometmind.memory.maxRetrieved,
-			taskOutcomeLimit: settings.cometmind.memory.taskOutcomeLimit,
-			similarityThreshold: settings.cometmind.memory.similarityThreshold,
-			extractionProviderId: settings.cometmind.memory.extractionProviderId,
-			extractionModel: settings.cometmind.memory.extractionModel,
-			lifecycle: { ...settings.cometmind.memory.lifecycle },
-			embedding: { ...settings.cometmind.memory.embedding }
-		},
-		gateway: cloneCometMindSettings(settings.cometmind).gateway,
-		mcp: cloneCometMindSettings(settings.cometmind).mcp
-	};
 }
 
 const providerConfigSchema = z.object({
@@ -1554,9 +1362,7 @@ const providerSettingsSchema = z.object({
 	}),
 	cometmind: z.object({
 		systemPromptPath: z.string(),
-		maxTokens: z.number().int().min(0),
 		logLevel: z.enum(['debug', 'info', 'warn', 'error']),
-		contextWindowLimit: z.union([z.literal(128_000), z.literal(256_000)]),
 		titleProviderId: z.string(),
 		titleModelId: z.string(),
 		acp: z.object({
@@ -1634,7 +1440,7 @@ const providerSettingsSchema = z.object({
 					id: z.string().min(1),
 					name: z.string(),
 					enabled: z.boolean(),
-					transport: z.enum(['stdio', 'http', 'sse']),
+					transport: z.enum(['stdio', 'http']),
 					command: z.string().optional(),
 					args: z.array(z.string()).optional(),
 					env: z.record(z.string(), z.string()).optional(),
@@ -1718,11 +1524,7 @@ export function parseAndNormalizeSettings(
 	if (!raw || typeof raw !== 'object') {
 		return validateSettings(normalizeSettings(defaultSettings(), options));
 	}
-	const record = raw as Record<string, unknown>;
-	const migrated = migrateSingleProvider(record);
 	const partial = raw as Partial<ProviderSettings>;
-	const base = migrated
-		? { ...defaultSettings(), ...partial, ...migrated }
-		: { ...defaultSettings(), ...partial };
+	const base = { ...defaultSettings(), ...partial };
 	return validateSettings(normalizeSettings(base, options));
 }

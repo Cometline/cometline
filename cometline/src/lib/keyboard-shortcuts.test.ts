@@ -49,17 +49,6 @@ describe('keyboard-shortcuts', () => {
 		});
 	});
 
-	it('migrates legacy bare ⌘+arrow session navigation bindings', () => {
-		const normalized = normalizeKeyboardShortcuts({
-			previousSession: { command: true, key: 'ArrowUp' }
-		});
-		expect(normalized.previousSession).toEqual({
-			ctrl: true,
-			meta: true,
-			key: 'ArrowUp'
-		});
-	});
-
 	it('matches ⌘⌥ session navigation shortcuts', () => {
 		const binding = { command: true, alt: true, key: 'ArrowUp' };
 		expect(
@@ -130,17 +119,6 @@ describe('keyboard-shortcuts', () => {
 		expect(matchesShortcut(keyEvent({ key: 'Enter' }), newline)).toBe(false);
 	});
 
-	it('migrates legacy bare Enter send bindings', () => {
-		const normalized = normalizeKeyboardShortcuts({
-			sendMessage: { key: 'Enter' }
-		});
-		expect(normalized.sendMessage).toEqual({ key: 'Enter', shift: false });
-		expect(normalized.insertNewline).toEqual({ key: 'Enter', shift: true });
-		expect(
-			matchesShortcut(keyEvent({ key: 'Enter', shiftKey: true }), normalized.sendMessage)
-		).toBe(false);
-	});
-
 	it('captureShortcut records shift false for plain Enter', () => {
 		expect(captureShortcut(keyEvent({ key: 'Enter' }))).toEqual({
 			key: 'Enter',
@@ -171,15 +149,6 @@ describe('keyboard-shortcuts', () => {
 		const normalized = normalizeKeyboardShortcuts({});
 		expect(normalized.findInSession).toEqual({ command: true, key: 'f' });
 		expect(normalized.focusSearch).toEqual({ command: true, shift: true, key: 'f' });
-	});
-
-	it('migrates the old chat search default without replacing custom bindings', () => {
-		expect(
-			normalizeKeyboardShortcuts({ focusSearch: { command: true, key: 'f' } }).focusSearch
-		).toEqual({ command: true, shift: true, key: 'f' });
-		expect(
-			normalizeKeyboardShortcuts({ focusSearch: { command: true, key: 'g' } }).focusSearch
-		).toEqual({ command: true, key: 'g' });
 	});
 
 	it('includes openGitPanel default shortcut', () => {
@@ -213,45 +182,6 @@ describe('keyboard-shortcuts', () => {
 		expect(normalized.openInbox).toEqual({ command: true, key: '5' });
 	});
 
-	it('migrates the old inbox/gallery defaults without replacing custom bindings', () => {
-		expect(
-			normalizeKeyboardShortcuts({
-				openInbox: { command: true, key: '3' },
-				openGallery: { command: true, key: '4' }
-			})
-		).toMatchObject({
-			openGallery: { command: true, key: '3' },
-			openUsage: { command: true, key: '4' },
-			openInbox: { command: true, key: '5' }
-		});
-		expect(
-			normalizeKeyboardShortcuts({
-				openInbox: { command: true, key: '4' }
-			})
-		).toMatchObject({
-			openUsage: { command: true, key: '4' },
-			openInbox: { command: true, key: '5' }
-		});
-		expect(
-			normalizeKeyboardShortcuts({
-				openInbox: { command: true, key: 'i' },
-				openGallery: { command: true, key: 'g' }
-			})
-		).toMatchObject({
-			openInbox: { command: true, key: 'i' },
-			openGallery: { command: true, key: 'g' }
-		});
-		expect(
-			normalizeKeyboardShortcuts({
-				openUsage: { command: true, key: '4' },
-				openInbox: { command: true, key: '4' }
-			})
-		).toMatchObject({
-			openUsage: { command: true, key: '4' },
-			openInbox: { command: true, key: '4' }
-		});
-	});
-
 	it('includes return to recent chat default shortcut', () => {
 		const normalized = normalizeKeyboardShortcuts({});
 		expect(normalized.recentSession).toEqual({ command: true, shift: true, key: 'd' });
@@ -281,21 +211,6 @@ describe('keyboard-shortcuts', () => {
 		});
 	});
 
-	it('migrates macOS Option-produced toggle workspace panel binding', () => {
-		const normalized = normalizeKeyboardShortcuts({
-			toggleWorkspacePanel: { command: true, alt: true, key: '∫' }
-		});
-		expect(normalized.toggleWorkspacePanel).toEqual({ command: true, alt: true, key: 'b' });
-	});
-
-	it('migrates legacy toggleWebPanel and openWebPanel action ids', () => {
-		const normalized = normalizeKeyboardShortcuts({
-			toggleWebPanel: { command: true, alt: true, key: 'b' },
-			openWebPanel: { command: true, key: 'o' }
-		} as Parameters<typeof normalizeKeyboardShortcuts>[0]);
-		expect(normalized.toggleWorkspacePanel).toEqual({ command: true, alt: true, key: 'b' });
-		expect(normalized.openWebSearch).toEqual({ command: true, key: 'o' });
-	});
 });
 
 describe('isReloadShortcut', () => {

@@ -62,15 +62,8 @@ export function widthToRatio(width: number, rowWidth: number): number {
 	return clampWorkspacePanelRatio(width / rowWidth);
 }
 
-/**
- * Resolve the user's preferred ratio from settings.
- * Prefers an explicit ratio; falls back to legacy absolute width, then 50%.
- */
-export function resolveWorkspacePanelRatio(prefs: WorkspacePanelSizePrefs, rowWidth: number): number {
+export function resolveWorkspacePanelRatio(prefs: WorkspacePanelSizePrefs, _rowWidth: number): number {
 	if (prefs.workspacePanelRatio > 0) return clampWorkspacePanelRatio(prefs.workspacePanelRatio);
-	if (prefs.workspacePanelWidth > 0 && rowWidth > 0) {
-		return widthToRatio(prefs.workspacePanelWidth, rowWidth);
-	}
 	return WORKSPACE_PANEL_DEFAULT_RATIO;
 }
 

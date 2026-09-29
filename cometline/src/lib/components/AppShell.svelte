@@ -744,7 +744,11 @@
 
 	// --- Web/file panel resize ---------------------------------------------
 	/** User's preferred share of the content row; survives temporary clamps. */
-	let preferredRatio = $state(0.5);
+	const panelSizePrefs = $derived({
+		workspacePanelRatio: settingsStore.settings.app.workspacePanelRatio,
+		workspacePanelWidth: settingsStore.settings.app.workspacePanelWidth
+	});
+	let preferredRatio = $derived(resolveWorkspacePanelRatio(panelSizePrefs, contentRowWidth()));
 	let resizing = $state(false);
 	/** True while the left sidebar width transition is in flight. */
 	let sidebarAnimating = $state(false);
@@ -816,20 +820,6 @@
 		document.documentElement.style.setProperty('--workspace-panel-width', `${display}px`);
 		return display;
 	}
-
-	// Keep preferredRatio in sync with persisted settings (not chrome changes).
-	$effect(() => {
-		const prefs = {
-			workspacePanelRatio: settingsStore.settings.app.workspacePanelRatio,
-			workspacePanelWidth: settingsStore.settings.app.workspacePanelWidth
-		};
-		preferredRatio = resolveWorkspacePanelRatio(prefs, contentRowWidth());
-		// Migrate legacy absolute-only prefs to an explicit ratio once.
-		if (prefs.workspacePanelRatio <= 0 && prefs.workspacePanelWidth > 0) {
-			const width = widthFromRatio(preferredRatio, contentRowWidth(), panelChrome());
-			void settingsStore.saveWorkspacePanelLayout(width, preferredRatio);
-		}
-	});
 
 	// Re-apply the preferred ratio when non-sidebar chrome changes. Sidebar open/
 	// close is owned by the sidebar-animating effect (end-state + CSS transition).

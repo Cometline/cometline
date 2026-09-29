@@ -35,22 +35,6 @@ SET
     updated_at = unixepoch ('now', 'subsec') * 1000
 WHERE id = ?;
 
--- name: UpdateSessionDelegationState :exec
-UPDATE sessions
-SET
-    delegation_status = ?,
-    output_summary = ?,
-    pending_question = ?,
-    updated_at = unixepoch ('now', 'subsec') * 1000
-WHERE id = ?;
-
--- name: UpdateSessionACP :exec
-UPDATE sessions
-SET
-    acp_session_id = ?,
-    updated_at = unixepoch ('now', 'subsec') * 1000
-WHERE id = ?;
-
 -- name: GetActiveChildForParent :one
 SELECT *
 FROM sessions

@@ -296,10 +296,7 @@ function createShellStore() {
 	}
 
 	function contentSurfaceFor(sessionId: string): ContentSurface {
-		const surface = contentSurfaceBySession[sessionId] ?? defaultContentSurfaceFor(sessionId);
-		// Migrate legacy 'content' if any stale value lingered in memory during hot reload.
-		if ((surface as string) === 'content') return defaultContentSurfaceFor(sessionId);
-		return surface;
+		return contentSurfaceBySession[sessionId] ?? defaultContentSurfaceFor(sessionId);
 	}
 
 	function setContentSurfaceForSession(sessionId: string, surface: ContentSurface) {
@@ -781,10 +778,6 @@ function createShellStore() {
 			sidebarOrderDiscordActive = false;
 		},
 		setActiveWorkspacePath(path: string) {
-			workspacePath = path;
-		},
-		/** @deprecated Use setActiveWorkspacePath for active-only updates. */
-		setWorkspacePath(path: string) {
 			workspacePath = path;
 		},
 		setSidebarOrderWorkspacePath(path: string) {

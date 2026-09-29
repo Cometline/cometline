@@ -51,7 +51,7 @@ func newSessionEventTestServer(t *testing.T) *sessionEventTestServer {
 	events := event.NewHub()
 	runs := NewRunManager(state)
 	engine, err := New(Deps{
-		Config:        &config.Config{Provider: "provider", Model: "model"},
+		Config:        &config.Config{DefaultProviderID: "provider", DefaultModelID: "model"},
 		Sessions:      sessions,
 		Runs:          runs,
 		SessionEvents: hub,

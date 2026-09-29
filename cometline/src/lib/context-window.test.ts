@@ -8,20 +8,12 @@ import {
 	formatContextPercent,
 	formatContextUsageTokens,
 	formatContextWindow,
-	normalizeContextWindowLimit,
 	resolveContextAvailableBudget,
 	resolveContextWindow,
 	resolveContextWindowUsage
 } from './context-window';
 
 describe('context-window', () => {
-	it('normalizes legacy 128k/256k settings values', () => {
-		expect(normalizeContextWindowLimit(256_000)).toBe(256_000);
-		expect(normalizeContextWindowLimit(128_000)).toBe(128_000);
-		expect(normalizeContextWindowLimit(200_000)).toBe(128_000);
-		expect(normalizeContextWindowLimit(undefined)).toBe(128_000);
-	});
-
 	it('resolves positive context windows including per-model values', () => {
 		expect(resolveContextWindow()).toBe(DEFAULT_CONTEXT_WINDOW_LIMIT);
 		expect(resolveContextWindow(256_000)).toBe(256_000);
@@ -35,15 +27,14 @@ describe('context-window', () => {
 	});
 
 	it('caps output at min(model output, 32k)', () => {
-		expect(effectiveMaxTokens(0, 8_192)).toBe(8_192);
-		expect(effectiveMaxTokens(0, 128_000)).toBe(32_000);
-		expect(effectiveMaxTokens(4096, 128_000)).toBe(32_000);
-		expect(effectiveMaxTokens(null, null)).toBe(32_000);
+		expect(effectiveMaxTokens(8_192)).toBe(8_192);
+		expect(effectiveMaxTokens(128_000)).toBe(32_000);
+		expect(effectiveMaxTokens(null)).toBe(32_000);
 	});
 
 	it('uses max(effective, 20k) reserve for available budget', () => {
-		expect(resolveContextAvailableBudget(128_000, 2048, 8_192)).toBe(128_000 - COMPACTION_OUTPUT_BUFFER);
-		expect(resolveContextAvailableBudget(200_000, 0, 64_000)).toBe(200_000 - 32_000);
+		expect(resolveContextAvailableBudget(128_000, 8_192)).toBe(128_000 - COMPACTION_OUTPUT_BUFFER);
+		expect(resolveContextAvailableBudget(200_000, 64_000)).toBe(200_000 - 32_000);
 	});
 
 	it('estimates tokens from text with chars/4 heuristic', () => {
@@ -88,8 +79,7 @@ describe('context-window', () => {
 			budget: { estimated: 1000, available: 108_000, contextWindow: 128_000 },
 			items: [{ id: '1', type: 'user', text: 'ignored when server budget present' }],
 			draftText: 'abcd',
-			contextWindowLimit: 128_000,
-			maxTokens: 2048
+			contextWindow: 128_000
 		});
 		expect(usage.source).toBe('server');
 		expect(usage.used).toBe(1001);
@@ -101,8 +91,7 @@ describe('context-window', () => {
 			budget: null,
 			items: [{ id: '1', type: 'user', text: 'abcd' }],
 			draftText: '',
-			contextWindowLimit: 200_000,
-			maxTokens: 0,
+			contextWindow: 200_000,
 			modelOutput: 64_000
 		});
 		expect(usage.source).toBe('fallback');
@@ -110,12 +99,11 @@ describe('context-window', () => {
 		expect(usage.limit).toBe(200_000 - 32_000);
 	});
 
-	it('does not expose a required contextWindowLimit UI path for fallback', () => {
+	it('falls back to the default window when no model context is known', () => {
 		const usage = resolveContextWindowUsage({
 			budget: null,
 			items: [],
-			draftText: '',
-			maxTokens: 2048
+			draftText: ''
 		});
 		expect(usage.limit).toBe(DEFAULT_CONTEXT_WINDOW_LIMIT - 32_000);
 	});

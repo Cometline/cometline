@@ -44,11 +44,11 @@ func (a *App) handleCreateSession(c *gin.Context) {
 
 	modelID := strings.TrimSpace(req.ModelID)
 	if modelID == "" {
-		modelID = a.config.Model
+		modelID = a.config.DefaultModelID
 	}
 	providerID := strings.TrimSpace(req.ProviderID)
 	if providerID == "" {
-		providerID = a.config.Provider
+		providerID = a.config.DefaultProviderID
 	}
 
 	sess, err := a.sessions.NewSession(c.Request.Context(), ws.ID, modelID, providerID)
@@ -347,7 +347,7 @@ func (a *App) handleClearSession(c *gin.Context) {
 				continue
 			}
 			_ = a.acpMgr.Cancel(child.ID)
-			_ = a.sessions.UpdateDelegationState(c.Request.Context(), child.ID, session.DelegationCancelled, "", "")
+			_ = a.sessions.UpdateDelegationState(c.Request.Context(), child.ID, session.DelegationCancelled, "")
 
 		}
 	}

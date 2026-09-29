@@ -87,16 +87,16 @@ type cometlineStorageBackupJSON struct {
 }
 
 type cometlineStorageJSON struct {
-	CleanupIntervalMinutes     int                        `json:"cleanupIntervalMinutes"`
-	RetentionDays              int                        `json:"retentionDays"`
-	DetachedMediaRetentionDays *int                       `json:"detachedMediaRetentionDays"`
-	MaxSessionsPerWorkspace    int                        `json:"maxSessionsPerWorkspace"`
-	ArchivedMemoryPurgeDays    int                        `json:"archivedMemoryPurgeDays"`
-	DeletedJobPurgeDays        *int                       `json:"deletedJobPurgeDays"`
-	VacuumAfterPurge           bool                       `json:"vacuumAfterPurge"`
-	ToolOutputRetentionDays    *int                       `json:"toolOutputRetentionDays"`
-	AgentTmpRetentionDays      *int                       `json:"agentTmpRetentionDays"`
-	Backup                     cometlineStorageBackupJSON `json:"backup"`
+	CleanupIntervalMinutes     int  `json:"cleanupIntervalMinutes"`
+	RetentionDays              int  `json:"retentionDays"`
+	DetachedMediaRetentionDays *int `json:"detachedMediaRetentionDays"`
+	MaxSessionsPerWorkspace    int  `json:"maxSessionsPerWorkspace"`
+	ArchivedMemoryPurgeDays    int  `json:"archivedMemoryPurgeDays"`
+
+	VacuumAfterPurge        bool                       `json:"vacuumAfterPurge"`
+	ToolOutputRetentionDays *int                       `json:"toolOutputRetentionDays"`
+	AgentTmpRetentionDays   *int                       `json:"agentTmpRetentionDays"`
+	Backup                  cometlineStorageBackupJSON `json:"backup"`
 }
 
 type cometlineMCPOAuthJSON struct {
@@ -171,16 +171,14 @@ type cometlineGenerationJSON struct {
 }
 
 type cometlineCometmindJSON struct {
-	SystemPromptPath   string               `json:"systemPromptPath"`
-	MaxTokens          int                  `json:"maxTokens"`
-	ContextWindowLimit int                  `json:"contextWindowLimit"`
-	TitleProviderID    string               `json:"titleProviderId"`
-	TitleModelID       string               `json:"titleModelId"`
-	ACP                cometlineACPJSON     `json:"acp"`
-	Skills             cometlineSkillsJSON  `json:"skills"`
-	Memory             cometlineMemoryJSON  `json:"memory"`
-	Storage            cometlineStorageJSON `json:"storage"`
-	Gateway            struct {
+	SystemPromptPath string               `json:"systemPromptPath"`
+	TitleProviderID  string               `json:"titleProviderId"`
+	TitleModelID     string               `json:"titleModelId"`
+	ACP              cometlineACPJSON     `json:"acp"`
+	Skills           cometlineSkillsJSON  `json:"skills"`
+	Memory           cometlineMemoryJSON  `json:"memory"`
+	Storage          cometlineStorageJSON `json:"storage"`
+	Gateway          struct {
 		Discord cometlineDiscordJSON `json:"discord"`
 	} `json:"gateway"`
 	MCP        cometlineMCPJSON        `json:"mcp"`
@@ -192,7 +190,6 @@ type cometlineCometmindJSON struct {
 
 type cometlineSettingsJSON struct {
 	Providers         []cometlineProviderJSON `json:"providers"`
-	ActiveProviderID  string                  `json:"activeProviderId,omitempty"` // legacy read-only; stripped on write
 	DefaultProviderID string                  `json:"defaultProviderId"`
 	DefaultModelID    string                  `json:"defaultModelId"`
 	Cometmind         cometlineCometmindJSON  `json:"cometmind"`
@@ -257,26 +254,19 @@ func adaptCometlineSettings(raw cometlineSettingsJSON) (*Config, error) {
 
 	cm := raw.Cometmind
 	memDef := defaultMemoryConfig()
-	defaultDeletedPurgeDays := DefaultJobSettings().DeletedPurgeDays
-	deletedPurgeDays := defaultDeletedPurgeDays
-	if cm.Storage.DeletedJobPurgeDays != nil && (cm.Jobs.DeletedPurgeDays == nil || *cm.Jobs.DeletedPurgeDays == defaultDeletedPurgeDays) {
-		deletedPurgeDays = *cm.Storage.DeletedJobPurgeDays
-	} else if cm.Jobs.DeletedPurgeDays != nil {
+	deletedPurgeDays := DefaultJobSettings().DeletedPurgeDays
+	if cm.Jobs.DeletedPurgeDays != nil {
 		deletedPurgeDays = *cm.Jobs.DeletedPurgeDays
 	}
 	cfg := &Config{
-		Provider:           defaultProviderID,
-		Model:              defaultModelID,
-		DefaultProviderID:  defaultProviderID,
-		DefaultModelID:     defaultModelID,
-		BaseURL:            defaultBaseURL,
-		TitleProvider:      strings.TrimSpace(cm.TitleProviderID),
-		TitleModel:         strings.TrimSpace(cm.TitleModelID),
-		MaxTokens:          cm.MaxTokens,
-		ContextWindowLimit: normalizeContextWindowLimit(cm.ContextWindowLimit),
-		MaxSteps:           Defaults().MaxSteps,
-		SystemPromptPath:   strings.TrimSpace(cm.SystemPromptPath),
-		Providers:          providers,
+		DefaultProviderID: defaultProviderID,
+		DefaultModelID:    defaultModelID,
+		BaseURL:           defaultBaseURL,
+		TitleProvider:     strings.TrimSpace(cm.TitleProviderID),
+		TitleModel:        strings.TrimSpace(cm.TitleModelID),
+		MaxSteps:          Defaults().MaxSteps,
+		SystemPromptPath:  strings.TrimSpace(cm.SystemPromptPath),
+		Providers:         providers,
 		ACP: ACPConfig{
 			// Missing enabled defaults to false (native coding path preferred).
 			Enabled:        cm.ACP.Enabled != nil && *cm.ACP.Enabled,
@@ -380,23 +370,12 @@ func adaptCometlineSettings(raw cometlineSettingsJSON) (*Config, error) {
 	if cfg.Gateway.Discord.BotTokenEnv == "" {
 		cfg.Gateway.Discord.BotTokenEnv = "DISCORD_BOT_TOKEN"
 	}
-	if cfg.Provider == "" && !noProviders {
-		cfg.Provider = def.Provider
-		cfg.DefaultProviderID = def.Provider
+	if cfg.DefaultProviderID == "" && !noProviders {
+		cfg.DefaultProviderID = def.DefaultProviderID
 	}
-	if cfg.Model == "" && !noProviders {
-		cfg.Model = def.Model
-		cfg.DefaultModelID = def.Model
+	if cfg.DefaultModelID == "" && !noProviders {
+		cfg.DefaultModelID = def.DefaultModelID
 	}
-	if cfg.DefaultProviderID == "" {
-		cfg.DefaultProviderID = cfg.Provider
-	}
-	if cfg.DefaultModelID == "" {
-		cfg.DefaultModelID = cfg.Model
-	}
-	// 0 and >=100 mean "use the active model's output limit". Absolute legacy
-	// values such as 4096 are not a percent of any model, so drop them.
-	cfg.MaxTokens = normalizeOutputCapPercent(cfg.MaxTokens)
 	if cfg.MaxSteps == 0 {
 		cfg.MaxSteps = def.MaxSteps
 	}
@@ -404,8 +383,7 @@ func adaptCometlineSettings(raw cometlineSettingsJSON) (*Config, error) {
 	return cfg, nil
 }
 
-// resolveDefaultLLM picks the Default model pair. Prefer defaultProviderId +
-// defaultModelId; if Default is empty, migrate from legacy activeProviderId.
+// resolveDefaultLLM picks the Default model pair from defaultProviderId and defaultModelId.
 func resolveDefaultLLM(raw cometlineSettingsJSON, runtimeProviders []cometlineProviderJSON) (providerID, modelID, baseURL string) {
 	if len(runtimeProviders) == 0 {
 		return "", "", ""
@@ -426,23 +404,17 @@ func resolveDefaultLLM(raw cometlineSettingsJSON, runtimeProviders []cometlinePr
 		}
 	}
 
-	// Migrate: seed Default from legacy Active when Default is unset/invalid.
-	activeID := strings.TrimSpace(raw.ActiveProviderID)
-	if activeID != "" {
-		if p, ok := byID[activeID]; ok {
-			return activeID, primaryModel(p), strings.TrimSpace(p.BaseURL)
-		}
-	}
-
 	p := runtimeProviders[0]
 	return strings.TrimSpace(p.ID), primaryModel(p), strings.TrimSpace(p.BaseURL)
 }
 
-func normalizeContextWindowLimit(value int) int {
-	if value == 256_000 {
-		return 256_000
+func normalizeMCPTransport(raw string) MCPTransport {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case string(MCPTransportHTTP):
+		return MCPTransportHTTP
+	default:
+		return MCPTransportStdio
 	}
-	return 128_000
 }
 
 func adaptMCPJSON(raw cometlineMCPJSON) MCPConfig {
@@ -452,7 +424,7 @@ func adaptMCPJSON(raw cometlineMCPJSON) MCPConfig {
 			ID:           strings.TrimSpace(srv.ID),
 			Name:         strings.TrimSpace(srv.Name),
 			Enabled:      srv.Enabled,
-			Transport:    MCPTransport(strings.TrimSpace(srv.Transport)),
+			Transport:    normalizeMCPTransport(srv.Transport),
 			Command:      strings.TrimSpace(srv.Command),
 			Args:         append([]string(nil), srv.Args...),
 			Env:          copyStringMapGo(srv.Env),
@@ -559,22 +531,20 @@ func writeMinimalCometlineSettingsJSON(path string, def *Config) error {
 	raw := cometlineSettingsJSON{
 		Providers: []cometlineProviderJSON{
 			{
-				ID:            def.Provider,
-				Name:          def.Provider,
-				Method:        def.Provider,
+				ID:            def.DefaultProviderID,
+				Name:          def.DefaultProviderID,
+				Method:        def.DefaultProviderID,
 				Enabled:       true,
 				BaseURL:       def.BaseURL,
-				EnabledModels: []string{def.Model},
-				Models:        []string{def.Model},
-				SelectedModel: def.Model,
+				EnabledModels: []string{def.DefaultModelID},
+				Models:        []string{def.DefaultModelID},
+				SelectedModel: def.DefaultModelID,
 			},
 		},
-		DefaultProviderID: def.Provider,
-		DefaultModelID:    def.Model,
+		DefaultProviderID: def.DefaultProviderID,
+		DefaultModelID:    def.DefaultModelID,
 		Cometmind: cometlineCometmindJSON{
-			SystemPromptPath:   def.SystemPromptPath,
-			MaxTokens:          def.MaxTokens,
-			ContextWindowLimit: def.ContextWindowLimit,
+			SystemPromptPath: def.SystemPromptPath,
 			ACP: cometlineACPJSON{
 				Enabled:        boolPtr(false),
 				DefaultHarness: "opencode",

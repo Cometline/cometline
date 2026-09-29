@@ -64,7 +64,6 @@ function agentSectionSnapshot(settings: ProviderSettings): string {
 	const { enabled: _discordEnabled, ...discordPending } = cometmind.gateway.discord;
 	return JSON.stringify({
 		systemPromptPath: cometmind.systemPromptPath,
-		maxTokens: cometmind.maxTokens,
 		logLevel: cometmind.logLevel,
 		acp: cometmind.acp,
 		skills: cometmind.skills,

@@ -3384,12 +3384,6 @@ components:
         output_summary:
           type: string
           description: Final summary from a delegated child session.
-        acp_session_id:
-          type: string
-          description: External ACP session ID recorded for diagnostics.
-        pending_question:
-          type: string
-          description: Legacy field retained for persisted child session compatibility.
         subagent_kind:
           type: string
           enum: ['', general, coding, acp]

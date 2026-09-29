@@ -26,8 +26,6 @@ type StorageConfig struct {
 	VacuumAfterPurge bool `json:"vacuum_after_purge" mapstructure:"vacuum_after_purge"`
 	// SubagentRetentionDays purges terminal child session rows after inactivity. 0 keeps until parent delete.
 	SubagentRetentionDays int `json:"subagent_retention_days" mapstructure:"subagent_retention_days"`
-	// DeletedJobPurgeDays is a legacy input migrated to Jobs.DeletedPurgeDays.
-	DeletedJobPurgeDays int `json:"deleted_job_purge_days" mapstructure:"deleted_job_purge_days"`
 	// ToolOutputRetentionDays deletes files under ~/.cometmind/tool-output older than N days. 0 disables.
 	ToolOutputRetentionDays int `json:"tool_output_retention_days" mapstructure:"tool_output_retention_days"`
 	// AgentTmpRetentionDays deletes files under ~/.cometmind/agent-tmp older than N days. 0 disables.
@@ -111,7 +109,6 @@ func (c *Config) storageConfigured() bool {
 		s.MaxSessionsPerWorkspace != 0 ||
 		s.ArchivedMemoryPurgeDays != 0 ||
 		s.SubagentRetentionDays != 0 ||
-		s.DeletedJobPurgeDays != 0 ||
 		s.ToolOutputRetentionDays != 0 ||
 		s.AgentTmpRetentionDays != 0 ||
 		s.VacuumAfterPurge ||
