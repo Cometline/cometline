@@ -14,7 +14,8 @@
 		mode = 'assistant',
 		wikiFiles = [],
 		workspaceResources = null,
-		annotateSourceLines = false
+		annotateSourceLines = false,
+		deferred = false
 	}: {
 		source?: string;
 		streaming?: boolean;
@@ -24,6 +25,8 @@
 		workspaceResources?: WorkspaceMarkdownResources | null;
 		/** File-preview-only source line metadata for rendered selections. */
 		annotateSourceLines?: boolean;
+		/** Skip async markdown/Shiki; keep plaintext (mega overscan / hydrating). */
+		deferred?: boolean;
 	} = $props();
 
 	let cachedWikiFiles = $state<string[]>(getCachedWikiFiles());
@@ -179,6 +182,17 @@
 	$effect(() => {
 		// User mode renders synchronously via the derived above; nothing to schedule.
 		if (mode === 'user') return;
+		// Mega / overscan deferral: keep plaintext only — do not kick Shiki.
+		if (deferred) {
+			cancelScheduledRender();
+			renderVersion += 1;
+			html = '';
+			rendered = false;
+			renderedSource = null;
+			return () => {
+				cancelScheduledRender();
+			};
+		}
 		const text = displaySource;
 		// Re-evaluate when streaming flips so the final non-throttled render lands.
 		void streaming;

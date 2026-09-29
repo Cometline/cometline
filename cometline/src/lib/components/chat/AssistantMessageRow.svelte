@@ -19,7 +19,8 @@
 		avatarSrcset,
 		stackContext,
 		showActivitySpinner,
-		hideAvatarForFirstTurn = false
+		hideAvatarForFirstTurn = false,
+		deferMarkdown = false
 	}: {
 		item: AssistantItem;
 		threadItems: readonly ChatItem[];
@@ -29,6 +30,7 @@
 		stackContext: AssistantStackContext;
 		showActivitySpinner: (item: AssistantItem) => boolean;
 		hideAvatarForFirstTurn?: boolean;
+		deferMarkdown?: boolean;
 	} = $props();
 
 	const continuationRow = $derived(!startsSpeakerRun(threadItems, index, 'assistant'));
@@ -48,7 +50,7 @@
 	{/if}
 	<div class="assistant-column" class:first-turn-destination-hidden={hideAvatarForFirstTurn}>
 		<AssistantStack
-			{...assistantStackBindings(stackContext, item, showActivitySpinner(item))}
+			{...assistantStackBindings(stackContext, item, showActivitySpinner(item), deferMarkdown)}
 		/>
 	</div>
 </ThreadRow>
