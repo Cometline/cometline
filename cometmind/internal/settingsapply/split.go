@@ -1,13 +1,5 @@
 package settingsapply
 
-import (
-	"encoding/json"
-	"fmt"
-	"os"
-
-	"github.com/cometline/cometmind/internal/paths"
-)
-
 // Desktop top-level keys that belong in cometline-desktop.json, not the runtime settings file.
 var desktopTopLevelKeys = []string{"appearance", "shortcuts", "app"}
 
@@ -94,83 +86,4 @@ func DesktopKeysInPatch(patch map[string]any) []string {
 		}
 	}
 	return found
-}
-
-// MigrateSplitFilesIfNeeded peels desktop keys from cometline-settings.json into
-// cometline-desktop.json when needed. Idempotent.
-func MigrateSplitFilesIfNeeded() error {
-	settingsPath, err := paths.SettingsPath()
-	if err != nil {
-		return err
-	}
-	data, err := os.ReadFile(settingsPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
-		return err
-	}
-	var doc map[string]any
-	if err := json.Unmarshal(data, &doc); err != nil {
-		return fmt.Errorf("parse settings for migrate: %w", err)
-	}
-	if !HasDesktopKeys(doc) {
-		// Still ensure desktop file exists if systemPromptPath should be mirrored.
-		return ensureDesktopPromptMirror(doc)
-	}
-
-	desktopPath, err := paths.DesktopSettingsPath()
-	if err != nil {
-		return err
-	}
-	existingDesktop := map[string]any{}
-	if raw, err := os.ReadFile(desktopPath); err == nil {
-		_ = json.Unmarshal(raw, &existingDesktop)
-	}
-
-	settingsDoc, peeled := SplitDocument(doc)
-	// Prefer freshly peeled desktop keys; keep any other desktop-only fields already present.
-	for k, v := range existingDesktop {
-		if _, taken := peeled[k]; !taken {
-			peeled[k] = v
-		}
-	}
-
-	if err := writeJSONFile(desktopPath, peeled); err != nil {
-		return err
-	}
-	return writeJSONFile(settingsPath, settingsDoc)
-}
-
-func ensureDesktopPromptMirror(settingsDoc map[string]any) error {
-	cm, ok := asMap(settingsDoc["cometmind"])
-	if !ok {
-		return nil
-	}
-	prompt, ok := cm["systemPromptPath"]
-	if !ok {
-		return nil
-	}
-	desktopPath, err := paths.DesktopSettingsPath()
-	if err != nil {
-		return err
-	}
-	desktop := map[string]any{}
-	if raw, err := os.ReadFile(desktopPath); err == nil {
-		_ = json.Unmarshal(raw, &desktop)
-	}
-	if _, exists := desktop["systemPromptPath"]; exists {
-		return nil
-	}
-	desktop["systemPromptPath"] = prompt
-	return writeJSONFile(desktopPath, desktop)
-}
-
-func writeJSONFile(path string, doc map[string]any) error {
-	b, err := json.MarshalIndent(doc, "", "  ")
-	if err != nil {
-		return err
-	}
-	b = append(b, '\n')
-	return os.WriteFile(path, b, 0o600)
 }

@@ -5,7 +5,6 @@ import {
 	builtinPersonaAvatarSrc,
 	builtinPersonaAvatarSrcset,
 	builtinPersonaSoulFilename,
-	migratePersonaIdFromIconVariant,
 	type BuiltinPersonaId,
 	type BuiltinPersona
 } from './builtins';
@@ -15,8 +14,7 @@ export {
 	isBuiltinPersonaId,
 	builtinPersonaAvatarSrc,
 	builtinPersonaAvatarSrcset,
-	builtinPersonaSoulFilename,
-	migratePersonaIdFromIconVariant
+	builtinPersonaSoulFilename
 };
 export type { BuiltinPersonaId, BuiltinPersona, CustomPersona };
 

@@ -15,7 +15,6 @@ import type {
 	ResponseCompleteSoundSettings
 } from '../types';
 import {
-	migratePersonaIdFromIconVariant,
 	normalizeCustomPersonas as normalizeCustomPersonaList,
 	normalizePersonaId as resolveNormalizedPersonaId
 } from '../personas';
@@ -335,24 +334,6 @@ export function isFixedBuiltinProvider(id: string): boolean {
 	return FIXED_BUILTIN_PROVIDER_IDS.has(id);
 }
 
-function looksLikeDiscordBotToken(value: string): boolean {
-	const parts = value.split('.');
-	if (parts.length !== 3) return false;
-	return parts[0].length >= 18 && parts[1].length >= 4 && parts[2].length >= 20;
-}
-
-function migrateDiscordTokenFields(discord: Partial<CometMindDiscordGatewaySettings>) {
-	const defaults = defaultCometMindSettings().gateway.discord;
-	let botToken = String(discord.botToken ?? '').trim();
-	let botTokenEnv =
-		String(discord.botTokenEnv ?? defaults.botTokenEnv).trim() || defaults.botTokenEnv;
-	if (!botToken && looksLikeDiscordBotToken(botTokenEnv)) {
-		botToken = botTokenEnv;
-		botTokenEnv = defaults.botTokenEnv;
-	}
-	return { botToken, botTokenEnv };
-}
-
 function cleanStringList(values: unknown): string[] {
 	if (!Array.isArray(values)) return [];
 	return values.map((v) => String(v).trim()).filter(Boolean);
@@ -614,27 +595,16 @@ export function normalizeCometMindSettings(
 	const memoryLifecycle: Partial<CometMindMemorySettings['lifecycle']> = memory.lifecycle ?? {};
 	const embedding: Partial<CometMindMemorySettings['embedding']> = memory.embedding ?? {};
 	const storage: Partial<CometMindStorageSettings> = input?.storage ?? {};
-	const legacyDeletedJobPurgeDays = (
-		input?.storage as
-			| (Partial<CometMindStorageSettings> & { deletedJobPurgeDays?: unknown })
-			| undefined
-	)?.deletedJobPurgeDays;
 	const discord: Partial<CometMindDiscordGatewaySettings> = input?.gateway?.discord ?? {};
 	const mcp = normalizeCometMindMCPSettings(input?.mcp);
 	const jobsInput: Partial<CometMindJobsSettings> = input?.jobs ?? {};
 	const jobsDefaults = defaults.jobs;
 	const jobsNotifications: Partial<CometMindJobsNotificationSettings> =
 		jobsInput.notifications ?? {};
-	const canonicalDeletedJobPurgeDays = normalizeNonNegativeInt(
+	const deletedJobPurgeDays = normalizeNonNegativeInt(
 		jobsInput.deletedPurgeDays,
 		jobsDefaults.deletedPurgeDays
 	);
-	const deletedJobPurgeDays =
-		legacyDeletedJobPurgeDays !== undefined &&
-		(jobsInput.deletedPurgeDays === undefined ||
-			canonicalDeletedJobPurgeDays === jobsDefaults.deletedPurgeDays)
-			? normalizeNonNegativeInt(legacyDeletedJobPurgeDays, jobsDefaults.deletedPurgeDays)
-			: canonicalDeletedJobPurgeDays;
 	const autonomyInput: Partial<CometMindAutonomousJobsSettings> = input?.autonomy ?? {};
 	const autonomyDefaults = defaults.autonomy;
 	const schedulerInput: Partial<CometMindSchedulerSettings> = input?.scheduler ?? {};
@@ -645,7 +615,10 @@ export function normalizeCometMindSettings(
 			? raw
 			: defaults.acp.defaultHarness;
 	};
-	const { botToken, botTokenEnv } = migrateDiscordTokenFields(discord);
+	const defaultsDiscord = defaults.gateway.discord;
+	const botToken = String(discord.botToken ?? '').trim();
+	const botTokenEnv =
+		String(discord.botTokenEnv ?? defaultsDiscord.botTokenEnv).trim() || defaultsDiscord.botTokenEnv;
 
 	return {
 		systemPromptPath: String(input?.systemPromptPath ?? defaults.systemPromptPath).trim(),
@@ -1066,18 +1039,10 @@ function normalizeWorkspacePanelRatio(value: unknown): number {
 	return Math.min(WORKSPACE_PANEL_MAX_RATIO, value);
 }
 
-/**
- * Normalizes `app.personaId`, migrating from the legacy `app.iconVariant`
- * field (`'default' | 'man'`) when `personaId` is absent. `customPersonas`
- * must already be normalized so a custom persona id is recognized as valid.
- */
 function normalizeAppPersonaId(rawApp: unknown, customPersonas: CustomPersona[]): string {
-	const app = (rawApp ?? {}) as { personaId?: unknown; iconVariant?: unknown };
+	const app = (rawApp ?? {}) as { personaId?: unknown };
 	if (typeof app.personaId === 'string' && app.personaId.trim()) {
 		return resolveNormalizedPersonaId(app.personaId, customPersonas);
-	}
-	if (app.iconVariant !== undefined) {
-		return migratePersonaIdFromIconVariant(app.iconVariant);
 	}
 	return 'minako';
 }
@@ -1121,12 +1086,9 @@ export function normalizeProvider(
 			: (fallback?.method ?? 'openai-compatible');
 	const rawModels = Array.isArray(provider.models) ? provider.models : (fallback?.models ?? []);
 	const modelList = rawModels.map((model) => String(model || '').trim()).filter(Boolean);
-	const legacySelected = String(provider.selectedModel || fallback?.selectedModel || '').trim();
 	const rawEnabledModels = Array.isArray(provider.enabledModels)
 		? provider.enabledModels
-		: legacySelected
-			? [legacySelected]
-			: [];
+		: (fallback?.enabledModels ?? []);
 	const enabledModels = rawEnabledModels
 		.map((model) => String(model || '').trim())
 		.filter((model) => model && modelList.includes(model));
@@ -1179,42 +1141,7 @@ export function newProvider(id: string): ProviderConfig {
 	};
 }
 
-export function migrateSingleProvider(
-	saved: Record<string, unknown> | null | undefined
-): Partial<ProviderSettings> | null {
-	if (!saved || typeof saved !== 'object' || Array.isArray(saved.providers)) return null;
-	const id = String(saved.provider || 'openai').trim();
-	return {
-		providers: [
-			{
-				id,
-				name:
-					id === 'opencode-go' ? 'OpenCode Go' : id.charAt(0).toUpperCase() + id.slice(1),
-				method:
-					id === 'openai' && String(saved.baseURL || '').includes('opencode.ai')
-						? 'opencode-go'
-						: id === 'openai'
-							? 'openai-compatible'
-							: (id as ProviderMethod),
-				enabled: true,
-				baseURL: String(saved.baseURL || '').trim(),
-				apiKey: String(saved.apiKey || '').trim(),
-				selectedModel: String(saved.selectedModel || '').trim(),
-				models: Array.isArray(saved.models)
-					? saved.models.map((m) => String(m || '').trim()).filter(Boolean)
-					: [],
-				enabledModels: saved.selectedModel ? [String(saved.selectedModel).trim()] : []
-			}
-		],
-		defaultProviderId: id,
-		defaultModelId: String(saved.selectedModel || '').trim()
-	};
-}
-
-/** Legacy settings files may still carry activeProviderId; read-only for migration. */
-export type SettingsNormalizeInput = Partial<ProviderSettings> & {
-	activeProviderId?: string;
-};
+export type SettingsNormalizeInput = Partial<ProviderSettings>;
 
 export function defaultSettings(): ProviderSettings {
 	const providers = DEFAULT_PROVIDERS.map(cloneProvider);
@@ -1243,8 +1170,7 @@ export function normalizeSettings(
 	const { defaultProviderId, defaultModelId } = resolveDefaultModelPair(
 		providers,
 		next.defaultProviderId,
-		next.defaultModelId,
-		next.activeProviderId
+		next.defaultModelId
 	);
 	const cometmind = normalizeCometMindSettings(
 		next.cometmind,
@@ -1293,28 +1219,8 @@ export function normalizeSettings(
 			miniWindowInactivityTimeoutMinutes: normalizeMiniWindowInactivityTimeoutMinutes(
 				next.app?.miniWindowInactivityTimeoutMinutes
 			),
-			workspacePanelWidth: normalizeWorkspacePanelWidth(
-				(() => {
-					const rawApp = next.app as
-						| { workspacePanelWidth?: unknown; webPanelWidth?: unknown }
-						| undefined;
-					if (!rawApp) return undefined;
-					return 'workspacePanelWidth' in rawApp
-						? rawApp.workspacePanelWidth
-						: rawApp.webPanelWidth;
-				})()
-			),
-			workspacePanelRatio: normalizeWorkspacePanelRatio(
-				(() => {
-					const rawApp = next.app as
-						| { workspacePanelRatio?: unknown; webPanelRatio?: unknown }
-						| undefined;
-					if (!rawApp) return undefined;
-					return 'workspacePanelRatio' in rawApp
-						? rawApp.workspacePanelRatio
-						: rawApp.webPanelRatio;
-				})()
-			),
+			workspacePanelWidth: normalizeWorkspacePanelWidth(next.app?.workspacePanelWidth),
+			workspacePanelRatio: normalizeWorkspacePanelRatio(next.app?.workspacePanelRatio),
 			confirmCloseOnCmdW:
 				typeof next.app?.confirmCloseOnCmdW === 'boolean'
 					? next.app.confirmCloseOnCmdW
@@ -1339,12 +1245,10 @@ export function normalizeSettings(
 	};
 }
 
-/** Resolve Default model pair; migrate from legacy activeProviderId when Default is empty. */
 export function resolveDefaultModelPair(
 	providers: ProviderConfig[],
 	preferredDefaultProviderId?: string,
-	preferredDefaultModelId?: string,
-	legacyActiveProviderId?: string
+	preferredDefaultModelId?: string
 ): { defaultProviderId: string; defaultModelId: string } {
 	const runtime = providers.filter((p) => p.enabled && p.enabledModels.length > 0);
 	const byId = new Map(runtime.map((p) => [p.id, p]));
@@ -1358,9 +1262,7 @@ export function resolveDefaultModelPair(
 			defaultModelId = primaryModel(provider);
 		}
 	} else {
-		const legacyActive = String(legacyActiveProviderId ?? '').trim();
-		const migrated =
-			(legacyActive && byId.get(legacyActive)) || runtime[0] || providers[0] || null;
+		const migrated = runtime[0] || providers[0] || null;
 		defaultProviderId = migrated?.id ?? '';
 		defaultModelId = migrated ? primaryModel(migrated) : '';
 	}
@@ -1623,10 +1525,7 @@ export function parseAndNormalizeSettings(
 		return validateSettings(normalizeSettings(defaultSettings(), options));
 	}
 	const record = raw as Record<string, unknown>;
-	const migrated = migrateSingleProvider(record);
 	const partial = raw as Partial<ProviderSettings>;
-	const base = migrated
-		? { ...defaultSettings(), ...partial, ...migrated }
-		: { ...defaultSettings(), ...partial };
+	const base = { ...defaultSettings(), ...partial };
 	return validateSettings(normalizeSettings(base, options));
 }

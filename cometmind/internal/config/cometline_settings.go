@@ -87,16 +87,16 @@ type cometlineStorageBackupJSON struct {
 }
 
 type cometlineStorageJSON struct {
-	CleanupIntervalMinutes     int                        `json:"cleanupIntervalMinutes"`
-	RetentionDays              int                        `json:"retentionDays"`
-	DetachedMediaRetentionDays *int                       `json:"detachedMediaRetentionDays"`
-	MaxSessionsPerWorkspace    int                        `json:"maxSessionsPerWorkspace"`
-	ArchivedMemoryPurgeDays    int                        `json:"archivedMemoryPurgeDays"`
-	DeletedJobPurgeDays        *int                       `json:"deletedJobPurgeDays"`
-	VacuumAfterPurge           bool                       `json:"vacuumAfterPurge"`
-	ToolOutputRetentionDays    *int                       `json:"toolOutputRetentionDays"`
-	AgentTmpRetentionDays      *int                       `json:"agentTmpRetentionDays"`
-	Backup                     cometlineStorageBackupJSON `json:"backup"`
+	CleanupIntervalMinutes     int  `json:"cleanupIntervalMinutes"`
+	RetentionDays              int  `json:"retentionDays"`
+	DetachedMediaRetentionDays *int `json:"detachedMediaRetentionDays"`
+	MaxSessionsPerWorkspace    int  `json:"maxSessionsPerWorkspace"`
+	ArchivedMemoryPurgeDays    int  `json:"archivedMemoryPurgeDays"`
+
+	VacuumAfterPurge        bool                       `json:"vacuumAfterPurge"`
+	ToolOutputRetentionDays *int                       `json:"toolOutputRetentionDays"`
+	AgentTmpRetentionDays   *int                       `json:"agentTmpRetentionDays"`
+	Backup                  cometlineStorageBackupJSON `json:"backup"`
 }
 
 type cometlineMCPOAuthJSON struct {
@@ -190,7 +190,6 @@ type cometlineCometmindJSON struct {
 
 type cometlineSettingsJSON struct {
 	Providers         []cometlineProviderJSON `json:"providers"`
-	ActiveProviderID  string                  `json:"activeProviderId,omitempty"` // legacy read-only; stripped on write
 	DefaultProviderID string                  `json:"defaultProviderId"`
 	DefaultModelID    string                  `json:"defaultModelId"`
 	Cometmind         cometlineCometmindJSON  `json:"cometmind"`
@@ -255,11 +254,8 @@ func adaptCometlineSettings(raw cometlineSettingsJSON) (*Config, error) {
 
 	cm := raw.Cometmind
 	memDef := defaultMemoryConfig()
-	defaultDeletedPurgeDays := DefaultJobSettings().DeletedPurgeDays
-	deletedPurgeDays := defaultDeletedPurgeDays
-	if cm.Storage.DeletedJobPurgeDays != nil && (cm.Jobs.DeletedPurgeDays == nil || *cm.Jobs.DeletedPurgeDays == defaultDeletedPurgeDays) {
-		deletedPurgeDays = *cm.Storage.DeletedJobPurgeDays
-	} else if cm.Jobs.DeletedPurgeDays != nil {
+	deletedPurgeDays := DefaultJobSettings().DeletedPurgeDays
+	if cm.Jobs.DeletedPurgeDays != nil {
 		deletedPurgeDays = *cm.Jobs.DeletedPurgeDays
 	}
 	cfg := &Config{
@@ -387,8 +383,7 @@ func adaptCometlineSettings(raw cometlineSettingsJSON) (*Config, error) {
 	return cfg, nil
 }
 
-// resolveDefaultLLM picks the Default model pair. Prefer defaultProviderId +
-// defaultModelId; if Default is empty, migrate from legacy activeProviderId.
+// resolveDefaultLLM picks the Default model pair from defaultProviderId and defaultModelId.
 func resolveDefaultLLM(raw cometlineSettingsJSON, runtimeProviders []cometlineProviderJSON) (providerID, modelID, baseURL string) {
 	if len(runtimeProviders) == 0 {
 		return "", "", ""
@@ -409,60 +404,17 @@ func resolveDefaultLLM(raw cometlineSettingsJSON, runtimeProviders []cometlinePr
 		}
 	}
 
-	// Migrate: seed Default from legacy Active when Default is unset/invalid.
-	activeID := strings.TrimSpace(raw.ActiveProviderID)
-	if activeID != "" {
-		if p, ok := byID[activeID]; ok {
-			return activeID, primaryModel(p), strings.TrimSpace(p.BaseURL)
-		}
-	}
-
 	p := runtimeProviders[0]
 	return strings.TrimSpace(p.ID), primaryModel(p), strings.TrimSpace(p.BaseURL)
 }
 
 func normalizeMCPTransport(raw string) MCPTransport {
 	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case string(MCPTransportHTTP), "sse":
+	case string(MCPTransportHTTP):
 		return MCPTransportHTTP
 	default:
 		return MCPTransportStdio
 	}
-}
-
-func writeMigratedSettingsJSON(path string, cfg *Config) error {
-	providers := make([]cometlineProviderJSON, 0, len(cfg.Providers))
-	for _, p := range cfg.Providers {
-		model := strings.TrimSpace(p.Model)
-		models := []string{}
-		if model != "" {
-			models = []string{model}
-		}
-		providers = append(providers, cometlineProviderJSON{
-			ID:            p.ID,
-			Name:          p.Name,
-			Method:        p.Method,
-			Enabled:       true,
-			BaseURL:       p.BaseURL,
-			APIKey:        p.APIKey,
-			SelectedModel: model,
-			Models:        models,
-			EnabledModels: models,
-		})
-	}
-	raw := cometlineSettingsJSON{
-		Providers:         providers,
-		DefaultProviderID: cfg.DefaultProviderID,
-		DefaultModelID:    cfg.DefaultModelID,
-		Cometmind: cometlineCometmindJSON{
-			SystemPromptPath: cfg.SystemPromptPath,
-		},
-	}
-	data, err := json.MarshalIndent(raw, "", "  ")
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(path, data, 0o600)
 }
 
 func adaptMCPJSON(raw cometlineMCPJSON) MCPConfig {

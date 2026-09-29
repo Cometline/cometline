@@ -749,7 +749,6 @@
 		workspacePanelWidth: settingsStore.settings.app.workspacePanelWidth
 	});
 	let preferredRatio = $derived(resolveWorkspacePanelRatio(panelSizePrefs, contentRowWidth()));
-	let legacyPanelRatioMigrated = false;
 	let resizing = $state(false);
 	/** True while the left sidebar width transition is in flight. */
 	let sidebarAnimating = $state(false);
@@ -821,23 +820,6 @@
 		document.documentElement.style.setProperty('--workspace-panel-width', `${display}px`);
 		return display;
 	}
-
-	$effect(() => {
-		const ratio = settingsStore.settings.app.workspacePanelRatio;
-		const width = settingsStore.settings.app.workspacePanelWidth;
-		const row = contentRowRef?.clientWidth ?? 0;
-		if (legacyPanelRatioMigrated || ratio > 0 || !(width > 0) || !(row > 0)) {
-			if (ratio > 0) legacyPanelRatioMigrated = true;
-			return;
-		}
-		legacyPanelRatioMigrated = true;
-		const resolved = resolveWorkspacePanelRatio(
-			{ workspacePanelRatio: ratio, workspacePanelWidth: width },
-			row
-		);
-		const px = widthFromRatio(resolved, row, panelChrome());
-		void settingsStore.saveWorkspacePanelLayout(px, resolved);
-	});
 
 	// Re-apply the preferred ratio when non-sidebar chrome changes. Sidebar open/
 	// close is owned by the sidebar-animating effect (end-state + CSS transition).
