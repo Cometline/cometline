@@ -51,10 +51,6 @@
 		return provider.method === 'ollama' ? `${provider.name} (Local)` : provider.name;
 	}
 
-	function isRuntimeProviderId(providerId: string): boolean {
-		return runtimeProviders.some((provider) => provider.id === providerId);
-	}
-
 	// ── Default model picker ────────────────────────────────────────────
 	let modelMenuOpen = $state(false);
 	let modelSearch = $state('');
@@ -212,47 +208,6 @@
 	const autonomyModels = $derived(modelsForProvider(autonomyProvider));
 	const synthesisProvider = $derived(providerById(cometmind.skills.synthesisProviderId));
 	const synthesisModels = $derived(modelsForProvider(synthesisProvider));
-
-	$effect(() => {
-		const first = modelOptions[0];
-		const selected = modelOptions.find(
-			(option) => option.providerId === defaultProviderId && option.modelId === defaultModelId
-		);
-		if (!selected && first) {
-			defaultProviderId = first.providerId;
-			defaultModelId = first.modelId;
-		}
-	});
-
-	// Drop role pins that point at disabled / model-less providers.
-	$effect(() => {
-		const next = { ...cometmind };
-		let changed = false;
-		if (next.titleProviderId && !isRuntimeProviderId(next.titleProviderId)) {
-			next.titleProviderId = '';
-			next.titleModelId = '';
-			changed = true;
-		}
-		if (
-			next.memory.extractionProviderId &&
-			!isRuntimeProviderId(next.memory.extractionProviderId)
-		) {
-			next.memory = { ...next.memory, extractionProviderId: '', extractionModel: '' };
-			changed = true;
-		}
-		if (next.autonomy.providerId && !isRuntimeProviderId(next.autonomy.providerId)) {
-			next.autonomy = { ...next.autonomy, providerId: '', modelId: '' };
-			changed = true;
-		}
-		if (
-			next.skills.synthesisProviderId &&
-			!isRuntimeProviderId(next.skills.synthesisProviderId)
-		) {
-			next.skills = { ...next.skills, synthesisProviderId: '', synthesisModel: '' };
-			changed = true;
-		}
-		if (changed) cometmind = next;
-	});
 
 	function setAutonomyProvider(providerId: string) {
 		if (!providerId) {

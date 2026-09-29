@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import FilePreview from '$lib/components/FilePreview.svelte';
 	import type { FileRevealRange } from '$lib/workspace/workspace-panel-state';
 
@@ -89,6 +90,7 @@
 	});
 
 	$effect(() => onEditorState(activeEditorState));
+	onDestroy(() => onEditorState(null));
 	$effect(() => {
 		const payload = JSON.stringify(dirtyByPath);
 		if (payload === lastDirtyPayload) return;

@@ -29,12 +29,6 @@
 		proposal.defaultWorkspace.trim() || shellStore.workspacePath?.trim() || ''
 	);
 	const selectedWorkspacePath = $derived(workspacePath || defaultWorkspacePath);
-
-	$effect.pre(() => {
-		if (!workspacePath && defaultWorkspacePath) {
-			workspacePath = defaultWorkspacePath;
-		}
-	});
 	let phase = $state<CardPhase>('idle');
 	let error = $state('');
 	let createdJob = $state<JobResource | null>(null);
@@ -110,7 +104,15 @@
 		{/if}
 		<div class="proposal-field">
 			<span class="field-label">Workspace</span>
-			<WorkspacePathField bind:value={workspacePath} disabled={phase !== 'idle'} />
+			<WorkspacePathField
+				bind:value={
+					() => workspacePath || defaultWorkspacePath,
+					(next) => {
+						workspacePath = next;
+					}
+				}
+				disabled={phase !== 'idle'}
+			/>
 		</div>
 	</div>
 

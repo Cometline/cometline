@@ -21,6 +21,7 @@
 	import SettingsGeneralPanel from './SettingsGeneralPanel.svelte';
 	import SettingsCometMindPanel from './SettingsCometMindPanel.svelte';
 	import SettingsModelRolesPanel from './SettingsModelRolesPanel.svelte';
+	import { normalizeModelRoleDraft } from '$lib/settings/model-role-draft';
 	import SettingsMemoryPanel from './SettingsMemoryPanel.svelte';
 	import SettingsShortcutsPanel from './SettingsShortcutsPanel.svelte';
 	import SettingsProvidersPanel from './SettingsProvidersPanel.svelte';
@@ -42,7 +43,9 @@
 
 	let { mode = 'modal', onClose }: { mode?: SettingsPanelMode; onClose?: () => void } = $props();
 
-	let draft = $state<ProviderSettings>(cloneSettings(settingsStore.settings));
+	let draft = $state<ProviderSettings>(
+		normalizeModelRoleDraft(cloneSettings(settingsStore.settings))
+	);
 	let selectedProviderId = $state<string>(settingsStore.settings.providers[0]?.id || '');
 	let modelSearch = $state('');
 	let cometmindPanel = $state<SettingsCometMindPanel | undefined>();
@@ -194,7 +197,7 @@
 	const panelController = createSettingsPanelController({
 		getDraft: () => draft,
 		setDraft: (next) => {
-			draft = next;
+			draft = normalizeModelRoleDraft(next);
 		},
 		getSelectedProviderId: () => selectedProviderId,
 		setSelectedProviderId: (id) => {

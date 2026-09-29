@@ -41,9 +41,8 @@
 	import { isBlankTabUrl, urlTabChipLabel } from '$lib/workspace/workspace-panel-state';
 
 	let addressInputEl = $state<HTMLInputElement | null>(null);
-	let addressInput = $state('');
-	let addressEditing = $state(false);
-	let lastObservedPanelUrl = $state<string | null>(null);
+	let addressDraft = $state<string | null>(null);
+	let addressDraftUrl = $state<string | null>(null);
 	let editorState = $state<{
 		dirty: boolean;
 		saving: boolean;
@@ -133,6 +132,17 @@
 		if (!url || isBlankTabUrl(url)) return '';
 		return url;
 	}
+
+	const shownAddress = $derived.by(() => {
+		if (!shellStore.hasWorkspacePanelForSession) return '';
+		if (addressDraft !== null && addressDraftUrl === (panelUrl ?? '')) return addressDraft;
+		return displayAddress(panelUrl);
+	});
+	const addressEditing = $derived(
+		shellStore.hasWorkspacePanelForSession &&
+			addressDraft !== null &&
+			addressDraftUrl === (panelUrl ?? '')
+	);
 
 	function urlTabLabel(id: string, active: boolean): string {
 		const meta = panelUrlTabMeta[id] ?? { url: id, title: '' };
@@ -243,9 +253,14 @@
 		await terminalStore.terminate(session.id);
 	}
 
-	function syncAddressFromNavigation() {
-		if (addressEditing) return;
-		addressInput = displayAddress(panelUrl);
+	function beginAddressEdit() {
+		addressDraftUrl = panelUrl ?? '';
+		addressDraft = displayAddress(panelUrl);
+	}
+
+	function endAddressEdit() {
+		addressDraft = null;
+		addressDraftUrl = null;
 	}
 
 	function onBack() {
@@ -378,9 +393,9 @@
 	}
 
 	function submitAddress() {
-		const normalized = normalizeUserUrl(addressInput);
+		const normalized = normalizeUserUrl(shownAddress);
 		if (!normalized) return;
-		addressEditing = false;
+		endAddressEdit();
 		shellStore.navigateWorkspacePanel(normalized);
 	}
 
@@ -408,8 +423,7 @@
 		}
 		if (event.key === 'Escape') {
 			event.preventDefault();
-			addressEditing = false;
-			syncAddressFromNavigation();
+			endAddressEdit();
 			addressInputEl?.blur();
 		}
 	}
@@ -419,13 +433,12 @@
 	}
 
 	function onAddressFocus() {
-		addressEditing = true;
+		beginAddressEdit();
 		shellStore.setFocusedPane('web');
 	}
 
 	function onAddressBlur() {
-		addressEditing = false;
-		syncAddressFromNavigation();
+		endAddressEdit();
 	}
 
 	function onNewWindow(url: string) {
@@ -538,27 +551,6 @@
 		if (!panelOpen || !showWebview || !webSearchUrl || !isHttpUrl(webSearchUrl)) return;
 		const context = { source: webSearchUrl, title: pageTitle };
 		untrack(() => shellStore.setPendingPageContextForActive(context));
-	});
-
-	$effect(() => {
-		const url = panelUrl;
-		if (url !== lastObservedPanelUrl) {
-			lastObservedPanelUrl = url;
-			// Programmatic navigation (e.g. clicking a link) should stop editing the address.
-			addressEditing = false;
-		}
-		if (!addressEditing) {
-			syncAddressFromNavigation();
-		}
-	});
-
-	$effect(() => {
-		if (!shellStore.hasWorkspacePanelForSession) {
-			editorState = null;
-			if (!addressEditing) {
-				addressInput = '';
-			}
-		}
 	});
 
 	$effect(() => {
@@ -1031,7 +1023,13 @@
 							autocapitalize="off"
 							autocomplete="off"
 							placeholder="Search Google or type a URL"
-							bind:value={addressInput}
+							bind:value={
+								() => shownAddress,
+								(next) => {
+									addressDraftUrl = panelUrl ?? '';
+									addressDraft = next;
+								}
+							}
 							onfocus={onAddressFocus}
 							onblur={onAddressBlur}
 							onkeydown={onAddressKeydown}

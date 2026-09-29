@@ -47,7 +47,7 @@
 	let expanded = $state<Record<string, boolean>>({});
 	let loadedDirectories = $state<Record<string, boolean>>({});
 	let loadingDirectories = $state<Record<string, boolean>>({});
-	let selectedKey = $state<string | null>(null);
+	let pickedKey = $state<string | null>(null);
 	let loadSeq = 0;
 	let browserEl = $state<HTMLDivElement | null>(null);
 	let searchResults = $state<string[]>([]);
@@ -71,6 +71,16 @@
 				}))
 			: flattenVisibleFileTreeRows(tree, expanded)
 	);
+	const selectedKey = $derived.by(() => {
+		const rows = visibleRows;
+		if (rows.length === 0) return null;
+		if (pickedKey && rows.some((row) => row.key === pickedKey)) return pickedKey;
+		return rows[0]!.key;
+	});
+
+	function selectKey(key: string) {
+		pickedKey = key;
+	}
 	const searchWindow = $derived(
 		virtualWindow(
 			searchResults.length,
@@ -169,7 +179,7 @@
 		} else {
 			nextIndex = Math.max(0, Math.min(visibleRows.length - 1, currentIndex + delta));
 		}
-		selectedKey = visibleRows[nextIndex]!.key;
+		selectKey(visibleRows[nextIndex]!.key);
 		void scrollSelectedIntoView();
 		return true;
 	}
@@ -221,7 +231,7 @@
 				if (slash < 0) return false;
 				const parentKey = row.key.slice(0, slash);
 				if (!visibleRows.some((r) => r.key === parentKey)) return false;
-				selectedKey = parentKey;
+				selectKey(parentKey);
 				void scrollSelectedIntoView();
 				event.preventDefault();
 				return true;
@@ -363,17 +373,7 @@
 		searchViewportHeight = searchScrollEl.clientHeight || 320;
 	});
 
-	$effect(() => {
-		const rows = visibleRows;
-		void filter;
-		if (rows.length === 0) {
-			selectedKey = null;
-			return;
-		}
-		if (!selectedKey || !rows.some((row) => row.key === selectedKey)) {
-			selectedKey = rows[0]!.key;
-		}
-	});
+
 </script>
 
 {#snippet treeNodes(nodes: FileTreeNode[], parentKey: string)}
@@ -398,7 +398,7 @@
 						data-tree-key={key}
 						onmousedown={keepPaneFocus}
 						onclick={() => {
-							selectedKey = key;
+							selectKey(key);
 							toggleDir(key);
 						}}
 					>
@@ -434,7 +434,7 @@
 						data-tree-key={key}
 						onmousedown={keepPaneFocus}
 						onclick={() => {
-							selectedKey = key;
+							selectKey(key);
 							selectRelative(node.path!);
 						}}
 						title={node.path}
@@ -495,7 +495,7 @@
 							data-result-index={index}
 							onmousedown={keepPaneFocus}
 							onclick={() => {
-								selectedKey = path;
+								selectKey(path);
 								selectRelative(path);
 							}}
 							title={path}
