@@ -2,6 +2,9 @@ import { tick, untrack } from 'svelte';
 import type { ChatItem } from '$lib/stores/chat.svelte';
 import { activeTurnMinHeight } from './thread-turns';
 import { buildScrollKey, followUpPinScrollMargin, shouldShowJumpToBottom } from './thread-scroll';
+import { scrollTopAfterPrepend } from './thread-virtualizer';
+
+const LOAD_OLDER_TOP_PX = 320;
 
 export interface ThreadScrollDeps {
 	getSessionId: () => string;
@@ -12,6 +15,14 @@ export interface ThreadScrollDeps {
 	getUserMessageCount: () => number;
 	getIsLoading: () => boolean;
 	sessionHasCachedTranscript: (sessionId: string) => boolean;
+	/** Optional — when provided, the controller tracks the bound scroller. */
+	getScroller?: () => HTMLDivElement | undefined;
+	/** Optional keyset pagination — near-top prepend into the same chat store. */
+	getHasMoreHistory?: () => boolean;
+	getIsLoadingOlder?: () => boolean;
+	loadOlderTranscript?: (sessionId: string) => Promise<number>;
+	/** Keep virtualization / other listeners aligned with programmatic scrollTop. */
+	onScrollTopChange?: (top: number) => void;
 }
 
 export function createThreadScroll(deps: ThreadScrollDeps) {
@@ -27,6 +38,8 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 	let sessionHadTranscript = false;
 	/** The follow-up user row pinned while its reply canvas is active. */
 	let activePinnedUserId = $state<string | null>(null);
+	/** Covers the post-load tick + scrollTop correction window (store flag clears earlier). */
+	let loadOlderInFlight = false;
 
 	const scrollKey = $derived(buildScrollKey(deps.getThreadItems(), deps.getSessionStreaming()));
 	const turnMinHeight = $derived.by(() =>
@@ -34,9 +47,23 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 	);
 	const userPinScrollMargin = $derived(followUpPinScrollMargin(viewportHeight));
 
+	function notifyScrollTop() {
+		if (!scroller) return;
+		deps.onScrollTopChange?.(scroller.scrollTop);
+	}
+
 	function setScroller(element: HTMLDivElement | undefined) {
 		scroller = element;
+		if (element) deps.onScrollTopChange?.(element.scrollTop);
 	}
+
+	$effect(() => {
+		const getScroller = deps.getScroller;
+		if (!getScroller) return;
+		const element = getScroller();
+		scroller = element;
+		if (element) deps.onScrollTopChange?.(element.scrollTop);
+	});
 
 	function latestSentinel() {
 		return scroller?.querySelector<HTMLElement>('[data-thread-latest-sentinel]') ?? null;
@@ -50,8 +77,35 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 		showJumpToBottom = shouldShowJumpToBottom(scroller, latestSentinel());
 	}
 
+	async function maybeLoadOlderHistory() {
+		const loadOlder = deps.loadOlderTranscript;
+		if (!loadOlder) return;
+		if (loadOlderInFlight || isInitialTranscriptPaint) return;
+		if (!deps.getIsSessionSynced()) return;
+		if (!deps.getHasMoreHistory?.() || deps.getIsLoadingOlder?.()) return;
+		const el = scroller;
+		if (!el || el.scrollTop > LOAD_OLDER_TOP_PX) return;
+		loadOlderInFlight = true;
+		const prevTop = el.scrollTop;
+		const prevHeight = el.scrollHeight;
+		try {
+			const prepended = await loadOlder(deps.getSessionId());
+			if (!prepended || !scroller) return;
+			// Flush derived virtual spacer height before correcting scrollTop.
+			await tick();
+			if (!scroller) return;
+			const nextHeight = scroller.scrollHeight;
+			scroller.scrollTop = scrollTopAfterPrepend(prevTop, prevHeight, nextHeight);
+			notifyScrollTop();
+		} finally {
+			loadOlderInFlight = false;
+		}
+	}
+
 	function onScroll() {
 		updateJumpToBottom();
+		notifyScrollTop();
+		void maybeLoadOlderHistory();
 	}
 
 	function cancelScheduledScrollUpdate() {
@@ -174,7 +228,10 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 
 		const finishHydration = () => {
 			if (cancelled) return;
-			if (scroller) scroller.scrollTop = scroller.scrollHeight;
+			if (scroller) {
+				scroller.scrollTop = scroller.scrollHeight;
+				notifyScrollTop();
+			}
 			isInitialTranscriptPaint = false;
 			updateJumpToBottom();
 		};
@@ -186,6 +243,7 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 				return;
 			}
 			scroller.scrollTop = scroller.scrollHeight;
+			notifyScrollTop();
 			const height = scroller.scrollHeight;
 			if (height === lastHeight) stableFrames += 1;
 			else {
@@ -277,6 +335,7 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 		},
 		setScroller,
 		onScroll,
-		jumpToBottom
+		jumpToBottom,
+		maybeLoadOlderHistory
 	};
 }

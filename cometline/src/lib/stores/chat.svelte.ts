@@ -514,16 +514,10 @@ function createChatStore() {
 			const transcript = await getSessionMessages(targetSessionID, { before });
 			if (sessionID !== targetSessionID && !sessionCache.has(targetSessionID)) return 0;
 			const older = itemsFromTranscript(transcript.items, { idPrefix: `older-${seq}` });
-			if (older.length === 0) {
-				setTranscriptPageState(targetSessionID, {
-					hasMore: Boolean(transcript.has_more),
-					nextBefore: transcript.next_before ?? '',
-					olderPageSeq: seq
-				});
-				return 0;
+			if (older.length > 0) {
+				const current = getCachedItems(targetSessionID);
+				writeSessionItems(targetSessionID, [...older, ...current]);
 			}
-			const current = getCachedItems(targetSessionID);
-			writeSessionItems(targetSessionID, [...older, ...current]);
 			setTranscriptPageState(targetSessionID, {
 				hasMore: Boolean(transcript.has_more),
 				nextBefore: transcript.next_before ?? '',

@@ -29,6 +29,11 @@ export interface SessionFindDeps {
 	getRoot: () => HTMLElement | null;
 	/** Transcript turns for store-backed search (virtualized threads). */
 	getTurns: () => readonly ThreadTurn[];
+	/** Optional shell/session wiring so ChatThread stays a thin orchestrator. */
+	getSessionId?: () => string;
+	getIsSessionSynced?: () => boolean;
+	getFindRequestId?: () => number;
+	getSearchableItemCount?: () => number;
 }
 
 export function createSessionFindController(deps: SessionFindDeps) {
@@ -39,6 +44,9 @@ export function createSessionFindController(deps: SessionFindDeps) {
 	let focusRequestId = $state(0);
 	let previousFocus: HTMLElement | null = null;
 	let paintVersion = 0;
+	let handledFindRequestId = deps.getFindRequestId?.() ?? 0;
+	let findSessionId: string | null = null;
+	let previousSearchableItemCount = 0;
 
 	function clearHighlights() {
 		const registry = highlightRegistry();
@@ -190,6 +198,41 @@ export function createSessionFindController(deps: SessionFindDeps) {
 			if (timer) clearTimeout(timer);
 		};
 	}
+
+	$effect(() => {
+		const getRequestId = deps.getFindRequestId;
+		if (!getRequestId) return;
+		const requestId = getRequestId();
+		if (requestId === handledFindRequestId) return;
+		handledFindRequestId = requestId;
+		if (deps.getIsSessionSynced?.()) openFind();
+	});
+
+	$effect(() => {
+		const getSessionId = deps.getSessionId;
+		if (!getSessionId) return;
+		const nextSessionId = getSessionId();
+		if (nextSessionId === findSessionId) return;
+		findSessionId = nextSessionId;
+		closeFind({ restoreFocus: false });
+	});
+
+	$effect(() => {
+		if (!open) return;
+		const root = deps.getRoot();
+		if (!root) return;
+		return observe();
+	});
+
+	$effect(() => {
+		const getCount = deps.getSearchableItemCount;
+		if (!getCount) return;
+		const searchableItemCount = getCount();
+		if (previousSearchableItemCount > 0 && searchableItemCount === 0) {
+			closeFind({ restoreFocus: false });
+		}
+		previousSearchableItemCount = searchableItemCount;
+	});
 
 	return {
 		get open() {

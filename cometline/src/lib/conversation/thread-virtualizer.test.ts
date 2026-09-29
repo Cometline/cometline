@@ -164,13 +164,20 @@ describe('ChatThread find virtualization guard', () => {
 	it('does not remount the full transcript when session find is open', async () => {
 		const { readFileSync } = await import('node:fs');
 		const { fileURLToPath } = await import('node:url');
-		const source = readFileSync(
+		const chatThread = readFileSync(
 			fileURLToPath(new URL('../components/chat/ChatThread.svelte', import.meta.url)),
 			'utf8'
 		);
-		expect(source).not.toMatch(/sessionFind\.open[\s\S]{0,240}end:\s*turnSizes\.length/);
-		expect(source).toContain('sessionFind.activeTurnIndex');
-		expect(source).toContain('virtualTurnEntriesWithForced');
+		const virtualController = readFileSync(
+			fileURLToPath(new URL('./thread-virtual.svelte.ts', import.meta.url)),
+			'utf8'
+		);
+		expect(chatThread).not.toMatch(/sessionFind\.open[\s\S]{0,240}end:\s*turnSizes\.length/);
+		expect(virtualController).not.toMatch(
+			/getFindOpen\(\)[\s\S]{0,240}end:\s*turnSizes\.length/
+		);
+		expect(virtualController).toContain('getFindActiveTurnIndex');
+		expect(virtualController).toContain('virtualTurnEntriesWithForced');
 	});
 });
 
