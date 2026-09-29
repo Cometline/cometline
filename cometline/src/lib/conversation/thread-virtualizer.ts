@@ -10,21 +10,8 @@ export const THREAD_VIRTUAL_OVERSCAN = 2;
 /** Floor for empty/short turns so placeholders never collapse to zero. */
 export const THREAD_TURN_ESTIMATE_MIN = 120;
 
-/**
- * Soft ceiling so a single giant estimate cannot explode total height.
- * Raised well above pre-PR2.5 2400 so mega / CJK replies do not leave lasting
- * blank holes under the absolute spacer before measure settles.
- */
-export const THREAD_TURN_ESTIMATE_MAX = 48_000;
-
-/**
- * Assistant bodies at or above this length skip full AssistantMarkdown / Shiki
- * until hydration clears and the turn is in the strict (no-overscan) viewport.
- */
-export const THREAD_MEGA_ASSISTANT_CHARS = 4_000;
-
-/** Wall-clock failsafe for clearing isInitialTranscriptPaint (ms). */
-export const THREAD_HYDRATION_FAILSAFE_MS = 200;
+/** Soft ceiling so a single giant estimate cannot explode total height. */
+export const THREAD_TURN_ESTIMATE_MAX = 2400;
 
 const USER_BASE = 72;
 const ASSISTANT_BASE = 56;
@@ -35,10 +22,6 @@ const ERROR_ROW = 40;
 const STATUS_ROW = 32;
 const CHARS_PER_LINE = 88;
 const LINE_HEIGHT = 22;
-
-/** Wide / CJK code points count as ~2 Latin columns for line estimates. */
-const WIDE_CHAR_RE =
-	/[\u1100-\u115f\u2e80-\ua4cf\uac00-\ud7a3\uf900-\ufaff\ufe10-\ufe19\ufe30-\ufe6f\uff00-\uff60\uffe0-\uffe6]/u;
 
 export interface VirtualWindow {
 	start: number;
@@ -53,21 +36,12 @@ export interface VirtualTurnEntry<T = ThreadTurn> {
 	offset: number;
 }
 
-/** Visual column count: CJK / fullwidth ≈ 2, else 1. */
-export function visualColumnCount(text: string): number {
-	let cols = 0;
-	for (const ch of text) {
-		cols += WIDE_CHAR_RE.test(ch) ? 2 : 1;
-	}
-	return cols;
-}
-
 /** Rough block height from plaintext length (markdown/layout TBD until measured). */
 function textBlockHeight(text: string | undefined, base: number): number {
-	const raw = text?.trim() ?? '';
-	if (raw.length === 0) return base;
-	const lines = Math.ceil(visualColumnCount(raw) / CHARS_PER_LINE);
-	return base + lines * LINE_HEIGHT;
+	const len = text?.trim().length ?? 0;
+	if (len === 0) return base;
+	const lines = Math.ceil(len / CHARS_PER_LINE);
+	return base + Math.min(1200, lines * LINE_HEIGHT);
 }
 
 function estimateItemHeight(item: ChatItem): number {
@@ -111,17 +85,6 @@ export function estimateTurnHeight(turn: ThreadTurn): number {
 	return Math.min(
 		THREAD_TURN_ESTIMATE_MAX,
 		Math.max(THREAD_TURN_ESTIMATE_MIN, Math.ceil(height))
-	);
-}
-
-/** True when any assistant body in the turn is large enough to defer Shiki. */
-export function isOversizedAssistantText(text: string | undefined): boolean {
-	return (text?.length ?? 0) >= THREAD_MEGA_ASSISTANT_CHARS;
-}
-
-export function turnHasOversizedAssistant(turn: ThreadTurn): boolean {
-	return turn.items.some(
-		(entry) => entry.item.type === 'assistant' && isOversizedAssistantText(entry.item.text)
 	);
 }
 
@@ -232,71 +195,6 @@ export function computeVirtualWindow(
 		offset: offsets[start],
 		totalHeight
 	};
-}
-
-/**
- * True when `index` intersects the strict viewport (overscan = 0).
- */
-export function isIndexInStrictViewport(
-	sizes: readonly number[],
-	scrollTop: number,
-	viewportHeight: number,
-	index: number,
-	gap = THREAD_TURN_GAP
-): boolean {
-	if (index < 0 || index >= sizes.length) return false;
-	const strict = computeVirtualWindow(sizes, scrollTop, viewportHeight, 0, gap);
-	return index >= strict.start && index < strict.end;
-}
-
-/** True when the turn's top edge lies inside the viewport (user scrolled to it). */
-export function isTurnTopInViewport(
-	sizes: readonly number[],
-	scrollTop: number,
-	viewportHeight: number,
-	index: number,
-	gap = THREAD_TURN_GAP
-): boolean {
-	if (index < 0 || index >= sizes.length) return false;
-	const offsets = prefixOffsets(sizes, gap);
-	const top = offsets[index];
-	const viewEnd = Math.max(0, scrollTop) + Math.max(0, viewportHeight);
-	return top >= Math.max(0, scrollTop) && top < viewEnd;
-}
-
-export interface DeferMarkdownOptions {
-	/** Index of the latest user turn (forced sentinel). Mega-as-last uses this. */
-	latestTurnIndex?: number;
-	gap?: number;
-}
-
-/**
- * Mega assistant turns defer full markdown/Shiki while hydrating.
- * After hydration:
- * - mega-as-last (latest turn): allow once it intersects the strict viewport
- * - older mega (e.g. above a short "hi"): allow only once the turn *top* is in
- *   the viewport (user scrolled up). A bottom-edge peek while viewing the
- *   short latest must NOT run Shiki — that is the open regression.
- * Short turns never defer. Callers should also skip defer for live streaming.
- */
-export function shouldDeferTurnMarkdown(
-	turn: ThreadTurn,
-	index: number,
-	sizes: readonly number[],
-	scrollTop: number,
-	viewportHeight: number,
-	isHydrating: boolean,
-	options: DeferMarkdownOptions = {}
-): boolean {
-	if (!turnHasOversizedAssistant(turn)) return false;
-	if (isHydrating) return true;
-	const gap = options.gap ?? THREAD_TURN_GAP;
-	const latest = options.latestTurnIndex ?? -1;
-	if (index === latest) {
-		return !isIndexInStrictViewport(sizes, scrollTop, viewportHeight, index, gap);
-	}
-	// Older mega: require the turn top in view (not merely a clipped bottom edge).
-	return !isTurnTopInViewport(sizes, scrollTop, viewportHeight, index, gap);
 }
 
 export function virtualTurnEntries<T>(

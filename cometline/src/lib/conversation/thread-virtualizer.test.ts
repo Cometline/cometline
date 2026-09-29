@@ -4,21 +4,15 @@ import { groupThreadItemsIntoTurns } from './thread-turns';
 import {
 	THREAD_TURN_GAP,
 	THREAD_TURN_ESTIMATE_MIN,
-	THREAD_TURN_ESTIMATE_MAX,
-	THREAD_MEGA_ASSISTANT_CHARS,
 	computeVirtualWindow,
 	estimateTurnHeight,
-	isOversizedAssistantText,
 	prefixOffsets,
 	resolveTurnSizes,
 	scrollDeltaForSizeChange,
-	shouldDeferTurnMarkdown,
 	totalHeightFromSizes,
-	turnHasOversizedAssistant,
 	virtualTurnEntries,
 	virtualTurnEntriesWithForced,
-	scrollTopAfterPrepend,
-	visualColumnCount
+	scrollTopAfterPrepend
 } from './thread-virtualizer';
 
 function turnsFrom(items: ChatItem[]) {
@@ -195,82 +189,5 @@ describe('scrollTopAfterPrepend', () => {
 	it('does not move when height did not grow', () => {
 		expect(scrollTopAfterPrepend(120, 1000, 1000)).toBe(120);
 		expect(scrollTopAfterPrepend(120, 1000, 900)).toBe(120);
-	});
-});
-
-
-describe('mega-turn estimates and deferral', () => {
-	it('counts CJK characters as wider columns', () => {
-		expect(visualColumnCount('hi')).toBe(2);
-		expect(visualColumnCount('你好')).toBe(4);
-		expect(visualColumnCount('a你b')).toBe(4);
-	});
-
-	it('grows mega estimates past the old 2400 soft ceiling', () => {
-		const mega = '中'.repeat(8_000);
-		const [turn] = turnsFrom([
-			{ id: 'u1', type: 'user', text: 'hi' },
-			{ id: 'a1', type: 'assistant', text: mega }
-		]);
-		const height = estimateTurnHeight(turn);
-		expect(height).toBeGreaterThan(2400);
-		expect(height).toBeLessThanOrEqual(THREAD_TURN_ESTIMATE_MAX);
-		expect(isOversizedAssistantText(mega)).toBe(true);
-		expect(turnHasOversizedAssistant(turn)).toBe(true);
-	});
-
-	it('does not treat short assistant text as mega', () => {
-		expect(isOversizedAssistantText('hi')).toBe(false);
-		expect(isOversizedAssistantText('x'.repeat(THREAD_MEGA_ASSISTANT_CHARS - 1))).toBe(false);
-		expect(isOversizedAssistantText('x'.repeat(THREAD_MEGA_ASSISTANT_CHARS))).toBe(true);
-	});
-
-	it('defers mega-above-hi until the user scrolls its top into view', () => {
-		const mega = 'x'.repeat(THREAD_MEGA_ASSISTANT_CHARS);
-		const turns = turnsFrom([
-			{ id: 'u1', type: 'user', text: 'ask' },
-			{ id: 'a1', type: 'assistant', text: mega },
-			{ id: 'u2', type: 'user', text: 'hi' }
-		]);
-		expect(turns).toHaveLength(2);
-		const sizes = turns.map((turn) => estimateTurnHeight(turn));
-		const gap = THREAD_TURN_GAP;
-		const viewportHeight = 600;
-		// Stick-to-bottom: short latest in view; mega bottom may peek — still defer.
-		const scrollTop = Math.max(0, sizes[0] + gap + sizes[1] - viewportHeight);
-		const opts = { latestTurnIndex: 1, gap };
-
-		expect(shouldDeferTurnMarkdown(turns[0], 0, sizes, scrollTop, viewportHeight, true, opts)).toBe(
-			true
-		);
-		expect(
-			shouldDeferTurnMarkdown(turns[0], 0, sizes, scrollTop, viewportHeight, false, opts)
-		).toBe(true);
-		// Short latest never defers.
-		expect(
-			shouldDeferTurnMarkdown(turns[1], 1, sizes, scrollTop, viewportHeight, false, opts)
-		).toBe(false);
-		// User scrolls mega top into view → allow full markdown.
-		expect(shouldDeferTurnMarkdown(turns[0], 0, sizes, 0, viewportHeight, false, opts)).toBe(
-			false
-		);
-	});
-
-	it('defers mega-as-last while hydrating, then allows after hydration in viewport', () => {
-		const mega = 'x'.repeat(THREAD_MEGA_ASSISTANT_CHARS);
-		const turns = turnsFrom([
-			{ id: 'u1', type: 'user', text: 'ask' },
-			{ id: 'a1', type: 'assistant', text: mega }
-		]);
-		const sizes = [estimateTurnHeight(turns[0])];
-		const viewportHeight = 600;
-		const scrollTop = Math.max(0, sizes[0] - viewportHeight);
-		const opts = { latestTurnIndex: 0 };
-		expect(shouldDeferTurnMarkdown(turns[0], 0, sizes, scrollTop, viewportHeight, true, opts)).toBe(
-			true
-		);
-		expect(
-			shouldDeferTurnMarkdown(turns[0], 0, sizes, scrollTop, viewportHeight, false, opts)
-		).toBe(false);
 	});
 });

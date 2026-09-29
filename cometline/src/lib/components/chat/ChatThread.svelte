@@ -341,7 +341,6 @@
 											firstTurnHandoffPending,
 											firstAssistantRowId
 										)}
-										deferMarkdown={entry.deferMarkdown && item.id !== streamingAssistantId}
 									/>
 								{:else if item.type === 'tool' && !isToolInBuffer(item) && !embeddedPinnedJobIds.has(item.id)}
 									<ToolMessageRow

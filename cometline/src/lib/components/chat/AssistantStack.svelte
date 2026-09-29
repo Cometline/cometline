@@ -39,14 +39,11 @@
 	let {
 		item,
 		context,
-		showActivitySpinner,
-		deferMarkdown = false
+		showActivitySpinner
 	}: {
 		item: AssistantItem;
 		context: AssistantStackContext;
 		showActivitySpinner: boolean;
-		/** Skip AssistantMarkdown/Shiki for mega overscan / hydrating turns. */
-		deferMarkdown?: boolean;
 	} = $props();
 
 	let lightbox = $state<{ src: string; alt: string } | null>(null);
@@ -279,7 +276,6 @@
 			<AssistantMarkdown
 				source={item.text}
 				streaming={item.id === context.streamingAssistantId}
-				deferred={deferMarkdown}
 			/>
 		</div>
 	{/if}
