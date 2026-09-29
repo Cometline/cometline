@@ -1524,7 +1524,6 @@ export function parseAndNormalizeSettings(
 	if (!raw || typeof raw !== 'object') {
 		return validateSettings(normalizeSettings(defaultSettings(), options));
 	}
-	const record = raw as Record<string, unknown>;
 	const partial = raw as Partial<ProviderSettings>;
 	const base = { ...defaultSettings(), ...partial };
 	return validateSettings(normalizeSettings(base, options));
