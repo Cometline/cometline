@@ -65,7 +65,19 @@
 		void settingsStore.saveFileSearchSource(next);
 	}
 
+	function resetSearch() {
+		query = '';
+		debouncedQuery = '';
+		results = [];
+		activeIndex = 0;
+		error = null;
+		loadSeq += 1;
+		if (debounceTimer) clearTimeout(debounceTimer);
+		debounceTimer = null;
+	}
+
 	function close() {
+		resetSearch();
 		onClose();
 	}
 
@@ -159,14 +171,7 @@
 	});
 
 	$effect(() => {
-		if (!open) {
-			query = '';
-			debouncedQuery = '';
-			results = [];
-			activeIndex = 0;
-			error = null;
-			return;
-		}
+		if (!open) return;
 		const next = query;
 		if (debounceTimer) clearTimeout(debounceTimer);
 		debounceTimer = setTimeout(() => {
