@@ -82,18 +82,6 @@ func NewMemoryLLM(cfg *config.Config) (cometsdk.Provider, error) {
 	return NewForModel(cfg, providerID, model)
 }
 
-// NewFor returns a concrete SDK provider for a specific provider id using the
-// provider entry's primary model. Kept for callers that only know the provider
-// id; prefer NewForModel when the model is known.
-func NewFor(cfg *config.Config, id string) (cometsdk.Provider, error) {
-	entry, _, _ := providerConfigFor(cfg, id)
-	modelID := ""
-	if entry != nil {
-		modelID = entry.Model
-	}
-	return NewForModel(cfg, id, modelID)
-}
-
 // NewForModel returns a concrete SDK provider for a specific provider id and
 // model. Model-aware dispatch matters for opencode-go, whose models can speak
 // different wire protocols (Chat Completions, Anthropic Messages, or OpenAI

@@ -9,7 +9,6 @@ import {
 	migrateSingleProvider,
 	normalizeSettings,
 	parseAndNormalizeSettings,
-	runtimeSlice,
 	validateSettings
 } from './schema';
 
@@ -41,11 +40,6 @@ describe('settings schema', () => {
 				intervalHours: 24,
 				maxBackups: 7
 			}
-		});
-		expect(runtimeSlice(settings)).toMatchObject({
-			provider: 'local-llm',
-			model: 'qwen2.5',
-			systemPromptPath: '/tmp/SOUL.md'
 		});
 	});
 
@@ -402,33 +396,6 @@ describe('settings schema', () => {
 	it('parseAndNormalizeSettings applies systemPromptPath option', () => {
 		const settings = parseAndNormalizeSettings({}, { systemPromptPath: '/tmp/SOUL.md' });
 		expect(settings.cometmind.systemPromptPath).toBe('/tmp/SOUL.md');
-	});
-
-	it('runtimeSlice projects default provider', () => {
-		const settings = normalizeSettings({
-			...defaultSettings(),
-			providers: defaultSettings().providers.map((p) =>
-				p.id === 'openai'
-					? {
-							...p,
-							enabled: true,
-							enabledModels: ['gpt-4o'],
-							models: ['gpt-4o']
-						}
-					: { ...p, enabled: false, enabledModels: [] }
-			),
-			defaultProviderId: 'openai',
-			defaultModelId: 'gpt-4o',
-			cometmind: {
-				...defaultSettings().cometmind,
-				systemPromptPath: '/tmp/SOUL.md'
-			}
-		});
-		const slice = runtimeSlice(settings);
-		expect(slice?.provider).toBe('openai');
-		expect(slice?.model).toBe('gpt-4o');
-		expect(slice?.systemPromptPath).toBe('/tmp/SOUL.md');
-		expect(slice?.providers).toHaveLength(1);
 	});
 
 	it('normalizeSettings migrates active into default and drops active', () => {
