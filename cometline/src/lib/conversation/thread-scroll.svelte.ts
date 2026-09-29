@@ -2,7 +2,7 @@ import { tick, untrack } from 'svelte';
 import type { ChatItem } from '$lib/stores/chat.svelte';
 import { activeTurnMinHeight } from './thread-turns';
 import { buildScrollKey, followUpPinScrollMargin, shouldShowJumpToBottom } from './thread-scroll';
-import { THREAD_HYDRATION_FAILSAFE_MS, scrollTopAfterPrepend } from './thread-virtualizer';
+import { scrollTopAfterPrepend } from './thread-virtualizer';
 
 const LOAD_OLDER_TOP_PX = 320;
 
@@ -225,19 +225,9 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 		let lastHeight = 0;
 		let stableFrames = 0;
 		let frameCount = 0;
-		let failsafeTimer: ReturnType<typeof setTimeout> | 0 = 0;
 
 		const finishHydration = () => {
 			if (cancelled) return;
-			cancelled = true;
-			if (settleFrame) {
-				cancelAnimationFrame(settleFrame);
-				settleFrame = 0;
-			}
-			if (failsafeTimer) {
-				clearTimeout(failsafeTimer);
-				failsafeTimer = 0;
-			}
 			if (scroller) {
 				scroller.scrollTop = scroller.scrollHeight;
 				notifyScrollTop();
@@ -268,13 +258,6 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 			settleFrame = requestAnimationFrame(settle);
 		};
 
-		// Wall-clock failsafe: if scrollHeight never stabilizes (mega Shiki /
-		// measure thrash), still clear opacity:0 so the thread becomes interactive.
-		failsafeTimer = setTimeout(() => {
-			failsafeTimer = 0;
-			finishHydration();
-		}, THREAD_HYDRATION_FAILSAFE_MS);
-
 		void tick().then(() => {
 			if (cancelled) return;
 			settleFrame = requestAnimationFrame(settle);
@@ -283,7 +266,6 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 		return () => {
 			cancelled = true;
 			if (settleFrame) cancelAnimationFrame(settleFrame);
-			if (failsafeTimer) clearTimeout(failsafeTimer);
 		};
 	});
 
