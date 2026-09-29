@@ -16,7 +16,6 @@ func TestAdaptCometlineSettingsPrefersDefaultOverActive(t *testing.T) {
 				APIKey:        "k",
 			},
 		},
-		ActiveProviderID:  "codex",
 		DefaultProviderID: "opencode-go",
 		DefaultModelID:    "deepseek-v4-flash",
 	})

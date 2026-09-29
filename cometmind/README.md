@@ -119,7 +119,7 @@ The runtime owns the invocation profiles:
 - Harness-specific progress is normalized into the same subagent events.
 - Harnesses inherit the user's local authentication and configuration. Only enable unattended delegation for trusted workspaces.
 
-Settings expose one choice—OpenCode, Claude Code, or Codex—in Settings → CometMind → Coding task delegation. Settings are persisted in `~/.cometmind/cometline-settings.json` (`config.toml` is written forward to JSON once if JSON is missing):
+Settings expose one choice—OpenCode, Claude Code, or Codex—in Settings → CometMind → Coding task delegation. Settings are persisted in `~/.cometmind/cometline-settings.json`:
 
 ```toml
 [acp]

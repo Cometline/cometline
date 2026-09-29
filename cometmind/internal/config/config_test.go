@@ -138,67 +138,6 @@ func TestLoadReadsCometlineSettingsJSON(t *testing.T) {
 	}
 }
 
-func TestLoadReadsLegacyProvidersToml(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-
-	configDir := filepath.Join(home, ".cometmind")
-	if err := os.MkdirAll(configDir, 0o700); err != nil {
-		t.Fatalf("mkdir: %v", err)
-	}
-	content := `provider = "local-llm"
-model = "qwen2.5"
-base_url = "http://localhost:11434/v1"
-max_tokens = 4096
-max_steps = 25
-
-[[providers]]
-id = "local-llm"
-name = "Local LLM"
-method = "openai-compatible"
-base_url = "http://localhost:11434/v1"
-api_key = "ignored"
-model = "qwen2.5"
-
-[[providers]]
-id = "anthropic"
-name = "Anthropic"
-method = "anthropic"
-base_url = "https://api.anthropic.com"
-api_key = "sk-ant-123"
-model = "claude-sonnet-4-5"
-`
-	if err := os.WriteFile(filepath.Join(configDir, "config.toml"), []byte(content), 0o600); err != nil {
-		t.Fatalf("write config: %v", err)
-	}
-
-	cfg, err := Load()
-	if err != nil {
-		t.Fatalf("Load() error = %v", err)
-	}
-
-	if len(cfg.Providers) != 2 {
-		t.Fatalf("len(Providers) = %d, want 2", len(cfg.Providers))
-	}
-	if cfg.FindProvider("local-llm") == nil {
-		t.Fatal("expected to find provider 'local-llm'")
-	}
-	anthropic := cfg.FindProvider("anthropic")
-	if anthropic == nil {
-		t.Fatal("expected to find provider 'anthropic'")
-	}
-	if anthropic.APIKey != "sk-ant-123" {
-		t.Fatalf("anthropic APIKey = %q, want %q", anthropic.APIKey, "sk-ant-123")
-	}
-	settingsPath := filepath.Join(configDir, "cometline-settings.json")
-	if _, err := os.Stat(settingsPath); err != nil {
-		t.Fatalf("expected migrated settings at %s: %v", settingsPath, err)
-	}
-	if cfg.DefaultProviderID != "local-llm" {
-		t.Fatalf("DefaultProviderID = %q, want local-llm", cfg.DefaultProviderID)
-	}
-}
-
 func TestAdaptCometlineSettingsMatchesRuntimeSlice(t *testing.T) {
 	fixture, err := os.ReadFile(filepath.Join("testdata", "cometline-settings.json"))
 	if err != nil {
@@ -226,51 +165,6 @@ func TestAdaptCometlineSettingsMatchesRuntimeSlice(t *testing.T) {
 	}
 }
 
-func TestAdaptCometlineSettingsMigratesDeletedJobPurgeDays(t *testing.T) {
-	legacyDays := 14
-	cfg, err := adaptCometlineSettings(cometlineSettingsJSON{
-		Cometmind: cometlineCometmindJSON{
-			Storage: cometlineStorageJSON{DeletedJobPurgeDays: &legacyDays},
-		},
-	})
-	if err != nil {
-		t.Fatalf("adaptCometlineSettings() error = %v", err)
-	}
-	if got := cfg.JobsSettings().DeletedPurgeDays; got != legacyDays {
-		t.Fatalf("Jobs.DeletedPurgeDays = %d, want %d", got, legacyDays)
-	}
-	if cfg.Storage.DeletedJobPurgeDays != 0 {
-		t.Fatalf("Storage.DeletedJobPurgeDays = %d, want migrated value cleared", cfg.Storage.DeletedJobPurgeDays)
-	}
-
-	for _, tc := range []struct {
-		name       string
-		jobsDays   int
-		legacyDays int
-		want       int
-	}{
-		{name: "persisted default yields to disabled legacy setting", jobsDays: 30, legacyDays: 0, want: 0},
-		{name: "persisted default yields to custom legacy setting", jobsDays: 30, legacyDays: 14, want: 14},
-		{name: "explicit canonical disable wins", jobsDays: 0, legacyDays: 14, want: 0},
-		{name: "explicit canonical value wins", jobsDays: 7, legacyDays: 14, want: 7},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			cfg, err := adaptCometlineSettings(cometlineSettingsJSON{
-				Cometmind: cometlineCometmindJSON{
-					Storage: cometlineStorageJSON{DeletedJobPurgeDays: &tc.legacyDays},
-					Jobs:    cometlineJobsJSON{DeletedPurgeDays: &tc.jobsDays},
-				},
-			})
-			if err != nil {
-				t.Fatalf("adaptCometlineSettings() error = %v", err)
-			}
-			if got := cfg.JobsSettings().DeletedPurgeDays; got != tc.want {
-				t.Fatalf("Jobs.DeletedPurgeDays = %d, want %d", got, tc.want)
-			}
-		})
-	}
-}
-
 func TestAdaptCometlineSettingsAutonomyModelOverride(t *testing.T) {
 	cfg, err := adaptCometlineSettings(cometlineSettingsJSON{
 		Providers: []cometlineProviderJSON{
@@ -290,7 +184,6 @@ func TestAdaptCometlineSettingsAutonomyModelOverride(t *testing.T) {
 				EnabledModels: []string{"gpt-5.1-codex"},
 			},
 		},
-		ActiveProviderID: "anthropic",
 		Cometmind: cometlineCometmindJSON{
 			Autonomy: cometlineAutonomyJSON{
 				ProviderID: " codex ",
@@ -320,7 +213,6 @@ func TestAdaptCometlineSettingsMemoryBehavior(t *testing.T) {
 		Providers: []cometlineProviderJSON{{
 			ID: "codex", Name: "Codex", Method: "codex", Enabled: true, EnabledModels: []string{"gpt-5.4"},
 		}},
-		ActiveProviderID: "codex",
 		Cometmind: cometlineCometmindJSON{
 			Memory: cometlineMemoryJSON{
 				Enabled:             true,

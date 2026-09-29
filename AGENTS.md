@@ -121,7 +121,7 @@ Recent example: `memory_compaction_completed` was added this way to report manua
 ### CometMind
 
 - **Settings:** `~/.cometmind/cometline-settings.json` (runtime; agent tools + CometMind). Desktop UI state: `~/.cometmind/cometline-desktop.json` (Electron only).
-- **Legacy config:** `~/.cometmind/config.toml` is migrated once into `cometline-settings.json` when JSON is missing, then ignored
+- **Settings file:** `~/.cometmind/cometline-settings.json` only. A missing file is created from defaults.
 - **Database:** `~/.cometmind/cometmind.db` (SQLite, pure Go via `modernc.org/sqlite`)
 - **Media:** `~/.cometmind/media/{storage_session_id}/` — gallery files stay after session or workspace delete, then follow the configurable detached-media retention period; users can also remove them on the Gallery page
 - **API:** `http://127.0.0.1:7700` (localhost only)
@@ -226,7 +226,7 @@ CometMind connects to external MCP servers and exposes their tools to the **main
 
 Run CometMind as a Discord bot with the same agent runtime.
 
-**Config:** Settings → CometMind → Discord, persisted in `~/.cometmind/cometline-settings.json`. A missing JSON file is written once from `config.toml` if that file exists.
+**Config:** Settings → CometMind → Discord, persisted in `~/.cometmind/cometline-settings.json`.
 ```toml
 [gateway.discord]
 enabled = true

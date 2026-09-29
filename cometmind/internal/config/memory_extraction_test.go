@@ -58,7 +58,6 @@ func TestAdaptCometlineSettingsMapsExtractionProvider(t *testing.T) {
 		Providers: []cometlineProviderJSON{{
 			ID: "codex", Name: "Codex", Method: "codex", Enabled: true, EnabledModels: []string{"gpt-5.4"},
 		}},
-		ActiveProviderID: "codex",
 		Cometmind: cometlineCometmindJSON{
 			Memory: cometlineMemoryJSON{
 				ExtractionProviderID: "opencode-go",

@@ -36,15 +36,6 @@ func DataDir() (string, error) {
 	return dir, nil
 }
 
-// LegacyConfigPath returns ~/.cometmind/config.toml or the overridden data dir equivalent.
-func LegacyConfigPath() (string, error) {
-	d, err := DataDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(d, "config.toml"), nil
-}
-
 // SettingsPath returns ~/.cometmind/cometline-settings.json (agent-editable runtime settings).
 func SettingsPath() (string, error) {
 	d, err := DataDir()

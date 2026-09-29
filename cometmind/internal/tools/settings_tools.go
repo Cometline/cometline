@@ -117,7 +117,6 @@ func (t patchSettingsTool) Execute(ctx context.Context, input json.RawMessage) (
 	if in.Patch == nil {
 		return Result{OK: false, Output: "patch is required"}, nil
 	}
-	settingsapply.RewriteLegacyActiveProviderPatch(in.Patch)
 	if desktopKeys := settingsapply.DesktopKeysInPatch(in.Patch); len(desktopKeys) > 0 {
 		return Result{OK: false, Output: settingsapply.FormatUnsupported(desktopKeys)}, nil
 	}
@@ -130,10 +129,7 @@ func (t patchSettingsTool) Execute(ctx context.Context, input json.RawMessage) (
 	merged := settingsapply.MergePatch(before, in.Patch)
 	settingsapply.RestoreSecretsInProviders(merged, before)
 	merged = settingsapply.StripDesktopKeys(merged)
-	beforeNorm := settingsapply.NormalizeLegacyActiveProvider(cloneSettingsDoc(before))
-	merged = settingsapply.NormalizeLegacyActiveProvider(merged)
-
-	plan, err := settingsapply.Classify(beforeNorm, merged)
+	plan, err := settingsapply.Classify(before, merged)
 	if err != nil {
 		return Result{OK: false, Output: err.Error()}, nil
 	}
