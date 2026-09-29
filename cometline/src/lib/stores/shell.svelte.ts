@@ -780,10 +780,6 @@ function createShellStore() {
 		setActiveWorkspacePath(path: string) {
 			workspacePath = path;
 		},
-		/** @deprecated Use setActiveWorkspacePath for active-only updates. */
-		setWorkspacePath(path: string) {
-			workspacePath = path;
-		},
 		setSidebarOrderWorkspacePath(path: string) {
 			sidebarOrderWorkspacePath = path;
 		},
