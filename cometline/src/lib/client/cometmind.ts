@@ -705,10 +705,22 @@ export function listChildSessions(id: string): Promise<SessionListResponse> {
 	);
 }
 
-export function getSessionMessages(id: string): Promise<TranscriptResponse> {
+export type GetSessionMessagesOptions = {
+	limit?: number;
+	before?: string;
+};
+
+export function getSessionMessages(
+	id: string,
+	options: GetSessionMessagesOptions = {}
+): Promise<TranscriptResponse> {
+	const query: { limit?: number; before?: string } = {};
+	if (options.limit != null) query.limit = options.limit;
+	if (options.before) query.before = options.before;
 	return withApiError(
 		getSessionMessagesApi({
 			path: { id },
+			query: Object.keys(query).length ? query : undefined,
 			throwOnError: true
 		}).then(({ data }) => data)
 	);

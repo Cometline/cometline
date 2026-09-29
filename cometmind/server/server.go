@@ -379,8 +379,10 @@ type transcriptMemory struct {
 }
 
 type transcriptResponse struct {
-	SessionID string           `json:"session_id"`
-	Items     []transcriptItem `json:"items"`
+	SessionID  string           `json:"session_id"`
+	Items      []transcriptItem `json:"items"`
+	HasMore    bool             `json:"has_more,omitempty"`
+	NextBefore string           `json:"next_before,omitempty"`
 }
 
 type statusResponse struct {

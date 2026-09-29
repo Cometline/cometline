@@ -3,6 +3,7 @@ package server
 import (
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/cometline/cometmind/internal/event"
@@ -366,20 +367,37 @@ func (a *App) handleGetMessages(c *gin.Context) {
 		return
 	}
 
-	items, err := a.sessions.LoadTranscript(c.Request.Context(), sessID)
+	limit := 0
+	if raw := strings.TrimSpace(c.Query("limit")); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil || parsed < 1 {
+			writeError(c, http.StatusBadRequest, "bad_request", "limit must be a positive integer")
+			return
+		}
+		limit = parsed
+	}
+	before := strings.TrimSpace(c.Query("before"))
+
+	page, err := a.sessions.LoadTranscriptPage(c.Request.Context(), sessID, limit, before)
 	if err != nil {
+		if errors.Is(err, session.ErrInvalidTranscriptCursor) {
+			writeError(c, http.StatusBadRequest, "bad_request", err.Error())
+			return
+		}
 		writeError(c, http.StatusInternalServerError, "internal_error", err.Error())
 		return
 	}
 
-	out := make([]transcriptItem, 0, len(items))
-	for _, item := range items {
+	out := make([]transcriptItem, 0, len(page.Items))
+	for _, item := range page.Items {
 		out = append(out, transcriptItemFromModel(item))
 	}
 
 	c.JSON(http.StatusOK, transcriptResponse{
-		SessionID: sessID,
-		Items:     out,
+		SessionID:  sessID,
+		Items:      out,
+		HasMore:    page.HasMore,
+		NextBefore: page.NextBefore,
 	})
 }
 

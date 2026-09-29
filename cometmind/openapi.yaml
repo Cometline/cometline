@@ -906,9 +906,33 @@ paths:
       description: |
         Returns a transcript-style API model rather than raw database rows.
         Tool rows include both the tool input and the recorded tool output.
+
+        Uses keyset pagination on message `(created_at, id)`. Omitting `before`
+        returns the most recent page (default limit 50). Pass `next_before` from
+        a prior response as `before` to load older history. Items within a page
+        are chronological ascending.
       operationId: getSessionMessages
       parameters:
         - $ref: '#/components/parameters/SessionId'
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 200
+          description: |
+            Maximum number of persisted user/assistant/system messages to include.
+            One message may expand to multiple transcript items (reasoning, tools, …).
+        - name: before
+          in: query
+          required: false
+          schema:
+            type: string
+          description: |
+            Opaque keyset cursor from a prior response's `next_before`.
+            When set, returns messages older than that cursor.
       responses:
         '200':
           description: Transcript items for the session
@@ -932,6 +956,9 @@ paths:
                     tool_output: |-
                       package main
                     tool_error: false
+                has_more: false
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/NotFound'
         '500':
@@ -3459,6 +3486,14 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/TranscriptItem'
+        has_more:
+          type: boolean
+          description: True when older messages exist before this page.
+        next_before:
+          type: string
+          description: |
+            Opaque keyset cursor. Pass as the `before` query parameter to load
+            the next older page. Omitted when `has_more` is false.
 
     MessageContextRef:
       type: object

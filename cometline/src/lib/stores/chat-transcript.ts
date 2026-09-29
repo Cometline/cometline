@@ -221,17 +221,26 @@ export function mergeSubagents(items: ChatItem[], children: Session[]): ChatItem
 	return out;
 }
 
-export function itemsFromTranscript(transcriptItems: TranscriptItem[]): ChatItem[] {
+export type ItemsFromTranscriptOptions = {
+	/** Stable namespace for synthetic history ids (keeps prepend from remounting the live tail). */
+	idPrefix?: string;
+};
+
+export function itemsFromTranscript(
+	transcriptItems: TranscriptItem[],
+	options: ItemsFromTranscriptOptions = {}
+): ChatItem[] {
+	const idPrefix = options.idPrefix?.trim() || 'history';
 	const out: ChatItem[] = [];
 	let currentAssistant: Extract<ChatItem, { type: 'assistant' }> | null = null;
 
 	function pushAssistant(index: number, text = '') {
 		// Use a distinct prefix so an auto-created assistant placeholder never
-		// collides with the `history-${index}` id of the row that triggered its
+		// collides with the `${idPrefix}-${index}` id of the row that triggered its
 		// creation (e.g. a memory/tool row at the same loop index). Sharing an id
 		// produces Svelte `each_key_duplicate` errors in the keyed transcript.
 		const assistant: Extract<ChatItem, { type: 'assistant' }> = {
-			id: `history-assistant-${index}`,
+			id: `${idPrefix}-assistant-${index}`,
 			type: 'assistant',
 			text
 		};
@@ -262,12 +271,12 @@ export function itemsFromTranscript(transcriptItems: TranscriptItem[]): ChatItem
 		const item = transcriptItems[i];
 		if (item.type === 'user' || item.type === 'system') {
 			currentAssistant = null;
-			out.push(itemFromTranscript(item, i));
+			out.push(itemFromTranscript(item, i, idPrefix));
 			continue;
 		}
 		if (item.type === 'error') {
 			ensureAssistant(i);
-			out.push(itemFromTranscript(item, i));
+			out.push(itemFromTranscript(item, i, idPrefix));
 			continue;
 		}
 		if (item.type === 'assistant') {
@@ -290,7 +299,7 @@ export function itemsFromTranscript(transcriptItems: TranscriptItem[]): ChatItem
 			// without this the tools would render as loose, ungrouped pills after
 			// a session reload.
 			const host = ensureAssistant(i);
-			const toolItem = itemFromTranscript(item, i);
+			const toolItem = itemFromTranscript(item, i, idPrefix);
 			if (toolItem.type === 'tool') {
 				toolItem.afterSegment = Math.max(
 					0,
@@ -305,18 +314,19 @@ export function itemsFromTranscript(transcriptItems: TranscriptItem[]): ChatItem
 			// the memory card is grouped into the activity timeline rather than
 			// floating as a standalone card on reload.
 			ensureAssistant(i);
-			out.push(itemFromTranscript(item, i));
+			out.push(itemFromTranscript(item, i, idPrefix));
 			continue;
 		}
-		out.push(itemFromTranscript(item, i));
+		out.push(itemFromTranscript(item, i, idPrefix));
 	}
 	return out;
 }
 
-function itemFromTranscript(item: TranscriptItem, index: number): ChatItem {
+function itemFromTranscript(item: TranscriptItem, index: number, idPrefix: string): ChatItem {
+	const id = `${idPrefix}-${index}`;
 	if (item.type === 'user')
 		return {
-			id: `history-${index}`,
+			id,
 			type: 'user',
 			text: stripInlinedFileBlocks(item.text ?? ''),
 			images: item.media as ImageAttachment[] | undefined,
@@ -324,25 +334,25 @@ function itemFromTranscript(item: TranscriptItem, index: number): ChatItem {
 		};
 	if (item.type === 'assistant')
 		return {
-			id: `history-${index}`,
+			id,
 			type: 'assistant',
 			text: item.text ?? '',
 			images: item.media
 		};
 	if (item.type === 'system')
-		return { id: `history-${index}`, type: 'status', text: item.text ?? '' };
+		return { id, type: 'status', text: item.text ?? '' };
 	if (item.type === 'error')
-		return { id: `history-${index}`, type: 'error', text: item.text ?? '' };
+		return { id, type: 'error', text: item.text ?? '' };
 	if (item.type === 'reasoning')
 		return {
-			id: `history-${index}`,
+			id,
 			type: 'assistant',
 			text: '',
 			reasoning: { segments: [{ text: item.text ?? '', pending: false }] }
 		};
 	if (item.type === 'memory')
 		return {
-			id: `history-${index}`,
+			id,
 			type: 'memory',
 			memories: (item.memories ?? []).map((mem) => ({
 				id: mem.id,
@@ -356,7 +366,7 @@ function itemFromTranscript(item: TranscriptItem, index: number): ChatItem {
 			}))
 		};
 	return {
-		id: `history-${index}`,
+		id,
 		type: 'tool',
 		toolName: item.tool_name ?? '',
 		input: item.tool_input,

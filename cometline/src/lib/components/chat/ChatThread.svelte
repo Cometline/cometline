@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy, untrack } from 'svelte';
+	import { onDestroy, tick, untrack } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import { chatStore, type ChatItem } from '$lib/stores/chat.svelte';
 	import { settingsStore } from '$lib/stores/settings.svelte';
@@ -40,6 +40,7 @@
 		prefixOffsets,
 		resolveTurnSizes,
 		scrollDeltaForSizeChange,
+		scrollTopAfterPrepend,
 		virtualTurnEntriesWithForced
 	} from '$lib/conversation/thread-virtualizer';
 	import type { ChatTurnPayload } from '$lib/actions/start-chat';
@@ -332,9 +333,34 @@
 		virtualScrollTop = scrollerEl.scrollTop;
 	});
 
+	const LOAD_OLDER_TOP_PX = 320;
+	let loadOlderInFlight = false;
+
+	async function maybeLoadOlderHistory() {
+		if (loadOlderInFlight || scroll.isInitialTranscriptPaint) return;
+		if (!isSessionSynced || !chatStore.hasMoreHistory || chatStore.isLoadingOlder) return;
+		const el = scrollerEl;
+		if (!el || el.scrollTop > LOAD_OLDER_TOP_PX) return;
+		loadOlderInFlight = true;
+		const prevTop = el.scrollTop;
+		const prevHeight = el.scrollHeight;
+		try {
+			const prepended = await chatStore.loadOlderTranscript(sessionId);
+			if (!prepended || !scrollerEl) return;
+			// Flush derived virtual spacer height before correcting scrollTop.
+			await tick();
+			const nextHeight = scrollerEl.scrollHeight;
+			scrollerEl.scrollTop = scrollTopAfterPrepend(prevTop, prevHeight, nextHeight);
+			virtualScrollTop = scrollerEl.scrollTop;
+		} finally {
+			loadOlderInFlight = false;
+		}
+	}
+
 	function onThreadScroll() {
 		virtualScrollTop = scrollerEl?.scrollTop ?? 0;
 		scroll.onScroll();
+		void maybeLoadOlderHistory();
 	}
 
 	function onTurnMeasured(turnId: string, height: number) {

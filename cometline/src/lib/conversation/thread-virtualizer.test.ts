@@ -11,7 +11,8 @@ import {
 	scrollDeltaForSizeChange,
 	totalHeightFromSizes,
 	virtualTurnEntries,
-	virtualTurnEntriesWithForced
+	virtualTurnEntriesWithForced,
+	scrollTopAfterPrepend
 } from './thread-virtualizer';
 
 function turnsFrom(items: ChatItem[]) {
@@ -170,5 +171,16 @@ describe('ChatThread find virtualization guard', () => {
 		expect(source).not.toMatch(/sessionFind\.open[\s\S]{0,240}end:\s*turnSizes\.length/);
 		expect(source).toContain('sessionFind.activeTurnIndex');
 		expect(source).toContain('virtualTurnEntriesWithForced');
+	});
+});
+
+describe('scrollTopAfterPrepend', () => {
+	it('shifts scrollTop by the height delta so the viewport stays anchored', () => {
+		expect(scrollTopAfterPrepend(120, 1000, 1400)).toBe(520);
+	});
+
+	it('does not move when height did not grow', () => {
+		expect(scrollTopAfterPrepend(120, 1000, 1000)).toBe(120);
+		expect(scrollTopAfterPrepend(120, 1000, 900)).toBe(120);
 	});
 });

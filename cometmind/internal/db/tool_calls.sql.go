@@ -8,6 +8,7 @@ package db
 import (
 	"context"
 	"database/sql"
+	"strings"
 )
 
 const createToolCall = `-- name: CreateToolCall :one
@@ -68,6 +69,56 @@ ORDER BY created_at ASC
 
 func (q *Queries) ListToolCallsByMessage(ctx context.Context, messageID string) ([]ToolCall, error) {
 	rows, err := q.db.QueryContext(ctx, listToolCallsByMessage, messageID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ToolCall{}
+	for rows.Next() {
+		var i ToolCall
+		if err := rows.Scan(
+			&i.ID,
+			&i.MessageID,
+			&i.ToolName,
+			&i.Arguments,
+			&i.Result,
+			&i.DurationMs,
+			&i.ExitCode,
+			&i.CompactedAt,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listToolCallsByMessageIDs = `-- name: ListToolCallsByMessageIDs :many
+SELECT id, message_id, tool_name, arguments, result, duration_ms, exit_code, compacted_at, created_at
+FROM tool_calls
+WHERE message_id IN (/*SLICE:message_ids*/?)
+ORDER BY created_at ASC, id ASC
+`
+
+func (q *Queries) ListToolCallsByMessageIDs(ctx context.Context, messageIds []string) ([]ToolCall, error) {
+	query := listToolCallsByMessageIDs
+	var queryParams []interface{}
+	if len(messageIds) > 0 {
+		for _, v := range messageIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:message_ids*/?", strings.Repeat(",?", len(messageIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:message_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
 	if err != nil {
 		return nil, err
 	}
