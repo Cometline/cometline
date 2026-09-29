@@ -341,6 +341,8 @@
 											firstTurnHandoffPending,
 											firstAssistantRowId
 										)}
+										deferMarkdown={entry.skipHydrationMarkdown &&
+											item.id !== streamingAssistantId}
 									/>
 								{:else if item.type === 'tool' && !isToolInBuffer(item) && !embeddedPinnedJobIds.has(item.id)}
 									<ToolMessageRow
@@ -455,6 +457,13 @@
 		gap: 14px;
 		/* Keep min-height growth from sticky-anchoring the bubble (esp. mini). */
 		overflow-anchor: none;
+		/*
+		 * Reintroduce release-style paint deferral for overscan mounts without a
+		 * plaintext↔{@html} swap: browser skips layout/paint until near viewport.
+		 * JS/Shiki still only skipped during hydration (B); this is paint defense (C).
+		 */
+		content-visibility: auto;
+		contain-intrinsic-block-size: auto 500px;
 	}
 
 	.thread-turn-active :global(.user-row) {

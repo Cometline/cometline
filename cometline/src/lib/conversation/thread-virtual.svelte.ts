@@ -5,9 +5,19 @@ import {
 	prefixOffsets,
 	resolveTurnSizes,
 	scrollDeltaForSizeChange,
+	shouldSkipMegaMarkdownDuringHydration,
 	virtualTurnEntriesWithForced
 } from './thread-virtualizer';
 import type { ThreadTurn } from './thread-turns';
+import type { VirtualTurnEntry } from './thread-virtualizer';
+
+export interface VisibleTurnEntry extends VirtualTurnEntry<ThreadTurn> {
+	/**
+	 * Mega turns skip Shiki only while `isInitialTranscriptPaint`.
+	 * Always false after hydration — no scroll-gated defer (#157 UX).
+	 */
+	skipHydrationMarkdown: boolean;
+}
 
 export interface ThreadVirtualDeps {
 	getSessionId: () => string;
@@ -59,9 +69,19 @@ export function createThreadVirtual(deps: ThreadVirtualDeps) {
 		return [pinnedIndex, latestIndex, findIndex];
 	});
 
-	const visibleTurns = $derived(
-		virtualTurnEntriesWithForced(deps.getThreadTurns(), turnSizes, virtualWindow, forcedTurnIndices)
-	);
+	const visibleTurns = $derived.by((): VisibleTurnEntry[] => {
+		const hydrating = deps.getIsInitialTranscriptPaint();
+		const entries = virtualTurnEntriesWithForced(
+			deps.getThreadTurns(),
+			turnSizes,
+			virtualWindow,
+			forcedTurnIndices
+		);
+		return entries.map((entry) => ({
+			...entry,
+			skipHydrationMarkdown: shouldSkipMegaMarkdownDuringHydration(entry.item, hydrating)
+		}));
+	});
 
 	function setScrollTop(top: number) {
 		virtualScrollTop = top;

@@ -323,4 +323,92 @@ describe('createThreadScroll', () => {
 		expect(screen.getByTestId('thread-scroll').dataset.initialPaint).toBe('false');
 		expect(screen.getByTestId('thread-scroll').dataset.activeMinHeight).toBe('0');
 	});
+
+	it('clears hydration via wall-clock failsafe when scrollHeight never stabilizes', async () => {
+		vi.useFakeTimers();
+		// Do not drain rAF settle frames — only the wall-clock failsafe should clear.
+		const pendingFrames: FrameRequestCallback[] = [];
+		vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+			pendingFrames.push(callback);
+			return pendingFrames.length;
+		});
+		vi.stubGlobal('cancelAnimationFrame', (id: number) => {
+			delete pendingFrames[id - 1];
+		});
+		let height = 1000;
+		vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(() => {
+			height += 10;
+			return height;
+		});
+
+		const view = render(ThreadScrollHarness, {
+			props: {
+				items: initialItems,
+				streaming: false,
+				cached: true
+			}
+		});
+		await vi.runAllTicks();
+		expect(screen.getByTestId('thread-scroll').dataset.initialPaint).toBe('true');
+
+		const { THREAD_HYDRATION_FAILSAFE_MS } = await import('./thread-virtualizer');
+		await vi.advanceTimersByTimeAsync(THREAD_HYDRATION_FAILSAFE_MS + 5);
+		await vi.runAllTicks();
+
+		expect(screen.getByTestId('thread-scroll').dataset.initialPaint).toBe('false');
+		view.unmount();
+		vi.useRealTimers();
+	});
+
+	it('failsafe survives threadItems churn that restarts the settle effect', async () => {
+		vi.useFakeTimers();
+		const pendingFrames: FrameRequestCallback[] = [];
+		vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+			pendingFrames.push(callback);
+			return pendingFrames.length;
+		});
+		vi.stubGlobal('cancelAnimationFrame', (id: number) => {
+			delete pendingFrames[id - 1];
+		});
+		let height = 1000;
+		vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(() => {
+			height += 10;
+			return height;
+		});
+
+		const view = render(ThreadScrollHarness, {
+			props: {
+				items: initialItems,
+				streaming: false,
+				cached: true
+			}
+		});
+		await vi.runAllTicks();
+		expect(screen.getByTestId('thread-scroll').dataset.initialPaint).toBe('true');
+
+		const { THREAD_HYDRATION_FAILSAFE_MS } = await import('./thread-virtualizer');
+
+		// Soft-swap / load churn: new items array refs restart settle $effect.
+		// #157 cancelled+rearmed failsafe each time; this must keep the original deadline.
+		for (let i = 0; i < 5; i++) {
+			await vi.advanceTimersByTimeAsync(50);
+			await view.rerender({
+				items: [
+					...initialItems,
+					{ id: `extra-${i}`, type: 'assistant', text: `n${i}` }
+				],
+				streaming: false,
+				cached: true
+			});
+			await vi.runAllTicks();
+			expect(screen.getByTestId('thread-scroll').dataset.initialPaint).toBe('true');
+		}
+
+		// Total ~250ms of churn + remaining to failsafe — still clears once.
+		await vi.advanceTimersByTimeAsync(THREAD_HYDRATION_FAILSAFE_MS);
+		await vi.runAllTicks();
+		expect(screen.getByTestId('thread-scroll').dataset.initialPaint).toBe('false');
+		view.unmount();
+		vi.useRealTimers();
+	});
 });

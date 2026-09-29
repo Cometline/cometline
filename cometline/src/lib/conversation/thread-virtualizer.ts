@@ -10,8 +10,26 @@ export const THREAD_VIRTUAL_OVERSCAN = 2;
 /** Floor for empty/short turns so placeholders never collapse to zero. */
 export const THREAD_TURN_ESTIMATE_MIN = 120;
 
-/** Soft ceiling so a single giant estimate cannot explode total height. */
-export const THREAD_TURN_ESTIMATE_MAX = 2400;
+/**
+ * Soft ceiling so a single giant estimate cannot explode total height.
+ * Raised well above pre-PR2.5 2400 so mega / CJK replies do not leave lasting
+ * blank holes under the absolute spacer before measure settles.
+ */
+export const THREAD_TURN_ESTIMATE_MAX = 48_000;
+
+/**
+ * Assistant bodies at or above this length skip full AssistantMarkdown / Shiki
+ * only while `isInitialTranscriptPaint` (open cost). After hydration clears,
+ * the same component instance runs full markdown once — no scroll-gated defer.
+ */
+export const THREAD_MEGA_ASSISTANT_CHARS = 4_000;
+
+/**
+ * Wall-clock failsafe for clearing isInitialTranscriptPaint (ms).
+ * Armed once when hydration begins; must survive settle-effect restarts from
+ * threadItems / sync churn (that was the #157 miss).
+ */
+export const THREAD_HYDRATION_FAILSAFE_MS = 400;
 
 const USER_BASE = 72;
 const ASSISTANT_BASE = 56;
@@ -22,6 +40,10 @@ const ERROR_ROW = 40;
 const STATUS_ROW = 32;
 const CHARS_PER_LINE = 88;
 const LINE_HEIGHT = 22;
+
+/** Wide / CJK code points count as ~2 Latin columns for line estimates. */
+const WIDE_CHAR_RE =
+	/[ᄀ-ᅟ⺀-꓏가-힣豈-﫿︐-︙︰-﹯＀-｠￠-￦]/u;
 
 export interface VirtualWindow {
 	start: number;
@@ -36,12 +58,21 @@ export interface VirtualTurnEntry<T = ThreadTurn> {
 	offset: number;
 }
 
+/** Visual column count: CJK / fullwidth ≈ 2, else 1. */
+export function visualColumnCount(text: string): number {
+	let cols = 0;
+	for (const ch of text) {
+		cols += WIDE_CHAR_RE.test(ch) ? 2 : 1;
+	}
+	return cols;
+}
+
 /** Rough block height from plaintext length (markdown/layout TBD until measured). */
 function textBlockHeight(text: string | undefined, base: number): number {
-	const len = text?.trim().length ?? 0;
-	if (len === 0) return base;
-	const lines = Math.ceil(len / CHARS_PER_LINE);
-	return base + Math.min(1200, lines * LINE_HEIGHT);
+	const raw = text?.trim() ?? '';
+	if (raw.length === 0) return base;
+	const lines = Math.ceil(visualColumnCount(raw) / CHARS_PER_LINE);
+	return base + lines * LINE_HEIGHT;
 }
 
 function estimateItemHeight(item: ChatItem): number {
@@ -86,6 +117,29 @@ export function estimateTurnHeight(turn: ThreadTurn): number {
 		THREAD_TURN_ESTIMATE_MAX,
 		Math.max(THREAD_TURN_ESTIMATE_MIN, Math.ceil(height))
 	);
+}
+
+/** True when any assistant body in the turn is large enough to defer Shiki. */
+export function isOversizedAssistantText(text: string | undefined): boolean {
+	return (text?.length ?? 0) >= THREAD_MEGA_ASSISTANT_CHARS;
+}
+
+export function turnHasOversizedAssistant(turn: ThreadTurn): boolean {
+	return turn.items.some(
+		(entry) => entry.item.type === 'assistant' && isOversizedAssistantText(entry.item.text)
+	);
+}
+
+/**
+ * Mega assistant turns skip full markdown/Shiki **only** while hydrating.
+ * The moment hydration clears, callers must run full markdown on the same
+ * mounted instance — no scroll-gated plaintext defer after interactive (#157 UX).
+ */
+export function shouldSkipMegaMarkdownDuringHydration(
+	turn: ThreadTurn,
+	isHydrating: boolean
+): boolean {
+	return isHydrating && turnHasOversizedAssistant(turn);
 }
 
 /**
