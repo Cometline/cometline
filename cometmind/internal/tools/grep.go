@@ -113,7 +113,7 @@ func grepRipgrep(ctx context.Context, workspaceRoot, searchRel, pattern, include
 	cmdCtx, cancel := context.WithTimeout(ctx, grepTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(cmdCtx, rgPath, args...) //nolint:gosec
+	cmd := process.CommandContext(cmdCtx, rgPath, args...)
 	cmd.Dir = workspaceRoot
 	cmd.Env = process.Env()
 

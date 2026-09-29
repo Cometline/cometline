@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cometline/cometmind/internal/process"
 	"github.com/cometline/cometmind/internal/tools/sandbox"
 )
 
@@ -464,7 +465,7 @@ func classifyStatus(xy string, untracked bool) string {
 func runGit(ctx context.Context, dir string, args ...string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(ctx, DefaultTimeout)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "git", args...)
+	cmd := process.CommandContext(ctx, "git", args...)
 	cmd.Dir = dir
 	// Avoid interactive prompts and locale-dependent noise.
 	cmd.Env = append(os.Environ(),
@@ -492,7 +493,7 @@ func runGit(ctx context.Context, dir string, args ...string) ([]byte, error) {
 func runGitAllowExit1(ctx context.Context, dir string, args ...string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(ctx, DefaultTimeout)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "git", args...)
+	cmd := process.CommandContext(ctx, "git", args...)
 	cmd.Dir = dir
 	cmd.Env = append(os.Environ(),
 		"GIT_TERMINAL_PROMPT=0",
