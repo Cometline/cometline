@@ -252,6 +252,7 @@ func (w *Worker) runJob(ctx context.Context, job jobs.Job) {
 	})
 
 	w.finalizeJob(ctx, claimed, sess, runErr)
+	w.discardSessionIfFinished(ctx, claimed.ID, sess.ID)
 }
 
 // finalizeJob is the safety-net path: the agent is expected to call
@@ -283,6 +284,28 @@ func (w *Worker) finalizeJob(ctx context.Context, job jobs.Job, sess session.Ses
 		return
 	}
 	w.recordOutcome(ctx, final, runErr)
+}
+
+// discardSessionIfFinished drops the execution container once the job will
+// not be resumed in it. A retryable failure keeps the session so the failure
+// transcript stays attached to the assigned run until the next claim.
+func (w *Worker) discardSessionIfFinished(ctx context.Context, jobID, sessionID string) {
+	if w == nil || w.Sessions == nil || w.Jobs == nil {
+		return
+	}
+	final, err := w.Jobs.Get(ctx, jobID)
+	if err != nil {
+		log.Printf("autonomy: reload job %s before discarding session: %v", jobID, err)
+		return
+	}
+	switch final.Status {
+	case jobs.StatusDone, jobs.StatusBlocked:
+	default:
+		return
+	}
+	if err := w.Sessions.DiscardEphemeralSession(ctx, sessionID); err != nil {
+		log.Printf("autonomy: discard session %s for job %s: %v", sessionID, jobID, err)
+	}
 }
 
 // recordOutcome writes a task_outcome memory record summarizing the

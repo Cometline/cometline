@@ -529,3 +529,74 @@ func TestPurgeDetachedMediaDeletesExpiredFilesAndKeepsAttachedMedia(t *testing.T
 		t.Fatalf("attached row changed: %#v", attachedRow)
 	}
 }
+
+func TestAutonomyMediaStaysOutOfGalleryAndDiscardRemovesFiles(t *testing.T) {
+	t.Setenv("COMETMIND_DATA_DIR", t.TempDir())
+	ctx := context.Background()
+	svc, _ := newForkTestService(t)
+	ws, err := svc.EnsureWorkspace(ctx, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	user, err := svc.NewSession(ctx, ws.ID, "model", "provider")
+	if err != nil {
+		t.Fatal(err)
+	}
+	auto, err := svc.NewAutonomySession(ctx, ws.ID, "model", "provider")
+	if err != nil {
+		t.Fatal(err)
+	}
+	png := []byte{0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d}
+	userRef, err := media.RegisterBytes(user.ID, "image/png", "kept", png)
+	if err != nil {
+		t.Fatal(err)
+	}
+	autoRef, err := media.RegisterBytes(auto.ID, "image/png", "scratch", png)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.AppendAssistantMedia(ctx, user.ID, []ContentBlock{{
+		Type: "image", ID: userRef.ID, MediaType: userRef.MediaType, Alt: userRef.Alt,
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.AppendAssistantMedia(ctx, auto.ID, []ContentBlock{{
+		Type: "image", ID: autoRef.ID, MediaType: autoRef.MediaType, Alt: autoRef.Alt,
+	}}); err != nil {
+		t.Fatal(err)
+	}
+
+	listed, err := svc.ListMedia(ctx, MediaListFilter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(listed) != 1 || listed[0].ID != userRef.ID {
+		t.Fatalf("gallery = %#v, want only the user image", listed)
+	}
+	if err := svc.backfillSessionMedia(ctx, auto.ID); err != nil {
+		t.Fatal(err)
+	}
+	listed, err = svc.ListMedia(ctx, MediaListFilter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(listed) != 1 || listed[0].ID != userRef.ID {
+		t.Fatalf("gallery after backfill = %#v, want autonomy image still excluded", listed)
+	}
+
+	if err := svc.DiscardEphemeralSession(ctx, user.ID); err == nil {
+		t.Fatal("DiscardEphemeralSession should refuse a user session")
+	}
+	if err := svc.DiscardEphemeralSession(ctx, auto.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.GetSession(ctx, auto.ID); !errors.Is(err, ErrSessionNotFound) {
+		t.Fatalf("autonomy session still exists: %v", err)
+	}
+	if _, _, err := media.Read(auto.ID, autoRef.ID); !errors.Is(err, media.ErrNotFound) {
+		t.Fatalf("autonomy file still exists: %v", err)
+	}
+	if _, _, err := media.Read(user.ID, userRef.ID); err != nil {
+		t.Fatalf("user file should survive: %v", err)
+	}
+}
