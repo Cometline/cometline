@@ -20,14 +20,11 @@ func TestLoadCreatesDefaultCometlineSettingsJSON(t *testing.T) {
 		t.Fatalf("Load() error = %v", err)
 	}
 
-	if cfg.Provider != ProviderAnthropic {
-		t.Fatalf("Provider = %q, want %q", cfg.Provider, ProviderAnthropic)
+	if cfg.DefaultProviderID != ProviderAnthropic {
+		t.Fatalf("DefaultProviderID = %q, want %q", cfg.DefaultProviderID, ProviderAnthropic)
 	}
 	if cfg.BaseURL != "" {
 		t.Fatalf("BaseURL = %q, want empty", cfg.BaseURL)
-	}
-	if cfg.MaxTokens != 0 {
-		t.Fatalf("MaxTokens = %d, want 0 (no user cap)", cfg.MaxTokens)
 	}
 
 	path := filepath.Join(home, ".cometmind", "cometline-settings.json")
@@ -121,14 +118,11 @@ func TestLoadReadsCometlineSettingsJSON(t *testing.T) {
 	if anthropic.APIKey != "sk-ant-123" {
 		t.Fatalf("anthropic APIKey = %q, want %q", anthropic.APIKey, "sk-ant-123")
 	}
-	if cfg.Provider != "local-llm" {
-		t.Fatalf("Provider = %q, want local-llm", cfg.Provider)
+	if cfg.DefaultProviderID != "local-llm" {
+		t.Fatalf("DefaultProviderID = %q, want local-llm", cfg.DefaultProviderID)
 	}
 	if cfg.SystemPromptPath != "/tmp/SOUL.md" {
 		t.Fatalf("SystemPromptPath = %q, want /tmp/SOUL.md", cfg.SystemPromptPath)
-	}
-	if cfg.MaxTokens != 0 {
-		t.Fatalf("MaxTokens = %d, want 0 (legacy absolute 2048 is not a model percent)", cfg.MaxTokens)
 	}
 	if cfg.Storage.RetentionDays != 90 {
 		t.Fatalf("Storage.RetentionDays = %d, want 90", cfg.Storage.RetentionDays)
@@ -195,6 +189,13 @@ model = "claude-sonnet-4-5"
 	}
 	if anthropic.APIKey != "sk-ant-123" {
 		t.Fatalf("anthropic APIKey = %q, want %q", anthropic.APIKey, "sk-ant-123")
+	}
+	settingsPath := filepath.Join(configDir, "cometline-settings.json")
+	if _, err := os.Stat(settingsPath); err != nil {
+		t.Fatalf("expected migrated settings at %s: %v", settingsPath, err)
+	}
+	if cfg.DefaultProviderID != "local-llm" {
+		t.Fatalf("DefaultProviderID = %q, want local-llm", cfg.DefaultProviderID)
 	}
 }
 
@@ -270,62 +271,6 @@ func TestAdaptCometlineSettingsMigratesDeletedJobPurgeDays(t *testing.T) {
 	}
 }
 
-func TestAdaptCometlineSettingsMigratesLegacyMaxTokensDefault(t *testing.T) {
-	cfg, err := adaptCometlineSettings(cometlineSettingsJSON{
-		Cometmind: cometlineCometmindJSON{MaxTokens: 4096},
-	})
-	if err != nil {
-		t.Fatalf("adaptCometlineSettings() error = %v", err)
-	}
-	if cfg.MaxTokens != 0 {
-		t.Fatalf("MaxTokens = %d, want 0 after legacy 4096 migration", cfg.MaxTokens)
-	}
-
-	legacy, err := adaptCometlineSettings(cometlineSettingsJSON{
-		Cometmind: cometlineCometmindJSON{MaxTokens: 2048},
-	})
-	if err != nil {
-		t.Fatalf("adaptCometlineSettings() error = %v", err)
-	}
-	if legacy.MaxTokens != 0 {
-		t.Fatalf("MaxTokens = %d, want 0 (legacy absolute is not a percent of the active model)", legacy.MaxTokens)
-	}
-
-	kept, err := adaptCometlineSettings(cometlineSettingsJSON{
-		Cometmind: cometlineCometmindJSON{MaxTokens: 50},
-	})
-	if err != nil {
-		t.Fatalf("adaptCometlineSettings() error = %v", err)
-	}
-	if kept.MaxTokens != 50 {
-		t.Fatalf("MaxTokens = %d, want 50%% of the active model", kept.MaxTokens)
-	}
-}
-
-func TestAdaptCometlineSettingsContextWindowLimit(t *testing.T) {
-	cfg, err := adaptCometlineSettings(cometlineSettingsJSON{
-		Providers: []cometlineProviderJSON{{
-			ID:            "anthropic",
-			Name:          "Anthropic",
-			Method:        ProviderAnthropic,
-			Enabled:       true,
-			BaseURL:       "https://api.anthropic.com",
-			EnabledModels: []string{"claude-sonnet-4-20250514"},
-		}},
-		ActiveProviderID: "anthropic",
-		Cometmind: cometlineCometmindJSON{
-			MaxTokens:          2048,
-			ContextWindowLimit: 256_000,
-		},
-	})
-	if err != nil {
-		t.Fatalf("adaptCometlineSettings() error = %v", err)
-	}
-	if cfg.ContextWindowLimit != 256_000 {
-		t.Fatalf("ContextWindowLimit = %d, want 256000", cfg.ContextWindowLimit)
-	}
-}
-
 func TestAdaptCometlineSettingsAutonomyModelOverride(t *testing.T) {
 	cfg, err := adaptCometlineSettings(cometlineSettingsJSON{
 		Providers: []cometlineProviderJSON{
@@ -356,11 +301,8 @@ func TestAdaptCometlineSettingsAutonomyModelOverride(t *testing.T) {
 	if err != nil {
 		t.Fatalf("adaptCometlineSettings() error = %v", err)
 	}
-	if cfg.Provider != "anthropic" {
-		t.Fatalf("Provider = %q, want default-from-active anthropic", cfg.Provider)
-	}
-	if cfg.Model != "claude-sonnet-4-20250514" {
-		t.Fatalf("Model = %q, want default-from-active model claude-sonnet-4-20250514", cfg.Model)
+	if cfg.DefaultModelID != "claude-sonnet-4-20250514" {
+		t.Fatalf("DefaultModelID = %q, want claude-sonnet-4-20250514", cfg.DefaultModelID)
 	}
 	if cfg.DefaultProviderID != "anthropic" {
 		t.Fatalf("DefaultProviderID = %q, want anthropic", cfg.DefaultProviderID)
@@ -475,15 +417,11 @@ func TestLoadBootsWithNoEnabledProviders(t *testing.T) {
 	if len(cfg.Providers) != 0 {
 		t.Fatalf("len(Providers) = %d, want 0", len(cfg.Providers))
 	}
-	if cfg.Provider != "" {
-		t.Fatalf("Provider = %q, want empty (no provider configured)", cfg.Provider)
+	if cfg.DefaultProviderID != "" {
+		t.Fatalf("DefaultProviderID = %q, want empty (no provider configured)", cfg.DefaultProviderID)
 	}
-	if cfg.Model != "" {
-		t.Fatalf("Model = %q, want empty (no provider configured)", cfg.Model)
-	}
-	// Non-provider defaults should still be applied so the sidecar is usable.
-	if cfg.MaxTokens != 0 {
-		t.Fatalf("MaxTokens = %d, want 0 (no user cap)", cfg.MaxTokens)
+	if cfg.DefaultModelID != "" {
+		t.Fatalf("DefaultModelID = %q, want empty (no provider configured)", cfg.DefaultModelID)
 	}
 	if cfg.MaxSteps != 100 {
 		t.Fatalf("MaxSteps = %d, want 100", cfg.MaxSteps)
@@ -508,7 +446,7 @@ func TestAdaptCometlineSettingsEmptyProviders(t *testing.T) {
 	if len(cfg.Providers) != 0 {
 		t.Fatalf("len(Providers) = %d, want 0", len(cfg.Providers))
 	}
-	if cfg.Provider != "" {
-		t.Fatalf("Provider = %q, want empty", cfg.Provider)
+	if cfg.DefaultProviderID != "" {
+		t.Fatalf("DefaultProviderID = %q, want empty", cfg.DefaultProviderID)
 	}
 }

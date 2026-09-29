@@ -45,12 +45,6 @@ func APISession(sess Session, workspacePath string) (apigen.Session, error) {
 	if sess.OutputSummary != "" {
 		out.OutputSummary = &sess.OutputSummary
 	}
-	if sess.ACPSessionID != "" {
-		out.AcpSessionId = &sess.ACPSessionID
-	}
-	if sess.PendingQuestion != "" {
-		out.PendingQuestion = &sess.PendingQuestion
-	}
 	if sess.SubagentKind != "" {
 		kind := apigen.SessionSubagentKind(sess.SubagentKind)
 		out.SubagentKind = &kind

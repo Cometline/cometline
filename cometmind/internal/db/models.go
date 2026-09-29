@@ -183,8 +183,6 @@ type Session struct {
 	Purpose                 string         `json:"purpose"`
 	DelegationStatus        string         `json:"delegation_status"`
 	OutputSummary           string         `json:"output_summary"`
-	AcpSessionID            string         `json:"acp_session_id"`
-	PendingQuestion         string         `json:"pending_question"`
 	SubagentKind            string         `json:"subagent_kind"`
 	AgentMode               string         `json:"agent_mode"`
 	Pinned                  int64          `json:"pinned"`

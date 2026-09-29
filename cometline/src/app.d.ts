@@ -288,7 +288,7 @@ declare global {
 		video: CometMindGenerationModelSettings;
 	}
 
-	type MCPTransport = 'stdio' | 'http' | 'sse';
+	type MCPTransport = 'stdio' | 'http';
 
 	interface MCPOAuthSettings {
 		clientId?: string;
@@ -318,9 +318,7 @@ declare global {
 
 	interface CometMindSettings {
 		systemPromptPath: string;
-		maxTokens: number;
 		logLevel: 'debug' | 'info' | 'warn' | 'error';
-		contextWindowLimit: 128_000 | 256_000;
 		titleProviderId: string;
 		titleModelId: string;
 		acp: CometMindACPSettings;

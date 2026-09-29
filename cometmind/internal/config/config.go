@@ -71,65 +71,47 @@ type GatewayConfig struct {
 // Config holds user-visible runtime settings loaded from ~/.cometmind/cometline-settings.json and environment.
 // Desktop-only UI state lives in cometline-desktop.json and is not loaded here.
 type Config struct {
-	Provider string `mapstructure:"provider"`
-	Model    string `mapstructure:"model"`
-	// DefaultProviderID / DefaultModelID are the global Default model pair.
-	// Provider/Model mirror them for legacy callers after settings adapt.
-	DefaultProviderID string `mapstructure:"default_provider_id"`
-	DefaultModelID    string `mapstructure:"default_model_id"`
-	BaseURL           string `mapstructure:"base_url"`
-	TitleProvider     string `mapstructure:"title_provider"`
-	TitleModel        string `mapstructure:"title_model"`
-	// MaxTokens is a legacy settings field. The request ceiling is
-	// min(current model output, 32k) and does not read this value.
-	MaxTokens          int                  `mapstructure:"max_tokens"`
-	ContextWindowLimit int                  `mapstructure:"context_window_limit"`
-	MaxSteps           int                  `mapstructure:"max_steps"`
-	SystemPromptPath   string               `mapstructure:"system_prompt_path"`
-	Providers          []ProviderEntry      `mapstructure:"providers"`
-	ACP                ACPConfig            `mapstructure:"acp"`
-	Skills             SkillsConfig         `mapstructure:"skills"`
-	Memory             MemoryConfig         `mapstructure:"memory"`
-	Storage            StorageConfig        `mapstructure:"storage"`
-	Subagent           SubagentSettings     `mapstructure:"subagent"`
-	Gateway            GatewayConfig        `mapstructure:"gateway"`
-	MCP                MCPConfig            `mapstructure:"mcp"`
-	Jobs               JobsConfig           `mapstructure:"jobs"`
-	Autonomy           AutonomousJobsConfig `mapstructure:"autonomy"`
-	Scheduler          SchedulerConfig      `mapstructure:"scheduler"`
-	Inbox              InboxConfig          `mapstructure:"inbox"`
-	Generation         GenerationConfig     `mapstructure:"generation"`
+	// DefaultProviderID / DefaultModelID are the only default model pair.
+	DefaultProviderID string               `mapstructure:"default_provider_id"`
+	DefaultModelID    string               `mapstructure:"default_model_id"`
+	BaseURL           string               `mapstructure:"base_url"`
+	TitleProvider     string               `mapstructure:"title_provider"`
+	TitleModel        string               `mapstructure:"title_model"`
+	MaxSteps          int                  `mapstructure:"max_steps"`
+	SystemPromptPath  string               `mapstructure:"system_prompt_path"`
+	Providers         []ProviderEntry      `mapstructure:"providers"`
+	ACP               ACPConfig            `mapstructure:"acp"`
+	Skills            SkillsConfig         `mapstructure:"skills"`
+	Memory            MemoryConfig         `mapstructure:"memory"`
+	Storage           StorageConfig        `mapstructure:"storage"`
+	Subagent          SubagentSettings     `mapstructure:"subagent"`
+	Gateway           GatewayConfig        `mapstructure:"gateway"`
+	MCP               MCPConfig            `mapstructure:"mcp"`
+	Jobs              JobsConfig           `mapstructure:"jobs"`
+	Autonomy          AutonomousJobsConfig `mapstructure:"autonomy"`
+	Scheduler         SchedulerConfig      `mapstructure:"scheduler"`
+	Inbox             InboxConfig          `mapstructure:"inbox"`
+	Generation        GenerationConfig     `mapstructure:"generation"`
 }
 
 // Defaults returns baseline values when the config file is missing keys.
 func Defaults() *Config {
 	return &Config{
-		Provider:           ProviderAnthropic,
-		Model:              "claude-sonnet-4-5",
-		MaxTokens:          0,
-		ContextWindowLimit: 128_000,
-		MaxSteps:           100,
-		Skills:             SkillsConfig{Enabled: true, IncludeOpenCode: true, IncludeClaude: true},
-		Memory:             defaultMemoryConfig(),
-		Storage:            defaultStorageConfig(),
-		Jobs:               defaultJobsConfig(),
-		Autonomy:           defaultAutonomousJobsConfig(),
-		Scheduler:          defaultSchedulerConfig(),
-		Inbox:              defaultInboxConfig(),
-		Generation:         defaultGenerationConfig(),
+		DefaultProviderID: ProviderAnthropic,
+		DefaultModelID:    "claude-sonnet-4-5",
+		MaxSteps:          100,
+		Skills:            SkillsConfig{Enabled: true, IncludeOpenCode: true, IncludeClaude: true},
+		Memory:            defaultMemoryConfig(),
+		Storage:           defaultStorageConfig(),
+		Jobs:              defaultJobsConfig(),
+		Autonomy:          defaultAutonomousJobsConfig(),
+		Scheduler:         defaultSchedulerConfig(),
+		Inbox:             defaultInboxConfig(),
+		Generation:        defaultGenerationConfig(),
 	}
 }
 
-// normalizeOutputCapPercent keeps 1–99 as a share of the active model's output
-// limit. 0, 100, and legacy absolute token counts all mean "model limit".
-func normalizeOutputCapPercent(value int) int {
-	if value <= 0 || value >= 100 {
-		return 0
-	}
-	return value
-}
-
-// Load reads ~/.cometmind/cometline-settings.json (with legacy config.toml migration), merges env, and unmarshals.
+// Load reads ~/.cometmind/cometline-settings.json, writes that file once when only config.toml exists, merges env, and unmarshals.
 func Load() (*Config, error) {
 	if _, err := paths.DataDir(); err != nil {
 		return nil, err
@@ -161,7 +143,10 @@ func Load() (*Config, error) {
 		if err != nil {
 			return nil, err
 		}
-		logging.L().Info("config.legacy_toml_loaded",
+		if err := writeMigratedSettingsJSON(settingsPath, cfg); err != nil {
+			return nil, err
+		}
+		logging.L().Info("config.legacy_toml_migrated",
 			"legacy_path", legacyTomlPath,
 			"settings_path", settingsPath,
 		)
@@ -210,13 +195,20 @@ func loadLegacyTomlConfig(cfgPath string, def *Config) (*Config, error) {
 	if !v.IsSet("skills.include_claude") {
 		c.Skills.IncludeClaude = def.Skills.IncludeClaude
 	}
-	if c.Provider == "" {
-		c.Provider = def.Provider
+	if c.DefaultProviderID == "" {
+		if provider := strings.TrimSpace(v.GetString("provider")); provider != "" {
+			c.DefaultProviderID = provider
+		} else {
+			c.DefaultProviderID = def.DefaultProviderID
+		}
 	}
-	if c.Model == "" {
-		c.Model = def.Model
+	if c.DefaultModelID == "" {
+		if model := strings.TrimSpace(v.GetString("model")); model != "" {
+			c.DefaultModelID = model
+		} else {
+			c.DefaultModelID = def.DefaultModelID
+		}
 	}
-	c.MaxTokens = normalizeOutputCapPercent(c.MaxTokens)
 	if c.MaxSteps == 0 {
 		c.MaxSteps = def.MaxSteps
 	}
@@ -241,10 +233,10 @@ func applyEnvOverrides(c *Config, def *Config) {
 	v.AutomaticEnv()
 
 	if provider := strings.TrimSpace(v.GetString("provider")); provider != "" {
-		c.Provider = provider
+		c.DefaultProviderID = provider
 	}
 	if model := strings.TrimSpace(v.GetString("model")); model != "" {
-		c.Model = model
+		c.DefaultModelID = model
 	}
 	if baseURL := strings.TrimSpace(v.GetString("base_url")); baseURL != "" {
 		c.BaseURL = baseURL
@@ -258,10 +250,6 @@ func applyEnvOverrides(c *Config, def *Config) {
 	if prompt := strings.TrimSpace(v.GetString("system_prompt_path")); prompt != "" {
 		c.SystemPromptPath = prompt
 	}
-	if v.IsSet("max_tokens") {
-		c.MaxTokens = v.GetInt("max_tokens")
-	}
-	c.MaxTokens = normalizeOutputCapPercent(c.MaxTokens)
 	if v.IsSet("max_steps") {
 		c.MaxSteps = v.GetInt("max_steps")
 	}

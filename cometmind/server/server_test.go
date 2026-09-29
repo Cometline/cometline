@@ -2570,10 +2570,9 @@ func newTestEngine(t *testing.T, newRunner RunnerFactory) (*gin.Engine, *session
 	svc := session.New(sqlDB)
 	engine, err := New(Deps{
 		Config: &config.Config{
-			Provider:  "test-provider",
-			Model:     "test-model",
-			MaxTokens: 256,
-			MaxSteps:  8,
+			DefaultProviderID: "test-provider",
+			DefaultModelID:    "test-model",
+			MaxSteps:          8,
 			Skills: config.SkillsConfig{
 				Enabled:         true,
 				IncludeOpenCode: false,

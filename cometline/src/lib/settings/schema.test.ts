@@ -45,7 +45,6 @@ describe('settings schema', () => {
 		expect(runtimeSlice(settings)).toMatchObject({
 			provider: 'local-llm',
 			model: 'qwen2.5',
-			maxTokens: 0,
 			systemPromptPath: '/tmp/SOUL.md'
 		});
 	});
@@ -80,8 +79,6 @@ describe('settings schema', () => {
 		expect(settings.app.screenCapturePreferred).toBe(false);
 		expect(settings.app.confirmBeforeDeletingMedia).toBe(true);
 		expect(settings.cometmind.systemPromptPath).toBe('');
-		expect(settings.cometmind.maxTokens).toBe(0);
-		expect(settings.cometmind.contextWindowLimit).toBe(128_000);
 		expect(settings.cometmind.storage.retentionDays).toBe(90);
 		expect(settings.cometmind.storage.detachedMediaRetentionDays).toBe(30);
 		expect(settings.cometmind.storage.maxSessionsPerWorkspace).toBe(0);
@@ -430,7 +427,6 @@ describe('settings schema', () => {
 		const slice = runtimeSlice(settings);
 		expect(slice?.provider).toBe('openai');
 		expect(slice?.model).toBe('gpt-4o');
-		expect(slice?.maxTokens).toBe(0);
 		expect(slice?.systemPromptPath).toBe('/tmp/SOUL.md');
 		expect(slice?.providers).toHaveLength(1);
 	});
@@ -492,43 +488,6 @@ describe('settings schema', () => {
 		const settings = defaultSettings();
 		settings.providers = [];
 		expect(() => validateSettings(settings)).toThrow();
-	});
-
-	it('migrates legacy absolute maxTokens to the active-model limit', () => {
-		const settings = normalizeSettings({
-			...defaultSettings(),
-			cometmind: {
-				...defaultSettings().cometmind,
-				maxTokens: 4096
-			}
-		});
-
-		expect(settings.cometmind.maxTokens).toBe(0);
-	});
-
-	it('persists an output-cap percent into the runtime slice', () => {
-		const settings = normalizeSettings({
-			...defaultSettings(),
-			providers: defaultSettings().providers.map((p) =>
-				p.id === 'openai'
-					? {
-							...p,
-							enabled: true,
-							enabledModels: ['gpt-4o'],
-							models: ['gpt-4o']
-						}
-					: { ...p, enabled: false, enabledModels: [] }
-			),
-			defaultProviderId: 'openai',
-			defaultModelId: 'gpt-4o',
-			cometmind: {
-				...defaultSettings().cometmind,
-				maxTokens: 50
-			}
-		});
-
-		expect(settings.cometmind.maxTokens).toBe(50);
-		expect(runtimeSlice(settings)?.maxTokens).toBe(50);
 	});
 
 	it('preserves CometMind runtime settings through normalization and validation', () => {
@@ -606,23 +565,4 @@ describe('settings schema', () => {
 		expect(settings.cometmind.scheduler.enabled).toBe(true);
 	});
 
-	it('normalizes context window limit to 128k or 256k', () => {
-		const settings = normalizeSettings({
-			...defaultSettings(),
-			cometmind: {
-				...defaultSettings().cometmind,
-				contextWindowLimit: 256_000
-			}
-		});
-		expect(settings.cometmind.contextWindowLimit).toBe(256_000);
-
-		const invalid = normalizeSettings({
-			...defaultSettings(),
-			cometmind: {
-				...defaultSettings().cometmind,
-				contextWindowLimit: 200_000 as 128_000
-			}
-		});
-		expect(invalid.cometmind.contextWindowLimit).toBe(128_000);
-	});
 });

@@ -337,8 +337,6 @@ type sessionResource struct {
 	Purpose          string             `json:"purpose,omitempty"`
 	DelegationStatus string             `json:"delegation_status,omitempty"`
 	OutputSummary    string             `json:"output_summary,omitempty"`
-	ACPSessionID     string             `json:"acp_session_id,omitempty"`
-	PendingQuestion  string             `json:"pending_question,omitempty"`
 	SubagentKind     string             `json:"subagent_kind,omitempty"`
 	Gateway          *gatewayResource   `json:"gateway,omitempty"`
 	Running          bool               `json:"running"`
@@ -680,12 +678,6 @@ func sessionResourceFromAPISession(w apigen.Session) sessionResource {
 	}
 	if w.OutputSummary != nil {
 		res.OutputSummary = *w.OutputSummary
-	}
-	if w.AcpSessionId != nil {
-		res.ACPSessionID = *w.AcpSessionId
-	}
-	if w.PendingQuestion != nil {
-		res.PendingQuestion = *w.PendingQuestion
 	}
 	if w.SubagentKind != nil {
 		res.SubagentKind = string(*w.SubagentKind)

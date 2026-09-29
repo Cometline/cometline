@@ -22,8 +22,6 @@ func TestExtractionLLMUsesConfiguredProviderAndModel(t *testing.T) {
 
 func TestExtractionLLMFallsBackToDefault(t *testing.T) {
 	cfg := &Config{
-		Provider:          "codex",
-		Model:             "gpt-5.4",
 		DefaultProviderID: "opencode-go",
 		DefaultModelID:    "deepseek-v4-flash",
 		Memory:            MemoryConfig{},
@@ -36,7 +34,6 @@ func TestExtractionLLMFallsBackToDefault(t *testing.T) {
 
 func TestExtractionLLMProviderPrefersExtractionProvider(t *testing.T) {
 	cfg := &Config{
-		Provider:          "codex",
 		DefaultProviderID: "codex",
 		DefaultModelID:    "gpt-5.4",
 		Memory:            MemoryConfig{ExtractionProvider: "opencode-go", ExtractionModel: "qwen3.7-plus"},
@@ -48,7 +45,6 @@ func TestExtractionLLMProviderPrefersExtractionProvider(t *testing.T) {
 
 func TestExtractionLLMProviderFallsBackToDefaultProvider(t *testing.T) {
 	cfg := &Config{
-		Provider:          "codex",
 		DefaultProviderID: "opencode-go",
 		DefaultModelID:    "deepseek-v4-flash",
 	}

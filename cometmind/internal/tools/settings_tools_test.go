@@ -39,13 +39,11 @@ func TestSettingsToolsParentOnlyAndRedactionRoundTrip(t *testing.T) {
 			},
 		},
 		"defaultProviderId": "openai",
-		"defaultModelId": "gpt-4o",
+		"defaultModelId":    "gpt-4o",
 		"cometmind": map[string]any{
-			"systemPromptPath":   "",
-			"maxTokens":          4096,
-			"contextWindowLimit": 0,
-			"acp":                map[string]any{"defaultHarness": "opencode"},
-			"skills":             map[string]any{"enabled": true},
+			"systemPromptPath": "",
+			"acp":              map[string]any{"defaultHarness": "opencode"},
+			"skills":           map[string]any{"enabled": true},
 			"memory": map[string]any{
 				"enabled": false,
 				"embedding": map[string]any{
@@ -114,7 +112,7 @@ func TestSettingsToolsParentOnlyAndRedactionRoundTrip(t *testing.T) {
 				},
 			},
 			"cometmind": map[string]any{
-				"maxTokens": 2048,
+				"titleModelId": "gpt-4o-mini",
 			},
 		},
 	}
@@ -137,8 +135,8 @@ func TestSettingsToolsParentOnlyAndRedactionRoundTrip(t *testing.T) {
 	if !contains(string(written), "sk-secret") {
 		t.Fatal("expected previous api key preserved on disk")
 	}
-	if !contains(string(written), "2048") {
-		t.Fatal("expected maxTokens patch persisted")
+	if !contains(string(written), "gpt-4o-mini") {
+		t.Fatal("expected titleModelId patch persisted")
 	}
 
 	deny, err := r.Execute(context.Background(), "patch_settings", []byte(`{"patch":{"appearance":{"heroComposer":{"presetId":"rose"}}}}`))

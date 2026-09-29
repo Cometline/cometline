@@ -532,14 +532,6 @@ func streamableTransport(cfg ServerConfig) *mcp.StreamableClientTransport {
 	}
 }
 
-func sseTransport(cfg ServerConfig) *mcp.SSEClientTransport {
-	// SSE has no OAuthHandler field in the SDK; inject the bearer token directly.
-	return &mcp.SSEClientTransport{
-		Endpoint:   NormalizeServerURL(cfg.URL),
-		HTTPClient: httpClientWithHeaders(nil, cfg.Headers, cfg.OAuth, cfg.ID, true),
-	}
-}
-
 // TokenExpiry returns the token expiry time when a token file exists.
 func TokenExpiry(serverID string) *time.Time {
 	tok, err := LoadOAuthToken(serverID)

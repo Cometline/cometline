@@ -16,13 +16,5 @@ func (c *Config) ResolveRoleLLM(pinProvider, pinModel string) (providerID, model
 	if c == nil {
 		return "", ""
 	}
-	defProvider := strings.TrimSpace(c.DefaultProviderID)
-	defModel := strings.TrimSpace(c.DefaultModelID)
-	if defProvider == "" {
-		defProvider = strings.TrimSpace(c.Provider)
-	}
-	if defModel == "" {
-		defModel = strings.TrimSpace(c.Model)
-	}
-	return defProvider, defModel
+	return strings.TrimSpace(c.DefaultProviderID), strings.TrimSpace(c.DefaultModelID)
 }

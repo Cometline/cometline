@@ -84,7 +84,7 @@ func (c *Config) MemorySettings() memory.Settings {
 		SimilarityThreshold: mc.SimilarityThreshold,
 		ExtractionProvider:  mc.ExtractionProvider,
 		ExtractionModel:     mc.ExtractionModel,
-		DefaultModel:        firstNonEmpty(strings.TrimSpace(c.DefaultModelID), strings.TrimSpace(c.Model)),
+		DefaultModel:        strings.TrimSpace(c.DefaultModelID),
 		Lifecycle: memory.LifecycleSettings{
 			DecayHalfLifeDays:     mc.Lifecycle.DecayHalfLifeDays,
 			ForgetThreshold:       mc.Lifecycle.ForgetThreshold,

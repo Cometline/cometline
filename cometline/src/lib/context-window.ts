@@ -1,22 +1,12 @@
 import { getReasoningSegments } from '$lib/conversation/reasoning';
 import type { ChatItem } from '$lib/types';
 
-/** @deprecated Global 128k/256k UI removed; kept for settings JSON backward compat. */
-export const CONTEXT_WINDOW_LIMIT_OPTIONS = [128_000, 256_000] as const;
-/** @deprecated */
-export type ContextWindowLimit = (typeof CONTEXT_WINDOW_LIMIT_OPTIONS)[number];
 export const DEFAULT_CONTEXT_WINDOW_LIMIT = 128_000;
 /** Matches CometMind CompactionOutputBuffer. */
 export const COMPACTION_OUTPUT_BUFFER = 20_000;
 const TOOL_RESULT_PROMPT_RUNE_LIMIT = 4000;
 
-/** @deprecated Prefer the model catalog's per-model context value. */
-export function normalizeContextWindowLimit(value: unknown): ContextWindowLimit {
-	return Number(value) === 256_000 ? 256_000 : 128_000;
-}
-
-/** @deprecated Prefer model.context / ResolveSessionBudget. */
-export function resolveContextWindow(limit?: ContextWindowLimit | number | null): number {
+export function resolveContextWindow(limit?: number | null): number {
 	const n = Number(limit);
 	if (Number.isFinite(n) && n > 0) return Math.floor(n);
 	return DEFAULT_CONTEXT_WINDOW_LIMIT;
@@ -142,11 +132,8 @@ export const OUTPUT_TOKEN_MAX = 32_000;
 /** Unknown-catalog fallback. Same value as OUTPUT_TOKEN_MAX. */
 export const DEFAULT_OUTPUT_TOKEN_CAP = OUTPUT_TOKEN_MAX;
 
-/**
- * min(catalog output, 32k). A missing catalog uses 32k.
- * The first argument is ignored; the ceiling follows the model on this turn.
- */
-export function effectiveMaxTokens(_userMaxTokens?: number | null, catalogOutput?: number | null): number {
+/** min(catalog output, 32k). A missing catalog uses 32k. */
+export function effectiveMaxTokens(catalogOutput?: number | null): number {
 	const output =
 		Number.isFinite(catalogOutput) && (catalogOutput as number) > 0
 			? Math.floor(catalogOutput as number)
@@ -161,11 +148,10 @@ export function effectiveMaxTokens(_userMaxTokens?: number | null, catalogOutput
  */
 export function resolveContextAvailableBudget(
 	contextWindow?: number | null,
-	maxTokens?: number | null,
 	catalogOutput?: number | null
 ): number {
 	const window = resolveContextWindow(contextWindow ?? DEFAULT_CONTEXT_WINDOW_LIMIT);
-	const effective = effectiveMaxTokens(maxTokens, catalogOutput);
+	const effective = effectiveMaxTokens(catalogOutput);
 	const reserve = Math.max(effective, COMPACTION_OUTPUT_BUFFER);
 	return Math.max(1, window - reserve);
 }
@@ -178,8 +164,7 @@ export function resolveContextWindowUsage(input: {
 	budget: ContextBudgetSnapshot | null | undefined;
 	items: ChatItem[];
 	draftText: string;
-	contextWindowLimit?: number | null;
-	maxTokens?: number | null;
+	contextWindow?: number | null;
 	modelOutput?: number | null;
 }): ContextWindowUsage {
 	const draftTokens = input.draftText.trim() ? estimateTokensFromText(input.draftText) : 0;
@@ -192,7 +177,7 @@ export function resolveContextWindowUsage(input: {
 	}
 	return {
 		used: estimateChatContextTokens(input.items) + draftTokens,
-		limit: resolveContextAvailableBudget(input.contextWindowLimit, input.maxTokens, input.modelOutput),
+		limit: resolveContextAvailableBudget(input.contextWindow, input.modelOutput),
 		source: 'fallback'
 	};
 }
