@@ -33,8 +33,6 @@ CREATE TABLE sessions (
                            )
                        ),
     output_summary     TEXT NOT NULL DEFAULT '',
-    acp_session_id     TEXT NOT NULL DEFAULT '',
-    pending_question   TEXT NOT NULL DEFAULT '',
     subagent_kind      TEXT NOT NULL DEFAULT ''
                        CHECK (subagent_kind IN ('', 'general', 'acp')),
     agent_mode         TEXT NOT NULL DEFAULT 'auto'

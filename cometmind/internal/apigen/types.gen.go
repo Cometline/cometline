@@ -1875,9 +1875,6 @@ type SearchMemoryRequest struct {
 
 // Session defines model for Session.
 type Session struct {
-	// AcpSessionId External ACP session ID recorded for diagnostics.
-	AcpSessionId *string `json:"acp_session_id,omitempty"`
-
 	// AgentMode Active agent mode for the session. `auto` unless the user switched this session to `plan`.
 	AgentMode AgentMode `json:"agent_mode"`
 
@@ -1903,9 +1900,6 @@ type Session struct {
 
 	// ParentSessionId Parent session ID for delegated child sessions.
 	ParentSessionId *string `json:"parent_session_id,omitempty"`
-
-	// PendingQuestion Legacy field retained for persisted child session compatibility.
-	PendingQuestion *string `json:"pending_question,omitempty"`
 
 	// Pinned Whether the session is pinned to the top of its workspace group.
 	Pinned     bool   `json:"pinned"`

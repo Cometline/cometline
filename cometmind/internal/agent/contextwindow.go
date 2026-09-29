@@ -9,7 +9,6 @@ import (
 
 const (
 	defaultContextWindowLimit = 128_000
-	contextWindowLimit256K    = 256_000
 	// CompactionOutputBuffer is the minimum reserved output budget (OpenCode-style).
 	CompactionOutputBuffer = 20_000
 	// OutputTokenMax is OpenCode's per-step output ceiling.
@@ -32,28 +31,13 @@ type SessionBudget struct {
 	VisionKnown        bool
 }
 
-// ResolveContextWindow returns the legacy user-configured fallback window.
-// Prefer ResolveSessionBudget for compaction and context_budget SSE.
-func ResolveContextWindow(cfg *config.Config) int {
-	if cfg == nil {
-		return defaultContextWindowLimit
-	}
-	if cfg.ContextWindowLimit == contextWindowLimit256K {
-		return contextWindowLimit256K
-	}
-	return defaultContextWindowLimit
-}
-
 // ResolveSessionBudget computes per-model context window, effective max tokens,
 // reserve, and available prompt budget.
 //
 //	effectiveMaxTokens = min(this model's catalog output, 32_000)
 //	reserve            = max(effectiveMaxTokens, 20_000)
 //	available          = context - reserve
-//
-// The last argument is ignored. Output ceiling follows the model on this
-// turn, capped like OpenCode, not a stored percent or absolute token count.
-func ResolveSessionBudget(cfg *config.Config, providerID, modelID string, _ int) SessionBudget {
+func ResolveSessionBudget(cfg *config.Config, providerID, modelID string) SessionBudget {
 	method := ""
 	if cfg != nil {
 		if p := cfg.FindProvider(providerID); p != nil {

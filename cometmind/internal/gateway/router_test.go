@@ -123,8 +123,8 @@ func TestEnsureThreadSessionCreatesSeparateMapping(t *testing.T) {
 	r := &Router{
 		Sessions: svc,
 		Config: &config.Config{
-			Model:    "test-model",
-			Provider: "test-provider",
+			DefaultModelID:    "test-model",
+			DefaultProviderID: "test-provider",
 			Gateway: config.GatewayConfig{
 				Discord: config.DiscordGatewayConfig{
 					WorkspacePath: ws.Path,
@@ -471,8 +471,8 @@ func TestHandleInboundPersistsImages(t *testing.T) {
 		Sessions: svc,
 		Runner:   routerTestRunner{},
 		Config: &config.Config{
-			Model:    "test-model",
-			Provider: "test-provider",
+			DefaultModelID:    "test-model",
+			DefaultProviderID: "test-provider",
 			Gateway: config.GatewayConfig{
 				Discord: config.DiscordGatewayConfig{
 					WorkspacePath: ws.Path,
@@ -535,8 +535,8 @@ func TestHandleInboundReplyOmitsSubagentEvents(t *testing.T) {
 		Sessions: svc,
 		Runner:   subagentNoiseRunner{},
 		Config: &config.Config{
-			Model:    "test-model",
-			Provider: "test-provider",
+			DefaultModelID:    "test-model",
+			DefaultProviderID: "test-provider",
 			Gateway: config.GatewayConfig{
 				Discord: config.DiscordGatewayConfig{
 					WorkspacePath: ws.Path,
@@ -867,8 +867,8 @@ func newMappedGatewaySession(t *testing.T, threadID string) (*session.Service, s
 
 func gatewayTestConfig(workspacePath string) *config.Config {
 	return &config.Config{
-		Model:    "test-model",
-		Provider: "test-provider",
+		DefaultModelID:    "test-model",
+		DefaultProviderID: "test-provider",
 		Gateway: config.GatewayConfig{Discord: config.DiscordGatewayConfig{
 			WorkspacePath: workspacePath,
 		}},

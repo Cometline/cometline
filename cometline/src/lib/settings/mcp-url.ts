@@ -177,7 +177,7 @@ export function normalizeHttpConnection(
  * callers can cheaply detect whether an update is needed.
  */
 export function normalizeServerConnection(server: MCPServerConfig): MCPServerConfig {
-	if (server.transport !== 'http' && server.transport !== 'sse') return server;
+	if (server.transport !== 'http') return server;
 	const { url, headers, movedToQuery } = normalizeHttpConnection(
 		server.url ?? '',
 		server.headers

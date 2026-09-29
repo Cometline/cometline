@@ -46,8 +46,7 @@ func Catalog() []FieldMeta {
 		{Path: "cometmind.jobs", Secret: false, ApplyClass: ApplyReload, Description: "Jobs queue settings"},
 		{Path: "cometmind.autonomy", Secret: false, ApplyClass: ApplyReload, Description: "Autonomous job worker"},
 		{Path: "cometmind.scheduler", Secret: false, ApplyClass: ApplyReload, Description: "Scheduled jobs"},
-		{Path: "cometmind.maxTokens", Secret: false, ApplyClass: ApplyReload, Description: "Max output tokens"},
-		{Path: "cometmind.contextWindowLimit", Secret: false, ApplyClass: ApplyReload, Description: "Context window limit"},
+
 		{Path: "cometmind.titleProviderId", Secret: false, ApplyClass: ApplyReload, Description: "Title generation provider"},
 		{Path: "cometmind.titleModelId", Secret: false, ApplyClass: ApplyReload, Description: "Title generation model"},
 		{Path: "cometmind.gateway", Secret: false, ApplyClass: ApplyGateway, Description: "Gateway platforms (restarts gateway process(es) only; serve stays up)"},

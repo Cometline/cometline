@@ -507,7 +507,6 @@ func (r *Runtime) RunnerForInbox(sess session.Session, workspacePath string, reg
 		Registry:     registry,
 		Jobs:         r.Jobs,
 		MaxSteps:     maxSteps,
-		MaxTokens:    r.Config.MaxTokens,
 		SystemPrompt: "You internalize inbox replies into durable memory when warranted. Prefer no-op over noisy memories.",
 		MemorySem:    r.memorySem,
 	}, nil
@@ -782,7 +781,6 @@ func (r *Runtime) runnerFor(sess session.Session, workspacePath string, opts Run
 		Registry:             registry,
 		Jobs:                 r.Jobs,
 		MaxSteps:             maxSteps,
-		MaxTokens:            r.Config.MaxTokens,
 		SystemPrompt:         r.SystemPrompt,
 		AgentMode:            agentMode,
 		SkillIndex:           skillRegistry.PromptIndex(),

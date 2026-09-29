@@ -480,7 +480,7 @@ func (a *App) handleAbortSession(c *gin.Context) {
 	}
 	if a.acpMgr != nil && sess.ParentSessionID != "" {
 		_ = a.acpMgr.Cancel(sessID)
-		_ = a.sessions.UpdateDelegationState(c.Request.Context(), sessID, session.DelegationCancelled, "", "")
+		_ = a.sessions.UpdateDelegationState(c.Request.Context(), sessID, session.DelegationCancelled, "")
 	}
 	if a.subagentOrch != nil && sess.ParentSessionID != "" {
 		a.subagentOrch.CancelChild(sessID)
@@ -495,7 +495,7 @@ func (a *App) handleAbortSession(c *gin.Context) {
 				switch child.DelegationStatus {
 				case session.DelegationRunning, session.DelegationPending:
 					_ = a.acpMgr.Cancel(child.ID)
-					_ = a.sessions.UpdateDelegationState(c.Request.Context(), child.ID, session.DelegationCancelled, "", "")
+					_ = a.sessions.UpdateDelegationState(c.Request.Context(), child.ID, session.DelegationCancelled, "")
 				}
 			}
 		}

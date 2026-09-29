@@ -15,11 +15,6 @@ import type {
 	ResponseCompleteSoundSettings
 } from '../types';
 import {
-	DEFAULT_CONTEXT_WINDOW_LIMIT,
-	normalizeContextWindowLimit,
-	type ContextWindowLimit
-} from '../context-window';
-import {
 	migratePersonaIdFromIconVariant,
 	normalizeCustomPersonas as normalizeCustomPersonaList,
 	normalizePersonaId as resolveNormalizedPersonaId
@@ -139,7 +134,7 @@ export interface CometMindStorageSettings {
 	backup: CometMindStorageBackupSettings;
 }
 
-export type MCPTransport = 'stdio' | 'http' | 'sse';
+export type MCPTransport = 'stdio' | 'http';
 
 export interface MCPOAuthSettings {
 	clientId?: string;
@@ -217,12 +212,6 @@ export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 const LOG_LEVELS: LogLevel[] = ['debug', 'info', 'warn', 'error'];
 
 /** 1–99 stays a percent. 0, 100, and legacy absolute token counts mean model limit. */
-export function normalizeOutputCapPercent(value: unknown): number {
-	const n = Number(value);
-	if (!Number.isFinite(n) || n <= 0 || n >= 100) return 0;
-	return Math.floor(n);
-}
-
 function normalizeLogLevel(value: unknown): LogLevel {
 	const raw = String(value ?? '')
 		.trim()
@@ -235,13 +224,7 @@ function normalizeLogLevel(value: unknown): LogLevel {
 
 export interface CometMindSettings {
 	systemPromptPath: string;
-	/**
-	 * Legacy field. The request ceiling is min(current model output, 32k) and
-	 * does not read this value.
-	 */
-	maxTokens: number;
 	logLevel: LogLevel;
-	contextWindowLimit: ContextWindowLimit;
 	titleProviderId: string;
 	titleModelId: string;
 	acp: CometMindACPSettings;
@@ -271,7 +254,6 @@ export interface RuntimeSettingsSlice {
 	provider: string;
 	model: string;
 	baseURL: string;
-	maxTokens: number;
 	maxSteps: number;
 	systemPromptPath: string;
 	providers: RuntimeProviderEntry[];
@@ -440,11 +422,15 @@ function slugifyMCPId(name: string, existing: Set<string>): string {
 	return candidate;
 }
 
-const VALID_MCP_TRANSPORTS: MCPTransport[] = ['stdio', 'http', 'sse'];
+const VALID_MCP_TRANSPORTS: MCPTransport[] = ['stdio', 'http'];
 
 function normalizeMCPTransport(value: unknown, fallback: MCPTransport): MCPTransport {
-	const raw = String(value ?? '').trim() as MCPTransport;
-	return VALID_MCP_TRANSPORTS.includes(raw) ? raw : fallback;
+	const raw = String(value ?? '')
+		.trim()
+		.toLowerCase();
+	if (raw === 'sse' || raw === 'http') return 'http';
+	if (raw === 'stdio') return 'stdio';
+	return VALID_MCP_TRANSPORTS.includes(raw as MCPTransport) ? (raw as MCPTransport) : fallback;
 }
 
 function normalizeMCPOAuth(
@@ -573,9 +559,7 @@ export function defaultCometMindStorageSettings(): CometMindStorageSettings {
 export function defaultCometMindSettings(workspacePath = ''): CometMindSettings {
 	return {
 		systemPromptPath: '',
-		maxTokens: 0,
 		logLevel: 'error',
-		contextWindowLimit: DEFAULT_CONTEXT_WINDOW_LIMIT,
 		titleProviderId: '',
 		titleModelId: '',
 		acp: {
@@ -688,11 +672,7 @@ export function normalizeCometMindSettings(
 
 	return {
 		systemPromptPath: String(input?.systemPromptPath ?? defaults.systemPromptPath).trim(),
-		maxTokens: normalizeOutputCapPercent(input?.maxTokens),
 		logLevel: normalizeLogLevel(input?.logLevel ?? defaults.logLevel),
-		contextWindowLimit: normalizeContextWindowLimit(
-			input?.contextWindowLimit ?? defaults.contextWindowLimit
-		),
 		titleProviderId: String(input?.titleProviderId ?? defaults.titleProviderId).trim(),
 		titleModelId: String(input?.titleModelId ?? defaults.titleModelId).trim(),
 		acp: {
@@ -966,9 +946,7 @@ export function normalizeCometMindSettings(
 export function cloneCometMindSettings(settings: CometMindSettings): CometMindSettings {
 	return {
 		systemPromptPath: settings.systemPromptPath,
-		maxTokens: settings.maxTokens,
 		logLevel: settings.logLevel,
-		contextWindowLimit: settings.contextWindowLimit,
 		titleProviderId: settings.titleProviderId,
 		titleModelId: settings.titleModelId,
 		acp: {
@@ -1439,7 +1417,6 @@ export function runtimeSlice(settings: ProviderSettings): RuntimeSettingsSlice |
 		provider: active.id,
 		model,
 		baseURL: active.baseURL,
-		maxTokens: settings.cometmind.maxTokens,
 		maxSteps: 50,
 		systemPromptPath: settings.cometmind.systemPromptPath,
 		providers: providers.map((p) => ({
@@ -1554,9 +1531,7 @@ const providerSettingsSchema = z.object({
 	}),
 	cometmind: z.object({
 		systemPromptPath: z.string(),
-		maxTokens: z.number().int().min(0),
 		logLevel: z.enum(['debug', 'info', 'warn', 'error']),
-		contextWindowLimit: z.union([z.literal(128_000), z.literal(256_000)]),
 		titleProviderId: z.string(),
 		titleModelId: z.string(),
 		acp: z.object({
@@ -1634,7 +1609,7 @@ const providerSettingsSchema = z.object({
 					id: z.string().min(1),
 					name: z.string(),
 					enabled: z.boolean(),
-					transport: z.enum(['stdio', 'http', 'sse']),
+					transport: z.enum(['stdio', 'http']),
 					command: z.string().optional(),
 					args: z.array(z.string()).optional(),
 					env: z.record(z.string(), z.string()).optional(),

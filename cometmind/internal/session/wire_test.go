@@ -34,8 +34,6 @@ func TestAPISession(t *testing.T) {
 		Purpose:          "review diff",
 		DelegationStatus: DelegationCompleted,
 		OutputSummary:    "done",
-		ACPSessionID:     "acp-1",
-		PendingQuestion:  "legacy",
 		SubagentKind:     "coding",
 		Gateway: &SessionGateway{
 			Platform:  "discord",

@@ -428,14 +428,6 @@ export type Session = {
      */
     output_summary?: string;
     /**
-     * External ACP session ID recorded for diagnostics.
-     */
-    acp_session_id?: string;
-    /**
-     * Legacy field retained for persisted child session compatibility.
-     */
-    pending_question?: string;
-    /**
      * Kind of delegated subagent for child sessions (general=research, coding=in-process editor, acp=external harness).
      */
     subagent_kind?: '' | 'general' | 'coding' | 'acp';

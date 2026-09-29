@@ -103,7 +103,7 @@ func TestRuntimeWiresServiceAndRunner(t *testing.T) {
 	if err != nil {
 		t.Fatalf("WorkspaceForCommand() error = %v", err)
 	}
-	sess, err := rt.Sessions.NewSession(ctx, ws.ID, rt.Config.Model, rt.Config.Provider)
+	sess, err := rt.Sessions.NewSession(ctx, ws.ID, rt.Config.DefaultModelID, rt.Config.DefaultProviderID)
 	if err != nil {
 		t.Fatalf("NewSession() error = %v", err)
 	}
@@ -202,7 +202,7 @@ func TestRuntimeReloadUpdatesSystemPromptFromSettings(t *testing.T) {
 	if err != nil {
 		t.Fatalf("WorkspaceForCommand() error = %v", err)
 	}
-	sess, err := rt.Sessions.NewSession(ctx, ws.ID, rt.Config.Model, rt.Config.Provider)
+	sess, err := rt.Sessions.NewSession(ctx, ws.ID, rt.Config.DefaultModelID, rt.Config.DefaultProviderID)
 	if err != nil {
 		t.Fatalf("NewSession() error = %v", err)
 	}
@@ -240,7 +240,7 @@ func TestRuntimeLoadsSystemPromptFromConfiguredPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("WorkspaceForCommand() error = %v", err)
 	}
-	sess, err := rt.Sessions.NewSession(ctx, ws.ID, rt.Config.Model, rt.Config.Provider)
+	sess, err := rt.Sessions.NewSession(ctx, ws.ID, rt.Config.DefaultModelID, rt.Config.DefaultProviderID)
 	if err != nil {
 		t.Fatalf("NewSession() error = %v", err)
 	}
@@ -266,7 +266,7 @@ func TestRuntimeProviderForSessionUsesSessionIdentifiers(t *testing.T) {
 
 	// ProviderForSession should copy session model/provider into the config
 	// passed to the provider factory, without mutating rt.Config.
-	origModel := rt.Config.Model
+	origModel := rt.Config.DefaultModelID
 	sess := session.Session{ModelID: "other-model", ProviderID: "other-provider"}
 
 	// Unknown provider id falls back to the legacy top-level config, which is
@@ -275,8 +275,8 @@ func TestRuntimeProviderForSessionUsesSessionIdentifiers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ProviderForSession() error = %v", err)
 	}
-	if rt.Config.Model != origModel {
-		t.Fatalf("runtime config mutated: model = %q, want %q", rt.Config.Model, origModel)
+	if rt.Config.DefaultModelID != origModel {
+		t.Fatalf("runtime config mutated: model = %q, want %q", rt.Config.DefaultModelID, origModel)
 	}
 }
 

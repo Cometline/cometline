@@ -69,7 +69,6 @@ type Runner struct {
 	Jobs     OngoingJobLookup
 
 	MaxSteps               int
-	MaxTokens              int
 	MemoryRetrievalTimeout time.Duration
 	// StreamRecoveryBackoff is the first wait between recoverable model-stream
 	// retries. Later attempts double it up to eight seconds. Zero uses 2s.
@@ -122,8 +121,7 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 	if r.MaxSteps <= 0 {
 		r.MaxSteps = 100
 	}
-	// Output ceiling is min(turn model output, 32k), computed in
-	// ResolveSessionBudget. r.MaxTokens is not a request cap.
+	// Output ceiling is min(turn model output, 32k), computed in ResolveSessionBudget.
 	retrievalTimeout := r.MemoryRetrievalTimeout
 	if retrievalTimeout <= 0 {
 		retrievalTimeout = memoryRetrievalTimeout
@@ -159,7 +157,7 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 	}
 
 	degradationsReported := false
-	sessionBudget := ResolveSessionBudget(r.Config, turn.ProviderID, turn.ModelID, r.MaxTokens)
+	sessionBudget := ResolveSessionBudget(r.Config, turn.ProviderID, turn.ModelID)
 	effectiveMaxTokens := sessionBudget.EffectiveMaxTokens
 
 	// MaxSteps limits work rounds. If they are exhausted, make one final
@@ -179,7 +177,7 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 			tools := requestTools
 			emitBudget := func(compacted bool) {
 				budget, err := r.Compactor.EstimatePromptBudget(
-					ctx, sess.ID, baseSystem, tools, turn.ProviderID, turn.ModelID, r.MaxTokens,
+					ctx, sess.ID, baseSystem, tools, turn.ProviderID, turn.ModelID,
 				)
 				if err != nil {
 					logging.L().Warn("context.budget.estimate_failed", "session", sess.ID, "error", err)
@@ -198,7 +196,6 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 				r.Provider,
 				turn.ProviderID,
 				turn.ModelID,
-				r.MaxTokens,
 				false,
 				func(ev event.Event) { ch <- ev },
 			)
@@ -416,7 +413,6 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 					r.Provider,
 					turn.ProviderID,
 					turn.ModelID,
-					r.MaxTokens,
 					true,
 					func(ev event.Event) { ch <- ev },
 				)
@@ -449,7 +445,7 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 						toolOutputBytes = toolResultBytes(req.Messages)
 						if sess.ContextSummary != beforeSummary || sess.CompactedUntilMessageID != beforeUntil {
 							budget, budgetErr := r.Compactor.EstimatePromptBudget(
-								ctx, sess.ID, baseSystem, tools, turn.ProviderID, turn.ModelID, r.MaxTokens,
+								ctx, sess.ID, baseSystem, tools, turn.ProviderID, turn.ModelID,
 							)
 							if budgetErr == nil {
 								ch <- event.ContextBudget(budget.Estimated, budget.Available, budget.ContextWindow, true)

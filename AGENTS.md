@@ -121,7 +121,7 @@ Recent example: `memory_compaction_completed` was added this way to report manua
 ### CometMind
 
 - **Settings:** `~/.cometmind/cometline-settings.json` (runtime; agent tools + CometMind). Desktop UI state: `~/.cometmind/cometline-desktop.json` (Electron only).
-- **Legacy config:** `~/.cometmind/config.toml` (read only when JSON settings are missing)
+- **Legacy config:** `~/.cometmind/config.toml` is migrated once into `cometline-settings.json` when JSON is missing, then ignored
 - **Database:** `~/.cometmind/cometmind.db` (SQLite, pure Go via `modernc.org/sqlite`)
 - **Media:** `~/.cometmind/media/{storage_session_id}/` — gallery files stay after session or workspace delete, then follow the configurable detached-media retention period; users can also remove them on the Gallery page
 - **API:** `http://127.0.0.1:7700` (localhost only)
@@ -214,7 +214,7 @@ CometMind connects to external MCP servers and exposes their tools to the **main
 - **Headless refresh:** at runtime connect, the saved token is auto-refreshed via the stored client info (no browser). Only if refresh fails is the user nudged to re-run Connect.
 - **Code map:** interactive flow in `cometmind/internal/mcp/oauth_flow.go` + `oauth_login.go`; refreshing handler in `oauth.go`; client-info persistence in `oauth_client.go`; endpoint `POST /api/v1/mcp/servers/{id}/oauth-flows`. Recommend the **http** (streamable) transport for OAuth servers. Electron does not run MCP OAuth; Settings uses this HTTP endpoint and `oauth_connected` from `GET /api/v1/mcp/servers`.
 
-**Transports:** stdio subprocess, HTTP (streamable), and legacy SSE.
+**Transports:** stdio subprocess and HTTP (streamable). Saved `sse` transports are rewritten to `http` on load.
 
 **Management API:** `GET /api/v1/mcp/servers`, `GET /api/v1/mcp/tools`, `POST /api/v1/mcp/servers/{id}/connection-tests`, `POST /api/v1/mcp/servers/{id}/reconnection-runs`, `POST /api/v1/mcp/servers/{id}/oauth-flows`
 
@@ -226,7 +226,7 @@ CometMind connects to external MCP servers and exposes their tools to the **main
 
 Run CometMind as a Discord bot with the same agent runtime.
 
-**Config:** Settings → CometMind → Discord, persisted in `~/.cometmind/cometline-settings.json`. Legacy `config.toml` is still accepted for migration.
+**Config:** Settings → CometMind → Discord, persisted in `~/.cometmind/cometline-settings.json`. A missing JSON file is written once from `config.toml` if that file exists.
 ```toml
 [gateway.discord]
 enabled = true

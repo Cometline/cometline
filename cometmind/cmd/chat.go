@@ -58,7 +58,7 @@ func runChat(_ *cobra.Command, args []string) error {
 			return fmt.Errorf("session %s belongs to a different workspace", chatSessionID)
 		}
 	} else {
-		sess, err = rt.Sessions.NewSession(ctx, ws.ID, rt.Config.Model, rt.Config.Provider)
+		sess, err = rt.Sessions.NewSession(ctx, ws.ID, rt.Config.DefaultModelID, rt.Config.DefaultProviderID)
 		if err != nil {
 			return fmt.Errorf("create session: %w", err)
 		}

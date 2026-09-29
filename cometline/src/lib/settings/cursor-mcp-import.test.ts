@@ -56,7 +56,7 @@ describe('cursor-mcp-import', () => {
 		});
 		expect(servers[1]).toMatchObject({
 			id: 'legacy',
-			transport: 'sse',
+			transport: 'http',
 			url: 'https://example.com/sse'
 		});
 	});

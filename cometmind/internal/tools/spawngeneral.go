@@ -138,7 +138,7 @@ func (s SpawnGeneralAgent) Execute(ctx context.Context, input json.RawMessage) (
 	if emit != nil {
 		emit(event.SubagentStarted(child.ID, task, agentLabel))
 	}
-	_ = s.Sessions.UpdateDelegationState(ctx, child.ID, session.DelegationRunning, "", "")
+	_ = s.Sessions.UpdateDelegationState(ctx, child.ID, session.DelegationRunning, "")
 
 	runCtx, cancel := context.WithCancel(context.WithoutCancel(ctx))
 	if err := s.Orchestrator.Register(parentID, child.ID, subagent.KindGeneral, cancel); err != nil {
@@ -178,7 +178,7 @@ func (s SpawnGeneralAgent) runGeneralSubagent(
 		if status == session.DelegationCompleted && summary == "" {
 			summary = "subagent finished without assistant text"
 		}
-		_ = s.Sessions.UpdateDelegationState(context.Background(), child.ID, status, summary, "")
+		_ = s.Sessions.UpdateDelegationState(context.Background(), child.ID, status, summary)
 		if status.IsTerminal() {
 			_ = s.Sessions.CompactChildSession(context.Background(), child.ID)
 		}

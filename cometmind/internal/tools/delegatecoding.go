@@ -80,7 +80,7 @@ func (d DelegateCodingTask) Execute(ctx context.Context, input json.RawMessage) 
 		emit(event.SubagentStarted(child.ID, task, d.ACP.Label()))
 	}
 
-	_ = d.Sessions.UpdateDelegationState(ctx, child.ID, session.DelegationRunning, "", "")
+	_ = d.Sessions.UpdateDelegationState(ctx, child.ID, session.DelegationRunning, "")
 
 	mgr := d.ACPMgr
 	if mgr == nil {
@@ -162,7 +162,7 @@ func (d DelegateCodingTask) buildResult(
 	emit func(event.Event),
 ) (Result, session.DelegationStatus, string) {
 	status, summary := normalizeDelegationOutcome(result, runErr)
-	_ = d.Sessions.UpdateDelegationState(ctx, childID, status, summary, "")
+	_ = d.Sessions.UpdateDelegationState(ctx, childID, status, summary)
 
 	if emit != nil {
 		emit(event.SubagentFinished(childID, status.String(), summary))

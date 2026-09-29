@@ -36,7 +36,7 @@ func TestRunner_PurgesStaleSubagentRows(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := svc.UpdateDelegationState(ctx, child.ID, session.DelegationCompleted, "summary", ""); err != nil {
+	if err := svc.UpdateDelegationState(ctx, child.ID, session.DelegationCompleted, "summary"); err != nil {
 		t.Fatal(err)
 	}
 

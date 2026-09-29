@@ -109,12 +109,12 @@ describe('split settings documents', () => {
 			appearance: { theme: 'night' },
 			shortcuts: { openSettings: { key: ',' } },
 			app: { miniWindowSessionId: 'session-1' },
-			cometmind: { maxTokens: 4096, systemPromptPath: '/saved/SOUL.md' }
+			cometmind: { systemPromptPath: '/saved/SOUL.md' }
 		};
 		const split = splitSettingsDocument(document);
 		expect(split.settings).toEqual({
 			providers: [{ id: 'openai' }],
-			cometmind: { maxTokens: 4096, systemPromptPath: '/saved/SOUL.md' }
+			cometmind: { systemPromptPath: '/saved/SOUL.md' }
 		});
 		expect(split.desktop).toMatchObject({ app: { miniWindowSessionId: 'session-1' } });
 		expect(

@@ -119,7 +119,7 @@ The runtime owns the invocation profiles:
 - Harness-specific progress is normalized into the same subagent events.
 - Harnesses inherit the user's local authentication and configuration. Only enable unattended delegation for trusted workspaces.
 
-Settings expose one choice—OpenCode, Claude Code, or Codex—in Settings → CometMind → Coding task delegation. Settings are persisted in `~/.cometmind/cometline-settings.json` (legacy `config.toml` is read only when JSON settings are missing):
+Settings expose one choice—OpenCode, Claude Code, or Codex—in Settings → CometMind → Coding task delegation. Settings are persisted in `~/.cometmind/cometline-settings.json` (`config.toml` is written forward to JSON once if JSON is missing):
 
 ```toml
 [acp]
@@ -147,7 +147,7 @@ Supported transports:
 
 - `stdio` subprocess servers
 - streamable `http` servers
-- legacy `sse` servers
+- saved `sse` servers are rewritten to streamable `http` on load
 
 Remote OAuth servers are handled by CometMind itself: Protected Resource Metadata discovery, Authorization Server Metadata discovery, Dynamic Client Registration, Authorization Code + PKCE, a loopback callback listener, token persistence, and headless refresh. Access/refresh tokens live in `~/.cometmind/mcp-oauth/{serverId}.json`; registered client metadata lives in `{serverId}.client.json`.
 

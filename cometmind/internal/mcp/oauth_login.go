@@ -57,7 +57,7 @@ func (m *Manager) StartOAuth(ctx context.Context, serverID string) error {
 		return fmt.Errorf("unknown MCP server: %s", serverID)
 	}
 	if strings.TrimSpace(cfg.URL) == "" {
-		return fmt.Errorf("MCP server %q has no URL; OAuth requires an http or sse server", serverID)
+		return fmt.Errorf("MCP server %q has no URL; OAuth requires an http server", serverID)
 	}
 
 	manualClientID := ""

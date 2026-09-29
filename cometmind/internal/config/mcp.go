@@ -12,7 +12,6 @@ type MCPTransport string
 const (
 	MCPTransportStdio MCPTransport = "stdio"
 	MCPTransportHTTP  MCPTransport = "http"
-	MCPTransportSSE   MCPTransport = "sse"
 )
 
 // MCPOAuthConfig holds OAuth client metadata (tokens stored separately).

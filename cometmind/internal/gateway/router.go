@@ -547,10 +547,10 @@ func (r *Router) gatewaySessionModel() (modelID, providerID string) {
 	modelID = strings.TrimSpace(cfg.Model)
 	providerID = strings.TrimSpace(cfg.Provider)
 	if modelID == "" {
-		modelID = r.Config.Model
+		modelID = r.Config.DefaultModelID
 	}
 	if providerID == "" {
-		providerID = r.Config.Provider
+		providerID = r.Config.DefaultProviderID
 	}
 	return modelID, providerID
 }

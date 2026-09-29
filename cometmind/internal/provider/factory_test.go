@@ -19,8 +19,8 @@ func TestNewForFallsBackToLegacyMethod(t *testing.T) {
 	t.Setenv("ANTHROPIC_API_KEY", "anthropic-key")
 
 	cfg := &config.Config{
-		Provider: config.ProviderOpenAI,
-		BaseURL:  "http://example.com/v1",
+		DefaultProviderID: config.ProviderOpenAI,
+		BaseURL:           "http://example.com/v1",
 		Providers: []config.ProviderEntry{{
 			ID:      "my-openai",
 			Method:  config.ProviderOpenAI,
@@ -45,7 +45,7 @@ func TestNewMemoryLLMUsesExtractionProvider(t *testing.T) {
 	loadProtocolFixture(t)
 
 	cfg := &config.Config{
-		Provider: config.ProviderCodex,
+		DefaultProviderID: config.ProviderCodex,
 		Providers: []config.ProviderEntry{
 			{ID: "codex", Method: config.ProviderCodex},
 			{
@@ -78,7 +78,7 @@ func TestNewForUsesMultiProviderEntry(t *testing.T) {
 	t.Setenv("OPENAI_API_KEY", "entry-key")
 
 	cfg := &config.Config{
-		Provider: config.ProviderAnthropic,
+		DefaultProviderID: config.ProviderAnthropic,
 		Providers: []config.ProviderEntry{{
 			ID:      "local-llm",
 			Name:    "Local LLM",
@@ -100,7 +100,7 @@ func TestNewForUsesMultiProviderEntry(t *testing.T) {
 
 func TestNewForCodexDoesNotRequireAPIKey(t *testing.T) {
 	cfg := &config.Config{
-		Provider: config.ProviderCodex,
+		DefaultProviderID: config.ProviderCodex,
 		Providers: []config.ProviderEntry{{
 			ID:      "codex",
 			Name:    "ChatGPT Codex",
@@ -123,7 +123,7 @@ func TestNewForCodexDoesNotRequireAPIKey(t *testing.T) {
 }
 
 func TestNewForFallsBackToLegacyCodexMethod(t *testing.T) {
-	p, err := NewFor(&config.Config{Provider: config.ProviderOpenAI}, config.ProviderCodex)
+	p, err := NewFor(&config.Config{DefaultProviderID: config.ProviderOpenAI}, config.ProviderCodex)
 	if err != nil {
 		t.Fatalf("NewFor() error = %v", err)
 	}
@@ -134,7 +134,7 @@ func TestNewForFallsBackToLegacyCodexMethod(t *testing.T) {
 
 func TestNewForOllamaUsesOpenAIFamilyWithoutAPIKey(t *testing.T) {
 	cfg := &config.Config{
-		Provider: config.ProviderOllama,
+		DefaultProviderID: config.ProviderOllama,
 		Providers: []config.ProviderEntry{{
 			ID:      "ollama",
 			Name:    "Ollama Local",
@@ -161,7 +161,7 @@ func TestNewForOllamaUsesOpenAIFamilyWithoutAPIKey(t *testing.T) {
 
 func TestNewForXAIUsesSubscriptionProviderWithoutAPIKey(t *testing.T) {
 	cfg := &config.Config{
-		Provider: config.ProviderXAI,
+		DefaultProviderID: config.ProviderXAI,
 		Providers: []config.ProviderEntry{{
 			ID:      "xai",
 			Name:    "xAI Grok Subscription",
@@ -218,11 +218,11 @@ func TestNewOpenAIProviderUsesConfiguredBaseURL(t *testing.T) {
 
 	t.Setenv("COMETMIND_API_KEY", "dummy-key")
 
-	p, err := New(&config.Config{
-		Provider: config.ProviderOpenAI,
-		Model:    "test-model",
-		BaseURL:  srv.URL,
-	})
+	p, err := NewForModel(&config.Config{
+		DefaultProviderID: config.ProviderOpenAI,
+		DefaultModelID:    "test-model",
+		BaseURL:           srv.URL,
+	}, config.ProviderOpenAI, "test-model")
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}

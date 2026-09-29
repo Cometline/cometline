@@ -63,11 +63,6 @@ func DesktopSettingsPath() (string, error) {
 	return filepath.Join(d, "cometline-desktop.json"), nil
 }
 
-// ConfigPath returns ~/.cometmind/cometline-settings.json (legacy name retained for callers).
-func ConfigPath() (string, error) {
-	return SettingsPath()
-}
-
 // DBPath returns ~/.cometmind/cometmind.db.
 func DBPath() (string, error) {
 	d, err := DataDir()

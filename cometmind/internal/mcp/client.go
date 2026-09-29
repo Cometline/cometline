@@ -55,7 +55,7 @@ type connectedServer struct {
 
 func connectTimeoutFor(cfg ServerConfig) time.Duration {
 	switch cfg.Transport {
-	case TransportHTTP, TransportSSE:
+	case TransportHTTP:
 		return handshakeTimeoutHTTP
 	default:
 		return defaultConnectTimeout
@@ -64,7 +64,7 @@ func connectTimeoutFor(cfg ServerConfig) time.Duration {
 
 func listToolsTimeoutFor(cfg ServerConfig) time.Duration {
 	switch cfg.Transport {
-	case TransportHTTP, TransportSSE:
+	case TransportHTTP:
 		return listToolsTimeoutHTTP
 	default:
 		return listToolsTimeoutStdio
@@ -75,7 +75,7 @@ func connectServer(ctx context.Context, cfg ServerConfig) (*connectedServer, err
 	if !cfg.Enabled {
 		return nil, fmt.Errorf("server %q is disabled", cfg.ID)
 	}
-	if cfg.Transport == TransportHTTP || cfg.Transport == TransportSSE {
+	if cfg.Transport == TransportHTTP {
 		cfg.URL = NormalizeServerURL(cfg.URL)
 		if oauthTokenStaleForURL(cfg.ID, cfg.URL) {
 			return nil, newConnectError(CodeAuthExpired,
@@ -140,11 +140,6 @@ func buildTransport(cfg ServerConfig) (mcp.Transport, error) {
 			return nil, err
 		}
 		return streamableTransport(cfg), nil
-	case TransportSSE:
-		if err := validateRemoteURL(cfg.ID, cfg.URL); err != nil {
-			return nil, err
-		}
-		return sseTransport(cfg), nil
 	default:
 		return nil, fmt.Errorf("server %q: unsupported transport %q", cfg.ID, cfg.Transport)
 	}
