@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
+	import { onDestroy, untrack } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import { chatStore, type ChatItem } from '$lib/stores/chat.svelte';
 	import { settingsStore } from '$lib/stores/settings.svelte';
@@ -37,9 +37,9 @@
 	import {
 		THREAD_TURN_GAP,
 		computeVirtualWindow,
+		prefixOffsets,
 		resolveTurnSizes,
 		scrollDeltaForSizeChange,
-		totalHeightFromSizes,
 		virtualTurnEntriesWithForced
 	} from '$lib/conversation/thread-virtualizer';
 	import type { ChatTurnPayload } from '$lib/actions/start-chat';
@@ -87,12 +87,15 @@
 	});
 
 	let scrollerEl = $state<HTMLDivElement | undefined>(undefined);
-	const sessionFind = createSessionFindController(() => scrollerEl ?? null);
 	let handledFindRequestId = shellStore.sessionFindRequestId;
 	let findSessionId: string | null = null;
 	let previousSearchableItemCount = 0;
 	let threadItems = $derived(isSessionSynced ? chatStore.items : snapshotItems);
 	let threadTurns = $derived(groupThreadItemsIntoTurns(threadItems));
+	const sessionFind = createSessionFindController({
+		getRoot: () => scrollerEl ?? null,
+		getTurns: () => threadTurns
+	});
 	let embeddedPinnedJobIds = $derived(pinnedJobProposalToolIds(threadItems));
 	let thinkingForAssistant = $derived(buildThinkingAttribution(threadItems));
 	// Prefer attributed tools/memory (hasVisibleThinkingBlock) so first-turn activity
@@ -289,22 +292,13 @@
 		})
 	);
 
-	let virtualWindow = $derived.by(() => {
-		// Session find walks the DOM for matches — expand the window while open.
-		if (sessionFind.open) {
-			return {
-				start: 0,
-				end: turnSizes.length,
-				offset: 0,
-				totalHeight: totalHeightFromSizes(turnSizes)
-			};
-		}
-		return computeVirtualWindow(
+	let virtualWindow = $derived(
+		computeVirtualWindow(
 			turnSizes,
 			virtualScrollTop,
 			scroll.viewportHeight || scrollerEl?.clientHeight || 0
-		);
-	});
+		)
+	);
 
 	let forcedTurnIndices = $derived.by(() => {
 		const pinnedIndex = scroll.activePinnedUserId
@@ -313,12 +307,30 @@
 		const latestIndex = lastUserId
 			? threadTurns.findIndex((turn) => turn.id === lastUserId)
 			: -1;
-		return [pinnedIndex, latestIndex];
+		// Active find hit only — never span the full transcript for find.
+		const findIndex = sessionFind.open ? sessionFind.activeTurnIndex : -1;
+		return [pinnedIndex, latestIndex, findIndex];
 	});
 
 	let visibleTurns = $derived(
 		virtualTurnEntriesWithForced(threadTurns, turnSizes, virtualWindow, forcedTurnIndices)
 	);
+
+	// Jump the virtual scroller to the active find turn so it enters the window /
+	// forced-mount set without remounting the whole transcript.
+	$effect(() => {
+		if (!sessionFind.open) return;
+		const turnIndex = sessionFind.activeTurnIndex;
+		void sessionFind.query;
+		void sessionFind.activeIndex;
+		if (turnIndex < 0 || !scrollerEl) return;
+		const sizes = untrack(() => turnSizes);
+		const offsets = prefixOffsets(sizes);
+		const top = offsets[turnIndex] ?? 0;
+		const nextTop = Math.max(0, top - scrollerEl.clientHeight * 0.25);
+		scrollerEl.scrollTo({ top: nextTop, behavior: 'auto' });
+		virtualScrollTop = scrollerEl.scrollTop;
+	});
 
 	function onThreadScroll() {
 		virtualScrollTop = scrollerEl?.scrollTop ?? 0;

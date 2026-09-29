@@ -158,3 +158,17 @@ describe('virtualTurnEntriesWithForced', () => {
 		expect(entries.length).toBeLessThan(turns.length);
 	});
 });
+
+describe('ChatThread find virtualization guard', () => {
+	it('does not remount the full transcript when session find is open', async () => {
+		const { readFileSync } = await import('node:fs');
+		const { fileURLToPath } = await import('node:url');
+		const source = readFileSync(
+			fileURLToPath(new URL('../components/chat/ChatThread.svelte', import.meta.url)),
+			'utf8'
+		);
+		expect(source).not.toMatch(/sessionFind\.open[\s\S]{0,240}end:\s*turnSizes\.length/);
+		expect(source).toContain('sessionFind.activeTurnIndex');
+		expect(source).toContain('virtualTurnEntriesWithForced');
+	});
+});

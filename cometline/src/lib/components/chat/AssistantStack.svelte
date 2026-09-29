@@ -269,6 +269,7 @@
 			use:selectableResponse
 			class="bubble assistant-bubble"
 			data-session-find-text
+			data-session-find-item={item.id}
 			role="article"
 			aria-label="Assistant response"
 		>
