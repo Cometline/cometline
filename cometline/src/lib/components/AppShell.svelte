@@ -744,7 +744,12 @@
 
 	// --- Web/file panel resize ---------------------------------------------
 	/** User's preferred share of the content row; survives temporary clamps. */
-	let preferredRatio = $state(0.5);
+	const panelSizePrefs = $derived({
+		workspacePanelRatio: settingsStore.settings.app.workspacePanelRatio,
+		workspacePanelWidth: settingsStore.settings.app.workspacePanelWidth
+	});
+	let preferredRatio = $derived(resolveWorkspacePanelRatio(panelSizePrefs, contentRowWidth()));
+	let legacyPanelRatioMigrated = false;
 	let resizing = $state(false);
 	/** True while the left sidebar width transition is in flight. */
 	let sidebarAnimating = $state(false);
@@ -817,18 +822,21 @@
 		return display;
 	}
 
-	// Keep preferredRatio in sync with persisted settings (not chrome changes).
 	$effect(() => {
-		const prefs = {
-			workspacePanelRatio: settingsStore.settings.app.workspacePanelRatio,
-			workspacePanelWidth: settingsStore.settings.app.workspacePanelWidth
-		};
-		preferredRatio = resolveWorkspacePanelRatio(prefs, contentRowWidth());
-		// Migrate legacy absolute-only prefs to an explicit ratio once.
-		if (prefs.workspacePanelRatio <= 0 && prefs.workspacePanelWidth > 0) {
-			const width = widthFromRatio(preferredRatio, contentRowWidth(), panelChrome());
-			void settingsStore.saveWorkspacePanelLayout(width, preferredRatio);
+		const ratio = settingsStore.settings.app.workspacePanelRatio;
+		const width = settingsStore.settings.app.workspacePanelWidth;
+		const row = contentRowRef?.clientWidth ?? 0;
+		if (legacyPanelRatioMigrated || ratio > 0 || !(width > 0) || !(row > 0)) {
+			if (ratio > 0) legacyPanelRatioMigrated = true;
+			return;
 		}
+		legacyPanelRatioMigrated = true;
+		const resolved = resolveWorkspacePanelRatio(
+			{ workspacePanelRatio: ratio, workspacePanelWidth: width },
+			row
+		);
+		const px = widthFromRatio(resolved, row, panelChrome());
+		void settingsStore.saveWorkspacePanelLayout(px, resolved);
 	});
 
 	// Re-apply the preferred ratio when non-sidebar chrome changes. Sidebar open/
