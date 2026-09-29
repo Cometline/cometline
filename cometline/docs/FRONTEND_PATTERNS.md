@@ -30,7 +30,9 @@ The `.svelte` shell wires props, mounts controllers, and renders child component
 ```
 ChatThread.svelte          — thin orchestrator + {#each} dispatch
 ├── createFoldController   — expand/collapse state
-├── createThreadScroll     — scroll anchoring
+├── createThreadScroll     — scroll anchoring + near-top load-older
+├── createThreadVirtual    — measure cache, virtual window, find jump
+├── createSessionFindController — find UI + shell/session wiring
 ├── createThreadClocks     — copy feedback, memory cycle tick
 ├── thread-visibility.ts   — pure show/hide predicates
 └── Row components         — UserMessageRow, AssistantMessageRow, …

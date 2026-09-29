@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"testing"
+	"time"
 
 	cometsdk "github.com/cometline/comet-sdk"
 	"github.com/cometline/cometmind/internal/db"
@@ -59,7 +60,7 @@ func TestSaveTokenUsageAccumulatesAndRecords(t *testing.T) {
 	if total.InputTokens != 15 || total.OutputTokens != 5 {
 		t.Fatalf("token usage = %+v, want in=15 out=5", total)
 	}
-	page, err := usageSvc.List(context.Background(), got.CreatedAt-1, got.UpdatedAt+1, "", 10, 0)
+	page, err := usageSvc.List(context.Background(), got.CreatedAt-1, time.Now().Add(time.Hour).UnixMilli(), "", 10, 0)
 	if err != nil {
 		t.Fatal(err)
 	}

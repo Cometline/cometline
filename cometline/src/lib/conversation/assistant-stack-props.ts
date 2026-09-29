@@ -48,11 +48,13 @@ export interface AssistantStackContext {
 export function assistantStackBindings(
 	ctx: AssistantStackContext,
 	item: AssistantItem,
-	showActivitySpinner: boolean
+	showActivitySpinner: boolean,
+	deferMarkdown = false
 ) {
 	return {
 		item,
 		context: ctx,
-		showActivitySpinner
+		showActivitySpinner,
+		deferMarkdown
 	};
 }

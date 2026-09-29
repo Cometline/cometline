@@ -1,7 +1,12 @@
 import { tick, untrack } from 'svelte';
 import type { ChatItem } from '$lib/stores/chat.svelte';
-import { activeTurnMinHeight } from './thread-turns';
+import { activeTurnMinHeight, transcriptHasLeadingOrphans } from './thread-turns';
 import { buildScrollKey, followUpPinScrollMargin, shouldShowJumpToBottom } from './thread-scroll';
+import { THREAD_HYDRATION_FAILSAFE_MS, scrollTopAfterPrepend } from './thread-virtualizer';
+
+const LOAD_OLDER_TOP_PX = 320;
+/** Max older pages to auto-fetch after hydration to re-anchor a mid-turn first page. */
+const AUTO_ANCHOR_PAGE_CAP = 5;
 
 export interface ThreadScrollDeps {
 	getSessionId: () => string;
@@ -12,6 +17,14 @@ export interface ThreadScrollDeps {
 	getUserMessageCount: () => number;
 	getIsLoading: () => boolean;
 	sessionHasCachedTranscript: (sessionId: string) => boolean;
+	/** Optional — when provided, the controller tracks the bound scroller. */
+	getScroller?: () => HTMLDivElement | undefined;
+	/** Optional keyset pagination — near-top prepend into the same chat store. */
+	getHasMoreHistory?: () => boolean;
+	getIsLoadingOlder?: () => boolean;
+	loadOlderTranscript?: (sessionId: string) => Promise<number>;
+	/** Keep virtualization / other listeners aligned with programmatic scrollTop. */
+	onScrollTopChange?: (top: number) => void;
 }
 
 export function createThreadScroll(deps: ThreadScrollDeps) {
@@ -27,6 +40,17 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 	let sessionHadTranscript = false;
 	/** The follow-up user row pinned while its reply canvas is active. */
 	let activePinnedUserId = $state<string | null>(null);
+	/** Covers the post-load tick + scrollTop correction window (store flag clears earlier). */
+	let loadOlderInFlight = false;
+	/** Auto-anchor (leading orphan → loadOlder) in flight; shared with scroll-near-top gate. */
+	let autoAnchorInFlight = false;
+	/** Pages already auto-anchored for the current session (reset on session change). */
+	let autoAnchorPagesUsed = 0;
+	/**
+	 * Wall-clock escape from opacity:0. Lives outside the settle $effect so
+	 * threadItems / sync churn cannot cancel and re-arm it (#157 miss).
+	 */
+	let hydrationFailsafeTimer: ReturnType<typeof setTimeout> | 0 = 0;
 
 	const scrollKey = $derived(buildScrollKey(deps.getThreadItems(), deps.getSessionStreaming()));
 	const turnMinHeight = $derived.by(() =>
@@ -34,9 +58,23 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 	);
 	const userPinScrollMargin = $derived(followUpPinScrollMargin(viewportHeight));
 
+	function notifyScrollTop() {
+		if (!scroller) return;
+		deps.onScrollTopChange?.(scroller.scrollTop);
+	}
+
 	function setScroller(element: HTMLDivElement | undefined) {
 		scroller = element;
+		if (element) deps.onScrollTopChange?.(element.scrollTop);
 	}
+
+	$effect(() => {
+		const getScroller = deps.getScroller;
+		if (!getScroller) return;
+		const element = getScroller();
+		scroller = element;
+		if (element) deps.onScrollTopChange?.(element.scrollTop);
+	});
 
 	function latestSentinel() {
 		return scroller?.querySelector<HTMLElement>('[data-thread-latest-sentinel]') ?? null;
@@ -50,8 +88,78 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 		showJumpToBottom = shouldShowJumpToBottom(scroller, latestSentinel());
 	}
 
+	async function maybeLoadOlderHistory() {
+		const loadOlder = deps.loadOlderTranscript;
+		if (!loadOlder) return;
+		if (loadOlderInFlight || isInitialTranscriptPaint) return;
+		if (!deps.getIsSessionSynced()) return;
+		if (!deps.getHasMoreHistory?.() || deps.getIsLoadingOlder?.()) return;
+		const el = scroller;
+		if (!el || el.scrollTop > LOAD_OLDER_TOP_PX) return;
+		loadOlderInFlight = true;
+		const prevTop = el.scrollTop;
+		const prevHeight = el.scrollHeight;
+		try {
+			const prepended = await loadOlder(deps.getSessionId());
+			if (!prepended || !scroller) return;
+			// Flush derived virtual spacer height before correcting scrollTop.
+			await tick();
+			if (!scroller) return;
+			const nextHeight = scroller.scrollHeight;
+			scroller.scrollTop = scrollTopAfterPrepend(prevTop, prevHeight, nextHeight);
+			notifyScrollTop();
+		} finally {
+			loadOlderInFlight = false;
+		}
+	}
+
+	/**
+	 * After first transcript page apply / hydration, if hasMore and the page starts
+	 * mid-turn (leading non-user orphans), keep loading older pages until an
+	 * anchoring user appears or AUTO_ANCHOR_PAGE_CAP is hit. Not scroll-gated.
+	 */
+	async function maybeAutoAnchorLeadingOrphans() {
+		const loadOlder = deps.loadOlderTranscript;
+		if (!loadOlder) return;
+		if (autoAnchorInFlight || loadOlderInFlight || isInitialTranscriptPaint) return;
+		if (!deps.getIsSessionSynced()) return;
+		if (!deps.getHasMoreHistory?.() || deps.getIsLoadingOlder?.()) return;
+		if (autoAnchorPagesUsed >= AUTO_ANCHOR_PAGE_CAP) return;
+		if (!transcriptHasLeadingOrphans(deps.getThreadItems())) return;
+
+		autoAnchorInFlight = true;
+		loadOlderInFlight = true;
+		const el = scroller;
+		const prevTop = el?.scrollTop ?? 0;
+		const prevHeight = el?.scrollHeight ?? 0;
+		try {
+			while (
+				autoAnchorPagesUsed < AUTO_ANCHOR_PAGE_CAP &&
+				deps.getHasMoreHistory?.() &&
+				!deps.getIsLoadingOlder?.() &&
+				transcriptHasLeadingOrphans(deps.getThreadItems())
+			) {
+				const prepended = await loadOlder(deps.getSessionId());
+				autoAnchorPagesUsed += 1;
+				if (!prepended) break;
+			}
+			if (el && scroller === el && prevHeight > 0) {
+				await tick();
+				if (!scroller) return;
+				const nextHeight = scroller.scrollHeight;
+				scroller.scrollTop = scrollTopAfterPrepend(prevTop, prevHeight, nextHeight);
+				notifyScrollTop();
+			}
+		} finally {
+			autoAnchorInFlight = false;
+			loadOlderInFlight = false;
+		}
+	}
+
 	function onScroll() {
 		updateJumpToBottom();
+		notifyScrollTop();
+		void maybeLoadOlderHistory();
 	}
 
 	function cancelScheduledScrollUpdate() {
@@ -113,6 +221,52 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 		});
 	}
 
+	function clearHydrationFailsafe() {
+		if (hydrationFailsafeTimer) {
+			clearTimeout(hydrationFailsafeTimer);
+			hydrationFailsafeTimer = 0;
+		}
+	}
+
+	/** Reveal the thread: clear opacity:0 / pointer-events:none. */
+	function finishHydrationPaint() {
+		clearHydrationFailsafe();
+		if (scroller) {
+			scroller.scrollTop = scroller.scrollHeight;
+			notifyScrollTop();
+		}
+		isInitialTranscriptPaint = false;
+		updateJumpToBottom();
+		// Post-hydration kick: re-anchor mid-turn first page (not scroll-only).
+		void maybeAutoAnchorLeadingOrphans();
+	}
+
+	/**
+	 * Arm (or keep) the wall-clock failsafe. Idempotent while already armed so
+	 * settle-effect restarts from item churn cannot reset the deadline.
+	 */
+	function armHydrationFailsafe() {
+		if (hydrationFailsafeTimer) return;
+		hydrationFailsafeTimer = setTimeout(() => {
+			hydrationFailsafeTimer = 0;
+			if (!isInitialTranscriptPaint) return;
+			finishHydrationPaint();
+		}, THREAD_HYDRATION_FAILSAFE_MS);
+	}
+
+	function beginHydrationPaint() {
+		isInitialTranscriptPaint = true;
+		// Idempotent arm: sync/loading flaps must not reset the wall-clock deadline.
+		armHydrationFailsafe();
+	}
+
+	/** New session (or remount): reset the failsafe deadline for this hydration episode. */
+	function beginHydrationPaintFresh() {
+		clearHydrationFailsafe();
+		isInitialTranscriptPaint = true;
+		armHydrationFailsafe();
+	}
+
 	$effect(() => {
 		const sessionId = deps.getSessionId();
 		if (sessionId === lastSessionId) return;
@@ -120,9 +274,10 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 		untrack(() => {
 			sessionHadTranscript = deps.sessionHasCachedTranscript(sessionId);
 			lastScrolledUserId = deps.getLastUserId();
-			isInitialTranscriptPaint = true;
+			beginHydrationPaintFresh();
 			activePinnedUserId = null;
 			showJumpToBottom = false;
+			autoAnchorPagesUsed = 0;
 		});
 	});
 
@@ -132,11 +287,11 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 		const isLoading = deps.getIsLoading();
 
 		if (!isSessionSynced) {
-			isInitialTranscriptPaint = true;
+			beginHydrationPaint();
 			return;
 		}
 		if (isLoading && threadItems.length === 0) {
-			isInitialTranscriptPaint = true;
+			beginHydrationPaint();
 			return;
 		}
 		if (threadItems.length === 0) {
@@ -145,6 +300,7 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 			// distinction matters when /clear empties the current session without
 			// changing its id: keeping the hydration flag set would hide the next
 			// user flight and assistant handoff behind the transcript paint state.
+			clearHydrationFailsafe();
 			isInitialTranscriptPaint = false;
 			lastScrolledUserId = null;
 			activePinnedUserId = null;
@@ -157,6 +313,7 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 			// Mark the session as live-ready once so later follow-up pins are not
 			// wiped on every streaming effect re-run (common in the mini window).
 			sessionHadTranscript = true;
+			clearHydrationFailsafe();
 			isInitialTranscriptPaint = false;
 			lastScrolledUserId = null;
 			activePinnedUserId = null;
@@ -166,6 +323,10 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 
 		if (!isInitialTranscriptPaint) return;
 
+		// Ensure failsafe is armed even if we entered hydrating via a path that
+		// did not call beginHydrationPaint (e.g. initial controller mount).
+		armHydrationFailsafe();
+
 		let cancelled = false;
 		let settleFrame = 0;
 		let lastHeight = 0;
@@ -174,9 +335,12 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 
 		const finishHydration = () => {
 			if (cancelled) return;
-			if (scroller) scroller.scrollTop = scroller.scrollHeight;
-			isInitialTranscriptPaint = false;
-			updateJumpToBottom();
+			cancelled = true;
+			if (settleFrame) {
+				cancelAnimationFrame(settleFrame);
+				settleFrame = 0;
+			}
+			finishHydrationPaint();
 		};
 
 		const settle = () => {
@@ -186,6 +350,7 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 				return;
 			}
 			scroller.scrollTop = scroller.scrollHeight;
+			notifyScrollTop();
 			const height = scroller.scrollHeight;
 			if (height === lastHeight) stableFrames += 1;
 			else {
@@ -206,6 +371,9 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 		});
 
 		return () => {
+			// Cancel rAF settle only — do NOT clear the wall-clock failsafe.
+			// threadItems / sync churn re-enters this effect; resetting the
+			// failsafe was why #157 still hung opacity:0 on soft-swap/open.
 			cancelled = true;
 			if (settleFrame) cancelAnimationFrame(settleFrame);
 		};
@@ -256,6 +424,15 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 		presentFollowUpTurn(userId);
 	});
 
+	// If leading orphans appear after paint (or hasMore flips), keep auto-anchoring.
+	$effect(() => {
+		if (isInitialTranscriptPaint) return;
+		if (!deps.getIsSessionSynced()) return;
+		void deps.getThreadItems();
+		void deps.getHasMoreHistory?.();
+		void maybeAutoAnchorLeadingOrphans();
+	});
+
 	return {
 		get showJumpToBottom() {
 			return showJumpToBottom;
@@ -277,6 +454,8 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 		},
 		setScroller,
 		onScroll,
-		jumpToBottom
+		jumpToBottom,
+		maybeLoadOlderHistory,
+		maybeAutoAnchorLeadingOrphans
 	};
 }

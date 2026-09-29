@@ -39,11 +39,14 @@
 	let {
 		item,
 		context,
-		showActivitySpinner
+		showActivitySpinner,
+		deferMarkdown = false
 	}: {
 		item: AssistantItem;
 		context: AssistantStackContext;
 		showActivitySpinner: boolean;
+		/** Skip AssistantMarkdown/Shiki while transcript is hydrating (mega only). */
+		deferMarkdown?: boolean;
 	} = $props();
 
 	let lightbox = $state<{ src: string; alt: string } | null>(null);
@@ -269,12 +272,14 @@
 			use:selectableResponse
 			class="bubble assistant-bubble"
 			data-session-find-text
+			data-session-find-item={item.id}
 			role="article"
 			aria-label="Assistant response"
 		>
 			<AssistantMarkdown
 				source={item.text}
 				streaming={item.id === context.streamingAssistantId}
+				deferred={deferMarkdown}
 			/>
 		</div>
 	{/if}

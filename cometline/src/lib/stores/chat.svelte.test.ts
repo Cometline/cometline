@@ -961,3 +961,52 @@ describe('chatStore clear and subagents', () => {
 		expect(chatStore.items.some((item) => item.type === 'subagent')).toBe(false);
 	});
 });
+
+describe('chatStore transcript pagination', () => {
+	beforeEach(() => {
+		chatStore.clear();
+		sessionStore.setSessions([]);
+		vi.clearAllMocks();
+		vi.mocked(listChildSessions).mockResolvedValue({ sessions: [] });
+	});
+
+	it('loads a recent page and prepends older items without remounting live ids', async () => {
+		vi.mocked(getSessionMessages).mockImplementation(async (_id, opts) => {
+			if (opts?.before) {
+				return {
+					session_id: 'sess-page',
+					items: [
+						{ type: 'user' as const, text: 'older-user' },
+						{ type: 'assistant' as const, text: 'older-assistant' }
+					],
+					has_more: false
+				};
+			}
+			return {
+				session_id: 'sess-page',
+				items: [
+					{ type: 'user' as const, text: 'recent-user' },
+					{ type: 'assistant' as const, text: 'recent-assistant' }
+				],
+				has_more: true,
+				next_before: '1000:msg-recent'
+			};
+		});
+
+		await chatStore.loadTranscript('sess-page');
+		expect(chatStore.hasMoreHistory).toBe(true);
+		const recentIds = chatStore.items.map((item) => item.id);
+		expect(recentIds[0]).toBe('history-0');
+
+		const prepended = await chatStore.loadOlderTranscript('sess-page');
+		expect(prepended).toBeGreaterThan(0);
+		const texts = chatStore.items.map((item) =>
+			item.type === 'user' || item.type === 'assistant' ? item.text : ''
+		);
+		expect(texts).toEqual(['older-user', 'older-assistant', 'recent-user', 'recent-assistant']);
+		// Live tail ids must stay stable so virtualization measure cache / keyed each survive.
+		expect(chatStore.items.map((item) => item.id).slice(-recentIds.length)).toEqual(recentIds);
+		expect(chatStore.hasMoreHistory).toBe(false);
+		expect(vi.mocked(getSessionMessages).mock.calls.some((call) => call[1]?.before)).toBe(true);
+	});
+});

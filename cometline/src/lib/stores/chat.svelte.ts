@@ -54,6 +54,10 @@ function createChatStore() {
 	const sessionCache = new Map<string, ChatItem[]>();
 	const sessionErrors = new Map<string, string>();
 	const sessionContextBudgets = new Map<string, ContextBudgetSnapshot>();
+	type TranscriptPageState = { hasMore: boolean; nextBefore: string; olderPageSeq: number };
+	const sessionTranscriptPages = new Map<string, TranscriptPageState>();
+	let isLoadingOlder = $state(false);
+	let hasMoreHistory = $state(false);
 	const streamHandles = new Map<string, SessionStream>();
 	const localStreamingSessionIds = new Set<string>();
 	const remoteStreamingSessionIds = new Set<string>();
@@ -172,6 +176,7 @@ function createChatStore() {
 		sessionErrors.delete(targetSessionID);
 		setRunError(targetSessionID, false);
 		sessionContextBudgets.delete(targetSessionID);
+		sessionTranscriptPages.delete(targetSessionID);
 		sessionStore.discardSession(targetSessionID);
 		if (sessionID === targetSessionID) {
 			sessionID = null;
@@ -179,6 +184,8 @@ function createChatStore() {
 			error = '';
 			contextBudget = null;
 			isLoading = false;
+			isLoadingOlder = false;
+			hasMoreHistory = false;
 		}
 		if (browser) {
 			void goto(homeRouteFor());
@@ -257,15 +264,53 @@ function createChatStore() {
 		globalStreamRun += 1;
 	}
 
+
+	function getTranscriptPageState(targetSessionID: string): TranscriptPageState {
+		return (
+			sessionTranscriptPages.get(targetSessionID) ?? {
+				hasMore: false,
+				nextBefore: '',
+				olderPageSeq: 0
+			}
+		);
+	}
+
+	function setTranscriptPageState(
+		targetSessionID: string,
+		next: TranscriptPageState,
+		syncActive = true
+	) {
+		sessionTranscriptPages.set(targetSessionID, next);
+		if (syncActive && sessionID === targetSessionID) {
+			hasMoreHistory = next.hasMore;
+		}
+	}
+
+	function applyTranscriptPageMeta(
+		targetSessionID: string,
+		transcript: { has_more?: boolean; next_before?: string },
+		opts: { resetSeq?: boolean } = {}
+	) {
+		const prev = getTranscriptPageState(targetSessionID);
+		setTranscriptPageState(targetSessionID, {
+			hasMore: Boolean(transcript.has_more),
+			nextBefore: transcript.next_before ?? '',
+			olderPageSeq: opts.resetSeq ? 0 : prev.olderPageSeq
+		});
+	}
+
 	function clear() {
 		abortAllStreams();
 		sessionCache.clear();
 		sessionErrors.clear();
 		failedRunSessionIds = new Set();
 		sessionContextBudgets.clear();
+		sessionTranscriptPages.clear();
 		sessionID = null;
 		items = [];
 		isLoading = false;
+		isLoadingOlder = false;
+		hasMoreHistory = false;
 		error = '';
 		contextBudget = null;
 		loadRun += 1;
@@ -280,10 +325,13 @@ function createChatStore() {
 		sessionErrors.delete(targetSessionID);
 		setRunError(targetSessionID, false);
 		sessionContextBudgets.delete(targetSessionID);
+		sessionTranscriptPages.delete(targetSessionID);
 		writeSessionItems(targetSessionID, []);
 		if (sessionID === targetSessionID) {
 			error = '';
 			isLoading = false;
+			isLoadingOlder = false;
+			hasMoreHistory = false;
 			contextBudget = null;
 		}
 	}
@@ -298,6 +346,8 @@ function createChatStore() {
 		sessionID = null;
 		items = [];
 		isLoading = false;
+		isLoadingOlder = false;
+		hasMoreHistory = false;
 		error = '';
 		contextBudget = null;
 	}
@@ -346,7 +396,9 @@ function createChatStore() {
 		items = sessionCache.get(nextSessionID) ?? [];
 		error = sessionErrors.get(nextSessionID) ?? '';
 		contextBudget = sessionContextBudgets.get(nextSessionID) ?? null;
+		hasMoreHistory = getTranscriptPageState(nextSessionID).hasMore;
 		isLoading = false;
+		isLoadingOlder = false;
 		unreadSessionOutputStore.markRead(nextSessionID);
 	}
 
@@ -365,6 +417,7 @@ function createChatStore() {
 			items = sessionCache.get(nextSessionID) ?? [];
 			error = sessionErrors.get(nextSessionID) ?? '';
 			contextBudget = sessionContextBudgets.get(nextSessionID) ?? null;
+			hasMoreHistory = getTranscriptPageState(nextSessionID).hasMore;
 		} else {
 			sessionID = nextSessionID;
 		}
@@ -381,10 +434,11 @@ function createChatStore() {
 				if (hasInFlightTurn(nextSessionID) && cachedItemCount(nextSessionID) > 0) return;
 				if (sessionID === nextSessionID && items.length > 0) return;
 				const loaded = mergeSubagents(
-					itemsFromTranscript(transcript.items),
+					itemsFromTranscript(transcript.items, { idPrefix: 'history' }),
 					children.sessions
 				);
 				writeSessionItems(nextSessionID, loaded);
+				applyTranscriptPageMeta(nextSessionID, transcript, { resetSeq: true });
 				sessionErrors.delete(nextSessionID);
 				if (sessionID === nextSessionID) error = '';
 			} catch (err) {
@@ -425,8 +479,12 @@ function createChatStore() {
 			}));
 			if (run !== loadRun && sessionID !== nextSessionID) return;
 			if (hasInFlightTurn(nextSessionID)) return;
-			const loaded = mergeSubagents(itemsFromTranscript(transcript.items), children.sessions);
+			const loaded = mergeSubagents(
+				itemsFromTranscript(transcript.items, { idPrefix: 'history' }),
+				children.sessions
+			);
 			writeSessionItems(nextSessionID, loaded);
+			applyTranscriptPageMeta(nextSessionID, transcript, { resetSeq: true });
 			sessionErrors.delete(nextSessionID);
 			if (sessionID === nextSessionID) error = '';
 		} catch (err) {
@@ -439,6 +497,44 @@ function createChatStore() {
 			const message = err instanceof Error ? err.message : 'Failed to refresh transcript';
 			sessionErrors.set(nextSessionID, message);
 			if (sessionID === nextSessionID) error = message;
+		}
+	}
+
+
+	/** Prepend an older keyset page into the same chat store. Returns how many ChatItems were prepended. */
+	async function loadOlderTranscript(targetSessionID: string = sessionID ?? ''): Promise<number> {
+		if (!targetSessionID) return 0;
+		const page = getTranscriptPageState(targetSessionID);
+		if (!page.hasMore || !page.nextBefore) return 0;
+		if (isLoadingOlder && sessionID === targetSessionID) return 0;
+		if (sessionID === targetSessionID) isLoadingOlder = true;
+		const before = page.nextBefore;
+		const seq = page.olderPageSeq + 1;
+		try {
+			const transcript = await getSessionMessages(targetSessionID, { before });
+			if (sessionID !== targetSessionID && !sessionCache.has(targetSessionID)) return 0;
+			const older = itemsFromTranscript(transcript.items, { idPrefix: `older-${seq}` });
+			if (older.length > 0) {
+				const current = getCachedItems(targetSessionID);
+				writeSessionItems(targetSessionID, [...older, ...current]);
+			}
+			setTranscriptPageState(targetSessionID, {
+				hasMore: Boolean(transcript.has_more),
+				nextBefore: transcript.next_before ?? '',
+				olderPageSeq: seq
+			});
+			return older.length;
+		} catch (err) {
+			if (isSessionNotFoundError(err)) {
+				discardMissingSession(targetSessionID);
+				return 0;
+			}
+			const message = err instanceof Error ? err.message : 'Failed to load older messages';
+			sessionErrors.set(targetSessionID, message);
+			if (sessionID === targetSessionID) error = message;
+			return 0;
+		} finally {
+			if (sessionID === targetSessionID) isLoadingOlder = false;
 		}
 	}
 
@@ -920,6 +1016,12 @@ function createChatStore() {
 		get isLoading() {
 			return isLoading;
 		},
+		get isLoadingOlder() {
+			return isLoadingOlder;
+		},
+		get hasMoreHistory() {
+			return hasMoreHistory;
+		},
 		get isStreaming() {
 			return streamingSessionIds.size > 0;
 		},
@@ -941,6 +1043,7 @@ function createChatStore() {
 		detachActiveSession,
 		bindSession,
 		loadTranscript,
+		loadOlderTranscript,
 		refreshTranscript,
 		resumeRun,
 		stageUserForSession,

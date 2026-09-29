@@ -36,3 +36,9 @@ ORDER BY tc.created_at ASC;
 UPDATE tool_calls
 SET compacted_at = ?
 WHERE id = ?;
+
+-- name: ListToolCallsByMessageIDs :many
+SELECT *
+FROM tool_calls
+WHERE message_id IN (sqlc.slice('message_ids'))
+ORDER BY created_at ASC, id ASC;

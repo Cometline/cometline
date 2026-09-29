@@ -32,6 +32,7 @@
 	} from '$lib/conversation/thread-visibility';
 	import { createFoldController } from '$lib/conversation/thread-fold.svelte';
 	import { createThreadScroll } from '$lib/conversation/thread-scroll.svelte';
+	import { createThreadVirtual } from '$lib/conversation/thread-virtual.svelte';
 	import { createThreadClocks } from '$lib/conversation/thread-clocks.svelte';
 	import { groupThreadItemsIntoTurns } from '$lib/conversation/thread-turns';
 	import type { ChatTurnPayload } from '$lib/actions/start-chat';
@@ -79,12 +80,23 @@
 	});
 
 	let scrollerEl = $state<HTMLDivElement | undefined>(undefined);
-	const sessionFind = createSessionFindController(() => scrollerEl ?? null);
-	let handledFindRequestId = shellStore.sessionFindRequestId;
-	let findSessionId: string | null = null;
-	let previousSearchableItemCount = 0;
 	let threadItems = $derived(isSessionSynced ? chatStore.items : snapshotItems);
 	let threadTurns = $derived(groupThreadItemsIntoTurns(threadItems));
+	let searchableItemCount = $derived(
+		threadItems.filter(
+			(item) => (item.type === 'user' || item.type === 'assistant') && item.text.trim()
+		).length
+	);
+
+	const sessionFind = createSessionFindController({
+		getRoot: () => scrollerEl ?? null,
+		getTurns: () => threadTurns,
+		getSessionId: () => sessionId,
+		getIsSessionSynced: () => isSessionSynced,
+		getFindRequestId: () => shellStore.sessionFindRequestId,
+		getSearchableItemCount: () => searchableItemCount
+	});
+
 	let embeddedPinnedJobIds = $derived(pinnedJobProposalToolIds(threadItems));
 	let thinkingForAssistant = $derived(buildThinkingAttribution(threadItems));
 	// Prefer attributed tools/memory (hasVisibleThinkingBlock) so first-turn activity
@@ -126,6 +138,10 @@
 		return chatStore.getCachedItemCount(targetSessionId) > 0;
 	}
 
+	const scrollTopSink = {
+		handler: (_top: number) => {}
+	};
+
 	const scroll = createThreadScroll({
 		getSessionId: () => sessionId,
 		getIsSessionSynced: () => isSessionSynced,
@@ -134,41 +150,28 @@
 		getLastUserId: () => lastUserId,
 		getUserMessageCount: () => userMessageCount,
 		getIsLoading: () => chatStore.isLoading,
-		sessionHasCachedTranscript
+		sessionHasCachedTranscript,
+		getScroller: () => scrollerEl,
+		getHasMoreHistory: () => chatStore.hasMoreHistory,
+		getIsLoadingOlder: () => chatStore.isLoadingOlder,
+		loadOlderTranscript: (id) => chatStore.loadOlderTranscript(id),
+		onScrollTopChange: (top) => scrollTopSink.handler(top)
 	});
 
-	$effect(() => {
-		scroll.setScroller(scrollerEl);
+	const virtual = createThreadVirtual({
+		getSessionId: () => sessionId,
+		getThreadTurns: () => threadTurns,
+		getScroller: () => scrollerEl,
+		getViewportHeight: () => scroll.viewportHeight,
+		getActivePinnedUserId: () => scroll.activePinnedUserId,
+		getActiveTurnMinHeight: () => scroll.activeTurnMinHeight,
+		getLastUserId: () => lastUserId,
+		getIsInitialTranscriptPaint: () => scroll.isInitialTranscriptPaint,
+		getFindOpen: () => sessionFind.open,
+		getFindActiveTurnIndex: () => sessionFind.activeTurnIndex,
+		getFindJumpKey: () => `${sessionFind.query}:${sessionFind.activeIndex}`
 	});
-
-	$effect(() => {
-		const requestId = shellStore.sessionFindRequestId;
-		if (requestId === handledFindRequestId) return;
-		handledFindRequestId = requestId;
-		if (isSessionSynced) sessionFind.openFind();
-	});
-
-	$effect(() => {
-		const nextSessionId = sessionId;
-		if (nextSessionId === findSessionId) return;
-		findSessionId = nextSessionId;
-		sessionFind.closeFind({ restoreFocus: false });
-	});
-
-	$effect(() => {
-		if (!sessionFind.open || !scrollerEl) return;
-		return sessionFind.observe();
-	});
-
-	$effect(() => {
-		const searchableItemCount = threadItems.filter(
-			(item) => (item.type === 'user' || item.type === 'assistant') && item.text.trim()
-		).length;
-		if (previousSearchableItemCount > 0 && searchableItemCount === 0) {
-			sessionFind.closeFind({ restoreFocus: false });
-		}
-		previousSearchableItemCount = searchableItemCount;
-	});
+	scrollTopSink.handler = (top) => virtual.setScrollTop(top);
 
 	onDestroy(() => sessionFind.closeFind({ restoreFocus: false }));
 
@@ -243,13 +246,17 @@
 		awaitingFirstAssistant || scroll.isInitialTranscriptPaint ? { duration: 0 } : TRANSCRIPT_IN
 	);
 
+	function onThreadScroll() {
+		scroll.onScroll();
+	}
+
 </script>
 
 <div class="thread-wrap">
 	<div
 		class="thread scrollbar-none"
 		bind:this={scrollerEl}
-		onscroll={scroll.onScroll}
+		onscroll={onThreadScroll}
 		style:--thread-user-pin-offset-followup="{scroll.userPinScrollMargin}px"
 		role="log"
 		aria-label="Conversation"
@@ -277,41 +284,49 @@
 						/>
 					{/if}
 
-					{#each threadTurns as turn (turn.id)}
+					{#if threadTurns.length > 0}
+						<div class="thread-virtual" style:height="{virtual.virtualWindow.totalHeight}px">
+					{#each virtual.visibleTurns as entry (entry.item.id)}
+						{@const turn = entry.item}
 						{@const isActiveTurn = scroll.activePinnedUserId === turn.id}
 						<div
 							class="thread-turn"
 							class:thread-turn-active={isActiveTurn}
+							data-turn-id={turn.id}
+							style:top="{entry.offset}px"
 							style:min-height={isActiveTurn
 								? `${scroll.activeTurnMinHeight}px`
 								: undefined}
+							use:virtual.measureTurnHeight={{ id: turn.id, onMeasure: virtual.onTurnMeasured }}
 						>
-							<UserMessageRow
-								item={turn.user}
-								{avatarSrc}
-								{avatarSrcset}
-								continuationRow={!startsSpeakerRun(
-									threadItems,
-									turn.userIndex,
-									'user'
-								)}
-								copiedId={clocks.copiedId}
-								onCopyMessage={clocks.copyMessage}
-								flyOnReveal={turn.user.id !== firstUserId}
-							/>
-							{#if showFirstTurnAvatarSlot(visibilityContext) && turn.user.id === firstUserId}
-								<FirstTurnAssistantSlot
+							{#if turn.user}
+								<UserMessageRow
+									item={turn.user}
 									{avatarSrc}
 									{avatarSrcset}
-									{firstTurnHandoffPending}
-									{firstAssistantItem}
-									{sessionStreaming}
-									{stackContext}
-									{showAssistantRow}
-									{showActivitySpinner}
-									flightPlaceholder={!firstAssistantId}
-									ariaHidden={!firstAssistantId}
+									continuationRow={!startsSpeakerRun(
+										threadItems,
+										turn.userIndex,
+										'user'
+									)}
+									copiedId={clocks.copiedId}
+									onCopyMessage={clocks.copyMessage}
+									flyOnReveal={turn.user.id !== firstUserId}
 								/>
+								{#if showFirstTurnAvatarSlot(visibilityContext) && turn.user.id === firstUserId}
+									<FirstTurnAssistantSlot
+										{avatarSrc}
+										{avatarSrcset}
+										{firstTurnHandoffPending}
+										{firstAssistantItem}
+										{sessionStreaming}
+										{stackContext}
+										{showAssistantRow}
+										{showActivitySpinner}
+										flightPlaceholder={!firstAssistantId}
+										ariaHidden={!firstAssistantId}
+									/>
+								{/if}
 							{/if}
 							{#each turn.items as { item, index } (item.id)}
 								{#if item.type === 'assistant' && showAssistantRow(item) && shouldShowAssistantInNormalList(item, visibilityContext)}
@@ -328,6 +343,8 @@
 											firstTurnHandoffPending,
 											firstAssistantRowId
 										)}
+										deferMarkdown={entry.skipHydrationMarkdown &&
+											item.id !== streamingAssistantId}
 									/>
 								{:else if item.type === 'tool' && !isToolInBuffer(item) && !embeddedPinnedJobIds.has(item.id)}
 									<ToolMessageRow
@@ -364,6 +381,8 @@
 							{/if}
 						</div>
 					{/each}
+						</div>
+					{/if}
 				</div>
 			{/if}
 		</div>
@@ -417,7 +436,13 @@
 		display: flex;
 		flex-direction: column;
 		gap: 14px;
+		width: 100%;
 		transition: opacity var(--duration-session-switch) var(--ease-smooth);
+	}
+
+	.thread-virtual {
+		position: relative;
+		width: 100%;
 	}
 
 	.thread-messages.hydrating {
@@ -426,14 +451,21 @@
 	}
 
 	.thread-turn {
+		position: absolute;
+		left: 0;
+		right: 0;
 		display: flex;
 		flex-direction: column;
 		gap: 14px;
-		/* Keep offscreen turns out of layout work while pane-width transitions run. */
-		content-visibility: auto;
-		contain-intrinsic-block-size: auto 500px;
 		/* Keep min-height growth from sticky-anchoring the bubble (esp. mini). */
 		overflow-anchor: none;
+		/*
+		 * Reintroduce release-style paint deferral for overscan mounts without a
+		 * plaintext↔{@html} swap: browser skips layout/paint until near viewport.
+		 * JS/Shiki still only skipped during hydration (B); this is paint defense (C).
+		 */
+		content-visibility: auto;
+		contain-intrinsic-block-size: auto 500px;
 	}
 
 	.thread-turn-active :global(.user-row) {

@@ -1,3 +1,6 @@
+import type { ChatItem } from '$lib/stores/chat.svelte';
+import type { ThreadTurn } from './thread-turns';
+
 export const SESSION_FIND_MATCH_HIGHLIGHT = 'session-find-match';
 export const SESSION_FIND_ACTIVE_HIGHLIGHT = 'session-find-active';
 
@@ -9,6 +12,15 @@ type CharacterPosition = {
 export type SessionFindMatch = {
 	range: Range;
 	root: HTMLElement;
+};
+
+/** Store-backed match used while the thread is virtualized (no full DOM mount). */
+export type SessionItemFindMatch = {
+	itemId: string;
+	turnId: string;
+	turnIndex: number;
+	/** 0-based occurrence of the needle within this item's searchable text. */
+	occurrenceInItem: number;
 };
 
 const BLOCK_SELECTOR = 'p,li,pre,blockquote,h1,h2,h3,h4,h5,h6,td,th,div';
@@ -66,11 +78,11 @@ function indexSearchRoot(root: HTMLElement) {
 	return { text: text.join('').trimEnd(), positions };
 }
 
-function normalizeQuery(query: string): string {
+export function normalizeQuery(query: string): string {
 	return query.replace(/\s+/gu, ' ').trim();
 }
 
-function escapeRegExp(value: string): string {
+export function escapeRegExp(value: string): string {
 	return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
@@ -100,5 +112,52 @@ export function findSessionTextMatches(root: HTMLElement, query: string): Sessio
 			if (range) matches.push({ range, root: searchRoot });
 		}
 	}
+	return matches;
+}
+
+function searchableItemText(item: ChatItem): string | null {
+	if (item.type === 'user' || item.type === 'assistant') {
+		return item.text ?? '';
+	}
+	return null;
+}
+
+/**
+ * Find matches in transcript plain text (user / assistant bodies) without mounting
+ * offscreen turns. Occurrence order matches transcript order.
+ */
+export function findSessionItemMatches(
+	turns: readonly ThreadTurn[],
+	query: string
+): SessionItemFindMatch[] {
+	const needle = normalizeQuery(query);
+	if (!needle) return [];
+	const pattern = new RegExp(escapeRegExp(needle), 'giu');
+	const matches: SessionItemFindMatch[] = [];
+
+	for (let turnIndex = 0; turnIndex < turns.length; turnIndex++) {
+		const turn = turns[turnIndex];
+		const items: ChatItem[] = turn.user
+			? [turn.user, ...turn.items.map((entry) => entry.item)]
+			: turn.items.map((entry) => entry.item);
+		for (const item of items) {
+			const raw = searchableItemText(item);
+			if (raw === null) continue;
+			const text = normalizeQuery(raw);
+			if (!text) continue;
+			let occurrenceInItem = 0;
+			for (const match of text.matchAll(pattern)) {
+				void match;
+				matches.push({
+					itemId: item.id,
+					turnId: turn.id,
+					turnIndex,
+					occurrenceInItem
+				});
+				occurrenceInItem += 1;
+			}
+		}
+	}
+
 	return matches;
 }
