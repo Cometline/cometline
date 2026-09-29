@@ -41,11 +41,6 @@ describe('workspace-panel-prefs', () => {
 		expect(readWorkspacePanelTreeSource()).toBe('workspace');
 	});
 
-	it('reads legacy tree source key', () => {
-		localStorage.setItem('cometline.webPanelTreeSource', 'changes');
-		expect(readWorkspacePanelTreeSource()).toBe('changes');
-	});
-
 	it('defaults markdown view mode to preview', () => {
 		expect(readMarkdownFileViewMode()).toBe('preview');
 	});

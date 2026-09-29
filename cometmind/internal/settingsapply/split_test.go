@@ -1,9 +1,6 @@
 package settingsapply_test
 
 import (
-	"encoding/json"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/cometline/cometmind/internal/settingsapply"
@@ -42,59 +39,6 @@ func TestSplitMergeRoundTrip(t *testing.T) {
 	}
 	if again["cometmind"].(map[string]any)["memory"].(map[string]any)["enabled"] != true {
 		t.Fatal("runtime memory lost")
-	}
-}
-
-func TestMigrateSplitFilesIfNeeded(t *testing.T) {
-	dir := t.TempDir()
-	t.Setenv("COMETMIND_DATA_DIR", dir)
-	settingsPath := filepath.Join(dir, "cometline-settings.json")
-	monolith := map[string]any{
-		"providers": []any{},
-		"appearance": map[string]any{
-			"heroComposer": map[string]any{"presetId": "rose"},
-		},
-		"app": map[string]any{"personaId": "minako"},
-		"cometmind": map[string]any{
-			"systemPromptPath": "/soul.md",
-			"maxTokens":        2048,
-		},
-	}
-	raw, _ := json.MarshalIndent(monolith, "", "  ")
-	if err := os.WriteFile(settingsPath, append(raw, '\n'), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := settingsapply.MigrateSplitFilesIfNeeded(); err != nil {
-		t.Fatal(err)
-	}
-
-	settingsRaw, err := os.ReadFile(settingsPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var settingsDoc map[string]any
-	if err := json.Unmarshal(settingsRaw, &settingsDoc); err != nil {
-		t.Fatal(err)
-	}
-	if settingsapply.HasDesktopKeys(settingsDoc) {
-		t.Fatalf("settings still has desktop keys: %#v", settingsDoc)
-	}
-
-	desktopRaw, err := os.ReadFile(filepath.Join(dir, "cometline-desktop.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	var desktopDoc map[string]any
-	if err := json.Unmarshal(desktopRaw, &desktopDoc); err != nil {
-		t.Fatal(err)
-	}
-	if desktopDoc["appearance"] == nil || desktopDoc["app"] == nil {
-		t.Fatalf("desktop missing peeled keys: %#v", desktopDoc)
-	}
-
-	// Idempotent.
-	if err := settingsapply.MigrateSplitFilesIfNeeded(); err != nil {
-		t.Fatal(err)
 	}
 }
 

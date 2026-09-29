@@ -6,10 +6,8 @@ import {
 	defaultSettings,
 	defaultCometMindSettings,
 	normalizeCometMindSettings,
-	migrateSingleProvider,
 	normalizeSettings,
 	parseAndNormalizeSettings,
-	runtimeSlice,
 	validateSettings
 } from './schema';
 
@@ -41,11 +39,6 @@ describe('settings schema', () => {
 				intervalHours: 24,
 				maxBackups: 7
 			}
-		});
-		expect(runtimeSlice(settings)).toMatchObject({
-			provider: 'local-llm',
-			model: 'qwen2.5',
-			systemPromptPath: '/tmp/SOUL.md'
 		});
 	});
 
@@ -221,25 +214,6 @@ describe('settings schema', () => {
 		).toBe(0);
 	});
 
-	it('migrates legacy webPanelWidth and webPanelRatio app keys', () => {
-		const base = defaultSettings();
-		const {
-			workspacePanelWidth: _omitWidth,
-			workspacePanelRatio: _omitRatio,
-			...appWithoutPanelSize
-		} = base.app;
-		const normalized = normalizeSettings({
-			...base,
-			app: {
-				...appWithoutPanelSize,
-				webPanelWidth: 480,
-				webPanelRatio: 0.4
-			} as typeof base.app & { webPanelWidth: number; webPanelRatio: number }
-		});
-		expect(normalized.app.workspacePanelWidth).toBe(480);
-		expect(normalized.app.workspacePanelRatio).toBe(0.4);
-	});
-
 	it('appends custom providers after built-ins', () => {
 		const settings = normalizeSettings({
 			...defaultSettings(),
@@ -327,47 +301,6 @@ describe('settings schema', () => {
 		).toBe(0);
 	});
 
-	it('migrates deleted job purge from storage to jobs', () => {
-		const settings = normalizeCometMindSettings({
-			storage: { deletedJobPurgeDays: 14 } as never
-		});
-		expect(settings.jobs.deletedPurgeDays).toBe(14);
-		expect(settings.storage).not.toHaveProperty('deletedJobPurgeDays');
-	});
-
-	it('prefers the operational legacy purge value over the persisted jobs default', () => {
-		for (const legacyDays of [0, 14]) {
-			const settings = normalizeCometMindSettings({
-				storage: { deletedJobPurgeDays: legacyDays } as never,
-				jobs: { deletedPurgeDays: 30 } as never
-			});
-			expect(settings.jobs.deletedPurgeDays).toBe(legacyDays);
-		}
-	});
-
-	it('preserves an explicit non-default jobs purge value over the legacy value', () => {
-		for (const deletedPurgeDays of [0, 7]) {
-			const settings = normalizeCometMindSettings({
-				storage: { deletedJobPurgeDays: 14 } as never,
-				jobs: { deletedPurgeDays } as never
-			});
-			expect(settings.jobs.deletedPurgeDays).toBe(deletedPurgeDays);
-		}
-	});
-
-	it('migrates legacy single-provider format', () => {
-		const migrated = migrateSingleProvider({
-			provider: 'openai',
-			baseURL: 'https://api.example.com/v1',
-			apiKey: 'key',
-			selectedModel: 'gpt-4'
-		});
-		expect(migrated?.providers).toHaveLength(1);
-		expect(migrated?.defaultProviderId).toBe('openai');
-		expect(migrated?.defaultModelId).toBe('gpt-4');
-		expect(migrated).not.toHaveProperty('activeProviderId');
-	});
-
 	it('preserves renamed built-in provider names', () => {
 		const settings = normalizeSettings({
 			...defaultSettings(),
@@ -404,34 +337,7 @@ describe('settings schema', () => {
 		expect(settings.cometmind.systemPromptPath).toBe('/tmp/SOUL.md');
 	});
 
-	it('runtimeSlice projects default provider', () => {
-		const settings = normalizeSettings({
-			...defaultSettings(),
-			providers: defaultSettings().providers.map((p) =>
-				p.id === 'openai'
-					? {
-							...p,
-							enabled: true,
-							enabledModels: ['gpt-4o'],
-							models: ['gpt-4o']
-						}
-					: { ...p, enabled: false, enabledModels: [] }
-			),
-			defaultProviderId: 'openai',
-			defaultModelId: 'gpt-4o',
-			cometmind: {
-				...defaultSettings().cometmind,
-				systemPromptPath: '/tmp/SOUL.md'
-			}
-		});
-		const slice = runtimeSlice(settings);
-		expect(slice?.provider).toBe('openai');
-		expect(slice?.model).toBe('gpt-4o');
-		expect(slice?.systemPromptPath).toBe('/tmp/SOUL.md');
-		expect(slice?.providers).toHaveLength(1);
-	});
-
-	it('normalizeSettings migrates active into default and drops active', () => {
+	it('normalizeSettings falls back to the first enabled provider when default is empty', () => {
 		const settings = normalizeSettings({
 			...defaultSettings(),
 			providers: defaultSettings().providers.map((p) =>
@@ -444,16 +350,14 @@ describe('settings schema', () => {
 						}
 					: { ...p, enabled: false, enabledModels: [] }
 			),
-			activeProviderId: 'codex',
 			defaultProviderId: '',
 			defaultModelId: ''
 		});
 		expect(settings.defaultProviderId).toBe('codex');
 		expect(settings.defaultModelId).toBe('gpt-5.4');
-		expect(settings).not.toHaveProperty('activeProviderId');
 	});
 
-	it('normalizeSettings prefers explicit default over active', () => {
+	it('normalizeSettings keeps an explicit default provider', () => {
 		const settings = normalizeSettings({
 			...defaultSettings(),
 			providers: defaultSettings().providers.map((p) => {
@@ -475,13 +379,11 @@ describe('settings schema', () => {
 				}
 				return { ...p, enabled: false, enabledModels: [] };
 			}),
-			activeProviderId: 'codex',
 			defaultProviderId: 'opencode-go',
 			defaultModelId: 'deepseek-v4-flash'
 		});
 		expect(settings.defaultProviderId).toBe('opencode-go');
 		expect(settings.defaultModelId).toBe('deepseek-v4-flash');
-		expect(settings).not.toHaveProperty('activeProviderId');
 	});
 
 	it('validateSettings rejects empty providers list', () => {

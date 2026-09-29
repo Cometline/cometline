@@ -1,13 +1,10 @@
 package config
 
 import (
-	"fmt"
 	"os"
 	"strings"
 
-	"github.com/cometline/cometmind/internal/logging"
 	"github.com/cometline/cometmind/internal/paths"
-	"github.com/cometline/cometmind/internal/settingsapply"
 	"github.com/spf13/viper"
 )
 
@@ -111,7 +108,7 @@ func Defaults() *Config {
 	}
 }
 
-// Load reads ~/.cometmind/cometline-settings.json, writes that file once when only config.toml exists, merges env, and unmarshals.
+// Load reads ~/.cometmind/cometline-settings.json, writes a minimal file when it is missing, merges env, and unmarshals.
 func Load() (*Config, error) {
 	if _, err := paths.DataDir(); err != nil {
 		return nil, err
@@ -120,37 +117,16 @@ func Load() (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	legacyTomlPath, err := paths.LegacyConfigPath()
-	if err != nil {
-		return nil, err
-	}
 
 	def := Defaults()
 
-	if err := settingsapply.MigrateSplitFilesIfNeeded(); err != nil {
-		logging.L().Warn("config.settings_split_migrate_failed", "error", err)
-	}
-
 	var cfg *Config
-	switch {
-	case fileExists(settingsPath):
+	if fileExists(settingsPath) {
 		cfg, err = loadCometlineSettingsJSON(settingsPath)
 		if err != nil {
 			return nil, err
 		}
-	case fileExists(legacyTomlPath):
-		cfg, err = loadLegacyTomlConfig(legacyTomlPath, def)
-		if err != nil {
-			return nil, err
-		}
-		if err := writeMigratedSettingsJSON(settingsPath, cfg); err != nil {
-			return nil, err
-		}
-		logging.L().Info("config.legacy_toml_migrated",
-			"legacy_path", legacyTomlPath,
-			"settings_path", settingsPath,
-		)
-	default:
+	} else {
 		if err := writeMinimalCometlineSettingsJSON(settingsPath, def); err != nil {
 			return nil, err
 		}
@@ -173,57 +149,6 @@ func Load() (*Config, error) {
 func fileExists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil
-}
-
-func loadLegacyTomlConfig(cfgPath string, def *Config) (*Config, error) {
-	v := viper.New()
-	v.SetConfigType("toml")
-	v.SetConfigFile(cfgPath)
-	if err := v.ReadInConfig(); err != nil {
-		return nil, fmt.Errorf("read legacy config: %w", err)
-	}
-	var c Config
-	if err := v.Unmarshal(&c); err != nil {
-		return nil, fmt.Errorf("unmarshal legacy config: %w", err)
-	}
-	if !v.IsSet("skills.enabled") {
-		c.Skills.Enabled = def.Skills.Enabled
-	}
-	if !v.IsSet("skills.include_opencode") {
-		c.Skills.IncludeOpenCode = def.Skills.IncludeOpenCode
-	}
-	if !v.IsSet("skills.include_claude") {
-		c.Skills.IncludeClaude = def.Skills.IncludeClaude
-	}
-	if c.DefaultProviderID == "" {
-		if provider := strings.TrimSpace(v.GetString("provider")); provider != "" {
-			c.DefaultProviderID = provider
-		} else {
-			c.DefaultProviderID = def.DefaultProviderID
-		}
-	}
-	if c.DefaultModelID == "" {
-		if model := strings.TrimSpace(v.GetString("model")); model != "" {
-			c.DefaultModelID = model
-		} else {
-			c.DefaultModelID = def.DefaultModelID
-		}
-	}
-	if c.MaxSteps == 0 {
-		c.MaxSteps = def.MaxSteps
-	}
-	if !v.IsSet("jobs.deleted_purge_days") {
-		if v.IsSet("storage.deleted_job_purge_days") {
-			c.Jobs.DeletedPurgeDays = c.Storage.DeletedJobPurgeDays
-		} else {
-			c.Jobs.DeletedPurgeDays = def.Jobs.DeletedPurgeDays
-		}
-	}
-	c.Storage.DeletedJobPurgeDays = 0
-	if c.SystemPromptPath == "" {
-		c.SystemPromptPath = def.SystemPromptPath
-	}
-	return &c, nil
 }
 
 func applyEnvOverrides(c *Config, def *Config) {

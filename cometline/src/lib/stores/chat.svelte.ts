@@ -587,16 +587,6 @@ function createChatStore() {
 		);
 	}
 
-	function stageUser(text: string, images?: ImageAttachment[]) {
-		if (!sessionID) return;
-		stageUserForSession(sessionID, text, images);
-	}
-
-	function revealStagedUser() {
-		if (!sessionID) return;
-		revealStagedUserForSession(sessionID);
-	}
-
 	function applyEventToSession(targetSessionID: string, event: StreamEvent, ctx: StreamCtx) {
 		if (isStreamingFor(targetSessionID)) {
 			reconcileStreamCtx(targetSessionID, ctx);
@@ -1048,8 +1038,6 @@ function createChatStore() {
 		resumeRun,
 		stageUserForSession,
 		revealStagedUserForSession,
-		stageUser,
-		revealStagedUser,
 		send,
 		cancel,
 		cancelSubagent

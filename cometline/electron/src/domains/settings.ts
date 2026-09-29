@@ -215,37 +215,7 @@ export function createSettingsDomain(dependencies: SettingsDomainDependencies) {
 		};
 	}
 
-	function migrateSplitSettingsIfNeeded() {
-		const runtimePath = settingsPath();
-		const desktopPath = desktopSettingsPath();
-		const saved = readJsonFileIfExists(runtimePath) ?? {};
-		const hasDesktopKeys = ['appearance', 'shortcuts', 'app'].some(
-			(key) => saved[key] !== undefined
-		);
-		const prompt = (saved.cometmind as JsonRecord | null | undefined)?.systemPromptPath;
-		if (!hasDesktopKeys) {
-			if (prompt !== undefined) {
-				const desktop = readJsonFileIfExists(desktopPath) ?? {};
-				if (desktop.systemPromptPath === undefined) {
-					writeJsonFileAtomic(
-						fs,
-						desktopPath,
-						{ ...desktop, systemPromptPath: prompt },
-						0o600,
-						dependencies.processId
-					);
-				}
-			}
-			return;
-		}
-		const desktop = readJsonFileIfExists(desktopPath) ?? {};
-		const split = splitSettingsDocument(saved);
-		writeJsonFileAtomic(fs, desktopPath, { ...desktop, ...split.desktop }, 0o600, dependencies.processId);
-		writeJsonFileAtomic(fs, runtimePath, split.settings, 0o600, dependencies.processId);
-	}
-
 	function readSavedProviderSettings() {
-		migrateSplitSettingsIfNeeded();
 		const saved = mergeSettingsDocuments(
 			readJsonFileIfExists(settingsPath()) ?? {},
 			readJsonFileIfExists(desktopSettingsPath()) ?? {}

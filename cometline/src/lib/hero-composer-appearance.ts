@@ -96,15 +96,6 @@ export function normalizeHeroComposerAppearance(
 	return { ...preset, customPreset };
 }
 
-export function heroComposerAppearanceEquals(
-	a: HeroComposerAppearance,
-	b: HeroComposerAppearance
-): boolean {
-	const left = normalizeHeroComposerAppearance(a);
-	const right = normalizeHeroComposerAppearance(b);
-	return left.glowColor === right.glowColor && left.ringColor === right.ringColor;
-}
-
 export function matchHeroComposerPreset(
 	appearance: HeroComposerAppearance
 ): HeroComposerPresetSelection {

@@ -38,8 +38,3 @@ export function builtinPersonaAvatarSrcset(id: BuiltinPersonaId): string {
 export function builtinPersonaSoulFilename(id: BuiltinPersonaId): string {
 	return id === 'souma' ? 'SOUL_MAN.md' : 'SOUL.md';
 }
-
-/** Migrates the legacy `app.iconVariant` field (`'default' | 'man'`) to a builtin persona id. */
-export function migratePersonaIdFromIconVariant(iconVariant: unknown): BuiltinPersonaId {
-	return iconVariant === 'man' ? 'souma' : 'minako';
-}

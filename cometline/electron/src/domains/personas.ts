@@ -90,10 +90,6 @@ export function createPersonas(dependencies: PersonaDependencies) {
 	const { app, fs, nativeImage, path } = dependencies;
 	const now = dependencies.now ?? Date.now;
 
-	function migratePersonaIdFromIconVariant(iconVariant: unknown) {
-		return iconVariant === 'man' ? 'souma' : 'minako';
-	}
-
 	function isBuiltinPersonaId(personaId: unknown) {
 		return BUILTIN_PERSONA_IDS.has(String(personaId || ''));
 	}
@@ -166,7 +162,7 @@ export function createPersonas(dependencies: PersonaDependencies) {
 		const settings = saved as ProviderSettings | undefined;
 		const requested = String(settings?.app?.personaId || '').trim();
 		if (isBuiltinPersonaId(requested) || findCustomPersona(saved, requested)) return requested;
-		return migratePersonaIdFromIconVariant((saved as { app?: { iconVariant?: unknown } })?.app?.iconVariant);
+		return 'minako';
 	}
 
 	function resolveNextPersonaId(settings: Partial<ProviderSettings>, current: ProviderSettings) {

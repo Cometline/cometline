@@ -51,13 +51,13 @@ describe('workspace-panel-width', () => {
 		);
 	});
 
-	it('resolves ratio from settings with legacy width fallback', () => {
+	it('resolves ratio from settings', () => {
 		expect(
 			resolveWorkspacePanelRatio({ workspacePanelRatio: 0.4, workspacePanelWidth: 900 }, 1800)
 		).toBe(0.4);
 		expect(
 			resolveWorkspacePanelRatio({ workspacePanelRatio: 0, workspacePanelWidth: 720 }, 1800)
-		).toBe(0.4);
+		).toBe(WORKSPACE_PANEL_DEFAULT_RATIO);
 		expect(
 			resolveWorkspacePanelRatio({ workspacePanelRatio: 0, workspacePanelWidth: 0 }, 1800)
 		).toBe(WORKSPACE_PANEL_DEFAULT_RATIO);
