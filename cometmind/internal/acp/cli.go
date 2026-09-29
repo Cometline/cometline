@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"os/exec"
 	"strings"
 
 	"github.com/cometline/cometmind/internal/process"
@@ -38,7 +37,7 @@ func defaultCLIProcessStarter(
 
 	args = append(args, prompt)
 
-	cmd := exec.CommandContext(ctx, command, args...)
+	cmd := process.CommandContext(ctx, command, args...)
 	cmd.Dir = workspaceRoot
 	cmd.Env = process.EnvForSession(process.SessionIDFrom(ctx))
 	stdout, err := cmd.StdoutPipe()

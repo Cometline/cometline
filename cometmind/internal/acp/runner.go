@@ -123,7 +123,7 @@ func (c *cmdWaitCloser) Close() error {
 	var err error
 	c.once.Do(func() {
 		if c.cmd.Process != nil && c.cmd.ProcessState == nil {
-			_ = c.cmd.Process.Kill()
+			_ = process.KillTree(c.cmd)
 		}
 		err = c.cmd.Wait()
 	})
@@ -131,7 +131,7 @@ func (c *cmdWaitCloser) Close() error {
 }
 
 func runVerifyCommand(ctx context.Context, workspaceRoot, command string) (string, error) {
-	cmd := exec.CommandContext(ctx, "sh", "-c", command) //nolint:gosec // delegated verify step
+	cmd := process.CommandContext(ctx, "sh", "-c", command)
 	cmd.Dir = workspaceRoot
 	env := process.EnvForSession(process.SessionIDFrom(ctx))
 	cmd.Env = env
