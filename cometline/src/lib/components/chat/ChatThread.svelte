@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy, tick, untrack } from 'svelte';
+	import { onDestroy } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import { chatStore, type ChatItem } from '$lib/stores/chat.svelte';
 	import { settingsStore } from '$lib/stores/settings.svelte';
@@ -32,17 +32,9 @@
 	} from '$lib/conversation/thread-visibility';
 	import { createFoldController } from '$lib/conversation/thread-fold.svelte';
 	import { createThreadScroll } from '$lib/conversation/thread-scroll.svelte';
+	import { createThreadVirtual } from '$lib/conversation/thread-virtual.svelte';
 	import { createThreadClocks } from '$lib/conversation/thread-clocks.svelte';
 	import { groupThreadItemsIntoTurns } from '$lib/conversation/thread-turns';
-	import {
-		THREAD_TURN_GAP,
-		computeVirtualWindow,
-		prefixOffsets,
-		resolveTurnSizes,
-		scrollDeltaForSizeChange,
-		scrollTopAfterPrepend,
-		virtualTurnEntriesWithForced
-	} from '$lib/conversation/thread-virtualizer';
 	import type { ChatTurnPayload } from '$lib/actions/start-chat';
 	import type { JobResource } from '$lib/client/cometmind';
 	import { resolvePersona, personaAvatarSrcset as builtinAvatarSrcset } from '$lib/personas';
@@ -88,15 +80,23 @@
 	});
 
 	let scrollerEl = $state<HTMLDivElement | undefined>(undefined);
-	let handledFindRequestId = shellStore.sessionFindRequestId;
-	let findSessionId: string | null = null;
-	let previousSearchableItemCount = 0;
 	let threadItems = $derived(isSessionSynced ? chatStore.items : snapshotItems);
 	let threadTurns = $derived(groupThreadItemsIntoTurns(threadItems));
+	let searchableItemCount = $derived(
+		threadItems.filter(
+			(item) => (item.type === 'user' || item.type === 'assistant') && item.text.trim()
+		).length
+	);
+
 	const sessionFind = createSessionFindController({
 		getRoot: () => scrollerEl ?? null,
-		getTurns: () => threadTurns
+		getTurns: () => threadTurns,
+		getSessionId: () => sessionId,
+		getIsSessionSynced: () => isSessionSynced,
+		getFindRequestId: () => shellStore.sessionFindRequestId,
+		getSearchableItemCount: () => searchableItemCount
 	});
+
 	let embeddedPinnedJobIds = $derived(pinnedJobProposalToolIds(threadItems));
 	let thinkingForAssistant = $derived(buildThinkingAttribution(threadItems));
 	// Prefer attributed tools/memory (hasVisibleThinkingBlock) so first-turn activity
@@ -138,6 +138,10 @@
 		return chatStore.getCachedItemCount(targetSessionId) > 0;
 	}
 
+	const scrollTopSink = {
+		handler: (_top: number) => {}
+	};
+
 	const scroll = createThreadScroll({
 		getSessionId: () => sessionId,
 		getIsSessionSynced: () => isSessionSynced,
@@ -146,41 +150,28 @@
 		getLastUserId: () => lastUserId,
 		getUserMessageCount: () => userMessageCount,
 		getIsLoading: () => chatStore.isLoading,
-		sessionHasCachedTranscript
+		sessionHasCachedTranscript,
+		getScroller: () => scrollerEl,
+		getHasMoreHistory: () => chatStore.hasMoreHistory,
+		getIsLoadingOlder: () => chatStore.isLoadingOlder,
+		loadOlderTranscript: (id) => chatStore.loadOlderTranscript(id),
+		onScrollTopChange: (top) => scrollTopSink.handler(top)
 	});
 
-	$effect(() => {
-		scroll.setScroller(scrollerEl);
+	const virtual = createThreadVirtual({
+		getSessionId: () => sessionId,
+		getThreadTurns: () => threadTurns,
+		getScroller: () => scrollerEl,
+		getViewportHeight: () => scroll.viewportHeight,
+		getActivePinnedUserId: () => scroll.activePinnedUserId,
+		getActiveTurnMinHeight: () => scroll.activeTurnMinHeight,
+		getLastUserId: () => lastUserId,
+		getIsInitialTranscriptPaint: () => scroll.isInitialTranscriptPaint,
+		getFindOpen: () => sessionFind.open,
+		getFindActiveTurnIndex: () => sessionFind.activeTurnIndex,
+		getFindJumpKey: () => `${sessionFind.query}:${sessionFind.activeIndex}`
 	});
-
-	$effect(() => {
-		const requestId = shellStore.sessionFindRequestId;
-		if (requestId === handledFindRequestId) return;
-		handledFindRequestId = requestId;
-		if (isSessionSynced) sessionFind.openFind();
-	});
-
-	$effect(() => {
-		const nextSessionId = sessionId;
-		if (nextSessionId === findSessionId) return;
-		findSessionId = nextSessionId;
-		sessionFind.closeFind({ restoreFocus: false });
-	});
-
-	$effect(() => {
-		if (!sessionFind.open || !scrollerEl) return;
-		return sessionFind.observe();
-	});
-
-	$effect(() => {
-		const searchableItemCount = threadItems.filter(
-			(item) => (item.type === 'user' || item.type === 'assistant') && item.text.trim()
-		).length;
-		if (previousSearchableItemCount > 0 && searchableItemCount === 0) {
-			sessionFind.closeFind({ restoreFocus: false });
-		}
-		previousSearchableItemCount = searchableItemCount;
-	});
+	scrollTopSink.handler = (top) => virtual.setScrollTop(top);
 
 	onDestroy(() => sessionFind.closeFind({ restoreFocus: false }));
 
@@ -255,164 +246,8 @@
 		awaitingFirstAssistant || scroll.isInitialTranscriptPaint ? { duration: 0 } : TRANSCRIPT_IN
 	);
 
-	// Variable-height turn virtualization (OpenCode-style): mount viewport + overscan
-	// only so offscreen turns never run AssistantMarkdown / Shiki.
-	let virtualScrollTop = $state(0);
-	let measuredTurnHeights = $state.raw<Record<string, number>>({});
-	let measureSessionId: string | null = null;
-
-	$effect(() => {
-		const next = sessionId;
-		if (next === measureSessionId) return;
-		measureSessionId = next;
-		measuredTurnHeights = {};
-		virtualScrollTop = 0;
-	});
-
-	$effect(() => {
-		virtualScrollTop = scrollerEl?.scrollTop ?? 0;
-	});
-
-	// Hydration / stick-to-bottom sets scrollTop in rAF; keep the virtual window
-	// aligned even if a programmatic assignment does not emit `scroll`.
-	$effect(() => {
-		if (!scroll.isInitialTranscriptPaint || !scrollerEl) return;
-		let frame = 0;
-		const sync = () => {
-			virtualScrollTop = scrollerEl?.scrollTop ?? 0;
-			frame = requestAnimationFrame(sync);
-		};
-		frame = requestAnimationFrame(sync);
-		return () => cancelAnimationFrame(frame);
-	});
-
-	let turnSizes = $derived(
-		resolveTurnSizes(threadTurns, measuredTurnHeights, {
-			activePinnedUserId: scroll.activePinnedUserId,
-			activeTurnMinHeight: scroll.activeTurnMinHeight
-		})
-	);
-
-	let virtualWindow = $derived(
-		computeVirtualWindow(
-			turnSizes,
-			virtualScrollTop,
-			scroll.viewportHeight || scrollerEl?.clientHeight || 0
-		)
-	);
-
-	let forcedTurnIndices = $derived.by(() => {
-		const pinnedIndex = scroll.activePinnedUserId
-			? threadTurns.findIndex((turn) => turn.id === scroll.activePinnedUserId)
-			: -1;
-		const latestIndex = lastUserId
-			? threadTurns.findIndex((turn) => turn.id === lastUserId)
-			: -1;
-		// Active find hit only — never span the full transcript for find.
-		const findIndex = sessionFind.open ? sessionFind.activeTurnIndex : -1;
-		return [pinnedIndex, latestIndex, findIndex];
-	});
-
-	let visibleTurns = $derived(
-		virtualTurnEntriesWithForced(threadTurns, turnSizes, virtualWindow, forcedTurnIndices)
-	);
-
-	// Jump the virtual scroller to the active find turn so it enters the window /
-	// forced-mount set without remounting the whole transcript.
-	$effect(() => {
-		if (!sessionFind.open) return;
-		const turnIndex = sessionFind.activeTurnIndex;
-		void sessionFind.query;
-		void sessionFind.activeIndex;
-		if (turnIndex < 0 || !scrollerEl) return;
-		const sizes = untrack(() => turnSizes);
-		const offsets = prefixOffsets(sizes);
-		const top = offsets[turnIndex] ?? 0;
-		const nextTop = Math.max(0, top - scrollerEl.clientHeight * 0.25);
-		scrollerEl.scrollTo({ top: nextTop, behavior: 'auto' });
-		virtualScrollTop = scrollerEl.scrollTop;
-	});
-
-	const LOAD_OLDER_TOP_PX = 320;
-	let loadOlderInFlight = false;
-
-	async function maybeLoadOlderHistory() {
-		if (loadOlderInFlight || scroll.isInitialTranscriptPaint) return;
-		if (!isSessionSynced || !chatStore.hasMoreHistory || chatStore.isLoadingOlder) return;
-		const el = scrollerEl;
-		if (!el || el.scrollTop > LOAD_OLDER_TOP_PX) return;
-		loadOlderInFlight = true;
-		const prevTop = el.scrollTop;
-		const prevHeight = el.scrollHeight;
-		try {
-			const prepended = await chatStore.loadOlderTranscript(sessionId);
-			if (!prepended || !scrollerEl) return;
-			// Flush derived virtual spacer height before correcting scrollTop.
-			await tick();
-			const nextHeight = scrollerEl.scrollHeight;
-			scrollerEl.scrollTop = scrollTopAfterPrepend(prevTop, prevHeight, nextHeight);
-			virtualScrollTop = scrollerEl.scrollTop;
-		} finally {
-			loadOlderInFlight = false;
-		}
-	}
-
 	function onThreadScroll() {
-		virtualScrollTop = scrollerEl?.scrollTop ?? 0;
 		scroll.onScroll();
-		void maybeLoadOlderHistory();
-	}
-
-	function onTurnMeasured(turnId: string, height: number) {
-		const next = Math.ceil(height);
-		if (next <= 0) return;
-		const prev = measuredTurnHeights[turnId];
-		if (prev === next) return;
-		const index = threadTurns.findIndex((turn) => turn.id === turnId);
-		let itemOffset = 0;
-		if (index > 0) {
-			for (let i = 0; i < index; i++) {
-				itemOffset += (turnSizes[i] ?? 0) + THREAD_TURN_GAP;
-			}
-		}
-		const delta = scrollDeltaForSizeChange(
-			itemOffset,
-			scrollerEl?.scrollTop ?? virtualScrollTop,
-			prev ?? turnSizes[index] ?? next,
-			next
-		);
-		measuredTurnHeights = { ...measuredTurnHeights, [turnId]: next };
-		if (delta !== 0 && scrollerEl) {
-			scrollerEl.scrollTop += delta;
-			virtualScrollTop = scrollerEl.scrollTop;
-		}
-	}
-
-	function measureTurnHeight(
-		node: HTMLElement,
-		params: { id: string; onMeasure: (id: string, height: number) => void }
-	) {
-		const notify = () => params.onMeasure(params.id, node.offsetHeight);
-		notify();
-		if (typeof ResizeObserver === 'undefined') {
-			return {
-				update(next: { id: string; onMeasure: (id: string, height: number) => void }) {
-					params = next;
-					notify();
-				}
-			};
-		}
-		const observer = new ResizeObserver(() => notify());
-		observer.observe(node);
-		return {
-			update(next: { id: string; onMeasure: (id: string, height: number) => void }) {
-				params = next;
-				notify();
-			},
-			destroy() {
-				observer.disconnect();
-			}
-		};
 	}
 
 </script>
@@ -450,8 +285,8 @@
 					{/if}
 
 					{#if threadTurns.length > 0}
-						<div class="thread-virtual" style:height="{virtualWindow.totalHeight}px">
-					{#each visibleTurns as entry (entry.item.id)}
+						<div class="thread-virtual" style:height="{virtual.virtualWindow.totalHeight}px">
+					{#each virtual.visibleTurns as entry (entry.item.id)}
 						{@const turn = entry.item}
 						{@const isActiveTurn = scroll.activePinnedUserId === turn.id}
 						<div
@@ -462,7 +297,7 @@
 							style:min-height={isActiveTurn
 								? `${scroll.activeTurnMinHeight}px`
 								: undefined}
-							use:measureTurnHeight={{ id: turn.id, onMeasure: onTurnMeasured }}
+							use:virtual.measureTurnHeight={{ id: turn.id, onMeasure: virtual.onTurnMeasured }}
 						>
 							<UserMessageRow
 								item={turn.user}

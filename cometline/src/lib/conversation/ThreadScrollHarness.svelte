@@ -32,11 +32,8 @@
 		getLastUserId: () => lastUserId,
 		getUserMessageCount: () => userMessageCount,
 		getIsLoading: () => loading,
-		sessionHasCachedTranscript: () => cached
-	});
-
-	$effect(() => {
-		scroll.setScroller(scrollerEl);
+		sessionHasCachedTranscript: () => cached,
+		getScroller: () => scrollerEl
 	});
 </script>
 
