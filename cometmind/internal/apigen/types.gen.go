@@ -2098,8 +2098,14 @@ type TranscriptItemType string
 
 // TranscriptResponse defines model for TranscriptResponse.
 type TranscriptResponse struct {
-	Items     []TranscriptItem `json:"items"`
-	SessionId string           `json:"session_id"`
+	// HasMore True when older messages exist before this page.
+	HasMore *bool            `json:"has_more,omitempty"`
+	Items   []TranscriptItem `json:"items"`
+
+	// NextBefore Opaque keyset cursor. Pass as the `before` query parameter to load
+	// the next older page. Omitted when `has_more` is false.
+	NextBefore *string `json:"next_before,omitempty"`
+	SessionId  string  `json:"session_id"`
 }
 
 // TurnRecoverEvent defines model for TurnRecoverEvent.
@@ -2523,6 +2529,17 @@ type ListSessionsParams struct {
 
 	// All When true, returns top-level sessions across all workspaces and ignores workspace scope.
 	All *bool `form:"all,omitempty" json:"all,omitempty"`
+}
+
+// GetSessionMessagesParams defines parameters for GetSessionMessages.
+type GetSessionMessagesParams struct {
+	// Limit Maximum number of persisted user/assistant/system messages to include.
+	// One message may expand to multiple transcript items (reasoning, tools, …).
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Before Opaque keyset cursor from a prior response's `next_before`.
+	// When set, returns messages older than that cursor.
+	Before *string `form:"before,omitempty" json:"before,omitempty"`
 }
 
 // ListSkillsParams defines parameters for ListSkills.

@@ -434,6 +434,11 @@ export const clearSession = <ThrowOnError extends boolean = false>(options: Opti
  * Returns a transcript-style API model rather than raw database rows.
  * Tool rows include both the tool input and the recorded tool output.
  *
+ * Uses keyset pagination on message `(created_at, id)`. Omitting `before`
+ * returns the most recent page (default limit 50). Pass `next_before` from
+ * a prior response as `before` to load older history. Items within a page
+ * are chronological ascending.
+ *
  */
 export const getSessionMessages = <ThrowOnError extends boolean = false>(options: Options<GetSessionMessagesData, ThrowOnError>) => {
     return (options.client ?? _heyApiClient).get<GetSessionMessagesResponse, GetSessionMessagesError, ThrowOnError>({

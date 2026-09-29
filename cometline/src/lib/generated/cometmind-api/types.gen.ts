@@ -492,6 +492,16 @@ export type ModelCatalogLookupResponse = {
 export type TranscriptResponse = {
     session_id: string;
     items: Array<TranscriptItem>;
+    /**
+     * True when older messages exist before this page.
+     */
+    has_more?: boolean;
+    /**
+     * Opaque keyset cursor. Pass as the `before` query parameter to load
+     * the next older page. Omitted when `has_more` is false.
+     *
+     */
+    next_before?: string;
 };
 
 export type MessageContextRef = {
@@ -2370,11 +2380,28 @@ export type GetSessionMessagesData = {
          */
         id: string;
     };
-    query?: never;
+    query?: {
+        /**
+         * Maximum number of persisted user/assistant/system messages to include.
+         * One message may expand to multiple transcript items (reasoning, tools, …).
+         *
+         */
+        limit?: number;
+        /**
+         * Opaque keyset cursor from a prior response's `next_before`.
+         * When set, returns messages older than that cursor.
+         *
+         */
+        before?: string;
+    };
     url: '/api/v1/sessions/{id}/messages';
 };
 
 export type GetSessionMessagesErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
     /**
      * Resource not found
      */

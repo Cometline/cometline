@@ -121,6 +121,220 @@ func (q *Queries) ListMessagesBySession(ctx context.Context, sessionID string) (
 	return items, nil
 }
 
+const listToolResultMessagesAfter = `-- name: ListToolResultMessagesAfter :many
+SELECT id, session_id, role, content, reasoning_content, injected_memories, token_count, created_at
+FROM messages
+WHERE session_id = ?1
+  AND role = 'tool_result'
+  AND created_at >= ?2
+ORDER BY created_at ASC, id ASC
+`
+
+type ListToolResultMessagesAfterParams struct {
+	SessionID    string `json:"session_id"`
+	MinCreatedAt int64  `json:"min_created_at"`
+}
+
+func (q *Queries) ListToolResultMessagesAfter(ctx context.Context, arg ListToolResultMessagesAfterParams) ([]Message, error) {
+	rows, err := q.db.QueryContext(ctx, listToolResultMessagesAfter, arg.SessionID, arg.MinCreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Message{}
+	for rows.Next() {
+		var i Message
+		if err := rows.Scan(
+			&i.ID,
+			&i.SessionID,
+			&i.Role,
+			&i.Content,
+			&i.ReasoningContent,
+			&i.InjectedMemories,
+			&i.TokenCount,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listToolResultMessagesBetween = `-- name: ListToolResultMessagesBetween :many
+SELECT id, session_id, role, content, reasoning_content, injected_memories, token_count, created_at
+FROM messages
+WHERE session_id = ?1
+  AND role = 'tool_result'
+  AND created_at >= ?2
+  AND (
+    created_at < ?3
+    OR (
+      created_at = ?3
+      AND id < ?4
+    )
+  )
+ORDER BY created_at ASC, id ASC
+`
+
+type ListToolResultMessagesBetweenParams struct {
+	SessionID    string `json:"session_id"`
+	MinCreatedAt int64  `json:"min_created_at"`
+	MaxCreatedAt int64  `json:"max_created_at"`
+	MaxID        string `json:"max_id"`
+}
+
+func (q *Queries) ListToolResultMessagesBetween(ctx context.Context, arg ListToolResultMessagesBetweenParams) ([]Message, error) {
+	rows, err := q.db.QueryContext(ctx, listToolResultMessagesBetween,
+		arg.SessionID,
+		arg.MinCreatedAt,
+		arg.MaxCreatedAt,
+		arg.MaxID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Message{}
+	for rows.Next() {
+		var i Message
+		if err := rows.Scan(
+			&i.ID,
+			&i.SessionID,
+			&i.Role,
+			&i.Content,
+			&i.ReasoningContent,
+			&i.InjectedMemories,
+			&i.TokenCount,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTranscriptMessagesBefore = `-- name: ListTranscriptMessagesBefore :many
+SELECT id, session_id, role, content, reasoning_content, injected_memories, token_count, created_at
+FROM messages
+WHERE session_id = ?1
+  AND role IN ('user', 'assistant', 'system')
+  AND (
+    created_at < ?2
+    OR (
+      created_at = ?2
+      AND id < ?3
+    )
+  )
+ORDER BY created_at DESC, id DESC
+LIMIT ?4
+`
+
+type ListTranscriptMessagesBeforeParams struct {
+	SessionID       string `json:"session_id"`
+	BeforeCreatedAt int64  `json:"before_created_at"`
+	BeforeID        string `json:"before_id"`
+	RowLimit        int64  `json:"row_limit"`
+}
+
+// Keyset: rows strictly older than (before_created_at, before_id).
+func (q *Queries) ListTranscriptMessagesBefore(ctx context.Context, arg ListTranscriptMessagesBeforeParams) ([]Message, error) {
+	rows, err := q.db.QueryContext(ctx, listTranscriptMessagesBefore,
+		arg.SessionID,
+		arg.BeforeCreatedAt,
+		arg.BeforeID,
+		arg.RowLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Message{}
+	for rows.Next() {
+		var i Message
+		if err := rows.Scan(
+			&i.ID,
+			&i.SessionID,
+			&i.Role,
+			&i.Content,
+			&i.ReasoningContent,
+			&i.InjectedMemories,
+			&i.TokenCount,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTranscriptMessagesRecent = `-- name: ListTranscriptMessagesRecent :many
+SELECT id, session_id, role, content, reasoning_content, injected_memories, token_count, created_at
+FROM messages
+WHERE session_id = ?1
+  AND role IN ('user', 'assistant', 'system')
+ORDER BY created_at DESC, id DESC
+LIMIT ?2
+`
+
+type ListTranscriptMessagesRecentParams struct {
+	SessionID string `json:"session_id"`
+	RowLimit  int64  `json:"row_limit"`
+}
+
+// Visible transcript rows only (tool_result is joined separately for error flags).
+func (q *Queries) ListTranscriptMessagesRecent(ctx context.Context, arg ListTranscriptMessagesRecentParams) ([]Message, error) {
+	rows, err := q.db.QueryContext(ctx, listTranscriptMessagesRecent, arg.SessionID, arg.RowLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Message{}
+	for rows.Next() {
+		var i Message
+		if err := rows.Scan(
+			&i.ID,
+			&i.SessionID,
+			&i.Role,
+			&i.Content,
+			&i.ReasoningContent,
+			&i.InjectedMemories,
+			&i.TokenCount,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateMessageContent = `-- name: UpdateMessageContent :exec
 UPDATE messages
 SET content = ?

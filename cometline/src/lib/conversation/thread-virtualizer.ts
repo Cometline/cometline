@@ -249,3 +249,18 @@ export function virtualTurnEntriesWithForced<T>(
 		.sort((a, b) => a - b)
 		.map((index) => ({ item: items[index], index, offset: offsets[index] }));
 }
+
+/**
+ * Keep the viewport anchored when older rows are prepended above the current
+ * window. Without this, scrollTop stays put while content height grows upward
+ * and the user sees a jump / blank hole.
+ */
+export function scrollTopAfterPrepend(
+	prevScrollTop: number,
+	prevScrollHeight: number,
+	nextScrollHeight: number
+): number {
+	const delta = nextScrollHeight - prevScrollHeight;
+	if (delta <= 0) return prevScrollTop;
+	return Math.max(0, prevScrollTop + delta);
+}
