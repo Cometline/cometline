@@ -118,7 +118,7 @@ describe('createThreadVirtual', () => {
 				items: []
 			}
 		];
-		let hydrating = false;
+		const hydrating = false;
 		let controller!: ReturnType<typeof createThreadVirtual>;
 		const cleanup = $effect.root(() => {
 			controller = createThreadVirtual({

@@ -44,7 +44,7 @@ describe('createThreadScroll maybeLoadOlderHistory', () => {
 		});
 		const onScrollTopChange = vi.fn();
 		let currentItems: ChatItem[] = [];
-		let loading = false;
+		const loading = false;
 
 		let scroll!: ReturnType<typeof createThreadScroll>;
 		const cleanup = $effect.root(() => {
