@@ -2,6 +2,7 @@ package autonomy
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"sync"
@@ -133,11 +134,13 @@ func newWorker(t *testing.T, fx workerFixture, provider cometsdk.Provider, cfg c
 		Jobs:     fx.jobs,
 		Sessions: fx.sessions,
 		NewRunner: func(sess session.Session, workspacePath string, maxSteps int) (*agent.Runner, error) {
+			registry := tools.NewRegistry(t.TempDir(), tools.RegistryOptions{Jobs: fx.jobs})
+			tools.RegisterJobTools(registry, tools.JobsDeps{Service: fx.jobs, SessionID: sess.ID})
 			return &agent.Runner{
-				Provider:  provider,
-				Sessions:  fx.sessions,
-				Registry:  tools.NewRegistry(t.TempDir()),
-				Jobs:      fx.jobs,
+				Provider: provider,
+				Sessions: fx.sessions,
+				Registry: registry,
+				Jobs:     fx.jobs,
 				MaxSteps: maxSteps,
 			}, nil
 		},
@@ -268,6 +271,74 @@ func TestWorkerRunJobReleasesWhenAgentDoesNotCompleteJob(t *testing.T) {
 	}
 	if !sawFailure {
 		t.Fatalf("failure event not found in %+v", events)
+	}
+}
+
+type completingProvider struct {
+	jobID string
+	calls int
+}
+
+func (p *completingProvider) ID() string { return "completing" }
+
+func (p *completingProvider) Stream(ctx context.Context, req *cometsdk.Request) (<-chan cometsdk.Event, error) {
+	p.calls++
+	if p.calls > 6 {
+		return nil, fmt.Errorf("completing provider called %d times", p.calls)
+	}
+	ch := make(chan cometsdk.Event, 5)
+	if p.calls == 1 {
+		input, err := json.Marshal(map[string]string{"job_id": p.jobID, "progress": "done"})
+		if err != nil {
+			return nil, err
+		}
+		ch <- cometsdk.ToolCallStartEvent{ID: "call-complete", Name: "complete_job"}
+		ch <- cometsdk.ToolCallDoneEvent{ID: "call-complete", Name: "complete_job", Input: input}
+		ch <- cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishToolUse}
+	} else {
+		ch <- cometsdk.TextDeltaEvent{Text: "done"}
+		ch <- cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishStop}
+	}
+	ch <- cometsdk.DoneEvent{}
+	close(ch)
+	return ch, nil
+}
+
+func TestWorkerRunJobDiscardsSessionWhenJobCompletes(t *testing.T) {
+	t.Parallel()
+	fx := newWorkerFixture(t)
+	ctx := context.Background()
+	job, err := fx.jobs.Create(ctx, jobs.CreateInput{Description: "finish and drop session", WorkspacePath: fx.root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	provider := &completingProvider{jobID: job.ID}
+	w := newWorker(t, fx, provider, config.AutonomousJobsConfig{
+		Enabled:             true,
+		MaxConcurrent:       1,
+		PollIntervalSeconds: 1,
+		MaxStepsPerRun:      4,
+	})
+
+	w.runJob(ctx, job)
+
+	got, err := fx.jobs.Get(ctx, job.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Status != jobs.StatusDone {
+		t.Fatalf("job status = %q, want done", got.Status)
+	}
+	ws, err := fx.sessions.LookupWorkspaceByPath(ctx, fx.root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	allSessions, err := fx.sessions.ListSessions(ctx, ws.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(allSessions) != 0 {
+		t.Fatalf("finished autonomy session still exists: %+v", allSessions)
 	}
 }
 

@@ -71,6 +71,11 @@ func runServe(_ *cobra.Command, _ []string) error {
 	} else if pruned > 0 {
 		logging.L().Info("session.unused_pruned", "count", pruned)
 	}
+	if discarded, err := rt.Sessions.DiscardFinishedEphemeralSessions(ctx, nil); err != nil {
+		logging.L().Warn("session.ephemeral_discard_failed", "error", err)
+	} else if discarded > 0 {
+		logging.L().Info("session.ephemeral_discarded", "count", discarded)
+	}
 
 	// Prune workspaces whose filesystem path no longer exists. This stats every
 	// workspace path (slow on network mounts), so run it in the background to

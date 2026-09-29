@@ -408,6 +408,38 @@ func (q *Queries) ListChildSessions(ctx context.Context, parentSessionID sql.Nul
 	return items, nil
 }
 
+const listEphemeralSessionIDs = `-- name: ListEphemeralSessionIDs :many
+SELECT id
+FROM sessions
+WHERE origin IN ('autonomy', 'inbox')
+ORDER BY created_at ASC
+`
+
+// Autonomy and inbox sessions are execution containers, not chats. They are
+// hidden from the sidebar and should not outlive the run that created them.
+func (q *Queries) ListEphemeralSessionIDs(ctx context.Context) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listEphemeralSessionIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSessionsByWorkspace = `-- name: ListSessionsByWorkspace :many
 SELECT id, workspace_id, title, model_id, provider_id, status, origin, is_disposable, token_usage, parent_session_id, purpose, delegation_status, output_summary, subagent_kind, agent_mode, pinned, context_summary, compacted_until_message_id, context_summary_updated_at, created_at, updated_at
 FROM sessions

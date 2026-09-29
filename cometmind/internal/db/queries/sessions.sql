@@ -109,6 +109,14 @@ SELECT id
 FROM sessions
 ORDER BY created_at ASC;
 
+-- name: ListEphemeralSessionIDs :many
+-- Autonomy and inbox sessions are execution containers, not chats. They are
+-- hidden from the sidebar and should not outlive the run that created them.
+SELECT id
+FROM sessions
+WHERE origin IN ('autonomy', 'inbox')
+ORDER BY created_at ASC;
+
 -- name: UpdateSessionSubagentKind :exec
 UPDATE sessions
 SET
