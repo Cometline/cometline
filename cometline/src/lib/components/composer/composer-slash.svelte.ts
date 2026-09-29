@@ -1,4 +1,5 @@
 import { tick } from 'svelte';
+import { createMenuHighlight } from '$lib/components/composer/menu-highlight.svelte';
 import { goto } from '$app/navigation';
 import type { ChatTurnPayload } from '$lib/actions/start-chat';
 import {
@@ -60,19 +61,15 @@ export function createComposerSlashController(deps: {
 	let skills = $state<SkillResource[]>([]);
 	let skillsLoaded = $state(false);
 	let skillsLoading = $state(false);
-	let skillHighlight = $state(0);
-	let workspaceHighlight = $state(0);
 	let workspacePaths = $state<string[]>([]);
 	let workspaceSessionCounts = $state<Map<string, number>>(new Map());
 	let workspacePathsLoading = $state(false);
 	let workspacePathsLoaded = $state(false);
 	let workspaceDeleting = $state(false);
 	let dismissedSkillCommand = $state('');
-	let modelCommandHighlight = $state(0);
 	let readyJobs = $state<JobResource[]>([]);
 	let jobsLoading = $state(false);
 	let jobsLoaded = $state(false);
-	let jobCommandHighlight = $state(0);
 
 	const skillCommandMatch = $derived(/^\s*\/([\w-]*)$/.exec(deps.getValue()));
 	const skillCommandQuery = $derived(skillCommandMatch?.[1]?.toLowerCase() ?? '');
@@ -135,6 +132,26 @@ export function createComposerSlashController(deps: {
 		...BUILTIN_SLASH_COMMANDS.map((cmd) => cmd.name),
 		...skills.map((skill) => skill.name)
 	]);
+	const skillHighlightMenu = createMenuHighlight({
+		getQuery: () => skillCommandQuery,
+		getOpen: () => skillMenuOpen,
+		getCount: () => filteredSlashOptions.length
+	});
+	const workspaceHighlightMenu = createMenuHighlight({
+		getQuery: () => workspaceSearchQuery,
+		getOpen: () => workspaceMenuOpen,
+		getCount: () => filteredWorkspaceOptions.length
+	});
+	const modelCommandHighlightMenu = createMenuHighlight({
+		getQuery: () => modelCommandQuery,
+		getOpen: () => modelCommandMenuOpen,
+		getCount: () => filteredModelCommandOptions.length
+	});
+	const jobCommandHighlightMenu = createMenuHighlight({
+		getQuery: () => jobCommandQuery,
+		getOpen: () => jobCommandMenuOpen,
+		getCount: () => filteredJobOptions.length
+	});
 
 	$effect(() => {
 		if (!skillCommandMatch) {
@@ -145,59 +162,13 @@ export function createComposerSlashController(deps: {
 	});
 
 	$effect(() => {
-		if (!skillMenuOpen) return;
-		// Track query so highlight resets when the filter changes (hover/arrows
-		// otherwise leave a stale index on a shorter result list).
-		void skillCommandQuery;
-		skillHighlight = 0;
-	});
-
-	$effect(() => {
-		if (!skillMenuOpen) return;
-		if (skillHighlight >= filteredSlashOptions.length) {
-			skillHighlight = Math.max(0, filteredSlashOptions.length - 1);
-		}
-	});
-
-	$effect(() => {
 		if (!workspaceMenuOpen) return;
 		void ensureWorkspacePathsLoaded();
-		void workspaceSearchQuery;
-		workspaceHighlight = 0;
-	});
-
-	$effect(() => {
-		if (!workspaceMenuOpen) return;
-		if (workspaceHighlight >= filteredWorkspaceOptions.length) {
-			workspaceHighlight = Math.max(0, filteredWorkspaceOptions.length - 1);
-		}
-	});
-
-	$effect(() => {
-		if (!modelCommandMenuOpen) return;
-		void modelCommandQuery;
-		modelCommandHighlight = 0;
-	});
-
-	$effect(() => {
-		if (!modelCommandMenuOpen) return;
-		if (modelCommandHighlight >= filteredModelCommandOptions.length) {
-			modelCommandHighlight = Math.max(0, filteredModelCommandOptions.length - 1);
-		}
 	});
 
 	$effect(() => {
 		if (!jobCommandMenuOpen) return;
 		void ensureReadyJobsLoaded();
-		void jobCommandQuery;
-		jobCommandHighlight = 0;
-	});
-
-	$effect(() => {
-		if (!jobCommandMenuOpen) return;
-		if (jobCommandHighlight >= filteredJobOptions.length) {
-			jobCommandHighlight = Math.max(0, filteredJobOptions.length - 1);
-		}
 	});
 
 	async function ensureSkillsLoaded() {
@@ -267,7 +238,7 @@ export function createComposerSlashController(deps: {
 		await tick();
 		const option = deps
 			.getSkillMenuRef()
-			?.querySelector(`[data-workspace-index="${workspaceHighlight}"]`);
+			?.querySelector(`[data-workspace-index="${workspaceHighlightMenu.index}"]`);
 		if (option instanceof HTMLElement) {
 			option.scrollIntoView({ block: 'nearest' });
 		}
@@ -277,7 +248,7 @@ export function createComposerSlashController(deps: {
 		await tick();
 		const option = deps
 			.getSkillMenuRef()
-			?.querySelector(`[data-skill-index="${skillHighlight}"]`);
+			?.querySelector(`[data-skill-index="${skillHighlightMenu.index}"]`);
 		if (option instanceof HTMLElement) {
 			option.scrollIntoView({ block: 'nearest' });
 		}
@@ -287,7 +258,7 @@ export function createComposerSlashController(deps: {
 		await tick();
 		const option = deps
 			.getSkillMenuRef()
-			?.querySelector(`[data-model-index="${modelCommandHighlight}"]`);
+			?.querySelector(`[data-model-index="${modelCommandHighlightMenu.index}"]`);
 		if (option instanceof HTMLElement) {
 			option.scrollIntoView({ block: 'nearest' });
 		}
@@ -297,7 +268,7 @@ export function createComposerSlashController(deps: {
 		await tick();
 		const option = deps
 			.getSkillMenuRef()
-			?.querySelector(`[data-job-index="${jobCommandHighlight}"]`);
+			?.querySelector(`[data-job-index="${jobCommandHighlightMenu.index}"]`);
 		if (option instanceof HTMLElement) {
 			option.scrollIntoView({ block: 'nearest' });
 		}
@@ -316,7 +287,7 @@ export function createComposerSlashController(deps: {
 	async function handleChangeWorkspaceSubmit(trimmed: string) {
 		const parsed = parseChangeCommand(trimmed);
 		if (!parsed) return;
-		const option = filteredWorkspaceOptions[workspaceHighlight];
+		const option = filteredWorkspaceOptions[workspaceHighlightMenu.index];
 		if (option?.kind === 'workspace') {
 			await applyWorkspaceChange(option.path);
 			return;
@@ -365,7 +336,7 @@ export function createComposerSlashController(deps: {
 			workspacePathsLoaded = false;
 			deps.getInput()?.clear();
 			deps.setValue('');
-			workspaceHighlight = 0;
+			workspaceHighlightMenu.index = 0;
 			if (forkedId) {
 				// Remount-equivalent before soft navigate: empty fork must start
 				// centered so first-turn flight + follow-up transitions work.
@@ -405,13 +376,13 @@ export function createComposerSlashController(deps: {
 		await deps.onModelChange?.(option);
 		deps.getInput()?.clear();
 		deps.setValue('');
-		modelCommandHighlight = 0;
+		modelCommandHighlightMenu.index = 0;
 		deps.setDropMessage(`Switched to ${option.label}`);
 	}
 
 	function handleModelCommandSubmit() {
 		const flatOptions = filteredModelCommandOptions;
-		const option = flatOptions[modelCommandHighlight];
+		const option = flatOptions[modelCommandHighlightMenu.index];
 		if (option) {
 			void selectModelCommandOption(option);
 			return;
@@ -440,7 +411,7 @@ export function createComposerSlashController(deps: {
 	}
 
 	function handleJobCommandSubmit() {
-		const option = filteredJobOptions[jobCommandHighlight];
+		const option = filteredJobOptions[jobCommandHighlightMenu.index];
 		if (option) {
 			void selectJobCommandOption(option);
 			return;
@@ -514,7 +485,7 @@ export function createComposerSlashController(deps: {
 		if (e.key === 'ArrowDown') {
 			e.preventDefault();
 			if (filteredWorkspaceOptions.length > 0) {
-				workspaceHighlight = (workspaceHighlight + 1) % filteredWorkspaceOptions.length;
+				workspaceHighlightMenu.index = (workspaceHighlightMenu.index + 1) % filteredWorkspaceOptions.length;
 				void scrollHighlightedWorkspaceIntoView();
 			}
 			return true;
@@ -522,15 +493,15 @@ export function createComposerSlashController(deps: {
 		if (e.key === 'ArrowUp') {
 			e.preventDefault();
 			if (filteredWorkspaceOptions.length > 0) {
-				workspaceHighlight =
-					(workspaceHighlight - 1 + filteredWorkspaceOptions.length) %
+				workspaceHighlightMenu.index =
+					(workspaceHighlightMenu.index - 1 + filteredWorkspaceOptions.length) %
 					filteredWorkspaceOptions.length;
 				void scrollHighlightedWorkspaceIntoView();
 			}
 			return true;
 		}
 		if (e.key === 'Tab' || e.key === 'Enter') {
-			const option = filteredWorkspaceOptions[workspaceHighlight];
+			const option = filteredWorkspaceOptions[workspaceHighlightMenu.index];
 			if (!option) {
 				if (e.key === 'Tab') {
 					e.preventDefault();
@@ -557,7 +528,7 @@ export function createComposerSlashController(deps: {
 		if (e.key === 'ArrowDown') {
 			e.preventDefault();
 			if (flatOptions.length > 0) {
-				modelCommandHighlight = (modelCommandHighlight + 1) % flatOptions.length;
+				modelCommandHighlightMenu.index = (modelCommandHighlightMenu.index + 1) % flatOptions.length;
 				void scrollHighlightedModelIntoView();
 			}
 			return true;
@@ -565,14 +536,14 @@ export function createComposerSlashController(deps: {
 		if (e.key === 'ArrowUp') {
 			e.preventDefault();
 			if (flatOptions.length > 0) {
-				modelCommandHighlight =
-					(modelCommandHighlight - 1 + flatOptions.length) % flatOptions.length;
+				modelCommandHighlightMenu.index =
+					(modelCommandHighlightMenu.index - 1 + flatOptions.length) % flatOptions.length;
 				void scrollHighlightedModelIntoView();
 			}
 			return true;
 		}
 		if (e.key === 'Tab' || e.key === 'Enter') {
-			const option = flatOptions[modelCommandHighlight];
+			const option = flatOptions[modelCommandHighlightMenu.index];
 			if (!option) {
 				if (e.key === 'Tab') {
 					e.preventDefault();
@@ -598,7 +569,7 @@ export function createComposerSlashController(deps: {
 		if (e.key === 'ArrowDown') {
 			e.preventDefault();
 			if (filteredJobOptions.length > 0) {
-				jobCommandHighlight = (jobCommandHighlight + 1) % filteredJobOptions.length;
+				jobCommandHighlightMenu.index = (jobCommandHighlightMenu.index + 1) % filteredJobOptions.length;
 				void scrollHighlightedJobIntoView();
 			}
 			return true;
@@ -606,8 +577,8 @@ export function createComposerSlashController(deps: {
 		if (e.key === 'ArrowUp') {
 			e.preventDefault();
 			if (filteredJobOptions.length > 0) {
-				jobCommandHighlight =
-					(jobCommandHighlight - 1 + filteredJobOptions.length) %
+				jobCommandHighlightMenu.index =
+					(jobCommandHighlightMenu.index - 1 + filteredJobOptions.length) %
 					filteredJobOptions.length;
 				void scrollHighlightedJobIntoView();
 			}
@@ -631,7 +602,7 @@ export function createComposerSlashController(deps: {
 		if (e.key === 'ArrowDown') {
 			e.preventDefault();
 			if (filteredSlashOptions.length > 0) {
-				skillHighlight = (skillHighlight + 1) % filteredSlashOptions.length;
+				skillHighlightMenu.index = (skillHighlightMenu.index + 1) % filteredSlashOptions.length;
 				void scrollHighlightedSkillIntoView();
 			}
 			return true;
@@ -639,15 +610,15 @@ export function createComposerSlashController(deps: {
 		if (e.key === 'ArrowUp') {
 			e.preventDefault();
 			if (filteredSlashOptions.length > 0) {
-				skillHighlight =
-					(skillHighlight - 1 + filteredSlashOptions.length) %
+				skillHighlightMenu.index =
+					(skillHighlightMenu.index - 1 + filteredSlashOptions.length) %
 					filteredSlashOptions.length;
 				void scrollHighlightedSkillIntoView();
 			}
 			return true;
 		}
 		if (e.key === 'Tab' || e.key === 'Enter') {
-			const option = filteredSlashOptions[skillHighlight];
+			const option = filteredSlashOptions[skillHighlightMenu.index];
 			if (!option) {
 				if (e.key === 'Tab') {
 					e.preventDefault();
@@ -675,8 +646,8 @@ export function createComposerSlashController(deps: {
 		deps.getInput()?.setText(next);
 		deps.setValue(next);
 		dismissedSkillCommand = '';
-		skillHighlight = 0;
-		workspaceHighlight = 0;
+		skillHighlightMenu.index = 0;
+		workspaceHighlightMenu.index = 0;
 		void ensureWorkspacePathsLoaded();
 		void deps.focusInput();
 	}
@@ -686,8 +657,8 @@ export function createComposerSlashController(deps: {
 		deps.getInput()?.setText(next);
 		deps.setValue(next);
 		dismissedSkillCommand = next;
-		skillHighlight = 0;
-		modelCommandHighlight = 0;
+		skillHighlightMenu.index = 0;
+		modelCommandHighlightMenu.index = 0;
 		void deps.focusInput();
 	}
 
@@ -696,8 +667,8 @@ export function createComposerSlashController(deps: {
 		deps.getInput()?.setText(next);
 		deps.setValue(next);
 		dismissedSkillCommand = next;
-		skillHighlight = 0;
-		jobCommandHighlight = 0;
+		skillHighlightMenu.index = 0;
+		jobCommandHighlightMenu.index = 0;
 		void ensureReadyJobsLoaded();
 		void deps.focusInput();
 	}
@@ -719,7 +690,7 @@ export function createComposerSlashController(deps: {
 		deps.getInput()?.setText(next);
 		deps.setValue(next);
 		dismissedSkillCommand = next;
-		skillHighlight = 0;
+		skillHighlightMenu.index = 0;
 	}
 
 	return {
@@ -742,10 +713,10 @@ export function createComposerSlashController(deps: {
 			return filteredWorkspaceOptions;
 		},
 		get workspaceHighlight() {
-			return workspaceHighlight;
+			return workspaceHighlightMenu.index;
 		},
 		set workspaceHighlight(index: number) {
-			workspaceHighlight = index;
+			workspaceHighlightMenu.index = index;
 		},
 		get workspaceDeleting() {
 			return workspaceDeleting;
@@ -763,10 +734,10 @@ export function createComposerSlashController(deps: {
 			return groupedModelCommandOptions;
 		},
 		get modelCommandHighlight() {
-			return modelCommandHighlight;
+			return modelCommandHighlightMenu.index;
 		},
 		set modelCommandHighlight(index: number) {
-			modelCommandHighlight = index;
+			modelCommandHighlightMenu.index = index;
 		},
 		get jobCommandMenuOpen() {
 			return jobCommandMenuOpen;
@@ -784,10 +755,10 @@ export function createComposerSlashController(deps: {
 			return filteredJobOptions;
 		},
 		get jobCommandHighlight() {
-			return jobCommandHighlight;
+			return jobCommandHighlightMenu.index;
 		},
 		set jobCommandHighlight(index: number) {
-			jobCommandHighlight = index;
+			jobCommandHighlightMenu.index = index;
 		},
 		get skillMenuOpen() {
 			return skillMenuOpen;
@@ -802,10 +773,10 @@ export function createComposerSlashController(deps: {
 			return filteredSlashOptions;
 		},
 		get skillHighlight() {
-			return skillHighlight;
+			return skillHighlightMenu.index;
 		},
 		set skillHighlight(index: number) {
-			skillHighlight = index;
+			skillHighlightMenu.index = index;
 		},
 		resolveSubmitAction,
 		handleMenuKeydown,

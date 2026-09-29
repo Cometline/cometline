@@ -1,4 +1,5 @@
 import { tick } from 'svelte';
+import { createMenuHighlight } from '$lib/components/composer/menu-highlight.svelte';
 import { shellStore } from '$lib/stores/shell.svelte';
 import {
 	resolveMentionSourcePaths,
@@ -49,7 +50,6 @@ export function createComposerMentionsController(deps: {
 }) {
 	let mentionQuery = $state('');
 	let mentionMenuOpen = $state(false);
-	let mentionHighlight = $state(0);
 	let mentionIndexVersion = $state(0);
 	let mentionServerResults = $state<string[]>([]);
 	let mentionServerQuery = $state('');
@@ -85,6 +85,12 @@ export function createComposerMentionsController(deps: {
 	);
 
 	const useServerSearch = $derived(needsServerSearch);
+
+	const mentionHighlightMenu = createMenuHighlight({
+		getQuery: () => queryTrimmed,
+		getOpen: () => mentionMenuOpen,
+		getCount: () => filteredMentionFiles.length
+	});
 
 	const filteredMentionFiles = $derived.by((): MentionPath[] => {
 		const local = localMatches;
@@ -122,19 +128,6 @@ export function createComposerMentionsController(deps: {
 			}
 		});
 		return () => cancelIdle(handle);
-	});
-
-	$effect(() => {
-		if (!mentionMenuOpen) return;
-		void queryTrimmed;
-		mentionHighlight = 0;
-	});
-
-	$effect(() => {
-		if (!mentionMenuOpen) return;
-		if (mentionHighlight >= filteredMentionFiles.length) {
-			mentionHighlight = Math.max(0, filteredMentionFiles.length - 1);
-		}
 	});
 
 	$effect(() => {
@@ -192,7 +185,7 @@ export function createComposerMentionsController(deps: {
 		await tick();
 		const option = deps
 			.getMentionMenuRef()
-			?.querySelector(`[data-mention-index="${mentionHighlight}"]`);
+			?.querySelector(`[data-mention-index="${mentionHighlightMenu.index}"]`);
 		if (option instanceof HTMLElement) {
 			option.scrollIntoView({ block: 'nearest' });
 		}
@@ -218,7 +211,7 @@ export function createComposerMentionsController(deps: {
 		}
 		mentionQuery = payload.query;
 		mentionMenuOpen = true;
-		mentionHighlight = 0;
+		mentionHighlightMenu.index = 0;
 	}
 
 	async function loadMentionIndex(workspacePath: string) {
@@ -239,7 +232,7 @@ export function createComposerMentionsController(deps: {
 		if (e.key === 'ArrowDown') {
 			e.preventDefault();
 			if (filteredMentionFiles.length > 0) {
-				mentionHighlight = (mentionHighlight + 1) % filteredMentionFiles.length;
+				mentionHighlightMenu.index = (mentionHighlightMenu.index + 1) % filteredMentionFiles.length;
 				void scrollHighlightedMentionIntoView();
 			}
 			return true;
@@ -247,15 +240,15 @@ export function createComposerMentionsController(deps: {
 		if (e.key === 'ArrowUp') {
 			e.preventDefault();
 			if (filteredMentionFiles.length > 0) {
-				mentionHighlight =
-					(mentionHighlight - 1 + filteredMentionFiles.length) %
+				mentionHighlightMenu.index =
+					(mentionHighlightMenu.index - 1 + filteredMentionFiles.length) %
 					filteredMentionFiles.length;
 				void scrollHighlightedMentionIntoView();
 			}
 			return true;
 		}
 		if (e.key === 'Tab' || e.key === 'Enter') {
-			const mention = filteredMentionFiles[mentionHighlight];
+			const mention = filteredMentionFiles[mentionHighlightMenu.index];
 			if (!mention) {
 				if (e.key === 'Tab') {
 					e.preventDefault();
@@ -281,10 +274,10 @@ export function createComposerMentionsController(deps: {
 			return mentionMenuOpen;
 		},
 		get mentionHighlight() {
-			return mentionHighlight;
+			return mentionHighlightMenu.index;
 		},
 		set mentionHighlight(index: number) {
-			mentionHighlight = index;
+			mentionHighlightMenu.index = index;
 		},
 		get fileIndex() {
 			return fileIndex;
