@@ -14,6 +14,7 @@ import (
 	"github.com/cometline/cometmind/internal/event"
 	"github.com/cometline/cometmind/internal/inbox"
 	"github.com/cometline/cometmind/internal/jobs"
+	"github.com/cometline/cometmind/internal/logging"
 	"github.com/cometline/cometmind/internal/memory"
 	"github.com/cometline/cometmind/internal/session"
 	"github.com/cometline/cometmind/internal/tools"
@@ -203,12 +204,23 @@ func (w *Worker) processOne(ctx context.Context, msg inbox.Message) {
 	if runErr != nil {
 		if claimed.ProcessAttempts >= inbox.MaxProcessAttempts {
 			_, _ = w.Inbox.MarkProcessed(ctx, claimed.ID, runErr.Error())
+			w.discardSession(ctx, sess.ID)
 			return
 		}
 		log.Printf("inbox: process %s failed (attempt %d): %v", claimed.ID, claimed.ProcessAttempts, runErr)
 		return
 	}
 	_, _ = w.Inbox.MarkProcessed(ctx, claimed.ID, "")
+	w.discardSession(ctx, sess.ID)
+}
+
+func (w *Worker) discardSession(ctx context.Context, sessionID string) {
+	if w == nil || w.Sessions == nil || strings.TrimSpace(sessionID) == "" {
+		return
+	}
+	if err := w.Sessions.DiscardEphemeralSession(ctx, sessionID); err != nil {
+		logging.L().Warn("inbox.session_discard_failed", "session_id", sessionID, "error", err)
+	}
 }
 
 func (w *Worker) finishWithError(ctx context.Context, msg inbox.Message, reason string) error {

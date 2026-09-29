@@ -88,7 +88,7 @@ func (r RunCommand) Execute(ctx context.Context, input json.RawMessage) (Result,
 	cmdCtx, cancel := context.WithTimeout(ctx, time.Duration(timeoutSec)*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(cmdCtx, "sh", "-c", command) //nolint:gosec
+	cmd := process.CommandContext(cmdCtx, "sh", "-c", command)
 	cmd.Dir = root
 	env := process.EnvForSession(process.SessionIDFrom(ctx))
 	cmd.Env = env
