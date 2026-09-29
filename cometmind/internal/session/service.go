@@ -516,6 +516,17 @@ func (s *Service) ListAllSessions(ctx context.Context) ([]Session, error) {
 	return out, nil
 }
 
+// ephemeralSessionOrigin reports origins that exist only as an execution
+// container. Their media is a run artifact, not a Gallery item.
+func ephemeralSessionOrigin(origin string) bool {
+	switch strings.TrimSpace(origin) {
+	case "autonomy", "inbox":
+		return true
+	default:
+		return false
+	}
+}
+
 // DeleteSession removes a session and cascades its messages and tool calls.
 // Child sessions are deleted first so delegated rows cannot orphan into the sidebar.
 // Gallery media stays on disk and in the catalog with a null session_id.
@@ -530,6 +541,56 @@ func (s *Service) DeleteSession(ctx context.Context, sessionID string) error {
 		}
 	}
 	return s.q.DeleteSession(ctx, sessionID)
+}
+
+// DiscardEphemeralSession deletes an autonomy or inbox execution container
+// together with its on-disk media. User chats must not go through this path:
+// their gallery files are meant to survive session deletion.
+func (s *Service) DiscardEphemeralSession(ctx context.Context, sessionID string) error {
+	sess, err := s.GetSession(ctx, sessionID)
+	if err != nil {
+		if errors.Is(err, ErrSessionNotFound) {
+			return nil
+		}
+		return err
+	}
+	if !ephemeralSessionOrigin(sess.Origin) {
+		return fmt.Errorf("session %s is not ephemeral", sessionID)
+	}
+	children, err := s.ListChildSessions(ctx, sessionID)
+	if err != nil {
+		return err
+	}
+	for _, child := range children {
+		if err := s.DeleteSession(ctx, child.ID); err != nil {
+			return err
+		}
+	}
+	if err := media.DeleteSession(sessionID); err != nil {
+		return err
+	}
+	return s.q.DeleteSession(ctx, sessionID)
+}
+
+// DiscardFinishedEphemeralSessions removes autonomy and inbox sessions that
+// are no longer an active run. Startup uses this to clean containers left
+// behind by older builds.
+func (s *Service) DiscardFinishedEphemeralSessions(ctx context.Context, running func(sessionID string) bool) (int, error) {
+	ids, err := s.q.ListEphemeralSessionIDs(ctx)
+	if err != nil {
+		return 0, err
+	}
+	discarded := 0
+	for _, id := range ids {
+		if running != nil && running(id) {
+			continue
+		}
+		if err := s.DiscardEphemeralSession(ctx, id); err != nil {
+			return discarded, err
+		}
+		discarded++
+	}
+	return discarded, nil
 }
 
 // PruneUnusedUserSessions removes top-level user sessions that were created
@@ -1015,12 +1076,17 @@ func (s *Service) AppendAssistantMediaWithMeta(ctx context.Context, sessionID st
 		if err != nil {
 			return Message{}, err
 		}
-		created, err := s.ensureSessionMedia(ctx, sess, block, meta)
-		if err != nil {
-			return Message{}, err
-		}
-		if created {
-			createdIDs = append(createdIDs, block.ID)
+		// Ephemeral runs keep the blob in the transcript so the model can
+		// still see it, but they are not a user collection. Publishing them
+		// into session_media would put private run artifacts on Gallery.
+		if !ephemeralSessionOrigin(sess.Origin) {
+			created, err := s.ensureSessionMedia(ctx, sess, block, meta)
+			if err != nil {
+				return Message{}, err
+			}
+			if created {
+				createdIDs = append(createdIDs, block.ID)
+			}
 		}
 		blocks = append(blocks, block)
 	}
@@ -1184,6 +1250,9 @@ func (s *Service) backfillSessionMedia(ctx context.Context, sessionID string) er
 	sess, err := s.GetSession(ctx, sessionID)
 	if err != nil {
 		return err
+	}
+	if ephemeralSessionOrigin(sess.Origin) {
+		return nil
 	}
 	hints, err := s.generatedMediaHints(ctx, sessionID)
 	if err != nil {
