@@ -135,3 +135,79 @@ func TestDecodeTranscriptCursor(t *testing.T) {
 		t.Fatal("expected error")
 	}
 }
+
+func TestLoadTranscriptPageSnapsToAnchoringUser(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	svc, _ := newForkTestService(t)
+
+	ws, err := svc.EnsureWorkspace(ctx, t.TempDir())
+	if err != nil {
+		t.Fatalf("EnsureWorkspace: %v", err)
+	}
+	sess, err := svc.NewSession(ctx, ws.ID, "test-model", "test-provider")
+	if err != nil {
+		t.Fatalf("NewSession: %v", err)
+	}
+
+	// Older complete turn, then a mega-like turn with many assistant steps, then "hi".
+	if _, err := svc.AppendUserMessage(ctx, sess.ID, "older"); err != nil {
+		t.Fatalf("AppendUserMessage older: %v", err)
+	}
+	if _, _, err := svc.AppendAssistantStep(ctx, sess.ID, "older-reply", nil, nil, nil); err != nil {
+		t.Fatalf("AppendAssistantStep older: %v", err)
+	}
+	if _, err := svc.AppendUserMessage(ctx, sess.ID, "mega-prompt"); err != nil {
+		t.Fatalf("AppendUserMessage mega: %v", err)
+	}
+	const megaSteps = 8
+	for i := 0; i < megaSteps; i++ {
+		if _, _, err := svc.AppendAssistantStep(ctx, sess.ID, fmt.Sprintf("mega-step-%d", i), nil, nil, nil); err != nil {
+			t.Fatalf("AppendAssistantStep mega %d: %v", i, err)
+		}
+	}
+	if _, err := svc.AppendUserMessage(ctx, sess.ID, "hi"); err != nil {
+		t.Fatalf("AppendUserMessage hi: %v", err)
+	}
+	if _, _, err := svc.AppendAssistantStep(ctx, sess.ID, "hello", nil, nil, nil); err != nil {
+		t.Fatalf("AppendAssistantStep hello: %v", err)
+	}
+
+	// limit=4 on the recent page without snap would be: mega-step-6,7, hi, hello
+	// (4 newest messages) — mid mega turn. Snap must pull back to mega-prompt.
+	page, err := svc.LoadTranscriptPage(ctx, sess.ID, 4, "")
+	if err != nil {
+		t.Fatalf("LoadTranscriptPage: %v", err)
+	}
+	if len(page.Items) == 0 {
+		t.Fatal("empty page")
+	}
+	if page.Items[0].Kind != TranscriptKindUser || page.Items[0].Text != "mega-prompt" {
+		t.Fatalf("page first = %+v, want user mega-prompt (turn-boundary snap)", page.Items[0])
+	}
+	last := page.Items[len(page.Items)-1]
+	if last.Kind != TranscriptKindAssistant || last.Text != "hello" {
+		t.Fatalf("page last = %+v, want assistant hello", last)
+	}
+	// Older history ("older" turn) must remain behind has_more.
+	if !page.HasMore || page.NextBefore == "" {
+		t.Fatalf("has_more/next_before = %v %q, want true after snap", page.HasMore, page.NextBefore)
+	}
+	var sawMegaBody bool
+	for _, it := range page.Items {
+		if it.Kind == TranscriptKindAssistant && it.Text == "mega-step-7" {
+			sawMegaBody = true
+		}
+	}
+	if !sawMegaBody {
+		t.Fatalf("mega body missing from snapped page: %+v", page.Items)
+	}
+
+	older, err := svc.LoadTranscriptPage(ctx, sess.ID, 10, page.NextBefore)
+	if err != nil {
+		t.Fatalf("older page: %v", err)
+	}
+	if len(older.Items) == 0 || older.Items[0].Text != "older" {
+		t.Fatalf("older page = %+v, want to start at older turn", older.Items)
+	}
+}

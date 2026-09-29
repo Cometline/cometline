@@ -1,10 +1,12 @@
 import { tick, untrack } from 'svelte';
 import type { ChatItem } from '$lib/stores/chat.svelte';
-import { activeTurnMinHeight } from './thread-turns';
+import { activeTurnMinHeight, transcriptHasLeadingOrphans } from './thread-turns';
 import { buildScrollKey, followUpPinScrollMargin, shouldShowJumpToBottom } from './thread-scroll';
 import { THREAD_HYDRATION_FAILSAFE_MS, scrollTopAfterPrepend } from './thread-virtualizer';
 
 const LOAD_OLDER_TOP_PX = 320;
+/** Max older pages to auto-fetch after hydration to re-anchor a mid-turn first page. */
+const AUTO_ANCHOR_PAGE_CAP = 5;
 
 export interface ThreadScrollDeps {
 	getSessionId: () => string;
@@ -40,6 +42,10 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 	let activePinnedUserId = $state<string | null>(null);
 	/** Covers the post-load tick + scrollTop correction window (store flag clears earlier). */
 	let loadOlderInFlight = false;
+	/** Auto-anchor (leading orphan → loadOlder) in flight; shared with scroll-near-top gate. */
+	let autoAnchorInFlight = false;
+	/** Pages already auto-anchored for the current session (reset on session change). */
+	let autoAnchorPagesUsed = 0;
 	/**
 	 * Wall-clock escape from opacity:0. Lives outside the settle $effect so
 	 * threadItems / sync churn cannot cancel and re-arm it (#157 miss).
@@ -103,6 +109,49 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 			scroller.scrollTop = scrollTopAfterPrepend(prevTop, prevHeight, nextHeight);
 			notifyScrollTop();
 		} finally {
+			loadOlderInFlight = false;
+		}
+	}
+
+	/**
+	 * After first transcript page apply / hydration, if hasMore and the page starts
+	 * mid-turn (leading non-user orphans), keep loading older pages until an
+	 * anchoring user appears or AUTO_ANCHOR_PAGE_CAP is hit. Not scroll-gated.
+	 */
+	async function maybeAutoAnchorLeadingOrphans() {
+		const loadOlder = deps.loadOlderTranscript;
+		if (!loadOlder) return;
+		if (autoAnchorInFlight || loadOlderInFlight || isInitialTranscriptPaint) return;
+		if (!deps.getIsSessionSynced()) return;
+		if (!deps.getHasMoreHistory?.() || deps.getIsLoadingOlder?.()) return;
+		if (autoAnchorPagesUsed >= AUTO_ANCHOR_PAGE_CAP) return;
+		if (!transcriptHasLeadingOrphans(deps.getThreadItems())) return;
+
+		autoAnchorInFlight = true;
+		loadOlderInFlight = true;
+		const el = scroller;
+		const prevTop = el?.scrollTop ?? 0;
+		const prevHeight = el?.scrollHeight ?? 0;
+		try {
+			while (
+				autoAnchorPagesUsed < AUTO_ANCHOR_PAGE_CAP &&
+				deps.getHasMoreHistory?.() &&
+				!deps.getIsLoadingOlder?.() &&
+				transcriptHasLeadingOrphans(deps.getThreadItems())
+			) {
+				const prepended = await loadOlder(deps.getSessionId());
+				autoAnchorPagesUsed += 1;
+				if (!prepended) break;
+			}
+			if (el && scroller === el && prevHeight > 0) {
+				await tick();
+				if (!scroller) return;
+				const nextHeight = scroller.scrollHeight;
+				scroller.scrollTop = scrollTopAfterPrepend(prevTop, prevHeight, nextHeight);
+				notifyScrollTop();
+			}
+		} finally {
+			autoAnchorInFlight = false;
 			loadOlderInFlight = false;
 		}
 	}
@@ -188,6 +237,8 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 		}
 		isInitialTranscriptPaint = false;
 		updateJumpToBottom();
+		// Post-hydration kick: re-anchor mid-turn first page (not scroll-only).
+		void maybeAutoAnchorLeadingOrphans();
 	}
 
 	/**
@@ -226,6 +277,7 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 			beginHydrationPaintFresh();
 			activePinnedUserId = null;
 			showJumpToBottom = false;
+			autoAnchorPagesUsed = 0;
 		});
 	});
 
@@ -372,6 +424,15 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 		presentFollowUpTurn(userId);
 	});
 
+	// If leading orphans appear after paint (or hasMore flips), keep auto-anchoring.
+	$effect(() => {
+		if (isInitialTranscriptPaint) return;
+		if (!deps.getIsSessionSynced()) return;
+		void deps.getThreadItems();
+		void deps.getHasMoreHistory?.();
+		void maybeAutoAnchorLeadingOrphans();
+	});
+
 	return {
 		get showJumpToBottom() {
 			return showJumpToBottom;
@@ -394,6 +455,7 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 		setScroller,
 		onScroll,
 		jumpToBottom,
-		maybeLoadOlderHistory
+		maybeLoadOlderHistory,
+		maybeAutoAnchorLeadingOrphans
 	};
 }
