@@ -103,15 +103,14 @@
 		);
 	}
 
-	$effect(() => {
-		if (!settings) return;
+	const resolvedEmbeddingKey = $derived.by(() => {
 		if (
 			selectedEmbeddingKey &&
 			embeddingDropdownOptions.some((opt) => embeddingOptionKey(opt) === selectedEmbeddingKey)
 		) {
-			return;
+			return selectedEmbeddingKey;
 		}
-		selectedEmbeddingKey = embeddingKeyForSettings(settings);
+		return embeddingKeyForSettings(settings);
 	});
 
 	// Pure: derives the would-be MemorySettings from `base` + the current
@@ -121,7 +120,7 @@
 	// `isDirty()` for why that breaks the Save button.
 	function computeEmbeddingPayload(base: MemorySettings): MemorySettings {
 		const option = embeddingDropdownOptions.find(
-			(opt) => embeddingOptionKey(opt) === selectedEmbeddingKey
+			(opt) => embeddingOptionKey(opt) === resolvedEmbeddingKey
 		);
 		if (!option) {
 			return {
@@ -368,19 +367,17 @@
 		}
 	}
 
+	const searchActive = $derived(Boolean(searchQuery.trim()));
+	const visibleMemories = $derived(searchActive ? memories : fullMemories);
+	const visibleSearching = $derived(searchActive && searching);
+
 	$effect(() => {
 		const query = searchQuery.trim();
-		if (!query) {
-			memories = fullMemories;
-			searching = false;
-			return;
-		}
-
+		if (!query) return;
 		searching = true;
 		const timer = setTimeout(() => {
 			void applyMemorySearch(query);
 		}, 300);
-
 		return () => clearTimeout(timer);
 	});
 
@@ -572,7 +569,7 @@
 									</p>
 								{:else}
 									<select
-										bind:value={selectedEmbeddingKey}
+										value={resolvedEmbeddingKey}
 										onchange={(event) => {
 											selectedEmbeddingKey = event.currentTarget.value;
 										}}
@@ -752,12 +749,12 @@
 						bind:value={searchQuery}
 						placeholder="Search memories…"
 						spellcheck="false"
-						aria-busy={searching}
+						aria-busy={visibleSearching}
 					/>
 				</div>
 
 				<div class="memory-list scrollbar-none">
-					{#each memories as memory (memory.id)}
+					{#each visibleMemories as memory (memory.id)}
 						<article class="memory-card">
 							<div>
 								<div class="memory-card-heading">
