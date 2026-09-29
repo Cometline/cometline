@@ -241,29 +241,6 @@ export interface CometMindSettings {
 	generation: CometMindGenerationSettings;
 }
 
-export interface RuntimeProviderEntry {
-	id: string;
-	name: string;
-	method: string;
-	baseURL: string;
-	apiKey: string;
-	model: string;
-}
-
-export interface RuntimeSettingsSlice {
-	provider: string;
-	model: string;
-	baseURL: string;
-	maxSteps: number;
-	systemPromptPath: string;
-	providers: RuntimeProviderEntry[];
-	acp: CometMindACPSettings;
-	skills: CometMindSkillsSettings;
-	memory: CometMindMemorySettings;
-	gateway: CometMindSettings['gateway'];
-	mcp: CometMindMCPSettings;
-}
-
 const DEFAULT_PROVIDERS: ProviderConfig[] = [
 	{
 		id: 'codex',
@@ -1396,54 +1373,6 @@ export function resolveDefaultModelPair(
 
 function primaryModel(provider: ProviderConfig): string {
 	return provider.enabledModels[0] || provider.selectedModel || provider.models[0] || '';
-}
-
-export function runtimeProviders(settings: ProviderSettings): ProviderConfig[] {
-	return settings.providers.filter((p) => p.enabled && p.enabledModels.length > 0);
-}
-
-export function runtimeSlice(settings: ProviderSettings): RuntimeSettingsSlice | null {
-	const providers = runtimeProviders(settings);
-	const active =
-		providers.find((p) => p.id === settings.defaultProviderId) ?? providers[0] ?? null;
-	if (!active) return null;
-
-	const model =
-		settings.defaultModelId && active.enabledModels.includes(settings.defaultModelId)
-			? settings.defaultModelId
-			: primaryModel(active);
-
-	return {
-		provider: active.id,
-		model,
-		baseURL: active.baseURL,
-		maxSteps: 50,
-		systemPromptPath: settings.cometmind.systemPromptPath,
-		providers: providers.map((p) => ({
-			id: p.id,
-			name: p.name,
-			method: p.method,
-			baseURL: p.baseURL,
-			apiKey: p.apiKey,
-			model: primaryModel(p)
-		})),
-		acp: { ...settings.cometmind.acp },
-		skills: { ...settings.cometmind.skills, roots: [...settings.cometmind.skills.roots] },
-		memory: {
-			enabled: settings.cometmind.memory.enabled,
-			autoExtract: settings.cometmind.memory.autoExtract,
-			autoRetrieve: settings.cometmind.memory.autoRetrieve,
-			maxRetrieved: settings.cometmind.memory.maxRetrieved,
-			taskOutcomeLimit: settings.cometmind.memory.taskOutcomeLimit,
-			similarityThreshold: settings.cometmind.memory.similarityThreshold,
-			extractionProviderId: settings.cometmind.memory.extractionProviderId,
-			extractionModel: settings.cometmind.memory.extractionModel,
-			lifecycle: { ...settings.cometmind.memory.lifecycle },
-			embedding: { ...settings.cometmind.memory.embedding }
-		},
-		gateway: cloneCometMindSettings(settings.cometmind).gateway,
-		mcp: cloneCometMindSettings(settings.cometmind).mcp
-	};
 }
 
 const providerConfigSchema = z.object({

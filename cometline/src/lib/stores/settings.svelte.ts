@@ -1,24 +1,13 @@
 import {
-	cloneCometMindSettings,
 	cloneProvider,
 	defaultSettings,
-	migrateSingleProvider,
-	newProvider,
-	normalizeCometMindSettings,
-	normalizeProvider,
-	normalizeProviders,
 	normalizeSettings,
-	parseAndNormalizeSettings,
-	runtimeProviders,
-	runtimeSlice,
-	type CometMindSettings,
-	type RuntimeSettingsSlice
+	parseAndNormalizeSettings
 } from '$lib/settings/schema';
 import type { RuntimeApplyAction } from '$lib/settings/settings-save';
 import type { MemorySettings } from '$lib/client/cometmind';
 import { lookupModelCatalog } from '$lib/client/cometmind';
 import type { FetchProviderModelsResult, ProviderConfig, ProviderSettings } from '$lib/types';
-import { defaultKeyboardShortcuts } from '$lib/keyboard-shortcuts';
 import type { InputModality } from '$lib/model-modalities';
 import { modelStore, type ModelLimitEntry } from './model.svelte';
 import { persistSettings } from '$lib/settings/persist';
@@ -114,17 +103,6 @@ export function readHasSeenIntroSync(): boolean {
  * initial setup-wizard state so the first frame is already correct (no flash
  * for returning users who already configured a provider).
  */
-export function readHasCompletedSetupSync(): boolean {
-	try {
-		const raw = localStorage.getItem(LOCAL_SETTINGS_KEY);
-		if (!raw) return false;
-		const parsed = JSON.parse(raw) as { app?: { hasCompletedSetup?: unknown } };
-		return parsed?.app?.hasCompletedSetup === true;
-	} catch {
-		return false;
-	}
-}
-
 /**
  * Synchronously reads hasDismissedSetupWizard from localStorage. Used to
  * prevent the setup wizard from auto-opening after the user has explicitly
@@ -403,76 +381,6 @@ function createSettingsStore() {
 		}
 	}
 
-	function setDefaultProvider(providerId: string) {
-		const provider = settings.providers.find((p) => p.id === providerId);
-		const modelId = provider?.enabledModels[0] ?? provider?.selectedModel ?? '';
-		settings = {
-			...settings,
-			defaultProviderId: providerId,
-			defaultModelId: modelId || settings.defaultModelId
-		};
-		if (provider) {
-			modelStore.selectByProviderModel(provider.id, modelId);
-		}
-	}
-
-	function updateProvider(providerId: string, patch: Partial<ProviderConfig>) {
-		settings = {
-			...settings,
-			providers: settings.providers.map((p) =>
-				p.id === providerId ? normalizeProvider({ ...p, ...patch }, p) : p
-			)
-		};
-		const updated = settings.providers.find((p) => p.id === providerId);
-		if (updated) {
-			modelStore.setProviders(
-				settings.providers,
-				settings.defaultProviderId,
-				settings.defaultModelId
-			);
-		}
-	}
-
-	function addProvider() {
-		const id = `provider-${Date.now()}`;
-		settings = {
-			...settings,
-			providers: [...settings.providers, newProvider(id)]
-		};
-		return id;
-	}
-
-	function removeProvider(providerId: string) {
-		const nextProviders = settings.providers.filter((p) => p.id !== providerId);
-		let nextDefaultProviderId = settings.defaultProviderId;
-		let nextDefaultModelId = settings.defaultModelId;
-		if (nextDefaultProviderId === providerId) {
-			const fallback =
-				nextProviders.find((p) => p.enabled && p.enabledModels.length > 0) ??
-				nextProviders[0];
-			nextDefaultProviderId = fallback?.id ?? '';
-			nextDefaultModelId = fallback?.enabledModels[0] ?? fallback?.selectedModel ?? '';
-		}
-		settings = {
-			...settings,
-			providers: nextProviders,
-			defaultProviderId: nextDefaultProviderId,
-			defaultModelId: nextDefaultModelId
-		};
-		modelStore.setProviders(
-			settings.providers,
-			settings.defaultProviderId,
-			settings.defaultModelId
-		);
-	}
-
-	function getDefaultProvider() {
-		return (
-			settings.providers.find((p) => p.id === settings.defaultProviderId) ??
-			settings.providers[0]
-		);
-	}
-
 	return {
 		get settings() {
 			return settings;
@@ -502,30 +410,8 @@ function createSettingsStore() {
 		saveConfirmBeforeDeletingChats,
 		saveConfirmBeforeDeletingMedia,
 		saveFileSearchSource,
-		saveWorkspacePanelLayout,
-		setDefaultProvider,
-		updateProvider,
-		addProvider,
-		removeProvider,
-		getDefaultProvider
+		saveWorkspacePanelLayout
 	};
 }
 
 export const settingsStore = createSettingsStore();
-
-export {
-	cloneCometMindSettings,
-	cloneProvider,
-	defaultSettings,
-	defaultKeyboardShortcuts,
-	migrateSingleProvider,
-	newProvider,
-	normalizeCometMindSettings,
-	normalizeProvider,
-	normalizeProviders,
-	normalizeSettings,
-	runtimeProviders,
-	runtimeSlice,
-	type CometMindSettings,
-	type RuntimeSettingsSlice
-};
