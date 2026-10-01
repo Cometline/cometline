@@ -6,9 +6,7 @@ One way to do each thing. This page is the short form. Controller, error, and te
 
 Modules are `github.com/Cometline/cometline/comet-sdk` and `github.com/Cometline/cometline/cometmind`, on Go 1.26. There is no root `go.work`. The HTTP server is `cometmind/internal/server`. SQLite is opened in `cometmind/internal/sqlite`.
 
-Files stay around 500 lines and functions around 80 lines (`funlen`). Cyclomatic complexity stays at or under 15 (`gocyclo`). `funlen` and `gocyclo` still have named exceptions in [scripts/readability-allowlist.txt](../scripts/readability-allowlist.txt), so they remain in the non-blocking `.golangci.budget.yml` configs. `scripts/readability-report.sh --check` fails when a new offender is not listed, and when a listed function is back under budget. Size and fan-out budgets have no exceptions: Go files over 500 lines, Go functions over 80 body lines, Svelte components over 400, scoped CSS over 200, `.svelte.ts` stores over 500, and cometmind packages over 10 internal imports outside the composition roots (`cmd`, `internal/server`, `internal/runtime`, `internal/tools`).
-
-`internal/tools` is the tool-registry composition root. It may exceed the fan-out budget. depguard does not exempt it, and depguard does not exempt `cmd/session.go` or `internal/session/wire.go`.
+`make lint` runs golangci-lint (`govet`, `staticcheck`, `errcheck`, `errorlint`, `revive`, `depguard`, and the formatters). depguard does not exempt `cmd/session.go` or `internal/session/wire.go`.
 
 Put interfaces next to the code that calls them, not next to the implementation.
 
@@ -35,7 +33,5 @@ A fresh database is built from `cometmind/internal/db/schema.sql`. Upgrades are 
 ## Frontend
 
 Feature code lives in `cometline/src/lib/features/{chat,composer,gallery,inbox,jobs,onboarding,settings,shell,sidebar,skills,usage,workspace}`. `src/lib/components/` is shared primitives only.
-
-Components stay at or under 400 lines, scoped CSS at or under 200, and `.svelte.ts` stores at or under 500. Generated code is excluded. The same readability check enforces this.
 
 The renderer calls CometMind only through `$lib/client`. Electron IPC channel names live only in `cometline/electron/src/shared/ipc-channels.ts`. Colors, spacing, and motion use design tokens (`var(--*)` in `app.css`); do not add raw hex in components.

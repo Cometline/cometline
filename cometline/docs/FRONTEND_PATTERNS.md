@@ -100,18 +100,6 @@ Feature UI lives under `src/lib/features/{feature}/`. Each feature keeps `compon
 | `usage`      | Usage dashboard                                         |
 | `workspace`  | Workspace panel, file tree, preview, git diff, terminal |
 
-## Size budgets
-
-`scripts/readability-report.sh` counts `wc -l`. Stay inside these limits for new and touched files:
-
-| Kind                             | Budget    |
-| -------------------------------- | --------- |
-| `.svelte` component              | 400 lines |
-| scoped `<style>` in a component  | 200 lines |
-| `.svelte.ts` store or controller | 500 lines |
-
-Split a component into a panel child plus a `create…` controller before exceeding a budget. Scoped CSS does not apply to child component DOM, so move the rules with the markup.
-
 ## Styling
 
 - Colors and spacing: `var(--*)` tokens in [`app.css`](../src/app.css)

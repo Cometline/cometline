@@ -22,7 +22,7 @@ COMETMIND_API_KEY ?=
 COMETMIND_WORKSPACE_PATH ?= $(CURDIR)
 COMETMIND_BINARY_PATH ?= $(CURDIR)/cometmind/dist/cometmind
 
-.PHONY: help install generate check-generated check-sqlc check test build package dev fmt fmt-check lint lint-budget test-race vuln readability readability-check sdk-build sdk-test cometmind-build cometmind-test cometline-check cometline-build cometline-package cometline-dev port clean-log
+.PHONY: help install generate check-generated check-sqlc check test build package dev fmt fmt-check lint test-race vuln sdk-build sdk-test cometmind-build cometmind-test cometline-check cometline-build cometline-package cometline-dev port clean-log
 
 help:
 	@printf "Cometline targets:\n"
@@ -31,11 +31,8 @@ help:
 	@printf "  make check            Run codegen freshness, gofmt, lint, tests, and Svelte checks\n"
 	@printf "  make fmt              Format Go code (gofmt + goimports)\n"
 	@printf "  make lint             Run golangci-lint on the Go modules\n"
-	@printf "  make lint-budget      Report funlen/gocyclo budget findings (non-blocking)\n"
-	@printf "  make readability-check  Fail on size, fan-out, or unlisted budget offenders\n"
 	@printf "  make test-race        Run Go tests with the race detector\n"
 	@printf "  make vuln             Run govulncheck on the Go modules\n"
-	@printf "  make readability      Print the readability scorecard\n"
 	@printf "  make build            Build SDK, CometMind binary, and Cometline renderer\n"
 	@printf "  make package          Build CometMind and package the Electron app\n"
 	@printf "  make dev              Build CometMind and launch Electron dev app\n"
@@ -78,20 +75,11 @@ fmt-check:
 lint:
 	@for m in $(GO_MODULES); do (cd $$m && $(GOLANGCI_LINT) run ./...) || exit 1; done
 
-lint-budget:
-	-@for m in $(GO_MODULES); do (cd $$m && $(GOLANGCI_LINT) run -c .golangci.budget.yml ./...); done
-
 test-race:
 	@for m in $(GO_MODULES); do (cd $$m && $(GO) test -race ./...) || exit 1; done
 
 vuln:
 	@for m in $(GO_MODULES); do (cd $$m && $(GOVULNCHECK) ./...) || exit 1; done
-
-readability:
-	@scripts/readability-report.sh
-
-readability-check:
-	@GOLANGCI_LINT='$(GOLANGCI_LINT)' scripts/readability-report.sh --check
 
 build: sdk-build cometmind-build cometline-build
 

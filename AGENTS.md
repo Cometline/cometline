@@ -28,11 +28,8 @@ make generate         # Regenerate OpenAPI clients (TS + Go) from openapi.yaml
 make check            # Run all checks: codegen + sqlc freshness, gofmt, lint, SDK/CometMind tests, Svelte checks
 make fmt              # Format Go code (gofmt + goimports via pinned golangci-lint)
 make lint             # Run golangci-lint on both Go modules (configs: */.golangci.yml)
-make lint-budget      # Report funlen/gocyclo budgets (non-blocking, */.golangci.budget.yml)
 make test-race        # Run Go tests with the race detector
 make vuln             # Run govulncheck on both Go modules
-make readability      # Print the readability scorecard (scripts/readability-report.sh)
-make readability-check # Fail on size, fan-out, or unlisted funlen/gocyclo offenders
 make build            # Build SDK, CometMind binary, and Cometline renderer
 make package          # Build CometMind sidecar and package Electron app
 make dev              # Build CometMind sidecar and launch Electron dev app

@@ -1,8 +1,4 @@
-# Blocking lint config for cometmind. Run with `make lint` from the repo root.
-# funlen and gocyclo still have allow-listed exceptions, so they stay in
-# .golangci.budget.yml. scripts/readability-report.sh --check fails when an
-# offender is missing from scripts/readability-allowlist.txt. Move a linter
-# here once its allow-list section is empty.
+# Lint config for cometmind. Run with `make lint` from the repo root.
 version: "2"
 
 run:

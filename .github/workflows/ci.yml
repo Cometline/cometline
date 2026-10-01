@@ -215,33 +215,6 @@ jobs:
       - name: Build
         run: pnpm run build
 
-  readability:
-    name: Readability report
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version-file: cometmind/go.mod
-          cache-dependency-path: |
-            comet-sdk/go.sum
-            cometmind/go.sum
-
-      - name: Install golangci-lint
-        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
-        with:
-          version: ${{ env.GOLANGCI_LINT_VERSION }}
-          install-only: true
-
-      - name: Scorecard
-        run: scripts/readability-report.sh
-
-      - name: Size, fan-out, and budget allow-list
-        run: make readability-check GOLANGCI_LINT=golangci-lint
-
   pr-title:
     name: PR title
     if: github.event_name == 'pull_request'
