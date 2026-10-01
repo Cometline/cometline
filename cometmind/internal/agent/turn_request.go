@@ -18,7 +18,7 @@ func (r *Runner) buildTurnRequest(ctx context.Context, s *turnState, system stri
 
 func (r *Runner) applyCompatibility(ctx context.Context, req *cometsdk.Request) {
 	if r.Compatibility != nil {
-		req.Compatibility = r.Compatibility.ResolveCapabilityPolicy(ctx, r.CompatibilityScope)
+		req.Capabilities = r.Compatibility.ResolveCapabilities(ctx, r.CompatibilityScope)
 	}
 }
 

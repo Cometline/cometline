@@ -38,7 +38,7 @@ type Runner struct {
 	// before starting and releases it on completion. A nil value means
 	// unlimited (the previous behaviour).
 	MemorySem          chan struct{}
-	Compatibility      cometsdk.CapabilityResolver
+	Compatibility      cometsdk.CapabilitySource
 	CompatibilityScope cometsdk.CapabilityScope
 
 	// Compactor performs rolling context compaction on long sessions. Nil disables it.

@@ -237,13 +237,13 @@ func printSessionTable(sessions []session.WireSession, includeWorkspace bool) er
 		fmt.Fprintln(tw, "ID\tWORKSPACE\tTITLE\tPROVIDER\tMODEL\tSTATUS\tPIN\tUPDATED")
 		for _, s := range sessions {
 			fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%d\n",
-				s.Id, s.WorkspacePath, s.Title, s.ProviderId, s.ModelId, s.Status, pinLabel(s.Pinned), s.UpdatedAt)
+				s.ID, s.WorkspacePath, s.Title, s.ProviderID, s.ModelID, s.Status, pinLabel(s.Pinned), s.UpdatedAt)
 		}
 	} else {
 		fmt.Fprintln(tw, "ID\tTITLE\tPROVIDER\tMODEL\tSTATUS\tPIN\tUPDATED")
 		for _, s := range sessions {
 			fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%d\n",
-				s.Id, s.Title, s.ProviderId, s.ModelId, s.Status, pinLabel(s.Pinned), s.UpdatedAt)
+				s.ID, s.Title, s.ProviderID, s.ModelID, s.Status, pinLabel(s.Pinned), s.UpdatedAt)
 		}
 	}
 	return tw.Flush()

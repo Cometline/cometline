@@ -259,12 +259,12 @@ func sessionResourceFromModel(sess session.Session, workspacePath string) (sessi
 
 func sessionResourceFromAPISession(w session.WireSession) sessionResource {
 	res := sessionResource{
-		ID:            w.Id,
-		WorkspaceID:   w.WorkspaceId,
+		ID:            w.ID,
+		WorkspaceID:   w.WorkspaceID,
 		WorkspacePath: w.WorkspacePath,
 		Title:         w.Title,
-		ModelID:       w.ModelId,
-		ProviderID:    w.ProviderId,
+		ModelID:       w.ModelID,
+		ProviderID:    w.ProviderID,
 		Status:        string(w.Status),
 		Origin:        string(w.Origin),
 		TokenUsage: tokenUsageResource{
@@ -278,8 +278,8 @@ func sessionResourceFromAPISession(w session.WireSession) sessionResource {
 		CreatedAt: w.CreatedAt,
 		UpdatedAt: w.UpdatedAt,
 	}
-	if w.ParentSessionId != nil {
-		res.ParentSessionID = *w.ParentSessionId
+	if w.ParentSessionID != nil {
+		res.ParentSessionID = *w.ParentSessionID
 	}
 	if w.Purpose != nil {
 		res.Purpose = *w.Purpose

@@ -63,7 +63,7 @@ func (r *Runner) executeOneTool(
 		return true, nil
 	}
 
-	res, execErr, skipInvalidInput, dur := r.runToolCall(ctx, s, tc, recentTools, schemaCircuitOpen, doomLoopHit)
+	res, skipInvalidInput, dur, execErr := r.runToolCall(ctx, s, tc, recentTools, schemaCircuitOpen, doomLoopHit)
 	out := res.Output
 	isErr := !res.OK
 	if execErr != nil {
@@ -109,7 +109,7 @@ func (r *Runner) runToolCall(
 	recentTools *[]ToolFingerprint,
 	schemaCircuitOpen *bool,
 	doomLoopHit *bool,
-) (tools.Result, error, bool, int64) {
+) (tools.Result, bool, int64, error) {
 	turn := s.turn
 	start := time.Now()
 	logging.L().Info("tool.call.start", "session", turn.ID, "tool", tc.Name, "tool_call_id", tc.ID, "input_bytes", len(tc.Input))
@@ -131,5 +131,5 @@ func (r *Runner) runToolCall(
 	}
 	dur := time.Since(start).Milliseconds()
 	logging.L().Info("tool.call.finish", "session", turn.ID, "tool", tc.Name, "tool_call_id", tc.ID, "ok", res.OK && execErr == nil, "duration_ms", dur, "output_bytes", len(res.Output))
-	return res, execErr, skipInvalidInput, dur
+	return res, skipInvalidInput, dur, execErr
 }

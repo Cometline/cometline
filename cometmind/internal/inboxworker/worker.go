@@ -204,7 +204,7 @@ func (w *Worker) resolveWorkspace(ctx context.Context, msg inbox.Message) (id, p
 	}
 	path, pathErr := w.Sessions.WorkspacePath(ctx, id)
 	if pathErr != nil {
-		return "", "", fmt.Errorf("workspace lookup failed: %v", pathErr)
+		return "", "", fmt.Errorf("workspace lookup failed: %w", pathErr)
 	}
 	return id, path, nil
 }

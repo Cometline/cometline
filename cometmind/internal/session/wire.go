@@ -9,20 +9,20 @@ import (
 )
 
 // WireSession is the session list shape shared by the CLI and the HTTP layer.
-// Field names follow the OpenAPI Session schema. The server package maps this
+// JSON names follow the OpenAPI Session schema. The server package maps this
 // view onto generated response types.
 type WireSession struct {
 	AgentMode        string         `json:"agent_mode"`
 	CreatedAt        int64          `json:"created_at"`
 	DelegationStatus *string        `json:"delegation_status,omitempty"`
 	Gateway          *WireGateway   `json:"gateway,omitempty"`
-	Id               string         `json:"id"`
-	ModelId          string         `json:"model_id"`
+	ID               string         `json:"id"`
+	ModelID          string         `json:"model_id"`
 	Origin           string         `json:"origin"`
 	OutputSummary    *string        `json:"output_summary,omitempty"`
-	ParentSessionId  *string        `json:"parent_session_id,omitempty"`
+	ParentSessionID  *string        `json:"parent_session_id,omitempty"`
 	Pinned           bool           `json:"pinned"`
-	ProviderId       string         `json:"provider_id"`
+	ProviderID       string         `json:"provider_id"`
 	Purpose          *string        `json:"purpose,omitempty"`
 	Running          bool           `json:"running"`
 	Status           string         `json:"status"`
@@ -30,7 +30,7 @@ type WireSession struct {
 	Title            string         `json:"title"`
 	TokenUsage       WireTokenUsage `json:"token_usage"`
 	UpdatedAt        int64          `json:"updated_at"`
-	WorkspaceId      string         `json:"workspace_id"`
+	WorkspaceID      string         `json:"workspace_id"`
 	WorkspacePath    string         `json:"workspace_path"`
 }
 
@@ -57,12 +57,12 @@ func APISession(sess Session, workspacePath string) (WireSession, error) {
 		return WireSession{}, err
 	}
 	out := WireSession{
-		Id:            sess.ID,
-		WorkspaceId:   sess.WorkspaceID,
+		ID:            sess.ID,
+		WorkspaceID:   sess.WorkspaceID,
 		WorkspacePath: workspacePath,
 		Title:         sess.Title,
-		ModelId:       sess.ModelID,
-		ProviderId:    sess.ProviderID,
+		ModelID:       sess.ModelID,
+		ProviderID:    sess.ProviderID,
 		Status:        sess.Status,
 		Origin:        sess.Origin,
 		TokenUsage:    usage,
@@ -72,7 +72,7 @@ func APISession(sess Session, workspacePath string) (WireSession, error) {
 		UpdatedAt:     sess.UpdatedAt,
 	}
 	if sess.ParentSessionID != "" {
-		out.ParentSessionId = &sess.ParentSessionID
+		out.ParentSessionID = &sess.ParentSessionID
 	}
 	if sess.Purpose != "" {
 		out.Purpose = &sess.Purpose
