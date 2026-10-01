@@ -20,9 +20,7 @@ export function createAssistantMarkdown(deps: {
 		cachedWikiFiles: getCachedWikiFiles() as string[],
 		html: '',
 		rendered: false,
-		renderedSource: null as string | null,
-		displaySource: '',
-		snappedExistingSource: false
+		renderedSource: null as string | null
 	});
 	const effectiveWikiFiles = $derived(
 		deps.getWikiFiles().length > 0 ? deps.getWikiFiles() : s.cachedWikiFiles
@@ -32,23 +30,14 @@ export function createAssistantMarkdown(deps: {
 	// token. A render version guards against stale async results overwriting newer
 	// output when the highlighter resolves out of order.
 	const STREAM_THROTTLE_MS = 40;
-	const REVEAL_CATCHUP_FRAMES = 24;
-	const REVEAL_MAX_CHARS_PER_FRAME = 4;
-
-	const reducedMotion =
-		typeof window !== 'undefined' &&
-		window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 	// User messages render synchronously (no Shiki/async), so we compute their
 	// HTML eagerly and show the embed chips on the very first paint — no flash of
 	// raw text. Assistant messages use the async markdown pipeline below.
 	const userHtml = $derived(deps.getMode() === 'user' ? renderUserText(deps.getSource()) : '');
 
-	// Intentionally start empty; $effect.pre snaps to `source` before first paint
-	// so we never read the prop into $state() (avoids state_referenced_locally).
 	let renderVersion = 0;
 	let throttleTimer: ReturnType<typeof setTimeout> | null = null;
-	let revealFrame = 0;
 	let lastRenderAt = 0;
 
 	async function render(text: string) {
@@ -108,62 +97,6 @@ export function createAssistantMarkdown(deps: {
 		}
 	}
 
-	function cancelReveal() {
-		if (revealFrame) {
-			cancelAnimationFrame(revealFrame);
-			revealFrame = 0;
-		}
-	}
-
-	function revealNextFrame(target: string) {
-		cancelReveal();
-		const step = () => {
-			revealFrame = 0;
-			if (!deps.getStreaming() || reducedMotion) {
-				s.displaySource = target;
-				return;
-			}
-			const remaining = target.length - s.displaySource.length;
-			if (remaining <= 0) return;
-			const chars = Math.min(
-				REVEAL_MAX_CHARS_PER_FRAME,
-				Math.max(1, Math.ceil(remaining / REVEAL_CATCHUP_FRAMES))
-			);
-			s.displaySource = target.slice(0, s.displaySource.length + chars);
-			if (s.displaySource.length < target.length) {
-				revealFrame = requestAnimationFrame(step);
-			}
-		};
-		revealFrame = requestAnimationFrame(step);
-	}
-
-	// When remounting mid-stream (e.g. switching back to a session), snap to the
-	// accumulated deps.getSource() once so we do not replay the typewriter from empty.
-	$effect.pre(() => {
-		if (deps.getMode() === 'user') return;
-		if (s.snappedExistingSource || deps.getSource().length === 0) return;
-		s.displaySource = deps.getSource();
-		s.snappedExistingSource = true;
-	});
-
-	$effect(() => {
-		// User deps.getMode() renders synchronously via the derived above; nothing to schedule.
-		if (deps.getMode() === 'user') return;
-		const target = deps.getSource();
-		if (!deps.getStreaming() || reducedMotion) {
-			cancelReveal();
-			s.displaySource = target;
-			return;
-		}
-		if (target.length < s.displaySource.length) {
-			s.displaySource = target;
-		}
-		if (target.length > s.displaySource.length) {
-			revealNextFrame(target);
-		}
-		return cancelReveal;
-	});
-
 	$effect(() => {
 		if (deps.getMode() !== 'assistant' || !deps.getSource().includes('[[')) return;
 		void refreshWikiFileIndex().then((files) => {
@@ -186,7 +119,7 @@ export function createAssistantMarkdown(deps: {
 				cancelScheduledRender();
 			};
 		}
-		const text = s.displaySource;
+		const text = deps.getSource();
 		// Re-evaluate when deps.getStreaming() flips so the final non-throttled render lands.
 		void deps.getStreaming();
 		void effectiveWikiFiles;
