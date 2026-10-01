@@ -11,6 +11,7 @@ function appendOutput(output: string, data: string) {
 function createTerminalStore() {
 	let terminals = $state<Record<string, TerminalSnapshot>>({});
 	let initialized = false;
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity -- non-reactive bookkeeping
 	const listeners = new Map<string, Set<(data: string) => void>>();
 
 	function setTerminal(snapshot: TerminalSnapshot) {
@@ -88,6 +89,7 @@ function createTerminalStore() {
 			return removed;
 		},
 		subscribe(sessionId: string, listener: (data: string) => void) {
+			// eslint-disable-next-line svelte/prefer-svelte-reactivity -- non-reactive bookkeeping
 			const sessionListeners = listeners.get(sessionId) ?? new Set<(data: string) => void>();
 			sessionListeners.add(listener);
 			listeners.set(sessionId, sessionListeners);

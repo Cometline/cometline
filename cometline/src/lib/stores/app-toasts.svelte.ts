@@ -13,6 +13,7 @@ const MAX_TOASTS = 3;
 
 function createAppToastStore() {
 	let toasts = $state<AppToast[]>([]);
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity -- non-reactive bookkeeping
 	const timers = new Map<string, ReturnType<typeof setTimeout>>();
 
 	function dismiss(id: string) {

@@ -230,6 +230,7 @@
 	 * call from the template.
 	 */
 	function knownToolsFor(server: MCPServerConfig): { name: string; description: string }[] {
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- local temporary
 		const byName = new Map<string, string>();
 		for (const existing of knownToolsByServer[server.id] ?? []) {
 			byName.set(existing.name, existing.description);
@@ -252,6 +253,7 @@
 		let changed = false;
 		const next = { ...knownToolsByServer };
 		for (const server of mcp.servers ?? []) {
+			// eslint-disable-next-line svelte/prefer-svelte-reactivity -- local temporary
 			const byName = new Map<string, string>();
 			for (const existing of next[server.id] ?? [])
 				byName.set(existing.name, existing.description);
@@ -293,6 +295,7 @@
 		if (!server) return;
 		const known = (knownToolsByServer[serverId] ?? []).map((tool) => tool.name);
 		const current = server.allowedTools ?? [];
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- local temporary
 		const currentlyAllowed = current.length === 0 ? new Set(known) : new Set(current);
 
 		if (currentlyAllowed.has(toolName)) {
@@ -464,6 +467,7 @@
 		try {
 			const result = await testMcpServer(serverId);
 			if (result.ok) {
+				// eslint-disable-next-line svelte/prefer-svelte-reactivity -- local temporary
 				const byName = new Map(
 					(knownToolsByServer[serverId] ?? []).map((tool) => [tool.name, tool.description])
 				);

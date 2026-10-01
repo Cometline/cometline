@@ -73,6 +73,7 @@
 		const params = [...page.url.searchParams].filter(([key]) => key !== 'tab');
 		if (next === 'skills') params.push(['tab', 'skills']);
 		const search = new URLSearchParams(params).toString();
+		// eslint-disable-next-line svelte/no-navigation-without-resolve -- the pathname is resolved; the rule cannot follow the appended query string
 		void goto(`${resolve('/skills')}${search ? `?${search}` : ''}`, {
 			replaceState: true,
 			noScroll: true,
@@ -458,7 +459,7 @@
 				</div>
 				{#if skillErrors.length > 0}
 					<div class="skill-errors">
-						{#each skillErrors as error}
+						{#each skillErrors as error, i (i)}
 							<p>{error}</p>
 						{/each}
 					</div>

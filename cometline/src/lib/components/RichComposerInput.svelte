@@ -506,6 +506,7 @@ import { fly } from 'svelte/transition';
 			// Browsers often inject a lone <br> into empty contenteditables, which
 			// makes a collapsed "end" caret render on a phantom second line.
 			if (editor.innerHTML === '<br>') {
+				// eslint-disable-next-line svelte/no-dom-manipulating -- contenteditable children are owned by the editor, not Svelte
 				editor.innerHTML = '';
 			}
 			range.setStart(editor, 0);
@@ -563,8 +564,8 @@ import { fly } from 'svelte/transition';
 			if (range && editor.contains(range.commonAncestorContainer)) {
 				replaceRangeWithNodes(range, [chip, space]);
 			} else {
-				editor.appendChild(chip);
-				editor.appendChild(space);
+				// eslint-disable-next-line svelte/no-dom-manipulating -- contenteditable children are owned by the editor, not Svelte
+				editor.append(chip, space);
 				const endRange = document.createRange();
 				endRange.selectNodeContents(editor);
 				endRange.collapse(false);
@@ -595,6 +596,7 @@ import { fly } from 'svelte/transition';
 			value = text;
 			return;
 		}
+		// eslint-disable-next-line svelte/no-dom-manipulating -- contenteditable children are owned by the editor, not Svelte
 		editor.textContent = text;
 		value = text;
 		focus({ position: 'end' });
@@ -607,6 +609,7 @@ import { fly } from 'svelte/transition';
 
 	/** Clears the editor (used after send). */
 	export function clear() {
+		// eslint-disable-next-line svelte/no-dom-manipulating -- contenteditable children are owned by the editor, not Svelte
 		if (editor) editor.innerHTML = '';
 		value = '';
 		resetCaretTrail();
@@ -631,6 +634,7 @@ import { fly } from 'svelte/transition';
 	// after send). We only handle the clear case to avoid clobbering chips.
 	$effect(() => {
 		if (value === '' && editor && editor.textContent !== '') {
+			// eslint-disable-next-line svelte/no-dom-manipulating -- contenteditable children are owned by the editor, not Svelte
 			editor.innerHTML = '';
 		}
 	});

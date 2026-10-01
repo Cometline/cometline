@@ -330,9 +330,11 @@
 			  Keep zero whitespace between .diff-line nodes: this is a <pre>, so
 			  newlines in the template would render as blank rows between every line.
 			-->
+			<!-- eslint-disable svelte/no-at-html-tags -- highlightGitDiffLines escapes every token -->
 			<pre class="git-diff-body scrollbar-none" data-lang={language ?? ''}><code
 					><!-- prettier-ignore -->{#each highlightedLines as line, i (i)}<span class="diff-line kind-{line.kind}">{#if line.prefix}<span class="diff-prefix">{line.prefix}</span>{/if}<span class="diff-code">{@html line.html}</span></span>{/each}</code
 				></pre>
+			<!-- eslint-enable svelte/no-at-html-tags -->
 			{#if truncated}
 				<p class="git-diff-truncated">{message || 'Diff truncated.'}</p>
 			{/if}

@@ -794,7 +794,7 @@
 									<label class="form-field">
 										<span>Day of month</span>
 										<select bind:value={scheduleMonthDay}>
-											{#each Array.from( { length: 28 }, (_, i) => String(i + 1) ) as day}
+											{#each Array.from( { length: 28 }, (_, i) => String(i + 1) ) as day (day)}
 												<option value={day}>{day}</option>
 											{/each}
 										</select>

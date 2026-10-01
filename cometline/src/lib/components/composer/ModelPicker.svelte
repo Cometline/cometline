@@ -17,6 +17,7 @@
 
 	let groupedModelOptions = $derived.by(() => {
 		const query = modelSearch.trim().toLowerCase();
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- local temporary inside $derived
 		const groups = new Map<
 			string,
 			{

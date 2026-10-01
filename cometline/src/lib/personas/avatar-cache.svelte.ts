@@ -10,6 +10,7 @@ import type { ResolvedPersona } from './index';
  */
 function createPersonaAvatarCache() {
 	let cache = $state<Record<string, string>>({});
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity -- non-reactive bookkeeping
 	const pending = new Set<string>();
 
 	async function ensureCustomAvatar(id: string) {

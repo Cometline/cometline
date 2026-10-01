@@ -61,6 +61,7 @@ export function createComposerSlashController(deps: {
 	let skillsLoaded = $state(false);
 	let skillsLoading = $state(false);
 	let workspacePaths = $state<string[]>([]);
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity -- replaced wholesale, never mutated
 	let workspaceSessionCounts = $state<Map<string, number>>(new Map());
 	let workspacePathsLoading = $state(false);
 	let workspacePathsLoaded = $state(false);
@@ -191,11 +192,13 @@ export function createComposerSlashController(deps: {
 		try {
 			const recent = (await window.electronAPI?.listRecentWorkspaces?.()) ?? [];
 			const registered = await listWorkspaces().catch(() => []);
+			// eslint-disable-next-line svelte/prefer-svelte-reactivity -- local copy; reactivity comes from reassigning the $state
 			const counts = new Map<string, number>();
 			for (const ws of registered) {
 				counts.set(ws.path, ws.session_count);
 			}
 			workspaceSessionCounts = counts;
+			// eslint-disable-next-line svelte/prefer-svelte-reactivity -- local temporary
 			const seen = new Set<string>();
 			const merged: string[] = [];
 			const add = (path: string) => {

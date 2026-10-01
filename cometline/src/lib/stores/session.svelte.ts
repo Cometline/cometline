@@ -20,8 +20,10 @@ function createSessionStore() {
 	let loaded = $state(false);
 	let current = $state<Session | null>(null);
 	let pendingMessages = $state.raw(new Map<string, Omit<PendingMessage, 'sessionId'>>());
+	/* eslint-disable svelte/prefer-svelte-reactivity -- non-reactive bookkeeping */
 	const removalListeners = new Set<(sessionId: string) => void>();
 	const finishListeners = new Set<(session: Session) => void>();
+	/* eslint-enable svelte/prefer-svelte-reactivity */
 
 	function writeSession(
 		session: Session,
@@ -102,6 +104,7 @@ function createSessionStore() {
 	function discardSession(id: string, options: { broadcast?: boolean } = {}) {
 		removeSession(id, options);
 		if (pendingMessages.has(id)) {
+			// eslint-disable-next-line svelte/prefer-svelte-reactivity -- local copy; reactivity comes from reassigning the $state
 			const next = new Map(pendingMessages);
 			next.delete(id);
 			pendingMessages = next;
@@ -117,6 +120,7 @@ function createSessionStore() {
 		webContexts?: WebContext[],
 		agentMode?: AgentMode
 	) {
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- local copy; reactivity comes from reassigning the $state
 		pendingMessages = new Map(pendingMessages).set(sessionId, {
 			text,
 			images,
@@ -134,6 +138,7 @@ function createSessionStore() {
 	function takePendingMessage(sessionId: string): Omit<PendingMessage, 'sessionId'> | null {
 		const message = pendingMessages.get(sessionId);
 		if (!message) return null;
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- local copy; reactivity comes from reassigning the $state
 		const next = new Map(pendingMessages);
 		next.delete(sessionId);
 		pendingMessages = next;

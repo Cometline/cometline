@@ -553,7 +553,7 @@
 			</div>
 			{#if skillErrors.length > 0}
 				<div class="skill-errors">
-					{#each skillErrors as error}
+					{#each skillErrors as error, i (i)}
 						<p>{error}</p>
 					{/each}
 				</div>

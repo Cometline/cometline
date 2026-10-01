@@ -482,8 +482,10 @@
 						{#if externalComparisonLines.length === 0}
 							<p>No content differences found.</p>
 						{:else}
+							<!-- eslint-disable svelte/no-at-html-tags -- highlightGitDiffLines escapes every token -->
 							<!-- prettier-ignore -->
 							<pre class="external-diff" data-lang={language ?? ''}><code>{#each externalComparisonLines as line, i (i)}<span class="diff-line kind-{line.kind}">{#if line.prefix}<span class="diff-prefix">{line.prefix}</span>{/if}<span class="diff-code">{@html line.html}</span></span>{/each}</code></pre>
+							<!-- eslint-enable svelte/no-at-html-tags -->
 						{/if}
 					</div>
 				</div>

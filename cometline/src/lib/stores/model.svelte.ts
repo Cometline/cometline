@@ -158,6 +158,7 @@ function createModelStore() {
 
 	/** Merge catalog limits (fetch-time or reload); does not wipe other keys. */
 	function applyLimits(entries: ModelLimitEntry[]) {
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- local copy; reactivity comes from reassigning the $state
 		const next = new Map(limitsByKey);
 		for (const entry of entries) {
 			const providerId = entry.providerId.trim();

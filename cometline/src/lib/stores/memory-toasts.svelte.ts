@@ -31,6 +31,7 @@ function previewContent(content: string) {
 
 function createMemoryToastStore() {
 	let toasts = $state<MemoryToast[]>([]);
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity -- non-reactive bookkeeping
 	const timers = new Map<string, ReturnType<typeof setTimeout>>();
 
 	function dismiss(id: string) {

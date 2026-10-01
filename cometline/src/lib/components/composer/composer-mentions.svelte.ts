@@ -104,6 +104,7 @@ export function createComposerMentionsController(deps: {
 		);
 		if (!needsServerSearch) return local;
 		const dirs = local.filter((item) => item.kind === 'dir');
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- local temporary
 		const seen = new Set(dirs.map((item) => item.path));
 		const merged: MentionPath[] = [...dirs];
 		for (const path of serverFiles) {
