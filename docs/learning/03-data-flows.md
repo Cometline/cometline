@@ -116,7 +116,7 @@ A **goroutine** is a Go task that runs in the background. **Flush** means send e
 
 | Step               | Source                                                |
 | ------------------ | ----------------------------------------------------- |
-| Route registration | `cometmind/internal/server/server.go`                          |
+| Route registration | `cometmind/internal/apigen/server.gen.go`, exclusions in `routes.go` |
 | Message handler    | `cometmind/internal/server/messages.go`: `handlePostMessage`   |
 | Single-run lock    | `cometmind/internal/server/run_manager.go`                     |
 | Runner factory     | `cometmind/internal/runtime/runtime.go` → `RunnerFor` |
@@ -339,7 +339,7 @@ Model calls delegate_coding_task tool (only if acp.enabled + harness binary avai
   → result returns to agent loop as tool_result
 ```
 
-Configure this in Settings → CometMind → **Coding task delegation**. Only the harness choice (`cometmind.acp.defaultHarness`) is a user setting. CLI args are not user-editable. Tool: `cometmind/internal/tools/delegatecoding.go`. Runner: `cometmind/internal/acp/runner.go`.
+Configure this in Settings → CometMind → **Coding task delegation**. Only the harness choice (`cometmind.acp.defaultHarness`) is a user setting. CLI args are not user-editable. Tool: `cometmind/internal/tools/subagent/delegatecoding.go`. Runner: `cometmind/internal/acp/runner.go`.
 
 ---
 

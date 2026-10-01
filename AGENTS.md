@@ -114,7 +114,7 @@ cd cometmind && go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1 generate
 
 The version must match the `sqlc vX.Y.Z` header in the generated files. sqlc is not a `tool` directive in `go.mod` because its dependency tree would raise the module's Go version and bump runtime dependencies.
 
-**Migration note:** CometMind embeds `schema.sql` for a fresh database and incremental SQL files in `internal/db/migrations`. `schemaVersion` in `internal/db/migrate.go` is the latest of those files. Schema changes for existing users need a new migration file, not just a schema edit.
+**Migration note:** A fresh database is built from `cometmind/internal/db/schema.sql`. Upgrades are embedded files `cometmind/internal/db/migrations/NNNN_description.sql` (0002 through 0037). The highest file number is the current version. `TestMigrationsFromV1MatchFreshSchema` fails if `schema.sql` and the migrations drift. A file that contains `DROP TABLE` runs as a transactional rebuild. The only Go-side step is `skipIfApplied` in `internal/db/migrate.go`. Schema changes for existing users need a new migration file, not just a schema edit.
 
 ### SSE event types
 
@@ -305,8 +305,8 @@ SDK stream tests use checked-in SSE fixtures under each provider's `fixtures/` d
 
 ### Code style
 
-- **Go:** Follow standard Go conventions. Use `gofmt` and `goimports`.
-- **TypeScript/Svelte:** Follow existing patterns in the codebase. Use TypeScript strict mode. See [cometline/docs/FRONTEND_PATTERNS.md](./cometline/docs/FRONTEND_PATTERNS.md) for controller, error, and testing conventions.
+- **Go:** Follow standard Go conventions. Use `gofmt` and `goimports`. See [docs/CONVENTIONS.md](./docs/CONVENTIONS.md) for file budgets, errors, handlers, and migrations.
+- **TypeScript/Svelte:** Follow existing patterns in the codebase. Use TypeScript strict mode. See [docs/CONVENTIONS.md](./docs/CONVENTIONS.md) for feature layout and budgets, and [cometline/docs/FRONTEND_PATTERNS.md](./cometline/docs/FRONTEND_PATTERNS.md) for controller, error, and testing conventions.
 - **Comments:** Add comments only when necessary to explain non-obvious logic.
 
 ### Commit messages
@@ -338,13 +338,13 @@ Cometline can improve itself using the same agent runtime:
 1. Implement `cometsdk.Provider` interface in `comet-sdk/provider/{name}/`
 2. Add a provider method constant in `cometmind/internal/config/config.go` and wire it into `cometmind/internal/provider/factory.go`
 3. If models of the method can use different wire protocols (like `opencode-go`), keep their `npm`/`api` metadata in the models.dev catalog (`cometmind/internal/modelcatalog`) so `NewForModel` dispatches per model
-4. Add provider defaults and validation in `cometline/src/lib/settings/schema.ts`
-5. Add provider UI behavior in `cometline/src/lib/components/settings/SettingsProvidersPanel.svelte` if the method needs custom fields
+4. Add provider defaults and validation in `cometline/src/lib/features/settings/schema.ts`
+5. Add provider UI behavior in `cometline/src/lib/features/settings/components/SettingsProvidersPanel.svelte` if the method needs custom fields
 6. Update `ProviderMethod` types in `cometline/src/lib/types.ts` and `cometline/src/app.d.ts`
 
 ### Add a new built-in tool
 
-1. Implement `cometmind/internal/tools.Tool` with `Spec() ToolSpec` and `Execute(ctx, input)`
+1. Implement `toolkit.Tool` in the matching family under `cometmind/internal/tools/{fsops,web,media,jobs,mcp,memory,settings,subagent,skills,inbox}`. Families must not import the parent `tools` package.
 2. Register it in `cometmind/internal/tools/registry.go`
 3. Add unit tests for schema and execution behavior
 4. Tools registered by the runtime are automatically exposed to the agent loop
@@ -388,6 +388,7 @@ Cometline can improve itself using the same agent runtime:
 ## Further Reading
 
 - [README.md](./README.md) — project overview and quick start
+- [docs/CONVENTIONS.md](./docs/CONVENTIONS.md) — one-page rules for Go, HTTP, migrations, and the frontend
 - [docs/learning/](./docs/learning/00-README.md) — guided onboarding series
 - [ARCHITECTURE_GUIDE.md](./ARCHITECTURE_GUIDE.md) — system overview and contributor map with source references
 - [cometmind/openapi.yaml](./cometmind/openapi.yaml) — API contract source of truth

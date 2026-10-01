@@ -111,7 +111,7 @@ A recipe is a short step list for one kind of change.
 2. Add fixtures and `stream_test.go`. A fixture is a saved sample used by a test.
 3. In `cometmind/internal/provider/factory.go`, connect the provider ID.
 4. In `cometmind/internal/config/config.go`, add a method constant if one is needed.
-5. In `cometline/src/lib/settings/schema.ts`, add validation.
+5. In `cometline/src/lib/features/settings/schema.ts`, add validation.
 6. In `cometline/src/lib/types.ts`, add the `ProviderMethod` type.
 7. In `SettingsProvidersPanel.svelte`, add UI fields if the provider is not standard.
 8. In `electron/src/domains/provider-auth.ts`, add model discovery, Codex or xAI auth, or both, if the provider is subscription-based.
@@ -130,8 +130,8 @@ A harness is an external coding program. Delegation means the agent hands that c
 
 ### Add a built-in tool
 
-1. Create `cometmind/internal/tools/<name>.go`.
-2. Implement the `Tool` interface with `Spec()` and `Execute()`.
+1. Add the tool in the matching family under `cometmind/internal/tools/` (`fsops`, `web`, `media`, `jobs`, `mcp`, `memory`, `settings`, `subagent`, `skills`, or `inbox`).
+2. Implement `toolkit.Tool` with `Spec()` and `Execute()`. A family must not import the parent `tools` package.
 3. Register it in `registry.go` with the right `ToolSurface` flags in `surface.go`.
 4. Add unit tests for the schema and for execution.
 5. Consider the workspace sandbox in `sandbox/pathcheck.go`. A sandbox limits which files a tool may use.
@@ -140,10 +140,11 @@ A harness is an external coding program. Delegation means the agent hands that c
 ### Add a REST endpoint
 
 1. Edit `cometmind/openapi.yaml`.
-2. In `cometmind/internal/server/server.go`, add the handler and the route.
-3. Run `make generate`.
-4. In `cometline/src/lib/client/cometmind.ts`, add the client function.
-5. Add a server test in `internal/server/*_test.go`.
+2. Implement the generated strict-server method under `cometmind/internal/server`. Routes come from `internal/apigen` (`server.gen.go`).
+3. Hand-register a route in `internal/server/routes.go` only for the excluded operations: `postSessionMessage`, `streamSessionEvents`, `streamRuntimeEvents`, `getSessionMedia`, `getMediaContent`, and `exportSkill`.
+4. Run `make generate`.
+5. In `cometline/src/lib/client/cometmind.ts`, add the client function. UI code calls CometMind only through `$lib/client`.
+6. Add a server test in `internal/server/*_test.go`.
 
 REST is a request-and-response web API. An endpoint is one API path.
 
@@ -161,12 +162,12 @@ SSE means Server-Sent Events: a live stream of events from the server. An emitte
 
 ### Change database schema
 
-1. Edit `internal/db/schema.sql`.
-2. In `internal/db/migrate.go`, add an incremental migration. Incremental means one small step from the old version to the new one.
+1. Edit `internal/db/schema.sql` for fresh databases.
+2. Add `internal/db/migrations/NNNN_description.sql` for the next version. The highest file number is the current version. A file that contains `DROP TABLE` runs as a transactional rebuild. The only Go-side step is `skipIfApplied` in `internal/db/migrate.go`.
 3. Edit `internal/db/queries/*.sql`.
 4. Run `go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1 generate`.
 5. In `internal/session/service.go`, update the domain logic.
-6. Run `go test ./internal/session/... ./internal/server/...`.
+6. Run `go test ./internal/session/... ./internal/server/...`. `TestMigrationsFromV1MatchFreshSchema` fails if `schema.sql` and the migrations drift.
 
 ### Add an Agent Skill
 
@@ -177,9 +178,9 @@ SSE means Server-Sent Events: a live stream of events from the server. An emitte
 
 ### Add a settings field
 
-1. In `settings/schema.ts`, add the type and the normalization. Normalize means rewrite the value into the expected form.
+1. In `src/lib/features/settings/schema.ts`, add the type and the normalization. Normalize means rewrite the value into the expected form.
 2. Decide whether the key is desktop or runtime. Desktop keys go in `cometline-desktop.json`, under `appearance`, `shortcuts`, or `app`.
-3. Add a UI control in a settings panel under `components/settings/`.
+3. Add a UI control in a settings panel under `src/lib/features/settings/`.
 4. Update `electron/src/domains/settings.ts` and `settings-domain.ts` if the save or load split must change.
 5. Update `cometmind/internal/config/` and `settingsapply` so the runtime can read the field and classify the change. Classify means choose reload, gateway recycle, or full restart.
 6. Choose pending-save, instant-save, or action-based.
@@ -191,7 +192,7 @@ SSE means Server-Sent Events: a live stream of events from the server. An emitte
 2. If saved data changes, update `cometmind/internal/db/schema.sql`, the queries, and the migrations.
 3. If the API shape changes, update `cometmind/openapi.yaml` and run `make generate`.
 4. Update `cometline/src/lib/client/cometmind.ts`.
-5. Update `cometline/src/lib/components/jobs/` and `cometline/src/lib/jobs/`.
+5. Update `cometline/src/lib/features/jobs/`.
 6. Check that leases, events, retention, and notifications are still correct.
 
 A lease is a time-limited claim on a job. Retention means how long finished data is kept.
@@ -199,9 +200,9 @@ A lease is a time-limited claim on a job. Retention means how long finished data
 ### Change MCP behavior
 
 1. Edit `cometmind/internal/mcp/`.
-2. If tool exposure changes, update `cometmind/internal/tools/registry.go`.
+2. If tool exposure changes, update `cometmind/internal/tools/registry.go`. Families must not import the parent `tools` package.
 3. For management API changes, update `cometmind/openapi.yaml` and the generated clients.
-4. Update `cometline/src/lib/components/settings/SettingsMCPPanel.svelte`.
+4. Update `cometline/src/lib/features/settings/components/SettingsMCPPanel.svelte`.
 5. For OAuth or import IPC, update `cometline/electron/src/domains/provider-auth.ts`, `runtime-ipc.ts`, `preload.ts`, and `shared/api.ts`.
 
 MCP is a protocol for external tools. OAuth is a standard login flow. IPC means messages between Electron processes.

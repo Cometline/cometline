@@ -249,7 +249,7 @@ A **migration** here means reading an older settings file into the current shape
 | Component | File |
 |-----------|------|
 | Harness runner | `internal/acp/runner.go`. `DefaultHarnessConfig`, `commandArgs` |
-| Tool | `internal/tools/delegatecoding.go`. Registered only when ACP is enabled and the binary is available |
+| Tool | `internal/tools/subagent/delegatecoding.go`. Registered only when ACP is enabled and the binary is available |
 | SSE events | `subagent_started`, `subagent_progress`, `subagent_finished` in `event/event.go` |
 | Frontend | `SubagentMessageRow.svelte`, `SubagentPanel.svelte`, and chat transcript helpers |
 | Subagent runner | `runtime.SubagentRunnerFor` |
@@ -317,7 +317,7 @@ When this is enabled, `internal/autonomy` polls for ready jobs. It runs them in 
 | Scheduler | `internal/scheduler/` |
 | Autonomous worker | `internal/autonomy/` |
 | API | `/api/v1/jobs`, `/api/v1/scheduled-jobs` |
-| Desktop UI | `cometline/src/lib/components/jobs/`, `/jobs` route |
+| Desktop UI | `cometline/src/lib/features/jobs/`, `/jobs` route |
 | Retention | `internal/retention/retention.go`. `Runner.Run` deletes old data. `serve` and the Discord gateway start periodic maintenance. |
 | Progress hook | `internal/agent/job_progress_hook.go`. It sends progress during agent runs. |
 

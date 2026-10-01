@@ -418,7 +418,7 @@ The commands do not all use one dispatch path. A dispatch path is the code that 
 
 ## Settings UI
 
-Settings panels live under `src/lib/components/settings/`. Validation lives in `settings/schema.ts`.
+Settings panels live under `src/lib/features/settings/`. `src/lib/components/` is shared primitives only. Validation lives in `settings/schema.ts`.
 
 There are three persistence modes. See [../SETTINGS_AND_PERSISTENCE.md](../SETTINGS_AND_PERSISTENCE.md). Persistence means how a value is saved.
 

@@ -98,9 +98,9 @@ Key behavior:
 
 Important files:
 
-- `cometline/src/lib/components/settings/SettingsPanel.svelte`
-- `cometline/src/lib/components/settings/settings-panel-controller.svelte.ts`
-- `cometline/src/lib/settings/settings-draft.ts`
+- `cometline/src/lib/features/settings/components/SettingsPanel.svelte`
+- `cometline/src/lib/features/settings/settings-panel-controller.svelte.ts`
+- `cometline/src/lib/features/settings/settings-draft.ts`
 
 Rule:
 
@@ -112,7 +112,7 @@ Dirty state is snapshot-based, not flag-based.
 
 Key file:
 
-- `cometline/src/lib/settings/pending-settings.ts`
+- `cometline/src/lib/features/settings/pending-settings.ts`
 
 Important behavior:
 
@@ -138,7 +138,7 @@ This is the most important postmortem rule in the settings UI.
 
 Key file:
 
-- `cometline/src/lib/components/settings/SettingsMemoryPanel.svelte`
+- `cometline/src/lib/features/settings/components/SettingsMemoryPanel.svelte`
 
 The invariant:
 
@@ -207,7 +207,7 @@ Memory-section behavior:
 
 Key file:
 
-- `cometline/src/lib/settings/persist.ts`
+- `cometline/src/lib/features/settings/persist.ts`
 
 ### Electron write path
 
@@ -326,12 +326,12 @@ Practical rule for contributors:
 
 ## Files To Read Before Changing Settings
 
-- `cometline/src/lib/components/settings/settings-panel-controller.svelte.ts`
-- `cometline/src/lib/components/settings/SettingsMemoryPanel.svelte`
-- `cometline/src/lib/components/settings/settings-controller.svelte.ts`
+- `cometline/src/lib/features/settings/settings-panel-controller.svelte.ts`
+- `cometline/src/lib/features/settings/components/SettingsMemoryPanel.svelte`
+- `cometline/src/lib/features/settings/settings-controller.svelte.ts`
 - `cometline/src/lib/stores/settings.svelte.ts`
-- `cometline/src/lib/settings/pending-settings.ts`
-- `cometline/src/lib/settings/persist.ts`
+- `cometline/src/lib/features/settings/pending-settings.ts`
+- `cometline/src/lib/features/settings/persist.ts`
 - `cometline/electron/src/main.ts`
 - `cometline/electron/src/domains/runtime.ts`
 - `cometline/electron/src/domains/settings.ts`
@@ -341,10 +341,10 @@ Practical rule for contributors:
 
 ## Tests That Protect This Area
 
-- `cometline/src/lib/settings/pending-settings.test.ts`
-- `cometline/src/lib/components/settings/settings-controller.svelte.test.ts`
-- `cometline/src/lib/settings/settings-save.test.ts`
-- `cometline/src/lib/components/settings/SettingsMemoryPanel.svelte.test.ts`
+- `cometline/src/lib/features/settings/pending-settings.test.ts`
+- `cometline/src/lib/features/settings/settings-controller.svelte.test.ts`
+- `cometline/src/lib/features/settings/settings-save.test.ts`
+- `cometline/src/lib/features/settings/components/SettingsMemoryPanel.svelte.test.ts`
 - `cometmind/internal/config/config_test.go`
 - `cometmind/internal/server/memory_handlers_test.go`
 

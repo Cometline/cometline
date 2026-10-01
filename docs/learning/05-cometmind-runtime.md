@@ -25,7 +25,7 @@ Each row is one **surface**. A surface is one way to enter the same runtime.
 
 | Surface | Command / file | Role |
 |---------|----------------|------|
-| HTTP API | `cometmind serve` → `internal/server/server.go` | Main path for Cometline |
+| HTTP API | `cometmind serve` → generated strict server in `internal/apigen`, exclusions in `internal/server/routes.go` | Main path for Cometline |
 | CLI chat | `cometmind chat "message"` | Test from the terminal |
 | CLI init | `cometmind init` | Create config, the database, and register a workspace |
 | Discord | `cometmind gateway run --platform discord` | Messaging gateway |
@@ -164,9 +164,12 @@ Database path: `~/.cometmind/cometmind.db`
 
 ### Migrations
 
-- Tracked with `PRAGMA user_version` and `schemaVersion` in `internal/db/migrate.go`.
-- Read `schemaVersion` in `migrate.go` for the current version.
-- For existing users, add an incremental `alterStatements` entry. A `schema.sql` edit alone is not enough.
+A fresh database is built from `schema.sql`. An upgrade is a file `internal/db/migrations/NNNN_description.sql` (0002 through 0037). The highest file number is the current version. `TestMigrationsFromV1MatchFreshSchema` fails if `schema.sql` and those files drift.
+
+- Tracked with `PRAGMA user_version`. Each file checkpoints that number.
+- A file that contains `DROP TABLE` runs as a transactional rebuild. A transaction is a group of database changes that succeed or fail together.
+- The only Go-side step is `skipIfApplied` in `internal/db/migrate.go`. It skips a file whose change is already present.
+- For existing users, add the next numbered SQL file. A `schema.sql` edit alone is not enough.
 - Never edit generated sqlc files. After a schema or query change, run `go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1 generate` from `cometmind/`.
 
 **Incremental** means the change updates the old database in small steps. **sqlc** generates Go code from SQL. Do not edit that generated code by hand.
@@ -199,11 +202,13 @@ Database path: `~/.cometmind/cometmind.db`
 
 ## HTTP/SSE server
 
-The HTTP server is a Gin app in `internal/server/server.go`. It is built with `server.New(deps)`. **Gin** is the Go HTTP library. **SSE** means Server-Sent Events. The server pushes events to the client on one open connection.
+The HTTP server is a Gin app built with `server.New(deps)`. Routes come from the generated strict server in `internal/apigen` (`server.gen.go`). **Gin** is the Go HTTP library. **SSE** means Server-Sent Events. The server pushes events to the client on one open connection.
+
+These operations stay hand-registered in `internal/server/routes.go`: `postSessionMessage`, `streamSessionEvents`, `streamRuntimeEvents`, `getSessionMedia`, `getMediaContent`, and `exportSkill`. The spec documents two error shapes, and both remain: `{error:{code,message}}` and `{"error":"string"}`.
 
 ### Critical handler: POST message
 
-`handlePostMessage` lives in `internal/server/messages.go`. It is registered from `internal/server/server.go`.
+`handlePostMessage` lives in `internal/server/messages.go`. It is one of the hand-registered routes.
 
 ```text
 handlePostMessage:
@@ -244,7 +249,7 @@ A tool **surface** is a capability policy. It is not a separate registry of chos
 
 ### Registry (`internal/tools/registry.go`)
 
-Each workspace root gets a registry from `newRegistryWithSurface`.
+`internal/tools` is the registry. Families live in `fsops`, `web`, `media`, `jobs`, `mcp`, `memory`, `settings`, `subagent`, `skills`, and `inbox`, plus shared `toolkit` and `fs`. A family must not import the parent `tools` package. Each workspace root gets a registry from `newRegistryWithSurface`.
 
 | Family | Tools |
 |--------|-------|

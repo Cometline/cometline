@@ -24,7 +24,7 @@ cometline/          (monorepo root)
 └── docs/learning/  ← you are here
 ```
 
-There is **no root `go.work`**. Run Go commands from `comet-sdk/` or `cometmind/`. Do not run them from the repo root.
+There is **no root `go.work`**. The modules are `github.com/Cometline/cometline/comet-sdk` and `github.com/Cometline/cometline/cometmind`, on Go 1.26. Run Go commands from `comet-sdk/` or `cometmind/`. Do not run them from the repo root. The HTTP server is `cometmind/internal/server`. SQLite is opened in `internal/sqlite`.
 
 ## Module ownership matrix
 
@@ -166,15 +166,16 @@ cometmind/
 ├── main.go, cmd/           CLI: init, serve, chat, session, gateway
 ├── openapi.yaml            API contract (the main source)
 └── internal/
-    ├── server/             Gin HTTP/SSE API, RunManager (messages in messages.go)
+    ├── server/             HTTP/SSE API. Routes come from generated apigen; exclusions in routes.go
+    ├── apigen/             Generated Gin strict server. Only internal/server imports it
     ├── runtime/            Composition root (config, DB, sessions, providers)
     ├── agent/              Multi-step LLM and tool runner
     ├── session/            Domain service over sqlc queries
-    ├── db/                 Schema, migrations, generated sqlc
+    ├── db/                 schema.sql, numbered migrations, generated sqlc
     ├── sqlite/             Opens the SQLite file (pragmas, schema bootstrap)
     ├── config/             JSON settings and env overrides
     ├── provider/           Config → comet-sdk factory (builds the provider)
-    ├── tools/              Built-in tool registry, surfaces, and sandbox
+    ├── tools/              Tool registry. Families live in subpackages and must not import this package
     ├── acp/                Fixed CLI profiles for delegate_coding_task
     ├── subagent/           Controls subagents inside this process
     ├── memory/             Semantic memory: retrieve, extract, compact
@@ -192,7 +193,7 @@ cometmind/
 
 `internal/runtime` is the composition root. The CLI and the HTTP server both call `runtime.New()`. They do not set up those parts a second time.
 
-In `tools/`, that surface is the set of tool families one agent may use. A sandbox limits tool file access to the workspace.
+In `tools/`, each family is a subpackage (`fsops`, `web`, `media`, `jobs`, `mcp`, `memory`, `settings`, `subagent`, `skills`, `inbox`, plus `toolkit` and `fs`). A family must not import the parent package. A sandbox limits tool file access to the workspace.
 
 ## comet-sdk package map
 
@@ -233,12 +234,11 @@ cometline/
 └── src/
     ├── routes/         SvelteKit pages (/ , /session/[id], /jobs, /skill-drafts, /mini, /settings)
     ├── lib/
-    │   ├── client/     cometmind.ts HTTP/SSE client
+    │   ├── client/     cometmind.ts HTTP/SSE client (the only API door)
+    │   ├── features/   chat, composer, gallery, inbox, jobs, onboarding, settings, shell, sidebar, skills, usage, workspace
+    │   ├── components/ Shared UI primitives only
     │   ├── stores/     chat, session, settings, model, shell, runtime, memory-toasts
-    │   ├── reducers/   chat.ts pure SSE → state
-    │   ├── components/ ChatView, Composer, JobsPage, settings/* panels, …
-    │   ├── jobs/       Job prompts, notifications, board helpers
-    │   └── settings/   schema.ts validation and normalization
+    │   └── reducers/   chat.ts pure SSE → state
     └── app.html
 ```
 
@@ -269,10 +269,10 @@ A seam is a place where you can add a feature. You start at the files in the rig
 | Change            | Start here                                                                                               |
 | ----------------- | -------------------------------------------------------------------------------------------------------- |
 | New LLM provider  | `comet-sdk/provider/<name>` → `cometmind/internal/provider/factory.go` → `SettingsProvidersPanel.svelte` |
-| New built-in tool | `cometmind/internal/tools/*.go` → `registry.go` / `surface.go`                                           |
-| New API endpoint  | `internal/server/server.go` + `openapi.yaml` → `make generate`                                                    |
+| New built-in tool | Family under `cometmind/internal/tools/<family>` → `registry.go`. Families must not import `tools`     |
+| New API endpoint  | `openapi.yaml` → strict-server method → `make generate`. Hand-register only excluded SSE and downloads |
 | New SSE event     | `event/event.go` + `openapi.yaml` → reducer and/or runtime toasts + contract tests                       |
-| DB schema change  | `db/schema.sql` + `internal/db/migrations` → pinned sqlc (see `AGENTS.md`)                               |
+| DB schema change  | `schema.sql` + next `internal/db/migrations/NNNN_description.sql` → pinned sqlc (see `AGENTS.md`)        |
 | Settings field    | `settings/schema.ts` + settings panel module + Electron split path                                       |
 | Jobs behavior     | `internal/jobs` / `scheduler` / `autonomy` + OpenAPI + `/jobs` UI                                        |
 | MCP behavior      | `internal/mcp` + settings MCP panel + CometMind OAuth endpoint (Electron does not run MCP OAuth)         |

@@ -207,7 +207,7 @@ Fixtures under `provider/*/fixtures/` are checked-in SSE snapshots. A **fixture*
 5. Emit only canonical SDK event types. **Canonical** means the shared event names, not provider-specific names.
 6. Add fixtures and unit tests
 7. Register the provider in `cometmind/internal/provider/factory.go`
-8. Add provider defaults and validation in `cometline/src/lib/settings/schema.ts`
+8. Add provider defaults and validation in `cometline/src/lib/features/settings/schema.ts`
 9. Add UI in `SettingsProvidersPanel.svelte`. If the provider uses a subscription, also add Electron auth helpers.
 
 ## Mental model

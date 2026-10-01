@@ -75,7 +75,7 @@ tool-free request for a best-effort final answer if the work budget was exhauste
 
 ### Built-in tools
 
-Registered per workspace in `internal/tools/registry.go`:
+Registered per workspace from `internal/tools/registry.go`. Implementations live in family subpackages (`fsops`, `web`, `media`, `jobs`, `mcp`, `memory`, `settings`, `subagent`, `skills`, `inbox`) plus shared `toolkit` and `fs`. A family must not import the parent `tools` package.
 
 | Tool | Purpose |
 |---|---|
@@ -425,7 +425,7 @@ When Cometline is running, Settings writes `~/.cometmind/cometline-settings.json
 
 ## Database
 
-SQLite schema (see `schemaVersion` in `internal/db/migrate.go`) includes:
+SQLite schema for a fresh database is `internal/db/schema.sql`. Upgrades are `internal/db/migrations/NNNN_description.sql` (0002 through 0037); the highest file number is the current version. Tables include:
 
 | Table | Purpose |
 |---|---|
@@ -441,7 +441,7 @@ SQLite schema (see `schemaVersion` in `internal/db/migrate.go`) includes:
 | `scheduled_jobs` | One-shot and recurring job definitions |
 | `job_events` | Audit log for job lifecycle changes |
 
-After schema or query changes, run `go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1 generate` (pinned to the version in the generated headers) and add incremental migrations in `internal/db/migrate.go`.
+After schema or query changes, add the next `internal/db/migrations/NNNN_description.sql` (a file containing `DROP TABLE` runs as a transactional rebuild; the only Go-side step is `skipIfApplied` in `internal/db/migrate.go`) and run `go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1 generate` (pinned to the version in the generated headers). `TestMigrationsFromV1MatchFreshSchema` fails if `schema.sql` and the migrations drift.
 
 ## Build & run
 

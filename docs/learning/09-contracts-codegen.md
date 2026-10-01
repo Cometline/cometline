@@ -15,7 +15,7 @@ This doc maps each source of truth to the files generated from it. A source of t
 cometmind/openapi.yaml          → TS client + Go types
 cometmind/internal/db/schema.sql → sqlc Go queries
 cometmind/internal/event/event.go → SSE wire format (mirrored in openapi.yaml)
-cometline/src/lib/settings/schema.ts → generated JSON schema for Electron validation
+cometline/src/lib/features/settings/schema.ts → generated JSON schema for Electron validation
 ```
 
 **Rule:** Edit the source of truth. Run code generation. Never edit a generated file by hand.
@@ -141,21 +141,14 @@ The version is pinned to the `sqlc vX.Y.Z` header in the generated files, so you
 
 ### Migrations
 
-CometMind embeds `schema.sql` and tracks the version in `internal/db/migrate.go`. Embed means the file is built into the program.
+A fresh database is built from `schema.sql`. An upgrade is an embedded file `internal/db/migrations/NNNN_description.sql` (0002 through 0037). Embed means the file is built into the program. The highest file number is the current version. `TestMigrationsFromV1MatchFreshSchema` fails if `schema.sql` and the migrations drift.
 
-```go
-schemaVersion = ... // read the current value in migrate.go; bump with each user-facing migration
-alterStatements = []string{ ... }  // v(N-1) → vN
-```
-
-Bump means increase the version number. User-facing means the change affects people who already use the app. Each entry moves the database from the previous version to the next.
-
-Users who already have a database need an incremental migration. Editing `schema.sql` alone is not enough. Incremental means one small step from the old version to the new one. Each version saves `user_version`. That saved number is a checkpoint. A table rebuild that runs `DROP TABLE` must stay in one transaction. A transaction is a group of database changes that succeed or fail together.
+Users who already have a database need the next numbered file. Editing `schema.sql` alone is not enough. Each file checkpoints `user_version`. A file that contains `DROP TABLE` runs as a transactional rebuild. A transaction is a group of database changes that succeed or fail together. The only Go-side step is `skipIfApplied` in `internal/db/migrate.go`.
 
 ### Checklist for schema changes
 
 1. Edit `schema.sql`.
-2. Add a migration in `migrate.go`. Add it to `alterStatements`, and increase `schemaVersion`.
+2. Add `internal/db/migrations/NNNN_description.sql` for the next version. Do not add a Go slice of statements.
 3. Add or update queries in `queries/*.sql`.
 4. Regenerate with the pinned sqlc command above.
 5. Update `session/service.go` if domain logic changes.
@@ -180,7 +173,7 @@ When you add an IPC method, update three places. Update the shared type. Update 
 
 ## Settings schema
 
-`cometline/src/lib/settings/schema.ts` uses Zod to check the merged settings shape. It also normalizes that shape. Zod is a library that checks data shapes. Normalize means it rewrites values into the expected form. The UI edits this merged shape.
+`cometline/src/lib/features/settings/schema.ts` uses Zod to check the merged settings shape. It also normalizes that shape. Zod is a library that checks data shapes. Normalize means it rewrites values into the expected form. The UI edits this merged shape.
 
 On disk, Electron splits the files:
 
@@ -239,8 +232,8 @@ Skew means the copies do not match.
 | `openapi.yaml` changed, but the TS client was not regenerated       | Type errors in the client                   | `make generate`                                                                                                               |
 | `schema.sql` changed, but sqlc was not run                          | Compile errors in session                   | Run the pinned sqlc command above                                                                                             |
 | New SSE event exists in Go only                                     | The reducer ignores the events              | Add a reducer case and a TS type                                                                                              |
-| The migration is missing                                            | The database breaks for existing users      | Add `alterStatements`                                                                                                         |
-| The settings schema changed, but the Electron settings domain was not updated | Electron save and normalize behavior no longer matches | Update `src/lib/settings/schema.ts` and the relevant `electron/src/domains/{settings,settings-domain,runtime-ipc}.ts` modules |
+| The migration is missing                                            | The database breaks for existing users      | Add the next `internal/db/migrations/NNNN_description.sql`                                                                    |
+| The settings schema changed, but the Electron settings domain was not updated | Electron save and normalize behavior no longer matches | Update `src/lib/features/settings/schema.ts` and the relevant `electron/src/domains/{settings,settings-domain,runtime-ipc}.ts` modules |
 | A generated file was edited by hand                                  | The next generate overwrites that edit      | Edit the source only                                                                                                          |
 
 ---
