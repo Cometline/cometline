@@ -569,16 +569,6 @@
 			handleRequestReload();
 		});
 
-		const unsubscribeToggleWorkspacePanel = window.electronAPI?.onToggleWorkspacePanel?.(() => {
-			if (shellStore.settingsOpen) return;
-			shellStore.toggleWorkspacePanel();
-		});
-
-		const unsubscribeOpenWebSearch = window.electronAPI?.onOpenWebSearch?.(() => {
-			if (shellStore.settingsOpen) return;
-			shellStore.openWebSearchPanel();
-		});
-
 		// Shortcuts forwarded from the webview guest (workspace panel focused). Run the
 		// same effects as the DOM keydown dispatcher above.
 		const unsubscribeShortcutAction = window.electronAPI?.onShortcutAction?.((action) => {
@@ -639,8 +629,6 @@
 			unsubscribeCloseInbox?.();
 			unsubscribeRequestCloseWindow?.();
 			unsubscribeRequestReload?.();
-			unsubscribeToggleWorkspacePanel?.();
-			unsubscribeOpenWebSearch?.();
 			unsubscribeShortcutAction?.();
 			unsubscribeReplayIntro?.();
 			unsubscribeRunSetupWizard?.();

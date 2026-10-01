@@ -32,8 +32,6 @@ const electronAPI: ElectronAPI = {
 	filterExistingWorkspacePaths: (paths) =>
 		ipcRenderer.invoke('cometline:filter-existing-workspace-paths', paths),
 	pruneWorkspaceStore: () => ipcRenderer.invoke('cometline:prune-workspace-store'),
-	readWorkspaceFile: (workspacePath, relativePath) =>
-		ipcRenderer.invoke('cometline:read-workspace-file', workspacePath, relativePath),
 	createPdfPreview: (request) => ipcRenderer.invoke('cometline:create-pdf-preview', request),
 	revokePdfPreview: (token) => ipcRenderer.invoke('cometline:revoke-pdf-preview', token),
 	listTerminals: () => ipcRenderer.invoke('cometline:terminal-list'),
@@ -76,7 +74,6 @@ const electronAPI: ElectronAPI = {
 	fetchProviderModels: (config) => ipcRenderer.invoke('cometline:fetch-provider-models', config),
 	checkOllamaHealth: (baseURL) => ipcRenderer.invoke('cometline:ollama-health', baseURL),
 	listOllamaModels: (baseURL) => ipcRenderer.invoke('cometline:ollama-models', baseURL),
-	getOllamaDiagnostics: (baseURL) => ipcRenderer.invoke('cometline:ollama-diagnostics', baseURL),
 	pullOllamaModel: (payload) => ipcRenderer.invoke('cometline:ollama-pull', payload),
 	cancelOllamaPull: () => ipcRenderer.invoke('cometline:ollama-cancel-pull'),
 	onOllamaPullProgress: (callback) => subscribe('cometline:ollama-pull-progress', callback),
@@ -107,9 +104,6 @@ const electronAPI: ElectronAPI = {
 	onCloseInbox: (callback) => subscribeSignal('cometline:close-inbox', callback),
 	onRequestCloseWindow: (callback) => subscribeSignal('cometline:request-close-window', callback),
 	onRequestReload: (callback) => subscribeSignal('cometline:request-reload', callback),
-	onToggleWorkspacePanel: (callback) =>
-		subscribeSignal('cometline:toggle-workspace-panel', callback),
-	onOpenWebSearch: (callback) => subscribeSignal('cometline:open-web-search', callback),
 	onNavigateSession: (callback) =>
 		subscribe('cometline:navigate-session', (direction) => {
 			if (direction === 'prev' || direction === 'next') callback(direction);

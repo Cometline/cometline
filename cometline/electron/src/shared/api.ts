@@ -40,16 +40,6 @@ export interface ElectronAPI {
 		baseURL: string;
 		models: Array<{ name: string; size?: number; digest?: string; modifiedAt?: string }>;
 	}>;
-	getOllamaDiagnostics(baseURL?: string): Promise<{
-		ok: boolean;
-		state: string;
-		baseURL: string;
-		version?: string;
-		error?: string;
-		models: Array<{ name: string; size?: number }>;
-		pullActive: boolean;
-		pullModel: string | null;
-	}>;
 	pullOllamaModel(payload: {
 		baseURL?: string;
 		catalogId?: string;
@@ -78,10 +68,6 @@ export interface ElectronAPI {
 	removeRecentWorkspacePath(workspacePath: string): Promise<{ removed: boolean }>;
 	filterExistingWorkspacePaths(paths: string[]): Promise<string[]>;
 	pruneWorkspaceStore(): Promise<{ removedRecent: number; clearedCurrent: boolean }>;
-	readWorkspaceFile(
-		workspacePath: string,
-		relativePath: string
-	): Promise<ReadWorkspaceFileResult>;
 	createPdfPreview(request: PdfPreviewRequest): Promise<PdfPreviewResult>;
 	revokePdfPreview(token: string): Promise<void>;
 	listTerminals(): Promise<TerminalSnapshot[]>;
@@ -106,8 +92,6 @@ export interface ElectronAPI {
 	onCloseInbox(callback: () => void): () => void;
 	onRequestCloseWindow(callback: () => void): () => void;
 	onRequestReload(callback: () => void): () => void;
-	onToggleWorkspacePanel(callback: () => void): () => void;
-	onOpenWebSearch(callback: () => void): () => void;
 	onNavigateSession(callback: (direction: 'prev' | 'next') => void): () => void;
 	onShortcutAction(callback: (action: ShortcutAction) => void): () => void;
 	onProviderSettingsChanged(callback: (settings: ProviderSettings) => void): () => void;

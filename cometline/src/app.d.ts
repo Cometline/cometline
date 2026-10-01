@@ -369,11 +369,6 @@ declare global {
 		reload: RuntimeReloadOutcome | null;
 	}
 
-	type ReadWorkspaceFileResult =
-		| { ok: true; kind: 'text'; content: string; extension: string }
-		| { ok: true; kind: 'image'; mimeType: string; dataUrl: string }
-		| { ok: false; error: string };
-
 	type PdfPreviewRequest =
 		| { scope: 'workspace'; workspacePath: string; relativePath: string }
 		| { scope: 'wiki'; relativePath: string };

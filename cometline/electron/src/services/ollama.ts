@@ -133,25 +133,6 @@ function createOllamaService(deps = {}) {
 		};
 	}
 
-	async function getDiagnostics(baseURL) {
-		const health = await checkHealth(baseURL);
-		let models = [];
-		if (health.ok) {
-			try {
-				const listed = await listModels(health.baseURL);
-				models = listed.models;
-			} catch {
-				// keep health-only diagnostics
-			}
-		}
-		return {
-			...health,
-			models,
-			pullActive: Boolean(activePull),
-			pullModel: activePull?.model || null
-		};
-	}
-
 	async function pullModel({ baseURL, catalogId, modelName }) {
 		if (activePull) {
 			throw new Error('Another Ollama model pull is already in progress');
@@ -266,7 +247,6 @@ function createOllamaService(deps = {}) {
 	return {
 		checkHealth,
 		listModels,
-		getDiagnostics,
 		pullModel,
 		cancelPull,
 		normalizeNativeBase,

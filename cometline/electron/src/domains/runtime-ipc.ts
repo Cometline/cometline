@@ -20,7 +20,7 @@ import type { createShortcutCoordinator } from './shortcuts.js';
 import type { createTerminalManager, TerminalCreateInput } from './terminal.js';
 import type { createWindowChrome } from './window-chrome.js';
 import type { createWindows } from './windows.js';
-import { isExternallyOpenableUrl, readWorkspaceFileForPreview } from './workspace-preview.js';
+import { isExternallyOpenableUrl } from './workspace-preview.js';
 import type { createWorkspaceWatcher } from './workspace-watcher.js';
 
 type SettingsDomain = ReturnType<typeof createSettingsDomain>;
@@ -46,7 +46,6 @@ export interface RuntimeIpcDependencies {
 	app: Pick<App, 'getVersion'>;
 	Notification: NotificationService;
 	shell: Pick<Shell, 'openExternal'>;
-	workspacePreview: Parameters<typeof readWorkspaceFileForPreview>[0];
 	pdfPreview: PdfPreviewRegistry;
 	mediaClipboard: MediaClipboard;
 	selectBackupFolder(): Promise<{ canceled: boolean; path?: string }>;
@@ -159,12 +158,6 @@ export function registerRuntimeIpcHandlers(dependencies: RuntimeIpcDependencies)
 		filterExistingWorkspacePaths: (_event: IpcMainInvokeEvent, paths: unknown) =>
 			dependencies.settings.filterExistingWorkspacePaths(Array.isArray(paths) ? paths : []),
 		pruneWorkspaceStore: () => dependencies.settings.pruneWorkspaceStore(),
-		readWorkspaceFile: (
-			_event: IpcMainInvokeEvent,
-			workspacePath: unknown,
-			relativePath: unknown
-		) =>
-			readWorkspaceFileForPreview(dependencies.workspacePreview, workspacePath, relativePath),
 		createPdfPreview: (_event: IpcMainInvokeEvent, request: unknown) =>
 			dependencies.pdfPreview.create(request),
 		revokePdfPreview: (_event: IpcMainInvokeEvent, token: unknown) => {
@@ -219,8 +212,6 @@ export function registerRuntimeIpcHandlers(dependencies: RuntimeIpcDependencies)
 			dependencies.ollama.checkHealth(baseURL),
 		ollamaModels: (_event: IpcMainInvokeEvent, baseURL: unknown) =>
 			dependencies.ollama.listModels(baseURL),
-		ollamaDiagnostics: (_event: IpcMainInvokeEvent, baseURL: unknown) =>
-			dependencies.ollama.getDiagnostics(baseURL),
 		ollamaPull: (_event: IpcMainInvokeEvent, payload: unknown = {}) => {
 			const input = record(payload);
 			return dependencies.ollama.pullModel({

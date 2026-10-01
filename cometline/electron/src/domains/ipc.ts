@@ -24,7 +24,6 @@ export interface IpcHandlers {
 	removeRecentWorkspacePath: Invoker;
 	filterExistingWorkspacePaths: Invoker;
 	pruneWorkspaceStore: Invoker;
-	readWorkspaceFile: Invoker;
 	createPdfPreview: Invoker;
 	revokePdfPreview: Invoker;
 	terminalList: Invoker;
@@ -47,7 +46,6 @@ export interface IpcHandlers {
 	fetchProviderModels: Invoker;
 	ollamaHealth: Invoker;
 	ollamaModels: Invoker;
-	ollamaDiagnostics: Invoker;
 	ollamaPull: Invoker;
 	ollamaCancelPull: Invoker;
 	saveProviderSettings: Invoker;
@@ -98,7 +96,6 @@ export function registerIpcHandlers(handlers: IpcHandlers) {
 		handlers.filterExistingWorkspacePaths
 	);
 	ipcMain.handle('cometline:prune-workspace-store', handlers.pruneWorkspaceStore);
-	ipcMain.handle('cometline:read-workspace-file', handlers.readWorkspaceFile);
 	ipcMain.handle('cometline:create-pdf-preview', handlers.createPdfPreview);
 	ipcMain.handle('cometline:revoke-pdf-preview', handlers.revokePdfPreview);
 	ipcMain.handle('cometline:terminal-list', handlers.terminalList);
@@ -121,7 +118,6 @@ export function registerIpcHandlers(handlers: IpcHandlers) {
 	ipcMain.handle('cometline:fetch-provider-models', handlers.fetchProviderModels);
 	ipcMain.handle('cometline:ollama-health', handlers.ollamaHealth);
 	ipcMain.handle('cometline:ollama-models', handlers.ollamaModels);
-	ipcMain.handle('cometline:ollama-diagnostics', handlers.ollamaDiagnostics);
 	ipcMain.handle('cometline:ollama-pull', handlers.ollamaPull);
 	ipcMain.handle('cometline:ollama-cancel-pull', handlers.ollamaCancelPull);
 	ipcMain.handle('cometline:save-provider-settings', handlers.saveProviderSettings);

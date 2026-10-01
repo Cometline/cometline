@@ -384,7 +384,6 @@ export function initializeRuntime() {
 		app,
 		Notification: ElectronNotification,
 		shell,
-		workspacePreview: { fs, path },
 		pdfPreview,
 		mediaClipboard,
 		selectBackupFolder,

@@ -125,25 +125,26 @@ Only one in-flight run per session is allowed (`409 session_running`).
 Exposed as `window.electronAPI` by `electron/src/preload.ts`, with its contract in
 `electron/src/shared/api.ts`:
 
-| IPC                                                                                                      | Purpose                                                                  |
-| -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| `restartCometMind()`                                                                                     | Restart the sidecar                                                      |
-| `getWorkspacePath()` / `selectWorkspacePath()` / `setWorkspacePath()`                                    | Workspace selection                                                      |
-| `getProviderSettings()` / `saveProviderSettings()`                                                       | Read/write full settings blob                                            |
-| `fetchProviderModels(config)`                                                                            | Query provider model list from main process                              |
-| `getDiscordGatewayStatus()` / `setDiscordGatewayEnabled()`                                               | Discord bot subprocess                                                   |
-| MCP OAuth                                                                                                | CometMind `POST /api/v1/mcp/servers/{id}/oauth-flows` (not Electron IPC) |
-| `readCursorMcpConfig()`                                                                                  | Import Cursor-style MCP config                                           |
-| `notifyJob()`                                                                                            | Desktop notification for job events                                      |
-| `getOpenAtLogin()` / `setOpenAtLogin()`                                                                  | macOS login item                                                         |
-| `setSidebarOpen()`                                                                                       | Animate macOS traffic lights                                             |
-| `getFullScreen()` / `onFullScreenChange()`                                                               | Fullscreen sync                                                          |
-| `getAppVersion()`                                                                                        | App version string                                                       |
-| `getUpdateState()` / `checkForUpdates()` / `installUpdate()` / `onUpdateState()`                         | Auto-update                                                              |
-| `openExternal(url)`                                                                                      | Open http(s)/mailto in system browser                                    |
-| `setShortcutCaptureActive()` / `setSessionNavigationSuspended()`                                         | Pause global shortcuts                                                   |
-| `setWorkspacePanelOpen()` / `onCloseWorkspacePanel()` / `onToggleWorkspacePanel()` / `onOpenWebSearch()` | Workspace panel routing                                                  |
-| `onNavigateSession()`                                                                                    | Previous/next chat from main-process shortcuts                           |
+| IPC                                                                              | Purpose                                                                  |
+| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `restartCometMind()`                                                             | Restart the sidecar                                                      |
+| `getWorkspacePath()` / `selectWorkspacePath()` / `setWorkspacePath()`            | Workspace selection                                                      |
+| `getProviderSettings()` / `saveProviderSettings()`                               | Read/write full settings blob                                            |
+| `fetchProviderModels(config)`                                                    | Query provider model list from main process                              |
+| `getDiscordGatewayStatus()` / `setDiscordGatewayEnabled()`                       | Discord bot subprocess                                                   |
+| MCP OAuth                                                                        | CometMind `POST /api/v1/mcp/servers/{id}/oauth-flows` (not Electron IPC) |
+| `readCursorMcpConfig()`                                                          | Import Cursor-style MCP config                                           |
+| `notifyJob()`                                                                    | Desktop notification for job events                                      |
+| `getOpenAtLogin()` / `setOpenAtLogin()`                                          | macOS login item                                                         |
+| `setSidebarOpen()`                                                               | Animate macOS traffic lights                                             |
+| `getFullScreen()` / `onFullScreenChange()`                                       | Fullscreen sync                                                          |
+| `getAppVersion()`                                                                | App version string                                                       |
+| `getUpdateState()` / `checkForUpdates()` / `installUpdate()` / `onUpdateState()` | Auto-update                                                              |
+| `openExternal(url)`                                                              | Open http(s)/mailto in system browser                                    |
+| `setShortcutCaptureActive()` / `setSessionNavigationSuspended()`                 | Pause global shortcuts                                                   |
+| `setWorkspacePanelOpen()` / `onCloseWorkspacePanel()`                            | Workspace panel routing                                                  |
+| `onShortcutAction()`                                                             | Shortcuts forwarded from a focused webview guest                         |
+| `onNavigateSession()`                                                            | Previous/next chat from main-process shortcuts                           |
 
 IPC is for OS/native capabilities only. Chat, session, memory, and skill data stay on REST/SSE.
 
