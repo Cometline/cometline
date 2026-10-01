@@ -437,7 +437,7 @@ func WithStreamIdleTimeout(d time.Duration) Option {
 }
 
 // WithMaxRetries sets the maximum number of attempts (including the first).
-// Defaults to 4. Set to 1 to disable retries.
+// Defaults to 5. Set to 1 to disable retries.
 func WithMaxRetries(n int) Option {
 	return func(c *ProviderConfig) {
 		c.MaxRetries = n

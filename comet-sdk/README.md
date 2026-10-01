@@ -89,9 +89,9 @@ Use `Provider.Stream()` directly when you need lower-level control over raw even
     │                      │  │                       │  │                    │  │                     │
     │  client.go           │  │  client.go            │  │  client.go         │  │  provider.go        │
     │  convert.go          │  │  convert.go           │  │  convert.go        │  │  auth.go            │
-    │  stream.go           │  │  stream.go            │  │  stream.go         │  │  (wraps provider/   │
-    │  fixtures/           │  │  reasoning.go         │  │  websocket.go      │  │   openai)           │
-    └────────┬─────────────┘  │  fixtures/            │  │  auth.go           │  └─────────┬───────────┘
+    │  stream.go           │  │  stream.go            │  │  auth.go           │  │  (wraps provider/   │
+    │  fixtures/           │  │  reasoning.go         │  │  (SSE parsing in   │  │   openai)           │
+    └────────┬─────────────┘  │  fixtures/            │  │   responsesproto)  │  └─────────┬───────────┘
              │                └──────────┬─────────────┘  └─────────┬──────────┘            │
              └─────────────┬─────────────┴──────────────────────────┴───────────────────────┘
                            │
@@ -101,13 +101,14 @@ Use `Provider.Stream()` directly when you need lower-level control over raw even
            │  sse/scanner.go               │
            │  retry/retry.go               │
            │  providerbase/providerbase.go │
+           │  responsesproto/              │
            └───────────────────────────────┘
                         │
           ┌─────────────┼──────────────────┬───────────────────────┐
           ▼             ▼                  ▼                       ▼
    Anthropic API   OpenAI API      OpenAI-compatible APIs     ChatGPT Codex        xAI (api.x.ai,
    /v1/messages    /v1/chat/       (DeepSeek, gateways, etc.) /responses           OAuth subscription
-                   completions                                (HTTP or WebSocket)  session)
+                   completions                                (SSE over HTTP)      session)
 ```
 
 ---
@@ -366,7 +367,7 @@ _, err := llm.GenerateMessage(ctx, p, req)
 if err != nil {
     var rle *cometsdk.RateLimitError
     if errors.As(err, &rle) {
-        time.Sleep(rle.RetryAfter)
+        time.Sleep(rle.RetryAfter())
     }
 }
 ```
@@ -374,7 +375,7 @@ if err != nil {
 | Error type | When |
 |---|---|
 | `AuthError` | Invalid or missing API key (401/403) |
-| `RateLimitError` | Rate limited (429); carries `RetryAfter` |
+| `RateLimitError` | Rate limited (429); `RetryAfter()` returns the server's Retry-After delay |
 | `ServerError` | Provider non-success HTTP response (including context-length 400s) |
 | `StreamError` | Error occurring mid-stream (after HTTP 200) |
 
