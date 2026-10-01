@@ -3,10 +3,10 @@
 		flyUserBubble,
 		type FlyUserBubbleParams,
 		type UserBubbleFlightOrigin
-	} from '$lib/first-turn-flight';
+	} from '$lib/features/chat/first-turn-flight';
 	import { imageDataURL } from '$lib/files/images';
 	import AssistantMarkdown from '$lib/components/AssistantMarkdown.svelte';
-	import UserMessageViewport from '$lib/components/chat/UserMessageViewport.svelte';
+	import UserMessageViewport from '$lib/features/chat/components/UserMessageViewport.svelte';
 	import type { ImageAttachment } from '$lib/types';
 
 	interface RunOptions {

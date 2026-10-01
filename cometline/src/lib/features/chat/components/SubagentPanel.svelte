@@ -10,7 +10,7 @@
 	} from '@lucide/svelte';
 	import { chatStore } from '$lib/stores/chat.svelte';
 	import type { ChatItem } from '$lib/stores/chat.svelte';
-	import { subagentProgressLabel } from '$lib/conversation/subagent-display';
+	import { subagentProgressLabel } from '$lib/features/chat/subagent-display';
 
 	const FOLD_IN = { duration: 180 };
 

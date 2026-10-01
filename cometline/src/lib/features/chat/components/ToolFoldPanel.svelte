@@ -8,7 +8,7 @@
 		CircleCheck
 	} from '@lucide/svelte';
 	import type { ChatItem } from '$lib/stores/chat.svelte';
-	import JobProposeCard from '$lib/components/chat/JobProposeCard.svelte';
+	import JobProposeCard from '$lib/features/chat/components/JobProposeCard.svelte';
 	import { parseJobProposal } from '$lib/features/jobs/parse-job-proposal';
 	import {
 		dismissJobProposal,
@@ -19,7 +19,7 @@
 	} from '$lib/features/jobs/job-proposal-dismissals';
 	import type { ChatTurnPayload } from '$lib/actions/start-chat';
 	import type { JobResource } from '$lib/client/cometmind';
-	import EditDiffBlock from '$lib/components/chat/EditDiffBlock.svelte';
+	import EditDiffBlock from '$lib/features/chat/components/EditDiffBlock.svelte';
 	import {
 		looksLikeDiffArtifact,
 		parseEditDiff,

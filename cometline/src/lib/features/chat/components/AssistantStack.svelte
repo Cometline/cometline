@@ -2,19 +2,19 @@
 	import { onDestroy } from 'svelte';
 	import { Check, Copy } from '@lucide/svelte';
 	import AssistantMarkdown from '$lib/components/AssistantMarkdown.svelte';
-	import AssistantThinkingWait from '$lib/components/chat/AssistantThinkingWait.svelte';
-	import ToolFoldPanel from '$lib/components/chat/ToolFoldPanel.svelte';
-	import AssistantActivityGroup from '$lib/components/chat/AssistantActivityGroup.svelte';
-	import TimelineEntryRow from '$lib/components/chat/TimelineEntryRow.svelte';
-	import { setReactiveChatTurnContext } from '$lib/conversation/chat-turn-context';
-	import { assistantThinkingWait } from '$lib/conversation/thread-format';
+	import AssistantThinkingWait from '$lib/features/chat/components/AssistantThinkingWait.svelte';
+	import ToolFoldPanel from '$lib/features/chat/components/ToolFoldPanel.svelte';
+	import AssistantActivityGroup from '$lib/features/chat/components/AssistantActivityGroup.svelte';
+	import TimelineEntryRow from '$lib/features/chat/components/TimelineEntryRow.svelte';
+	import { setReactiveChatTurnContext } from '$lib/features/chat/chat-turn-context';
+	import { assistantThinkingWait } from '$lib/features/chat/thread-format';
 	import {
 		buildAssistantTimeline,
 		pinnedJobProposalsForAssistant,
 		shouldGroupAssistantTimeline
-	} from '$lib/conversation/thinking-attribution';
-	import { timelineEntryKey } from '$lib/conversation/thread-view-helpers';
-	import type { AssistantStackContext } from '$lib/conversation/assistant-stack-props';
+	} from '$lib/features/chat/thinking-attribution';
+	import { timelineEntryKey } from '$lib/features/chat/thread-view-helpers';
+	import type { AssistantStackContext } from '$lib/features/chat/assistant-stack-props';
 	import type { ChatItem } from '$lib/stores/chat.svelte';
 	import {
 		copyImageToClipboard,
@@ -22,13 +22,13 @@
 		isVideoAttachment,
 		resolveImageSrc
 	} from '$lib/files/images';
-	import ImageLightbox from '$lib/components/chat/ImageLightbox.svelte';
+	import ImageLightbox from '$lib/features/chat/components/ImageLightbox.svelte';
 	import SelectionAddToChat from '$lib/components/SelectionAddToChat.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import {
 		assistantResponseSource,
 		buildAssistantResponseContext
-	} from '$lib/conversation/assistant-response-context';
+	} from '$lib/features/chat/assistant-response-context';
 	import {
 		firstSelectionClientRect,
 		selectionPopupPosition

@@ -2,11 +2,11 @@
 	import { fly } from 'svelte/transition';
 	import { Check, Copy } from '@lucide/svelte';
 	import AssistantMarkdown from '$lib/components/AssistantMarkdown.svelte';
-	import MessageContextChips from '$lib/components/chat/MessageContextChips.svelte';
-	import ThreadAvatar from '$lib/components/chat/ThreadAvatar.svelte';
-	import ThreadRow from '$lib/components/chat/ThreadRow.svelte';
-	import ImageLightbox from '$lib/components/chat/ImageLightbox.svelte';
-	import UserMessageViewport from '$lib/components/chat/UserMessageViewport.svelte';
+	import MessageContextChips from '$lib/features/chat/components/MessageContextChips.svelte';
+	import ThreadAvatar from '$lib/features/chat/components/ThreadAvatar.svelte';
+	import ThreadRow from '$lib/features/chat/components/ThreadRow.svelte';
+	import ImageLightbox from '$lib/features/chat/components/ImageLightbox.svelte';
+	import UserMessageViewport from '$lib/features/chat/components/UserMessageViewport.svelte';
 	import { imageDataURL } from '$lib/files/images';
 	import type { ChatItem } from '$lib/stores/chat.svelte';
 

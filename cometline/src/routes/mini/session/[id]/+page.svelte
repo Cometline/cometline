@@ -3,7 +3,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { untrack } from 'svelte';
-	import ChatView from '$lib/components/ChatView.svelte';
+	import ChatView from '$lib/features/chat/components/ChatView.svelte';
 	import { miniShellStore } from '$lib/stores/mini-shell.svelte';
 
 	let sessionId = $derived(page.params.id ?? '');

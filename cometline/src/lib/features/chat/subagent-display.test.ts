@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { subagentProgressLabel } from '$lib/conversation/subagent-display';
+import { subagentProgressLabel } from '$lib/features/chat/subagent-display';
 import type { ChatItem } from '$lib/types';
 
 function subagent(

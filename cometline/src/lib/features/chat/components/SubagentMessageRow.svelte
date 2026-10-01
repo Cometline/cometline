@@ -1,9 +1,9 @@
 <script lang="ts">
-	import SubagentPanel from '$lib/components/chat/SubagentPanel.svelte';
-	import ThreadAvatar from '$lib/components/chat/ThreadAvatar.svelte';
-	import ThreadRow from '$lib/components/chat/ThreadRow.svelte';
-	import { startsSpeakerRun } from '$lib/conversation/thread-view-helpers';
-	import type { AssistantStackFoldController } from '$lib/conversation/assistant-stack-props';
+	import SubagentPanel from '$lib/features/chat/components/SubagentPanel.svelte';
+	import ThreadAvatar from '$lib/features/chat/components/ThreadAvatar.svelte';
+	import ThreadRow from '$lib/features/chat/components/ThreadRow.svelte';
+	import { startsSpeakerRun } from '$lib/features/chat/thread-view-helpers';
+	import type { AssistantStackFoldController } from '$lib/features/chat/assistant-stack-props';
 	import type { ChatItem } from '$lib/stores/chat.svelte';
 
 	let {

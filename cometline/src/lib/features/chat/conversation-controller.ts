@@ -19,7 +19,7 @@ import { sessionStore } from '$lib/stores/session.svelte';
 import { shellStore } from '$lib/stores/shell.svelte';
 import type { ImageAttachment } from '$lib/types';
 import type { ChatTurnPayload } from '$lib/actions/start-chat';
-import { messageContextRefsFromWebContexts } from '$lib/chat/message-context';
+import { messageContextRefsFromWebContexts } from '$lib/features/chat/message-context';
 
 export type { ChatTurnPayload } from '$lib/actions/start-chat';
 export type { QueuedMessage } from '$lib/actions/chat-turn-queue';

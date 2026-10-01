@@ -1,13 +1,13 @@
 <script lang="ts">
-	import ThinkingBlock from '$lib/components/chat/ThinkingBlock.svelte';
-	import MemoryCard from '$lib/components/chat/MemoryCard.svelte';
-	import ToolFoldPanel from '$lib/components/chat/ToolFoldPanel.svelte';
-	import SubagentPanel from '$lib/components/chat/SubagentPanel.svelte';
+	import ThinkingBlock from '$lib/features/chat/components/ThinkingBlock.svelte';
+	import MemoryCard from '$lib/features/chat/components/MemoryCard.svelte';
+	import ToolFoldPanel from '$lib/features/chat/components/ToolFoldPanel.svelte';
+	import SubagentPanel from '$lib/features/chat/components/SubagentPanel.svelte';
 	import { TriangleAlert } from '@lucide/svelte';
-	import { getChatTurnContext } from '$lib/conversation/chat-turn-context';
-	import { isTimelineEntryToggleDisabled } from '$lib/conversation/thinking-attribution';
+	import { getChatTurnContext } from '$lib/features/chat/chat-turn-context';
+	import { isTimelineEntryToggleDisabled } from '$lib/features/chat/thinking-attribution';
 	import type { ChatItem } from '$lib/stores/chat.svelte';
-	import type { TimelineEntry } from '$lib/conversation/thinking-attribution';
+	import type { TimelineEntry } from '$lib/features/chat/thinking-attribution';
 
 	let {
 		entry,

@@ -180,7 +180,7 @@ describe('ChatThread find virtualization guard', () => {
 		const { readFileSync } = await import('node:fs');
 		const { fileURLToPath } = await import('node:url');
 		const chatThread = readFileSync(
-			fileURLToPath(new URL('../components/chat/ChatThread.svelte', import.meta.url)),
+			fileURLToPath(new URL('./components/ChatThread.svelte', import.meta.url)),
 			'utf8'
 		);
 		const virtualController = readFileSync(

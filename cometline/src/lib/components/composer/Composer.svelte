@@ -14,8 +14,8 @@
 	import ComposerSlashMenus from '$lib/components/composer/ComposerSlashMenus.svelte';
 	import ComposerMentionMenu from '$lib/components/composer/ComposerMentionMenu.svelte';
 	import ComposerToolbar from '$lib/components/composer/ComposerToolbar.svelte';
-	import MessageContextChips from '$lib/components/chat/MessageContextChips.svelte';
-	import { messageContextRefsFromPending } from '$lib/chat/message-context';
+	import MessageContextChips from '$lib/features/chat/components/MessageContextChips.svelte';
+	import { messageContextRefsFromPending } from '$lib/features/chat/message-context';
 	import { chatStore } from '$lib/stores/chat.svelte';
 	import { sessionStore } from '$lib/stores/session.svelte';
 	import { composerHistoryStore } from '$lib/stores/composer-history.svelte';

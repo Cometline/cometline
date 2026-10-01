@@ -1,6 +1,6 @@
 <script lang="ts">
 	import ThinkingIndicator from '$lib/components/ThinkingIndicator.svelte';
-	import { createStickyThinkingIndicator } from '$lib/components/sticky-thinking-variant.svelte';
+	import { createStickyThinkingIndicator } from '$lib/features/chat/sticky-thinking-variant.svelte';
 
 	let {
 		label,

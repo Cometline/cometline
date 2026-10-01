@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { assistantThinkingWait } from '$lib/conversation/thread-format';
-	import type { AssistantStackContext } from '$lib/conversation/assistant-stack-props';
-	import { assistantStackBindings } from '$lib/conversation/assistant-stack-props';
-	import AssistantStack from '$lib/components/chat/AssistantStack.svelte';
-	import AssistantThinkingWait from '$lib/components/chat/AssistantThinkingWait.svelte';
-	import ThreadAvatar from '$lib/components/chat/ThreadAvatar.svelte';
+	import { assistantThinkingWait } from '$lib/features/chat/thread-format';
+	import type { AssistantStackContext } from '$lib/features/chat/assistant-stack-props';
+	import { assistantStackBindings } from '$lib/features/chat/assistant-stack-props';
+	import AssistantStack from '$lib/features/chat/components/AssistantStack.svelte';
+	import AssistantThinkingWait from '$lib/features/chat/components/AssistantThinkingWait.svelte';
+	import ThreadAvatar from '$lib/features/chat/components/ThreadAvatar.svelte';
 	import type { ChatItem } from '$lib/stores/chat.svelte';
 
 	type AssistantItem = Extract<ChatItem, { type: 'assistant' }>;

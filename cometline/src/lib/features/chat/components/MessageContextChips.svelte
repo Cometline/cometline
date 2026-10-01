@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { FileText, Globe, MessageSquareQuote, Terminal } from '@lucide/svelte';
 	import type { MessageContextRef } from '$lib/types';
-	import { messageContextLabel, openMessageContext } from '$lib/chat/message-context';
+	import { messageContextLabel, openMessageContext } from '$lib/features/chat/message-context';
 
 	let {
 		contexts,

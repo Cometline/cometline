@@ -15,10 +15,10 @@ import type {
 	StreamEvent
 } from '$lib/types';
 import type { ChatTurnPayload } from '$lib/actions/start-chat';
-import { messageContextRefsFromWebContexts } from '$lib/chat/message-context';
+import { messageContextRefsFromWebContexts } from '$lib/features/chat/message-context';
 import { reduceChatState } from '$lib/reducers/chat';
 import type { ContextBudgetSnapshot } from '$lib/context-window';
-import { anyReasoningPending, hasReasoning } from '$lib/conversation/reasoning';
+import { anyReasoningPending, hasReasoning } from '$lib/features/chat/reasoning';
 import { sessionStore } from '$lib/stores/session.svelte';
 import { playErrorSound, playResponseCompleteSound } from '$lib/sound/response-complete';
 import { settingsStore } from '$lib/stores/settings.svelte';

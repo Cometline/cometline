@@ -11,16 +11,16 @@
 		TriangleAlert
 	} from '@lucide/svelte';
 	import ThinkingSpinner from '$lib/components/ThinkingSpinner.svelte';
-	import MemoryCard from '$lib/components/chat/MemoryCard.svelte';
-	import TimelineEntryRow from '$lib/components/chat/TimelineEntryRow.svelte';
-	import { getChatTurnContext } from '$lib/conversation/chat-turn-context';
+	import MemoryCard from '$lib/features/chat/components/MemoryCard.svelte';
+	import TimelineEntryRow from '$lib/features/chat/components/TimelineEntryRow.svelte';
+	import { getChatTurnContext } from '$lib/features/chat/chat-turn-context';
 	import type { ChatItem } from '$lib/stores/chat.svelte';
 	import {
 		coalesceReasoningEntries,
 		type TimelineEntry,
 		type InjectedMemory
-	} from '$lib/conversation/thinking-attribution';
-	import { subagentProgressLabel } from '$lib/conversation/subagent-display';
+	} from '$lib/features/chat/thinking-attribution';
+	import { subagentProgressLabel } from '$lib/features/chat/subagent-display';
 
 	let {
 		assistant,

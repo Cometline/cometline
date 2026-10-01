@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import EmptyChatState from '$lib/components/EmptyChatState.svelte';
+	import EmptyChatState from '$lib/features/chat/components/EmptyChatState.svelte';
 	import Composer from '$lib/components/composer/Composer.svelte';
 	import HeroComposerFrame from '$lib/components/HeroComposerFrame.svelte';
 	import { sessionStore } from '$lib/stores/session.svelte';

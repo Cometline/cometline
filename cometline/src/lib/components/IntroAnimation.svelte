@@ -5,7 +5,7 @@
 	import { settingsStore } from '$lib/stores/settings.svelte';
 	import { resolvePersona, personaAvatarSrcset as builtinAvatarSrcset } from '$lib/personas';
 	import { personaAvatarCache } from '$lib/personas/avatar-cache.svelte';
-	import { rectStyle } from '$lib/first-turn-flight';
+	import { rectStyle } from '$lib/features/chat/first-turn-flight';
 	import { normalizeHeroComposerAppearance } from '$lib/hero-composer-appearance';
 
 	// ──────────────────────────────────────────────────────────────────────────

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { fade, slide } from 'svelte/transition';
 	import { Brain, ChevronDown } from '@lucide/svelte';
-	import type { InjectedMemory } from '$lib/conversation/thinking-attribution';
+	import type { InjectedMemory } from '$lib/features/chat/thinking-attribution';
 	import { bucketMemories, memoryKindLabel, resolveMemoryBucket } from '$lib/memory/buckets';
 
 	const FOLD_IN = { duration: 180 };

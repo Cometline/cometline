@@ -1,9 +1,9 @@
 <script lang="ts">
-	import ToolFoldPanel from '$lib/components/chat/ToolFoldPanel.svelte';
-	import ThreadAvatar from '$lib/components/chat/ThreadAvatar.svelte';
-	import ThreadRow from '$lib/components/chat/ThreadRow.svelte';
-	import { startsSpeakerRun } from '$lib/conversation/thread-view-helpers';
-	import type { AssistantStackFoldController } from '$lib/conversation/assistant-stack-props';
+	import ToolFoldPanel from '$lib/features/chat/components/ToolFoldPanel.svelte';
+	import ThreadAvatar from '$lib/features/chat/components/ThreadAvatar.svelte';
+	import ThreadRow from '$lib/features/chat/components/ThreadRow.svelte';
+	import { startsSpeakerRun } from '$lib/features/chat/thread-view-helpers';
+	import type { AssistantStackFoldController } from '$lib/features/chat/assistant-stack-props';
 	import type { ChatItem } from '$lib/stores/chat.svelte';
 	import type { ChatTurnPayload } from '$lib/actions/start-chat';
 	import type { JobResource } from '$lib/client/cometmind';

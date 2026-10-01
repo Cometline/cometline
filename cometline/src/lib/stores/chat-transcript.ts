@@ -1,7 +1,10 @@
 import type { ChatItem, ImageAttachment, MemoryWire, Session, TranscriptItem } from '$lib/types';
 import { inferMemoryBucket } from '$lib/memory/buckets';
-import { getReasoningSegments } from '$lib/conversation/reasoning';
-import { isSubagentStepLimit, resolveInProcessAgentName } from '$lib/conversation/subagent-display';
+import { getReasoningSegments } from '$lib/features/chat/reasoning';
+import {
+	isSubagentStepLimit,
+	resolveInProcessAgentName
+} from '$lib/features/chat/subagent-display';
 import { agentLabelForSessionKind } from '$lib/tools/diff-artifact';
 import { stripInlinedFileBlocks } from '$lib/messages/strip-inlined-files';
 

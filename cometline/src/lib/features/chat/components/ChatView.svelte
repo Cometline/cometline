@@ -1,16 +1,16 @@
 <script lang="ts">
 	import { fade } from 'svelte/transition';
 	import { tick } from 'svelte';
-	import EmptyChatState from '$lib/components/EmptyChatState.svelte';
+	import EmptyChatState from '$lib/features/chat/components/EmptyChatState.svelte';
 	import Composer from '$lib/components/composer/Composer.svelte';
 	import HeroComposerFrame from '$lib/components/HeroComposerFrame.svelte';
-	import ChatThread from '$lib/components/chat/ChatThread.svelte';
-	import FirstTurnFlight from '$lib/components/FirstTurnFlight.svelte';
-	import UserBubbleFlight from '$lib/components/UserBubbleFlight.svelte';
+	import ChatThread from '$lib/features/chat/components/ChatThread.svelte';
+	import FirstTurnFlight from '$lib/features/chat/components/FirstTurnFlight.svelte';
+	import UserBubbleFlight from '$lib/features/chat/components/UserBubbleFlight.svelte';
 	import {
 		createConversationController,
 		refreshConversationSession
-	} from '$lib/conversation/conversation-controller';
+	} from '$lib/features/chat/conversation-controller';
 	import type { QueuedMessage } from '$lib/actions/chat-turn-queue';
 	import { sessionStore } from '$lib/stores/session.svelte';
 	import { updateSession } from '$lib/client/cometmind';
@@ -23,9 +23,9 @@
 	import type { ModelOption } from '$lib/stores/model.svelte';
 	import { startJobInSession } from '$lib/features/jobs/start-job-in-chat';
 	import type { JobResource } from '$lib/client/cometmind';
-	import { createChatViewController } from '$lib/conversation/chat-view-controller.svelte';
-	import { createSessionPhase } from '$lib/conversation/session-phase.svelte';
-	import { shouldApplyComposerFocus } from '$lib/conversation/composer-focus';
+	import { createChatViewController } from '$lib/features/chat/chat-view-controller.svelte';
+	import { createSessionPhase } from '$lib/features/chat/session-phase.svelte';
+	import { shouldApplyComposerFocus } from '$lib/features/chat/composer-focus';
 	import { PanelLeftClose, PanelLeftOpen } from '@lucide/svelte';
 	import { miniShellStore } from '$lib/stores/mini-shell.svelte';
 	import { composerHistoryStore } from '$lib/stores/composer-history.svelte';

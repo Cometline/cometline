@@ -1,4 +1,4 @@
-import { getReasoningSegments } from '$lib/conversation/reasoning';
+import { getReasoningSegments } from '$lib/features/chat/reasoning';
 import type { ChatItem } from '$lib/types';
 
 export const DEFAULT_CONTEXT_WINDOW_LIMIT = 128_000;

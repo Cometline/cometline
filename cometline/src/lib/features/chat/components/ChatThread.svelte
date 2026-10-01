@@ -6,21 +6,21 @@
 	import {
 		toolFoldLabel as formatToolFoldLabel,
 		usageText
-	} from '$lib/conversation/thread-format';
-	import type { AssistantStackContext } from '$lib/conversation/assistant-stack-props';
-	import FirstTurnAssistantSlot from '$lib/components/chat/FirstTurnAssistantSlot.svelte';
-	import UserMessageRow from '$lib/components/chat/UserMessageRow.svelte';
-	import MemoryEventRow from '$lib/components/chat/MemoryEventRow.svelte';
-	import AssistantMessageRow from '$lib/components/chat/AssistantMessageRow.svelte';
-	import ToolMessageRow from '$lib/components/chat/ToolMessageRow.svelte';
-	import SubagentMessageRow from '$lib/components/chat/SubagentMessageRow.svelte';
-	import ErrorEventRow from '$lib/components/chat/ErrorEventRow.svelte';
-	import JumpToBottom from '$lib/components/chat/JumpToBottom.svelte';
+	} from '$lib/features/chat/thread-format';
+	import type { AssistantStackContext } from '$lib/features/chat/assistant-stack-props';
+	import FirstTurnAssistantSlot from '$lib/features/chat/components/FirstTurnAssistantSlot.svelte';
+	import UserMessageRow from '$lib/features/chat/components/UserMessageRow.svelte';
+	import MemoryEventRow from '$lib/features/chat/components/MemoryEventRow.svelte';
+	import AssistantMessageRow from '$lib/features/chat/components/AssistantMessageRow.svelte';
+	import ToolMessageRow from '$lib/features/chat/components/ToolMessageRow.svelte';
+	import SubagentMessageRow from '$lib/features/chat/components/SubagentMessageRow.svelte';
+	import ErrorEventRow from '$lib/features/chat/components/ErrorEventRow.svelte';
+	import JumpToBottom from '$lib/features/chat/components/JumpToBottom.svelte';
 	import {
 		buildThinkingAttribution,
 		pinnedJobProposalToolIds
-	} from '$lib/conversation/thinking-attribution';
-	import { startsSpeakerRun } from '$lib/conversation/thread-view-helpers';
+	} from '$lib/features/chat/thinking-attribution';
+	import { startsSpeakerRun } from '$lib/features/chat/thread-view-helpers';
 	import {
 		firstAssistantInNormalList as shouldShowAssistantInNormalList,
 		hideAssistantAvatarForFirstTurn,
@@ -29,18 +29,18 @@
 		showAssistantRow as isAssistantRowVisible,
 		showFirstTurnAvatarSlot,
 		type ThreadVisibilityContext
-	} from '$lib/conversation/thread-visibility';
-	import { createFoldController } from '$lib/conversation/thread-fold.svelte';
-	import { createThreadScroll } from '$lib/conversation/thread-scroll.svelte';
-	import { createThreadVirtual } from '$lib/conversation/thread-virtual.svelte';
-	import { createThreadClocks } from '$lib/conversation/thread-clocks.svelte';
-	import { groupThreadItemsIntoTurns } from '$lib/conversation/thread-turns';
+	} from '$lib/features/chat/thread-visibility';
+	import { createFoldController } from '$lib/features/chat/thread-fold.svelte';
+	import { createThreadScroll } from '$lib/features/chat/thread-scroll.svelte';
+	import { createThreadVirtual } from '$lib/features/chat/thread-virtual.svelte';
+	import { createThreadClocks } from '$lib/features/chat/thread-clocks.svelte';
+	import { groupThreadItemsIntoTurns } from '$lib/features/chat/thread-turns';
 	import type { ChatTurnPayload } from '$lib/actions/start-chat';
 	import type { JobResource } from '$lib/client/cometmind';
 	import { resolvePersona, personaAvatarSrcset as builtinAvatarSrcset } from '$lib/personas';
 	import { personaAvatarCache } from '$lib/personas/avatar-cache.svelte';
-	import SessionFindBar from '$lib/components/chat/SessionFindBar.svelte';
-	import { createSessionFindController } from '$lib/conversation/session-find.svelte';
+	import SessionFindBar from '$lib/features/chat/components/SessionFindBar.svelte';
+	import { createSessionFindController } from '$lib/features/chat/session-find.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
 
 	const TRANSCRIPT_IN = { duration: 140 };

@@ -1,13 +1,13 @@
 import type { ChatItem, MediaAttachment, StreamEvent, SubagentProgressEntry } from '$lib/types';
 import type { ContextBudgetSnapshot } from '$lib/context-window';
-import { isSubagentStepLimit } from '../conversation/subagent-display';
-import { turnStatusLabel } from '../conversation/turn-status';
+import { isSubagentStepLimit } from '../features/chat/subagent-display';
+import { turnStatusLabel } from '../features/chat/turn-status';
 import {
 	cloneReasoning as cloneReasoningSegments,
 	getReasoningSegments,
 	hasReasoning,
 	type ReasoningSegment
-} from '../conversation/reasoning';
+} from '../features/chat/reasoning';
 
 export interface ChatState {
 	items: ChatItem[];

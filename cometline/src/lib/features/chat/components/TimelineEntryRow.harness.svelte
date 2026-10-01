@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { mockChatTurnContext } from '$lib/conversation/chat-turn-context.test-helper';
-	import { setChatTurnContext } from '$lib/conversation/chat-turn-context';
+	import { mockChatTurnContext } from '$lib/features/chat/chat-turn-context.test-helper';
+	import { setChatTurnContext } from '$lib/features/chat/chat-turn-context';
 	import TimelineEntryRow from './TimelineEntryRow.svelte';
-	import type { TimelineEntry } from '$lib/conversation/thinking-attribution';
+	import type { TimelineEntry } from '$lib/features/chat/thinking-attribution';
 	import type { ChatItem } from '$lib/stores/chat.svelte';
 
 	let { entry }: { entry: TimelineEntry } = $props();

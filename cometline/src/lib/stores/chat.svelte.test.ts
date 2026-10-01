@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { StreamEvent } from '$lib/types';
-import { getReasoningSegments } from '$lib/conversation/reasoning';
+import { getReasoningSegments } from '$lib/features/chat/reasoning';
 import {
 	buildAssistantTimeline,
 	buildThinkingAttribution,
 	shouldGroupAssistantTimeline
-} from '$lib/conversation/thinking-attribution';
+} from '$lib/features/chat/thinking-attribution';
 
 const { goto } = vi.hoisted(() => ({ goto: vi.fn() }));
 const { createNewSession } = vi.hoisted(() => ({ createNewSession: vi.fn() }));

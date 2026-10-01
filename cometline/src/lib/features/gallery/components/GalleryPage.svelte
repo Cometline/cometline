@@ -3,7 +3,7 @@
 	import { onDestroy, onMount } from 'svelte';
 	import { deleteMedia, listMedia, type MediaResource } from '$lib/client/cometmind';
 	import ConfirmActionModal from '$lib/components/ConfirmActionModal.svelte';
-	import ImageLightbox from '$lib/components/chat/ImageLightbox.svelte';
+	import ImageLightbox from '$lib/features/chat/components/ImageLightbox.svelte';
 	import { settingsStore } from '$lib/stores/settings.svelte';
 	import {
 		copyImageToClipboard,

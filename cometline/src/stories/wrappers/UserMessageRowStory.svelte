@@ -1,5 +1,5 @@
 <script lang="ts">
-	import UserMessageRow from '$lib/components/chat/UserMessageRow.svelte';
+	import UserMessageRow from '$lib/features/chat/components/UserMessageRow.svelte';
 
 	let {
 		copied = false,

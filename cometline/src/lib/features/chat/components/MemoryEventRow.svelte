@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { Brain } from '@lucide/svelte';
-	import ThreadRow from '$lib/components/chat/ThreadRow.svelte';
-	import EventCard from '$lib/components/chat/EventCard.svelte';
-	import MemoryCard from '$lib/components/chat/MemoryCard.svelte';
+	import ThreadRow from '$lib/features/chat/components/ThreadRow.svelte';
+	import EventCard from '$lib/features/chat/components/EventCard.svelte';
+	import MemoryCard from '$lib/features/chat/components/MemoryCard.svelte';
 	import type { ChatItem } from '$lib/stores/chat.svelte';
 
 	let {

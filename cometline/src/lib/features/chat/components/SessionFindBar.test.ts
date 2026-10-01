@@ -3,7 +3,7 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
 import SessionFindBar from './SessionFindBar.svelte';
-import type { SessionFindController } from '$lib/conversation/session-find.svelte';
+import type { SessionFindController } from '$lib/features/chat/session-find.svelte';
 
 function fakeController(): SessionFindController {
 	return {
