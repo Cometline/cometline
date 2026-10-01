@@ -59,6 +59,9 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 	// MaxSteps limits work rounds. If they are exhausted, make one final
 	// tool-free request so the user still receives a best-effort answer.
 	for s.steps <= r.MaxSteps {
+		if ctx.Err() != nil {
+			return nil
+		}
 		p, err := r.prepareStep(ctx, s)
 		if err != nil {
 			return err
