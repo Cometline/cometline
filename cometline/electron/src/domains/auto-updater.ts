@@ -1,5 +1,6 @@
 import { app } from 'electron';
 import electronUpdater from 'electron-updater';
+import { EVENT_CHANNELS } from '../shared/ipc-channels.js';
 import type { RuntimeContext } from './runtime-context.js';
 
 const UPDATE_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;
@@ -33,7 +34,7 @@ export function createAutoUpdater(deps: AutoUpdaterDeps): AutoUpdaterDomain {
 		updateState = { ...next, updatedAt: Date.now() };
 		for (const window of deps.context.getWindows()) {
 			if (window && !window.isDestroyed())
-				window.webContents.send('cometline:update-state', updateState);
+				window.webContents.send(EVENT_CHANNELS.onUpdateState, updateState);
 		}
 	}
 

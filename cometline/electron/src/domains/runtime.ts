@@ -20,6 +20,7 @@ import path from 'node:path';
 import { defaultSettings } from '../../../src/lib/settings/schema.js';
 import type { ProviderSettings } from '../../../src/lib/types.js';
 import { createOllamaService } from '../services/ollama.js';
+import { EVENT_CHANNELS } from '../shared/ipc-channels.js';
 import { createApplicationMenuTray } from './app-menu-tray.js';
 import { APP_SCHEME, registerAppProtocol } from './app-protocol.js';
 import { createAutoUpdater } from './auto-updater.js';
@@ -158,7 +159,7 @@ export function initializeRuntime() {
 		sendProgress: (payload: object) => {
 			for (const window of BrowserWindow.getAllWindows()) {
 				if (!window.isDestroyed())
-					window.webContents.send('cometline:ollama-pull-progress', payload);
+					window.webContents.send(EVENT_CHANNELS.onOllamaPullProgress, payload);
 			}
 		}
 	});
@@ -174,7 +175,7 @@ export function initializeRuntime() {
 		onChange: (change) => {
 			for (const window of BrowserWindow.getAllWindows()) {
 				if (!window.isDestroyed())
-					window.webContents.send('cometline:workspace-changed', change);
+					window.webContents.send(EVENT_CHANNELS.onWorkspaceChanged, change);
 			}
 		},
 		setTimeout,
@@ -184,7 +185,7 @@ export function initializeRuntime() {
 	function broadcastProviderSettingsChanged(settings: ProviderSettings) {
 		for (const window of BrowserWindow.getAllWindows()) {
 			if (!window.isDestroyed()) {
-				window.webContents.send('cometline:provider-settings-changed', settings);
+				window.webContents.send(EVENT_CHANNELS.onProviderSettingsChanged, settings);
 			}
 		}
 	}
@@ -193,7 +194,7 @@ export function initializeRuntime() {
 		if (!personaId) return;
 		for (const window of BrowserWindow.getAllWindows()) {
 			if (!window.isDestroyed())
-				window.webContents.send('cometline:persona-avatar-changed', personaId);
+				window.webContents.send(EVENT_CHANNELS.onPersonaAvatarChanged, personaId);
 		}
 	}
 

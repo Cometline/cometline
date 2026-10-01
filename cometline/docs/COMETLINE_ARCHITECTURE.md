@@ -123,7 +123,10 @@ Only one in-flight run per session is allowed (`409 session_running`).
 ### Electron IPC Used By Cometline
 
 Exposed as `window.electronAPI` by `electron/src/preload.ts`, with its contract in
-`electron/src/shared/api.ts`:
+`electron/src/shared/api.ts`. Channel names live only in `electron/src/shared/ipc-channels.ts`,
+keyed by the `ElectronAPI` method that uses them; preload, `registerIpcHandlers`, and main-process
+event senders all read from it, and `ipc-channels.test.ts` fails if a channel has no handler,
+subscriber, or sender.
 
 | IPC                                                                              | Purpose                                                                  |
 | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |

@@ -1,6 +1,7 @@
 import type { App, IpcMainEvent, IpcMainInvokeEvent, Shell } from 'electron';
 
 import type { ProviderConfig, ProviderSettings } from '../../../src/lib/types.js';
+import { EVENT_CHANNELS } from '../shared/ipc-channels.js';
 import type { createOllamaService } from '../services/ollama.js';
 import type { createAutoUpdater } from './auto-updater.js';
 import type { createCometMindLifecycle } from './cometmind-lifecycle.js';
@@ -108,7 +109,7 @@ function runtimeAction(value: unknown): RuntimeAction {
 /** Composes the stable preload IPC contract from typed runtime domains. */
 export function registerRuntimeIpcHandlers(dependencies: RuntimeIpcDependencies) {
 	const handlers = {
-		jobsNotify: (_event: IpcMainEvent, payload: unknown) => {
+		notifyJob: (_event: IpcMainEvent, payload: unknown) => {
 			const notification = record(payload);
 			if (typeof notification.title !== 'string' || !dependencies.Notification.isSupported())
 				return;
@@ -122,13 +123,13 @@ export function registerRuntimeIpcHandlers(dependencies: RuntimeIpcDependencies)
 			dependencies.cometMind.start();
 			await dependencies.cometMind.waitForHealth();
 		},
-		shortcutCaptureActive: (_event: IpcMainEvent, active: unknown) =>
+		setShortcutCaptureActive: (_event: IpcMainEvent, active: unknown) =>
 			dependencies.context.setShortcutCaptureActive(Boolean(active)),
-		sessionNavigationSuspended: (_event: IpcMainEvent, suspended: unknown) =>
+		setSessionNavigationSuspended: (_event: IpcMainEvent, suspended: unknown) =>
 			dependencies.context.setSessionNavigationSuspended(Boolean(suspended)),
-		workspacePanelOpen: (_event: IpcMainEvent, open: unknown) =>
+		setWorkspacePanelOpen: (_event: IpcMainEvent, open: unknown) =>
 			dependencies.context.setWorkspacePanelOpen(Boolean(open)),
-		inboxOpen: (_event: IpcMainEvent, open: unknown) =>
+		setInboxOpen: (_event: IpcMainEvent, open: unknown) =>
 			dependencies.context.setInboxOpen(Boolean(open)),
 		confirmCloseWindow: () => dependencies.windows.hideMainWindow(),
 		setSidebarOpen: (_event: IpcMainEvent, payload: unknown) =>
@@ -163,28 +164,28 @@ export function registerRuntimeIpcHandlers(dependencies: RuntimeIpcDependencies)
 		revokePdfPreview: (_event: IpcMainInvokeEvent, token: unknown) => {
 			dependencies.pdfPreview.revoke(token);
 		},
-		terminalList: (event: IpcMainInvokeEvent) =>
+		listTerminals: (event: IpcMainInvokeEvent) =>
 			dependencies.terminals.isMainWindowSender(event) ? dependencies.terminals.list() : [],
-		terminalCreate: (event: IpcMainInvokeEvent, payload: unknown = {}) => {
+		createTerminal: (event: IpcMainInvokeEvent, payload: unknown = {}) => {
 			const input = terminalInput(payload);
 			dependencies.terminals.requireInput(event, input.sessionId);
 			return dependencies.terminals.create(input.sessionId, input.workspacePath, input);
 		},
-		terminalWrite: (event: IpcMainInvokeEvent, payload: unknown = {}) => {
+		writeTerminal: (event: IpcMainInvokeEvent, payload: unknown = {}) => {
 			const input = record(payload);
 			dependencies.terminals.requireInput(event, input.sessionId);
 			return dependencies.terminals.write(input.sessionId as string, input.data as string);
 		},
-		terminalResize: (event: IpcMainInvokeEvent, payload: unknown = {}) => {
+		resizeTerminal: (event: IpcMainInvokeEvent, payload: unknown = {}) => {
 			const input = terminalInput(payload);
 			dependencies.terminals.requireInput(event, input.sessionId);
 			return dependencies.terminals.resize(input.sessionId, input);
 		},
-		terminalTerminate: (event: IpcMainInvokeEvent, sessionId: unknown) => {
+		terminateTerminal: (event: IpcMainInvokeEvent, sessionId: unknown) => {
 			dependencies.terminals.requireInput(event, sessionId);
 			return dependencies.terminals.terminate(sessionId as string);
 		},
-		terminalRemove: (event: IpcMainInvokeEvent, sessionId: unknown) => {
+		removeTerminal: (event: IpcMainInvokeEvent, sessionId: unknown) => {
 			dependencies.terminals.requireInput(event, sessionId);
 			return dependencies.terminals.terminate(sessionId as string, true);
 		},
@@ -208,11 +209,11 @@ export function registerRuntimeIpcHandlers(dependencies: RuntimeIpcDependencies)
 		readCursorMcpConfig: () => dependencies.providerAuth.readCursorMcpConfig(),
 		fetchProviderModels: (_event: IpcMainInvokeEvent, config: unknown) =>
 			dependencies.providerAuth.fetchProviderModels(providerModelConfig(config)),
-		ollamaHealth: (_event: IpcMainInvokeEvent, baseURL: unknown) =>
+		checkOllamaHealth: (_event: IpcMainInvokeEvent, baseURL: unknown) =>
 			dependencies.ollama.checkHealth(baseURL),
-		ollamaModels: (_event: IpcMainInvokeEvent, baseURL: unknown) =>
+		listOllamaModels: (_event: IpcMainInvokeEvent, baseURL: unknown) =>
 			dependencies.ollama.listModels(baseURL),
-		ollamaPull: (_event: IpcMainInvokeEvent, payload: unknown = {}) => {
+		pullOllamaModel: (_event: IpcMainInvokeEvent, payload: unknown = {}) => {
 			const input = record(payload);
 			return dependencies.ollama.pullModel({
 				baseURL: input.baseURL,
@@ -220,7 +221,7 @@ export function registerRuntimeIpcHandlers(dependencies: RuntimeIpcDependencies)
 				modelName: input.modelName
 			});
 		},
-		ollamaCancelPull: () => dependencies.ollama.cancelPull(),
+		cancelOllamaPull: () => dependencies.ollama.cancelPull(),
 		saveProviderSettings: async (
 			_event: IpcMainInvokeEvent,
 			settings: unknown,
@@ -265,10 +266,10 @@ export function registerRuntimeIpcHandlers(dependencies: RuntimeIpcDependencies)
 			await dependencies.windows.showSettingsWindow();
 			return true;
 		},
-		replayIntro: () =>
-			dependencies.windows.triggerMainWindowOnboarding('cometline:replay-intro'),
-		runSetupWizard: () =>
-			dependencies.windows.triggerMainWindowOnboarding('cometline:run-setup-wizard'),
+		replayIntroInMainWindow: () =>
+			dependencies.windows.triggerMainWindowOnboarding(EVENT_CHANNELS.onReplayIntro),
+		runSetupWizardInMainWindow: () =>
+			dependencies.windows.triggerMainWindowOnboarding(EVENT_CHANNELS.onRunSetupWizard),
 		getMiniWindowState: () => dependencies.settings.readMiniWindowState(),
 		saveMiniWindowState: (_event: IpcMainInvokeEvent, state: unknown) =>
 			dependencies.settings.writeMiniWindowState(record(state)),

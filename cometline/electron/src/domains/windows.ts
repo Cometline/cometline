@@ -13,6 +13,7 @@ import type {
 import type os from 'node:os';
 import type path from 'node:path';
 
+import { EVENT_CHANNELS, type EventChannel } from '../shared/ipc-channels.js';
 import { APP_ORIGIN } from './app-protocol.js';
 import {
 	mainWindowMinWidthForWorkArea,
@@ -427,7 +428,7 @@ export function createWindows(dependencies: WindowsDependencies) {
 		if (typeof window.showInactive === 'function') window.showInactive();
 		else window.show();
 		if (miniNeedsActivation) {
-			window.webContents.send('cometline:activate-mini-window');
+			window.webContents.send(EVENT_CHANNELS.onMiniWindowActivated);
 			miniNeedsActivation = false;
 		}
 		window.focus();
@@ -468,7 +469,7 @@ export function createWindows(dependencies: WindowsDependencies) {
 		return true;
 	}
 
-	async function triggerMainWindowOnboarding(channel: string) {
+	async function triggerMainWindowOnboarding(channel: EventChannel) {
 		if (!windowCanShow(mainWindow)) await createMainWindow();
 		const window = mainWindow;
 		if (!windowCanShow(window)) return false;
