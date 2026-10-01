@@ -53,7 +53,7 @@
 				class:empty={!hasCustomPreset}
 				style={hasCustomPreset
 					? `background: linear-gradient(135deg, ${appearance.customPreset?.glowColor} 0%, ${appearance.customPreset?.ringColor} 100%)`
-					: 'background: linear-gradient(135deg, #23232a 0%, #454553 100%)'}
+					: 'background: linear-gradient(135deg, var(--color-23232a) 0%, var(--color-454553) 100%)'}
 				aria-hidden="true"
 			></span>
 			Custom

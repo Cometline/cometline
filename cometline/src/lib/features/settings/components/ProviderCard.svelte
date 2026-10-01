@@ -80,6 +80,6 @@
 	}
 
 	.provider-card.enabled .provider-dot {
-		background: #22c55e;
+		background: var(--color-22c55e);
 	}
 </style>

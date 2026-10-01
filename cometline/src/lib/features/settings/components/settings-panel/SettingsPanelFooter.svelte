@@ -79,7 +79,7 @@
 	}
 
 	.message.success {
-		color: #027a48;
+		color: var(--color-027a48);
 	}
 
 	footer {

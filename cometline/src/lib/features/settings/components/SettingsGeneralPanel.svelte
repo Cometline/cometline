@@ -245,8 +245,8 @@
 	}
 
 	.source-toggle-btn.active {
-		background: var(--surface-elevated, #fff);
-		color: var(--text-primary, #111);
+		background: var(--surface-elevated, var(--panel-bg));
+		color: var(--text-primary, var(--color-111111));
 		box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06);
 	}
 </style>

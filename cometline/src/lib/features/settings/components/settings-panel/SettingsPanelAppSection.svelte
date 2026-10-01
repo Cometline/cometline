@@ -146,7 +146,7 @@
 	}
 
 	.update-status.update-ready {
-		color: #027a48;
+		color: var(--color-027a48);
 	}
 
 	.workspace-path {

@@ -115,6 +115,6 @@
 
 	.switch.on {
 		justify-content: flex-end;
-		background: #7aa1aa;
+		background: var(--color-7aa1aa);
 	}
 </style>

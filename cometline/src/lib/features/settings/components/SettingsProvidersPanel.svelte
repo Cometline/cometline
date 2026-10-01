@@ -1,12 +1,9 @@
 <script lang="ts">
-	import { LogIn, LoaderCircle, Plus, RefreshCw, Trash2 } from '@lucide/svelte';
+	import { Plus, Trash2 } from '@lucide/svelte';
 	import type { ProviderConfig, ProviderMethod } from '$lib/types';
-	import { isFixedBuiltinProvider } from '$lib/features/settings/schema';
-	import { modelStore } from '$lib/stores/model.svelte';
-	import { settingsStore } from '$lib/stores/settings.svelte';
 	import ProviderCard from './ProviderCard.svelte';
-	import ModelRow from './ModelRow.svelte';
-	import OllamaProviderPanel from './OllamaProviderPanel.svelte';
+	import ProviderConnectionFields from './providers/ProviderConnectionFields.svelte';
+	import ProviderModelSection from './providers/ProviderModelSection.svelte';
 
 	const METHOD_LABELS: Record<ProviderMethod, string> = {
 		openai: 'OpenAI',
@@ -89,22 +86,6 @@
 		onStartXaiLogin: () => void;
 		onRefreshXaiAuth: () => void;
 	} = $props();
-
-	function methodNeedsApiKey(method: ProviderMethod) {
-		return method !== 'codex' && method !== 'xai' && method !== 'ollama';
-	}
-
-	function canFetchModels(provider: ProviderConfig) {
-		if (settingsStore.isFetchingModels || !provider.baseURL.trim()) return false;
-		return (
-			provider.method === 'codex' ||
-			provider.method === 'opencode-go' ||
-			provider.method === 'ollama' ||
-			(provider.method === 'xai'
-				? Boolean(xaiAuthStatus?.authenticated)
-				: provider.apiKey.trim().length > 0)
-		);
-	}
 </script>
 
 <div class="provider-shell settings-panel-frame">
@@ -169,221 +150,31 @@
 				</div>
 			</div>
 
-			<div class="form-grid">
-				<label class:locked={isFixedBuiltinProvider(selectedProvider.id)}>
-					<span>Name</span>
-					<input
-						class:locked={isFixedBuiltinProvider(selectedProvider.id)}
-						value={selectedProvider.name}
-						oninput={(e) => onUpdateSelected({ name: e.currentTarget.value })}
-						placeholder="Provider name"
-						spellcheck="false"
-						disabled={isFixedBuiltinProvider(selectedProvider.id)}
-					/>
-				</label>
+			<ProviderConnectionFields
+				provider={selectedProvider}
+				{codexAuthStatus}
+				{checkingCodexAuth}
+				{startingCodexLogin}
+				{xaiAuthStatus}
+				{checkingXaiAuth}
+				{startingXaiLogin}
+				onUpdate={onUpdateSelected}
+				{onSetMethod}
+				{onStartCodexLogin}
+				{onRefreshCodexAuth}
+				{onStartXaiLogin}
+				{onRefreshXaiAuth}
+			/>
 
-				<label class:locked={isFixedBuiltinProvider(selectedProvider.id)}>
-					<span>Method</span>
-					<select
-						class:locked={isFixedBuiltinProvider(selectedProvider.id)}
-						value={selectedProvider.method}
-						onchange={(e) => onSetMethod(e.currentTarget.value as ProviderMethod)}
-						disabled={isFixedBuiltinProvider(selectedProvider.id)}
-					>
-						<option value="codex">ChatGPT Codex</option>
-						<option value="xai">xAI Grok Subscription</option>
-						<option value="openai">OpenAI</option>
-						<option value="anthropic">Anthropic</option>
-						<option value="ollama">Ollama Local</option>
-						<option value="opencode-go">OpenCode Go</option>
-						<option value="openai-compatible">Advanced / Custom endpoint</option>
-					</select>
-				</label>
-
-				{#if selectedProvider.method !== 'ollama'}
-					<label>
-						<span>Base URL</span>
-						<input
-							value={selectedProvider.baseURL}
-							oninput={(e) => onUpdateSelected({ baseURL: e.currentTarget.value })}
-							placeholder="https://example.com/v1"
-							spellcheck="false"
-						/>
-					</label>
-				{/if}
-
-				{#if methodNeedsApiKey(selectedProvider.method)}
-					<label>
-						<span>API Key</span>
-						<input
-							value={selectedProvider.apiKey}
-							oninput={(e) => onUpdateSelected({ apiKey: e.currentTarget.value })}
-							type="password"
-							placeholder="sk-..."
-							spellcheck="false"
-						/>
-					</label>
-				{:else if selectedProvider.method === 'codex'}
-					<div class="field-note">
-						<span>Authentication</span>
-						<p>
-							Uses your ChatGPT Plus/Pro browser sign-in and stores a local
-							Codex-compatible session at <code>~/.codex/auth.json</code>. No API key
-							or Codex CLI install is required.
-						</p>
-						{#if codexAuthStatus}
-							<p class:ok={codexAuthStatus.authenticated}>
-								{codexAuthStatus.authenticated
-									? 'Signed in with ChatGPT browser session.'
-									: (codexAuthStatus.error ?? 'Not signed in.')}
-							</p>
-						{/if}
-						<div class="inline-actions">
-							<button
-								class="secondary"
-								type="button"
-								onclick={onStartCodexLogin}
-								disabled={startingCodexLogin ||
-									!window.electronAPI?.startCodexLogin}
-							>
-								{#if startingCodexLogin}<span class="spin"
-										><LoaderCircle size={14} /></span
-									>{:else}<LogIn size={14} />{/if}
-								Sign in with ChatGPT
-							</button>
-							<button
-								class="secondary"
-								type="button"
-								onclick={onRefreshCodexAuth}
-								disabled={checkingCodexAuth ||
-									!window.electronAPI?.getCodexAuthStatus}
-							>
-								{#if checkingCodexAuth}<span class="spin"
-										><LoaderCircle size={14} /></span
-									>{:else}<RefreshCw size={14} />{/if}
-								Check session
-							</button>
-						</div>
-					</div>
-				{:else if selectedProvider.method === 'xai'}
-					<div class="field-note">
-						<span>Authentication</span>
-						<p>
-							Uses your SuperGrok or X Premium subscription through xAI OAuth. The
-							session is stored locally at <code>~/.cometmind/xai/auth.json</code>.
-						</p>
-						{#if xaiAuthStatus}
-							<p class:ok={xaiAuthStatus.authenticated}>
-								{xaiAuthStatus.authenticated
-									? 'Signed in with Grok subscription.'
-									: (xaiAuthStatus.error ?? 'Not signed in.')}
-							</p>
-						{/if}
-						<div class="inline-actions">
-							<button
-								class="secondary"
-								type="button"
-								onclick={onStartXaiLogin}
-								disabled={startingXaiLogin || !window.electronAPI?.startXaiLogin}
-							>
-								{#if startingXaiLogin}<span class="spin"
-										><LoaderCircle size={14} /></span
-									>{:else}<LogIn size={14} />{/if}
-								Sign in with Grok
-							</button>
-							<button
-								class="secondary"
-								type="button"
-								onclick={onRefreshXaiAuth}
-								disabled={checkingXaiAuth || !window.electronAPI?.getXaiAuthStatus}
-							>
-								{#if checkingXaiAuth}<span class="spin"
-										><LoaderCircle size={14} /></span
-									>{:else}<RefreshCw size={14} />{/if}
-								Check session
-							</button>
-						</div>
-					</div>
-				{/if}
-			</div>
-
-			{#if selectedProvider.method === 'ollama'}
-				<div class="settings-section model-section">
-					<div class="settings-section-heading model-heading">
-						<div>
-							<h3>Ollama Local</h3>
-							<p>No API key. Health checks and model pulls stay on loopback only.</p>
-						</div>
-					</div>
-					<OllamaProviderPanel provider={selectedProvider} onUpdate={onUpdateSelected} />
-				</div>
-			{:else}
-				<div class="settings-section model-section">
-					<div class="settings-section-heading model-heading">
-						<div>
-							<h3>Models</h3>
-							{#if selectedProvider.method === 'codex'}
-								<p>
-									Use Fetch models to refresh models from your ChatGPT browser
-									session.
-								</p>
-							{:else if selectedProvider.method === 'xai'}
-								<p>
-									Use Fetch models to refresh the available Grok models from xAI.
-								</p>
-							{:else if selectedProvider.method === 'opencode-go'}
-								<p>
-									Use Fetch models to refresh the latest list from
-									<code>/models</code> at OpenCode Go.
-								</p>
-							{:else}
-								<p>
-									Use Fetch models to refresh the latest list from
-									<code>/models</code>.
-								</p>
-							{/if}
-						</div>
-						<button
-							class="secondary"
-							onclick={onFetchModels}
-							disabled={!canFetchModels(selectedProvider)}
-						>
-							{#if settingsStore.isFetchingModels}<span class="spin"
-									><LoaderCircle size={14} /></span
-								>{/if}
-							Fetch models
-						</button>
-					</div>
-
-					<input
-						class="model-search"
-						bind:value={modelSearch}
-						placeholder="Search models..."
-						spellcheck="false"
-					/>
-
-					<div class="settings-scroll-list model-list scrollbar-none">
-						{#each filteredModels as model (model)}
-							{@const limits = modelStore.limitFor(selectedProvider.id, model)}
-							<ModelRow
-								{model}
-								providerId={selectedProvider.id}
-								enabled={selectedProvider.enabledModels.includes(model)}
-								context={limits?.context}
-								inputModalities={limits?.inputModalities}
-								modalitiesKnown={limits?.visionKnown}
-								onclick={() => onToggleModel(model)}
-							/>
-						{:else}
-							<p class="empty-models">
-								{selectedProvider.models.length === 0
-									? 'No models loaded yet.'
-									: 'No models match your search.'}
-							</p>
-						{/each}
-					</div>
-				</div>
-			{/if}
+			<ProviderModelSection
+				provider={selectedProvider}
+				bind:modelSearch
+				{filteredModels}
+				xaiAuthenticated={Boolean(xaiAuthStatus?.authenticated)}
+				onUpdate={onUpdateSelected}
+				{onFetchModels}
+				{onToggleModel}
+			/>
 		</section>
 	{/if}
 </div>
@@ -453,87 +244,6 @@
 		gap: 8px;
 	}
 
-	.form-grid {
-		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: 12px;
-		margin-bottom: 16px;
-	}
-
-	label {
-		display: grid;
-		gap: 6px;
-		font-size: 12px;
-		font-weight: 600;
-		color: var(--text-muted);
-	}
-
-	.field-note {
-		display: grid;
-		grid-column: 1 / -1;
-		gap: 6px;
-		border: 1px solid var(--border-soft);
-		border-radius: 11px;
-		background: rgba(255, 255, 255, 0.55);
-		padding: 10px 11px;
-		font-size: 12px;
-		color: var(--text-muted);
-	}
-
-	.field-note span {
-		font-weight: 700;
-	}
-
-	.field-note p {
-		max-width: 640px;
-		font-weight: 500;
-		line-height: 1.45;
-		margin: 0;
-	}
-
-	.field-note p.ok {
-		color: #24745d;
-		font-weight: 650;
-	}
-
-	.inline-actions {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 8px;
-		padding-top: 2px;
-	}
-
-	.model-section {
-		margin-top: 4px;
-		padding-top: 20px;
-		border-top: 1px solid var(--border-soft);
-	}
-
-	.model-heading {
-		margin-bottom: 0;
-	}
-
-	.model-heading h3 {
-		margin: 0;
-		font-size: 14px;
-	}
-
-	.model-heading p {
-		margin: 4px 0 0;
-		font-size: 12px;
-		line-height: 1.45;
-		color: var(--text-muted);
-	}
-
-	.model-heading code {
-		font-size: 11px;
-	}
-
-	.model-search {
-		width: 100%;
-		margin-bottom: 10px;
-	}
-
 	.switch {
 		flex-shrink: 0;
 		width: 44px;
@@ -558,7 +268,7 @@
 
 	.switch.on {
 		justify-content: flex-end;
-		background: #7aa1aa;
+		background: var(--color-7aa1aa);
 	}
 
 	.icon-button {
@@ -573,7 +283,6 @@
 		cursor: pointer;
 	}
 
-	.empty-models,
 	.empty-providers {
 		padding: 12px;
 		font-size: 12px;

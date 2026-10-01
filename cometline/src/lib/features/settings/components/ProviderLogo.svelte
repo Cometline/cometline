@@ -46,7 +46,7 @@
 		height: 25px;
 		border-radius: 7px;
 		color: var(--text-main);
-		background: #eef2f7;
+		background: var(--color-eef2f7);
 	}
 
 	.provider-logo :global(img),

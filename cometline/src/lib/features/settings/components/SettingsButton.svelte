@@ -93,12 +93,12 @@
 	}
 
 	.primary:hover:not(:disabled) {
-		background: #0f172a;
+		background: var(--color-0f172a);
 		box-shadow: none;
 	}
 
 	.primary:active:not(:disabled) {
 		transform: scale(0.97);
-		background: #020617;
+		background: var(--color-020617);
 	}
 </style>
