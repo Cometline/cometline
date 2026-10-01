@@ -16,39 +16,14 @@ import (
 // before is an opaque cursor from a prior page's NextBefore; empty means the
 // most recent page.
 func (s *Service) LoadTranscriptPage(ctx context.Context, sessionID string, limit int, before string) (TranscriptPage, error) {
-	if limit <= 0 {
-		limit = DefaultTranscriptPageLimit
+	limit = clampTranscriptPageLimit(limit)
+	cursor, err := parseTranscriptBefore(before)
+	if err != nil {
+		return TranscriptPage{}, err
 	}
-	if limit > MaxTranscriptPageLimit {
-		limit = MaxTranscriptPageLimit
-	}
-	before = strings.TrimSpace(before)
 
 	fetch := int64(limit) + 1 // one extra to detect HasMore
-	var (
-		descRows        []db.Message
-		err             error
-		beforeCreatedAt int64
-		beforeID        string
-	)
-	if before == "" {
-		descRows, err = s.q.ListTranscriptMessagesRecent(ctx, db.ListTranscriptMessagesRecentParams{
-			SessionID: sessionID,
-			RowLimit:  fetch,
-		})
-	} else {
-		var decErr error
-		beforeCreatedAt, beforeID, decErr = decodeTranscriptCursor(before)
-		if decErr != nil {
-			return TranscriptPage{}, fmt.Errorf("%w: %w", ErrInvalidTranscriptCursor, decErr)
-		}
-		descRows, err = s.q.ListTranscriptMessagesBefore(ctx, db.ListTranscriptMessagesBeforeParams{
-			SessionID:       sessionID,
-			BeforeCreatedAt: beforeCreatedAt,
-			BeforeID:        beforeID,
-			RowLimit:        fetch,
-		})
-	}
+	descRows, err := s.listTranscriptMessagesDesc(ctx, sessionID, cursor, fetch)
 	if err != nil {
 		return TranscriptPage{}, err
 	}
@@ -71,39 +46,11 @@ func (s *Service) LoadTranscriptPage(ctx context.Context, sessionID string, limi
 		return TranscriptPage{}, err
 	}
 
-	messageIDs := make([]string, 0, len(rows))
-	for _, m := range rows {
-		messageIDs = append(messageIDs, m.ID)
+	callsByMessage, err := s.toolCallsForMessages(ctx, rows)
+	if err != nil {
+		return TranscriptPage{}, err
 	}
-
-	var allCalls []db.ToolCall
-	if len(messageIDs) > 0 {
-		allCalls, err = s.q.ListToolCallsByMessageIDs(ctx, messageIDs)
-		if err != nil {
-			return TranscriptPage{}, err
-		}
-	}
-	callsByMessage := make(map[string][]db.ToolCall, len(allCalls))
-	for _, tc := range allCalls {
-		callsByMessage[tc.MessageID] = append(callsByMessage[tc.MessageID], tc)
-	}
-
-	// Tool-result rows for error flags fall between the oldest visible message
-	// and the before-cursor (or unbounded for the recent page).
-	var toolResults []db.Message
-	if before == "" {
-		toolResults, err = s.q.ListToolResultMessagesAfter(ctx, db.ListToolResultMessagesAfterParams{
-			SessionID:    sessionID,
-			MinCreatedAt: rows[0].CreatedAt,
-		})
-	} else {
-		toolResults, err = s.q.ListToolResultMessagesBetween(ctx, db.ListToolResultMessagesBetweenParams{
-			SessionID:    sessionID,
-			MinCreatedAt: rows[0].CreatedAt,
-			MaxCreatedAt: beforeCreatedAt,
-			MaxID:        beforeID,
-		})
-	}
+	toolResults, err := s.listPageToolResults(ctx, sessionID, rows[0].CreatedAt, cursor)
 	if err != nil {
 		return TranscriptPage{}, err
 	}
@@ -124,6 +71,87 @@ func (s *Service) LoadTranscriptPage(ctx context.Context, sessionID string, limi
 		page.NextBefore = encodeTranscriptCursor(oldest.CreatedAt, oldest.ID)
 	}
 	return page, nil
+}
+
+func clampTranscriptPageLimit(limit int) int {
+	if limit <= 0 {
+		return DefaultTranscriptPageLimit
+	}
+	if limit > MaxTranscriptPageLimit {
+		return MaxTranscriptPageLimit
+	}
+	return limit
+}
+
+// transcriptCursor is a decoded (created_at, id) keyset position.
+type transcriptCursor struct {
+	createdAt int64
+	id        string
+}
+
+// parseTranscriptBefore decodes an opaque before cursor. A blank cursor means
+// the most recent page and yields nil.
+func parseTranscriptBefore(before string) (*transcriptCursor, error) {
+	before = strings.TrimSpace(before)
+	if before == "" {
+		return nil, nil
+	}
+	createdAt, id, err := decodeTranscriptCursor(before)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrInvalidTranscriptCursor, err)
+	}
+	return &transcriptCursor{createdAt: createdAt, id: id}, nil
+}
+
+// listTranscriptMessagesDesc returns up to fetch visible rows newest-first,
+// strictly older than cursor when it is set.
+func (s *Service) listTranscriptMessagesDesc(ctx context.Context, sessionID string, cursor *transcriptCursor, fetch int64) ([]db.Message, error) {
+	if cursor == nil {
+		return s.q.ListTranscriptMessagesRecent(ctx, db.ListTranscriptMessagesRecentParams{
+			SessionID: sessionID,
+			RowLimit:  fetch,
+		})
+	}
+	return s.q.ListTranscriptMessagesBefore(ctx, db.ListTranscriptMessagesBeforeParams{
+		SessionID:       sessionID,
+		BeforeCreatedAt: cursor.createdAt,
+		BeforeID:        cursor.id,
+		RowLimit:        fetch,
+	})
+}
+
+func (s *Service) toolCallsForMessages(ctx context.Context, rows []db.Message) (map[string][]db.ToolCall, error) {
+	messageIDs := make([]string, 0, len(rows))
+	for _, m := range rows {
+		messageIDs = append(messageIDs, m.ID)
+	}
+	var allCalls []db.ToolCall
+	if len(messageIDs) > 0 {
+		var err error
+		allCalls, err = s.q.ListToolCallsByMessageIDs(ctx, messageIDs)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return GroupToolCallsByMessage(allCalls), nil
+}
+
+// listPageToolResults loads the tool_result rows that carry error flags for a
+// page: those between the oldest visible message and the before-cursor, or
+// unbounded above for the recent page.
+func (s *Service) listPageToolResults(ctx context.Context, sessionID string, minCreatedAt int64, cursor *transcriptCursor) ([]db.Message, error) {
+	if cursor == nil {
+		return s.q.ListToolResultMessagesAfter(ctx, db.ListToolResultMessagesAfterParams{
+			SessionID:    sessionID,
+			MinCreatedAt: minCreatedAt,
+		})
+	}
+	return s.q.ListToolResultMessagesBetween(ctx, db.ListToolResultMessagesBetweenParams{
+		SessionID:    sessionID,
+		MinCreatedAt: minCreatedAt,
+		MaxCreatedAt: cursor.createdAt,
+		MaxID:        cursor.id,
+	})
 }
 
 // ErrInvalidTranscriptCursor is returned when before cannot be parsed.
@@ -199,22 +227,11 @@ func (s *Service) snapTranscriptPageToTurnBoundary(
 			if m.Role == "user" {
 				foundUser = true
 				// Honest has_more relative to the anchoring user (new page oldest).
-				if i+1 < len(batch) {
-					stillMore = true
-				} else if int64(len(batch)) < overfetch {
-					stillMore = false
-				} else {
-					probe, probeErr := s.q.ListTranscriptMessagesBefore(ctx, db.ListTranscriptMessagesBeforeParams{
-						SessionID:       sessionID,
-						BeforeCreatedAt: m.CreatedAt,
-						BeforeID:        m.ID,
-						RowLimit:        1,
-					})
-					if probeErr != nil {
-						return nil, false, probeErr
-					}
-					stillMore = len(probe) > 0
+				more, probeErr := s.historyBeforeAnchor(ctx, sessionID, batch, i, overfetch)
+				if probeErr != nil {
+					return nil, false, probeErr
 				}
+				stillMore = more
 				break
 			}
 			if extraCount >= snapTranscriptMaxExtra {
@@ -242,6 +259,29 @@ func (s *Service) snapTranscriptPageToTurnBoundary(
 	out = append(out, prefix...)
 	out = append(out, rows...)
 	return out, stillMore, nil
+}
+
+// historyBeforeAnchor reports whether any message is older than the anchoring
+// user at batch[anchor]. It only probes the store when the batch was full and
+// the anchor is its oldest row.
+func (s *Service) historyBeforeAnchor(ctx context.Context, sessionID string, batch []db.Message, anchor int, overfetch int64) (bool, error) {
+	if anchor+1 < len(batch) {
+		return true, nil
+	}
+	if int64(len(batch)) < overfetch {
+		return false, nil
+	}
+	m := batch[anchor]
+	probe, err := s.q.ListTranscriptMessagesBefore(ctx, db.ListTranscriptMessagesBeforeParams{
+		SessionID:       sessionID,
+		BeforeCreatedAt: m.CreatedAt,
+		BeforeID:        m.ID,
+		RowLimit:        1,
+	})
+	if err != nil {
+		return false, err
+	}
+	return len(probe) > 0, nil
 }
 
 func reverseMessages(in []db.Message) []db.Message {

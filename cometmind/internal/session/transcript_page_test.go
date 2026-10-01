@@ -135,6 +135,35 @@ func TestDecodeTranscriptCursor(t *testing.T) {
 	}
 }
 
+func TestClampTranscriptPageLimit(t *testing.T) {
+	t.Parallel()
+	for in, want := range map[int]int{
+		-1:                         DefaultTranscriptPageLimit,
+		0:                          DefaultTranscriptPageLimit,
+		7:                          7,
+		MaxTranscriptPageLimit:     MaxTranscriptPageLimit,
+		MaxTranscriptPageLimit + 1: MaxTranscriptPageLimit,
+	} {
+		if got := clampTranscriptPageLimit(in); got != want {
+			t.Fatalf("clampTranscriptPageLimit(%d) = %d, want %d", in, got, want)
+		}
+	}
+}
+
+func TestParseTranscriptBefore(t *testing.T) {
+	t.Parallel()
+	if cursor, err := parseTranscriptBefore("  "); err != nil || cursor != nil {
+		t.Fatalf("blank cursor = %#v, %v; want nil, nil", cursor, err)
+	}
+	cursor, err := parseTranscriptBefore(" 42:msg-1 ")
+	if err != nil || cursor == nil || cursor.createdAt != 42 || cursor.id != "msg-1" {
+		t.Fatalf("cursor = %#v, %v", cursor, err)
+	}
+	if _, err := parseTranscriptBefore("nocolon"); !errors.Is(err, ErrInvalidTranscriptCursor) {
+		t.Fatalf("err = %v, want ErrInvalidTranscriptCursor", err)
+	}
+}
+
 func TestLoadTranscriptPageSnapsToAnchoringUser(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
