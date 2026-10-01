@@ -3,7 +3,10 @@
 	import { flip } from 'svelte/animate';
 	import type { Session } from '$lib/types';
 	import { deleteSession, updateSession } from '$lib/client/cometmind';
-	import { createMiniWindowSession, navigateMiniToSession } from '$lib/mini-window-session';
+	import {
+		createMiniWindowSession,
+		navigateMiniToSession
+	} from '$lib/features/shell/mini-window-session';
 	import {
 		activateAfterSessionDeleted,
 		sessionsSnapshot

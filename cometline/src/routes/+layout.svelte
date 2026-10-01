@@ -2,8 +2,8 @@
 	import '../app.css';
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
-	import AppShell from '$lib/components/AppShell.svelte';
-	import MiniShell from '$lib/components/MiniShell.svelte';
+	import AppShell from '$lib/features/shell/components/AppShell.svelte';
+	import MiniShell from '$lib/features/shell/components/MiniShell.svelte';
 	import { connectionState } from '$lib/stores/runtime.svelte';
 	import { settingsStore, readHasDismissedSetupWizardSync } from '$lib/stores/settings.svelte';
 	import { sessionStore } from '$lib/stores/session.svelte';

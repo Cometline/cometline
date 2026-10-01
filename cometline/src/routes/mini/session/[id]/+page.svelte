@@ -13,7 +13,8 @@
 
 	async function resolveSession(id: string, run: number, openingRun: number) {
 		try {
-			const { ensureMiniWindowSession } = await import('$lib/mini-window-session');
+			const { ensureMiniWindowSession } =
+				await import('$lib/features/shell/mini-window-session');
 			const ensuredSessionId = await ensureMiniWindowSession(id);
 			if (run !== resolvingRun) return;
 			if (ensuredSessionId !== id) {

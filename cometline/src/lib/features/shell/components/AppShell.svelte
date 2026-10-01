@@ -4,16 +4,16 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen } from '@lucide/svelte';
-	import Sidebar from '../features/sidebar/components/Sidebar.svelte';
+	import Sidebar from '$lib/features/sidebar/components/Sidebar.svelte';
 	import RuntimeOverlay from './RuntimeOverlay.svelte';
-	import SettingsModal from '../features/settings/components/SettingsModal.svelte';
-	import SetupWizard from '../features/onboarding/components/SetupWizard.svelte';
+	import SettingsModal from '$lib/features/settings/components/SettingsModal.svelte';
+	import SetupWizard from '$lib/features/onboarding/components/SetupWizard.svelte';
 	import UpdateButton from './UpdateButton.svelte';
 	import MemoryToast from './MemoryToast.svelte';
 	import AppToast from './AppToast.svelte';
-	import ConfirmActionModal from './ConfirmActionModal.svelte';
-	import FileSearchModal from '../features/workspace/components/FileSearchModal.svelte';
-	import Tooltip from './Tooltip.svelte';
+	import ConfirmActionModal from '$lib/components/ConfirmActionModal.svelte';
+	import FileSearchModal from '$lib/features/workspace/components/FileSearchModal.svelte';
+	import Tooltip from '$lib/components/Tooltip.svelte';
 	import { getSession, updateSession } from '$lib/client/cometmind';
 	import { gotoJob } from '$lib/routes/job-route';
 	import { shellStore } from '$lib/stores/shell.svelte';
@@ -37,7 +37,7 @@
 		widthFromRatio,
 		widthToRatio
 	} from '$lib/layout/workspace-panel-width';
-	import { shouldUseWorkspacePanelHistory } from '$lib/navigation/focus-nav';
+	import { shouldUseWorkspacePanelHistory } from '$lib/features/shell/focus-nav';
 	import { shouldClaimChatPaneFromMainPointer } from '$lib/features/workspace/workspace-pane-focus';
 	import {
 		matchesShortcut,
@@ -56,7 +56,7 @@
 		navigateForward: () => void;
 	} | null>(null);
 	type WorkspacePanelModuleComponent =
-		typeof import('../features/workspace/components/WorkspacePanel.svelte').default;
+		typeof import('$lib/features/workspace/components/WorkspacePanel.svelte').default;
 	let WorkspacePanelComponent = $state<WorkspacePanelModuleComponent | null>(null);
 	let workspacePanelLoadPromise: Promise<WorkspacePanelModuleComponent | null> | null = null;
 	let workspacePanelLoadFailed = $state(false);
@@ -64,7 +64,7 @@
 	let IntroAnimation = $state<IntroAnimationComponent | null>(null);
 	let introAnimationLoadPromise: Promise<IntroAnimationComponent | null> | null = null;
 	type InboxDrawerComponent =
-		typeof import('../features/inbox/components/InboxDrawer.svelte').default;
+		typeof import('$lib/features/inbox/components/InboxDrawer.svelte').default;
 	let InboxDrawer = $state<InboxDrawerComponent | null>(null);
 	let inboxDrawerLoadPromise: Promise<InboxDrawerComponent | null> | null = null;
 	let inboxDrawerLoadFailed = $state(false);
@@ -82,7 +82,7 @@
 		if (!workspacePanelLoadPromise) {
 			workspacePanelLoadFailed = false;
 			workspacePanelLoadPromise =
-				import('../features/workspace/components/WorkspacePanel.svelte')
+				import('$lib/features/workspace/components/WorkspacePanel.svelte')
 					.then((module) => {
 						WorkspacePanelComponent = module.default;
 						return module.default;
@@ -119,7 +119,7 @@
 		if (InboxDrawer) return Promise.resolve(InboxDrawer);
 		if (!inboxDrawerLoadPromise) {
 			inboxDrawerLoadFailed = false;
-			inboxDrawerLoadPromise = import('../features/inbox/components/InboxDrawer.svelte')
+			inboxDrawerLoadPromise = import('$lib/features/inbox/components/InboxDrawer.svelte')
 				.then((module) => {
 					InboxDrawer = module.default;
 					return module.default;
