@@ -154,51 +154,7 @@ func BuildBacklinkIndex(ctx context.Context, root string) (map[string][]string, 
 		return map[string][]string{}, nil
 	}
 
-	var files []string
-	contents := make(map[string]string)
-
-	err = filepath.WalkDir(root, func(path string, d fs.DirEntry, walkErr error) error {
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
-		if walkErr != nil {
-			return nil
-		}
-		name := d.Name()
-		if strings.HasPrefix(name, ".") {
-			if d.IsDir() {
-				return fs.SkipDir
-			}
-			return nil
-		}
-		rel, err := filepath.Rel(root, path)
-		if err != nil {
-			return nil
-		}
-		rel = filepath.ToSlash(rel)
-		if rel == "." {
-			return nil
-		}
-		if d.IsDir() {
-			return nil
-		}
-		ext := filepath.Ext(name)
-		if !isWikiExt(ext) {
-			return nil
-		}
-		rel = filepath.ToSlash(rel)
-		files = append(files, rel)
-		// Only non-raw markdown bodies are scanned for [[wikilinks]]. HTML and
-		// raw/** are kept in `files` so [[….html]] targets can resolve.
-		if strings.EqualFold(ext, ".md") && !strings.HasPrefix(strings.ToLower(rel), "raw/") {
-			data, err := os.ReadFile(path)
-			if err != nil {
-				return nil
-			}
-			contents[rel] = string(data)
-		}
-		return nil
-	})
+	files, contents, err := collectWikiFiles(ctx, root)
 	if err != nil {
 		return nil, err
 	}
@@ -251,4 +207,59 @@ func BacklinksFor(index map[string][]string, path string) []string {
 		return nil
 	}
 	return append([]string(nil), sources...)
+}
+
+func collectWikiFiles(ctx context.Context, root string) ([]string, map[string]string, error) {
+	var files []string
+	contents := make(map[string]string)
+	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, walkErr error) error {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		if walkErr != nil {
+			return nil
+		}
+		rel, keep, err := wikiFileRel(root, path, d)
+		if err != nil || rel == "" {
+			return err
+		}
+		if !keep {
+			return nil
+		}
+		files = append(files, rel)
+		ext := filepath.Ext(d.Name())
+		// Only non-raw markdown bodies are scanned for [[wikilinks]]. HTML and
+		// raw/** are kept in `files` so [[….html]] targets can resolve.
+		if strings.EqualFold(ext, ".md") && !strings.HasPrefix(strings.ToLower(rel), "raw/") {
+			data, readErr := os.ReadFile(path)
+			if readErr != nil {
+				return nil
+			}
+			contents[rel] = string(data)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	return files, contents, nil
+}
+
+func wikiFileRel(root, path string, d fs.DirEntry) (string, bool, error) {
+	name := d.Name()
+	if strings.HasPrefix(name, ".") {
+		if d.IsDir() {
+			return "", false, fs.SkipDir
+		}
+		return "", false, nil
+	}
+	rel, err := filepath.Rel(root, path)
+	if err != nil {
+		return "", false, nil
+	}
+	rel = filepath.ToSlash(rel)
+	if rel == "." || d.IsDir() || !isWikiExt(filepath.Ext(name)) {
+		return "", false, nil
+	}
+	return rel, true, nil
 }
