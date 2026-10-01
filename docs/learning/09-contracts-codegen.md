@@ -134,8 +134,10 @@ A wrapper here is a Go layer around the database.
 ### Regenerate
 
 ```bash
-cd cometmind && sqlc generate
+cd cometmind && go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1 generate
 ```
+
+The version is pinned to the `sqlc vX.Y.Z` header in the generated files, so you don't need sqlc installed.
 
 ### Migrations
 
@@ -155,7 +157,7 @@ Users who already have a database need an incremental migration. Editing `schema
 1. Edit `schema.sql`.
 2. Add a migration in `migrate.go`. Add it to `alterStatements`, and increase `schemaVersion`.
 3. Add or update queries in `queries/*.sql`.
-4. Run `sqlc generate`.
+4. Regenerate with the pinned sqlc command above.
 5. Update `session/service.go` if domain logic changes.
 6. Update server handlers and tests.
 
@@ -235,7 +237,7 @@ Skew means the copies do not match.
 | Scenario                                                             | Symptom                                     | Fix                                                                                                                           |
 | -------------------------------------------------------------------- | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | `openapi.yaml` changed, but the TS client was not regenerated       | Type errors in the client                   | `make generate`                                                                                                               |
-| `schema.sql` changed, but sqlc was not run                          | Compile errors in session                   | `sqlc generate`                                                                                                               |
+| `schema.sql` changed, but sqlc was not run                          | Compile errors in session                   | Run the pinned sqlc command above                                                                                             |
 | New SSE event exists in Go only                                     | The reducer ignores the events              | Add a reducer case and a TS type                                                                                              |
 | The migration is missing                                            | The database breaks for existing users      | Add `alterStatements`                                                                                                         |
 | The settings schema changed, but the Electron settings domain was not updated | Electron save and normalize behavior no longer matches | Update `src/lib/settings/schema.ts` and the relevant `electron/src/domains/{settings,settings-domain,runtime-ipc}.ts` modules |

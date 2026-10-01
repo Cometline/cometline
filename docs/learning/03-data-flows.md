@@ -308,7 +308,7 @@ Memories are **workspace-scoped**. That means each workspace has its own memorie
 ```text
 Settings → CometMind → MCP (saved to cometline-settings.json)
   → sidecar start or Runtime.Reload → mcp.Manager connects/refreshes enabled servers
-  → stdio / HTTP / SSE transports via go-sdk
+  → stdio / streamable HTTP transports via go-sdk (saved `sse` is read as `http`)
   → tools merged into registry as mcp_{serverId}_{toolName}
   → agent loop executes via same tool_call / tool_result path
 
@@ -339,7 +339,7 @@ Model calls delegate_coding_task tool (only if acp.enabled + harness binary avai
   → result returns to agent loop as tool_result
 ```
 
-Configure this in Settings → CometMind → **Coding task delegation**. Only `default_harness` is a user setting. CLI args are not user-editable. Tool: `cometmind/internal/tools/delegatecoding.go`. Runner: `cometmind/internal/acp/runner.go`.
+Configure this in Settings → CometMind → **Coding task delegation**. Only the harness choice (`cometmind.acp.defaultHarness`) is a user setting. CLI args are not user-editable. Tool: `cometmind/internal/tools/delegatecoding.go`. Runner: `cometmind/internal/acp/runner.go`.
 
 ---
 

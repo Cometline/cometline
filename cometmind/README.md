@@ -38,7 +38,7 @@ server/
   run_manager.go     per-session single in-flight run control
 internal/
   runtime/           shared composition root (config · DB · services · runner factory)
-  agent/runner.go    core agent loop (multi-step tool iteration, max 50 steps)
+  agent/runner.go    core agent loop (multi-step tool iteration, default 100 steps)
   agent/request.go   builds cometsdk.Request from session history + memory + skills
   agent/contextwindow.go context budget and transcript compaction helpers
   session/           domain types + Service (workspaces, sessions, messages, delegation)
@@ -50,10 +50,10 @@ internal/
   tools/sandbox/     pathcheck — prevents path escape out of the workspace
   skills/            Agent Skills discovery, sync, export, write
   acp/               Coding-harness CLI runner for delegate_coding_task (OpenCode by default)
-  mcp/               stdio/http/sse MCP manager plus OAuth login/token refresh
+  mcp/               stdio/http MCP manager plus OAuth login/token refresh
   gateway/           messaging adapters (Discord today)
   provider/          builds a comet-sdk provider from config/session (Anthropic, OpenAI-compatible, Codex, xAI)
-  config/            cometline-settings.json loading + legacy TOML migration + COMETMIND_* env
+  config/            cometline-settings.json loading + COMETMIND_* env overrides
   db/                sqlc-generated querier + schema.sql + queries/*.sql
   event/event.go     CometMind-native event union (shared by SSE/CLI/gateway)
   store/open.go      opens SQLite (pure-Go modernc.org/sqlite)
@@ -121,10 +121,11 @@ The runtime owns the invocation profiles:
 
 Settings expose one choice—OpenCode, Claude Code, or Codex—in Settings → CometMind → Coding task delegation. Settings are persisted in `~/.cometmind/cometline-settings.json`:
 
-```toml
-[acp]
-default_harness = "opencode" # opencode, claude, or codex
+```json
+{ "cometmind": { "acp": { "enabled": true, "defaultHarness": "opencode" } } }
 ```
+
+`defaultHarness` is one of `opencode`, `claude`, or `codex`.
 
 The old command, argument, and timeout fields are ignored during settings migration. Users cannot replace the executable or alter the built-in arguments; they only select the harness. If the selected harness is not installed, CometMind leaves `delegate_coding_task` out of the main agent's tool list until the harness is installed or the selection changes.
 
@@ -137,7 +138,7 @@ CometMind stores durable facts, preferences, and project notes in SQLite with em
 - **Compaction** decays stale memories, forgets low-weight entries, and merges clusters when over `max_memories`.
 - Embedding uses an OpenAI-compatible endpoint (default model: `text-embedding-3-small`).
 
-Memory is configured under `[memory]` in config and exposed through REST (see API below). Cometline renders injected memories in the chat UI and provides a full memory settings panel.
+Memory is configured under `cometmind.memory` in `cometline-settings.json` and exposed through REST (see API below). Cometline renders injected memories in the chat UI and provides a full memory settings panel.
 
 ### MCP client
 
@@ -151,7 +152,7 @@ Supported transports:
 
 Remote OAuth servers are handled by CometMind itself: Protected Resource Metadata discovery, Authorization Server Metadata discovery, Dynamic Client Registration, Authorization Code + PKCE, a loopback callback listener, token persistence, and headless refresh. Access/refresh tokens live in `~/.cometmind/mcp-oauth/{serverId}.json`; registered client metadata lives in `{serverId}.client.json`.
 
-Each server has its own handshake/list-tools budget (stdio 15s/10s, HTTP/SSE 45s/20s). Auth success is not session success: `POST /api/v1/mcp/servers/{id}/oauth-flows` returns 200 once the token is stored (`ok: true, connected: false, error_code, error_hint` if the handshake failed). `oauth_connected` is token-file only. Changing the server URL treats a saved grant as stale. Tool calls go through `Manager.CallTool` so a reconnect is visible on the next turn.
+Each server has its own handshake/list-tools budget (stdio 15s/10s, HTTP 45s/20s). Auth success is not session success: `POST /api/v1/mcp/servers/{id}/oauth-flows` returns 200 once the token is stored (`ok: true, connected: false, error_code, error_hint` if the handshake failed). `oauth_connected` is token-file only. Changing the server URL treats a saved grant as stale. Tool calls go through `Manager.CallTool` so a reconnect is visible on the next turn.
 
 ### Jobs, scheduler, and autonomy
 
@@ -165,7 +166,7 @@ Jobs are durable work items with status `todo`, `ongoing`, `done`, or `blocked`.
 
 ### Storage & retention
 
-Session, memory, deleted-job, inbox, and runtime-file cleanup runs once when CometMind starts and then on the configured retention interval. Both `serve` and standalone Discord gateway processes start this maintenance loop. Configure it under `cometmind.storage` in `cometline-settings.json` (or legacy `[storage]` in `config.toml` / `COMETMIND_STORAGE_*` env overrides):
+Session, memory, deleted-job, inbox, and runtime-file cleanup runs once when CometMind starts and then on the configured retention interval. Both `serve` and standalone Discord gateway processes start this maintenance loop. Configure it under `cometmind.storage` in `cometline-settings.json` (or with `COMETMIND_STORAGE_*` env overrides):
 
 | Field | Default | Meaning |
 |---|---|---|
@@ -195,13 +196,10 @@ go run . skills list
 go run . skills sync
 ```
 
-```toml
-[skills]
-enabled = true
-roots = []
-include_opencode = true
-include_claude = true
-mirror_to_cometmind = false
+Skills are configured under `cometmind.skills` in `cometline-settings.json`:
+
+```json
+{ "cometmind": { "skills": { "enabled": true, "roots": [], "includeOpenCode": true, "includeClaude": true } } }
 ```
 
 ### Discord gateway
@@ -363,11 +361,12 @@ Set `COMETMIND_DATA_DIR` to relocate the settings file, database, MCP OAuth toke
 
 Runtime apply semantics:
 
-- `cometmind settings reload` re-reads the settings file and applies safe in-process changes for new work.
-- Memory settings, memory provider swaps, storage cleanup interval changes, job reconcile interval changes, bind host or port changes, Discord token changes, and fresh environment variable values still require restart.
+- `cometmind settings reload` re-reads the settings file and applies changes in place for new work. Providers, ACP, skills, memory, storage, MCP, jobs, autonomy, and scheduler settings all reload this way (see `internal/settingsapply/classify.go`).
+- Changes under `cometmind.gateway` (including the Discord token) recycle only the gateway process(es).
+- Bind host or port changes and fresh environment variable values still require a process restart.
 - `cometmind process restart` stops the target process and relaunches it using its recorded command arguments. It waits up to 10 seconds for a clean exit before force-killing, then re-execs the same binary with the same flags.
 
-If `cometline-settings.json` is missing but legacy `config.toml` exists, CometMind loads the TOML once and logs a migration hint. New installs get a minimal JSON template from `cometmind init` / first `Load()`.
+If `cometline-settings.json` is missing, `cometmind init` or the first `Load()` writes a minimal JSON template. CometMind does not read `config.toml`.
 
 Environment overrides use the `COMETMIND_` prefix (dots become underscores). Provider API keys fall back to `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, or `COMETMIND_API_KEY`.
 
@@ -403,37 +402,23 @@ Example JSON shape (Cometline writes the full file from Settings):
 }
 ```
 
-Legacy `config.toml` (still read for migration):
+The Discord gateway reads `cometmind.gateway.discord`:
 
-```toml
-provider = "anthropic"
-model = "claude-sonnet-4-5"
-base_url = ""
-# Legacy only. The agent ignores this and uses min(model output, 32000).
-max_tokens = 0
-max_steps = 100
-system_prompt_path = ""
-
-[[providers]]
-id = "my-gateway"
-name = "Company Gateway"
-method = "openai-compatible"
-base_url = "https://gateway.example.com/v1"
-api_key = "..."
-model = "gpt-4o"
-
-[memory]
-enabled = true
-auto_extract = true
-auto_retrieve = true
-
-[gateway.discord]
-enabled = false
-bot_token_env = "DISCORD_BOT_TOKEN"
-allowed_users = []
-allowed_channels = []
-require_mention = true
-workspace_path = "/path/to/workspace"
+```json
+{
+  "cometmind": {
+    "gateway": {
+      "discord": {
+        "enabled": false,
+        "botTokenEnv": "DISCORD_BOT_TOKEN",
+        "allowedUsers": [],
+        "allowedChannels": [],
+        "requireMention": true,
+        "workspacePath": "/path/to/workspace"
+      }
+    }
+  }
+}
 ```
 
 When Cometline is running, Settings writes `~/.cometmind/cometline-settings.json`; CometMind reads that same file on startup.
@@ -456,7 +441,7 @@ SQLite schema (see `schemaVersion` in `internal/db/migrate.go`) includes:
 | `scheduled_jobs` | One-shot and recurring job definitions |
 | `job_events` | Audit log for job lifecycle changes |
 
-After schema or query changes, run `sqlc generate` and add incremental migrations in `internal/db/migrate.go`.
+After schema or query changes, run `go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1 generate` (pinned to the version in the generated headers) and add incremental migrations in `internal/db/migrate.go`.
 
 ## Build & run
 

@@ -6,9 +6,8 @@
 ## Prerequisites
 
 - macOS 13+ (primary target)
-- Go 1.25+
-- Node.js + pnpm
-- Optional: `sqlc` and `golangci-lint`, for workflows beyond the basic commands
+- Go 1.25, Node.js 22, and pnpm 11.3.0 (`mise install` reads them from `mise.toml`)
+- Optional: `golangci-lint`. sqlc runs through a pinned `go run`, so you don't install it.
 
 The primary target is the main system this app is built for. A workflow here is a set of commands for one kind of task.
 
@@ -61,7 +60,7 @@ cd cometmind
 go test ./...                                    # All tests
 go test -run TestPostMessageStreamsSSE ./server  # Specific test
 go build ./...                                   # Verify compile
-sqlc generate                                    # After schema/query changes
+go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1 generate  # After schema/query changes
 ```
 
 CLI during development:
@@ -87,7 +86,7 @@ pnpm run build     # Production SvelteKit build
 
 ## GitNexus for exploration
 
-The current GitNexus repo name is `cometline-release`.
+The current GitNexus repo name is `cometline`.
 
 ```bash
 node .gitnexus/run.cjs status
@@ -122,7 +121,7 @@ An LLM is a large language model. Subscription-based means the provider uses a s
 
 ### Enable coding-harness delegation
 
-1. Open Settings, then CometMind, then **Coding task delegation**. Enable it, and pick `default_harness` (`opencode`, `claude`, or `codex`).
+1. Open Settings, then CometMind, then **Coding task delegation**. Enable it, and pick the harness (`opencode`, `claude`, or `codex`). It is saved as `cometmind.acp.defaultHarness`.
 2. Make sure the harness CLI is on `PATH`. `PATH` is the list of folders the shell searches for programs.
 3. Do not edit the command or the args in settings. They are fixed in `cometmind/internal/acp/runner.go`.
 4. The agent uses `delegate_coding_task` when that tool is registered.
@@ -165,7 +164,7 @@ SSE means Server-Sent Events: a live stream of events from the server. An emitte
 1. Edit `internal/db/schema.sql`.
 2. In `internal/db/migrate.go`, add an incremental migration. Incremental means one small step from the old version to the new one.
 3. Edit `internal/db/queries/*.sql`.
-4. Run `sqlc generate`.
+4. Run `go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1 generate`.
 5. In `internal/session/service.go`, update the domain logic.
 6. Run `go test ./internal/session/... ./server/...`.
 

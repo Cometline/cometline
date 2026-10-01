@@ -146,7 +146,8 @@ A **transport** is the connection type.
 |-----------|----------|
 | `stdio` | Local subprocess servers |
 | `http` | Streamable HTTP. Recommended for OAuth. |
-| `sse` | Older SSE transport |
+
+A saved `sse` transport from older settings is rewritten to `http` when settings load.
 
 A **subprocess** is a program started by CometMind.
 
@@ -231,7 +232,7 @@ Open Settings, then CometMind, then **Coding task delegation**. The data is stor
 ```json
 {
   "enabled": false,
-  "default_harness": "opencode"
+  "defaultHarness": "opencode"
 }
 ```
 

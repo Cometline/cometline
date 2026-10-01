@@ -43,7 +43,7 @@ All surfaces use the same `agent.Runner` and `session.Service`. There is no seco
 
 ```text
 runtime.New()
-  → config.Load() (JSON settings or legacy TOML)
+  → config.Load() (JSON settings + env overrides)
   → store.OpenSQLite() (SQLite + pragmas + migration)
   → session.New(db)
   → jobs.NewService(db)
@@ -53,7 +53,7 @@ runtime.New()
   → retention, jobs maintenance, scheduler, autonomy workers where enabled
 ```
 
-**JSON** and **TOML** are settings file formats. TOML is the older one. **Legacy** means that older format. **SQLite** is the local database. **Pragmas** are SQLite settings applied when the file opens. A **migration** updates a database that already exists. **Retention** is the rule for deleting old data. **Autonomy** means a worker can start jobs with no new user message.
+**JSON** is the settings file format. **SQLite** is the local database. **Pragmas** are SQLite settings applied when the file opens. A **migration** updates a database that already exists. **Retention** is the rule for deleting old data. **Autonomy** means a worker can start jobs with no new user message.
 
 `RunnerFor(session)` builds an `agent.Runner` for one session. It connects a provider, the session service, and a tool registry. The registry is limited to that workspace.
 
@@ -167,7 +167,7 @@ Database path: `~/.cometmind/cometmind.db`
 - Tracked with `PRAGMA user_version` and `schemaVersion` in `internal/db/migrate.go`.
 - Read `schemaVersion` in `migrate.go` for the current version.
 - For existing users, add an incremental `alterStatements` entry. A `schema.sql` edit alone is not enough.
-- Never edit generated sqlc files. After a schema or query change, run `sqlc generate`.
+- Never edit generated sqlc files. After a schema or query change, run `go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1 generate` from `cometmind/`.
 
 **Incremental** means the change updates the old database in small steps. **sqlc** generates Go code from SQL. Do not edit that generated code by hand.
 
@@ -277,9 +277,8 @@ Register new tools in `registry.go`, in `init()` or `NewRegistry`.
 
 ### Config loading (`internal/config/config.go`)
 
-1. Read `~/.cometmind/cometline-settings.json` first.
-2. If that JSON file is missing, read `~/.cometmind/config.toml`.
-3. Then apply `COMETMIND_*` environment variables over the file values.
+1. Read `~/.cometmind/cometline-settings.json`. If it is missing, write a minimal file from defaults first.
+2. Then apply `COMETMIND_*` environment variables over the file values.
 
 An **environment variable** is a value set outside the program. These variables replace matching values from the file.
 
