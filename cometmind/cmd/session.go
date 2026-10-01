@@ -9,7 +9,6 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/Cometline/cometline/cometmind/internal/apigen"
 	"github.com/Cometline/cometline/cometmind/internal/runtime"
 	"github.com/Cometline/cometline/cometmind/internal/session"
 	"github.com/spf13/cobra"
@@ -107,7 +106,7 @@ func runSessionList(cmd *cobra.Command, _ []string) error {
 	}
 
 	if jsonOut {
-		data, err := json.MarshalIndent(apigen.SessionListResponse{Sessions: wireSessions}, "", "  ")
+		data, err := json.MarshalIndent(sessionListResponse{Sessions: wireSessions}, "", "  ")
 		if err != nil {
 			return err
 		}
@@ -228,7 +227,11 @@ func listByWorkspacePath(ctx context.Context, rt *runtime.Runtime) ([]session.Se
 	return list, map[string]string{ws.ID: ws.Path}, err
 }
 
-func printSessionTable(sessions []apigen.Session, includeWorkspace bool) error {
+type sessionListResponse struct {
+	Sessions []session.WireSession `json:"sessions"`
+}
+
+func printSessionTable(sessions []session.WireSession, includeWorkspace bool) error {
 	tw := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	if includeWorkspace {
 		fmt.Fprintln(tw, "ID\tWORKSPACE\tTITLE\tPROVIDER\tMODEL\tSTATUS\tPIN\tUPDATED")

@@ -37,9 +37,6 @@ linters:
             - $all
             - "!**/cometmind/internal/server/**"
             - "!**/cometmind/internal/apigen/**"
-            # Known violators, to be removed in Phase 3:
-            - "!**/cometmind/cmd/session.go"
-            - "!**/cometmind/internal/session/wire.go"
           deny:
             - pkg: github.com/Cometline/cometline/cometmind/internal/apigen
               desc: wire types belong to the HTTP layer; map them in the server package

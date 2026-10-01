@@ -173,105 +173,98 @@ func (a *App) handleListChildSessions(c *gin.Context) {
 }
 
 func (a *App) handlePatchSession(c *gin.Context) {
+	req, agentMode, ok := bindPatchSession(c)
+	if !ok {
+		return
+	}
+	sess, ok := a.applySessionPatch(c, c.Param("id"), req, agentMode)
+	if !ok {
+		return
+	}
+	a.writeSessionJSON(c, sess)
+}
+
+func bindPatchSession(c *gin.Context) (patchSessionRequest, session.AgentMode, bool) {
 	var req patchSessionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		writeError(c, http.StatusBadRequest, "bad_request", "invalid JSON body")
-		return
+		return patchSessionRequest{}, "", false
 	}
-
 	hasModel := strings.TrimSpace(req.ModelID) != "" || strings.TrimSpace(req.ProviderID) != ""
-	hasPinned := req.Pinned != nil
-	hasTitle := req.Title != nil
-	hasAgentMode := req.AgentMode != nil
-	if !hasModel && !hasPinned && !hasTitle && !hasAgentMode {
+	if !hasModel && req.Pinned == nil && req.Title == nil && req.AgentMode == nil {
 		writeError(c, http.StatusBadRequest, "bad_request", "at least one of model_id/provider_id, pinned, title, or agent_mode is required")
-		return
+		return patchSessionRequest{}, "", false
 	}
 	if hasModel && (strings.TrimSpace(req.ModelID) == "" || strings.TrimSpace(req.ProviderID) == "") {
 		writeError(c, http.StatusBadRequest, "bad_request", "model_id and provider_id must both be provided")
-		return
+		return patchSessionRequest{}, "", false
 	}
-
-	var agentMode session.AgentMode
-	if hasAgentMode {
-		mode, err := session.ParseAgentMode(*req.AgentMode)
-		if err != nil {
-			writeError(c, http.StatusBadRequest, "bad_request", err.Error())
-			return
-		}
-		agentMode = mode
+	if req.AgentMode == nil {
+		return req, "", true
 	}
+	mode, err := session.ParseAgentMode(*req.AgentMode)
+	if err != nil {
+		writeError(c, http.StatusBadRequest, "bad_request", err.Error())
+		return patchSessionRequest{}, "", false
+	}
+	return req, mode, true
+}
 
-	sessID := c.Param("id")
+func (a *App) applySessionPatch(c *gin.Context, sessID string, req patchSessionRequest, agentMode session.AgentMode) (session.Session, bool) {
+	ctx := c.Request.Context()
 	var sess session.Session
 	var err error
-
-	if hasModel {
-		sess, err = a.sessions.UpdateSessionModel(
-			c.Request.Context(),
-			sessID,
-			req.ModelID,
-			req.ProviderID,
-		)
-		if errors.Is(err, session.ErrSessionNotFound) {
-			writeError(c, http.StatusNotFound, "session_not_found", "session was not found")
-			return
-		}
-		if err != nil {
-			writeError(c, http.StatusBadRequest, "bad_request", err.Error())
-			return
+	if strings.TrimSpace(req.ModelID) != "" || strings.TrimSpace(req.ProviderID) != "" {
+		sess, err = a.sessions.UpdateSessionModel(ctx, sessID, req.ModelID, req.ProviderID)
+		if !acceptSessionUpdate(c, err) {
+			return session.Session{}, false
 		}
 	}
-
-	if hasPinned {
-		sess, err = a.sessions.UpdateSessionPinned(c.Request.Context(), sessID, *req.Pinned)
-		if errors.Is(err, session.ErrSessionNotFound) {
-			writeError(c, http.StatusNotFound, "session_not_found", "session was not found")
-			return
-		}
-		if err != nil {
-			writeError(c, http.StatusBadRequest, "bad_request", err.Error())
-			return
+	if req.Pinned != nil {
+		sess, err = a.sessions.UpdateSessionPinned(ctx, sessID, *req.Pinned)
+		if !acceptSessionUpdate(c, err) {
+			return session.Session{}, false
 		}
 	}
-
-	if hasTitle {
-		sess, err = a.sessions.UpdateSessionTitle(c.Request.Context(), sessID, *req.Title)
-		if errors.Is(err, session.ErrSessionNotFound) {
-			writeError(c, http.StatusNotFound, "session_not_found", "session was not found")
-			return
-		}
-		if err != nil {
-			writeError(c, http.StatusBadRequest, "bad_request", err.Error())
-			return
+	if req.Title != nil {
+		sess, err = a.sessions.UpdateSessionTitle(ctx, sessID, *req.Title)
+		if !acceptSessionUpdate(c, err) {
+			return session.Session{}, false
 		}
 	}
-
-	if hasAgentMode {
-		sess, err = a.sessions.UpdateSessionAgentMode(c.Request.Context(), sessID, agentMode)
-		if errors.Is(err, session.ErrSessionNotFound) {
-			writeError(c, http.StatusNotFound, "session_not_found", "session was not found")
-			return
-		}
-		if err != nil {
-			writeError(c, http.StatusBadRequest, "bad_request", err.Error())
-			return
+	if req.AgentMode != nil {
+		sess, err = a.sessions.UpdateSessionAgentMode(ctx, sessID, agentMode)
+		if !acceptSessionUpdate(c, err) {
+			return session.Session{}, false
 		}
 	}
+	return sess, true
+}
 
+func acceptSessionUpdate(c *gin.Context, err error) bool {
+	if err == nil {
+		return true
+	}
+	if errors.Is(err, session.ErrSessionNotFound) {
+		writeError(c, http.StatusNotFound, "session_not_found", "session was not found")
+		return false
+	}
+	writeError(c, http.StatusBadRequest, "bad_request", err.Error())
+	return false
+}
+
+func (a *App) writeSessionJSON(c *gin.Context, sess session.Session) {
 	wsPath, err := a.sessions.WorkspacePath(c.Request.Context(), sess.WorkspaceID)
 	if err != nil {
 		writeError(c, http.StatusInternalServerError, "internal_error", err.Error())
 		return
 	}
-
 	res, err := sessionResourceFromModel(sess, wsPath)
 	if err != nil {
 		writeError(c, http.StatusInternalServerError, "internal_error", err.Error())
 		return
 	}
 	res.Running = a.runs.Running(sess.ID)
-
 	c.JSON(http.StatusOK, res)
 }
 

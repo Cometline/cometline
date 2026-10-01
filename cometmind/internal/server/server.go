@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"path/filepath"
 	"strings"
 
 	"github.com/Cometline/cometline/cometmind/internal/acp"
@@ -15,13 +14,11 @@ import (
 	"github.com/Cometline/cometline/cometmind/internal/event"
 	"github.com/Cometline/cometline/cometmind/internal/inbox"
 	"github.com/Cometline/cometline/cometmind/internal/jobs"
-	"github.com/Cometline/cometline/cometmind/internal/logging"
 	mcppkg "github.com/Cometline/cometline/cometmind/internal/mcp"
 	"github.com/Cometline/cometline/cometmind/internal/memory"
 	"github.com/Cometline/cometline/cometmind/internal/retention"
 	"github.com/Cometline/cometline/cometmind/internal/scheduler"
 	"github.com/Cometline/cometline/cometmind/internal/session"
-	skillpkg "github.com/Cometline/cometline/cometmind/internal/skills"
 	"github.com/Cometline/cometline/cometmind/internal/subagent"
 	"github.com/Cometline/cometline/cometmind/internal/usage"
 	"github.com/gin-gonic/gin"
@@ -134,167 +131,7 @@ func New(deps Deps) (*gin.Engine, error) {
 		})
 	}
 
-	r := gin.New()
-	r.Use(logging.Gin())
-	r.Use(localCORS())
-	r.Use(gin.Recovery())
-
-	api := r.Group("/api/v1")
-
-	// Health
-	api.GET("/health", app.handleHealth)
-
-	// Models
-	api.POST("/models/catalog-lookups", app.handleLookupModelCatalog)
-
-	// Workspaces
-	api.GET("/workspaces", app.handleListWorkspaces)
-	api.POST("/workspaces", app.handleCreateWorkspace)
-	api.DELETE("/workspaces", app.handleDeleteWorkspace)
-	api.POST("/workspaces/prune-runs", app.handlePruneWorkspaces)
-	api.GET("/workspaces/files", app.handleListWorkspaceFiles)
-	api.GET("/workspaces/files/children", app.handleListWorkspaceFileChildren)
-	api.GET("/workspaces/files/content", app.handleReadWorkspaceFileContent)
-	api.PUT("/workspaces/files/content", app.handleWriteWorkspaceFileContent)
-	api.GET("/workspaces/git/status", app.handleWorkspaceGitStatus)
-	api.GET("/workspaces/git/diff", app.handleWorkspaceGitDiff)
-	api.POST("/workspaces/git/stage", app.handleWorkspaceGitStage)
-	api.POST("/workspaces/git/unstage", app.handleWorkspaceGitUnstage)
-	api.POST("/workspaces/git/discard", app.handleWorkspaceGitDiscard)
-	api.POST("/workspaces/git/commit", app.handleWorkspaceGitCommit)
-
-	// Wiki files (global LLM wiki at ~/.cometmind/wiki/)
-	api.GET("/wiki/files", app.handleListWikiFiles)
-	api.GET("/wiki/files/children", app.handleListWikiFileChildren)
-	api.GET("/wiki/files/backlinks", app.handleListWikiFileBacklinks)
-	api.GET("/wiki/files/content", app.handleReadWikiFileContent)
-	api.PUT("/wiki/files/content", app.handleWriteWikiFileContent)
-
-	// Sessions
-	api.POST("/sessions", app.handleCreateSession)
-	api.GET("/sessions", app.handleListSessions)
-	api.GET("/sessions/:id", app.handleGetSession)
-	api.PATCH("/sessions/:id", app.handlePatchSession)
-	api.POST("/sessions/:id/forks", app.handleForkSession)
-	api.DELETE("/sessions/:id", app.handleDeleteSession)
-	api.GET("/sessions/:id/messages", app.handleGetMessages)
-	api.GET("/sessions/:id/events", app.handleSessionEvents)
-	api.POST("/sessions/:id/events", app.handleIngestSessionEvent)
-	api.GET("/sessions/:id/media/:mediaId", app.handleGetSessionMedia)
-	api.GET("/media", app.handleListMedia)
-	api.GET("/media/:id/content", app.handleGetMediaContent)
-	api.POST("/media/:id/imports", app.handleImportMedia)
-	api.DELETE("/media/:id", app.handleDeleteMedia)
-	api.GET("/events", app.handleEvents)
-	api.POST("/sessions/:id/messages", app.handlePostMessage)
-	api.DELETE("/sessions/:id/messages", app.handleClearSession)
-	api.GET("/sessions/:id/children", app.handleListChildSessions)
-	api.DELETE("/sessions/:id/runs/current", app.handleAbortSession)
-
-	// Skills
-	api.GET("/skills", app.handleListSkills)
-	api.POST("/skills/sync-runs", app.handleSyncSkills)
-	api.GET("/skills/:name/archive", app.handleExportSkill)
-	api.GET("/skills/:name", app.handleGetSkill)
-	api.PUT("/skills/:name", app.handleUpdateSkill)
-	api.DELETE("/skills/:name", app.handleDeleteSkill)
-	api.GET("/skill-drafts", app.handleListSkillDrafts)
-	api.GET("/skill-drafts/:name", app.handleGetSkillDraft)
-	api.PUT("/skill-drafts/:name", app.handleUpdateSkillDraft)
-	api.POST("/skill-drafts/:name/promote", app.handlePromoteSkillDraft)
-	api.DELETE("/skill-drafts/:name", app.handleRejectSkillDraft)
-
-	// MCP
-	api.GET("/mcp/servers", app.handleListMCPServers)
-	api.GET("/mcp/tools", app.handleListMCPTools)
-	api.POST("/mcp/servers/:id/connection-tests", app.handleTestMCPServer)
-	api.POST("/mcp/servers/:id/reconnection-runs", app.handleReconnectMCPServer)
-	api.POST("/mcp/servers/:id/oauth-flows", app.handleStartMCPOAuth)
-
-	// Memories
-	api.GET("/memories", app.handleListMemories)
-	api.POST("/memories", app.handleCreateMemory)
-	api.DELETE("/memories/:id", app.handleDeleteMemory)
-	api.POST("/memories/searches", app.handleSearchMemories)
-
-	// Memory settings & maintenance
-	api.GET("/memories/settings", app.handleGetMemorySettings)
-	api.PUT("/memories/settings", app.handlePutMemorySettings)
-	api.POST("/memories/reembed-preview", app.handlePreviewMemoryReembed)
-	api.GET("/memories/reembed-jobs", app.handleGetMemoryReembedJob)
-	api.POST("/memories/reembed-jobs", app.handleStartMemoryReembed)
-	api.POST("/memories/reembed-jobs/current/cancellation", app.handleCancelMemoryReembed)
-	api.POST("/memories/purge-runs", app.handlePurgeMemory)
-	api.POST("/memories/compaction-runs", app.handleCompactMemory)
-	api.GET("/memories/compaction-preview", app.handleCompactPreview)
-
-	// Storage retention
-	api.POST("/storage/retention/runs", app.handleRunStorageRetention)
-	api.POST("/storage/backup/runs", app.handleRunBackup)
-
-	// Jobs
-	api.GET("/jobs", app.handleListJobs)
-	api.POST("/jobs", app.handleCreateJob)
-	api.GET("/jobs/settings", app.handleGetJobSettings)
-	api.PUT("/jobs/settings", app.handlePutJobSettings)
-	api.GET("/jobs/:id", app.handleGetJob)
-	api.PATCH("/jobs/:id", app.handleUpdateJob)
-	api.DELETE("/jobs/:id", app.handleDeleteJob)
-	api.PUT("/jobs/:id/archive", app.handleArchiveJob)
-	api.DELETE("/jobs/:id/archive", app.handleUnarchiveJob)
-	api.POST("/jobs/:id/retry-runs", app.handleUnblockJob)
-	api.GET("/jobs/:id/events", app.handleListJobEvents)
-	api.PUT("/jobs/:id/lease", app.handleClaimJob)
-	api.DELETE("/jobs/:id/lease", app.handleReleaseJob)
-	api.PUT("/jobs/:id/completion", app.handleCompleteJob)
-	api.PATCH("/jobs/:id/lease", app.handleHeartbeatJob)
-
-	// Scheduled jobs
-	api.GET("/scheduled-jobs", app.handleListScheduledJobs)
-	api.POST("/scheduled-jobs", app.handleCreateScheduledJob)
-	api.GET("/scheduled-jobs/:id", app.handleGetScheduledJob)
-	api.PATCH("/scheduled-jobs/:id", app.handlePatchScheduledJob)
-	api.DELETE("/scheduled-jobs/:id", app.handleDeleteScheduledJob)
-
-	// Inbox
-	api.GET("/inbox/messages", app.handleListInboxMessages)
-	api.GET("/inbox/summary", app.handleGetInboxSummary)
-	api.GET("/usage/summary", app.handleGetUsageSummary)
-	api.GET("/usage/series", app.handleGetUsageSeries)
-	api.GET("/usage/events", app.handleListUsageEvents)
-	api.POST("/inbox/messages/:id/replies", app.handleReplyInboxMessage)
-	api.POST("/inbox/messages/:id/dismissals", app.handleDismissInboxMessage)
-
-	return r, nil
-}
-
-func localCORS() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		origin := c.GetHeader("Origin")
-		if isAllowedLocalOrigin(origin) {
-			c.Header("Access-Control-Allow-Origin", origin)
-			c.Header("Vary", "Origin")
-			c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
-			c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization")
-			c.Header("Access-Control-Max-Age", "600")
-		}
-
-		if c.Request.Method == http.MethodOptions {
-			c.AbortWithStatus(http.StatusNoContent)
-			return
-		}
-
-		c.Next()
-	}
-}
-
-func isAllowedLocalOrigin(origin string) bool {
-	if origin == "" || origin == "null" || origin == "file://" {
-		return true
-	}
-	return strings.HasPrefix(origin, "http://127.0.0.1:") ||
-		strings.HasPrefix(origin, "http://localhost:") ||
-		strings.HasPrefix(origin, "app://")
+	return newEngine(app), nil
 }
 
 type healthResponse struct {
@@ -388,234 +225,6 @@ type statusResponse struct {
 	Status string `json:"status"`
 }
 
-type skillResource struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Path        string `json:"path"`
-	Source      string `json:"source"`
-	Internal    bool   `json:"internal"`
-	IsSymlink   bool   `json:"is_symlink"`
-	CanDelete   bool   `json:"can_delete"`
-	CanExport   bool   `json:"can_export"`
-	CanEdit     bool   `json:"can_edit"`
-}
-
-type skillDetailResponse struct {
-	Skill   skillResource `json:"skill"`
-	Content string        `json:"content"`
-}
-
-type updateSkillRequest struct {
-	Content string `json:"content"`
-}
-
-type listSkillsResponse struct {
-	Skills []skillResource `json:"skills"`
-	Errors []string        `json:"errors,omitempty"`
-}
-
-type syncSkillsResponse struct {
-	Created []string `json:"created"`
-	Skipped []string `json:"skipped"`
-	Errors  []string `json:"errors,omitempty"`
-}
-
-func (a *App) handleHealth(c *gin.Context) {
-	c.JSON(http.StatusOK, healthResponse{Status: "ok"})
-}
-
-func (a *App) handleLookupModelCatalog(c *gin.Context) {
-	var req apigen.ModelCatalogLookupRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		writeError(c, http.StatusBadRequest, "bad_request", "invalid JSON body")
-		return
-	}
-	if strings.TrimSpace(req.Method) == "" && (req.ProviderId == nil || strings.TrimSpace(*req.ProviderId) == "") {
-		writeError(c, http.StatusBadRequest, "bad_request", "method or provider_id is required")
-		return
-	}
-	if len(req.ModelIds) == 0 {
-		c.JSON(http.StatusOK, apigen.ModelCatalogLookupResponse{Models: []apigen.ModelCatalogLookupEntry{}})
-		return
-	}
-	if len(req.ModelIds) > 500 {
-		writeError(c, http.StatusBadRequest, "bad_request", "at most 500 model_ids are allowed")
-		return
-	}
-	providerID := ""
-	if req.ProviderId != nil {
-		providerID = *req.ProviderId
-	}
-	looked := config.LookupModelCatalog(req.Method, providerID, req.ModelIds)
-	items := make([]apigen.ModelCatalogLookupEntry, 0, len(looked))
-	for _, m := range looked {
-		items = append(items, apigen.ModelCatalogLookupEntry{
-			ModelId:                m.ModelID,
-			Context:                m.Context,
-			Output:                 m.Output,
-			LimitSource:            apigen.ModelCatalogLookupEntryLimitSource(m.LimitSource),
-			Vision:                 m.Vision,
-			VisionKnown:            m.VisionKnown,
-			InputModalities:        toModelCatalogLookupInputModalities(m.InputModalities),
-			ReasoningEffortOptions: optionalStringSlice(m.ReasoningEffortOptions),
-		})
-	}
-	c.JSON(http.StatusOK, apigen.ModelCatalogLookupResponse{Models: items})
-}
-
-func (a *App) handleListSkills(c *gin.Context) {
-	reg := a.skillsForRequest(c)
-	items := make([]skillResource, 0, len(reg.Skills))
-	for _, skill := range reg.Skills {
-		items = append(items, skillResourceFromModel(skill))
-	}
-	c.JSON(http.StatusOK, listSkillsResponse{Skills: items, Errors: reg.Errors})
-}
-
-func (a *App) handleSyncSkills(c *gin.Context) {
-	reg := a.skillsForRequest(c)
-	created, skipped, err := reg.SyncMirror(filepath.Join("~", ".cometmind", "skills"))
-	if err != nil {
-		writeError(c, http.StatusInternalServerError, "sync_failed", err.Error())
-		return
-	}
-	c.JSON(http.StatusOK, syncSkillsResponse{Created: created, Skipped: skipped, Errors: reg.Errors})
-}
-
-func (a *App) handleExportSkill(c *gin.Context) {
-	reg := a.skillsForRequest(c)
-	name := strings.TrimSpace(c.Param("name"))
-	skill, ok := reg.Find(name)
-	if !ok {
-		writeError(c, http.StatusNotFound, "skill_not_found", "unknown skill: "+name)
-		return
-	}
-	caps, err := skillpkg.SkillCapabilities(skill)
-	if err != nil {
-		writeError(c, http.StatusInternalServerError, "internal_error", err.Error())
-		return
-	}
-	if !caps.CanExport {
-		writeError(c, http.StatusForbidden, "export_forbidden", "skill cannot be exported")
-		return
-	}
-	data, err := skillpkg.ExportSkill(skill)
-	if err != nil {
-		writeError(c, http.StatusInternalServerError, "export_failed", err.Error())
-		return
-	}
-	c.Header("Content-Type", "application/zip")
-	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%q", name+".zip"))
-	c.Data(http.StatusOK, "application/zip", data)
-}
-
-func (a *App) handleDeleteSkill(c *gin.Context) {
-	reg := a.skillsForRequest(c)
-	name := strings.TrimSpace(c.Param("name"))
-	skill, ok := reg.Find(name)
-	if !ok {
-		writeError(c, http.StatusNotFound, "skill_not_found", "unknown skill: "+name)
-		return
-	}
-	caps, err := skillpkg.SkillCapabilities(skill)
-	if err != nil {
-		writeError(c, http.StatusInternalServerError, "internal_error", err.Error())
-		return
-	}
-	if !caps.CanDelete {
-		writeError(c, http.StatusForbidden, "delete_forbidden", "workspace and bundled skills cannot be deleted")
-		return
-	}
-	if err := skillpkg.DeleteManagedSkill(skill); err != nil {
-		writeError(c, http.StatusInternalServerError, "delete_failed", err.Error())
-		return
-	}
-	c.JSON(http.StatusOK, statusResponse{Status: "deleted"})
-}
-
-func (a *App) handleGetSkill(c *gin.Context) {
-	reg := a.skillsForRequest(c)
-	name := strings.TrimSpace(c.Param("name"))
-	skill, content, err := reg.SkillMarkdown(name)
-	if err != nil {
-		writeDiscoveredSkillError(c, err)
-		return
-	}
-	c.JSON(http.StatusOK, skillDetailResponse{Skill: skillResourceFromModel(skill), Content: content})
-}
-
-func (a *App) handleUpdateSkill(c *gin.Context) {
-	reg := a.skillsForRequest(c)
-	name := strings.TrimSpace(c.Param("name"))
-	skill, ok := reg.Find(name)
-	if !ok {
-		writeError(c, http.StatusNotFound, "skill_not_found", "unknown skill: "+name)
-		return
-	}
-	var req updateSkillRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		writeError(c, http.StatusBadRequest, "bad_request", "invalid JSON body")
-		return
-	}
-	if err := skillpkg.UpdateDiscoveredSkill(skill, req.Content); err != nil {
-		writeDiscoveredSkillError(c, err)
-		return
-	}
-	updated, err := skillpkg.ReadSkill(skill.Path)
-	if err != nil {
-		writeDiscoveredSkillError(c, err)
-		return
-	}
-	_, content, err := reg.SkillMarkdown(name)
-	if err != nil {
-		writeDiscoveredSkillError(c, err)
-		return
-	}
-	c.JSON(http.StatusOK, skillDetailResponse{Skill: skillResourceFromModel(updated), Content: content})
-}
-
-func writeDiscoveredSkillError(c *gin.Context, err error) {
-	if errors.Is(err, skillpkg.ErrSkillNotEditable) {
-		writeError(c, http.StatusForbidden, "edit_forbidden", err.Error())
-		return
-	}
-	msg := err.Error()
-	if strings.Contains(msg, "unknown skill") {
-		writeError(c, http.StatusNotFound, "skill_not_found", msg)
-		return
-	}
-	if strings.Contains(msg, "invalid") || strings.Contains(msg, "must match") || strings.Contains(msg, "required") {
-		writeError(c, http.StatusConflict, "skill_conflict", msg)
-		return
-	}
-	writeError(c, http.StatusInternalServerError, "skill_error", msg)
-}
-
-func (a *App) skillsForRequest(c *gin.Context) skillpkg.Registry {
-	workspacePath := strings.TrimSpace(c.Query("workspace_path"))
-	if workspacePath == "" && strings.TrimSpace(c.Query("workspace_id")) != "" {
-		if path, err := a.sessions.WorkspacePath(c.Request.Context(), strings.TrimSpace(c.Query("workspace_id"))); err == nil {
-			workspacePath = path
-		}
-	}
-	return skillpkg.Discover(workspacePath, a.config.SkillSettings())
-}
-
-func skillResourceFromModel(skill skillpkg.Skill) skillResource {
-	caps, _ := skillpkg.SkillCapabilities(skill)
-	return skillResource{
-		Name:        skill.Name,
-		Description: skill.Description,
-		Path:        skill.Path,
-		Source:      skill.Source,
-		Internal:    skill.Internal,
-		IsSymlink:   caps.IsSymlink,
-		CanDelete:   caps.CanDelete,
-		CanExport:   caps.CanExport,
-		CanEdit:     caps.CanEdit,
-	}
-}
-
 func (a *App) loadSessionWithWorkspace(c *gin.Context, sessionID string) (session.Session, string, bool) {
 	sess, err := a.sessions.GetSession(c.Request.Context(), sessionID)
 	if errors.Is(err, session.ErrSessionNotFound) {
@@ -648,7 +257,7 @@ func sessionResourceFromModel(sess session.Session, workspacePath string) (sessi
 	return sessionResourceFromAPISession(wire), nil
 }
 
-func sessionResourceFromAPISession(w apigen.Session) sessionResource {
+func sessionResourceFromAPISession(w session.WireSession) sessionResource {
 	res := sessionResource{
 		ID:            w.Id,
 		WorkspaceID:   w.WorkspaceId,
@@ -787,6 +396,49 @@ func writeError(c *gin.Context, status int, code, message string) {
 			Message: message,
 		},
 	})
+}
+
+func (a *App) handleHealth(c *gin.Context) {
+	c.JSON(http.StatusOK, healthResponse{Status: "ok"})
+}
+
+func (a *App) handleLookupModelCatalog(c *gin.Context) {
+	var req apigen.ModelCatalogLookupRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		writeError(c, http.StatusBadRequest, "bad_request", "invalid JSON body")
+		return
+	}
+	if strings.TrimSpace(req.Method) == "" && (req.ProviderId == nil || strings.TrimSpace(*req.ProviderId) == "") {
+		writeError(c, http.StatusBadRequest, "bad_request", "method or provider_id is required")
+		return
+	}
+	if len(req.ModelIds) == 0 {
+		c.JSON(http.StatusOK, apigen.ModelCatalogLookupResponse{Models: []apigen.ModelCatalogLookupEntry{}})
+		return
+	}
+	if len(req.ModelIds) > 500 {
+		writeError(c, http.StatusBadRequest, "bad_request", "at most 500 model_ids are allowed")
+		return
+	}
+	providerID := ""
+	if req.ProviderId != nil {
+		providerID = *req.ProviderId
+	}
+	looked := config.LookupModelCatalog(req.Method, providerID, req.ModelIds)
+	items := make([]apigen.ModelCatalogLookupEntry, 0, len(looked))
+	for _, m := range looked {
+		items = append(items, apigen.ModelCatalogLookupEntry{
+			ModelId:                m.ModelID,
+			Context:                m.Context,
+			Output:                 m.Output,
+			LimitSource:            apigen.ModelCatalogLookupEntryLimitSource(m.LimitSource),
+			Vision:                 m.Vision,
+			VisionKnown:            m.VisionKnown,
+			InputModalities:        toModelCatalogLookupInputModalities(m.InputModalities),
+			ReasoningEffortOptions: optionalStringSlice(m.ReasoningEffortOptions),
+		})
+	}
+	c.JSON(http.StatusOK, apigen.ModelCatalogLookupResponse{Models: items})
 }
 
 func toModelCatalogLookupInputModalities(in []string) []apigen.ModelCatalogLookupEntryInputModalities {
