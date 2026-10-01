@@ -102,16 +102,23 @@ describe('activity toasts', () => {
 		vi.useRealTimers();
 	});
 
-	it('skips background run toasts for the active chat and non-user sessions', async () => {
-		mocks.getSession.mockResolvedValue({
-			id: 's2',
-			title: 'Research',
-			origin: 'user'
-		});
-		await notifyBackgroundRunFinished('s1', 's1');
-		await notifyBackgroundRunFinished('s2', 's1');
-		mocks.getSession.mockResolvedValueOnce({ id: 's3', title: 'Job', origin: 'autonomy' });
-		await notifyBackgroundRunFinished('s3', 's1');
+	it('skips background run toasts for the active chat and non-user sessions', () => {
+		notifyBackgroundRunFinished(
+			{ id: 's1', title: 'Current', origin: 'user' },
+			's1'
+		);
+		notifyBackgroundRunFinished(
+			{ id: 's2', title: 'Research', origin: 'user' },
+			's1'
+		);
+		notifyBackgroundRunFinished(
+			{ id: 's3', title: 'Job', origin: 'autonomy' },
+			's1'
+		);
+		notifyBackgroundRunFinished(
+			{ id: 's4', title: 'Child', origin: 'user', parent_session_id: 's1' },
+			's1'
+		);
 
 		expect(mocks.success).toHaveBeenCalledTimes(1);
 		expect(mocks.success).toHaveBeenCalledWith('Chat finished', 'Research', expect.any(Function));

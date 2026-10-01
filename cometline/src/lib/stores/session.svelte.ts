@@ -21,6 +21,7 @@ function createSessionStore() {
 	let current = $state<Session | null>(null);
 	let pendingMessages = $state.raw(new Map<string, Omit<PendingMessage, 'sessionId'>>());
 	const removalListeners = new Set<(sessionId: string) => void>();
+	const finishListeners = new Set<(session: Session) => void>();
 
 	function writeSession(
 		session: Session,
@@ -72,7 +73,11 @@ function createSessionStore() {
 	function setRunning(sessionId: string, running: boolean) {
 		const existing = sessions.find((item) => item.id === sessionId);
 		if (!existing || existing.running === running) return;
-		writeSession({ ...existing, running });
+		const next = { ...existing, running };
+		writeSession(next);
+		if (!running) {
+			for (const listener of finishListeners) listener(next);
+		}
 	}
 
 	function appendSession(session: Session) {
@@ -160,6 +165,10 @@ function createSessionStore() {
 		onSessionRemoved(listener: (sessionId: string) => void) {
 			removalListeners.add(listener);
 			return () => removalListeners.delete(listener);
+		},
+		onSessionFinished(listener: (session: Session) => void) {
+			finishListeners.add(listener);
+			return () => finishListeners.delete(listener);
 		},
 		selectSession,
 		setSessions,
