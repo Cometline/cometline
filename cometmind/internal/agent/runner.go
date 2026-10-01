@@ -2,18 +2,14 @@ package agent
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	cometsdk "github.com/Cometline/cometline/comet-sdk"
-	"github.com/Cometline/cometline/comet-sdk/llm"
 	"github.com/Cometline/cometline/cometmind/internal/config"
 	"github.com/Cometline/cometline/cometmind/internal/event"
 	"github.com/Cometline/cometline/cometmind/internal/logging"
-	"github.com/Cometline/cometline/cometmind/internal/memory"
 	"github.com/Cometline/cometline/cometmind/internal/session"
 	"github.com/Cometline/cometline/cometmind/internal/subagent"
 	"github.com/Cometline/cometline/cometmind/internal/tools"
@@ -62,313 +58,29 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 		r.MaxSteps = 100
 	}
 	r.initTurnState(ctx, s)
-	sess := &s.sess
 	jobTracker := s.jobTracker
-	sessionBudget := s.budget
 	effectiveMaxTokens := s.maxTokens
-	retrievalTimeout := s.retrievalTimeout
 
 	// MaxSteps limits work rounds. If they are exhausted, make one final
 	// tool-free request so the user still receives a best-effort answer.
 	for s.steps <= r.MaxSteps {
-		finalizing := s.steps == r.MaxSteps || s.doomLoopHalt
-		requestTools := r.Registry.CometSDK()
-		if finalizing {
-			requestTools = nil
-		}
-		if s.steps > 0 {
-			s.emitStatus(event.PhaseContinuing)
-		}
-
-		baseSystem := r.buildSystemPrompt(sess.ContextSummary, effectiveMaxTokens)
-		if r.Compactor != nil && sess.ID != "" {
-			tools := requestTools
-			emitBudget := func(compacted bool) {
-				budget, err := r.Compactor.EstimatePromptBudget(
-					ctx, sess.ID, baseSystem, tools, turn.ProviderID, turn.ModelID,
-				)
-				if err != nil {
-					logging.L().Warn("context.budget.estimate_failed", "session", sess.ID, "error", err)
-					return
-				}
-				ch <- event.ContextBudget(budget.Estimated, budget.Available, budget.ContextWindow, compacted)
-			}
-			emitBudget(false)
-			beforeSummary := sess.ContextSummary
-			beforeUntil := sess.CompactedUntilMessageID
-			updated, err := r.Compactor.MaybeCompact(
-				ctx,
-				*sess,
-				baseSystem,
-				tools,
-				r.Provider,
-				turn.ProviderID,
-				turn.ModelID,
-				false,
-				func(ev event.Event) { ch <- ev },
-			)
-			if err == nil {
-				*sess = updated
-				baseSystem = r.buildSystemPrompt(sess.ContextSummary, effectiveMaxTokens)
-				if sess.ContextSummary != beforeSummary || sess.CompactedUntilMessageID != beforeUntil {
-					emitBudget(true)
-				}
-			}
-		}
-
-		msgs, err := r.Sessions.BuildSDKMessages(ctx, turn.ID)
+		p, err := r.prepareStep(ctx, s)
 		if err != nil {
-			ch <- event.Errorf(err.Error(), "history")
 			return err
 		}
-
-		// Normalize replay history and report any lossy degradations once per turn.
-		normalized, degradations := NormalizeHistory(msgs)
-		msgs = normalized
-		recentTools := toolFingerprintsSinceLastUser(normalized)
-		// Continue nudges are in-memory user turns so providers that reject
-		// trailing assistant prefills (Claude 4.6+) still accept the request.
-		msgs = append(msgs, s.nudges.messages(jobTracker.JobID)...)
-		if s.doomLoopHalt {
-			msgs = append(msgs, DoomLoopStopMessages()...)
-		} else if finalizing {
-			msgs = append(msgs, FinalAnswerNudgeMessages()...)
-		}
-		if !s.degradationsReported {
-			for _, d := range degradations {
-				logging.L().Info("history.normalized", "session", turn.ID, "kind", d.Kind, "count", d.Count)
-			}
-			s.degradationsReported = true
-		}
-
-		logging.L().Info("agent.step.start", "session", turn.ID, "step", s.steps+1, "model", turn.ModelID, "messages", len(msgs), "max_tokens", effectiveMaxTokens, "context_window", sessionBudget.Context, "limit_source", sessionBudget.LimitSource)
-
-		system := baseSystem
-		memoryPromptSuffix := ""
-		s.nudges = continueNudges{}
-		if r.Memory != nil && r.Memory.Enabled() && s.steps == 0 {
-			decision := memory.DecideRetrieval(msgs)
-			logging.L().Info("memory.retrieve.policy", "session", turn.ID, "retrieve", decision.Retrieve, "reason", decision.Reason, "score", decision.Score, "text_bytes", decision.TextBytes)
-			if !decision.Retrieve {
-				logging.L().Info("memory.retrieve.skipped", "session", turn.ID, "reason", decision.Reason, "score", decision.Score, "text_bytes", decision.TextBytes)
-			} else {
-				s.emitStatus(event.PhaseRetrievingMemories)
-				query := memory.BuildRetrievalQuery(memory.RetrievalQueryInput{
-					Messages: msgs,
-				})
-				allowance := memoryTokenAllowance(sessionBudget, baseSystem, msgs, r.Registry.CometSDK())
-				retrieveCtx, cancel := context.WithTimeout(ctx, retrievalTimeout)
-				promptMemories, memErr := r.Memory.RetrieveForTurn(retrieveCtx, turn.ID, query, allowance)
-				cancel()
-				if memErr != nil {
-					if errors.Is(memErr, context.DeadlineExceeded) {
-						logging.L().Warn("memory.retrieve.timeout", "session", turn.ID, "budget_ms", retrievalTimeout.Milliseconds())
-					} else {
-						logging.L().Error("memory.retrieve.failed", "session", turn.ID, "error", memErr)
-						ch <- event.Errorf(memErr.Error(), "memory")
-					}
-				}
-				if len(promptMemories.Records) > 0 {
-					logging.L().Info("memory.injected", "session", turn.ID, "preferences", promptMemories.Count(memory.BucketPreference), "task_outcomes", promptMemories.Count(memory.BucketTaskOutcome), "semantic", promptMemories.Count(memory.BucketSemantic), "token_allowance", allowance)
-					memoryPromptSuffix = memory.FormatPromptMemories(promptMemories)
-					system += memoryPromptSuffix
-					if len(promptMemories.Records) > 0 {
-						wire := make([]event.MemoryWire, len(promptMemories.Records))
-						s.pendingMemories = make([]session.InjectedMemory, len(promptMemories.Records))
-						for i, m := range promptMemories.Records {
-							wire[i] = event.MemoryWire{
-								ID:              m.ID,
-								Content:         m.Content,
-								Kind:            m.Kind,
-								Bucket:          event.MemoryBucket(m.Bucket),
-								Similarity:      m.Similarity,
-								EffectiveWeight: m.EffectiveWeight,
-							}
-							s.pendingMemories[i] = session.InjectedMemory{
-								ID:              m.ID,
-								Content:         m.Content,
-								Kind:            m.Kind,
-								Bucket:          session.MemoryBucket(m.Bucket),
-								Similarity:      m.Similarity,
-								EffectiveWeight: m.EffectiveWeight,
-							}
-						}
-						ch <- event.MemoryInjected(wire)
-					}
-				}
-			}
-		}
-
-		s.emitStatus(event.PhaseContactingModel)
-		req := r.buildTurnRequest(ctx, s, system, msgs, requestTools)
-		toolOutputBytes := toolResultBytes(req.Messages)
-		var result *llm.GenerateMessageResult
-		recoveryAttempt := 0
-		overflowRecovered := false
-		var startedToolCalls []cometsdk.ToolCallBlock
-		for {
-			streamStarted := time.Now()
-			logging.L().Info("llm.stream.start", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", s.steps+1, "messages", len(req.Messages), "tools", len(req.Tools), "tool_output_bytes", toolOutputBytes, "recovery_attempt", recoveryAttempt, "overflow_recovered", overflowRecovered, "system_bytes", len(req.System), "max_tokens", req.MaxTokens)
-			stream := llm.StreamMessage(ctx, r.Provider, req)
-			logging.L().Info("llm.stream.opened", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", s.steps+1, "recovery_attempt", recoveryAttempt, "duration_ms", time.Since(streamStarted).Milliseconds())
-			s.emitStatus(event.PhaseComposingResponse)
-
-			firstEventLogged := false
-			firstOutputLogged := false
-			completeToolCall := false
-			eventCount := 0
-			startedToolCalls = nil
-			startedToolIndex := map[string]int{}
-			for ev := range stream.Events() {
-				eventCount++
-				if !firstEventLogged {
-					firstEventLogged = true
-					logging.L().Info("llm.stream.first_event", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", s.steps+1, "recovery_attempt", recoveryAttempt, "event_type", fmt.Sprintf("%T", ev), "duration_ms", time.Since(streamStarted).Milliseconds())
-				}
-				switch e := ev.(type) {
-				case cometsdk.TextDeltaEvent:
-					firstOutputLogged = true
-					ch <- event.TextDelta(e.Text)
-				case cometsdk.ReasoningStartEvent:
-					ch <- event.ReasoningStart()
-				case cometsdk.ReasoningContentEvent:
-					firstOutputLogged = true
-					ch <- event.ReasoningDelta(e.Text)
-				case cometsdk.ToolCallStartEvent:
-					if finalizing {
-						logging.L().Warn("agent.final_answer.unexpected_tool_call", "session", turn.ID, "tool_call_id", e.ID, "tool", e.Name)
-						continue
-					}
-					firstOutputLogged = true
-					if _, ok := startedToolIndex[e.ID]; !ok {
-						startedToolIndex[e.ID] = len(startedToolCalls)
-						startedToolCalls = append(startedToolCalls, cometsdk.ToolCallBlock{
-							ID:    e.ID,
-							Name:  e.Name,
-							Input: json.RawMessage(`{}`),
-						})
-					} else {
-						startedToolCalls[startedToolIndex[e.ID]].Name = e.Name
-					}
-					ch <- event.ToolCall(e.ID, e.Name, nil)
-				case cometsdk.ToolCallDoneEvent:
-					if finalizing {
-						logging.L().Warn("agent.final_answer.unexpected_tool_call", "session", turn.ID, "tool_call_id", e.ID, "tool", e.Name)
-						continue
-					}
-					firstOutputLogged = true
-					completeToolCall = true
-					if idx, ok := startedToolIndex[e.ID]; ok {
-						startedToolCalls[idx].Name = e.Name
-						startedToolCalls[idx].Input = json.RawMessage(e.Input)
-					} else {
-						startedToolIndex[e.ID] = len(startedToolCalls)
-						startedToolCalls = append(startedToolCalls, cometsdk.ToolCallBlock{
-							ID:    e.ID,
-							Name:  e.Name,
-							Input: json.RawMessage(e.Input),
-						})
-					}
-					ch <- event.ToolCall(e.ID, e.Name, []byte(e.Input))
-				case cometsdk.StepFinishEvent:
-					ch <- event.StepFinish(e.Usage)
-				}
-			}
-			result, err = stream.Result()
-			failureCategory := classifyStreamFailure(err)
-			logging.L().Info("llm.stream.events_closed", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", s.steps+1, "events", eventCount, "first_event", firstEventLogged, "first_output", firstOutputLogged, "complete_tool_call", completeToolCall, "failure_category", failureCategory, "recovery_attempt", recoveryAttempt, "duration_ms", time.Since(streamStarted).Milliseconds())
-			if err == nil {
-				break
-			}
-			// A cancelled runner context is the explicit /stop path (or a client
-			// disconnect). It is normal control flow, not a provider failure:
-			// retain any visible partial output, close with done, and do not add an
-			// error transcript row or SSE error card.
-			if errors.Is(err, context.Canceled) && errors.Is(ctx.Err(), context.Canceled) {
-				persistPartialStep(ctx, r.Sessions, turn.ID, turn.ProviderID, turn.ModelID, result, s.pendingMemories)
-				logging.L().Info("agent.step.stopped", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", s.steps+1, "duration_ms", time.Since(streamStarted).Milliseconds())
-				return nil
-			}
-			if !overflowRecovered && isContextOverflowError(err) && !completeToolCall && r.Compactor != nil && sess.ID != "" {
-				overflowRecovered = true
-				logging.L().Warn("agent.step.overflow_recover", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", s.steps+1, "error", err)
-				tools := requestTools
-				beforeSummary := sess.ContextSummary
-				beforeUntil := sess.CompactedUntilMessageID
-				updated, compactErr := r.Compactor.MaybeCompact(
-					ctx,
-					*sess,
-					baseSystem,
-					tools,
-					r.Provider,
-					turn.ProviderID,
-					turn.ModelID,
-					true,
-					func(ev event.Event) { ch <- ev },
-				)
-				if compactErr == nil {
-					*sess = updated
-					baseSystem = r.buildSystemPrompt(sess.ContextSummary, effectiveMaxTokens)
-					system = baseSystem + memoryPromptSuffix
-					rebuildMsgs, rebuildErr := r.Sessions.BuildSDKMessages(ctx, turn.ID)
-					if rebuildErr == nil {
-						rebuildMsgs, _ = NormalizeHistory(rebuildMsgs)
-						rebuildMsgs = append(rebuildMsgs, s.nudges.messages(jobTracker.JobID)...)
-						if finalizing {
-							rebuildMsgs = append(rebuildMsgs, FinalAnswerNudgeMessages()...)
-						}
-						msgs = rebuildMsgs
-						req = r.buildTurnRequest(ctx, s, system, msgs, requestTools)
-						toolOutputBytes = toolResultBytes(req.Messages)
-						if sess.ContextSummary != beforeSummary || sess.CompactedUntilMessageID != beforeUntil {
-							budget, budgetErr := r.Compactor.EstimatePromptBudget(
-								ctx, sess.ID, baseSystem, tools, turn.ProviderID, turn.ModelID,
-							)
-							if budgetErr == nil {
-								ch <- event.ContextBudget(budget.Estimated, budget.Available, budget.ContextWindow, true)
-							}
-						}
-						continue
-					}
-					logging.L().Warn("agent.step.overflow_rebuild_failed", "session", turn.ID, "error", rebuildErr)
-				} else {
-					logging.L().Warn("agent.step.overflow_compact_failed", "session", turn.ID, "error", compactErr)
-				}
-			}
-			if ctx.Err() == nil && recoveryAttempt < maxStreamRecoveryAttempts && recoverableStreamFailure(err) && !completeToolCall {
-				textChars, reasoningChars := partialRenderLengths(result)
-				recoveryAttempt++
-				delay := recoveryDelay(r.StreamRecoveryBackoff, recoveryAttempt)
-				if ra := retryAfterDelay(err); ra > delay {
-					delay = ra
-				}
-				logging.L().Warn("agent.step.recover", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", s.steps+1, "failure_category", failureCategory, "recovery_attempt", recoveryAttempt, "delay_ms", delay.Milliseconds(), "text_chars", textChars, "reasoning_chars", reasoningChars)
-				ch <- event.TurnRecover(textChars, reasoningChars)
-				if waitErr := waitForRecovery(ctx, delay); waitErr != nil {
-					persistPartialStep(ctx, r.Sessions, turn.ID, turn.ProviderID, turn.ModelID, result, s.pendingMemories)
-					if errors.Is(waitErr, context.Canceled) && errors.Is(ctx.Err(), context.Canceled) {
-						logging.L().Info("agent.step.stopped", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", s.steps+1, "duration_ms", time.Since(streamStarted).Milliseconds())
-						return nil
-					}
-					logging.L().Error("agent.step.failed", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", s.steps+1, "events", eventCount, "first_event", firstEventLogged, "first_output", firstOutputLogged, "complete_tool_call", completeToolCall, "failure_category", failureCategory, "recovery_attempt", recoveryAttempt, "duration_ms", time.Since(streamStarted).Milliseconds(), "error", waitErr)
-					ch <- event.Errorf(userFacingAgentError(waitErr), "llm")
-					return waitErr
-				}
-				continue
-			}
-			persistPartialStep(ctx, r.Sessions, turn.ID, turn.ProviderID, turn.ModelID, result, s.pendingMemories)
-			logging.L().Error("agent.step.failed", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", s.steps+1, "events", eventCount, "first_event", firstEventLogged, "first_output", firstOutputLogged, "complete_tool_call", completeToolCall, "failure_category", failureCategory, "recovery_attempt", recoveryAttempt, "duration_ms", time.Since(streamStarted).Milliseconds(), "error", err)
-			ch <- event.Errorf(userFacingAgentError(err), "llm")
+		finalizing := p.finalizing
+		recentTools := p.recentTools
+		result, startedToolCalls, done, err := r.streamStep(ctx, s, p)
+		if done {
 			return err
 		}
-		logging.L().Info("agent.step.finish", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", s.steps+1, "finish_reason", string(result.FinishReason), "tool_calls", len(result.ToolCalls), "input_tokens", result.Usage.InputTokens, "output_tokens", result.Usage.OutputTokens, "recovery_attempt", recoveryAttempt)
 
 		if err := r.Sessions.SaveTokenUsage(ctx, turn.ID, result.Usage, turn.ProviderID, turn.ModelID); err != nil {
 			ch <- event.Errorf(err.Error(), "db")
 			return err
 		}
 
-		// Whitespace-only content (common from some mini models on tool s.steps)
+		// Whitespace-only content (common from some mini models on tool steps)
 		// is treated as empty so we do not persist invisible assistant bubbles.
 		text := strings.TrimSpace(assistantPlainText(result.Message))
 		reasoningBlocks := result.Message.ReasoningContent
