@@ -58,8 +58,8 @@ go build ./...        # Verify compilation
 # Run a specific test
 go test -run TestPostMessageStreamsSSEAndPersistsUserTurn ./server
 
-# Generate SQL code after schema changes
-sqlc generate         # Requires sqlc installed
+# Regenerate SQL code after schema or query changes (pinned sqlc, no install needed)
+go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1 generate
 ```
 
 ### Cometline (Desktop shell)
@@ -100,8 +100,10 @@ cd cometmind && go generate ./internal/apigen
 
 After changing schema or queries:
 ```bash
-cd cometmind && sqlc generate
+cd cometmind && go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1 generate
 ```
+
+The version must match the `sqlc vX.Y.Z` header in the generated files. sqlc is not a `tool` directive in `go.mod` because its dependency tree would raise the module's Go version and bump runtime dependencies.
 
 **Migration note:** CometMind embeds `schema.sql` and tracks migrations with `schemaVersion` + `alterStatements` in `internal/db/migrate.go`. Read the constant there for the current version; schema changes for existing users need an incremental migration, not just a schema edit.
 
@@ -120,8 +122,7 @@ Recent example: `memory_compaction_completed` was added this way to report manua
 
 ### CometMind
 
-- **Settings:** `~/.cometmind/cometline-settings.json` (runtime; agent tools + CometMind). Desktop UI state: `~/.cometmind/cometline-desktop.json` (Electron only).
-- **Settings file:** `~/.cometmind/cometline-settings.json` only. A missing file is created from defaults.
+- **Settings:** `~/.cometmind/cometline-settings.json` (runtime; agent tools + CometMind) is the only settings file CometMind reads; a missing file is created from defaults. Desktop UI state: `~/.cometmind/cometline-desktop.json` (Electron only).
 - **Database:** `~/.cometmind/cometmind.db` (SQLite, pure Go via `modernc.org/sqlite`)
 - **Media:** `~/.cometmind/media/{storage_session_id}/` — gallery files stay after session or workspace delete, then follow the configurable detached-media retention period; users can also remove them on the Gallery page
 - **API:** `http://127.0.0.1:7700` (localhost only)
@@ -196,10 +197,11 @@ The `delegate_coding_task` tool spawns an external coding harness (OpenCode, Cla
 
 Configure this under Settings → CometMind → Coding task delegation, persisted in `~/.cometmind/cometline-settings.json`:
 
-```toml
-[acp]
-default_harness = "opencode" # opencode, claude, or codex
+```json
+{ "cometmind": { "acp": { "enabled": true, "defaultHarness": "opencode" } } }
 ```
+
+`defaultHarness` is one of `opencode`, `claude`, or `codex`.
 
 ### MCP client support
 
@@ -226,14 +228,21 @@ CometMind connects to external MCP servers and exposes their tools to the **main
 
 Run CometMind as a Discord bot with the same agent runtime.
 
-**Config:** Settings → CometMind → Discord, persisted in `~/.cometmind/cometline-settings.json`.
-```toml
-[gateway.discord]
-enabled = true
-bot_token_env = "DISCORD_BOT_TOKEN"
-workspace_path = "/path/to/project"
-allowed_users = ["user_id"]
-require_mention = true
+**Config:** Settings → CometMind → Discord, persisted under `cometmind.gateway.discord` in `~/.cometmind/cometline-settings.json`:
+```json
+{
+  "cometmind": {
+    "gateway": {
+      "discord": {
+        "enabled": true,
+        "botTokenEnv": "DISCORD_BOT_TOKEN",
+        "workspacePath": "/path/to/project",
+        "allowedUsers": ["user_id"],
+        "requireMention": true
+      }
+    }
+  }
+}
 ```
 
 **Start:** `cometmind gateway run --platform discord`
@@ -273,8 +282,8 @@ SDK stream tests use checked-in SSE fixtures under each provider's `fixtures/` d
 
 ### Before starting work
 
-1. Read `ARCHITECTURE.md` for system overview
-2. Read `ARCHITECTURE_GUIDE.md` for detailed contributor map
+1. Read [CONTRIBUTING.md](./CONTRIBUTING.md) for setup, the PR checklist, and generated-code rules
+2. Read [ARCHITECTURE_GUIDE.md](./ARCHITECTURE_GUIDE.md) for the system overview and contributor map
 3. Understand which module owns the feature you're changing
 
 ### Making changes
@@ -370,8 +379,9 @@ Cometline can improve itself using the same agent runtime:
 ## Further Reading
 
 - [README.md](./README.md) — project overview and quick start
-- [ARCHITECTURE.md](./ARCHITECTURE.md) — system design and module breakdown
-- [ARCHITECTURE_GUIDE.md](./ARCHITECTURE_GUIDE.md) — detailed contributor map with source references
+- [CONTRIBUTING.md](./CONTRIBUTING.md) — setup, workflow, and PR checklist
+- [docs/learning/](./docs/learning/00-README.md) — guided onboarding series
+- [ARCHITECTURE_GUIDE.md](./ARCHITECTURE_GUIDE.md) — system overview and contributor map with source references
 - [cometmind/openapi.yaml](./cometmind/openapi.yaml) — API contract source of truth
 - [cometline/SOUL.md](./cometline/SOUL.md) — default system prompt
 
