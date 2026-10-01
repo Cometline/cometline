@@ -193,9 +193,16 @@ func TestWorkerRunWakesWhenEnabled(t *testing.T) {
 	}
 	provider := newBlockingProvider()
 	w := newWorker(t, fx, provider, config.AutonomousJobsConfig{Enabled: false})
+	// Unbuffered: a send completes only once the worker is waiting on an
+	// enabled poll cycle, never while it idles disabled.
+	ticks := make(chan time.Time)
+	w.pollTimer = func(time.Duration) (<-chan time.Time, func()) { return ticks, func() {} }
 
-	go w.Run(ctx)
-	time.Sleep(20 * time.Millisecond)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		w.Run(ctx)
+	}()
 	w.UpdateConfig(config.AutonomousJobsConfig{
 		Enabled:             true,
 		MaxConcurrent:       1,
@@ -204,11 +211,18 @@ func TestWorkerRunWakesWhenEnabled(t *testing.T) {
 	}, "test-model", "test-provider")
 
 	select {
+	case ticks <- time.Now():
+	case <-time.After(10 * time.Second):
+		t.Fatal("worker did not start an enabled poll cycle")
+	}
+	select {
 	case <-provider.started:
-	case <-time.After(1500 * time.Millisecond):
-		t.Fatal("worker did not wake after being enabled")
+	case <-time.After(10 * time.Second):
+		t.Fatal("worker did not run the ready job after its poll tick")
 	}
 	close(provider.release)
+	cancel()
+	<-done
 }
 
 func TestWorkerRunJobReleasesWhenAgentDoesNotCompleteJob(t *testing.T) {
