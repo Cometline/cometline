@@ -9,7 +9,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/cometline/cometmind/internal/process"
+	"github.com/Cometline/cometline/cometmind/internal/process"
 )
 
 // CLIProcessStarter starts a non-interactive coding harness and returns its

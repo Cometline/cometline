@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/cometline/cometmind/internal/db"
+	"github.com/Cometline/cometline/cometmind/internal/db"
 	"github.com/oklog/ulid/v2"
 )
 

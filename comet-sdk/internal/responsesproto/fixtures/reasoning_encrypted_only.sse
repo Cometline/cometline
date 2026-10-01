@@ -1,0 +1,9 @@
+event: response.output_item.done
+data: {"type":"response.output_item.done","item":{"type":"reasoning","id":"rs_01","summary":[],"encrypted_content":"opaque-state-02"}}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","delta":"Hi"}
+
+event: response.completed
+data: {"type":"response.completed","response":{"usage":{"input_tokens":3,"output_tokens":1}}}
+

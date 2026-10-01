@@ -1,4 +1,11 @@
 import type { ShortcutAction } from '$lib/keyboard-shortcuts';
+import type {
+	CustomPersona,
+	FetchProviderModelsResult,
+	ProviderConfig,
+	ProviderSettings,
+	TerminalSnapshot
+} from '$lib/types';
 
 export interface ElectronAPI {
 	restartCometMind(): void;
@@ -14,9 +21,7 @@ export interface ElectronAPI {
 	startCodexLogin(): Promise<{ started: boolean; message: string }>;
 	getXaiAuthStatus(): Promise<{ authenticated: boolean; authPath: string; error?: string }>;
 	startXaiLogin(): Promise<{ started: boolean; message: string }>;
-	readCursorMcpConfig(): Promise<
-		{ ok: true; path: string; config: unknown } | { ok: false; error: string }
-	>;
+	readCursorMcpConfig(): Promise<CursorMcpConfigResult>;
 	getDiscordGatewayStatus(): Promise<{ running: boolean; enabled: boolean }>;
 	setDiscordGatewayEnabled(enabled: boolean): Promise<{ running: boolean; enabled: boolean }>;
 	getOpenAtLogin(): Promise<OpenAtLoginState>;
@@ -29,26 +34,10 @@ export interface ElectronAPI {
 	replayIntroInMainWindow(): Promise<boolean>;
 	runSetupWizardInMainWindow(): Promise<boolean>;
 	fetchProviderModels(config: ProviderConfig): Promise<FetchProviderModelsResult | string[]>;
-	checkOllamaHealth(baseURL?: string): Promise<{
-		ok: boolean;
-		state: 'healthy' | 'missing' | 'unreachable';
-		baseURL: string;
-		version?: string;
-		error?: string;
-	}>;
+	checkOllamaHealth(baseURL?: string): Promise<OllamaHealthResult>;
 	listOllamaModels(baseURL?: string): Promise<{
 		baseURL: string;
 		models: Array<{ name: string; size?: number; digest?: string; modifiedAt?: string }>;
-	}>;
-	getOllamaDiagnostics(baseURL?: string): Promise<{
-		ok: boolean;
-		state: string;
-		baseURL: string;
-		version?: string;
-		error?: string;
-		models: Array<{ name: string; size?: number }>;
-		pullActive: boolean;
-		pullModel: string | null;
 	}>;
 	pullOllamaModel(payload: {
 		baseURL?: string;
@@ -78,10 +67,6 @@ export interface ElectronAPI {
 	removeRecentWorkspacePath(workspacePath: string): Promise<{ removed: boolean }>;
 	filterExistingWorkspacePaths(paths: string[]): Promise<string[]>;
 	pruneWorkspaceStore(): Promise<{ removedRecent: number; clearedCurrent: boolean }>;
-	readWorkspaceFile(
-		workspacePath: string,
-		relativePath: string
-	): Promise<ReadWorkspaceFileResult>;
 	createPdfPreview(request: PdfPreviewRequest): Promise<PdfPreviewResult>;
 	revokePdfPreview(token: string): Promise<void>;
 	listTerminals(): Promise<TerminalSnapshot[]>;
@@ -106,8 +91,6 @@ export interface ElectronAPI {
 	onCloseInbox(callback: () => void): () => void;
 	onRequestCloseWindow(callback: () => void): () => void;
 	onRequestReload(callback: () => void): () => void;
-	onToggleWorkspacePanel(callback: () => void): () => void;
-	onOpenWebSearch(callback: () => void): () => void;
 	onNavigateSession(callback: (direction: 'prev' | 'next') => void): () => void;
 	onShortcutAction(callback: (action: ShortcutAction) => void): () => void;
 	onProviderSettingsChanged(callback: (settings: ProviderSettings) => void): () => void;
@@ -136,6 +119,18 @@ export interface ElectronAPI {
 }
 
 export type CopyMediaFileResult = { ok: true } | { ok: false; error: string };
+
+export type CursorMcpConfigResult =
+	| { ok: true; path: string; config: unknown }
+	| { ok: false; error: string };
+
+export interface OllamaHealthResult {
+	ok: boolean;
+	state: 'healthy' | 'missing' | 'unreachable';
+	baseURL: string;
+	version?: string;
+	error?: string;
+}
 
 export interface OllamaPullProgress {
 	model: string;
@@ -175,3 +170,89 @@ export interface ComposerHistoryEntry {
 export type ComposerHistoryResult =
 	| { ok: true; entries: ComposerHistoryEntry[] }
 	| { ok: false; error: string; entries: ComposerHistoryEntry[] };
+
+export interface MiniWindowState {
+	sessionId: string;
+	lastActiveAt: number;
+	inactivityTimeoutMinutes: number;
+}
+
+export interface OpenAtLoginState {
+	openAtLogin: boolean;
+	status?: string;
+	needsApproval?: boolean;
+	openedSettings?: boolean;
+	isDev?: boolean;
+	message?: string;
+}
+
+export type ScreenCaptureAccessStatus =
+	| 'granted'
+	| 'denied'
+	| 'not-determined'
+	| 'restricted'
+	| 'unknown'
+	| 'unsupported';
+
+export interface ScreenCaptureAccessState {
+	preferred: boolean;
+	status: ScreenCaptureAccessStatus;
+	openedSettings?: boolean;
+	message?: string;
+}
+
+export type SettingsFileResult =
+	| { canceled: true }
+	| { canceled: false; path: string; settings?: ProviderSettings };
+
+export interface SidebarChromeState {
+	open: boolean;
+	duration: number;
+}
+
+export type UpdateStatus = 'idle' | 'checking' | 'downloading' | 'ready' | 'error';
+
+export interface UpdateState {
+	status: UpdateStatus;
+	version?: string;
+	percent?: number;
+	message?: string;
+	updatedAt?: number;
+}
+
+/**
+ * Real outcome of applying a settings save to the running CometMind sidecar.
+ * `action` distinguishes a confirmed in-place reload from a fallback/cold
+ * restart so the UI can report what actually happened instead of assuming
+ * every save silently succeeded.
+ */
+export interface RuntimeReloadOutcome {
+	action: 'reload' | 'restart' | 'restart-fallback' | 'gateway';
+	healthy: boolean;
+	/** Present when action is 'restart-fallback': why the in-place reload failed. */
+	error?: string;
+}
+
+export interface SaveProviderSettingsResult {
+	settings: ProviderSettings;
+	/** null when the save did not request any runtime action (e.g. shortcuts). */
+	reload: RuntimeReloadOutcome | null;
+}
+
+export type PdfPreviewRequest =
+	| { scope: 'workspace'; workspacePath: string; relativePath: string }
+	| { scope: 'wiki'; relativePath: string };
+
+export type PdfPreviewResult =
+	| { ok: true; token: string; url: string }
+	| { ok: false; error: string };
+
+export type ReadPersonaSoulResult = { ok: true; content: string } | { ok: false; error: string };
+
+export type ReadPersonaAvatarResult = { ok: true; dataUrl: string } | { ok: false; error: string };
+
+export type SaveCustomPersonaResult =
+	| { ok: true; persona: CustomPersona }
+	| { ok: false; error: string };
+
+export type DeleteCustomPersonaResult = { ok: true } | { ok: false; error: string };

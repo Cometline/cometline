@@ -135,7 +135,7 @@ import { createSSEParser } from '$lib/sse/parser';
 import {
 	buildJobExecutionPrompt as buildJobExecutionPromptImpl,
 	type JobExecutionPromptInput
-} from '$lib/jobs/build-job-execution-prompt';
+} from '$lib/features/jobs/build-job-execution-prompt';
 
 export type {
 	CompactMemoryPreviewResponse,
@@ -372,7 +372,12 @@ export function listWorkspaceFileChildren(
 
 export type GitScope = 'working' | 'staged' | 'all';
 
-export type { WorkspaceGitStatus, WorkspaceGitDiff, WorkspaceGitMutationResult, WorkspaceGitCommitResult };
+export type {
+	WorkspaceGitStatus,
+	WorkspaceGitDiff,
+	WorkspaceGitMutationResult,
+	WorkspaceGitCommitResult
+};
 
 export function getWorkspaceGitStatus(
 	workspacePath: string,
@@ -1212,11 +1217,13 @@ export function dismissInboxMessage(id: string): Promise<InboxMessageResource> {
 	return dismissInboxMessageApi({ path: { id }, throwOnError: true }).then(({ data }) => data);
 }
 
-export function listMedia(query: {
-	workspace_id?: string;
-	session_id?: string;
-	kind?: 'image' | 'video';
-} = {}): Promise<MediaListResponse> {
+export function listMedia(
+	query: {
+		workspace_id?: string;
+		session_id?: string;
+		kind?: 'image' | 'video';
+	} = {}
+): Promise<MediaListResponse> {
 	return listMediaApi({ query, throwOnError: true }).then(({ data }) => data);
 }
 
@@ -1232,30 +1239,36 @@ export function deleteMedia(id: string): Promise<MediaResource> {
 	return deleteMediaApi({ path: { id }, throwOnError: true }).then(({ data }) => data);
 }
 
-export function getUsageSummary(query: {
-	from?: number;
-	to?: number;
-	workspace_id?: string;
-} = {}): Promise<UsageSummaryResponse> {
+export function getUsageSummary(
+	query: {
+		from?: number;
+		to?: number;
+		workspace_id?: string;
+	} = {}
+): Promise<UsageSummaryResponse> {
 	return getUsageSummaryApi({ query, throwOnError: true }).then(({ data }) => data);
 }
 
-export function getUsageSeries(query: {
-	from?: number;
-	to?: number;
-	workspace_id?: string;
-	group_by?: 'model' | 'kind';
-	tz_offset_min?: number;
-} = {}): Promise<UsageSeriesResponse> {
+export function getUsageSeries(
+	query: {
+		from?: number;
+		to?: number;
+		workspace_id?: string;
+		group_by?: 'model' | 'kind';
+		tz_offset_min?: number;
+	} = {}
+): Promise<UsageSeriesResponse> {
 	return getUsageSeriesApi({ query, throwOnError: true }).then(({ data }) => data);
 }
 
-export function listUsageEvents(query: {
-	from?: number;
-	to?: number;
-	workspace_id?: string;
-	limit?: number;
-	offset?: number;
-} = {}): Promise<UsageEventsResponse> {
+export function listUsageEvents(
+	query: {
+		from?: number;
+		to?: number;
+		workspace_id?: string;
+		limit?: number;
+		offset?: number;
+	} = {}
+): Promise<UsageEventsResponse> {
 	return listUsageEventsApi({ query, throwOnError: true }).then(({ data }) => data);
 }

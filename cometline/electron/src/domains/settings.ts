@@ -3,8 +3,13 @@ import {
 	normalizeSettings,
 	parseAndNormalizeSettings,
 	validateSettings
-} from '../../../src/lib/settings/schema.js';
+} from '../../../src/lib/features/settings/schema.js';
 import type { ProviderSettings } from '../../../src/lib/types.js';
+import type {
+	ComposerHistoryEntry,
+	ComposerHistoryResult,
+	MiniWindowState
+} from '../shared/api.js';
 import {
 	applyProviderEnvironmentOverrides,
 	listRecentWorkspacePathValues,
@@ -17,7 +22,6 @@ import {
 	splitSettingsDocument,
 	withMiniWindowState,
 	writeJsonFileAtomic,
-	type MiniWindowState,
 	type WorkspaceStore
 } from './settings-domain.js';
 
@@ -46,13 +50,6 @@ interface WorkspaceDialogOptions {
 	title: string;
 }
 
-export interface ComposerHistoryEntry {
-	display: string;
-	timestamp: number;
-	workspacePath: string;
-	sessionId: string;
-}
-
 export interface SettingsDomainDependencies {
 	fs: SettingsFileSystem;
 	path: PathService;
@@ -61,7 +58,10 @@ export interface SettingsDomainDependencies {
 	processId: number;
 	now: () => number;
 	readSavedPersonaId: (saved: unknown) => string;
-	resolveNextPersonaId: (settings: Partial<ProviderSettings>, current: ProviderSettings) => string;
+	resolveNextPersonaId: (
+		settings: Partial<ProviderSettings>,
+		current: ProviderSettings
+	) => string;
 	resolveSystemPromptPath: (personaId: string, settings?: unknown) => string;
 	getFocusedWindow: () => unknown;
 	showOpenDialog: (
@@ -111,7 +111,9 @@ export function createSettingsDomain(dependencies: SettingsDomainDependencies) {
 
 	function readWorkspaceStore(): WorkspaceStore {
 		try {
-			const parsed = JSON.parse(fs.readFileSync(workspaceStoragePath(), 'utf8')) as JsonRecord;
+			const parsed = JSON.parse(
+				fs.readFileSync(workspaceStoragePath(), 'utf8')
+			) as JsonRecord;
 			return {
 				workspacePath: String(parsed?.workspacePath || '').trim(),
 				recentPaths: Array.isArray(parsed?.recentPaths)
@@ -148,7 +150,11 @@ export function createSettingsDomain(dependencies: SettingsDomainDependencies) {
 
 	function listRecentWorkspacePaths() {
 		pruneWorkspaceStore();
-		return listRecentWorkspacePathValues(readWorkspaceStore(), workspacePathExists, path.resolve);
+		return listRecentWorkspacePathValues(
+			readWorkspaceStore(),
+			workspacePathExists,
+			path.resolve
+		);
 	}
 
 	function removeRecentWorkspacePath(workspacePath: string) {
@@ -236,8 +242,12 @@ export function createSettingsDomain(dependencies: SettingsDomainDependencies) {
 		const providers = Array.isArray(settings.providers)
 			? normalizeProviders(settings.providers)
 			: current.providers;
-		const preferredProvider = String(settings.defaultProviderId ?? current.defaultProviderId ?? '').trim();
-		const preferredModel = String(settings.defaultModelId ?? current.defaultModelId ?? '').trim();
+		const preferredProvider = String(
+			settings.defaultProviderId ?? current.defaultProviderId ?? ''
+		).trim();
+		const preferredModel = String(
+			settings.defaultModelId ?? current.defaultModelId ?? ''
+		).trim();
 		const { defaultProviderId, defaultModelId } = selectDefaultProviderAndModel(
 			providers,
 			current,
@@ -266,7 +276,13 @@ export function createSettingsDomain(dependencies: SettingsDomainDependencies) {
 		);
 		const split = splitSettingsDocument(next as unknown as JsonRecord);
 		writeJsonFileAtomic(fs, settingsPath(), split.settings, 0o600, dependencies.processId);
-		writeJsonFileAtomic(fs, desktopSettingsPath(), split.desktop, 0o600, dependencies.processId);
+		writeJsonFileAtomic(
+			fs,
+			desktopSettingsPath(),
+			split.desktop,
+			0o600,
+			dependencies.processId
+		);
 		return next;
 	}
 
@@ -364,7 +380,9 @@ export function createSettingsDomain(dependencies: SettingsDomainDependencies) {
 	}
 
 	function writeComposerHistoryEntries(entries: ComposerHistoryEntry[]) {
-		const body = entries.length ? `${entries.map(serializeComposerHistoryEntry).join('\n')}\n` : '';
+		const body = entries.length
+			? `${entries.map(serializeComposerHistoryEntry).join('\n')}\n`
+			: '';
 		const filePath = composerHistoryPath();
 		const tempPath = `${filePath}.${dependencies.processId}.tmp`;
 		fs.writeFileSync(tempPath, body, { mode: 0o600 });
@@ -376,9 +394,14 @@ export function createSettingsDomain(dependencies: SettingsDomainDependencies) {
 		fs.renameSync(tempPath, filePath);
 	}
 
-	function appendComposerHistoryEntry(rawEntry: unknown) {
+	function appendComposerHistoryEntry(rawEntry: unknown): ComposerHistoryResult {
 		const entry = parseComposerHistoryEntry(rawEntry);
-		if (!entry) return { ok: false, error: 'Invalid history entry', entries: loadComposerHistoryEntries() };
+		if (!entry)
+			return {
+				ok: false,
+				error: 'Invalid history entry',
+				entries: loadComposerHistoryEntries()
+			};
 		let entries = loadComposerHistoryEntries();
 		entries.push(entry);
 		if (entries.length > COMPOSER_HISTORY_MAX_ENTRIES) {
@@ -386,7 +409,9 @@ export function createSettingsDomain(dependencies: SettingsDomainDependencies) {
 			writeComposerHistoryEntries(entries);
 		} else {
 			const filePath = composerHistoryPath();
-			fs.appendFileSync(filePath, `${serializeComposerHistoryEntry(entry)}\n`, { mode: 0o600 });
+			fs.appendFileSync(filePath, `${serializeComposerHistoryEntry(entry)}\n`, {
+				mode: 0o600
+			});
 			try {
 				fs.chmodSync(filePath, 0o600);
 			} catch {

@@ -5,8 +5,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	cometsdk "github.com/cometline/comet-sdk"
-	"github.com/cometline/cometmind/internal/session"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
+	"github.com/Cometline/cometline/cometmind/internal/session"
 )
 
 const (
@@ -53,8 +53,7 @@ func EstimateMessageTokens(msg cometsdk.Message) int {
 		}
 	}
 	for _, block := range msg.ReasoningContent {
-		switch b := block.(type) {
-		case cometsdk.ReasoningBlock:
+		if b, ok := block.(cometsdk.ReasoningBlock); ok {
 			total += EstimateTokens(b.Text)
 		}
 	}

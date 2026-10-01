@@ -1,13 +1,13 @@
 import type { ChatItem, MediaAttachment, StreamEvent, SubagentProgressEntry } from '$lib/types';
 import type { ContextBudgetSnapshot } from '$lib/context-window';
-import { isSubagentStepLimit } from '../conversation/subagent-display';
-import { turnStatusLabel } from '../conversation/turn-status';
+import { isSubagentStepLimit } from '../features/chat/subagent-display';
+import { turnStatusLabel } from '../features/chat/turn-status';
 import {
 	cloneReasoning as cloneReasoningSegments,
 	getReasoningSegments,
 	hasReasoning,
 	type ReasoningSegment
-} from '../conversation/reasoning';
+} from '../features/chat/reasoning';
 
 export interface ChatState {
 	items: ChatItem[];
@@ -376,7 +376,11 @@ function applyEvent(
 	if (event.type === 'text_delta') {
 		const host = ensureAssistantForText();
 		const separator =
-			draft.needsTextSeparator && host.text && event.delta && !/\s$/.test(host.text) && !/^\s/.test(event.delta)
+			draft.needsTextSeparator &&
+			host.text &&
+			event.delta &&
+			!/\s$/.test(host.text) &&
+			!/^\s/.test(event.delta)
 				? '\n\n'
 				: '';
 		draft.needsTextSeparator = false;
@@ -402,8 +406,7 @@ function applyEvent(
 			};
 			if ('data_url' in event && event.data_url) {
 				const comma = event.data_url.indexOf(',');
-				attachment.data =
-					comma >= 0 ? event.data_url.slice(comma + 1) : event.data_url;
+				attachment.data = comma >= 0 ? event.data_url.slice(comma + 1) : event.data_url;
 			}
 			nextImages.push(attachment);
 		}
@@ -416,9 +419,9 @@ function applyEvent(
 	}
 
 	if (event.type === 'tool_call') {
-		const existing = items.find(
-			(item) => item.type === 'tool' && item.toolId === event.id
-		) as Extract<ChatItem, { type: 'tool' }> | undefined;
+		const existing = items.find((item) => item.type === 'tool' && item.toolId === event.id) as
+			| Extract<ChatItem, { type: 'tool' }>
+			| undefined;
 		if (existing) {
 			const index = items.indexOf(existing);
 			items[index] = { ...existing, toolName: event.tool, input: event.input };
@@ -559,7 +562,11 @@ function applyEvent(
 		draft.error = cleanErrorMessage(event.message);
 		settlePendingActivity(items, draft.error);
 		if (!assistant.current) {
-			pushAssistant({ id: localID('assistant', draft.nextId++).id, type: 'assistant', text: '' });
+			pushAssistant({
+				id: localID('assistant', draft.nextId++).id,
+				type: 'assistant',
+				text: ''
+			});
 		}
 		const id = localID('error', draft.nextId++).id;
 		items.push({ id, type: 'error', text: draft.error });

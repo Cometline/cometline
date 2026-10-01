@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cometline/cometmind/internal/jobs"
+	"github.com/Cometline/cometline/cometmind/internal/jobs"
 )
 
 func TestExecutionPromptWithoutProgress(t *testing.T) {

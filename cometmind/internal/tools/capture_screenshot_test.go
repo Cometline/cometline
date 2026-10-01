@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cometline/cometmind/internal/event"
-	"github.com/cometline/cometmind/internal/tools"
+	"github.com/Cometline/cometline/cometmind/internal/event"
+	"github.com/Cometline/cometline/cometmind/internal/tools"
 )
 
 func TestCaptureScreenshotRegistersAndEmits(t *testing.T) {

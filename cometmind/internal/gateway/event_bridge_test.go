@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cometline/cometmind/internal/event"
+	"github.com/Cometline/cometline/cometmind/internal/event"
 )
 
 func TestEventBridgeRetriesAndPreservesReplayOrder(t *testing.T) {

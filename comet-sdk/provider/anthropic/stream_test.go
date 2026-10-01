@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	cometsdk "github.com/cometline/comet-sdk"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
 	"github.com/stretchr/testify/require"
 )
 
@@ -30,7 +30,7 @@ func serveFixture(t *testing.T, fixturePath string) *httptest.Server {
 
 func newTestProvider(t *testing.T, server *httptest.Server) cometsdk.Provider {
 	t.Helper()
-	return NewAnthropicProvider("test-key",
+	return New("test-key",
 		cometsdk.WithBaseURL(server.URL),
 		cometsdk.WithMaxRetries(1),
 	)
@@ -253,7 +253,7 @@ func TestStream_RateLimitRetry(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	p := NewAnthropicProvider("test-key",
+	p := New("test-key",
 		cometsdk.WithBaseURL(srv.URL),
 		cometsdk.WithMaxRetries(3),
 	)

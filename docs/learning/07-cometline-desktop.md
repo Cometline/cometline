@@ -142,9 +142,7 @@ A manual `restartCometMind()` IPC call still forces a full restart. Details are 
 
 Electron merges both files for the Settings UI. On every write, it splits them again.
 
-The first read of an old settings JSON file moves desktop keys into the desktop file. That old file held both runtime and desktop settings. This migration is idempotent. **Idempotent** means running it again does not change the result. A **migration** updates old data to the current shape. CometMind loads only the runtime file.
-
-If the JSON file is missing, the app can still read `~/.cometmind/config.toml`. That older file is used only in that case. **TOML** is the older settings format.
+The first read of an old settings JSON file moves desktop keys into the desktop file. That old file held both runtime and desktop settings. This migration is idempotent. **Idempotent** means running it again does not change the result. A **migration** updates old data to the current shape. CometMind loads only the runtime file. If that file is missing, CometMind creates it from defaults.
 
 ### Save flow
 
@@ -283,7 +281,7 @@ Prefer module and symbol names over line numbers.
 | Workspace                                  | `domains/settings.ts`, `domains/runtime-ipc.ts`                              |
 | Model discovery and subscription auth      | `domains/provider-auth.ts`                                                   |
 | Ollama health, model management, and pulls | `services/ollama.ts`                                                         |
-| MCP OAuth / Cursor import                  | `domains/provider-auth.ts`, `domains/runtime-ipc.ts`                         |
+| Cursor `mcp.json` import                   | `domains/provider-auth.ts`, `domains/runtime-ipc.ts`                         |
 | Auto-updater                               | `domains/auto-updater.ts`                                                    |
 | Window / tray / traffic lights             | `domains/windows.ts`, `domains/app-menu-tray.ts`, `domains/window-chrome.ts` |
 | Preload and typed IPC contract             | `preload.ts`, `shared/api.ts`, `domains/ipc.ts`                              |

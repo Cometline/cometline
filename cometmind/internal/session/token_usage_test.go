@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	cometsdk "github.com/cometline/comet-sdk"
-	"github.com/cometline/cometmind/internal/db"
-	"github.com/cometline/cometmind/internal/usage"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
+	"github.com/Cometline/cometline/cometmind/internal/db"
+	"github.com/Cometline/cometline/cometmind/internal/usage"
 	_ "modernc.org/sqlite"
 )
 

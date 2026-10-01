@@ -7,8 +7,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/cometline/cometmind/internal/logging"
-	"github.com/cometline/cometmind/internal/processctl"
+	"github.com/Cometline/cometline/cometmind/internal/logging"
+	"github.com/Cometline/cometline/cometmind/internal/processctl"
 	"github.com/spf13/cobra"
 )
 

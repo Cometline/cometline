@@ -13,13 +13,14 @@ import type {
 import type os from 'node:os';
 import type path from 'node:path';
 
+import { EVENT_CHANNELS, type EventChannel } from '../shared/ipc-channels.js';
 import { APP_ORIGIN } from './app-protocol.js';
 import {
 	mainWindowMinWidthForWorkArea,
 	miniWindowOriginForWorkArea,
 	miniWindowSizeForWorkArea
 } from './window-bounds.js';
-import { isExternallyOpenableUrl } from './workspace-preview.js';
+import { isExternallyOpenableUrl } from './external-url.js';
 
 const MACOS_LOGIN_ITEMS_SETTINGS_URL =
 	'x-apple.systempreferences:com.apple.LoginItems-Settings.extension';
@@ -120,6 +121,12 @@ export function createWindows(dependencies: WindowsDependencies) {
 
 	function attachExternalNavigationGuards(window: BrowserWindow) {
 		window.webContents.on('will-attach-webview', (_event, webPreferences) => {
+			// Guests load arbitrary workspace URLs, so they must never inherit a
+			// preload bridge or Node access from renderer-supplied attributes.
+			delete webPreferences.preload;
+			webPreferences.nodeIntegration = false;
+			webPreferences.contextIsolation = true;
+			webPreferences.sandbox = true;
 			webPreferences.devTools = !app.isPackaged;
 		});
 		window.webContents.setWindowOpenHandler(({ url }) => {
@@ -421,7 +428,7 @@ export function createWindows(dependencies: WindowsDependencies) {
 		if (typeof window.showInactive === 'function') window.showInactive();
 		else window.show();
 		if (miniNeedsActivation) {
-			window.webContents.send('cometline:activate-mini-window');
+			window.webContents.send(EVENT_CHANNELS.onMiniWindowActivated);
 			miniNeedsActivation = false;
 		}
 		window.focus();
@@ -462,7 +469,7 @@ export function createWindows(dependencies: WindowsDependencies) {
 		return true;
 	}
 
-	async function triggerMainWindowOnboarding(channel: string) {
+	async function triggerMainWindowOnboarding(channel: EventChannel) {
 		if (!windowCanShow(mainWindow)) await createMainWindow();
 		const window = mainWindow;
 		if (!windowCanShow(window)) return false;

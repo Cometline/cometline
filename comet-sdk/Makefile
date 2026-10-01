@@ -50,6 +50,8 @@ build:
 tidy:
 	go mod tidy
 
-# ── Lint (requires golangci-lint) ────────────────────────────────────────────
+# ── Lint (pinned golangci-lint via go run; config in .golangci.yml) ──────────
+GOLANGCI_LINT ?= go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
+
 lint:
-	golangci-lint run ./...
+	$(GOLANGCI_LINT) run ./...

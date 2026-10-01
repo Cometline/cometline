@@ -58,7 +58,7 @@ The rule: **Cometline is not the brain.** CometMind is the brain. Comet SDK is o
 
 - **Providers** — ChatGPT Codex, OpenAI, Anthropic, OpenAI-compatible, OpenCode Go, xAI Grok (subscription auth), plus custom providers; fetch models from the provider API where available
 - **CometMind** — coding-harness selector, Agent Skills management, Discord gateway toggle and config
-- **MCP** — stdio/http/sse server config, Cursor `mcp.json` import, connection tests, reconnect, and OAuth login
+- **MCP** — stdio/http server config, Cursor `mcp.json` import, connection tests, reconnect, and OAuth login
 - **Memory** — auto retrieve/extract, thresholds, embedding model, compaction
 - **General** — open at login (macOS); session retention, max sessions per workspace, archived memory purge
 - **Hero glow** — composer glow/border presets and custom colors; caret trail animation
@@ -108,22 +108,22 @@ Never commit real API keys.
 
 Default bindings (rebindable in Settings → Shortcuts):
 
-| Action               | macOS default |
-| -------------------- | ------------- |
-| Toggle sidebar       | ⌘B            |
-| Open settings        | ⌘,            |
-| New chat             | ⌘T            |
-| Stop response        | ⌘C            |
-| Send message         | Enter         |
-| Insert newline       | ⇧Enter        |
-| Focus search         | ⌘F            |
-| Previous / next chat | ⌃⌘↑ / ⌃⌘↓     |
-| Toggle workspace panel     | ⌘⌥B           |
-| Open web search            | ⌘O            |
-| Open wiki files            | ⌘K            |
-| Open workspace files       | ⌘L            |
-| Open terminal              | ⌘J            |
-| Open git changes     | ⌘⇧G           |
+| Action                 | macOS default |
+| ---------------------- | ------------- |
+| Toggle sidebar         | ⌘B            |
+| Open settings          | ⌘,            |
+| New chat               | ⌘T            |
+| Stop response          | ⌘C            |
+| Send message           | Enter         |
+| Insert newline         | ⇧Enter        |
+| Focus search           | ⌘F            |
+| Previous / next chat   | ⌃⌘↑ / ⌃⌘↓     |
+| Toggle workspace panel | ⌘⌥B           |
+| Open web search        | ⌘O            |
+| Open wiki files        | ⌘K            |
+| Open workspace files   | ⌘L            |
+| Open terminal          | ⌘J            |
+| Open git changes       | ⌘⇧G           |
 
 ---
 
@@ -182,16 +182,16 @@ Packaged apps embed the CometMind binary as an Electron extra resource and serve
 
 ## Runtime files
 
-| Path                                    | Purpose                                                                    |
-| --------------------------------------- | -------------------------------------------------------------------------- |
-| `~/.cometmind/cometmind.db`             | CometMind SQLite database                                                  |
-| `~/.cometmind/cometline-settings.json`  | Single settings file (providers, CometMind runtime, appearance, shortcuts) |
-| `~/.cometmind/config.toml`              | Legacy only; CometMind migrates from this if JSON is absent                |
-| `~/.cometmind/cometline-workspace.json` | Selected workspace path                                                    |
-| `~/.cometmind/logs/cometline.log`            | Sidecar stdout/stderr (rotates at 10 MB while running → `.log.1`)          |
-| `~/.cometmind/logs/cometline-gateway.log`    | Discord gateway log (same rotation)                                        |
-| `~/.cometmind/mcp-oauth/{server}.json`  | MCP OAuth access/refresh token cache                                        |
-| `~/.cometmind/mcp-oauth/{server}.client.json` | MCP OAuth registered-client metadata                                  |
+| Path                                          | Purpose                                                                        |
+| --------------------------------------------- | ------------------------------------------------------------------------------ |
+| `~/.cometmind/cometmind.db`                   | CometMind SQLite database                                                      |
+| `~/.cometmind/cometline-settings.json`        | Runtime settings (providers, CometMind runtime); the only file CometMind reads |
+| `~/.cometmind/cometline-desktop.json`         | Desktop-only settings (appearance, shortcuts, app/persona)                     |
+| `~/.cometmind/cometline-workspace.json`       | Selected workspace path                                                        |
+| `~/.cometmind/logs/cometline.log`             | Sidecar stdout/stderr (rotates at 10 MB while running → `.log.1`)              |
+| `~/.cometmind/logs/cometline-gateway.log`     | Discord gateway log (same rotation)                                            |
+| `~/.cometmind/mcp-oauth/{server}.json`        | MCP OAuth access/refresh token cache                                           |
+| `~/.cometmind/mcp-oauth/{server}.client.json` | MCP OAuth registered-client metadata                                           |
 
 ---
 

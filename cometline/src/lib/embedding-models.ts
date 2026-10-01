@@ -149,7 +149,10 @@ export function findProviderForSaved(
 ): ProviderConfig | undefined {
 	if (saved.providerId) {
 		const byId = providers.find((p) => p.id === saved.providerId);
-		if (byId && (byId.models.includes(saved.model) || byId.enabledModels.includes(saved.model))) {
+		if (
+			byId &&
+			(byId.models.includes(saved.model) || byId.enabledModels.includes(saved.model))
+		) {
 			return byId;
 		}
 	}
@@ -181,7 +184,8 @@ function orphanOptionFromSaved(
 ): EmbeddingModelOption | undefined {
 	if (!trim(saved.model)) return undefined;
 	const provider = findProviderForSaved(providers, saved);
-	const recoveredProvider = provider && isRecoverableOllamaSelection(provider, saved) ? provider : undefined;
+	const recoveredProvider =
+		provider && isRecoverableOllamaSelection(provider, saved) ? provider : undefined;
 	const providerId = recoveredProvider?.id || saved.providerId || provider?.id || '__saved__';
 	const providerName = provider?.name || saved.providerId || saved.provider || 'Saved provider';
 	const method = provider?.method ?? 'openai-compatible';

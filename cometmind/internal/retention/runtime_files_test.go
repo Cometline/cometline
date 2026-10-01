@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cometline/cometmind/internal/config"
+	"github.com/Cometline/cometline/cometmind/internal/config"
 )
 
 func TestPurgeRuntimeFilesByAge(t *testing.T) {
@@ -79,7 +79,7 @@ func TestPurgeRuntimeFilesDoesNotTouchWikiDir(t *testing.T) {
 
 	PurgeRuntimeFiles(config.StorageConfig{
 		ToolOutputRetentionDays: 1,
-		AgentTmpRetentionDays:     1,
+		AgentTmpRetentionDays:   1,
 	})
 
 	if _, err := os.Stat(oldWiki); err != nil {

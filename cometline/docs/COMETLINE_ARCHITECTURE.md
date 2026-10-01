@@ -40,7 +40,7 @@ cometline renderer
 
 Electron main process
   -> spawns cometmind serve --watch-parent
-  -> persists ~/.cometmind/cometline-settings.json (single settings SSOT)
+  -> persists ~/.cometmind/cometline-settings.json (runtime) + cometline-desktop.json (desktop UI)
   -> exposes OS/native capabilities over preload IPC
   -> optionally spawns cometmind gateway run --platform discord
 ```
@@ -49,22 +49,22 @@ The rule: Cometline is not the brain. CometMind is the brain. Comet SDK is only 
 
 ## Current Implementation Map
 
-| Concept               | Owner                              | Current status                                                                                                              |
-| --------------------- | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| Provider runtime      | `comet-sdk`                        | Anthropic, OpenAI-compatible, ChatGPT Codex (HTTP or WebSocket), and xAI Grok (subscription auth) providers, including DeepSeek `reasoning_content`, embedded thinking tags, and vision input |
-| Agent runtime         | `cometmind/internal/agent`         | Multi-step loop with streaming, reasoning, tool calls, memory retrieve/extract                                              |
-| Semantic memory       | `cometmind/internal/memory`        | Embedding retrieval, post-turn extraction, compaction, REST API + Cometline settings panel                                  |
-| MCP client            | `cometmind/internal/mcp`           | stdio/http/sse servers, tool binding, OAuth discovery/registration/login/refresh                                             |
-| Jobs and scheduler    | `cometmind/internal/jobs`, `scheduler`, `autonomy` | Durable jobs, leases, scheduled materialization, autonomous workers, Discord proposals                 |
-| Coding-harness delegation | `cometmind/internal/acp`       | `delegate_coding_task` spawns the selected OpenCode, Claude Code, or Codex CLI profile; child sessions stream progress SSE |
-| Agent Skills          | `cometmind/internal/skills`        | Discovery, system-prompt index, load/read/write tools, Cometline slash commands                                             |
-| Discord gateway       | `cometmind/internal/gateway`       | Allowlisted bot with per-thread sessions; Cometline can start/stop subprocess                                               |
-| Persistence           | `cometmind/internal/db`            | SQLite workspaces, sessions, messages/context references, tool calls, memories, inbox, provider state, media metadata, gateway mappings |
-| Local API             | `cometmind/server`, `openapi.yaml` | REST/SSE contract for models, workspaces/Git/wiki, sessions/media, skills, MCP, memory, storage, jobs, and inbox |
-| Desktop runtime       | `cometline/electron/src/domains`   | Sidecar spawn, health polling, settings IPC, updater, tray, workspace picker/watcher, terminal, personas, and screen-capture bridge |
-| Renderer UI           | `cometline/src`                    | SvelteKit routes, sidebar, chat thread/context chips/image lightbox, composer, settings modal, workspace panel, and animations |
-| Secrets               | Electron JSON settings             | MVP-only. API keys in `~/.cometmind/cometline-settings.json`; move to OS keychain before wide distribution                  |
-| Tool permission gates | Not implemented                    | CometMind executes requested tools directly; harness permission behavior is controlled by each fixed CLI profile            |
+| Concept                   | Owner                                              | Current status                                                                                                                                                                                |
+| ------------------------- | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Provider runtime          | `comet-sdk`                                        | Anthropic, OpenAI-compatible, ChatGPT Codex (HTTP or WebSocket), and xAI Grok (subscription auth) providers, including DeepSeek `reasoning_content`, embedded thinking tags, and vision input |
+| Agent runtime             | `cometmind/internal/agent`                         | Multi-step loop with streaming, reasoning, tool calls, memory retrieve/extract                                                                                                                |
+| Semantic memory           | `cometmind/internal/memory`                        | Embedding retrieval, post-turn extraction, compaction, REST API + Cometline settings panel                                                                                                    |
+| MCP client                | `cometmind/internal/mcp`                           | stdio and http (streamable) servers, tool binding, OAuth discovery/registration/login/refresh; Cometline settings rewrite a saved `sse` transport to `http`                                   |
+| Jobs and scheduler        | `cometmind/internal/jobs`, `scheduler`, `autonomy` | Durable jobs, leases, scheduled materialization, autonomous workers, Discord proposals                                                                                                        |
+| Coding-harness delegation | `cometmind/internal/acp`                           | `delegate_coding_task` spawns the selected OpenCode, Claude Code, or Codex CLI profile; child sessions stream progress SSE                                                                    |
+| Agent Skills              | `cometmind/internal/skills`                        | Discovery, system-prompt index, load/read/write tools, Cometline slash commands                                                                                                               |
+| Discord gateway           | `cometmind/internal/gateway`                       | Allowlisted bot with per-thread sessions; Cometline can start/stop subprocess                                                                                                                 |
+| Persistence               | `cometmind/internal/db`                            | SQLite workspaces, sessions, messages/context references, tool calls, memories, inbox, provider state, media metadata, gateway mappings                                                       |
+| Local API                 | `cometmind/server`, `openapi.yaml`                 | REST/SSE contract for models, workspaces/Git/wiki, sessions/media, skills, MCP, memory, storage, jobs, and inbox                                                                              |
+| Desktop runtime           | `cometline/electron/src/domains`                   | Sidecar spawn, health polling, settings IPC, updater, tray, workspace picker/watcher, terminal, personas, and screen-capture bridge                                                           |
+| Renderer UI               | `cometline/src`                                    | SvelteKit routes, sidebar, chat thread/context chips/image lightbox, composer, settings modal, workspace panel, and animations                                                                |
+| Secrets                   | Electron JSON settings                             | MVP-only. API keys in `~/.cometmind/cometline-settings.json`; move to OS keychain before wide distribution                                                                                    |
+| Tool permission gates     | Not implemented                                    | CometMind executes requested tools directly; harness permission behavior is controlled by each fixed CLI profile                                                                              |
 
 ## Runtime Contracts
 
@@ -123,27 +123,31 @@ Only one in-flight run per session is allowed (`409 session_running`).
 ### Electron IPC Used By Cometline
 
 Exposed as `window.electronAPI` by `electron/src/preload.ts`, with its contract in
-`electron/src/shared/api.ts`:
+`electron/src/shared/api.ts`. Channel names live only in `electron/src/shared/ipc-channels.ts`,
+keyed by the `ElectronAPI` method that uses them; preload, `registerIpcHandlers`, and main-process
+event senders all read from it, and `ipc-channels.test.ts` fails if a channel has no handler,
+subscriber, or sender.
 
-| IPC                                                                                   | Purpose                                        |
-| ------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| `restartCometMind()`                                                                  | Restart the sidecar                            |
-| `getWorkspacePath()` / `selectWorkspacePath()` / `setWorkspacePath()`                 | Workspace selection                            |
-| `getProviderSettings()` / `saveProviderSettings()`                                    | Read/write full settings blob                  |
-| `fetchProviderModels(config)`                                                         | Query provider model list from main process    |
-| `getDiscordGatewayStatus()` / `setDiscordGatewayEnabled()`                            | Discord bot subprocess                         |
-| MCP OAuth                                                                             | CometMind `POST /api/v1/mcp/servers/{id}/oauth-flows` (not Electron IPC) |
-| `readCursorMcpConfig()`                                                               | Import Cursor-style MCP config                 |
-| `notifyJob()`                                                                         | Desktop notification for job events            |
-| `getOpenAtLogin()` / `setOpenAtLogin()`                                               | macOS login item                               |
-| `setSidebarOpen()`                                                                    | Animate macOS traffic lights                   |
-| `getFullScreen()` / `onFullScreenChange()`                                            | Fullscreen sync                                |
-| `getAppVersion()`                                                                     | App version string                             |
-| `getUpdateState()` / `checkForUpdates()` / `installUpdate()` / `onUpdateState()`      | Auto-update                                    |
-| `openExternal(url)`                                                                   | Open http(s)/mailto in system browser          |
-| `setShortcutCaptureActive()` / `setSessionNavigationSuspended()`                      | Pause global shortcuts                         |
-| `setWorkspacePanelOpen()` / `onCloseWorkspacePanel()` / `onToggleWorkspacePanel()` / `onOpenWebSearch()` | Workspace panel routing                              |
-| `onNavigateSession()`                                                                 | Previous/next chat from main-process shortcuts |
+| IPC                                                                              | Purpose                                                                  |
+| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `restartCometMind()`                                                             | Restart the sidecar                                                      |
+| `getWorkspacePath()` / `selectWorkspacePath()` / `setWorkspacePath()`            | Workspace selection                                                      |
+| `getProviderSettings()` / `saveProviderSettings()`                               | Read/write full settings blob                                            |
+| `fetchProviderModels(config)`                                                    | Query provider model list from main process                              |
+| `getDiscordGatewayStatus()` / `setDiscordGatewayEnabled()`                       | Discord bot subprocess                                                   |
+| MCP OAuth                                                                        | CometMind `POST /api/v1/mcp/servers/{id}/oauth-flows` (not Electron IPC) |
+| `readCursorMcpConfig()`                                                          | Import Cursor-style MCP config                                           |
+| `notifyJob()`                                                                    | Desktop notification for job events                                      |
+| `getOpenAtLogin()` / `setOpenAtLogin()`                                          | macOS login item                                                         |
+| `setSidebarOpen()`                                                               | Animate macOS traffic lights                                             |
+| `getFullScreen()` / `onFullScreenChange()`                                       | Fullscreen sync                                                          |
+| `getAppVersion()`                                                                | App version string                                                       |
+| `getUpdateState()` / `checkForUpdates()` / `installUpdate()` / `onUpdateState()` | Auto-update                                                              |
+| `openExternal(url)`                                                              | Open http(s)/mailto in system browser                                    |
+| `setShortcutCaptureActive()` / `setSessionNavigationSuspended()`                 | Pause global shortcuts                                                   |
+| `setWorkspacePanelOpen()` / `onCloseWorkspacePanel()`                            | Workspace panel routing                                                  |
+| `onShortcutAction()`                                                             | Shortcuts forwarded from a focused webview guest                         |
+| `onNavigateSession()`                                                            | Previous/next chat from main-process shortcuts                           |
 
 IPC is for OS/native capabilities only. Chat, session, memory, and skill data stay on REST/SSE.
 
@@ -233,16 +237,16 @@ Never commit real provider API keys to docs, Makefiles, source files, or tests.
 
 ## Runtime Files
 
-| Path                                    | Purpose                                                                     |
-| --------------------------------------- | --------------------------------------------------------------------------- |
-| `~/.cometmind/cometmind.db`             | CometMind SQLite database                                                   |
-| `~/.cometmind/cometline-settings.json`  | Single settings file (desktop UI + CometMind runtime)                       |
-| `~/.cometmind/config.toml`              | Legacy; read once for migration if JSON is missing                          |
-| `~/.cometmind/cometline-workspace.json` | Selected workspace path                                                     |
-| `~/.cometmind/logs/cometline.log`            | Electron-spawned CometMind logs (rotates at 10 MB while running → `.log.1`) |
-| `~/.cometmind/logs/cometline-gateway.log`    | Discord gateway logs (same rotation)                                        |
-| `~/.cometmind/mcp-oauth/{server}.json`  | MCP OAuth access/refresh token cache                                        |
-| `~/.cometmind/mcp-oauth/{server}.client.json` | MCP OAuth registered client metadata                                  |
+| Path                                          | Purpose                                                                          |
+| --------------------------------------------- | -------------------------------------------------------------------------------- |
+| `~/.cometmind/cometmind.db`                   | CometMind SQLite database                                                        |
+| `~/.cometmind/cometline-settings.json`        | Runtime settings (providers + CometMind); the only settings file CometMind reads |
+| `~/.cometmind/cometline-desktop.json`         | Desktop UI settings (appearance, shortcuts, app/persona); Electron only          |
+| `~/.cometmind/cometline-workspace.json`       | Selected workspace path                                                          |
+| `~/.cometmind/logs/cometline.log`             | Electron-spawned CometMind logs (rotates at 10 MB while running → `.log.1`)      |
+| `~/.cometmind/logs/cometline-gateway.log`     | Discord gateway logs (same rotation)                                             |
+| `~/.cometmind/mcp-oauth/{server}.json`        | MCP OAuth access/refresh token cache                                             |
+| `~/.cometmind/mcp-oauth/{server}.client.json` | MCP OAuth registered client metadata                                             |
 
 Default system prompt: packaged `SOUL.md` path is stored in `cometmind.systemPromptPath` inside `cometline-settings.json`.
 

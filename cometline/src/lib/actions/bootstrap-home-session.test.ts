@@ -48,26 +48,30 @@ describe('bootstrapHomeSession', () => {
 
 	it('skips when the sidecar is not ready', async () => {
 		await expect(
-			bootstrapHomeSession(deps({
-				connectionStatus: () => 'connecting',
-			}))
+			bootstrapHomeSession(
+				deps({
+					connectionStatus: () => 'connecting'
+				})
+			)
 		).resolves.toBe(false);
 		expect(startNewChat).not.toHaveBeenCalled();
 	});
 
 	it('skips when workspace is unset', async () => {
 		await expect(
-			bootstrapHomeSession(deps({
-				workspacePath: () => '/',
-			}))
+			bootstrapHomeSession(
+				deps({
+					workspacePath: () => '/'
+				})
+			)
 		).resolves.toBe(false);
 		expect(startNewChat).not.toHaveBeenCalled();
 	});
 
 	it('waits for the session list before choosing a session', async () => {
-		await expect(
-			bootstrapHomeSession(deps({ sessionsLoaded: () => false }))
-		).resolves.toBe(false);
+		await expect(bootstrapHomeSession(deps({ sessionsLoaded: () => false }))).resolves.toBe(
+			false
+		);
 		expect(startNewChat).not.toHaveBeenCalled();
 		expect(navigateToSession).not.toHaveBeenCalled();
 	});
@@ -100,8 +104,6 @@ describe('bootstrapHomeSession', () => {
 
 	it('propagates create failures', async () => {
 		startNewChat.mockRejectedValueOnce(new Error('no model'));
-		await expect(
-			bootstrapHomeSession(deps())
-		).rejects.toThrow('no model');
+		await expect(bootstrapHomeSession(deps())).rejects.toThrow('no model');
 	});
 });

@@ -116,9 +116,9 @@ A **goroutine** is a Go task that runs in the background. **Flush** means send e
 
 | Step               | Source                                                |
 | ------------------ | ----------------------------------------------------- |
-| Route registration | `cometmind/server/server.go`                          |
-| Message handler    | `cometmind/server/messages.go`: `handlePostMessage`   |
-| Single-run lock    | `cometmind/server/run_manager.go`                     |
+| Route registration | `cometmind/internal/apigen/server.gen.go`, exclusions in `routes.go` |
+| Message handler    | `cometmind/internal/server/messages.go`: `handlePostMessage`   |
+| Single-run lock    | `cometmind/internal/server/run_manager.go`                     |
 | Runner factory     | `cometmind/internal/runtime/runtime.go` → `RunnerFor` |
 
 GitNexus process `proc_78_appendusermessageand` follows user message persistence. **Persistence** means the app saves the data. The path goes through `Service.AppendUserMessageContent` in `session/service.go`.
@@ -308,7 +308,7 @@ Memories are **workspace-scoped**. That means each workspace has its own memorie
 ```text
 Settings → CometMind → MCP (saved to cometline-settings.json)
   → sidecar start or Runtime.Reload → mcp.Manager connects/refreshes enabled servers
-  → stdio / HTTP / SSE transports via go-sdk
+  → stdio / streamable HTTP transports via go-sdk (saved `sse` is read as `http`)
   → tools merged into registry as mcp_{serverId}_{toolName}
   → agent loop executes via same tool_call / tool_result path
 
@@ -339,7 +339,7 @@ Model calls delegate_coding_task tool (only if acp.enabled + harness binary avai
   → result returns to agent loop as tool_result
 ```
 
-Configure this in Settings → CometMind → **Coding task delegation**. Only `default_harness` is a user setting. CLI args are not user-editable. Tool: `cometmind/internal/tools/delegatecoding.go`. Runner: `cometmind/internal/acp/runner.go`.
+Configure this in Settings → CometMind → **Coding task delegation**. Only the harness choice (`cometmind.acp.defaultHarness`) is a user setting. CLI args are not user-editable. Tool: `cometmind/internal/tools/subagent/delegatecoding.go`. Runner: `cometmind/internal/acp/runner.go`.
 
 ---
 

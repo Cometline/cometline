@@ -6,12 +6,12 @@ import (
 	"strings"
 	"time"
 
-	cometsdk "github.com/cometline/comet-sdk"
-	"github.com/cometline/comet-sdk/llm"
-	"github.com/cometline/cometmind/internal/config"
-	"github.com/cometline/cometmind/internal/event"
-	"github.com/cometline/cometmind/internal/logging"
-	"github.com/cometline/cometmind/internal/session"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
+	"github.com/Cometline/cometline/comet-sdk/llm"
+	"github.com/Cometline/cometline/cometmind/internal/config"
+	"github.com/Cometline/cometline/cometmind/internal/event"
+	"github.com/Cometline/cometline/cometmind/internal/logging"
+	"github.com/Cometline/cometline/cometmind/internal/session"
 )
 
 const contextSummarySystemPrompt = `You maintain a rolling session context summary for a coding assistant.

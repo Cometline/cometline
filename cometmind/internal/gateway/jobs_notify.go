@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/cometline/cometmind/internal/jobs"
+	"github.com/Cometline/cometline/cometmind/internal/jobs"
 )
 
 // DiscordJobNotifier delivers job lifecycle messages to Discord channels.

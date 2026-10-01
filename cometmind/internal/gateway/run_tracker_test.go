@@ -5,14 +5,14 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/cometline/cometmind/internal/runstate"
-	"github.com/cometline/cometmind/internal/session"
-	"github.com/cometline/cometmind/internal/store"
+	"github.com/Cometline/cometline/cometmind/internal/runstate"
+	"github.com/Cometline/cometline/cometmind/internal/session"
+	"github.com/Cometline/cometline/cometmind/internal/sqlite"
 )
 
 func newRunTrackerTest(t *testing.T) (*TurnRunTracker, string) {
 	t.Helper()
-	database, err := store.OpenSQLite(context.Background(), filepath.Join(t.TempDir(), "runs.db"))
+	database, err := sqlite.Open(context.Background(), filepath.Join(t.TempDir(), "runs.db"))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1,7 +1,7 @@
 package agent
 
 import (
-	cometsdk "github.com/cometline/comet-sdk"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
 )
 
 // HistoryDegradation describes a single class of change normalization applied to

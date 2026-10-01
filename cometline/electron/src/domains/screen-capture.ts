@@ -117,7 +117,8 @@ async function listCaptureTargets(): Promise<{
 function resolveThumbnailSize(input: CaptureRequest): { width: number; height: number } {
 	const displays = screen.getAllDisplays();
 	const displayIndex = Math.max(0, Math.floor(Number(input.display) || 0));
-	const display = displays[Math.min(displayIndex, Math.max(displays.length - 1, 0))] ?? displays[0];
+	const display =
+		displays[Math.min(displayIndex, Math.max(displays.length - 1, 0))] ?? displays[0];
 	if (!display) {
 		return { width: DEFAULT_CAPTURE_EDGE, height: DEFAULT_CAPTURE_EDGE };
 	}
@@ -176,7 +177,9 @@ async function capture(input: CaptureRequest): Promise<{
 	assertScreenAccess();
 	const thumbnailSize = resolveThumbnailSize(input);
 	const sourceId = String(input.sourceId || '').trim();
-	const windowQuery = String(input.window || '').trim().toLowerCase();
+	const windowQuery = String(input.window || '')
+		.trim()
+		.toLowerCase();
 	const wantWindow = Boolean(sourceId || windowQuery);
 
 	const sources = await getSources(wantWindow ? ['screen', 'window'] : ['screen'], thumbnailSize);
@@ -209,7 +212,8 @@ async function capture(input: CaptureRequest): Promise<{
 		const displayIndex = Math.max(0, Math.floor(Number(input.display) || 0));
 		const display = displays[Math.min(displayIndex, displays.length - 1)] ?? displays[0];
 		match =
-			sources.find((source) => String(source.display_id) === String(display.id)) ?? sources[0];
+			sources.find((source) => String(source.display_id) === String(display.id)) ??
+			sources[0];
 	}
 
 	if (!match) {
@@ -261,8 +265,7 @@ export function createScreenCaptureBridge(options?: {
 	function guardPreferred(res: http.ServerResponse): boolean {
 		if (options?.isPreferred && !options.isPreferred()) {
 			sendJson(res, 403, {
-				error:
-					'Screen capture is disabled in Settings → App. Enable Screen & system audio first.'
+				error: 'Screen capture is disabled in Settings → App. Enable Screen & system audio first.'
 			});
 			return false;
 		}

@@ -6,8 +6,8 @@ This document provides development rules and commands for AI agents and contribu
 
 This is a monorepo with three first-class modules tracked in a single git repository:
 
-- **`comet-sdk/`** — Go library for provider-agnostic LLM I/O (streaming, retries, tool-call assembly, Anthropic/OpenAI/Codex/xAI adapters)
-- **`cometmind/`** — Go agent runtime (agent loop, SQLite persistence, HTTP/SSE API, Discord gateway)
+- **`comet-sdk/`** — Go library for provider-agnostic LLM I/O (streaming, retries, tool-call assembly, Anthropic/OpenAI/Codex/xAI adapters); module `github.com/Cometline/cometline/comet-sdk`, released as `comet-sdk/vX.Y.Z` tags
+- **`cometmind/`** — Go agent runtime (agent loop, SQLite persistence, HTTP/SSE API, Discord gateway); module `github.com/Cometline/cometline/cometmind`, which uses the in-repo SDK through a `replace` directive
 - **`cometline/`** — SvelteKit + Electron desktop shell (chat UI, settings, animations)
 
 **Important:** There is no root `go.work` file. Run Go commands from `comet-sdk/` or `cometmind/`, not the repository root.
@@ -16,6 +16,8 @@ The historical standalone repos for these modules are archived. New development,
 
 The dependency direction is strictly one-way: `cometline` → `cometmind` → `comet-sdk`.
 
+**Toolchain:** Go 1.26, Node.js 22, and pnpm 11.3.0. `mise install` reads these from `mise.toml`. Both `go.mod` files pin a patched release with a `toolchain` line; Go downloads it automatically unless `GOTOOLCHAIN=local`.
+
 ## Development Commands
 
 ### Root-level commands
@@ -23,7 +25,11 @@ The dependency direction is strictly one-way: `cometline` → `cometmind` → `c
 ```bash
 make install          # Install frontend dependencies (pnpm install in cometline/)
 make generate         # Regenerate OpenAPI clients (TS + Go) from openapi.yaml
-make check            # Run all checks: codegen freshness, SDK tests, CometMind tests, Svelte checks
+make check            # Run all checks: codegen + sqlc freshness, gofmt, lint, SDK/CometMind tests, Svelte checks
+make fmt              # Format Go code (gofmt + goimports via pinned golangci-lint)
+make lint             # Run golangci-lint on both Go modules (configs: */.golangci.yml)
+make test-race        # Run Go tests with the race detector
+make vuln             # Run govulncheck on both Go modules
 make build            # Build SDK, CometMind binary, and Cometline renderer
 make package          # Build CometMind sidecar and package Electron app
 make dev              # Build CometMind sidecar and launch Electron dev app
@@ -38,7 +44,7 @@ cd comet-sdk
 make test             # Run unit/integration tests (no live API calls, CI-safe)
 make test-live        # Run live provider tests (requires API keys)
 make build            # Verify compilation
-make lint             # Run golangci-lint (requires golangci-lint installed)
+make lint             # Run golangci-lint (pinned, via go run; no install needed)
 
 # Run a specific test
 go test -run TestStream_TextOnly ./provider/anthropic
@@ -56,10 +62,10 @@ go test ./...         # Run all tests
 go build ./...        # Verify compilation
 
 # Run a specific test
-go test -run TestPostMessageStreamsSSEAndPersistsUserTurn ./server
+go test -run TestPostMessageStreamsSSEAndPersistsUserTurn ./internal/server
 
-# Generate SQL code after schema changes
-sqlc generate         # Requires sqlc installed
+# Regenerate SQL code after schema or query changes (pinned sqlc, no install needed)
+go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1 generate
 ```
 
 ### Cometline (Desktop shell)
@@ -100,10 +106,12 @@ cd cometmind && go generate ./internal/apigen
 
 After changing schema or queries:
 ```bash
-cd cometmind && sqlc generate
+cd cometmind && go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1 generate
 ```
 
-**Migration note:** CometMind embeds `schema.sql` and tracks migrations with `schemaVersion` + `alterStatements` in `internal/db/migrate.go`. Read the constant there for the current version; schema changes for existing users need an incremental migration, not just a schema edit.
+The version must match the `sqlc vX.Y.Z` header in the generated files. sqlc is not a `tool` directive in `go.mod` because its dependency tree would raise the module's Go version and bump runtime dependencies.
+
+**Migration note:** A fresh database is built from `cometmind/internal/db/schema.sql`. Upgrades are embedded files `cometmind/internal/db/migrations/NNNN_description.sql` (0002 through 0037). The highest file number is the current version. `TestMigrationsFromV1MatchFreshSchema` fails if `schema.sql` and the migrations drift. A file that contains `DROP TABLE` runs as a transactional rebuild. The only Go-side step is `skipIfApplied` in `internal/db/migrate.go`. Schema changes for existing users need a new migration file, not just a schema edit.
 
 ### SSE event types
 
@@ -120,8 +128,7 @@ Recent example: `memory_compaction_completed` was added this way to report manua
 
 ### CometMind
 
-- **Settings:** `~/.cometmind/cometline-settings.json` (runtime; agent tools + CometMind). Desktop UI state: `~/.cometmind/cometline-desktop.json` (Electron only).
-- **Settings file:** `~/.cometmind/cometline-settings.json` only. A missing file is created from defaults.
+- **Settings:** `~/.cometmind/cometline-settings.json` (runtime; agent tools + CometMind) is the only settings file CometMind reads; a missing file is created from defaults. Desktop UI state: `~/.cometmind/cometline-desktop.json` (Electron only).
 - **Database:** `~/.cometmind/cometmind.db` (SQLite, pure Go via `modernc.org/sqlite`)
 - **Media:** `~/.cometmind/media/{storage_session_id}/` — gallery files stay after session or workspace delete, then follow the configurable detached-media retention period; users can also remove them on the Gallery page
 - **API:** `http://127.0.0.1:7700` (localhost only)
@@ -196,10 +203,11 @@ The `delegate_coding_task` tool spawns an external coding harness (OpenCode, Cla
 
 Configure this under Settings → CometMind → Coding task delegation, persisted in `~/.cometmind/cometline-settings.json`:
 
-```toml
-[acp]
-default_harness = "opencode" # opencode, claude, or codex
+```json
+{ "cometmind": { "acp": { "enabled": true, "defaultHarness": "opencode" } } }
 ```
+
+`defaultHarness` is one of `opencode`, `claude`, or `codex`.
 
 ### MCP client support
 
@@ -226,14 +234,21 @@ CometMind connects to external MCP servers and exposes their tools to the **main
 
 Run CometMind as a Discord bot with the same agent runtime.
 
-**Config:** Settings → CometMind → Discord, persisted in `~/.cometmind/cometline-settings.json`.
-```toml
-[gateway.discord]
-enabled = true
-bot_token_env = "DISCORD_BOT_TOKEN"
-workspace_path = "/path/to/project"
-allowed_users = ["user_id"]
-require_mention = true
+**Config:** Settings → CometMind → Discord, persisted under `cometmind.gateway.discord` in `~/.cometmind/cometline-settings.json`:
+```json
+{
+  "cometmind": {
+    "gateway": {
+      "discord": {
+        "enabled": true,
+        "botTokenEnv": "DISCORD_BOT_TOKEN",
+        "workspacePath": "/path/to/project",
+        "allowedUsers": ["user_id"],
+        "requireMention": true
+      }
+    }
+  }
+}
 ```
 
 **Start:** `cometmind gateway run --platform discord`
@@ -273,8 +288,8 @@ SDK stream tests use checked-in SSE fixtures under each provider's `fixtures/` d
 
 ### Before starting work
 
-1. Read `ARCHITECTURE.md` for system overview
-2. Read `ARCHITECTURE_GUIDE.md` for detailed contributor map
+1. Read [docs/learning/](./docs/learning/00-README.md) for a guided tour of the three modules
+2. Read [ARCHITECTURE_GUIDE.md](./ARCHITECTURE_GUIDE.md) for the system overview and contributor map
 3. Understand which module owns the feature you're changing
 
 ### Making changes
@@ -287,8 +302,8 @@ SDK stream tests use checked-in SSE fixtures under each provider's `fixtures/` d
 
 ### Code style
 
-- **Go:** Follow standard Go conventions. Use `gofmt` and `goimports`.
-- **TypeScript/Svelte:** Follow existing patterns in the codebase. Use TypeScript strict mode. See [cometline/docs/FRONTEND_PATTERNS.md](./cometline/docs/FRONTEND_PATTERNS.md) for controller, error, and testing conventions.
+- **Go:** Follow standard Go conventions. Use `gofmt` and `goimports`. See [docs/CONVENTIONS.md](./docs/CONVENTIONS.md) for file budgets, errors, handlers, and migrations.
+- **TypeScript/Svelte:** Follow existing patterns in the codebase. Use TypeScript strict mode. See [docs/CONVENTIONS.md](./docs/CONVENTIONS.md) for feature layout and budgets, and [cometline/docs/FRONTEND_PATTERNS.md](./cometline/docs/FRONTEND_PATTERNS.md) for controller, error, and testing conventions.
 - **Comments:** Add comments only when necessary to explain non-obvious logic.
 
 ### Commit messages
@@ -320,13 +335,13 @@ Cometline can improve itself using the same agent runtime:
 1. Implement `cometsdk.Provider` interface in `comet-sdk/provider/{name}/`
 2. Add a provider method constant in `cometmind/internal/config/config.go` and wire it into `cometmind/internal/provider/factory.go`
 3. If models of the method can use different wire protocols (like `opencode-go`), keep their `npm`/`api` metadata in the models.dev catalog (`cometmind/internal/modelcatalog`) so `NewForModel` dispatches per model
-4. Add provider defaults and validation in `cometline/src/lib/settings/schema.ts`
-5. Add provider UI behavior in `cometline/src/lib/components/settings/SettingsProvidersPanel.svelte` if the method needs custom fields
+4. Add provider defaults and validation in `cometline/src/lib/features/settings/schema.ts`
+5. Add provider UI behavior in `cometline/src/lib/features/settings/components/SettingsProvidersPanel.svelte` if the method needs custom fields
 6. Update `ProviderMethod` types in `cometline/src/lib/types.ts` and `cometline/src/app.d.ts`
 
 ### Add a new built-in tool
 
-1. Implement `cometmind/internal/tools.Tool` with `Spec() ToolSpec` and `Execute(ctx, input)`
+1. Implement `toolkit.Tool` in the matching family under `cometmind/internal/tools/{fsops,web,media,jobs,mcp,memory,settings,subagent,skills,inbox}`. Families must not import the parent `tools` package.
 2. Register it in `cometmind/internal/tools/registry.go`
 3. Add unit tests for schema and execution behavior
 4. Tools registered by the runtime are automatically exposed to the agent loop
@@ -370,8 +385,9 @@ Cometline can improve itself using the same agent runtime:
 ## Further Reading
 
 - [README.md](./README.md) — project overview and quick start
-- [ARCHITECTURE.md](./ARCHITECTURE.md) — system design and module breakdown
-- [ARCHITECTURE_GUIDE.md](./ARCHITECTURE_GUIDE.md) — detailed contributor map with source references
+- [docs/CONVENTIONS.md](./docs/CONVENTIONS.md) — one-page rules for Go, HTTP, migrations, and the frontend
+- [docs/learning/](./docs/learning/00-README.md) — guided onboarding series
+- [ARCHITECTURE_GUIDE.md](./ARCHITECTURE_GUIDE.md) — system overview and contributor map with source references
 - [cometmind/openapi.yaml](./cometmind/openapi.yaml) — API contract source of truth
 - [cometline/SOUL.md](./cometline/SOUL.md) — default system prompt
 

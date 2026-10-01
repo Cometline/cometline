@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cometline/cometmind/internal/runstate"
+	"github.com/Cometline/cometline/cometmind/internal/runstate"
 )
 
 type turnHandle struct {

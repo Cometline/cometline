@@ -33,9 +33,15 @@ function withinRoot(root: string, target: string, pathService: PathService): boo
 export function createMediaClipboard(dependencies: MediaClipboardDependencies) {
 	const run = dependencies.run ?? execFileAsync;
 
-	async function copyMediaFile(sessionIdInput: unknown, mediaIdInput: unknown): Promise<CopyMediaFileResult> {
+	async function copyMediaFile(
+		sessionIdInput: unknown,
+		mediaIdInput: unknown
+	): Promise<CopyMediaFileResult> {
 		if (dependencies.platform !== 'darwin') {
-			return { ok: false, error: 'Copying video files is currently available on macOS only.' };
+			return {
+				ok: false,
+				error: 'Copying video files is currently available on macOS only.'
+			};
 		}
 
 		const sessionId = safeSegment(sessionIdInput);
@@ -57,7 +63,9 @@ export function createMediaClipboard(dependencies: MediaClipboardDependencies) {
 			const entry = entries.find((candidate) => {
 				if (!candidate.isFile()) return false;
 				const extension = dependencies.path.extname(candidate.name).toLowerCase();
-				return VIDEO_EXTENSIONS.has(extension) && candidate.name === `${mediaId}${extension}`;
+				return (
+					VIDEO_EXTENSIONS.has(extension) && candidate.name === `${mediaId}${extension}`
+				);
 			});
 			if (!entry) return { ok: false, error: 'Video file was not found.' };
 

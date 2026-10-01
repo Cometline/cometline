@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/cometline/cometmind/internal/process"
+	"github.com/Cometline/cometline/cometmind/internal/process"
 )
 
 // RunOptions configures one delegated coding-harness run.

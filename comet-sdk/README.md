@@ -5,17 +5,15 @@ A provider-agnostic Go LLM client library. One interface, any backend.
 This directory is one module inside the `cometline` monorepo. The historical standalone `comet-sdk` repo is archived; current development, issues, and pull requests land in the monorepo root.
 
 ```
-module: github.com/cometline/comet-sdk
-go:     1.25
+module: github.com/Cometline/cometline/comet-sdk
+go:     1.26
 ```
 
 ---
 
 ## Status
 
-Comet SDK remains a reusable Go module boundary, but it is no longer developed as a separate repository or separately released package today. In practice, it is maintained monorepo-first for CometMind and Cometline.
-
-The code is still intentionally shaped like a library rather than an internal dump: the public types, provider packages, and `llm` helpers remain useful if Comet SDK is spun back out or published independently again later.
+Comet SDK is a reusable Go module that lives in the monorepo and is developed monorepo-first for CometMind and Cometline. It is shaped as a library rather than an internal dump: the public types, provider packages, and `llm` helpers are meant to be used from other Go programs.
 
 ---
 
@@ -89,9 +87,9 @@ Use `Provider.Stream()` directly when you need lower-level control over raw even
     │                      │  │                       │  │                    │  │                     │
     │  client.go           │  │  client.go            │  │  client.go         │  │  provider.go        │
     │  convert.go          │  │  convert.go           │  │  convert.go        │  │  auth.go            │
-    │  stream.go           │  │  stream.go            │  │  stream.go         │  │  (wraps provider/   │
-    │  fixtures/           │  │  reasoning.go         │  │  websocket.go      │  │   openai)           │
-    └────────┬─────────────┘  │  fixtures/            │  │  auth.go           │  └─────────┬───────────┘
+    │  stream.go           │  │  stream.go            │  │  auth.go           │  │  (wraps provider/   │
+    │  fixtures/           │  │  reasoning.go         │  │  (SSE parsing in   │  │   openai)           │
+    └────────┬─────────────┘  │  fixtures/            │  │   responsesproto)  │  └─────────┬───────────┘
              │                └──────────┬─────────────┘  └─────────┬──────────┘            │
              └─────────────┬─────────────┴──────────────────────────┴───────────────────────┘
                            │
@@ -101,26 +99,33 @@ Use `Provider.Stream()` directly when you need lower-level control over raw even
            │  sse/scanner.go               │
            │  retry/retry.go               │
            │  providerbase/providerbase.go │
+           │  responsesproto/              │
            └───────────────────────────────┘
                         │
           ┌─────────────┼──────────────────┬───────────────────────┐
           ▼             ▼                  ▼                       ▼
    Anthropic API   OpenAI API      OpenAI-compatible APIs     ChatGPT Codex        xAI (api.x.ai,
    /v1/messages    /v1/chat/       (DeepSeek, gateways, etc.) /responses           OAuth subscription
-                   completions                                (HTTP or WebSocket)  session)
+                   completions                                (SSE over HTTP)      session)
 ```
 
 ---
 
 ## Using it
 
-Inside this monorepo, CometMind uses a local replace:
+Add the module to another Go program:
 
-```go
-replace github.com/cometline/comet-sdk => ../comet-sdk
+```bash
+go get github.com/Cometline/cometline/comet-sdk@latest
 ```
 
-For now, treat this module as source that lives in the monorepo rather than as a separately published package with its own release flow.
+Because the module lives in a subdirectory of the monorepo, SDK releases are tagged `comet-sdk/vX.Y.Z` (for example `comet-sdk/v0.1.0`), and `go get github.com/Cometline/cometline/comet-sdk@v0.1.0` resolves that tag. Desktop app releases use plain `vX.Y.Z` tags and don't version the SDK.
+
+Inside this monorepo, CometMind uses a local replace instead, so SDK changes are picked up without a release:
+
+```go
+replace github.com/Cometline/cometline/comet-sdk => ../comet-sdk
+```
 
 ---
 
@@ -135,12 +140,12 @@ import (
     "fmt"
     "os"
 
-    cometsdk "github.com/cometline/comet-sdk"
-    "github.com/cometline/comet-sdk/llm"
-    "github.com/cometline/comet-sdk/provider/anthropic"
+    cometsdk "github.com/Cometline/cometline/comet-sdk"
+    "github.com/Cometline/cometline/comet-sdk/llm"
+    "github.com/Cometline/cometline/comet-sdk/provider/anthropic"
 )
 
-p := anthropic.NewAnthropicProvider(os.Getenv("ANTHROPIC_API_KEY"))
+p := anthropic.New(os.Getenv("ANTHROPIC_API_KEY"))
 
 req := &cometsdk.Request{
     Model:  "claude-sonnet-4-5",
@@ -180,12 +185,12 @@ import (
     "fmt"
     "os"
 
-    cometsdk "github.com/cometline/comet-sdk"
-    "github.com/cometline/comet-sdk/llm"
-    "github.com/cometline/comet-sdk/provider/openai"
+    cometsdk "github.com/Cometline/cometline/comet-sdk"
+    "github.com/Cometline/cometline/comet-sdk/llm"
+    "github.com/Cometline/cometline/comet-sdk/provider/openai"
 )
 
-p := openai.NewOpenAIProvider(
+p := openai.New(
     os.Getenv("OPENAI_API_KEY"),
     cometsdk.WithBaseURL("https://api.openai.com"),
 )
@@ -305,6 +310,21 @@ Options: map[string]any{
 
 SDK-managed fields (`model`, `messages`, `stream`, `max_tokens`) cannot be overridden via Options. Use the top-level `Request.Temperature` field for providers that support it.
 
+---
+
+## Providers
+
+| Constructor | Backend |
+|---|---|
+| `anthropic.New(apiKey, opts...)` | Anthropic Messages API |
+| `openai.New(apiKey, opts...)` | OpenAI Chat Completions API |
+| `openai.NewCompatible(apiKey, id, tokenSource, opts...)` | Any OpenAI-compatible endpoint, reported under a custom provider ID |
+| `openairesponses.New(apiKey, id, opts...)` | OpenAI Responses API |
+| `codex.New(opts...)` | ChatGPT Codex through the local Codex CLI login |
+| `xai.New(apiKey, opts...)` | xAI Grok through the local subscription session |
+
+The older names (`NewAnthropicProvider`, `NewOpenAIProvider`, `NewOpenAICompatibleProvider`, `NewOpenAIResponsesProvider`, `NewCodexProvider`, `NewXAIProvider`) and `cometsdk.NormaliseBaseURL` still work but are deprecated, and will be removed in the release after the first `comet-sdk/v*` tag.
+
 ### ChatGPT Codex
 
 `provider/codex` talks to ChatGPT Codex's `/responses` endpoint and reuses the local Codex CLI login. Run `codex login` first so `~/.codex/auth.json` exists. The provider refreshes the borrowed access token when possible and does not use an API key. Streaming uses the HTTP/SSE transport.
@@ -322,7 +342,7 @@ SDK-managed fields (`model`, `messages`, `stream`, `max_tokens`) cannot be overr
 ## Configuration options
 
 ```go
-p := anthropic.NewAnthropicProvider(apiKey,
+p := anthropic.New(apiKey,
     cometsdk.WithBaseURL("https://custom-endpoint.example.com"),
     cometsdk.WithTimeout(30 * time.Second),
     cometsdk.WithMaxRetries(3),
@@ -338,7 +358,7 @@ p := anthropic.NewAnthropicProvider(apiKey,
 log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
     Level: slog.LevelDebug,
 }))
-p := anthropic.NewAnthropicProvider(apiKey, cometsdk.WithLogger(log))
+p := anthropic.New(apiKey, cometsdk.WithLogger(log))
 ```
 
 Pass `cometsdk.WithLogger(nil)` to silence all SDK output.
@@ -366,7 +386,7 @@ _, err := llm.GenerateMessage(ctx, p, req)
 if err != nil {
     var rle *cometsdk.RateLimitError
     if errors.As(err, &rle) {
-        time.Sleep(rle.RetryAfter)
+        time.Sleep(rle.RetryAfter())
     }
 }
 ```
@@ -374,7 +394,7 @@ if err != nil {
 | Error type | When |
 |---|---|
 | `AuthError` | Invalid or missing API key (401/403) |
-| `RateLimitError` | Rate limited (429); carries `RetryAfter` |
+| `RateLimitError` | Rate limited (429); `RetryAfter()` returns the server's Retry-After delay |
 | `ServerError` | Provider non-success HTTP response (including context-length 400s) |
 | `StreamError` | Error occurring mid-stream (after HTTP 200) |
 
@@ -392,7 +412,7 @@ make test-openai        # OpenAI package only
 make test-live          # real API calls (requires env vars)
 make test-live-anthropic
 make test-live-openai
-make lint               # golangci-lint (must be installed)
+make lint               # golangci-lint (pinned, runs through go run)
 ```
 
 Provider packages replay checked-in SSE fixtures under `provider/*/fixtures/` via `httptest` — update fixtures when parser behavior changes.

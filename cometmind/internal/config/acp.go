@@ -1,7 +1,7 @@
 package config
 
 import (
-	"github.com/cometline/cometmind/internal/acp"
+	"github.com/Cometline/cometline/cometmind/internal/acp"
 )
 
 // ACPSettings converts the selected coding harness into the fixed runtime

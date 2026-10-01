@@ -3,8 +3,8 @@ package agent
 import (
 	"strings"
 
-	"github.com/cometline/cometmind/internal/config"
-	"github.com/cometline/cometmind/internal/modelcatalog"
+	"github.com/Cometline/cometline/cometmind/internal/config"
+	"github.com/Cometline/cometline/cometmind/internal/modelcatalog"
 )
 
 const (

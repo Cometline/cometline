@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"testing"
 
-	cometsdk "github.com/cometline/comet-sdk"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
 	"github.com/stretchr/testify/require"
 )
 

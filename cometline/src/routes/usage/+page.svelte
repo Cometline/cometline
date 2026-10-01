@@ -1,5 +1,5 @@
 <script lang="ts">
-	import UsagePage from '$lib/components/usage/UsagePage.svelte';
+	import UsagePage from '$lib/features/usage/components/UsagePage.svelte';
 </script>
 
 <UsagePage />

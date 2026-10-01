@@ -171,7 +171,3 @@ func assertSlice(t *testing.T, got, want []string) {
 		}
 	}
 }
-
-func formatFile(i int) string {
-	return filepath.Join("dir", string(rune('a'+i%26))+"_"+string(rune('0'+i/26))+".txt")
-}

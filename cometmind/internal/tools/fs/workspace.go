@@ -7,8 +7,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/cometline/cometmind/internal/paths"
-	"github.com/cometline/cometmind/internal/tools/sandbox"
+	"github.com/Cometline/cometline/cometmind/internal/paths"
+	"github.com/Cometline/cometline/cometmind/internal/tools/sandbox"
 )
 
 // Workspace is the FileWorkspace module: path policy, runtime mounts, and

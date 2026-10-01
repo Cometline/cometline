@@ -8,7 +8,7 @@ import (
 
 	gitignore "github.com/sabhiram/go-gitignore"
 
-	"github.com/cometline/cometmind/internal/filelist"
+	"github.com/Cometline/cometline/cometmind/internal/filelist"
 )
 
 const (

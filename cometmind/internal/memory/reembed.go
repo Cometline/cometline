@@ -3,12 +3,13 @@ package memory
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/cometline/cometmind/internal/logging"
+	"github.com/Cometline/cometline/cometmind/internal/logging"
 	"github.com/oklog/ulid/v2"
 )
 
@@ -131,7 +132,7 @@ FROM memory_reembed_jobs
 ORDER BY created_at DESC
 LIMIT 1`)
 	job, err := scanReembedJob(row)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {

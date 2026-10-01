@@ -3,7 +3,7 @@ package openai
 import (
 	"strings"
 
-	cometsdk "github.com/cometline/comet-sdk"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
 )
 
 // embeddedReasoningTag pairs delimit chain-of-thought that some OpenAI-compatible

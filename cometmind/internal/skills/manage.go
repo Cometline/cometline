@@ -161,7 +161,7 @@ func WriteSkill(name, content string, overwrite bool) error {
 	if content == "" {
 		return fmt.Errorf("skill content is required")
 	}
-	fm, _, err := parseFrontmatter(content)
+	fm, err := parseFrontmatter(content)
 	if err != nil {
 		return fmt.Errorf("invalid SKILL.md: %w", err)
 	}
@@ -263,7 +263,7 @@ func UpdateDiscoveredSkill(skill Skill, content string) error {
 	if content == "" {
 		return fmt.Errorf("skill content is required")
 	}
-	fm, _, err := parseFrontmatter(content)
+	fm, err := parseFrontmatter(content)
 	if err != nil {
 		return fmt.Errorf("invalid SKILL.md: %w", err)
 	}

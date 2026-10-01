@@ -3,10 +3,10 @@ package memory
 import (
 	"context"
 
-	cometsdk "github.com/cometline/comet-sdk"
-	"github.com/cometline/cometmind/internal/logging"
-	"github.com/cometline/cometmind/internal/session"
-	"github.com/cometline/cometmind/internal/usage"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
+	"github.com/Cometline/cometline/cometmind/internal/logging"
+	"github.com/Cometline/cometline/cometmind/internal/session"
+	"github.com/Cometline/cometline/cometmind/internal/usage"
 )
 
 func workspaceForSession(ctx context.Context, reader session.TranscriptReader, sessionID string) string {
@@ -78,7 +78,7 @@ func wrapEmbedder(inner Embedder, rec usage.Recorder, settings EmbeddingSettings
 func (e *recordingEmbedder) Model() string { return e.inner.Model() }
 
 func (e *recordingEmbedder) Embed(ctx context.Context, texts ...string) ([][]float32, error) {
-	vecs, tok, err := embedWithUsage(e.inner, ctx, texts...)
+	vecs, tok, err := embedWithUsage(ctx, e.inner, texts...)
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +98,7 @@ func (e *recordingEmbedder) Embed(ctx context.Context, texts ...string) ([][]flo
 	return vecs, nil
 }
 
-func embedWithUsage(inner Embedder, ctx context.Context, texts ...string) ([][]float32, cometsdk.TokenUsage, error) {
+func embedWithUsage(ctx context.Context, inner Embedder, texts ...string) ([][]float32, cometsdk.TokenUsage, error) {
 	if u, ok := inner.(interface {
 		embedUsage(context.Context, ...string) ([][]float32, cometsdk.TokenUsage, error)
 	}); ok {

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	cometsdk "github.com/cometline/comet-sdk"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
 )
 
 func TestAPISession(t *testing.T) {
@@ -50,8 +50,8 @@ func TestAPISession(t *testing.T) {
 		t.Fatalf("APISession() error = %v", err)
 	}
 
-	if got.Id != sess.ID {
-		t.Errorf("Id = %q, want %q", got.Id, sess.ID)
+	if got.ID != sess.ID {
+		t.Errorf("ID = %q, want %q", got.ID, sess.ID)
 	}
 	if got.WorkspacePath != "/tmp/ws" {
 		t.Errorf("WorkspacePath = %q, want /tmp/ws", got.WorkspacePath)
@@ -59,8 +59,8 @@ func TestAPISession(t *testing.T) {
 	if got.TokenUsage.InputTokens != 100 || got.TokenUsage.OutputTokens != 50 {
 		t.Errorf("TokenUsage = %+v, want input=100 output=50", got.TokenUsage)
 	}
-	if got.ParentSessionId == nil || *got.ParentSessionId != parentID {
-		t.Errorf("ParentSessionId = %v, want %q", got.ParentSessionId, parentID)
+	if got.ParentSessionID == nil || *got.ParentSessionID != parentID {
+		t.Errorf("ParentSessionID = %v, want %q", got.ParentSessionID, parentID)
 	}
 	if string(got.Origin) != "autonomy" {
 		t.Errorf("Origin = %q, want autonomy", got.Origin)

@@ -43,8 +43,9 @@
 	function findTarget(): HTMLElement | null {
 		if (!wrapEl) return null;
 		return (
-			wrapEl.querySelector<HTMLElement>('button, a, [role="button"], input, select, textarea') ??
-			(wrapEl.firstElementChild as HTMLElement | null)
+			wrapEl.querySelector<HTMLElement>(
+				'button, a, [role="button"], input, select, textarea'
+			) ?? (wrapEl.firstElementChild as HTMLElement | null)
 		);
 	}
 
@@ -205,7 +206,11 @@
 		padding: 1px 5px;
 		border: 1px solid var(--border-soft);
 		border-radius: 5px;
-		background: color-mix(in srgb, var(--panel-bg, #fff) 70%, var(--text-soft, #999) 12%);
+		background: color-mix(
+			in srgb,
+			var(--panel-bg, var(--panel-bg)) 70%,
+			var(--text-soft, var(--color-999999)) 12%
+		);
 		font-family: inherit;
 		font-size: 11px;
 		font-weight: 650;

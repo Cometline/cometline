@@ -3,7 +3,7 @@ import { join, relative } from 'node:path';
 
 const root = new URL('../src', import.meta.url).pathname;
 const allowlist = new Set(['app.css']);
-const forbidden = ['#b42318', '#15803d', '#B42318', '#15803D'];
+const hex = /#[0-9a-fA-F]{3,8}\b/;
 
 /** @type {string[]} */
 const violations = [];
@@ -20,9 +20,10 @@ function walk(dir) {
 		const rel = relative(root, path);
 		if (allowlist.has(rel)) continue;
 		const content = readFileSync(path, 'utf8');
-		for (const hex of forbidden) {
-			if (content.includes(hex)) {
-				violations.push(`${rel}: ${hex}`);
+		const lines = content.split('\n');
+		for (let index = 0; index < lines.length; index += 1) {
+			if (hex.test(lines[index])) {
+				violations.push(`${rel}:${index + 1}: ${lines[index].trim()}`);
 			}
 		}
 	}
@@ -31,9 +32,9 @@ function walk(dir) {
 walk(root);
 
 if (violations.length > 0) {
-	console.error('Forbidden status hex colors found outside app.css:\n');
+	console.error('Raw hex colors found outside app.css:\n');
 	for (const line of violations) console.error(`  ${line}`);
 	process.exit(1);
 }
 
-console.log('No forbidden status hex colors outside app.css.');
+console.log('No raw hex colors outside app.css.');

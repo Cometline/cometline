@@ -1,0 +1,15 @@
+event: response.created
+data: {"type":"response.created","response":{"id":"resp_01","status":"in_progress"}}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","item_id":"msg_01","delta":"Hello"}
+
+event: response.output_text.delta
+data: {"item_id":"msg_01","delta":", world!"}
+
+event: response.output_text.done
+data: {"type":"response.output_text.done","item_id":"msg_01","text":"Hello, world!"}
+
+event: response.completed
+data: {"type":"response.completed","response":{"id":"resp_01","status":"completed","usage":{"input_tokens":12,"output_tokens":4}}}
+

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import RuntimeOverlay from '$lib/components/RuntimeOverlay.svelte';
+	import RuntimeOverlay from '$lib/features/shell/components/RuntimeOverlay.svelte';
 	import { connectionState } from '$lib/stores/runtime.svelte';
 
 	let { mode = 'connecting' as 'connecting' | 'error' }: { mode?: 'connecting' | 'error' } =

@@ -3,26 +3,39 @@ package tools
 import (
 	"context"
 	"encoding/json"
+
+	"github.com/Cometline/cometline/cometmind/internal/tools/toolkit"
 )
 
 // Result is the structured outcome of a local tool execution.
-type Result struct {
-	OK           bool
-	Output       string
-	ExitCode     *int
-	InvalidInput bool
-}
+type Result = toolkit.Result
 
 // ToolSpec is the static metadata exposed to the LLM for a tool.
-type ToolSpec struct {
-	Name        string
-	Description string
-	Parameters  json.RawMessage
+type ToolSpec = toolkit.ToolSpec
+
+// Tool is a built-in capability exposed to the LLM.
+type Tool = toolkit.Tool
+
+// ProgressFn emits runtime events during long-running tool execution.
+type ProgressFn = toolkit.ProgressFn
+
+// WithToolSession attaches the active CometMind session id to the tool context.
+func WithToolSession(ctx context.Context, sessionID string) context.Context {
+	return toolkit.WithToolSession(ctx, sessionID)
 }
 
-// Tool is a built-in capability exposed to the LLM. Implementations capture
-// their Workspace at construction time so Execute only needs runtime input.
-type Tool interface {
-	Spec() ToolSpec
-	Execute(ctx context.Context, input json.RawMessage) (Result, error)
+// WithProgress attaches a callback for streaming tool progress to the parent turn.
+func WithProgress(ctx context.Context, fn ProgressFn) context.Context {
+	return toolkit.WithProgress(ctx, fn)
+}
+
+// IsInvalidToolInput reports schema/JSON argument failures, including wrapped
+// Execute errors and the recoverable Result produced by the registry.
+func IsInvalidToolInput(res Result, err error) bool {
+	return toolkit.IsInvalidToolInput(res, err)
+}
+
+// IsCompleteJSONObject reports whether input is a finished JSON object.
+func IsCompleteJSONObject(input json.RawMessage) bool {
+	return toolkit.IsCompleteJSONObject(input)
 }

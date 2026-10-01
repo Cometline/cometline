@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import EmptyChatState from '$lib/components/EmptyChatState.svelte';
-	import Composer from '$lib/components/composer/Composer.svelte';
-	import HeroComposerFrame from '$lib/components/HeroComposerFrame.svelte';
+	import EmptyChatState from '$lib/features/chat/components/EmptyChatState.svelte';
+	import Composer from '$lib/features/composer/components/Composer.svelte';
+	import HeroComposerFrame from '$lib/features/composer/components/HeroComposerFrame.svelte';
 	import { sessionStore } from '$lib/stores/session.svelte';
 	import { connectionState } from '$lib/stores/runtime.svelte';
 	import { modelStore } from '$lib/stores/model.svelte';
@@ -59,7 +59,8 @@
 				.catch((err) => {
 					if (cancelled) return;
 					bootstrapping = false;
-					bootstrapError = err instanceof Error ? err.message : 'Failed to start a new chat';
+					bootstrapError =
+						err instanceof Error ? err.message : 'Failed to start a new chat';
 				});
 		};
 

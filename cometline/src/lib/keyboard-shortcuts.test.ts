@@ -86,9 +86,9 @@ describe('keyboard-shortcuts', () => {
 
 	it('does not treat Ctrl+Cmd as a lone command chord (macOS fullscreen, etc.)', () => {
 		const focusSearch = { command: true, key: 'f' };
-		expect(matchesShortcut(keyEvent({ key: 'f', code: 'KeyF', metaKey: true }), focusSearch)).toBe(
-			true
-		);
+		expect(
+			matchesShortcut(keyEvent({ key: 'f', code: 'KeyF', metaKey: true }), focusSearch)
+		).toBe(true);
 		expect(
 			matchesShortcut(
 				keyEvent({ key: 'f', code: 'KeyF', metaKey: true, ctrlKey: true }),
@@ -210,7 +210,6 @@ describe('keyboard-shortcuts', () => {
 			key: 'c'
 		});
 	});
-
 });
 
 describe('isReloadShortcut', () => {

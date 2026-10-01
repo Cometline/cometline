@@ -3,17 +3,43 @@ package responsesproto
 import (
 	"strings"
 
-	cometsdk "github.com/cometline/comet-sdk"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
+	"github.com/Cometline/cometline/comet-sdk/internal/providerbase"
 )
+
+// CapabilityFallbacks lists, in priority order, the optional Responses request
+// features a provider drops and retries without when the endpoint rejects them.
+func CapabilityFallbacks() []providerbase.CapabilityFallback {
+	return []providerbase.CapabilityFallback{
+		{
+			Capability: cometsdk.CapabilityMaxOutputTokens,
+			LogEvent:   "stream.max_output_tokens_fallback",
+			Rejected: func(req *cometsdk.Request, err error) bool {
+				return req.MaxTokens > 0 && IsMaxOutputTokensUnsupportedError(err)
+			},
+		},
+		{
+			Capability: cometsdk.CapabilityReasoningSummary,
+			LogEvent:   "stream.reasoning_summary_fallback",
+			Rejected: func(_ *cometsdk.Request, err error) bool {
+				return IsReasoningSummaryUnsupportedError(err)
+			},
+		},
+		{
+			Capability: cometsdk.CapabilityEncryptedReasoningReplay,
+			LogEvent:   "stream.encrypted_reasoning_replay_fallback",
+			Rejected: func(_ *cometsdk.Request, err error) bool {
+				return IsEncryptedReasoningReplayError(err)
+			},
+		},
+	}
+}
 
 // IsMaxOutputTokensUnsupportedError reports whether err is a 4xx ServerError
 // whose message says max_output_tokens is rejected.
 func IsMaxOutputTokensUnsupportedError(err error) bool {
-	se, ok := err.(*cometsdk.ServerError)
+	se, ok := providerbase.ClientServerError(err)
 	if !ok {
-		return false
-	}
-	if se.StatusCode < 400 || se.StatusCode >= 500 {
 		return false
 	}
 	msg := strings.ToLower(se.Message)
@@ -24,8 +50,8 @@ func IsMaxOutputTokensUnsupportedError(err error) bool {
 // IsReasoningSummaryUnsupportedError reports whether err is a 4xx ServerError
 // whose message says the reasoning summary is rejected.
 func IsReasoningSummaryUnsupportedError(err error) bool {
-	se, ok := err.(*cometsdk.ServerError)
-	if !ok || se.StatusCode < 400 || se.StatusCode >= 500 {
+	se, ok := providerbase.ClientServerError(err)
+	if !ok {
 		return false
 	}
 	msg := strings.ToLower(se.Message)
@@ -37,8 +63,8 @@ func IsReasoningSummaryUnsupportedError(err error) bool {
 // IsEncryptedReasoningReplayError reports whether err is a 4xx ServerError
 // caused by replaying encrypted reasoning state.
 func IsEncryptedReasoningReplayError(err error) bool {
-	se, ok := err.(*cometsdk.ServerError)
-	if !ok || se.StatusCode < 400 || se.StatusCode >= 500 {
+	se, ok := providerbase.ClientServerError(err)
+	if !ok {
 		return false
 	}
 	msg := strings.ToLower(se.Message)

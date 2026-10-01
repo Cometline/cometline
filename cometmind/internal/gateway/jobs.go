@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/cometline/cometmind/internal/jobs"
+	"github.com/Cometline/cometline/cometmind/internal/jobs"
 )
 
 // FormatReadyJobsList returns a human-readable list of ready jobs.

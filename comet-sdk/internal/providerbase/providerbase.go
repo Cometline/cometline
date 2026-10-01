@@ -8,6 +8,7 @@ package providerbase
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -15,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	cometsdk "github.com/cometline/comet-sdk"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
 )
 
 // ClassifyHTTPError maps a non-200 HTTP response to a typed SDK error.
@@ -58,14 +59,47 @@ func ClassifyHTTPError(providerID string, resp *http.Response, body []byte) erro
 // the transient 5xx/529 server errors. Auth (401/403) and other 4xx stay
 // non-retryable.
 func IsRetryable(err error) bool {
-	switch e := err.(type) {
-	case *cometsdk.RateLimitError:
+	var rle *cometsdk.RateLimitError
+	if errors.As(err, &rle) {
 		return true
-	case *cometsdk.ServerError:
-		return e.StatusCode == 400 || e.StatusCode == 500 || e.StatusCode == 502 ||
-			e.StatusCode == 503 || e.StatusCode == 504 || e.StatusCode == 529
+	}
+	var se *cometsdk.ServerError
+	if errors.As(err, &se) {
+		switch se.StatusCode {
+		case 400, 500, 502, 503, 504, 529:
+			return true
+		}
 	}
 	return false
+}
+
+// ClientServerError returns the ServerError in err's chain when it carries a
+// 4xx status, so capability-fallback checks can inspect the provider message.
+func ClientServerError(err error) (*cometsdk.ServerError, bool) {
+	var se *cometsdk.ServerError
+	if !errors.As(err, &se) || se.StatusCode < 400 || se.StatusCode >= 500 {
+		return nil, false
+	}
+	return se, true
+}
+
+// SendEvent delivers ev on ch unless ctx is cancelled while waiting, and
+// reports whether it was delivered. Parse loops stop on false so a consumer
+// that abandons the channel cannot pin the goroutine and the response body.
+// Delivery is attempted before checking ctx so a terminal error still reaches
+// a consumer that is reading or has buffer room.
+func SendEvent(ctx context.Context, ch chan<- cometsdk.Event, ev cometsdk.Event) bool {
+	select {
+	case ch <- ev:
+		return true
+	default:
+	}
+	select {
+	case ch <- ev:
+		return true
+	case <-ctx.Done():
+		return false
+	}
 }
 
 // MarshalWithOptions marshals base into JSON, then merges any keys from
@@ -101,7 +135,7 @@ func MarshalWithOptions(base any, overrides map[string]any, providerKey string) 
 // that already ends in "/v1" (as unified gateways often do). path must start
 // with "/" and must not include the "/v1" prefix (e.g. "/messages").
 func Endpoint(baseURL, path string) string {
-	baseURL = cometsdk.NormaliseBaseURL(baseURL)
+	baseURL = cometsdk.NormalizeBaseURL(baseURL)
 	if strings.HasSuffix(baseURL, "/v1") {
 		return baseURL + path
 	}

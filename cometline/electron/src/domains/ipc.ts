@@ -1,148 +1,31 @@
 import { ipcMain, type IpcMainEvent, type IpcMainInvokeEvent } from 'electron';
 
+import {
+	INVOKE_CHANNELS,
+	SEND_CHANNELS,
+	type InvokeMethod,
+	type InvokeResponse,
+	type SendMethod
+} from '../shared/ipc-channels.js';
+
+// Renderer arguments cross a trust boundary, so handlers take `unknown` and
+// validate; only their results are held to the ElectronAPI contract.
 type Listener = (event: IpcMainEvent, ...args: unknown[]) => void;
-type Invoker = (event: IpcMainInvokeEvent, ...args: unknown[]) => unknown;
+type Invoker<K extends InvokeMethod> = (
+	event: IpcMainInvokeEvent,
+	...args: unknown[]
+) => InvokeResponse<K> | Promise<InvokeResponse<K>>;
 
-export interface IpcHandlers {
-	jobsNotify: Listener;
-	restartCometMind: Listener;
-	shortcutCaptureActive: Listener;
-	sessionNavigationSuspended: Listener;
-	workspacePanelOpen: Listener;
-	inboxOpen: Listener;
-	confirmCloseWindow: Listener;
-	setSidebarOpen: Listener;
-	getFullScreen: Invoker;
-	getWorkspacePath: Invoker;
-	openSessionInMainWindow: Invoker;
-	selectWorkspacePath: Invoker;
-	browseWorkspacePath: Invoker;
-	selectBackupFolder: Invoker;
-	setWorkspacePath: Invoker;
-	watchWorkspace: Invoker;
-	listRecentWorkspaces: Invoker;
-	removeRecentWorkspacePath: Invoker;
-	filterExistingWorkspacePaths: Invoker;
-	pruneWorkspaceStore: Invoker;
-	readWorkspaceFile: Invoker;
-	createPdfPreview: Invoker;
-	revokePdfPreview: Invoker;
-	terminalList: Invoker;
-	terminalCreate: Invoker;
-	terminalWrite: Invoker;
-	terminalResize: Invoker;
-	terminalTerminate: Invoker;
-	terminalRemove: Invoker;
-	listCustomPersonas: Invoker;
-	readPersonaAvatar: Invoker;
-	readBuiltinSoul: Invoker;
-	saveCustomPersona: Invoker;
-	deleteCustomPersona: Invoker;
-	getProviderSettings: Invoker;
-	getCodexAuthStatus: Invoker;
-	startCodexLogin: Invoker;
-	getXaiAuthStatus: Invoker;
-	startXaiLogin: Invoker;
-	readCursorMcpConfig: Invoker;
-	fetchProviderModels: Invoker;
-	ollamaHealth: Invoker;
-	ollamaModels: Invoker;
-	ollamaDiagnostics: Invoker;
-	ollamaPull: Invoker;
-	ollamaCancelPull: Invoker;
-	saveProviderSettings: Invoker;
-	openSettingsWindow: Invoker;
-	replayIntro: Invoker;
-	runSetupWizard: Invoker;
-	getMiniWindowState: Invoker;
-	saveMiniWindowState: Invoker;
-	getDiscordGatewayStatus: Invoker;
-	setDiscordGatewayEnabled: Invoker;
-	loadComposerHistory: Invoker;
-	appendComposerHistory: Invoker;
-	getOpenAtLogin: Invoker;
-	setOpenAtLogin: Invoker;
-	getScreenCaptureAccess: Invoker;
-	setScreenCapturePreferred: Invoker;
-	openScreenCaptureSettings: Invoker;
-	openExternal: Invoker;
-	copyMediaFile: Invoker;
-	getAppVersion: Invoker;
-	getUpdateState: Invoker;
-	checkForUpdates: Invoker;
-	installUpdate: Invoker;
-}
+export type IpcHandlers = { [K in SendMethod]: Listener } & {
+	[K in InvokeMethod]: Invoker<K>;
+};
 
-/** Registers the stable preload IPC contract from composition-supplied handlers. */
+/** Registers a main-process handler for every renderer → main channel in the registry. */
 export function registerIpcHandlers(handlers: IpcHandlers) {
-	ipcMain.on('jobs:notify', handlers.jobsNotify);
-	ipcMain.on('cometmind:restart', handlers.restartCometMind);
-	ipcMain.on('cometline:shortcut-capture-active', handlers.shortcutCaptureActive);
-	ipcMain.on('cometline:session-navigation-suspended', handlers.sessionNavigationSuspended);
-	ipcMain.on('cometline:workspace-panel-open', handlers.workspacePanelOpen);
-	ipcMain.on('cometline:inbox-open', handlers.inboxOpen);
-	ipcMain.on('cometline:confirm-close-window', handlers.confirmCloseWindow);
-	ipcMain.on('cometline:set-sidebar-open', handlers.setSidebarOpen);
-	ipcMain.handle('cometline:get-fullscreen', handlers.getFullScreen);
-	ipcMain.handle('cometline:get-workspace-path', handlers.getWorkspacePath);
-	ipcMain.handle('cometline:open-session-in-main-window', handlers.openSessionInMainWindow);
-	ipcMain.handle('cometline:select-workspace-path', handlers.selectWorkspacePath);
-	ipcMain.handle('cometline:browse-workspace-path', handlers.browseWorkspacePath);
-	ipcMain.handle('cometline:select-backup-folder', handlers.selectBackupFolder);
-	ipcMain.handle('cometline:set-workspace-path', handlers.setWorkspacePath);
-	ipcMain.handle('cometline:watch-workspace', handlers.watchWorkspace);
-	ipcMain.handle('cometline:list-recent-workspaces', handlers.listRecentWorkspaces);
-	ipcMain.handle('cometline:remove-recent-workspace-path', handlers.removeRecentWorkspacePath);
-	ipcMain.handle(
-		'cometline:filter-existing-workspace-paths',
-		handlers.filterExistingWorkspacePaths
-	);
-	ipcMain.handle('cometline:prune-workspace-store', handlers.pruneWorkspaceStore);
-	ipcMain.handle('cometline:read-workspace-file', handlers.readWorkspaceFile);
-	ipcMain.handle('cometline:create-pdf-preview', handlers.createPdfPreview);
-	ipcMain.handle('cometline:revoke-pdf-preview', handlers.revokePdfPreview);
-	ipcMain.handle('cometline:terminal-list', handlers.terminalList);
-	ipcMain.handle('cometline:terminal-create', handlers.terminalCreate);
-	ipcMain.handle('cometline:terminal-write', handlers.terminalWrite);
-	ipcMain.handle('cometline:terminal-resize', handlers.terminalResize);
-	ipcMain.handle('cometline:terminal-terminate', handlers.terminalTerminate);
-	ipcMain.handle('cometline:terminal-remove', handlers.terminalRemove);
-	ipcMain.handle('cometline:list-custom-personas', handlers.listCustomPersonas);
-	ipcMain.handle('cometline:read-persona-avatar', handlers.readPersonaAvatar);
-	ipcMain.handle('cometline:read-builtin-soul', handlers.readBuiltinSoul);
-	ipcMain.handle('cometline:save-custom-persona', handlers.saveCustomPersona);
-	ipcMain.handle('cometline:delete-custom-persona', handlers.deleteCustomPersona);
-	ipcMain.handle('cometline:get-provider-settings', handlers.getProviderSettings);
-	ipcMain.handle('cometline:get-codex-auth-status', handlers.getCodexAuthStatus);
-	ipcMain.handle('cometline:start-codex-login', handlers.startCodexLogin);
-	ipcMain.handle('cometline:get-xai-auth-status', handlers.getXaiAuthStatus);
-	ipcMain.handle('cometline:start-xai-login', handlers.startXaiLogin);
-	ipcMain.handle('cometline:read-cursor-mcp-config', handlers.readCursorMcpConfig);
-	ipcMain.handle('cometline:fetch-provider-models', handlers.fetchProviderModels);
-	ipcMain.handle('cometline:ollama-health', handlers.ollamaHealth);
-	ipcMain.handle('cometline:ollama-models', handlers.ollamaModels);
-	ipcMain.handle('cometline:ollama-diagnostics', handlers.ollamaDiagnostics);
-	ipcMain.handle('cometline:ollama-pull', handlers.ollamaPull);
-	ipcMain.handle('cometline:ollama-cancel-pull', handlers.ollamaCancelPull);
-	ipcMain.handle('cometline:save-provider-settings', handlers.saveProviderSettings);
-	ipcMain.handle('cometline:open-settings-window', handlers.openSettingsWindow);
-	ipcMain.handle('cometline:replay-intro', handlers.replayIntro);
-	ipcMain.handle('cometline:run-setup-wizard', handlers.runSetupWizard);
-	ipcMain.handle('cometline:get-mini-window-state', handlers.getMiniWindowState);
-	ipcMain.handle('cometline:save-mini-window-state', handlers.saveMiniWindowState);
-	ipcMain.handle('cometline:get-discord-gateway-status', handlers.getDiscordGatewayStatus);
-	ipcMain.handle('cometline:set-discord-gateway-enabled', handlers.setDiscordGatewayEnabled);
-	ipcMain.handle('cometline:load-composer-history', handlers.loadComposerHistory);
-	ipcMain.handle('cometline:append-composer-history', handlers.appendComposerHistory);
-	ipcMain.handle('cometline:get-open-at-login', handlers.getOpenAtLogin);
-	ipcMain.handle('cometline:set-open-at-login', handlers.setOpenAtLogin);
-	ipcMain.handle('cometline:get-screen-capture-access', handlers.getScreenCaptureAccess);
-	ipcMain.handle('cometline:set-screen-capture-preferred', handlers.setScreenCapturePreferred);
-	ipcMain.handle('cometline:open-screen-capture-settings', handlers.openScreenCaptureSettings);
-	ipcMain.handle('cometline:open-external', handlers.openExternal);
-	ipcMain.handle('cometline:copy-media-file', handlers.copyMediaFile);
-	ipcMain.handle('cometline:get-app-version', handlers.getAppVersion);
-	ipcMain.handle('cometline:get-update-state', handlers.getUpdateState);
-	ipcMain.handle('cometline:check-for-updates', handlers.checkForUpdates);
-	ipcMain.handle('cometline:install-update', handlers.installUpdate);
+	for (const method of Object.keys(SEND_CHANNELS) as SendMethod[]) {
+		ipcMain.on(SEND_CHANNELS[method], handlers[method]);
+	}
+	for (const method of Object.keys(INVOKE_CHANNELS) as InvokeMethod[]) {
+		ipcMain.handle(INVOKE_CHANNELS[method], handlers[method]);
+	}
 }

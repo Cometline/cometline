@@ -1,23 +1,13 @@
 # Docs
 
-This directory holds contributor-facing guides that sit on top of `README.md`,
-`ARCHITECTURE.md`, and `ARCHITECTURE_GUIDE.md`.
+Reading path for new contributors: [README](../README.md), then the [learning series](./learning/00-README.md), then [ARCHITECTURE_GUIDE](../ARCHITECTURE_GUIDE.md). Day-to-day rules are the one-page [CONVENTIONS](./CONVENTIONS.md).
 
-Read these in order when onboarding to the repo:
+| Doc | Read it when |
+| --- | --- |
+| [CONVENTIONS.md](./CONVENTIONS.md) | You need the one way to write Go, HTTP, migrations, or frontend code |
+| [learning/](./learning/00-README.md) | You want a guided tour of the three modules, from a 10-minute overview to extension recipes |
+| [MODULE_GUIDE.md](./MODULE_GUIDE.md) | You need the ownership rules and change checklist for one module |
+| [SETTINGS_AND_PERSISTENCE.md](./SETTINGS_AND_PERSISTENCE.md) | You are changing the settings modal, the settings files, or the save and reload flow |
+| [FRONTEND_DESIGN_SYSTEM.md](./FRONTEND_DESIGN_SYSTEM.md) | You are styling UI and need the color, typography, layout, and motion tokens |
 
-1. `../README.md`
-2. `../ARCHITECTURE.md`
-3. `../ARCHITECTURE_GUIDE.md`
-4. `learning/00-README.md` — progressive learning series (start here for a guided tour)
-5. `MODULE_GUIDE.md`
-6. `SETTINGS_AND_PERSISTENCE.md`
-7. `FRONTEND_DESIGN_SYSTEM.md`
-
-Guides in this folder:
-
-- `learning/` - progressive onboarding series (nutshell → architecture → modules → recipes)
-- `MODULE_GUIDE.md` - module ownership, boundaries, and change checklists
-- `SETTINGS_AND_PERSISTENCE.md` - settings modal rules, dirty-state guardrails, and cross-layer save flow
-- `FRONTEND_DESIGN_SYSTEM.md` - current visual system, styling rules, and known frontend consistency gaps
-
-For current route names and contracts, refer to the living architecture docs above.
+Frontend conventions for the renderer live next to the app in [cometline/docs/FRONTEND_PATTERNS.md](../cometline/docs/FRONTEND_PATTERNS.md).

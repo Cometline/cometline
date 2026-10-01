@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"strings"
 
-	cometsdk "github.com/cometline/comet-sdk"
-	"github.com/cometline/comet-sdk/llm"
-	"github.com/cometline/cometmind/internal/logging"
-	"github.com/cometline/cometmind/internal/memory"
-	"github.com/cometline/cometmind/internal/usage"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
+	"github.com/Cometline/cometline/comet-sdk/llm"
+	"github.com/Cometline/cometline/cometmind/internal/logging"
+	"github.com/Cometline/cometline/cometmind/internal/memory"
+	"github.com/Cometline/cometline/cometmind/internal/usage"
 )
 
 const synthesisMaxTokens = 2500
@@ -91,7 +91,8 @@ func generateSynthesisResult(ctx context.Context, p cometsdk.Provider, model str
 		MaxTokens:   synthesisMaxTokens,
 		Temperature: &zero,
 	}
-	if tok, err := llm.GenerateJSON(ctx, p, req, &out); err != nil {
+	tok, err := llm.GenerateJSON(ctx, p, req, &out)
+	if err != nil {
 		recordSkillUsage(ctx, rec, p, model, workspaceID, tok)
 		if !shouldRetrySynthesisJSON(err) {
 			return synthesisResult{}, err
@@ -115,9 +116,8 @@ If this job is not reusable, set "should_propose" to false and leave "name" and 
 			return synthesisResult{}, retryErr
 		}
 		return out, nil
-	} else {
-		recordSkillUsage(ctx, rec, p, model, workspaceID, tok)
 	}
+	recordSkillUsage(ctx, rec, p, model, workspaceID, tok)
 	return out, nil
 }
 

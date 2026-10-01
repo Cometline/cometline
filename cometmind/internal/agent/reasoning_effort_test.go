@@ -3,7 +3,7 @@ package agent
 import (
 	"testing"
 
-	"github.com/cometline/cometmind/internal/session"
+	"github.com/Cometline/cometline/cometmind/internal/session"
 )
 
 func TestRunner_ReasoningEffortComesFromTurn(t *testing.T) {

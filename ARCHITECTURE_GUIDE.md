@@ -1,6 +1,8 @@
-# Cometline Release Architecture Guide
+# Cometline Architecture Guide
 
-This guide is a contributor-oriented map of the whole repository. It explains what each module owns, how data moves through the system, which contracts are load-bearing, and where to start when changing behavior.
+This guide is the system overview and contributor map for the whole repository. It explains what each module owns, how data moves through the system, which contracts are load-bearing, and where to start when changing behavior.
+
+It is the last stop on the reading path: [README](./README.md), then [docs/learning/](./docs/learning/00-README.md), then this guide. Day-to-day rules are [docs/CONVENTIONS.md](./docs/CONVENTIONS.md). The learning series walks through more flows (memory, MCP, coding-harness delegation, jobs, Discord) step by step in [03-data-flows.md](./docs/learning/03-data-flows.md).
 
 ## One-Sentence Purpose
 
@@ -11,13 +13,16 @@ The repo succeeds if and only if the desktop shell can safely drive a local agen
 ## Repository Topography
 
 ```text
-cometline-release/
+cometline/
 +-- comet-sdk/       Go module: provider-agnostic LLM I/O library
 +-- cometmind/       Go module: local agent runtime, SQLite persistence, CLI/API
 +-- cometline/       SvelteKit + Electron desktop shell
++-- docs/            learning series and topic guides
 +-- Makefile         root orchestration for dev/check/build/package
-`-- AGENTS.md        repository-specific development rules
+`-- AGENTS.md        repository-specific development rules (CLAUDE.md links here)
 ```
+
+The Go module paths are `github.com/Cometline/cometline/comet-sdk` and `github.com/Cometline/cometline/cometmind`, on Go 1.26. CometMind builds against the in-repo SDK through a `replace` directive, and SDK releases are tagged `comet-sdk/vX.Y.Z`. The HTTP server is `cometmind/internal/server`. SQLite is opened in `cometmind/internal/sqlite`.
 
 Dependency direction:
 
@@ -25,7 +30,7 @@ Dependency direction:
 Desktop user
   -> cometline renderer, mini window, jobs board, settings, skill drafts
     -> HTTP/SSE on http://127.0.0.1:7700
-      -> cometmind server/runtime/session/tools
+      -> cometmind internal/server, runtime, session, tools
         -> jobs/scheduler/autonomy, MCP manager, comet-sdk Provider interface
           -> Anthropic / OpenAI / OpenAI-compatible APIs
 
@@ -53,7 +58,7 @@ The rule that explains most boundaries: `cometline` is the UI shell, `cometmind`
 | Streaming collection | `comet-sdk/llm.StreamMessage` | Lets UI render deltas while still assembling the final assistant message | Swappable if it preserves event ordering and final result semantics |
 | Agent orchestration | `cometmind/internal/agent.Runner` | Multi-step loop: model call, persist, execute tools, continue | Load-bearing |
 | Persistence | SQLite via `modernc.org/sqlite` and sqlc | Local-first durable sessions without native CGO dependency | Storage engine is swappable only behind `session.Service`-equivalent contracts |
-| HTTP API | Gin in `cometmind/server` | Localhost REST/SSE contract for desktop renderer | Swappable if the API/SSE contract is preserved |
+| HTTP API | Gin in `cometmind/internal/server` | Localhost REST/SSE contract for desktop renderer | Swappable if the API/SSE contract is preserved |
 | Jobs and scheduling | `internal/jobs`, `internal/scheduler`, `internal/autonomy` | Durable work queue, scheduled work materialization, autonomous execution | Load-bearing once users rely on persisted jobs |
 | MCP client | `internal/mcp` with `github.com/modelcontextprotocol/go-sdk` | Adds external tools to the main agent without baking them into CometMind | Swappable behind the tool registry surface |
 | CLI | Cobra | Thin command surfaces around shared runtime | Swappable |
@@ -65,7 +70,7 @@ The rule that explains most boundaries: `cometline` is the UI shell, `cometmind`
 
 ### CometMind Local API
 
-The authoritative local backend surface is under `/api/v1`, registered by `cometmind/server` and described completely by `cometmind/openapi.yaml`. The table is a contributor-oriented sample, not a route inventory: the current contract also covers model catalogues, workspace Git and wiki operations, session forks/media/children, global runtime events, managed skills, memory lifecycle, storage maintenance, and inbox messages.
+The authoritative local backend surface is under `/api/v1`, registered by `cometmind/internal/server` and described completely by `cometmind/openapi.yaml`. The table is a contributor-oriented sample, not a route inventory: the current contract also covers model catalogues, workspace Git and wiki operations, session forks/media/children, global runtime events, managed skills, memory lifecycle, storage maintenance, and inbox messages.
 
 | Method | Path | Purpose |
 |---|---|---|
@@ -121,7 +126,7 @@ CometMind emits JSON SSE frames whose `type` field is the discriminator. The can
 | `error` | `type`, `message`, `code?` | Runtime/model/tool error |
 | `done` | `type` | Terminal stream event |
 
-Changing this contract requires changes in `cometmind/internal/event`, `cometmind/server`, `cometline/src/lib/types.ts`, `cometline/src/lib/reducers/chat.ts`, and tests.
+Changing this contract requires changes in `cometmind/internal/event`, `cometmind/internal/server`, `cometline/src/lib/types.ts`, `cometline/src/lib/reducers/chat.ts`, and tests.
 
 ### Electron IPC Contract
 
@@ -214,8 +219,8 @@ Key references:
 
 | Step | Source |
 |---|---|
-| Route registration | `cometmind/server/server.go` |
-| Message handler, single-run acquisition, persistence, and SSE loop | `cometmind/server/messages.go` (`handlePostMessage`) |
+| Route registration | `cometmind/internal/apigen/server.gen.go`, with exclusions in `internal/server/routes.go` |
+| Message handler, single-run acquisition, persistence, and SSE loop | `cometmind/internal/server/messages.go` (`handlePostMessage`) |
 
 ### Flow 4: Agent Step And Tool Loop
 
@@ -264,9 +269,9 @@ Key references:
 
 | Step | Source |
 |---|---|
-| Settings schema and normalization | `cometline/src/lib/settings/schema.ts` |
-| Pending-save snapshots | `cometline/src/lib/settings/pending-settings.ts` |
-| Renderer persistence helper | `cometline/src/lib/settings/persist.ts` |
+| Settings schema and normalization | `cometline/src/lib/features/settings/schema.ts` |
+| Pending-save snapshots | `cometline/src/lib/features/settings/pending-settings.ts` |
+| Renderer persistence helper | `cometline/src/lib/features/settings/persist.ts` |
 | Electron settings read/write and native side effects | `cometline/electron/src/domains/runtime.ts` |
 | CometMind config load/reload | `cometmind/internal/config/`, `cometmind/internal/runtime/runtime.go` |
 
@@ -307,7 +312,8 @@ comet-sdk/
 +-- llm/                           convenience collection and streaming assembly
 +-- provider/anthropic/            Anthropic Messages API adapter
 +-- provider/openai/               OpenAI Chat Completions-compatible adapter
-+-- provider/codex/                ChatGPT Codex adapter (HTTP and WebSocket transports)
++-- provider/codex/                ChatGPT Codex adapter (Responses protocol over HTTP)
++-- provider/openairesponses/      OpenAI Responses adapter (used by OpenCode Go models)
 +-- provider/xai/                  xAI Grok adapter (OAuth subscription auth, OpenAI-compatible wire)
 `-- internal/
     +-- providerbase/              HTTP error classification, endpoint/options helpers
@@ -442,24 +448,51 @@ The README frames it as a general AI agent runtime. The implemented runtime is t
 
 ```text
 cometmind/
-+-- main.go                       entry point, calls cmd.Execute
-+-- cmd/                          Cobra commands: init, chat, serve, session
-+-- server/                       Gin REST/SSE API and run cancellation manager
-+-- openapi.yaml                  API contract source of truth
++-- main.go            process entry; calls cmd.Execute
++-- cmd/               Cobra commands: init, chat, serve, session, gateway, model, settings, skills
++-- openapi.yaml       HTTP contract source of truth
 `-- internal/
-    +-- runtime/                  composition root for config, DB, sessions, providers
-    +-- agent/                    multi-step LLM/tool runner
-    +-- session/                  domain service over sqlc DB queries
-    +-- db/                       schema, migrations, generated sqlc files
-    +-- config/                   JSON settings, legacy TOML migration, env overrides, API key resolution
-    +-- provider/                 CometMind config -> comet-sdk provider factory
-    +-- tools/                    built-in tool interface, registry, implementations
-    +-- tools/sandbox/            workspace path escape prevention
-    +-- event/                    runtime event union and JSON wire format
-    +-- store/                    SQLite open/pragmas/schema bootstrap
-    +-- paths/                    data dir, DB path, config path, workspace resolution
-    +-- wakeup/                   coalesced background-worker config signals
-    `-- id/                       ULID generation
+    +-- acp/           fixed CLI profiles for coding-harness delegation
+    +-- agent/         multi-step LLM and tool loop
+    +-- apigen/        generated Gin strict server and wire types; only internal/server imports this
+    +-- autonomy/      worker that starts due jobs on its own
+    +-- backup/        archive of settings and the database
+    +-- config/        JSON settings, env overrides, API key resolution
+    +-- contract/      OpenAPI and SSE contract tests
+    +-- db/            schema.sql, numbered SQL migrations, generated sqlc
+    +-- event/         SSE event union and JSON wire format
+    +-- filelist/      workspace file listing for the API
+    +-- gateway/       Discord gateway and inbound routing
+    +-- generation/    provider image and video API calls
+    +-- id/            ULID generation
+    +-- inbox/         durable user notices
+    +-- inboxworker/   background internalization of inbox replies
+    +-- jobs/          durable job queue, leases, and events
+    +-- logging/       process logger
+    +-- mcp/           MCP client manager and OAuth
+    +-- media/         gallery file store under ~/.cometmind/media
+    +-- memory/        semantic memory: retrieve, extract, compact
+    +-- modelcatalog/  models.dev catalog, cache, and protocol metadata
+    +-- modelcompat/   remembers model features a provider rejected
+    +-- paths/         data dir, database path, and workspace resolution
+    +-- process/       child-process trees and environment
+    +-- processctl/    long-running serve and gateway process modes
+    +-- provider/      config to comet-sdk provider factory
+    +-- retention/     storage cleanup and delete-by-age
+    +-- runstate/      session run ownership in SQLite
+    +-- runtime/       composition root for config, DB, sessions, and providers
+    +-- scheduler/     one-shot and recurring job schedules
+    +-- server/        HTTP/SSE API; the only importer of apigen
+    +-- session/       domain service over sqlc queries
+    +-- settingsapply/ classifies a settings diff as reload, recycle, or restart
+    +-- skills/        Agent Skill discovery and drafts
+    +-- sqlite/        opens SQLite and applies pragmas
+    +-- subagent/      in-process subagent control
+    +-- tools/         tool registry (composition root); families must not import it
+    +-- usage/         token-usage and cost aggregation
+    +-- wakeup/        coalesced signals for background workers
+    +-- wiki/          workspace wiki files and links
+    `-- workspace/     workspace file and git operations
 ```
 
 ## Runtime Composition
@@ -508,17 +541,17 @@ Important persisted formats:
 | `messages.content` for `tool_result` | JSON object `{tool_call_id, content, is_error}` | `cometmind/internal/session/service.go` |
 | `sessions.token_usage` | JSON-encoded `cometsdk.TokenUsage` snapshot | `cometmind/internal/session/service.go` |
 
-Schema migrations are managed with `PRAGMA user_version` and applied incrementally via `alterStatements` in `cometmind/internal/db/migrate.go`. Read `schemaVersion` in that file for the current version. Each version checkpoints `user_version`; table rebuilds (`DROP TABLE`) run in one transaction so a crash cannot leave a half-renamed catalog. Generated sqlc files under `internal/db` must not be hand-edited.
+A fresh database is built from `schema.sql`. Upgrades are embedded files `cometmind/internal/db/migrations/NNNN_description.sql` (0002 through 0037). The highest file number is the current `user_version`. `TestMigrationsFromV1MatchFreshSchema` fails if `schema.sql` and the migrations drift. A file that contains `DROP TABLE` runs as a transactional rebuild. The only Go-side step is `skipIfApplied` in `internal/db/migrate.go`. Generated sqlc files under `internal/db` must not be hand-edited.
 
 ## HTTP/SSE Server
 
-The server is a Gin app built by `server.New` in `cometmind/server/server.go`. It takes explicit dependencies in `server.Deps`, including a runner factory and optional `RunManager`.
+The server is a Gin app built by `server.New` in `cometmind/internal/server/server.go`. It takes explicit dependencies in `server.Deps`, including a runner factory and optional `RunManager`. Routes come from the generated Gin strict server in `cometmind/internal/apigen` (`server.gen.go`). Hand-registered exclusions in `internal/server/routes.go` are `postSessionMessage`, `streamSessionEvents`, `streamRuntimeEvents`, `getSessionMedia`, `getMediaContent`, and `exportSkill`. The spec documents two error shapes, and both remain: `{error:{code,message}}` (`ErrorResponse`) and `{"error":"string"}` (`SimpleErrorResponse`). depguard does not exempt `cmd/session.go` or `internal/session/wire.go`.
 
-`handlePostMessage` is the critical endpoint in `cometmind/server/messages.go`. It validates input, loads the session and workspace, builds a runner, acquires the per-session run lock, persists the user message, sets SSE headers, runs the agent in a goroutine, writes every event with `writeSSE`, and flushes.
+`handlePostMessage` is the critical endpoint in `cometmind/internal/server/messages.go`. It validates input, loads the session and workspace, builds a runner, acquires the per-session run lock, persists the user message, sets SSE headers, runs the agent, writes every event with `writeSSE`, and flushes.
 
 `RunManager` enforces one active run per session. This prevents overlapping writes and interleaved streams for the same conversation.
 
-Local CORS allows Vite dev origins, localhost, packaged `app://`, `file://`, empty origin, and `null`; see `localCORS` in `cometmind/server/server.go`.
+Local CORS allows Vite dev origins, localhost, packaged `app://`, `file://`, empty origin, and `null`; see `localCORS` in `cometmind/internal/server/server.go`.
 
 ## CLI And Server Surfaces
 
@@ -528,33 +561,34 @@ The HTTP server is the primary app integration surface for Cometline. The import
 
 ## Config And Provider Factory
 
-`config.Load` prefers `~/.cometmind/cometline-settings.json`, falls back to legacy `config.toml` only when JSON is missing, and then overlays `COMETMIND_*` environment variables. Provider methods and adaptation live under `cometmind/internal/config`.
+`config.Load` reads `~/.cometmind/cometline-settings.json` (writing a minimal file when it is missing) and then overlays `COMETMIND_*` environment variables. Provider methods and adaptation live under `cometmind/internal/config`.
 
 `internal/provider.NewForModel` resolves a session provider ID and model to a configured provider entry or legacy provider method, resolves API key, applies base URL, and constructs the concrete `cometsdk.Provider` (`cometmind/internal/provider/factory.go`). The factory is model-aware for `opencode-go`: its models can speak Chat Completions, Anthropic Messages, or OpenAI Responses depending on models.dev metadata, so `NewForModel` dispatches by the resolved protocol (`@ai-sdk/openai` → Responses, `@ai-sdk/anthropic` → Messages, default → Chat Completions). `NewFor` and `NewMemoryLLM` delegate with the entry or extraction model.
 
 ## Tools
 
-The tool registry is built per workspace in `cometmind/internal/tools/registry.go`. Capability surfaces in `surface.go` decide which registered tools each agent type can use; the registry exposes specs to the LLM and dispatches execution by name.
+`internal/tools` is the registry and a composition root. Capability surfaces in `surface.go` decide which registered tools each agent type can use; the registry exposes specs to the LLM and dispatches execution by name. Families live in subpackages and must not import the parent `tools` package: `fsops`, `web`, `media`, `jobs`, `mcp`, `memory`, `settings`, `subagent`, `skills`, and `inbox`, plus shared `toolkit` and `fs`. `sandbox` checks path escapes. `diffartifact` is the `edit_file` wire contract.
 
-Current tool families:
-
-| Family | Examples |
+| Family | Owns |
 |---|---|
-| Files, shell, and web | `read_file`, `edit_file`, `write_file`, `list_dir`, `glob`, `grep`, `run_command`, web tools |
-| Skills and subagents | Skill read/write/draft tools, general subagents, optional coding-harness delegation |
-| Jobs, schedules, memory, and settings | Durable work and runtime-management tools selected by capability surface |
-| MCP | Provider-safe `mcp_{serverId}_{toolName}` bindings from connected servers |
+| `fsops`, `fs`, `sandbox` | read, write, edit, glob, grep, list, run, and path checks |
+| `web` | `web_fetch` and `web_search` |
+| `media` | generate, present, and capture image or video |
+| `jobs` | job queue and scheduled-job tools |
+| `mcp` | MCP server management and proxied tools |
+| `memory`, `settings`, `skills`, `inbox` | memory, settings, skill, and leave-message tools |
+| `subagent` | spawn, wait, and coding-harness delegation |
 
-File tools are workspace-scoped through `internal/tools/sandbox/pathcheck.go` as described in `AGENTS.md`. When adding tools, preserve workspace isolation and think about permission gates; CometMind currently executes tool calls directly.
+File tools are workspace-scoped through `internal/tools/sandbox/pathcheck.go`. When adding tools, preserve workspace isolation and think about permission gates; CometMind currently executes tool calls directly.
 
 ## Extension Seams
 
 | Change | Where To Start |
 |---|---|
 | Add an LLM provider | `comet-sdk/provider/<new>` then `cometmind/internal/provider/factory.go`; per-model protocol (npm/api) overrides for a method land in `cometmind/internal/modelcatalog` metadata |
-| Add a built-in tool | New `internal/tools/*.go`, then register in `internal/tools/registry.go` |
-| Add an API endpoint | `cometmind/server/server.go`, `cometmind/openapi.yaml`, server tests |
-| Change DB schema | `internal/db/schema.sql`, `internal/db/migrate.go`, `sqlc generate`, session service updates |
+| Add a built-in tool | Matching family under `internal/tools/<family>` (`toolkit.Tool`), then register in `internal/tools/registry.go`. The family must not import `tools` |
+| Add an API endpoint | `cometmind/openapi.yaml`, then the strict-server method. Hand-register only the excluded SSE and download operations in `internal/server/routes.go` |
+| Change DB schema | `internal/db/schema.sql` plus the next `internal/db/migrations/NNNN_description.sql`, pinned sqlc regeneration (see `AGENTS.md`), session service updates |
 | Change stream event contract | `internal/event/event.go`, server/CLI consumers, renderer types/reducer |
 | Change agent loop behavior | `internal/agent/runner.go` and its tests |
 
@@ -596,6 +630,25 @@ SvelteKit renderer: cometline/src
 ```
 
 Security posture: `BrowserWindow` has `sandbox: true`, `contextIsolation: true`, `nodeIntegration: false`, and preload-only native access. See `cometline/electron/src/domains/windows.ts` and `preload.ts`.
+
+## Feature folders
+
+Feature code lives under `cometline/src/lib/features/`. `src/lib/components/` keeps shared primitives only. The renderer calls CometMind only through `$lib/client`. IPC channel names live only in `electron/src/shared/ipc-channels.ts`. Components stay at or under 400 lines, scoped CSS at or under 200, and `.svelte.ts` stores at or under 500.
+
+| Folder | Owns |
+|---|---|
+| `chat` | Transcript, turns, and streaming presentation |
+| `composer` | Input, attachments, mentions, slash commands, and the model picker |
+| `gallery` | Media gallery |
+| `inbox` | Inbox drawer |
+| `jobs` | Jobs board |
+| `onboarding` | First-run setup wizard |
+| `settings` | Settings panels and drafts |
+| `shell` | Window chrome, focus, and the runtime overlay |
+| `sidebar` | Session list |
+| `skills` | Skill drafts page |
+| `usage` | Usage charts |
+| `workspace` | Files, git, terminal, and wiki surfaces |
 
 ## Electron Main Process
 
@@ -701,7 +754,7 @@ Important reducer rules:
 
 ## Settings And Model Discovery
 
-Provider and CometMind runtime settings live in `~/.cometmind/cometline-settings.json`; appearance, shortcuts, app, and persona state live in `~/.cometmind/cometline-desktop.json`. Electron merges them for the UI and splits them on save. Both files are written with `0600` permissions. `config.toml` is a legacy fallback only.
+Provider and CometMind runtime settings live in `~/.cometmind/cometline-settings.json`; appearance, shortcuts, app, and persona state live in `~/.cometmind/cometline-desktop.json`. Electron merges them for the UI and splits them on save. Both files are written with `0600` permissions.
 
 Model discovery is owned by Electron main, not the renderer:
 
@@ -738,10 +791,10 @@ Electron-builder includes the sidecar as an extra resource (`cometline/package.j
 | Goal | Start Here | Also Check |
 |---|---|---|
 | Add a new backend model provider | `comet-sdk/provider`, `cometmind/internal/provider/factory.go`, `cometline` settings/model fetch | SDK tests, CometMind config tests, renderer settings UI |
-| Add a new agent tool | `cometmind/internal/tools`, `registry.go` | Workspace sandbox, permission-gate design, transcript rendering |
-| Change chat streaming UI | `cometline/src/lib/reducers/chat.ts`, `chat.svelte.ts`, `ChatThread.svelte` | CometMind event contract and reducer tests |
-| Change persistence schema | `cometmind/internal/db/schema.sql`, `migrate.go` | `sqlc generate`, session service, server transcript tests |
-| Add a REST endpoint | `cometmind/server/server.go`, `openapi.yaml` | Renderer client if UI needs it |
+| Add a new agent tool | `cometmind/internal/tools/<family>`, `registry.go` | Workspace sandbox, permission-gate design, transcript rendering |
+| Change chat streaming UI | `cometline/src/lib/reducers/chat.ts`, `features/chat/` | CometMind event contract and reducer tests |
+| Change persistence schema | `cometmind/internal/db/schema.sql`, `internal/db/migrations/` | Pinned sqlc regeneration, session service, server transcript tests |
+| Add a REST endpoint | `cometmind/openapi.yaml`, `internal/apigen`, `internal/server` | Renderer client if UI needs it |
 | Change provider settings UX | `cometline/src/lib/stores/settings.svelte.ts`, settings panels, `electron/src/domains/settings.ts` | JSON split/merge and runtime reload/restart classification |
 | Change packaging/release | `cometline/package.json`, `.github/workflows`, `electron/src/domains/runtime.ts` | Sidecar `extraResources`, update flow |
 | Improve secrets storage | `electron/src/domains/settings.ts` and future CometMind config endpoints | OS keychain design, renderer redaction |

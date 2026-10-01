@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { untrack } from 'svelte';
-	import ChatView from '$lib/components/ChatView.svelte';
+	import ChatView from '$lib/features/chat/components/ChatView.svelte';
 	import { miniShellStore } from '$lib/stores/mini-shell.svelte';
 
 	let sessionId = $derived(page.params.id ?? '');
@@ -12,11 +13,14 @@
 
 	async function resolveSession(id: string, run: number, openingRun: number) {
 		try {
-			const { ensureMiniWindowSession } = await import('$lib/mini-window-session');
+			const { ensureMiniWindowSession } =
+				await import('$lib/features/shell/mini-window-session');
 			const ensuredSessionId = await ensureMiniWindowSession(id);
 			if (run !== resolvingRun) return;
 			if (ensuredSessionId !== id) {
-				await goto(`/mini/session/${ensuredSessionId}`, { replaceState: true });
+				await goto(resolve('/mini/session/[id]', { id: ensuredSessionId }), {
+					replaceState: true
+				});
 				return;
 			}
 			resolvedSessionId = ensuredSessionId;

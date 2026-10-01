@@ -1,6 +1,12 @@
 import type { App, BrowserWindow, Tray } from 'electron';
 
 import type { CustomPersona, ProviderSettings } from '../../../src/lib/types.js';
+import type {
+	DeleteCustomPersonaResult,
+	ReadPersonaAvatarResult,
+	ReadPersonaSoulResult,
+	SaveCustomPersonaResult
+} from '../shared/api.js';
 
 type PersonaFileSystem = Pick<
 	typeof import('node:fs'),
@@ -20,13 +26,6 @@ const PERSONA_IMAGE_MIME_BY_EXT: Record<string, string> = {
 	'.webp': 'image/webp'
 };
 const PERSONA_AVATAR_MAX_BYTES = 20 * 1024 * 1024;
-
-export type ReadPersonaSoulResult = { ok: true; content: string } | { ok: false; error: string };
-export type ReadPersonaAvatarResult = { ok: true; dataUrl: string } | { ok: false; error: string };
-export type SaveCustomPersonaResult =
-	| { ok: true; persona: CustomPersona }
-	| { ok: false; error: string };
-export type DeleteCustomPersonaResult = { ok: true } | { ok: false; error: string };
 
 export interface PersonaDependencies {
 	fs: PersonaFileSystem;
@@ -59,7 +58,9 @@ export function normalizePersonaSlug(value: unknown) {
 }
 
 export function decodePersonaAvatarDataUrl(dataUrl: unknown) {
-	const match = String(dataUrl || '').match(/^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=]+)$/);
+	const match = String(dataUrl || '').match(
+		/^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=]+)$/
+	);
 	if (!match) return null;
 	const ext = match[1] === 'image/jpeg' ? '.jpg' : match[1] === 'image/webp' ? '.webp' : '.png';
 	const buffer = Buffer.from(match[2], 'base64');
@@ -150,7 +151,9 @@ export function createPersonas(dependencies: PersonaDependencies) {
 	function customPersonasFromSettings(settings: unknown) {
 		const custom = (settings as ProviderSettings | undefined)?.app?.personas?.custom;
 		if (!Array.isArray(custom)) return [];
-		return custom.map(normalizeCustomPersonaEntry).filter((persona): persona is CustomPersona => Boolean(persona));
+		return custom
+			.map(normalizeCustomPersonaEntry)
+			.filter((persona): persona is CustomPersona => Boolean(persona));
 	}
 
 	function findCustomPersona(settings: unknown, personaId: unknown) {
@@ -220,7 +223,12 @@ export function createPersonas(dependencies: PersonaDependencies) {
 				const image = loadMacOSTrayImage(filename, { template: isTemplateAsset });
 				if (image) {
 					if (!app.isPackaged) {
-						console.log('[tray] Using', resourcePath, image.getSize(), image.getScaleFactors());
+						console.log(
+							'[tray] Using',
+							resourcePath,
+							image.getSize(),
+							image.getScaleFactors()
+						);
 					}
 					return image;
 				}
@@ -319,12 +327,14 @@ export function createPersonas(dependencies: PersonaDependencies) {
 		return { ok: true, dataUrl: `data:${mimeType};base64,${buffer.toString('base64')}` };
 	}
 
-	async function saveCustomPersona(payload: {
-		id?: unknown;
-		name?: unknown;
-		soulMarkdown?: unknown;
-		avatarDataUrl?: unknown;
-	} = {}): Promise<SaveCustomPersonaResult> {
+	async function saveCustomPersona(
+		payload: {
+			id?: unknown;
+			name?: unknown;
+			soulMarkdown?: unknown;
+			avatarDataUrl?: unknown;
+		} = {}
+	): Promise<SaveCustomPersonaResult> {
 		const name = String(payload.name || '').trim();
 		const soulMarkdown = String(payload.soulMarkdown || '').trim();
 		if (!name) return { ok: false, error: 'Persona name is required.' };
@@ -344,7 +354,10 @@ export function createPersonas(dependencies: PersonaDependencies) {
 			try {
 				decoded = decodePersonaAvatarDataUrl(payload.avatarDataUrl);
 			} catch (error) {
-				return { ok: false, error: error instanceof Error ? error.message : 'Invalid avatar image.' };
+				return {
+					ok: false,
+					error: error instanceof Error ? error.message : 'Invalid avatar image.'
+				};
 			}
 			if (!decoded) return { ok: false, error: 'Avatar image must be PNG, JPEG, or WebP.' };
 			avatarPath = path.join(personaDir, `avatar${decoded.ext}`);

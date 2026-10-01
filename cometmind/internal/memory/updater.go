@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	cometsdk "github.com/cometline/comet-sdk"
-	"github.com/cometline/comet-sdk/llm"
-	"github.com/cometline/cometmind/internal/usage"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
+	"github.com/Cometline/cometline/comet-sdk/llm"
+	"github.com/Cometline/cometline/cometmind/internal/usage"
 	"github.com/oklog/ulid/v2"
 )
 

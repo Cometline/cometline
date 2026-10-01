@@ -13,17 +13,16 @@ vi.mock('electron', () => ({
 }));
 
 import { desktopCapturer, systemPreferences } from 'electron';
-import {
-	getScreenCaptureAccess,
-	requestScreenCaptureAccess
-} from './media-permissions';
+import { getScreenCaptureAccess, requestScreenCaptureAccess } from './media-permissions';
 
 const platformDescriptor = Object.getOwnPropertyDescriptor(process, 'platform');
 
 describe('media-permissions', () => {
 	beforeEach(() => {
 		Object.defineProperty(process, 'platform', { ...platformDescriptor, value: 'darwin' });
-		vi.mocked(systemPreferences.getMediaAccessStatus).mockReset().mockReturnValue('not-determined');
+		vi.mocked(systemPreferences.getMediaAccessStatus)
+			.mockReset()
+			.mockReturnValue('not-determined');
 		vi.mocked(desktopCapturer.getSources).mockReset().mockResolvedValue([]);
 	});
 

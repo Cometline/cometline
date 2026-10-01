@@ -6,13 +6,13 @@ import (
 	"sync"
 	"time"
 
-	cometsdk "github.com/cometline/comet-sdk"
-	"github.com/cometline/cometmind/internal/jobs"
-	"github.com/cometline/cometmind/internal/logging"
-	"github.com/cometline/cometmind/internal/memory"
-	"github.com/cometline/cometmind/internal/session"
-	"github.com/cometline/cometmind/internal/skills"
-	"github.com/cometline/cometmind/internal/usage"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
+	"github.com/Cometline/cometline/cometmind/internal/jobs"
+	"github.com/Cometline/cometline/cometmind/internal/logging"
+	"github.com/Cometline/cometline/cometmind/internal/memory"
+	"github.com/Cometline/cometline/cometmind/internal/session"
+	"github.com/Cometline/cometline/cometmind/internal/skills"
+	"github.com/Cometline/cometline/cometmind/internal/usage"
 )
 
 const skillSynthesisTimeout = 90 * time.Second
@@ -23,6 +23,7 @@ type skillSynthesisNotifier struct {
 	memory   *memory.Service
 	usage    usage.Recorder
 	sessions *session.Service
+	workers  *supervisor
 	sem      chan struct{}
 	once     sync.Once
 }
@@ -46,12 +47,11 @@ func (n *skillSynthesisNotifier) OnJobEvent(ctx context.Context, job jobs.Job, a
 		logging.L().Info("skills.synthesis.skipped", "job_id", job.ID, "reason", "busy")
 		return
 	}
-	go func() {
+	// Skill synthesis should survive the completion request/turn ending.
+	// Keep request-scoped values via WithoutCancel, but decouple from the
+	// caller's cancellation and give the background LLM task its own bound.
+	started := n.workers.Go(context.WithoutCancel(ctx), func(synthCtx context.Context) {
 		defer func() { <-n.sem }()
-		// Skill synthesis should survive the completion request/turn ending.
-		// Keep request-scoped values via WithoutCancel, but decouple from the
-		// caller's cancellation and give the background LLM task its own bound.
-		synthCtx := context.WithoutCancel(ctx)
 		synthCtx, cancel := context.WithTimeout(synthCtx, skillSynthesisTimeout)
 		defer cancel()
 		var outcomes []memory.ScoredMemory
@@ -78,5 +78,8 @@ func (n *skillSynthesisNotifier) OnJobEvent(ctx context.Context, job jobs.Job, a
 		if err := skills.ProposeSkillFromJobRecorded(synthCtx, n.provider, n.model, input, outcomes, n.usage, workspaceID); err != nil {
 			logging.L().Warn("skills.synthesis.failed", "job_id", job.ID, "error", err)
 		}
-	}()
+	})
+	if !started {
+		<-n.sem
+	}
 }

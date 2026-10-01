@@ -86,7 +86,8 @@ export function normalizeHeroComposerAppearance(
 			legacyColors.glowColor === preset.appearance.glowColor &&
 			legacyColors.ringColor === preset.appearance.ringColor
 	)?.id;
-	const customPreset = normalizeCustomPreset(appearance) ?? (matchedPreset ? undefined : legacyColors);
+	const customPreset =
+		normalizeCustomPreset(appearance) ?? (matchedPreset ? undefined : legacyColors);
 	const presetId = presetIdFromValue(appearance?.presetId) ?? matchedPreset ?? 'blue';
 	if (presetId === 'custom') {
 		const custom = customPreset ?? legacyColors;

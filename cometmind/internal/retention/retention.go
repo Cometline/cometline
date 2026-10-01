@@ -5,14 +5,14 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/cometline/cometmind/internal/config"
-	"github.com/cometline/cometmind/internal/db"
-	"github.com/cometline/cometmind/internal/inbox"
-	"github.com/cometline/cometmind/internal/jobs"
-	"github.com/cometline/cometmind/internal/logging"
-	"github.com/cometline/cometmind/internal/memory"
-	"github.com/cometline/cometmind/internal/session"
-	"github.com/cometline/cometmind/internal/usage"
+	"github.com/Cometline/cometline/cometmind/internal/config"
+	"github.com/Cometline/cometline/cometmind/internal/db"
+	"github.com/Cometline/cometline/cometmind/internal/inbox"
+	"github.com/Cometline/cometline/cometmind/internal/jobs"
+	"github.com/Cometline/cometline/cometmind/internal/logging"
+	"github.com/Cometline/cometline/cometmind/internal/memory"
+	"github.com/Cometline/cometline/cometmind/internal/session"
+	"github.com/Cometline/cometline/cometmind/internal/usage"
 )
 
 // Result summarizes one retention pass.
@@ -106,39 +106,7 @@ func (r *Runner) Run(ctx context.Context) (Result, error) {
 		out.UsageEventsPurged = n
 	}
 
-	if cfg.VacuumAfterPurge && (out.SessionsDeleted > 0 || out.SubagentsDeleted > 0 || out.MediaDeleted > 0 || out.MemoriesPurged > 0 || out.JobsPurged > 0 || out.InboxPurged > 0 || out.UsageEventsPurged > 0) {
-		if r.VacuumAsync {
-			// VACUUM takes an exclusive lock and rewrites the whole file, so it
-			// can be slow on large databases. On startup we run it in the
-			// background to keep it off the critical path; it is safe to run
-			// concurrently with readers in WAL mode.
-			db := r.DB
-			go func() {
-				if _, err := db.ExecContext(context.Background(), "VACUUM"); err != nil {
-					logging.L().Warn("retention.vacuum.failed", "error", err)
-				}
-			}()
-		} else if _, err := r.DB.ExecContext(ctx, "VACUUM"); err != nil {
-			return out, err
-		} else {
-			out.Vacuumed = true
-		}
-	}
-
-	if out.SessionsDeleted > 0 || out.SubagentsDeleted > 0 || out.MediaDeleted > 0 || out.MemoriesPurged > 0 || out.JobsPurged > 0 || out.InboxPurged > 0 || out.UsageEventsPurged > 0 {
-		logging.L().Info("retention.complete",
-			"sessions_deleted", out.SessionsDeleted,
-			"subagents_deleted", out.SubagentsDeleted,
-			"media_deleted", out.MediaDeleted,
-			"memories_purged", out.MemoriesPurged,
-			"memory_events_purged", out.MemoryEventsPurged,
-			"jobs_purged", out.JobsPurged,
-			"inbox_purged", out.InboxPurged,
-			"usage_events_purged", out.UsageEventsPurged,
-			"vacuumed", out.Vacuumed,
-		)
-	}
-	return out, nil
+	return r.finishRetention(ctx, cfg, out)
 }
 
 func (r *Runner) purgeSessions(ctx context.Context) (int, int, error) {
@@ -170,64 +138,111 @@ func (r *Runner) purgeSessions(ctx context.Context) (int, int, error) {
 	}
 
 	for _, ws := range workspaces {
-		if r.Config.RetentionDays > 0 {
-			cutoff := time.Now().Add(-time.Duration(r.Config.RetentionDays) * 24 * time.Hour).UnixMilli()
-			ids, err := q.ListStaleSessionIDs(ctx, db.ListStaleSessionIDsParams{
-				WorkspaceID: ws.ID,
-				UpdatedAt:   cutoff,
-			})
-			if err != nil {
-				return 0, 0, err
-			}
-			for _, id := range ids {
-				if r.skipSession(id) {
-					continue
-				}
-				if err := r.Sessions.DeleteSession(ctx, id); err != nil {
-					return 0, 0, err
-				}
-				deleted[id] = struct{}{}
-			}
-		}
-
-		if r.Config.MaxSessionsPerWorkspace > 0 {
-			rows, err := q.ListSessionsByWorkspaceAsc(ctx, ws.ID)
-			if err != nil {
-				return 0, 0, err
-			}
-			var topLevel []db.ListSessionsByWorkspaceAscRow
-			for _, row := range rows {
-				if row.ParentSessionID.Valid {
-					continue
-				}
-				topLevel = append(topLevel, row)
-			}
-			extra := len(topLevel) - r.Config.MaxSessionsPerWorkspace
-			if extra <= 0 {
-				continue
-			}
-			for _, row := range topLevel {
-				if extra <= 0 {
-					break
-				}
-				if _, ok := deleted[row.ID]; ok {
-					continue
-				}
-				if protectedDelegation(session.DelegationStatus(row.DelegationStatus)) {
-					continue
-				}
-				if r.skipSession(row.ID) {
-					continue
-				}
-				if err := r.Sessions.DeleteSession(ctx, row.ID); err != nil {
-					return 0, 0, err
-				}
-				deleted[row.ID] = struct{}{}
-				extra--
-			}
+		if err := r.purgeWorkspaceSessions(ctx, q, ws.ID, deleted); err != nil {
+			return 0, 0, err
 		}
 	}
 	return len(deleted) - subagentsDeleted, subagentsDeleted, nil
+}
+
+func (r *Runner) purgeWorkspaceSessions(ctx context.Context, q *db.Queries, workspaceID string, deleted map[string]struct{}) error {
+	if r.Config.RetentionDays > 0 {
+		cutoff := time.Now().Add(-time.Duration(r.Config.RetentionDays) * 24 * time.Hour).UnixMilli()
+		ids, err := q.ListStaleSessionIDs(ctx, db.ListStaleSessionIDsParams{
+			WorkspaceID: workspaceID,
+			UpdatedAt:   cutoff,
+		})
+		if err != nil {
+			return err
+		}
+		for _, id := range ids {
+			if r.skipSession(id) {
+				continue
+			}
+			if err := r.Sessions.DeleteSession(ctx, id); err != nil {
+				return err
+			}
+			deleted[id] = struct{}{}
+		}
+	}
+
+	if r.Config.MaxSessionsPerWorkspace > 0 {
+		rows, err := q.ListSessionsByWorkspaceAsc(ctx, workspaceID)
+		if err != nil {
+			return err
+		}
+		var topLevel []db.ListSessionsByWorkspaceAscRow
+		for _, row := range rows {
+			if row.ParentSessionID.Valid {
+				continue
+			}
+			topLevel = append(topLevel, row)
+		}
+		extra := len(topLevel) - r.Config.MaxSessionsPerWorkspace
+		if extra <= 0 {
+			return nil
+		}
+		for _, row := range topLevel {
+			if extra <= 0 {
+				break
+			}
+			if _, ok := deleted[row.ID]; ok {
+				continue
+			}
+			if protectedDelegation(session.DelegationStatus(row.DelegationStatus)) {
+				continue
+			}
+			if r.skipSession(row.ID) {
+				continue
+			}
+			if err := r.Sessions.DeleteSession(ctx, row.ID); err != nil {
+				return err
+			}
+			deleted[row.ID] = struct{}{}
+			extra--
+		}
+	}
+	return nil
+}
+
+func (r *Runner) finishRetention(ctx context.Context, cfg config.StorageConfig, out Result) (Result, error) {
+	if cfg.VacuumAfterPurge && retentionChanged(out) {
+		if r.VacuumAsync {
+			// VACUUM takes an exclusive lock and rewrites the whole file, so it
+			// can be slow on large databases. On startup we run it in the
+			// background to keep it off the critical path; it is safe to run
+			// concurrently with readers in WAL mode.
+			db := r.DB
+			go func() {
+				if _, err := db.ExecContext(context.Background(), "VACUUM"); err != nil {
+					logging.L().Warn("retention.vacuum.failed", "error", err)
+				}
+			}()
+		} else if _, err := r.DB.ExecContext(ctx, "VACUUM"); err != nil {
+			return out, err
+		} else {
+			out.Vacuumed = true
+		}
+	}
+	if retentionChanged(out) {
+		logging.L().Info("retention.complete",
+			"sessions_deleted", out.SessionsDeleted,
+			"subagents_deleted", out.SubagentsDeleted,
+			"media_deleted", out.MediaDeleted,
+			"memories_purged", out.MemoriesPurged,
+			"memory_events_purged", out.MemoryEventsPurged,
+			"jobs_purged", out.JobsPurged,
+			"inbox_purged", out.InboxPurged,
+			"usage_events_purged", out.UsageEventsPurged,
+			"vacuumed", out.Vacuumed,
+		)
+	}
+	return out, nil
+}
+
+func retentionChanged(out Result) bool {
+	return out.SessionsDeleted > 0 || out.SubagentsDeleted > 0 || out.MediaDeleted > 0 ||
+		out.MemoriesPurged > 0 || out.JobsPurged > 0 || out.InboxPurged > 0 || out.UsageEventsPurged > 0
 }
 
 func (r *Runner) skipSession(sessionID string) bool {

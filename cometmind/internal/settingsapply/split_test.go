@@ -3,7 +3,7 @@ package settingsapply_test
 import (
 	"testing"
 
-	"github.com/cometline/cometmind/internal/settingsapply"
+	"github.com/Cometline/cometline/cometmind/internal/settingsapply"
 )
 
 func TestSplitMergeRoundTrip(t *testing.T) {

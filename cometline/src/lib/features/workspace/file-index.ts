@@ -1,0 +1,225 @@
+import { listWorkspaceFiles } from '$lib/client/cometmind';
+
+export interface FileIndexEntry {
+	files: string[];
+	loading: boolean;
+	loaded: boolean;
+	error: string | null;
+	loadedAt: number;
+	// True when the workspace has more matching files than the cached page, so
+	// type-to-filter must fall back to a server-side query to find them all.
+	truncated: boolean;
+}
+
+/** Page size for the warm search index (gitignore / build dirs skipped). */
+export const INDEX_LIMIT = 50_000;
+/** Page size for an on-demand server-side search in a truncated workspace. */
+const SEARCH_LIMIT = 50;
+const MAX_CACHED_INDEXES = 3;
+
+const cache = new Map<string, FileIndexEntry>();
+const inFlight = new Map<string, Promise<void>>();
+let lruKeys: string[] = [];
+
+function touchIndex(workspacePath: string) {
+	const key = normalizeWorkspacePath(workspacePath);
+	if (!key) return;
+	lruKeys = [key, ...lruKeys.filter((entry) => entry !== key)];
+	while (lruKeys.length > MAX_CACHED_INDEXES) {
+		const evict = lruKeys.pop();
+		if (!evict || evict === key) continue;
+		cache.delete(evict);
+		inFlight.delete(evict);
+	}
+}
+
+/** How long a loaded index is considered fresh before a background refresh. */
+export const FILE_INDEX_TTL_MS = 30_000;
+
+/** Canonical cache key for a workspace path (trimmed, no trailing slash). */
+export function normalizeWorkspacePath(workspacePath: string): string {
+	const trimmed = workspacePath.trim();
+	if (!trimmed || trimmed === '/') return trimmed;
+	return trimmed.replace(/\/+$/, '');
+}
+
+export function getFileIndex(workspacePath: string): FileIndexEntry | null {
+	const key = normalizeWorkspacePath(workspacePath);
+	const entry = cache.get(key) ?? null;
+	if (entry) touchIndex(key);
+	return entry;
+}
+
+export function isFileIndexReady(workspacePath: string): boolean {
+	const entry = cache.get(normalizeWorkspacePath(workspacePath));
+	return Boolean(entry?.loaded && !entry.loading);
+}
+
+/** True when the index is loaded and within its TTL (no refresh needed). */
+export function isFileIndexFresh(workspacePath: string, ttlMs = FILE_INDEX_TTL_MS): boolean {
+	const entry = cache.get(normalizeWorkspacePath(workspacePath));
+	if (!entry?.loaded || entry.loading) return false;
+	return Date.now() - entry.loadedAt < ttlMs;
+}
+
+export function clearFileIndex(workspacePath: string): void {
+	const key = normalizeWorkspacePath(workspacePath);
+	cache.delete(key);
+	inFlight.delete(key);
+	lruKeys = lruKeys.filter((entry) => entry !== key);
+}
+
+export function clearAllFileIndexes(): void {
+	cache.clear();
+	inFlight.clear();
+	lruKeys = [];
+}
+
+export async function refreshFileIndex(workspacePath: string): Promise<FileIndexEntry> {
+	workspacePath = normalizeWorkspacePath(workspacePath);
+	if (!workspacePath) {
+		const entry: FileIndexEntry = {
+			files: [],
+			loading: false,
+			loaded: true,
+			error: null,
+			loadedAt: Date.now(),
+			truncated: false
+		};
+		cache.set(workspacePath, entry);
+		return entry;
+	}
+
+	const existing = inFlight.get(workspacePath);
+	if (existing) {
+		await existing;
+		return cache.get(workspacePath)!;
+	}
+
+	const entry = cache.get(workspacePath);
+	if (entry?.loaded) {
+		// Already have a usable list — refresh in the background without
+		// flipping into a loading state, so the picker keeps showing the
+		// current files while fresh ones load in.
+		entry.error = null;
+	} else if (entry) {
+		entry.loading = true;
+		entry.error = null;
+	} else {
+		cache.set(workspacePath, {
+			files: [],
+			loading: true,
+			loaded: false,
+			error: null,
+			loadedAt: 0,
+			truncated: false
+		});
+	}
+
+	const promise = load(workspacePath);
+	inFlight.set(workspacePath, promise);
+	try {
+		await promise;
+	} finally {
+		inFlight.delete(workspacePath);
+	}
+	return cache.get(workspacePath)!;
+}
+
+async function load(workspacePath: string): Promise<void> {
+	try {
+		const { files, truncated } = await listWorkspaceFiles(workspacePath, '', INDEX_LIMIT, {
+			index: true
+		});
+		touchIndex(workspacePath);
+		cache.set(workspacePath, {
+			files: files ?? [],
+			loading: false,
+			loaded: true,
+			error: null,
+			loadedAt: Date.now(),
+			truncated
+		});
+	} catch (err) {
+		const message = err instanceof Error ? err.message : String(err);
+		const current = cache.get(workspacePath);
+		cache.set(workspacePath, {
+			files: current?.files ?? [],
+			loading: false,
+			loaded: current?.loaded ?? false,
+			error: message,
+			loadedAt: current?.loadedAt ?? 0,
+			truncated: current?.truncated ?? false
+		});
+	}
+}
+
+/**
+ * Whether the cached index for this workspace is incomplete, meaning
+ * type-to-filter should query the backend to find files outside the cached page.
+ */
+export function isFileIndexTruncated(workspacePath: string): boolean {
+	return Boolean(cache.get(normalizeWorkspacePath(workspacePath))?.truncated);
+}
+
+/**
+ * Server-side filename search for a workspace, used when the cached index is
+ * truncated so the user can still find files beyond the cached page.
+ */
+export async function searchWorkspaceFiles(
+	workspacePath: string,
+	query: string
+): Promise<string[]> {
+	workspacePath = normalizeWorkspacePath(workspacePath);
+	if (!workspacePath || !query.trim()) return [];
+	const { files } = await listWorkspaceFiles(workspacePath, query.trim(), SEARCH_LIMIT, {
+		index: true
+	});
+	return files ?? [];
+}
+
+export function filterFileIndex(files: string[], query: string): string[] {
+	const q = query.trim().toLowerCase();
+	if (!q) return files;
+	return files.filter((path) => path.toLowerCase().includes(q));
+}
+
+/** Unique parent directories (with trailing `/`) derived from indexed file paths. */
+export function directoriesFromFileIndex(files: string[]): string[] {
+	const dirs = new Set<string>();
+	for (const entry of files) {
+		const normalized = entry.trim().replace(/\\/g, '/');
+		const isDirectory = normalized.endsWith('/');
+		if (isDirectory) dirs.add(normalized);
+		const parts = normalized.split('/').filter(Boolean);
+		if (parts.length < 2) continue;
+		let prefix = '';
+		for (let i = 0; i < parts.length - 1; i++) {
+			prefix = prefix ? `${prefix}/${parts[i]}` : parts[i];
+			dirs.add(`${prefix}/`);
+		}
+	}
+	return [...dirs].sort((a, b) => a.localeCompare(b));
+}
+
+export type MentionPathKind = 'file' | 'dir';
+
+export type MentionPath = {
+	path: string;
+	kind: MentionPathKind;
+};
+
+/** Mixed file + directory mention results, directories first when scores tie. */
+export function filterMentionPaths(files: string[], query: string, limit = 50): MentionPath[] {
+	const q = query.trim().toLowerCase();
+	const dirs = directoriesFromFileIndex(files);
+	const fileEntries = files.filter((path) => !path.endsWith('/'));
+	const fileHits = (
+		q ? fileEntries.filter((path) => path.toLowerCase().includes(q)) : fileEntries
+	).map((path): MentionPath => ({ path, kind: 'file' }));
+	const dirHits = (q ? dirs.filter((path) => path.toLowerCase().includes(q)) : dirs).map(
+		(path): MentionPath => ({ path, kind: 'dir' })
+	);
+	const merged = [...dirHits, ...fileHits];
+	return merged.slice(0, limit);
+}

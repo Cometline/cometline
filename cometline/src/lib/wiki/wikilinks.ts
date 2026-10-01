@@ -63,7 +63,9 @@ export function resolveWikilink(target: string, files: readonly string[]): strin
 		...(originalExt ? [`${cleaned}${originalExt}`] : [])
 	];
 	for (const candidate of candidates) {
-		const exact = files.find((f) => f.replace(/\\/g, '/').toLowerCase() === candidate.toLowerCase());
+		const exact = files.find(
+			(f) => f.replace(/\\/g, '/').toLowerCase() === candidate.toLowerCase()
+		);
 		if (exact) return exact.replace(/\\/g, '/');
 	}
 

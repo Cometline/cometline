@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	skillpkg "github.com/cometline/cometmind/internal/skills"
+	skillpkg "github.com/Cometline/cometline/cometmind/internal/skills"
 )
 
 func TestExpandCreateSkillCommandForDiscord(t *testing.T) {

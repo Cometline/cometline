@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cometline/cometmind/internal/process"
+	"github.com/Cometline/cometline/cometmind/internal/process"
 )
 
 func TestCmdWaitCloserKillsDescendants(t *testing.T) {

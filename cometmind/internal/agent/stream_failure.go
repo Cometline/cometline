@@ -8,7 +8,7 @@ import (
 	"strings"
 	"syscall"
 
-	cometsdk "github.com/cometline/comet-sdk"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
 )
 
 type streamFailureCategory string
@@ -57,6 +57,7 @@ func classifyStreamFailure(err error) streamFailureCategory {
 		return streamFailureRecoverable
 	}
 	var netErr net.Error
+	//nolint:staticcheck // SA1019: some net errors still only report Temporary(); dropping it would change retry classification.
 	if errors.As(err, &netErr) && (netErr.Timeout() || netErr.Temporary()) {
 		return streamFailureRecoverable
 	}

@@ -102,46 +102,8 @@ export interface AppearanceSettings {
 	responseCompleteSound: ResponseCompleteSoundSettings;
 }
 
-export type ShortcutAction =
-	| 'toggleSidebar'
-	| 'openSettings'
-	| 'newChat'
-	| 'toggleMiniWindow'
-	| 'stopResponse'
-	| 'sendMessage'
-	| 'insertNewline'
-	| 'closeSettings'
-	| 'findInSession'
-	| 'focusSearch'
-	| 'previousSession'
-	| 'nextSession'
-	| 'toggleWorkspacePanel'
-	| 'openWebSearch'
-	| 'openGitPanel'
-	| 'openWikiPanel'
-	| 'openWorkspacePanel'
-	| 'openFileSearch'
-	| 'openTerminal'
-	| 'navigateBack'
-	| 'navigateForward'
-	| 'openJobs'
-	| 'openSkillDrafts'
-	| 'openGallery'
-	| 'openUsage'
-	| 'openInbox'
-	| 'cycleReasoningEffort'
-	| 'recentSession';
-
-export interface ShortcutBinding {
-	key: string;
-	command?: boolean;
-	ctrl?: boolean;
-	meta?: boolean;
-	alt?: boolean;
-	shift?: boolean;
-}
-
-export type KeyboardShortcuts = Partial<Record<ShortcutAction, ShortcutBinding>>;
+import type { KeyboardShortcuts } from '$lib/keyboard-shortcuts';
+export type { KeyboardShortcuts, ShortcutAction, ShortcutBinding } from '$lib/keyboard-shortcuts';
 
 import type { CometMindSettings } from '$lib/cometmind-settings';
 

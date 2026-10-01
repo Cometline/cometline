@@ -34,7 +34,10 @@ function mainPaneReservation(chrome: WorkspacePanelWidthChrome): number {
 }
 
 /** Upper bound for the workspace panel given the content-row width and shell chrome. */
-export function workspacePanelMaxWidth(rowWidth: number, chrome: WorkspacePanelWidthChrome): number {
+export function workspacePanelMaxWidth(
+	rowWidth: number,
+	chrome: WorkspacePanelWidthChrome
+): number {
 	const byRatio = Math.floor(rowWidth * WORKSPACE_PANEL_MAX_RATIO);
 	const byMain = Math.max(0, rowWidth - mainPaneReservation(chrome));
 	return Math.min(byRatio, byMain);
@@ -62,7 +65,10 @@ export function widthToRatio(width: number, rowWidth: number): number {
 	return clampWorkspacePanelRatio(width / rowWidth);
 }
 
-export function resolveWorkspacePanelRatio(prefs: WorkspacePanelSizePrefs, _rowWidth: number): number {
+export function resolveWorkspacePanelRatio(
+	prefs: WorkspacePanelSizePrefs,
+	_rowWidth: number
+): number {
 	if (prefs.workspacePanelRatio > 0) return clampWorkspacePanelRatio(prefs.workspacePanelRatio);
 	return WORKSPACE_PANEL_DEFAULT_RATIO;
 }

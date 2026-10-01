@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cometline/cometmind/internal/config"
-	"github.com/cometline/cometmind/internal/session"
-	"github.com/cometline/cometmind/internal/tools"
+	"github.com/Cometline/cometline/cometmind/internal/config"
+	"github.com/Cometline/cometline/cometmind/internal/session"
+	"github.com/Cometline/cometline/cometmind/internal/tools"
 )
 
 func TestWaitForMaintenancePreservesDeadlineAcrossReload(t *testing.T) {

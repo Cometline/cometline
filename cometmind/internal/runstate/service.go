@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cometline/cometmind/internal/db"
-	"github.com/cometline/cometmind/internal/id"
+	"github.com/Cometline/cometline/cometmind/internal/db"
+	"github.com/Cometline/cometline/cometmind/internal/id"
 )
 
 const (

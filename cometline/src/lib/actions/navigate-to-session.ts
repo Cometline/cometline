@@ -1,4 +1,5 @@
 import { goto } from '$app/navigation';
+import { resolve } from '$app/paths';
 import { modelStore } from '$lib/stores/model.svelte';
 import { sessionStore } from '$lib/stores/session.svelte';
 import { sessionVisitHistory } from '$lib/stores/session-visit-history.svelte';
@@ -38,6 +39,6 @@ export async function navigateToSession(session: Session, options: NavigateToSes
 		sessionVisitHistory.markActive(session.id);
 	}
 
-	await goto(`/session/${session.id}`);
+	await goto(resolve('/session/[id]', { id: session.id }));
 	shellStore.requestComposerFocus(session.id);
 }

@@ -12,9 +12,9 @@ describe('ollama catalog', () => {
 		const featured = featuredOllamaCatalog();
 		expect(featured).toHaveLength(3);
 		expect(getOllamaCatalogEntry('private-memory')?.pullName).toBe('qwen3-embedding:0.6b');
-		expect(OLLAMA_CATALOG.every((e) => !e.capabilities.agent && !e.capabilities.extraction)).toBe(
-			true
-		);
+		expect(
+			OLLAMA_CATALOG.every((e) => !e.capabilities.agent && !e.capabilities.extraction)
+		).toBe(true);
 	});
 
 	it('validates model names for advanced pull', () => {

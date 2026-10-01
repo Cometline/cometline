@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Cometline/cometline/cometmind/internal/gateway"
+	"github.com/Cometline/cometline/cometmind/internal/logging"
 	"github.com/bwmarrin/discordgo"
-	"github.com/cometline/cometmind/internal/gateway"
-	"github.com/cometline/cometmind/internal/logging"
 )
 
 func (a *Adapter) onMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {

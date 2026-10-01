@@ -2,7 +2,7 @@
 
 This is a reading path for the Cometline monorepo. A **monorepo** is one git repository that holds several modules. Start at the top and read down. Each doc expects you to have read the docs above it.
 
-These guides are built from the **GitNexus knowledge graph** for `cometline-release`. They also use the main architecture docs (`ARCHITECTURE.md`, `ARCHITECTURE_GUIDE.md`). A knowledge graph is a stored map of code names and the links between them. Use GitNexus status when you need current index counts. Do not copy counts that change over time into these docs.
+These guides are built from the **GitNexus knowledge graph** for `cometline`. They also use the main architecture doc (`ARCHITECTURE_GUIDE.md`). A knowledge graph is a stored map of code names and the links between them. Use GitNexus status when you need current index counts. Do not copy counts that change over time into these docs.
 
 The tables below use a few technical words.
 
@@ -64,8 +64,7 @@ These docs cover one topic in more detail:
 - [../MODULE_GUIDE.md](../MODULE_GUIDE.md): module ownership checklists for agents
 - [../SETTINGS_AND_PERSISTENCE.md](../SETTINGS_AND_PERSISTENCE.md): draft and save rules for the settings modal. A modal is a dialog on top of the page.
 - [../FRONTEND_DESIGN_SYSTEM.md](../FRONTEND_DESIGN_SYSTEM.md): visual tokens and styling. A visual token is a named style value.
-- [../../ARCHITECTURE.md](../../ARCHITECTURE.md): system overview. This is the main source.
-- [../../ARCHITECTURE_GUIDE.md](../../ARCHITECTURE_GUIDE.md): contributor map with line references
+- [../../ARCHITECTURE_GUIDE.md](../../ARCHITECTURE_GUIDE.md): system overview and contributor map. This is the main source.
 - [../../AGENTS.md](../../AGENTS.md): dev commands and rules for generated code
 
 ## GitNexus tips while reading

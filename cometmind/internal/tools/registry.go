@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 
-	cometsdk "github.com/cometline/comet-sdk"
-	"github.com/cometline/cometmind/internal/generation"
-	"github.com/cometline/cometmind/internal/skills"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
+	"github.com/Cometline/cometline/cometmind/internal/skills"
+	"github.com/Cometline/cometline/cometmind/internal/tools/toolkit"
 )
 
 // Registry holds built-in tools for a workspace.
@@ -26,6 +26,13 @@ func NewRegistry(workspaceRoot string, opts ...RegistryOptions) *Registry {
 	return newRegistryWithSurface(workspaceRoot, ParentSurface(delegate), opt)
 }
 
+// NewInboxProcessRegistry builds the unattended tool surface for inbox reply
+// internalization. It can read, edit, run, and draft skills, but it cannot
+// spawn children or write/promote live skills. Plan mode still wins.
+func NewInboxProcessRegistry(workspaceRoot string, opt RegistryOptions) *Registry {
+	return newRegistryWithSurface(workspaceRoot, InboxProcessSurface(), opt)
+}
+
 // NewSubagentRegistry returns tools for in-process subagent workers via ToolSurface.
 func NewSubagentRegistry(workspaceRoot string, skillReg *skills.Registry, mode SubagentMode) *Registry {
 	opt := RegistryOptions{Skills: skillReg}
@@ -40,138 +47,11 @@ func newRegistryWithSurface(workspaceRoot string, surface ToolSurface, opt Regis
 	}
 	ws := Workspace{Root: workspaceRoot}
 	r := &Registry{workspace: ws, byName: make(map[string]Tool)}
-	add := func(t Tool) {
-		spec := t.Spec()
-		r.byName[spec.Name] = t
-		r.order = append(r.order, t)
-	}
-
-	if surface.Read {
-		add(ReadFile{Workspace: ws})
-	}
-	if surface.Edit {
-		add(EditFile{Workspace: ws})
-		add(WriteFile{Workspace: ws})
-	}
-	if surface.Read {
-		add(ListDir{Workspace: ws})
-		add(Glob{Workspace: ws})
-		add(Grep{Workspace: ws})
-	}
-	if surface.Run {
-		add(RunCommand{Workspace: ws})
-	}
-	if surface.Read {
-		add(WebFetch{})
-		add(WebSearch{Endpoint: opt.BrowserSearchURL, Token: opt.BrowserSearchToken})
-		add(PresentImage{Workspace: ws, Media: opt.AssistantMedia})
-		add(PresentImageURL{Media: opt.AssistantMedia})
-		add(CaptureScreenshot{
-			Endpoint: opt.ScreenCaptureURL,
-			Token:    opt.ScreenCaptureToken,
-			Media:    opt.AssistantMedia,
-		})
-		add(ListCaptureTargets{
-			Endpoint: opt.ScreenCaptureURL,
-			Token:    opt.ScreenCaptureToken,
-		})
-	}
-	if surface.Skills && opt.Skills != nil {
-		add(LoadSkill{Skills: opt.Skills})
-		add(ReadSkillFile{Skills: opt.Skills})
-		if surface.SkillDraft {
-			add(WriteSkillDraft{})
-			add(ListSkillDrafts{})
-			add(ReadSkillDraft{})
-		}
-		if surface.SkillMut {
-			add(WriteSkill{})
-			add(PromoteSkillDraft{})
-		}
-	}
-	if surface.Delegate && opt.Sessions != nil {
-		add(DelegateCodingTask{
-			Workspace:    ws,
-			Sessions:     opt.Sessions,
-			ACP:          opt.ACP,
-			ACPMgr:       opt.ACPMgr,
-			Orchestrator: opt.Orchestrator,
-		})
-	}
-	if surface.Spawn && opt.Sessions != nil && opt.Orchestrator != nil && opt.RunnerFactory != nil {
-		add(SpawnGeneralAgent{
-			Workspace:      ws,
-			Sessions:       opt.Sessions,
-			Orchestrator:   opt.Orchestrator,
-			RunnerFactory:  opt.RunnerFactory,
-			SubagentConfig: opt.SubagentConfig,
-			AgentMode:      opt.AgentMode,
-		})
-		add(WaitSubagents{
-			Sessions:     opt.Sessions,
-			Orchestrator: opt.Orchestrator,
-		})
-	}
-	if surface.MCP && opt.MCP != nil {
-		add(listMCPServersTool{mgr: opt.MCP})
-		add(reconnectMCPServerTool{mgr: opt.MCP})
-		for _, tool := range mcpToolsFromManager(opt.MCP) {
-			add(tool)
-		}
-	}
-	if surface.Jobs && (opt.Jobs != nil || opt.Scheduler != nil) {
-		RegisterJobTools(r, JobsDeps{
-			Service:              opt.Jobs,
-			Scheduler:            opt.Scheduler,
-			SessionID:            opt.SessionID,
-			SessionWorkspacePath: workspaceRoot,
-			SourcePlatform:       opt.JobPlatform,
-			SourceChannelID:      opt.JobSourceChannelID,
-		})
-	}
-	if surface.Memory && opt.Memory != nil {
-		add(RecallTaskOutcome{Memory: opt.Memory})
-		add(ListMemories{Memory: opt.Memory})
-		add(SearchMemories{Memory: opt.Memory})
-		add(CreateMemory{Memory: opt.Memory, Events: opt.MemoryEvents})
-		add(UpdateMemory{Memory: opt.Memory, Events: opt.MemoryEvents})
-		add(DeleteMemory{Memory: opt.Memory, Events: opt.MemoryEvents})
-	}
-	if surface.Settings {
-		add(listSettingsTool{})
-		add(getSettingsTool{})
-		add(patchSettingsTool{Runtime: opt.SettingsRuntime})
-	}
-	if surface.Generate {
-		add(GenerateImage{
-			Media: opt.AssistantMedia,
-			Resolver: func() generation.Binding {
-				if opt.GenerationResolver == nil {
-					return generation.Binding{}
-				}
-				return opt.GenerationResolver(generation.KindImage)
-			},
-		})
-		add(GenerateVideo{
-			Media:    opt.ReadyMedia,
-			Appender: opt.AssistantMedia,
-			Resolver: func() generation.Binding {
-				if opt.GenerationResolver == nil {
-					return generation.Binding{}
-				}
-				return opt.GenerationResolver(generation.KindVideo)
-			},
-		})
-	}
-	if surface.Inbox && opt.Inbox != nil {
-		RegisterInboxLeaveTool(r, InboxDeps{
-			Inbox:     opt.Inbox,
-			Jobs:      opt.Jobs,
-			Sessions:  opt.Sessions,
-			Events:    opt.MemoryEvents,
-			SessionID: opt.SessionID,
-		})
-	}
+	r.addFileTools(ws, surface)
+	r.addNetworkTools(ws, surface, opt)
+	r.addSkillTools(surface, opt)
+	r.addChildTools(ws, surface, opt)
+	r.addServiceTools(workspaceRoot, surface, opt)
 	return r
 }
 
@@ -196,10 +76,21 @@ func (r *Registry) Execute(ctx context.Context, name string, input json.RawMessa
 		return Result{OK: false, Output: "unknown tool: " + name}, nil
 	}
 	res, err := t.Execute(ctx, input)
-	if isJSONSchemaError(err) {
-		return InvalidToolInputResult(name, input, err), nil
+	if toolkit.IsJSONSchemaError(err) {
+		return toolkit.InvalidToolInputResult(name, input, err), nil
 	}
 	return res, err
+}
+
+// Add registers a tool. Later tools with the same name replace earlier ones
+// in the lookup map but remain in registration order.
+func (r *Registry) Add(t Tool) {
+	if r == nil || t == nil {
+		return
+	}
+	spec := t.Spec()
+	r.byName[spec.Name] = t
+	r.order = append(r.order, t)
 }
 
 // Has reports whether a tool is registered.

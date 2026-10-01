@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	cometsdk "github.com/cometline/comet-sdk"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
 )
 
 func TestEstimatePromptTokensIncludesSummary(t *testing.T) {

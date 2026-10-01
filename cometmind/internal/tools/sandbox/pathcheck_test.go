@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cometline/cometmind/internal/tools/sandbox"
+	"github.com/Cometline/cometline/cometmind/internal/tools/sandbox"
 )
 
 func TestResolveWorkspacePath_AllowsChild(t *testing.T) {

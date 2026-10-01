@@ -4,6 +4,7 @@ package retry
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
@@ -54,7 +55,8 @@ func Do(ctx context.Context, maxAttempts int, fn func() error, isRetryable func(
 		}
 
 		// If the error carries an explicit Retry-After, override the next interval.
-		if ra, ok := lastErr.(RetryAfterError); ok {
+		var ra RetryAfterError
+		if errors.As(lastErr, &ra) {
 			if d := ra.RetryAfter(); d > 0 {
 				eb.InitialInterval = d
 				eb.Reset()
@@ -66,7 +68,8 @@ func Do(ctx context.Context, maxAttempts int, fn func() error, isRetryable func(
 
 	if err := backoff.Retry(operation, bo); err != nil {
 		// Unwrap PermanentError so callers see the original error type.
-		if pe, ok := err.(*backoff.PermanentError); ok {
+		var pe *backoff.PermanentError
+		if errors.As(err, &pe) {
 			return pe.Err
 		}
 		// Context cancelled — surface ctx.Err() directly.

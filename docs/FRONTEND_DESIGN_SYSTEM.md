@@ -11,7 +11,7 @@ Primary source files:
 - `cometline/src/lib/components/workspace/` and `WorkspacePanel.svelte`
 - `cometline/src/lib/components/TerminalPanel.svelte` / `TerminalInstance.svelte`
 - `cometline/src/lib/terminal-appearance.ts`
-- `cometline/src/lib/components/jobs/` and `settings/`
+- `cometline/src/lib/features/jobs/` and `features/settings/`
 
 ## Core Styling Model
 
