@@ -4,7 +4,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/cometline/cometmind/internal/scheduler"
+	"github.com/Cometline/cometline/cometmind/internal/scheduler"
 	"github.com/gin-gonic/gin"
 )
 

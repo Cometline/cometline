@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/cometline/cometmind/internal/backup"
+	"github.com/Cometline/cometline/cometmind/internal/backup"
 	"github.com/gin-gonic/gin"
 )
 

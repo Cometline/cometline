@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	cometsdk "github.com/cometline/comet-sdk"
-	"github.com/cometline/cometmind/internal/session"
-	"github.com/cometline/cometmind/internal/store"
-	"github.com/cometline/cometmind/internal/usage"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
+	"github.com/Cometline/cometline/cometmind/internal/session"
+	"github.com/Cometline/cometline/cometmind/internal/store"
+	"github.com/Cometline/cometline/cometmind/internal/usage"
 )
 
 func TestUsageRecordSummarySeriesAndList(t *testing.T) {

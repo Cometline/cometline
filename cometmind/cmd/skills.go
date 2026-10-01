@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/cometline/cometmind/internal/runtime"
-	"github.com/cometline/cometmind/internal/skills"
+	"github.com/Cometline/cometline/cometmind/internal/runtime"
+	"github.com/Cometline/cometline/cometmind/internal/skills"
 	"github.com/spf13/cobra"
 )
 

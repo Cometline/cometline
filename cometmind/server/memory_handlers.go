@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/cometline/cometmind/internal/config"
-	"github.com/cometline/cometmind/internal/logging"
-	"github.com/cometline/cometmind/internal/memory"
-	"github.com/cometline/cometmind/internal/provider"
+	"github.com/Cometline/cometline/cometmind/internal/config"
+	"github.com/Cometline/cometline/cometmind/internal/logging"
+	"github.com/Cometline/cometline/cometmind/internal/memory"
+	"github.com/Cometline/cometline/cometmind/internal/provider"
 	"github.com/gin-gonic/gin"
 )
 

@@ -23,6 +23,8 @@ cometline/
 `-- AGENTS.md        repository-specific development rules (CLAUDE.md links here)
 ```
 
+The Go module paths are `github.com/Cometline/cometline/comet-sdk` and `github.com/Cometline/cometline/cometmind`. CometMind builds against the in-repo SDK through a `replace` directive, and SDK releases are tagged `comet-sdk/vX.Y.Z`.
+
 Dependency direction:
 
 ```text

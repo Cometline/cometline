@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	cometsdk "github.com/cometline/comet-sdk"
-	"github.com/cometline/cometmind/internal/db"
-	"github.com/cometline/cometmind/internal/media"
-	"github.com/cometline/cometmind/internal/store"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
+	"github.com/Cometline/cometline/cometmind/internal/db"
+	"github.com/Cometline/cometline/cometmind/internal/media"
+	"github.com/Cometline/cometline/cometmind/internal/store"
 )
 
 func newForkTestService(t *testing.T) (*Service, *db.Queries) {

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/cometline/cometmind/internal/db"
+	"github.com/Cometline/cometline/cometmind/internal/db"
 	_ "modernc.org/sqlite" // SQLite driver (pure Go)
 )
 

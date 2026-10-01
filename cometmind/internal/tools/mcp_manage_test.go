@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	mcppkg "github.com/cometline/cometmind/internal/mcp"
+	mcppkg "github.com/Cometline/cometline/cometmind/internal/mcp"
 )
 
 // TestListMCPServersToolNilManager verifies the tool degrades gracefully

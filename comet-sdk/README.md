@@ -5,7 +5,7 @@ A provider-agnostic Go LLM client library. One interface, any backend.
 This directory is one module inside the `cometline` monorepo. The historical standalone `comet-sdk` repo is archived; current development, issues, and pull requests land in the monorepo root.
 
 ```
-module: github.com/cometline/comet-sdk
+module: github.com/Cometline/cometline/comet-sdk
 go:     1.26
 ```
 
@@ -13,9 +13,7 @@ go:     1.26
 
 ## Status
 
-Comet SDK remains a reusable Go module boundary, but it is no longer developed as a separate repository or separately released package today. In practice, it is maintained monorepo-first for CometMind and Cometline.
-
-The code is still intentionally shaped like a library rather than an internal dump: the public types, provider packages, and `llm` helpers remain useful if Comet SDK is spun back out or published independently again later.
+Comet SDK is a reusable Go module that lives in the monorepo and is developed monorepo-first for CometMind and Cometline. It is shaped as a library rather than an internal dump: the public types, provider packages, and `llm` helpers are meant to be used from other Go programs.
 
 ---
 
@@ -115,13 +113,19 @@ Use `Provider.Stream()` directly when you need lower-level control over raw even
 
 ## Using it
 
-Inside this monorepo, CometMind uses a local replace:
+Add the module to another Go program:
 
-```go
-replace github.com/cometline/comet-sdk => ../comet-sdk
+```bash
+go get github.com/Cometline/cometline/comet-sdk@latest
 ```
 
-For now, treat this module as source that lives in the monorepo rather than as a separately published package with its own release flow.
+Because the module lives in a subdirectory of the monorepo, SDK releases are tagged `comet-sdk/vX.Y.Z` (for example `comet-sdk/v0.1.0`), and `go get github.com/Cometline/cometline/comet-sdk@v0.1.0` resolves that tag. Desktop app releases use plain `vX.Y.Z` tags and don't version the SDK.
+
+Inside this monorepo, CometMind uses a local replace instead, so SDK changes are picked up without a release:
+
+```go
+replace github.com/Cometline/cometline/comet-sdk => ../comet-sdk
+```
 
 ---
 
@@ -136,9 +140,9 @@ import (
     "fmt"
     "os"
 
-    cometsdk "github.com/cometline/comet-sdk"
-    "github.com/cometline/comet-sdk/llm"
-    "github.com/cometline/comet-sdk/provider/anthropic"
+    cometsdk "github.com/Cometline/cometline/comet-sdk"
+    "github.com/Cometline/cometline/comet-sdk/llm"
+    "github.com/Cometline/cometline/comet-sdk/provider/anthropic"
 )
 
 p := anthropic.NewAnthropicProvider(os.Getenv("ANTHROPIC_API_KEY"))
@@ -181,9 +185,9 @@ import (
     "fmt"
     "os"
 
-    cometsdk "github.com/cometline/comet-sdk"
-    "github.com/cometline/comet-sdk/llm"
-    "github.com/cometline/comet-sdk/provider/openai"
+    cometsdk "github.com/Cometline/cometline/comet-sdk"
+    "github.com/Cometline/cometline/comet-sdk/llm"
+    "github.com/Cometline/cometline/comet-sdk/provider/openai"
 )
 
 p := openai.NewOpenAIProvider(

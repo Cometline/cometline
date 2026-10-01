@@ -13,9 +13,9 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/Cometline/cometline/cometmind/internal/paths"
+	"github.com/Cometline/cometline/cometmind/internal/process"
 	"github.com/bmatcuk/doublestar/v4"
-	"github.com/cometline/cometmind/internal/paths"
-	"github.com/cometline/cometmind/internal/process"
 )
 
 // Grep searches file contents under the workspace.

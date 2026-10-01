@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cometline/cometmind/internal/session"
+	"github.com/Cometline/cometline/cometmind/internal/session"
 )
 
 func TestSpawnGeneralAgentPlanModeRejectsCoding(t *testing.T) {

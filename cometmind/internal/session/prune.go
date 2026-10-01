@@ -1,7 +1,7 @@
 package session
 
 import (
-	"github.com/cometline/cometmind/internal/db"
+	"github.com/Cometline/cometline/cometmind/internal/db"
 )
 
 func toolCallIsCompacted(callsByMessage map[string][]db.ToolCall, toolCallID string) bool {

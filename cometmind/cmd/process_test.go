@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cometline/cometmind/internal/processctl"
+	"github.com/Cometline/cometline/cometmind/internal/processctl"
 )
 
 func withTempDataDir(t *testing.T) {

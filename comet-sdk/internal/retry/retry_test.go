@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cometline/comet-sdk/internal/retry"
+	"github.com/Cometline/cometline/comet-sdk/internal/retry"
 	"github.com/stretchr/testify/require"
 )
 

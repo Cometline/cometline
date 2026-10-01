@@ -4,7 +4,7 @@ import (
 	"errors"
 	"strings"
 
-	cometsdk "github.com/cometline/comet-sdk"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
 )
 
 // isContextOverflowError reports provider failures caused by prompt/context length.

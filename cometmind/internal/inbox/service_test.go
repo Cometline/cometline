@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cometline/cometmind/internal/inbox"
-	"github.com/cometline/cometmind/internal/store"
+	"github.com/Cometline/cometline/cometmind/internal/inbox"
+	"github.com/Cometline/cometline/cometmind/internal/store"
 )
 
 func TestInboxCreateReplyDismissAndPurge(t *testing.T) {

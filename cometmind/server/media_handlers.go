@@ -6,8 +6,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/cometline/cometmind/internal/media"
-	"github.com/cometline/cometmind/internal/session"
+	"github.com/Cometline/cometline/cometmind/internal/media"
+	"github.com/Cometline/cometline/cometmind/internal/session"
 	"github.com/gin-gonic/gin"
 )
 

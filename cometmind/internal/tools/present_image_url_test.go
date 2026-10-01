@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cometline/cometmind/internal/session"
+	"github.com/Cometline/cometline/cometmind/internal/session"
 )
 
 type imageRoundTripper func(*http.Request) (*http.Response, error)

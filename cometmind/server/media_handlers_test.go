@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cometline/cometmind/internal/event"
-	"github.com/cometline/cometmind/internal/media"
-	"github.com/cometline/cometmind/internal/session"
+	"github.com/Cometline/cometline/cometmind/internal/event"
+	"github.com/Cometline/cometline/cometmind/internal/media"
+	"github.com/Cometline/cometline/cometmind/internal/session"
 )
 
 func TestMediaHandlersListAndDelete(t *testing.T) {

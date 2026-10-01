@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"testing"
 
-	cometsdk "github.com/cometline/comet-sdk"
-	"github.com/cometline/cometmind/internal/db"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
+	"github.com/Cometline/cometline/cometmind/internal/db"
 	_ "modernc.org/sqlite"
 )
 

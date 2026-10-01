@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/cometline/cometmind/internal/skills"
+	"github.com/Cometline/cometline/cometmind/internal/skills"
 )
 
 // ListSkillDrafts lists pending Agent Skill drafts waiting for review.

@@ -25,13 +25,11 @@ linters:
       rules:
         # ── Dependency direction ─────────────────────────────────────────────
         # The SDK sits at the bottom of the stack: cometline → cometmind →
-        # comet-sdk. Phase 3a renames the module paths; update them here.
+        # comet-sdk.
         sdk-never-imports-runtime:
           files:
             - $all
           deny:
-            - pkg: github.com/cometline/cometmind
-              desc: comet-sdk must not depend on the cometmind runtime
             - pkg: github.com/Cometline/cometline/cometmind
               desc: comet-sdk must not depend on the cometmind runtime
 

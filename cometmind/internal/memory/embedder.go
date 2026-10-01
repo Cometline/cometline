@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	cometsdk "github.com/cometline/comet-sdk"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
 )
 
 // Embedder turns text into a dense vector.

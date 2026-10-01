@@ -9,8 +9,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/cometline/cometmind/internal/event"
-	"github.com/cometline/cometmind/internal/session"
+	"github.com/Cometline/cometline/cometmind/internal/event"
+	"github.com/Cometline/cometline/cometmind/internal/session"
 )
 
 // capturingRunnerFactory records the agent mode each runner was built with.

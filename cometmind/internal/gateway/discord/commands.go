@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Cometline/cometline/cometmind/internal/gateway"
+	"github.com/Cometline/cometline/cometmind/internal/logging"
+	skillpkg "github.com/Cometline/cometline/cometmind/internal/skills"
 	"github.com/bwmarrin/discordgo"
-	"github.com/cometline/cometmind/internal/gateway"
-	"github.com/cometline/cometmind/internal/logging"
-	skillpkg "github.com/cometline/cometmind/internal/skills"
 )
 
 func (a *Adapter) handleAutocomplete(s *discordgo.Session, i *discordgo.InteractionCreate) {

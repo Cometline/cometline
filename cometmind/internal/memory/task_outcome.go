@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cometline/cometmind/internal/db"
-	"github.com/cometline/cometmind/internal/logging"
+	"github.com/Cometline/cometline/cometmind/internal/db"
+	"github.com/Cometline/cometline/cometmind/internal/logging"
 )
 
 const (

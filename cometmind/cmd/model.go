@@ -7,8 +7,8 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/cometline/cometmind/internal/config"
-	"github.com/cometline/cometmind/internal/runtime"
+	"github.com/Cometline/cometline/cometmind/internal/config"
+	"github.com/Cometline/cometline/cometmind/internal/runtime"
 	"github.com/spf13/cobra"
 )
 

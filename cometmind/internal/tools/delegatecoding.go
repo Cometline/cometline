@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/cometline/cometmind/internal/acp"
-	"github.com/cometline/cometmind/internal/event"
-	"github.com/cometline/cometmind/internal/session"
-	"github.com/cometline/cometmind/internal/subagent"
+	"github.com/Cometline/cometline/cometmind/internal/acp"
+	"github.com/Cometline/cometline/cometmind/internal/event"
+	"github.com/Cometline/cometline/cometmind/internal/session"
+	"github.com/Cometline/cometline/cometmind/internal/subagent"
 )
 
 // DelegateCodingTask hands coding work to an external coding harness.

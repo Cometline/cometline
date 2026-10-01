@@ -3,8 +3,8 @@ package session
 import (
 	"context"
 
-	cometsdk "github.com/cometline/comet-sdk"
-	"github.com/cometline/cometmind/internal/db"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
+	"github.com/Cometline/cometline/cometmind/internal/db"
 )
 
 // WorkspaceStore is the narrow seam for workspace persistence.

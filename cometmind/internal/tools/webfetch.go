@@ -19,7 +19,7 @@ const (
 	webFetchMaxBodyBytes = 5 << 20 // 5 MiB cap on the downloaded response body
 	webFetchDefaultChars = 20000   // default cap on returned text
 	webFetchMaxChars     = 100000  // hard ceiling regardless of max_chars
-	webFetchUserAgent    = "CometMind/1.0 (+https://github.com/cometline/cometmind)"
+	webFetchUserAgent    = "CometMind/1.0 (+https://github.com/Cometline/cometline)"
 )
 
 // WebFetch fetches a web page over http(s) and returns its readable text.

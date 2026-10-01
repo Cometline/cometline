@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"testing"
 
-	cometsdk "github.com/cometline/comet-sdk"
-	"github.com/cometline/cometmind/internal/config"
-	"github.com/cometline/cometmind/internal/contract"
-	"github.com/cometline/cometmind/internal/event"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
+	"github.com/Cometline/cometline/cometmind/internal/config"
+	"github.com/Cometline/cometline/cometmind/internal/contract"
+	"github.com/Cometline/cometline/cometmind/internal/event"
 )
 
 func loadOpenAPI(t *testing.T) {

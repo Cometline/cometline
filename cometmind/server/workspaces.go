@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/cometline/cometmind/internal/session"
-	workspacefiles "github.com/cometline/cometmind/internal/workspace/files"
+	"github.com/Cometline/cometline/cometmind/internal/session"
+	workspacefiles "github.com/Cometline/cometline/cometmind/internal/workspace/files"
 	"github.com/gin-gonic/gin"
 )
 

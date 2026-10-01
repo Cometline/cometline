@@ -4,7 +4,7 @@ import (
 	"strings"
 	"unicode"
 
-	cometsdk "github.com/cometline/comet-sdk"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
 )
 
 var explicitRememberPrefixes = []string{

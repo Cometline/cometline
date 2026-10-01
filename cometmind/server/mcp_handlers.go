@@ -4,7 +4,7 @@ import (
 	"errors"
 	"net/http"
 
-	mcppkg "github.com/cometline/cometmind/internal/mcp"
+	mcppkg "github.com/Cometline/cometline/cometmind/internal/mcp"
 	"github.com/gin-gonic/gin"
 )
 

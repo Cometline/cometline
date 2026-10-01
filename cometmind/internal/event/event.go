@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	cometsdk "github.com/cometline/comet-sdk"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
 )
 
 // Kind identifies a CometMind-native runtime event. The same value is the SSE

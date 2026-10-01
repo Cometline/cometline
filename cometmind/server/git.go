@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/cometline/cometmind/internal/session"
-	workspacegit "github.com/cometline/cometmind/internal/workspace/git"
+	"github.com/Cometline/cometline/cometmind/internal/session"
+	workspacegit "github.com/Cometline/cometline/cometmind/internal/workspace/git"
 	"github.com/gin-gonic/gin"
 )
 

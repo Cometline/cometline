@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/cometline/cometmind/internal/tools/sandbox"
+	"github.com/Cometline/cometline/cometmind/internal/tools/sandbox"
 )
 
 type workspaceFileTextContent struct {

@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cometline/cometmind/internal/db"
+	"github.com/Cometline/cometline/cometmind/internal/db"
 )
 
 func TestRecentWindowStartForBudget_shrinksHugeTurn(t *testing.T) {

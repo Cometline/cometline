@@ -10,14 +10,14 @@ import (
 	"testing"
 	"time"
 
-	cometsdk "github.com/cometline/comet-sdk"
-	"github.com/cometline/cometmind/internal/agent"
-	"github.com/cometline/cometmind/internal/config"
-	"github.com/cometline/cometmind/internal/jobs"
-	"github.com/cometline/cometmind/internal/session"
-	"github.com/cometline/cometmind/internal/store"
-	"github.com/cometline/cometmind/internal/tools"
-	"github.com/cometline/cometmind/internal/usage"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
+	"github.com/Cometline/cometline/cometmind/internal/agent"
+	"github.com/Cometline/cometline/cometmind/internal/config"
+	"github.com/Cometline/cometline/cometmind/internal/jobs"
+	"github.com/Cometline/cometline/cometmind/internal/session"
+	"github.com/Cometline/cometline/cometmind/internal/store"
+	"github.com/Cometline/cometline/cometmind/internal/tools"
+	"github.com/Cometline/cometline/cometmind/internal/usage"
 )
 
 type testRunGuard struct {

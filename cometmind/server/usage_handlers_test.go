@@ -7,12 +7,12 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	cometsdk "github.com/cometline/comet-sdk"
-	"github.com/cometline/cometmind/internal/config"
-	"github.com/cometline/cometmind/internal/runstate"
-	"github.com/cometline/cometmind/internal/session"
-	"github.com/cometline/cometmind/internal/store"
-	"github.com/cometline/cometmind/internal/usage"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
+	"github.com/Cometline/cometline/cometmind/internal/config"
+	"github.com/Cometline/cometline/cometmind/internal/runstate"
+	"github.com/Cometline/cometline/cometmind/internal/session"
+	"github.com/Cometline/cometline/cometmind/internal/store"
+	"github.com/Cometline/cometline/cometmind/internal/usage"
 )
 
 func TestUsageHandlersSummarySeriesAndEvents(t *testing.T) {

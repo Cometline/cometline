@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/cometline/cometmind/internal/jobs"
-	"github.com/cometline/cometmind/internal/scheduler"
+	"github.com/Cometline/cometline/cometmind/internal/jobs"
+	"github.com/Cometline/cometline/cometmind/internal/scheduler"
 )
 
 // JobsDeps provides job queue and scheduled-job operations to agent tools.

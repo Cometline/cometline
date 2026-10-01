@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cometline/cometmind/internal/acp"
-	"github.com/cometline/cometmind/internal/session"
-	"github.com/cometline/cometmind/internal/skills"
+	"github.com/Cometline/cometline/cometmind/internal/acp"
+	"github.com/Cometline/cometline/cometmind/internal/session"
+	"github.com/Cometline/cometline/cometmind/internal/skills"
 )
 
 func TestNewSubagentRegistryExcludesWriteAndDelegateTools(t *testing.T) {

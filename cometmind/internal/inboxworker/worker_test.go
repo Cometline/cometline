@@ -3,7 +3,7 @@ package inboxworker
 import (
 	"testing"
 
-	"github.com/cometline/cometmind/internal/config"
+	"github.com/Cometline/cometline/cometmind/internal/config"
 )
 
 func TestWorkerUpdateConfigSignalsReload(t *testing.T) {

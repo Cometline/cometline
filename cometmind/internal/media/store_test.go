@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/cometline/cometmind/internal/media"
+	"github.com/Cometline/cometline/cometmind/internal/media"
 )
 
 func TestRegisterReadDelete(t *testing.T) {

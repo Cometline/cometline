@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"reflect"
 
-	cometsdk "github.com/cometline/comet-sdk"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
 )
 
 // DoomLoopThreshold matches OpenCode: the Nth consecutive identical tool+input

@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cometline/cometmind/internal/process"
-	"github.com/cometline/cometmind/internal/tools/sandbox"
+	"github.com/Cometline/cometline/cometmind/internal/process"
+	"github.com/Cometline/cometline/cometmind/internal/tools/sandbox"
 )
 
 const (

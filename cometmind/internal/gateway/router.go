@@ -10,13 +10,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cometline/cometmind/internal/config"
-	"github.com/cometline/cometmind/internal/event"
-	"github.com/cometline/cometmind/internal/jobs"
-	"github.com/cometline/cometmind/internal/logging"
-	"github.com/cometline/cometmind/internal/media"
-	"github.com/cometline/cometmind/internal/session"
-	"github.com/cometline/cometmind/internal/subagent"
+	"github.com/Cometline/cometline/cometmind/internal/config"
+	"github.com/Cometline/cometline/cometmind/internal/event"
+	"github.com/Cometline/cometline/cometmind/internal/jobs"
+	"github.com/Cometline/cometline/cometmind/internal/logging"
+	"github.com/Cometline/cometline/cometmind/internal/media"
+	"github.com/Cometline/cometline/cometmind/internal/session"
+	"github.com/Cometline/cometline/cometmind/internal/subagent"
 )
 
 const defaultStopWaitTimeout = 30 * time.Second

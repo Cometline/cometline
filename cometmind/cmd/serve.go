@@ -10,14 +10,14 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/cometline/cometmind/internal/event"
-	"github.com/cometline/cometmind/internal/jobs"
-	"github.com/cometline/cometmind/internal/logging"
-	"github.com/cometline/cometmind/internal/processctl"
-	"github.com/cometline/cometmind/internal/runstate"
-	"github.com/cometline/cometmind/internal/runtime"
-	"github.com/cometline/cometmind/internal/session"
-	"github.com/cometline/cometmind/server"
+	"github.com/Cometline/cometline/cometmind/internal/event"
+	"github.com/Cometline/cometline/cometmind/internal/jobs"
+	"github.com/Cometline/cometline/cometmind/internal/logging"
+	"github.com/Cometline/cometline/cometmind/internal/processctl"
+	"github.com/Cometline/cometline/cometmind/internal/runstate"
+	"github.com/Cometline/cometline/cometmind/internal/runtime"
+	"github.com/Cometline/cometline/cometmind/internal/session"
+	"github.com/Cometline/cometline/cometmind/server"
 	"github.com/spf13/cobra"
 )
 

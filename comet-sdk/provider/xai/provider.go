@@ -3,8 +3,8 @@
 package xai
 
 import (
-	cometsdk "github.com/cometline/comet-sdk"
-	"github.com/cometline/comet-sdk/provider/openai"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
+	"github.com/Cometline/cometline/comet-sdk/provider/openai"
 )
 
 const defaultBaseURL = "https://api.x.ai"

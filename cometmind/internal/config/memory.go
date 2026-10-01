@@ -4,7 +4,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/cometline/cometmind/internal/memory"
+	"github.com/Cometline/cometline/cometmind/internal/memory"
 )
 
 // MemoryConfig controls global memory behavior.

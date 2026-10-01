@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cometline/cometmind/internal/db"
-	"github.com/cometline/cometmind/internal/id"
+	"github.com/Cometline/cometline/cometmind/internal/db"
+	"github.com/Cometline/cometline/cometmind/internal/id"
 )
 
 // Service manages the global agent inbox.

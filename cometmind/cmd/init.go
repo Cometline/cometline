@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cometline/cometmind/internal/runtime"
+	"github.com/Cometline/cometline/cometmind/internal/runtime"
 	"github.com/spf13/cobra"
 )
 

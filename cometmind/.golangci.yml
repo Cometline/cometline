@@ -25,14 +25,13 @@ linters:
       rules:
         # ── Dependency direction ─────────────────────────────────────────────
         # Keep every package-direction rule in this block. Phase 3a moves
-        # cometmind/server to cometmind/internal/server and renames the module
-        # to github.com/Cometline/cometline/cometmind; update the paths here.
+        # cometmind/server to cometmind/internal/server; update the paths here.
         db-only-in-services:
           files:
             - "**/cometmind/server/**"
             - "**/cometmind/internal/gateway/**"
           deny:
-            - pkg: github.com/cometline/cometmind/internal/db
+            - pkg: github.com/Cometline/cometline/cometmind/internal/db
               desc: the HTTP server and gateways go through service packages, never sqlc queries
         apigen-only-in-server:
           files:
@@ -43,7 +42,7 @@ linters:
             - "!**/cometmind/cmd/session.go"
             - "!**/cometmind/internal/session/wire.go"
           deny:
-            - pkg: github.com/cometline/cometmind/internal/apigen
+            - pkg: github.com/Cometline/cometline/cometmind/internal/apigen
               desc: wire types belong to the HTTP layer; map them in the server package
 
     errcheck:

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/cometline/cometmind/internal/memory"
+	"github.com/Cometline/cometline/cometmind/internal/memory"
 )
 
 // RecallTaskOutcome retrieves recent or matching task outcome memories.

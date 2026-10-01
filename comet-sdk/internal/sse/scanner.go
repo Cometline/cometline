@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	cometsdk "github.com/cometline/comet-sdk"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
 )
 
 const maxEventBytes = 16 * 1024 * 1024

@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cometline/cometmind/internal/id"
+	"github.com/Cometline/cometline/cometmind/internal/id"
 )
 
 const jobProposalTTL = 30 * time.Minute

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/cometline/cometmind/internal/memory"
+	"github.com/Cometline/cometline/cometmind/internal/memory"
 )
 
 const synthesisSystemPrompt = "You identify reusable Agent Skill opportunities from completed work. Prefer skipping over proposing a weak skill. Output JSON only."

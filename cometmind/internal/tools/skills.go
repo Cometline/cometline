@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/cometline/cometmind/internal/skills"
+	"github.com/Cometline/cometline/cometmind/internal/skills"
 )
 
 // LoadSkill loads a discovered Agent Skill's SKILL.md instructions.

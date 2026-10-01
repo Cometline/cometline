@@ -1,6 +1,6 @@
 package llm
 
-import cometsdk "github.com/cometline/comet-sdk"
+import cometsdk "github.com/Cometline/cometline/comet-sdk"
 
 func buildAssistantMessage(text, reasoning string, toolCalls []cometsdk.ToolCallBlock, providerState []cometsdk.ProviderState) cometsdk.Message {
 	var blocks []cometsdk.Block

@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cometline/cometmind/internal/jobs"
-	"github.com/cometline/cometmind/internal/scheduler"
+	"github.com/Cometline/cometline/cometmind/internal/jobs"
+	"github.com/Cometline/cometline/cometmind/internal/scheduler"
 )
 
 type listScheduledJobsTool struct{ deps JobsDeps }

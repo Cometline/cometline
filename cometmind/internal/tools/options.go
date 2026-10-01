@@ -3,17 +3,17 @@ package tools
 import (
 	"context"
 
-	"github.com/cometline/cometmind/internal/acp"
-	"github.com/cometline/cometmind/internal/event"
-	"github.com/cometline/cometmind/internal/generation"
-	"github.com/cometline/cometmind/internal/inbox"
-	"github.com/cometline/cometmind/internal/jobs"
-	mcppkg "github.com/cometline/cometmind/internal/mcp"
-	"github.com/cometline/cometmind/internal/memory"
-	"github.com/cometline/cometmind/internal/scheduler"
-	"github.com/cometline/cometmind/internal/session"
-	"github.com/cometline/cometmind/internal/skills"
-	"github.com/cometline/cometmind/internal/subagent"
+	"github.com/Cometline/cometline/cometmind/internal/acp"
+	"github.com/Cometline/cometline/cometmind/internal/event"
+	"github.com/Cometline/cometline/cometmind/internal/generation"
+	"github.com/Cometline/cometline/cometmind/internal/inbox"
+	"github.com/Cometline/cometline/cometmind/internal/jobs"
+	mcppkg "github.com/Cometline/cometline/cometmind/internal/mcp"
+	"github.com/Cometline/cometline/cometmind/internal/memory"
+	"github.com/Cometline/cometline/cometmind/internal/scheduler"
+	"github.com/Cometline/cometline/cometmind/internal/session"
+	"github.com/Cometline/cometline/cometmind/internal/skills"
+	"github.com/Cometline/cometline/cometmind/internal/subagent"
 )
 
 // AgentLoopRunner is the subset of the agent runner used by subagent tools.

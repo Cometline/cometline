@@ -14,7 +14,7 @@ The primary target is the main system this app is built for. A workflow here is 
 ## First-time setup
 
 ```bash
-git clone https://github.com/cometline/cometline.git
+git clone https://github.com/Cometline/cometline.git
 cd cometline
 make install    # pnpm install in cometline/
 make dev        # build sidecar + launch Electron dev app

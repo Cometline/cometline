@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cometline/cometmind/internal/db"
-	"github.com/cometline/cometmind/internal/jobs"
+	"github.com/Cometline/cometline/cometmind/internal/db"
+	"github.com/Cometline/cometline/cometmind/internal/jobs"
 	_ "modernc.org/sqlite"
 )
 

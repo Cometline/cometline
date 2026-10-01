@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cometline/cometmind/internal/media"
-	"github.com/cometline/cometmind/internal/session"
+	"github.com/Cometline/cometline/cometmind/internal/media"
+	"github.com/Cometline/cometline/cometmind/internal/session"
 )
 
 func presentRegisteredMedia(

@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/cometline/cometmind/internal/event"
-	"github.com/cometline/cometmind/internal/session"
-	"github.com/cometline/cometmind/internal/subagent"
+	"github.com/Cometline/cometline/cometmind/internal/event"
+	"github.com/Cometline/cometline/cometmind/internal/session"
+	"github.com/Cometline/cometline/cometmind/internal/subagent"
 )
 
 // SpawnGeneralAgent runs a restricted CometMind agent loop in a background child session.

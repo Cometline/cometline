@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/cometline/cometmind/internal/jobs"
-	"github.com/cometline/cometmind/internal/store"
+	"github.com/Cometline/cometline/cometmind/internal/jobs"
+	"github.com/Cometline/cometline/cometmind/internal/store"
 )
 
 func newSchedulerTestServices(t *testing.T) (*Service, *jobs.Service) {

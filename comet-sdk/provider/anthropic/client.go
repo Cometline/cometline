@@ -9,9 +9,9 @@ import (
 	"log/slog"
 	"net/http"
 
-	cometsdk "github.com/cometline/comet-sdk"
-	"github.com/cometline/comet-sdk/internal/providerbase"
-	"github.com/cometline/comet-sdk/internal/retry"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
+	"github.com/Cometline/cometline/comet-sdk/internal/providerbase"
+	"github.com/Cometline/cometline/comet-sdk/internal/retry"
 )
 
 const (

@@ -7,8 +7,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/Cometline/cometline/cometmind/internal/gateway"
 	"github.com/bwmarrin/discordgo"
-	"github.com/cometline/cometmind/internal/gateway"
 )
 
 func TestHandleStopCommandDefersBeforeWaitingAndEditsResponse(t *testing.T) {

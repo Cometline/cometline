@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/cometline/cometmind/internal/generation"
-	"github.com/cometline/cometmind/internal/media"
-	"github.com/cometline/cometmind/internal/session"
+	"github.com/Cometline/cometline/cometmind/internal/generation"
+	"github.com/Cometline/cometline/cometmind/internal/media"
+	"github.com/Cometline/cometline/cometmind/internal/session"
 )
 
 // GenerateImage creates a still with the configured image generation model.

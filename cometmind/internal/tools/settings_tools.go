@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cometline/cometmind/internal/config"
-	"github.com/cometline/cometmind/internal/paths"
-	"github.com/cometline/cometmind/internal/processctl"
-	"github.com/cometline/cometmind/internal/settingsapply"
+	"github.com/Cometline/cometline/cometmind/internal/config"
+	"github.com/Cometline/cometline/cometmind/internal/paths"
+	"github.com/Cometline/cometline/cometmind/internal/processctl"
+	"github.com/Cometline/cometline/cometmind/internal/settingsapply"
 )
 
 // SettingsRuntime applies settings changes without killing the current agent turn.

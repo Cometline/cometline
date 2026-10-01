@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Cometline/cometline/cometmind/internal/logging"
 	"github.com/bwmarrin/discordgo"
-	"github.com/cometline/cometmind/internal/logging"
 )
 
 const threadArchiveMinutes = 60

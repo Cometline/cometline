@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cometline/cometmind/internal/logging"
+	"github.com/Cometline/cometline/cometmind/internal/logging"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 

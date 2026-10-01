@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/cometline/cometmind/internal/acp"
-	"github.com/cometline/cometmind/internal/session"
+	"github.com/Cometline/cometline/cometmind/internal/acp"
+	"github.com/Cometline/cometline/cometmind/internal/session"
 )
 
 func TestNormalizeDelegationOutcomeCancelledByUser(t *testing.T) {

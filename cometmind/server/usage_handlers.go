@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cometline/cometmind/internal/usage"
+	"github.com/Cometline/cometline/cometmind/internal/usage"
 	"github.com/gin-gonic/gin"
 )
 

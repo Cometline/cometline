@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cometline/cometmind/internal/acp"
-	"github.com/cometline/cometmind/internal/session"
-	"github.com/cometline/cometmind/internal/store"
+	"github.com/Cometline/cometline/cometmind/internal/acp"
+	"github.com/Cometline/cometline/cometmind/internal/session"
+	"github.com/Cometline/cometline/cometmind/internal/store"
 )
 
 func TestDelegateCodingTaskWithFakeCLI(t *testing.T) {

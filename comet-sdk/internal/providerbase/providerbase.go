@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	cometsdk "github.com/cometline/comet-sdk"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
 )
 
 // ClassifyHTTPError maps a non-200 HTTP response to a typed SDK error.

@@ -3,8 +3,8 @@ package tools
 import (
 	"context"
 
-	"github.com/cometline/cometmind/internal/event"
-	"github.com/cometline/cometmind/internal/process"
+	"github.com/Cometline/cometline/cometmind/internal/event"
+	"github.com/Cometline/cometline/cometmind/internal/process"
 )
 
 type execCtxKey int

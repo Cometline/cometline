@@ -1,6 +1,6 @@
 package config
 
-import skillpkg "github.com/cometline/cometmind/internal/skills"
+import skillpkg "github.com/Cometline/cometline/cometmind/internal/skills"
 
 // SkillSettings converts config to runtime skill discovery settings.
 func (c *Config) SkillSettings() skillpkg.Config {

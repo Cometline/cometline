@@ -11,7 +11,7 @@ import (
 
 	gitignore "github.com/sabhiram/go-gitignore"
 
-	"github.com/cometline/cometmind/internal/paths"
+	"github.com/Cometline/cometline/cometmind/internal/paths"
 )
 
 const (

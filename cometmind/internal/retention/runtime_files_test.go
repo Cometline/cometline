@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cometline/cometmind/internal/config"
+	"github.com/Cometline/cometline/cometmind/internal/config"
 )
 
 func TestPurgeRuntimeFilesByAge(t *testing.T) {

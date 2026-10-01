@@ -7,8 +7,8 @@ import (
 	"sort"
 	"strings"
 
-	cometsdk "github.com/cometline/comet-sdk"
-	"github.com/cometline/comet-sdk/internal/providerbase"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
+	"github.com/Cometline/cometline/comet-sdk/internal/providerbase"
 )
 
 // ─── Outgoing: SDK Request → Anthropic JSON ───────────────────────────────────

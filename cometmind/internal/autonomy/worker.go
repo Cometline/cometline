@@ -11,14 +11,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cometline/cometmind/internal/agent"
-	"github.com/cometline/cometmind/internal/config"
-	"github.com/cometline/cometmind/internal/event"
-	"github.com/cometline/cometmind/internal/jobs"
-	"github.com/cometline/cometmind/internal/memory"
-	"github.com/cometline/cometmind/internal/session"
-	"github.com/cometline/cometmind/internal/usage"
-	"github.com/cometline/cometmind/internal/wakeup"
+	"github.com/Cometline/cometline/cometmind/internal/agent"
+	"github.com/Cometline/cometline/cometmind/internal/config"
+	"github.com/Cometline/cometline/cometmind/internal/event"
+	"github.com/Cometline/cometline/cometmind/internal/jobs"
+	"github.com/Cometline/cometline/cometmind/internal/memory"
+	"github.com/Cometline/cometline/cometmind/internal/session"
+	"github.com/Cometline/cometline/cometmind/internal/usage"
+	"github.com/Cometline/cometline/cometmind/internal/wakeup"
 )
 
 // RunGuard registers a session as "currently running an agent turn" so the

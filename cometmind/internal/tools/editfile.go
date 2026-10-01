@@ -8,7 +8,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/cometline/cometmind/internal/tools/diffartifact"
+	"github.com/Cometline/cometline/cometmind/internal/tools/diffartifact"
 )
 
 // EditFile performs surgical search/replace edits inside the workspace.

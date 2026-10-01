@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/cometline/cometmind/internal/event"
-	"github.com/cometline/cometmind/internal/session"
+	"github.com/Cometline/cometline/cometmind/internal/event"
+	"github.com/Cometline/cometline/cometmind/internal/session"
 	"github.com/gin-gonic/gin"
 )
 

@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cometline/cometmind/internal/paths"
+	"github.com/Cometline/cometline/cometmind/internal/paths"
 )
 
 const (

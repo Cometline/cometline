@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/cometline/cometmind/internal/skills"
+	"github.com/Cometline/cometline/cometmind/internal/skills"
 )
 
 // WriteSkillDraft creates or updates an Agent Skill draft under ~/.cometmind/skill-drafts.

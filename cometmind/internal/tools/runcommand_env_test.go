@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cometline/cometmind/internal/process"
+	"github.com/Cometline/cometline/cometmind/internal/process"
 )
 
 func writeTerminalEnv(t *testing.T, sessionID string, pairs ...string) {

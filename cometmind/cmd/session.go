@@ -9,9 +9,9 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/cometline/cometmind/internal/apigen"
-	"github.com/cometline/cometmind/internal/runtime"
-	"github.com/cometline/cometmind/internal/session"
+	"github.com/Cometline/cometline/cometmind/internal/apigen"
+	"github.com/Cometline/cometline/cometmind/internal/runtime"
+	"github.com/Cometline/cometline/cometmind/internal/session"
 	"github.com/spf13/cobra"
 )
 

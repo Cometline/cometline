@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cometline/comet-sdk/provider/xai"
+	"github.com/Cometline/cometline/comet-sdk/provider/xai"
 )
 
 const (

@@ -3,7 +3,7 @@ package server
 import (
 	"net/http"
 
-	"github.com/cometline/cometmind/internal/logging"
+	"github.com/Cometline/cometline/cometmind/internal/logging"
 	"github.com/gin-gonic/gin"
 )
 

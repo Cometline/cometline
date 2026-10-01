@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/cometline/cometmind/internal/session"
-	"github.com/cometline/cometmind/internal/subagent"
+	"github.com/Cometline/cometline/cometmind/internal/session"
+	"github.com/Cometline/cometline/cometmind/internal/subagent"
 )
 
 // WaitSubagents blocks until selected child subagents finish.

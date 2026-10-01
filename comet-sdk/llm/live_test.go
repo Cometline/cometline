@@ -9,9 +9,9 @@ import (
 	"os"
 	"testing"
 
-	cometsdk "github.com/cometline/comet-sdk"
-	"github.com/cometline/comet-sdk/llm"
-	"github.com/cometline/comet-sdk/provider/openai"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
+	"github.com/Cometline/cometline/comet-sdk/llm"
+	"github.com/Cometline/cometline/comet-sdk/provider/openai"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

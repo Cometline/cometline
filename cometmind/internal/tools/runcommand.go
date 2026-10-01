@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cometline/cometmind/internal/paths"
-	"github.com/cometline/cometmind/internal/process"
+	"github.com/Cometline/cometline/cometmind/internal/paths"
+	"github.com/Cometline/cometline/cometmind/internal/process"
 )
 
 // RunCommand runs a shell command with cwd set to the workspace root.

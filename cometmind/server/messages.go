@@ -10,12 +10,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cometline/cometmind/internal/agent"
-	"github.com/cometline/cometmind/internal/event"
-	"github.com/cometline/cometmind/internal/logging"
-	"github.com/cometline/cometmind/internal/paths"
-	"github.com/cometline/cometmind/internal/session"
-	"github.com/cometline/cometmind/internal/tools/sandbox"
+	"github.com/Cometline/cometline/cometmind/internal/agent"
+	"github.com/Cometline/cometline/cometmind/internal/event"
+	"github.com/Cometline/cometline/cometmind/internal/logging"
+	"github.com/Cometline/cometline/cometmind/internal/paths"
+	"github.com/Cometline/cometline/cometmind/internal/session"
+	"github.com/Cometline/cometline/cometmind/internal/tools/sandbox"
 	"github.com/gin-gonic/gin"
 )
 

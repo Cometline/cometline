@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 
-	cometsdk "github.com/cometline/comet-sdk"
-	"github.com/cometline/cometmind/internal/generation"
-	"github.com/cometline/cometmind/internal/skills"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
+	"github.com/Cometline/cometline/cometmind/internal/generation"
+	"github.com/Cometline/cometline/cometmind/internal/skills"
 )
 
 // Registry holds built-in tools for a workspace.

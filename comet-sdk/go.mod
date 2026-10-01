@@ -1,4 +1,4 @@
-module github.com/cometline/comet-sdk
+module github.com/Cometline/cometline/comet-sdk
 
 go 1.26.0
 

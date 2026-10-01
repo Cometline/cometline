@@ -1,6 +1,6 @@
 package tools
 
-import "github.com/cometline/cometmind/internal/tools/fs"
+import "github.com/Cometline/cometline/cometmind/internal/tools/fs"
 
 // Workspace is the FileWorkspace module (owned by tools/fs).
 // Tools are thin adapters over this seam.

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	cometsdk "github.com/cometline/comet-sdk"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
 )
 
 // DowngradeImagesForNonVision rewrites ImageBlocks to text meta when the catalog

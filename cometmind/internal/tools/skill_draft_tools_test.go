@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cometline/cometmind/internal/skills"
+	"github.com/Cometline/cometline/cometmind/internal/skills"
 )
 
 func TestListReadAndPromoteSkillDraftTools(t *testing.T) {

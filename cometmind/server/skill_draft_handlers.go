@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/cometline/cometmind/internal/skills"
+	"github.com/Cometline/cometline/cometmind/internal/skills"
 	"github.com/gin-gonic/gin"
 )
 

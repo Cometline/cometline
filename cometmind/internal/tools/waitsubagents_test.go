@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cometline/cometmind/internal/session"
-	"github.com/cometline/cometmind/internal/subagent"
+	"github.com/Cometline/cometline/cometmind/internal/session"
+	"github.com/Cometline/cometline/cometmind/internal/subagent"
 )
 
 func TestWaitSubagentsWaitsUntilChildFinishes(t *testing.T) {

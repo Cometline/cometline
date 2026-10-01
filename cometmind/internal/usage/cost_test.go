@@ -3,7 +3,7 @@ package usage
 import (
 	"testing"
 
-	"github.com/cometline/cometmind/internal/modelcatalog"
+	"github.com/Cometline/cometline/cometmind/internal/modelcatalog"
 )
 
 func TestEstimateUSD(t *testing.T) {

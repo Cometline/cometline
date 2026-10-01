@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	cometsdk "github.com/cometline/comet-sdk"
-	"github.com/cometline/cometmind/internal/apigen"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
+	"github.com/Cometline/cometline/cometmind/internal/apigen"
 )
 
 // APISession converts a persisted session into the OpenAPI Session wire shape.

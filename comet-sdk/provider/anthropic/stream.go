@@ -6,9 +6,9 @@ import (
 	"log/slog"
 	"time"
 
-	cometsdk "github.com/cometline/comet-sdk"
-	"github.com/cometline/comet-sdk/internal/providerbase"
-	"github.com/cometline/comet-sdk/internal/sse"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
+	"github.com/Cometline/cometline/comet-sdk/internal/providerbase"
+	"github.com/Cometline/cometline/comet-sdk/internal/sse"
 )
 
 // parseLoop reads SSE events from body and dispatches typed cometsdk.Events to ch.

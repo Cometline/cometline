@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cometline/cometmind/internal/process"
+	"github.com/Cometline/cometline/cometmind/internal/process"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 

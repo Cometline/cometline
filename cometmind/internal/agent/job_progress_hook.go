@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/cometline/cometmind/internal/jobs"
+	"github.com/Cometline/cometline/cometmind/internal/jobs"
 )
 
 const defaultJobProgressNudgeAfterTools = 3

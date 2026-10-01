@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cometline/cometmind/internal/db"
-	"github.com/cometline/cometmind/internal/id"
-	"github.com/cometline/cometmind/internal/jobs"
+	"github.com/Cometline/cometline/cometmind/internal/db"
+	"github.com/Cometline/cometline/cometmind/internal/id"
+	"github.com/Cometline/cometline/cometmind/internal/jobs"
 	"github.com/robfig/cron/v3"
 )
 

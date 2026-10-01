@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cometline/cometmind/internal/process"
+	"github.com/Cometline/cometline/cometmind/internal/process"
 )
 
 // Harness identifies the external coding agent CometMind delegates to.

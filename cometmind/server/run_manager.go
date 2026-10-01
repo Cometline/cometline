@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/cometline/cometmind/internal/runstate"
+	"github.com/Cometline/cometline/cometmind/internal/runstate"
 )
 
 type runHandle struct {

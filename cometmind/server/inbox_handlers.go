@@ -4,8 +4,8 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/cometline/cometmind/internal/event"
-	"github.com/cometline/cometmind/internal/inbox"
+	"github.com/Cometline/cometline/cometmind/internal/event"
+	"github.com/Cometline/cometline/cometmind/internal/inbox"
 	"github.com/gin-gonic/gin"
 )
 

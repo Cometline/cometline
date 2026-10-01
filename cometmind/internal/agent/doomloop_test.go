@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	cometsdk "github.com/cometline/comet-sdk"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
 )
 
 func TestIsDoomLoop_RequiresThresholdIdenticalCalls(t *testing.T) {

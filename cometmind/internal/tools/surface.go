@@ -1,6 +1,6 @@
 package tools
 
-import "github.com/cometline/cometmind/internal/session"
+import "github.com/Cometline/cometline/cometmind/internal/session"
 
 // ToolSurface is the capability policy for a registry: which tool families
 // are exposed. Parent, research, and coding registries share this module so

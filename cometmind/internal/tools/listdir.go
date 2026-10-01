@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/cometline/cometmind/internal/paths"
+	"github.com/Cometline/cometline/cometmind/internal/paths"
 )
 
 // ListDir lists non-hidden entries one level under a path. Relative paths

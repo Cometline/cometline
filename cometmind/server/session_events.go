@@ -3,9 +3,9 @@ package server
 import (
 	"net/http"
 
-	"github.com/cometline/cometmind/internal/event"
-	"github.com/cometline/cometmind/internal/logging"
-	"github.com/cometline/cometmind/internal/runstate"
+	"github.com/Cometline/cometline/cometmind/internal/event"
+	"github.com/Cometline/cometline/cometmind/internal/logging"
+	"github.com/Cometline/cometline/cometmind/internal/runstate"
 	"github.com/gin-gonic/gin"
 )
 

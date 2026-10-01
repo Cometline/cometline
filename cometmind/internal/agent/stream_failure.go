@@ -8,7 +8,7 @@ import (
 	"strings"
 	"syscall"
 
-	cometsdk "github.com/cometline/comet-sdk"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
 )
 
 type streamFailureCategory string

@@ -3,15 +3,15 @@ package provider
 import (
 	"fmt"
 
-	cometsdk "github.com/cometline/comet-sdk"
-	"github.com/cometline/comet-sdk/provider/anthropic"
-	"github.com/cometline/comet-sdk/provider/codex"
-	"github.com/cometline/comet-sdk/provider/openai"
-	"github.com/cometline/comet-sdk/provider/openairesponses"
-	"github.com/cometline/comet-sdk/provider/xai"
-	"github.com/cometline/cometmind/internal/config"
-	"github.com/cometline/cometmind/internal/logging"
-	"github.com/cometline/cometmind/internal/modelcatalog"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
+	"github.com/Cometline/cometline/comet-sdk/provider/anthropic"
+	"github.com/Cometline/cometline/comet-sdk/provider/codex"
+	"github.com/Cometline/cometline/comet-sdk/provider/openai"
+	"github.com/Cometline/cometline/comet-sdk/provider/openairesponses"
+	"github.com/Cometline/cometline/comet-sdk/provider/xai"
+	"github.com/Cometline/cometline/cometmind/internal/config"
+	"github.com/Cometline/cometline/cometmind/internal/logging"
+	"github.com/Cometline/cometline/cometmind/internal/modelcatalog"
 )
 
 // providerConfigFor returns the resolved provider entry, method, and base URL

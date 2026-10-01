@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cometline/cometmind/internal/event"
+	"github.com/Cometline/cometline/cometmind/internal/event"
 )
 
 const DefaultServeURL = "http://127.0.0.1:7700"

@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cometline/cometmind/internal/db"
-	"github.com/cometline/cometmind/internal/memory"
+	"github.com/Cometline/cometline/cometmind/internal/db"
+	"github.com/Cometline/cometline/cometmind/internal/memory"
 	_ "modernc.org/sqlite"
 )
 

@@ -7,9 +7,9 @@ import (
 	"sync"
 	"time"
 
-	cometsdk "github.com/cometline/comet-sdk"
-	"github.com/cometline/cometmind/internal/db"
-	"github.com/cometline/cometmind/internal/logging"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
+	"github.com/Cometline/cometline/cometmind/internal/db"
+	"github.com/Cometline/cometline/cometmind/internal/logging"
 )
 
 const negativeTTL = 7 * 24 * time.Hour

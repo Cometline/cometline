@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/cometline/cometmind/internal/logging"
+	"github.com/Cometline/cometline/cometmind/internal/logging"
 )
 
 type cometlineProviderJSON struct {

@@ -5,8 +5,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	cometsdk "github.com/cometline/comet-sdk"
-	"github.com/cometline/cometmind/internal/session"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
+	"github.com/Cometline/cometline/cometmind/internal/session"
 )
 
 const (

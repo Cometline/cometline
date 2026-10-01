@@ -9,11 +9,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Cometline/cometline/cometmind/internal/config"
+	"github.com/Cometline/cometline/cometmind/internal/gateway"
+	"github.com/Cometline/cometline/cometmind/internal/jobs"
+	"github.com/Cometline/cometline/cometmind/internal/logging"
 	"github.com/bwmarrin/discordgo"
-	"github.com/cometline/cometmind/internal/config"
-	"github.com/cometline/cometmind/internal/gateway"
-	"github.com/cometline/cometmind/internal/jobs"
-	"github.com/cometline/cometmind/internal/logging"
 )
 
 // PlatformName is the normalized platform identifier for Discord.

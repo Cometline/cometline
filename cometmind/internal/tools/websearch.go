@@ -21,7 +21,7 @@ const (
 	webSearchMaxLimit       = 10
 	webSearchMaxBodyBytes   = 2 << 20
 	webSearchMaxOutput      = 30000
-	webSearchUserAgent      = "CometMind/1.0 (+https://github.com/cometline/cometmind)"
+	webSearchUserAgent      = "CometMind/1.0 (+https://github.com/Cometline/cometline)"
 )
 
 // SearchResult is one normalized public-web search result.

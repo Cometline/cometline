@@ -3,7 +3,7 @@ package responsesproto
 import (
 	"strings"
 
-	"github.com/cometline/comet-sdk/internal/providerbase"
+	"github.com/Cometline/cometline/comet-sdk/internal/providerbase"
 )
 
 // IsMaxOutputTokensUnsupportedError reports whether err is a 4xx ServerError

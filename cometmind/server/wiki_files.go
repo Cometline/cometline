@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/cometline/cometmind/internal/paths"
-	wikifiles "github.com/cometline/cometmind/internal/wiki/files"
-	wikilinks "github.com/cometline/cometmind/internal/wiki/links"
+	"github.com/Cometline/cometline/cometmind/internal/paths"
+	wikifiles "github.com/Cometline/cometline/cometmind/internal/wiki/files"
+	wikilinks "github.com/Cometline/cometline/cometmind/internal/wiki/links"
 	"github.com/gin-gonic/gin"
 )
 

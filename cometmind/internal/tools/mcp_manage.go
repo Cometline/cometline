@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	mcppkg "github.com/cometline/cometmind/internal/mcp"
+	mcppkg "github.com/Cometline/cometline/cometmind/internal/mcp"
 )
 
 // listMCPServersTool lets the agent inspect MCP server connection status
