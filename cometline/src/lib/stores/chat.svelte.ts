@@ -1,5 +1,4 @@
 import { browser } from '$app/environment';
-import { goto } from '$app/navigation';
 import {
 	abortSession,
 	getSessionMessages,
@@ -24,7 +23,7 @@ import { sessionStore } from '$lib/stores/session.svelte';
 import { playErrorSound, playResponseCompleteSound } from '$lib/sound/response-complete';
 import { settingsStore } from '$lib/stores/settings.svelte';
 import { publishWindowSync, subscribeWindowSync } from '$lib/window-sync';
-import { homeRouteFor } from '$lib/routes/session-route';
+import { gotoHome } from '$lib/routes/session-route';
 import { unreadSessionOutputStore } from '$lib/stores/unread-session-output.svelte';
 
 import { itemsFromTranscript, localID, mergeSubagents } from '$lib/stores/chat-transcript';
@@ -188,7 +187,7 @@ function createChatStore() {
 			hasMoreHistory = false;
 		}
 		if (browser) {
-			void goto(homeRouteFor());
+			void gotoHome();
 		}
 	}
 

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { flip } from 'svelte/animate';
 	import { Settings, Briefcase, Sparkles, Bell, Images, CircleDollarSign } from '@lucide/svelte';
@@ -312,7 +313,7 @@
 					class="nav-badge"
 					class:has-badge={jobsIndicatorStore.hasOngoing}
 					class:active={page.url.pathname === '/jobs'}
-					onclick={() => goto('/jobs')}
+					onclick={() => goto(resolve('/jobs'))}
 				>
 					<Briefcase size={16} stroke-width={1.8} />
 				</button>
@@ -323,7 +324,7 @@
 					class="nav-badge"
 					class:has-badge={skillDraftsStore.hasDrafts}
 					class:active={page.url.pathname === '/skills' || page.url.pathname === '/skill-drafts'}
-					onclick={() => goto('/skills')}
+					onclick={() => goto(resolve('/skills'))}
 				>
 					<Sparkles size={16} stroke-width={1.8} />
 				</button>
@@ -333,7 +334,7 @@
 					aria-label="Gallery"
 					class="nav-badge"
 					class:active={page.url.pathname === '/gallery'}
-					onclick={() => goto('/gallery')}
+					onclick={() => goto(resolve('/gallery'))}
 				>
 					<Images size={16} stroke-width={1.8} />
 				</button>
@@ -343,7 +344,7 @@
 					aria-label="Usage"
 					class="nav-badge"
 					class:active={page.url.pathname === '/usage'}
-					onclick={() => goto('/usage')}
+					onclick={() => goto(resolve('/usage'))}
 				>
 					<CircleDollarSign size={16} stroke-width={1.8} />
 				</button>

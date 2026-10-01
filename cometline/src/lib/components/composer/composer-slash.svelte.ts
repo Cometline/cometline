@@ -1,6 +1,5 @@
 import { tick } from 'svelte';
 import { createMenuHighlight } from '$lib/components/composer/menu-highlight.svelte';
-import { goto } from '$app/navigation';
 import type { ChatTurnPayload } from '$lib/actions/start-chat';
 import {
 	listSkills,
@@ -13,7 +12,7 @@ import {
 	buildJobExecutionPrompt
 } from '$lib/client/cometmind';
 import { jobUserDisplayText } from '$lib/jobs/format-job-label';
-import { sessionRouteFor } from '$lib/routes/session-route';
+import { gotoSession } from '$lib/routes/session-route';
 import { sessionStore } from '$lib/stores/session.svelte';
 import { chatStore } from '$lib/stores/chat.svelte';
 import { modelStore, type ModelOption } from '$lib/stores/model.svelte';
@@ -342,7 +341,7 @@ export function createComposerSlashController(deps: {
 				// centered so first-turn flight + follow-up transitions work.
 				shellStore.centerComposer();
 				deps.setDropMessage(`Forked session into ${clean}`);
-				await goto(sessionRouteFor(forkedId));
+				await gotoSession(forkedId);
 			} else {
 				deps.setDropMessage(`Switched workspace to ${clean}`);
 				await deps.onWorkspaceChanged?.();

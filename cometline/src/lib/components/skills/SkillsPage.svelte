@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
 	import {
@@ -69,11 +70,10 @@
 	});
 
 	function setTab(next: SkillsTab) {
-		const params = new URLSearchParams(page.url.searchParams);
-		if (next === 'skills') params.set('tab', 'skills');
-		else params.delete('tab');
-		const search = params.toString();
-		void goto(`/skills${search ? `?${search}` : ''}`, {
+		const params = [...page.url.searchParams].filter(([key]) => key !== 'tab');
+		if (next === 'skills') params.push(['tab', 'skills']);
+		const search = new URLSearchParams(params).toString();
+		void goto(`${resolve('/skills')}${search ? `?${search}` : ''}`, {
 			replaceState: true,
 			noScroll: true,
 			keepFocus: true

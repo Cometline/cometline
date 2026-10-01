@@ -1,4 +1,5 @@
 import { goto } from '$app/navigation';
+import { resolve } from '$app/paths';
 import { createSession, listAllSessions } from '$lib/client/cometmind';
 import { createNewSession } from '$lib/actions/create-new-session';
 import { modelStore } from '$lib/stores/model.svelte';
@@ -92,7 +93,7 @@ export async function activateMiniWindow() {
 	activateInFlight = (async () => {
 		try {
 			const sessionId = await ensureMiniWindowSession();
-			await goto(`/mini/session/${sessionId}`, { replaceState: true });
+			await goto(resolve('/mini/session/[id]', { id: sessionId }), { replaceState: true });
 			return sessionId;
 		} catch (error) {
 			miniShellStore.resetOpening();
@@ -117,7 +118,7 @@ export async function navigateMiniToSession(session: Session) {
 	shellStore.setSidebarOrderDiscordActive(isDiscordSession(session));
 	sessionVisitHistory.recordVisit(session.id);
 	await window.electronAPI?.saveMiniWindowState?.({ sessionId: session.id });
-	await goto(`/mini/session/${session.id}`);
+	await goto(resolve('/mini/session/[id]', { id: session.id }));
 	shellStore.requestComposerFocus(session.id);
 }
 
@@ -130,7 +131,7 @@ export async function createMiniWindowSession() {
 		createdSessionId = session.id;
 		await window.electronAPI?.saveMiniWindowState?.({ sessionId: session.id });
 		miniShellStore.requestNewSession(session.id);
-		await goto(`/mini/session/${session.id}`);
+		await goto(resolve('/mini/session/[id]', { id: session.id }));
 		shellStore.requestComposerFocus(session.id);
 		return session;
 	} catch (error) {

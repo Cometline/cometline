@@ -1,6 +1,8 @@
 import { goto } from '$app/navigation';
+import { resolve } from '$app/paths';
 import { listInboxMessages, listSkillDrafts } from '$lib/client/cometmind';
 import type { CometMindJobsNotificationSettings } from '$lib/cometmind-settings';
+import { gotoJob } from '$lib/routes/job-route';
 import { sessionDisplayTitle } from '$lib/sessions/session-title';
 import { appToastStore } from '$lib/stores/app-toasts.svelte';
 import { inboxStore } from '$lib/stores/inbox.svelte';
@@ -18,7 +20,7 @@ export function notifyJobActivity(notice: JobNotice, settings: CometMindJobsNoti
 	if (notice.kind === 'blocked' && !settings.onBlocked) return;
 	const label = notice.kind === 'completed' ? 'Job completed' : 'Job blocked';
 	const open = () => {
-		void goto(`/jobs?job=${encodeURIComponent(notice.id)}`);
+		void gotoJob(notice.id);
 	};
 	if (notice.kind === 'blocked') {
 		appToastStore.warning(label, notice.description, open);
@@ -72,7 +74,7 @@ export function startSkillDraftToastWatch(opts: {
 		const detail =
 			fresh.length === 1 ? first.description || first.name : `${fresh.length} drafts ready`;
 		appToastStore.success('Skill draft ready', detail, () => {
-			void goto('/skills');
+			void goto(resolve('/skills'));
 		});
 	}
 
@@ -92,7 +94,7 @@ export function notifyBackgroundRunFinished(
 ) {
 	if (!session.id || session.id === activeSessionId || !isNotifiableChat(session)) return;
 	appToastStore.success('Chat finished', sessionDisplayTitle(session.title), () => {
-		void goto(`/session/${session.id}`);
+		void goto(resolve('/session/[id]', { id: session.id }));
 	});
 }
 

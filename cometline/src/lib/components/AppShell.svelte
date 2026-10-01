@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen } from '@lucide/svelte';
 	import Sidebar from './Sidebar.svelte';
@@ -14,6 +15,7 @@
 	import FileSearchModal from './FileSearchModal.svelte';
 	import Tooltip from './Tooltip.svelte';
 	import { getSession, updateSession } from '$lib/client/cometmind';
+	import { gotoJob } from '$lib/routes/job-route';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { sessionStore } from '$lib/stores/session.svelte';
 	import { settingsStore } from '$lib/stores/settings.svelte';
@@ -315,22 +317,22 @@
 			case 'openJobs':
 				if (shellStore.settingsOpen) shellStore.closeSettings();
 				inboxStore.closeDrawer();
-				void goto('/jobs');
+				void goto(resolve('/jobs'));
 				return;
 			case 'openSkillDrafts':
 				if (shellStore.settingsOpen) shellStore.closeSettings();
 				inboxStore.closeDrawer();
-				void goto('/skills');
+				void goto(resolve('/skills'));
 				return;
 			case 'openGallery':
 				if (shellStore.settingsOpen) shellStore.closeSettings();
 				inboxStore.closeDrawer();
-				void goto('/gallery');
+				void goto(resolve('/gallery'));
 				return;
 			case 'openUsage':
 				if (shellStore.settingsOpen) shellStore.closeSettings();
 				inboxStore.closeDrawer();
-				void goto('/usage');
+				void goto(resolve('/usage'));
 				return;
 			case 'openInbox':
 				if (shellStore.settingsOpen) shellStore.closeSettings();
@@ -1009,7 +1011,7 @@
 			onDismiss={(id) => inboxStore.dismiss(id)}
 			onOpenJob={(jobId) => {
 				inboxStore.closeDrawer();
-				void goto(`/jobs?job=${encodeURIComponent(jobId)}`);
+				void gotoJob(jobId);
 			}}
 			onOpenSession={(sessionId) => {
 				inboxStore.closeDrawer();

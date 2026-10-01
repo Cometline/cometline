@@ -1,4 +1,5 @@
 import { goto } from '$app/navigation';
+import { resolve } from '$app/paths';
 import { chatStore } from '$lib/stores/chat.svelte';
 import { sessionStore } from '$lib/stores/session.svelte';
 import { shellStore } from '$lib/stores/shell.svelte';
@@ -31,6 +32,6 @@ export async function startNewChat(workspacePath?: string) {
 	// the current turn queue can keep draining without the old view staying active.
 	chatStore.detachActiveSession();
 	const session = await createNewSession(workspacePath);
-	await goto(`/session/${session.id}`);
+	await goto(resolve('/session/[id]', { id: session.id }));
 	shellStore.requestComposerFocus(session.id);
 }

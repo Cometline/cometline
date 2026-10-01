@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { untrack } from 'svelte';
 	import ChatView from '$lib/components/ChatView.svelte';
@@ -16,7 +17,9 @@
 			const ensuredSessionId = await ensureMiniWindowSession(id);
 			if (run !== resolvingRun) return;
 			if (ensuredSessionId !== id) {
-				await goto(`/mini/session/${ensuredSessionId}`, { replaceState: true });
+				await goto(resolve('/mini/session/[id]', { id: ensuredSessionId }), {
+					replaceState: true
+				});
 				return;
 			}
 			resolvedSessionId = ensuredSessionId;
