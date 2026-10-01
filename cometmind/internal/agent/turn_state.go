@@ -78,10 +78,6 @@ func (r *Runner) initTurnState(ctx context.Context, s *turnState) {
 	s.maxTokens = s.budget.EffectiveMaxTokens
 }
 
-func (s *turnState) emit(ev event.Event) {
-	s.ch <- ev
-}
-
 func (s *turnState) emitStatus(phase event.TurnPhase) {
 	s.ch <- event.TurnStatus(phase, "")
 }
