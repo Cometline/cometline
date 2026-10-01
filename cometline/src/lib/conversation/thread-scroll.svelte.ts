@@ -31,6 +31,12 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 	let scroller = $state<HTMLDivElement | undefined>(undefined);
 	let showJumpToBottom = $state(false);
 	let lastSessionId: string | null = null;
+	/**
+	 * One bump per session-id change, including the first bind.
+	 * Virtual and fold subscribe to this instead of re-deriving "new session".
+	 * Written only inside untrack so this module's other effects do not depend on it.
+	 */
+	let sessionEpoch = $state(0);
 	/** Successfully presented follow-up user id (only advanced when pin runs). */
 	let lastScrolledUserId: string | null = null;
 	let viewportHeight = $state(0);
@@ -272,6 +278,7 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 		if (sessionId === lastSessionId) return;
 		lastSessionId = sessionId;
 		untrack(() => {
+			sessionEpoch += 1;
 			sessionHadTranscript = deps.sessionHasCachedTranscript(sessionId);
 			lastScrolledUserId = deps.getLastUserId();
 			beginHydrationPaintFresh();
@@ -451,6 +458,9 @@ export function createThreadScroll(deps: ThreadScrollDeps) {
 		},
 		get isInitialTranscriptPaint() {
 			return isInitialTranscriptPaint;
+		},
+		get sessionEpoch() {
+			return sessionEpoch;
 		},
 		setScroller,
 		onScroll,

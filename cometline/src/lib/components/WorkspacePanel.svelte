@@ -302,10 +302,10 @@
 		return tab ? ((await webTabActivity.get(tab.key)?.surface.captureContext(source)) ?? null) : null;
 	}
 
-	function captureFileContext(filePath: string) {
+	function fileContext(filePath: string) {
 		const title = filePath.split(/[/\\]/).pop() || filePath;
 		const source = isWikiUiPath(filePath) ? filePath : `workspace-file:${filePath}`;
-		shellStore.setViewingFileContextForActive(source, title);
+		return { source, title };
 	}
 
 	function requestLeaveEditor(): boolean | Promise<boolean> {
@@ -546,19 +546,15 @@
 	$effect(() => shellStore.registerPageContextResolver(resolvePageContext));
 	$effect(() => shellStore.registerWorkspacePanelLeaveGuard(requestLeaveEditor));
 
+	// Reads visibility only. noteVisibleContext does not expose the context list,
+	// so this effect is not both reader and writer of the same state.
 	$effect(() => {
-		// Only the visible page contributes automatic context; background guests stay passive.
-		if (!panelOpen || !showWebview || !webSearchUrl || !isHttpUrl(webSearchUrl)) return;
-		const context = { source: webSearchUrl, title: pageTitle };
-		untrack(() => shellStore.setPendingPageContextForActive(context));
-	});
-
-	$effect(() => {
-		const filePath = showFilePreview ? panelFilePath : null;
-		if (!filePath) return;
-		// untrack: setViewingFileContextForActive reads+writes pending contexts; if
-		// that read is tracked here, every write re-runs this effect forever.
-		untrack(() => captureFileContext(filePath));
+		const page =
+			panelOpen && showWebview && webSearchUrl && isHttpUrl(webSearchUrl)
+				? { source: webSearchUrl, title: pageTitle }
+				: undefined;
+		const file = showFilePreview && panelFilePath ? fileContext(panelFilePath) : undefined;
+		shellStore.noteVisibleContext({ page, file });
 	});
 
 	$effect(() => {

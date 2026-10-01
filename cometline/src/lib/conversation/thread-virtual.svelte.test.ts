@@ -36,7 +36,7 @@ describe('createThreadVirtual', () => {
 		let controller!: ReturnType<typeof createThreadVirtual>;
 		const cleanup = $effect.root(() => {
 			controller = createThreadVirtual({
-				getSessionId: () => sessionId,
+				getSessionEpoch: () => (sessionId === 'a' ? 1 : 2),
 				getThreadTurns: () => turns,
 				getScroller: () => undefined,
 				getViewportHeight: () => 600,
@@ -62,7 +62,7 @@ describe('createThreadVirtual', () => {
 
 		const cleanup2 = $effect.root(() => {
 			controller = createThreadVirtual({
-				getSessionId: () => 'b',
+				getSessionEpoch: () => 2,
 				getThreadTurns: () => turns,
 				getScroller: () => undefined,
 				getViewportHeight: () => 600,
@@ -84,7 +84,7 @@ describe('createThreadVirtual', () => {
 		let controller!: ReturnType<typeof createThreadVirtual>;
 		const cleanup = $effect.root(() => {
 			controller = createThreadVirtual({
-				getSessionId: () => 's',
+				getSessionEpoch: () => 1,
 				getThreadTurns: () => turns,
 				getScroller: () => undefined,
 				getViewportHeight: () => 600,
@@ -122,7 +122,7 @@ describe('createThreadVirtual', () => {
 		let controller!: ReturnType<typeof createThreadVirtual>;
 		const cleanup = $effect.root(() => {
 			controller = createThreadVirtual({
-				getSessionId: () => 's',
+				getSessionEpoch: () => 1,
 				getThreadTurns: () => megaTurns,
 				getScroller: () => undefined,
 				getViewportHeight: () => 200,
@@ -165,7 +165,7 @@ describe('createThreadVirtual', () => {
 		let controller!: ReturnType<typeof createThreadVirtual>;
 		const cleanup = $effect.root(() => {
 			controller = createThreadVirtual({
-				getSessionId: () => 's',
+				getSessionEpoch: () => 1,
 				getThreadTurns: () => megaTurns,
 				getScroller: () => undefined,
 				getViewportHeight: () => 200,
