@@ -55,81 +55,29 @@ type Runner struct {
 // Run streams CometMind-native events on ch until the turn completes or ctx is cancelled.
 // The caller must receive until the channel closes.
 func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
-	doneSent := false
-	sendDone := func() {
-		if doneSent {
-			return
-		}
-		ch <- event.Done()
-		doneSent = true
-	}
-	defer sendDone()
-
-	completeTurn := func() error {
-		if r.Compactor != nil && turn.ID != "" {
-			if err := r.Compactor.Prune(ctx, turn.ID); err != nil {
-				logging.L().Warn("context.prune.failed", "session", turn.ID, "error", err)
-			}
-		}
-		sendDone()
-		// Extraction runs in the background so the SSE stream can close on done
-		// and the next queued message can start without waiting on the extractor.
-		go r.extractMemoryAfterTurn(context.WithoutCancel(ctx), turn, nil)
-		return nil
-	}
+	s := &turnState{turn: turn, ch: ch}
+	defer s.sendDone()
 
 	if r.MaxSteps <= 0 {
 		r.MaxSteps = 100
 	}
-	// Output ceiling is min(turn model output, 32k), computed in ResolveSessionBudget.
-	retrievalTimeout := r.MemoryRetrievalTimeout
-	if retrievalTimeout <= 0 {
-		retrievalTimeout = memoryRetrievalTimeout
-	}
-
-	steps := 0
-	outputTruncationContinuations := 0
-	incompleteToolTruncationContinuations := 0
-	invalidToolInputStreak := 0
-	truncationContinue := false
-	incompleteToolTruncationContinue := false
-	jobProgressNudge := false
-	jobCompletionGate := false
-	jobTracker := newJobProgressTracker(ctx, r.Jobs, turn.ID)
-	subagentWaitNudge := false
-	pendingSubagentResults := ""
-	doomLoopHalt := false
-	// Injected memories belong to the first assistant message of the turn. They
-	// are captured when retrieved (step 0) and attached to the first
-	// AppendAssistantStep call so they persist and rebuild on reload.
-	var pendingMemories []session.InjectedMemory
-	var sess session.Session
-	if svc, ok := r.Sessions.(sessionLoader); ok {
-		if loaded, err := svc.GetSession(ctx, turn.ID); err == nil {
-			sess = loaded
-		}
-	}
-	if sess.ID == "" {
-		sess.ID = turn.ID
-	}
-	emitStatus := func(phase event.TurnPhase) {
-		ch <- event.TurnStatus(phase, "")
-	}
-
-	degradationsReported := false
-	sessionBudget := ResolveSessionBudget(r.Config, turn.ProviderID, turn.ModelID)
-	effectiveMaxTokens := sessionBudget.EffectiveMaxTokens
+	r.initTurnState(ctx, s)
+	sess := &s.sess
+	jobTracker := s.jobTracker
+	sessionBudget := s.budget
+	effectiveMaxTokens := s.maxTokens
+	retrievalTimeout := s.retrievalTimeout
 
 	// MaxSteps limits work rounds. If they are exhausted, make one final
 	// tool-free request so the user still receives a best-effort answer.
-	for steps <= r.MaxSteps {
-		finalizing := steps == r.MaxSteps || doomLoopHalt
+	for s.steps <= r.MaxSteps {
+		finalizing := s.steps == r.MaxSteps || s.doomLoopHalt
 		requestTools := r.Registry.CometSDK()
 		if finalizing {
 			requestTools = nil
 		}
-		if steps > 0 {
-			emitStatus(event.PhaseContinuing)
+		if s.steps > 0 {
+			s.emitStatus(event.PhaseContinuing)
 		}
 
 		baseSystem := r.buildSystemPrompt(sess.ContextSummary, effectiveMaxTokens)
@@ -150,7 +98,7 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 			beforeUntil := sess.CompactedUntilMessageID
 			updated, err := r.Compactor.MaybeCompact(
 				ctx,
-				sess,
+				*sess,
 				baseSystem,
 				tools,
 				r.Provider,
@@ -160,7 +108,7 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 				func(ev event.Event) { ch <- ev },
 			)
 			if err == nil {
-				sess = updated
+				*sess = updated
 				baseSystem = r.buildSystemPrompt(sess.ContextSummary, effectiveMaxTokens)
 				if sess.ContextSummary != beforeSummary || sess.CompactedUntilMessageID != beforeUntil {
 					emitBudget(true)
@@ -180,44 +128,31 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 		recentTools := toolFingerprintsSinceLastUser(normalized)
 		// Continue nudges are in-memory user turns so providers that reject
 		// trailing assistant prefills (Claude 4.6+) still accept the request.
-		msgs = append(msgs, ContinueUserNudgeMessages(
-			truncationContinue,
-			incompleteToolTruncationContinue,
-			jobProgressNudge,
-			jobCompletionGate,
-			jobTracker.JobID,
-			subagentWaitNudge,
-			pendingSubagentResults,
-		)...)
-		if doomLoopHalt {
+		msgs = append(msgs, s.nudges.messages(jobTracker.JobID)...)
+		if s.doomLoopHalt {
 			msgs = append(msgs, DoomLoopStopMessages()...)
 		} else if finalizing {
 			msgs = append(msgs, FinalAnswerNudgeMessages()...)
 		}
-		if !degradationsReported {
+		if !s.degradationsReported {
 			for _, d := range degradations {
 				logging.L().Info("history.normalized", "session", turn.ID, "kind", d.Kind, "count", d.Count)
 			}
-			degradationsReported = true
+			s.degradationsReported = true
 		}
 
-		logging.L().Info("agent.step.start", "session", turn.ID, "step", steps+1, "model", turn.ModelID, "messages", len(msgs), "max_tokens", effectiveMaxTokens, "context_window", sessionBudget.Context, "limit_source", sessionBudget.LimitSource)
+		logging.L().Info("agent.step.start", "session", turn.ID, "step", s.steps+1, "model", turn.ModelID, "messages", len(msgs), "max_tokens", effectiveMaxTokens, "context_window", sessionBudget.Context, "limit_source", sessionBudget.LimitSource)
 
 		system := baseSystem
 		memoryPromptSuffix := ""
-		truncationContinue = false
-		incompleteToolTruncationContinue = false
-		jobProgressNudge = false
-		jobCompletionGate = false
-		subagentWaitNudge = false
-		pendingSubagentResults = ""
-		if r.Memory != nil && r.Memory.Enabled() && steps == 0 {
+		s.nudges = continueNudges{}
+		if r.Memory != nil && r.Memory.Enabled() && s.steps == 0 {
 			decision := memory.DecideRetrieval(msgs)
 			logging.L().Info("memory.retrieve.policy", "session", turn.ID, "retrieve", decision.Retrieve, "reason", decision.Reason, "score", decision.Score, "text_bytes", decision.TextBytes)
 			if !decision.Retrieve {
 				logging.L().Info("memory.retrieve.skipped", "session", turn.ID, "reason", decision.Reason, "score", decision.Score, "text_bytes", decision.TextBytes)
 			} else {
-				emitStatus(event.PhaseRetrievingMemories)
+				s.emitStatus(event.PhaseRetrievingMemories)
 				query := memory.BuildRetrievalQuery(memory.RetrievalQueryInput{
 					Messages: msgs,
 				})
@@ -239,7 +174,7 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 					system += memoryPromptSuffix
 					if len(promptMemories.Records) > 0 {
 						wire := make([]event.MemoryWire, len(promptMemories.Records))
-						pendingMemories = make([]session.InjectedMemory, len(promptMemories.Records))
+						s.pendingMemories = make([]session.InjectedMemory, len(promptMemories.Records))
 						for i, m := range promptMemories.Records {
 							wire[i] = event.MemoryWire{
 								ID:              m.ID,
@@ -249,7 +184,7 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 								Similarity:      m.Similarity,
 								EffectiveWeight: m.EffectiveWeight,
 							}
-							pendingMemories[i] = session.InjectedMemory{
+							s.pendingMemories[i] = session.InjectedMemory{
 								ID:              m.ID,
 								Content:         m.Content,
 								Kind:            m.Kind,
@@ -264,13 +199,8 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 			}
 		}
 
-		emitStatus(event.PhaseContactingModel)
-		requestMsgs := DowngradeImagesForNonVision(msgs, sessionBudget.VisionKnown, sessionBudget.Vision)
-		req := BuildRequest(turn.ModelID, system, requestMsgs, requestTools, effectiveMaxTokens)
-		req.ReasoningEffort = r.reasoningEffortFor(turn)
-		if r.Compatibility != nil {
-			req.Compatibility = r.Compatibility.ResolveCapabilityPolicy(ctx, r.CompatibilityScope)
-		}
+		s.emitStatus(event.PhaseContactingModel)
+		req := r.buildTurnRequest(ctx, s, system, msgs, requestTools)
 		toolOutputBytes := toolResultBytes(req.Messages)
 		var result *llm.GenerateMessageResult
 		recoveryAttempt := 0
@@ -278,10 +208,10 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 		var startedToolCalls []cometsdk.ToolCallBlock
 		for {
 			streamStarted := time.Now()
-			logging.L().Info("llm.stream.start", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", steps+1, "messages", len(req.Messages), "tools", len(req.Tools), "tool_output_bytes", toolOutputBytes, "recovery_attempt", recoveryAttempt, "overflow_recovered", overflowRecovered, "system_bytes", len(req.System), "max_tokens", req.MaxTokens)
+			logging.L().Info("llm.stream.start", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", s.steps+1, "messages", len(req.Messages), "tools", len(req.Tools), "tool_output_bytes", toolOutputBytes, "recovery_attempt", recoveryAttempt, "overflow_recovered", overflowRecovered, "system_bytes", len(req.System), "max_tokens", req.MaxTokens)
 			stream := llm.StreamMessage(ctx, r.Provider, req)
-			logging.L().Info("llm.stream.opened", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", steps+1, "recovery_attempt", recoveryAttempt, "duration_ms", time.Since(streamStarted).Milliseconds())
-			emitStatus(event.PhaseComposingResponse)
+			logging.L().Info("llm.stream.opened", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", s.steps+1, "recovery_attempt", recoveryAttempt, "duration_ms", time.Since(streamStarted).Milliseconds())
+			s.emitStatus(event.PhaseComposingResponse)
 
 			firstEventLogged := false
 			firstOutputLogged := false
@@ -293,7 +223,7 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 				eventCount++
 				if !firstEventLogged {
 					firstEventLogged = true
-					logging.L().Info("llm.stream.first_event", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", steps+1, "recovery_attempt", recoveryAttempt, "event_type", fmt.Sprintf("%T", ev), "duration_ms", time.Since(streamStarted).Milliseconds())
+					logging.L().Info("llm.stream.first_event", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", s.steps+1, "recovery_attempt", recoveryAttempt, "event_type", fmt.Sprintf("%T", ev), "duration_ms", time.Since(streamStarted).Milliseconds())
 				}
 				switch e := ev.(type) {
 				case cometsdk.TextDeltaEvent:
@@ -346,7 +276,7 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 			}
 			result, err = stream.Result()
 			failureCategory := classifyStreamFailure(err)
-			logging.L().Info("llm.stream.events_closed", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", steps+1, "events", eventCount, "first_event", firstEventLogged, "first_output", firstOutputLogged, "complete_tool_call", completeToolCall, "failure_category", failureCategory, "recovery_attempt", recoveryAttempt, "duration_ms", time.Since(streamStarted).Milliseconds())
+			logging.L().Info("llm.stream.events_closed", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", s.steps+1, "events", eventCount, "first_event", firstEventLogged, "first_output", firstOutputLogged, "complete_tool_call", completeToolCall, "failure_category", failureCategory, "recovery_attempt", recoveryAttempt, "duration_ms", time.Since(streamStarted).Milliseconds())
 			if err == nil {
 				break
 			}
@@ -355,19 +285,19 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 			// retain any visible partial output, close with done, and do not add an
 			// error transcript row or SSE error card.
 			if errors.Is(err, context.Canceled) && errors.Is(ctx.Err(), context.Canceled) {
-				persistPartialStep(ctx, r.Sessions, turn.ID, turn.ProviderID, turn.ModelID, result, pendingMemories)
-				logging.L().Info("agent.step.stopped", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", steps+1, "duration_ms", time.Since(streamStarted).Milliseconds())
+				persistPartialStep(ctx, r.Sessions, turn.ID, turn.ProviderID, turn.ModelID, result, s.pendingMemories)
+				logging.L().Info("agent.step.stopped", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", s.steps+1, "duration_ms", time.Since(streamStarted).Milliseconds())
 				return nil
 			}
 			if !overflowRecovered && isContextOverflowError(err) && !completeToolCall && r.Compactor != nil && sess.ID != "" {
 				overflowRecovered = true
-				logging.L().Warn("agent.step.overflow_recover", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", steps+1, "error", err)
+				logging.L().Warn("agent.step.overflow_recover", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", s.steps+1, "error", err)
 				tools := requestTools
 				beforeSummary := sess.ContextSummary
 				beforeUntil := sess.CompactedUntilMessageID
 				updated, compactErr := r.Compactor.MaybeCompact(
 					ctx,
-					sess,
+					*sess,
 					baseSystem,
 					tools,
 					r.Provider,
@@ -377,31 +307,18 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 					func(ev event.Event) { ch <- ev },
 				)
 				if compactErr == nil {
-					sess = updated
+					*sess = updated
 					baseSystem = r.buildSystemPrompt(sess.ContextSummary, effectiveMaxTokens)
 					system = baseSystem + memoryPromptSuffix
 					rebuildMsgs, rebuildErr := r.Sessions.BuildSDKMessages(ctx, turn.ID)
 					if rebuildErr == nil {
 						rebuildMsgs, _ = NormalizeHistory(rebuildMsgs)
-						rebuildMsgs = append(rebuildMsgs, ContinueUserNudgeMessages(
-							truncationContinue,
-							incompleteToolTruncationContinue,
-							jobProgressNudge,
-							jobCompletionGate,
-							jobTracker.JobID,
-							subagentWaitNudge,
-							pendingSubagentResults,
-						)...)
+						rebuildMsgs = append(rebuildMsgs, s.nudges.messages(jobTracker.JobID)...)
 						if finalizing {
 							rebuildMsgs = append(rebuildMsgs, FinalAnswerNudgeMessages()...)
 						}
 						msgs = rebuildMsgs
-						requestMsgs := DowngradeImagesForNonVision(msgs, sessionBudget.VisionKnown, sessionBudget.Vision)
-						req = BuildRequest(turn.ModelID, system, requestMsgs, requestTools, effectiveMaxTokens)
-						req.ReasoningEffort = r.reasoningEffortFor(turn)
-						if r.Compatibility != nil {
-							req.Compatibility = r.Compatibility.ResolveCapabilityPolicy(ctx, r.CompatibilityScope)
-						}
+						req = r.buildTurnRequest(ctx, s, system, msgs, requestTools)
 						toolOutputBytes = toolResultBytes(req.Messages)
 						if sess.ContextSummary != beforeSummary || sess.CompactedUntilMessageID != beforeUntil {
 							budget, budgetErr := r.Compactor.EstimatePromptBudget(
@@ -425,33 +342,33 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 				if ra := retryAfterDelay(err); ra > delay {
 					delay = ra
 				}
-				logging.L().Warn("agent.step.recover", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", steps+1, "failure_category", failureCategory, "recovery_attempt", recoveryAttempt, "delay_ms", delay.Milliseconds(), "text_chars", textChars, "reasoning_chars", reasoningChars)
+				logging.L().Warn("agent.step.recover", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", s.steps+1, "failure_category", failureCategory, "recovery_attempt", recoveryAttempt, "delay_ms", delay.Milliseconds(), "text_chars", textChars, "reasoning_chars", reasoningChars)
 				ch <- event.TurnRecover(textChars, reasoningChars)
 				if waitErr := waitForRecovery(ctx, delay); waitErr != nil {
-					persistPartialStep(ctx, r.Sessions, turn.ID, turn.ProviderID, turn.ModelID, result, pendingMemories)
+					persistPartialStep(ctx, r.Sessions, turn.ID, turn.ProviderID, turn.ModelID, result, s.pendingMemories)
 					if errors.Is(waitErr, context.Canceled) && errors.Is(ctx.Err(), context.Canceled) {
-						logging.L().Info("agent.step.stopped", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", steps+1, "duration_ms", time.Since(streamStarted).Milliseconds())
+						logging.L().Info("agent.step.stopped", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", s.steps+1, "duration_ms", time.Since(streamStarted).Milliseconds())
 						return nil
 					}
-					logging.L().Error("agent.step.failed", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", steps+1, "events", eventCount, "first_event", firstEventLogged, "first_output", firstOutputLogged, "complete_tool_call", completeToolCall, "failure_category", failureCategory, "recovery_attempt", recoveryAttempt, "duration_ms", time.Since(streamStarted).Milliseconds(), "error", waitErr)
+					logging.L().Error("agent.step.failed", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", s.steps+1, "events", eventCount, "first_event", firstEventLogged, "first_output", firstOutputLogged, "complete_tool_call", completeToolCall, "failure_category", failureCategory, "recovery_attempt", recoveryAttempt, "duration_ms", time.Since(streamStarted).Milliseconds(), "error", waitErr)
 					ch <- event.Errorf(userFacingAgentError(waitErr), "llm")
 					return waitErr
 				}
 				continue
 			}
-			persistPartialStep(ctx, r.Sessions, turn.ID, turn.ProviderID, turn.ModelID, result, pendingMemories)
-			logging.L().Error("agent.step.failed", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", steps+1, "events", eventCount, "first_event", firstEventLogged, "first_output", firstOutputLogged, "complete_tool_call", completeToolCall, "failure_category", failureCategory, "recovery_attempt", recoveryAttempt, "duration_ms", time.Since(streamStarted).Milliseconds(), "error", err)
+			persistPartialStep(ctx, r.Sessions, turn.ID, turn.ProviderID, turn.ModelID, result, s.pendingMemories)
+			logging.L().Error("agent.step.failed", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", s.steps+1, "events", eventCount, "first_event", firstEventLogged, "first_output", firstOutputLogged, "complete_tool_call", completeToolCall, "failure_category", failureCategory, "recovery_attempt", recoveryAttempt, "duration_ms", time.Since(streamStarted).Milliseconds(), "error", err)
 			ch <- event.Errorf(userFacingAgentError(err), "llm")
 			return err
 		}
-		logging.L().Info("agent.step.finish", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", steps+1, "finish_reason", string(result.FinishReason), "tool_calls", len(result.ToolCalls), "input_tokens", result.Usage.InputTokens, "output_tokens", result.Usage.OutputTokens, "recovery_attempt", recoveryAttempt)
+		logging.L().Info("agent.step.finish", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", s.steps+1, "finish_reason", string(result.FinishReason), "tool_calls", len(result.ToolCalls), "input_tokens", result.Usage.InputTokens, "output_tokens", result.Usage.OutputTokens, "recovery_attempt", recoveryAttempt)
 
 		if err := r.Sessions.SaveTokenUsage(ctx, turn.ID, result.Usage, turn.ProviderID, turn.ModelID); err != nil {
 			ch <- event.Errorf(err.Error(), "db")
 			return err
 		}
 
-		// Whitespace-only content (common from some mini models on tool steps)
+		// Whitespace-only content (common from some mini models on tool s.steps)
 		// is treated as empty so we do not persist invisible assistant bubbles.
 		text := strings.TrimSpace(assistantPlainText(result.Message))
 		reasoningBlocks := result.Message.ReasoningContent
@@ -470,7 +387,7 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 		}
 		persistedToolIDs := map[string]string{}
 		if text != "" || len(reasoningBlocks) > 0 || len(result.Message.ProviderState) > 0 || len(persistToolCalls) > 0 {
-			assistant, toolIDs, err := r.Sessions.AppendAssistantStep(ctx, turn.ID, text, reasoningBlocks, persistToolCalls, pendingMemories)
+			assistant, toolIDs, err := r.Sessions.AppendAssistantStep(ctx, turn.ID, text, reasoningBlocks, persistToolCalls, s.pendingMemories)
 			if err != nil {
 				ch <- event.Errorf(err.Error(), "db")
 				return err
@@ -488,9 +405,9 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 		// later provider switches because many APIs reject assistant history with
 		// neither content nor tool calls.
 		// Memories are attached to the first persisted assistant message only.
-		pendingMemories = nil
+		s.pendingMemories = nil
 		if finalizing {
-			return completeTurn()
+			return r.completeTurn(ctx, s)
 		}
 
 		if len(incompleteToolCalls) > 0 {
@@ -505,13 +422,13 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 				ch <- event.Errorf(err.Error(), "subagents")
 				return err
 			} else if waited {
-				pendingSubagentResults = collected
-				subagentWaitNudge = false
-				steps++
+				s.nudges.subagentResults = collected
+				s.nudges.subagentWait = false
+				s.steps++
 				continue
 			}
 			if jobTracker.TryConsumeCompletionGate() {
-				jobCompletionGate = true
+				s.nudges.jobCompletionGate = true
 				logging.L().Info(
 					"agent.job_completion_gate",
 					"session", turn.ID,
@@ -519,62 +436,62 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 					"gate_used", jobTracker.completionGateUsed,
 					"gate_budget", jobTracker.completionGateBudget,
 				)
-				steps++
+				s.steps++
 				continue
 			}
-			return completeTurn()
+			return r.completeTurn(ctx, s)
 		}
 		if len(result.ToolCalls) == 0 {
 			if result.FinishReason == cometsdk.FinishMaxTokens && len(incompleteToolCalls) > 0 {
-				if incompleteToolTruncationContinuations < maxIncompleteToolTruncationContinuations && steps < r.MaxSteps {
-					incompleteToolTruncationContinuations++
-					incompleteToolTruncationContinue = true
+				if s.incompleteToolTruncationContinuations < maxIncompleteToolTruncationContinuations && s.steps < r.MaxSteps {
+					s.incompleteToolTruncationContinuations++
+					s.nudges.incompleteToolTruncation = true
 					logging.L().Info(
 						"agent.incomplete_tool_truncation.continue",
 						"session", turn.ID,
-						"step", steps+1,
-						"continuation", incompleteToolTruncationContinuations,
+						"step", s.steps+1,
+						"continuation", s.incompleteToolTruncationContinuations,
 						"incomplete_tools", len(incompleteToolCalls),
 						"max_tokens", effectiveMaxTokens,
 					)
-					steps++
+					s.steps++
 					continue
 				}
 				logging.L().Info(
 					"agent.incomplete_tool_truncation.stop",
 					"session", turn.ID,
-					"step", steps+1,
+					"step", s.steps+1,
 					"incomplete_tools", len(incompleteToolCalls),
 					"max_tokens", effectiveMaxTokens,
 				)
-				return completeTurn()
+				return r.completeTurn(ctx, s)
 			}
 			if result.FinishReason == cometsdk.FinishMaxTokens &&
-				outputTruncationContinuations < maxOutputTruncationContinuations &&
-				steps < r.MaxSteps {
-				outputTruncationContinuations++
-				truncationContinue = true
+				s.outputTruncationContinuations < maxOutputTruncationContinuations &&
+				s.steps < r.MaxSteps {
+				s.outputTruncationContinuations++
+				s.nudges.truncation = true
 				logging.L().Info(
 					"agent.output_truncation.continue",
 					"session", turn.ID,
-					"step", steps+1,
-					"continuation", outputTruncationContinuations,
+					"step", s.steps+1,
+					"continuation", s.outputTruncationContinuations,
 					"max_tokens", effectiveMaxTokens,
 				)
-				steps++
+				s.steps++
 				continue
 			}
 			if collected, waited, err := r.collectActiveSubagentResults(ctx, turn.ID); err != nil {
 				ch <- event.Errorf(err.Error(), "subagents")
 				return err
 			} else if waited {
-				pendingSubagentResults = collected
-				subagentWaitNudge = false
-				steps++
+				s.nudges.subagentResults = collected
+				s.nudges.subagentWait = false
+				s.steps++
 				continue
 			}
 			if jobTracker.TryConsumeCompletionGate() {
-				jobCompletionGate = true
+				s.nudges.jobCompletionGate = true
 				logging.L().Info(
 					"agent.job_completion_gate",
 					"session", turn.ID,
@@ -582,13 +499,13 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 					"gate_used", jobTracker.completionGateUsed,
 					"gate_budget", jobTracker.completionGateBudget,
 				)
-				steps++
+				s.steps++
 				continue
 			}
-			return completeTurn()
+			return r.completeTurn(ctx, s)
 		}
 
-		emitStatus(event.PhaseRunningTools)
+		s.emitStatus(event.PhaseRunningTools)
 		schemaCircuitOpen := false
 		doomLoopHit := false
 		for i, tc := range result.ToolCalls {
@@ -616,7 +533,7 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 				logging.L().Warn("agent.doom_loop.blocked", "session", turn.ID, "tool", tc.Name, "tool_call_id", tc.ID)
 			} else if skipInvalidInput {
 				res = tools.Result{OK: false, Output: skippedInvalidToolInputResult(tc.Name)}
-				logging.L().Warn("tool.call.schema_circuit_open", "session", turn.ID, "tool", tc.Name, "tool_call_id", tc.ID, "streak", invalidToolInputStreak)
+				logging.L().Warn("tool.call.schema_circuit_open", "session", turn.ID, "tool", tc.Name, "tool_call_id", tc.ID, "streak", s.invalidToolInputStreak)
 			} else {
 				toolCtx := tools.WithToolSession(ctx, turn.ID)
 				toolCtx = tools.WithProgress(toolCtx, backgroundProgressEmitter(ch))
@@ -633,12 +550,12 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 			}
 			if !skipInvalidInput {
 				if !res.OK && tools.IsInvalidToolInput(res, execErr) {
-					invalidToolInputStreak++
-					if invalidToolInputStreak >= maxConsecutiveInvalidToolInputs {
+					s.invalidToolInputStreak++
+					if s.invalidToolInputStreak >= maxConsecutiveInvalidToolInputs {
 						schemaCircuitOpen = true
 					}
 				} else {
-					invalidToolInputStreak = 0
+					s.invalidToolInputStreak = 0
 				}
 			}
 
@@ -655,7 +572,7 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 			ch <- event.ToolResult(tc.ID, tc.Name, out, toolErr)
 
 			if jobTracker.ObserveTool(tc.Name, tc.Input) {
-				jobProgressNudge = true
+				s.nudges.jobProgress = true
 			}
 			if ctx.Err() != nil {
 				if err := persistCancelledToolResults(ctx, r.Sessions, turn.ID, result.ToolCalls[i+1:], persistedToolIDs); err != nil {
@@ -666,17 +583,17 @@ func (r *Runner) Run(ctx context.Context, turn session.AgentTurn, ch chan<- even
 			}
 		}
 		if doomLoopHit {
-			doomLoopHalt = true
+			s.doomLoopHalt = true
 		}
 		if r.hasActiveSubagents(turn.ID) {
-			subagentWaitNudge = true
+			s.nudges.subagentWait = true
 		} else {
-			subagentWaitNudge = false
+			s.nudges.subagentWait = false
 		}
-		pendingSubagentResults = ""
+		s.nudges.subagentResults = ""
 
-		steps++
+		s.steps++
 	}
 
-	return completeTurn()
+	return r.completeTurn(ctx, s)
 }
