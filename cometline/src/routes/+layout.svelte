@@ -20,6 +20,13 @@
 	import { inboxStore } from '$lib/stores/inbox.svelte';
 	import { skillDraftsStore } from '$lib/stores/skill-drafts.svelte';
 	import { startJobNotificationPoller } from '$lib/jobs/job-notifications';
+	import {
+		notifyBackgroundRunFinished,
+		notifyConnectionChange,
+		notifyJobActivity,
+		notifyNewInboxMessage,
+		startSkillDraftToastWatch
+	} from '$lib/notifications/activity-toasts';
 	import { startStorageRetentionSync } from '$lib/retention/storage-retention-sync';
 	import { resolveWorkspacePanelRatio, widthFromRatio } from '$lib/layout/workspace-panel-width';
 	import { applyWorkspaceChange, refreshWorkspace } from '$lib/workspace/workspace-change.svelte';
@@ -30,7 +37,6 @@
 	} from '$lib/sessions/session-runtime-events';
 
 	let { children } = $props();
-
 	let settingsLoaded = $state(false);
 	let isMiniRoute = $derived(
 		page.url.pathname === '/mini' || page.url.pathname.startsWith('/mini/')
@@ -38,6 +44,13 @@
 	let isSettingsRoute = $derived(
 		page.url.pathname === '/settings' || page.url.pathname.startsWith('/settings/')
 	);
+	let previousConnectionStatus = $state(connectionState.status);
+
+	$effect(() => {
+		const next = connectionState.status;
+		if (!isMiniRoute && !isSettingsRoute) notifyConnectionChange(previousConnectionStatus, next);
+		previousConnectionStatus = next;
+	});
 	// Prevents the setup wizard from re-opening after the user skips it
 	// within the same session (in-memory guard). The durable guard is
 	// hasDismissedSetupWizard persisted in settings.
@@ -68,6 +81,10 @@
 			}
 			if (event.type === 'inbox_message_created') {
 				inboxStore.applyCreated(event.id, event.open_count);
+				if (!isMiniRoute && !isSettingsRoute) void notifyNewInboxMessage(event.id);
+			}
+			if (event.type === 'run_finished' && !isMiniRoute && !isSettingsRoute) {
+				void notifyBackgroundRunFinished(event.session_id, chatStore.sessionID);
 			}
 			if (event.type === 'inbox_message_archived') {
 				inboxStore.applyArchived(event.id, event.open_count);
@@ -75,11 +92,16 @@
 		}, () => reconcileActiveSession(runtimeEventDeps));
 		void inboxStore.refreshSummary();
 		let skillDraftsTimer: ReturnType<typeof setInterval> | null = null;
+		let stopSkillDraftToasts = () => {};
 		if (!isMiniRoute && !isSettingsRoute) {
 			void skillDraftsStore.refresh();
 			skillDraftsTimer = setInterval(() => {
 				void skillDraftsStore.refresh();
 			}, 30_000);
+			stopSkillDraftToasts = startSkillDraftToastWatch({
+				isReviewOpen: () =>
+					page.url.pathname === '/skills' || page.url.pathname.startsWith('/skills/')
+			});
 		}
 		let stopStorageRetentionSync: (() => void) | null = null;
 		// Mini/settings are separate BrowserWindows that share this layout. Only the
@@ -90,8 +112,20 @@
 				? () => {}
 				: startJobNotificationPoller({
 						getSettings: () => settingsStore.settings.cometmind.jobs.notifications,
-						onNotify: (title, body) => {
+						onNotify: (title, body, job) => {
 							window.electronAPI?.notifyJob?.({ title, body });
+							if (title === 'Job completed' && job) {
+								notifyJobActivity(
+									{ kind: 'completed', id: job.id, description: job.description },
+									settingsStore.settings.cometmind.jobs.notifications
+								);
+							}
+							if (title === 'Job blocked' && job) {
+								notifyJobActivity(
+									{ kind: 'blocked', id: job.id, description: job.description },
+									settingsStore.settings.cometmind.jobs.notifications
+								);
+							}
 						}
 					});
 		const unsubscribeSettingsChanged = window.electronAPI?.onProviderSettingsChanged?.(
@@ -137,6 +171,7 @@
 			stopRuntimeEvents();
 			stopJobNotifications();
 			if (skillDraftsTimer) clearInterval(skillDraftsTimer);
+			stopSkillDraftToasts();
 			stopStorageRetentionSync?.();
 			unsubscribeSettingsChanged?.();
 			unsubscribePersonaAvatar?.();

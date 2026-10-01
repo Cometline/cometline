@@ -67,8 +67,8 @@
 		}
 	}
 
-	function newChat() {
-		startNewChat();
+	function newChat(workspacePath?: string) {
+		void startNewChat(workspacePath);
 		closeSidebarIfNarrow();
 	}
 
@@ -267,6 +267,7 @@
 						{deletingID}
 						{pinningID}
 						onToggle={() => toggleGroup(group.workspacePath)}
+						onNewSession={newChat}
 						onSelectSession={selectSession}
 						onDeleteSession={removeSession}
 						onPinSession={togglePinSession}

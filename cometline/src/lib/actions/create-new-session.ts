@@ -7,7 +7,7 @@ import { sessionVisitHistory } from '$lib/stores/session-visit-history.svelte';
 import type { Session } from '$lib/types';
 
 /** Create and activate a new persisted session using the configured default model. */
-export async function createNewSession(): Promise<Session> {
+export async function createNewSession(workspacePath?: string): Promise<Session> {
 	if (modelStore.options.length === 0) {
 		await settingsStore.load();
 	}
@@ -18,7 +18,7 @@ export async function createNewSession(): Promise<Session> {
 	}
 
 	const session = await createSession({
-		workspace_path: shellStore.defaultWorkspacePath,
+		workspace_path: workspacePath || shellStore.defaultWorkspacePath,
 		provider_id: model.providerId,
 		model_id: model.modelId
 	});

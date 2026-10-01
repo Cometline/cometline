@@ -1,21 +1,40 @@
 <script lang="ts">
-	import { CircleCheck, X } from '@lucide/svelte';
-	import { appToastStore } from '$lib/stores/app-toasts.svelte';
+	import { CircleAlert, CircleCheck, TriangleAlert, X } from '@lucide/svelte';
+	import { appToastStore, type AppToastTone } from '$lib/stores/app-toasts.svelte';
+
+	const icons = {
+		success: CircleCheck,
+		warning: TriangleAlert,
+		error: CircleAlert
+	} satisfies Record<AppToastTone, typeof CircleCheck>;
+
+	function open(id: string, onOpen?: () => void) {
+		onOpen?.();
+		appToastStore.dismiss(id);
+	}
 </script>
 
 {#if appToastStore.toasts.length > 0}
 	<div class="toast-container" aria-live="polite" aria-label="Notifications">
 		{#each appToastStore.toasts as toast (toast.id)}
-			<div class="toast">
-				<span class="toast-icon">
-					<CircleCheck size={17} strokeWidth={2} aria-hidden="true" />
-				</span>
-				<div class="toast-body">
-					<span class="toast-label">{toast.label}</span>
-					{#if toast.detail}
-						<span class="toast-detail">{toast.detail}</span>
-					{/if}
-				</div>
+			{@const Icon = icons[toast.tone]}
+			<div class="toast" class:actionable={!!toast.onOpen} data-tone={toast.tone}>
+				<button
+					class="toast-open"
+					type="button"
+					disabled={!toast.onOpen}
+					onclick={() => open(toast.id, toast.onOpen)}
+				>
+					<span class="toast-icon">
+						<Icon size={17} strokeWidth={2} aria-hidden="true" />
+					</span>
+					<span class="toast-body">
+						<span class="toast-label">{toast.label}</span>
+						{#if toast.detail}
+							<span class="toast-detail">{toast.detail}</span>
+						{/if}
+					</span>
+				</button>
 				<button
 					class="toast-dismiss"
 					type="button"
@@ -45,9 +64,9 @@
 	.toast {
 		display: flex;
 		align-items: center;
-		gap: 0.625rem;
+		gap: 0.25rem;
 		min-width: 0;
-		padding: 0.625rem 0.75rem 0.625rem 0.875rem;
+		padding: 0.375rem 0.375rem 0.375rem 0.25rem;
 		background: var(--panel-bg);
 		border: 1px solid var(--border-soft);
 		border-radius: var(--radius-card);
@@ -56,9 +75,43 @@
 		animation: toast-in var(--duration-fast) var(--ease-smooth) both;
 	}
 
+	.toast-open {
+		display: flex;
+		min-width: 0;
+		flex: 1;
+		align-items: center;
+		gap: 0.625rem;
+		padding: 0.25rem 0.375rem 0.25rem 0.625rem;
+		border: 0;
+		border-radius: 8px;
+		background: transparent;
+		text-align: left;
+		color: inherit;
+	}
+
+	.toast.actionable .toast-open {
+		cursor: pointer;
+	}
+
+	.toast.actionable .toast-open:hover {
+		background: rgba(15, 23, 42, 0.04);
+	}
+
+	.toast-open:disabled {
+		cursor: default;
+	}
+
 	.toast-icon {
 		flex: 0 0 auto;
 		color: var(--status-success, #15803d);
+	}
+
+	.toast[data-tone='warning'] .toast-icon {
+		color: var(--status-warning);
+	}
+
+	.toast[data-tone='error'] .toast-icon {
+		color: var(--status-error);
 	}
 
 	.toast-body {

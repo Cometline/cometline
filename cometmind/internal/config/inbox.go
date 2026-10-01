@@ -11,7 +11,7 @@ func defaultInboxConfig() InboxConfig {
 	return InboxConfig{
 		PollIntervalSeconds: 600, // 10 minutes
 		RetentionHours:      24,
-		MaxStepsPerRun:      16,
+		MaxStepsPerRun:      0, // derived from main max_steps when unset
 	}
 }
 
@@ -29,7 +29,14 @@ func (c *Config) EffectiveInboxSettings() InboxConfig {
 		s.RetentionHours = def.RetentionHours
 	}
 	if s.MaxStepsPerRun <= 0 {
-		s.MaxStepsPerRun = def.MaxStepsPerRun
+		mainSteps := 0
+		if c != nil {
+			mainSteps = c.MaxSteps
+		}
+		if mainSteps <= 0 {
+			mainSteps = Defaults().MaxSteps
+		}
+		s.MaxStepsPerRun = mainSteps
 	}
 	return s
 }

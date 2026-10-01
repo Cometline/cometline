@@ -372,6 +372,7 @@ func RegisterJobTools(r *Registry, deps JobsDeps) {
 		r.order = append(r.order, t)
 	}
 	if deps.Service != nil {
+		add(getJobTool{deps: deps})
 		add(listJobsTool{deps: deps})
 		add(proposeJobTool{deps: deps})
 		add(createJobTool{deps: deps})
