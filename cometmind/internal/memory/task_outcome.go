@@ -103,6 +103,43 @@ func (s *Service) rollUpTaskLineage(ctx context.Context, originType, originID st
 	if err != nil {
 		return err
 	}
+	priorSummary, outcomes := splitTaskLineage(rows)
+	cutoff := time.Now().Add(-taskOutcomeRetentionDays * 24 * time.Hour)
+	consumed := consumableTaskOutcomes(outcomes, cutoff)
+	if len(consumed) == 0 {
+		return nil
+	}
+
+	aggregate := aggregateTaskSummary(priorSummary, consumed)
+	raw, err := json.Marshal(aggregate)
+	if err != nil {
+		return err
+	}
+	content := "Task history: " + aggregate.Summary
+	if aggregate.Status != "" {
+		content += "\nLatest rolled-up status: " + aggregate.Status
+	}
+	vecs, err := s.retriever.embedder.Embed(ctx, content)
+	if err != nil || len(vecs) == 0 {
+		if err != nil {
+			return err
+		}
+		return fmt.Errorf("embedding task summary failed")
+	}
+	now := time.Now()
+	summary := Record{
+		ID: NewID(), Scope: "global", Kind: "task_summary", Content: content,
+		Embedding: vecs[0], EmbeddingModel: s.retriever.embedder.Model(), Source: "rollup",
+		BaseWeight: 1, ApplicationPolicy: ApplicationRelevant, RetentionPolicy: RetentionProtected,
+		OriginType: originType, OriginID: originID, SummaryJSON: string(raw),
+		LastAccessedAt: &now, CreatedAt: now, UpdatedAt: now,
+	}
+	return s.replaceTaskSummary(ctx, priorSummary, consumed, summary)
+}
+
+// splitTaskLineage separates a lineage's newest task_summary (if any) from its
+// task_outcome records.
+func splitTaskLineage(rows []db.Memory) (*Record, []Record) {
 	var priorSummary *Record
 	outcomes := make([]Record, 0, len(rows))
 	for _, row := range rows {
@@ -116,8 +153,14 @@ func (s *Service) rollUpTaskLineage(ctx context.Context, originType, originID st
 		}
 		outcomes = append(outcomes, rec)
 	}
+	return priorSummary, outcomes
+}
+
+// consumableTaskOutcomes returns the outcomes older than cutoff beyond the
+// newest taskOutcomeLatestPerLineage, which always stay unrolled. It sorts
+// outcomes newest first in place.
+func consumableTaskOutcomes(outcomes []Record, cutoff time.Time) []Record {
 	sort.Slice(outcomes, func(i, j int) bool { return outcomes[i].CreatedAt.After(outcomes[j].CreatedAt) })
-	cutoff := time.Now().Add(-taskOutcomeRetentionDays * 24 * time.Hour)
 	consumed := make([]Record, 0)
 	for i, rec := range outcomes {
 		if i < taskOutcomeLatestPerLineage || !rec.CreatedAt.Before(cutoff) {
@@ -125,10 +168,12 @@ func (s *Service) rollUpTaskLineage(ctx context.Context, originType, originID st
 		}
 		consumed = append(consumed, rec)
 	}
-	if len(consumed) == 0 {
-		return nil
-	}
+	return consumed
+}
 
+// aggregateTaskSummary folds consumed outcomes, oldest first, into the prior
+// summary. It sorts consumed oldest first in place.
+func aggregateTaskSummary(priorSummary *Record, consumed []Record) TaskSummary {
 	aggregate := TaskSummary{}
 	if priorSummary != nil {
 		_ = json.Unmarshal([]byte(priorSummary.SummaryJSON), &aggregate)
@@ -155,30 +200,7 @@ func (s *Service) rollUpTaskLineage(ctx context.Context, originType, originID st
 	}
 	aggregate.Summary = mergeTaskSummaryText(summaries...)
 	normalizeTaskSummary(&aggregate)
-	raw, err := json.Marshal(aggregate)
-	if err != nil {
-		return err
-	}
-	content := "Task history: " + aggregate.Summary
-	if aggregate.Status != "" {
-		content += "\nLatest rolled-up status: " + aggregate.Status
-	}
-	vecs, err := s.retriever.embedder.Embed(ctx, content)
-	if err != nil || len(vecs) == 0 {
-		if err != nil {
-			return err
-		}
-		return fmt.Errorf("embedding task summary failed")
-	}
-	now := time.Now()
-	summary := Record{
-		ID: NewID(), Scope: "global", Kind: "task_summary", Content: content,
-		Embedding: vecs[0], EmbeddingModel: s.retriever.embedder.Model(), Source: "rollup",
-		BaseWeight: 1, ApplicationPolicy: ApplicationRelevant, RetentionPolicy: RetentionProtected,
-		OriginType: originType, OriginID: originID, SummaryJSON: string(raw),
-		LastAccessedAt: &now, CreatedAt: now, UpdatedAt: now,
-	}
-	return s.replaceTaskSummary(ctx, priorSummary, consumed, summary)
+	return aggregate
 }
 
 func (s *Service) replaceTaskSummary(ctx context.Context, prior *Record, consumed []Record, summary Record) error {

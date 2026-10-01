@@ -243,54 +243,14 @@ func (c *compactor) clusterLowWeight(scored []ScoredMemory) [][]Record {
 }
 
 func (c *compactor) mergeCluster(ctx context.Context, cluster []Record) error {
-	if len(cluster) < 2 || !mergeable(cluster[0]) {
+	if !clusterMergeable(cluster) {
 		return nil
 	}
-	for _, item := range cluster[1:] {
-		if !compatibleForMerge(cluster[0], item) {
-			return nil
-		}
-	}
-	var b strings.Builder
-	maxWeight := 0.0
-	ids := make([]string, len(cluster))
-	for i, m := range cluster {
-		ids[i] = m.ID
-		b.WriteString("- ")
-		b.WriteString(m.Content)
-		b.WriteString("\n")
-		if m.BaseWeight > maxWeight {
-			maxWeight = m.BaseWeight
-		}
-	}
-	model := extractionModel(c.settings)
-	if model == "" {
-		return fmt.Errorf("memory compaction requires a model: set Memory extraction model, or configure an active chat model")
-	}
-	prompt := fmt.Sprintf(`Merge these related memories into one concise %s memory. Preserve specific details and do not change its kind.
-Return JSON: {"content":"..."}
-
-Memories:
-%s`, cluster[0].Kind, b.String())
-
-	var out struct {
-		Content string `json:"content"`
-	}
-	req := &cometsdk.Request{
-		Model:  model,
-		System: "You consolidate memories. Output JSON only.",
-		Messages: []cometsdk.Message{{
-			Role:    cometsdk.RoleUser,
-			Content: []cometsdk.Block{cometsdk.TextBlock{Text: prompt}},
-		}},
-		MaxTokens: 1024,
-	}
-	tok, err := llm.GenerateJSON(ctx, c.provider, req, &out)
-	recordUsage(ctx, c.usage, c.provider, model, usage.KindMemoryCompaction, "", tok)
+	bullets, ids, maxWeight := summarizeCluster(cluster)
+	content, err := c.generateMergedContent(ctx, cluster[0].Kind, bullets)
 	if err != nil {
 		return err
 	}
-	content := strings.TrimSpace(out.Content)
 	if content == "" {
 		return nil
 	}
@@ -324,6 +284,68 @@ Memories:
 	}
 	detail := encodeDetail(map[string]any{"merged_into": newID, "cluster": ids})
 	return c.store.replaceWithMerged(ctx, rec, cluster, detail)
+}
+
+// clusterMergeable reports whether every record in cluster can collapse into one memory.
+func clusterMergeable(cluster []Record) bool {
+	if len(cluster) < 2 || !mergeable(cluster[0]) {
+		return false
+	}
+	for _, item := range cluster[1:] {
+		if !compatibleForMerge(cluster[0], item) {
+			return false
+		}
+	}
+	return true
+}
+
+// summarizeCluster renders cluster as bullet lines and returns those lines, the
+// source ids, and the highest base weight.
+func summarizeCluster(cluster []Record) (string, []string, float64) {
+	var b strings.Builder
+	maxWeight := 0.0
+	ids := make([]string, len(cluster))
+	for i, m := range cluster {
+		ids[i] = m.ID
+		b.WriteString("- ")
+		b.WriteString(m.Content)
+		b.WriteString("\n")
+		if m.BaseWeight > maxWeight {
+			maxWeight = m.BaseWeight
+		}
+	}
+	return b.String(), ids, maxWeight
+}
+
+func (c *compactor) generateMergedContent(ctx context.Context, kind, bullets string) (string, error) {
+	model := extractionModel(c.settings)
+	if model == "" {
+		return "", fmt.Errorf("memory compaction requires a model: set Memory extraction model, or configure an active chat model")
+	}
+	prompt := fmt.Sprintf(`Merge these related memories into one concise %s memory. Preserve specific details and do not change its kind.
+Return JSON: {"content":"..."}
+
+Memories:
+%s`, kind, bullets)
+
+	var out struct {
+		Content string `json:"content"`
+	}
+	req := &cometsdk.Request{
+		Model:  model,
+		System: "You consolidate memories. Output JSON only.",
+		Messages: []cometsdk.Message{{
+			Role:    cometsdk.RoleUser,
+			Content: []cometsdk.Block{cometsdk.TextBlock{Text: prompt}},
+		}},
+		MaxTokens: 1024,
+	}
+	tok, err := llm.GenerateJSON(ctx, c.provider, req, &out)
+	recordUsage(ctx, c.usage, c.provider, model, usage.KindMemoryCompaction, "", tok)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(out.Content), nil
 }
 
 func compactable(m Record) bool {
