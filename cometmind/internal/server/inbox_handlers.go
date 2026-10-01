@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/Cometline/cometline/cometmind/internal/apigen"
 	"github.com/Cometline/cometline/cometmind/internal/event"
 	"github.com/Cometline/cometline/cometmind/internal/inbox"
 	"github.com/gin-gonic/gin"
@@ -25,10 +26,6 @@ type inboxMessageResource struct {
 	ArchivedAt      *int64 `json:"archived_at,omitempty"`
 	CreatedAt       int64  `json:"created_at"`
 	UpdatedAt       int64  `json:"updated_at"`
-}
-
-type replyInboxRequest struct {
-	Content string `json:"content"`
 }
 
 func inboxToResource(m inbox.Message) inboxMessageResource {
@@ -87,7 +84,7 @@ func (a *App) handleReplyInboxMessage(c *gin.Context) {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "inbox unavailable"})
 		return
 	}
-	var req replyInboxRequest
+	var req apigen.ReplyInboxMessageRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "bad_request", "message": "invalid request"}})
 		return
