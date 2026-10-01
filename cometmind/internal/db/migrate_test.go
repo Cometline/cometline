@@ -449,7 +449,7 @@ func TestRebuildVersionRollsBackWhenAStatementFails(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = applyAlterVersion(ctx, conn, 29, []string{
+	err = applyMigration(ctx, conn, migration{version: 30, name: "0030_failing_rebuild.sql", stmts: []string{
 		"PRAGMA foreign_keys = OFF",
 		"DROP TABLE IF EXISTS session_media_new",
 		"CREATE TABLE session_media_new (id TEXT PRIMARY KEY, session_id TEXT NOT NULL, kind TEXT NOT NULL)",
@@ -458,7 +458,7 @@ func TestRebuildVersionRollsBackWhenAStatementFails(t *testing.T) {
 		"SELECT RAISE(ABORT, 'boom')",
 		"ALTER TABLE session_media_new RENAME TO session_media",
 		"PRAGMA foreign_keys = ON",
-	})
+	}})
 	if err == nil {
 		t.Fatal("expected rebuild failure")
 	}
