@@ -105,6 +105,9 @@ function toWireWebContext(context: PendingWebContext): WebContext | null {
 	};
 }
 
+/** Last visible page/file key. Not $state — noting context must not retrigger the caller. */
+let lastNotedVisibleContextKey = '';
+
 function createShellStore() {
 	let sidebarOpen = $state(true);
 	let settingsOpen = $state(false);
@@ -890,6 +893,17 @@ function createShellStore() {
 				...webContextsBySession,
 				[key]: [...existing, viewing]
 			};
+		},
+		noteVisibleContext(visible: { page?: { source: string; title: string }; file?: { source: string; title: string } }) {
+			const key = panelSessionKey();
+			if (!key) return;
+			const pageKey = visible.page ? `page:${visible.page.source}\0${visible.page.title}` : '';
+			const fileKey = visible.file ? `file:${visible.file.source}\0${visible.file.title}` : '';
+			const nextKey = `${key}|${pageKey}|${fileKey}`;
+			if (nextKey === lastNotedVisibleContextKey) return;
+			lastNotedVisibleContextKey = nextKey;
+			if (visible.page) this.setPendingPageContextForActive(visible.page);
+			if (visible.file) this.setViewingFileContextForActive(visible.file.source, visible.file.title);
 		},
 		setPendingPageContextForActive(context: Omit<PendingPageContext, 'kind' | 'lazy'>) {
 			const key = panelSessionKey();

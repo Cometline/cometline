@@ -592,6 +592,25 @@ describe('shellStore lazy page context', () => {
 		vi.unstubAllGlobals();
 	});
 
+	it('notes the same visible page once and replaces it when the source changes', () => {
+		shellStore.noteVisibleContext({
+			page: { title: 'Example', source: 'https://example.com' }
+		});
+		shellStore.noteVisibleContext({
+			page: { title: 'Example', source: 'https://example.com' }
+		});
+		expect(shellStore.pendingWebContexts).toEqual([
+			{ kind: 'page', title: 'Example', source: 'https://example.com', lazy: true }
+		]);
+
+		shellStore.noteVisibleContext({
+			page: { title: 'Other', source: 'https://other.example' }
+		});
+		expect(shellStore.pendingWebContexts).toEqual([
+			{ kind: 'page', title: 'Other', source: 'https://other.example', lazy: true }
+		]);
+	});
+
 	it('keeps page navigation as metadata until a resolver is requested', async () => {
 		const resolvePage = vi.fn(async (source: string) => ({
 			kind: 'page' as const,
