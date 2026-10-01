@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { ChevronDown, FolderOpen } from '@lucide/svelte';
 	import { tick } from 'svelte';
-	import { filterWorkspaceOptions } from '$lib/skills/slash-commands';
+	import { filterWorkspaceOptions } from '$lib/features/skills/slash-commands';
 	import { loadWorkspacePaths } from '$lib/workspaces/load-workspace-paths';
 	import { shellStore } from '$lib/stores/shell.svelte';
 

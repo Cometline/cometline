@@ -32,7 +32,7 @@ import {
 	filterJobOptions,
 	type SlashMenuOption,
 	type WorkspaceMenuOption
-} from '$lib/skills/slash-commands';
+} from '$lib/features/skills/slash-commands';
 import type { ImageAttachment, SkillResource } from '$lib/types';
 import type { JobResource } from '$lib/generated/cometmind-api';
 import type { ComposerInputRef } from '$lib/components/composer/composer-input-ref';
