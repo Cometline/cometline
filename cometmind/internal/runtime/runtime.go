@@ -118,31 +118,10 @@ func New(ctx context.Context) (*Runtime, error) {
 	r.Inbox = inbox.NewService(sqlDB)
 	r.Scheduler = scheduler.NewService(sqlDB)
 	if cfg.MemoryRuntimeEnabled() {
-		p, err := provider.NewMemoryLLM(cfg)
-		if err != nil {
-			logging.L().Warn("memory.provider.init_failed",
-				"error", err,
-				"effect", "memory subsystem disabled; agent will run without retrieval/extraction")
-		} else {
-			mem, err := memory.NewService(sqlDB, cfg.MemorySettings(), p, sessions)
-			if err != nil {
-				logging.L().Warn("memory.service.init_failed",
-					"error", err,
-					"effect", "memory subsystem disabled; agent will run without retrieval/extraction")
-			} else {
-				mem.SetUsageRecorder(usageSvc)
-				r.Memory = mem
-			}
-		}
+		r.Memory = newMemoryService(cfg, sqlDB, sessions, usageSvc)
 	}
 	if cfg.Skills.SynthesisEnabled {
-		providerID, model := cfg.ResolveRoleLLM(cfg.Skills.SynthesisProviderID, cfg.Skills.SynthesisModel)
-		p, err := provider.NewForModel(cfg, providerID, model)
-		if err != nil {
-			logging.L().Warn("skills.synthesis.provider.init_failed", "error", err)
-		} else {
-			notifier.Register(&skillSynthesisNotifier{provider: p, model: model, memory: r.Memory, usage: usageSvc, sessions: sessions, workers: r.workers})
-		}
+		r.registerSkillSynthesis(notifier)
 	}
 	if _, err := r.RunRetention(ctx); err != nil {
 		logging.L().Warn("retention.startup_failed", "error", err)
@@ -159,6 +138,37 @@ func New(ctx context.Context) (*Runtime, error) {
 	// connect budget, so Close would stall shutdown waiting on it.
 	go r.mcpMgr.Start(ctx)
 	return r, nil
+}
+
+// newMemoryService returns nil (memory disabled) when the memory LLM or
+// service cannot be built; startup continues without retrieval/extraction.
+func newMemoryService(cfg *config.Config, sqlDB *sql.DB, sessions *session.Service, usageSvc *usage.Service) *memory.Service {
+	p, err := provider.NewMemoryLLM(cfg)
+	if err != nil {
+		logging.L().Warn("memory.provider.init_failed",
+			"error", err,
+			"effect", "memory subsystem disabled; agent will run without retrieval/extraction")
+		return nil
+	}
+	mem, err := memory.NewService(sqlDB, cfg.MemorySettings(), p, sessions)
+	if err != nil {
+		logging.L().Warn("memory.service.init_failed",
+			"error", err,
+			"effect", "memory subsystem disabled; agent will run without retrieval/extraction")
+		return nil
+	}
+	mem.SetUsageRecorder(usageSvc)
+	return mem
+}
+
+func (r *Runtime) registerSkillSynthesis(notifier *jobs.Notifier) {
+	providerID, model := r.Config.ResolveRoleLLM(r.Config.Skills.SynthesisProviderID, r.Config.Skills.SynthesisModel)
+	p, err := provider.NewForModel(r.Config, providerID, model)
+	if err != nil {
+		logging.L().Warn("skills.synthesis.provider.init_failed", "error", err)
+		return
+	}
+	notifier.Register(&skillSynthesisNotifier{provider: p, model: model, memory: r.Memory, usage: r.Usage, sessions: r.Sessions, workers: r.workers})
 }
 
 func loadSystemPrompt(path string) (string, error) {
