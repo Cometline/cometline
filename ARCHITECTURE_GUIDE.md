@@ -2,7 +2,7 @@
 
 This guide is the system overview and contributor map for the whole repository. It explains what each module owns, how data moves through the system, which contracts are load-bearing, and where to start when changing behavior.
 
-It is the last stop on the reading path: [README](./README.md), then [CONTRIBUTING](./CONTRIBUTING.md), then [docs/learning/](./docs/learning/00-README.md), then this guide. The learning series walks through more flows (memory, MCP, coding-harness delegation, jobs, Discord) step by step in [03-data-flows.md](./docs/learning/03-data-flows.md).
+It is the last stop on the reading path: [README](./README.md), then [docs/learning/](./docs/learning/00-README.md), then this guide. The learning series walks through more flows (memory, MCP, coding-harness delegation, jobs, Discord) step by step in [03-data-flows.md](./docs/learning/03-data-flows.md).
 
 ## One-Sentence Purpose
 
@@ -19,7 +19,6 @@ cometline/
 +-- cometline/       SvelteKit + Electron desktop shell
 +-- docs/            learning series and topic guides
 +-- Makefile         root orchestration for dev/check/build/package
-+-- CONTRIBUTING.md  setup, checks, PR checklist
 `-- AGENTS.md        repository-specific development rules (CLAUDE.md links here)
 ```
 
@@ -516,7 +515,7 @@ Important persisted formats:
 | `messages.content` for `tool_result` | JSON object `{tool_call_id, content, is_error}` | `cometmind/internal/session/service.go` |
 | `sessions.token_usage` | JSON-encoded `cometsdk.TokenUsage` snapshot | `cometmind/internal/session/service.go` |
 
-Schema migrations are managed with `PRAGMA user_version` and applied incrementally via `alterStatements` in `cometmind/internal/db/migrate.go`. Read `schemaVersion` in that file for the current version. Each version checkpoints `user_version`; table rebuilds (`DROP TABLE`) run in one transaction so a crash cannot leave a half-renamed catalog. Generated sqlc files under `internal/db` must not be hand-edited.
+Schema migrations are managed with `PRAGMA user_version` and applied incrementally from SQL files in `cometmind/internal/db/migrations`. `schemaVersion` in `internal/db/migrate.go` is the latest of those files. Each version checkpoints `user_version`; table rebuilds (`DROP TABLE`) run in one transaction so a crash cannot leave a half-renamed catalog. Generated sqlc files under `internal/db` must not be hand-edited.
 
 ## HTTP/SSE Server
 
@@ -562,7 +561,7 @@ File tools are workspace-scoped through `internal/tools/sandbox/pathcheck.go` as
 | Add an LLM provider | `comet-sdk/provider/<new>` then `cometmind/internal/provider/factory.go`; per-model protocol (npm/api) overrides for a method land in `cometmind/internal/modelcatalog` metadata |
 | Add a built-in tool | New `internal/tools/*.go`, then register in `internal/tools/registry.go` |
 | Add an API endpoint | `cometmind/internal/server/server.go`, `cometmind/openapi.yaml`, server tests |
-| Change DB schema | `internal/db/schema.sql`, `internal/db/migrate.go`, pinned sqlc regeneration (see `CONTRIBUTING.md`), session service updates |
+| Change DB schema | `internal/db/schema.sql`, `internal/db/migrations`, pinned sqlc regeneration (see `AGENTS.md`), session service updates |
 | Change stream event contract | `internal/event/event.go`, server/CLI consumers, renderer types/reducer |
 | Change agent loop behavior | `internal/agent/runner.go` and its tests |
 

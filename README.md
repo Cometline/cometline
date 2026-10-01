@@ -251,7 +251,7 @@ make dev       # build the CometMind sidecar and launch the Electron dev app
 make check     # codegen freshness, Go tests, Svelte checks (what CI runs)
 ```
 
-[CONTRIBUTING.md](./CONTRIBUTING.md) covers prerequisites, generated code, commit format, and the PR checklist. [AGENTS.md](./AGENTS.md) is the full command reference. All development happens in this repository; the historical `comet-sdk`, `cometmind`, and `cometline` repos are archived.
+[AGENTS.md](./AGENTS.md) is the command reference and repository rules. [docs/learning/](./docs/learning/00-README.md) walks through the three modules. All development happens in this repository; the historical `comet-sdk`, `cometmind`, and `cometline` repos are archived.
 
 ## Configuration
 
@@ -294,9 +294,8 @@ Apache License 2.0. See [LICENSE](./LICENSE).
 
 ## Links
 
-- [Contributing](./CONTRIBUTING.md)
 - [Learning path](./docs/learning/00-README.md)
 - [Architecture guide](./ARCHITECTURE_GUIDE.md)
+- [Agent and contributor guide](./AGENTS.md)
 - [Ollama local setup](./cometline/docs/ollama-local.md)
-- [Security policy](./SECURITY.md)
 - [Issues](https://github.com/Cometline/cometline/issues)

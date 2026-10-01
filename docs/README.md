@@ -1,6 +1,6 @@
 # Docs
 
-Reading path for new contributors: [README](../README.md), then [CONTRIBUTING](../CONTRIBUTING.md), then the [learning series](./learning/00-README.md), then [ARCHITECTURE_GUIDE](../ARCHITECTURE_GUIDE.md).
+Reading path for new contributors: [README](../README.md), then the [learning series](./learning/00-README.md), then [ARCHITECTURE_GUIDE](../ARCHITECTURE_GUIDE.md).
 
 | Doc | Read it when |
 | --- | --- |

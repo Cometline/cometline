@@ -16,6 +16,8 @@ The historical standalone repos for these modules are archived. New development,
 
 The dependency direction is strictly one-way: `cometline` → `cometmind` → `comet-sdk`.
 
+**Toolchain:** Go 1.26, Node.js 22, and pnpm 11.3.0. `mise install` reads these from `mise.toml`. Both `go.mod` files pin a patched release with a `toolchain` line; Go downloads it automatically unless `GOTOOLCHAIN=local`.
+
 ## Development Commands
 
 ### Root-level commands
@@ -111,7 +113,7 @@ cd cometmind && go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1 generate
 
 The version must match the `sqlc vX.Y.Z` header in the generated files. sqlc is not a `tool` directive in `go.mod` because its dependency tree would raise the module's Go version and bump runtime dependencies.
 
-**Migration note:** CometMind embeds `schema.sql` and tracks migrations with `schemaVersion` + `alterStatements` in `internal/db/migrate.go`. Read the constant there for the current version; schema changes for existing users need an incremental migration, not just a schema edit.
+**Migration note:** CometMind embeds `schema.sql` for a fresh database and incremental SQL files in `internal/db/migrations`. `schemaVersion` in `internal/db/migrate.go` is the latest of those files. Schema changes for existing users need a new migration file, not just a schema edit.
 
 ### SSE event types
 
@@ -288,7 +290,7 @@ SDK stream tests use checked-in SSE fixtures under each provider's `fixtures/` d
 
 ### Before starting work
 
-1. Read [CONTRIBUTING.md](./CONTRIBUTING.md) for setup, the PR checklist, and generated-code rules
+1. Read [docs/learning/](./docs/learning/00-README.md) for a guided tour of the three modules
 2. Read [ARCHITECTURE_GUIDE.md](./ARCHITECTURE_GUIDE.md) for the system overview and contributor map
 3. Understand which module owns the feature you're changing
 
@@ -385,7 +387,6 @@ Cometline can improve itself using the same agent runtime:
 ## Further Reading
 
 - [README.md](./README.md) — project overview and quick start
-- [CONTRIBUTING.md](./CONTRIBUTING.md) — setup, workflow, and PR checklist
 - [docs/learning/](./docs/learning/00-README.md) — guided onboarding series
 - [ARCHITECTURE_GUIDE.md](./ARCHITECTURE_GUIDE.md) — system overview and contributor map with source references
 - [cometmind/openapi.yaml](./cometmind/openapi.yaml) — API contract source of truth

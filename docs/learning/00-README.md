@@ -65,7 +65,6 @@ These docs cover one topic in more detail:
 - [../SETTINGS_AND_PERSISTENCE.md](../SETTINGS_AND_PERSISTENCE.md): draft and save rules for the settings modal. A modal is a dialog on top of the page.
 - [../FRONTEND_DESIGN_SYSTEM.md](../FRONTEND_DESIGN_SYSTEM.md): visual tokens and styling. A visual token is a named style value.
 - [../../ARCHITECTURE_GUIDE.md](../../ARCHITECTURE_GUIDE.md): system overview and contributor map. This is the main source.
-- [../../CONTRIBUTING.md](../../CONTRIBUTING.md): setup, checks, and the PR checklist
 - [../../AGENTS.md](../../AGENTS.md): dev commands and rules for generated code
 
 ## GitNexus tips while reading

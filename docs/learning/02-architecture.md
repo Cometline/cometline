@@ -19,7 +19,7 @@ cometline/          (monorepo root)
 ├── cometmind/      Go module: agent runtime, CLI, HTTP API
 ├── cometline/      SvelteKit + Electron desktop shell
 ├── Makefile        Root commands (install, check, build, dev)
-├── CONTRIBUTING.md
+├── AGENTS.md       Dev commands and repository rules
 ├── ARCHITECTURE_GUIDE.md
 └── docs/learning/  ← you are here
 ```
@@ -272,7 +272,7 @@ A seam is a place where you can add a feature. You start at the files in the rig
 | New built-in tool | `cometmind/internal/tools/*.go` → `registry.go` / `surface.go`                                           |
 | New API endpoint  | `internal/server/server.go` + `openapi.yaml` → `make generate`                                                    |
 | New SSE event     | `event/event.go` + `openapi.yaml` → reducer and/or runtime toasts + contract tests                       |
-| DB schema change  | `db/schema.sql` + `migrate.go` → pinned sqlc (see `CONTRIBUTING.md`)                                     |
+| DB schema change  | `db/schema.sql` + `internal/db/migrations` → pinned sqlc (see `AGENTS.md`)                               |
 | Settings field    | `settings/schema.ts` + settings panel module + Electron split path                                       |
 | Jobs behavior     | `internal/jobs` / `scheduler` / `autonomy` + OpenAPI + `/jobs` UI                                        |
 | MCP behavior      | `internal/mcp` + settings MCP panel + CometMind OAuth endpoint (Electron does not run MCP OAuth)         |
