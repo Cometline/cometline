@@ -208,13 +208,10 @@ func requestHasImage(req *cometsdk.Request) bool {
 // expected `text`"), so we match on the salient substrings rather than an exact
 // message.
 func isImageUnsupportedError(err error) bool {
-	se, ok := err.(*cometsdk.ServerError)
-	if !ok {
-		return false
-	}
 	// Only client-side (4xx) rejections are downgrade candidates; 5xx is a
 	// transient server fault that the normal retry policy already handles.
-	if se.StatusCode < 400 || se.StatusCode >= 500 {
+	se, ok := providerbase.ClientServerError(err)
+	if !ok {
 		return false
 	}
 	msg := strings.ToLower(se.Message)
@@ -233,11 +230,8 @@ func isImageUnsupportedError(err error) bool {
 // isReasoningSplitUnsupportedError reports whether err is a 4xx ServerError
 // whose message indicates the endpoint rejected the reasoning_split field.
 func isReasoningSplitUnsupportedError(err error) bool {
-	se, ok := err.(*cometsdk.ServerError)
+	se, ok := providerbase.ClientServerError(err)
 	if !ok {
-		return false
-	}
-	if se.StatusCode < 400 || se.StatusCode >= 500 {
 		return false
 	}
 	msg := strings.ToLower(se.Message)
@@ -247,11 +241,8 @@ func isReasoningSplitUnsupportedError(err error) bool {
 // isMaxTokensUnsupportedError reports whether err is a 4xx ServerError whose
 // message says max_tokens is rejected in favour of max_completion_tokens.
 func isMaxTokensUnsupportedError(err error) bool {
-	se, ok := err.(*cometsdk.ServerError)
+	se, ok := providerbase.ClientServerError(err)
 	if !ok {
-		return false
-	}
-	if se.StatusCode < 400 || se.StatusCode >= 500 {
 		return false
 	}
 	msg := strings.ToLower(se.Message)

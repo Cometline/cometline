@@ -8,6 +8,7 @@ package providerbase
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -58,14 +59,28 @@ func ClassifyHTTPError(providerID string, resp *http.Response, body []byte) erro
 // the transient 5xx/529 server errors. Auth (401/403) and other 4xx stay
 // non-retryable.
 func IsRetryable(err error) bool {
-	switch e := err.(type) {
-	case *cometsdk.RateLimitError:
+	var rle *cometsdk.RateLimitError
+	if errors.As(err, &rle) {
 		return true
-	case *cometsdk.ServerError:
-		return e.StatusCode == 400 || e.StatusCode == 500 || e.StatusCode == 502 ||
-			e.StatusCode == 503 || e.StatusCode == 504 || e.StatusCode == 529
+	}
+	var se *cometsdk.ServerError
+	if errors.As(err, &se) {
+		switch se.StatusCode {
+		case 400, 500, 502, 503, 504, 529:
+			return true
+		}
 	}
 	return false
+}
+
+// ClientServerError returns the ServerError in err's chain when it carries a
+// 4xx status, so capability-fallback checks can inspect the provider message.
+func ClientServerError(err error) (*cometsdk.ServerError, bool) {
+	var se *cometsdk.ServerError
+	if !errors.As(err, &se) || se.StatusCode < 400 || se.StatusCode >= 500 {
+		return nil, false
+	}
+	return se, true
 }
 
 // MarshalWithOptions marshals base into JSON, then merges any keys from
