@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { JobResource } from '$lib/client/cometmind';
-	import { truncateWorkspacePath } from '$lib/jobs/group-jobs';
+	import { truncateWorkspacePath } from '$lib/features/jobs/group-jobs';
 
 	let {
 		job,

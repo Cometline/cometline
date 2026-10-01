@@ -1,4 +1,4 @@
-import type { JobProposal } from '$lib/jobs/parse-job-proposal';
+import type { JobProposal } from '$lib/features/jobs/parse-job-proposal';
 
 const STORAGE_KEY = 'cometline.job-proposal-dismissals';
 

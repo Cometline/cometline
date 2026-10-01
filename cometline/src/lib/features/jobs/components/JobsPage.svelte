@@ -36,9 +36,9 @@
 		groupJobsByColumn,
 		type GroupedJobs,
 		type JobColumn
-	} from '$lib/jobs/group-jobs';
+	} from '$lib/features/jobs/group-jobs';
 	import { jobsIndicatorStore } from '$lib/stores/jobs-indicator.svelte';
-	import { truncateJobLabel } from '$lib/jobs/format-job-label';
+	import { truncateJobLabel } from '$lib/features/jobs/format-job-label';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import WorkspacePathField from '$lib/components/WorkspacePathField.svelte';
 	import JobCard from './JobCard.svelte';

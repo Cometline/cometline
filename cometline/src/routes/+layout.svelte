@@ -19,7 +19,7 @@
 	import { memoryToastStore } from '$lib/stores/memory-toasts.svelte';
 	import { inboxStore } from '$lib/stores/inbox.svelte';
 	import { skillDraftsStore } from '$lib/stores/skill-drafts.svelte';
-	import { startJobNotificationPoller } from '$lib/jobs/job-notifications';
+	import { startJobNotificationPoller } from '$lib/features/jobs/job-notifications';
 	import {
 		notifyBackgroundRunFinished,
 		notifyConnectionChange,

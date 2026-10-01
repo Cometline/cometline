@@ -1,4 +1,4 @@
-import { truncateWorkspacePath } from '$lib/jobs/group-jobs';
+import { truncateWorkspacePath } from '$lib/features/jobs/group-jobs';
 import type { JobResource } from '$lib/client/cometmind';
 
 export function truncateJobLabel(text: string, max = 80): string {

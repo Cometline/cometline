@@ -21,7 +21,7 @@
 	import { matchesShortcut } from '$lib/keyboard-shortcuts';
 	import type { ChatTurnPayload } from '$lib/actions/start-chat';
 	import type { ModelOption } from '$lib/stores/model.svelte';
-	import { startJobInSession } from '$lib/jobs/start-job-in-chat';
+	import { startJobInSession } from '$lib/features/jobs/start-job-in-chat';
 	import type { JobResource } from '$lib/client/cometmind';
 	import { createChatViewController } from '$lib/conversation/chat-view-controller.svelte';
 	import { createSessionPhase } from '$lib/conversation/session-phase.svelte';

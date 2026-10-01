@@ -135,7 +135,7 @@ import { createSSEParser } from '$lib/sse/parser';
 import {
 	buildJobExecutionPrompt as buildJobExecutionPromptImpl,
 	type JobExecutionPromptInput
-} from '$lib/jobs/build-job-execution-prompt';
+} from '$lib/features/jobs/build-job-execution-prompt';
 
 export type {
 	CompactMemoryPreviewResponse,

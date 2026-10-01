@@ -11,7 +11,7 @@ import {
 	claimJob,
 	buildJobExecutionPrompt
 } from '$lib/client/cometmind';
-import { jobUserDisplayText } from '$lib/jobs/format-job-label';
+import { jobUserDisplayText } from '$lib/features/jobs/format-job-label';
 import { gotoSession } from '$lib/routes/session-route';
 import { sessionStore } from '$lib/stores/session.svelte';
 import { chatStore } from '$lib/stores/chat.svelte';

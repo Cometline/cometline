@@ -9,7 +9,7 @@ import type { ChatTurnPayload } from '$lib/actions/start-chat';
 import { modelStore } from '$lib/stores/model.svelte';
 import { sessionStore } from '$lib/stores/session.svelte';
 import { shellStore } from '$lib/stores/shell.svelte';
-import { jobUserDisplayText } from '$lib/jobs/format-job-label';
+import { jobUserDisplayText } from '$lib/features/jobs/format-job-label';
 import { gotoSession } from '$lib/routes/session-route';
 
 export type JobStartSender = (payload: ChatTurnPayload) => void | Promise<void>;

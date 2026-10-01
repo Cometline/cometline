@@ -23,7 +23,7 @@ vi.mock('$lib/client/cometmind', () => ({
 vi.mock('$lib/stores/shell.svelte', () => ({ shellStore }));
 vi.mock('$lib/stores/session.svelte', () => ({ sessionStore }));
 vi.mock('$lib/stores/model.svelte', () => ({ modelStore: { selected: null } }));
-vi.mock('$lib/jobs/format-job-label', () => ({
+vi.mock('$lib/features/jobs/format-job-label', () => ({
 	jobUserDisplayText: (job: JobResource) => `/job ${job.description}`
 }));
 

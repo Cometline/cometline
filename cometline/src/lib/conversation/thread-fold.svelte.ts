@@ -8,8 +8,8 @@ import {
 	toggleExpanded,
 	toggleMapOverride
 } from './thread-fold';
-import { isJobProposalDismissed } from '$lib/jobs/job-proposal-dismissals';
-import { parseJobProposal } from '$lib/jobs/parse-job-proposal';
+import { isJobProposalDismissed } from '$lib/features/jobs/job-proposal-dismissals';
+import { parseJobProposal } from '$lib/features/jobs/parse-job-proposal';
 
 export interface FoldControllerDeps {
 	getSessionId: () => string;

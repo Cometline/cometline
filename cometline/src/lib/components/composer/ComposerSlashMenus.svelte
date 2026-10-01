@@ -3,7 +3,7 @@
 	import SlashCommandMenu from '$lib/components/composer/SlashCommandMenu.svelte';
 	import ModelCapabilityIcons from '$lib/components/model/ModelCapabilityIcons.svelte';
 	import { formatContextWindow } from '$lib/context-window';
-	import { jobMenuSubtitle } from '$lib/jobs/format-job-label';
+	import { jobMenuSubtitle } from '$lib/features/jobs/format-job-label';
 	import { modelStore } from '$lib/stores/model.svelte';
 	import type { createComposerSlashController } from '$lib/components/composer/composer-slash.svelte';
 

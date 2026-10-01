@@ -13,7 +13,7 @@
 	} from '$lib/client/cometmind';
 	import UsageStackedArea from '$lib/features/usage/components/UsageStackedArea.svelte';
 	import { seriesColor } from '$lib/features/usage/chart';
-	import { truncateWorkspacePath } from '$lib/jobs/group-jobs';
+	import { truncateWorkspacePath } from '$lib/features/jobs/group-jobs';
 	import {
 		cacheHitRate,
 		formatCacheHit,

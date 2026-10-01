@@ -2,11 +2,11 @@
 	import { LoaderCircle } from '@lucide/svelte';
 	import WorkspacePathField from '$lib/components/WorkspacePathField.svelte';
 	import { createJob, type JobResource } from '$lib/client/cometmind';
-	import type { JobProposal } from '$lib/jobs/parse-job-proposal';
+	import type { JobProposal } from '$lib/features/jobs/parse-job-proposal';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import type { ChatTurnPayload } from '$lib/actions/start-chat';
 
-	import type { JobProposalDismissAction } from '$lib/jobs/job-proposal-dismissals';
+	import type { JobProposalDismissAction } from '$lib/features/jobs/job-proposal-dismissals';
 
 	type CardPhase = 'idle' | 'creating' | 'created' | 'starting' | 'cancelled' | 'error';
 
