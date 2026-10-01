@@ -5,16 +5,12 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/Cometline/cometline/cometmind/internal/apigen"
 	"github.com/Cometline/cometline/cometmind/internal/paths"
 	wikifiles "github.com/Cometline/cometline/cometmind/internal/wiki/files"
 	wikilinks "github.com/Cometline/cometline/cometmind/internal/wiki/links"
 	"github.com/gin-gonic/gin"
 )
-
-type writeWikiFileRequest struct {
-	Path    string `json:"path"`
-	Content string `json:"content"`
-}
 
 func (a *App) handleListWikiFiles(c *gin.Context) {
 	root, err := paths.WikiDir()
@@ -107,7 +103,7 @@ func (a *App) handleListWikiFileBacklinks(c *gin.Context) {
 }
 
 func (a *App) handleWriteWikiFileContent(c *gin.Context) {
-	var req writeWikiFileRequest
+	var req apigen.WriteWikiFileRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		writeError(c, http.StatusBadRequest, "bad_request", "invalid JSON body")
 		return
