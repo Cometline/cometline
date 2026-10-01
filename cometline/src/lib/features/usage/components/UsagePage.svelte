@@ -11,8 +11,8 @@
 		type UsageSummaryResponse,
 		type Workspace
 	} from '$lib/client/cometmind';
-	import UsageStackedArea from '$lib/components/usage/UsageStackedArea.svelte';
-	import { seriesColor } from '$lib/usage/chart';
+	import UsageStackedArea from '$lib/features/usage/components/UsageStackedArea.svelte';
+	import { seriesColor } from '$lib/features/usage/chart';
 	import { truncateWorkspacePath } from '$lib/jobs/group-jobs';
 	import {
 		cacheHitRate,
@@ -25,8 +25,12 @@
 		legendRowsForSeries,
 		rangeForPreset,
 		type RangePreset
-	} from '$lib/usage/format';
-	import { collectAllUsageEvents, isCurrentRefresh, localTZOffsetMin } from '$lib/usage/load';
+	} from '$lib/features/usage/format';
+	import {
+		collectAllUsageEvents,
+		isCurrentRefresh,
+		localTZOffsetMin
+	} from '$lib/features/usage/load';
 
 	const PAGE_SIZE = 50;
 	const CSV_LIMIT = 200;

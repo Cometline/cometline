@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { formatTokens } from '$lib/usage/format';
+	import { formatTokens } from '$lib/features/usage/format';
 	import {
 		nearestPointIndex,
 		PAD_LEFT,
@@ -10,7 +10,7 @@
 		xLabels,
 		yLabels,
 		type SeriesPoint
-	} from '$lib/usage/chart';
+	} from '$lib/features/usage/chart';
 
 	let {
 		points = [],
