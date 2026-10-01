@@ -86,15 +86,15 @@
 
 	/* Light blue empty ring — follows hero glow palette */
 	.track {
-		stroke: color-mix(in srgb, var(--hero-composer-glow-color, #72c0ff) 42%, white);
+		stroke: color-mix(in srgb, var(--hero-composer-glow-color, var(--color-72c0ff)) 42%, white);
 	}
 
 	/* Filled arc deepens toward accent as context grows */
 	.progress {
 		stroke: color-mix(
 			in srgb,
-			var(--hero-composer-glow-color, #72c0ff) 58%,
-			var(--accent, #0066cc)
+			var(--hero-composer-glow-color, var(--color-72c0ff)) 58%,
+			var(--accent, var(--accent))
 		);
 		stroke-linecap: round;
 		transition: stroke-dashoffset 180ms ease;
@@ -103,13 +103,13 @@
 	.context-ring-trigger.level-high .progress {
 		stroke: color-mix(
 			in srgb,
-			var(--hero-composer-glow-color, #72c0ff) 35%,
-			var(--accent, #0066cc)
+			var(--hero-composer-glow-color, var(--color-72c0ff)) 35%,
+			var(--accent, var(--accent))
 		);
 	}
 
 	.context-ring-trigger.level-critical .progress {
-		stroke: var(--accent, #0066cc);
+		stroke: var(--accent, var(--accent));
 	}
 
 	.context-tooltip {
@@ -121,7 +121,7 @@
 		border-radius: 8px;
 		border: 1px solid var(--border-soft);
 		background: rgba(28, 28, 30, 0.96);
-		color: #f5f5f7;
+		color: var(--color-f5f5f7);
 		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
 		opacity: 0;
 		pointer-events: none;

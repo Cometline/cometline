@@ -1,23 +1,20 @@
 <script lang="ts">
 	import { onDestroy, onMount, tick } from 'svelte';
-	import { fade } from 'svelte/transition';
-	import { FileText } from '@lucide/svelte';
 	import type { QueuedMessage } from '$lib/actions/chat-turn-queue';
-	import type { ChatTurnPayload, WebContext } from '$lib/actions/start-chat';
+	import type { ChatTurnPayload } from '$lib/actions/start-chat';
 	import { modelStore, type ModelOption } from '$lib/stores/model.svelte';
 	import { settingsStore } from '$lib/stores/settings.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
-	import { matchesShortcut } from '$lib/keyboard-shortcuts';
 	import RichComposerInput from '$lib/features/composer/components/RichComposerInput.svelte';
 	import ImageAttachments from '$lib/features/composer/components/ImageAttachments.svelte';
 	import MessageQueuePanel from '$lib/features/composer/components/MessageQueuePanel.svelte';
 	import ComposerSlashMenus from '$lib/features/composer/components/ComposerSlashMenus.svelte';
 	import ComposerMentionMenu from '$lib/features/composer/components/ComposerMentionMenu.svelte';
 	import ComposerToolbar from '$lib/features/composer/components/ComposerToolbar.svelte';
+	import ComposerDropFeedback from '$lib/features/composer/components/composer/ComposerDropFeedback.svelte';
 	import MessageContextChips from '$lib/features/chat/components/MessageContextChips.svelte';
 	import { messageContextRefsFromPending } from '$lib/features/chat/message-context';
 	import { chatStore } from '$lib/stores/chat.svelte';
-	import { sessionStore } from '$lib/stores/session.svelte';
 	import { composerHistoryStore } from '$lib/stores/composer-history.svelte';
 	import { DEFAULT_CONTEXT_WINDOW_LIMIT, resolveContextWindowUsage } from '$lib/context-window';
 	import { workspaceLabel } from '$lib/sessions/group-by-workspace';
@@ -27,24 +24,11 @@
 	import { createComposerAttachmentsController } from '$lib/features/composer/composer-attachments.svelte';
 	import { createComposerMentionsController } from '$lib/features/composer/composer-mentions.svelte';
 	import { createComposerSlashController } from '$lib/features/composer/composer-slash.svelte';
-	import { stepHistoryIndex } from '$lib/features/composer/composer-history';
+	import { createComposerAgentModeController } from '$lib/features/composer/composer-agent-mode.svelte';
+	import { createComposerDraftHistoryController } from '$lib/features/composer/composer-draft-history.svelte';
 	import type { PendingUnsentDraft } from '$lib/features/composer/composer-history';
-	import { nextAttachmentRemoval } from '$lib/features/composer/composer-attachment-keydown';
-	import { nextReasoningEffort } from '$lib/features/composer/reasoning-effort';
-	import { getReasoningEffort, setReasoningEffort } from '$lib/stores/reasoning-effort.svelte';
-	import { updateSession } from '$lib/client/cometmind';
-	import type { AgentMode } from '$lib/types';
-	import { normalizeAgentMode } from '$lib/sessions/session-metadata';
-	import {
-		agentModeAnnouncement,
-		beginAgentModeRequest,
-		completeAgentModeRequest,
-		createInitialAgentModeState,
-		nextAgentMode,
-		sameAgentModeSwitchState,
-		bindAgentModeForSession,
-		type AgentModeSwitchState
-	} from '$lib/features/composer/agent-mode-switch';
+	import { createComposerTurnController } from '$lib/features/composer/composer-turn.svelte';
+	import { getReasoningEffort } from '$lib/stores/reasoning-effort.svelte';
 
 	let {
 		onSend,
@@ -79,21 +63,8 @@
 	let input = $state<RichComposerInput | null>(null);
 	let skillMenu = $state<HTMLDivElement | null>(null);
 	let mentionMenu = $state<HTMLDivElement | null>(null);
-	let resolvingWebContext = $state(false);
-	let historyIndex = $state<number | null>(null);
-	let historyLiveDraft = $state('');
-	let historyRecallList = $state.raw<string[]>([]);
-	let historyAppliedText = $state<string | null>(null);
-	let trackedSessionId = $state<string | null>(null);
-	let skippingEmptyStash = $state(false);
-	let lastNonEmptyDraft = $state('');
-	// Agent mode: persisted on the session, with a local switch machine so Tab
-	// can queue the latest request and stale store snapshots cannot snap back.
-	let agentModeState = $state<AgentModeSwitchState>(createInitialAgentModeState());
-	let boundAgentModeFromStore = $state(false);
-	let modeAnnouncement = $state('');
-	const agentMode = $derived(agentModeState.mode);
-	const agentModeKnown = $derived(agentModeState.known);
+	const agentModes = createComposerAgentModeController({ getSessionId: () => sessionId });
+	const agentMode = $derived(agentModes.agentMode);
 	const heroPlaceholders = [
 		'Type something. Anything.',
 		'Ask a question.',
@@ -121,48 +92,26 @@
 		images = [];
 	}
 
-	function resetHistoryBrowse() {
-		historyIndex = null;
-		historyLiveDraft = '';
-		historyRecallList = [];
-		historyAppliedText = null;
-	}
-
-	function applyComposerText(text: string, nextImages: ImageAttachment[] = []) {
-		skippingEmptyStash = true;
-		value = text;
-		images = nextImages;
-		if (text) {
-			input?.setText(text);
-		} else {
-			input?.clear();
-		}
-		void tick().then(() => {
-			skippingEmptyStash = false;
-		});
-	}
-
 	const getInput = (): ComposerInputRef | null => input;
+	const setImages = (next: ImageAttachment[]) => {
+		images = next;
+	};
 
-	function recordSentHistory(payload: ChatTurnPayload | string) {
-		const display =
-			typeof payload === 'string'
-				? payload.trim()
-				: (payload.displayText ?? payload.text).trim();
-		if (!display) return;
-		void composerHistoryStore.append({
-			display,
-			workspacePath: shellStore.workspacePath,
-			sessionId
-		});
-		composerHistoryStore.clearPending(sessionId);
-		resetHistoryBrowse();
-		lastNonEmptyDraft = '';
-	}
+	const draftHistory = createComposerDraftHistoryController({
+		getValue: () => value,
+		setValue: (next) => {
+			value = next;
+		},
+		getImages: () => images,
+		setImages,
+		getInput,
+		getSessionId: () => sessionId,
+		onSessionChanged: () => agentModes.resetStoreBinding()
+	});
 
 	const inputController = createComposerInputController({
 		onSend: (payload) => {
-			recordSentHistory(payload);
+			draftHistory.recordSentHistory(payload);
 			onSend(payload);
 		},
 		getValue: () => value,
@@ -173,7 +122,7 @@
 		getReasoningEffortOptions: () => modelStore.selected?.reasoningEffortOptions ?? [],
 		getAgentMode: () => agentMode,
 		clearDraft,
-		applyDraft: (draft) => applyComposerText(draft.text, draft.images ?? [])
+		applyDraft: (draft) => draftHistory.applyComposerText(draft.text, draft.images ?? [])
 	});
 
 	const attachments = createComposerAttachmentsController({
@@ -198,6 +147,27 @@
 		}, 0);
 	}
 
+	const turn = createComposerTurnController({
+		getValue: () => value,
+		getImages: () => images,
+		getInput,
+		getSessionId: () => sessionId,
+		getDisabled: () => disabled,
+		getStreaming: () => streaming,
+		getCanSubmit: () => inputController.canSubmit(),
+		getSlash: () => slash,
+		getMentionKeydown: () => mentions.handleMentionMenuKeydown,
+		cycleAgentMode: agentModes.cycleAgentMode,
+		isBrowsingHistory: () => draftHistory.browsing,
+		navigateHistory: draftHistory.navigateHistory,
+		sendTurn: (payload) => inputController.sendTurn(payload),
+		clearDraft,
+		skipEmptyStash: draftHistory.skipEmptyStash,
+		removeImage: attachments.removeImage,
+		onStop: () => onStop?.(),
+		onModelChange: (option) => onModelChange?.(option)
+	});
+
 	const slash = createComposerSlashController({
 		getValue: () => value,
 		setValue: (next) => {
@@ -211,7 +181,7 @@
 			images = next;
 		},
 		sendTurn: (payload) => inputController.sendTurn(payload),
-		onModelChange: changeModel,
+		onModelChange: (option) => turn.changeModel(option),
 		onWorkspaceChanged: () => onWorkspaceChanged?.(),
 		onTranscriptCleared: () => onTranscriptCleared?.(),
 		setDropMessage: (message) => attachments.setDropMessage(message),
@@ -245,290 +215,30 @@
 
 	export function restoreDraft(draft: PendingUnsentDraft) {
 		if (!inputController.restoreDraft(draft)) return false;
-		resetHistoryBrowse();
-		lastNonEmptyDraft = draft.text;
+		draftHistory.markDraftRestored(draft.text);
 		void focusInput({ position: 'end' });
 		return true;
 	}
 
 	$effect(() => {
-		const nextSessionId = sessionId;
-		if (trackedSessionId === null) {
-			trackedSessionId = nextSessionId;
-			return;
-		}
-		if (trackedSessionId === nextSessionId) return;
-
-		const prev = trackedSessionId;
-		if (value.trim() || images.length > 0) {
-			composerHistoryStore.stashUnsent(prev, { text: value, images });
-		}
-		trackedSessionId = nextSessionId;
-		boundAgentModeFromStore = false;
-		resetHistoryBrowse();
-		lastNonEmptyDraft = '';
-		applyComposerText('');
+		draftHistory.trackSessionChange();
 	});
 
-	function applyAgentModeState(next: AgentModeSwitchState) {
-		if (sameAgentModeSwitchState(agentModeState, next)) return;
-		agentModeState = next;
-	}
-
-	// Bind persisted mode when entering a session, or when that session first
-	// appears in the store. Later store writes do not own the chip.
 	$effect(() => {
-		const id = sessionId;
-		const session = id ? sessionStore.sessions.find((item) => item.id === id) : undefined;
-		if (id && !session) {
-			boundAgentModeFromStore = false;
-			return;
-		}
-		if (boundAgentModeFromStore) return;
-		applyAgentModeState(bindAgentModeForSession(session, id));
-		boundAgentModeFromStore = Boolean(id);
+		agentModes.bindFromStore();
 	});
 
-	async function persistAgentMode(id: string, next: AgentMode) {
-		try {
-			const updated = await updateSession(id, { agent_mode: next });
-			sessionStore.updateSession(updated);
-			if (sessionId !== id) return;
-			const settled = completeAgentModeRequest(agentModeState, next, {
-				ok: true,
-				mode: normalizeAgentMode(updated.agent_mode)
-			});
-			applyAgentModeState(settled.state);
-			modeAnnouncement = agentModeAnnouncement(agentModeState.mode);
-			if (settled.shouldPersist) {
-				void persistAgentMode(id, settled.shouldPersist);
-			}
-		} catch {
-			if (sessionId !== id) return;
-			const settled = completeAgentModeRequest(agentModeState, next, { ok: false });
-			applyAgentModeState(settled.state);
-			if (settled.shouldPersist) {
-				modeAnnouncement = agentModeAnnouncement(agentModeState.mode);
-				void persistAgentMode(id, settled.shouldPersist);
-				return;
-			}
-			modeAnnouncement = 'Failed to change mode';
-		}
-	}
-
-	function setAgentMode(next: AgentMode) {
-		const started = beginAgentModeRequest(agentModeState, next);
-		if (started.state === agentModeState && !started.shouldPersist) return;
-		applyAgentModeState(started.state);
-		modeAnnouncement = agentModeAnnouncement(started.state.mode);
-		const id = sessionId;
-		if (!id || !started.shouldPersist) return;
-		void persistAgentMode(id, next);
-	}
-
-	function cycleAgentMode() {
-		setAgentMode(nextAgentMode(agentModeState.mode));
-	}
-
 	$effect(() => {
-		if (historyIndex !== null && historyAppliedText !== null && value !== historyAppliedText) {
-			// User edited while browsing — leave history mode.
-			resetHistoryBrowse();
-		}
-		// While browsing history, do not treat recalled text as a live draft to stash.
-		if (historyIndex !== null) return;
-
-		const trimmed = value.trim();
-		if (trimmed) {
-			lastNonEmptyDraft = value;
-			return;
-		}
-		if (skippingEmptyStash) return;
-		if (!lastNonEmptyDraft.trim()) return;
-		composerHistoryStore.stashUnsent(sessionId, {
-			text: lastNonEmptyDraft,
-			images: images.length > 0 ? images : undefined
-		});
-		lastNonEmptyDraft = '';
+		draftHistory.syncDraftStash();
 	});
 
 	onDestroy(() => {
-		if (value.trim() || images.length > 0) {
-			composerHistoryStore.stashUnsent(sessionId, { text: value, images });
-		}
+		draftHistory.stashUnsentNow();
 		attachments.destroy();
 	});
 
-	async function submit() {
-		const trimmed = value.trim();
-		const action = slash.resolveSubmitAction(trimmed);
-		if (action.kind === 'handled') return;
-		if (!canSubmit || disabled || resolvingWebContext || !modelStore.selected) return;
-		const filePaths = input?.getFilePaths() ?? [];
-		const contextsBeforeResolve = pendingWebContexts.length;
-		resolvingWebContext = contextsBeforeResolve > 0;
-		let webContexts: WebContext[] = [];
-		try {
-			webContexts = contextsBeforeResolve
-				? await shellStore.resolvePendingWebContextsForActive()
-				: [];
-		} finally {
-			resolvingWebContext = false;
-		}
-		const displayText =
-			action.displayText ?? (webContexts.length > 0 ? action.text : undefined);
-		inputController.sendTurn({
-			text: action.text,
-			displayText,
-			images: images.length > 0 ? images : undefined,
-			filePaths: filePaths.length > 0 ? filePaths : undefined,
-			webContexts: webContexts.length > 0 ? webContexts : undefined
-		});
-		if (contextsBeforeResolve > 0) shellStore.clearWebContextForActive();
-		skippingEmptyStash = true;
-		input?.clear();
-		clearDraft();
-		void tick().then(() => {
-			skippingEmptyStash = false;
-		});
-	}
-
-	async function navigateHistory(direction: 'up' | 'down') {
-		let list = historyRecallList;
-		if (historyIndex === null) {
-			const transcriptTexts =
-				sessionId && chatStore.sessionID === sessionId
-					? composerHistoryStore.listUserMessageTexts(chatStore.items)
-					: [];
-			list = await composerHistoryStore.recallTexts({
-				sessionId,
-				workspacePath: shellStore.workspacePath,
-				transcriptUserTexts: transcriptTexts
-			});
-			if (list.length === 0) return;
-			historyRecallList = list;
-			historyLiveDraft = value;
-		}
-
-		const next = stepHistoryIndex(historyIndex, direction, list.length);
-		if (next.index === null) {
-			applyComposerText(historyLiveDraft);
-			resetHistoryBrowse();
-			return;
-		}
-
-		historyIndex = next.index;
-		const text = list[next.index] ?? '';
-		historyAppliedText = text;
-		const pending = composerHistoryStore.getPending(sessionId);
-		const recallImages =
-			pending?.text.trim() === text.trim() && pending.images?.length ? pending.images : [];
-		applyComposerText(text, recallImages);
-	}
-
-	function onKeydown(e: KeyboardEvent) {
-		if (
-			!e.isComposing &&
-			matchesShortcut(e, settingsStore.settings.shortcuts.cycleReasoningEffort)
-		) {
-			e.preventDefault();
-			cycleReasoningEffort();
-			return;
-		}
-		if (slash.handleMenuKeydown(e)) return;
-		if (mentions.handleMentionMenuKeydown(e)) return;
-		// Plain Tab toggles the agent mode only when no slash/mention menu owns
-		// the key. Shift+Tab and modified combinations keep native behavior.
-		if (
-			!e.isComposing &&
-			!e.metaKey &&
-			!e.ctrlKey &&
-			!e.altKey &&
-			e.key === 'Tab' &&
-			!e.shiftKey
-		) {
-			e.preventDefault();
-			cycleAgentMode();
-			return;
-		}
-		if (
-			!e.isComposing &&
-			!e.metaKey &&
-			!e.ctrlKey &&
-			!e.altKey &&
-			(e.key === 'Backspace' || e.key === 'Delete')
-		) {
-			const sel = window.getSelection();
-			if (!sel || sel.isCollapsed) {
-				const removal = nextAttachmentRemoval(value, images, pendingWebContexts.length);
-				if (removal?.kind === 'image') {
-					e.preventDefault();
-					attachments.removeImage(removal.id);
-					return;
-				}
-				if (removal?.kind === 'webContext') {
-					e.preventDefault();
-					shellStore.removeWebContextAt(removal.index);
-					return;
-				}
-			}
-		}
-		if (
-			!e.isComposing &&
-			!e.metaKey &&
-			!e.ctrlKey &&
-			!e.altKey &&
-			(e.key === 'ArrowUp' || e.key === 'ArrowDown')
-		) {
-			const inHistory = historyIndex !== null;
-			const canStepUp = e.key === 'ArrowUp' && (input?.isCaretAtStart() ?? true);
-			const canStepDown =
-				e.key === 'ArrowDown' && inHistory && (input?.isCaretAtEnd() ?? true);
-			if (canStepUp || canStepDown) {
-				e.preventDefault();
-				void navigateHistory(e.key === 'ArrowUp' ? 'up' : 'down');
-				return;
-			}
-		}
-		if (matchesShortcut(e, settingsStore.settings.shortcuts.stopResponse) && streaming) {
-			const sel = window.getSelection();
-			if (!sel || sel.isCollapsed) {
-				e.preventDefault();
-				onStop?.();
-				return;
-			}
-		}
-		if (!e.isComposing && matchesShortcut(e, settingsStore.settings.shortcuts.insertNewline)) {
-			return;
-		}
-		if (!e.isComposing && matchesShortcut(e, settingsStore.settings.shortcuts.sendMessage)) {
-			e.preventDefault();
-			void submit();
-		}
-	}
-
 	function removeQueued(id: string) {
 		onRemoveQueued?.(id);
-	}
-
-	async function changeModel(option: ModelOption) {
-		const current = getReasoningEffort(sessionId);
-		if (current && !(option.reasoningEffortOptions ?? []).includes(current)) {
-			setReasoningEffort(sessionId, '');
-		}
-		await onModelChange?.(option);
-	}
-
-	function currentReasoningEffort() {
-		const current = getReasoningEffort(sessionId);
-		return (modelStore.selected?.reasoningEffortOptions ?? []).includes(current) ? current : '';
-	}
-
-	function cycleReasoningEffort() {
-		const supported = modelStore.selected?.reasoningEffortOptions ?? [];
-		if (supported.length === 0) return;
-		const next = nextReasoningEffort(currentReasoningEffort(), supported);
-		setReasoningEffort(sessionId, next);
 	}
 </script>
 
@@ -544,23 +254,12 @@
 	ondragleave={attachments.onDragLeave}
 	ondrop={attachments.onDrop}
 >
-	<div class="sr-only" role="status" aria-live="polite">{modeAnnouncement}</div>
-	{#if attachments.dragActive}
-		<div class="drop-overlay" aria-hidden="true">
-			<FileText size={18} stroke-width={1.8} />
-			<span
-				>{attachments.dropProcessing
-					? 'Reading files…'
-					: 'Drop text files to add context'}</span
-			>
-		</div>
-	{/if}
-
-	{#if attachments.dropMessage}
-		<div class="drop-message" role="status" transition:fade={{ duration: 120 }}>
-			{attachments.dropMessage}
-		</div>
-	{/if}
+	<div class="sr-only" role="status" aria-live="polite">{agentModes.modeAnnouncement}</div>
+	<ComposerDropFeedback
+		dragActive={attachments.dragActive}
+		dropProcessing={attachments.dropProcessing}
+		dropMessage={attachments.dropMessage}
+	/>
 
 	<ComposerSlashMenus {slash} bind:menuRef={skillMenu} />
 	<ComposerMentionMenu {mentions} bind:menuRef={mentionMenu} />
@@ -585,7 +284,7 @@
 		mentionsEnabled={mentions.mentionsEnabled}
 		caretTrail={settingsStore.settings.appearance.caretTrail}
 		caretColor={settingsStore.settings.appearance.heroComposer.glowColor}
-		onkeydown={onKeydown}
+		onkeydown={turn.onKeydown}
 		placeholder={streaming
 			? 'Add a follow-up…'
 			: variant === 'hero'
@@ -609,16 +308,16 @@
 		{streaming}
 		{canSubmit}
 		{disabled}
-		onModelChange={changeModel}
-		reasoningEffort={currentReasoningEffort()}
+		onModelChange={(option) => turn.changeModel(option)}
+		reasoningEffort={turn.currentReasoningEffort()}
 		reasoningEffortOptions={modelStore.selected?.reasoningEffortOptions ?? []}
-		onCycleReasoningEffort={cycleReasoningEffort}
+		onCycleReasoningEffort={turn.cycleReasoningEffort}
 		{agentMode}
-		{agentModeKnown}
-		onSwitchToAuto={() => setAgentMode('auto')}
+		agentModeKnown={agentModes.agentModeKnown}
+		onSwitchToAuto={() => agentModes.setAgentMode('auto')}
 		onOpenChangeWorkspace={slash.openChangeWorkspace}
 		{onStop}
-		onSubmit={() => void submit()}
+		onSubmit={() => void turn.submit()}
 	/>
 </div>
 
@@ -647,7 +346,7 @@
 
 	.composer.dragging {
 		border-color: rgba(37, 99, 235, 0.26);
-		background: #f8fbff;
+		background: var(--color-f8fbff);
 		box-shadow:
 			var(--shadow-card),
 			0 0 0 4px rgba(37, 99, 235, 0.08);
@@ -672,41 +371,6 @@
 		box-shadow:
 			var(--shadow-card),
 			0 0 0 4px rgba(37, 99, 235, 0.08);
-	}
-
-	.drop-overlay {
-		position: absolute;
-		inset: 8px;
-		z-index: 20;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: 8px;
-		border: 1px dashed rgba(37, 99, 235, 0.34);
-		border-radius: calc(var(--radius-card) - 6px);
-		background: rgba(255, 255, 255, 0.78);
-		color: #1d4ed8;
-		font-size: 13px;
-		font-weight: 600;
-		pointer-events: none;
-		backdrop-filter: blur(10px);
-		-webkit-backdrop-filter: blur(10px);
-	}
-
-	.drop-message {
-		position: absolute;
-		right: 12px;
-		bottom: calc(100% + 8px);
-		z-index: 25;
-		max-width: min(360px, calc(100vw - 32px));
-		padding: 7px 10px;
-		border: 1px solid var(--border-soft);
-		border-radius: 10px;
-		background: rgba(255, 255, 255, 0.96);
-		box-shadow: var(--shadow-card);
-		color: var(--text-muted);
-		font-size: 12px;
-		line-height: 1.35;
 	}
 
 	.vision-capability-hint {

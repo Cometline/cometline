@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { Brain, Folder, Send, Square } from '@lucide/svelte';
-	import ContextWindowRing from '$lib/features/composer/components/ContextWindowRing.svelte';
+	import { Brain, Folder } from '@lucide/svelte';
 	import ModelPicker from '$lib/features/composer/components/ModelPicker.svelte';
+	import ComposerToolbarActions from '$lib/features/composer/components/composer/ComposerToolbarActions.svelte';
 	import Tooltip from '$lib/components/Tooltip.svelte';
-	import { modelStore, type ModelOption } from '$lib/stores/model.svelte';
+	import type { ModelOption } from '$lib/stores/model.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import type { AgentMode } from '$lib/types';
 
@@ -45,7 +45,6 @@
 		onSubmit: () => void;
 	} = $props();
 
-	const sendLabel = $derived(streaming ? 'Queue follow-up' : 'Send');
 	const effortSupported = $derived(reasoningEffortOptions.length > 0);
 	const effortLabel = $derived(
 		reasoningEffort
@@ -93,44 +92,17 @@
 		</Tooltip>
 	</div>
 
-	<div class="composer-actions">
-		{#if agentMode === 'plan' && agentModeKnown}
-			<Tooltip label="Plan mode: read-only. Press Tab to switch to Auto.">
-				<button
-					type="button"
-					class="plan-chip"
-					onclick={() => void onSwitchToAuto()}
-					aria-label="Plan mode: read-only. Click to switch to Auto."
-				>
-					plan
-				</button>
-			</Tooltip>
-		{/if}
-		{#if contextWindowUsage}
-			<ContextWindowRing
-				usedTokens={contextWindowUsage.used}
-				limitTokens={contextWindowUsage.limit}
-				source={contextWindowUsage.source}
-			/>
-		{/if}
-		{#if streaming}
-			<Tooltip label="Stop response" action="stopResponse">
-				<button class="stop-button" onclick={() => onStop?.()} aria-label="Stop response">
-					<Square size={14} fill="currentColor" stroke-width={0} />
-				</button>
-			</Tooltip>
-		{/if}
-		<Tooltip label={sendLabel} action="sendMessage">
-			<button
-				class="send-button"
-				onclick={onSubmit}
-				disabled={!canSubmit || disabled || !modelStore.selected}
-				aria-label={sendLabel}
-			>
-				<Send size={16} stroke-width={1.8} />
-			</button>
-		</Tooltip>
-	</div>
+	<ComposerToolbarActions
+		{contextWindowUsage}
+		{streaming}
+		{canSubmit}
+		{disabled}
+		{agentMode}
+		{agentModeKnown}
+		{onSwitchToAuto}
+		{onStop}
+		{onSubmit}
+	/>
 </div>
 
 <style>
@@ -143,45 +115,12 @@
 		min-width: 0;
 	}
 
-	.composer-tools,
-	.composer-actions {
+	.composer-tools {
 		display: flex;
 		align-items: center;
 		gap: 8px;
 		min-width: 0;
-	}
-
-	.composer-tools {
 		flex: 1 1 auto;
-	}
-
-	.composer-actions {
-		flex: 0 0 auto;
-		margin-left: auto;
-	}
-
-	.composer-footer .plan-chip {
-		display: inline-flex;
-		align-items: center;
-		padding: 3px 8px;
-		border: 1px solid var(--plan-chip-border, var(--plan-border));
-		border-radius: 999px;
-		background: var(--plan-chip-bg);
-		color: var(--plan-chip-text);
-		font-size: 10px;
-		font-weight: 700;
-		letter-spacing: 0.06em;
-		line-height: 1;
-		text-transform: uppercase;
-		cursor: pointer;
-		transition:
-			background 140ms ease,
-			color 140ms ease;
-	}
-
-	.composer-footer .plan-chip:hover:not(:disabled) {
-		background: var(--plan-chip-bg-strong, var(--plan-chip-bg));
-		color: var(--plan-chip-text-strong, var(--plan-chip-text));
 	}
 
 	.composer-footer button {
@@ -222,8 +161,8 @@
 	.effort-button :global(svg) {
 		color: color-mix(
 			in srgb,
-			var(--hero-composer-glow-color, #72c0ff) 58%,
-			var(--accent, #0066cc)
+			var(--hero-composer-glow-color, var(--color-72c0ff)) 58%,
+			var(--accent, var(--accent))
 		);
 		transition:
 			color 160ms ease,
@@ -231,7 +170,7 @@
 	}
 
 	.effort-button.active :global(svg) {
-		color: var(--hero-composer-glow-color, #72c0ff);
+		color: var(--hero-composer-glow-color, var(--color-72c0ff));
 		filter: drop-shadow(0 0 5px var(--hero-composer-glow-ring, rgba(114, 192, 255, 0.2)));
 	}
 
@@ -243,70 +182,6 @@
 		line-height: 1.25;
 		text-overflow: ellipsis;
 		white-space: nowrap;
-	}
-
-	.send-button {
-		display: grid;
-		flex-shrink: 0;
-		place-items: center;
-		padding: 6px;
-		border-radius: 999px;
-		color: color-mix(
-			in srgb,
-			var(--hero-composer-glow-color, #72c0ff) 58%,
-			var(--accent, #0066cc)
-		) !important;
-		transition:
-			color 160ms ease,
-			background 160ms ease,
-			box-shadow 160ms ease;
-	}
-
-	.send-button:hover:not(:disabled) {
-		color: var(--hero-composer-glow-color, #72c0ff) !important;
-		background: var(--hero-composer-glow-soft, rgba(114, 192, 255, 0.24)) !important;
-		box-shadow: 0 0 14px var(--hero-composer-glow-ring, rgba(114, 192, 255, 0.14));
-	}
-
-	.send-button:active:not(:disabled) {
-		background: color-mix(
-			in srgb,
-			var(--hero-composer-glow-color, #72c0ff) 22%,
-			transparent
-		) !important;
-		box-shadow: 0 0 8px var(--hero-composer-glow-ring, rgba(114, 192, 255, 0.14));
-	}
-
-	.stop-button {
-		display: grid;
-		flex-shrink: 0;
-		place-items: center;
-		padding: 6px;
-		border-radius: 999px;
-		color: color-mix(
-			in srgb,
-			var(--hero-composer-glow-color, #72c0ff) 58%,
-			var(--accent, #0066cc)
-		) !important;
-		transition:
-			color 160ms ease,
-			background 160ms ease,
-			box-shadow 160ms ease;
-	}
-
-	.stop-button:hover:not(:disabled) {
-		color: var(--hero-composer-glow-color, #72c0ff) !important;
-		background: var(--hero-composer-glow-soft, rgba(114, 192, 255, 0.24)) !important;
-		box-shadow: 0 0 14px var(--hero-composer-glow-ring, rgba(114, 192, 255, 0.14));
-	}
-
-	.stop-button:active:not(:disabled) {
-		background: color-mix(
-			in srgb,
-			var(--hero-composer-glow-color, #72c0ff) 22%,
-			transparent
-		) !important;
-		box-shadow: 0 0 8px var(--hero-composer-glow-ring, rgba(114, 192, 255, 0.14));
 	}
 
 	.workspace-indicator {

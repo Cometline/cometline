@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { fly } from 'svelte/transition';
 	import type { Snippet } from 'svelte';
+	import SlashCommandMenuDetails from './SlashCommandMenuDetails.svelte';
 
 	let {
 		ariaLabel,
@@ -22,7 +23,7 @@
 	bind:this={menuRef}
 	transition:fly={{ y: 6, duration: 120 }}
 >
-	{@render children()}
+	<SlashCommandMenuDetails>{@render children()}</SlashCommandMenuDetails>
 </div>
 
 <style>
@@ -176,80 +177,14 @@
 		}
 	}
 
-	@media (prefers-reduced-motion: reduce) {
-		.skill-command-menu :global(.skill-command-loading .mention-spinner) {
-			animation: none;
-		}
-	}
-
-	.skill-command-menu :global(.mention-option) {
-		flex-direction: row;
-		align-items: center;
-		gap: 8px;
-		padding: 7px 10px;
-	}
-
-	.skill-command-menu :global(.mention-option svg) {
-		flex-shrink: 0;
-		color: var(--text-soft);
-	}
-
-	.skill-command-menu :global(.mention-path) {
-		font-size: 12px;
-		font-weight: 500;
-		color: var(--text-main);
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-	}
-
-	.skill-command-menu :global(.mention-hint) {
-		margin: 2px 0 0;
-		padding: 6px 10px 2px;
-		font-size: 10px;
-		color: var(--text-soft);
-		border-top: 1px solid var(--border-soft);
-	}
-
 	.skill-command-menu:global(.model-command-menu) {
 		max-height: 320px;
 		overflow-y: auto;
 	}
 
-	.skill-command-menu :global(.model-command-option) {
-		position: relative;
-		padding-right: 28px;
-	}
-
-	.skill-command-menu :global(.model-command-option.is-selected) {
-		background: rgba(0, 102, 204, 0.04);
-	}
-
-	.skill-command-menu :global(.model-command-name) {
-		display: inline-flex;
-		align-items: center;
-		flex-wrap: wrap;
-		gap: 4px;
-		min-width: 0;
-	}
-
-	.skill-command-menu :global(.model-command-label) {
-		display: inline-flex;
-		align-items: center;
-		gap: 5px;
-		min-width: 0;
-	}
-
-	.skill-command-menu :global(.model-command-context-hint) {
-		font-weight: 500;
-		color: var(--text-soft);
-	}
-
-	.skill-command-menu :global(.model-command-check) {
-		position: absolute;
-		right: 10px;
-		top: 50%;
-		transform: translateY(-50%);
-		color: rgba(0, 102, 204, 0.7);
+	@media (prefers-reduced-motion: reduce) {
+		.skill-command-menu :global(.skill-command-loading .mention-spinner) {
+			animation: none;
+		}
 	}
 </style>

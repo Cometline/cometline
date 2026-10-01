@@ -1,19 +1,10 @@
 import { tick } from 'svelte';
 import { createMenuHighlight } from '$lib/features/composer/menu-highlight.svelte';
+import { groupModelCommandOptions } from '$lib/features/composer/composer-model-groups';
+import { createComposerJobCommands } from '$lib/features/composer/composer-slash-jobs.svelte';
+import { createComposerWorkspaceCommands } from '$lib/features/composer/composer-slash-workspace.svelte';
 import type { ChatTurnPayload } from '$lib/actions/start-chat';
-import {
-	listSkills,
-	listWorkspaces,
-	forkSession,
-	clearSession,
-	deleteWorkspace,
-	listJobs,
-	claimJob,
-	buildJobExecutionPrompt
-} from '$lib/client/cometmind';
-import { jobUserDisplayText } from '$lib/features/jobs/format-job-label';
-import { gotoSession } from '$lib/routes/session-route';
-import { sessionStore } from '$lib/stores/session.svelte';
+import { clearSession, listSkills } from '$lib/client/cometmind';
 import { chatStore } from '$lib/stores/chat.svelte';
 import { modelStore, type ModelOption } from '$lib/stores/model.svelte';
 import { shellStore } from '$lib/stores/shell.svelte';
@@ -21,20 +12,15 @@ import {
 	BUILTIN_SLASH_COMMANDS,
 	expandBuiltinSlashCommand,
 	filterSlashMenuOptions,
-	filterWorkspaceOptions,
 	isChangeWorkspaceCommand,
 	isJobCommand,
 	isModelCommand,
 	parseChangeCommand,
 	parseClearCommand,
 	parseModelCommand,
-	parseJobCommand,
-	filterJobOptions,
-	type SlashMenuOption,
-	type WorkspaceMenuOption
+	type SlashMenuOption
 } from '$lib/features/skills/slash-commands';
 import type { ImageAttachment, SkillResource } from '$lib/types';
-import type { JobResource } from '$lib/generated/cometmind-api';
 import type { ComposerInputRef } from '$lib/features/composer/composer-input-ref';
 
 export type ComposerSubmitResolution =
@@ -60,15 +46,31 @@ export function createComposerSlashController(deps: {
 	let skills = $state<SkillResource[]>([]);
 	let skillsLoaded = $state(false);
 	let skillsLoading = $state(false);
-	let workspacePaths = $state<string[]>([]);
-	let workspaceSessionCounts = $state<Map<string, number>>(new Map());
-	let workspacePathsLoading = $state(false);
-	let workspacePathsLoaded = $state(false);
-	let workspaceDeleting = $state(false);
 	let dismissedSkillCommand = $state('');
-	let readyJobs = $state<JobResource[]>([]);
-	let jobsLoading = $state(false);
-	let jobsLoaded = $state(false);
+
+	const workspace = createComposerWorkspaceCommands({
+		getValue: deps.getValue,
+		setValue: deps.setValue,
+		getInput: deps.getInput,
+		getSessionId: deps.getSessionId,
+		onWorkspaceChanged: deps.onWorkspaceChanged,
+		setDropMessage: deps.setDropMessage,
+		focusInput: deps.focusInput,
+		getSkillMenuRef: deps.getSkillMenuRef,
+		invalidateSkills: () => {
+			skillsLoaded = false;
+			skills = [];
+		}
+	});
+	const jobs = createComposerJobCommands({
+		getValue: deps.getValue,
+		setValue: deps.setValue,
+		getInput: deps.getInput,
+		getSessionId: deps.getSessionId,
+		sendTurn: deps.sendTurn,
+		setDropMessage: deps.setDropMessage,
+		getSkillMenuRef: deps.getSkillMenuRef
+	});
 
 	const skillCommandMatch = $derived(/^\s*\/([\w-]*)$/.exec(deps.getValue()));
 	const skillCommandQuery = $derived(skillCommandMatch?.[1]?.toLowerCase() ?? '');
@@ -78,13 +80,6 @@ export function createComposerSlashController(deps: {
 	const filteredSlashOptions = $derived.by(() => {
 		if (!skillCommandMatch) return [];
 		return filterSlashMenuOptions(skillCommandQuery, skills);
-	});
-	const changeCommand = $derived(parseChangeCommand(deps.getValue()));
-	const workspaceMenuOpen = $derived(Boolean(changeCommand));
-	const workspaceSearchQuery = $derived(changeCommand?.query ?? '');
-	const filteredWorkspaceOptions = $derived.by(() => {
-		if (!changeCommand) return [];
-		return filterWorkspaceOptions(workspaceSearchQuery, workspacePaths, workspaceSessionCounts);
 	});
 	const modelCommand = $derived(parseModelCommand(deps.getValue()));
 	const modelCommandMenuOpen = $derived(Boolean(modelCommand));
@@ -99,34 +94,9 @@ export function createComposerSlashController(deps: {
 				option.providerName.toLowerCase().includes(query)
 		);
 	});
-	const groupedModelCommandOptions = $derived.by(() => {
-		const groups: {
-			providerId: string;
-			providerName: string;
-			providerMethod: string;
-			options: ModelOption[];
-		}[] = [];
-		for (const option of filteredModelCommandOptions) {
-			let group = groups.find((item) => item.providerId === option.providerId);
-			if (!group) {
-				group = {
-					providerId: option.providerId,
-					providerName: option.providerName,
-					providerMethod: option.providerMethod,
-					options: []
-				};
-				groups.push(group);
-			}
-			group.options.push(option);
-		}
-		return groups;
-	});
-	const jobCommand = $derived(parseJobCommand(deps.getValue()));
-	const jobCommandMenuOpen = $derived(Boolean(jobCommand));
-	const jobCommandQuery = $derived(jobCommand?.query ?? '');
-	const filteredJobOptions = $derived.by(() => {
-		return filterJobOptions(jobCommandQuery, readyJobs);
-	});
+	const groupedModelCommandOptions = $derived(
+		groupModelCommandOptions(filteredModelCommandOptions)
+	);
 	const skillNames = $derived([
 		...BUILTIN_SLASH_COMMANDS.map((cmd) => cmd.name),
 		...skills.map((skill) => skill.name)
@@ -136,38 +106,17 @@ export function createComposerSlashController(deps: {
 		getOpen: () => skillMenuOpen,
 		getCount: () => filteredSlashOptions.length
 	});
-	const workspaceHighlightMenu = createMenuHighlight({
-		getQuery: () => workspaceSearchQuery,
-		getOpen: () => workspaceMenuOpen,
-		getCount: () => filteredWorkspaceOptions.length
-	});
 	const modelCommandHighlightMenu = createMenuHighlight({
 		getQuery: () => modelCommandQuery,
 		getOpen: () => modelCommandMenuOpen,
 		getCount: () => filteredModelCommandOptions.length
 	});
-	const jobCommandHighlightMenu = createMenuHighlight({
-		getQuery: () => jobCommandQuery,
-		getOpen: () => jobCommandMenuOpen,
-		getCount: () => filteredJobOptions.length
-	});
-
 	$effect(() => {
 		if (!skillCommandMatch) {
 			dismissedSkillCommand = '';
 			return;
 		}
 		void ensureSkillsLoaded();
-	});
-
-	$effect(() => {
-		if (!workspaceMenuOpen) return;
-		void ensureWorkspacePathsLoaded();
-	});
-
-	$effect(() => {
-		if (!jobCommandMenuOpen) return;
-		void ensureReadyJobsLoaded();
 	});
 
 	async function ensureSkillsLoaded() {
@@ -182,64 +131,6 @@ export function createComposerSlashController(deps: {
 			skillsLoaded = true;
 		} finally {
 			skillsLoading = false;
-		}
-	}
-
-	async function ensureWorkspacePathsLoaded() {
-		if (workspacePathsLoaded || workspacePathsLoading) return;
-		workspacePathsLoading = true;
-		try {
-			const recent = (await window.electronAPI?.listRecentWorkspaces?.()) ?? [];
-			const registered = await listWorkspaces().catch(() => []);
-			const counts = new Map<string, number>();
-			for (const ws of registered) {
-				counts.set(ws.path, ws.session_count);
-			}
-			workspaceSessionCounts = counts;
-			const seen = new Set<string>();
-			const merged: string[] = [];
-			const add = (path: string) => {
-				const clean = path.trim();
-				if (!clean || seen.has(clean)) return;
-				seen.add(clean);
-				merged.push(clean);
-			};
-			for (const path of recent) add(path);
-			add(shellStore.workspacePath);
-			for (const ws of registered) add(ws.path);
-			workspacePaths =
-				(await window.electronAPI?.filterExistingWorkspacePaths?.(merged)) ?? merged;
-			workspacePathsLoaded = true;
-		} catch {
-			workspacePaths = shellStore.workspacePath ? [shellStore.workspacePath] : [];
-			workspacePathsLoaded = true;
-		} finally {
-			workspacePathsLoading = false;
-		}
-	}
-
-	async function ensureReadyJobsLoaded() {
-		if (jobsLoaded || jobsLoading) return;
-		jobsLoading = true;
-		try {
-			const res = await listJobs({ ready_only: true });
-			readyJobs = res.jobs ?? [];
-			jobsLoaded = true;
-		} catch {
-			readyJobs = [];
-			jobsLoaded = true;
-		} finally {
-			jobsLoading = false;
-		}
-	}
-
-	async function scrollHighlightedWorkspaceIntoView() {
-		await tick();
-		const option = deps
-			.getSkillMenuRef()
-			?.querySelector(`[data-workspace-index="${workspaceHighlightMenu.index}"]`);
-		if (option instanceof HTMLElement) {
-			option.scrollIntoView({ block: 'nearest' });
 		}
 	}
 
@@ -263,43 +154,6 @@ export function createComposerSlashController(deps: {
 		}
 	}
 
-	async function scrollHighlightedJobIntoView() {
-		await tick();
-		const option = deps
-			.getSkillMenuRef()
-			?.querySelector(`[data-job-index="${jobCommandHighlightMenu.index}"]`);
-		if (option instanceof HTMLElement) {
-			option.scrollIntoView({ block: 'nearest' });
-		}
-	}
-
-	async function selectWorkspaceOption(option: WorkspaceMenuOption) {
-		if (option.kind === 'browse') {
-			const picked = await window.electronAPI?.browseWorkspacePath?.();
-			if (!picked) return;
-			await applyWorkspaceChange(picked);
-			return;
-		}
-		await applyWorkspaceChange(option.path);
-	}
-
-	async function handleChangeWorkspaceSubmit(trimmed: string) {
-		const parsed = parseChangeCommand(trimmed);
-		if (!parsed) return;
-		const option = filteredWorkspaceOptions[workspaceHighlightMenu.index];
-		if (option?.kind === 'workspace') {
-			await applyWorkspaceChange(option.path);
-			return;
-		}
-		if (option?.kind === 'browse') {
-			await selectWorkspaceOption(option);
-			return;
-		}
-		if (parsed.query) {
-			await applyWorkspaceChange(parsed.query);
-		}
-	}
-
 	async function handleClearSubmit() {
 		const sessionId = deps.getSessionId();
 		if (!sessionId || deps.getStreaming()) return;
@@ -318,58 +172,6 @@ export function createComposerSlashController(deps: {
 		}
 	}
 
-	async function applyWorkspaceChange(path: string) {
-		const clean = path.trim();
-		if (!clean) return;
-		try {
-			let forkedId: string | null = null;
-			const sessionId = deps.getSessionId();
-			if (sessionId) {
-				const forked = await forkSession(sessionId, clean);
-				sessionStore.appendSession(forked);
-				forkedId = forked.id;
-			}
-			shellStore.commitActiveWorkspace(clean);
-			skillsLoaded = false;
-			skills = [];
-			workspacePathsLoaded = false;
-			deps.getInput()?.clear();
-			deps.setValue('');
-			workspaceHighlightMenu.index = 0;
-			if (forkedId) {
-				// Remount-equivalent before soft navigate: empty fork must start
-				// centered so first-turn flight + follow-up transitions work.
-				shellStore.centerComposer();
-				deps.setDropMessage(`Forked session into ${clean}`);
-				await gotoSession(forkedId);
-			} else {
-				deps.setDropMessage(`Switched workspace to ${clean}`);
-				await deps.onWorkspaceChanged?.();
-			}
-			void deps.focusInput();
-		} catch (err) {
-			deps.setDropMessage(err instanceof Error ? err.message : 'Failed to fork session');
-		}
-	}
-
-	async function removeWorkspaceFromList(path: string, event: Event) {
-		event.preventDefault();
-		event.stopPropagation();
-		if (workspaceDeleting) return;
-		workspaceDeleting = true;
-		try {
-			await window.electronAPI?.removeRecentWorkspacePath?.(path);
-			await deleteWorkspace(path);
-			workspacePathsLoaded = false;
-			await ensureWorkspacePathsLoaded();
-			deps.setDropMessage(`Removed ${path} from workspace list`);
-		} catch (err) {
-			deps.setDropMessage(err instanceof Error ? err.message : 'Failed to remove workspace');
-		} finally {
-			workspaceDeleting = false;
-		}
-	}
-
 	async function selectModelCommandOption(option: ModelOption) {
 		modelStore.select(option);
 		await deps.onModelChange?.(option);
@@ -384,35 +186,6 @@ export function createComposerSlashController(deps: {
 		const option = flatOptions[modelCommandHighlightMenu.index];
 		if (option) {
 			void selectModelCommandOption(option);
-			return;
-		}
-		deps.getInput()?.clear();
-		deps.setValue('');
-	}
-
-	async function selectJobCommandOption(job: JobResource) {
-		const sessionId = deps.getSessionId();
-		if (!sessionId) return;
-		try {
-			const claimed = await claimJob(job.id, sessionId);
-			let prompt = buildJobExecutionPrompt(claimed);
-			const jobPath = claimed.workspace_path?.trim();
-			const sessionPath = shellStore.workspacePath?.trim();
-			if (jobPath && sessionPath && jobPath !== sessionPath) {
-				prompt += `\n\nNote: this job targets workspace \`${jobPath}\` but this session uses \`${sessionPath}\`. Consider /change to fork into the correct workspace before editing files.`;
-			}
-			deps.getInput()?.clear();
-			deps.setValue('');
-			deps.sendTurn({ text: prompt, displayText: jobUserDisplayText(claimed) });
-		} catch (err) {
-			deps.setDropMessage(err instanceof Error ? err.message : 'Failed to claim job');
-		}
-	}
-
-	function handleJobCommandSubmit() {
-		const option = filteredJobOptions[jobCommandHighlightMenu.index];
-		if (option) {
-			void selectJobCommandOption(option);
 			return;
 		}
 		deps.getInput()?.clear();
@@ -444,7 +217,7 @@ export function createComposerSlashController(deps: {
 				openChangeWorkspace();
 				return { kind: 'handled' };
 			}
-			void handleChangeWorkspaceSubmit(trimmed);
+			void workspace.handleChangeWorkspaceSubmit(trimmed);
 			return { kind: 'handled' };
 		}
 		if (parseClearCommand(trimmed)) {
@@ -460,11 +233,11 @@ export function createComposerSlashController(deps: {
 			return { kind: 'handled' };
 		}
 		if (isJobCommand(trimmed)) {
-			if (!jobCommand) {
+			if (!jobs.active) {
 				openJobCommand();
 				return { kind: 'handled' };
 			}
-			handleJobCommandSubmit();
+			jobs.handleJobCommandSubmit();
 			return { kind: 'handled' };
 		}
 		const builtin = expandBuiltinSlashCommand(trimmed);
@@ -473,49 +246,6 @@ export function createComposerSlashController(deps: {
 		}
 		const skill = expandSkillCommand(trimmed);
 		return { kind: 'message', text: skill.text, displayText: skill.displayText };
-	}
-
-	function handleWorkspaceMenuKeydown(e: KeyboardEvent): boolean {
-		if (!workspaceMenuOpen) return false;
-		if (e.key === 'Escape') {
-			e.preventDefault();
-			deps.getInput()?.clear();
-			deps.setValue('');
-			return true;
-		}
-		if (e.key === 'ArrowDown') {
-			e.preventDefault();
-			if (filteredWorkspaceOptions.length > 0) {
-				workspaceHighlightMenu.index =
-					(workspaceHighlightMenu.index + 1) % filteredWorkspaceOptions.length;
-				void scrollHighlightedWorkspaceIntoView();
-			}
-			return true;
-		}
-		if (e.key === 'ArrowUp') {
-			e.preventDefault();
-			if (filteredWorkspaceOptions.length > 0) {
-				workspaceHighlightMenu.index =
-					(workspaceHighlightMenu.index - 1 + filteredWorkspaceOptions.length) %
-					filteredWorkspaceOptions.length;
-				void scrollHighlightedWorkspaceIntoView();
-			}
-			return true;
-		}
-		if (e.key === 'Tab' || e.key === 'Enter') {
-			const option = filteredWorkspaceOptions[workspaceHighlightMenu.index];
-			if (!option) {
-				if (e.key === 'Tab') {
-					e.preventDefault();
-					return true;
-				}
-				return false;
-			}
-			e.preventDefault();
-			void selectWorkspaceOption(option);
-			return true;
-		}
-		return false;
 	}
 
 	function handleModelCommandMenuKeydown(e: KeyboardEvent): boolean {
@@ -556,41 +286,6 @@ export function createComposerSlashController(deps: {
 			}
 			e.preventDefault();
 			void selectModelCommandOption(option);
-			return true;
-		}
-		return false;
-	}
-
-	function handleJobCommandMenuKeydown(e: KeyboardEvent): boolean {
-		if (!jobCommandMenuOpen) return false;
-		if (e.key === 'Escape') {
-			e.preventDefault();
-			deps.getInput()?.clear();
-			deps.setValue('');
-			return true;
-		}
-		if (e.key === 'ArrowDown') {
-			e.preventDefault();
-			if (filteredJobOptions.length > 0) {
-				jobCommandHighlightMenu.index =
-					(jobCommandHighlightMenu.index + 1) % filteredJobOptions.length;
-				void scrollHighlightedJobIntoView();
-			}
-			return true;
-		}
-		if (e.key === 'ArrowUp') {
-			e.preventDefault();
-			if (filteredJobOptions.length > 0) {
-				jobCommandHighlightMenu.index =
-					(jobCommandHighlightMenu.index - 1 + filteredJobOptions.length) %
-					filteredJobOptions.length;
-				void scrollHighlightedJobIntoView();
-			}
-			return true;
-		}
-		if (e.key === 'Enter' && !e.shiftKey) {
-			e.preventDefault();
-			void handleJobCommandSubmit();
 			return true;
 		}
 		return false;
@@ -639,9 +334,9 @@ export function createComposerSlashController(deps: {
 	}
 
 	function handleMenuKeydown(e: KeyboardEvent): boolean {
-		if (handleWorkspaceMenuKeydown(e)) return true;
+		if (workspace.handleKeydown(e)) return true;
 		if (handleModelCommandMenuKeydown(e)) return true;
-		if (handleJobCommandMenuKeydown(e)) return true;
+		if (jobs.handleKeydown(e)) return true;
 		if (handleSkillMenuKeydown(e)) return true;
 		return false;
 	}
@@ -652,8 +347,7 @@ export function createComposerSlashController(deps: {
 		deps.setValue(next);
 		dismissedSkillCommand = '';
 		skillHighlightMenu.index = 0;
-		workspaceHighlightMenu.index = 0;
-		void ensureWorkspacePathsLoaded();
+		workspace.prepareOpen();
 		void deps.focusInput();
 	}
 
@@ -673,8 +367,7 @@ export function createComposerSlashController(deps: {
 		deps.setValue(next);
 		dismissedSkillCommand = next;
 		skillHighlightMenu.index = 0;
-		jobCommandHighlightMenu.index = 0;
-		void ensureReadyJobsLoaded();
+		jobs.prepareOpen();
 		void deps.focusInput();
 	}
 
@@ -703,28 +396,28 @@ export function createComposerSlashController(deps: {
 			return skillNames;
 		},
 		get workspaceMenuOpen() {
-			return workspaceMenuOpen;
+			return workspace.workspaceMenuOpen;
 		},
 		get workspaceSearchQuery() {
-			return workspaceSearchQuery;
+			return workspace.workspaceSearchQuery;
 		},
 		get workspacePathsLoading() {
-			return workspacePathsLoading;
+			return workspace.workspacePathsLoading;
 		},
 		get workspacePathsLoaded() {
-			return workspacePathsLoaded;
+			return workspace.workspacePathsLoaded;
 		},
 		get filteredWorkspaceOptions() {
-			return filteredWorkspaceOptions;
+			return workspace.filteredWorkspaceOptions;
 		},
 		get workspaceHighlight() {
-			return workspaceHighlightMenu.index;
+			return workspace.workspaceHighlight;
 		},
 		set workspaceHighlight(index: number) {
-			workspaceHighlightMenu.index = index;
+			workspace.workspaceHighlight = index;
 		},
 		get workspaceDeleting() {
-			return workspaceDeleting;
+			return workspace.workspaceDeleting;
 		},
 		get modelCommandMenuOpen() {
 			return modelCommandMenuOpen;
@@ -745,25 +438,25 @@ export function createComposerSlashController(deps: {
 			modelCommandHighlightMenu.index = index;
 		},
 		get jobCommandMenuOpen() {
-			return jobCommandMenuOpen;
+			return jobs.jobCommandMenuOpen;
 		},
 		get jobCommandQuery() {
-			return jobCommandQuery;
+			return jobs.jobCommandQuery;
 		},
 		get jobsLoading() {
-			return jobsLoading;
+			return jobs.jobsLoading;
 		},
 		get jobsLoaded() {
-			return jobsLoaded;
+			return jobs.jobsLoaded;
 		},
 		get filteredJobOptions() {
-			return filteredJobOptions;
+			return jobs.filteredJobOptions;
 		},
 		get jobCommandHighlight() {
-			return jobCommandHighlightMenu.index;
+			return jobs.jobCommandHighlight;
 		},
 		set jobCommandHighlight(index: number) {
-			jobCommandHighlightMenu.index = index;
+			jobs.jobCommandHighlight = index;
 		},
 		get skillMenuOpen() {
 			return skillMenuOpen;
@@ -787,9 +480,9 @@ export function createComposerSlashController(deps: {
 		handleMenuKeydown,
 		openChangeWorkspace,
 		selectSlashOption,
-		selectWorkspaceOption,
-		removeWorkspaceFromList,
+		selectWorkspaceOption: workspace.selectWorkspaceOption,
+		removeWorkspaceFromList: workspace.removeWorkspaceFromList,
 		selectModelCommandOption,
-		selectJobCommandOption
+		selectJobCommandOption: jobs.selectJobCommandOption
 	};
 }
