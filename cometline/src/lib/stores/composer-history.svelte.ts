@@ -64,7 +64,6 @@ function createComposerHistoryStore() {
 	let loaded = $state(false);
 	let loadPromise: Promise<void> | null = null;
 	/** In-memory images for pending unsent drafts (not persisted — may be large). */
-	// eslint-disable-next-line svelte/prefer-svelte-reactivity -- non-reactive bookkeeping
 	const pendingImages = new Map<string, ImageAttachment[]>();
 
 	async function ensureLoaded() {

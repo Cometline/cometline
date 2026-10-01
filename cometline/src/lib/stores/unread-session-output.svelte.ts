@@ -37,7 +37,6 @@ function createUnreadSessionOutputStore() {
 	function setUnread(sessionId: string, unread: boolean, broadcast = true) {
 		const id = sessionId.trim();
 		if (!id) return;
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- local copy; reactivity comes from reassigning the $state
 		const next = new Set(unreadSessionIds);
 		if (unread) {
 			next.add(id);

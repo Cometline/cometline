@@ -38,6 +38,13 @@ export default [
 		}
 	},
 	{
+		// Controllers keep private Map/Set bookkeeping and publish changes by reassigning $state.
+		files: ['**/*.svelte.ts'],
+		rules: {
+			'svelte/prefer-svelte-reactivity': 'off'
+		}
+	},
+	{
 		languageOptions: {
 			globals: {
 				...globals.browser,

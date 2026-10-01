@@ -21,7 +21,6 @@ export interface FoldControllerDeps {
 	getSessionStreaming: () => boolean;
 }
 
-/* eslint-disable svelte/prefer-svelte-reactivity -- fold collections are immutable values: every update replaces the collection held in $state */
 export function createFoldController(deps: FoldControllerDeps) {
 	let thinkingOverrides = $state(new Map<string, boolean>());
 	let activityGroupOverrides = $state(new Map<string, boolean>());
@@ -199,4 +198,3 @@ export function createFoldController(deps: FoldControllerDeps) {
 		toggleToolOutput
 	};
 }
-/* eslint-enable svelte/prefer-svelte-reactivity */

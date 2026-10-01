@@ -50,7 +50,6 @@ function createChatStore() {
 	let loadPromise: Promise<void> | null = null;
 	let loadPromiseSession: string | null = null;
 
-	/* eslint-disable svelte/prefer-svelte-reactivity -- non-reactive per-session caches; the UI reads the $state fields below */
 	const sessionCache = new Map<string, ChatItem[]>();
 	const sessionErrors = new Map<string, string>();
 	const sessionContextBudgets = new Map<string, ContextBudgetSnapshot>();
@@ -68,7 +67,6 @@ function createChatStore() {
 	const CHAT_ITEMS_BROADCAST_MS = 64;
 	const pendingChatItemsBroadcast = new Map<string, ChatItem[]>();
 	const chatItemsBroadcastTimers = new Map<string, ReturnType<typeof setTimeout>>();
-	/* eslint-enable svelte/prefer-svelte-reactivity */
 
 	function isAbortError(err: unknown) {
 		return err instanceof DOMException && err.name === 'AbortError';
@@ -114,7 +112,6 @@ function createChatStore() {
 	}
 
 	function setRunError(targetSessionID: string, failed: boolean, broadcast = true) {
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- local copy; reactivity comes from reassigning the $state
 		const next = new Set(failedRunSessionIds);
 		if (failed) {
 			next.add(targetSessionID);
