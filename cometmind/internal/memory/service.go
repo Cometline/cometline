@@ -12,6 +12,7 @@ import (
 	"github.com/Cometline/cometline/cometmind/internal/logging"
 	"github.com/Cometline/cometline/cometmind/internal/session"
 	"github.com/Cometline/cometline/cometmind/internal/usage"
+	"go.uber.org/zap"
 )
 
 // Service is the global memory facade.
@@ -153,12 +154,12 @@ func (s *Service) notifyCompactionCompleted(result CompactionResult) {
 func (s *Service) RetrieveForTurn(ctx context.Context, sessionID, query string, tokenAllowance int) (PromptMemories, error) {
 	ctx = usage.WithScope(ctx, workspaceForSession(ctx, s.extractor.sessions, sessionID), sessionID)
 	if !s.settings.Enabled || !s.settings.AutoRetrieve {
-		logging.L().Info("memory.retrieve.skipped", "enabled", s.settings.Enabled, "auto_retrieve", s.settings.AutoRetrieve)
+		logging.L().Info("memory.retrieve.skipped", zap.Bool("enabled", s.settings.Enabled), zap.Bool("auto_retrieve", s.settings.AutoRetrieve))
 		return PromptMemories{}, nil
 	}
 	mems, err := s.retriever.retrievePools(ctx, query, tokenAllowance)
 	if err != nil {
-		logging.L().Error("memory.retrieve.failed", "error", err)
+		logging.L().Error("memory.retrieve.failed", zap.Error(err))
 		return PromptMemories{}, err
 	}
 	return mems, nil
@@ -167,16 +168,16 @@ func (s *Service) RetrieveForTurn(ctx context.Context, sessionID, query string, 
 // Search performs semantic search for the UI.
 func (s *Service) Search(ctx context.Context, query string, maxN int) ([]ScoredMemory, error) {
 	if !s.settings.Enabled {
-		logging.L().Info("memory.search.skipped", "enabled", false)
+		logging.L().Info("memory.search.skipped", zap.Bool("enabled", false))
 		return nil, nil
 	}
 	started := time.Now()
 	mems, err := s.retriever.search(ctx, query, maxN)
 	if err != nil {
-		logging.L().Error("memory.search.failed", "limit", maxN, "duration_ms", time.Since(started).Milliseconds(), "error", err)
+		logging.L().Error("memory.search.failed", zap.Int("limit", maxN), zap.Int64("duration_ms", time.Since(started).Milliseconds()), zap.Error(err))
 		return nil, err
 	}
-	logging.L().Info("memory.search.completed", "count", len(mems), "limit", maxN, "duration_ms", time.Since(started).Milliseconds())
+	logging.L().Info("memory.search.completed", zap.Int("count", len(mems)), zap.Int("limit", maxN), zap.Int64("duration_ms", time.Since(started).Milliseconds()))
 	return mems, nil
 }
 
@@ -184,7 +185,7 @@ func (s *Service) Search(ctx context.Context, query string, maxN int) ([]ScoredM
 // that should be injected for substantive turns regardless of semantic match.
 func (s *Service) BaselinePreferences(ctx context.Context, limit int) ([]ScoredMemory, error) {
 	if !s.settings.Enabled {
-		logging.L().Info("memory.preferences.skipped", "enabled", false)
+		logging.L().Info("memory.preferences.skipped", zap.Bool("enabled", false))
 		return nil, nil
 	}
 	if limit <= 0 {
@@ -193,7 +194,7 @@ func (s *Service) BaselinePreferences(ctx context.Context, limit int) ([]ScoredM
 	started := time.Now()
 	recs, err := s.store.listBaselinePreferences(ctx, limit)
 	if err != nil {
-		logging.L().Error("memory.preferences.failed", "limit", limit, "error", err)
+		logging.L().Error("memory.preferences.failed", zap.Int("limit", limit), zap.Error(err))
 		return nil, err
 	}
 	now := time.Now()
@@ -203,14 +204,14 @@ func (s *Service) BaselinePreferences(ctx context.Context, limit int) ([]ScoredM
 		_ = s.store.touchAccess(ctx, rec.ID)
 		_ = s.store.logEvent(ctx, rec.ID, "preference_inject", "")
 	}
-	logging.L().Info("memory.preferences.loaded", "count", len(out), "limit", limit, "duration_ms", time.Since(started).Milliseconds())
+	logging.L().Info("memory.preferences.loaded", zap.Int("count", len(out)), zap.Int("limit", limit), zap.Int64("duration_ms", time.Since(started).Milliseconds()))
 	return out, nil
 }
 
 // RecentTaskOutcomes returns recent task outcomes for continuity across job runs.
 func (s *Service) RecentTaskOutcomes(ctx context.Context, limit int) ([]ScoredMemory, error) {
 	if !s.settings.Enabled {
-		logging.L().Info("memory.task_outcomes.skipped", "enabled", false)
+		logging.L().Info("memory.task_outcomes.skipped", zap.Bool("enabled", false))
 		return nil, nil
 	}
 	if limit <= 0 {
@@ -222,7 +223,7 @@ func (s *Service) RecentTaskOutcomes(ctx context.Context, limit int) ([]ScoredMe
 	started := time.Now()
 	recs, err := s.store.listRecentByKind(ctx, "task_outcome", limit)
 	if err != nil {
-		logging.L().Error("memory.task_outcomes.failed", "limit", limit, "error", err)
+		logging.L().Error("memory.task_outcomes.failed", zap.Int("limit", limit), zap.Error(err))
 		return nil, err
 	}
 	now := time.Now()
@@ -232,14 +233,14 @@ func (s *Service) RecentTaskOutcomes(ctx context.Context, limit int) ([]ScoredMe
 		_ = s.store.touchAccess(ctx, rec.ID)
 		_ = s.store.logEvent(ctx, rec.ID, "task_outcome_inject", "")
 	}
-	logging.L().Info("memory.task_outcomes.loaded", "count", len(out), "limit", limit, "duration_ms", time.Since(started).Milliseconds())
+	logging.L().Info("memory.task_outcomes.loaded", zap.Int("count", len(out)), zap.Int("limit", limit), zap.Int64("duration_ms", time.Since(started).Milliseconds()))
 	return out, nil
 }
 
 // SearchTaskOutcomes searches active task outcome memories for the explicit recall tool.
 func (s *Service) SearchTaskOutcomes(ctx context.Context, query string, limit int) ([]ScoredMemory, error) {
 	if !s.settings.Enabled {
-		logging.L().Info("memory.task_outcome_search.skipped", "enabled", false)
+		logging.L().Info("memory.task_outcome_search.skipped", zap.Bool("enabled", false))
 		return nil, nil
 	}
 	if limit <= 0 {
@@ -249,7 +250,7 @@ func (s *Service) SearchTaskOutcomes(ctx context.Context, query string, limit in
 	if err != nil {
 		return nil, err
 	}
-	logging.L().Info("memory.task_outcome_search.completed", "count", len(results), "limit", limit)
+	logging.L().Info("memory.task_outcome_search.completed", zap.Int("count", len(results)), zap.Int("limit", limit))
 	return results, nil
 }
 
@@ -257,7 +258,7 @@ func (s *Service) CompactPreferenceCategory(ctx context.Context, category string
 	category = normalizePreferenceCategory("preference", "", category)
 	active, err := s.store.listActivePreferencesByCategory(ctx, category)
 	if err != nil {
-		logging.L().Error("memory.preference_category.failed", "category", category, "error", err)
+		logging.L().Error("memory.preference_category.failed", zap.String("category", category), zap.Error(err))
 		return err
 	}
 	var recs []Record
@@ -272,7 +273,7 @@ func (s *Service) CompactPreferenceCategory(ctx context.Context, category string
 		if rec.PreferenceCategory != normalized {
 			rec.PreferenceCategory = normalized
 			if err := s.store.update(ctx, rec); err != nil {
-				logging.L().Error("memory.preference_category_backfill.failed", "category", category, "memory_id", rec.ID, "error", err)
+				logging.L().Error("memory.preference_category_backfill.failed", zap.String("category", category), zap.String("memory_id", rec.ID), zap.Error(err))
 				return err
 			}
 		}
@@ -302,13 +303,13 @@ func (s *Service) CompactPreferenceCategory(ctx context.Context, category string
 			continue
 		}
 		if err := s.store.archive(ctx, rec.ID, "preference_category_cap", ""); err != nil {
-			logging.L().Error("memory.preference_category_archive.failed", "category", category, "memory_id", rec.ID, "error", err)
+			logging.L().Error("memory.preference_category_archive.failed", zap.String("category", category), zap.String("memory_id", rec.ID), zap.Error(err))
 			return err
 		}
 		_ = s.store.logEvent(ctx, rec.ID, "preference_category_cap", category)
 		archived++
 	}
-	logging.L().Info("memory.preference_category.completed", "category", category, "active", len(recs), "cap", cap, "archived", archived)
+	logging.L().Info("memory.preference_category.completed", zap.String("category", category), zap.Int("active", len(recs)), zap.Int("cap", cap), zap.Int("archived", archived))
 	return nil
 }
 
@@ -317,17 +318,17 @@ func (s *Service) CompactPreferenceCategory(ctx context.Context, category string
 // the service's default provider is used.
 func (s *Service) ExtractAfterTurn(ctx context.Context, sessionID, model string, llmProvider cometsdk.Provider) ([]Change, error) {
 	if !s.settings.Enabled || !s.settings.AutoExtract {
-		logging.L().Info("memory.extract.skipped", "session", sessionID, "enabled", s.settings.Enabled, "auto_extract", s.settings.AutoExtract)
+		logging.L().Info("memory.extract.skipped", zap.String("session", sessionID), zap.Bool("enabled", s.settings.Enabled), zap.Bool("auto_extract", s.settings.AutoExtract))
 		return nil, nil
 	}
 	started := time.Now()
 	extractCtx := usage.WithScope(ctx, workspaceForSession(ctx, s.extractor.sessions, sessionID), sessionID)
 	changes, err := s.extractor.extractAfterTurn(extractCtx, sessionID, model, llmProvider)
 	if err != nil {
-		logging.L().Error("memory.extract.failed", "session", sessionID, "duration_ms", time.Since(started).Milliseconds(), "error", err)
+		logging.L().Error("memory.extract.failed", zap.String("session", sessionID), zap.Int64("duration_ms", time.Since(started).Milliseconds()), zap.Error(err))
 		return changes, err
 	}
-	logging.L().Info("memory.extract.completed", "session", sessionID, "changes", len(changes), "duration_ms", time.Since(started).Milliseconds())
+	logging.L().Info("memory.extract.completed", zap.String("session", sessionID), zap.Int("changes", len(changes)), zap.Int64("duration_ms", time.Since(started).Milliseconds()))
 	for _, change := range changes {
 		if change.Kind == "preference" {
 			_ = s.CompactPreferenceCategory(extractCtx, change.PreferenceCategory)
@@ -344,42 +345,42 @@ func (s *Service) ExtractAfterTurn(ctx context.Context, sessionID, model string,
 // RunLifecycle applies decay forget and compaction if needed.
 func (s *Service) RunLifecycle(ctx context.Context) error {
 	if !s.settings.Enabled {
-		logging.L().Info("memory.lifecycle.skipped", "enabled", false)
+		logging.L().Info("memory.lifecycle.skipped", zap.Bool("enabled", false))
 		return nil
 	}
 	started := time.Now()
 	count, err := s.store.countActive(ctx)
 	if err != nil {
-		logging.L().Error("memory.lifecycle.failed", "error", err)
+		logging.L().Error("memory.lifecycle.failed", zap.Error(err))
 		return err
 	}
 	before := count
 	lc := s.settings.Lifecycle
 	if err := s.compactor.forgetDecayed(ctx); err != nil {
-		logging.L().Error("memory.lifecycle.failed", "active_count", count, "error", err)
+		logging.L().Error("memory.lifecycle.failed", zap.Int64("active_count", count), zap.Error(err))
 		return err
 	}
 	count, err = s.store.countActive(ctx)
 	if err != nil {
-		logging.L().Error("memory.lifecycle.recount_failed", "error", err)
+		logging.L().Error("memory.lifecycle.recount_failed", zap.Error(err))
 		return err
 	}
 	if int(count) >= lc.MaxMemories {
 		err := s.compactor.run(ctx)
 		if err != nil {
-			logging.L().Error("memory.compact.failed", "active_count", count, "max_memories", lc.MaxMemories, "duration_ms", time.Since(started).Milliseconds(), "error", err)
+			logging.L().Error("memory.compact.failed", zap.Int64("active_count", count), zap.Int("max_memories", lc.MaxMemories), zap.Int64("duration_ms", time.Since(started).Milliseconds()), zap.Error(err))
 			return err
 		}
 		after, err := s.store.countActive(ctx)
 		if err != nil {
-			logging.L().Error("memory.compact.result_count_failed", "trigger", "automatic", "error", err)
+			logging.L().Error("memory.compact.result_count_failed", zap.String("trigger", "automatic"), zap.Error(err))
 			return err
 		}
 		s.notifyCompactionCompleted(CompactionResult{Before: before, After: after, Trigger: "automatic"})
-		logging.L().Info("memory.compact.completed", "active_count", count, "max_memories", lc.MaxMemories, "duration_ms", time.Since(started).Milliseconds())
+		logging.L().Info("memory.compact.completed", zap.Int64("active_count", count), zap.Int("max_memories", lc.MaxMemories), zap.Int64("duration_ms", time.Since(started).Milliseconds()))
 		return nil
 	}
-	logging.L().Info("memory.lifecycle.completed", "active_count", count, "max_memories", lc.MaxMemories, "compacted", false, "duration_ms", time.Since(started).Milliseconds())
+	logging.L().Info("memory.lifecycle.completed", zap.Int64("active_count", count), zap.Int("max_memories", lc.MaxMemories), zap.Bool("compacted", false), zap.Int64("duration_ms", time.Since(started).Milliseconds()))
 	return nil
 }
 
@@ -387,10 +388,10 @@ func (s *Service) RunLifecycle(ctx context.Context) error {
 func (s *Service) CompactPreview(ctx context.Context) (CompactPreview, error) {
 	preview, err := s.compactor.preview(ctx)
 	if err != nil {
-		logging.L().Error("memory.compact_preview.failed", "error", err)
+		logging.L().Error("memory.compact_preview.failed", zap.Error(err))
 		return preview, err
 	}
-	logging.L().Info("memory.compact_preview.completed", "to_forget", len(preview.ToForget), "merge_groups", len(preview.ToMerge))
+	logging.L().Info("memory.compact_preview.completed", zap.Int("to_forget", len(preview.ToForget)), zap.Int("merge_groups", len(preview.ToMerge)))
 	return preview, nil
 }
 
@@ -402,7 +403,7 @@ func (s *Service) Compact(ctx context.Context) (CompactionResult, error) {
 		return CompactionResult{}, err
 	}
 	if err := s.compactor.run(ctx); err != nil {
-		logging.L().Error("memory.compact.failed", "manual", true, "duration_ms", time.Since(started).Milliseconds(), "error", err)
+		logging.L().Error("memory.compact.failed", zap.Bool("manual", true), zap.Int64("duration_ms", time.Since(started).Milliseconds()), zap.Error(err))
 		return CompactionResult{}, err
 	}
 	after, err := s.store.countActive(ctx)
@@ -411,22 +412,22 @@ func (s *Service) Compact(ctx context.Context) (CompactionResult, error) {
 	}
 	result := CompactionResult{Before: before, After: after, Trigger: "manual"}
 	s.notifyCompactionCompleted(result)
-	logging.L().Info("memory.compact.completed", "manual", true, "duration_ms", time.Since(started).Milliseconds())
+	logging.L().Info("memory.compact.completed", zap.Bool("manual", true), zap.Int64("duration_ms", time.Since(started).Milliseconds()))
 	return result, nil
 }
 
 // PurgeArchived hard-deletes archived memories and old memory_events.
 func (s *Service) PurgeArchived(ctx context.Context, olderThanDays int) (memories int, events int, err error) {
 	if olderThanDays <= 0 {
-		logging.L().Info("memory.purge_archived.skipped", "older_than_days", olderThanDays)
+		logging.L().Info("memory.purge_archived.skipped", zap.Int("older_than_days", olderThanDays))
 		return 0, 0, nil
 	}
 	cutoff := time.Now().Add(-time.Duration(olderThanDays) * 24 * time.Hour).UnixMilli()
 	memories, events, err = s.store.purgeArchived(ctx, cutoff)
 	if err != nil {
-		logging.L().Error("memory.purge_archived.failed", "older_than_days", olderThanDays, "error", err)
+		logging.L().Error("memory.purge_archived.failed", zap.Int("older_than_days", olderThanDays), zap.Error(err))
 		return memories, events, err
 	}
-	logging.L().Info("memory.purge_archived.completed", "older_than_days", olderThanDays, "memories", memories, "events", events)
+	logging.L().Info("memory.purge_archived.completed", zap.Int("older_than_days", olderThanDays), zap.Int("memories", memories), zap.Int("events", events))
 	return memories, events, nil
 }

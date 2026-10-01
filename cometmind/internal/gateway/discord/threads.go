@@ -7,6 +7,7 @@ import (
 
 	"github.com/Cometline/cometline/cometmind/internal/logging"
 	"github.com/bwmarrin/discordgo"
+	"go.uber.org/zap"
 )
 
 const threadArchiveMinutes = 60
@@ -100,7 +101,7 @@ func (a *Adapter) handleThreadCommand(s *discordgo.Session, i *discordgo.Interac
 	welcome := "New CometMind session started in this thread. Send a message here to talk to the agent."
 	parentChannelID, thread, parentType, err := createCometMindThread(s, i.ChannelID, threadName, welcome)
 	if err != nil {
-		logging.L().Error("discord.thread.create_failed", "error", err)
+		logging.L().Error("discord.thread.create_failed", zap.Error(err))
 		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
@@ -113,7 +114,7 @@ func (a *Adapter) handleThreadCommand(s *discordgo.Session, i *discordgo.Interac
 
 	if !isForumLikeChannelType(parentType) {
 		if _, err := s.ChannelMessageSend(thread.ID, welcome); err != nil {
-			logging.L().Warn("discord.thread.welcome_failed", "error", err)
+			logging.L().Warn("discord.thread.welcome_failed", zap.Error(err))
 		}
 	}
 
@@ -121,7 +122,7 @@ func (a *Adapter) handleThreadCommand(s *discordgo.Session, i *discordgo.Interac
 		userID := interactionUserID(i)
 		if userID != "" {
 			if err := a.onThread(context.Background(), userID, parentChannelID, thread.ID); err != nil {
-				logging.L().Error("discord.thread.session_setup_failed", "error", err)
+				logging.L().Error("discord.thread.session_setup_failed", zap.Error(err))
 			}
 		}
 	}

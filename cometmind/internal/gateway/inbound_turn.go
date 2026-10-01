@@ -12,6 +12,7 @@ import (
 	"github.com/Cometline/cometline/cometmind/internal/logging"
 	"github.com/Cometline/cometline/cometmind/internal/media"
 	"github.com/Cometline/cometline/cometmind/internal/session"
+	"go.uber.org/zap"
 )
 
 func (r *Router) prepareInbound(ctx context.Context, msg InboundMessage) (session.Session, string, bool, error) {
@@ -20,12 +21,7 @@ func (r *Router) prepareInbound(ctx context.Context, msg InboundMessage) (sessio
 	}
 	if !r.allowed(msg) {
 		if reason := r.blockReason(msg); reason != "" {
-			logging.L().Info("gateway.message.ignored",
-				"platform", msg.Platform,
-				"user", msg.UserID,
-				"channel", msg.ChannelID,
-				"reason", reason,
-			)
+			logging.L().Info("gateway.message.ignored", zap.String("platform", msg.Platform), zap.String("user", msg.UserID), zap.String("channel", msg.ChannelID), zap.String("reason", reason))
 		}
 		return session.Session{}, "", true, nil
 	}
@@ -68,13 +64,7 @@ func (r *Router) ignoreDuplicate(msg InboundMessage) bool {
 	if !seen.seenOrAdd(key) {
 		return false
 	}
-	logging.L().Info("gateway.message.ignored",
-		"platform", msg.Platform,
-		"user", msg.UserID,
-		"channel", msg.ChannelID,
-		"message_id", msg.PlatformMessageID,
-		"reason", "duplicate_platform_message",
-	)
+	logging.L().Info("gateway.message.ignored", zap.String("platform", msg.Platform), zap.String("user", msg.UserID), zap.String("channel", msg.ChannelID), zap.String("message_id", msg.PlatformMessageID), zap.String("reason", "duplicate_platform_message"))
 	return true
 }
 
@@ -158,7 +148,7 @@ func (r *Router) beginInboundTurn(ctx context.Context, msg InboundMessage, sess 
 	if r.Typing != nil {
 		releases = append(releases, r.Typing.KeepTyping(turn.ctx, deliveryChannelID(msg)))
 	}
-	logging.L().Info("gateway.agent_turn.start", "platform", msg.Platform, "session", sess.ID, "workspace", runPath)
+	logging.L().Info("gateway.agent_turn.start", zap.String("platform", msg.Platform), zap.String("session", sess.ID), zap.String("workspace", runPath))
 	return turn, nil
 }
 
@@ -180,7 +170,7 @@ func (r *Router) collectInboundEvent(turn *inboundTurn, sessionID string, ev eve
 	case event.KindAssistantImage:
 		path, pathErr := media.AbsolutePath(sessionID, ev.ImageID)
 		if pathErr != nil {
-			logging.L().Warn("gateway.assistant_image.path", "session", sessionID, "image", ev.ImageID, "error", pathErr)
+			logging.L().Warn("gateway.assistant_image.path", zap.String("session", sessionID), zap.String("image", ev.ImageID), zap.Error(pathErr))
 			break
 		}
 		turn.images = append(turn.images, OutboundImage{
@@ -220,12 +210,7 @@ func (r *Router) cancelInboundTurn(sessionID string) error {
 
 func inboundReplyText(err error, msg InboundMessage, reply string, imageCount int) string {
 	if err != nil {
-		logging.L().Error("gateway.agent_turn.failed",
-			"platform", msg.Platform,
-			"user", msg.UserID,
-			"channel", msg.ChannelID,
-			"error", err,
-		)
+		logging.L().Error("gateway.agent_turn.failed", zap.String("platform", msg.Platform), zap.String("user", msg.UserID), zap.String("channel", msg.ChannelID), zap.Error(err))
 		return fmt.Sprintf("Error: %v", err)
 	}
 	text := strings.TrimSpace(reply)
@@ -239,7 +224,7 @@ func (r *Router) sendInboundReply(ctx context.Context, msg InboundMessage, text 
 	if r.onReply == nil {
 		return nil
 	}
-	logging.L().Info("gateway.reply", "platform", msg.Platform, "channel", msg.ChannelID, "bytes", len(text), "images", len(images))
+	logging.L().Info("gateway.reply", zap.String("platform", msg.Platform), zap.String("channel", msg.ChannelID), zap.Int("bytes", len(text)), zap.Int("images", len(images)))
 	return r.onReply(ctx, OutboundMessage{
 		Platform:  msg.Platform,
 		UserID:    msg.UserID,
@@ -256,7 +241,7 @@ func (r *Router) deliverInboundProposal(ctx context.Context, msg InboundMessage,
 	}
 	paths, pathErr := r.SuggestWorkspacePaths(ctx, "", 25)
 	if pathErr != nil {
-		logging.L().Warn("gateway.job_proposal.workspace_paths", "platform", msg.Platform, "error", pathErr)
+		logging.L().Warn("gateway.job_proposal.workspace_paths", zap.String("platform", msg.Platform), zap.Error(pathErr))
 		paths = nil
 	}
 	if runPath != "" {
@@ -279,6 +264,6 @@ func (r *Router) deliverInboundProposal(ctx context.Context, msg InboundMessage,
 		ThreadID:  msg.ThreadID,
 	}
 	if err := r.DeliverJobProposal(ctx, out, pending, paths); err != nil {
-		logging.L().Error("gateway.job_proposal.deliver_failed", "platform", msg.Platform, "error", err)
+		logging.L().Error("gateway.job_proposal.deliver_failed", zap.String("platform", msg.Platform), zap.Error(err))
 	}
 }

@@ -2,24 +2,26 @@ package logging
 
 import (
 	"bytes"
-	"log/slog"
 	"strings"
 	"testing"
+
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 func TestParseLevel(t *testing.T) {
 	tests := []struct {
 		raw   string
-		level slog.Level
+		level zapcore.Level
 		err   bool
 	}{
-		{"debug", slog.LevelDebug, false},
-		{"INFO", slog.LevelInfo, false},
-		{"warn", slog.LevelWarn, false},
-		{"warning", slog.LevelWarn, false},
-		{"error", slog.LevelError, false},
-		{"", slog.LevelError, false},
-		{"verbose", slog.LevelError, true},
+		{"debug", zapcore.DebugLevel, false},
+		{"INFO", zapcore.InfoLevel, false},
+		{"warn", zapcore.WarnLevel, false},
+		{"warning", zapcore.WarnLevel, false},
+		{"error", zapcore.ErrorLevel, false},
+		{"", zapcore.ErrorLevel, false},
+		{"verbose", zapcore.ErrorLevel, true},
 	}
 
 	for _, tt := range tests {
@@ -41,9 +43,14 @@ func TestParseLevel(t *testing.T) {
 
 func TestInitFiltersByLevel(t *testing.T) {
 	var buf bytes.Buffer
-	handler := slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelError})
-	logger = slog.New(handler)
-	slog.SetDefault(logger)
+	encCfg := zap.NewProductionEncoderConfig()
+	encCfg.EncodeTime = zapcore.ISO8601TimeEncoder
+	core := zapcore.NewCore(
+		zapcore.NewJSONEncoder(encCfg),
+		zapcore.AddSync(&buf),
+		zapcore.ErrorLevel,
+	)
+	logger = zap.New(core)
 
 	logger.Info("should-not-appear")
 	logger.Error("should-appear")

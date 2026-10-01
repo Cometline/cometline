@@ -16,6 +16,7 @@ import (
 	"github.com/Cometline/cometline/cometmind/internal/retention"
 	"github.com/Cometline/cometline/cometmind/internal/session"
 	"github.com/Cometline/cometline/cometmind/internal/usage"
+	"go.uber.org/zap"
 )
 
 // StartScheduler materializes due scheduled jobs into the normal jobs queue.
@@ -41,9 +42,9 @@ func (r *Runtime) StartScheduler(ctx context.Context) {
 			case <-ticker.C:
 				count, err := r.Scheduler.MaterializeDue(ctx, r.Jobs, 0)
 				if err != nil {
-					logging.L().Warn("scheduler.materialize.failed", "error", err)
+					logging.L().Warn("scheduler.materialize.failed", zap.Error(err))
 				} else if count > 0 {
-					logging.L().Info("scheduler.materialized", "count", count)
+					logging.L().Info("scheduler.materialized", zap.Int("count", count))
 				}
 			}
 		}
@@ -68,21 +69,21 @@ func (r *Runtime) StartJobsMaintenance(ctx context.Context) {
 				return
 			}
 			if _, err := r.Jobs.Reconcile(ctx, r.isRunning); err != nil {
-				logging.L().Warn("jobs.reconcile.failed", "error", err)
+				logging.L().Warn("jobs.reconcile.failed", zap.Error(err))
 			}
 			settings := r.jobSettingsSnapshot()
 			if stale, err := r.Jobs.StaleOngoing(ctx, time.Duration(settings.StaleReviewMinutes)*time.Minute); err != nil {
-				logging.L().Warn("jobs.stale_review.failed", "error", err)
+				logging.L().Warn("jobs.stale_review.failed", zap.Error(err))
 			} else {
 				for _, job := range stale {
-					logging.L().Warn("jobs.stale_ongoing", "job_id", job.ID, "assigned_session_id", job.AssignedSessionID, "updated_at", job.UpdatedAt)
+					logging.L().Warn("jobs.stale_ongoing", zap.String("job_id", job.ID), zap.String("assigned_session_id", job.AssignedSessionID), zap.Int64("updated_at", job.UpdatedAt))
 				}
 			}
 			if _, err := r.Jobs.ArchiveDone(ctx, settings.DoneArchiveDays); err != nil {
-				logging.L().Warn("jobs.done_archive.failed", "error", err)
+				logging.L().Warn("jobs.done_archive.failed", zap.Error(err))
 			}
 			if _, err := r.Jobs.PurgeArchived(ctx, settings.ArchivedPurgeDays); err != nil {
-				logging.L().Warn("jobs.archive_purge.failed", "error", err)
+				logging.L().Warn("jobs.archive_purge.failed", zap.Error(err))
 			}
 		}
 	})
@@ -152,23 +153,11 @@ func (r *Runtime) StartRetentionMaintenance(ctx context.Context) {
 			}
 			result, err := r.RunRetention(ctx)
 			if err != nil {
-				logging.L().Warn("retention.failed", "error", err)
+				logging.L().Warn("retention.failed", zap.Error(err))
 				continue
 			}
 			if result.SessionsDeleted > 0 || result.SubagentsDeleted > 0 || result.MediaDeleted > 0 || result.MemoriesPurged > 0 || result.MemoryEventsPurged > 0 || result.JobsPurged > 0 || result.InboxPurged > 0 || result.UsageEventsPurged > 0 || result.ToolOutputDeleted > 0 || result.AgentTmpDeleted > 0 {
-				logging.L().Info("retention.completed",
-					"sessions_deleted", result.SessionsDeleted,
-					"subagents_deleted", result.SubagentsDeleted,
-					"media_deleted", result.MediaDeleted,
-					"memories_purged", result.MemoriesPurged,
-					"memory_events_purged", result.MemoryEventsPurged,
-					"jobs_purged", result.JobsPurged,
-					"inbox_purged", result.InboxPurged,
-					"usage_events_purged", result.UsageEventsPurged,
-					"tool_output_deleted", result.ToolOutputDeleted,
-					"agent_tmp_deleted", result.AgentTmpDeleted,
-					"vacuumed", result.Vacuumed,
-				)
+				logging.L().Info("retention.completed", zap.Int("sessions_deleted", result.SessionsDeleted), zap.Int("subagents_deleted", result.SubagentsDeleted), zap.Int("media_deleted", result.MediaDeleted), zap.Int("memories_purged", result.MemoriesPurged), zap.Int("memory_events_purged", result.MemoryEventsPurged), zap.Int("jobs_purged", result.JobsPurged), zap.Int("inbox_purged", result.InboxPurged), zap.Int("usage_events_purged", result.UsageEventsPurged), zap.Int("tool_output_deleted", result.ToolOutputDeleted), zap.Int("agent_tmp_deleted", result.AgentTmpDeleted), zap.Bool("vacuumed", result.Vacuumed))
 			}
 		}
 	})
@@ -202,10 +191,7 @@ func runRetention(ctx context.Context, db *sql.DB, sessions *session.Service, me
 		out.ToolOutputDeleted = to
 		out.AgentTmpDeleted = at
 		if to > 0 || at > 0 {
-			logging.L().Info("retention.runtime_files",
-				"tool_output_deleted", to,
-				"agent_tmp_deleted", at,
-			)
+			logging.L().Info("retention.runtime_files", zap.Int("tool_output_deleted", to), zap.Int("agent_tmp_deleted", at))
 		}
 	}
 	return out, nil
@@ -259,14 +245,10 @@ func (r *Runtime) StartBackupMaintenance(ctx context.Context) {
 			}
 			result, err := r.RunBackup(ctx)
 			if err != nil {
-				logging.L().Warn("backup.failed", "error", err)
+				logging.L().Warn("backup.failed", zap.Error(err))
 				continue
 			}
-			logging.L().Info("backup.completed",
-				"path", result.Path,
-				"files_zipped", result.FilesZipped,
-				"removed_old", result.RemovedOld,
-			)
+			logging.L().Info("backup.completed", zap.String("path", result.Path), zap.Int("files_zipped", result.FilesZipped), zap.Int("removed_old", result.RemovedOld))
 		}
 	})
 }

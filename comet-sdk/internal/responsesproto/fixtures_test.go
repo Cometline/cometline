@@ -6,10 +6,11 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"log/slog"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"go.uber.org/zap"
 
 	cometsdk "github.com/Cometline/cometline/comet-sdk"
 	"github.com/stretchr/testify/require"
@@ -29,7 +30,7 @@ func streamFixture(t *testing.T, name string, emitToolStart bool) []cometsdk.Eve
 
 	body := io.NopCloser(bytes.NewReader(data))
 	ch := make(chan cometsdk.Event, 64)
-	go ParseLoop(context.Background(), fixtureProviderID, fixtureModelID, emitToolStart, body, ch, slog.New(slog.DiscardHandler), 0)
+	go ParseLoop(context.Background(), fixtureProviderID, fixtureModelID, emitToolStart, body, ch, zap.NewNop(), 0)
 
 	var events []cometsdk.Event
 	for e := range ch {

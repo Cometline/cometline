@@ -6,6 +6,7 @@ import (
 	cometsdk "github.com/Cometline/cometline/comet-sdk"
 	"github.com/Cometline/cometline/cometmind/internal/event"
 	"github.com/Cometline/cometline/cometmind/internal/logging"
+	"go.uber.org/zap"
 )
 
 // stepRequest is the model request for one step plus the inputs overflow
@@ -52,12 +53,12 @@ func (r *Runner) prepareStep(ctx context.Context, s *turnState) (*stepRequest, e
 	}
 	if !s.degradationsReported {
 		for _, d := range degradations {
-			logging.L().Info("history.normalized", "session", s.turn.ID, "kind", d.Kind, "count", d.Count)
+			logging.L().Info("history.normalized", zap.String("session", s.turn.ID), zap.String("kind", d.Kind), zap.Int("count", d.Count))
 		}
 		s.degradationsReported = true
 	}
 
-	logging.L().Info("agent.step.start", "session", s.turn.ID, "step", s.steps+1, "model", s.turn.ModelID, "messages", len(msgs), "max_tokens", s.maxTokens, "context_window", s.budget.Context, "limit_source", s.budget.LimitSource)
+	logging.L().Info("agent.step.start", zap.String("session", s.turn.ID), zap.Int("step", s.steps+1), zap.String("model", s.turn.ModelID), zap.Int("messages", len(msgs)), zap.Int("max_tokens", s.maxTokens), zap.Int("context_window", s.budget.Context), zap.String("limit_source", s.budget.LimitSource))
 
 	s.nudges = continueNudges{}
 	p.memoryPromptSuffix = r.injectTurnMemories(ctx, s, p.baseSystem, msgs)

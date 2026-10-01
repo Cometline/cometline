@@ -9,6 +9,7 @@ import (
 	"github.com/Cometline/cometline/cometmind/internal/gateway"
 	"github.com/Cometline/cometline/cometmind/internal/logging"
 	"github.com/bwmarrin/discordgo"
+	"go.uber.org/zap"
 )
 
 func (a *Adapter) onMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
@@ -38,36 +39,25 @@ func (a *Adapter) onMessageCreate(s *discordgo.Session, m *discordgo.MessageCrea
 	}
 	routingChannelID, threadID := discordRoutingIDs(m.ChannelID, parentChannelID)
 	if a.Config.RequireMention && !mentioned && threadID == "" {
-		logging.L().Info("discord.message.ignored", "channel", m.ChannelID, "reason", "mention_required")
+		logging.L().Info("discord.message.ignored", zap.String("channel", m.ChannelID), zap.String("reason", "mention_required"))
 		return
 	}
 
 	text := strings.TrimSpace(stripBotMentions(m.Content, s.State))
 	images, err := imageAttachments(context.Background(), m.Attachments)
 	if err != nil {
-		logging.L().Info("discord.message.ignored", "channel", m.ChannelID, "reason", "attachments_unsupported", "error", err)
+		logging.L().Info("discord.message.ignored", zap.String("channel", m.ChannelID), zap.String("reason", "attachments_unsupported"), zap.Error(err))
 		return
 	}
 	if text == "" && len(images) == 0 {
 		if strings.TrimSpace(m.Content) != "" {
-			logging.L().Info("discord.message.ignored", "channel", m.ChannelID, "reason", "only_mentions")
+			logging.L().Info("discord.message.ignored", zap.String("channel", m.ChannelID), zap.String("reason", "only_mentions"))
 		} else if m.GuildID != "" {
-			logging.L().Info("discord.message.ignored",
-				"channel", m.ChannelID,
-				"reason", "empty_content_enable_message_content_intent",
-			)
+			logging.L().Info("discord.message.ignored", zap.String("channel", m.ChannelID), zap.String("reason", "empty_content_enable_message_content_intent"))
 		}
 		return
 	}
-	logging.L().Info("discord.message.inbound",
-		"user", m.Author.ID,
-		"channel", routingChannelID,
-		"thread", threadID,
-		"parent", parentChannelID,
-		"guild", m.GuildID,
-		"text", truncateLog(text, 80),
-		"images", len(images),
-	)
+	logging.L().Info("discord.message.inbound", zap.String("user", m.Author.ID), zap.String("channel", routingChannelID), zap.String("thread", threadID), zap.String("parent", parentChannelID), zap.String("guild", m.GuildID), zap.String("text", truncateLog(text, 80)), zap.Int("images", len(images)))
 	a.onInbound(context.Background(), gateway.InboundMessage{
 		Platform:          PlatformName,
 		PlatformMessageID: m.ID,

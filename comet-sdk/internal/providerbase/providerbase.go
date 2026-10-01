@@ -10,13 +10,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
 	cometsdk "github.com/Cometline/cometline/comet-sdk"
+	"go.uber.org/zap"
 )
 
 // ClassifyHTTPError maps a non-200 HTTP response to a typed SDK error.
@@ -144,18 +144,10 @@ func Endpoint(baseURL, path string) string {
 
 // Logger returns cfg.Logger tagged with the provider id, or a discard logger
 // when the caller passed WithLogger(nil).
-func Logger(cfg cometsdk.ProviderConfig, providerID string) *slog.Logger {
+func Logger(cfg cometsdk.ProviderConfig, providerID string) *zap.Logger {
 	log := cfg.Logger
 	if log == nil {
-		log = slog.New(noopHandler{})
+		log = zap.NewNop()
 	}
-	return log.With("provider", providerID)
+	return log.With(zap.String("provider", providerID))
 }
-
-// noopHandler is a slog.Handler that discards all log records.
-type noopHandler struct{}
-
-func (noopHandler) Enabled(_ context.Context, _ slog.Level) bool  { return false }
-func (noopHandler) Handle(_ context.Context, _ slog.Record) error { return nil }
-func (noopHandler) WithAttrs(_ []slog.Attr) slog.Handler          { return noopHandler{} }
-func (noopHandler) WithGroup(_ string) slog.Handler               { return noopHandler{} }

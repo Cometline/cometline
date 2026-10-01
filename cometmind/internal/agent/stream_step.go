@@ -10,6 +10,7 @@ import (
 	"github.com/Cometline/cometline/comet-sdk/llm"
 	"github.com/Cometline/cometline/cometmind/internal/event"
 	"github.com/Cometline/cometline/cometmind/internal/logging"
+	"go.uber.org/zap"
 )
 
 // streamAttempt tracks one model stream: what it forwarded, which tool calls
@@ -35,7 +36,7 @@ func (r *Runner) streamStep(ctx context.Context, s *turnState, p *stepRequest) (
 	for {
 		result, a, err := r.consumeStream(ctx, s, p, recoveryAttempt, overflowRecovered)
 		if err == nil {
-			logging.L().Info("agent.step.finish", "session", s.turn.ID, "provider", r.Provider.ID(), "model", s.turn.ModelID, "step", s.steps+1, "finish_reason", string(result.FinishReason), "tool_calls", len(result.ToolCalls), "input_tokens", result.Usage.InputTokens, "output_tokens", result.Usage.OutputTokens, "recovery_attempt", recoveryAttempt)
+			logging.L().Info("agent.step.finish", zap.String("session", s.turn.ID), zap.String("provider", r.Provider.ID()), zap.String("model", s.turn.ModelID), zap.Int("step", s.steps+1), zap.String("finish_reason", string(result.FinishReason)), zap.Int("tool_calls", len(result.ToolCalls)), zap.Int("input_tokens", result.Usage.InputTokens), zap.Int("output_tokens", result.Usage.OutputTokens), zap.Int("recovery_attempt", recoveryAttempt))
 			return result, a.toolCalls, false, nil
 		}
 		// A cancelled runner context is the explicit /stop path (or a client
@@ -68,22 +69,22 @@ func (r *Runner) streamStep(ctx context.Context, s *turnState, p *stepRequest) (
 func (r *Runner) consumeStream(ctx context.Context, s *turnState, p *stepRequest, recoveryAttempt int, overflowRecovered bool) (*llm.GenerateMessageResult, *streamAttempt, error) {
 	turn, req := s.turn, p.req
 	a := &streamAttempt{started: time.Now(), toolIndex: map[string]int{}}
-	logging.L().Info("llm.stream.start", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", s.steps+1, "messages", len(req.Messages), "tools", len(req.Tools), "tool_output_bytes", p.toolOutputBytes, "recovery_attempt", recoveryAttempt, "overflow_recovered", overflowRecovered, "system_bytes", len(req.System), "max_tokens", req.MaxTokens)
+	logging.L().Info("llm.stream.start", zap.String("session", turn.ID), zap.String("provider", r.Provider.ID()), zap.String("model", turn.ModelID), zap.Int("step", s.steps+1), zap.Int("messages", len(req.Messages)), zap.Int("tools", len(req.Tools)), zap.Int("tool_output_bytes", p.toolOutputBytes), zap.Int("recovery_attempt", recoveryAttempt), zap.Bool("overflow_recovered", overflowRecovered), zap.Int("system_bytes", len(req.System)), zap.Int("max_tokens", req.MaxTokens))
 	stream := llm.StreamMessage(ctx, r.Provider, req)
-	logging.L().Info("llm.stream.opened", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", s.steps+1, "recovery_attempt", recoveryAttempt, "duration_ms", time.Since(a.started).Milliseconds())
+	logging.L().Info("llm.stream.opened", zap.String("session", turn.ID), zap.String("provider", r.Provider.ID()), zap.String("model", turn.ModelID), zap.Int("step", s.steps+1), zap.Int("recovery_attempt", recoveryAttempt), zap.Int64("duration_ms", time.Since(a.started).Milliseconds()))
 	s.emitStatus(event.PhaseComposingResponse)
 
 	for ev := range stream.Events() {
 		a.events++
 		if !a.firstEvent {
 			a.firstEvent = true
-			logging.L().Info("llm.stream.first_event", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", s.steps+1, "recovery_attempt", recoveryAttempt, "event_type", fmt.Sprintf("%T", ev), "duration_ms", time.Since(a.started).Milliseconds())
+			logging.L().Info("llm.stream.first_event", zap.String("session", turn.ID), zap.String("provider", r.Provider.ID()), zap.String("model", turn.ModelID), zap.Int("step", s.steps+1), zap.Int("recovery_attempt", recoveryAttempt), zap.String("event_type", fmt.Sprintf("%T", ev)), zap.Int64("duration_ms", time.Since(a.started).Milliseconds()))
 		}
 		a.forward(s, ev, p.finalizing)
 	}
 	result, err := stream.Result()
 	a.failureCategory = classifyStreamFailure(err)
-	logging.L().Info("llm.stream.events_closed", "session", turn.ID, "provider", r.Provider.ID(), "model", turn.ModelID, "step", s.steps+1, "events", a.events, "first_event", a.firstEvent, "first_output", a.firstOutput, "complete_tool_call", a.completeToolCall, "failure_category", a.failureCategory, "recovery_attempt", recoveryAttempt, "duration_ms", time.Since(a.started).Milliseconds())
+	logging.L().Info("llm.stream.events_closed", zap.String("session", turn.ID), zap.String("provider", r.Provider.ID()), zap.String("model", turn.ModelID), zap.Int("step", s.steps+1), zap.Int("events", a.events), zap.Bool("first_event", a.firstEvent), zap.Bool("first_output", a.firstOutput), zap.Bool("complete_tool_call", a.completeToolCall), zap.String("failure_category", string(a.failureCategory)), zap.Int("recovery_attempt", recoveryAttempt), zap.Int64("duration_ms", time.Since(a.started).Milliseconds()))
 	return result, a, err
 }
 
@@ -101,7 +102,7 @@ func (a *streamAttempt) forward(s *turnState, ev cometsdk.Event, finalizing bool
 		s.ch <- event.ReasoningDelta(e.Text)
 	case cometsdk.ToolCallStartEvent:
 		if finalizing {
-			logging.L().Warn("agent.final_answer.unexpected_tool_call", "session", s.turn.ID, "tool_call_id", e.ID, "tool", e.Name)
+			logging.L().Warn("agent.final_answer.unexpected_tool_call", zap.String("session", s.turn.ID), zap.String("tool_call_id", e.ID), zap.String("tool", e.Name))
 			return
 		}
 		a.firstOutput = true
@@ -109,7 +110,7 @@ func (a *streamAttempt) forward(s *turnState, ev cometsdk.Event, finalizing bool
 		s.ch <- event.ToolCall(e.ID, e.Name, nil)
 	case cometsdk.ToolCallDoneEvent:
 		if finalizing {
-			logging.L().Warn("agent.final_answer.unexpected_tool_call", "session", s.turn.ID, "tool_call_id", e.ID, "tool", e.Name)
+			logging.L().Warn("agent.final_answer.unexpected_tool_call", zap.String("session", s.turn.ID), zap.String("tool_call_id", e.ID), zap.String("tool", e.Name))
 			return
 		}
 		a.firstOutput = true

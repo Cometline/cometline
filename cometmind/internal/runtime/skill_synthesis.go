@@ -13,6 +13,7 @@ import (
 	"github.com/Cometline/cometline/cometmind/internal/session"
 	"github.com/Cometline/cometline/cometmind/internal/skills"
 	"github.com/Cometline/cometline/cometmind/internal/usage"
+	"go.uber.org/zap"
 )
 
 const skillSynthesisTimeout = 90 * time.Second
@@ -44,7 +45,7 @@ func (n *skillSynthesisNotifier) OnJobEvent(ctx context.Context, job jobs.Job, a
 	select {
 	case n.sem <- struct{}{}:
 	default:
-		logging.L().Info("skills.synthesis.skipped", "job_id", job.ID, "reason", "busy")
+		logging.L().Info("skills.synthesis.skipped", zap.String("job_id", job.ID), zap.String("reason", "busy"))
 		return
 	}
 	// Skill synthesis should survive the completion request/turn ending.
@@ -59,7 +60,7 @@ func (n *skillSynthesisNotifier) OnJobEvent(ctx context.Context, job jobs.Job, a
 			var err error
 			outcomes, err = n.memory.RecentTaskOutcomes(synthCtx, 0)
 			if err != nil {
-				logging.L().Warn("skills.synthesis.outcomes_failed", "job_id", job.ID, "error", err)
+				logging.L().Warn("skills.synthesis.outcomes_failed", zap.String("job_id", job.ID), zap.Error(err))
 			}
 		}
 		input := skills.SynthesisJob{
@@ -76,7 +77,7 @@ func (n *skillSynthesisNotifier) OnJobEvent(ctx context.Context, job jobs.Job, a
 			}
 		}
 		if err := skills.ProposeSkillFromJobRecorded(synthCtx, n.provider, n.model, input, outcomes, n.usage, workspaceID); err != nil {
-			logging.L().Warn("skills.synthesis.failed", "job_id", job.ID, "error", err)
+			logging.L().Warn("skills.synthesis.failed", zap.String("job_id", job.ID), zap.Error(err))
 		}
 	})
 	if !started {

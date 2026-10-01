@@ -5,6 +5,7 @@ import (
 
 	"github.com/Cometline/cometline/cometmind/internal/logging"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 // handleEvents streams runtime events that are not tied to a request-scoped
@@ -37,7 +38,7 @@ func (a *App) handleEvents(c *gin.Context) {
 				return
 			}
 			if err := writeSSE(c.Writer, ev); err != nil {
-				logging.L().Info("events.sse_client_gone", "error", err)
+				logging.L().Info("events.sse_client_gone", zap.Error(err))
 				return
 			}
 			flusher.Flush()

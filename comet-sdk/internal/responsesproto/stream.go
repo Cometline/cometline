@@ -5,9 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log/slog"
 	"strings"
 	"time"
+
+	"go.uber.org/zap"
 
 	cometsdk "github.com/Cometline/cometline/comet-sdk"
 	"github.com/Cometline/cometline/comet-sdk/internal/providerbase"
@@ -95,7 +96,7 @@ type outputItem struct {
 // ParseLoop reads SSE events from body and dispatches typed cometsdk.Events
 // to ch. It is run in a goroutine by Stream(). It always closes ch and body
 // before returning.
-func ParseLoop(ctx context.Context, providerID, modelID string, emitToolStart bool, body io.ReadCloser, ch chan<- cometsdk.Event, log *slog.Logger, idleTimeout time.Duration) {
+func ParseLoop(ctx context.Context, providerID, modelID string, emitToolStart bool, body io.ReadCloser, ch chan<- cometsdk.Event, log *zap.Logger, idleTimeout time.Duration) {
 	defer close(ch)
 	defer body.Close()
 
@@ -111,7 +112,7 @@ func ParseLoop(ctx context.Context, providerID, modelID string, emitToolStart bo
 		}
 
 		ev := scanner.Event()
-		log.DebugContext(ctx, "sse.event", "event", ev.Type, "data", RedactEncryptedReasoning(ev.Data))
+		log.Debug("sse.event", zap.String("event", ev.Type), zap.String("data", RedactEncryptedReasoning(ev.Data)))
 		events, err := ToSDKEvents(providerID, ev.Type, ev.Data, state)
 		if err != nil {
 			providerbase.SendEvent(ctx, ch, cometsdk.ErrorEvent{Err: &cometsdk.StreamError{ProviderID: providerID, Cause: err}})

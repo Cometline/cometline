@@ -19,6 +19,7 @@ import (
 	"github.com/Cometline/cometline/cometmind/internal/session"
 	"github.com/Cometline/cometline/cometmind/internal/tools"
 	"github.com/Cometline/cometline/cometmind/internal/wakeup"
+	"go.uber.org/zap"
 )
 
 // RunGuard registers a session as currently running an agent turn.
@@ -257,7 +258,7 @@ func (w *Worker) discardSession(ctx context.Context, sessionID string) {
 		return
 	}
 	if err := w.Sessions.DiscardEphemeralSession(ctx, sessionID); err != nil {
-		logging.L().Warn("inbox.session_discard_failed", "session_id", sessionID, "error", err)
+		logging.L().Warn("inbox.session_discard_failed", zap.String("session_id", sessionID), zap.Error(err))
 	}
 }
 

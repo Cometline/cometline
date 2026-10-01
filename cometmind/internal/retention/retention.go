@@ -13,6 +13,7 @@ import (
 	"github.com/Cometline/cometline/cometmind/internal/memory"
 	"github.com/Cometline/cometline/cometmind/internal/session"
 	"github.com/Cometline/cometline/cometmind/internal/usage"
+	"go.uber.org/zap"
 )
 
 // Result summarizes one retention pass.
@@ -215,7 +216,7 @@ func (r *Runner) finishRetention(ctx context.Context, cfg config.StorageConfig, 
 			db := r.DB
 			go func() {
 				if _, err := db.ExecContext(context.Background(), "VACUUM"); err != nil {
-					logging.L().Warn("retention.vacuum.failed", "error", err)
+					logging.L().Warn("retention.vacuum.failed", zap.Error(err))
 				}
 			}()
 		} else if _, err := r.DB.ExecContext(ctx, "VACUUM"); err != nil {
@@ -225,17 +226,7 @@ func (r *Runner) finishRetention(ctx context.Context, cfg config.StorageConfig, 
 		}
 	}
 	if retentionChanged(out) {
-		logging.L().Info("retention.complete",
-			"sessions_deleted", out.SessionsDeleted,
-			"subagents_deleted", out.SubagentsDeleted,
-			"media_deleted", out.MediaDeleted,
-			"memories_purged", out.MemoriesPurged,
-			"memory_events_purged", out.MemoryEventsPurged,
-			"jobs_purged", out.JobsPurged,
-			"inbox_purged", out.InboxPurged,
-			"usage_events_purged", out.UsageEventsPurged,
-			"vacuumed", out.Vacuumed,
-		)
+		logging.L().Info("retention.complete", zap.Int("sessions_deleted", out.SessionsDeleted), zap.Int("subagents_deleted", out.SubagentsDeleted), zap.Int("media_deleted", out.MediaDeleted), zap.Int("memories_purged", out.MemoriesPurged), zap.Int("memory_events_purged", out.MemoryEventsPurged), zap.Int("jobs_purged", out.JobsPurged), zap.Int("inbox_purged", out.InboxPurged), zap.Int("usage_events_purged", out.UsageEventsPurged), zap.Bool("vacuumed", out.Vacuumed))
 	}
 	return out, nil
 }

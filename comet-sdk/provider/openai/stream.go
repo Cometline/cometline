@@ -3,18 +3,18 @@ package openai
 import (
 	"context"
 	"io"
-	"log/slog"
 	"time"
 
 	cometsdk "github.com/Cometline/cometline/comet-sdk"
 	"github.com/Cometline/cometline/comet-sdk/internal/providerbase"
 	"github.com/Cometline/cometline/comet-sdk/internal/sse"
+	"go.uber.org/zap"
 )
 
 // parseLoop reads SSE events from body and dispatches typed cometsdk.Events to ch.
 // It handles the OpenAI-specific "data: [DONE]" terminator.
 // It is run in a goroutine by Stream(). It always closes ch and body before returning.
-func parseLoop(ctx context.Context, providerID string, body io.ReadCloser, ch chan<- cometsdk.Event, log *slog.Logger, idleTimeout time.Duration) {
+func parseLoop(ctx context.Context, providerID string, body io.ReadCloser, ch chan<- cometsdk.Event, log *zap.Logger, idleTimeout time.Duration) {
 	defer close(ch)
 	defer body.Close()
 
@@ -34,12 +34,12 @@ func parseLoop(ctx context.Context, providerID string, body io.ReadCloser, ch ch
 		}
 
 		ev := scanner.Event()
-		log.DebugContext(ctx, "sse.event", "data", ev.Data)
+		log.Debug("sse.event", zap.String("data", ev.Data))
 
 		// OpenAI only uses "data:" lines (no "event:" field).
 		events, err := toSDKEvents(ev.Data, state)
 		if err != nil {
-			log.DebugContext(ctx, "sse.parse_error", "error", err)
+			log.Debug("sse.parse_error", zap.Error(err))
 			providerbase.SendEvent(ctx, ch, cometsdk.ErrorEvent{Err: &cometsdk.StreamError{
 				ProviderID: providerID,
 				Cause:      err,
@@ -48,7 +48,7 @@ func parseLoop(ctx context.Context, providerID string, body io.ReadCloser, ch ch
 		}
 
 		for _, e := range events {
-			log.DebugContext(ctx, "sdk.event", "type", slog.AnyValue(e))
+			log.Debug("sdk.event", zap.Any("type", e))
 			if !providerbase.SendEvent(ctx, ch, e) {
 				return
 			}
@@ -59,7 +59,7 @@ func parseLoop(ctx context.Context, providerID string, body io.ReadCloser, ch ch
 	}
 
 	if err := scanner.Err(); err != nil {
-		log.DebugContext(ctx, "sse.scanner_error", "error", err)
+		log.Debug("sse.scanner_error", zap.Error(err))
 		providerbase.SendEvent(ctx, ch, cometsdk.ErrorEvent{Err: &cometsdk.StreamError{
 			ProviderID: providerID,
 			Cause:      err,

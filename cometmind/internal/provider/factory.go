@@ -12,6 +12,7 @@ import (
 	"github.com/Cometline/cometline/cometmind/internal/config"
 	"github.com/Cometline/cometline/cometmind/internal/logging"
 	"github.com/Cometline/cometline/cometmind/internal/modelcatalog"
+	"go.uber.org/zap"
 )
 
 // providerConfigFor returns the resolved provider entry, method, and base URL
@@ -134,8 +135,7 @@ func NewForModel(cfg *config.Config, id, modelID string) (cometsdk.Provider, err
 // so existing models keep working.
 func opencodeGoProvider(key, id, baseURL, modelID string) (cometsdk.Provider, error) {
 	protocol := modelcatalog.ResolveProviderMetadata(config.ProviderOpencodeGo, id, modelID)
-	logging.L().Debug("provider.opencode-go.protocol",
-		"provider_id", id, "model", modelID, "npm", protocol.NPM, "source", protocol.Source)
+	logging.L().Debug("provider.opencode-go.protocol", zap.String("provider_id", id), zap.String("model", modelID), zap.String("npm", protocol.NPM), zap.String("source", protocol.Source))
 	if baseURL == "" {
 		baseURL = protocol.API
 	}

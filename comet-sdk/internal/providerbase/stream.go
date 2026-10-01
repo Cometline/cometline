@@ -5,11 +5,11 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log/slog"
 	"net/http"
 
 	cometsdk "github.com/Cometline/cometline/comet-sdk"
 	"github.com/Cometline/cometline/comet-sdk/internal/retry"
+	"go.uber.org/zap"
 )
 
 // SSERequest describes one streaming POST to a provider endpoint.
@@ -52,17 +52,17 @@ func PostSSE(ctx context.Context, client *http.Client, r SSERequest) (*http.Resp
 
 // RetryHTTP runs send under the standard retry policy (see IsRetryable),
 // logging every retry and failed attempt.
-func RetryHTTP(ctx context.Context, maxRetries int, log *slog.Logger, model string, send func() (*http.Response, error)) (*http.Response, error) {
+func RetryHTTP(ctx context.Context, maxRetries int, log *zap.Logger, model string, send func() (*http.Response, error)) (*http.Response, error) {
 	attempt := 0
 	var httpResp *http.Response
 	err := retry.Do(ctx, maxRetries, func() error {
 		attempt++
 		if attempt > 1 {
-			log.DebugContext(ctx, "stream.retry", "attempt", attempt, "model", model)
+			log.Debug("stream.retry", zap.Int("attempt", attempt), zap.String("model", model))
 		}
 		r, err := send()
 		if err != nil {
-			log.DebugContext(ctx, "stream.request_error", "attempt", attempt, "error", err)
+			log.Debug("stream.request_error", zap.Int("attempt", attempt), zap.Error(err))
 			return err
 		}
 		httpResp = r
@@ -90,7 +90,7 @@ type DisabledCapabilities map[cometsdk.Capability]bool
 // and falling back past optional capabilities the endpoint rejects.
 type FallbackStream struct {
 	MaxRetries int
-	Log        *slog.Logger
+	Log        *zap.Logger
 	// Fallbacks are checked in order; the first one that is still enabled and
 	// matches the error is disabled before the next attempt.
 	Fallbacks []CapabilityFallback
@@ -117,10 +117,10 @@ func (s FallbackStream) Open(ctx context.Context, req *cometsdk.Request) (*http.
 		}
 		fallback, ok := s.rejectedFallback(req, disabled, err)
 		if !ok {
-			s.Log.DebugContext(ctx, "stream.failed", "error", err)
+			s.Log.Debug("stream.failed", zap.Error(err))
 			return nil, err
 		}
-		s.Log.DebugContext(ctx, fallback.LogEvent, "error", err, "model", req.Model)
+		s.Log.Debug(fallback.LogEvent, zap.Error(err), zap.String("model", req.Model))
 		disabled[fallback.Capability] = true
 		req.ReportUnsupportedCapability(fallback.Capability)
 	}

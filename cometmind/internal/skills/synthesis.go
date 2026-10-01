@@ -10,6 +10,7 @@ import (
 	"github.com/Cometline/cometline/cometmind/internal/logging"
 	"github.com/Cometline/cometline/cometmind/internal/memory"
 	"github.com/Cometline/cometline/cometmind/internal/usage"
+	"go.uber.org/zap"
 )
 
 const synthesisMaxTokens = 2500
@@ -52,7 +53,7 @@ func ProposeSkillFromJobRecorded(ctx context.Context, p cometsdk.Provider, model
 		return err
 	}
 	if !out.ShouldPropose {
-		logging.L().Info("skills.synthesis.skipped", "job_id", job.ID, "reason", strings.TrimSpace(out.Reason))
+		logging.L().Info("skills.synthesis.skipped", zap.String("job_id", job.ID), zap.String("reason", strings.TrimSpace(out.Reason)))
 		return nil
 	}
 	name := strings.TrimSpace(out.Name)
@@ -68,13 +69,13 @@ func ProposeSkillFromJobRecorded(ctx context.Context, p cometsdk.Provider, model
 	// Same-name draft may be refreshed; any other blocking overlap skips (no force on auto path).
 	related = FilterSelfDraftOverwrite(related, name, true)
 	if ShouldBlockOverlap(related) {
-		logging.L().Info("skills.synthesis.skipped", "job_id", job.ID, "reason", "overlap:"+FormatOverlapBlock(related))
+		logging.L().Info("skills.synthesis.skipped", zap.String("job_id", job.ID), zap.String("reason", "overlap:"+FormatOverlapBlock(related)))
 		return nil
 	}
 	if err := WriteDraft(name, content, true); err != nil {
 		return err
 	}
-	logging.L().Info("skills.synthesis.draft_written", "job_id", job.ID, "draft", name)
+	logging.L().Info("skills.synthesis.draft_written", zap.String("job_id", job.ID), zap.String("draft", name))
 	return nil
 }
 
@@ -97,7 +98,7 @@ func generateSynthesisResult(ctx context.Context, p cometsdk.Provider, model str
 		if !shouldRetrySynthesisJSON(err) {
 			return synthesisResult{}, err
 		}
-		logging.L().Warn("skills.synthesis.invalid_json_retry", "job_id", job.ID, "error", err)
+		logging.L().Warn("skills.synthesis.invalid_json_retry", zap.String("job_id", job.ID), zap.Error(err))
 		repairPrompt := prompt + `
 
 Your previous response was invalid for the required JSON contract.
@@ -136,7 +137,7 @@ func recordSkillUsage(ctx context.Context, rec usage.Recorder, p cometsdk.Provid
 		CallKind:    usage.KindSkillSynthesis,
 		Usage:       u,
 	}); err != nil {
-		logging.L().Warn("usage.record_failed", "kind", usage.KindSkillSynthesis, "model", model, "error", err)
+		logging.L().Warn("usage.record_failed", zap.String("kind", usage.KindSkillSynthesis), zap.String("model", model), zap.Error(err))
 	}
 }
 

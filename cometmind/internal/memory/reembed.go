@@ -11,6 +11,7 @@ import (
 
 	"github.com/Cometline/cometline/cometmind/internal/logging"
 	"github.com/oklog/ulid/v2"
+	"go.uber.org/zap"
 )
 
 // ReembedJobStatus is the durable state of a background re-embedding run.
@@ -323,7 +324,7 @@ func (s *Service) runReembed(ctx context.Context, job ReembedJob, target Embeddi
 	s.reembed.mu.Lock()
 	s.reembed.job = &job
 	s.reembed.mu.Unlock()
-	logging.L().Info("memory.reembed.completed", "job_id", job.ID, "to_model", job.ToModel, "completed", job.Completed)
+	logging.L().Info("memory.reembed.completed", zap.String("job_id", job.ID), zap.String("to_model", job.ToModel), zap.Int64("completed", job.Completed))
 }
 
 func (s *Service) failReembed(ctx context.Context, job *ReembedJob, err error) {
@@ -335,7 +336,7 @@ func (s *Service) failReembed(ctx context.Context, job *ReembedJob, err error) {
 	copied := *job
 	s.reembed.job = &copied
 	s.reembed.mu.Unlock()
-	logging.L().Warn("memory.reembed.failed", "job_id", job.ID, "error", err.Error())
+	logging.L().Warn("memory.reembed.failed", zap.String("job_id", job.ID), zap.Error(err))
 }
 
 func (s *Service) persistReembedJob(ctx context.Context, job *ReembedJob) error {

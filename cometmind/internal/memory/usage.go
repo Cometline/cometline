@@ -7,6 +7,7 @@ import (
 	"github.com/Cometline/cometline/cometmind/internal/logging"
 	"github.com/Cometline/cometline/cometmind/internal/session"
 	"github.com/Cometline/cometline/cometmind/internal/usage"
+	"go.uber.org/zap"
 )
 
 func workspaceForSession(ctx context.Context, reader session.TranscriptReader, sessionID string) string {
@@ -46,7 +47,7 @@ func recordUsage(ctx context.Context, rec usage.Recorder, provider cometsdk.Prov
 		CallKind:    kind,
 		Usage:       u,
 	}); err != nil {
-		logging.L().Warn("usage.record_failed", "kind", kind, "model", model, "error", err)
+		logging.L().Warn("usage.record_failed", zap.String("kind", kind), zap.String("model", model), zap.Error(err))
 	}
 }
 
@@ -92,7 +93,7 @@ func (e *recordingEmbedder) Embed(ctx context.Context, texts ...string) ([][]flo
 			CallKind:    usage.KindEmbedding,
 			Usage:       tok,
 		}); err != nil {
-			logging.L().Warn("usage.record_failed", "kind", usage.KindEmbedding, "model", e.model, "error", err)
+			logging.L().Warn("usage.record_failed", zap.String("kind", usage.KindEmbedding), zap.String("model", e.model), zap.Error(err))
 		}
 	}
 	return vecs, nil

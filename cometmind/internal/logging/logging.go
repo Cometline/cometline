@@ -2,48 +2,55 @@ package logging
 
 import (
 	"fmt"
-	"log/slog"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
-var logger = newLogger(slog.LevelError)
+var logger = newLogger(zapcore.ErrorLevel)
 
-func newLogger(level slog.Level) *slog.Logger {
-	return slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level}))
+func newLogger(level zapcore.Level) *zap.Logger {
+	encCfg := zap.NewProductionEncoderConfig()
+	encCfg.EncodeTime = zapcore.ISO8601TimeEncoder
+	core := zapcore.NewCore(
+		zapcore.NewJSONEncoder(encCfg),
+		zapcore.AddSync(os.Stderr),
+		level,
+	)
+	return zap.New(core, zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel))
 }
 
-// ParseLevel maps a log level name to slog.Level.
-func ParseLevel(raw string) (slog.Level, error) {
+// ParseLevel maps a log level name to zapcore.Level.
+func ParseLevel(raw string) (zapcore.Level, error) {
 	switch strings.ToLower(strings.TrimSpace(raw)) {
 	case "debug":
-		return slog.LevelDebug, nil
+		return zapcore.DebugLevel, nil
 	case "info":
-		return slog.LevelInfo, nil
+		return zapcore.InfoLevel, nil
 	case "warn", "warning":
-		return slog.LevelWarn, nil
+		return zapcore.WarnLevel, nil
 	case "error":
-		return slog.LevelError, nil
+		return zapcore.ErrorLevel, nil
 	case "":
-		return slog.LevelError, nil
+		return zapcore.ErrorLevel, nil
 	default:
-		return slog.LevelError, fmt.Errorf("unknown log level %q (want debug, info, warn, or error)", raw)
+		return zapcore.ErrorLevel, fmt.Errorf("unknown log level %q (want debug, info, warn, or error)", raw)
 	}
 }
 
-// Init replaces the process-wide logger at the given level and sets slog.Default.
-func Init(level slog.Level) {
+// Init replaces the process-wide logger at the given level.
+func Init(level zapcore.Level) {
 	logger = newLogger(level)
-	slog.SetDefault(logger)
 }
 
 // L returns the process-wide structured logger.
-func L() *slog.Logger { return logger }
+func L() *zap.Logger { return logger }
 
-// Gin logs every HTTP request with the same slog logger used by agent internals.
+// Gin logs every HTTP request with the same logger used by agent internals.
 func Gin() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
@@ -57,27 +64,27 @@ func Gin() gin.HandlerFunc {
 		if path == "/api/v1/health" && status < 400 {
 			return
 		}
-		attrs := []any{
-			"method", c.Request.Method,
-			"path", path,
-			"status", status,
-			"latency_ms", time.Since(start).Milliseconds(),
-			"client_ip", c.ClientIP(),
+		fields := []zap.Field{
+			zap.String("method", c.Request.Method),
+			zap.String("path", path),
+			zap.Int("status", status),
+			zap.Int64("latency_ms", time.Since(start).Milliseconds()),
+			zap.String("client_ip", c.ClientIP()),
 		}
 		if raw := c.Request.URL.RawQuery; raw != "" {
-			attrs = append(attrs, "query", raw)
+			fields = append(fields, zap.String("query", raw))
 		}
 		if len(c.Errors) > 0 {
-			attrs = append(attrs, "errors", c.Errors.String())
+			fields = append(fields, zap.String("errors", c.Errors.String()))
 		}
 
 		switch {
 		case status >= 500:
-			logger.Error("http.request", attrs...)
+			logger.Error("http.request", fields...)
 		case status >= 400:
-			logger.Warn("http.request", attrs...)
+			logger.Warn("http.request", fields...)
 		default:
-			logger.Info("http.request", attrs...)
+			logger.Info("http.request", fields...)
 		}
 	}
 }

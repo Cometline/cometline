@@ -11,6 +11,7 @@ import (
 	"github.com/Cometline/cometline/cometmind/internal/logging"
 	"github.com/Cometline/cometline/cometmind/internal/session"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 const (
@@ -102,7 +103,7 @@ func (a *App) preparePostMessage(c *gin.Context) (preparedPostMessage, bool) {
 		writeError(c, http.StatusBadRequest, "bad_request", "text or image is required")
 		return preparedPostMessage{}, false
 	}
-	logging.L().Info("message.received", "session", sess.ID, "provider", sess.ProviderID, "model", sess.ModelID, "text_bytes", len(req.Text), "images", len(req.Images), "files", len(req.FilePaths), "agent_mode", string(mode))
+	logging.L().Info("message.received", zap.String("session", sess.ID), zap.String("provider", sess.ProviderID), zap.String("model", sess.ModelID), zap.Int("text_bytes", len(req.Text)), zap.Int("images", len(req.Images)), zap.Int("files", len(req.FilePaths)), zap.String("agent_mode", string(mode)))
 	return preparedPostMessage{req: req, sess: sess, wsPath: wsPath, mode: mode, blocks: blocks, contexts: contexts, started: time.Now()}, true
 }
 
@@ -247,7 +248,7 @@ func (a *App) forwardMessageEvent(c *gin.Context, sessionID, runID string, flush
 		return true, errorPersisted
 	}
 	if err := writeSSE(c.Writer, ev); err != nil {
-		logging.L().Info("message.sse_client_gone", "session", sessionID, "error", err)
+		logging.L().Info("message.sse_client_gone", zap.String("session", sessionID), zap.Error(err))
 		return true, errorPersisted
 	}
 	flusher.Flush()
@@ -258,7 +259,7 @@ func (a *App) persistMessageError(c *gin.Context, sessionID, msg string) bool {
 	persistCtx, persistCancel := messagePersistenceContext(c.Request.Context())
 	defer persistCancel()
 	if _, err := a.sessions.AppendErrorMessage(persistCtx, sessionID, msg); err != nil {
-		logging.L().Warn("message.error_persist_failed", "session", sessionID, "error", err)
+		logging.L().Warn("message.error_persist_failed", zap.String("session", sessionID), zap.Error(err))
 		return false
 	}
 	return true
@@ -273,7 +274,7 @@ func (a *App) finishMessageTurn(c *gin.Context, prepared preparedPostMessage, ru
 	}
 	finishRun()
 	publishDone(c, a.sessionEvents, prepared.sess.ID, runID, flusher, clientGone)
-	logging.L().Info("message.completed", "session", prepared.sess.ID, "duration_ms", time.Since(prepared.started).Milliseconds())
+	logging.L().Info("message.completed", zap.String("session", prepared.sess.ID), zap.Int64("duration_ms", time.Since(prepared.started).Milliseconds()))
 }
 
 func (a *App) recordMessageFailure(c *gin.Context, prepared preparedPostMessage, runID string, flusher http.Flusher, runErr error, clientGone, errorPersisted bool) {
@@ -282,7 +283,7 @@ func (a *App) recordMessageFailure(c *gin.Context, prepared preparedPostMessage,
 		_ = a.jobs.ReleaseForSession(persistCtx, prepared.sess.ID, runErr.Error())
 		persistCancel()
 	}
-	logging.L().Error("message.failed", "session", prepared.sess.ID, "duration_ms", time.Since(prepared.started).Milliseconds(), "error", runErr)
+	logging.L().Error("message.failed", zap.String("session", prepared.sess.ID), zap.Int64("duration_ms", time.Since(prepared.started).Milliseconds()), zap.Error(runErr))
 	if errorPersisted {
 		return
 	}

@@ -13,6 +13,7 @@ import (
 	"github.com/Cometline/cometline/cometmind/internal/session"
 	"github.com/Cometline/cometline/cometmind/internal/usage"
 	"github.com/oklog/ulid/v2"
+	"go.uber.org/zap"
 )
 
 const (
@@ -53,11 +54,11 @@ func (e *extractor) extractAfterTurn(ctx context.Context, sessionID, model strin
 		return nil, err
 	}
 	if len(msgs) == 0 {
-		logging.L().Info("memory.extract.noop", "session", sessionID, "reason", "empty_messages")
+		logging.L().Info("memory.extract.noop", zap.String("session", sessionID), zap.String("reason", "empty_messages"))
 		return nil, nil
 	}
 	if shouldSkipExtraction(msgs) {
-		logging.L().Info("memory.extract.noop", "session", sessionID, "reason", "low_value_turn", "messages", len(msgs))
+		logging.L().Info("memory.extract.noop", zap.String("session", sessionID), zap.String("reason", "low_value_turn"), zap.Int("messages", len(msgs)))
 		return nil, nil
 	}
 
@@ -67,7 +68,7 @@ func (e *extractor) extractAfterTurn(ctx context.Context, sessionID, model strin
 	}
 
 	if pm, ok := tryExplicitRemember(msgs); ok {
-		logging.L().Info("memory.extract.explicit", "session", sessionID, "content_bytes", len(pm.Content))
+		logging.L().Info("memory.extract.explicit", zap.String("session", sessionID), zap.Int("content_bytes", len(pm.Content)))
 		change, err := e.ingestProposal(ctx, sessionID, pm, llmProvider, useModel)
 		if err != nil {
 			return nil, err
@@ -80,11 +81,11 @@ func (e *extractor) extractAfterTurn(ctx context.Context, sessionID, model strin
 
 	originalMessages := len(msgs)
 	msgs = recentMessages(msgs, extractionTranscriptMessages)
-	logging.L().Info("memory.extract.start", "session", sessionID, "model", model, "messages", len(msgs), "total_messages", originalMessages)
+	logging.L().Info("memory.extract.start", zap.String("session", sessionID), zap.String("model", model), zap.Int("messages", len(msgs)), zap.Int("total_messages", originalMessages))
 
 	transcript := extractionTranscript(msgs)
 	if transcript == "" {
-		logging.L().Info("memory.extract.noop", "session", sessionID, "reason", "empty_transcript")
+		logging.L().Info("memory.extract.noop", zap.String("session", sessionID), zap.String("reason", "empty_transcript"))
 		return nil, nil
 	}
 	proposals := e.proposeMemories(ctx, sessionID, transcript, llmProvider, useModel)
@@ -132,10 +133,10 @@ Conversation:
 	tok, err := llm.GenerateJSON(ctx, llmProvider, req, &result)
 	recordUsage(ctx, e.usage, llmProvider, useModel, usage.KindMemoryExtract, sessionID, tok)
 	if err != nil {
-		logging.L().Warn("memory.extract.llm_failed", "session", sessionID, "model", useModel, "error", err)
+		logging.L().Warn("memory.extract.llm_failed", zap.String("session", sessionID), zap.String("model", useModel), zap.Error(err))
 		return nil
 	}
-	logging.L().Info("memory.extract.proposed", "session", sessionID, "count", len(result.Memories), "model", useModel)
+	logging.L().Info("memory.extract.proposed", zap.String("session", sessionID), zap.Int("count", len(result.Memories)), zap.String("model", useModel))
 	return result.Memories
 }
 
@@ -143,7 +144,7 @@ func (e *extractor) ingestProposals(ctx context.Context, sessionID string, propo
 	var changes []Change
 	for _, pm := range proposals {
 		if !pm.ShouldSave || strings.TrimSpace(pm.Content) == "" || pm.Confidence < 0.3 {
-			logging.L().Info("memory.extract.proposal_skipped", "session", sessionID, "kind", pm.Kind, "confidence", pm.Confidence, "should_save", pm.ShouldSave)
+			logging.L().Info("memory.extract.proposal_skipped", zap.String("session", sessionID), zap.String("kind", pm.Kind), zap.Float64("confidence", pm.Confidence), zap.Bool("should_save", pm.ShouldSave))
 			continue
 		}
 		change, err := e.ingestProposal(ctx, sessionID, pm, llmProvider, useModel)
@@ -175,7 +176,7 @@ func (e *extractor) ingestProposal(ctx context.Context, sessionID string, pm pro
 	}
 	if sim > simSkipThreshold {
 		_ = e.store.logEvent(ctx, existing.ID, "extract_skip", fmt.Sprintf("similarity=%.3f", sim))
-		logging.L().Info("memory.extract.change", "session", sessionID, "action", "skip", "reason", "similar", "memory_id", existing.ID, "similarity", sim)
+		logging.L().Info("memory.extract.change", zap.String("session", sessionID), zap.String("action", "skip"), zap.String("reason", "similar"), zap.String("memory_id", existing.ID), zap.Float64("similarity", sim))
 		return Change{
 			Action:  "update",
 			Kind:    existing.Kind,
@@ -184,10 +185,10 @@ func (e *extractor) ingestProposal(ctx context.Context, sessionID string, pm pro
 		}, nil
 	}
 	if sim >= simUpdateThreshold {
-		logging.L().Info("memory.extract.change", "session", sessionID, "action", "update", "memory_id", existing.ID, "similarity", sim)
+		logging.L().Info("memory.extract.change", zap.String("session", sessionID), zap.String("action", "update"), zap.String("memory_id", existing.ID), zap.Float64("similarity", sim))
 		return e.updater.handleSimilar(ctx, existing, pm, vec, sessionID, llmProvider, useModel)
 	}
-	logging.L().Info("memory.extract.change", "session", sessionID, "action", "create", "kind", pm.Kind, "similarity", sim)
+	logging.L().Info("memory.extract.change", zap.String("session", sessionID), zap.String("action", "create"), zap.String("kind", pm.Kind), zap.Float64("similarity", sim))
 	return e.create(ctx, sessionID, pm, vec)
 }
 

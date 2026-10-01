@@ -6,10 +6,11 @@ package cometsdk
 import (
 	"context"
 	"encoding/json"
-	"log/slog"
 	"net/http"
 	"strings"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 // Provider is the single interface implemented by every LLM backend.
@@ -306,8 +307,8 @@ type ProviderConfig struct {
 	MaxRetries            int
 	AuthMode              AuthMode
 	// Logger receives structured debug-level traces of SSE events and retries.
-	// Defaults to slog.Default() if nil.
-	Logger *slog.Logger
+	// Nil silences SDK logging.
+	Logger *zap.Logger
 	// PreserveEmptyReasoningContent keeps reasoning_content present on every
 	// assistant message, including an empty string, for compatible thinking models
 	// that require the field to be replayed across tool-call continuations.
@@ -322,7 +323,6 @@ func DefaultProviderConfig() ProviderConfig {
 		ResponseHeaderTimeout: 5 * time.Minute,
 		StreamIdleTimeout:     30 * time.Minute,
 		MaxRetries:            5,
-		Logger:                slog.Default(),
 	}
 }
 
@@ -430,11 +430,10 @@ func WithMaxRetries(n int) Option {
 	}
 }
 
-// WithLogger sets a custom *slog.Logger for debug-level event tracing.
-// Pass slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
-// to see detailed SSE event and retry logs.
+// WithLogger sets a custom *zap.Logger for debug-level event tracing.
+// Pass a debug-level logger to see detailed SSE event and retry logs.
 // Passing nil silences all SDK logging.
-func WithLogger(l *slog.Logger) Option {
+func WithLogger(l *zap.Logger) Option {
 	return func(c *ProviderConfig) {
 		c.Logger = l
 	}

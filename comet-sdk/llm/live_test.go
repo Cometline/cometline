@@ -5,7 +5,6 @@ package llm_test
 import (
 	"context"
 	"encoding/json"
-	"log/slog"
 	"os"
 	"testing"
 
@@ -14,6 +13,8 @@ import (
 	"github.com/Cometline/cometline/comet-sdk/provider/openai"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 // newLiveProvider resolves the API key and optional base URL from the environment.
@@ -34,7 +35,13 @@ func newLiveProvider(t *testing.T) cometsdk.Provider {
 		t.Skip("neither CUSTOM_API_KEY nor OPENAI_API_KEY is set")
 	}
 
-	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	enc := zap.NewProductionEncoderConfig()
+	enc.EncodeTime = zapcore.ISO8601TimeEncoder
+	log := zap.New(zapcore.NewCore(
+		zapcore.NewJSONEncoder(enc),
+		zapcore.AddSync(os.Stderr),
+		zapcore.DebugLevel,
+	))
 
 	opts := []cometsdk.Option{cometsdk.WithLogger(log)}
 	if baseURL := os.Getenv("CUSTOM_BASE_URL"); baseURL != "" {

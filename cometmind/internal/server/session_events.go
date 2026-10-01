@@ -7,6 +7,7 @@ import (
 	"github.com/Cometline/cometline/cometmind/internal/logging"
 	"github.com/Cometline/cometline/cometmind/internal/runstate"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 type ingestSessionEventRequest struct {
@@ -45,7 +46,7 @@ func (a *App) handleSessionEvents(c *gin.Context) {
 	}
 	write := func(ev event.Event) bool {
 		if err := writeSSE(c.Writer, ev); err != nil {
-			logging.L().Info("session_events.sse_client_gone", "session", sessionID, "error", err)
+			logging.L().Info("session_events.sse_client_gone", zap.String("session", sessionID), zap.Error(err))
 			return false
 		}
 		flusher.Flush()

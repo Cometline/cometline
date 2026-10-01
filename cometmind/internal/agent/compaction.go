@@ -12,6 +12,7 @@ import (
 	"github.com/Cometline/cometline/cometmind/internal/event"
 	"github.com/Cometline/cometline/cometmind/internal/logging"
 	"github.com/Cometline/cometline/cometmind/internal/session"
+	"go.uber.org/zap"
 )
 
 const contextSummarySystemPrompt = `You maintain a rolling session context summary for a coding assistant.
@@ -126,7 +127,7 @@ func (c *ContextCompactor) MaybeCompact(
 		sb.Reserve,
 	)
 	if recentStart <= 0 {
-		logging.L().Info("context.compact.skipped", "session", sess.ID, "reason", "no_prefix_messages", "force", force)
+		logging.L().Info("context.compact.skipped", zap.String("session", sess.ID), zap.String("reason", "no_prefix_messages"), zap.Bool("force", force))
 		return sess, nil
 	}
 
@@ -142,23 +143,23 @@ func (c *ContextCompactor) MaybeCompact(
 
 	newSummary, err := c.summarize(ctx, provider, sess.ModelID, sb.EffectiveMaxTokens, sess.ContextSummary, prefixText)
 	if err != nil {
-		logging.L().Error("context.compact.failed", "session", sess.ID, "error", err)
+		logging.L().Error("context.compact.failed", zap.String("session", sess.ID), zap.Error(err))
 		return sess, nil
 	}
 	untilID := prefixRows[len(prefixRows)-1].ID
 	if err := c.Sessions.UpdateContextSummary(ctx, sess.ID, newSummary, untilID); err != nil {
-		logging.L().Error("context.compact.persist_failed", "session", sess.ID, "error", err)
+		logging.L().Error("context.compact.persist_failed", zap.String("session", sess.ID), zap.Error(err))
 		return sess, nil
 	}
 	if states, ok := c.Sessions.(interface {
 		ClearAssistantProviderState(context.Context, string) error
 	}); ok {
 		if err := states.ClearAssistantProviderState(ctx, sess.ID); err != nil {
-			logging.L().Warn("context.compact.provider_state_clear_failed", "session", sess.ID, "error", err)
+			logging.L().Warn("context.compact.provider_state_clear_failed", zap.String("session", sess.ID), zap.Error(err))
 		}
 	}
 
-	logging.L().Info("context.compact.done", "session", sess.ID, "until_message", untilID, "summary_bytes", len(newSummary), "recent_start", recentStart, "force", force)
+	logging.L().Info("context.compact.done", zap.String("session", sess.ID), zap.String("until_message", untilID), zap.Int("summary_bytes", len(newSummary)), zap.Int("recent_start", recentStart), zap.Bool("force", force))
 	sess.ContextSummary = newSummary
 	sess.CompactedUntilMessageID = untilID
 	sess.ContextSummaryUpdatedAt = time.Now().UTC().Format(time.RFC3339)
@@ -185,7 +186,7 @@ func (c *ContextCompactor) Prune(ctx context.Context, sessionID string) error {
 	if err := c.Sessions.MarkToolCallsCompacted(ctx, ids, time.Now().UTC().UnixMilli()); err != nil {
 		return err
 	}
-	logging.L().Info("context.prune.done", "session", sessionID, "count", len(ids))
+	logging.L().Info("context.prune.done", zap.String("session", sessionID), zap.Int("count", len(ids)))
 	return nil
 }
 

@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"log/slog"
 	"os"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"go.uber.org/zap"
 
 	cometsdk "github.com/Cometline/cometline/comet-sdk"
 	"github.com/stretchr/testify/require"
@@ -33,7 +34,7 @@ func TestParseLoop_AbandonedConsumerReturnsOnCancel(t *testing.T) {
 	ch := make(chan cometsdk.Event) // never read
 	done := make(chan struct{})
 	go func() {
-		parseLoop(ctx, providerID, body, ch, slog.New(slog.DiscardHandler), 0)
+		parseLoop(ctx, providerID, body, ch, zap.NewNop(), 0)
 		close(done)
 	}()
 

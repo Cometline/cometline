@@ -9,6 +9,7 @@ import (
 	"github.com/Cometline/cometline/cometmind/internal/db"
 	"github.com/Cometline/cometline/cometmind/internal/logging"
 	"github.com/Cometline/cometline/cometmind/internal/usage"
+	"go.uber.org/zap"
 )
 
 // SaveTokenUsage accumulates session token totals and appends a ledger row.
@@ -18,14 +19,14 @@ import (
 func (s *Service) SaveTokenUsage(ctx context.Context, sessionID string, u cometsdk.TokenUsage, providerID, modelID string) error {
 	sess, err := s.GetSession(ctx, sessionID)
 	if err != nil {
-		logging.L().Warn("usage.session_lookup_failed", "session", sessionID, "error", err)
+		logging.L().Warn("usage.session_lookup_failed", zap.String("session", sessionID), zap.Error(err))
 		s.recordAgentStep(ctx, sessionID, "", providerID, modelID, u)
 		return nil
 	}
 	var current cometsdk.TokenUsage
 	if strings.TrimSpace(sess.TokenUsage) != "" && sess.TokenUsage != "{}" {
 		if unmarshalErr := json.Unmarshal([]byte(sess.TokenUsage), &current); unmarshalErr != nil {
-			logging.L().Warn("usage.token_usage_json_invalid", "session", sessionID, "error", unmarshalErr)
+			logging.L().Warn("usage.token_usage_json_invalid", zap.String("session", sessionID), zap.Error(unmarshalErr))
 			current = cometsdk.TokenUsage{}
 		}
 	}
@@ -65,6 +66,6 @@ func (s *Service) recordAgentStep(ctx context.Context, sessionID, workspaceID, p
 		CallKind:    usage.KindAgentStep,
 		Usage:       u,
 	}); err != nil {
-		logging.L().Warn("usage.record_failed", "kind", usage.KindAgentStep, "session", sessionID, "error", err)
+		logging.L().Warn("usage.record_failed", zap.String("kind", usage.KindAgentStep), zap.String("session", sessionID), zap.Error(err))
 	}
 }
