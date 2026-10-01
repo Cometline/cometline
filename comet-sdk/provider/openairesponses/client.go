@@ -127,10 +127,10 @@ func (p *provider) streamWithRetry(ctx context.Context, req *cometsdk.Request, f
 func (p *provider) doRequest(ctx context.Context, req *cometsdk.Request, flags streamFlags) (*http.Response, error) {
 	client := p.httpClient()
 	body, err := responsesproto.BuildRequest(req, responsesproto.RequestOptions{
-		ProviderKey:              "openai",
-		DisableMaxOutputTokens:   flags.disableMaxOutputTokens,
-		DisableReasoningSummary:  flags.disableReasoningSummary,
-		ReplayEncryptedState:     !flags.disableEncryptedReplay,
+		ProviderKey:               "openai",
+		DisableMaxOutputTokens:    flags.disableMaxOutputTokens,
+		DisableReasoningSummary:   flags.disableReasoningSummary,
+		ReplayEncryptedState:      !flags.disableEncryptedReplay,
 		IncludeEncryptedReasoning: true,
 	})
 	if err != nil {
