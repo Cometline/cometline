@@ -115,6 +115,7 @@
 
 	const fold = createFoldController({
 		getSessionId: () => sessionId,
+		getSessionEpoch: () => scroll.sessionEpoch,
 		getIsSessionSynced: () => isSessionSynced,
 		getItems: () => snapshotItems,
 		getStreamingAssistantId: () => streamingAssistantId,
@@ -159,7 +160,7 @@
 	});
 
 	const virtual = createThreadVirtual({
-		getSessionId: () => sessionId,
+		getSessionEpoch: () => scroll.sessionEpoch,
 		getThreadTurns: () => threadTurns,
 		getScroller: () => scrollerEl,
 		getViewportHeight: () => scroll.viewportHeight,
