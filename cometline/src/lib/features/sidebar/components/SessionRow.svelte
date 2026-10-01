@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { Pin, PinOff, Trash2 } from '@lucide/svelte';
 	import type { Session } from '$lib/types';
 	import { workspaceLabel, gatewaySessionLabel } from '$lib/sessions/group-by-workspace';
 	import { sessionDisplayTitle } from '$lib/sessions/session-title';
@@ -8,6 +7,7 @@
 	import { unreadSessionOutputStore } from '$lib/stores/unread-session-output.svelte';
 	import { webTabActivity } from '$lib/features/workspace/web-tab-activity.svelte';
 	import SessionAudioBadge from './SessionAudioBadge.svelte';
+	import SessionRowActions from './sidebar/SessionRowActions.svelte';
 
 	let {
 		session,
@@ -124,35 +124,7 @@
 		<div class="session-audio"><SessionAudioBadge {session} tabs={audioTabs} /></div>
 	{/if}
 	{#if showActions}
-		<div class="session-actions">
-			{#if showPin}
-				<button
-					class="pin-session"
-					class:active={session.pinned}
-					disabled={pinning}
-					onclick={onPin}
-					aria-label={session.pinned
-						? `Unpin ${sessionDisplayTitle(session.title)}`
-						: `Pin ${sessionDisplayTitle(session.title)}`}
-					title={session.pinned ? 'Unpin session' : 'Pin session'}
-				>
-					{#if session.pinned}
-						<Pin size={13} stroke-width={2} />
-					{:else}
-						<PinOff size={13} stroke-width={1.9} />
-					{/if}
-				</button>
-			{/if}
-			<button
-				class="delete-session"
-				disabled={deleting}
-				onclick={onDelete}
-				aria-label={`Delete ${sessionDisplayTitle(session.title)}`}
-				title="Delete session"
-			>
-				<Trash2 size={13} stroke-width={1.9} />
-			</button>
-		</div>
+		<SessionRowActions {session} {deleting} {pinning} {showPin} {onDelete} {onPin} />
 	{/if}
 </div>
 
@@ -307,58 +279,6 @@
 		color: var(--text-muted);
 	}
 
-	.session-actions {
-		position: absolute;
-		right: 4px;
-		top: 50%;
-		transform: translateY(-50%);
-		display: flex;
-		align-items: center;
-		gap: 2px;
-	}
-
-	.pin-session,
-	.delete-session {
-		width: 24px;
-		height: 24px;
-		border: none;
-		border-radius: 6px;
-		background: transparent;
-		color: var(--text-soft);
-		display: grid;
-		place-items: center;
-		opacity: 0;
-		cursor: pointer;
-	}
-
-	.session-row-wrap:hover .session-actions button,
-	.session-row-wrap:focus-within .session-actions button {
-		opacity: 1;
-	}
-
-	.pin-session.active {
-		color: var(--pinned-group-color, #b45309);
-	}
-
-	.pin-session:hover:not(:disabled),
-	.delete-session:hover:not(:disabled) {
-		background: rgba(0, 0, 0, 0.06);
-		color: var(--text-main);
-	}
-
-	.pin-session.active:hover:not(:disabled) {
-		color: var(--pinned-group-color, #b45309);
-	}
-
-	.delete-session:hover:not(:disabled) {
-		background: rgba(180, 35, 24, 0.08);
-		color: var(--status-error);
-	}
-
-	.pin-session:disabled,
-	.delete-session:disabled {
-		opacity: 0.35;
-	}
 	@media (prefers-reduced-motion: reduce) {
 		.session-streaming.active {
 			animation: none;
