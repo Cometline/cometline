@@ -8,7 +8,7 @@ vi.mock('$lib/wiki/wiki-file-index', () => ({
 	refreshWikiFileIndex: vi.fn(async () => [])
 }));
 
-vi.mock('$lib/workspace/file-index', () => ({
+vi.mock('$lib/features/workspace/file-index', () => ({
 	filterFileIndex: vi.fn((files: string[], query: string) => {
 		const q = query.trim().toLowerCase();
 		if (!q) return files;
@@ -30,7 +30,7 @@ vi.mock('$lib/workspace/file-index', () => ({
 
 import { listWikiFiles } from '$lib/client/cometmind';
 import { refreshWikiFileIndex } from '$lib/wiki/wiki-file-index';
-import { refreshFileIndex, searchWorkspaceFiles } from '$lib/workspace/file-index';
+import { refreshFileIndex, searchWorkspaceFiles } from '$lib/features/workspace/file-index';
 import { loadFileSearchOptions, rankFilePaths, rankMatchingFiles } from './file-search';
 
 describe('rankFilePaths', () => {

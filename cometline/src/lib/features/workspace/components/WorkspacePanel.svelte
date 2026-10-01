@@ -15,16 +15,16 @@
 		SquareTerminal
 	} from '@lucide/svelte';
 	import { tick, untrack } from 'svelte';
-	import { webTabActivity } from '$lib/workspace/web-tab-activity.svelte';
+	import { webTabActivity } from '$lib/features/workspace/web-tab-activity.svelte';
 	import ConfirmActionModal from '$lib/components/ConfirmActionModal.svelte';
-	import FileTreeBrowser from '$lib/components/FileTreeBrowser.svelte';
-	import PanelTabStrip from '$lib/components/PanelTabStrip.svelte';
-	import WorkspaceFileSurface from '$lib/components/WorkspaceFileSurface.svelte';
-	import GitChangesBrowser from '$lib/components/GitChangesBrowser.svelte';
-	import GitDiffView from '$lib/components/GitDiffView.svelte';
-	import TerminalPanel from '$lib/components/TerminalPanel.svelte';
+	import FileTreeBrowser from '$lib/features/workspace/components/FileTreeBrowser.svelte';
+	import PanelTabStrip from '$lib/features/workspace/components/PanelTabStrip.svelte';
+	import WorkspaceFileSurface from '$lib/features/workspace/components/WorkspaceFileSurface.svelte';
+	import GitChangesBrowser from '$lib/features/workspace/components/GitChangesBrowser.svelte';
+	import GitDiffView from '$lib/features/workspace/components/GitDiffView.svelte';
+	import TerminalPanel from '$lib/features/workspace/components/TerminalPanel.svelte';
 	import Tooltip from '$lib/components/Tooltip.svelte';
-	import WorkspaceWebSurface from '$lib/components/WorkspaceWebSurface.svelte';
+	import WorkspaceWebSurface from '$lib/features/workspace/components/WorkspaceWebSurface.svelte';
 	import { customCaret } from '$lib/dom/custom-caret';
 	import { sessionStore } from '$lib/stores/session.svelte';
 	import { settingsStore } from '$lib/stores/settings.svelte';
@@ -33,12 +33,12 @@
 	import { isHttpUrl, normalizeUserUrl } from '$lib/open-link';
 	import { openExternalLink } from '$lib/external-link';
 	import { isWikiUiPath } from '$lib/wiki/paths';
-	import { normalizeWorkspacePath } from '$lib/workspace/file-index';
+	import { normalizeWorkspacePath } from '$lib/features/workspace/file-index';
 	import {
 		isWorkspaceOwnedPane,
 		resolveWorkspaceFocusTarget
-	} from '$lib/workspace/workspace-pane-focus';
-	import { isBlankTabUrl, urlTabChipLabel } from '$lib/workspace/workspace-panel-state';
+	} from '$lib/features/workspace/workspace-pane-focus';
+	import { isBlankTabUrl, urlTabChipLabel } from '$lib/features/workspace/workspace-panel-state';
 
 	let addressInputEl = $state<HTMLInputElement | null>(null);
 	let addressDraft = $state<string | null>(null);

@@ -32,7 +32,7 @@
 	import {
 		firstSelectionClientRect,
 		selectionPopupPosition
-	} from '$lib/workspace/selection-popup';
+	} from '$lib/features/workspace/selection-popup';
 
 	type AssistantItem = Extract<ChatItem, { type: 'assistant' }>;
 

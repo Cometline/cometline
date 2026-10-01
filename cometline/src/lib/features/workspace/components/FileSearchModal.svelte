@@ -1,12 +1,15 @@
 <script lang="ts">
 	import { tick } from 'svelte';
 	import { Loader } from '@lucide/svelte';
-	import FileTypeIcon from '$lib/components/FileTypeIcon.svelte';
+	import FileTypeIcon from '$lib/features/workspace/components/FileTypeIcon.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { settingsStore } from '$lib/stores/settings.svelte';
 	import { toWikiUiPath } from '$lib/wiki/paths';
-	import { loadFileSearchOptions, type FileSearchSource } from '$lib/workspace/file-search';
-	import { normalizeWorkspacePath } from '$lib/workspace/file-index';
+	import {
+		loadFileSearchOptions,
+		type FileSearchSource
+	} from '$lib/features/workspace/file-search';
+	import { normalizeWorkspacePath } from '$lib/features/workspace/file-index';
 
 	let {
 		open = false,

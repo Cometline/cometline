@@ -1,7 +1,7 @@
 import type { MessageContextRef } from '$lib/generated/cometmind-api';
 import type { WebContext } from '$lib/actions/start-chat';
-import type { SelectionLineRange } from '$lib/workspace/selection-snippet';
-import { openWorkspaceFilePreview } from '$lib/workspace/open-file-preview';
+import type { SelectionLineRange } from '$lib/features/workspace/selection-snippet';
+import { openWorkspaceFilePreview } from '$lib/features/workspace/open-file-preview';
 import { shellStore, type PendingWebContext } from '$lib/stores/shell.svelte';
 
 export type { MessageContextRef };

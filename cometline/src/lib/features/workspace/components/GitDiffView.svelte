@@ -14,20 +14,20 @@
 	import {
 		highlightGitDiffLines,
 		type HighlightedDiffLine
-	} from '$lib/workspace/git-diff-highlight';
-	import { parseGitDiffLines } from '$lib/workspace/git-diff-lines';
+	} from '$lib/features/workspace/git-diff-highlight';
+	import { parseGitDiffLines } from '$lib/features/workspace/git-diff-lines';
 	import {
 		canStageGitFile,
 		canUnstageGitFile,
 		type GitFileStageState
-	} from '$lib/workspace/git-file-state';
-	import { languageFromPath } from '$lib/workspace/file-preview';
-	import { workspaceChangeVersion } from '$lib/workspace/workspace-change.svelte';
-	import { buildFileSnippetContext } from '$lib/workspace/selection-snippet';
+	} from '$lib/features/workspace/git-file-state';
+	import { languageFromPath } from '$lib/features/workspace/file-preview';
+	import { workspaceChangeVersion } from '$lib/features/workspace/workspace-change.svelte';
+	import { buildFileSnippetContext } from '$lib/features/workspace/selection-snippet';
 	import {
 		firstSelectionClientRect,
 		selectionPopupPosition
-	} from '$lib/workspace/selection-popup';
+	} from '$lib/features/workspace/selection-popup';
 
 	let {
 		workspacePath,

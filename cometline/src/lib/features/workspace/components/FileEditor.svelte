@@ -4,9 +4,9 @@
 	import { Compartment, EditorState, EditorSelection } from '@codemirror/state';
 	import { keymap } from '@codemirror/view';
 	import type { Extension } from '@codemirror/state';
-	import { codemirrorLanguageSupport } from '$lib/workspace/codemirror-language';
-	import type { FileRevealRange } from '$lib/workspace/workspace-panel-state';
-	import { replaceEditorDocument } from '$lib/workspace/replace-editor-document';
+	import { codemirrorLanguageSupport } from '$lib/features/workspace/codemirror-language';
+	import type { FileRevealRange } from '$lib/features/workspace/workspace-panel-state';
+	import { replaceEditorDocument } from '$lib/features/workspace/replace-editor-document';
 
 	let {
 		value,

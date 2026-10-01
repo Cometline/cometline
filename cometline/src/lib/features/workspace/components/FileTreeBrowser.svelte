@@ -2,30 +2,30 @@
 	import { tick, untrack } from 'svelte';
 	import { ChevronDown, ChevronRight, Folder, FolderOpen, Loader } from '@lucide/svelte';
 	import { listWikiFileChildren, listWorkspaceFileChildren } from '$lib/client/cometmind';
-	import FileTypeIcon from '$lib/components/FileTypeIcon.svelte';
+	import FileTypeIcon from '$lib/features/workspace/components/FileTypeIcon.svelte';
 	import { shellStore, type FileTreeExpandSource } from '$lib/stores/shell.svelte';
 	import { toWikiUiPath } from '$lib/wiki/paths';
 	import { getCachedWikiFiles, refreshWikiFileIndex } from '$lib/wiki/wiki-file-index';
-	import { rankMatchingFiles } from '$lib/workspace/file-search';
+	import { rankMatchingFiles } from '$lib/features/workspace/file-search';
 	import {
 		getFileIndex,
 		isFileIndexTruncated,
 		normalizeWorkspacePath,
 		refreshFileIndex,
 		searchWorkspaceFiles
-	} from '$lib/workspace/file-index';
+	} from '$lib/features/workspace/file-index';
 	import {
 		buildFileTree,
 		dirKeysToExpandForPaths,
 		flattenVisibleFileTreeRows,
 		type FileTreeNode
-	} from '$lib/workspace/file-tree';
+	} from '$lib/features/workspace/file-tree';
 	import {
 		FILE_TREE_SEARCH_LIMIT,
 		FILE_TREE_SEARCH_ROW_HEIGHT,
 		virtualWindow
-	} from '$lib/workspace/virtual-list';
-	import { workspaceChangeVersion } from '$lib/workspace/workspace-change.svelte';
+	} from '$lib/features/workspace/virtual-list';
+	import { workspaceChangeVersion } from '$lib/features/workspace/workspace-change.svelte';
 
 	const LIST_LIMIT = 10000;
 

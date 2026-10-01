@@ -38,7 +38,7 @@ vi.mock('$lib/stores/settings.svelte', () => ({
 	}
 }));
 
-vi.mock('$lib/workspace/file-search', () => ({
+vi.mock('$lib/features/workspace/file-search', () => ({
 	loadFileSearchOptions
 }));
 

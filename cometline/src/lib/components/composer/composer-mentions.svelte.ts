@@ -14,8 +14,8 @@ import {
 	refreshFileIndex,
 	searchWorkspaceFiles,
 	type MentionPath
-} from '$lib/workspace/file-index';
-import { workspaceChangeVersion } from '$lib/workspace/workspace-change.svelte';
+} from '$lib/features/workspace/file-index';
+import { workspaceChangeVersion } from '$lib/features/workspace/workspace-change.svelte';
 import type { ComposerInputRef } from '$lib/components/composer/composer-input-ref';
 
 type IdleHandle =

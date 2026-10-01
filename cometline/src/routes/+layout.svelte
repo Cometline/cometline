@@ -29,7 +29,10 @@
 	} from '$lib/notifications/activity-toasts';
 	import { startStorageRetentionSync } from '$lib/retention/storage-retention-sync';
 	import { createBootController } from '$lib/boot/boot-controller';
-	import { applyWorkspaceChange, refreshWorkspace } from '$lib/workspace/workspace-change.svelte';
+	import {
+		applyWorkspaceChange,
+		refreshWorkspace
+	} from '$lib/features/workspace/workspace-change.svelte';
 	import { chatStore } from '$lib/stores/chat.svelte';
 	import {
 		applySessionRuntimeEvent,

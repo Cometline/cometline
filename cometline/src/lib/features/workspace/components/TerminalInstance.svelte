@@ -10,7 +10,7 @@
 		BUNDLED_TERMINAL_FONT_NAME,
 		DEFAULT_TERMINAL_FONT_FAMILY,
 		TERMINAL_THEME_PRESETS
-	} from '$lib/terminal-appearance';
+	} from '$lib/features/workspace/terminal-appearance';
 
 	let {
 		sessionId,

@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { Play } from '@lucide/svelte';
-	import TerminalInstance from '$lib/components/TerminalInstance.svelte';
+	import TerminalInstance from '$lib/features/workspace/components/TerminalInstance.svelte';
 	import { sessionStore } from '$lib/stores/session.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { settingsStore } from '$lib/stores/settings.svelte';
 	import { terminalStore } from '$lib/stores/terminal.svelte';
-	import { TERMINAL_THEME_PRESETS } from '$lib/terminal-appearance';
+	import { TERMINAL_THEME_PRESETS } from '$lib/features/workspace/terminal-appearance';
 
 	let {
 		active = false

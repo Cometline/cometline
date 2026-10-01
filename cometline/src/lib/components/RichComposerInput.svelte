@@ -11,7 +11,7 @@
 	import { faviconUrl, domainFromUrl, isHttpUrl, fileMentionText } from '$lib/markdown/embed';
 	import { openLink } from '$lib/open-link';
 	import { shellStore } from '$lib/stores/shell.svelte';
-	import { openWorkspaceFilePreview } from '$lib/workspace/open-file-preview';
+	import { openWorkspaceFilePreview } from '$lib/features/workspace/open-file-preview';
 	import { isSelectionAtEditorEdge } from '$lib/components/composer/composer-caret';
 
 	let {

@@ -5,7 +5,10 @@
 	import { sessionStore } from '$lib/stores/session.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { isNarrowViewport } from '$lib/layout/narrow-viewport';
-	import { webTabActivity, type WebTabActivity } from '$lib/workspace/web-tab-activity.svelte';
+	import {
+		webTabActivity,
+		type WebTabActivity
+	} from '$lib/features/workspace/web-tab-activity.svelte';
 	import AudioActivityIcon from '../AudioActivityIcon.svelte';
 	import { portal } from '../portal';
 	import { clampTooltipPosition } from '../tooltip-position';

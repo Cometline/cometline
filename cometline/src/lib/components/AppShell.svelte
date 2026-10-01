@@ -12,7 +12,7 @@
 	import MemoryToast from './MemoryToast.svelte';
 	import AppToast from './AppToast.svelte';
 	import ConfirmActionModal from './ConfirmActionModal.svelte';
-	import FileSearchModal from './FileSearchModal.svelte';
+	import FileSearchModal from '../features/workspace/components/FileSearchModal.svelte';
 	import Tooltip from './Tooltip.svelte';
 	import { getSession, updateSession } from '$lib/client/cometmind';
 	import { gotoJob } from '$lib/routes/job-route';
@@ -38,7 +38,7 @@
 		widthToRatio
 	} from '$lib/layout/workspace-panel-width';
 	import { shouldUseWorkspacePanelHistory } from '$lib/navigation/focus-nav';
-	import { shouldClaimChatPaneFromMainPointer } from '$lib/workspace/workspace-pane-focus';
+	import { shouldClaimChatPaneFromMainPointer } from '$lib/features/workspace/workspace-pane-focus';
 	import {
 		matchesShortcut,
 		isReloadShortcut,
@@ -55,7 +55,8 @@
 		navigateBack: () => void;
 		navigateForward: () => void;
 	} | null>(null);
-	type WorkspacePanelModuleComponent = typeof import('./WorkspacePanel.svelte').default;
+	type WorkspacePanelModuleComponent =
+		typeof import('../features/workspace/components/WorkspacePanel.svelte').default;
 	let WorkspacePanelComponent = $state<WorkspacePanelModuleComponent | null>(null);
 	let workspacePanelLoadPromise: Promise<WorkspacePanelModuleComponent | null> | null = null;
 	let workspacePanelLoadFailed = $state(false);
@@ -80,17 +81,18 @@
 		if (WorkspacePanelComponent) return Promise.resolve(WorkspacePanelComponent);
 		if (!workspacePanelLoadPromise) {
 			workspacePanelLoadFailed = false;
-			workspacePanelLoadPromise = import('./WorkspacePanel.svelte')
-				.then((module) => {
-					WorkspacePanelComponent = module.default;
-					return module.default;
-				})
-				.catch((error) => {
-					workspacePanelLoadPromise = null;
-					workspacePanelLoadFailed = true;
-					console.error('Workspace panel failed to load', error);
-					return null;
-				});
+			workspacePanelLoadPromise =
+				import('../features/workspace/components/WorkspacePanel.svelte')
+					.then((module) => {
+						WorkspacePanelComponent = module.default;
+						return module.default;
+					})
+					.catch((error) => {
+						workspacePanelLoadPromise = null;
+						workspacePanelLoadFailed = true;
+						console.error('Workspace panel failed to load', error);
+						return null;
+					});
 		}
 		return workspacePanelLoadPromise;
 	}

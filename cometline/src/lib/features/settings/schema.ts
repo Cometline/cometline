@@ -20,7 +20,10 @@ import {
 } from '$lib/personas';
 import { normalizeOllamaNativeBase } from '$lib/ollama/url';
 import { WORKSPACE_PANEL_MAX_RATIO } from '$lib/layout/workspace-panel-width';
-import { DEFAULT_TERMINAL_APPEARANCE, normalizeTerminalAppearance } from '$lib/terminal-appearance';
+import {
+	DEFAULT_TERMINAL_APPEARANCE,
+	normalizeTerminalAppearance
+} from '$lib/features/workspace/terminal-appearance';
 
 export const VALID_PROVIDER_METHODS: ProviderMethod[] = [
 	'openai-compatible',

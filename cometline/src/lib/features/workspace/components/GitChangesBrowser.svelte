@@ -19,11 +19,11 @@
 		type WorkspaceGitStatus
 	} from '$lib/client/cometmind';
 	import ConfirmActionModal from '$lib/components/ConfirmActionModal.svelte';
-	import FileTypeIcon from '$lib/components/FileTypeIcon.svelte';
+	import FileTypeIcon from '$lib/features/workspace/components/FileTypeIcon.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
-	import { normalizeWorkspacePath } from '$lib/workspace/file-index';
-	import { hasUnstagedSide } from '$lib/workspace/git-file-state';
-	import { workspaceChangeVersion } from '$lib/workspace/workspace-change.svelte';
+	import { normalizeWorkspacePath } from '$lib/features/workspace/file-index';
+	import { hasUnstagedSide } from '$lib/features/workspace/git-file-state';
+	import { workspaceChangeVersion } from '$lib/features/workspace/workspace-change.svelte';
 
 	type GitFile = WorkspaceGitStatus['files'][number];
 	type DiscardConfirm = { kind: 'one'; path: string } | { kind: 'all' };

@@ -39,7 +39,7 @@ vi.mock('$lib/stores/shell.svelte', () => ({
 	shellStore: { getFileTreeExpanded, setFileTreeExpanded }
 }));
 
-vi.mock('$lib/workspace/file-index', () => ({
+vi.mock('$lib/features/workspace/file-index', () => ({
 	normalizeWorkspacePath: (path: string) => path,
 	getFileIndex,
 	refreshFileIndex,
@@ -57,7 +57,7 @@ vi.mock('$lib/wiki/wiki-file-index', () => ({
 	refreshWikiFileIndex
 }));
 
-vi.mock('$lib/workspace/workspace-change.svelte', () => ({
+vi.mock('$lib/features/workspace/workspace-change.svelte', () => ({
 	workspaceChangeVersion: () => 0
 }));
 

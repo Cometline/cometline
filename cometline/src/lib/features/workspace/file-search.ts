@@ -7,7 +7,7 @@ import {
 	normalizeWorkspacePath,
 	refreshFileIndex,
 	searchWorkspaceFiles
-} from '$lib/workspace/file-index';
+} from '$lib/features/workspace/file-index';
 
 export type { FileSearchSource };
 

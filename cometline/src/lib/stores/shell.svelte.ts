@@ -13,13 +13,13 @@ import {
 	pushEntry,
 	type PanelHistoryEntry,
 	type PanelHistoryState
-} from '$lib/workspace/panel-history';
+} from '$lib/features/workspace/panel-history';
 import {
 	readWorkspacePanelTreeSource,
 	writeWorkspacePanelTreeSource,
 	type WorkspacePanelTreeSource
-} from '$lib/workspace/workspace-panel-prefs';
-import { dirKeysToExpandForPaths } from '$lib/workspace/file-tree';
+} from '$lib/features/workspace/workspace-panel-prefs';
+import { dirKeysToExpandForPaths } from '$lib/features/workspace/file-tree';
 import {
 	activateWorkspacePanelFileTab,
 	activateWorkspacePanelUrlTab,
@@ -41,7 +41,7 @@ import {
 	type TabSurfaceKey,
 	type WorkspacePanelState,
 	type WorkspacePanelSurface
-} from '$lib/workspace/workspace-panel-state';
+} from '$lib/features/workspace/workspace-panel-state';
 import { isWikiUiPath, toWikiRelative } from '$lib/wiki/paths';
 
 export type WorkspacePanelMode = 'url' | 'file' | 'git-diff';
@@ -53,7 +53,7 @@ export type {
 	SurfaceContent,
 	SurfaceContentKey,
 	WorkspacePanelSurface
-} from '$lib/workspace/workspace-panel-state';
+} from '$lib/features/workspace/workspace-panel-state';
 
 export type FocusedPane = 'chat' | 'web' | 'terminal';
 

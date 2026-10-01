@@ -5,8 +5,8 @@ import {
 	normalizeWorkspacePath,
 	refreshFileIndex,
 	searchWorkspaceFiles
-} from '$lib/workspace/file-index';
-import { rankFilePaths } from '$lib/workspace/file-search';
+} from '$lib/features/workspace/file-index';
+import { rankFilePaths } from '$lib/features/workspace/file-search';
 
 const DEFAULT_FILE_OPTION_LIMIT = 8;
 

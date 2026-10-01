@@ -5,7 +5,7 @@
 		type WorkspaceMarkdownResources
 	} from '$lib/markdown/render';
 	import { openLink } from '$lib/open-link';
-	import { openWorkspaceFilePreview } from '$lib/workspace/open-file-preview';
+	import { openWorkspaceFilePreview } from '$lib/features/workspace/open-file-preview';
 	import { getCachedWikiFiles, refreshWikiFileIndex } from '$lib/wiki/wiki-file-index';
 
 	let {

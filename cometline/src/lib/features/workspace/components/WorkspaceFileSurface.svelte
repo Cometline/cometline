@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
-	import FilePreview from '$lib/components/FilePreview.svelte';
-	import type { FileRevealRange } from '$lib/workspace/workspace-panel-state';
+	import FilePreview from '$lib/features/workspace/components/FilePreview.svelte';
+	import type { FileRevealRange } from '$lib/features/workspace/workspace-panel-state';
 
 	type FileEditorState = {
 		dirty: boolean;

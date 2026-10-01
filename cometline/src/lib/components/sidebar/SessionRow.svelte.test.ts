@@ -13,7 +13,10 @@ vi.mock('$lib/stores/chat.svelte', () => ({
 import SessionRow from './SessionRow.svelte';
 import { sessionStore } from '$lib/stores/session.svelte';
 import { shellStore } from '$lib/stores/shell.svelte';
-import { webTabActivity, type WebTabActivity } from '$lib/workspace/web-tab-activity.svelte';
+import {
+	webTabActivity,
+	type WebTabActivity
+} from '$lib/features/workspace/web-tab-activity.svelte';
 
 const session: Session = {
 	id: 'audio-session',

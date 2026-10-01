@@ -6,7 +6,7 @@
 	import { chatStore } from '$lib/stores/chat.svelte';
 	import { terminalStore } from '$lib/stores/terminal.svelte';
 	import { unreadSessionOutputStore } from '$lib/stores/unread-session-output.svelte';
-	import { webTabActivity } from '$lib/workspace/web-tab-activity.svelte';
+	import { webTabActivity } from '$lib/features/workspace/web-tab-activity.svelte';
 	import SessionAudioBadge from './SessionAudioBadge.svelte';
 
 	let {

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { materialIconUrlForPath } from '$lib/workspace/material-file-icon';
+	import { materialIconUrlForPath } from '$lib/features/workspace/material-file-icon';
 
 	let {
 		path,

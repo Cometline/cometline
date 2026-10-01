@@ -2,8 +2,8 @@
 	import { Loader } from '@lucide/svelte';
 	import { tick, untrack } from 'svelte';
 	import AssistantMarkdown from '$lib/components/AssistantMarkdown.svelte';
-	import FileEditor from '$lib/components/FileEditor.svelte';
-	import PdfPreview from '$lib/components/PdfPreview.svelte';
+	import FileEditor from '$lib/features/workspace/components/FileEditor.svelte';
+	import PdfPreview from '$lib/features/workspace/components/PdfPreview.svelte';
 	import SelectionAddToChat from '$lib/components/SelectionAddToChat.svelte';
 	import {
 		listWikiFileBacklinks,
@@ -13,37 +13,37 @@
 		writeWorkspaceFileContent
 	} from '$lib/client/cometmind';
 	import { shellStore } from '$lib/stores/shell.svelte';
-	import { openWorkspaceFilePreview } from '$lib/workspace/open-file-preview';
+	import { openWorkspaceFilePreview } from '$lib/features/workspace/open-file-preview';
 	import {
 		isMarkdownPath,
 		isPdfPath,
 		languageFromExtension,
 		languageFromPath,
 		shouldSkipTextPreviewReload
-	} from '$lib/workspace/file-preview';
+	} from '$lib/features/workspace/file-preview';
 	import {
 		buildFileSnippetContext,
 		sourceLineRangeFromDomRange,
 		type SelectionLineRange
-	} from '$lib/workspace/selection-snippet';
+	} from '$lib/features/workspace/selection-snippet';
 	import {
 		firstSelectionClientRect,
 		selectionPopupPosition
-	} from '$lib/workspace/selection-popup';
-	import type { FileRevealRange } from '$lib/workspace/workspace-panel-state';
+	} from '$lib/features/workspace/selection-popup';
+	import type { FileRevealRange } from '$lib/features/workspace/workspace-panel-state';
 	import {
 		readMarkdownFileViewMode,
 		writeMarkdownFileViewMode,
 		type MarkdownFileViewMode
-	} from '$lib/workspace/workspace-panel-prefs';
+	} from '$lib/features/workspace/workspace-panel-prefs';
 	import { refreshWikiFileIndex } from '$lib/wiki/wiki-file-index';
-	import { workspaceFileChangeVersion } from '$lib/workspace/workspace-change.svelte';
-	import { createFileDiff } from '$lib/workspace/file-diff';
+	import { workspaceFileChangeVersion } from '$lib/features/workspace/workspace-change.svelte';
+	import { createFileDiff } from '$lib/features/workspace/file-diff';
 	import {
 		highlightGitDiffLines,
 		type HighlightedDiffLine
-	} from '$lib/workspace/git-diff-highlight';
-	import { parseGitDiffLines } from '$lib/workspace/git-diff-lines';
+	} from '$lib/features/workspace/git-diff-highlight';
+	import { parseGitDiffLines } from '$lib/features/workspace/git-diff-lines';
 	import {
 		isWikiReadOnlyPath,
 		isWikiUiPath,

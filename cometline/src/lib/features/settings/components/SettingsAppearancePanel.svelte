@@ -16,7 +16,7 @@
 		DEFAULT_TERMINAL_APPEARANCE,
 		normalizeTerminalFontSize,
 		TERMINAL_THEME_PRESETS
-	} from '$lib/terminal-appearance';
+	} from '$lib/features/workspace/terminal-appearance';
 	import { defaultResponseCompleteSoundSettings } from '$lib/features/settings/schema';
 	import { playResponseCompleteSound } from '$lib/sound/response-complete';
 
