@@ -20,7 +20,7 @@ import {
 	miniWindowOriginForWorkArea,
 	miniWindowSizeForWorkArea
 } from './window-bounds.js';
-import { isExternallyOpenableUrl } from './workspace-preview.js';
+import { isExternallyOpenableUrl } from './external-url.js';
 
 const MACOS_LOGIN_ITEMS_SETTINGS_URL =
 	'x-apple.systempreferences:com.apple.LoginItems-Settings.extension';

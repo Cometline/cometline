@@ -22,7 +22,7 @@ import type { createShortcutCoordinator } from './shortcuts.js';
 import type { createTerminalManager, TerminalCreateInput } from './terminal.js';
 import type { createWindowChrome } from './window-chrome.js';
 import type { createWindows } from './windows.js';
-import { isExternallyOpenableUrl } from './workspace-preview.js';
+import { isExternallyOpenableUrl } from './external-url.js';
 import type { createWorkspaceWatcher } from './workspace-watcher.js';
 
 type SettingsDomain = ReturnType<typeof createSettingsDomain>;
