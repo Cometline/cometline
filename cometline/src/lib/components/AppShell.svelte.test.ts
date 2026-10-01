@@ -15,7 +15,9 @@ vi.mock('./GitDiffView.svelte', () => ({ default: emptyComponent }));
 vi.mock('./TerminalPanel.svelte', () => ({ default: emptyComponent }));
 vi.mock('./RuntimeOverlay.svelte', () => ({ default: emptyComponent }));
 vi.mock('./SettingsModal.svelte', () => ({ default: emptyComponent }));
-vi.mock('./onboarding/SetupWizard.svelte', () => ({ default: emptyComponent }));
+vi.mock('../features/onboarding/components/SetupWizard.svelte', () => ({
+	default: emptyComponent
+}));
 vi.mock('./UpdateButton.svelte', () => ({ default: emptyComponent }));
 vi.mock('./MemoryToast.svelte', () => ({ default: emptyComponent }));
 vi.mock('./AppToast.svelte', () => ({ default: emptyComponent }));
