@@ -255,6 +255,12 @@ Run CometMind as a Discord bot with the same agent runtime.
 
 ## Testing
 
+Run the tests that cover your change and leave them passing. Do not finish the task or open a pull request while those tests fail.
+
+- **`cometline/`:** `pnpm exec vitest run` on the related test files, then `pnpm run format:check`. Frontend CI also runs `pnpm run check`, `pnpm run lint`, and `pnpm run build`.
+- **`cometmind/`:** `go test` the package you changed. CI uses `go test -race ./...`.
+- **`comet-sdk/`:** `go test` the package you changed. CI uses `go test -race ./...`.
+
 ### Test strategy
 
 - **SDK tests:** Unit/integration tests without live API calls (CI-safe). Live tests behind `live` build tag.
@@ -297,8 +303,9 @@ SDK stream tests use checked-in SSE fixtures under each provider's `fixtures/` d
 1. Identify the module that owns the change
 2. Make changes in that module
 3. If the change affects contracts (API, SSE, IPC), update all layers
-4. Run `make check` to verify type safety and tests
-5. Test manually with `make dev`
+4. Run the related tests from [Testing](#testing) and leave them passing
+5. Run `make check` to verify type safety and tests
+6. Test manually with `make dev`
 
 ### Code style
 
