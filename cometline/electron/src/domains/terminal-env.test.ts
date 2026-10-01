@@ -61,7 +61,8 @@ describe('terminal-env', () => {
 		expect(zdot).toBe(zshDotDir(envDir));
 		const zshrc = fs.readFileSync(path.join(zdot, '.zshrc'), 'utf8');
 		expect(zshrc).toContain(`source '${script}'`);
-		expect(fs.existsSync(path.join(zdot, '.zshenv'))).toBe(true);
+		expect(zshrc).toContain('HISTFILE="${HOME}/.zsh_history"');
+		expect(zshrc.indexOf('HISTFILE=')).toBeLessThan(zshrc.indexOf('/.zshrc'));
 		expect(fs.readFileSync(path.join(zdot, '.zprofile'), 'utf8')).toContain('.zprofile');
 	});
 
