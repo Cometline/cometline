@@ -14,7 +14,7 @@ Conventions for the SvelteKit renderer. See also [`STYLING.md`](../STYLING.md) a
 
 ## Controller pattern
 
-Heavy UI features use a `create…Controller(deps)` factory that accepts getter callbacks (mirrors [`conversation-controller.ts`](../src/lib/conversation/conversation-controller.ts) and chat thread controllers):
+Heavy UI features use a `create…Controller(deps)` factory that accepts getter callbacks (mirrors [`conversation-controller.ts`](../src/lib/features/chat/conversation-controller.ts) and chat thread controllers):
 
 ```typescript
 export function createThreadScroll(deps: { getScroller: () => HTMLElement | null }) {
@@ -55,13 +55,13 @@ The renderer is no longer only the chat route. Current first-class routes are:
 | `/settings`                      | Direct settings route outside `AppShell`  |
 | `/mini` and `/mini/session/[id]` | Compact mini-window chat                  |
 
-Shared shell state lives in `shell.svelte.ts`; route-local state should stay in route components or feature controllers.
+Shared shell state is exposed through the `shellStore` facade in [`shell.svelte.ts`](../src/lib/stores/shell.svelte.ts). The facade re-exports the same API while the implementation lives in `src/lib/stores/shell/*.svelte.ts` (chrome, file tree, file preview, focus, panel history, panel navigation, terminal, web context, web tabs, and workspace panel). Route-local state should stay in route components or feature controllers.
 
 ## Workspace Panel Pattern
 
-The workspace panel is a session-scoped shell feature, not a route. Keep transition logic in `src/lib/workspace/workspace-panel-state.ts`; it is pure TypeScript and has direct unit tests. `shell.svelte.ts` adapts those transitions to active-session state, focus requests, history, and Electron IPC.
+The workspace panel is a session-scoped shell feature, not a route. Keep transition logic in [`workspace-panel-state.ts`](../src/lib/features/workspace/workspace-panel-state.ts); it is pure TypeScript and has direct unit tests. `shell.svelte.ts` adapts those transitions to active-session state, focus requests, history, and Electron IPC.
 
-`WorkspacePanel.svelte` owns shell-level surface/mode selection, toolbar state, and leave-guard coordination. Keep individual surface DOM and lifecycle code in its owner:
+[`WorkspacePanel.svelte`](../src/lib/features/workspace/components/WorkspacePanel.svelte) owns shell-level surface/mode selection, toolbar state, and leave-guard coordination. Keep individual surface DOM and lifecycle code in its owner:
 
 - `WorkspaceWebSurface.svelte` owns Electron `<webview>` events, navigation, and page capture.
 - `WorkspaceFileSurface.svelte` composes file preview/editing and reports active editor state; `FilePreview.svelte` owns external-change resolution and full-page diff mode.
@@ -81,13 +81,44 @@ When an action can replace an open file, call `shellStore.openFilePreviewForActi
 
 Fatal errors use `role="alert"`. Recoverable errors use `role="alert"` on a dismissible banner.
 
+## Feature layout
+
+Feature UI lives under `src/lib/features/{feature}/`. Each feature keeps `components/` for Svelte views and sibling `*.svelte.ts` controllers. `src/lib/components/` is only shared UI primitives (markdown, tooltips, confirm dialogs, thinking indicator, error banner, and similar cross-feature widgets).
+
+| Feature      | Owns                                                    |
+| ------------ | ------------------------------------------------------- |
+| `chat`       | Thread, rows, assistant stack, flight                   |
+| `composer`   | Composer, slash/mention menus, attachments              |
+| `gallery`    | Gallery page and cards                                  |
+| `inbox`      | Inbox drawer                                            |
+| `jobs`       | Jobs board and job detail                               |
+| `onboarding` | Setup wizard                                            |
+| `settings`   | Settings panels, providers, MCP, model roles            |
+| `shell`      | App shell chrome, intro, toasts, runtime overlay        |
+| `sidebar`    | Session sidebar                                         |
+| `skills`     | Skills page and slash-command catalog                   |
+| `usage`      | Usage dashboard                                         |
+| `workspace`  | Workspace panel, file tree, preview, git diff, terminal |
+
+## Size budgets
+
+`scripts/readability-report.sh` counts `wc -l`. Stay inside these limits for new and touched files:
+
+| Kind                             | Budget    |
+| -------------------------------- | --------- |
+| `.svelte` component              | 400 lines |
+| scoped `<style>` in a component  | 200 lines |
+| `.svelte.ts` store or controller | 500 lines |
+
+Split a component into a panel child plus a `create…` controller before exceeding a budget. Scoped CSS does not apply to child component DOM, so move the rules with the markup.
+
 ## Styling
 
 - Colors and spacing: `var(--*)` tokens in [`app.css`](../src/app.css)
 - Semantic status colors: `--status-success`, `--status-warning`, `--status-error`
-- No hardcoded hex in components — add a token if a new semantic color is needed
-- Shared chat row chrome: [`ThreadRow.svelte`](../src/lib/components/chat/ThreadRow.svelte)
-- Jobs/file/settings panels should reuse global panel/card tokens rather than introducing route-local color systems
+- No raw hex in `.svelte` or `.css` files outside `app.css`. `scripts/lint-colors.mjs` fails the build on `#rgb` / `#rrggbb`. Add a token in `app.css` and reference `var(--*)`.
+- Shared chat row chrome: [`ThreadRow.svelte`](../src/lib/features/chat/components/ThreadRow.svelte)
+- Jobs, file, and settings panels should reuse global panel/card tokens rather than introducing route-local color systems
 
 ## Testing
 
