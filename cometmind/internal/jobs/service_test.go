@@ -3,6 +3,7 @@ package jobs_test
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -58,7 +59,7 @@ func TestCreateClaimComplete(t *testing.T) {
 	}
 
 	_, err = svc.Claim(ctx, job.ID, "sess-2")
-	if err != jobs.ErrAlreadyClaimed {
+	if !errors.Is(err, jobs.ErrAlreadyClaimed) {
 		t.Fatalf("second claim err=%v want ErrAlreadyClaimed", err)
 	}
 
@@ -165,7 +166,7 @@ func TestConcurrentClaimOnlyAssignsOneSession(t *testing.T) {
 			winner = res.sessionID
 			continue
 		}
-		if res.err != jobs.ErrAlreadyClaimed && res.err != jobs.ErrConflict {
+		if !errors.Is(res.err, jobs.ErrAlreadyClaimed) && !errors.Is(res.err, jobs.ErrConflict) {
 			t.Fatalf("claim error for %s = %v", res.sessionID, res.err)
 		}
 	}
@@ -271,7 +272,7 @@ func TestUpdateTodoOnlyInTodo(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err = svc.UpdateTodo(ctx, job.ID, jobs.UpdateTodoInput{Description: "nope"}, "")
-	if err != jobs.ErrNotEditable {
+	if !errors.Is(err, jobs.ErrNotEditable) {
 		t.Fatalf("err=%v want ErrNotEditable", err)
 	}
 }
@@ -313,7 +314,7 @@ func TestArchiveCompletedJobsOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.Archive(ctx, job.ID); err != jobs.ErrConflict {
+	if _, err := svc.Archive(ctx, job.ID); !errors.Is(err, jobs.ErrConflict) {
 		t.Fatalf("archive todo err=%v want ErrConflict", err)
 	}
 	if _, err := svc.Claim(ctx, job.ID, "sess-1"); err != nil {
@@ -420,7 +421,7 @@ func TestWorkerErrorReleaseBlocksAtThresholdAndUnblockResets(t *testing.T) {
 	if blocked.Status != jobs.StatusBlocked || blocked.FailureCount != 1 || blocked.NextRetryAt != nil {
 		t.Fatalf("blocked=%+v, want blocked without retry schedule", blocked)
 	}
-	if _, err := svc.Claim(ctx, job.ID, "sess-2"); err != jobs.ErrConflict {
+	if _, err := svc.Claim(ctx, job.ID, "sess-2"); !errors.Is(err, jobs.ErrConflict) {
 		t.Fatalf("claim blocked err=%v want ErrConflict", err)
 	}
 

@@ -105,7 +105,7 @@ func (s *Service) LoadTranscriptPage(ctx context.Context, sessionID string, limi
 		var decErr error
 		beforeCreatedAt, beforeID, decErr = decodeTranscriptCursor(before)
 		if decErr != nil {
-			return TranscriptPage{}, fmt.Errorf("%w: %v", ErrInvalidTranscriptCursor, decErr)
+			return TranscriptPage{}, fmt.Errorf("%w: %w", ErrInvalidTranscriptCursor, decErr)
 		}
 		descRows, err = s.q.ListTranscriptMessagesBefore(ctx, db.ListTranscriptMessagesBeforeParams{
 			SessionID:       sessionID,

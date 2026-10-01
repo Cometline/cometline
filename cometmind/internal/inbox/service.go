@@ -3,6 +3,7 @@ package inbox
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -97,7 +98,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (Message, error) {
 func (s *Service) Get(ctx context.Context, messageID string) (Message, error) {
 	row, err := s.q.GetInboxMessage(ctx, messageID)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return Message{}, ErrNotFound
 		}
 		return Message{}, err
@@ -141,8 +142,8 @@ func (s *Service) Reply(ctx context.Context, messageID, content string) (Message
 		ID:         messageID,
 	})
 	if err != nil {
-		if err == sql.ErrNoRows {
-			if _, getErr := s.Get(ctx, messageID); getErr == ErrNotFound {
+		if errors.Is(err, sql.ErrNoRows) {
+			if _, getErr := s.Get(ctx, messageID); errors.Is(getErr, ErrNotFound) {
 				return Message{}, ErrNotFound
 			}
 			return Message{}, ErrNotOpen
@@ -161,8 +162,8 @@ func (s *Service) Dismiss(ctx context.Context, messageID string) (Message, error
 		ID:         messageID,
 	})
 	if err != nil {
-		if err == sql.ErrNoRows {
-			if _, getErr := s.Get(ctx, messageID); getErr == ErrNotFound {
+		if errors.Is(err, sql.ErrNoRows) {
+			if _, getErr := s.Get(ctx, messageID); errors.Is(getErr, ErrNotFound) {
 				return Message{}, ErrNotFound
 			}
 			return Message{}, ErrNotOpen
@@ -199,7 +200,7 @@ func (s *Service) ClaimForProcess(ctx context.Context, messageID string) (Messag
 		ProcessAttempts: MaxProcessAttempts,
 	})
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return Message{}, ErrAlreadyClaimed
 		}
 		return Message{}, err
@@ -217,7 +218,7 @@ func (s *Service) MarkProcessed(ctx context.Context, messageID, processError str
 		ID:           messageID,
 	})
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return Message{}, ErrNotFound
 		}
 		return Message{}, err

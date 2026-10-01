@@ -3,6 +3,7 @@ package jobs
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -25,7 +26,7 @@ type NotificationHandler interface {
 // NewNotifier builds a notifier with dynamic settings.
 func NewNotifier(settingsFn func() Settings) *Notifier {
 	if settingsFn == nil {
-		settingsFn = func() Settings { return DefaultSettings() }
+		settingsFn = DefaultSettings
 	}
 	return &Notifier{settings: settingsFn}
 }
@@ -65,7 +66,7 @@ func (s *Service) Notifier() *Notifier {
 // NewService creates a jobs service.
 func NewService(conn *sql.DB, settingsFn func() Settings, notifier *Notifier) *Service {
 	if settingsFn == nil {
-		settingsFn = func() Settings { return DefaultSettings() }
+		settingsFn = DefaultSettings
 	}
 	return &Service{
 		q:        db.New(conn),
@@ -224,7 +225,7 @@ func (s *Service) HasOpenJobForScheduledJob(ctx context.Context, scheduledJobID 
 func (s *Service) Get(ctx context.Context, jobID string) (Job, error) {
 	row, err := s.q.GetJob(ctx, jobID)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return Job{}, ErrNotFound
 		}
 		return Job{}, err
@@ -684,7 +685,7 @@ func (s *Service) SoftDelete(ctx context.Context, jobID string) error {
 func (s *Service) JobForSession(ctx context.Context, sessionID string) (Job, bool, error) {
 	row, err := s.q.GetJobByAssignedSession(ctx, sql.NullString{String: sessionID, Valid: true})
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return Job{}, false, nil
 		}
 		return Job{}, false, err
