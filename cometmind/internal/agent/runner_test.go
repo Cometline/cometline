@@ -255,11 +255,15 @@ func runAndDrainWithContext(t *testing.T, ctx context.Context, r *Runner, turn s
 	t.Helper()
 	ch := make(chan event.Event, 64)
 	var runErr error
+	done := make(chan struct{})
 	go func() {
 		runErr = r.Run(ctx, turn, ch)
 		close(ch)
+		close(done)
 	}()
-	return drain(ch), runErr
+	events := drain(ch)
+	<-done
+	return events, runErr
 }
 
 func runAndDrain(t *testing.T, r *Runner, turn session.AgentTurn) ([]event.Event, error) {
