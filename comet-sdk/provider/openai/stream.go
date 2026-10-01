@@ -7,6 +7,7 @@ import (
 	"time"
 
 	cometsdk "github.com/cometline/comet-sdk"
+	"github.com/cometline/comet-sdk/internal/providerbase"
 	"github.com/cometline/comet-sdk/internal/sse"
 )
 
@@ -24,10 +25,10 @@ func parseLoop(ctx context.Context, providerID string, body io.ReadCloser, ch ch
 	for scanner.Next() {
 		select {
 		case <-ctx.Done():
-			ch <- cometsdk.ErrorEvent{Err: &cometsdk.StreamError{
+			providerbase.SendEvent(ctx, ch, cometsdk.ErrorEvent{Err: &cometsdk.StreamError{
 				ProviderID: providerID,
 				Cause:      ctx.Err(),
-			}}
+			}})
 			return
 		default:
 		}
@@ -39,16 +40,18 @@ func parseLoop(ctx context.Context, providerID string, body io.ReadCloser, ch ch
 		events, err := toSDKEvents(ev.Data, state)
 		if err != nil {
 			log.DebugContext(ctx, "sse.parse_error", "error", err)
-			ch <- cometsdk.ErrorEvent{Err: &cometsdk.StreamError{
+			providerbase.SendEvent(ctx, ch, cometsdk.ErrorEvent{Err: &cometsdk.StreamError{
 				ProviderID: providerID,
 				Cause:      err,
-			}}
+			}})
 			return
 		}
 
 		for _, e := range events {
 			log.DebugContext(ctx, "sdk.event", "type", slog.AnyValue(e))
-			ch <- e
+			if !providerbase.SendEvent(ctx, ch, e) {
+				return
+			}
 			if _, ok := e.(cometsdk.DoneEvent); ok {
 				return
 			}
@@ -57,15 +60,17 @@ func parseLoop(ctx context.Context, providerID string, body io.ReadCloser, ch ch
 
 	if err := scanner.Err(); err != nil {
 		log.DebugContext(ctx, "sse.scanner_error", "error", err)
-		ch <- cometsdk.ErrorEvent{Err: &cometsdk.StreamError{
+		providerbase.SendEvent(ctx, ch, cometsdk.ErrorEvent{Err: &cometsdk.StreamError{
 			ProviderID: providerID,
 			Cause:      err,
-		}}
+		}})
 		return
 	}
 
 	for _, e := range flushPendingStreamEvents(state) {
-		ch <- e
+		if !providerbase.SendEvent(ctx, ch, e) {
+			return
+		}
 		if _, ok := e.(cometsdk.DoneEvent); ok {
 			return
 		}

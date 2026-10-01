@@ -1,9 +1,11 @@
 package providerbase
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 
 	cometsdk "github.com/cometline/comet-sdk"
 )
@@ -59,6 +61,36 @@ func TestIsRetryableWrappedAuthError(t *testing.T) {
 	err := fmt.Errorf("request: %w", &cometsdk.AuthError{StatusCode: 401})
 	if IsRetryable(err) {
 		t.Fatal("wrapped AuthError should not be retried")
+	}
+}
+
+func TestSendEventReturnsWhenContextCancelled(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	ch := make(chan cometsdk.Event)
+	result := make(chan bool, 1)
+	go func() { result <- SendEvent(ctx, ch, cometsdk.DoneEvent{}) }()
+
+	cancel()
+	select {
+	case delivered := <-result:
+		if delivered {
+			t.Fatal("SendEvent reported delivery on an unread channel")
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("SendEvent blocked after ctx was cancelled")
+	}
+}
+
+func TestSendEventDeliversWithRoomAfterCancel(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	ch := make(chan cometsdk.Event, 1)
+	if !SendEvent(ctx, ch, cometsdk.DoneEvent{}) {
+		t.Fatal("SendEvent should deliver when the channel has room")
 	}
 }
 

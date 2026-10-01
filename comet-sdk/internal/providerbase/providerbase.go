@@ -83,6 +83,25 @@ func ClientServerError(err error) (*cometsdk.ServerError, bool) {
 	return se, true
 }
 
+// SendEvent delivers ev on ch unless ctx is cancelled while waiting, and
+// reports whether it was delivered. Parse loops stop on false so a consumer
+// that abandons the channel cannot pin the goroutine and the response body.
+// Delivery is attempted before checking ctx so a terminal error still reaches
+// a consumer that is reading or has buffer room.
+func SendEvent(ctx context.Context, ch chan<- cometsdk.Event, ev cometsdk.Event) bool {
+	select {
+	case ch <- ev:
+		return true
+	default:
+	}
+	select {
+	case ch <- ev:
+		return true
+	case <-ctx.Done():
+		return false
+	}
+}
+
 // MarshalWithOptions marshals base into JSON, then merges any keys from
 // overrides[providerKey] underneath it so SDK-managed fields always win over
 // caller-supplied provider-specific overrides.

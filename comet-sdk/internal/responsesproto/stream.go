@@ -10,6 +10,7 @@ import (
 	"time"
 
 	cometsdk "github.com/cometline/comet-sdk"
+	"github.com/cometline/comet-sdk/internal/providerbase"
 	"github.com/cometline/comet-sdk/internal/sse"
 )
 
@@ -104,7 +105,7 @@ func ParseLoop(ctx context.Context, providerID, modelID string, emitToolStart bo
 	for scanner.Next() {
 		select {
 		case <-ctx.Done():
-			ch <- cometsdk.ErrorEvent{Err: &cometsdk.StreamError{ProviderID: providerID, Cause: ctx.Err()}}
+			providerbase.SendEvent(ctx, ch, cometsdk.ErrorEvent{Err: &cometsdk.StreamError{ProviderID: providerID, Cause: ctx.Err()}})
 			return
 		default:
 		}
@@ -113,7 +114,7 @@ func ParseLoop(ctx context.Context, providerID, modelID string, emitToolStart bo
 		log.DebugContext(ctx, "sse.event", "event", ev.Type, "data", RedactEncryptedReasoning(ev.Data))
 		events, err := ToSDKEvents(providerID, ev.Type, ev.Data, state)
 		if err != nil {
-			ch <- cometsdk.ErrorEvent{Err: &cometsdk.StreamError{ProviderID: providerID, Cause: err}}
+			providerbase.SendEvent(ctx, ch, cometsdk.ErrorEvent{Err: &cometsdk.StreamError{ProviderID: providerID, Cause: err}})
 			return
 		}
 		for _, e := range events {
@@ -122,18 +123,21 @@ func ParseLoop(ctx context.Context, providerID, modelID string, emitToolStart bo
 				providerState.State.ModelID = modelID
 				e = providerState
 			}
-			ch <- e
+			if !providerbase.SendEvent(ctx, ch, e) {
+				return
+			}
 			if _, ok := e.(cometsdk.DoneEvent); ok {
 				return
 			}
 		}
 	}
 	if err := scanner.Err(); err != nil {
-		ch <- cometsdk.ErrorEvent{Err: &cometsdk.StreamError{ProviderID: providerID, Cause: err}}
+		providerbase.SendEvent(ctx, ch, cometsdk.ErrorEvent{Err: &cometsdk.StreamError{ProviderID: providerID, Cause: err}})
 		return
 	}
-	ch <- cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishStop}
-	ch <- cometsdk.DoneEvent{}
+	if providerbase.SendEvent(ctx, ch, cometsdk.StepFinishEvent{FinishReason: cometsdk.FinishStop}) {
+		providerbase.SendEvent(ctx, ch, cometsdk.DoneEvent{})
+	}
 }
 
 // RedactEncryptedReasoning masks encrypted_content values in a raw SSE data
