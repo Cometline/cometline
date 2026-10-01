@@ -93,17 +93,7 @@ func (s *Service) buildSDKMessagesFromRows(ctx context.Context, sessionID, provi
 	if err != nil {
 		return nil, err
 	}
-	statesByMessage := make(map[string][]cometsdk.ProviderState, len(states))
-	for _, state := range states {
-		if state.ProviderID != providerID {
-			continue
-		}
-		statesByMessage[state.MessageID] = append(statesByMessage[state.MessageID], cometsdk.ProviderState{
-			ProviderID: state.ProviderID,
-			ModelID:    state.ModelID,
-			Data:       state.State,
-		})
-	}
+	statesByMessage := providerStatesByMessage(states, providerID)
 	out := make([]cometsdk.Message, 0, len(rows))
 	for _, m := range rows {
 		switch m.Role {
@@ -129,21 +119,11 @@ func (s *Service) buildSDKMessagesFromRows(ctx context.Context, sessionID, provi
 				ProviderState:    statesByMessage[m.ID],
 			})
 		case "tool_result":
-			var p toolResultPayload
-			if err := json.Unmarshal([]byte(m.Content), &p); err != nil {
-				return nil, fmt.Errorf("decode tool_result %s: %w", m.ID, err)
+			msg, err := toolResultSDKMessage(m, compactedIDs)
+			if err != nil {
+				return nil, err
 			}
-			_, compacted := compactedIDs[p.ToolCallID]
-			out = append(out, cometsdk.Message{
-				Role: cometsdk.RoleToolResult,
-				Content: []cometsdk.Block{
-					cometsdk.ToolResultBlock{
-						ToolCallID: p.ToolCallID,
-						Content:    ToolResultPromptContent(p.Content, compacted),
-						IsError:    p.IsError,
-					},
-				},
-			})
+			out = append(out, msg)
 		case "system":
 			// Stored system rows are optional; the live system prompt comes from the agent.
 			continue
@@ -152,6 +132,41 @@ func (s *Service) buildSDKMessagesFromRows(ctx context.Context, sessionID, provi
 		}
 	}
 	return out, nil
+}
+
+// providerStatesByMessage indexes continuation state by assistant message id,
+// keeping only rows written by providerID.
+func providerStatesByMessage(states []db.ListAssistantProviderStatesBySessionRow, providerID string) map[string][]cometsdk.ProviderState {
+	out := make(map[string][]cometsdk.ProviderState, len(states))
+	for _, state := range states {
+		if state.ProviderID != providerID {
+			continue
+		}
+		out[state.MessageID] = append(out[state.MessageID], cometsdk.ProviderState{
+			ProviderID: state.ProviderID,
+			ModelID:    state.ModelID,
+			Data:       state.State,
+		})
+	}
+	return out
+}
+
+func toolResultSDKMessage(m db.Message, compactedIDs map[string]struct{}) (cometsdk.Message, error) {
+	var p toolResultPayload
+	if err := json.Unmarshal([]byte(m.Content), &p); err != nil {
+		return cometsdk.Message{}, fmt.Errorf("decode tool_result %s: %w", m.ID, err)
+	}
+	_, compacted := compactedIDs[p.ToolCallID]
+	return cometsdk.Message{
+		Role: cometsdk.RoleToolResult,
+		Content: []cometsdk.Block{
+			cometsdk.ToolResultBlock{
+				ToolCallID: p.ToolCallID,
+				Content:    ToolResultPromptContent(p.Content, compacted),
+				IsError:    p.IsError,
+			},
+		},
+	}, nil
 }
 
 func completedToolCallIDs(rows []db.Message) (map[string]struct{}, error) {
