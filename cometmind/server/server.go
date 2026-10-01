@@ -331,6 +331,7 @@ type sessionResource struct {
 	ModelID          string             `json:"model_id"`
 	ProviderID       string             `json:"provider_id"`
 	Status           string             `json:"status"`
+	Origin           string             `json:"origin"`
 	TokenUsage       tokenUsageResource `json:"token_usage"`
 	AgentMode        string             `json:"agent_mode"`
 	ParentSessionID  string             `json:"parent_session_id,omitempty"`
@@ -656,6 +657,7 @@ func sessionResourceFromAPISession(w apigen.Session) sessionResource {
 		ModelID:       w.ModelId,
 		ProviderID:    w.ProviderId,
 		Status:        string(w.Status),
+		Origin:        string(w.Origin),
 		TokenUsage: tokenUsageResource{
 			InputTokens:  w.TokenUsage.InputTokens,
 			OutputTokens: w.TokenUsage.OutputTokens,

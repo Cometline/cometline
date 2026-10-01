@@ -61,6 +61,25 @@ describe('sessionStore metadata patches', () => {
 		expect(sessionStore.current?.running).toBe(true);
 	});
 
+	it('notifies only when a running session finishes', async () => {
+		const { sessionStore } = await import('./session.svelte');
+		const finished = vi.fn();
+		sessionStore.setSessions([session({ running: true })]);
+		const stop = sessionStore.onSessionFinished(finished);
+
+		sessionStore.setRunning('sess-1', true);
+		sessionStore.setRunning('missing', false);
+		expect(finished).not.toHaveBeenCalled();
+
+		sessionStore.setRunning('sess-1', false);
+		expect(finished).toHaveBeenCalledWith(expect.objectContaining({ id: 'sess-1', running: false }));
+
+		stop();
+		sessionStore.setRunning('sess-1', true);
+		sessionStore.setRunning('sess-1', false);
+		expect(finished).toHaveBeenCalledTimes(1);
+	});
+
 	it('lets an explicit session write replace agent mode', async () => {
 		const { sessionStore } = await import('./session.svelte');
 		sessionStore.setSessions([session({ agent_mode: 'plan' })]);

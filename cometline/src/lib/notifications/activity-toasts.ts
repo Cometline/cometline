@@ -1,9 +1,10 @@
 import { goto } from '$app/navigation';
-import { getSession, listInboxMessages, listSkillDrafts } from '$lib/client/cometmind';
+import { listInboxMessages, listSkillDrafts } from '$lib/client/cometmind';
 import type { CometMindJobsNotificationSettings } from '$lib/cometmind-settings';
 import { sessionDisplayTitle } from '$lib/sessions/session-title';
 import { appToastStore } from '$lib/stores/app-toasts.svelte';
 import { inboxStore } from '$lib/stores/inbox.svelte';
+import type { Session } from '$lib/types';
 
 type JobNotice = {
 	kind: 'completed' | 'blocked';
@@ -80,17 +81,19 @@ export function startSkillDraftToastWatch(opts: {
 	return () => clearInterval(timer);
 }
 
-export async function notifyBackgroundRunFinished(sessionId: string, activeSessionId: string | null) {
-	if (!sessionId || sessionId === activeSessionId) return;
-	try {
-		const session = await getSession(sessionId);
-		if (session.origin !== 'user' || session.parent_session_id) return;
-		appToastStore.success('Chat finished', sessionDisplayTitle(session.title), () => {
-			void goto(`/session/${session.id}`);
-		});
-	} catch {
-		// The session may already have been discarded.
-	}
+export function isNotifiableChat(session: Pick<Session, 'origin' | 'parent_session_id'>): boolean {
+	return session.origin === 'user' && !session.parent_session_id;
+}
+
+/** Toast when a user chat the viewer is not looking at finishes. */
+export function notifyBackgroundRunFinished(
+	session: Pick<Session, 'id' | 'title' | 'origin' | 'parent_session_id'>,
+	activeSessionId: string | null
+) {
+	if (!session.id || session.id === activeSessionId || !isNotifiableChat(session)) return;
+	appToastStore.success('Chat finished', sessionDisplayTitle(session.title), () => {
+		void goto(`/session/${session.id}`);
+	});
 }
 
 export function notifyConnectionChange(previous: string, next: string) {

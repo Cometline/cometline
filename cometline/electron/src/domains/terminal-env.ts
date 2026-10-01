@@ -109,9 +109,12 @@ fi
 	fs.writeFileSync(path.join(zdot, '.zprofile'), sourceUserZshFile('.zprofile', true), {
 		mode: 0o600
 	});
+	// /etc/zshrc derives HISTFILE from our temporary ZDOTDIR. Pin the user's
+	// history file after that, but before their own startup files, so a user
+	// HISTFILE assignment still wins.
 	fs.writeFileSync(
 		path.join(zdot, '.zshrc'),
-		`${sourceIntegration}${sourceUserZshFile('.zshrc', false)}${sourceIntegration}`,
+		`${sourceIntegration}HISTFILE="\${HOME}/.zsh_history"\n${sourceUserZshFile('.zshrc', false)}${sourceIntegration}`,
 		{ mode: 0o600 }
 	);
 	fs.writeFileSync(path.join(zdot, '.zlogin'), sourceUserZshFile('.zlogin', false), {

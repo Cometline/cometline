@@ -79,9 +79,6 @@
 				inboxStore.applyCreated(event.id, event.open_count);
 				if (!isMiniRoute && !isSettingsRoute) void notifyNewInboxMessage(event.id);
 			}
-			if (event.type === 'run_finished' && !isMiniRoute && !isSettingsRoute) {
-				void notifyBackgroundRunFinished(event.session_id, chatStore.sessionID);
-			}
 			if (event.type === 'inbox_message_archived') {
 				inboxStore.applyArchived(event.id, event.open_count);
 			}
@@ -103,6 +100,12 @@
 		// Mini/settings are separate BrowserWindows that share this layout. Only the
 		// main window should poll — otherwise each alive window fires the same
 		// desktop notification when a job transitions.
+		const stopFinishedToasts =
+			isMiniRoute || isSettingsRoute
+				? () => {}
+				: sessionStore.onSessionFinished((session) => {
+						notifyBackgroundRunFinished(session, chatStore.sessionID);
+					});
 		const stopJobNotifications =
 			isMiniRoute || isSettingsRoute
 				? () => {}
@@ -165,6 +168,7 @@
 		return () => {
 			connectionState.stopPolling();
 			stopRuntimeEvents();
+			stopFinishedToasts();
 			stopJobNotifications();
 			if (skillDraftsTimer) clearInterval(skillDraftsTimer);
 			stopSkillDraftToasts();

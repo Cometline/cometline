@@ -2497,6 +2497,41 @@ func TestGetSessionIncludesGatewayMetadata(t *testing.T) {
 	}
 }
 
+func TestGetSessionIncludesOrigin(t *testing.T) {
+	t.Parallel()
+
+	engine, svc, cleanup := newTestEngine(t, func(sess session.Session, workspacePath string, mode session.AgentMode) (Runner, error) {
+		return fakeRunner(func(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error {
+			ch <- event.Done()
+			return nil
+		}), nil
+	})
+	defer cleanup()
+
+	ctx := context.Background()
+	ws, err := svc.EnsureWorkspace(ctx, t.TempDir())
+	if err != nil {
+		t.Fatalf("EnsureWorkspace() error = %v", err)
+	}
+	sess, err := svc.NewSession(ctx, ws.ID, "m", "p")
+	if err != nil {
+		t.Fatalf("NewSession() error = %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/sessions/"+sess.ID, nil)
+	engine.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	var got map[string]any
+	decodeJSON(t, rec.Body.Bytes(), &got)
+	if got["origin"] != "user" {
+		t.Fatalf("origin = %v want user", got["origin"])
+	}
+}
+
 func TestLookupModelCatalogEndpoint(t *testing.T) {
 	engine, _, cleanup := newTestEngine(t, func(session.Session, string, session.AgentMode) (Runner, error) {
 		return fakeRunner(func(context.Context, session.AgentTurn, chan<- event.Event) error {

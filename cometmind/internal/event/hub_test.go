@@ -29,3 +29,25 @@ func TestHubPublishesAndClosesSubscriptions(t *testing.T) {
 		t.Fatal("timed out waiting for subscription close")
 	}
 }
+
+func TestHubKeepsNewestEventWhenSubscriberIsFull(t *testing.T) {
+	hub := NewHub()
+	sub := hub.Subscribe()
+	defer sub.Close()
+
+	for range cap(sub.Events) {
+		hub.Publish(TextDelta("x"))
+	}
+	hub.Publish(RunFinished("session-1"))
+
+	var last Event
+	for range cap(sub.Events) {
+		last = <-sub.Events
+	}
+	if len(sub.Events) != 0 {
+		t.Fatalf("buffer grew past capacity: %d left", len(sub.Events))
+	}
+	if last.Kind != KindRunFinished || last.SessionID != "session-1" {
+		t.Fatalf("newest event was dropped, last = %+v", last)
+	}
+}
