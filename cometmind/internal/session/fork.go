@@ -40,54 +40,8 @@ func (s *Service) ForkSession(ctx context.Context, sessionID, absPath string) (S
 		return Session{}, err
 	}
 
-	msgs, err := s.q.ListMessagesBySession(ctx, sessionID)
-	if err != nil {
+	if err := s.copyTranscript(ctx, sessionID, forked.ID); err != nil {
 		return Session{}, err
-	}
-	// Tool-call IDs are referenced by both the assistant's tool_call blocks and
-	// the matching tool_result payloads. Copying with fresh IDs requires
-	// remapping the tool_result references so the provider sees consistent
-	// tool_call_id pairs; otherwise it rejects the request (HTTP 400).
-	toolCallIDMap := make(map[string]string)
-	for _, msg := range msgs {
-		content := msg.Content
-		if msg.Role == "tool_result" {
-			remapped, err := remapToolResultContent(content, toolCallIDMap)
-			if err != nil {
-				return Session{}, err
-			}
-			content = remapped
-		}
-		newMsg, err := s.createMessage(ctx, db.CreateMessageParams{
-			ID:               id.New(),
-			SessionID:        forked.ID,
-			Role:             msg.Role,
-			Content:          content,
-			ReasoningContent: msg.ReasoningContent,
-			TokenCount:       msg.TokenCount,
-		})
-		if err != nil {
-			return Session{}, err
-		}
-		calls, err := s.q.ListToolCallsByMessage(ctx, msg.ID)
-		if err != nil {
-			return Session{}, err
-		}
-		for _, call := range calls {
-			newCallID := id.New()
-			toolCallIDMap[call.ID] = newCallID
-			if _, err := s.q.CreateToolCall(ctx, db.CreateToolCallParams{
-				ID:         newCallID,
-				MessageID:  newMsg.ID,
-				ToolName:   call.ToolName,
-				Arguments:  call.Arguments,
-				Result:     call.Result,
-				DurationMs: call.DurationMs,
-				ExitCode:   call.ExitCode,
-			}); err != nil {
-				return Session{}, err
-			}
-		}
 	}
 	if err := s.copySessionMedia(ctx, src, forked.ID, ws.ID); err != nil {
 		return Session{}, err
@@ -106,6 +60,70 @@ func (s *Service) ForkSession(ctx context.Context, sessionID, absPath string) (S
 	}
 
 	return s.GetSession(ctx, forked.ID)
+}
+
+// copyTranscript copies every message and tool call of srcSessionID into
+// destSessionID under fresh IDs.
+func (s *Service) copyTranscript(ctx context.Context, srcSessionID, destSessionID string) error {
+	msgs, err := s.q.ListMessagesBySession(ctx, srcSessionID)
+	if err != nil {
+		return err
+	}
+	// Tool-call IDs are referenced by both the assistant's tool_call blocks and
+	// the matching tool_result payloads. Copying with fresh IDs requires
+	// remapping the tool_result references so the provider sees consistent
+	// tool_call_id pairs; otherwise it rejects the request (HTTP 400).
+	toolCallIDMap := make(map[string]string)
+	for _, msg := range msgs {
+		content := msg.Content
+		if msg.Role == "tool_result" {
+			remapped, err := remapToolResultContent(content, toolCallIDMap)
+			if err != nil {
+				return err
+			}
+			content = remapped
+		}
+		newMsg, err := s.createMessage(ctx, db.CreateMessageParams{
+			ID:               id.New(),
+			SessionID:        destSessionID,
+			Role:             msg.Role,
+			Content:          content,
+			ReasoningContent: msg.ReasoningContent,
+			TokenCount:       msg.TokenCount,
+		})
+		if err != nil {
+			return err
+		}
+		if err := s.copyToolCalls(ctx, msg.ID, newMsg.ID, toolCallIDMap); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// copyToolCalls copies the tool calls of srcMessageID onto destMessageID and
+// records each old→new tool-call ID in idMap.
+func (s *Service) copyToolCalls(ctx context.Context, srcMessageID, destMessageID string, idMap map[string]string) error {
+	calls, err := s.q.ListToolCallsByMessage(ctx, srcMessageID)
+	if err != nil {
+		return err
+	}
+	for _, call := range calls {
+		newCallID := id.New()
+		idMap[call.ID] = newCallID
+		if _, err := s.q.CreateToolCall(ctx, db.CreateToolCallParams{
+			ID:         newCallID,
+			MessageID:  destMessageID,
+			ToolName:   call.ToolName,
+			Arguments:  call.Arguments,
+			Result:     call.Result,
+			DurationMs: call.DurationMs,
+			ExitCode:   call.ExitCode,
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // remapToolResultContent rewrites the tool_call_id inside a persisted
