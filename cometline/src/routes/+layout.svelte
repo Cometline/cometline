@@ -2,8 +2,9 @@
 	import '../app.css';
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
-	import AppShell from '$lib/components/AppShell.svelte';
-	import MiniShell from '$lib/components/MiniShell.svelte';
+	import AssistantMarkdownProse from '$lib/components/AssistantMarkdownProse.svelte';
+	import AppShell from '$lib/features/shell/components/AppShell.svelte';
+	import MiniShell from '$lib/features/shell/components/MiniShell.svelte';
 	import { connectionState } from '$lib/stores/runtime.svelte';
 	import { settingsStore, readHasDismissedSetupWizardSync } from '$lib/stores/settings.svelte';
 	import { sessionStore } from '$lib/stores/session.svelte';
@@ -19,7 +20,7 @@
 	import { memoryToastStore } from '$lib/stores/memory-toasts.svelte';
 	import { inboxStore } from '$lib/stores/inbox.svelte';
 	import { skillDraftsStore } from '$lib/stores/skill-drafts.svelte';
-	import { startJobNotificationPoller } from '$lib/jobs/job-notifications';
+	import { startJobNotificationPoller } from '$lib/features/jobs/job-notifications';
 	import {
 		notifyBackgroundRunFinished,
 		notifyConnectionChange,
@@ -29,7 +30,10 @@
 	} from '$lib/notifications/activity-toasts';
 	import { startStorageRetentionSync } from '$lib/retention/storage-retention-sync';
 	import { createBootController } from '$lib/boot/boot-controller';
-	import { applyWorkspaceChange, refreshWorkspace } from '$lib/workspace/workspace-change.svelte';
+	import {
+		applyWorkspaceChange,
+		refreshWorkspace
+	} from '$lib/features/workspace/workspace-change.svelte';
 	import { chatStore } from '$lib/stores/chat.svelte';
 	import {
 		applySessionRuntimeEvent,
@@ -48,7 +52,8 @@
 
 	$effect(() => {
 		const next = connectionState.status;
-		if (!isMiniRoute && !isSettingsRoute) notifyConnectionChange(previousConnectionStatus, next);
+		if (!isMiniRoute && !isSettingsRoute)
+			notifyConnectionChange(previousConnectionStatus, next);
 		previousConnectionStatus = next;
 	});
 	// Fast synchronous read so the very first effect tick already knows
@@ -67,22 +72,25 @@
 			isStreamingFor: chatStore.isStreamingFor,
 			hasLocalStream: chatStore.hasLocalStream
 		};
-		const stopRuntimeEvents = startRuntimeEventStream((event) => {
-			void applySessionRuntimeEvent(event, runtimeEventDeps);
-			if (event.type === 'memory_updated') {
-				memoryToastStore.add(event.changes);
-			}
-			if (event.type === 'memory_compaction_completed') {
-				memoryToastStore.addCompaction(event);
-			}
-			if (event.type === 'inbox_message_created') {
-				inboxStore.applyCreated(event.id, event.open_count);
-				if (!isMiniRoute && !isSettingsRoute) void notifyNewInboxMessage(event.id);
-			}
-			if (event.type === 'inbox_message_archived') {
-				inboxStore.applyArchived(event.id, event.open_count);
-			}
-		}, () => reconcileActiveSession(runtimeEventDeps));
+		const stopRuntimeEvents = startRuntimeEventStream(
+			(event) => {
+				void applySessionRuntimeEvent(event, runtimeEventDeps);
+				if (event.type === 'memory_updated') {
+					memoryToastStore.add(event.changes);
+				}
+				if (event.type === 'memory_compaction_completed') {
+					memoryToastStore.addCompaction(event);
+				}
+				if (event.type === 'inbox_message_created') {
+					inboxStore.applyCreated(event.id, event.open_count);
+					if (!isMiniRoute && !isSettingsRoute) void notifyNewInboxMessage(event.id);
+				}
+				if (event.type === 'inbox_message_archived') {
+					inboxStore.applyArchived(event.id, event.open_count);
+				}
+			},
+			() => reconcileActiveSession(runtimeEventDeps)
+		);
 		void inboxStore.refreshSummary();
 		let skillDraftsTimer: ReturnType<typeof setInterval> | null = null;
 		let stopSkillDraftToasts = () => {};
@@ -262,6 +270,7 @@
 	}
 </script>
 
+<AssistantMarkdownProse />
 {#if isMiniRoute}
 	<MiniShell>
 		{@render children()}

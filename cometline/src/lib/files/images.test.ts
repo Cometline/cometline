@@ -3,7 +3,9 @@ import { copyImageToClipboard, copyMediaFileToClipboard, mediaContentURL } from 
 
 describe('mediaContentURL', () => {
 	it('builds a session-independent content URL', () => {
-		expect(mediaContentURL('abc/def')).toBe('http://127.0.0.1:7700/api/v1/media/abc%2Fdef/content');
+		expect(mediaContentURL('abc/def')).toBe(
+			'http://127.0.0.1:7700/api/v1/media/abc%2Fdef/content'
+		);
 	});
 });
 
@@ -48,7 +50,10 @@ describe('copyImageToClipboard', () => {
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, blob: () => source }));
 		vi.stubGlobal('navigator', { clipboard: { write } });
 		vi.stubGlobal('ClipboardItem', ClipboardItemMock);
-		vi.stubGlobal('createImageBitmap', vi.fn().mockResolvedValue({ width: 8, height: 6, close }));
+		vi.stubGlobal(
+			'createImageBitmap',
+			vi.fn().mockResolvedValue({ width: 8, height: 6, close })
+		);
 		vi.stubGlobal('document', { createElement: vi.fn().mockReturnValue(canvas) });
 
 		await copyImageToClipboard('image.jpg', 'image/jpeg');
@@ -74,7 +79,9 @@ describe('copyMediaFileToClipboard', () => {
 	it('surfaces native clipboard errors', async () => {
 		vi.stubGlobal('window', {
 			electronAPI: {
-				copyMediaFile: vi.fn().mockResolvedValue({ ok: false, error: 'Video file was not found.' })
+				copyMediaFile: vi
+					.fn()
+					.mockResolvedValue({ ok: false, error: 'Video file was not found.' })
 			}
 		});
 

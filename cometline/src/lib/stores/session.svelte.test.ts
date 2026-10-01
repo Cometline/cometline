@@ -72,7 +72,9 @@ describe('sessionStore metadata patches', () => {
 		expect(finished).not.toHaveBeenCalled();
 
 		sessionStore.setRunning('sess-1', false);
-		expect(finished).toHaveBeenCalledWith(expect.objectContaining({ id: 'sess-1', running: false }));
+		expect(finished).toHaveBeenCalledWith(
+			expect.objectContaining({ id: 'sess-1', running: false })
+		);
 
 		stop();
 		sessionStore.setRunning('sess-1', true);

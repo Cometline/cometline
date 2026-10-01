@@ -1,4 +1,4 @@
-import { getReasoningSegments } from '$lib/conversation/reasoning';
+import { getReasoningSegments } from '$lib/features/chat/reasoning';
 import type { ChatItem } from '$lib/types';
 
 export const DEFAULT_CONTEXT_WINDOW_LIMIT = 128_000;
@@ -56,7 +56,8 @@ export function estimateChatContextTokens(items: ChatItem[]): number {
 			case 'tool':
 				total += estimateTokensFromText(item.toolName);
 				total += estimateTokensFromText(JSON.stringify(item.input));
-				if (item.output) total += estimateTokensFromText(promptSizedToolOutput(item.output));
+				if (item.output)
+					total += estimateTokensFromText(promptSizedToolOutput(item.output));
 				if (item.error) total += estimateTokensFromText(promptSizedToolOutput(item.error));
 				break;
 			case 'status':

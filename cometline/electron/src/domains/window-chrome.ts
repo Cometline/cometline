@@ -1,3 +1,4 @@
+import { EVENT_CHANNELS } from '../shared/ipc-channels.js';
 import type { ShellWindowContext } from './runtime-context.js';
 
 interface SidebarState {
@@ -139,7 +140,7 @@ export function createWindowChrome(context: ShellWindowContext) {
 	function sendFullScreenState() {
 		const mainWindow = context.getMainWindow();
 		if (!mainWindow || mainWindow.isDestroyed()) return;
-		mainWindow.webContents.send('cometline:fullscreen-changed', mainWindow.isFullScreen());
+		mainWindow.webContents.send(EVENT_CHANNELS.onFullScreenChange, mainWindow.isFullScreen());
 	}
 
 	return {

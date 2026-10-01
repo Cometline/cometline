@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cometline/cometmind/internal/jobs"
+	"github.com/Cometline/cometline/cometmind/internal/jobs"
 )
 
 func TestFormatReadyJobsList(t *testing.T) {

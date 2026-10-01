@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/Cometline/cometline/cometmind/internal/gateway"
 	"github.com/bwmarrin/discordgo"
-	"github.com/cometline/cometmind/internal/gateway"
 )
 
 func workspaceOptionLabel(path string) string {

@@ -9,8 +9,8 @@ import (
 	"os"
 	"testing"
 
-	cometsdk "github.com/cometline/comet-sdk"
-	"github.com/cometline/comet-sdk/provider/anthropic"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
+	"github.com/Cometline/cometline/comet-sdk/provider/anthropic"
 	"github.com/stretchr/testify/require"
 )
 
@@ -43,7 +43,7 @@ func newLiveProvider(t *testing.T) cometsdk.Provider {
 		t.Logf("using custom base URL: %s (Bearer auth)", baseURL)
 	}
 
-	return anthropic.NewAnthropicProvider(apiKey, opts...)
+	return anthropic.New(apiKey, opts...)
 }
 
 func TestLive_Anthropic_TextStream(t *testing.T) {

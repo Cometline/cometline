@@ -3,7 +3,7 @@ package config
 import (
 	"strings"
 
-	mcppkg "github.com/cometline/cometmind/internal/mcp"
+	mcppkg "github.com/Cometline/cometline/cometmind/internal/mcp"
 )
 
 // MCPTransport identifies how to reach an MCP server.

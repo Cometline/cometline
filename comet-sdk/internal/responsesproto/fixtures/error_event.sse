@@ -1,0 +1,9 @@
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","delta":"Par"}
+
+event: error
+data: {"type":"error","error":{"code":"server_error","message":"upstream overloaded"}}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","delta":"never sent"}
+

@@ -3,16 +3,17 @@ package retention
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"testing"
 	"time"
 
-	"github.com/cometline/cometmind/internal/config"
-	"github.com/cometline/cometmind/internal/db"
-	"github.com/cometline/cometmind/internal/jobs"
-	"github.com/cometline/cometmind/internal/media"
-	"github.com/cometline/cometmind/internal/memory"
-	"github.com/cometline/cometmind/internal/session"
-	"github.com/cometline/cometmind/internal/usage"
+	"github.com/Cometline/cometline/cometmind/internal/config"
+	"github.com/Cometline/cometline/cometmind/internal/db"
+	"github.com/Cometline/cometline/cometmind/internal/jobs"
+	"github.com/Cometline/cometline/cometmind/internal/media"
+	"github.com/Cometline/cometline/cometmind/internal/memory"
+	"github.com/Cometline/cometline/cometmind/internal/session"
+	"github.com/Cometline/cometline/cometmind/internal/usage"
 	_ "modernc.org/sqlite"
 )
 
@@ -52,7 +53,7 @@ func TestRunner_PurgesDeletedJobs(t *testing.T) {
 	if got.JobsPurged != 1 {
 		t.Fatalf("jobs_purged = %d, want 1", got.JobsPurged)
 	}
-	if _, err := jobSvc.Get(ctx, job.ID); err != jobs.ErrNotFound {
+	if _, err := jobSvc.Get(ctx, job.ID); !errors.Is(err, jobs.ErrNotFound) {
 		t.Fatalf("Get() error = %v, want ErrNotFound", err)
 	}
 }

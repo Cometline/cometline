@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/cometline/cometmind/cmd"
+	"github.com/Cometline/cometline/cometmind/cmd"
 )
 
 func main() {

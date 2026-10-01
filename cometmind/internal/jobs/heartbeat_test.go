@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cometline/cometmind/internal/jobs"
+	"github.com/Cometline/cometline/cometmind/internal/jobs"
 )
 
 func TestStartHeartbeatDuringTurnExtendsLeaseImmediately(t *testing.T) {

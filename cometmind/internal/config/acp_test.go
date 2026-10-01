@@ -3,7 +3,7 @@ package config
 import (
 	"testing"
 
-	"github.com/cometline/cometmind/internal/acp"
+	"github.com/Cometline/cometline/cometmind/internal/acp"
 )
 
 func TestACPSettingsSelectsConfiguredHarness(t *testing.T) {

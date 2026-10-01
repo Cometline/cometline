@@ -5,13 +5,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cometline/cometmind/internal/inbox"
-	"github.com/cometline/cometmind/internal/store"
+	"github.com/Cometline/cometline/cometmind/internal/inbox"
+	"github.com/Cometline/cometline/cometmind/internal/sqlite"
 )
 
 func TestInboxCreateReplyDismissAndPurge(t *testing.T) {
 	ctx := context.Background()
-	sqlDB, err := store.OpenSQLite(ctx, ":memory:")
+	sqlDB, err := sqlite.Open(ctx, ":memory:")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -104,7 +104,7 @@ func TestInboxCreateReplyDismissAndPurge(t *testing.T) {
 
 func TestInboxReplyRequiresContent(t *testing.T) {
 	ctx := context.Background()
-	sqlDB, err := store.OpenSQLite(ctx, ":memory:")
+	sqlDB, err := sqlite.Open(ctx, ":memory:")
 	if err != nil {
 		t.Fatal(err)
 	}

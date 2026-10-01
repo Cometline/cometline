@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/cometline/cometmind/internal/event"
-	"github.com/cometline/cometmind/internal/session"
+	"github.com/Cometline/cometline/cometmind/internal/event"
+	"github.com/Cometline/cometline/cometmind/internal/session"
 )
 
 type turnExecutorFunc func(context.Context, session.AgentTurn, chan<- event.Event) error

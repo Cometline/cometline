@@ -59,37 +59,16 @@ type Request struct {
 	// Most callers leave this nil.
 	Options map[string]any
 
+	// Capabilities carries what the caller knows about the model's optional
+	// features and where providers report newly rejected ones. The zero value
+	// means nothing is known and rejections are not reported.
+	Capabilities CapabilityOptions
+
 	// Compatibility carries the per-model feature policy resolved by the caller.
-	// Providers use it to avoid known-unsupported optional request features.
+	//
+	// Deprecated: set Capabilities instead. Providers still honor
+	// Compatibility, alongside Capabilities, for one release.
 	Compatibility CapabilityPolicy
-}
-
-// Capability identifies an optional model feature that may require a fallback.
-type Capability string
-
-const (
-	CapabilityReasoningSummary         Capability = "reasoning_summary"
-	CapabilityEncryptedReasoningReplay Capability = "encrypted_reasoning_replay"
-	CapabilityMaxOutputTokens          Capability = "max_output_tokens"
-	CapabilityToolInputStream          Capability = "tool_input_streaming"
-)
-
-// CapabilityScope identifies the configured model endpoint a policy applies to.
-type CapabilityScope struct {
-	ProviderID string
-	Endpoint   string
-	ModelID    string
-}
-
-// CapabilityPolicy records known unsupported capabilities for one model scope.
-type CapabilityPolicy interface {
-	Disabled(Capability) bool
-	MarkUnsupported(Capability)
-}
-
-// CapabilityResolver returns a policy for one model scope.
-type CapabilityResolver interface {
-	ResolveCapabilityPolicy(context.Context, CapabilityScope) CapabilityPolicy
 }
 
 // ─── Message & Blocks ─────────────────────────────────────────────────────────
@@ -375,15 +354,22 @@ func StreamingHTTPClient(cfg ProviderConfig) *http.Client {
 	return &client
 }
 
-// NormaliseBaseURL strips a trailing slash from a base URL so that appending
+// NormalizeBaseURL strips a trailing slash from a base URL so that appending
 // paths like "/v1/chat/completions" never produces a double slash.
 //
 // Examples:
 //
 //	"https://api.example.com/v1/"  → "https://api.example.com/v1"
 //	"https://api.example.com/v1"   → "https://api.example.com/v1"
-func NormaliseBaseURL(u string) string {
+func NormalizeBaseURL(u string) string {
 	return strings.TrimRight(u, "/")
+}
+
+// NormaliseBaseURL strips a trailing slash from a base URL.
+//
+// Deprecated: use NormalizeBaseURL.
+func NormaliseBaseURL(u string) string {
+	return NormalizeBaseURL(u)
 }
 
 // Option is a functional option for provider configuration.
@@ -437,7 +423,7 @@ func WithStreamIdleTimeout(d time.Duration) Option {
 }
 
 // WithMaxRetries sets the maximum number of attempts (including the first).
-// Defaults to 4. Set to 1 to disable retries.
+// Defaults to 5. Set to 1 to disable retries.
 func WithMaxRetries(n int) Option {
 	return func(c *ProviderConfig) {
 		c.MaxRetries = n

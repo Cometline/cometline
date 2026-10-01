@@ -7,8 +7,8 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/cometline/cometmind/internal/modelcatalog"
-	"github.com/cometline/cometmind/internal/paths"
+	"github.com/Cometline/cometline/cometmind/internal/modelcatalog"
+	"github.com/Cometline/cometline/cometmind/internal/paths"
 )
 
 // ModelEntry is one selectable model from Cometline provider settings.

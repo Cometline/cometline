@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cometline/cometmind/internal/db"
-	"github.com/cometline/cometmind/internal/id"
-	"github.com/cometline/cometmind/internal/jobs"
+	"github.com/Cometline/cometline/cometmind/internal/db"
+	"github.com/Cometline/cometline/cometmind/internal/id"
+	"github.com/Cometline/cometline/cometmind/internal/jobs"
 	"github.com/robfig/cron/v3"
 )
 
@@ -88,7 +88,7 @@ func validateSchedule(description, cronExpr string, runAt int64) error {
 	}
 	if cronExpr != "" {
 		if _, err := cron.ParseStandard(cronExpr); err != nil {
-			return fmt.Errorf("%w: invalid cron_expr: %v", ErrInvalidInput, err)
+			return fmt.Errorf("%w: invalid cron_expr: %w", ErrInvalidInput, err)
 		}
 	}
 	return nil
@@ -97,7 +97,7 @@ func validateSchedule(description, cronExpr string, runAt int64) error {
 func nextCronRun(cronExpr string, from time.Time) (int64, error) {
 	sched, err := cron.ParseStandard(cronExpr)
 	if err != nil {
-		return 0, fmt.Errorf("%w: invalid cron_expr: %v", ErrInvalidInput, err)
+		return 0, fmt.Errorf("%w: invalid cron_expr: %w", ErrInvalidInput, err)
 	}
 	return sched.Next(from).UnixMilli(), nil
 }
@@ -175,7 +175,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (ScheduledJob, err
 func (s *Service) Get(ctx context.Context, scheduleID string) (ScheduledJob, error) {
 	row, err := s.q.GetScheduledJob(ctx, scheduleID)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return ScheduledJob{}, ErrNotFound
 		}
 		return ScheduledJob{}, err
@@ -354,11 +354,11 @@ func (s *Service) MaterializeDue(ctx context.Context, jobSvc *jobs.Service, atMi
 			if err != nil {
 				return created, err
 			}
-			if err := s.AdvanceRecurring(ctx, item.ID, atMillis, nextRun); err != nil && err != ErrConflict {
+			if err := s.AdvanceRecurring(ctx, item.ID, atMillis, nextRun); err != nil && !errors.Is(err, ErrConflict) {
 				return created, err
 			}
 		} else {
-			if err := s.MarkFired(ctx, item.ID, atMillis); err != nil && err != ErrConflict {
+			if err := s.MarkFired(ctx, item.ID, atMillis); err != nil && !errors.Is(err, ErrConflict) {
 				return created, err
 			}
 		}

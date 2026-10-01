@@ -14,7 +14,7 @@ import (
 	"context"
 	"errors"
 
-	cometsdk "github.com/cometline/comet-sdk"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
 )
 
 // CollectedResponse is the assembled result of a single LLM call.

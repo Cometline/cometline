@@ -3,7 +3,7 @@ package config
 import (
 	"strings"
 
-	"github.com/cometline/cometmind/internal/generation"
+	"github.com/Cometline/cometline/cometmind/internal/generation"
 )
 
 // GenerationModelConfig is one Settings binding for image or video generation.

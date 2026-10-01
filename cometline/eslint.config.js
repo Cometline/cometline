@@ -1,13 +1,15 @@
 import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import svelte from 'eslint-plugin-svelte';
-import svelteParser from 'svelte-eslint-parser';
 import prettier from 'eslint-config-prettier';
 import globals from 'globals';
 
 export default [
 	js.configs.recommended,
 	...tseslint.configs.recommended,
+	...svelte.configs['flat/recommended'],
+	prettier,
+	...svelte.configs['flat/prettier'],
 	{
 		ignores: [
 			'.svelte-kit/',
@@ -24,31 +26,25 @@ export default [
 		]
 	},
 	{
-		files: ['**/*.svelte'],
-		plugins: {
-			svelte
-		},
+		files: ['**/*.svelte', '**/*.svelte.ts', '**/*.svelte.js'],
 		languageOptions: {
-			parser: svelteParser,
 			parserOptions: {
 				parser: tseslint.parser,
 				extraFileExtensions: ['.svelte'],
 				svelteConfig: {
 					runes: true
 				}
-			},
-			globals: {
-				...globals.browser,
-				...globals.node
 			}
-		},
-		rules: {
-			...svelte.configs['flat/recommended'][0].rules,
-			...svelte.configs['flat/prettier'][0].rules
 		}
 	},
 	{
-		files: ['**/*.{js,ts,mjs}'],
+		// Controllers keep private Map/Set bookkeeping and publish changes by reassigning $state.
+		files: ['**/*.svelte.ts'],
+		rules: {
+			'svelte/prefer-svelte-reactivity': 'off'
+		}
+	},
+	{
 		languageOptions: {
 			globals: {
 				...globals.browser,
@@ -56,7 +52,6 @@ export default [
 			}
 		}
 	},
-	prettier,
 	{
 		rules: {
 			'@typescript-eslint/no-unused-vars': [

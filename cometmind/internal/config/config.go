@@ -4,7 +4,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/cometline/cometmind/internal/paths"
+	"github.com/Cometline/cometline/cometmind/internal/paths"
 	"github.com/spf13/viper"
 )
 

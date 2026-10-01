@@ -1,16 +1,10 @@
 import { app } from 'electron';
 import electronUpdater from 'electron-updater';
+import type { UpdateState } from '../shared/api.js';
+import { EVENT_CHANNELS } from '../shared/ipc-channels.js';
 import type { RuntimeContext } from './runtime-context.js';
 
 const UPDATE_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;
-
-export interface UpdateState {
-	status: string;
-	version?: string;
-	percent?: number;
-	message?: string;
-	updatedAt?: number;
-}
 
 export interface AutoUpdaterDeps {
 	context: RuntimeContext;
@@ -32,7 +26,8 @@ export function createAutoUpdater(deps: AutoUpdaterDeps): AutoUpdaterDomain {
 	function setState(next: UpdateState) {
 		updateState = { ...next, updatedAt: Date.now() };
 		for (const window of deps.context.getWindows()) {
-			if (window && !window.isDestroyed()) window.webContents.send('cometline:update-state', updateState);
+			if (window && !window.isDestroyed())
+				window.webContents.send(EVENT_CHANNELS.onUpdateState, updateState);
 		}
 	}
 
@@ -41,9 +36,11 @@ export function createAutoUpdater(deps: AutoUpdaterDeps): AutoUpdaterDomain {
 	}
 
 	function checkForUpdates() {
-		return getAutoUpdater().checkForUpdates().catch((error) => {
-			console.error('Auto-update check failed:', error);
-		});
+		return getAutoUpdater()
+			.checkForUpdates()
+			.catch((error) => {
+				console.error('Auto-update check failed:', error);
+			});
 	}
 
 	return {
@@ -58,10 +55,18 @@ export function createAutoUpdater(deps: AutoUpdaterDeps): AutoUpdaterDomain {
 				debug: (message) => console.debug(`[auto-updater] ${message}`)
 			};
 			getAutoUpdater().on('checking-for-update', () => setState({ status: 'checking' }));
-			getAutoUpdater().on('update-available', (info) => setState({ status: 'downloading', version: info?.version, percent: 0 }));
-			getAutoUpdater().on('update-not-available', (info) => setState({ status: 'idle', version: info?.version }));
-			getAutoUpdater().on('download-progress', (progress) => setState({ status: 'downloading', percent: Math.round(progress?.percent ?? 0) }));
-			getAutoUpdater().on('update-downloaded', (info) => setState({ status: 'ready', version: info?.version }));
+			getAutoUpdater().on('update-available', (info) =>
+				setState({ status: 'downloading', version: info?.version, percent: 0 })
+			);
+			getAutoUpdater().on('update-not-available', (info) =>
+				setState({ status: 'idle', version: info?.version })
+			);
+			getAutoUpdater().on('download-progress', (progress) =>
+				setState({ status: 'downloading', percent: Math.round(progress?.percent ?? 0) })
+			);
+			getAutoUpdater().on('update-downloaded', (info) =>
+				setState({ status: 'ready', version: info?.version })
+			);
 			getAutoUpdater().on('error', (error) => {
 				console.error('Auto-update error:', error);
 				setState({

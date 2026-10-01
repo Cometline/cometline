@@ -10,9 +10,9 @@ import (
 	"net/http"
 	"strings"
 
-	cometsdk "github.com/cometline/comet-sdk"
-	"github.com/cometline/comet-sdk/internal/providerbase"
-	"github.com/cometline/comet-sdk/internal/retry"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
+	"github.com/Cometline/cometline/comet-sdk/internal/providerbase"
+	"github.com/Cometline/cometline/comet-sdk/internal/retry"
 )
 
 const (
@@ -34,21 +34,21 @@ type provider struct {
 // must be refreshed instead of being copied into settings.
 type TokenSource func(context.Context, *http.Client) (string, error)
 
-// NewOpenAIProvider creates a Provider for OpenAI's Chat Completions API.
+// New creates a Provider for OpenAI's Chat Completions API.
 // apiKey is required. Use cometsdk.With* options to override defaults.
-func NewOpenAIProvider(apiKey string, opts ...cometsdk.Option) cometsdk.Provider {
-	return NewOpenAICompatibleProvider(apiKey, providerID, nil, opts...)
+func New(apiKey string, opts ...cometsdk.Option) cometsdk.Provider {
+	return NewCompatible(apiKey, providerID, nil, opts...)
 }
 
-// NewOpenAICompatibleProvider creates an OpenAI Chat Completions provider with
-// a custom provider ID and optional request-time bearer-token source.
-func NewOpenAICompatibleProvider(apiKey, id string, tokenSource TokenSource, opts ...cometsdk.Option) cometsdk.Provider {
+// NewCompatible creates an OpenAI Chat Completions provider with a custom
+// provider ID and optional request-time bearer-token source.
+func NewCompatible(apiKey, id string, tokenSource TokenSource, opts ...cometsdk.Option) cometsdk.Provider {
 	cfg := cometsdk.DefaultProviderConfig()
 	cfg.BaseURL = defaultBaseURL
 	for _, o := range opts {
 		o(&cfg)
 	}
-	cfg.BaseURL = cometsdk.NormaliseBaseURL(cfg.BaseURL)
+	cfg.BaseURL = cometsdk.NormalizeBaseURL(cfg.BaseURL)
 	return &provider{
 		apiKey:      apiKey,
 		tokenSource: tokenSource,
@@ -56,6 +56,21 @@ func NewOpenAICompatibleProvider(apiKey, id string, tokenSource TokenSource, opt
 		cfg:         cfg,
 		log:         providerbase.Logger(cfg, id),
 	}
+}
+
+// NewOpenAIProvider creates a Provider for OpenAI's Chat Completions API.
+//
+// Deprecated: use New.
+func NewOpenAIProvider(apiKey string, opts ...cometsdk.Option) cometsdk.Provider {
+	return New(apiKey, opts...)
+}
+
+// NewOpenAICompatibleProvider creates an OpenAI Chat Completions provider with
+// a custom provider ID and optional request-time bearer-token source.
+//
+// Deprecated: use NewCompatible.
+func NewOpenAICompatibleProvider(apiKey, id string, tokenSource TokenSource, opts ...cometsdk.Option) cometsdk.Provider {
+	return NewCompatible(apiKey, id, tokenSource, opts...)
 }
 
 func (p *provider) ID() string { return p.id }
@@ -178,7 +193,7 @@ func (p *provider) doRequest(ctx context.Context, req *cometsdk.Request, flags s
 	if resp.StatusCode != http.StatusOK {
 		defer resp.Body.Close()
 		body, _ := io.ReadAll(resp.Body)
-		return nil, providerbase.ClassifyHTTPError(providerID, resp, body)
+		return nil, providerbase.ClassifyHTTPError(p.id, resp, body)
 	}
 
 	return resp, nil
@@ -208,13 +223,10 @@ func requestHasImage(req *cometsdk.Request) bool {
 // expected `text`"), so we match on the salient substrings rather than an exact
 // message.
 func isImageUnsupportedError(err error) bool {
-	se, ok := err.(*cometsdk.ServerError)
-	if !ok {
-		return false
-	}
 	// Only client-side (4xx) rejections are downgrade candidates; 5xx is a
 	// transient server fault that the normal retry policy already handles.
-	if se.StatusCode < 400 || se.StatusCode >= 500 {
+	se, ok := providerbase.ClientServerError(err)
+	if !ok {
 		return false
 	}
 	msg := strings.ToLower(se.Message)
@@ -233,11 +245,8 @@ func isImageUnsupportedError(err error) bool {
 // isReasoningSplitUnsupportedError reports whether err is a 4xx ServerError
 // whose message indicates the endpoint rejected the reasoning_split field.
 func isReasoningSplitUnsupportedError(err error) bool {
-	se, ok := err.(*cometsdk.ServerError)
+	se, ok := providerbase.ClientServerError(err)
 	if !ok {
-		return false
-	}
-	if se.StatusCode < 400 || se.StatusCode >= 500 {
 		return false
 	}
 	msg := strings.ToLower(se.Message)
@@ -247,11 +256,8 @@ func isReasoningSplitUnsupportedError(err error) bool {
 // isMaxTokensUnsupportedError reports whether err is a 4xx ServerError whose
 // message says max_tokens is rejected in favour of max_completion_tokens.
 func isMaxTokensUnsupportedError(err error) bool {
-	se, ok := err.(*cometsdk.ServerError)
+	se, ok := providerbase.ClientServerError(err)
 	if !ok {
-		return false
-	}
-	if se.StatusCode < 400 || se.StatusCode >= 500 {
 		return false
 	}
 	msg := strings.ToLower(se.Message)

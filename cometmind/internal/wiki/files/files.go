@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/cometline/cometmind/internal/filelist"
+	"github.com/Cometline/cometline/cometmind/internal/filelist"
 )
 
 const (

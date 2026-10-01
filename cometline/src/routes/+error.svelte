@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 
 	let message = $derived(page.error?.message ?? 'Something went wrong');
@@ -10,7 +11,7 @@
 		<p class="error-status">{status}</p>
 		<h1>Unable to load this page</h1>
 		<p class="error-message">{message}</p>
-		<a class="home-link" href="/">Return home</a>
+		<a class="home-link" href={resolve('/')}>Return home</a>
 	</div>
 </div>
 
@@ -63,7 +64,7 @@
 		padding: 10px 16px;
 		border-radius: 10px;
 		background: var(--accent);
-		color: #fff;
+		color: var(--panel-bg);
 		font-size: 13px;
 		font-weight: 600;
 		text-decoration: none;

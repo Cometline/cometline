@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/cometline/cometmind/internal/tools/sandbox"
+	"github.com/Cometline/cometline/cometmind/internal/tools/sandbox"
 )
 
 const MaxCommitMessageBytes = 16 * 1024
@@ -57,7 +57,7 @@ func Discard(ctx context.Context, workspace string, relPaths []string) (Mutation
 	if _, err := exec.LookPath("git"); err != nil {
 		return MutationResult{}, fmt.Errorf("git is not installed or not on PATH")
 	}
-	_, relPrefix, err := resolveGitRoot(ctx, workspace)
+	relPrefix, err := resolveGitRoot(ctx, workspace)
 	if err != nil {
 		if errorsIsNotRepo(err) {
 			return MutationResult{}, fmt.Errorf("not a git repository")
@@ -134,7 +134,7 @@ func Commit(ctx context.Context, workspace, message string) (CommitResult, error
 	if _, err := exec.LookPath("git"); err != nil {
 		return CommitResult{}, fmt.Errorf("git is not installed or not on PATH")
 	}
-	if _, _, err := resolveGitRoot(ctx, workspace); err != nil {
+	if _, err := resolveGitRoot(ctx, workspace); err != nil {
 		if errorsIsNotRepo(err) {
 			return CommitResult{}, fmt.Errorf("not a git repository")
 		}
@@ -174,7 +174,7 @@ func mutatePaths(ctx context.Context, workspace string, relPaths []string, mut p
 	if _, err := exec.LookPath("git"); err != nil {
 		return MutationResult{}, fmt.Errorf("git is not installed or not on PATH")
 	}
-	_, relPrefix, err := resolveGitRoot(ctx, workspace)
+	relPrefix, err := resolveGitRoot(ctx, workspace)
 	if err != nil {
 		if errorsIsNotRepo(err) {
 			return MutationResult{}, fmt.Errorf("not a git repository")

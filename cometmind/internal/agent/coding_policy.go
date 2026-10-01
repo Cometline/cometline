@@ -1,6 +1,6 @@
 package agent
 
-import "github.com/cometline/cometmind/internal/tools"
+import "github.com/Cometline/cometline/cometmind/internal/tools"
 
 // CodingPolicyPrompt is the coding-workflow block stacked under persona/SOUL.
 // Mount docs come from the FileWorkspace module so prompt and path policy share locality.

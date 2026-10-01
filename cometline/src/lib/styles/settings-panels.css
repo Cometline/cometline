@@ -133,12 +133,12 @@
 
 .settings-persistence-hint[data-tier='pending'] .settings-persistence-tier {
 	background: rgba(0, 102, 204, 0.1);
-	color: #0055a4;
+	color: var(--color-0055a4);
 }
 
 .settings-persistence-hint[data-tier='instant'] .settings-persistence-tier {
 	background: rgba(2, 122, 72, 0.1);
-	color: #027a48;
+	color: var(--color-027a48);
 }
 
 .settings-persistence-hint[data-tier='action'] .settings-persistence-tier {
@@ -161,7 +161,7 @@
 	height: 6px;
 	margin-left: 6px;
 	border-radius: 999px;
-	background: #0066cc;
+	background: var(--accent);
 	vertical-align: middle;
 }
 
@@ -289,7 +289,9 @@
 }
 
 .settings-panel-frame
-	input:not([type='checkbox']):not([type='radio']):not([type='color']):not([type='range']):disabled,
+	input:not([type='checkbox']):not([type='radio']):not([type='color']):not(
+		[type='range']
+	):disabled,
 .settings-panel-frame select:disabled {
 	--settings-select-chevron-color: rgba(100, 116, 139, 0.82);
 
@@ -305,14 +307,14 @@
 }
 
 .settings-panel-frame
-input:not([type='checkbox']):not([type='radio']):not([type='color']):not([type='range']).locked,
+	input:not([type='checkbox']):not([type='radio']):not([type='color']):not([type='range']).locked,
 .settings-panel-frame select.locked {
-	background-color: #edf1f5;
-	color: #94a3b8;
+	background-color: var(--color-edf1f5);
+	color: var(--color-94a3b8);
 }
 
 .settings-panel-frame select.locked {
-	--settings-select-chevron-color: #94a3b8;
+	--settings-select-chevron-color: var(--color-94a3b8);
 }
 
 /* ---- Settings UI: click / hover feedback ---- */
@@ -386,7 +388,7 @@ input:not([type='checkbox']):not([type='radio']):not([type='color']):not([type='
 
 .settings-ui .primary:not(:disabled):hover,
 .settings-ui .btn.primary:not(:disabled):hover {
-	background: #0f172a;
+	background: var(--color-0f172a);
 	box-shadow: none;
 }
 
@@ -416,7 +418,7 @@ input:not([type='checkbox']):not([type='radio']):not([type='color']):not([type='
 
 .settings-ui .primary:not(:disabled):active,
 .settings-ui .btn.primary:not(:disabled):active {
-	background: #020617;
+	background: var(--color-020617);
 }
 
 .settings-ui button:focus-visible {

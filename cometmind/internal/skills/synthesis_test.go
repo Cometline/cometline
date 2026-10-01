@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	cometsdk "github.com/cometline/comet-sdk"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
 )
 
 type synthesisProvider struct {
@@ -132,4 +132,3 @@ Body.
 		t.Fatalf("expected overlap skip with no draft, got %+v", drafts)
 	}
 }
-

@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	cometsdk "github.com/cometline/comet-sdk"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
 	"github.com/stretchr/testify/require"
 )
 
@@ -31,7 +31,7 @@ func serveFixture(t *testing.T, fixturePath string) *httptest.Server {
 
 func newTestProvider(t *testing.T, server *httptest.Server) cometsdk.Provider {
 	t.Helper()
-	return NewOpenAIProvider("test-key",
+	return New("test-key",
 		cometsdk.WithBaseURL(server.URL),
 		cometsdk.WithMaxRetries(1),
 	)
@@ -227,7 +227,7 @@ func TestStream_RateLimitRetry(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	p := NewOpenAIProvider("test-key",
+	p := New("test-key",
 		cometsdk.WithBaseURL(srv.URL),
 		cometsdk.WithMaxRetries(3),
 	)
@@ -275,7 +275,7 @@ func TestStream_ImageFallbackOnUnsupported(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	p := NewOpenAIProvider("test-key",
+	p := New("test-key",
 		cometsdk.WithBaseURL(srv.URL),
 		cometsdk.WithMaxRetries(1),
 	)
@@ -329,7 +329,7 @@ func TestStream_ReasoningSplitFallbackOnUnsupported(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	p := NewOpenAIProvider("test-key",
+	p := New("test-key",
 		cometsdk.WithBaseURL(srv.URL),
 		cometsdk.WithMaxRetries(1),
 	)
@@ -381,7 +381,7 @@ func TestStream_MaxCompletionTokensFallbackOnUnsupported(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	p := NewOpenAIProvider("test-key",
+	p := New("test-key",
 		cometsdk.WithBaseURL(srv.URL),
 		cometsdk.WithMaxRetries(1),
 	)
@@ -417,7 +417,7 @@ func TestStream_NoImageFallbackWithoutImage(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	p := NewOpenAIProvider("test-key",
+	p := New("test-key",
 		cometsdk.WithBaseURL(srv.URL),
 		cometsdk.WithMaxRetries(1),
 	)
@@ -430,4 +430,25 @@ func TestStream_NoImageFallbackWithoutImage(t *testing.T) {
 	require.Error(t, err)
 	// Only the initial attempt; no image-downgrade retry (there was no image).
 	require.Equal(t, 1, attempts)
+}
+
+func TestStream_HTTPErrorUsesConfiguredProviderID(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	defer srv.Close()
+
+	p := NewCompatible("test-key", "xai", nil,
+		cometsdk.WithBaseURL(srv.URL),
+		cometsdk.WithMaxRetries(1),
+	)
+	req := &cometsdk.Request{
+		Model:    "grok-4",
+		Messages: []cometsdk.Message{{Role: cometsdk.RoleUser, Content: []cometsdk.Block{cometsdk.TextBlock{Text: "Hi"}}}},
+	}
+
+	_, err := p.Stream(context.Background(), req)
+	var authErr *cometsdk.AuthError
+	require.ErrorAs(t, err, &authErr)
+	require.Equal(t, "xai", authErr.ProviderID)
 }

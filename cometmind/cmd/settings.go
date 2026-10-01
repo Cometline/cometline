@@ -7,9 +7,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/cometline/cometmind/internal/config"
-	"github.com/cometline/cometmind/internal/paths"
-	"github.com/cometline/cometmind/internal/processctl"
+	"github.com/Cometline/cometline/cometmind/internal/config"
+	"github.com/Cometline/cometline/cometmind/internal/paths"
+	"github.com/Cometline/cometline/cometmind/internal/processctl"
 	"github.com/spf13/cobra"
 )
 
@@ -35,7 +35,7 @@ var settingsShowCmd = &cobra.Command{
 	Use:   "show",
 	Short: "Print saved Cometline settings as JSON",
 	RunE: func(_ *cobra.Command, _ []string) error {
-		data, _, err := readSavedSettingsJSON()
+		data, err := readSavedSettingsJSON()
 		if err != nil {
 			return err
 		}
@@ -49,7 +49,7 @@ var settingsExportCmd = &cobra.Command{
 	Short: "Export saved Cometline settings JSON",
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(_ *cobra.Command, args []string) error {
-		data, _, err := readSavedSettingsJSON()
+		data, err := readSavedSettingsJSON()
 		if err != nil {
 			return err
 		}
@@ -188,23 +188,19 @@ func init() {
 	rootCmd.AddCommand(settingsCmd)
 }
 
-func readSavedSettingsJSON() ([]byte, string, error) {
+func readSavedSettingsJSON() ([]byte, error) {
 	settingsPath, err := paths.SettingsPath()
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 	data, err := os.ReadFile(settingsPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, "", fmt.Errorf("settings file does not exist at %s; run `cometmind init` or open Cometline first", settingsPath)
+			return nil, fmt.Errorf("settings file does not exist at %s; run `cometmind init` or open Cometline first", settingsPath)
 		}
-		return nil, "", err
+		return nil, err
 	}
-	formatted, err := formatSettingsJSON(data)
-	if err != nil {
-		return nil, "", err
-	}
-	return formatted, settingsPath, nil
+	return formatSettingsJSON(data)
 }
 
 func formatSettingsJSON(data []byte) ([]byte, error) {

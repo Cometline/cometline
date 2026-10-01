@@ -9,9 +9,8 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/cometline/cometmind/internal/apigen"
-	"github.com/cometline/cometmind/internal/runtime"
-	"github.com/cometline/cometmind/internal/session"
+	"github.com/Cometline/cometline/cometmind/internal/runtime"
+	"github.com/Cometline/cometline/cometmind/internal/session"
 	"github.com/spf13/cobra"
 )
 
@@ -107,7 +106,7 @@ func runSessionList(cmd *cobra.Command, _ []string) error {
 	}
 
 	if jsonOut {
-		data, err := json.MarshalIndent(apigen.SessionListResponse{Sessions: wireSessions}, "", "  ")
+		data, err := json.MarshalIndent(sessionListResponse{Sessions: wireSessions}, "", "  ")
 		if err != nil {
 			return err
 		}
@@ -129,7 +128,7 @@ func runSessionDelete(_ *cobra.Command, args []string) error {
 	}
 	defer closeRuntime(rt)
 
-	if _, err := requireSession(ctx, rt, sessionID); err != nil {
+	if err := requireSession(ctx, rt, sessionID); err != nil {
 		return err
 	}
 	if err := rt.Sessions.DeleteSession(ctx, sessionID); err != nil {
@@ -153,7 +152,7 @@ func runSessionRename(_ *cobra.Command, args []string) error {
 	}
 	defer closeRuntime(rt)
 
-	if _, err := requireSession(ctx, rt, sessionID); err != nil {
+	if err := requireSession(ctx, rt, sessionID); err != nil {
 		return err
 	}
 	sess, err := rt.Sessions.UpdateSessionTitle(ctx, sessionID, name)
@@ -179,7 +178,7 @@ func runSessionSetModel(_ *cobra.Command, args []string) error {
 	}
 	defer closeRuntime(rt)
 
-	if _, err := requireSession(ctx, rt, sessionID); err != nil {
+	if err := requireSession(ctx, rt, sessionID); err != nil {
 		return err
 	}
 	sess, err := rt.Sessions.UpdateSessionModel(ctx, sessionID, modelID, providerID)
@@ -228,19 +227,23 @@ func listByWorkspacePath(ctx context.Context, rt *runtime.Runtime) ([]session.Se
 	return list, map[string]string{ws.ID: ws.Path}, err
 }
 
-func printSessionTable(sessions []apigen.Session, includeWorkspace bool) error {
+type sessionListResponse struct {
+	Sessions []session.WireSession `json:"sessions"`
+}
+
+func printSessionTable(sessions []session.WireSession, includeWorkspace bool) error {
 	tw := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	if includeWorkspace {
 		fmt.Fprintln(tw, "ID\tWORKSPACE\tTITLE\tPROVIDER\tMODEL\tSTATUS\tPIN\tUPDATED")
 		for _, s := range sessions {
 			fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%d\n",
-				s.Id, s.WorkspacePath, s.Title, s.ProviderId, s.ModelId, s.Status, pinLabel(s.Pinned), s.UpdatedAt)
+				s.ID, s.WorkspacePath, s.Title, s.ProviderID, s.ModelID, s.Status, pinLabel(s.Pinned), s.UpdatedAt)
 		}
 	} else {
 		fmt.Fprintln(tw, "ID\tTITLE\tPROVIDER\tMODEL\tSTATUS\tPIN\tUPDATED")
 		for _, s := range sessions {
 			fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%d\n",
-				s.Id, s.Title, s.ProviderId, s.ModelId, s.Status, pinLabel(s.Pinned), s.UpdatedAt)
+				s.ID, s.Title, s.ProviderID, s.ModelID, s.Status, pinLabel(s.Pinned), s.UpdatedAt)
 		}
 	}
 	return tw.Flush()

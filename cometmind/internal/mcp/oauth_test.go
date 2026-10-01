@@ -655,10 +655,7 @@ func TestDiscoverAuthServerMetadataToleratesIssuerMismatch(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	asm, err := discoverAuthServerMetadata(context.Background(), srv.URL, srv.Client())
-	if err != nil {
-		t.Fatalf("discoverAuthServerMetadata error = %v", err)
-	}
+	asm := discoverAuthServerMetadata(context.Background(), srv.URL, srv.Client())
 	if asm == nil {
 		t.Fatal("discoverAuthServerMetadata returned nil despite valid metadata")
 	}
@@ -679,10 +676,7 @@ func TestDiscoverAuthServerMetadataNotFound(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	asm, err := discoverAuthServerMetadata(context.Background(), srv.URL, srv.Client())
-	if err != nil {
-		t.Fatalf("discoverAuthServerMetadata error = %v", err)
-	}
+	asm := discoverAuthServerMetadata(context.Background(), srv.URL, srv.Client())
 	if asm != nil {
 		t.Fatalf("expected nil metadata on all-404, got %+v", asm)
 	}

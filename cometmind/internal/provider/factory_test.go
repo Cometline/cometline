@@ -10,9 +10,9 @@ import (
 	"strings"
 	"testing"
 
-	cometsdk "github.com/cometline/comet-sdk"
-	"github.com/cometline/cometmind/internal/config"
-	"github.com/cometline/cometmind/internal/modelcatalog"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
+	"github.com/Cometline/cometline/cometmind/internal/config"
+	"github.com/Cometline/cometline/cometmind/internal/modelcatalog"
 )
 
 func newFor(cfg *config.Config, id string) (cometsdk.Provider, error) {

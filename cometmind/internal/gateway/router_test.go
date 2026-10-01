@@ -9,12 +9,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cometline/cometmind/internal/config"
-	"github.com/cometline/cometmind/internal/event"
-	"github.com/cometline/cometmind/internal/runstate"
-	"github.com/cometline/cometmind/internal/session"
-	"github.com/cometline/cometmind/internal/store"
-	"github.com/cometline/cometmind/internal/subagent"
+	"github.com/Cometline/cometline/cometmind/internal/config"
+	"github.com/Cometline/cometline/cometmind/internal/event"
+	"github.com/Cometline/cometline/cometmind/internal/runstate"
+	"github.com/Cometline/cometline/cometmind/internal/session"
+	"github.com/Cometline/cometline/cometmind/internal/sqlite"
+	"github.com/Cometline/cometline/cometmind/internal/subagent"
 )
 
 type routerTestRunner struct{}
@@ -108,9 +108,9 @@ func TestEnsureThreadSessionCreatesSeparateMapping(t *testing.T) {
 
 	ctx := context.Background()
 	dbPath := filepath.Join(t.TempDir(), "cometmind.db")
-	sqlDB, err := store.OpenSQLite(ctx, dbPath)
+	sqlDB, err := sqlite.Open(ctx, dbPath)
 	if err != nil {
-		t.Fatalf("OpenSQLite() error = %v", err)
+		t.Fatalf("sqlite.Open() error = %v", err)
 	}
 	t.Cleanup(func() { _ = sqlDB.Close() })
 
@@ -163,9 +163,9 @@ func TestChangeWorkspaceUpdatesSessionPath(t *testing.T) {
 
 	ctx := context.Background()
 	dbPath := filepath.Join(t.TempDir(), "cometmind.db")
-	sqlDB, err := store.OpenSQLite(ctx, dbPath)
+	sqlDB, err := sqlite.Open(ctx, dbPath)
 	if err != nil {
-		t.Fatalf("OpenSQLite() error = %v", err)
+		t.Fatalf("sqlite.Open() error = %v", err)
 	}
 	t.Cleanup(func() { _ = sqlDB.Close() })
 
@@ -226,9 +226,9 @@ func TestHandleClearSlashClearsMappedSessionTranscript(t *testing.T) {
 
 	ctx := context.Background()
 	dbPath := filepath.Join(t.TempDir(), "cometmind.db")
-	sqlDB, err := store.OpenSQLite(ctx, dbPath)
+	sqlDB, err := sqlite.Open(ctx, dbPath)
 	if err != nil {
-		t.Fatalf("OpenSQLite() error = %v", err)
+		t.Fatalf("sqlite.Open() error = %v", err)
 	}
 	t.Cleanup(func() { _ = sqlDB.Close() })
 
@@ -317,9 +317,9 @@ func TestHandleClearSlashRequiresExistingSession(t *testing.T) {
 
 	ctx := context.Background()
 	dbPath := filepath.Join(t.TempDir(), "cometmind.db")
-	sqlDB, err := store.OpenSQLite(ctx, dbPath)
+	sqlDB, err := sqlite.Open(ctx, dbPath)
 	if err != nil {
-		t.Fatalf("OpenSQLite() error = %v", err)
+		t.Fatalf("sqlite.Open() error = %v", err)
 	}
 	t.Cleanup(func() { _ = sqlDB.Close() })
 
@@ -356,9 +356,9 @@ func TestHandleClearSlashRejectsRunningSession(t *testing.T) {
 
 	ctx := context.Background()
 	dbPath := filepath.Join(t.TempDir(), "cometmind.db")
-	sqlDB, err := store.OpenSQLite(ctx, dbPath)
+	sqlDB, err := sqlite.Open(ctx, dbPath)
 	if err != nil {
-		t.Fatalf("OpenSQLite() error = %v", err)
+		t.Fatalf("sqlite.Open() error = %v", err)
 	}
 	t.Cleanup(func() { _ = sqlDB.Close() })
 
@@ -411,9 +411,9 @@ func TestSuggestWorkspacePathsIncludesConfiguredDefault(t *testing.T) {
 
 	ctx := context.Background()
 	dbPath := filepath.Join(t.TempDir(), "cometmind.db")
-	sqlDB, err := store.OpenSQLite(ctx, dbPath)
+	sqlDB, err := sqlite.Open(ctx, dbPath)
 	if err != nil {
-		t.Fatalf("OpenSQLite() error = %v", err)
+		t.Fatalf("sqlite.Open() error = %v", err)
 	}
 	t.Cleanup(func() { _ = sqlDB.Close() })
 
@@ -455,9 +455,9 @@ func TestHandleInboundPersistsImages(t *testing.T) {
 
 	ctx := context.Background()
 	dbPath := filepath.Join(t.TempDir(), "cometmind.db")
-	sqlDB, err := store.OpenSQLite(ctx, dbPath)
+	sqlDB, err := sqlite.Open(ctx, dbPath)
 	if err != nil {
-		t.Fatalf("OpenSQLite() error = %v", err)
+		t.Fatalf("sqlite.Open() error = %v", err)
 	}
 	t.Cleanup(func() { _ = sqlDB.Close() })
 
@@ -518,9 +518,9 @@ func TestHandleInboundReplyOmitsSubagentEvents(t *testing.T) {
 
 	ctx := context.Background()
 	dbPath := filepath.Join(t.TempDir(), "cometmind.db")
-	sqlDB, err := store.OpenSQLite(ctx, dbPath)
+	sqlDB, err := sqlite.Open(ctx, dbPath)
 	if err != nil {
-		t.Fatalf("OpenSQLite() error = %v", err)
+		t.Fatalf("sqlite.Open() error = %v", err)
 	}
 	t.Cleanup(func() { _ = sqlDB.Close() })
 
@@ -719,9 +719,9 @@ func TestHandleStopSlashWithoutMappedSession(t *testing.T) {
 
 	ctx := context.Background()
 	dbPath := filepath.Join(t.TempDir(), "cometmind.db")
-	sqlDB, err := store.OpenSQLite(ctx, dbPath)
+	sqlDB, err := sqlite.Open(ctx, dbPath)
 	if err != nil {
-		t.Fatalf("OpenSQLite() error = %v", err)
+		t.Fatalf("sqlite.Open() error = %v", err)
 	}
 	t.Cleanup(func() { _ = sqlDB.Close() })
 	svc := session.New(sqlDB)
@@ -845,9 +845,9 @@ func newMappedGatewaySession(t *testing.T, threadID string) (*session.Service, s
 	t.Helper()
 	ctx := context.Background()
 	dbPath := filepath.Join(t.TempDir(), "cometmind.db")
-	sqlDB, err := store.OpenSQLite(ctx, dbPath)
+	sqlDB, err := sqlite.Open(ctx, dbPath)
 	if err != nil {
-		t.Fatalf("OpenSQLite() error = %v", err)
+		t.Fatalf("sqlite.Open() error = %v", err)
 	}
 	t.Cleanup(func() { _ = sqlDB.Close() })
 	svc := session.New(sqlDB)

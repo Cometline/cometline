@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/cometline/cometmind/internal/db"
+	"github.com/Cometline/cometline/cometmind/internal/db"
 )
 
 // RecentWindowStartIndex returns the index of the first message to keep verbatim
@@ -103,15 +103,4 @@ func formatUserContentForSummary(content string) string {
 		return text + " " + note
 	}
 	return text
-}
-
-func plainTextFromStoredContent(content string) (string, error) {
-	if strings.HasPrefix(content, contentEnvelopePrefix) {
-		blocks, err := DecodeMessageContent(content)
-		if err != nil {
-			return "", err
-		}
-		return PlainTextFromContent(blocks), nil
-	}
-	return content, nil
 }

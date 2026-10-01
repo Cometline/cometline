@@ -1,0 +1,14 @@
+event: response.output_item.added
+data: {"type":"response.output_item.added","item":{"type":"function_call","id":"fc_01","call_id":"call_01","name":"list_dir"}}
+
+event: response.function_call_arguments.delta
+data: {"item_id":"fc_01","delta":"{\"path\":\".\"}"}
+
+event: response.function_call_arguments.done
+data: {"item_id":"fc_01","arguments":"{\"path\":\".\"}"}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","item":{"type":"function_call","id":"fc_01","call_id":"call_01","name":"list_dir","arguments":"{\"path\":\".\"}"}}
+
+data: [DONE]
+

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cometline/cometmind/internal/modelcatalog"
+	"github.com/Cometline/cometline/cometmind/internal/modelcatalog"
 )
 
 func TestLabelForModel(t *testing.T) {

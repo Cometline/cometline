@@ -3,10 +3,11 @@ package retry_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
-	"github.com/cometline/comet-sdk/internal/retry"
+	"github.com/Cometline/cometline/comet-sdk/internal/retry"
 	"github.com/stretchr/testify/require"
 )
 
@@ -113,4 +114,24 @@ func TestDo_UsesRetryAfterDuration(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, 2, calls)
+}
+
+func TestDo_UsesRetryAfterFromWrappedError(t *testing.T) {
+	// The default first backoff is at least 500ms (1s with 0.5 jitter), so a
+	// fast retry proves the wrapped Retry-After delay was honoured.
+	calls := 0
+	raErr := fmt.Errorf("request: %w", &retryAfterError{d: time.Millisecond})
+
+	start := time.Now()
+	err := retry.Do(context.Background(), 2, func() error {
+		calls++
+		if calls < 2 {
+			return raErr
+		}
+		return nil
+	}, func(err error) bool { return true })
+
+	require.NoError(t, err)
+	require.Equal(t, 2, calls)
+	require.Less(t, time.Since(start), 400*time.Millisecond)
 }

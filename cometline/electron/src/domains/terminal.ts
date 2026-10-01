@@ -4,6 +4,8 @@ import os from 'node:os';
 import path from 'node:path';
 import pty, { type IPty } from 'node-pty';
 
+import type { TerminalSnapshot } from '../../../src/lib/types.js';
+import { EVENT_CHANNELS, type EventChannel } from '../shared/ipc-channels.js';
 import {
 	clearAllTerminalEnv,
 	integrationScriptPath,
@@ -32,15 +34,6 @@ interface TerminalEntry {
 	shell: string;
 	output: string;
 	process: IPty | null;
-}
-
-export interface TerminalSnapshot {
-	sessionId: string;
-	status: 'running' | 'exited';
-	exitCode: number | null;
-	generation: number;
-	shell: string;
-	output: string;
 }
 
 export interface TerminalCreateInput {
@@ -72,7 +65,7 @@ export function createTerminalManager(getMainWindow: () => BrowserWindow | null)
 		output: entry.output
 	});
 
-	const send = (channel: string, payload: unknown) => {
+	const send = (channel: EventChannel, payload: unknown) => {
 		const window = getMainWindow();
 		if (window && !window.isDestroyed()) window.webContents.send(channel, payload);
 	};
@@ -188,14 +181,14 @@ export function createTerminalManager(getMainWindow: () => BrowserWindow | null)
 		sessions.set(sessionId, entry);
 		processHandle.onData((data) => {
 			appendOutput(entry, data);
-			send('cometline:terminal-data', { sessionId, data });
+			send(EVENT_CHANNELS.onTerminalData, { sessionId, data });
 		});
 		processHandle.onExit(({ exitCode }) => {
 			entry.status = 'exited';
 			entry.exitCode = exitCode;
 			entry.process = null;
 			removeTerminalEnvDir(sessionId);
-			send('cometline:terminal-exit', snapshot(entry));
+			send(EVENT_CHANNELS.onTerminalExit, snapshot(entry));
 			sessions.delete(sessionId);
 		});
 		return snapshot(entry);

@@ -3,7 +3,7 @@ package usage
 import (
 	"strings"
 
-	"github.com/cometline/cometmind/internal/modelcatalog"
+	"github.com/Cometline/cometline/cometmind/internal/modelcatalog"
 )
 
 // BilledUsage is the disjoint token classes used for totals and estimates.

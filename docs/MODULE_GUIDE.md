@@ -3,7 +3,7 @@
 This is the short operational guide for developers and agents working in the
 monorepo after the v1 milestone.
 
-For system walkthroughs, start with `../ARCHITECTURE.md` and
+For system walkthroughs, start with `learning/00-README.md` and
 `../ARCHITECTURE_GUIDE.md`. This file focuses on ownership, design rules, and
 how to change each module without leaking responsibilities across boundaries.
 
@@ -108,7 +108,7 @@ It must not own:
 - `cometmind/internal/autonomy/worker.go`
 - `cometmind/internal/provider/factory.go`
 - `cometmind/internal/event/event.go`
-- `cometmind/server/server.go`
+- `cometmind/internal/server/server.go`
 - `cometmind/openapi.yaml`
 - `cometmind/internal/db/schema.sql`
 - `cometmind/internal/db/migrate.go`
@@ -117,7 +117,7 @@ It must not own:
 
 - Treat `openapi.yaml` as the HTTP contract source of truth.
 - Treat `internal/event/event.go` as the SSE contract source of truth.
-- Treat the SQLite schema and sqlc queries as load-bearing public internals. Schema changes need migration thinking, not just table edits.
+- Treat the SQLite schema and sqlc queries as load-bearing public internals. A fresh database uses `schema.sql`. Existing databases need the next `internal/db/migrations/NNNN_description.sql`. The highest file number is the current version. `TestMigrationsFromV1MatchFreshSchema` fails if the two drift.
 - Tool execution must stay workspace-scoped and runtime-controlled.
 - The runtime should be able to start with no configured provider and surface a usable settings-driven recovery path.
 
@@ -167,7 +167,7 @@ It must not own:
 - `cometline/src/lib/stores/model.svelte.ts`
 - `cometline/src/lib/stores/settings.svelte.ts`
 - `cometline/src/lib/jobs/`
-- `cometline/src/lib/settings/schema.ts`
+- `cometline/src/lib/features/settings/schema.ts`
 - `cometline/src/routes/+page.svelte`
 - `cometline/src/routes/session/[id]/+page.svelte`
 - `cometline/src/routes/jobs/+page.svelte`
@@ -216,10 +216,10 @@ When you change runtime events, also update:
 
 When you change shared settings, inspect all of:
 
-- `cometline/src/lib/settings/schema.ts`
+- `cometline/src/lib/features/settings/schema.ts`
 - `cometline/src/lib/stores/settings.svelte.ts`
-- `cometline/src/lib/settings/persist.ts`
-- `cometline/src/lib/components/settings/`
+- `cometline/src/lib/features/settings/persist.ts`
+- `cometline/src/lib/features/settings/`
 - `cometline/electron/src/domains/settings.ts`
 - `cometline/electron/src/domains/settings-domain.ts`
 - `cometline/electron/src/domains/runtime-ipc.ts`
@@ -237,20 +237,20 @@ Jobs span CometMind persistence, background workers, Discord, and Cometline UI. 
 - `cometmind/internal/gateway/jobs*.go`
 - `cometmind/openapi.yaml`
 - `cometline/src/lib/client/cometmind.ts`
-- `cometline/src/lib/components/jobs/`
-- `cometline/src/lib/jobs/`
-- `cometline/src/lib/settings/schema.ts`
+- `cometline/src/lib/features/jobs/`
+- `cometline/src/lib/features/settings/schema.ts`
 
-Schema changes need SQLC regeneration and incremental migration entries.
+Schema changes need SQLC regeneration and the next numbered file in `cometmind/internal/db/migrations`.
 
 ### MCP changes
 
-MCP spans shared settings, native OAuth orchestration, runtime connection management, and tool registration. Review all of:
+MCP spans shared settings, CometMind-owned OAuth, runtime connection management, tool registration, and the Electron-side Cursor `mcp.json` import. Review all of:
 
 - `cometmind/internal/mcp/`
 - `cometmind/internal/tools/registry.go`
-- `cometline/src/lib/components/settings/SettingsMCPPanel.svelte`
-- `cometline/electron/src/domains/provider-auth.ts`
+- `cometline/src/lib/features/settings/components/SettingsMCPPanel.svelte`
+- `cometline/src/lib/features/settings/cursor-mcp-import.ts`
+- `cometline/electron/src/domains/provider-auth.ts` (reads `~/.cursor/mcp.json`)
 - `cometline/electron/src/domains/runtime-ipc.ts`
 - `cometline/electron/src/preload.ts`
 - `cometline/electron/src/shared/api.ts`

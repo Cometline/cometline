@@ -130,46 +130,9 @@ func List(ctx context.Context, root string, opts Options) (Result, error) {
 // ListDirectory returns direct children of a root-relative directory, sorted.
 // Directory paths retain a trailing slash and are relative to root.
 func ListDirectory(ctx context.Context, root, directory string, opts Options) (Result, error) {
-	root = filepath.Clean(root)
-	info, err := os.Stat(root)
+	relativeDirectory, resolvedTarget, err := resolveListedDirectory(root, directory)
 	if err != nil {
-		return Result{}, fmt.Errorf("stat directory: %w", err)
-	}
-	if !info.IsDir() {
-		return Result{}, fmt.Errorf("path is not a directory: %s", root)
-	}
-
-	requested := strings.TrimSpace(strings.ReplaceAll(directory, "\\", "/"))
-	if requested == "." {
-		requested = ""
-	}
-	relativeDirectory := filepath.Clean(filepath.FromSlash(requested))
-	if requested == "" {
-		relativeDirectory = "."
-	}
-	if filepath.IsAbs(relativeDirectory) || relativeDirectory == ".." || strings.HasPrefix(relativeDirectory, ".."+string(filepath.Separator)) {
-		return Result{}, fmt.Errorf("directory must be relative to root")
-	}
-
-	target := filepath.Join(root, relativeDirectory)
-	resolvedRoot, err := filepath.EvalSymlinks(root)
-	if err != nil {
-		return Result{}, fmt.Errorf("resolve root: %w", err)
-	}
-	resolvedTarget, err := filepath.EvalSymlinks(target)
-	if err != nil {
-		return Result{}, fmt.Errorf("directory not found")
-	}
-	resolvedRelative, err := filepath.Rel(resolvedRoot, resolvedTarget)
-	if err != nil || resolvedRelative == ".." || strings.HasPrefix(resolvedRelative, ".."+string(filepath.Separator)) {
-		return Result{}, fmt.Errorf("directory must be within root")
-	}
-	info, err = os.Stat(resolvedTarget)
-	if err != nil {
-		return Result{}, fmt.Errorf("directory not found")
-	}
-	if !info.IsDir() {
-		return Result{}, fmt.Errorf("not a directory")
+		return Result{}, err
 	}
 
 	limit := resolveLimit(opts)
@@ -217,4 +180,49 @@ func ListDirectory(ctx context.Context, root, directory string, opts Options) (R
 
 	sort.Strings(results)
 	return Result{Files: results}, nil
+}
+
+func resolveListedDirectory(root, directory string) (string, string, error) {
+	root = filepath.Clean(root)
+	info, err := os.Stat(root)
+	if err != nil {
+		return "", "", fmt.Errorf("stat directory: %w", err)
+	}
+	if !info.IsDir() {
+		return "", "", fmt.Errorf("path is not a directory: %s", root)
+	}
+
+	requested := strings.TrimSpace(strings.ReplaceAll(directory, "\\", "/"))
+	if requested == "." {
+		requested = ""
+	}
+	relativeDirectory := filepath.Clean(filepath.FromSlash(requested))
+	if requested == "" {
+		relativeDirectory = "."
+	}
+	if filepath.IsAbs(relativeDirectory) || relativeDirectory == ".." || strings.HasPrefix(relativeDirectory, ".."+string(filepath.Separator)) {
+		return "", "", fmt.Errorf("directory must be relative to root")
+	}
+
+	target := filepath.Join(root, relativeDirectory)
+	resolvedRoot, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		return "", "", fmt.Errorf("resolve root: %w", err)
+	}
+	resolvedTarget, err := filepath.EvalSymlinks(target)
+	if err != nil {
+		return "", "", fmt.Errorf("directory not found")
+	}
+	resolvedRelative, err := filepath.Rel(resolvedRoot, resolvedTarget)
+	if err != nil || resolvedRelative == ".." || strings.HasPrefix(resolvedRelative, ".."+string(filepath.Separator)) {
+		return "", "", fmt.Errorf("directory must be within root")
+	}
+	info, err = os.Stat(resolvedTarget)
+	if err != nil {
+		return "", "", fmt.Errorf("directory not found")
+	}
+	if !info.IsDir() {
+		return "", "", fmt.Errorf("not a directory")
+	}
+	return relativeDirectory, resolvedTarget, nil
 }

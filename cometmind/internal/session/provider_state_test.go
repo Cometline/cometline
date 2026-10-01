@@ -4,7 +4,8 @@ import (
 	"context"
 	"testing"
 
-	cometsdk "github.com/cometline/comet-sdk"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
+	"github.com/Cometline/cometline/cometmind/internal/db"
 )
 
 func TestAssistantProviderStateReplaysOnlyThroughSDKMessages(t *testing.T) {
@@ -50,5 +51,17 @@ func TestAssistantProviderStateReplaysOnlyThroughSDKMessages(t *testing.T) {
 	}
 	if len(messages[0].ProviderState) != 0 {
 		t.Fatalf("provider state survived cleanup: %#v", messages[0].ProviderState)
+	}
+}
+
+func TestProviderStatesByMessageKeepsOnlyActiveProvider(t *testing.T) {
+	got := providerStatesByMessage([]db.ListAssistantProviderStatesBySessionRow{
+		{MessageID: "m1", ProviderID: "codex", ModelID: "gpt", State: "a"},
+		{MessageID: "m1", ProviderID: "other", ModelID: "x", State: "skip"},
+		{MessageID: "m1", ProviderID: "codex", ModelID: "gpt", State: "b"},
+		{MessageID: "m2", ProviderID: "other", ModelID: "x", State: "skip"},
+	}, "codex")
+	if len(got) != 1 || len(got["m1"]) != 2 || got["m1"][0].Data != "a" || got["m1"][1].Data != "b" {
+		t.Fatalf("states = %#v, want m1:[a b]", got)
 	}
 }

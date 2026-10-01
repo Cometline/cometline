@@ -9,16 +9,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cometline/cometmind/internal/agent"
-	"github.com/cometline/cometmind/internal/config"
-	"github.com/cometline/cometmind/internal/event"
-	"github.com/cometline/cometmind/internal/inbox"
-	"github.com/cometline/cometmind/internal/jobs"
-	"github.com/cometline/cometmind/internal/logging"
-	"github.com/cometline/cometmind/internal/memory"
-	"github.com/cometline/cometmind/internal/session"
-	"github.com/cometline/cometmind/internal/tools"
-	"github.com/cometline/cometmind/internal/wakeup"
+	"github.com/Cometline/cometline/cometmind/internal/agent"
+	"github.com/Cometline/cometline/cometmind/internal/config"
+	"github.com/Cometline/cometline/cometmind/internal/event"
+	"github.com/Cometline/cometline/cometmind/internal/inbox"
+	"github.com/Cometline/cometline/cometmind/internal/jobs"
+	"github.com/Cometline/cometline/cometmind/internal/logging"
+	"github.com/Cometline/cometline/cometmind/internal/memory"
+	"github.com/Cometline/cometline/cometmind/internal/session"
+	"github.com/Cometline/cometline/cometmind/internal/tools"
+	"github.com/Cometline/cometline/cometmind/internal/wakeup"
 )
 
 // RunGuard registers a session as currently running an agent turn.
@@ -141,23 +141,10 @@ func (w *Worker) processOne(ctx context.Context, msg inbox.Message) {
 		return
 	}
 
-	workspaceID := strings.TrimSpace(claimed.WorkspaceID)
-	workspacePath := ""
-	if workspaceID == "" {
-		workspaces, listErr := w.Sessions.ListWorkspaces(ctx)
-		if listErr != nil || len(workspaces) == 0 {
-			_ = w.finishWithError(ctx, claimed, "no workspace available for inbox processing")
-			return
-		}
-		workspaceID = workspaces[0].ID
-		workspacePath = workspaces[0].Path
-	} else {
-		path, pathErr := w.Sessions.WorkspacePath(ctx, workspaceID)
-		if pathErr != nil {
-			_ = w.finishWithError(ctx, claimed, fmt.Sprintf("workspace lookup failed: %v", pathErr))
-			return
-		}
-		workspacePath = path
+	workspaceID, workspacePath, err := w.resolveWorkspace(ctx, claimed)
+	if err != nil {
+		_ = w.finishWithError(ctx, claimed, err.Error())
+		return
 	}
 
 	cfg := w.configSnapshot()
@@ -185,28 +172,7 @@ func (w *Worker) processOne(ctx context.Context, msg inbox.Message) {
 		return
 	}
 
-	opt := tools.RegistryOptions{
-		Jobs:         w.Jobs,
-		Memory:       w.Memory,
-		MemoryEvents: w.Events,
-		SessionID:    sess.ID,
-	}
-	if w.RegistryOptions != nil {
-		opt = w.RegistryOptions(sess, workspacePath)
-		if opt.Jobs == nil {
-			opt.Jobs = w.Jobs
-		}
-		if opt.Memory == nil {
-			opt.Memory = w.Memory
-		}
-		if opt.MemoryEvents == nil {
-			opt.MemoryEvents = w.Events
-		}
-		if strings.TrimSpace(opt.SessionID) == "" {
-			opt.SessionID = sess.ID
-		}
-	}
-	registry := tools.NewInboxProcessRegistry(workspacePath, opt)
+	registry := tools.NewInboxProcessRegistry(workspacePath, w.registryOptions(sess, workspacePath))
 	maxSteps := cfg.MaxStepsPerRun
 	if maxSteps <= 0 {
 		maxSteps = 8
@@ -222,17 +188,68 @@ func (w *Worker) processOne(ctx context.Context, msg inbox.Message) {
 	}
 
 	runErr := agent.RunHostedTurn(runCtx, runner, session.AgentTurnFromSession(sess), func(_ event.Event) {})
+	w.finishRun(ctx, claimed, sess.ID, runErr)
+}
+
+// resolveWorkspace returns the message's workspace, or the first registered
+// workspace when the message has none. Errors carry the user-facing skip reason.
+func (w *Worker) resolveWorkspace(ctx context.Context, msg inbox.Message) (id, path string, err error) {
+	id = strings.TrimSpace(msg.WorkspaceID)
+	if id == "" {
+		workspaces, listErr := w.Sessions.ListWorkspaces(ctx)
+		if listErr != nil || len(workspaces) == 0 {
+			return "", "", fmt.Errorf("no workspace available for inbox processing")
+		}
+		return workspaces[0].ID, workspaces[0].Path, nil
+	}
+	path, pathErr := w.Sessions.WorkspacePath(ctx, id)
+	if pathErr != nil {
+		return "", "", fmt.Errorf("workspace lookup failed: %w", pathErr)
+	}
+	return id, path, nil
+}
+
+// registryOptions builds the inbox run's tool dependencies, filling any gaps
+// left by the RegistryOptions hook with the worker's own services.
+func (w *Worker) registryOptions(sess session.Session, workspacePath string) tools.RegistryOptions {
+	if w.RegistryOptions == nil {
+		return tools.RegistryOptions{
+			Jobs:         w.Jobs,
+			Memory:       w.Memory,
+			MemoryEvents: w.Events,
+			SessionID:    sess.ID,
+		}
+	}
+	opt := w.RegistryOptions(sess, workspacePath)
+	if opt.Jobs == nil {
+		opt.Jobs = w.Jobs
+	}
+	if opt.Memory == nil {
+		opt.Memory = w.Memory
+	}
+	if opt.MemoryEvents == nil {
+		opt.MemoryEvents = w.Events
+	}
+	if strings.TrimSpace(opt.SessionID) == "" {
+		opt.SessionID = sess.ID
+	}
+	return opt
+}
+
+// finishRun marks the message processed after success or its final failed
+// attempt; earlier failed attempts are only logged and keep their session.
+func (w *Worker) finishRun(ctx context.Context, msg inbox.Message, sessionID string, runErr error) {
 	if runErr != nil {
-		if claimed.ProcessAttempts >= inbox.MaxProcessAttempts {
-			_, _ = w.Inbox.MarkProcessed(ctx, claimed.ID, runErr.Error())
-			w.discardSession(ctx, sess.ID)
+		if msg.ProcessAttempts >= inbox.MaxProcessAttempts {
+			_, _ = w.Inbox.MarkProcessed(ctx, msg.ID, runErr.Error())
+			w.discardSession(ctx, sessionID)
 			return
 		}
-		log.Printf("inbox: process %s failed (attempt %d): %v", claimed.ID, claimed.ProcessAttempts, runErr)
+		log.Printf("inbox: process %s failed (attempt %d): %v", msg.ID, msg.ProcessAttempts, runErr)
 		return
 	}
-	_, _ = w.Inbox.MarkProcessed(ctx, claimed.ID, "")
-	w.discardSession(ctx, sess.ID)
+	_, _ = w.Inbox.MarkProcessed(ctx, msg.ID, "")
+	w.discardSession(ctx, sessionID)
 }
 
 func (w *Worker) discardSession(ctx context.Context, sessionID string) {

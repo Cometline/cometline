@@ -7,11 +7,11 @@ import (
 	"strings"
 	"time"
 
-	cometsdk "github.com/cometline/comet-sdk"
-	"github.com/cometline/comet-sdk/llm"
-	"github.com/cometline/cometmind/internal/logging"
-	"github.com/cometline/cometmind/internal/session"
-	"github.com/cometline/cometmind/internal/usage"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
+	"github.com/Cometline/cometline/comet-sdk/llm"
+	"github.com/Cometline/cometline/cometmind/internal/logging"
+	"github.com/Cometline/cometline/cometmind/internal/session"
+	"github.com/Cometline/cometline/cometmind/internal/usage"
 	"github.com/oklog/ulid/v2"
 )
 
@@ -82,6 +82,17 @@ func (e *extractor) extractAfterTurn(ctx context.Context, sessionID, model strin
 	msgs = recentMessages(msgs, extractionTranscriptMessages)
 	logging.L().Info("memory.extract.start", "session", sessionID, "model", model, "messages", len(msgs), "total_messages", originalMessages)
 
+	transcript := extractionTranscript(msgs)
+	if transcript == "" {
+		logging.L().Info("memory.extract.noop", "session", sessionID, "reason", "empty_transcript")
+		return nil, nil
+	}
+	proposals := e.proposeMemories(ctx, sessionID, transcript, llmProvider, useModel)
+	return e.ingestProposals(ctx, sessionID, proposals, llmProvider, useModel)
+}
+
+// extractionTranscript renders the non-empty text of msgs as "role: text" lines.
+func extractionTranscript(msgs []cometsdk.Message) string {
 	var transcript strings.Builder
 	for _, m := range msgs {
 		text := messageText(m)
@@ -93,11 +104,12 @@ func (e *extractor) extractAfterTurn(ctx context.Context, sessionID, model strin
 		transcript.WriteString(text)
 		transcript.WriteString("\n")
 	}
-	if transcript.Len() == 0 {
-		logging.L().Info("memory.extract.noop", "session", sessionID, "reason", "empty_transcript")
-		return nil, nil
-	}
+	return transcript.String()
+}
 
+// proposeMemories asks the model for memory candidates. LLM failures are
+// logged and yield no proposals so extraction never fails the turn.
+func (e *extractor) proposeMemories(ctx context.Context, sessionID, transcript string, llmProvider cometsdk.Provider, useModel string) []proposedMemory {
 	prompt := fmt.Sprintf(`Review this conversation and extract durable facts, preferences, or project knowledge worth remembering across future sessions.
 Skip transient instructions, tool output, greetings, and one-off tasks.
 Use kind="preference" for durable user preferences about language, tone, verbosity, tools, workflow, models, or coding style.
@@ -105,7 +117,7 @@ For preference memories, include preference_category as one of: language, tone, 
 Return JSON: {"memories":[{"content":"...","kind":"fact|preference|project","preference_category":"language|tone|verbosity|workflow|model|tooling|coding_style|other","confidence":0.0-1.0,"should_save":true|false}]}
 
 Conversation:
-%s`, transcript.String())
+%s`, transcript)
 
 	var result extractionResult
 	req := &cometsdk.Request{
@@ -121,12 +133,15 @@ Conversation:
 	recordUsage(ctx, e.usage, llmProvider, useModel, usage.KindMemoryExtract, sessionID, tok)
 	if err != nil {
 		logging.L().Warn("memory.extract.llm_failed", "session", sessionID, "model", useModel, "error", err)
-		return nil, nil
+		return nil
 	}
 	logging.L().Info("memory.extract.proposed", "session", sessionID, "count", len(result.Memories), "model", useModel)
+	return result.Memories
+}
 
+func (e *extractor) ingestProposals(ctx context.Context, sessionID string, proposals []proposedMemory, llmProvider cometsdk.Provider, useModel string) ([]Change, error) {
 	var changes []Change
-	for _, pm := range result.Memories {
+	for _, pm := range proposals {
 		if !pm.ShouldSave || strings.TrimSpace(pm.Content) == "" || pm.Confidence < 0.3 {
 			logging.L().Info("memory.extract.proposal_skipped", "session", sessionID, "kind", pm.Kind, "confidence", pm.Confidence, "should_save", pm.ShouldSave)
 			continue

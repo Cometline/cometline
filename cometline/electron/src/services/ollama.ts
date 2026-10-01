@@ -1,6 +1,8 @@
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-nocheck
 // Runtime validation is intentional here: Ollama's streamed JSON is untyped.
+import type { OllamaHealthResult } from '../shared/api.js';
+
 const DEFAULT_NATIVE_BASE = 'http://127.0.0.1:11434';
 const OLLAMA_MODEL_NAME_RE = /^[a-zA-Z0-9]([a-zA-Z0-9._:-]{0,198}[a-zA-Z0-9])?$/;
 const MAX_LINE_BYTES = 64 * 1024;
@@ -76,7 +78,7 @@ function createOllamaService(deps = {}) {
 	/** @type {{ controller: AbortController, model: string } | null} */
 	let activePull = null;
 
-	async function checkHealth(baseURL) {
+	async function checkHealth(baseURL): Promise<OllamaHealthResult> {
 		const base = assertLoopbackBase(baseURL);
 		const controller = new AbortController();
 		const timer = setTimeout(() => controller.abort(), 4000);
@@ -130,25 +132,6 @@ function createOllamaService(deps = {}) {
 					modifiedAt: String(model?.modified_at || '').trim() || undefined
 				}))
 				.filter((model) => model.name)
-		};
-	}
-
-	async function getDiagnostics(baseURL) {
-		const health = await checkHealth(baseURL);
-		let models = [];
-		if (health.ok) {
-			try {
-				const listed = await listModels(health.baseURL);
-				models = listed.models;
-			} catch {
-				// keep health-only diagnostics
-			}
-		}
-		return {
-			...health,
-			models,
-			pullActive: Boolean(activePull),
-			pullModel: activePull?.model || null
 		};
 	}
 
@@ -266,7 +249,6 @@ function createOllamaService(deps = {}) {
 	return {
 		checkHealth,
 		listModels,
-		getDiagnostics,
 		pullModel,
 		cancelPull,
 		normalizeNativeBase,

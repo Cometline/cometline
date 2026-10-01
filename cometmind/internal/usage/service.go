@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
-	cometsdk "github.com/cometline/comet-sdk"
-	"github.com/cometline/cometmind/internal/db"
-	"github.com/cometline/cometmind/internal/id"
-	"github.com/cometline/cometmind/internal/modelcatalog"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
+	"github.com/Cometline/cometline/cometmind/internal/db"
+	"github.com/Cometline/cometline/cometmind/internal/id"
+	"github.com/Cometline/cometline/cometmind/internal/modelcatalog"
 )
 
 const (

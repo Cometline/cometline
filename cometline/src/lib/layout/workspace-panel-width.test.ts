@@ -30,7 +30,9 @@ describe('workspace-panel-width', () => {
 	it('yields to a usable main pane when 2/3 would crush the composer', () => {
 		const rowWidth = 1100;
 		// 2/3 ≈ 733, but 1100 - 400 = 700 → usable main binds.
-		expect(workspacePanelMaxWidth(rowWidth, { sidebarOpen: true, fullscreen: false })).toBe(700);
+		expect(workspacePanelMaxWidth(rowWidth, { sidebarOpen: true, fullscreen: false })).toBe(
+			700
+		);
 	});
 
 	it('clamps drag targets into [min, max]', () => {

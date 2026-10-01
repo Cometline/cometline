@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	cometsdk "github.com/cometline/comet-sdk"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
 )
 
 func TestScanner_AllowsLargeEventLines(t *testing.T) {

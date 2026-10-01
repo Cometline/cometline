@@ -1,6 +1,6 @@
 package jobs
 
-import "github.com/cometline/cometmind/internal/config"
+import "github.com/Cometline/cometline/cometmind/internal/config"
 
 // Settings is the name jobs callers use for config.JobSettings.
 type Settings = config.JobSettings

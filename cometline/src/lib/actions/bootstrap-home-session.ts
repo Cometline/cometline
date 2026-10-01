@@ -39,7 +39,8 @@ export async function bootstrapHomeSession(
 	if (!deps.sessionsLoaded()) return false;
 
 	const sessions = deps.sessions();
-	const sessionExists = (sessionId: string) => sessions.some((session) => session.id === sessionId);
+	const sessionExists = (sessionId: string) =>
+		sessions.some((session) => session.id === sessionId);
 	const recentSessionId = deps.mostRecentSessionId(sessionExists);
 	const recentSession = recentSessionId
 		? sessions.find((session) => session.id === recentSessionId)

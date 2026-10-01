@@ -9,8 +9,8 @@ import (
 	"os"
 	"testing"
 
-	cometsdk "github.com/cometline/comet-sdk"
-	"github.com/cometline/comet-sdk/provider/openai"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
+	"github.com/Cometline/cometline/comet-sdk/provider/openai"
 	"github.com/stretchr/testify/require"
 )
 
@@ -42,7 +42,7 @@ func newLiveProvider(t *testing.T) cometsdk.Provider {
 		t.Logf("using custom base URL: %s", baseURL)
 	}
 
-	return openai.NewOpenAIProvider(apiKey, opts...)
+	return openai.New(apiKey, opts...)
 }
 
 func TestLive_OpenAI_TextStream(t *testing.T) {

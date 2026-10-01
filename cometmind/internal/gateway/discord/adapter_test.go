@@ -3,8 +3,8 @@ package discord
 import (
 	"testing"
 
+	"github.com/Cometline/cometline/cometmind/internal/gateway"
 	"github.com/bwmarrin/discordgo"
-	"github.com/cometline/cometmind/internal/gateway"
 )
 
 func TestThreadCreationParent(t *testing.T) {

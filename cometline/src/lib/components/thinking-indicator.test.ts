@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import {
-	stageForTurnPhase,
-	variantForStage,
-	variantForTurnPhase
-} from './thinking-indicator';
-import { StickyThinkingVariant } from './sticky-thinking-variant';
+import { stageForTurnPhase, variantForStage, variantForTurnPhase } from './thinking-indicator';
+import { StickyThinkingVariant } from '../features/chat/sticky-thinking-variant';
 
 describe('thinking indicator stage map', () => {
 	it('merges wire phases into three UI stages', () => {

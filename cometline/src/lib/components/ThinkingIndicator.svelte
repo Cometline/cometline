@@ -20,12 +20,7 @@
 		variant?: ThinkingIndicatorVariant;
 	}
 
-	let {
-		color,
-		size = 24,
-		label = 'Assistant is thinking',
-		variant = 'orbit'
-	}: Props = $props();
+	let { color, size = 24, label = 'Assistant is thinking', variant = 'orbit' }: Props = $props();
 </script>
 
 <div
@@ -71,7 +66,7 @@
 		justify-content: center;
 		width: calc(24px * var(--thinking-scale, 1));
 		height: calc(24px * var(--thinking-scale, 1));
-		color: var(--thinking-color, var(--hero-composer-glow-color, #72c0ff));
+		color: var(--thinking-color, var(--hero-composer-glow-color, var(--color-72c0ff)));
 	}
 
 	.thinking-stage {
@@ -201,7 +196,7 @@
 		height: 8px;
 		border-radius: 999px;
 		transform: translate(-50%, -50%);
-		background: color-mix(in srgb, var(--panel-bg, #0b1020) 82%, currentColor 8%);
+		background: color-mix(in srgb, var(--panel-bg, var(--color-0b1020)) 82%, currentColor 8%);
 		box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 20%, transparent);
 		animation: thinking-eclipse-drift 2.2s ease-in-out infinite;
 	}
@@ -213,6 +208,32 @@
 		transform: translate(-50%, -50%);
 		box-shadow: 1.5px 0 4px 0 currentColor;
 		animation: thinking-eclipse-limb 2.2s ease-in-out infinite;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.thinking-comet,
+		.thinking-nova-rays,
+		.thinking-spark,
+		.thinking-eclipse-glow,
+		.thinking-eclipse-disk,
+		.thinking-eclipse-limb {
+			animation: none;
+		}
+
+		.thinking-comet,
+		.thinking-spark,
+		.thinking-nova-rays {
+			opacity: 0;
+		}
+
+		.thinking-eclipse-glow,
+		.thinking-eclipse-limb {
+			opacity: 0.55;
+		}
+
+		.thinking-core {
+			animation: thinking-core-pulse 2.4s ease-in-out infinite;
+		}
 	}
 
 	@keyframes thinking-orbit {
@@ -369,32 +390,6 @@
 		50% {
 			opacity: 1;
 			transform: translate(-50%, -50%) rotate(18deg);
-		}
-	}
-
-	@media (prefers-reduced-motion: reduce) {
-		.thinking-comet,
-		.thinking-nova-rays,
-		.thinking-spark,
-		.thinking-eclipse-glow,
-		.thinking-eclipse-disk,
-		.thinking-eclipse-limb {
-			animation: none;
-		}
-
-		.thinking-comet,
-		.thinking-spark,
-		.thinking-nova-rays {
-			opacity: 0;
-		}
-
-		.thinking-eclipse-glow,
-		.thinking-eclipse-limb {
-			opacity: 0.55;
-		}
-
-		.thinking-core {
-			animation: thinking-core-pulse 2.4s ease-in-out infinite;
 		}
 	}
 </style>

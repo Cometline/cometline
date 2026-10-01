@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -9,14 +10,14 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/cometline/cometmind/internal/event"
-	"github.com/cometline/cometmind/internal/jobs"
-	"github.com/cometline/cometmind/internal/logging"
-	"github.com/cometline/cometmind/internal/processctl"
-	"github.com/cometline/cometmind/internal/runstate"
-	"github.com/cometline/cometmind/internal/runtime"
-	"github.com/cometline/cometmind/internal/session"
-	"github.com/cometline/cometmind/server"
+	"github.com/Cometline/cometline/cometmind/internal/event"
+	"github.com/Cometline/cometline/cometmind/internal/jobs"
+	"github.com/Cometline/cometline/cometmind/internal/logging"
+	"github.com/Cometline/cometline/cometmind/internal/processctl"
+	"github.com/Cometline/cometline/cometmind/internal/runstate"
+	"github.com/Cometline/cometline/cometmind/internal/runtime"
+	"github.com/Cometline/cometline/cometmind/internal/server"
+	"github.com/Cometline/cometline/cometmind/internal/session"
 	"github.com/spf13/cobra"
 )
 
@@ -64,6 +65,25 @@ func runServe(_ *cobra.Command, _ []string) error {
 		return rt.Reload(reloadCtx)
 	})
 
+	cleanupStartupSessions(ctx, rt)
+
+	runState := runstate.New(rt.DB)
+	runs := server.NewRunManager(runState)
+	sessionEvents := event.NewSessionHub()
+	engine, err := newServeEngine(ctx, rt, runs, sessionEvents)
+	if err != nil {
+		return err
+	}
+
+	rt.SetSessionRunningChecker(runs.Running)
+	startServeWorkers(ctx, rt, runs, sessionEvents)
+
+	return listenAndServe(ctx, engine)
+}
+
+// cleanupStartupSessions prunes sessions and workspaces that should not show
+// up in the initial session list.
+func cleanupStartupSessions(ctx context.Context, rt *runtime.Runtime) {
 	// Remove unused New Chat rows before serving requests so the initial session
 	// list cannot include a conversation that was never started.
 	if pruned, err := rt.Sessions.PruneUnusedUserSessions(ctx); err != nil {
@@ -87,10 +107,9 @@ func runServe(_ *cobra.Command, _ []string) error {
 			logging.L().Info("workspace.pruned", "count", pruned)
 		}
 	}()
+}
 
-	runState := runstate.New(rt.DB)
-	runs := server.NewRunManager(runState)
-	sessionEvents := event.NewSessionHub()
+func newServeEngine(ctx context.Context, rt *runtime.Runtime, runs *server.RunManager, sessionEvents *event.SessionHub) (http.Handler, error) {
 	engine, err := server.New(server.Deps{
 		Config:    rt.Config,
 		Sessions:  rt.Sessions,
@@ -120,10 +139,12 @@ func runServe(_ *cobra.Command, _ []string) error {
 		},
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
+	return engine, nil
+}
 
-	rt.SetSessionRunningChecker(runs.Running)
+func startServeWorkers(ctx context.Context, rt *runtime.Runtime, runs *server.RunManager, sessionEvents *event.SessionHub) {
 	rt.StartJobsMaintenance(ctx)
 	rt.StartRetentionMaintenance(ctx)
 	rt.StartBackupMaintenance(ctx)
@@ -142,10 +163,12 @@ func runServe(_ *cobra.Command, _ []string) error {
 		}
 	})
 	rt.StartInboxWorker(ctx, runs)
+}
 
+func listenAndServe(ctx context.Context, handler http.Handler) error {
 	httpServer := &http.Server{
 		Addr:              fmt.Sprintf("127.0.0.1:%d", servePort),
-		Handler:           engine,
+		Handler:           handler,
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
@@ -156,7 +179,7 @@ func runServe(_ *cobra.Command, _ []string) error {
 
 	select {
 	case err := <-errCh:
-		if err != nil && err != http.ErrServerClosed {
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			return err
 		}
 		return nil
@@ -167,7 +190,7 @@ func runServe(_ *cobra.Command, _ []string) error {
 			return err
 		}
 		err := <-errCh
-		if err != nil && err != http.ErrServerClosed {
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			return err
 		}
 		return nil

@@ -146,7 +146,7 @@ A **contract** is a shared description both sides must follow.
 | Electron entrypoint   | `cometline/electron/src/main.ts`                      | Entry file for the Electron main process (ESM)       |
 | Electron runtime      | `cometline/electron/src/domains/runtime.ts`           | Sets up the sidecar, settings, windows, and IPC domains |
 | Electron IPC contract | `cometline/electron/src/shared/api.ts`                | Typed methods on `window.electronAPI`                |
-| API server            | `cometmind/server/server.go`                          | Registers REST and SSE routes                        |
+| API server            | `cometmind/internal/apigen`, `internal/server/routes.go`       | Generated strict routes, plus hand-registered exclusions |
 | Agent loop            | `cometmind/internal/agent/runner.go`                  | Multi-step LLM calls and tools                       |
 | Jobs                  | `cometmind/internal/jobs/`, `scheduler/`, `autonomy/` | Saved work queue and scheduled work                  |
 | Coding harness        | `cometmind/internal/acp/`                             | Fixed CLI profiles for `delegate_coding_task`        |

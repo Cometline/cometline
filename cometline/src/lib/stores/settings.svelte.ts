@@ -3,14 +3,14 @@ import {
 	defaultSettings,
 	normalizeSettings,
 	parseAndNormalizeSettings
-} from '$lib/settings/schema';
-import type { RuntimeApplyAction } from '$lib/settings/settings-save';
+} from '$lib/features/settings/schema';
+import type { RuntimeApplyAction } from '$lib/features/settings/settings-save';
 import type { MemorySettings } from '$lib/client/cometmind';
 import { lookupModelCatalog } from '$lib/client/cometmind';
 import type { FetchProviderModelsResult, ProviderConfig, ProviderSettings } from '$lib/types';
 import type { InputModality } from '$lib/model-modalities';
 import { modelStore, type ModelLimitEntry } from './model.svelte';
-import { persistSettings } from '$lib/settings/persist';
+import { persistSettings } from '$lib/features/settings/persist';
 
 const LOCAL_SETTINGS_KEY = 'cometline-settings';
 

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -104,10 +105,9 @@ func TestXAIClientGenerateVideoPollsThenDownloads(t *testing.T) {
 }
 
 func TestXAIClientRetriesTransientTimeouts(t *testing.T) {
-	var attempts int
+	var attempts atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		attempts++
-		if attempts == 1 {
+		if attempts.Add(1) == 1 {
 			time.Sleep(250 * time.Millisecond)
 			return
 		}
@@ -129,8 +129,8 @@ func TestXAIClientRetriesTransientTimeouts(t *testing.T) {
 	if string(got.Data) != "png" {
 		t.Fatalf("data = %q", got.Data)
 	}
-	if attempts != 2 {
-		t.Fatalf("attempts = %d", attempts)
+	if got := attempts.Load(); got != 2 {
+		t.Fatalf("attempts = %d", got)
 	}
 }
 

@@ -1,6 +1,6 @@
 package session
 
-import "github.com/cometline/cometmind/internal/db"
+import "github.com/Cometline/cometline/cometmind/internal/db"
 
 // Workspace is the session-store view of a registered workspace root.
 type Workspace struct {

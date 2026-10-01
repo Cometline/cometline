@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/cometline/cometmind/internal/settingsapply"
-	"github.com/cometline/cometmind/internal/tools"
+	"github.com/Cometline/cometline/cometmind/internal/settingsapply"
+	"github.com/Cometline/cometline/cometmind/internal/tools"
 )
 
 type stubReload struct {

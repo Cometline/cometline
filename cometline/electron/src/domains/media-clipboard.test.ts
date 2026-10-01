@@ -29,7 +29,9 @@ describe('media clipboard', () => {
 	it('copies a registered video path through an AppleScript argument', async () => {
 		const { clipboard, home, run } = fixture();
 
-		await expect(clipboard.copyMediaFile('session-1', 'video-1')).resolves.toEqual({ ok: true });
+		await expect(clipboard.copyMediaFile('session-1', 'video-1')).resolves.toEqual({
+			ok: true
+		});
 		expect(run).toHaveBeenCalledWith('osascript', [
 			'-e',
 			'on run argv',

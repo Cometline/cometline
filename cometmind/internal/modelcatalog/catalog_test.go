@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cometline/cometmind/internal/modelcatalog"
+	"github.com/Cometline/cometline/cometmind/internal/modelcatalog"
 )
 
 func TestMain(m *testing.M) {

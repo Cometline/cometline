@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { StreamEvent } from '$lib/types';
-import { getReasoningSegments } from '$lib/conversation/reasoning';
+import { getReasoningSegments } from '$lib/features/chat/reasoning';
 import {
 	buildAssistantTimeline,
 	buildThinkingAttribution,
 	shouldGroupAssistantTimeline
-} from '$lib/conversation/thinking-attribution';
+} from '$lib/features/chat/thinking-attribution';
 
 const { goto } = vi.hoisted(() => ({ goto: vi.fn() }));
 const { createNewSession } = vi.hoisted(() => ({ createNewSession: vi.fn() }));
@@ -551,9 +551,7 @@ describe('chatStore session switching', () => {
 		chatStore.bindSession('sess-a');
 		void chatStore.send('sess-a', 'prompt');
 		await waitForStore(() =>
-			chatStore.items.some(
-				(item) => item.type === 'assistant' && item.text.includes('hello')
-			)
+			chatStore.items.some((item) => item.type === 'assistant' && item.text.includes('hello'))
 		);
 
 		const live = chatStore.items.find((item) => item.type === 'assistant');

@@ -3,6 +3,14 @@ SHELL := /bin/bash
 GO ?= go
 PNPM ?= pnpm
 
+GO_MODULES := comet-sdk cometmind
+
+# Dev tools run through `go run` at pinned versions so nothing needs installing
+# and nothing is added to the modules' go.mod files.
+GOLANGCI_LINT ?= $(GO) run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
+GOVULNCHECK ?= $(GO) run golang.org/x/vuln/cmd/govulncheck@v1.8.0
+SQLC ?= $(GO) run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1
+
 # Provider settings default to empty so `make dev` reads everything from
 # ~/.cometmind/cometline-settings.json. Pass any of these on the command line
 # only when you want to override the saved settings, e.g.:
@@ -14,13 +22,17 @@ COMETMIND_API_KEY ?=
 COMETMIND_WORKSPACE_PATH ?= $(CURDIR)
 COMETMIND_BINARY_PATH ?= $(CURDIR)/cometmind/dist/cometmind
 
-.PHONY: help install generate check-generated check test build package dev sdk-build sdk-test cometmind-build cometmind-test cometline-check cometline-build cometline-package cometline-dev port clean-log
+.PHONY: help install generate check-generated check-sqlc check test build package dev fmt fmt-check lint test-race vuln sdk-build sdk-test cometmind-build cometmind-test cometline-check cometline-build cometline-package cometline-dev port clean-log
 
 help:
 	@printf "Cometline targets:\n"
 	@printf "  make install          Install Cometline frontend dependencies\n"
 	@printf "  make generate         Regenerate OpenAPI clients (TS + Go types)\n"
-	@printf "  make check            Run codegen freshness, tests, and Svelte checks\n"
+	@printf "  make check            Run codegen freshness, gofmt, lint, tests, and Svelte checks\n"
+	@printf "  make fmt              Format Go code (gofmt + goimports)\n"
+	@printf "  make lint             Run golangci-lint on the Go modules\n"
+	@printf "  make test-race        Run Go tests with the race detector\n"
+	@printf "  make vuln             Run govulncheck on the Go modules\n"
 	@printf "  make build            Build SDK, CometMind binary, and Cometline renderer\n"
 	@printf "  make package          Build CometMind and package the Electron app\n"
 	@printf "  make dev              Build CometMind and launch Electron dev app\n"
@@ -42,9 +54,32 @@ check-generated: generate
 	@git diff --exit-code -- cometline/src/lib/generated/cometmind-api cometmind/internal/apigen/types.gen.go \
 		|| (printf '\nGenerated API artifacts are out of date. Run make generate and commit.\n' && exit 1)
 
-check: check-generated sdk-test cometmind-test cometline-check
+check-sqlc:
+	cd cometmind && $(SQLC) generate
+	@git diff --exit-code -- cometmind/internal/db \
+		|| (printf '\nsqlc output is out of date. Run sqlc generate in cometmind/ and commit.\n' && exit 1)
+
+check: check-generated check-sqlc fmt-check lint sdk-test cometmind-test cometline-check
 
 test: check
+
+fmt:
+	@for m in $(GO_MODULES); do (cd $$m && $(GOLANGCI_LINT) fmt ./...) || exit 1; done
+
+fmt-check:
+	@unformatted="$$(gofmt -l $(GO_MODULES))"; \
+	if [ -n "$$unformatted" ]; then \
+		printf 'These files need gofmt (run make fmt):\n%s\n' "$$unformatted"; exit 1; \
+	fi
+
+lint:
+	@for m in $(GO_MODULES); do (cd $$m && $(GOLANGCI_LINT) run ./...) || exit 1; done
+
+test-race:
+	@for m in $(GO_MODULES); do (cd $$m && $(GO) test -race ./...) || exit 1; done
+
+vuln:
+	@for m in $(GO_MODULES); do (cd $$m && $(GOVULNCHECK) ./...) || exit 1; done
 
 build: sdk-build cometmind-build cometline-build
 

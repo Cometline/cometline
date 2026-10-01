@@ -17,10 +17,6 @@ Desktop / UI-only settings (Electron only; agent tools never write):
 
 - `~/.cometmind/cometline-desktop.json` — `appearance`, `shortcuts`, `app` (persona, open-at-login, …), plus a copy of `systemPromptPath`
 
-Legacy fallback only:
-
-- `~/.cometmind/config.toml`
-
 Current truth in code:
 
 - Electron merges both files for the Settings UI, and splits on every write
@@ -38,7 +34,7 @@ Relevant files:
 
 Rule:
 
-- Do not write new docs or features as if `config.toml` is still the primary config path.
+- CometMind no longer reads `config.toml`. Do not write docs or features that assume it.
 - Do not teach agents to edit `cometline-desktop.json` by hand or via tools.
 
 ## Persistence Categories
@@ -102,9 +98,9 @@ Key behavior:
 
 Important files:
 
-- `cometline/src/lib/components/settings/SettingsPanel.svelte`
-- `cometline/src/lib/components/settings/settings-panel-controller.svelte.ts`
-- `cometline/src/lib/settings/settings-draft.ts`
+- `cometline/src/lib/features/settings/components/SettingsPanel.svelte`
+- `cometline/src/lib/features/settings/settings-panel-controller.svelte.ts`
+- `cometline/src/lib/features/settings/settings-draft.ts`
 
 Rule:
 
@@ -116,7 +112,7 @@ Dirty state is snapshot-based, not flag-based.
 
 Key file:
 
-- `cometline/src/lib/settings/pending-settings.ts`
+- `cometline/src/lib/features/settings/pending-settings.ts`
 
 Important behavior:
 
@@ -142,7 +138,7 @@ This is the most important postmortem rule in the settings UI.
 
 Key file:
 
-- `cometline/src/lib/components/settings/SettingsMemoryPanel.svelte`
+- `cometline/src/lib/features/settings/components/SettingsMemoryPanel.svelte`
 
 The invariant:
 
@@ -211,7 +207,7 @@ Memory-section behavior:
 
 Key file:
 
-- `cometline/src/lib/settings/persist.ts`
+- `cometline/src/lib/features/settings/persist.ts`
 
 ### Electron write path
 
@@ -238,8 +234,7 @@ Key files:
 
 - creates `~/.cometmind/` if needed
 - loads `cometline-settings.json` when present
-- falls back to legacy `config.toml` only if JSON is absent
-- writes a minimal JSON settings file on first boot when neither exists
+- writes a minimal JSON settings file on first boot when it is missing
 - applies env overrides and effective defaults
 
 Rule:
@@ -331,12 +326,12 @@ Practical rule for contributors:
 
 ## Files To Read Before Changing Settings
 
-- `cometline/src/lib/components/settings/settings-panel-controller.svelte.ts`
-- `cometline/src/lib/components/settings/SettingsMemoryPanel.svelte`
-- `cometline/src/lib/components/settings/settings-controller.svelte.ts`
+- `cometline/src/lib/features/settings/settings-panel-controller.svelte.ts`
+- `cometline/src/lib/features/settings/components/SettingsMemoryPanel.svelte`
+- `cometline/src/lib/features/settings/settings-controller.svelte.ts`
 - `cometline/src/lib/stores/settings.svelte.ts`
-- `cometline/src/lib/settings/pending-settings.ts`
-- `cometline/src/lib/settings/persist.ts`
+- `cometline/src/lib/features/settings/pending-settings.ts`
+- `cometline/src/lib/features/settings/persist.ts`
 - `cometline/electron/src/main.ts`
 - `cometline/electron/src/domains/runtime.ts`
 - `cometline/electron/src/domains/settings.ts`
@@ -346,12 +341,12 @@ Practical rule for contributors:
 
 ## Tests That Protect This Area
 
-- `cometline/src/lib/settings/pending-settings.test.ts`
-- `cometline/src/lib/components/settings/settings-controller.svelte.test.ts`
-- `cometline/src/lib/settings/settings-save.test.ts`
-- `cometline/src/lib/components/settings/SettingsMemoryPanel.svelte.test.ts`
+- `cometline/src/lib/features/settings/pending-settings.test.ts`
+- `cometline/src/lib/features/settings/settings-controller.svelte.test.ts`
+- `cometline/src/lib/features/settings/settings-save.test.ts`
+- `cometline/src/lib/features/settings/components/SettingsMemoryPanel.svelte.test.ts`
 - `cometmind/internal/config/config_test.go`
-- `cometmind/server/memory_handlers_test.go`
+- `cometmind/internal/server/memory_handlers_test.go`
 
 Rule:
 

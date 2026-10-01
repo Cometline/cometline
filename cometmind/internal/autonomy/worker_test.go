@@ -10,14 +10,14 @@ import (
 	"testing"
 	"time"
 
-	cometsdk "github.com/cometline/comet-sdk"
-	"github.com/cometline/cometmind/internal/agent"
-	"github.com/cometline/cometmind/internal/config"
-	"github.com/cometline/cometmind/internal/jobs"
-	"github.com/cometline/cometmind/internal/session"
-	"github.com/cometline/cometmind/internal/store"
-	"github.com/cometline/cometmind/internal/tools"
-	"github.com/cometline/cometmind/internal/usage"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
+	"github.com/Cometline/cometline/cometmind/internal/agent"
+	"github.com/Cometline/cometline/cometmind/internal/config"
+	"github.com/Cometline/cometline/cometmind/internal/jobs"
+	"github.com/Cometline/cometline/cometmind/internal/session"
+	"github.com/Cometline/cometline/cometmind/internal/sqlite"
+	"github.com/Cometline/cometline/cometmind/internal/tools"
+	"github.com/Cometline/cometline/cometmind/internal/usage"
 )
 
 type testRunGuard struct {
@@ -116,7 +116,7 @@ func newWorkerFixture(t *testing.T) workerFixture {
 	t.Helper()
 	ctx := context.Background()
 	dir := t.TempDir()
-	db, err := store.OpenSQLite(ctx, filepath.Join(dir, "test.db"))
+	db, err := sqlite.Open(ctx, filepath.Join(dir, "test.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -193,9 +193,16 @@ func TestWorkerRunWakesWhenEnabled(t *testing.T) {
 	}
 	provider := newBlockingProvider()
 	w := newWorker(t, fx, provider, config.AutonomousJobsConfig{Enabled: false})
+	// Unbuffered: a send completes only once the worker is waiting on an
+	// enabled poll cycle, never while it idles disabled.
+	ticks := make(chan time.Time)
+	w.pollTimer = func(time.Duration) (<-chan time.Time, func()) { return ticks, func() {} }
 
-	go w.Run(ctx)
-	time.Sleep(20 * time.Millisecond)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		w.Run(ctx)
+	}()
 	w.UpdateConfig(config.AutonomousJobsConfig{
 		Enabled:             true,
 		MaxConcurrent:       1,
@@ -204,11 +211,18 @@ func TestWorkerRunWakesWhenEnabled(t *testing.T) {
 	}, "test-model", "test-provider")
 
 	select {
+	case ticks <- time.Now():
+	case <-time.After(10 * time.Second):
+		t.Fatal("worker did not start an enabled poll cycle")
+	}
+	select {
 	case <-provider.started:
-	case <-time.After(1500 * time.Millisecond):
-		t.Fatal("worker did not wake after being enabled")
+	case <-time.After(10 * time.Second):
+		t.Fatal("worker did not run the ready job after its poll tick")
 	}
 	close(provider.release)
+	cancel()
+	<-done
 }
 
 func TestWorkerRunJobReleasesWhenAgentDoesNotCompleteJob(t *testing.T) {

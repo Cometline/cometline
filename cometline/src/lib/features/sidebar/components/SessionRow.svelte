@@ -1,0 +1,287 @@
+<script lang="ts">
+	import type { Session } from '$lib/types';
+	import { workspaceLabel, gatewaySessionLabel } from '$lib/sessions/group-by-workspace';
+	import { sessionDisplayTitle } from '$lib/sessions/session-title';
+	import { chatStore } from '$lib/stores/chat.svelte';
+	import { terminalStore } from '$lib/stores/terminal.svelte';
+	import { unreadSessionOutputStore } from '$lib/stores/unread-session-output.svelte';
+	import { webTabActivity } from '$lib/features/workspace/web-tab-activity.svelte';
+	import SessionAudioBadge from './SessionAudioBadge.svelte';
+	import SessionRowActions from './sidebar/SessionRowActions.svelte';
+
+	let {
+		session,
+		selected = false,
+		deleting = false,
+		pinning = false,
+		showWorkspaceLabel = false,
+		showGatewayLabel = false,
+		showPin = true,
+		showActions = true,
+		onSelect,
+		onDelete,
+		onPin,
+		onRename,
+		onContextMenu
+	}: {
+		session: Session;
+		selected?: boolean;
+		deleting?: boolean;
+		pinning?: boolean;
+		showWorkspaceLabel?: boolean;
+		showGatewayLabel?: boolean;
+		showPin?: boolean;
+		showActions?: boolean;
+		onSelect: () => void;
+		onDelete: () => void;
+		onPin: () => void;
+		onRename?: () => void;
+		onContextMenu: (event: MouseEvent) => void;
+	} = $props();
+
+	let streaming = $derived(session.running || chatStore.isStreamingFor(session.id));
+	const audioTabs = $derived(
+		[...webTabActivity.values()].filter(
+			(tab) =>
+				tab.sessionId === session.id &&
+				(tab.surface.pageState?.audible || tab.surface.pageState?.muted)
+		)
+	);
+	let terminalRunning = $derived(terminalStore.isRunning(session.id));
+	let unread = $derived(unreadSessionOutputStore.isUnread(session.id));
+	let failed = $derived(chatStore.hasRunError(session.id));
+	let activityLabel = $derived.by(() => {
+		if (failed) {
+			if (terminalRunning && unread)
+				return 'Agent run failed, terminal running with unread output';
+			if (terminalRunning) return 'Agent run failed, terminal running';
+			if (unread) return 'Agent run failed with unread output';
+			return 'Agent run failed';
+		}
+		return terminalRunning
+			? streaming
+				? unread
+					? 'Terminal running, responding with unread output'
+					: 'Terminal running and responding'
+				: unread
+					? 'Terminal running with unread output'
+					: 'Terminal running'
+			: streaming
+				? unread
+					? 'Responding with unread output'
+					: 'Responding'
+				: unread
+					? 'Unread output'
+					: undefined;
+	});
+
+	function handleContextMenu(event: MouseEvent) {
+		event.preventDefault();
+		onContextMenu(event);
+	}
+
+	function handleDblClick(event: MouseEvent) {
+		if (!onRename) return;
+		event.preventDefault();
+		onRename();
+	}
+</script>
+
+<div
+	class="session-row-wrap group relative flex items-stretch"
+	class:selected
+	class:streaming={streaming && !selected}
+	class:has-actions={showActions}
+	class:has-audio={audioTabs.length > 0}
+	role="group"
+	oncontextmenu={handleContextMenu}
+>
+	<button class="session-row" onclick={onSelect} ondblclick={handleDblClick}>
+		<span class="session-title-row">
+			<span class="session-activity" aria-label={activityLabel}>
+				{#if audioTabs.length === 0}
+					<span
+						class:active={streaming}
+						class:error={failed}
+						class:terminal={terminalRunning && !failed}
+						class:unread={unread && !failed && !streaming}
+						class="session-streaming"
+						title={activityLabel}
+						>{#if terminalRunning && !failed}<span class="terminal-marker">t</span
+							>{/if}</span
+					>
+				{/if}
+			</span>
+			<span class="session-title">{sessionDisplayTitle(session.title)}</span>
+		</span>
+		{#if showGatewayLabel}
+			<span class="session-workspace session-gateway">{gatewaySessionLabel(session)}</span>
+		{:else if showWorkspaceLabel}
+			<span class="session-workspace">{workspaceLabel(session.workspace_path)}</span>
+		{/if}
+	</button>
+	{#if audioTabs.length > 0}
+		<div class="session-audio"><SessionAudioBadge {session} tabs={audioTabs} /></div>
+	{/if}
+	{#if showActions}
+		<SessionRowActions {session} {deleting} {pinning} {showPin} {onDelete} {onPin} />
+	{/if}
+</div>
+
+<style>
+	.session-row-wrap {
+		border-radius: 8px;
+		padding-left: 0;
+		transition:
+			background-color var(--duration-fast) var(--ease-smooth),
+			box-shadow var(--duration-fast) var(--ease-smooth);
+	}
+
+	.session-row-wrap:hover {
+		background: var(--session-row-bg-hover);
+		box-shadow: inset 0 0 0 1px var(--session-row-ring);
+	}
+
+	.session-row-wrap.streaming:not(.selected) {
+		background: var(--session-row-bg-streaming);
+		box-shadow: inset 0 0 0 1px var(--session-row-ring);
+	}
+
+	.session-row-wrap.streaming:not(.selected):hover {
+		background: var(--session-row-bg-hover);
+	}
+
+	.session-row-wrap.selected {
+		background: var(--session-row-bg-active);
+		box-shadow:
+			inset 0 0 0 1px var(--session-row-ring-active),
+			0 8px 18px color-mix(in srgb, var(--session-group-color) 8%, transparent);
+	}
+
+	.session-row-wrap.selected:hover {
+		background: var(--session-row-bg-active-hover);
+	}
+
+	.session-row {
+		width: 100%;
+		text-align: left;
+		padding: 6px 8px;
+		padding-right: 8px;
+		border: none;
+		background: transparent;
+		color: var(--text-main);
+		font-size: 13px;
+		line-height: 1.35;
+		font-weight: 450;
+		cursor: pointer;
+	}
+
+	.session-row-wrap.has-actions .session-row {
+		padding-right: 58px;
+	}
+	/* Share the first title line's indicator slot, not the hover-action area. */
+	.session-audio {
+		position: absolute;
+		left: 8px;
+		top: 6px;
+		width: 10px;
+		height: calc(13px * 1.35);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.session-row-wrap.selected .session-title {
+		font-weight: 500;
+	}
+
+	.session-title-row {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		min-width: 0;
+	}
+
+	.session-title {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		display: block;
+		flex: 1;
+		min-width: 0;
+	}
+
+	.session-activity {
+		position: relative;
+		flex-shrink: 0;
+		width: 10px;
+		height: 10px;
+		display: inline-grid;
+		place-items: center;
+	}
+
+	.session-streaming {
+		width: 10px;
+		height: 10px;
+		border-radius: 50%;
+		background: var(--text-soft);
+		opacity: 0.45;
+	}
+
+	.session-streaming.active {
+		background: var(--session-group-color, var(--accent));
+		opacity: 1;
+		animation: session-streaming-pulse 1.2s ease-in-out infinite;
+	}
+
+	.session-streaming.unread {
+		background: var(--session-unread-color);
+		opacity: 1;
+	}
+
+	.session-streaming.error {
+		background: var(--status-error);
+		opacity: 1;
+		animation: none;
+	}
+
+	.session-streaming.terminal {
+		display: inline-grid;
+		place-items: center;
+		font-size: 7px;
+		font-weight: 800;
+		line-height: 1;
+		color: white;
+		text-transform: uppercase;
+	}
+
+	@keyframes session-streaming-pulse {
+		0%,
+		100% {
+			opacity: 0.35;
+			transform: scale(0.85);
+		}
+		50% {
+			opacity: 1;
+			transform: scale(1);
+		}
+	}
+
+	.session-workspace {
+		display: block;
+		margin-top: 1px;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		font-size: 10px;
+		font-weight: 500;
+		line-height: 1.3;
+		color: var(--text-muted);
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.session-streaming.active {
+			animation: none;
+		}
+	}
+</style>

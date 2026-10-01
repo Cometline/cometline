@@ -1,0 +1,239 @@
+<script lang="ts">
+	import { formatTokens } from '$lib/features/usage/format';
+	import {
+		nearestPointIndex,
+		PAD_LEFT,
+		PAD_RIGHT,
+		seriesColor,
+		seriesStroke,
+		stackedAreaPaths,
+		xLabels,
+		yLabels,
+		type SeriesPoint
+	} from '$lib/features/usage/chart';
+
+	let {
+		points = [],
+		keys = [],
+		costs = {}
+	}: {
+		points?: SeriesPoint[];
+		keys?: string[];
+		costs?: Record<string, string>;
+	} = $props();
+
+	const height = 220;
+	let width = $state(640);
+	let hoverIndex = $state(-1);
+
+	const paths = $derived(stackedAreaPaths(points, keys, width, height));
+	const xs = $derived(xLabels(points, width));
+	const ys = $derived(yLabels(points, keys, height));
+	const hover = $derived(hoverIndex >= 0 ? points[hoverIndex] : undefined);
+	const showRangeCost = $derived(points.length === 1);
+
+	const summaryLabel = $derived(
+		hover
+			? `${hover.date}: ${keys
+					.map((key) => {
+						const tokens = formatTokens(hover.cumulative[key] ?? 0);
+						const cost = showRangeCost && costs[key] ? ` ${costs[key]}` : '';
+						return `${key} ${tokens}${cost}`;
+					})
+					.join(', ')}`
+			: 'Cumulative token usage. Use arrow keys to inspect each day.'
+	);
+
+	function observeSize(node: HTMLDivElement) {
+		if (typeof ResizeObserver === 'undefined') return;
+		const observer = new ResizeObserver((entries) => {
+			const box = entries[0]?.contentRect;
+			if (!box) return;
+			width = Math.max(240, box.width);
+		});
+		observer.observe(node);
+		return () => observer.disconnect();
+	}
+
+	function onMove(event: MouseEvent) {
+		const target = event.currentTarget;
+		if (!(target instanceof HTMLElement)) return;
+		const rect = target.getBoundingClientRect();
+		hoverIndex = nearestPointIndex(points, width, event.clientX - rect.left);
+	}
+
+	function onKey(event: KeyboardEvent) {
+		if (!points.length) return;
+		if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+			event.preventDefault();
+			const delta = event.key === 'ArrowRight' ? 1 : -1;
+			const current = hoverIndex < 0 ? (delta > 0 ? -1 : points.length) : hoverIndex;
+			hoverIndex = Math.min(points.length - 1, Math.max(0, current + delta));
+			return;
+		}
+		if (event.key === 'Home') {
+			event.preventDefault();
+			hoverIndex = 0;
+			return;
+		}
+		if (event.key === 'End') {
+			event.preventDefault();
+			hoverIndex = points.length - 1;
+			return;
+		}
+		if (event.key === 'Escape') {
+			hoverIndex = -1;
+		}
+	}
+</script>
+
+<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+<div
+	class="usage-chart"
+	{@attach observeSize}
+	tabindex="0"
+	role="application"
+	aria-label={summaryLabel}
+	onmousemove={onMove}
+	onmouseleave={() => (hoverIndex = -1)}
+	onkeydown={onKey}
+>
+	<svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" aria-hidden="true">
+		{#each ys as tick (tick.y)}
+			<line class="grid" x1={PAD_LEFT} x2={width - PAD_RIGHT} y1={tick.y} y2={tick.y} />
+			<text class="axis" x="4" y={tick.y + 3}>{formatTokens(tick.label)}</text>
+		{/each}
+		{#each paths as path, index (path.key)}
+			<path
+				class="area"
+				style:fill={seriesColor(index, keys.length)}
+				style:stroke={seriesStroke(index, keys.length)}
+				d={path.d}
+			/>
+		{/each}
+		{#each xs as tick (tick.label + tick.x)}
+			<text class={['axis', 'x', tick.anchor]} x={tick.x} y={height - 6}>{tick.label}</text>
+		{/each}
+	</svg>
+	<div class="sr-only" aria-live="polite">{summaryLabel}</div>
+	{#if hover}
+		<div class="hover">
+			<strong>{hover.date}</strong>
+			{#each keys as key, index (key)}
+				<span class="swatch" style:background={seriesColor(index, keys.length)}></span>
+				<span>
+					{key}: {formatTokens(hover.cumulative[key] ?? 0)}{showRangeCost && costs[key]
+						? ` · ${costs[key]}`
+						: ''}
+				</span>
+			{/each}
+		</div>
+	{/if}
+	<div class="sr-only">
+		<table>
+			<caption>Cumulative token usage by day</caption>
+			<thead>
+				<tr>
+					<th>Date</th>
+					{#each keys as key (key)}
+						<th>{key}</th>
+					{/each}
+				</tr>
+			</thead>
+			<tbody>
+				{#each points as point (point.date)}
+					<tr>
+						<td>{point.date}</td>
+						{#each keys as key (point.date + key)}
+							<td>{point.cumulative[key] ?? 0}</td>
+						{/each}
+					</tr>
+				{/each}
+			</tbody>
+		</table>
+	</div>
+</div>
+
+<style>
+	.usage-chart {
+		position: relative;
+		width: 100%;
+		height: 220px;
+		overflow: hidden;
+	}
+
+	.usage-chart:focus-visible {
+		outline: 2px solid var(--accent);
+		outline-offset: 2px;
+		border-radius: 10px;
+	}
+
+	svg {
+		width: 100%;
+		height: 100%;
+		display: block;
+	}
+
+	.grid {
+		stroke: var(--border-soft);
+		stroke-width: 1;
+	}
+
+	.axis {
+		fill: var(--text-muted);
+		font-size: 10px;
+	}
+
+	.axis.x {
+		text-anchor: middle;
+	}
+
+	.axis.x.start {
+		text-anchor: start;
+	}
+
+	.axis.x.end {
+		text-anchor: end;
+	}
+
+	.area {
+		opacity: 0.88;
+		stroke-width: 1;
+	}
+
+	.hover {
+		position: absolute;
+		top: 8px;
+		right: 8px;
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px 10px;
+		align-items: center;
+		padding: 8px 10px;
+		border: 1px solid var(--border-soft);
+		border-radius: 10px;
+		background: var(--panel-bg);
+		color: var(--text-main);
+		font-size: 11px;
+		pointer-events: none;
+	}
+
+	.swatch {
+		width: 8px;
+		height: 8px;
+		border-radius: 99px;
+	}
+
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		margin: -1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
+		border: 0;
+	}
+</style>

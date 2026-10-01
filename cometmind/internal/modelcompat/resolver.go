@@ -7,9 +7,9 @@ import (
 	"sync"
 	"time"
 
-	cometsdk "github.com/cometline/comet-sdk"
-	"github.com/cometline/cometmind/internal/db"
-	"github.com/cometline/cometmind/internal/logging"
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
+	"github.com/Cometline/cometline/cometmind/internal/db"
+	"github.com/Cometline/cometline/cometmind/internal/logging"
 )
 
 const negativeTTL = 7 * 24 * time.Hour
@@ -20,11 +20,29 @@ type Resolver struct {
 
 func New(q *db.Queries) *Resolver { return &Resolver{q: q} }
 
-func (r *Resolver) ResolveCapabilityPolicy(ctx context.Context, scope cometsdk.CapabilityScope) cometsdk.CapabilityPolicy {
-	disabled := make(map[cometsdk.Capability]struct{})
+// ResolveCapabilities returns the capabilities scope is cached as not
+// supporting, plus a callback that persists newly rejected ones.
+func (r *Resolver) ResolveCapabilities(ctx context.Context, scope cometsdk.CapabilityScope) cometsdk.CapabilityOptions {
 	if r == nil || r.q == nil {
-		return &policy{disabled: disabled}
+		return cometsdk.CapabilityOptions{}
 	}
+	return cometsdk.CapabilityOptions{
+		Unsupported: cometsdk.NewCapabilitySet(r.cachedNegatives(ctx, scope)...),
+		OnUnsupported: func(feature cometsdk.Capability) {
+			r.recordUnsupported(scope, feature)
+		},
+	}
+}
+
+// ResolveCapabilityPolicy adapts ResolveCapabilities to the legacy policy
+// contract.
+//
+// Deprecated: use ResolveCapabilities.
+func (r *Resolver) ResolveCapabilityPolicy(ctx context.Context, scope cometsdk.CapabilityScope) cometsdk.CapabilityPolicy {
+	return &legacyPolicy{opts: r.ResolveCapabilities(ctx, scope), marked: make(map[cometsdk.Capability]struct{})}
+}
+
+func (r *Resolver) cachedNegatives(ctx context.Context, scope cometsdk.CapabilityScope) []cometsdk.Capability {
 	features, err := r.q.ListActiveModelCapabilityNegatives(ctx, db.ListActiveModelCapabilityNegativesParams{
 		ProviderID: scope.ProviderID,
 		Endpoint:   scope.Endpoint,
@@ -33,60 +51,70 @@ func (r *Resolver) ResolveCapabilityPolicy(ctx context.Context, scope cometsdk.C
 	})
 	if err != nil {
 		logging.L().Warn("model_compat.cache_read_failed", "error", err, "provider", scope.ProviderID, "model", scope.ModelID)
-	} else {
-		for _, feature := range features {
-			disabled[cometsdk.Capability(feature)] = struct{}{}
-		}
-		if len(disabled) > 0 {
-			logging.L().Debug("model_compat.cache_hit", "provider", scope.ProviderID, "model", scope.ModelID, "features", len(disabled))
-		}
+		return nil
 	}
-	return &policy{resolver: r, scope: scope, disabled: disabled}
+	negatives := make([]cometsdk.Capability, 0, len(features))
+	for _, feature := range features {
+		negatives = append(negatives, cometsdk.Capability(feature))
+	}
+	if len(negatives) > 0 {
+		logging.L().Debug("model_compat.cache_hit", "provider", scope.ProviderID, "model", scope.ModelID, "features", len(negatives))
+	}
+	return negatives
 }
 
-type policy struct {
-	resolver *Resolver
-	scope    cometsdk.CapabilityScope
-	mu       sync.RWMutex
-	disabled map[cometsdk.Capability]struct{}
-}
-
-func (p *policy) Disabled(feature cometsdk.Capability) bool {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	_, ok := p.disabled[feature]
-	return ok
-}
-
-func (p *policy) MarkUnsupported(feature cometsdk.Capability) {
-	p.mu.Lock()
-	if _, exists := p.disabled[feature]; exists {
-		p.mu.Unlock()
-		return
-	}
-	p.disabled[feature] = struct{}{}
-	p.mu.Unlock()
-	if p.resolver == nil || p.resolver.q == nil {
-		return
-	}
+func (r *Resolver) recordUnsupported(scope cometsdk.CapabilityScope, feature cometsdk.Capability) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	err := p.resolver.q.UpsertModelCapabilityNegative(ctx, db.UpsertModelCapabilityNegativeParams{
-		ProviderID: p.scope.ProviderID,
-		Endpoint:   p.scope.Endpoint,
-		ModelID:    p.scope.ModelID,
+	err := r.q.UpsertModelCapabilityNegative(ctx, db.UpsertModelCapabilityNegativeParams{
+		ProviderID: scope.ProviderID,
+		Endpoint:   scope.Endpoint,
+		ModelID:    scope.ModelID,
 		Feature:    string(feature),
 		ExpiresAt:  time.Now().Add(negativeTTL).UnixMilli(),
 	})
 	if err != nil {
-		logging.L().Warn("model_compat.cache_write_failed", "error", err, "provider", p.scope.ProviderID, "model", p.scope.ModelID, "feature", feature)
+		logging.L().Warn("model_compat.cache_write_failed", "error", err, "provider", scope.ProviderID, "model", scope.ModelID, "feature", feature)
 		return
 	}
-	if err := p.resolver.q.DeleteExpiredModelCapabilityNegatives(ctx, time.Now().UnixMilli()); err != nil {
+	if err := r.q.DeleteExpiredModelCapabilityNegatives(ctx, time.Now().UnixMilli()); err != nil {
 		logging.L().Warn("model_compat.cache_cleanup_failed", "error", err)
 	}
-	logging.L().Debug("model_compat.unsupported", "provider", p.scope.ProviderID, "model", p.scope.ModelID, "feature", feature)
+	logging.L().Debug("model_compat.unsupported", "provider", scope.ProviderID, "model", scope.ModelID, "feature", feature)
 }
 
-var _ cometsdk.CapabilityResolver = (*Resolver)(nil)
-var _ cometsdk.CapabilityPolicy = (*policy)(nil)
+// legacyPolicy serves ResolveCapabilityPolicy callers: it remembers features
+// marked during the request and persists each one once.
+type legacyPolicy struct {
+	opts   cometsdk.CapabilityOptions
+	mu     sync.RWMutex
+	marked map[cometsdk.Capability]struct{}
+}
+
+func (p *legacyPolicy) Disabled(feature cometsdk.Capability) bool {
+	if p.opts.Unsupported.Has(feature) {
+		return true
+	}
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	_, ok := p.marked[feature]
+	return ok
+}
+
+func (p *legacyPolicy) MarkUnsupported(feature cometsdk.Capability) {
+	if p.opts.Unsupported.Has(feature) {
+		return
+	}
+	p.mu.Lock()
+	if _, exists := p.marked[feature]; exists {
+		p.mu.Unlock()
+		return
+	}
+	p.marked[feature] = struct{}{}
+	p.mu.Unlock()
+	if p.opts.OnUnsupported != nil {
+		p.opts.OnUnsupported(feature)
+	}
+}
+
+var _ cometsdk.CapabilitySource = (*Resolver)(nil)

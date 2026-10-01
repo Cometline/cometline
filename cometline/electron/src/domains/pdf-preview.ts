@@ -4,6 +4,8 @@ import type fs from 'node:fs';
 import type path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
+import type { PdfPreviewRequest, PdfPreviewResult } from '../shared/api.js';
+
 export const PDF_PREVIEW_SCHEME = 'cometline-preview';
 export const PDF_PREVIEW_HOST = 'pdf';
 export const PDF_PREVIEW_MAX_BYTES = 50 * 1024 * 1024;
@@ -19,14 +21,6 @@ type PreviewEntry = {
 	publicName: string;
 	expiresAt: number;
 };
-
-export type PdfPreviewRequest =
-	| { scope: 'workspace'; workspacePath: string; relativePath: string }
-	| { scope: 'wiki'; relativePath: string };
-
-export type PdfPreviewResult =
-	| { ok: true; token: string; url: string }
-	| { ok: false; error: string };
 
 export interface PdfPreviewDependencies {
 	fs: FileSystem;

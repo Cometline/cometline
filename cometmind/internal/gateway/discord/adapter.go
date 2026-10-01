@@ -7,14 +7,13 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
+	"github.com/Cometline/cometline/cometmind/internal/config"
+	"github.com/Cometline/cometline/cometmind/internal/gateway"
+	"github.com/Cometline/cometline/cometmind/internal/jobs"
+	"github.com/Cometline/cometline/cometmind/internal/logging"
 	"github.com/bwmarrin/discordgo"
-	"github.com/cometline/cometmind/internal/config"
-	"github.com/cometline/cometmind/internal/gateway"
-	"github.com/cometline/cometmind/internal/jobs"
-	"github.com/cometline/cometmind/internal/logging"
 )
 
 // PlatformName is the normalized platform identifier for Discord.
@@ -36,8 +35,6 @@ type Adapter struct {
 	onJobProposalSelect  func(string, string) (string, error)
 	onJobProposalConfirm func(context.Context, gateway.InboundMessage, string) (string, error)
 	onJobProposalCancel  func(string) error
-
-	mu sync.Mutex
 }
 
 // New creates a Discord adapter from config.

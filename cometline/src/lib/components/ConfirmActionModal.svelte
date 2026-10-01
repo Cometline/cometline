@@ -108,12 +108,7 @@
 				Cancel
 				<span class="key-hint" aria-hidden="true">esc</span>
 			</button>
-			<button
-				type="button"
-				class="btn {confirmTone}"
-				data-confirm-action
-				onclick={onConfirm}
-			>
+			<button type="button" class="btn {confirmTone}" data-confirm-action onclick={onConfirm}>
 				{confirmLabel}
 				<span class="key-hint key-hint-light" aria-hidden="true">↵</span>
 			</button>
@@ -171,7 +166,7 @@
 		padding: 9px 11px;
 		border: 1px solid var(--border-soft);
 		border-radius: 10px;
-		background: var(--panel-bg, #fff);
+		background: var(--panel-bg, var(--panel-bg));
 		color: var(--text-main);
 		font: inherit;
 		font-size: 13px;
@@ -212,15 +207,15 @@
 		background: rgba(15, 23, 42, 0.1);
 	}
 	.btn.danger {
-		background: #e11d48;
-		color: #fff;
+		background: var(--color-e11d48);
+		color: var(--panel-bg);
 	}
 	.btn.danger:hover {
-		background: #be123c;
+		background: var(--color-be123c);
 	}
 	.btn.accent {
 		background: var(--accent);
-		color: #fff;
+		color: var(--panel-bg);
 	}
 	.btn.accent:hover {
 		filter: brightness(0.92);

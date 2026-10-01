@@ -23,13 +23,7 @@
 			{@const active = supported.has(modality)}
 			{@const label = INPUT_MODALITY_LABEL[modality as InputModality]}
 			<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-			<span
-				class="capability-icon"
-				class:active
-				role="img"
-				aria-label={label}
-				tabindex="0"
-			>
+			<span class="capability-icon" class:active role="img" aria-label={label} tabindex="0">
 				{#if modality === 'text'}
 					<span class="capability-letter">T</span>
 				{:else if modality === 'image'}
@@ -84,7 +78,7 @@
 		padding: 2px 6px;
 		border-radius: 4px;
 		background: rgba(30, 30, 30, 0.92);
-		color: #fff;
+		color: var(--panel-bg);
 		font-size: 9px;
 		font-weight: 650;
 		letter-spacing: 0.04em;

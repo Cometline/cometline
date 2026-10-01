@@ -5,7 +5,7 @@ import {
 	runStorageRetention,
 	type RunStorageRetentionResponse
 } from '$lib/client/cometmind';
-import type { CometMindStorageSettings } from '$lib/settings/schema';
+import type { CometMindStorageSettings } from '$lib/features/settings/schema';
 import { activateAfterSessionDeleted } from '$lib/actions/activate-after-session-deleted';
 import { connectionState } from '$lib/stores/runtime.svelte';
 import { sessionStore } from '$lib/stores/session.svelte';
@@ -41,7 +41,9 @@ async function syncSessionsAfterRetention(previous: Session[], next: Session[]) 
 	const nextIDs = new Set(next.map((session) => session.id));
 	const removed = previous.filter((session) => !nextIDs.has(session.id));
 	const activeId = sessionStore.current?.id ?? null;
-	const activeWasRemoved = Boolean(activeId && removed.some((session) => session.id === activeId));
+	const activeWasRemoved = Boolean(
+		activeId && removed.some((session) => session.id === activeId)
+	);
 
 	for (const session of removed) {
 		shellStore.clearWorkspacePanelForSession(session.id);
