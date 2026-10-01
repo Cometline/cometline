@@ -78,6 +78,11 @@ func (r *Runner) initTurnState(ctx context.Context, s *turnState) {
 	s.maxTokens = s.budget.EffectiveMaxTokens
 }
 
+// emit forwards a turn event. Compaction passes this method as its status callback.
+func (s *turnState) emit(ev event.Event) {
+	s.ch <- ev
+}
+
 func (s *turnState) emitStatus(phase event.TurnPhase) {
 	s.ch <- event.TurnStatus(phase, "")
 }
