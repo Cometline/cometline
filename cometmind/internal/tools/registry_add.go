@@ -2,16 +2,20 @@ package tools
 
 import "github.com/Cometline/cometline/cometmind/internal/generation"
 
+// addFileTools registers file tools in the stable CometSDK spec order:
+// read, then edit/write, then list/glob/grep, then run.
 func (r *Registry) addFileTools(ws Workspace, surface ToolSurface) {
 	if surface.Read {
 		r.Add(ReadFile{Workspace: ws})
-		r.Add(ListDir{Workspace: ws})
-		r.Add(Glob{Workspace: ws})
-		r.Add(Grep{Workspace: ws})
 	}
 	if surface.Edit {
 		r.Add(EditFile{Workspace: ws})
 		r.Add(WriteFile{Workspace: ws})
+	}
+	if surface.Read {
+		r.Add(ListDir{Workspace: ws})
+		r.Add(Glob{Workspace: ws})
+		r.Add(Grep{Workspace: ws})
 	}
 	if surface.Run {
 		r.Add(RunCommand{Workspace: ws})
