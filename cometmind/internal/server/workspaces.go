@@ -8,14 +8,11 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/Cometline/cometline/cometmind/internal/apigen"
 	"github.com/Cometline/cometline/cometmind/internal/session"
 	workspacefiles "github.com/Cometline/cometline/cometmind/internal/workspace/files"
 	"github.com/gin-gonic/gin"
 )
-
-type createWorkspaceRequest struct {
-	WorkspacePath string `json:"workspace_path"`
-}
 
 type workspaceResource struct {
 	ID           string `json:"id"`
@@ -36,15 +33,8 @@ type workspaceFileListResponse struct {
 	Truncated bool     `json:"truncated"`
 }
 
-type writeWorkspaceFileRequest struct {
-	WorkspaceID   string `json:"workspace_id"`
-	WorkspacePath string `json:"workspace_path"`
-	Path          string `json:"path"`
-	Content       string `json:"content"`
-}
-
 func (a *App) handleCreateWorkspace(c *gin.Context) {
-	var req createWorkspaceRequest
+	var req apigen.CreateWorkspaceRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		writeError(c, http.StatusBadRequest, "bad_request", "invalid JSON body")
 		return
@@ -185,13 +175,13 @@ func (a *App) handleReadWorkspaceFileContent(c *gin.Context) {
 }
 
 func (a *App) handleWriteWorkspaceFileContent(c *gin.Context) {
-	var req writeWorkspaceFileRequest
+	var req apigen.WriteWorkspaceFileRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		writeError(c, http.StatusBadRequest, "bad_request", "invalid JSON body")
 		return
 	}
 
-	ws, ok := a.resolveCreateWorkspace(c, req.WorkspaceID, req.WorkspacePath)
+	ws, ok := a.resolveCreateWorkspace(c, derefString(req.WorkspaceId), derefString(req.WorkspacePath))
 	if !ok {
 		return
 	}

@@ -4,22 +4,11 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/Cometline/cometline/cometmind/internal/apigen"
 	"github.com/Cometline/cometline/cometmind/internal/session"
 	workspacegit "github.com/Cometline/cometline/cometmind/internal/workspace/git"
 	"github.com/gin-gonic/gin"
 )
-
-type workspaceGitPathsRequest struct {
-	WorkspaceID   string   `json:"workspace_id"`
-	WorkspacePath string   `json:"workspace_path"`
-	Paths         []string `json:"paths"`
-}
-
-type workspaceGitCommitRequest struct {
-	WorkspaceID   string `json:"workspace_id"`
-	WorkspacePath string `json:"workspace_path"`
-	Message       string `json:"message"`
-}
 
 func (a *App) handleWorkspaceGitStatus(c *gin.Context) {
 	ws, ok := a.resolveCreateWorkspace(c, c.Query("workspace_id"), c.Query("workspace_path"))
@@ -107,12 +96,12 @@ func (a *App) handleWorkspaceGitDiscard(c *gin.Context) {
 }
 
 func (a *App) handleWorkspaceGitCommit(c *gin.Context) {
-	var req workspaceGitCommitRequest
+	var req apigen.WorkspaceGitCommitRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		writeError(c, http.StatusBadRequest, "bad_request", "invalid JSON body")
 		return
 	}
-	ws, ok := a.resolveCreateWorkspace(c, req.WorkspaceID, req.WorkspacePath)
+	ws, ok := a.resolveCreateWorkspace(c, derefString(req.WorkspaceId), derefString(req.WorkspacePath))
 	if !ok {
 		return
 	}
@@ -124,13 +113,13 @@ func (a *App) handleWorkspaceGitCommit(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
-func (a *App) bindGitPathsRequest(c *gin.Context) (workspaceGitPathsRequest, session.Workspace, bool) {
-	var req workspaceGitPathsRequest
+func (a *App) bindGitPathsRequest(c *gin.Context) (apigen.WorkspaceGitPathsRequest, session.Workspace, bool) {
+	var req apigen.WorkspaceGitPathsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		writeError(c, http.StatusBadRequest, "bad_request", "invalid JSON body")
 		return req, session.Workspace{}, false
 	}
-	ws, ok := a.resolveCreateWorkspace(c, req.WorkspaceID, req.WorkspacePath)
+	ws, ok := a.resolveCreateWorkspace(c, derefString(req.WorkspaceId), derefString(req.WorkspacePath))
 	if !ok {
 		return req, session.Workspace{}, false
 	}
