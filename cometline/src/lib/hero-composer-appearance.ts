@@ -60,7 +60,8 @@ function presetAppearanceFor(id: HeroComposerPresetId): HeroComposerAppearance {
 }
 
 function presetIdFromValue(value: unknown): HeroComposerPresetSelection | undefined {
-	if (value === 'clay' || value === 'blue' || value === 'rose' || value === 'custom') return value;
+	if (value === 'clay' || value === 'blue' || value === 'rose' || value === 'custom')
+		return value;
 	return undefined;
 }
 
