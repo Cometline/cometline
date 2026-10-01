@@ -86,8 +86,9 @@
 	<div class="settings-panel-body">
 		<div class="shortcuts-filter">
 			<label class="shortcuts-search">
-				<Search size={14} aria-hidden="true" />
+				<Search size={14} stroke-width={2} aria-hidden="true" class="search-icon" />
 				<input
+					class="shortcuts-search-input"
 					type="search"
 					bind:value={filterQuery}
 					placeholder="Filter shortcuts…"
@@ -174,51 +175,74 @@
 		margin-bottom: 16px;
 	}
 
-	.shortcuts-search {
-		display: flex;
+	.shortcuts-panel .shortcuts-search {
+		display: flex !important;
 		flex: 1;
+		flex-direction: row !important;
 		align-items: center;
 		gap: 8px;
 		min-width: 0;
+		height: 38px;
+		margin: 0;
+		padding: 0 12px;
 		border: 1px solid var(--border-soft);
-		border-radius: 10px;
-		padding: 8px 10px;
-		background: rgba(255, 255, 255, 0.82);
+		border-radius: 11px;
+		background: rgba(255, 255, 255, 0.76);
+		box-shadow: none;
 		color: var(--text-muted);
 	}
 
-	.shortcuts-search:focus-within {
+	.shortcuts-panel .shortcuts-search :global(.search-icon) {
+		flex: 0 0 14px;
+		width: 14px;
+		height: 14px;
+	}
+
+	.shortcuts-panel .shortcuts-search:focus-within {
 		border-color: rgba(0, 102, 204, 0.35);
 		box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
 		color: var(--text-main);
 	}
 
-	.shortcuts-search input {
-		flex: 1;
+	.shortcuts-panel .shortcuts-search input.shortcuts-search-input {
+		flex: 1 1 auto;
+		width: auto !important;
 		min-width: 0;
-		border: 0;
-		background: transparent;
-		padding: 0;
-		font-size: 12px;
-		color: var(--text-main);
+		height: 100%;
+		margin: 0;
+		padding: 0 !important;
+		border: 0 !important;
+		border-radius: 0 !important;
+		background: transparent !important;
+		box-shadow: none !important;
+		font-size: 13px;
+		line-height: 38px;
 		outline: none;
-		box-shadow: none;
 	}
 
-	.shortcuts-search input::-webkit-search-decoration,
-	.shortcuts-search input::-webkit-search-cancel-button,
-	.shortcuts-search input::-webkit-search-results-button {
+	.shortcuts-panel .shortcuts-search input.shortcuts-search-input:focus {
+		border: 0 !important;
+		outline: none;
+		box-shadow: none !important;
+	}
+
+	.shortcuts-search input.shortcuts-search-input::-webkit-search-decoration,
+	.shortcuts-search input.shortcuts-search-input::-webkit-search-cancel-button,
+	.shortcuts-search input.shortcuts-search-input::-webkit-search-results-button {
 		display: none;
 	}
 
-	.shortcuts-search input::placeholder {
+	.shortcuts-search input.shortcuts-search-input::placeholder {
 		color: var(--text-muted);
 	}
 
 	.shortcuts-filter-count {
-		flex-shrink: 0;
+		flex: 0 0 auto;
+		min-width: 3.5rem;
 		font-size: 12px;
 		font-weight: 650;
+		font-variant-numeric: tabular-nums;
+		text-align: right;
 		color: var(--text-muted);
 	}
 
