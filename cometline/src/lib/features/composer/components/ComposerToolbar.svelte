@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Brain, Folder, Send, Square } from '@lucide/svelte';
-	import ContextWindowRing from '$lib/components/composer/ContextWindowRing.svelte';
-	import ModelPicker from '$lib/components/composer/ModelPicker.svelte';
+	import ContextWindowRing from '$lib/features/composer/components/ContextWindowRing.svelte';
+	import ModelPicker from '$lib/features/composer/components/ModelPicker.svelte';
 	import Tooltip from '$lib/components/Tooltip.svelte';
 	import { modelStore, type ModelOption } from '$lib/stores/model.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';

@@ -2,8 +2,8 @@
 	import { fade } from 'svelte/transition';
 	import { tick } from 'svelte';
 	import EmptyChatState from '$lib/features/chat/components/EmptyChatState.svelte';
-	import Composer from '$lib/components/composer/Composer.svelte';
-	import HeroComposerFrame from '$lib/components/HeroComposerFrame.svelte';
+	import Composer from '$lib/features/composer/components/Composer.svelte';
+	import HeroComposerFrame from '$lib/features/composer/components/HeroComposerFrame.svelte';
 	import ChatThread from '$lib/features/chat/components/ChatThread.svelte';
 	import FirstTurnFlight from '$lib/features/chat/components/FirstTurnFlight.svelte';
 	import UserBubbleFlight from '$lib/features/chat/components/UserBubbleFlight.svelte';
@@ -29,7 +29,7 @@
 	import { PanelLeftClose, PanelLeftOpen } from '@lucide/svelte';
 	import { miniShellStore } from '$lib/stores/mini-shell.svelte';
 	import { composerHistoryStore } from '$lib/stores/composer-history.svelte';
-	import type { PendingUnsentDraft } from '$lib/components/composer/composer-history';
+	import type { PendingUnsentDraft } from '$lib/features/composer/composer-history';
 	import Tooltip from '$lib/components/Tooltip.svelte';
 
 	const THREAD_IN = { duration: 140 };

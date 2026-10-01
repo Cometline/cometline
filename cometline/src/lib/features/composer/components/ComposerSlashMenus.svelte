@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { Check, Trash2 } from '@lucide/svelte';
-	import SlashCommandMenu from '$lib/components/composer/SlashCommandMenu.svelte';
+	import SlashCommandMenu from '$lib/features/composer/components/SlashCommandMenu.svelte';
 	import ModelCapabilityIcons from '$lib/components/model/ModelCapabilityIcons.svelte';
 	import { formatContextWindow } from '$lib/context-window';
 	import { jobMenuSubtitle } from '$lib/features/jobs/format-job-label';
 	import { modelStore } from '$lib/stores/model.svelte';
-	import type { createComposerSlashController } from '$lib/components/composer/composer-slash.svelte';
+	import type { createComposerSlashController } from '$lib/features/composer/composer-slash.svelte';
 
 	type SlashController = ReturnType<typeof createComposerSlashController>;
 

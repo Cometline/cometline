@@ -1,5 +1,5 @@
 import { tick } from 'svelte';
-import { createMenuHighlight } from '$lib/components/composer/menu-highlight.svelte';
+import { createMenuHighlight } from '$lib/features/composer/menu-highlight.svelte';
 import type { ChatTurnPayload } from '$lib/actions/start-chat';
 import {
 	listSkills,
@@ -35,7 +35,7 @@ import {
 } from '$lib/features/skills/slash-commands';
 import type { ImageAttachment, SkillResource } from '$lib/types';
 import type { JobResource } from '$lib/generated/cometmind-api';
-import type { ComposerInputRef } from '$lib/components/composer/composer-input-ref';
+import type { ComposerInputRef } from '$lib/features/composer/composer-input-ref';
 
 export type ComposerSubmitResolution =
 	| { kind: 'handled' }

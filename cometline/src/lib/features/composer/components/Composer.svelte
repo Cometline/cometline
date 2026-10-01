@@ -8,12 +8,12 @@
 	import { settingsStore } from '$lib/stores/settings.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { matchesShortcut } from '$lib/keyboard-shortcuts';
-	import RichComposerInput from '$lib/components/RichComposerInput.svelte';
-	import ImageAttachments from '$lib/components/composer/ImageAttachments.svelte';
-	import MessageQueuePanel from '$lib/components/composer/MessageQueuePanel.svelte';
-	import ComposerSlashMenus from '$lib/components/composer/ComposerSlashMenus.svelte';
-	import ComposerMentionMenu from '$lib/components/composer/ComposerMentionMenu.svelte';
-	import ComposerToolbar from '$lib/components/composer/ComposerToolbar.svelte';
+	import RichComposerInput from '$lib/features/composer/components/RichComposerInput.svelte';
+	import ImageAttachments from '$lib/features/composer/components/ImageAttachments.svelte';
+	import MessageQueuePanel from '$lib/features/composer/components/MessageQueuePanel.svelte';
+	import ComposerSlashMenus from '$lib/features/composer/components/ComposerSlashMenus.svelte';
+	import ComposerMentionMenu from '$lib/features/composer/components/ComposerMentionMenu.svelte';
+	import ComposerToolbar from '$lib/features/composer/components/ComposerToolbar.svelte';
 	import MessageContextChips from '$lib/features/chat/components/MessageContextChips.svelte';
 	import { messageContextRefsFromPending } from '$lib/features/chat/message-context';
 	import { chatStore } from '$lib/stores/chat.svelte';
@@ -22,15 +22,15 @@
 	import { DEFAULT_CONTEXT_WINDOW_LIMIT, resolveContextWindowUsage } from '$lib/context-window';
 	import { workspaceLabel } from '$lib/sessions/group-by-workspace';
 	import type { ImageAttachment } from '$lib/types';
-	import type { ComposerInputRef } from '$lib/components/composer/composer-input-ref';
-	import { createComposerInputController } from '$lib/components/composer/composer-controller.svelte';
-	import { createComposerAttachmentsController } from '$lib/components/composer/composer-attachments.svelte';
-	import { createComposerMentionsController } from '$lib/components/composer/composer-mentions.svelte';
-	import { createComposerSlashController } from '$lib/components/composer/composer-slash.svelte';
-	import { stepHistoryIndex } from '$lib/components/composer/composer-history';
-	import type { PendingUnsentDraft } from '$lib/components/composer/composer-history';
-	import { nextAttachmentRemoval } from '$lib/components/composer/composer-attachment-keydown';
-	import { nextReasoningEffort } from '$lib/composer/reasoning-effort';
+	import type { ComposerInputRef } from '$lib/features/composer/composer-input-ref';
+	import { createComposerInputController } from '$lib/features/composer/composer-controller.svelte';
+	import { createComposerAttachmentsController } from '$lib/features/composer/composer-attachments.svelte';
+	import { createComposerMentionsController } from '$lib/features/composer/composer-mentions.svelte';
+	import { createComposerSlashController } from '$lib/features/composer/composer-slash.svelte';
+	import { stepHistoryIndex } from '$lib/features/composer/composer-history';
+	import type { PendingUnsentDraft } from '$lib/features/composer/composer-history';
+	import { nextAttachmentRemoval } from '$lib/features/composer/composer-attachment-keydown';
+	import { nextReasoningEffort } from '$lib/features/composer/reasoning-effort';
 	import { getReasoningEffort, setReasoningEffort } from '$lib/stores/reasoning-effort.svelte';
 	import { updateSession } from '$lib/client/cometmind';
 	import type { AgentMode } from '$lib/types';
@@ -44,7 +44,7 @@
 		sameAgentModeSwitchState,
 		bindAgentModeForSession,
 		type AgentModeSwitchState
-	} from '$lib/components/composer/agent-mode-switch';
+	} from '$lib/features/composer/agent-mode-switch';
 
 	let {
 		onSend,

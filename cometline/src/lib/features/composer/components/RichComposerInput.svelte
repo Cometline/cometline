@@ -12,7 +12,7 @@
 	import { openLink } from '$lib/open-link';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { openWorkspaceFilePreview } from '$lib/features/workspace/open-file-preview';
-	import { isSelectionAtEditorEdge } from '$lib/components/composer/composer-caret';
+	import { isSelectionAtEditorEdge } from '$lib/features/composer/composer-caret';
 
 	let {
 		value = $bindable(''),

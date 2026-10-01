@@ -1,10 +1,10 @@
 import { tick } from 'svelte';
-import { createMenuHighlight } from '$lib/components/composer/menu-highlight.svelte';
+import { createMenuHighlight } from '$lib/features/composer/menu-highlight.svelte';
 import { shellStore } from '$lib/stores/shell.svelte';
 import {
 	resolveMentionSourcePaths,
 	shouldRunMentionServerSearch
-} from '$lib/components/composer/composer-mention-search';
+} from '$lib/features/composer/composer-mention-search';
 import {
 	filterMentionPaths,
 	getFileIndex,
@@ -16,7 +16,7 @@ import {
 	type MentionPath
 } from '$lib/features/workspace/file-index';
 import { workspaceChangeVersion } from '$lib/features/workspace/workspace-change.svelte';
-import type { ComposerInputRef } from '$lib/components/composer/composer-input-ref';
+import type { ComposerInputRef } from '$lib/features/composer/composer-input-ref';
 
 type IdleHandle =
 	| { type: 'idle'; id: number }
