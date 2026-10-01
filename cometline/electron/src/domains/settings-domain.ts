@@ -1,4 +1,5 @@
 import type { ProviderConfig, ProviderSettings } from '../../../src/lib/types.js';
+import type { MiniWindowState } from '../shared/api.js';
 
 type JsonRecord = Record<string, unknown>;
 
@@ -9,12 +10,6 @@ export interface ProviderEnvironmentOverrides {
 	baseURL: string | undefined;
 	apiKey: string | undefined;
 	selectedModel: string | undefined;
-}
-
-export interface MiniWindowState {
-	sessionId: string;
-	lastActiveAt: number;
-	inactivityTimeoutMinutes: number;
 }
 
 export interface WorkspaceStore {

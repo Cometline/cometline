@@ -5,6 +5,11 @@ import {
 	validateSettings
 } from '../../../src/lib/settings/schema.js';
 import type { ProviderSettings } from '../../../src/lib/types.js';
+import type {
+	ComposerHistoryEntry,
+	ComposerHistoryResult,
+	MiniWindowState
+} from '../shared/api.js';
 import {
 	applyProviderEnvironmentOverrides,
 	listRecentWorkspacePathValues,
@@ -17,7 +22,6 @@ import {
 	splitSettingsDocument,
 	withMiniWindowState,
 	writeJsonFileAtomic,
-	type MiniWindowState,
 	type WorkspaceStore
 } from './settings-domain.js';
 
@@ -44,13 +48,6 @@ interface WorkspaceDialogOptions {
 	properties: ['openDirectory', 'createDirectory'];
 	buttonLabel: string;
 	title: string;
-}
-
-export interface ComposerHistoryEntry {
-	display: string;
-	timestamp: number;
-	workspacePath: string;
-	sessionId: string;
 }
 
 export interface SettingsDomainDependencies {
@@ -397,7 +394,7 @@ export function createSettingsDomain(dependencies: SettingsDomainDependencies) {
 		fs.renameSync(tempPath, filePath);
 	}
 
-	function appendComposerHistoryEntry(rawEntry: unknown) {
+	function appendComposerHistoryEntry(rawEntry: unknown): ComposerHistoryResult {
 		const entry = parseComposerHistoryEntry(rawEntry);
 		if (!entry)
 			return {

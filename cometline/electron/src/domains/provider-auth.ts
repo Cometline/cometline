@@ -1,4 +1,5 @@
 import type { ProviderConfig } from '../../../src/lib/types.js';
+import type { CursorMcpConfigResult } from '../shared/api.js';
 
 const FETCH_MODELS_TIMEOUT_MS = 30_000;
 const CODEX_BASE_URL = 'https://chatgpt.com/backend-api/codex';
@@ -720,7 +721,7 @@ export function createProviderAuth(dependencies: ProviderAuthDependencies) {
 		};
 	}
 
-	function readCursorMcpConfig() {
+	function readCursorMcpConfig(): CursorMcpConfigResult {
 		const filePath = path.join(platform.homedir(), '.cursor', 'mcp.json');
 		if (!fs.existsSync(filePath))
 			return { ok: false, error: 'Cursor MCP config not found at ~/.cursor/mcp.json' };

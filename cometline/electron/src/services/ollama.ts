@@ -1,6 +1,8 @@
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-nocheck
 // Runtime validation is intentional here: Ollama's streamed JSON is untyped.
+import type { OllamaHealthResult } from '../shared/api.js';
+
 const DEFAULT_NATIVE_BASE = 'http://127.0.0.1:11434';
 const OLLAMA_MODEL_NAME_RE = /^[a-zA-Z0-9]([a-zA-Z0-9._:-]{0,198}[a-zA-Z0-9])?$/;
 const MAX_LINE_BYTES = 64 * 1024;
@@ -76,7 +78,7 @@ function createOllamaService(deps = {}) {
 	/** @type {{ controller: AbortController, model: string } | null} */
 	let activePull = null;
 
-	async function checkHealth(baseURL) {
+	async function checkHealth(baseURL): Promise<OllamaHealthResult> {
 		const base = assertLoopbackBase(baseURL);
 		const controller = new AbortController();
 		const timer = setTimeout(() => controller.abort(), 4000);

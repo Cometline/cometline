@@ -20,6 +20,7 @@ import path from 'node:path';
 import { defaultSettings } from '../../../src/lib/settings/schema.js';
 import type { ProviderSettings } from '../../../src/lib/types.js';
 import { createOllamaService } from '../services/ollama.js';
+import type { SettingsFileResult } from '../shared/api.js';
 import { EVENT_CHANNELS } from '../shared/ipc-channels.js';
 import { createApplicationMenuTray } from './app-menu-tray.js';
 import { APP_SCHEME, registerAppProtocol } from './app-protocol.js';
@@ -63,7 +64,7 @@ function resolveCometMindBinary() {
 	return path.join(runtimeDirectory, '..', '..', 'cometmind', 'cometmind');
 }
 
-function selectBackupFolder() {
+function selectBackupFolder(): Promise<SettingsFileResult> {
 	const window = BrowserWindow.getFocusedWindow();
 	const options: OpenDialogOptions = {
 		properties: ['openDirectory', 'createDirectory'],

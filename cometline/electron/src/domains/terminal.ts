@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import pty, { type IPty } from 'node-pty';
 
+import type { TerminalSnapshot } from '../../../src/lib/types.js';
 import { EVENT_CHANNELS, type EventChannel } from '../shared/ipc-channels.js';
 import {
 	clearAllTerminalEnv,
@@ -33,15 +34,6 @@ interface TerminalEntry {
 	shell: string;
 	output: string;
 	process: IPty | null;
-}
-
-export interface TerminalSnapshot {
-	sessionId: string;
-	status: 'running' | 'exited';
-	exitCode: number | null;
-	generation: number;
-	shell: string;
-	output: string;
 }
 
 export interface TerminalCreateInput {

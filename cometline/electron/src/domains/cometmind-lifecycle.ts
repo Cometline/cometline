@@ -2,6 +2,7 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import type { RuntimeReloadOutcome } from '../shared/api.js';
 import type { RuntimeContext } from './runtime-context.js';
 
 const COMETMIND_PORT = 7700;
@@ -30,7 +31,7 @@ export interface CometMindLifecycle {
 	installCliShim(): void;
 	start(): void;
 	stop(): Promise<void>;
-	reload(): Promise<{ action: string; healthy: boolean; error?: string }>;
+	reload(): Promise<RuntimeReloadOutcome>;
 	waitForHealth(): Promise<boolean>;
 	syncDiscordGateway(settings: unknown): Promise<void>;
 	isGatewayRunning(): boolean;

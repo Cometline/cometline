@@ -1,6 +1,12 @@
 import type { App, BrowserWindow, Tray } from 'electron';
 
 import type { CustomPersona, ProviderSettings } from '../../../src/lib/types.js';
+import type {
+	DeleteCustomPersonaResult,
+	ReadPersonaAvatarResult,
+	ReadPersonaSoulResult,
+	SaveCustomPersonaResult
+} from '../shared/api.js';
 
 type PersonaFileSystem = Pick<
 	typeof import('node:fs'),
@@ -20,13 +26,6 @@ const PERSONA_IMAGE_MIME_BY_EXT: Record<string, string> = {
 	'.webp': 'image/webp'
 };
 const PERSONA_AVATAR_MAX_BYTES = 20 * 1024 * 1024;
-
-export type ReadPersonaSoulResult = { ok: true; content: string } | { ok: false; error: string };
-export type ReadPersonaAvatarResult = { ok: true; dataUrl: string } | { ok: false; error: string };
-export type SaveCustomPersonaResult =
-	| { ok: true; persona: CustomPersona }
-	| { ok: false; error: string };
-export type DeleteCustomPersonaResult = { ok: true } | { ok: false; error: string };
 
 export interface PersonaDependencies {
 	fs: PersonaFileSystem;

@@ -1,22 +1,9 @@
 import { desktopCapturer, shell, systemPreferences } from 'electron';
 
+import type { ScreenCaptureAccessState, ScreenCaptureAccessStatus } from '../shared/api.js';
+
 const MACOS_SCREEN_RECORDING_SETTINGS_URL =
 	'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture';
-
-export type ScreenCaptureAccessStatus =
-	| 'granted'
-	| 'denied'
-	| 'not-determined'
-	| 'restricted'
-	| 'unknown'
-	| 'unsupported';
-
-export interface ScreenCaptureAccessState {
-	preferred: boolean;
-	status: ScreenCaptureAccessStatus;
-	openedSettings?: boolean;
-	message?: string;
-}
 
 function isDarwin() {
 	return process.platform === 'darwin';

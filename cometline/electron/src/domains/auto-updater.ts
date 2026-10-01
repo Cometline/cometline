@@ -1,17 +1,10 @@
 import { app } from 'electron';
 import electronUpdater from 'electron-updater';
+import type { UpdateState } from '../shared/api.js';
 import { EVENT_CHANNELS } from '../shared/ipc-channels.js';
 import type { RuntimeContext } from './runtime-context.js';
 
 const UPDATE_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;
-
-export interface UpdateState {
-	status: string;
-	version?: string;
-	percent?: number;
-	message?: string;
-	updatedAt?: number;
-}
 
 export interface AutoUpdaterDeps {
 	context: RuntimeContext;

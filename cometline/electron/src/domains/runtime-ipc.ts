@@ -1,6 +1,7 @@
 import type { App, IpcMainEvent, IpcMainInvokeEvent, Shell } from 'electron';
 
 import type { ProviderConfig, ProviderSettings } from '../../../src/lib/types.js';
+import type { RuntimeReloadOutcome, SettingsFileResult } from '../shared/api.js';
 import { EVENT_CHANNELS } from '../shared/ipc-channels.js';
 import type { createOllamaService } from '../services/ollama.js';
 import type { createAutoUpdater } from './auto-updater.js';
@@ -49,7 +50,7 @@ export interface RuntimeIpcDependencies {
 	shell: Pick<Shell, 'openExternal'>;
 	pdfPreview: PdfPreviewRegistry;
 	mediaClipboard: MediaClipboard;
-	selectBackupFolder(): Promise<{ canceled: boolean; path?: string }>;
+	selectBackupFolder(): Promise<SettingsFileResult>;
 	context: ShellWindowContext;
 	windows: Windows;
 	terminals: Terminals;
@@ -241,7 +242,7 @@ export function registerRuntimeIpcHandlers(dependencies: RuntimeIpcDependencies)
 			}
 			dependencies.shortcuts.refreshGlobalShortcuts();
 			dependencies.applicationMenuTray.configureApplicationMenu();
-			let reload = null;
+			let reload: RuntimeReloadOutcome | null = null;
 			if (action === 'restart') {
 				await dependencies.cometMind.stop();
 				dependencies.cometMind.start();

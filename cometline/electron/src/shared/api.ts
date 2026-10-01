@@ -21,9 +21,7 @@ export interface ElectronAPI {
 	startCodexLogin(): Promise<{ started: boolean; message: string }>;
 	getXaiAuthStatus(): Promise<{ authenticated: boolean; authPath: string; error?: string }>;
 	startXaiLogin(): Promise<{ started: boolean; message: string }>;
-	readCursorMcpConfig(): Promise<
-		{ ok: true; path: string; config: unknown } | { ok: false; error: string }
-	>;
+	readCursorMcpConfig(): Promise<CursorMcpConfigResult>;
 	getDiscordGatewayStatus(): Promise<{ running: boolean; enabled: boolean }>;
 	setDiscordGatewayEnabled(enabled: boolean): Promise<{ running: boolean; enabled: boolean }>;
 	getOpenAtLogin(): Promise<OpenAtLoginState>;
@@ -36,13 +34,7 @@ export interface ElectronAPI {
 	replayIntroInMainWindow(): Promise<boolean>;
 	runSetupWizardInMainWindow(): Promise<boolean>;
 	fetchProviderModels(config: ProviderConfig): Promise<FetchProviderModelsResult | string[]>;
-	checkOllamaHealth(baseURL?: string): Promise<{
-		ok: boolean;
-		state: 'healthy' | 'missing' | 'unreachable';
-		baseURL: string;
-		version?: string;
-		error?: string;
-	}>;
+	checkOllamaHealth(baseURL?: string): Promise<OllamaHealthResult>;
 	listOllamaModels(baseURL?: string): Promise<{
 		baseURL: string;
 		models: Array<{ name: string; size?: number; digest?: string; modifiedAt?: string }>;
@@ -128,6 +120,18 @@ export interface ElectronAPI {
 
 export type CopyMediaFileResult = { ok: true } | { ok: false; error: string };
 
+export type CursorMcpConfigResult =
+	| { ok: true; path: string; config: unknown }
+	| { ok: false; error: string };
+
+export interface OllamaHealthResult {
+	ok: boolean;
+	state: 'healthy' | 'missing' | 'unreachable';
+	baseURL: string;
+	version?: string;
+	error?: string;
+}
+
 export interface OllamaPullProgress {
 	model: string;
 	status: string;
@@ -182,9 +186,17 @@ export interface OpenAtLoginState {
 	message?: string;
 }
 
+export type ScreenCaptureAccessStatus =
+	| 'granted'
+	| 'denied'
+	| 'not-determined'
+	| 'restricted'
+	| 'unknown'
+	| 'unsupported';
+
 export interface ScreenCaptureAccessState {
 	preferred: boolean;
-	status: string;
+	status: ScreenCaptureAccessStatus;
 	openedSettings?: boolean;
 	message?: string;
 }
