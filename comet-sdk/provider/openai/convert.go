@@ -146,76 +146,7 @@ func convertMessage(m cometsdk.Message, disableImageContent bool, preserveEmptyR
 		return []openAIMessage{{Role: "user", Content: parts}}, nil
 
 	case cometsdk.RoleAssistant:
-		var textParts []openAIContentPart
-		var reasoningParts []openAIContentPart
-		var toolCalls []openAIToolCall
-
-		for _, b := range m.Content {
-			switch v := b.(type) {
-			case cometsdk.TextBlock:
-				textParts = append(textParts, openAIContentPart{Type: "text", Text: v.Text})
-			case cometsdk.ToolCallBlock:
-				args := string(v.Input)
-				if args == "" {
-					args = "{}"
-				}
-				toolCalls = append(toolCalls, openAIToolCall{
-					ID:   v.ID,
-					Type: "function",
-					Function: openAIFunction{
-						Name:      v.Name,
-						Arguments: args,
-					},
-				})
-			default:
-				return nil, fmt.Errorf("openai: unsupported block type %T in assistant message", b)
-			}
-		}
-
-		for _, b := range m.ReasoningContent {
-			switch v := b.(type) {
-			case cometsdk.TextBlock:
-				reasoningParts = append(reasoningParts, openAIContentPart{Type: "text", Text: v.Text})
-			case cometsdk.ReasoningBlock:
-				reasoningParts = append(reasoningParts, openAIContentPart{Type: "text", Text: v.Text})
-			default:
-				return nil, fmt.Errorf("openai: unsupported reasoning block type %T", b)
-			}
-		}
-
-		msg := openAIMessage{Role: "assistant"}
-
-		if len(reasoningParts) == 1 {
-			raw, err := json.Marshal(reasoningParts[0].Text)
-			if err != nil {
-				return nil, fmt.Errorf("openai: marshal reasoning content: %w", err)
-			}
-			value := json.RawMessage(raw)
-			msg.Reasoning = &value
-		} else if len(reasoningParts) > 1 {
-			raw, err := json.Marshal(reasoningParts)
-			if err != nil {
-				return nil, fmt.Errorf("openai: marshal reasoning content: %w", err)
-			}
-			value := json.RawMessage(raw)
-			msg.Reasoning = &value
-		} else if preserveEmptyReasoningContent && m.Role == cometsdk.RoleAssistant {
-			raw := json.RawMessage(`""`)
-			msg.Reasoning = &raw
-		}
-
-		if len(textParts) == 1 {
-			msg.Content = textParts[0].Text
-		} else if len(textParts) > 1 {
-			msg.Content = textParts
-		} else {
-			// OpenAI itself accepts null here, but a number of OpenAI-compatible
-			// gateways reject it. Keep every assistant replay structurally valid.
-			msg.Content = ""
-		}
-		msg.ToolCalls = toolCalls
-
-		return []openAIMessage{msg}, nil
+		return convertAssistantMessage(m, preserveEmptyReasoningContent)
 
 	case cometsdk.RoleToolResult:
 		var out []openAIMessage
@@ -234,6 +165,87 @@ func convertMessage(m cometsdk.Message, disableImageContent bool, preserveEmptyR
 
 	default:
 		return nil, fmt.Errorf("openai: unknown role %q", m.Role)
+	}
+}
+
+func convertAssistantMessage(m cometsdk.Message, preserveEmptyReasoningContent bool) ([]openAIMessage, error) {
+	var textParts []openAIContentPart
+	var reasoningParts []openAIContentPart
+	var toolCalls []openAIToolCall
+
+	for _, b := range m.Content {
+		switch v := b.(type) {
+		case cometsdk.TextBlock:
+			textParts = append(textParts, openAIContentPart{Type: "text", Text: v.Text})
+		case cometsdk.ToolCallBlock:
+			args := string(v.Input)
+			if args == "" {
+				args = "{}"
+			}
+			toolCalls = append(toolCalls, openAIToolCall{
+				ID:   v.ID,
+				Type: "function",
+				Function: openAIFunction{
+					Name:      v.Name,
+					Arguments: args,
+				},
+			})
+		default:
+			return nil, fmt.Errorf("openai: unsupported block type %T in assistant message", b)
+		}
+	}
+
+	for _, b := range m.ReasoningContent {
+		switch v := b.(type) {
+		case cometsdk.TextBlock:
+			reasoningParts = append(reasoningParts, openAIContentPart{Type: "text", Text: v.Text})
+		case cometsdk.ReasoningBlock:
+			reasoningParts = append(reasoningParts, openAIContentPart{Type: "text", Text: v.Text})
+		default:
+			return nil, fmt.Errorf("openai: unsupported reasoning block type %T", b)
+		}
+	}
+
+	msg := openAIMessage{Role: "assistant"}
+	reasoning, err := assistantReasoningField(reasoningParts, preserveEmptyReasoningContent)
+	if err != nil {
+		return nil, err
+	}
+	msg.Reasoning = reasoning
+	if len(textParts) == 1 {
+		msg.Content = textParts[0].Text
+	} else if len(textParts) > 1 {
+		msg.Content = textParts
+	} else {
+		// OpenAI itself accepts null here, but a number of OpenAI-compatible
+		// gateways reject it. Keep every assistant replay structurally valid.
+		msg.Content = ""
+	}
+	msg.ToolCalls = toolCalls
+	return []openAIMessage{msg}, nil
+}
+
+func assistantReasoningField(parts []openAIContentPart, preserveEmpty bool) (*json.RawMessage, error) {
+	switch {
+	case len(parts) == 1:
+		raw, err := json.Marshal(parts[0].Text)
+		if err != nil {
+			return nil, fmt.Errorf("openai: marshal reasoning content: %w", err)
+		}
+		value := json.RawMessage(raw)
+		return &value, nil
+	case len(parts) > 1:
+		raw, err := json.Marshal(parts)
+		if err != nil {
+			return nil, fmt.Errorf("openai: marshal reasoning content: %w", err)
+		}
+		value := json.RawMessage(raw)
+		return &value, nil
+	case preserveEmpty:
+		raw := json.RawMessage(`""`)
+		return &raw, nil
+	default:
+		return nil, nil
 	}
 }
 

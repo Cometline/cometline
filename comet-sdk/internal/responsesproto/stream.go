@@ -193,6 +193,10 @@ func ToSDKEvents(providerID, eventType, data string, state *StreamState) ([]come
 		return nil, fmt.Errorf("responses: %s", ev.Error.Message)
 	}
 
+	return responsesEvent(providerID, ev, state)
+}
+
+func responsesEvent(providerID string, ev streamEvent, state *StreamState) ([]cometsdk.Event, error) {
 	switch ev.Type {
 	case "response.output_text.delta", "response.output_text.annotation.added":
 		if ev.Delta == "" {

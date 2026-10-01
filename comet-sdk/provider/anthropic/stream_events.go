@@ -125,78 +125,9 @@ func (s *streamState) completedThinkingBlocks() []anthropicBlock {
 func toSDKEvents(eventType, data string, state *streamState) ([]cometsdk.Event, error) {
 	switch eventType {
 	case "content_block_start":
-		var ev anthropicSSEEvent
-		if err := json.Unmarshal([]byte(data), &ev); err != nil {
-			return nil, fmt.Errorf("anthropic: parse content_block_start: %w", err)
-		}
-		if ev.ContentBlock == nil {
-			return nil, nil
-		}
-		if ev.ContentBlock.Type == "tool_use" {
-			state.toolCallBuffers[ev.Index] = &strings.Builder{}
-			state.toolCallMeta[ev.Index] = [2]string{ev.ContentBlock.ID, ev.ContentBlock.Name}
-			return []cometsdk.Event{cometsdk.ToolCallStartEvent{
-				ID:   ev.ContentBlock.ID,
-				Name: ev.ContentBlock.Name,
-			}}, nil
-		}
-		if ev.ContentBlock.Type == "thinking" {
-			state.thinkingBlocks[ev.Index] = &anthropicBlock{
-				Type:      "thinking",
-				Thinking:  ev.ContentBlock.Thinking,
-				Signature: ev.ContentBlock.Signature,
-			}
-			return []cometsdk.Event{cometsdk.ReasoningStartEvent{}}, nil
-		}
-		if ev.ContentBlock.Type == "redacted_thinking" {
-			state.thinkingBlocks[ev.Index] = &anthropicBlock{
-				Type: "redacted_thinking",
-				Data: ev.ContentBlock.Data,
-			}
-			return nil, nil
-		}
-		return nil, nil
-
+		return contentBlockStart(data, state)
 	case "content_block_delta":
-		var ev anthropicSSEEvent
-		if err := json.Unmarshal([]byte(data), &ev); err != nil {
-			return nil, fmt.Errorf("anthropic: parse content_block_delta: %w", err)
-		}
-		if ev.Delta == nil {
-			return nil, nil
-		}
-		switch ev.Delta.Type {
-		case "text_delta":
-			return []cometsdk.Event{cometsdk.TextDeltaEvent{Text: ev.Delta.Text}}, nil
-
-		case "input_json_delta":
-			buf, ok := state.toolCallBuffers[ev.Index]
-			if !ok {
-				return nil, nil
-			}
-			buf.WriteString(ev.Delta.PartialJSON)
-			meta := state.toolCallMeta[ev.Index]
-			return []cometsdk.Event{cometsdk.ToolCallDeltaEvent{
-				ID:    meta[0],
-				Delta: ev.Delta.PartialJSON,
-			}}, nil
-
-		case "thinking_delta":
-			if block, ok := state.thinkingBlocks[ev.Index]; ok && block.Type == "thinking" {
-				block.Thinking += ev.Delta.Thinking
-			}
-			if ev.Delta.Thinking == "" {
-				return nil, nil
-			}
-			return []cometsdk.Event{cometsdk.ReasoningContentEvent{Text: ev.Delta.Thinking}}, nil
-
-		case "signature_delta":
-			if block, ok := state.thinkingBlocks[ev.Index]; ok && block.Type == "thinking" {
-				block.Signature += ev.Delta.Signature
-			}
-			return nil, nil
-		}
-		return nil, nil
+		return contentBlockDelta(data, state)
 
 	case "content_block_stop":
 		var ev anthropicSSEEvent
@@ -254,4 +185,77 @@ func toSDKEvents(eventType, data string, state *streamState) ([]cometsdk.Event, 
 	default:
 		return nil, nil
 	}
+}
+
+func contentBlockStart(data string, state *streamState) ([]cometsdk.Event, error) {
+	var ev anthropicSSEEvent
+	if err := json.Unmarshal([]byte(data), &ev); err != nil {
+		return nil, fmt.Errorf("anthropic: parse content_block_start: %w", err)
+	}
+	if ev.ContentBlock == nil {
+		return nil, nil
+	}
+	if ev.ContentBlock.Type == "tool_use" {
+		state.toolCallBuffers[ev.Index] = &strings.Builder{}
+		state.toolCallMeta[ev.Index] = [2]string{ev.ContentBlock.ID, ev.ContentBlock.Name}
+		return []cometsdk.Event{cometsdk.ToolCallStartEvent{
+			ID:   ev.ContentBlock.ID,
+			Name: ev.ContentBlock.Name,
+		}}, nil
+	}
+	if ev.ContentBlock.Type == "thinking" {
+		state.thinkingBlocks[ev.Index] = &anthropicBlock{
+			Type:      "thinking",
+			Thinking:  ev.ContentBlock.Thinking,
+			Signature: ev.ContentBlock.Signature,
+		}
+		return []cometsdk.Event{cometsdk.ReasoningStartEvent{}}, nil
+	}
+	if ev.ContentBlock.Type == "redacted_thinking" {
+		state.thinkingBlocks[ev.Index] = &anthropicBlock{
+			Type: "redacted_thinking",
+			Data: ev.ContentBlock.Data,
+		}
+		return nil, nil
+	}
+	return nil, nil
+}
+
+func contentBlockDelta(data string, state *streamState) ([]cometsdk.Event, error) {
+	var ev anthropicSSEEvent
+	if err := json.Unmarshal([]byte(data), &ev); err != nil {
+		return nil, fmt.Errorf("anthropic: parse content_block_delta: %w", err)
+	}
+	if ev.Delta == nil {
+		return nil, nil
+	}
+	switch ev.Delta.Type {
+	case "text_delta":
+		return []cometsdk.Event{cometsdk.TextDeltaEvent{Text: ev.Delta.Text}}, nil
+	case "input_json_delta":
+		buf, ok := state.toolCallBuffers[ev.Index]
+		if !ok {
+			return nil, nil
+		}
+		buf.WriteString(ev.Delta.PartialJSON)
+		meta := state.toolCallMeta[ev.Index]
+		return []cometsdk.Event{cometsdk.ToolCallDeltaEvent{
+			ID:    meta[0],
+			Delta: ev.Delta.PartialJSON,
+		}}, nil
+	case "thinking_delta":
+		if block, ok := state.thinkingBlocks[ev.Index]; ok && block.Type == "thinking" {
+			block.Thinking += ev.Delta.Thinking
+		}
+		if ev.Delta.Thinking == "" {
+			return nil, nil
+		}
+		return []cometsdk.Event{cometsdk.ReasoningContentEvent{Text: ev.Delta.Thinking}}, nil
+	case "signature_delta":
+		if block, ok := state.thinkingBlocks[ev.Index]; ok && block.Type == "thinking" {
+			block.Signature += ev.Delta.Signature
+		}
+		return nil, nil
+	}
+	return nil, nil
 }
