@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/Cometline/cometline/cometmind/internal/apigen"
 	"github.com/Cometline/cometline/cometmind/internal/media"
 	"github.com/Cometline/cometline/cometmind/internal/session"
 	"github.com/gin-gonic/gin"
@@ -30,10 +31,6 @@ type sessionMediaResource struct {
 	DurationMs       *int64 `json:"duration_ms,omitempty"`
 	CreatedAt        int64  `json:"created_at"`
 	URL              string `json:"url"`
-}
-
-type importMediaRequest struct {
-	SessionID string `json:"session_id"`
 }
 
 func mediaToResource(item session.MediaRecord) sessionMediaResource {
@@ -81,12 +78,12 @@ func (a *App) handleListMedia(c *gin.Context) {
 }
 
 func (a *App) handleImportMedia(c *gin.Context) {
-	var req importMediaRequest
+	var req apigen.ImportMediaRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		writeError(c, http.StatusBadRequest, "bad_request", "invalid JSON body")
 		return
 	}
-	item, err := a.sessions.ImportMedia(c.Request.Context(), req.SessionID, c.Param("id"))
+	item, err := a.sessions.ImportMedia(c.Request.Context(), req.SessionId, c.Param("id"))
 	if err != nil {
 		writeMediaError(c, err)
 		return
