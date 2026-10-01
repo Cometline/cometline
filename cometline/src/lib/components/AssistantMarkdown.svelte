@@ -51,7 +51,7 @@
 		<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 		{@html view.s.html}
 	{:else}
-		<span class="markdown-plain">{view.s.displaySource}</span>
+		<span class="markdown-plain">{source}</span>
 	{/if}
 </div>
 
