@@ -431,3 +431,24 @@ func TestStream_NoImageFallbackWithoutImage(t *testing.T) {
 	// Only the initial attempt; no image-downgrade retry (there was no image).
 	require.Equal(t, 1, attempts)
 }
+
+func TestStream_HTTPErrorUsesConfiguredProviderID(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	defer srv.Close()
+
+	p := NewOpenAICompatibleProvider("test-key", "xai", nil,
+		cometsdk.WithBaseURL(srv.URL),
+		cometsdk.WithMaxRetries(1),
+	)
+	req := &cometsdk.Request{
+		Model:    "grok-4",
+		Messages: []cometsdk.Message{{Role: cometsdk.RoleUser, Content: []cometsdk.Block{cometsdk.TextBlock{Text: "Hi"}}}},
+	}
+
+	_, err := p.Stream(context.Background(), req)
+	var authErr *cometsdk.AuthError
+	require.ErrorAs(t, err, &authErr)
+	require.Equal(t, "xai", authErr.ProviderID)
+}

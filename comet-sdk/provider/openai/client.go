@@ -178,7 +178,7 @@ func (p *provider) doRequest(ctx context.Context, req *cometsdk.Request, flags s
 	if resp.StatusCode != http.StatusOK {
 		defer resp.Body.Close()
 		body, _ := io.ReadAll(resp.Body)
-		return nil, providerbase.ClassifyHTTPError(providerID, resp, body)
+		return nil, providerbase.ClassifyHTTPError(p.id, resp, body)
 	}
 
 	return resp, nil
