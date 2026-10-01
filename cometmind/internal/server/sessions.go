@@ -6,47 +6,36 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Cometline/cometline/cometmind/internal/apigen"
 	"github.com/Cometline/cometline/cometmind/internal/event"
 	"github.com/Cometline/cometline/cometmind/internal/session"
 	"github.com/gin-gonic/gin"
 )
 
-type createSessionRequest struct {
-	WorkspaceID   string `json:"workspace_id"`
-	WorkspacePath string `json:"workspace_path"`
-	ModelID       string `json:"model_id"`
-	ProviderID    string `json:"provider_id"`
-}
-
-type patchSessionRequest struct {
-	ModelID    string  `json:"model_id"`
-	ProviderID string  `json:"provider_id"`
-	Pinned     *bool   `json:"pinned"`
-	Title      *string `json:"title"`
-	AgentMode  *string `json:"agent_mode"`
-}
-
-type forkSessionRequest struct {
-	WorkspacePath string `json:"workspace_path"`
+func derefString(p *string) string {
+	if p == nil {
+		return ""
+	}
+	return *p
 }
 
 func (a *App) handleCreateSession(c *gin.Context) {
-	var req createSessionRequest
+	var req apigen.CreateSessionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		writeError(c, http.StatusBadRequest, "bad_request", "invalid JSON body")
 		return
 	}
 
-	ws, ok := a.resolveCreateWorkspace(c, req.WorkspaceID, req.WorkspacePath)
+	ws, ok := a.resolveCreateWorkspace(c, derefString(req.WorkspaceId), derefString(req.WorkspacePath))
 	if !ok {
 		return
 	}
 
-	modelID := strings.TrimSpace(req.ModelID)
+	modelID := strings.TrimSpace(derefString(req.ModelId))
 	if modelID == "" {
 		modelID = a.config.DefaultModelID
 	}
-	providerID := strings.TrimSpace(req.ProviderID)
+	providerID := strings.TrimSpace(derefString(req.ProviderId))
 	if providerID == "" {
 		providerID = a.config.DefaultProviderID
 	}
@@ -184,38 +173,42 @@ func (a *App) handlePatchSession(c *gin.Context) {
 	a.writeSessionJSON(c, sess)
 }
 
-func bindPatchSession(c *gin.Context) (patchSessionRequest, session.AgentMode, bool) {
-	var req patchSessionRequest
+func bindPatchSession(c *gin.Context) (apigen.UpdateSessionRequest, session.AgentMode, bool) {
+	var req apigen.UpdateSessionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		writeError(c, http.StatusBadRequest, "bad_request", "invalid JSON body")
-		return patchSessionRequest{}, "", false
+		return apigen.UpdateSessionRequest{}, "", false
 	}
-	hasModel := strings.TrimSpace(req.ModelID) != "" || strings.TrimSpace(req.ProviderID) != ""
+	modelID := strings.TrimSpace(derefString(req.ModelId))
+	providerID := strings.TrimSpace(derefString(req.ProviderId))
+	hasModel := modelID != "" || providerID != ""
 	if !hasModel && req.Pinned == nil && req.Title == nil && req.AgentMode == nil {
 		writeError(c, http.StatusBadRequest, "bad_request", "at least one of model_id/provider_id, pinned, title, or agent_mode is required")
-		return patchSessionRequest{}, "", false
+		return apigen.UpdateSessionRequest{}, "", false
 	}
-	if hasModel && (strings.TrimSpace(req.ModelID) == "" || strings.TrimSpace(req.ProviderID) == "") {
+	if hasModel && (modelID == "" || providerID == "") {
 		writeError(c, http.StatusBadRequest, "bad_request", "model_id and provider_id must both be provided")
-		return patchSessionRequest{}, "", false
+		return apigen.UpdateSessionRequest{}, "", false
 	}
 	if req.AgentMode == nil {
 		return req, "", true
 	}
-	mode, err := session.ParseAgentMode(*req.AgentMode)
+	mode, err := session.ParseAgentMode(string(*req.AgentMode))
 	if err != nil {
 		writeError(c, http.StatusBadRequest, "bad_request", err.Error())
-		return patchSessionRequest{}, "", false
+		return apigen.UpdateSessionRequest{}, "", false
 	}
 	return req, mode, true
 }
 
-func (a *App) applySessionPatch(c *gin.Context, sessID string, req patchSessionRequest, agentMode session.AgentMode) (session.Session, bool) {
+func (a *App) applySessionPatch(c *gin.Context, sessID string, req apigen.UpdateSessionRequest, agentMode session.AgentMode) (session.Session, bool) {
 	ctx := c.Request.Context()
 	var sess session.Session
 	var err error
-	if strings.TrimSpace(req.ModelID) != "" || strings.TrimSpace(req.ProviderID) != "" {
-		sess, err = a.sessions.UpdateSessionModel(ctx, sessID, req.ModelID, req.ProviderID)
+	modelID := strings.TrimSpace(derefString(req.ModelId))
+	providerID := strings.TrimSpace(derefString(req.ProviderId))
+	if modelID != "" || providerID != "" {
+		sess, err = a.sessions.UpdateSessionModel(ctx, sessID, modelID, providerID)
 		if !acceptSessionUpdate(c, err) {
 			return session.Session{}, false
 		}
@@ -269,7 +262,7 @@ func (a *App) writeSessionJSON(c *gin.Context, sess session.Session) {
 }
 
 func (a *App) handleForkSession(c *gin.Context) {
-	var req forkSessionRequest
+	var req apigen.ForkSessionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		writeError(c, http.StatusBadRequest, "bad_request", "invalid JSON body")
 		return
