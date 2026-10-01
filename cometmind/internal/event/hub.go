@@ -56,9 +56,9 @@ func (h *Hub) Subscribe() *Subscription {
 	}
 }
 
-// Publish sends an event to every current subscriber. Slow subscribers do not
-// block the agent or other subscribers; a later event supersedes a dropped
-// notification for this UI-only channel.
+// Publish sends an event to every current subscriber without blocking. When a
+// subscriber's buffer is full the oldest event is dropped, so terminal signals
+// such as run_finished survive a burst of earlier events.
 func (h *Hub) Publish(ev Event) {
 	if h == nil {
 		return
@@ -66,9 +66,13 @@ func (h *Hub) Publish(ev Event) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	for ch := range h.subscribers {
-		select {
-		case ch <- ev:
-		default:
+		if len(ch) == cap(ch) {
+			// The subscriber may drain concurrently, so the drop must not block.
+			select {
+			case <-ch:
+			default:
+			}
 		}
+		ch <- ev
 	}
 }
