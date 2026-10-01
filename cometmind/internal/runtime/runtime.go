@@ -70,6 +70,9 @@ type Runtime struct {
 	backupChanged    chan struct{}
 	autonomyWorker   *autonomy.Worker
 	inboxWorker      *inboxworker.Worker
+	workers          *supervisor
+	closeOnce        sync.Once
+	closeErr         error
 }
 
 // New builds a Runtime from the environment and filesystem.
@@ -108,6 +111,7 @@ func New(ctx context.Context) (*Runtime, error) {
 		retentionChanged: make(chan struct{}, 1),
 		backupChanged:    make(chan struct{}, 1),
 		Compatibility:    modelcompat.New(db.New(sqlDB)),
+		workers:          newSupervisor(),
 	}
 	notifier := jobs.NewNotifier(r.jobSettingsSnapshot)
 	r.Jobs = jobs.NewService(sqlDB, r.jobSettingsSnapshot, notifier)
@@ -137,7 +141,7 @@ func New(ctx context.Context) (*Runtime, error) {
 		if err != nil {
 			logging.L().Warn("skills.synthesis.provider.init_failed", "error", err)
 		} else {
-			notifier.Register(&skillSynthesisNotifier{provider: p, model: model, memory: r.Memory, usage: usageSvc, sessions: sessions})
+			notifier.Register(&skillSynthesisNotifier{provider: p, model: model, memory: r.Memory, usage: usageSvc, sessions: sessions, workers: r.workers})
 		}
 	}
 	if _, err := r.RunRetention(ctx); err != nil {
@@ -151,6 +155,8 @@ func New(ctx context.Context) (*Runtime, error) {
 	// cannot block startup. The HTTP server (and health endpoint) come up
 	// immediately; MCP tools are gathered lazily per agent turn, so any
 	// in-progress connections simply surface their tools once ready.
+	// Start is not supervised: it ignores ctx and waits out each server's
+	// connect budget, so Close would stall shutdown waiting on it.
 	go r.mcpMgr.Start(ctx)
 	return r, nil
 }
@@ -196,11 +202,22 @@ func (r *Runtime) SetJobSettings(s jobs.Settings) {
 	wakeup.Signal(r.retentionChanged)
 }
 
+// Close stops every background worker, waits for them to return, then
+// releases MCP connections and the database. It is safe to call more than once.
 func (r *Runtime) Close() error {
-	if r.mcpMgr != nil {
-		_ = r.mcpMgr.Close()
+	if r == nil {
+		return nil
 	}
-	return r.DB.Close()
+	r.closeOnce.Do(func() {
+		r.workers.Stop()
+		if r.mcpMgr != nil {
+			_ = r.mcpMgr.Close()
+		}
+		if r.DB != nil {
+			r.closeErr = r.DB.Close()
+		}
+	})
+	return r.closeErr
 }
 
 // Reload re-reads config and applies settings that can change without a full process restart.

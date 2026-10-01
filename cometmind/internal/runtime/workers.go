@@ -42,7 +42,7 @@ func (r *Runtime) StartAutonomousJobWorker(
 		DefaultProviderID: r.autonomyProviderID(),
 	}
 	r.autonomyWorker = w
-	go w.Run(ctx)
+	r.workers.Go(ctx, w.Run)
 }
 
 // StartInboxWorker starts the background loop that internalizes user inbox replies.
@@ -72,7 +72,7 @@ func (r *Runtime) StartInboxWorker(ctx context.Context, guard inboxworker.RunGua
 		},
 	}
 	r.inboxWorker = w
-	go w.Run(ctx)
+	r.workers.Go(ctx, w.Run)
 }
 
 func (r *Runtime) autonomyProviderID() string {

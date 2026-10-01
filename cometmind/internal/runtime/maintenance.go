@@ -31,7 +31,7 @@ func (r *Runtime) StartScheduler(ctx context.Context) {
 	if interval <= 0 {
 		interval = time.Minute
 	}
-	go func() {
+	r.workers.Go(ctx, func(ctx context.Context) {
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 		for {
@@ -47,7 +47,7 @@ func (r *Runtime) StartScheduler(ctx context.Context) {
 				}
 			}
 		}
-	}()
+	})
 }
 
 // StartJobsMaintenance runs periodic orphan reconcile and job lifecycle maintenance.
@@ -56,7 +56,7 @@ func (r *Runtime) StartJobsMaintenance(ctx context.Context) {
 	if r == nil || r.Jobs == nil {
 		return
 	}
-	go func() {
+	r.workers.Go(ctx, func(ctx context.Context) {
 		for {
 			if !waitForMaintenance(ctx, r.jobsChanged, func() (bool, time.Duration) {
 				interval := time.Duration(r.jobSettingsSnapshot().ReconcileIntervalS) * time.Second
@@ -85,7 +85,7 @@ func (r *Runtime) StartJobsMaintenance(ctx context.Context) {
 				logging.L().Warn("jobs.archive_purge.failed", "error", err)
 			}
 		}
-	}()
+	})
 }
 
 func waitForMaintenance(ctx context.Context, changed <-chan struct{}, snapshot func() (bool, time.Duration)) bool {
@@ -137,7 +137,7 @@ func (r *Runtime) StartRetentionMaintenance(ctx context.Context) {
 	if r == nil {
 		return
 	}
-	go func() {
+	r.workers.Go(ctx, func(ctx context.Context) {
 		for {
 			if !waitForMaintenance(ctx, r.retentionChanged, func() (bool, time.Duration) {
 				cfg := r.Config.EffectiveStorageConfig()
@@ -171,7 +171,7 @@ func (r *Runtime) StartRetentionMaintenance(ctx context.Context) {
 				)
 			}
 		}
-	}()
+	})
 }
 
 func runRetention(ctx context.Context, db *sql.DB, sessions *session.Service, mem *memory.Service, jobSvc *jobs.Service, inboxSvc *inbox.Service, usageSvc *usage.Service, cfg config.StorageConfig, inboxCfg config.InboxConfig, jobPurgeDays int, isRunning func(string) bool) (retention.Result, error) {
@@ -245,7 +245,7 @@ func (r *Runtime) StartBackupMaintenance(ctx context.Context) {
 	if r == nil {
 		return
 	}
-	go func() {
+	r.workers.Go(ctx, func(ctx context.Context) {
 		for {
 			if !waitForMaintenance(ctx, r.backupChanged, func() (bool, time.Duration) {
 				cfg := r.Config.EffectiveStorageConfig()
@@ -268,5 +268,5 @@ func (r *Runtime) StartBackupMaintenance(ctx context.Context) {
 				"removed_old", result.RemovedOld,
 			)
 		}
-	}()
+	})
 }
