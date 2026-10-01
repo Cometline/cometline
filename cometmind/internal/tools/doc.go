@@ -1,14 +1,18 @@
-// Package tools is the registry assembler for CometMind built-in tools.
+// Package tools is the composition root that assembles CometMind built-in tools.
+// Families live in subpackages and must not import this package.
 //
-// Domain layout (deepening #6):
-//
+//	tools/toolkit       — Tool, Result, Workspace, session/progress context
 //	tools/fs            — FileWorkspace: path resolve, mounts, locks
+//	tools/fsops         — read, write, edit, glob, grep, list, run
+//	tools/web           — web_fetch, web_search
+//	tools/media         — generate, present, and capture image/video
+//	tools/jobs          — job queue and scheduled job tools
+//	tools/mcp           — MCP server management and proxied tools
+//	tools/memory        — agent memory tools
+//	tools/settings      — settings tools
+//	tools/subagent      — spawn, wait, and coding-harness delegation
+//	tools/skills        — skill discovery and draft tools
+//	tools/inbox         — leave-message tool
 //	tools/diffartifact  — edit_file DiffArtifact wire contract
 //	tools/sandbox       — path escape checks
-//	tools/*.go          — tool adapters + registry + ToolSurface policy
-//	  surface.go        — CodingCapability / ToolSurface
-//	  edit/read/write/run — filesystem tool adapters
-//	  spawngeneral      — in-process subagents
-//	  delegatecoding    — optional ACP harness adapter
-//	  job_*, memory_*, mcp_* — other domains (still co-located; thin seams)
 package tools

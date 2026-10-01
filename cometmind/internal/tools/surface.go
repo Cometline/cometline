@@ -1,6 +1,9 @@
 package tools
 
-import "github.com/Cometline/cometline/cometmind/internal/session"
+import (
+	"github.com/Cometline/cometline/cometmind/internal/session"
+	childagent "github.com/Cometline/cometline/cometmind/internal/tools/subagent"
+)
 
 // ToolSurface is the capability policy for a registry: which tool families
 // are exposed. Parent, research, and coding registries share this module so
@@ -79,39 +82,25 @@ func SurfaceForMode(mode SubagentMode) ToolSurface {
 
 // Session kind + display label constants (persist kind; labels are derived).
 const (
-	SessionKindResearch = "general"
-	SessionKindCoding   = "coding"
-	SessionKindACP      = "acp"
+	SessionKindResearch = childagent.SessionKindResearch
+	SessionKindCoding   = childagent.SessionKindCoding
+	SessionKindACP      = childagent.SessionKindACP
 
-	AgentLabelResearch = "cometmind"
-	AgentLabelCoding   = "cometmind-coding"
+	AgentLabelResearch = childagent.AgentLabelResearch
+	AgentLabelCoding   = childagent.AgentLabelCoding
 )
 
 // SessionKindForMode is the persisted subagent_kind value.
 func SessionKindForMode(mode SubagentMode) string {
-	if mode == SubagentModeCoding {
-		return SessionKindCoding
-	}
-	return SessionKindResearch
+	return childagent.SessionKindForMode(mode)
 }
 
 // AgentLabelForMode is the SSE/display agent name for in-process children.
 func AgentLabelForMode(mode SubagentMode) string {
-	if mode == SubagentModeCoding {
-		return AgentLabelCoding
-	}
-	return AgentLabelResearch
+	return childagent.AgentLabelForMode(mode)
 }
 
 // AgentLabelForSessionKind maps persisted kind → display label.
 func AgentLabelForSessionKind(kind string) string {
-	switch kind {
-	case SessionKindCoding:
-		return AgentLabelCoding
-	case SessionKindResearch, "":
-		return AgentLabelResearch
-	default:
-		// External harness kinds (acp) keep harness-specific names elsewhere.
-		return ""
-	}
+	return childagent.AgentLabelForSessionKind(kind)
 }

@@ -1,8 +1,6 @@
 package tools
 
 import (
-	"context"
-
 	"github.com/Cometline/cometline/cometmind/internal/acp"
 	"github.com/Cometline/cometline/cometmind/internal/event"
 	"github.com/Cometline/cometline/cometmind/internal/generation"
@@ -14,25 +12,24 @@ import (
 	"github.com/Cometline/cometline/cometmind/internal/session"
 	"github.com/Cometline/cometline/cometmind/internal/skills"
 	"github.com/Cometline/cometline/cometmind/internal/subagent"
+	childagent "github.com/Cometline/cometline/cometmind/internal/tools/subagent"
 )
 
-// AgentLoopRunner is the subset of the agent runner used by subagent tools.
-type AgentLoopRunner interface {
-	Run(ctx context.Context, turn session.AgentTurn, ch chan<- event.Event) error
-}
-
-// SubagentMode selects the tool surface for an in-process child agent.
-type SubagentMode string
+// Agent loop types live with the subagent tools. These aliases keep the
+// registry and runtime call sites stable.
+type (
+	AgentLoopRunner    = childagent.AgentLoopRunner
+	SubagentMode       = childagent.SubagentMode
+	ChildRunnerFactory = childagent.ChildRunnerFactory
+	SubagentToolConfig = childagent.SubagentToolConfig
+)
 
 const (
 	// SubagentModeResearch is read-only exploration (no edit/write/run).
-	SubagentModeResearch SubagentMode = "research"
+	SubagentModeResearch = childagent.SubagentModeResearch
 	// SubagentModeCoding allows edit/write/run_command for native coding work.
-	SubagentModeCoding SubagentMode = "coding"
+	SubagentModeCoding = childagent.SubagentModeCoding
 )
-
-// ChildRunnerFactory builds a runner for an in-process subagent child session.
-type ChildRunnerFactory func(child session.Session, workspaceRoot string, maxSteps int, mode SubagentMode) (AgentLoopRunner, error)
 
 // RegistryOptions configures optional registry capabilities.
 type RegistryOptions struct {
@@ -64,9 +61,4 @@ type RegistryOptions struct {
 	AssistantMedia     session.AssistantMediaAppender
 	ReadyMedia         session.ReadyMediaReader
 	GenerationResolver func(kind string) generation.Binding
-}
-
-// SubagentToolConfig holds limits passed into subagent tools.
-type SubagentToolConfig struct {
-	GeneralMaxSteps int
 }
