@@ -54,17 +54,8 @@ type OAuthFlowOptions struct {
 // This is the interactive ("Connect with OAuth") path. It must only be called
 // from a context where the fetcher can complete a browser round-trip.
 func PerformInteractiveOAuth(ctx context.Context, opts OAuthFlowOptions, fetch AuthCodeFetcher) error {
-	if strings.TrimSpace(opts.ServerID) == "" {
-		return fmt.Errorf("server id is required")
-	}
-	if strings.TrimSpace(opts.ServerURL) == "" {
-		return fmt.Errorf("server url is required")
-	}
-	if strings.TrimSpace(opts.RedirectURL) == "" {
-		return fmt.Errorf("redirect url is required")
-	}
-	if fetch == nil {
-		return fmt.Errorf("auth code fetcher is required")
+	if err := validateOAuthFlowOptions(opts, fetch); err != nil {
+		return err
 	}
 	httpClient := opts.HTTPClient
 	if httpClient == nil {
@@ -81,35 +72,118 @@ func PerformInteractiveOAuth(ctx context.Context, opts OAuthFlowOptions, fetch A
 	}
 
 	// 2. Discover authorization server metadata.
-	//
-	// We intentionally do NOT use auth.GetAuthServerMetadata here: it enforces a
-	// strict RFC 8414 issuer match (metadata.issuer == requested URL). Some real
-	// deployments (e.g. Atlassian's Cloudflare-fronted authorization server, which
-	// returns issuer "https://cf.mcp.atlassian.com" for "https://mcp.atlassian.com")
-	// fail that check even though the metadata is otherwise valid. discoverAuthServerMetadata
-	// tolerates the mismatch while still requiring HTTPS endpoints and PKCE.
-	asm := discoverAuthServerMetadata(ctx, prm.AuthorizationServers[0], httpClient)
+	asm, err := resolveAuthServerMetadata(ctx, prm.AuthorizationServers[0], httpClient)
+	if err != nil {
+		return err
+	}
+
+	// 3. Resolve the client identity (DCR or manual/preregistered).
+	client, err := resolveOAuthClient(ctx, opts, asm, httpClient)
+	if err != nil {
+		return err
+	}
+
+	// 4. Resolve scopes: explicit override > discovery.
+	scopes := opts.Scopes
+	if len(scopes) == 0 {
+		scopes = prm.ScopesSupported
+	}
+
+	cfg := &oauth2.Config{
+		ClientID:     client.id,
+		ClientSecret: client.secret,
+		Endpoint: oauth2.Endpoint{
+			AuthURL:   asm.AuthorizationEndpoint,
+			TokenURL:  asm.TokenEndpoint,
+			AuthStyle: client.authStyle,
+		},
+		RedirectURL: opts.RedirectURL,
+		Scopes:      scopes,
+	}
+
+	// 5-7. Authorize interactively and exchange the code for tokens.
+	tok, err := authorizeAndExchange(ctx, cfg, prm.Resource, fetch, httpClient)
+	if err != nil {
+		return err
+	}
+
+	// 8. Persist client info (for headless refresh) then the token.
+	info := &oauthClientInfo{
+		AuthorizationEndpoint: asm.AuthorizationEndpoint,
+		TokenEndpoint:         asm.TokenEndpoint,
+		ClientID:              client.id,
+		ClientSecret:          client.secret,
+		Scopes:                scopes,
+		Resource:              prm.Resource,
+		ServerURL:             strings.TrimSpace(opts.ServerURL),
+		AuthStyle:             client.authStyle,
+	}
+	if err := saveOAuthCredentials(ctx, opts.ServerID, info, tok); err != nil {
+		return err
+	}
+	invalidateOAuthTokenSource(opts.ServerID)
+	return nil
+}
+
+func validateOAuthFlowOptions(opts OAuthFlowOptions, fetch AuthCodeFetcher) error {
+	if strings.TrimSpace(opts.ServerID) == "" {
+		return fmt.Errorf("server id is required")
+	}
+	if strings.TrimSpace(opts.ServerURL) == "" {
+		return fmt.Errorf("server url is required")
+	}
+	if strings.TrimSpace(opts.RedirectURL) == "" {
+		return fmt.Errorf("redirect url is required")
+	}
+	if fetch == nil {
+		return fmt.Errorf("auth code fetcher is required")
+	}
+	return nil
+}
+
+// resolveAuthServerMetadata discovers the authorization server's endpoints,
+// falling back to the predefined 2025-03-26 spec paths when no metadata
+// document is published.
+//
+// We intentionally do NOT use auth.GetAuthServerMetadata here: it enforces a
+// strict RFC 8414 issuer match (metadata.issuer == requested URL). Some real
+// deployments (e.g. Atlassian's Cloudflare-fronted authorization server, which
+// returns issuer "https://cf.mcp.atlassian.com" for "https://mcp.atlassian.com")
+// fail that check even though the metadata is otherwise valid. discoverAuthServerMetadata
+// tolerates the mismatch while still requiring HTTPS endpoints and PKCE.
+func resolveAuthServerMetadata(ctx context.Context, issuer string, httpClient *http.Client) (*oauthex.AuthServerMeta, error) {
+	asm := discoverAuthServerMetadata(ctx, issuer, httpClient)
 	if asm == nil {
-		// Fallback to predefined endpoints (2025-03-26 spec).
-		base := strings.TrimRight(prm.AuthorizationServers[0], "/")
+		base := strings.TrimRight(issuer, "/")
 		asm = &oauthex.AuthServerMeta{
-			Issuer:                prm.AuthorizationServers[0],
+			Issuer:                issuer,
 			AuthorizationEndpoint: base + "/authorize",
 			TokenEndpoint:         base + "/token",
 			RegistrationEndpoint:  base + "/register",
 		}
 	}
 	if strings.TrimSpace(asm.AuthorizationEndpoint) == "" || strings.TrimSpace(asm.TokenEndpoint) == "" {
-		return fmt.Errorf("authorization server metadata missing authorization or token endpoint")
+		return nil, fmt.Errorf("authorization server metadata missing authorization or token endpoint")
 	}
+	return asm, nil
+}
 
-	// 3. Resolve the client identity (DCR or manual/preregistered).
-	clientID := strings.TrimSpace(opts.ManualClientID)
-	clientSecret := ""
-	authStyle := oauth2.AuthStyleInParams
-	if clientID == "" {
+type oauthClientIdentity struct {
+	id        string
+	secret    string
+	authStyle oauth2.AuthStyle
+}
+
+// resolveOAuthClient uses the manual client id when set, otherwise registers a
+// public client via Dynamic Client Registration.
+func resolveOAuthClient(ctx context.Context, opts OAuthFlowOptions, asm *oauthex.AuthServerMeta, httpClient *http.Client) (oauthClientIdentity, error) {
+	client := oauthClientIdentity{
+		id:        strings.TrimSpace(opts.ManualClientID),
+		authStyle: oauth2.AuthStyleInParams,
+	}
+	if client.id == "" {
 		if strings.TrimSpace(asm.RegistrationEndpoint) == "" {
-			return fmt.Errorf("authorization server does not support dynamic client registration and no client id was provided")
+			return oauthClientIdentity{}, fmt.Errorf("authorization server does not support dynamic client registration and no client id was provided")
 		}
 		clientName := strings.TrimSpace(opts.ClientName)
 		if clientName == "" {
@@ -124,83 +198,52 @@ func PerformInteractiveOAuth(ctx context.Context, opts OAuthFlowOptions, fetch A
 		}
 		reg, regErr := oauthex.RegisterClient(ctx, asm.RegistrationEndpoint, regMeta, httpClient)
 		if regErr != nil {
-			return fmt.Errorf("dynamic client registration failed: %w", regErr)
+			return oauthClientIdentity{}, fmt.Errorf("dynamic client registration failed: %w", regErr)
 		}
-		clientID = reg.ClientID
-		clientSecret = reg.ClientSecret
-		authStyle = authStyleForMethod(reg.TokenEndpointAuthMethod)
+		client.id = reg.ClientID
+		client.secret = reg.ClientSecret
+		client.authStyle = authStyleForMethod(reg.TokenEndpointAuthMethod)
 	}
-	if clientID == "" {
-		return fmt.Errorf("no client id resolved after registration")
+	if client.id == "" {
+		return oauthClientIdentity{}, fmt.Errorf("no client id resolved after registration")
 	}
+	return client, nil
+}
 
-	// 4. Resolve scopes: explicit override > discovery.
-	scopes := opts.Scopes
-	if len(scopes) == 0 {
-		scopes = prm.ScopesSupported
-	}
-
-	cfg := &oauth2.Config{
-		ClientID:     clientID,
-		ClientSecret: clientSecret,
-		Endpoint: oauth2.Endpoint{
-			AuthURL:   asm.AuthorizationEndpoint,
-			TokenURL:  asm.TokenEndpoint,
-			AuthStyle: authStyle,
-		},
-		RedirectURL: opts.RedirectURL,
-		Scopes:      scopes,
-	}
-
-	// 5. Build the authorization URL (PKCE S256 + RFC 8707 resource indicator).
+// authorizeAndExchange builds the authorization URL (PKCE S256 + RFC 8707
+// resource indicator), runs the interactive fetch (browser + loopback capture),
+// verifies the echoed state, and exchanges the code for tokens.
+func authorizeAndExchange(ctx context.Context, cfg *oauth2.Config, resource string, fetch AuthCodeFetcher, httpClient *http.Client) (*oauth2.Token, error) {
 	verifier := oauth2.GenerateVerifier()
 	state, err := randomState()
 	if err != nil {
-		return fmt.Errorf("generate state: %w", err)
+		return nil, fmt.Errorf("generate state: %w", err)
 	}
 	authURL := cfg.AuthCodeURL(state,
 		oauth2.S256ChallengeOption(verifier),
-		oauth2.SetAuthURLParam("resource", prm.Resource),
+		oauth2.SetAuthURLParam("resource", resource),
 	)
 
-	// 6. Run the interactive fetch (browser + loopback capture).
 	code, gotState, err := fetch(ctx, authURL)
 	if err != nil {
-		return fmt.Errorf("authorization fetch failed: %w", err)
+		return nil, fmt.Errorf("authorization fetch failed: %w", err)
 	}
 	if gotState != state {
-		return fmt.Errorf("oauth state mismatch")
+		return nil, fmt.Errorf("oauth state mismatch")
 	}
 	if strings.TrimSpace(code) == "" {
-		return fmt.Errorf("authorization server returned an empty code")
+		return nil, fmt.Errorf("authorization server returned an empty code")
 	}
 
-	// 7. Exchange the code for tokens.
 	clientCtx := context.WithValue(ctx, oauth2.HTTPClient, httpClient)
 	tok, err := cfg.Exchange(clientCtx, code,
 		oauth2.VerifierOption(verifier),
-		oauth2.SetAuthURLParam("resource", prm.Resource),
+		oauth2.SetAuthURLParam("resource", resource),
 	)
 	if err != nil {
-		return fmt.Errorf("token exchange failed: %w", err)
+		return nil, fmt.Errorf("token exchange failed: %w", err)
 	}
-
-	// 8. Persist client info (for headless refresh) then the token.
-	info := &oauthClientInfo{
-		AuthorizationEndpoint: asm.AuthorizationEndpoint,
-		TokenEndpoint:         asm.TokenEndpoint,
-		ClientID:              clientID,
-		ClientSecret:          clientSecret,
-		Scopes:                scopes,
-		Resource:              prm.Resource,
-		ServerURL:             strings.TrimSpace(opts.ServerURL),
-		AuthStyle:             authStyle,
-	}
-	if err := saveOAuthCredentials(ctx, opts.ServerID, info, tok); err != nil {
-		return err
-	}
-	invalidateOAuthTokenSource(opts.ServerID)
-	return nil
+	return tok, nil
 }
 
 func saveOAuthCredentials(ctx context.Context, serverID string, info *oauthClientInfo, tok *oauth2.Token) error {
