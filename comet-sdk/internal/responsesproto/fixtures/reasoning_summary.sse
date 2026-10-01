@@ -1,0 +1,15 @@
+event: response.reasoning_summary_text.delta
+data: {"type":"response.reasoning_summary_text.delta","item_id":"rs_01","delta":"Checking"}
+
+event: response.reasoning_summary_text.delta
+data: {"type":"response.reasoning_summary_text.delta","item_id":"rs_01","delta":" the files."}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","item":{"type":"reasoning","id":"rs_01","summary":[{"type":"summary_text","text":"Checking the files."}],"encrypted_content":"opaque-state-01"}}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","item_id":"msg_01","delta":"Done."}
+
+event: response.completed
+data: {"type":"response.completed","response":{"usage":{"input_tokens":20,"output_tokens":9}}}
+
