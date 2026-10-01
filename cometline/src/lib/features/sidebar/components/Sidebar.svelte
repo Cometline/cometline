@@ -1,24 +1,12 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { flip } from 'svelte/animate';
-	import { Settings, Briefcase, Sparkles, Bell, Images, CircleDollarSign } from '@lucide/svelte';
 	import type { Session } from '$lib/types';
 	import { sessionStore } from '$lib/stores/session.svelte';
-	import { deleteSession, updateSession } from '$lib/client/cometmind';
 	import { startNewChat } from '$lib/actions/new-chat';
 	import { navigateToSession } from '$lib/actions/navigate-to-session';
 	import { sessionDisplayTitle } from '$lib/sessions/session-title';
-	import {
-		activateAfterSessionDeleted,
-		sessionsSnapshot
-	} from '$lib/actions/activate-after-session-deleted';
 	import { shellStore } from '$lib/stores/shell.svelte';
-	import { inboxStore } from '$lib/stores/inbox.svelte';
-	import { jobsIndicatorStore } from '$lib/stores/jobs-indicator.svelte';
-	import { skillDraftsStore } from '$lib/stores/skill-drafts.svelte';
-	import { openSettings } from '$lib/actions/open-settings';
 	import { isNarrowViewport } from '$lib/layout/narrow-viewport';
 	import {
 		layoutSessionsForSidebar,
@@ -31,9 +19,8 @@
 	import WorkspaceGroup from '$lib/features/sidebar/components/WorkspaceGroup.svelte';
 	import ConfirmActionModal from '$lib/components/ConfirmActionModal.svelte';
 	import SessionContextMenu from '$lib/features/sidebar/components/SessionContextMenu.svelte';
-	import Tooltip from '$lib/components/Tooltip.svelte';
-	import { terminalStore } from '$lib/stores/terminal.svelte';
-	import { settingsStore } from '$lib/stores/settings.svelte';
+	import SidebarFooter from '$lib/features/sidebar/components/sidebar/SidebarFooter.svelte';
+	import { createSidebarSessionActions } from '$lib/features/sidebar/sidebar-session-actions.svelte';
 
 	const WORKSPACE_GROUP_FLIP = { duration: 240 };
 
@@ -47,13 +34,7 @@
 		}
 		return current?.workspace_path ?? shellStore.sidebarOrderWorkspacePath;
 	});
-	let deletingID = $state<string | null>(null);
-	let pinningID = $state<string | null>(null);
-	let contextMenu = $state<{ session: Session; x: number; y: number } | null>(null);
-	let pendingDelete = $state<Session | null>(null);
-	let terminalDeleteSession = $state<Session | null>(null);
-	let pendingRename = $state<Session | null>(null);
-	let renameTitle = $state('');
+	const actions = createSidebarSessionActions();
 	let searchQuery = $state('');
 	let searchInput = $state<HTMLInputElement | null>(null);
 
@@ -76,90 +57,6 @@
 	function selectSession(session: Session) {
 		navigateToSession(session);
 		closeSidebarIfNarrow();
-	}
-
-	async function removeSession(session: Session) {
-		if (terminalStore.isRunning(session.id)) {
-			terminalDeleteSession = session;
-			return;
-		}
-		if (terminalStore.hasTerminal(session.id)) await terminalStore.remove(session.id);
-		if (settingsStore.settings.app.confirmBeforeDeletingChats) {
-			pendingDelete = session;
-			return;
-		}
-		await deleteSelectedSession(session);
-	}
-
-	async function confirmTerminalDelete() {
-		const session = terminalDeleteSession;
-		if (!session) return;
-		terminalDeleteSession = null;
-		await terminalStore.remove(session.id);
-		await deleteSelectedSession(session);
-	}
-
-	async function confirmDelete() {
-		if (!pendingDelete) return;
-		const session = pendingDelete;
-		pendingDelete = null;
-		await deleteSelectedSession(session);
-	}
-
-	async function alwaysDeleteWithoutConfirm() {
-		// Persist preference in the background — don't block delete on settings IPC.
-		void settingsStore.saveConfirmBeforeDeletingChats(false).catch(() => {});
-		await confirmDelete();
-	}
-
-	async function deleteSelectedSession(session: Session) {
-		deletingID = session.id;
-		try {
-			const wasCurrent = sessionStore.current?.id === session.id;
-			const before = sessionsSnapshot();
-			await deleteSession(session.id);
-			shellStore.clearWorkspacePanelForSession(session.id);
-			sessionStore.removeSession(session.id);
-			if (wasCurrent) {
-				await activateAfterSessionDeleted(session.id, before);
-			}
-		} finally {
-			deletingID = null;
-		}
-	}
-
-	async function togglePinSession(session: Session) {
-		pinningID = session.id;
-		try {
-			const updated = await updateSession(session.id, { pinned: !session.pinned });
-			sessionStore.updateSession(updated);
-		} finally {
-			pinningID = null;
-		}
-	}
-
-	function openSessionContextMenu(session: Session, event: MouseEvent) {
-		contextMenu = { session, x: event.clientX, y: event.clientY };
-	}
-
-	function closeSessionContextMenu() {
-		contextMenu = null;
-	}
-
-	function startRenameSession(session: Session) {
-		renameTitle = session.title || '';
-		pendingRename = session;
-	}
-
-	function cancelRename() {
-		pendingRename = null;
-	}
-
-	async function confirmRename() {
-		if (!pendingRename) return;
-		const updated = await updateSession(pendingRename.id, { title: renameTitle.trim() });
-		sessionStore.updateSession(updated);
-		pendingRename = null;
 	}
 
 	let currentSessionId = $derived(page.params.id ?? null);
@@ -211,8 +108,10 @@
 <aside
 	class="sidebar"
 	class:collapsed
-	class:modal-open={Boolean(pendingDelete || terminalDeleteSession || pendingRename)}
-	class:context-menu-open={Boolean(contextMenu)}
+	class:modal-open={Boolean(
+		actions.pendingDelete || actions.terminalDeleteSession || actions.pendingRename
+	)}
+	class:context-menu-open={Boolean(actions.contextMenu)}
 	aria-hidden={collapsed}
 	data-workspace-path={orderWorkspacePath}
 >
@@ -227,13 +126,13 @@
 					sessions={pinnedSessions}
 					collapsed={isGroupCollapsed(PINNED_GROUP_KEY)}
 					{currentSessionId}
-					{deletingID}
-					{pinningID}
+					deletingID={actions.deletingID}
+					pinningID={actions.pinningID}
 					onToggle={() => toggleGroup(PINNED_GROUP_KEY)}
 					onSelectSession={selectSession}
-					onDeleteSession={removeSession}
-					onPinSession={togglePinSession}
-					onSessionContextMenu={openSessionContextMenu}
+					onDeleteSession={actions.removeSession}
+					onPinSession={actions.togglePinSession}
+					onSessionContextMenu={actions.openSessionContextMenu}
 				/>
 			{/if}
 			{#if showDividerAfterPinned}
@@ -245,11 +144,11 @@
 					collapsed={isGroupCollapsed(DISCORD_GROUP_KEY)}
 					active
 					{currentSessionId}
-					{deletingID}
+					deletingID={actions.deletingID}
 					onToggle={() => toggleGroup(DISCORD_GROUP_KEY)}
 					onSelectSession={selectSession}
-					onDeleteSession={removeSession}
-					onSessionContextMenu={openSessionContextMenu}
+					onDeleteSession={actions.removeSession}
+					onSessionContextMenu={actions.openSessionContextMenu}
 				/>
 			{/if}
 			{#if showDividerAfterDiscordFirst}
@@ -265,15 +164,15 @@
 						active={group.workspacePath === highlightWorkspacePath}
 						searchActive={!!searchQuery.trim()}
 						{currentSessionId}
-						{deletingID}
-						{pinningID}
+						deletingID={actions.deletingID}
+						pinningID={actions.pinningID}
 						onToggle={() => toggleGroup(group.workspacePath)}
 						onNewSession={newChat}
 						onSelectSession={selectSession}
-						onDeleteSession={removeSession}
-						onPinSession={togglePinSession}
-						onRenameSession={startRenameSession}
-						onSessionContextMenu={openSessionContextMenu}
+						onDeleteSession={actions.removeSession}
+						onPinSession={actions.togglePinSession}
+						onRenameSession={actions.startRenameSession}
+						onSessionContextMenu={actions.openSessionContextMenu}
 					/>
 				</div>
 			{/each}
@@ -285,11 +184,11 @@
 					sessions={discordSessions}
 					collapsed={isGroupCollapsed(DISCORD_GROUP_KEY)}
 					{currentSessionId}
-					{deletingID}
+					deletingID={actions.deletingID}
 					onToggle={() => toggleGroup(DISCORD_GROUP_KEY)}
 					onSelectSession={selectSession}
-					onDeleteSession={removeSession}
-					onSessionContextMenu={openSessionContextMenu}
+					onDeleteSession={actions.removeSession}
+					onSessionContextMenu={actions.openSessionContextMenu}
 				/>
 			{/if}
 			{#if totalSessions === 0}
@@ -299,114 +198,52 @@
 			{/if}
 		</div>
 
-		<div class="sidebar-footer p-2">
-			<Tooltip label="Settings" action="openSettings">
-				<button aria-label="Settings" onclick={openSettings}>
-					<Settings size={16} stroke-width={1.8} />
-				</button>
-			</Tooltip>
-			<Tooltip label="Jobs" action="openJobs">
-				<button
-					aria-label={jobsIndicatorStore.hasOngoing
-						? `Jobs (${jobsIndicatorStore.ongoingCount} ongoing)`
-						: 'Jobs'}
-					class="nav-badge"
-					class:has-badge={jobsIndicatorStore.hasOngoing}
-					class:active={page.url.pathname === '/jobs'}
-					onclick={() => goto(resolve('/jobs'))}
-				>
-					<Briefcase size={16} stroke-width={1.8} />
-				</button>
-			</Tooltip>
-			<Tooltip label="Skills" action="openSkillDrafts">
-				<button
-					aria-label="Skills"
-					class="nav-badge"
-					class:has-badge={skillDraftsStore.hasDrafts}
-					class:active={page.url.pathname === '/skills' ||
-						page.url.pathname === '/skill-drafts'}
-					onclick={() => goto(resolve('/skills'))}
-				>
-					<Sparkles size={16} stroke-width={1.8} />
-				</button>
-			</Tooltip>
-			<Tooltip label="Gallery" action="openGallery">
-				<button
-					aria-label="Gallery"
-					class="nav-badge"
-					class:active={page.url.pathname === '/gallery'}
-					onclick={() => goto(resolve('/gallery'))}
-				>
-					<Images size={16} stroke-width={1.8} />
-				</button>
-			</Tooltip>
-			<Tooltip label="Usage" action="openUsage">
-				<button
-					aria-label="Usage"
-					class="nav-badge"
-					class:active={page.url.pathname === '/usage'}
-					onclick={() => goto(resolve('/usage'))}
-				>
-					<CircleDollarSign size={16} stroke-width={1.8} />
-				</button>
-			</Tooltip>
-			<Tooltip label="Inbox" action="openInbox">
-				<button
-					aria-label="Inbox"
-					class="nav-badge"
-					class:has-badge={inboxStore.openCount > 0}
-					class:active={inboxStore.drawerOpen}
-					onclick={() => inboxStore.toggleDrawer()}
-				>
-					<Bell size={16} stroke-width={1.8} />
-				</button>
-			</Tooltip>
-		</div>
+		<SidebarFooter />
 	</div>
 
 	<ConfirmActionModal
-		open={Boolean(pendingDelete)}
-		title={`Delete "${pendingDelete ? sessionDisplayTitle(pendingDelete.title) : ''}"?`}
+		open={Boolean(actions.pendingDelete)}
+		title={`Delete "${actions.pendingDelete ? sessionDisplayTitle(actions.pendingDelete.title) : ''}"?`}
 		description="This cannot be undone."
 		confirmLabel="Delete"
 		secondaryLabel="Don't ask again"
-		onSecondary={() => void alwaysDeleteWithoutConfirm()}
-		onCancel={() => (pendingDelete = null)}
-		onConfirm={() => void confirmDelete()}
+		onSecondary={() => void actions.alwaysDeleteWithoutConfirm()}
+		onCancel={() => (actions.pendingDelete = null)}
+		onConfirm={() => void actions.confirmDelete()}
 	/>
 
 	<ConfirmActionModal
-		open={Boolean(terminalDeleteSession)}
+		open={Boolean(actions.terminalDeleteSession)}
 		title="Delete chat?"
 		description="This will terminate this chat's terminal and every program started from it. This cannot be undone."
 		confirmLabel="Delete chat"
-		onCancel={() => (terminalDeleteSession = null)}
-		onConfirm={() => void confirmTerminalDelete()}
+		onCancel={() => (actions.terminalDeleteSession = null)}
+		onConfirm={() => void actions.confirmTerminalDelete()}
 	/>
 
 	<ConfirmActionModal
-		open={Boolean(pendingRename)}
+		open={Boolean(actions.pendingRename)}
 		title="Rename session"
 		description="Choose a name for this chat."
 		confirmLabel="Save"
 		confirmTone="accent"
 		showInput
-		bind:inputValue={renameTitle}
+		bind:inputValue={actions.renameTitle}
 		inputPlaceholder="New Chat"
 		inputMaxLength={200}
-		onCancel={cancelRename}
-		onConfirm={() => void confirmRename()}
+		onCancel={actions.cancelRename}
+		onConfirm={() => void actions.confirmRename()}
 	/>
 
-	{#if contextMenu}
-		{@const menu = contextMenu}
+	{#if actions.contextMenu}
+		{@const menu = actions.contextMenu}
 		<SessionContextMenu
 			session={menu.session}
 			x={menu.x}
 			y={menu.y}
-			onPin={() => togglePinSession(menu.session)}
-			onRename={() => startRenameSession(menu.session)}
-			onClose={closeSessionContextMenu}
+			onPin={() => actions.togglePinSession(menu.session)}
+			onRename={() => actions.startRenameSession(menu.session)}
+			onClose={actions.closeSessionContextMenu}
 		/>
 	{/if}
 </aside>
@@ -469,30 +306,6 @@
 		-webkit-app-region: drag;
 	}
 
-	.sidebar-footer button {
-		width: 28px;
-		height: 28px;
-		border: none;
-		background: transparent;
-		border-radius: 6px;
-		color: var(--text-muted);
-		display: grid;
-		place-items: center;
-	}
-
-	.sidebar-footer button:hover {
-		background: rgba(0, 0, 0, 0.04);
-		color: var(--text-main);
-	}
-
-	.sidebar-footer button:active {
-		background: rgba(0, 0, 0, 0.07);
-	}
-
-	.sidebar-footer button.active {
-		background: rgba(0, 0, 0, 0.1);
-	}
-
 	.session-list {
 		flex: 1;
 		overflow-y: auto;
@@ -516,32 +329,6 @@
 		background: rgba(15, 23, 42, 0.16);
 		border-radius: 1px;
 		flex-shrink: 0;
-	}
-
-	.sidebar-footer {
-		margin-top: auto;
-		margin-right: 10px;
-		margin-left: 10px;
-		padding-top: 8px;
-		border-top: 1px solid var(--border-soft);
-		display: flex;
-		flex-direction: row;
-		gap: 4px;
-	}
-
-	.sidebar-footer .nav-badge {
-		position: relative;
-	}
-
-	.sidebar-footer .nav-badge.has-badge::after {
-		content: '';
-		position: absolute;
-		top: 4px;
-		right: 4px;
-		width: 5px;
-		height: 5px;
-		border-radius: 999px;
-		background: var(--accent);
 	}
 
 	@media (prefers-reduced-motion: reduce) {
