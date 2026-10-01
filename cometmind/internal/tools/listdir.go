@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/Cometline/cometline/cometmind/internal/paths"
+	"github.com/Cometline/cometline/cometmind/internal/tools/toolkit"
 )
 
 // ListDir lists non-hidden entries one level under a path. Relative paths
@@ -34,7 +35,7 @@ func (l ListDir) Execute(ctx context.Context, input json.RawMessage) (Result, er
 	if err := json.Unmarshal(input, &in); err != nil {
 		return Result{}, err
 	}
-	path, bad, ok := requiredTrimmedString(in.Path, "path")
+	path, bad, ok := toolkit.RequiredTrimmedString(in.Path, "path")
 	if !ok {
 		return bad, nil
 	}

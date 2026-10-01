@@ -1,4 +1,4 @@
-package tools
+package toolkit
 
 import (
 	"encoding/json"
@@ -8,18 +8,18 @@ import (
 )
 
 func TestIsJSONSchemaError(t *testing.T) {
-	if err := json.Unmarshal([]byte(`{"path":"/foo`), &map[string]any{}); !isJSONSchemaError(err) {
+	if err := json.Unmarshal([]byte(`{"path":"/foo`), &map[string]any{}); !IsJSONSchemaError(err) {
 		t.Fatalf("truncated JSON should be a schema error: %v", err)
 	}
 	if err := json.Unmarshal([]byte(`"please list files"`), &struct {
 		Path string `json:"path"`
-	}{}); !isJSONSchemaError(err) {
+	}{}); !IsJSONSchemaError(err) {
 		t.Fatalf("string payload should be a schema error: %v", err)
 	}
-	if isJSONSchemaError(errors.New("path is required")) {
+	if IsJSONSchemaError(errors.New("path is required")) {
 		t.Fatal("validation errors must not look like schema failures")
 	}
-	if isJSONSchemaError(nil) {
+	if IsJSONSchemaError(nil) {
 		t.Fatal("nil error is not a schema failure")
 	}
 }

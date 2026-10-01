@@ -7,6 +7,8 @@ import (
 	"os"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/Cometline/cometline/cometmind/internal/tools/toolkit"
 )
 
 // ReadFile reads UTF-8 text within the workspace.
@@ -49,7 +51,7 @@ func (r ReadFile) Execute(ctx context.Context, input json.RawMessage) (Result, e
 	if err := json.Unmarshal(input, &in); err != nil {
 		return Result{}, err
 	}
-	path, bad, ok := requiredTrimmedString(in.Path, "path")
+	path, bad, ok := toolkit.RequiredTrimmedString(in.Path, "path")
 	if !ok {
 		return bad, nil
 	}

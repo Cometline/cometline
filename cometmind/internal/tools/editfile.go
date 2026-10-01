@@ -9,6 +9,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/Cometline/cometline/cometmind/internal/tools/diffartifact"
+	"github.com/Cometline/cometline/cometmind/internal/tools/toolkit"
 )
 
 // EditFile performs surgical search/replace edits inside the workspace.
@@ -46,7 +47,7 @@ func (e EditFile) Execute(ctx context.Context, input json.RawMessage) (Result, e
 	if err := json.Unmarshal(input, &in); err != nil {
 		return Result{}, err
 	}
-	path, bad, ok := requiredTrimmedString(in.Path, "path")
+	path, bad, ok := toolkit.RequiredTrimmedString(in.Path, "path")
 	if !ok {
 		return bad, nil
 	}

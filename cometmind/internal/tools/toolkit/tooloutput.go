@@ -1,4 +1,4 @@
-package tools
+package toolkit
 
 import (
 	"fmt"
@@ -18,9 +18,9 @@ const (
 	toolOutputRetention       = 7 * 24 * time.Hour
 )
 
-// boundToolOutput returns text unchanged when small enough; otherwise writes the
+// BoundToolOutput returns text unchanged when small enough; otherwise writes the
 // full text under ~/.cometmind/tool-output/ and returns a head+tail preview plus path.
-func boundToolOutput(text string) string {
+func BoundToolOutput(text string) string {
 	if len([]rune(text)) <= toolOutputMaxPreviewRunes {
 		return text
 	}

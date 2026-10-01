@@ -7,6 +7,7 @@ import (
 	cometsdk "github.com/Cometline/cometline/comet-sdk"
 	"github.com/Cometline/cometline/cometmind/internal/generation"
 	"github.com/Cometline/cometline/cometmind/internal/skills"
+	"github.com/Cometline/cometline/cometmind/internal/tools/toolkit"
 )
 
 // Registry holds built-in tools for a workspace.
@@ -196,8 +197,8 @@ func (r *Registry) Execute(ctx context.Context, name string, input json.RawMessa
 		return Result{OK: false, Output: "unknown tool: " + name}, nil
 	}
 	res, err := t.Execute(ctx, input)
-	if isJSONSchemaError(err) {
-		return InvalidToolInputResult(name, input, err), nil
+	if toolkit.IsJSONSchemaError(err) {
+		return toolkit.InvalidToolInputResult(name, input, err), nil
 	}
 	return res, err
 }

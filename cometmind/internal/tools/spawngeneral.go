@@ -9,6 +9,7 @@ import (
 	"github.com/Cometline/cometline/cometmind/internal/event"
 	"github.com/Cometline/cometline/cometmind/internal/session"
 	"github.com/Cometline/cometline/cometmind/internal/subagent"
+	"github.com/Cometline/cometline/cometmind/internal/tools/toolkit"
 )
 
 // SpawnGeneralAgent runs a restricted CometMind agent loop in a background child session.
@@ -93,7 +94,7 @@ func (s SpawnGeneralAgent) Execute(ctx context.Context, input json.RawMessage) (
 		return Result{OK: false, Output: "subagent spawning is not configured"}, nil
 	}
 
-	parentID := ToolSessionFrom(ctx)
+	parentID := toolkit.ToolSessionFrom(ctx)
 	if parentID == "" {
 		return Result{OK: false, Output: "missing parent session context"}, nil
 	}
@@ -134,7 +135,7 @@ func (s SpawnGeneralAgent) Execute(ctx context.Context, input json.RawMessage) (
 
 	agentLabel := AgentLabelForMode(mode)
 
-	emit := ProgressFrom(ctx)
+	emit := toolkit.ProgressFrom(ctx)
 	if emit != nil {
 		emit(event.SubagentStarted(child.ID, task, agentLabel))
 	}

@@ -1,4 +1,4 @@
-package tools
+package toolkit
 
 import (
 	"encoding/json"
@@ -9,11 +9,11 @@ import (
 )
 
 const (
-	invalidToolArgumentsMarker = "invalid tool arguments"
+	InvalidToolArgumentsMarker = "invalid tool arguments"
 	toolInputPreviewLimit      = 240
 )
 
-func requiredTrimmedString(value *string, field string) (string, Result, bool) {
+func RequiredTrimmedString(value *string, field string) (string, Result, bool) {
 	if value == nil {
 		return "", Result{OK: false, Output: field + " is required"}, false
 	}
@@ -24,14 +24,14 @@ func requiredTrimmedString(value *string, field string) (string, Result, bool) {
 	return trimmed, Result{}, true
 }
 
-func requiredString(value *string, field string) (string, Result, bool) {
+func RequiredString(value *string, field string) (string, Result, bool) {
 	if value == nil {
 		return "", Result{OK: false, Output: field + " is required"}, false
 	}
 	return *value, Result{}, true
 }
 
-func isJSONSchemaError(err error) bool {
+func IsJSONSchemaError(err error) bool {
 	if err == nil {
 		return false
 	}
@@ -63,7 +63,7 @@ func formatInvalidToolInput(name string, input json.RawMessage, err error) strin
 	}
 	return fmt.Sprintf(
 		"%s for %s: %s. Retry this tool once with a smaller, complete JSON object. Raw input: %s",
-		invalidToolArgumentsMarker, name, detail, preview,
+		InvalidToolArgumentsMarker, name, detail, preview,
 	)
 }
 
@@ -87,7 +87,7 @@ func IsInvalidToolInput(res Result, err error) bool {
 	if res.InvalidInput {
 		return true
 	}
-	return isJSONSchemaError(err)
+	return IsJSONSchemaError(err)
 }
 
 // IsCompleteJSONObject reports whether input is a finished JSON object.

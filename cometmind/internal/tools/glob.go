@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/Cometline/cometline/cometmind/internal/tools/toolkit"
 	"github.com/bmatcuk/doublestar/v4"
 )
 
@@ -48,7 +49,7 @@ func (g Glob) Execute(ctx context.Context, input json.RawMessage) (Result, error
 	if err := json.Unmarshal(input, &in); err != nil {
 		return Result{}, err
 	}
-	pattern, bad, ok := requiredTrimmedString(in.Pattern, "pattern")
+	pattern, bad, ok := toolkit.RequiredTrimmedString(in.Pattern, "pattern")
 	if !ok {
 		return bad, nil
 	}

@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/Cometline/cometline/cometmind/internal/skills"
+	"github.com/Cometline/cometline/cometmind/internal/tools/toolkit"
 )
 
 // WriteSkillDraft creates or updates an Agent Skill draft under ~/.cometmind/skill-drafts.
@@ -44,11 +45,11 @@ func (WriteSkillDraft) Execute(_ context.Context, input json.RawMessage) (Result
 	if err := json.Unmarshal(input, &in); err != nil {
 		return Result{}, err
 	}
-	name, bad, ok := requiredTrimmedString(in.Name, "name")
+	name, bad, ok := toolkit.RequiredTrimmedString(in.Name, "name")
 	if !ok {
 		return bad, nil
 	}
-	content, bad, ok := requiredString(in.Content, "content")
+	content, bad, ok := toolkit.RequiredString(in.Content, "content")
 	if !ok {
 		return bad, nil
 	}

@@ -13,6 +13,7 @@ import (
 
 	"github.com/Cometline/cometline/cometmind/internal/paths"
 	"github.com/Cometline/cometline/cometmind/internal/process"
+	"github.com/Cometline/cometline/cometmind/internal/tools/toolkit"
 )
 
 // RunCommand runs a shell command with cwd set to the workspace root.
@@ -53,7 +54,7 @@ func (r RunCommand) Execute(ctx context.Context, input json.RawMessage) (Result,
 	if err := json.Unmarshal(input, &in); err != nil {
 		return Result{}, err
 	}
-	command, bad, ok := requiredTrimmedString(in.Command, "command")
+	command, bad, ok := toolkit.RequiredTrimmedString(in.Command, "command")
 	if !ok {
 		return bad, nil
 	}
@@ -94,7 +95,7 @@ func (r RunCommand) Execute(ctx context.Context, input json.RawMessage) (Result,
 	cmd.Env = env
 
 	out, err := cmd.CombinedOutput()
-	text := boundToolOutput(process.RedactSecretValues(string(out), env))
+	text := toolkit.BoundToolOutput(process.RedactSecretValues(string(out), env))
 
 	var exit *int
 	if err != nil {

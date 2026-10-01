@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/Cometline/cometline/cometmind/internal/skills"
+	"github.com/Cometline/cometline/cometmind/internal/tools/toolkit"
 )
 
 // LoadSkill loads a discovered Agent Skill's SKILL.md instructions.
@@ -32,7 +33,7 @@ func (l LoadSkill) Execute(_ context.Context, input json.RawMessage) (Result, er
 	if err := json.Unmarshal(input, &in); err != nil {
 		return Result{}, err
 	}
-	name, bad, ok := requiredTrimmedString(in.Name, "name")
+	name, bad, ok := toolkit.RequiredTrimmedString(in.Name, "name")
 	if !ok {
 		return bad, nil
 	}
@@ -68,11 +69,11 @@ func (r ReadSkillFile) Execute(_ context.Context, input json.RawMessage) (Result
 	if err := json.Unmarshal(input, &in); err != nil {
 		return Result{}, err
 	}
-	name, bad, ok := requiredTrimmedString(in.Name, "name")
+	name, bad, ok := toolkit.RequiredTrimmedString(in.Name, "name")
 	if !ok {
 		return bad, nil
 	}
-	path, bad, ok := requiredTrimmedString(in.Path, "path")
+	path, bad, ok := toolkit.RequiredTrimmedString(in.Path, "path")
 	if !ok {
 		return bad, nil
 	}

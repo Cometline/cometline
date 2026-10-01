@@ -8,6 +8,7 @@ import (
 
 	"github.com/Cometline/cometline/cometmind/internal/session"
 	"github.com/Cometline/cometline/cometmind/internal/subagent"
+	"github.com/Cometline/cometline/cometmind/internal/tools/toolkit"
 )
 
 // WaitSubagents blocks until selected child subagents finish.
@@ -45,7 +46,7 @@ func (w WaitSubagents) Execute(ctx context.Context, input json.RawMessage) (Resu
 		return Result{OK: false, Output: "subagent wait is not configured"}, nil
 	}
 
-	parentID := ToolSessionFrom(ctx)
+	parentID := toolkit.ToolSessionFrom(ctx)
 	if parentID == "" {
 		return Result{OK: false, Output: "missing parent session context"}, nil
 	}

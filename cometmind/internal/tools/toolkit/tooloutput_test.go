@@ -1,4 +1,4 @@
-package tools
+package toolkit
 
 import (
 	"os"
@@ -9,7 +9,7 @@ import (
 
 func TestBoundToolOutputSmallUnchanged(t *testing.T) {
 	in := "hello"
-	if got := boundToolOutput(in); got != in {
+	if got := BoundToolOutput(in); got != in {
 		t.Fatalf("got %q", got)
 	}
 }
@@ -22,7 +22,7 @@ func TestBoundToolOutputSpillsLarge(t *testing.T) {
 	for i := 0; i < toolOutputMaxPreviewRunes+5000; i++ {
 		b.WriteByte('a')
 	}
-	out := boundToolOutput(b.String())
+	out := BoundToolOutput(b.String())
 	if !strings.Contains(out, "output truncated") {
 		t.Fatalf("expected truncation notice: %s", out[:min(200, len(out))])
 	}
@@ -58,16 +58,5 @@ func TestHeadTailPreview(t *testing.T) {
 	}
 	if !strings.HasSuffix(got, "bbbbbbbbbb") {
 		t.Fatalf("tail: %q", got)
-	}
-}
-
-func TestRunCommandTimeoutParam(t *testing.T) {
-	tool := RunCommand{Workspace: Workspace{Root: t.TempDir()}}
-	res, err := tool.Execute(t.Context(), []byte(`{"command":"sleep 2","timeout_sec":1}`))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if res.OK || !strings.Contains(res.Output, "timed out") {
-		t.Fatalf("result = %+v", res)
 	}
 }

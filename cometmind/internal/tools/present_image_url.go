@@ -13,6 +13,7 @@ import (
 
 	"github.com/Cometline/cometline/cometmind/internal/media"
 	"github.com/Cometline/cometline/cometmind/internal/session"
+	"github.com/Cometline/cometline/cometmind/internal/tools/toolkit"
 )
 
 const (
@@ -47,11 +48,11 @@ func (p PresentImageURL) Execute(ctx context.Context, input json.RawMessage) (Re
 	if err := json.Unmarshal(input, &in); err != nil {
 		return Result{}, err
 	}
-	imageURL, bad, ok := requiredTrimmedString(in.URL, "url")
+	imageURL, bad, ok := toolkit.RequiredTrimmedString(in.URL, "url")
 	if !ok {
 		return bad, nil
 	}
-	sessionID := ToolSessionFrom(ctx)
+	sessionID := toolkit.ToolSessionFrom(ctx)
 	if sessionID == "" {
 		return Result{OK: false, Output: "present_image_url requires an active session"}, nil
 	}

@@ -12,6 +12,7 @@ import (
 
 	"github.com/Cometline/cometline/cometmind/internal/media"
 	"github.com/Cometline/cometline/cometmind/internal/session"
+	"github.com/Cometline/cometline/cometmind/internal/tools/toolkit"
 )
 
 const (
@@ -72,7 +73,7 @@ func (c CaptureScreenshot) Execute(ctx context.Context, input json.RawMessage) (
 		}
 	}
 
-	sessionID := ToolSessionFrom(ctx)
+	sessionID := toolkit.ToolSessionFrom(ctx)
 	if sessionID == "" {
 		return Result{OK: false, Output: "capture_screenshot requires an active session"}, nil
 	}

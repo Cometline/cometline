@@ -10,6 +10,7 @@ import (
 	"github.com/Cometline/cometline/cometmind/internal/generation"
 	"github.com/Cometline/cometline/cometmind/internal/media"
 	"github.com/Cometline/cometline/cometmind/internal/session"
+	"github.com/Cometline/cometline/cometmind/internal/tools/toolkit"
 )
 
 // GenerateVideo creates a clip from a prompt or a session-local first frame.
@@ -47,11 +48,11 @@ func (g GenerateVideo) Execute(ctx context.Context, input json.RawMessage) (Resu
 	if err := json.Unmarshal(input, &in); err != nil {
 		return Result{}, err
 	}
-	prompt, bad, ok := requiredTrimmedString(in.Prompt, "prompt")
+	prompt, bad, ok := toolkit.RequiredTrimmedString(in.Prompt, "prompt")
 	if !ok {
 		return bad, nil
 	}
-	sessionID := ToolSessionFrom(ctx)
+	sessionID := toolkit.ToolSessionFrom(ctx)
 	if sessionID == "" {
 		return Result{OK: false, Output: "generate_video requires an active session"}, nil
 	}
@@ -128,7 +129,7 @@ func optionalTrimmed(value *string) string {
 }
 
 func emitGeneratedMedia(ctx context.Context, ref media.Ref) {
-	progress := ProgressFrom(ctx)
+	progress := toolkit.ProgressFrom(ctx)
 	if progress == nil {
 		return
 	}

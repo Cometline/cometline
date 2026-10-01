@@ -11,6 +11,7 @@ import (
 	"github.com/Cometline/cometline/cometmind/internal/acp"
 	"github.com/Cometline/cometline/cometmind/internal/session"
 	"github.com/Cometline/cometline/cometmind/internal/skills"
+	"github.com/Cometline/cometline/cometmind/internal/tools/toolkit"
 )
 
 func TestNewSubagentRegistryExcludesWriteAndDelegateTools(t *testing.T) {
@@ -131,7 +132,7 @@ func TestRegistryExecuteDoesNotTreatFileContentAsInvalidInput(t *testing.T) {
 	if res.InvalidInput || IsInvalidToolInput(res, nil) {
 		t.Fatalf("file content mentioning the marker must stay a normal result: %+v", res)
 	}
-	if !strings.Contains(res.Output, invalidToolArgumentsMarker) {
+	if !strings.Contains(res.Output, toolkit.InvalidToolArgumentsMarker) {
 		t.Fatalf("expected file content in output, got %q", res.Output)
 	}
 }

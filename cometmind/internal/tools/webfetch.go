@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Cometline/cometline/cometmind/internal/tools/toolkit"
 	"golang.org/x/net/html"
 )
 
@@ -49,7 +50,7 @@ func (WebFetch) Execute(ctx context.Context, input json.RawMessage) (Result, err
 		return Result{}, err
 	}
 
-	target, bad, ok := requiredTrimmedString(in.URL, "url")
+	target, bad, ok := toolkit.RequiredTrimmedString(in.URL, "url")
 	if !ok {
 		return bad, nil
 	}
@@ -128,7 +129,7 @@ func parseWebFetchInput(input json.RawMessage) (webFetchInput, error) {
 	}
 	var raw string
 	if stringErr := json.Unmarshal(input, &raw); stringErr == nil {
-		raw, _, ok := requiredTrimmedString(&raw, "url")
+		raw, _, ok := toolkit.RequiredTrimmedString(&raw, "url")
 		if !ok {
 			return webFetchInput{}, nil
 		}

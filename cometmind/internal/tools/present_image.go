@@ -11,6 +11,7 @@ import (
 	"github.com/Cometline/cometline/cometmind/internal/media"
 	"github.com/Cometline/cometline/cometmind/internal/paths"
 	"github.com/Cometline/cometline/cometmind/internal/session"
+	"github.com/Cometline/cometline/cometmind/internal/tools/toolkit"
 )
 
 // PresentImage registers a local image into the session media store and shows it
@@ -40,7 +41,7 @@ func (p PresentImage) Execute(ctx context.Context, input json.RawMessage) (Resul
 	if err := json.Unmarshal(input, &in); err != nil {
 		return Result{}, err
 	}
-	path, bad, ok := requiredTrimmedString(in.Path, "path")
+	path, bad, ok := toolkit.RequiredTrimmedString(in.Path, "path")
 	if !ok {
 		return bad, nil
 	}
@@ -49,7 +50,7 @@ func (p PresentImage) Execute(ctx context.Context, input json.RawMessage) (Resul
 		alt = strings.TrimSpace(*in.Alt)
 	}
 
-	sessionID := ToolSessionFrom(ctx)
+	sessionID := toolkit.ToolSessionFrom(ctx)
 	if sessionID == "" {
 		return Result{OK: false, Output: "present_image requires an active session"}, nil
 	}

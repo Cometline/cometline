@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/Cometline/cometline/cometmind/internal/tools/toolkit"
 )
 
 // WriteFile creates or overwrites a file relative to the workspace.
@@ -38,11 +40,11 @@ func (w WriteFile) Execute(ctx context.Context, input json.RawMessage) (Result, 
 	if err := json.Unmarshal(input, &in); err != nil {
 		return Result{}, err
 	}
-	path, bad, ok := requiredTrimmedString(in.Path, "path")
+	path, bad, ok := toolkit.RequiredTrimmedString(in.Path, "path")
 	if !ok {
 		return bad, nil
 	}
-	content, bad, ok := requiredString(in.Content, "content")
+	content, bad, ok := toolkit.RequiredString(in.Content, "content")
 	if !ok {
 		return bad, nil
 	}

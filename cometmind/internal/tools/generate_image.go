@@ -8,6 +8,7 @@ import (
 	"github.com/Cometline/cometline/cometmind/internal/generation"
 	"github.com/Cometline/cometline/cometmind/internal/media"
 	"github.com/Cometline/cometline/cometmind/internal/session"
+	"github.com/Cometline/cometline/cometmind/internal/tools/toolkit"
 )
 
 // GenerateImage creates a still with the configured image generation model.
@@ -40,11 +41,11 @@ func (g GenerateImage) Execute(ctx context.Context, input json.RawMessage) (Resu
 	if err := json.Unmarshal(input, &in); err != nil {
 		return Result{}, err
 	}
-	prompt, bad, ok := requiredTrimmedString(in.Prompt, "prompt")
+	prompt, bad, ok := toolkit.RequiredTrimmedString(in.Prompt, "prompt")
 	if !ok {
 		return bad, nil
 	}
-	sessionID := ToolSessionFrom(ctx)
+	sessionID := toolkit.ToolSessionFrom(ctx)
 	if sessionID == "" {
 		return Result{OK: false, Output: "generate_image requires an active session"}, nil
 	}

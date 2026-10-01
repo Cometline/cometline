@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/Cometline/cometline/cometmind/internal/skills"
+	"github.com/Cometline/cometline/cometmind/internal/tools/toolkit"
 )
 
 // ListSkillDrafts lists pending Agent Skill drafts waiting for review.
@@ -54,7 +55,7 @@ func (ReadSkillDraft) Execute(_ context.Context, input json.RawMessage) (Result,
 	if err := json.Unmarshal(input, &in); err != nil {
 		return Result{}, err
 	}
-	name, bad, ok := requiredTrimmedString(in.Name, "name")
+	name, bad, ok := toolkit.RequiredTrimmedString(in.Name, "name")
 	if !ok {
 		return bad, nil
 	}
@@ -83,7 +84,7 @@ func (PromoteSkillDraft) Execute(_ context.Context, input json.RawMessage) (Resu
 	if err := json.Unmarshal(input, &in); err != nil {
 		return Result{}, err
 	}
-	name, bad, ok := requiredTrimmedString(in.Name, "name")
+	name, bad, ok := toolkit.RequiredTrimmedString(in.Name, "name")
 	if !ok {
 		return bad, nil
 	}

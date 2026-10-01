@@ -11,6 +11,7 @@ import (
 	"github.com/Cometline/cometline/cometmind/internal/event"
 	"github.com/Cometline/cometline/cometmind/internal/session"
 	"github.com/Cometline/cometline/cometmind/internal/subagent"
+	"github.com/Cometline/cometline/cometmind/internal/tools/toolkit"
 )
 
 // DelegateCodingTask hands coding work to an external coding harness.
@@ -60,7 +61,7 @@ func (d DelegateCodingTask) Execute(ctx context.Context, input json.RawMessage) 
 		return Result{OK: false, Output: "delegation is not configured"}, nil
 	}
 
-	parentID := ToolSessionFrom(ctx)
+	parentID := toolkit.ToolSessionFrom(ctx)
 	if parentID == "" {
 		return Result{OK: false, Output: "missing parent session context"}, nil
 	}
@@ -75,7 +76,7 @@ func (d DelegateCodingTask) Execute(ctx context.Context, input json.RawMessage) 
 		return Result{OK: false, Output: err.Error()}, nil
 	}
 
-	emit := ProgressFrom(ctx)
+	emit := toolkit.ProgressFrom(ctx)
 	if emit != nil {
 		emit(event.SubagentStarted(child.ID, task, d.ACP.Label()))
 	}
