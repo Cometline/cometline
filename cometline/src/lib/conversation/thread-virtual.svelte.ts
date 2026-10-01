@@ -20,7 +20,8 @@ export interface VisibleTurnEntry extends VirtualTurnEntry<ThreadTurn> {
 }
 
 export interface ThreadVirtualDeps {
-	getSessionId: () => string;
+	/** From thread-scroll. Bumps once per session change. */
+	getSessionEpoch: () => number;
 	getThreadTurns: () => readonly ThreadTurn[];
 	getScroller: () => HTMLDivElement | undefined;
 	getViewportHeight: () => number;
@@ -42,7 +43,7 @@ export interface ThreadVirtualDeps {
 export function createThreadVirtual(deps: ThreadVirtualDeps) {
 	let virtualScrollTop = $state(0);
 	let measuredTurnHeights = $state.raw<Record<string, number>>({});
-	let measureSessionId: string | null = null;
+	let measureEpoch = -1;
 
 	const turnSizes = $derived(
 		resolveTurnSizes(deps.getThreadTurns(), measuredTurnHeights, {
@@ -95,10 +96,11 @@ export function createThreadVirtual(deps: ThreadVirtualDeps) {
 		syncFromScroller();
 	}
 
+	// Session identity comes from thread-scroll. This effect only applies the reset.
 	$effect(() => {
-		const next = deps.getSessionId();
-		if (next === measureSessionId) return;
-		measureSessionId = next;
+		const epoch = deps.getSessionEpoch();
+		if (epoch === measureEpoch) return;
+		measureEpoch = epoch;
 		measuredTurnHeights = {};
 		virtualScrollTop = 0;
 	});

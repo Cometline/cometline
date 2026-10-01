@@ -13,6 +13,8 @@ import { parseJobProposal } from '$lib/jobs/parse-job-proposal';
 
 export interface FoldControllerDeps {
 	getSessionId: () => string;
+	/** From thread-scroll. Bumps once per session change. */
+	getSessionEpoch: () => number;
 	getIsSessionSynced: () => boolean;
 	getItems: () => readonly ChatItem[];
 	getStreamingAssistantId: () => string | null;
@@ -155,7 +157,7 @@ export function createFoldController(deps: FoldControllerDeps) {
 	});
 
 	$effect(() => {
-		void deps.getSessionId();
+		void deps.getSessionEpoch();
 		untrack(() => resetForSession());
 	});
 
