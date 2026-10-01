@@ -66,7 +66,7 @@ export interface TerminalSnapshot {
 }
 
 export interface HeroComposerAppearance {
-	presetId: 'blue' | 'rose' | 'custom';
+	presetId: 'clay' | 'blue' | 'rose' | 'custom';
 	glowColor: string;
 	ringColor: string;
 	customPreset?: {
