@@ -410,7 +410,7 @@ func resolveDefaultLLM(raw cometlineSettingsJSON, runtimeProviders []cometlinePr
 
 func normalizeMCPTransport(raw string) MCPTransport {
 	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case string(MCPTransportHTTP):
+	case string(MCPTransportHTTP), "sse":
 		return MCPTransportHTTP
 	default:
 		return MCPTransportStdio
