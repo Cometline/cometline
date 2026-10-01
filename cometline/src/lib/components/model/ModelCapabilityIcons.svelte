@@ -78,7 +78,7 @@
 		padding: 2px 6px;
 		border-radius: 4px;
 		background: rgba(30, 30, 30, 0.92);
-		color: #fff;
+		color: var(--panel-bg);
 		font-size: 9px;
 		font-weight: 650;
 		letter-spacing: 0.04em;

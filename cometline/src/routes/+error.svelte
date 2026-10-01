@@ -64,7 +64,7 @@
 		padding: 10px 16px;
 		border-radius: 10px;
 		background: var(--accent);
-		color: #fff;
+		color: var(--panel-bg);
 		font-size: 13px;
 		font-weight: 600;
 		text-decoration: none;

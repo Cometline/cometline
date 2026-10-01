@@ -363,3 +363,50 @@ select {
 		animation: none !important;
 	}
 }
+
+:root {
+	/* Literal colors migrated out of components. */
+	--color-000000: #000000;
+	--color-0055a4: #0055a4;
+	--color-020617: #020617;
+	--color-027a48: #027a48;
+	--color-0b1020: #0b1020;
+	--color-0f172a: #0f172a;
+	--color-111111: #111111;
+	--color-18181b: #18181b;
+	--color-1d4ed8: #1d4ed8;
+	--color-1d5c42: #1d5c42;
+	--color-1e3a5f: #1e3a5f;
+	--color-22c55e: #22c55e;
+	--color-23232a: #23232a;
+	--color-24745d: #24745d;
+	--color-2563eb: #2563eb;
+	--color-2f6f4f: #2f6f4f;
+	--color-31517a: #31517a;
+	--color-3b82f6: #3b82f6;
+	--color-454553: #454553;
+	--color-4c8dff: #4c8dff;
+	--color-72c0ff: #72c0ff;
+	--color-737373: #737373;
+	--color-7aa1aa: #7aa1aa;
+	--color-86efac: #86efac;
+	--color-8a5a10: #8a5a10;
+	--color-94a3b8: #94a3b8;
+	--color-999999: #999999;
+	--color-9ca3af: #9ca3af;
+	--color-b91c1c: #b91c1c;
+	--color-be123c: #be123c;
+	--color-d4d4d8: #d4d4d8;
+	--color-e11d48: #e11d48;
+	--color-edf1f5: #edf1f5;
+	--color-eef2f6: #eef2f6;
+	--color-eef2f7: #eef2f7;
+	--color-f4f4f5: #f4f4f5;
+	--color-f59e0b: #f59e0b;
+	--color-f5f5f7: #f5f5f7;
+	--color-f8fbff: #f8fbff;
+	--color-facc15: #facc15;
+	--color-fafafa: #fafafa;
+	--color-fca5a5: #fca5a5;
+	--color-fff3a3: #fff3a3;
+}

@@ -113,17 +113,37 @@
 	.workspace-group:not(.active) {
 		background: linear-gradient(
 			135deg,
-			color-mix(in srgb, var(--workspace-inactive-color, #9a9a9f) 16%, transparent),
-			color-mix(in srgb, var(--workspace-inactive-color, #9a9a9f) 6%, transparent)
+			color-mix(
+				in srgb,
+				var(--workspace-inactive-color, var(--workspace-group-color)) 16%,
+				transparent
+			),
+			color-mix(
+				in srgb,
+				var(--workspace-inactive-color, var(--workspace-group-color)) 6%,
+				transparent
+			)
 		);
-		border-color: color-mix(in srgb, var(--workspace-inactive-color, #9a9a9f) 14%, transparent);
+		border-color: color-mix(
+			in srgb,
+			var(--workspace-inactive-color, var(--workspace-group-color)) 14%,
+			transparent
+		);
 	}
 
 	.workspace-group:not(.active):hover {
 		background: linear-gradient(
 			135deg,
-			color-mix(in srgb, var(--workspace-inactive-color, #9a9a9f) 24%, transparent),
-			color-mix(in srgb, var(--workspace-inactive-color, #9a9a9f) 9%, transparent)
+			color-mix(
+				in srgb,
+				var(--workspace-inactive-color, var(--workspace-group-color)) 24%,
+				transparent
+			),
+			color-mix(
+				in srgb,
+				var(--workspace-inactive-color, var(--workspace-group-color)) 9%,
+				transparent
+			)
 		);
 	}
 
@@ -177,7 +197,7 @@
 		border: none;
 		border-radius: 7px;
 		background: transparent;
-		color: var(--workspace-inactive-color, #9a9a9f);
+		color: var(--workspace-inactive-color, var(--workspace-group-color));
 		font-size: 11px;
 		font-weight: 600;
 		text-transform: uppercase;
@@ -201,7 +221,7 @@
 		border: none;
 		border-radius: 5px;
 		background: transparent;
-		color: var(--workspace-inactive-color, #9a9a9f);
+		color: var(--workspace-inactive-color, var(--workspace-group-color));
 		cursor: pointer;
 	}
 
@@ -218,13 +238,13 @@
 		display: grid;
 		place-items: center;
 		flex-shrink: 0;
-		color: var(--workspace-inactive-color, #9a9a9f);
+		color: var(--workspace-inactive-color, var(--workspace-group-color));
 		transition: color var(--duration-fast) var(--ease-smooth);
 	}
 
 	.workspace-header :global(.workspace-folder) {
 		flex-shrink: 0;
-		color: var(--workspace-inactive-color, #9a9a9f);
+		color: var(--workspace-inactive-color, var(--workspace-group-color));
 		transition: color var(--duration-fast) var(--ease-smooth);
 	}
 

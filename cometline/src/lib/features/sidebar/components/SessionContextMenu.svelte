@@ -74,7 +74,7 @@
 		padding: 4px;
 		border-radius: 8px;
 		border: 1px solid var(--border-soft);
-		background: var(--surface-elevated, #fff);
+		background: var(--surface-elevated, var(--panel-bg));
 		box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
 	}
 

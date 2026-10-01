@@ -100,7 +100,7 @@
 		gap: 2px;
 		--session-group-color: var(
 			--workspace-group-color,
-			var(--workspace-inactive-color, #9a9a9f)
+			var(--workspace-inactive-color, var(--workspace-group-color))
 		);
 	}
 

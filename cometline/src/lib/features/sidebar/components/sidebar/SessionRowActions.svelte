@@ -81,7 +81,7 @@
 	}
 
 	.pin-session.active {
-		color: var(--pinned-group-color, #b45309);
+		color: var(--pinned-group-color, var(--pinned-group-color));
 	}
 
 	.pin-session:hover:not(:disabled),
@@ -91,7 +91,7 @@
 	}
 
 	.pin-session.active:hover:not(:disabled) {
-		color: var(--pinned-group-color, #b45309);
+		color: var(--pinned-group-color, var(--pinned-group-color));
 	}
 
 	.delete-session:hover:not(:disabled) {

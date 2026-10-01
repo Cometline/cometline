@@ -261,7 +261,7 @@
 		overflow: hidden;
 		transition: width var(--duration-sidebar) var(--ease-smooth);
 		view-transition-name: sidebar;
-		--workspace-inactive-color: #9a9a9f;
+		--workspace-inactive-color: var(--workspace-group-color);
 	}
 
 	.sidebar.modal-open {

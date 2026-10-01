@@ -88,11 +88,23 @@
 		gap: 4px;
 		border-radius: 8px;
 		padding: 2px;
-		border: 1px solid color-mix(in srgb, var(--discord-group-color, #5865f2) 16%, transparent);
+		border: 1px solid
+			color-mix(
+				in srgb,
+				var(--discord-group-color, var(--discord-group-color)) 16%,
+				transparent
+			);
 		background: linear-gradient(
 			135deg,
-			var(--discord-group-bg, color-mix(in srgb, #5865f2 10%, transparent)),
-			color-mix(in srgb, var(--discord-group-color, #5865f2) 4%, transparent)
+			var(
+				--discord-group-bg,
+				color-mix(in srgb, var(--discord-group-color) 10%, transparent)
+			),
+			color-mix(
+				in srgb,
+				var(--discord-group-color, var(--discord-group-color)) 4%,
+				transparent
+			)
 		);
 		transition:
 			background var(--duration-fast) var(--ease-smooth),
@@ -101,17 +113,32 @@
 	}
 
 	.discord-group:hover {
-		border-color: color-mix(in srgb, var(--discord-group-color, #5865f2) 24%, transparent);
+		border-color: color-mix(
+			in srgb,
+			var(--discord-group-color, var(--discord-group-color)) 24%,
+			transparent
+		);
 		background: linear-gradient(
 			135deg,
-			var(--discord-group-bg-hover, color-mix(in srgb, #5865f2 16%, transparent)),
-			color-mix(in srgb, var(--discord-group-color, #5865f2) 7%, transparent)
+			var(
+				--discord-group-bg-hover,
+				color-mix(in srgb, var(--discord-group-color) 16%, transparent)
+			),
+			color-mix(
+				in srgb,
+				var(--discord-group-color, var(--discord-group-color)) 7%,
+				transparent
+			)
 		);
 	}
 
 	.discord-group.active {
 		box-shadow: 0 8px 22px
-			color-mix(in srgb, var(--discord-group-color, #5865f2) 7%, transparent);
+			color-mix(
+				in srgb,
+				var(--discord-group-color, var(--discord-group-color)) 7%,
+				transparent
+			);
 	}
 
 	.discord-group.active .discord-label {
@@ -120,7 +147,7 @@
 
 	.discord-group.active .discord-chevron,
 	.discord-group.active .discord-icon {
-		color: var(--discord-group-color, #5865f2);
+		color: var(--discord-group-color, var(--discord-group-color));
 	}
 
 	.discord-header {
@@ -132,7 +159,7 @@
 		border: none;
 		border-radius: 7px;
 		background: transparent;
-		color: var(--workspace-inactive-color, #9a9a9f);
+		color: var(--workspace-inactive-color, var(--workspace-group-color));
 		font-size: 11px;
 		font-weight: 600;
 		text-transform: uppercase;
@@ -149,7 +176,7 @@
 		display: grid;
 		place-items: center;
 		flex-shrink: 0;
-		color: var(--workspace-inactive-color, #9a9a9f);
+		color: var(--workspace-inactive-color, var(--workspace-group-color));
 		transition: color var(--duration-fast) var(--ease-smooth);
 	}
 
@@ -157,7 +184,7 @@
 		width: 13px;
 		height: 13px;
 		flex-shrink: 0;
-		color: var(--workspace-inactive-color, #9a9a9f);
+		color: var(--workspace-inactive-color, var(--workspace-group-color));
 		transition: color var(--duration-fast) var(--ease-smooth);
 	}
 

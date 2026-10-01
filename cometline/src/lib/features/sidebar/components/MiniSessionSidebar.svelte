@@ -322,7 +322,11 @@
 		padding: 2px;
 		border: 1px solid transparent;
 		border-radius: 9px;
-		background: color-mix(in srgb, var(--workspace-inactive-color, #9a9a9f) 8%, transparent);
+		background: color-mix(
+			in srgb,
+			var(--workspace-inactive-color, var(--workspace-group-color)) 8%,
+			transparent
+		);
 	}
 
 	.session-section.active {
@@ -339,11 +343,19 @@
 	}
 
 	.session-section.pinned {
-		background: color-mix(in srgb, var(--pinned-group-color, #b45309) 10%, transparent);
+		background: color-mix(
+			in srgb,
+			var(--pinned-group-color, var(--pinned-group-color)) 10%,
+			transparent
+		);
 	}
 
 	.session-section.discord {
-		background: color-mix(in srgb, var(--discord-group-color, #5865f2) 10%, transparent);
+		background: color-mix(
+			in srgb,
+			var(--discord-group-color, var(--discord-group-color)) 10%,
+			transparent
+		);
 	}
 
 	.section-header {

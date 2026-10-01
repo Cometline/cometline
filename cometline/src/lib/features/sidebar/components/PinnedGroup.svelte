@@ -84,14 +84,19 @@
 		gap: 4px;
 		border-radius: 8px;
 		padding: 2px;
-		border: 1px solid color-mix(in srgb, var(--pinned-group-color, #b45309) 20%, transparent);
+		border: 1px solid
+			color-mix(
+				in srgb,
+				var(--pinned-group-color, var(--pinned-group-color)) 20%,
+				transparent
+			);
 		background: linear-gradient(
 			135deg,
-			var(--pinned-group-bg, color-mix(in srgb, #b45309 10%, transparent)),
-			color-mix(in srgb, var(--pinned-group-color, #b45309) 4%, transparent)
+			var(--pinned-group-bg, color-mix(in srgb, var(--pinned-group-color) 10%, transparent)),
+			color-mix(in srgb, var(--pinned-group-color, var(--pinned-group-color)) 4%, transparent)
 		);
 		box-shadow: 0 8px 22px
-			color-mix(in srgb, var(--pinned-group-color, #b45309) 7%, transparent);
+			color-mix(in srgb, var(--pinned-group-color, var(--pinned-group-color)) 7%, transparent);
 		transition:
 			background var(--duration-fast) var(--ease-smooth),
 			border-color var(--duration-fast) var(--ease-smooth),
@@ -99,11 +104,18 @@
 	}
 
 	.pinned-group:hover {
-		border-color: color-mix(in srgb, var(--pinned-group-color, #b45309) 30%, transparent);
+		border-color: color-mix(
+			in srgb,
+			var(--pinned-group-color, var(--pinned-group-color)) 30%,
+			transparent
+		);
 		background: linear-gradient(
 			135deg,
-			var(--pinned-group-bg-hover, color-mix(in srgb, #b45309 16%, transparent)),
-			color-mix(in srgb, var(--pinned-group-color, #b45309) 7%, transparent)
+			var(
+				--pinned-group-bg-hover,
+				color-mix(in srgb, var(--pinned-group-color) 16%, transparent)
+			),
+			color-mix(in srgb, var(--pinned-group-color, var(--pinned-group-color)) 7%, transparent)
 		);
 	}
 
@@ -116,7 +128,7 @@
 		border: none;
 		border-radius: 7px;
 		background: transparent;
-		color: var(--pinned-group-color, #b45309);
+		color: var(--pinned-group-color, var(--pinned-group-color));
 		font-size: 11px;
 		font-weight: 600;
 		text-transform: uppercase;
@@ -129,12 +141,12 @@
 		display: grid;
 		place-items: center;
 		flex-shrink: 0;
-		color: var(--pinned-group-color, #b45309);
+		color: var(--pinned-group-color, var(--pinned-group-color));
 	}
 
 	.pinned-header :global(.pinned-icon) {
 		flex-shrink: 0;
-		color: var(--pinned-group-color, #b45309);
+		color: var(--pinned-group-color, var(--pinned-group-color));
 	}
 
 	.pinned-label {
