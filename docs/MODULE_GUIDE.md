@@ -3,7 +3,7 @@
 This is the short operational guide for developers and agents working in the
 monorepo after the v1 milestone.
 
-For system walkthroughs, start with `../ARCHITECTURE.md` and
+For system walkthroughs, start with `learning/00-README.md` and
 `../ARCHITECTURE_GUIDE.md`. This file focuses on ownership, design rules, and
 how to change each module without leaking responsibilities across boundaries.
 
@@ -245,12 +245,13 @@ Schema changes need SQLC regeneration and incremental migration entries.
 
 ### MCP changes
 
-MCP spans shared settings, native OAuth orchestration, runtime connection management, and tool registration. Review all of:
+MCP spans shared settings, CometMind-owned OAuth, runtime connection management, tool registration, and the Electron-side Cursor `mcp.json` import. Review all of:
 
 - `cometmind/internal/mcp/`
 - `cometmind/internal/tools/registry.go`
 - `cometline/src/lib/components/settings/SettingsMCPPanel.svelte`
-- `cometline/electron/src/domains/provider-auth.ts`
+- `cometline/src/lib/settings/cursor-mcp-import.ts`
+- `cometline/electron/src/domains/provider-auth.ts` (reads `~/.cursor/mcp.json`)
 - `cometline/electron/src/domains/runtime-ipc.ts`
 - `cometline/electron/src/preload.ts`
 - `cometline/electron/src/shared/api.ts`

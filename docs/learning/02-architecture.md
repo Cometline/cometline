@@ -19,7 +19,7 @@ cometline/          (monorepo root)
 ├── cometmind/      Go module: agent runtime, CLI, HTTP API
 ├── cometline/      SvelteKit + Electron desktop shell
 ├── Makefile        Root commands (install, check, build, dev)
-├── ARCHITECTURE.md
+├── CONTRIBUTING.md
 ├── ARCHITECTURE_GUIDE.md
 └── docs/learning/  ← you are here
 ```
@@ -171,7 +171,7 @@ cometmind/
     ├── agent/              Multi-step LLM and tool runner
     ├── session/            Domain service over sqlc queries
     ├── db/                 Schema, migrations, generated sqlc
-    ├── config/             JSON, TOML, and env config
+    ├── config/             JSON settings and env overrides
     ├── provider/           Config → comet-sdk factory (builds the provider)
     ├── tools/              Built-in tool registry, surfaces, and sandbox
     ├── acp/                Fixed CLI profiles for delegate_coding_task
@@ -204,9 +204,11 @@ comet-sdk/
 │   ├── anthropic/      Messages API adapter
 │   ├── openai/         Chat Completions adapter
 │   ├── codex/          ChatGPT Codex adapter
+│   ├── openairesponses/ OpenAI Responses adapter (OpenCode Go models)
 │   └── xai/            xAI Grok subscription adapter
 └── internal/
     ├── providerbase/   Shared HTTP, errors, and options
+    ├── responsesproto/ Responses wire protocol shared by Codex and OpenCode Go
     ├── retry/          Exponential backoff (each retry waits longer)
     └── sse/            SSE scanner
 ```
@@ -269,10 +271,10 @@ A seam is a place where you can add a feature. You start at the files in the rig
 | New built-in tool | `cometmind/internal/tools/*.go` → `registry.go` / `surface.go`                                           |
 | New API endpoint  | `server/server.go` + `openapi.yaml` → `make generate`                                                    |
 | New SSE event     | `event/event.go` + `openapi.yaml` → reducer and/or runtime toasts + contract tests                       |
-| DB schema change  | `db/schema.sql` + `migrate.go` → `sqlc generate`                                                         |
+| DB schema change  | `db/schema.sql` + `migrate.go` → pinned sqlc (see `CONTRIBUTING.md`)                                     |
 | Settings field    | `settings/schema.ts` + settings panel module + Electron split path                                       |
 | Jobs behavior     | `internal/jobs` / `scheduler` / `autonomy` + OpenAPI + `/jobs` UI                                        |
-| MCP behavior      | `internal/mcp` + settings MCP panel + Electron OAuth IPC                                                 |
+| MCP behavior      | `internal/mcp` + settings MCP panel + CometMind OAuth endpoint (Electron does not run MCP OAuth)         |
 | Coding harness    | `internal/acp` + Settings → Coding task delegation                                                       |
 
 ## What's next

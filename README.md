@@ -31,7 +31,7 @@ Pick the companion personality that fits your workflow in Settings → About. Sw
 - **Discord bot** — Same agent runtime as a Discord bot with per-thread sessions, @mention gating, and skill invocation
 - **Native chat UI** — SvelteKit + Electron with streaming, reasoning blocks, mini-window + session drawer, keyboard shortcuts, and auto-update
 - **Multi-provider** — Anthropic, OpenAI, OpenAI-compatible, Ollama, OpenCode Go, ChatGPT Codex, and xAI Grok (subscription auth); OpenCode Go models auto-route to Chat Completions, Anthropic Messages, or OpenAI Responses per model
-- **MCP client** — External Model Context Protocol servers over stdio, streamable HTTP, or SSE, including OAuth-protected remote servers
+- **MCP client** — External Model Context Protocol servers over stdio or streamable HTTP, including OAuth-protected remote servers
 - **Backup and retention** — Zip backups of `~/.cometmind`, plus retention for aged tool-output / agent-tmp files
 
 ## Quick Start
@@ -201,7 +201,7 @@ Skills can be drafted before promotion. Drafts live in `~/.cometmind/skill-draft
 
 MCP servers are configured in Settings → CometMind → MCP and persisted under `cometmind.mcp` in `~/.cometmind/cometline-settings.json`.
 
-- Supported transports: `stdio`, streamable `http`, and legacy `sse`
+- Supported transports: `stdio` and streamable `http` (a saved `sse` transport is read as `http`)
 - Tools are exposed to the main agent as provider-safe names like `mcp_{serverId}_{toolName}`
 - Keepalive + auto-reconnect for flaky servers; Settings UI can import Cursor-style `mcp.json`
 - Remote OAuth servers use CometMind-managed PRM/authorization-server discovery, Dynamic Client Registration, Authorization Code + PKCE, and headless refresh
@@ -239,52 +239,23 @@ Settings → CometMind → Storage:
 - **cometmind** — Local agent runtime with SQLite persistence, serves the API on `127.0.0.1:7700`
 - **comet-sdk** — Provider-agnostic streaming LLM library with retry logic, tool-call assembly, and Anthropic/OpenAI/Codex/xAI adapters
 
-See [ARCHITECTURE.md](./ARCHITECTURE.md) for detailed system design, or [docs/learning/](./docs/learning/) for a newcomer path.
+See [ARCHITECTURE_GUIDE.md](./ARCHITECTURE_GUIDE.md) for the system design, or [docs/learning/](./docs/learning/00-README.md) for a newcomer path.
 
 ## Development
 
 ```bash
-# Clone the single monorepo
-git clone https://github.com/cometline/cometline.git
+git clone https://github.com/Cometline/cometline.git
 cd cometline
-
-# Install frontend dependencies
-make install
-
-# Regenerate OpenAPI clients after API changes
-make generate
-
-# Run all checks (codegen freshness, Go tests, Svelte checks)
-make check
-
-# Run frontend tests
-cd cometline && pnpm test
-
-# Run backend tests
-cd cometmind && go test ./...
-
-# Build for production
-make build
-
-# Package macOS app
-make package
+make install   # frontend dependencies
+make dev       # build the CometMind sidecar and launch the Electron dev app
+make check     # codegen freshness, Go tests, Svelte checks (what CI runs)
 ```
 
-All new development happens in this repository. The historical `comet-sdk`, `cometmind`, and `cometline` repos are archived for reference only.
-
-See [AGENTS.md](./AGENTS.md) for development rules and commands.
-
-## Contributing
-
-- Fork `cometline`
-- Clone your fork normally; no submodule bootstrap is required
-- Run `make install` and `make dev` from the repository root
-- Run `make check` before opening a PR
-- Open a single PR here, even for changes that span `cometline/`, `cometmind/`, and `comet-sdk/`
+[CONTRIBUTING.md](./CONTRIBUTING.md) covers prerequisites, generated code, commit format, and the PR checklist. [AGENTS.md](./AGENTS.md) is the full command reference. All development happens in this repository; the historical `comet-sdk`, `cometmind`, and `cometline` repos are archived.
 
 ## Configuration
 
-Cometline and CometMind share settings in `~/.cometmind/cometline-settings.json`. Desktop UI state (appearance, shortcuts, persona) lives in `~/.cometmind/cometline-desktop.json`. CometMind still reads legacy `~/.cometmind/config.toml` only when the JSON settings file is missing.
+Cometline and CometMind share settings in `~/.cometmind/cometline-settings.json`. Desktop UI state (appearance, shortcuts, persona) lives in `~/.cometmind/cometline-desktop.json`.
 
 ```json
 {
@@ -304,7 +275,7 @@ Cometline and CometMind share settings in `~/.cometmind/cometline-settings.json`
   "defaultProviderId": "openai",
   "defaultModelId": "gpt-4o",
   "cometmind": {
-    "acp": { "enabled": false, "default_harness": "opencode" },
+    "acp": { "enabled": false, "defaultHarness": "opencode" },
     "storage": {
       "retentionDays": 90,
       "backup": { "enabled": false }
@@ -323,8 +294,9 @@ Apache License 2.0. See [LICENSE](./LICENSE).
 
 ## Links
 
-- [Documentation](./ARCHITECTURE.md)
+- [Contributing](./CONTRIBUTING.md)
 - [Learning path](./docs/learning/00-README.md)
+- [Architecture guide](./ARCHITECTURE_GUIDE.md)
 - [Ollama local setup](./cometline/docs/ollama-local.md)
-- [Contributing](#contributing)
-- [Issues](https://github.com/cometline/cometline/issues)
+- [Security policy](./SECURITY.md)
+- [Issues](https://github.com/Cometline/cometline/issues)
