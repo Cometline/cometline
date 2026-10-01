@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { fly, fade } from 'svelte/transition';
 	import { onMount } from 'svelte';
-	import { Archive, RotateCcw, X, Trash2, ExternalLink, RefreshCw } from '@lucide/svelte';
-	import { getSession, type JobEventResource, type JobResource } from '$lib/client/cometmind';
-	import { navigateToSession } from '$lib/actions/navigate-to-session';
+	import { X } from '@lucide/svelte';
+	import type { JobEventResource, JobResource } from '$lib/client/cometmind';
+	import { createJobDetailSessionController } from '$lib/features/jobs/job-detail-session.svelte';
 	import JobCreateForm from './JobCreateForm.svelte';
-	import WorkspacePathField from '$lib/components/WorkspacePathField.svelte';
+	import JobDetailEditForm from './job-detail/JobDetailEditForm.svelte';
+	import JobDetailFooter from './job-detail/JobDetailFooter.svelte';
 
 	type DrawerMode = 'detail' | 'create';
 
@@ -49,8 +50,10 @@
 		onCreate?: () => void | Promise<void>;
 	} = $props();
 
-	let openingSession = $state(false);
-	let openSessionError = $state('');
+	const runSession = createJobDetailSessionController({
+		getJob: () => job,
+		onClose: () => onClose()
+	});
 	const isArchived = $derived(job?.archived_at != null);
 	const isBlocked = $derived(job?.status === 'blocked');
 
@@ -64,21 +67,6 @@
 		window.addEventListener('keydown', onKeydown);
 		return () => window.removeEventListener('keydown', onKeydown);
 	});
-
-	async function handleOpenRunSession() {
-		if (!job?.assigned_session_id) return;
-		openingSession = true;
-		openSessionError = '';
-		try {
-			const session = await getSession(job.assigned_session_id);
-			navigateToSession(session);
-			onClose();
-		} catch (err) {
-			openSessionError = err instanceof Error ? err.message : 'Failed to open run session';
-		} finally {
-			openingSession = false;
-		}
-	}
 
 	function formatRetryTime(ms?: number): string {
 		if (!ms) return 'not scheduled';
@@ -166,33 +154,13 @@
 			{#if job.status === 'todo' && !isArchived}
 				<section class="drawer-section">
 					<h3>Edit</h3>
-					<form
-						class="drawer-form"
-						onsubmit={(e) => {
-							e.preventDefault();
-							void onSave?.();
-						}}
-					>
-						<div class="settings-field">
-							<label>
-								<span>Description</span>
-								<textarea bind:value={editDescription} rows={3}></textarea>
-							</label>
-						</div>
-						<div class="settings-field">
-							<label>
-								<span>Definition of done</span>
-								<textarea bind:value={editDod} rows={3}></textarea>
-							</label>
-						</div>
-						<div class="settings-field">
-							<span class="field-label">Workspace path</span>
-							<WorkspacePathField bind:value={editWorkspacePath} />
-						</div>
-						<button type="submit" class="secondary" disabled={saving}
-							>Save changes</button
-						>
-					</form>
+					<JobDetailEditForm
+						bind:description={editDescription}
+						bind:dod={editDod}
+						bind:workspacePath={editWorkspacePath}
+						{saving}
+						{onSave}
+					/>
 				</section>
 			{:else if job.status === 'ongoing'}
 				<p class="drawer-note">
@@ -218,71 +186,25 @@
 				{/if}
 			</section>
 
-			{#if openSessionError}
-				<p class="drawer-error">{openSessionError}</p>
+			{#if runSession.openSessionError}
+				<p class="drawer-error">{runSession.openSessionError}</p>
 			{/if}
 		{/if}
 	</div>
 
 	{#if mode === 'detail' && job}
-		<footer class="drawer-footer">
-			{#if job.assigned_session_id && job.status === 'done'}
-				<button
-					type="button"
-					class="secondary"
-					title="Open the completed session transcript."
-					disabled={openingSession || saving}
-					onclick={() => void handleOpenRunSession()}
-				>
-					<ExternalLink size={14} />
-					{openingSession ? 'Opening…' : 'Open session'}
-				</button>
-			{/if}
-			{#if isBlocked && !isArchived}
-				<button
-					type="button"
-					class="primary"
-					disabled={saving || openingSession}
-					onclick={() => void onRetry?.(job)}
-				>
-					<RefreshCw size={14} />
-					Retry now
-				</button>
-			{/if}
-			{#if job.status === 'done' && !isArchived}
-				<button
-					type="button"
-					class="secondary"
-					disabled={saving || openingSession}
-					onclick={() => void onArchive?.(job)}
-				>
-					<Archive size={14} />
-					Archive
-				</button>
-			{/if}
-			{#if isArchived}
-				<button
-					type="button"
-					class="secondary"
-					disabled={saving || openingSession}
-					onclick={() => void onUnarchive?.(job)}
-				>
-					<RotateCcw size={14} />
-					Unarchive
-				</button>
-			{/if}
-			{#if !isArchived}
-				<button
-					type="button"
-					class="secondary danger"
-					disabled={saving || openingSession}
-					onclick={() => void onDelete?.(job)}
-				>
-					<Trash2 size={14} />
-					Delete
-				</button>
-			{/if}
-		</footer>
+		<JobDetailFooter
+			{job}
+			{saving}
+			openingSession={runSession.openingSession}
+			{isArchived}
+			{isBlocked}
+			onOpenSession={() => void runSession.handleOpenRunSession()}
+			{onDelete}
+			{onArchive}
+			{onUnarchive}
+			{onRetry}
+		/>
 	{/if}
 </aside>
 
@@ -410,24 +332,6 @@
 		background: var(--app-bg);
 	}
 
-	.drawer-form {
-		display: flex;
-		flex-direction: column;
-		gap: 12px;
-	}
-
-	.drawer-form textarea {
-		width: 100%;
-		border: 1px solid var(--border-soft);
-		border-radius: 10px;
-		padding: 8px 10px;
-		font: inherit;
-		font-size: 12px;
-		background: var(--app-bg);
-		color: var(--text-main);
-		resize: vertical;
-	}
-
 	.drawer-events {
 		list-style: none;
 		margin: 0;
@@ -448,26 +352,10 @@
 		font-size: 11px;
 	}
 
-	.drawer-footer {
-		display: flex;
-		gap: 8px;
-		padding: 12px 16px 16px;
-		border-top: 1px solid var(--border-soft);
-		background: var(--panel-bg);
-	}
-
 	.drawer-error {
 		margin: 0;
 		font-size: 12px;
 		color: var(--status-error);
-	}
-
-	.field-label {
-		display: block;
-		margin-bottom: 6px;
-		font-size: 12px;
-		font-weight: 600;
-		color: var(--text-main);
 	}
 
 	@media (max-width: 900px) {
