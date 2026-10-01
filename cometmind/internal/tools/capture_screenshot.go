@@ -139,10 +139,7 @@ func (c CaptureScreenshot) Execute(ctx context.Context, input json.RawMessage) (
 		return Result{OK: false, Output: err.Error()}, nil
 	}
 
-	res, err := presentRegisteredMedia(ctx, c.Media, sessionID, ref, "captured")
-	if err != nil {
-		return Result{}, err
-	}
+	res := presentRegisteredMedia(ctx, c.Media, sessionID, ref, "captured")
 	if !res.OK {
 		return res, nil
 	}

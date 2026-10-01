@@ -3,7 +3,6 @@ package server
 import (
 	"encoding/json"
 	"net/http"
-	"strconv"
 
 	"github.com/cometline/cometmind/internal/config"
 	"github.com/cometline/cometmind/internal/logging"
@@ -358,13 +357,4 @@ func (a *App) handleCompactPreview(c *gin.Context) {
 		"active":       preview.Active,
 		"max_memories": preview.MaxMemories,
 	})
-}
-
-func parseMemoryLimit(c *gin.Context, fallback int) int {
-	if raw := c.Query("limit"); raw != "" {
-		if n, err := strconv.Atoi(raw); err == nil && n > 0 {
-			return n
-		}
-	}
-	return fallback
 }

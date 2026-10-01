@@ -67,7 +67,7 @@ func scheduledJobToResource(j scheduler.ScheduledJob) scheduledJobResource {
 	}
 }
 
-func writeScheduledJobError(c *gin.Context, err error) bool {
+func writeScheduledJobError(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, scheduler.ErrNotFound):
 		writeError(c, http.StatusNotFound, "scheduled_job_not_found", err.Error())
@@ -78,7 +78,6 @@ func writeScheduledJobError(c *gin.Context, err error) bool {
 	default:
 		writeError(c, http.StatusInternalServerError, "internal_error", err.Error())
 	}
-	return true
 }
 
 func (a *App) handleListScheduledJobs(c *gin.Context) {

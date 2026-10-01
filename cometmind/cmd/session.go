@@ -129,7 +129,7 @@ func runSessionDelete(_ *cobra.Command, args []string) error {
 	}
 	defer closeRuntime(rt)
 
-	if _, err := requireSession(ctx, rt, sessionID); err != nil {
+	if err := requireSession(ctx, rt, sessionID); err != nil {
 		return err
 	}
 	if err := rt.Sessions.DeleteSession(ctx, sessionID); err != nil {
@@ -153,7 +153,7 @@ func runSessionRename(_ *cobra.Command, args []string) error {
 	}
 	defer closeRuntime(rt)
 
-	if _, err := requireSession(ctx, rt, sessionID); err != nil {
+	if err := requireSession(ctx, rt, sessionID); err != nil {
 		return err
 	}
 	sess, err := rt.Sessions.UpdateSessionTitle(ctx, sessionID, name)
@@ -179,7 +179,7 @@ func runSessionSetModel(_ *cobra.Command, args []string) error {
 	}
 	defer closeRuntime(rt)
 
-	if _, err := requireSession(ctx, rt, sessionID); err != nil {
+	if err := requireSession(ctx, rt, sessionID); err != nil {
 		return err
 	}
 	sess, err := rt.Sessions.UpdateSessionModel(ctx, sessionID, modelID, providerID)

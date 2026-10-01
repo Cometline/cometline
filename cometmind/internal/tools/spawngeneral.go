@@ -77,7 +77,7 @@ func (s SpawnGeneralAgent) Execute(ctx context.Context, input json.RawMessage) (
 	if task == "" {
 		return Result{OK: false, Output: "task is required"}, nil
 	}
-	mode := SubagentModeResearch
+	var mode SubagentMode
 	switch strings.ToLower(strings.TrimSpace(in.Kind)) {
 	case "", "research", "general":
 		mode = SubagentModeResearch
@@ -151,7 +151,7 @@ func (s SpawnGeneralAgent) Execute(ctx context.Context, input json.RawMessage) (
 		maxSteps = 1
 	}
 
-	go s.runGeneralSubagent(runCtx, parentID, child, emit, maxSteps, mode)
+	go s.runGeneralSubagent(runCtx, child, emit, maxSteps, mode)
 
 	out := fmt.Sprintf("child_session_id: %s\nstatus: running\nkind: %s\nmax_steps: %d",
 		child.ID, mode, maxSteps)
@@ -160,7 +160,6 @@ func (s SpawnGeneralAgent) Execute(ctx context.Context, input json.RawMessage) (
 
 func (s SpawnGeneralAgent) runGeneralSubagent(
 	runCtx context.Context,
-	parentID string,
 	child session.Session,
 	emit func(event.Event),
 	maxSteps int,

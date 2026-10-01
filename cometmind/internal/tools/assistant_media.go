@@ -14,9 +14,9 @@ func presentRegisteredMedia(
 	sessionID string,
 	ref media.Ref,
 	verb string,
-) (Result, error) {
+) Result {
 	if appender == nil {
-		return Result{OK: false, Output: verb + " is not configured"}, nil
+		return Result{OK: false, Output: verb + " is not configured"}
 	}
 	kind := ref.Kind
 	if kind == "" {
@@ -24,7 +24,7 @@ func presentRegisteredMedia(
 	}
 	if _, err := persistPresentedMedia(ctx, appender, sessionID, ref, kind); err != nil {
 		_ = media.DeleteFile(sessionID, ref.ID)
-		return Result{OK: false, Output: fmt.Sprintf("failed to persist %s: %v", kind, err)}, nil
+		return Result{OK: false, Output: fmt.Sprintf("failed to persist %s: %v", kind, err)}
 	}
 
 	emitGeneratedMedia(ctx, ref)
@@ -33,7 +33,7 @@ func presentRegisteredMedia(
 	if ref.Alt != "" {
 		out += " alt=" + ref.Alt
 	}
-	return Result{OK: true, Output: out}, nil
+	return Result{OK: true, Output: out}
 }
 
 func persistPresentedMedia(

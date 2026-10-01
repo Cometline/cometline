@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -36,8 +35,6 @@ type Adapter struct {
 	onJobProposalSelect  func(string, string) (string, error)
 	onJobProposalConfirm func(context.Context, gateway.InboundMessage, string) (string, error)
 	onJobProposalCancel  func(string) error
-
-	mu sync.Mutex
 }
 
 // New creates a Discord adapter from config.

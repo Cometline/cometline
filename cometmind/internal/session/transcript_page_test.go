@@ -87,7 +87,6 @@ func TestLoadTranscriptPageKeyset(t *testing.T) {
 		}
 		walked = append(page.Items, walked...)
 		if !page.HasMore {
-			cursor = ""
 			break
 		}
 		cursor = page.NextBefore

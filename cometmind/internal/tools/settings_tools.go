@@ -234,25 +234,6 @@ func encodeSettingsJSON(doc map[string]any) ([]byte, error) {
 	return b, nil
 }
 
-func cloneSettingsDoc(doc map[string]any) map[string]any {
-	if doc == nil {
-		return map[string]any{}
-	}
-	b, err := json.Marshal(doc)
-	if err != nil {
-		out := make(map[string]any, len(doc))
-		for k, v := range doc {
-			out[k] = v
-		}
-		return out
-	}
-	var out map[string]any
-	if err := json.Unmarshal(b, &out); err != nil {
-		return map[string]any{}
-	}
-	return out
-}
-
 func valueAtPath(doc map[string]any, path string) (any, error) {
 	parts := strings.Split(path, ".")
 	var cur any = doc

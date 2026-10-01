@@ -85,7 +85,7 @@ func ReadDraft(name string) (Draft, error) {
 	if err != nil {
 		return Draft{}, err
 	}
-	fm, _, err := parseFrontmatter(string(raw))
+	fm, err := parseFrontmatter(string(raw))
 	if err != nil {
 		return Draft{}, fmt.Errorf("parse %s: %w", filepath.Join(resolved, "SKILL.md"), err)
 	}
@@ -119,7 +119,7 @@ func WriteDraft(name, content string, overwrite bool) error {
 	if content == "" {
 		return fmt.Errorf("draft content is required")
 	}
-	fm, _, err := parseFrontmatter(content)
+	fm, err := parseFrontmatter(content)
 	if err != nil {
 		return fmt.Errorf("invalid SKILL.md: %w", err)
 	}
@@ -150,7 +150,7 @@ func WriteDraft(name, content string, overwrite bool) error {
 
 // SkillMarkdownDescription returns the YAML description field from SKILL.md content.
 func SkillMarkdownDescription(content string) string {
-	fm, _, err := parseFrontmatter(content)
+	fm, err := parseFrontmatter(content)
 	if err != nil {
 		return ""
 	}

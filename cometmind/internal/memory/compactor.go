@@ -53,7 +53,7 @@ func (c *compactor) preview(ctx context.Context) (CompactPreview, error) {
 		}
 	}
 
-	clusters := c.clusterLowWeight(scored, lc)
+	clusters := c.clusterLowWeight(scored)
 	active, err := c.store.countActive(ctx)
 	if err != nil {
 		return CompactPreview{}, err
@@ -190,7 +190,7 @@ func (c *compactor) mergePass(ctx context.Context) error {
 			EffectiveWeight: EffectiveWeight(m, now, c.settings.Lifecycle),
 		})
 	}
-	clusters := c.clusterLowWeight(scored, c.settings.Lifecycle)
+	clusters := c.clusterLowWeight(scored)
 	for _, cluster := range clusters {
 		if len(cluster) < 2 {
 			continue
@@ -202,7 +202,7 @@ func (c *compactor) mergePass(ctx context.Context) error {
 	return nil
 }
 
-func (c *compactor) clusterLowWeight(scored []ScoredMemory, lc LifecycleSettings) [][]Record {
+func (c *compactor) clusterLowWeight(scored []ScoredMemory) [][]Record {
 	sort.Slice(scored, func(i, j int) bool {
 		return scored[i].EffectiveWeight < scored[j].EffectiveWeight
 	})

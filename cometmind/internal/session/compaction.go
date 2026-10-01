@@ -104,14 +104,3 @@ func formatUserContentForSummary(content string) string {
 	}
 	return text
 }
-
-func plainTextFromStoredContent(content string) (string, error) {
-	if strings.HasPrefix(content, contentEnvelopePrefix) {
-		blocks, err := DecodeMessageContent(content)
-		if err != nil {
-			return "", err
-		}
-		return PlainTextFromContent(blocks), nil
-	}
-	return content, nil
-}

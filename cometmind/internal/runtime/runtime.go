@@ -490,7 +490,7 @@ func (r *Runtime) StartInboxWorker(ctx context.Context, guard inboxworker.RunGua
 			if err != nil {
 				mode = session.AgentModeAuto
 			}
-			return r.toolRegistryOptions(workspacePath, r.SkillsForWorkspace(workspacePath), sess.ID, jobs.PlatformDesktop, "", mode)
+			return r.toolRegistryOptions(r.SkillsForWorkspace(workspacePath), sess.ID, jobs.PlatformDesktop, "", mode)
 		},
 	}
 	r.inboxWorker = w
@@ -818,10 +818,10 @@ func (r *Runtime) subagentOrchestratorForRunner(isSubagent bool) *subagent.Orche
 }
 
 func (r *Runtime) toolRegistryWithJobMeta(workspacePath string, skillRegistry skills.Registry, sessionID, platform, sourceChannelID string, mode session.AgentMode) *tools.Registry {
-	return tools.NewRegistry(workspacePath, r.toolRegistryOptions(workspacePath, skillRegistry, sessionID, platform, sourceChannelID, mode))
+	return tools.NewRegistry(workspacePath, r.toolRegistryOptions(skillRegistry, sessionID, platform, sourceChannelID, mode))
 }
 
-func (r *Runtime) toolRegistryOptions(workspacePath string, skillRegistry skills.Registry, sessionID, platform, sourceChannelID string, mode session.AgentMode) tools.RegistryOptions {
+func (r *Runtime) toolRegistryOptions(skillRegistry skills.Registry, sessionID, platform, sourceChannelID string, mode session.AgentMode) tools.RegistryOptions {
 	sub := r.Config.EffectiveSubagentSettings()
 	return tools.RegistryOptions{
 		Sessions:       r.Sessions,

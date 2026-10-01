@@ -67,10 +67,7 @@ func (p PresentImage) Execute(ctx context.Context, input json.RawMessage) (Resul
 		return Result{OK: false, Output: err.Error()}, nil
 	}
 
-	res, err := presentRegisteredMedia(ctx, p.Media, sessionID, ref, "presented")
-	if err != nil {
-		return Result{}, err
-	}
+	res := presentRegisteredMedia(ctx, p.Media, sessionID, ref, "presented")
 	if !res.OK {
 		return res, nil
 	}

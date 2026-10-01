@@ -146,7 +146,7 @@ func readSkillEntriesFromRoot(root, location string) ([]managedSkillEntry, error
 		if readErr != nil {
 			continue
 		}
-		fm, _, parseErr := parseFrontmatter(string(raw))
+		fm, parseErr := parseFrontmatter(string(raw))
 		if parseErr != nil {
 			continue
 		}

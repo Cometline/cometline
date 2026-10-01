@@ -88,10 +88,7 @@ func PerformInteractiveOAuth(ctx context.Context, opts OAuthFlowOptions, fetch A
 	// returns issuer "https://cf.mcp.atlassian.com" for "https://mcp.atlassian.com")
 	// fail that check even though the metadata is otherwise valid. discoverAuthServerMetadata
 	// tolerates the mismatch while still requiring HTTPS endpoints and PKCE.
-	asm, err := discoverAuthServerMetadata(ctx, prm.AuthorizationServers[0], httpClient)
-	if err != nil {
-		return fmt.Errorf("authorization server discovery failed: %w", err)
-	}
+	asm := discoverAuthServerMetadata(ctx, prm.AuthorizationServers[0], httpClient)
 	if asm == nil {
 		// Fallback to predefined endpoints (2025-03-26 spec).
 		base := strings.TrimRight(prm.AuthorizationServers[0], "/")
@@ -241,9 +238,9 @@ func saveOAuthCredentials(ctx context.Context, serverID string, info *oauthClien
 // insertion). Unlike the strict SDK helper it tolerates an issuer-field mismatch
 // (some providers front their AS behind a different host than the advertised
 // issuer), but it still requires the response to carry usable HTTPS endpoints.
-// Returns (nil, nil) when no metadata document is found so the caller can fall
-// back to predefined endpoints.
-func discoverAuthServerMetadata(ctx context.Context, issuerURL string, httpClient *http.Client) (*oauthex.AuthServerMeta, error) {
+// Returns nil when no metadata document is found so the caller can fall back
+// to predefined endpoints.
+func discoverAuthServerMetadata(ctx context.Context, issuerURL string, httpClient *http.Client) *oauthex.AuthServerMeta {
 	for _, metaURL := range authServerMetadataURLs(issuerURL) {
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, metaURL, nil)
 		if err != nil {
@@ -266,9 +263,9 @@ func discoverAuthServerMetadata(ctx context.Context, issuerURL string, httpClien
 		if strings.TrimSpace(asm.AuthorizationEndpoint) == "" || strings.TrimSpace(asm.TokenEndpoint) == "" {
 			continue
 		}
-		return &asm, nil
+		return &asm
 	}
-	return nil, nil
+	return nil
 }
 
 // authServerMetadataURLs returns the candidate well-known metadata URLs for an

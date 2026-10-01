@@ -71,10 +71,7 @@ func (p PresentImageURL) Execute(ctx context.Context, input json.RawMessage) (Re
 	if err != nil {
 		return Result{OK: false, Output: err.Error()}, nil
 	}
-	res, err := presentRegisteredMedia(ctx, p.Media, sessionID, ref, "downloaded")
-	if err != nil {
-		return Result{}, err
-	}
+	res := presentRegisteredMedia(ctx, p.Media, sessionID, ref, "downloaded")
 	if res.OK {
 		res.Output += " url=" + imageURL
 	}

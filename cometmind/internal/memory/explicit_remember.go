@@ -28,7 +28,7 @@ func tryExplicitRemember(msgs []cometsdk.Message) (proposedMemory, bool) {
 	}
 	lower := strings.ToLower(lastUser)
 	for _, prefix := range explicitRememberPrefixes {
-		idx := indexFold(lastUser, lower, prefix)
+		idx := indexFold(lower, prefix)
 		if idx < 0 {
 			continue
 		}
@@ -47,7 +47,7 @@ func tryExplicitRemember(msgs []cometsdk.Message) (proposedMemory, bool) {
 	return proposedMemory{}, false
 }
 
-func indexFold(original, lower, prefix string) int {
+func indexFold(lower, prefix string) int {
 	if strings.HasPrefix(lower, prefix) {
 		return 0
 	}

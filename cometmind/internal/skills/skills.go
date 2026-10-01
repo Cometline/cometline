@@ -134,7 +134,7 @@ func ReadSkill(dir string) (Skill, error) {
 	if err != nil {
 		return Skill{}, err
 	}
-	fm, _, err := parseFrontmatter(string(raw))
+	fm, err := parseFrontmatter(string(raw))
 	if err != nil {
 		return Skill{}, fmt.Errorf("parse %s: %w", filepath.Join(resolved, "SKILL.md"), err)
 	}
@@ -256,10 +256,10 @@ func (r Registry) SyncMirror(mirrorRoot string) ([]string, []string, error) {
 	return created, skipped, nil
 }
 
-func parseFrontmatter(raw string) (frontmatter, string, error) {
+func parseFrontmatter(raw string) (frontmatter, error) {
 	var fm frontmatter
 	if !strings.HasPrefix(raw, "---\n") && !strings.HasPrefix(raw, "---\r\n") {
-		return fm, raw, fmt.Errorf("missing YAML frontmatter")
+		return fm, fmt.Errorf("missing YAML frontmatter")
 	}
 	lines := strings.Split(raw, "\n")
 	end := -1
@@ -270,12 +270,12 @@ func parseFrontmatter(raw string) (frontmatter, string, error) {
 		}
 	}
 	if end < 0 {
-		return fm, raw, fmt.Errorf("unterminated YAML frontmatter")
+		return fm, fmt.Errorf("unterminated YAML frontmatter")
 	}
 	if err := yaml.Unmarshal([]byte(strings.Join(lines[1:end], "\n")), &fm); err != nil {
-		return fm, raw, err
+		return fm, err
 	}
-	return fm, strings.Join(lines[end+1:], "\n"), nil
+	return fm, nil
 }
 
 func expandPath(p string) (string, error) {

@@ -97,7 +97,7 @@ func Status(ctx context.Context, workspace string, scope Scope) (StatusResult, e
 		}, nil
 	}
 
-	_, relPrefix, err := resolveGitRoot(ctx, workspace)
+	relPrefix, err := resolveGitRoot(ctx, workspace)
 	if err != nil {
 		if errors.Is(err, errNotARepo) {
 			return StatusResult{
@@ -151,7 +151,7 @@ func Diff(ctx context.Context, workspace, relPath string, scope Scope) (DiffResu
 		return DiffResult{Path: relPath, Message: "git is not installed or not on PATH"}, nil
 	}
 
-	_, relPrefix, err := resolveGitRoot(ctx, workspace)
+	relPrefix, err := resolveGitRoot(ctx, workspace)
 	if err != nil {
 		if errors.Is(err, errNotARepo) {
 			return DiffResult{Path: relPath, Message: "This workspace is not a git repository."}, nil
@@ -298,22 +298,22 @@ func synthesizeNewFileDiff(path, content string) string {
 
 var errNotARepo = errors.New("not a git repository")
 
-// resolveGitRoot returns (toplevel, pathPrefixFromToplevelToWorkspace, nil).
-// pathPrefix is empty when workspace is the git root; otherwise paths from git
+// resolveGitRoot returns the path prefix from the git toplevel to workspace.
+// The prefix is empty when workspace is the git root; otherwise paths from git
 // are filtered/rewritten to be relative to workspace.
-func resolveGitRoot(ctx context.Context, workspace string) (toplevel, relPrefix string, err error) {
+func resolveGitRoot(ctx context.Context, workspace string) (relPrefix string, err error) {
 	out, err := runGit(ctx, workspace, "rev-parse", "--show-toplevel")
 	if err != nil {
 		// rev-parse fails outside a work tree
 		msg := strings.ToLower(err.Error())
 		if strings.Contains(msg, "not a git repository") || strings.Contains(msg, "exit status") {
-			return "", "", errNotARepo
+			return "", errNotARepo
 		}
-		return "", "", err
+		return "", err
 	}
-	toplevel = filepath.Clean(strings.TrimSpace(string(out)))
+	toplevel := filepath.Clean(strings.TrimSpace(string(out)))
 	if toplevel == "" {
-		return "", "", errNotARepo
+		return "", errNotARepo
 	}
 
 	ws, err := filepath.EvalSymlinks(workspace)
@@ -328,14 +328,14 @@ func resolveGitRoot(ctx context.Context, workspace string) (toplevel, relPrefix 
 	top = filepath.Clean(top)
 
 	if ws == top {
-		return toplevel, "", nil
+		return "", nil
 	}
 	rel, err := filepath.Rel(top, ws)
 	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
 		// Workspace is not inside the git root (unusual); treat as not a repo for safety.
-		return "", "", errNotARepo
+		return "", errNotARepo
 	}
-	return toplevel, filepath.ToSlash(rel), nil
+	return filepath.ToSlash(rel), nil
 }
 
 func branchInfo(ctx context.Context, workspace string) (branch, upstream string) {

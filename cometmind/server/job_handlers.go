@@ -146,7 +146,7 @@ func settingsToResponse(s jobs.Settings) gin.H {
 	}
 }
 
-func writeJobError(c *gin.Context, err error) bool {
+func writeJobError(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, jobs.ErrNotFound):
 		writeError(c, http.StatusNotFound, "job_not_found", err.Error())
@@ -157,7 +157,6 @@ func writeJobError(c *gin.Context, err error) bool {
 	default:
 		writeError(c, http.StatusInternalServerError, "internal_error", err.Error())
 	}
-	return true
 }
 
 func (a *App) handleListJobs(c *gin.Context) {

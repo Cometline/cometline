@@ -9,7 +9,6 @@ import (
 
 	"github.com/cometline/cometmind/internal/config"
 	"github.com/cometline/cometmind/internal/runtime"
-	"github.com/cometline/cometmind/internal/session"
 	"github.com/spf13/cobra"
 )
 
@@ -74,10 +73,9 @@ func closeRuntime(rt *runtime.Runtime) {
 	}
 }
 
-func requireSession(ctx context.Context, rt *runtime.Runtime, sessionID string) (session.Session, error) {
-	sess, err := rt.Sessions.GetSession(ctx, sessionID)
-	if err != nil {
-		return session.Session{}, fmt.Errorf("load session: %w", err)
+func requireSession(ctx context.Context, rt *runtime.Runtime, sessionID string) error {
+	if _, err := rt.Sessions.GetSession(ctx, sessionID); err != nil {
+		return fmt.Errorf("load session: %w", err)
 	}
-	return sess, nil
+	return nil
 }

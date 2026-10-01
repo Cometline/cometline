@@ -44,16 +44,14 @@ func (a *App) maybeGenerateTitle(ctx context.Context, sess session.Session, bloc
 		return
 	}
 
-	sessionID := sess.ID
-	sessionCopy := sess
-	go a.generateTitleAsync(context.WithoutCancel(ctx), sessionCopy, text, sessionID)
+	go a.generateTitleAsync(context.WithoutCancel(ctx), text, sess.ID)
 }
 
-func (a *App) generateTitleAsync(ctx context.Context, sess session.Session, message, sessionID string) {
+func (a *App) generateTitleAsync(ctx context.Context, message, sessionID string) {
 	ctx, cancel := context.WithTimeout(ctx, titleLLMTimeout)
 	defer cancel()
 
-	title, err := a.generateTitleLLM(ctx, sess, message)
+	title, err := a.generateTitleLLM(ctx, message)
 	if err != nil {
 		logging.L().Warn("title.generate_failed", "session", sessionID, "error", err)
 		return
@@ -72,7 +70,7 @@ func (a *App) generateTitleAsync(ctx context.Context, sess session.Session, mess
 // generateTitleLLM asks an LLM for a concise title for the message. It uses the
 // configured title provider/model when set (typically a cheaper, faster model),
 // falling back to the Default model pair otherwise.
-func (a *App) generateTitleLLM(ctx context.Context, sess session.Session, message string) (string, error) {
+func (a *App) generateTitleLLM(ctx context.Context, message string) (string, error) {
 	providerID, model := a.config.ResolveRoleLLM(a.config.TitleProvider, a.config.TitleModel)
 	if providerID == "" || model == "" {
 		return "", fmt.Errorf("title generation requires a Default model or a pinned title model")
