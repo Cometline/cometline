@@ -59,8 +59,15 @@ type Request struct {
 	// Most callers leave this nil.
 	Options map[string]any
 
+	// Capabilities carries what the caller knows about the model's optional
+	// features and where providers report newly rejected ones. The zero value
+	// means nothing is known and rejections are not reported.
+	Capabilities CapabilityOptions
+
 	// Compatibility carries the per-model feature policy resolved by the caller.
-	// Providers use it to avoid known-unsupported optional request features.
+	//
+	// Deprecated: set Capabilities instead. Providers still honor
+	// Compatibility, alongside Capabilities, for one release.
 	Compatibility CapabilityPolicy
 }
 

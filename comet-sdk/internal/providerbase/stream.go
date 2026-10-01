@@ -106,7 +106,7 @@ type FallbackStream struct {
 func (s FallbackStream) Open(ctx context.Context, req *cometsdk.Request) (*http.Response, error) {
 	disabled := make(DisabledCapabilities, len(s.Fallbacks))
 	for _, fallback := range s.Fallbacks {
-		disabled[fallback.Capability] = capabilityDisabled(req, fallback.Capability)
+		disabled[fallback.Capability] = req.CapabilityDisabled(fallback.Capability)
 	}
 	for {
 		httpResp, err := RetryHTTP(ctx, s.MaxRetries, s.Log, req.Model, func() (*http.Response, error) {
@@ -122,7 +122,7 @@ func (s FallbackStream) Open(ctx context.Context, req *cometsdk.Request) (*http.
 		}
 		s.Log.DebugContext(ctx, fallback.LogEvent, "error", err, "model", req.Model)
 		disabled[fallback.Capability] = true
-		markCapabilityUnsupported(req, fallback.Capability)
+		req.ReportUnsupportedCapability(fallback.Capability)
 	}
 }
 
@@ -133,14 +133,4 @@ func (s FallbackStream) rejectedFallback(req *cometsdk.Request, disabled Disable
 		}
 	}
 	return CapabilityFallback{}, false
-}
-
-func capabilityDisabled(req *cometsdk.Request, feature cometsdk.Capability) bool {
-	return req.Compatibility != nil && req.Compatibility.Disabled(feature)
-}
-
-func markCapabilityUnsupported(req *cometsdk.Request, feature cometsdk.Capability) {
-	if req.Compatibility != nil {
-		req.Compatibility.MarkUnsupported(feature)
-	}
 }

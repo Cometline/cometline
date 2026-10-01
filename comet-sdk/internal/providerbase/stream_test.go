@@ -17,14 +17,17 @@ import (
 
 const testCapability cometsdk.Capability = "test_feature"
 
-type recordingPolicy struct {
-	disabled map[cometsdk.Capability]bool
-	marked   []cometsdk.Capability
+// capabilityRecorder builds a request whose capability options start with
+// unsupported disabled and record every capability the provider reports.
+type capabilityRecorder struct {
+	marked []cometsdk.Capability
 }
 
-func (p *recordingPolicy) Disabled(c cometsdk.Capability) bool { return p.disabled[c] }
-func (p *recordingPolicy) MarkUnsupported(c cometsdk.Capability) {
-	p.marked = append(p.marked, c)
+func (r *capabilityRecorder) request(unsupported ...cometsdk.Capability) *cometsdk.Request {
+	return &cometsdk.Request{Capabilities: cometsdk.CapabilityOptions{
+		Unsupported:   cometsdk.NewCapabilitySet(unsupported...),
+		OnUnsupported: func(c cometsdk.Capability) { r.marked = append(r.marked, c) },
+	}}
 }
 
 // featureServer rejects any body that mentions test_feature with an HTTP 400
@@ -89,8 +92,8 @@ func TestFallbackStream_RetriesWithoutRejectedCapability(t *testing.T) {
 	t.Parallel()
 
 	srv := newFeatureServer(t, false)
-	policy := &recordingPolicy{}
-	resp, err := srv.stream().Open(context.Background(), &cometsdk.Request{Compatibility: policy})
+	policy := &capabilityRecorder{}
+	resp, err := srv.stream().Open(context.Background(), policy.request())
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
@@ -108,8 +111,8 @@ func TestFallbackStream_SkipsCapabilityAlreadyDisabled(t *testing.T) {
 	t.Parallel()
 
 	srv := newFeatureServer(t, false)
-	policy := &recordingPolicy{disabled: map[cometsdk.Capability]bool{testCapability: true}}
-	resp, err := srv.stream().Open(context.Background(), &cometsdk.Request{Compatibility: policy})
+	policy := &capabilityRecorder{}
+	resp, err := srv.stream().Open(context.Background(), policy.request(testCapability))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
@@ -127,8 +130,8 @@ func TestFallbackStream_FallsBackOnceThenReturnsError(t *testing.T) {
 	t.Parallel()
 
 	srv := newFeatureServer(t, true)
-	policy := &recordingPolicy{}
-	_, err := srv.stream().Open(context.Background(), &cometsdk.Request{Compatibility: policy})
+	policy := &capabilityRecorder{}
+	_, err := srv.stream().Open(context.Background(), policy.request())
 
 	var se *cometsdk.ServerError
 	if !errors.As(err, &se) || se.StatusCode != http.StatusBadRequest {
@@ -150,9 +153,9 @@ func TestFallbackStream_UnrelatedErrorIsNotAFallback(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 	stream := (&featureServer{Server: srv}).stream()
-	policy := &recordingPolicy{}
+	policy := &capabilityRecorder{}
 
-	_, err := stream.Open(context.Background(), &cometsdk.Request{Compatibility: policy})
+	_, err := stream.Open(context.Background(), policy.request())
 	var authErr *cometsdk.AuthError
 	if !errors.As(err, &authErr) {
 		t.Fatalf("err = %v, want AuthError", err)

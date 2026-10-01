@@ -27,10 +27,6 @@ type provider struct {
 	log    *slog.Logger
 }
 
-func capabilityDisabled(req *cometsdk.Request, feature cometsdk.Capability) bool {
-	return req.Compatibility != nil && req.Compatibility.Disabled(feature)
-}
-
 // New creates a Provider for the OpenAI Responses API authenticated with a
 // plain API key. id is the provider identifier used in events and persisted
 // provider state (e.g. "opencode-go").
@@ -72,7 +68,7 @@ func (p *provider) Stream(ctx context.Context, req *cometsdk.Request) (<-chan co
 		return nil, err
 	}
 	ch := make(chan cometsdk.Event, 32)
-	go responsesproto.ParseLoop(ctx, p.id, req.Model, !capabilityDisabled(req, cometsdk.CapabilityToolInputStream), httpResp.Body, ch, p.log, p.cfg.StreamIdleTimeout)
+	go responsesproto.ParseLoop(ctx, p.id, req.Model, !req.CapabilityDisabled(cometsdk.CapabilityToolInputStream), httpResp.Body, ch, p.log, p.cfg.StreamIdleTimeout)
 	return ch, nil
 }
 

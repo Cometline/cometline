@@ -37,10 +37,6 @@ type provider struct {
 	log *slog.Logger
 }
 
-func capabilityDisabled(req *cometsdk.Request, feature cometsdk.Capability) bool {
-	return req.Compatibility != nil && req.Compatibility.Disabled(feature)
-}
-
 // New creates a Provider that reuses the local Codex CLI ChatGPT session.
 func New(opts ...cometsdk.Option) cometsdk.Provider {
 	cfg := cometsdk.DefaultProviderConfig()
@@ -74,7 +70,7 @@ func (p *provider) Stream(ctx context.Context, req *cometsdk.Request) (<-chan co
 		return nil, err
 	}
 	ch := make(chan cometsdk.Event, 32)
-	go responsesproto.ParseLoop(ctx, providerID, req.Model, !capabilityDisabled(req, cometsdk.CapabilityToolInputStream), httpResp.Body, ch, p.log, p.cfg.StreamIdleTimeout)
+	go responsesproto.ParseLoop(ctx, providerID, req.Model, !req.CapabilityDisabled(cometsdk.CapabilityToolInputStream), httpResp.Body, ch, p.log, p.cfg.StreamIdleTimeout)
 	return ch, nil
 }
 

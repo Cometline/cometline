@@ -255,14 +255,43 @@ func TestStream_MaxOutputTokensFallbackOnUnsupported(t *testing.T) {
 	}))
 	defer srv.Close()
 
+	var reported []cometsdk.Capability
 	p := newTestProvider(t, srv)
 	ch, err := p.Stream(context.Background(), &cometsdk.Request{
 		Model:     "gpt-5.6-luna",
 		MaxTokens: 64,
 		Messages:  []cometsdk.Message{{Role: cometsdk.RoleUser, Content: []cometsdk.Block{cometsdk.TextBlock{Text: "Hi"}}}},
+		Capabilities: cometsdk.CapabilityOptions{
+			OnUnsupported: func(c cometsdk.Capability) { reported = append(reported, c) },
+		},
 	})
 	require.NoError(t, err)
 	events := collectEvents(t, ch)
 	require.Equal(t, []string{"max_output_tokens", "none"}, fields)
 	require.Contains(t, events, cometsdk.DoneEvent{})
+	require.Equal(t, []cometsdk.Capability{cometsdk.CapabilityMaxOutputTokens}, reported)
+}
+
+func TestStream_SkipsKnownUnsupportedMaxOutputTokens(t *testing.T) {
+	var body map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, _ := io.ReadAll(r.Body)
+		require.NoError(t, json.Unmarshal(raw, &body))
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = w.Write([]byte("data: {\"type\":\"response.completed\",\"response\":{\"usage\":{}}}\n\n"))
+	}))
+	defer srv.Close()
+
+	p := newTestProvider(t, srv)
+	ch, err := p.Stream(context.Background(), &cometsdk.Request{
+		Model:     "gpt-5.6-luna",
+		MaxTokens: 64,
+		Messages:  []cometsdk.Message{{Role: cometsdk.RoleUser, Content: []cometsdk.Block{cometsdk.TextBlock{Text: "Hi"}}}},
+		Capabilities: cometsdk.CapabilityOptions{
+			Unsupported: cometsdk.NewCapabilitySet(cometsdk.CapabilityMaxOutputTokens),
+		},
+	})
+	require.NoError(t, err)
+	_ = collectEvents(t, ch)
+	require.NotContains(t, body, "max_output_tokens")
 }
