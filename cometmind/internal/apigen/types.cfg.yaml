@@ -1,0 +1,5 @@
+# Wire types for the CometMind REST API. Run `go generate ./internal/apigen`.
+package: apigen
+output: types.gen.go
+generate:
+  models: true

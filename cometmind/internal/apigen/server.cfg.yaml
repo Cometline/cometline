@@ -1,0 +1,20 @@
+# Gin strict server for the CometMind REST API. Run `go generate ./internal/apigen`.
+#
+# Operations that cannot be expressed as strict request/response objects are
+# excluded here and registered by hand in internal/server/streaming_routes.go:
+# Server-Sent Events streams and ranged or attachment file downloads.
+package: apigen
+output: server.gen.go
+generate:
+  gin-server: true
+  strict-server: true
+output-options:
+  exclude-operation-ids:
+    # text/event-stream responses
+    - postSessionMessage
+    - streamSessionEvents
+    - streamRuntimeEvents
+    # Byte-range media streams (http.ServeContent) and zip attachments
+    - getSessionMedia
+    - getMediaContent
+    - exportSkill
