@@ -80,4 +80,14 @@ describe('createNewSession', () => {
 		expect(mocks.commitActiveWorkspace).toHaveBeenCalledWith('/default-workspace');
 		expect(mocks.recordVisit).toHaveBeenCalledWith('session-1');
 	});
+
+	it('uses an explicit workspace instead of the default workspace', async () => {
+		await createNewSession('/group/workspace');
+
+		expect(mocks.createSession).toHaveBeenCalledWith({
+			workspace_path: '/group/workspace',
+			provider_id: 'provider',
+			model_id: 'model'
+		});
+	});
 });

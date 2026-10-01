@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { slide } from 'svelte/transition';
-	import { ChevronDown, ChevronRight, Folder, ArrowDown } from '@lucide/svelte';
+	import { ChevronDown, ChevronRight, Folder, ArrowDown, Plus } from '@lucide/svelte';
 	import type { Session } from '$lib/types';
 	import SessionRow from '$lib/components/sidebar/SessionRow.svelte';
 
@@ -18,6 +18,7 @@
 		deletingID,
 		pinningID,
 		onToggle,
+		onNewSession,
 		onSelectSession,
 		onDeleteSession,
 		onPinSession,
@@ -34,6 +35,7 @@
 		deletingID: string | null;
 		pinningID: string | null;
 		onToggle: () => void;
+		onNewSession?: (workspacePath: string) => void;
 		onSelectSession: (session: Session) => void;
 		onDeleteSession: (session: Session) => void;
 		onPinSession: (session: Session) => void;
@@ -72,24 +74,37 @@
 
 <div class="workspace-entry">
 	<div class="workspace-group" class:active>
-		<button
-			class="workspace-header"
-			aria-expanded={!collapsed}
-			aria-current={active ? 'true' : undefined}
-			onclick={onToggle}
-			title={workspacePath}
-		>
-			<span class="workspace-chevron">
-				{#if collapsed}
-					<ChevronRight size={13} stroke-width={2} />
-				{:else}
-					<ChevronDown size={13} stroke-width={2} />
-				{/if}
-			</span>
-			<Folder size={13} stroke-width={1.8} class="workspace-folder" />
-			<span class="workspace-label">{label}</span>
+		<div class="workspace-header-row">
+			<button
+				class="workspace-header"
+				aria-expanded={!collapsed}
+				aria-current={active ? 'true' : undefined}
+				onclick={onToggle}
+				title={workspacePath}
+			>
+				<span class="workspace-chevron">
+					{#if collapsed}
+						<ChevronRight size={13} stroke-width={2} />
+					{:else}
+						<ChevronDown size={13} stroke-width={2} />
+					{/if}
+				</span>
+				<Folder size={13} stroke-width={1.8} class="workspace-folder" />
+				<span class="workspace-label">{label}</span>
+			</button>
+			{#if onNewSession}
+				<button
+					type="button"
+					class="workspace-add"
+					aria-label={`New chat in ${label}`}
+					title={`New chat in ${label}`}
+					onclick={() => onNewSession(workspacePath)}
+				>
+					<Plus size={13} stroke-width={2.2} />
+				</button>
+			{/if}
 			<span class="workspace-count">{sessions.length}</span>
-		</button>
+		</div>
 
 		{#if !collapsed}
 			<div
@@ -197,12 +212,21 @@
 		color: var(--hero-composer-glow-color, var(--accent));
 	}
 
+	.workspace-header-row {
+		display: flex;
+		align-items: center;
+		gap: 2px;
+		width: 100%;
+		min-width: 0;
+	}
+
 	.workspace-header {
 		display: flex;
 		align-items: center;
 		gap: 6px;
-		width: 100%;
-		padding: 6px 8px;
+		min-width: 0;
+		flex: 1;
+		padding: 6px 4px 6px 8px;
 		border: none;
 		border-radius: 7px;
 		background: transparent;
@@ -215,8 +239,32 @@
 		text-align: left;
 	}
 
-	.workspace-group:hover .workspace-header {
+	.workspace-group:hover .workspace-header,
+	.workspace-group:hover .workspace-add {
 		color: var(--text-muted);
+	}
+
+	.workspace-add {
+		display: grid;
+		place-items: center;
+		flex-shrink: 0;
+		width: 18px;
+		height: 18px;
+		padding: 0;
+		border: none;
+		border-radius: 5px;
+		background: transparent;
+		color: var(--workspace-inactive-color, #9a9a9f);
+		cursor: pointer;
+	}
+
+	.workspace-add:hover {
+		background: rgba(15, 23, 42, 0.08);
+		color: var(--text-main);
+	}
+
+	.workspace-group.active .workspace-add {
+		color: var(--hero-composer-glow-color, var(--accent));
 	}
 
 	.workspace-chevron {
@@ -244,6 +292,7 @@
 
 	.workspace-count {
 		flex-shrink: 0;
+		margin-right: 6px;
 		font-size: 10px;
 		font-weight: 600;
 		color: var(--text-soft);
