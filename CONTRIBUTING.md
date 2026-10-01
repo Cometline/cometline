@@ -39,14 +39,21 @@ Runtime settings live in `~/.cometmind/cometline-settings.json`. The desktop app
 
 ## Checks
 
-`make check` is what CI runs. It must pass before a PR is merged.
+`make check` runs everything CI checks, and it must pass before a PR is merged. CI splits the same work into per-module jobs that only run when that module changes.
 
 ```bash
-make check                        # codegen freshness, SDK + CometMind tests, Svelte check/lint/test
+make check                        # codegen + sqlc freshness, gofmt, lint, SDK + CometMind tests, Svelte check/lint/test
+make fmt                          # format Go code (gofmt + goimports)
+make lint                         # golangci-lint on both Go modules
+make test-race                    # Go tests with the race detector (what CI runs)
+make vuln                         # govulncheck on both Go modules
+make readability                  # readability scorecard; CI posts it in the job summary
 cd comet-sdk && go test ./...     # SDK only
 cd cometmind && go test ./...     # runtime only
 cd cometline && pnpm run check && pnpm run lint && pnpm run test
 ```
+
+Go tools (golangci-lint, govulncheck, sqlc) run through `go run` at pinned versions, so there is nothing to install. Lint rules live in `comet-sdk/.golangci.yml` and `cometmind/.golangci.yml`, including `depguard` rules for the package dependency direction. The function-length and complexity budgets in `.golangci.budget.yml` are reported by `make lint-budget` but don't fail the build yet. PR titles must follow the conventional-commit format below; CI checks this.
 
 SDK live tests call real providers and need API keys. They are behind the `live` build tag and never run in CI (see [AGENTS.md](./AGENTS.md#live-tests)).
 
