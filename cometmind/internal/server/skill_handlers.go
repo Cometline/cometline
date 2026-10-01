@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/Cometline/cometline/cometmind/internal/apigen"
 	skillpkg "github.com/Cometline/cometline/cometmind/internal/skills"
 	"github.com/gin-gonic/gin"
 )
@@ -26,10 +27,6 @@ type skillResource struct {
 type skillDetailResponse struct {
 	Skill   skillResource `json:"skill"`
 	Content string        `json:"content"`
-}
-
-type updateSkillRequest struct {
-	Content string `json:"content"`
 }
 
 type listSkillsResponse struct {
@@ -132,7 +129,7 @@ func (a *App) handleUpdateSkill(c *gin.Context) {
 		writeError(c, http.StatusNotFound, "skill_not_found", "unknown skill: "+name)
 		return
 	}
-	var req updateSkillRequest
+	var req apigen.UpdateSkillRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		writeError(c, http.StatusBadRequest, "bad_request", "invalid JSON body")
 		return

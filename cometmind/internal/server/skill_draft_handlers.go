@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/Cometline/cometline/cometmind/internal/apigen"
 	"github.com/Cometline/cometline/cometmind/internal/skills"
 	"github.com/gin-gonic/gin"
 )
@@ -25,10 +26,6 @@ type listSkillDraftsResponse struct {
 type skillDraftDetailResponse struct {
 	Draft   skillDraftResource `json:"draft"`
 	Content string             `json:"content"`
-}
-
-type updateSkillDraftRequest struct {
-	Content string `json:"content"`
 }
 
 func skillDraftResourceFromModel(draft skills.Draft) skillDraftResource {
@@ -78,7 +75,7 @@ func (a *App) handleGetSkillDraft(c *gin.Context) {
 
 func (a *App) handleUpdateSkillDraft(c *gin.Context) {
 	name := strings.TrimSpace(c.Param("name"))
-	var req updateSkillDraftRequest
+	var req apigen.UpdateSkillDraftRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		writeError(c, http.StatusBadRequest, "bad_request", "invalid JSON body")
 		return
