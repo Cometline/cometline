@@ -40,7 +40,7 @@ cometline renderer
 
 Electron main process
   -> spawns cometmind serve --watch-parent
-  -> persists ~/.cometmind/cometline-settings.json (single settings SSOT)
+  -> persists ~/.cometmind/cometline-settings.json (runtime) + cometline-desktop.json (desktop UI)
   -> exposes OS/native capabilities over preload IPC
   -> optionally spawns cometmind gateway run --platform discord
 ```
@@ -54,7 +54,7 @@ The rule: Cometline is not the brain. CometMind is the brain. Comet SDK is only 
 | Provider runtime          | `comet-sdk`                                        | Anthropic, OpenAI-compatible, ChatGPT Codex (HTTP or WebSocket), and xAI Grok (subscription auth) providers, including DeepSeek `reasoning_content`, embedded thinking tags, and vision input |
 | Agent runtime             | `cometmind/internal/agent`                         | Multi-step loop with streaming, reasoning, tool calls, memory retrieve/extract                                                                                                                |
 | Semantic memory           | `cometmind/internal/memory`                        | Embedding retrieval, post-turn extraction, compaction, REST API + Cometline settings panel                                                                                                    |
-| MCP client                | `cometmind/internal/mcp`                           | stdio/http/sse servers, tool binding, OAuth discovery/registration/login/refresh                                                                                                              |
+| MCP client                | `cometmind/internal/mcp`                           | stdio and http (streamable) servers, tool binding, OAuth discovery/registration/login/refresh; Cometline settings rewrite a saved `sse` transport to `http`                                   |
 | Jobs and scheduler        | `cometmind/internal/jobs`, `scheduler`, `autonomy` | Durable jobs, leases, scheduled materialization, autonomous workers, Discord proposals                                                                                                        |
 | Coding-harness delegation | `cometmind/internal/acp`                           | `delegate_coding_task` spawns the selected OpenCode, Claude Code, or Codex CLI profile; child sessions stream progress SSE                                                                    |
 | Agent Skills              | `cometmind/internal/skills`                        | Discovery, system-prompt index, load/read/write tools, Cometline slash commands                                                                                                               |
@@ -237,16 +237,16 @@ Never commit real provider API keys to docs, Makefiles, source files, or tests.
 
 ## Runtime Files
 
-| Path                                          | Purpose                                                                     |
-| --------------------------------------------- | --------------------------------------------------------------------------- |
-| `~/.cometmind/cometmind.db`                   | CometMind SQLite database                                                   |
-| `~/.cometmind/cometline-settings.json`        | Single settings file (desktop UI + CometMind runtime)                       |
-| `~/.cometmind/config.toml`                    | Legacy; read once for migration if JSON is missing                          |
-| `~/.cometmind/cometline-workspace.json`       | Selected workspace path                                                     |
-| `~/.cometmind/logs/cometline.log`             | Electron-spawned CometMind logs (rotates at 10 MB while running → `.log.1`) |
-| `~/.cometmind/logs/cometline-gateway.log`     | Discord gateway logs (same rotation)                                        |
-| `~/.cometmind/mcp-oauth/{server}.json`        | MCP OAuth access/refresh token cache                                        |
-| `~/.cometmind/mcp-oauth/{server}.client.json` | MCP OAuth registered client metadata                                        |
+| Path                                          | Purpose                                                                          |
+| --------------------------------------------- | -------------------------------------------------------------------------------- |
+| `~/.cometmind/cometmind.db`                   | CometMind SQLite database                                                        |
+| `~/.cometmind/cometline-settings.json`        | Runtime settings (providers + CometMind); the only settings file CometMind reads |
+| `~/.cometmind/cometline-desktop.json`         | Desktop UI settings (appearance, shortcuts, app/persona); Electron only          |
+| `~/.cometmind/cometline-workspace.json`       | Selected workspace path                                                          |
+| `~/.cometmind/logs/cometline.log`             | Electron-spawned CometMind logs (rotates at 10 MB while running → `.log.1`)      |
+| `~/.cometmind/logs/cometline-gateway.log`     | Discord gateway logs (same rotation)                                             |
+| `~/.cometmind/mcp-oauth/{server}.json`        | MCP OAuth access/refresh token cache                                             |
+| `~/.cometmind/mcp-oauth/{server}.client.json` | MCP OAuth registered client metadata                                             |
 
 Default system prompt: packaged `SOUL.md` path is stored in `cometmind.systemPromptPath` inside `cometline-settings.json`.
 
