@@ -218,8 +218,6 @@ jobs:
   readability:
     name: Readability report
     runs-on: ubuntu-latest
-    # Budgets are reported, not enforced, until Phase 5 ratchets them.
-    continue-on-error: true
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -241,8 +239,8 @@ jobs:
       - name: Scorecard
         run: scripts/readability-report.sh
 
-      - name: Function length and complexity budgets
-        run: make lint-budget GOLANGCI_LINT=golangci-lint
+      - name: Size, fan-out, and budget allow-list
+        run: make readability-check GOLANGCI_LINT=golangci-lint
 
   pr-title:
     name: PR title

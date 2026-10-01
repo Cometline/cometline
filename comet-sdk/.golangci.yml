@@ -1,6 +1,8 @@
 # Blocking lint config for comet-sdk. Run with `make lint` from the repo root.
-# Size and complexity budgets (funlen, gocyclo) live in .golangci.budget.yml
-# and are reported by scripts/readability-report.sh without failing CI.
+# funlen and gocyclo still have allow-listed exceptions, so they stay in
+# .golangci.budget.yml. scripts/readability-report.sh --check fails when an
+# offender is missing from scripts/readability-allowlist.txt. Move a linter
+# here once its allow-list section is empty.
 version: "2"
 
 run:

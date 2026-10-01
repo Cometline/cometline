@@ -22,7 +22,7 @@ COMETMIND_API_KEY ?=
 COMETMIND_WORKSPACE_PATH ?= $(CURDIR)
 COMETMIND_BINARY_PATH ?= $(CURDIR)/cometmind/dist/cometmind
 
-.PHONY: help install generate check-generated check-sqlc check test build package dev fmt fmt-check lint lint-budget test-race vuln readability sdk-build sdk-test cometmind-build cometmind-test cometline-check cometline-build cometline-package cometline-dev port clean-log
+.PHONY: help install generate check-generated check-sqlc check test build package dev fmt fmt-check lint lint-budget test-race vuln readability readability-check sdk-build sdk-test cometmind-build cometmind-test cometline-check cometline-build cometline-package cometline-dev port clean-log
 
 help:
 	@printf "Cometline targets:\n"
@@ -32,6 +32,7 @@ help:
 	@printf "  make fmt              Format Go code (gofmt + goimports)\n"
 	@printf "  make lint             Run golangci-lint on the Go modules\n"
 	@printf "  make lint-budget      Report funlen/gocyclo budget findings (non-blocking)\n"
+	@printf "  make readability-check  Fail on size, fan-out, or unlisted budget offenders\n"
 	@printf "  make test-race        Run Go tests with the race detector\n"
 	@printf "  make vuln             Run govulncheck on the Go modules\n"
 	@printf "  make readability      Print the readability scorecard\n"
@@ -88,6 +89,9 @@ vuln:
 
 readability:
 	@scripts/readability-report.sh
+
+readability-check:
+	@GOLANGCI_LINT='$(GOLANGCI_LINT)' scripts/readability-report.sh --check
 
 build: sdk-build cometmind-build cometline-build
 

@@ -1,0 +1,61 @@
+# Exceptions to the funlen (80 lines) and gocyclo (15) budgets.
+#
+# scripts/readability-report.sh --check fails when this list and the live
+# offenders differ: a new offender must be added here with a one-line reason,
+# and an entry must be removed once the function is back under budget.
+# The list must not grow silently.
+#
+# Size and fan-out budgets (Go files, Go functions, Svelte components, scoped
+# CSS, .svelte.ts stores, cometmind fan-out outside composition roots) use the
+# same file. There are no exceptions today, so any new offender fails the check
+# until a line is added:
+#
+#   file <path> | reason
+#   func <path> <name> | reason
+#   fanout <package> | reason
+#   svelte <path> | reason
+#   svelte-css <path> | reason
+#   svelte-ts <path> | reason
+#
+# funlen and gocyclo stay in the non-blocking .golangci.budget.yml configs.
+# Move a linter into .golangci.yml once its lines below are gone.
+#
+# kind path symbol | reason
+
+funlen cometmind/internal/agent/compaction.go MaybeCompact | one transcript walk still decides whether to compact
+gocyclo comet-sdk/internal/responsesproto/protocol.go convertMessage | maps each content-block kind onto a Responses API item
+gocyclo comet-sdk/internal/responsesproto/stream.go responsesEvent | dispatches each Responses stream event onto SDK events
+gocyclo comet-sdk/llm/collect.go collectFromChannel | assembles a final response from a mixed event stream
+gocyclo comet-sdk/llm/stream.go (*MessageStream).run | forwards stream events while watching cancel and completion
+gocyclo cometmind/internal/agent/stream_failure.go classifyStreamFailure | maps provider stream errors onto retry categories
+gocyclo cometmind/internal/backup/archive.go (*Archiver).Run | walks backup steps and classifies each failure
+gocyclo cometmind/internal/config/config.go applyEnvOverrides | applies each environment variable onto its config field
+gocyclo cometmind/internal/config/memory.go resolveMemoryEmbedding | fills embedding settings from config and environment
+gocyclo cometmind/internal/filelist/filelist.go List | walks a workspace tree with ignore and limit branches
+gocyclo cometmind/internal/filelist/filelist.go ListDirectory | lists one directory with the same ignore and limit branches
+gocyclo cometmind/internal/gateway/discord/messages.go (*Adapter).onMessageCreate | routes a Discord message through mention, attachment, and permission checks
+gocyclo cometmind/internal/gateway/event_bridge.go (*EventForwarder).run | forwards gateway events onto the session hub
+gocyclo cometmind/internal/mcp/errors.go classifyConnectErrorFor | maps an MCP connect failure onto a user-facing class
+gocyclo cometmind/internal/mcp/http_transport.go (*headerTransport).RoundTrip | attaches MCP HTTP headers and auth on each request
+gocyclo cometmind/internal/media/store.go CopyFile | copies a file into the media store with validation
+gocyclo cometmind/internal/media/store.go DetectMediaType | sniffs a media type from the path and the bytes
+gocyclo cometmind/internal/memory/query.go DecideRetrieval | chooses which memory pools a turn should search
+gocyclo cometmind/internal/memory/retriever.go (*retriever).retrievePools | queries each memory pool inside a token budget
+gocyclo cometmind/internal/modelcatalog/metadata.go ResolveReasoningOptions | picks reasoning controls from the provider method and model
+gocyclo cometmind/internal/retention/retention.go (*Runner).Run | applies each retention rule to stored data
+gocyclo cometmind/internal/retention/retention.go (*Runner).purgeWorkspaceSessions | deletes workspace sessions that match retention
+gocyclo cometmind/internal/runtime/maintenance.go (*Runtime).StartRetentionMaintenance | starts the retention loops and handles each tick
+gocyclo cometmind/internal/server/job_handlers.go (*App).handlePutJobSettings | validates and stores each job settings field
+gocyclo cometmind/internal/server/message_content.go formatWebContext | formats each web-context block for the model
+gocyclo cometmind/internal/server/session_events.go (*App).handleIngestSessionEvent | accepts each inbound session event kind
+gocyclo cometmind/internal/settingsapply/classify.go Classify | classifies a settings diff into reload, recycle, or restart
+gocyclo cometmind/internal/settingsapply/redact.go RestoreSecretsInProviders | restores redacted provider secrets field by field
+gocyclo cometmind/internal/tools/fsops/editfile.go unifiedDiff | builds a unified diff while tracking hunk state
+gocyclo cometmind/internal/tools/fsops/glob.go (Glob).Execute | walks glob matches with ignore and limit branches
+gocyclo cometmind/internal/tools/fsops/grep.go grepNative | searches a workspace with include and literal modes
+gocyclo cometmind/internal/tools/media/capture_screenshot.go screenshotCapturePayload | builds the screenshot request from the capture options
+gocyclo cometmind/internal/tools/settings/settings_tools.go (patchSettingsTool).Execute | validates and applies a settings patch
+gocyclo cometmind/internal/tools/web/webfetch.go (WebFetch).Execute | fetches a URL with size and content-type guards
+gocyclo cometmind/internal/workspace/git/diff.go Diff | loads a git diff for one path and scope
+gocyclo cometmind/internal/workspace/git/git.go parsePorcelain | parses git status porcelain lines
+gocyclo cometmind/internal/workspace/git/write.go Discard | discards workspace paths with safety checks

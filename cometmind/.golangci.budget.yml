@@ -1,6 +1,7 @@
-# Readability budgets for cometmind. Non-blocking for now: `make lint-budget`
-# and the CI readability job report these without failing. Phase 5 folds them
-# into .golangci.yml once the code is under budget.
+# Readability budgets for cometmind. `make lint-budget` reports these without
+# failing. scripts/readability-report.sh --check fails CI unless every finding
+# is named in scripts/readability-allowlist.txt. Move a linter into
+# .golangci.yml once this file no longer reports it.
 version: "2"
 
 run:
