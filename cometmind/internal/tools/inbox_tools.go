@@ -81,7 +81,7 @@ func (t leaveInboxMessageTool) Execute(ctx context.Context, input json.RawMessag
 	return Result{OK: true, Output: fmt.Sprintf("Left inbox message %s", msg.ID)}, nil
 }
 
-type getJobTool struct{ deps InboxDeps }
+type getJobTool struct{ deps JobsDeps }
 
 func (getJobTool) Spec() ToolSpec {
 	return ToolSpec{
@@ -98,7 +98,7 @@ func (getJobTool) Spec() ToolSpec {
 }
 
 func (t getJobTool) Execute(ctx context.Context, input json.RawMessage) (Result, error) {
-	if t.deps.Jobs == nil {
+	if t.deps.Service == nil {
 		return Result{OK: false, Output: "jobs service unavailable"}, nil
 	}
 	var in struct {
@@ -111,7 +111,7 @@ func (t getJobTool) Execute(ctx context.Context, input json.RawMessage) (Result,
 	if jobID == "" {
 		return Result{OK: false, Output: "job_id is required"}, nil
 	}
-	job, err := t.deps.Jobs.Get(ctx, jobID)
+	job, err := t.deps.Service.Get(ctx, jobID)
 	if err != nil {
 		return Result{OK: false, Output: err.Error()}, nil
 	}
@@ -138,24 +138,9 @@ func RegisterInboxLeaveTool(r *Registry, deps InboxDeps) {
 	r.order = append(r.order, leaveInboxMessageTool{deps: deps})
 }
 
-// NewInboxProcessRegistry builds the limited tool set for inbox reply internalization.
-func NewInboxProcessRegistry(opt RegistryOptions) *Registry {
-	ws := Workspace{Root: ""}
-	r := &Registry{workspace: ws, byName: make(map[string]Tool)}
-	add := func(t Tool) {
-		spec := t.Spec()
-		r.byName[spec.Name] = t
-		r.order = append(r.order, t)
-	}
-	if opt.Memory != nil {
-		add(ListMemories{Memory: opt.Memory})
-		add(SearchMemories{Memory: opt.Memory})
-		add(CreateMemory{Memory: opt.Memory, Events: opt.MemoryEvents})
-		add(UpdateMemory{Memory: opt.Memory, Events: opt.MemoryEvents})
-	}
-	deps := InboxDeps{Jobs: opt.Jobs}
-	if opt.Jobs != nil {
-		add(getJobTool{deps: deps})
-	}
-	return r
+// NewInboxProcessRegistry builds the unattended tool surface for inbox reply
+// internalization. It can read, edit, run, and draft skills, but it cannot
+// spawn children or write/promote live skills. Plan mode still wins.
+func NewInboxProcessRegistry(workspaceRoot string, opt RegistryOptions) *Registry {
+	return newRegistryWithSurface(workspaceRoot, InboxProcessSurface(), opt)
 }

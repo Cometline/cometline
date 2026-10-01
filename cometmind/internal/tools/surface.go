@@ -16,7 +16,8 @@ type ToolSurface struct {
 	Memory   bool
 	MCP      bool
 	Settings bool // list/get/patch_settings (parent only)
-	SkillMut bool // write/promote skill drafts (parent only)
+	SkillDraft bool // list/read/write skill drafts without promoting them
+	SkillMut   bool // write/promote live skills (parent only)
 	Inbox    bool // leave_inbox_message (parent / autonomy)
 	Generate bool // generate_image / generate_video (parent auto only)
 }
@@ -24,7 +25,7 @@ type ToolSurface struct {
 // ParentSurface is the full parent-agent tool surface.
 func ParentSurface(delegateEnabled bool) ToolSurface {
 	return ToolSurface{
-		Read: true, Edit: true, Run: true, Skills: true, SkillMut: true,
+		Read: true, Edit: true, Run: true, Skills: true, SkillDraft: true, SkillMut: true,
 		Spawn: true, Delegate: delegateEnabled,
 		Jobs: true, Memory: true, MCP: true, Settings: true, Inbox: true, Generate: true,
 	}
@@ -38,6 +39,18 @@ func ResearchSurface() ToolSurface {
 // CodingSurface is in-process coding subagent tools (no spawn/delegate).
 func CodingSurface() ToolSurface {
 	return ToolSurface{Read: true, Edit: true, Run: true, Skills: true}
+}
+
+// InboxProcessSurface is the unattended inbox-reply surface. It matches the
+// parent agent except for capabilities that need a watched session: spawning
+// children, delegating to an external harness, and writing or promoting live
+// skills. Drafts stay pending human review.
+func InboxProcessSurface() ToolSurface {
+	surface := ParentSurface(false)
+	surface.Spawn = false
+	surface.Delegate = false
+	surface.SkillMut = false
+	return surface
 }
 
 // PlanSurface is the read-only parent surface for Plan mode: host/workspace

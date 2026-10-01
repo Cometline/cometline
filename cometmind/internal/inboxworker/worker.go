@@ -29,15 +29,19 @@ type RunGuard interface {
 // RunnerFactory builds an agent.Runner for an inbox process session.
 type RunnerFactory func(sess session.Session, workspacePath string, registry *tools.Registry, maxSteps int) (*agent.Runner, error)
 
+// RegistryOptionsFunc supplies the parent-session tool dependencies for one inbox run.
+type RegistryOptionsFunc func(sess session.Session, workspacePath string) tools.RegistryOptions
+
 // Worker periodically internalizes user replies on archived inbox messages.
 type Worker struct {
-	Inbox     *inbox.Service
-	Sessions  *session.Service
-	Jobs      *jobs.Service
-	Memory    *memory.Service
-	Events    *event.Hub
-	NewRunner RunnerFactory
-	Guard     RunGuard
+	Inbox           *inbox.Service
+	Sessions        *session.Service
+	Jobs            *jobs.Service
+	Memory          *memory.Service
+	Events          *event.Hub
+	NewRunner       RunnerFactory
+	RegistryOptions RegistryOptionsFunc
+	Guard           RunGuard
 
 	mu                sync.RWMutex
 	Config            config.InboxConfig
@@ -181,11 +185,28 @@ func (w *Worker) processOne(ctx context.Context, msg inbox.Message) {
 		return
 	}
 
-	registry := tools.NewInboxProcessRegistry(tools.RegistryOptions{
+	opt := tools.RegistryOptions{
 		Jobs:         w.Jobs,
 		Memory:       w.Memory,
 		MemoryEvents: w.Events,
-	})
+		SessionID:    sess.ID,
+	}
+	if w.RegistryOptions != nil {
+		opt = w.RegistryOptions(sess, workspacePath)
+		if opt.Jobs == nil {
+			opt.Jobs = w.Jobs
+		}
+		if opt.Memory == nil {
+			opt.Memory = w.Memory
+		}
+		if opt.MemoryEvents == nil {
+			opt.MemoryEvents = w.Events
+		}
+		if strings.TrimSpace(opt.SessionID) == "" {
+			opt.SessionID = sess.ID
+		}
+	}
+	registry := tools.NewInboxProcessRegistry(workspacePath, opt)
 	maxSteps := cfg.MaxStepsPerRun
 	if maxSteps <= 0 {
 		maxSteps = 8
@@ -235,9 +256,10 @@ func (w *Worker) finishWithError(ctx context.Context, msg inbox.Message, reason 
 func internalizationPrompt(msg inbox.Message) string {
 	var b strings.Builder
 	b.WriteString("You are processing a user reply to an inbox note you previously left.\n")
-	b.WriteString("Decide whether to save durable memory from this exchange, or do nothing.\n")
-	b.WriteString("Allowed tools only: list_memories, search_memories, create_memory, update_memory, get_job.\n")
-	b.WriteString("Do not invent work; if the reply is a simple acknowledgement with no lasting preference or fact, call no tools.\n\n")
+	b.WriteString("Use the available tools when the reply asks for real work, a lookup, or a durable artifact. This session cannot spawn subagents.\n")
+	b.WriteString("Save durable memory when the reply states a lasting preference or fact. If it is only an acknowledgement, do not invent work and call no tools.\n")
+	b.WriteString("When the reply asks to remember a reusable workflow as a skill, draft it with write_skill_draft. This session cannot write or promote live skills; drafts stay pending human review.\n")
+	b.WriteString("If write_skill_draft is blocked as a near-duplicate, update the same-name draft with overwrite=true or leave the overlap for the user. Do not force a new draft without an explicit yes.\n\n")
 	fmt.Fprintf(&b, "Inbox title: %s\n", msg.Title)
 	fmt.Fprintf(&b, "Inbox body:\n%s\n\n", msg.Body)
 	fmt.Fprintf(&b, "User reply:\n%s\n", msg.UserReply)
