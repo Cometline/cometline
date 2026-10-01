@@ -79,7 +79,7 @@ func TestPurgeRuntimeFilesDoesNotTouchWikiDir(t *testing.T) {
 
 	PurgeRuntimeFiles(config.StorageConfig{
 		ToolOutputRetentionDays: 1,
-		AgentTmpRetentionDays:     1,
+		AgentTmpRetentionDays:   1,
 	})
 
 	if _, err := os.Stat(oldWiki); err != nil {

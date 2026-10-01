@@ -82,17 +82,17 @@ func (s *JobProposalStore) Put(msg InboundMessage, payload JobProposalPayload, s
 	}
 
 	p := &PendingJobProposal{
-		ID:               proposalID,
-		Description:      strings.TrimSpace(payload.Description),
-		DefinitionOfDone: strings.TrimSpace(payload.DefinitionOfDone),
-		DefaultWorkspace: defaultWS,
+		ID:                proposalID,
+		Description:       strings.TrimSpace(payload.Description),
+		DefinitionOfDone:  strings.TrimSpace(payload.DefinitionOfDone),
+		DefaultWorkspace:  defaultWS,
 		SelectedWorkspace: defaultWS,
-		UserID:           msg.UserID,
-		ChannelID:        msg.ChannelID,
-		ThreadID:         msg.ThreadID,
-		SessionID:        sessionID,
-		SourceChannelID:  sourceChannelID,
-		CreatedAt:        time.Now(),
+		UserID:            msg.UserID,
+		ChannelID:         msg.ChannelID,
+		ThreadID:          msg.ThreadID,
+		SessionID:         sessionID,
+		SourceChannelID:   sourceChannelID,
+		CreatedAt:         time.Now(),
 	}
 	s.byID[proposalID] = p
 	s.byChannel[channelKey] = proposalID

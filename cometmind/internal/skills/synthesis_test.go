@@ -132,4 +132,3 @@ Body.
 		t.Fatalf("expected overlap skip with no draft, got %+v", drafts)
 	}
 }
-

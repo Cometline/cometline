@@ -6,20 +6,20 @@ import "github.com/cometline/cometmind/internal/session"
 // are exposed. Parent, research, and coding registries share this module so
 // mode is not duplicated as stringly agentName / registry lists.
 type ToolSurface struct {
-	Read     bool // read_file, list, glob, grep, web
-	Edit     bool // edit_file, write_file
-	Run      bool // run_command
-	Skills   bool // load/read skill (+ drafts on parent)
-	Spawn    bool // spawn_general_agent, wait_subagents
-	Delegate bool // delegate_coding_task (external harness)
-	Jobs     bool
-	Memory   bool
-	MCP      bool
-	Settings bool // list/get/patch_settings (parent only)
+	Read       bool // read_file, list, glob, grep, web
+	Edit       bool // edit_file, write_file
+	Run        bool // run_command
+	Skills     bool // load/read skill (+ drafts on parent)
+	Spawn      bool // spawn_general_agent, wait_subagents
+	Delegate   bool // delegate_coding_task (external harness)
+	Jobs       bool
+	Memory     bool
+	MCP        bool
+	Settings   bool // list/get/patch_settings (parent only)
 	SkillDraft bool // list/read/write skill drafts without promoting them
 	SkillMut   bool // write/promote live skills (parent only)
-	Inbox    bool // leave_inbox_message (parent / autonomy)
-	Generate bool // generate_image / generate_video (parent auto only)
+	Inbox      bool // leave_inbox_message (parent / autonomy)
+	Generate   bool // generate_image / generate_video (parent auto only)
 }
 
 // ParentSurface is the full parent-agent tool surface.
