@@ -145,7 +145,7 @@ func (a *App) runPostMessage(c *gin.Context, prepared preparedPostMessage) {
 	if !a.persistPostMessage(c, prepared) {
 		return
 	}
-	a.streamMessageTurn(c, prepared, runner, runCtx, runID, finishRun)
+	a.streamMessageTurn(runCtx, c, prepared, runner, runID, finishRun)
 }
 
 func (a *App) beginMessageRun(c *gin.Context, prepared preparedPostMessage) (Runner, context.Context, string, func(), bool) {
@@ -204,7 +204,7 @@ func (a *App) persistPostMessage(c *gin.Context, prepared preparedPostMessage) b
 	return true
 }
 
-func (a *App) streamMessageTurn(c *gin.Context, prepared preparedPostMessage, runner Runner, runCtx context.Context, runID string, finishRun func()) {
+func (a *App) streamMessageTurn(runCtx context.Context, c *gin.Context, prepared preparedPostMessage, runner Runner, runID string, finishRun func()) {
 	flusher, ok := beginMessageSSE(c)
 	if !ok {
 		return
