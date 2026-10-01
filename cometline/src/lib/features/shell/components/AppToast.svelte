@@ -103,7 +103,7 @@
 
 	.toast-icon {
 		flex: 0 0 auto;
-		color: var(--status-success, #15803d);
+		color: var(--status-success, var(--status-success));
 	}
 
 	.toast[data-tone='warning'] .toast-icon {

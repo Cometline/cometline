@@ -80,9 +80,9 @@
 		padding: 8px 12px;
 		font-size: 0.8125rem;
 		font-weight: 500;
-		color: var(--text-main, #1f2933);
-		background: var(--panel-bg, #ffffff);
-		border: 1px solid var(--border-soft, #e5e7eb);
+		color: var(--text-main, var(--text-main));
+		background: var(--panel-bg, var(--panel-bg));
+		border: 1px solid var(--border-soft, var(--border-soft));
 		border-radius: var(--radius-pill, 999px);
 		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
 		cursor: default;
@@ -91,7 +91,7 @@
 
 	.update-button.ready {
 		cursor: pointer;
-		border-color: var(--accent, #4c8dff);
+		border-color: var(--accent, var(--color-4c8dff));
 		transition:
 			transform var(--duration-fast, 160ms) var(--ease-smooth, ease),
 			background var(--duration-fast, 160ms) var(--ease-smooth, ease);
