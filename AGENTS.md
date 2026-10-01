@@ -62,7 +62,7 @@ go test ./...         # Run all tests
 go build ./...        # Verify compilation
 
 # Run a specific test
-go test -run TestPostMessageStreamsSSEAndPersistsUserTurn ./server
+go test -run TestPostMessageStreamsSSEAndPersistsUserTurn ./internal/server
 
 # Regenerate SQL code after schema or query changes (pinned sqlc, no install needed)
 go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1 generate

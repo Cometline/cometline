@@ -24,11 +24,10 @@ linters:
     depguard:
       rules:
         # ── Dependency direction ─────────────────────────────────────────────
-        # Keep every package-direction rule in this block. Phase 3a moves
-        # cometmind/server to cometmind/internal/server; update the paths here.
+        # Keep every package-direction rule in this block.
         db-only-in-services:
           files:
-            - "**/cometmind/server/**"
+            - "**/cometmind/internal/server/**"
             - "**/cometmind/internal/gateway/**"
           deny:
             - pkg: github.com/Cometline/cometline/cometmind/internal/db
@@ -36,7 +35,7 @@ linters:
         apigen-only-in-server:
           files:
             - $all
-            - "!**/cometmind/server/**"
+            - "!**/cometmind/internal/server/**"
             - "!**/cometmind/internal/apigen/**"
             # Known violators, to be removed in Phase 3:
             - "!**/cometmind/cmd/session.go"

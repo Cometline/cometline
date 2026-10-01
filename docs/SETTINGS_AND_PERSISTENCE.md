@@ -346,7 +346,7 @@ Practical rule for contributors:
 - `cometline/src/lib/settings/settings-save.test.ts`
 - `cometline/src/lib/components/settings/SettingsMemoryPanel.svelte.test.ts`
 - `cometmind/internal/config/config_test.go`
-- `cometmind/server/memory_handlers_test.go`
+- `cometmind/internal/server/memory_handlers_test.go`
 
 Rule:
 

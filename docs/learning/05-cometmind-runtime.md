@@ -25,7 +25,7 @@ Each row is one **surface**. A surface is one way to enter the same runtime.
 
 | Surface | Command / file | Role |
 |---------|----------------|------|
-| HTTP API | `cometmind serve` → `server/server.go` | Main path for Cometline |
+| HTTP API | `cometmind serve` → `internal/server/server.go` | Main path for Cometline |
 | CLI chat | `cometmind chat "message"` | Test from the terminal |
 | CLI init | `cometmind init` | Create config, the database, and register a workspace |
 | Discord | `cometmind gateway run --platform discord` | Messaging gateway |
@@ -199,11 +199,11 @@ Database path: `~/.cometmind/cometmind.db`
 
 ## HTTP/SSE server
 
-The HTTP server is a Gin app in `server/server.go`. It is built with `server.New(deps)`. **Gin** is the Go HTTP library. **SSE** means Server-Sent Events. The server pushes events to the client on one open connection.
+The HTTP server is a Gin app in `internal/server/server.go`. It is built with `server.New(deps)`. **Gin** is the Go HTTP library. **SSE** means Server-Sent Events. The server pushes events to the client on one open connection.
 
 ### Critical handler: POST message
 
-`handlePostMessage` lives in `server/messages.go`. It is registered from `server/server.go`.
+`handlePostMessage` lives in `internal/server/messages.go`. It is registered from `internal/server/server.go`.
 
 ```text
 handlePostMessage:
@@ -220,7 +220,7 @@ handlePostMessage:
 
 ### RunManager
 
-`server/run_manager.go` allows one in-flight run per session. **In-flight** means the run has started and has not finished. This stops tool results from mixing. It also protects the transcript if the user sends many messages quickly. Mixed results would damage the transcript.
+`internal/server/run_manager.go` allows one in-flight run per session. **In-flight** means the run has started and has not finished. This stops tool results from mixing. It also protects the transcript if the user sends many messages quickly. Mixed results would damage the transcript.
 
 Cancel with `DELETE /api/v1/sessions/{id}/runs/current`. That calls `RunManager.Cancel`.
 
@@ -335,7 +335,7 @@ This is a second translation layer. The split is intentional. The OpenAPI contra
 ```bash
 cd cometmind
 go test ./...                    # All tests
-go test -run TestPostMessage ./server  # Specific handler test
+go test -run TestPostMessage ./internal/server  # Specific handler test
 ```
 
 Server tests use `httptest` and a temporary SQLite database.

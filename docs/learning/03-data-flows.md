@@ -116,9 +116,9 @@ A **goroutine** is a Go task that runs in the background. **Flush** means send e
 
 | Step               | Source                                                |
 | ------------------ | ----------------------------------------------------- |
-| Route registration | `cometmind/server/server.go`                          |
-| Message handler    | `cometmind/server/messages.go`: `handlePostMessage`   |
-| Single-run lock    | `cometmind/server/run_manager.go`                     |
+| Route registration | `cometmind/internal/server/server.go`                          |
+| Message handler    | `cometmind/internal/server/messages.go`: `handlePostMessage`   |
+| Single-run lock    | `cometmind/internal/server/run_manager.go`                     |
 | Runner factory     | `cometmind/internal/runtime/runtime.go` → `RunnerFor` |
 
 GitNexus process `proc_78_appendusermessageand` follows user message persistence. **Persistence** means the app saves the data. The path goes through `Service.AppendUserMessageContent` in `session/service.go`.

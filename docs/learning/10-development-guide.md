@@ -58,7 +58,7 @@ CI-safe means the tests do not call a live provider. CI is the automated check t
 ```bash
 cd cometmind
 go test ./...                                    # All tests
-go test -run TestPostMessageStreamsSSE ./server  # Specific test
+go test -run TestPostMessageStreamsSSE ./internal/server  # Specific test
 go build ./...                                   # Verify compile
 go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1 generate  # After schema/query changes
 ```
@@ -140,7 +140,7 @@ A harness is an external coding program. Delegation means the agent hands that c
 ### Add a REST endpoint
 
 1. Edit `cometmind/openapi.yaml`.
-2. In `cometmind/server/server.go`, add the handler and the route.
+2. In `cometmind/internal/server/server.go`, add the handler and the route.
 3. Run `make generate`.
 4. In `cometline/src/lib/client/cometmind.ts`, add the client function.
 5. Add a server test in `server/*_test.go`.
@@ -166,7 +166,7 @@ SSE means Server-Sent Events: a live stream of events from the server. An emitte
 3. Edit `internal/db/queries/*.sql`.
 4. Run `go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1 generate`.
 5. In `internal/session/service.go`, update the domain logic.
-6. Run `go test ./internal/session/... ./server/...`.
+6. Run `go test ./internal/session/... ./internal/server/...`.
 
 ### Add an Agent Skill
 

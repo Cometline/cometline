@@ -108,7 +108,7 @@ It must not own:
 - `cometmind/internal/autonomy/worker.go`
 - `cometmind/internal/provider/factory.go`
 - `cometmind/internal/event/event.go`
-- `cometmind/server/server.go`
+- `cometmind/internal/server/server.go`
 - `cometmind/openapi.yaml`
 - `cometmind/internal/db/schema.sql`
 - `cometmind/internal/db/migrate.go`

@@ -72,7 +72,7 @@ A **contract** is a shared description of an API or data shape. Both sides must 
 | Streaming collection | `comet-sdk/llm.StreamMessage`                              | Yes, if event order stays the same       |
 | Agent orchestration  | `cometmind/internal/agent.Runner`                          | No. The system depends on this part.     |
 | Persistence          | SQLite (`modernc.org/sqlite`) + sqlc                       | Only behind the session service contract |
-| HTTP API             | Gin (`cometmind/server`)                                   | Yes, if the OpenAPI contract stays the same |
+| HTTP API             | Gin (`cometmind/internal/server`)                                   | Yes, if the OpenAPI contract stays the same |
 | Desktop shell        | Electron                                                   | Yes, if the sidecar and the same IPC remain |
 | Renderer             | SvelteKit 5 + TypeScript                                   | Yes, if REST and SSE contracts stay the same |
 | Jobs/scheduler       | `internal/jobs`, `internal/scheduler`, `internal/autonomy` | No, once jobs are saved. The system depends on this part. |
@@ -269,7 +269,7 @@ A seam is a place where you can add a feature. You start at the files in the rig
 | ----------------- | -------------------------------------------------------------------------------------------------------- |
 | New LLM provider  | `comet-sdk/provider/<name>` → `cometmind/internal/provider/factory.go` → `SettingsProvidersPanel.svelte` |
 | New built-in tool | `cometmind/internal/tools/*.go` → `registry.go` / `surface.go`                                           |
-| New API endpoint  | `server/server.go` + `openapi.yaml` → `make generate`                                                    |
+| New API endpoint  | `internal/server/server.go` + `openapi.yaml` → `make generate`                                                    |
 | New SSE event     | `event/event.go` + `openapi.yaml` → reducer and/or runtime toasts + contract tests                       |
 | DB schema change  | `db/schema.sql` + `migrate.go` → pinned sqlc (see `CONTRIBUTING.md`)                                     |
 | Settings field    | `settings/schema.ts` + settings panel module + Electron split path                                       |

@@ -16,8 +16,8 @@ import (
 	"github.com/Cometline/cometline/cometmind/internal/processctl"
 	"github.com/Cometline/cometline/cometmind/internal/runstate"
 	"github.com/Cometline/cometline/cometmind/internal/runtime"
+	"github.com/Cometline/cometline/cometmind/internal/server"
 	"github.com/Cometline/cometline/cometmind/internal/session"
-	"github.com/Cometline/cometline/cometmind/server"
 	"github.com/spf13/cobra"
 )
 

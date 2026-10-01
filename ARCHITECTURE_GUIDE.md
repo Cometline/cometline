@@ -59,7 +59,7 @@ The rule that explains most boundaries: `cometline` is the UI shell, `cometmind`
 | Streaming collection | `comet-sdk/llm.StreamMessage` | Lets UI render deltas while still assembling the final assistant message | Swappable if it preserves event ordering and final result semantics |
 | Agent orchestration | `cometmind/internal/agent.Runner` | Multi-step loop: model call, persist, execute tools, continue | Load-bearing |
 | Persistence | SQLite via `modernc.org/sqlite` and sqlc | Local-first durable sessions without native CGO dependency | Storage engine is swappable only behind `session.Service`-equivalent contracts |
-| HTTP API | Gin in `cometmind/server` | Localhost REST/SSE contract for desktop renderer | Swappable if the API/SSE contract is preserved |
+| HTTP API | Gin in `cometmind/internal/server` | Localhost REST/SSE contract for desktop renderer | Swappable if the API/SSE contract is preserved |
 | Jobs and scheduling | `internal/jobs`, `internal/scheduler`, `internal/autonomy` | Durable work queue, scheduled work materialization, autonomous execution | Load-bearing once users rely on persisted jobs |
 | MCP client | `internal/mcp` with `github.com/modelcontextprotocol/go-sdk` | Adds external tools to the main agent without baking them into CometMind | Swappable behind the tool registry surface |
 | CLI | Cobra | Thin command surfaces around shared runtime | Swappable |
@@ -71,7 +71,7 @@ The rule that explains most boundaries: `cometline` is the UI shell, `cometmind`
 
 ### CometMind Local API
 
-The authoritative local backend surface is under `/api/v1`, registered by `cometmind/server` and described completely by `cometmind/openapi.yaml`. The table is a contributor-oriented sample, not a route inventory: the current contract also covers model catalogues, workspace Git and wiki operations, session forks/media/children, global runtime events, managed skills, memory lifecycle, storage maintenance, and inbox messages.
+The authoritative local backend surface is under `/api/v1`, registered by `cometmind/internal/server` and described completely by `cometmind/openapi.yaml`. The table is a contributor-oriented sample, not a route inventory: the current contract also covers model catalogues, workspace Git and wiki operations, session forks/media/children, global runtime events, managed skills, memory lifecycle, storage maintenance, and inbox messages.
 
 | Method | Path | Purpose |
 |---|---|---|
@@ -127,7 +127,7 @@ CometMind emits JSON SSE frames whose `type` field is the discriminator. The can
 | `error` | `type`, `message`, `code?` | Runtime/model/tool error |
 | `done` | `type` | Terminal stream event |
 
-Changing this contract requires changes in `cometmind/internal/event`, `cometmind/server`, `cometline/src/lib/types.ts`, `cometline/src/lib/reducers/chat.ts`, and tests.
+Changing this contract requires changes in `cometmind/internal/event`, `cometmind/internal/server`, `cometline/src/lib/types.ts`, `cometline/src/lib/reducers/chat.ts`, and tests.
 
 ### Electron IPC Contract
 
@@ -220,8 +220,8 @@ Key references:
 
 | Step | Source |
 |---|---|
-| Route registration | `cometmind/server/server.go` |
-| Message handler, single-run acquisition, persistence, and SSE loop | `cometmind/server/messages.go` (`handlePostMessage`) |
+| Route registration | `cometmind/internal/server/server.go` |
+| Message handler, single-run acquisition, persistence, and SSE loop | `cometmind/internal/server/messages.go` (`handlePostMessage`) |
 
 ### Flow 4: Agent Step And Tool Loop
 
@@ -519,13 +519,13 @@ Schema migrations are managed with `PRAGMA user_version` and applied incremental
 
 ## HTTP/SSE Server
 
-The server is a Gin app built by `server.New` in `cometmind/server/server.go`. It takes explicit dependencies in `server.Deps`, including a runner factory and optional `RunManager`.
+The server is a Gin app built by `server.New` in `cometmind/internal/server/server.go`. It takes explicit dependencies in `server.Deps`, including a runner factory and optional `RunManager`.
 
-`handlePostMessage` is the critical endpoint in `cometmind/server/messages.go`. It validates input, loads the session and workspace, builds a runner, acquires the per-session run lock, persists the user message, sets SSE headers, runs the agent in a goroutine, writes every event with `writeSSE`, and flushes.
+`handlePostMessage` is the critical endpoint in `cometmind/internal/server/messages.go`. It validates input, loads the session and workspace, builds a runner, acquires the per-session run lock, persists the user message, sets SSE headers, runs the agent in a goroutine, writes every event with `writeSSE`, and flushes.
 
 `RunManager` enforces one active run per session. This prevents overlapping writes and interleaved streams for the same conversation.
 
-Local CORS allows Vite dev origins, localhost, packaged `app://`, `file://`, empty origin, and `null`; see `localCORS` in `cometmind/server/server.go`.
+Local CORS allows Vite dev origins, localhost, packaged `app://`, `file://`, empty origin, and `null`; see `localCORS` in `cometmind/internal/server/server.go`.
 
 ## CLI And Server Surfaces
 
@@ -560,7 +560,7 @@ File tools are workspace-scoped through `internal/tools/sandbox/pathcheck.go` as
 |---|---|
 | Add an LLM provider | `comet-sdk/provider/<new>` then `cometmind/internal/provider/factory.go`; per-model protocol (npm/api) overrides for a method land in `cometmind/internal/modelcatalog` metadata |
 | Add a built-in tool | New `internal/tools/*.go`, then register in `internal/tools/registry.go` |
-| Add an API endpoint | `cometmind/server/server.go`, `cometmind/openapi.yaml`, server tests |
+| Add an API endpoint | `cometmind/internal/server/server.go`, `cometmind/openapi.yaml`, server tests |
 | Change DB schema | `internal/db/schema.sql`, `internal/db/migrate.go`, pinned sqlc regeneration (see `CONTRIBUTING.md`), session service updates |
 | Change stream event contract | `internal/event/event.go`, server/CLI consumers, renderer types/reducer |
 | Change agent loop behavior | `internal/agent/runner.go` and its tests |
@@ -748,7 +748,7 @@ Electron-builder includes the sidecar as an extra resource (`cometline/package.j
 | Add a new agent tool | `cometmind/internal/tools`, `registry.go` | Workspace sandbox, permission-gate design, transcript rendering |
 | Change chat streaming UI | `cometline/src/lib/reducers/chat.ts`, `chat.svelte.ts`, `ChatThread.svelte` | CometMind event contract and reducer tests |
 | Change persistence schema | `cometmind/internal/db/schema.sql`, `migrate.go` | Pinned sqlc regeneration, session service, server transcript tests |
-| Add a REST endpoint | `cometmind/server/server.go`, `openapi.yaml` | Renderer client if UI needs it |
+| Add a REST endpoint | `cometmind/internal/server/server.go`, `openapi.yaml` | Renderer client if UI needs it |
 | Change provider settings UX | `cometline/src/lib/stores/settings.svelte.ts`, settings panels, `electron/src/domains/settings.ts` | JSON split/merge and runtime reload/restart classification |
 | Change packaging/release | `cometline/package.json`, `.github/workflows`, `electron/src/domains/runtime.ts` | Sidecar `extraResources`, update flow |
 | Improve secrets storage | `electron/src/domains/settings.ts` and future CometMind config endpoints | OS keychain design, renderer redaction |
