@@ -1,10 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import source from './ThinkingIndicator.svelte?raw';
-import keyframes from './ThinkingIndicatorKeyframes.svelte?raw';
 import { THINKING_INDICATOR_VARIANTS } from './thinking-indicator';
 
 function orbitRotations() {
-	const orbit = /@keyframes thinking-orbit\s*\{([\s\S]*?)\n\t\}/.exec(keyframes)?.[1] ?? '';
+	const orbit = /@keyframes thinking-orbit\s*\{([\s\S]*?)\n\t\}/.exec(source)?.[1] ?? '';
 	return [...orbit.matchAll(/rotate\((-?\d+)deg\)/g)].map((match) => Number(match[1]));
 }
 

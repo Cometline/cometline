@@ -1,5 +1,4 @@
 <script lang="ts">
-	import AssistantMarkdownProse from '$lib/components/AssistantMarkdownProse.svelte';
 	import { createAssistantMarkdown } from '$lib/components/assistant-markdown.svelte';
 	import type { WorkspaceMarkdownResources } from '$lib/markdown/render';
 
@@ -55,7 +54,6 @@
 		<span class="markdown-plain">{view.s.displaySource}</span>
 	{/if}
 </div>
-<AssistantMarkdownProse />
 
 <style>
 	.markdown {

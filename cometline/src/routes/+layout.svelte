@@ -2,6 +2,7 @@
 	import '../app.css';
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
+	import AssistantMarkdownProse from '$lib/components/AssistantMarkdownProse.svelte';
 	import AppShell from '$lib/features/shell/components/AppShell.svelte';
 	import MiniShell from '$lib/features/shell/components/MiniShell.svelte';
 	import { connectionState } from '$lib/stores/runtime.svelte';
@@ -269,6 +270,7 @@
 	}
 </script>
 
+<AssistantMarkdownProse />
 {#if isMiniRoute}
 	<MiniShell>
 		{@render children()}
