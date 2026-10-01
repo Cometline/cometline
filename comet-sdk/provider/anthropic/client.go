@@ -6,12 +6,12 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log/slog"
 	"net/http"
 
 	cometsdk "github.com/Cometline/cometline/comet-sdk"
 	"github.com/Cometline/cometline/comet-sdk/internal/providerbase"
 	"github.com/Cometline/cometline/comet-sdk/internal/retry"
+	"go.uber.org/zap"
 )
 
 const (
@@ -25,7 +25,7 @@ const (
 type provider struct {
 	apiKey string
 	cfg    cometsdk.ProviderConfig
-	log    *slog.Logger
+	log    *zap.Logger
 }
 
 // New creates a Provider for Anthropic's Messages API.
@@ -60,7 +60,7 @@ func (p *provider) ID() string { return providerID }
 func (p *provider) Stream(ctx context.Context, req *cometsdk.Request) (<-chan cometsdk.Event, error) {
 	ch := make(chan cometsdk.Event, 32)
 
-	p.log.DebugContext(ctx, "stream.start", "model", req.Model)
+	p.log.Debug("stream.start", zap.String("model", req.Model))
 
 	attempt := 0
 	var httpResp *http.Response
@@ -68,11 +68,11 @@ func (p *provider) Stream(ctx context.Context, req *cometsdk.Request) (<-chan co
 	err := retry.Do(ctx, p.cfg.MaxRetries, func() error {
 		attempt++
 		if attempt > 1 {
-			p.log.DebugContext(ctx, "stream.retry", "attempt", attempt, "model", req.Model)
+			p.log.Debug("stream.retry", zap.Int("attempt", attempt), zap.String("model", req.Model))
 		}
 		r, err := p.doRequest(ctx, req)
 		if err != nil {
-			p.log.DebugContext(ctx, "stream.request_error", "attempt", attempt, "error", err)
+			p.log.Debug("stream.request_error", zap.Int("attempt", attempt), zap.Error(err))
 			return err
 		}
 		httpResp = r
@@ -80,7 +80,7 @@ func (p *provider) Stream(ctx context.Context, req *cometsdk.Request) (<-chan co
 	}, providerbase.IsRetryable)
 
 	if err != nil {
-		p.log.DebugContext(ctx, "stream.failed", "error", err)
+		p.log.Debug("stream.failed", zap.Error(err))
 		return nil, err
 	}
 

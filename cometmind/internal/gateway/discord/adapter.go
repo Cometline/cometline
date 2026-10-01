@@ -14,6 +14,7 @@ import (
 	"github.com/Cometline/cometline/cometmind/internal/jobs"
 	"github.com/Cometline/cometline/cometmind/internal/logging"
 	"github.com/bwmarrin/discordgo"
+	"go.uber.org/zap"
 )
 
 // PlatformName is the normalized platform identifier for Discord.
@@ -166,7 +167,7 @@ func (a *Adapter) Start(ctx context.Context) error {
 	a.Session.AddHandler(a.onInteractionCreate)
 	a.Session.AddHandler(func(s *discordgo.Session, r *discordgo.Ready) {
 		if err := a.registerCommands(s, r); err != nil {
-			logging.L().Error("discord.slash_commands.register_failed", "error", err)
+			logging.L().Error("discord.slash_commands.register_failed", zap.Error(err))
 		} else {
 			logging.L().Info("discord.slash_commands.registered")
 		}

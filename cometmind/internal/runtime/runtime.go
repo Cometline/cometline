@@ -35,6 +35,7 @@ import (
 	"github.com/Cometline/cometline/cometmind/internal/subagent"
 	"github.com/Cometline/cometline/cometmind/internal/usage"
 	"github.com/Cometline/cometline/cometmind/internal/wakeup"
+	"go.uber.org/zap"
 )
 
 // memoryExtractionConcurrency is the maximum number of extractMemoryAfterTurn
@@ -124,10 +125,10 @@ func New(ctx context.Context) (*Runtime, error) {
 		r.registerSkillSynthesis(notifier)
 	}
 	if _, err := r.RunRetention(ctx); err != nil {
-		logging.L().Warn("retention.startup_failed", "error", err)
+		logging.L().Warn("retention.startup_failed", zap.Error(err))
 	}
 	if _, err := r.Jobs.Reconcile(ctx, nil); err != nil {
-		logging.L().Warn("jobs.reconcile.startup_failed", "error", err)
+		logging.L().Warn("jobs.reconcile.startup_failed", zap.Error(err))
 	}
 	r.mcpMgr = mcppkg.NewManager(cfg.MCPSettings())
 	// Connect MCP servers in the background so a slow or unreachable server
@@ -145,16 +146,12 @@ func New(ctx context.Context) (*Runtime, error) {
 func newMemoryService(cfg *config.Config, sqlDB *sql.DB, sessions *session.Service, usageSvc *usage.Service) *memory.Service {
 	p, err := provider.NewMemoryLLM(cfg)
 	if err != nil {
-		logging.L().Warn("memory.provider.init_failed",
-			"error", err,
-			"effect", "memory subsystem disabled; agent will run without retrieval/extraction")
+		logging.L().Warn("memory.provider.init_failed", zap.Error(err), zap.String("effect", "memory subsystem disabled; agent will run without retrieval/extraction"))
 		return nil
 	}
 	mem, err := memory.NewService(sqlDB, cfg.MemorySettings(), p, sessions)
 	if err != nil {
-		logging.L().Warn("memory.service.init_failed",
-			"error", err,
-			"effect", "memory subsystem disabled; agent will run without retrieval/extraction")
+		logging.L().Warn("memory.service.init_failed", zap.Error(err), zap.String("effect", "memory subsystem disabled; agent will run without retrieval/extraction"))
 		return nil
 	}
 	mem.SetUsageRecorder(usageSvc)
@@ -165,7 +162,7 @@ func (r *Runtime) registerSkillSynthesis(notifier *jobs.Notifier) {
 	providerID, model := r.Config.ResolveRoleLLM(r.Config.Skills.SynthesisProviderID, r.Config.Skills.SynthesisModel)
 	p, err := provider.NewForModel(r.Config, providerID, model)
 	if err != nil {
-		logging.L().Warn("skills.synthesis.provider.init_failed", "error", err)
+		logging.L().Warn("skills.synthesis.provider.init_failed", zap.Error(err))
 		return
 	}
 	notifier.Register(&skillSynthesisNotifier{provider: p, model: model, memory: r.Memory, usage: r.Usage, sessions: r.Sessions, workers: r.workers})

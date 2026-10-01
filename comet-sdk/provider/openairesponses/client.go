@@ -7,12 +7,12 @@ package openairesponses
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"net/http"
 
 	cometsdk "github.com/Cometline/cometline/comet-sdk"
 	"github.com/Cometline/cometline/comet-sdk/internal/providerbase"
 	"github.com/Cometline/cometline/comet-sdk/internal/responsesproto"
+	"go.uber.org/zap"
 )
 
 const (
@@ -24,7 +24,7 @@ type provider struct {
 	apiKey string
 	id     string
 	cfg    cometsdk.ProviderConfig
-	log    *slog.Logger
+	log    *zap.Logger
 }
 
 // New creates a Provider for the OpenAI Responses API authenticated with a
@@ -56,7 +56,7 @@ func (p *provider) ID() string { return p.id }
 
 // Stream sends req to the Responses API and returns a channel of events.
 func (p *provider) Stream(ctx context.Context, req *cometsdk.Request) (<-chan cometsdk.Event, error) {
-	p.log.DebugContext(ctx, "stream.start", "model", req.Model)
+	p.log.Debug("stream.start", zap.String("model", req.Model))
 	stream := providerbase.FallbackStream{
 		MaxRetries: p.cfg.MaxRetries,
 		Log:        p.log,

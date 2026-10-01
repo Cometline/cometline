@@ -8,6 +8,7 @@ import (
 	"github.com/Cometline/cometline/cometmind/internal/config"
 	"github.com/Cometline/cometline/cometmind/internal/logging"
 	"github.com/Cometline/cometline/cometmind/internal/paths"
+	"go.uber.org/zap"
 )
 
 // PurgeRuntimeFiles deletes aged files under tool-output/ and agent-tmp/.
@@ -16,7 +17,7 @@ func PurgeRuntimeFiles(cfg config.StorageConfig) (toolOutputDeleted, agentTmpDel
 	if cfg.ToolOutputRetentionDays > 0 {
 		dir, err := paths.ToolOutputDir()
 		if err != nil {
-			logging.L().Warn("retention.tool_output.dir_failed", "error", err)
+			logging.L().Warn("retention.tool_output.dir_failed", zap.Error(err))
 		} else {
 			toolOutputDeleted = purgeDirByAge(dir, time.Duration(cfg.ToolOutputRetentionDays)*24*time.Hour)
 		}
@@ -24,7 +25,7 @@ func PurgeRuntimeFiles(cfg config.StorageConfig) (toolOutputDeleted, agentTmpDel
 	if cfg.AgentTmpRetentionDays > 0 {
 		dir, err := paths.AgentTmpDir()
 		if err != nil {
-			logging.L().Warn("retention.agent_tmp.dir_failed", "error", err)
+			logging.L().Warn("retention.agent_tmp.dir_failed", zap.Error(err))
 		} else {
 			agentTmpDeleted = purgeDirByAge(dir, time.Duration(cfg.AgentTmpRetentionDays)*24*time.Hour)
 		}
@@ -36,7 +37,7 @@ func purgeDirByAge(dir string, maxAge time.Duration) int {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		if !os.IsNotExist(err) {
-			logging.L().Warn("retention.runtime_files.read_failed", "dir", dir, "error", err)
+			logging.L().Warn("retention.runtime_files.read_failed", zap.String("dir", dir), zap.Error(err))
 		}
 		return 0
 	}
@@ -52,7 +53,7 @@ func purgeDirByAge(dir string, maxAge time.Duration) int {
 		}
 		path := filepath.Join(dir, ent.Name())
 		if err := os.RemoveAll(path); err != nil {
-			logging.L().Warn("retention.runtime_files.remove_failed", "path", path, "error", err)
+			logging.L().Warn("retention.runtime_files.remove_failed", zap.String("path", path), zap.Error(err))
 			continue
 		}
 		deleted++

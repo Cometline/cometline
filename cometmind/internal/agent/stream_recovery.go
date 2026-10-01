@@ -11,6 +11,7 @@ import (
 	"github.com/Cometline/cometline/comet-sdk/llm"
 	"github.com/Cometline/cometline/cometmind/internal/event"
 	"github.com/Cometline/cometline/cometmind/internal/logging"
+	"go.uber.org/zap"
 )
 
 const (
@@ -29,7 +30,7 @@ func (r *Runner) waitToRetryStream(ctx context.Context, s *turnState, a *streamA
 	if ra := retryAfterDelay(err); ra > delay {
 		delay = ra
 	}
-	logging.L().Warn("agent.step.recover", "session", s.turn.ID, "provider", r.Provider.ID(), "model", s.turn.ModelID, "step", s.steps+1, "failure_category", a.failureCategory, "recovery_attempt", attempt, "delay_ms", delay.Milliseconds(), "text_chars", textChars, "reasoning_chars", reasoningChars)
+	logging.L().Warn("agent.step.recover", zap.String("session", s.turn.ID), zap.String("provider", r.Provider.ID()), zap.String("model", s.turn.ModelID), zap.Int("step", s.steps+1), zap.String("failure_category", string(a.failureCategory)), zap.Int("recovery_attempt", attempt), zap.Int64("delay_ms", delay.Milliseconds()), zap.Int("text_chars", textChars), zap.Int("reasoning_chars", reasoningChars))
 	s.ch <- event.TurnRecover(textChars, reasoningChars)
 	waitErr := waitForRecovery(ctx, delay)
 	if waitErr == nil {
@@ -48,11 +49,11 @@ func (r *Runner) persistPartial(ctx context.Context, s *turnState, result *llm.G
 }
 
 func (r *Runner) logStepStopped(s *turnState, a *streamAttempt) {
-	logging.L().Info("agent.step.stopped", "session", s.turn.ID, "provider", r.Provider.ID(), "model", s.turn.ModelID, "step", s.steps+1, "duration_ms", time.Since(a.started).Milliseconds())
+	logging.L().Info("agent.step.stopped", zap.String("session", s.turn.ID), zap.String("provider", r.Provider.ID()), zap.String("model", s.turn.ModelID), zap.Int("step", s.steps+1), zap.Int64("duration_ms", time.Since(a.started).Milliseconds()))
 }
 
 func (r *Runner) reportStepFailure(s *turnState, a *streamAttempt, attempt int, err error) error {
-	logging.L().Error("agent.step.failed", "session", s.turn.ID, "provider", r.Provider.ID(), "model", s.turn.ModelID, "step", s.steps+1, "events", a.events, "first_event", a.firstEvent, "first_output", a.firstOutput, "complete_tool_call", a.completeToolCall, "failure_category", a.failureCategory, "recovery_attempt", attempt, "duration_ms", time.Since(a.started).Milliseconds(), "error", err)
+	logging.L().Error("agent.step.failed", zap.String("session", s.turn.ID), zap.String("provider", r.Provider.ID()), zap.String("model", s.turn.ModelID), zap.Int("step", s.steps+1), zap.Int("events", a.events), zap.Bool("first_event", a.firstEvent), zap.Bool("first_output", a.firstOutput), zap.Bool("complete_tool_call", a.completeToolCall), zap.String("failure_category", string(a.failureCategory)), zap.Int("recovery_attempt", attempt), zap.Int64("duration_ms", time.Since(a.started).Milliseconds()), zap.Error(err))
 	s.ch <- event.Errorf(userFacingAgentError(err), "llm")
 	return err
 }

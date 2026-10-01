@@ -10,6 +10,7 @@ import (
 	"github.com/Cometline/cometline/cometmind/internal/event"
 	"github.com/Cometline/cometline/cometmind/internal/logging"
 	"github.com/Cometline/cometline/cometmind/internal/memory"
+	"go.uber.org/zap"
 )
 
 const (
@@ -62,7 +63,7 @@ func publishDeleted(events *event.Hub, rec memory.Record) {
 }
 
 func logBackgroundWriteFailure(operation, id string, err error) {
-	logging.L().Warn("memory.agent_tool_write_failed", "operation", operation, "memory_id", id, "error", err)
+	logging.L().Warn("memory.agent_tool_write_failed", zap.String("operation", operation), zap.String("memory_id", id), zap.Error(err))
 }
 
 func memoryResourceFromScored(item memory.ScoredMemory) memoryToolResource {

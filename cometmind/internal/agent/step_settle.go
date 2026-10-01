@@ -8,6 +8,7 @@ import (
 	"github.com/Cometline/cometline/comet-sdk/llm"
 	"github.com/Cometline/cometline/cometmind/internal/event"
 	"github.com/Cometline/cometline/cometmind/internal/logging"
+	"go.uber.org/zap"
 )
 
 // stepOutcome tells Run how to proceed after one model step.
@@ -79,7 +80,7 @@ func (r *Runner) persistAssistantStep(
 	persistToolCalls := result.ToolCalls
 	if finalizing {
 		if len(result.ToolCalls) > 0 || len(startedToolCalls) > 0 {
-			logging.L().Warn("agent.final_answer.unexpected_tool_call", "session", turn.ID, "tool_calls", len(result.ToolCalls))
+			logging.L().Warn("agent.final_answer.unexpected_tool_call", zap.String("session", turn.ID), zap.Int("tool_calls", len(result.ToolCalls)))
 		}
 		persistToolCalls = nil
 	} else {
@@ -125,11 +126,7 @@ func (r *Runner) continueForFollowUp(ctx context.Context, s *turnState) (stepOut
 	if s.jobTracker.TryConsumeCompletionGate() {
 		s.nudges.jobCompletionGate = true
 		logging.L().Info(
-			"agent.job_completion_gate",
-			"session", s.turn.ID,
-			"job_id", s.jobTracker.JobID,
-			"gate_used", s.jobTracker.completionGateUsed,
-			"gate_budget", s.jobTracker.completionGateBudget,
+			"agent.job_completion_gate", zap.String("session", s.turn.ID), zap.String("job_id", s.jobTracker.JobID), zap.Int("gate_used", s.jobTracker.completionGateUsed), zap.Int("gate_budget", s.jobTracker.completionGateBudget),
 		)
 		s.steps++
 		return stepAgain, nil
@@ -148,22 +145,13 @@ func (r *Runner) continueWithoutToolCalls(
 			s.incompleteToolTruncationContinuations++
 			s.nudges.incompleteToolTruncation = true
 			logging.L().Info(
-				"agent.incomplete_tool_truncation.continue",
-				"session", s.turn.ID,
-				"step", s.steps+1,
-				"continuation", s.incompleteToolTruncationContinuations,
-				"incomplete_tools", len(incompleteToolCalls),
-				"max_tokens", s.maxTokens,
+				"agent.incomplete_tool_truncation.continue", zap.String("session", s.turn.ID), zap.Int("step", s.steps+1), zap.Int("continuation", s.incompleteToolTruncationContinuations), zap.Int("incomplete_tools", len(incompleteToolCalls)), zap.Int("max_tokens", s.maxTokens),
 			)
 			s.steps++
 			return stepAgain, nil
 		}
 		logging.L().Info(
-			"agent.incomplete_tool_truncation.stop",
-			"session", s.turn.ID,
-			"step", s.steps+1,
-			"incomplete_tools", len(incompleteToolCalls),
-			"max_tokens", s.maxTokens,
+			"agent.incomplete_tool_truncation.stop", zap.String("session", s.turn.ID), zap.Int("step", s.steps+1), zap.Int("incomplete_tools", len(incompleteToolCalls)), zap.Int("max_tokens", s.maxTokens),
 		)
 		return stepDone, r.completeTurn(ctx, s)
 	}
@@ -173,11 +161,7 @@ func (r *Runner) continueWithoutToolCalls(
 		s.outputTruncationContinuations++
 		s.nudges.truncation = true
 		logging.L().Info(
-			"agent.output_truncation.continue",
-			"session", s.turn.ID,
-			"step", s.steps+1,
-			"continuation", s.outputTruncationContinuations,
-			"max_tokens", s.maxTokens,
+			"agent.output_truncation.continue", zap.String("session", s.turn.ID), zap.Int("step", s.steps+1), zap.Int("continuation", s.outputTruncationContinuations), zap.Int("max_tokens", s.maxTokens),
 		)
 		s.steps++
 		return stepAgain, nil

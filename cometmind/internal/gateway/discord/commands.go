@@ -9,6 +9,7 @@ import (
 	"github.com/Cometline/cometline/cometmind/internal/logging"
 	skillpkg "github.com/Cometline/cometline/cometmind/internal/skills"
 	"github.com/bwmarrin/discordgo"
+	"go.uber.org/zap"
 )
 
 func (a *Adapter) handleAutocomplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -47,7 +48,7 @@ func (a *Adapter) handleChangeAutocomplete(s *discordgo.Session, i *discordgo.In
 
 	paths, err := a.onSuggest(context.Background(), query)
 	if err != nil {
-		logging.L().Warn("discord.autocomplete.workspace_failed", "error", err)
+		logging.L().Warn("discord.autocomplete.workspace_failed", zap.Error(err))
 		paths = nil
 	}
 
@@ -89,7 +90,7 @@ func (a *Adapter) handleJobsAutocomplete(s *discordgo.Session, i *discordgo.Inte
 	}
 	items, err := a.jobSuggest(context.Background(), query)
 	if err != nil {
-		logging.L().Warn("discord.autocomplete.job_failed", "error", err)
+		logging.L().Warn("discord.autocomplete.job_failed", zap.Error(err))
 		items = nil
 	}
 	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0, len(items))
@@ -188,7 +189,7 @@ func (a *Adapter) handleStopCommand(s *discordgo.Session, i *discordgo.Interacti
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{Flags: discordgo.MessageFlagsEphemeral},
 	}); err != nil {
-		logging.L().Warn("discord.stop.defer_failed", "error", err)
+		logging.L().Warn("discord.stop.defer_failed", zap.Error(err))
 		return
 	}
 
@@ -198,7 +199,7 @@ func (a *Adapter) handleStopCommand(s *discordgo.Session, i *discordgo.Interacti
 		text = fmt.Sprintf("Failed to stop turn: %v", err)
 	}
 	if _, editErr := s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{Content: &text}); editErr != nil {
-		logging.L().Warn("discord.stop.edit_response_failed", "error", editErr)
+		logging.L().Warn("discord.stop.edit_response_failed", zap.Error(editErr))
 	}
 }
 

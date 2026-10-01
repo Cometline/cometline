@@ -49,7 +49,7 @@ Comet SDK gives you a single `Provider` interface that works identically for Ant
 - Provider-specific message normalisation
 - Automatic retry with exponential backoff (400, 429, 5xx, Anthropic 529)
 - Token usage tracking, including Anthropic prompt-cache fields
-- Structured debug logging via `log/slog`
+- Structured debug logging via `go.uber.org/zap`
 
 For most callers, the recommended public entry point is the `llm` package: `llm.GenerateMessage`, `llm.StreamMessage`, and `llm.GenerateJSON`.
 
@@ -347,7 +347,7 @@ p := anthropic.New(apiKey,
     cometsdk.WithTimeout(30 * time.Second),
     cometsdk.WithMaxRetries(3),
     cometsdk.WithHTTPClient(myHTTPClient),
-    cometsdk.WithLogger(slog.Default()),
+    cometsdk.WithLogger(log),
     cometsdk.WithBearerAuth(), // unified gateway auth for Anthropic
 )
 ```
@@ -355,9 +355,13 @@ p := anthropic.New(apiKey,
 ### Debug logging
 
 ```go
-log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
-    Level: slog.LevelDebug,
-}))
+enc := zap.NewProductionEncoderConfig()
+enc.EncodeTime = zapcore.ISO8601TimeEncoder
+log := zap.New(zapcore.NewCore(
+    zapcore.NewJSONEncoder(enc),
+    zapcore.AddSync(os.Stderr),
+    zapcore.DebugLevel,
+))
 p := anthropic.New(apiKey, cometsdk.WithLogger(log))
 ```
 
@@ -442,6 +446,6 @@ export LIVE_TEST_MODEL="gpt-4o"
 |---|---|
 | `github.com/cenkalti/backoff/v4` | Exponential backoff retry (runtime) |
 | `github.com/stretchr/testify` | Test assertions (test only) |
-| `log/slog` | Structured logging (stdlib) |
+| `go.uber.org/zap` | Structured logging |
 
 ---

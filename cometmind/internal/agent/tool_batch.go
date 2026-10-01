@@ -10,6 +10,7 @@ import (
 	"github.com/Cometline/cometline/cometmind/internal/event"
 	"github.com/Cometline/cometline/cometmind/internal/logging"
 	"github.com/Cometline/cometline/cometmind/internal/tools"
+	"go.uber.org/zap"
 )
 
 func (r *Runner) executeToolBatch(
@@ -112,7 +113,7 @@ func (r *Runner) runToolCall(
 ) (tools.Result, bool, int64, error) {
 	turn := s.turn
 	start := time.Now()
-	logging.L().Info("tool.call.start", "session", turn.ID, "tool", tc.Name, "tool_call_id", tc.ID, "input_bytes", len(tc.Input))
+	logging.L().Info("tool.call.start", zap.String("session", turn.ID), zap.String("tool", tc.Name), zap.String("tool_call_id", tc.ID), zap.Int("input_bytes", len(tc.Input)))
 	var res tools.Result
 	var execErr error
 	*recentTools = append(*recentTools, FingerprintTool(tc.Name, tc.Input))
@@ -120,16 +121,16 @@ func (r *Runner) runToolCall(
 	if IsDoomLoop(*recentTools, DoomLoopThreshold) {
 		res = tools.Result{OK: false, Output: doomLoopToolResult(tc.Name)}
 		*doomLoopHit = true
-		logging.L().Warn("agent.doom_loop.blocked", "session", turn.ID, "tool", tc.Name, "tool_call_id", tc.ID)
+		logging.L().Warn("agent.doom_loop.blocked", zap.String("session", turn.ID), zap.String("tool", tc.Name), zap.String("tool_call_id", tc.ID))
 	} else if skipInvalidInput {
 		res = tools.Result{OK: false, Output: skippedInvalidToolInputResult(tc.Name)}
-		logging.L().Warn("tool.call.schema_circuit_open", "session", turn.ID, "tool", tc.Name, "tool_call_id", tc.ID, "streak", s.invalidToolInputStreak)
+		logging.L().Warn("tool.call.schema_circuit_open", zap.String("session", turn.ID), zap.String("tool", tc.Name), zap.String("tool_call_id", tc.ID), zap.Int("streak", s.invalidToolInputStreak))
 	} else {
 		toolCtx := tools.WithToolSession(ctx, turn.ID)
 		toolCtx = tools.WithProgress(toolCtx, backgroundProgressEmitter(s.ch))
 		res, execErr = r.Registry.Execute(toolCtx, tc.Name, tc.Input)
 	}
 	dur := time.Since(start).Milliseconds()
-	logging.L().Info("tool.call.finish", "session", turn.ID, "tool", tc.Name, "tool_call_id", tc.ID, "ok", res.OK && execErr == nil, "duration_ms", dur, "output_bytes", len(res.Output))
+	logging.L().Info("tool.call.finish", zap.String("session", turn.ID), zap.String("tool", tc.Name), zap.String("tool_call_id", tc.ID), zap.Bool("ok", res.OK && execErr == nil), zap.Int64("duration_ms", dur), zap.Int("output_bytes", len(res.Output)))
 	return res, skipInvalidInput, dur, execErr
 }

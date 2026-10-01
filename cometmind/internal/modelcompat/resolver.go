@@ -10,6 +10,7 @@ import (
 	cometsdk "github.com/Cometline/cometline/comet-sdk"
 	"github.com/Cometline/cometline/cometmind/internal/db"
 	"github.com/Cometline/cometline/cometmind/internal/logging"
+	"go.uber.org/zap"
 )
 
 const negativeTTL = 7 * 24 * time.Hour
@@ -50,7 +51,7 @@ func (r *Resolver) cachedNegatives(ctx context.Context, scope cometsdk.Capabilit
 		ExpiresAt:  time.Now().UnixMilli(),
 	})
 	if err != nil {
-		logging.L().Warn("model_compat.cache_read_failed", "error", err, "provider", scope.ProviderID, "model", scope.ModelID)
+		logging.L().Warn("model_compat.cache_read_failed", zap.Error(err), zap.String("provider", scope.ProviderID), zap.String("model", scope.ModelID))
 		return nil
 	}
 	negatives := make([]cometsdk.Capability, 0, len(features))
@@ -58,7 +59,7 @@ func (r *Resolver) cachedNegatives(ctx context.Context, scope cometsdk.Capabilit
 		negatives = append(negatives, cometsdk.Capability(feature))
 	}
 	if len(negatives) > 0 {
-		logging.L().Debug("model_compat.cache_hit", "provider", scope.ProviderID, "model", scope.ModelID, "features", len(negatives))
+		logging.L().Debug("model_compat.cache_hit", zap.String("provider", scope.ProviderID), zap.String("model", scope.ModelID), zap.Int("features", len(negatives)))
 	}
 	return negatives
 }
@@ -74,13 +75,13 @@ func (r *Resolver) recordUnsupported(scope cometsdk.CapabilityScope, feature com
 		ExpiresAt:  time.Now().Add(negativeTTL).UnixMilli(),
 	})
 	if err != nil {
-		logging.L().Warn("model_compat.cache_write_failed", "error", err, "provider", scope.ProviderID, "model", scope.ModelID, "feature", feature)
+		logging.L().Warn("model_compat.cache_write_failed", zap.Error(err), zap.String("provider", scope.ProviderID), zap.String("model", scope.ModelID), zap.String("feature", string(feature)))
 		return
 	}
 	if err := r.q.DeleteExpiredModelCapabilityNegatives(ctx, time.Now().UnixMilli()); err != nil {
-		logging.L().Warn("model_compat.cache_cleanup_failed", "error", err)
+		logging.L().Warn("model_compat.cache_cleanup_failed", zap.Error(err))
 	}
-	logging.L().Debug("model_compat.unsupported", "provider", scope.ProviderID, "model", scope.ModelID, "feature", feature)
+	logging.L().Debug("model_compat.unsupported", zap.String("provider", scope.ProviderID), zap.String("model", scope.ModelID), zap.String("feature", string(feature)))
 }
 
 // legacyPolicy serves ResolveCapabilityPolicy callers: it remembers features

@@ -11,6 +11,7 @@ import (
 	"github.com/Cometline/cometline/cometmind/internal/memory"
 	"github.com/Cometline/cometline/cometmind/internal/provider"
 	"github.com/Cometline/cometline/cometmind/internal/session"
+	"go.uber.org/zap"
 )
 
 const memoryRetrievalTimeout = 3 * time.Second
@@ -24,9 +25,9 @@ func (r *Runner) injectTurnMemories(ctx context.Context, s *turnState, baseSyste
 	}
 	turnID := s.turn.ID
 	decision := memory.DecideRetrieval(msgs)
-	logging.L().Info("memory.retrieve.policy", "session", turnID, "retrieve", decision.Retrieve, "reason", decision.Reason, "score", decision.Score, "text_bytes", decision.TextBytes)
+	logging.L().Info("memory.retrieve.policy", zap.String("session", turnID), zap.Bool("retrieve", decision.Retrieve), zap.String("reason", decision.Reason), zap.Int("score", decision.Score), zap.Int("text_bytes", decision.TextBytes))
 	if !decision.Retrieve {
-		logging.L().Info("memory.retrieve.skipped", "session", turnID, "reason", decision.Reason, "score", decision.Score, "text_bytes", decision.TextBytes)
+		logging.L().Info("memory.retrieve.skipped", zap.String("session", turnID), zap.String("reason", decision.Reason), zap.Int("score", decision.Score), zap.Int("text_bytes", decision.TextBytes))
 		return ""
 	}
 	s.emitStatus(event.PhaseRetrievingMemories)
@@ -39,16 +40,16 @@ func (r *Runner) injectTurnMemories(ctx context.Context, s *turnState, baseSyste
 	cancel()
 	if memErr != nil {
 		if errors.Is(memErr, context.DeadlineExceeded) {
-			logging.L().Warn("memory.retrieve.timeout", "session", turnID, "budget_ms", s.retrievalTimeout.Milliseconds())
+			logging.L().Warn("memory.retrieve.timeout", zap.String("session", turnID), zap.Int64("budget_ms", s.retrievalTimeout.Milliseconds()))
 		} else {
-			logging.L().Error("memory.retrieve.failed", "session", turnID, "error", memErr)
+			logging.L().Error("memory.retrieve.failed", zap.String("session", turnID), zap.Error(memErr))
 			s.ch <- event.Errorf(memErr.Error(), "memory")
 		}
 	}
 	if len(promptMemories.Records) == 0 {
 		return ""
 	}
-	logging.L().Info("memory.injected", "session", turnID, "preferences", promptMemories.Count(memory.BucketPreference), "task_outcomes", promptMemories.Count(memory.BucketTaskOutcome), "semantic", promptMemories.Count(memory.BucketSemantic), "token_allowance", allowance)
+	logging.L().Info("memory.injected", zap.String("session", turnID), zap.Int("preferences", promptMemories.Count(memory.BucketPreference)), zap.Int("task_outcomes", promptMemories.Count(memory.BucketTaskOutcome)), zap.Int("semantic", promptMemories.Count(memory.BucketSemantic)), zap.Int("token_allowance", allowance))
 	suffix := memory.FormatPromptMemories(promptMemories)
 	wire, injected := promptMemoriesToWire(promptMemories.Records)
 	s.pendingMemories = injected
@@ -134,19 +135,19 @@ func (r *Runner) extractMemoryAfterTurn(ctx context.Context, turn session.AgentT
 	if r.Config != nil {
 		providerID, model = r.Config.ExtractionLLM()
 		if providerID == "" || model == "" {
-			logging.L().Warn("memory.extract.skipped_no_model", "session", turn.ID)
+			logging.L().Warn("memory.extract.skipped_no_model", zap.String("session", turn.ID))
 			return
 		}
 		if p, err := provider.NewForModel(r.Config, providerID, model); err == nil {
 			llmProvider = p
 		} else {
-			logging.L().Warn("memory.extract.provider_failed", "session", turn.ID, "provider", providerID, "error", err)
+			logging.L().Warn("memory.extract.provider_failed", zap.String("session", turn.ID), zap.String("provider", providerID), zap.Error(err))
 			return
 		}
 	}
 	changes, err := r.Memory.ExtractAfterTurn(ctx, turn.ID, model, llmProvider)
 	if err != nil {
-		logging.L().Warn("memory.extract.after_turn_failed", "session", turn.ID, "provider", providerID, "error", err)
+		logging.L().Warn("memory.extract.after_turn_failed", zap.String("session", turn.ID), zap.String("provider", providerID), zap.Error(err))
 		return
 	}
 	if ch != nil {

@@ -11,6 +11,7 @@ import (
 
 	"github.com/Cometline/cometline/cometmind/internal/db"
 	"github.com/Cometline/cometline/cometmind/internal/logging"
+	"go.uber.org/zap"
 )
 
 const (
@@ -91,7 +92,7 @@ func (s *Service) RecordTaskOutcome(ctx context.Context, in TaskOutcomeInput) (R
 		rollUp = s.rollUpTaskLineageOverride
 	}
 	if err := rollUp(ctx, in.OriginType, in.OriginID); err != nil {
-		logging.L().Warn("memory.task_outcome.rollup_failed", "memory_id", rec.ID, "origin_type", in.OriginType, "origin_id", in.OriginID, "error", err)
+		logging.L().Warn("memory.task_outcome.rollup_failed", zap.String("memory_id", rec.ID), zap.String("origin_type", in.OriginType), zap.String("origin_id", in.OriginID), zap.Error(err))
 	}
 	return rec, nil
 }

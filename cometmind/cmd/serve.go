@@ -19,6 +19,7 @@ import (
 	"github.com/Cometline/cometline/cometmind/internal/server"
 	"github.com/Cometline/cometline/cometmind/internal/session"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 )
 
 var (
@@ -87,14 +88,14 @@ func cleanupStartupSessions(ctx context.Context, rt *runtime.Runtime) {
 	// Remove unused New Chat rows before serving requests so the initial session
 	// list cannot include a conversation that was never started.
 	if pruned, err := rt.Sessions.PruneUnusedUserSessions(ctx); err != nil {
-		logging.L().Warn("session.unused_prune_failed", "error", err)
+		logging.L().Warn("session.unused_prune_failed", zap.Error(err))
 	} else if pruned > 0 {
-		logging.L().Info("session.unused_pruned", "count", pruned)
+		logging.L().Info("session.unused_pruned", zap.Int("count", pruned))
 	}
 	if discarded, err := rt.Sessions.DiscardFinishedEphemeralSessions(ctx, nil); err != nil {
-		logging.L().Warn("session.ephemeral_discard_failed", "error", err)
+		logging.L().Warn("session.ephemeral_discard_failed", zap.Error(err))
 	} else if discarded > 0 {
-		logging.L().Info("session.ephemeral_discarded", "count", discarded)
+		logging.L().Info("session.ephemeral_discarded", zap.Int("count", discarded))
 	}
 
 	// Prune workspaces whose filesystem path no longer exists. This stats every
@@ -102,9 +103,9 @@ func cleanupStartupSessions(ctx context.Context, rt *runtime.Runtime) {
 	// keep it off the startup critical path.
 	go func() {
 		if pruned, err := rt.Sessions.PruneMissingWorkspaces(ctx); err != nil {
-			logging.L().Warn("workspace.prune_failed", "error", err)
+			logging.L().Warn("workspace.prune_failed", zap.Error(err))
 		} else if pruned > 0 {
-			logging.L().Info("workspace.pruned", "count", pruned)
+			logging.L().Info("workspace.pruned", zap.Int("count", pruned))
 		}
 	}()
 }

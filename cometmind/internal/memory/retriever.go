@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Cometline/cometline/cometmind/internal/logging"
+	"go.uber.org/zap"
 )
 
 const absoluteMaxRetrieved = 20
@@ -129,7 +130,7 @@ func (r *retriever) retrievePools(ctx context.Context, query string, tokenAllowa
 	for _, item := range prompt.Records {
 		r.touch(ctx, item.ScoredMemory, "inject:"+string(item.Bucket))
 	}
-	logging.L().Info("memory.retrieve.completed", "active_count", len(memories), "preferences", prompt.Count(BucketPreference), "task_outcomes", prompt.Count(BucketTaskOutcome), "semantic", prompt.Count(BucketSemantic), "duration_ms", time.Since(started).Milliseconds())
+	logging.L().Info("memory.retrieve.completed", zap.Int("active_count", len(memories)), zap.Int("preferences", prompt.Count(BucketPreference)), zap.Int("task_outcomes", prompt.Count(BucketTaskOutcome)), zap.Int("semantic", prompt.Count(BucketSemantic)), zap.Int64("duration_ms", time.Since(started).Milliseconds()))
 	return prompt, nil
 }
 

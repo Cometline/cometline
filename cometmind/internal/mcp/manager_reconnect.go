@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Cometline/cometline/cometmind/internal/logging"
+	"go.uber.org/zap"
 )
 
 // mcpAutoReconnectBackoff defines the bounded automatic-reconnect policy
@@ -49,7 +50,7 @@ func (m *Manager) monitorConnection(serverID string, gen uint64, conn *connected
 	}
 	m.mu.Unlock()
 
-	logging.L().Error("mcp.session_closed", "server", serverID, "error", waitErr)
+	logging.L().Error("mcp.session_closed", zap.String("server", serverID), zap.Error(waitErr))
 	m.autoReconnect(serverID)
 }
 
@@ -77,13 +78,13 @@ func (m *Manager) autoReconnect(serverID string) {
 
 		err := m.connectOneWithBudget(context.Background(), serverID)
 		if err == nil {
-			logging.L().Info("mcp.auto_reconnect_succeeded", "server", serverID, "attempt", attempt+1)
+			logging.L().Info("mcp.auto_reconnect_succeeded", zap.String("server", serverID), zap.Int("attempt", attempt+1))
 			return
 		}
 		if skipAutoReconnect(errorCodeOf(err)) {
 			return
 		}
-		logging.L().Warn("mcp.auto_reconnect_failed", "server", serverID, "attempt", attempt+1, "error", err)
+		logging.L().Warn("mcp.auto_reconnect_failed", zap.String("server", serverID), zap.Int("attempt", attempt+1), zap.Error(err))
 	}
 }
 

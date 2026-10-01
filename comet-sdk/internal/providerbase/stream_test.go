@@ -4,13 +4,14 @@ import (
 	"context"
 	"errors"
 	"io"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"slices"
 	"strings"
 	"sync"
 	"testing"
+
+	"go.uber.org/zap"
 
 	cometsdk "github.com/Cometline/cometline/comet-sdk"
 )
@@ -69,7 +70,7 @@ func (s *featureServer) requestBodies() []string {
 func (s *featureServer) stream() FallbackStream {
 	return FallbackStream{
 		MaxRetries: 1,
-		Log:        slog.New(slog.DiscardHandler),
+		Log:        zap.NewNop(),
 		Fallbacks: []CapabilityFallback{{
 			Capability: testCapability,
 			LogEvent:   "stream.test_feature_fallback",

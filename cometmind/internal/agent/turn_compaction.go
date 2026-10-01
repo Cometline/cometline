@@ -7,6 +7,7 @@ import (
 	"github.com/Cometline/cometline/cometmind/internal/event"
 	"github.com/Cometline/cometline/cometmind/internal/logging"
 	"github.com/Cometline/cometline/cometmind/internal/session"
+	"go.uber.org/zap"
 )
 
 // compactBeforeStep gives the compactor a chance to fold old history into the
@@ -44,7 +45,7 @@ func (r *Runner) emitContextBudget(ctx context.Context, s *turnState, system str
 		ctx, s.sess.ID, system, tools, s.turn.ProviderID, s.turn.ModelID,
 	)
 	if err != nil {
-		logging.L().Warn("context.budget.estimate_failed", "session", s.sess.ID, "error", err)
+		logging.L().Warn("context.budget.estimate_failed", zap.String("session", s.sess.ID), zap.Error(err))
 		return
 	}
 	s.ch <- event.ContextBudget(budget.Estimated, budget.Available, budget.ContextWindow, compacted)
@@ -53,7 +54,7 @@ func (r *Runner) emitContextBudget(ctx context.Context, s *turnState, system str
 // recoverFromOverflow force-compacts after a context-overflow stream failure
 // and rebuilds p's request. It reports whether the step should be retried.
 func (r *Runner) recoverFromOverflow(ctx context.Context, s *turnState, p *stepRequest, err error) bool {
-	logging.L().Warn("agent.step.overflow_recover", "session", s.turn.ID, "provider", r.Provider.ID(), "model", s.turn.ModelID, "step", s.steps+1, "error", err)
+	logging.L().Warn("agent.step.overflow_recover", zap.String("session", s.turn.ID), zap.String("provider", r.Provider.ID()), zap.String("model", s.turn.ModelID), zap.Int("step", s.steps+1), zap.Error(err))
 	before := s.sess
 	updated, compactErr := r.Compactor.MaybeCompact(
 		ctx,
@@ -67,14 +68,14 @@ func (r *Runner) recoverFromOverflow(ctx context.Context, s *turnState, p *stepR
 		s.emit,
 	)
 	if compactErr != nil {
-		logging.L().Warn("agent.step.overflow_compact_failed", "session", s.turn.ID, "error", compactErr)
+		logging.L().Warn("agent.step.overflow_compact_failed", zap.String("session", s.turn.ID), zap.Error(compactErr))
 		return false
 	}
 	s.sess = updated
 	p.baseSystem = r.buildSystemPrompt(s.sess.ContextSummary, s.maxTokens)
 	rebuildMsgs, rebuildErr := r.Sessions.BuildSDKMessages(ctx, s.turn.ID)
 	if rebuildErr != nil {
-		logging.L().Warn("agent.step.overflow_rebuild_failed", "session", s.turn.ID, "error", rebuildErr)
+		logging.L().Warn("agent.step.overflow_rebuild_failed", zap.String("session", s.turn.ID), zap.Error(rebuildErr))
 		return false
 	}
 	rebuildMsgs, _ = NormalizeHistory(rebuildMsgs)

@@ -6,13 +6,13 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log/slog"
 	"net/http"
 	"strings"
 
 	cometsdk "github.com/Cometline/cometline/comet-sdk"
 	"github.com/Cometline/cometline/comet-sdk/internal/providerbase"
 	"github.com/Cometline/cometline/comet-sdk/internal/retry"
+	"go.uber.org/zap"
 )
 
 const (
@@ -26,7 +26,7 @@ type provider struct {
 	tokenSource TokenSource
 	id          string
 	cfg         cometsdk.ProviderConfig
-	log         *slog.Logger
+	log         *zap.Logger
 }
 
 // TokenSource resolves the bearer token used for a request. It is useful for
@@ -85,7 +85,7 @@ type streamFlags struct {
 func (p *provider) Stream(ctx context.Context, req *cometsdk.Request) (<-chan cometsdk.Event, error) {
 	ch := make(chan cometsdk.Event, 32)
 
-	p.log.DebugContext(ctx, "stream.start", "model", req.Model)
+	p.log.Debug("stream.start", zap.String("model", req.Model))
 
 	flags := streamFlags{enableReasoningSplit: shouldEnableReasoningSplit(req.Model)}
 	httpResp, err := p.streamWithRetry(ctx, req, flags)
@@ -94,7 +94,7 @@ func (p *provider) Stream(ctx context.Context, req *cometsdk.Request) (<-chan co
 	// non-standard reasoning_split field. Retry once without it; embedded
 	// thinking tags in content are still parsed when providers use them.
 	if err != nil && isReasoningSplitUnsupportedError(err) {
-		p.log.DebugContext(ctx, "stream.reasoning_split_fallback", "error", err, "model", req.Model)
+		p.log.Debug("stream.reasoning_split_fallback", zap.Error(err), zap.String("model", req.Model))
 		flags.enableReasoningSplit = false
 		httpResp, err = p.streamWithRetry(ctx, req, flags)
 	}
@@ -103,7 +103,7 @@ func (p *provider) Stream(ctx context.Context, req *cometsdk.Request) (<-chan co
 	// max_completion_tokens. Retry immediately with the newer field name when
 	// the API explicitly asks for it, without changing OpenAI-compatible defaults.
 	if err != nil && req.MaxTokens > 0 && isMaxTokensUnsupportedError(err) {
-		p.log.DebugContext(ctx, "stream.max_completion_tokens_fallback", "error", err, "model", req.Model)
+		p.log.Debug("stream.max_completion_tokens_fallback", zap.Error(err), zap.String("model", req.Model))
 		flags.useMaxCompletionTokens = true
 		httpResp, err = p.streamWithRetry(ctx, req, flags)
 	}
@@ -115,13 +115,13 @@ func (p *provider) Stream(ctx context.Context, req *cometsdk.Request) (<-chan co
 	// per-model vision-capability list — we only react when the provider itself
 	// tells us it can't read the image.
 	if err != nil && requestHasImage(req) && isImageUnsupportedError(err) {
-		p.log.DebugContext(ctx, "stream.image_fallback", "error", err, "model", req.Model)
+		p.log.Debug("stream.image_fallback", zap.Error(err), zap.String("model", req.Model))
 		flags.disableImageContent = true
 		httpResp, err = p.streamWithRetry(ctx, req, flags)
 	}
 
 	if err != nil {
-		p.log.DebugContext(ctx, "stream.failed", "error", err)
+		p.log.Debug("stream.failed", zap.Error(err))
 		return nil, err
 	}
 
@@ -139,11 +139,11 @@ func (p *provider) streamWithRetry(ctx context.Context, req *cometsdk.Request, f
 	err := retry.Do(ctx, p.cfg.MaxRetries, func() error {
 		attempt++
 		if attempt > 1 {
-			p.log.DebugContext(ctx, "stream.retry", "attempt", attempt, "model", req.Model)
+			p.log.Debug("stream.retry", zap.Int("attempt", attempt), zap.String("model", req.Model))
 		}
 		r, err := p.doRequest(ctx, req, flags)
 		if err != nil {
-			p.log.DebugContext(ctx, "stream.request_error", "attempt", attempt, "error", err)
+			p.log.Debug("stream.request_error", zap.Int("attempt", attempt), zap.Error(err))
 			return err
 		}
 		httpResp = r

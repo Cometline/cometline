@@ -11,6 +11,7 @@ import (
 	"github.com/Cometline/cometline/cometmind/internal/logging"
 	"github.com/Cometline/cometline/cometmind/internal/provider"
 	"github.com/Cometline/cometline/cometmind/internal/session"
+	"go.uber.org/zap"
 )
 
 const titleSystemPrompt = "You generate short, descriptive titles for chat conversations. " +
@@ -34,7 +35,7 @@ func (a *App) maybeGenerateTitle(ctx context.Context, sess session.Session, bloc
 
 	fallback := plainTextTitle(blocks, displayText)
 	if err := a.sessions.SetTitleIfEmpty(ctx, sess.ID, fallback); err != nil {
-		logging.L().Warn("title.fallback_failed", "session", sess.ID, "error", err)
+		logging.L().Warn("title.fallback_failed", zap.String("session", sess.ID), zap.Error(err))
 		return
 	}
 
@@ -53,7 +54,7 @@ func (a *App) generateTitleAsync(ctx context.Context, message, sessionID string)
 
 	title, err := a.generateTitleLLM(ctx, message)
 	if err != nil {
-		logging.L().Warn("title.generate_failed", "session", sessionID, "error", err)
+		logging.L().Warn("title.generate_failed", zap.String("session", sessionID), zap.Error(err))
 		return
 	}
 	title = sanitizeTitle(title)
@@ -61,10 +62,10 @@ func (a *App) generateTitleAsync(ctx context.Context, message, sessionID string)
 		return
 	}
 	if err := a.sessions.UpdateTitle(ctx, sessionID, title); err != nil {
-		logging.L().Warn("title.update_failed", "session", sessionID, "error", err)
+		logging.L().Warn("title.update_failed", zap.String("session", sessionID), zap.Error(err))
 		return
 	}
-	logging.L().Info("title.generated", "session", sessionID, "title", title)
+	logging.L().Info("title.generated", zap.String("session", sessionID), zap.String("title", title))
 }
 
 // generateTitleLLM asks an LLM for a concise title for the message. It uses the

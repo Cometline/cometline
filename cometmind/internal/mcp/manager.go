@@ -8,6 +8,7 @@ import (
 
 	"github.com/Cometline/cometline/cometmind/internal/logging"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"go.uber.org/zap"
 )
 
 // Manager owns MCP client sessions and discovered tools.
@@ -83,7 +84,7 @@ func (m *Manager) Start(_ context.Context) {
 			// Detach from the caller deadline so one slow neighbor cannot
 			// inherit a shared parent timeout. Each server has its own budget.
 			if err := m.connectOneWithBudget(context.Background(), id); err != nil {
-				logging.L().Error("mcp.connect_failed", "server", id, "error", err)
+				logging.L().Error("mcp.connect_failed", zap.String("server", id), zap.Error(err))
 			}
 		}(srv.ID)
 	}
@@ -255,7 +256,7 @@ func (m *Manager) Reload(ctx context.Context, cfg Config) error {
 			go func(id string) {
 				defer wg.Done()
 				if err := m.connectOneWithBudget(context.Background(), id); err != nil {
-					logging.L().Error("mcp.connect_failed", "server", id, "error", err)
+					logging.L().Error("mcp.connect_failed", zap.String("server", id), zap.Error(err))
 				}
 			}(srv.ID)
 		}

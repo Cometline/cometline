@@ -3,12 +3,12 @@ package codex
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"net/http"
 
 	cometsdk "github.com/Cometline/cometline/comet-sdk"
 	"github.com/Cometline/cometline/comet-sdk/internal/providerbase"
 	"github.com/Cometline/cometline/comet-sdk/internal/responsesproto"
+	"go.uber.org/zap"
 )
 
 const (
@@ -34,7 +34,7 @@ func addCodexResponseHeaders(header http.Header, token borrowedToken, responsesL
 
 type provider struct {
 	cfg cometsdk.ProviderConfig
-	log *slog.Logger
+	log *zap.Logger
 }
 
 // New creates a Provider that reuses the local Codex CLI ChatGPT session.
@@ -58,7 +58,7 @@ func NewCodexProvider(opts ...cometsdk.Option) cometsdk.Provider {
 func (p *provider) ID() string { return providerID }
 
 func (p *provider) Stream(ctx context.Context, req *cometsdk.Request) (<-chan cometsdk.Event, error) {
-	p.log.DebugContext(ctx, "stream.start", "model", req.Model)
+	p.log.Debug("stream.start", zap.String("model", req.Model))
 	stream := providerbase.FallbackStream{
 		MaxRetries: p.cfg.MaxRetries,
 		Log:        p.log,

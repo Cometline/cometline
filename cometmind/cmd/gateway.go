@@ -18,6 +18,7 @@ import (
 	"github.com/Cometline/cometline/cometmind/internal/runtime"
 	"github.com/Cometline/cometline/cometmind/internal/session"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 )
 
 var (
@@ -175,7 +176,7 @@ func wireDiscordAdapter(rt *runtime.Runtime, router *gateway.Router, adapter *di
 	)
 	adapter.SetInboundHandler(func(ctx context.Context, msg gateway.InboundMessage) {
 		if err := router.HandleInbound(ctx, msg); err != nil {
-			logging.L().Error("discord.handle_inbound.failed", "error", err)
+			logging.L().Error("discord.handle_inbound.failed", zap.Error(err))
 		}
 	})
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/Cometline/cometline/cometmind/internal/logging"
 	"github.com/Cometline/cometline/cometmind/internal/processctl"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 )
 
 var processCmd = &cobra.Command{
@@ -153,11 +154,11 @@ func handleReloadSignalWithTimeout(ctx context.Context, hupCh <-chan os.Signal, 
 				FinishedAt: time.Now().UTC().Format(time.RFC3339),
 			}
 			if err != nil {
-				logging.L().Error("runtime.reload_failed", "error", err)
+				logging.L().Error("runtime.reload_failed", zap.Error(err))
 				result.Error = err.Error()
 			}
 			if werr := processctl.WriteReloadResult(mode, result); werr != nil {
-				logging.L().Warn("runtime.reload_result_write_failed", "error", werr)
+				logging.L().Warn("runtime.reload_result_write_failed", zap.Error(werr))
 			}
 		}
 	}

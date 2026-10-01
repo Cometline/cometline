@@ -10,6 +10,7 @@ import (
 	"github.com/Cometline/cometline/cometmind/internal/memory"
 	"github.com/Cometline/cometline/cometmind/internal/provider"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 type memoryResource struct {
@@ -192,7 +193,7 @@ func (a *App) handlePutMemorySettings(c *gin.Context) {
 			return
 		}
 		if p, err := provider.NewMemoryLLM(a.config); err != nil {
-			logging.L().Warn("memory.settings.provider_refresh_failed", "error", err)
+			logging.L().Warn("memory.settings.provider_refresh_failed", zap.Error(err))
 		} else {
 			a.memory.SetProvider(p)
 		}
