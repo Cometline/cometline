@@ -1,0 +1,121 @@
+# Blocking lint config for cometmind. Run with `make lint` from the repo root.
+# Size and complexity budgets (funlen, gocyclo) live in .golangci.budget.yml
+# and are reported by scripts/readability-report.sh without failing CI.
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: none
+  enable:
+    - depguard
+    - errcheck
+    - errorlint
+    - gocritic
+    - govet
+    - ineffassign
+    - revive
+    - staticcheck
+    - unparam
+    - unused
+
+  settings:
+    depguard:
+      rules:
+        # ── Dependency direction ─────────────────────────────────────────────
+        # Keep every package-direction rule in this block. Phase 3a moves
+        # cometmind/server to cometmind/internal/server and renames the module
+        # to github.com/Cometline/cometline/cometmind; update the paths here.
+        db-only-in-services:
+          files:
+            - "**/cometmind/server/**"
+            - "**/cometmind/internal/gateway/**"
+          deny:
+            - pkg: github.com/cometline/cometmind/internal/db
+              desc: the HTTP server and gateways go through service packages, never sqlc queries
+        apigen-only-in-server:
+          files:
+            - $all
+            - "!**/cometmind/server/**"
+            - "!**/cometmind/internal/apigen/**"
+            # Known violators, to be removed in Phase 3:
+            - "!**/cometmind/cmd/session.go"
+            - "!**/cometmind/internal/session/wire.go"
+          deny:
+            - pkg: github.com/cometline/cometmind/internal/apigen
+              desc: wire types belong to the HTTP layer; map them in the server package
+
+    errcheck:
+      exclude-functions:
+        # Deferred Rollback after a successful Commit returns sql.ErrTxDone by design.
+        - (*database/sql.Tx).Rollback
+
+    gocritic:
+      disabled-checks:
+        # If-else chains over unrelated conditions often read better than a bare switch.
+        - ifElseChain
+
+    revive:
+      rules:
+        - name: blank-imports
+        - name: context-as-argument
+          arguments:
+            - allowTypesBefore: "*testing.T"
+        - name: context-keys-type
+        - name: dot-imports
+        - name: empty-block
+        - name: error-naming
+        - name: error-return
+        - name: error-strings
+        - name: errorf
+        - name: increment-decrement
+        - name: indent-error-flow
+        - name: range
+        - name: receiver-naming
+        - name: superfluous-else
+        - name: time-naming
+        - name: unreachable-code
+        - name: var-declaration
+        - name: var-naming
+        # redefines-builtin-id is off: local `max`/`min`/`cap` names predate the Go 1.21
+        # builtins and get renamed as files are split in Phase 3.
+
+    staticcheck:
+      checks:
+        - all
+        # Defaults from golangci-lint (doc-comment style checks).
+        - -ST1000
+        - -ST1003
+        - -ST1016
+        - -ST1020
+        - -ST1021
+        - -ST1022
+        # Quick-fix suggestions (De Morgan, tagged switch) that are style, not bugs.
+        - -QF1001
+        - -QF1002
+        - -QF1003
+        # Explicit struct literals keep look-alike types decoupled if fields diverge.
+        - -S1016
+
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - std-error-handling
+    rules:
+      # Field names must match the anonymous structs oapi-codegen emits in apigen.
+      - path: internal/session/wire\.go
+        linters: [revive]
+        text: "var-naming: struct field (ChannelId|ThreadId)"
+      # Test helpers favor uniform call sites over minimal parameter lists.
+      - path: _test\.go
+        linters: [unparam]
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  exclusions:
+    generated: lax

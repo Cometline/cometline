@@ -1,0 +1,33 @@
+# Readability budgets for cometmind. Non-blocking for now: `make lint-budget`
+# and the CI readability job report these without failing. Phase 5 folds them
+# into .golangci.yml once the code is under budget.
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: none
+  enable:
+    - funlen
+    - gocyclo
+
+  settings:
+    funlen:
+      lines: 80
+      statements: -1
+    gocyclo:
+      min-complexity: 15
+
+  exclusions:
+    generated: lax
+    rules:
+      # Table-driven tests are allowed to be long.
+      - path: _test\.go
+        linters: [funlen, gocyclo]
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  # funlen and gocyclo both report on the func line; keep both.
+  uniq-by-line: false
