@@ -13,7 +13,7 @@ type JobSnapshot = {
 export function startJobNotificationPoller(opts: {
 	getSettings: () => CometMindJobsNotificationSettings;
 	intervalMs?: number;
-	onNotify: (title: string, body: string) => void;
+	onNotify: (title: string, body: string, job?: JobSnapshot) => void;
 }): () => void {
 	const intervalMs = opts.intervalMs ?? 30_000;
 	const last = new Map<string, JobSnapshot>();
@@ -41,20 +41,20 @@ export function startJobNotificationPoller(opts: {
 						job.assigned_session_id &&
 						job.status === 'ongoing'
 					) {
-						opts.onNotify('Job claimed', job.description);
+						opts.onNotify('Job claimed', job.description, snap);
 					}
 					if (settings.onCompleted && prev.status !== 'done' && job.status === 'done') {
-						opts.onNotify('Job completed', job.description);
+						opts.onNotify('Job completed', job.description, snap);
 					}
 					if (settings.onReleased && prev.status === 'ongoing' && job.status === 'todo') {
-						opts.onNotify('Job released', job.description);
+						opts.onNotify('Job released', job.description, snap);
 					}
 					if (
 						settings.onBlocked &&
 						prev.status !== 'blocked' &&
 						job.status === 'blocked'
 					) {
-						opts.onNotify('Job blocked', job.description);
+						opts.onNotify('Job blocked', job.description, snap);
 					}
 				}
 				last.set(job.id, snap);

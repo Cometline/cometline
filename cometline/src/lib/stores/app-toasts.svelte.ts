@@ -1,10 +1,14 @@
+export type AppToastTone = 'success' | 'warning' | 'error';
+
 export interface AppToast {
 	id: string;
 	label: string;
 	detail: string;
+	tone: AppToastTone;
+	onOpen?: () => void;
 }
 
-const TOAST_DURATION_MS = 2500;
+const TOAST_DURATION_MS = 5000;
 const MAX_TOASTS = 3;
 
 function createAppToastStore() {
@@ -18,11 +22,13 @@ function createAppToastStore() {
 		toasts = toasts.filter((toast) => toast.id !== id);
 	}
 
-	function success(label: string, detail = '') {
+	function push(label: string, detail = '', tone: AppToastTone = 'success', onOpen?: () => void) {
 		const toast: AppToast = {
 			id: `app-toast-${Date.now()}-${Math.random().toString(36).slice(2)}`,
 			label,
-			detail: detail.replace(/\s+/g, ' ').trim()
+			detail: detail.replace(/\s+/g, ' ').trim(),
+			tone,
+			onOpen
 		};
 		toasts = [...toasts, toast].slice(-MAX_TOASTS);
 		timers.set(
@@ -31,11 +37,25 @@ function createAppToastStore() {
 		);
 	}
 
+	function success(label: string, detail = '', onOpen?: () => void) {
+		push(label, detail, 'success', onOpen);
+	}
+
+	function warning(label: string, detail = '', onOpen?: () => void) {
+		push(label, detail, 'warning', onOpen);
+	}
+
+	function error(label: string, detail = '', onOpen?: () => void) {
+		push(label, detail, 'error', onOpen);
+	}
+
 	return {
 		get toasts() {
 			return toasts;
 		},
 		success,
+		warning,
+		error,
 		dismiss
 	};
 }
