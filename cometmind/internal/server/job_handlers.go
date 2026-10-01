@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/Cometline/cometline/cometmind/internal/apigen"
 	"github.com/Cometline/cometline/cometmind/internal/jobs"
 	"github.com/gin-gonic/gin"
 )
@@ -53,10 +54,6 @@ type updateJobRequest struct {
 	Description      string `json:"description"`
 	DefinitionOfDone string `json:"definition_of_done"`
 	WorkspacePath    string `json:"workspace_path"`
-}
-
-type jobSessionRequest struct {
-	SessionID string `json:"session_id"`
 }
 
 type jobReleaseRequest struct {
@@ -324,17 +321,17 @@ func (a *App) handleClaimJob(c *gin.Context) {
 		writeError(c, http.StatusInternalServerError, "internal_error", "jobs service unavailable")
 		return
 	}
-	var req jobSessionRequest
-	if err := c.ShouldBindJSON(&req); err != nil || req.SessionID == "" {
+	var req apigen.JobSessionRequest
+	if err := c.ShouldBindJSON(&req); err != nil || req.SessionId == "" {
 		writeError(c, http.StatusBadRequest, "bad_request", "session_id is required")
 		return
 	}
-	job, err := a.jobs.Claim(c.Request.Context(), c.Param("id"), req.SessionID)
+	job, err := a.jobs.Claim(c.Request.Context(), c.Param("id"), req.SessionId)
 	if err != nil {
 		writeJobError(c, err)
 		return
 	}
-	_ = a.jobs.Heartbeat(c.Request.Context(), job.ID, req.SessionID)
+	_ = a.jobs.Heartbeat(c.Request.Context(), job.ID, req.SessionId)
 	c.JSON(http.StatusOK, jobToResource(job))
 }
 
@@ -379,12 +376,12 @@ func (a *App) handleHeartbeatJob(c *gin.Context) {
 		writeError(c, http.StatusInternalServerError, "internal_error", "jobs service unavailable")
 		return
 	}
-	var req jobSessionRequest
-	if err := c.ShouldBindJSON(&req); err != nil || req.SessionID == "" {
+	var req apigen.JobSessionRequest
+	if err := c.ShouldBindJSON(&req); err != nil || req.SessionId == "" {
 		writeError(c, http.StatusBadRequest, "bad_request", "session_id is required")
 		return
 	}
-	if err := a.jobs.Heartbeat(c.Request.Context(), c.Param("id"), req.SessionID); err != nil {
+	if err := a.jobs.Heartbeat(c.Request.Context(), c.Param("id"), req.SessionId); err != nil {
 		writeJobError(c, err)
 		return
 	}
