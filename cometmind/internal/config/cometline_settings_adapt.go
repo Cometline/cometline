@@ -46,29 +46,9 @@ func adaptCometlineSettings(raw cometlineSettingsJSON) (*Config, error) {
 		logging.L().Info("config.no_providers_configured")
 	}
 
-	var providers []ProviderEntry
-	if !noProviders {
-		providers = make([]ProviderEntry, 0, len(runtimeProviders))
-		for _, provider := range runtimeProviders {
-			providers = append(providers, ProviderEntry{
-				ID:      strings.TrimSpace(provider.ID),
-				Name:    strings.TrimSpace(provider.Name),
-				Method:  strings.TrimSpace(provider.Method),
-				BaseURL: strings.TrimSpace(provider.BaseURL),
-				APIKey:  provider.APIKey,
-				Model:   primaryModel(provider),
-			})
-		}
-	}
-
 	defaultProviderID, defaultModelID, defaultBaseURL := resolveDefaultLLM(raw, runtimeProviders)
 
 	cm := raw.Cometmind
-	memDef := defaultMemoryConfig()
-	deletedPurgeDays := DefaultJobSettings().DeletedPurgeDays
-	if cm.Jobs.DeletedPurgeDays != nil {
-		deletedPurgeDays = *cm.Jobs.DeletedPurgeDays
-	}
 	cfg := &Config{
 		DefaultProviderID: defaultProviderID,
 		DefaultModelID:    defaultModelID,
@@ -77,110 +57,22 @@ func adaptCometlineSettings(raw cometlineSettingsJSON) (*Config, error) {
 		TitleModel:        strings.TrimSpace(cm.TitleModelID),
 		MaxSteps:          Defaults().MaxSteps,
 		SystemPromptPath:  strings.TrimSpace(cm.SystemPromptPath),
-		Providers:         providers,
-		ACP: ACPConfig{
-			// Missing enabled defaults to false (native coding path preferred).
-			Enabled:        cm.ACP.Enabled != nil && *cm.ACP.Enabled,
-			DefaultHarness: strings.TrimSpace(cm.ACP.DefaultHarness),
-		},
-		Skills: SkillsConfig{
-			Enabled:             cm.Skills.Enabled,
-			Roots:               append([]string(nil), cm.Skills.Roots...),
-			IncludeOpenCode:     cm.Skills.IncludeOpenCode,
-			IncludeClaude:       cm.Skills.IncludeClaude,
-			SynthesisEnabled:    cm.Skills.SynthesisEnabled,
-			SynthesisProviderID: strings.TrimSpace(cm.Skills.SynthesisProviderID),
-			SynthesisModel:      strings.TrimSpace(cm.Skills.SynthesisModel),
-		},
-		Memory: MemoryConfig{
-			Enabled:             cm.Memory.Enabled,
-			AutoExtract:         cm.Memory.AutoExtract,
-			AutoRetrieve:        cm.Memory.AutoRetrieve,
-			MaxRetrieved:        cm.Memory.MaxRetrieved,
-			TaskOutcomeLimit:    cm.Memory.TaskOutcomeLimit,
-			SimilarityThreshold: cm.Memory.SimilarityThreshold,
-			ExtractionProvider:  strings.TrimSpace(cm.Memory.ExtractionProviderID),
-			ExtractionModel:     firstNonEmpty(strings.TrimSpace(cm.Memory.ExtractionModel), memDef.ExtractionModel),
-			Lifecycle: MemoryLifecycleConfig{
-				DecayHalfLifeDays:     cm.Memory.Lifecycle.DecayHalfLifeDays,
-				ForgetThreshold:       cm.Memory.Lifecycle.ForgetThreshold,
-				UsageBoostFactor:      cm.Memory.Lifecycle.UsageBoostFactor,
-				MaxUsageBoost:         cm.Memory.Lifecycle.MaxUsageBoost,
-				MaxMemories:           cm.Memory.Lifecycle.MaxMemories,
-				CompactionTargetRatio: cm.Memory.Lifecycle.CompactionTargetRatio,
-				CompactionOnExtract:   cm.Memory.Lifecycle.CompactionOnExtract,
-			},
-			Embedding: MemoryEmbeddingConfig{
-				ProviderID: strings.TrimSpace(cm.Memory.Embedding.ProviderID),
-				Provider:   strings.TrimSpace(cm.Memory.Embedding.Provider),
-				Model:      strings.TrimSpace(cm.Memory.Embedding.Model),
-				BaseURL:    strings.TrimSpace(cm.Memory.Embedding.BaseURL),
-				APIKey:     cm.Memory.Embedding.APIKey,
-			},
-		},
-		Storage: adaptStorageConfig(cm.Storage),
-		Jobs: JobsConfig{
-			Notifications: JobNotificationSettings{
-				Enabled:     cm.Jobs.Notifications.Enabled,
-				OnClaimed:   cm.Jobs.Notifications.OnClaimed,
-				OnCompleted: cm.Jobs.Notifications.OnCompleted,
-				OnReleased:  cm.Jobs.Notifications.OnReleased,
-				OnBlocked:   cm.Jobs.Notifications.OnBlocked,
-			},
-			LeaseMinutes:             cm.Jobs.LeaseMinutes,
-			DeletedPurgeDays:         deletedPurgeDays,
-			DoneArchiveDays:          cm.Jobs.DoneArchiveDays,
-			ArchivedPurgeDays:        cm.Jobs.ArchivedPurgeDays,
-			StaleReviewMinutes:       cm.Jobs.StaleReviewMinutes,
-			MaxConsecutiveFailures:   cm.Jobs.MaxConsecutiveFailures,
-			RetryCooldownMinutes:     cm.Jobs.RetryCooldownMinutes,
-			MaxRetryCooldownMinutes:  cm.Jobs.MaxRetryCooldownMinutes,
-			ReconcileIntervalSeconds: cm.Jobs.ReconcileIntervalSeconds,
-		},
-		Autonomy: AutonomousJobsConfig{
-			Enabled:             cm.Autonomy.Enabled,
-			MaxConcurrent:       cm.Autonomy.MaxConcurrent,
-			PollIntervalSeconds: cm.Autonomy.PollIntervalSeconds,
-			MaxStepsPerRun:      cm.Autonomy.MaxStepsPerRun,
-			ProviderID:          strings.TrimSpace(cm.Autonomy.ProviderID),
-			ModelID:             strings.TrimSpace(cm.Autonomy.ModelID),
-		},
+		Providers:         adaptProvidersJSON(runtimeProviders),
+		ACP:               adaptACPJSON(cm.ACP),
+		Skills:            adaptSkillsJSON(cm.Skills),
+		Memory:            adaptMemoryJSON(cm.Memory),
+		Storage:           adaptStorageConfig(cm.Storage),
+		Jobs:              adaptJobsJSON(cm.Jobs),
+		Autonomy:          adaptAutonomyJSON(cm.Autonomy),
 		Scheduler: SchedulerConfig{
 			Enabled:             cm.Scheduler.Enabled,
 			PollIntervalSeconds: cm.Scheduler.PollIntervalSeconds,
 		},
-		Generation: GenerationConfig{
-			Image: GenerationModelConfig{
-				ProviderID: strings.TrimSpace(cm.Generation.Image.ProviderID),
-				Model:      strings.TrimSpace(cm.Generation.Image.Model),
-			},
-			Video: GenerationModelConfig{
-				ProviderID: strings.TrimSpace(cm.Generation.Video.ProviderID),
-				Model:      strings.TrimSpace(cm.Generation.Video.Model),
-			},
-		},
-		Gateway: GatewayConfig{
-			Discord: DiscordGatewayConfig{
-				Enabled:         cm.Gateway.Discord.Enabled,
-				BotToken:        strings.TrimSpace(cm.Gateway.Discord.BotToken),
-				BotTokenEnv:     strings.TrimSpace(cm.Gateway.Discord.BotTokenEnv),
-				AllowedUsers:    append([]string(nil), cm.Gateway.Discord.AllowedUsers...),
-				AllowedChannels: append([]string(nil), cm.Gateway.Discord.AllowedChannels...),
-				RequireMention:  cm.Gateway.Discord.RequireMention,
-				WorkspacePath:   strings.TrimSpace(cm.Gateway.Discord.WorkspacePath),
-				Provider:        strings.TrimSpace(cm.Gateway.Discord.ProviderID),
-				Model:           strings.TrimSpace(cm.Gateway.Discord.ModelID),
-			},
-		},
-		MCP: adaptMCPJSON(cm.MCP),
+		Generation: adaptGenerationJSON(cm.Generation),
+		Gateway:    GatewayConfig{Discord: adaptDiscordJSON(cm.Gateway.Discord)},
+		MCP:        adaptMCPJSON(cm.MCP),
 	}
 
-	if cfg.ACP.DefaultHarness == "" {
-		cfg.ACP.DefaultHarness = "opencode"
-	}
-	if cfg.Gateway.Discord.BotTokenEnv == "" {
-		cfg.Gateway.Discord.BotTokenEnv = "DISCORD_BOT_TOKEN"
-	}
 	if cfg.DefaultProviderID == "" && !noProviders {
 		cfg.DefaultProviderID = def.DefaultProviderID
 	}
@@ -192,6 +84,145 @@ func adaptCometlineSettings(raw cometlineSettingsJSON) (*Config, error) {
 	}
 
 	return cfg, nil
+}
+
+func adaptProvidersJSON(runtimeProviders []cometlineProviderJSON) []ProviderEntry {
+	if len(runtimeProviders) == 0 {
+		return nil
+	}
+	providers := make([]ProviderEntry, 0, len(runtimeProviders))
+	for _, provider := range runtimeProviders {
+		providers = append(providers, ProviderEntry{
+			ID:      strings.TrimSpace(provider.ID),
+			Name:    strings.TrimSpace(provider.Name),
+			Method:  strings.TrimSpace(provider.Method),
+			BaseURL: strings.TrimSpace(provider.BaseURL),
+			APIKey:  provider.APIKey,
+			Model:   primaryModel(provider),
+		})
+	}
+	return providers
+}
+
+func adaptACPJSON(raw cometlineACPJSON) ACPConfig {
+	out := ACPConfig{
+		// Missing enabled defaults to false (native coding path preferred).
+		Enabled:        raw.Enabled != nil && *raw.Enabled,
+		DefaultHarness: strings.TrimSpace(raw.DefaultHarness),
+	}
+	if out.DefaultHarness == "" {
+		out.DefaultHarness = "opencode"
+	}
+	return out
+}
+
+func adaptSkillsJSON(raw cometlineSkillsJSON) SkillsConfig {
+	return SkillsConfig{
+		Enabled:             raw.Enabled,
+		Roots:               append([]string(nil), raw.Roots...),
+		IncludeOpenCode:     raw.IncludeOpenCode,
+		IncludeClaude:       raw.IncludeClaude,
+		SynthesisEnabled:    raw.SynthesisEnabled,
+		SynthesisProviderID: strings.TrimSpace(raw.SynthesisProviderID),
+		SynthesisModel:      strings.TrimSpace(raw.SynthesisModel),
+	}
+}
+
+func adaptMemoryJSON(raw cometlineMemoryJSON) MemoryConfig {
+	memDef := defaultMemoryConfig()
+	return MemoryConfig{
+		Enabled:             raw.Enabled,
+		AutoExtract:         raw.AutoExtract,
+		AutoRetrieve:        raw.AutoRetrieve,
+		MaxRetrieved:        raw.MaxRetrieved,
+		TaskOutcomeLimit:    raw.TaskOutcomeLimit,
+		SimilarityThreshold: raw.SimilarityThreshold,
+		ExtractionProvider:  strings.TrimSpace(raw.ExtractionProviderID),
+		ExtractionModel:     firstNonEmpty(strings.TrimSpace(raw.ExtractionModel), memDef.ExtractionModel),
+		Lifecycle: MemoryLifecycleConfig{
+			DecayHalfLifeDays:     raw.Lifecycle.DecayHalfLifeDays,
+			ForgetThreshold:       raw.Lifecycle.ForgetThreshold,
+			UsageBoostFactor:      raw.Lifecycle.UsageBoostFactor,
+			MaxUsageBoost:         raw.Lifecycle.MaxUsageBoost,
+			MaxMemories:           raw.Lifecycle.MaxMemories,
+			CompactionTargetRatio: raw.Lifecycle.CompactionTargetRatio,
+			CompactionOnExtract:   raw.Lifecycle.CompactionOnExtract,
+		},
+		Embedding: MemoryEmbeddingConfig{
+			ProviderID: strings.TrimSpace(raw.Embedding.ProviderID),
+			Provider:   strings.TrimSpace(raw.Embedding.Provider),
+			Model:      strings.TrimSpace(raw.Embedding.Model),
+			BaseURL:    strings.TrimSpace(raw.Embedding.BaseURL),
+			APIKey:     raw.Embedding.APIKey,
+		},
+	}
+}
+
+func adaptJobsJSON(raw cometlineJobsJSON) JobsConfig {
+	deletedPurgeDays := DefaultJobSettings().DeletedPurgeDays
+	if raw.DeletedPurgeDays != nil {
+		deletedPurgeDays = *raw.DeletedPurgeDays
+	}
+	return JobsConfig{
+		Notifications: JobNotificationSettings{
+			Enabled:     raw.Notifications.Enabled,
+			OnClaimed:   raw.Notifications.OnClaimed,
+			OnCompleted: raw.Notifications.OnCompleted,
+			OnReleased:  raw.Notifications.OnReleased,
+			OnBlocked:   raw.Notifications.OnBlocked,
+		},
+		LeaseMinutes:             raw.LeaseMinutes,
+		DeletedPurgeDays:         deletedPurgeDays,
+		DoneArchiveDays:          raw.DoneArchiveDays,
+		ArchivedPurgeDays:        raw.ArchivedPurgeDays,
+		StaleReviewMinutes:       raw.StaleReviewMinutes,
+		MaxConsecutiveFailures:   raw.MaxConsecutiveFailures,
+		RetryCooldownMinutes:     raw.RetryCooldownMinutes,
+		MaxRetryCooldownMinutes:  raw.MaxRetryCooldownMinutes,
+		ReconcileIntervalSeconds: raw.ReconcileIntervalSeconds,
+	}
+}
+
+func adaptAutonomyJSON(raw cometlineAutonomyJSON) AutonomousJobsConfig {
+	return AutonomousJobsConfig{
+		Enabled:             raw.Enabled,
+		MaxConcurrent:       raw.MaxConcurrent,
+		PollIntervalSeconds: raw.PollIntervalSeconds,
+		MaxStepsPerRun:      raw.MaxStepsPerRun,
+		ProviderID:          strings.TrimSpace(raw.ProviderID),
+		ModelID:             strings.TrimSpace(raw.ModelID),
+	}
+}
+
+func adaptGenerationJSON(raw cometlineGenerationJSON) GenerationConfig {
+	return GenerationConfig{
+		Image: GenerationModelConfig{
+			ProviderID: strings.TrimSpace(raw.Image.ProviderID),
+			Model:      strings.TrimSpace(raw.Image.Model),
+		},
+		Video: GenerationModelConfig{
+			ProviderID: strings.TrimSpace(raw.Video.ProviderID),
+			Model:      strings.TrimSpace(raw.Video.Model),
+		},
+	}
+}
+
+func adaptDiscordJSON(raw cometlineDiscordJSON) DiscordGatewayConfig {
+	out := DiscordGatewayConfig{
+		Enabled:         raw.Enabled,
+		BotToken:        strings.TrimSpace(raw.BotToken),
+		BotTokenEnv:     strings.TrimSpace(raw.BotTokenEnv),
+		AllowedUsers:    append([]string(nil), raw.AllowedUsers...),
+		AllowedChannels: append([]string(nil), raw.AllowedChannels...),
+		RequireMention:  raw.RequireMention,
+		WorkspacePath:   strings.TrimSpace(raw.WorkspacePath),
+		Provider:        strings.TrimSpace(raw.ProviderID),
+		Model:           strings.TrimSpace(raw.ModelID),
+	}
+	if out.BotTokenEnv == "" {
+		out.BotTokenEnv = "DISCORD_BOT_TOKEN"
+	}
+	return out
 }
 
 // resolveDefaultLLM picks the Default model pair from defaultProviderId and defaultModelId.
