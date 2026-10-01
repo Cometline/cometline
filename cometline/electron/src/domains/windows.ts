@@ -120,6 +120,12 @@ export function createWindows(dependencies: WindowsDependencies) {
 
 	function attachExternalNavigationGuards(window: BrowserWindow) {
 		window.webContents.on('will-attach-webview', (_event, webPreferences) => {
+			// Guests load arbitrary workspace URLs, so they must never inherit a
+			// preload bridge or Node access from renderer-supplied attributes.
+			delete webPreferences.preload;
+			webPreferences.nodeIntegration = false;
+			webPreferences.contextIsolation = true;
+			webPreferences.sandbox = true;
 			webPreferences.devTools = !app.isPackaged;
 		});
 		window.webContents.setWindowOpenHandler(({ url }) => {

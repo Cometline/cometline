@@ -221,6 +221,29 @@ describe('window lifecycle factory', () => {
 		expect(settings.loadURL).toHaveBeenCalledWith('app://bundle/settings');
 	});
 
+	it('strips preload and Node access from attached webview guests', async () => {
+		const { controller } = createController();
+		await controller.createMainWindow();
+		const [main] = FakeWindow.instances;
+		const webPreferences: Record<string, unknown> = {
+			preload: '/tmp/evil-preload.js',
+			nodeIntegration: true,
+			contextIsolation: false,
+			sandbox: false,
+			devTools: true
+		};
+
+		main.handlers.get('web:will-attach-webview')?.({}, webPreferences, {});
+
+		expect(webPreferences).not.toHaveProperty('preload');
+		expect(webPreferences).toMatchObject({
+			nodeIntegration: false,
+			contextIsolation: true,
+			sandbox: true,
+			devTools: false
+		});
+	});
+
 	it('toggles a ready mini window with show/hide only', async () => {
 		const { controller, touchMiniWindowActivity } = createController();
 		await controller.prepareMiniWindow();
