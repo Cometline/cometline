@@ -6,7 +6,7 @@ import type { Session } from '$lib/types';
 
 // Keep the real shell and session stores, but exclude unrelated child lifecycles.
 const { emptyComponent } = vi.hoisted(() => ({ emptyComponent: () => ({}) }));
-vi.mock('./Sidebar.svelte', () => ({ default: emptyComponent }));
+vi.mock('../features/sidebar/components/Sidebar.svelte', () => ({ default: emptyComponent }));
 vi.mock('../features/workspace/components/FileTreeBrowser.svelte', () => ({
 	default: emptyComponent
 }));

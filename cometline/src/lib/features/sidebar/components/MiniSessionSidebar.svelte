@@ -19,8 +19,8 @@
 		DISCORD_GROUP_KEY,
 		isDiscordSession
 	} from '$lib/sessions/group-by-workspace';
-	import SidebarSearch from '$lib/components/sidebar/SidebarSearch.svelte';
-	import SessionRow from '$lib/components/sidebar/SessionRow.svelte';
+	import SidebarSearch from '$lib/features/sidebar/components/SidebarSearch.svelte';
+	import SessionRow from '$lib/features/sidebar/components/SessionRow.svelte';
 	import ConfirmActionModal from '$lib/components/ConfirmActionModal.svelte';
 	import Tooltip from '$lib/components/Tooltip.svelte';
 

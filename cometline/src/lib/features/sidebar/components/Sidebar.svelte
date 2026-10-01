@@ -25,12 +25,12 @@
 		PINNED_GROUP_KEY,
 		DISCORD_GROUP_KEY
 	} from '$lib/sessions/group-by-workspace';
-	import SidebarSearch from '$lib/components/sidebar/SidebarSearch.svelte';
-	import PinnedGroup from '$lib/components/sidebar/PinnedGroup.svelte';
-	import DiscordGroup from '$lib/components/sidebar/DiscordGroup.svelte';
-	import WorkspaceGroup from '$lib/components/sidebar/WorkspaceGroup.svelte';
+	import SidebarSearch from '$lib/features/sidebar/components/SidebarSearch.svelte';
+	import PinnedGroup from '$lib/features/sidebar/components/PinnedGroup.svelte';
+	import DiscordGroup from '$lib/features/sidebar/components/DiscordGroup.svelte';
+	import WorkspaceGroup from '$lib/features/sidebar/components/WorkspaceGroup.svelte';
 	import ConfirmActionModal from '$lib/components/ConfirmActionModal.svelte';
-	import SessionContextMenu from '$lib/components/sidebar/SessionContextMenu.svelte';
+	import SessionContextMenu from '$lib/features/sidebar/components/SessionContextMenu.svelte';
 	import Tooltip from '$lib/components/Tooltip.svelte';
 	import { terminalStore } from '$lib/stores/terminal.svelte';
 	import { settingsStore } from '$lib/stores/settings.svelte';

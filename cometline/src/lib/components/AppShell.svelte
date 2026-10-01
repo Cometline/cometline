@@ -4,7 +4,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen } from '@lucide/svelte';
-	import Sidebar from './Sidebar.svelte';
+	import Sidebar from '../features/sidebar/components/Sidebar.svelte';
 	import RuntimeOverlay from './RuntimeOverlay.svelte';
 	import SettingsModal from '../features/settings/components/SettingsModal.svelte';
 	import SetupWizard from '../features/onboarding/components/SetupWizard.svelte';

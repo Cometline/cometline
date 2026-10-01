@@ -9,9 +9,9 @@
 		webTabActivity,
 		type WebTabActivity
 	} from '$lib/features/workspace/web-tab-activity.svelte';
-	import AudioActivityIcon from '../AudioActivityIcon.svelte';
-	import { portal } from '../portal';
-	import { clampTooltipPosition } from '../tooltip-position';
+	import AudioActivityIcon from '$lib/components/AudioActivityIcon.svelte';
+	import { portal } from '$lib/components/portal';
+	import { clampTooltipPosition } from '$lib/components/tooltip-position';
 
 	let { session, tabs }: { session: Session; tabs: WebTabActivity[] } = $props();
 	let trigger = $state<HTMLButtonElement | null>(null);

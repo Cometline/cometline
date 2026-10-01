@@ -9,7 +9,7 @@
 	import { settingsStore } from '$lib/stores/settings.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { createMiniWindowSession, navigateMiniToSession } from '$lib/mini-window-session';
-	import MiniSessionSidebar from '$lib/components/MiniSessionSidebar.svelte';
+	import MiniSessionSidebar from '$lib/features/sidebar/components/MiniSessionSidebar.svelte';
 	import type { Session } from '$lib/types';
 
 	let { children } = $props();

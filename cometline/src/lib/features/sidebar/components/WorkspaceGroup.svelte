@@ -2,7 +2,7 @@
 	import { slide } from 'svelte/transition';
 	import { ChevronDown, ChevronRight, Folder, ArrowDown, Plus } from '@lucide/svelte';
 	import type { Session } from '$lib/types';
-	import SessionRow from '$lib/components/sidebar/SessionRow.svelte';
+	import SessionRow from '$lib/features/sidebar/components/SessionRow.svelte';
 
 	const WORKSPACE_SESSIONS_SLIDE = { duration: 180 };
 	const VISIBLE_LIMIT = 5;
