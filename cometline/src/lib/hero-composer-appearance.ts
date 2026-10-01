@@ -6,8 +6,15 @@ export interface HeroComposerPreset {
 	appearance: HeroComposerAppearance;
 }
 
-export type HeroComposerPresetId = 'blue' | 'rose';
+export type HeroComposerPresetId = 'clay' | 'blue' | 'rose';
 export type HeroComposerPresetSelection = HeroComposerPresetId | 'custom';
+
+/** Dusty clay glow with a gray border — default hero glow. */
+export const HERO_COMPOSER_PRESET_CLAY: HeroComposerAppearance = {
+	presetId: 'clay',
+	glowColor: '#935353',
+	ringColor: '#727374'
+};
 
 export const HERO_COMPOSER_PRESET_ROSE: HeroComposerAppearance = {
 	presetId: 'rose',
@@ -15,7 +22,7 @@ export const HERO_COMPOSER_PRESET_ROSE: HeroComposerAppearance = {
 	ringColor: '#fb7185'
 };
 
-/** Soft Arc-style blue — default hero glow. */
+/** Soft Arc-style blue. */
 export const HERO_COMPOSER_PRESET_BLUE: HeroComposerAppearance = {
 	presetId: 'blue',
 	glowColor: '#64b6f4',
@@ -23,12 +30,13 @@ export const HERO_COMPOSER_PRESET_BLUE: HeroComposerAppearance = {
 };
 
 export const HERO_COMPOSER_PRESETS: HeroComposerPreset[] = [
+	{ id: 'clay', label: 'Clay', appearance: HERO_COMPOSER_PRESET_CLAY },
 	{ id: 'blue', label: 'Blue', appearance: HERO_COMPOSER_PRESET_BLUE },
 	{ id: 'rose', label: 'Rose', appearance: HERO_COMPOSER_PRESET_ROSE }
 ];
 
 export const DEFAULT_HERO_COMPOSER_APPEARANCE: HeroComposerAppearance = {
-	...HERO_COMPOSER_PRESET_BLUE
+	...HERO_COMPOSER_PRESET_CLAY
 };
 
 const HEX_COLOR = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
@@ -45,11 +53,16 @@ export function normalizeHexColor(value: string | undefined, fallback: string): 
 }
 
 function presetAppearanceFor(id: HeroComposerPresetId): HeroComposerAppearance {
-	return id === 'rose' ? HERO_COMPOSER_PRESET_ROSE : HERO_COMPOSER_PRESET_BLUE;
+	return (
+		HERO_COMPOSER_PRESETS.find((preset) => preset.id === id)?.appearance ??
+		HERO_COMPOSER_PRESET_CLAY
+	);
 }
 
 function presetIdFromValue(value: unknown): HeroComposerPresetSelection | undefined {
-	return value === 'rose' || value === 'custom' ? value : value === 'blue' ? 'blue' : undefined;
+	if (value === 'clay' || value === 'blue' || value === 'rose' || value === 'custom')
+		return value;
+	return undefined;
 }
 
 function normalizeCustomPreset(
@@ -88,7 +101,7 @@ export function normalizeHeroComposerAppearance(
 	)?.id;
 	const customPreset =
 		normalizeCustomPreset(appearance) ?? (matchedPreset ? undefined : legacyColors);
-	const presetId = presetIdFromValue(appearance?.presetId) ?? matchedPreset ?? 'blue';
+	const presetId = presetIdFromValue(appearance?.presetId) ?? matchedPreset ?? 'clay';
 	if (presetId === 'custom') {
 		const custom = customPreset ?? legacyColors;
 		return { presetId: 'custom', ...custom, customPreset: custom };
