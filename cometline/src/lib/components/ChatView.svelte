@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { fade } from 'svelte/transition';
-	import { tick, untrack } from 'svelte';
+	import { tick } from 'svelte';
 	import EmptyChatState from '$lib/components/EmptyChatState.svelte';
 	import Composer from '$lib/components/composer/Composer.svelte';
 	import HeroComposerFrame from '$lib/components/HeroComposerFrame.svelte';
@@ -20,11 +20,11 @@
 	import { settingsStore } from '$lib/stores/settings.svelte';
 	import { matchesShortcut } from '$lib/keyboard-shortcuts';
 	import type { ChatTurnPayload } from '$lib/actions/start-chat';
-	import type { ChatItem } from '$lib/types';
 	import type { ModelOption } from '$lib/stores/model.svelte';
 	import { startJobInSession } from '$lib/jobs/start-job-in-chat';
 	import type { JobResource } from '$lib/client/cometmind';
 	import { createChatViewController } from '$lib/conversation/chat-view-controller.svelte';
+	import { createSessionPhase } from '$lib/conversation/session-phase.svelte';
 	import { shouldApplyComposerFocus } from '$lib/conversation/composer-focus';
 	import { PanelLeftClose, PanelLeftOpen } from '@lucide/svelte';
 	import { miniShellStore } from '$lib/stores/mini-shell.svelte';
@@ -46,7 +46,7 @@
 		refreshSession: (sid) => refreshConversationSession(sid),
 		onQueueChange: syncQueueState,
 		onAwaitingFirstAssistantChange: (value) => {
-			awaitingFirstAssistant = value;
+			phase.setAwaitingFirstAssistant(value);
 		},
 		onTurnRejected: restoreRejectedTurn,
 		flight: {
@@ -57,12 +57,12 @@
 				// This adapter only owns first-turn choreography (desktop + mini).
 				if (!firstTurn) return;
 				if (compact) {
-					awaitingFirstAssistant = true;
+					phase.setAwaitingFirstAssistant(true);
 					// Mini uses the regular user-bubble flight rather than the desktop
 					// first-turn choreography. Keep its destination independent of the
 					// first assistant's lifecycle so it is revealed after the flight.
-					firstTurnFlightDone = true;
-					firstTurnHandoffPending = false;
+					phase.setFirstTurnFlightDone(true);
+					phase.setFirstTurnHandoffPending(false);
 					if (!userBubbleFlight) {
 						stageUser(payload.text, payload.images);
 						revealStagedUser();
@@ -80,12 +80,12 @@
 						.then(() => undefined)
 						.finally(() => finishFlight(flight));
 				}
-				awaitingFirstAssistant = true;
-				firstTurnFlightDone = false;
-				firstTurnHandoffPending = true;
+				phase.setAwaitingFirstAssistant(true);
+				phase.setFirstTurnFlightDone(false);
+				phase.setFirstTurnHandoffPending(true);
 				if (!firstTurnFlight) {
-					firstTurnFlightDone = true;
-					firstTurnHandoffPending = false;
+					phase.setFirstTurnFlightDone(true);
+					phase.setFirstTurnHandoffPending(false);
 					stageUser(payload.text, payload.images);
 					revealStagedUser();
 					return;
@@ -98,8 +98,8 @@
 						signal: flight.signal
 					})
 					.catch((error) => {
-						firstTurnFlightDone = true;
-						firstTurnHandoffPending = false;
+						phase.setFirstTurnFlightDone(true);
+						phase.setFirstTurnHandoffPending(false);
 						throw error;
 					})
 					.finally(() => finishFlight(flight));
@@ -111,46 +111,37 @@
 	let userBubbleFlight = $state<UserBubbleFlight>();
 	let firstTurnFlight = $state<FirstTurnFlight>();
 	let flightAbortController = $state<AbortController | null>(null);
-	let awaitingFirstAssistant = $state(false);
-	let firstTurnActive = $state(false);
-	let firstTurnFlightDone = $state(false);
-	let firstTurnHandoffPending = $state(false);
 	let queuedCount = $state(0);
 	let queuedMessages = $state<QueuedMessage[]>([]);
 
-	let snapshotItems = $state.raw<ChatItem[]>([]);
-	// snapshotSynced gates mid-switch visibility. Empty soft-swaps set it true
-	// immediately with empty items so hero/EmptyChatState stays up; content
-	// sessions keep it false until the store binds to avoid flashing empty.
-	let snapshotSynced = $state(false);
-
-	$effect(() => {
-		if (chatStore.sessionID !== sessionId) return;
-		snapshotItems = chatStore.items;
-		snapshotSynced = true;
+	// Phase owns snapshot, flight flags, and composer dock. ChatView only
+	// calls onSession when the session id changes — before the activation
+	// effect can dock on the previous session's visibility.
+	const phase = createSessionPhase({
+		getSessionId: () => sessionId,
+		abortFlights: () => {
+			flightAbortController?.abort();
+			flightAbortController = null;
+			firstTurnFlight?.cancel();
+			userBubbleFlight?.dismissParticle();
+		},
+		syncQueueState: () => syncQueueState(),
+		syncComposerPhase: (opts) => conversation.syncComposerPhase(opts)
 	});
 
-	let hasVisibleConversation = $derived.by(() => {
-		if (firstTurnActive || awaitingFirstAssistant) return true;
-		const hasTurns = (list: ChatItem[]) =>
-			list.some((item) => item.type === 'user' || item.type === 'assistant');
-		// Read reactive `items`, not sessionCache (plain Map). Status-only fork
-		// notes still do not count, so EmptyChatState / avatar stay up.
-		if (chatStore.sessionID === sessionId) {
-			return hasTurns(chatStore.items);
-		}
-		if (!chatStore.hasCachedConversationTurns(sessionId)) return false;
-		if (!snapshotSynced) return true;
-		return hasTurns(snapshotItems);
-	});
+	let hasVisibleConversation = $derived(phase.hasVisibleConversation);
+	let firstTurnActive = $derived(phase.firstTurnActive);
+	let firstTurnFlightDone = $derived(phase.firstTurnFlightDone);
+	let firstTurnHandoffPending = $derived(phase.firstTurnHandoffPending);
+	let awaitingFirstAssistant = $derived(phase.awaitingFirstAssistant);
 	let composerSnap = $derived(chatStore.sessionID === sessionId && chatStore.isLoading);
 
 	const chatView = createChatViewController({
 		getSessionId: () => sessionId,
-		getHasVisibleConversation: () => hasVisibleConversation,
-		getFirstTurnActive: () => firstTurnActive,
-		getFirstTurnFlightDone: () => firstTurnFlightDone,
-		getAwaitingFirstAssistant: () => awaitingFirstAssistant,
+		getHasVisibleConversation: () => phase.hasVisibleConversation,
+		getFirstTurnActive: () => phase.firstTurnActive,
+		getFirstTurnFlightDone: () => phase.firstTurnFlightDone,
+		getAwaitingFirstAssistant: () => phase.awaitingFirstAssistant,
 		getForceDocked: () => compact,
 		enqueue: (payload) => {
 			void conversation.enqueue(payload);
@@ -196,39 +187,10 @@
 		syncSessionFromStore();
 	});
 
-	// Reset per-session view state ONLY when the active session changes. The chat
-	// store reads below must be untracked: otherwise staging the user message and
-	// adding the pending assistant row during a first-turn flight re-runs this
-	// effect, which would reset firstTurnHandoffPending mid-flight and let the
-	// destination avatar/thinking indicator appear before the overlay arrives.
-	// Soft swaps (/change fork, sidebar click) keep ChatView mounted — this must
-	// be remount-equivalent so composer phase + flight flags are not stuck until Cmd+R.
-	// Use $effect.pre so stale awaiting/firstTurn flags clear BEFORE syncComposerPhase
-	// can dock on the previous session's mid-switch visibility.
+	// Soft swaps keep ChatView mounted. One pre-effect calls onSession so stale
+	// flight flags clear before composer phase can dock on the previous session.
 	$effect.pre(() => {
-		void sessionId;
-		untrack(() => {
-			flightAbortController?.abort();
-			flightAbortController = null;
-			firstTurnFlight?.cancel();
-			userBubbleFlight?.dismissParticle();
-			firstTurnActive = false;
-			firstTurnHandoffPending = false;
-			const hasTurns = chatStore.hasCachedConversationTurns(sessionId);
-			awaitingFirstAssistant = chatStore.isAwaitingFirstAssistant(sessionId);
-			// No user/assistant yet: explicitly false. Do NOT use `!awaitingFirstAssistant`
-			// (true when idle) which wrongly marks flight done after soft swaps.
-			// Fork system notes are status-only and must not mark flight done.
-			firstTurnFlightDone = hasTurns;
-			if (!hasTurns && !awaitingFirstAssistant) {
-				snapshotItems = [];
-				snapshotSynced = true;
-				shellStore.centerComposer();
-			} else {
-				snapshotSynced = false;
-			}
-			syncQueueState();
-		});
+		phase.onSession(sessionId);
 	});
 
 	let activatedSessionId = $state<string | null>(null);
@@ -274,14 +236,6 @@
 	});
 
 	$effect(() => {
-		conversation.syncComposerPhase({
-			hasVisibleConversation,
-			firstTurnActive,
-			awaitingFirstAssistant
-		});
-	});
-
-	$effect(() => {
 		if (
 			!shouldApplyComposerFocus({
 				requestId: composerFocusRequest.id,
@@ -294,12 +248,6 @@
 			return;
 		lastAppliedComposerFocusId = composerFocusRequest.id;
 		composerRef?.focus();
-	});
-
-	$effect(() => {
-		if (!hasVisibleConversation && !firstTurnActive && !awaitingFirstAssistant) {
-			firstTurnFlightDone = false;
-		}
 	});
 
 	function submit(payload: ChatTurnPayload | string) {
@@ -471,13 +419,13 @@
 		{userBubbleFlight}
 		stageUser={(text, images) => chatStore.stageUserForSession(sessionId, text, images)}
 		revealStagedUser={() => chatStore.revealStagedUserForSession(sessionId)}
-		onActiveChange={(active) => (firstTurnActive = active)}
+		onActiveChange={(active) => phase.setFirstTurnActive(active)}
 		onPrepareFlight={() => {
 			shellStore.dockComposer();
 		}}
 		onFlightDoneChange={(done) => {
-			firstTurnFlightDone = done;
-			firstTurnHandoffPending = !done;
+			phase.setFirstTurnFlightDone(done);
+			phase.setFirstTurnHandoffPending(!done);
 		}}
 	/>
 
