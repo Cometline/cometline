@@ -71,7 +71,7 @@ func CompatibilityEndpoint(cfg *config.Config, id string) string {
 	if baseURL == "" {
 		return "default"
 	}
-	return cometsdk.NormaliseBaseURL(baseURL)
+	return cometsdk.NormalizeBaseURL(baseURL)
 }
 
 // NewMemoryLLM returns the provider used for memory compaction and default
@@ -116,13 +116,13 @@ func NewForModel(cfg *config.Config, id, modelID string) (cometsdk.Provider, err
 	}
 	switch sdkProviderID(method) {
 	case config.ProviderAnthropic:
-		return anthropic.NewAnthropicProvider(key, opts...), nil
+		return anthropic.New(key, opts...), nil
 	case config.ProviderOpenAI:
-		return openai.NewOpenAIProvider(key, opts...), nil
+		return openai.New(key, opts...), nil
 	case config.ProviderCodex:
-		return codex.NewCodexProvider(opts...), nil
+		return codex.New(opts...), nil
 	case config.ProviderXAI:
-		return xai.NewXAIProvider(key, opts...), nil
+		return xai.New(key, opts...), nil
 	default:
 		return nil, fmt.Errorf("unknown provider method %q", method)
 	}
@@ -148,10 +148,10 @@ func opencodeGoProvider(key, id, baseURL, modelID string) (cometsdk.Provider, er
 	}
 	switch protocol.NPM {
 	case modelcatalog.NPMOpenAI:
-		return openairesponses.NewOpenAIResponsesProvider(key, id, opts...), nil
+		return openairesponses.New(key, id, opts...), nil
 	case modelcatalog.NPMAnthropic:
-		return anthropic.NewAnthropicProvider(key, opts...), nil
+		return anthropic.New(key, opts...), nil
 	default:
-		return openai.NewOpenAIProvider(key, opts...), nil
+		return openai.New(key, opts...), nil
 	}
 }

@@ -56,15 +56,22 @@ func markCapabilityUnsupported(req *cometsdk.Request, feature cometsdk.Capabilit
 	}
 }
 
-// NewCodexProvider creates a Provider that reuses the local Codex CLI ChatGPT session.
-func NewCodexProvider(opts ...cometsdk.Option) cometsdk.Provider {
+// New creates a Provider that reuses the local Codex CLI ChatGPT session.
+func New(opts ...cometsdk.Option) cometsdk.Provider {
 	cfg := cometsdk.DefaultProviderConfig()
 	cfg.BaseURL = defaultBaseURL
 	for _, o := range opts {
 		o(&cfg)
 	}
-	cfg.BaseURL = cometsdk.NormaliseBaseURL(cfg.BaseURL)
+	cfg.BaseURL = cometsdk.NormalizeBaseURL(cfg.BaseURL)
 	return &provider{cfg: cfg, log: providerbase.Logger(cfg, providerID)}
+}
+
+// NewCodexProvider creates a Provider that reuses the local Codex CLI ChatGPT session.
+//
+// Deprecated: use New.
+func NewCodexProvider(opts ...cometsdk.Option) cometsdk.Provider {
+	return New(opts...)
 }
 
 func (p *provider) ID() string { return providerID }

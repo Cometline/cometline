@@ -375,15 +375,22 @@ func StreamingHTTPClient(cfg ProviderConfig) *http.Client {
 	return &client
 }
 
-// NormaliseBaseURL strips a trailing slash from a base URL so that appending
+// NormalizeBaseURL strips a trailing slash from a base URL so that appending
 // paths like "/v1/chat/completions" never produces a double slash.
 //
 // Examples:
 //
 //	"https://api.example.com/v1/"  → "https://api.example.com/v1"
 //	"https://api.example.com/v1"   → "https://api.example.com/v1"
-func NormaliseBaseURL(u string) string {
+func NormalizeBaseURL(u string) string {
 	return strings.TrimRight(u, "/")
+}
+
+// NormaliseBaseURL strips a trailing slash from a base URL.
+//
+// Deprecated: use NormalizeBaseURL.
+func NormaliseBaseURL(u string) string {
+	return NormalizeBaseURL(u)
 }
 
 // Option is a functional option for provider configuration.

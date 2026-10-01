@@ -42,7 +42,7 @@ func newLiveProvider(t *testing.T) cometsdk.Provider {
 		t.Logf("using custom base URL: %s", baseURL)
 	}
 
-	return openai.NewOpenAIProvider(apiKey, opts...)
+	return openai.New(apiKey, opts...)
 }
 
 func liveModel() string {

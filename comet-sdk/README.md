@@ -145,7 +145,7 @@ import (
     "github.com/Cometline/cometline/comet-sdk/provider/anthropic"
 )
 
-p := anthropic.NewAnthropicProvider(os.Getenv("ANTHROPIC_API_KEY"))
+p := anthropic.New(os.Getenv("ANTHROPIC_API_KEY"))
 
 req := &cometsdk.Request{
     Model:  "claude-sonnet-4-5",
@@ -190,7 +190,7 @@ import (
     "github.com/Cometline/cometline/comet-sdk/provider/openai"
 )
 
-p := openai.NewOpenAIProvider(
+p := openai.New(
     os.Getenv("OPENAI_API_KEY"),
     cometsdk.WithBaseURL("https://api.openai.com"),
 )
@@ -310,6 +310,21 @@ Options: map[string]any{
 
 SDK-managed fields (`model`, `messages`, `stream`, `max_tokens`) cannot be overridden via Options. Use the top-level `Request.Temperature` field for providers that support it.
 
+---
+
+## Providers
+
+| Constructor | Backend |
+|---|---|
+| `anthropic.New(apiKey, opts...)` | Anthropic Messages API |
+| `openai.New(apiKey, opts...)` | OpenAI Chat Completions API |
+| `openai.NewCompatible(apiKey, id, tokenSource, opts...)` | Any OpenAI-compatible endpoint, reported under a custom provider ID |
+| `openairesponses.New(apiKey, id, opts...)` | OpenAI Responses API |
+| `codex.New(opts...)` | ChatGPT Codex through the local Codex CLI login |
+| `xai.New(apiKey, opts...)` | xAI Grok through the local subscription session |
+
+The older names (`NewAnthropicProvider`, `NewOpenAIProvider`, `NewOpenAICompatibleProvider`, `NewOpenAIResponsesProvider`, `NewCodexProvider`, `NewXAIProvider`) and `cometsdk.NormaliseBaseURL` still work but are deprecated, and will be removed in the release after the first `comet-sdk/v*` tag.
+
 ### ChatGPT Codex
 
 `provider/codex` talks to ChatGPT Codex's `/responses` endpoint and reuses the local Codex CLI login. Run `codex login` first so `~/.codex/auth.json` exists. The provider refreshes the borrowed access token when possible and does not use an API key. Streaming uses the HTTP/SSE transport.
@@ -327,7 +342,7 @@ SDK-managed fields (`model`, `messages`, `stream`, `max_tokens`) cannot be overr
 ## Configuration options
 
 ```go
-p := anthropic.NewAnthropicProvider(apiKey,
+p := anthropic.New(apiKey,
     cometsdk.WithBaseURL("https://custom-endpoint.example.com"),
     cometsdk.WithTimeout(30 * time.Second),
     cometsdk.WithMaxRetries(3),
@@ -343,7 +358,7 @@ p := anthropic.NewAnthropicProvider(apiKey,
 log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
     Level: slog.LevelDebug,
 }))
-p := anthropic.NewAnthropicProvider(apiKey, cometsdk.WithLogger(log))
+p := anthropic.New(apiKey, cometsdk.WithLogger(log))
 ```
 
 Pass `cometsdk.WithLogger(nil)` to silence all SDK output.
@@ -397,7 +412,7 @@ make test-openai        # OpenAI package only
 make test-live          # real API calls (requires env vars)
 make test-live-anthropic
 make test-live-openai
-make lint               # golangci-lint (must be installed)
+make lint               # golangci-lint (pinned, runs through go run)
 ```
 
 Provider packages replay checked-in SSE fixtures under `provider/*/fixtures/` via `httptest` — update fixtures when parser behavior changes.

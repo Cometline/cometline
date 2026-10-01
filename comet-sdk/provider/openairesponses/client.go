@@ -46,22 +46,29 @@ func markCapabilityUnsupported(req *cometsdk.Request, feature cometsdk.Capabilit
 	}
 }
 
-// NewOpenAIResponsesProvider creates a Provider for the OpenAI Responses API
-// authenticated with a plain API key. id is the provider identifier used in
-// events and persisted provider state (e.g. "opencode-go").
-func NewOpenAIResponsesProvider(apiKey, id string, opts ...cometsdk.Option) cometsdk.Provider {
+// New creates a Provider for the OpenAI Responses API authenticated with a
+// plain API key. id is the provider identifier used in events and persisted
+// provider state (e.g. "opencode-go").
+func New(apiKey, id string, opts ...cometsdk.Option) cometsdk.Provider {
 	cfg := cometsdk.DefaultProviderConfig()
 	cfg.BaseURL = defaultBaseURL
 	for _, o := range opts {
 		o(&cfg)
 	}
-	cfg.BaseURL = cometsdk.NormaliseBaseURL(cfg.BaseURL)
+	cfg.BaseURL = cometsdk.NormalizeBaseURL(cfg.BaseURL)
 	return &provider{
 		apiKey: apiKey,
 		id:     id,
 		cfg:    cfg,
 		log:    providerbase.Logger(cfg, id),
 	}
+}
+
+// NewOpenAIResponsesProvider creates a Provider for the OpenAI Responses API.
+//
+// Deprecated: use New.
+func NewOpenAIResponsesProvider(apiKey, id string, opts ...cometsdk.Option) cometsdk.Provider {
+	return New(apiKey, id, opts...)
 }
 
 func (p *provider) ID() string { return p.id }

@@ -24,7 +24,7 @@ func collectEvents(t *testing.T, ch <-chan cometsdk.Event) []cometsdk.Event {
 
 func newTestProvider(t *testing.T, srv *httptest.Server) cometsdk.Provider {
 	t.Helper()
-	return NewOpenAIResponsesProvider("test-key", "opencode-go",
+	return New("test-key", "opencode-go",
 		cometsdk.WithBaseURL(srv.URL),
 		cometsdk.WithMaxRetries(1),
 	)

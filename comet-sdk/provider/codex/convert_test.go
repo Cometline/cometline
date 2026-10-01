@@ -359,7 +359,7 @@ func TestStream_MaxOutputTokensFallbackOnUnsupported(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	p := NewCodexProvider(
+	p := New(
 		cometsdk.WithBaseURL(srv.URL),
 		cometsdk.WithMaxRetries(1),
 	)
@@ -396,7 +396,7 @@ func TestStream_ReasoningSummaryFallbackOnUnsupported(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	p := NewCodexProvider(cometsdk.WithBaseURL(srv.URL), cometsdk.WithMaxRetries(1))
+	p := New(cometsdk.WithBaseURL(srv.URL), cometsdk.WithMaxRetries(1))
 	ch, err := p.Stream(context.Background(), &cometsdk.Request{
 		Model: "gpt-5.4",
 		Messages: []cometsdk.Message{{Role: cometsdk.RoleUser, Content: []cometsdk.Block{
@@ -439,7 +439,7 @@ func TestStream_EncryptedReasoningReplayFallbackOnMissingSummary(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	p := NewCodexProvider(cometsdk.WithBaseURL(srv.URL), cometsdk.WithMaxRetries(1))
+	p := New(cometsdk.WithBaseURL(srv.URL), cometsdk.WithMaxRetries(1))
 	ch, err := p.Stream(context.Background(), &cometsdk.Request{
 		Model: "gpt-5.6-luna",
 		Messages: []cometsdk.Message{{
@@ -473,7 +473,7 @@ func TestStream_LunaUsesResponsesLite(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	p := NewCodexProvider(
+	p := New(
 		cometsdk.WithBaseURL(srv.URL),
 		cometsdk.WithMaxRetries(1),
 	)
@@ -490,7 +490,7 @@ func TestStream_LunaUsesResponsesLite(t *testing.T) {
 }
 
 func TestCodexProviderHasNoDefaultHTTPTimeout(t *testing.T) {
-	p := NewCodexProvider().(*provider)
+	p := New().(*provider)
 
 	if got := p.httpClient().Timeout; got != 0 {
 		t.Fatalf("default HTTP timeout = %s, want no deadline", got)
@@ -498,7 +498,7 @@ func TestCodexProviderHasNoDefaultHTTPTimeout(t *testing.T) {
 }
 
 func TestCodexProviderHonorsExplicitHTTPTimeout(t *testing.T) {
-	p := NewCodexProvider(cometsdk.WithTimeout(15 * time.Second)).(*provider)
+	p := New(cometsdk.WithTimeout(15 * time.Second)).(*provider)
 
 	if got := p.httpClient().Timeout; got != 15*time.Second {
 		t.Fatalf("HTTP timeout = %s, want %s", got, 15*time.Second)
@@ -526,7 +526,7 @@ func TestStream_UsesSSE(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	p := NewCodexProvider(cometsdk.WithBaseURL(srv.URL), cometsdk.WithMaxRetries(1))
+	p := New(cometsdk.WithBaseURL(srv.URL), cometsdk.WithMaxRetries(1))
 	req := &cometsdk.Request{
 		Model:    "gpt-5.6-luna",
 		Messages: []cometsdk.Message{{Role: cometsdk.RoleUser, Content: []cometsdk.Block{cometsdk.TextBlock{Text: "Hi"}}}},

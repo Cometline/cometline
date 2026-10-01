@@ -28,22 +28,29 @@ type provider struct {
 	log    *slog.Logger
 }
 
-// NewAnthropicProvider creates a Provider for Anthropic's Messages API.
+// New creates a Provider for Anthropic's Messages API.
 // apiKey is required. Use cometsdk.WithBaseURL, cometsdk.WithHTTPClient,
 // cometsdk.WithTimeout, cometsdk.WithMaxRetries, and cometsdk.WithLogger
 // to override defaults.
-func NewAnthropicProvider(apiKey string, opts ...cometsdk.Option) cometsdk.Provider {
+func New(apiKey string, opts ...cometsdk.Option) cometsdk.Provider {
 	cfg := cometsdk.DefaultProviderConfig()
 	cfg.BaseURL = defaultBaseURL
 	for _, o := range opts {
 		o(&cfg)
 	}
-	cfg.BaseURL = cometsdk.NormaliseBaseURL(cfg.BaseURL)
+	cfg.BaseURL = cometsdk.NormalizeBaseURL(cfg.BaseURL)
 	return &provider{
 		apiKey: apiKey,
 		cfg:    cfg,
 		log:    providerbase.Logger(cfg, providerID),
 	}
+}
+
+// NewAnthropicProvider creates a Provider for Anthropic's Messages API.
+//
+// Deprecated: use New.
+func NewAnthropicProvider(apiKey string, opts ...cometsdk.Option) cometsdk.Provider {
+	return New(apiKey, opts...)
 }
 
 func (p *provider) ID() string { return providerID }

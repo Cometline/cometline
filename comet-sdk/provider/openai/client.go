@@ -34,21 +34,21 @@ type provider struct {
 // must be refreshed instead of being copied into settings.
 type TokenSource func(context.Context, *http.Client) (string, error)
 
-// NewOpenAIProvider creates a Provider for OpenAI's Chat Completions API.
+// New creates a Provider for OpenAI's Chat Completions API.
 // apiKey is required. Use cometsdk.With* options to override defaults.
-func NewOpenAIProvider(apiKey string, opts ...cometsdk.Option) cometsdk.Provider {
-	return NewOpenAICompatibleProvider(apiKey, providerID, nil, opts...)
+func New(apiKey string, opts ...cometsdk.Option) cometsdk.Provider {
+	return NewCompatible(apiKey, providerID, nil, opts...)
 }
 
-// NewOpenAICompatibleProvider creates an OpenAI Chat Completions provider with
-// a custom provider ID and optional request-time bearer-token source.
-func NewOpenAICompatibleProvider(apiKey, id string, tokenSource TokenSource, opts ...cometsdk.Option) cometsdk.Provider {
+// NewCompatible creates an OpenAI Chat Completions provider with a custom
+// provider ID and optional request-time bearer-token source.
+func NewCompatible(apiKey, id string, tokenSource TokenSource, opts ...cometsdk.Option) cometsdk.Provider {
 	cfg := cometsdk.DefaultProviderConfig()
 	cfg.BaseURL = defaultBaseURL
 	for _, o := range opts {
 		o(&cfg)
 	}
-	cfg.BaseURL = cometsdk.NormaliseBaseURL(cfg.BaseURL)
+	cfg.BaseURL = cometsdk.NormalizeBaseURL(cfg.BaseURL)
 	return &provider{
 		apiKey:      apiKey,
 		tokenSource: tokenSource,
@@ -56,6 +56,21 @@ func NewOpenAICompatibleProvider(apiKey, id string, tokenSource TokenSource, opt
 		cfg:         cfg,
 		log:         providerbase.Logger(cfg, id),
 	}
+}
+
+// NewOpenAIProvider creates a Provider for OpenAI's Chat Completions API.
+//
+// Deprecated: use New.
+func NewOpenAIProvider(apiKey string, opts ...cometsdk.Option) cometsdk.Provider {
+	return New(apiKey, opts...)
+}
+
+// NewOpenAICompatibleProvider creates an OpenAI Chat Completions provider with
+// a custom provider ID and optional request-time bearer-token source.
+//
+// Deprecated: use NewCompatible.
+func NewOpenAICompatibleProvider(apiKey, id string, tokenSource TokenSource, opts ...cometsdk.Option) cometsdk.Provider {
+	return NewCompatible(apiKey, id, tokenSource, opts...)
 }
 
 func (p *provider) ID() string { return p.id }

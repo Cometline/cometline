@@ -135,7 +135,7 @@ func MarshalWithOptions(base any, overrides map[string]any, providerKey string) 
 // that already ends in "/v1" (as unified gateways often do). path must start
 // with "/" and must not include the "/v1" prefix (e.g. "/messages").
 func Endpoint(baseURL, path string) string {
-	baseURL = cometsdk.NormaliseBaseURL(baseURL)
+	baseURL = cometsdk.NormalizeBaseURL(baseURL)
 	if strings.HasSuffix(baseURL, "/v1") {
 		return baseURL + path
 	}
