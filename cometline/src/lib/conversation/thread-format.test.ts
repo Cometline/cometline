@@ -59,9 +59,9 @@ describe('toolFoldLabel', () => {
 			pending: false,
 			durationMs: 2500
 		};
-		expect(
-			toolFoldLabel(item, 1000, [{ id: 'server-1782968109811', name: 'SearXNG' }])
-		).toBe('SearXNG · searxng_web_search → success · 2.5s');
+		expect(toolFoldLabel(item, 1000, [{ id: 'server-1782968109811', name: 'SearXNG' }])).toBe(
+			'SearXNG · searxng_web_search → success · 2.5s'
+		);
 	});
 
 	it('includes status and duration', () => {

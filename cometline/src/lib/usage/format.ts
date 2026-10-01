@@ -87,7 +87,11 @@ export function formatRangeLabel(from: number, to: number): string {
 	return `${startLabel} – ${endLabel}`;
 }
 
-export function clampUsageRange(from: number, to: number, now = new Date()): { from: number; to: number } {
+export function clampUsageRange(
+	from: number,
+	to: number,
+	now = new Date()
+): { from: number; to: number } {
 	const maxMs = MAX_RANGE_DAYS * 24 * 60 * 60 * 1000;
 	const latest = now.getTime() + 1;
 	if (!Number.isFinite(to) || to > latest) to = latest;
@@ -99,7 +103,10 @@ export function clampUsageRange(from: number, to: number, now = new Date()): { f
 	return { from, to };
 }
 
-export function rangeForPreset(preset: RangePreset, now = new Date()): { from: number; to: number } {
+export function rangeForPreset(
+	preset: RangePreset,
+	now = new Date()
+): { from: number; to: number } {
 	const to = now.getTime() + 1;
 	if (preset === 'today') {
 		const from = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
@@ -140,7 +147,9 @@ export function indexSeriesBuckets(
 	return indexed;
 }
 
-export function formatBucketCost(bucket?: Pick<UsageSeriesBucket, 'priced' | 'estimated_usd'>): string {
+export function formatBucketCost(
+	bucket?: Pick<UsageSeriesBucket, 'priced' | 'estimated_usd'>
+): string {
 	if (!bucket?.priced) return '—';
 	return formatUSD(bucket.estimated_usd);
 }

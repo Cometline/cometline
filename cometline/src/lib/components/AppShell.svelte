@@ -737,7 +737,8 @@
 	const showShellTitlebar = $derived(!shellStore.fullscreen);
 	const titlebarLabel = $derived.by(() => {
 		if (page.url.pathname === '/jobs') return 'Jobs';
-		if (page.url.pathname === '/skills' || page.url.pathname === '/skill-drafts') return 'Skills';
+		if (page.url.pathname === '/skills' || page.url.pathname === '/skill-drafts')
+			return 'Skills';
 		if (page.url.pathname === '/gallery') return 'Gallery';
 		if (page.url.pathname === '/usage') return 'Usage';
 		return titlebarSessionTitle;
@@ -905,7 +906,9 @@
 							<button
 								type="button"
 								class="shell-titlebar-btn"
-								aria-label={shellStore.sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
+								aria-label={shellStore.sidebarOpen
+									? 'Hide sidebar'
+									: 'Show sidebar'}
 								aria-pressed={shellStore.sidebarOpen}
 								onclick={() => shellStore.toggleSidebar()}
 							>

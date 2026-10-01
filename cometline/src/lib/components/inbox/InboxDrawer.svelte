@@ -50,9 +50,7 @@
 		return messages[0] ?? null;
 	});
 
-	const activeReply = $derived(
-		selected && replyForId === selected.id ? replyDraft : ''
-	);
+	const activeReply = $derived(selected && replyForId === selected.id ? replyDraft : '');
 
 	const jobLinkStatus = $derived.by(() => {
 		const id = selected?.job_id?.trim();
@@ -71,13 +69,10 @@
 	);
 
 	const showSessionLink = $derived(
-		sessionLinkStatus === 'missing' ||
-			(sessionLinkStatus === 'available' && !!onOpenSession)
+		sessionLinkStatus === 'missing' || (sessionLinkStatus === 'available' && !!onOpenSession)
 	);
 
 	const showDetailLinks = $derived(showJobLink || showSessionLink);
-
-
 
 	function formatRelativeTime(ms: number): string {
 		const delta = Date.now() - ms;
@@ -153,7 +148,8 @@
 {#if open}
 	<InboxLinkStatus {messages} onAvailability={(next) => (linkAvailability = next)} />
 	<div class="inbox-layer" transition:fade={{ duration: 120 }}>
-		<button type="button" class="inbox-scrim" aria-label="Close inbox" onclick={onClose}></button>
+		<button type="button" class="inbox-scrim" aria-label="Close inbox" onclick={onClose}
+		></button>
 		<div
 			class="inbox-modal"
 			class:has-selection={selected !== null}
@@ -202,7 +198,9 @@
 								>
 									<div class="row-top">
 										<span class="row-title">{message.title}</span>
-										<span class="row-time">{formatRelativeTime(message.created_at)}</span>
+										<span class="row-time"
+											>{formatRelativeTime(message.created_at)}</span
+										>
 									</div>
 									<span class="row-preview">{previewSnippet(message.body)}</span>
 								</button>

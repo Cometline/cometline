@@ -1,5 +1,13 @@
 <script lang="ts">
-	import { CalendarClock, LoaderCircle, Pencil, Plus, RefreshCw, Trash2, X } from '@lucide/svelte';
+	import {
+		CalendarClock,
+		LoaderCircle,
+		Pencil,
+		Plus,
+		RefreshCw,
+		Trash2,
+		X
+	} from '@lucide/svelte';
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
 	import {

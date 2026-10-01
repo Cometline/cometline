@@ -41,7 +41,9 @@ async function syncSessionsAfterRetention(previous: Session[], next: Session[]) 
 	const nextIDs = new Set(next.map((session) => session.id));
 	const removed = previous.filter((session) => !nextIDs.has(session.id));
 	const activeId = sessionStore.current?.id ?? null;
-	const activeWasRemoved = Boolean(activeId && removed.some((session) => session.id === activeId));
+	const activeWasRemoved = Boolean(
+		activeId && removed.some((session) => session.id === activeId)
+	);
 
 	for (const session of removed) {
 		shellStore.clearWorkspacePanelForSession(session.id);

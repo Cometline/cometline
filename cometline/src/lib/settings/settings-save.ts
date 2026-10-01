@@ -72,7 +72,10 @@ export function runtimeActionForSettingsSave(
  * distinguishable in the UI (previously every case rendered the same
  * "CometMind reloaded." regardless of outcome).
  */
-function runtimeNoteFor(runtimeAction: RuntimeApplyAction, reload?: RuntimeReloadOutcome | null): string {
+function runtimeNoteFor(
+	runtimeAction: RuntimeApplyAction,
+	reload?: RuntimeReloadOutcome | null
+): string {
 	if (reload === undefined) {
 		if (runtimeAction === 'restart') return ' CometMind restarted.';
 		if (runtimeAction === 'gateway') return ' Gateway restarted.';

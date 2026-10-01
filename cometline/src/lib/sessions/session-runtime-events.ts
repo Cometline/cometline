@@ -18,10 +18,7 @@ export async function applySessionRuntimeEvent(
 	if (event.type === 'run_started') {
 		deps.setRunning(event.session_id, true);
 		if (deps.getActiveSessionId() !== event.session_id) return true;
-		if (
-			deps.hasLocalStream?.(event.session_id) ||
-			deps.isStreamingFor?.(event.session_id)
-		)
+		if (deps.hasLocalStream?.(event.session_id) || deps.isStreamingFor?.(event.session_id))
 			return true;
 		await deps.refreshTranscript(event.session_id);
 		await deps.resumeRun(event.session_id);

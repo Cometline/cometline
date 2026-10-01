@@ -29,7 +29,9 @@ describe('SettingsCometMindPanel MCP add server', () => {
 		const { container } = render(Harness);
 
 		await waitFor(() => {
-			expect(container.querySelector('[data-testid="mcp-enabled"]')?.textContent).toBe('false');
+			expect(container.querySelector('[data-testid="mcp-enabled"]')?.textContent).toBe(
+				'false'
+			);
 		});
 
 		const toggle = [...container.querySelectorAll('button[role="switch"]')].find((button) =>
@@ -39,7 +41,9 @@ describe('SettingsCometMindPanel MCP add server', () => {
 		await fireEvent.click(toggle!);
 
 		await waitFor(() => {
-			expect(container.querySelector('[data-testid="mcp-enabled"]')?.textContent).toBe('true');
+			expect(container.querySelector('[data-testid="mcp-enabled"]')?.textContent).toBe(
+				'true'
+			);
 		});
 	});
 

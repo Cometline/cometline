@@ -514,7 +514,7 @@
 		opacity: 0.5;
 		cursor: default;
 	}
-	
+
 	.model-menu {
 		position: absolute;
 		top: calc(100% + 6px);

@@ -435,7 +435,9 @@ export function createComposerSlashController(deps: {
 		if (!command) return { text };
 		const rest = command.rest ? `\n\n${command.rest}` : '';
 		const expanded = `Use the \`${command.skillName}\` skill for this request. Load it with the \`load_skill\` tool before proceeding.${rest}`;
-		const displayText = command.rest ? `/${command.skillName} ${command.rest}` : `/${command.skillName}`;
+		const displayText = command.rest
+			? `/${command.skillName} ${command.rest}`
+			: `/${command.skillName}`;
 		return { text: expanded, displayText };
 	}
 
@@ -487,7 +489,8 @@ export function createComposerSlashController(deps: {
 		if (e.key === 'ArrowDown') {
 			e.preventDefault();
 			if (filteredWorkspaceOptions.length > 0) {
-				workspaceHighlightMenu.index = (workspaceHighlightMenu.index + 1) % filteredWorkspaceOptions.length;
+				workspaceHighlightMenu.index =
+					(workspaceHighlightMenu.index + 1) % filteredWorkspaceOptions.length;
 				void scrollHighlightedWorkspaceIntoView();
 			}
 			return true;
@@ -530,7 +533,8 @@ export function createComposerSlashController(deps: {
 		if (e.key === 'ArrowDown') {
 			e.preventDefault();
 			if (flatOptions.length > 0) {
-				modelCommandHighlightMenu.index = (modelCommandHighlightMenu.index + 1) % flatOptions.length;
+				modelCommandHighlightMenu.index =
+					(modelCommandHighlightMenu.index + 1) % flatOptions.length;
 				void scrollHighlightedModelIntoView();
 			}
 			return true;
@@ -571,7 +575,8 @@ export function createComposerSlashController(deps: {
 		if (e.key === 'ArrowDown') {
 			e.preventDefault();
 			if (filteredJobOptions.length > 0) {
-				jobCommandHighlightMenu.index = (jobCommandHighlightMenu.index + 1) % filteredJobOptions.length;
+				jobCommandHighlightMenu.index =
+					(jobCommandHighlightMenu.index + 1) % filteredJobOptions.length;
 				void scrollHighlightedJobIntoView();
 			}
 			return true;
@@ -604,7 +609,8 @@ export function createComposerSlashController(deps: {
 		if (e.key === 'ArrowDown') {
 			e.preventDefault();
 			if (filteredSlashOptions.length > 0) {
-				skillHighlightMenu.index = (skillHighlightMenu.index + 1) % filteredSlashOptions.length;
+				skillHighlightMenu.index =
+					(skillHighlightMenu.index + 1) % filteredSlashOptions.length;
 				void scrollHighlightedSkillIntoView();
 			}
 			return true;

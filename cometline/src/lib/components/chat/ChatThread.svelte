@@ -62,7 +62,10 @@
 	} = $props();
 
 	let resolvedPersona = $derived(
-		resolvePersona(settingsStore.settings.app.personaId, settingsStore.settings.app.personas.custom)
+		resolvePersona(
+			settingsStore.settings.app.personaId,
+			settingsStore.settings.app.personas.custom
+		)
 	);
 	let avatarSrc = $derived(personaAvatarCache.avatarSrcFor(resolvedPersona, 96));
 	let avatarSrcset = $derived(
@@ -250,7 +253,6 @@
 	function onThreadScroll() {
 		scroll.onScroll();
 	}
-
 </script>
 
 <div class="thread-wrap">
@@ -286,102 +288,115 @@
 					{/if}
 
 					{#if threadTurns.length > 0}
-						<div class="thread-virtual" style:height="{virtual.virtualWindow.totalHeight}px">
-					{#each virtual.visibleTurns as entry (entry.item.id)}
-						{@const turn = entry.item}
-						{@const isActiveTurn = scroll.activePinnedUserId === turn.id}
 						<div
-							class="thread-turn"
-							class:thread-turn-active={isActiveTurn}
-							data-turn-id={turn.id}
-							style:top="{entry.offset}px"
-							style:min-height={isActiveTurn
-								? `${scroll.activeTurnMinHeight}px`
-								: undefined}
-							use:virtual.measureTurnHeight={{ id: turn.id, onMeasure: virtual.onTurnMeasured }}
+							class="thread-virtual"
+							style:height="{virtual.virtualWindow.totalHeight}px"
 						>
-							{#if turn.user}
-								<UserMessageRow
-									item={turn.user}
-									{avatarSrc}
-									{avatarSrcset}
-									continuationRow={!startsSpeakerRun(
-										threadItems,
-										turn.userIndex,
-										'user'
-									)}
-									copiedId={clocks.copiedId}
-									onCopyMessage={clocks.copyMessage}
-									flyOnReveal={turn.user.id !== firstUserId}
-								/>
-								{#if showFirstTurnAvatarSlot(visibilityContext) && turn.user.id === firstUserId}
-									<FirstTurnAssistantSlot
-										{avatarSrc}
-										{avatarSrcset}
-										{firstTurnHandoffPending}
-										{firstAssistantItem}
-										{sessionStreaming}
-										{stackContext}
-										{showAssistantRow}
-										{showActivitySpinner}
-										flightPlaceholder={!firstAssistantId}
-										ariaHidden={!firstAssistantId}
-									/>
-								{/if}
-							{/if}
-							{#each turn.items as { item, index } (item.id)}
-								{#if item.type === 'assistant' && showAssistantRow(item) && shouldShowAssistantInNormalList(item, visibilityContext)}
-									<AssistantMessageRow
-										{item}
-										{threadItems}
-										{index}
-										{avatarSrc}
-										{avatarSrcset}
-										{stackContext}
-										{showActivitySpinner}
-										hideAvatarForFirstTurn={hideAssistantAvatarForFirstTurn(
-											item,
-											firstTurnHandoffPending,
-											firstAssistantRowId
-										)}
-										deferMarkdown={entry.skipHydrationMarkdown &&
-											item.id !== streamingAssistantId}
-									/>
-								{:else if item.type === 'tool' && !isToolInBuffer(item) && !embeddedPinnedJobIds.has(item.id)}
-									<ToolMessageRow
-										{item}
-										{threadItems}
-										{index}
-										{avatarSrc}
-										{avatarSrcset}
-										{sessionId}
-										toolFoldLabel={stackContext.toolFoldLabel}
-										{fold}
-										{onNotifyAgent}
-										{onStartJob}
-									/>
-								{:else if item.type === 'subagent' && !isSubagentInBuffer(item)}
-									<SubagentMessageRow
-										{item}
-										{threadItems}
-										{index}
-										{avatarSrc}
-										{avatarSrcset}
-										{fold}
-									/>
-								{:else if item.type === 'memory' && !isMemoryInBuffer(item)}
-									<MemoryEventRow {item} memoryCycleTick={clocks.memoryCycleTick} />
-								{:else if item.type === 'status'}
-									<div class="status">{usageText(item)}</div>
-								{:else if item.type === 'error' && !isErrorInBuffer(item)}
-									<ErrorEventRow {item} />
-								{/if}
+							{#each virtual.visibleTurns as entry (entry.item.id)}
+								{@const turn = entry.item}
+								{@const isActiveTurn = scroll.activePinnedUserId === turn.id}
+								<div
+									class="thread-turn"
+									class:thread-turn-active={isActiveTurn}
+									data-turn-id={turn.id}
+									style:top="{entry.offset}px"
+									style:min-height={isActiveTurn
+										? `${scroll.activeTurnMinHeight}px`
+										: undefined}
+									use:virtual.measureTurnHeight={{
+										id: turn.id,
+										onMeasure: virtual.onTurnMeasured
+									}}
+								>
+									{#if turn.user}
+										<UserMessageRow
+											item={turn.user}
+											{avatarSrc}
+											{avatarSrcset}
+											continuationRow={!startsSpeakerRun(
+												threadItems,
+												turn.userIndex,
+												'user'
+											)}
+											copiedId={clocks.copiedId}
+											onCopyMessage={clocks.copyMessage}
+											flyOnReveal={turn.user.id !== firstUserId}
+										/>
+										{#if showFirstTurnAvatarSlot(visibilityContext) && turn.user.id === firstUserId}
+											<FirstTurnAssistantSlot
+												{avatarSrc}
+												{avatarSrcset}
+												{firstTurnHandoffPending}
+												{firstAssistantItem}
+												{sessionStreaming}
+												{stackContext}
+												{showAssistantRow}
+												{showActivitySpinner}
+												flightPlaceholder={!firstAssistantId}
+												ariaHidden={!firstAssistantId}
+											/>
+										{/if}
+									{/if}
+									{#each turn.items as { item, index } (item.id)}
+										{#if item.type === 'assistant' && showAssistantRow(item) && shouldShowAssistantInNormalList(item, visibilityContext)}
+											<AssistantMessageRow
+												{item}
+												{threadItems}
+												{index}
+												{avatarSrc}
+												{avatarSrcset}
+												{stackContext}
+												{showActivitySpinner}
+												hideAvatarForFirstTurn={hideAssistantAvatarForFirstTurn(
+													item,
+													firstTurnHandoffPending,
+													firstAssistantRowId
+												)}
+												deferMarkdown={entry.skipHydrationMarkdown &&
+													item.id !== streamingAssistantId}
+											/>
+										{:else if item.type === 'tool' && !isToolInBuffer(item) && !embeddedPinnedJobIds.has(item.id)}
+											<ToolMessageRow
+												{item}
+												{threadItems}
+												{index}
+												{avatarSrc}
+												{avatarSrcset}
+												{sessionId}
+												toolFoldLabel={stackContext.toolFoldLabel}
+												{fold}
+												{onNotifyAgent}
+												{onStartJob}
+											/>
+										{:else if item.type === 'subagent' && !isSubagentInBuffer(item)}
+											<SubagentMessageRow
+												{item}
+												{threadItems}
+												{index}
+												{avatarSrc}
+												{avatarSrcset}
+												{fold}
+											/>
+										{:else if item.type === 'memory' && !isMemoryInBuffer(item)}
+											<MemoryEventRow
+												{item}
+												memoryCycleTick={clocks.memoryCycleTick}
+											/>
+										{:else if item.type === 'status'}
+											<div class="status">{usageText(item)}</div>
+										{:else if item.type === 'error' && !isErrorInBuffer(item)}
+											<ErrorEventRow {item} />
+										{/if}
+									{/each}
+									{#if turn.id === lastUserId}
+										<div
+											class="thread-latest-sentinel"
+											data-thread-latest-sentinel
+											aria-hidden="true"
+										></div>
+									{/if}
+								</div>
 							{/each}
-							{#if turn.id === lastUserId}
-								<div class="thread-latest-sentinel" data-thread-latest-sentinel aria-hidden="true"></div>
-							{/if}
-						</div>
-					{/each}
 						</div>
 					{/if}
 				</div>

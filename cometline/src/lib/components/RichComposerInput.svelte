@@ -1,6 +1,6 @@
 <script lang="ts">
-import { tick } from 'svelte';
-import { fly } from 'svelte/transition';
+	import { tick } from 'svelte';
+	import { fly } from 'svelte/transition';
 	import type { CaretTrailSettings } from '$lib/types';
 	import {
 		customCaret,

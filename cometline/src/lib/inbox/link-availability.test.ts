@@ -30,9 +30,7 @@ describe('inbox link availability', () => {
 		getJob.mockResolvedValueOnce({ id: 'j1' });
 		getSession.mockRejectedValueOnce(new Error('not found'));
 		const { resolveInboxLinkAvailability } = await import('./link-availability');
-		const map = await resolveInboxLinkAvailability([
-			{ job_id: 'j1', session_id: 's-gone' }
-		]);
+		const map = await resolveInboxLinkAvailability([{ job_id: 'j1', session_id: 's-gone' }]);
 		expect(map['job:j1']).toBe('available');
 		expect(map['session:s-gone']).toBe('missing');
 	});

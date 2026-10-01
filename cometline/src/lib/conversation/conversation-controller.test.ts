@@ -760,10 +760,7 @@ describe('createConversationController', () => {
 			'first',
 			expect.objectContaining({ firstTurn: true })
 		);
-		expect(onUserMessageFlight).not.toHaveBeenCalledWith(
-			'second',
-			expect.anything()
-		);
+		expect(onUserMessageFlight).not.toHaveBeenCalledWith('second', expect.anything());
 	});
 
 	it('does not refresh when send rejects and keeps the queue drainable', async () => {

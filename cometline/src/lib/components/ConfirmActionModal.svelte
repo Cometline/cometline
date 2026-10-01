@@ -108,12 +108,7 @@
 				Cancel
 				<span class="key-hint" aria-hidden="true">esc</span>
 			</button>
-			<button
-				type="button"
-				class="btn {confirmTone}"
-				data-confirm-action
-				onclick={onConfirm}
-			>
+			<button type="button" class="btn {confirmTone}" data-confirm-action onclick={onConfirm}>
 				{confirmLabel}
 				<span class="key-hint key-hint-light" aria-hidden="true">↵</span>
 			</button>

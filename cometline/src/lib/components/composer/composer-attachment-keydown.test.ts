@@ -3,12 +3,8 @@ import { nextAttachmentRemoval } from './composer-attachment-keydown';
 
 describe('nextAttachmentRemoval', () => {
 	it('returns null when text is non-empty', () => {
-		expect(
-			nextAttachmentRemoval('hello', [{ id: 'img-1' }], 2)
-		).toBeNull();
-		expect(
-			nextAttachmentRemoval('  x  ', [{ id: 'img-1' }], 2)
-		).toBeNull();
+		expect(nextAttachmentRemoval('hello', [{ id: 'img-1' }], 2)).toBeNull();
+		expect(nextAttachmentRemoval('  x  ', [{ id: 'img-1' }], 2)).toBeNull();
 	});
 
 	it('treats empty string and whitespace-only as empty', () => {
@@ -23,9 +19,10 @@ describe('nextAttachmentRemoval', () => {
 	});
 
 	it('prefers the last image with an id', () => {
-		expect(
-			nextAttachmentRemoval('', [{ id: 'a' }, { id: 'b' }, { id: 'c' }], 3)
-		).toEqual({ kind: 'image', id: 'c' });
+		expect(nextAttachmentRemoval('', [{ id: 'a' }, { id: 'b' }, { id: 'c' }], 3)).toEqual({
+			kind: 'image',
+			id: 'c'
+		});
 	});
 
 	it('skips images without ids and falls through to web context', () => {

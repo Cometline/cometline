@@ -187,9 +187,9 @@ describe('rewriteKnownHostUrl', () => {
 	});
 
 	it('preserves query parameters and fragments while rewriting Atlassian paths', () => {
-		expect(
-			rewriteKnownHostUrl('https://mcp.atlassian.com/v1/mcp?tenant=acme#tools')
-		).toBe('https://mcp.atlassian.com/v1/mcp/authv2?tenant=acme#tools');
+		expect(rewriteKnownHostUrl('https://mcp.atlassian.com/v1/mcp?tenant=acme#tools')).toBe(
+			'https://mcp.atlassian.com/v1/mcp/authv2?tenant=acme#tools'
+		);
 	});
 
 	it('leaves unknown hosts alone', () => {

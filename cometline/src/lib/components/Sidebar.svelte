@@ -323,7 +323,8 @@
 					aria-label="Skills"
 					class="nav-badge"
 					class:has-badge={skillDraftsStore.hasDrafts}
-					class:active={page.url.pathname === '/skills' || page.url.pathname === '/skill-drafts'}
+					class:active={page.url.pathname === '/skills' ||
+						page.url.pathname === '/skill-drafts'}
 					onclick={() => goto(resolve('/skills'))}
 				>
 					<Sparkles size={16} stroke-width={1.8} />

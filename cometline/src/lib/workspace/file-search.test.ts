@@ -35,10 +35,7 @@ import { loadFileSearchOptions, rankFilePaths, rankMatchingFiles } from './file-
 
 describe('rankFilePaths', () => {
 	it('ranks basename prefix matches above path substring matches', () => {
-		const ranked = rankFilePaths(
-			['pkg/foo/bar.ts', 'foo.ts', 'src/food.ts'],
-			'foo'
-		);
+		const ranked = rankFilePaths(['pkg/foo/bar.ts', 'foo.ts', 'src/food.ts'], 'foo');
 		expect(ranked[0]).toBe('foo.ts');
 	});
 

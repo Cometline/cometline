@@ -30,9 +30,7 @@ describe('groupThreadItemsIntoTurns', () => {
 	});
 
 	it('keeps leading mega body in a synthetic orphan turn before hi', () => {
-		const mega =
-			'MEGA_BODY_' +
-			'x'.repeat(200);
+		const mega = 'MEGA_BODY_' + 'x'.repeat(200);
 		const items: ChatItem[] = [
 			{ id: 'a-mega', type: 'assistant', text: mega },
 			{ id: 't1', type: 'tool', toolName: 'bash', input: { cmd: 'ls' }, output: 'ok' },
@@ -48,9 +46,11 @@ describe('groupThreadItemsIntoTurns', () => {
 		expect(turns[0].user).toBeNull();
 		expect(turns[0].id).toBe('orphan:a-mega');
 		expect(turns[0].items.map((entry) => entry.item.id)).toEqual(['a-mega', 't1', 'a-mid']);
-		expect(turns[0].items.some((entry) => entry.item.type === 'assistant' && entry.item.text.includes('MEGA_BODY_'))).toBe(
-			true
-		);
+		expect(
+			turns[0].items.some(
+				(entry) => entry.item.type === 'assistant' && entry.item.text.includes('MEGA_BODY_')
+			)
+		).toBe(true);
 		expect(turns[1].id).toBe('u-hi');
 		expect(turns[1].user?.text).toBe('hi');
 		expect(turns[1].items.map((entry) => entry.item.id)).toEqual(['a-hello']);
@@ -71,9 +71,7 @@ describe('groupThreadItemsIntoTurns', () => {
 describe('transcriptHasLeadingOrphans', () => {
 	it('is false for empty or user-leading transcripts', () => {
 		expect(transcriptHasLeadingOrphans([])).toBe(false);
-		expect(
-			transcriptHasLeadingOrphans([{ id: 'u1', type: 'user', text: 'hi' }])
-		).toBe(false);
+		expect(transcriptHasLeadingOrphans([{ id: 'u1', type: 'user', text: 'hi' }])).toBe(false);
 	});
 
 	it('is true when the first item is non-user', () => {

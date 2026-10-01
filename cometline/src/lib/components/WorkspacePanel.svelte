@@ -121,7 +121,9 @@
 	const activeWebTabKey = $derived(
 		panelSessionKey && panelUrlTabId ? `${panelSessionKey}:${panelUrlTabId}` : null
 	);
-	const webSurfaceRef = $derived(activeWebTabKey ? webTabActivity.get(activeWebTabKey)?.surface : undefined);
+	const webSurfaceRef = $derived(
+		activeWebTabKey ? webTabActivity.get(activeWebTabKey)?.surface : undefined
+	);
 	const canGoBack = $derived(webSurfaceRef?.pageState?.canGoBack ?? false);
 	const canGoForward = $derived(webSurfaceRef?.pageState?.canGoForward ?? false);
 	const pageTitle = $derived(panelUrlTabMeta[panelUrlTabId ?? '']?.title ?? '');
@@ -150,24 +152,33 @@
 	}
 
 	const showWebview = $derived(
-		Boolean(onWebSurface && webSurface === 'web-search' && webSearchUrl && !isBlankTabUrl(webSearchUrl))
+		Boolean(
+			onWebSurface &&
+			webSurface === 'web-search' &&
+			webSearchUrl &&
+			!isBlankTabUrl(webSearchUrl)
+		)
 	);
 	const showFilePreview = $derived(
 		Boolean(
 			onWebSurface &&
-				(webSurface === 'wiki' || webSurface === 'workspace') &&
-				panelMode === 'file' &&
-				panelFilePath
+			(webSurface === 'wiki' || webSurface === 'workspace') &&
+			panelMode === 'file' &&
+			panelFilePath
 		)
 	);
 	const showGitDiff = $derived(
-		Boolean(onWebSurface && webSurface === 'changes' && panelMode === 'git-diff' && panelGitDiffPath)
+		Boolean(
+			onWebSurface && webSurface === 'changes' && panelMode === 'git-diff' && panelGitDiffPath
+		)
 	);
 	const wikiLayerActive = $derived(onWebSurface && webSurface === 'wiki' && !wikiContent);
 	const workspaceLayerActive = $derived(
 		onWebSurface && webSurface === 'workspace' && !workspaceContent
 	);
-	const changesLayerActive = $derived(onWebSurface && webSurface === 'changes' && !changesContent);
+	const changesLayerActive = $derived(
+		onWebSurface && webSurface === 'changes' && !changesContent
+	);
 	const changesDiffActive = $derived(
 		onWebSurface && webSurface === 'changes' && Boolean(changesDiffPath)
 	);
@@ -192,9 +203,7 @@
 			shellStore.workspacePanelBrowseOpen &&
 			(webSurface === 'wiki' || webSurface === 'workspace')
 	);
-	const showChangesTitle = $derived(
-		onWebSurface && webSurface === 'changes' && !changesContent
-	);
+	const showChangesTitle = $derived(onWebSurface && webSurface === 'changes' && !changesContent);
 	const showTerminalTitle = $derived(onTerminalSurface);
 	const showWebSearchField = $derived(
 		onWebSurface && webSurface === 'web-search' && !showFilePreview && !showGitDiff
@@ -242,9 +251,7 @@
 		shellStore.setFileTreeFilter('wiki', value);
 	}
 
-	const activeBrowseFilter = $derived(
-		webSurface === 'workspace' ? workspaceFilter : wikiFilter
-	);
+	const activeBrowseFilter = $derived(webSurface === 'workspace' ? workspaceFilter : wikiFilter);
 
 	async function confirmTerminateTerminal() {
 		const session = sessionStore.current;
@@ -291,15 +298,24 @@
 		const sessionId = panelSessionKey;
 		const surface = webSurfaceRef;
 		const context = await surface?.captureContext();
-		if (context && sessionId === panelSessionKey && key && webTabActivity.get(key)?.surface === surface) {
+		if (
+			context &&
+			sessionId === panelSessionKey &&
+			key &&
+			webTabActivity.get(key)?.surface === surface
+		) {
 			shellStore.addWebContextForActive(context);
 		}
 	}
 
 	async function resolvePageContext(source: string) {
-		const matches = webTabs.filter((tab) => tab.sessionId === panelSessionKey && tab.url === source);
+		const matches = webTabs.filter(
+			(tab) => tab.sessionId === panelSessionKey && tab.url === source
+		);
 		const tab = matches.find((tab) => tab.key === activeWebTabKey) ?? matches[0];
-		return tab ? ((await webTabActivity.get(tab.key)?.surface.captureContext(source)) ?? null) : null;
+		return tab
+			? ((await webTabActivity.get(tab.key)?.surface.captureContext(source)) ?? null)
+			: null;
 	}
 
 	function fileContext(filePath: string) {
@@ -596,7 +612,6 @@
 		if (!isWorkspaceOwnedPane(untrack(() => shellStore.focusedPane))) return;
 		void tick().then(() => applyOwnedFocus());
 	});
-
 </script>
 
 <svelte:window onkeydown={handlePanelKeydown} />
@@ -770,7 +785,9 @@
 					/>
 				{:else if showGitDiff && panelGitDiffPath}
 					<span class="page-title">Diff</span>
-					<span class="file-path-display" title={panelGitDiffPath}>{panelGitDiffPath}</span>
+					<span class="file-path-display" title={panelGitDiffPath}
+						>{panelGitDiffPath}</span
+					>
 				{:else if showChangesTitle}
 					<span class="page-title">{surfaceTitle}</span>
 				{:else if showBrowseFilter}
@@ -787,7 +804,9 @@
 								: 'Filter workspace files…'}
 							value={activeBrowseFilter}
 							oninput={(event) =>
-								setActiveBrowseFilter((event.currentTarget as HTMLInputElement).value)}
+								setActiveBrowseFilter(
+									(event.currentTarget as HTMLInputElement).value
+								)}
 							onfocus={onFilterFocus}
 							onkeydown={onFilterKeydown}
 							aria-label="Filter files"
@@ -798,8 +817,12 @@
 						tabs={panelUrlTabs}
 						activeId={panelUrlTabId}
 						ariaLabel="Open pages"
-						webStatusFor={(id) => webTabActivity.get(`${panelSessionKey}:${id}`)?.surface.pageState}
-						onToggleMute={(id) => webTabActivity.get(`${panelSessionKey}:${id}`)?.surface.toggleAudioMuted()}
+						webStatusFor={(id) =>
+							webTabActivity.get(`${panelSessionKey}:${id}`)?.surface.pageState}
+						onToggleMute={(id) =>
+							webTabActivity
+								.get(`${panelSessionKey}:${id}`)
+								?.surface.toggleAudioMuted()}
 						labelFor={urlTabLabel}
 						titleFor={(id) => {
 							const url = panelUrlTabMeta[id]?.url ?? id;
@@ -960,14 +983,27 @@
 					aria-hidden={!active}
 				>
 					<WorkspaceWebSurface
-						bind:this={() => webTabActivity.get(tab.key)?.surface, (surface) => {
-							if (surface) webTabActivity.set(tab.key, { sessionId: tab.sessionId, tabId: tab.id, surface });
-							else webTabActivity.delete(tab.key);
-						}}
+						bind:this={
+							() => webTabActivity.get(tab.key)?.surface,
+							(surface) => {
+								if (surface)
+									webTabActivity.set(tab.key, {
+										sessionId: tab.sessionId,
+										tabId: tab.id,
+										surface
+									});
+								else webTabActivity.delete(tab.key);
+							}
+						}
 						url={tab.url}
 						sessionKey={tab.key}
 						onNavigationState={(state) =>
-							shellStore.syncWorkspacePanelUrlFromGuest(tab.sessionId, tab.id, state.url, state.title)}
+							shellStore.syncWorkspacePanelUrlFromGuest(
+								tab.sessionId,
+								tab.id,
+								state.url,
+								state.title
+							)}
 						onFocus={() => {
 							if (active) shellStore.setFocusedPane('web');
 						}}
@@ -985,7 +1021,13 @@
 					class:visible={showContentSearch}
 				>
 					<div bind:this={searchCaretWrap} class="web-search-box">
-						<img class="web-search-icon" src="/app_icon.png" alt="" width="20" height="20" />
+						<img
+							class="web-search-icon"
+							src="/app_icon.png"
+							alt=""
+							width="20"
+							height="20"
+						/>
 						{#if searchCaretTrailEnabled}
 							<div
 								class="web-search-caret-layer"
@@ -1419,7 +1461,6 @@
 		.workspace-panel-inner {
 			transition: none;
 		}
-
 	}
 
 	@media (max-width: 900px) {

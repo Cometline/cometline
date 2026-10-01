@@ -1,6 +1,4 @@
-import {
-	loadWorkspacePanelFileOptions
-} from '$lib/workspace/workspace-panel-input-options';
+import { loadWorkspacePanelFileOptions } from '$lib/workspace/workspace-panel-input-options';
 import { normalizeWorkspacePath } from '$lib/workspace/file-index';
 
 const DEFAULT_LIMIT = 8;

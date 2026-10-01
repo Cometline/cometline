@@ -53,9 +53,13 @@ describe('createThreadScroll maybeLoadOlderHistory', () => {
 				getIsSessionSynced: () => true,
 				getThreadItems: () => currentItems,
 				getSessionStreaming: () => false,
-				getLastUserId: () => currentItems.findLast((item) => item.type === 'user')?.id ?? null,
+				getLastUserId: () =>
+					currentItems.findLast((item) => item.type === 'user')?.id ?? null,
 				getUserMessageCount: () =>
-					currentItems.reduce((count, item) => (item.type === 'user' ? count + 1 : count), 0),
+					currentItems.reduce(
+						(count, item) => (item.type === 'user' ? count + 1 : count),
+						0
+					),
 				getIsLoading: () => loading,
 				sessionHasCachedTranscript: () => false,
 				getHasMoreHistory: () => true,
@@ -214,7 +218,10 @@ describe('createThreadScroll maybeLoadOlderHistory', () => {
 				getLastUserId: () =>
 					currentItems.findLast((item) => item.type === 'user')?.id ?? null,
 				getUserMessageCount: () =>
-					currentItems.reduce((count, item) => (item.type === 'user' ? count + 1 : count), 0),
+					currentItems.reduce(
+						(count, item) => (item.type === 'user' ? count + 1 : count),
+						0
+					),
 				getIsLoading: () => false,
 				sessionHasCachedTranscript: () => false,
 				getHasMoreHistory: () => hasMore,

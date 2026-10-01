@@ -43,8 +43,9 @@
 	function findTarget(): HTMLElement | null {
 		if (!wrapEl) return null;
 		return (
-			wrapEl.querySelector<HTMLElement>('button, a, [role="button"], input, select, textarea') ??
-			(wrapEl.firstElementChild as HTMLElement | null)
+			wrapEl.querySelector<HTMLElement>(
+				'button, a, [role="button"], input, select, textarea'
+			) ?? (wrapEl.firstElementChild as HTMLElement | null)
 		);
 	}
 

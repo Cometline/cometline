@@ -18,7 +18,7 @@
 {#if src}
 	<img
 		class="file-type-icon"
-		src={src}
+		{src}
 		{alt}
 		width={size}
 		height={size}
@@ -27,7 +27,11 @@
 		draggable="false"
 	/>
 {:else}
-	<span class="file-type-icon-fallback" style:width="{size}px" style:height="{size}px" aria-hidden="true"
+	<span
+		class="file-type-icon-fallback"
+		style:width="{size}px"
+		style:height="{size}px"
+		aria-hidden="true"
 	></span>
 {/if}
 

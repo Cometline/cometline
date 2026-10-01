@@ -393,10 +393,7 @@ describe('createThreadScroll', () => {
 		for (let i = 0; i < 5; i++) {
 			await vi.advanceTimersByTimeAsync(50);
 			await view.rerender({
-				items: [
-					...initialItems,
-					{ id: `extra-${i}`, type: 'assistant', text: `n${i}` }
-				],
+				items: [...initialItems, { id: `extra-${i}`, type: 'assistant', text: `n${i}` }],
 				streaming: false,
 				cached: true
 			});

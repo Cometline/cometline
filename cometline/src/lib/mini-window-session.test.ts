@@ -29,7 +29,12 @@ vi.mock('$lib/client/cometmind', () => ({
 	listAllSessions: mocks.listAllSessions
 }));
 vi.mock('$lib/stores/model.svelte', () => ({
-	modelStore: { options: [], selected: null, selectDefault: vi.fn(), selectFromSession: mocks.selectFromSession }
+	modelStore: {
+		options: [],
+		selected: null,
+		selectDefault: vi.fn(),
+		selectFromSession: mocks.selectFromSession
+	}
 }));
 vi.mock('$lib/stores/session.svelte', () => ({
 	sessionStore: {
@@ -51,7 +56,7 @@ vi.mock('$lib/stores/shell.svelte', () => ({
 		setActiveWorkspacePath: mocks.setActiveWorkspacePath,
 		setSidebarOrderWorkspacePath: mocks.setSidebarOrderWorkspacePath,
 		setSidebarOrderDiscordActive: mocks.setSidebarOrderDiscordActive,
-		requestComposerFocus: mocks.requestComposerFocus,
+		requestComposerFocus: mocks.requestComposerFocus
 	}
 }));
 vi.mock('$lib/stores/session-visit-history.svelte', () => ({

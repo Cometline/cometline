@@ -128,7 +128,11 @@ export function xLabels(points: SeriesPoint[], width: number): XLabel[] {
 	});
 }
 
-export function yLabels(points: SeriesPoint[], keys: string[], height: number): Array<{ y: number; label: number }> {
+export function yLabels(
+	points: SeriesPoint[],
+	keys: string[],
+	height: number
+): Array<{ y: number; label: number }> {
 	const max = Math.max(
 		1,
 		...points.map((point) => keys.reduce((sum, key) => sum + (point.cumulative[key] ?? 0), 0))

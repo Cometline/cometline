@@ -22,9 +22,12 @@ function entry(
 describe('parseHistoryJsonl / serializeHistoryEntry', () => {
 	it('round-trips entries and skips corrupt lines', () => {
 		const a = entry('hello', '/repo', 's1', 10);
-		const raw = [serializeHistoryEntry(a), '{bad', '', serializeHistoryEntry(entry('world'))].join(
-			'\n'
-		);
+		const raw = [
+			serializeHistoryEntry(a),
+			'{bad',
+			'',
+			serializeHistoryEntry(entry('world'))
+		].join('\n');
 		const parsed = parseHistoryJsonl(raw);
 		expect(parsed).toHaveLength(2);
 		expect(parsed[0]?.display).toBe('hello');

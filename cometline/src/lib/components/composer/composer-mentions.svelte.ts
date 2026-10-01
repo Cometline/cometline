@@ -194,9 +194,10 @@ export function createComposerMentionsController(deps: {
 
 	function selectMentionFile(path: string | MentionPath) {
 		const mention = typeof path === 'string' ? { path, kind: 'file' as const } : path;
-		const insertPath = mention.kind === 'dir' && !mention.path.endsWith('/')
-			? `${mention.path}/`
-			: mention.path;
+		const insertPath =
+			mention.kind === 'dir' && !mention.path.endsWith('/')
+				? `${mention.path}/`
+				: mention.path;
 		deps.getInput()?.insertFileMention(insertPath);
 		closeMentionMenu();
 	}
@@ -233,7 +234,8 @@ export function createComposerMentionsController(deps: {
 		if (e.key === 'ArrowDown') {
 			e.preventDefault();
 			if (filteredMentionFiles.length > 0) {
-				mentionHighlightMenu.index = (mentionHighlightMenu.index + 1) % filteredMentionFiles.length;
+				mentionHighlightMenu.index =
+					(mentionHighlightMenu.index + 1) % filteredMentionFiles.length;
 				void scrollHighlightedMentionIntoView();
 			}
 			return true;

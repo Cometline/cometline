@@ -27,7 +27,8 @@ export async function persistSettings(
 	draft: ProviderSettings,
 	options: PersistSettingsOptions = {}
 ): Promise<PersistSettingsResult> {
-	const runtimeAction = options.runtimeAction ?? (options.restartCometMind === false ? 'none' : 'restart');
+	const runtimeAction =
+		options.runtimeAction ?? (options.restartCometMind === false ? 'none' : 'restart');
 	const normalized = validateSettings(normalizeSettings(draft));
 
 	let saved: ProviderSettings;

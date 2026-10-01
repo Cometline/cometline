@@ -21,7 +21,9 @@ describe('SettingsShortcutsPanel', () => {
 		const filter = screen.getByRole('searchbox', { name: 'Filter shortcuts' });
 		await fireEvent.input(filter, { target: { value: 'composer' } });
 
-		const composerCount = SHORTCUT_DEFINITIONS.filter((def) => def.category === 'composer').length;
+		const composerCount = SHORTCUT_DEFINITIONS.filter(
+			(def) => def.category === 'composer'
+		).length;
 		expect(screen.getAllByRole('button', { name: 'Change' })).toHaveLength(composerCount);
 		expect(screen.getByText(`${composerCount} / ${SHORTCUT_DEFINITIONS.length}`)).toBeTruthy();
 		expect(screen.getByText('Send message')).toBeTruthy();

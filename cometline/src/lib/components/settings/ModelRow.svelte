@@ -31,7 +31,7 @@
 		</span>
 		<small>
 			{providerId}:{model}{#if context && context > 0}
-				 · {formatContextWindow(context)} ctx{/if}
+				· {formatContextWindow(context)} ctx{/if}
 		</small>
 	</span>
 	<span class="model-toggle" aria-hidden="true">

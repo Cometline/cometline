@@ -5,10 +5,7 @@
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { settingsStore } from '$lib/stores/settings.svelte';
 	import { toWikiUiPath } from '$lib/wiki/paths';
-	import {
-		loadFileSearchOptions,
-		type FileSearchSource
-	} from '$lib/workspace/file-search';
+	import { loadFileSearchOptions, type FileSearchSource } from '$lib/workspace/file-search';
 	import { normalizeWorkspacePath } from '$lib/workspace/file-index';
 
 	let {
@@ -402,11 +399,7 @@
 
 	.file-search-row:hover,
 	.file-search-row.active {
-		background: color-mix(
-			in srgb,
-			var(--workspace-inactive-color, #9a9a9f) 14%,
-			transparent
-		);
+		background: color-mix(in srgb, var(--workspace-inactive-color, #9a9a9f) 14%, transparent);
 	}
 
 	.file-search-icon {

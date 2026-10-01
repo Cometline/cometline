@@ -618,7 +618,8 @@ export function normalizeCometMindSettings(
 	const defaultsDiscord = defaults.gateway.discord;
 	const botToken = String(discord.botToken ?? '').trim();
 	const botTokenEnv =
-		String(discord.botTokenEnv ?? defaultsDiscord.botTokenEnv).trim() || defaultsDiscord.botTokenEnv;
+		String(discord.botTokenEnv ?? defaultsDiscord.botTokenEnv).trim() ||
+		defaultsDiscord.botTokenEnv;
 
 	return {
 		systemPromptPath: String(input?.systemPromptPath ?? defaults.systemPromptPath).trim(),

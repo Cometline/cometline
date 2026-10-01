@@ -33,7 +33,9 @@ describe('context-window', () => {
 	});
 
 	it('uses max(effective, 20k) reserve for available budget', () => {
-		expect(resolveContextAvailableBudget(128_000, 8_192)).toBe(128_000 - COMPACTION_OUTPUT_BUFFER);
+		expect(resolveContextAvailableBudget(128_000, 8_192)).toBe(
+			128_000 - COMPACTION_OUTPUT_BUFFER
+		);
 		expect(resolveContextAvailableBudget(200_000, 64_000)).toBe(200_000 - 32_000);
 	});
 

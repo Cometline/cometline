@@ -64,11 +64,7 @@ describe('rewriteLocalResourcesInHtml', () => {
 	});
 
 	it('prefixes wiki open paths', () => {
-		const html = rewriteLocalResourcesInHtml(
-			'<a href="./notes.md">n</a>',
-			'index.md',
-			'wiki'
-		);
+		const html = rewriteLocalResourcesInHtml('<a href="./notes.md">n</a>', 'index.md', 'wiki');
 		expect(html).toContain('data-file-path="@runtime/wiki/notes.md"');
 	});
 

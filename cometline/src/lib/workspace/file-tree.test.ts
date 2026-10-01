@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-	buildFileTree,
-	dirKeysToExpandForPaths,
-	flattenVisibleFileTreeRows
-} from './file-tree';
+import { buildFileTree, dirKeysToExpandForPaths, flattenVisibleFileTreeRows } from './file-tree';
 
 describe('buildFileTree', () => {
 	it('returns an empty tree for empty input', () => {

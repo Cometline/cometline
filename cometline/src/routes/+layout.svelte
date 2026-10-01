@@ -48,7 +48,8 @@
 
 	$effect(() => {
 		const next = connectionState.status;
-		if (!isMiniRoute && !isSettingsRoute) notifyConnectionChange(previousConnectionStatus, next);
+		if (!isMiniRoute && !isSettingsRoute)
+			notifyConnectionChange(previousConnectionStatus, next);
 		previousConnectionStatus = next;
 	});
 	// Fast synchronous read so the very first effect tick already knows
@@ -67,22 +68,25 @@
 			isStreamingFor: chatStore.isStreamingFor,
 			hasLocalStream: chatStore.hasLocalStream
 		};
-		const stopRuntimeEvents = startRuntimeEventStream((event) => {
-			void applySessionRuntimeEvent(event, runtimeEventDeps);
-			if (event.type === 'memory_updated') {
-				memoryToastStore.add(event.changes);
-			}
-			if (event.type === 'memory_compaction_completed') {
-				memoryToastStore.addCompaction(event);
-			}
-			if (event.type === 'inbox_message_created') {
-				inboxStore.applyCreated(event.id, event.open_count);
-				if (!isMiniRoute && !isSettingsRoute) void notifyNewInboxMessage(event.id);
-			}
-			if (event.type === 'inbox_message_archived') {
-				inboxStore.applyArchived(event.id, event.open_count);
-			}
-		}, () => reconcileActiveSession(runtimeEventDeps));
+		const stopRuntimeEvents = startRuntimeEventStream(
+			(event) => {
+				void applySessionRuntimeEvent(event, runtimeEventDeps);
+				if (event.type === 'memory_updated') {
+					memoryToastStore.add(event.changes);
+				}
+				if (event.type === 'memory_compaction_completed') {
+					memoryToastStore.addCompaction(event);
+				}
+				if (event.type === 'inbox_message_created') {
+					inboxStore.applyCreated(event.id, event.open_count);
+					if (!isMiniRoute && !isSettingsRoute) void notifyNewInboxMessage(event.id);
+				}
+				if (event.type === 'inbox_message_archived') {
+					inboxStore.applyArchived(event.id, event.open_count);
+				}
+			},
+			() => reconcileActiveSession(runtimeEventDeps)
+		);
 		void inboxStore.refreshSummary();
 		let skillDraftsTimer: ReturnType<typeof setInterval> | null = null;
 		let stopSkillDraftToasts = () => {};

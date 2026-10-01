@@ -108,22 +108,22 @@ Never commit real API keys.
 
 Default bindings (rebindable in Settings → Shortcuts):
 
-| Action               | macOS default |
-| -------------------- | ------------- |
-| Toggle sidebar       | ⌘B            |
-| Open settings        | ⌘,            |
-| New chat             | ⌘T            |
-| Stop response        | ⌘C            |
-| Send message         | Enter         |
-| Insert newline       | ⇧Enter        |
-| Focus search         | ⌘F            |
-| Previous / next chat | ⌃⌘↑ / ⌃⌘↓     |
-| Toggle workspace panel     | ⌘⌥B           |
-| Open web search            | ⌘O            |
-| Open wiki files            | ⌘K            |
-| Open workspace files       | ⌘L            |
-| Open terminal              | ⌘J            |
-| Open git changes     | ⌘⇧G           |
+| Action                 | macOS default |
+| ---------------------- | ------------- |
+| Toggle sidebar         | ⌘B            |
+| Open settings          | ⌘,            |
+| New chat               | ⌘T            |
+| Stop response          | ⌘C            |
+| Send message           | Enter         |
+| Insert newline         | ⇧Enter        |
+| Focus search           | ⌘F            |
+| Previous / next chat   | ⌃⌘↑ / ⌃⌘↓     |
+| Toggle workspace panel | ⌘⌥B           |
+| Open web search        | ⌘O            |
+| Open wiki files        | ⌘K            |
+| Open workspace files   | ⌘L            |
+| Open terminal          | ⌘J            |
+| Open git changes       | ⌘⇧G           |
 
 ---
 
@@ -182,16 +182,16 @@ Packaged apps embed the CometMind binary as an Electron extra resource and serve
 
 ## Runtime files
 
-| Path                                    | Purpose                                                                    |
-| --------------------------------------- | -------------------------------------------------------------------------- |
-| `~/.cometmind/cometmind.db`             | CometMind SQLite database                                                  |
-| `~/.cometmind/cometline-settings.json`  | Runtime settings (providers, CometMind runtime); the only file CometMind reads |
-| `~/.cometmind/cometline-desktop.json`   | Desktop-only settings (appearance, shortcuts, app/persona)                 |
-| `~/.cometmind/cometline-workspace.json` | Selected workspace path                                                    |
-| `~/.cometmind/logs/cometline.log`            | Sidecar stdout/stderr (rotates at 10 MB while running → `.log.1`)          |
-| `~/.cometmind/logs/cometline-gateway.log`    | Discord gateway log (same rotation)                                        |
-| `~/.cometmind/mcp-oauth/{server}.json`  | MCP OAuth access/refresh token cache                                        |
-| `~/.cometmind/mcp-oauth/{server}.client.json` | MCP OAuth registered-client metadata                                  |
+| Path                                          | Purpose                                                                        |
+| --------------------------------------------- | ------------------------------------------------------------------------------ |
+| `~/.cometmind/cometmind.db`                   | CometMind SQLite database                                                      |
+| `~/.cometmind/cometline-settings.json`        | Runtime settings (providers, CometMind runtime); the only file CometMind reads |
+| `~/.cometmind/cometline-desktop.json`         | Desktop-only settings (appearance, shortcuts, app/persona)                     |
+| `~/.cometmind/cometline-workspace.json`       | Selected workspace path                                                        |
+| `~/.cometmind/logs/cometline.log`             | Sidecar stdout/stderr (rotates at 10 MB while running → `.log.1`)              |
+| `~/.cometmind/logs/cometline-gateway.log`     | Discord gateway log (same rotation)                                            |
+| `~/.cometmind/mcp-oauth/{server}.json`        | MCP OAuth access/refresh token cache                                           |
+| `~/.cometmind/mcp-oauth/{server}.client.json` | MCP OAuth registered-client metadata                                           |
 
 ---
 

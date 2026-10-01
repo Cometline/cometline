@@ -26,7 +26,13 @@
 	} = $props();
 
 	type SkillSourceFilter =
-		'all' | 'cometmind' | 'global' | 'workspace' | 'opencode' | 'claude' | 'other';
+		| 'all'
+		| 'cometmind'
+		| 'global'
+		| 'workspace'
+		| 'opencode'
+		| 'claude'
+		| 'other';
 
 	const SKILL_SOURCE_FILTERS: { id: SkillSourceFilter; label: string }[] = [
 		{ id: 'all', label: 'All' },
@@ -328,7 +334,8 @@
 					<option value="debug">Debug</option>
 				</select>
 				<p class="settings-field-hint">
-					Controls what CometMind writes to <code>~/.cometmind/logs/cometline.log</code> and
+					Controls what CometMind writes to <code>~/.cometmind/logs/cometline.log</code>
+					and
 					<code>cometline-gateway.log</code>. Applied on Save by restarting CometMind.
 				</p>
 			</label>
@@ -359,7 +366,8 @@
 						};
 					}}
 				>
-					<option value="xai::grok-imagine-image-2.0">xAI · grok-imagine-image-2.0</option>
+					<option value="xai::grok-imagine-image-2.0">xAI · grok-imagine-image-2.0</option
+					>
 					<option value="xai::grok-imagine-image">xAI · grok-imagine-image</option>
 					<option value="xai::grok-imagine-image-quality">
 						xAI · grok-imagine-image-quality
@@ -383,7 +391,8 @@
 						};
 					}}
 				>
-					<option value="xai::grok-imagine-video-1.5">xAI · grok-imagine-video-1.5</option>
+					<option value="xai::grok-imagine-video-1.5">xAI · grok-imagine-video-1.5</option
+					>
 					<option value="xai::grok-imagine-video">xAI · grok-imagine-video</option>
 				</select>
 				<p class="settings-field-hint">

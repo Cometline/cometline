@@ -163,10 +163,7 @@ async function runTurn(
 	void deps.refreshSession(turnSessionId);
 }
 
-function ensureQueue(
-	sessionId: string,
-	deps: ConversationControllerDeps
-): ChatTurnQueue {
+function ensureQueue(sessionId: string, deps: ConversationControllerDeps): ChatTurnQueue {
 	let queue = turnQueues.get(sessionId);
 	if (!queue) {
 		const queueForSessionId = sessionId;

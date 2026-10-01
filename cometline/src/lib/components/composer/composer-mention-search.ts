@@ -1,7 +1,4 @@
-export function shouldRunMentionServerSearch(
-	truncated: boolean,
-	query: string
-): boolean {
+export function shouldRunMentionServerSearch(truncated: boolean, query: string): boolean {
 	return truncated && query.trim().length > 0;
 }
 

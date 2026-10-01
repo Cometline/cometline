@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-	resolveMentionSourcePaths,
-	shouldRunMentionServerSearch
-} from './composer-mention-search';
+import { resolveMentionSourcePaths, shouldRunMentionServerSearch } from './composer-mention-search';
 
 describe('shouldRunMentionServerSearch', () => {
 	it('searches the full workspace even when the warm cache already matches', () => {
@@ -18,13 +15,7 @@ describe('shouldRunMentionServerSearch', () => {
 describe('resolveMentionSourcePaths', () => {
 	it('keeps local matches while the user completes a filename', () => {
 		expect(
-			resolveMentionSourcePaths(
-				['cometline/README.md'],
-				[],
-				'',
-				'cometline/readme',
-				true
-			)
+			resolveMentionSourcePaths(['cometline/README.md'], [], '', 'cometline/readme', true)
 		).toEqual(['cometline/README.md']);
 	});
 
@@ -42,13 +33,7 @@ describe('resolveMentionSourcePaths', () => {
 
 	it('falls back to server results when the cache is empty', () => {
 		expect(
-			resolveMentionSourcePaths(
-				[],
-				['deep/nested/match.go'],
-				'match',
-				'match',
-				true
-			)
+			resolveMentionSourcePaths([], ['deep/nested/match.go'], 'match', 'match', true)
 		).toEqual(['deep/nested/match.go']);
 	});
 

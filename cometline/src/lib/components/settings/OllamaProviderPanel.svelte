@@ -163,7 +163,11 @@
 </script>
 
 <div class="ollama-panel">
-	<div class="field-note" class:ok={Boolean(health?.ok)} class:bad={Boolean(health && !health.ok)}>
+	<div
+		class="field-note"
+		class:ok={Boolean(health?.ok)}
+		class:bad={Boolean(health && !health.ok)}
+	>
 		<span>Local runtime</span>
 		<p class="status-line">
 			{#if !health}
@@ -252,8 +256,7 @@
 									</div>
 									<span class="pull-status">
 										{#if pullProgress.percent != null}
-											{pullProgress.percent}%{#if pullProgress.completed != null &&
-												pullProgress.total}
+											{pullProgress.percent}%{#if pullProgress.completed != null && pullProgress.total}
 												· {formatBytes(pullProgress.completed)} / {formatBytes(
 													pullProgress.total
 												)}{/if}

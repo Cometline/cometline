@@ -125,7 +125,12 @@ describe('resolveEmbeddingSelection', () => {
 					models: ['qwen3-embedding:0.6b'],
 					enabledModels: []
 				}),
-				baseProvider({ id: 'openai-compatible', name: 'tmp', models: [], enabledModels: [] })
+				baseProvider({
+					id: 'openai-compatible',
+					name: 'tmp',
+					models: [],
+					enabledModels: []
+				})
 			],
 			'openai-compatible',
 			'qwen3-embedding:0.6b',

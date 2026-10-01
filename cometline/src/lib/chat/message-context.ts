@@ -17,11 +17,7 @@ export function messageContextRefsFromWebContexts(
 			source: context.source,
 			...(context.title?.trim() ? { title: context.title.trim() } : {})
 		};
-		if (
-			context.kind === 'file' &&
-			!context.content.trim() &&
-			!context.source.includes('#L')
-		) {
+		if (context.kind === 'file' && !context.content.trim() && !context.source.includes('#L')) {
 			ref.role = 'viewing';
 		}
 		return ref;
@@ -29,9 +25,7 @@ export function messageContextRefsFromWebContexts(
 }
 
 /** Map composer pending chips (incl. lazy page / viewing) to UI refs. */
-export function messageContextRefsFromPending(
-	pending: PendingWebContext[]
-): MessageContextRef[] {
+export function messageContextRefsFromPending(pending: PendingWebContext[]): MessageContextRef[] {
 	return pending.map((context) => {
 		const ref: MessageContextRef = {
 			kind: context.kind,

@@ -98,7 +98,10 @@ export function createProviderAuth(dependencies: ProviderAuthDependencies) {
 				signal: AbortSignal.timeout(FETCH_MODELS_TIMEOUT_MS)
 			});
 		} catch (err) {
-			if (err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError')) {
+			if (
+				err instanceof Error &&
+				(err.name === 'TimeoutError' || err.name === 'AbortError')
+			) {
 				throw new Error(
 					`Timed out after ${FETCH_MODELS_TIMEOUT_MS / 1000}s contacting ${url}. ` +
 						'Check the base URL, VPN or network access, and that the provider exposes GET /v1/models.'
@@ -120,7 +123,8 @@ export function createProviderAuth(dependencies: ProviderAuthDependencies) {
 			throw new Error(`${response.status}: ${body || response.statusText}`);
 		}
 		const payload: unknown = await response.json();
-		const record = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
+		const record =
+			payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
 		const rawModels = Array.isArray(record.data)
 			? record.data
 			: allowArrayPayload && Array.isArray(payload)
@@ -183,7 +187,10 @@ export function createProviderAuth(dependencies: ProviderAuthDependencies) {
 		const parts = String(token || '').split('.');
 		if (parts.length < 2) return {};
 		try {
-			return JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8')) as Record<string, unknown>;
+			return JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8')) as Record<
+				string,
+				unknown
+			>;
 		} catch {
 			return {};
 		}
@@ -222,7 +229,10 @@ export function createProviderAuth(dependencies: ProviderAuthDependencies) {
 	}
 
 	async function fetchToken(url: string, init: RequestInit) {
-		const response = await fetch(url, { ...init, signal: AbortSignal.timeout(FETCH_MODELS_TIMEOUT_MS) });
+		const response = await fetch(url, {
+			...init,
+			signal: AbortSignal.timeout(FETCH_MODELS_TIMEOUT_MS)
+		});
 		const payload = (await response.json().catch(() => ({}))) as TokenRecord;
 		return { response, payload };
 	}
@@ -258,16 +268,22 @@ export function createProviderAuth(dependencies: ProviderAuthDependencies) {
 	async function borrowCodexAuth() {
 		const authPath = codexAuthPath();
 		if (!fs.existsSync(authPath)) {
-			throw new Error(`Codex auth file not found at ${authPath}. Sign in with ChatGPT first.`);
+			throw new Error(
+				`Codex auth file not found at ${authPath}. Sign in with ChatGPT first.`
+			);
 		}
 		let auth: { auth_mode?: string; tokens?: TokenRecord };
 		try {
 			auth = JSON.parse(fs.readFileSync(authPath, 'utf8')) as typeof auth;
 		} catch (err) {
-			throw new Error(`Failed to read Codex auth file: ${err instanceof Error ? err.message : err}`);
+			throw new Error(
+				`Failed to read Codex auth file: ${err instanceof Error ? err.message : err}`
+			);
 		}
 		if (auth.auth_mode !== 'chatgpt') {
-			throw new Error('Codex is not signed in with ChatGPT browser auth. Sign in with ChatGPT first.');
+			throw new Error(
+				'Codex is not signed in with ChatGPT browser auth. Sign in with ChatGPT first.'
+			);
 		}
 		if (!auth.tokens?.access_token) {
 			throw new Error('Codex auth file has no access token. Sign in with ChatGPT first.');
@@ -276,26 +292,46 @@ export function createProviderAuth(dependencies: ProviderAuthDependencies) {
 			auth = await refreshCodexAuth(auth as { tokens: TokenRecord }, authPath);
 		}
 		const tokens = auth.tokens as TokenRecord;
-		return { accessToken: String(tokens.access_token), accountID: String(tokens.account_id || '') };
+		return {
+			accessToken: String(tokens.access_token),
+			accountID: String(tokens.account_id || '')
+		};
 	}
 
 	function getCodexAuthStatus(): AuthStatus {
 		const authPath = codexAuthPath();
-		if (!fs.existsSync(authPath)) return { authenticated: false, authPath, error: 'Not signed in' };
+		if (!fs.existsSync(authPath))
+			return { authenticated: false, authPath, error: 'Not signed in' };
 		try {
 			const auth = JSON.parse(fs.readFileSync(authPath, 'utf8')) as {
 				auth_mode?: string;
 				tokens?: TokenRecord;
 			};
 			if (auth.auth_mode !== 'chatgpt') {
-				return { authenticated: false, authPath, error: 'Codex is not signed in with ChatGPT browser auth' };
+				return {
+					authenticated: false,
+					authPath,
+					error: 'Codex is not signed in with ChatGPT browser auth'
+				};
 			}
 			if (!auth.tokens?.access_token) {
-				return { authenticated: false, authPath, error: 'Codex auth file has no access token' };
+				return {
+					authenticated: false,
+					authPath,
+					error: 'Codex auth file has no access token'
+				};
 			}
-			return { authenticated: true, authPath, accountID: String(auth.tokens.account_id || '') || undefined };
+			return {
+				authenticated: true,
+				authPath,
+				accountID: String(auth.tokens.account_id || '') || undefined
+			};
 		} catch (err) {
-			return { authenticated: false, authPath, error: err instanceof Error ? err.message : String(err) };
+			return {
+				authenticated: false,
+				authPath,
+				error: err instanceof Error ? err.message : String(err)
+			};
 		}
 	}
 
@@ -312,18 +348,27 @@ export function createProviderAuth(dependencies: ProviderAuthDependencies) {
 			})
 		});
 		if (!response.ok || payload.error) {
-			throw new Error(`ChatGPT sign-in failed: ${payload.error_description || payload.error || response.statusText}`);
+			throw new Error(
+				`ChatGPT sign-in failed: ${payload.error_description || payload.error || response.statusText}`
+			);
 		}
-		if (!payload.access_token) throw new Error('ChatGPT sign-in did not return an access token');
+		if (!payload.access_token)
+			throw new Error('ChatGPT sign-in did not return an access token');
 		return payload;
 	}
 
 	function codexAuthorizeURL(state: string, codeChallenge: string) {
 		const params = new URLSearchParams({
-			response_type: 'code', client_id: CODEX_CLIENT_ID, redirect_uri: codexRedirectURI(),
-			scope: 'openid profile email offline_access', code_challenge: codeChallenge,
-			code_challenge_method: 'S256', id_token_add_organizations: 'true',
-			codex_cli_simplified_flow: 'true', state, originator: 'cometline'
+			response_type: 'code',
+			client_id: CODEX_CLIENT_ID,
+			redirect_uri: codexRedirectURI(),
+			scope: 'openid profile email offline_access',
+			code_challenge: codeChallenge,
+			code_challenge_method: 'S256',
+			id_token_add_organizations: 'true',
+			codex_cli_simplified_flow: 'true',
+			state,
+			originator: 'cometline'
 		});
 		return `https://auth.openai.com/oauth/authorize?${params.toString()}`;
 	}
@@ -344,7 +389,10 @@ export function createProviderAuth(dependencies: ProviderAuthDependencies) {
 		let server: ReturnType<Http['createServer']> | undefined;
 		try {
 			return await new Promise<string>((resolve, reject) => {
-				const timeout = setTimeout(() => reject(new Error(options.timeoutMessage)), CODEX_AUTH_TIMEOUT_MS);
+				const timeout = setTimeout(
+					() => reject(new Error(options.timeoutMessage)),
+					CODEX_AUTH_TIMEOUT_MS
+				);
 				server = http.createServer((req, res) => {
 					const requestURL = new URL(req.url || '/', options.redirectURI);
 					if (requestURL.pathname !== options.callbackPath) {
@@ -371,9 +419,13 @@ export function createProviderAuth(dependencies: ProviderAuthDependencies) {
 					}
 					if (!returnedCode) {
 						res.writeHead(400, { 'Content-Type': 'text/html' });
-						res.end(`<h1>${options.failureHeading}</h1><p>No authorization code returned.</p>`);
+						res.end(
+							`<h1>${options.failureHeading}</h1><p>No authorization code returned.</p>`
+						);
 						clearTimeout(timeout);
-						reject(new Error(`${options.failureHeading}: no authorization code returned.`));
+						reject(
+							new Error(`${options.failureHeading}: no authorization code returned.`)
+						);
 						return;
 					}
 					res.writeHead(200, { 'Content-Type': 'text/html' });
@@ -381,13 +433,20 @@ export function createProviderAuth(dependencies: ProviderAuthDependencies) {
 					clearTimeout(timeout);
 					resolve(returnedCode);
 				});
-				server.once('error', (err) => { clearTimeout(timeout); reject(err); });
+				server.once('error', (err) => {
+					clearTimeout(timeout);
+					reject(err);
+				});
 				server.listen(options.port, async () => {
 					try {
 						await window.openExternal(options.authorizeURL);
 					} catch (err) {
 						clearTimeout(timeout);
-						reject(new Error(`${options.browserError}: ${err instanceof Error ? err.message : err}`));
+						reject(
+							new Error(
+								`${options.browserError}: ${err instanceof Error ? err.message : err}`
+							)
+						);
 					}
 				});
 			});
@@ -400,15 +459,21 @@ export function createProviderAuth(dependencies: ProviderAuthDependencies) {
 		const state = base64URLEncode(crypto.randomBytes(32));
 		const codeVerifier = codexCodeVerifier();
 		const code = await waitForOAuthCode({
-			port: CODEX_AUTH_CALLBACK_PORT, callbackPath: CODEX_AUTH_CALLBACK_PATH, redirectURI: codexRedirectURI(),
-			state, authorizeURL: codexAuthorizeURL(state, codexCodeChallenge(codeVerifier)),
+			port: CODEX_AUTH_CALLBACK_PORT,
+			callbackPath: CODEX_AUTH_CALLBACK_PATH,
+			redirectURI: codexRedirectURI(),
+			state,
+			authorizeURL: codexAuthorizeURL(state, codexCodeChallenge(codeVerifier)),
 			timeoutMessage: 'Timed out waiting for ChatGPT sign-in to complete.',
 			failureHeading: 'ChatGPT sign-in failed',
 			successHTML: '<h1>Signed in with ChatGPT</h1><p>You can return to Cometline.</p>',
 			browserError: 'Failed to open ChatGPT sign-in in your browser'
 		});
 		writeCodexAuth(await exchangeCodexCode(code, codeVerifier));
-		return { started: true, message: 'Signed in with ChatGPT. You can fetch Codex models now.' };
+		return {
+			started: true,
+			message: 'Signed in with ChatGPT. You can fetch Codex models now.'
+		};
 	}
 
 	function xaiAuthPath() {
@@ -425,11 +490,14 @@ export function createProviderAuth(dependencies: ProviderAuthDependencies) {
 	function writeXaiAuth(tokens: TokenRecord) {
 		const authPath = xaiAuthPath();
 		fs.mkdirSync(path.dirname(authPath), { recursive: true, mode: 0o700 });
-		const expiresAt = Number(tokens.expires_in) > 0 ? Date.now() + Number(tokens.expires_in) * 1000 : 0;
+		const expiresAt =
+			Number(tokens.expires_in) > 0 ? Date.now() + Number(tokens.expires_in) * 1000 : 0;
 		const auth = {
 			auth_mode: 'subscription',
 			tokens: {
-				access_token: tokens.access_token, refresh_token: tokens.refresh_token || '', expires_at: expiresAt,
+				access_token: tokens.access_token,
+				refresh_token: tokens.refresh_token || '',
+				expires_at: expiresAt,
 				last_refresh: new Date().toISOString()
 			}
 		};
@@ -441,19 +509,31 @@ export function createProviderAuth(dependencies: ProviderAuthDependencies) {
 
 	async function refreshXaiAuth(auth: { tokens: TokenRecord }, authPath: string) {
 		const refreshToken = String(auth.tokens.refresh_token || '').trim();
-		if (!refreshToken) throw new Error('Grok subscription session expired. Sign in with Grok again.');
+		if (!refreshToken)
+			throw new Error('Grok subscription session expired. Sign in with Grok again.');
 		const { payload, response } = await fetchToken(XAI_TOKEN_URL, {
 			method: 'POST',
-			headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json', 'User-Agent': 'cometline' },
-			body: new URLSearchParams({ client_id: XAI_CLIENT_ID, grant_type: 'refresh_token', refresh_token: refreshToken }).toString()
+			headers: {
+				'Content-Type': 'application/x-www-form-urlencoded',
+				Accept: 'application/json',
+				'User-Agent': 'cometline'
+			},
+			body: new URLSearchParams({
+				client_id: XAI_CLIENT_ID,
+				grant_type: 'refresh_token',
+				refresh_token: refreshToken
+			}).toString()
 		});
 		if (!response.ok || payload.error) {
-			throw new Error(`Grok refresh failed: ${payload.error_description || payload.error || response.statusText}. Sign in with Grok again.`);
+			throw new Error(
+				`Grok refresh failed: ${payload.error_description || payload.error || response.statusText}. Sign in with Grok again.`
+			);
 		}
 		if (!payload.access_token) throw new Error('Grok refresh did not return an access token');
 		auth.tokens.access_token = payload.access_token;
 		if (payload.refresh_token) auth.tokens.refresh_token = payload.refresh_token;
-		auth.tokens.expires_at = Number(payload.expires_in) > 0 ? Date.now() + Number(payload.expires_in) * 1000 : 0;
+		auth.tokens.expires_at =
+			Number(payload.expires_in) > 0 ? Date.now() + Number(payload.expires_in) * 1000 : 0;
 		auth.tokens.last_refresh = new Date().toISOString();
 		const tmpPath = `${authPath}.tmp`;
 		fs.writeFileSync(tmpPath, `${JSON.stringify(auth, null, 2)}\n`, { mode: 0o600 });
@@ -470,24 +550,45 @@ export function createProviderAuth(dependencies: ProviderAuthDependencies) {
 				fs.mkdirSync(lockPath, { mode: 0o700 });
 				break;
 			} catch (err) {
-				if (!(err instanceof Error && 'code' in err && err.code === 'EEXIST') || Date.now() >= deadline) {
-					throw new Error(`Failed to acquire Grok auth lock: ${err instanceof Error ? err.message : err}`);
+				if (
+					!(err instanceof Error && 'code' in err && err.code === 'EEXIST') ||
+					Date.now() >= deadline
+				) {
+					throw new Error(
+						`Failed to acquire Grok auth lock: ${err instanceof Error ? err.message : err}`
+					);
 				}
 				await new Promise((resolve) => setTimeout(resolve, 50));
 			}
 		}
-		try { return await fn(); } finally { fs.rmSync(lockPath, { recursive: true, force: true }); }
+		try {
+			return await fn();
+		} finally {
+			fs.rmSync(lockPath, { recursive: true, force: true });
+		}
 	}
 
 	async function borrowXaiAuth() {
 		const authPath = xaiAuthPath();
 		return withXaiAuthLock(authPath, async () => {
-			if (!fs.existsSync(authPath)) throw new Error(`Grok subscription session not found at ${authPath}. Sign in with Grok first.`);
+			if (!fs.existsSync(authPath))
+				throw new Error(
+					`Grok subscription session not found at ${authPath}. Sign in with Grok first.`
+				);
 			let auth: { auth_mode?: string; tokens?: TokenRecord };
-			try { auth = JSON.parse(fs.readFileSync(authPath, 'utf8')) as typeof auth; }
-			catch (err) { throw new Error(`Failed to read Grok auth file: ${err instanceof Error ? err.message : err}`); }
-			if (auth.auth_mode !== 'subscription') throw new Error('Grok auth file is not a subscription session. Sign in with Grok first.');
-			if (!auth.tokens?.access_token) throw new Error('Grok auth file has no access token. Sign in with Grok first.');
+			try {
+				auth = JSON.parse(fs.readFileSync(authPath, 'utf8')) as typeof auth;
+			} catch (err) {
+				throw new Error(
+					`Failed to read Grok auth file: ${err instanceof Error ? err.message : err}`
+				);
+			}
+			if (auth.auth_mode !== 'subscription')
+				throw new Error(
+					'Grok auth file is not a subscription session. Sign in with Grok first.'
+				);
+			if (!auth.tokens?.access_token)
+				throw new Error('Grok auth file has no access token. Sign in with Grok first.');
 			if (xaiAuthExpiresSoon(auth.tokens.access_token, auth.tokens.expires_at)) {
 				auth = await refreshXaiAuth(auth as { tokens: TokenRecord }, authPath);
 			}
@@ -497,44 +598,100 @@ export function createProviderAuth(dependencies: ProviderAuthDependencies) {
 
 	function getXaiAuthStatus(): AuthStatus {
 		const authPath = xaiAuthPath();
-		if (!fs.existsSync(authPath)) return { authenticated: false, authPath, error: 'Not signed in' };
+		if (!fs.existsSync(authPath))
+			return { authenticated: false, authPath, error: 'Not signed in' };
 		try {
-			const auth = JSON.parse(fs.readFileSync(authPath, 'utf8')) as { auth_mode?: string; tokens?: TokenRecord };
-			if (auth.auth_mode !== 'subscription') return { authenticated: false, authPath, error: 'Grok auth file is not a subscription session' };
-			if (!auth.tokens?.access_token) return { authenticated: false, authPath, error: 'Grok auth file has no access token' };
+			const auth = JSON.parse(fs.readFileSync(authPath, 'utf8')) as {
+				auth_mode?: string;
+				tokens?: TokenRecord;
+			};
+			if (auth.auth_mode !== 'subscription')
+				return {
+					authenticated: false,
+					authPath,
+					error: 'Grok auth file is not a subscription session'
+				};
+			if (!auth.tokens?.access_token)
+				return {
+					authenticated: false,
+					authPath,
+					error: 'Grok auth file has no access token'
+				};
 			return { authenticated: true, authPath };
 		} catch (err) {
-			return { authenticated: false, authPath, error: err instanceof Error ? err.message : String(err) };
+			return {
+				authenticated: false,
+				authPath,
+				error: err instanceof Error ? err.message : String(err)
+			};
 		}
 	}
 
 	async function requestXaiDeviceCode() {
 		const { payload, response } = await fetchToken(XAI_DEVICE_AUTHORIZATION_URL, {
 			method: 'POST',
-			headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json', 'User-Agent': 'cometline' },
-			body: new URLSearchParams({ client_id: XAI_CLIENT_ID, scope: XAI_AUTH_SCOPE }).toString()
+			headers: {
+				'Content-Type': 'application/x-www-form-urlencoded',
+				Accept: 'application/json',
+				'User-Agent': 'cometline'
+			},
+			body: new URLSearchParams({
+				client_id: XAI_CLIENT_ID,
+				scope: XAI_AUTH_SCOPE
+			}).toString()
 		});
-		if (!response.ok || payload.error) throw new Error(`Could not start Grok device sign-in: ${payload.error_description || payload.error || response.statusText}`);
-		if (!payload.device_code || !payload.user_code || !payload.verification_uri) throw new Error('Grok device sign-in returned incomplete authorization details.');
+		if (!response.ok || payload.error)
+			throw new Error(
+				`Could not start Grok device sign-in: ${payload.error_description || payload.error || response.statusText}`
+			);
+		if (!payload.device_code || !payload.user_code || !payload.verification_uri)
+			throw new Error('Grok device sign-in returned incomplete authorization details.');
 		return payload;
 	}
 
 	async function pollXaiDeviceCode(device: TokenRecord) {
-		const expiresInMs = Number.isFinite(Number(device.expires_in)) && Number(device.expires_in) > 0 ? Number(device.expires_in) * 1000 : XAI_AUTH_TIMEOUT_MS;
+		const expiresInMs =
+			Number.isFinite(Number(device.expires_in)) && Number(device.expires_in) > 0
+				? Number(device.expires_in) * 1000
+				: XAI_AUTH_TIMEOUT_MS;
 		const deadline = Date.now() + expiresInMs;
-		let intervalMs = Math.max(Number.isFinite(Number(device.interval)) && Number(device.interval) > 0 ? Number(device.interval) * 1000 : 5000, 1000);
+		let intervalMs = Math.max(
+			Number.isFinite(Number(device.interval)) && Number(device.interval) > 0
+				? Number(device.interval) * 1000
+				: 5000,
+			1000
+		);
 		while (Date.now() < deadline) {
 			const { payload, response } = await fetchToken(XAI_TOKEN_URL, {
 				method: 'POST',
-				headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json', 'User-Agent': 'cometline' },
-				body: new URLSearchParams({ client_id: XAI_CLIENT_ID, grant_type: XAI_DEVICE_CODE_GRANT_TYPE, device_code: String(device.device_code) }).toString()
+				headers: {
+					'Content-Type': 'application/x-www-form-urlencoded',
+					Accept: 'application/json',
+					'User-Agent': 'cometline'
+				},
+				body: new URLSearchParams({
+					client_id: XAI_CLIENT_ID,
+					grant_type: XAI_DEVICE_CODE_GRANT_TYPE,
+					device_code: String(device.device_code)
+				}).toString()
 			});
 			if (response.ok && payload.access_token) return payload;
-			if (payload.error === 'authorization_pending') { await new Promise((resolve) => setTimeout(resolve, intervalMs)); continue; }
-			if (payload.error === 'slow_down') { intervalMs += 5000; await new Promise((resolve) => setTimeout(resolve, intervalMs)); continue; }
-			if (payload.error === 'access_denied' || payload.error === 'authorization_denied') throw new Error('Grok device authorization was denied.');
-			if (payload.error === 'expired_token') throw new Error('Grok device authorization expired. Try again.');
-			throw new Error(`Grok device sign-in failed: ${payload.error_description || payload.error || response.statusText}`);
+			if (payload.error === 'authorization_pending') {
+				await new Promise((resolve) => setTimeout(resolve, intervalMs));
+				continue;
+			}
+			if (payload.error === 'slow_down') {
+				intervalMs += 5000;
+				await new Promise((resolve) => setTimeout(resolve, intervalMs));
+				continue;
+			}
+			if (payload.error === 'access_denied' || payload.error === 'authorization_denied')
+				throw new Error('Grok device authorization was denied.');
+			if (payload.error === 'expired_token')
+				throw new Error('Grok device authorization expired. Try again.');
+			throw new Error(
+				`Grok device sign-in failed: ${payload.error_description || payload.error || response.statusText}`
+			);
 		}
 		throw new Error('Grok device authorization timed out. Try again.');
 	}
@@ -542,28 +699,56 @@ export function createProviderAuth(dependencies: ProviderAuthDependencies) {
 	async function startXaiLogin() {
 		const device = await requestXaiDeviceCode();
 		const verificationURL = String(device.verification_uri_complete || device.verification_uri);
-		try { await window.openExternal(verificationURL); }
-		catch (err) { throw new Error(`Failed to open Grok device sign-in in your browser: ${err instanceof Error ? err.message : err}`); }
+		try {
+			await window.openExternal(verificationURL);
+		} catch (err) {
+			throw new Error(
+				`Failed to open Grok device sign-in in your browser: ${err instanceof Error ? err.message : err}`
+			);
+		}
 		await window.showMessageBox({
-			type: 'info', title: 'Finish signing in with Grok', message: 'Complete the device sign-in in your browser.',
+			type: 'info',
+			title: 'Finish signing in with Grok',
+			message: 'Complete the device sign-in in your browser.',
 			detail: `If the code is not pre-filled, enter this code:\n\n${device.user_code}\n\nVerification URL:\n${device.verification_uri}`,
 			buttons: ['Continue waiting']
 		});
 		writeXaiAuth(await pollXaiDeviceCode(device));
-		return { started: true, message: 'Signed in with Grok subscription. You can fetch xAI models now.' };
+		return {
+			started: true,
+			message: 'Signed in with Grok subscription. You can fetch xAI models now.'
+		};
 	}
 
 	function readCursorMcpConfig() {
 		const filePath = path.join(platform.homedir(), '.cursor', 'mcp.json');
-		if (!fs.existsSync(filePath)) return { ok: false, error: 'Cursor MCP config not found at ~/.cursor/mcp.json' };
-		try { return { ok: true, path: filePath, config: JSON.parse(fs.readFileSync(filePath, 'utf8')) }; }
-		catch (err) { return { ok: false, error: err instanceof Error ? err.message : 'Failed to read Cursor MCP config' }; }
+		if (!fs.existsSync(filePath))
+			return { ok: false, error: 'Cursor MCP config not found at ~/.cursor/mcp.json' };
+		try {
+			return {
+				ok: true,
+				path: filePath,
+				config: JSON.parse(fs.readFileSync(filePath, 'utf8'))
+			};
+		} catch (err) {
+			return {
+				ok: false,
+				error: err instanceof Error ? err.message : 'Failed to read Cursor MCP config'
+			};
+		}
 	}
 
-	function normalizeModelFetchResult(rawModels: unknown[], pickModel: (item: Record<string, unknown>) => unknown = (item) => item.id) {
+	function normalizeModelFetchResult(
+		rawModels: unknown[],
+		pickModel: (item: Record<string, unknown>) => unknown = (item) => item.id
+	) {
 		const models: string[] = [];
 		for (const item of rawModels) {
-			if (typeof item === 'string') { const id = item.trim(); if (id) models.push(id); continue; }
+			if (typeof item === 'string') {
+				const id = item.trim();
+				if (id) models.push(id);
+				continue;
+			}
 			if (!item || typeof item !== 'object') continue;
 			const id = String(pickModel(item as Record<string, unknown>) || '').trim();
 			if (id) models.push(id);
@@ -573,13 +758,33 @@ export function createProviderAuth(dependencies: ProviderAuthDependencies) {
 
 	async function fetchCodexModels(baseURL: string) {
 		const auth = await borrowCodexAuth();
-		const headers: Record<string, string> = { Authorization: `Bearer ${auth.accessToken}`, Accept: 'application/json' };
+		const headers: Record<string, string> = {
+			Authorization: `Bearer ${auth.accessToken}`,
+			Accept: 'application/json'
+		};
 		if (auth.accountID) headers['ChatGPT-Account-ID'] = auth.accountID;
-		const response = await fetchModelsFromURL(`${String(baseURL || CODEX_BASE_URL).replace(/\/+$/, '')}/models?client_version=${encodeURIComponent(CODEX_CLIENT_VERSION)}`, headers);
-		if (!response.ok) { const body = await response.text(); throw new Error(`${response.status}: ${body || response.statusText}`); }
+		const response = await fetchModelsFromURL(
+			`${String(baseURL || CODEX_BASE_URL).replace(/\/+$/, '')}/models?client_version=${encodeURIComponent(CODEX_CLIENT_VERSION)}`,
+			headers
+		);
+		if (!response.ok) {
+			const body = await response.text();
+			throw new Error(`${response.status}: ${body || response.statusText}`);
+		}
 		const payload = (await response.json()) as Record<string, unknown>;
-		const rawModels = Array.isArray(payload.models) ? payload.models : Array.isArray(payload.data) ? payload.data : [];
-		const filtered = rawModels.filter((item) => typeof item === 'string' || (item && typeof item === 'object' && (item as Record<string, unknown>).supported_in_api !== false && (item as Record<string, unknown>).visibility !== 'hidden'));
+		const rawModels = Array.isArray(payload.models)
+			? payload.models
+			: Array.isArray(payload.data)
+				? payload.data
+				: [];
+		const filtered = rawModels.filter(
+			(item) =>
+				typeof item === 'string' ||
+				(item &&
+					typeof item === 'object' &&
+					(item as Record<string, unknown>).supported_in_api !== false &&
+					(item as Record<string, unknown>).visibility !== 'hidden')
+		);
 		const result = normalizeModelFetchResult(filtered, (item) => item.slug || item.id);
 		if (result.models.length === 0) throw new Error('No models returned by Codex');
 		return result;
@@ -588,29 +793,46 @@ export function createProviderAuth(dependencies: ProviderAuthDependencies) {
 	async function fetchXaiModels(baseURL: string) {
 		const auth = await borrowXaiAuth();
 		return readModels(
-			await fetchModelsFromURL(normalizeModelsBaseURL(baseURL || XAI_BASE_URL), { Authorization: `Bearer ${auth.accessToken}`, Accept: 'application/json', 'User-Agent': 'cometline' }),
+			await fetchModelsFromURL(normalizeModelsBaseURL(baseURL || XAI_BASE_URL), {
+				Authorization: `Bearer ${auth.accessToken}`,
+				Accept: 'application/json',
+				'User-Agent': 'cometline'
+			}),
 			'No models returned by xAI'
 		);
 	}
 
 	async function fetchOpenCodeGoModels(baseURL: string) {
-		return readModels(await fetchModelsFromURL(normalizeModelsBaseURL(baseURL || 'https://opencode.ai/zen/go/v1'), { Accept: 'application/json' }), 'No models returned by OpenCode Go');
+		return readModels(
+			await fetchModelsFromURL(
+				normalizeModelsBaseURL(baseURL || 'https://opencode.ai/zen/go/v1'),
+				{ Accept: 'application/json' }
+			),
+			'No models returned by OpenCode Go'
+		);
 	}
 
-	async function fetchProviderModels(config: Pick<ProviderConfig, 'method' | 'baseURL' | 'apiKey'>) {
+	async function fetchProviderModels(
+		config: Pick<ProviderConfig, 'method' | 'baseURL' | 'apiKey'>
+	) {
 		if (config.method === 'opencode-go') return fetchOpenCodeGoModels(config.baseURL);
 		if (config.method === 'codex') return fetchCodexModels(config.baseURL);
 		if (config.method === 'xai') return fetchXaiModels(config.baseURL);
 		if (config.method === 'ollama') {
-			const models = (await ollama.listModels(config.baseURL)).models.map((model) => model.name).filter((name): name is string => Boolean(name));
-			if (models.length === 0) throw new Error('No models installed in Ollama yet. Pull a model first.');
+			const models = (await ollama.listModels(config.baseURL)).models
+				.map((model) => model.name)
+				.filter((name): name is string => Boolean(name));
+			if (models.length === 0)
+				throw new Error('No models installed in Ollama yet. Pull a model first.');
 			return { models };
 		}
 		const baseURL = String(config.baseURL || '').trim();
 		const apiKey = String(config.apiKey || '').trim();
 		if (!baseURL) throw new Error('Base URL is required');
 		if (!apiKey) throw new Error('API key is required');
-		return config.method === 'anthropic' ? fetchAnthropicModels(baseURL, apiKey) : fetchOpenAIModels(baseURL, apiKey);
+		return config.method === 'anthropic'
+			? fetchAnthropicModels(baseURL, apiKey)
+			: fetchOpenAIModels(baseURL, apiKey);
 	}
 
 	return {

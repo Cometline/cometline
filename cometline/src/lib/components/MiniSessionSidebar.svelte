@@ -144,7 +144,7 @@
 
 <aside class="mini-sidebar" aria-label="Chats">
 	<header class="mini-sidebar-header">
-		<SidebarSearch bind:searchQuery bind:searchInput onNewChat={onNewChat} />
+		<SidebarSearch bind:searchQuery bind:searchInput {onNewChat} />
 		<Tooltip label="Close chats">
 			<button type="button" class="close-sidebar" onclick={onClose} aria-label="Close chats">
 				<X size={16} stroke-width={2} />
@@ -155,12 +155,26 @@
 	<div class="session-list scrollbar-none">
 		{#if sidebarLayout.pinnedSessions.length > 0}
 			<section class="session-section pinned">
-				<button class="section-header" aria-expanded={!isCollapsed(PINNED_GROUP_KEY)} onclick={() => toggleGroup(PINNED_GROUP_KEY)}>
+				<button
+					class="section-header"
+					aria-expanded={!isCollapsed(PINNED_GROUP_KEY)}
+					onclick={() => toggleGroup(PINNED_GROUP_KEY)}
+				>
 					<span>Pinned</span><span>{sidebarLayout.pinnedSessions.length}</span>
 				</button>
 				{#if !isCollapsed(PINNED_GROUP_KEY)}
 					{#each sidebarLayout.pinnedSessions as session (session.id)}
-						<SessionRow {session} showWorkspaceLabel selected={sessionStore.current?.id === session.id} deleting={deletingID === session.id} pinning={pinningID === session.id} onSelect={() => selectSession(session)} onDelete={() => void removeSession(session)} onPin={() => void togglePinSession(session)} onContextMenu={() => {}} />
+						<SessionRow
+							{session}
+							showWorkspaceLabel
+							selected={sessionStore.current?.id === session.id}
+							deleting={deletingID === session.id}
+							pinning={pinningID === session.id}
+							onSelect={() => selectSession(session)}
+							onDelete={() => void removeSession(session)}
+							onPin={() => void togglePinSession(session)}
+							onContextMenu={() => {}}
+						/>
 					{/each}
 				{/if}
 			</section>
@@ -168,13 +182,30 @@
 
 		{#each sidebarLayout.workspaceGroups as group (group.workspacePath)}
 			<div animate:flip={WORKSPACE_GROUP_FLIP}>
-				<section class:active={group.workspacePath === shellStore.workspacePath} class="session-section">
-					<button class="section-header" aria-expanded={!isCollapsed(group.workspacePath)} onclick={() => toggleGroup(group.workspacePath)} title={group.workspacePath}>
+				<section
+					class:active={group.workspacePath === shellStore.workspacePath}
+					class="session-section"
+				>
+					<button
+						class="section-header"
+						aria-expanded={!isCollapsed(group.workspacePath)}
+						onclick={() => toggleGroup(group.workspacePath)}
+						title={group.workspacePath}
+					>
 						<span>{group.label}</span><span>{group.sessions.length}</span>
 					</button>
 					{#if !isCollapsed(group.workspacePath)}
 						{#each group.sessions as session (session.id)}
-							<SessionRow {session} selected={sessionStore.current?.id === session.id} deleting={deletingID === session.id} pinning={pinningID === session.id} onSelect={() => selectSession(session)} onDelete={() => void removeSession(session)} onPin={() => void togglePinSession(session)} onContextMenu={() => {}} />
+							<SessionRow
+								{session}
+								selected={sessionStore.current?.id === session.id}
+								deleting={deletingID === session.id}
+								pinning={pinningID === session.id}
+								onSelect={() => selectSession(session)}
+								onDelete={() => void removeSession(session)}
+								onPin={() => void togglePinSession(session)}
+								onContextMenu={() => {}}
+							/>
 						{/each}
 					{/if}
 				</section>
@@ -183,19 +214,35 @@
 
 		{#if sidebarLayout.discordSessions.length > 0}
 			<section class="session-section discord">
-				<button class="section-header" aria-expanded={!isCollapsed(DISCORD_GROUP_KEY)} onclick={() => toggleGroup(DISCORD_GROUP_KEY)}>
+				<button
+					class="section-header"
+					aria-expanded={!isCollapsed(DISCORD_GROUP_KEY)}
+					onclick={() => toggleGroup(DISCORD_GROUP_KEY)}
+				>
 					<span>Discord</span><span>{sidebarLayout.discordSessions.length}</span>
 				</button>
 				{#if !isCollapsed(DISCORD_GROUP_KEY)}
 					{#each sidebarLayout.discordSessions as session (session.id)}
-						<SessionRow {session} showGatewayLabel={isDiscordSession(session)} showPin={false} selected={sessionStore.current?.id === session.id} deleting={deletingID === session.id} onSelect={() => selectSession(session)} onDelete={() => void removeSession(session)} onPin={() => {}} onContextMenu={() => {}} />
+						<SessionRow
+							{session}
+							showGatewayLabel={isDiscordSession(session)}
+							showPin={false}
+							selected={sessionStore.current?.id === session.id}
+							deleting={deletingID === session.id}
+							onSelect={() => selectSession(session)}
+							onDelete={() => void removeSession(session)}
+							onPin={() => {}}
+							onContextMenu={() => {}}
+						/>
 					{/each}
 				{/if}
 			</section>
 		{/if}
 
 		{#if totalSessions === 0}
-			<p class="session-empty">{searchQuery.trim() ? 'No chats match your search' : 'No chats yet'}</p>
+			<p class="session-empty">
+				{searchQuery.trim() ? 'No chats match your search' : 'No chats yet'}
+			</p>
 		{/if}
 	</div>
 
@@ -276,8 +323,16 @@
 	}
 
 	.session-section.active {
-		border-color: color-mix(in srgb, var(--hero-composer-glow-color, var(--accent)) 28%, transparent);
-		background: color-mix(in srgb, var(--hero-composer-glow-color, var(--accent)) 12%, transparent);
+		border-color: color-mix(
+			in srgb,
+			var(--hero-composer-glow-color, var(--accent)) 28%,
+			transparent
+		);
+		background: color-mix(
+			in srgb,
+			var(--hero-composer-glow-color, var(--accent)) 12%,
+			transparent
+		);
 	}
 
 	.session-section.pinned {

@@ -86,9 +86,7 @@
 	const persistedEmbedding = $derived(
 		settings ? mergeEmbeddingFields(settings.embedding, savedEmbedding) : undefined
 	);
-	const retentionLocked = $derived(
-		newKind === 'preference' && newApplicationPolicy === 'always'
-	);
+	const retentionLocked = $derived(newKind === 'preference' && newApplicationPolicy === 'always');
 
 	const embeddingDropdownOptions = $derived(
 		buildEmbeddingDropdownOptions(providers, savedEmbedding, persistedEmbedding)
@@ -481,8 +479,8 @@
 							Up to 3 user preferences, {settings.task_outcome_limit} relevant task
 							{settings.task_outcome_limit === 1 ? 'outcome' : 'outcomes'}, and
 							{settings.max_retrieved} semantic
-							{settings.max_retrieved === 1 ? 'memory' : 'memories'}. These groups share 5% of
-							the available context, capped at 4,096 tokens.
+							{settings.max_retrieved === 1 ? 'memory' : 'memories'}. These groups
+							share 5% of the available context, capped at 4,096 tokens.
 						</p>
 					</div>
 
@@ -738,7 +736,9 @@
 							{/if}
 						</label>
 						<div class="add-row-actions">
-							<button type="button" class="secondary" onclick={addMemory}>Add memory</button>
+							<button type="button" class="secondary" onclick={addMemory}
+								>Add memory</button
+							>
 						</div>
 					</div>
 				</div>

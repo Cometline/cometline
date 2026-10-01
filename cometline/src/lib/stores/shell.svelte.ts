@@ -135,12 +135,8 @@ function createShellStore() {
 	let contentBySessionSurface = $state<
 		Record<string, Partial<Record<SurfaceContentKey, SurfaceContent>>>
 	>({});
-	let tabsBySession = $state<
-		Record<string, Partial<Record<TabSurfaceKey, string[]>>>
-	>({});
-	let urlTabMetaBySession = $state<
-		Record<string, WorkspacePanelState['urlTabMeta']>
-	>({});
+	let tabsBySession = $state<Record<string, Partial<Record<TabSurfaceKey, string[]>>>>({});
+	let urlTabMetaBySession = $state<Record<string, WorkspacePanelState['urlTabMeta']>>({});
 	let terminalPanelsBySession = $state<Record<string, boolean>>({});
 	let workspacePanelSurfaceBySession = $state<Record<string, WorkspacePanelSurface>>({});
 	/** Active inner surface while the outer slot is `web`. */
@@ -364,7 +360,6 @@ function createShellStore() {
 		}
 	}
 
-
 	/** Toolbar order used when Cmd+W walks remaining content dots. */
 	function ensureWorkspacePanelVisible(sessionId: string) {
 		workspacePanelVisibleBySession = { ...workspacePanelVisibleBySession, [sessionId]: true };
@@ -521,7 +516,10 @@ function createShellStore() {
 				);
 			} else {
 				// Empty URL = empty web-search (or cleared content on that stack).
-				setContentSurfaceForSession(sessionId, surface === 'web-search' ? 'web-search' : surface);
+				setContentSurfaceForSession(
+					sessionId,
+					surface === 'web-search' ? 'web-search' : surface
+				);
 				if (surface === 'web-search') {
 					setContentFor(sessionId, 'web-search', null);
 				}
@@ -621,7 +619,8 @@ function createShellStore() {
 			const key = panelSessionKey();
 			if (!key) return false;
 			return (
-				activeWorkspacePanelSurface() === 'terminal' && terminalPanelsBySession[key] === true
+				activeWorkspacePanelSurface() === 'terminal' &&
+				terminalPanelsBySession[key] === true
 			);
 		},
 		get workspacePanelMode(): WorkspacePanelMode | null {
@@ -750,7 +749,8 @@ function createShellStore() {
 			const key = panelSessionKey();
 			if (!key || workspacePanelVisibleBySession[key] !== true) return false;
 			const surface = contentSurfaceFor(key);
-			if (surface !== 'wiki' && surface !== 'workspace' && surface !== 'changes') return false;
+			if (surface !== 'wiki' && surface !== 'workspace' && surface !== 'changes')
+				return false;
 			return contentFor(key, surface) === null;
 		},
 		get workspacePanelGitDiffOpen() {
@@ -894,16 +894,24 @@ function createShellStore() {
 				[key]: [...existing, viewing]
 			};
 		},
-		noteVisibleContext(visible: { page?: { source: string; title: string }; file?: { source: string; title: string } }) {
+		noteVisibleContext(visible: {
+			page?: { source: string; title: string };
+			file?: { source: string; title: string };
+		}) {
 			const key = panelSessionKey();
 			if (!key) return;
-			const pageKey = visible.page ? `page:${visible.page.source}\0${visible.page.title}` : '';
-			const fileKey = visible.file ? `file:${visible.file.source}\0${visible.file.title}` : '';
+			const pageKey = visible.page
+				? `page:${visible.page.source}\0${visible.page.title}`
+				: '';
+			const fileKey = visible.file
+				? `file:${visible.file.source}\0${visible.file.title}`
+				: '';
 			const nextKey = `${key}|${pageKey}|${fileKey}`;
 			if (nextKey === lastNotedVisibleContextKey) return;
 			lastNotedVisibleContextKey = nextKey;
 			if (visible.page) this.setPendingPageContextForActive(visible.page);
-			if (visible.file) this.setViewingFileContextForActive(visible.file.source, visible.file.title);
+			if (visible.file)
+				this.setViewingFileContextForActive(visible.file.source, visible.file.title);
 		},
 		setPendingPageContextForActive(context: Omit<PendingPageContext, 'kind' | 'lazy'>) {
 			const key = panelSessionKey();
@@ -1020,9 +1028,7 @@ function createShellStore() {
 			const nextContent: SurfaceContent = {
 				mode: 'file',
 				filePath,
-				...(reveal
-					? { startLine: reveal.startLine, endLine: reveal.endLine }
-					: {})
+				...(reveal ? { startLine: reveal.startLine, endLine: reveal.endLine } : {})
 			};
 			if (
 				replacesActiveFile(current, nextContent) &&
@@ -1246,10 +1252,7 @@ function createShellStore() {
 				const content = contentFor(sessionId, surface);
 				if (surface === 'web-search' || content?.mode === 'url') {
 					this.requestAddressBarFocus();
-				} else if (
-					(surface === 'wiki' || surface === 'workspace') &&
-					content === null
-				) {
+				} else if ((surface === 'wiki' || surface === 'workspace') && content === null) {
 					this.requestFileTreeFilterFocus();
 				}
 				return;
@@ -1333,7 +1336,8 @@ function createShellStore() {
 			const next = { ...terminalPanelsBySession };
 			delete next[sessionId];
 			terminalPanelsBySession = next;
-			if (activeSessionId() !== sessionId || activeWorkspacePanelSurface() !== 'terminal') return;
+			if (activeSessionId() !== sessionId || activeWorkspacePanelSurface() !== 'terminal')
+				return;
 			this.requestComposerFocus();
 			syncWorkspacePanelOpen(false);
 		},

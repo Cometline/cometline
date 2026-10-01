@@ -43,12 +43,7 @@ function searchableTextNodes(root: HTMLElement): Text[] {
 	return nodes;
 }
 
-function appendSpace(
-	text: string[],
-	positions: CharacterPosition[],
-	node: Text,
-	offset: number
-) {
+function appendSpace(text: string[], positions: CharacterPosition[], node: Text, offset: number) {
 	if (text.length === 0 || text.at(-1) === ' ') return;
 	text.push(' ');
 	positions.push({ node, offset });

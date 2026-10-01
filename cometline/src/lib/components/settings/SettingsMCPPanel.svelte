@@ -329,7 +329,8 @@
 		if (value === 'connected') return 'connected';
 		if (value === 'Needs sign-in') return 'pending';
 		if (value === 'error' || value === 'disconnected') return 'error';
-		if (value === 'reloading' || value === 'Connecting' || value === 'connecting') return 'pending';
+		if (value === 'reloading' || value === 'Connecting' || value === 'connecting')
+			return 'pending';
 		if (value === 'Disabled' || value === 'Off') return 'idle';
 		return 'idle';
 	}
@@ -374,7 +375,8 @@
 		let timeoutId: ReturnType<typeof setTimeout> | undefined;
 		const timeout = new Promise<never>((_, reject) => {
 			timeoutId = setTimeout(
-				() => reject(new Error(`${label} timed out after ${MCP_REFRESH_TIMEOUT_MS / 1000}s`)),
+				() =>
+					reject(new Error(`${label} timed out after ${MCP_REFRESH_TIMEOUT_MS / 1000}s`)),
 				MCP_REFRESH_TIMEOUT_MS
 			);
 		});
@@ -469,7 +471,10 @@
 			if (result.ok) {
 				// eslint-disable-next-line svelte/prefer-svelte-reactivity -- local temporary
 				const byName = new Map(
-					(knownToolsByServer[serverId] ?? []).map((tool) => [tool.name, tool.description])
+					(knownToolsByServer[serverId] ?? []).map((tool) => [
+						tool.name,
+						tool.description
+					])
 				);
 				for (const name of result.tools ?? []) {
 					const clean = name.trim();
@@ -794,7 +799,9 @@
 							{/if}
 
 							{#if displayError(status, true)}
-								<p class="settings-field-hint error">{displayError(status, true)}</p>
+								<p class="settings-field-hint error">
+									{displayError(status, true)}
+								</p>
 							{/if}
 
 							{#if server.transport === 'stdio'}
@@ -862,13 +869,13 @@
 												? 'Connecting…'
 												: 'Connect with OAuth'}
 										</SettingsButton>
-									<span class="oauth-status">
-										{status?.oauth_connected
-											? status?.status === 'connected'
-												? 'Signed in · connected'
-												: 'Signed in'
-											: 'Not signed in'}
-									</span>
+										<span class="oauth-status">
+											{status?.oauth_connected
+												? status?.status === 'connected'
+													? 'Signed in · connected'
+													: 'Signed in'
+												: 'Not signed in'}
+										</span>
 									</div>
 								</div>
 							{/if}
@@ -879,34 +886,34 @@
 							>
 								<div class="tool-toggles">
 									{#each knownToolsFor(server) as tool (tool.name)}
-											<button
-												type="button"
-												class="tool-toggle"
-												role="switch"
-												aria-checked={isToolAllowed(server, tool.name)}
-												onclick={() => toggleTool(server.id, tool.name)}
-											>
-												<input
-													type="checkbox"
-													tabindex="-1"
-													checked={isToolAllowed(server, tool.name)}
-													onclick={(e) => e.preventDefault()}
-												/>
-												<span class="tool-toggle-text">
-													<strong>{tool.name}</strong>
-													{#if tool.description}
-														<span class="tool-toggle-desc"
-															>{tool.description}</span
-														>
-													{/if}
-												</span>
-											</button>
+										<button
+											type="button"
+											class="tool-toggle"
+											role="switch"
+											aria-checked={isToolAllowed(server, tool.name)}
+											onclick={() => toggleTool(server.id, tool.name)}
+										>
+											<input
+												type="checkbox"
+												tabindex="-1"
+												checked={isToolAllowed(server, tool.name)}
+												onclick={(e) => e.preventDefault()}
+											/>
+											<span class="tool-toggle-text">
+												<strong>{tool.name}</strong>
+												{#if tool.description}
+													<span class="tool-toggle-desc"
+														>{tool.description}</span
+													>
+												{/if}
+											</span>
+										</button>
 									{:else}
-									<p class="settings-field-hint">
-										No tools discovered yet. Save settings, then use Test
-										connection to load this server's tools — they'll appear here
-										as toggles.
-									</p>
+										<p class="settings-field-hint">
+											No tools discovered yet. Save settings, then use Test
+											connection to load this server's tools — they'll appear
+											here as toggles.
+										</p>
 									{/each}
 								</div>
 							</SettingsField>

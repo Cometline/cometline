@@ -339,10 +339,8 @@ function itemFromTranscript(item: TranscriptItem, index: number, idPrefix: strin
 			text: item.text ?? '',
 			images: item.media
 		};
-	if (item.type === 'system')
-		return { id, type: 'status', text: item.text ?? '' };
-	if (item.type === 'error')
-		return { id, type: 'error', text: item.text ?? '' };
+	if (item.type === 'system') return { id, type: 'status', text: item.text ?? '' };
+	if (item.type === 'error') return { id, type: 'error', text: item.text ?? '' };
 	if (item.type === 'reasoning')
 		return {
 			id,

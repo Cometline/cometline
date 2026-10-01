@@ -94,7 +94,11 @@ describe('workspace panel state', () => {
 
 	it('soft-hides terminal without clearing web content', () => {
 		const state = closeWorkspacePanel({
-			...openWorkspacePanelFile(createWorkspacePanelState('workspace'), 'workspace', 'src/app.ts'),
+			...openWorkspacePanelFile(
+				createWorkspacePanelState('workspace'),
+				'workspace',
+				'src/app.ts'
+			),
 			surface: 'terminal',
 			terminalVisible: true
 		});
@@ -130,7 +134,10 @@ describe('workspace panel state', () => {
 	});
 
 	it('adds and activates url tabs; Cmd+W closes active url tab first', () => {
-		let state = openWorkspacePanelUrl(createWorkspacePanelState('web-search'), 'https://a.example');
+		let state = openWorkspacePanelUrl(
+			createWorkspacePanelState('web-search'),
+			'https://a.example'
+		);
 		const [tabA] = urlTabsFor(state);
 		state = openWorkspacePanelUrl(state, 'https://b.example');
 		const [stillA, tabB] = urlTabsFor(state);
@@ -190,7 +197,10 @@ describe('workspace panel state', () => {
 	});
 
 	it('address-bar navigate keeps the tab id and clears the remembered title', () => {
-		let state = openWorkspacePanelUrl(createWorkspacePanelState('web-search'), 'https://a.example');
+		let state = openWorkspacePanelUrl(
+			createWorkspacePanelState('web-search'),
+			'https://a.example'
+		);
 		const [tabA] = urlTabsFor(state);
 		state = openWorkspacePanelUrl(state, 'https://b.example');
 		const [stillA, tabB] = urlTabsFor(state);
@@ -206,7 +216,10 @@ describe('workspace panel state', () => {
 	});
 
 	it('updates a background URL tab without changing active content or visibility', () => {
-		let state = openWorkspacePanelUrl(createWorkspacePanelState('web-search'), 'https://a.example');
+		let state = openWorkspacePanelUrl(
+			createWorkspacePanelState('web-search'),
+			'https://a.example'
+		);
 		const [tabA] = urlTabsFor(state);
 		state = openWorkspacePanelUrl(state, 'https://b.example');
 		state = { ...state, visible: false, surface: 'terminal', contentSurface: 'workspace' };
@@ -220,7 +233,10 @@ describe('workspace panel state', () => {
 	});
 
 	it('ignores late guest events for closed tabs', () => {
-		let state = openWorkspacePanelUrl(createWorkspacePanelState('web-search'), 'https://a.example');
+		let state = openWorkspacePanelUrl(
+			createWorkspacePanelState('web-search'),
+			'https://a.example'
+		);
 		const [tabA] = urlTabsFor(state);
 		state = closeWorkspacePanelUrlTab(state, tabA);
 		expect(syncUrlTab(state, tabA, 'https://a.example/late', 'Late')).toBe(state);

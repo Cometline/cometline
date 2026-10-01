@@ -89,7 +89,12 @@
 				{@render bubbleBody()}
 			</div>
 		{:else if playFlyIn}
-			<div class="bubble user-bubble" data-session-find-text data-session-find-item={item.id} in:fly={BUBBLE_IN}>
+			<div
+				class="bubble user-bubble"
+				data-session-find-text
+				data-session-find-item={item.id}
+				in:fly={BUBBLE_IN}
+			>
 				{@render bubbleBody()}
 			</div>
 		{:else}

@@ -466,5 +466,4 @@ describe('settings schema', () => {
 		expect(settings.cometmind.autonomy.providerId).toBe('codex');
 		expect(settings.cometmind.scheduler.enabled).toBe(true);
 	});
-
 });

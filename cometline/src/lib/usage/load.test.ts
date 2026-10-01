@@ -12,7 +12,10 @@ describe('usage load helpers', () => {
 			{ items: [{ id: 'a' }, { id: 'b' }], total: 3 },
 			{ items: [{ id: 'c' }], total: 3 }
 		];
-		const items = await collectAllUsageEvents(async (offset) => pages[offset / 2] ?? { items: [], total: 3 }, 2);
+		const items = await collectAllUsageEvents(
+			async (offset) => pages[offset / 2] ?? { items: [], total: 3 },
+			2
+		);
 		expect(items.map((item) => item.id)).toEqual(['a', 'b', 'c']);
 	});
 

@@ -54,7 +54,14 @@ describe('usage format', () => {
 	it('maps summary buckets onto series keys with estimated spend', () => {
 		expect(
 			seriesKeyForBucket(
-				{ key: 'gpt-5.6-luna', provider_id: 'codex', model_id: 'gpt-5.6-luna', tokens: 1, estimated_usd: 0.12, priced: true },
+				{
+					key: 'gpt-5.6-luna',
+					provider_id: 'codex',
+					model_id: 'gpt-5.6-luna',
+					tokens: 1,
+					estimated_usd: 0.12,
+					priced: true
+				},
 				'model'
 			)
 		).toBe('codex/gpt-5.6-luna');

@@ -43,9 +43,7 @@ export const SURFACE_CLOSE_ORDER: SurfaceContentKey[] = [
 	'changes'
 ];
 
-export function createWorkspacePanelState(
-	contentSurface: ContentSurface
-): WorkspacePanelState {
+export function createWorkspacePanelState(contentSurface: ContentSurface): WorkspacePanelState {
 	return {
 		visible: false,
 		surface: 'web',
@@ -91,9 +89,7 @@ export function isTabSurface(surface: ContentSurface): surface is TabSurfaceKey 
 	return surface === 'wiki' || surface === 'workspace' || surface === 'web-search';
 }
 
-export function activeTabId(
-	content: SurfaceContent | undefined
-): string | null {
+export function activeTabId(content: SurfaceContent | undefined): string | null {
 	if (content?.mode === 'file') return content.filePath;
 	if (content?.mode === 'url') return content.tabId ?? content.url;
 	return null;
@@ -264,7 +260,11 @@ export function closePanelTab(
 		}
 		return closeWorkspacePanel(state);
 	}
-	return withTabs(state, surface, tabs.filter((tab) => tab !== id));
+	return withTabs(
+		state,
+		surface,
+		tabs.filter((tab) => tab !== id)
+	);
 }
 
 function closeActiveTabStep(
@@ -308,9 +308,7 @@ export function clearFileReveal(
 	};
 }
 
-export function nextSurfaceWithContent(
-	state: WorkspacePanelState
-): SurfaceContentKey | null {
+export function nextSurfaceWithContent(state: WorkspacePanelState): SurfaceContentKey | null {
 	const start = SURFACE_CLOSE_ORDER.indexOf(state.contentSurface);
 	if (start < 0) return null;
 
@@ -443,9 +441,7 @@ export function syncUrlTab(
 	const content = state.content['web-search'];
 	const active = activeTabId(content) === id;
 	const prev = urlTabMetaFor(state, id);
-	const nextTitle = isDisplayTabTitle(title, url)
-		? title.trim()
-		: prev.title;
+	const nextTitle = isDisplayTabTitle(title, url) ? title.trim() : prev.title;
 	if (prev.url === url && prev.title === nextTitle) {
 		return state;
 	}

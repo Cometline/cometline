@@ -9,7 +9,8 @@
 		<p class="edit-diff-summary">{diff.summary}</p>
 	{/if}
 	<pre class="edit-diff-body scrollbar-none"><code
-			>{#each diff.lines as line, i (i)}<span class="diff-line kind-{line.kind}">{line.text}
+			>{#each diff.lines as line, i (i)}<span class="diff-line kind-{line.kind}"
+					>{line.text}
 </span>{/each}</code
 		></pre>
 </div>

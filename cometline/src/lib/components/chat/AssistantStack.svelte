@@ -204,7 +204,8 @@
 								<button
 									type="button"
 									class="image-copy"
-									class:copied={copiedImageKey === `${item.id}-${image.id ?? imageIndex}`}
+									class:copied={copiedImageKey ===
+										`${item.id}-${image.id ?? imageIndex}`}
 									title="Copy video file"
 									aria-label={`Copy ${alt}`}
 									onclick={() =>
@@ -234,10 +235,13 @@
 									{src}
 									{alt}
 									onerror={(event) => {
-										const host = event.currentTarget.closest('.assistant-images');
+										const host =
+											event.currentTarget.closest('.assistant-images');
 										const card = event.currentTarget.closest('.image-card');
-										if (card instanceof HTMLElement) card.dataset.missing = 'true';
-										if (host instanceof HTMLElement) host.dataset.hasMissing = 'true';
+										if (card instanceof HTMLElement)
+											card.dataset.missing = 'true';
+										if (host instanceof HTMLElement)
+											host.dataset.hasMissing = 'true';
 									}}
 								/>
 								<span class="media-missing">This media was deleted.</span>
@@ -245,7 +249,8 @@
 							<button
 								type="button"
 								class="image-copy"
-								class:copied={copiedImageKey === `${item.id}-${image.id ?? imageIndex}`}
+								class:copied={copiedImageKey ===
+									`${item.id}-${image.id ?? imageIndex}`}
 								title="Copy image"
 								aria-label={`Copy ${alt}`}
 								onclick={() =>

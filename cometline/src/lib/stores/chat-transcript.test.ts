@@ -140,7 +140,9 @@ describe('itemsFromTranscript', () => {
 
 	it('namespaces ids so prepended pages do not collide with the live tail', () => {
 		const older = itemsFromTranscript([{ type: 'user', text: 'old' }], { idPrefix: 'older-1' });
-		const recent = itemsFromTranscript([{ type: 'user', text: 'new' }], { idPrefix: 'history' });
+		const recent = itemsFromTranscript([{ type: 'user', text: 'new' }], {
+			idPrefix: 'history'
+		});
 		expect(older[0]?.id).toBe('older-1-0');
 		expect(recent[0]?.id).toBe('history-0');
 		expect(new Set([...older, ...recent].map((i) => i.id)).size).toBe(2);

@@ -19,8 +19,12 @@ describe('persona input validation', () => {
 			ext: '.png',
 			buffer: Buffer.from('a')
 		});
-		expect(decodePersonaAvatarDataUrl('data:image/jpeg;base64,YQ==')).toMatchObject({ ext: '.jpg' });
-		expect(decodePersonaAvatarDataUrl('data:image/webp;base64,YQ==')).toMatchObject({ ext: '.webp' });
+		expect(decodePersonaAvatarDataUrl('data:image/jpeg;base64,YQ==')).toMatchObject({
+			ext: '.jpg'
+		});
+		expect(decodePersonaAvatarDataUrl('data:image/webp;base64,YQ==')).toMatchObject({
+			ext: '.webp'
+		});
 		expect(decodePersonaAvatarDataUrl('data:image/jpg;base64,YQ==')).toBeNull();
 		expect(decodePersonaAvatarDataUrl('data:image/gif;base64,YQ==')).toBeNull();
 		expect(decodePersonaAvatarDataUrl('data:image/png;base64,not valid')).toBeNull();
@@ -34,10 +38,12 @@ describe('persona input validation', () => {
 	});
 
 	it('creates a stable, collision-free ID for an unnamed custom persona', () => {
-		expect(
-			nextCustomPersonaId('', 'My Persona', [{ id: 'my-persona' }], () => 1234)
-		).toBe('my-persona-2');
-		expect(nextCustomPersonaId('preferred', 'My Persona', [{ id: 'preferred' }])).toBe('preferred');
+		expect(nextCustomPersonaId('', 'My Persona', [{ id: 'my-persona' }], () => 1234)).toBe(
+			'my-persona-2'
+		);
+		expect(nextCustomPersonaId('preferred', 'My Persona', [{ id: 'preferred' }])).toBe(
+			'preferred'
+		);
 	});
 });
 

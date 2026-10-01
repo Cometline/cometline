@@ -37,9 +37,7 @@
 		onDirtyByPath?: (dirtyByPath: Record<string, boolean>) => void;
 	} = $props();
 
-	const wikiPaths = $derived(
-		wikiTabs.length > 0 ? wikiTabs : wikiFilePath ? [wikiFilePath] : []
-	);
+	const wikiPaths = $derived(wikiTabs.length > 0 ? wikiTabs : wikiFilePath ? [wikiFilePath] : []);
 	const workspacePaths = $derived(
 		workspaceTabs.length > 0 ? workspaceTabs : workspaceFilePath ? [workspaceFilePath] : []
 	);

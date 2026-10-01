@@ -59,7 +59,8 @@ export async function requestScreenCaptureAccess(
 		return {
 			preferred: wants,
 			status: 'unsupported',
-			message: 'Screen capture permission is managed by the operating system on this platform.'
+			message:
+				'Screen capture permission is managed by the operating system on this platform.'
 		};
 	}
 

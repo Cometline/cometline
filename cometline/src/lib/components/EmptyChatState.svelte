@@ -4,7 +4,10 @@
 	import { personaAvatarCache } from '$lib/personas/avatar-cache.svelte';
 
 	let resolvedPersona = $derived(
-		resolvePersona(settingsStore.settings.app.personaId, settingsStore.settings.app.personas.custom)
+		resolvePersona(
+			settingsStore.settings.app.personaId,
+			settingsStore.settings.app.personas.custom
+		)
 	);
 	let avatarSrc = $derived(personaAvatarCache.avatarSrcFor(resolvedPersona, 192));
 	let avatarSrcset = $derived(

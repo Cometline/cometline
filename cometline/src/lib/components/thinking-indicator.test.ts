@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-	stageForTurnPhase,
-	variantForStage,
-	variantForTurnPhase
-} from './thinking-indicator';
+import { stageForTurnPhase, variantForStage, variantForTurnPhase } from './thinking-indicator';
 import { StickyThinkingVariant } from './sticky-thinking-variant';
 
 describe('thinking indicator stage map', () => {

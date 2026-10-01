@@ -123,7 +123,12 @@ describe('shellStore workspace panel focus behavior', () => {
 		const [, exampleTab] = shellStore.workspacePanelUrlTabs;
 		shellStore.activateUrlTabForActive(searchTab);
 
-		shellStore.syncWorkspacePanelUrlFromGuest('sess-1', searchTab, 'https://www.youtube.com/', 'YouTube');
+		shellStore.syncWorkspacePanelUrlFromGuest(
+			'sess-1',
+			searchTab,
+			'https://www.youtube.com/',
+			'YouTube'
+		);
 
 		expect(shellStore.workspacePanelUrlTabs).toEqual([searchTab, exampleTab]);
 		expect(shellStore.workspacePanelUrl).toBe('https://www.youtube.com/');
@@ -177,9 +182,7 @@ describe('shellStore workspace panel focus behavior', () => {
 		shellStore.closeUrlTabForActive(tabA);
 		expect(shellStore.focusedPane).toBe('web');
 		expect(shellStore.composerFocusRequest.id).toBe(before);
-		expect(shellStore.workspacePanelUrlTabs).toEqual(
-			expect.arrayContaining([tabB])
-		);
+		expect(shellStore.workspacePanelUrlTabs).toEqual(expect.arrayContaining([tabB]));
 		expect(shellStore.workspacePanelUrlTabs).not.toContain(tabA);
 
 		shellStore.closeWorkspacePanel();

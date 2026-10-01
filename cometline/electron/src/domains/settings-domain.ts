@@ -22,10 +22,7 @@ export interface WorkspaceStore {
 	recentPaths: string[];
 }
 
-type JsonFileSystem = Pick<
-	typeof import('node:fs'),
-	'writeFileSync' | 'chmodSync' | 'renameSync'
->;
+type JsonFileSystem = Pick<typeof import('node:fs'), 'writeFileSync' | 'chmodSync' | 'renameSync'>;
 
 function cloneJson<T>(value: T | null | undefined): T | null {
 	return JSON.parse(JSON.stringify(value ?? null)) as T | null;
@@ -50,10 +47,15 @@ export function applyProviderEnvironmentOverrides(
 	fromEnv: ProviderEnvironmentOverrides
 ): ProviderSettings {
 	if (fromEnv.providerId) {
-		const matched = settings.providers.find((provider) => provider.id === fromEnv.providerId?.trim());
+		const matched = settings.providers.find(
+			(provider) => provider.id === fromEnv.providerId?.trim()
+		);
 		if (matched) {
 			settings.defaultProviderId = matched.id;
-			if (!settings.defaultModelId || !matched.enabledModels.includes(settings.defaultModelId)) {
+			if (
+				!settings.defaultModelId ||
+				!matched.enabledModels.includes(settings.defaultModelId)
+			) {
 				settings.defaultModelId =
 					matched.enabledModels[0] || matched.selectedModel || matched.models[0] || '';
 			}

@@ -210,17 +210,13 @@ export type MentionPath = {
 };
 
 /** Mixed file + directory mention results, directories first when scores tie. */
-export function filterMentionPaths(
-	files: string[],
-	query: string,
-	limit = 50
-): MentionPath[] {
+export function filterMentionPaths(files: string[], query: string, limit = 50): MentionPath[] {
 	const q = query.trim().toLowerCase();
 	const dirs = directoriesFromFileIndex(files);
 	const fileEntries = files.filter((path) => !path.endsWith('/'));
-	const fileHits = (q ? fileEntries.filter((path) => path.toLowerCase().includes(q)) : fileEntries).map(
-		(path): MentionPath => ({ path, kind: 'file' })
-	);
+	const fileHits = (
+		q ? fileEntries.filter((path) => path.toLowerCase().includes(q)) : fileEntries
+	).map((path): MentionPath => ({ path, kind: 'file' }));
 	const dirHits = (q ? dirs.filter((path) => path.toLowerCase().includes(q)) : dirs).map(
 		(path): MentionPath => ({ path, kind: 'dir' })
 	);

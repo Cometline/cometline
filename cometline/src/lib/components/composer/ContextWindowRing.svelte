@@ -48,7 +48,9 @@
 	<div class="context-tooltip" role="tooltip">
 		<p class="context-tooltip-main">{tooltipLine}</p>
 		<p class="context-tooltip-note">
-			{source === 'server' ? 'Synced with context budget' : 'Estimated from visible transcript'}
+			{source === 'server'
+				? 'Synced with context budget'
+				: 'Estimated from visible transcript'}
 		</p>
 	</div>
 </div>

@@ -89,7 +89,9 @@
 			FILE_TREE_SEARCH_ROW_HEIGHT
 		)
 	);
-	const visibleSearchResults = $derived(searchResults.slice(searchWindow.start, searchWindow.end));
+	const visibleSearchResults = $derived(
+		searchResults.slice(searchWindow.start, searchWindow.end)
+	);
 
 	function fileName(path: string): string {
 		return path.split(/[/\\]/).filter(Boolean).pop() || path;
@@ -151,7 +153,8 @@
 		const viewTop = searchScrollEl.scrollTop;
 		const viewBottom = viewTop + searchScrollEl.clientHeight;
 		if (top < viewTop) searchScrollEl.scrollTop = top;
-		else if (bottom > viewBottom) searchScrollEl.scrollTop = bottom - searchScrollEl.clientHeight;
+		else if (bottom > viewBottom)
+			searchScrollEl.scrollTop = bottom - searchScrollEl.clientHeight;
 	}
 
 	async function scrollSelectedIntoView() {
@@ -294,7 +297,11 @@
 			if (isFileIndexTruncated(normalizedWorkspace)) {
 				const extra = await searchWorkspaceFiles(normalizedWorkspace, query);
 				if (seq !== loadSeq) return;
-				matches = rankMatchingFiles([...index.files, ...extra], query, FILE_TREE_SEARCH_LIMIT);
+				matches = rankMatchingFiles(
+					[...index.files, ...extra],
+					query,
+					FILE_TREE_SEARCH_LIMIT
+				);
 			}
 			searchResults = matches;
 		} catch (err) {
@@ -372,15 +379,13 @@
 		if (!searchScrollEl) return;
 		searchViewportHeight = searchScrollEl.clientHeight || 320;
 	});
-
-
 </script>
 
 {#snippet treeNodes(nodes: FileTreeNode[], parentKey: string)}
 	<ul class="file-tree-list" role="tree">
 		{#each nodes as node (dirKey(parentKey, node.name))}
 			{@const key = dirKey(parentKey, node.name)}
-						{@const hasChildren = node.children !== undefined}
+			{@const hasChildren = node.children !== undefined}
 			{@const rowExpanded = hasChildren && isExpanded(key)}
 			<li
 				class="file-tree-item"
@@ -484,7 +489,10 @@
 			onscroll={onSearchScroll}
 		>
 			<div class="file-search-virtual" style:height="{searchWindow.height}px">
-				<div class="file-search-virtual-inner" style:transform="translateY({searchWindow.offset}px)">
+				<div
+					class="file-search-virtual-inner"
+					style:transform="translateY({searchWindow.offset}px)"
+				>
 					{#each visibleSearchResults as path, offset (path)}
 						{@const index = searchWindow.start + offset}
 						<button
@@ -581,19 +589,11 @@
 	}
 
 	.file-tree-row:hover {
-		background: color-mix(
-			in srgb,
-			var(--workspace-inactive-color, #9a9a9f) 12%,
-			transparent
-		);
+		background: color-mix(in srgb, var(--workspace-inactive-color, #9a9a9f) 12%, transparent);
 	}
 
 	.file-tree-row.selected {
-		background: color-mix(
-			in srgb,
-			var(--workspace-inactive-color, #9a9a9f) 18%,
-			transparent
-		);
+		background: color-mix(in srgb, var(--workspace-inactive-color, #9a9a9f) 18%, transparent);
 	}
 
 	.file-tree-row.file-tree-dir {

@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { clearAllFileIndexes, refreshFileIndex } from './file-index';
-import { loadWorkspacePanelFileOptions, rankWorkspaceFileMatches } from './workspace-panel-input-options';
+import {
+	loadWorkspacePanelFileOptions,
+	rankWorkspaceFileMatches
+} from './workspace-panel-input-options';
 import * as cometmind from '$lib/client/cometmind';
 
 vi.mock('$lib/client/cometmind', () => ({
@@ -54,15 +57,24 @@ describe('workspace-panel-input-options', () => {
 		const result = await loadWorkspacePanelFileOptions('/workspace', 'youtube');
 
 		expect(result).toEqual(['youtube', 'deep/youtube.md']);
-		expect(cometmind.listWorkspaceFiles).toHaveBeenNthCalledWith(2, '/workspace', 'youtube', 50, {
-			index: true
-		});
+		expect(cometmind.listWorkspaceFiles).toHaveBeenNthCalledWith(
+			2,
+			'/workspace',
+			'youtube',
+			50,
+			{
+				index: true
+			}
+		);
 	});
 
 	it('limits returned file options', async () => {
 		vi.mocked(cometmind.listWorkspaceFiles).mockResolvedValue(wf(['a.ts', 'b.ts', 'c.ts']));
 
-		expect(await loadWorkspacePanelFileOptions('/workspace', '.ts', 2)).toEqual(['a.ts', 'b.ts']);
+		expect(await loadWorkspacePanelFileOptions('/workspace', '.ts', 2)).toEqual([
+			'a.ts',
+			'b.ts'
+		]);
 	});
 
 	it('ranks exact, basename, prefix, then substring matches', () => {

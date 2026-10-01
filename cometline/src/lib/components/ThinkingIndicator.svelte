@@ -20,12 +20,7 @@
 		variant?: ThinkingIndicatorVariant;
 	}
 
-	let {
-		color,
-		size = 24,
-		label = 'Assistant is thinking',
-		variant = 'orbit'
-	}: Props = $props();
+	let { color, size = 24, label = 'Assistant is thinking', variant = 'orbit' }: Props = $props();
 </script>
 
 <div

@@ -116,9 +116,7 @@ export function buildRecallList(options: {
 }
 
 /** Newest-first user message texts from chat items. */
-export function listUserMessageTexts(
-	items: Array<{ type: string; text?: string }>
-): string[] {
+export function listUserMessageTexts(items: Array<{ type: string; text?: string }>): string[] {
 	const out: string[] = [];
 	for (let i = items.length - 1; i >= 0; i--) {
 		const item = items[i];

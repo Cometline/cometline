@@ -67,7 +67,8 @@ function createTestDomain(
 		processId: 9876,
 		now: () => 1_700_000_000_000,
 		readSavedPersonaId: () => 'minako',
-		resolveNextPersonaId: (settings, current) => settings.app?.personaId ?? current.app.personaId,
+		resolveNextPersonaId: (settings, current) =>
+			settings.app?.personaId ?? current.app.personaId,
 		resolveSystemPromptPath: (personaId) => `/souls/${personaId}.md`,
 		getFocusedWindow: () => null,
 		showOpenDialog
@@ -97,7 +98,10 @@ describe('provider environment overrides', () => {
 			enabledModels: ['claude-characterization']
 		});
 		expect(
-			providerEnvironmentOverrides({ OPENAI_API_KEY: 'openai', ANTHROPIC_API_KEY: 'anthropic' })
+			providerEnvironmentOverrides({
+				OPENAI_API_KEY: 'openai',
+				ANTHROPIC_API_KEY: 'anthropic'
+			})
 		).toMatchObject({ apiKey: 'openai' });
 	});
 });
@@ -118,7 +122,10 @@ describe('split settings documents', () => {
 		});
 		expect(split.desktop).toMatchObject({ app: { miniWindowSessionId: 'session-1' } });
 		expect(
-			mergeSettingsDocuments(split.settings, { ...split.desktop, systemPromptPath: '/desktop/SOUL.md' })
+			mergeSettingsDocuments(split.settings, {
+				...split.desktop,
+				systemPromptPath: '/desktop/SOUL.md'
+			})
 		).toMatchObject({ cometmind: { systemPromptPath: '/desktop/SOUL.md' } });
 	});
 });
@@ -147,7 +154,9 @@ describe('default provider and model selection', () => {
 			defaultProviderId: 'other',
 			defaultModelId: 'other-first'
 		});
-		expect(selectDefaultProviderAndModel(providers, current, 'disabled', 'disabled-model')).toEqual({
+		expect(
+			selectDefaultProviderAndModel(providers, current, 'disabled', 'disabled-model')
+		).toEqual({
 			defaultProviderId: 'current',
 			defaultModelId: 'current-first'
 		});
@@ -158,7 +167,10 @@ describe('mini window settings', () => {
 	it('persists valid state and retains the inactivity timeout', () => {
 		const settings = defaultSettings();
 		settings.app.miniWindowInactivityTimeoutMinutes = 45;
-		const updated = withMiniWindowState(settings, { sessionId: 'session-42', lastActiveAt: -3.8 });
+		const updated = withMiniWindowState(settings, {
+			sessionId: 'session-42',
+			lastActiveAt: -3.8
+		});
 		expect(miniWindowStateFromSettings(updated)).toEqual({
 			sessionId: 'session-42',
 			lastActiveAt: 0,
@@ -181,7 +193,10 @@ describe('recent workspace paths', () => {
 		});
 		expect(
 			listRecentWorkspacePathValues(
-				{ workspacePath: '/current', recentPaths: ['/current', '/alias/project', '/project'] },
+				{
+					workspacePath: '/current',
+					recentPaths: ['/current', '/alias/project', '/project']
+				},
 				() => true,
 				(candidate) => candidate.replace('/alias/project', '/project')
 			)
@@ -231,13 +246,19 @@ describe('settings domain factory', () => {
 		expect(domain.flushMiniWindowActivity().lastActiveAt).toBe(1_700_000_000_000);
 		expect(domain.writeStoredWorkspacePath(workspace)).toBe(workspace);
 		expect(domain.listRecentWorkspacePaths()).toEqual([workspace]);
-		expect(domain.appendComposerHistoryEntry({ display: 'run tests', project: workspace })).toMatchObject({
+		expect(
+			domain.appendComposerHistoryEntry({ display: 'run tests', project: workspace })
+		).toMatchObject({
 			ok: true,
 			entries: [{ workspacePath: workspace, timestamp: 1_700_000_000_000 }]
 		});
 		expect(domain.loadComposerHistoryEntries()).toHaveLength(1);
 		const directory = path.join(homeDirectory, '.cometmind');
-		expect(fs.statSync(path.join(directory, 'cometline-settings.json')).mode & 0o777).toBe(0o600);
-		expect(fs.statSync(path.join(directory, 'cometline-desktop.json')).mode & 0o777).toBe(0o600);
+		expect(fs.statSync(path.join(directory, 'cometline-settings.json')).mode & 0o777).toBe(
+			0o600
+		);
+		expect(fs.statSync(path.join(directory, 'cometline-desktop.json')).mode & 0o777).toBe(
+			0o600
+		);
 	});
 });

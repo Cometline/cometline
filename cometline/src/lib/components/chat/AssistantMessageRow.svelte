@@ -50,7 +50,12 @@
 	{/if}
 	<div class="assistant-column" class:first-turn-destination-hidden={hideAvatarForFirstTurn}>
 		<AssistantStack
-			{...assistantStackBindings(stackContext, item, showActivitySpinner(item), deferMarkdown)}
+			{...assistantStackBindings(
+				stackContext,
+				item,
+				showActivitySpinner(item),
+				deferMarkdown
+			)}
 		/>
 	</div>
 </ThreadRow>

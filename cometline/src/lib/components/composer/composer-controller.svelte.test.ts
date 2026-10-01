@@ -70,7 +70,9 @@ describe('createComposerInputController', () => {
 	it('submitDraft sends payload and clears draft', () => {
 		const onSend = vi.fn();
 		const clearDraft = vi.fn();
-		const controller = createComposerInputController(deps({ onSend, getValue: () => 'go', clearDraft }));
+		const controller = createComposerInputController(
+			deps({ onSend, getValue: () => 'go', clearDraft })
+		);
 		expect(controller.submitDraft([])).toBe(true);
 		expect(onSend).toHaveBeenCalledWith({ text: 'go', agentMode: 'auto' });
 		expect(clearDraft).toHaveBeenCalledOnce();
@@ -78,24 +80,29 @@ describe('createComposerInputController', () => {
 
 	it('sendTurn attaches the active agent mode to string payloads', () => {
 		const onSend = vi.fn();
-		const controller = createComposerInputController(deps({ onSend, getAgentMode: () => 'plan' }));
+		const controller = createComposerInputController(
+			deps({ onSend, getAgentMode: () => 'plan' })
+		);
 		controller.sendTurn('go');
 		expect(onSend).toHaveBeenCalledWith({ text: 'go', agentMode: 'plan' });
 	});
 
 	it('sendTurn keeps an explicit payload agent mode over the composer state', () => {
 		const onSend = vi.fn();
-		const controller = createComposerInputController(deps({ onSend, getAgentMode: () => 'auto' }));
+		const controller = createComposerInputController(
+			deps({ onSend, getAgentMode: () => 'auto' })
+		);
 		controller.sendTurn({ text: 'go', agentMode: 'plan' });
 		expect(onSend).toHaveBeenCalledWith({ text: 'go', agentMode: 'plan' });
 	});
 
 	it('restores a rejected turn into an empty draft', () => {
 		const applyDraft = vi.fn();
-		const controller = createComposerInputController(
-			deps({ getValue: () => '', applyDraft })
-		);
-		const draft = { text: 'try again', images: [{ media_type: 'image/png' as const, data: 'abc' }] };
+		const controller = createComposerInputController(deps({ getValue: () => '', applyDraft }));
+		const draft = {
+			text: 'try again',
+			images: [{ media_type: 'image/png' as const, data: 'abc' }]
+		};
 
 		expect(controller.restoreDraft(draft)).toBe(true);
 		expect(applyDraft).toHaveBeenCalledWith(draft);

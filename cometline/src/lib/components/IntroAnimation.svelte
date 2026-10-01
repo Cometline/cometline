@@ -279,7 +279,14 @@
 				ctx.drawImage(fieldImage, dx, dy, dw, dh);
 				ctx.restore();
 
-				const veil = ctx.createRadialGradient(cx, cy, H * 0.16, cx, cy, Math.max(W, H) * 0.62);
+				const veil = ctx.createRadialGradient(
+					cx,
+					cy,
+					H * 0.16,
+					cx,
+					cy,
+					Math.max(W, H) * 0.62
+				);
 				veil.addColorStop(0, `rgba(250,250,250,${0.42 * sheetFade})`);
 				veil.addColorStop(0.55, `rgba(250,250,250,${0.12 * sheetFade})`);
 				veil.addColorStop(1, 'rgba(250,250,250,0)');

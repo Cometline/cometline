@@ -91,7 +91,9 @@ describe('SettingsMCPPanel add server', () => {
 		const { container } = render(Harness);
 
 		await waitFor(() => {
-			expect(container.querySelector('[data-testid="mcp-enabled"]')?.textContent).toBe('false');
+			expect(container.querySelector('[data-testid="mcp-enabled"]')?.textContent).toBe(
+				'false'
+			);
 		});
 
 		const toggle = container.querySelector('button[role="switch"]') as HTMLButtonElement | null;
@@ -99,14 +101,18 @@ describe('SettingsMCPPanel add server', () => {
 		await fireEvent.click(toggle!);
 
 		await waitFor(() => {
-			expect(container.querySelector('[data-testid="mcp-enabled"]')?.textContent).toBe('true');
+			expect(container.querySelector('[data-testid="mcp-enabled"]')?.textContent).toBe(
+				'true'
+			);
 			expect(toggle!.getAttribute('aria-checked')).toBe('true');
 		});
 
 		await fireEvent.click(toggle!);
 
 		await waitFor(() => {
-			expect(container.querySelector('[data-testid="mcp-enabled"]')?.textContent).toBe('false');
+			expect(container.querySelector('[data-testid="mcp-enabled"]')?.textContent).toBe(
+				'false'
+			);
 			expect(toggle!.getAttribute('aria-checked')).toBe('false');
 		});
 	});
@@ -137,9 +143,7 @@ describe('SettingsMCPPanel add server', () => {
 			expect(container.querySelector('.mcp-server-editor')).toBeTruthy();
 		});
 
-		const envField = container.querySelector(
-			'textarea'
-		) as HTMLTextAreaElement | null;
+		const envField = container.querySelector('textarea') as HTMLTextAreaElement | null;
 		expect(envField).toBeTruthy();
 
 		await fireEvent.input(envField!, { target: { value: 'MY_KEY' } });
@@ -160,7 +164,8 @@ describe('SettingsMCPPanel add server', () => {
 			expect(container.querySelector('[data-testid="server-count"]')?.textContent).toBe('3');
 		});
 
-		const ids = container.querySelector('[data-testid="server-ids"]')?.textContent?.split(',') ?? [];
+		const ids =
+			container.querySelector('[data-testid="server-ids"]')?.textContent?.split(',') ?? [];
 		expect(ids).toHaveLength(3);
 		expect(new Set(ids).size).toBe(3);
 	});
@@ -269,7 +274,9 @@ describe('SettingsMCPPanel refresh status resync (fix for stuck toggle)', () => 
 		const { container } = render(Harness);
 
 		await waitFor(() => {
-			expect(container.querySelector('[data-testid="mcp-enabled"]')?.textContent).toBe('true');
+			expect(container.querySelector('[data-testid="mcp-enabled"]')?.textContent).toBe(
+				'true'
+			);
 		});
 	});
 
@@ -308,7 +315,9 @@ describe('SettingsMCPPanel refresh status resync (fix for stuck toggle)', () => 
 
 		// Expanded server is being edited right now — resync must not clobber it.
 		await waitFor(() => {
-			expect(container.querySelector('[data-testid="mcp-enabled"]')?.textContent).toBe('true');
+			expect(container.querySelector('[data-testid="mcp-enabled"]')?.textContent).toBe(
+				'true'
+			);
 		});
 		const displayNameInput = container.querySelector(
 			'input[type="text"]'
@@ -396,11 +405,14 @@ describe('SettingsMCPPanel refresh status resync (fix for stuck toggle)', () => 
 			expect(container.querySelector('.status-badge.pending')).toBeTruthy();
 		});
 
-		await waitFor(() => {
-			expect(container.textContent).not.toContain('CometMind is reloading MCP servers');
-			expect(container.querySelector('.status-badge.connected')).toBeTruthy();
-			expect(container.textContent).toContain('connected');
-		}, { timeout: 3_000 });
+		await waitFor(
+			() => {
+				expect(container.textContent).not.toContain('CometMind is reloading MCP servers');
+				expect(container.querySelector('.status-badge.connected')).toBeTruthy();
+				expect(container.textContent).toContain('connected');
+			},
+			{ timeout: 3_000 }
+		);
 		expect(listMcpServers).toHaveBeenCalledTimes(2);
 	});
 

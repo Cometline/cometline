@@ -48,7 +48,12 @@ function inferTransport(entry: CursorMcpEntry): MCPTransport | null {
 	const type = String(entry.type ?? '')
 		.trim()
 		.toLowerCase();
-	if (type === 'sse' || type === 'http' || type === 'streamablehttp' || type === 'streamable-http') {
+	if (
+		type === 'sse' ||
+		type === 'http' ||
+		type === 'streamablehttp' ||
+		type === 'streamable-http'
+	) {
 		return 'http';
 	}
 	return 'http';

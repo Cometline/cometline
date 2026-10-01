@@ -63,14 +63,10 @@
 	}
 
 	/** Staged section (VS Code "Staged Changes"). */
-	const stagedFiles = $derived(
-		allFiles.filter((f) => f.staged && matchesFilter(f))
-	);
+	const stagedFiles = $derived(allFiles.filter((f) => f.staged && matchesFilter(f)));
 
 	/** Working tree section (VS Code "Changes") — unstaged + untracked. */
-	const changeFiles = $derived(
-		allFiles.filter((f) => hasUnstagedSide(f) && matchesFilter(f))
-	);
+	const changeFiles = $derived(allFiles.filter((f) => hasUnstagedSide(f) && matchesFilter(f)));
 
 	const stagedCount = $derived(allFiles.filter((f) => f.staged).length);
 	const changesCount = $derived(allFiles.filter((f) => hasUnstagedSide(f)).length);
@@ -200,9 +196,7 @@
 		discardConfirm = null;
 		if (!pending) return;
 		if (pending.kind === 'one') {
-			return runMutation(() =>
-				discardWorkspaceGitPaths(normalizedWorkspace, [pending.path])
-			);
+			return runMutation(() => discardWorkspaceGitPaths(normalizedWorkspace, [pending.path]));
 		}
 		const paths = changeFiles.map((f) => f.path);
 		if (!paths.length) return;
@@ -626,11 +620,7 @@
 		height: 34px;
 		padding: 0 14px;
 		/* Follows Settings hero glow so Commit tracks the active composer accent. */
-		background: color-mix(
-			in srgb,
-			var(--hero-composer-glow-color, var(--accent)) 72%,
-			#1f2933
-		);
+		background: color-mix(in srgb, var(--hero-composer-glow-color, var(--accent)) 72%, #1f2933);
 		color: #fff;
 		font-size: 13px;
 		font-weight: 650;
@@ -643,11 +633,7 @@
 	}
 
 	.git-commit-btn:hover:not(:disabled) {
-		background: color-mix(
-			in srgb,
-			var(--hero-composer-glow-color, var(--accent)) 82%,
-			#1f2933
-		);
+		background: color-mix(in srgb, var(--hero-composer-glow-color, var(--accent)) 82%, #1f2933);
 		box-shadow: 0 8px 22px var(--hero-composer-glow-strong, transparent);
 	}
 

@@ -58,7 +58,10 @@
 						<li class="queue-preview-item">
 							<span class="queue-preview-index">{index + 1}</span>
 							{#if message.agentMode === 'plan'}
-								<span class="queue-mode" title="This queued message runs in Plan mode">plan</span>
+								<span
+									class="queue-mode"
+									title="This queued message runs in Plan mode">plan</span
+								>
 							{/if}
 							<p class="queue-preview-text">{message.text}</p>
 							<button

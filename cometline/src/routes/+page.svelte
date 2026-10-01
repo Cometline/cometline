@@ -59,7 +59,8 @@
 				.catch((err) => {
 					if (cancelled) return;
 					bootstrapping = false;
-					bootstrapError = err instanceof Error ? err.message : 'Failed to start a new chat';
+					bootstrapError =
+						err instanceof Error ? err.message : 'Failed to start a new chat';
 				});
 		};
 

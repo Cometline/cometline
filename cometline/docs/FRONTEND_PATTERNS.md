@@ -44,16 +44,16 @@ Use [`ChatTurnContext`](../src/lib/conversation/chat-turn-context.ts) for stable
 
 The renderer is no longer only the chat route. Current first-class routes are:
 
-| Route | Surface |
-| --- | --- |
-| `/` | New chat hero composer |
-| `/session/[id]` | Full chat thread |
-| `/gallery` | Generated and presented media library |
-| `/usage` | Token usage and estimated spend dashboard |
-| `/jobs` | Jobs board and job detail drawer |
-| `/skills` | Skill browse/edit and draft review |
-| `/settings` | Direct settings route outside `AppShell` |
-| `/mini` and `/mini/session/[id]` | Compact mini-window chat |
+| Route                            | Surface                                   |
+| -------------------------------- | ----------------------------------------- |
+| `/`                              | New chat hero composer                    |
+| `/session/[id]`                  | Full chat thread                          |
+| `/gallery`                       | Generated and presented media library     |
+| `/usage`                         | Token usage and estimated spend dashboard |
+| `/jobs`                          | Jobs board and job detail drawer          |
+| `/skills`                        | Skill browse/edit and draft review        |
+| `/settings`                      | Direct settings route outside `AppShell`  |
+| `/mini` and `/mini/session/[id]` | Compact mini-window chat                  |
 
 Shared shell state lives in `shell.svelte.ts`; route-local state should stay in route components or feature controllers.
 

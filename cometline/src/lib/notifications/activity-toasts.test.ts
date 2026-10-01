@@ -33,7 +33,13 @@ vi.mock('$lib/stores/inbox.svelte', () => ({
 	}
 }));
 
-import { notifyBackgroundRunFinished, notifyConnectionChange, notifyJobActivity, notifyNewInboxMessage, startSkillDraftToastWatch } from './activity-toasts';
+import {
+	notifyBackgroundRunFinished,
+	notifyConnectionChange,
+	notifyJobActivity,
+	notifyNewInboxMessage,
+	startSkillDraftToastWatch
+} from './activity-toasts';
 
 const settings = {
 	enabled: true,
@@ -57,7 +63,11 @@ describe('activity toasts', () => {
 			{ ...settings, enabled: false }
 		);
 
-		expect(mocks.success).toHaveBeenCalledWith('Job completed', 'Ship it', expect.any(Function));
+		expect(mocks.success).toHaveBeenCalledWith(
+			'Job completed',
+			'Ship it',
+			expect.any(Function)
+		);
 		expect(mocks.warning).toHaveBeenCalledWith('Job blocked', 'Stuck', expect.any(Function));
 		expect(mocks.success).toHaveBeenCalledTimes(1);
 	});
@@ -103,25 +113,20 @@ describe('activity toasts', () => {
 	});
 
 	it('skips background run toasts for the active chat and non-user sessions', () => {
-		notifyBackgroundRunFinished(
-			{ id: 's1', title: 'Current', origin: 'user' },
-			's1'
-		);
-		notifyBackgroundRunFinished(
-			{ id: 's2', title: 'Research', origin: 'user' },
-			's1'
-		);
-		notifyBackgroundRunFinished(
-			{ id: 's3', title: 'Job', origin: 'autonomy' },
-			's1'
-		);
+		notifyBackgroundRunFinished({ id: 's1', title: 'Current', origin: 'user' }, 's1');
+		notifyBackgroundRunFinished({ id: 's2', title: 'Research', origin: 'user' }, 's1');
+		notifyBackgroundRunFinished({ id: 's3', title: 'Job', origin: 'autonomy' }, 's1');
 		notifyBackgroundRunFinished(
 			{ id: 's4', title: 'Child', origin: 'user', parent_session_id: 's1' },
 			's1'
 		);
 
 		expect(mocks.success).toHaveBeenCalledTimes(1);
-		expect(mocks.success).toHaveBeenCalledWith('Chat finished', 'Research', expect.any(Function));
+		expect(mocks.success).toHaveBeenCalledWith(
+			'Chat finished',
+			'Research',
+			expect.any(Function)
+		);
 	});
 
 	it('toasts connection loss and recovery, not startup', () => {

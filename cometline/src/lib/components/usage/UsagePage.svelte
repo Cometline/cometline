@@ -118,7 +118,9 @@
 					item.priced ? item.estimated_usd.toFixed(6) : ''
 				])
 			];
-			const csv = rows.map((row) => row.map((cell) => `"${cell.replaceAll('"', '""')}"`).join(',')).join('\n');
+			const csv = rows
+				.map((row) => row.map((cell) => `"${cell.replaceAll('"', '""')}"`).join(','))
+				.join('\n');
 			const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
 			const url = URL.createObjectURL(blob);
 			const link = document.createElement('a');
@@ -145,16 +147,32 @@
 
 <div class="usage-page settings-ui">
 	<p class="usage-desc">
-		Usage is kept for one year. Estimated cost uses public API rates. Cached input is billed at the
-		cache rate when the provider reports it.
+		Usage is kept for one year. Estimated cost uses public API rates. Cached input is billed at
+		the cache rate when the provider reports it.
 	</p>
 	<header class="usage-toolbar">
 		<div class="chips" role="group" aria-label="Date range">
-			<button type="button" class:active={preset === 'today'} onclick={() => applyPreset('today')}>Today</button>
-			<button type="button" class:active={preset === '7d'} onclick={() => applyPreset('7d')}>Last 7 days</button>
-			<button type="button" class:active={preset === '30d'} onclick={() => applyPreset('30d')}>Last 30 days</button>
-			<button type="button" class:active={preset === 'month'} onclick={() => applyPreset('month')}>Last month</button>
-			<button type="button" class:active={preset === 'year'} onclick={() => applyPreset('year')}>Past year</button>
+			<button
+				type="button"
+				class:active={preset === 'today'}
+				onclick={() => applyPreset('today')}>Today</button
+			>
+			<button type="button" class:active={preset === '7d'} onclick={() => applyPreset('7d')}
+				>Last 7 days</button
+			>
+			<button type="button" class:active={preset === '30d'} onclick={() => applyPreset('30d')}
+				>Last 30 days</button
+			>
+			<button
+				type="button"
+				class:active={preset === 'month'}
+				onclick={() => applyPreset('month')}>Last month</button
+			>
+			<button
+				type="button"
+				class:active={preset === 'year'}
+				onclick={() => applyPreset('year')}>Past year</button
+			>
 		</div>
 		<div class="usage-controls">
 			<p class="usage-range">{formatRangeLabel(range.from, range.to)}</p>
@@ -163,7 +181,8 @@
 				<select bind:value={workspaceId} onchange={() => void refresh(0)}>
 					<option value="">All workspaces</option>
 					{#each workspaces as workspace (workspace.id)}
-						<option value={workspace.id}>{truncateWorkspacePath(workspace.path)}</option>
+						<option value={workspace.id}>{truncateWorkspacePath(workspace.path)}</option
+						>
 					{/each}
 				</select>
 			</label>
@@ -175,117 +194,146 @@
 	{/if}
 
 	<div class="usage-stack">
-	{#if loading && !summary}
-		<section class="usage-empty settings-panel-frame" aria-busy="true">
-			<p>Loading…</p>
-		</section>
-	{:else if summary && summary.totals.tokens === 0}
-		<section class="usage-empty settings-panel-frame">
-			<CircleDollarSign size={28} stroke-width={1.6} />
-			<h2>No usage yet</h2>
-			<p>Usage is recorded from this version onward.</p>
-		</section>
-	{:else if summary}
-		<section class="kpis">
-			<article>
-				<strong>{formatTokens(summary.totals.tokens)}</strong>
-				<span>Total Tokens</span>
-			</article>
-			<article>
-				<strong>{formatUSD(summary.totals.estimated_usd)}</strong>
-				<span>Estimated</span>
-			</article>
-			<article>
-				<strong>{cacheReadTotal > 0 ? `${formatTokens(cacheReadTotal)} · ${cacheHit}` : '—'}</strong>
-				<span>Cache read</span>
-			</article>
-			<article>
-				<strong>{formatTokens(summary.totals.unpriced_tokens)}</strong>
-				<span>Unpriced</span>
-			</article>
-		</section>
+		{#if loading && !summary}
+			<section class="usage-empty settings-panel-frame" aria-busy="true">
+				<p>Loading…</p>
+			</section>
+		{:else if summary && summary.totals.tokens === 0}
+			<section class="usage-empty settings-panel-frame">
+				<CircleDollarSign size={28} stroke-width={1.6} />
+				<h2>No usage yet</h2>
+				<p>Usage is recorded from this version onward.</p>
+			</section>
+		{:else if summary}
+			<section class="kpis">
+				<article>
+					<strong>{formatTokens(summary.totals.tokens)}</strong>
+					<span>Total Tokens</span>
+				</article>
+				<article>
+					<strong>{formatUSD(summary.totals.estimated_usd)}</strong>
+					<span>Estimated</span>
+				</article>
+				<article>
+					<strong
+						>{cacheReadTotal > 0
+							? `${formatTokens(cacheReadTotal)} · ${cacheHit}`
+							: '—'}</strong
+					>
+					<span>Cache read</span>
+				</article>
+				<article>
+					<strong>{formatTokens(summary.totals.unpriced_tokens)}</strong>
+					<span>Unpriced</span>
+				</article>
+			</section>
 
-		<section class="chart-card settings-panel-frame">
-			<div class="chart-head">
-				<div>
-					<h2>Your usage</h2>
-					<p>Cumulative tokens</p>
-				</div>
-				<label class="field">
-					<span>Group by</span>
-					<select bind:value={groupBy} onchange={() => void refresh(offset)}>
-						<option value="model">Model</option>
-						<option value="kind">Kind</option>
-					</select>
-				</label>
-			</div>
-			<UsageStackedArea points={series?.points ?? []} keys={series?.keys ?? []} costs={legendCosts} />
-			<div class="legend">
-				<div class="legend-head">
-					<span>{groupBy === 'kind' ? 'Kind' : 'Model'}</span>
-					<span>Tokens</span>
-					<span>Cache</span>
-					<span>Cost</span>
-				</div>
-				{#each legendRows as row, index (row.key)}
-					<div class="legend-row">
-						<span class="legend-name">
-							<i class="swatch" style:background={seriesColor(index, legendRows.length)}></i>
-							{row.label}
-						</span>
-						<span class="legend-meta">{formatTokens(row.tokens)}</span>
-						<span class="legend-meta">{row.cache}</span>
-						<span class="legend-meta">{row.cost}</span>
+			<section class="chart-card settings-panel-frame">
+				<div class="chart-head">
+					<div>
+						<h2>Your usage</h2>
+						<p>Cumulative tokens</p>
 					</div>
-				{/each}
-			</div>
-		</section>
+					<label class="field">
+						<span>Group by</span>
+						<select bind:value={groupBy} onchange={() => void refresh(offset)}>
+							<option value="model">Model</option>
+							<option value="kind">Kind</option>
+						</select>
+					</label>
+				</div>
+				<UsageStackedArea
+					points={series?.points ?? []}
+					keys={series?.keys ?? []}
+					costs={legendCosts}
+				/>
+				<div class="legend">
+					<div class="legend-head">
+						<span>{groupBy === 'kind' ? 'Kind' : 'Model'}</span>
+						<span>Tokens</span>
+						<span>Cache</span>
+						<span>Cost</span>
+					</div>
+					{#each legendRows as row, index (row.key)}
+						<div class="legend-row">
+							<span class="legend-name">
+								<i
+									class="swatch"
+									style:background={seriesColor(index, legendRows.length)}
+								></i>
+								{row.label}
+							</span>
+							<span class="legend-meta">{formatTokens(row.tokens)}</span>
+							<span class="legend-meta">{row.cache}</span>
+							<span class="legend-meta">{row.cost}</span>
+						</div>
+					{/each}
+				</div>
+			</section>
 
-		<section class="table-card settings-panel-frame">
-			<div class="table-head">
-				<h2>Events</h2>
-				<button type="button" onclick={() => void exportCsv()} disabled={!events?.items.length}>Export CSV</button>
-			</div>
-			<div class="table-wrap">
-				<table>
-					<thead>
-						<tr>
-							<th>Date</th>
-							<th>Kind</th>
-							<th>Model</th>
-							<th>Input</th>
-							<th>Cache</th>
-							<th>Output</th>
-							<th>Cost</th>
-						</tr>
-					</thead>
-					<tbody>
-						{#each events?.items ?? [] as item (item.id)}
-							<tr>
-								<td>{formatEventTime(item.created_at)}</td>
-								<td>{formatKind(item.call_kind)}</td>
-								<td>{item.model_id}</td>
-								<td>{formatTokens(item.billed_input)}</td>
-								<td>{item.cache_read > 0 ? formatTokens(item.cache_read) : '—'}</td>
-								<td>{formatTokens(item.output_tokens)}</td>
-								<td>{item.priced ? formatUSD(item.estimated_usd) : '—'}</td>
-							</tr>
-						{/each}
-					</tbody>
-				</table>
-			</div>
-			<div class="pager">
-				<span>Rows {PAGE_SIZE} · Showing {events ? `${offset + 1}–${offset + (events.items.length || 0)} of ${events.total}` : '0'}</span>
-				<div>
-					<button type="button" disabled={offset <= 0} onclick={() => void refresh(Math.max(0, offset - PAGE_SIZE))}>Prev</button>
+			<section class="table-card settings-panel-frame">
+				<div class="table-head">
+					<h2>Events</h2>
 					<button
 						type="button"
-						disabled={!events || offset + events.items.length >= events.total}
-						onclick={() => void refresh(offset + PAGE_SIZE)}>Next</button>
+						onclick={() => void exportCsv()}
+						disabled={!events?.items.length}>Export CSV</button
+					>
 				</div>
-			</div>
-		</section>
-	{/if}
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>Date</th>
+								<th>Kind</th>
+								<th>Model</th>
+								<th>Input</th>
+								<th>Cache</th>
+								<th>Output</th>
+								<th>Cost</th>
+							</tr>
+						</thead>
+						<tbody>
+							{#each events?.items ?? [] as item (item.id)}
+								<tr>
+									<td>{formatEventTime(item.created_at)}</td>
+									<td>{formatKind(item.call_kind)}</td>
+									<td>{item.model_id}</td>
+									<td>{formatTokens(item.billed_input)}</td>
+									<td
+										>{item.cache_read > 0
+											? formatTokens(item.cache_read)
+											: '—'}</td
+									>
+									<td>{formatTokens(item.output_tokens)}</td>
+									<td>{item.priced ? formatUSD(item.estimated_usd) : '—'}</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
+				<div class="pager">
+					<span
+						>Rows {PAGE_SIZE} · Showing {events
+							? `${offset + 1}–${offset + (events.items.length || 0)} of ${events.total}`
+							: '0'}</span
+					>
+					<div>
+						<button
+							type="button"
+							disabled={offset <= 0}
+							onclick={() => void refresh(Math.max(0, offset - PAGE_SIZE))}
+							>Prev</button
+						>
+						<button
+							type="button"
+							disabled={!events || offset + events.items.length >= events.total}
+							onclick={() => void refresh(offset + PAGE_SIZE)}>Next</button
+						>
+					</div>
+				</div>
+			</section>
+		{/if}
 	</div>
 </div>
 

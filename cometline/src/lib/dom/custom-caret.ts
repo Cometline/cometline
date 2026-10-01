@@ -193,7 +193,13 @@ export const customCaret: Action<HTMLElement, CustomCaretParams> = (node, initia
 		return viewportDeltaToLocal(wrap, rect, lineHeight);
 	}
 
-	function setTrailQuad(headX: number, headY: number, tailX: number, tailY: number, alpha: number) {
+	function setTrailQuad(
+		headX: number,
+		headY: number,
+		tailX: number,
+		tailY: number,
+		alpha: number
+	) {
 		if (!trail) return;
 		const points = trailPolygonPoints(
 			{ x: headX, y: headY },

@@ -25,10 +25,17 @@ describe('parseWikilinkInner', () => {
 });
 
 describe('resolveWikilink', () => {
-	const files = ['index.md', 'entities/runtime-mounts.md', 'concepts/Runtime.md', 'syntheses/overview.md'];
+	const files = [
+		'index.md',
+		'entities/runtime-mounts.md',
+		'concepts/Runtime.md',
+		'syntheses/overview.md'
+	];
 
 	it('resolves exact relative paths', () => {
-		expect(resolveWikilink('entities/runtime-mounts', files)).toBe('entities/runtime-mounts.md');
+		expect(resolveWikilink('entities/runtime-mounts', files)).toBe(
+			'entities/runtime-mounts.md'
+		);
 	});
 
 	it('resolves unique basename stems case-insensitively', () => {

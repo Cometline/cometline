@@ -22,9 +22,7 @@ export function toolFoldLabel(
 	const displayName = formatToolDisplayName(item.toolName, mcpServers);
 	const status = item.pending ? 'running' : item.error ? 'fail' : 'success';
 	const duration = toolDurationLabel(item, now);
-	return duration
-		? `${displayName} → ${status} · ${duration}`
-		: `${displayName} → ${status}`;
+	return duration ? `${displayName} → ${status} · ${duration}` : `${displayName} → ${status}`;
 }
 
 export function usageText(item: Extract<ChatItem, { type: 'status' }>) {

@@ -43,7 +43,9 @@ describe('usage chart', () => {
 		);
 		const { x0, x1 } = singleDayBarBounds(width);
 		expect(paths).toHaveLength(2);
-		const xs = [...(paths[0]?.d.matchAll(/(?:M|L) ([\d.]+)/g) ?? [])].map((match) => Number(match[1]));
+		const xs = [...(paths[0]?.d.matchAll(/(?:M|L) ([\d.]+)/g) ?? [])].map((match) =>
+			Number(match[1])
+		);
 		expect(new Set(xs)).toEqual(new Set([x0, x1]));
 		expect(x1 - x0).toBeLessThan(width / 2);
 	});

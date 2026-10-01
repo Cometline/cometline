@@ -34,7 +34,9 @@ describe('runtimeActionForSettingsSave', () => {
 		const next = defaultSettings();
 		next.cometmind.memory.embedding.providerId = 'openai';
 		next.providers = next.providers.map((provider) =>
-			provider.id === 'openai' ? { ...provider, baseURL: 'http://localhost:11434/v1' } : provider
+			provider.id === 'openai'
+				? { ...provider, baseURL: 'http://localhost:11434/v1' }
+				: provider
 		);
 
 		expect(runtimeActionForSettingsSave(persisted, next)).toBe('reload');
@@ -114,10 +116,14 @@ describe('saveStatusMessage', () => {
 	it('flags a reload/restart that did not come back healthy', () => {
 		expect(
 			saveStatusMessage('agent', 'reload', false, { action: 'reload', healthy: false })
-		).toBe('Changes saved. CometMind reloaded but is not responding yet. Check the CometMind log.');
+		).toBe(
+			'Changes saved. CometMind reloaded but is not responding yet. Check the CometMind log.'
+		);
 		expect(
 			saveStatusMessage('agent', 'restart', false, { action: 'restart', healthy: false })
-		).toBe('Changes saved. CometMind restarted but is not responding yet. Check the CometMind log.');
+		).toBe(
+			'Changes saved. CometMind restarted but is not responding yet. Check the CometMind log.'
+		);
 	});
 
 	it('reports no runtime note when reload is explicitly null (no action requested)', () => {

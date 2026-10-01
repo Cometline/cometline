@@ -171,13 +171,16 @@ describe('file-index', () => {
 
 	it('filters mention paths with directories first', () => {
 		const hits = filterMentionPaths(['src/lib/a.ts', 'src/b.ts', 'README.md'], 'src');
-		expect(hits.filter((h) => h.kind === 'dir').map((h) => h.path)).toEqual(['src/', 'src/lib/']);
+		expect(hits.filter((h) => h.kind === 'dir').map((h) => h.path)).toEqual([
+			'src/',
+			'src/lib/'
+		]);
 		expect(hits.some((h) => h.kind === 'file' && h.path === 'src/lib/a.ts')).toBe(true);
 	});
 
 	it('evicts the oldest workspace index after three cached workspaces', async () => {
-		vi.mocked(cometmind.listWorkspaceFiles).mockImplementation(async (_path, _q, _limit, _opts) =>
-			wf([`${_path}.go`])
+		vi.mocked(cometmind.listWorkspaceFiles).mockImplementation(
+			async (_path, _q, _limit, _opts) => wf([`${_path}.go`])
 		);
 		await refreshFileIndex('/a');
 		await refreshFileIndex('/b');

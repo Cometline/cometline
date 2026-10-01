@@ -42,8 +42,7 @@ const CHARS_PER_LINE = 88;
 const LINE_HEIGHT = 22;
 
 /** Wide / CJK code points count as ~2 Latin columns for line estimates. */
-const WIDE_CHAR_RE =
-	/[ᄀ-ᅟ⺀-꓏가-힣豈-﫿︐-︙︰-﹯＀-｠￠-￦]/u;
+const WIDE_CHAR_RE = /[ᄀ-ᅟ⺀-꓏가-힣豈-﫿︐-︙︰-﹯＀-｠￠-￦]/u;
 
 export interface VirtualWindow {
 	start: number;
@@ -186,7 +185,11 @@ export function totalHeightFromSizes(sizes: readonly number[], gap = THREAD_TURN
 	return total;
 }
 
-function findStartIndex(offsets: readonly number[], sizes: readonly number[], scrollTop: number): number {
+function findStartIndex(
+	offsets: readonly number[],
+	sizes: readonly number[],
+	scrollTop: number
+): number {
 	const n = sizes.length;
 	if (n === 0) return 0;
 	let lo = 0;

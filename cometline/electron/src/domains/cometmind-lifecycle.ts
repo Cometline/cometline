@@ -137,12 +137,18 @@ export function createCometMindLifecycle(deps: CometMindLifecycleDeps): CometMin
 	function cliBinDirs() {
 		const home = os.homedir();
 		const dirs = [path.join(home, '.cometmind', 'bin'), path.join(home, '.local', 'bin')];
-		if (globalThis.process.platform === 'darwin') dirs.push('/opt/homebrew/bin', '/usr/local/bin');
+		if (globalThis.process.platform === 'darwin')
+			dirs.push('/opt/homebrew/bin', '/usr/local/bin');
 		return dirs;
 	}
 
 	function pathWithCliBins(envPath = '') {
-		const entries = [...cliBinDirs(), ...String(envPath || '').split(path.delimiter).filter(Boolean)];
+		const entries = [
+			...cliBinDirs(),
+			...String(envPath || '')
+				.split(path.delimiter)
+				.filter(Boolean)
+		];
 		return [...new Set(entries)].join(path.delimiter);
 	}
 
@@ -158,12 +164,16 @@ export function createCometMindLifecycle(deps: CometMindLifecycleDeps): CometMin
 	function scheduleRespawn(reason: string) {
 		if (deps.context.shouldSuppressSidecarRespawn() || respawnTimer) return;
 		if (respawnAttempts >= RESPAWN_MAX_ATTEMPTS) {
-			console.error(`CometMind respawn giving up after ${respawnAttempts} attempts (last: ${reason})`);
+			console.error(
+				`CometMind respawn giving up after ${respawnAttempts} attempts (last: ${reason})`
+			);
 			return;
 		}
 		const delay = Math.min(RESPAWN_BASE_MS * 2 ** respawnAttempts, RESPAWN_MAX_MS);
 		respawnAttempts += 1;
-		console.warn(`CometMind died unexpectedly (${reason}); respawning in ${delay}ms (attempt ${respawnAttempts}/${RESPAWN_MAX_ATTEMPTS})`);
+		console.warn(
+			`CometMind died unexpectedly (${reason}); respawning in ${delay}ms (attempt ${respawnAttempts}/${RESPAWN_MAX_ATTEMPTS})`
+		);
 		respawnTimer = setTimeout(async () => {
 			respawnTimer = null;
 			if (deps.context.shouldSuppressSidecarRespawn() || isRunning()) return;
@@ -208,9 +218,13 @@ export function createCometMindLifecycle(deps: CometMindLifecycleDeps): CometMin
 
 	function runCommand(args: string[]) {
 		const binary = deps.resolveBinary();
-		if (!fs.existsSync(binary)) return Promise.reject(new Error(`CometMind binary not found: ${binary}`));
+		if (!fs.existsSync(binary))
+			return Promise.reject(new Error(`CometMind binary not found: ${binary}`));
 		return new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
-			const child = spawn(binary, args, { stdio: ['ignore', 'pipe', 'pipe'], env: environment() });
+			const child = spawn(binary, args, {
+				stdio: ['ignore', 'pipe', 'pipe'],
+				env: environment()
+			});
 			let stdout = '';
 			let stderr = '';
 			child.stdout?.on('data', (data: Buffer) => (stdout += String(data)));
@@ -218,7 +232,13 @@ export function createCometMindLifecycle(deps: CometMindLifecycleDeps): CometMin
 			child.on('error', reject);
 			child.on('exit', (code) => {
 				if (code === 0) return resolve({ stdout, stderr });
-				reject(new Error(stderr.trim() || stdout.trim() || `CometMind ${args.join(' ')} exited with code ${code}`));
+				reject(
+					new Error(
+						stderr.trim() ||
+							stdout.trim() ||
+							`CometMind ${args.join(' ')} exited with code ${code}`
+					)
+				);
 			});
 		});
 	}
@@ -279,8 +299,8 @@ export function createCometMindLifecycle(deps: CometMindLifecycleDeps): CometMin
 	function startGateway(settings: unknown) {
 		if (gatewayProcess) return;
 		const discord =
-			(settings as { cometmind?: { gateway?: { discord?: { botToken?: unknown } } } })?.cometmind?.gateway?.discord ??
-			{};
+			(settings as { cometmind?: { gateway?: { discord?: { botToken?: unknown } } } })
+				?.cometmind?.gateway?.discord ?? {};
 		if (!String(discord.botToken ?? '').trim() && !globalThis.process.env.DISCORD_BOT_TOKEN) {
 			console.error('Discord gateway: bot token is not configured');
 			return;
@@ -335,7 +355,8 @@ export function createCometMindLifecycle(deps: CometMindLifecycleDeps): CometMin
 	async function waitForHealth() {
 		for (let i = 0; i < MAX_RETRIES; i += 1) {
 			try {
-				if ((await fetch(HEALTH_URL, { signal: AbortSignal.timeout(1000) })).ok) return true;
+				if ((await fetch(HEALTH_URL, { signal: AbortSignal.timeout(1000) })).ok)
+					return true;
 			} catch {
 				// Keep polling while the sidecar warms up.
 			}
@@ -394,8 +415,8 @@ export function createCometMindLifecycle(deps: CometMindLifecycleDeps): CometMin
 		async syncDiscordGateway(settings) {
 			const run = async () => {
 				const enabled = Boolean(
-					(settings as { cometmind?: { gateway?: { discord?: { enabled?: unknown } } } })?.cometmind?.gateway
-						?.discord?.enabled
+					(settings as { cometmind?: { gateway?: { discord?: { enabled?: unknown } } } })
+						?.cometmind?.gateway?.discord?.enabled
 				);
 				await stopGateway();
 				if (enabled) startGateway(settings);

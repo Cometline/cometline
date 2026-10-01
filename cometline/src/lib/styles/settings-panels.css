@@ -289,7 +289,9 @@
 }
 
 .settings-panel-frame
-	input:not([type='checkbox']):not([type='radio']):not([type='color']):not([type='range']):disabled,
+	input:not([type='checkbox']):not([type='radio']):not([type='color']):not(
+		[type='range']
+	):disabled,
 .settings-panel-frame select:disabled {
 	--settings-select-chevron-color: rgba(100, 116, 139, 0.82);
 
@@ -305,7 +307,7 @@
 }
 
 .settings-panel-frame
-input:not([type='checkbox']):not([type='radio']):not([type='color']):not([type='range']).locked,
+	input:not([type='checkbox']):not([type='radio']):not([type='color']):not([type='range']).locked,
 .settings-panel-frame select.locked {
 	background-color: #edf1f5;
 	color: #94a3b8;

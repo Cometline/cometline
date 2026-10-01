@@ -164,19 +164,19 @@ function createModelStore() {
 			const providerId = entry.providerId.trim();
 			const modelId = entry.modelId.trim();
 			if (!providerId || !modelId) continue;
-		next.set(`${providerId}\0${modelId}`, {
-			providerId,
-			modelId,
-			context: entry.context,
-			output: entry.output,
-			limitSource: entry.limitSource,
-			vision: entry.vision,
-			visionKnown: entry.visionKnown,
-			inputModalities: [...entry.inputModalities],
-			reasoningEffortOptions: entry.reasoningEffortOptions
-				? [...entry.reasoningEffortOptions]
-				: []
-		});
+			next.set(`${providerId}\0${modelId}`, {
+				providerId,
+				modelId,
+				context: entry.context,
+				output: entry.output,
+				limitSource: entry.limitSource,
+				vision: entry.vision,
+				visionKnown: entry.visionKnown,
+				inputModalities: [...entry.inputModalities],
+				reasoningEffortOptions: entry.reasoningEffortOptions
+					? [...entry.reasoningEffortOptions]
+					: []
+			});
 		}
 		limitsByKey = next;
 		options = options.map((option) => {

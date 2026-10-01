@@ -143,7 +143,9 @@ describe('createSessionFindController', () => {
 		const message = root.querySelector<HTMLElement>('[data-session-find-text]')!;
 		const order: string[] = [];
 		vi.spyOn(expand, 'click').mockImplementation(() => order.push('expand'));
-		vi.mocked(HTMLElement.prototype.scrollIntoView).mockImplementation(function (this: HTMLElement) {
+		vi.mocked(HTMLElement.prototype.scrollIntoView).mockImplementation(function (
+			this: HTMLElement
+		) {
 			if (this === message) order.push('scroll');
 		});
 		let controller!: ReturnType<typeof createSessionFindController>;

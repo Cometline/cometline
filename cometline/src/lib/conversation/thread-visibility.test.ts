@@ -8,10 +8,7 @@ import {
 	type ThreadVisibilityContext
 } from './thread-visibility';
 import type { ChatItem } from '$lib/stores/chat.svelte';
-import {
-	buildThinkingAttribution,
-	type ThinkingAttribution
-} from './thinking-attribution';
+import { buildThinkingAttribution, type ThinkingAttribution } from './thinking-attribution';
 
 const emptyAttribution: ThinkingAttribution = {
 	map: new Map(),
@@ -164,10 +161,7 @@ describe('selectFirstAssistantItem', () => {
 			text: '',
 			reasoning: { segments: [{ text: 'planning', pending: true }] }
 		};
-		const threadItems: ChatItem[] = [
-			{ id: 'u1', type: 'user', text: 'hi' },
-			assistant
-		];
+		const threadItems: ChatItem[] = [{ id: 'u1', type: 'user', text: 'hi' }, assistant];
 		const attribution = buildThinkingAttribution(threadItems);
 		expect(selectFirstAssistantItem(threadItems, attribution)?.id).toBe('a1');
 	});

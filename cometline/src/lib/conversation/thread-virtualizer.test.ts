@@ -71,7 +71,11 @@ describe('resolveTurnSizes', () => {
 			{ id: 'a2', type: 'assistant', text: 'b' }
 		];
 		const list = turnsFrom(items);
-		const sizes = resolveTurnSizes(list, { u1: 400 }, { activePinnedUserId: 'u2', activeTurnMinHeight: 500 });
+		const sizes = resolveTurnSizes(
+			list,
+			{ u1: 400 },
+			{ activePinnedUserId: 'u2', activeTurnMinHeight: 500 }
+		);
 		expect(sizes[0]).toBe(400);
 		expect(sizes[1]).toBeGreaterThanOrEqual(500);
 	});
@@ -124,7 +128,12 @@ describe('virtualTurnEntries', () => {
 			{ id: 'a3', type: 'assistant', text: '3' }
 		]);
 		const sizes = [100, 100, 100];
-		const window = { start: 1, end: 3, offset: 100 + THREAD_TURN_GAP, totalHeight: 300 + 2 * THREAD_TURN_GAP };
+		const window = {
+			start: 1,
+			end: 3,
+			offset: 100 + THREAD_TURN_GAP,
+			totalHeight: 300 + 2 * THREAD_TURN_GAP
+		};
 		const entries = virtualTurnEntries(turns, sizes, window);
 		expect(entries).toHaveLength(2);
 		expect(entries[0].item.id).toBe('u2');

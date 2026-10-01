@@ -551,9 +551,7 @@ describe('chatStore session switching', () => {
 		chatStore.bindSession('sess-a');
 		void chatStore.send('sess-a', 'prompt');
 		await waitForStore(() =>
-			chatStore.items.some(
-				(item) => item.type === 'assistant' && item.text.includes('hello')
-			)
+			chatStore.items.some((item) => item.type === 'assistant' && item.text.includes('hello'))
 		);
 
 		const live = chatStore.items.find((item) => item.type === 'assistant');

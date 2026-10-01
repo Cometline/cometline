@@ -81,11 +81,11 @@ function createChatStore() {
 	function isSessionRunningConflict(err: unknown) {
 		return Boolean(
 			err &&
-				typeof err === 'object' &&
-				'status' in err &&
-				err.status === 409 &&
-				'code' in err &&
-				err.code === 'session_running'
+			typeof err === 'object' &&
+			'status' in err &&
+			err.status === 409 &&
+			'code' in err &&
+			err.code === 'session_running'
 		);
 	}
 
@@ -265,7 +265,6 @@ function createChatStore() {
 		refreshStreamingState();
 		globalStreamRun += 1;
 	}
-
 
 	function getTranscriptPageState(targetSessionID: string): TranscriptPageState {
 		return (
@@ -501,7 +500,6 @@ function createChatStore() {
 			if (sessionID === nextSessionID) error = message;
 		}
 	}
-
 
 	/** Prepend an older keyset page into the same chat store. Returns how many ChatItems were prepended. */
 	async function loadOlderTranscript(targetSessionID: string = sessionID ?? ''): Promise<number> {

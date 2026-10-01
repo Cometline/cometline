@@ -23,9 +23,9 @@ function sseResponse(body: string): Response {
 
 describe('apiErrorMessage', () => {
 	it('extracts a simple backend error response', () => {
-		expect(apiErrorMessage({ error: 'backup destination is unavailable' }, 'Backup failed')).toBe(
-			'backup destination is unavailable'
-		);
+		expect(
+			apiErrorMessage({ error: 'backup destination is unavailable' }, 'Backup failed')
+		).toBe('backup destination is unavailable');
 	});
 
 	it('extracts a structured backend error response', () => {
@@ -129,12 +129,14 @@ describe('streamSessionEvents', () => {
 	});
 
 	it('uses GET and yields replay through the terminal event', async () => {
-		const fetchMock = vi.fn().mockResolvedValue(
-			sseResponse(
-				'data: {"type":"text_delta","delta":"replayed"}\n\n' +
-					'data: {"type":"done"}\n\n'
-			)
-		);
+		const fetchMock = vi
+			.fn()
+			.mockResolvedValue(
+				sseResponse(
+					'data: {"type":"text_delta","delta":"replayed"}\n\n' +
+						'data: {"type":"done"}\n\n'
+				)
+			);
 		vi.stubGlobal('fetch', fetchMock);
 
 		const events = [];
@@ -144,9 +146,6 @@ describe('streamSessionEvents', () => {
 			'http://127.0.0.1:7700/api/v1/sessions/session%2F1/events',
 			expect.objectContaining({ method: 'GET', cache: 'no-store' })
 		);
-		expect(events).toEqual([
-			{ type: 'text_delta', delta: 'replayed' },
-			{ type: 'done' }
-		]);
+		expect(events).toEqual([{ type: 'text_delta', delta: 'replayed' }, { type: 'done' }]);
 	});
 });

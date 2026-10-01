@@ -328,7 +328,9 @@
 									session.
 								</p>
 							{:else if selectedProvider.method === 'xai'}
-								<p>Use Fetch models to refresh the available Grok models from xAI.</p>
+								<p>
+									Use Fetch models to refresh the available Grok models from xAI.
+								</p>
 							{:else if selectedProvider.method === 'opencode-go'}
 								<p>
 									Use Fetch models to refresh the latest list from

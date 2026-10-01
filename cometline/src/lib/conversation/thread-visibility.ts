@@ -36,9 +36,9 @@ export function qualifiesAsFirstAssistantItem(
 ) {
 	return Boolean(
 		item.text?.trim() ||
-			(item.images?.length ?? 0) > 0 ||
-			hasReasoning(item) ||
-			hasVisibleThinkingBlock(item.id, threadItems, thinkingForAssistant)
+		(item.images?.length ?? 0) > 0 ||
+		hasReasoning(item) ||
+		hasVisibleThinkingBlock(item.id, threadItems, thinkingForAssistant)
 	);
 }
 

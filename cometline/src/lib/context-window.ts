@@ -56,7 +56,8 @@ export function estimateChatContextTokens(items: ChatItem[]): number {
 			case 'tool':
 				total += estimateTokensFromText(item.toolName);
 				total += estimateTokensFromText(JSON.stringify(item.input));
-				if (item.output) total += estimateTokensFromText(promptSizedToolOutput(item.output));
+				if (item.output)
+					total += estimateTokensFromText(promptSizedToolOutput(item.output));
 				if (item.error) total += estimateTokensFromText(promptSizedToolOutput(item.error));
 				break;
 			case 'status':

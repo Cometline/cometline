@@ -11,9 +11,7 @@ export type SubagentChatItem = Extract<ChatItem, { type: 'subagent' }>;
 export function isGeneralSubagent(subagent: SubagentChatItem): boolean {
 	const name = subagent.agentName.trim().toLowerCase();
 	return (
-		name === AGENT_LABEL_RESEARCH ||
-		name === AGENT_LABEL_CODING ||
-		name.startsWith('cometmind')
+		name === AGENT_LABEL_RESEARCH || name === AGENT_LABEL_CODING || name.startsWith('cometmind')
 	);
 }
 
