@@ -308,11 +308,6 @@
 		return { source, title };
 	}
 
-	function captureFileContext(filePath: string) {
-		const { source, title } = fileContext(filePath);
-		shellStore.setViewingFileContextForActive(source, title);
-	}
-
 	function requestLeaveEditor(): boolean | Promise<boolean> {
 		if (!dirty) return true;
 		discardChangesConfirmOpen = true;
