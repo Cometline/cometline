@@ -3,31 +3,16 @@
 	import { fade } from 'svelte/transition';
 	import { chatStore, type ChatItem } from '$lib/stores/chat.svelte';
 	import { settingsStore } from '$lib/stores/settings.svelte';
-	import {
-		toolFoldLabel as formatToolFoldLabel,
-		usageText
-	} from '$lib/features/chat/thread-format';
+	import { toolFoldLabel as formatToolFoldLabel } from '$lib/features/chat/thread-format';
 	import type { AssistantStackContext } from '$lib/features/chat/assistant-stack-props';
 	import FirstTurnAssistantSlot from '$lib/features/chat/components/FirstTurnAssistantSlot.svelte';
-	import UserMessageRow from '$lib/features/chat/components/UserMessageRow.svelte';
-	import MemoryEventRow from '$lib/features/chat/components/MemoryEventRow.svelte';
-	import AssistantMessageRow from '$lib/features/chat/components/AssistantMessageRow.svelte';
-	import ToolMessageRow from '$lib/features/chat/components/ToolMessageRow.svelte';
-	import SubagentMessageRow from '$lib/features/chat/components/SubagentMessageRow.svelte';
-	import ErrorEventRow from '$lib/features/chat/components/ErrorEventRow.svelte';
+	import ChatThreadTurn from '$lib/features/chat/components/ChatThreadTurn.svelte';
 	import JumpToBottom from '$lib/features/chat/components/JumpToBottom.svelte';
+	import { buildThinkingAttribution } from '$lib/features/chat/thinking-attribution';
 	import {
-		buildThinkingAttribution,
-		pinnedJobProposalToolIds
-	} from '$lib/features/chat/thinking-attribution';
-	import { startsSpeakerRun } from '$lib/features/chat/thread-view-helpers';
-	import {
-		firstAssistantInNormalList as shouldShowAssistantInNormalList,
-		hideAssistantAvatarForFirstTurn,
 		selectFirstAssistantItem,
 		showAssistantActivitySpinner,
 		showAssistantRow as isAssistantRowVisible,
-		showFirstTurnAvatarSlot,
 		type ThreadVisibilityContext
 	} from '$lib/features/chat/thread-visibility';
 	import { createFoldController } from '$lib/features/chat/thread-fold.svelte';
@@ -100,12 +85,10 @@
 		getSearchableItemCount: () => searchableItemCount
 	});
 
-	let embeddedPinnedJobIds = $derived(pinnedJobProposalToolIds(threadItems));
 	let thinkingForAssistant = $derived(buildThinkingAttribution(threadItems));
 	// Prefer attributed tools/memory (hasVisibleThinkingBlock) so first-turn activity
 	// pills mount live without waiting for text/reasoning — half-UI spinner otherwise.
 	let firstAssistantItem = $derived(selectFirstAssistantItem(threadItems, thinkingForAssistant));
-	let firstAssistantId = $derived(firstAssistantItem?.id ?? null);
 	let firstAssistantRowId = $derived(
 		threadItems.find((item) => item.type === 'assistant')?.id ?? null
 	);
@@ -179,20 +162,8 @@
 
 	onDestroy(() => sessionFind.closeFind({ restoreFocus: false }));
 
-	function isToolInBuffer(item: Extract<ChatItem, { type: 'tool' }>) {
-		return thinkingForAssistant.toolIdsInBuffer.has(item.id);
-	}
-
-	function isSubagentInBuffer(item: Extract<ChatItem, { type: 'subagent' }>) {
-		return thinkingForAssistant.subagentIdsInBuffer.has(item.id);
-	}
-
 	function isMemoryInBuffer(item: Extract<ChatItem, { type: 'memory' }>) {
 		return thinkingForAssistant.memoryIdsInBuffer.has(item.id);
-	}
-
-	function isErrorInBuffer(item: Extract<ChatItem, { type: 'error' }>) {
-		return thinkingForAssistant.errorIdsInBuffer.has(item.id);
 	}
 
 	const clocks = createThreadClocks({
@@ -293,109 +264,19 @@
 							style:height="{virtual.virtualWindow.totalHeight}px"
 						>
 							{#each virtual.visibleTurns as entry (entry.item.id)}
-								{@const turn = entry.item}
-								{@const isActiveTurn = scroll.activePinnedUserId === turn.id}
-								<div
-									class="thread-turn"
-									class:thread-turn-active={isActiveTurn}
-									data-turn-id={turn.id}
-									style:top="{entry.offset}px"
-									style:min-height={isActiveTurn
-										? `${scroll.activeTurnMinHeight}px`
-										: undefined}
-									use:virtual.measureTurnHeight={{
-										id: turn.id,
-										onMeasure: virtual.onTurnMeasured
-									}}
-								>
-									{#if turn.user}
-										<UserMessageRow
-											item={turn.user}
-											{avatarSrc}
-											{avatarSrcset}
-											continuationRow={!startsSpeakerRun(
-												threadItems,
-												turn.userIndex,
-												'user'
-											)}
-											copiedId={clocks.copiedId}
-											onCopyMessage={clocks.copyMessage}
-											flyOnReveal={turn.user.id !== firstUserId}
-										/>
-										{#if showFirstTurnAvatarSlot(visibilityContext) && turn.user.id === firstUserId}
-											<FirstTurnAssistantSlot
-												{avatarSrc}
-												{avatarSrcset}
-												{firstTurnHandoffPending}
-												{firstAssistantItem}
-												{sessionStreaming}
-												{stackContext}
-												{showAssistantRow}
-												{showActivitySpinner}
-												flightPlaceholder={!firstAssistantId}
-												ariaHidden={!firstAssistantId}
-											/>
-										{/if}
-									{/if}
-									{#each turn.items as { item, index } (item.id)}
-										{#if item.type === 'assistant' && showAssistantRow(item) && shouldShowAssistantInNormalList(item, visibilityContext)}
-											<AssistantMessageRow
-												{item}
-												{threadItems}
-												{index}
-												{avatarSrc}
-												{avatarSrcset}
-												{stackContext}
-												{showActivitySpinner}
-												hideAvatarForFirstTurn={hideAssistantAvatarForFirstTurn(
-													item,
-													firstTurnHandoffPending,
-													firstAssistantRowId
-												)}
-												deferMarkdown={entry.skipHydrationMarkdown &&
-													item.id !== streamingAssistantId}
-											/>
-										{:else if item.type === 'tool' && !isToolInBuffer(item) && !embeddedPinnedJobIds.has(item.id)}
-											<ToolMessageRow
-												{item}
-												{threadItems}
-												{index}
-												{avatarSrc}
-												{avatarSrcset}
-												{sessionId}
-												toolFoldLabel={stackContext.toolFoldLabel}
-												{fold}
-												{onNotifyAgent}
-												{onStartJob}
-											/>
-										{:else if item.type === 'subagent' && !isSubagentInBuffer(item)}
-											<SubagentMessageRow
-												{item}
-												{threadItems}
-												{index}
-												{avatarSrc}
-												{avatarSrcset}
-												{fold}
-											/>
-										{:else if item.type === 'memory' && !isMemoryInBuffer(item)}
-											<MemoryEventRow
-												{item}
-												memoryCycleTick={clocks.memoryCycleTick}
-											/>
-										{:else if item.type === 'status'}
-											<div class="status">{usageText(item)}</div>
-										{:else if item.type === 'error' && !isErrorInBuffer(item)}
-											<ErrorEventRow {item} />
-										{/if}
-									{/each}
-									{#if turn.id === lastUserId}
-										<div
-											class="thread-latest-sentinel"
-											data-thread-latest-sentinel
-											aria-hidden="true"
-										></div>
-									{/if}
-								</div>
+								<ChatThreadTurn
+									{entry}
+									{avatarSrc}
+									{avatarSrcset}
+									{visibilityContext}
+									{stackContext}
+									{lastUserId}
+									memoryCycleTick={clocks.memoryCycleTick}
+									activePinnedUserId={scroll.activePinnedUserId}
+									activeTurnMinHeight={scroll.activeTurnMinHeight}
+									measureTurnHeight={virtual.measureTurnHeight}
+									onTurnMeasured={virtual.onTurnMeasured}
+								/>
 							{/each}
 						</div>
 					{/if}
@@ -418,12 +299,12 @@
 	}
 
 	:global(::highlight(session-find-match)) {
-		background: color-mix(in srgb, #facc15 48%, transparent);
+		background: color-mix(in srgb, var(--color-facc15) 48%, transparent);
 		color: inherit;
 	}
 
 	:global(::highlight(session-find-active)) {
-		background: color-mix(in srgb, #f59e0b 72%, transparent);
+		background: color-mix(in srgb, var(--color-f59e0b) 72%, transparent);
 		color: inherit;
 	}
 
@@ -466,35 +347,6 @@
 		pointer-events: none;
 	}
 
-	.thread-turn {
-		position: absolute;
-		left: 0;
-		right: 0;
-		display: flex;
-		flex-direction: column;
-		gap: 14px;
-		/* Keep min-height growth from sticky-anchoring the bubble (esp. mini). */
-		overflow-anchor: none;
-		/*
-		 * Reintroduce release-style paint deferral for overscan mounts without a
-		 * plaintext↔{@html} swap: browser skips layout/paint until near viewport.
-		 * JS/Shiki still only skipped during hydration (B); this is paint defense (C).
-		 */
-		content-visibility: auto;
-		contain-intrinsic-block-size: auto 500px;
-	}
-
-	.thread-turn-active :global(.user-row) {
-		scroll-margin-top: var(--thread-user-pin-offset-followup);
-		overflow-anchor: none;
-	}
-
-	.thread-latest-sentinel {
-		width: 1px;
-		height: 1px;
-		pointer-events: none;
-	}
-
 	@media (min-width: 768px) {
 		.thread {
 			padding: 40px var(--chat-gutter) var(--thread-padding-bottom);
@@ -519,18 +371,5 @@
 		.thread {
 			padding: 56px var(--chat-gutter) var(--thread-padding-bottom);
 		}
-	}
-
-	.status {
-		align-self: center;
-		display: inline-flex;
-		align-items: center;
-		gap: 7px;
-		padding: 6px 10px;
-		border-radius: 999px;
-		background: rgba(255, 255, 255, 0.74);
-		border: 1px solid var(--border-soft);
-		font-size: 12px;
-		color: var(--text-muted);
 	}
 </style>

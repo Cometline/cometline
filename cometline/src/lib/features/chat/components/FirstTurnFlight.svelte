@@ -200,7 +200,7 @@
 	}
 
 	.avatar-flight {
-		background: linear-gradient(145deg, #ffffff, #eef2f6);
+		background: linear-gradient(145deg, var(--panel-bg), var(--color-eef2f6));
 		box-shadow: 0 5px 14px rgba(15, 23, 42, 0.06);
 	}
 

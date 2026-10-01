@@ -87,8 +87,18 @@
 	}
 
 	.user-message-viewport.overflowing:not(.expanded) {
-		-webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 76%, transparent 100%);
-		mask-image: linear-gradient(to bottom, #000 0%, #000 76%, transparent 100%);
+		-webkit-mask-image: linear-gradient(
+			to bottom,
+			var(--color-000000) 0%,
+			var(--color-000000) 76%,
+			transparent 100%
+		);
+		mask-image: linear-gradient(
+			to bottom,
+			var(--color-000000) 0%,
+			var(--color-000000) 76%,
+			transparent 100%
+		);
 	}
 
 	.user-message-content {

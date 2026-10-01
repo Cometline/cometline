@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
 	import { Check, Copy } from '@lucide/svelte';
 	import AssistantMarkdown from '$lib/components/AssistantMarkdown.svelte';
 	import AssistantThinkingWait from '$lib/features/chat/components/AssistantThinkingWait.svelte';
@@ -16,23 +15,11 @@
 	import { timelineEntryKey } from '$lib/features/chat/thread-view-helpers';
 	import type { AssistantStackContext } from '$lib/features/chat/assistant-stack-props';
 	import type { ChatItem } from '$lib/stores/chat.svelte';
-	import {
-		copyImageToClipboard,
-		copyMediaFileToClipboard,
-		isVideoAttachment,
-		resolveImageSrc
-	} from '$lib/files/images';
 	import ImageLightbox from '$lib/features/chat/components/ImageLightbox.svelte';
 	import SelectionAddToChat from '$lib/components/SelectionAddToChat.svelte';
-	import { shellStore } from '$lib/stores/shell.svelte';
-	import {
-		assistantResponseSource,
-		buildAssistantResponseContext
-	} from '$lib/features/chat/assistant-response-context';
-	import {
-		firstSelectionClientRect,
-		selectionPopupPosition
-	} from '$lib/features/workspace/selection-popup';
+	import { assistantResponseSource } from '$lib/features/chat/assistant-response-context';
+	import { createAssistantStackSelection } from '$lib/features/chat/assistant-stack-selection.svelte';
+	import AssistantImageGallery from '$lib/features/chat/components/assistant-stack/AssistantImageGallery.svelte';
 
 	type AssistantItem = Extract<ChatItem, { type: 'assistant' }>;
 
@@ -50,9 +37,13 @@
 	} = $props();
 
 	let lightbox = $state<{ src: string; alt: string } | null>(null);
-	let selectionPopup = $state<{ top: number; left: number; text: string } | null>(null);
-	let copiedImageKey = $state<string | null>(null);
-	let copyResetTimer: ReturnType<typeof setTimeout> | null = null;
+
+	const selection = createAssistantStackSelection({
+		getItemId: () => item.id,
+		getStreamingAssistantId: () => context.streamingAssistantId,
+		getSessionId: () => context.sessionId,
+		getThreadItems: () => context.threadItems
+	});
 
 	setReactiveChatTurnContext(() => context);
 
@@ -74,84 +65,6 @@
 	const responseSource = $derived(
 		assistantResponseSource(context.sessionId, item.id, context.threadItems)
 	);
-
-	function clearSelectionPopup() {
-		selectionPopup = null;
-	}
-
-	function updateSelectionPopup(root: HTMLElement) {
-		if (item.id === context.streamingAssistantId) {
-			clearSelectionPopup();
-			return;
-		}
-		const selection = window.getSelection();
-		if (!selection || selection.isCollapsed || selection.rangeCount === 0) {
-			clearSelectionPopup();
-			return;
-		}
-		if (!root.contains(selection.anchorNode) || !root.contains(selection.focusNode)) {
-			clearSelectionPopup();
-			return;
-		}
-		const text = selection.toString().trim();
-		if (!text) {
-			clearSelectionPopup();
-			return;
-		}
-		selectionPopup = {
-			...selectionPopupPosition(
-				firstSelectionClientRect(selection.getRangeAt(0)),
-				window.innerWidth
-			),
-			text
-		};
-	}
-
-	function selectableResponse(node: HTMLElement) {
-		const update = () => updateSelectionPopup(node);
-		node.addEventListener('mouseup', update);
-		node.addEventListener('keyup', update);
-		return {
-			destroy() {
-				node.removeEventListener('mouseup', update);
-				node.removeEventListener('keyup', update);
-			}
-		};
-	}
-
-	async function copyMedia(key: string, copy: () => Promise<void>) {
-		try {
-			await copy();
-			copiedImageKey = key;
-			if (copyResetTimer) clearTimeout(copyResetTimer);
-			copyResetTimer = setTimeout(() => {
-				copiedImageKey = null;
-				copyResetTimer = null;
-			}, 1600);
-		} catch {
-			copiedImageKey = null;
-		}
-	}
-
-	onDestroy(() => {
-		if (copyResetTimer) clearTimeout(copyResetTimer);
-	});
-
-	function addSelectionToChat() {
-		if (!selectionPopup) return;
-		const contextRef = buildAssistantResponseContext({
-			sessionId: context.sessionId,
-			itemId: item.id,
-			items: context.threadItems,
-			selectedText: selectionPopup.text
-		});
-		if (contextRef) {
-			shellStore.addWebContextForActive(contextRef);
-			shellStore.requestComposerFocus();
-		}
-		clearSelectionPopup();
-		window.getSelection()?.removeAllRanges();
-	}
 </script>
 
 <div class="assistant-stack" data-assistant-response-source={responseSource ?? undefined}>
@@ -178,103 +91,16 @@
 		{/each}
 	{/if}
 	{#if item.images?.length}
-		<div class="assistant-image-gallery" class:single-image={item.images.length === 1}>
-			<div class="assistant-images scrollbar-none">
-				{#each item.images as image, imageIndex (`${item.id}-image-${image.id ?? imageIndex}`)}
-					{@const src = resolveImageSrc(image, context.sessionId)}
-					{@const alt = image.alt ?? image.name ?? 'Presented image'}
-					{@const mediaId = image.id}
-					{#if isVideoAttachment(image)}
-						<div class="assistant-video-wrap">
-							<video
-								class="assistant-video"
-								{src}
-								controls
-								playsinline
-								preload="metadata"
-								onerror={(event) => {
-									const host = event.currentTarget.parentElement;
-									if (host) host.dataset.missing = 'true';
-								}}
-							>
-								<track kind="captions" />
-							</video>
-							<p class="media-missing">This media was deleted.</p>
-							{#if mediaId && context.sessionId}
-								<button
-									type="button"
-									class="image-copy"
-									class:copied={copiedImageKey ===
-										`${item.id}-${image.id ?? imageIndex}`}
-									title="Copy video file"
-									aria-label={`Copy ${alt}`}
-									onclick={() =>
-										void copyMedia(`${item.id}-${image.id ?? imageIndex}`, () =>
-											copyMediaFileToClipboard(context.sessionId, mediaId)
-										)}
-								>
-									{#if copiedImageKey === `${item.id}-${image.id ?? imageIndex}`}
-										<Check size={13} />
-										<span>Copied</span>
-									{:else}
-										<Copy size={13} />
-										<span>Copy</span>
-									{/if}
-								</button>
-							{/if}
-						</div>
-					{:else}
-						<div class="image-card">
-							<button
-								type="button"
-								class="bubble assistant-bubble image-open"
-								aria-label={`View ${alt}`}
-								onclick={() => (lightbox = { src, alt })}
-							>
-								<img
-									{src}
-									{alt}
-									onerror={(event) => {
-										const host =
-											event.currentTarget.closest('.assistant-images');
-										const card = event.currentTarget.closest('.image-card');
-										if (card instanceof HTMLElement)
-											card.dataset.missing = 'true';
-										if (host instanceof HTMLElement)
-											host.dataset.hasMissing = 'true';
-									}}
-								/>
-								<span class="media-missing">This media was deleted.</span>
-							</button>
-							<button
-								type="button"
-								class="image-copy"
-								class:copied={copiedImageKey ===
-									`${item.id}-${image.id ?? imageIndex}`}
-								title="Copy image"
-								aria-label={`Copy ${alt}`}
-								onclick={() =>
-									void copyMedia(`${item.id}-${image.id ?? imageIndex}`, () =>
-										copyImageToClipboard(src, image.media_type || 'image/png')
-									)}
-							>
-								{#if copiedImageKey === `${item.id}-${image.id ?? imageIndex}`}
-									<Check size={13} />
-									<span>Copied</span>
-								{:else}
-									<Copy size={13} />
-									<span>Copy</span>
-								{/if}
-							</button>
-						</div>
-					{/if}
-				{/each}
-			</div>
-		</div>
+		<AssistantImageGallery
+			itemId={item.id}
+			images={item.images}
+			sessionId={context.sessionId}
+			onOpenImage={(image) => (lightbox = image)}
+		/>
 	{/if}
 	{#if item.text.trim()}
 		<div
-			use:selectableResponse
+			use:selection.selectableResponse
 			class="bubble assistant-bubble"
 			data-session-find-text
 			data-session-find-item={item.id}
@@ -329,11 +155,11 @@
 	{/if}
 </div>
 
-{#if selectionPopup}
+{#if selection.selectionPopup}
 	<SelectionAddToChat
-		position={{ top: selectionPopup.top, left: selectionPopup.left }}
-		onAdd={addSelectionToChat}
-		onDismiss={clearSelectionPopup}
+		position={{ top: selection.selectionPopup.top, left: selection.selectionPopup.left }}
+		onAdd={selection.addSelectionToChat}
+		onDismiss={selection.clearSelectionPopup}
 	/>
 {/if}
 
@@ -368,7 +194,11 @@
 		15%,
 		70% {
 			box-shadow: 0 0 0 3px
-				color-mix(in srgb, var(--hero-composer-glow-color, #72c0ff) 45%, transparent);
+				color-mix(
+					in srgb,
+					var(--hero-composer-glow-color, var(--color-72c0ff)) 45%,
+					transparent
+				);
 		}
 	}
 
@@ -416,150 +246,6 @@
 	.assistant-stack:hover .message-actions,
 	.message-actions:focus-within {
 		opacity: 1;
-	}
-
-	.assistant-image-gallery {
-		width: min(680px, 100%);
-		max-width: 100%;
-		align-self: flex-start;
-	}
-
-	.assistant-images {
-		display: flex;
-		gap: 8px;
-		width: 100%;
-		overflow-x: auto;
-		overflow-y: hidden;
-		scroll-snap-type: x mandatory;
-		scroll-behavior: smooth;
-	}
-
-	.assistant-image-gallery.single-image {
-		width: fit-content;
-	}
-
-	.single-image .assistant-images {
-		overflow: visible;
-	}
-
-	.image-card {
-		position: relative;
-		flex: 0 0 min(280px, 78%);
-		width: 100%;
-		scroll-snap-align: start;
-	}
-
-	.assistant-video-wrap {
-		position: relative;
-		flex: 0 0 auto;
-		scroll-snap-align: start;
-	}
-
-	.single-image .image-card {
-		flex-basis: auto;
-		width: fit-content;
-		max-width: 100%;
-	}
-
-	.image-open {
-		display: block;
-		width: 100%;
-		margin: 0;
-		padding: 0;
-		line-height: 0;
-		cursor: zoom-in;
-		overflow: hidden;
-		aspect-ratio: 4 / 3;
-	}
-
-	.single-image .image-open {
-		width: fit-content;
-		max-width: 100%;
-		aspect-ratio: auto;
-	}
-
-	.image-copy {
-		position: absolute;
-		top: 8px;
-		right: 8px;
-		display: inline-flex;
-		align-items: center;
-		gap: 4px;
-		padding: 4px 8px;
-		border: 1px solid transparent;
-		border-radius: 7px;
-		background: rgba(255, 255, 255, 0.92);
-		color: var(--text-soft);
-		font-size: 11px;
-		font-weight: 600;
-		line-height: 1;
-		cursor: pointer;
-		opacity: 0;
-		transition: opacity var(--duration-fast) var(--ease-smooth);
-	}
-
-	.image-card:hover .image-copy,
-	.assistant-video-wrap:hover .image-copy,
-	.image-copy:focus-visible {
-		opacity: 1;
-	}
-
-	.image-copy.copied {
-		color: var(--status-success);
-	}
-
-	.image-open img {
-		display: block;
-		width: 100%;
-		height: 100%;
-		object-fit: cover;
-	}
-
-	.single-image .image-open img {
-		width: auto;
-		height: auto;
-		/* Prefer cqi (assistant-stack width) over % — % fights fit-content and
-		 * Tailwind preflight's img{max-width:100%} expands the bubble after load. */
-		max-width: min(420px, 100cqi);
-		max-height: 360px;
-		object-fit: contain;
-	}
-
-	.assistant-video {
-		display: block;
-		width: min(420px, 100%);
-		max-height: 360px;
-		border-radius: 12px;
-		background: #000;
-	}
-
-	.media-missing {
-		display: none;
-		margin: 0;
-		padding: 18px 14px;
-		border-radius: 12px;
-		background: color-mix(in srgb, var(--border-soft) 55%, transparent);
-		color: var(--text-muted);
-		font-size: 12px;
-	}
-
-	:global(.assistant-images [data-missing='true']) img,
-	:global(.assistant-images [data-missing='true']) video,
-	:global(.image-card[data-missing='true']) img {
-		display: none;
-	}
-
-	:global(.assistant-images [data-missing='true']) .media-missing,
-	:global(.image-card[data-missing='true']) .media-missing {
-		display: block;
-	}
-
-	:global(.image-card[data-missing='true']) .image-copy {
-		display: none;
-	}
-
-	:global(.assistant-video-wrap[data-missing='true']) .image-copy {
-		display: none;
 	}
 
 	.message-action {

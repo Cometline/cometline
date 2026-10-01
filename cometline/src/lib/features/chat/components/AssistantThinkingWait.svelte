@@ -49,7 +49,7 @@
 			90deg,
 			var(--text-soft, rgba(0, 0, 0, 0.45)) 0%,
 			var(--text-soft, rgba(0, 0, 0, 0.45)) 40%,
-			color-mix(in srgb, var(--text-main, #111) 78%, white) 50%,
+			color-mix(in srgb, var(--text-main, var(--color-111111)) 78%, white) 50%,
 			var(--text-soft, rgba(0, 0, 0, 0.45)) 60%,
 			var(--text-soft, rgba(0, 0, 0, 0.45)) 100%
 		);

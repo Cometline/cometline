@@ -135,11 +135,15 @@
 		box-sizing: border-box;
 		padding: 5px 7px;
 		border: 1px solid
-			color-mix(in srgb, var(--hero-composer-glow-color, #72c0ff) 20%, var(--border-soft));
+			color-mix(
+				in srgb,
+				var(--hero-composer-glow-color, var(--color-72c0ff)) 20%,
+				var(--border-soft)
+			);
 		border-radius: 9px;
 		background: color-mix(
 			in srgb,
-			var(--hero-composer-glow-color, #72c0ff) 7%,
+			var(--hero-composer-glow-color, var(--color-72c0ff)) 7%,
 			var(--panel-bg)
 		);
 		color: var(--text-muted);
@@ -164,7 +168,7 @@
 		color: var(--text-main);
 		border-color: color-mix(
 			in srgb,
-			var(--hero-composer-glow-color, #72c0ff) 36%,
+			var(--hero-composer-glow-color, var(--color-72c0ff)) 36%,
 			var(--border-soft)
 		);
 	}
@@ -203,8 +207,8 @@
 		flex-shrink: 0;
 		color: color-mix(
 			in srgb,
-			var(--hero-composer-glow-color, #72c0ff) 62%,
-			var(--accent, #0066cc)
+			var(--hero-composer-glow-color, var(--color-72c0ff)) 62%,
+			var(--accent, var(--accent))
 		);
 	}
 

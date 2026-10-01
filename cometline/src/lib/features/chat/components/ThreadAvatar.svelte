@@ -43,8 +43,8 @@
 	.avatar-mini {
 		aspect-ratio: 1;
 		border-radius: 50%;
-		border: 1px solid #9ca3af;
-		background: linear-gradient(145deg, #ffffff, #eef2f6);
+		border: 1px solid var(--color-9ca3af);
+		background: linear-gradient(145deg, var(--panel-bg), var(--color-eef2f6));
 		box-shadow: 0 5px 14px rgba(15, 23, 42, 0.06);
 		overflow: hidden;
 	}

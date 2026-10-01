@@ -56,12 +56,12 @@
 	}
 
 	.kind-add {
-		color: #15803d;
+		color: var(--status-success);
 		background: rgba(34, 197, 94, 0.14);
 	}
 
 	.kind-del {
-		color: #b91c1c;
+		color: var(--color-b91c1c);
 		background: rgba(239, 68, 68, 0.14);
 	}
 
@@ -72,13 +72,13 @@
 
 	:global([data-theme='dark']) .kind-add,
 	:global(.dark) .kind-add {
-		color: #86efac;
+		color: var(--color-86efac);
 		background: rgba(34, 197, 94, 0.18);
 	}
 
 	:global([data-theme='dark']) .kind-del,
 	:global(.dark) .kind-del {
-		color: #fca5a5;
+		color: var(--color-fca5a5);
 		background: rgba(239, 68, 68, 0.18);
 	}
 </style>

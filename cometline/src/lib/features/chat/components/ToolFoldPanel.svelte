@@ -199,7 +199,7 @@
 
 	.tool-fold-panel.error .tool-fold-toggle {
 		border-color: rgba(239, 68, 68, 0.35);
-		color: #b91c1c;
+		color: var(--color-b91c1c);
 	}
 
 	.tool-input-text {

@@ -34,7 +34,7 @@
 	.avatar {
 		width: 82px;
 		height: 82px;
-		background: #fff;
+		background: var(--panel-bg);
 		margin-bottom: 24px;
 		box-shadow: var(--shadow-card);
 		overflow: hidden;

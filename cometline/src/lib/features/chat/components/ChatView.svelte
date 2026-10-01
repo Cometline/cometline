@@ -1,7 +1,5 @@
 <script lang="ts">
 	import { fade } from 'svelte/transition';
-	import { tick } from 'svelte';
-	import EmptyChatState from '$lib/features/chat/components/EmptyChatState.svelte';
 	import Composer from '$lib/features/composer/components/Composer.svelte';
 	import HeroComposerFrame from '$lib/features/composer/components/HeroComposerFrame.svelte';
 	import ChatThread from '$lib/features/chat/components/ChatThread.svelte';
@@ -13,24 +11,20 @@
 	} from '$lib/features/chat/conversation-controller';
 	import type { QueuedMessage } from '$lib/actions/chat-turn-queue';
 	import { sessionStore } from '$lib/stores/session.svelte';
-	import { updateSession } from '$lib/client/cometmind';
 	import { chatStore } from '$lib/stores/chat.svelte';
-	import { modelStore } from '$lib/stores/model.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
-	import { settingsStore } from '$lib/stores/settings.svelte';
-	import { matchesShortcut } from '$lib/keyboard-shortcuts';
 	import type { ChatTurnPayload } from '$lib/actions/start-chat';
-	import type { ModelOption } from '$lib/stores/model.svelte';
 	import { startJobInSession } from '$lib/features/jobs/start-job-in-chat';
 	import type { JobResource } from '$lib/client/cometmind';
 	import { createChatViewController } from '$lib/features/chat/chat-view-controller.svelte';
+	import { createChatViewFlight } from '$lib/features/chat/chat-view-flight.svelte';
+	import {
+		createChatViewActivation,
+		type ChatViewComposerHandle
+	} from '$lib/features/chat/chat-view-activation.svelte';
 	import { createSessionPhase } from '$lib/features/chat/session-phase.svelte';
-	import { shouldApplyComposerFocus } from '$lib/features/chat/composer-focus';
-	import { PanelLeftClose, PanelLeftOpen } from '@lucide/svelte';
-	import { miniShellStore } from '$lib/stores/mini-shell.svelte';
-	import { composerHistoryStore } from '$lib/stores/composer-history.svelte';
-	import type { PendingUnsentDraft } from '$lib/features/composer/composer-history';
-	import Tooltip from '$lib/components/Tooltip.svelte';
+	import MiniTitlebar from '$lib/features/chat/components/chat-view/MiniTitlebar.svelte';
+	import ChatEmptyRegion from '$lib/features/chat/components/chat-view/ChatEmptyRegion.svelte';
 
 	const THREAD_IN = { duration: 140 };
 
@@ -40,6 +34,13 @@
 		compact = false
 	}: { sessionId: string; bootMessage?: string; compact?: boolean } = $props();
 
+	const flight = createChatViewFlight({
+		getCompact: () => compact,
+		getPhase: () => phase,
+		getUserBubbleFlight: () => userBubbleFlight,
+		getFirstTurnFlight: () => firstTurnFlight
+	});
+
 	const conversation = createConversationController({
 		getSessionId: () => sessionId,
 		send: (sid, payload, opts) => chatStore.send(sid, payload, opts),
@@ -48,69 +49,13 @@
 		onAwaitingFirstAssistantChange: (value) => {
 			phase.setAwaitingFirstAssistant(value);
 		},
-		onTurnRejected: restoreRejectedTurn,
-		flight: {
-			onUserMessageFlight: (payloadOrText, { firstTurn, stageUser, revealStagedUser }) => {
-				const payload =
-					typeof payloadOrText === 'string' ? { text: payloadOrText } : payloadOrText;
-				// Follow-ups are handled by the conversation controller (short fade + pin).
-				// This adapter only owns first-turn choreography (desktop + mini).
-				if (!firstTurn) return;
-				if (compact) {
-					phase.setAwaitingFirstAssistant(true);
-					// Mini uses the regular user-bubble flight rather than the desktop
-					// first-turn choreography. Keep its destination independent of the
-					// first assistant's lifecycle so it is revealed after the flight.
-					phase.setFirstTurnFlightDone(true);
-					phase.setFirstTurnHandoffPending(false);
-					if (!userBubbleFlight) {
-						stageUser(payload.text, payload.images);
-						revealStagedUser();
-						return;
-					}
-					const compactUserItemId = stageUser(payload.text, payload.images);
-					const flight = startFlight();
-					return userBubbleFlight
-						.runAsync(payload.text, payload.images, {
-							origin: 'above-composer',
-							skipStage: true,
-							targetUserId: compactUserItemId,
-							signal: flight.signal
-						})
-						.then(() => undefined)
-						.finally(() => finishFlight(flight));
-				}
-				phase.setAwaitingFirstAssistant(true);
-				phase.setFirstTurnFlightDone(false);
-				phase.setFirstTurnHandoffPending(true);
-				if (!firstTurnFlight) {
-					phase.setFirstTurnFlightDone(true);
-					phase.setFirstTurnHandoffPending(false);
-					stageUser(payload.text, payload.images);
-					revealStagedUser();
-					return;
-				}
-				const flight = startFlight();
-				return firstTurnFlight
-					?.runAsync(payload.text, payload.images, {
-						stageUser,
-						revealStagedUser,
-						signal: flight.signal
-					})
-					.catch((error) => {
-						phase.setFirstTurnFlightDone(true);
-						phase.setFirstTurnHandoffPending(false);
-						throw error;
-					})
-					.finally(() => finishFlight(flight));
-			}
-		}
+		onTurnRejected: (sid, payload) => activation.restoreRejectedTurn(sid, payload),
+		flight: { onUserMessageFlight: flight.onUserMessageFlight }
 	});
 
 	let chatHome = $state<HTMLDivElement | null>(null);
 	let userBubbleFlight = $state<UserBubbleFlight>();
 	let firstTurnFlight = $state<FirstTurnFlight>();
-	let flightAbortController = $state<AbortController | null>(null);
 	let queuedCount = $state(0);
 	let queuedMessages = $state<QueuedMessage[]>([]);
 
@@ -119,12 +64,7 @@
 	// effect can dock on the previous session's visibility.
 	const phase = createSessionPhase({
 		getSessionId: () => sessionId,
-		abortFlights: () => {
-			flightAbortController?.abort();
-			flightAbortController = null;
-			firstTurnFlight?.cancel();
-			userBubbleFlight?.dismissParticle();
-		},
+		abortFlights: () => flight.abortFlights(),
 		syncQueueState: () => syncQueueState(),
 		syncComposerPhase: (opts) => conversation.syncComposerPhase(opts)
 	});
@@ -151,40 +91,26 @@
 
 	let composerVariant = $derived(chatView.composerVariant);
 	let heroLayout = $derived(chatView.heroLayout);
-	let composerFocusRequest = $derived(shellStore.composerFocusRequest);
-	let lastAppliedComposerFocusId = $state(0);
-	let sessionRunActive = $derived(
-		chatStore.isStreamingFor(sessionId) ||
-			(sessionStore.sessions.find((session) => session.id === sessionId)?.running ?? false)
-	);
+	let sessionRunActive = $derived(chatView.sessionRunActive);
 
-	function startFlight() {
-		flightAbortController?.abort();
-		flightAbortController = new AbortController();
-		return flightAbortController;
-	}
+	let composerRef = $state<ChatViewComposerHandle | null>(null);
 
-	function finishFlight(controller: AbortController) {
-		if (flightAbortController === controller) flightAbortController = null;
-	}
+	const activation = createChatViewActivation({
+		getSessionId: () => sessionId,
+		getComposer: () => composerRef,
+		bindSession: () => conversation.bindSession(),
+		syncSessionFromStore: () => chatView.syncSessionFromStore(),
+		onMount: () => conversation.onMount()
+	});
 
 	function syncQueueState() {
 		queuedCount = conversation.pendingCount;
 		queuedMessages = [...conversation.pendingMessages];
 	}
 
-	function syncSessionFromStore() {
-		const session = sessionStore.sessions.find((item) => item.id === sessionId);
-		if (!session) return;
-		if (sessionStore.current?.id !== sessionId) {
-			sessionStore.selectSession(session);
-		}
-		modelStore.selectFromSession(session);
-	}
-
 	$effect(() => {
 		void sessionStore.sessions;
-		syncSessionFromStore();
+		chatView.syncSessionFromStore();
 	});
 
 	// Soft swaps keep ChatView mounted. One pre-effect calls onSession so stale
@@ -193,61 +119,12 @@
 		phase.onSession(sessionId);
 	});
 
-	let activatedSessionId = $state<string | null>(null);
-	let activationRun = 0;
-
-	let composerRef = $state<{
-		focus: () => void;
-		restoreDraft: (draft: PendingUnsentDraft) => boolean;
-	} | null>(null);
-
-	function restoreRejectedTurn(rejectedSessionId: string, payload: ChatTurnPayload) {
-		const draft: PendingUnsentDraft = {
-			text: payload.displayText ?? payload.text,
-			images: payload.images
-		};
-		composerHistoryStore.stashUnsent(rejectedSessionId, draft);
-		if (rejectedSessionId === sessionId) composerRef?.restoreDraft(draft);
-	}
-
-	async function activateSession(id: string, run: number) {
-		await tick();
-		if (activationRun !== run || sessionId !== id) return;
-		const pendingDraft = composerHistoryStore.getPending(id);
-		if (pendingDraft) composerRef?.restoreDraft(pendingDraft);
-		conversation.onMount();
-		if (shellStore.focusedPane !== 'chat') return;
-		if (composerFocusRequest.sessionId !== id) {
-			shellStore.requestComposerFocus(id);
-		}
-		// The request effect can run before this session finishes binding. Retry
-		// after activation so a main-window route switch always reaches its composer.
-		composerRef?.focus();
-	}
-
 	$effect(() => {
-		if (!sessionId) return;
-		if (activatedSessionId === sessionId) return;
-		activatedSessionId = sessionId;
-		const run = ++activationRun;
-		conversation.bindSession();
-		syncSessionFromStore();
-		void activateSession(sessionId, run);
+		activation.activate();
 	});
 
 	$effect(() => {
-		if (
-			!shouldApplyComposerFocus({
-				requestId: composerFocusRequest.id,
-				requestSessionId: composerFocusRequest.sessionId,
-				sessionId,
-				focusedPane: shellStore.focusedPane,
-				lastAppliedRequestId: lastAppliedComposerFocusId
-			})
-		)
-			return;
-		lastAppliedComposerFocusId = composerFocusRequest.id;
-		composerRef?.focus();
+		activation.applyComposerFocusRequest();
 	});
 
 	function submit(payload: ChatTurnPayload | string) {
@@ -258,18 +135,7 @@
 		return startJobInSession(job, sessionId, submit);
 	}
 
-	$effect(() => {
-		const id = sessionId;
-		const current = sessionStore.current;
-		// User-origin turns already update through SSE/window sync. Only autonomous
-		// sessions need polling for transcript writes made by the background worker.
-		if (!id || current?.id !== id || current.origin !== 'autonomy') return;
-		const interval = window.setInterval(() => {
-			if (chatStore.isStreamingFor(id) || chatStore.hasInFlightTurn(id)) return;
-			void chatStore.refreshTranscript(id);
-		}, 2500);
-		return () => window.clearInterval(interval);
-	});
+	$effect(() => chatView.pollAutonomousTranscript());
 
 	function stop() {
 		chatView.stop();
@@ -279,57 +145,14 @@
 		conversation.removeQueued(id);
 	}
 
-	function onWindowKeydown(e: KeyboardEvent) {
-		if (!matchesShortcut(e, settingsStore.settings.shortcuts.stopResponse)) return;
-		if (!sessionRunActive) return;
-		const target = e.target;
-		if (target instanceof HTMLTextAreaElement || target instanceof HTMLInputElement) {
-			if (target.selectionStart !== target.selectionEnd) return;
-		}
-		e.preventDefault();
-		stop();
-	}
-
 	function onWindowFocus() {
 		if (!compact) return;
 		if (shellStore.focusedPane !== 'chat') return;
 		shellStore.requestComposerFocus(sessionId);
 	}
-
-	function revertModelSelection() {
-		const session = sessionStore.sessions.find((item) => item.id === sessionId);
-		if (session) modelStore.selectFromSession(session);
-	}
-
-	async function commitModelChange(option: ModelOption) {
-		try {
-			const updated = await updateSession(sessionId, {
-				model_id: option.modelId,
-				provider_id: option.providerId
-			});
-			sessionStore.updateSession(updated);
-		} catch {
-			revertModelSelection();
-		}
-	}
-
-	async function onModelChange(option: ModelOption) {
-		await commitModelChange(option);
-	}
-
-	let openInMainWindowBlocked = $derived(chatStore.isStreamingFor(sessionId));
-
-	async function openInMainWindow() {
-		if (!sessionId) return;
-		// Guard against the race where the button's disabled state hasn't
-		// re-rendered yet but streaming already started/ended: re-check live
-		// state at click time rather than trusting only the derived UI flag.
-		if (chatStore.isStreamingFor(sessionId)) return;
-		await window.electronAPI?.openSessionInMainWindow?.(sessionId);
-	}
 </script>
 
-<svelte:window onkeydown={onWindowKeydown} onfocus={onWindowFocus} />
+<svelte:window onkeydown={chatView.onStopShortcut} onfocus={onWindowFocus} />
 
 <div
 	class="chat-home"
@@ -339,54 +162,11 @@
 	bind:this={chatHome}
 >
 	{#if compact}
-		<div class="mini-titlebar" aria-label="Mini window drag area">
-			<span>Mini Chat</span>
-			<Tooltip
-				label={miniShellStore.sidebarOpen ? 'Hide chats' : 'Show chats'}
-				action="toggleSidebar"
-			>
-				<button
-					class="mini-sidebar-toggle"
-					type="button"
-					aria-label={miniShellStore.sidebarOpen ? 'Hide chats' : 'Show chats'}
-					aria-pressed={miniShellStore.sidebarOpen}
-					onclick={() => miniShellStore.toggleSidebar()}
-				>
-					{#if miniShellStore.sidebarOpen}
-						<PanelLeftClose size={15} stroke-width={1.8} />
-					{:else}
-						<PanelLeftOpen size={15} stroke-width={1.8} />
-					{/if}
-				</button>
-			</Tooltip>
-			<button
-				class="mini-open-main"
-				type="button"
-				disabled={openInMainWindowBlocked}
-				title={openInMainWindowBlocked
-					? 'Wait for the response to finish before opening in the main window'
-					: 'Open this chat in the main window'}
-				aria-label={openInMainWindowBlocked
-					? 'Open this chat in the main window (disabled while responding)'
-					: 'Open this chat in the main window'}
-				onclick={openInMainWindow}
-			>
-				<svg viewBox="0 0 16 16" aria-hidden="true">
-					<path d="M5 3.5h7.5V11" />
-					<path d="M12.5 3.5 6.25 9.75" />
-					<path d="M10.5 12.5h-7v-7" />
-				</svg>
-			</button>
-		</div>
+		<MiniTitlebar {sessionId} />
 	{/if}
 
 	{#if !compact && !hasVisibleConversation && !firstTurnActive}
-		<div class="empty-region">
-			<EmptyChatState />
-			{#if bootMessage}
-				<p class="boot-error">{bootMessage}</p>
-			{/if}
-		</div>
+		<ChatEmptyRegion {bootMessage} />
 	{:else}
 		<div
 			class="thread-shell"
@@ -440,7 +220,7 @@
 				onSend={submit}
 				onStop={stop}
 				onRemoveQueued={removeQueuedMessage}
-				{onModelChange}
+				onModelChange={chatView.onModelChange}
 				onWorkspaceChanged={() => chatStore.loadTranscript(sessionId)}
 				onTranscriptCleared={() => {
 					conversation.clearQueue();
@@ -481,94 +261,6 @@
 			var(--app-bg);
 	}
 
-	.mini-titlebar {
-		position: absolute;
-		top: 0;
-		left: 0;
-		right: 0;
-		height: var(--mini-titlebar-height);
-		z-index: 40;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: 8px;
-		padding: 0 96px;
-		border-bottom: 1px solid color-mix(in srgb, var(--border-soft) 72%, transparent);
-		background: color-mix(in srgb, var(--panel-bg) 82%, transparent);
-		color: var(--text-muted);
-		font-size: 11px;
-		font-weight: 650;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		user-select: none;
-		-webkit-app-region: drag;
-	}
-
-	.mini-open-main {
-		position: absolute;
-		right: 12px;
-		top: 50%;
-		transform: translateY(-50%);
-		width: 28px;
-		height: 28px;
-		display: grid;
-		place-items: center;
-		padding: 0;
-		border: 1px solid color-mix(in srgb, var(--border-soft) 80%, transparent);
-		border-radius: 999px;
-		background: color-mix(in srgb, var(--panel-bg) 88%, var(--text-main) 6%);
-		color: var(--text-main);
-		cursor: pointer;
-		-webkit-app-region: no-drag;
-	}
-
-	.mini-titlebar :global(.tooltip-wrap) {
-		position: absolute;
-		left: 12px;
-		top: 50%;
-		transform: translateY(-50%);
-		-webkit-app-region: no-drag;
-	}
-
-	.mini-sidebar-toggle {
-		width: 28px;
-		height: 28px;
-		display: grid;
-		place-items: center;
-		padding: 0;
-		border: 1px solid color-mix(in srgb, var(--border-soft) 80%, transparent);
-		border-radius: 999px;
-		background: color-mix(in srgb, var(--panel-bg) 88%, var(--text-main) 6%);
-		color: var(--text-main);
-		cursor: pointer;
-	}
-
-	.mini-open-main svg {
-		width: 14px;
-		height: 14px;
-		fill: none;
-		stroke: currentColor;
-		stroke-width: 1.7;
-		stroke-linecap: round;
-		stroke-linejoin: round;
-	}
-
-	.mini-open-main:hover,
-	.mini-sidebar-toggle:hover {
-		border-color: color-mix(in srgb, var(--hero-composer-glow-color) 54%, var(--border-soft));
-		background: color-mix(in srgb, var(--hero-composer-glow-color) 18%, var(--panel-bg));
-	}
-
-	.mini-open-main:disabled {
-		cursor: not-allowed;
-		opacity: 0.4;
-	}
-
-	.mini-open-main:disabled:hover {
-		border-color: color-mix(in srgb, var(--border-soft) 80%, transparent);
-		background: color-mix(in srgb, var(--panel-bg) 88%, var(--text-main) 6%);
-	}
-
 	.chat-home.compact .thread-shell,
 	.chat-home.compact .composer-wrapper,
 	.chat-home.compact :global(button),
@@ -592,12 +284,6 @@
 		box-sizing: border-box;
 	}
 
-	.chat-home.hero-layout .empty-region {
-		position: static;
-		inset: unset;
-		padding: 0;
-	}
-
 	.chat-home.hero-layout .composer-wrapper {
 		position: relative;
 		bottom: auto;
@@ -610,16 +296,6 @@
 		padding: 0 var(--chat-gutter);
 		display: flex;
 		justify-content: center;
-	}
-
-	.empty-region {
-		position: absolute;
-		inset: 0 0 180px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		padding: 48px 48px 0;
-		flex-direction: column;
 	}
 
 	.thread-shell {
@@ -635,15 +311,6 @@
 	.chat-home.compact .thread-shell.docked {
 		top: var(--mini-titlebar-height);
 		bottom: calc(var(--thread-dock-inset) - 18px);
-	}
-
-	.boot-error {
-		margin: 18px 0 0;
-		max-width: 520px;
-		font-size: 12px;
-		line-height: 1.5;
-		color: var(--status-error);
-		text-align: center;
 	}
 
 	.composer-wrapper {
@@ -689,11 +356,6 @@
 		.chat-home.hero-layout {
 			gap: 40px;
 			padding: 32px 28px;
-		}
-
-		.empty-region {
-			inset: 0 0 160px;
-			padding-inline: 28px;
 		}
 	}
 </style>
