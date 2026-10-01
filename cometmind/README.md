@@ -29,14 +29,14 @@ CometMind still has a clear runtime boundary inside the product: it owns the CLI
 ```
 main.go              entry point → cmd.Execute()
 cmd/                 Cobra commands (init, serve, chat, session, skills, gateway, settings, process, model)
-server/
-  server.go          Gin engine; /api/v1 handlers; SSE encoding
-  memory_handlers.go memory CRUD, search, compaction
-  job_handlers.go    jobs, leases, events, completion, settings
-  scheduled_job_handlers.go deferred and recurring job definitions
-  mcp_handlers.go    MCP status, tools, reconnect, OAuth start
-  run_manager.go     per-session single in-flight run control
 internal/
+  server/
+    server.go          Gin engine; /api/v1 handlers; SSE encoding
+    memory_handlers.go memory CRUD, search, compaction
+    job_handlers.go    jobs, leases, events, completion, settings
+    scheduled_job_handlers.go deferred and recurring job definitions
+    mcp_handlers.go    MCP status, tools, reconnect, OAuth start
+    run_manager.go     per-session single in-flight run control
   runtime/           shared composition root (config · DB · services · runner factory)
   agent/runner.go    core agent loop (multi-step tool iteration, default 100 steps)
   agent/request.go   builds cometsdk.Request from session history + memory + skills

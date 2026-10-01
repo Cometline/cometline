@@ -164,13 +164,14 @@ A composition root is the one place that builds the main parts.
 ```text
 cometmind/
 ├── main.go, cmd/           CLI: init, serve, chat, session, gateway
-├── server/                 Gin HTTP/SSE API, RunManager (messages in messages.go)
 ├── openapi.yaml            API contract (the main source)
 └── internal/
+    ├── server/             Gin HTTP/SSE API, RunManager (messages in messages.go)
     ├── runtime/            Composition root (config, DB, sessions, providers)
     ├── agent/              Multi-step LLM and tool runner
     ├── session/            Domain service over sqlc queries
     ├── db/                 Schema, migrations, generated sqlc
+    ├── sqlite/             Opens the SQLite file (pragmas, schema bootstrap)
     ├── config/             JSON settings and env overrides
     ├── provider/           Config → comet-sdk factory (builds the provider)
     ├── tools/              Built-in tool registry, surfaces, and sandbox

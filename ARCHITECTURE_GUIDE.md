@@ -31,7 +31,7 @@ Dependency direction:
 Desktop user
   -> cometline renderer, mini window, jobs board, settings, skill drafts
     -> HTTP/SSE on http://127.0.0.1:7700
-      -> cometmind server/runtime/session/tools
+      -> cometmind internal/server, runtime, session, tools
         -> jobs/scheduler/autonomy, MCP manager, comet-sdk Provider interface
           -> Anthropic / OpenAI / OpenAI-compatible APIs
 
@@ -451,9 +451,10 @@ The README frames it as a general AI agent runtime. The implemented runtime is t
 cometmind/
 +-- main.go                       entry point, calls cmd.Execute
 +-- cmd/                          Cobra commands: init, chat, serve, session, gateway, model, settings, skills
-+-- server/                       Gin REST/SSE API and run cancellation manager
 +-- openapi.yaml                  API contract source of truth
 `-- internal/
+    +-- server/                   Gin REST/SSE API and run cancellation manager (only cmd imports it)
+    +-- apigen/                   OpenAPI-generated wire types for the HTTP layer
     +-- runtime/                  composition root for config, DB, sessions, providers
     +-- agent/                    multi-step LLM/tool runner
     +-- session/                  domain service over sqlc DB queries

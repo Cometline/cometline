@@ -57,7 +57,7 @@ A schema is the shape of the data. An endpoint is one API path.
 ### Checklist for API changes
 
 1. Edit `openapi.yaml`.
-2. Implement the handler in `server/`, for example `messages.go` or a feature file. Register it in `server.go`.
+2. Implement the handler in `internal/server/`, for example `messages.go` or a feature file. Register it in `server.go`.
 3. Run `make generate`.
 4. Update `cometline/src/lib/client/cometmind.ts` if a hand-written path changes.
 5. If SSE types change, update `reducers/chat.ts`, a runtime consumer, or both. Runtime consumers include `memory-toasts` and the layout.
