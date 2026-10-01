@@ -73,6 +73,29 @@ func (s *Service) LoadTranscript(ctx context.Context, sessionID string) ([]Trans
 }
 
 func buildTranscriptEntries(rows []db.Message, callsByMessage map[string][]db.ToolCall) ([]TranscriptEntry, error) {
+	toolErr := toolResultErrorFlags(rows)
+
+	var out []TranscriptEntry
+	for _, m := range rows {
+		switch m.Role {
+		case "user":
+			out = append(out, userTranscriptEntry(m))
+		case "assistant":
+			entries, err := assistantTranscriptEntries(m, callsByMessage[m.ID], toolErr)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, entries...)
+		case "system":
+			out = append(out, systemTranscriptEntry(m))
+		}
+	}
+	return out, nil
+}
+
+// toolResultErrorFlags maps tool-call IDs to the is_error flag of their
+// persisted tool_result rows. Undecodable rows are skipped.
+func toolResultErrorFlags(rows []db.Message) map[string]bool {
 	toolErr := map[string]bool{}
 	for _, m := range rows {
 		if m.Role != "tool_result" {
@@ -84,100 +107,91 @@ func buildTranscriptEntries(rows []db.Message, callsByMessage map[string][]db.To
 		}
 		toolErr[p.ToolCallID] = p.IsError
 	}
+	return toolErr
+}
 
-	var out []TranscriptEntry
-	for _, m := range rows {
-		switch m.Role {
-		case "user":
-			blocks, err := DecodeMessageContent(m.Content)
-			if err != nil {
-				out = append(out, TranscriptEntry{
-					Kind: TranscriptKindUser,
-					Text: m.Content,
-				})
-				continue
-			}
-			var images []ContentBlock
-			for _, block := range blocks {
-				if block.Type == "image" || block.Type == "video" {
-					images = append(images, block)
-				}
-			}
-			out = append(out, TranscriptEntry{
-				Kind:     TranscriptKindUser,
-				Text:     DisplayTextFromStoredContent(m.Content),
-				Images:   images,
-				Contexts: ContextsFromStoredContent(m.Content),
-			})
-		case "assistant":
-			blocks, err := unmarshalReasoningContent(m.ReasoningContent)
-			if err != nil {
-				return nil, err
-			}
-			for _, b := range blocks {
-				if rb, ok := b.(cometsdk.ReasoningBlock); ok {
-					rs := strings.TrimSpace(rb.Text)
-					if rs != "" {
-						out = append(out, TranscriptEntry{
-							Kind: TranscriptKindReasoning,
-							Text: rs,
-						})
-					}
-				}
-			}
-			if mems := unmarshalInjectedMemories(m.InjectedMemories); len(mems) > 0 {
-				out = append(out, TranscriptEntry{
-					Kind:     TranscriptKindMemory,
-					Memories: mems,
-				})
-			}
-			for _, tc := range callsByMessage[m.ID] {
-				out = append(out, TranscriptEntry{
-					Kind:        TranscriptKindTool,
-					ToolName:    tc.ToolName,
-					ToolInput:   tc.Arguments,
-					ToolOutput:  trimTranscriptToolOutput(tc.Result),
-					ToolIsError: toolErr[tc.ID],
-				})
-			}
-			txt := strings.TrimSpace(m.Content)
-			if txt != "" {
-				entry := TranscriptEntry{Kind: TranscriptKindAssistant}
-				if blocks, err := DecodeMessageContent(m.Content); err == nil && strings.HasPrefix(m.Content, contentEnvelopePrefix) {
-					var images []ContentBlock
-					for _, block := range blocks {
-						if block.Type == "image" || block.Type == "video" {
-							images = append(images, block)
-						}
-					}
-					entry.Text = PlainTextFromContent(blocks)
-					entry.Images = images
-				} else {
-					entry.Text = txt
-				}
-				if entry.Text != "" || len(entry.Images) > 0 {
-					out = append(out, entry)
-				}
-			}
-		case "system":
-			if text, ok := DecodeErrorMessageContent(m.Content); ok {
-				out = append(out, TranscriptEntry{
-					Kind: TranscriptKindError,
-					Text: text,
-				})
-				continue
-			}
-			out = append(out, TranscriptEntry{
-				Kind: TranscriptKindSystem,
-				Text: strings.TrimSpace(m.Content),
-			})
-		case "tool_result":
-			continue
-		default:
-			continue
+func userTranscriptEntry(m db.Message) TranscriptEntry {
+	blocks, err := DecodeMessageContent(m.Content)
+	if err != nil {
+		return TranscriptEntry{
+			Kind: TranscriptKindUser,
+			Text: m.Content,
 		}
 	}
+	return TranscriptEntry{
+		Kind:     TranscriptKindUser,
+		Text:     DisplayTextFromStoredContent(m.Content),
+		Images:   mediaBlocks(blocks),
+		Contexts: ContextsFromStoredContent(m.Content),
+	}
+}
+
+// assistantTranscriptEntries expands one assistant row into its reasoning,
+// memory, tool, and text entries, in that display order.
+func assistantTranscriptEntries(m db.Message, calls []db.ToolCall, toolErr map[string]bool) ([]TranscriptEntry, error) {
+	blocks, err := unmarshalReasoningContent(m.ReasoningContent)
+	if err != nil {
+		return nil, err
+	}
+	var out []TranscriptEntry
+	for _, b := range blocks {
+		if rb, ok := b.(cometsdk.ReasoningBlock); ok {
+			rs := strings.TrimSpace(rb.Text)
+			if rs != "" {
+				out = append(out, TranscriptEntry{
+					Kind: TranscriptKindReasoning,
+					Text: rs,
+				})
+			}
+		}
+	}
+	if mems := unmarshalInjectedMemories(m.InjectedMemories); len(mems) > 0 {
+		out = append(out, TranscriptEntry{
+			Kind:     TranscriptKindMemory,
+			Memories: mems,
+		})
+	}
+	for _, tc := range calls {
+		out = append(out, TranscriptEntry{
+			Kind:        TranscriptKindTool,
+			ToolName:    tc.ToolName,
+			ToolInput:   tc.Arguments,
+			ToolOutput:  trimTranscriptToolOutput(tc.Result),
+			ToolIsError: toolErr[tc.ID],
+		})
+	}
+	if entry, ok := assistantTextEntry(m); ok {
+		out = append(out, entry)
+	}
 	return out, nil
+}
+
+func assistantTextEntry(m db.Message) (TranscriptEntry, bool) {
+	txt := strings.TrimSpace(m.Content)
+	if txt == "" {
+		return TranscriptEntry{}, false
+	}
+	entry := TranscriptEntry{Kind: TranscriptKindAssistant}
+	if blocks, err := DecodeMessageContent(m.Content); err == nil && strings.HasPrefix(m.Content, contentEnvelopePrefix) {
+		entry.Text = PlainTextFromContent(blocks)
+		entry.Images = mediaBlocks(blocks)
+	} else {
+		entry.Text = txt
+	}
+	return entry, entry.Text != "" || len(entry.Images) > 0
+}
+
+func systemTranscriptEntry(m db.Message) TranscriptEntry {
+	if text, ok := DecodeErrorMessageContent(m.Content); ok {
+		return TranscriptEntry{
+			Kind: TranscriptKindError,
+			Text: text,
+		}
+	}
+	return TranscriptEntry{
+		Kind: TranscriptKindSystem,
+		Text: strings.TrimSpace(m.Content),
+	}
 }
 
 func trimTranscriptToolOutput(s string) string {

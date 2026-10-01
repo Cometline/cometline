@@ -134,6 +134,30 @@ func PlainTextFromContent(blocks []ContentBlock) string {
 	return b.String()
 }
 
+// mediaBlocks returns the image and video blocks in order, or nil when none.
+func mediaBlocks(blocks []ContentBlock) []ContentBlock {
+	var out []ContentBlock
+	for _, block := range blocks {
+		if block.Type == "image" || block.Type == "video" {
+			out = append(out, block)
+		}
+	}
+	return out
+}
+
+// envelopeMediaBlocks decodes the media blocks of an enveloped message.
+// Plain-text and undecodable content yield nil.
+func envelopeMediaBlocks(raw string) []ContentBlock {
+	if !strings.HasPrefix(raw, contentEnvelopePrefix) {
+		return nil
+	}
+	blocks, err := DecodeMessageContent(raw)
+	if err != nil {
+		return nil
+	}
+	return mediaBlocks(blocks)
+}
+
 // DisplayTextFromStoredContent returns the UI label for a persisted user message.
 func DisplayTextFromStoredContent(raw string) string {
 	if !strings.HasPrefix(raw, contentEnvelopePrefix) {

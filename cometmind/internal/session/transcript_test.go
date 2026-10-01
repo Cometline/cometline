@@ -187,3 +187,82 @@ func TestAssistantBlocksDropsToolCallsWithoutResults(t *testing.T) {
 		t.Fatalf("block = %#v, want completed tool call", blocks[0])
 	}
 }
+
+func TestMediaBlocksKeepsImagesAndVideosInOrder(t *testing.T) {
+	got := mediaBlocks([]ContentBlock{
+		{Type: "text", Text: "hi"},
+		{Type: "video", ID: "v1"},
+		{Type: "image", ID: "i1"},
+	})
+	if len(got) != 2 || got[0].ID != "v1" || got[1].ID != "i1" {
+		t.Fatalf("mediaBlocks = %#v, want [v1 i1]", got)
+	}
+	if got := mediaBlocks([]ContentBlock{{Type: "text", Text: "hi"}}); got != nil {
+		t.Fatalf("mediaBlocks(text only) = %#v, want nil", got)
+	}
+}
+
+func TestEnvelopeMediaBlocks(t *testing.T) {
+	raw, err := marshalMessageContent([]ContentBlock{
+		{Type: "text", Text: "look"},
+		{Type: "image", ID: "img-1", MediaType: "image/png"},
+	}, "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := envelopeMediaBlocks(raw)
+	if len(got) != 1 || got[0].ID != "img-1" {
+		t.Fatalf("envelopeMediaBlocks = %#v, want img-1", got)
+	}
+	for _, raw := range []string{"plain text", contentEnvelopePrefix + "{not json"} {
+		if got := envelopeMediaBlocks(raw); got != nil {
+			t.Fatalf("envelopeMediaBlocks(%q) = %#v, want nil", raw, got)
+		}
+	}
+}
+
+func TestToolResultErrorFlagsSkipsUndecodableRows(t *testing.T) {
+	failed, err := json.Marshal(toolResultPayload{ToolCallID: "failed", IsError: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	flags := toolResultErrorFlags([]db.Message{
+		{Role: "tool_result", Content: string(failed)},
+		{Role: "tool_result", Content: "{bad"},
+		{Role: "assistant", Content: string(failed)},
+	})
+	if len(flags) != 1 || !flags["failed"] {
+		t.Fatalf("flags = %#v, want only failed=true", flags)
+	}
+}
+
+func TestSystemTranscriptEntry(t *testing.T) {
+	raw, err := marshalErrorMessageContent("boom")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := systemTranscriptEntry(db.Message{Content: raw}); got.Kind != TranscriptKindError || got.Text != "boom" {
+		t.Fatalf("error entry = %#v", got)
+	}
+	if got := systemTranscriptEntry(db.Message{Content: "  note \n"}); got.Kind != TranscriptKindSystem || got.Text != "note" {
+		t.Fatalf("system entry = %#v", got)
+	}
+}
+
+func TestAssistantTextEntry(t *testing.T) {
+	if _, ok := assistantTextEntry(db.Message{Content: "  "}); ok {
+		t.Fatal("blank assistant content should produce no entry")
+	}
+	entry, ok := assistantTextEntry(db.Message{Content: " plain "})
+	if !ok || entry.Text != "plain" || entry.Images != nil {
+		t.Fatalf("plain entry = %#v, ok=%v", entry, ok)
+	}
+	raw, err := marshalMessageContent([]ContentBlock{{Type: "image", ID: "img-1", MediaType: "image/png"}}, "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry, ok = assistantTextEntry(db.Message{Content: raw})
+	if !ok || entry.Text != "" || len(entry.Images) != 1 {
+		t.Fatalf("media entry = %#v, ok=%v", entry, ok)
+	}
+}

@@ -43,22 +43,11 @@ func (s *Service) backfillSessionMedia(ctx context.Context, sessionID string) er
 	if len(files) == 0 {
 		return nil
 	}
-	known := map[string]struct{}{}
-	rows, err := s.q.ListSessionMediaBySession(ctx, nullSessionID(sessionID))
+	known, err := s.catalogedMediaIDs(ctx, sessionID)
 	if err != nil {
 		return err
 	}
-	for _, row := range rows {
-		known[row.ID] = struct{}{}
-	}
-	needsBackfill := false
-	for _, file := range files {
-		if _, ok := known[file.ID]; !ok {
-			needsBackfill = true
-			break
-		}
-	}
-	if !needsBackfill {
+	if !hasUncatalogedFile(files, known) {
 		return nil
 	}
 
@@ -73,22 +62,42 @@ func (s *Service) backfillSessionMedia(ctx context.Context, sessionID string) er
 	if err != nil {
 		return err
 	}
+	if err := s.backfillTranscriptMedia(ctx, sess, sessionID, known, hints); err != nil {
+		return err
+	}
+	return s.backfillStoredMediaFiles(ctx, sess, files, known, hints)
+}
+
+func (s *Service) catalogedMediaIDs(ctx context.Context, sessionID string) (map[string]struct{}, error) {
+	known := map[string]struct{}{}
+	rows, err := s.q.ListSessionMediaBySession(ctx, nullSessionID(sessionID))
+	if err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		known[row.ID] = struct{}{}
+	}
+	return known, nil
+}
+
+func hasUncatalogedFile(files []media.FileInfo, known map[string]struct{}) bool {
+	for _, file := range files {
+		if _, ok := known[file.ID]; !ok {
+			return true
+		}
+	}
+	return false
+}
+
+// backfillTranscriptMedia catalogs media referenced by transcript blocks whose
+// file still exists, adding each new ID to known.
+func (s *Service) backfillTranscriptMedia(ctx context.Context, sess Session, sessionID string, known map[string]struct{}, hints map[string]MediaMeta) error {
 	messages, err := s.q.ListMessagesBySession(ctx, sessionID)
 	if err != nil {
 		return err
 	}
 	for _, msg := range messages {
-		if !strings.HasPrefix(msg.Content, contentEnvelopePrefix) {
-			continue
-		}
-		blocks, decodeErr := DecodeMessageContent(msg.Content)
-		if decodeErr != nil {
-			continue
-		}
-		for _, block := range blocks {
-			if block.Type != media.KindImage && block.Type != media.KindVideo {
-				continue
-			}
+		for _, block := range envelopeMediaBlocks(msg.Content) {
 			id := strings.TrimSpace(block.ID)
 			if id == "" {
 				continue
@@ -110,7 +119,12 @@ func (s *Service) backfillSessionMedia(ctx context.Context, sessionID string) er
 			known[id] = struct{}{}
 		}
 	}
+	return nil
+}
 
+// backfillStoredMediaFiles catalogs on-disk files that neither the catalog
+// nor the transcript referenced.
+func (s *Service) backfillStoredMediaFiles(ctx context.Context, sess Session, files []media.FileInfo, known map[string]struct{}, hints map[string]MediaMeta) error {
 	for _, file := range files {
 		if _, ok := known[file.ID]; ok {
 			continue
