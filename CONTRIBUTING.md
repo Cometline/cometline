@@ -24,7 +24,7 @@ Dependencies point one way: `cometline` → `cometmind` → `comet-sdk`. There i
 ## Prerequisites
 
 - macOS 13+ to run and package the desktop app. The Go modules and frontend checks also run on Linux (CI uses Ubuntu).
-- Go 1.25, Node.js 22, and pnpm 11.3.0. With [mise](https://mise.jdx.dev), `mise install` picks these up from `mise.toml`.
+- Go 1.26, Node.js 22, and pnpm 11.3.0. With [mise](https://mise.jdx.dev), `mise install` picks these up from `mise.toml`. Both `go.mod` files pin a patched release with a `toolchain` line; Go downloads it automatically (unless `GOTOOLCHAIN=local`), and CI and release builds use the same version.
 
 ## Setup
 
@@ -66,7 +66,7 @@ Never edit generated files by hand. Change the source and regenerate.
 | `cometmind/openapi.yaml` | `cometline/src/lib/generated/cometmind-api/`, `cometmind/internal/apigen/types.gen.go` | `make generate` |
 | `cometmind/internal/db/schema.sql`, `queries/*.sql` | `cometmind/internal/db/*.sql.go`, `db.go`, `models.go` | `cd cometmind && go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1 generate` |
 
-sqlc is pinned to the version in the generated file headers. `go run` fetches it on demand, so you don't need to install it. sqlc 1.31.1 needs Go 1.26, and Go downloads that toolchain automatically unless you set `GOTOOLCHAIN=local`.
+sqlc is pinned to the version in the generated file headers. `go run` fetches it on demand, so you don't need to install it.
 
 Schema changes for existing users also need an incremental migration in `cometmind/internal/db/migrate.go`.
 

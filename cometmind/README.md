@@ -465,7 +465,7 @@ make check    # SDK tests + CometMind tests + Svelte checks
 make package  # build sidecar + package Electron app
 ```
 
-Requires Go 1.25+. `comet-sdk` is consumed via `replace github.com/cometline/comet-sdk => ../comet-sdk`.
+Requires Go 1.26+. `comet-sdk` is consumed via `replace github.com/cometline/comet-sdk => ../comet-sdk`.
 
 CometMind is not versioned or released independently today, and the current documentation should assume monorepo-first development rather than future standalone distribution.
 

@@ -6,7 +6,7 @@ This directory is one module inside the `cometline` monorepo. The historical sta
 
 ```
 module: github.com/cometline/comet-sdk
-go:     1.25
+go:     1.26
 ```
 
 ---

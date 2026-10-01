@@ -1,6 +1,8 @@
 module github.com/cometline/cometmind
 
-go 1.25.0
+go 1.26.0
+
+toolchain go1.26.8
 
 require (
 	github.com/bmatcuk/doublestar/v4 v4.10.0

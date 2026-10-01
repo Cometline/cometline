@@ -6,8 +6,8 @@
 ## Prerequisites
 
 - macOS 13+ (primary target)
-- Go 1.25, Node.js 22, and pnpm 11.3.0 (`mise install` reads them from `mise.toml`)
-- Optional: `golangci-lint`. sqlc runs through a pinned `go run`, so you don't install it.
+- Go 1.26, Node.js 22, and pnpm 11.3.0 (`mise install` reads them from `mise.toml`)
+- Nothing else: golangci-lint, govulncheck, and sqlc run through a pinned `go run`, so you don't install them.
 
 The primary target is the main system this app is built for. A workflow here is a set of commands for one kind of task.
 

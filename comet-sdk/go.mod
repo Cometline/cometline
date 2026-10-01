@@ -1,6 +1,8 @@
 module github.com/cometline/comet-sdk
 
-go 1.25
+go 1.26.0
+
+toolchain go1.26.8
 
 require (
 	github.com/cenkalti/backoff/v4 v4.3.0
