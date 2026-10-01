@@ -1,4 +1,11 @@
 import type { ShortcutAction } from '$lib/keyboard-shortcuts';
+import type {
+	CustomPersona,
+	FetchProviderModelsResult,
+	ProviderConfig,
+	ProviderSettings,
+	TerminalSnapshot
+} from '$lib/types';
 
 export interface ElectronAPI {
 	restartCometMind(): void;
@@ -159,3 +166,81 @@ export interface ComposerHistoryEntry {
 export type ComposerHistoryResult =
 	| { ok: true; entries: ComposerHistoryEntry[] }
 	| { ok: false; error: string; entries: ComposerHistoryEntry[] };
+
+export interface MiniWindowState {
+	sessionId: string;
+	lastActiveAt: number;
+	inactivityTimeoutMinutes: number;
+}
+
+export interface OpenAtLoginState {
+	openAtLogin: boolean;
+	status?: string;
+	needsApproval?: boolean;
+	openedSettings?: boolean;
+	isDev?: boolean;
+	message?: string;
+}
+
+export interface ScreenCaptureAccessState {
+	preferred: boolean;
+	status: string;
+	openedSettings?: boolean;
+	message?: string;
+}
+
+export type SettingsFileResult =
+	| { canceled: true }
+	| { canceled: false; path: string; settings?: ProviderSettings };
+
+export interface SidebarChromeState {
+	open: boolean;
+	duration: number;
+}
+
+export type UpdateStatus = 'idle' | 'checking' | 'downloading' | 'ready' | 'error';
+
+export interface UpdateState {
+	status: UpdateStatus;
+	version?: string;
+	percent?: number;
+	message?: string;
+	updatedAt?: number;
+}
+
+/**
+ * Real outcome of applying a settings save to the running CometMind sidecar.
+ * `action` distinguishes a confirmed in-place reload from a fallback/cold
+ * restart so the UI can report what actually happened instead of assuming
+ * every save silently succeeded.
+ */
+export interface RuntimeReloadOutcome {
+	action: 'reload' | 'restart' | 'restart-fallback' | 'gateway';
+	healthy: boolean;
+	/** Present when action is 'restart-fallback': why the in-place reload failed. */
+	error?: string;
+}
+
+export interface SaveProviderSettingsResult {
+	settings: ProviderSettings;
+	/** null when the save did not request any runtime action (e.g. shortcuts). */
+	reload: RuntimeReloadOutcome | null;
+}
+
+export type PdfPreviewRequest =
+	| { scope: 'workspace'; workspacePath: string; relativePath: string }
+	| { scope: 'wiki'; relativePath: string };
+
+export type PdfPreviewResult =
+	| { ok: true; token: string; url: string }
+	| { ok: false; error: string };
+
+export type ReadPersonaSoulResult = { ok: true; content: string } | { ok: false; error: string };
+
+export type ReadPersonaAvatarResult = { ok: true; dataUrl: string } | { ok: false; error: string };
+
+export type SaveCustomPersonaResult =
+	| { ok: true; persona: CustomPersona }
+	| { ok: false; error: string };
+
+export type DeleteCustomPersonaResult = { ok: true } | { ok: false; error: string };

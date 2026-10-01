@@ -1,3 +1,4 @@
+import type { RuntimeReloadOutcome } from '$lib/electron-api';
 import type { ProviderSettings } from '$lib/types';
 import type { SettingsSection } from '$lib/components/settings/settings-controller.svelte';
 

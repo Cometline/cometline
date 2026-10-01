@@ -1,4 +1,9 @@
 import { pruneWorkspaces, type MemorySettings } from '$lib/client/cometmind';
+import type {
+	DeleteCustomPersonaResult,
+	SaveCustomPersonaResult,
+	UpdateState
+} from '$lib/electron-api';
 import { shellStore } from '$lib/stores/shell.svelte';
 import { settingsStore } from '$lib/stores/settings.svelte';
 import {

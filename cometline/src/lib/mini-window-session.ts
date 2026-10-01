@@ -9,6 +9,7 @@ import { settingsStore } from '$lib/stores/settings.svelte';
 import { shellStore } from '$lib/stores/shell.svelte';
 import { sessionVisitHistory } from '$lib/stores/session-visit-history.svelte';
 import { isDiscordSession } from '$lib/sessions/group-by-workspace';
+import type { MiniWindowState } from '$lib/electron-api';
 import type { Session } from '$lib/types';
 
 async function resolveSelectedModel() {
