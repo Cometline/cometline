@@ -6,7 +6,7 @@
 	import { PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen } from '@lucide/svelte';
 	import Sidebar from './Sidebar.svelte';
 	import RuntimeOverlay from './RuntimeOverlay.svelte';
-	import SettingsModal from './SettingsModal.svelte';
+	import SettingsModal from '../features/settings/components/SettingsModal.svelte';
 	import SetupWizard from '../features/onboarding/components/SetupWizard.svelte';
 	import UpdateButton from './UpdateButton.svelte';
 	import MemoryToast from './MemoryToast.svelte';

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { LogIn, LoaderCircle, Plus, RefreshCw, Trash2 } from '@lucide/svelte';
 	import type { ProviderConfig, ProviderMethod } from '$lib/types';
-	import { isFixedBuiltinProvider } from '$lib/settings/schema';
+	import { isFixedBuiltinProvider } from '$lib/features/settings/schema';
 	import { modelStore } from '$lib/stores/model.svelte';
 	import { settingsStore } from '$lib/stores/settings.svelte';
 	import ProviderCard from './ProviderCard.svelte';

@@ -17,7 +17,7 @@
 		normalizeTerminalFontSize,
 		TERMINAL_THEME_PRESETS
 	} from '$lib/terminal-appearance';
-	import { defaultResponseCompleteSoundSettings } from '$lib/settings/schema';
+	import { defaultResponseCompleteSoundSettings } from '$lib/features/settings/schema';
 	import { playResponseCompleteSound } from '$lib/sound/response-complete';
 
 	let {

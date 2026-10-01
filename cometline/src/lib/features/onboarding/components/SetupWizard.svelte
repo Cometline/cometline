@@ -15,8 +15,8 @@
 	import { settingsStore } from '$lib/stores/settings.svelte';
 	import { shellStore } from '$lib/stores/shell.svelte';
 	import { connectionState } from '$lib/stores/runtime.svelte';
-	import { cloneProvider } from '$lib/settings/schema';
-	import SettingsButton from '$lib/components/settings/SettingsButton.svelte';
+	import { cloneProvider } from '$lib/features/settings/schema';
+	import SettingsButton from '$lib/features/settings/components/SettingsButton.svelte';
 	import {
 		buildEmbeddingDropdownOptions,
 		embeddingKeyForFields,

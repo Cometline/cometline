@@ -14,7 +14,9 @@ vi.mock('./GitChangesBrowser.svelte', () => ({ default: emptyComponent }));
 vi.mock('./GitDiffView.svelte', () => ({ default: emptyComponent }));
 vi.mock('./TerminalPanel.svelte', () => ({ default: emptyComponent }));
 vi.mock('./RuntimeOverlay.svelte', () => ({ default: emptyComponent }));
-vi.mock('./SettingsModal.svelte', () => ({ default: emptyComponent }));
+vi.mock('../features/settings/components/SettingsModal.svelte', () => ({
+	default: emptyComponent
+}));
 vi.mock('../features/onboarding/components/SetupWizard.svelte', () => ({
 	default: emptyComponent
 }));

@@ -15,7 +15,7 @@ import { fireEvent, render, waitFor } from '@testing-library/svelte';
 import { flushSync } from 'svelte';
 import type { ProviderConfig } from '$lib/types';
 import SettingsMemoryPanel from './SettingsMemoryPanel.svelte';
-import { createSettingsController } from './settings-controller.svelte';
+import { createSettingsController } from '../settings-controller.svelte';
 import { settingsStore } from '$lib/stores/settings.svelte';
 import {
 	compactMemory,

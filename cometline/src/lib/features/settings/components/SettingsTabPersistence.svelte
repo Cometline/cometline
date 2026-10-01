@@ -3,7 +3,7 @@
 	import {
 		SECTION_PERSISTENCE_HINTS,
 		type SettingsSection
-	} from '$lib/settings/pending-settings';
+	} from '$lib/features/settings/pending-settings';
 
 	let { section }: { section: SettingsSection } = $props();
 

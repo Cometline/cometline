@@ -21,7 +21,7 @@
 	import SettingsGeneralPanel from './SettingsGeneralPanel.svelte';
 	import SettingsCometMindPanel from './SettingsCometMindPanel.svelte';
 	import SettingsModelRolesPanel from './SettingsModelRolesPanel.svelte';
-	import { normalizeModelRoleDraft } from '$lib/settings/model-role-draft';
+	import { normalizeModelRoleDraft } from '$lib/features/settings/model-role-draft';
 	import SettingsMemoryPanel from './SettingsMemoryPanel.svelte';
 	import SettingsShortcutsPanel from './SettingsShortcutsPanel.svelte';
 	import SettingsProvidersPanel from './SettingsProvidersPanel.svelte';
@@ -35,9 +35,9 @@
 	import { personaAvatarCache } from '$lib/personas/avatar-cache.svelte';
 	import { heroComposerCssVars } from '$lib/hero-composer-appearance';
 	import { onMount } from 'svelte';
-	import { createSettingsController } from './settings-controller.svelte';
-	import { createSettingsPanelController } from './settings-panel-controller.svelte';
-	import { cloneSettings } from '$lib/settings/settings-draft';
+	import { createSettingsController } from '../settings-controller.svelte';
+	import { createSettingsPanelController } from '../settings-panel-controller.svelte';
+	import { cloneSettings } from '$lib/features/settings/settings-draft';
 
 	type SettingsPanelMode = 'modal' | 'window';
 

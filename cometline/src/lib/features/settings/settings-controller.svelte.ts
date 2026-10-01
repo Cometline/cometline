@@ -4,7 +4,7 @@ import {
 	sectionPendingDirty,
 	settingsPendingDirty,
 	type SettingsSection as PendingSettingsSection
-} from '$lib/settings/pending-settings';
+} from '$lib/features/settings/pending-settings';
 
 export type SettingsSection = 'models' | 'memory' | 'agent' | 'appearance' | 'shortcuts' | 'app';
 

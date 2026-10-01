@@ -11,7 +11,7 @@ vi.mock('$lib/client/cometmind', () => ({
 
 import { settingsStore } from './settings.svelte';
 import { modelStore } from './model.svelte';
-import { defaultSettings } from '$lib/settings/schema';
+import { defaultSettings } from '$lib/features/settings/schema';
 
 describe('settingsStore.refreshModelLimits', () => {
 	beforeEach(() => {

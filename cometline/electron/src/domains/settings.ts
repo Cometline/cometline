@@ -3,7 +3,7 @@ import {
 	normalizeSettings,
 	parseAndNormalizeSettings,
 	validateSettings
-} from '../../../src/lib/settings/schema.js';
+} from '../../../src/lib/features/settings/schema.js';
 import type { ProviderSettings } from '../../../src/lib/types.js';
 import type {
 	ComposerHistoryEntry,

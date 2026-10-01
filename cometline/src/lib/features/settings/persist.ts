@@ -1,8 +1,8 @@
 import type { MemorySettings } from '$lib/client/cometmind';
 import type { RuntimeReloadOutcome } from '$lib/electron-api';
 import { runStorageRetentionAndSyncSessions } from '$lib/retention/storage-retention-sync';
-import { normalizeSettings, validateSettings } from '$lib/settings/schema';
-import type { RuntimeApplyAction } from '$lib/settings/settings-save';
+import { normalizeSettings, validateSettings } from '$lib/features/settings/schema';
+import type { RuntimeApplyAction } from '$lib/features/settings/settings-save';
 import type { ProviderSettings } from '$lib/types';
 import { putMemorySettings } from '$lib/client/cometmind';
 import { connectionState } from '$lib/stores/runtime.svelte';

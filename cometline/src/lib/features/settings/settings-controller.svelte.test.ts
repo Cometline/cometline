@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { createSettingsController } from './settings-controller.svelte';
 import { settingsStore } from '$lib/stores/settings.svelte';
-import { cloneSettings } from '$lib/settings/settings-draft';
+import { cloneSettings } from '$lib/features/settings/settings-draft';
 
 describe('createSettingsController', () => {
 	it('disables save when draft matches persisted settings', () => {

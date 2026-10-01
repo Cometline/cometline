@@ -17,7 +17,7 @@ import { fileURLToPath } from 'node:url';
 import os from 'node:os';
 import path from 'node:path';
 
-import { defaultSettings } from '../../../src/lib/settings/schema.js';
+import { defaultSettings } from '../../../src/lib/features/settings/schema.js';
 import type { ProviderSettings } from '../../../src/lib/types.js';
 import { createOllamaService } from '../services/ollama.js';
 import type { SettingsFileResult } from '../shared/api.js';

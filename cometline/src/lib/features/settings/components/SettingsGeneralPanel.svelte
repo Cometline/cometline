@@ -1,7 +1,7 @@
 <script lang="ts">
 	import SettingsToggle from './SettingsToggle.svelte';
 	import { runStorageBackup } from '$lib/client/cometmind';
-	import type { CometMindStorageSettings, FileSearchSource } from '$lib/settings/schema';
+	import type { CometMindStorageSettings, FileSearchSource } from '$lib/features/settings/schema';
 
 	let {
 		openAtLogin = $bindable(false),

@@ -5,7 +5,7 @@ import { flushSync } from 'svelte';
 import Harness from './SettingsMCPPanel.harness.svelte';
 import { listMcpServers, startMcpOAuth, testMcpServer } from '$lib/client/cometmind';
 import type { CometMindMCPSettings } from '$lib/cometmind-settings';
-import { defaultSettings } from '$lib/settings/schema';
+import { defaultSettings } from '$lib/features/settings/schema';
 import { settingsStore } from '$lib/stores/settings.svelte';
 import type { ProviderSettings } from '$lib/types';
 

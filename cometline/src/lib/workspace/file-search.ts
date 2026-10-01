@@ -1,4 +1,4 @@
-import type { FileSearchSource } from '$lib/settings/schema';
+import type { FileSearchSource } from '$lib/features/settings/schema';
 import { refreshWikiFileIndex } from '$lib/wiki/wiki-file-index';
 import {
 	filterFileIndex,

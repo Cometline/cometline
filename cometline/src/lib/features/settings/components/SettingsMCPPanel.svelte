@@ -7,8 +7,11 @@
 		type MCPServerConfig,
 		type MCPTransport
 	} from '$lib/cometmind-settings';
-	import { mergeImportedMcpServers, parseCursorMcpJson } from '$lib/settings/cursor-mcp-import';
-	import { normalizeServerConnection } from '$lib/settings/mcp-url';
+	import {
+		mergeImportedMcpServers,
+		parseCursorMcpJson
+	} from '$lib/features/settings/cursor-mcp-import';
+	import { normalizeServerConnection } from '$lib/features/settings/mcp-url';
 	import {
 		apiErrorMessage,
 		listMcpServers,

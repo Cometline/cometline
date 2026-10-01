@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { defaultSettings } from '../../../src/lib/settings/schema.js';
+import { defaultSettings } from '../../../src/lib/features/settings/schema.js';
 import type { ProviderConfig, ProviderSettings } from '../../../src/lib/types.js';
 import {
 	applyProviderEnvironmentOverrides,

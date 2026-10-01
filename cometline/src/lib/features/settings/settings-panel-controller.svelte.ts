@@ -11,9 +11,12 @@ import {
 	applyMemorySettingsToDraft,
 	cloneSettings,
 	providerPayloadFromDraft
-} from '$lib/settings/settings-draft';
-import { isFixedBuiltinProvider } from '$lib/settings/schema';
-import { runtimeActionForSettingsSave, saveStatusMessage } from '$lib/settings/settings-save';
+} from '$lib/features/settings/settings-draft';
+import { isFixedBuiltinProvider } from '$lib/features/settings/schema';
+import {
+	runtimeActionForSettingsSave,
+	saveStatusMessage
+} from '$lib/features/settings/settings-save';
 import type {
 	ProviderConfig,
 	ProviderMethod,
