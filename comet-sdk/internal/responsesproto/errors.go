@@ -3,8 +3,37 @@ package responsesproto
 import (
 	"strings"
 
+	cometsdk "github.com/Cometline/cometline/comet-sdk"
 	"github.com/Cometline/cometline/comet-sdk/internal/providerbase"
 )
+
+// CapabilityFallbacks lists, in priority order, the optional Responses request
+// features a provider drops and retries without when the endpoint rejects them.
+func CapabilityFallbacks() []providerbase.CapabilityFallback {
+	return []providerbase.CapabilityFallback{
+		{
+			Capability: cometsdk.CapabilityMaxOutputTokens,
+			LogEvent:   "stream.max_output_tokens_fallback",
+			Rejected: func(req *cometsdk.Request, err error) bool {
+				return req.MaxTokens > 0 && IsMaxOutputTokensUnsupportedError(err)
+			},
+		},
+		{
+			Capability: cometsdk.CapabilityReasoningSummary,
+			LogEvent:   "stream.reasoning_summary_fallback",
+			Rejected: func(_ *cometsdk.Request, err error) bool {
+				return IsReasoningSummaryUnsupportedError(err)
+			},
+		},
+		{
+			Capability: cometsdk.CapabilityEncryptedReasoningReplay,
+			LogEvent:   "stream.encrypted_reasoning_replay_fallback",
+			Rejected: func(_ *cometsdk.Request, err error) bool {
+				return IsEncryptedReasoningReplayError(err)
+			},
+		},
+	}
+}
 
 // IsMaxOutputTokensUnsupportedError reports whether err is a 4xx ServerError
 // whose message says max_output_tokens is rejected.
