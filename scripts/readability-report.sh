@@ -18,7 +18,7 @@ SVELTE_TS_BUDGET=500
 TOP=10
 
 # Packages allowed to exceed the fan-out budget because they wire everything.
-COMPOSITION_ROOTS='^(\.|cmd|internal/server|internal/runtime)$'
+COMPOSITION_ROOTS='^(\.|cmd|internal/server|internal/runtime|internal/tools)$'
 
 go_metrics() {
   go run ./scripts/readability/main.go comet-sdk cometmind
