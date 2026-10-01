@@ -215,28 +215,6 @@ jobs:
       - name: Build
         run: pnpm run build
 
-  pr-title:
-    name: PR title
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    permissions:
-      pull-requests: read
-    steps:
-      - name: Check conventional commit title
-        uses: amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50 # v6.1.1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          types: |
-            feat
-            fix
-            refactor
-            perf
-            docs
-            test
-            chore
-            ci
-
   electron-smoke:
     name: Electron packaging smoke (macOS)
     needs: [cometmind, frontend]
