@@ -67,10 +67,10 @@ func Parse(output string) (Artifact, bool) {
 			counts = strings.TrimSuffix(counts, ")")
 			if before, after, cut := strings.Cut(counts, " replace_all="); cut {
 				counts = before
-				fmt.Sscanf(after, "%d", &a.ReplaceAllCount)
+				_, _ = fmt.Sscanf(after, "%d", &a.ReplaceAllCount)
 			}
 			var add, del int
-			fmt.Sscanf(counts, "%d -%d", &add, &del)
+			_, _ = fmt.Sscanf(counts, "%d -%d", &add, &del)
 			a.Added, a.Deleted = add, del
 		} else {
 			a.Path = rest

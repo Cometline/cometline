@@ -138,9 +138,9 @@ func (r ReadFile) Execute(ctx context.Context, input json.RawMessage) (Result, e
 
 	var footer strings.Builder
 	if end < len(lines) {
-		footer.WriteString(fmt.Sprintf("\n\n(showing lines %d-%d of %d; use offset/limit to read more)", start, end, len(lines)))
+		fmt.Fprintf(&footer, "\n\n(showing lines %d-%d of %d; use offset/limit to read more)", start, end, len(lines))
 	} else if start > 1 {
-		footer.WriteString(fmt.Sprintf("\n\n(showing lines %d-%d of %d)", start, end, len(lines)))
+		fmt.Fprintf(&footer, "\n\n(showing lines %d-%d of %d)", start, end, len(lines))
 	}
 	if truncated {
 		footer.WriteString("\n\n(file truncated for tool output limit)")

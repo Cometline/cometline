@@ -94,7 +94,7 @@ func TestGrep_TruncatedOutput(t *testing.T) {
 	root := t.TempDir()
 	var b strings.Builder
 	for i := 0; i < 5000; i++ {
-		b.WriteString(fmt.Sprintf("match line %d with padding\n", i))
+		fmt.Fprintf(&b, "match line %d with padding\n", i)
 	}
 	writeTestFile(t, filepath.Join(root, "big.go"), b.String())
 

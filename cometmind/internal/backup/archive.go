@@ -133,7 +133,9 @@ func snapshotDatabase(ctx context.Context, db *sql.DB, tmpDir string) (string, e
 	if _, err := conn.ExecContext(ctx, fmt.Sprintf("ATTACH DATABASE '%s' AS backup_snapshot", escaped)); err != nil {
 		return "", err
 	}
-	defer conn.ExecContext(context.WithoutCancel(ctx), "DETACH DATABASE backup_snapshot")
+	defer func() {
+		_, _ = conn.ExecContext(context.WithoutCancel(ctx), "DETACH DATABASE backup_snapshot")
+	}()
 	if _, err := conn.ExecContext(ctx, "DELETE FROM backup_snapshot.assistant_provider_states"); err != nil {
 		if !strings.Contains(strings.ToLower(err.Error()), "no such table") {
 			return "", err

@@ -53,8 +53,7 @@ func EstimateMessageTokens(msg cometsdk.Message) int {
 		}
 	}
 	for _, block := range msg.ReasoningContent {
-		switch b := block.(type) {
-		case cometsdk.ReasoningBlock:
+		if b, ok := block.(cometsdk.ReasoningBlock); ok {
 			total += EstimateTokens(b.Text)
 		}
 	}

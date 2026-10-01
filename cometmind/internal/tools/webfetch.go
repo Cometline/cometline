@@ -122,25 +122,25 @@ func (WebFetch) Execute(ctx context.Context, input json.RawMessage) (Result, err
 
 func parseWebFetchInput(input json.RawMessage) (webFetchInput, error) {
 	var in webFetchInput
-	if err := json.Unmarshal(input, &in); err == nil {
+	err := json.Unmarshal(input, &in)
+	if err == nil {
 		return in, nil
-	} else {
-		var raw string
-		if stringErr := json.Unmarshal(input, &raw); stringErr == nil {
-			raw, _, ok := requiredTrimmedString(&raw, "url")
-			if !ok {
-				return webFetchInput{}, nil
-			}
-			if strings.HasPrefix(raw, "{") {
-				var nested webFetchInput
-				if nestedErr := json.Unmarshal([]byte(raw), &nested); nestedErr == nil {
-					return nested, nil
-				}
-			}
-			return webFetchInput{URL: &raw}, nil
-		}
-		return webFetchInput{}, err
 	}
+	var raw string
+	if stringErr := json.Unmarshal(input, &raw); stringErr == nil {
+		raw, _, ok := requiredTrimmedString(&raw, "url")
+		if !ok {
+			return webFetchInput{}, nil
+		}
+		if strings.HasPrefix(raw, "{") {
+			var nested webFetchInput
+			if nestedErr := json.Unmarshal([]byte(raw), &nested); nestedErr == nil {
+				return nested, nil
+			}
+		}
+		return webFetchInput{URL: &raw}, nil
+	}
+	return webFetchInput{}, err
 }
 
 func isHTMLContentType(contentType string) bool {

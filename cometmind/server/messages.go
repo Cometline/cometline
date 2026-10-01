@@ -292,17 +292,17 @@ func contentBlocksFromRequest(req postMessageRequest, workspacePath string) ([]s
 
 		resolveRel := strings.TrimSuffix(rel, "/")
 		if resolveRel == "" {
-			fileAppend.WriteString(fmt.Sprintf("\n\n<!-- Could not include %s: path is required -->", rel))
+			fmt.Fprintf(&fileAppend, "\n\n<!-- Could not include %s: path is required -->", rel)
 			continue
 		}
 		abs, err := resolveMessageFilePath(workspacePath, resolveRel)
 		if err != nil {
-			fileAppend.WriteString(fmt.Sprintf("\n\n<!-- Could not include %s: %s -->", rel, err.Error()))
+			fmt.Fprintf(&fileAppend, "\n\n<!-- Could not include %s: %s -->", rel, err.Error())
 			continue
 		}
 		info, err := os.Stat(abs)
 		if err != nil {
-			fileAppend.WriteString(fmt.Sprintf("\n\n<!-- Could not include %s: %s -->", rel, err.Error()))
+			fmt.Fprintf(&fileAppend, "\n\n<!-- Could not include %s: %s -->", rel, err.Error())
 			continue
 		}
 		if info.IsDir() {
@@ -310,16 +310,16 @@ func contentBlocksFromRequest(req postMessageRequest, workspacePath string) ([]s
 			if !strings.HasSuffix(display, "/") {
 				display += "/"
 			}
-			fileAppend.WriteString(fmt.Sprintf(
+			fmt.Fprintf(&fileAppend,
 				"\n\n[Referenced directory: %s — use list_dir/glob/grep as needed]",
 				display,
-			))
+			)
 			continue
 		}
-		fileAppend.WriteString(fmt.Sprintf(
+		fmt.Fprintf(&fileAppend,
 			"\n\n[Referenced file: %s — use read_file (or other tools) if you need contents; do not assume body is attached]",
 			resolveRel,
-		))
+		)
 	}
 
 	blocks := make([]session.ContentBlock, 0, 1+len(req.Images))

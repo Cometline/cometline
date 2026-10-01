@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"image"
-	_ "image/jpeg"
+	_ "image/jpeg" // register decoders for image.DecodeConfig
 	_ "image/png"
 	"strings"
 )

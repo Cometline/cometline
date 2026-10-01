@@ -91,7 +91,8 @@ func generateSynthesisResult(ctx context.Context, p cometsdk.Provider, model str
 		MaxTokens:   synthesisMaxTokens,
 		Temperature: &zero,
 	}
-	if tok, err := llm.GenerateJSON(ctx, p, req, &out); err != nil {
+	tok, err := llm.GenerateJSON(ctx, p, req, &out)
+	if err != nil {
 		recordSkillUsage(ctx, rec, p, model, workspaceID, tok)
 		if !shouldRetrySynthesisJSON(err) {
 			return synthesisResult{}, err
@@ -115,9 +116,8 @@ If this job is not reusable, set "should_propose" to false and leave "name" and 
 			return synthesisResult{}, retryErr
 		}
 		return out, nil
-	} else {
-		recordSkillUsage(ctx, rec, p, model, workspaceID, tok)
 	}
+	recordSkillUsage(ctx, rec, p, model, workspaceID, tok)
 	return out, nil
 }
 

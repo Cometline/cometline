@@ -91,7 +91,7 @@ func (w WebSearch) Execute(ctx context.Context, input json.RawMessage) (Result, 
 	defer cancel()
 
 	ddgCtx, ddgCancel := webSearchAttemptContext(searchCtx)
-	response, ddgErr := searchDuckDuckGoHTML(w, ddgCtx, in)
+	response, ddgErr := searchDuckDuckGoHTML(ddgCtx, w, in)
 	ddgCancel()
 	if ddgErr == nil && len(response.Results) > 0 {
 		return Result{OK: true, Output: formatWebSearchResponse(response)}, nil
@@ -172,7 +172,7 @@ func (w WebSearch) searchBrowserBridge(ctx context.Context, in webSearchInput) (
 	return normalizeSearchResponse(out, in), nil
 }
 
-func searchDuckDuckGoHTML(w WebSearch, ctx context.Context, in webSearchInput) (webSearchResponse, error) {
+func searchDuckDuckGoHTML(ctx context.Context, w WebSearch, in webSearchInput) (webSearchResponse, error) {
 	query := url.Values{"q": []string{in.Query}}
 	if filter := searchRecencyFilter(in.Recency); filter != "" {
 		query.Set("df", filter)

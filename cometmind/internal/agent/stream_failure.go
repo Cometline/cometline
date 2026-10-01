@@ -57,6 +57,7 @@ func classifyStreamFailure(err error) streamFailureCategory {
 		return streamFailureRecoverable
 	}
 	var netErr net.Error
+	//nolint:staticcheck // SA1019: some net errors still only report Temporary(); dropping it would change retry classification.
 	if errors.As(err, &netErr) && (netErr.Timeout() || netErr.Temporary()) {
 		return streamFailureRecoverable
 	}
