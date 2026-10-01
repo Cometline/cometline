@@ -79,11 +79,13 @@ func newRegistryWithSurface(workspaceRoot string, surface ToolSurface, opt Regis
 	if surface.Skills && opt.Skills != nil {
 		add(LoadSkill{Skills: opt.Skills})
 		add(ReadSkillFile{Skills: opt.Skills})
-		if surface.SkillMut {
-			add(WriteSkill{})
+		if surface.SkillDraft {
 			add(WriteSkillDraft{})
 			add(ListSkillDrafts{})
 			add(ReadSkillDraft{})
+		}
+		if surface.SkillMut {
+			add(WriteSkill{})
 			add(PromoteSkillDraft{})
 		}
 	}

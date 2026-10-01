@@ -485,12 +485,20 @@ func (r *Runtime) StartInboxWorker(ctx context.Context, guard inboxworker.RunGua
 		NewRunner: func(sess session.Session, workspacePath string, registry *tools.Registry, maxSteps int) (*agent.Runner, error) {
 			return r.RunnerForInbox(sess, workspacePath, registry, maxSteps)
 		},
+		RegistryOptions: func(sess session.Session, workspacePath string) tools.RegistryOptions {
+			mode, err := session.ParseAgentMode(sess.AgentMode)
+			if err != nil {
+				mode = session.AgentModeAuto
+			}
+			return r.toolRegistryOptions(workspacePath, r.SkillsForWorkspace(workspacePath), sess.ID, jobs.PlatformDesktop, "", mode)
+		},
 	}
 	r.inboxWorker = w
 	go w.Run(ctx)
 }
 
-// RunnerForInbox builds a runner with a caller-supplied limited tool registry.
+// RunnerForInbox builds a runner for an inbox internalization session.
+// The caller supplies the registry; it is the parent surface, not a reduced tool list.
 func (r *Runtime) RunnerForInbox(sess session.Session, workspacePath string, registry *tools.Registry, maxSteps int) (*agent.Runner, error) {
 	p, err := r.ProviderForSession(sess)
 	if err != nil {
@@ -507,7 +515,9 @@ func (r *Runtime) RunnerForInbox(sess session.Session, workspacePath string, reg
 		Registry:     registry,
 		Jobs:         r.Jobs,
 		MaxSteps:     maxSteps,
-		SystemPrompt: "You internalize inbox replies into durable memory when warranted. Prefer no-op over noisy memories.",
+		SystemPrompt: "You process a user reply to an inbox note. Save durable memory when the reply states a lasting preference or fact. Do real work the reply asks for with the tools you have. Draft reusable workflows with write_skill_draft and leave them for human review. This session cannot spawn subagents or write or promote live skills. Prefer no-op over noisy memories or invented work.",
+		SkillIndex:   r.SkillsForWorkspace(workspacePath).PromptIndex(),
+		JobIndex:     tools.JobPromptIndex(workspacePath, jobs.PlatformDesktop),
 		MemorySem:    r.memorySem,
 	}, nil
 }
@@ -808,8 +818,12 @@ func (r *Runtime) subagentOrchestratorForRunner(isSubagent bool) *subagent.Orche
 }
 
 func (r *Runtime) toolRegistryWithJobMeta(workspacePath string, skillRegistry skills.Registry, sessionID, platform, sourceChannelID string, mode session.AgentMode) *tools.Registry {
+	return tools.NewRegistry(workspacePath, r.toolRegistryOptions(workspacePath, skillRegistry, sessionID, platform, sourceChannelID, mode))
+}
+
+func (r *Runtime) toolRegistryOptions(workspacePath string, skillRegistry skills.Registry, sessionID, platform, sourceChannelID string, mode session.AgentMode) tools.RegistryOptions {
 	sub := r.Config.EffectiveSubagentSettings()
-	return tools.NewRegistry(workspacePath, tools.RegistryOptions{
+	return tools.RegistryOptions{
 		Sessions:       r.Sessions,
 		AssistantMedia: r.Sessions,
 		ReadyMedia:     r.Sessions,
@@ -844,7 +858,7 @@ func (r *Runtime) toolRegistryWithJobMeta(workspacePath string, skillRegistry sk
 		SubagentConfig: tools.SubagentToolConfig{
 			GeneralMaxSteps: sub.GeneralMaxSteps,
 		},
-	})
+	}
 }
 
 // SkillsForWorkspace discovers Agent Skills visible to one workspace.
