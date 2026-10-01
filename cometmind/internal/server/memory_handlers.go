@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/Cometline/cometline/cometmind/internal/apigen"
 	"github.com/Cometline/cometline/cometmind/internal/config"
 	"github.com/Cometline/cometline/cometmind/internal/logging"
 	"github.com/Cometline/cometline/cometmind/internal/memory"
@@ -42,10 +43,6 @@ type createMemoryRequest struct {
 type searchMemoryRequest struct {
 	Query string `json:"query"`
 	Limit int    `json:"limit"`
-}
-
-type purgeMemoryRequest struct {
-	OlderThanDays int `json:"older_than_days"`
 }
 
 type purgeMemoryResponse struct {
@@ -295,7 +292,7 @@ func (a *App) handlePurgeMemory(c *gin.Context) {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "memory disabled"})
 		return
 	}
-	var req purgeMemoryRequest
+	var req apigen.PurgeArchivedMemoryRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
