@@ -1,6 +1,7 @@
 package cometsdk
 
 import (
+	"errors"
 	"testing"
 	"time"
 )
@@ -16,8 +17,8 @@ type retryAfterReader interface {
 func TestRateLimitError_SatisfiesRetryAfter(t *testing.T) {
 	var err error = &RateLimitError{ProviderID: "anthropic", RetryAfterDelay: 30 * time.Second}
 
-	ra, ok := err.(retryAfterReader)
-	if !ok {
+	var ra retryAfterReader
+	if !errors.As(err, &ra) {
 		t.Fatalf("*RateLimitError does not satisfy the RetryAfter interface")
 	}
 	if got := ra.RetryAfter(); got != 30*time.Second {
