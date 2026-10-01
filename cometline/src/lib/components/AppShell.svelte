@@ -62,7 +62,8 @@
 	type IntroAnimationComponent = typeof import('./IntroAnimation.svelte').default;
 	let IntroAnimation = $state<IntroAnimationComponent | null>(null);
 	let introAnimationLoadPromise: Promise<IntroAnimationComponent | null> | null = null;
-	type InboxDrawerComponent = typeof import('./inbox/InboxDrawer.svelte').default;
+	type InboxDrawerComponent =
+		typeof import('../features/inbox/components/InboxDrawer.svelte').default;
 	let InboxDrawer = $state<InboxDrawerComponent | null>(null);
 	let inboxDrawerLoadPromise: Promise<InboxDrawerComponent | null> | null = null;
 	let inboxDrawerLoadFailed = $state(false);
@@ -116,7 +117,7 @@
 		if (InboxDrawer) return Promise.resolve(InboxDrawer);
 		if (!inboxDrawerLoadPromise) {
 			inboxDrawerLoadFailed = false;
-			inboxDrawerLoadPromise = import('./inbox/InboxDrawer.svelte')
+			inboxDrawerLoadPromise = import('../features/inbox/components/InboxDrawer.svelte')
 				.then((module) => {
 					InboxDrawer = module.default;
 					return module.default;

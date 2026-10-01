@@ -21,7 +21,7 @@ vi.mock('./MemoryToast.svelte', () => ({ default: emptyComponent }));
 vi.mock('./AppToast.svelte', () => ({ default: emptyComponent }));
 vi.mock('./ConfirmActionModal.svelte', () => ({ default: emptyComponent }));
 vi.mock('./FileSearchModal.svelte', () => ({ default: emptyComponent }));
-vi.mock('./inbox/InboxDrawer.svelte', () => ({ default: emptyComponent }));
+vi.mock('../features/inbox/components/InboxDrawer.svelte', () => ({ default: emptyComponent }));
 vi.mock('$app/state', () => ({ page: { url: new URL('http://localhost/session/focus-test') } }));
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
 

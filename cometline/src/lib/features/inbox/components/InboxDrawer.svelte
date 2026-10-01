@@ -2,13 +2,13 @@
 	import { Bell, X } from '@lucide/svelte';
 	import { fade, scale } from 'svelte/transition';
 	import AssistantMarkdown from '$lib/components/AssistantMarkdown.svelte';
-	import InboxLinkStatus from '$lib/components/inbox/InboxLinkStatus.svelte';
+	import InboxLinkStatus from '$lib/features/inbox/components/InboxLinkStatus.svelte';
 	import type { InboxMessageResource } from '$lib/client/cometmind';
 	import {
 		jobLinkKey,
 		sessionLinkKey,
 		type LinkAvailabilityMap
-	} from '$lib/inbox/link-availability';
+	} from '$lib/features/inbox/link-availability';
 	import { matchesShortcut } from '$lib/keyboard-shortcuts';
 	import { appToastStore } from '$lib/stores/app-toasts.svelte';
 	import { settingsStore } from '$lib/stores/settings.svelte';

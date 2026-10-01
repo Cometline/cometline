@@ -4,7 +4,7 @@
 	import {
 		resolveInboxLinkAvailability,
 		type LinkAvailabilityMap
-	} from '$lib/inbox/link-availability';
+	} from '$lib/features/inbox/link-availability';
 
 	let {
 		messages,
