@@ -42,4 +42,10 @@ describe('startNewChat', () => {
 			mocks.requestComposerFocus.mock.invocationCallOrder[0]
 		);
 	});
+
+	it('creates the session in the requested workspace', async () => {
+		await startNewChat('/group/workspace');
+
+		expect(mocks.createNewSession).toHaveBeenCalledWith('/group/workspace');
+	});
 });
