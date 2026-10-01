@@ -36,7 +36,7 @@ import (
 	"github.com/Cometline/cometline/cometmind/internal/scheduler"
 	"github.com/Cometline/cometline/cometmind/internal/session"
 	"github.com/Cometline/cometline/cometmind/internal/skills"
-	"github.com/Cometline/cometline/cometmind/internal/store"
+	"github.com/Cometline/cometline/cometmind/internal/sqlite"
 	"github.com/Cometline/cometline/cometmind/internal/subagent"
 	"github.com/Cometline/cometline/cometmind/internal/tools"
 	"github.com/Cometline/cometline/cometmind/internal/usage"
@@ -93,7 +93,7 @@ func New(ctx context.Context) (*Runtime, error) {
 	if err != nil {
 		return nil, fmt.Errorf("db path: %w", err)
 	}
-	sqlDB, err := store.OpenSQLite(ctx, dbpath)
+	sqlDB, err := sqlite.Open(ctx, dbpath)
 	if err != nil {
 		return nil, fmt.Errorf("open sqlite: %w", err)
 	}

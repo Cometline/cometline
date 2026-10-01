@@ -1,4 +1,4 @@
-package store
+package sqlite
 
 import (
 	"context"
@@ -10,8 +10,8 @@ import (
 	_ "modernc.org/sqlite" // SQLite driver (pure Go)
 )
 
-// OpenSQLite opens the global CometMind database and ensures schema v1 is applied.
-func OpenSQLite(ctx context.Context, dbPath string) (*sql.DB, error) {
+// Open opens the global CometMind database and ensures schema v1 is applied.
+func Open(ctx context.Context, dbPath string) (*sql.DB, error) {
 	// _txlock=immediate makes write transactions take the write lock up front
 	// instead of lazily upgrading from a read lock. Without it, two connections
 	// that both start as readers and then try to write can deadlock into an
@@ -31,7 +31,7 @@ func OpenSQLite(ctx context.Context, dbPath string) (*sql.DB, error) {
 		_ = conn.Close()
 		return nil, fmt.Errorf("sql ping: %w", err)
 	}
-	if err := applySQLitePragmas(ctx, conn); err != nil {
+	if err := applyPragmas(ctx, conn); err != nil {
 		_ = conn.Close()
 		return nil, err
 	}
@@ -42,7 +42,7 @@ func OpenSQLite(ctx context.Context, dbPath string) (*sql.DB, error) {
 	return conn, nil
 }
 
-func applySQLitePragmas(ctx context.Context, conn *sql.DB) error {
+func applyPragmas(ctx context.Context, conn *sql.DB) error {
 	pragmas := []string{
 		"PRAGMA foreign_keys = ON",
 		"PRAGMA busy_timeout = 10000",

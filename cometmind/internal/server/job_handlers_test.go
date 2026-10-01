@@ -12,12 +12,12 @@ import (
 	"github.com/Cometline/cometline/cometmind/internal/jobs"
 	"github.com/Cometline/cometline/cometmind/internal/runstate"
 	"github.com/Cometline/cometline/cometmind/internal/session"
-	"github.com/Cometline/cometline/cometmind/internal/store"
+	"github.com/Cometline/cometline/cometmind/internal/sqlite"
 )
 
 func TestJobHandlersCreateListClaim(t *testing.T) {
 	ctx := context.Background()
-	sqlDB, err := store.OpenSQLite(ctx, ":memory:")
+	sqlDB, err := sqlite.Open(ctx, ":memory:")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,7 +70,7 @@ func TestJobHandlersCreateListClaim(t *testing.T) {
 
 func TestJobHandlersArchiveCompletedJob(t *testing.T) {
 	ctx := context.Background()
-	sqlDB, err := store.OpenSQLite(ctx, ":memory:")
+	sqlDB, err := sqlite.Open(ctx, ":memory:")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -126,7 +126,7 @@ func TestJobHandlersArchiveCompletedJob(t *testing.T) {
 
 func TestJobHandlersRetryBlockedJob(t *testing.T) {
 	ctx := context.Background()
-	sqlDB, err := store.OpenSQLite(ctx, ":memory:")
+	sqlDB, err := sqlite.Open(ctx, ":memory:")
 	if err != nil {
 		t.Fatal(err)
 	}

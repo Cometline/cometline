@@ -7,13 +7,13 @@ import (
 	"testing"
 
 	"github.com/Cometline/cometline/cometmind/internal/jobs"
-	"github.com/Cometline/cometline/cometmind/internal/store"
+	"github.com/Cometline/cometline/cometmind/internal/sqlite"
 )
 
 func newSchedulerTestServices(t *testing.T) (*Service, *jobs.Service) {
 	t.Helper()
 	ctx := context.Background()
-	conn, err := store.OpenSQLite(ctx, ":memory:")
+	conn, err := sqlite.Open(ctx, ":memory:")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -101,7 +101,7 @@ func TestUpdateScheduleCanSwitchBetweenOneShotAndCron(t *testing.T) {
 func TestScheduledJobsPersistAcrossSQLiteReopen(t *testing.T) {
 	ctx := context.Background()
 	dbPath := filepath.Join(t.TempDir(), "cometmind.db")
-	conn, err := store.OpenSQLite(ctx, dbPath)
+	conn, err := sqlite.Open(ctx, dbPath)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -117,7 +117,7 @@ func TestScheduledJobsPersistAcrossSQLiteReopen(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	reopened, err := store.OpenSQLite(ctx, dbPath)
+	reopened, err := sqlite.Open(ctx, dbPath)
 	if err != nil {
 		t.Fatal(err)
 	}

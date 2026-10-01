@@ -44,7 +44,7 @@ All surfaces use the same `agent.Runner` and `session.Service`. There is no seco
 ```text
 runtime.New()
   → config.Load() (JSON settings + env overrides)
-  → store.OpenSQLite() (SQLite + pragmas + migration)
+  → sqlite.Open() (SQLite + pragmas + migration)
   → session.New(db)
   → jobs.NewService(db)
   → scheduler.NewService(db)

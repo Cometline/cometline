@@ -9,12 +9,12 @@ import (
 	"github.com/Cometline/cometline/cometmind/internal/inbox"
 	"github.com/Cometline/cometline/cometmind/internal/session"
 	"github.com/Cometline/cometline/cometmind/internal/skills"
-	"github.com/Cometline/cometline/cometmind/internal/store"
+	"github.com/Cometline/cometline/cometmind/internal/sqlite"
 )
 
 func TestLeaveInboxMessageTool(t *testing.T) {
 	ctx := context.Background()
-	sqlDB, err := store.OpenSQLite(ctx, ":memory:")
+	sqlDB, err := sqlite.Open(ctx, ":memory:")
 	if err != nil {
 		t.Fatal(err)
 	}

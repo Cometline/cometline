@@ -15,7 +15,7 @@ import (
 	"github.com/Cometline/cometline/cometmind/internal/config"
 	"github.com/Cometline/cometline/cometmind/internal/jobs"
 	"github.com/Cometline/cometline/cometmind/internal/session"
-	"github.com/Cometline/cometline/cometmind/internal/store"
+	"github.com/Cometline/cometline/cometmind/internal/sqlite"
 	"github.com/Cometline/cometline/cometmind/internal/tools"
 	"github.com/Cometline/cometline/cometmind/internal/usage"
 )
@@ -116,7 +116,7 @@ func newWorkerFixture(t *testing.T) workerFixture {
 	t.Helper()
 	ctx := context.Background()
 	dir := t.TempDir()
-	db, err := store.OpenSQLite(ctx, filepath.Join(dir, "test.db"))
+	db, err := sqlite.Open(ctx, filepath.Join(dir, "test.db"))
 	if err != nil {
 		t.Fatal(err)
 	}

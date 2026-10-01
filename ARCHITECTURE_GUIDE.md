@@ -463,7 +463,7 @@ cometmind/
     +-- tools/                    built-in tool interface, registry, implementations
     +-- tools/sandbox/            workspace path escape prevention
     +-- event/                    runtime event union and JSON wire format
-    +-- store/                    SQLite open/pragmas/schema bootstrap
+    +-- sqlite/                   SQLite open/pragmas/schema bootstrap
     +-- paths/                    data dir, DB path, config path, workspace resolution
     +-- wakeup/                   coalesced background-worker config signals
     `-- id/                       ULID generation

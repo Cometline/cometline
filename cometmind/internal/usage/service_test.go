@@ -7,13 +7,13 @@ import (
 
 	cometsdk "github.com/Cometline/cometline/comet-sdk"
 	"github.com/Cometline/cometline/cometmind/internal/session"
-	"github.com/Cometline/cometline/cometmind/internal/store"
+	"github.com/Cometline/cometline/cometmind/internal/sqlite"
 	"github.com/Cometline/cometline/cometmind/internal/usage"
 )
 
 func TestUsageRecordSummarySeriesAndList(t *testing.T) {
 	ctx := context.Background()
-	sqlDB, err := store.OpenSQLite(ctx, ":memory:")
+	sqlDB, err := sqlite.Open(ctx, ":memory:")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,7 +78,7 @@ func TestUsageRecordSummarySeriesAndList(t *testing.T) {
 
 func TestUsageSeriesKeysIncludeProvider(t *testing.T) {
 	ctx := context.Background()
-	sqlDB, err := store.OpenSQLite(ctx, ":memory:")
+	sqlDB, err := sqlite.Open(ctx, ":memory:")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -106,7 +106,7 @@ func TestUsageSeriesKeysIncludeProvider(t *testing.T) {
 
 func TestUsageSeriesUsesTimezoneOffset(t *testing.T) {
 	ctx := context.Background()
-	sqlDB, err := store.OpenSQLite(ctx, ":memory:")
+	sqlDB, err := sqlite.Open(ctx, ":memory:")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -138,7 +138,7 @@ func TestUsageSeriesUsesTimezoneOffset(t *testing.T) {
 
 func TestUsageWorkspaceFilterIncludesSessionScopedRows(t *testing.T) {
 	ctx := context.Background()
-	sqlDB, err := store.OpenSQLite(ctx, ":memory:")
+	sqlDB, err := sqlite.Open(ctx, ":memory:")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -180,7 +180,7 @@ func TestUsageClampRangeAndPurgeOlderThan(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	sqlDB, err := store.OpenSQLite(ctx, ":memory:")
+	sqlDB, err := sqlite.Open(ctx, ":memory:")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -211,7 +211,7 @@ func TestUsageClampRangeAndPurgeOlderThan(t *testing.T) {
 
 func TestUsageInclusiveCacheDoesNotDoubleCount(t *testing.T) {
 	ctx := context.Background()
-	sqlDB, err := store.OpenSQLite(ctx, ":memory:")
+	sqlDB, err := sqlite.Open(ctx, ":memory:")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -261,7 +261,7 @@ func TestUsageInclusiveCacheDoesNotDoubleCount(t *testing.T) {
 
 func TestUsageRecordSkipsAllZeroTokens(t *testing.T) {
 	ctx := context.Background()
-	sqlDB, err := store.OpenSQLite(ctx, ":memory:")
+	sqlDB, err := sqlite.Open(ctx, ":memory:")
 	if err != nil {
 		t.Fatal(err)
 	}

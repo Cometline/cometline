@@ -11,15 +11,15 @@ import (
 	cometsdk "github.com/Cometline/cometline/comet-sdk"
 	"github.com/Cometline/cometline/cometmind/internal/db"
 	"github.com/Cometline/cometline/cometmind/internal/media"
-	"github.com/Cometline/cometline/cometmind/internal/store"
+	"github.com/Cometline/cometline/cometmind/internal/sqlite"
 )
 
 func newForkTestService(t *testing.T) (*Service, *db.Queries) {
 	t.Helper()
 	dbPath := filepath.Join(t.TempDir(), "fork-test.db")
-	sqlDB, err := store.OpenSQLite(context.Background(), dbPath)
+	sqlDB, err := sqlite.Open(context.Background(), dbPath)
 	if err != nil {
-		t.Fatalf("OpenSQLite() error = %v", err)
+		t.Fatalf("sqlite.Open() error = %v", err)
 	}
 	t.Cleanup(func() { _ = sqlDB.Close() })
 	return New(sqlDB), db.New(sqlDB)

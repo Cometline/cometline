@@ -25,7 +25,7 @@ import (
 	"github.com/Cometline/cometline/cometmind/internal/runstate"
 	"github.com/Cometline/cometline/cometmind/internal/session"
 	"github.com/Cometline/cometline/cometmind/internal/skills"
-	"github.com/Cometline/cometline/cometmind/internal/store"
+	"github.com/Cometline/cometline/cometmind/internal/sqlite"
 	"github.com/gin-gonic/gin"
 )
 
@@ -2597,9 +2597,9 @@ func newTestEngine(t *testing.T, newRunner RunnerFactory) (*gin.Engine, *session
 	gin.SetMode(gin.TestMode)
 
 	dbPath := filepath.Join(t.TempDir(), "cometmind-test.db")
-	sqlDB, err := store.OpenSQLite(context.Background(), dbPath)
+	sqlDB, err := sqlite.Open(context.Background(), dbPath)
 	if err != nil {
-		t.Fatalf("OpenSQLite() error = %v", err)
+		t.Fatalf("sqlite.Open() error = %v", err)
 	}
 
 	svc := session.New(sqlDB)

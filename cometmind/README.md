@@ -56,7 +56,7 @@ internal/
   config/            cometline-settings.json loading + COMETMIND_* env overrides
   db/                sqlc-generated querier + schema.sql + queries/*.sql
   event/event.go     CometMind-native event union (shared by SSE/CLI/gateway)
-  store/open.go      opens SQLite (pure-Go modernc.org/sqlite)
+  sqlite/open.go     opens SQLite (pure-Go modernc.org/sqlite)
 openapi.yaml         OpenAPI 3.1 spec for the local serve API
 ```
 

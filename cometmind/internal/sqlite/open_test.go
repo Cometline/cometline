@@ -1,4 +1,4 @@
-package store
+package sqlite
 
 import (
 	"context"
@@ -6,15 +6,15 @@ import (
 	"testing"
 )
 
-func TestOpenSQLite_setsWALAndBusyTimeout(t *testing.T) {
+func TestOpen_setsWALAndBusyTimeout(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
 	dbPath := filepath.Join(t.TempDir(), "cometmind.db")
 
-	conn, err := OpenSQLite(ctx, dbPath)
+	conn, err := Open(ctx, dbPath)
 	if err != nil {
-		t.Fatalf("OpenSQLite() error = %v", err)
+		t.Fatalf("Open() error = %v", err)
 	}
 	t.Cleanup(func() { _ = conn.Close() })
 

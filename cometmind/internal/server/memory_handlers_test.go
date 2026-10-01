@@ -16,7 +16,7 @@ import (
 	"github.com/Cometline/cometline/cometmind/internal/memory"
 	"github.com/Cometline/cometline/cometmind/internal/runstate"
 	"github.com/Cometline/cometline/cometmind/internal/session"
-	"github.com/Cometline/cometline/cometmind/internal/store"
+	"github.com/Cometline/cometline/cometmind/internal/sqlite"
 	"github.com/gin-gonic/gin"
 )
 
@@ -33,7 +33,7 @@ func (memFakeProvider) Stream(ctx context.Context, req *cometsdk.Request) (<-cha
 func TestMemorySettingsGetPut(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	dbPath := filepath.Join(t.TempDir(), "mem-test.db")
-	sqlDB, err := store.OpenSQLite(context.Background(), dbPath)
+	sqlDB, err := sqlite.Open(context.Background(), dbPath)
 	if err != nil {
 		t.Fatal(err)
 	}

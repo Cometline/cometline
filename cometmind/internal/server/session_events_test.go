@@ -16,7 +16,7 @@ import (
 	"github.com/Cometline/cometline/cometmind/internal/event"
 	"github.com/Cometline/cometline/cometmind/internal/runstate"
 	"github.com/Cometline/cometline/cometmind/internal/session"
-	"github.com/Cometline/cometline/cometmind/internal/store"
+	"github.com/Cometline/cometline/cometmind/internal/sqlite"
 	"github.com/gin-gonic/gin"
 )
 
@@ -32,7 +32,7 @@ type sessionEventTestServer struct {
 func newSessionEventTestServer(t *testing.T) *sessionEventTestServer {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
-	database, err := store.OpenSQLite(context.Background(), filepath.Join(t.TempDir(), "events.db"))
+	database, err := sqlite.Open(context.Background(), filepath.Join(t.TempDir(), "events.db"))
 	if err != nil {
 		t.Fatal(err)
 	}

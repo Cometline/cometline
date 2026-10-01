@@ -8,14 +8,14 @@ import (
 
 	"github.com/Cometline/cometline/cometmind/internal/acp"
 	"github.com/Cometline/cometline/cometmind/internal/session"
-	"github.com/Cometline/cometline/cometmind/internal/store"
+	"github.com/Cometline/cometline/cometmind/internal/sqlite"
 )
 
 func TestDelegateCodingTaskWithFakeCLI(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	db, err := store.OpenSQLite(ctx, t.TempDir()+"/test.db")
+	db, err := sqlite.Open(ctx, t.TempDir()+"/test.db")
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}
