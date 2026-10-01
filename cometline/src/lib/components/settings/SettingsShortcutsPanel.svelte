@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { RotateCcw } from '@lucide/svelte';
+	import { RotateCcw, Search } from '@lucide/svelte';
 	import type { ShortcutAction, ShortcutBinding, KeyboardShortcuts } from '$lib/types';
 	import {
 		SHORTCUT_DEFINITIONS,
@@ -18,8 +18,37 @@
 	} = $props();
 
 	let editingAction = $state<ShortcutAction | null>(null);
+	let filterQuery = $state('');
 
 	const groupedShortcuts = shortcutsByCategory();
+	const shortcutCount = SHORTCUT_DEFINITIONS.length;
+
+	const filteredGroups = $derived.by(() => {
+		const query = filterQuery.trim().toLowerCase();
+		if (!query) return groupedShortcuts;
+		return groupedShortcuts
+			.map((group) => ({
+				...group,
+				shortcuts: group.shortcuts.filter((def) => {
+					const binding = shortcuts[def.id];
+					const haystack = [
+						def.label,
+						def.id,
+						group.category.title,
+						group.category.description,
+						formatShortcut(binding)
+					]
+						.join(' ')
+						.toLowerCase();
+					return haystack.includes(query);
+				})
+			}))
+			.filter((group) => group.shortcuts.length > 0);
+	});
+
+	const matchCount = $derived(
+		filteredGroups.reduce((count, group) => count + group.shortcuts.length, 0)
+	);
 
 	$effect(() => {
 		window.electronAPI?.setShortcutCaptureActive?.(Boolean(editingAction));
@@ -55,7 +84,32 @@
 
 <div class="shortcuts-panel settings-panel-frame">
 	<div class="settings-panel-body">
-		{#each groupedShortcuts as group (group.category.id)}
+		<div class="shortcuts-filter">
+			<label class="shortcuts-search">
+				<Search size={14} aria-hidden="true" />
+				<input
+					type="search"
+					bind:value={filterQuery}
+					placeholder="Filter shortcuts…"
+					spellcheck="false"
+					autocomplete="off"
+					aria-label="Filter shortcuts"
+				/>
+			</label>
+			<span class="shortcuts-filter-count">
+				{#if matchCount === shortcutCount}
+					{shortcutCount}
+				{:else}
+					{matchCount} / {shortcutCount}
+				{/if}
+			</span>
+		</div>
+
+		{#if filteredGroups.length === 0}
+			<p class="shortcuts-empty">No shortcuts match “{filterQuery.trim()}”.</p>
+		{/if}
+
+		{#each filteredGroups as group (group.category.id)}
 			<section class="settings-section">
 				<div class="settings-section-heading">
 					<div>
@@ -113,6 +167,67 @@
 </div>
 
 <style>
+	.shortcuts-filter {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		margin-bottom: 16px;
+	}
+
+	.shortcuts-search {
+		display: flex;
+		flex: 1;
+		align-items: center;
+		gap: 8px;
+		min-width: 0;
+		border: 1px solid var(--border-soft);
+		border-radius: 10px;
+		padding: 8px 10px;
+		background: rgba(255, 255, 255, 0.82);
+		color: var(--text-muted);
+	}
+
+	.shortcuts-search:focus-within {
+		border-color: rgba(0, 102, 204, 0.35);
+		box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+		color: var(--text-main);
+	}
+
+	.shortcuts-search input {
+		flex: 1;
+		min-width: 0;
+		border: 0;
+		background: transparent;
+		padding: 0;
+		font-size: 12px;
+		color: var(--text-main);
+		outline: none;
+		box-shadow: none;
+	}
+
+	.shortcuts-search input::-webkit-search-decoration,
+	.shortcuts-search input::-webkit-search-cancel-button,
+	.shortcuts-search input::-webkit-search-results-button {
+		display: none;
+	}
+
+	.shortcuts-search input::placeholder {
+		color: var(--text-muted);
+	}
+
+	.shortcuts-filter-count {
+		flex-shrink: 0;
+		font-size: 12px;
+		font-weight: 650;
+		color: var(--text-muted);
+	}
+
+	.shortcuts-empty {
+		margin: 0;
+		font-size: 12px;
+		color: var(--text-muted);
+	}
+
 	.shortcuts-list {
 		display: grid;
 		gap: 0;
