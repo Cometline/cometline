@@ -64,7 +64,7 @@
 		return EditorView.theme({
 			'&': {
 				height: '100%',
-				backgroundColor: '#fff',
+				backgroundColor: 'var(--panel-bg)',
 				color: 'var(--text-main)',
 				fontSize: '12px'
 			},
@@ -77,7 +77,7 @@
 				padding: '0 18px'
 			},
 			'.cm-gutters': {
-				backgroundColor: '#fff',
+				backgroundColor: 'var(--panel-bg)',
 				border: 'none',
 				color: 'var(--text-muted)'
 			},

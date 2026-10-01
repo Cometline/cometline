@@ -98,11 +98,23 @@
 		border-radius: 8px;
 		padding: 2px;
 		border: 1px solid
-			color-mix(in srgb, var(--workspace-inactive-color, #9a9a9f) 14%, transparent);
+			color-mix(
+				in srgb,
+				var(--workspace-inactive-color, var(--workspace-group-color)) 14%,
+				transparent
+			);
 		background: linear-gradient(
 			135deg,
-			color-mix(in srgb, var(--workspace-inactive-color, #9a9a9f) 16%, transparent),
-			color-mix(in srgb, var(--workspace-inactive-color, #9a9a9f) 6%, transparent)
+			color-mix(
+				in srgb,
+				var(--workspace-inactive-color, var(--workspace-group-color)) 16%,
+				transparent
+			),
+			color-mix(
+				in srgb,
+				var(--workspace-inactive-color, var(--workspace-group-color)) 6%,
+				transparent
+			)
 		);
 		transition:
 			background var(--duration-fast, 150ms) var(--ease-smooth, ease),
@@ -150,7 +162,7 @@
 		border-radius: 7px;
 		padding: 6px 8px;
 		background: transparent;
-		color: var(--workspace-inactive-color, #9a9a9f);
+		color: var(--workspace-inactive-color, var(--workspace-group-color));
 		font-size: 11px;
 		font-weight: 600;
 		text-transform: uppercase;
@@ -197,7 +209,7 @@
 	}
 
 	.git-section-staged .git-section-count {
-		color: color-mix(in srgb, var(--git-section-accent) 55%, #1f2933);
+		color: color-mix(in srgb, var(--git-section-accent) 55%, var(--text-main));
 		background: color-mix(in srgb, var(--git-section-accent) 18%, transparent);
 	}
 
@@ -216,13 +228,17 @@
 	}
 
 	.git-section-action:hover:not(:disabled) {
-		background: color-mix(in srgb, var(--workspace-inactive-color, #9a9a9f) 18%, transparent);
-		color: var(--text-primary, #111);
+		background: color-mix(
+			in srgb,
+			var(--workspace-inactive-color, var(--workspace-group-color)) 18%,
+			transparent
+		);
+		color: var(--text-primary, var(--color-111111));
 	}
 
 	.git-section-action.danger:hover:not(:disabled) {
 		background: rgba(185, 28, 28, 0.1);
-		color: #b91c1c;
+		color: var(--color-b91c1c);
 	}
 
 	.git-section-staged .git-section-action:hover:not(:disabled) {

@@ -141,7 +141,7 @@
 		display: flex;
 		flex-direction: column;
 		min-height: 0;
-		background: #fff;
+		background: var(--panel-bg);
 		pointer-events: none;
 		visibility: hidden;
 		z-index: 1;

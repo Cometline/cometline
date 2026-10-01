@@ -118,7 +118,7 @@
 		width: 100%;
 		border-radius: 8px;
 		padding: 0 4px 0 0;
-		color: var(--text-primary, #111);
+		color: var(--text-primary, var(--color-111111));
 		font-size: 13px;
 		transition:
 			background-color var(--duration-fast, 150ms) var(--ease-smooth, ease),
@@ -174,7 +174,7 @@
 		text-overflow: ellipsis;
 		white-space: nowrap;
 		font-size: 13px;
-		color: var(--text-primary, #111);
+		color: var(--text-primary, var(--color-111111));
 	}
 
 	.git-file-dir {
@@ -198,16 +198,16 @@
 		font-size: 11px;
 		font-weight: 700;
 		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-		color: #b45309;
+		color: var(--pinned-group-color);
 	}
 
 	.git-badge.untracked,
 	.git-badge.added {
-		color: #15803d;
+		color: var(--status-success);
 	}
 
 	.git-badge.deleted {
-		color: #b91c1c;
+		color: var(--color-b91c1c);
 	}
 
 	.git-row-actions {
@@ -232,11 +232,11 @@
 
 	.git-icon-btn:hover:not(:disabled) {
 		background: rgba(0, 0, 0, 0.06);
-		color: var(--text-primary, #111);
+		color: var(--text-primary, var(--color-111111));
 	}
 
 	.git-icon-btn.danger:hover:not(:disabled) {
-		color: #b91c1c;
+		color: var(--color-b91c1c);
 		background: rgba(239, 68, 68, 0.1);
 	}
 

@@ -307,7 +307,7 @@
 	}
 
 	.dirty-dot {
-		color: var(--accent, #2563eb);
+		color: var(--accent, var(--color-2563eb));
 		font-weight: 700;
 	}
 

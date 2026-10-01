@@ -135,7 +135,7 @@
 	.git-branch {
 		font-size: 12px;
 		font-weight: 650;
-		color: var(--text-primary, #111);
+		color: var(--text-primary, var(--color-111111));
 		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 	}
 
@@ -152,7 +152,7 @@
 		height: 28px;
 		border: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.1));
 		border-radius: 7px;
-		background: var(--surface-elevated, #fff);
+		background: var(--surface-elevated, var(--panel-bg));
 		color: var(--text-muted);
 		cursor: pointer;
 	}
@@ -189,13 +189,13 @@
 		font-size: 13px;
 		font-family: inherit;
 		line-height: 1.4;
-		background: var(--surface-elevated, #fff);
-		color: var(--text-primary, #111);
+		background: var(--surface-elevated, var(--panel-bg));
+		color: var(--text-primary, var(--color-111111));
 	}
 
 	.git-commit-input:focus {
 		outline: none;
-		border-color: var(--accent, #3b82f6);
+		border-color: var(--accent, var(--color-3b82f6));
 	}
 
 	.git-commit-input:disabled {
@@ -209,8 +209,12 @@
 		height: 34px;
 		padding: 0 14px;
 		/* Follows Settings hero glow so Commit tracks the active composer accent. */
-		background: color-mix(in srgb, var(--hero-composer-glow-color, var(--accent)) 72%, #1f2933);
-		color: #fff;
+		background: color-mix(
+			in srgb,
+			var(--hero-composer-glow-color, var(--accent)) 72%,
+			var(--text-main)
+		);
+		color: var(--panel-bg);
 		font-size: 13px;
 		font-weight: 650;
 		cursor: pointer;
@@ -222,7 +226,11 @@
 	}
 
 	.git-commit-btn:hover:not(:disabled) {
-		background: color-mix(in srgb, var(--hero-composer-glow-color, var(--accent)) 82%, #1f2933);
+		background: color-mix(
+			in srgb,
+			var(--hero-composer-glow-color, var(--accent)) 82%,
+			var(--text-main)
+		);
 		box-shadow: 0 8px 22px var(--hero-composer-glow-strong, transparent);
 	}
 
@@ -239,24 +247,24 @@
 		border-radius: 8px;
 		padding: 7px 10px;
 		font-size: 13px;
-		background: var(--surface-elevated, #fff);
-		color: var(--text-primary, #111);
+		background: var(--surface-elevated, var(--panel-bg));
+		color: var(--text-primary, var(--color-111111));
 	}
 
 	.git-filter:focus {
 		outline: none;
-		border-color: var(--accent, #3b82f6);
+		border-color: var(--accent, var(--color-3b82f6));
 	}
 
 	.git-flash {
 		margin: 0;
 		font-size: 12px;
-		color: #15803d;
+		color: var(--status-success);
 	}
 
 	.git-action-error {
 		margin: 0;
 		font-size: 12px;
-		color: var(--status-error, #b91c1c);
+		color: var(--status-error, var(--color-b91c1c));
 	}
 </style>

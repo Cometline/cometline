@@ -1,33 +1,12 @@
 <script lang="ts">
-	import { tick, untrack } from 'svelte';
 	import { ChevronDown, ChevronRight, Folder, FolderOpen, Loader } from '@lucide/svelte';
-	import { listWikiFileChildren, listWorkspaceFileChildren } from '$lib/client/cometmind';
 	import FileTypeIcon from '$lib/features/workspace/components/FileTypeIcon.svelte';
-	import { shellStore, type FileTreeExpandSource } from '$lib/stores/shell.svelte';
-	import { toWikiUiPath } from '$lib/wiki/paths';
-	import { getCachedWikiFiles, refreshWikiFileIndex } from '$lib/wiki/wiki-file-index';
-	import { rankMatchingFiles } from '$lib/features/workspace/file-search';
 	import {
-		getFileIndex,
-		isFileIndexTruncated,
-		normalizeWorkspacePath,
-		refreshFileIndex,
-		searchWorkspaceFiles
-	} from '$lib/features/workspace/file-index';
-	import {
-		buildFileTree,
-		dirKeysToExpandForPaths,
-		flattenVisibleFileTreeRows,
-		type FileTreeNode
-	} from '$lib/features/workspace/file-tree';
-	import {
-		FILE_TREE_SEARCH_LIMIT,
-		FILE_TREE_SEARCH_ROW_HEIGHT,
-		virtualWindow
-	} from '$lib/features/workspace/virtual-list';
-	import { workspaceChangeVersion } from '$lib/features/workspace/workspace-change.svelte';
-
-	const LIST_LIMIT = 10000;
+		createFileTreeBrowser,
+		type FileTreeBrowserController
+	} from '$lib/features/workspace/file-tree-browser.svelte';
+	import type { FileTreeNode } from '$lib/features/workspace/file-tree';
+	import type { FileTreeExpandSource } from '$lib/stores/shell.svelte';
 
 	let {
 		workspacePath,
@@ -41,370 +20,50 @@
 		filter?: string;
 	} = $props();
 
-	let loading = $state(false);
-	let error = $state<string | null>(null);
-	let files = $state<string[]>([]);
-	let expanded = $state<Record<string, boolean>>({});
-	let loadedDirectories = $state<Record<string, boolean>>({});
-	let loadingDirectories = $state<Record<string, boolean>>({});
-	let pickedKey = $state<string | null>(null);
-	let loadSeq = 0;
-	let browserEl = $state<HTMLDivElement | null>(null);
-	let searchResults = $state<string[]>([]);
-	let searchScrollEl = $state<HTMLDivElement | null>(null);
-	let searchScrollTop = $state(0);
-	let searchViewportHeight = $state(320);
-
-	const normalizedWorkspace = $derived(normalizeWorkspacePath(workspacePath));
-	const workspaceAvailable = $derived(
-		Boolean(normalizedWorkspace && normalizedWorkspace !== '/')
-	);
-	const searching = $derived(Boolean(filter.trim()));
-	const tree = $derived(buildFileTree(files));
-	const visibleRows = $derived(
-		searching
-			? searchResults.map((path) => ({
-					kind: 'file' as const,
-					key: path,
-					name: fileName(path),
-					path
-				}))
-			: flattenVisibleFileTreeRows(tree, expanded)
-	);
-	const selectedKey = $derived.by(() => {
-		const rows = visibleRows;
-		if (rows.length === 0) return null;
-		if (pickedKey && rows.some((row) => row.key === pickedKey)) return pickedKey;
-		return rows[0]!.key;
+	const panel: FileTreeBrowserController = createFileTreeBrowser({
+		getWorkspacePath: () => workspacePath,
+		getSource: () => source,
+		getFilter: () => filter,
+		onSelectFile: (path) => onSelectFile(path)
 	});
 
-	function selectKey(key: string) {
-		pickedKey = key;
-	}
-	const searchWindow = $derived(
-		virtualWindow(
-			searchResults.length,
-			searchScrollTop,
-			searchViewportHeight,
-			FILE_TREE_SEARCH_ROW_HEIGHT
-		)
-	);
-	const visibleSearchResults = $derived(
-		searchResults.slice(searchWindow.start, searchWindow.end)
-	);
-
-	function fileName(path: string): string {
-		return path.split(/[/\\]/).filter(Boolean).pop() || path;
-	}
-
-	function fileDir(path: string): string {
-		const parts = path.split(/[/\\]/).filter(Boolean);
-		if (parts.length <= 1) return '';
-		return parts.slice(0, -1).join('/');
-	}
-
-	function persistExpanded(next: Record<string, boolean>) {
-		shellStore.setFileTreeExpanded(source, next);
-	}
-
-	function setDirExpanded(key: string, nextExpanded: boolean) {
-		if ((expanded[key] ?? false) === nextExpanded) return;
-		const next = { ...expanded, [key]: nextExpanded };
-		expanded = next;
-		persistExpanded(next);
-		if (nextExpanded && !filter.trim()) void loadDirectory(key, loadSeq);
-	}
-
-	function toggleDir(key: string) {
-		const next = { ...expanded, [key]: !expanded[key] };
-		expanded = next;
-		persistExpanded(next);
-		if (next[key] && !filter.trim()) void loadDirectory(key, loadSeq);
-	}
-
-	function dirKey(parentKey: string, name: string): string {
-		return parentKey ? `${parentKey}/${name}` : name;
-	}
-
-	function isExpanded(key: string): boolean {
-		return expanded[key] ?? false;
-	}
-
-	function keepPaneFocus(event: MouseEvent) {
-		event.preventDefault();
-	}
-
-	function selectRelative(relativePath: string) {
-		// Remember open folders + expand parents of the file we open.
-		const next = { ...expanded, ...dirKeysToExpandForPaths([relativePath]) };
-		expanded = next;
-		persistExpanded(next);
-		if (source === 'wiki') {
-			onSelectFile(toWikiUiPath(relativePath));
-			return;
-		}
-		onSelectFile(relativePath);
-	}
-
-	function scrollSearchIndexIntoView(index: number) {
-		if (!searchScrollEl) return;
-		const top = index * FILE_TREE_SEARCH_ROW_HEIGHT;
-		const bottom = top + FILE_TREE_SEARCH_ROW_HEIGHT;
-		const viewTop = searchScrollEl.scrollTop;
-		const viewBottom = viewTop + searchScrollEl.clientHeight;
-		if (top < viewTop) searchScrollEl.scrollTop = top;
-		else if (bottom > viewBottom)
-			searchScrollEl.scrollTop = bottom - searchScrollEl.clientHeight;
-	}
-
-	async function scrollSelectedIntoView() {
-		const key = selectedKey;
-		if (!key) return;
-		if (searching) {
-			const index = searchResults.indexOf(key);
-			if (index >= 0) scrollSearchIndexIntoView(index);
-			return;
-		}
-		if (!browserEl) return;
-		await tick();
-		const el = browserEl.querySelector(`[data-tree-key="${CSS.escape(key)}"]`);
-		el?.scrollIntoView({ block: 'nearest' });
-	}
-
 	export function moveSelection(delta: number): boolean {
-		if (visibleRows.length === 0) return false;
-		const currentIndex = selectedKey
-			? visibleRows.findIndex((row) => row.key === selectedKey)
-			: -1;
-		let nextIndex: number;
-		if (currentIndex < 0) {
-			nextIndex = delta > 0 ? 0 : visibleRows.length - 1;
-		} else {
-			nextIndex = Math.max(0, Math.min(visibleRows.length - 1, currentIndex + delta));
-		}
-		selectKey(visibleRows[nextIndex]!.key);
-		void scrollSelectedIntoView();
-		return true;
+		return panel.moveSelection(delta);
 	}
 
 	export function activateSelection(): boolean {
-		const row = visibleRows.find((r) => r.key === selectedKey);
-		if (!row) return false;
-		if (row.kind === 'file') {
-			selectRelative(row.path);
-			return true;
-		}
-		toggleDir(row.key);
-		return true;
+		return panel.activateSelection();
 	}
 
 	export function handleTreeKey(event: KeyboardEvent): boolean {
-		switch (event.key) {
-			case 'ArrowDown': {
-				if (!moveSelection(1)) return false;
-				event.preventDefault();
-				return true;
-			}
-			case 'ArrowUp': {
-				if (!moveSelection(-1)) return false;
-				event.preventDefault();
-				return true;
-			}
-			case 'Enter': {
-				if (!activateSelection()) return false;
-				event.preventDefault();
-				return true;
-			}
-			case 'ArrowRight': {
-				const row = visibleRows.find((r) => r.key === selectedKey);
-				if (!row || row.kind !== 'dir' || isExpanded(row.key)) return false;
-				setDirExpanded(row.key, true);
-				event.preventDefault();
-				return true;
-			}
-			case 'ArrowLeft': {
-				const row = visibleRows.find((r) => r.key === selectedKey);
-				if (!row) return false;
-				if (row.kind === 'dir' && isExpanded(row.key)) {
-					setDirExpanded(row.key, false);
-					event.preventDefault();
-					return true;
-				}
-				const slash = row.key.lastIndexOf('/');
-				if (slash < 0) return false;
-				const parentKey = row.key.slice(0, slash);
-				if (!visibleRows.some((r) => r.key === parentKey)) return false;
-				selectKey(parentKey);
-				void scrollSelectedIntoView();
-				event.preventDefault();
-				return true;
-			}
-			default:
-				return false;
-		}
+		return panel.handleTreeKey(event);
 	}
-
-	async function loadDirectory(directory: string, seq: number) {
-		if (loadedDirectories[directory] || loadingDirectories[directory]) return;
-		loadingDirectories = { ...loadingDirectories, [directory]: true };
-		try {
-			const result =
-				source === 'wiki'
-					? await listWikiFileChildren(directory, LIST_LIMIT)
-					: await listWorkspaceFileChildren(normalizedWorkspace, directory, LIST_LIMIT);
-			if (seq !== loadSeq) return;
-			files = [...new Set([...files, ...result.files])];
-			loadedDirectories = { ...loadedDirectories, [directory]: true };
-		} catch (err) {
-			if (seq === loadSeq && directory === '') {
-				error = err instanceof Error ? err.message : 'Failed to load files';
-			}
-		} finally {
-			if (seq === loadSeq) {
-				const { [directory]: _, ...remaining } = loadingDirectories;
-				loadingDirectories = remaining;
-			}
-		}
-	}
-
-	async function loadSearch(seq: number) {
-		const query = filter.trim();
-		error = null;
-		if (source === 'workspace' && !workspaceAvailable) {
-			searchResults = [];
-			loading = false;
-			return;
-		}
-		try {
-			if (source === 'wiki') {
-				let wikiFiles = getCachedWikiFiles();
-				if (wikiFiles.length === 0) {
-					loading = true;
-					wikiFiles = await refreshWikiFileIndex();
-					if (seq !== loadSeq) return;
-				}
-				searchResults = rankMatchingFiles(wikiFiles, query, FILE_TREE_SEARCH_LIMIT);
-				return;
-			}
-
-			let index = getFileIndex(normalizedWorkspace);
-			if (!index?.loaded) {
-				loading = true;
-				index = await refreshFileIndex(normalizedWorkspace);
-				if (seq !== loadSeq) return;
-			}
-			let matches = rankMatchingFiles(index.files, query, FILE_TREE_SEARCH_LIMIT);
-			if (isFileIndexTruncated(normalizedWorkspace)) {
-				const extra = await searchWorkspaceFiles(normalizedWorkspace, query);
-				if (seq !== loadSeq) return;
-				matches = rankMatchingFiles(
-					[...index.files, ...extra],
-					query,
-					FILE_TREE_SEARCH_LIMIT
-				);
-			}
-			searchResults = matches;
-		} catch (err) {
-			if (seq !== loadSeq) return;
-			searchResults = [];
-			error = err instanceof Error ? err.message : 'Failed to search files';
-		} finally {
-			if (seq === loadSeq) loading = false;
-		}
-	}
-
-	async function loadFiles() {
-		const seq = ++loadSeq;
-		loading = true;
-		error = null;
-		files = [];
-		searchResults = [];
-		loadedDirectories = {};
-		loadingDirectories = {};
-
-		if (source === 'workspace' && !workspaceAvailable) {
-			expanded = {};
-			loading = false;
-			return;
-		}
-
-		try {
-			expanded = { ...shellStore.getFileTreeExpanded(source) };
-			await loadDirectory('', seq);
-			if (seq !== loadSeq) return;
-
-			const openDirectories = Object.keys(expanded)
-				.filter((directory) => expanded[directory])
-				.sort((a, b) => a.split('/').length - b.split('/').length);
-			for (const directory of openDirectories) {
-				await loadDirectory(directory, seq);
-				if (seq !== loadSeq) return;
-			}
-		} catch (err) {
-			if (seq !== loadSeq) return;
-			files = [];
-			loadedDirectories = {};
-			expanded = { ...shellStore.getFileTreeExpanded(source) };
-			error = err instanceof Error ? err.message : 'Failed to load files';
-		} finally {
-			if (seq === loadSeq) loading = false;
-		}
-	}
-
-	$effect(() => {
-		if (source === 'workspace' && workspaceAvailable) {
-			void [normalizedWorkspace, workspaceChangeVersion(normalizedWorkspace)];
-			untrack(() => void refreshFileIndex(normalizedWorkspace));
-		} else if (source === 'wiki') {
-			untrack(() => void refreshWikiFileIndex());
-		}
-	});
-
-	$effect(() => {
-		void [filter, normalizedWorkspace, workspaceChangeVersion(normalizedWorkspace), source];
-		// Loading mutates the lazy cache; do not make those mutations dependencies of this effect.
-		untrack(() => {
-			if (filter.trim()) void loadSearch(++loadSeq);
-			else void loadFiles();
-		});
-	});
-
-	function onSearchScroll(event: Event) {
-		const el = event.currentTarget as HTMLDivElement;
-		searchScrollTop = el.scrollTop;
-		searchViewportHeight = el.clientHeight;
-	}
-
-	$effect(() => {
-		if (!searchScrollEl) return;
-		searchViewportHeight = searchScrollEl.clientHeight || 320;
-	});
 </script>
 
 {#snippet treeNodes(nodes: FileTreeNode[], parentKey: string)}
 	<ul class="file-tree-list" role="tree">
-		{#each nodes as node (dirKey(parentKey, node.name))}
-			{@const key = dirKey(parentKey, node.name)}
+		{#each nodes as node (panel.dirKey(parentKey, node.name))}
+			{@const key = panel.dirKey(parentKey, node.name)}
 			{@const hasChildren = node.children !== undefined}
-			{@const rowExpanded = hasChildren && isExpanded(key)}
+			{@const rowExpanded = hasChildren && panel.isExpanded(key)}
 			<li
 				class="file-tree-item"
 				class:is-dir={hasChildren}
 				class:is-expanded={rowExpanded}
 				role="treeitem"
-				aria-selected={selectedKey === key}
+				aria-selected={panel.selectedKey === key}
 				aria-expanded={hasChildren ? rowExpanded : undefined}
 			>
 				{#if hasChildren}
 					<button
 						type="button"
 						class="file-tree-row file-tree-dir"
-						class:selected={selectedKey === key}
+						class:selected={panel.selectedKey === key}
 						data-tree-key={key}
-						onmousedown={keepPaneFocus}
+						onmousedown={panel.keepPaneFocus}
 						onclick={() => {
-							selectKey(key);
-							toggleDir(key);
+							panel.selectKey(key);
+							panel.toggleDir(key);
 						}}
 					>
 						<span class="file-tree-chevron" aria-hidden="true">
@@ -422,7 +81,7 @@
 							{/if}
 						</span>
 						<span class="file-tree-label">{node.name}</span>
-						{#if loadingDirectories[key]}
+						{#if panel.s.loadingDirectories[key]}
 							<Loader size={12} stroke-width={2} class="file-tree-spinner" />
 						{/if}
 					</button>
@@ -435,12 +94,12 @@
 					<button
 						type="button"
 						class="file-tree-row file-tree-file"
-						class:selected={selectedKey === key}
+						class:selected={panel.selectedKey === key}
 						data-tree-key={key}
-						onmousedown={keepPaneFocus}
+						onmousedown={panel.keepPaneFocus}
 						onclick={() => {
-							selectKey(key);
-							selectRelative(node.path!);
+							panel.selectKey(key);
+							panel.selectRelative(node.path!);
 						}}
 						title={node.path}
 					>
@@ -458,53 +117,53 @@
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <div
 	class="file-tree-browser"
-	bind:this={browserEl}
+	bind:this={panel.s.browserEl}
 	tabindex="-1"
 	role="region"
 	aria-label={source === 'wiki' ? 'Wiki file tree' : 'Workspace file tree'}
-	onkeydown={(event) => handleTreeKey(event)}
+	onkeydown={(event) => panel.handleTreeKey(event)}
 >
-	{#if source === 'workspace' && !workspaceAvailable}
+	{#if source === 'workspace' && !panel.workspaceAvailable}
 		<div class="file-tree-state">Select a workspace to browse its files.</div>
-	{:else if searching && loading && searchResults.length === 0}
+	{:else if panel.searching && panel.s.loading && panel.s.searchResults.length === 0}
 		<div class="file-tree-state">
 			<Loader size={16} stroke-width={2} class="file-tree-spinner" />
 			<span>Loading files…</span>
 		</div>
-	{:else if !searching && loading && files.length === 0}
+	{:else if !panel.searching && panel.s.loading && panel.s.files.length === 0}
 		<div class="file-tree-state">
 			<Loader size={16} stroke-width={2} class="file-tree-spinner" />
 			<span>Loading files…</span>
 		</div>
-	{:else if error}
-		<div class="file-tree-state file-tree-error">{error}</div>
-	{:else if searching && searchResults.length === 0}
+	{:else if panel.s.error}
+		<div class="file-tree-state file-tree-error">{panel.s.error}</div>
+	{:else if panel.searching && panel.s.searchResults.length === 0}
 		<div class="file-tree-state">No matching files.</div>
-	{:else if !searching && tree.length === 0}
+	{:else if !panel.searching && panel.tree.length === 0}
 		<div class="file-tree-state">No files found.</div>
-	{:else if searching}
+	{:else if panel.searching}
 		<div
 			class="file-tree-scroll scrollbar-none"
-			bind:this={searchScrollEl}
-			onscroll={onSearchScroll}
+			bind:this={panel.s.searchScrollEl}
+			onscroll={panel.onSearchScroll}
 		>
-			<div class="file-search-virtual" style:height="{searchWindow.height}px">
+			<div class="file-search-virtual" style:height="{panel.searchWindow.height}px">
 				<div
 					class="file-search-virtual-inner"
-					style:transform="translateY({searchWindow.offset}px)"
+					style:transform="translateY({panel.searchWindow.offset}px)"
 				>
-					{#each visibleSearchResults as path, offset (path)}
-						{@const index = searchWindow.start + offset}
+					{#each panel.visibleSearchResults as path, offset (path)}
+						{@const index = panel.searchWindow.start + offset}
 						<button
 							type="button"
 							class="file-tree-row file-tree-file file-search-row"
-							class:selected={selectedKey === path}
+							class:selected={panel.selectedKey === path}
 							data-tree-key={path}
 							data-result-index={index}
-							onmousedown={keepPaneFocus}
+							onmousedown={panel.keepPaneFocus}
 							onclick={() => {
-								selectKey(path);
-								selectRelative(path);
+								panel.selectKey(path);
+								panel.selectRelative(path);
 							}}
 							title={path}
 						>
@@ -512,9 +171,9 @@
 								<FileTypeIcon {path} size={14} />
 							</span>
 							<span class="file-search-labels">
-								<span class="file-search-name">{fileName(path)}</span>
-								{#if fileDir(path)}
-									<span class="file-search-dir">{fileDir(path)}</span>
+								<span class="file-search-name">{panel.fileName(path)}</span>
+								{#if panel.fileDir(path)}
+									<span class="file-search-dir">{panel.fileDir(path)}</span>
 								{/if}
 							</span>
 						</button>
@@ -524,7 +183,7 @@
 		</div>
 	{:else}
 		<div class="file-tree-scroll scrollbar-none">
-			{@render treeNodes(tree, '')}
+			{@render treeNodes(panel.tree, '')}
 		</div>
 	{/if}
 </div>
@@ -535,7 +194,7 @@
 		flex-direction: column;
 		height: 100%;
 		min-height: 0;
-		background: #fff;
+		background: var(--panel-bg);
 	}
 
 	.file-tree-browser:focus {
@@ -569,7 +228,11 @@
 		margin: 0;
 		padding: 0 0 0 6px;
 		border-left: 1px solid
-			color-mix(in srgb, var(--workspace-inactive-color, #9a9a9f) 42%, transparent);
+			color-mix(
+				in srgb,
+				var(--workspace-inactive-color, var(--workspace-group-color)) 42%,
+				transparent
+			);
 		margin-left: 8px; /* align under chevron/folder column */
 	}
 
@@ -582,22 +245,30 @@
 		border-radius: 6px;
 		padding: 3px 6px;
 		background: transparent;
-		color: var(--text-primary, #111);
+		color: var(--text-primary, var(--color-111111));
 		font-size: 13px;
 		text-align: left;
 		cursor: pointer;
 	}
 
 	.file-tree-row:hover {
-		background: color-mix(in srgb, var(--workspace-inactive-color, #9a9a9f) 12%, transparent);
+		background: color-mix(
+			in srgb,
+			var(--workspace-inactive-color, var(--workspace-group-color)) 12%,
+			transparent
+		);
 	}
 
 	.file-tree-row.selected {
-		background: color-mix(in srgb, var(--workspace-inactive-color, #9a9a9f) 18%, transparent);
+		background: color-mix(
+			in srgb,
+			var(--workspace-inactive-color, var(--workspace-group-color)) 18%,
+			transparent
+		);
 	}
 
 	.file-tree-row.file-tree-dir {
-		color: var(--text-primary, #111);
+		color: var(--text-primary, var(--color-111111));
 		font-weight: 500;
 	}
 
@@ -609,7 +280,7 @@
 		width: 16px;
 		height: 16px;
 		flex: 0 0 16px;
-		color: var(--workspace-inactive-color, #9a9a9f);
+		color: var(--workspace-inactive-color, var(--workspace-group-color));
 	}
 
 	.file-tree-label {

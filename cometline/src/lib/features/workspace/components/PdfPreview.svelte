@@ -99,7 +99,7 @@
 		width: 100%;
 		height: 100%;
 		min-height: 0;
-		background: #fff;
+		background: var(--panel-bg);
 	}
 
 	.pdf-preview-frame {
@@ -116,13 +116,13 @@
 		gap: 8px;
 		height: 100%;
 		padding: 24px;
-		color: #737373;
+		color: var(--color-737373);
 		font-size: 13px;
 		text-align: center;
 	}
 
 	.pdf-preview-error {
-		color: #b91c1c;
+		color: var(--color-b91c1c);
 	}
 
 	.pdf-preview-state :global(.pdf-preview-spinner) {

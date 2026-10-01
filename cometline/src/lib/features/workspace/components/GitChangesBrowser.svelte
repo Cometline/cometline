@@ -126,7 +126,7 @@
 		flex-direction: column;
 		height: 100%;
 		min-height: 0;
-		background: #fff;
+		background: var(--panel-bg);
 	}
 
 	.git-state {
@@ -141,7 +141,7 @@
 	}
 
 	.git-error {
-		color: var(--status-error, #b91c1c);
+		color: var(--status-error, var(--color-b91c1c));
 	}
 
 	.git-state :global(.git-spinner) {

@@ -1,64 +1,19 @@
 <script lang="ts">
 	import { Loader } from '@lucide/svelte';
-	import { tick, untrack } from 'svelte';
 	import AssistantMarkdown from '$lib/components/AssistantMarkdown.svelte';
 	import FileEditor from '$lib/features/workspace/components/FileEditor.svelte';
+	import FilePreviewBacklinks from '$lib/features/workspace/components/file-preview/FilePreviewBacklinks.svelte';
+	import FilePreviewExternal from '$lib/features/workspace/components/file-preview/FilePreviewExternal.svelte';
 	import PdfPreview from '$lib/features/workspace/components/PdfPreview.svelte';
 	import SelectionAddToChat from '$lib/components/SelectionAddToChat.svelte';
-	import {
-		listWikiFileBacklinks,
-		readWikiFileContent,
-		readWorkspaceFileContent,
-		writeWikiFileContent,
-		writeWorkspaceFileContent
-	} from '$lib/client/cometmind';
+	import { readWikiFileContent, readWorkspaceFileContent } from '$lib/client/cometmind';
 	import { shellStore } from '$lib/stores/shell.svelte';
-	import { openWorkspaceFilePreview } from '$lib/features/workspace/open-file-preview';
 	import {
-		isMarkdownPath,
-		isPdfPath,
-		languageFromExtension,
-		languageFromPath,
-		shouldSkipTextPreviewReload
-	} from '$lib/features/workspace/file-preview';
-	import {
-		buildFileSnippetContext,
-		sourceLineRangeFromDomRange,
-		type SelectionLineRange
-	} from '$lib/features/workspace/selection-snippet';
-	import {
-		firstSelectionClientRect,
-		selectionPopupPosition
-	} from '$lib/features/workspace/selection-popup';
+		createFilePreviewController,
+		type FilePreviewEditorState
+	} from '$lib/features/workspace/file-preview-controller.svelte';
 	import type { FileRevealRange } from '$lib/features/workspace/workspace-panel-state';
-	import {
-		readMarkdownFileViewMode,
-		writeMarkdownFileViewMode,
-		type MarkdownFileViewMode
-	} from '$lib/features/workspace/workspace-panel-prefs';
-	import { refreshWikiFileIndex } from '$lib/wiki/wiki-file-index';
-	import { workspaceFileChangeVersion } from '$lib/features/workspace/workspace-change.svelte';
-	import { createFileDiff } from '$lib/features/workspace/file-diff';
-	import {
-		highlightGitDiffLines,
-		type HighlightedDiffLine
-	} from '$lib/features/workspace/git-diff-highlight';
-	import { parseGitDiffLines } from '$lib/features/workspace/git-diff-lines';
-	import {
-		isWikiReadOnlyPath,
-		isWikiUiPath,
-		toWikiRelative,
-		toWikiUiPath
-	} from '$lib/wiki/paths';
-	import { wikiStemFromPath } from '$lib/wiki/wikilinks';
-
-	type EditorState = {
-		dirty: boolean;
-		saving: boolean;
-		saveError: string | null;
-		save: () => Promise<void>;
-		revert: () => void;
-	};
+	import { toWikiRelative } from '$lib/wiki/paths';
 
 	let {
 		workspacePath,
@@ -69,514 +24,111 @@
 		workspacePath: string;
 		filePath: string;
 		revealRange?: FileRevealRange | null;
-		onEditorState?: (state: EditorState | null) => void;
+		onEditorState?: (state: FilePreviewEditorState | null) => void;
 	} = $props();
 
-	let loading = $state(true);
-	let error = $state<string | null>(null);
-	let imageDataUrl = $state('');
-	let savedContent = $state('');
-	let draftContent = $state('');
-	let language = $state<string | null>(null);
-	let previewKind = $state<'text' | 'image' | 'pdf' | null>(null);
-	let saving = $state(false);
-	let saveError = $state<string | null>(null);
-	let loadVersion = 0;
-	let viewMode = $state<MarkdownFileViewMode>(readMarkdownFileViewMode());
-	let wikiFiles = $state<string[]>([]);
-	let backlinks = $state<string[]>([]);
-	let backlinksLoading = $state(false);
-	let fileEditor = $state<{
-		getSelectionRange: () => {
-			text: string;
-			startLine: number;
-			endLine: number;
-			clientRect: DOMRect;
-		} | null;
-	} | null>(null);
-	let selectionPopup = $state<{
-		top: number;
-		left: number;
-		text: string;
-		lineRange: SelectionLineRange | null;
-	} | null>(null);
-	let externalChangePending = $state(false);
-	let externalComparisonLines = $state<HighlightedDiffLine[] | null>(null);
-	let externalComparisonError = $state<string | null>(null);
-	let externalComparisonOpen = $state(false);
-	let lastObservedFileChangeVersion = 0;
-	let pdfReloadVersion = $state(0);
-	let markdownScrollEl = $state<HTMLDivElement | null>(null);
-
-	const readOnly = $derived(isWikiUiPath(filePath) && isWikiReadOnlyPath(filePath));
-	const dirty = $derived(previewKind === 'text' && draftContent !== savedContent && !readOnly);
-	const isMarkdown = $derived(isMarkdownPath(filePath));
-	const isPdf = $derived(isPdfPath(filePath));
-	const showMarkdownToggle = $derived(previewKind === 'text' && isMarkdown);
-	const effectiveViewMode = $derived(
-		showMarkdownToggle ? viewMode : ('source' satisfies MarkdownFileViewMode)
-	);
-	const isWikiFile = $derived(isWikiUiPath(filePath));
-	const showBacklinks = $derived(isWikiFile && previewKind === 'text' && !loading && !error);
-
-	function setViewMode(mode: MarkdownFileViewMode) {
-		viewMode = mode;
-		writeMarkdownFileViewMode(mode);
-		selectionPopup = null;
-	}
-
-	function clearSelectionPopup() {
-		selectionPopup = null;
-	}
-
-	function placeSelectionPopup(
-		text: string,
-		clientRect: DOMRect,
-		lineRange: SelectionLineRange | null
-	) {
-		if (!text.trim()) {
-			clearSelectionPopup();
-			return;
-		}
-		selectionPopup = {
-			...selectionPopupPosition(clientRect, window.innerWidth),
-			text,
-			lineRange
-		};
-	}
-
-	function onPreviewMouseUp(event: MouseEvent) {
-		const root = event.currentTarget;
-		if (!(root instanceof HTMLElement)) return;
-		const sel = window.getSelection();
-		if (!sel || sel.isCollapsed || sel.rangeCount === 0) {
-			clearSelectionPopup();
-			return;
-		}
-		if (!root.contains(sel.anchorNode) || !root.contains(sel.focusNode)) {
-			clearSelectionPopup();
-			return;
-		}
-		const range = sel.getRangeAt(0);
-		const text = sel.toString();
-		placeSelectionPopup(
-			text,
-			firstSelectionClientRect(range),
-			sourceLineRangeFromDomRange(range, root)
-		);
-	}
-
-	function onSourceMouseUp() {
-		const selected = fileEditor?.getSelectionRange() ?? null;
-		if (!selected) {
-			clearSelectionPopup();
-			return;
-		}
-		placeSelectionPopup(selected.text, selected.clientRect, {
-			startLine: selected.startLine,
-			endLine: selected.endLine
-		});
-	}
-
-	function addSelectionToChat() {
-		if (!selectionPopup) return;
-		const ctx = buildFileSnippetContext({
-			filePath,
-			selectedText: selectionPopup.text,
-			sourceText: draftContent,
-			lineRange: selectionPopup.lineRange
-		});
-		if (ctx) {
-			shellStore.addWebContextForActive(ctx);
-			shellStore.requestComposerFocus();
-		}
-		clearSelectionPopup();
-		window.getSelection()?.removeAllRanges();
-	}
-
-	function revert() {
-		if (previewKind !== 'text') return;
-		draftContent = savedContent;
-		saveError = null;
-	}
-
-	function keepEditingAfterExternalChange() {
-		externalChangePending = false;
-		externalComparisonLines = null;
-		externalComparisonError = null;
-		externalComparisonOpen = false;
-	}
-
-	function reloadAfterExternalChange() {
-		keepEditingAfterExternalChange();
-		void loadPreview();
-	}
-
-	async function compareExternalChange() {
-		if (externalComparisonOpen) {
-			externalComparisonLines = null;
-			externalComparisonError = null;
-			externalComparisonOpen = false;
-			return;
-		}
-		const currentWorkspacePath = workspacePath;
-		const currentFilePath = filePath;
-		const currentDraftContent = draftContent;
-		externalComparisonError = null;
-		clearSelectionPopup();
-		try {
-			const result = isWikiUiPath(currentFilePath)
-				? await readWikiFileContent(toWikiRelative(currentFilePath))
-				: await readWorkspaceFileContent(currentWorkspacePath, currentFilePath);
-			if (workspacePath !== currentWorkspacePath || filePath !== currentFilePath) return;
-			if (result.kind !== 'text') {
-				externalComparisonError = 'The external version is not text.';
-				return;
-			}
-			const diff = createFileDiff(currentDraftContent, result.content);
-			const lines = await highlightGitDiffLines(
-				parseGitDiffLines(diff),
-				languageFromPath(currentFilePath) ?? languageFromExtension(result.extension)
-			);
-			if (
-				workspacePath !== currentWorkspacePath ||
-				filePath !== currentFilePath ||
-				draftContent !== currentDraftContent
-			)
-				return;
-			externalComparisonLines = lines;
-			externalComparisonOpen = true;
-		} catch (err) {
-			if (workspacePath !== currentWorkspacePath || filePath !== currentFilePath) return;
-			externalComparisonError =
-				err instanceof Error ? err.message : 'Failed to load the external file version';
-		}
-	}
-
-	async function save() {
-		if (previewKind !== 'text' || saving || !dirty || readOnly) return;
-
-		const nextContent = draftContent;
-		const currentWorkspacePath = workspacePath;
-		const currentFilePath = filePath;
-
-		saving = true;
-		saveError = null;
-		try {
-			if (isWikiUiPath(currentFilePath)) {
-				await writeWikiFileContent(toWikiRelative(currentFilePath), nextContent);
-			} else {
-				await writeWorkspaceFileContent(currentWorkspacePath, currentFilePath, nextContent);
-			}
-			if (workspacePath !== currentWorkspacePath || filePath !== currentFilePath) return;
-			savedContent = nextContent;
-			draftContent = nextContent;
-			if (isWikiUiPath(currentFilePath)) {
-				void refreshWikiFileIndex(true);
-				void loadBacklinks(currentFilePath);
-			}
-		} catch (err) {
-			if (workspacePath !== currentWorkspacePath || filePath !== currentFilePath) return;
-			saveError = err instanceof Error ? err.message : 'Failed to save file';
-		} finally {
-			if (workspacePath === currentWorkspacePath && filePath === currentFilePath) {
-				saving = false;
-			}
-		}
-	}
-
-	async function loadBacklinks(path: string) {
-		if (!isWikiUiPath(path)) {
-			backlinks = [];
-			return;
-		}
-		backlinksLoading = true;
-		try {
-			backlinks = await listWikiFileBacklinks(toWikiRelative(path));
-		} catch {
-			backlinks = [];
-		} finally {
-			backlinksLoading = false;
-		}
-	}
-
-	async function loadPreview(opts?: { keepView?: boolean }) {
-		const version = ++loadVersion;
-		const keepView = Boolean(opts?.keepView) && previewKind !== null && !error;
-		if (!keepView) {
-			loading = true;
-			error = null;
-			imageDataUrl = '';
-			savedContent = '';
-			draftContent = '';
-			language = null;
-			previewKind = null;
-			saving = false;
-			saveError = null;
-			backlinks = [];
-			selectionPopup = null;
-		}
-
-		try {
-			if (isPdf) {
-				previewKind = 'pdf';
-				return;
-			}
-			const wikiIndexPromise = refreshWikiFileIndex(true);
-			const result = isWikiUiPath(filePath)
-				? await readWikiFileContent(toWikiRelative(filePath))
-				: await readWorkspaceFileContent(workspacePath, filePath);
-			if (version !== loadVersion) return;
-
-			wikiFiles = await wikiIndexPromise;
-			if (version !== loadVersion) return;
-
-			if (result.kind === 'image') {
-				if (keepView && previewKind === 'image' && imageDataUrl === result.data_url) return;
-				previewKind = 'image';
-				imageDataUrl = result.data_url;
-				return;
-			}
-
-			if (shouldSkipTextPreviewReload(keepView, previewKind, savedContent, result.content)) {
-				return;
-			}
-
-			const markdownScrollTop = markdownScrollEl?.scrollTop ?? null;
-			savedContent = result.content;
-			draftContent = result.content;
-			language = languageFromPath(filePath) ?? languageFromExtension(result.extension);
-			previewKind = 'text';
-			void loadBacklinks(filePath);
-			if (markdownScrollTop !== null) {
-				await tick();
-				if (version !== loadVersion) return;
-				if (markdownScrollEl) markdownScrollEl.scrollTop = markdownScrollTop;
-			}
-		} catch (err) {
-			if (version !== loadVersion) return;
-			error = err instanceof Error ? err.message : 'Failed to load file';
-		} finally {
-			if (version === loadVersion) loading = false;
-		}
-	}
-
-	$effect(() => {
-		// Track both inputs so the editor reloads when either changes.
-		void [workspacePath, filePath];
-		lastObservedFileChangeVersion = untrack(() =>
-			workspaceFileChangeVersion(workspacePath, filePath)
-		);
-		externalChangePending = false;
-		externalComparisonLines = null;
-		externalComparisonError = null;
-		externalComparisonOpen = false;
-		void loadPreview();
-	});
-
-	$effect(() => {
-		const changeVersion = workspaceFileChangeVersion(workspacePath, filePath);
-		if (changeVersion === lastObservedFileChangeVersion) return;
-		lastObservedFileChangeVersion = changeVersion;
-		if (isPdf) {
-			pdfReloadVersion += 1;
-			return;
-		}
-		if (dirty) {
-			externalChangePending = true;
-			externalComparisonLines = null;
-			externalComparisonError = null;
-			externalComparisonOpen = false;
-			return;
-		}
-		void loadPreview({ keepView: true });
-	});
-
-	$effect(() => {
-		// Jumping to a line range requires the source editor, not markdown preview.
-		if (revealRange && isMarkdown && viewMode === 'preview') {
-			viewMode = 'source';
-			writeMarkdownFileViewMode('source');
-		}
-	});
-
-	$effect(() => {
-		onEditorState?.(
-			previewKind === 'text' && !loading && !error && !readOnly
-				? {
-						dirty,
-						saving,
-						saveError,
-						save,
-						revert
-					}
-				: null
-		);
-	});
-
-	$effect(() => {
-		return () => {
-			onEditorState?.(null);
-		};
+	const panel = createFilePreviewController({
+		getWorkspacePath: () => workspacePath,
+		getFilePath: () => filePath,
+		getRevealRange: () => revealRange,
+		onEditorState: (state) => onEditorState?.(state)
 	});
 </script>
 
-{#snippet backlinksSection()}
-	<section class="backlinks" aria-label="Backlinks">
-		<h3 class="backlinks-title">Backlinks</h3>
-		{#if backlinksLoading}
-			<p class="backlinks-empty">Loading backlinks…</p>
-		{:else if backlinks.length === 0}
-			<p class="backlinks-empty">No backlinks yet.</p>
-		{:else}
-			<ul class="backlinks-list">
-				{#each backlinks as linkPath (linkPath)}
-					<li>
-						<button
-							type="button"
-							class="backlink-item"
-							onclick={() => openWorkspaceFilePreview(toWikiUiPath(linkPath))}
-						>
-							{wikiStemFromPath(linkPath)}
-							<span class="backlink-path">{linkPath}</span>
-						</button>
-					</li>
-				{/each}
-			</ul>
-		{/if}
-	</section>
-{/snippet}
-
 <div class="file-preview scrollbar-none" aria-live="polite">
-	{#if loading}
+	{#if panel.s.loading}
 		<div class="file-preview-state">
 			<Loader size={16} stroke-width={2} class="file-preview-spinner" />
 			<span>Loading file…</span>
 		</div>
-	{:else if error}
-		<div class="file-preview-state file-preview-error">{error}</div>
-	{:else if previewKind === 'image'}
+	{:else if panel.s.error}
+		<div class="file-preview-state file-preview-error">{panel.s.error}</div>
+	{:else if panel.s.previewKind === 'image'}
 		<div class="file-preview-image-wrap">
-			<img src={imageDataUrl} alt={filePath} class="file-preview-image" />
+			<img src={panel.s.imageDataUrl} alt={filePath} class="file-preview-image" />
 		</div>
-	{:else if previewKind === 'pdf'}
-		<PdfPreview {workspacePath} {filePath} wiki={isWikiFile} reloadVersion={pdfReloadVersion} />
-	{:else if previewKind === 'text'}
+	{:else if panel.s.previewKind === 'pdf'}
+		<PdfPreview
+			{workspacePath}
+			{filePath}
+			wiki={panel.isWikiFile}
+			reloadVersion={panel.s.pdfReloadVersion}
+		/>
+	{:else if panel.s.previewKind === 'text'}
 		<div class="file-preview-editor-wrap">
-			{#if externalComparisonOpen && externalComparisonLines !== null}
-				<div class="external-diff-full-page" aria-label="External file comparison">
-					<header class="external-diff-toolbar">
-						<span>External change diff</span>
-						<div class="external-change-actions">
-							<button type="button" onclick={reloadAfterExternalChange}>Reload</button
-							>
-							<button type="button" onclick={keepEditingAfterExternalChange}
-								>Keep editing</button
-							>
-							<button type="button" onclick={() => void compareExternalChange()}>
-								Close diff
-							</button>
-						</div>
-					</header>
-					<div class="external-diff-body">
-						{#if externalComparisonLines.length === 0}
-							<p>No content differences found.</p>
-						{:else}
-							<!-- eslint-disable svelte/no-at-html-tags -- highlightGitDiffLines escapes every token -->
-							<!-- prettier-ignore -->
-							<pre class="external-diff" data-lang={language ?? ''}><code>{#each externalComparisonLines as line, i (i)}<span class="diff-line kind-{line.kind}">{#if line.prefix}<span class="diff-prefix">{line.prefix}</span>{/if}<span class="diff-code">{@html line.html}</span></span>{/each}</code></pre>
-							<!-- eslint-enable svelte/no-at-html-tags -->
-						{/if}
-					</div>
-				</div>
+			{#if panel.s.externalComparisonOpen && panel.s.externalComparisonLines !== null}
+				<FilePreviewExternal {panel} mode="diff" />
 			{:else}
-				{#if showMarkdownToggle}
+				{#if panel.showMarkdownToggle}
 					<div class="md-view-toggle" role="group" aria-label="Markdown view mode">
 						<button
 							type="button"
 							class="md-view-toggle-btn"
-							class:active={effectiveViewMode === 'preview'}
-							onclick={() => setViewMode('preview')}
+							class:active={panel.effectiveViewMode === 'preview'}
+							onclick={() => panel.setViewMode('preview')}
 						>
 							Preview
 						</button>
 						<button
 							type="button"
 							class="md-view-toggle-btn"
-							class:active={effectiveViewMode === 'source'}
-							onclick={() => setViewMode('source')}
+							class:active={panel.effectiveViewMode === 'source'}
+							onclick={() => panel.setViewMode('source')}
 						>
 							Source
 						</button>
 					</div>
 				{/if}
-				{#if saveError}
-					<div class="file-preview-save-error">{saveError}</div>
+				{#if panel.s.saveError}
+					<div class="file-preview-save-error">{panel.s.saveError}</div>
 				{/if}
-				{#if externalChangePending}
-					<div class="external-change-notice" role="status">
-						<span>This file changed outside Cometline.</span>
-						<div class="external-change-actions">
-							<button type="button" onclick={reloadAfterExternalChange}>Reload</button
-							>
-							<button type="button" onclick={keepEditingAfterExternalChange}
-								>Keep editing</button
-							>
-							<button type="button" onclick={() => void compareExternalChange()}
-								>Compare</button
-							>
-						</div>
-					</div>
-					{#if externalComparisonError}
-						<div class="file-preview-save-error">{externalComparisonError}</div>
-					{/if}
-				{/if}
-				{#if effectiveViewMode === 'preview'}
+				<FilePreviewExternal {panel} mode="notice" />
+				{#if panel.effectiveViewMode === 'preview'}
 					<!-- svelte-ignore a11y_no_static_element_interactions -->
 					<div
-						bind:this={markdownScrollEl}
+						bind:this={panel.s.markdownScrollEl}
 						class="file-preview-markdown scrollbar-none"
-						onmouseup={onPreviewMouseUp}
+						onmouseup={panel.onPreviewMouseUp}
 					>
 						<AssistantMarkdown
-							source={draftContent}
+							source={panel.s.draftContent}
 							mode="assistant"
 							annotateSourceLines
-							{wikiFiles}
+							wikiFiles={panel.s.wikiFiles}
 							workspaceResources={{
-								kind: isWikiFile ? 'wiki' : 'workspace',
+								kind: panel.isWikiFile ? 'wiki' : 'workspace',
 								workspacePath,
-								filePath: isWikiFile ? toWikiRelative(filePath) : filePath,
+								filePath: panel.isWikiFile ? toWikiRelative(filePath) : filePath,
 								readFile: (relativePath) =>
-									isWikiFile
+									panel.isWikiFile
 										? readWikiFileContent(relativePath)
 										: readWorkspaceFileContent(workspacePath, relativePath)
 							}}
 						/>
-						{#if showBacklinks}
-							{@render backlinksSection()}
+						{#if panel.showBacklinks}
+							<FilePreviewBacklinks {panel} />
 						{/if}
 					</div>
 				{:else}
 					<!-- svelte-ignore a11y_no_static_element_interactions -->
-					<div class="file-preview-source-wrap" onmouseup={onSourceMouseUp}>
+					<div class="file-preview-source-wrap" onmouseup={panel.onSourceMouseUp}>
 						<FileEditor
-							bind:this={fileEditor}
-							value={draftContent}
-							{language}
-							readOnly={saving || readOnly}
+							bind:this={panel.s.fileEditor}
+							value={panel.s.draftContent}
+							language={panel.s.language}
+							readOnly={panel.s.saving || panel.readOnly}
 							{revealRange}
 							onChange={(value) => {
-								draftContent = value;
-								if (saveError) saveError = null;
+								panel.s.draftContent = value;
+								if (panel.s.saveError) panel.s.saveError = null;
 							}}
 							onSave={() => {
-								void save();
+								void panel.save();
 							}}
 							onRevealApplied={() => shellStore.clearFileRevealForActive()}
 						/>
-						{#if showBacklinks && !showMarkdownToggle}
-							{@render backlinksSection()}
+						{#if panel.showBacklinks && !panel.showMarkdownToggle}
+							<FilePreviewBacklinks {panel} inSource />
 						{/if}
 					</div>
 				{/if}
@@ -584,11 +136,11 @@
 		</div>
 	{/if}
 
-	{#if selectionPopup}
+	{#if panel.s.selectionPopup}
 		<SelectionAddToChat
-			position={{ top: selectionPopup.top, left: selectionPopup.left }}
-			onAdd={addSelectionToChat}
-			onDismiss={clearSelectionPopup}
+			position={{ top: panel.s.selectionPopup.top, left: panel.s.selectionPopup.left }}
+			onAdd={panel.addSelectionToChat}
+			onDismiss={panel.clearSelectionPopup}
 		/>
 	{/if}
 </div>
@@ -599,7 +151,7 @@
 		width: 100%;
 		height: 100%;
 		overflow: auto;
-		background: #fff;
+		background: var(--panel-bg);
 	}
 
 	.file-preview-state {
@@ -671,8 +223,8 @@
 	}
 
 	.md-view-toggle-btn.active {
-		background: #fff;
-		color: var(--text-primary, #111);
+		background: var(--panel-bg);
+		color: var(--text-primary, var(--color-111111));
 		box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06);
 	}
 
@@ -695,69 +247,6 @@
 		flex: 1;
 		min-height: 0;
 	}
-
-	.file-preview-source-wrap .backlinks {
-		flex: 0 0 auto;
-		padding: 0 18px 24px;
-	}
-
-	.backlinks {
-		margin-top: 28px;
-		padding-top: 16px;
-		border-top: 1px solid rgba(0, 0, 0, 0.08);
-	}
-
-	.backlinks-title {
-		margin: 0 0 10px;
-		font-size: 12px;
-		font-weight: 650;
-		letter-spacing: 0.02em;
-		text-transform: uppercase;
-		color: var(--text-muted);
-	}
-
-	.backlinks-empty {
-		margin: 0;
-		font-size: 13px;
-		color: var(--text-muted);
-	}
-
-	.backlinks-list {
-		list-style: none;
-		margin: 0;
-		padding: 0;
-		display: flex;
-		flex-direction: column;
-		gap: 4px;
-	}
-
-	.backlink-item {
-		display: flex;
-		flex-direction: column;
-		align-items: flex-start;
-		gap: 2px;
-		width: 100%;
-		border: none;
-		border-radius: 8px;
-		padding: 8px 10px;
-		background: rgba(0, 0, 0, 0.02);
-		color: var(--text-primary, #111);
-		font-size: 13px;
-		font-weight: 550;
-		text-align: left;
-		cursor: pointer;
-	}
-
-	.backlink-item:hover {
-		background: rgba(0, 0, 0, 0.05);
-	}
-
-	.backlink-path {
-		font-size: 11px;
-		font-weight: 450;
-		color: var(--text-muted);
-	}
-
 	.file-preview-save-error {
 		padding: 10px 14px;
 		border-bottom: 1px solid rgba(180, 35, 24, 0.15);
@@ -765,118 +254,6 @@
 		color: var(--status-error);
 		font-size: 12px;
 	}
-
-	.external-change-notice {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 12px;
-		padding: 8px 10px;
-		border-bottom: 1px solid var(--border-soft);
-		background: color-mix(in srgb, var(--status-warning) 10%, #fff);
-		color: var(--text-main);
-		font-size: 12px;
-	}
-
-	.external-change-actions {
-		display: flex;
-		gap: 6px;
-	}
-
-	.external-change-actions button {
-		border: 1px solid var(--border-soft);
-		border-radius: 5px;
-		padding: 3px 6px;
-		background: #fff;
-		color: var(--text-main);
-		font: inherit;
-		cursor: pointer;
-	}
-
-	.external-change-actions button:hover {
-		border-color: var(--text-soft);
-	}
-
-	.external-diff-full-page {
-		display: flex;
-		flex: 1;
-		flex-direction: column;
-		min-height: 0;
-	}
-
-	.external-diff-toolbar {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 12px;
-		padding: 6px 8px;
-		border-bottom: 1px solid var(--border-soft);
-		color: var(--text-main);
-		font-size: 12px;
-		font-weight: 600;
-	}
-
-	.external-diff-body {
-		flex: 1;
-		min-height: 0;
-		overflow: auto;
-		background: #fff;
-	}
-
-	.external-diff-body p {
-		margin: 0;
-		padding: 10px;
-		color: var(--text-muted);
-		font-size: 12px;
-	}
-
-	.external-diff {
-		margin: 0;
-		overflow: auto;
-		font: 11px/1.45 var(--font-mono, monospace);
-		white-space: pre;
-	}
-
-	.diff-line {
-		display: block;
-		padding: 0 8px;
-		white-space: pre;
-	}
-
-	.kind-meta,
-	.kind-hunk,
-	.kind-other,
-	.kind-ctx {
-		color: var(--text-muted);
-	}
-
-	.kind-add {
-		background: color-mix(in srgb, var(--status-success) 16%, transparent);
-	}
-
-	.kind-del {
-		background: color-mix(in srgb, var(--status-error) 14%, transparent);
-	}
-
-	.kind-add .diff-prefix {
-		color: var(--status-success);
-	}
-
-	.kind-del .diff-prefix {
-		color: var(--status-error);
-	}
-
-	@media (max-width: 640px) {
-		.external-change-notice {
-			align-items: flex-start;
-			flex-direction: column;
-		}
-		.external-diff-toolbar {
-			align-items: flex-start;
-			flex-direction: column;
-		}
-	}
-
 	@media (prefers-reduced-motion: reduce) {
 		.file-preview-state :global(.file-preview-spinner) {
 			animation: none;

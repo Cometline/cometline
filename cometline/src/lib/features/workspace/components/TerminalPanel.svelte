@@ -89,7 +89,7 @@
 		place-content: center;
 		gap: 12px;
 		width: 100%;
-		color: #d4d4d8;
+		color: var(--color-d4d4d8);
 		font-size: 13px;
 		text-align: center;
 	}
@@ -104,8 +104,8 @@
 		border: none;
 		border-radius: 8px;
 		padding: 8px 12px;
-		background: #f4f4f5;
-		color: #18181b;
+		background: var(--color-f4f4f5);
+		color: var(--color-18181b);
 		font: inherit;
 		font-weight: 650;
 		cursor: pointer;
