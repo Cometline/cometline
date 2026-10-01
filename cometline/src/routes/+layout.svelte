@@ -28,7 +28,7 @@
 		startSkillDraftToastWatch
 	} from '$lib/notifications/activity-toasts';
 	import { startStorageRetentionSync } from '$lib/retention/storage-retention-sync';
-	import { resolveWorkspacePanelRatio, widthFromRatio } from '$lib/layout/workspace-panel-width';
+	import { createBootController } from '$lib/boot/boot-controller';
 	import { applyWorkspaceChange, refreshWorkspace } from '$lib/workspace/workspace-change.svelte';
 	import { chatStore } from '$lib/stores/chat.svelte';
 	import {
@@ -51,10 +51,6 @@
 		if (!isMiniRoute && !isSettingsRoute) notifyConnectionChange(previousConnectionStatus, next);
 		previousConnectionStatus = next;
 	});
-	// Prevents the setup wizard from re-opening after the user skips it
-	// within the same session (in-memory guard). The durable guard is
-	// hasDismissedSetupWizard persisted in settings.
-	let setupAutoTriggered = false;
 	// Fast synchronous read so the very first effect tick already knows
 	// whether the user previously dismissed the wizard.
 	let dismissedSetupSync = readHasDismissedSetupWizardSync();
@@ -183,20 +179,7 @@
 	// Auto-open the setup wizard once when the intro has finished and the user
 	// hasn't completed setup. Skipping the wizard sets hasDismissedSetupWizard,
 	// which is read synchronously on startup and authoritative once settings load.
-	$effect(() => {
-		if (!settingsLoaded || shellStore.introOpen || shellStore.setupOpen) return;
-		if (setupAutoTriggered) return;
-		// Honour the persisted dismissal (from settings) or the fast sync read.
-		if (
-			settingsStore.settings.app.hasDismissedSetupWizard ||
-			settingsStore.settings.app.hasCompletedSetup ||
-			dismissedSetupSync
-		)
-			return;
-		setupAutoTriggered = true;
-		shellStore.openSetup();
-	});
-
+	// DOM adapter. Not boot state.
 	$effect(() => {
 		const vars = heroComposerCssVars(settingsStore.settings.appearance.heroComposer);
 		const root = document.documentElement;
@@ -205,64 +188,42 @@
 		}
 	});
 
-	// Seed --workspace-panel-width once when persisted prefs first become available.
-	// After that, AppShell exclusively owns live updates against the content-row
-	// — a second writer keyed on window.innerWidth caused shrink-then-grow when
-	// opening the sidebar.
-	let didSeedWorkspacePanelWidth = false;
-	$effect(() => {
-		const prefs = {
-			workspacePanelRatio: settingsStore.settings.app.workspacePanelRatio,
-			workspacePanelWidth: settingsStore.settings.app.workspacePanelWidth
-		};
-		if (didSeedWorkspacePanelWidth) return;
-		if (prefs.workspacePanelRatio <= 0 && prefs.workspacePanelWidth <= 0) return;
-		didSeedWorkspacePanelWidth = true;
-		const ratio = resolveWorkspacePanelRatio(prefs, window.innerWidth);
-		const clamped = widthFromRatio(ratio, window.innerWidth, {
-			sidebarOpen: false,
-			fullscreen: false
-		});
-		document.documentElement.style.setProperty('--workspace-panel-width', `${clamped}px`);
-	});
+	// AppShell is the only writer of --workspace-panel-width. A second seed
+	// here, keyed on window.innerWidth, shrink-then-grew the panel when the
+	// sidebar opened.
 
-	$effect(() => {
-		if (connectionState.status !== 'ready') return;
-		if (shellStore.bootMessage) {
-			shellStore.setBootMessage('');
-		}
-		if (!sessionsLoaded) {
-			sessionsLoaded = true;
+	const boot = createBootController({
+		loadSessions: () => {
 			void loadSessions();
+		},
+		refreshModelLimits: () => {
+			void settingsStore.refreshModelLimits();
+		},
+		ensureWorkspace: (path) => {
+			void ensureWorkspace(path).catch(() => {});
+		},
+		watchWorkspace: (path) => {
+			void window.electronAPI?.watchWorkspace?.(path);
+		},
+		openSetup: () => shellStore.openSetup(),
+		clearBootMessage: () => {
+			if (shellStore.bootMessage) shellStore.setBootMessage('');
 		}
 	});
 
+	// One adapter. Decisions live in the boot module.
 	$effect(() => {
-		if (!settingsLoaded || connectionState.status !== 'ready') return;
-		void settingsStore.refreshModelLimits();
-	});
-
-	let sessionsLoaded = false;
-	let lastEnsuredWorkspace = '';
-
-	$effect(() => {
-		const workspacePath = shellStore.workspacePath;
-		if (isMiniRoute || isSettingsRoute) return;
-		if (!workspacePath || workspacePath === '/') return;
-		void window.electronAPI?.watchWorkspace?.(workspacePath);
-	});
-
-	$effect(() => {
-		const workspacePath = shellStore.workspacePath;
-		if (!workspacePath || workspacePath === '/') return;
-		if (connectionState.status !== 'ready') return;
-		// Register the workspace in the background (needed for forks / new
-		// chats) without blocking the session list or transcript loads. Only
-		// re-register when the path actually changes.
-		if (workspacePath !== lastEnsuredWorkspace) {
-			lastEnsuredWorkspace = workspacePath;
-			void ensureWorkspace(workspacePath).catch(() => {});
-		}
+		boot.sync({
+			connectionReady: connectionState.status === 'ready',
+			settingsLoaded,
+			introOpen: shellStore.introOpen,
+			setupOpen: shellStore.setupOpen,
+			setupDismissed:
+				settingsStore.settings.app.hasDismissedSetupWizard || dismissedSetupSync,
+			setupCompleted: settingsStore.settings.app.hasCompletedSetup,
+			workspacePath: shellStore.workspacePath,
+			skipWatch: isMiniRoute || isSettingsRoute
+		});
 	});
 
 	async function initializeWorkspace() {
@@ -285,12 +246,11 @@
 			if (connectionState.status === 'connecting') {
 				// Let the runtime overlay own startup copy while the sidecar is still
 				// warming up; we'll retry automatically once it reports healthy.
-				sessionsLoaded = false;
+				boot.sessionsFailed();
 				return;
 			}
-			// Allow a later workspace/effect tick to retry (e.g. backend not
-			// healthy yet at startup).
-			sessionsLoaded = false;
+			// Allow a later ready tick to retry (e.g. backend not healthy yet).
+			boot.sessionsFailed();
 			shellStore.setBootMessage(
 				err instanceof Error ? err.message : 'Failed to load sessions'
 			);
