@@ -15,6 +15,17 @@
 		onOpenJob?: (jobId: string) => void;
 		onOpenSession?: (sessionId: string) => void;
 	} = $props();
+
+	let replyEl = $state<HTMLTextAreaElement | null>(null);
+
+	$effect(() => {
+		const unsubscribe = window.electronAPI?.onCommandEnter?.((signal) => {
+			if (signal.purpose !== 'submit') return;
+			if (document.activeElement !== replyEl) return;
+			void controller.submitReply();
+		});
+		return () => unsubscribe?.();
+	});
 </script>
 
 {#if controller.selected}
@@ -37,6 +48,7 @@
 			/>
 		{/if}
 		<textarea
+			bind:this={replyEl}
 			class="reply-input"
 			rows="4"
 			placeholder="Reply (saved for later; message leaves the inbox)"

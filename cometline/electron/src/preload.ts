@@ -119,6 +119,7 @@ const electronAPI: ElectronAPI = {
 		subscribe('onShortcutAction', (action) => {
 			if (typeof action === 'string') callback(action as Parameters<typeof callback>[0]);
 		}),
+	onCommandEnter: (callback) => subscribe('onCommandEnter', callback),
 	onProviderSettingsChanged: (callback) => subscribe('onProviderSettingsChanged', callback),
 	onPersonaAvatarChanged: (callback) => subscribe('onPersonaAvatarChanged', callback),
 	onReplayIntro: (callback) => subscribeSignal('onReplayIntro', callback),

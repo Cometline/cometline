@@ -1,4 +1,4 @@
-import type { ShortcutAction } from '$lib/keyboard-shortcuts';
+import type { CommandEnterSignal, ShortcutAction } from '$lib/keyboard-shortcuts';
 import type {
 	CustomPersona,
 	FetchProviderModelsResult,
@@ -93,6 +93,7 @@ export interface ElectronAPI {
 	onRequestReload(callback: () => void): () => void;
 	onNavigateSession(callback: (direction: 'prev' | 'next') => void): () => void;
 	onShortcutAction(callback: (action: ShortcutAction) => void): () => void;
+	onCommandEnter(callback: (signal: CommandEnterSignal) => void): () => void;
 	onProviderSettingsChanged(callback: (settings: ProviderSettings) => void): () => void;
 	onPersonaAvatarChanged(callback: (personaId: string) => void): () => void;
 	onReplayIntro(callback: () => void): () => void;

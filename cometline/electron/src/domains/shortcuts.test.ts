@@ -14,10 +14,17 @@ import { normalizeKeyboardShortcuts } from '../../../src/lib/keyboard-shortcuts.
 import type { ShellWindowContext } from './runtime-context.js';
 import { createShortcutCoordinator } from './shortcuts.js';
 
-function createSettingsShortcutHandler(shortcutCaptureActive = false) {
+function createSettingsShortcutHandler(
+	shortcutCaptureActive = false,
+	platform?: string,
+	shortcuts = normalizeKeyboardShortcuts(undefined)
+) {
 	let handler: ((event: Event, input: Input) => void) | undefined;
 	const hideSettingsWindow = vi.fn();
+	const send = vi.fn();
 	const webContents = {
+		isDestroyed: () => false,
+		send,
 		on: vi.fn((event: string, listener: (event: Event, input: Input) => void) => {
 			if (event === 'before-input-event') handler = listener;
 		})
@@ -26,7 +33,7 @@ function createSettingsShortcutHandler(shortcutCaptureActive = false) {
 		context: {
 			getShortcutCaptureActive: () => shortcutCaptureActive
 		} as unknown as ShellWindowContext,
-		getShortcuts: () => normalizeKeyboardShortcuts(undefined),
+		getShortcuts: () => shortcuts,
 		routeSignals: {
 			closeInbox: vi.fn(),
 			closeWorkspacePanel: vi.fn(),
@@ -39,11 +46,12 @@ function createSettingsShortcutHandler(shortcutCaptureActive = false) {
 		toggleMiniWindow: vi.fn(async () => undefined),
 		hideMainWindow: vi.fn(),
 		hideMiniWindow: vi.fn(),
-		hideSettingsWindow
+		hideSettingsWindow,
+		platform
 	});
 
 	coordinator.attachSettingsWindowShortcuts(webContents);
-	return { getHandler: () => handler, hideSettingsWindow };
+	return { getHandler: () => handler, hideSettingsWindow, send };
 }
 
 function escapeInput(): Input {
@@ -81,5 +89,56 @@ describe('settings window shortcuts', () => {
 
 		expect(event.preventDefault).not.toHaveBeenCalled();
 		expect(hideSettingsWindow).not.toHaveBeenCalled();
+	});
+
+	it('forwards macOS Command+Enter so the page can capture and send', () => {
+		const { getHandler, send } = createSettingsShortcutHandler(true, 'darwin');
+		const event = { preventDefault: vi.fn() } as unknown as Event;
+
+		getHandler()?.(event, { ...escapeInput(), key: 'Enter', code: 'Enter', meta: true });
+
+		expect(event.preventDefault).toHaveBeenCalledOnce();
+		expect(send).toHaveBeenCalledWith('cometline:command-enter', {
+			purpose: 'capture',
+			shift: false,
+			alt: false,
+			control: false
+		});
+	});
+
+	it('submits when Command+Enter is the send shortcut', () => {
+		const shortcuts = normalizeKeyboardShortcuts(undefined);
+		shortcuts.sendMessage = { key: 'Enter', command: true };
+		const { getHandler, send } = createSettingsShortcutHandler(false, 'darwin', shortcuts);
+		const event = { preventDefault: vi.fn() } as unknown as Event;
+
+		getHandler()?.(event, { ...escapeInput(), key: 'Enter', code: 'Enter', meta: true });
+
+		expect(send).toHaveBeenCalledWith('cometline:command-enter', {
+			purpose: 'submit',
+			shift: false,
+			alt: false,
+			control: false
+		});
+	});
+
+	it('does not submit Command+Enter when send is plain Enter', () => {
+		const { getHandler, send } = createSettingsShortcutHandler(false, 'darwin');
+		const event = { preventDefault: vi.fn() } as unknown as Event;
+
+		getHandler()?.(event, { ...escapeInput(), key: 'Enter', code: 'Enter', meta: true });
+
+		expect(event.preventDefault).toHaveBeenCalledOnce();
+		expect(send).not.toHaveBeenCalled();
+	});
+
+	it('does not forward Command+Enter off macOS', () => {
+		const { getHandler, send } = createSettingsShortcutHandler(false, 'win32');
+		const event = { preventDefault: vi.fn() } as unknown as Event;
+
+		getHandler()?.(event, { ...escapeInput(), key: 'Enter', code: 'Enter', meta: true });
+
+		expect(event.preventDefault).not.toHaveBeenCalled();
+		expect(send).not.toHaveBeenCalled();
 	});
 });

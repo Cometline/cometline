@@ -9,7 +9,7 @@ import {
 	screen as electronScreen,
 	shell
 } from 'electron';
-import type { OpenDialogOptions } from 'electron';
+import type { OpenDialogOptions, WebContents } from 'electron';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import http from 'node:http';
@@ -17,6 +17,7 @@ import { fileURLToPath } from 'node:url';
 import os from 'node:os';
 import path from 'node:path';
 
+import type { CommandEnterModifiers } from '../../../src/lib/keyboard-shortcuts.js';
 import { defaultSettings } from '../../../src/lib/features/settings/schema.js';
 import type { ProviderSettings } from '../../../src/lib/types.js';
 import { createOllamaService } from '../services/ollama.js';
@@ -319,6 +320,7 @@ export function initializeRuntime() {
 	});
 	const routeSignals = createRouteSignals(shellContext);
 	const windowChrome = createWindowChrome(shellContext);
+	let deliverCommandEnter = (_webContents: WebContents, _modifiers: CommandEnterModifiers) => {};
 	const applicationMenuTray = createApplicationMenuTray({
 		context: shellContext,
 		readShortcuts: () =>
@@ -328,7 +330,8 @@ export function initializeRuntime() {
 		pathExists: fs.existsSync,
 		showMainWindow: () => windows?.showMainWindow(),
 		showSettingsWindow: async () => windows?.showSettingsWindow(),
-		requestReload: () => routeSignals.requestReload()
+		requestReload: () => routeSignals.requestReload(),
+		onCommandEnter: (webContents, modifiers) => deliverCommandEnter(webContents, modifiers)
 	});
 	const shortcuts = createShortcutCoordinator({
 		context: shellContext,
@@ -341,6 +344,7 @@ export function initializeRuntime() {
 		hideMiniWindow: () => windows?.hideMiniWindow(),
 		hideSettingsWindow: () => windows?.hideSettingsWindow()
 	});
+	deliverCommandEnter = shortcuts.deliverCommandEnter;
 	windows = createWindows({
 		app,
 		BrowserWindow,

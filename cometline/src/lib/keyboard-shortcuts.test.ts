@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
 	captureShortcut,
+	commandEnterBinding,
+	matchesCommandEnter,
 	isReloadShortcut,
 	matchesShortcut,
 	normalizeKeyboardShortcuts
@@ -117,6 +119,29 @@ describe('keyboard-shortcuts', () => {
 		expect(matchesShortcut(keyEvent({ key: 'Enter', shiftKey: true }), send)).toBe(false);
 		expect(matchesShortcut(keyEvent({ key: 'Enter', shiftKey: true }), newline)).toBe(true);
 		expect(matchesShortcut(keyEvent({ key: 'Enter' }), newline)).toBe(false);
+	});
+
+	it('matches a Command+Enter send binding', () => {
+		const binding = commandEnterBinding({ shift: false, alt: false, control: false });
+		expect(binding).toEqual({ key: 'Enter', command: true });
+		expect(matchesCommandEnter(binding, { shift: false, alt: false, control: false })).toBe(
+			true
+		);
+		expect(
+			matchesCommandEnter(
+				{ key: 'Enter', shift: false },
+				{ shift: false, alt: false, control: false }
+			)
+		).toBe(false);
+	});
+
+	it('captureShortcut records Command+Enter as the cross-platform command modifier', () => {
+		const binding = captureShortcut(keyEvent({ key: 'Enter', code: 'Enter', metaKey: true }));
+		expect(binding).toEqual({ key: 'Enter', command: true });
+		expect(
+			matchesShortcut(keyEvent({ key: 'Enter', code: 'Enter', metaKey: true }), binding!)
+		).toBe(true);
+		expect(matchesShortcut(keyEvent({ key: 'Enter', code: 'Enter' }), binding!)).toBe(false);
 	});
 
 	it('captureShortcut records shift false for plain Enter', () => {

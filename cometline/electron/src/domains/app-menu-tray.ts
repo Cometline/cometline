@@ -1,6 +1,9 @@
-import { app, Menu, Tray } from 'electron';
-import type { KeyboardShortcuts } from '../../../src/lib/keyboard-shortcuts.js';
-import type { MenuItemConstructorOptions, NativeImage } from 'electron';
+import { app, BrowserWindow, Menu, Tray } from 'electron';
+import type {
+	CommandEnterModifiers,
+	KeyboardShortcuts
+} from '../../../src/lib/keyboard-shortcuts.js';
+import type { MenuItemConstructorOptions, NativeImage, WebContents } from 'electron';
 import { shortcutBindingToAccelerator } from './shortcuts.js';
 import type { ShellWindowContext } from './runtime-context.js';
 
@@ -13,6 +16,7 @@ interface ApplicationMenuTrayDependencies {
 	showMainWindow(): void;
 	showSettingsWindow(): Promise<void>;
 	requestReload(): void;
+	onCommandEnter(webContents: WebContents, modifiers: CommandEnterModifiers): void;
 }
 
 /** Owns the macOS tray and application menu while the runtime owns window visibility. */
@@ -25,8 +29,23 @@ export function createApplicationMenuTray(dependencies: ApplicationMenuTrayDepen
 		pathExists,
 		showMainWindow,
 		showSettingsWindow,
-		requestReload
+		requestReload,
+		onCommandEnter
 	} = dependencies;
+
+	function hiddenCommandEnterItem(shift: boolean): MenuItemConstructorOptions {
+		return {
+			label: shift ? 'Send Message with Shift' : 'Send Message',
+			accelerator: shift ? 'Shift+Command+Enter' : 'Command+Enter',
+			visible: false,
+			acceleratorWorksWhenHidden: true,
+			click: () => {
+				const contents = BrowserWindow.getFocusedWindow()?.webContents;
+				if (!contents || contents.isDestroyed()) return;
+				onCommandEnter(contents, { shift, alt: false, control: false });
+			}
+		};
+	}
 
 	function ensureTray() {
 		if (process.platform !== 'darwin') return false;
@@ -100,7 +119,10 @@ export function createApplicationMenuTray(dependencies: ApplicationMenuTrayDepen
 			{ role: 'cut' },
 			{ role: 'copy' },
 			{ role: 'paste' },
-			{ role: 'selectAll' }
+			{ role: 'selectAll' },
+			...(process.platform === 'darwin'
+				? [hiddenCommandEnterItem(false), hiddenCommandEnterItem(true)]
+				: [])
 		];
 		const viewSubmenu: MenuItemConstructorOptions[] = [
 			{

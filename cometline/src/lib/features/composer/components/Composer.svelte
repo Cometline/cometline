@@ -74,6 +74,8 @@
 	];
 	let heroPlaceholderIndex = $state(0);
 
+	let composerEl = $state<HTMLDivElement | null>(null);
+
 	onMount(() => {
 		void composerHistoryStore.ensureLoaded();
 	});
@@ -168,6 +170,14 @@
 		onModelChange: (option) => onModelChange?.(option)
 	});
 
+	onMount(() =>
+		window.electronAPI?.onCommandEnter?.((signal) => {
+			if (signal.purpose !== 'submit') return;
+			if (!composerEl?.contains(document.activeElement)) return;
+			void turn.submit();
+		})
+	);
+
 	const slash = createComposerSlashController({
 		getValue: () => value,
 		setValue: (next) => {
@@ -243,6 +253,7 @@
 </script>
 
 <div
+	bind:this={composerEl}
 	class="composer"
 	class:hero={variant === 'hero'}
 	class:plan={agentMode === 'plan'}
