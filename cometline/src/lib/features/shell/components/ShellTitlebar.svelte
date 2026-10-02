@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen } from '@lucide/svelte';
-	import Tooltip from '$lib/components/Tooltip.svelte';
-	import { shellStore } from '$lib/stores/shell.svelte';
+	import Tooltip from '#lib/components/Tooltip.svelte';
+	import { shellStore } from '#lib/stores/shell.svelte.js';
 
 	let {
 		label,

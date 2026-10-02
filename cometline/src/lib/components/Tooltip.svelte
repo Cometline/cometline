@@ -1,8 +1,8 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import { onDestroy, tick } from 'svelte';
-	import { settingsStore } from '$lib/stores/settings.svelte';
-	import type { ShortcutAction } from '$lib/keyboard-shortcuts';
+	import { settingsStore } from '#lib/stores/settings.svelte.js';
+	import type { ShortcutAction } from '#lib/keyboard-shortcuts.js';
 	import { shortcutTooltipKbd } from './shortcut-tooltip';
 	import { clampTooltipPosition } from './tooltip-position';
 	import { portal } from './portal';

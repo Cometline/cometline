@@ -2,14 +2,14 @@
 	import { tick } from 'svelte';
 	import { fly, fade } from 'svelte/transition';
 	import { Check, ChevronDown, Sparkles } from '@lucide/svelte';
-	import type { ProviderConfig } from '$lib/types';
+	import type { ProviderConfig } from '#lib/types.js';
 	import {
 		buildModelOptions,
 		filterModelOptions,
 		groupModelOptions,
 		selectedModelLabel,
 		type ModelEntry
-	} from '$lib/features/settings/model-roles-panel-options';
+	} from '#lib/features/settings/model-roles-panel-options.js';
 
 	let {
 		defaultModelId = $bindable(),

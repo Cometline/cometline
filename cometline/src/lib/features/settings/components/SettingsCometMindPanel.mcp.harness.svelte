@@ -1,6 +1,6 @@
 <script lang="ts">
 	import SettingsCometMindPanel from './SettingsCometMindPanel.svelte';
-	import { defaultCometMindSettings, type CometMindSettings } from '$lib/cometmind-settings';
+	import { defaultCometMindSettings, type CometMindSettings } from '#lib/cometmind-settings.js';
 
 	let cometmind = $state<CometMindSettings>(defaultCometMindSettings());
 </script>

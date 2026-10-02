@@ -7,7 +7,7 @@ import {
 	toolFoldLabel,
 	usageText
 } from './thread-format';
-import type { ChatItem } from '$lib/stores/chat.svelte';
+import type { ChatItem } from '#lib/stores/chat.svelte.js';
 
 describe('formatToolDuration', () => {
 	it('formats sub-second durations in ms', () => {

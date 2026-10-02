@@ -10,7 +10,7 @@ import {
 	pinnedJobProposalsForAssistant,
 	shouldGroupAssistantTimeline
 } from './thinking-attribution';
-import type { ChatItem } from '$lib/types';
+import type { ChatItem } from '#lib/types.js';
 
 describe('buildThinkingAttribution', () => {
 	it('buffers memory from prior turns into the matching assistant block', () => {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { defaultMemorySettings } from '$lib/client/cometmind';
-import type { EmbeddingModelOption } from '$lib/embedding-models';
-import type { ProviderConfig, ProviderSettings } from '$lib/types';
+import { defaultMemorySettings } from '#lib/client/cometmind.js';
+import type { EmbeddingModelOption } from '#lib/embedding-models.js';
+import type { ProviderConfig, ProviderSettings } from '#lib/types.js';
 import {
 	canAdvanceStep,
 	completedSetupSettings,

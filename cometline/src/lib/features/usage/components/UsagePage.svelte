@@ -4,7 +4,7 @@
 	import {
 		createUsagePageController,
 		USAGE_PAGE_SIZE
-	} from '$lib/features/usage/usage-page-controller.svelte';
+	} from '#lib/features/usage/usage-page-controller.svelte.js';
 	import UsageChartCard from './usage-page/UsageChartCard.svelte';
 	import UsageEventsTable from './usage-page/UsageEventsTable.svelte';
 	import UsageKpis from './usage-page/UsageKpis.svelte';

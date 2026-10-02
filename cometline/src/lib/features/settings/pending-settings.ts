@@ -1,5 +1,5 @@
-import { cloneCometMindSettings, normalizeCometMindSettings } from '$lib/cometmind-settings';
-import type { ProviderConfig, ProviderSettings } from '$lib/types';
+import { cloneCometMindSettings, normalizeCometMindSettings } from '#lib/cometmind-settings.js';
+import type { ProviderConfig, ProviderSettings } from '#lib/types.js';
 
 export type SettingsSection = 'models' | 'memory' | 'agent' | 'appearance' | 'shortcuts' | 'app';
 

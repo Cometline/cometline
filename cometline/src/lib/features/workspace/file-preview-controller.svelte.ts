@@ -5,39 +5,39 @@ import {
 	readWorkspaceFileContent,
 	writeWikiFileContent,
 	writeWorkspaceFileContent
-} from '$lib/client/cometmind';
-import { shellStore } from '$lib/stores/shell.svelte';
+} from '#lib/client/cometmind.js';
+import { shellStore } from '#lib/stores/shell.svelte.js';
 import {
 	isMarkdownPath,
 	isPdfPath,
 	languageFromExtension,
 	languageFromPath,
 	shouldSkipTextPreviewReload
-} from '$lib/features/workspace/file-preview';
+} from '#lib/features/workspace/file-preview.js';
 import {
 	buildFileSnippetContext,
 	sourceLineRangeFromDomRange,
 	type SelectionLineRange
-} from '$lib/features/workspace/selection-snippet';
+} from '#lib/features/workspace/selection-snippet.js';
 import {
 	firstSelectionClientRect,
 	selectionPopupPosition
-} from '$lib/features/workspace/selection-popup';
-import type { FileRevealRange } from '$lib/features/workspace/workspace-panel-state';
+} from '#lib/features/workspace/selection-popup.js';
+import type { FileRevealRange } from '#lib/features/workspace/workspace-panel-state.js';
 import {
 	readMarkdownFileViewMode,
 	writeMarkdownFileViewMode,
 	type MarkdownFileViewMode
-} from '$lib/features/workspace/workspace-panel-prefs';
-import { refreshWikiFileIndex } from '$lib/wiki/wiki-file-index';
-import { workspaceFileChangeVersion } from '$lib/features/workspace/workspace-change.svelte';
-import { createFileDiff } from '$lib/features/workspace/file-diff';
+} from '#lib/features/workspace/workspace-panel-prefs.js';
+import { refreshWikiFileIndex } from '#lib/wiki/wiki-file-index.js';
+import { workspaceFileChangeVersion } from '#lib/features/workspace/workspace-change.svelte.js';
+import { createFileDiff } from '#lib/features/workspace/file-diff.js';
 import {
 	highlightGitDiffLines,
 	type HighlightedDiffLine
-} from '$lib/features/workspace/git-diff-highlight';
-import { parseGitDiffLines } from '$lib/features/workspace/git-diff-lines';
-import { isWikiReadOnlyPath, isWikiUiPath, toWikiRelative } from '$lib/wiki/paths';
+} from '#lib/features/workspace/git-diff-highlight.js';
+import { parseGitDiffLines } from '#lib/features/workspace/git-diff-lines.js';
+import { isWikiReadOnlyPath, isWikiUiPath, toWikiRelative } from '#lib/wiki/paths.js';
 
 export type FilePreviewEditorState = {
 	dirty: boolean;

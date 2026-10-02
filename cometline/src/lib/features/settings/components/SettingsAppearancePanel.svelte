@@ -4,10 +4,10 @@
 		HeroComposerAppearance,
 		ResponseCompleteSoundSettings,
 		TerminalAppearanceSettings
-	} from '$lib/types';
-	import { DEFAULT_HERO_COMPOSER_APPEARANCE } from '$lib/hero-composer-appearance';
-	import { DEFAULT_TERMINAL_APPEARANCE } from '$lib/features/workspace/terminal-appearance';
-	import { defaultResponseCompleteSoundSettings } from '$lib/features/settings/schema';
+	} from '#lib/types.js';
+	import { DEFAULT_HERO_COMPOSER_APPEARANCE } from '#lib/hero-composer-appearance.js';
+	import { DEFAULT_TERMINAL_APPEARANCE } from '#lib/features/workspace/terminal-appearance.js';
+	import { defaultResponseCompleteSoundSettings } from '#lib/features/settings/schema.js';
 	import HeroGlowSection from './appearance/HeroGlowSection.svelte';
 	import TerminalAppearanceSection from './appearance/TerminalAppearanceSection.svelte';
 	import CaretTrailSection from './appearance/CaretTrailSection.svelte';

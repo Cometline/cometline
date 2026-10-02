@@ -1,4 +1,4 @@
-import { getActiveSessionId } from '$lib/active-session';
+import { getActiveSessionId } from '#lib/active-session.js';
 
 export type FocusedPane = 'chat' | 'web' | 'terminal';
 

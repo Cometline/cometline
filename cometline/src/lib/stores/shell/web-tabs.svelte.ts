@@ -1,11 +1,11 @@
-import { getActiveSessionId } from '$lib/active-session';
+import { getActiveSessionId } from '#lib/active-session.js';
 import {
 	activateWorkspacePanelUrlTab,
 	closeWorkspacePanelUrlTab,
 	navigateWorkspacePanelUrl,
 	openWorkspacePanelUrl as openWorkspacePanelUrlState,
 	syncUrlTab
-} from '$lib/features/workspace/workspace-panel-state';
+} from '#lib/features/workspace/workspace-panel-state.js';
 import type { ShellFocusStore } from './focus.svelte';
 import type { PanelHistoryStore } from './panel-history.svelte';
 import type { PanelNavigation } from './panel-navigation.svelte';

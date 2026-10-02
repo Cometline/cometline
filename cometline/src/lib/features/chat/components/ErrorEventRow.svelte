@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { TriangleAlert } from '@lucide/svelte';
-	import ThreadRow from '$lib/features/chat/components/ThreadRow.svelte';
-	import EventCard from '$lib/features/chat/components/EventCard.svelte';
-	import type { ChatItem } from '$lib/stores/chat.svelte';
+	import ThreadRow from '#lib/features/chat/components/ThreadRow.svelte';
+	import EventCard from '#lib/features/chat/components/EventCard.svelte';
+	import type { ChatItem } from '#lib/stores/chat.svelte.js';
 
 	let { item }: { item: Extract<ChatItem, { type: 'error' }> } = $props();
 </script>

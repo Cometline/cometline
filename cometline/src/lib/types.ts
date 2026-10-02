@@ -4,7 +4,7 @@ import type {
 	MemoryWire,
 	MessageContextRef,
 	TokenUsage
-} from '$lib/generated/cometmind-api';
+} from '#lib/generated/cometmind-api/index.js';
 
 export type {
 	AgentMode,
@@ -22,12 +22,12 @@ export type {
 	TranscriptResponse,
 	UpdateSessionRequest,
 	Workspace
-} from '$lib/generated/cometmind-api';
+} from '#lib/generated/cometmind-api/index.js';
 export type {
 	Skill as SkillResource,
 	ListSkillsResponse as SkillListResponse,
 	SyncSkillsResponse as SkillSyncResponse
-} from '$lib/generated/cometmind-api';
+} from '#lib/generated/cometmind-api/index.js';
 
 export type ProviderMethod =
 	| 'openai-compatible'
@@ -102,10 +102,14 @@ export interface AppearanceSettings {
 	responseCompleteSound: ResponseCompleteSoundSettings;
 }
 
-import type { KeyboardShortcuts } from '$lib/keyboard-shortcuts';
-export type { KeyboardShortcuts, ShortcutAction, ShortcutBinding } from '$lib/keyboard-shortcuts';
+import type { KeyboardShortcuts } from '#lib/keyboard-shortcuts.js';
+export type {
+	KeyboardShortcuts,
+	ShortcutAction,
+	ShortcutBinding
+} from '#lib/keyboard-shortcuts.js';
 
-import type { CometMindSettings } from '$lib/cometmind-settings';
+import type { CometMindSettings } from '#lib/cometmind-settings.js';
 
 export interface CustomPersona {
 	id: string;

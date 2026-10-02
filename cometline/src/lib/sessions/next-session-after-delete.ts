@@ -1,4 +1,4 @@
-import type { Session } from '$lib/types';
+import type { Session } from '#lib/types.js';
 
 /**
  * Picks the session that should become active after deleting `deletedId`.

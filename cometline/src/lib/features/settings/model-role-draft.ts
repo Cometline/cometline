@@ -1,6 +1,6 @@
-import { isEmbeddingModelName } from '$lib/embedding-models';
-import { defaultCometMindSettings, type CometMindSettings } from '$lib/cometmind-settings';
-import type { ProviderConfig, ProviderSettings } from '$lib/types';
+import { isEmbeddingModelName } from '#lib/embedding-models.js';
+import { defaultCometMindSettings, type CometMindSettings } from '#lib/cometmind-settings.js';
+import type { ProviderConfig, ProviderSettings } from '#lib/types.js';
 
 export type ModelRoleSelection = {
 	providerId: string;

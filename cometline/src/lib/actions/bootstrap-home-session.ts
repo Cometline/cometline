@@ -1,10 +1,10 @@
-import { startNewChat } from '$lib/actions/new-chat';
-import { navigateToSession } from '$lib/actions/navigate-to-session';
-import { connectionState } from '$lib/stores/runtime.svelte';
-import { sessionStore } from '$lib/stores/session.svelte';
-import { sessionVisitHistory } from '$lib/stores/session-visit-history.svelte';
-import { shellStore } from '$lib/stores/shell.svelte';
-import type { Session } from '$lib/types';
+import { startNewChat } from '#lib/actions/new-chat.js';
+import { navigateToSession } from '#lib/actions/navigate-to-session.js';
+import { connectionState } from '#lib/stores/runtime.svelte.js';
+import { sessionStore } from '#lib/stores/session.svelte.js';
+import { sessionVisitHistory } from '#lib/stores/session-visit-history.svelte.js';
+import { shellStore } from '#lib/stores/shell.svelte.js';
+import type { Session } from '#lib/types.js';
 
 export type BootstrapHomeSessionDeps = {
 	connectionStatus: () => typeof connectionState.status;

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import WorkspacePathField from '$lib/components/WorkspacePathField.svelte';
+	import WorkspacePathField from '#lib/components/WorkspacePathField.svelte';
 
 	let {
 		description = $bindable(''),

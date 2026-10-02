@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import type { Session } from '$lib/types';
+	import type { Session } from '#lib/types.js';
 
 	let {
 		session,

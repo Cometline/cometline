@@ -1,19 +1,19 @@
 <script lang="ts">
 	import { Loader } from '@lucide/svelte';
-	import AssistantMarkdown from '$lib/components/AssistantMarkdown.svelte';
-	import FileEditor from '$lib/features/workspace/components/FileEditor.svelte';
-	import FilePreviewBacklinks from '$lib/features/workspace/components/file-preview/FilePreviewBacklinks.svelte';
-	import FilePreviewExternal from '$lib/features/workspace/components/file-preview/FilePreviewExternal.svelte';
-	import PdfPreview from '$lib/features/workspace/components/PdfPreview.svelte';
-	import SelectionAddToChat from '$lib/components/SelectionAddToChat.svelte';
-	import { readWikiFileContent, readWorkspaceFileContent } from '$lib/client/cometmind';
-	import { shellStore } from '$lib/stores/shell.svelte';
+	import AssistantMarkdown from '#lib/components/AssistantMarkdown.svelte';
+	import FileEditor from '#lib/features/workspace/components/FileEditor.svelte';
+	import FilePreviewBacklinks from '#lib/features/workspace/components/file-preview/FilePreviewBacklinks.svelte';
+	import FilePreviewExternal from '#lib/features/workspace/components/file-preview/FilePreviewExternal.svelte';
+	import PdfPreview from '#lib/features/workspace/components/PdfPreview.svelte';
+	import SelectionAddToChat from '#lib/components/SelectionAddToChat.svelte';
+	import { readWikiFileContent, readWorkspaceFileContent } from '#lib/client/cometmind.js';
+	import { shellStore } from '#lib/stores/shell.svelte.js';
 	import {
 		createFilePreviewController,
 		type FilePreviewEditorState
-	} from '$lib/features/workspace/file-preview-controller.svelte';
-	import type { FileRevealRange } from '$lib/features/workspace/workspace-panel-state';
-	import { toWikiRelative } from '$lib/wiki/paths';
+	} from '#lib/features/workspace/file-preview-controller.svelte.js';
+	import type { FileRevealRange } from '#lib/features/workspace/workspace-panel-state.js';
+	import { toWikiRelative } from '#lib/wiki/paths.js';
 
 	let {
 		workspacePath,

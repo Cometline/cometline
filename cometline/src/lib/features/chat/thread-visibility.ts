@@ -4,7 +4,7 @@ import {
 	type ThinkingAttribution
 } from './thinking-attribution';
 import { hasReasoning } from './reasoning';
-import type { ChatItem } from '$lib/stores/chat.svelte';
+import type { ChatItem } from '#lib/stores/chat.svelte.js';
 
 type AssistantItem = Extract<ChatItem, { type: 'assistant' }>;
 

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Session } from '$lib/types';
+import type { Session } from '#lib/types.js';
 import { bootstrapHomeSession, type BootstrapHomeSessionDeps } from './bootstrap-home-session';
 
 describe('bootstrapHomeSession', () => {

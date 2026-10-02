@@ -19,11 +19,11 @@ vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
 vi.mock('$app/state', () => ({
 	page: { url: new URL('http://localhost/skills?tab=skills') }
 }));
-vi.mock('$lib/client/cometmind', () => api);
-vi.mock('$lib/stores/skill-drafts.svelte', () => ({
+vi.mock('#lib/client/cometmind.js', () => api);
+vi.mock('#lib/stores/skill-drafts.svelte.js', () => ({
 	skillDraftsStore: { count: 0, hasDrafts: false, setCount: vi.fn() }
 }));
-vi.mock('$lib/stores/shell.svelte', () => ({
+vi.mock('#lib/stores/shell.svelte.js', () => ({
 	shellStore: { workspacePath: '/workspace' }
 }));
 

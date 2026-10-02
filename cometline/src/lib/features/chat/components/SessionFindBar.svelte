@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { tick } from 'svelte';
 	import { ChevronDown, ChevronUp, Search, X } from '@lucide/svelte';
-	import type { SessionFindController } from '$lib/features/chat/session-find.svelte';
+	import type { SessionFindController } from '#lib/features/chat/session-find.svelte.js';
 
 	let { controller }: { controller: SessionFindController } = $props();
 	let input = $state<HTMLInputElement | null>(null);

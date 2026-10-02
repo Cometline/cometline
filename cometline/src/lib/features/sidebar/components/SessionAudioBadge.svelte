@@ -1,17 +1,17 @@
 <script lang="ts">
 	import { tick } from 'svelte';
-	import type { Session } from '$lib/types';
-	import { navigateToSession } from '$lib/actions/navigate-to-session';
-	import { sessionStore } from '$lib/stores/session.svelte';
-	import { shellStore } from '$lib/stores/shell.svelte';
-	import { isNarrowViewport } from '$lib/layout/narrow-viewport';
+	import type { Session } from '#lib/types.js';
+	import { navigateToSession } from '#lib/actions/navigate-to-session.js';
+	import { sessionStore } from '#lib/stores/session.svelte.js';
+	import { shellStore } from '#lib/stores/shell.svelte.js';
+	import { isNarrowViewport } from '#lib/layout/narrow-viewport.js';
 	import {
 		webTabActivity,
 		type WebTabActivity
-	} from '$lib/features/workspace/web-tab-activity.svelte';
-	import AudioActivityIcon from '$lib/components/AudioActivityIcon.svelte';
-	import { portal } from '$lib/components/portal';
-	import { clampTooltipPosition } from '$lib/components/tooltip-position';
+	} from '#lib/features/workspace/web-tab-activity.svelte.js';
+	import AudioActivityIcon from '#lib/components/AudioActivityIcon.svelte';
+	import { portal } from '#lib/components/portal.js';
+	import { clampTooltipPosition } from '#lib/components/tooltip-position.js';
 
 	let { session, tabs }: { session: Session; tabs: WebTabActivity[] } = $props();
 	let trigger = $state<HTMLButtonElement | null>(null);

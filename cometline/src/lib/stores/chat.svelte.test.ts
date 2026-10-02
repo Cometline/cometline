@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { StreamEvent } from '$lib/types';
-import { getReasoningSegments } from '$lib/features/chat/reasoning';
+import type { StreamEvent } from '#lib/types.js';
+import { getReasoningSegments } from '#lib/features/chat/reasoning.js';
 import {
 	buildAssistantTimeline,
 	buildThinkingAttribution,
 	shouldGroupAssistantTimeline
-} from '$lib/features/chat/thinking-attribution';
+} from '#lib/features/chat/thinking-attribution.js';
 
 const { goto } = vi.hoisted(() => ({ goto: vi.fn() }));
 const { createNewSession } = vi.hoisted(() => ({ createNewSession: vi.fn() }));
@@ -14,10 +14,10 @@ const { playErrorSound, playResponseCompleteSound } = vi.hoisted(() => ({
 	playResponseCompleteSound: vi.fn()
 }));
 
-vi.mock('$app/environment', () => ({ browser: true }));
+vi.mock('$app/env', () => ({ browser: true }));
 vi.mock('$app/navigation', () => ({ goto }));
 
-vi.mock('$lib/client/cometmind', () => ({
+vi.mock('#lib/client/cometmind.js', () => ({
 	getSessionMessages: vi.fn(),
 	isSessionNotFoundError: vi.fn((err) => err?.code === 'session_not_found'),
 	listChildSessions: vi.fn(),
@@ -25,8 +25,8 @@ vi.mock('$lib/client/cometmind', () => ({
 	streamSessionEvents: vi.fn(),
 	abortSession: vi.fn()
 }));
-vi.mock('$lib/actions/create-new-session', () => ({ createNewSession }));
-vi.mock('$lib/sound/response-complete', () => ({ playErrorSound, playResponseCompleteSound }));
+vi.mock('#lib/actions/create-new-session.js', () => ({ createNewSession }));
+vi.mock('#lib/sound/response-complete.js', () => ({ playErrorSound, playResponseCompleteSound }));
 
 import {
 	abortSession,
@@ -34,12 +34,12 @@ import {
 	listChildSessions,
 	streamMessage,
 	streamSessionEvents
-} from '$lib/client/cometmind';
+} from '#lib/client/cometmind.js';
 import { chatStore, revealRemoteUserItems } from './chat.svelte';
 import { sessionStore } from './session.svelte';
 import { unreadSessionOutputStore } from './unread-session-output.svelte';
-import { startNewChat } from '$lib/actions/new-chat';
-import { deliverWindowSyncFromPeer } from '$lib/window-sync';
+import { startNewChat } from '#lib/actions/new-chat.js';
+import { deliverWindowSyncFromPeer } from '#lib/window-sync.js';
 
 async function flushAnimationFrames() {
 	await new Promise<void>((resolve) => {

@@ -1,4 +1,4 @@
-import type { ChatItem } from '$lib/stores/chat.svelte';
+import type { ChatItem } from '#lib/stores/chat.svelte.js';
 import type { ThreadTurn } from './thread-turns';
 
 /** Gap between `.thread-turn` siblings (ChatThread mobile-first CSS). */

@@ -1,11 +1,11 @@
 <script lang="ts">
-	import type { ProviderSettings } from '$lib/types';
+	import type { ProviderSettings } from '#lib/types.js';
 	import {
 		BUILTIN_PERSONAS,
 		resolvePersona,
 		personaAvatarSrc as builtinPersonaThumbSrc
-	} from '$lib/personas';
-	import { personaAvatarCache } from '$lib/personas/avatar-cache.svelte';
+	} from '#lib/personas/index.js';
+	import { personaAvatarCache } from '#lib/personas/avatar-cache.svelte.js';
 	import SettingsButton from '../SettingsButton.svelte';
 	import type { createSettingsPanelPersonaEditor } from '../../settings-panel-persona-editor.svelte';
 

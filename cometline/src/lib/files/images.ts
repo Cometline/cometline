@@ -1,4 +1,4 @@
-import type { ImageAttachment, MediaAttachment } from '$lib/types';
+import type { ImageAttachment, MediaAttachment } from '#lib/types.js';
 
 export const MAX_IMAGE_ATTACHMENTS = 6;
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;

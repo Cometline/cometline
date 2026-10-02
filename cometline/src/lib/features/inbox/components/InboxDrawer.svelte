@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { fade, scale } from 'svelte/transition';
-	import type { InboxMessageResource } from '$lib/client/cometmind';
-	import InboxLinkStatus from '$lib/features/inbox/components/InboxLinkStatus.svelte';
-	import { createInboxDrawerController } from '$lib/features/inbox/inbox-drawer-controller.svelte';
+	import type { InboxMessageResource } from '#lib/client/cometmind.js';
+	import InboxLinkStatus from '#lib/features/inbox/components/InboxLinkStatus.svelte';
+	import { createInboxDrawerController } from '#lib/features/inbox/inbox-drawer-controller.svelte.js';
 	import InboxDrawerHeader from './inbox-drawer/InboxDrawerHeader.svelte';
 	import InboxMessageDetail from './inbox-drawer/InboxMessageDetail.svelte';
 	import InboxMessageList from './inbox-drawer/InboxMessageList.svelte';

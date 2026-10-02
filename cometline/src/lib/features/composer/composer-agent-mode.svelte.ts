@@ -1,7 +1,7 @@
-import { updateSession } from '$lib/client/cometmind';
-import { sessionStore } from '$lib/stores/session.svelte';
-import { normalizeAgentMode } from '$lib/sessions/session-metadata';
-import type { AgentMode } from '$lib/types';
+import { updateSession } from '#lib/client/cometmind.js';
+import { sessionStore } from '#lib/stores/session.svelte.js';
+import { normalizeAgentMode } from '#lib/sessions/session-metadata.js';
+import type { AgentMode } from '#lib/types.js';
 import {
 	agentModeAnnouncement,
 	beginAgentModeRequest,
@@ -11,7 +11,7 @@ import {
 	sameAgentModeSwitchState,
 	bindAgentModeForSession,
 	type AgentModeSwitchState
-} from '$lib/features/composer/agent-mode-switch';
+} from '#lib/features/composer/agent-mode-switch.js';
 
 /**
  * Agent mode is persisted on the session, with a local switch machine so Tab

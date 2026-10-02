@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createSSEParser, parseSSEData, parseSSELines } from './parser';
-import type { StreamEvent } from '$lib/types';
+import type { StreamEvent } from '#lib/types.js';
 
 describe('parseSSEData', () => {
 	it('ignores empty lines and comments', () => {

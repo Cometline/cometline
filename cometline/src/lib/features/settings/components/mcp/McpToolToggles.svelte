@@ -1,8 +1,8 @@
 <script lang="ts">
 	import SettingsField from '../SettingsField.svelte';
-	import type { MCPServerConfig } from '$lib/cometmind-settings';
-	import type { McpPanelController } from '$lib/features/settings/mcp-panel-controller.svelte';
-	import { isToolAllowed } from '$lib/features/settings/mcp-panel-format';
+	import type { MCPServerConfig } from '#lib/cometmind-settings.js';
+	import type { McpPanelController } from '#lib/features/settings/mcp-panel-controller.svelte.js';
+	import { isToolAllowed } from '#lib/features/settings/mcp-panel-format.js';
 
 	let {
 		server,

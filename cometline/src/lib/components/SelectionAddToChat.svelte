@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { portal } from '$lib/components/portal';
+	import { portal } from '#lib/components/portal.js';
 
 	let {
 		position,

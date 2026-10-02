@@ -2,8 +2,8 @@ import {
 	AGENT_LABEL_CODING,
 	AGENT_LABEL_RESEARCH,
 	agentLabelForSessionKind
-} from '$lib/tools/diff-artifact';
-import type { ChatItem } from '$lib/types';
+} from '#lib/tools/diff-artifact.js';
+import type { ChatItem } from '#lib/types.js';
 
 export type SubagentChatItem = Extract<ChatItem, { type: 'subagent' }>;
 

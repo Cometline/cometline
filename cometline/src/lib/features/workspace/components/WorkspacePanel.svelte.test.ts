@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Session } from '$lib/types';
+import type { Session } from '#lib/types.js';
 
 const { emptyComponent } = vi.hoisted(() => ({ emptyComponent: () => ({}) }));
 vi.mock('./FileTreeBrowser.svelte', () => ({ default: emptyComponent }));
@@ -10,13 +10,13 @@ vi.mock('./WorkspaceFileSurface.svelte', () => ({ default: emptyComponent }));
 vi.mock('./GitChangesBrowser.svelte', () => ({ default: emptyComponent }));
 vi.mock('./GitDiffView.svelte', () => ({ default: emptyComponent }));
 vi.mock('./TerminalPanel.svelte', () => ({ default: emptyComponent }));
-vi.mock('$lib/components/ConfirmActionModal.svelte', () => ({ default: emptyComponent }));
+vi.mock('#lib/components/ConfirmActionModal.svelte', () => ({ default: emptyComponent }));
 
 import WorkspacePanel from './WorkspacePanel.svelte';
-import { shellStore } from '$lib/stores/shell.svelte';
-import { sessionStore } from '$lib/stores/session.svelte';
-import { deliverWindowSyncFromPeer } from '$lib/window-sync';
-import { webTabActivity } from '$lib/features/workspace/web-tab-activity.svelte';
+import { shellStore } from '#lib/stores/shell.svelte.js';
+import { sessionStore } from '#lib/stores/session.svelte.js';
+import { deliverWindowSyncFromPeer } from '#lib/window-sync.js';
+import { webTabActivity } from '#lib/features/workspace/web-tab-activity.svelte.js';
 
 const session: Session = {
 	id: 'web-lifecycle',

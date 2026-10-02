@@ -1,4 +1,4 @@
-import { listWorkspaceFiles } from '$lib/client/cometmind';
+import { listWorkspaceFiles } from '#lib/client/cometmind.js';
 
 export interface FileIndexEntry {
 	files: string[];

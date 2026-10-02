@@ -4,7 +4,7 @@ import { fireEvent, render, waitFor } from '@testing-library/svelte';
 import { flushSync } from 'svelte';
 import Harness from './SettingsCometMindPanel.mcp.harness.svelte';
 
-vi.mock('$lib/client/cometmind', () => ({
+vi.mock('#lib/client/cometmind.js', () => ({
 	listSkills: () => Promise.resolve({ skills: [], errors: [] }),
 	syncSkills: vi.fn(),
 	deleteSkill: vi.fn(),
@@ -16,7 +16,7 @@ vi.mock('$lib/client/cometmind', () => ({
 	testMcpServer: vi.fn()
 }));
 
-vi.mock('$lib/stores/shell.svelte', () => ({
+vi.mock('#lib/stores/shell.svelte.js', () => ({
 	shellStore: { workspacePath: '/tmp/workspace' }
 }));
 

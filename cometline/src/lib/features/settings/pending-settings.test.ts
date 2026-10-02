@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultSettings, normalizeSettings } from '$lib/features/settings/schema';
+import { defaultSettings, normalizeSettings } from '#lib/features/settings/schema.js';
 import {
 	pendingSettingsSnapshot,
 	sectionPendingDirty,

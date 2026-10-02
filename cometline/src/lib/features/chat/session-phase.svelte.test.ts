@@ -3,10 +3,10 @@ import { render, screen } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import SessionPhaseHarness from './SessionPhaseHarness.svelte';
-import { chatStore } from '$lib/stores/chat.svelte';
-import { shellStore } from '$lib/stores/shell.svelte';
+import { chatStore } from '#lib/stores/chat.svelte.js';
+import { shellStore } from '#lib/stores/shell.svelte.js';
 
-vi.mock('$lib/client/cometmind', () => ({
+vi.mock('#lib/client/cometmind.js', () => ({
 	getSession: vi.fn(),
 	getSessionMessages: vi.fn(),
 	listChildSessions: vi.fn()

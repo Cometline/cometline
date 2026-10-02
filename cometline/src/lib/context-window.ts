@@ -1,5 +1,5 @@
-import { getReasoningSegments } from '$lib/features/chat/reasoning';
-import type { ChatItem } from '$lib/types';
+import { getReasoningSegments } from '#lib/features/chat/reasoning.js';
+import type { ChatItem } from '#lib/types.js';
 
 export const DEFAULT_CONTEXT_WINDOW_LIMIT = 128_000;
 /** Matches CometMind CompactionOutputBuffer. */

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { CircleAlert, CircleCheck, TriangleAlert, X } from '@lucide/svelte';
-	import { appToastStore, type AppToastTone } from '$lib/stores/app-toasts.svelte';
+	import { appToastStore, type AppToastTone } from '#lib/stores/app-toasts.svelte.js';
 
 	const icons = {
 		success: CircleCheck,

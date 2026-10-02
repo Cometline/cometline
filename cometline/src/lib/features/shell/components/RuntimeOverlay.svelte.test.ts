@@ -15,14 +15,14 @@ async function exhaustConnectingGrace(
 
 describe('RuntimeOverlay', () => {
 	it('shows connecting state copy', async () => {
-		const { connectionState } = await import('$lib/stores/runtime.svelte');
+		const { connectionState } = await import('#lib/stores/runtime.svelte.js');
 		connectionState.reconnect();
 		render(RuntimeOverlay);
 		expect(screen.getByText('Starting CometMind…')).toBeTruthy();
 	});
 
 	it('stays on connecting UI after a single failed health check', async () => {
-		const { connectionState } = await import('$lib/stores/runtime.svelte');
+		const { connectionState } = await import('#lib/stores/runtime.svelte.js');
 		vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('Failed to fetch'));
 		await connectionState.check();
 		render(RuntimeOverlay);
@@ -31,7 +31,7 @@ describe('RuntimeOverlay', () => {
 	});
 
 	it('shows error state with retry button after grace budget', async () => {
-		const { connectionState } = await import('$lib/stores/runtime.svelte');
+		const { connectionState } = await import('#lib/stores/runtime.svelte.js');
 		vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('Connection refused'));
 		await exhaustConnectingGrace(connectionState);
 		render(RuntimeOverlay);
@@ -41,7 +41,7 @@ describe('RuntimeOverlay', () => {
 	});
 
 	it('retries connection when retry button is clicked', async () => {
-		const { connectionState } = await import('$lib/stores/runtime.svelte');
+		const { connectionState } = await import('#lib/stores/runtime.svelte.js');
 		vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('Connection refused'));
 		await exhaustConnectingGrace(connectionState);
 		const reconnectSpy = vi.spyOn(connectionState, 'reconnect');

@@ -1,15 +1,15 @@
-import { browser } from '$app/environment';
-import type { ChatItem } from '$lib/types';
-import { subscribeWindowSync } from '$lib/window-sync';
-import { unreadSessionOutputStore } from '$lib/stores/unread-session-output.svelte';
-import { createChatState } from '$lib/stores/chat/chat-state.svelte';
-import { createSessionCache } from '$lib/stores/chat/session-cache.svelte';
-import { createSessionBinding } from '$lib/stores/chat/session-binding.svelte';
-import { createTranscriptLoader } from '$lib/stores/chat/transcript-loader.svelte';
-import { createTurnEvents } from '$lib/stores/chat/turn-events.svelte';
-import { createStreamRunner } from '$lib/stores/chat/stream-runner.svelte';
+import { browser } from '$app/env';
+import type { ChatItem } from '#lib/types.js';
+import { subscribeWindowSync } from '#lib/window-sync.js';
+import { unreadSessionOutputStore } from '#lib/stores/unread-session-output.svelte.js';
+import { createChatState } from '#lib/stores/chat/chat-state.svelte.js';
+import { createSessionCache } from '#lib/stores/chat/session-cache.svelte.js';
+import { createSessionBinding } from '#lib/stores/chat/session-binding.svelte.js';
+import { createTranscriptLoader } from '#lib/stores/chat/transcript-loader.svelte.js';
+import { createTurnEvents } from '#lib/stores/chat/turn-events.svelte.js';
+import { createStreamRunner } from '#lib/stores/chat/stream-runner.svelte.js';
 
-export type { ChatItem } from '$lib/types';
+export type { ChatItem } from '#lib/types.js';
 
 export function revealRemoteUserItems(items: ChatItem[]): ChatItem[] {
 	return items.map((item) =>

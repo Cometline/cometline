@@ -3,14 +3,14 @@
 	import SettingsField from '../SettingsField.svelte';
 	import McpOAuthBlock from './McpOAuthBlock.svelte';
 	import McpToolToggles from './McpToolToggles.svelte';
-	import type { MCPServerConfig, MCPTransport } from '$lib/cometmind-settings';
-	import type { McpServerStatus } from '$lib/client/cometmind';
-	import type { McpPanelController } from '$lib/features/settings/mcp-panel-controller.svelte';
+	import type { MCPServerConfig, MCPTransport } from '#lib/cometmind-settings.js';
+	import type { McpServerStatus } from '#lib/client/cometmind.js';
+	import type { McpPanelController } from '#lib/features/settings/mcp-panel-controller.svelte.js';
 	import {
 		displayError,
 		transportHint,
 		transportOptions
-	} from '$lib/features/settings/mcp-panel-format';
+	} from '#lib/features/settings/mcp-panel-format.js';
 
 	let {
 		server,

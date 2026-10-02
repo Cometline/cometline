@@ -1,14 +1,14 @@
 <script lang="ts">
 	import { fly } from 'svelte/transition';
 	import { Check, Copy } from '@lucide/svelte';
-	import AssistantMarkdown from '$lib/components/AssistantMarkdown.svelte';
-	import MessageContextChips from '$lib/features/chat/components/MessageContextChips.svelte';
-	import ThreadAvatar from '$lib/features/chat/components/ThreadAvatar.svelte';
-	import ThreadRow from '$lib/features/chat/components/ThreadRow.svelte';
-	import ImageLightbox from '$lib/features/chat/components/ImageLightbox.svelte';
-	import UserMessageViewport from '$lib/features/chat/components/UserMessageViewport.svelte';
-	import { imageDataURL } from '$lib/files/images';
-	import type { ChatItem } from '$lib/stores/chat.svelte';
+	import AssistantMarkdown from '#lib/components/AssistantMarkdown.svelte';
+	import MessageContextChips from '#lib/features/chat/components/MessageContextChips.svelte';
+	import ThreadAvatar from '#lib/features/chat/components/ThreadAvatar.svelte';
+	import ThreadRow from '#lib/features/chat/components/ThreadRow.svelte';
+	import ImageLightbox from '#lib/features/chat/components/ImageLightbox.svelte';
+	import UserMessageViewport from '#lib/features/chat/components/UserMessageViewport.svelte';
+	import { imageDataURL } from '#lib/files/images.js';
+	import type { ChatItem } from '#lib/stores/chat.svelte.js';
 
 	const BUBBLE_IN = { x: 20, y: 140, duration: 320 };
 

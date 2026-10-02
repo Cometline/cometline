@@ -1,5 +1,5 @@
 import { untrack } from 'svelte';
-import type { ChatItem } from '$lib/stores/chat.svelte';
+import type { ChatItem } from '#lib/stores/chat.svelte.js';
 import { defaultActivityGroupExpanded, defaultThinkingExpanded } from './thinking-attribution';
 import {
 	createStreamingFoldState,
@@ -8,8 +8,8 @@ import {
 	toggleExpanded,
 	toggleMapOverride
 } from './thread-fold';
-import { isJobProposalDismissed } from '$lib/features/jobs/job-proposal-dismissals';
-import { parseJobProposal } from '$lib/features/jobs/parse-job-proposal';
+import { isJobProposalDismissed } from '#lib/features/jobs/job-proposal-dismissals.js';
+import { parseJobProposal } from '#lib/features/jobs/parse-job-proposal.js';
 
 export interface FoldControllerDeps {
 	getSessionId: () => string;

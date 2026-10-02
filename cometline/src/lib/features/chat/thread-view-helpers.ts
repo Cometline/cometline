@@ -1,4 +1,4 @@
-import type { ChatItem } from '$lib/stores/chat.svelte';
+import type { ChatItem } from '#lib/stores/chat.svelte.js';
 import type { TimelineEntry } from './thinking-attribution';
 
 export function speakerFor(item: ChatItem | undefined): 'user' | 'assistant' | null {

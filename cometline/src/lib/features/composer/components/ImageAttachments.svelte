@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { X } from '@lucide/svelte';
-	import ImageLightbox from '$lib/features/chat/components/ImageLightbox.svelte';
-	import { imageDataURL } from '$lib/files/images';
-	import type { ImageAttachment } from '$lib/types';
+	import ImageLightbox from '#lib/features/chat/components/ImageLightbox.svelte';
+	import { imageDataURL } from '#lib/files/images.js';
+	import type { ImageAttachment } from '#lib/types.js';
 
 	let {
 		images,

@@ -1,4 +1,4 @@
-import { faviconUrl, domainFromUrl, fileMentionText } from '$lib/markdown/embed';
+import { faviconUrl, domainFromUrl, fileMentionText } from '#lib/markdown/embed.js';
 
 /** Build a non-editable inline chip element for a URL. */
 export function makeChip(url: string): HTMLElement {

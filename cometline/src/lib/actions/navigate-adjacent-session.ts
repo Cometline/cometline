@@ -1,7 +1,7 @@
-import { navigateToSession } from '$lib/actions/navigate-to-session';
-import { flattenSessionsInSidebarOrder } from '$lib/sessions/group-by-workspace';
-import { sessionStore } from '$lib/stores/session.svelte';
-import { shellStore } from '$lib/stores/shell.svelte';
+import { navigateToSession } from '#lib/actions/navigate-to-session.js';
+import { flattenSessionsInSidebarOrder } from '#lib/sessions/group-by-workspace.js';
+import { sessionStore } from '#lib/stores/session.svelte.js';
+import { shellStore } from '#lib/stores/shell.svelte.js';
 
 /** Move to the previous or next chat in committed sidebar order. */
 export function navigateAdjacentSession(direction: 'prev' | 'next') {

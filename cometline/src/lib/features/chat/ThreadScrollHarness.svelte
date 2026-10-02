@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { createThreadScroll } from './thread-scroll.svelte';
-	import type { ChatItem } from '$lib/stores/chat.svelte';
+	import type { ChatItem } from '#lib/stores/chat.svelte.js';
 
 	let {
 		sessionId = 'session-1',

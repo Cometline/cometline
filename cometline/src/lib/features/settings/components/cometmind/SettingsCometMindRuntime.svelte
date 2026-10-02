@@ -1,6 +1,6 @@
 <script lang="ts">
 	import SettingsToggle from '../SettingsToggle.svelte';
-	import type { CometMindSettings } from '$lib/cometmind-settings';
+	import type { CometMindSettings } from '#lib/cometmind-settings.js';
 
 	let { cometmind = $bindable() }: { cometmind: CometMindSettings } = $props();
 </script>

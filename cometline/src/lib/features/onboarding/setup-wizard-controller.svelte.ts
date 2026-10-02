@@ -1,8 +1,8 @@
-import { settingsStore } from '$lib/stores/settings.svelte';
-import { shellStore } from '$lib/stores/shell.svelte';
-import { connectionState } from '$lib/stores/runtime.svelte';
-import { cloneProvider } from '$lib/features/settings/schema';
-import type { ProviderConfig, ProviderSettings } from '$lib/types';
+import { settingsStore } from '#lib/stores/settings.svelte.js';
+import { shellStore } from '#lib/stores/shell.svelte.js';
+import { connectionState } from '#lib/stores/runtime.svelte.js';
+import { cloneProvider } from '#lib/features/settings/schema.js';
+import type { ProviderConfig, ProviderSettings } from '#lib/types.js';
 import {
 	canAdvanceStep,
 	completedSetupSettings,

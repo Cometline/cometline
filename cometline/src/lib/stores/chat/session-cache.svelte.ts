@@ -1,7 +1,7 @@
-import type { ChatItem } from '$lib/types';
-import { anyReasoningPending, hasReasoning } from '$lib/features/chat/reasoning';
-import { publishWindowSync } from '$lib/window-sync';
-import type { SessionStream } from '$lib/stores/chat-stream-types';
+import type { ChatItem } from '#lib/types.js';
+import { anyReasoningPending, hasReasoning } from '#lib/features/chat/reasoning.js';
+import { publishWindowSync } from '#lib/window-sync.js';
+import type { SessionStream } from '#lib/stores/chat-stream-types.js';
 import type { ChatState, TranscriptPageState } from './chat-state.svelte';
 
 const CHAT_ITEMS_BROADCAST_MS = 64;

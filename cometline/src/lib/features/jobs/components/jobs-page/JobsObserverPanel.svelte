@@ -1,13 +1,13 @@
 <script lang="ts">
-	import type { JobResource } from '$lib/client/cometmind';
+	import type { JobResource } from '#lib/client/cometmind.js';
 	import {
 		formatClock,
 		formatRelativeTime,
 		leaseLabel,
 		progressPreview,
 		sessionLabel
-	} from '$lib/features/jobs/jobs-page-format';
-	import { OBSERVER_REFRESH_MS } from '$lib/features/jobs/jobs-page.svelte';
+	} from '#lib/features/jobs/jobs-page-format.js';
+	import { OBSERVER_REFRESH_MS } from '#lib/features/jobs/jobs-page.svelte.js';
 
 	let {
 		activeJobs,

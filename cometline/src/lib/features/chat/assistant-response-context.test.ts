@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { ChatItem } from '$lib/types';
+import type { ChatItem } from '#lib/types.js';
 import {
 	assistantResponseSource,
 	buildAssistantResponseContext,

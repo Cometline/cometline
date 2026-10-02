@@ -1,4 +1,4 @@
-import type { ChatItem } from '$lib/stores/chat.svelte';
+import type { ChatItem } from '#lib/stores/chat.svelte.js';
 import type { ThreadTurn } from './thread-turns';
 
 export const SESSION_FIND_MATCH_HIGHLIGHT = 'session-find-match';

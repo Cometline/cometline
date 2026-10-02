@@ -1,4 +1,4 @@
-import { getActiveSessionId } from '$lib/active-session';
+import { getActiveSessionId } from '#lib/active-session.js';
 import {
 	activateWorkspacePanelFileTab,
 	clearFileReveal,
@@ -7,8 +7,8 @@ import {
 	replacesActiveFile,
 	type FileRevealRange,
 	type SurfaceContent
-} from '$lib/features/workspace/workspace-panel-state';
-import { isWikiUiPath, toWikiRelative } from '$lib/wiki/paths';
+} from '#lib/features/workspace/workspace-panel-state.js';
+import { isWikiUiPath, toWikiRelative } from '#lib/wiki/paths.js';
 import type { FileTreeStore } from './file-tree.svelte';
 import type { ShellFocusStore } from './focus.svelte';
 import type { PanelHistoryStore } from './panel-history.svelte';

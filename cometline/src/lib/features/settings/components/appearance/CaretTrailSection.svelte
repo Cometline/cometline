@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { CaretTrailSettings } from '$lib/types';
+	import type { CaretTrailSettings } from '#lib/types.js';
 
 	let { caretTrail = $bindable() }: { caretTrail: CaretTrailSettings } = $props();
 </script>

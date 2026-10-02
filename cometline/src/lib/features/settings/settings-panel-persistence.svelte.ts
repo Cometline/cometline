@@ -1,17 +1,17 @@
-import type { MemorySettings } from '$lib/client/cometmind';
-import type { DeleteCustomPersonaResult, SaveCustomPersonaResult } from '$lib/electron-api';
-import { settingsStore } from '$lib/stores/settings.svelte';
+import type { MemorySettings } from '#lib/client/cometmind.js';
+import type { DeleteCustomPersonaResult, SaveCustomPersonaResult } from '#lib/electron-api.js';
+import { settingsStore } from '#lib/stores/settings.svelte.js';
 import {
 	applyMemoryEmbeddingToDraft,
 	applyMemorySettingsToDraft,
 	cloneSettings,
 	providerPayloadFromDraft
-} from '$lib/features/settings/settings-draft';
+} from '#lib/features/settings/settings-draft.js';
 import {
 	runtimeActionForSettingsSave,
 	saveStatusMessage
-} from '$lib/features/settings/settings-save';
-import type { ProviderSettings } from '$lib/types';
+} from '#lib/features/settings/settings-save.js';
+import type { ProviderSettings } from '#lib/types.js';
 import type { SettingsSection } from './settings-controller.svelte';
 import type { SettingsPanelControllerDeps } from './settings-panel-types';
 

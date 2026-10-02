@@ -5,24 +5,24 @@ import {
 	stageWorkspaceGitPaths,
 	unstageWorkspaceGitPaths,
 	type GitScope
-} from '$lib/client/cometmind';
-import { shellStore } from '$lib/stores/shell.svelte';
+} from '#lib/client/cometmind.js';
+import { shellStore } from '#lib/stores/shell.svelte.js';
 import {
 	highlightGitDiffLines,
 	type HighlightedDiffLine
-} from '$lib/features/workspace/git-diff-highlight';
-import { parseGitDiffLines } from '$lib/features/workspace/git-diff-lines';
+} from '#lib/features/workspace/git-diff-highlight.js';
+import { parseGitDiffLines } from '#lib/features/workspace/git-diff-lines.js';
 import {
 	canStageGitFile,
 	canUnstageGitFile,
 	type GitFileStageState
-} from '$lib/features/workspace/git-file-state';
-import { languageFromPath } from '$lib/features/workspace/file-preview';
-import { buildFileSnippetContext } from '$lib/features/workspace/selection-snippet';
+} from '#lib/features/workspace/git-file-state.js';
+import { languageFromPath } from '#lib/features/workspace/file-preview.js';
+import { buildFileSnippetContext } from '#lib/features/workspace/selection-snippet.js';
 import {
 	firstSelectionClientRect,
 	selectionPopupPosition
-} from '$lib/features/workspace/selection-popup';
+} from '#lib/features/workspace/selection-popup.js';
 
 export function createGitDiffViewController(deps: {
 	getWorkspacePath: () => string;

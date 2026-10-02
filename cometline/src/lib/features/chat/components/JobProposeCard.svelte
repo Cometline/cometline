@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { LoaderCircle } from '@lucide/svelte';
-	import WorkspacePathField from '$lib/components/WorkspacePathField.svelte';
-	import { createJob, type JobResource } from '$lib/client/cometmind';
-	import type { JobProposal } from '$lib/features/jobs/parse-job-proposal';
-	import { shellStore } from '$lib/stores/shell.svelte';
-	import type { ChatTurnPayload } from '$lib/actions/start-chat';
+	import WorkspacePathField from '#lib/components/WorkspacePathField.svelte';
+	import { createJob, type JobResource } from '#lib/client/cometmind.js';
+	import type { JobProposal } from '#lib/features/jobs/parse-job-proposal.js';
+	import { shellStore } from '#lib/stores/shell.svelte.js';
+	import type { ChatTurnPayload } from '#lib/actions/start-chat.js';
 
-	import type { JobProposalDismissAction } from '$lib/features/jobs/job-proposal-dismissals';
+	import type { JobProposalDismissAction } from '#lib/features/jobs/job-proposal-dismissals.js';
 
 	type CardPhase = 'idle' | 'creating' | 'created' | 'starting' | 'cancelled' | 'error';
 

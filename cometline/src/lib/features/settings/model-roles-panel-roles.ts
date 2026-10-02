@@ -1,5 +1,5 @@
-import type { CometMindSettings } from '$lib/cometmind-settings';
-import type { ProviderConfig } from '$lib/types';
+import type { CometMindSettings } from '#lib/cometmind-settings.js';
+import type { ProviderConfig } from '#lib/types.js';
 
 export function modelsForProvider(provider: ProviderConfig | undefined): string[] {
 	if (!provider) return [];

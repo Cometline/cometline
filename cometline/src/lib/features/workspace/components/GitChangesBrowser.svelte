@@ -1,15 +1,15 @@
 <script lang="ts">
 	import { Loader } from '@lucide/svelte';
-	import ConfirmActionModal from '$lib/components/ConfirmActionModal.svelte';
-	import GitChangesHeader from '$lib/features/workspace/components/git-changes/GitChangesHeader.svelte';
-	import GitChangesSection from '$lib/features/workspace/components/git-changes/GitChangesSection.svelte';
-	import GitFileRow from '$lib/features/workspace/components/git-changes/GitFileRow.svelte';
-	import { createGitChangesBrowserController } from '$lib/features/workspace/git-changes-browser.svelte';
+	import ConfirmActionModal from '#lib/components/ConfirmActionModal.svelte';
+	import GitChangesHeader from '#lib/features/workspace/components/git-changes/GitChangesHeader.svelte';
+	import GitChangesSection from '#lib/features/workspace/components/git-changes/GitChangesSection.svelte';
+	import GitFileRow from '#lib/features/workspace/components/git-changes/GitFileRow.svelte';
+	import { createGitChangesBrowserController } from '#lib/features/workspace/git-changes-browser.svelte.js';
 	import type {
 		GitChangesSectionKind,
 		GitFile
-	} from '$lib/features/workspace/git-changes-browser';
-	import { workspaceChangeVersion } from '$lib/features/workspace/workspace-change.svelte';
+	} from '#lib/features/workspace/git-changes-browser.js';
+	import { workspaceChangeVersion } from '#lib/features/workspace/workspace-change.svelte.js';
 
 	let {
 		workspacePath

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Session } from '$lib/types';
+import type { Session } from '#lib/types.js';
 import {
 	beginAgentModeRequest,
 	bindAgentModeForSession,

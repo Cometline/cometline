@@ -3,7 +3,7 @@
 	import {
 		defaultCometMindMCPSettings,
 		type CometMindMCPSettings
-	} from '$lib/cometmind-settings';
+	} from '#lib/cometmind-settings.js';
 
 	let {
 		onPersistBeforeRuntimeAction

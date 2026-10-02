@@ -1,8 +1,8 @@
-import { getActiveSessionId } from '$lib/active-session';
+import { getActiveSessionId } from '#lib/active-session.js';
 import {
 	readWorkspacePanelTreeSource,
 	type WorkspacePanelTreeSource
-} from '$lib/features/workspace/workspace-panel-prefs';
+} from '#lib/features/workspace/workspace-panel-prefs.js';
 import {
 	fileTabsFor,
 	urlTabsFor,
@@ -10,7 +10,7 @@ import {
 	type SurfaceContent,
 	type SurfaceContentKey,
 	type WorkspacePanelState
-} from '$lib/features/workspace/workspace-panel-state';
+} from '#lib/features/workspace/workspace-panel-state.js';
 import type { PanelHistoryStore } from './panel-history.svelte';
 import type { WorkspacePanelStore } from './workspace-panel.svelte';
 

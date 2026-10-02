@@ -12,9 +12,9 @@ import {
 	refreshFileIndex,
 	searchWorkspaceFiles
 } from './file-index';
-import * as cometmind from '$lib/client/cometmind';
+import * as cometmind from '#lib/client/cometmind.js';
 
-vi.mock('$lib/client/cometmind', () => ({
+vi.mock('#lib/client/cometmind.js', () => ({
 	listWorkspaceFiles: vi.fn()
 }));
 

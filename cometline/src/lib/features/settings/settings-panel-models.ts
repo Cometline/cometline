@@ -1,4 +1,4 @@
-import type { ProviderConfig } from '$lib/types';
+import type { ProviderConfig } from '#lib/types.js';
 import type { SettingsSection } from './settings-controller.svelte';
 
 export function filterProviderModels(

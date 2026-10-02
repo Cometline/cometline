@@ -1,7 +1,7 @@
 import { untrack } from 'svelte';
-import type { ChatItem } from '$lib/stores/chat.svelte';
-import { chatStore } from '$lib/stores/chat.svelte';
-import { shellStore } from '$lib/stores/shell.svelte';
+import type { ChatItem } from '#lib/stores/chat.svelte.js';
+import { chatStore } from '#lib/stores/chat.svelte.js';
+import { shellStore } from '#lib/stores/shell.svelte.js';
 
 export interface SessionPhaseDeps {
 	getSessionId: () => string;

@@ -1,4 +1,4 @@
-import type { HeroComposerAppearance } from '$lib/types';
+import type { HeroComposerAppearance } from '#lib/types.js';
 
 export interface HeroComposerPreset {
 	id: HeroComposerPresetId;

@@ -28,18 +28,18 @@ const {
 	refreshWikiFileIndex: vi.fn(async (): Promise<string[]> => [])
 }));
 
-vi.mock('$lib/client/cometmind', () => ({
+vi.mock('#lib/client/cometmind.js', () => ({
 	listWikiFileChildren,
 	listWikiFiles: vi.fn(),
 	listWorkspaceFileChildren,
 	listWorkspaceFiles
 }));
 
-vi.mock('$lib/stores/shell.svelte', () => ({
+vi.mock('#lib/stores/shell.svelte.js', () => ({
 	shellStore: { getFileTreeExpanded, setFileTreeExpanded }
 }));
 
-vi.mock('$lib/features/workspace/file-index', () => ({
+vi.mock('#lib/features/workspace/file-index.js', () => ({
 	normalizeWorkspacePath: (path: string) => path,
 	getFileIndex,
 	refreshFileIndex,
@@ -52,12 +52,12 @@ vi.mock('$lib/features/workspace/file-index', () => ({
 	}
 }));
 
-vi.mock('$lib/wiki/wiki-file-index', () => ({
+vi.mock('#lib/wiki/wiki-file-index.js', () => ({
 	getCachedWikiFiles,
 	refreshWikiFileIndex
 }));
 
-vi.mock('$lib/features/workspace/workspace-change.svelte', () => ({
+vi.mock('#lib/features/workspace/workspace-change.svelte.js', () => ({
 	workspaceChangeVersion: () => 0
 }));
 

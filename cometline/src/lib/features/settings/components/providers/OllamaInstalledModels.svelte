@@ -1,7 +1,7 @@
 <script lang="ts">
-	import type { ProviderConfig } from '$lib/types';
-	import { formatBytes, type OllamaInstalledModel } from '$lib/ollama/client';
-	import { modelStore } from '$lib/stores/model.svelte';
+	import type { ProviderConfig } from '#lib/types.js';
+	import { formatBytes, type OllamaInstalledModel } from '#lib/ollama/client.js';
+	import { modelStore } from '#lib/stores/model.svelte.js';
 	import ModelRow from '../ModelRow.svelte';
 
 	let {

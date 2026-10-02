@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { LoaderCircle, RefreshCw } from '@lucide/svelte';
-	import SettingsButton from '$lib/features/settings/components/SettingsButton.svelte';
-	import { embeddingOptionKey } from '$lib/embedding-models';
-	import { openOllamaDownloadPage } from '$lib/ollama/client';
-	import { PRIVATE_MEMORY, PRIVATE_MEMORY_KEY } from '$lib/features/onboarding/setup-wizard';
-	import type { SetupWizardMemory } from '$lib/features/onboarding/setup-wizard-memory.svelte';
+	import SettingsButton from '#lib/features/settings/components/SettingsButton.svelte';
+	import { embeddingOptionKey } from '#lib/embedding-models.js';
+	import { openOllamaDownloadPage } from '#lib/ollama/client.js';
+	import { PRIVATE_MEMORY, PRIVATE_MEMORY_KEY } from '#lib/features/onboarding/setup-wizard.js';
+	import type { SetupWizardMemory } from '#lib/features/onboarding/setup-wizard-memory.svelte.js';
 	import StepIntro from './StepIntro.svelte';
 	import WizardField from './WizardField.svelte';
 

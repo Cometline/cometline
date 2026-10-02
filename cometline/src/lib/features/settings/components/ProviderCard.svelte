@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { fly } from 'svelte/transition';
-	import type { ProviderMethod } from '$lib/types';
+	import type { ProviderMethod } from '#lib/types.js';
 	import ProviderLogo from './ProviderLogo.svelte';
 
 	let {

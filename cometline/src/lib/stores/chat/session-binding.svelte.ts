@@ -1,7 +1,7 @@
-import { browser } from '$app/environment';
-import { sessionStore } from '$lib/stores/session.svelte';
-import { gotoHome } from '$lib/routes/session-route';
-import { unreadSessionOutputStore } from '$lib/stores/unread-session-output.svelte';
+import { browser } from '$app/env';
+import { sessionStore } from '#lib/stores/session.svelte.js';
+import { gotoHome } from '#lib/routes/session-route.js';
+import { unreadSessionOutputStore } from '#lib/stores/unread-session-output.svelte.js';
 import type { ChatState } from './chat-state.svelte';
 import type { SessionCache } from './session-cache.svelte';
 

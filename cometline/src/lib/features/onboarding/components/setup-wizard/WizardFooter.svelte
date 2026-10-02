@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { ChevronLeft, ChevronRight, LoaderCircle } from '@lucide/svelte';
-	import SettingsButton from '$lib/features/settings/components/SettingsButton.svelte';
-	import type { SetupWizardStep } from '$lib/features/onboarding/setup-wizard';
+	import SettingsButton from '#lib/features/settings/components/SettingsButton.svelte';
+	import type { SetupWizardStep } from '#lib/features/onboarding/setup-wizard.js';
 
 	let {
 		step,

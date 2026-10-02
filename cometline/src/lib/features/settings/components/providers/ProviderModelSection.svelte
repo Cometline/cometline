@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { LoaderCircle } from '@lucide/svelte';
-	import type { ProviderConfig } from '$lib/types';
-	import { modelStore } from '$lib/stores/model.svelte';
-	import { settingsStore } from '$lib/stores/settings.svelte';
+	import type { ProviderConfig } from '#lib/types.js';
+	import { modelStore } from '#lib/stores/model.svelte.js';
+	import { settingsStore } from '#lib/stores/settings.svelte.js';
 	import ModelRow from '../ModelRow.svelte';
 	import OllamaProviderPanel from '../OllamaProviderPanel.svelte';
 

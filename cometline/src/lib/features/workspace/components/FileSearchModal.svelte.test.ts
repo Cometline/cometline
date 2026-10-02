@@ -16,7 +16,7 @@ const {
 	browseSource: { value: 'changes' as 'wiki' | 'workspace' | 'changes' }
 }));
 
-vi.mock('$lib/stores/shell.svelte', () => ({
+vi.mock('#lib/stores/shell.svelte.js', () => ({
 	shellStore: {
 		get workspacePath() {
 			return '/repo';
@@ -29,7 +29,7 @@ vi.mock('$lib/stores/shell.svelte', () => ({
 	}
 }));
 
-vi.mock('$lib/stores/settings.svelte', () => ({
+vi.mock('#lib/stores/settings.svelte.js', () => ({
 	settingsStore: {
 		settings: {
 			app: { fileSearchSource: 'workspace' as const }
@@ -38,7 +38,7 @@ vi.mock('$lib/stores/settings.svelte', () => ({
 	}
 }));
 
-vi.mock('$lib/features/workspace/file-search', () => ({
+vi.mock('#lib/features/workspace/file-search.js', () => ({
 	loadFileSearchOptions
 }));
 

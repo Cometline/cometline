@@ -18,7 +18,7 @@ import {
 	type MemoryCompactionResult,
 	type MemoryReembedJob,
 	type MemorySettings
-} from '$lib/client/cometmind';
+} from '#lib/client/cometmind.js';
 import {
 	buildEmbeddingDropdownOptions,
 	embeddingKeyForFields,
@@ -27,8 +27,8 @@ import {
 	mergeEmbeddingFields,
 	savedEmbeddingFromApi,
 	type SavedEmbeddingRef
-} from '$lib/embedding-models';
-import type { ProviderConfig } from '$lib/types';
+} from '#lib/embedding-models.js';
+import type { ProviderConfig } from '#lib/types.js';
 
 export function createSettingsMemoryPanel(deps: {
 	getProviders: () => ProviderConfig[];

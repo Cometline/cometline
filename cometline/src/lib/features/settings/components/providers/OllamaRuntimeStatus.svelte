@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { ExternalLink, LoaderCircle, RefreshCw } from '@lucide/svelte';
-	import { openOllamaDownloadPage, type OllamaHealthResult } from '$lib/ollama/client';
+	import { openOllamaDownloadPage, type OllamaHealthResult } from '#lib/ollama/client.js';
 	import SettingsButton from '../SettingsButton.svelte';
 
 	let {

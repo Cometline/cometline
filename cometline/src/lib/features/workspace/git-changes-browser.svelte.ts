@@ -5,16 +5,16 @@ import {
 	stageWorkspaceGitPaths,
 	unstageWorkspaceGitPaths,
 	type WorkspaceGitStatus
-} from '$lib/client/cometmind';
-import { shellStore } from '$lib/stores/shell.svelte';
-import { normalizeWorkspacePath } from '$lib/features/workspace/file-index';
-import { hasUnstagedSide } from '$lib/features/workspace/git-file-state';
+} from '#lib/client/cometmind.js';
+import { shellStore } from '#lib/stores/shell.svelte.js';
+import { normalizeWorkspacePath } from '#lib/features/workspace/file-index.js';
+import { hasUnstagedSide } from '#lib/features/workspace/git-file-state.js';
 import {
 	discardConfirmDescription,
 	gitFileName,
 	type DiscardConfirm,
 	type GitFile
-} from '$lib/features/workspace/git-changes-browser';
+} from '#lib/features/workspace/git-changes-browser.js';
 
 export function createGitChangesBrowserController(deps: { getWorkspacePath: () => string }) {
 	let loading = $state(false);

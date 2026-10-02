@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { DiffArtifact } from '$lib/tools/parse-edit-diff';
+	import type { DiffArtifact } from '#lib/tools/parse-edit-diff.js';
 
 	let { diff }: { diff: DiffArtifact } = $props();
 </script>

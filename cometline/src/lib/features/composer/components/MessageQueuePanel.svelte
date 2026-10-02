@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { fly } from 'svelte/transition';
 	import { ChevronDown, X } from '@lucide/svelte';
-	import type { QueuedMessage } from '$lib/actions/chat-turn-queue';
+	import type { QueuedMessage } from '#lib/actions/chat-turn-queue.js';
 
 	let {
 		queuedCount,

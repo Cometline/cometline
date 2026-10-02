@@ -1,6 +1,6 @@
 import type { ThemedToken } from 'shiki/core';
-import { CODE_THEME, getHighlighter, resolveLanguage } from '$lib/markdown/highlight';
-import type { DiffLineKind } from '$lib/tools/diff-artifact';
+import { CODE_THEME, getHighlighter, resolveLanguage } from '#lib/markdown/highlight.js';
+import type { DiffLineKind } from '#lib/tools/diff-artifact.js';
 import type { GitDiffLine } from './git-diff-lines';
 
 export type HighlightedDiffLine = {

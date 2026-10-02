@@ -6,8 +6,8 @@ import {
 	trimHistoryEntries,
 	type ComposerHistoryEntry,
 	type PendingUnsentDraft
-} from '$lib/features/composer/composer-history';
-import type { ImageAttachment } from '$lib/types';
+} from '#lib/features/composer/composer-history.js';
+import type { ImageAttachment } from '#lib/types.js';
 
 const PENDING_STORAGE_KEY = 'cometline.composer-history-pending';
 const LOCAL_HISTORY_KEY = 'cometline.composer-history';

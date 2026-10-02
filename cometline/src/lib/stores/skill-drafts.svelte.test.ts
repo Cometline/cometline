@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('$lib/client/cometmind', () => ({
+vi.mock('#lib/client/cometmind.js', () => ({
 	listSkillDrafts: vi.fn(async () => [{ name: 'draft-a' }, { name: 'draft-b' }])
 }));
 

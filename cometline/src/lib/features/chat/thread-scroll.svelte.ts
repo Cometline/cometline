@@ -1,5 +1,5 @@
 import { tick, untrack } from 'svelte';
-import type { ChatItem } from '$lib/stores/chat.svelte';
+import type { ChatItem } from '#lib/stores/chat.svelte.js';
 import { activeTurnMinHeight, transcriptHasLeadingOrphans } from './thread-turns';
 import { buildScrollKey, followUpPinScrollMargin, shouldShowJumpToBottom } from './thread-scroll';
 import { THREAD_HYDRATION_FAILSAFE_MS, scrollTopAfterPrepend } from './thread-virtualizer';

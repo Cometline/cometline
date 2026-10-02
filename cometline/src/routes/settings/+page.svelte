@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import SettingsPanel from '$lib/features/settings/components/SettingsPanel.svelte';
-	import { settingsStore } from '$lib/stores/settings.svelte';
+	import SettingsPanel from '#lib/features/settings/components/SettingsPanel.svelte';
+	import { settingsStore } from '#lib/stores/settings.svelte.js';
 
 	let ready = $state(false);
 	let loadError = $state('');

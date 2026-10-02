@@ -1,31 +1,31 @@
 <script lang="ts">
 	import { X } from '@lucide/svelte';
 	import { flip } from 'svelte/animate';
-	import type { Session } from '$lib/types';
-	import { deleteSession, updateSession } from '$lib/client/cometmind';
+	import type { Session } from '#lib/types.js';
+	import { deleteSession, updateSession } from '#lib/client/cometmind.js';
 	import {
 		createMiniWindowSession,
 		navigateMiniToSession
-	} from '$lib/features/shell/mini-window-session';
+	} from '#lib/features/shell/mini-window-session.js';
 	import {
 		activateAfterSessionDeleted,
 		sessionsSnapshot
-	} from '$lib/actions/activate-after-session-deleted';
-	import { sessionStore } from '$lib/stores/session.svelte';
-	import { shellStore } from '$lib/stores/shell.svelte';
-	import { settingsStore } from '$lib/stores/settings.svelte';
-	import { terminalStore } from '$lib/stores/terminal.svelte';
-	import { sessionDisplayTitle } from '$lib/sessions/session-title';
+	} from '#lib/actions/activate-after-session-deleted.js';
+	import { sessionStore } from '#lib/stores/session.svelte.js';
+	import { shellStore } from '#lib/stores/shell.svelte.js';
+	import { settingsStore } from '#lib/stores/settings.svelte.js';
+	import { terminalStore } from '#lib/stores/terminal.svelte.js';
+	import { sessionDisplayTitle } from '#lib/sessions/session-title.js';
 	import {
 		layoutSessionsForSidebar,
 		PINNED_GROUP_KEY,
 		DISCORD_GROUP_KEY,
 		isDiscordSession
-	} from '$lib/sessions/group-by-workspace';
-	import SidebarSearch from '$lib/features/sidebar/components/SidebarSearch.svelte';
-	import SessionRow from '$lib/features/sidebar/components/SessionRow.svelte';
-	import ConfirmActionModal from '$lib/components/ConfirmActionModal.svelte';
-	import Tooltip from '$lib/components/Tooltip.svelte';
+	} from '#lib/sessions/group-by-workspace.js';
+	import SidebarSearch from '#lib/features/sidebar/components/SidebarSearch.svelte';
+	import SessionRow from '#lib/features/sidebar/components/SessionRow.svelte';
+	import ConfirmActionModal from '#lib/components/ConfirmActionModal.svelte';
+	import Tooltip from '#lib/components/Tooltip.svelte';
 
 	const WORKSPACE_GROUP_FLIP = { duration: 240 };
 

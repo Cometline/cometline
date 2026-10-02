@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { slide } from 'svelte/transition';
 	import { ChevronDown, ChevronRight } from '@lucide/svelte';
-	import type { Session } from '$lib/types';
-	import SessionRow from '$lib/features/sidebar/components/SessionRow.svelte';
+	import type { Session } from '#lib/types.js';
+	import SessionRow from '#lib/features/sidebar/components/SessionRow.svelte';
 
 	const DISCORD_SESSIONS_SLIDE = { duration: 180 };
 

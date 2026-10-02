@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { SkillsPageController } from '$lib/features/skills/skills-page-controller.svelte';
+	import type { SkillsPageController } from '#lib/features/skills/skills-page-controller.svelte.js';
 	import SkillsListPanel from './SkillsListPanel.svelte';
 	import SkillsListRow from './SkillsListRow.svelte';
 	import SkillsPreviewPanel from './SkillsPreviewPanel.svelte';

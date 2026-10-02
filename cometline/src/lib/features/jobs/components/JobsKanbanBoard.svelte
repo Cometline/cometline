@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { GroupedJobs, JobColumn } from '$lib/features/jobs/group-jobs';
-	import type { JobResource } from '$lib/client/cometmind';
+	import type { GroupedJobs, JobColumn } from '#lib/features/jobs/group-jobs.js';
+	import type { JobResource } from '#lib/client/cometmind.js';
 	import JobsKanbanColumn from './JobsKanbanColumn.svelte';
 
 	let {

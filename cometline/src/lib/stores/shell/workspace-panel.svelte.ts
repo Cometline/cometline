@@ -1,9 +1,9 @@
-import { getActiveSessionId } from '$lib/active-session';
+import { getActiveSessionId } from '#lib/active-session.js';
 import {
 	readWorkspacePanelTreeSource,
 	writeWorkspacePanelTreeSource,
 	type WorkspacePanelTreeSource
-} from '$lib/features/workspace/workspace-panel-prefs';
+} from '#lib/features/workspace/workspace-panel-prefs.js';
 import type {
 	ContentSurface,
 	SurfaceContent,
@@ -11,8 +11,8 @@ import type {
 	TabSurfaceKey,
 	WorkspacePanelState,
 	WorkspacePanelSurface
-} from '$lib/features/workspace/workspace-panel-state';
-import { isWikiUiPath } from '$lib/wiki/paths';
+} from '#lib/features/workspace/workspace-panel-state.js';
+import { isWikiUiPath } from '#lib/wiki/paths.js';
 import type { FileTreeExpandSource } from './file-tree.svelte';
 
 export function syncWorkspacePanelOpen(open: boolean) {

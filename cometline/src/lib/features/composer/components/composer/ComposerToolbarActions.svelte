@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { Send, Square } from '@lucide/svelte';
-	import ContextWindowRing from '$lib/features/composer/components/ContextWindowRing.svelte';
-	import Tooltip from '$lib/components/Tooltip.svelte';
-	import { modelStore } from '$lib/stores/model.svelte';
-	import type { AgentMode } from '$lib/types';
+	import ContextWindowRing from '#lib/features/composer/components/ContextWindowRing.svelte';
+	import Tooltip from '#lib/components/Tooltip.svelte';
+	import { modelStore } from '#lib/stores/model.svelte.js';
+	import type { AgentMode } from '#lib/types.js';
 
 	let {
 		contextWindowUsage,

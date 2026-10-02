@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { defaultKeyboardShortcuts } from '$lib/keyboard-shortcuts';
+import { defaultKeyboardShortcuts } from '#lib/keyboard-shortcuts.js';
 import { handleComposerKeydown, type ComposerKeydownDeps } from './composer-keydown';
 
 function keyEvent(init: { metaKey?: boolean; shiftKey?: boolean }): KeyboardEvent {

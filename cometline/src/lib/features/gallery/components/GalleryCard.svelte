@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Check, Clipboard, Download, Trash2, TriangleAlert } from '@lucide/svelte';
-	import type { MediaResource } from '$lib/client/cometmind';
+	import type { MediaResource } from '#lib/client/cometmind.js';
 
 	let {
 		item,

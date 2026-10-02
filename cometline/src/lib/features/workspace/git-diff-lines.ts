@@ -1,5 +1,5 @@
-import type { DiffLineKind } from '$lib/tools/diff-artifact';
-import { classifyDiffLine } from '$lib/tools/parse-edit-diff';
+import type { DiffLineKind } from '#lib/tools/diff-artifact.js';
+import { classifyDiffLine } from '#lib/tools/parse-edit-diff.js';
 
 export type GitDiffLine = {
 	kind: DiffLineKind;

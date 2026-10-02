@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
 import { createSettingsController } from './settings-controller.svelte';
-import { settingsStore } from '$lib/stores/settings.svelte';
-import { cloneSettings } from '$lib/features/settings/settings-draft';
+import { settingsStore } from '#lib/stores/settings.svelte.js';
+import { cloneSettings } from '#lib/features/settings/settings-draft.js';
 
 describe('createSettingsController', () => {
 	it('disables save when draft matches persisted settings', () => {

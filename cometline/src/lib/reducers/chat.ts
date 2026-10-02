@@ -1,5 +1,5 @@
-import type { ChatItem, MediaAttachment, StreamEvent, SubagentProgressEntry } from '$lib/types';
-import type { ContextBudgetSnapshot } from '$lib/context-window';
+import type { ChatItem, MediaAttachment, StreamEvent, SubagentProgressEntry } from '#lib/types.js';
+import type { ContextBudgetSnapshot } from '#lib/context-window.js';
 import { isSubagentStepLimit } from '../features/chat/subagent-display';
 import { turnStatusLabel } from '../features/chat/turn-status';
 import {

@@ -1,7 +1,7 @@
 <script lang="ts">
-	import AssistantMarkdown from '$lib/components/AssistantMarkdown.svelte';
-	import type { InboxDrawerController } from '$lib/features/inbox/inbox-drawer-controller.svelte';
-	import { formatRelativeTime } from '$lib/features/inbox/inbox-drawer-format';
+	import AssistantMarkdown from '#lib/components/AssistantMarkdown.svelte';
+	import type { InboxDrawerController } from '#lib/features/inbox/inbox-drawer-controller.svelte.js';
+	import { formatRelativeTime } from '#lib/features/inbox/inbox-drawer-format.js';
 	import InboxDetailLinks from './InboxDetailLinks.svelte';
 
 	let {

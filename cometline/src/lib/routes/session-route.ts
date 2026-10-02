@@ -23,5 +23,5 @@ export function gotoSession(
 
 /** Returns to the home route of whichever shell is currently showing. */
 export function gotoHome(pathname: string = currentPathname()): Promise<void> {
-	return goto(isMiniRoutePath(pathname) ? resolve('/mini') : resolve('/'));
+	return goto(isMiniRoutePath(pathname) ? resolve('mini') : resolve('/'));
 }

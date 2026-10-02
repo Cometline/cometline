@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { FolderOpen } from '@lucide/svelte';
 	import SettingsToggle from '../SettingsToggle.svelte';
-	import type { CometMindSettings } from '$lib/cometmind-settings';
-	import type { ProviderConfig } from '$lib/types';
+	import type { CometMindSettings } from '#lib/cometmind-settings.js';
+	import type { ProviderConfig } from '#lib/types.js';
 
 	let {
 		cometmind = $bindable(),

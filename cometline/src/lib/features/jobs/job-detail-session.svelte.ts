@@ -1,5 +1,5 @@
-import { getSession, type JobResource } from '$lib/client/cometmind';
-import { navigateToSession } from '$lib/actions/navigate-to-session';
+import { getSession, type JobResource } from '#lib/client/cometmind.js';
+import { navigateToSession } from '#lib/actions/navigate-to-session.js';
 
 export function createJobDetailSessionController(deps: {
 	getJob: () => JobResource | null;

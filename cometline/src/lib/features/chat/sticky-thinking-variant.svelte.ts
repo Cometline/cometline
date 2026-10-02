@@ -1,5 +1,5 @@
 import { StickyThinkingVariant } from './sticky-thinking-variant';
-import type { ThinkingIndicatorVariant } from '$lib/components/thinking-indicator';
+import type { ThinkingIndicatorVariant } from '#lib/components/thinking-indicator.js';
 
 /** Reactive sticky variant for the current turn-status phase. */
 export function createStickyThinkingIndicator(getPhase: () => string | undefined) {

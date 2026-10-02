@@ -1,5 +1,5 @@
-import type { MemorySettings } from '$lib/client/cometmind';
-import type { ProviderConfig, ProviderSettings } from '$lib/types';
+import type { MemorySettings } from '#lib/client/cometmind.js';
+import type { ProviderConfig, ProviderSettings } from '#lib/types.js';
 import type { createSettingsController } from './settings-controller.svelte';
 
 export type CodexAuthStatus = {

@@ -1,6 +1,6 @@
-import { listJobs } from '$lib/client/cometmind';
-import type { CometMindJobsNotificationSettings } from '$lib/cometmind-settings';
-import { jobsIndicatorStore } from '$lib/stores/jobs-indicator.svelte';
+import { listJobs } from '#lib/client/cometmind.js';
+import type { CometMindJobsNotificationSettings } from '#lib/cometmind-settings.js';
+import { jobsIndicatorStore } from '#lib/stores/jobs-indicator.svelte.js';
 
 type JobSnapshot = {
 	id: string;

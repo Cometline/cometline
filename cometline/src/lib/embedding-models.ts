@@ -1,5 +1,5 @@
-import type { ProviderConfig, ProviderMethod } from '$lib/types';
-import { normalizeOllamaNativeBase } from '$lib/ollama/url';
+import type { ProviderConfig, ProviderMethod } from '#lib/types.js';
+import { normalizeOllamaNativeBase } from '#lib/ollama/url.js';
 
 export interface EmbeddingModelOption {
 	providerId: string;

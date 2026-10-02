@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Check } from '@lucide/svelte';
-	import type { ProviderConfig } from '$lib/types';
-	import { providerLabel } from '$lib/features/onboarding/setup-wizard';
+	import type { ProviderConfig } from '#lib/types.js';
+	import { providerLabel } from '#lib/features/onboarding/setup-wizard.js';
 	import StepIntro from './StepIntro.svelte';
 
 	let {

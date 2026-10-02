@@ -2,8 +2,8 @@ import { z } from 'zod';
 import {
 	DEFAULT_HERO_COMPOSER_APPEARANCE,
 	normalizeHeroComposerAppearance
-} from '$lib/hero-composer-appearance';
-import { defaultKeyboardShortcuts, normalizeKeyboardShortcuts } from '$lib/keyboard-shortcuts';
+} from '#lib/hero-composer-appearance.js';
+import { defaultKeyboardShortcuts, normalizeKeyboardShortcuts } from '#lib/keyboard-shortcuts.js';
 import type {
 	AppSettings,
 	CustomPersona,
@@ -13,17 +13,17 @@ import type {
 	ProviderMethod,
 	ProviderSettings,
 	ResponseCompleteSoundSettings
-} from '$lib/types';
+} from '#lib/types.js';
 import {
 	normalizeCustomPersonas as normalizeCustomPersonaList,
 	normalizePersonaId as resolveNormalizedPersonaId
-} from '$lib/personas';
-import { normalizeOllamaNativeBase } from '$lib/ollama/url';
-import { WORKSPACE_PANEL_MAX_RATIO } from '$lib/layout/workspace-panel-width';
+} from '#lib/personas/index.js';
+import { normalizeOllamaNativeBase } from '#lib/ollama/url.js';
+import { WORKSPACE_PANEL_MAX_RATIO } from '#lib/layout/workspace-panel-width.js';
 import {
 	DEFAULT_TERMINAL_APPEARANCE,
 	normalizeTerminalAppearance
-} from '$lib/features/workspace/terminal-appearance';
+} from '#lib/features/workspace/terminal-appearance.js';
 
 export const VALID_PROVIDER_METHODS: ProviderMethod[] = [
 	'openai-compatible',

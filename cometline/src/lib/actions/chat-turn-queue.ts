@@ -3,7 +3,7 @@
  * Additional submits while busy are queued FIFO and drained automatically.
  */
 
-import type { ChatTurnPayload } from '$lib/actions/start-chat';
+import type { ChatTurnPayload } from '#lib/actions/start-chat.js';
 
 export interface QueuedMessage extends ChatTurnPayload {
 	id: string;

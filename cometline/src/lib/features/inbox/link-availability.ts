@@ -1,4 +1,4 @@
-import { getJob, getSession } from '$lib/client/cometmind';
+import { getJob, getSession } from '#lib/client/cometmind.js';
 
 export type LinkKind = 'job' | 'session';
 

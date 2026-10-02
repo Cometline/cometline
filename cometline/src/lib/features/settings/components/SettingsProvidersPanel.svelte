@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Plus, Trash2 } from '@lucide/svelte';
-	import type { ProviderConfig, ProviderMethod } from '$lib/types';
+	import type { ProviderConfig, ProviderMethod } from '#lib/types.js';
 	import ProviderCard from './ProviderCard.svelte';
 	import ProviderConnectionFields from './providers/ProviderConnectionFields.svelte';
 	import ProviderModelSection from './providers/ProviderModelSection.svelte';

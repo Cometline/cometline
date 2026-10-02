@@ -9,20 +9,20 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('$app/navigation', () => ({ goto: mocks.goto }));
-vi.mock('$lib/stores/chat.svelte', () => ({
+vi.mock('#lib/stores/chat.svelte.js', () => ({
 	chatStore: {
 		sessionID: null,
 		detachActiveSession: mocks.detachActiveSession,
 		send: vi.fn()
 	}
 }));
-vi.mock('$lib/stores/session.svelte', () => ({
+vi.mock('#lib/stores/session.svelte.js', () => ({
 	sessionStore: { current: null, takePendingMessage: mocks.takePendingMessage }
 }));
-vi.mock('$lib/stores/shell.svelte', () => ({
+vi.mock('#lib/stores/shell.svelte.js', () => ({
 	shellStore: { requestComposerFocus: mocks.requestComposerFocus }
 }));
-vi.mock('$lib/actions/create-new-session', () => ({ createNewSession: mocks.createNewSession }));
+vi.mock('#lib/actions/create-new-session.js', () => ({ createNewSession: mocks.createNewSession }));
 
 import { startNewChat } from './new-chat';
 

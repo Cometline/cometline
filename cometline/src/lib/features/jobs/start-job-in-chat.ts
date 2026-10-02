@@ -4,13 +4,13 @@ import {
 	createSession,
 	forkSession,
 	type JobResource
-} from '$lib/client/cometmind';
-import type { ChatTurnPayload } from '$lib/actions/start-chat';
-import { modelStore } from '$lib/stores/model.svelte';
-import { sessionStore } from '$lib/stores/session.svelte';
-import { shellStore } from '$lib/stores/shell.svelte';
-import { jobUserDisplayText } from '$lib/features/jobs/format-job-label';
-import { gotoSession } from '$lib/routes/session-route';
+} from '#lib/client/cometmind.js';
+import type { ChatTurnPayload } from '#lib/actions/start-chat.js';
+import { modelStore } from '#lib/stores/model.svelte.js';
+import { sessionStore } from '#lib/stores/session.svelte.js';
+import { shellStore } from '#lib/stores/shell.svelte.js';
+import { jobUserDisplayText } from '#lib/features/jobs/format-job-label.js';
+import { gotoSession } from '#lib/routes/session-route.js';
 
 export type JobStartSender = (payload: ChatTurnPayload) => void | Promise<void>;
 

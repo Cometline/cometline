@@ -1,4 +1,4 @@
-import { getActiveSessionId } from '$lib/active-session';
+import { getActiveSessionId } from '#lib/active-session.js';
 import type { ShellFocusStore } from './focus.svelte';
 import { syncWorkspacePanelOpen, type WorkspacePanelStore } from './workspace-panel.svelte';
 

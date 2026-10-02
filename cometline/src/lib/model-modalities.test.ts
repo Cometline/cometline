@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { INPUT_MODALITY_LABEL, INPUT_MODALITY_ORDER } from '$lib/model-modalities';
+import { INPUT_MODALITY_LABEL, INPUT_MODALITY_ORDER } from '#lib/model-modalities.js';
 
 describe('model-modalities', () => {
 	it('orders icons text → image → video → audio → pdf', () => {

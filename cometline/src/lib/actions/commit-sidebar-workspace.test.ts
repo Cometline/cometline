@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Session } from '$lib/types';
+import type { Session } from '#lib/types.js';
 
 const mocks = vi.hoisted(() => ({
 	setSidebarOrderWorkspacePath: vi.fn(),
 	setSidebarOrderDiscordActive: vi.fn()
 }));
 
-vi.mock('$lib/stores/shell.svelte', () => ({
+vi.mock('#lib/stores/shell.svelte.js', () => ({
 	shellStore: {
 		sidebarOrderWorkspacePath: '/ws-a',
 		setSidebarOrderWorkspacePath: mocks.setSidebarOrderWorkspacePath,

@@ -1,8 +1,8 @@
 <script lang="ts">
-	import UsageStackedArea from '$lib/features/usage/components/UsageStackedArea.svelte';
-	import { seriesColor } from '$lib/features/usage/chart';
-	import { formatTokens } from '$lib/features/usage/format';
-	import type { UsagePageController } from '$lib/features/usage/usage-page-controller.svelte';
+	import UsageStackedArea from '#lib/features/usage/components/UsageStackedArea.svelte';
+	import { seriesColor } from '#lib/features/usage/chart.js';
+	import { formatTokens } from '#lib/features/usage/format.js';
+	import type { UsagePageController } from '#lib/features/usage/usage-page-controller.svelte.js';
 
 	let { controller }: { controller: UsagePageController } = $props();
 </script>

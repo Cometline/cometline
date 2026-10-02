@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { truncateWorkspacePath } from '$lib/features/jobs/group-jobs';
-	import { formatRangeLabel, type RangePreset } from '$lib/features/usage/format';
-	import type { UsagePageController } from '$lib/features/usage/usage-page-controller.svelte';
+	import { truncateWorkspacePath } from '#lib/features/jobs/group-jobs.js';
+	import { formatRangeLabel, type RangePreset } from '#lib/features/usage/format.js';
+	import type { UsagePageController } from '#lib/features/usage/usage-page-controller.svelte.js';
 
 	let { controller }: { controller: UsagePageController } = $props();
 

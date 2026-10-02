@@ -1,4 +1,4 @@
-import { readHasSeenIntroSync } from '$lib/stores/settings.svelte';
+import { readHasSeenIntroSync } from '#lib/stores/settings.svelte.js';
 
 /** Window chrome: sidebar, overlays (settings / intro / setup), composer phase, boot status. */
 export function createShellChromeStore() {

@@ -1,9 +1,9 @@
-import { browser } from '$app/environment';
-import type { AgentMode, ImageAttachment, Session } from '$lib/types';
-import type { WebContext } from '$lib/actions/start-chat';
-import { publishWindowSync, subscribeWindowSync } from '$lib/window-sync';
-import { unreadSessionOutputStore } from '$lib/stores/unread-session-output.svelte';
-import { applySessionMetadata, type SessionMetadataPatch } from '$lib/sessions/session-metadata';
+import { browser } from '$app/env';
+import type { AgentMode, ImageAttachment, Session } from '#lib/types.js';
+import type { WebContext } from '#lib/actions/start-chat.js';
+import { publishWindowSync, subscribeWindowSync } from '#lib/window-sync.js';
+import { unreadSessionOutputStore } from '#lib/stores/unread-session-output.svelte.js';
+import { applySessionMetadata, type SessionMetadataPatch } from '#lib/sessions/session-metadata.js';
 
 export interface PendingMessage {
 	sessionId: string;

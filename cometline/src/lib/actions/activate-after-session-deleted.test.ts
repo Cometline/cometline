@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Session } from '$lib/types';
+import type { Session } from '#lib/types.js';
 
 const mocks = vi.hoisted(() => ({
 	startNewChat: vi.fn(),
@@ -10,19 +10,19 @@ const mocks = vi.hoisted(() => ({
 	sidebarOrderDiscordActive: false
 }));
 
-vi.mock('$lib/actions/new-chat', () => ({ startNewChat: mocks.startNewChat }));
-vi.mock('$lib/actions/navigate-to-session', () => ({
+vi.mock('#lib/actions/new-chat.js', () => ({ startNewChat: mocks.startNewChat }));
+vi.mock('#lib/actions/navigate-to-session.js', () => ({
 	navigateToSession: mocks.navigateToSession
 }));
-vi.mock('$lib/stores/chat.svelte', () => ({ chatStore: { clear: mocks.clear } }));
-vi.mock('$lib/stores/session.svelte', () => ({
+vi.mock('#lib/stores/chat.svelte.js', () => ({ chatStore: { clear: mocks.clear } }));
+vi.mock('#lib/stores/session.svelte.js', () => ({
 	sessionStore: {
 		get sessions() {
 			return mocks.sessions;
 		}
 	}
 }));
-vi.mock('$lib/stores/shell.svelte', () => ({
+vi.mock('#lib/stores/shell.svelte.js', () => ({
 	shellStore: {
 		get sidebarOrderWorkspacePath() {
 			return mocks.sidebarOrderWorkspacePath;

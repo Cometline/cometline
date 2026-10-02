@@ -1,4 +1,4 @@
-import { listWikiFiles } from '$lib/client/cometmind';
+import { listWikiFiles } from '#lib/client/cometmind.js';
 
 const INDEX_LIMIT = 10_000;
 const TTL_MS = 30_000;

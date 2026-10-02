@@ -1,7 +1,11 @@
 <script lang="ts">
 	import { CalendarClock, LoaderCircle, Pencil, Plus, Trash2, X } from '@lucide/svelte';
-	import { formatClock, nextRunLabel, scheduleLabel } from '$lib/features/jobs/jobs-page-format';
-	import type { JobsScheduleController } from '$lib/features/jobs/jobs-page-schedule.svelte';
+	import {
+		formatClock,
+		nextRunLabel,
+		scheduleLabel
+	} from '#lib/features/jobs/jobs-page-format.js';
+	import type { JobsScheduleController } from '#lib/features/jobs/jobs-page-schedule.svelte.js';
 	import JobsScheduleForm from './JobsScheduleForm.svelte';
 
 	let {

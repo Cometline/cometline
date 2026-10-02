@@ -1,7 +1,7 @@
-import type { ChatItem } from '$lib/stores/chat.svelte';
+import type { ChatItem } from '#lib/stores/chat.svelte.js';
 import type { ThinkingAttribution } from './thinking-attribution';
-import type { ChatTurnPayload } from '$lib/actions/start-chat';
-import type { JobResource } from '$lib/client/cometmind';
+import type { ChatTurnPayload } from '#lib/actions/start-chat.js';
+import type { JobResource } from '#lib/client/cometmind.js';
 
 type AssistantItem = Extract<ChatItem, { type: 'assistant' }>;
 type ToolItem = Extract<ChatItem, { type: 'tool' }>;

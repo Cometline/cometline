@@ -1,10 +1,10 @@
 <script lang="ts">
-	import PanelTabStrip from '$lib/features/workspace/components/PanelTabStrip.svelte';
-	import { webTabActivity } from '$lib/features/workspace/web-tab-activity.svelte';
-	import { shellStore } from '$lib/stores/shell.svelte';
-	import { isBlankTabUrl } from '$lib/features/workspace/workspace-panel-state';
-	import type { WorkspacePanelController } from '$lib/features/workspace/workspace-panel-controller.svelte';
-	import type { WorkspacePanelView } from '$lib/features/workspace/workspace-panel-view.svelte';
+	import PanelTabStrip from '#lib/features/workspace/components/PanelTabStrip.svelte';
+	import { webTabActivity } from '#lib/features/workspace/web-tab-activity.svelte.js';
+	import { shellStore } from '#lib/stores/shell.svelte.js';
+	import { isBlankTabUrl } from '#lib/features/workspace/workspace-panel-state.js';
+	import type { WorkspacePanelController } from '#lib/features/workspace/workspace-panel-controller.svelte.js';
+	import type { WorkspacePanelView } from '#lib/features/workspace/workspace-panel-view.svelte.js';
 
 	let { view, panel }: { view: WorkspacePanelView; panel: WorkspacePanelController } = $props();
 </script>

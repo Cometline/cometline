@@ -4,7 +4,7 @@
 	import type {
 		GitChangesSectionKind,
 		GitFile
-	} from '$lib/features/workspace/git-changes-browser';
+	} from '#lib/features/workspace/git-changes-browser.js';
 
 	let {
 		section,

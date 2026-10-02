@@ -1,20 +1,20 @@
 import { goto } from '$app/navigation';
 import { resolve } from '$app/paths';
-import { startNewChat } from '$lib/actions/new-chat';
-import { navigateAdjacentSession } from '$lib/actions/navigate-adjacent-session';
+import { startNewChat } from '#lib/actions/new-chat.js';
+import { navigateAdjacentSession } from '#lib/actions/navigate-adjacent-session.js';
 import {
 	navigateSessionHistory,
 	navigateToRecentSession
-} from '$lib/actions/navigate-session-history';
-import { openSettings } from '$lib/actions/open-settings';
-import { shouldUseWorkspacePanelHistory } from '$lib/features/shell/focus-nav';
-import { isReloadShortcut, matchesShortcut, type ShortcutAction } from '$lib/keyboard-shortcuts';
-import { inboxStore } from '$lib/stores/inbox.svelte';
-import { sessionStore } from '$lib/stores/session.svelte';
-import { settingsStore } from '$lib/stores/settings.svelte';
-import { shellStore } from '$lib/stores/shell.svelte';
-import { updateSession } from '$lib/client/cometmind';
-import type { Session } from '$lib/types';
+} from '#lib/actions/navigate-session-history.js';
+import { openSettings } from '#lib/actions/open-settings.js';
+import { shouldUseWorkspacePanelHistory } from '#lib/features/shell/focus-nav.js';
+import { isReloadShortcut, matchesShortcut, type ShortcutAction } from '#lib/keyboard-shortcuts.js';
+import { inboxStore } from '#lib/stores/inbox.svelte.js';
+import { sessionStore } from '#lib/stores/session.svelte.js';
+import { settingsStore } from '#lib/stores/settings.svelte.js';
+import { shellStore } from '#lib/stores/shell.svelte.js';
+import { updateSession } from '#lib/client/cometmind.js';
+import type { Session } from '#lib/types.js';
 
 type SidebarHandle = { focusSearch: () => void };
 type WorkspacePanelHandle = { navigateBack: () => void; navigateForward: () => void };
@@ -212,22 +212,22 @@ export function createAppShellShortcuts(deps: {
 			case 'openJobs':
 				if (shellStore.settingsOpen) shellStore.closeSettings();
 				inboxStore.closeDrawer();
-				void goto(resolve('/jobs'));
+				void goto(resolve('jobs'));
 				return;
 			case 'openSkillDrafts':
 				if (shellStore.settingsOpen) shellStore.closeSettings();
 				inboxStore.closeDrawer();
-				void goto(resolve('/skills'));
+				void goto(resolve('skills'));
 				return;
 			case 'openGallery':
 				if (shellStore.settingsOpen) shellStore.closeSettings();
 				inboxStore.closeDrawer();
-				void goto(resolve('/gallery'));
+				void goto(resolve('gallery'));
 				return;
 			case 'openUsage':
 				if (shellStore.settingsOpen) shellStore.closeSettings();
 				inboxStore.closeDrawer();
-				void goto(resolve('/usage'));
+				void goto(resolve('usage'));
 				return;
 			case 'openInbox':
 				if (shellStore.settingsOpen) shellStore.closeSettings();

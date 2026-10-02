@@ -1,11 +1,11 @@
-import type { CommandEnterSignal, ShortcutAction } from '$lib/keyboard-shortcuts';
+import type { CommandEnterSignal, ShortcutAction } from '#lib/keyboard-shortcuts.js';
 import type {
 	CustomPersona,
 	FetchProviderModelsResult,
 	ProviderConfig,
 	ProviderSettings,
 	TerminalSnapshot
-} from '$lib/types';
+} from '#lib/types.js';
 
 export interface ElectronAPI {
 	restartCometMind(): void;

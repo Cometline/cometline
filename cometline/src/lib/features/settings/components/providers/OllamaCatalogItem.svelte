@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { OllamaCatalogEntry } from '$lib/ollama/catalog';
-	import { formatBytes, type OllamaPullProgress } from '$lib/ollama/client';
+	import type { OllamaCatalogEntry } from '#lib/ollama/catalog.js';
+	import { formatBytes, type OllamaPullProgress } from '#lib/ollama/client.js';
 	import SettingsButton from '../SettingsButton.svelte';
 
 	let {

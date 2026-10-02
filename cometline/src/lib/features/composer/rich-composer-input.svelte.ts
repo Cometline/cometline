@@ -3,22 +3,22 @@ import {
 	resetCustomCaret,
 	scheduleCustomCaretMeasure,
 	type CustomCaretState
-} from '$lib/dom/custom-caret';
-import { openLink } from '$lib/open-link';
-import { shellStore } from '$lib/stores/shell.svelte';
-import { openWorkspaceFilePreview } from '$lib/features/workspace/open-file-preview';
-import { isSelectionAtEditorEdge } from '$lib/features/composer/composer-caret';
-import { makeDirChip, makeFileChip } from '$lib/features/composer/rich-composer-chips';
+} from '#lib/dom/custom-caret.js';
+import { openLink } from '#lib/open-link.js';
+import { shellStore } from '#lib/stores/shell.svelte.js';
+import { openWorkspaceFilePreview } from '#lib/features/workspace/open-file-preview.js';
+import { isSelectionAtEditorEdge } from '#lib/features/composer/composer-caret.js';
+import { makeDirChip, makeFileChip } from '#lib/features/composer/rich-composer-chips.js';
 import {
 	decorateEditor,
 	serialize,
 	type DecorateOptions
-} from '$lib/features/composer/rich-composer-decorate';
+} from '#lib/features/composer/rich-composer-decorate.js';
 import {
 	findActiveMention,
 	replaceRangeWithNodes,
 	setCaretPosition
-} from '$lib/features/composer/rich-composer-selection';
+} from '#lib/features/composer/rich-composer-selection.js';
 
 export function createRichComposerInputController(deps: {
 	getEditor: () => HTMLDivElement | null;

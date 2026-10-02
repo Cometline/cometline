@@ -1,6 +1,6 @@
-import type { AgentMode, ImageAttachment } from '$lib/types';
-import type { ChatTurnPayload } from '$lib/actions/start-chat';
-import type { PendingUnsentDraft } from '$lib/features/composer/composer-history';
+import type { AgentMode, ImageAttachment } from '#lib/types.js';
+import type { ChatTurnPayload } from '#lib/actions/start-chat.js';
+import type { PendingUnsentDraft } from '#lib/features/composer/composer-history.js';
 
 export function createComposerInputController(deps: {
 	onSend: (payload: ChatTurnPayload | string) => void;

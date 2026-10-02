@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { JobResource, ScheduledJobResource } from '$lib/client/cometmind';
+import type { JobResource, ScheduledJobResource } from '#lib/client/cometmind.js';
 import {
 	formatClock,
 	formatRelativeTime,

@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('$lib/client/cometmind', () => ({
+vi.mock('#lib/client/cometmind.js', () => ({
 	listWikiFiles: vi.fn()
 }));
 
-vi.mock('$lib/wiki/wiki-file-index', () => ({
+vi.mock('#lib/wiki/wiki-file-index.js', () => ({
 	refreshWikiFileIndex: vi.fn(async () => [])
 }));
 
-vi.mock('$lib/features/workspace/file-index', () => ({
+vi.mock('#lib/features/workspace/file-index.js', () => ({
 	filterFileIndex: vi.fn((files: string[], query: string) => {
 		const q = query.trim().toLowerCase();
 		if (!q) return files;
@@ -28,9 +28,9 @@ vi.mock('$lib/features/workspace/file-index', () => ({
 	searchWorkspaceFiles: vi.fn(async () => [])
 }));
 
-import { listWikiFiles } from '$lib/client/cometmind';
-import { refreshWikiFileIndex } from '$lib/wiki/wiki-file-index';
-import { refreshFileIndex, searchWorkspaceFiles } from '$lib/features/workspace/file-index';
+import { listWikiFiles } from '#lib/client/cometmind.js';
+import { refreshWikiFileIndex } from '#lib/wiki/wiki-file-index.js';
+import { refreshFileIndex, searchWorkspaceFiles } from '#lib/features/workspace/file-index.js';
 import { loadFileSearchOptions, rankFilePaths, rankMatchingFiles } from './file-search';
 
 describe('rankFilePaths', () => {

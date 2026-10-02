@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import type { JobResource } from '$lib/client/cometmind';
+import type { JobResource } from '#lib/client/cometmind.js';
 
 const { claimJob, forkSession, goto, shellStore, sessionStore } = vi.hoisted(() => ({
 	claimJob: vi.fn(),
@@ -14,16 +14,16 @@ const { claimJob, forkSession, goto, shellStore, sessionStore } = vi.hoisted(() 
 }));
 
 vi.mock('$app/navigation', () => ({ goto }));
-vi.mock('$lib/client/cometmind', () => ({
+vi.mock('#lib/client/cometmind.js', () => ({
 	buildJobExecutionPrompt: (job: JobResource) => `work on ${job.description}`,
 	claimJob: (...args: unknown[]) => claimJob(...args),
 	forkSession: (...args: unknown[]) => forkSession(...args),
 	createSession: vi.fn()
 }));
-vi.mock('$lib/stores/shell.svelte', () => ({ shellStore }));
-vi.mock('$lib/stores/session.svelte', () => ({ sessionStore }));
-vi.mock('$lib/stores/model.svelte', () => ({ modelStore: { selected: null } }));
-vi.mock('$lib/features/jobs/format-job-label', () => ({
+vi.mock('#lib/stores/shell.svelte.js', () => ({ shellStore }));
+vi.mock('#lib/stores/session.svelte.js', () => ({ sessionStore }));
+vi.mock('#lib/stores/model.svelte.js', () => ({ modelStore: { selected: null } }));
+vi.mock('#lib/features/jobs/format-job-label.js', () => ({
 	jobUserDisplayText: (job: JobResource) => `/job ${job.description}`
 }));
 

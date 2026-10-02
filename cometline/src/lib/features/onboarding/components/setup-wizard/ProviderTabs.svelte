@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import type { ProviderConfig } from '$lib/types';
-	import { providerLabel } from '$lib/features/onboarding/setup-wizard';
+	import type { ProviderConfig } from '#lib/types.js';
+	import { providerLabel } from '#lib/features/onboarding/setup-wizard.js';
 
 	let {
 		providers,

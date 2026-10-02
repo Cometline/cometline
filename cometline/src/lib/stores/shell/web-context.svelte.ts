@@ -1,5 +1,5 @@
-import { getActiveSessionId } from '$lib/active-session';
-import type { WebContext } from '$lib/actions/start-chat';
+import { getActiveSessionId } from '#lib/active-session.js';
+import type { WebContext } from '#lib/actions/start-chat.js';
 
 /** A page selected for the next turn whose body has not been read yet. */
 export type PendingPageContext = {

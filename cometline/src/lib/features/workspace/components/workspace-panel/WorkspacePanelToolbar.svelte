@@ -15,11 +15,11 @@
 		SquareTerminal
 	} from '@lucide/svelte';
 	import { tick } from 'svelte';
-	import Tooltip from '$lib/components/Tooltip.svelte';
-	import WorkspacePanelTitleField from '$lib/features/workspace/components/workspace-panel/WorkspacePanelTitleField.svelte';
-	import { shellStore } from '$lib/stores/shell.svelte';
-	import type { WorkspacePanelController } from '$lib/features/workspace/workspace-panel-controller.svelte';
-	import type { WorkspacePanelView } from '$lib/features/workspace/workspace-panel-view.svelte';
+	import Tooltip from '#lib/components/Tooltip.svelte';
+	import WorkspacePanelTitleField from '#lib/features/workspace/components/workspace-panel/WorkspacePanelTitleField.svelte';
+	import { shellStore } from '#lib/stores/shell.svelte.js';
+	import type { WorkspacePanelController } from '#lib/features/workspace/workspace-panel-controller.svelte.js';
+	import type { WorkspacePanelView } from '#lib/features/workspace/workspace-panel-view.svelte.js';
 
 	let { view, panel }: { view: WorkspacePanelView; panel: WorkspacePanelController } = $props();
 </script>

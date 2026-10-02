@@ -1,11 +1,11 @@
 <script lang="ts">
-	import type { Session } from '$lib/types';
-	import { workspaceLabel, gatewaySessionLabel } from '$lib/sessions/group-by-workspace';
-	import { sessionDisplayTitle } from '$lib/sessions/session-title';
-	import { chatStore } from '$lib/stores/chat.svelte';
-	import { terminalStore } from '$lib/stores/terminal.svelte';
-	import { unreadSessionOutputStore } from '$lib/stores/unread-session-output.svelte';
-	import { webTabActivity } from '$lib/features/workspace/web-tab-activity.svelte';
+	import type { Session } from '#lib/types.js';
+	import { workspaceLabel, gatewaySessionLabel } from '#lib/sessions/group-by-workspace.js';
+	import { sessionDisplayTitle } from '#lib/sessions/session-title.js';
+	import { chatStore } from '#lib/stores/chat.svelte.js';
+	import { terminalStore } from '#lib/stores/terminal.svelte.js';
+	import { unreadSessionOutputStore } from '#lib/stores/unread-session-output.svelte.js';
+	import { webTabActivity } from '#lib/features/workspace/web-tab-activity.svelte.js';
 	import SessionAudioBadge from './SessionAudioBadge.svelte';
 	import SessionRowActions from './sidebar/SessionRowActions.svelte';
 

@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { featuredOllamaCatalog } from '$lib/ollama/catalog';
-	import { onOllamaPullProgress } from '$lib/ollama/client';
-	import type { ProviderConfig } from '$lib/types';
-	import { createOllamaPanelController } from '$lib/features/settings/ollama-panel-controller.svelte';
+	import { featuredOllamaCatalog } from '#lib/ollama/catalog.js';
+	import { onOllamaPullProgress } from '#lib/ollama/client.js';
+	import type { ProviderConfig } from '#lib/types.js';
+	import { createOllamaPanelController } from '#lib/features/settings/ollama-panel-controller.svelte.js';
 	import SettingsButton from './SettingsButton.svelte';
 	import OllamaCatalogItem from './providers/OllamaCatalogItem.svelte';
 	import OllamaInstalledModels from './providers/OllamaInstalledModels.svelte';

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { defaultCometMindSettings } from '$lib/cometmind-settings';
-import type { ProviderConfig } from '$lib/types';
+import { defaultCometMindSettings } from '#lib/cometmind-settings.js';
+import type { ProviderConfig } from '#lib/types.js';
 import {
 	providerOptionLabel,
 	withAutonomyProvider,

@@ -1,4 +1,4 @@
-import type { Session } from '$lib/types';
+import type { Session } from '#lib/types.js';
 
 export const PINNED_GROUP_KEY = '__pinned__';
 export const DISCORD_GROUP_KEY = '__discord__';

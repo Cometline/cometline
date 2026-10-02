@@ -1,6 +1,6 @@
-import { pruneWorkspaces } from '$lib/client/cometmind';
-import type { UpdateState } from '$lib/electron-api';
-import { shellStore } from '$lib/stores/shell.svelte';
+import { pruneWorkspaces } from '#lib/client/cometmind.js';
+import type { UpdateState } from '#lib/electron-api.js';
+import { shellStore } from '#lib/stores/shell.svelte.js';
 import type { SettingsPanelControllerDeps } from './settings-panel-types';
 
 export function createSettingsPanelApp(

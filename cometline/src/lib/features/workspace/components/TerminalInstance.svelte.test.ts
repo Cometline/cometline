@@ -53,9 +53,9 @@ vi.mock('@xterm/addon-fit', () => ({
 	}
 }));
 vi.mock('@xterm/xterm/css/xterm.css', () => ({}));
-vi.mock('$lib/stores/shell.svelte', () => ({ shellStore }));
-vi.mock('$lib/stores/settings.svelte', () => ({ settingsStore }));
-vi.mock('$lib/stores/terminal.svelte', () => ({ terminalStore }));
+vi.mock('#lib/stores/shell.svelte.js', () => ({ shellStore }));
+vi.mock('#lib/stores/settings.svelte.js', () => ({ settingsStore }));
+vi.mock('#lib/stores/terminal.svelte.js', () => ({ terminalStore }));
 
 import TerminalInstance from './TerminalInstance.svelte';
 

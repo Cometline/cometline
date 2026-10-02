@@ -3,13 +3,13 @@ import {
 	isSessionNotFoundError,
 	streamMessage,
 	streamSessionEvents
-} from '$lib/client/cometmind';
-import type { ChatItem } from '$lib/types';
-import type { ChatTurnPayload } from '$lib/actions/start-chat';
-import { messageContextRefsFromWebContexts } from '$lib/features/chat/message-context';
-import { sessionStore } from '$lib/stores/session.svelte';
-import { localID } from '$lib/stores/chat-transcript';
-import type { SessionStream } from '$lib/stores/chat-stream-types';
+} from '#lib/client/cometmind.js';
+import type { ChatItem } from '#lib/types.js';
+import type { ChatTurnPayload } from '#lib/actions/start-chat.js';
+import { messageContextRefsFromWebContexts } from '#lib/features/chat/message-context.js';
+import { sessionStore } from '#lib/stores/session.svelte.js';
+import { localID } from '#lib/stores/chat-transcript.js';
+import type { SessionStream } from '#lib/stores/chat-stream-types.js';
 import { isAbortError, isRunConflict, isSessionRunningConflict } from './chat-errors';
 import type { AssistantItem } from './chat-turn';
 import type { ChatState } from './chat-state.svelte';

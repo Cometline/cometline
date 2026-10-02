@@ -1,4 +1,4 @@
-import { getActiveSessionId } from '$lib/active-session';
+import { getActiveSessionId } from '#lib/active-session.js';
 
 /** Default vs active workspace and the sidebar group ordering derived from them. */
 export function createWorkspacePathsStore() {

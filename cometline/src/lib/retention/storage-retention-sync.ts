@@ -1,16 +1,16 @@
-import { browser } from '$app/environment';
+import { browser } from '$app/env';
 import {
 	CometMindApiError,
 	listAllSessions,
 	runStorageRetention,
 	type RunStorageRetentionResponse
-} from '$lib/client/cometmind';
-import type { CometMindStorageSettings } from '$lib/features/settings/schema';
-import { activateAfterSessionDeleted } from '$lib/actions/activate-after-session-deleted';
-import { connectionState } from '$lib/stores/runtime.svelte';
-import { sessionStore } from '$lib/stores/session.svelte';
-import { shellStore } from '$lib/stores/shell.svelte';
-import type { Session } from '$lib/types';
+} from '#lib/client/cometmind.js';
+import type { CometMindStorageSettings } from '#lib/features/settings/schema.js';
+import { activateAfterSessionDeleted } from '#lib/actions/activate-after-session-deleted.js';
+import { connectionState } from '#lib/stores/runtime.svelte.js';
+import { sessionStore } from '#lib/stores/session.svelte.js';
+import { shellStore } from '#lib/stores/shell.svelte.js';
+import type { Session } from '#lib/types.js';
 
 const DEFAULT_CLEANUP_INTERVAL_MINUTES = 60;
 

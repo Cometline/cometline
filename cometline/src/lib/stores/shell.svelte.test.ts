@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const getActiveSessionId = vi.hoisted(() => vi.fn<() => string | null>(() => null));
 
-vi.mock('$lib/active-session', () => ({
+vi.mock('#lib/active-session.js', () => ({
 	getActiveSessionId
 }));
 

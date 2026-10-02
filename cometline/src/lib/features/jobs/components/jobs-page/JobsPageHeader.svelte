@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { RefreshCw } from '@lucide/svelte';
-	import type { JobsStatusFilter, JobsView } from '$lib/features/jobs/jobs-page.svelte';
+	import type { JobsStatusFilter, JobsView } from '#lib/features/jobs/jobs-page.svelte.js';
 
 	const STATUS_FILTERS: { id: JobsStatusFilter; label: string }[] = [
 		{ id: 'all', label: 'All' },

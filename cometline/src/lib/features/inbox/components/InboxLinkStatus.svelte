@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
-	import type { InboxMessageResource } from '$lib/client/cometmind';
+	import type { InboxMessageResource } from '#lib/client/cometmind.js';
 	import {
 		resolveInboxLinkAvailability,
 		type LinkAvailabilityMap
-	} from '$lib/features/inbox/link-availability';
+	} from '#lib/features/inbox/link-availability.js';
 
 	let {
 		messages,

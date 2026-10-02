@@ -6,15 +6,15 @@ import {
 	type ConversationControllerDeps,
 	type ConversationFlightAdapter
 } from './conversation-controller';
-import { chatStore } from '$lib/stores/chat.svelte';
-import { sessionStore } from '$lib/stores/session.svelte';
-import { shellStore } from '$lib/stores/shell.svelte';
-import { getSession, getSessionMessages } from '$lib/client/cometmind';
+import { chatStore } from '#lib/stores/chat.svelte.js';
+import { sessionStore } from '#lib/stores/session.svelte.js';
+import { shellStore } from '#lib/stores/shell.svelte.js';
+import { getSession, getSessionMessages } from '#lib/client/cometmind.js';
 
 type FlightPayload = Parameters<ConversationFlightAdapter['onUserMessageFlight']>[0];
 type FlightContext = Parameters<ConversationFlightAdapter['onUserMessageFlight']>[1];
 
-vi.mock('$lib/client/cometmind', () => ({
+vi.mock('#lib/client/cometmind.js', () => ({
 	getSession: vi.fn().mockResolvedValue({ id: 'sess-1', title: 'Updated' }),
 	getSessionMessages: vi.fn().mockResolvedValue({ session_id: 'sess-1', items: [] }),
 	listChildSessions: vi.fn().mockResolvedValue({ sessions: [] })

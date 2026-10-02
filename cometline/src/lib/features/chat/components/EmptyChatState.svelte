@@ -1,7 +1,10 @@
 <script lang="ts">
-	import { settingsStore } from '$lib/stores/settings.svelte';
-	import { resolvePersona, personaAvatarSrcset as builtinAvatarSrcset } from '$lib/personas';
-	import { personaAvatarCache } from '$lib/personas/avatar-cache.svelte';
+	import { settingsStore } from '#lib/stores/settings.svelte.js';
+	import {
+		resolvePersona,
+		personaAvatarSrcset as builtinAvatarSrcset
+	} from '#lib/personas/index.js';
+	import { personaAvatarCache } from '#lib/personas/avatar-cache.svelte.js';
 
 	let resolvedPersona = $derived(
 		resolvePersona(

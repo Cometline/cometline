@@ -1,6 +1,6 @@
-import type { ChatItem } from '$lib/types';
-import { anyReasoningPending, hasReasoning } from '$lib/features/chat/reasoning';
-import type { StreamCtx } from '$lib/stores/chat-stream-types';
+import type { ChatItem } from '#lib/types.js';
+import { anyReasoningPending, hasReasoning } from '#lib/features/chat/reasoning.js';
+import type { StreamCtx } from '#lib/stores/chat-stream-types.js';
 
 export type AssistantItem = Extract<ChatItem, { type: 'assistant' }>;
 

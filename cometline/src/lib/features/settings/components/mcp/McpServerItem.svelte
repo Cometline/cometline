@@ -1,15 +1,15 @@
 <script lang="ts">
 	import { ChevronDown, ChevronRight, Trash2 } from '@lucide/svelte';
 	import McpServerEditor from './McpServerEditor.svelte';
-	import type { MCPServerConfig } from '$lib/cometmind-settings';
-	import type { McpServerStatus } from '$lib/client/cometmind';
-	import type { McpPanelController } from '$lib/features/settings/mcp-panel-controller.svelte';
+	import type { MCPServerConfig } from '#lib/cometmind-settings.js';
+	import type { McpServerStatus } from '#lib/client/cometmind.js';
+	import type { McpPanelController } from '#lib/features/settings/mcp-panel-controller.svelte.js';
 	import {
 		connectionSummary,
 		displayError,
 		statusClass,
 		statusLabel
-	} from '$lib/features/settings/mcp-panel-format';
+	} from '#lib/features/settings/mcp-panel-format.js';
 
 	let {
 		server,

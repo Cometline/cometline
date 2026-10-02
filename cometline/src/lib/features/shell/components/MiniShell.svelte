@@ -3,17 +3,17 @@
 	import { page } from '$app/state';
 	import { cubicOut } from 'svelte/easing';
 	import { fly, fade } from 'svelte/transition';
-	import ThinkingIndicator from '$lib/components/ThinkingIndicator.svelte';
-	import { matchesShortcut } from '$lib/keyboard-shortcuts';
-	import { miniShellStore } from '$lib/stores/mini-shell.svelte';
-	import { settingsStore } from '$lib/stores/settings.svelte';
-	import { shellStore } from '$lib/stores/shell.svelte';
+	import ThinkingIndicator from '#lib/components/ThinkingIndicator.svelte';
+	import { matchesShortcut } from '#lib/keyboard-shortcuts.js';
+	import { miniShellStore } from '#lib/stores/mini-shell.svelte.js';
+	import { settingsStore } from '#lib/stores/settings.svelte.js';
+	import { shellStore } from '#lib/stores/shell.svelte.js';
 	import {
 		createMiniWindowSession,
 		navigateMiniToSession
-	} from '$lib/features/shell/mini-window-session';
-	import MiniSessionSidebar from '$lib/features/sidebar/components/MiniSessionSidebar.svelte';
-	import type { Session } from '$lib/types';
+	} from '#lib/features/shell/mini-window-session.js';
+	import MiniSessionSidebar from '#lib/features/sidebar/components/MiniSessionSidebar.svelte';
+	import type { Session } from '#lib/types.js';
 
 	let { children } = $props();
 	let creatingSession = $state(false);

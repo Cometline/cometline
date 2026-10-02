@@ -1,6 +1,6 @@
 <script lang="ts">
-	import WorkspacePathField from '$lib/components/WorkspacePathField.svelte';
-	import type { JobsScheduleController } from '$lib/features/jobs/jobs-page-schedule.svelte';
+	import WorkspacePathField from '#lib/components/WorkspacePathField.svelte';
+	import type { JobsScheduleController } from '#lib/features/jobs/jobs-page-schedule.svelte.js';
 
 	let { schedule }: { schedule: JobsScheduleController } = $props();
 

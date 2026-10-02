@@ -3,8 +3,8 @@ import { fireEvent, render, screen } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
 import SetupWizard from './SetupWizard.svelte';
 
-vi.mock('$lib/client/cometmind', async (importOriginal) => {
-	const actual = await importOriginal<typeof import('$lib/client/cometmind')>();
+vi.mock('#lib/client/cometmind.js', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('#lib/client/cometmind.js')>();
 	return { ...actual, getMemorySettings: vi.fn(async () => actual.defaultMemorySettings()) };
 });
 

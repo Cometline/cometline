@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { fly } from 'svelte/transition';
-	import type { CaretTrailSettings } from '$lib/types';
-	import { customCaret } from '$lib/dom/custom-caret';
-	import { createRichComposerInputController } from '$lib/features/composer/rich-composer-input.svelte';
+	import type { CaretTrailSettings } from '#lib/types.js';
+	import { customCaret } from '#lib/dom/custom-caret.js';
+	import { createRichComposerInputController } from '#lib/features/composer/rich-composer-input.svelte.js';
 
 	let {
 		value = $bindable(''),

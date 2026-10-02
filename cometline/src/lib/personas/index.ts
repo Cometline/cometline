@@ -1,4 +1,4 @@
-import type { CustomPersona } from '$lib/types';
+import type { CustomPersona } from '#lib/types.js';
 import {
 	BUILTIN_PERSONAS,
 	isBuiltinPersonaId,

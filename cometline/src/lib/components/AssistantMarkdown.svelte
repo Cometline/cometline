@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { createAssistantMarkdown } from '$lib/components/assistant-markdown.svelte';
-	import type { WorkspaceMarkdownResources } from '$lib/markdown/render';
+	import { createAssistantMarkdown } from '#lib/components/assistant-markdown.svelte.js';
+	import type { WorkspaceMarkdownResources } from '#lib/markdown/render.js';
 
 	let {
 		source = '',

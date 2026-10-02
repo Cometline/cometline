@@ -2,13 +2,13 @@
 	import SettingsToggle from './SettingsToggle.svelte';
 	import SettingsButton from './SettingsButton.svelte';
 	import McpServerItem from './mcp/McpServerItem.svelte';
-	import { type CometMindMCPSettings } from '$lib/cometmind-settings';
-	import { createMcpPanelController } from '$lib/features/settings/mcp-panel-controller.svelte';
+	import { type CometMindMCPSettings } from '#lib/cometmind-settings.js';
+	import { createMcpPanelController } from '#lib/features/settings/mcp-panel-controller.svelte.js';
 	import {
 		MCP_RELOADING_POLL_MS,
 		hasPendingServer,
 		isMcpStatusError
-	} from '$lib/features/settings/mcp-panel-format';
+	} from '#lib/features/settings/mcp-panel-format.js';
 	import { Download, Plus, RefreshCw } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 

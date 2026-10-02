@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { nextSessionAfterDelete } from './next-session-after-delete';
-import type { Session } from '$lib/types';
+import type { Session } from '#lib/types.js';
 
 function session(id: string): Session {
 	return {

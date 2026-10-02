@@ -2,8 +2,8 @@
 	import { fly, fade } from 'svelte/transition';
 	import { onMount } from 'svelte';
 	import { X } from '@lucide/svelte';
-	import type { JobEventResource, JobResource } from '$lib/client/cometmind';
-	import { createJobDetailSessionController } from '$lib/features/jobs/job-detail-session.svelte';
+	import type { JobEventResource, JobResource } from '#lib/client/cometmind.js';
+	import { createJobDetailSessionController } from '#lib/features/jobs/job-detail-session.svelte.js';
 	import JobCreateForm from './JobCreateForm.svelte';
 	import JobDetailEditForm from './job-detail/JobDetailEditForm.svelte';
 	import JobDetailFooter from './job-detail/JobDetailFooter.svelte';

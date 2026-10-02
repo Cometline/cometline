@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { listJobs, type JobResource } from '$lib/client/cometmind';
-import { startJobNotificationPoller } from '$lib/features/jobs/job-notifications';
-import { jobsIndicatorStore } from '$lib/stores/jobs-indicator.svelte';
+import { listJobs, type JobResource } from '#lib/client/cometmind.js';
+import { startJobNotificationPoller } from '#lib/features/jobs/job-notifications.js';
+import { jobsIndicatorStore } from '#lib/stores/jobs-indicator.svelte.js';
 
-vi.mock('$lib/client/cometmind', () => ({
+vi.mock('#lib/client/cometmind.js', () => ({
 	listJobs: vi.fn()
 }));
 

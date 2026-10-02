@@ -1,9 +1,9 @@
 <script lang="ts">
-	import type { TerminalAppearanceSettings } from '$lib/types';
+	import type { TerminalAppearanceSettings } from '#lib/types.js';
 	import {
 		normalizeTerminalFontSize,
 		TERMINAL_THEME_PRESETS
-	} from '$lib/features/workspace/terminal-appearance';
+	} from '#lib/features/workspace/terminal-appearance.js';
 
 	let { terminal = $bindable() }: { terminal: TerminalAppearanceSettings } = $props();
 

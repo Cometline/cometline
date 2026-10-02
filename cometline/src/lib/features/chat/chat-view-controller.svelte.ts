@@ -1,12 +1,12 @@
-import { connectionState } from '$lib/stores/runtime.svelte';
-import { shellStore } from '$lib/stores/shell.svelte';
-import { chatStore } from '$lib/stores/chat.svelte';
-import { sessionStore } from '$lib/stores/session.svelte';
-import { modelStore, type ModelOption } from '$lib/stores/model.svelte';
-import { settingsStore } from '$lib/stores/settings.svelte';
-import { updateSession } from '$lib/client/cometmind';
-import { matchesShortcut } from '$lib/keyboard-shortcuts';
-import type { ChatTurnPayload } from '$lib/actions/start-chat';
+import { connectionState } from '#lib/stores/runtime.svelte.js';
+import { shellStore } from '#lib/stores/shell.svelte.js';
+import { chatStore } from '#lib/stores/chat.svelte.js';
+import { sessionStore } from '#lib/stores/session.svelte.js';
+import { modelStore, type ModelOption } from '#lib/stores/model.svelte.js';
+import { settingsStore } from '#lib/stores/settings.svelte.js';
+import { updateSession } from '#lib/client/cometmind.js';
+import { matchesShortcut } from '#lib/keyboard-shortcuts.js';
+import type { ChatTurnPayload } from '#lib/actions/start-chat.js';
 
 export function createChatViewController(deps: {
 	getSessionId: () => string;

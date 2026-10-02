@@ -1,11 +1,11 @@
 <script lang="ts">
 	import SettingsToggle from '../SettingsToggle.svelte';
-	import { runStorageBackup } from '$lib/client/cometmind';
-	import type { CometMindStorageSettings } from '$lib/features/settings/schema';
+	import { runStorageBackup } from '#lib/client/cometmind.js';
+	import type { CometMindStorageSettings } from '#lib/features/settings/schema.js';
 	import {
 		nonNegativeIntFromInput,
 		positiveIntFromInput
-	} from '$lib/features/settings/general-panel-inputs';
+	} from '#lib/features/settings/general-panel-inputs.js';
 
 	let { storage = $bindable() }: { storage: CometMindStorageSettings } = $props();
 

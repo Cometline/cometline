@@ -1,5 +1,5 @@
-import type { DeleteCustomPersonaResult, SaveCustomPersonaResult } from '$lib/electron-api';
-import { personaAvatarCache } from '$lib/personas/avatar-cache.svelte';
+import type { DeleteCustomPersonaResult, SaveCustomPersonaResult } from '#lib/electron-api.js';
+import { personaAvatarCache } from '#lib/personas/avatar-cache.svelte.js';
 
 export interface CustomPersonaLike {
 	id: string;

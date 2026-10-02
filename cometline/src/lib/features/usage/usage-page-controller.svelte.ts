@@ -7,7 +7,7 @@ import {
 	type UsageSeriesResponse,
 	type UsageSummaryResponse,
 	type Workspace
-} from '$lib/client/cometmind';
+} from '#lib/client/cometmind.js';
 import {
 	cacheHitRate,
 	formatCacheHit,
@@ -15,13 +15,13 @@ import {
 	rangeForPreset,
 	type RangePreset,
 	type UsageGroupBy
-} from '$lib/features/usage/format';
+} from '#lib/features/usage/format.js';
 import {
 	collectAllUsageEvents,
 	isCurrentRefresh,
 	localTZOffsetMin
-} from '$lib/features/usage/load';
-import { usageCsvFilename, usageEventsCsv } from '$lib/features/usage/usage-page-csv';
+} from '#lib/features/usage/load.js';
+import { usageCsvFilename, usageEventsCsv } from '#lib/features/usage/usage-page-csv.js';
 
 export const USAGE_PAGE_SIZE = 50;
 const CSV_LIMIT = 200;

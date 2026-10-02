@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Session } from '$lib/types';
+import type { Session } from '#lib/types.js';
 
 const mocks = vi.hoisted(() => ({
 	createSession: vi.fn(),
@@ -18,27 +18,27 @@ const mocks = vi.hoisted(() => ({
 	}
 }));
 
-vi.mock('$lib/client/cometmind', () => ({ createSession: mocks.createSession }));
-vi.mock('$lib/stores/model.svelte', () => ({
+vi.mock('#lib/client/cometmind.js', () => ({ createSession: mocks.createSession }));
+vi.mock('#lib/stores/model.svelte.js', () => ({
 	modelStore: {
 		options: [mocks.defaultModel],
 		selected: mocks.defaultModel,
 		selectDefault: mocks.selectDefault
 	}
 }));
-vi.mock('$lib/stores/session.svelte', () => ({
+vi.mock('#lib/stores/session.svelte.js', () => ({
 	sessionStore: { appendSession: mocks.appendSession }
 }));
-vi.mock('$lib/stores/settings.svelte', () => ({
+vi.mock('#lib/stores/settings.svelte.js', () => ({
 	settingsStore: { load: mocks.loadSettings }
 }));
-vi.mock('$lib/stores/shell.svelte', () => ({
+vi.mock('#lib/stores/shell.svelte.js', () => ({
 	shellStore: {
 		defaultWorkspacePath: '/default-workspace',
 		commitActiveWorkspace: mocks.commitActiveWorkspace
 	}
 }));
-vi.mock('$lib/stores/session-visit-history.svelte', () => ({
+vi.mock('#lib/stores/session-visit-history.svelte.js', () => ({
 	sessionVisitHistory: { recordVisit: mocks.recordVisit }
 }));
 

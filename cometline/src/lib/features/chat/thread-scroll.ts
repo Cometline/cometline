@@ -1,4 +1,4 @@
-import type { ChatItem } from '$lib/stores/chat.svelte';
+import type { ChatItem } from '#lib/stores/chat.svelte.js';
 import { anyReasoningPending, reasoningTextLength } from './reasoning';
 
 export const SCROLL_PIN_THRESHOLD = 96;

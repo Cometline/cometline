@@ -11,7 +11,7 @@ export type ComposerHistoryEntry = {
 
 export type PendingUnsentDraft = {
 	text: string;
-	images?: import('$lib/types').ImageAttachment[];
+	images?: import('#lib/types.js').ImageAttachment[];
 };
 
 export function normalizeWorkspacePath(path: string): string {

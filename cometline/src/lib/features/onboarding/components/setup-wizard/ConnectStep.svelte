@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { ProviderConfig } from '$lib/types';
+	import type { ProviderConfig } from '#lib/types.js';
 	import StepIntro from './StepIntro.svelte';
 
 	let {

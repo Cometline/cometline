@@ -1,26 +1,26 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { flip } from 'svelte/animate';
-	import type { Session } from '$lib/types';
-	import { sessionStore } from '$lib/stores/session.svelte';
-	import { startNewChat } from '$lib/actions/new-chat';
-	import { navigateToSession } from '$lib/actions/navigate-to-session';
-	import { sessionDisplayTitle } from '$lib/sessions/session-title';
-	import { shellStore } from '$lib/stores/shell.svelte';
-	import { isNarrowViewport } from '$lib/layout/narrow-viewport';
+	import type { Session } from '#lib/types.js';
+	import { sessionStore } from '#lib/stores/session.svelte.js';
+	import { startNewChat } from '#lib/actions/new-chat.js';
+	import { navigateToSession } from '#lib/actions/navigate-to-session.js';
+	import { sessionDisplayTitle } from '#lib/sessions/session-title.js';
+	import { shellStore } from '#lib/stores/shell.svelte.js';
+	import { isNarrowViewport } from '#lib/layout/narrow-viewport.js';
 	import {
 		layoutSessionsForSidebar,
 		PINNED_GROUP_KEY,
 		DISCORD_GROUP_KEY
-	} from '$lib/sessions/group-by-workspace';
-	import SidebarSearch from '$lib/features/sidebar/components/SidebarSearch.svelte';
-	import PinnedGroup from '$lib/features/sidebar/components/PinnedGroup.svelte';
-	import DiscordGroup from '$lib/features/sidebar/components/DiscordGroup.svelte';
-	import WorkspaceGroup from '$lib/features/sidebar/components/WorkspaceGroup.svelte';
-	import ConfirmActionModal from '$lib/components/ConfirmActionModal.svelte';
-	import SessionContextMenu from '$lib/features/sidebar/components/SessionContextMenu.svelte';
-	import SidebarFooter from '$lib/features/sidebar/components/sidebar/SidebarFooter.svelte';
-	import { createSidebarSessionActions } from '$lib/features/sidebar/sidebar-session-actions.svelte';
+	} from '#lib/sessions/group-by-workspace.js';
+	import SidebarSearch from '#lib/features/sidebar/components/SidebarSearch.svelte';
+	import PinnedGroup from '#lib/features/sidebar/components/PinnedGroup.svelte';
+	import DiscordGroup from '#lib/features/sidebar/components/DiscordGroup.svelte';
+	import WorkspaceGroup from '#lib/features/sidebar/components/WorkspaceGroup.svelte';
+	import ConfirmActionModal from '#lib/components/ConfirmActionModal.svelte';
+	import SessionContextMenu from '#lib/features/sidebar/components/SessionContextMenu.svelte';
+	import SidebarFooter from '#lib/features/sidebar/components/sidebar/SidebarFooter.svelte';
+	import { createSidebarSessionActions } from '#lib/features/sidebar/sidebar-session-actions.svelte.js';
 
 	const WORKSPACE_GROUP_FLIP = { duration: 240 };
 

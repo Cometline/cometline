@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Globe, LoaderCircle, Plus, TriangleAlert, X } from '@lucide/svelte';
-	import AudioActivityIcon from '$lib/components/AudioActivityIcon.svelte';
-	import type { WebTabStatus } from '$lib/features/workspace/web-tab-activity.svelte';
+	import AudioActivityIcon from '#lib/components/AudioActivityIcon.svelte';
+	import type { WebTabStatus } from '#lib/features/workspace/web-tab-activity.svelte.js';
 
 	let {
 		tabs,

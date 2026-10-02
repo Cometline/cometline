@@ -1,4 +1,4 @@
-import { shellStore } from '$lib/stores/shell.svelte';
+import { shellStore } from '#lib/stores/shell.svelte.js';
 
 export function openSettings() {
 	const openWindow = window.electronAPI?.openSettingsWindow;

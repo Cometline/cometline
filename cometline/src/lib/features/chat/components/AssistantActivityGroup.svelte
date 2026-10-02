@@ -10,17 +10,17 @@
 		Terminal,
 		TriangleAlert
 	} from '@lucide/svelte';
-	import ThinkingSpinner from '$lib/components/ThinkingSpinner.svelte';
-	import MemoryCard from '$lib/features/chat/components/MemoryCard.svelte';
-	import TimelineEntryRow from '$lib/features/chat/components/TimelineEntryRow.svelte';
-	import { getChatTurnContext } from '$lib/features/chat/chat-turn-context';
-	import type { ChatItem } from '$lib/stores/chat.svelte';
+	import ThinkingSpinner from '#lib/components/ThinkingSpinner.svelte';
+	import MemoryCard from '#lib/features/chat/components/MemoryCard.svelte';
+	import TimelineEntryRow from '#lib/features/chat/components/TimelineEntryRow.svelte';
+	import { getChatTurnContext } from '#lib/features/chat/chat-turn-context.js';
+	import type { ChatItem } from '#lib/stores/chat.svelte.js';
 	import {
 		coalesceReasoningEntries,
 		type TimelineEntry,
 		type InjectedMemory
-	} from '$lib/features/chat/thinking-attribution';
-	import { subagentProgressLabel } from '$lib/features/chat/subagent-display';
+	} from '#lib/features/chat/thinking-attribution.js';
+	import { subagentProgressLabel } from '#lib/features/chat/subagent-display.js';
 
 	let {
 		assistant,

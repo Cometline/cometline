@@ -1,4 +1,4 @@
-import { listSkillDrafts } from '$lib/client/cometmind';
+import { listSkillDrafts } from '#lib/client/cometmind.js';
 
 function createSkillDraftsStore() {
 	let count = $state(0);

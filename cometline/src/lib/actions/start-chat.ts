@@ -8,7 +8,7 @@
  * - The session is refreshed after every send so the title can update.
  */
 
-import type { AgentMode, ImageAttachment } from '$lib/types';
+import type { AgentMode, ImageAttachment } from '#lib/types.js';
 
 export interface WebContext {
 	kind: 'page' | 'file' | 'terminal' | 'message';

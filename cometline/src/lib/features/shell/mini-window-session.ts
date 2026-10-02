@@ -1,16 +1,16 @@
 import { goto } from '$app/navigation';
 import { resolve } from '$app/paths';
-import { createSession, listAllSessions } from '$lib/client/cometmind';
-import { createNewSession } from '$lib/actions/create-new-session';
-import { modelStore } from '$lib/stores/model.svelte';
-import { miniShellStore } from '$lib/stores/mini-shell.svelte';
-import { sessionStore } from '$lib/stores/session.svelte';
-import { settingsStore } from '$lib/stores/settings.svelte';
-import { shellStore } from '$lib/stores/shell.svelte';
-import { sessionVisitHistory } from '$lib/stores/session-visit-history.svelte';
-import { isDiscordSession } from '$lib/sessions/group-by-workspace';
-import type { MiniWindowState } from '$lib/electron-api';
-import type { Session } from '$lib/types';
+import { createSession, listAllSessions } from '#lib/client/cometmind.js';
+import { createNewSession } from '#lib/actions/create-new-session.js';
+import { modelStore } from '#lib/stores/model.svelte.js';
+import { miniShellStore } from '#lib/stores/mini-shell.svelte.js';
+import { sessionStore } from '#lib/stores/session.svelte.js';
+import { settingsStore } from '#lib/stores/settings.svelte.js';
+import { shellStore } from '#lib/stores/shell.svelte.js';
+import { sessionVisitHistory } from '#lib/stores/session-visit-history.svelte.js';
+import { isDiscordSession } from '#lib/sessions/group-by-workspace.js';
+import type { MiniWindowState } from '#lib/electron-api.js';
+import type { Session } from '#lib/types.js';
 
 async function resolveSelectedModel() {
 	if (modelStore.options.length === 0) {

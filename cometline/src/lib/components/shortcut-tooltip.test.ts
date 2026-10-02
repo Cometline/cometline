@@ -4,7 +4,7 @@ import {
 	shortcutTooltipText,
 	resolveShortcutBinding
 } from './shortcut-tooltip';
-import type { KeyboardShortcuts } from '$lib/keyboard-shortcuts';
+import type { KeyboardShortcuts } from '#lib/keyboard-shortcuts.js';
 
 const macShortcuts: KeyboardShortcuts = {
 	openTerminal: { command: true, key: 'j' },

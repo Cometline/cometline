@@ -1,5 +1,5 @@
 import { tick } from 'svelte';
-import type { ImageAttachment } from '$lib/types';
+import type { ImageAttachment } from '#lib/types.js';
 
 export const FLIGHT_MS = 560;
 export const FLIGHT_EASE = 'cubic-bezier(0.22, 1, 0.36, 1)';

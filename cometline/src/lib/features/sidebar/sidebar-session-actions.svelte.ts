@@ -1,13 +1,13 @@
-import type { Session } from '$lib/types';
-import { sessionStore } from '$lib/stores/session.svelte';
-import { deleteSession, updateSession } from '$lib/client/cometmind';
+import type { Session } from '#lib/types.js';
+import { sessionStore } from '#lib/stores/session.svelte.js';
+import { deleteSession, updateSession } from '#lib/client/cometmind.js';
 import {
 	activateAfterSessionDeleted,
 	sessionsSnapshot
-} from '$lib/actions/activate-after-session-deleted';
-import { shellStore } from '$lib/stores/shell.svelte';
-import { terminalStore } from '$lib/stores/terminal.svelte';
-import { settingsStore } from '$lib/stores/settings.svelte';
+} from '#lib/actions/activate-after-session-deleted.js';
+import { shellStore } from '#lib/stores/shell.svelte.js';
+import { terminalStore } from '#lib/stores/terminal.svelte.js';
+import { settingsStore } from '#lib/stores/settings.svelte.js';
 
 export type SidebarContextMenu = { session: Session; x: number; y: number };
 

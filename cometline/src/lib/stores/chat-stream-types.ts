@@ -1,4 +1,4 @@
-import type { ChatItem } from '$lib/types';
+import type { ChatItem } from '#lib/types.js';
 
 export type StreamCtx = {
 	assistant: { current: Extract<ChatItem, { type: 'assistant' }> | null };

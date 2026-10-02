@@ -143,7 +143,7 @@ A harness is an external coding program. Delegation means the agent hands that c
 2. Implement the generated strict-server method under `cometmind/internal/server`. Routes come from `internal/apigen` (`server.gen.go`).
 3. Hand-register a route in `internal/server/routes.go` only for the excluded operations: `postSessionMessage`, `streamSessionEvents`, `streamRuntimeEvents`, `getSessionMedia`, `getMediaContent`, and `exportSkill`.
 4. Run `make generate`.
-5. In `cometline/src/lib/client/cometmind.ts`, add the client function. UI code calls CometMind only through `$lib/client`.
+5. In `cometline/src/lib/client/cometmind.ts`, add the client function. UI code calls CometMind only through `#lib/client`.
 6. Add a server test in `internal/server/*_test.go`.
 
 REST is a request-and-response web API. An endpoint is one API path.

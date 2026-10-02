@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import * as cometmind from '$lib/client/cometmind';
+import * as cometmind from '#lib/client/cometmind.js';
 import { loadPanelFileOptions } from './panel-file-options';
 
-vi.mock('$lib/client/cometmind', () => ({
+vi.mock('#lib/client/cometmind.js', () => ({
 	listWorkspaceFiles: vi.fn()
 }));
 

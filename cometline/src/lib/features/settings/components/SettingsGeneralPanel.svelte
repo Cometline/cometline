@@ -2,11 +2,14 @@
 	import SettingsToggle from './SettingsToggle.svelte';
 	import StorageRetentionSection from './general/StorageRetentionSection.svelte';
 	import DataBackupSection from './general/DataBackupSection.svelte';
-	import type { CometMindStorageSettings, FileSearchSource } from '$lib/features/settings/schema';
+	import type {
+		CometMindStorageSettings,
+		FileSearchSource
+	} from '#lib/features/settings/schema.js';
 	import {
 		miniWindowTimeoutFromInput,
 		screenCaptureStatusLabel
-	} from '$lib/features/settings/general-panel-inputs';
+	} from '#lib/features/settings/general-panel-inputs.js';
 
 	let {
 		openAtLogin = $bindable(false),

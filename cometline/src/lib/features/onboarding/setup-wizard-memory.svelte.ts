@@ -5,15 +5,15 @@ import {
 	mergeEmbeddingFields,
 	savedEmbeddingFromApi,
 	type SavedEmbeddingRef
-} from '$lib/embedding-models';
+} from '#lib/embedding-models.js';
 import {
 	defaultMemorySettings,
 	getMemorySettings,
 	type MemorySettings
-} from '$lib/client/cometmind';
-import type { ProviderConfig, ProviderSettings } from '$lib/types';
-import { OLLAMA_DEFAULT_NATIVE_BASE } from '$lib/ollama/catalog';
-import { checkOllamaHealth, pullOllamaModel, type OllamaHealthResult } from '$lib/ollama/client';
+} from '#lib/client/cometmind.js';
+import type { ProviderConfig, ProviderSettings } from '#lib/types.js';
+import { OLLAMA_DEFAULT_NATIVE_BASE } from '#lib/ollama/catalog.js';
+import { checkOllamaHealth, pullOllamaModel, type OllamaHealthResult } from '#lib/ollama/client.js';
 import {
 	embeddingSelectionPayload,
 	PRIVATE_MEMORY,

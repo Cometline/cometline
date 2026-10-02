@@ -3,8 +3,8 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { untrack } from 'svelte';
-	import ChatView from '$lib/features/chat/components/ChatView.svelte';
-	import { miniShellStore } from '$lib/stores/mini-shell.svelte';
+	import ChatView from '#lib/features/chat/components/ChatView.svelte';
+	import { miniShellStore } from '#lib/stores/mini-shell.svelte.js';
 
 	let sessionId = $derived(page.params.id ?? '');
 	let resolvedSessionId = $state('');
@@ -14,7 +14,7 @@
 	async function resolveSession(id: string, run: number, openingRun: number) {
 		try {
 			const { ensureMiniWindowSession } =
-				await import('$lib/features/shell/mini-window-session');
+				await import('#lib/features/shell/mini-window-session.js');
 			const ensuredSessionId = await ensureMiniWindowSession(id);
 			if (run !== resolvingRun) return;
 			if (ensuredSessionId !== id) {

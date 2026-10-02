@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { fade, fly } from 'svelte/transition';
 	import { Check, Sparkles } from '@lucide/svelte';
-	import { formatContextWindow } from '$lib/context-window';
-	import ModelCapabilityIcons from '$lib/components/model/ModelCapabilityIcons.svelte';
-	import { modelStore, type ModelOption } from '$lib/stores/model.svelte';
+	import { formatContextWindow } from '#lib/context-window.js';
+	import ModelCapabilityIcons from '#lib/components/model/ModelCapabilityIcons.svelte';
+	import { modelStore, type ModelOption } from '#lib/stores/model.svelte.js';
 
 	let {
 		onModelChange

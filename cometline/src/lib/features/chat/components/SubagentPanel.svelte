@@ -8,9 +8,9 @@
 		CircleCheck,
 		CircleX
 	} from '@lucide/svelte';
-	import { chatStore } from '$lib/stores/chat.svelte';
-	import type { ChatItem } from '$lib/stores/chat.svelte';
-	import { subagentProgressLabel } from '$lib/features/chat/subagent-display';
+	import { chatStore } from '#lib/stores/chat.svelte.js';
+	import type { ChatItem } from '#lib/stores/chat.svelte.js';
+	import { subagentProgressLabel } from '#lib/features/chat/subagent-display.js';
 
 	const FOLD_IN = { duration: 180 };
 

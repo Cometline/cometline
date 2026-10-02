@@ -1,15 +1,15 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import EmptyChatState from '$lib/features/chat/components/EmptyChatState.svelte';
-	import Composer from '$lib/features/composer/components/Composer.svelte';
-	import HeroComposerFrame from '$lib/features/composer/components/HeroComposerFrame.svelte';
-	import { sessionStore } from '$lib/stores/session.svelte';
-	import { connectionState } from '$lib/stores/runtime.svelte';
-	import { modelStore } from '$lib/stores/model.svelte';
-	import { shellStore } from '$lib/stores/shell.svelte';
-	import { chatStore } from '$lib/stores/chat.svelte';
-	import { openSettings } from '$lib/actions/open-settings';
-	import { bootstrapHomeSession } from '$lib/actions/bootstrap-home-session';
+	import EmptyChatState from '#lib/features/chat/components/EmptyChatState.svelte';
+	import Composer from '#lib/features/composer/components/Composer.svelte';
+	import HeroComposerFrame from '#lib/features/composer/components/HeroComposerFrame.svelte';
+	import { sessionStore } from '#lib/stores/session.svelte.js';
+	import { connectionState } from '#lib/stores/runtime.svelte.js';
+	import { modelStore } from '#lib/stores/model.svelte.js';
+	import { shellStore } from '#lib/stores/shell.svelte.js';
+	import { chatStore } from '#lib/stores/chat.svelte.js';
+	import { openSettings } from '#lib/actions/open-settings.js';
+	import { bootstrapHomeSession } from '#lib/actions/bootstrap-home-session.js';
 	import { FolderOpen } from '@lucide/svelte';
 
 	let composerRef = $state<{ focus: () => void } | null>(null);

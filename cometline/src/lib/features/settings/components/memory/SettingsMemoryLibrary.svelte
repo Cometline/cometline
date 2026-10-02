@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { LoaderCircle, Trash2 } from '@lucide/svelte';
-	import type { SettingsMemoryPanel } from '$lib/features/settings/settings-memory-panel.svelte';
+	import type { SettingsMemoryPanel } from '#lib/features/settings/settings-memory-panel.svelte.js';
 
 	let { panel }: { panel: SettingsMemoryPanel } = $props();
 </script>

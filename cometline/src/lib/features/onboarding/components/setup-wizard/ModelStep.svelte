@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Check, LoaderCircle, Search } from '@lucide/svelte';
-	import type { ProviderConfig } from '$lib/types';
-	import { providerLabel } from '$lib/features/onboarding/setup-wizard';
+	import type { ProviderConfig } from '#lib/types.js';
+	import { providerLabel } from '#lib/features/onboarding/setup-wizard.js';
 	import ProviderTabs from './ProviderTabs.svelte';
 	import StepIntro from './StepIntro.svelte';
 

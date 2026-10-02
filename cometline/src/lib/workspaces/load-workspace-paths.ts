@@ -1,4 +1,4 @@
-import { listWorkspaces } from '$lib/client/cometmind';
+import { listWorkspaces } from '#lib/client/cometmind.js';
 
 export type WorkspacePathSource = {
 	listRecentWorkspaces?: () => Promise<string[]>;

@@ -1,12 +1,12 @@
-import { getActiveSessionId } from '$lib/active-session';
-import type { PanelHistoryEntry } from '$lib/features/workspace/panel-history';
-import type { WorkspacePanelTreeSource } from '$lib/features/workspace/workspace-panel-prefs';
+import { getActiveSessionId } from '#lib/active-session.js';
+import type { PanelHistoryEntry } from '#lib/features/workspace/panel-history.js';
+import type { WorkspacePanelTreeSource } from '#lib/features/workspace/workspace-panel-prefs.js';
 import {
 	closeWorkspacePanel as closeWorkspacePanelState,
 	openWorkspacePanelFile,
 	openWorkspacePanelUrl as openWorkspacePanelUrlState,
 	type SurfaceContentKey
-} from '$lib/features/workspace/workspace-panel-state';
+} from '#lib/features/workspace/workspace-panel-state.js';
 import type { FileTreeStore } from './file-tree.svelte';
 import type { ShellFocusStore } from './focus.svelte';
 import type { PanelHistoryStore } from './panel-history.svelte';

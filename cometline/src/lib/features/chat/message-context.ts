@@ -1,8 +1,8 @@
-import type { MessageContextRef } from '$lib/generated/cometmind-api';
-import type { WebContext } from '$lib/actions/start-chat';
-import type { SelectionLineRange } from '$lib/features/workspace/selection-snippet';
-import { openWorkspaceFilePreview } from '$lib/features/workspace/open-file-preview';
-import { shellStore, type PendingWebContext } from '$lib/stores/shell.svelte';
+import type { MessageContextRef } from '#lib/generated/cometmind-api/index.js';
+import type { WebContext } from '#lib/actions/start-chat.js';
+import type { SelectionLineRange } from '#lib/features/workspace/selection-snippet.js';
+import { openWorkspaceFilePreview } from '#lib/features/workspace/open-file-preview.js';
+import { shellStore, type PendingWebContext } from '#lib/stores/shell.svelte.js';
 
 export type { MessageContextRef };
 

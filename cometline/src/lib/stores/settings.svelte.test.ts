@@ -1,17 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ProviderSettings } from '$lib/types';
+import type { ProviderSettings } from '#lib/types.js';
 
 const mocks = vi.hoisted(() => ({
 	lookupModelCatalog: vi.fn()
 }));
 
-vi.mock('$lib/client/cometmind', () => ({
+vi.mock('#lib/client/cometmind.js', () => ({
 	lookupModelCatalog: mocks.lookupModelCatalog
 }));
 
 import { settingsStore } from './settings.svelte';
 import { modelStore } from './model.svelte';
-import { defaultSettings } from '$lib/features/settings/schema';
+import { defaultSettings } from '#lib/features/settings/schema.js';
 
 describe('settingsStore.refreshModelLimits', () => {
 	beforeEach(() => {
