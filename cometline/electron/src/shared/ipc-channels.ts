@@ -94,6 +94,7 @@ export const EVENT_CHANNELS = {
 	onRequestReload: 'cometline:request-reload',
 	onNavigateSession: 'cometline:navigate-session',
 	onShortcutAction: 'cometline:shortcut-action',
+	onCommandEnter: 'cometline:command-enter',
 	onProviderSettingsChanged: 'cometline:provider-settings-changed',
 	onPersonaAvatarChanged: 'cometline:persona-avatar-changed',
 	onReplayIntro: 'cometline:replay-intro',

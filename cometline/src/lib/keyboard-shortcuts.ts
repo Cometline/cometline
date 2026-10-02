@@ -478,3 +478,67 @@ export function isDefaultBinding(
 		binding.shift === def.defaultBinding.shift
 	);
 }
+
+export type CommandEnterModifiers = {
+	shift: boolean;
+	alt: boolean;
+	control: boolean;
+};
+
+export type CommandEnterSignal = CommandEnterModifiers & {
+	purpose: 'capture' | 'submit';
+};
+
+export function commandEnterBinding(modifiers: CommandEnterModifiers): ShortcutBinding {
+	return {
+		key: 'Enter',
+		command: true,
+		...(modifiers.shift ? { shift: true } : {}),
+		...(modifiers.alt ? { alt: true } : {}),
+		...(modifiers.control ? { ctrl: true } : {})
+	};
+}
+
+export function matchesCommandEnter(
+	binding: ShortcutBinding | undefined,
+	modifiers: CommandEnterModifiers
+): boolean {
+	if (!binding?.command || !keyMatches(binding.key, 'Enter')) return false;
+	if (Boolean(binding.shift) !== modifiers.shift) return false;
+	if (Boolean(binding.alt) !== modifiers.alt) return false;
+	if (Boolean(binding.ctrl) !== modifiers.control) return false;
+	return !binding.meta;
+}
+
+type MetaEnterInput = {
+	type?: string;
+	key?: string;
+	code?: string;
+	meta?: boolean;
+	control?: boolean;
+	alt?: boolean;
+	shift?: boolean;
+	isComposing?: boolean;
+	isAutoRepeat?: boolean;
+};
+
+function isMetaEnter(input: MetaEnterInput): boolean {
+	const key = String(input.key ?? '');
+	const code = input.code ?? '';
+	return key === 'Enter' || code === 'Enter' || code === 'NumpadEnter';
+}
+
+export function swallowedMetaEnterAction(
+	input: MetaEnterInput,
+	platform: string
+): 'ignore' | 'consume' | CommandEnterModifiers {
+	if (platform !== 'darwin' || input.meta !== true || input.isComposing || !isMetaEnter(input)) {
+		return 'ignore';
+	}
+	if (input.type !== 'keyDown' || input.isAutoRepeat) return 'consume';
+	return {
+		shift: input.shift === true,
+		alt: input.alt === true,
+		control: input.control === true
+	};
+}

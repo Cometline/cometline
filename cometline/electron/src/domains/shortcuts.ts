@@ -3,8 +3,12 @@ import {
 	type KeyboardShortcuts,
 	type ShortcutAction,
 	type ShortcutBinding,
-	isReloadShortcut
+	type CommandEnterModifiers,
+	isReloadShortcut,
+	matchesCommandEnter,
+	swallowedMetaEnterAction
 } from '../../../src/lib/keyboard-shortcuts.js';
+import { EVENT_CHANNELS } from '../shared/ipc-channels.js';
 import type { ShellWindowContext } from './runtime-context.js';
 
 const UNRELIABLE_SHORTCUT_KEYS = new Set(['', 'Process', 'Unidentified', 'Dead']);
@@ -50,6 +54,7 @@ interface ShortcutCoordinatorDependencies {
 	hideMainWindow(): void;
 	hideMiniWindow(): void;
 	hideSettingsWindow(): void;
+	platform?: string;
 }
 
 function shortcutKeyMatches(a: string, b: string) {
@@ -147,6 +152,7 @@ export function createShortcutCoordinator(dependencies: ShortcutCoordinatorDepen
 		hideMiniWindow,
 		hideSettingsWindow
 	} = dependencies;
+	const platform = dependencies.platform ?? process.platform;
 	let registeredMiniWindowShortcut = '';
 
 	function handleDarwinCloseWindowShortcut(
@@ -201,6 +207,21 @@ export function createShortcutCoordinator(dependencies: ShortcutCoordinatorDepen
 		return true;
 	}
 
+	function deliverCommandEnter(webContents: WebContents, modifiers: CommandEnterModifiers) {
+		if (webContents.isDestroyed()) return;
+		const signal = {
+			...modifiers,
+			purpose: context.getShortcutCaptureActive() ? ('capture' as const) : ('submit' as const)
+		};
+		if (
+			signal.purpose === 'submit' &&
+			!matchesCommandEnter(getShortcuts().sendMessage, modifiers)
+		) {
+			return;
+		}
+		webContents.send(EVENT_CHANNELS.onCommandEnter, signal);
+	}
+
 	function attachWindowShortcuts(
 		webContents: WebContents,
 		options: {
@@ -213,6 +234,13 @@ export function createShortcutCoordinator(dependencies: ShortcutCoordinatorDepen
 		}
 	) {
 		webContents.on('before-input-event', (event, input) => {
+			const swallowed = swallowedMetaEnterAction(input, platform);
+			if (swallowed !== 'ignore') {
+				event.preventDefault();
+				if (swallowed !== 'consume') deliverCommandEnter(webContents, swallowed);
+				return;
+			}
+
 			if (
 				handleDarwinCloseWindowShortcut(
 					event,
@@ -360,6 +388,7 @@ export function createShortcutCoordinator(dependencies: ShortcutCoordinatorDepen
 	}
 
 	return {
+		deliverCommandEnter,
 		attachMainWindowShortcuts,
 		attachMiniWindowShortcuts,
 		attachSettingsWindowShortcuts,

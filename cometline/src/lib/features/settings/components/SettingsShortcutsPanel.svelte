@@ -6,6 +6,7 @@
 		shortcutsByCategory,
 		formatShortcut,
 		captureShortcut,
+		commandEnterBinding,
 		isDefaultBinding
 	} from '$lib/keyboard-shortcuts';
 
@@ -52,6 +53,17 @@
 
 	$effect(() => {
 		window.electronAPI?.setShortcutCaptureActive?.(Boolean(editingAction));
+	});
+
+	$effect(() => {
+		if (!editingAction) return;
+		const action = editingAction;
+		const unsubscribe = window.electronAPI?.onCommandEnter?.((signal) => {
+			if (signal.purpose !== 'capture') return;
+			onChange(action, commandEnterBinding(signal));
+			editingAction = null;
+		});
+		return () => unsubscribe?.();
 	});
 
 	$effect(() => {
