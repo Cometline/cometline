@@ -1,5 +1,5 @@
-import { browser } from '$app/environment';
-import { publishWindowSync, subscribeWindowSync } from '$lib/window-sync';
+import { browser } from '$app/env';
+import { publishWindowSync, subscribeWindowSync } from '#lib/window-sync.js';
 
 const STORAGE_KEY = 'cometline.unread-session-output.v1';
 

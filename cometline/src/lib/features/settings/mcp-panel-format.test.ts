@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { MCPServerConfig } from '$lib/cometmind-settings';
+import type { MCPServerConfig } from '#lib/cometmind-settings.js';
 import {
 	displayError,
 	formatEnv,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { ProviderConfig } from '$lib/types';
+import type { ProviderConfig } from '#lib/types.js';
 import {
 	buildModelOptions,
 	filterModelOptions,

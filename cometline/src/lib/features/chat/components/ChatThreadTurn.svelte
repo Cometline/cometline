@@ -1,9 +1,9 @@
 <script lang="ts">
 	import type { Action } from 'svelte/action';
-	import type { ChatItem } from '$lib/stores/chat.svelte';
-	import { usageText } from '$lib/features/chat/thread-format';
-	import { pinnedJobProposalToolIds } from '$lib/features/chat/thinking-attribution';
-	import type { AssistantStackContext } from '$lib/features/chat/assistant-stack-props';
+	import type { ChatItem } from '#lib/stores/chat.svelte.js';
+	import { usageText } from '#lib/features/chat/thread-format.js';
+	import { pinnedJobProposalToolIds } from '#lib/features/chat/thinking-attribution.js';
+	import type { AssistantStackContext } from '#lib/features/chat/assistant-stack-props.js';
 	import {
 		hideAssistantAvatarForFirstTurn,
 		showAssistantActivitySpinner,
@@ -11,16 +11,16 @@
 		showFirstTurnAvatarSlot,
 		firstAssistantInNormalList as shouldShowAssistantInNormalList,
 		type ThreadVisibilityContext
-	} from '$lib/features/chat/thread-visibility';
-	import { startsSpeakerRun } from '$lib/features/chat/thread-view-helpers';
-	import type { VisibleTurnEntry } from '$lib/features/chat/thread-virtual.svelte';
-	import FirstTurnAssistantSlot from '$lib/features/chat/components/FirstTurnAssistantSlot.svelte';
-	import UserMessageRow from '$lib/features/chat/components/UserMessageRow.svelte';
-	import MemoryEventRow from '$lib/features/chat/components/MemoryEventRow.svelte';
-	import AssistantMessageRow from '$lib/features/chat/components/AssistantMessageRow.svelte';
-	import ToolMessageRow from '$lib/features/chat/components/ToolMessageRow.svelte';
-	import SubagentMessageRow from '$lib/features/chat/components/SubagentMessageRow.svelte';
-	import ErrorEventRow from '$lib/features/chat/components/ErrorEventRow.svelte';
+	} from '#lib/features/chat/thread-visibility.js';
+	import { startsSpeakerRun } from '#lib/features/chat/thread-view-helpers.js';
+	import type { VisibleTurnEntry } from '#lib/features/chat/thread-virtual.svelte.js';
+	import FirstTurnAssistantSlot from '#lib/features/chat/components/FirstTurnAssistantSlot.svelte';
+	import UserMessageRow from '#lib/features/chat/components/UserMessageRow.svelte';
+	import MemoryEventRow from '#lib/features/chat/components/MemoryEventRow.svelte';
+	import AssistantMessageRow from '#lib/features/chat/components/AssistantMessageRow.svelte';
+	import ToolMessageRow from '#lib/features/chat/components/ToolMessageRow.svelte';
+	import SubagentMessageRow from '#lib/features/chat/components/SubagentMessageRow.svelte';
+	import ErrorEventRow from '#lib/features/chat/components/ErrorEventRow.svelte';
 
 	let {
 		entry,

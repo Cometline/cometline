@@ -1,9 +1,9 @@
 <script lang="ts">
-	import type InboxDrawerComponent from '$lib/features/inbox/components/InboxDrawer.svelte';
-	import { getSession } from '$lib/client/cometmind';
-	import { navigateToSession } from '$lib/actions/navigate-to-session';
-	import { gotoJob } from '$lib/routes/job-route';
-	import { inboxStore } from '$lib/stores/inbox.svelte';
+	import type InboxDrawerComponent from '#lib/features/inbox/components/InboxDrawer.svelte';
+	import { getSession } from '#lib/client/cometmind.js';
+	import { navigateToSession } from '#lib/actions/navigate-to-session.js';
+	import { gotoJob } from '#lib/routes/job-route.js';
+	import { inboxStore } from '#lib/stores/inbox.svelte.js';
 
 	let {
 		drawer: Drawer = null,

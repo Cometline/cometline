@@ -7,24 +7,24 @@
 		TriangleAlert,
 		CircleCheck
 	} from '@lucide/svelte';
-	import type { ChatItem } from '$lib/stores/chat.svelte';
-	import JobProposeCard from '$lib/features/chat/components/JobProposeCard.svelte';
-	import { parseJobProposal } from '$lib/features/jobs/parse-job-proposal';
+	import type { ChatItem } from '#lib/stores/chat.svelte.js';
+	import JobProposeCard from '#lib/features/chat/components/JobProposeCard.svelte';
+	import { parseJobProposal } from '#lib/features/jobs/parse-job-proposal.js';
 	import {
 		dismissJobProposal,
 		getJobProposalDismissal,
 		isJobProposalDismissed,
 		jobProposalDismissalSummary,
 		type JobProposalDismissAction
-	} from '$lib/features/jobs/job-proposal-dismissals';
-	import type { ChatTurnPayload } from '$lib/actions/start-chat';
-	import type { JobResource } from '$lib/client/cometmind';
-	import EditDiffBlock from '$lib/features/chat/components/EditDiffBlock.svelte';
+	} from '#lib/features/jobs/job-proposal-dismissals.js';
+	import type { ChatTurnPayload } from '#lib/actions/start-chat.js';
+	import type { JobResource } from '#lib/client/cometmind.js';
+	import EditDiffBlock from '#lib/features/chat/components/EditDiffBlock.svelte';
 	import {
 		looksLikeDiffArtifact,
 		parseEditDiff,
 		shouldRenderEditDiff
-	} from '$lib/tools/parse-edit-diff';
+	} from '#lib/tools/parse-edit-diff.js';
 
 	const FOLD_IN = { duration: 180 };
 

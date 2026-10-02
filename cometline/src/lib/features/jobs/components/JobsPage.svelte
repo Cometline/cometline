@@ -5,9 +5,9 @@
 	import {
 		createJobsPageController,
 		OBSERVER_REFRESH_MS
-	} from '$lib/features/jobs/jobs-page.svelte';
-	import { createJobsScheduleController } from '$lib/features/jobs/jobs-page-schedule.svelte';
-	import { shellStore } from '$lib/stores/shell.svelte';
+	} from '#lib/features/jobs/jobs-page.svelte.js';
+	import { createJobsScheduleController } from '#lib/features/jobs/jobs-page-schedule.svelte.js';
+	import { shellStore } from '#lib/stores/shell.svelte.js';
 	import JobDetailDrawer from './JobDetailDrawer.svelte';
 	import JobsKanbanBoard from './JobsKanbanBoard.svelte';
 	import JobsArchivedPanel from './jobs-page/JobsArchivedPanel.svelte';

@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { ChevronDown, FolderOpen } from '@lucide/svelte';
 	import { tick } from 'svelte';
-	import { filterWorkspaceOptions } from '$lib/features/skills/slash-commands';
-	import { loadWorkspacePaths } from '$lib/workspaces/load-workspace-paths';
-	import { shellStore } from '$lib/stores/shell.svelte';
+	import { filterWorkspaceOptions } from '#lib/features/skills/slash-commands.js';
+	import { loadWorkspacePaths } from '#lib/workspaces/load-workspace-paths.js';
+	import { shellStore } from '#lib/stores/shell.svelte.js';
 
 	let {
 		value = $bindable(''),

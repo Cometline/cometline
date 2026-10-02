@@ -1,5 +1,5 @@
 <script lang="ts">
-	import EmptyChatState from '$lib/features/chat/components/EmptyChatState.svelte';
+	import EmptyChatState from '#lib/features/chat/components/EmptyChatState.svelte';
 
 	let { bootMessage = '' }: { bootMessage?: string } = $props();
 </script>

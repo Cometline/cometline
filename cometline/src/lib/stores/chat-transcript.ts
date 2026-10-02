@@ -1,12 +1,12 @@
-import type { ChatItem, ImageAttachment, MemoryWire, Session, TranscriptItem } from '$lib/types';
-import { inferMemoryBucket } from '$lib/memory/buckets';
-import { getReasoningSegments } from '$lib/features/chat/reasoning';
+import type { ChatItem, ImageAttachment, MemoryWire, Session, TranscriptItem } from '#lib/types.js';
+import { inferMemoryBucket } from '#lib/memory/buckets.js';
+import { getReasoningSegments } from '#lib/features/chat/reasoning.js';
 import {
 	isSubagentStepLimit,
 	resolveInProcessAgentName
-} from '$lib/features/chat/subagent-display';
-import { agentLabelForSessionKind } from '$lib/tools/diff-artifact';
-import { stripInlinedFileBlocks } from '$lib/messages/strip-inlined-files';
+} from '#lib/features/chat/subagent-display.js';
+import { agentLabelForSessionKind } from '#lib/tools/diff-artifact.js';
+import { stripInlinedFileBlocks } from '#lib/messages/strip-inlined-files.js';
 
 let nextLocalID = 0;
 

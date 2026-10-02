@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
 	import { Check, Copy } from '@lucide/svelte';
-	import type { ChatItem } from '$lib/stores/chat.svelte';
+	import type { ChatItem } from '#lib/stores/chat.svelte.js';
 	import {
 		copyImageToClipboard,
 		copyMediaFileToClipboard,
 		isVideoAttachment,
 		resolveImageSrc
-	} from '$lib/files/images';
+	} from '#lib/files/images.js';
 
 	type AssistantImages = NonNullable<Extract<ChatItem, { type: 'assistant' }>['images']>;
 

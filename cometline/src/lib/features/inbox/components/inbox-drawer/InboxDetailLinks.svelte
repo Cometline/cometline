@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { InboxMessageResource } from '$lib/client/cometmind';
-	import type { LinkAvailability } from '$lib/features/inbox/link-availability';
+	import type { InboxMessageResource } from '#lib/client/cometmind.js';
+	import type { LinkAvailability } from '#lib/features/inbox/link-availability.js';
 
 	let {
 		message,

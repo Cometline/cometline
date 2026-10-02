@@ -1,10 +1,10 @@
-import type { ProviderSettings } from '$lib/types';
-import { settingsStore } from '$lib/stores/settings.svelte';
+import type { ProviderSettings } from '#lib/types.js';
+import { settingsStore } from '#lib/stores/settings.svelte.js';
 import {
 	sectionPendingDirty,
 	settingsPendingDirty,
 	type SettingsSection as PendingSettingsSection
-} from '$lib/features/settings/pending-settings';
+} from '#lib/features/settings/pending-settings.js';
 
 export type SettingsSection = 'models' | 'memory' | 'agent' | 'appearance' | 'shortcuts' | 'app';
 

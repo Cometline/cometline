@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Search, SquarePen } from '@lucide/svelte';
-	import Tooltip from '$lib/components/Tooltip.svelte';
+	import Tooltip from '#lib/components/Tooltip.svelte';
 
 	let {
 		searchQuery = $bindable(''),

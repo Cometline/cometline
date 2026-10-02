@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { HERO_COMPOSER_PRESET_ROSE, HERO_COMPOSER_PRESETS } from '$lib/hero-composer-appearance';
-import type { HeroComposerAppearance } from '$lib/types';
+import { HERO_COMPOSER_PRESET_ROSE, HERO_COMPOSER_PRESETS } from '#lib/hero-composer-appearance.js';
+import type { HeroComposerAppearance } from '#lib/types.js';
 import {
 	applyHeroPreset,
 	selectCustomHeroPreset,

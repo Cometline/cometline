@@ -1,10 +1,10 @@
-import { createSession } from '$lib/client/cometmind';
-import { modelStore } from '$lib/stores/model.svelte';
-import { sessionStore } from '$lib/stores/session.svelte';
-import { settingsStore } from '$lib/stores/settings.svelte';
-import { shellStore } from '$lib/stores/shell.svelte';
-import { sessionVisitHistory } from '$lib/stores/session-visit-history.svelte';
-import type { Session } from '$lib/types';
+import { createSession } from '#lib/client/cometmind.js';
+import { modelStore } from '#lib/stores/model.svelte.js';
+import { sessionStore } from '#lib/stores/session.svelte.js';
+import { settingsStore } from '#lib/stores/settings.svelte.js';
+import { shellStore } from '#lib/stores/shell.svelte.js';
+import { sessionVisitHistory } from '#lib/stores/session-visit-history.svelte.js';
+import type { Session } from '#lib/types.js';
 
 /** Create and activate a new persisted session using the configured default model. */
 export async function createNewSession(workspacePath?: string): Promise<Session> {

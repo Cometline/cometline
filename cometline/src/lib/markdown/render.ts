@@ -17,9 +17,9 @@ import {
 	buildSkillEmbedChip,
 	findNextUserTextToken
 } from './embed';
-import { stripInlinedFileBlocks } from '$lib/messages/strip-inlined-files';
-import { toWikiUiPath } from '$lib/wiki/paths';
-import { parseWikilinkInner, resolveWikilink } from '$lib/wiki/wikilinks';
+import { stripInlinedFileBlocks } from '#lib/messages/strip-inlined-files.js';
+import { toWikiUiPath } from '#lib/wiki/paths.js';
+import { parseWikilinkInner, resolveWikilink } from '#lib/wiki/wikilinks.js';
 import {
 	hydrateWorkspaceMarkdownImages,
 	rewriteLocalResourcesInHtml,

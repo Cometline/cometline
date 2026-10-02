@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { tick } from 'svelte';
-	import UserBubbleFlight from '$lib/features/chat/components/UserBubbleFlight.svelte';
+	import UserBubbleFlight from '#lib/features/chat/components/UserBubbleFlight.svelte';
 	import {
 		afterPaint,
 		animateElementToRect,
@@ -8,11 +8,14 @@
 		rectStyle,
 		waitForAnimationEnd,
 		waitForSelector
-	} from '$lib/features/chat/first-turn-flight';
-	import { settingsStore } from '$lib/stores/settings.svelte';
-	import { resolvePersona, personaAvatarSrcset as builtinAvatarSrcset } from '$lib/personas';
-	import { personaAvatarCache } from '$lib/personas/avatar-cache.svelte';
-	import type { ImageAttachment } from '$lib/types';
+	} from '#lib/features/chat/first-turn-flight.js';
+	import { settingsStore } from '#lib/stores/settings.svelte.js';
+	import {
+		resolvePersona,
+		personaAvatarSrcset as builtinAvatarSrcset
+	} from '#lib/personas/index.js';
+	import { personaAvatarCache } from '#lib/personas/avatar-cache.svelte.js';
+	import type { ImageAttachment } from '#lib/types.js';
 
 	interface Props {
 		root: HTMLElement | null;

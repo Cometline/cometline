@@ -10,16 +10,16 @@ import {
 	unarchiveJob,
 	type JobEventResource,
 	type JobResource
-} from '$lib/client/cometmind';
+} from '#lib/client/cometmind.js';
 import {
 	filterArchivedJobs,
 	filterGroupedByStatus,
 	groupJobsByColumn,
 	type GroupedJobs,
 	type JobColumn
-} from '$lib/features/jobs/group-jobs';
-import { truncateJobLabel } from '$lib/features/jobs/format-job-label';
-import { jobsIndicatorStore } from '$lib/stores/jobs-indicator.svelte';
+} from '#lib/features/jobs/group-jobs.js';
+import { truncateJobLabel } from '#lib/features/jobs/format-job-label.js';
+import { jobsIndicatorStore } from '#lib/stores/jobs-indicator.svelte.js';
 
 export type JobsDrawerMode = 'detail' | 'create' | null;
 export type JobsStatusFilter = 'all' | JobColumn;

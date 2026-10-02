@@ -2,7 +2,7 @@
 import { render } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
 import MemoryCard from './MemoryCard.svelte';
-import type { MemoryWire } from '$lib/types';
+import type { MemoryWire } from '#lib/types.js';
 
 const memories: MemoryWire[] = [
 	{

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { LogIn, LoaderCircle, RefreshCw } from '@lucide/svelte';
-	import type { ProviderConfig, ProviderMethod } from '$lib/types';
-	import { isFixedBuiltinProvider } from '$lib/features/settings/schema';
+	import type { ProviderConfig, ProviderMethod } from '#lib/types.js';
+	import { isFixedBuiltinProvider } from '#lib/features/settings/schema.js';
 
 	type CodexAuthStatus = {
 		authenticated: boolean;

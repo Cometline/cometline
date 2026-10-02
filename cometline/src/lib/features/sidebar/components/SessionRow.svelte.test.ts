@@ -2,21 +2,21 @@
 import { cleanup, fireEvent, render, within } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Session } from '$lib/types';
+import type { Session } from '#lib/types.js';
 
 const { navigateToSession } = vi.hoisted(() => ({ navigateToSession: vi.fn() }));
-vi.mock('$lib/actions/navigate-to-session', () => ({ navigateToSession }));
-vi.mock('$lib/stores/chat.svelte', () => ({
+vi.mock('#lib/actions/navigate-to-session.js', () => ({ navigateToSession }));
+vi.mock('#lib/stores/chat.svelte.js', () => ({
 	chatStore: { isStreamingFor: () => false, hasRunError: () => false }
 }));
 
 import SessionRow from './SessionRow.svelte';
-import { sessionStore } from '$lib/stores/session.svelte';
-import { shellStore } from '$lib/stores/shell.svelte';
+import { sessionStore } from '#lib/stores/session.svelte.js';
+import { shellStore } from '#lib/stores/shell.svelte.js';
 import {
 	webTabActivity,
 	type WebTabActivity
-} from '$lib/features/workspace/web-tab-activity.svelte';
+} from '#lib/features/workspace/web-tab-activity.svelte.js';
 
 const session: Session = {
 	id: 'audio-session',

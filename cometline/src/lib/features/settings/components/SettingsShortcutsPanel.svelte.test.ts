@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import SettingsShortcutsPanel from './SettingsShortcutsPanel.svelte';
-import { SHORTCUT_DEFINITIONS, defaultKeyboardShortcuts } from '$lib/keyboard-shortcuts';
+import { SHORTCUT_DEFINITIONS, defaultKeyboardShortcuts } from '#lib/keyboard-shortcuts.js';
 
 describe('SettingsShortcutsPanel', () => {
 	it('filters shortcuts by label, category, and current binding', async () => {

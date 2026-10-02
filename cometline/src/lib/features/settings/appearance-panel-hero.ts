@@ -1,8 +1,8 @@
-import type { HeroComposerAppearance } from '$lib/types';
+import type { HeroComposerAppearance } from '#lib/types.js';
 import {
 	normalizeHeroComposerAppearance,
 	type HeroComposerPreset
-} from '$lib/hero-composer-appearance';
+} from '#lib/hero-composer-appearance.js';
 
 export type HeroColorKey = 'glowColor' | 'ringColor';
 

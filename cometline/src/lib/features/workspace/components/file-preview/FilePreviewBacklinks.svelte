@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { openWorkspaceFilePreview } from '$lib/features/workspace/open-file-preview';
-	import { toWikiUiPath } from '$lib/wiki/paths';
-	import { wikiStemFromPath } from '$lib/wiki/wikilinks';
-	import type { FilePreviewController } from '$lib/features/workspace/file-preview-controller.svelte';
+	import { openWorkspaceFilePreview } from '#lib/features/workspace/open-file-preview.js';
+	import { toWikiUiPath } from '#lib/wiki/paths.js';
+	import { wikiStemFromPath } from '#lib/wiki/wikilinks.js';
+	import type { FilePreviewController } from '#lib/features/workspace/file-preview-controller.svelte.js';
 
 	let { panel, inSource = false }: { panel: FilePreviewController; inSource?: boolean } =
 		$props();

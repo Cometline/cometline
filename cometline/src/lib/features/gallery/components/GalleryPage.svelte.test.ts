@@ -12,8 +12,8 @@ const settings = vi.hoisted(() => ({
 	saveConfirmBeforeDeletingMedia: vi.fn()
 }));
 
-vi.mock('$lib/client/cometmind', () => api);
-vi.mock('$lib/stores/settings.svelte', () => ({ settingsStore: settings }));
+vi.mock('#lib/client/cometmind.js', () => api);
+vi.mock('#lib/stores/settings.svelte.js', () => ({ settingsStore: settings }));
 
 const item = {
 	id: 'media-1',

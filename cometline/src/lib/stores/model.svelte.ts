@@ -1,6 +1,6 @@
-import type { ProviderConfig, ProviderMethod, Session } from '$lib/types';
-import { isEmbeddingModelName } from '$lib/embedding-models';
-import type { InputModality } from '$lib/model-modalities';
+import type { ProviderConfig, ProviderMethod, Session } from '#lib/types.js';
+import { isEmbeddingModelName } from '#lib/embedding-models.js';
+import type { InputModality } from '#lib/model-modalities.js';
 
 export type ModelLimitSource = 'catalog' | 'fallback';
 

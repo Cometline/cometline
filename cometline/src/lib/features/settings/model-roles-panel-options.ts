@@ -1,5 +1,5 @@
-import type { ProviderConfig } from '$lib/types';
-import { isEmbeddingModelName } from '$lib/embedding-models';
+import type { ProviderConfig } from '#lib/types.js';
+import { isEmbeddingModelName } from '#lib/embedding-models.js';
 
 export interface ModelEntry {
 	id: string;

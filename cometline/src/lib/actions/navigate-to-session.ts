@@ -1,11 +1,11 @@
 import { goto } from '$app/navigation';
 import { resolve } from '$app/paths';
-import { modelStore } from '$lib/stores/model.svelte';
-import { sessionStore } from '$lib/stores/session.svelte';
-import { sessionVisitHistory } from '$lib/stores/session-visit-history.svelte';
-import { shellStore } from '$lib/stores/shell.svelte';
-import { isDiscordSession } from '$lib/sessions/group-by-workspace';
-import type { Session } from '$lib/types';
+import { modelStore } from '#lib/stores/model.svelte.js';
+import { sessionStore } from '#lib/stores/session.svelte.js';
+import { sessionVisitHistory } from '#lib/stores/session-visit-history.svelte.js';
+import { shellStore } from '#lib/stores/shell.svelte.js';
+import { isDiscordSession } from '#lib/sessions/group-by-workspace.js';
+import type { Session } from '#lib/types.js';
 
 export interface NavigateToSessionOptions {
 	/** When true, reorder sidebar groups immediately. Defaults to true for unpinned sessions. */

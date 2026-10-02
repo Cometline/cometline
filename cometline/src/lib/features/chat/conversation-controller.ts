@@ -7,22 +7,22 @@
  */
 
 import { tick } from 'svelte';
-import { getSession } from '$lib/client/cometmind';
-import { commitSidebarWorkspaceForSession } from '$lib/actions/commit-sidebar-workspace';
+import { getSession } from '#lib/client/cometmind.js';
+import { commitSidebarWorkspaceForSession } from '#lib/actions/commit-sidebar-workspace.js';
 import {
 	createChatTurnQueue,
 	type ChatTurnQueue,
 	type QueuedMessage
-} from '$lib/actions/chat-turn-queue';
-import { chatStore } from '$lib/stores/chat.svelte';
-import { sessionStore } from '$lib/stores/session.svelte';
-import { shellStore } from '$lib/stores/shell.svelte';
-import type { ImageAttachment } from '$lib/types';
-import type { ChatTurnPayload } from '$lib/actions/start-chat';
-import { messageContextRefsFromWebContexts } from '$lib/features/chat/message-context';
+} from '#lib/actions/chat-turn-queue.js';
+import { chatStore } from '#lib/stores/chat.svelte.js';
+import { sessionStore } from '#lib/stores/session.svelte.js';
+import { shellStore } from '#lib/stores/shell.svelte.js';
+import type { ImageAttachment } from '#lib/types.js';
+import type { ChatTurnPayload } from '#lib/actions/start-chat.js';
+import { messageContextRefsFromWebContexts } from '#lib/features/chat/message-context.js';
 
-export type { ChatTurnPayload } from '$lib/actions/start-chat';
-export type { QueuedMessage } from '$lib/actions/chat-turn-queue';
+export type { ChatTurnPayload } from '#lib/actions/start-chat.js';
+export type { QueuedMessage } from '#lib/actions/chat-turn-queue.js';
 
 export interface ConversationFlightAdapter {
 	onUserMessageFlight(

@@ -1,5 +1,5 @@
-import { settingsStore } from '$lib/stores/settings.svelte';
-import type { ShortcutAction, ShortcutBinding } from '$lib/types';
+import { settingsStore } from '#lib/stores/settings.svelte.js';
+import type { ShortcutAction, ShortcutBinding } from '#lib/types.js';
 import type { SettingsPanelControllerDeps } from './settings-panel-types';
 
 export function createSettingsPanelPreferences(

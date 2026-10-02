@@ -6,8 +6,8 @@ import {
 	type CreateScheduledJobRequest,
 	type ScheduledJobResource,
 	type UpdateScheduledJobRequest
-} from '$lib/client/cometmind';
-import { truncateJobLabel } from '$lib/features/jobs/format-job-label';
+} from '#lib/client/cometmind.js';
+import { truncateJobLabel } from '#lib/features/jobs/format-job-label.js';
 import {
 	buildCronExpression,
 	localDatetimeToMillis,
@@ -16,7 +16,7 @@ import {
 	summarizeCronParts,
 	type ScheduleFrequency,
 	type ScheduleMode
-} from '$lib/features/jobs/jobs-page-cron';
+} from '#lib/features/jobs/jobs-page-cron.js';
 
 export function createJobsScheduleController(deps: {
 	isScheduledView: () => boolean;

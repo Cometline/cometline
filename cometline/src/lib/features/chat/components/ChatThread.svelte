@@ -1,32 +1,35 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
 	import { fade } from 'svelte/transition';
-	import { chatStore, type ChatItem } from '$lib/stores/chat.svelte';
-	import { settingsStore } from '$lib/stores/settings.svelte';
-	import { toolFoldLabel as formatToolFoldLabel } from '$lib/features/chat/thread-format';
-	import type { AssistantStackContext } from '$lib/features/chat/assistant-stack-props';
-	import FirstTurnAssistantSlot from '$lib/features/chat/components/FirstTurnAssistantSlot.svelte';
-	import ChatThreadTurn from '$lib/features/chat/components/ChatThreadTurn.svelte';
-	import JumpToBottom from '$lib/features/chat/components/JumpToBottom.svelte';
-	import { buildThinkingAttribution } from '$lib/features/chat/thinking-attribution';
+	import { chatStore, type ChatItem } from '#lib/stores/chat.svelte.js';
+	import { settingsStore } from '#lib/stores/settings.svelte.js';
+	import { toolFoldLabel as formatToolFoldLabel } from '#lib/features/chat/thread-format.js';
+	import type { AssistantStackContext } from '#lib/features/chat/assistant-stack-props.js';
+	import FirstTurnAssistantSlot from '#lib/features/chat/components/FirstTurnAssistantSlot.svelte';
+	import ChatThreadTurn from '#lib/features/chat/components/ChatThreadTurn.svelte';
+	import JumpToBottom from '#lib/features/chat/components/JumpToBottom.svelte';
+	import { buildThinkingAttribution } from '#lib/features/chat/thinking-attribution.js';
 	import {
 		selectFirstAssistantItem,
 		showAssistantActivitySpinner,
 		showAssistantRow as isAssistantRowVisible,
 		type ThreadVisibilityContext
-	} from '$lib/features/chat/thread-visibility';
-	import { createFoldController } from '$lib/features/chat/thread-fold.svelte';
-	import { createThreadScroll } from '$lib/features/chat/thread-scroll.svelte';
-	import { createThreadVirtual } from '$lib/features/chat/thread-virtual.svelte';
-	import { createThreadClocks } from '$lib/features/chat/thread-clocks.svelte';
-	import { groupThreadItemsIntoTurns } from '$lib/features/chat/thread-turns';
-	import type { ChatTurnPayload } from '$lib/actions/start-chat';
-	import type { JobResource } from '$lib/client/cometmind';
-	import { resolvePersona, personaAvatarSrcset as builtinAvatarSrcset } from '$lib/personas';
-	import { personaAvatarCache } from '$lib/personas/avatar-cache.svelte';
-	import SessionFindBar from '$lib/features/chat/components/SessionFindBar.svelte';
-	import { createSessionFindController } from '$lib/features/chat/session-find.svelte';
-	import { shellStore } from '$lib/stores/shell.svelte';
+	} from '#lib/features/chat/thread-visibility.js';
+	import { createFoldController } from '#lib/features/chat/thread-fold.svelte.js';
+	import { createThreadScroll } from '#lib/features/chat/thread-scroll.svelte.js';
+	import { createThreadVirtual } from '#lib/features/chat/thread-virtual.svelte.js';
+	import { createThreadClocks } from '#lib/features/chat/thread-clocks.svelte.js';
+	import { groupThreadItemsIntoTurns } from '#lib/features/chat/thread-turns.js';
+	import type { ChatTurnPayload } from '#lib/actions/start-chat.js';
+	import type { JobResource } from '#lib/client/cometmind.js';
+	import {
+		resolvePersona,
+		personaAvatarSrcset as builtinAvatarSrcset
+	} from '#lib/personas/index.js';
+	import { personaAvatarCache } from '#lib/personas/avatar-cache.svelte.js';
+	import SessionFindBar from '#lib/features/chat/components/SessionFindBar.svelte';
+	import { createSessionFindController } from '#lib/features/chat/session-find.svelte.js';
+	import { shellStore } from '#lib/stores/shell.svelte.js';
 
 	const TRANSCRIPT_IN = { duration: 140 };
 

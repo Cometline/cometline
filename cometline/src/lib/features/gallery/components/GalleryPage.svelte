@@ -1,16 +1,16 @@
 <script lang="ts">
 	import { Images } from '@lucide/svelte';
 	import { onDestroy, onMount } from 'svelte';
-	import { deleteMedia, listMedia, type MediaResource } from '$lib/client/cometmind';
-	import ConfirmActionModal from '$lib/components/ConfirmActionModal.svelte';
-	import ImageLightbox from '$lib/features/chat/components/ImageLightbox.svelte';
+	import { deleteMedia, listMedia, type MediaResource } from '#lib/client/cometmind.js';
+	import ConfirmActionModal from '#lib/components/ConfirmActionModal.svelte';
+	import ImageLightbox from '#lib/features/chat/components/ImageLightbox.svelte';
 	import GalleryCard from './GalleryCard.svelte';
-	import { settingsStore } from '$lib/stores/settings.svelte';
+	import { settingsStore } from '#lib/stores/settings.svelte.js';
 	import {
 		copyImageToClipboard,
 		copyMediaFileToClipboard,
 		mediaContentURL
-	} from '$lib/files/images';
+	} from '#lib/files/images.js';
 
 	let items = $state<MediaResource[]>([]);
 	let loading = $state(false);

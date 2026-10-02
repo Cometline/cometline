@@ -1,4 +1,4 @@
-import type { MCPServerConfig } from '$lib/cometmind-settings';
+import type { MCPServerConfig } from '#lib/cometmind-settings.js';
 
 /**
  * Normalization helpers for HTTP/SSE MCP server connection details.

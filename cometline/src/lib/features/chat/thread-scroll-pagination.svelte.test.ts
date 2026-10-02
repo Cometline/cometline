@@ -3,7 +3,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { tick } from 'svelte';
 import { createThreadScroll } from './thread-scroll.svelte';
-import type { ChatItem } from '$lib/stores/chat.svelte';
+import type { ChatItem } from '#lib/stores/chat.svelte.js';
 
 const items: ChatItem[] = [
 	{ id: 'u1', type: 'user', text: 'hello' },

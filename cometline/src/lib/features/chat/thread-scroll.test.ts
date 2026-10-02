@@ -7,7 +7,7 @@ import {
 	isNearBottom,
 	shouldShowJumpToBottom
 } from './thread-scroll';
-import type { ChatItem } from '$lib/stores/chat.svelte';
+import type { ChatItem } from '#lib/stores/chat.svelte.js';
 
 describe('buildScrollKey', () => {
 	it('returns idle key when not streaming', () => {

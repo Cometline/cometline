@@ -1,12 +1,12 @@
 import { goto } from '$app/navigation';
 import { resolve } from '$app/paths';
-import { listInboxMessages, listSkillDrafts } from '$lib/client/cometmind';
-import type { CometMindJobsNotificationSettings } from '$lib/cometmind-settings';
-import { gotoJob } from '$lib/routes/job-route';
-import { sessionDisplayTitle } from '$lib/sessions/session-title';
-import { appToastStore } from '$lib/stores/app-toasts.svelte';
-import { inboxStore } from '$lib/stores/inbox.svelte';
-import type { Session } from '$lib/types';
+import { listInboxMessages, listSkillDrafts } from '#lib/client/cometmind.js';
+import type { CometMindJobsNotificationSettings } from '#lib/cometmind-settings.js';
+import { gotoJob } from '#lib/routes/job-route.js';
+import { sessionDisplayTitle } from '#lib/sessions/session-title.js';
+import { appToastStore } from '#lib/stores/app-toasts.svelte.js';
+import { inboxStore } from '#lib/stores/inbox.svelte.js';
+import type { Session } from '#lib/types.js';
 
 type JobNotice = {
 	kind: 'completed' | 'blocked';
@@ -74,7 +74,7 @@ export function startSkillDraftToastWatch(opts: {
 		const detail =
 			fresh.length === 1 ? first.description || first.name : `${fresh.length} drafts ready`;
 		appToastStore.success('Skill draft ready', detail, () => {
-			void goto(resolve('/skills'));
+			void goto(resolve('skills'));
 		});
 	}
 

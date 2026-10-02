@@ -1,12 +1,12 @@
-import type { MemorySettings } from '$lib/client/cometmind';
+import type { MemorySettings } from '#lib/client/cometmind.js';
 import {
 	embeddingOptionKey,
 	embeddingProviderForMethod,
 	type EmbeddingModelOption
-} from '$lib/embedding-models';
-import { cloneProvider } from '$lib/features/settings/schema';
-import { getOllamaCatalogEntry } from '$lib/ollama/catalog';
-import type { ProviderConfig, ProviderMethod, ProviderSettings } from '$lib/types';
+} from '#lib/embedding-models.js';
+import { cloneProvider } from '#lib/features/settings/schema.js';
+import { getOllamaCatalogEntry } from '#lib/ollama/catalog.js';
+import type { ProviderConfig, ProviderMethod, ProviderSettings } from '#lib/types.js';
 
 export type SetupWizardStep =
 	| 'provider'

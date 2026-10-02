@@ -1,10 +1,10 @@
-import type { ChatItem } from '$lib/stores/chat.svelte';
-import { shellStore } from '$lib/stores/shell.svelte';
-import { buildAssistantResponseContext } from '$lib/features/chat/assistant-response-context';
+import type { ChatItem } from '#lib/stores/chat.svelte.js';
+import { shellStore } from '#lib/stores/shell.svelte.js';
+import { buildAssistantResponseContext } from '#lib/features/chat/assistant-response-context.js';
 import {
 	firstSelectionClientRect,
 	selectionPopupPosition
-} from '$lib/features/workspace/selection-popup';
+} from '#lib/features/workspace/selection-popup.js';
 
 export function createAssistantStackSelection(deps: {
 	getItemId: () => string;

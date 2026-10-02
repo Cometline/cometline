@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { InboxMessageResource } from '$lib/client/cometmind';
-	import { formatRelativeTime, previewSnippet } from '$lib/features/inbox/inbox-drawer-format';
+	import type { InboxMessageResource } from '#lib/client/cometmind.js';
+	import { formatRelativeTime, previewSnippet } from '#lib/features/inbox/inbox-drawer-format.js';
 
 	let {
 		messages,

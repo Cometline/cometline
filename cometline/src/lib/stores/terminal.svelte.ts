@@ -1,5 +1,5 @@
-import type { TerminalSnapshot } from '$lib/types';
-import { shellStore } from '$lib/stores/shell.svelte';
+import type { TerminalSnapshot } from '#lib/types.js';
+import { shellStore } from '#lib/stores/shell.svelte.js';
 
 const MAX_OUTPUT_CHARS = 2_000_000;
 

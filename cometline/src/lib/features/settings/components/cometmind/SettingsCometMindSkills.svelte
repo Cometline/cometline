@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { Search } from '@lucide/svelte';
 	import SettingsToggle from '../SettingsToggle.svelte';
-	import type { CometMindSettings } from '$lib/cometmind-settings';
-	import type { SkillResource } from '$lib/types';
+	import type { CometMindSettings } from '#lib/cometmind-settings.js';
+	import type { SkillResource } from '#lib/types.js';
 
 	type SkillSourceFilter =
 		| 'all'

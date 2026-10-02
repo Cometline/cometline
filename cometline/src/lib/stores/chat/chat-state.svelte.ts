@@ -1,6 +1,6 @@
-import type { ChatItem } from '$lib/types';
-import type { ContextBudgetSnapshot } from '$lib/context-window';
-import type { SessionStream } from '$lib/stores/chat-stream-types';
+import type { ChatItem } from '#lib/types.js';
+import type { ContextBudgetSnapshot } from '#lib/context-window.js';
+import type { SessionStream } from '#lib/stores/chat-stream-types.js';
 
 export type TranscriptPageState = { hasMore: boolean; nextBefore: string; olderPageSeq: number };
 

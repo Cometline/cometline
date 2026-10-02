@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { ChevronDown, ChevronRight, Folder, FolderOpen, Loader } from '@lucide/svelte';
-	import FileTypeIcon from '$lib/features/workspace/components/FileTypeIcon.svelte';
+	import FileTypeIcon from '#lib/features/workspace/components/FileTypeIcon.svelte';
 	import {
 		createFileTreeBrowser,
 		type FileTreeBrowserController
-	} from '$lib/features/workspace/file-tree-browser.svelte';
-	import type { FileTreeNode } from '$lib/features/workspace/file-tree';
-	import type { FileTreeExpandSource } from '$lib/stores/shell.svelte';
+	} from '#lib/features/workspace/file-tree-browser.svelte.js';
+	import type { FileTreeNode } from '#lib/features/workspace/file-tree.js';
+	import type { FileTreeExpandSource } from '#lib/stores/shell.svelte.js';
 
 	let {
 		workspacePath,

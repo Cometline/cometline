@@ -1,10 +1,10 @@
-import { shellStore } from '$lib/stores/shell.svelte';
+import { shellStore } from '#lib/stores/shell.svelte.js';
 import {
 	isWorkspaceOwnedPane,
 	resolveWorkspaceFocusTarget
-} from '$lib/features/workspace/workspace-pane-focus';
-import { isBlankTabUrl } from '$lib/features/workspace/workspace-panel-state';
-import type { WorkspacePanelView } from '$lib/features/workspace/workspace-panel-view.svelte';
+} from '#lib/features/workspace/workspace-pane-focus.js';
+import { isBlankTabUrl } from '#lib/features/workspace/workspace-panel-state.js';
+import type { WorkspacePanelView } from '#lib/features/workspace/workspace-panel-view.svelte.js';
 
 export function createWorkspacePanelFocus(view: WorkspacePanelView) {
 	let addressInputEl = $state<HTMLInputElement | null>(null);

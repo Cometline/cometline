@@ -1,32 +1,32 @@
-import { sessionStore } from '$lib/stores/session.svelte';
-import { createShellChromeStore } from '$lib/stores/shell/chrome.svelte';
-import { createFilePreview } from '$lib/stores/shell/file-preview.svelte';
-import { createFileTreeStore } from '$lib/stores/shell/file-tree.svelte';
-import { createShellFocusStore } from '$lib/stores/shell/focus.svelte';
-import { createPanelHistoryStore } from '$lib/stores/shell/panel-history.svelte';
-import { createPanelNavigation } from '$lib/stores/shell/panel-navigation.svelte';
-import { createTerminalPanel } from '$lib/stores/shell/terminal-panel.svelte';
-import { createWebContextStore } from '$lib/stores/shell/web-context.svelte';
-import { createWebTabs } from '$lib/stores/shell/web-tabs.svelte';
-import { createWorkspacePanelView } from '$lib/stores/shell/workspace-panel-view.svelte';
-import { createWorkspacePanelStore } from '$lib/stores/shell/workspace-panel.svelte';
-import { createWorkspacePathsStore } from '$lib/stores/shell/workspace-paths.svelte';
+import { sessionStore } from '#lib/stores/session.svelte.js';
+import { createShellChromeStore } from '#lib/stores/shell/chrome.svelte.js';
+import { createFilePreview } from '#lib/stores/shell/file-preview.svelte.js';
+import { createFileTreeStore } from '#lib/stores/shell/file-tree.svelte.js';
+import { createShellFocusStore } from '#lib/stores/shell/focus.svelte.js';
+import { createPanelHistoryStore } from '#lib/stores/shell/panel-history.svelte.js';
+import { createPanelNavigation } from '#lib/stores/shell/panel-navigation.svelte.js';
+import { createTerminalPanel } from '#lib/stores/shell/terminal-panel.svelte.js';
+import { createWebContextStore } from '#lib/stores/shell/web-context.svelte.js';
+import { createWebTabs } from '#lib/stores/shell/web-tabs.svelte.js';
+import { createWorkspacePanelView } from '#lib/stores/shell/workspace-panel-view.svelte.js';
+import { createWorkspacePanelStore } from '#lib/stores/shell/workspace-panel.svelte.js';
+import { createWorkspacePathsStore } from '#lib/stores/shell/workspace-paths.svelte.js';
 
-export type { WorkspacePanelMode } from '$lib/stores/shell/workspace-panel-view.svelte';
-export type { FileTreeExpandSource } from '$lib/stores/shell/file-tree.svelte';
+export type { WorkspacePanelMode } from '#lib/stores/shell/workspace-panel-view.svelte.js';
+export type { FileTreeExpandSource } from '#lib/stores/shell/file-tree.svelte.js';
 /** Surfaces that can own independent open content. */
 export type {
 	ContentSurface,
 	SurfaceContent,
 	SurfaceContentKey,
 	WorkspacePanelSurface
-} from '$lib/features/workspace/workspace-panel-state';
-export type { ComposerFocusRequest, FocusedPane } from '$lib/stores/shell/focus.svelte';
+} from '#lib/features/workspace/workspace-panel-state.js';
+export type { ComposerFocusRequest, FocusedPane } from '#lib/stores/shell/focus.svelte.js';
 export type {
 	PendingPageContext,
 	PendingViewingFileContext,
 	PendingWebContext
-} from '$lib/stores/shell/web-context.svelte';
+} from '#lib/stores/shell/web-context.svelte.js';
 
 function createShellStore() {
 	const chrome = createShellChromeStore();

@@ -1,25 +1,25 @@
 <script lang="ts">
 	import { Check, Copy } from '@lucide/svelte';
-	import AssistantMarkdown from '$lib/components/AssistantMarkdown.svelte';
-	import AssistantThinkingWait from '$lib/features/chat/components/AssistantThinkingWait.svelte';
-	import ToolFoldPanel from '$lib/features/chat/components/ToolFoldPanel.svelte';
-	import AssistantActivityGroup from '$lib/features/chat/components/AssistantActivityGroup.svelte';
-	import TimelineEntryRow from '$lib/features/chat/components/TimelineEntryRow.svelte';
-	import { setReactiveChatTurnContext } from '$lib/features/chat/chat-turn-context';
-	import { assistantThinkingWait } from '$lib/features/chat/thread-format';
+	import AssistantMarkdown from '#lib/components/AssistantMarkdown.svelte';
+	import AssistantThinkingWait from '#lib/features/chat/components/AssistantThinkingWait.svelte';
+	import ToolFoldPanel from '#lib/features/chat/components/ToolFoldPanel.svelte';
+	import AssistantActivityGroup from '#lib/features/chat/components/AssistantActivityGroup.svelte';
+	import TimelineEntryRow from '#lib/features/chat/components/TimelineEntryRow.svelte';
+	import { setReactiveChatTurnContext } from '#lib/features/chat/chat-turn-context.js';
+	import { assistantThinkingWait } from '#lib/features/chat/thread-format.js';
 	import {
 		buildAssistantTimeline,
 		pinnedJobProposalsForAssistant,
 		shouldGroupAssistantTimeline
-	} from '$lib/features/chat/thinking-attribution';
-	import { timelineEntryKey } from '$lib/features/chat/thread-view-helpers';
-	import type { AssistantStackContext } from '$lib/features/chat/assistant-stack-props';
-	import type { ChatItem } from '$lib/stores/chat.svelte';
-	import ImageLightbox from '$lib/features/chat/components/ImageLightbox.svelte';
-	import SelectionAddToChat from '$lib/components/SelectionAddToChat.svelte';
-	import { assistantResponseSource } from '$lib/features/chat/assistant-response-context';
-	import { createAssistantStackSelection } from '$lib/features/chat/assistant-stack-selection.svelte';
-	import AssistantImageGallery from '$lib/features/chat/components/assistant-stack/AssistantImageGallery.svelte';
+	} from '#lib/features/chat/thinking-attribution.js';
+	import { timelineEntryKey } from '#lib/features/chat/thread-view-helpers.js';
+	import type { AssistantStackContext } from '#lib/features/chat/assistant-stack-props.js';
+	import type { ChatItem } from '#lib/stores/chat.svelte.js';
+	import ImageLightbox from '#lib/features/chat/components/ImageLightbox.svelte';
+	import SelectionAddToChat from '#lib/components/SelectionAddToChat.svelte';
+	import { assistantResponseSource } from '#lib/features/chat/assistant-response-context.js';
+	import { createAssistantStackSelection } from '#lib/features/chat/assistant-stack-selection.svelte.js';
+	import AssistantImageGallery from '#lib/features/chat/components/assistant-stack/AssistantImageGallery.svelte';
 
 	type AssistantItem = Extract<ChatItem, { type: 'assistant' }>;
 

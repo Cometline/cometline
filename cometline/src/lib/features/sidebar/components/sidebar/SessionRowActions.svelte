@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Pin, PinOff, Trash2 } from '@lucide/svelte';
-	import type { Session } from '$lib/types';
-	import { sessionDisplayTitle } from '$lib/sessions/session-title';
+	import type { Session } from '#lib/types.js';
+	import { sessionDisplayTitle } from '#lib/sessions/session-title.js';
 
 	let {
 		session,

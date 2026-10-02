@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import ChatView from '$lib/features/chat/components/ChatView.svelte';
-	import { shellStore } from '$lib/stores/shell.svelte';
+	import ChatView from '#lib/features/chat/components/ChatView.svelte';
+	import { shellStore } from '#lib/stores/shell.svelte.js';
 
 	let sessionId = $derived(page.params.id);
 </script>

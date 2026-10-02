@@ -1,10 +1,10 @@
-import type { ChatItem, ImageAttachment, MessageContextRef, StreamEvent } from '$lib/types';
-import { reduceChatState } from '$lib/reducers/chat';
-import { playErrorSound, playResponseCompleteSound } from '$lib/sound/response-complete';
-import { settingsStore } from '$lib/stores/settings.svelte';
-import { unreadSessionOutputStore } from '$lib/stores/unread-session-output.svelte';
-import { localID } from '$lib/stores/chat-transcript';
-import type { StreamCtx } from '$lib/stores/chat-stream-types';
+import type { ChatItem, ImageAttachment, MessageContextRef, StreamEvent } from '#lib/types.js';
+import { reduceChatState } from '#lib/reducers/chat.js';
+import { playErrorSound, playResponseCompleteSound } from '#lib/sound/response-complete.js';
+import { settingsStore } from '#lib/stores/settings.svelte.js';
+import { unreadSessionOutputStore } from '#lib/stores/unread-session-output.svelte.js';
+import { localID } from '#lib/stores/chat-transcript.js';
+import type { StreamCtx } from '#lib/stores/chat-stream-types.js';
 import { reconcileStreamCtx, turnHasVisibleContent } from './chat-turn';
 import type { ChatState } from './chat-state.svelte';
 import type { SessionCache } from './session-cache.svelte';

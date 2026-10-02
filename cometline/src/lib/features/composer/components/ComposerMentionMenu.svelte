@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { FileText, Folder, Loader } from '@lucide/svelte';
-	import SlashCommandMenu from '$lib/features/composer/components/SlashCommandMenu.svelte';
-	import type { createComposerMentionsController } from '$lib/features/composer/composer-mentions.svelte';
+	import SlashCommandMenu from '#lib/features/composer/components/SlashCommandMenu.svelte';
+	import type { createComposerMentionsController } from '#lib/features/composer/composer-mentions.svelte.js';
 
 	type MentionsController = ReturnType<typeof createComposerMentionsController>;
 

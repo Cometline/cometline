@@ -1,5 +1,5 @@
-import type { AgentMode, Session } from '$lib/types';
-import { normalizeAgentMode } from '$lib/sessions/session-metadata';
+import type { AgentMode, Session } from '#lib/types.js';
+import { normalizeAgentMode } from '#lib/sessions/session-metadata.js';
 
 export interface AgentModeSwitchState {
 	sessionId: string;

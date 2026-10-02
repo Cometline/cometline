@@ -1,9 +1,9 @@
 import { tick } from 'svelte';
-import { shellStore } from '$lib/stores/shell.svelte';
-import { composerHistoryStore } from '$lib/stores/composer-history.svelte';
-import { shouldApplyComposerFocus } from '$lib/features/chat/composer-focus';
-import type { ChatTurnPayload } from '$lib/actions/start-chat';
-import type { PendingUnsentDraft } from '$lib/features/composer/composer-history';
+import { shellStore } from '#lib/stores/shell.svelte.js';
+import { composerHistoryStore } from '#lib/stores/composer-history.svelte.js';
+import { shouldApplyComposerFocus } from '#lib/features/chat/composer-focus.js';
+import type { ChatTurnPayload } from '#lib/actions/start-chat.js';
+import type { PendingUnsentDraft } from '#lib/features/composer/composer-history.js';
 
 export interface ChatViewComposerHandle {
 	focus: () => void;

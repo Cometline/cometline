@@ -1,6 +1,6 @@
-import { navigateToSession } from '$lib/actions/navigate-to-session';
-import { sessionVisitHistory } from '$lib/stores/session-visit-history.svelte';
-import { sessionStore } from '$lib/stores/session.svelte';
+import { navigateToSession } from '#lib/actions/navigate-to-session.js';
+import { sessionVisitHistory } from '#lib/stores/session-visit-history.svelte.js';
+import { sessionStore } from '#lib/stores/session.svelte.js';
 
 function sessionExists(sessionId: string): boolean {
 	return sessionStore.sessions.some((session) => session.id === sessionId);

@@ -1,4 +1,4 @@
-import type { TerminalAppearanceSettings, TerminalThemeId } from '$lib/types';
+import type { TerminalAppearanceSettings, TerminalThemeId } from '#lib/types.js';
 
 export const DEFAULT_TERMINAL_APPEARANCE: TerminalAppearanceSettings = {
 	fontSize: 12,

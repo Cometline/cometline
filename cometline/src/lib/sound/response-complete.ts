@@ -1,5 +1,5 @@
-import { browser } from '$app/environment';
-import type { ResponseCompleteSoundSettings } from '$lib/types';
+import { browser } from '$app/env';
+import type { ResponseCompleteSoundSettings } from '#lib/types.js';
 
 const RESPONSE_COMPLETE_SOUND_URL = '/sound/response_complete.mp3';
 const ERROR_SOUND_URL = '/sound/error.mp3';

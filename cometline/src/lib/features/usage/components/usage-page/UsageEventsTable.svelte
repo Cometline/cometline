@@ -1,11 +1,11 @@
 <script lang="ts">
-	import type { UsageEventsResponse } from '$lib/client/cometmind';
+	import type { UsageEventsResponse } from '#lib/client/cometmind.js';
 	import {
 		formatEventTime,
 		formatKind,
 		formatTokens,
 		formatUSD
-	} from '$lib/features/usage/format';
+	} from '#lib/features/usage/format.js';
 
 	let {
 		events,

@@ -1,5 +1,5 @@
-import { truncateWorkspacePath } from '$lib/features/jobs/group-jobs';
-import type { JobResource } from '$lib/client/cometmind';
+import { truncateWorkspacePath } from '#lib/features/jobs/group-jobs.js';
+import type { JobResource } from '#lib/client/cometmind.js';
 
 export function truncateJobLabel(text: string, max = 80): string {
 	const trimmed = text.trim();

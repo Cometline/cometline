@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { fade, scale } from 'svelte/transition';
-	import type { ProviderSettings } from '$lib/types';
-	import { shellStore } from '$lib/stores/shell.svelte';
-	import { settingsStore } from '$lib/stores/settings.svelte';
+	import type { ProviderSettings } from '#lib/types.js';
+	import { shellStore } from '#lib/stores/shell.svelte.js';
+	import { settingsStore } from '#lib/stores/settings.svelte.js';
 	import SettingsAppearancePanel from './SettingsAppearancePanel.svelte';
 	import SettingsGeneralPanel from './SettingsGeneralPanel.svelte';
 	import SettingsCometMindPanel from './SettingsCometMindPanel.svelte';
 	import SettingsModelRolesPanel from './SettingsModelRolesPanel.svelte';
-	import { normalizeModelRoleDraft } from '$lib/features/settings/model-role-draft';
+	import { normalizeModelRoleDraft } from '#lib/features/settings/model-role-draft.js';
 	import SettingsMemoryPanel from './SettingsMemoryPanel.svelte';
 	import SettingsShortcutsPanel from './SettingsShortcutsPanel.svelte';
 	import SettingsProvidersPanel from './SettingsProvidersPanel.svelte';
@@ -30,7 +30,7 @@
 		filterProviderModels,
 		modelsSectionWarningText
 	} from '../settings-panel-models';
-	import { cloneSettings } from '$lib/features/settings/settings-draft';
+	import { cloneSettings } from '#lib/features/settings/settings-draft.js';
 
 	let { mode = 'modal', onClose }: { mode?: SettingsPanelMode; onClose?: () => void } = $props();
 

@@ -1,13 +1,13 @@
 <script lang="ts">
-	import AssistantStack from '$lib/features/chat/components/AssistantStack.svelte';
-	import ThreadAvatar from '$lib/features/chat/components/ThreadAvatar.svelte';
-	import ThreadRow from '$lib/features/chat/components/ThreadRow.svelte';
+	import AssistantStack from '#lib/features/chat/components/AssistantStack.svelte';
+	import ThreadAvatar from '#lib/features/chat/components/ThreadAvatar.svelte';
+	import ThreadRow from '#lib/features/chat/components/ThreadRow.svelte';
 	import {
 		assistantStackBindings,
 		type AssistantStackContext
-	} from '$lib/features/chat/assistant-stack-props';
-	import { startsSpeakerRun } from '$lib/features/chat/thread-view-helpers';
-	import type { ChatItem } from '$lib/stores/chat.svelte';
+	} from '#lib/features/chat/assistant-stack-props.js';
+	import { startsSpeakerRun } from '#lib/features/chat/thread-view-helpers.js';
+	import type { ChatItem } from '#lib/stores/chat.svelte.js';
 
 	type AssistantItem = Extract<ChatItem, { type: 'assistant' }>;
 

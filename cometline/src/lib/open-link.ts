@@ -1,7 +1,7 @@
-import { openExternalLink } from '$lib/external-link';
-import { shellStore } from '$lib/stores/shell.svelte';
+import { openExternalLink } from '#lib/external-link.js';
+import { shellStore } from '#lib/stores/shell.svelte.js';
 
-export { isHttpUrl, normalizeUserUrl } from '$lib/http-url';
+export { isHttpUrl, normalizeUserUrl } from '#lib/http-url.js';
 
 /** Opens http(s) links in the in-app workspace panel; mailto and dev fallback stay external. */
 export function openLink(rawUrl: string): void {

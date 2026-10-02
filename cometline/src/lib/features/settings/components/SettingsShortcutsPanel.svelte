@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { RotateCcw, Search } from '@lucide/svelte';
-	import type { ShortcutAction, ShortcutBinding, KeyboardShortcuts } from '$lib/types';
+	import type { ShortcutAction, ShortcutBinding, KeyboardShortcuts } from '#lib/types.js';
 	import {
 		SHORTCUT_DEFINITIONS,
 		shortcutsByCategory,
@@ -8,7 +8,7 @@
 		captureShortcut,
 		commandEnterBinding,
 		isDefaultBinding
-	} from '$lib/keyboard-shortcuts';
+	} from '#lib/keyboard-shortcuts.js';
 
 	let {
 		shortcuts,

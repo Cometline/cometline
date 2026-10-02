@@ -1,5 +1,5 @@
 <script lang="ts">
-	import ErrorBanner from '$lib/components/ErrorBanner.svelte';
+	import ErrorBanner from '#lib/components/ErrorBanner.svelte';
 
 	let {
 		message = 'Something went wrong.',

@@ -1,4 +1,4 @@
-import type { JobResource } from '$lib/client/cometmind';
+import type { JobResource } from '#lib/client/cometmind.js';
 
 export type JobExecutionPromptInput = Pick<JobResource, 'id' | 'description'> &
 	Partial<Pick<JobResource, 'definition_of_done' | 'progress'>>;

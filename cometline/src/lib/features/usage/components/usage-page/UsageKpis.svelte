@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { UsageSummaryResponse } from '$lib/client/cometmind';
-	import { formatTokens, formatUSD } from '$lib/features/usage/format';
+	import type { UsageSummaryResponse } from '#lib/client/cometmind.js';
+	import { formatTokens, formatUSD } from '#lib/features/usage/format.js';
 
 	let {
 		totals,

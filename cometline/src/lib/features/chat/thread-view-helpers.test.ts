@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { speakerFor, startsSpeakerRun, timelineEntryKey } from './thread-view-helpers';
-import type { ChatItem } from '$lib/stores/chat.svelte';
+import type { ChatItem } from '#lib/stores/chat.svelte.js';
 
 describe('speakerFor', () => {
 	it('maps item types to speakers', () => {

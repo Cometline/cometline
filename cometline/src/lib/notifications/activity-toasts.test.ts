@@ -12,19 +12,19 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('$app/navigation', () => ({ goto: mocks.goto }));
-vi.mock('$lib/client/cometmind', () => ({
+vi.mock('#lib/client/cometmind.js', () => ({
 	getSession: mocks.getSession,
 	listInboxMessages: mocks.listInboxMessages,
 	listSkillDrafts: vi.fn()
 }));
-vi.mock('$lib/stores/app-toasts.svelte', () => ({
+vi.mock('#lib/stores/app-toasts.svelte.js', () => ({
 	appToastStore: {
 		success: mocks.success,
 		warning: mocks.warning,
 		error: mocks.error
 	}
 }));
-vi.mock('$lib/stores/inbox.svelte', () => ({
+vi.mock('#lib/stores/inbox.svelte.js', () => ({
 	inboxStore: {
 		get drawerOpen() {
 			return mocks.drawerOpen;

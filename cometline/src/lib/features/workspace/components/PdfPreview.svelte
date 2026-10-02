@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Loader } from '@lucide/svelte';
-	import { toWikiRelative } from '$lib/wiki/paths';
+	import { toWikiRelative } from '#lib/wiki/paths.js';
 
 	let {
 		workspacePath,

@@ -7,7 +7,7 @@ import {
 	showFirstTurnAvatarSlot,
 	type ThreadVisibilityContext
 } from './thread-visibility';
-import type { ChatItem } from '$lib/stores/chat.svelte';
+import type { ChatItem } from '#lib/stores/chat.svelte.js';
 import { buildThinkingAttribution, type ThinkingAttribution } from './thinking-attribution';
 
 const emptyAttribution: ThinkingAttribution = {

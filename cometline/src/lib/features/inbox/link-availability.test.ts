@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const getJob = vi.fn();
 const getSession = vi.fn();
 
-vi.mock('$lib/client/cometmind', () => ({
+vi.mock('#lib/client/cometmind.js', () => ({
 	getJob: (...args: unknown[]) => getJob(...args),
 	getSession: (...args: unknown[]) => getSession(...args)
 }));

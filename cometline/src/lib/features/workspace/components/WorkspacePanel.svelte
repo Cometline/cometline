@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { tick, untrack } from 'svelte';
-	import ConfirmActionModal from '$lib/components/ConfirmActionModal.svelte';
-	import WorkspacePanelSurfaces from '$lib/features/workspace/components/workspace-panel/WorkspacePanelSurfaces.svelte';
-	import WorkspacePanelToolbar from '$lib/features/workspace/components/workspace-panel/WorkspacePanelToolbar.svelte';
-	import WorkspacePanelWebSearch from '$lib/features/workspace/components/workspace-panel/WorkspacePanelWebSearch.svelte';
-	import { shellStore } from '$lib/stores/shell.svelte';
-	import { isWorkspaceOwnedPane } from '$lib/features/workspace/workspace-pane-focus';
-	import { createWorkspacePanelController } from '$lib/features/workspace/workspace-panel-controller.svelte';
-	import { createWorkspacePanelView } from '$lib/features/workspace/workspace-panel-view.svelte';
+	import ConfirmActionModal from '#lib/components/ConfirmActionModal.svelte';
+	import WorkspacePanelSurfaces from '#lib/features/workspace/components/workspace-panel/WorkspacePanelSurfaces.svelte';
+	import WorkspacePanelToolbar from '#lib/features/workspace/components/workspace-panel/WorkspacePanelToolbar.svelte';
+	import WorkspacePanelWebSearch from '#lib/features/workspace/components/workspace-panel/WorkspacePanelWebSearch.svelte';
+	import { shellStore } from '#lib/stores/shell.svelte.js';
+	import { isWorkspaceOwnedPane } from '#lib/features/workspace/workspace-pane-focus.js';
+	import { createWorkspacePanelController } from '#lib/features/workspace/workspace-panel-controller.svelte.js';
+	import { createWorkspacePanelView } from '#lib/features/workspace/workspace-panel-view.svelte.js';
 
 	const view = createWorkspacePanelView();
 	const panel = createWorkspacePanelController(view);

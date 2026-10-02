@@ -5,7 +5,8 @@
 
 	async function openMiniWindow() {
 		try {
-			const { activateMiniWindow } = await import('$lib/features/shell/mini-window-session');
+			const { activateMiniWindow } =
+				await import('#lib/features/shell/mini-window-session.js');
 			await activateMiniWindow();
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to open mini chat';

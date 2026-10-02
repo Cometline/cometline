@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { ChevronDown, ChevronRight, Folder, Plus } from '@lucide/svelte';
-	import type { Session } from '$lib/types';
-	import WorkspaceSessionList from '$lib/features/sidebar/components/sidebar/WorkspaceSessionList.svelte';
+	import type { Session } from '#lib/types.js';
+	import WorkspaceSessionList from '#lib/features/sidebar/components/sidebar/WorkspaceSessionList.svelte';
 
 	let {
 		label,

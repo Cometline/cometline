@@ -1,30 +1,30 @@
 <script lang="ts">
 	import { fade } from 'svelte/transition';
-	import Composer from '$lib/features/composer/components/Composer.svelte';
-	import HeroComposerFrame from '$lib/features/composer/components/HeroComposerFrame.svelte';
-	import ChatThread from '$lib/features/chat/components/ChatThread.svelte';
-	import FirstTurnFlight from '$lib/features/chat/components/FirstTurnFlight.svelte';
-	import UserBubbleFlight from '$lib/features/chat/components/UserBubbleFlight.svelte';
+	import Composer from '#lib/features/composer/components/Composer.svelte';
+	import HeroComposerFrame from '#lib/features/composer/components/HeroComposerFrame.svelte';
+	import ChatThread from '#lib/features/chat/components/ChatThread.svelte';
+	import FirstTurnFlight from '#lib/features/chat/components/FirstTurnFlight.svelte';
+	import UserBubbleFlight from '#lib/features/chat/components/UserBubbleFlight.svelte';
 	import {
 		createConversationController,
 		refreshConversationSession
-	} from '$lib/features/chat/conversation-controller';
-	import type { QueuedMessage } from '$lib/actions/chat-turn-queue';
-	import { sessionStore } from '$lib/stores/session.svelte';
-	import { chatStore } from '$lib/stores/chat.svelte';
-	import { shellStore } from '$lib/stores/shell.svelte';
-	import type { ChatTurnPayload } from '$lib/actions/start-chat';
-	import { startJobInSession } from '$lib/features/jobs/start-job-in-chat';
-	import type { JobResource } from '$lib/client/cometmind';
-	import { createChatViewController } from '$lib/features/chat/chat-view-controller.svelte';
-	import { createChatViewFlight } from '$lib/features/chat/chat-view-flight.svelte';
+	} from '#lib/features/chat/conversation-controller.js';
+	import type { QueuedMessage } from '#lib/actions/chat-turn-queue.js';
+	import { sessionStore } from '#lib/stores/session.svelte.js';
+	import { chatStore } from '#lib/stores/chat.svelte.js';
+	import { shellStore } from '#lib/stores/shell.svelte.js';
+	import type { ChatTurnPayload } from '#lib/actions/start-chat.js';
+	import { startJobInSession } from '#lib/features/jobs/start-job-in-chat.js';
+	import type { JobResource } from '#lib/client/cometmind.js';
+	import { createChatViewController } from '#lib/features/chat/chat-view-controller.svelte.js';
+	import { createChatViewFlight } from '#lib/features/chat/chat-view-flight.svelte.js';
 	import {
 		createChatViewActivation,
 		type ChatViewComposerHandle
-	} from '$lib/features/chat/chat-view-activation.svelte';
-	import { createSessionPhase } from '$lib/features/chat/session-phase.svelte';
-	import MiniTitlebar from '$lib/features/chat/components/chat-view/MiniTitlebar.svelte';
-	import ChatEmptyRegion from '$lib/features/chat/components/chat-view/ChatEmptyRegion.svelte';
+	} from '#lib/features/chat/chat-view-activation.svelte.js';
+	import { createSessionPhase } from '#lib/features/chat/session-phase.svelte.js';
+	import MiniTitlebar from '#lib/features/chat/components/chat-view/MiniTitlebar.svelte';
+	import ChatEmptyRegion from '#lib/features/chat/components/chat-view/ChatEmptyRegion.svelte';
 
 	const THREAD_IN = { duration: 140 };
 

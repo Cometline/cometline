@@ -1,8 +1,8 @@
-import { cloneCometMindSettings, normalizeCometMindSettings } from '$lib/cometmind-settings';
-import type { MemorySettings } from '$lib/client/cometmind';
-import { findProviderForSaved } from '$lib/embedding-models';
-import { resolveDefaultModelPair } from '$lib/features/settings/schema';
-import type { ProviderConfig, ProviderSettings } from '$lib/types';
+import { cloneCometMindSettings, normalizeCometMindSettings } from '#lib/cometmind-settings.js';
+import type { MemorySettings } from '#lib/client/cometmind.js';
+import { findProviderForSaved } from '#lib/embedding-models.js';
+import { resolveDefaultModelPair } from '#lib/features/settings/schema.js';
+import type { ProviderConfig, ProviderSettings } from '#lib/types.js';
 
 export function cloneProvider(provider: ProviderConfig): ProviderConfig {
 	return {

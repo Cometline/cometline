@@ -7,7 +7,7 @@
 		Sparkles,
 		Trash2
 	} from '@lucide/svelte';
-	import { shellStore } from '$lib/stores/shell.svelte';
+	import { shellStore } from '#lib/stores/shell.svelte.js';
 	import type { createSettingsPanelController } from '../../settings-panel-controller.svelte';
 
 	let { controller }: { controller: ReturnType<typeof createSettingsPanelController> } = $props();

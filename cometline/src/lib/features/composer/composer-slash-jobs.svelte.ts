@@ -1,12 +1,12 @@
 import { tick } from 'svelte';
-import type { ChatTurnPayload } from '$lib/actions/start-chat';
-import { buildJobExecutionPrompt, claimJob, listJobs } from '$lib/client/cometmind';
-import type { ComposerInputRef } from '$lib/features/composer/composer-input-ref';
-import { createMenuHighlight } from '$lib/features/composer/menu-highlight.svelte';
-import { jobUserDisplayText } from '$lib/features/jobs/format-job-label';
-import { filterJobOptions, parseJobCommand } from '$lib/features/skills/slash-commands';
-import type { JobResource } from '$lib/generated/cometmind-api';
-import { shellStore } from '$lib/stores/shell.svelte';
+import type { ChatTurnPayload } from '#lib/actions/start-chat.js';
+import { buildJobExecutionPrompt, claimJob, listJobs } from '#lib/client/cometmind.js';
+import type { ComposerInputRef } from '#lib/features/composer/composer-input-ref.js';
+import { createMenuHighlight } from '#lib/features/composer/menu-highlight.svelte.js';
+import { jobUserDisplayText } from '#lib/features/jobs/format-job-label.js';
+import { filterJobOptions, parseJobCommand } from '#lib/features/skills/slash-commands.js';
+import type { JobResource } from '#lib/generated/cometmind-api/index.js';
+import { shellStore } from '#lib/stores/shell.svelte.js';
 
 export function createComposerJobCommands(deps: {
 	getValue: () => string;

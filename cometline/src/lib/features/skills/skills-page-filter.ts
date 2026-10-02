@@ -1,4 +1,4 @@
-import type { SkillResource } from '$lib/types';
+import type { SkillResource } from '#lib/types.js';
 
 export function filterSkills(skills: SkillResource[], search: string): SkillResource[] {
 	const q = search.trim().toLowerCase();

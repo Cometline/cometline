@@ -1,13 +1,13 @@
 import { tick } from 'svelte';
-import { createMenuHighlight } from '$lib/features/composer/menu-highlight.svelte';
-import { groupModelCommandOptions } from '$lib/features/composer/composer-model-groups';
-import { createComposerJobCommands } from '$lib/features/composer/composer-slash-jobs.svelte';
-import { createComposerWorkspaceCommands } from '$lib/features/composer/composer-slash-workspace.svelte';
-import type { ChatTurnPayload } from '$lib/actions/start-chat';
-import { clearSession, listSkills } from '$lib/client/cometmind';
-import { chatStore } from '$lib/stores/chat.svelte';
-import { modelStore, type ModelOption } from '$lib/stores/model.svelte';
-import { shellStore } from '$lib/stores/shell.svelte';
+import { createMenuHighlight } from '#lib/features/composer/menu-highlight.svelte.js';
+import { groupModelCommandOptions } from '#lib/features/composer/composer-model-groups.js';
+import { createComposerJobCommands } from '#lib/features/composer/composer-slash-jobs.svelte.js';
+import { createComposerWorkspaceCommands } from '#lib/features/composer/composer-slash-workspace.svelte.js';
+import type { ChatTurnPayload } from '#lib/actions/start-chat.js';
+import { clearSession, listSkills } from '#lib/client/cometmind.js';
+import { chatStore } from '#lib/stores/chat.svelte.js';
+import { modelStore, type ModelOption } from '#lib/stores/model.svelte.js';
+import { shellStore } from '#lib/stores/shell.svelte.js';
 import {
 	BUILTIN_SLASH_COMMANDS,
 	expandBuiltinSlashCommand,
@@ -19,9 +19,9 @@ import {
 	parseClearCommand,
 	parseModelCommand,
 	type SlashMenuOption
-} from '$lib/features/skills/slash-commands';
-import type { ImageAttachment, SkillResource } from '$lib/types';
-import type { ComposerInputRef } from '$lib/features/composer/composer-input-ref';
+} from '#lib/features/skills/slash-commands.js';
+import type { ImageAttachment, SkillResource } from '#lib/types.js';
+import type { ComposerInputRef } from '#lib/features/composer/composer-input-ref.js';
 
 export type ComposerSubmitResolution =
 	| { kind: 'handled' }

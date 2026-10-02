@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { HighlightedDiffLine } from '$lib/features/workspace/git-diff-highlight';
+	import type { HighlightedDiffLine } from '#lib/features/workspace/git-diff-highlight.js';
 
 	let {
 		lines,

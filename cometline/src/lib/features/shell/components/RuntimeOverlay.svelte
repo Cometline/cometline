@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { connectionState } from '$lib/stores/runtime.svelte';
-	import ThinkingIndicator from '$lib/components/ThinkingIndicator.svelte';
+	import { connectionState } from '#lib/stores/runtime.svelte.js';
+	import ThinkingIndicator from '#lib/components/ThinkingIndicator.svelte';
 	import { RefreshCw, TriangleAlert } from '@lucide/svelte';
 
 	function retry() {

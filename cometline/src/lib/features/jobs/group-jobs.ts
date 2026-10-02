@@ -1,4 +1,4 @@
-import type { JobResource } from '$lib/client/cometmind';
+import type { JobResource } from '#lib/client/cometmind.js';
 
 export type JobColumn = 'todo' | 'ongoing' | 'done';
 

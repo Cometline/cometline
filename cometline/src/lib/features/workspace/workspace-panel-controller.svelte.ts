@@ -1,13 +1,13 @@
 import { tick } from 'svelte';
-import { webTabActivity } from '$lib/features/workspace/web-tab-activity.svelte';
-import { sessionStore } from '$lib/stores/session.svelte';
-import { shellStore } from '$lib/stores/shell.svelte';
-import { terminalStore } from '$lib/stores/terminal.svelte';
-import { isHttpUrl, normalizeUserUrl } from '$lib/open-link';
-import { openExternalLink } from '$lib/external-link';
-import { isWikiUiPath } from '$lib/wiki/paths';
-import { createWorkspacePanelFocus } from '$lib/features/workspace/workspace-panel-controller-focus.svelte';
-import type { WorkspacePanelView } from '$lib/features/workspace/workspace-panel-view.svelte';
+import { webTabActivity } from '#lib/features/workspace/web-tab-activity.svelte.js';
+import { sessionStore } from '#lib/stores/session.svelte.js';
+import { shellStore } from '#lib/stores/shell.svelte.js';
+import { terminalStore } from '#lib/stores/terminal.svelte.js';
+import { isHttpUrl, normalizeUserUrl } from '#lib/open-link.js';
+import { openExternalLink } from '#lib/external-link.js';
+import { isWikiUiPath } from '#lib/wiki/paths.js';
+import { createWorkspacePanelFocus } from '#lib/features/workspace/workspace-panel-controller-focus.svelte.js';
+import type { WorkspacePanelView } from '#lib/features/workspace/workspace-panel-view.svelte.js';
 
 export type WorkspaceEditorState = {
 	dirty: boolean;

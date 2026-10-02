@@ -1,7 +1,7 @@
-import { formatDroppedFiles, readDroppedTextFiles } from '$lib/files/dropped-files';
-import { isSupportedImageFile, readImageAttachments } from '$lib/files/images';
-import type { ImageAttachment } from '$lib/types';
-import type { ComposerInputRef } from '$lib/features/composer/composer-input-ref';
+import { formatDroppedFiles, readDroppedTextFiles } from '#lib/files/dropped-files.js';
+import { isSupportedImageFile, readImageAttachments } from '#lib/files/images.js';
+import type { ImageAttachment } from '#lib/types.js';
+import type { ComposerInputRef } from '#lib/features/composer/composer-input-ref.js';
 
 export function createComposerAttachmentsController(deps: {
 	getValue: () => string;

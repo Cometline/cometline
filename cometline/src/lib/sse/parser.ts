@@ -1,4 +1,4 @@
-import type { StreamEvent } from '$lib/types';
+import type { StreamEvent } from '#lib/types.js';
 
 /** Parse a single SSE line. Returns the event, the sentinel 'done', or null. */
 export function parseSSEData(line: string): StreamEvent | 'done' | null {

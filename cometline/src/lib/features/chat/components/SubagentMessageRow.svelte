@@ -1,10 +1,10 @@
 <script lang="ts">
-	import SubagentPanel from '$lib/features/chat/components/SubagentPanel.svelte';
-	import ThreadAvatar from '$lib/features/chat/components/ThreadAvatar.svelte';
-	import ThreadRow from '$lib/features/chat/components/ThreadRow.svelte';
-	import { startsSpeakerRun } from '$lib/features/chat/thread-view-helpers';
-	import type { AssistantStackFoldController } from '$lib/features/chat/assistant-stack-props';
-	import type { ChatItem } from '$lib/stores/chat.svelte';
+	import SubagentPanel from '#lib/features/chat/components/SubagentPanel.svelte';
+	import ThreadAvatar from '#lib/features/chat/components/ThreadAvatar.svelte';
+	import ThreadRow from '#lib/features/chat/components/ThreadRow.svelte';
+	import { startsSpeakerRun } from '#lib/features/chat/thread-view-helpers.js';
+	import type { AssistantStackFoldController } from '#lib/features/chat/assistant-stack-props.js';
+	import type { ChatItem } from '#lib/stores/chat.svelte.js';
 
 	let {
 		item,

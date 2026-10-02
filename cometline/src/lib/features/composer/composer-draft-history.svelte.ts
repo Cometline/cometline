@@ -1,11 +1,11 @@
 import { tick } from 'svelte';
-import type { ChatTurnPayload } from '$lib/actions/start-chat';
-import { chatStore } from '$lib/stores/chat.svelte';
-import { shellStore } from '$lib/stores/shell.svelte';
-import { composerHistoryStore } from '$lib/stores/composer-history.svelte';
-import type { ImageAttachment } from '$lib/types';
-import type { ComposerInputRef } from '$lib/features/composer/composer-input-ref';
-import { stepHistoryIndex } from '$lib/features/composer/composer-history';
+import type { ChatTurnPayload } from '#lib/actions/start-chat.js';
+import { chatStore } from '#lib/stores/chat.svelte.js';
+import { shellStore } from '#lib/stores/shell.svelte.js';
+import { composerHistoryStore } from '#lib/stores/composer-history.svelte.js';
+import type { ImageAttachment } from '#lib/types.js';
+import type { ComposerInputRef } from '#lib/features/composer/composer-input-ref.js';
+import { stepHistoryIndex } from '#lib/features/composer/composer-history.js';
 
 /** Up/Down history recall plus unsent-draft stashing for the composer. */
 export function createComposerDraftHistoryController(deps: {

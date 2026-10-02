@@ -2,10 +2,10 @@ import {
 	renderMarkdown,
 	renderUserText,
 	type WorkspaceMarkdownResources
-} from '$lib/markdown/render';
-import { openLink } from '$lib/open-link';
-import { openWorkspaceFilePreview } from '$lib/features/workspace/open-file-preview';
-import { getCachedWikiFiles, refreshWikiFileIndex } from '$lib/wiki/wiki-file-index';
+} from '#lib/markdown/render.js';
+import { openLink } from '#lib/open-link.js';
+import { openWorkspaceFilePreview } from '#lib/features/workspace/open-file-preview.js';
+import { getCachedWikiFiles, refreshWikiFileIndex } from '#lib/wiki/wiki-file-index.js';
 
 export function createAssistantMarkdown(deps: {
 	getSource: () => string;

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import EventCard from '$lib/features/chat/components/EventCard.svelte';
+	import EventCard from '#lib/features/chat/components/EventCard.svelte';
 	import { TriangleAlert } from '@lucide/svelte';
 
 	let { variant = 'default' as 'default' | 'error' } = $props();

@@ -1,4 +1,4 @@
-import type { ModelOption } from '$lib/stores/model.svelte';
+import type { ModelOption } from '#lib/stores/model.svelte.js';
 
 export function groupModelCommandOptions(options: ModelOption[]) {
 	const groups: {

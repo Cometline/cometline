@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { initChatState, reduceChatState } from './chat';
-import type { StreamEvent } from '$lib/types';
-import { getReasoningSegments, anyReasoningPending } from '$lib/features/chat/reasoning';
+import type { StreamEvent } from '#lib/types.js';
+import { getReasoningSegments, anyReasoningPending } from '#lib/features/chat/reasoning.js';
 
 describe('reduceChatState', () => {
 	it('returns a new state without mutating the input', () => {

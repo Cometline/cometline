@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { Loader } from '@lucide/svelte';
-	import type { GitScope } from '$lib/client/cometmind';
-	import ConfirmActionModal from '$lib/components/ConfirmActionModal.svelte';
-	import SelectionAddToChat from '$lib/components/SelectionAddToChat.svelte';
-	import GitDiffHeader from '$lib/features/workspace/components/git-diff/GitDiffHeader.svelte';
-	import GitDiffLines from '$lib/features/workspace/components/git-diff/GitDiffLines.svelte';
-	import { createGitDiffViewController } from '$lib/features/workspace/git-diff-view.svelte';
-	import { workspaceChangeVersion } from '$lib/features/workspace/workspace-change.svelte';
+	import type { GitScope } from '#lib/client/cometmind.js';
+	import ConfirmActionModal from '#lib/components/ConfirmActionModal.svelte';
+	import SelectionAddToChat from '#lib/components/SelectionAddToChat.svelte';
+	import GitDiffHeader from '#lib/features/workspace/components/git-diff/GitDiffHeader.svelte';
+	import GitDiffLines from '#lib/features/workspace/components/git-diff/GitDiffLines.svelte';
+	import { createGitDiffViewController } from '#lib/features/workspace/git-diff-view.svelte.js';
+	import { workspaceChangeVersion } from '#lib/features/workspace/workspace-change.svelte.js';
 
 	let {
 		workspacePath,

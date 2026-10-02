@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { ProviderConfig } from '$lib/types';
-	import { providerOptionLabel } from '$lib/features/settings/model-roles-panel-roles';
+	import type { ProviderConfig } from '#lib/types.js';
+	import { providerOptionLabel } from '#lib/features/settings/model-roles-panel-roles.js';
 
 	let {
 		title,

@@ -2,9 +2,9 @@ import {
 	getSessionMessages,
 	isSessionNotFoundError,
 	listChildSessions
-} from '$lib/client/cometmind';
-import type { Session } from '$lib/types';
-import { itemsFromTranscript, localID, mergeSubagents } from '$lib/stores/chat-transcript';
+} from '#lib/client/cometmind.js';
+import type { Session } from '#lib/types.js';
+import { itemsFromTranscript, localID, mergeSubagents } from '#lib/stores/chat-transcript.js';
 import type { ChatState } from './chat-state.svelte';
 import type { SessionCache } from './session-cache.svelte';
 import type { SessionBinding } from './session-binding.svelte';

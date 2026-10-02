@@ -1,27 +1,27 @@
 import { tick, untrack } from 'svelte';
-import { listWikiFileChildren, listWorkspaceFileChildren } from '$lib/client/cometmind';
-import { shellStore, type FileTreeExpandSource } from '$lib/stores/shell.svelte';
-import { toWikiUiPath } from '$lib/wiki/paths';
-import { getCachedWikiFiles, refreshWikiFileIndex } from '$lib/wiki/wiki-file-index';
-import { rankMatchingFiles } from '$lib/features/workspace/file-search';
+import { listWikiFileChildren, listWorkspaceFileChildren } from '#lib/client/cometmind.js';
+import { shellStore, type FileTreeExpandSource } from '#lib/stores/shell.svelte.js';
+import { toWikiUiPath } from '#lib/wiki/paths.js';
+import { getCachedWikiFiles, refreshWikiFileIndex } from '#lib/wiki/wiki-file-index.js';
+import { rankMatchingFiles } from '#lib/features/workspace/file-search.js';
 import {
 	getFileIndex,
 	isFileIndexTruncated,
 	normalizeWorkspacePath,
 	refreshFileIndex,
 	searchWorkspaceFiles
-} from '$lib/features/workspace/file-index';
+} from '#lib/features/workspace/file-index.js';
 import {
 	buildFileTree,
 	dirKeysToExpandForPaths,
 	flattenVisibleFileTreeRows
-} from '$lib/features/workspace/file-tree';
+} from '#lib/features/workspace/file-tree.js';
 import {
 	FILE_TREE_SEARCH_LIMIT,
 	FILE_TREE_SEARCH_ROW_HEIGHT,
 	virtualWindow
-} from '$lib/features/workspace/virtual-list';
-import { workspaceChangeVersion } from '$lib/features/workspace/workspace-change.svelte';
+} from '#lib/features/workspace/virtual-list.js';
+import { workspaceChangeVersion } from '#lib/features/workspace/workspace-change.svelte.js';
 
 export function createFileTreeBrowser(deps: {
 	getWorkspacePath: () => string;

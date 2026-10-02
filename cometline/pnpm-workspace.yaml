@@ -5,6 +5,9 @@ allowBuilds:
     electron-winstaller: true
     esbuild: true
     node-pty: true
+minimumReleaseAgeExclude:
+    - '@sveltejs/adapter-static@4.0.0'
+    - '@sveltejs/kit@3.0.0'
 overrides:
     handlebars: '4.7.9'
     'tar@<7': '7.5.16'

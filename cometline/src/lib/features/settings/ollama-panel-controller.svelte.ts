@@ -1,9 +1,9 @@
-import type { ProviderConfig } from '$lib/types';
+import type { ProviderConfig } from '#lib/types.js';
 import {
 	isValidOllamaModelName,
 	OLLAMA_DEFAULT_NATIVE_BASE,
 	type OllamaCatalogEntry
-} from '$lib/ollama/catalog';
+} from '#lib/ollama/catalog.js';
 import {
 	cancelOllamaPull,
 	checkOllamaHealth,
@@ -12,7 +12,7 @@ import {
 	type OllamaHealthResult,
 	type OllamaInstalledModel,
 	type OllamaPullProgress
-} from '$lib/ollama/client';
+} from '#lib/ollama/client.js';
 
 function isCancelledPull(err: unknown): boolean {
 	return err instanceof Error && /cancelled/i.test(err.message);

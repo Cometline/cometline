@@ -4,7 +4,7 @@
 		INPUT_MODALITY_LABEL,
 		INPUT_MODALITY_ORDER,
 		type InputModality
-	} from '$lib/model-modalities';
+	} from '#lib/model-modalities.js';
 
 	let {
 		modalities = null,

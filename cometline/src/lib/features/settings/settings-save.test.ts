@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { defaultSettings } from '$lib/features/settings/schema';
+import { defaultSettings } from '#lib/features/settings/schema.js';
 
 import { runtimeActionForSettingsSave, saveStatusMessage } from './settings-save';
 

@@ -1,10 +1,10 @@
-import { webTabActivity } from '$lib/features/workspace/web-tab-activity.svelte';
-import { sessionStore } from '$lib/stores/session.svelte';
-import { settingsStore } from '$lib/stores/settings.svelte';
-import { shellStore } from '$lib/stores/shell.svelte';
-import { terminalStore } from '$lib/stores/terminal.svelte';
-import { normalizeWorkspacePath } from '$lib/features/workspace/file-index';
-import { isBlankTabUrl, urlTabChipLabel } from '$lib/features/workspace/workspace-panel-state';
+import { webTabActivity } from '#lib/features/workspace/web-tab-activity.svelte.js';
+import { sessionStore } from '#lib/stores/session.svelte.js';
+import { settingsStore } from '#lib/stores/settings.svelte.js';
+import { shellStore } from '#lib/stores/shell.svelte.js';
+import { terminalStore } from '#lib/stores/terminal.svelte.js';
+import { normalizeWorkspacePath } from '#lib/features/workspace/file-index.js';
+import { isBlankTabUrl, urlTabChipLabel } from '#lib/features/workspace/workspace-panel-state.js';
 
 function displayAddress(url: string | null | undefined): string {
 	if (!url || isBlankTabUrl(url)) return '';

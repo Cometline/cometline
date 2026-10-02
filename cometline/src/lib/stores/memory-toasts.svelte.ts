@@ -1,7 +1,7 @@
 import type {
 	MemoryChangeWire,
 	MemoryCompactionCompletedEvent
-} from '$lib/generated/cometmind-api';
+} from '#lib/generated/cometmind-api/index.js';
 
 export type MemoryToastAction = MemoryChangeWire['action'] | 'compact';
 

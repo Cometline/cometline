@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import RuntimeOverlay from '$lib/features/shell/components/RuntimeOverlay.svelte';
-	import { connectionState } from '$lib/stores/runtime.svelte';
+	import RuntimeOverlay from '#lib/features/shell/components/RuntimeOverlay.svelte';
+	import { connectionState } from '#lib/stores/runtime.svelte.js';
 
 	let { mode = 'connecting' as 'connecting' | 'error' }: { mode?: 'connecting' | 'error' } =
 		$props();

@@ -1,10 +1,10 @@
 <script lang="ts">
-	import type { MemorySettings } from '$lib/client/cometmind';
-	import type { SavedEmbeddingRef } from '$lib/embedding-models';
+	import type { MemorySettings } from '#lib/client/cometmind.js';
+	import type { SavedEmbeddingRef } from '#lib/embedding-models.js';
 	import SettingsMemoryLibrary from './memory/SettingsMemoryLibrary.svelte';
 	import SettingsMemoryRetrieval from './memory/SettingsMemoryRetrieval.svelte';
-	import { createSettingsMemoryPanel } from '$lib/features/settings/settings-memory-panel.svelte';
-	import type { ProviderConfig } from '$lib/types';
+	import { createSettingsMemoryPanel } from '#lib/features/settings/settings-memory-panel.svelte.js';
+	import type { ProviderConfig } from '#lib/types.js';
 
 	interface Props {
 		providers?: ProviderConfig[];

@@ -1,9 +1,9 @@
-import type { CometMindMCPSettings, MCPServerConfig } from '$lib/cometmind-settings';
+import type { CometMindMCPSettings, MCPServerConfig } from '#lib/cometmind-settings.js';
 import {
 	mergeImportedMcpServers,
 	parseCursorMcpJson
-} from '$lib/features/settings/cursor-mcp-import';
-import { normalizeServerConnection } from '$lib/features/settings/mcp-url';
+} from '#lib/features/settings/cursor-mcp-import.js';
+import { normalizeServerConnection } from '#lib/features/settings/mcp-url.js';
 import {
 	MCP_RELOADING_STATUS_MESSAGE,
 	formatEnv,
@@ -15,7 +15,7 @@ import {
 	toggledAllowedTools,
 	withTimeout,
 	type KnownMcpTool
-} from '$lib/features/settings/mcp-panel-format';
+} from '#lib/features/settings/mcp-panel-format.js';
 import {
 	apiErrorMessage,
 	listMcpServers,
@@ -25,8 +25,8 @@ import {
 	testMcpServer,
 	type McpServerStatus,
 	type McpToolInfo
-} from '$lib/client/cometmind';
-import { settingsStore } from '$lib/stores/settings.svelte';
+} from '#lib/client/cometmind.js';
+import { settingsStore } from '#lib/stores/settings.svelte.js';
 
 export type McpRowOp = 'reconnect' | 'oauth' | 'test';
 type TextFieldMap = Record<string, string>;

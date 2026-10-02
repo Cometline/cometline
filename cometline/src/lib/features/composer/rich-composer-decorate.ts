@@ -1,5 +1,5 @@
-import { isHttpUrl, fileMentionText } from '$lib/markdown/embed';
-import { makeChip, makeSkillChip } from '$lib/features/composer/rich-composer-chips';
+import { isHttpUrl, fileMentionText } from '#lib/markdown/embed.js';
+import { makeChip, makeSkillChip } from '#lib/features/composer/rich-composer-chips.js';
 
 export type DecorateOptions = { allowCaretEnd?: boolean };
 

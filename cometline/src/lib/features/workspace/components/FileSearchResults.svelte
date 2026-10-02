@@ -1,5 +1,5 @@
 <script lang="ts">
-	import FileTypeIcon from '$lib/features/workspace/components/FileTypeIcon.svelte';
+	import FileTypeIcon from '#lib/features/workspace/components/FileTypeIcon.svelte';
 
 	let {
 		results,

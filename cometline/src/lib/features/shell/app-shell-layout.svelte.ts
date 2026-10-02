@@ -3,9 +3,9 @@ import {
 	resolveWorkspacePanelRatio,
 	widthFromRatio,
 	widthToRatio
-} from '$lib/layout/workspace-panel-width';
-import { settingsStore } from '$lib/stores/settings.svelte';
-import { shellStore } from '$lib/stores/shell.svelte';
+} from '#lib/layout/workspace-panel-width.js';
+import { settingsStore } from '#lib/stores/settings.svelte.js';
+import { shellStore } from '#lib/stores/shell.svelte.js';
 
 const FALLBACK_SIDEBAR_DURATION = 360;
 

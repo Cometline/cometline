@@ -1,4 +1,4 @@
-import type { ChatItem } from '$lib/types';
+import type { ChatItem } from '#lib/types.js';
 import { getReasoningSegments } from './reasoning';
 
 export type InjectedMemory = Extract<ChatItem, { type: 'memory' }>['memories'][number];

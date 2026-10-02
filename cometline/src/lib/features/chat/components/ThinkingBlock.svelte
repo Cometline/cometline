@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { slide } from 'svelte/transition';
 	import { Brain, ChevronDown } from '@lucide/svelte';
-	import ThinkingSpinner from '$lib/components/ThinkingSpinner.svelte';
+	import ThinkingSpinner from '#lib/components/ThinkingSpinner.svelte';
 
 	const FOLD_IN = { duration: 180 };
 

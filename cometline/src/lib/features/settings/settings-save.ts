@@ -1,6 +1,6 @@
-import type { RuntimeReloadOutcome } from '$lib/electron-api';
-import type { ProviderSettings } from '$lib/types';
-import type { SettingsSection } from '$lib/features/settings/settings-controller.svelte';
+import type { RuntimeReloadOutcome } from '#lib/electron-api.js';
+import type { ProviderSettings } from '#lib/types.js';
+import type { SettingsSection } from '#lib/features/settings/settings-controller.svelte.js';
 
 export type RuntimeApplyAction = 'none' | 'reload' | 'restart' | 'gateway';
 

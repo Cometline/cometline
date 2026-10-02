@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Session } from '$lib/types';
+import type { Session } from '#lib/types.js';
 
 const mocks = vi.hoisted(() => ({
 	goto: vi.fn().mockResolvedValue(undefined),
@@ -14,13 +14,13 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('$app/navigation', () => ({ goto: mocks.goto }));
-vi.mock('$lib/stores/session.svelte', () => ({
+vi.mock('#lib/stores/session.svelte.js', () => ({
 	sessionStore: { selectSession: mocks.selectSession }
 }));
-vi.mock('$lib/stores/model.svelte', () => ({
+vi.mock('#lib/stores/model.svelte.js', () => ({
 	modelStore: { selectFromSession: mocks.selectFromSession }
 }));
-vi.mock('$lib/stores/shell.svelte', () => ({
+vi.mock('#lib/stores/shell.svelte.js', () => ({
 	shellStore: {
 		workspacePath: '/ws-a',
 		setActiveWorkspacePath: mocks.setActiveWorkspacePath,
@@ -29,7 +29,7 @@ vi.mock('$lib/stores/shell.svelte', () => ({
 		requestComposerFocus: mocks.requestComposerFocus
 	}
 }));
-vi.mock('$lib/stores/session-visit-history.svelte', () => ({
+vi.mock('#lib/stores/session-visit-history.svelte.js', () => ({
 	sessionVisitHistory: { markActive: mocks.markActive, recordVisit: mocks.recordVisit }
 }));
 

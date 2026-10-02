@@ -1,15 +1,15 @@
 <script lang="ts">
 	import { tick } from 'svelte';
 	import { Loader } from '@lucide/svelte';
-	import FileSearchResults from '$lib/features/workspace/components/FileSearchResults.svelte';
-	import { shellStore } from '$lib/stores/shell.svelte';
-	import { settingsStore } from '$lib/stores/settings.svelte';
-	import { toWikiUiPath } from '$lib/wiki/paths';
+	import FileSearchResults from '#lib/features/workspace/components/FileSearchResults.svelte';
+	import { shellStore } from '#lib/stores/shell.svelte.js';
+	import { settingsStore } from '#lib/stores/settings.svelte.js';
+	import { toWikiUiPath } from '#lib/wiki/paths.js';
 	import {
 		loadFileSearchOptions,
 		type FileSearchSource
-	} from '$lib/features/workspace/file-search';
-	import { normalizeWorkspacePath } from '$lib/features/workspace/file-index';
+	} from '#lib/features/workspace/file-search.js';
+	import { normalizeWorkspacePath } from '#lib/features/workspace/file-index.js';
 
 	let {
 		open = false,

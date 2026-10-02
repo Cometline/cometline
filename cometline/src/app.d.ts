@@ -1,4 +1,4 @@
-import type { ElectronAPI } from '$lib/electron-api';
+import type { ElectronAPI } from '#lib/electron-api.js';
 
 declare global {
 	interface Window {

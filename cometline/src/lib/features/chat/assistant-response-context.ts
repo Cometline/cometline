@@ -1,5 +1,5 @@
-import type { WebContext } from '$lib/actions/start-chat';
-import type { ChatItem } from '$lib/types';
+import type { WebContext } from '#lib/actions/start-chat.js';
+import type { ChatItem } from '#lib/types.js';
 
 const MAX_CONTEXT_TITLE_CHARS = 500;
 const responseOrdinals = new WeakMap<readonly ChatItem[], Map<string, number>>();

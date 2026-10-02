@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { AgentMode } from '$lib/types';
+import type { AgentMode } from '#lib/types.js';
 import { createComposerInputController } from './composer-controller.svelte';
 
 function deps(overrides: Partial<Parameters<typeof createComposerInputController>[0]> = {}) {

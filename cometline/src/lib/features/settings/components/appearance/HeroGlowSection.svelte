@@ -1,14 +1,14 @@
 <script lang="ts">
-	import type { HeroComposerAppearance } from '$lib/types';
+	import type { HeroComposerAppearance } from '#lib/types.js';
 	import {
 		heroComposerCssVarStyle,
 		matchHeroComposerPreset
-	} from '$lib/hero-composer-appearance';
+	} from '#lib/hero-composer-appearance.js';
 	import {
 		applyHeroPreset,
 		selectCustomHeroPreset,
 		withCustomHeroColor
-	} from '$lib/features/settings/appearance-panel-hero';
+	} from '#lib/features/settings/appearance-panel-hero.js';
 	import HeroGlowPresets from './HeroGlowPresets.svelte';
 	import HeroColorField from './HeroColorField.svelte';
 

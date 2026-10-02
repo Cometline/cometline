@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { subagentProgressLabel } from '$lib/features/chat/subagent-display';
-import type { ChatItem } from '$lib/types';
+import { subagentProgressLabel } from '#lib/features/chat/subagent-display.js';
+import type { ChatItem } from '#lib/types.js';
 
 function subagent(
 	overrides: Partial<Extract<ChatItem, { type: 'subagent' }>> = {}

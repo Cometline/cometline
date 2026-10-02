@@ -2,43 +2,43 @@
 	import '../app.css';
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
-	import AssistantMarkdownProse from '$lib/components/AssistantMarkdownProse.svelte';
-	import AppShell from '$lib/features/shell/components/AppShell.svelte';
-	import MiniShell from '$lib/features/shell/components/MiniShell.svelte';
-	import { connectionState } from '$lib/stores/runtime.svelte';
-	import { settingsStore, readHasDismissedSetupWizardSync } from '$lib/stores/settings.svelte';
-	import { sessionStore } from '$lib/stores/session.svelte';
-	import { shellStore } from '$lib/stores/shell.svelte';
-	import { personaAvatarCache } from '$lib/personas/avatar-cache.svelte';
-	import { heroComposerCssVars } from '$lib/hero-composer-appearance';
+	import AssistantMarkdownProse from '#lib/components/AssistantMarkdownProse.svelte';
+	import AppShell from '#lib/features/shell/components/AppShell.svelte';
+	import MiniShell from '#lib/features/shell/components/MiniShell.svelte';
+	import { connectionState } from '#lib/stores/runtime.svelte.js';
+	import { settingsStore, readHasDismissedSetupWizardSync } from '#lib/stores/settings.svelte.js';
+	import { sessionStore } from '#lib/stores/session.svelte.js';
+	import { shellStore } from '#lib/stores/shell.svelte.js';
+	import { personaAvatarCache } from '#lib/personas/avatar-cache.svelte.js';
+	import { heroComposerCssVars } from '#lib/hero-composer-appearance.js';
 	import {
 		ensureWorkspace,
 		getSession,
 		listAllSessions,
 		startRuntimeEventStream
-	} from '$lib/client/cometmind';
-	import { memoryToastStore } from '$lib/stores/memory-toasts.svelte';
-	import { inboxStore } from '$lib/stores/inbox.svelte';
-	import { skillDraftsStore } from '$lib/stores/skill-drafts.svelte';
-	import { startJobNotificationPoller } from '$lib/features/jobs/job-notifications';
+	} from '#lib/client/cometmind.js';
+	import { memoryToastStore } from '#lib/stores/memory-toasts.svelte.js';
+	import { inboxStore } from '#lib/stores/inbox.svelte.js';
+	import { skillDraftsStore } from '#lib/stores/skill-drafts.svelte.js';
+	import { startJobNotificationPoller } from '#lib/features/jobs/job-notifications.js';
 	import {
 		notifyBackgroundRunFinished,
 		notifyConnectionChange,
 		notifyJobActivity,
 		notifyNewInboxMessage,
 		startSkillDraftToastWatch
-	} from '$lib/notifications/activity-toasts';
-	import { startStorageRetentionSync } from '$lib/retention/storage-retention-sync';
-	import { createBootController } from '$lib/boot/boot-controller';
+	} from '#lib/notifications/activity-toasts.js';
+	import { startStorageRetentionSync } from '#lib/retention/storage-retention-sync.js';
+	import { createBootController } from '#lib/boot/boot-controller.js';
 	import {
 		applyWorkspaceChange,
 		refreshWorkspace
-	} from '$lib/features/workspace/workspace-change.svelte';
-	import { chatStore } from '$lib/stores/chat.svelte';
+	} from '#lib/features/workspace/workspace-change.svelte.js';
+	import { chatStore } from '#lib/stores/chat.svelte.js';
 	import {
 		applySessionRuntimeEvent,
 		reconcileActiveSession
-	} from '$lib/sessions/session-runtime-events';
+	} from '#lib/sessions/session-runtime-events.js';
 
 	let { children } = $props();
 	let settingsLoaded = $state(false);

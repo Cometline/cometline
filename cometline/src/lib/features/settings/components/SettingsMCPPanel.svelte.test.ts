@@ -3,13 +3,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, waitFor } from '@testing-library/svelte';
 import { flushSync } from 'svelte';
 import Harness from './SettingsMCPPanel.harness.svelte';
-import { listMcpServers, startMcpOAuth, testMcpServer } from '$lib/client/cometmind';
-import type { CometMindMCPSettings } from '$lib/cometmind-settings';
-import { defaultSettings } from '$lib/features/settings/schema';
-import { settingsStore } from '$lib/stores/settings.svelte';
-import type { ProviderSettings } from '$lib/types';
+import { listMcpServers, startMcpOAuth, testMcpServer } from '#lib/client/cometmind.js';
+import type { CometMindMCPSettings } from '#lib/cometmind-settings.js';
+import { defaultSettings } from '#lib/features/settings/schema.js';
+import { settingsStore } from '#lib/stores/settings.svelte.js';
+import type { ProviderSettings } from '#lib/types.js';
 
-vi.mock('$lib/client/cometmind', () => ({
+vi.mock('#lib/client/cometmind.js', () => ({
 	apiErrorMessage: (error: unknown, fallback: string) => {
 		if (error instanceof Error) return error.message;
 		if (error && typeof error === 'object' && 'error_hint' in error) {

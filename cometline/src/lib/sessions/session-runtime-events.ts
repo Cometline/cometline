@@ -1,4 +1,4 @@
-import type { Session, StreamEvent } from '$lib/types';
+import type { Session, StreamEvent } from '#lib/types.js';
 
 export interface SessionRuntimeEventDeps {
 	getActiveSessionId: () => string | null;

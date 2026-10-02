@@ -10,7 +10,7 @@
 		"types": ["node"],
 		"baseUrl": ".",
 		"paths": {
-			"$lib/*": ["src/lib/*"]
+			"#lib/*": ["src/lib/*"]
 		}
 	},
 	"include": ["electron/src/**/*.ts", "src/app.d.ts"]

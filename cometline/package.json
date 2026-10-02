@@ -43,8 +43,8 @@
 		"@storybook/addon-a11y": "^10.4.6",
 		"@storybook/svelte": "^10.4.6",
 		"@storybook/sveltekit": "^10.4.6",
-		"@sveltejs/adapter-static": "^3.0.10",
-		"@sveltejs/kit": "^2.65.0",
+		"@sveltejs/adapter-static": "^4.0.0",
+		"@sveltejs/kit": "^3.0.0",
 		"@sveltejs/vite-plugin-svelte": "^7.1.2",
 		"@tailwindcss/vite": "^4.3.1",
 		"@testing-library/jest-dom": "^6.9.1",
@@ -65,8 +65,8 @@
 		"prettier": "^3.4.2",
 		"prettier-plugin-svelte": "^3.3.3",
 		"storybook": "^10.4.6",
-		"svelte": "^5.56.1",
-		"svelte-check": "^4.6.0",
+		"svelte": "^5.57.1",
+		"svelte-check": "^4.7.5",
 		"svelte-eslint-parser": "^1.8.0",
 		"tailwindcss": "^4.3.1",
 		"typescript": "^6.0.3",
@@ -175,5 +175,9 @@
 				"to": "shell-integration"
 			}
 		]
+	},
+	"imports": {
+		"#lib": "./src/lib/index.js",
+		"#lib/*": "./src/lib/*"
 	}
 }

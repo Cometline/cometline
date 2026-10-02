@@ -3,11 +3,11 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { Settings, Briefcase, Sparkles, Bell, Images, CircleDollarSign } from '@lucide/svelte';
-	import { inboxStore } from '$lib/stores/inbox.svelte';
-	import { jobsIndicatorStore } from '$lib/stores/jobs-indicator.svelte';
-	import { skillDraftsStore } from '$lib/stores/skill-drafts.svelte';
-	import { openSettings } from '$lib/actions/open-settings';
-	import Tooltip from '$lib/components/Tooltip.svelte';
+	import { inboxStore } from '#lib/stores/inbox.svelte.js';
+	import { jobsIndicatorStore } from '#lib/stores/jobs-indicator.svelte.js';
+	import { skillDraftsStore } from '#lib/stores/skill-drafts.svelte.js';
+	import { openSettings } from '#lib/actions/open-settings.js';
+	import Tooltip from '#lib/components/Tooltip.svelte';
 </script>
 
 <div class="sidebar-footer p-2">
@@ -24,10 +24,8 @@
 			class="nav-badge"
 			class:has-badge={jobsIndicatorStore.hasOngoing}
 			class:active={page.url.pathname === '/jobs'}
-			onclick={() => goto(resolve('/jobs'))}
+			onclick={() => goto(resolve('jobs'))}><Briefcase size={16} stroke-width={1.8} /></button
 		>
-			<Briefcase size={16} stroke-width={1.8} />
-		</button>
 	</Tooltip>
 	<Tooltip label="Skills" action="openSkillDrafts">
 		<button
@@ -35,30 +33,26 @@
 			class="nav-badge"
 			class:has-badge={skillDraftsStore.hasDrafts}
 			class:active={page.url.pathname === '/skills' || page.url.pathname === '/skill-drafts'}
-			onclick={() => goto(resolve('/skills'))}
+			onclick={() => goto(resolve('skills'))}
+			><Sparkles size={16} stroke-width={1.8} /></button
 		>
-			<Sparkles size={16} stroke-width={1.8} />
-		</button>
 	</Tooltip>
 	<Tooltip label="Gallery" action="openGallery">
 		<button
 			aria-label="Gallery"
 			class="nav-badge"
 			class:active={page.url.pathname === '/gallery'}
-			onclick={() => goto(resolve('/gallery'))}
+			onclick={() => goto(resolve('gallery'))}><Images size={16} stroke-width={1.8} /></button
 		>
-			<Images size={16} stroke-width={1.8} />
-		</button>
 	</Tooltip>
 	<Tooltip label="Usage" action="openUsage">
 		<button
 			aria-label="Usage"
 			class="nav-badge"
 			class:active={page.url.pathname === '/usage'}
-			onclick={() => goto(resolve('/usage'))}
+			onclick={() => goto(resolve('usage'))}
+			><CircleDollarSign size={16} stroke-width={1.8} /></button
 		>
-			<CircleDollarSign size={16} stroke-width={1.8} />
-		</button>
 	</Tooltip>
 	<Tooltip label="Inbox" action="openInbox">
 		<button

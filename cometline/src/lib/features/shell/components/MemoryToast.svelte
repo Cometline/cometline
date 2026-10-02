@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Brain, CircleCheck, Pencil, Trash2, X } from '@lucide/svelte';
-	import { memoryToastStore, type MemoryToastAction } from '$lib/stores/memory-toasts.svelte';
+	import { memoryToastStore, type MemoryToastAction } from '#lib/stores/memory-toasts.svelte.js';
 
 	const icons = {
 		create: CircleCheck,

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ChatItem } from '$lib/stores/chat.svelte';
+import type { ChatItem } from '#lib/stores/chat.svelte.js';
 import { createSessionFindController } from './session-find.svelte';
 import { groupThreadItemsIntoTurns } from './thread-turns';
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { SkillResource } from '$lib/types';
+import type { SkillResource } from '#lib/types.js';
 import { filterSkills } from './skills-page-filter';
 
 function skill(name: string, description: string, path: string): SkillResource {

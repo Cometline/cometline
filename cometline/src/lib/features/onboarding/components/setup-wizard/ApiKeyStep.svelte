@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { Check, LoaderCircle, LogIn, RefreshCw } from '@lucide/svelte';
-	import SettingsButton from '$lib/features/settings/components/SettingsButton.svelte';
-	import type { ProviderConfig } from '$lib/types';
-	import { openOllamaDownloadPage } from '$lib/ollama/client';
-	import { providerLabel } from '$lib/features/onboarding/setup-wizard';
-	import type { SetupWizardAuth } from '$lib/features/onboarding/setup-wizard-auth.svelte';
-	import type { SetupWizardMemory } from '$lib/features/onboarding/setup-wizard-memory.svelte';
+	import SettingsButton from '#lib/features/settings/components/SettingsButton.svelte';
+	import type { ProviderConfig } from '#lib/types.js';
+	import { openOllamaDownloadPage } from '#lib/ollama/client.js';
+	import { providerLabel } from '#lib/features/onboarding/setup-wizard.js';
+	import type { SetupWizardAuth } from '#lib/features/onboarding/setup-wizard-auth.svelte.js';
+	import type { SetupWizardMemory } from '#lib/features/onboarding/setup-wizard-memory.svelte.js';
 	import ProviderTabs from './ProviderTabs.svelte';
 	import StepIntro from './StepIntro.svelte';
 	import WizardField from './WizardField.svelte';

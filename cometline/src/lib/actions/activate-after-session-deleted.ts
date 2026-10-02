@@ -1,11 +1,11 @@
-import { startNewChat } from '$lib/actions/new-chat';
-import { navigateToSession } from '$lib/actions/navigate-to-session';
-import { flattenSessionsInSidebarOrder } from '$lib/sessions/group-by-workspace';
-import { nextSessionAfterDelete } from '$lib/sessions/next-session-after-delete';
-import { chatStore } from '$lib/stores/chat.svelte';
-import { sessionStore } from '$lib/stores/session.svelte';
-import { shellStore } from '$lib/stores/shell.svelte';
-import type { Session } from '$lib/types';
+import { startNewChat } from '#lib/actions/new-chat.js';
+import { navigateToSession } from '#lib/actions/navigate-to-session.js';
+import { flattenSessionsInSidebarOrder } from '#lib/sessions/group-by-workspace.js';
+import { nextSessionAfterDelete } from '#lib/sessions/next-session-after-delete.js';
+import { chatStore } from '#lib/stores/chat.svelte.js';
+import { sessionStore } from '#lib/stores/session.svelte.js';
+import { shellStore } from '#lib/stores/shell.svelte.js';
+import type { Session } from '#lib/types.js';
 
 export type ActivateAfterSessionDeletedOptions = {
 	navigate?: (session: Session) => void | Promise<void>;

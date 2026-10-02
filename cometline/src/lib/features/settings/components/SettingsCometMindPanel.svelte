@@ -2,14 +2,14 @@
 	import SettingsCometMindQueue from './cometmind/SettingsCometMindQueue.svelte';
 	import SettingsCometMindRuntime from './cometmind/SettingsCometMindRuntime.svelte';
 	import SettingsCometMindSkills from './cometmind/SettingsCometMindSkills.svelte';
-	import { formatIdList, parseIdList, type CometMindSettings } from '$lib/cometmind-settings';
-	import type { ProviderConfig } from '$lib/types';
-	import { shellStore } from '$lib/stores/shell.svelte';
+	import { formatIdList, parseIdList, type CometMindSettings } from '#lib/cometmind-settings.js';
+	import type { ProviderConfig } from '#lib/types.js';
+	import { shellStore } from '#lib/stores/shell.svelte.js';
 
-	import { listSkills, syncSkills, deleteSkill, exportSkill } from '$lib/client/cometmind';
-	import type { SkillResource } from '$lib/types';
+	import { listSkills, syncSkills, deleteSkill, exportSkill } from '#lib/client/cometmind.js';
+	import type { SkillResource } from '#lib/types.js';
 	import { onMount } from 'svelte';
-	import ConfirmActionModal from '$lib/components/ConfirmActionModal.svelte';
+	import ConfirmActionModal from '#lib/components/ConfirmActionModal.svelte';
 	import SettingsMCPPanel from './SettingsMCPPanel.svelte';
 
 	let {

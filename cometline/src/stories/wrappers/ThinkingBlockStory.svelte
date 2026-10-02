@@ -1,5 +1,5 @@
 <script lang="ts">
-	import ThinkingBlock from '$lib/features/chat/components/ThinkingBlock.svelte';
+	import ThinkingBlock from '#lib/features/chat/components/ThinkingBlock.svelte';
 
 	let { expanded = false }: { expanded?: boolean } = $props();
 </script>

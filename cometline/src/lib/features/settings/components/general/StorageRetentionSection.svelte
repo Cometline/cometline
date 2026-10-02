@@ -1,7 +1,7 @@
 <script lang="ts">
 	import SettingsToggle from '../SettingsToggle.svelte';
-	import type { CometMindStorageSettings } from '$lib/features/settings/schema';
-	import { nonNegativeIntFromInput } from '$lib/features/settings/general-panel-inputs';
+	import type { CometMindStorageSettings } from '#lib/features/settings/schema.js';
+	import { nonNegativeIntFromInput } from '#lib/features/settings/general-panel-inputs.js';
 
 	let { storage = $bindable() }: { storage: CometMindStorageSettings } = $props();
 

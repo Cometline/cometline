@@ -4,7 +4,7 @@ import {
 	listInboxMessages,
 	replyInboxMessage,
 	type InboxMessageResource
-} from '$lib/client/cometmind';
+} from '#lib/client/cometmind.js';
 
 function createInboxStore() {
 	let openCount = $state(0);

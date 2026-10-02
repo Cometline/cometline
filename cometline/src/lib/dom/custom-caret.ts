@@ -1,13 +1,13 @@
 import type { Action } from 'svelte/action';
 
-import type { CaretTrailSettings } from '$lib/types';
-import { readTextFieldCaretLocal, viewportDeltaToLocal } from '$lib/dom/caret-geometry';
+import type { CaretTrailSettings } from '#lib/types.js';
+import { readTextFieldCaretLocal, viewportDeltaToLocal } from '#lib/dom/caret-geometry.js';
 import {
 	clampUnit,
 	easeOutCirc,
 	pointsToSvg,
 	trailPolygonPoints
-} from '$lib/dom/caret-trail-geometry';
+} from '#lib/dom/caret-trail-geometry.js';
 
 const MEASURE_EVENT = 'customcaretmeasure';
 const RESET_EVENT = 'customcaretreset';

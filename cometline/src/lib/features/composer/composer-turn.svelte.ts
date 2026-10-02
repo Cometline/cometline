@@ -1,12 +1,12 @@
-import type { ChatTurnPayload, WebContext } from '$lib/actions/start-chat';
-import { handleComposerKeydown } from '$lib/features/composer/composer-keydown';
-import type { ComposerInputRef } from '$lib/features/composer/composer-input-ref';
-import { nextReasoningEffort } from '$lib/features/composer/reasoning-effort';
-import { modelStore, type ModelOption } from '$lib/stores/model.svelte';
-import { settingsStore } from '$lib/stores/settings.svelte';
-import { shellStore } from '$lib/stores/shell.svelte';
-import { getReasoningEffort, setReasoningEffort } from '$lib/stores/reasoning-effort.svelte';
-import type { ImageAttachment } from '$lib/types';
+import type { ChatTurnPayload, WebContext } from '#lib/actions/start-chat.js';
+import { handleComposerKeydown } from '#lib/features/composer/composer-keydown.js';
+import type { ComposerInputRef } from '#lib/features/composer/composer-input-ref.js';
+import { nextReasoningEffort } from '#lib/features/composer/reasoning-effort.js';
+import { modelStore, type ModelOption } from '#lib/stores/model.svelte.js';
+import { settingsStore } from '#lib/stores/settings.svelte.js';
+import { shellStore } from '#lib/stores/shell.svelte.js';
+import { getReasoningEffort, setReasoningEffort } from '#lib/stores/reasoning-effort.svelte.js';
+import type { ImageAttachment } from '#lib/types.js';
 
 type SlashResolver = {
 	resolveSubmitAction: (trimmed: string) => {

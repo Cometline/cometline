@@ -2,7 +2,7 @@
 import { render, screen, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ChatItem } from '$lib/stores/chat.svelte';
+import type { ChatItem } from '#lib/stores/chat.svelte.js';
 import ThreadScrollHarness from './ThreadScrollHarness.svelte';
 
 const initialItems: ChatItem[] = [

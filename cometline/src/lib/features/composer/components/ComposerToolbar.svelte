@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { Brain, Folder } from '@lucide/svelte';
-	import ModelPicker from '$lib/features/composer/components/ModelPicker.svelte';
-	import ComposerToolbarActions from '$lib/features/composer/components/composer/ComposerToolbarActions.svelte';
-	import Tooltip from '$lib/components/Tooltip.svelte';
-	import type { ModelOption } from '$lib/stores/model.svelte';
-	import { shellStore } from '$lib/stores/shell.svelte';
-	import type { AgentMode } from '$lib/types';
+	import ModelPicker from '#lib/features/composer/components/ModelPicker.svelte';
+	import ComposerToolbarActions from '#lib/features/composer/components/composer/ComposerToolbarActions.svelte';
+	import Tooltip from '#lib/components/Tooltip.svelte';
+	import type { ModelOption } from '#lib/stores/model.svelte.js';
+	import { shellStore } from '#lib/stores/shell.svelte.js';
+	import type { AgentMode } from '#lib/types.js';
 
 	let {
 		hasWorkspace,

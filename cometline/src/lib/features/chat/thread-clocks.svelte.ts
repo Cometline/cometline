@@ -1,4 +1,4 @@
-import type { ChatItem } from '$lib/stores/chat.svelte';
+import type { ChatItem } from '#lib/stores/chat.svelte.js';
 
 export interface ThreadClocksDeps {
 	getThreadItems: () => readonly ChatItem[];

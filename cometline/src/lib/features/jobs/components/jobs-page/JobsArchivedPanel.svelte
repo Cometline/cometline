@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { JobResource } from '$lib/client/cometmind';
+	import type { JobResource } from '#lib/client/cometmind.js';
 	import JobCard from '../JobCard.svelte';
 
 	let {

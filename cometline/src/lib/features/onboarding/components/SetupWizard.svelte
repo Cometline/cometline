@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { fade, scale } from 'svelte/transition';
-	import { settingsStore } from '$lib/stores/settings.svelte';
+	import { settingsStore } from '#lib/stores/settings.svelte.js';
 	import {
 		embeddingReviewLabel,
 		STEP_ORDER,
 		STEP_TITLES
-	} from '$lib/features/onboarding/setup-wizard';
-	import { createSetupWizardController } from '$lib/features/onboarding/setup-wizard-controller.svelte';
+	} from '#lib/features/onboarding/setup-wizard.js';
+	import { createSetupWizardController } from '#lib/features/onboarding/setup-wizard-controller.svelte.js';
 	import WizardHeader from './setup-wizard/WizardHeader.svelte';
 	import WizardFooter from './setup-wizard/WizardFooter.svelte';
 	import ProviderStep from './setup-wizard/ProviderStep.svelte';

@@ -633,7 +633,7 @@ Security posture: `BrowserWindow` has `sandbox: true`, `contextIsolation: true`,
 
 ## Feature folders
 
-Feature code lives under `cometline/src/lib/features/`. `src/lib/components/` keeps shared primitives only. The renderer calls CometMind only through `$lib/client`. IPC channel names live only in `electron/src/shared/ipc-channels.ts`. Components stay at or under 400 lines, scoped CSS at or under 200, and `.svelte.ts` stores at or under 500.
+Feature code lives under `cometline/src/lib/features/`. `src/lib/components/` keeps shared primitives only. The renderer calls CometMind only through `#lib/client`. IPC channel names live only in `electron/src/shared/ipc-channels.ts`. Components stay at or under 400 lines, scoped CSS at or under 200, and `.svelte.ts` stores at or under 500.
 
 | Folder | Owns |
 |---|---|

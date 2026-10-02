@@ -1,5 +1,5 @@
 import { SvelteMap } from 'svelte/reactivity';
-import type WorkspaceWebSurface from '$lib/features/workspace/components/WorkspaceWebSurface.svelte';
+import type WorkspaceWebSurface from '#lib/features/workspace/components/WorkspaceWebSurface.svelte';
 
 export type WebTabStatus = Pick<
 	ReturnType<typeof WorkspaceWebSurface>['pageState'],

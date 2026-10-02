@@ -1,6 +1,6 @@
-import { matchesShortcut, type KeyboardShortcuts } from '$lib/keyboard-shortcuts';
-import type { ImageAttachment } from '$lib/types';
-import { nextAttachmentRemoval } from '$lib/features/composer/composer-attachment-keydown';
+import { matchesShortcut, type KeyboardShortcuts } from '#lib/keyboard-shortcuts.js';
+import type { ImageAttachment } from '#lib/types.js';
+import { nextAttachmentRemoval } from '#lib/features/composer/composer-attachment-keydown.js';
 
 export type ComposerKeydownDeps = {
 	getShortcuts: () => KeyboardShortcuts;

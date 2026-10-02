@@ -1,6 +1,6 @@
 import { assistantThinkingWaitStatus } from './assistant-wait-status';
 import { formatToolDisplayName, type McpServerNameLookup } from './mcp-tool-display';
-import type { ChatItem } from '$lib/stores/chat.svelte';
+import type { ChatItem } from '#lib/stores/chat.svelte.js';
 
 export function formatToolDuration(ms: number) {
 	if (ms < 1000) return `${Math.max(1, Math.round(ms))}ms`;

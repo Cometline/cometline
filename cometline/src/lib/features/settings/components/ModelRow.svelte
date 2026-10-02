@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { fly } from 'svelte/transition';
 	import { Check } from '@lucide/svelte';
-	import { formatContextWindow } from '$lib/context-window';
-	import ModelCapabilityIcons from '$lib/components/model/ModelCapabilityIcons.svelte';
+	import { formatContextWindow } from '#lib/context-window.js';
+	import ModelCapabilityIcons from '#lib/components/model/ModelCapabilityIcons.svelte';
 
 	let {
 		model,

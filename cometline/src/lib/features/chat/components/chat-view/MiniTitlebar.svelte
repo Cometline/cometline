@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { PanelLeftClose, PanelLeftOpen } from '@lucide/svelte';
-	import Tooltip from '$lib/components/Tooltip.svelte';
-	import { chatStore } from '$lib/stores/chat.svelte';
-	import { miniShellStore } from '$lib/stores/mini-shell.svelte';
+	import Tooltip from '#lib/components/Tooltip.svelte';
+	import { chatStore } from '#lib/stores/chat.svelte.js';
+	import { miniShellStore } from '#lib/stores/mini-shell.svelte.js';
 
 	let { sessionId }: { sessionId: string } = $props();
 

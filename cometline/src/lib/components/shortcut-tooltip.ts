@@ -3,7 +3,7 @@ import {
 	type KeyboardShortcuts,
 	type ShortcutAction,
 	type ShortcutBinding
-} from '$lib/keyboard-shortcuts';
+} from '#lib/keyboard-shortcuts.js';
 
 /** Resolve the live binding for a shortcut action, if any. */
 export function resolveShortcutBinding(

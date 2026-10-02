@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { defaultCometMindSettings } from '$lib/cometmind-settings';
-import type { ProviderConfig, ProviderSettings } from '$lib/types';
+import { defaultCometMindSettings } from '#lib/cometmind-settings.js';
+import type { ProviderConfig, ProviderSettings } from '#lib/types.js';
 import { normalizeModelRoleDraft } from './model-role-draft';
 
 function provider(

@@ -1,5 +1,5 @@
-import type { FileSearchSource } from '$lib/features/settings/schema';
-import { refreshWikiFileIndex } from '$lib/wiki/wiki-file-index';
+import type { FileSearchSource } from '#lib/features/settings/schema.js';
+import { refreshWikiFileIndex } from '#lib/wiki/wiki-file-index.js';
 import {
 	filterFileIndex,
 	getFileIndex,
@@ -7,7 +7,7 @@ import {
 	normalizeWorkspacePath,
 	refreshFileIndex,
 	searchWorkspaceFiles
-} from '$lib/features/workspace/file-index';
+} from '#lib/features/workspace/file-index.js';
 
 export type { FileSearchSource };
 

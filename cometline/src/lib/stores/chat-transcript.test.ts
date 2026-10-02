@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { itemsFromTranscript } from './chat-transcript';
-import type { TranscriptItem } from '$lib/types';
+import type { TranscriptItem } from '#lib/types.js';
 
 describe('itemsFromTranscript', () => {
 	it('maps user messages from transcript rows', () => {

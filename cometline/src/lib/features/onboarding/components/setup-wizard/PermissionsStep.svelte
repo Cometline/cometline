@@ -1,5 +1,5 @@
 <script lang="ts">
-	import SettingsButton from '$lib/features/settings/components/SettingsButton.svelte';
+	import SettingsButton from '#lib/features/settings/components/SettingsButton.svelte';
 	import StepIntro from './StepIntro.svelte';
 
 	let {

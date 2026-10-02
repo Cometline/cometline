@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { FilePreviewController } from '$lib/features/workspace/file-preview-controller.svelte';
+	import type { FilePreviewController } from '#lib/features/workspace/file-preview-controller.svelte.js';
 
 	let { panel, mode }: { panel: FilePreviewController; mode: 'diff' | 'notice' } = $props();
 </script>

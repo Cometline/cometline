@@ -1,5 +1,5 @@
-import type { JobResource, ScheduledJobResource } from '$lib/client/cometmind';
-import { cronDisplayLabel } from '$lib/features/jobs/jobs-page-cron';
+import type { JobResource, ScheduledJobResource } from '#lib/client/cometmind.js';
+import { cronDisplayLabel } from '#lib/features/jobs/jobs-page-cron.js';
 
 export function formatClock(ms: number): string {
 	if (!ms) return 'Never';

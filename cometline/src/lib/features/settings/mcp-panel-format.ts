@@ -1,5 +1,5 @@
-import type { MCPServerConfig, MCPTransport } from '$lib/cometmind-settings';
-import type { McpServerStatus, McpToolInfo } from '$lib/client/cometmind';
+import type { MCPServerConfig, MCPTransport } from '#lib/cometmind-settings.js';
+import type { McpServerStatus, McpToolInfo } from '#lib/client/cometmind.js';
 
 export const MCP_REFRESH_TIMEOUT_MS = 8_000;
 export const MCP_RELOADING_POLL_MS = 1_500;

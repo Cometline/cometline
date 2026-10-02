@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { Download, Loader, RefreshCw } from '@lucide/svelte';
-	import type { UpdateState } from '$lib/electron-api';
+	import type { UpdateState } from '#lib/electron-api.js';
 
 	let updateState = $state<UpdateState>({ status: 'idle' });
 	let installing = $state(false);

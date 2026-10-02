@@ -1,15 +1,15 @@
 import { tick } from 'svelte';
-import { createMenuHighlight } from '$lib/features/composer/menu-highlight.svelte';
-import { deleteWorkspace, forkSession, listWorkspaces } from '$lib/client/cometmind';
-import type { ComposerInputRef } from '$lib/features/composer/composer-input-ref';
+import { createMenuHighlight } from '#lib/features/composer/menu-highlight.svelte.js';
+import { deleteWorkspace, forkSession, listWorkspaces } from '#lib/client/cometmind.js';
+import type { ComposerInputRef } from '#lib/features/composer/composer-input-ref.js';
 import {
 	filterWorkspaceOptions,
 	parseChangeCommand,
 	type WorkspaceMenuOption
-} from '$lib/features/skills/slash-commands';
-import { gotoSession } from '$lib/routes/session-route';
-import { sessionStore } from '$lib/stores/session.svelte';
-import { shellStore } from '$lib/stores/shell.svelte';
+} from '#lib/features/skills/slash-commands.js';
+import { gotoSession } from '#lib/routes/session-route.js';
+import { sessionStore } from '#lib/stores/session.svelte.js';
+import { shellStore } from '#lib/stores/shell.svelte.js';
 
 export function createComposerWorkspaceCommands(deps: {
 	getValue: () => string;

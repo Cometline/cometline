@@ -1,6 +1,6 @@
-import { settingsStore } from '$lib/stores/settings.svelte';
-import { isFixedBuiltinProvider } from '$lib/features/settings/schema';
-import type { ProviderConfig, ProviderMethod } from '$lib/types';
+import { settingsStore } from '#lib/stores/settings.svelte.js';
+import { isFixedBuiltinProvider } from '#lib/features/settings/schema.js';
+import type { ProviderConfig, ProviderMethod } from '#lib/types.js';
 import type {
 	CodexAuthStatus,
 	SettingsPanelControllerDeps,

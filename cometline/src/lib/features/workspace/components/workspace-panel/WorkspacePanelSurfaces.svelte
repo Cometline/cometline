@@ -1,15 +1,15 @@
 <script lang="ts">
-	import FileTreeBrowser from '$lib/features/workspace/components/FileTreeBrowser.svelte';
-	import WorkspaceFileSurface from '$lib/features/workspace/components/WorkspaceFileSurface.svelte';
-	import GitChangesBrowser from '$lib/features/workspace/components/GitChangesBrowser.svelte';
-	import GitDiffView from '$lib/features/workspace/components/GitDiffView.svelte';
-	import TerminalPanel from '$lib/features/workspace/components/TerminalPanel.svelte';
-	import WorkspaceWebSurface from '$lib/features/workspace/components/WorkspaceWebSurface.svelte';
-	import WorkspacePanelLayer from '$lib/features/workspace/components/workspace-panel/WorkspacePanelLayer.svelte';
-	import { webTabActivity } from '$lib/features/workspace/web-tab-activity.svelte';
-	import { shellStore } from '$lib/stores/shell.svelte';
-	import type { WorkspacePanelController } from '$lib/features/workspace/workspace-panel-controller.svelte';
-	import type { WorkspacePanelView } from '$lib/features/workspace/workspace-panel-view.svelte';
+	import FileTreeBrowser from '#lib/features/workspace/components/FileTreeBrowser.svelte';
+	import WorkspaceFileSurface from '#lib/features/workspace/components/WorkspaceFileSurface.svelte';
+	import GitChangesBrowser from '#lib/features/workspace/components/GitChangesBrowser.svelte';
+	import GitDiffView from '#lib/features/workspace/components/GitDiffView.svelte';
+	import TerminalPanel from '#lib/features/workspace/components/TerminalPanel.svelte';
+	import WorkspaceWebSurface from '#lib/features/workspace/components/WorkspaceWebSurface.svelte';
+	import WorkspacePanelLayer from '#lib/features/workspace/components/workspace-panel/WorkspacePanelLayer.svelte';
+	import { webTabActivity } from '#lib/features/workspace/web-tab-activity.svelte.js';
+	import { shellStore } from '#lib/stores/shell.svelte.js';
+	import type { WorkspacePanelController } from '#lib/features/workspace/workspace-panel-controller.svelte.js';
+	import type { WorkspacePanelView } from '#lib/features/workspace/workspace-panel-view.svelte.js';
 
 	let { view, panel }: { view: WorkspacePanelView; panel: WorkspacePanelController } = $props();
 </script>

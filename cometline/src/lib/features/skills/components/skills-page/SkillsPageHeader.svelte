@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { SkillsTab } from '$lib/features/skills/skills-page-controller.svelte';
-	import { skillDraftsStore } from '$lib/stores/skill-drafts.svelte';
+	import type { SkillsTab } from '#lib/features/skills/skills-page-controller.svelte.js';
+	import { skillDraftsStore } from '#lib/stores/skill-drafts.svelte.js';
 
 	let {
 		tab,

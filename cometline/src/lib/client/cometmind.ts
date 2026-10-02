@@ -80,7 +80,7 @@ import {
 	getUsageSummary as getUsageSummaryApi,
 	getUsageSeries as getUsageSeriesApi,
 	listUsageEvents as listUsageEventsApi
-} from '$lib/generated/cometmind-api';
+} from '#lib/generated/cometmind-api/index.js';
 import type {
 	CompactMemoryPreviewResponse,
 	MemoryCompactionResult,
@@ -129,13 +129,13 @@ import type {
 	UsageSummaryResponse,
 	UsageSeriesResponse,
 	UsageEventsResponse
-} from '$lib/generated/cometmind-api';
-import { client } from '$lib/generated/cometmind-api/client.gen';
-import { createSSEParser } from '$lib/sse/parser';
+} from '#lib/generated/cometmind-api/index.js';
+import { client } from '#lib/generated/cometmind-api/client.gen.js';
+import { createSSEParser } from '#lib/sse/parser.js';
 import {
 	buildJobExecutionPrompt as buildJobExecutionPromptImpl,
 	type JobExecutionPromptInput
-} from '$lib/features/jobs/build-job-execution-prompt';
+} from '#lib/features/jobs/build-job-execution-prompt.js';
 
 export type {
 	CompactMemoryPreviewResponse,
@@ -146,7 +146,7 @@ export type {
 	MemoryResource,
 	RunStorageRetentionResponse,
 	RunStorageBackupResponse
-} from '$lib/generated/cometmind-api';
+} from '#lib/generated/cometmind-api/index.js';
 
 export type {
 	SkillDetailResponse,
@@ -168,7 +168,7 @@ export type {
 	UsageSeriesResponse,
 	UsageSummaryResponse,
 	Workspace
-} from '$lib/generated/cometmind-api';
+} from '#lib/generated/cometmind-api/index.js';
 
 export type MemoryLifecycleSettings = {
 	decay_half_life_days: number;

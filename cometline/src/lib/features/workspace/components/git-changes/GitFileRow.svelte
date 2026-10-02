@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { Copy, MessageSquarePlus, Minus, Plus, RotateCcw } from '@lucide/svelte';
-	import FileTypeIcon from '$lib/features/workspace/components/FileTypeIcon.svelte';
+	import FileTypeIcon from '#lib/features/workspace/components/FileTypeIcon.svelte';
 	import {
 		gitFileDir,
 		gitFileName,
 		gitStatusBadge,
 		type GitChangesSectionKind,
 		type GitFile
-	} from '$lib/features/workspace/git-changes-browser';
+	} from '#lib/features/workspace/git-changes-browser.js';
 
 	let {
 		file,

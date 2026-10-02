@@ -5,8 +5,8 @@ import {
 	isJobProposalDismissed,
 	jobProposalDismissalSummary,
 	jobProposalFingerprint
-} from '$lib/features/jobs/job-proposal-dismissals';
-import type { JobProposal } from '$lib/features/jobs/parse-job-proposal';
+} from '#lib/features/jobs/job-proposal-dismissals.js';
+import type { JobProposal } from '#lib/features/jobs/parse-job-proposal.js';
 
 const proposal: JobProposal = {
 	description: 'Say hello',

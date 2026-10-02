@@ -13,18 +13,18 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, waitFor } from '@testing-library/svelte';
 import { flushSync } from 'svelte';
-import type { ProviderConfig } from '$lib/types';
+import type { ProviderConfig } from '#lib/types.js';
 import SettingsMemoryPanel from './SettingsMemoryPanel.svelte';
 import { createSettingsController } from '../settings-controller.svelte';
-import { settingsStore } from '$lib/stores/settings.svelte';
+import { settingsStore } from '#lib/stores/settings.svelte.js';
 import {
 	compactMemory,
 	compactMemoryPreview,
 	createMemory,
 	listMemories
-} from '$lib/client/cometmind';
+} from '#lib/client/cometmind.js';
 
-vi.mock('$lib/client/cometmind', () => {
+vi.mock('#lib/client/cometmind.js', () => {
 	const base = {
 		enabled: true,
 		auto_extract: true,

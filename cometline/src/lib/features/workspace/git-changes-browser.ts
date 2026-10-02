@@ -1,4 +1,4 @@
-import type { WorkspaceGitStatus } from '$lib/client/cometmind';
+import type { WorkspaceGitStatus } from '#lib/client/cometmind.js';
 
 export type GitFile = WorkspaceGitStatus['files'][number];
 export type GitChangesSectionKind = 'staged' | 'changes';

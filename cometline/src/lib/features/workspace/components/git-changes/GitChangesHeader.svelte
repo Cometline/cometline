@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { RefreshCw } from '@lucide/svelte';
-	import type { WorkspaceGitStatus } from '$lib/client/cometmind';
+	import type { WorkspaceGitStatus } from '#lib/client/cometmind.js';
 
 	let {
 		status,

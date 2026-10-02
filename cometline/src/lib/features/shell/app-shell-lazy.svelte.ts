@@ -1,11 +1,11 @@
-import { shellStore } from '$lib/stores/shell.svelte';
+import { shellStore } from '#lib/stores/shell.svelte.js';
 
 type WorkspacePanelModuleComponent =
-	typeof import('$lib/features/workspace/components/WorkspacePanel.svelte').default;
+	typeof import('#lib/features/workspace/components/WorkspacePanel.svelte').default;
 type IntroAnimationComponent =
-	typeof import('$lib/features/shell/components/IntroAnimation.svelte').default;
+	typeof import('#lib/features/shell/components/IntroAnimation.svelte').default;
 type InboxDrawerComponent =
-	typeof import('$lib/features/inbox/components/InboxDrawer.svelte').default;
+	typeof import('#lib/features/inbox/components/InboxDrawer.svelte').default;
 
 export function createAppShellLazyPanels() {
 	let WorkspacePanel = $state<WorkspacePanelModuleComponent | null>(null);
@@ -22,7 +22,7 @@ export function createAppShellLazyPanels() {
 		if (!workspacePanelLoadPromise) {
 			workspacePanelLoadFailed = false;
 			workspacePanelLoadPromise =
-				import('$lib/features/workspace/components/WorkspacePanel.svelte')
+				import('#lib/features/workspace/components/WorkspacePanel.svelte')
 					.then((module) => {
 						WorkspacePanel = module.default;
 						return module.default;
@@ -40,7 +40,7 @@ export function createAppShellLazyPanels() {
 	function loadIntroAnimation() {
 		if (Intro) return Promise.resolve(Intro);
 		if (!introLoadPromise) {
-			introLoadPromise = import('$lib/features/shell/components/IntroAnimation.svelte')
+			introLoadPromise = import('#lib/features/shell/components/IntroAnimation.svelte')
 				.then((module) => {
 					Intro = module.default;
 					return module.default;
@@ -59,7 +59,7 @@ export function createAppShellLazyPanels() {
 		if (Inbox) return Promise.resolve(Inbox);
 		if (!inboxLoadPromise) {
 			inboxLoadFailed = false;
-			inboxLoadPromise = import('$lib/features/inbox/components/InboxDrawer.svelte')
+			inboxLoadPromise = import('#lib/features/inbox/components/InboxDrawer.svelte')
 				.then((module) => {
 					Inbox = module.default;
 					return module.default;

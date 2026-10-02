@@ -1,5 +1,5 @@
-import { getActiveSessionId } from '$lib/active-session';
-import { dirKeysToExpandForPaths } from '$lib/features/workspace/file-tree';
+import { getActiveSessionId } from '#lib/active-session.js';
+import { dirKeysToExpandForPaths } from '#lib/features/workspace/file-tree.js';
 
 /** File-tree sources that keep an expansion map (not Changes). */
 export type FileTreeExpandSource = 'wiki' | 'workspace';

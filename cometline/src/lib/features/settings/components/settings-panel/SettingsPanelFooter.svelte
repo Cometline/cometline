@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { LoaderCircle } from '@lucide/svelte';
-	import { settingsStore } from '$lib/stores/settings.svelte';
+	import { settingsStore } from '#lib/stores/settings.svelte.js';
 	import SettingsButton from '../SettingsButton.svelte';
 
 	let {

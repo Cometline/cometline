@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Archive, RotateCcw, Trash2, ExternalLink, RefreshCw } from '@lucide/svelte';
-	import type { JobResource } from '$lib/client/cometmind';
+	import type { JobResource } from '#lib/client/cometmind.js';
 
 	let {
 		job,

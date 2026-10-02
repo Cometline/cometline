@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Plus } from '@lucide/svelte';
-	import type { JobResource } from '$lib/client/cometmind';
+	import type { JobResource } from '#lib/client/cometmind.js';
 	import JobCard from './JobCard.svelte';
 
 	let {

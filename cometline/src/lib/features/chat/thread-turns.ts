@@ -1,4 +1,4 @@
-import type { ChatItem } from '$lib/stores/chat.svelte';
+import type { ChatItem } from '#lib/stores/chat.svelte.js';
 import { TURN_BOTTOM_CLEARANCE } from './thread-scroll';
 
 export interface ThreadTurnItem {

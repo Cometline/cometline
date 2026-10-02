@@ -1,4 +1,4 @@
-import { toWikiUiPath } from '$lib/wiki/paths';
+import { toWikiUiPath } from '#lib/wiki/paths.js';
 
 /** Context for resolving local image/link paths inside a workspace or wiki markdown file. */
 export type WorkspaceMarkdownResources = {

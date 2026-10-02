@@ -11,11 +11,11 @@ import {
 	type SkillDetailResponse,
 	type SkillDraft,
 	type SkillDraftDetailResponse
-} from '$lib/client/cometmind';
-import { filterSkills } from '$lib/features/skills/skills-page-filter';
-import { skillDraftsStore } from '$lib/stores/skill-drafts.svelte';
-import { shellStore } from '$lib/stores/shell.svelte';
-import type { SkillResource } from '$lib/types';
+} from '#lib/client/cometmind.js';
+import { filterSkills } from '#lib/features/skills/skills-page-filter.js';
+import { skillDraftsStore } from '#lib/stores/skill-drafts.svelte.js';
+import { shellStore } from '#lib/stores/shell.svelte.js';
+import type { SkillResource } from '#lib/types.js';
 
 export type SkillsTab = 'skills' | 'drafts';
 

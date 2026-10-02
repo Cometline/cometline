@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { CometMindSettings } from '$lib/cometmind-settings';
-	import type { ProviderConfig } from '$lib/types';
+	import type { CometMindSettings } from '#lib/cometmind-settings.js';
+	import type { ProviderConfig } from '#lib/types.js';
 	import {
 		modelsForProvider,
 		providerById,
@@ -12,7 +12,7 @@
 		withSynthesisProvider,
 		withTitleModel,
 		withTitleProvider
-	} from '$lib/features/settings/model-roles-panel-roles';
+	} from '#lib/features/settings/model-roles-panel-roles.js';
 	import DefaultModelPicker from './model-roles/DefaultModelPicker.svelte';
 	import ModelRoleSection from './model-roles/ModelRoleSection.svelte';
 

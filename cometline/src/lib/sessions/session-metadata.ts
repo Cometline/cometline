@@ -1,4 +1,4 @@
-import type { AgentMode, Session } from '$lib/types';
+import type { AgentMode, Session } from '#lib/types.js';
 
 /** Session snapshots that are not exactly `plan` behave as Auto. */
 export function normalizeAgentMode(value: Session['agent_mode'] | undefined): AgentMode {

@@ -1,4 +1,4 @@
-import type { MCPServerConfig, MCPTransport } from '$lib/cometmind-settings';
+import type { MCPServerConfig, MCPTransport } from '#lib/cometmind-settings.js';
 
 type CursorMcpEntry = {
 	command?: unknown;

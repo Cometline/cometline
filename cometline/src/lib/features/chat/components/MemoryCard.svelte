@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { fade, slide } from 'svelte/transition';
 	import { Brain, ChevronDown } from '@lucide/svelte';
-	import type { InjectedMemory } from '$lib/features/chat/thinking-attribution';
-	import { bucketMemories, memoryKindLabel, resolveMemoryBucket } from '$lib/memory/buckets';
+	import type { InjectedMemory } from '#lib/features/chat/thinking-attribution.js';
+	import { bucketMemories, memoryKindLabel, resolveMemoryBucket } from '#lib/memory/buckets.js';
 
 	const FOLD_IN = { duration: 180 };
 	const CHIP_FADE = { duration: 400 };

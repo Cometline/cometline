@@ -1,34 +1,37 @@
 <script lang="ts">
 	import { onDestroy, onMount, tick } from 'svelte';
-	import type { QueuedMessage } from '$lib/actions/chat-turn-queue';
-	import type { ChatTurnPayload } from '$lib/actions/start-chat';
-	import { modelStore, type ModelOption } from '$lib/stores/model.svelte';
-	import { settingsStore } from '$lib/stores/settings.svelte';
-	import { shellStore } from '$lib/stores/shell.svelte';
-	import RichComposerInput from '$lib/features/composer/components/RichComposerInput.svelte';
-	import ImageAttachments from '$lib/features/composer/components/ImageAttachments.svelte';
-	import MessageQueuePanel from '$lib/features/composer/components/MessageQueuePanel.svelte';
-	import ComposerSlashMenus from '$lib/features/composer/components/ComposerSlashMenus.svelte';
-	import ComposerMentionMenu from '$lib/features/composer/components/ComposerMentionMenu.svelte';
-	import ComposerToolbar from '$lib/features/composer/components/ComposerToolbar.svelte';
-	import ComposerDropFeedback from '$lib/features/composer/components/composer/ComposerDropFeedback.svelte';
-	import MessageContextChips from '$lib/features/chat/components/MessageContextChips.svelte';
-	import { messageContextRefsFromPending } from '$lib/features/chat/message-context';
-	import { chatStore } from '$lib/stores/chat.svelte';
-	import { composerHistoryStore } from '$lib/stores/composer-history.svelte';
-	import { DEFAULT_CONTEXT_WINDOW_LIMIT, resolveContextWindowUsage } from '$lib/context-window';
-	import { workspaceLabel } from '$lib/sessions/group-by-workspace';
-	import type { ImageAttachment } from '$lib/types';
-	import type { ComposerInputRef } from '$lib/features/composer/composer-input-ref';
-	import { createComposerInputController } from '$lib/features/composer/composer-controller.svelte';
-	import { createComposerAttachmentsController } from '$lib/features/composer/composer-attachments.svelte';
-	import { createComposerMentionsController } from '$lib/features/composer/composer-mentions.svelte';
-	import { createComposerSlashController } from '$lib/features/composer/composer-slash.svelte';
-	import { createComposerAgentModeController } from '$lib/features/composer/composer-agent-mode.svelte';
-	import { createComposerDraftHistoryController } from '$lib/features/composer/composer-draft-history.svelte';
-	import type { PendingUnsentDraft } from '$lib/features/composer/composer-history';
-	import { createComposerTurnController } from '$lib/features/composer/composer-turn.svelte';
-	import { getReasoningEffort } from '$lib/stores/reasoning-effort.svelte';
+	import type { QueuedMessage } from '#lib/actions/chat-turn-queue.js';
+	import type { ChatTurnPayload } from '#lib/actions/start-chat.js';
+	import { modelStore, type ModelOption } from '#lib/stores/model.svelte.js';
+	import { settingsStore } from '#lib/stores/settings.svelte.js';
+	import { shellStore } from '#lib/stores/shell.svelte.js';
+	import RichComposerInput from '#lib/features/composer/components/RichComposerInput.svelte';
+	import ImageAttachments from '#lib/features/composer/components/ImageAttachments.svelte';
+	import MessageQueuePanel from '#lib/features/composer/components/MessageQueuePanel.svelte';
+	import ComposerSlashMenus from '#lib/features/composer/components/ComposerSlashMenus.svelte';
+	import ComposerMentionMenu from '#lib/features/composer/components/ComposerMentionMenu.svelte';
+	import ComposerToolbar from '#lib/features/composer/components/ComposerToolbar.svelte';
+	import ComposerDropFeedback from '#lib/features/composer/components/composer/ComposerDropFeedback.svelte';
+	import MessageContextChips from '#lib/features/chat/components/MessageContextChips.svelte';
+	import { messageContextRefsFromPending } from '#lib/features/chat/message-context.js';
+	import { chatStore } from '#lib/stores/chat.svelte.js';
+	import { composerHistoryStore } from '#lib/stores/composer-history.svelte.js';
+	import {
+		DEFAULT_CONTEXT_WINDOW_LIMIT,
+		resolveContextWindowUsage
+	} from '#lib/context-window.js';
+	import { workspaceLabel } from '#lib/sessions/group-by-workspace.js';
+	import type { ImageAttachment } from '#lib/types.js';
+	import type { ComposerInputRef } from '#lib/features/composer/composer-input-ref.js';
+	import { createComposerInputController } from '#lib/features/composer/composer-controller.svelte.js';
+	import { createComposerAttachmentsController } from '#lib/features/composer/composer-attachments.svelte.js';
+	import { createComposerMentionsController } from '#lib/features/composer/composer-mentions.svelte.js';
+	import { createComposerSlashController } from '#lib/features/composer/composer-slash.svelte.js';
+	import { createComposerAgentModeController } from '#lib/features/composer/composer-agent-mode.svelte.js';
+	import { createComposerDraftHistoryController } from '#lib/features/composer/composer-draft-history.svelte.js';
+	import type { PendingUnsentDraft } from '#lib/features/composer/composer-history.js';
+	import { createComposerTurnController } from '#lib/features/composer/composer-turn.svelte.js';
+	import { getReasoningEffort } from '#lib/stores/reasoning-effort.svelte.js';
 
 	let {
 		onSend,

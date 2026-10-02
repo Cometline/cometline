@@ -9,9 +9,9 @@ import {
 	pushEntry,
 	type PanelHistoryEntry,
 	type PanelHistoryState
-} from '$lib/features/workspace/panel-history';
-import type { WorkspacePanelTreeSource } from '$lib/features/workspace/workspace-panel-prefs';
-import type { SurfaceContentKey } from '$lib/features/workspace/workspace-panel-state';
+} from '#lib/features/workspace/panel-history.js';
+import type { WorkspacePanelTreeSource } from '#lib/features/workspace/workspace-panel-prefs.js';
+import type { SurfaceContentKey } from '#lib/features/workspace/workspace-panel-state.js';
 
 function pushSurfaceHistory(
 	state: PanelHistoryState,

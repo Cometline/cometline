@@ -2,50 +2,50 @@
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte';
 import { createRawSnippet, flushSync } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Session } from '$lib/types';
+import type { Session } from '#lib/types.js';
 
 // Keep the real shell and session stores, but exclude unrelated child lifecycles.
 const { emptyComponent } = vi.hoisted(() => ({ emptyComponent: () => ({}) }));
-vi.mock('$lib/features/sidebar/components/Sidebar.svelte', () => ({ default: emptyComponent }));
-vi.mock('$lib/features/workspace/components/FileTreeBrowser.svelte', () => ({
+vi.mock('#lib/features/sidebar/components/Sidebar.svelte', () => ({ default: emptyComponent }));
+vi.mock('#lib/features/workspace/components/FileTreeBrowser.svelte', () => ({
 	default: emptyComponent
 }));
-vi.mock('$lib/features/workspace/components/WorkspaceFileSurface.svelte', () => ({
+vi.mock('#lib/features/workspace/components/WorkspaceFileSurface.svelte', () => ({
 	default: emptyComponent
 }));
-vi.mock('$lib/features/workspace/components/WorkspaceWebSurface.svelte', () => ({
+vi.mock('#lib/features/workspace/components/WorkspaceWebSurface.svelte', () => ({
 	default: emptyComponent
 }));
-vi.mock('$lib/features/workspace/components/GitChangesBrowser.svelte', () => ({
+vi.mock('#lib/features/workspace/components/GitChangesBrowser.svelte', () => ({
 	default: emptyComponent
 }));
-vi.mock('$lib/features/workspace/components/GitDiffView.svelte', () => ({
+vi.mock('#lib/features/workspace/components/GitDiffView.svelte', () => ({
 	default: emptyComponent
 }));
-vi.mock('$lib/features/workspace/components/TerminalPanel.svelte', () => ({
+vi.mock('#lib/features/workspace/components/TerminalPanel.svelte', () => ({
 	default: emptyComponent
 }));
 vi.mock('./RuntimeOverlay.svelte', () => ({ default: emptyComponent }));
-vi.mock('$lib/features/settings/components/SettingsModal.svelte', () => ({
+vi.mock('#lib/features/settings/components/SettingsModal.svelte', () => ({
 	default: emptyComponent
 }));
-vi.mock('$lib/features/onboarding/components/SetupWizard.svelte', () => ({
+vi.mock('#lib/features/onboarding/components/SetupWizard.svelte', () => ({
 	default: emptyComponent
 }));
 vi.mock('./UpdateButton.svelte', () => ({ default: emptyComponent }));
 vi.mock('./MemoryToast.svelte', () => ({ default: emptyComponent }));
 vi.mock('./AppToast.svelte', () => ({ default: emptyComponent }));
-vi.mock('$lib/components/ConfirmActionModal.svelte', () => ({ default: emptyComponent }));
-vi.mock('$lib/features/workspace/components/FileSearchModal.svelte', () => ({
+vi.mock('#lib/components/ConfirmActionModal.svelte', () => ({ default: emptyComponent }));
+vi.mock('#lib/features/workspace/components/FileSearchModal.svelte', () => ({
 	default: emptyComponent
 }));
-vi.mock('$lib/features/inbox/components/InboxDrawer.svelte', () => ({ default: emptyComponent }));
+vi.mock('#lib/features/inbox/components/InboxDrawer.svelte', () => ({ default: emptyComponent }));
 vi.mock('$app/state', () => ({ page: { url: new URL('http://localhost/session/focus-test') } }));
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
 
 import AppShell from './AppShell.svelte';
-import { sessionStore } from '$lib/stores/session.svelte';
-import { shellStore } from '$lib/stores/shell.svelte';
+import { sessionStore } from '#lib/stores/session.svelte.js';
+import { shellStore } from '#lib/stores/shell.svelte.js';
 
 const session: Session = {
 	id: 'focus-test',

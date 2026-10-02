@@ -1,10 +1,10 @@
 <script lang="ts">
-	import type { HeroComposerAppearance } from '$lib/types';
+	import type { HeroComposerAppearance } from '#lib/types.js';
 	import {
 		HERO_COMPOSER_PRESETS,
 		type HeroComposerPreset,
 		type HeroComposerPresetSelection
-	} from '$lib/hero-composer-appearance';
+	} from '#lib/hero-composer-appearance.js';
 
 	let {
 		appearance,

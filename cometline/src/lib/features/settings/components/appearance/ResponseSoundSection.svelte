@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { ResponseCompleteSoundSettings } from '$lib/types';
-	import { playResponseCompleteSound } from '$lib/sound/response-complete';
+	import type { ResponseCompleteSoundSettings } from '#lib/types.js';
+	import { playResponseCompleteSound } from '#lib/sound/response-complete.js';
 
 	let {
 		responseCompleteSound = $bindable()

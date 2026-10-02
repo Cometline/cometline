@@ -34,4 +34,4 @@ A fresh database is built from `cometmind/internal/db/schema.sql`. Upgrades are 
 
 Feature code lives in `cometline/src/lib/features/{chat,composer,gallery,inbox,jobs,onboarding,settings,shell,sidebar,skills,usage,workspace}`. `src/lib/components/` is shared primitives only.
 
-The renderer calls CometMind only through `$lib/client`. Electron IPC channel names live only in `cometline/electron/src/shared/ipc-channels.ts`. Colors, spacing, and motion use design tokens (`var(--*)` in `app.css`); do not add raw hex in components.
+The renderer calls CometMind only through `#lib/client`. Electron IPC channel names live only in `cometline/electron/src/shared/ipc-channels.ts`. Colors, spacing, and motion use design tokens (`var(--*)` in `app.css`); do not add raw hex in components.

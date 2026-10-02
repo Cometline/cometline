@@ -1,5 +1,5 @@
-import { shellStore } from '$lib/stores/shell.svelte';
-import type { FileRevealRange } from '$lib/features/workspace/workspace-panel-state';
+import { shellStore } from '#lib/stores/shell.svelte.js';
+import type { FileRevealRange } from '#lib/features/workspace/workspace-panel-state.js';
 
 /** Opens a workspace-relative file in the side panel preview for the active session. */
 export function openWorkspaceFilePreview(

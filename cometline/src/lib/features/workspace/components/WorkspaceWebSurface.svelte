@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import type { WebContext } from '$lib/actions/start-chat';
+	import type { WebContext } from '#lib/actions/start-chat.js';
 
 	type WebviewElement = HTMLElement & {
 		src: string;

@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { LoaderCircle } from '@lucide/svelte';
 	import SettingsToggle from '../SettingsToggle.svelte';
-	import { cancelMemoryReembed } from '$lib/client/cometmind';
-	import { embeddingOptionKey } from '$lib/embedding-models';
-	import type { SettingsMemoryPanel } from '$lib/features/settings/settings-memory-panel.svelte';
+	import { cancelMemoryReembed } from '#lib/client/cometmind.js';
+	import { embeddingOptionKey } from '#lib/embedding-models.js';
+	import type { SettingsMemoryPanel } from '#lib/features/settings/settings-memory-panel.svelte.js';
 
 	let { panel }: { panel: SettingsMemoryPanel } = $props();
 </script>

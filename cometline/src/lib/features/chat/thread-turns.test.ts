@@ -4,7 +4,7 @@ import {
 	groupThreadItemsIntoTurns,
 	transcriptHasLeadingOrphans
 } from './thread-turns';
-import type { ChatItem } from '$lib/stores/chat.svelte';
+import type { ChatItem } from '#lib/stores/chat.svelte.js';
 
 describe('groupThreadItemsIntoTurns', () => {
 	it('groups follow-up items under the preceding user message', () => {

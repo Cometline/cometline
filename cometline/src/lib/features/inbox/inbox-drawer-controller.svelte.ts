@@ -1,12 +1,12 @@
-import type { InboxMessageResource } from '$lib/client/cometmind';
+import type { InboxMessageResource } from '#lib/client/cometmind.js';
 import {
 	jobLinkKey,
 	sessionLinkKey,
 	type LinkAvailabilityMap
-} from '$lib/features/inbox/link-availability';
-import { matchesShortcut } from '$lib/keyboard-shortcuts';
-import { appToastStore } from '$lib/stores/app-toasts.svelte';
-import { settingsStore } from '$lib/stores/settings.svelte';
+} from '#lib/features/inbox/link-availability.js';
+import { matchesShortcut } from '#lib/keyboard-shortcuts.js';
+import { appToastStore } from '#lib/stores/app-toasts.svelte.js';
+import { settingsStore } from '#lib/stores/settings.svelte.js';
 
 export type InboxDrawerController = ReturnType<typeof createInboxDrawerController>;
 

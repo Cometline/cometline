@@ -1,6 +1,6 @@
-import { shellStore } from '$lib/stores/shell.svelte';
-import { isDiscordSession } from '$lib/sessions/group-by-workspace';
-import type { Session } from '$lib/types';
+import { shellStore } from '#lib/stores/shell.svelte.js';
+import { isDiscordSession } from '#lib/sessions/group-by-workspace.js';
+import type { Session } from '#lib/types.js';
 
 /** Commit sidebar group ordering to a workspace (triggers reorder + flip). */
 export function commitSidebarWorkspace(path: string) {

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { formatContextPercent, formatContextUsageTokens } from '$lib/context-window';
+	import { formatContextPercent, formatContextUsageTokens } from '#lib/context-window.js';
 
 	let {
 		usedTokens,

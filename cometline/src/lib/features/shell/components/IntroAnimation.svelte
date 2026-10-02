@@ -1,14 +1,17 @@
 <script lang="ts">
 	import { fade } from 'svelte/transition';
 	import { onMount } from 'svelte';
-	import { shellStore } from '$lib/stores/shell.svelte';
-	import { settingsStore } from '$lib/stores/settings.svelte';
-	import { resolvePersona, personaAvatarSrcset as builtinAvatarSrcset } from '$lib/personas';
-	import { personaAvatarCache } from '$lib/personas/avatar-cache.svelte';
-	import { rectStyle } from '$lib/features/chat/first-turn-flight';
-	import { normalizeHeroComposerAppearance } from '$lib/hero-composer-appearance';
-	import { INTRO_BEATS as T } from '$lib/features/shell/intro-timeline';
-	import { startIntroCanvas, type IntroCanvasRun } from '$lib/features/shell/intro-canvas';
+	import { shellStore } from '#lib/stores/shell.svelte.js';
+	import { settingsStore } from '#lib/stores/settings.svelte.js';
+	import {
+		resolvePersona,
+		personaAvatarSrcset as builtinAvatarSrcset
+	} from '#lib/personas/index.js';
+	import { personaAvatarCache } from '#lib/personas/avatar-cache.svelte.js';
+	import { rectStyle } from '#lib/features/chat/first-turn-flight.js';
+	import { normalizeHeroComposerAppearance } from '#lib/hero-composer-appearance.js';
+	import { INTRO_BEATS as T } from '#lib/features/shell/intro-timeline.js';
+	import { startIntroCanvas, type IntroCanvasRun } from '#lib/features/shell/intro-canvas.js';
 	import IntroTitleCard from './intro/IntroTitleCard.svelte';
 
 	// ──────────────────────────────────────────────────────────────────────────

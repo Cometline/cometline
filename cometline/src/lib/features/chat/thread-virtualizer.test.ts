@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { ChatItem } from '$lib/stores/chat.svelte';
+import type { ChatItem } from '#lib/stores/chat.svelte.js';
 import { groupThreadItemsIntoTurns } from './thread-turns';
 import {
 	THREAD_TURN_GAP,

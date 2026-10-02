@@ -3,14 +3,14 @@
 	import { Terminal } from '@xterm/xterm';
 	import { FitAddon } from '@xterm/addon-fit';
 	import '@xterm/xterm/css/xterm.css';
-	import { shellStore } from '$lib/stores/shell.svelte';
-	import { settingsStore } from '$lib/stores/settings.svelte';
-	import { terminalStore } from '$lib/stores/terminal.svelte';
+	import { shellStore } from '#lib/stores/shell.svelte.js';
+	import { settingsStore } from '#lib/stores/settings.svelte.js';
+	import { terminalStore } from '#lib/stores/terminal.svelte.js';
 	import {
 		BUNDLED_TERMINAL_FONT_NAME,
 		DEFAULT_TERMINAL_FONT_FAMILY,
 		TERMINAL_THEME_PRESETS
-	} from '$lib/features/workspace/terminal-appearance';
+	} from '#lib/features/workspace/terminal-appearance.js';
 
 	let {
 		sessionId,

@@ -1,6 +1,6 @@
-import { browser } from '$app/environment';
-import { currentPathname } from '$lib/routes/session-route';
-import { sessionStore } from '$lib/stores/session.svelte';
+import { browser } from '$app/env';
+import { currentPathname } from '#lib/routes/session-route.js';
+import { sessionStore } from '#lib/stores/session.svelte.js';
 
 export function sessionIdFromPathname(pathname: string): string | null {
 	const match = pathname.match(/^\/(?:mini\/)?session\/([^/?#]+)/);

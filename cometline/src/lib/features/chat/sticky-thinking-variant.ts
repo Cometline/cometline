@@ -4,7 +4,7 @@ import {
 	variantForStage,
 	type ThinkingIndicatorVariant,
 	type ThinkingUiStage
-} from '$lib/components/thinking-indicator';
+} from '#lib/components/thinking-indicator.js';
 
 export type StickyThinkingVariantResult = {
 	variant: ThinkingIndicatorVariant;

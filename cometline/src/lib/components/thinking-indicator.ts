@@ -1,4 +1,4 @@
-import type { TurnStatusPhase } from '$lib/features/chat/turn-status';
+import type { TurnStatusPhase } from '#lib/features/chat/turn-status.js';
 
 export type ThinkingIndicatorVariant = 'orbit' | 'eclipse' | 'nova';
 

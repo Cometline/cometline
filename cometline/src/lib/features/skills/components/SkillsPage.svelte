@@ -3,11 +3,11 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
-	import ConfirmActionModal from '$lib/components/ConfirmActionModal.svelte';
+	import ConfirmActionModal from '#lib/components/ConfirmActionModal.svelte';
 	import {
 		createSkillsPageController,
 		type SkillsTab
-	} from '$lib/features/skills/skills-page-controller.svelte';
+	} from '#lib/features/skills/skills-page-controller.svelte.js';
 	import SkillDraftsView from './skills-page/SkillDraftsView.svelte';
 	import SkillsBrowseView from './skills-page/SkillsBrowseView.svelte';
 	import SkillsEmptyState from './skills-page/SkillsEmptyState.svelte';
@@ -27,10 +27,9 @@
 		if (next === 'skills') params.push(['tab', 'skills']);
 		const search = new URLSearchParams(params).toString();
 		// eslint-disable-next-line svelte/no-navigation-without-resolve -- the pathname is resolved; the rule cannot follow the appended query string
-		void goto(`${resolve('/skills')}${search ? `?${search}` : ''}`, {
+		void goto(`${resolve('skills')}${search ? `?${search}` : ''}`, {
 			replaceState: true,
-			noScroll: true,
-			keepFocus: true
+			reset: false
 		});
 	}
 </script>
@@ -51,9 +50,7 @@
 				drafts here for manual review.
 			</SkillsEmptyState>
 		{:else}
-			<div class="page-layout">
-				<SkillDraftsView {controller} />
-			</div>
+			<div class="page-layout"><SkillDraftsView {controller} /></div>
 		{/if}
 	{:else if controller.skills.length === 0}
 		<SkillsEmptyState title="No skills discovered">
@@ -61,9 +58,7 @@
 			<code>.agents/skills</code>, and other configured roots.
 		</SkillsEmptyState>
 	{:else}
-		<div class="page-layout">
-			<SkillsBrowseView {controller} />
-		</div>
+		<div class="page-layout"><SkillsBrowseView {controller} /></div>
 	{/if}
 </div>
 

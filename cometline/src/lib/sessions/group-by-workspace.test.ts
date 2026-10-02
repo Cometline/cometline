@@ -5,8 +5,8 @@ import {
 	layoutSessionsForSidebar,
 	partitionPinnedSessions,
 	sortSessionsByRecency
-} from '$lib/sessions/group-by-workspace';
-import type { Session } from '$lib/types';
+} from '#lib/sessions/group-by-workspace.js';
+import type { Session } from '#lib/types.js';
 
 function session(id: string, workspacePath: string, updatedAt: number, pinned = false): Session {
 	return {

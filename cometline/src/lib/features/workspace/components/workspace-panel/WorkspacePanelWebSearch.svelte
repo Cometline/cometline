@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { customCaret } from '$lib/dom/custom-caret';
-	import type { WorkspacePanelController } from '$lib/features/workspace/workspace-panel-controller.svelte';
-	import type { WorkspacePanelView } from '$lib/features/workspace/workspace-panel-view.svelte';
+	import { customCaret } from '#lib/dom/custom-caret.js';
+	import type { WorkspacePanelController } from '#lib/features/workspace/workspace-panel-controller.svelte.js';
+	import type { WorkspacePanelView } from '#lib/features/workspace/workspace-panel-view.svelte.js';
 
 	let { view, panel }: { view: WorkspacePanelView; panel: WorkspacePanelController } = $props();
 

@@ -1,7 +1,7 @@
-import type FirstTurnFlight from '$lib/features/chat/components/FirstTurnFlight.svelte';
-import type UserBubbleFlight from '$lib/features/chat/components/UserBubbleFlight.svelte';
-import type { ConversationFlightAdapter } from '$lib/features/chat/conversation-controller';
-import type { createSessionPhase } from '$lib/features/chat/session-phase.svelte';
+import type FirstTurnFlight from '#lib/features/chat/components/FirstTurnFlight.svelte';
+import type UserBubbleFlight from '#lib/features/chat/components/UserBubbleFlight.svelte';
+import type { ConversationFlightAdapter } from '#lib/features/chat/conversation-controller.js';
+import type { createSessionPhase } from '#lib/features/chat/session-phase.svelte.js';
 
 type SessionPhase = ReturnType<typeof createSessionPhase>;
 
