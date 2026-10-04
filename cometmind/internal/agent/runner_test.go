@@ -1514,22 +1514,20 @@ func TestRunner_AutoCollectsActiveSubagentResultsBeforeFinishing(t *testing.T) {
 	}}
 
 	orch := subagent.NewOrchestrator(5)
-	ctx := context.Background()
-	childCtx, cancel := context.WithCancel(ctx)
+	_, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	if err := orch.Register("s1", "child-1", subagent.KindGeneral, cancel); err != nil {
 		t.Fatalf("Register() error = %v", err)
 	}
-	go func() {
-		time.Sleep(10 * time.Millisecond)
-		orch.Complete("child-1", subagent.Result{
-			ChildSessionID: "child-1",
-			Kind:           subagent.KindGeneral,
-			Status:         "completed",
-			Summary:        "said hello",
-		})
-		_ = childCtx
-	}()
+	// Finish the child before the turn reaches its stop check. A short sleep
+	// lost this race under -race: Complete removed the child, ActiveCount was
+	// already 0, and the runner ended without a synthesis step.
+	orch.Complete("child-1", subagent.Result{
+		ChildSessionID: "child-1",
+		Kind:           subagent.KindGeneral,
+		Status:         "completed",
+		Summary:        "said hello",
+	})
 
 	r := &Runner{
 		Provider:             provider,

@@ -58,11 +58,11 @@ make test-live-openai
 
 ```bash
 cd cometmind
-go test ./...         # Run all tests
+go test -race ./...   # Same command CI runs
 go build ./...        # Verify compilation
 
-# Run a specific test
-go test -run TestPostMessageStreamsSSEAndPersistsUserTurn ./internal/server
+# Reproduce one CI failure. -race is required; without it the job can stay green.
+go test -race -count=1 -run TestPostMessageStreamsSSEAndPersistsUserTurn ./internal/server
 
 # Regenerate SQL code after schema or query changes (pinned sqlc, no install needed)
 go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1 generate
@@ -258,8 +258,8 @@ Run CometMind as a Discord bot with the same agent runtime.
 Run the tests that cover your change and leave them passing. Do not finish the task or open a pull request while those tests fail.
 
 - **`cometline/`:** `pnpm exec vitest run` on the related test files, then `pnpm run format:check`. Frontend CI also runs `pnpm run check`, `pnpm run lint`, and `pnpm run build`.
-- **`cometmind/`:** `go test` the package you changed. CI uses `go test -race ./...`.
-- **`comet-sdk/`:** `go test` the package you changed. CI uses `go test -race ./...`.
+- **`cometmind/`:** `go test -race` the package you changed. CI and `make test` run `go test -race ./...` from this directory. A test that passes without `-race` and fails in CI is a race; reproduce that job with `go test -race -count=1 -run TestName ./internal/<package>`.
+- **`comet-sdk/`:** same command from `comet-sdk/`. `make test` there is also `go test -race ./...`.
 
 ### Test strategy
 
@@ -333,7 +333,7 @@ Cometline can improve itself using the same agent runtime:
 3. CometMind calls `delegate_coding_task` to hand coding to the selected harness
 4. Review test output in the parent session
 
-**Verify command:** `cd cometmind && go test ./...`
+**Verify command:** `cd cometmind && go test -race ./...`
 
 ## Common Tasks
 
