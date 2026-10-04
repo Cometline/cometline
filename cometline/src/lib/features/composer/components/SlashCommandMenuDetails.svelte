@@ -8,19 +8,33 @@
 </div>
 
 <style>
-	.slash-menu-details :global(.mention-option) {
-		flex-direction: row;
-		align-items: center;
-		gap: 8px;
-		padding: 7px 10px;
+	.slash-menu-details {
+		display: flex;
+		flex-direction: column;
+		align-items: stretch;
+		justify-content: flex-start;
 	}
 
-	.slash-menu-details :global(.mention-option svg) {
+	/* Include .skill-command-option so this beats the column rule in SlashCommandMenu.
+	   Equal specificity loses across component stylesheets and stacks the icon above the path. */
+	.slash-menu-details :global(.skill-command-option.mention-option) {
+		flex: 0 0 auto;
+		flex-direction: row;
+		align-items: center;
+		justify-content: flex-start;
+		gap: 8px;
+		padding: 7px 10px;
+		text-align: left;
+	}
+
+	.slash-menu-details :global(.skill-command-option.mention-option svg) {
 		flex-shrink: 0;
 		color: var(--text-soft);
 	}
 
 	.slash-menu-details :global(.mention-path) {
+		flex: 1;
+		min-width: 0;
 		font-size: 12px;
 		font-weight: 500;
 		color: var(--text-main);
@@ -37,12 +51,12 @@
 		border-top: 1px solid var(--border-soft);
 	}
 
-	.slash-menu-details :global(.model-command-option) {
+	.slash-menu-details :global(.skill-command-option.model-command-option) {
 		position: relative;
 		padding-right: 28px;
 	}
 
-	.slash-menu-details :global(.model-command-option.is-selected) {
+	.slash-menu-details :global(.skill-command-option.model-command-option.is-selected) {
 		background: rgba(0, 102, 204, 0.04);
 	}
 
