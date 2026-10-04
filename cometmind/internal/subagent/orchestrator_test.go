@@ -2,6 +2,7 @@ package subagent
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 )
@@ -95,6 +96,64 @@ func TestOrchestrator_CancelForParent(t *testing.T) {
 	case <-ctx.Done():
 	case <-time.After(time.Second):
 		t.Fatal("expected context cancelled")
+	}
+}
+
+func TestOrchestrator_WaitReturnsResultCompletedBeforeWait(t *testing.T) {
+	o := NewOrchestrator(5)
+	_, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	if err := o.Register("parent", "child", KindGeneral, cancel); err != nil {
+		t.Fatal(err)
+	}
+	o.Complete("child", Result{Status: "completed", Summary: "already done"})
+	if got := o.ActiveCount("parent"); got != 0 {
+		t.Fatalf("ActiveCount() = %d, want 0", got)
+	}
+
+	res, err := o.Wait(context.Background(), "parent", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res) != 1 || res[0].Summary != "already done" || res[0].ChildSessionID != "child" {
+		t.Fatalf("Wait() = %+v, want the completed child", res)
+	}
+	again, err := o.Wait(context.Background(), "parent", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(again) != 0 {
+		t.Fatalf("second Wait() = %+v, want no replay", again)
+	}
+}
+
+func TestOrchestrator_CompleteWaitRace(t *testing.T) {
+	for i := 0; i < 50; i++ {
+		o := NewOrchestrator(1)
+		_, cancel := context.WithCancel(context.Background())
+		if err := o.Register("parent", "child", KindGeneral, cancel); err != nil {
+			cancel()
+			t.Fatal(err)
+		}
+		var (
+			wg  sync.WaitGroup
+			res []Result
+			err error
+		)
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			res, err = o.Wait(context.Background(), "parent", nil)
+		}()
+		go func() {
+			defer wg.Done()
+			o.Complete("child", Result{Status: "completed", Summary: "raced"})
+		}()
+		wg.Wait()
+		cancel()
+		if err != nil || len(res) != 1 || res[0].Summary != "raced" {
+			t.Fatalf("iter %d: Wait() = %+v, err = %v", i, res, err)
+		}
 	}
 }
 
