@@ -33,6 +33,10 @@
 		right: 14px;
 		bottom: calc(100% + 8px);
 		z-index: 28;
+		display: flex;
+		flex-direction: column;
+		justify-content: flex-start;
+		align-items: stretch;
 		max-height: 260px;
 		overflow: auto;
 		padding: 6px;
@@ -40,6 +44,10 @@
 		border-radius: 14px;
 		background: rgba(246, 249, 252, 0.98);
 		box-shadow: var(--shadow-card);
+	}
+
+	.skill-command-menu :global(.slash-menu-details) {
+		flex: 0 0 auto;
 	}
 
 	.skill-command-menu :global(.skill-command-option) {

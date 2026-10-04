@@ -1,9 +1,9 @@
 .PHONY: test test-live test-live-anthropic test-live-openai test-unit test-anthropic test-openai test-verbose lint build tidy
 
 # ── Default ───────────────────────────────────────────────────────────────────
-# Run all unit + integration tests. No live API calls. Safe for CI.
+# Same command as CI: go test -race ./... No live API calls.
 test:
-	go test ./...
+	go test -race ./...
 
 # ── Verbose ───────────────────────────────────────────────────────────────────
 test-verbose:

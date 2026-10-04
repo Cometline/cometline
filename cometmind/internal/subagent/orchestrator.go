@@ -27,6 +27,10 @@ type handle struct {
 	kind     Kind
 	done     chan Result
 	cancel   context.CancelFunc
+	// claimed is set when a Wait snapshot holds this handle. Complete then
+	// delivers on done instead of the pending queue so the result is not
+	// returned twice.
+	claimed bool
 }
 
 // Orchestrator tracks in-flight subagents and coordinates wait/join.
@@ -35,6 +39,9 @@ type Orchestrator struct {
 	maxPer   int
 	children map[string]*handle
 	byParent map[string]map[string]struct{}
+	// pending holds results that finished before any Wait claimed the child.
+	// ActiveCount ignores them; finish and wait_subagents still observe them.
+	pending map[string][]Result
 }
 
 // NewOrchestrator returns an orchestrator with the given per-parent concurrency cap.
@@ -47,6 +54,7 @@ func NewOrchestrator(maxPerParent int) *Orchestrator {
 		maxPer:   maxPerParent,
 		children: make(map[string]*handle),
 		byParent: make(map[string]map[string]struct{}),
+		pending:  make(map[string][]Result),
 	}
 }
 
@@ -82,25 +90,33 @@ func (o *Orchestrator) Register(parentID, childID string, kind Kind, cancel cont
 }
 
 // Complete signals completion and removes the child from the active set.
+// A result that finishes before Wait claims the child is kept until a later
+// Wait, so a parent that stops after the child has already exited still sees it.
 func (o *Orchestrator) Complete(childID string, res Result) {
 	o.mu.Lock()
 	h, ok := o.children[childID]
-	if ok {
-		delete(o.children, childID)
-		if active := o.byParent[h.parentID]; active != nil {
-			delete(active, childID)
-			if len(active) == 0 {
-				delete(o.byParent, h.parentID)
-			}
-		}
-	}
-	o.mu.Unlock()
-
 	if !ok {
+		o.mu.Unlock()
 		return
+	}
+	delete(o.children, childID)
+	if active := o.byParent[h.parentID]; active != nil {
+		delete(active, childID)
+		if len(active) == 0 {
+			delete(o.byParent, h.parentID)
+		}
 	}
 	res.ChildSessionID = childID
 	res.Kind = h.kind
+	claimed := h.claimed
+	if !claimed {
+		o.pending[h.parentID] = append(o.pending[h.parentID], res)
+	}
+	o.mu.Unlock()
+
+	if !claimed {
+		return
+	}
 	select {
 	case h.done <- res:
 	default:
@@ -109,8 +125,22 @@ func (o *Orchestrator) Complete(childID string, res Result) {
 
 // Wait blocks until all requested children of parentID complete.
 // If childIDs is empty, waits for all currently registered children of the parent.
+// Children that already finished are returned immediately from the pending queue.
 func (o *Orchestrator) Wait(ctx context.Context, parentID string, childIDs []string) ([]Result, error) {
 	handles := o.snapshotHandles(parentID, childIDs)
+	inflight, err := waitHandles(ctx, handles)
+	if err != nil {
+		return inflight, err
+	}
+	// A cancelled turn with nothing in flight must not consume results that a
+	// later wait can still deliver, and must not look like a subagent failure.
+	if ctx.Err() != nil {
+		return inflight, nil
+	}
+	return append(o.takePending(parentID, childIDs), inflight...), nil
+}
+
+func waitHandles(ctx context.Context, handles map[string]*handle) ([]Result, error) {
 	if len(handles) == 0 {
 		return nil, nil
 	}
@@ -159,6 +189,7 @@ func (o *Orchestrator) snapshotHandles(parentID string, childIDs []string) map[s
 	if len(childIDs) == 0 {
 		for id := range o.byParent[parentID] {
 			if h, ok := o.children[id]; ok {
+				h.claimed = true
 				out[id] = h
 			}
 		}
@@ -166,10 +197,46 @@ func (o *Orchestrator) snapshotHandles(parentID string, childIDs []string) map[s
 	}
 	for _, id := range childIDs {
 		if h, ok := o.children[id]; ok && h.parentID == parentID {
+			h.claimed = true
 			out[id] = h
 		}
 	}
 	return out
+}
+
+// takePending removes completed-but-unclaimed results for parentID.
+// An empty childIDs list takes every pending result for that parent.
+func (o *Orchestrator) takePending(parentID string, childIDs []string) []Result {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+
+	queued := o.pending[parentID]
+	if len(queued) == 0 {
+		return nil
+	}
+	if len(childIDs) == 0 {
+		delete(o.pending, parentID)
+		return queued
+	}
+	want := make(map[string]struct{}, len(childIDs))
+	for _, id := range childIDs {
+		want[id] = struct{}{}
+	}
+	taken := make([]Result, 0, len(queued))
+	kept := make([]Result, 0, len(queued))
+	for _, res := range queued {
+		if _, ok := want[res.ChildSessionID]; ok {
+			taken = append(taken, res)
+			continue
+		}
+		kept = append(kept, res)
+	}
+	if len(kept) == 0 {
+		delete(o.pending, parentID)
+	} else {
+		o.pending[parentID] = kept
+	}
+	return taken
 }
 
 // CancelForParent cancels all in-flight subagents for a parent session.

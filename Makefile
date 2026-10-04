@@ -28,7 +28,8 @@ help:
 	@printf "Cometline targets:\n"
 	@printf "  make install          Install Cometline frontend dependencies\n"
 	@printf "  make generate         Regenerate OpenAPI clients (TS + Go types)\n"
-	@printf "  make check            Run codegen freshness, gofmt, lint, tests, and Svelte checks\n"
+	@printf "  make test             Run the same Go tests CI runs: go test -race ./...\n"
+	@printf "  make check            Run codegen freshness, gofmt, lint, race tests, and Svelte checks\n"
 	@printf "  make fmt              Format Go code (gofmt + goimports)\n"
 	@printf "  make lint             Run golangci-lint on the Go modules\n"
 	@printf "  make test-race        Run Go tests with the race detector\n"
@@ -61,7 +62,8 @@ check-sqlc:
 
 check: check-generated check-sqlc fmt-check lint sdk-test cometmind-test cometline-check
 
-test: check
+# test matches the CI "Test with race detector" step in both Go modules.
+test: sdk-test cometmind-test
 
 fmt:
 	@for m in $(GO_MODULES); do (cd $$m && $(GOLANGCI_LINT) fmt ./...) || exit 1; done
@@ -75,8 +77,7 @@ fmt-check:
 lint:
 	@for m in $(GO_MODULES); do (cd $$m && $(GOLANGCI_LINT) run ./...) || exit 1; done
 
-test-race:
-	@for m in $(GO_MODULES); do (cd $$m && $(GO) test -race ./...) || exit 1; done
+test-race: test
 
 vuln:
 	@for m in $(GO_MODULES); do (cd $$m && $(GOVULNCHECK) ./...) || exit 1; done
@@ -99,14 +100,14 @@ sdk-build:
 	cd comet-sdk && $(GO) build ./...
 
 sdk-test:
-	cd comet-sdk && $(GO) test ./...
+	cd comet-sdk && $(GO) test -race ./...
 
 cometmind-build:
 	mkdir -p cometmind/dist
 	cd cometmind && $(GO) build -o dist/cometmind .
 
 cometmind-test:
-	cd cometmind && $(GO) test ./...
+	cd cometmind && $(GO) test -race ./...
 
 cometline-check:
 	cd cometline && $(PNPM) run check
