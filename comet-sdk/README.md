@@ -409,7 +409,7 @@ Finish reasons are normalized by `NormalizeFinishReason` to `stop`, `tool_use`, 
 ## Testing
 
 ```bash
-make test               # go test ./..., no API calls, CI-safe
+make test               # go test -race ./..., same command CI runs
 make test-verbose       # same with -v
 make test-anthropic     # Anthropic package only
 make test-openai        # OpenAI package only
