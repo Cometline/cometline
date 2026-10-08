@@ -37,6 +37,7 @@ type RegistryOptions struct {
 	ACP                acp.Config
 	ACPMgr             *acp.SessionManager
 	Skills             *skills.Registry
+	SkillUsed          func(name string)
 	MCP                *mcppkg.Manager
 	Orchestrator       *subagent.Orchestrator
 	RunnerFactory      ChildRunnerFactory

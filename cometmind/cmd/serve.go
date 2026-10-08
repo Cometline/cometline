@@ -135,6 +135,7 @@ func newServeEngine(ctx context.Context, rt *runtime.Runtime, runs *server.RunMa
 		ACPMgr:        rt.ACPManager(),
 		MCPMgr:        rt.MCPManager(),
 		SubagentOrch:  rt.SubagentOrchestrator(),
+		Curator:       rt.Curator,
 		NewRunner: func(sess session.Session, workspacePath string, mode session.AgentMode) (server.Runner, error) {
 			return rt.RunnerForMode(sess, workspacePath, mode)
 		},
@@ -150,6 +151,7 @@ func startServeWorkers(ctx context.Context, rt *runtime.Runtime, runs *server.Ru
 	rt.StartRetentionMaintenance(ctx)
 	rt.StartBackupMaintenance(ctx)
 	rt.StartScheduler(ctx)
+	rt.StartSkillCurator(ctx)
 	rt.StartAutonomousJobWorker(ctx, runs, func(sessionID string, running bool) {
 		runID, _, ok := runs.Current(context.Background(), sessionID)
 		if running && ok {

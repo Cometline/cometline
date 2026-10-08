@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
 	warning: vi.fn(),
 	error: vi.fn(),
 	goto: vi.fn(),
+	openFile: vi.fn(),
 	getSession: vi.fn(),
 	listInboxMessages: vi.fn(),
 	openDrawer: vi.fn(),
@@ -12,6 +13,12 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('$app/navigation', () => ({ goto: mocks.goto }));
+vi.mock('$app/paths', () => ({
+	resolve: (path: string) => (path.startsWith('/') ? path : `/${path}`)
+}));
+vi.mock('#lib/features/workspace/open-file-preview.js', () => ({
+	openWorkspaceFilePreview: mocks.openFile
+}));
 vi.mock('#lib/client/cometmind.js', () => ({
 	getSession: mocks.getSession,
 	listInboxMessages: mocks.listInboxMessages,
@@ -38,6 +45,10 @@ import {
 	notifyConnectionChange,
 	notifyJobActivity,
 	notifyNewInboxMessage,
+	notifySkillMerged,
+	notifySkillReview,
+	notifySkillsDeleted,
+	notifyWikiReview,
 	startSkillDraftToastWatch
 } from './activity-toasts';
 
@@ -110,6 +121,47 @@ describe('activity toasts', () => {
 		);
 		stop();
 		vi.useRealTimers();
+	});
+
+	it('toasts one skill review and opens the first skill', () => {
+		notifySkillReview([
+			{ name: 'ship-checklist', action: 'created', description: 'Ship a reviewed change' },
+			{ name: 'other', action: 'updated', description: 'Other' }
+		]);
+		expect(mocks.success).toHaveBeenCalledWith(
+			'Skill updated',
+			'2 skills updated',
+			expect.any(Function)
+		);
+		const open = mocks.success.mock.calls[0][2] as () => void;
+		open();
+		expect(mocks.goto).toHaveBeenCalledWith('/skills?tab=skills&skill=ship-checklist');
+
+		notifySkillReview([]);
+		expect(mocks.success).toHaveBeenCalledTimes(1);
+	});
+
+	it('opens the skills list after curator deletion and the surviving skill after a merge', () => {
+		notifySkillsDeleted(2);
+		notifySkillMerged('keep');
+		const deleted = mocks.success.mock.calls[0][2] as () => void;
+		const merged = mocks.success.mock.calls[1][2] as () => void;
+		deleted();
+		merged();
+		expect(mocks.goto).toHaveBeenCalledWith('/skills?tab=skills');
+		expect(mocks.goto).toHaveBeenCalledWith('/skills?tab=skills&skill=keep');
+	});
+
+	it('toasts one wiki review and opens the first page', () => {
+		notifyWikiReview(['@runtime/wiki/concepts/go.md', '@runtime/wiki/index.md']);
+		expect(mocks.success).toHaveBeenCalledWith(
+			'Wiki updated',
+			'2 wiki pages updated',
+			expect.any(Function)
+		);
+		const open = mocks.success.mock.calls[0][2] as () => void;
+		open();
+		expect(mocks.openFile).toHaveBeenCalledWith('@runtime/wiki/concepts/go.md');
 	});
 
 	it('skips background run toasts for the active chat and non-user sessions', () => {

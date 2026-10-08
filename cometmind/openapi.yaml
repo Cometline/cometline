@@ -973,7 +973,7 @@ paths:
         `text_delta`, `reasoning_start`, `reasoning_delta`, `tool_call`,
         `tool_result`, `step_finish`, `subagent_started`, `subagent_progress`,
         `subagent_finished`, `memory_injected`,
-        `memory_updated`, `context_budget`, `assistant_image`, `assistant_video`, `error`, and `done`.
+        `memory_updated`, `skill_review_updated`, `wiki_review_updated`, `context_budget`, `assistant_image`, `assistant_video`, `error`, and `done`.
 
         Each `data:` frame body matches `#/components/schemas/StreamEvent`.
         `tool_call.input` is a JSON object. `tool_result.output` is text.
@@ -1260,8 +1260,8 @@ paths:
       summary: Stream background runtime events over SSE
       description: |
         Streams events that can complete after a request-scoped message stream,
-        including agent-initiated memory CRUD notifications. Each `data:` frame
-        body matches `#/components/schemas/StreamEvent`.
+        including agent-initiated memory CRUD notifications and hidden skill
+        and wiki review results. Each `data:` frame body matches `#/components/schemas/StreamEvent`.
       operationId: streamRuntimeEvents
       responses:
         '200':
@@ -3386,8 +3386,8 @@ components:
           description: Final summary from a delegated child session.
         subagent_kind:
           type: string
-          enum: ['', general, coding, acp]
-          description: Kind of delegated subagent for child sessions (general=research, coding=in-process editor, acp=external harness).
+          enum: ['', general, coding, acp, skill_review, wiki_review, skill_curator]
+          description: Kind of delegated subagent for child sessions (general=research, coding=in-process editor, acp=external harness, skill_review, wiki_review, and skill_curator are hidden background children).
         gateway:
           type: object
           additionalProperties: false
@@ -3595,6 +3595,15 @@ components:
         can_export:
           type: boolean
         can_edit:
+          type: boolean
+        origin:
+          type: string
+          description: metadata.cometline.origin. Empty means the skill was not created by the self-improvement loop.
+        status:
+          type: string
+          description: Curator status for a self-improvement skill. Empty for every other skill.
+          enum: [active, stale, archived]
+        pinned:
           type: boolean
 
     SkillDetailResponse:
@@ -3991,6 +4000,75 @@ components:
           items:
             $ref: '#/components/schemas/MemoryWire'
 
+    SkillReviewChange:
+      type: object
+      additionalProperties: false
+      required: [name, action, description]
+      properties:
+        name:
+          type: string
+        action:
+          type: string
+          enum: [created, updated]
+        description:
+          type: string
+
+    SkillReviewUpdatedEvent:
+      type: object
+      additionalProperties: false
+      required: [type, session_id, skills]
+      properties:
+        type:
+          type: string
+          const: skill_review_updated
+        session_id:
+          type: string
+        skills:
+          type: array
+          items:
+            $ref: '#/components/schemas/SkillReviewChange'
+
+    WikiReviewUpdatedEvent:
+      type: object
+      additionalProperties: false
+      required: [type, session_id, paths]
+      properties:
+        type:
+          type: string
+          const: wiki_review_updated
+        session_id:
+          type: string
+        paths:
+          type: array
+          items:
+            type: string
+
+    SkillCuratorDeletedEvent:
+      type: object
+      additionalProperties: false
+      required: [type, count]
+      properties:
+        type:
+          type: string
+          const: skill_curator_deleted
+        count:
+          type: integer
+
+    SkillCuratorMergedEvent:
+      type: object
+      additionalProperties: false
+      required: [type, skill, sources]
+      properties:
+        type:
+          type: string
+          const: skill_curator_merged
+        skill:
+          type: string
+        sources:
+          type: array
+          items:
+            type: string
+
     MemoryUpdatedEvent:
       type: object
       additionalProperties: false
@@ -4221,6 +4299,10 @@ components:
         - $ref: '#/components/schemas/SubagentFinishedEvent'
         - $ref: '#/components/schemas/MemoryInjectedEvent'
         - $ref: '#/components/schemas/MemoryUpdatedEvent'
+        - $ref: '#/components/schemas/SkillReviewUpdatedEvent'
+        - $ref: '#/components/schemas/WikiReviewUpdatedEvent'
+        - $ref: '#/components/schemas/SkillCuratorDeletedEvent'
+        - $ref: '#/components/schemas/SkillCuratorMergedEvent'
         - $ref: '#/components/schemas/MemoryCompactionCompletedEvent'
         - $ref: '#/components/schemas/ContextBudgetEvent'
         - $ref: '#/components/schemas/InboxMessageCreatedEvent'
@@ -4247,6 +4329,10 @@ components:
           subagent_finished: '#/components/schemas/SubagentFinishedEvent'
           memory_injected: '#/components/schemas/MemoryInjectedEvent'
           memory_updated: '#/components/schemas/MemoryUpdatedEvent'
+          skill_review_updated: '#/components/schemas/SkillReviewUpdatedEvent'
+          wiki_review_updated: '#/components/schemas/WikiReviewUpdatedEvent'
+          skill_curator_deleted: '#/components/schemas/SkillCuratorDeletedEvent'
+          skill_curator_merged: '#/components/schemas/SkillCuratorMergedEvent'
           memory_compaction_completed: '#/components/schemas/MemoryCompactionCompletedEvent'
           context_budget: '#/components/schemas/ContextBudgetEvent'
           inbox_message_created: '#/components/schemas/InboxMessageCreatedEvent'

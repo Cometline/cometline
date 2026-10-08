@@ -2,8 +2,11 @@ import {
 	deleteSkill,
 	getSkill,
 	getSkillDraft,
+	listArchivedSkills,
 	listSkillDrafts,
 	listSkills,
+	pinSkill,
+	restoreArchivedSkill,
 	promoteSkillDraft,
 	rejectSkillDraft,
 	updateSkill,
@@ -21,12 +24,16 @@ export type SkillsTab = 'skills' | 'drafts';
 
 export type SkillsPageController = ReturnType<typeof createSkillsPageController>;
 
-export function createSkillsPageController(deps: { getTab: () => SkillsTab }) {
+export function createSkillsPageController(deps: {
+	getTab: () => SkillsTab;
+	getRequestedSkill?: () => string;
+}) {
 	let drafts = $state<SkillDraft[]>([]);
 	let selectedDraft = $state<SkillDraftDetailResponse | null>(null);
 	let selectedDraftName = $state('');
 	let draftContent = $state('');
 	let skills = $state<SkillResource[]>([]);
+	let archived = $state<SkillResource[]>([]);
 	let skillErrors = $state<string[]>([]);
 	let selectedSkill = $state<SkillDetailResponse | null>(null);
 	let selectedSkillName = $state('');
@@ -50,6 +57,34 @@ export function createSkillsPageController(deps: { getTab: () => SkillsTab }) {
 	async function load() {
 		await refreshDrafts();
 		await refreshSkills();
+		await refreshArchived();
+	}
+
+	async function refreshArchived() {
+		try {
+			archived = await listArchivedSkills();
+		} catch (err) {
+			status = err instanceof Error ? err.message : 'Failed to load archived skills';
+		}
+	}
+
+	async function togglePin(name: string, pinned: boolean) {
+		try {
+			await pinSkill(name, pinned);
+			await refreshSkills({ keepSelection: true });
+		} catch (err) {
+			status = err instanceof Error ? err.message : 'Failed to update pin';
+		}
+	}
+
+	async function restoreArchived(name: string) {
+		try {
+			await restoreArchivedSkill(name);
+			await refreshArchived();
+			await refreshSkills({ keepSelection: true });
+		} catch (err) {
+			status = err instanceof Error ? err.message : 'Failed to restore skill';
+		}
 	}
 
 	async function refreshDrafts(options: { keepSelection?: boolean } = {}) {
@@ -88,11 +123,14 @@ export function createSkillsPageController(deps: { getTab: () => SkillsTab }) {
 				selectedSkillName = '';
 				return;
 			}
+			const requested = deps.getRequestedSkill?.().trim() ?? '';
 			const preferred =
-				options.keepSelection && selectedSkillName
+				requested ||
+				(options.keepSelection && selectedSkillName
 					? skills.find((skill) => skill.name === selectedSkillName)?.name
-					: '';
-			if (preferred && skillDirty) return;
+					: '') ||
+				'';
+			if (preferred && skillDirty && !requested) return;
 			await openSkill(preferred || skills[0].name, { force: true });
 		} catch (err) {
 			status = err instanceof Error ? err.message : 'Failed to load skills';
@@ -122,6 +160,12 @@ export function createSkillsPageController(deps: { getTab: () => SkillsTab }) {
 		} finally {
 			contentBusy = false;
 		}
+	}
+
+	async function selectSkill(name: string) {
+		const trimmed = name.trim();
+		if (!trimmed) return;
+		await openSkill(trimmed, { force: true });
 	}
 
 	async function openSkill(name: string, options: { force?: boolean } = {}) {
@@ -271,6 +315,9 @@ export function createSkillsPageController(deps: { getTab: () => SkillsTab }) {
 		get skills() {
 			return skills;
 		},
+		get archived() {
+			return archived;
+		},
 		get skillErrors() {
 			return skillErrors;
 		},
@@ -335,6 +382,9 @@ export function createSkillsPageController(deps: { getTab: () => SkillsTab }) {
 		refreshCurrent,
 		openDraft,
 		openSkill,
+		selectSkill,
+		togglePin,
+		restoreArchived,
 		discardSkillChanges,
 		cancelSkillSwitch,
 		requestDeleteSelectedSkill,

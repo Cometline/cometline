@@ -69,6 +69,26 @@ func MemoryUpdated(changes []MemoryChangeWire) Event {
 	return Event{Kind: KindMemoryUpdated, MemoryChanges: changes}
 }
 
+// SkillReviewUpdated builds a skill_review_updated event for the global hub.
+func SkillReviewUpdated(sessionID string, skills []SkillReviewChange) Event {
+	return Event{Kind: KindSkillReviewUpdated, SessionID: sessionID, SkillReviews: skills}
+}
+
+// WikiReviewUpdated builds a wiki_review_updated event for the global hub.
+func WikiReviewUpdated(sessionID string, paths []string) Event {
+	return Event{Kind: KindWikiReviewUpdated, SessionID: sessionID, WikiPaths: paths}
+}
+
+// SkillCuratorDeleted builds the toast event for skills removed after the archive window.
+func SkillCuratorDeleted(count int) Event {
+	return Event{Kind: KindSkillCuratorDeleted, CuratorCount: count}
+}
+
+// SkillCuratorMerged builds the toast event for a curator merge.
+func SkillCuratorMerged(target string, sources []string) Event {
+	return Event{Kind: KindSkillCuratorMerged, CuratorTarget: target, CuratorSources: sources}
+}
+
 // MemoryCompactionCompleted builds a global completion event for manual and automatic runs.
 func MemoryCompactionCompleted(before, after int64, trigger string) Event {
 	return Event{

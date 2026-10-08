@@ -1,6 +1,7 @@
 import { goto } from '$app/navigation';
 import { resolve } from '$app/paths';
 import { listInboxMessages, listSkillDrafts } from '#lib/client/cometmind.js';
+import { openWorkspaceFilePreview } from '#lib/features/workspace/open-file-preview.js';
 import type { CometMindJobsNotificationSettings } from '#lib/cometmind-settings.js';
 import { gotoJob } from '#lib/routes/job-route.js';
 import { sessionDisplayTitle } from '#lib/sessions/session-title.js';
@@ -43,6 +44,48 @@ export async function notifyNewInboxMessage(id: string) {
 			inboxStore.openDrawer();
 		});
 	}
+}
+
+export type SkillReviewNotice = {
+	name: string;
+	action: string;
+	description: string;
+};
+
+export function notifySkillReview(skills: SkillReviewNotice[]) {
+	if (skills.length === 0) return;
+	const first = skills[0];
+	const detail = skills.length === 1 ? first.name : `${skills.length} skills updated`;
+	appToastStore.success('Skill updated', detail, () => {
+		const params = new URLSearchParams({ tab: 'skills', skill: first.name });
+		void goto(`${resolve('skills')}?${params.toString()}`);
+	});
+}
+
+export function notifySkillsDeleted(count: number) {
+	if (count <= 0) return;
+	const detail = count === 1 ? '1 skill deleted' : `${count} skills deleted`;
+	appToastStore.success('Skills deleted', detail, () => {
+		void goto(`${resolve('skills')}?tab=skills`);
+	});
+}
+
+export function notifySkillMerged(skill: string) {
+	if (!skill) return;
+	appToastStore.success('Skills merged', skill, () => {
+		const params = new URLSearchParams({ tab: 'skills', skill });
+		void goto(`${resolve('skills')}?${params.toString()}`);
+	});
+}
+
+export function notifyWikiReview(paths: string[]) {
+	if (paths.length === 0) return;
+	const first = paths[0];
+	const name = first.split('/').pop() || first;
+	const detail = paths.length === 1 ? name : `${paths.length} wiki pages updated`;
+	appToastStore.success('Wiki updated', detail, () => {
+		openWorkspaceFilePreview(first);
+	});
 }
 
 export function startSkillDraftToastWatch(opts: {

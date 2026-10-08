@@ -170,27 +170,32 @@ type ScheduledJob struct {
 }
 
 type Session struct {
-	ID                      string         `json:"id"`
-	WorkspaceID             string         `json:"workspace_id"`
-	Title                   string         `json:"title"`
-	ModelID                 string         `json:"model_id"`
-	ProviderID              string         `json:"provider_id"`
-	Status                  string         `json:"status"`
-	Origin                  string         `json:"origin"`
-	IsDisposable            int64          `json:"is_disposable"`
-	TokenUsage              string         `json:"token_usage"`
-	ParentSessionID         sql.NullString `json:"parent_session_id"`
-	Purpose                 string         `json:"purpose"`
-	DelegationStatus        string         `json:"delegation_status"`
-	OutputSummary           string         `json:"output_summary"`
-	SubagentKind            string         `json:"subagent_kind"`
-	AgentMode               string         `json:"agent_mode"`
-	Pinned                  int64          `json:"pinned"`
-	ContextSummary          string         `json:"context_summary"`
-	CompactedUntilMessageID sql.NullString `json:"compacted_until_message_id"`
-	ContextSummaryUpdatedAt sql.NullString `json:"context_summary_updated_at"`
-	CreatedAt               int64          `json:"created_at"`
-	UpdatedAt               int64          `json:"updated_at"`
+	ID                       string         `json:"id"`
+	WorkspaceID              string         `json:"workspace_id"`
+	Title                    string         `json:"title"`
+	ModelID                  string         `json:"model_id"`
+	ProviderID               string         `json:"provider_id"`
+	Status                   string         `json:"status"`
+	Origin                   string         `json:"origin"`
+	IsDisposable             int64          `json:"is_disposable"`
+	TokenUsage               string         `json:"token_usage"`
+	ParentSessionID          sql.NullString `json:"parent_session_id"`
+	Purpose                  string         `json:"purpose"`
+	DelegationStatus         string         `json:"delegation_status"`
+	OutputSummary            string         `json:"output_summary"`
+	SubagentKind             string         `json:"subagent_kind"`
+	AgentMode                string         `json:"agent_mode"`
+	Pinned                   int64          `json:"pinned"`
+	ContextSummary           string         `json:"context_summary"`
+	CompactedUntilMessageID  sql.NullString `json:"compacted_until_message_id"`
+	ContextSummaryUpdatedAt  sql.NullString `json:"context_summary_updated_at"`
+	SkillReviewStartedAt     int64          `json:"skill_review_started_at"`
+	SkillReviewLastTargets   string         `json:"skill_review_last_targets"`
+	SkillReviewMutatingCount int64          `json:"skill_review_mutating_count"`
+	SkillReviewCountResetAt  int64          `json:"skill_review_count_reset_at"`
+	WikiReviewStartedAt      int64          `json:"wiki_review_started_at"`
+	CreatedAt                int64          `json:"created_at"`
+	UpdatedAt                int64          `json:"updated_at"`
 }
 
 type SessionMedia struct {
@@ -219,6 +224,26 @@ type SessionRun struct {
 	Owner          string `json:"owner"`
 	AbortRequested int64  `json:"abort_requested"`
 	UpdatedAt      int64  `json:"updated_at"`
+}
+
+type SkillCuratorPass struct {
+	ID            int64 `json:"id"`
+	LastPassAt    int64 `json:"last_pass_at"`
+	LastMergeAt   int64 `json:"last_merge_at"`
+	RunsIdleSince int64 `json:"runs_idle_since"`
+}
+
+type SkillCuratorState struct {
+	SkillName        string `json:"skill_name"`
+	Origin           string `json:"origin"`
+	Status           string `json:"status"`
+	Pinned           int64  `json:"pinned"`
+	CreatedAt        int64  `json:"created_at"`
+	LastUsedAt       int64  `json:"last_used_at"`
+	UnusedSince      int64  `json:"unused_since"`
+	ArchivedAt       int64  `json:"archived_at"`
+	PinnedAt         int64  `json:"pinned_at"`
+	DeleteNotifiedAt int64  `json:"delete_notified_at"`
 }
 
 type ToolCall struct {

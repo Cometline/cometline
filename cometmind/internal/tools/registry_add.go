@@ -45,7 +45,7 @@ func (r *Registry) addSkillTools(surface ToolSurface, opt RegistryOptions) {
 	if !surface.Skills || opt.Skills == nil {
 		return
 	}
-	r.Add(LoadSkill{Skills: opt.Skills})
+	r.Add(LoadSkill{Skills: opt.Skills, Used: opt.SkillUsed})
 	r.Add(ReadSkillFile{Skills: opt.Skills})
 	if surface.SkillDraft {
 		r.Add(WriteSkillDraft{})

@@ -33,6 +33,75 @@ var skipIfApplied = map[int]func(context.Context, *sql.DB) (bool, error){
 	30: func(ctx context.Context, conn *sql.DB) (bool, error) {
 		return columnExists(ctx, conn, "session_media", "storage_session_id")
 	},
+	// 0038 rebuilds sessions. Upgrade tests seed partial sessions tables, so
+	// missing columns are added before the copy. The SQL still runs.
+	38: func(ctx context.Context, conn *sql.DB) (bool, error) {
+		return false, ensureSessionRebuildColumns(ctx, conn)
+	},
+	40: func(ctx context.Context, conn *sql.DB) (bool, error) {
+		return false, ensureSessionRebuildColumns(ctx, conn)
+	},
+	42: func(ctx context.Context, conn *sql.DB) (bool, error) {
+		return false, ensureSessionRebuildColumns(ctx, conn)
+	},
+}
+
+// sessionRebuildColumns are the pre-0038 sessions columns the rebuild copies.
+// New skill-review columns are filled by the migration SQL itself.
+var sessionRebuildColumns = []struct {
+	name string
+	ddl  string
+}{
+	{"workspace_id", "ALTER TABLE sessions ADD COLUMN workspace_id TEXT NOT NULL DEFAULT ''"},
+	{"title", "ALTER TABLE sessions ADD COLUMN title TEXT NOT NULL DEFAULT ''"},
+	{"model_id", "ALTER TABLE sessions ADD COLUMN model_id TEXT NOT NULL DEFAULT ''"},
+	{"provider_id", "ALTER TABLE sessions ADD COLUMN provider_id TEXT NOT NULL DEFAULT ''"},
+	{"status", "ALTER TABLE sessions ADD COLUMN status TEXT NOT NULL DEFAULT 'active'"},
+	{"origin", "ALTER TABLE sessions ADD COLUMN origin TEXT NOT NULL DEFAULT 'user'"},
+	{"is_disposable", "ALTER TABLE sessions ADD COLUMN is_disposable INTEGER NOT NULL DEFAULT 1"},
+	{"token_usage", "ALTER TABLE sessions ADD COLUMN token_usage TEXT NOT NULL DEFAULT '{}'"},
+	{"parent_session_id", "ALTER TABLE sessions ADD COLUMN parent_session_id TEXT"},
+	{"purpose", "ALTER TABLE sessions ADD COLUMN purpose TEXT NOT NULL DEFAULT ''"},
+	{"delegation_status", "ALTER TABLE sessions ADD COLUMN delegation_status TEXT NOT NULL DEFAULT ''"},
+	{"output_summary", "ALTER TABLE sessions ADD COLUMN output_summary TEXT NOT NULL DEFAULT ''"},
+	{"subagent_kind", "ALTER TABLE sessions ADD COLUMN subagent_kind TEXT NOT NULL DEFAULT ''"},
+	{"agent_mode", "ALTER TABLE sessions ADD COLUMN agent_mode TEXT NOT NULL DEFAULT 'auto'"},
+	{"pinned", "ALTER TABLE sessions ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0"},
+	{"context_summary", "ALTER TABLE sessions ADD COLUMN context_summary TEXT NOT NULL DEFAULT ''"},
+	{"compacted_until_message_id", "ALTER TABLE sessions ADD COLUMN compacted_until_message_id TEXT"},
+	{"context_summary_updated_at", "ALTER TABLE sessions ADD COLUMN context_summary_updated_at TEXT"},
+	{"created_at", "ALTER TABLE sessions ADD COLUMN created_at INTEGER NOT NULL DEFAULT 0"},
+	{"updated_at", "ALTER TABLE sessions ADD COLUMN updated_at INTEGER NOT NULL DEFAULT 0"},
+	{"skill_review_mutating_count", "ALTER TABLE sessions ADD COLUMN skill_review_mutating_count INTEGER NOT NULL DEFAULT 0"},
+	{"skill_review_count_reset_at", "ALTER TABLE sessions ADD COLUMN skill_review_count_reset_at INTEGER NOT NULL DEFAULT 0"},
+	{"skill_review_started_at", "ALTER TABLE sessions ADD COLUMN skill_review_started_at INTEGER NOT NULL DEFAULT 0"},
+	{"skill_review_last_targets", "ALTER TABLE sessions ADD COLUMN skill_review_last_targets TEXT NOT NULL DEFAULT ''"},
+	{"wiki_review_started_at", "ALTER TABLE sessions ADD COLUMN wiki_review_started_at INTEGER NOT NULL DEFAULT 0"},
+}
+
+func ensureSessionRebuildColumns(ctx context.Context, conn *sql.DB) error {
+	var n int
+	if err := conn.QueryRowContext(ctx, `SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'sessions'`).Scan(&n); err != nil {
+		return err
+	}
+	if n == 0 {
+		if _, err := conn.ExecContext(ctx, `CREATE TABLE sessions (id TEXT PRIMARY KEY)`); err != nil {
+			return err
+		}
+	}
+	for _, col := range sessionRebuildColumns {
+		ok, err := columnExists(ctx, conn, "sessions", col.name)
+		if err != nil {
+			return err
+		}
+		if ok {
+			continue
+		}
+		if _, err := conn.ExecContext(ctx, col.ddl); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Migrate runs DDL from the embedded schema once per fresh database (see [EnsureSchema]).

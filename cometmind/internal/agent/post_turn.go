@@ -15,8 +15,11 @@ func (r *Runner) completeTurn(ctx context.Context, s *turnState) error {
 		}
 	}
 	s.sendDone()
-	// Extraction runs in the background so the SSE stream can close on done
-	// and the next queued message can start without waiting on the extractor.
-	go r.extractMemoryAfterTurn(context.WithoutCancel(ctx), s.turn, nil)
+	// Background work starts after done so the SSE stream can close and the
+	// next queued message can start without waiting on it.
+	bg := context.WithoutCancel(ctx)
+	go r.extractMemoryAfterTurn(bg, s.turn, nil)
+	go r.reviewSkillsAfterTurn(bg, s.turn)
+	go r.reviewWikiAfterTurn(bg, s.turn)
 	return nil
 }
