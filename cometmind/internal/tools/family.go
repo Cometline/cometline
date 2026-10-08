@@ -17,13 +17,15 @@ import (
 // Exported tool types stay addressable from this package so the registry and
 // existing callers keep the same names after the family split.
 type (
-	ReadFile   = fsops.ReadFile
-	EditFile   = fsops.EditFile
-	WriteFile  = fsops.WriteFile
-	ListDir    = fsops.ListDir
-	Glob       = fsops.Glob
-	Grep       = fsops.Grep
-	RunCommand = fsops.RunCommand
+	ReadFile      = fsops.ReadFile
+	EditFile      = fsops.EditFile
+	WriteFile     = fsops.WriteFile
+	WikiEditFile  = fsops.WikiEditFile
+	WikiWriteFile = fsops.WikiWriteFile
+	ListDir       = fsops.ListDir
+	Glob          = fsops.Glob
+	Grep          = fsops.Grep
+	RunCommand    = fsops.RunCommand
 
 	WebFetch  = web.WebFetch
 	WebSearch = web.WebSearch

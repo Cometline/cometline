@@ -17,6 +17,7 @@ const (
 	KindMemoryInjected            Kind = "memory_injected"
 	KindMemoryUpdated             Kind = "memory_updated"
 	KindSkillReviewUpdated        Kind = "skill_review_updated"
+	KindWikiReviewUpdated         Kind = "wiki_review_updated"
 	KindMemoryCompactionCompleted Kind = "memory_compaction_completed"
 	KindContextBudget             Kind = "context_budget"
 	KindInboxMessageCreated       Kind = "inbox_message_created"
@@ -119,6 +120,8 @@ type Event struct {
 	MemoryChanges []MemoryChangeWire
 	// skill_review_updated
 	SkillReviews []SkillReviewChange
+	// wiki_review_updated
+	WikiPaths []string
 	// memory_compaction_completed
 	MemoryCountBefore int64
 	MemoryCountAfter  int64

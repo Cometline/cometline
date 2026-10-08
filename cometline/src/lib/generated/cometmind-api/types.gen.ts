@@ -792,6 +792,12 @@ export type SkillReviewUpdatedEvent = {
     skills: Array<SkillReviewChange>;
 };
 
+export type WikiReviewUpdatedEvent = {
+    type: 'wiki_review_updated';
+    session_id: string;
+    paths: Array<string>;
+};
+
 export type MemoryUpdatedEvent = {
     type: 'memory_updated';
     changes: Array<MemoryChangeWire>;
@@ -926,6 +932,8 @@ export type StreamEvent = ({
 } & MemoryUpdatedEvent) | ({
     type?: 'skill_review_updated';
 } & SkillReviewUpdatedEvent) | ({
+    type?: 'wiki_review_updated';
+} & WikiReviewUpdatedEvent) | ({
     type?: 'memory_compaction_completed';
 } & MemoryCompactionCompletedEvent) | ({
     type?: 'context_budget';

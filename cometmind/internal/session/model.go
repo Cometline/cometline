@@ -42,6 +42,7 @@ type Session struct {
 	SkillReviewLastTargets   string
 	SkillReviewMutatingCount int64
 	SkillReviewCountResetAt  int64
+	WikiReviewStartedAt      int64
 	CreatedAt                int64
 	UpdatedAt                int64
 }
@@ -102,6 +103,7 @@ func sessionFromDB(s db.Session) Session {
 		SkillReviewLastTargets:   s.SkillReviewLastTargets,
 		SkillReviewMutatingCount: s.SkillReviewMutatingCount,
 		SkillReviewCountResetAt:  s.SkillReviewCountResetAt,
+		WikiReviewStartedAt:      s.WikiReviewStartedAt,
 		CreatedAt:                s.CreatedAt,
 		UpdatedAt:                s.UpdatedAt,
 	}

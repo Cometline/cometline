@@ -973,7 +973,7 @@ paths:
         `text_delta`, `reasoning_start`, `reasoning_delta`, `tool_call`,
         `tool_result`, `step_finish`, `subagent_started`, `subagent_progress`,
         `subagent_finished`, `memory_injected`,
-        `memory_updated`, `skill_review_updated`, `context_budget`, `assistant_image`, `assistant_video`, `error`, and `done`.
+        `memory_updated`, `skill_review_updated`, `wiki_review_updated`, `context_budget`, `assistant_image`, `assistant_video`, `error`, and `done`.
 
         Each `data:` frame body matches `#/components/schemas/StreamEvent`.
         `tool_call.input` is a JSON object. `tool_result.output` is text.
@@ -1261,7 +1261,7 @@ paths:
       description: |
         Streams events that can complete after a request-scoped message stream,
         including agent-initiated memory CRUD notifications and hidden skill
-        review results. Each `data:` frame body matches `#/components/schemas/StreamEvent`.
+        and wiki review results. Each `data:` frame body matches `#/components/schemas/StreamEvent`.
       operationId: streamRuntimeEvents
       responses:
         '200':
@@ -4022,6 +4022,21 @@ components:
           items:
             $ref: '#/components/schemas/SkillReviewChange'
 
+    WikiReviewUpdatedEvent:
+      type: object
+      additionalProperties: false
+      required: [type, session_id, paths]
+      properties:
+        type:
+          type: string
+          const: wiki_review_updated
+        session_id:
+          type: string
+        paths:
+          type: array
+          items:
+            type: string
+
     MemoryUpdatedEvent:
       type: object
       additionalProperties: false
@@ -4253,6 +4268,7 @@ components:
         - $ref: '#/components/schemas/MemoryInjectedEvent'
         - $ref: '#/components/schemas/MemoryUpdatedEvent'
         - $ref: '#/components/schemas/SkillReviewUpdatedEvent'
+        - $ref: '#/components/schemas/WikiReviewUpdatedEvent'
         - $ref: '#/components/schemas/MemoryCompactionCompletedEvent'
         - $ref: '#/components/schemas/ContextBudgetEvent'
         - $ref: '#/components/schemas/InboxMessageCreatedEvent'
@@ -4280,6 +4296,7 @@ components:
           memory_injected: '#/components/schemas/MemoryInjectedEvent'
           memory_updated: '#/components/schemas/MemoryUpdatedEvent'
           skill_review_updated: '#/components/schemas/SkillReviewUpdatedEvent'
+          wiki_review_updated: '#/components/schemas/WikiReviewUpdatedEvent'
           memory_compaction_completed: '#/components/schemas/MemoryCompactionCompletedEvent'
           context_budget: '#/components/schemas/ContextBudgetEvent'
           inbox_message_created: '#/components/schemas/InboxMessageCreatedEvent'

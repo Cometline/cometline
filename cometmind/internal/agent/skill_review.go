@@ -33,6 +33,7 @@ type skillReviewStore interface {
 	SetSkillReviewLastTargets(ctx context.Context, sessionID, targets string) error
 	AddSkillReviewMutatingCount(ctx context.Context, sessionID string, n int64) (int64, error)
 	ResetSkillReviewAfterStart(ctx context.Context, sessionID string, at int64) error
+	SetWikiReviewStartedAt(ctx context.Context, sessionID string, at int64) error
 }
 
 func (r *Runner) reviewNow() time.Time {

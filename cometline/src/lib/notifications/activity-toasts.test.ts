@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
 	warning: vi.fn(),
 	error: vi.fn(),
 	goto: vi.fn(),
+	openFile: vi.fn(),
 	getSession: vi.fn(),
 	listInboxMessages: vi.fn(),
 	openDrawer: vi.fn(),
@@ -14,6 +15,9 @@ const mocks = vi.hoisted(() => ({
 vi.mock('$app/navigation', () => ({ goto: mocks.goto }));
 vi.mock('$app/paths', () => ({
 	resolve: (path: string) => (path.startsWith('/') ? path : `/${path}`)
+}));
+vi.mock('#lib/features/workspace/open-file-preview.js', () => ({
+	openWorkspaceFilePreview: mocks.openFile
 }));
 vi.mock('#lib/client/cometmind.js', () => ({
 	getSession: mocks.getSession,
@@ -42,6 +46,7 @@ import {
 	notifyJobActivity,
 	notifyNewInboxMessage,
 	notifySkillReview,
+	notifyWikiReview,
 	startSkillDraftToastWatch
 } from './activity-toasts';
 
@@ -132,6 +137,18 @@ describe('activity toasts', () => {
 
 		notifySkillReview([]);
 		expect(mocks.success).toHaveBeenCalledTimes(1);
+	});
+
+	it('toasts one wiki review and opens the first page', () => {
+		notifyWikiReview(['@runtime/wiki/concepts/go.md', '@runtime/wiki/index.md']);
+		expect(mocks.success).toHaveBeenCalledWith(
+			'Wiki updated',
+			'2 wiki pages updated',
+			expect.any(Function)
+		);
+		const open = mocks.success.mock.calls[0][2] as () => void;
+		open();
+		expect(mocks.openFile).toHaveBeenCalledWith('@runtime/wiki/concepts/go.md');
 	});
 
 	it('skips background run toasts for the active chat and non-user sessions', () => {

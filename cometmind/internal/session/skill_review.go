@@ -46,6 +46,14 @@ func (s *Service) SetSkillReviewCounter(ctx context.Context, sessionID string, c
 	})
 }
 
+// SetWikiReviewStartedAt records when a wiki compile child successfully started.
+func (s *Service) SetWikiReviewStartedAt(ctx context.Context, sessionID string, at int64) error {
+	return s.q.SetWikiReviewStartedAt(ctx, db.SetWikiReviewStartedAtParams{
+		WikiReviewStartedAt: at,
+		ID:                  sessionID,
+	})
+}
+
 // ResetSkillReviewAfterStart clears the counter when a review child starts.
 func (s *Service) ResetSkillReviewAfterStart(ctx context.Context, sessionID string, at int64) error {
 	return s.q.ResetSkillReviewAfterStart(ctx, db.ResetSkillReviewAfterStartParams{

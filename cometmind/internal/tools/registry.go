@@ -39,6 +39,21 @@ func NewSubagentRegistry(workspaceRoot string, skillReg *skills.Registry, mode S
 	return newRegistryWithSurface(workspaceRoot, SurfaceForMode(mode), opt)
 }
 
+// NewWikiReviewRegistry is the hidden wiki compile surface: read tools,
+// web_fetch, and file writes that reject paths outside the wiki.
+func NewWikiReviewRegistry(workspaceRoot string) *Registry {
+	ws := Workspace{Root: workspaceRoot}
+	r := &Registry{workspace: ws, byName: make(map[string]Tool)}
+	r.Add(ReadFile{Workspace: ws})
+	r.Add(ListDir{Workspace: ws})
+	r.Add(Glob{Workspace: ws})
+	r.Add(Grep{Workspace: ws})
+	r.Add(WebFetch{})
+	r.Add(WikiEditFile{Workspace: ws})
+	r.Add(WikiWriteFile{Workspace: ws})
+	return r
+}
+
 // NewSkillReviewRegistry is the hidden skill-review surface. It is not a
 // research or coding registry: read tools, load_skill, read_skill_file, and
 // the guarded write_skill only. Read does not include web tools here.

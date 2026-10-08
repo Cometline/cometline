@@ -115,6 +115,7 @@ func (r *Runtime) runnerFor(sess session.Session, workspacePath string, opts Run
 		},
 		Events:      r.Events,
 		ReviewChild: r.runSkillReviewChild,
+		WikiChild:   r.runWikiReviewChild,
 	}
 	if !opts.Subagent {
 		runner.JobIndex = tools.JobPromptIndex(workspacePath, platform)
@@ -174,7 +175,15 @@ func (r *Runtime) toolRegistryOptions(skillRegistry skills.Registry, sessionID, 
 	}
 }
 
+func (r *Runtime) runWikiReviewChild(ctx context.Context, child session.Session, registry *tools.Registry, maxSteps int, systemPrompt string) error {
+	return r.runHiddenChild(ctx, child, registry, maxSteps, systemPrompt)
+}
+
 func (r *Runtime) runSkillReviewChild(ctx context.Context, child session.Session, registry *tools.Registry, maxSteps int, systemPrompt string) error {
+	return r.runHiddenChild(ctx, child, registry, maxSteps, systemPrompt)
+}
+
+func (r *Runtime) runHiddenChild(ctx context.Context, child session.Session, registry *tools.Registry, maxSteps int, systemPrompt string) error {
 	p, err := provider.NewForModel(r.Config, child.ProviderID, child.ModelID)
 	if err != nil {
 		return err

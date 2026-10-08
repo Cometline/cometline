@@ -27,6 +27,7 @@
 		notifyJobActivity,
 		notifyNewInboxMessage,
 		notifySkillReview,
+		notifyWikiReview,
 		startSkillDraftToastWatch
 	} from '#lib/notifications/activity-toasts.js';
 	import { startStorageRetentionSync } from '#lib/retention/storage-retention-sync.js';
@@ -81,6 +82,9 @@
 				}
 				if (event.type === 'skill_review_updated' && !isMiniRoute && !isSettingsRoute) {
 					notifySkillReview(event.skills);
+				}
+				if (event.type === 'wiki_review_updated' && !isMiniRoute && !isSettingsRoute) {
+					notifyWikiReview(event.paths);
 				}
 				if (event.type === 'memory_compaction_completed') {
 					memoryToastStore.addCompaction(event);

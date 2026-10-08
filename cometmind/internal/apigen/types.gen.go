@@ -2352,6 +2352,13 @@ type WikiFileTextContent struct {
 // WikiFileTextContentKind defines model for WikiFileTextContent.Kind.
 type WikiFileTextContentKind string
 
+// WikiReviewUpdatedEvent defines model for WikiReviewUpdatedEvent.
+type WikiReviewUpdatedEvent struct {
+	Paths     []string `json:"paths"`
+	SessionId string   `json:"session_id"`
+	Type      string   `json:"type"`
+}
+
 // Workspace defines model for Workspace.
 type Workspace struct {
 	Id   string `json:"id"`
@@ -3152,6 +3159,32 @@ func (t *StreamEvent) MergeSkillReviewUpdatedEvent(v SkillReviewUpdatedEvent) er
 	return err
 }
 
+// AsWikiReviewUpdatedEvent returns the union data inside the StreamEvent as a WikiReviewUpdatedEvent
+func (t StreamEvent) AsWikiReviewUpdatedEvent() (WikiReviewUpdatedEvent, error) {
+	var body WikiReviewUpdatedEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromWikiReviewUpdatedEvent overwrites any union data inside the StreamEvent as the provided WikiReviewUpdatedEvent
+func (t *StreamEvent) FromWikiReviewUpdatedEvent(v WikiReviewUpdatedEvent) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeWikiReviewUpdatedEvent performs a merge with any union data inside the StreamEvent, using the provided WikiReviewUpdatedEvent
+func (t *StreamEvent) MergeWikiReviewUpdatedEvent(v WikiReviewUpdatedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 // AsMemoryCompactionCompletedEvent returns the union data inside the StreamEvent as a MemoryCompactionCompletedEvent
 func (t StreamEvent) AsMemoryCompactionCompletedEvent() (MemoryCompactionCompletedEvent, error) {
 	var body MemoryCompactionCompletedEvent
@@ -3528,6 +3561,8 @@ func (t StreamEvent) ValueByDiscriminator() (interface{}, error) {
 		return t.AsTurnRecoverEvent()
 	case "turn_status":
 		return t.AsTurnStatusEvent()
+	case "wiki_review_updated":
+		return t.AsWikiReviewUpdatedEvent()
 	default:
 		return nil, errors.New("unknown discriminator value: " + discriminator)
 	}

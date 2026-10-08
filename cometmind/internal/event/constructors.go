@@ -74,6 +74,11 @@ func SkillReviewUpdated(sessionID string, skills []SkillReviewChange) Event {
 	return Event{Kind: KindSkillReviewUpdated, SessionID: sessionID, SkillReviews: skills}
 }
 
+// WikiReviewUpdated builds a wiki_review_updated event for the global hub.
+func WikiReviewUpdated(sessionID string, paths []string) Event {
+	return Event{Kind: KindWikiReviewUpdated, SessionID: sessionID, WikiPaths: paths}
+}
+
 // MemoryCompactionCompleted builds a global completion event for manual and automatic runs.
 func MemoryCompactionCompleted(before, after int64, trigger string) Event {
 	return Event{

@@ -56,6 +56,12 @@ func InboxProcessSurface() ToolSurface {
 	return surface
 }
 
+// WikiReviewSurface is the hidden wiki compile fork: read tools, web_fetch,
+// and file writes. The registry enforces the wiki-root write guard itself.
+func WikiReviewSurface() ToolSurface {
+	return ToolSurface{Read: true, Edit: true}
+}
+
 // SkillReviewSurface is the hidden skill-review fork: read tools, skill
 // load/read, and the guarded write_skill. It has no shell, file writes, web,
 // spawn, drafts, or promote.

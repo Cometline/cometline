@@ -34,7 +34,7 @@ CREATE TABLE sessions (
                        ),
     output_summary     TEXT NOT NULL DEFAULT '',
     subagent_kind      TEXT NOT NULL DEFAULT ''
-                       CHECK (subagent_kind IN ('', 'general', 'acp', 'coding', 'skill_review')),
+                       CHECK (subagent_kind IN ('', 'general', 'acp', 'coding', 'skill_review', 'wiki_review')),
     agent_mode         TEXT NOT NULL DEFAULT 'auto'
                        CHECK (agent_mode IN ('auto', 'plan')),
     pinned             INTEGER NOT NULL DEFAULT 0,
@@ -45,6 +45,7 @@ CREATE TABLE sessions (
     skill_review_last_targets TEXT NOT NULL DEFAULT '',
     skill_review_mutating_count INTEGER NOT NULL DEFAULT 0,
     skill_review_count_reset_at INTEGER NOT NULL DEFAULT 0,
+    wiki_review_started_at INTEGER NOT NULL DEFAULT 0,
     created_at         INTEGER NOT NULL DEFAULT (unixepoch ('now', 'subsec') * 1000),
     updated_at         INTEGER NOT NULL DEFAULT (unixepoch ('now', 'subsec') * 1000)
 );

@@ -1,6 +1,7 @@
 import { goto } from '$app/navigation';
 import { resolve } from '$app/paths';
 import { listInboxMessages, listSkillDrafts } from '#lib/client/cometmind.js';
+import { openWorkspaceFilePreview } from '#lib/features/workspace/open-file-preview.js';
 import type { CometMindJobsNotificationSettings } from '#lib/cometmind-settings.js';
 import { gotoJob } from '#lib/routes/job-route.js';
 import { sessionDisplayTitle } from '#lib/sessions/session-title.js';
@@ -58,6 +59,16 @@ export function notifySkillReview(skills: SkillReviewNotice[]) {
 	appToastStore.success('Skill updated', detail, () => {
 		const params = new URLSearchParams({ tab: 'skills', skill: first.name });
 		void goto(`${resolve('skills')}?${params.toString()}`);
+	});
+}
+
+export function notifyWikiReview(paths: string[]) {
+	if (paths.length === 0) return;
+	const first = paths[0];
+	const name = first.split('/').pop() || first;
+	const detail = paths.length === 1 ? name : `${paths.length} wiki pages updated`;
+	appToastStore.success('Wiki updated', detail, () => {
+		openWorkspaceFilePreview(first);
 	});
 }
 

@@ -193,6 +193,7 @@ type Session struct {
 	SkillReviewLastTargets   string         `json:"skill_review_last_targets"`
 	SkillReviewMutatingCount int64          `json:"skill_review_mutating_count"`
 	SkillReviewCountResetAt  int64          `json:"skill_review_count_reset_at"`
+	WikiReviewStartedAt      int64          `json:"wiki_review_started_at"`
 	CreatedAt                int64          `json:"created_at"`
 	UpdatedAt                int64          `json:"updated_at"`
 }

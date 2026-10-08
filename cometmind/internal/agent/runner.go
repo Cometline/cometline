@@ -48,6 +48,8 @@ type Runner struct {
 	Events interface{ Publish(event.Event) }
 	// ReviewChild runs the hidden skill-review fork. Nil skips the fork.
 	ReviewChild ReviewChild
+	// WikiChild runs the hidden wiki compile fork. Nil skips the fork.
+	WikiChild ReviewChild
 	// ReviewNow overrides the clock used for skill-review cooldown. Nil uses time.Now.
 	ReviewNow func() time.Time
 }

@@ -50,6 +50,24 @@ func TestSkillReviewSurfaceOmitsMutationTools(t *testing.T) {
 	}
 }
 
+func TestWikiReviewRegistryOmitsSearchAndSkills(t *testing.T) {
+	reg := NewWikiReviewRegistry(t.TempDir())
+	got := map[string]bool{}
+	for _, tool := range reg.CometSDK() {
+		got[tool.Name] = true
+	}
+	for _, name := range []string{"read_file", "list_dir", "glob", "grep", "web_fetch", "edit_file", "write_file"} {
+		if !got[name] {
+			t.Fatalf("missing %s", name)
+		}
+	}
+	for _, name := range []string{"web_search", "run_command", "write_skill", "load_skill", "spawn_general_agent"} {
+		if got[name] {
+			t.Fatalf("unexpected %s", name)
+		}
+	}
+}
+
 func TestSessionKindAndLabels(t *testing.T) {
 	if SessionKindForMode(SubagentModeCoding) != SessionKindCoding {
 		t.Fatal("coding kind")

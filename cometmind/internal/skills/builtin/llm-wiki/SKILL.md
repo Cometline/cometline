@@ -114,10 +114,7 @@ captured_at: 2026-04-02
 
 ## Query
 
-1. Read `@runtime/wiki/index.md` to locate relevant pages
-2. `read_file` the most relevant pages under `entities/`, `concepts/`, or `syntheses/`
-3. Synthesize an answer with citations to wiki paths
-4. **File good answers back into the wiki** as new pages under `syntheses/` or update existing pages — explorations should compound like ingests
+Read-only lookup belongs to `query-wiki`. Load that skill instead of filing answers back from this one. Ingest, lint, and research stay here.
 
 ## Lint (scan → analyze → report → fix)
 
@@ -211,7 +208,7 @@ Persistent personal knowledge base at `@runtime/wiki/` (~/.cometmind/wiki/).
 ## Operations
 
 - **ingest** — capture → compile
-- **query** — read `index.md` first; file good answers back
+- **query** — use the `query-wiki` skill; it reads `index.md` and does not write
 - **lint** — scan → analyze → report + conservative auto-fix
 
 ## Backup

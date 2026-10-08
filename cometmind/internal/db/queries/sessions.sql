@@ -264,6 +264,11 @@ SET
     skill_review_count_reset_at = ?
 WHERE id = ?;
 
+-- name: SetWikiReviewStartedAt :exec
+UPDATE sessions
+SET wiki_review_started_at = ?
+WHERE id = ?;
+
 -- name: ResetSkillReviewAfterStart :exec
 UPDATE sessions
 SET

@@ -20,5 +20,6 @@ func (r *Runner) completeTurn(ctx context.Context, s *turnState) error {
 	bg := context.WithoutCancel(ctx)
 	go r.extractMemoryAfterTurn(bg, s.turn, nil)
 	go r.reviewSkillsAfterTurn(bg, s.turn)
+	go r.reviewWikiAfterTurn(bg, s.turn)
 	return nil
 }

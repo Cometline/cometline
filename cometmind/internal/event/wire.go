@@ -47,6 +47,7 @@ var wirePayloads = map[Kind]func(Event) any{
 	KindMemoryInjected:            memoryInjectedPayload,
 	KindMemoryUpdated:             memoryUpdatedPayload,
 	KindSkillReviewUpdated:        skillReviewUpdatedPayload,
+	KindWikiReviewUpdated:         wikiReviewUpdatedPayload,
 	KindMemoryCompactionCompleted: memoryCompactionPayload,
 	KindContextBudget:             contextBudgetPayload,
 	KindInboxMessageCreated:       inboxCreatedPayload,
@@ -123,6 +124,18 @@ func memoryUpdatedPayload(e Event) any {
 		Type    string             `json:"type"`
 		Changes []MemoryChangeWire `json:"changes"`
 	}{string(e.Kind), e.MemoryChanges}
+}
+
+func wikiReviewUpdatedPayload(e Event) any {
+	paths := e.WikiPaths
+	if paths == nil {
+		paths = []string{}
+	}
+	return struct {
+		Type      string   `json:"type"`
+		SessionID string   `json:"session_id"`
+		Paths     []string `json:"paths"`
+	}{string(e.Kind), e.SessionID, paths}
 }
 
 func skillReviewUpdatedPayload(e Event) any {
@@ -241,6 +254,7 @@ type eventWire struct {
 	Memories         []MemoryWire        `json:"memories"`
 	Changes          []MemoryChangeWire  `json:"changes"`
 	Skills           []SkillReviewChange `json:"skills"`
+	Paths            []string            `json:"paths"`
 	Before           int64               `json:"before"`
 	After            int64               `json:"after"`
 	Trigger          string              `json:"trigger"`
@@ -296,6 +310,7 @@ func (w eventWire) event() Event {
 		Memories:            w.Memories,
 		MemoryChanges:       w.Changes,
 		SkillReviews:        w.Skills,
+		WikiPaths:           w.Paths,
 		MemoryCountBefore:   w.Before,
 		MemoryCountAfter:    w.After,
 		CompactionTrigger:   w.Trigger,
