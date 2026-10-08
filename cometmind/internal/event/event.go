@@ -18,6 +18,8 @@ const (
 	KindMemoryUpdated             Kind = "memory_updated"
 	KindSkillReviewUpdated        Kind = "skill_review_updated"
 	KindWikiReviewUpdated         Kind = "wiki_review_updated"
+	KindSkillCuratorDeleted       Kind = "skill_curator_deleted"
+	KindSkillCuratorMerged        Kind = "skill_curator_merged"
 	KindMemoryCompactionCompleted Kind = "memory_compaction_completed"
 	KindContextBudget             Kind = "context_budget"
 	KindInboxMessageCreated       Kind = "inbox_message_created"
@@ -122,6 +124,10 @@ type Event struct {
 	SkillReviews []SkillReviewChange
 	// wiki_review_updated
 	WikiPaths []string
+	// skill_curator_deleted / skill_curator_merged
+	CuratorCount   int
+	CuratorTarget  string
+	CuratorSources []string
 	// memory_compaction_completed
 	MemoryCountBefore int64
 	MemoryCountAfter  int64

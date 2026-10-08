@@ -57,7 +57,7 @@ func NewWikiReviewRegistry(workspaceRoot string) *Registry {
 // NewSkillReviewRegistry is the hidden skill-review surface. It is not a
 // research or coding registry: read tools, load_skill, read_skill_file, and
 // the guarded write_skill only. Read does not include web tools here.
-func NewSkillReviewRegistry(workspaceRoot string, skillReg *skills.Registry) *Registry {
+func NewSkillReviewRegistry(workspaceRoot string, skillReg *skills.Registry, used func(string)) *Registry {
 	ws := Workspace{Root: workspaceRoot}
 	r := &Registry{workspace: ws, byName: make(map[string]Tool)}
 	r.Add(ReadFile{Workspace: ws})
@@ -65,10 +65,17 @@ func NewSkillReviewRegistry(workspaceRoot string, skillReg *skills.Registry) *Re
 	r.Add(Glob{Workspace: ws})
 	r.Add(Grep{Workspace: ws})
 	if skillReg != nil {
-		r.Add(LoadSkill{Skills: skillReg})
+		r.Add(LoadSkill{Skills: skillReg, Used: used})
 		r.Add(ReadSkillFile{Skills: skillReg})
 	}
 	r.Add(ReviewWriteSkill{})
+	return r
+}
+
+// NewCuratorMergeRegistry is the skill-review surface plus a merge report tool.
+func NewCuratorMergeRegistry(workspaceRoot string, skillReg *skills.Registry) *Registry {
+	r := NewSkillReviewRegistry(workspaceRoot, skillReg, nil)
+	r.Add(ReportMergedSkills{})
 	return r
 }
 

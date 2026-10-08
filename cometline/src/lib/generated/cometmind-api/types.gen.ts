@@ -570,6 +570,11 @@ export type Skill = {
      * metadata.cometline.origin. Empty means the skill was not created by the self-improvement loop.
      */
     origin?: string;
+    /**
+     * Curator status for a self-improvement skill. Empty for every other skill.
+     */
+    status?: 'active' | 'stale' | 'archived';
+    pinned?: boolean;
 };
 
 export type SkillDetailResponse = {
@@ -798,6 +803,17 @@ export type WikiReviewUpdatedEvent = {
     paths: Array<string>;
 };
 
+export type SkillCuratorDeletedEvent = {
+    type: 'skill_curator_deleted';
+    count: number;
+};
+
+export type SkillCuratorMergedEvent = {
+    type: 'skill_curator_merged';
+    skill: string;
+    sources: Array<string>;
+};
+
 export type MemoryUpdatedEvent = {
     type: 'memory_updated';
     changes: Array<MemoryChangeWire>;
@@ -934,6 +950,10 @@ export type StreamEvent = ({
 } & SkillReviewUpdatedEvent) | ({
     type?: 'wiki_review_updated';
 } & WikiReviewUpdatedEvent) | ({
+    type?: 'skill_curator_deleted';
+} & SkillCuratorDeletedEvent) | ({
+    type?: 'skill_curator_merged';
+} & SkillCuratorMergedEvent) | ({
     type?: 'memory_compaction_completed';
 } & MemoryCompactionCompletedEvent) | ({
     type?: 'context_budget';

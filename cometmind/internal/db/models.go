@@ -226,6 +226,26 @@ type SessionRun struct {
 	UpdatedAt      int64  `json:"updated_at"`
 }
 
+type SkillCuratorPass struct {
+	ID            int64 `json:"id"`
+	LastPassAt    int64 `json:"last_pass_at"`
+	LastMergeAt   int64 `json:"last_merge_at"`
+	RunsIdleSince int64 `json:"runs_idle_since"`
+}
+
+type SkillCuratorState struct {
+	SkillName        string `json:"skill_name"`
+	Origin           string `json:"origin"`
+	Status           string `json:"status"`
+	Pinned           int64  `json:"pinned"`
+	CreatedAt        int64  `json:"created_at"`
+	LastUsedAt       int64  `json:"last_used_at"`
+	UnusedSince      int64  `json:"unused_since"`
+	ArchivedAt       int64  `json:"archived_at"`
+	PinnedAt         int64  `json:"pinned_at"`
+	DeleteNotifiedAt int64  `json:"delete_notified_at"`
+}
+
 type ToolCall struct {
 	ID          string        `json:"id"`
 	MessageID   string        `json:"message_id"`

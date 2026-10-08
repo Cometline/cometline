@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -23,6 +24,8 @@ type skillResource struct {
 	CanExport   bool   `json:"can_export"`
 	CanEdit     bool   `json:"can_edit"`
 	Origin      string `json:"origin,omitempty"`
+	Status      string `json:"status,omitempty"`
+	Pinned      bool   `json:"pinned,omitempty"`
 }
 
 type skillDetailResponse struct {
@@ -45,7 +48,7 @@ func (a *App) handleListSkills(c *gin.Context) {
 	reg := a.skillsForRequest(c)
 	items := make([]skillResource, 0, len(reg.Skills))
 	for _, skill := range reg.Skills {
-		items = append(items, skillResourceFromModel(skill))
+		items = append(items, a.skillResourceFromModel(skill))
 	}
 	c.JSON(http.StatusOK, listSkillsResponse{Skills: items, Errors: reg.Errors})
 }
@@ -119,7 +122,7 @@ func (a *App) handleGetSkill(c *gin.Context) {
 		writeDiscoveredSkillError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, skillDetailResponse{Skill: skillResourceFromModel(skill), Content: content})
+	c.JSON(http.StatusOK, skillDetailResponse{Skill: a.skillResourceFromModel(skill), Content: content})
 }
 
 func (a *App) handleUpdateSkill(c *gin.Context) {
@@ -149,7 +152,7 @@ func (a *App) handleUpdateSkill(c *gin.Context) {
 		writeDiscoveredSkillError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, skillDetailResponse{Skill: skillResourceFromModel(updated), Content: content})
+	c.JSON(http.StatusOK, skillDetailResponse{Skill: a.skillResourceFromModel(updated), Content: content})
 }
 
 func writeDiscoveredSkillError(c *gin.Context, err error) {
@@ -179,9 +182,9 @@ func (a *App) skillsForRequest(c *gin.Context) skillpkg.Registry {
 	return skillpkg.Discover(workspacePath, a.config.SkillSettings())
 }
 
-func skillResourceFromModel(skill skillpkg.Skill) skillResource {
+func (a *App) skillResourceFromModel(skill skillpkg.Skill) skillResource {
 	caps, _ := skillpkg.SkillCapabilities(skill)
-	return skillResource{
+	resource := skillResource{
 		Name:        skill.Name,
 		Description: skill.Description,
 		Path:        skill.Path,
@@ -193,4 +196,8 @@ func skillResourceFromModel(skill skillpkg.Skill) skillResource {
 		CanEdit:     caps.CanEdit,
 		Origin:      skill.Origin,
 	}
+	if a != nil && a.curator != nil && skillpkg.IsSelfImprovement(skill) {
+		resource.Status, resource.Pinned = a.curator.Lookup(context.Background(), skill.Name)
+	}
+	return resource
 }

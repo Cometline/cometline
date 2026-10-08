@@ -48,6 +48,8 @@ var wirePayloads = map[Kind]func(Event) any{
 	KindMemoryUpdated:             memoryUpdatedPayload,
 	KindSkillReviewUpdated:        skillReviewUpdatedPayload,
 	KindWikiReviewUpdated:         wikiReviewUpdatedPayload,
+	KindSkillCuratorDeleted:       skillCuratorDeletedPayload,
+	KindSkillCuratorMerged:        skillCuratorMergedPayload,
 	KindMemoryCompactionCompleted: memoryCompactionPayload,
 	KindContextBudget:             contextBudgetPayload,
 	KindInboxMessageCreated:       inboxCreatedPayload,
@@ -136,6 +138,25 @@ func wikiReviewUpdatedPayload(e Event) any {
 		SessionID string   `json:"session_id"`
 		Paths     []string `json:"paths"`
 	}{string(e.Kind), e.SessionID, paths}
+}
+
+func skillCuratorDeletedPayload(e Event) any {
+	return struct {
+		Type  string `json:"type"`
+		Count int    `json:"count"`
+	}{string(e.Kind), e.CuratorCount}
+}
+
+func skillCuratorMergedPayload(e Event) any {
+	sources := e.CuratorSources
+	if sources == nil {
+		sources = []string{}
+	}
+	return struct {
+		Type    string   `json:"type"`
+		Skill   string   `json:"skill"`
+		Sources []string `json:"sources"`
+	}{string(e.Kind), e.CuratorTarget, sources}
 }
 
 func skillReviewUpdatedPayload(e Event) any {
@@ -255,6 +276,9 @@ type eventWire struct {
 	Changes          []MemoryChangeWire  `json:"changes"`
 	Skills           []SkillReviewChange `json:"skills"`
 	Paths            []string            `json:"paths"`
+	Count            int                 `json:"count"`
+	Skill            string              `json:"skill"`
+	Sources          []string            `json:"sources"`
 	Before           int64               `json:"before"`
 	After            int64               `json:"after"`
 	Trigger          string              `json:"trigger"`
@@ -311,6 +335,9 @@ func (w eventWire) event() Event {
 		MemoryChanges:       w.Changes,
 		SkillReviews:        w.Skills,
 		WikiPaths:           w.Paths,
+		CuratorCount:        w.Count,
+		CuratorTarget:       w.Skill,
+		CuratorSources:      w.Sources,
 		MemoryCountBefore:   w.Before,
 		MemoryCountAfter:    w.After,
 		CompactionTrigger:   w.Trigger,

@@ -757,6 +757,27 @@ func (e SessionSubagentKind) Valid() bool {
 	}
 }
 
+// Defines values for SkillStatus.
+const (
+	SkillStatusActive   SkillStatus = "active"
+	SkillStatusArchived SkillStatus = "archived"
+	SkillStatusStale    SkillStatus = "stale"
+)
+
+// Valid indicates whether the value is a known member of the SkillStatus enum.
+func (e SkillStatus) Valid() bool {
+	switch e {
+	case SkillStatusActive:
+		return true
+	case SkillStatusArchived:
+		return true
+	case SkillStatusStale:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SkillReviewChangeAction.
 const (
 	Created SkillReviewChangeAction = "created"
@@ -942,16 +963,16 @@ func (e WorkspaceFileTextContentKind) Valid() bool {
 
 // Defines values for ListInboxMessagesParamsStatus.
 const (
-	Archived ListInboxMessagesParamsStatus = "archived"
-	Open     ListInboxMessagesParamsStatus = "open"
+	ListInboxMessagesParamsStatusArchived ListInboxMessagesParamsStatus = "archived"
+	ListInboxMessagesParamsStatusOpen     ListInboxMessagesParamsStatus = "open"
 )
 
 // Valid indicates whether the value is a known member of the ListInboxMessagesParamsStatus enum.
 func (e ListInboxMessagesParamsStatus) Valid() bool {
 	switch e {
-	case Archived:
+	case ListInboxMessagesParamsStatusArchived:
 		return true
-	case Open:
+	case ListInboxMessagesParamsStatusOpen:
 		return true
 	default:
 		return false
@@ -1985,7 +2006,27 @@ type Skill struct {
 	// Origin metadata.cometline.origin. Empty means the skill was not created by the self-improvement loop.
 	Origin *string `json:"origin,omitempty"`
 	Path   string  `json:"path"`
+	Pinned *bool   `json:"pinned,omitempty"`
 	Source string  `json:"source"`
+
+	// Status Curator status for a self-improvement skill. Empty for every other skill.
+	Status *SkillStatus `json:"status,omitempty"`
+}
+
+// SkillStatus Curator status for a self-improvement skill. Empty for every other skill.
+type SkillStatus string
+
+// SkillCuratorDeletedEvent defines model for SkillCuratorDeletedEvent.
+type SkillCuratorDeletedEvent struct {
+	Count int    `json:"count"`
+	Type  string `json:"type"`
+}
+
+// SkillCuratorMergedEvent defines model for SkillCuratorMergedEvent.
+type SkillCuratorMergedEvent struct {
+	Skill   string   `json:"skill"`
+	Sources []string `json:"sources"`
+	Type    string   `json:"type"`
 }
 
 // SkillDetailResponse defines model for SkillDetailResponse.
@@ -3185,6 +3226,58 @@ func (t *StreamEvent) MergeWikiReviewUpdatedEvent(v WikiReviewUpdatedEvent) erro
 	return err
 }
 
+// AsSkillCuratorDeletedEvent returns the union data inside the StreamEvent as a SkillCuratorDeletedEvent
+func (t StreamEvent) AsSkillCuratorDeletedEvent() (SkillCuratorDeletedEvent, error) {
+	var body SkillCuratorDeletedEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromSkillCuratorDeletedEvent overwrites any union data inside the StreamEvent as the provided SkillCuratorDeletedEvent
+func (t *StreamEvent) FromSkillCuratorDeletedEvent(v SkillCuratorDeletedEvent) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeSkillCuratorDeletedEvent performs a merge with any union data inside the StreamEvent, using the provided SkillCuratorDeletedEvent
+func (t *StreamEvent) MergeSkillCuratorDeletedEvent(v SkillCuratorDeletedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsSkillCuratorMergedEvent returns the union data inside the StreamEvent as a SkillCuratorMergedEvent
+func (t StreamEvent) AsSkillCuratorMergedEvent() (SkillCuratorMergedEvent, error) {
+	var body SkillCuratorMergedEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromSkillCuratorMergedEvent overwrites any union data inside the StreamEvent as the provided SkillCuratorMergedEvent
+func (t *StreamEvent) FromSkillCuratorMergedEvent(v SkillCuratorMergedEvent) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeSkillCuratorMergedEvent performs a merge with any union data inside the StreamEvent, using the provided SkillCuratorMergedEvent
+func (t *StreamEvent) MergeSkillCuratorMergedEvent(v SkillCuratorMergedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 // AsMemoryCompactionCompletedEvent returns the union data inside the StreamEvent as a MemoryCompactionCompletedEvent
 func (t StreamEvent) AsMemoryCompactionCompletedEvent() (MemoryCompactionCompletedEvent, error) {
 	var body MemoryCompactionCompletedEvent
@@ -3541,6 +3634,10 @@ func (t StreamEvent) ValueByDiscriminator() (interface{}, error) {
 		return t.AsRunLifecycleEvent()
 	case "session_cleared":
 		return t.AsSessionClearedEvent()
+	case "skill_curator_deleted":
+		return t.AsSkillCuratorDeletedEvent()
+	case "skill_curator_merged":
+		return t.AsSkillCuratorMergedEvent()
 	case "skill_review_updated":
 		return t.AsSkillReviewUpdatedEvent()
 	case "step_finish":

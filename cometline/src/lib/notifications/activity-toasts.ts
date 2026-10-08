@@ -62,6 +62,22 @@ export function notifySkillReview(skills: SkillReviewNotice[]) {
 	});
 }
 
+export function notifySkillsDeleted(count: number) {
+	if (count <= 0) return;
+	const detail = count === 1 ? '1 skill deleted' : `${count} skills deleted`;
+	appToastStore.success('Skills deleted', detail, () => {
+		void goto(`${resolve('skills')}?tab=skills`);
+	});
+}
+
+export function notifySkillMerged(skill: string) {
+	if (!skill) return;
+	appToastStore.success('Skills merged', skill, () => {
+		const params = new URLSearchParams({ tab: 'skills', skill });
+		void goto(`${resolve('skills')}?${params.toString()}`);
+	});
+}
+
 export function notifyWikiReview(paths: string[]) {
 	if (paths.length === 0) return;
 	const first = paths[0];

@@ -116,6 +116,9 @@ func discoverRoot(root string, reg *Registry) {
 		return
 	}
 	for _, entry := range entries {
+		if entry.Name() == ".archive" || strings.HasPrefix(entry.Name(), ".") {
+			continue
+		}
 		if !entry.IsDir() && entry.Type()&os.ModeSymlink == 0 {
 			continue
 		}
@@ -227,7 +230,7 @@ func (r Registry) PromptIndex() string {
 	b.WriteString("When a conversation produces a clear, reusable, already-validated multi-step workflow, offer to save it as an Agent Skill draft. If the user agrees or asks to remember a workflow as a skill, use `write_skill_draft` (never `write_skill`) so it stays pending human review. Skip one-off fixes and unverified advice.\n")
 	b.WriteString("Before creating a draft, the runtime compares against managed skills and pending drafts; near-duplicates are blocked. When blocked, tell the user about the overlaps and ask before re-calling with `force=true`, or update an existing same-name draft with `overwrite=true`.\n")
 	for _, skill := range r.Skills {
-		if skill.Internal {
+		if skill.Internal || strings.Contains(filepath.ToSlash(skill.Path), "/.archive/") {
 			continue
 		}
 		b.WriteString("- ")

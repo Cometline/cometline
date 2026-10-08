@@ -3599,6 +3599,12 @@ components:
         origin:
           type: string
           description: metadata.cometline.origin. Empty means the skill was not created by the self-improvement loop.
+        status:
+          type: string
+          description: Curator status for a self-improvement skill. Empty for every other skill.
+          enum: [active, stale, archived]
+        pinned:
+          type: boolean
 
     SkillDetailResponse:
       type: object
@@ -4037,6 +4043,32 @@ components:
           items:
             type: string
 
+    SkillCuratorDeletedEvent:
+      type: object
+      additionalProperties: false
+      required: [type, count]
+      properties:
+        type:
+          type: string
+          const: skill_curator_deleted
+        count:
+          type: integer
+
+    SkillCuratorMergedEvent:
+      type: object
+      additionalProperties: false
+      required: [type, skill, sources]
+      properties:
+        type:
+          type: string
+          const: skill_curator_merged
+        skill:
+          type: string
+        sources:
+          type: array
+          items:
+            type: string
+
     MemoryUpdatedEvent:
       type: object
       additionalProperties: false
@@ -4269,6 +4301,8 @@ components:
         - $ref: '#/components/schemas/MemoryUpdatedEvent'
         - $ref: '#/components/schemas/SkillReviewUpdatedEvent'
         - $ref: '#/components/schemas/WikiReviewUpdatedEvent'
+        - $ref: '#/components/schemas/SkillCuratorDeletedEvent'
+        - $ref: '#/components/schemas/SkillCuratorMergedEvent'
         - $ref: '#/components/schemas/MemoryCompactionCompletedEvent'
         - $ref: '#/components/schemas/ContextBudgetEvent'
         - $ref: '#/components/schemas/InboxMessageCreatedEvent'
@@ -4297,6 +4331,8 @@ components:
           memory_updated: '#/components/schemas/MemoryUpdatedEvent'
           skill_review_updated: '#/components/schemas/SkillReviewUpdatedEvent'
           wiki_review_updated: '#/components/schemas/WikiReviewUpdatedEvent'
+          skill_curator_deleted: '#/components/schemas/SkillCuratorDeletedEvent'
+          skill_curator_merged: '#/components/schemas/SkillCuratorMergedEvent'
           memory_compaction_completed: '#/components/schemas/MemoryCompactionCompletedEvent'
           context_budget: '#/components/schemas/ContextBudgetEvent'
           inbox_message_created: '#/components/schemas/InboxMessageCreatedEvent'

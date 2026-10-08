@@ -93,6 +93,7 @@ import type {
 	McpTestResult,
 	McpToolInfo,
 	MemoryResource,
+	Skill,
 	SkillDetailResponse,
 	SkillDraft,
 	SkillDraftDetailResponse,
@@ -512,6 +513,30 @@ export async function clearSession(sessionId: string): Promise<void> {
 	await clearSessionApi({
 		path: { id: sessionId },
 		throwOnError: true
+	});
+}
+
+export function listArchivedSkills(): Promise<Skill[]> {
+	return fetch(`${BASE_URL}/api/v1/skill-archive`).then(async (response) => {
+		if (!response.ok) throw new Error('Failed to list archived skills');
+		const body = (await response.json()) as { skills?: Skill[] };
+		return body.skills ?? [];
+	});
+}
+
+export function pinSkill(name: string, pinned: boolean): Promise<void> {
+	return fetch(`${BASE_URL}/api/v1/skills/${encodeURIComponent(name)}/pin`, {
+		method: pinned ? 'POST' : 'DELETE'
+	}).then((response) => {
+		if (!response.ok) throw new Error('Failed to update skill pin');
+	});
+}
+
+export function restoreArchivedSkill(name: string): Promise<void> {
+	return fetch(`${BASE_URL}/api/v1/skills/${encodeURIComponent(name)}/restore`, {
+		method: 'POST'
+	}).then((response) => {
+		if (!response.ok) throw new Error('Failed to restore skill');
 	});
 }
 

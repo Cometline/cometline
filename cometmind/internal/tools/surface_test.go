@@ -33,7 +33,7 @@ func TestSkillReviewSurfaceOmitsMutationTools(t *testing.T) {
 	if surface.Edit || surface.Run || surface.Spawn || surface.SkillDraft || surface.Delegate {
 		t.Fatalf("skill review surface is too wide: %+v", surface)
 	}
-	reg := NewSkillReviewRegistry(t.TempDir(), &skills.Registry{})
+	reg := NewSkillReviewRegistry(t.TempDir(), &skills.Registry{}, nil)
 	got := map[string]bool{}
 	for _, tool := range reg.CometSDK() {
 		got[tool.Name] = true

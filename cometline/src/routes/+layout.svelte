@@ -26,7 +26,9 @@
 		notifyConnectionChange,
 		notifyJobActivity,
 		notifyNewInboxMessage,
+		notifySkillMerged,
 		notifySkillReview,
+		notifySkillsDeleted,
 		notifyWikiReview,
 		startSkillDraftToastWatch
 	} from '#lib/notifications/activity-toasts.js';
@@ -85,6 +87,12 @@
 				}
 				if (event.type === 'wiki_review_updated' && !isMiniRoute && !isSettingsRoute) {
 					notifyWikiReview(event.paths);
+				}
+				if (event.type === 'skill_curator_deleted' && !isMiniRoute && !isSettingsRoute) {
+					notifySkillsDeleted(event.count);
+				}
+				if (event.type === 'skill_curator_merged' && !isMiniRoute && !isSettingsRoute) {
+					notifySkillMerged(event.skill);
 				}
 				if (event.type === 'memory_compaction_completed') {
 					memoryToastStore.addCompaction(event);

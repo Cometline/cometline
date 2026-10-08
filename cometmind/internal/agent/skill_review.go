@@ -138,7 +138,7 @@ func (r *Runner) startSkillReview(ctx context.Context, store skillReviewStore, p
 		_ = store.DeleteSession(ctx, child.ID)
 		return
 	}
-	registry := tools.NewSkillReviewRegistry(workspace, &catalog)
+	registry := tools.NewSkillReviewRegistry(workspace, &catalog, r.SkillUsed)
 	started := r.reviewNow()
 	if err := store.ResetSkillReviewAfterStart(ctx, parent.ID, started.UnixMilli()); err != nil {
 		logging.L().Warn("skills.review.cooldown_failed", zap.String("session", parent.ID), zap.Error(err))

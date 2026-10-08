@@ -37,14 +37,15 @@ type (
 	GenerateImage      = media.GenerateImage
 	GenerateVideo      = media.GenerateVideo
 
-	LoadSkill         = skills.LoadSkill
-	ReadSkillFile     = skills.ReadSkillFile
-	WriteSkillDraft   = skills.WriteSkillDraft
-	ListSkillDrafts   = skills.ListSkillDrafts
-	ReadSkillDraft    = skills.ReadSkillDraft
-	WriteSkill        = skills.WriteSkill
-	ReviewWriteSkill  = skills.ReviewWriteSkill
-	PromoteSkillDraft = skills.PromoteSkillDraft
+	LoadSkill          = skills.LoadSkill
+	ReadSkillFile      = skills.ReadSkillFile
+	WriteSkillDraft    = skills.WriteSkillDraft
+	ListSkillDrafts    = skills.ListSkillDrafts
+	ReadSkillDraft     = skills.ReadSkillDraft
+	WriteSkill         = skills.WriteSkill
+	ReviewWriteSkill   = skills.ReviewWriteSkill
+	ReportMergedSkills = skills.ReportMergedSkills
+	PromoteSkillDraft  = skills.PromoteSkillDraft
 
 	DelegateCodingTask = childagent.DelegateCodingTask
 	SpawnGeneralAgent  = childagent.SpawnGeneralAgent

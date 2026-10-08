@@ -45,7 +45,9 @@ import {
 	notifyConnectionChange,
 	notifyJobActivity,
 	notifyNewInboxMessage,
+	notifySkillMerged,
 	notifySkillReview,
+	notifySkillsDeleted,
 	notifyWikiReview,
 	startSkillDraftToastWatch
 } from './activity-toasts';
@@ -137,6 +139,17 @@ describe('activity toasts', () => {
 
 		notifySkillReview([]);
 		expect(mocks.success).toHaveBeenCalledTimes(1);
+	});
+
+	it('opens the skills list after curator deletion and the surviving skill after a merge', () => {
+		notifySkillsDeleted(2);
+		notifySkillMerged('keep');
+		const deleted = mocks.success.mock.calls[0][2] as () => void;
+		const merged = mocks.success.mock.calls[1][2] as () => void;
+		deleted();
+		merged();
+		expect(mocks.goto).toHaveBeenCalledWith('/skills?tab=skills');
+		expect(mocks.goto).toHaveBeenCalledWith('/skills?tab=skills&skill=keep');
 	});
 
 	it('toasts one wiki review and opens the first page', () => {

@@ -9,11 +9,13 @@ import (
 	"github.com/Cometline/cometline/cometmind/internal/event"
 	"github.com/Cometline/cometline/cometmind/internal/generation"
 	"github.com/Cometline/cometline/cometmind/internal/jobs"
+	"github.com/Cometline/cometline/cometmind/internal/logging"
 	"github.com/Cometline/cometline/cometmind/internal/provider"
 	"github.com/Cometline/cometline/cometmind/internal/session"
 	"github.com/Cometline/cometline/cometmind/internal/skills"
 	"github.com/Cometline/cometline/cometmind/internal/subagent"
 	"github.com/Cometline/cometline/cometmind/internal/tools"
+	"go.uber.org/zap"
 )
 
 // RunnerOptions controls how a runner is assembled. Most callers should use
@@ -116,6 +118,14 @@ func (r *Runtime) runnerFor(sess session.Session, workspacePath string, opts Run
 		Events:      r.Events,
 		ReviewChild: r.runSkillReviewChild,
 		WikiChild:   r.runWikiReviewChild,
+		SkillUsed: func(name string) {
+			if r.Curator == nil {
+				return
+			}
+			if err := r.Curator.NoteUse(context.Background(), name); err != nil {
+				logging.L().Warn("skills.curator.use_failed", zap.String("skill", name), zap.Error(err))
+			}
+		},
 	}
 	if !opts.Subagent {
 		runner.JobIndex = tools.JobPromptIndex(workspacePath, platform)
@@ -147,9 +157,17 @@ func (r *Runtime) toolRegistryOptions(skillRegistry skills.Registry, sessionID, 
 			}
 			return r.Config.GenerationBinding(kind)
 		},
-		ACP:                r.Config.ACPSettings(),
-		ACPMgr:             r.ACPManager(),
-		Skills:             &skillRegistry,
+		ACP:    r.Config.ACPSettings(),
+		ACPMgr: r.ACPManager(),
+		Skills: &skillRegistry,
+		SkillUsed: func(name string) {
+			if r.Curator == nil {
+				return
+			}
+			if err := r.Curator.NoteUse(context.Background(), name); err != nil {
+				logging.L().Warn("skills.curator.use_failed", zap.String("skill", name), zap.Error(err))
+			}
+		},
 		MCP:                r.mcpMgr,
 		Orchestrator:       r.SubagentOrchestrator(),
 		Jobs:               r.Jobs,
