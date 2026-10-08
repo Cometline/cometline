@@ -98,7 +98,8 @@ export const EVENT_CHANNELS = {
 	onProviderSettingsChanged: 'cometline:provider-settings-changed',
 	onPersonaAvatarChanged: 'cometline:persona-avatar-changed',
 	onReplayIntro: 'cometline:replay-intro',
-	onRunSetupWizard: 'cometline:run-setup-wizard'
+	onRunSetupWizard: 'cometline:run-setup-wizard',
+	onOpenSession: 'cometline:open-session'
 } as const satisfies Partial<Record<keyof ElectronAPI, string>>;
 
 export type InvokeMethod = keyof typeof INVOKE_CHANNELS;

@@ -98,6 +98,7 @@ export interface ElectronAPI {
 	onPersonaAvatarChanged(callback: (personaId: string) => void): () => void;
 	onReplayIntro(callback: () => void): () => void;
 	onRunSetupWizard(callback: () => void): () => void;
+	onOpenSession(callback: (sessionId: string) => void): () => void;
 	onMiniWindowActivated(callback: () => void): () => void;
 	getMiniWindowState(): Promise<MiniWindowState>;
 	saveMiniWindowState(state: {

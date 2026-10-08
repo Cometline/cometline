@@ -455,6 +455,13 @@ export function createWindows(dependencies: WindowsDependencies) {
 		window.focus();
 	}
 
+	function mainWindowCanNavigateInPlace(window: BrowserWindow) {
+		const contents = window.webContents;
+		if (!contents || contents.isDestroyed?.() || contents.isLoading?.()) return false;
+		const url = contents.getURL?.() ?? '';
+		return url.startsWith(`${APP_ORIGIN}/`) || url.startsWith('http://127.0.0.1:5173/');
+	}
+
 	async function openSessionInMainWindow(sessionId: unknown) {
 		const cleanSessionId = typeof sessionId === 'string' ? sessionId.trim() : '';
 		if (!cleanSessionId) return false;
@@ -462,7 +469,13 @@ export function createWindows(dependencies: WindowsDependencies) {
 		const window = mainWindow;
 		if (!windowCanShow(window)) return false;
 		if (window.isMinimized()) window.restore();
-		await loadAppRoute(window, `/session/${encodeURIComponent(cleanSessionId)}`);
+		// A full loadURL drops the main renderer. An in-flight turn lives in the
+		// mini renderer and is mirrored over window sync, so reuse the live page.
+		if (mainWindowCanNavigateInPlace(window)) {
+			window.webContents.send(EVENT_CHANNELS.onOpenSession, cleanSessionId);
+		} else {
+			await loadAppRoute(window, `/session/${encodeURIComponent(cleanSessionId)}`);
+		}
 		window.show();
 		window.focus();
 		hideMiniWindow();
