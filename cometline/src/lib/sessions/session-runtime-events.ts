@@ -9,6 +9,11 @@ export interface SessionRuntimeEventDeps {
 	updateSession: (session: Session) => void;
 	isStreamingFor?: (sessionId: string) => boolean;
 	hasLocalStream?: (sessionId: string) => boolean;
+	/**
+	 * True once when this window just finished reducing the run.
+	 * A new run_started consumes a stale note so a later finish still reloads.
+	 */
+	consumeLocalRunSettled?: (sessionId: string) => boolean;
 }
 
 export async function applySessionRuntimeEvent(
@@ -16,6 +21,7 @@ export async function applySessionRuntimeEvent(
 	deps: SessionRuntimeEventDeps
 ): Promise<boolean> {
 	if (event.type === 'run_started') {
+		deps.consumeLocalRunSettled?.(event.session_id);
 		deps.setRunning(event.session_id, true);
 		if (deps.getActiveSessionId() !== event.session_id) return true;
 		if (deps.hasLocalStream?.(event.session_id) || deps.isStreamingFor?.(event.session_id))
@@ -26,8 +32,9 @@ export async function applySessionRuntimeEvent(
 	}
 	if (event.type === 'run_finished') {
 		deps.setRunning(event.session_id, false);
+		const locallySettled = deps.consumeLocalRunSettled?.(event.session_id) ?? false;
 		if (deps.getActiveSessionId() !== event.session_id) return true;
-		if (deps.hasLocalStream?.(event.session_id)) return true;
+		if (locallySettled || deps.hasLocalStream?.(event.session_id)) return true;
 		await deps.refreshTranscript(event.session_id);
 		return true;
 	}

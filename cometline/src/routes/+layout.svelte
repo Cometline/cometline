@@ -74,7 +74,8 @@
 			refreshSession: getSession,
 			updateSession: sessionStore.updateSession,
 			isStreamingFor: chatStore.isStreamingFor,
-			hasLocalStream: chatStore.hasLocalStream
+			hasLocalStream: chatStore.hasLocalStream,
+			consumeLocalRunSettled: chatStore.consumeLocalRunSettled
 		};
 		const stopRuntimeEvents = startRuntimeEventStream(
 			(event) => {

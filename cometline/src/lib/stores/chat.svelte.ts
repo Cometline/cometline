@@ -83,6 +83,7 @@ function createChatStore() {
 		},
 		isStreamingFor: cache.isStreamingFor,
 		hasLocalStream: cache.hasLocalStream,
+		consumeLocalRunSettled: cache.consumeLocalRunSettled,
 		hasRunError: cache.hasRunError,
 		hasInFlightTurn: cache.hasInFlightTurn,
 		isAwaitingFirstAssistant: cache.isAwaitingFirstAssistant,
