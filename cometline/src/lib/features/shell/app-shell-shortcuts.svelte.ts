@@ -1,5 +1,6 @@
 import { goto } from '$app/navigation';
 import { resolve } from '$app/paths';
+import { navigateToSession } from '#lib/actions/navigate-to-session.js';
 import { startNewChat } from '#lib/actions/new-chat.js';
 import { navigateAdjacentSession } from '#lib/actions/navigate-adjacent-session.js';
 import {
@@ -13,7 +14,7 @@ import { inboxStore } from '#lib/stores/inbox.svelte.js';
 import { sessionStore } from '#lib/stores/session.svelte.js';
 import { settingsStore } from '#lib/stores/settings.svelte.js';
 import { shellStore } from '#lib/stores/shell.svelte.js';
-import { updateSession } from '#lib/client/cometmind.js';
+import { getSession, updateSession } from '#lib/client/cometmind.js';
 import type { Session } from '#lib/types.js';
 
 type SidebarHandle = { focusSearch: () => void };
@@ -331,6 +332,11 @@ export function createAppShellShortcuts(deps: {
 		const unsubscribeReplayIntro = window.electronAPI?.onReplayIntro?.(() => {
 			shellStore.openIntro();
 		});
+		const unsubscribeOpenSession = window.electronAPI?.onOpenSession?.((sessionId) => {
+			void getSession(sessionId)
+				.then((session) => navigateToSession(session))
+				.catch(() => undefined);
+		});
 		const unsubscribeRunSetupWizard = window.electronAPI?.onRunSetupWizard?.(() => {
 			shellStore.openSetup();
 		});
@@ -344,6 +350,7 @@ export function createAppShellShortcuts(deps: {
 			unsubscribeShortcutAction?.();
 			unsubscribeReplayIntro?.();
 			unsubscribeRunSetupWizard?.();
+			unsubscribeOpenSession?.();
 		};
 	}
 

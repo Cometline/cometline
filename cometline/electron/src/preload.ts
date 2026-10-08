@@ -124,6 +124,10 @@ const electronAPI: ElectronAPI = {
 	onPersonaAvatarChanged: (callback) => subscribe('onPersonaAvatarChanged', callback),
 	onReplayIntro: (callback) => subscribeSignal('onReplayIntro', callback),
 	onRunSetupWizard: (callback) => subscribeSignal('onRunSetupWizard', callback),
+	onOpenSession: (callback) =>
+		subscribe('onOpenSession', (sessionId) => {
+			if (typeof sessionId === 'string') callback(sessionId);
+		}),
 	notifyJob: (payload) => send('notifyJob', payload),
 	loadComposerHistory: () => invoke('loadComposerHistory'),
 	appendComposerHistory: (entry) => invoke('appendComposerHistory', entry)

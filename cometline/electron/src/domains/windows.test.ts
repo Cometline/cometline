@@ -22,7 +22,10 @@ class FakeWindow {
 			this.handlers.set(`web:${event}`, handler)
 		),
 		setWindowOpenHandler: vi.fn(),
-		send: vi.fn()
+		send: vi.fn(),
+		isDestroyed: vi.fn(() => false),
+		isLoading: vi.fn(() => false),
+		getURL: vi.fn(() => '')
 	};
 	visible = false;
 	focused = false;
@@ -242,6 +245,40 @@ describe('window lifecycle factory', () => {
 			sandbox: true,
 			devTools: false
 		});
+	});
+
+	it('opens a session in a live main window without reloading it', async () => {
+		const { controller } = createController();
+		await controller.createMainWindow();
+		const [main] = FakeWindow.instances;
+		main.webContents.getURL.mockReturnValue('app://bundle/session/other');
+		main.loadURL.mockClear();
+
+		await expect(controller.openSessionInMainWindow('session/with space')).resolves.toBe(true);
+
+		expect(main.webContents.send).toHaveBeenCalledWith(
+			'cometline:open-session',
+			'session/with space'
+		);
+		expect(main.loadURL).not.toHaveBeenCalled();
+		expect(main.show).toHaveBeenCalled();
+		expect(main.focus).toHaveBeenCalled();
+	});
+
+	it('loads the session route when the main window has no live page yet', async () => {
+		const { controller } = createController();
+		await controller.createMainWindow();
+		const [main] = FakeWindow.instances;
+		main.webContents.isLoading.mockReturnValue(true);
+		main.loadURL.mockClear();
+
+		await expect(controller.openSessionInMainWindow('session-1')).resolves.toBe(true);
+
+		expect(main.webContents.send).not.toHaveBeenCalledWith(
+			'cometline:open-session',
+			'session-1'
+		);
+		expect(main.loadURL).toHaveBeenCalledWith('app://bundle/session/session-1');
 	});
 
 	it('toggles a ready mini window with show/hide only', async () => {
