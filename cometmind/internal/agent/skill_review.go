@@ -72,10 +72,6 @@ Read @runtime/wiki/index.md before writing.
 	return strings.TrimSpace(b.String())
 }
 
-func skillReviewSystemPrompt() string {
-	return turnReviewSystemPrompt(true, false)
-}
-
 func skillReviewUserPrompt(transcript string, catalog skills.Registry) string {
 	var b strings.Builder
 	b.WriteString("Parent turn transcript:\n\n")
