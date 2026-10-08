@@ -107,9 +107,11 @@
 						class:unread={unread && !failed && !streaming}
 						class="session-streaming"
 						title={activityLabel}
-						>{#if terminalRunning && !failed}<span class="terminal-marker">t</span
-							>{/if}</span
 					>
+						{#if terminalRunning && !failed}
+							<span class="terminal-marker" aria-hidden="true">T</span>
+						{/if}
+					</span>
 				{/if}
 			</span>
 			<span class="session-title">{sessionDisplayTitle(session.title)}</span>
@@ -226,6 +228,8 @@
 		border-radius: 50%;
 		background: var(--text-soft);
 		opacity: 0.45;
+		display: inline-grid;
+		place-items: center;
 	}
 
 	.session-streaming.active {
@@ -245,14 +249,11 @@
 		animation: none;
 	}
 
-	.session-streaming.terminal {
-		display: inline-grid;
-		place-items: center;
-		font-size: 7px;
-		font-weight: 800;
+	.terminal-marker {
+		font-size: 8px;
+		font-weight: 700;
 		line-height: 1;
 		color: white;
-		text-transform: uppercase;
 	}
 
 	@keyframes session-streaming-pulse {
@@ -273,7 +274,7 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
-		font-size: 10px;
+		font-size: 11px;
 		font-weight: 500;
 		line-height: 1.3;
 		color: var(--text-muted);

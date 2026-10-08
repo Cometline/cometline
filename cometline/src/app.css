@@ -319,17 +319,15 @@ select {
 
 /* Keep chat geometry fluid while the workspace panel is being resized. The old
    breakpoint bands changed bubble width and alignment abruptly at 480/768/1024px.
-   The thread fills narrower panes, then grows to 70% of wider panes with a
-   readable upper bound. */
+   The column tracks the pane: gutters stay fixed, content grows with the window
+   so code blocks and diffs are not stuck in a narrow measure on wide screens. */
 .chat-home:not(.compact) {
 	--chat-avatar-size: clamp(2.25rem, calc(1.8rem + 1.5cqi), 3rem);
 	--chat-row-gap: clamp(0.625rem, calc(0.5rem + 0.75cqi), 1rem);
-	--chat-gutter: clamp(0.75rem, 3cqi, 2.5rem);
-	--chat-thread-cap: clamp(50rem, 70cqi, 68rem);
-	--chat-content-max: clamp(
+	--chat-gutter: clamp(1.25rem, 2.5cqi, 2.5rem);
+	--chat-content-max: max(
 		20rem,
-		calc(100cqi - 2 * var(--chat-gutter) - var(--chat-avatar-size) - var(--chat-row-gap)),
-		calc(var(--chat-thread-cap) - var(--chat-avatar-size) - var(--chat-row-gap))
+		calc(100cqi - 2 * var(--chat-gutter) - var(--chat-avatar-size) - var(--chat-row-gap))
 	);
 }
 

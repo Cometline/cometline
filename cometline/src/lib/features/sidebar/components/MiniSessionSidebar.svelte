@@ -369,7 +369,7 @@
 		border-radius: 7px;
 		background: transparent;
 		color: var(--text-muted);
-		font-size: 10px;
+		font-size: 11px;
 		font-weight: 650;
 		letter-spacing: 0.04em;
 		text-align: left;
@@ -381,7 +381,7 @@
 		padding: 1px 5px;
 		border-radius: 999px;
 		background: color-mix(in srgb, var(--text-main) 7%, transparent);
-		font-size: 9px;
+		font-size: 11px;
 	}
 
 	.session-empty {
