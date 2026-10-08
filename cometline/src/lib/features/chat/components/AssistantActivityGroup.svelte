@@ -96,7 +96,10 @@
 </script>
 
 {#if firstEntry}
-	<div class="fold-panel activity-group">
+	<div
+		class="fold-panel activity-group"
+		in:slide|global={{ duration: cycling ? ACTIVITY_GROUP_SLIDE.duration : 0 }}
+	>
 		<button
 			type="button"
 			class="fold-toggle activity-group-toggle"

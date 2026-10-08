@@ -1,20 +1,11 @@
-import { untrack } from 'svelte';
 import type { ChatItem } from '#lib/stores/chat.svelte.js';
 import { defaultActivityGroupExpanded, defaultThinkingExpanded } from './thinking-attribution';
-import {
-	createStreamingFoldState,
-	nextStreamingFoldOverride,
-	resetStreamingFoldState,
-	toggleExpanded,
-	toggleMapOverride
-} from './thread-fold';
+import { toggleExpanded, toggleMapOverride } from './thread-fold';
 import { isJobProposalDismissed } from '#lib/features/jobs/job-proposal-dismissals.js';
 import { parseJobProposal } from '#lib/features/jobs/parse-job-proposal.js';
 
 export interface FoldControllerDeps {
 	getSessionId: () => string;
-	/** From thread-scroll. Bumps once per session change. */
-	getSessionEpoch: () => number;
 	getIsSessionSynced: () => boolean;
 	getItems: () => readonly ChatItem[];
 	getStreamingAssistantId: () => string | null;
@@ -28,14 +19,6 @@ export function createFoldController(deps: FoldControllerDeps) {
 	let proposeJobAutoExpanded = $state(new Set<string>());
 	let expandedMemoryInThinking = $state(new Set<string>());
 	let subagentFold = $state(new Map<string, boolean>());
-
-	let streamingFoldState = createStreamingFoldState();
-
-	function setActivityGroupOverride(turnId: string, value: boolean) {
-		const next = new Map(activityGroupOverrides);
-		next.set(turnId, value);
-		activityGroupOverrides = next;
-	}
 
 	function thinkingExpanded(
 		assistant: Extract<ChatItem, { type: 'assistant' }>,
@@ -117,14 +100,6 @@ export function createFoldController(deps: FoldControllerDeps) {
 		expandedToolOutput = toggleExpanded(expandedToolOutput, id);
 	}
 
-	function resetForSession() {
-		thinkingOverrides = new Map();
-		activityGroupOverrides = new Map();
-		expandedToolOutput = new Set();
-		proposeJobAutoExpanded = new Set();
-		streamingFoldState = resetStreamingFoldState();
-	}
-
 	$effect(() => {
 		if (!deps.getIsSessionSynced()) return;
 		const items = deps.getItems();
@@ -154,20 +129,6 @@ export function createFoldController(deps: FoldControllerDeps) {
 		}
 		if (nextAutoExpanded) proposeJobAutoExpanded = nextAutoExpanded;
 		if (nextExpanded) expandedToolOutput = nextExpanded;
-	});
-
-	$effect(() => {
-		void deps.getSessionEpoch();
-		untrack(() => resetForSession());
-	});
-
-	$effect(() => {
-		const id = deps.getStreamingAssistantId();
-		const streaming = deps.getSessionStreaming();
-		untrack(() => {
-			const override = nextStreamingFoldOverride(streamingFoldState, id, streaming);
-			if (override) setActivityGroupOverride(override.turnId, override.expanded);
-		});
 	});
 
 	return {
