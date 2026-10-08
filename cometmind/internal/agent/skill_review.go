@@ -114,42 +114,6 @@ func pinnedExtraction(cfg *config.Config) (string, string, bool) {
 	return providerID, modelID, true
 }
 
-func turnMutations(rows []db.Message, calls []db.ToolCall) (string, []skillCall) {
-	userIdx := -1
-	for i, row := range rows {
-		if row.Role == "user" {
-			userIdx = i
-		}
-	}
-	if userIdx < 0 {
-		return "", nil
-	}
-	userText := session.DisplayTextFromStoredContent(rows[userIdx].Content)
-	after := map[string]bool{}
-	var resultRows []db.Message
-	for _, row := range rows[userIdx+1:] {
-		after[row.ID] = true
-		if row.Role == "tool_result" {
-			resultRows = append(resultRows, row)
-		}
-	}
-	seen, failed := toolResultFlags(resultRows)
-	out := make([]skillCall, 0, len(calls))
-	for _, call := range calls {
-		if !after[call.MessageID] {
-			continue
-		}
-		path, command := callTarget(call.ToolName, call.Arguments)
-		out = append(out, skillCall{
-			Name:    call.ToolName,
-			Path:    path,
-			Command: command,
-			OK:      seen[call.ID] && !failed[call.ID],
-		})
-	}
-	return userText, out
-}
-
 func toolResultFlags(rows []db.Message) (seen, failed map[string]bool) {
 	seen = map[string]bool{}
 	failed = map[string]bool{}
@@ -167,22 +131,6 @@ func toolResultFlags(rows []db.Message) (seen, failed map[string]bool) {
 		}
 	}
 	return seen, failed
-}
-
-func callTarget(name, args string) (path, command string) {
-	var in struct {
-		Path    string `json:"path"`
-		Command string `json:"command"`
-	}
-	_ = json.Unmarshal([]byte(args), &in)
-	switch name {
-	case "edit_file", "write_file":
-		return in.Path, ""
-	case "run_command":
-		return "", in.Command
-	default:
-		return "", ""
-	}
 }
 
 func formatTurnTranscript(rows []db.Message, calls []db.ToolCall) string {
@@ -297,20 +245,4 @@ func encodeTargets(targets skillTargets) string {
 		return ""
 	}
 	return string(raw)
-}
-
-func decodeTargets(raw string) skillTargets {
-	var targets skillTargets
-	if strings.TrimSpace(raw) == "" {
-		return targets
-	}
-	_ = json.Unmarshal([]byte(raw), &targets)
-	return targets
-}
-
-func unixMilliTime(ms int64) time.Time {
-	if ms <= 0 {
-		return time.Time{}
-	}
-	return time.UnixMilli(ms)
 }

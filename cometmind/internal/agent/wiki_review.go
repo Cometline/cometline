@@ -37,36 +37,6 @@ func decideWikiReview(in wikiReviewInput) wikiReviewDecision {
 	return decision
 }
 
-func wikiReviewEvidence(calls []skillCall) bool {
-	for _, call := range calls {
-		if call.OK {
-			return true
-		}
-	}
-	return false
-}
-
-func wikiWriteTool(name string) bool {
-	switch name {
-	case "write_file", "edit_file":
-		return true
-	default:
-		return false
-	}
-}
-
-func wikiAlreadyWritten(calls []skillCall) bool {
-	for _, call := range calls {
-		if !call.OK || !wikiWriteTool(call.Name) {
-			continue
-		}
-		if strings.Contains(call.Path, "@runtime/wiki/") || strings.Contains(call.Path, "/.cometmind/wiki/") {
-			return true
-		}
-	}
-	return false
-}
-
 func (r *Runner) reviewAfterTurn(ctx context.Context, turn session.AgentTurn) {
 	if r == nil || strings.TrimSpace(turn.ID) == "" {
 		return
@@ -196,10 +166,6 @@ func (r *Runner) startTurnReview(ctx context.Context, store skillReviewStore, pa
 	if err := store.DeleteSession(ctx, child.ID); err != nil {
 		logging.L().Warn("review.delete_failed", zap.String("session", parent.ID), zap.String("child", child.ID), zap.Error(err))
 	}
-}
-
-func (r *Runner) reviewWikiAfterTurn(ctx context.Context, turn session.AgentTurn) {
-	r.reviewAfterTurn(ctx, turn)
 }
 
 func collectWikiPaths(ctx context.Context, store skillReviewStore, childID string) []string {
