@@ -41,6 +41,9 @@ var skipIfApplied = map[int]func(context.Context, *sql.DB) (bool, error){
 	40: func(ctx context.Context, conn *sql.DB) (bool, error) {
 		return false, ensureSessionRebuildColumns(ctx, conn)
 	},
+	42: func(ctx context.Context, conn *sql.DB) (bool, error) {
+		return false, ensureSessionRebuildColumns(ctx, conn)
+	},
 }
 
 // sessionRebuildColumns are the pre-0038 sessions columns the rebuild copies.
@@ -71,6 +74,9 @@ var sessionRebuildColumns = []struct {
 	{"updated_at", "ALTER TABLE sessions ADD COLUMN updated_at INTEGER NOT NULL DEFAULT 0"},
 	{"skill_review_mutating_count", "ALTER TABLE sessions ADD COLUMN skill_review_mutating_count INTEGER NOT NULL DEFAULT 0"},
 	{"skill_review_count_reset_at", "ALTER TABLE sessions ADD COLUMN skill_review_count_reset_at INTEGER NOT NULL DEFAULT 0"},
+	{"skill_review_started_at", "ALTER TABLE sessions ADD COLUMN skill_review_started_at INTEGER NOT NULL DEFAULT 0"},
+	{"skill_review_last_targets", "ALTER TABLE sessions ADD COLUMN skill_review_last_targets TEXT NOT NULL DEFAULT ''"},
+	{"wiki_review_started_at", "ALTER TABLE sessions ADD COLUMN wiki_review_started_at INTEGER NOT NULL DEFAULT 0"},
 }
 
 func ensureSessionRebuildColumns(ctx context.Context, conn *sql.DB) error {

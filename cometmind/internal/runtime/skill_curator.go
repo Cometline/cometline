@@ -17,6 +17,9 @@ import (
 	"go.uber.org/zap"
 )
 
+// skillCuratorKind distinguishes a merge child from a skill-review child.
+const skillCuratorKind = "skill_curator"
+
 // StartSkillCurator runs the hidden self-improvement skill maintenance loop.
 func (r *Runtime) StartSkillCurator(ctx context.Context) {
 	if r == nil || r.Curator == nil || r.workers == nil {
@@ -147,7 +150,7 @@ func (r *Runtime) runCuratorMerge(ctx context.Context) error {
 		return err
 	}
 	defer func() { _ = r.Sessions.DeleteSession(ctx, parent.ID) }()
-	child, err := r.Sessions.NewChildSession(ctx, parent, "skill curator merge", "skill_review")
+	child, err := r.Sessions.NewChildSession(ctx, parent, "skill curator merge", skillCuratorKind)
 	if err != nil {
 		return err
 	}

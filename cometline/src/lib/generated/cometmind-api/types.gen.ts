@@ -428,9 +428,9 @@ export type Session = {
      */
     output_summary?: string;
     /**
-     * Kind of delegated subagent for child sessions (general=research, coding=in-process editor, acp=external harness).
+     * Kind of delegated subagent for child sessions (general=research, coding=in-process editor, acp=external harness, skill_review, wiki_review, and skill_curator are hidden background children).
      */
-    subagent_kind?: '' | 'general' | 'coding' | 'acp';
+    subagent_kind?: '' | 'general' | 'coding' | 'acp' | 'skill_review' | 'wiki_review' | 'skill_curator';
     gateway?: {
         platform?: 'discord';
         /**

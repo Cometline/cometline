@@ -735,10 +735,13 @@ func (e SessionStatus) Valid() bool {
 
 // Defines values for SessionSubagentKind.
 const (
-	Acp     SessionSubagentKind = "acp"
-	Coding  SessionSubagentKind = "coding"
-	Empty   SessionSubagentKind = ""
-	General SessionSubagentKind = "general"
+	Acp          SessionSubagentKind = "acp"
+	Coding       SessionSubagentKind = "coding"
+	Empty        SessionSubagentKind = ""
+	General      SessionSubagentKind = "general"
+	SkillCurator SessionSubagentKind = "skill_curator"
+	SkillReview  SessionSubagentKind = "skill_review"
+	WikiReview   SessionSubagentKind = "wiki_review"
 )
 
 // Valid indicates whether the value is a known member of the SessionSubagentKind enum.
@@ -751,6 +754,12 @@ func (e SessionSubagentKind) Valid() bool {
 	case Empty:
 		return true
 	case General:
+		return true
+	case SkillCurator:
+		return true
+	case SkillReview:
+		return true
+	case WikiReview:
 		return true
 	default:
 		return false
@@ -1951,7 +1960,7 @@ type Session struct {
 	Running bool          `json:"running"`
 	Status  SessionStatus `json:"status"`
 
-	// SubagentKind Kind of delegated subagent for child sessions (general=research, coding=in-process editor, acp=external harness).
+	// SubagentKind Kind of delegated subagent for child sessions (general=research, coding=in-process editor, acp=external harness, skill_review, wiki_review, and skill_curator are hidden background children).
 	SubagentKind *SessionSubagentKind `json:"subagent_kind,omitempty"`
 	Title        string               `json:"title"`
 	TokenUsage   TokenUsage           `json:"token_usage"`
@@ -1974,7 +1983,7 @@ type SessionOrigin string
 // SessionStatus defines model for Session.Status.
 type SessionStatus string
 
-// SessionSubagentKind Kind of delegated subagent for child sessions (general=research, coding=in-process editor, acp=external harness).
+// SessionSubagentKind Kind of delegated subagent for child sessions (general=research, coding=in-process editor, acp=external harness, skill_review, wiki_review, and skill_curator are hidden background children).
 type SessionSubagentKind string
 
 // SessionClearedEvent defines model for SessionClearedEvent.

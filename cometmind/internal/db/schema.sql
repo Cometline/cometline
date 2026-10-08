@@ -34,7 +34,7 @@ CREATE TABLE sessions (
                        ),
     output_summary     TEXT NOT NULL DEFAULT '',
     subagent_kind      TEXT NOT NULL DEFAULT ''
-                       CHECK (subagent_kind IN ('', 'general', 'acp', 'coding', 'skill_review', 'wiki_review')),
+                       CHECK (subagent_kind IN ('', 'general', 'acp', 'coding', 'skill_review', 'wiki_review', 'skill_curator')),
     agent_mode         TEXT NOT NULL DEFAULT 'auto'
                        CHECK (agent_mode IN ('auto', 'plan')),
     pinned             INTEGER NOT NULL DEFAULT 0,
