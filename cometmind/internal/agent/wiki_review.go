@@ -105,7 +105,47 @@ func (r *Runner) reviewAfterTurn(ctx context.Context, turn session.AgentTurn) {
 	if skillDecision.WideWindow {
 		transcript = formatTranscriptSince(rows, calls, sess.SkillReviewCountResetAt)
 	}
-	r.startTurnReview(ctx, store, sess, workspace, transcript, catalog, skillDecision.Start, wikiDecision.Start)
+	r.enqueueTurnReview(ctx, store, sess, workspace, transcript, catalog, skillDecision.Start, wikiDecision.Start)
+}
+
+type turnReviewJob struct {
+	ctx          context.Context
+	store        skillReviewStore
+	parent       session.Session
+	workspace    string
+	transcript   string
+	catalog      skills.Registry
+	reviewSkills bool
+	reviewWiki   bool
+}
+
+func (r *Runner) enqueueTurnReview(ctx context.Context, store skillReviewStore, parent session.Session, workspace, transcript string, catalog skills.Registry, reviewSkills, reviewWiki bool) {
+	job := turnReviewJob{ctx, store, parent, workspace, transcript, catalog, reviewSkills, reviewWiki}
+	r.reviewMu.Lock()
+	if r.reviewRunning {
+		r.reviewPending = &job
+		r.reviewMu.Unlock()
+		return
+	}
+	r.reviewRunning = true
+	r.reviewMu.Unlock()
+	r.drainTurnReviews(job)
+}
+
+func (r *Runner) drainTurnReviews(job turnReviewJob) {
+	for {
+		r.startTurnReview(job.ctx, job.store, job.parent, job.workspace, job.transcript, job.catalog, job.reviewSkills, job.reviewWiki)
+		r.reviewMu.Lock()
+		next := r.reviewPending
+		r.reviewPending = nil
+		if next == nil {
+			r.reviewRunning = false
+			r.reviewMu.Unlock()
+			return
+		}
+		r.reviewMu.Unlock()
+		job = *next
+	}
 }
 
 func (r *Runner) startTurnReview(ctx context.Context, store skillReviewStore, parent session.Session, workspace, transcript string, catalog skills.Registry, reviewSkills, reviewWiki bool) {

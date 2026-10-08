@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -36,6 +37,101 @@ func TestDecideWikiReview(t *testing.T) {
 				t.Fatalf("decision = %+v", got)
 			}
 		})
+	}
+}
+
+func TestTurnReviewCoalescesWhileRunning(t *testing.T) {
+	ctx := context.Background()
+	svc := reviewSessionService(t)
+	ws, err := svc.EnsureWorkspace(ctx, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	mk := func(title string) session.Session {
+		t.Helper()
+		parent, err := svc.NewSession(ctx, ws.ID, "chat-model", "chat-provider")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := seedNamedTurn(ctx, svc, parent.ID, title, 1); err != nil {
+			t.Fatal(err)
+		}
+		if err := svc.SetSkillReviewCounter(ctx, parent.ID, 9, 1); err != nil {
+			t.Fatal(err)
+		}
+		return parent
+	}
+	first := mk("first review")
+	second := mk("second review")
+	third := mk("third review")
+	started := make(chan struct{})
+	release := make(chan struct{})
+	var mu sync.Mutex
+	var prompts []string
+	var running int
+	var maxRunning int
+	runner := &Runner{
+		Config: &config.Config{Memory: config.MemoryConfig{
+			ExtractionProvider: "extract-provider",
+			ExtractionModel:    "extract-model",
+		}},
+		Sessions: svc,
+		ReviewChild: func(_ context.Context, child session.Session, _ *tools.Registry, _ int, _ string) error {
+			mu.Lock()
+			running++
+			if running > maxRunning {
+				maxRunning = running
+			}
+			mu.Unlock()
+			rows, err := svc.ListMessageRows(ctx, child.ID)
+			if err != nil {
+				return err
+			}
+			mu.Lock()
+			for _, row := range rows {
+				if row.Role == "user" {
+					prompts = append(prompts, row.Content)
+				}
+			}
+			mu.Unlock()
+			if len(prompts) == 1 {
+				close(started)
+				<-release
+			}
+			mu.Lock()
+			running--
+			mu.Unlock()
+			return nil
+		},
+	}
+	go runner.reviewAfterTurn(ctx, session.AgentTurnFromSession(first))
+	select {
+	case <-started:
+	case <-time.After(2 * time.Second):
+		t.Fatal("first review did not start")
+	}
+	runner.reviewAfterTurn(ctx, session.AgentTurnFromSession(second))
+	runner.reviewAfterTurn(ctx, session.AgentTurnFromSession(third))
+	close(release)
+	deadline := time.After(2 * time.Second)
+	for {
+		mu.Lock()
+		done := len(prompts) == 2 && running == 0
+		mu.Unlock()
+		if done {
+			break
+		}
+		select {
+		case <-deadline:
+			t.Fatalf("prompts = %#v running = %d", prompts, running)
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
+	if maxRunning != 1 {
+		t.Fatalf("max running = %d, want 1", maxRunning)
+	}
+	if !strings.Contains(prompts[0], "first review") || !strings.Contains(prompts[1], "third review") || strings.Contains(prompts[1], "second review") {
+		t.Fatalf("prompts = %#v", prompts)
 	}
 }
 
