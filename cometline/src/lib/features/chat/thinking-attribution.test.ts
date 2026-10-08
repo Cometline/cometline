@@ -602,18 +602,21 @@ describe('defaultActivityGroupExpanded', () => {
 		text: 'Reply text'
 	};
 
-	it('collapses when final text exists; expands tool-only turns after settle', () => {
+	it('opens the streaming turn and collapses a settled reply', () => {
+		expect(defaultActivityGroupExpanded(assistant, 'a1', true)).toBe(true);
 		expect(defaultActivityGroupExpanded(assistant, null, false)).toBe(false);
-		expect(defaultActivityGroupExpanded(assistant, 'a1', true)).toBe(false);
+		expect(defaultActivityGroupExpanded(assistant, 'other', true)).toBe(false);
+	});
+
+	it('keeps a settled tool-only turn open', () => {
 		const emptyAssistant: Extract<ChatItem, { type: 'assistant' }> = {
 			id: 'a1',
 			type: 'assistant',
-			text: ''
+			text: '  '
 		};
-		// Still streaming: keep collapsed so the activity chip does not thrash.
-		expect(defaultActivityGroupExpanded(emptyAssistant, 'a1', true)).toBe(false);
-		// Settled with no final text: expand so tool/reasoning output is visible.
+		expect(defaultActivityGroupExpanded(emptyAssistant, 'a1', true)).toBe(true);
 		expect(defaultActivityGroupExpanded(emptyAssistant, null, false)).toBe(true);
+		expect(defaultActivityGroupExpanded(emptyAssistant, null, true)).toBe(true);
 	});
 });
 

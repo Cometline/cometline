@@ -104,7 +104,6 @@
 
 	const fold = createFoldController({
 		getSessionId: () => sessionId,
-		getSessionEpoch: () => scroll.sessionEpoch,
 		getIsSessionSynced: () => isSessionSynced,
 		getItems: () => snapshotItems,
 		getStreamingAssistantId: () => streamingAssistantId,

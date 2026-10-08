@@ -260,7 +260,7 @@
 	.workspace-count {
 		flex-shrink: 0;
 		margin-right: 6px;
-		font-size: 10px;
+		font-size: 11px;
 		font-weight: 600;
 		color: var(--text-soft);
 		background: rgba(15, 23, 42, 0.06);

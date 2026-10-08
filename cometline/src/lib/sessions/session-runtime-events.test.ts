@@ -108,6 +108,30 @@ describe('applySessionRuntimeEvent', () => {
 		expect(target.refreshTranscript).toHaveBeenCalledWith('session-1');
 	});
 
+	it('does not reload a transcript this window just reduced', async () => {
+		const target = deps();
+		vi.mocked(target.getActiveSessionId).mockReturnValue('session-1');
+		target.consumeLocalRunSettled = vi.fn().mockReturnValue(true);
+
+		await applySessionRuntimeEvent({ type: 'run_finished', session_id: 'session-1' }, target);
+
+		expect(target.consumeLocalRunSettled).toHaveBeenCalledWith('session-1');
+		expect(target.setRunning).toHaveBeenCalledWith('session-1', false);
+		expect(target.refreshTranscript).not.toHaveBeenCalled();
+	});
+
+	it('drops a stale local-settle note when a new run starts', async () => {
+		const target = deps();
+		vi.mocked(target.getActiveSessionId).mockReturnValue('session-1');
+		target.consumeLocalRunSettled = vi.fn().mockReturnValue(true);
+
+		await applySessionRuntimeEvent({ type: 'run_started', session_id: 'session-1' }, target);
+
+		expect(target.consumeLocalRunSettled).toHaveBeenCalledWith('session-1');
+		expect(target.refreshTranscript).toHaveBeenCalledWith('session-1');
+		expect(target.resumeRun).toHaveBeenCalledWith('session-1');
+	});
+
 	it('does not reload while this window still owns the live reduce', async () => {
 		const target = deps();
 		vi.mocked(target.getActiveSessionId).mockReturnValue('session-1');

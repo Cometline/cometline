@@ -7,6 +7,11 @@ import type { ChatState, TranscriptPageState } from './chat-state.svelte';
 const CHAT_ITEMS_BROADCAST_MS = 64;
 
 export function createSessionCache(state: ChatState) {
+	// Sessions whose live reduce just finished in this window. run_finished
+	// arrives after unmarkStreaming, so hasLocalStream is already false.
+	// Consuming this skips the transcript reload that would remap item ids
+	// and destroy the open activity group before its collapse slide can play.
+	const locallySettledSessionIds = new Set<string>();
 	function cachedItemCount(targetSessionID: string) {
 		return state.sessionCache.get(targetSessionID)?.length ?? 0;
 	}
@@ -91,6 +96,7 @@ export function createSessionCache(state: ChatState) {
 	}
 
 	function markStreaming(targetSessionID: string, handle: SessionStream) {
+		locallySettledSessionIds.delete(targetSessionID);
 		state.streamHandles.set(targetSessionID, handle);
 		state.localStreamingSessionIds.add(targetSessionID);
 		refreshStreamingState();
@@ -98,6 +104,7 @@ export function createSessionCache(state: ChatState) {
 	}
 
 	function unmarkStreaming(targetSessionID: string) {
+		locallySettledSessionIds.add(targetSessionID);
 		state.streamHandles.delete(targetSessionID);
 		if (state.localStreamingSessionIds.delete(targetSessionID)) {
 			refreshStreamingState();
@@ -108,6 +115,10 @@ export function createSessionCache(state: ChatState) {
 
 	function hasLocalStream(targetSessionID: string) {
 		return state.streamHandles.has(targetSessionID);
+	}
+
+	function consumeLocalRunSettled(targetSessionID: string) {
+		return locallySettledSessionIds.delete(targetSessionID);
 	}
 
 	function setRemoteStreamingState(targetSessionID: string, streaming: boolean) {
@@ -206,6 +217,7 @@ export function createSessionCache(state: ChatState) {
 		markStreaming,
 		unmarkStreaming,
 		hasLocalStream,
+		consumeLocalRunSettled,
 		setRemoteStreamingState,
 		isStreamingFor,
 		hasRunError,

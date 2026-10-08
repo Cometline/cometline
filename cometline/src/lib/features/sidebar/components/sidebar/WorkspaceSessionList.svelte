@@ -135,7 +135,7 @@
 	}
 
 	.workspace-overflow-count {
-		font-size: 9px;
+		font-size: 11px;
 		font-weight: 600;
 	}
 </style>

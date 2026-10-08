@@ -309,17 +309,17 @@ export function shouldGroupAssistantTimeline(
 }
 
 /**
- * Default parent activity group fold.
- * Collapsed when the assistant already has final text; expanded when the turn
- * ended with only tools/reasoning and no visible reply so mini-model tool-only
- * steps (often whitespace-only text) stay discoverable.
+ * Parent activity group fold before any user toggle.
+ * The turn that is streaming now is open, including the first turn of a new
+ * session. A settled turn is collapsed once it has final text, and stays open
+ * when it ended with only tools or reasoning.
  */
 export function defaultActivityGroupExpanded(
 	assistant: AssistantItem,
-	_streamingAssistantId: string | null,
+	streamingAssistantId: string | null,
 	sessionStreaming: boolean
 ): boolean {
-	if (sessionStreaming) return false;
+	if (sessionStreaming && assistant.id === streamingAssistantId) return true;
 	return !assistant.text.trim();
 }
 
