@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -164,6 +165,97 @@ func TestSkillReviewSkipsWithoutExtractionModel(t *testing.T) {
 	if updated.SkillReviewStartedAt != 0 {
 		t.Fatalf("cooldown consumed without a start: %d", updated.SkillReviewStartedAt)
 	}
+	if updated.SkillReviewMutatingCount != 8 {
+		t.Fatalf("counter = %d, want 8", updated.SkillReviewMutatingCount)
+	}
+}
+
+func TestSkillReviewCounterStartsOnceAcrossTurns(t *testing.T) {
+	ctx := context.Background()
+	svc := reviewSessionService(t)
+	ws, err := svc.EnsureWorkspace(ctx, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	parent, err := svc.NewSession(ctx, ws.ID, "chat-model", "chat-provider")
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Date(2026, 10, 8, 12, 0, 0, 0, time.UTC)
+	var prompts []string
+	starts := 0
+	runner := &Runner{
+		Config: &config.Config{Memory: config.MemoryConfig{
+			ExtractionProvider: "extract-provider",
+			ExtractionModel:    "extract-model",
+		}},
+		Sessions: svc,
+		ReviewNow: func() time.Time {
+			return now
+		},
+		ReviewChild: func(_ context.Context, child session.Session, _ *tools.Registry, _ int, _ string) error {
+			starts++
+			rows, err := svc.ListMessageRows(ctx, child.ID)
+			if err != nil {
+				return err
+			}
+			for _, row := range rows {
+				if row.Role == "user" {
+					prompts = append(prompts, row.Content)
+				}
+			}
+			return nil
+		},
+	}
+	for i, text := range []string{"turn-a", "turn-b", "turn-c"} {
+		n := 3
+		if i == 2 {
+			n = 4
+		}
+		if err := seedNamedTurn(ctx, svc, parent.ID, text, n); err != nil {
+			t.Fatal(err)
+		}
+		runner.reviewSkillsAfterTurn(ctx, session.AgentTurnFromSession(parent))
+	}
+	if starts != 1 {
+		t.Fatalf("starts = %d, want 1", starts)
+	}
+	if len(prompts) != 1 || !strings.Contains(prompts[0], "turn-a") || !strings.Contains(prompts[0], "turn-b") || !strings.Contains(prompts[0], "turn-c") {
+		t.Fatalf("window = %#v", prompts)
+	}
+	updated, err := svc.GetSession(ctx, parent.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.SkillReviewMutatingCount != 0 {
+		t.Fatalf("counter = %d, want 0", updated.SkillReviewMutatingCount)
+	}
+}
+
+func TestForkSessionStartsSkillReviewCounterAtZero(t *testing.T) {
+	ctx := context.Background()
+	svc := reviewSessionService(t)
+	ws, err := svc.EnsureWorkspace(ctx, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	parent, err := svc.NewSession(ctx, ws.ID, "chat-model", "chat-provider")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.SetSkillReviewCounter(ctx, parent.ID, 9, 1); err != nil {
+		t.Fatal(err)
+	}
+	forked, err := svc.ForkSession(ctx, parent.ID, ws.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if forked.SkillReviewMutatingCount != 0 {
+		t.Fatalf("forked counter = %d", forked.SkillReviewMutatingCount)
+	}
+	if forked.SkillReviewCountResetAt == 0 {
+		t.Fatal("forked window was not reset")
+	}
 }
 
 func reviewSessionService(t *testing.T) *session.Service {
@@ -180,7 +272,11 @@ func reviewSessionService(t *testing.T) *session.Service {
 }
 
 func seedMutatingTurn(ctx context.Context, svc *session.Service, sessionID string, n int) error {
-	if _, err := svc.AppendUserMessage(ctx, sessionID, "ship the change"); err != nil {
+	return seedNamedTurn(ctx, svc, sessionID, "ship the change", n)
+}
+
+func seedNamedTurn(ctx context.Context, svc *session.Service, sessionID, text string, n int) error {
+	if _, err := svc.AppendUserMessage(ctx, sessionID, text); err != nil {
 		return err
 	}
 	calls := make([]cometsdk.ToolCallBlock, n)

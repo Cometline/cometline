@@ -250,3 +250,24 @@ WHERE id = ?;
 UPDATE sessions
 SET skill_review_last_targets = ?
 WHERE id = ?;
+
+-- name: AddSkillReviewMutatingCount :one
+UPDATE sessions
+SET skill_review_mutating_count = skill_review_mutating_count + ?
+WHERE id = ?
+RETURNING skill_review_mutating_count;
+
+-- name: SetSkillReviewCounter :exec
+UPDATE sessions
+SET
+    skill_review_mutating_count = ?,
+    skill_review_count_reset_at = ?
+WHERE id = ?;
+
+-- name: ResetSkillReviewAfterStart :exec
+UPDATE sessions
+SET
+    skill_review_mutating_count = 0,
+    skill_review_count_reset_at = ?,
+    skill_review_started_at = ?
+WHERE id = ?;

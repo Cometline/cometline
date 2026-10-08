@@ -30,8 +30,9 @@ type skillReviewStore interface {
 	DeleteSession(ctx context.Context, sessionID string) error
 	AppendUserMessage(ctx context.Context, sessionID, text string) (session.Message, error)
 	WorkspacePath(ctx context.Context, workspaceID string) (string, error)
-	SetSkillReviewStartedAt(ctx context.Context, sessionID string, at int64) error
 	SetSkillReviewLastTargets(ctx context.Context, sessionID, targets string) error
+	AddSkillReviewMutatingCount(ctx context.Context, sessionID string, n int64) (int64, error)
+	ResetSkillReviewAfterStart(ctx context.Context, sessionID string, at int64) error
 }
 
 func (r *Runner) reviewNow() time.Time {
@@ -68,6 +69,15 @@ func (r *Runner) reviewSkillsAfterTurn(ctx context.Context, turn session.AgentTu
 		return
 	}
 	userText, turnCalls := turnMutations(rows, calls)
+	accumulated := int(sess.SkillReviewMutatingCount) + countMutating(turnCalls)
+	if added := countMutating(turnCalls); added > 0 {
+		total, err := store.AddSkillReviewMutatingCount(ctx, turn.ID, int64(added))
+		if err != nil {
+			logging.L().Warn("skills.review.count_failed", zap.String("session", turn.ID), zap.Error(err))
+		} else {
+			accumulated = int(total)
+		}
+	}
 	providerID, modelID, hasModel := pinnedExtraction(r.Config)
 	decision := decideSkillReview(skillReviewInput{
 		UserChat:    true,
@@ -77,6 +87,7 @@ func (r *Runner) reviewSkillsAfterTurn(ctx context.Context, turn session.AgentTu
 		UserText:    userText,
 		Previous:    decodeTargets(sess.SkillReviewLastTargets),
 		Calls:       turnCalls,
+		Accumulated: accumulated,
 	})
 	if err := store.SetSkillReviewLastTargets(ctx, turn.ID, encodeTargets(decision.Targets)); err != nil {
 		logging.L().Warn("skills.review.targets_failed", zap.String("session", turn.ID), zap.Error(err))
@@ -97,7 +108,11 @@ func (r *Runner) reviewSkillsAfterTurn(ctx context.Context, turn session.AgentTu
 		cfg = r.Config.SkillSettings()
 	}
 	catalog := skills.Discover(workspace, cfg)
-	r.startSkillReview(ctx, store, sess, providerID, modelID, workspace, formatTurnTranscript(rows, calls), catalog)
+	transcript := formatTurnTranscript(rows, calls)
+	if decision.WideWindow {
+		transcript = formatTranscriptSince(rows, calls, sess.SkillReviewCountResetAt)
+	}
+	r.startSkillReview(ctx, store, sess, providerID, modelID, workspace, transcript, catalog)
 }
 
 func (r *Runner) startSkillReview(ctx context.Context, store skillReviewStore, parent session.Session, providerID, modelID, workspace, transcript string, catalog skills.Registry) {
@@ -124,7 +139,7 @@ func (r *Runner) startSkillReview(ctx context.Context, store skillReviewStore, p
 	}
 	registry := tools.NewSkillReviewRegistry(workspace, &catalog)
 	started := r.reviewNow()
-	if err := store.SetSkillReviewStartedAt(ctx, parent.ID, started.UnixMilli()); err != nil {
+	if err := store.ResetSkillReviewAfterStart(ctx, parent.ID, started.UnixMilli()); err != nil {
 		logging.L().Warn("skills.review.cooldown_failed", zap.String("session", parent.ID), zap.Error(err))
 		_ = store.DeleteSession(ctx, child.ID)
 		return
@@ -277,12 +292,30 @@ func formatTurnTranscript(rows []db.Message, calls []db.ToolCall) string {
 	if userIdx < 0 {
 		return ""
 	}
+	return formatTranscriptRows(rows[userIdx:], calls)
+}
+
+func formatTranscriptSince(rows []db.Message, calls []db.ToolCall, since int64) string {
+	if since <= 0 {
+		return formatTranscriptRows(rows, calls)
+	}
+	start := len(rows)
+	for i, row := range rows {
+		if row.CreatedAt > since {
+			start = i
+			break
+		}
+	}
+	return formatTranscriptRows(rows[start:], calls)
+}
+
+func formatTranscriptRows(rows []db.Message, calls []db.ToolCall) string {
 	byMessage := map[string][]db.ToolCall{}
 	for _, call := range calls {
 		byMessage[call.MessageID] = append(byMessage[call.MessageID], call)
 	}
 	var b strings.Builder
-	for _, row := range rows[userIdx:] {
+	for _, row := range rows {
 		switch row.Role {
 		case "user":
 			fmt.Fprintf(&b, "User: %s\n", session.DisplayTextFromStoredContent(row.Content))

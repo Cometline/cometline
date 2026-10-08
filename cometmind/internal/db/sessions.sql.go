@@ -10,6 +10,25 @@ import (
 	"database/sql"
 )
 
+const addSkillReviewMutatingCount = `-- name: AddSkillReviewMutatingCount :one
+UPDATE sessions
+SET skill_review_mutating_count = skill_review_mutating_count + ?
+WHERE id = ?
+RETURNING skill_review_mutating_count
+`
+
+type AddSkillReviewMutatingCountParams struct {
+	SkillReviewMutatingCount int64  `json:"skill_review_mutating_count"`
+	ID                       string `json:"id"`
+}
+
+func (q *Queries) AddSkillReviewMutatingCount(ctx context.Context, arg AddSkillReviewMutatingCountParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, addSkillReviewMutatingCount, arg.SkillReviewMutatingCount, arg.ID)
+	var skill_review_mutating_count int64
+	err := row.Scan(&skill_review_mutating_count)
+	return skill_review_mutating_count, err
+}
+
 const compactChildSession = `-- name: CompactChildSession :exec
 UPDATE sessions
 SET
@@ -42,7 +61,7 @@ INSERT INTO sessions (
     agent_mode
 )
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, workspace_id, title, model_id, provider_id, status, origin, is_disposable, token_usage, parent_session_id, purpose, delegation_status, output_summary, subagent_kind, agent_mode, pinned, context_summary, compacted_until_message_id, context_summary_updated_at, skill_review_started_at, skill_review_last_targets, created_at, updated_at
+RETURNING id, workspace_id, title, model_id, provider_id, status, origin, is_disposable, token_usage, parent_session_id, purpose, delegation_status, output_summary, subagent_kind, agent_mode, pinned, context_summary, compacted_until_message_id, context_summary_updated_at, skill_review_started_at, skill_review_last_targets, skill_review_mutating_count, skill_review_count_reset_at, created_at, updated_at
 `
 
 type CreateChildSessionParams struct {
@@ -98,6 +117,8 @@ func (q *Queries) CreateChildSession(ctx context.Context, arg CreateChildSession
 		&i.ContextSummaryUpdatedAt,
 		&i.SkillReviewStartedAt,
 		&i.SkillReviewLastTargets,
+		&i.SkillReviewMutatingCount,
+		&i.SkillReviewCountResetAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -107,7 +128,7 @@ func (q *Queries) CreateChildSession(ctx context.Context, arg CreateChildSession
 const createSession = `-- name: CreateSession :one
 INSERT INTO sessions (id, workspace_id, title, model_id, provider_id, status, origin, agent_mode)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, workspace_id, title, model_id, provider_id, status, origin, is_disposable, token_usage, parent_session_id, purpose, delegation_status, output_summary, subagent_kind, agent_mode, pinned, context_summary, compacted_until_message_id, context_summary_updated_at, skill_review_started_at, skill_review_last_targets, created_at, updated_at
+RETURNING id, workspace_id, title, model_id, provider_id, status, origin, is_disposable, token_usage, parent_session_id, purpose, delegation_status, output_summary, subagent_kind, agent_mode, pinned, context_summary, compacted_until_message_id, context_summary_updated_at, skill_review_started_at, skill_review_last_targets, skill_review_mutating_count, skill_review_count_reset_at, created_at, updated_at
 `
 
 type CreateSessionParams struct {
@@ -155,6 +176,8 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (S
 		&i.ContextSummaryUpdatedAt,
 		&i.SkillReviewStartedAt,
 		&i.SkillReviewLastTargets,
+		&i.SkillReviewMutatingCount,
+		&i.SkillReviewCountResetAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -172,7 +195,7 @@ func (q *Queries) DeleteSession(ctx context.Context, id string) error {
 }
 
 const getActiveChildForParent = `-- name: GetActiveChildForParent :one
-SELECT id, workspace_id, title, model_id, provider_id, status, origin, is_disposable, token_usage, parent_session_id, purpose, delegation_status, output_summary, subagent_kind, agent_mode, pinned, context_summary, compacted_until_message_id, context_summary_updated_at, skill_review_started_at, skill_review_last_targets, created_at, updated_at
+SELECT id, workspace_id, title, model_id, provider_id, status, origin, is_disposable, token_usage, parent_session_id, purpose, delegation_status, output_summary, subagent_kind, agent_mode, pinned, context_summary, compacted_until_message_id, context_summary_updated_at, skill_review_started_at, skill_review_last_targets, skill_review_mutating_count, skill_review_count_reset_at, created_at, updated_at
 FROM sessions
 WHERE
     parent_session_id = ?
@@ -206,6 +229,8 @@ func (q *Queries) GetActiveChildForParent(ctx context.Context, parentSessionID s
 		&i.ContextSummaryUpdatedAt,
 		&i.SkillReviewStartedAt,
 		&i.SkillReviewLastTargets,
+		&i.SkillReviewMutatingCount,
+		&i.SkillReviewCountResetAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -214,7 +239,7 @@ func (q *Queries) GetActiveChildForParent(ctx context.Context, parentSessionID s
 
 const getSession = `-- name: GetSession :one
 SELECT
-    s.id, s.workspace_id, s.title, s.model_id, s.provider_id, s.status, s.origin, s.is_disposable, s.token_usage, s.parent_session_id, s.purpose, s.delegation_status, s.output_summary, s.subagent_kind, s.agent_mode, s.pinned, s.context_summary, s.compacted_until_message_id, s.context_summary_updated_at, s.skill_review_started_at, s.skill_review_last_targets, s.created_at, s.updated_at,
+    s.id, s.workspace_id, s.title, s.model_id, s.provider_id, s.status, s.origin, s.is_disposable, s.token_usage, s.parent_session_id, s.purpose, s.delegation_status, s.output_summary, s.subagent_kind, s.agent_mode, s.pinned, s.context_summary, s.compacted_until_message_id, s.context_summary_updated_at, s.skill_review_started_at, s.skill_review_last_targets, s.skill_review_mutating_count, s.skill_review_count_reset_at, s.created_at, s.updated_at,
     COALESCE(g.platform, '') AS gateway_platform,
     COALESCE(g.platform_channel_id, '') AS gateway_channel_id,
     COALESCE(g.thread_id, '') AS gateway_thread_id
@@ -257,6 +282,8 @@ func (q *Queries) GetSession(ctx context.Context, id string) (GetSessionRow, err
 		&i.Session.ContextSummaryUpdatedAt,
 		&i.Session.SkillReviewStartedAt,
 		&i.Session.SkillReviewLastTargets,
+		&i.Session.SkillReviewMutatingCount,
+		&i.Session.SkillReviewCountResetAt,
 		&i.Session.CreatedAt,
 		&i.Session.UpdatedAt,
 		&i.GatewayPlatform,
@@ -297,7 +324,7 @@ func (q *Queries) ListAllSessionIDs(ctx context.Context) ([]string, error) {
 
 const listAllSessions = `-- name: ListAllSessions :many
 SELECT
-    s.id, s.workspace_id, s.title, s.model_id, s.provider_id, s.status, s.origin, s.is_disposable, s.token_usage, s.parent_session_id, s.purpose, s.delegation_status, s.output_summary, s.subagent_kind, s.agent_mode, s.pinned, s.context_summary, s.compacted_until_message_id, s.context_summary_updated_at, s.skill_review_started_at, s.skill_review_last_targets, s.created_at, s.updated_at,
+    s.id, s.workspace_id, s.title, s.model_id, s.provider_id, s.status, s.origin, s.is_disposable, s.token_usage, s.parent_session_id, s.purpose, s.delegation_status, s.output_summary, s.subagent_kind, s.agent_mode, s.pinned, s.context_summary, s.compacted_until_message_id, s.context_summary_updated_at, s.skill_review_started_at, s.skill_review_last_targets, s.skill_review_mutating_count, s.skill_review_count_reset_at, s.created_at, s.updated_at,
     COALESCE(g.platform, '') AS gateway_platform,
     COALESCE(g.platform_channel_id, '') AS gateway_channel_id,
     COALESCE(g.thread_id, '') AS gateway_thread_id
@@ -347,6 +374,8 @@ func (q *Queries) ListAllSessions(ctx context.Context) ([]ListAllSessionsRow, er
 			&i.Session.ContextSummaryUpdatedAt,
 			&i.Session.SkillReviewStartedAt,
 			&i.Session.SkillReviewLastTargets,
+			&i.Session.SkillReviewMutatingCount,
+			&i.Session.SkillReviewCountResetAt,
 			&i.Session.CreatedAt,
 			&i.Session.UpdatedAt,
 			&i.GatewayPlatform,
@@ -367,7 +396,7 @@ func (q *Queries) ListAllSessions(ctx context.Context) ([]ListAllSessionsRow, er
 }
 
 const listChildSessions = `-- name: ListChildSessions :many
-SELECT id, workspace_id, title, model_id, provider_id, status, origin, is_disposable, token_usage, parent_session_id, purpose, delegation_status, output_summary, subagent_kind, agent_mode, pinned, context_summary, compacted_until_message_id, context_summary_updated_at, skill_review_started_at, skill_review_last_targets, created_at, updated_at
+SELECT id, workspace_id, title, model_id, provider_id, status, origin, is_disposable, token_usage, parent_session_id, purpose, delegation_status, output_summary, subagent_kind, agent_mode, pinned, context_summary, compacted_until_message_id, context_summary_updated_at, skill_review_started_at, skill_review_last_targets, skill_review_mutating_count, skill_review_count_reset_at, created_at, updated_at
 FROM sessions
 WHERE parent_session_id = ?
 ORDER BY created_at ASC
@@ -404,6 +433,8 @@ func (q *Queries) ListChildSessions(ctx context.Context, parentSessionID sql.Nul
 			&i.ContextSummaryUpdatedAt,
 			&i.SkillReviewStartedAt,
 			&i.SkillReviewLastTargets,
+			&i.SkillReviewMutatingCount,
+			&i.SkillReviewCountResetAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -453,7 +484,7 @@ func (q *Queries) ListEphemeralSessionIDs(ctx context.Context) ([]string, error)
 }
 
 const listSessionsByWorkspace = `-- name: ListSessionsByWorkspace :many
-SELECT id, workspace_id, title, model_id, provider_id, status, origin, is_disposable, token_usage, parent_session_id, purpose, delegation_status, output_summary, subagent_kind, agent_mode, pinned, context_summary, compacted_until_message_id, context_summary_updated_at, skill_review_started_at, skill_review_last_targets, created_at, updated_at
+SELECT id, workspace_id, title, model_id, provider_id, status, origin, is_disposable, token_usage, parent_session_id, purpose, delegation_status, output_summary, subagent_kind, agent_mode, pinned, context_summary, compacted_until_message_id, context_summary_updated_at, skill_review_started_at, skill_review_last_targets, skill_review_mutating_count, skill_review_count_reset_at, created_at, updated_at
 FROM sessions
 WHERE workspace_id = ?
 ORDER BY pinned DESC, updated_at DESC
@@ -490,6 +521,8 @@ func (q *Queries) ListSessionsByWorkspace(ctx context.Context, workspaceID strin
 			&i.ContextSummaryUpdatedAt,
 			&i.SkillReviewStartedAt,
 			&i.SkillReviewLastTargets,
+			&i.SkillReviewMutatingCount,
+			&i.SkillReviewCountResetAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -693,6 +726,45 @@ func (q *Queries) ResetSessionTranscriptState(ctx context.Context, arg ResetSess
 	return err
 }
 
+const resetSkillReviewAfterStart = `-- name: ResetSkillReviewAfterStart :exec
+UPDATE sessions
+SET
+    skill_review_mutating_count = 0,
+    skill_review_count_reset_at = ?,
+    skill_review_started_at = ?
+WHERE id = ?
+`
+
+type ResetSkillReviewAfterStartParams struct {
+	SkillReviewCountResetAt int64  `json:"skill_review_count_reset_at"`
+	SkillReviewStartedAt    int64  `json:"skill_review_started_at"`
+	ID                      string `json:"id"`
+}
+
+func (q *Queries) ResetSkillReviewAfterStart(ctx context.Context, arg ResetSkillReviewAfterStartParams) error {
+	_, err := q.db.ExecContext(ctx, resetSkillReviewAfterStart, arg.SkillReviewCountResetAt, arg.SkillReviewStartedAt, arg.ID)
+	return err
+}
+
+const setSkillReviewCounter = `-- name: SetSkillReviewCounter :exec
+UPDATE sessions
+SET
+    skill_review_mutating_count = ?,
+    skill_review_count_reset_at = ?
+WHERE id = ?
+`
+
+type SetSkillReviewCounterParams struct {
+	SkillReviewMutatingCount int64  `json:"skill_review_mutating_count"`
+	SkillReviewCountResetAt  int64  `json:"skill_review_count_reset_at"`
+	ID                       string `json:"id"`
+}
+
+func (q *Queries) SetSkillReviewCounter(ctx context.Context, arg SetSkillReviewCounterParams) error {
+	_, err := q.db.ExecContext(ctx, setSkillReviewCounter, arg.SkillReviewMutatingCount, arg.SkillReviewCountResetAt, arg.ID)
+	return err
+}
+
 const setSkillReviewLastTargets = `-- name: SetSkillReviewLastTargets :exec
 UPDATE sessions
 SET skill_review_last_targets = ?
@@ -766,7 +838,7 @@ SET
     is_disposable = 0,
     updated_at = unixepoch ('now', 'subsec') * 1000
 WHERE id = ?
-RETURNING id, workspace_id, title, model_id, provider_id, status, origin, is_disposable, token_usage, parent_session_id, purpose, delegation_status, output_summary, subagent_kind, agent_mode, pinned, context_summary, compacted_until_message_id, context_summary_updated_at, skill_review_started_at, skill_review_last_targets, created_at, updated_at
+RETURNING id, workspace_id, title, model_id, provider_id, status, origin, is_disposable, token_usage, parent_session_id, purpose, delegation_status, output_summary, subagent_kind, agent_mode, pinned, context_summary, compacted_until_message_id, context_summary_updated_at, skill_review_started_at, skill_review_last_targets, skill_review_mutating_count, skill_review_count_reset_at, created_at, updated_at
 `
 
 type UpdateSessionAgentModeParams struct {
@@ -799,6 +871,8 @@ func (q *Queries) UpdateSessionAgentMode(ctx context.Context, arg UpdateSessionA
 		&i.ContextSummaryUpdatedAt,
 		&i.SkillReviewStartedAt,
 		&i.SkillReviewLastTargets,
+		&i.SkillReviewMutatingCount,
+		&i.SkillReviewCountResetAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

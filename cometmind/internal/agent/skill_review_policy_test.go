@@ -15,6 +15,7 @@ func TestDecideSkillReview(t *testing.T) {
 		start   bool
 		reason  string
 		logSkip string
+		wide    bool
 	}{
 		{
 			name: "eight mutating calls",
@@ -126,13 +127,44 @@ func TestDecideSkillReview(t *testing.T) {
 				Calls: mutatingCalls(1, "edit_file", "src/main.go", ""),
 			},
 		},
+		{
+			name: "accumulated ten starts with the wider window",
+			in: skillReviewInput{
+				UserChat: true, HasModel: true, Now: now,
+				Accumulated: 10,
+				Calls:       mutatingCalls(4, "edit_file", "src/main.go", ""),
+			},
+			start:  true,
+			reason: "accumulated",
+			wide:   true,
+		},
+		{
+			name: "eight calls inside an accumulated window stay wide",
+			in: skillReviewInput{
+				UserChat: true, HasModel: true, Now: now,
+				Accumulated: 12,
+				Calls:       mutatingCalls(8, "edit_file", "src/main.go", ""),
+			},
+			start:  true,
+			reason: "accumulated",
+			wide:   true,
+		},
+		{
+			name: "accumulated ten during cooldown does not reset",
+			in: skillReviewInput{
+				UserChat: true, HasModel: true, Now: now,
+				LastStarted: now.Add(-5 * time.Minute),
+				Accumulated: 10,
+				Calls:       mutatingCalls(1, "edit_file", "src/main.go", ""),
+			},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := decideSkillReview(tt.in)
-			if got.Start != tt.start || got.Reason != tt.reason || got.LogSkip != tt.logSkip {
-				t.Fatalf("decision = %+v, want start=%v reason=%q log=%q", got, tt.start, tt.reason, tt.logSkip)
+			if got.Start != tt.start || got.Reason != tt.reason || got.LogSkip != tt.logSkip || got.WideWindow != tt.wide {
+				t.Fatalf("decision = %+v, want start=%v reason=%q log=%q wide=%v", got, tt.start, tt.reason, tt.logSkip, tt.wide)
 			}
 		})
 	}
