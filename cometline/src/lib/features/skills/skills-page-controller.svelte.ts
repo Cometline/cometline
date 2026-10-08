@@ -21,7 +21,10 @@ export type SkillsTab = 'skills' | 'drafts';
 
 export type SkillsPageController = ReturnType<typeof createSkillsPageController>;
 
-export function createSkillsPageController(deps: { getTab: () => SkillsTab }) {
+export function createSkillsPageController(deps: {
+	getTab: () => SkillsTab;
+	getRequestedSkill?: () => string;
+}) {
 	let drafts = $state<SkillDraft[]>([]);
 	let selectedDraft = $state<SkillDraftDetailResponse | null>(null);
 	let selectedDraftName = $state('');
@@ -88,11 +91,14 @@ export function createSkillsPageController(deps: { getTab: () => SkillsTab }) {
 				selectedSkillName = '';
 				return;
 			}
+			const requested = deps.getRequestedSkill?.().trim() ?? '';
 			const preferred =
-				options.keepSelection && selectedSkillName
+				requested ||
+				(options.keepSelection && selectedSkillName
 					? skills.find((skill) => skill.name === selectedSkillName)?.name
-					: '';
-			if (preferred && skillDirty) return;
+					: '') ||
+				'';
+			if (preferred && skillDirty && !requested) return;
 			await openSkill(preferred || skills[0].name, { force: true });
 		} catch (err) {
 			status = err instanceof Error ? err.message : 'Failed to load skills';
@@ -122,6 +128,12 @@ export function createSkillsPageController(deps: { getTab: () => SkillsTab }) {
 		} finally {
 			contentBusy = false;
 		}
+	}
+
+	async function selectSkill(name: string) {
+		const trimmed = name.trim();
+		if (!trimmed) return;
+		await openSkill(trimmed, { force: true });
 	}
 
 	async function openSkill(name: string, options: { force?: boolean } = {}) {
@@ -335,6 +347,7 @@ export function createSkillsPageController(deps: { getTab: () => SkillsTab }) {
 		refreshCurrent,
 		openDraft,
 		openSkill,
+		selectSkill,
 		discardSkillChanges,
 		cancelSkillSwitch,
 		requestDeleteSelectedSkill,

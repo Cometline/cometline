@@ -34,12 +34,14 @@ type RelatedSkill struct {
 	Location    string  `json:"location"` // live | draft
 	Kind        string  `json:"kind"`
 	Score       float64 `json:"score"`
+	Origin      string  `json:"origin,omitempty"`
 }
 
 type managedSkillEntry struct {
 	Name        string
 	Description string
 	Location    string
+	Origin      string
 }
 
 // FindRelatedManagedSkills compares name+description against ~/.cometmind/skills
@@ -158,6 +160,7 @@ func readSkillEntriesFromRoot(root, location string) ([]managedSkillEntry, error
 			Name:        skillName,
 			Description: strings.TrimSpace(fm.Description),
 			Location:    location,
+			Origin:      strings.TrimSpace(fm.Metadata.Cometline.Origin),
 		})
 	}
 	return out, nil
@@ -174,6 +177,7 @@ func scoreRelated(name, description string, entry managedSkillEntry) (RelatedSki
 			Location:    entry.Location,
 			Kind:        OverlapKindExactName,
 			Score:       1.0,
+			Origin:      entry.Origin,
 		}
 		return best, true
 	}
@@ -186,6 +190,7 @@ func scoreRelated(name, description string, entry managedSkillEntry) (RelatedSki
 				Location:    entry.Location,
 				Kind:        OverlapKindSimilarName,
 				Score:       score,
+				Origin:      entry.Origin,
 			}
 			found = true
 		}
@@ -200,6 +205,7 @@ func scoreRelated(name, description string, entry managedSkillEntry) (RelatedSki
 				Location:    entry.Location,
 				Kind:        OverlapKindSimilarDescription,
 				Score:       descScore,
+				Origin:      entry.Origin,
 			}
 			found = true
 		}

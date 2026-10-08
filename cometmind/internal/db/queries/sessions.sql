@@ -240,3 +240,13 @@ SET
     context_summary_updated_at = NULL,
     updated_at = unixepoch ('now', 'subsec') * 1000
 WHERE id = ?;
+
+-- name: SetSkillReviewStartedAt :exec
+UPDATE sessions
+SET skill_review_started_at = ?
+WHERE id = ?;
+
+-- name: SetSkillReviewLastTargets :exec
+UPDATE sessions
+SET skill_review_last_targets = ?
+WHERE id = ?;

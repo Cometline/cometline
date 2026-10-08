@@ -46,6 +46,7 @@ var wirePayloads = map[Kind]func(Event) any{
 	KindSubagentFinished:          subagentFinishedPayload,
 	KindMemoryInjected:            memoryInjectedPayload,
 	KindMemoryUpdated:             memoryUpdatedPayload,
+	KindSkillReviewUpdated:        skillReviewUpdatedPayload,
 	KindMemoryCompactionCompleted: memoryCompactionPayload,
 	KindContextBudget:             contextBudgetPayload,
 	KindInboxMessageCreated:       inboxCreatedPayload,
@@ -122,6 +123,18 @@ func memoryUpdatedPayload(e Event) any {
 		Type    string             `json:"type"`
 		Changes []MemoryChangeWire `json:"changes"`
 	}{string(e.Kind), e.MemoryChanges}
+}
+
+func skillReviewUpdatedPayload(e Event) any {
+	skills := e.SkillReviews
+	if skills == nil {
+		skills = []SkillReviewChange{}
+	}
+	return struct {
+		Type      string              `json:"type"`
+		SessionID string              `json:"session_id"`
+		Skills    []SkillReviewChange `json:"skills"`
+	}{string(e.Kind), e.SessionID, skills}
 }
 
 func memoryCompactionPayload(e Event) any {
@@ -209,42 +222,43 @@ func errorPayload(e Event) any {
 // Kinds share a JSON name (e.g. "id", "message"), so decoding fans each shared
 // field out to every Event field that marshals from it.
 type eventWire struct {
-	Type             string             `json:"type"`
-	Delta            string             `json:"delta"`
-	Text             string             `json:"text"`
-	ID               string             `json:"id"`
-	Tool             string             `json:"tool"`
-	Input            json.RawMessage    `json:"input"`
-	Output           string             `json:"output"`
-	Error            string             `json:"error"`
-	Usage            Usage              `json:"usage"`
-	ChildSessionID   string             `json:"child_session_id"`
-	Purpose          string             `json:"purpose"`
-	AgentName        string             `json:"agent_name"`
-	ProgressKind     string             `json:"progress_kind"`
-	ProgressText     string             `json:"progress_text"`
-	DelegationStatus string             `json:"delegation_status"`
-	Summary          string             `json:"summary"`
-	Memories         []MemoryWire       `json:"memories"`
-	Changes          []MemoryChangeWire `json:"changes"`
-	Before           int64              `json:"before"`
-	After            int64              `json:"after"`
-	Trigger          string             `json:"trigger"`
-	Estimated        int                `json:"estimated"`
-	Available        int                `json:"available"`
-	ContextWindow    int                `json:"context_window"`
-	Compacted        bool               `json:"compacted"`
-	OpenCount        int64              `json:"open_count"`
-	ArchiveReason    string             `json:"archive_reason"`
-	SessionID        string             `json:"session_id"`
-	Phase            TurnPhase          `json:"phase"`
-	Message          string             `json:"message"`
-	TextChars        int                `json:"text_chars"`
-	ReasoningChars   int                `json:"reasoning_chars"`
-	MediaType        string             `json:"media_type"`
-	Alt              string             `json:"alt"`
-	DataURL          string             `json:"data_url"`
-	Code             string             `json:"code"`
+	Type             string              `json:"type"`
+	Delta            string              `json:"delta"`
+	Text             string              `json:"text"`
+	ID               string              `json:"id"`
+	Tool             string              `json:"tool"`
+	Input            json.RawMessage     `json:"input"`
+	Output           string              `json:"output"`
+	Error            string              `json:"error"`
+	Usage            Usage               `json:"usage"`
+	ChildSessionID   string              `json:"child_session_id"`
+	Purpose          string              `json:"purpose"`
+	AgentName        string              `json:"agent_name"`
+	ProgressKind     string              `json:"progress_kind"`
+	ProgressText     string              `json:"progress_text"`
+	DelegationStatus string              `json:"delegation_status"`
+	Summary          string              `json:"summary"`
+	Memories         []MemoryWire        `json:"memories"`
+	Changes          []MemoryChangeWire  `json:"changes"`
+	Skills           []SkillReviewChange `json:"skills"`
+	Before           int64               `json:"before"`
+	After            int64               `json:"after"`
+	Trigger          string              `json:"trigger"`
+	Estimated        int                 `json:"estimated"`
+	Available        int                 `json:"available"`
+	ContextWindow    int                 `json:"context_window"`
+	Compacted        bool                `json:"compacted"`
+	OpenCount        int64               `json:"open_count"`
+	ArchiveReason    string              `json:"archive_reason"`
+	SessionID        string              `json:"session_id"`
+	Phase            TurnPhase           `json:"phase"`
+	Message          string              `json:"message"`
+	TextChars        int                 `json:"text_chars"`
+	ReasoningChars   int                 `json:"reasoning_chars"`
+	MediaType        string              `json:"media_type"`
+	Alt              string              `json:"alt"`
+	DataURL          string              `json:"data_url"`
+	Code             string              `json:"code"`
 }
 
 // UnmarshalJSON decodes the same discriminated wire shape emitted by MarshalJSON.
@@ -281,6 +295,7 @@ func (w eventWire) event() Event {
 		Summary:             w.Summary,
 		Memories:            w.Memories,
 		MemoryChanges:       w.Changes,
+		SkillReviews:        w.Skills,
 		MemoryCountBefore:   w.Before,
 		MemoryCountAfter:    w.After,
 		CompactionTrigger:   w.Trigger,

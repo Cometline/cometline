@@ -45,6 +45,7 @@ func TestStreamEventMarshalJSONMatchesOpenAPI(t *testing.T) {
 		{name: "subagent_finished", ev: event.SubagentFinished("child-1", "completed", "done")},
 		{name: "memory_injected", ev: event.MemoryInjected([]event.MemoryWire{{ID: "m1", Content: "fact", Kind: "preference", Bucket: "preference", Similarity: 0.9, EffectiveWeight: 1.2}})},
 		{name: "memory_updated", ev: event.MemoryUpdated([]event.MemoryChangeWire{{Action: "create", Kind: "preference", Content: "likes tea"}})},
+		{name: "skill_review_updated", ev: event.SkillReviewUpdated("session-1", []event.SkillReviewChange{{Name: "ship-checklist", Action: "created", Description: "Ship a reviewed change"}})},
 		{name: "memory_deleted", ev: event.MemoryUpdated([]event.MemoryChangeWire{{Action: "delete", Kind: "preference", Content: "likes tea", ID: "m1"}})},
 		{name: "memory_compaction_completed", ev: event.MemoryCompactionCompleted(500, 400, "automatic")},
 		{name: "context_budget", ev: event.ContextBudget(12000, 125952, 128000, false)},

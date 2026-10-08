@@ -38,6 +38,8 @@ type Session struct {
 	ContextSummary          string
 	CompactedUntilMessageID string
 	ContextSummaryUpdatedAt string
+	SkillReviewStartedAt    int64
+	SkillReviewLastTargets  string
 	CreatedAt               int64
 	UpdatedAt               int64
 }
@@ -94,6 +96,8 @@ func sessionFromDB(s db.Session) Session {
 		ContextSummary:          s.ContextSummary,
 		CompactedUntilMessageID: compactedUntil,
 		ContextSummaryUpdatedAt: summaryUpdatedAt,
+		SkillReviewStartedAt:    s.SkillReviewStartedAt,
+		SkillReviewLastTargets:  s.SkillReviewLastTargets,
 		CreatedAt:               s.CreatedAt,
 		UpdatedAt:               s.UpdatedAt,
 	}

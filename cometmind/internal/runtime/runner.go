@@ -1,10 +1,12 @@
 package runtime
 
 import (
+	"context"
 	"os"
 
 	cometsdk "github.com/Cometline/cometline/comet-sdk"
 	"github.com/Cometline/cometline/cometmind/internal/agent"
+	"github.com/Cometline/cometline/cometmind/internal/event"
 	"github.com/Cometline/cometline/cometmind/internal/generation"
 	"github.com/Cometline/cometline/cometmind/internal/jobs"
 	"github.com/Cometline/cometline/cometmind/internal/provider"
@@ -111,6 +113,8 @@ func (r *Runtime) runnerFor(sess session.Session, workspacePath string, opts Run
 			Endpoint:   provider.CompatibilityEndpoint(r.Config, sess.ProviderID),
 			ModelID:    sess.ModelID,
 		},
+		Events:      r.Events,
+		ReviewChild: r.runSkillReviewChild,
 	}
 	if !opts.Subagent {
 		runner.JobIndex = tools.JobPromptIndex(workspacePath, platform)
@@ -168,6 +172,34 @@ func (r *Runtime) toolRegistryOptions(skillRegistry skills.Registry, sessionID, 
 			GeneralMaxSteps: sub.GeneralMaxSteps,
 		},
 	}
+}
+
+func (r *Runtime) runSkillReviewChild(ctx context.Context, child session.Session, registry *tools.Registry, maxSteps int, systemPrompt string) error {
+	p, err := provider.NewForModel(r.Config, child.ProviderID, child.ModelID)
+	if err != nil {
+		return err
+	}
+	runner := &agent.Runner{
+		Config:       r.Config,
+		Provider:     p,
+		Sessions:     r.Sessions,
+		Registry:     registry,
+		MaxSteps:     maxSteps,
+		SystemPrompt: systemPrompt,
+	}
+	return runRunnerQuiet(ctx, runner, session.AgentTurnFromSession(child))
+}
+
+func runRunnerQuiet(ctx context.Context, runner *agent.Runner, turn session.AgentTurn) error {
+	evCh := make(chan event.Event, 64)
+	var runErr error
+	go func() {
+		runErr = runner.Run(ctx, turn, evCh)
+		close(evCh)
+	}()
+	for range evCh {
+	}
+	return runErr
 }
 
 // RunnerForInbox builds a runner for an inbox internalization session.

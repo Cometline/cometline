@@ -189,6 +189,8 @@ type Session struct {
 	ContextSummary          string         `json:"context_summary"`
 	CompactedUntilMessageID sql.NullString `json:"compacted_until_message_id"`
 	ContextSummaryUpdatedAt sql.NullString `json:"context_summary_updated_at"`
+	SkillReviewStartedAt    int64          `json:"skill_review_started_at"`
+	SkillReviewLastTargets  string         `json:"skill_review_last_targets"`
 	CreatedAt               int64          `json:"created_at"`
 	UpdatedAt               int64          `json:"updated_at"`
 }

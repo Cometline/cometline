@@ -45,6 +45,22 @@ export async function notifyNewInboxMessage(id: string) {
 	}
 }
 
+export type SkillReviewNotice = {
+	name: string;
+	action: string;
+	description: string;
+};
+
+export function notifySkillReview(skills: SkillReviewNotice[]) {
+	if (skills.length === 0) return;
+	const first = skills[0];
+	const detail = skills.length === 1 ? first.name : `${skills.length} skills updated`;
+	appToastStore.success('Skill updated', detail, () => {
+		const params = new URLSearchParams({ tab: 'skills', skill: first.name });
+		void goto(`${resolve('skills')}?${params.toString()}`);
+	});
+}
+
 export function startSkillDraftToastWatch(opts: {
 	intervalMs?: number;
 	listDrafts?: typeof listSkillDrafts;

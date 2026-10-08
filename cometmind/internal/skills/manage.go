@@ -184,6 +184,13 @@ func WriteSkill(name, content string, overwrite bool) error {
 		} else if !errors.Is(err, os.ErrNotExist) {
 			return err
 		}
+	} else if existing, err := os.ReadFile(skillPath); err == nil {
+		content, err = preserveSelfImprovementOrigin(string(existing), content)
+		if err != nil {
+			return err
+		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return err
 	}
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err

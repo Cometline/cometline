@@ -41,6 +41,7 @@ type (
 	ListSkillDrafts   = skills.ListSkillDrafts
 	ReadSkillDraft    = skills.ReadSkillDraft
 	WriteSkill        = skills.WriteSkill
+	ReviewWriteSkill  = skills.ReviewWriteSkill
 	PromoteSkillDraft = skills.PromoteSkillDraft
 
 	DelegateCodingTask = childagent.DelegateCodingTask

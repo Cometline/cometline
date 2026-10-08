@@ -22,6 +22,7 @@ type skillResource struct {
 	CanDelete   bool   `json:"can_delete"`
 	CanExport   bool   `json:"can_export"`
 	CanEdit     bool   `json:"can_edit"`
+	Origin      string `json:"origin,omitempty"`
 }
 
 type skillDetailResponse struct {
@@ -190,5 +191,6 @@ func skillResourceFromModel(skill skillpkg.Skill) skillResource {
 		CanDelete:   caps.CanDelete,
 		CanExport:   caps.CanExport,
 		CanEdit:     caps.CanEdit,
+		Origin:      skill.Origin,
 	}
 }

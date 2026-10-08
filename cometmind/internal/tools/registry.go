@@ -39,6 +39,24 @@ func NewSubagentRegistry(workspaceRoot string, skillReg *skills.Registry, mode S
 	return newRegistryWithSurface(workspaceRoot, SurfaceForMode(mode), opt)
 }
 
+// NewSkillReviewRegistry is the hidden skill-review surface. It is not a
+// research or coding registry: read tools, load_skill, read_skill_file, and
+// the guarded write_skill only. Read does not include web tools here.
+func NewSkillReviewRegistry(workspaceRoot string, skillReg *skills.Registry) *Registry {
+	ws := Workspace{Root: workspaceRoot}
+	r := &Registry{workspace: ws, byName: make(map[string]Tool)}
+	r.Add(ReadFile{Workspace: ws})
+	r.Add(ListDir{Workspace: ws})
+	r.Add(Glob{Workspace: ws})
+	r.Add(Grep{Workspace: ws})
+	if skillReg != nil {
+		r.Add(LoadSkill{Skills: skillReg})
+		r.Add(ReadSkillFile{Skills: skillReg})
+	}
+	r.Add(ReviewWriteSkill{})
+	return r
+}
+
 func newRegistryWithSurface(workspaceRoot string, surface ToolSurface, opt RegistryOptions) *Registry {
 	// Plan mode overrides the default parent surface with the read-only
 	// allowlist. Auto (and empty) registries keep the caller-provided surface.

@@ -69,6 +69,11 @@ func MemoryUpdated(changes []MemoryChangeWire) Event {
 	return Event{Kind: KindMemoryUpdated, MemoryChanges: changes}
 }
 
+// SkillReviewUpdated builds a skill_review_updated event for the global hub.
+func SkillReviewUpdated(sessionID string, skills []SkillReviewChange) Event {
+	return Event{Kind: KindSkillReviewUpdated, SessionID: sessionID, SkillReviews: skills}
+}
+
 // MemoryCompactionCompleted builds a global completion event for manual and automatic runs.
 func MemoryCompactionCompleted(before, after int64, trigger string) Event {
 	return Event{

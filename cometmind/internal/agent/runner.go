@@ -43,6 +43,13 @@ type Runner struct {
 
 	// Compactor performs rolling context compaction on long sessions. Nil disables it.
 	Compactor *ContextCompactor
+
+	// Events publishes background results after the turn SSE channel has closed.
+	Events interface{ Publish(event.Event) }
+	// ReviewChild runs the hidden skill-review fork. Nil skips the fork.
+	ReviewChild ReviewChild
+	// ReviewNow overrides the clock used for skill-review cooldown. Nil uses time.Now.
+	ReviewNow func() time.Time
 }
 
 // Run streams CometMind-native events on ch until the turn completes or ctx is cancelled.

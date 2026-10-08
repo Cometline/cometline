@@ -26,6 +26,7 @@
 		notifyConnectionChange,
 		notifyJobActivity,
 		notifyNewInboxMessage,
+		notifySkillReview,
 		startSkillDraftToastWatch
 	} from '#lib/notifications/activity-toasts.js';
 	import { startStorageRetentionSync } from '#lib/retention/storage-retention-sync.js';
@@ -77,6 +78,9 @@
 				void applySessionRuntimeEvent(event, runtimeEventDeps);
 				if (event.type === 'memory_updated') {
 					memoryToastStore.add(event.changes);
+				}
+				if (event.type === 'skill_review_updated' && !isMiniRoute && !isSettingsRoute) {
+					notifySkillReview(event.skills);
 				}
 				if (event.type === 'memory_compaction_completed') {
 					memoryToastStore.addCompaction(event);

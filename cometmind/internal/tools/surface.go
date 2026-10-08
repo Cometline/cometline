@@ -56,6 +56,13 @@ func InboxProcessSurface() ToolSurface {
 	return surface
 }
 
+// SkillReviewSurface is the hidden skill-review fork: read tools, skill
+// load/read, and the guarded write_skill. It has no shell, file writes, web,
+// spawn, drafts, or promote.
+func SkillReviewSurface() ToolSurface {
+	return ToolSurface{Read: true, Skills: true, SkillMut: true}
+}
+
 // PlanSurface is the read-only parent surface for Plan mode: host/workspace
 // reads, network reads, skill reads, and research-only subagent spawning.
 // It must never include command, file-write, or mutation tool groups.

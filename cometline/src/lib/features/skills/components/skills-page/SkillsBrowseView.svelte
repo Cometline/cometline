@@ -15,6 +15,7 @@
 
 	function badgesFor(skill: SkillResource): string[] {
 		const badges: string[] = [];
+		if (skill.origin === 'self-improvement') badges.push('self-improvement');
 		if (skill.is_symlink) badges.push('symlink');
 		if (!skill.can_edit) badges.push('read-only');
 		return badges;

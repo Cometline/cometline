@@ -566,6 +566,10 @@ export type Skill = {
     can_delete: boolean;
     can_export: boolean;
     can_edit: boolean;
+    /**
+     * metadata.cometline.origin. Empty means the skill was not created by the self-improvement loop.
+     */
+    origin?: string;
 };
 
 export type SkillDetailResponse = {
@@ -776,6 +780,18 @@ export type MemoryInjectedEvent = {
     memories: Array<MemoryWire>;
 };
 
+export type SkillReviewChange = {
+    name: string;
+    action: 'created' | 'updated';
+    description: string;
+};
+
+export type SkillReviewUpdatedEvent = {
+    type: 'skill_review_updated';
+    session_id: string;
+    skills: Array<SkillReviewChange>;
+};
+
 export type MemoryUpdatedEvent = {
     type: 'memory_updated';
     changes: Array<MemoryChangeWire>;
@@ -908,6 +924,8 @@ export type StreamEvent = ({
 } & MemoryInjectedEvent) | ({
     type?: 'memory_updated';
 } & MemoryUpdatedEvent) | ({
+    type?: 'skill_review_updated';
+} & SkillReviewUpdatedEvent) | ({
     type?: 'memory_compaction_completed';
 } & MemoryCompactionCompletedEvent) | ({
     type?: 'context_budget';

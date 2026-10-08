@@ -19,6 +19,9 @@ type Config struct {
 	IncludeClaude   bool
 }
 
+// OriginSelfImprovement marks a skill written by the background review loop.
+const OriginSelfImprovement = "self-improvement"
+
 // Skill is one discovered Agent Skill directory.
 type Skill struct {
 	Name        string `json:"name"`
@@ -26,6 +29,12 @@ type Skill struct {
 	Path        string `json:"path"`
 	Source      string `json:"source"`
 	Internal    bool   `json:"internal"`
+	Origin      string `json:"origin,omitempty"`
+}
+
+// IsSelfImprovement reports whether the skill was created by the review loop.
+func IsSelfImprovement(skill Skill) bool {
+	return skill.Origin == OriginSelfImprovement
 }
 
 // Registry is an immutable index of discovered skills.
@@ -39,7 +48,10 @@ type frontmatter struct {
 	Name        string `yaml:"name"`
 	Description string `yaml:"description"`
 	Metadata    struct {
-		Internal bool `yaml:"internal"`
+		Internal  bool `yaml:"internal"`
+		Cometline struct {
+			Origin string `yaml:"origin"`
+		} `yaml:"cometline"`
 	} `yaml:"metadata"`
 }
 
@@ -143,7 +155,14 @@ func ReadSkill(dir string) (Skill, error) {
 	if name == "" || desc == "" {
 		return Skill{}, fmt.Errorf("skill %q missing required name or description", resolved)
 	}
-	return Skill{Name: name, Description: desc, Path: resolved, Source: resolved, Internal: fm.Metadata.Internal}, nil
+	return Skill{
+		Name:        name,
+		Description: desc,
+		Path:        resolved,
+		Source:      resolved,
+		Internal:    fm.Metadata.Internal,
+		Origin:      strings.TrimSpace(fm.Metadata.Cometline.Origin),
+	}, nil
 }
 
 // Find returns a skill by name.

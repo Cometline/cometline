@@ -12,6 +12,9 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('$app/navigation', () => ({ goto: mocks.goto }));
+vi.mock('$app/paths', () => ({
+	resolve: (path: string) => (path.startsWith('/') ? path : `/${path}`)
+}));
 vi.mock('#lib/client/cometmind.js', () => ({
 	getSession: mocks.getSession,
 	listInboxMessages: mocks.listInboxMessages,
@@ -38,6 +41,7 @@ import {
 	notifyConnectionChange,
 	notifyJobActivity,
 	notifyNewInboxMessage,
+	notifySkillReview,
 	startSkillDraftToastWatch
 } from './activity-toasts';
 
@@ -110,6 +114,24 @@ describe('activity toasts', () => {
 		);
 		stop();
 		vi.useRealTimers();
+	});
+
+	it('toasts one skill review and opens the first skill', () => {
+		notifySkillReview([
+			{ name: 'ship-checklist', action: 'created', description: 'Ship a reviewed change' },
+			{ name: 'other', action: 'updated', description: 'Other' }
+		]);
+		expect(mocks.success).toHaveBeenCalledWith(
+			'Skill updated',
+			'2 skills updated',
+			expect.any(Function)
+		);
+		const open = mocks.success.mock.calls[0][2] as () => void;
+		open();
+		expect(mocks.goto).toHaveBeenCalledWith('/skills?tab=skills&skill=ship-checklist');
+
+		notifySkillReview([]);
+		expect(mocks.success).toHaveBeenCalledTimes(1);
 	});
 
 	it('skips background run toasts for the active chat and non-user sessions', () => {

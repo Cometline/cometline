@@ -757,6 +757,24 @@ func (e SessionSubagentKind) Valid() bool {
 	}
 }
 
+// Defines values for SkillReviewChangeAction.
+const (
+	Created SkillReviewChangeAction = "created"
+	Updated SkillReviewChangeAction = "updated"
+)
+
+// Valid indicates whether the value is a known member of the SkillReviewChangeAction enum.
+func (e SkillReviewChangeAction) Valid() bool {
+	switch e {
+	case Created:
+		return true
+	case Updated:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for TranscriptItemType.
 const (
 	TranscriptItemTypeAssistant TranscriptItemType = "assistant"
@@ -1963,8 +1981,11 @@ type Skill struct {
 	Internal    bool   `json:"internal"`
 	IsSymlink   bool   `json:"is_symlink"`
 	Name        string `json:"name"`
-	Path        string `json:"path"`
-	Source      string `json:"source"`
+
+	// Origin metadata.cometline.origin. Empty means the skill was not created by the self-improvement loop.
+	Origin *string `json:"origin,omitempty"`
+	Path   string  `json:"path"`
+	Source string  `json:"source"`
 }
 
 // SkillDetailResponse defines model for SkillDetailResponse.
@@ -1986,6 +2007,23 @@ type SkillDraft struct {
 type SkillDraftDetailResponse struct {
 	Content string     `json:"content"`
 	Draft   SkillDraft `json:"draft"`
+}
+
+// SkillReviewChange defines model for SkillReviewChange.
+type SkillReviewChange struct {
+	Action      SkillReviewChangeAction `json:"action"`
+	Description string                  `json:"description"`
+	Name        string                  `json:"name"`
+}
+
+// SkillReviewChangeAction defines model for SkillReviewChange.Action.
+type SkillReviewChangeAction string
+
+// SkillReviewUpdatedEvent defines model for SkillReviewUpdatedEvent.
+type SkillReviewUpdatedEvent struct {
+	SessionId string              `json:"session_id"`
+	Skills    []SkillReviewChange `json:"skills"`
+	Type      string              `json:"type"`
 }
 
 // StatusResponse defines model for StatusResponse.
@@ -3088,6 +3126,32 @@ func (t *StreamEvent) MergeMemoryUpdatedEvent(v MemoryUpdatedEvent) error {
 	return err
 }
 
+// AsSkillReviewUpdatedEvent returns the union data inside the StreamEvent as a SkillReviewUpdatedEvent
+func (t StreamEvent) AsSkillReviewUpdatedEvent() (SkillReviewUpdatedEvent, error) {
+	var body SkillReviewUpdatedEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromSkillReviewUpdatedEvent overwrites any union data inside the StreamEvent as the provided SkillReviewUpdatedEvent
+func (t *StreamEvent) FromSkillReviewUpdatedEvent(v SkillReviewUpdatedEvent) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeSkillReviewUpdatedEvent performs a merge with any union data inside the StreamEvent, using the provided SkillReviewUpdatedEvent
+func (t *StreamEvent) MergeSkillReviewUpdatedEvent(v SkillReviewUpdatedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 // AsMemoryCompactionCompletedEvent returns the union data inside the StreamEvent as a MemoryCompactionCompletedEvent
 func (t StreamEvent) AsMemoryCompactionCompletedEvent() (MemoryCompactionCompletedEvent, error) {
 	var body MemoryCompactionCompletedEvent
@@ -3444,6 +3508,8 @@ func (t StreamEvent) ValueByDiscriminator() (interface{}, error) {
 		return t.AsRunLifecycleEvent()
 	case "session_cleared":
 		return t.AsSessionClearedEvent()
+	case "skill_review_updated":
+		return t.AsSkillReviewUpdatedEvent()
 	case "step_finish":
 		return t.AsStepFinishEvent()
 	case "subagent_finished":
