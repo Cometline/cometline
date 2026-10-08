@@ -10,11 +10,9 @@ import (
 	"github.com/Cometline/cometline/cometmind/internal/config"
 	"github.com/Cometline/cometline/cometmind/internal/db"
 	"github.com/Cometline/cometline/cometmind/internal/event"
-	"github.com/Cometline/cometline/cometmind/internal/logging"
 	"github.com/Cometline/cometline/cometmind/internal/session"
 	"github.com/Cometline/cometline/cometmind/internal/skills"
 	"github.com/Cometline/cometline/cometmind/internal/tools"
-	"go.uber.org/zap"
 )
 
 // ReviewChild runs one hidden skill-review child. The parent launch deletes
@@ -44,130 +42,38 @@ func (r *Runner) reviewNow() time.Time {
 }
 
 func (r *Runner) reviewSkillsAfterTurn(ctx context.Context, turn session.AgentTurn) {
-	if r == nil || strings.TrimSpace(turn.ID) == "" {
-		return
-	}
-	store, ok := r.Sessions.(skillReviewStore)
-	if !ok {
-		return
-	}
-	sess, err := store.GetSession(ctx, turn.ID)
-	if err != nil {
-		logging.L().Warn("skills.review.session_failed", zap.String("session", turn.ID), zap.Error(err))
-		return
-	}
-	if sess.ParentSessionID != "" || sess.Origin != "user" {
-		return
-	}
-	rows, err := store.ListMessageRows(ctx, turn.ID)
-	if err != nil {
-		logging.L().Warn("skills.review.messages_failed", zap.String("session", turn.ID), zap.Error(err))
-		return
-	}
-	calls, err := store.ListToolCallsForSession(ctx, turn.ID)
-	if err != nil {
-		logging.L().Warn("skills.review.tools_failed", zap.String("session", turn.ID), zap.Error(err))
-		return
-	}
-	userText, turnCalls := turnMutations(rows, calls)
-	accumulated := int(sess.SkillReviewMutatingCount) + countMutating(turnCalls)
-	if added := countMutating(turnCalls); added > 0 {
-		total, err := store.AddSkillReviewMutatingCount(ctx, turn.ID, int64(added))
-		if err != nil {
-			logging.L().Warn("skills.review.count_failed", zap.String("session", turn.ID), zap.Error(err))
-		} else {
-			accumulated = int(total)
-		}
-	}
-	providerID, modelID, hasModel := pinnedExtraction(r.Config)
-	decision := decideSkillReview(skillReviewInput{
-		UserChat:    true,
-		HasModel:    hasModel,
-		Now:         r.reviewNow(),
-		LastStarted: unixMilliTime(sess.SkillReviewStartedAt),
-		UserText:    userText,
-		Previous:    decodeTargets(sess.SkillReviewLastTargets),
-		Calls:       turnCalls,
-		Accumulated: accumulated,
-	})
-	if err := store.SetSkillReviewLastTargets(ctx, turn.ID, encodeTargets(decision.Targets)); err != nil {
-		logging.L().Warn("skills.review.targets_failed", zap.String("session", turn.ID), zap.Error(err))
-	}
-	if decision.LogSkip != "" {
-		logging.L().Warn(decision.LogSkip, zap.String("session", turn.ID))
-	}
-	if !decision.Start {
-		return
-	}
-	workspace, err := store.WorkspacePath(ctx, sess.WorkspaceID)
-	if err != nil {
-		logging.L().Warn("skills.review.workspace_failed", zap.String("session", turn.ID), zap.Error(err))
-		return
-	}
-	cfg := skills.Config{Enabled: true}
-	if r.Config != nil {
-		cfg = r.Config.SkillSettings()
-	}
-	catalog := skills.Discover(workspace, cfg)
-	transcript := formatTurnTranscript(rows, calls)
-	if decision.WideWindow {
-		transcript = formatTranscriptSince(rows, calls, sess.SkillReviewCountResetAt)
-	}
-	r.startSkillReview(ctx, store, sess, providerID, modelID, workspace, transcript, catalog)
+	r.reviewAfterTurn(ctx, turn)
 }
 
-func (r *Runner) startSkillReview(ctx context.Context, store skillReviewStore, parent session.Session, providerID, modelID, workspace, transcript string, catalog skills.Registry) {
-	if r.ReviewChild == nil {
-		logging.L().Warn("skills.review.skipped_no_runner", zap.String("session", parent.ID))
-		return
+func turnReviewSystemPrompt(reviewSkills, reviewWiki bool) string {
+	var b strings.Builder
+	b.WriteString("You review one completed user turn. The two jobs below are separate. Do not save the same takeaway in both places.\n")
+	if reviewSkills {
+		b.WriteString(strings.TrimSpace(`
+Skill job: save a workflow only when it was demonstrated and verified in the parent transcript.
+Use write_skill for that job. Skip one-off fixes, guesses, and procedures that failed.
+Create a new skill only when no existing self-improvement skill covers it.
+If an existing self-improvement skill overlaps, overwrite that skill with overwrite=true and preserve its origin.
+Never edit a skill whose origin is not self-improvement.
+If there is no complete verified workflow, do not call write_skill.
+`) + "\n")
 	}
-	child, err := store.NewChildSession(ctx, parent, "skill review", skillReviewKind)
-	if err != nil {
-		logging.L().Warn("skills.review.child_failed", zap.String("session", parent.ID), zap.Error(err))
-		return
+	if reviewWiki {
+		b.WriteString(strings.TrimSpace(`
+Wiki job: save a conclusion only when it is useful again and grounded in a tool result from this turn.
+Write it under @runtime/wiki/ only. Preferences and personal facts belong to memory. Procedures belong to the skill job.
+Update an existing page when the conclusion belongs there. If the page is a dated or commit-stamped snapshot and this turn has a newer source, update it.
+If no existing page fits and the conclusion is narrow, do not create a page.
+Follow llm-wiki capture-then-compile when a source is worth keeping. Never edit an existing file under raw/.
+Read @runtime/wiki/index.md before writing.
+`) + "\n")
 	}
-	updated, err := store.UpdateSessionModel(ctx, child.ID, modelID, providerID)
-	if err != nil {
-		logging.L().Warn("skills.review.model_failed", zap.String("session", parent.ID), zap.Error(err))
-		_ = store.DeleteSession(ctx, child.ID)
-		return
-	}
-	child = updated
-	if _, err := store.AppendUserMessage(ctx, child.ID, skillReviewUserPrompt(transcript, catalog)); err != nil {
-		logging.L().Warn("skills.review.prompt_failed", zap.String("session", parent.ID), zap.Error(err))
-		_ = store.DeleteSession(ctx, child.ID)
-		return
-	}
-	registry := tools.NewSkillReviewRegistry(workspace, &catalog, r.SkillUsed)
-	started := r.reviewNow()
-	if err := store.ResetSkillReviewAfterStart(ctx, parent.ID, started.UnixMilli()); err != nil {
-		logging.L().Warn("skills.review.cooldown_failed", zap.String("session", parent.ID), zap.Error(err))
-		_ = store.DeleteSession(ctx, child.ID)
-		return
-	}
-	runErr := r.ReviewChild(ctx, child, registry, skillReviewMaxSteps, skillReviewSystemPrompt())
-	if runErr != nil {
-		logging.L().Warn("skills.review.child_run_failed", zap.String("session", parent.ID), zap.String("child", child.ID), zap.Error(runErr))
-	}
-	written := collectSkillWrites(ctx, store, child.ID)
-	if len(written) > 0 && r.Events != nil {
-		r.Events.Publish(event.SkillReviewUpdated(parent.ID, written))
-	}
-	if err := store.DeleteSession(ctx, child.ID); err != nil {
-		logging.L().Warn("skills.review.delete_failed", zap.String("session", parent.ID), zap.String("child", child.ID), zap.Error(err))
-	}
+	b.WriteString("If neither job applies, stop without writing.\n")
+	return strings.TrimSpace(b.String())
 }
 
 func skillReviewSystemPrompt() string {
-	return strings.TrimSpace(`
-You review one completed user turn and may save a reusable workflow as a live Agent Skill.
-Save only a workflow that was demonstrated and verified in the parent transcript.
-Skip one-off fixes, guesses, and procedures that failed.
-Create a new skill only when no existing self-improvement skill covers it.
-If an existing self-improvement skill overlaps, overwrite that skill with overwrite=true and preserve its origin.
-Never try to edit a skill whose origin is not self-improvement.
-If nothing is worth saving, stop without calling write_skill.
-`)
+	return turnReviewSystemPrompt(true, false)
 }
 
 func skillReviewUserPrompt(transcript string, catalog skills.Registry) string {

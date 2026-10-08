@@ -8,11 +8,9 @@ import (
 )
 
 const (
-	skillReviewMutatingThreshold    = 8
-	skillReviewAccumulatedThreshold = 10
-	skillReviewCooldown             = 15 * time.Minute
-	skillReviewMaxSteps             = 8
-	skillReviewKind                 = "skill_review"
+	reviewTurnThreshold = 10
+	reviewMaxSteps      = 30
+	reviewKind          = "skill_review"
 )
 
 type skillCall struct {
@@ -35,7 +33,7 @@ type skillReviewInput struct {
 	UserText    string
 	Previous    skillTargets
 	Calls       []skillCall
-	Accumulated int
+	Turns       int
 }
 
 type skillReviewDecision struct {
@@ -51,13 +49,7 @@ func decideSkillReview(in skillReviewInput) skillReviewDecision {
 	if !in.UserChat {
 		return decision
 	}
-	count := countMutating(in.Calls)
-	correction := correctionCompleted(in.UserText, in.Previous, in.Calls)
-	accumulated := in.Accumulated >= skillReviewAccumulatedThreshold
-	if count < skillReviewMutatingThreshold && !correction && !accumulated {
-		return decision
-	}
-	if cooldownActive(in.Now, in.LastStarted) {
+	if in.Turns < reviewTurnThreshold {
 		return decision
 	}
 	if !in.HasModel {
@@ -65,16 +57,8 @@ func decideSkillReview(in skillReviewInput) skillReviewDecision {
 		return decision
 	}
 	decision.Start = true
-	decision.WideWindow = accumulated
-	if accumulated {
-		decision.Reason = "accumulated"
-		return decision
-	}
-	if count >= skillReviewMutatingThreshold {
-		decision.Reason = "work"
-		return decision
-	}
-	decision.Reason = "correction"
+	decision.WideWindow = true
+	decision.Reason = "turns"
 	return decision
 }
 
@@ -222,11 +206,4 @@ func normalizePath(path string) string {
 	path = strings.TrimSpace(filepath.ToSlash(path))
 	path = strings.TrimPrefix(path, "./")
 	return path
-}
-
-func cooldownActive(now, started time.Time) bool {
-	if started.IsZero() || now.IsZero() {
-		return false
-	}
-	return now.Sub(started) < skillReviewCooldown
 }

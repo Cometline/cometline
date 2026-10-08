@@ -18,13 +18,21 @@ func TestDecideSkillReview(t *testing.T) {
 		wide    bool
 	}{
 		{
-			name: "eight mutating calls",
+			name: "eight mutating calls do not start",
 			in: skillReviewInput{
 				UserChat: true, HasModel: true, Now: now,
 				Calls: mutatingCalls(8, "edit_file", "src/main.go", ""),
 			},
+		},
+		{
+			name: "tenth turn",
+			in: skillReviewInput{
+				UserChat: true, HasModel: true, Now: now,
+				Turns: 10,
+			},
 			start:  true,
-			reason: "work",
+			reason: "turns",
+			wide:   true,
 		},
 		{
 			name: "eight reads do not start",
@@ -48,15 +56,14 @@ func TestDecideSkillReview(t *testing.T) {
 			},
 		},
 		{
-			name: "correction redo below threshold",
+			name: "correction below the turn count does not start",
 			in: skillReviewInput{
 				UserChat: true, HasModel: true, Now: now,
 				UserText: "please fix src/main.go again",
 				Previous: previous,
 				Calls:    mutatingCalls(1, "edit_file", "src/main.go", ""),
+				Turns:    1,
 			},
-			start:  true,
-			reason: "correction",
 		},
 		{
 			name: "correction mention without a redo does not start",
@@ -77,33 +84,25 @@ func TestDecideSkillReview(t *testing.T) {
 			},
 		},
 		{
-			name: "command rerun arms",
+			name: "command rerun below the turn count does not start",
 			in: skillReviewInput{
 				UserChat: true, HasModel: true, Now: now,
 				UserText: "run go test ./... once more",
 				Previous: previous,
 				Calls:    mutatingCalls(1, "run_command", "", "go test ./..."),
-			},
-			start:  true,
-			reason: "correction",
-		},
-		{
-			name: "cooldown blocks an eligible turn",
-			in: skillReviewInput{
-				UserChat: true, HasModel: true, Now: now,
-				LastStarted: now.Add(-14 * time.Minute),
-				Calls:       mutatingCalls(8, "edit_file", "src/main.go", ""),
+				Turns:    1,
 			},
 		},
 		{
-			name: "cooldown expires",
+			name: "recent review does not block an eligible turn",
 			in: skillReviewInput{
 				UserChat: true, HasModel: true, Now: now,
-				LastStarted: now.Add(-15 * time.Minute),
-				Calls:       mutatingCalls(8, "edit_file", "src/main.go", ""),
+				LastStarted: now.Add(-time.Minute),
+				Turns:       10,
 			},
 			start:  true,
-			reason: "work",
+			reason: "turns",
+			wide:   true,
 		},
 		{
 			name: "child session does not start",
@@ -116,7 +115,7 @@ func TestDecideSkillReview(t *testing.T) {
 			name: "missing extraction model skips",
 			in: skillReviewInput{
 				UserChat: true, HasModel: false, Now: now,
-				Calls: mutatingCalls(8, "edit_file", "src/main.go", ""),
+				Turns: 10,
 			},
 			logSkip: "skills.review.skipped_no_model",
 		},
@@ -131,32 +130,35 @@ func TestDecideSkillReview(t *testing.T) {
 			name: "accumulated ten starts with the wider window",
 			in: skillReviewInput{
 				UserChat: true, HasModel: true, Now: now,
-				Accumulated: 10,
-				Calls:       mutatingCalls(4, "edit_file", "src/main.go", ""),
+				Turns: 10,
+				Calls: mutatingCalls(4, "edit_file", "src/main.go", ""),
 			},
 			start:  true,
-			reason: "accumulated",
+			reason: "turns",
 			wide:   true,
 		},
 		{
 			name: "eight calls inside an accumulated window stay wide",
 			in: skillReviewInput{
 				UserChat: true, HasModel: true, Now: now,
-				Accumulated: 12,
-				Calls:       mutatingCalls(8, "edit_file", "src/main.go", ""),
+				Turns: 12,
+				Calls: mutatingCalls(8, "edit_file", "src/main.go", ""),
 			},
 			start:  true,
-			reason: "accumulated",
+			reason: "turns",
 			wide:   true,
 		},
 		{
-			name: "accumulated ten during cooldown does not reset",
+			name: "recent review does not block an accumulated window",
 			in: skillReviewInput{
 				UserChat: true, HasModel: true, Now: now,
-				LastStarted: now.Add(-5 * time.Minute),
-				Accumulated: 10,
+				LastStarted: now.Add(-time.Minute),
+				Turns:       10,
 				Calls:       mutatingCalls(1, "edit_file", "src/main.go", ""),
 			},
+			start:  true,
+			reason: "turns",
+			wide:   true,
 		},
 	}
 
