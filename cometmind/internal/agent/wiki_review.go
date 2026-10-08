@@ -34,7 +34,7 @@ type wikiReviewDecision struct {
 
 func decideWikiReview(in wikiReviewInput) wikiReviewDecision {
 	var decision wikiReviewDecision
-	if !in.UserChat || !successfulWebFetch(in.Calls) {
+	if !in.UserChat || !wikiReviewEvidence(in.Calls) || wikiAlreadyWritten(in.Calls) {
 		return decision
 	}
 	if cooldownActive(in.Now, in.LastStarted) {
@@ -48,9 +48,30 @@ func decideWikiReview(in wikiReviewInput) wikiReviewDecision {
 	return decision
 }
 
-func successfulWebFetch(calls []skillCall) bool {
+func wikiReviewEvidence(calls []skillCall) bool {
 	for _, call := range calls {
-		if call.OK && (call.Name == "web_search" || call.Name == "web_fetch") {
+		if call.OK {
+			return true
+		}
+	}
+	return false
+}
+
+func wikiWriteTool(name string) bool {
+	switch name {
+	case "write_file", "edit_file":
+		return true
+	default:
+		return false
+	}
+}
+
+func wikiAlreadyWritten(calls []skillCall) bool {
+	for _, call := range calls {
+		if !call.OK || !wikiWriteTool(call.Name) {
+			continue
+		}
+		if strings.Contains(call.Path, "@runtime/wiki/") || strings.Contains(call.Path, "/.cometmind/wiki/") {
 			return true
 		}
 	}
@@ -150,13 +171,17 @@ func (r *Runner) startWikiReview(ctx context.Context, store skillReviewStore, pa
 
 func wikiReviewSystemPrompt() string {
 	return strings.TrimSpace(`
-You compile fetched research into the user's LLM wiki at @runtime/wiki/.
-Save only content that was fetched and is likely to be useful again.
-Follow llm-wiki capture-then-compile: new raw file, update existing entity/concept/synthesis pages, update index.md, append log.md.
+You compile reusable knowledge from this turn into the user's LLM wiki at @runtime/wiki/.
+Save a conclusion only when it is useful again and grounded in a tool result from this turn.
+Route other takeaways elsewhere:
+- Preferences and personal facts belong to memory. Do not write them here.
+- Repeated procedures belong to skills. Do not write them here.
+- One-off bug fixes, commands, and transient task logs are not wiki pages.
+Update an existing page when the conclusion belongs there. If the page is a dated or commit-stamped snapshot and this turn has a newer source, update it; do not leave a stale current claim.
+If no existing page fits and the conclusion is narrow, stop without writing. Do not create a page for a single fix.
+Follow llm-wiki capture-then-compile when a source is worth keeping: new raw file, update existing entity/concept/synthesis pages, update index.md, append log.md.
 Never edit an existing file under raw/.
-Prefer updating an existing page over creating a duplicate.
 Read @runtime/wiki/index.md before writing.
-If nothing is worth saving, stop without writing.
 `)
 }
 

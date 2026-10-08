@@ -25,8 +25,13 @@ func TestDecideWikiReview(t *testing.T) {
 	}{
 		{name: "successful fetch", in: wikiReviewInput{UserChat: true, HasModel: true, Now: now, Calls: web}, start: true},
 		{name: "successful search", in: wikiReviewInput{UserChat: true, HasModel: true, Now: now, Calls: []skillCall{{Name: "web_search", OK: true}}}, start: true},
+		{name: "repo read", in: wikiReviewInput{UserChat: true, HasModel: true, Now: now, Calls: []skillCall{{Name: "read_file", Path: "README.md", OK: true}}}, start: true},
 		{name: "failed fetch", in: wikiReviewInput{UserChat: true, HasModel: true, Now: now, Calls: []skillCall{{Name: "web_fetch", OK: false}}}},
-		{name: "no web tool", in: wikiReviewInput{UserChat: true, HasModel: true, Now: now, Calls: mutatingCalls(1, "edit_file", "a.go", "")}},
+		{name: "chat only", in: wikiReviewInput{UserChat: true, HasModel: true, Now: now}},
+		{name: "already wrote wiki", in: wikiReviewInput{UserChat: true, HasModel: true, Now: now, Calls: []skillCall{
+			{Name: "read_file", Path: "README.md", OK: true},
+			{Name: "write_file", Path: "@runtime/wiki/concepts/example.md", OK: true},
+		}}},
 		{name: "child session", in: wikiReviewInput{UserChat: false, HasModel: true, Now: now, Calls: web}},
 		{name: "cooldown", in: wikiReviewInput{UserChat: true, HasModel: true, Now: now, LastStarted: now.Add(-14 * time.Minute), Calls: web}},
 		{name: "cooldown expired", in: wikiReviewInput{UserChat: true, HasModel: true, Now: now, LastStarted: now.Add(-15 * time.Minute), Calls: web}, start: true},
