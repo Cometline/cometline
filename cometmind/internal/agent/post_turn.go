@@ -19,7 +19,6 @@ func (r *Runner) completeTurn(ctx context.Context, s *turnState) error {
 	// next queued message can start without waiting on it.
 	bg := context.WithoutCancel(ctx)
 	go r.extractMemoryAfterTurn(bg, s.turn, nil)
-	go r.reviewSkillsAfterTurn(bg, s.turn)
-	go r.reviewWikiAfterTurn(bg, s.turn)
+	go r.reviewAfterTurn(bg, s.turn)
 	return nil
 }

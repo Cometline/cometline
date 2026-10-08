@@ -30,7 +30,10 @@ func TestSkillReviewForkUsesNarrowSurfaceAndDeletesChild(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := seedMutatingTurn(ctx, svc, parent.ID, 8); err != nil {
+	if err := seedMutatingTurn(ctx, svc, parent.ID, 1); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.SetSkillReviewCounter(ctx, parent.ID, 9, 1); err != nil {
 		t.Fatal(err)
 	}
 
@@ -53,13 +56,13 @@ func TestSkillReviewForkUsesNarrowSurfaceAndDeletesChild(t *testing.T) {
 		},
 		ReviewChild: func(_ context.Context, got session.Session, registry *tools.Registry, maxSteps int, systemPrompt string) error {
 			child = got
-			if maxSteps != skillReviewMaxSteps {
+			if maxSteps != reviewMaxSteps {
 				t.Errorf("max steps = %d", maxSteps)
 			}
 			if systemPrompt == "" {
 				t.Error("empty system prompt")
 			}
-			if got.ParentSessionID != parent.ID || got.Origin != "user" || got.SubagentKind != skillReviewKind {
+			if got.ParentSessionID != parent.ID || got.Origin != "user" || got.SubagentKind != reviewKind {
 				t.Errorf("child = %+v", got)
 			}
 			if got.ModelID != "extract-model" || got.ProviderID != "extract-provider" {
@@ -68,7 +71,12 @@ func TestSkillReviewForkUsesNarrowSurfaceAndDeletesChild(t *testing.T) {
 			for _, tool := range registry.CometSDK() {
 				seen = append(seen, tool.Name)
 			}
-			for _, forbidden := range []string{"edit_file", "write_file", "run_command", "write_skill_draft", "promote_skill_draft", "web_search", "web_fetch", "spawn_general_agent"} {
+			for _, required := range []string{"write_skill", "write_file", "web_fetch"} {
+				if !registry.Has(required) {
+					t.Errorf("registry missing %s", required)
+				}
+			}
+			for _, forbidden := range []string{"run_command", "write_skill_draft", "promote_skill_draft", "web_search", "spawn_general_agent"} {
 				if registry.Has(forbidden) {
 					t.Errorf("registry has %s", forbidden)
 				}
@@ -125,9 +133,12 @@ func TestSkillReviewForkUsesNarrowSurfaceAndDeletesChild(t *testing.T) {
 		starts++
 		return nil
 	}
-	runner.reviewSkillsAfterTurn(ctx, session.AgentTurnFromSession(parent))
-	if starts != 0 {
-		t.Fatalf("cooldown did not hold, starts = %d", starts)
+	reset, err := svc.GetSession(ctx, parent.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reset.SkillReviewMutatingCount != 0 {
+		t.Fatalf("counter = %d, want 0", reset.SkillReviewMutatingCount)
 	}
 }
 
@@ -142,7 +153,10 @@ func TestSkillReviewSkipsWithoutExtractionModel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := seedMutatingTurn(ctx, svc, parent.ID, 8); err != nil {
+	if err := seedMutatingTurn(ctx, svc, parent.ID, 1); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.SetSkillReviewCounter(ctx, parent.ID, 9, 1); err != nil {
 		t.Fatal(err)
 	}
 	starts := 0
@@ -165,8 +179,8 @@ func TestSkillReviewSkipsWithoutExtractionModel(t *testing.T) {
 	if updated.SkillReviewStartedAt != 0 {
 		t.Fatalf("cooldown consumed without a start: %d", updated.SkillReviewStartedAt)
 	}
-	if updated.SkillReviewMutatingCount != 8 {
-		t.Fatalf("counter = %d, want 8", updated.SkillReviewMutatingCount)
+	if updated.SkillReviewMutatingCount != 10 {
+		t.Fatalf("counter = %d, want 10", updated.SkillReviewMutatingCount)
 	}
 }
 
@@ -207,12 +221,8 @@ func TestSkillReviewCounterStartsOnceAcrossTurns(t *testing.T) {
 			return nil
 		},
 	}
-	for i, text := range []string{"turn-a", "turn-b", "turn-c"} {
-		n := 3
-		if i == 2 {
-			n = 4
-		}
-		if err := seedNamedTurn(ctx, svc, parent.ID, text, n); err != nil {
+	for i := 1; i <= 10; i++ {
+		if err := seedNamedTurn(ctx, svc, parent.ID, fmt.Sprintf("turn-%d", i), 1); err != nil {
 			t.Fatal(err)
 		}
 		runner.reviewSkillsAfterTurn(ctx, session.AgentTurnFromSession(parent))
@@ -220,7 +230,14 @@ func TestSkillReviewCounterStartsOnceAcrossTurns(t *testing.T) {
 	if starts != 1 {
 		t.Fatalf("starts = %d, want 1", starts)
 	}
-	if len(prompts) != 1 || !strings.Contains(prompts[0], "turn-a") || !strings.Contains(prompts[0], "turn-b") || !strings.Contains(prompts[0], "turn-c") {
+	reset, err := svc.GetSession(ctx, parent.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reset.SkillReviewMutatingCount != 0 {
+		t.Fatalf("counter = %d, want 0", reset.SkillReviewMutatingCount)
+	}
+	if len(prompts) != 1 || !strings.Contains(prompts[0], "turn-1") || !strings.Contains(prompts[0], "turn-10") {
 		t.Fatalf("window = %#v", prompts)
 	}
 	updated, err := svc.GetSession(ctx, parent.ID)

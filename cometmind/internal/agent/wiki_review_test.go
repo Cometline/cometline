@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -15,27 +17,18 @@ import (
 )
 
 func TestDecideWikiReview(t *testing.T) {
-	now := time.Date(2026, 10, 8, 12, 0, 0, 0, time.UTC)
-	web := []skillCall{{Name: "web_fetch", OK: true}}
 	tests := []struct {
 		name    string
 		in      wikiReviewInput
 		start   bool
 		logSkip string
 	}{
-		{name: "successful fetch", in: wikiReviewInput{UserChat: true, HasModel: true, Now: now, Calls: web}, start: true},
-		{name: "successful search", in: wikiReviewInput{UserChat: true, HasModel: true, Now: now, Calls: []skillCall{{Name: "web_search", OK: true}}}, start: true},
-		{name: "repo read", in: wikiReviewInput{UserChat: true, HasModel: true, Now: now, Calls: []skillCall{{Name: "read_file", Path: "README.md", OK: true}}}, start: true},
-		{name: "failed fetch", in: wikiReviewInput{UserChat: true, HasModel: true, Now: now, Calls: []skillCall{{Name: "web_fetch", OK: false}}}},
-		{name: "chat only", in: wikiReviewInput{UserChat: true, HasModel: true, Now: now}},
-		{name: "already wrote wiki", in: wikiReviewInput{UserChat: true, HasModel: true, Now: now, Calls: []skillCall{
-			{Name: "read_file", Path: "README.md", OK: true},
-			{Name: "write_file", Path: "@runtime/wiki/concepts/example.md", OK: true},
-		}}},
-		{name: "child session", in: wikiReviewInput{UserChat: false, HasModel: true, Now: now, Calls: web}},
-		{name: "cooldown", in: wikiReviewInput{UserChat: true, HasModel: true, Now: now, LastStarted: now.Add(-14 * time.Minute), Calls: web}},
-		{name: "cooldown expired", in: wikiReviewInput{UserChat: true, HasModel: true, Now: now, LastStarted: now.Add(-15 * time.Minute), Calls: web}, start: true},
-		{name: "missing model", in: wikiReviewInput{UserChat: true, HasModel: false, Now: now, Calls: web}, logSkip: "wiki.review.skipped_no_model"},
+		{name: "ninth turn does not start", in: wikiReviewInput{UserChat: true, HasModel: true, Turns: 9}},
+		{name: "tenth turn", in: wikiReviewInput{UserChat: true, HasModel: true, Turns: 10}, start: true},
+		{name: "tool result without the turn count", in: wikiReviewInput{UserChat: true, HasModel: true}},
+		{name: "chat only", in: wikiReviewInput{UserChat: true, HasModel: true}},
+		{name: "child session", in: wikiReviewInput{UserChat: false, HasModel: true, Turns: 10}},
+		{name: "missing model", in: wikiReviewInput{UserChat: true, HasModel: false, Turns: 10}, logSkip: "wiki.review.skipped_no_model"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -44,6 +37,101 @@ func TestDecideWikiReview(t *testing.T) {
 				t.Fatalf("decision = %+v", got)
 			}
 		})
+	}
+}
+
+func TestTurnReviewCoalescesWhileRunning(t *testing.T) {
+	ctx := context.Background()
+	svc := reviewSessionService(t)
+	ws, err := svc.EnsureWorkspace(ctx, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	mk := func(title string) session.Session {
+		t.Helper()
+		parent, err := svc.NewSession(ctx, ws.ID, "chat-model", "chat-provider")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := seedNamedTurn(ctx, svc, parent.ID, title, 1); err != nil {
+			t.Fatal(err)
+		}
+		if err := svc.SetSkillReviewCounter(ctx, parent.ID, 9, 1); err != nil {
+			t.Fatal(err)
+		}
+		return parent
+	}
+	first := mk("first review")
+	second := mk("second review")
+	third := mk("third review")
+	started := make(chan struct{})
+	release := make(chan struct{})
+	var mu sync.Mutex
+	var prompts []string
+	var running int
+	var maxRunning int
+	runner := &Runner{
+		Config: &config.Config{Memory: config.MemoryConfig{
+			ExtractionProvider: "extract-provider",
+			ExtractionModel:    "extract-model",
+		}},
+		Sessions: svc,
+		ReviewChild: func(_ context.Context, child session.Session, _ *tools.Registry, _ int, _ string) error {
+			mu.Lock()
+			running++
+			if running > maxRunning {
+				maxRunning = running
+			}
+			mu.Unlock()
+			rows, err := svc.ListMessageRows(ctx, child.ID)
+			if err != nil {
+				return err
+			}
+			mu.Lock()
+			for _, row := range rows {
+				if row.Role == "user" {
+					prompts = append(prompts, row.Content)
+				}
+			}
+			mu.Unlock()
+			if len(prompts) == 1 {
+				close(started)
+				<-release
+			}
+			mu.Lock()
+			running--
+			mu.Unlock()
+			return nil
+		},
+	}
+	go runner.reviewAfterTurn(ctx, session.AgentTurnFromSession(first))
+	select {
+	case <-started:
+	case <-time.After(2 * time.Second):
+		t.Fatal("first review did not start")
+	}
+	runner.reviewAfterTurn(ctx, session.AgentTurnFromSession(second))
+	runner.reviewAfterTurn(ctx, session.AgentTurnFromSession(third))
+	close(release)
+	deadline := time.After(2 * time.Second)
+	for {
+		mu.Lock()
+		done := len(prompts) == 2 && running == 0
+		mu.Unlock()
+		if done {
+			break
+		}
+		select {
+		case <-deadline:
+			t.Fatalf("prompts = %#v running = %d", prompts, running)
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
+	if maxRunning != 1 {
+		t.Fatalf("max running = %d, want 1", maxRunning)
+	}
+	if !strings.Contains(prompts[0], "first review") || !strings.Contains(prompts[1], "third review") || strings.Contains(prompts[1], "second review") {
+		t.Fatalf("prompts = %#v", prompts)
 	}
 }
 
@@ -58,7 +146,10 @@ func TestWikiReviewStartsBesideSkillReview(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := seedMutatingTurn(ctx, svc, parent.ID, 8); err != nil {
+	if err := seedMutatingTurn(ctx, svc, parent.ID, 1); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.SetSkillReviewCounter(ctx, parent.ID, 9, 1); err != nil {
 		t.Fatal(err)
 	}
 	if _, _, err := svc.AppendAssistantStep(ctx, parent.ID, "", nil, []cometsdk.ToolCallBlock{{
@@ -92,7 +183,8 @@ func TestWikiReviewStartsBesideSkillReview(t *testing.T) {
 	hub := event.NewHub()
 	sub := hub.Subscribe()
 	defer sub.Close()
-	var wikiChild, skillChild string
+	starts := 0
+	var childID string
 	runner := &Runner{
 		Config: &config.Config{Memory: config.MemoryConfig{
 			ExtractionProvider: "extract-provider",
@@ -100,23 +192,20 @@ func TestWikiReviewStartsBesideSkillReview(t *testing.T) {
 		}},
 		Sessions: svc,
 		Events:   hub,
-		ReviewChild: func(_ context.Context, child session.Session, registry *tools.Registry, _ int, _ string) error {
-			skillChild = child.ID
-			if registry.Has("web_fetch") {
-				t.Fatal("skill review can fetch the web")
-			}
-			return nil
-		},
-		WikiChild: func(_ context.Context, child session.Session, registry *tools.Registry, maxSteps int, _ string) error {
-			wikiChild = child.ID
-			if maxSteps != wikiReviewMaxSteps {
+		ReviewChild: func(_ context.Context, child session.Session, registry *tools.Registry, maxSteps int, prompt string) error {
+			starts++
+			childID = child.ID
+			if maxSteps != reviewMaxSteps {
 				t.Fatalf("max steps = %d", maxSteps)
 			}
-			if registry.Has("web_search") || registry.Has("write_skill") || registry.Has("run_command") {
-				t.Fatal("wiki registry is too wide")
+			if !strings.Contains(prompt, "write_skill") || !strings.Contains(prompt, "@runtime/wiki/") {
+				t.Fatal("combined review prompt does not cover both jobs")
 			}
-			if !registry.Has("web_fetch") || !registry.Has("write_file") {
-				t.Fatal("wiki registry missing write or fetch")
+			if !registry.Has("write_skill") || !registry.Has("write_file") || !registry.Has("web_fetch") {
+				t.Fatal("combined registry missing a review tool")
+			}
+			if registry.Has("web_search") || registry.Has("run_command") {
+				t.Fatal("combined registry is too wide")
 			}
 			raw := []byte(`{"path":"@runtime/wiki/index.md","content":"# Index\n"}`)
 			_, ids, err := svc.AppendAssistantStep(ctx, child.ID, "", nil, []cometsdk.ToolCallBlock{{
@@ -134,13 +223,12 @@ func TestWikiReviewStartsBesideSkillReview(t *testing.T) {
 		},
 	}
 	turn := session.AgentTurnFromSession(parent)
-	runner.reviewSkillsAfterTurn(ctx, turn)
-	runner.reviewWikiAfterTurn(ctx, turn)
-	if skillChild == "" || wikiChild == "" {
-		t.Fatalf("skill=%q wiki=%q", skillChild, wikiChild)
+	runner.reviewAfterTurn(ctx, turn)
+	if starts != 1 || childID == "" {
+		t.Fatalf("starts = %d child = %q", starts, childID)
 	}
-	if _, err := svc.GetSession(ctx, wikiChild); !errors.Is(err, session.ErrSessionNotFound) {
-		t.Fatalf("wiki child remains: %v", err)
+	if _, err := svc.GetSession(ctx, childID); !errors.Is(err, session.ErrSessionNotFound) {
+		t.Fatalf("review child remains: %v", err)
 	}
 	select {
 	case ev := <-sub.Events:

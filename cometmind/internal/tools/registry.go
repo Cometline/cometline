@@ -54,6 +54,19 @@ func NewWikiReviewRegistry(workspaceRoot string) *Registry {
 	return r
 }
 
+// NewTurnReviewRegistry is the combined hidden review surface. Skill writes
+// and wiki writes are both available, but file writes reject paths outside
+// the wiki, and write_skill cannot touch wiki pages.
+func NewTurnReviewRegistry(workspaceRoot string, skillReg *skills.Registry, used func(string)) *Registry {
+	r := NewWikiReviewRegistry(workspaceRoot)
+	if skillReg != nil {
+		r.Add(LoadSkill{Skills: skillReg, Used: used})
+		r.Add(ReadSkillFile{Skills: skillReg})
+	}
+	r.Add(ReviewWriteSkill{})
+	return r
+}
+
 // NewSkillReviewRegistry is the hidden skill-review surface. It is not a
 // research or coding registry: read tools, load_skill, read_skill_file, and
 // the guarded write_skill only. Read does not include web tools here.

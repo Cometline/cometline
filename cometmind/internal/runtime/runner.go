@@ -117,7 +117,6 @@ func (r *Runtime) runnerFor(sess session.Session, workspacePath string, opts Run
 		},
 		Events:      r.Events,
 		ReviewChild: r.runSkillReviewChild,
-		WikiChild:   r.runWikiReviewChild,
 		SkillUsed: func(name string) {
 			if r.Curator == nil {
 				return
@@ -191,10 +190,6 @@ func (r *Runtime) toolRegistryOptions(skillRegistry skills.Registry, sessionID, 
 			GeneralMaxSteps: sub.GeneralMaxSteps,
 		},
 	}
-}
-
-func (r *Runtime) runWikiReviewChild(ctx context.Context, child session.Session, registry *tools.Registry, maxSteps int, systemPrompt string) error {
-	return r.runHiddenChild(ctx, child, registry, maxSteps, systemPrompt)
 }
 
 func (r *Runtime) runSkillReviewChild(ctx context.Context, child session.Session, registry *tools.Registry, maxSteps int, systemPrompt string) error {

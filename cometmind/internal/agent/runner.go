@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	cometsdk "github.com/Cometline/cometline/comet-sdk"
@@ -46,10 +47,13 @@ type Runner struct {
 
 	// Events publishes background results after the turn SSE channel has closed.
 	Events interface{ Publish(event.Event) }
-	// ReviewChild runs the hidden skill-review fork. Nil skips the fork.
+	// ReviewChild runs the hidden turn-review fork. Nil skips the fork.
 	ReviewChild ReviewChild
-	// WikiChild runs the hidden wiki compile fork. Nil skips the fork.
-	WikiChild ReviewChild
+	// reviewMu keeps one review child running. A later eligible turn replaces
+	// the single pending job instead of starting another child.
+	reviewMu      sync.Mutex
+	reviewRunning bool
+	reviewPending *turnReviewJob
 	// SkillUsed records a successful load_skill for the curator.
 	SkillUsed func(name string)
 	// ReviewNow overrides the clock used for skill-review cooldown. Nil uses time.Now.
