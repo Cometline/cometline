@@ -19,6 +19,7 @@ import (
 	"github.com/Cometline/cometline/cometmind/internal/retention"
 	"github.com/Cometline/cometline/cometmind/internal/scheduler"
 	"github.com/Cometline/cometline/cometmind/internal/session"
+	"github.com/Cometline/cometline/cometmind/internal/skillcurator"
 	"github.com/Cometline/cometline/cometmind/internal/subagent"
 	"github.com/Cometline/cometline/cometmind/internal/usage"
 	"github.com/gin-gonic/gin"
@@ -55,6 +56,7 @@ type Deps struct {
 	ACPMgr       *acp.SessionManager
 	MCPMgr       *mcppkg.Manager
 	SubagentOrch *subagent.Orchestrator
+	Curator      *skillcurator.Service
 }
 
 type App struct {
@@ -76,6 +78,7 @@ type App struct {
 	acpMgr         *acp.SessionManager
 	mcpMgr         *mcppkg.Manager
 	subagentOrch   *subagent.Orchestrator
+	curator        *skillcurator.Service
 }
 
 func New(deps Deps) (*gin.Engine, error) {
@@ -124,6 +127,7 @@ func New(deps Deps) (*gin.Engine, error) {
 		acpMgr:         deps.ACPMgr,
 		mcpMgr:         deps.MCPMgr,
 		subagentOrch:   deps.SubagentOrch,
+		curator:        deps.Curator,
 	}
 	if deps.Memory != nil && deps.Events != nil {
 		deps.Memory.SetCompactionCompletedNotifier(func(result memory.CompactionResult) {

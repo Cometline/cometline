@@ -15,6 +15,9 @@
 
 	function badgesFor(skill: SkillResource): string[] {
 		const badges: string[] = [];
+		if (skill.origin === 'self-improvement') badges.push('self-improvement');
+		if (skill.status === 'stale') badges.push('stale');
+		if (skill.pinned) badges.push('pinned');
 		if (skill.is_symlink) badges.push('symlink');
 		if (!skill.can_edit) badges.push('read-only');
 		return badges;
@@ -77,6 +80,20 @@
 		>
 			{controller.saveBusy ? 'Saving...' : 'Save'}
 		</button>
+		{#if controller.selectedSkill?.skill.origin === 'self-improvement'}
+			<button
+				type="button"
+				class="secondary"
+				disabled={controller.busy}
+				onclick={() =>
+					void controller.togglePin(
+						controller.selectedSkillId,
+						!controller.selectedSkill?.skill.pinned
+					)}
+			>
+				{controller.selectedSkill?.skill.pinned ? 'Unpin' : 'Pin'}
+			</button>
+		{/if}
 		{#if controller.canDeleteSkill}
 			<button
 				type="button"
@@ -91,7 +108,40 @@
 	{/snippet}
 </SkillsPreviewPanel>
 
+{#if controller.archived.length > 0}
+	<section class="archived-skills">
+		<h2>Archived</h2>
+		{#each controller.archived as skill (skill.name)}
+			<div class="archived-row">
+				<span>{skill.name}</span>
+				<button
+					type="button"
+					class="secondary"
+					onclick={() => void controller.restoreArchived(skill.name)}
+				>
+					Restore
+				</button>
+			</div>
+		{/each}
+	</section>
+{/if}
+
 <style>
+	.archived-skills {
+		grid-column: 1 / -1;
+		margin-top: 12px;
+	}
+
+	.archived-row {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 8px;
+		margin-top: 6px;
+		color: var(--text-muted);
+		font-size: 12px;
+	}
+
 	.page-muted {
 		margin: 6px 0 0;
 		font-size: 12px;

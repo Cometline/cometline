@@ -16,6 +16,10 @@ const (
 	KindSubagentFinished          Kind = "subagent_finished"
 	KindMemoryInjected            Kind = "memory_injected"
 	KindMemoryUpdated             Kind = "memory_updated"
+	KindSkillReviewUpdated        Kind = "skill_review_updated"
+	KindWikiReviewUpdated         Kind = "wiki_review_updated"
+	KindSkillCuratorDeleted       Kind = "skill_curator_deleted"
+	KindSkillCuratorMerged        Kind = "skill_curator_merged"
 	KindMemoryCompactionCompleted Kind = "memory_compaction_completed"
 	KindContextBudget             Kind = "context_budget"
 	KindInboxMessageCreated       Kind = "inbox_message_created"
@@ -69,6 +73,13 @@ type MemoryChangeWire struct {
 	ID      string `json:"id,omitempty"`
 }
 
+// SkillReviewChange is one skill a hidden review fork created or updated.
+type SkillReviewChange struct {
+	Name        string `json:"name"`
+	Action      string `json:"action"`
+	Description string `json:"description"`
+}
+
 // Usage mirrors the SSE token-usage payload (one source of truth for the wire).
 type Usage struct {
 	InputTokens  int `json:"input_tokens"`
@@ -109,6 +120,14 @@ type Event struct {
 	Memories []MemoryWire
 	// memory_updated
 	MemoryChanges []MemoryChangeWire
+	// skill_review_updated
+	SkillReviews []SkillReviewChange
+	// wiki_review_updated
+	WikiPaths []string
+	// skill_curator_deleted / skill_curator_merged
+	CuratorCount   int
+	CuratorTarget  string
+	CuratorSources []string
 	// memory_compaction_completed
 	MemoryCountBefore int64
 	MemoryCountAfter  int64

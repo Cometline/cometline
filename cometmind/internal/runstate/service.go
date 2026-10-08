@@ -98,6 +98,8 @@ func (s *Service) Acquire(parent context.Context, sessionID, owner string) (*Lea
 	if !acquired {
 		return nil, fmt.Errorf("%w: %s", ErrAlreadyRunning, sessionID)
 	}
+	_ = s.q.EnsureSkillCuratorPass(parent)
+	_ = s.q.SetCuratorRunsIdleSince(parent, 0)
 
 	ctx, cancel := context.WithCancel(parent)
 	lease := &Lease{
@@ -181,5 +183,11 @@ func (s *Service) Release(ctx context.Context, sessionID, runID string) (bool, e
 		SessionID: sessionID,
 		RunID:     runID,
 	})
+	if err == nil && rows > 0 {
+		if n, countErr := s.q.CountSessionRuns(ctx); countErr == nil && n == 0 {
+			_ = s.q.EnsureSkillCuratorPass(ctx)
+			_ = s.q.SetCuratorRunsIdleSince(ctx, time.Now().UnixMilli())
+		}
+	}
 	return rows > 0, err
 }

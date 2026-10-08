@@ -566,6 +566,15 @@ export type Skill = {
     can_delete: boolean;
     can_export: boolean;
     can_edit: boolean;
+    /**
+     * metadata.cometline.origin. Empty means the skill was not created by the self-improvement loop.
+     */
+    origin?: string;
+    /**
+     * Curator status for a self-improvement skill. Empty for every other skill.
+     */
+    status?: 'active' | 'stale' | 'archived';
+    pinned?: boolean;
 };
 
 export type SkillDetailResponse = {
@@ -776,6 +785,35 @@ export type MemoryInjectedEvent = {
     memories: Array<MemoryWire>;
 };
 
+export type SkillReviewChange = {
+    name: string;
+    action: 'created' | 'updated';
+    description: string;
+};
+
+export type SkillReviewUpdatedEvent = {
+    type: 'skill_review_updated';
+    session_id: string;
+    skills: Array<SkillReviewChange>;
+};
+
+export type WikiReviewUpdatedEvent = {
+    type: 'wiki_review_updated';
+    session_id: string;
+    paths: Array<string>;
+};
+
+export type SkillCuratorDeletedEvent = {
+    type: 'skill_curator_deleted';
+    count: number;
+};
+
+export type SkillCuratorMergedEvent = {
+    type: 'skill_curator_merged';
+    skill: string;
+    sources: Array<string>;
+};
+
 export type MemoryUpdatedEvent = {
     type: 'memory_updated';
     changes: Array<MemoryChangeWire>;
@@ -908,6 +946,14 @@ export type StreamEvent = ({
 } & MemoryInjectedEvent) | ({
     type?: 'memory_updated';
 } & MemoryUpdatedEvent) | ({
+    type?: 'skill_review_updated';
+} & SkillReviewUpdatedEvent) | ({
+    type?: 'wiki_review_updated';
+} & WikiReviewUpdatedEvent) | ({
+    type?: 'skill_curator_deleted';
+} & SkillCuratorDeletedEvent) | ({
+    type?: 'skill_curator_merged';
+} & SkillCuratorMergedEvent) | ({
     type?: 'memory_compaction_completed';
 } & MemoryCompactionCompletedEvent) | ({
     type?: 'context_budget';

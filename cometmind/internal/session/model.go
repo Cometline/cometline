@@ -19,27 +19,32 @@ type SessionGateway struct {
 
 // Session is the session-store view of a persisted chat session.
 type Session struct {
-	ID                      string
-	WorkspaceID             string
-	Title                   string
-	ModelID                 string
-	ProviderID              string
-	Status                  string
-	Origin                  string
-	TokenUsage              string
-	ParentSessionID         string
-	Purpose                 string
-	DelegationStatus        DelegationStatus
-	OutputSummary           string
-	SubagentKind            string
-	AgentMode               string
-	Gateway                 *SessionGateway
-	Pinned                  bool
-	ContextSummary          string
-	CompactedUntilMessageID string
-	ContextSummaryUpdatedAt string
-	CreatedAt               int64
-	UpdatedAt               int64
+	ID                       string
+	WorkspaceID              string
+	Title                    string
+	ModelID                  string
+	ProviderID               string
+	Status                   string
+	Origin                   string
+	TokenUsage               string
+	ParentSessionID          string
+	Purpose                  string
+	DelegationStatus         DelegationStatus
+	OutputSummary            string
+	SubagentKind             string
+	AgentMode                string
+	Gateway                  *SessionGateway
+	Pinned                   bool
+	ContextSummary           string
+	CompactedUntilMessageID  string
+	ContextSummaryUpdatedAt  string
+	SkillReviewStartedAt     int64
+	SkillReviewLastTargets   string
+	SkillReviewMutatingCount int64
+	SkillReviewCountResetAt  int64
+	WikiReviewStartedAt      int64
+	CreatedAt                int64
+	UpdatedAt                int64
 }
 
 // Message is the session-store view of one persisted transcript row.
@@ -76,26 +81,31 @@ func sessionFromDB(s db.Session) Session {
 		summaryUpdatedAt = s.ContextSummaryUpdatedAt.String
 	}
 	return Session{
-		ID:                      s.ID,
-		WorkspaceID:             s.WorkspaceID,
-		Title:                   s.Title,
-		ModelID:                 s.ModelID,
-		ProviderID:              s.ProviderID,
-		Status:                  s.Status,
-		Origin:                  s.Origin,
-		TokenUsage:              s.TokenUsage,
-		ParentSessionID:         parent,
-		Purpose:                 s.Purpose,
-		DelegationStatus:        DelegationStatus(s.DelegationStatus),
-		OutputSummary:           s.OutputSummary,
-		SubagentKind:            s.SubagentKind,
-		AgentMode:               s.AgentMode,
-		Pinned:                  s.Pinned != 0,
-		ContextSummary:          s.ContextSummary,
-		CompactedUntilMessageID: compactedUntil,
-		ContextSummaryUpdatedAt: summaryUpdatedAt,
-		CreatedAt:               s.CreatedAt,
-		UpdatedAt:               s.UpdatedAt,
+		ID:                       s.ID,
+		WorkspaceID:              s.WorkspaceID,
+		Title:                    s.Title,
+		ModelID:                  s.ModelID,
+		ProviderID:               s.ProviderID,
+		Status:                   s.Status,
+		Origin:                   s.Origin,
+		TokenUsage:               s.TokenUsage,
+		ParentSessionID:          parent,
+		Purpose:                  s.Purpose,
+		DelegationStatus:         DelegationStatus(s.DelegationStatus),
+		OutputSummary:            s.OutputSummary,
+		SubagentKind:             s.SubagentKind,
+		AgentMode:                s.AgentMode,
+		Pinned:                   s.Pinned != 0,
+		ContextSummary:           s.ContextSummary,
+		CompactedUntilMessageID:  compactedUntil,
+		ContextSummaryUpdatedAt:  summaryUpdatedAt,
+		SkillReviewStartedAt:     s.SkillReviewStartedAt,
+		SkillReviewLastTargets:   s.SkillReviewLastTargets,
+		SkillReviewMutatingCount: s.SkillReviewMutatingCount,
+		SkillReviewCountResetAt:  s.SkillReviewCountResetAt,
+		WikiReviewStartedAt:      s.WikiReviewStartedAt,
+		CreatedAt:                s.CreatedAt,
+		UpdatedAt:                s.UpdatedAt,
 	}
 }
 

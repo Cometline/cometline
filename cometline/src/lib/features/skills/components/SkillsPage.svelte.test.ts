@@ -7,8 +7,11 @@ const api = vi.hoisted(() => ({
 	deleteSkill: vi.fn(),
 	getSkill: vi.fn(),
 	getSkillDraft: vi.fn(),
+	listArchivedSkills: vi.fn(),
 	listSkillDrafts: vi.fn(),
 	listSkills: vi.fn(),
+	pinSkill: vi.fn(),
+	restoreArchivedSkill: vi.fn(),
 	promoteSkillDraft: vi.fn(),
 	rejectSkillDraft: vi.fn(),
 	updateSkill: vi.fn(),
@@ -80,6 +83,7 @@ describe('SkillsPage skill editor', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		api.listSkillDrafts.mockResolvedValue([]);
+		api.listArchivedSkills.mockResolvedValue([]);
 		api.listSkills.mockResolvedValue({ skills: [alpha, beta], errors: [] });
 		api.getSkill.mockImplementation((name: string) =>
 			Promise.resolve(detail(name === alpha.name ? alpha : beta))

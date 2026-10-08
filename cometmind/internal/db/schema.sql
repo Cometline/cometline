@@ -34,13 +34,18 @@ CREATE TABLE sessions (
                        ),
     output_summary     TEXT NOT NULL DEFAULT '',
     subagent_kind      TEXT NOT NULL DEFAULT ''
-                       CHECK (subagent_kind IN ('', 'general', 'acp')),
+                       CHECK (subagent_kind IN ('', 'general', 'acp', 'coding', 'skill_review', 'wiki_review')),
     agent_mode         TEXT NOT NULL DEFAULT 'auto'
                        CHECK (agent_mode IN ('auto', 'plan')),
     pinned             INTEGER NOT NULL DEFAULT 0,
     context_summary    TEXT NOT NULL DEFAULT '',
     compacted_until_message_id TEXT,
     context_summary_updated_at TEXT,
+    skill_review_started_at INTEGER NOT NULL DEFAULT 0,
+    skill_review_last_targets TEXT NOT NULL DEFAULT '',
+    skill_review_mutating_count INTEGER NOT NULL DEFAULT 0,
+    skill_review_count_reset_at INTEGER NOT NULL DEFAULT 0,
+    wiki_review_started_at INTEGER NOT NULL DEFAULT 0,
     created_at         INTEGER NOT NULL DEFAULT (unixepoch ('now', 'subsec') * 1000),
     updated_at         INTEGER NOT NULL DEFAULT (unixepoch ('now', 'subsec') * 1000)
 );
@@ -92,6 +97,26 @@ CREATE TABLE session_runs (
 );
 
 CREATE INDEX idx_session_runs_updated ON session_runs (updated_at);
+
+CREATE TABLE skill_curator_state (
+    skill_name TEXT PRIMARY KEY,
+    origin TEXT NOT NULL DEFAULT 'self-improvement',
+    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'stale', 'archived')),
+    pinned INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL,
+    last_used_at INTEGER NOT NULL DEFAULT 0,
+    unused_since INTEGER NOT NULL DEFAULT 0,
+    archived_at INTEGER NOT NULL DEFAULT 0,
+    pinned_at INTEGER NOT NULL DEFAULT 0,
+    delete_notified_at INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE skill_curator_pass (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    last_pass_at INTEGER NOT NULL DEFAULT 0,
+    last_merge_at INTEGER NOT NULL DEFAULT 0,
+    runs_idle_since INTEGER NOT NULL DEFAULT 0
+);
 
 CREATE TABLE gateway_sessions (
     id                   TEXT PRIMARY KEY,

@@ -13,7 +13,11 @@ import (
 )
 
 // LoadSkill loads a discovered Agent Skill's SKILL.md instructions.
-type LoadSkill struct{ Skills *skills.Registry }
+type LoadSkill struct {
+	Skills *skills.Registry
+	// Used records a successful load. A failed load does not call it.
+	Used func(name string)
+}
 
 func (LoadSkill) Spec() ToolSpec {
 	return ToolSpec{
@@ -39,7 +43,17 @@ func (l LoadSkill) Execute(_ context.Context, input json.RawMessage) (Result, er
 	}
 	skill, markdown, err := l.Skills.SkillMarkdown(name)
 	if err != nil {
-		return Result{OK: false, Output: err.Error()}, nil
+		archived, body, restoreErr := skills.ReadArchivedSkill(name)
+		if restoreErr != nil || !skills.IsSelfImprovement(archived) {
+			return Result{OK: false, Output: err.Error()}, nil
+		}
+		if restoreErr = skills.RestoreArchivedSkill(name); restoreErr != nil {
+			return Result{OK: false, Output: restoreErr.Error()}, nil
+		}
+		skill, markdown = archived, body
+	}
+	if l.Used != nil && skills.IsSelfImprovement(skill) {
+		l.Used(skill.Name)
 	}
 	files := skillFiles(skill.Path)
 	out := fmt.Sprintf("name: %s\ndescription: %s\nsource: %s\nfiles: %s\n\n%s",

@@ -30,6 +30,7 @@ import (
 	"github.com/Cometline/cometline/cometmind/internal/provider"
 	"github.com/Cometline/cometline/cometmind/internal/scheduler"
 	"github.com/Cometline/cometline/cometmind/internal/session"
+	"github.com/Cometline/cometline/cometmind/internal/skillcurator"
 	"github.com/Cometline/cometline/cometmind/internal/skills"
 	"github.com/Cometline/cometline/cometmind/internal/sqlite"
 	"github.com/Cometline/cometline/cometmind/internal/subagent"
@@ -55,6 +56,7 @@ type Runtime struct {
 	Events           *event.Hub
 	Jobs             *jobs.Service
 	Inbox            *inbox.Service
+	Curator          *skillcurator.Service
 	Scheduler        *scheduler.Service
 	jobSettings      jobs.Settings
 	jobSettingsMu    sync.RWMutex
@@ -117,6 +119,7 @@ func New(ctx context.Context) (*Runtime, error) {
 	notifier := jobs.NewNotifier(r.jobSettingsSnapshot)
 	r.Jobs = jobs.NewService(sqlDB, r.jobSettingsSnapshot, notifier)
 	r.Inbox = inbox.NewService(sqlDB)
+	r.Curator = skillcurator.New(sqlDB)
 	r.Scheduler = scheduler.NewService(sqlDB)
 	if cfg.MemoryRuntimeEnabled() {
 		r.Memory = newMemoryService(cfg, sqlDB, sessions, usageSvc)

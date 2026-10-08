@@ -31,6 +31,36 @@ func TestDiscoverFindsSkillsAndDeduplicatesByRootOrder(t *testing.T) {
 	}
 }
 
+func TestDiscoverIncludesQueryWikiSkill(t *testing.T) {
+	isolatedSkillsHome(t)
+	reg := Discover("", Config{Enabled: true})
+	skill, markdown, err := reg.SkillMarkdown("query-wiki")
+	if err != nil {
+		t.Fatalf("query-wiki: %v errors=%v", err, reg.Errors)
+	}
+	if skill.Internal {
+		t.Fatal("query-wiki must stay visible")
+	}
+	if !strings.Contains(reg.PromptIndex(), "query-wiki") {
+		t.Fatal("prompt index should include query-wiki")
+	}
+	for _, phrase := range []string{"@runtime/wiki/index.md", "at most 3", "Do not write"} {
+		if !strings.Contains(markdown, phrase) {
+			t.Fatalf("query-wiki body missing %q", phrase)
+		}
+	}
+	wiki, wikiBody, err := reg.SkillMarkdown("llm-wiki")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if wiki.Name != "llm-wiki" {
+		t.Fatalf("name = %s", wiki.Name)
+	}
+	if !strings.Contains(wikiBody, "query-wiki") || !strings.Contains(wikiBody, "Ingest") {
+		t.Fatal("llm-wiki should delegate query and keep ingest")
+	}
+}
+
 func TestDiscoverIncludesBundledLLMWikiSkill(t *testing.T) {
 	isolatedSkillsHome(t)
 

@@ -455,7 +455,7 @@ export const getSessionMessages = <ThrowOnError extends boolean = false>(options
  * `text_delta`, `reasoning_start`, `reasoning_delta`, `tool_call`,
  * `tool_result`, `step_finish`, `subagent_started`, `subagent_progress`,
  * `subagent_finished`, `memory_injected`,
- * `memory_updated`, `context_budget`, `assistant_image`, `assistant_video`, `error`, and `done`.
+ * `memory_updated`, `skill_review_updated`, `wiki_review_updated`, `context_budget`, `assistant_image`, `assistant_video`, `error`, and `done`.
  *
  * Each `data:` frame body matches `#/components/schemas/StreamEvent`.
  * `tool_call.input` is a JSON object. `tool_result.output` is text.
@@ -564,8 +564,8 @@ export const deleteMedia = <ThrowOnError extends boolean = false>(options: Optio
 /**
  * Stream background runtime events over SSE
  * Streams events that can complete after a request-scoped message stream,
- * including agent-initiated memory CRUD notifications. Each `data:` frame
- * body matches `#/components/schemas/StreamEvent`.
+ * including agent-initiated memory CRUD notifications and hidden skill
+ * and wiki review results. Each `data:` frame body matches `#/components/schemas/StreamEvent`.
  *
  */
 export const streamRuntimeEvents = <ThrowOnError extends boolean = false>(options?: Options<StreamRuntimeEventsData, ThrowOnError>) => {

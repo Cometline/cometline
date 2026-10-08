@@ -19,6 +19,9 @@ type Config struct {
 	IncludeClaude   bool
 }
 
+// OriginSelfImprovement marks a skill written by the background review loop.
+const OriginSelfImprovement = "self-improvement"
+
 // Skill is one discovered Agent Skill directory.
 type Skill struct {
 	Name        string `json:"name"`
@@ -26,6 +29,12 @@ type Skill struct {
 	Path        string `json:"path"`
 	Source      string `json:"source"`
 	Internal    bool   `json:"internal"`
+	Origin      string `json:"origin,omitempty"`
+}
+
+// IsSelfImprovement reports whether the skill was created by the review loop.
+func IsSelfImprovement(skill Skill) bool {
+	return skill.Origin == OriginSelfImprovement
 }
 
 // Registry is an immutable index of discovered skills.
@@ -39,7 +48,10 @@ type frontmatter struct {
 	Name        string `yaml:"name"`
 	Description string `yaml:"description"`
 	Metadata    struct {
-		Internal bool `yaml:"internal"`
+		Internal  bool `yaml:"internal"`
+		Cometline struct {
+			Origin string `yaml:"origin"`
+		} `yaml:"cometline"`
 	} `yaml:"metadata"`
 }
 
@@ -104,6 +116,9 @@ func discoverRoot(root string, reg *Registry) {
 		return
 	}
 	for _, entry := range entries {
+		if entry.Name() == ".archive" || strings.HasPrefix(entry.Name(), ".") {
+			continue
+		}
 		if !entry.IsDir() && entry.Type()&os.ModeSymlink == 0 {
 			continue
 		}
@@ -143,7 +158,14 @@ func ReadSkill(dir string) (Skill, error) {
 	if name == "" || desc == "" {
 		return Skill{}, fmt.Errorf("skill %q missing required name or description", resolved)
 	}
-	return Skill{Name: name, Description: desc, Path: resolved, Source: resolved, Internal: fm.Metadata.Internal}, nil
+	return Skill{
+		Name:        name,
+		Description: desc,
+		Path:        resolved,
+		Source:      resolved,
+		Internal:    fm.Metadata.Internal,
+		Origin:      strings.TrimSpace(fm.Metadata.Cometline.Origin),
+	}, nil
 }
 
 // Find returns a skill by name.
@@ -208,7 +230,7 @@ func (r Registry) PromptIndex() string {
 	b.WriteString("When a conversation produces a clear, reusable, already-validated multi-step workflow, offer to save it as an Agent Skill draft. If the user agrees or asks to remember a workflow as a skill, use `write_skill_draft` (never `write_skill`) so it stays pending human review. Skip one-off fixes and unverified advice.\n")
 	b.WriteString("Before creating a draft, the runtime compares against managed skills and pending drafts; near-duplicates are blocked. When blocked, tell the user about the overlaps and ask before re-calling with `force=true`, or update an existing same-name draft with `overwrite=true`.\n")
 	for _, skill := range r.Skills {
-		if skill.Internal {
+		if skill.Internal || strings.Contains(filepath.ToSlash(skill.Path), "/.archive/") {
 			continue
 		}
 		b.WriteString("- ")

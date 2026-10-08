@@ -26,6 +26,10 @@
 		notifyConnectionChange,
 		notifyJobActivity,
 		notifyNewInboxMessage,
+		notifySkillMerged,
+		notifySkillReview,
+		notifySkillsDeleted,
+		notifyWikiReview,
 		startSkillDraftToastWatch
 	} from '#lib/notifications/activity-toasts.js';
 	import { startStorageRetentionSync } from '#lib/retention/storage-retention-sync.js';
@@ -77,6 +81,18 @@
 				void applySessionRuntimeEvent(event, runtimeEventDeps);
 				if (event.type === 'memory_updated') {
 					memoryToastStore.add(event.changes);
+				}
+				if (event.type === 'skill_review_updated' && !isMiniRoute && !isSettingsRoute) {
+					notifySkillReview(event.skills);
+				}
+				if (event.type === 'wiki_review_updated' && !isMiniRoute && !isSettingsRoute) {
+					notifyWikiReview(event.paths);
+				}
+				if (event.type === 'skill_curator_deleted' && !isMiniRoute && !isSettingsRoute) {
+					notifySkillsDeleted(event.count);
+				}
+				if (event.type === 'skill_curator_merged' && !isMiniRoute && !isSettingsRoute) {
+					notifySkillMerged(event.skill);
 				}
 				if (event.type === 'memory_compaction_completed') {
 					memoryToastStore.addCompaction(event);

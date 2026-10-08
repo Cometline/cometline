@@ -36,4 +36,8 @@ func registerExcludedRoutes(r *gin.Engine, app *App) {
 	r.GET("/api/v1/sessions/:id/media/:mediaId", app.handleGetSessionMedia)
 	r.GET("/api/v1/media/:id/content", app.handleGetMediaContent)
 	r.GET("/api/v1/skills/:name/archive", app.handleExportSkill)
+	r.GET("/api/v1/skill-archive", app.handleListArchivedSkills)
+	r.POST("/api/v1/skills/:name/pin", app.handlePinSkill)
+	r.DELETE("/api/v1/skills/:name/pin", app.handleUnpinSkill)
+	r.POST("/api/v1/skills/:name/restore", app.handleRestoreSkill)
 }

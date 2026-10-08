@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import ConfirmActionModal from '#lib/components/ConfirmActionModal.svelte';
 	import {
 		createSkillsPageController,
@@ -16,10 +16,22 @@
 	let tab = $derived<SkillsTab>(
 		page.url.searchParams.get('tab') === 'skills' ? 'skills' : 'drafts'
 	);
-	const controller = createSkillsPageController({ getTab: () => tab });
+	let requestedSkill = $derived(page.url.searchParams.get('skill') ?? '');
+	const controller = createSkillsPageController({
+		getTab: () => tab,
+		getRequestedSkill: () => requestedSkill
+	});
 
 	onMount(() => {
 		void controller.load();
+	});
+
+	$effect(() => {
+		const name = requestedSkill;
+		if (tab !== 'skills' || !name) return;
+		untrack(() => {
+			void controller.selectSkill(name);
+		});
 	});
 
 	function setTab(next: SkillsTab) {
