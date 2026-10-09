@@ -68,8 +68,7 @@
 				const url = view.panelUrlTabMeta[id]?.url ?? '';
 				return url && !isBlankTabUrl(url) ? url : null;
 			}}
-			onReload={(id) =>
-				webTabActivity.get(`${view.panelSessionKey}:${id}`)?.surface.reload()}
+			onReload={(id) => webTabActivity.get(`${view.panelSessionKey}:${id}`)?.surface.reload()}
 			onActivate={(id) => {
 				shellStore.activateUrlTabForActive(id);
 				panel.applyOwnedFocus();

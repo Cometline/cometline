@@ -190,7 +190,9 @@ describe('WorkspacePanel web tab lifetimes', () => {
 
 		await fireEvent.click(getByRole('tab', { name: 'Background next' }));
 		expect(getByRole('button', { name: 'Forward' })).toBeEnabled();
-		expect(getByRole('button', { name: 'Reload Background next' }).querySelector('.spin')).toBeNull();
+		expect(
+			getByRole('button', { name: 'Reload Background next' }).querySelector('.spin')
+		).toBeNull();
 		expect(background.srcWrites).not.toHaveBeenCalled();
 		expect(background.stop).not.toHaveBeenCalled();
 	});
