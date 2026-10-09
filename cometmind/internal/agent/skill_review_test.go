@@ -142,7 +142,40 @@ func TestSkillReviewForkUsesNarrowSurfaceAndDeletesChild(t *testing.T) {
 	}
 }
 
-func TestSkillReviewSkipsWithoutExtractionModel(t *testing.T) {
+func TestSkillReviewUsesDefaultModelWhenExtractionUnpinned(t *testing.T) {
+	ctx := context.Background()
+	svc := reviewSessionService(t)
+	ws, err := svc.EnsureWorkspace(ctx, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	parent, err := svc.NewSession(ctx, ws.ID, "chat-model", "chat-provider")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := seedMutatingTurn(ctx, svc, parent.ID, 1); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.SetSkillReviewCounter(ctx, parent.ID, 9, 1); err != nil {
+		t.Fatal(err)
+	}
+	var gotModel, gotProvider string
+	runner := &Runner{
+		Config:   &config.Config{DefaultProviderID: "chat-provider", DefaultModelID: "chat-model"},
+		Sessions: svc,
+		ReviewChild: func(_ context.Context, child session.Session, _ *tools.Registry, _ int, _ string) error {
+			gotModel = child.ModelID
+			gotProvider = child.ProviderID
+			return nil
+		},
+	}
+	runner.reviewSkillsAfterTurn(ctx, session.AgentTurnFromSession(parent))
+	if gotProvider != "chat-provider" || gotModel != "chat-model" {
+		t.Fatalf("review model = %s/%s, want default chat-provider/chat-model", gotProvider, gotModel)
+	}
+}
+
+func TestSkillReviewSkipsWithoutAnyModel(t *testing.T) {
 	ctx := context.Background()
 	svc := reviewSessionService(t)
 	ws, err := svc.EnsureWorkspace(ctx, t.TempDir())
@@ -161,7 +194,7 @@ func TestSkillReviewSkipsWithoutExtractionModel(t *testing.T) {
 	}
 	starts := 0
 	runner := &Runner{
-		Config:   &config.Config{DefaultProviderID: "chat-provider", DefaultModelID: "chat-model"},
+		Config:   &config.Config{},
 		Sessions: svc,
 		ReviewChild: func(context.Context, session.Session, *tools.Registry, int, string) error {
 			starts++
@@ -170,7 +203,7 @@ func TestSkillReviewSkipsWithoutExtractionModel(t *testing.T) {
 	}
 	runner.reviewSkillsAfterTurn(ctx, session.AgentTurnFromSession(parent))
 	if starts != 0 {
-		t.Fatalf("chat model was used, starts = %d", starts)
+		t.Fatalf("review started without a model, starts = %d", starts)
 	}
 	updated, err := svc.GetSession(ctx, parent.ID)
 	if err != nil {
