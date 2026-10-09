@@ -69,8 +69,6 @@ export function createWorkspacePanelView() {
 	const canGoBack = $derived(webSurfaceRef?.pageState?.canGoBack ?? false);
 	const canGoForward = $derived(webSurfaceRef?.pageState?.canGoForward ?? false);
 	const pageTitle = $derived(panelUrlTabMeta[panelUrlTabId ?? '']?.title ?? '');
-	const loading = $derived(webSurfaceRef?.pageState?.loading ?? false);
-	const capturingContext = $derived(webSurfaceRef?.pageState?.capturing ?? false);
 
 	const shownAddress = $derived.by(() => {
 		if (!shellStore.hasWorkspacePanelForSession) return '';
@@ -270,12 +268,6 @@ export function createWorkspacePanelView() {
 		},
 		get pageTitle() {
 			return pageTitle;
-		},
-		get loading() {
-			return loading;
-		},
-		get capturingContext() {
-			return capturingContext;
 		},
 		get shownAddress() {
 			return shownAddress;

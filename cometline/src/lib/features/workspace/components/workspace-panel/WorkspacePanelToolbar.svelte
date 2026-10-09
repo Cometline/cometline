@@ -3,13 +3,11 @@
 		ArrowLeft,
 		ArrowRight,
 		BookOpen,
-		FileText,
 		FolderTree,
 		GitBranch,
 		Play,
 		Power,
 		RotateCcw,
-		RotateCw,
 		Save,
 		Search,
 		SquareTerminal
@@ -144,27 +142,6 @@
 				<ArrowRight size={16} />
 			</button>
 		</Tooltip>
-		{#if view.showWebview}
-			<button
-				type="button"
-				class="icon-button"
-				onclick={panel.onReload}
-				aria-label="Reload page"
-				title="Reload page"
-			>
-				<RotateCw size={16} class={view.loading ? 'spin' : ''} />
-			</button>
-			<button
-				type="button"
-				class="icon-button"
-				disabled={view.capturingContext || !view.webSurfaceRef?.pageState?.ready}
-				onclick={() => void panel.capturePageContext()}
-				aria-label="Add page to chat context"
-				title="Add page to next message"
-			>
-				<FileText size={16} />
-			</button>
-		{/if}
 	</div>
 	<WorkspacePanelTitleField {view} {panel} />
 	{#if view.showTerminalTitle}

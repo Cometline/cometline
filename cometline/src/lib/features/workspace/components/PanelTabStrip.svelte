@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Globe, LoaderCircle, Plus, TriangleAlert, X } from '@lucide/svelte';
+	import { Check, Copy, LoaderCircle, Plus, RotateCw, TriangleAlert, X } from '@lucide/svelte';
 	import AudioActivityIcon from '#lib/components/AudioActivityIcon.svelte';
 	import type { WebTabStatus } from '#lib/features/workspace/web-tab-activity.svelte.js';
 
@@ -14,7 +14,9 @@
 		onClose,
 		onNewTab,
 		webStatusFor,
-		onToggleMute
+		onToggleMute,
+		copyUrlFor,
+		onReload
 	}: {
 		tabs: string[];
 		activeId: string | null;
@@ -27,8 +29,32 @@
 		onNewTab?: () => void;
 		webStatusFor?: (id: string) => WebTabStatus | undefined;
 		onToggleMute?: (id: string) => void;
+		copyUrlFor?: (id: string) => string | null;
+		onReload?: (id: string) => void;
 	} = $props();
 	const stripId = $props.id();
+	let copiedTabId = $state<string | null>(null);
+	let copyResetTimer: ReturnType<typeof setTimeout> | null = null;
+
+	async function copyTabUrl(id: string, url: string) {
+		try {
+			await navigator.clipboard.writeText(url);
+		} catch {
+			return;
+		}
+		copiedTabId = id;
+		if (copyResetTimer) clearTimeout(copyResetTimer);
+		copyResetTimer = setTimeout(() => {
+			copiedTabId = null;
+			copyResetTimer = null;
+		}, 1600);
+	}
+
+	$effect(() => {
+		return () => {
+			if (copyResetTimer) clearTimeout(copyResetTimer);
+		};
+	});
 
 	function keepPaneFocus(event: MouseEvent) {
 		event.preventDefault();
@@ -45,6 +71,8 @@
 			{@const status = webStatusFor?.(tabId)}
 			{@const statusLabel =
 				status?.loadError || (status?.showLoading ? 'Loading page' : undefined)}
+			{@const copyUrl = copyUrlFor?.(tabId) ?? null}
+			{@const copied = copiedTabId === tabId}
 			<div
 				class="panel-tab"
 				class:active
@@ -61,7 +89,7 @@
 					onmousedown={keepPaneFocus}
 					onclick={() => onActivate(tabId)}
 				>
-					{#if webStatusFor}
+					{#if status?.loadError || status?.showLoading}
 						<span
 							class="tab-status"
 							class:failed={Boolean(status?.loadError)}
@@ -70,10 +98,8 @@
 						>
 							{#if status?.loadError}
 								<TriangleAlert size={13} />
-							{:else if status?.showLoading}
-								<span class="loading-icon"><LoaderCircle size={13} /></span>
 							{:else}
-								<Globe size={13} />
+								<span class="loading-icon"><LoaderCircle size={13} /></span>
 							{/if}
 						</span>
 					{/if}
@@ -109,6 +135,35 @@
 							</button>
 						{/if}
 					</span>
+				{/if}
+				{#if onReload && copyUrl}
+					<button
+						type="button"
+						class="panel-tab-action"
+						disabled={!status?.ready}
+						aria-label={`Reload ${label}`}
+						title="Reload page"
+						onmousedown={keepPaneFocus}
+						onclick={() => onReload(tabId)}
+					>
+						<RotateCw size={12} />
+					</button>
+				{/if}
+				{#if copyUrl}
+					<button
+						type="button"
+						class="panel-tab-action panel-tab-copy"
+						aria-label={copied ? `Copied URL for ${label}` : `Copy URL for ${label}`}
+						title={copied ? 'Copied' : 'Copy URL'}
+						onmousedown={keepPaneFocus}
+						onclick={() => void copyTabUrl(tabId, copyUrl)}
+					>
+						{#if copied}
+							<Check size={12} />
+						{:else}
+							<Copy size={12} />
+						{/if}
+					</button>
 				{/if}
 				<button
 					type="button"
@@ -276,6 +331,7 @@
 		}
 	}
 
+	.panel-tab-action,
 	.panel-tab-close {
 		display: inline-flex;
 		align-items: center;
@@ -283,8 +339,6 @@
 		flex-shrink: 0;
 		width: 18px;
 		height: 18px;
-		margin-left: auto;
-		margin-right: 4px;
 		border: 0;
 		border-radius: 4px;
 		background: transparent;
@@ -292,13 +346,38 @@
 		cursor: pointer;
 	}
 
-	.panel-tab:not(.active) .panel-tab-close {
-		opacity: 0;
+	.panel-tab-action:first-of-type,
+	.panel-tab:not(:has(.panel-tab-action)) .panel-tab-close {
+		margin-left: auto;
 	}
 
+	.panel-tab-close {
+		margin-right: 4px;
+	}
+
+	.panel-tab .panel-tab-action,
+	.panel-tab:not(.active) .panel-tab-close {
+		opacity: 0.25;
+	}
+
+	.panel-tab:hover .panel-tab-action,
+	.panel-tab:focus-within .panel-tab-action,
 	.panel-tab:not(.active):hover .panel-tab-close,
-	.panel-tab:not(.active):focus-within .panel-tab-close {
+	.panel-tab:not(.active):focus-within .panel-tab-close,
+	.panel-tab.active .panel-tab-close {
 		opacity: 1;
+	}
+
+	.panel-tab-action:disabled,
+	.panel-tab:hover .panel-tab-action:disabled,
+	.panel-tab:focus-within .panel-tab-action:disabled {
+		opacity: 0.45;
+		cursor: default;
+	}
+
+	.panel-tab-action:hover:not(:disabled) {
+		background: color-mix(in srgb, var(--text-main) 12%, transparent);
+		color: var(--text-main);
 	}
 
 	.panel-tab-close:hover {
