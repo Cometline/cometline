@@ -90,21 +90,6 @@ export function createWorkspacePanelController(view: WorkspacePanelView) {
 		view.webSurfaceRef?.reload();
 	}
 
-	async function capturePageContext() {
-		const key = view.activeWebTabKey;
-		const sessionId = view.panelSessionKey;
-		const surface = view.webSurfaceRef;
-		const context = await surface?.captureContext();
-		if (
-			context &&
-			sessionId === view.panelSessionKey &&
-			key &&
-			webTabActivity.get(key)?.surface === surface
-		) {
-			shellStore.addWebContextForActive(context);
-		}
-	}
-
 	async function resolvePageContext(source: string) {
 		const matches = view.webTabs.filter(
 			(tab) => tab.sessionId === view.panelSessionKey && tab.url === source
@@ -365,7 +350,6 @@ export function createWorkspacePanelController(view: WorkspacePanelView) {
 		onBack,
 		onForward,
 		onReload,
-		capturePageContext,
 		resolvePageContext,
 		noteVisibleContext,
 		requestLeaveEditor,

@@ -146,9 +146,15 @@ describe('WorkspacePanel web tab lifetimes', () => {
 	});
 
 	it('isolates background navigation, loading, focus, and active toolbar commands', async () => {
+		shellStore.openWorkspacePanelUrlForActive('about:blank');
+		const { container, getByRole, queryByRole } = render(WorkspacePanel);
+		await tick();
+		expect(queryByRole('button', { name: /^Reload / })).toBeNull();
+		expect(queryByRole('button', { name: /^Copy URL / })).toBeNull();
+		await fireEvent.click(getByRole('button', { name: 'Close New Tab' }));
+
 		shellStore.openWorkspacePanelUrlForActive('https://background.example');
 		const [backgroundId] = shellStore.workspacePanelUrlTabs;
-		const { container, getByRole } = render(WorkspacePanel);
 		await tick();
 		const background = attachGuest(container, 'https://background.example');
 		await background.navigate('https://background.example', 'Background');
@@ -174,9 +180,9 @@ describe('WorkspacePanel web tab lifetimes', () => {
 			expect.objectContaining({ source: 'https://active.example', title: 'Active' })
 		]);
 		expect(getByRole('button', { name: 'Forward' })).toBeDisabled();
-		expect(getByRole('button', { name: 'Reload page' }).querySelector('.spin')).toBeNull();
+		expect(getByRole('button', { name: 'Reload Active' }).querySelector('.spin')).toBeNull();
 		await fireEvent.click(getByRole('button', { name: 'Back' }));
-		await fireEvent.click(getByRole('button', { name: 'Reload page' }));
+		await fireEvent.click(getByRole('button', { name: 'Reload Active' }));
 		expect(active.goBack).toHaveBeenCalledOnce();
 		expect(active.reload).toHaveBeenCalledOnce();
 		expect(background.goBack).not.toHaveBeenCalled();
@@ -184,7 +190,7 @@ describe('WorkspacePanel web tab lifetimes', () => {
 
 		await fireEvent.click(getByRole('tab', { name: 'Background next' }));
 		expect(getByRole('button', { name: 'Forward' })).toBeEnabled();
-		expect(getByRole('button', { name: 'Reload page' }).querySelector('.spin')).not.toBeNull();
+		expect(getByRole('button', { name: 'Reload Background next' }).querySelector('.spin')).toBeNull();
 		expect(background.srcWrites).not.toHaveBeenCalled();
 		expect(background.stop).not.toHaveBeenCalled();
 	});
@@ -300,25 +306,6 @@ describe('WorkspacePanel web tab lifetimes', () => {
 		await tick();
 		rejectCapture(new Error('Guest destroyed'));
 		await expect(pending).resolves.toEqual([]);
-	});
-
-	it('does not attach an in-flight capture to another session', async () => {
-		shellStore.openWorkspacePanelUrlForActive('https://example.com');
-		const { container, getByRole } = render(WorkspacePanel);
-		await tick();
-		const guest = attachGuest(container, 'https://example.com');
-		let resolveCapture!: (value: { url: string; title: string; content: string }) => void;
-		guest.executeJavaScript.mockImplementation(
-			() =>
-				new Promise((resolve) => {
-					resolveCapture = resolve;
-				})
-		);
-		await fireEvent.click(getByRole('button', { name: 'Add page to chat context' }));
-		sessionStore.selectSession({ ...session, id: 'other-session' });
-		resolveCapture({ url: 'https://example.com', title: 'Example', content: 'Body' });
-		await tick();
-		expect(shellStore.pendingWebContexts).toEqual([]);
 	});
 
 	it('resolves context from the selected tab when two guests have the same URL', async () => {
@@ -502,11 +489,10 @@ describe('WorkspacePanel web tab lifetimes', () => {
 		expect(getByRole('tab', { name: 'Music' })).toHaveAccessibleDescription(
 			'Page stopped unexpectedly. Reload to try again.'
 		);
-		expect(getByRole('button', { name: 'Add page to chat context' })).toBeDisabled();
 		const checks = guest.isCurrentlyAudible.mock.calls.length;
 		await vi.advanceTimersByTimeAsync(1500);
 		expect(guest.isCurrentlyAudible).toHaveBeenCalledTimes(checks);
-		await fireEvent.click(getByRole('button', { name: 'Reload page' }));
+		await fireEvent.click(getByRole('button', { name: 'Reload Music' }));
 		expect(guest.reload).toHaveBeenCalledOnce();
 	});
 });
