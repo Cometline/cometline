@@ -102,12 +102,14 @@ func skillReviewUserPrompt(transcript string, catalog skills.Registry) string {
 	return b.String()
 }
 
-func pinnedExtraction(cfg *config.Config) (string, string, bool) {
+// reviewExtraction resolves the model for skill and wiki review. An explicit
+// extraction pin wins; otherwise the Default model pair is used, matching
+// memory extraction.
+func reviewExtraction(cfg *config.Config) (string, string, bool) {
 	if cfg == nil {
 		return "", "", false
 	}
-	providerID := strings.TrimSpace(cfg.Memory.ExtractionProvider)
-	modelID := strings.TrimSpace(cfg.Memory.ExtractionModel)
+	providerID, modelID := cfg.ExtractionLLM()
 	if providerID == "" || modelID == "" {
 		return "", "", false
 	}

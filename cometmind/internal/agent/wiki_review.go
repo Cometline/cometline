@@ -68,7 +68,7 @@ func (r *Runner) reviewAfterTurn(ctx context.Context, turn session.AgentTurn) {
 		logging.L().Warn("review.count_failed", zap.String("session", turn.ID), zap.Error(err))
 		turns = sess.SkillReviewMutatingCount + 1
 	}
-	_, _, hasModel := pinnedExtraction(r.Config)
+	_, _, hasModel := reviewExtraction(r.Config)
 	skillDecision := decideSkillReview(skillReviewInput{
 		UserChat: true,
 		HasModel: hasModel,
@@ -153,7 +153,7 @@ func (r *Runner) startTurnReview(ctx context.Context, store skillReviewStore, pa
 		logging.L().Warn("review.skipped_no_runner", zap.String("session", parent.ID))
 		return
 	}
-	providerID, modelID, ok := pinnedExtraction(r.Config)
+	providerID, modelID, ok := reviewExtraction(r.Config)
 	if !ok {
 		return
 	}

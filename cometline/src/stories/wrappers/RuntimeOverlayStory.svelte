@@ -3,18 +3,12 @@
 	import RuntimeOverlay from '#lib/features/shell/components/RuntimeOverlay.svelte';
 	import { connectionState } from '#lib/stores/runtime.svelte.js';
 
-	let { mode = 'connecting' as 'connecting' | 'error' }: { mode?: 'connecting' | 'error' } =
-		$props();
+	let { mode = 'connecting' as const }: { mode?: 'connecting' } = $props();
 
-	onMount(async () => {
+	onMount(() => {
 		if (mode === 'connecting') {
 			connectionState.reconnect();
-			return;
 		}
-		globalThis.fetch = async () => {
-			throw new Error('Connection refused');
-		};
-		await connectionState.check();
 	});
 </script>
 

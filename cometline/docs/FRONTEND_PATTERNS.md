@@ -72,14 +72,14 @@ When an action can replace an open file, call `shellStore.openFilePreviewForActi
 
 ## Error taxonomy
 
-| Level       | When                             | UI                                                  |
-| ----------- | -------------------------------- | --------------------------------------------------- |
-| Fatal       | CometMind unreachable            | `RuntimeOverlay` — blocks interaction, retry action |
-| Route       | SvelteKit load failure           | `+error.svelte`                                     |
-| Recoverable | Send failed, session load failed | `ErrorBanner` inline in view                        |
-| Inline      | Field validation                 | Adjacent to the control                             |
+| Level       | When                             | UI                                                              |
+| ----------- | -------------------------------- | --------------------------------------------------------------- |
+| Connection  | CometMind unreachable            | Activity toast (`CometMind disconnected`); background reconnect |
+| Route       | SvelteKit load failure           | `+error.svelte`                                                 |
+| Recoverable | Send failed, session load failed | `ErrorBanner` inline in view                                    |
+| Inline      | Field validation                 | Adjacent to the control                                         |
 
-Fatal errors use `role="alert"`. Recoverable errors use `role="alert"` on a dismissible banner.
+Connection loss is a toast, not a blocking overlay. Recoverable errors use `role="alert"` on a dismissible banner.
 
 ## Feature layout
 

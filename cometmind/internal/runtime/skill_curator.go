@@ -114,8 +114,7 @@ func (r *Runtime) maybeCuratorMerge(ctx context.Context, pass *db.SkillCuratorPa
 }
 
 func (r *Runtime) runCuratorMerge(ctx context.Context) error {
-	providerID := strings.TrimSpace(r.Config.Memory.ExtractionProvider)
-	modelID := strings.TrimSpace(r.Config.Memory.ExtractionModel)
+	providerID, modelID := r.Config.ExtractionLLM()
 	if providerID == "" || modelID == "" {
 		logging.L().Warn("skills.curator.merge_skipped_no_model")
 		return nil

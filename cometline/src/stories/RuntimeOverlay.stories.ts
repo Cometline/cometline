@@ -16,7 +16,3 @@ type Story = StoryObj<typeof meta>;
 export const Connecting: Story = {
 	args: { mode: 'connecting' }
 };
-
-export const Error: Story = {
-	args: { mode: 'error' }
-};
