@@ -103,6 +103,44 @@ func TestRouterAllowed(t *testing.T) {
 	}
 }
 
+func TestGatewaySessionModelUsesAtomicPin(t *testing.T) {
+	t.Parallel()
+
+	pinned := &Router{Config: &config.Config{
+		DefaultProviderID: "default-provider",
+		DefaultModelID:    "default-model",
+		Gateway: config.GatewayConfig{Discord: config.DiscordGatewayConfig{
+			Provider: "discord-provider",
+			Model:    "discord-model",
+		}},
+	}}
+	modelID, providerID := pinned.gatewaySessionModel()
+	if modelID != "discord-model" || providerID != "discord-provider" {
+		t.Fatalf("pin = %s/%s", modelID, providerID)
+	}
+
+	partial := &Router{Config: &config.Config{
+		DefaultProviderID: "default-provider",
+		DefaultModelID:    "default-model",
+		Gateway: config.GatewayConfig{Discord: config.DiscordGatewayConfig{
+			Model: "discord-model",
+		}},
+	}}
+	modelID, providerID = partial.gatewaySessionModel()
+	if modelID != "default-model" || providerID != "default-provider" {
+		t.Fatalf("partial pin = %s/%s, want default pair", modelID, providerID)
+	}
+
+	unset := &Router{Config: &config.Config{
+		DefaultProviderID: "default-provider",
+		DefaultModelID:    "default-model",
+	}}
+	modelID, providerID = unset.gatewaySessionModel()
+	if modelID != "default-model" || providerID != "default-provider" {
+		t.Fatalf("unset = %s/%s, want default pair", modelID, providerID)
+	}
+}
+
 func TestEnsureThreadSessionCreatesSeparateMapping(t *testing.T) {
 	t.Parallel()
 

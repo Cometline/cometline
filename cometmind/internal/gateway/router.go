@@ -164,15 +164,12 @@ func (r *Router) blockReason(msg InboundMessage) string {
 }
 
 func (r *Router) gatewaySessionModel() (modelID, providerID string) {
-	cfg := r.Config.Gateway.Discord
-	modelID = strings.TrimSpace(cfg.Model)
-	providerID = strings.TrimSpace(cfg.Provider)
-	if modelID == "" {
-		modelID = r.Config.DefaultModelID
+	if r == nil || r.Config == nil {
+		return "", ""
 	}
-	if providerID == "" {
-		providerID = r.Config.DefaultProviderID
-	}
+	// Pins are atomic, matching other model roles. A model without its
+	// provider (or the reverse) would be sent to the wrong backend.
+	providerID, modelID = r.Config.ResolveRoleLLM(r.Config.Gateway.Discord.Provider, r.Config.Gateway.Discord.Model)
 	return modelID, providerID
 }
 
