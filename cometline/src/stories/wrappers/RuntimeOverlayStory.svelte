@@ -3,7 +3,7 @@
 	import RuntimeOverlay from '#lib/features/shell/components/RuntimeOverlay.svelte';
 	import { connectionState } from '#lib/stores/runtime.svelte.js';
 
-	let { mode = 'connecting' as 'connecting' }: { mode?: 'connecting' } = $props();
+	let { mode = 'connecting' as const }: { mode?: 'connecting' } = $props();
 
 	onMount(() => {
 		if (mode === 'connecting') {
