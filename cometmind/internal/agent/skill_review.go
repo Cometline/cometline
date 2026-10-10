@@ -47,15 +47,18 @@ func (r *Runner) reviewSkillsAfterTurn(ctx context.Context, turn session.AgentTu
 
 func turnReviewSystemPrompt(reviewSkills, reviewWiki bool) string {
 	var b strings.Builder
-	b.WriteString("You review one completed user turn. The two jobs below are separate. Do not save the same takeaway in both places.\n")
+	b.WriteString("You review the parent transcript since the last review. The two jobs below are separate. Do not save the same takeaway in both places.\n")
 	if reviewSkills {
 		b.WriteString(strings.TrimSpace(`
-Skill job: save a workflow only when it was demonstrated and verified in the parent transcript.
-Use write_skill for that job. Skip one-off fixes, guesses, and procedures that failed.
-Create a new skill only when no existing self-improvement skill covers it.
-If an existing self-improvement skill overlaps, overwrite that skill with overwrite=true and preserve its origin.
-Never edit a skill whose origin is not self-improvement.
-If there is no complete verified workflow, do not call write_skill.
+Skill job: update the self-improvement skill library. Be active. Save a reusable class-level lesson. Doing nothing is correct only when this window has no correction, no working technique, and no self-improvement skill that is now wrong.
+Use write_skill. Prefer overwriting the self-improvement skill that already covers the class, with overwrite=true, and preserve its origin. Create a new skill only when no self-improvement skill covers that class. Name it for the class of task, not today's incident.
+A skill is the procedure a future session can follow: steps in order, the commands and tool calls that worked, and each pitfall as a general rule plus why. Do not store issue numbers, dates, quoted chat, or a log of this session.
+Act when any of these is in the transcript:
+- the user corrected the workflow, format, or approach for a class of task
+- a non-trivial technique, fix, or debugging path actually worked
+- an existing self-improvement skill that covers this work is missing a step or is outdated
+Do not call write_skill for a one-off narrative, a guess, an environment-only failure such as a missing binary or unconfigured credential, a claim that a tool is broken, or a sequence that never found a working method. If retrying worked, save the retry pattern, not the dead end.
+Never edit a skill whose origin is not self-improvement. If the overlap is any other skill, stop that write.
 `) + "\n")
 	}
 	if reviewWiki {
