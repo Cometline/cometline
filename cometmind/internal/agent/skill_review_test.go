@@ -19,6 +19,32 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+func TestTurnReviewSkillPromptActsOnClassLessons(t *testing.T) {
+	got := turnReviewSystemPrompt(true, false)
+	for _, want := range []string{
+		"Be active",
+		"overwrite=true",
+		"not self-improvement",
+		"never found a working method",
+		"class of task",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("prompt missing %q", want)
+		}
+	}
+	for _, banned := range []string{
+		"only when it was demonstrated and verified",
+		"If there is no complete verified workflow, do not call write_skill",
+	} {
+		if strings.Contains(got, banned) {
+			t.Errorf("prompt still defaults to skipping: %q", banned)
+		}
+	}
+	if strings.Contains(got, "@runtime/wiki/") {
+		t.Fatal("skill-only prompt includes the wiki job")
+	}
+}
+
 func TestSkillReviewForkUsesNarrowSurfaceAndDeletesChild(t *testing.T) {
 	ctx := context.Background()
 	svc := reviewSessionService(t)
