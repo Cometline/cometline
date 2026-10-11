@@ -208,13 +208,15 @@ describe('renderMarkdown', () => {
 	it('keeps trailing sentence punctuation outside the chip', async () => {
 		const html = await renderMarkdown('visit https://grok.com.');
 		expect(html).toContain('data-embed-url="https://grok.com"');
-		// The trailing period is not part of the embedded URL.
-		expect(html).not.toContain('grok.com.ico'.replace('grok.com', 'grok.com.'));
+		// The trailing period is not part of the hostname sent to the favicon service.
+		expect(html).toContain('domain=grok.com&amp;');
+		expect(html).not.toContain('domain=grok.com.');
 	});
 
 	it('keeps embed-chip attributes through sanitization', async () => {
 		const html = await renderMarkdown('https://grok.com');
 		expect(html).toContain('data-embed-url=');
+		expect(html).toContain('www.google.com/s2/favicons?domain=grok.com');
 		expect(html).toContain('loading="lazy"');
 		expect(html).toContain('width="14"');
 	});
